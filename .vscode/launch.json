@@ -5,8 +5,7 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "address": "${config:mainframeAddress}",
-      "port": 9221,
+      "port": 9229,
       "type": "node",
       "request": "attach",
       "name": "Attach to Remote",

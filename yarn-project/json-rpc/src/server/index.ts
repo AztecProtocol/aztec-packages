@@ -1,2 +1,2 @@
 export { JsonRpcServer } from './JsonRpcServer.js';
-export { JsonRpcProxy } from './JsonProxy.js';
+export { JsonProxy } from './JsonProxy.js';

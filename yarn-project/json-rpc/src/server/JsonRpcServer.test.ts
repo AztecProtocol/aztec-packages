@@ -1,8 +1,15 @@
-import { jest } from '@jest/globals';
+import request from 'supertest';
+import { JsonRpcServer } from './JsonRpcServer.js';
 
 // Contrived example
 class Tree {
   constructor() {}
+  toString(): string {
+    return '';
+  }
+  static fromString(): Tree {
+    return new Tree();
+  }
 }
 
 class State {
@@ -15,4 +22,9 @@ class State {
   }
 }
 
-describe('block_context', () => {});
+test('simple example', async () => {
+  const server = new JsonRpcServer(new State(new Tree(), new Tree()), { Tree });
+  const response = await request(server.getApp().callback()).post('/getPrivateTree');
+  expect(response.status).toBe(200);
+  expect(response.text).toBe('{"result":{"type":"Tree","data":""}}');
+});

@@ -1,34 +1,25 @@
 import http from 'http';
 import Router from 'koa-router';
+import cors from '@koa/cors';
+import compress from 'koa-compress';
 import { ClassConverterInput } from '../ClassConverter.js';
-import { JsonRpcProxy } from './index.js';
-import Koa, { Context, DefaultState } from 'koa';
+import Koa from 'koa';
 import bodyParser from 'koa-bodyparser';
+import { JsonProxy } from './JsonProxy.js';
+import { logTrace } from '../logUtils.js';
 
 /**
  * JsonRpcServer:
- *  minimal, dev-friendly mechanism to
+ *  minimal, dev-friendly mechanism to create a server from an object
  */
-export class JsonRpcServer<T extends object> {
-  proxy: JsonRpcProxy;
-  constructor(private handler: T, input: ClassConverterInput) {
-    this.proxy = new JsonRpcProxy(handler, input);
+export class JsonRpcServer {
+  proxy: JsonProxy;
+  constructor(private handler: object, input: ClassConverterInput) {
+    this.proxy = new JsonProxy(handler, input);
   }
 
-  private getApp(prefix: string) {
-    const router = new Router({ prefix });
-    for (const method of Object.keys(this.handler)) {
-      // Make sure this is a function
-      if (typeof (this.handler as any)[method] !== 'function') {
-        continue;
-      }
-      router.post(`/${method}`, async (ctx: Koa.Context) => {
-        const { params = [], jsonrpc, id } = ctx.request.body as any;
-        const result = await this.proxy.call(method, params);
-        ctx.body = { jsonrpc, id, result };
-        ctx.status = 200;
-      });
-    }
+  public getApp(prefix = '') {
+    const router = this.getRouter(prefix);
     const exceptionHandler = async (ctx: Koa.Context, next: () => Promise<void>) => {
       try {
         await next();
@@ -42,13 +33,9 @@ export class JsonRpcServer<T extends object> {
     app.on('error', error => {
       console.log(`KOA app-level error. ${JSON.stringify({ error })}`);
     });
-    app.proxy = true;
-
-    // TODO use?
-    // app.use(compress({ br: false } as any));
+    app.use(compress({ br: false } as any));
     app.use(bodyParser());
-    // TODO use?
-    // app.use(cors());
+    app.use(cors());
     app.use(exceptionHandler);
     app.use(router.routes());
     app.use(router.allowedMethods());
@@ -56,7 +43,28 @@ export class JsonRpcServer<T extends object> {
     return app;
   }
 
-  start(port: number, prefix = '') {
+  private getRouter(prefix: string) {
+    const router = new Router({ prefix });
+    const proto = Object.getPrototypeOf(this.handler);
+    // Find all our endpoints from the handler methods
+    for (const method of Object.getOwnPropertyNames(proto)) {
+      // Ignore if not a function
+      if (method === 'constructor' || typeof proto[method] !== 'function') {
+        continue;
+      }
+      // console.log(method, (this.handler as any)[method]);
+      router.post(`/${method}`, async (ctx: Koa.Context) => {
+        const { params = [], jsonrpc, id } = ctx.request.body as any;
+        logTrace('JsonRpcServer:getRouter', method, '<-', params);
+        const result = await this.proxy.call(method, params);
+        ctx.body = { jsonrpc, id, result };
+        ctx.status = 200;
+      });
+    }
+    return router;
+  }
+
+  public start(port: number, prefix = '') {
     const httpServer = http.createServer(this.getApp(prefix).callback());
     httpServer.listen(port);
   }
