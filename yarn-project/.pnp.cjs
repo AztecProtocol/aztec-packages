@@ -284,6 +284,7 @@ function $$SETUP_STATE(hydrateRuntimeState, basePath) {
             ["@types/koa__cors", "npm:3.3.1"],\
             ["@types/node", "npm:18.14.2"],\
             ["@types/supertest", "npm:2.0.12"],\
+            ["comlink", "npm:4.4.1"],\
             ["jest", "virtual:2c105e38078e4e3ed5a1479704e6e87fbcad156e4c266801f7bd5827dcc2c5bd1747e2d76a5bf9223d262c1d9b0e98e99574ceb2225b2ace4827ef03e9feb4b4#npm:29.4.3"],\
             ["koa", "npm:2.14.1"],\
             ["koa-bodyparser", "npm:4.3.0"],\
@@ -3391,6 +3392,15 @@ function $$SETUP_STATE(hydrateRuntimeState, basePath) {
           "packageDependencies": [\
             ["combined-stream", "npm:1.0.8"],\
             ["delayed-stream", "npm:1.0.0"]\
+          ],\
+          "linkType": "HARD"\
+        }]\
+      ]],\
+      ["comlink", [\
+        ["npm:4.4.1", {\
+          "packageLocation": "./.yarn/cache/comlink-npm-4.4.1-b05bb2527d-16d58a8f59.zip/node_modules/comlink/",\
+          "packageDependencies": [\
+            ["comlink", "npm:4.4.1"]\
           ],\
           "linkType": "HARD"\
         }]\

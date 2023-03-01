@@ -1,27 +1,29 @@
 import request from 'supertest';
+import { TestState, TestNote } from '../test/TestState.js';
 import { JsonRpcServer } from './JsonRpcServer.js';
 
-// Contrived example
-class Note {
-  constructor(private data: string) {}
-  toString(): string {
-    return this.data;
-  }
-  static fromString(data: string): Note {
-    return new Note(data);
-  }
-}
-
-class State {
-  constructor(private notes: Note[]) {}
-  getNotes(): Note[] {
-    return this.notes;
-  }
-}
-
-test('test simple serialization', async () => {
-  const server = new JsonRpcServer(new State([new Note('a'), new Note('b')]), { Note });
-  const response = await request(server.getApp().callback()).post('/getNotes');
+test('test an RPC function with a primitive parameter', async () => {
+  const server = new JsonRpcServer(new TestState([new TestNote('a'), new TestNote('b')]), { TestNote });
+  const response = await request(server.getApp().callback())
+    .post('/getNote')
+    .send({ params: [0] });
   expect(response.status).toBe(200);
-  expect(response.text).toBe('{"result":[{"type":"Note","data":"a"},{"type":"Note","data":"b"}]}');
+  expect(response.text).toBe('{"result":{"type":"TestNote","data":"a"}}');
+});
+
+test('test an RPC function with an array of classes', async () => {
+  const server = new JsonRpcServer(new TestState([]), { TN: TestNote });
+  const response = await request(server.getApp().callback())
+    .post('/addNotes')
+    .send({
+      params: [
+        [
+          { type: 'TN', data: 'a' },
+          { type: 'TN', data: 'b' },
+          { type: 'TN', data: 'c' },
+        ],
+      ],
+    });
+  expect(response.status).toBe(200);
+  expect(response.text).toBe('{"result":[{"type":"TN","data":"a"},{"type":"TN","data":"b"},{"type":"TN","data":"c"}]}');
 });
