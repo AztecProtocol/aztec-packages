@@ -10,6 +10,7 @@
     "end-to-end",
     "eslint-config",
     "ethereum.js",
+    "json-rpc",
     "kernel-simulator",
     "p2p",
     "prettier-config",
