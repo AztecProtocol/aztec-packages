@@ -2,29 +2,26 @@ import request from 'supertest';
 import { JsonRpcServer } from './JsonRpcServer.js';
 
 // Contrived example
-class Tree {
-  constructor() {}
+class Note {
+  constructor(private data: string) {}
   toString(): string {
-    return '';
+    return this.data;
   }
-  static fromString(): Tree {
-    return new Tree();
+  static fromString(data: string): Note {
+    return new Note(data);
   }
 }
 
 class State {
-  constructor(private publicTree: Tree, private privateTree: Tree) {}
-  getPrivateTree(): Tree {
-    return this.publicTree;
-  }
-  getPublicTree(): Tree {
-    return this.privateTree;
+  constructor(private notes: Note[]) {}
+  getNotes(): Note[] {
+    return this.notes;
   }
 }
 
-test('simple example', async () => {
-  const server = new JsonRpcServer(new State(new Tree(), new Tree()), { Tree });
-  const response = await request(server.getApp().callback()).post('/getPrivateTree');
+test('test simple serialization', async () => {
+  const server = new JsonRpcServer(new State([new Note('a'), new Note('b')]), { Note });
+  const response = await request(server.getApp().callback()).post('/getNotes');
   expect(response.status).toBe(200);
-  expect(response.text).toBe('{"result":{"type":"Tree","data":""}}');
+  expect(response.text).toBe('{"result":[{"type":"Note","data":"a"},{"type":"Note","data":"b"}]}');
 });

@@ -14,7 +14,7 @@ import { assert, hasOwnProperty } from './jsUtils.js';
  *    }
  */
 interface IOClass {
-  new (): any;
+  new (...args: any): any;
   fromString: (str: string) => any;
 }
 

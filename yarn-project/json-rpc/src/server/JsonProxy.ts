@@ -10,12 +10,25 @@ export class JsonProxy {
   public call(methodName: string, jsonParams: any[] = []) {
     // Get access to our class members
     const proto = Object.getPrototypeOf(this.handler);
-    const convert = (obj: any) => {
+    const convert = (obj: any): any => {
       // Is this a convertible type?
       if (obj.constructor.fromString) {
         return this.classMap.toJsonObj(obj);
       }
-      // Leave alone, assume JSON-friendly
+      // Is this an array?
+      if (Array.isArray(obj)) {
+        return obj.map((x: any) => convert(x));
+      }
+      // Is this a dictionary?
+      if (obj.constructor === Object) {
+        const newObj: any = {};
+        for (const key of Object.keys(obj)) {
+          newObj[key] = convert(obj[key]);
+        }
+        return newObj;
+      }
+
+      // Leave alone, assume JSON primitive
       return obj;
     };
     assert(hasOwnProperty(proto, methodName), 'JsonProxy: Method not found!');
