@@ -36,6 +36,7 @@ export class ClassConverter {
     }
   }
   register(type: string, class_: IOClass) {
+    assert(type !== 'Buffer', "'Buffer' handling is hardcoded. Cannot use as name.");
     assert(hasOwnProperty(class_.prototype, 'toString'), `Class ${type} must define a toString() method.`);
     assert(class_['fromString'], `Class ${type} must define a fromString() static method.`);
     this.toName.set(class_, type);
