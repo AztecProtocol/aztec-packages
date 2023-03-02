@@ -126,6 +126,5 @@
   },
   "[javascript]": {
     "editor.defaultFormatter": "esbenp.prettier-vscode"
-  },
-  "mainframeAddress": "localhost"
+  }
 }
