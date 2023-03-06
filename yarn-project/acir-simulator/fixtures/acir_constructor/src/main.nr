@@ -22,7 +22,9 @@ struct PublicInputs {
     public_call_stack : [Field; MAX_PUBLIC_CALL_STACK],
     l1_message_stack : [Field; MAX_L1_MSG_STACK],
 
-    old_roots : Roots,
+    old_private_data_tree_root : Field,
+    old_nullifier_tree_root : Field,
+    old_contract_tree_root : Field,
     
     contract_deployment_data: ContractDeploymentData,
 }
@@ -45,12 +47,6 @@ struct ContractDeploymentData {
     hide_private_function_data : bool,
 }
 
-struct Roots {
-    old_private_data_tree_root : Field,
-    old_nullifier_tree_root : Field,
-    old_contract_tree_root : Field,
-}
-
 fn constrain_call_contexts(a: CallContext, b: CallContext) {
     constrain a.msg_sender == b.msg_sender;
     constrain a.storage_contract_address == b.storage_contract_address;
@@ -59,12 +55,6 @@ fn constrain_call_contexts(a: CallContext, b: CallContext) {
     constrain a.is_delegate_call == b.is_delegate_call;
     constrain a.is_static_call == b.is_static_call;
     constrain a.is_contract_deployment == b.is_contract_deployment;
-}
-
-fn constrain_old_roots(a: Roots, b: Roots) {
-    constrain a.old_private_data_tree_root == b.old_private_data_tree_root;
-    constrain a.old_nullifier_tree_root == b.old_nullifier_tree_root;
-    constrain a.old_contract_tree_root == b.old_contract_tree_root;
 }
 
 fn constrain_contract_deployment_data(a: ContractDeploymentData, b: ContractDeploymentData) {
@@ -79,8 +69,7 @@ fn main(
     public_inputs: pub PublicInputs,
     args: [Field; MAX_ARGS], 
     call_context: CallContext, 
-    contract_deployment_data: ContractDeploymentData, 
-    old_roots: Roots
+    contract_deployment_data: ContractDeploymentData
     ) {
     constrain_call_contexts(public_inputs.call_context, call_context);
 
@@ -95,7 +84,9 @@ fn main(
     constrain public_inputs.public_call_stack == [0; MAX_PUBLIC_CALL_STACK];
     constrain public_inputs.l1_message_stack == [0; MAX_L1_MSG_STACK];
 
-    constrain_old_roots(public_inputs.old_roots, old_roots);
+    constrain public_inputs.old_private_data_tree_root == 0;
+    constrain public_inputs.old_nullifier_tree_root == 0;
+    constrain public_inputs.old_contract_tree_root == 0;
 
     constrain_contract_deployment_data(public_inputs.contract_deployment_data, contract_deployment_data);
 }
