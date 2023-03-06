@@ -1,4 +1,4 @@
-import { sleep } from '../jsUtils';
+import { sleep } from '../js_utils.js';
 
 // Contrived example for JSON RPC tests
 export class TestNote {

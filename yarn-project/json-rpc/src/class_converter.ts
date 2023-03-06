@@ -1,4 +1,4 @@
-import { assert, hasOwnProperty } from './jsUtils.js';
+import { assert, hasOwnProperty } from './js_utils.js';
 
 /**
  * IOClass:

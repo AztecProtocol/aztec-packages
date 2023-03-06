@@ -2,11 +2,11 @@ import http from 'http';
 import Router from 'koa-router';
 import cors from '@koa/cors';
 import compress from 'koa-compress';
-import { ClassConverterInput } from '../ClassConverter.js';
+import { ClassConverterInput } from '../class_converter.js';
 import Koa from 'koa';
 import bodyParser from 'koa-bodyparser';
-import { JsonProxy } from './JsonProxy.js';
-import { logTrace } from '../logUtils.js';
+import { JsonProxy } from './json_proxy.js';
+import { logTrace } from '../log_utils.js';
 
 /**
  * JsonRpcServer:

@@ -1,6 +1,6 @@
 import request from 'supertest';
-import { TestState, TestNote } from '../test/TestState.js';
-import { JsonRpcServer } from './JsonRpcServer.js';
+import { TestState, TestNote } from '../test/test_state.js';
+import { JsonRpcServer } from './json_rpc_server.js';
 
 test('test an RPC function with a primitive parameter', async () => {
   const server = new JsonRpcServer(new TestState([new TestNote('a'), new TestNote('b')]), { TestNote });

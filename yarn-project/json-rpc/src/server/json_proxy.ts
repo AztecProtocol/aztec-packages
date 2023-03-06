@@ -1,7 +1,7 @@
-import { ClassConverter, ClassConverterInput } from '../ClassConverter.js';
+import { ClassConverter, ClassConverterInput } from '../class_converter.js';
 import { convertFromJsonObj, convertToJsonObj } from '../convert.js';
-import { assert, hasOwnProperty } from '../jsUtils.js';
-import { logTrace } from '../logUtils.js';
+import { assert, hasOwnProperty } from '../js_utils.js';
+import { logTrace } from '../log_utils.js';
 
 export class JsonProxy {
   classConverter: ClassConverter;

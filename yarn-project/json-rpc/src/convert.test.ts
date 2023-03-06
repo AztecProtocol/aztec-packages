@@ -1,6 +1,6 @@
-import { ClassConverter } from './ClassConverter.js';
+import { ClassConverter } from './class_converter.js';
 import { convertFromJsonObj, convertToJsonObj } from './convert.js';
-import { TestNote } from './test/TestState.js';
+import { TestNote } from './test/test_state.js';
 
 const TEST_BASE64 = 'YmFzZTY0IGRlY29kZXI=';
 test('test an RPC function over client', () => {

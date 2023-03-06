@@ -1,12 +1,12 @@
-import { retry } from '../jsUtils';
-import { logTrace } from '../logUtils';
+import { retry } from '../js_utils.js';
+import { logTrace } from '../log_utils.js';
 // comlink:
 //  Dev dependency just for the somewhat complex RemoteObject type
 //  This takes a {foo(): T} and makes {foo(): Promise<T>}
 //  while avoiding Promise of Promise.
 import { RemoteObject } from 'comlink';
-import { ClassConverter, ClassConverterInput } from '../ClassConverter';
-import { convertFromJsonObj, convertToJsonObj } from '../convert';
+import { ClassConverter, ClassConverterInput } from '../class_converter.js';
+import { convertFromJsonObj, convertToJsonObj } from '../convert.js';
 
 export class JsonRpcClient<T extends object> {
   private classConverter: ClassConverter;

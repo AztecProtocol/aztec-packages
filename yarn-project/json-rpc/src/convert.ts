@@ -1,4 +1,4 @@
-import { ClassConverter } from './ClassConverter.js';
+import { ClassConverter } from './class_converter.js';
 
 export function convertFromJsonObj(cc: ClassConverter, obj: any): any {
   if (!obj) {
