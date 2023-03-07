@@ -22,11 +22,13 @@ COPY end-to-end/package.json end-to-end/package.json
 COPY ethereum.js/package.json ethereum.js/package.json
 COPY kernel-simulator/package.json kernel-simulator/package.json
 COPY key-store/package.json key-store/package.json
+COPY log/package.json log/package.json
 COPY p2p/package.json p2p/package.json
 COPY prover-client/package.json prover-client/package.json
 COPY public-client/package.json public-client/package.json
 COPY sequencer-client/package.json sequencer-client/package.json
 COPY wallet/package.json wallet/package.json
+COPY wasm-worker/package.json wasm-worker/package.json
 # All workspaces use the linting config, so always include it.
 COPY eslint-config eslint-config
 COPY prettier-config prettier-config
