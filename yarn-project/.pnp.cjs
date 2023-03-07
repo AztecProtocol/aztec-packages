@@ -294,8 +294,7 @@ function $$SETUP_STATE(hydrateRuntimeState, basePath) {
             ["ts-jest", "virtual:2c105e38078e4e3ed5a1479704e6e87fbcad156e4c266801f7bd5827dcc2c5bd1747e2d76a5bf9223d262c1d9b0e98e99574ceb2225b2ace4827ef03e9feb4b4#npm:29.0.5"],\
             ["ts-node", "virtual:97973ff51783dc29efdf1c1cff3bd542763fb1d8ea565946db4f6425a5a443923944d5f46e5672160073e5b792b61ec2b3a0e9df4f007033f07c728780e0e4e7#npm:10.9.1"],\
             ["tslib", "npm:2.5.0"],\
-            ["typescript", "patch:typescript@npm%3A4.9.5#~builtin<compat/typescript>::version=4.9.5&hash=23ec76"],\
-            ["uint8-to-base64", "npm:0.2.0"]\
+            ["typescript", "patch:typescript@npm%3A4.9.5#~builtin<compat/typescript>::version=4.9.5&hash=23ec76"]\
           ],\
           "linkType": "SOFT"\
         }]\
@@ -7727,15 +7726,6 @@ function $$SETUP_STATE(hydrateRuntimeState, basePath) {
           "packageLocation": "./.yarn/cache/typescript-patch-72dc6f164f-ab417a2f39.zip/node_modules/typescript/",\
           "packageDependencies": [\
             ["typescript", "patch:typescript@npm%3A4.9.5#~builtin<compat/typescript>::version=4.9.5&hash=23ec76"]\
-          ],\
-          "linkType": "HARD"\
-        }]\
-      ]],\
-      ["uint8-to-base64", [\
-        ["npm:0.2.0", {\
-          "packageLocation": "./.yarn/cache/uint8-to-base64-npm-0.2.0-6c89b6b8aa-0005558e30.zip/node_modules/uint8-to-base64/",\
-          "packageDependencies": [\
-            ["uint8-to-base64", "npm:0.2.0"]\
           ],\
           "linkType": "HARD"\
         }]\

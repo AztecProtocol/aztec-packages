@@ -11,7 +11,7 @@ json-rpc
       Code for easily turning a class into an exposed RPC with one endpoint per method
 ```
 
-Each JsonRpcClient and JsonRpcServer class needs a map of classes that will be translated in input and output values.
+Each createJsonRpcClient and JsonRpcServer call needs a map of classes that will be translated in input and output values.
 By default, Buffer is handled, but other usermade classes need to define toString() and static fromString() like so:
 
 ```
@@ -30,8 +30,8 @@ By default, Buffer is handled, but other usermade classes need to define toStrin
 In Dapp:
 
 ```
-const wallet = new JsonRpcClient<WalletImplementation>('wallet-server.com', /*register classes*/ {PublicKey, TxRequest});
-const response = await wallet.rpc.signTxRequest(accountPubKey, txRequest);
+const wallet = createJsonRpcClient<WalletImplementation>('wallet-server.com', /*register classes*/ {PublicKey, TxRequest});
+const response = await wallet.signTxRequest(accountPubKey, txRequest);
 ```
 
 The client will send `[{ name: 'PublicKey', value: accountPubKey.toString() }, { name: 'TxRequest', txRequest.toString() }]` to the server.
@@ -39,8 +39,8 @@ The client will send `[{ name: 'PublicKey', value: accountPubKey.toString() }, {
 In wallet:
 
 ```
-const publicClient = new JsonRpcClient<PublicClient>('public-client.com',  /*register classes*/ ...);
-const keyStore = new JsonRpcClient<KeyStore>('key-store.com',  /*register classes*/ ...);
+const publicClient = createJsonRpcClient<PublicClient>('public-client.com',  /*register classes*/ ...);
+const keyStore = createJsonRpcClient<KeyStore>('key-store.com',  /*register classes*/ ...);
 ```
 
 Different clients for different services.

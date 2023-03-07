@@ -1,1 +1,1 @@
-export { JsonRpcClient } from './json_rpc_client.js';
+export { createJsonRpcClient } from './json_rpc_client.js';
