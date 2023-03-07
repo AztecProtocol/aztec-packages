@@ -19,12 +19,14 @@
     "ethereum.js",
     "kernel-simulator",
     "key-store",
+    "log",
     "p2p",
     "prettier-config",
     "prover-client",
     "public-client",
     "sequencer-client",
-    "wallet"
+    "wallet",
+    "wasm-worker"
   ],
   "prettier": "./prettier-config",
   "devDependencies": {
