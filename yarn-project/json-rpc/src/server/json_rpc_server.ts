@@ -52,7 +52,6 @@ export class JsonRpcServer {
       if (method === 'constructor' || typeof proto[method] !== 'function') {
         continue;
       }
-      // console.log(method, (this.handler as any)[method]);
       router.post(`/${method}`, async (ctx: Koa.Context) => {
         const { params = [], jsonrpc, id } = ctx.request.body as any;
         logTrace('JsonRpcServer:getRouter', method, '<-', params);
