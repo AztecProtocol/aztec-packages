@@ -1,4 +1,4 @@
-mod abi;
+use dep::abi;
 
 fn constrain_call_contexts(a: abi::CallContext, b: abi::CallContext) {
     constrain a.msg_sender == b.msg_sender;
