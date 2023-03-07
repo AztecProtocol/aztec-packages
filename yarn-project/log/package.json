@@ -1,0 +1,16 @@
+{
+  "name": "@aztec/log",
+  "version": "0.0.0",
+  "type": "module",
+  "exports": "./dest/index.js",
+  "scripts": {
+    "build": "yarn clean && yarn formatting && tsc -b tsconfig.dest.json",
+    "clean": "rm -rf ./dest .tsbuildinfo",
+    "formatting": "run -T prettier --check ./src && run -T eslint --max-warnings 0 ./src",
+    "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules $(yarn bin jest) --no-cache --passWithNoTests"
+  },
+  "devDependencies": {
+    "@aztec/eslint-config": "workspace:^",
+    "@rushstack/eslint-patch": "^1.2.0"
+  }
+}
