@@ -1,3 +1,5 @@
+import { WasmModule } from './wasm_module.js';
+
 export interface AsyncFnState {
   continuation: boolean;
   result?: any;
@@ -26,21 +28,24 @@ export class AsyncCallState {
   private ASYNCIFY_DATA_SIZE = 16 * 1024;
   private asyncifyDataAddr!: number;
   private asyncPromise?: Promise<any>;
+  private wasm!: WasmModule;
   public state?: AsyncFnState;
-  private memory!: WebAssembly.Memory;
   private callExport!: (...args: any[]) => number;
-  private debug = console.log;
 
-  public init(memory: WebAssembly.Memory, callExport: (...args: any[]) => number, debug = console.log) {
-    this.memory = memory;
-    this.debug = debug;
-    this.callExport = callExport;
+  public init(wasm: WasmModule) {
+    this.wasm = wasm;
+    this.callExport = (name: string, ...args: any[]) => wasm.call(name, ...args);
     // Allocate memory for asyncify stack data.
     this.asyncifyDataAddr = this.callExport('bbmalloc', this.ASYNCIFY_DATA_SIZE);
-    const view = new Uint32Array(this.memory.buffer);
+    // TODO: is this view construction problematic like in WasmModule?
+    const view = new Uint32Array(wasm.getRawMemory().buffer);
     // First two integers of asyncify data, are the start and end of the stack region.
     view[this.asyncifyDataAddr >> 2] = this.asyncifyDataAddr + 8;
     view[(this.asyncifyDataAddr + 4) >> 2] = this.asyncifyDataAddr + this.ASYNCIFY_DATA_SIZE;
+  }
+
+  public debug(...args: any[]) {
+    return this.wasm.getLogger()(...args);
   }
 
   public destroy() {
@@ -55,6 +60,9 @@ export class AsyncCallState {
    * to callImport, and calling back into the wasm to rewind the stack and continue execution.
    */
   public async call(name: string, ...args: any) {
+    if (this.state) {
+      throw new Error(`Can only handle one async call at a time: ${name}(${args})`);
+    }
     this.state = { continuation: false };
     let result = this.callExport(name, ...args);
 

@@ -3,7 +3,7 @@ import { Listener } from '../interface/listener.js';
 import { MessagePortSocket } from './message_port_socket.js';
 
 declare interface DedicatedWorkerGlobalScope {
-  onmessage;
+  onmessage: any;
 }
 
 export class WorkerListener extends EventEmitter implements Listener {

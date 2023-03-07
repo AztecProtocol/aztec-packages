@@ -1,6 +1,5 @@
 import { createDebugLogger, DebugLogger } from '@aztec/log';
 import { Buffer } from 'buffer';
-import { AsyncCallState } from './async_call_state.js';
 import { MemoryFifo } from '../memory_fifo.js';
 import { getEmptyWasiSdk } from './empty_wasi_sdk.js';
 import { randomBytes } from 'crypto';
@@ -16,34 +15,21 @@ import { randomBytes } from 'crypto';
 export class WasmModule {
   private memory!: WebAssembly.Memory;
   private heap!: Uint8Array;
-  private instance!: WebAssembly.Instance;
+  private instance?: WebAssembly.Instance;
   private mutexQ = new MemoryFifo<boolean>();
-  private asyncCallState = new AsyncCallState();
   private debug: DebugLogger;
-
-  /**
-   * Create a wasm module and initialize it.
-   * @param module the module as a WebAssembly.Module or a Buffer
-   * @param wasmImportEnvFunc Linked to a module called "env". Functions implementations referenced from e.g. C++
-   * @param loggerName optional, for debug logging
-   */
-  public static async new(
-    module: WebAssembly.Module | Buffer,
-    wasmImportEnvFunc: (module: WasmModule) => any,
-    loggerName = 'wasm-worker',
-  ) {
-    const wasmModule = new WasmModule(module, loggerName);
-    await wasmModule.init(wasmImportEnvFunc(wasmModule));
-    return wasmModule;
-  }
 
   /**
    * Create a wasm module. Should be followed by await init();
    * @param module the module as a WebAssembly.Module or a Buffer
-   * @param wasmImportEnv Linked to a module called "env". Functions implementations referenced from e.g. C++
+   * @param importFn Imports expected by the WASM.
    * @param loggerName optional, for debug logging
    */
-  constructor(private module: WebAssembly.Module | Buffer, loggerName = 'wasm-worker') {
+  constructor(
+    private module: WebAssembly.Module | Buffer,
+    private importFn: (module: WasmModule) => any,
+    loggerName = 'wasm-worker',
+  ) {
     this.debug = createDebugLogger(loggerName);
     this.mutexQ.put(true);
   }
@@ -54,7 +40,7 @@ export class WasmModule {
    * @param initial 20 pages by default. 20*2**16 > 1mb stack size plus other overheads.
    * @param maximum 8192 maximum by default. 512mb.
    */
-  public async init(wasmImportEnv: any, initial = 20, maximum = 8192) {
+  public async init(initial = 20, maximum = 8192) {
     this.debug(
       `initial mem: ${initial} pages, ${(initial * 2 ** 16) / (1024 * 1024)}mb. max mem: ${maximum} pages, ${
         (maximum * 2 ** 16) / (1024 * 1024)
@@ -83,7 +69,7 @@ export class WasmModule {
           }
         },
       },
-      env: wasmImportEnv,
+      env: this.importFn(this),
     };
 
     if (this.module instanceof WebAssembly.Module) {
@@ -92,12 +78,25 @@ export class WasmModule {
       const { instance } = await WebAssembly.instantiate(this.module, importObj);
       this.instance = instance;
     }
-
-    this.asyncCallState.init(this.memory, this.call.bind(this), this.debug.bind(this));
   }
 
   public exports(): any {
+    if (!this.instance) {
+      throw new Error('WasmModule: not initialized!');
+    }
     return this.instance.exports;
+  }
+
+  public getLogger() {
+    return this.debug;
+  }
+
+  public addLogger(logger: DebugLogger) {
+    const oldDebug = this.debug;
+    this.debug = (...args: any[]) => {
+      logger(...args);
+      oldDebug(...args);
+    };
   }
 
   /**
@@ -116,19 +115,10 @@ export class WasmModule {
       throw new Error(message);
     }
   }
-
-  /**
-   * Uses asyncify to enable async callbacks into js.
-   * https://kripken.github.io/blog/wasm/2019/07/16/asyncify.html
-   */
-  public async asyncCall(name: string, ...args: any) {
-    if (this.asyncCallState.state) {
-      throw new Error(`Can only handle one async call at a time: ${name}(${args})`);
-    }
-    return await this.asyncCallState.call(name, ...args);
+  public getRawMemory() {
+    return this.memory;
   }
-
-  private getMemory() {
+  public getMemory() {
     // If the memory is grown, our view over it will be lost. Recreate the view.
     if (this.heap.length === 0) {
       this.heap = new Uint8Array(this.memory.buffer);

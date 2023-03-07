@@ -1,8 +1,8 @@
+import { createDebugLogger } from '@aztec/log';
 import EventEmitter from 'events';
 import { EventMessage, isEventMessage, ResponseMessage } from './dispatch/messages.js';
 import { Connector } from './interface/connector.js';
 import { Socket } from './interface/socket.js';
-import { createDebugLogger } from '../log/index.js';
 
 const debug = createDebugLogger('aztec:transport_client');
 

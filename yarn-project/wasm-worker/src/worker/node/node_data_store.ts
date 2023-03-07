@@ -1,16 +1,19 @@
 import { DataStore } from '../data_store.js';
-import { default as levelup, LevelUp } from 'levelup';
-// import { default as leveldown } from 'leveldown';
-import { default as memdown } from 'memdown';
+import levelup, { LevelUp } from 'levelup';
+import leveldown from 'leveldown';
+import memdown from 'memdown';
 
+/**
+ * Cache for data used by wasm module
+ */
 export class NodeDataStore implements DataStore {
   private db: LevelUp;
 
   // eslint-disable-next-line
   constructor(path?: string) {
-    // LevelDown seemingly doesn't want to webpack... Fix.
-    // this.db = levelup(path ? leveldown(path) : memdown());
-    this.db = levelup(memdown());
+    // Hack: Cast as any to work around packages "broken" with node16 resolution
+    // See https://github.com/microsoft/TypeScript/issues/49160
+    this.db = levelup(path ? (leveldown as any)(path) : (memdown as any)());
   }
 
   async get(key: string): Promise<Buffer | undefined> {
