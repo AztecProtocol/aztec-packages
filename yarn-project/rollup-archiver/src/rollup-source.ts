@@ -21,7 +21,7 @@ export interface RollupSource {
    * Gets the ID of the last rollup.
    * @returns The ID of the last rollup.
    **/
-  getLastRollupId(): Promise<number>;
+  getLastRollupId(): number;
 
   /**
    * Gets the `take` rollups starting from ID `from`.
@@ -29,5 +29,5 @@ export interface RollupSource {
    * @param take - The number of rollups to return.
    * @returns The requested rollups.
    */
-  getRollups(from: number, take: number): Promise<Rollup[]>;
+  getRollups(from: number, take: number): Rollup[];
 }
