@@ -3,6 +3,9 @@ import { fileURLToPath } from 'url';
 import { readFile } from 'fs/promises';
 import { dirname } from 'path';
 
+/**
+ *
+ */
 async function fetchCode() {
   const __dirname = dirname(fileURLToPath(import.meta.url));
   return await readFile(`${__dirname}/../test/gcd.wasm`);

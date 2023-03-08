@@ -28,10 +28,6 @@ function $$SETUP_STATE(hydrateRuntimeState, basePath) {
         "reference": "workspace:aztec.js"\
       },\
       {\
-        "name": "@aztec/barretenberg.js",\
-        "reference": "workspace:barretenberg.js"\
-      },\
-      {\
         "name": "@aztec/circuit.js",\
         "reference": "workspace:circuit.js"\
       },\
@@ -103,7 +99,6 @@ function $$SETUP_STATE(hydrateRuntimeState, basePath) {
       ["@aztec/aztec-cli", ["workspace:aztec-cli"]],\
       ["@aztec/aztec.js", ["workspace:aztec.js"]],\
       ["@aztec/aztec3-packages", ["workspace:."]],\
-      ["@aztec/barretenberg.js", ["workspace:barretenberg.js"]],\
       ["@aztec/circuit.js", ["workspace:circuit.js"]],\
       ["@aztec/data-archiver", ["workspace:data-archiver"]],\
       ["@aztec/docs", ["workspace:docs"]],\
@@ -218,25 +213,6 @@ function $$SETUP_STATE(hydrateRuntimeState, basePath) {
           "linkType": "SOFT"\
         }]\
       ]],\
-      ["@aztec/barretenberg.js", [\
-        ["workspace:barretenberg.js", {\
-          "packageLocation": "./barretenberg.js/",\
-          "packageDependencies": [\
-            ["@aztec/barretenberg.js", "workspace:barretenberg.js"],\
-            ["@aztec/eslint-config", "workspace:eslint-config"],\
-            ["@jest/globals", "npm:29.5.0"],\
-            ["@rushstack/eslint-patch", "npm:1.2.0"],\
-            ["@types/jest", "npm:29.4.0"],\
-            ["@types/node", "npm:18.14.6"],\
-            ["jest", "virtual:97973ff51783dc29efdf1c1cff3bd542763fb1d8ea565946db4f6425a5a443923944d5f46e5672160073e5b792b61ec2b3a0e9df4f007033f07c728780e0e4e7#npm:28.1.3"],\
-            ["ts-jest", "virtual:97973ff51783dc29efdf1c1cff3bd542763fb1d8ea565946db4f6425a5a443923944d5f46e5672160073e5b792b61ec2b3a0e9df4f007033f07c728780e0e4e7#npm:28.0.8"],\
-            ["ts-node", "virtual:97973ff51783dc29efdf1c1cff3bd542763fb1d8ea565946db4f6425a5a443923944d5f46e5672160073e5b792b61ec2b3a0e9df4f007033f07c728780e0e4e7#npm:10.9.1"],\
-            ["tslib", "npm:2.5.0"],\
-            ["typescript", "patch:typescript@npm%3A4.9.5#~builtin<compat/typescript>::version=4.9.5&hash=23ec76"]\
-          ],\
-          "linkType": "SOFT"\
-        }]\
-      ]],\
       ["@aztec/circuit.js", [\
         ["workspace:circuit.js", {\
           "packageLocation": "./circuit.js/",\
@@ -306,10 +282,19 @@ function $$SETUP_STATE(hydrateRuntimeState, basePath) {
         }]\
       ]],\
       ["@aztec/eslint-config", [\
+        ["link:../../../yarn-project/eslint-config::locator=%40aztec%2Feslint-config%40workspace%3Aeslint-config", {\
+          "packageLocation": "../../yarn-project/eslint-config/",\
+          "packageDependencies": [\
+            ["@aztec/eslint-config", "link:../../../yarn-project/eslint-config::locator=%40aztec%2Feslint-config%40workspace%3Aeslint-config"]\
+          ],\
+          "linkType": "SOFT",\
+          "discardFromLookup": true\
+        }],\
         ["workspace:eslint-config", {\
           "packageLocation": "./eslint-config/",\
           "packageDependencies": [\
-            ["@aztec/eslint-config", "workspace:eslint-config"],\
+            ["@aztec/eslint-config", "link:../../../yarn-project/eslint-config::locator=%40aztec%2Feslint-config%40workspace%3Aeslint-config"],\
+            ["@aztec/wasm-worker", "link:../../../yarn-project/wasm-worker::locator=%40aztec%2Feslint-config%40workspace%3Aeslint-config"],\
             ["@typescript-eslint/eslint-plugin", "virtual:dc30e1e4bc6b65947c7067b725d9a5cfe14cccbcc935931d5d1a9fb38f17aa82ef6adb989f56bf5c81d04a2b108aa2d77d2b6ff13616d8f17773d1e7060c9120#npm:5.54.1"],\
             ["@typescript-eslint/parser", "virtual:dc30e1e4bc6b65947c7067b725d9a5cfe14cccbcc935931d5d1a9fb38f17aa82ef6adb989f56bf5c81d04a2b108aa2d77d2b6ff13616d8f17773d1e7060c9120#npm:5.54.1"],\
             ["eslint", "npm:8.35.0"],\
@@ -494,6 +479,14 @@ function $$SETUP_STATE(hydrateRuntimeState, basePath) {
         }]\
       ]],\
       ["@aztec/wasm-worker", [\
+        ["link:../../../yarn-project/wasm-worker::locator=%40aztec%2Feslint-config%40workspace%3Aeslint-config", {\
+          "packageLocation": "../../yarn-project/wasm-worker/",\
+          "packageDependencies": [\
+            ["@aztec/wasm-worker", "link:../../../yarn-project/wasm-worker::locator=%40aztec%2Feslint-config%40workspace%3Aeslint-config"]\
+          ],\
+          "linkType": "SOFT",\
+          "discardFromLookup": true\
+        }],\
         ["workspace:wasm-worker", {\
           "packageLocation": "./wasm-worker/",\
           "packageDependencies": [\

@@ -3,16 +3,28 @@ import { TransportClient } from '../transport_client.js';
 import { EventEmitter } from 'events';
 import { isTransferDescriptor, TransferDescriptor } from '../interface/transferable.js';
 
+/**
+ *
+ */
 type FilterOutAttributes<Base> = {
   [Key in keyof Base]: Base[Key] extends (...args: any) => any ? Base[Key] : never;
 };
 
+/**
+ *
+ */
 type PromisifyFunction<F extends (...args: any) => any> = (...args: Parameters<F>) => Promise<ReturnType<F>>;
 
+/**
+ *
+ */
 type Promisify<Base extends { [key: string]: (...args: any) => any }> = {
   [Key in keyof Base]: ReturnType<Base[Key]> extends Promise<any> ? Base[Key] : PromisifyFunction<Base[Key]>;
 };
 
+/**
+ *
+ */
 type TransferTypes<Tuple extends [...args: any]> = {
   [Index in keyof Tuple]: Tuple[Index] | (Tuple[Index] extends Transferable ? TransferDescriptor<Tuple[Index]> : never);
 };
@@ -26,18 +38,27 @@ type TransferTypes<Tuple extends [...args: any]> = {
  *
  * type MakeFunctionTransferrable<TFunction extends (...args: any) => any> = (
  *   ...args: TransferTypes<Parameters<TFunction>>
- * ) => ReturnType<TFunction>;
+ * ) => ReturnType<TFunction>;.
  */
 type MakeFunctionTransferrable<TFunction extends (...args: any) => any> = (
   ...args: TFunction extends (...args: infer P) => any ? TransferTypes<P> : never
 ) => ReturnType<TFunction>;
 
+/**
+ *
+ */
 type Transferrable<Base extends { [key: string]: (...args: any[]) => any }> = {
   [Key in keyof Base]: MakeFunctionTransferrable<Base[Key]>;
 };
 
+/**
+ *
+ */
 export type Proxify<T> = Promisify<Transferrable<FilterOutAttributes<T>>>;
 
+/**
+ *
+ */
 export function createDispatchProxyFromFn<T>(
   class_: { new (...args: any[]): T },
   requestFn: (fn: string) => (...args: any[]) => Promise<any>,
@@ -52,6 +73,12 @@ export function createDispatchProxyFromFn<T>(
   return proxy;
 }
 
+/**
+ * Create a proxy object of our class T that uses transportClient
+ * @param class_ - Our class T.
+ * @param transportClient - The transport infrastructure.
+ * @returns A proxy over T.
+ */
 export function createDispatchProxy<T>(
   class_: { new (...args: any[]): T },
   transportClient: TransportClient<DispatchMsg>,

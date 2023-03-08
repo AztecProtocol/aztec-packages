@@ -2,6 +2,9 @@ import { WasmModule } from '../../wasm/wasm_module.js';
 import { createDispatchProxy, DispatchMsg, TransportClient, WorkerConnector } from '../../transport/index.js';
 import { WasmWorker } from '../wasm_worker.js';
 
+/**
+ *
+ */
 export async function createWebWorker(url: string, initialMem?: number, maxMem?: number): Promise<WasmWorker> {
   const worker = new Worker(url);
   const transportConnect = new WorkerConnector(worker);

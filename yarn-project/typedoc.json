@@ -2,6 +2,7 @@
   "cleanOutputDir": false,
   "entryPointStrategy": "packages",
   "entryPoints": [
+    "../circuits/barretenberg/ts",
     "acir-simulator",
     "aztec-cli",
     "aztec.js",

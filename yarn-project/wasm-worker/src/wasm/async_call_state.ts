@@ -1,13 +1,22 @@
 import { WasmModule } from './wasm_module.js';
 
+/**
+ * The state of an asynchronous WASM function.
+ */
 export interface AsyncFnState {
+  /**
+   * Is this a contination?
+   */
   continuation: boolean;
+  /**
+   * A result, if one exists.
+   */
   result?: any;
 }
 
 /**
  * To enable asynchronous callbacks from wasm to js, we leverage asyncify.
- * https://kripken.github.io/blog/wasm/2019/07/16/asyncify.html
+ * Https://kripken.github.io/blog/wasm/2019/07/16/asyncify.html.
  *
  * This class holds state and logic specific to handling async calls from wasm to js.
  * A single instance of this class is instantiated as part of BarretenbergWasm.
@@ -29,9 +38,13 @@ export class AsyncCallState {
   private asyncifyDataAddr!: number;
   private asyncPromise?: Promise<any>;
   private wasm!: WasmModule;
-  public state?: AsyncFnState;
+  private state?: AsyncFnState;
   private callExport!: (...args: any[]) => number;
 
+  /**
+   * Initialize the call hooks with a WasmModule.
+   * @param wasm - The module.
+   */
   public init(wasm: WasmModule) {
     this.wasm = wasm;
     this.callExport = (name: string, ...args: any[]) => wasm.call(name, ...args);
@@ -44,10 +57,17 @@ export class AsyncCallState {
     view[(this.asyncifyDataAddr + 4) >> 2] = this.asyncifyDataAddr + this.ASYNCIFY_DATA_SIZE;
   }
 
-  public debug(...args: any[]) {
-    return this.wasm.getLogger()(...args);
+  /**
+   * Log a message.
+   * @param args - The message arguments.
+   */
+  private debug(...args: any[]) {
+    this.wasm.getLogger()(...args);
   }
 
+  /**
+   * Free the data associated with async call states.
+   */
   public destroy() {
     // Free call stack data.
     this.callExport('bbfree', this.asyncifyDataAddr);
@@ -58,6 +78,9 @@ export class AsyncCallState {
    * enable the instrumented "record stack unwinding" code path.
    * Once the stack has unwound out of the wasm call, we enter into a loop of resolving the promise set in the call
    * to callImport, and calling back into the wasm to rewind the stack and continue execution.
+   * @param name - The function name.
+   * @param args - The function args.
+   * @returns The function result.
    */
   public async call(name: string, ...args: any) {
     if (this.state) {
@@ -86,6 +109,11 @@ export class AsyncCallState {
     return result;
   }
 
+  /**
+   * Wrap a WASM import function.
+   * @param fn - The function.
+   * @returns A wrapped version with asyncify calls.
+   */
   public wrapImportFn(fn: (state: AsyncFnState, ...args: any[]) => any) {
     return (...args: any[]) => {
       if (!this.asyncPromise) {

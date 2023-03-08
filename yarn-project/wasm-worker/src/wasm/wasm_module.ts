@@ -10,7 +10,7 @@ import { randomBytes } from 'crypto';
  *  Assumes a few quirks.
  *  1) the module expects wasi_snapshot_preview1 with the methods from getEmptyWasiSdk
  *  2) of which the webassembly
- *  we instantiate only uses random_get (update this if more WASI sdk methods are needed)
+ *  we instantiate only uses random_get (update this if more WASI sdk methods are needed).
  */
 export class WasmModule {
   private memory!: WebAssembly.Memory;
@@ -20,10 +20,10 @@ export class WasmModule {
   private debug: DebugLogger;
 
   /**
-   * Create a wasm module. Should be followed by await init();
-   * @param module the module as a WebAssembly.Module or a Buffer
-   * @param importFn Imports expected by the WASM.
-   * @param loggerName optional, for debug logging
+   * Create a wasm module. Should be followed by await init();.
+   * @param module - The module as a WebAssembly.Module or a Buffer.
+   * @param importFn - Imports expected by the WASM.
+   * @param loggerName - Optional, for debug logging.
    */
   constructor(
     private module: WebAssembly.Module | Buffer,
@@ -36,9 +36,9 @@ export class WasmModule {
 
   /**
    * Initialize this wasm module.
-   * @param wasmImportEnv Linked to a module called "env". Functions implementations referenced from e.g. C++
-   * @param initial 20 pages by default. 20*2**16 > 1mb stack size plus other overheads.
-   * @param maximum 8192 maximum by default. 512mb.
+   * @param wasmImportEnv - Linked to a module called "env". Functions implementations referenced from e.g. C++.
+   * @param initial - 20 pages by default. 20*2**16 \> 1mb stack size plus other overheads.
+   * @param maximum - 8192 maximum by default. 512mb.
    */
   public async init(initial = 20, maximum = 8192) {
     this.debug(
@@ -80,6 +80,10 @@ export class WasmModule {
     }
   }
 
+  /**
+   * The methods or objects exported by the WASM module.
+   * @returns An indexable object.
+   */
   public exports(): any {
     if (!this.instance) {
       throw new Error('WasmModule: not initialized!');
@@ -87,10 +91,18 @@ export class WasmModule {
     return this.instance.exports;
   }
 
+  /**
+   * Get the current logger.
+   * @returns Logging function.
+   */
   public getLogger() {
     return this.debug;
   }
 
+  /**
+   * Add a logger.
+   * @param logger - Function to call when logging.
+   */
   public addLogger(logger: DebugLogger) {
     const oldDebug = this.debug;
     this.debug = (...args: any[]) => {
@@ -100,13 +112,18 @@ export class WasmModule {
   }
 
   /**
-   * When returning values from the WASM, use >>> operator to convert signed representation to unsigned representation.
+   * Calls into the WebAssembly.
+   * @param name - The method name.
+   * @param args - The arguments to the method.
+   * @returns The numeric method result.
    */
-  public call(name: string, ...args: any) {
+  public call(name: string, ...args: any): number {
     if (!this.exports()[name]) {
       throw new Error(`WASM function ${name} not found.`);
     }
     try {
+      // When returning values from the WASM, use >>> operator to convert
+      // signed representation to unsigned representation.
       return this.exports()[name](...args) >>> 0;
     } catch (err: any) {
       const message = `WASM function ${name} aborted, error: ${err}`;
@@ -115,10 +132,18 @@ export class WasmModule {
       throw new Error(message);
     }
   }
-  public getRawMemory() {
+  /**
+   * Get the memory used by the WASM module.
+   * @returns A WebAssembly memory object.
+   */
+  public getRawMemory(): WebAssembly.Memory {
     return this.memory;
   }
-  public getMemory() {
+  /**
+   * Get the memory used by the WASM module, as a byte array.
+   * @returns A Uint8Array view of the WASM module memory.
+   */
+  public getMemory(): Uint8Array {
     // If the memory is grown, our view over it will be lost. Recreate the view.
     if (this.heap.length === 0) {
       this.heap = new Uint8Array(this.memory.buffer);
@@ -126,14 +151,29 @@ export class WasmModule {
     return this.heap;
   }
 
-  public memSize() {
+  /**
+   * The memory size in bytes.
+   * @returns Number of bytes.
+   */
+  public memSize(): number {
     return this.getMemory().length;
   }
 
+  /**
+   * Get a slice of memory between two addresses.
+   * @param start - The start address.
+   * @param end - The end address.
+   * @returns A Uint8Array view of memory.
+   */
   public sliceMemory(start: number, end: number) {
     return this.getMemory().slice(start, end);
   }
 
+  /**
+   * Write data into the heap.
+   * @param arr - The data to write.
+   * @param offset - The address to write data at.
+   */
   public transferToHeap(arr: Uint8Array, offset: number) {
     const mem = this.getMemory();
     for (let i = 0; i < arr.length; i++) {
@@ -143,14 +183,17 @@ export class WasmModule {
 
   /**
    * When calling the wasm, sometimes a caller will require exclusive access over a series of calls.
-   * e.g. When a result is written to address 0, one cannot have another caller writing to the same address via
+   * E.g. When a result is written to address 0, one cannot have another caller writing to the same address via
    * transferToHeap before the result is read via sliceMemory.
-   * acquire() gets a single token from a fifo. The caller must call release() to add the token back.
+   * Acquire() gets a single token from a fifo. The caller must call release() to add the token back.
    */
   public async acquire() {
     await this.mutexQ.get();
   }
 
+  /**
+   * Release the mutex, letting another promise call acquire().
+   */
   public release() {
     if (this.mutexQ.length() !== 0) {
       throw new Error('Release called but not acquired.');

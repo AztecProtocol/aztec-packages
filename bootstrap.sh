@@ -32,40 +32,47 @@ if [ ! -f ~/.nvm/nvm.sh ]; then
   exit 1
 fi
 
-\. ~/.nvm/nvm.sh
-nvm install
+#\. ~/.nvm/nvm.sh
+#nvm install
 
 # Until we push .yarn/cache, we still need to install.
 cd yarn-project
 yarn install --immutable
 cd ..
 
-# We only bootstrap projects that produce artefacts needed for running end-to-end tests.
-PROJECTS=(
-  # "circuits:./bootstrap.sh db_cli rollup_cli"
-  # "yarn-project/acir-simulator:yarn build"
-  # "yarn-project/aztec-cli:yarn build"
-  "yarn-project/aztec.js:yarn build"
-  # "yarn-project/barretenberg.js:yarn build"
-  # "yarn-project/circuit.js:yarn build"
-  # "yarn-project/data-archiver:yarn build"
-  # "yarn-project/ethereum.js:yarn build"
-  # "yarn-project/kernel-simulator:yarn build"
-  "yarn-project/key-store:yarn build"
-  # "yarn-project/p2p:yarn build"
-  # "yarn-project/prover-client:yarn build"
-  # "yarn-project/public-client:yarn build"
-  # "yarn-project/sequencer-client:yarn build"
-  # "yarn-project/wallet:yarn build"
-)
+# Install yalc, which we will use for in-development packages
+yarn global add yalc
 
-for E in "${PROJECTS[@]}"; do
-  ARR=(${E//:/ })
-  DIR=${ARR[0]}
-  COMMAND=${ARR[@]:1}
-  echo "Bootstrapping $DIR: $COMMAND"
-  pushd $DIR > /dev/null
-  $COMMAND
+# # We only bootstrap projects that produce artefacts needed for running end-to-end tests.
+# PROJECTS=(
+#   # "circuits:./bootstrap.sh db_cli rollup_cli"
+#   # "yarn-project/acir-simulator:yarn build"
+#   # "yarn-project/aztec-cli:yarn build"
+#   "yarn-project/aztec.js:yarn build"
+#   # "yarn-project/barretenberg.js:yarn build"
+#   # "yarn-project/circuit.js:yarn build"
+#   # "yarn-project/data-archiver:yarn build"
+#   # "yarn-project/ethereum.js:yarn build"
+#   # "yarn-project/kernel-simulator:yarn build"
+#   "yarn-project/key-store:yarn build"
+#   # "yarn-project/p2p:yarn build"
+#   # "yarn-project/prover-client:yarn build"
+#   # "yarn-project/public-client:yarn build"
+#   # "yarn-project/sequencer-client:yarn build"
+#   # "yarn-project/wallet:yarn build"
+#   "yarn-project/wasm-worker:yarn build"
+# )
+
+for yarn_project in \
+  yarn-project/aztec.js \
+  yarn-project/log \
+  yarn-project/key-store \
+  yarn-project/wasm-worker
+do
+  echo "Bootstrapping $yarn_project"
+  pushd $yarn_project > /dev/null
+  yarn build
+  yalc push
   popd > /dev/null
 done
 

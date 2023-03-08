@@ -80,23 +80,6 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@aztec/barretenberg.js@workspace:barretenberg.js":
-  version: 0.0.0-use.local
-  resolution: "@aztec/barretenberg.js@workspace:barretenberg.js"
-  dependencies:
-    "@aztec/eslint-config": "workspace:^"
-    "@jest/globals": ^29.4.3
-    "@rushstack/eslint-patch": ^1.1.4
-    "@types/jest": ^29.4.0
-    "@types/node": ^18.7.23
-    jest: ^28.1.3
-    ts-jest: ^28.0.7
-    ts-node: ^10.9.1
-    tslib: ^2.4.0
-    typescript: ^4.9.5
-  languageName: unknown
-  linkType: soft
-
 "@aztec/circuit.js@workspace:circuit.js":
   version: 0.0.0-use.local
   resolution: "@aztec/circuit.js@workspace:circuit.js"
@@ -157,10 +140,18 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@aztec/eslint-config@link:../../../yarn-project/eslint-config::locator=%40aztec%2Feslint-config%40workspace%3Aeslint-config":
+  version: 0.0.0-use.local
+  resolution: "@aztec/eslint-config@link:../../../yarn-project/eslint-config::locator=%40aztec%2Feslint-config%40workspace%3Aeslint-config"
+  languageName: node
+  linkType: soft
+
 "@aztec/eslint-config@workspace:^, @aztec/eslint-config@workspace:eslint-config":
   version: 0.0.0-use.local
   resolution: "@aztec/eslint-config@workspace:eslint-config"
   dependencies:
+    "@aztec/eslint-config": "link:../../../yarn-project/eslint-config"
+    "@aztec/wasm-worker": "link:../../../yarn-project/wasm-worker"
     "@typescript-eslint/eslint-plugin": ^5.38.0
     "@typescript-eslint/parser": ^5.38.0
     eslint: ^8.21.0
@@ -321,6 +312,12 @@ __metadata:
     tslib: ^2.4.0
     typescript: ^4.9.5
   languageName: unknown
+  linkType: soft
+
+"@aztec/wasm-worker@link:../../../yarn-project/wasm-worker::locator=%40aztec%2Feslint-config%40workspace%3Aeslint-config":
+  version: 0.0.0-use.local
+  resolution: "@aztec/wasm-worker@link:../../../yarn-project/wasm-worker::locator=%40aztec%2Feslint-config%40workspace%3Aeslint-config"
+  languageName: node
   linkType: soft
 
 "@aztec/wasm-worker@workspace:wasm-worker":

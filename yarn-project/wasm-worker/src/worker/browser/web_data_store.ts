@@ -3,7 +3,8 @@ import levelup, { LevelUp } from 'levelup';
 import memdown from 'memdown';
 
 /**
- * Cache for data used by wasm module
+ * Cache for data used by wasm module.
+ * Stores in a LevelUp database.
  */
 export class WebDataStore implements DataStore {
   private db: LevelUp;
@@ -16,10 +17,20 @@ export class WebDataStore implements DataStore {
     this.db = levelup((memdown as any)());
   }
 
+  /**
+   * Lookup a key.
+   * @param key - Key to lookup.
+   * @returns The buffer.
+   */
   async get(key: string): Promise<Buffer | undefined> {
     return await this.db.get(key).catch(() => {});
   }
 
+  /**
+   * Alter a key.
+   * @param key - Key to alter.
+   * @param value - Buffer to store.
+   */
   async set(key: string, value: Buffer): Promise<void> {
     await this.db.put(key, value);
   }

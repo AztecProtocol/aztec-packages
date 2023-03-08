@@ -2,7 +2,12 @@
   "name": "@aztec/eslint-config",
   "version": "0.0.0",
   "packageManager": "yarn@3.2.2",
+  "files": [
+    "index.js"
+  ],
   "dependencies": {
+    "@aztec/eslint-config": "link:../../../yarn-project/eslint-config",
+    "@aztec/wasm-worker": "link:../../../yarn-project/wasm-worker",
     "@typescript-eslint/eslint-plugin": "^5.38.0",
     "@typescript-eslint/parser": "^5.38.0",
     "eslint": "^8.21.0",

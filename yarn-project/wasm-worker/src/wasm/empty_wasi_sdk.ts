@@ -4,9 +4,10 @@ import { createDebugLogger } from '@aztec/log';
  * Dummy implementation of a necessary part of the wasi api:
  * https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md
  * We don't use these functions, but the environment expects them.
- * TODO find a way to update off of wasi 12
+ * TODO find a way to update off of wasi 12.
  */
 /* eslint-disable camelcase */
+/* eslint-disable jsdoc/require-jsdoc */
 export const getEmptyWasiSdk = (debug = createDebugLogger('wasm-worker:empty_wasi_sdk')) => ({
   clock_time_get() {
     debug('clock_time_get');

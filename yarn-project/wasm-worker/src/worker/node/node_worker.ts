@@ -4,6 +4,9 @@ import { NodeConnector } from '../../transport/index.js';
 import { WasmModule } from '../../wasm/wasm_module.js';
 import { WasmWorker } from '../wasm_worker.js';
 
+/**
+ *
+ */
 export async function createNodeWorker(filepath: string, initialMem?: number, maxMem?: number): Promise<WasmWorker> {
   const worker = new Worker(filepath);
   const transportConnect = new NodeConnector(worker);

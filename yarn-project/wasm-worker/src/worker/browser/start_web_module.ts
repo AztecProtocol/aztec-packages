@@ -2,8 +2,8 @@ import { DispatchMsg, TransportServer, WorkerListener } from '../../transport/in
 import { WasmModule } from '../../wasm/wasm_module.js';
 
 /**
- * Start the transport server corresponding to this module
- * @param module the WasmModule to host
+ * Start the transport server corresponding to this module.
+ * @param module - The WasmModule to host.
  */
 export function startWebModule(module: WasmModule) {
   const dispatch = async ({ fn, args }: DispatchMsg) => {

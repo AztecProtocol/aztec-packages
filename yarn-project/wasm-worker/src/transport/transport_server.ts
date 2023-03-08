@@ -11,6 +11,9 @@ export class TransportServer<Payload> {
 
   constructor(private listener: Listener, private msgHandlerFn: (msg: Payload) => Promise<any>) {}
 
+  /**
+   * Start accepting new connections.
+   */
   start() {
     this.listener.on('new_socket', client => this.handleNewSocket(client));
     this.listener.open();
@@ -24,10 +27,18 @@ export class TransportServer<Payload> {
     this.listener.close();
   }
 
+  /**
+   * Broadcast a message.
+   * @param msg - The message.
+   */
   async broadcast(msg: Payload) {
     await Promise.all(this.sockets.map(s => s.send({ payload: msg })));
   }
 
+  /**
+   * New socket registration.
+   * @param socket - The socket to register.
+   */
   private handleNewSocket(socket: Socket) {
     socket.registerHandler(async msg => {
       if (msg === undefined) {
@@ -45,6 +56,8 @@ export class TransportServer<Payload> {
   /**
    * Detect the 'transferables' argument to our socket from our message
    * handler return type.
+   * @param data - The return object.
+   * @returns - The data and the.
    */
   private getPayloadAndTransfers(data: any): [any, Transferable[]] {
     if (isTransferDescriptor(data)) {
@@ -61,6 +74,12 @@ export class TransportServer<Payload> {
     }
     return [data, []];
   }
+  /**
+   * Handles a socket message from a listener.
+   * @param socket - The socket.
+   * @param requestMessage - The message to handle.
+   * @returns The socket response.
+   */
   private async handleSocketMessage(socket: Socket, { msgId, payload }: RequestMessage<Payload>) {
     try {
       const data = await this.msgHandlerFn(payload);

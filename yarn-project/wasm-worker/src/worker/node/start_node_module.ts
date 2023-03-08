@@ -7,8 +7,8 @@ if (!parentPort) {
 }
 
 /**
- * Start the transport server corresponding to this module
- * @param module the WasmModule to host
+ * Start the transport server corresponding to this module.
+ * @param module - The WasmModule to host.
  */
 export function startNodeModule(module: WasmModule) {
   const dispatch = async ({ fn, args }: DispatchMsg) => {

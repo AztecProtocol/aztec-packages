@@ -1,5 +1,5 @@
 /**
- * Simple read/write interface for wasm modules
+ * Simple read/write interface for wasm modules.
  */
 export interface DataStore {
   get(key: string): Promise<Buffer | undefined>;
