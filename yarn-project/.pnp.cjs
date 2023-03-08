@@ -36,10 +36,6 @@ function $$SETUP_STATE(hydrateRuntimeState, basePath) {
         "reference": "workspace:circuit.js"\
       },\
       {\
-        "name": "@aztec/data-archiver",\
-        "reference": "workspace:data-archiver"\
-      },\
-      {\
         "name": "@aztec/docs",\
         "reference": "workspace:docs"\
       },\
@@ -84,6 +80,10 @@ function $$SETUP_STATE(hydrateRuntimeState, basePath) {
         "reference": "workspace:public-client"\
       },\
       {\
+        "name": "@aztec/rollup-archiver",\
+        "reference": "workspace:rollup-archiver"\
+      },\
+      {\
         "name": "@aztec/sequencer-client",\
         "reference": "workspace:sequencer-client"\
       },\
@@ -101,7 +101,6 @@ function $$SETUP_STATE(hydrateRuntimeState, basePath) {
       ["@aztec/aztec3-packages", ["workspace:."]],\
       ["@aztec/barretenberg.js", ["workspace:barretenberg.js"]],\
       ["@aztec/circuit.js", ["workspace:circuit.js"]],\
-      ["@aztec/data-archiver", ["workspace:data-archiver"]],\
       ["@aztec/docs", ["workspace:docs"]],\
       ["@aztec/end-to-end", ["workspace:end-to-end"]],\
       ["@aztec/eslint-config", ["workspace:eslint-config"]],\
@@ -113,6 +112,7 @@ function $$SETUP_STATE(hydrateRuntimeState, basePath) {
       ["@aztec/prettier-config", ["workspace:prettier-config"]],\
       ["@aztec/prover-client", ["workspace:prover-client"]],\
       ["@aztec/public-client", ["workspace:public-client"]],\
+      ["@aztec/rollup-archiver", ["workspace:rollup-archiver"]],\
       ["@aztec/sequencer-client", ["workspace:sequencer-client"]],\
       ["@aztec/wallet", ["workspace:wallet"]]\
     ],\
@@ -237,25 +237,6 @@ function $$SETUP_STATE(hydrateRuntimeState, basePath) {
           "packageLocation": "./circuit.js/",\
           "packageDependencies": [\
             ["@aztec/circuit.js", "workspace:circuit.js"],\
-            ["@aztec/eslint-config", "workspace:eslint-config"],\
-            ["@jest/globals", "npm:29.5.0"],\
-            ["@rushstack/eslint-patch", "npm:1.2.0"],\
-            ["@types/jest", "npm:29.4.0"],\
-            ["@types/node", "npm:18.14.6"],\
-            ["jest", "virtual:97973ff51783dc29efdf1c1cff3bd542763fb1d8ea565946db4f6425a5a443923944d5f46e5672160073e5b792b61ec2b3a0e9df4f007033f07c728780e0e4e7#npm:28.1.3"],\
-            ["ts-jest", "virtual:97973ff51783dc29efdf1c1cff3bd542763fb1d8ea565946db4f6425a5a443923944d5f46e5672160073e5b792b61ec2b3a0e9df4f007033f07c728780e0e4e7#npm:28.0.8"],\
-            ["ts-node", "virtual:97973ff51783dc29efdf1c1cff3bd542763fb1d8ea565946db4f6425a5a443923944d5f46e5672160073e5b792b61ec2b3a0e9df4f007033f07c728780e0e4e7#npm:10.9.1"],\
-            ["tslib", "npm:2.5.0"],\
-            ["typescript", "patch:typescript@npm%3A4.9.5#~builtin<compat/typescript>::version=4.9.5&hash=23ec76"]\
-          ],\
-          "linkType": "SOFT"\
-        }]\
-      ]],\
-      ["@aztec/data-archiver", [\
-        ["workspace:data-archiver", {\
-          "packageLocation": "./data-archiver/",\
-          "packageDependencies": [\
-            ["@aztec/data-archiver", "workspace:data-archiver"],\
             ["@aztec/eslint-config", "workspace:eslint-config"],\
             ["@jest/globals", "npm:29.5.0"],\
             ["@rushstack/eslint-patch", "npm:1.2.0"],\
@@ -453,6 +434,25 @@ function $$SETUP_STATE(hydrateRuntimeState, basePath) {
           "packageLocation": "./public-client/",\
           "packageDependencies": [\
             ["@aztec/public-client", "workspace:public-client"],\
+            ["@aztec/eslint-config", "workspace:eslint-config"],\
+            ["@jest/globals", "npm:29.5.0"],\
+            ["@rushstack/eslint-patch", "npm:1.2.0"],\
+            ["@types/jest", "npm:29.4.0"],\
+            ["@types/node", "npm:18.14.6"],\
+            ["jest", "virtual:97973ff51783dc29efdf1c1cff3bd542763fb1d8ea565946db4f6425a5a443923944d5f46e5672160073e5b792b61ec2b3a0e9df4f007033f07c728780e0e4e7#npm:28.1.3"],\
+            ["ts-jest", "virtual:97973ff51783dc29efdf1c1cff3bd542763fb1d8ea565946db4f6425a5a443923944d5f46e5672160073e5b792b61ec2b3a0e9df4f007033f07c728780e0e4e7#npm:28.0.8"],\
+            ["ts-node", "virtual:97973ff51783dc29efdf1c1cff3bd542763fb1d8ea565946db4f6425a5a443923944d5f46e5672160073e5b792b61ec2b3a0e9df4f007033f07c728780e0e4e7#npm:10.9.1"],\
+            ["tslib", "npm:2.5.0"],\
+            ["typescript", "patch:typescript@npm%3A4.9.5#~builtin<compat/typescript>::version=4.9.5&hash=23ec76"]\
+          ],\
+          "linkType": "SOFT"\
+        }]\
+      ]],\
+      ["@aztec/rollup-archiver", [\
+        ["workspace:rollup-archiver", {\
+          "packageLocation": "./rollup-archiver/",\
+          "packageDependencies": [\
+            ["@aztec/rollup-archiver", "workspace:rollup-archiver"],\
             ["@aztec/eslint-config", "workspace:eslint-config"],\
             ["@jest/globals", "npm:29.5.0"],\
             ["@rushstack/eslint-patch", "npm:1.2.0"],\

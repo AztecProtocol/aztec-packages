@@ -73,11 +73,11 @@
     "rebuildPatterns": ["^yarn-project/circuit.js/"],
     "dependencies": ["yarn-project-base"]
   },
-  "data-archiver": {
+  "rollup-archiver": {
     "buildDir": "yarn-project",
-    "projectDir": "yarn-project/data-archiver",
-    "dockerfile": "data-archiver/Dockerfile",
-    "rebuildPatterns": ["^yarn-project/data-archiver/"],
+    "projectDir": "yarn-project/rollup-archiver",
+    "dockerfile": "rollup-archiver/Dockerfile",
+    "rebuildPatterns": ["^yarn-project/rollup-archiver/"],
     "dependencies": ["yarn-project-base"]
   },
   "end-to-end": {

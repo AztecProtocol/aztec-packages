@@ -12,7 +12,7 @@
     "aztec.js",
     "barretenberg.js",
     "circuit.js",
-    "data-archiver",
+    "rollup-archiver",
     "docs",
     "end-to-end",
     "eslint-config",

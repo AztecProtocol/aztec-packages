@@ -7,7 +7,7 @@ The Aztec 3 system consists of the following sub projects.
 - `aztec.js`
 - `barretenberg.js`
 - `circuit.js`
-- `data-archiver`
+- `rollup-archiver`
 - `ethereum.js`
 - `kernel-simulator`
 - `key-store`

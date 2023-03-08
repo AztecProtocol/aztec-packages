@@ -16,7 +16,7 @@ PROJECTS=(
   # aztec.js:yarn-project
   # barretenberg.js:yarn-project
   # circuit.js:yarn-project
-  # data-archiver:yarn-project
+  # rollup-archiver:yarn-project
   # end-to-end:yarn-project
   # ethereum.js:yarn-project
   # kernel-simulator:yarn-project
