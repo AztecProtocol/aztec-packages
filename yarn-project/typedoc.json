@@ -14,7 +14,9 @@
     "p2p",
     "prover-client",
     "public-client",
+    "log",
     "sequencer-client",
-    "wallet"
+    "wallet",
+    "wasm-worker"
   ]
 }
