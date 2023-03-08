@@ -1,12 +1,10 @@
 import { EventEmitter } from 'stream';
 import { Rollup } from './rollup.js';
 import { RollupEmitter, RollupRetriever } from './rollup_emitter.js';
+import { RunningPromise } from './running_promise.js';
 
 export class PollingRollupEmitter extends EventEmitter implements RollupEmitter {
-  private running = false;
-  private runningPromise = Promise.resolve();
-  private interruptPromise = Promise.resolve();
-  private interruptResolve = () => {};
+  private runningPromise?: RunningPromise;
   constructor(private retriever: RollupRetriever, private pollingInterval = 10000) {
     super();
   }
@@ -17,10 +15,7 @@ export class PollingRollupEmitter extends EventEmitter implements RollupEmitter 
   /**
    * Starts emitting rollup blocks.
    */
-  public start(fromRollup = 0) {
-    this.running = true;
-    this.interruptPromise = new Promise(resolve => (this.interruptResolve = resolve));
-
+  public async start(fromRollup = 0, syncInitial = true) {
     const getAndEmitNewBlocks = async () => {
       try {
         const rollups = await this.getRollups(fromRollup);
@@ -32,32 +27,19 @@ export class PollingRollupEmitter extends EventEmitter implements RollupEmitter 
         console.log(error);
       }
     };
+    if (syncInitial) {
+      await getAndEmitNewBlocks();
+    }
 
-    const poll = async () => {
-      while (this.running) {
-        await getAndEmitNewBlocks();
-        await this.interruptableSleep(this.pollingInterval);
-      }
-    };
-    this.runningPromise = poll();
+    this.runningPromise = new RunningPromise(getAndEmitNewBlocks, this.pollingInterval);
+    this.runningPromise!.start();
   }
 
   async stop(): Promise<void> {
-    this.running = false;
-    this.interruptResolve();
-    await this.runningPromise;
+    await this.runningPromise?.stop();
   }
 
   public getLatestRollupId(): Promise<number> {
     return this.retriever.getLatestRollupId();
-  }
-
-  private async interruptableSleep(timeInMs: number) {
-    let timeout!: NodeJS.Timeout;
-    const sleepPromise = new Promise(resolve => {
-      timeout = setTimeout(resolve, timeInMs);
-    });
-    await Promise.race([sleepPromise, this.interruptPromise]);
-    clearTimeout(timeout);
   }
 }

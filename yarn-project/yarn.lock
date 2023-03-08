@@ -113,7 +113,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@aztec/data-archiver@workspace:data-archiver":
+"@aztec/data-archiver@workspace:^, @aztec/data-archiver@workspace:data-archiver":
   version: 0.0.0-use.local
   resolution: "@aztec/data-archiver@workspace:data-archiver"
   dependencies:
@@ -211,7 +211,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@aztec/merkle-tree@workspace:merkle-tree":
+"@aztec/merkle-tree@workspace:^, @aztec/merkle-tree@workspace:merkle-tree":
   version: 0.0.0-use.local
   resolution: "@aztec/merkle-tree@workspace:merkle-tree"
   dependencies:
@@ -327,12 +327,18 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/world-state@workspace:world-state"
   dependencies:
+    "@aztec/data-archiver": "workspace:^"
     "@aztec/eslint-config": "workspace:^"
+    "@aztec/merkle-tree": "workspace:^"
     "@jest/globals": ^29.4.3
     "@rushstack/eslint-patch": ^1.1.4
     "@types/jest": ^29.4.0
+    "@types/levelup": ^5.1.2
+    "@types/memdown": ^3.0.0
     "@types/node": ^18.7.23
     jest: ^28.1.3
+    levelup: ^5.1.1
+    memdown: ^6.1.1
     ts-jest: ^28.0.7
     ts-node: ^10.9.1
     tslib: ^2.4.0
@@ -1469,6 +1475,15 @@ __metadata:
     "@types/level-errors": "*"
     "@types/node": "*"
   checksum: 6740284488b6806ba398bc38842fa789edd5667a342830c544a6b3611ebeed957a08d03dc8bde1e32fe03ac9c439341647c044c1ff0f73a26bcded9ca302a009
+  languageName: node
+  linkType: hard
+
+"@types/memdown@npm:^3.0.0":
+  version: 3.0.1
+  resolution: "@types/memdown@npm:3.0.1"
+  dependencies:
+    "@types/abstract-leveldown": "*"
+  checksum: 08085fff44f1868d352ec3be81890cfd0034ad1086f3dbc8bbfc412d55434bb6f5bbd512a22a92f2f9c416ccb0784815ecaa0a6fada4478c9a39db3f0f7a1a43
   languageName: node
   linkType: hard
 
@@ -2789,6 +2804,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"functional-red-black-tree@npm:^1.0.1":
+  version: 1.0.1
+  resolution: "functional-red-black-tree@npm:1.0.1"
+  checksum: ca6c170f37640e2d94297da8bb4bf27a1d12bea3e00e6a3e007fd7aa32e37e000f5772acf941b4e4f3cf1c95c3752033d0c509af157ad8f526e7f00723b9eb9f
+  languageName: node
+  linkType: hard
+
 "gauge@npm:^4.0.3":
   version: 4.0.4
   resolution: "gauge@npm:4.0.4"
@@ -3079,7 +3101,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"inherits@npm:2, inherits@npm:^2.0.3, inherits@npm:^2.0.4":
+"inherits@npm:2, inherits@npm:^2.0.1, inherits@npm:^2.0.3, inherits@npm:^2.0.4":
   version: 2.0.4
   resolution: "inherits@npm:2.0.4"
   checksum: 4a48a733847879d6cf6691860a6b1e3f0f4754176e4d71494c41f3475553768b10f84b5ce1d40fbd0e34e6bfbb864ee35858ad4dd2cf31e02fc4a154b724d7f1
@@ -4030,6 +4052,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"ltgt@npm:^2.2.0":
+  version: 2.2.1
+  resolution: "ltgt@npm:2.2.1"
+  checksum: 7e3874296f7538bc8087b428ac4208008d7b76916354b34a08818ca7c83958c1df10ec427eeeaad895f6b81e41e24745b18d30f89abcc21d228b94f6961d50a2
+  languageName: node
+  linkType: hard
+
 "make-dir@npm:^3.0.0":
   version: 3.1.0
   resolution: "make-dir@npm:3.1.0"
@@ -4076,6 +4105,19 @@ __metadata:
   dependencies:
     tmpl: 1.0.5
   checksum: b38a025a12c8146d6eeea5a7f2bf27d51d8ad6064da8ca9405fcf7bf9b54acd43e3b30ddd7abb9b1bfa4ddb266019133313482570ddb207de568f71ecfcf6060
+  languageName: node
+  linkType: hard
+
+"memdown@npm:^6.1.1":
+  version: 6.1.1
+  resolution: "memdown@npm:6.1.1"
+  dependencies:
+    abstract-leveldown: ^7.2.0
+    buffer: ^6.0.3
+    functional-red-black-tree: ^1.0.1
+    inherits: ^2.0.1
+    ltgt: ^2.2.0
+  checksum: a8c418620781a396e650834ab18022c1ae13060b3ca47dc80152eff45caf0e4780598610fd0f9b5a50ebdf195e686ed53fadbae1272addfafad98d598a165a4b
   languageName: node
   linkType: hard
 

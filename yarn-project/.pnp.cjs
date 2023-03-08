@@ -490,12 +490,18 @@ function $$SETUP_STATE(hydrateRuntimeState, basePath) {
           "packageLocation": "./world-state/",\
           "packageDependencies": [\
             ["@aztec/world-state", "workspace:world-state"],\
+            ["@aztec/data-archiver", "workspace:data-archiver"],\
             ["@aztec/eslint-config", "workspace:eslint-config"],\
+            ["@aztec/merkle-tree", "workspace:merkle-tree"],\
             ["@jest/globals", "npm:29.4.3"],\
             ["@rushstack/eslint-patch", "npm:1.2.0"],\
             ["@types/jest", "npm:29.4.0"],\
+            ["@types/levelup", "npm:5.1.2"],\
+            ["@types/memdown", "npm:3.0.1"],\
             ["@types/node", "npm:18.14.2"],\
             ["jest", "virtual:97973ff51783dc29efdf1c1cff3bd542763fb1d8ea565946db4f6425a5a443923944d5f46e5672160073e5b792b61ec2b3a0e9df4f007033f07c728780e0e4e7#npm:28.1.3"],\
+            ["levelup", "npm:5.1.1"],\
+            ["memdown", "npm:6.1.1"],\
             ["ts-jest", "virtual:97973ff51783dc29efdf1c1cff3bd542763fb1d8ea565946db4f6425a5a443923944d5f46e5672160073e5b792b61ec2b3a0e9df4f007033f07c728780e0e4e7#npm:28.0.8"],\
             ["ts-node", "virtual:97973ff51783dc29efdf1c1cff3bd542763fb1d8ea565946db4f6425a5a443923944d5f46e5672160073e5b792b61ec2b3a0e9df4f007033f07c728780e0e4e7#npm:10.9.1"],\
             ["tslib", "npm:2.5.0"],\
@@ -2088,6 +2094,16 @@ function $$SETUP_STATE(hydrateRuntimeState, basePath) {
             ["@types/abstract-leveldown", "npm:7.2.1"],\
             ["@types/level-errors", "npm:3.0.0"],\
             ["@types/node", "npm:18.14.2"]\
+          ],\
+          "linkType": "HARD"\
+        }]\
+      ]],\
+      ["@types/memdown", [\
+        ["npm:3.0.1", {\
+          "packageLocation": "./.yarn/cache/@types-memdown-npm-3.0.1-57d57d174a-08085fff44.zip/node_modules/@types/memdown/",\
+          "packageDependencies": [\
+            ["@types/memdown", "npm:3.0.1"],\
+            ["@types/abstract-leveldown", "npm:7.2.1"]\
           ],\
           "linkType": "HARD"\
         }]\
@@ -3721,6 +3737,15 @@ function $$SETUP_STATE(hydrateRuntimeState, basePath) {
           "linkType": "HARD"\
         }]\
       ]],\
+      ["functional-red-black-tree", [\
+        ["npm:1.0.1", {\
+          "packageLocation": "./.yarn/cache/functional-red-black-tree-npm-1.0.1-ccfe924dcd-ca6c170f37.zip/node_modules/functional-red-black-tree/",\
+          "packageDependencies": [\
+            ["functional-red-black-tree", "npm:1.0.1"]\
+          ],\
+          "linkType": "HARD"\
+        }]\
+      ]],\
       ["gauge", [\
         ["npm:4.0.4", {\
           "packageLocation": "./.yarn/cache/gauge-npm-4.0.4-8f878385e9-788b6bfe52.zip/node_modules/gauge/",\
@@ -5138,6 +5163,15 @@ function $$SETUP_STATE(hydrateRuntimeState, basePath) {
           "linkType": "HARD"\
         }]\
       ]],\
+      ["ltgt", [\
+        ["npm:2.2.1", {\
+          "packageLocation": "./.yarn/cache/ltgt-npm-2.2.1-443b5da86d-7e3874296f.zip/node_modules/ltgt/",\
+          "packageDependencies": [\
+            ["ltgt", "npm:2.2.1"]\
+          ],\
+          "linkType": "HARD"\
+        }]\
+      ]],\
       ["make-dir", [\
         ["npm:3.1.0", {\
           "packageLocation": "./.yarn/cache/make-dir-npm-3.1.0-d1d7505142-484200020a.zip/node_modules/make-dir/",\
@@ -5188,6 +5222,20 @@ function $$SETUP_STATE(hydrateRuntimeState, basePath) {
           "packageDependencies": [\
             ["makeerror", "npm:1.0.12"],\
             ["tmpl", "npm:1.0.5"]\
+          ],\
+          "linkType": "HARD"\
+        }]\
+      ]],\
+      ["memdown", [\
+        ["npm:6.1.1", {\
+          "packageLocation": "./.yarn/cache/memdown-npm-6.1.1-b0df54b245-a8c4186207.zip/node_modules/memdown/",\
+          "packageDependencies": [\
+            ["memdown", "npm:6.1.1"],\
+            ["abstract-leveldown", "npm:7.2.0"],\
+            ["buffer", "npm:6.0.3"],\
+            ["functional-red-black-tree", "npm:1.0.1"],\
+            ["inherits", "npm:2.0.4"],\
+            ["ltgt", "npm:2.2.1"]\
           ],\
           "linkType": "HARD"\
         }]\

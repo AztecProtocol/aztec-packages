@@ -22,9 +22,9 @@ export interface RollupEmitter extends EventEmitter {
 
   /**
    * Starts emitting rollup blocks.
-   * All historical blocks must have been emitted before this function returns.
+   * If syncInitial == true, all blocks from `fromRollup` will be emitted before the function ends
    */
-  start(fromRollup?: number): void;
+  start(fromRollup?: number, syncInitial?: boolean): void;
 
   stop(): Promise<void>;
 
