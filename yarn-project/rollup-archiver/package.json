@@ -1,5 +1,5 @@
 {
-  "name": "@aztec/data-archiver",
+  "name": "@aztec/rollup-archiver",
   "version": "0.0.0",
   "type": "module",
   "exports": "./dest/index.js",
