@@ -108,6 +108,13 @@
     "rebuildPatterns": ["^yarn-project/key-store/"],
     "dependencies": ["yarn-project-base"]
   },
+  "merkle-tree": {
+    "buildDir": "yarn-project",
+    "projectDir": "yarn-project/merkle-tree",
+    "dockerfile": "merkle-tree/Dockerfile",
+    "rebuildPatterns": ["^yarn-project/merkle-tree/"],
+    "dependencies": ["yarn-project-base"]
+  },
   "p2p": {
     "buildDir": "yarn-project",
     "projectDir": "yarn-project/p2p",
@@ -141,6 +148,13 @@
     "projectDir": "yarn-project/wallet",
     "dockerfile": "wallet/Dockerfile",
     "rebuildPatterns": ["^yarn-project/wallet/"],
+    "dependencies": ["yarn-project-base"]
+  },
+  "world-state": {
+    "buildDir": "yarn-project",
+    "projectDir": "yarn-project/world-state",
+    "dockerfile": "world-state/Dockerfile",
+    "rebuildPatterns": ["^yarn-project/world-state/"],
     "dependencies": ["yarn-project-base"]
   }
 }
