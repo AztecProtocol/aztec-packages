@@ -32,8 +32,8 @@ if [ ! -f ~/.nvm/nvm.sh ]; then
   exit 1
 fi
 
-#\. ~/.nvm/nvm.sh
-#nvm install
+\. ~/.nvm/nvm.sh
+nvm install
 
 # Until we push .yarn/cache, we still need to install.
 cd yarn-project
@@ -43,26 +43,7 @@ cd ..
 # Install yalc, which we will use for in-development packages
 yarn global add yalc
 
-# # We only bootstrap projects that produce artefacts needed for running end-to-end tests.
-# PROJECTS=(
-#   # "circuits:./bootstrap.sh db_cli rollup_cli"
-#   # "yarn-project/acir-simulator:yarn build"
-#   # "yarn-project/aztec-cli:yarn build"
-#   "yarn-project/aztec.js:yarn build"
-#   # "yarn-project/barretenberg.js:yarn build"
-#   # "yarn-project/circuit.js:yarn build"
-#   # "yarn-project/data-archiver:yarn build"
-#   # "yarn-project/ethereum.js:yarn build"
-#   # "yarn-project/kernel-simulator:yarn build"
-#   "yarn-project/key-store:yarn build"
-#   # "yarn-project/p2p:yarn build"
-#   # "yarn-project/prover-client:yarn build"
-#   # "yarn-project/public-client:yarn build"
-#   # "yarn-project/sequencer-client:yarn build"
-#   # "yarn-project/wallet:yarn build"
-#   "yarn-project/wasm-worker:yarn build"
-# )
-
+# TODO add other packages that should be built under CI
 for yarn_project in \
   yarn-project/aztec.js \
   yarn-project/log \
@@ -72,6 +53,9 @@ do
   echo "Bootstrapping $yarn_project"
   pushd $yarn_project > /dev/null
   yarn build
+  # Publish package to local yalc database
+  # This then lets us call yarn bundle-deps in the submodule repos
+  # which lets the repos cache a local version of the package.
   yalc push
   popd > /dev/null
 done
