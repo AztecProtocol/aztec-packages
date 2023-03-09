@@ -425,6 +425,7 @@ function $$SETUP_STATE(hydrateRuntimeState, basePath) {
             ["@rushstack/eslint-patch", "npm:1.2.0"],\
             ["@types/jest", "npm:29.4.0"],\
             ["@types/node", "npm:18.14.6"],\
+            ["debug", "virtual:0c9322b41fab7d59285768a0e9d661e38864eba0258adfe39a8253e14f176a6b908423ed1fe2a13cb929c471127e6c8d9e2ce76373907f467366a10dca15a138#npm:4.3.4"],\
             ["jest", "virtual:bff282310339ee257f007ca5bcd9d0fa51f7dcdaaf62ea2cc471242c121de4a69353cb4f370f86e4349cbe59a71e093baac508d29985aacd3fcb1109ae3c835a#npm:29.5.0"],\
             ["ts-jest", "virtual:bff282310339ee257f007ca5bcd9d0fa51f7dcdaaf62ea2cc471242c121de4a69353cb4f370f86e4349cbe59a71e093baac508d29985aacd3fcb1109ae3c835a#npm:29.0.5"],\
             ["ts-node", "virtual:97973ff51783dc29efdf1c1cff3bd542763fb1d8ea565946db4f6425a5a443923944d5f46e5672160073e5b792b61ec2b3a0e9df4f007033f07c728780e0e4e7#npm:10.9.1"],\

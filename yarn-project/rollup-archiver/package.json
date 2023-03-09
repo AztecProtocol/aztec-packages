@@ -29,6 +29,7 @@
     "rootDir": "./src"
   },
   "dependencies": {
+    "debug": "^4.3.4",
     "tslib": "^2.5.0"
   },
   "devDependencies": {
