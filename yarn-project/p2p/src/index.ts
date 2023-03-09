@@ -1,4 +1,11 @@
+import { MemoryP2PCLient } from './memory_p2p_client.js';
+
 /**
- * A placeholder for the P2P layer.
+ * Main function of P2P in-memory client that runs at init.
  */
-export class P2P {}
+function main() {
+  const p2pClient = new MemoryP2PCLient();
+  p2pClient.start();
+}
+
+main();
