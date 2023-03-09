@@ -45,6 +45,7 @@ yarn global add yalc
 
 # TODO add other packages that should be built under CI
 for yarn_project in \
+  yarn-project/eslint-config \
   yarn-project/aztec.js \
   yarn-project/log \
   yarn-project/key-store \
@@ -54,7 +55,7 @@ do
   pushd $yarn_project > /dev/null
   yarn build
   # Publish package to local yalc database
-  # This then lets us call yarn bundle-deps in the submodule repos
+  # This then lets us call yarn bundle-deps in the submodule repos (e.g. circuits)
   # which lets the repos cache a local version of the package.
   yalc push
   popd > /dev/null

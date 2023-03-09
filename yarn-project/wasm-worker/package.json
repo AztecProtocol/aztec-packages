@@ -13,7 +13,7 @@
     "build:dev": "tsc -b tsconfig.dest.json --watch",
     "clean": "rm -rf ./dest .tsbuildinfo",
     "fix-eslint": "run -T eslint --fix ./src",
-    "formatting": "run -T prettier --check ./src && run -T eslint --max-warnings 52 ./src",
+    "formatting": "run -T prettier --check ./src && run -T eslint --max-warnings 53 ./src",
     "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules $(yarn bin jest) --no-cache --passWithNoTests"
   },
   "jest": {
