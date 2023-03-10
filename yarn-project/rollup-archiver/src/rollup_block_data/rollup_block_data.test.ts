@@ -1,23 +1,5 @@
-import nodeCrypto from 'crypto';
-import { AppendOnlyTreeSnapshot, ContractData, RollupBlockData } from './rollup_block_data.js';
-
-export const randomBytes = (len: number) => {
-  return nodeCrypto.randomBytes(len) as Buffer;
-};
-
-export const randomAppendOnlyTreeSnapshot = (nextIndex: number): AppendOnlyTreeSnapshot => {
-  return {
-    root: randomBytes(32),
-    nextAvailableLeafIndex: nextIndex,
-  };
-};
-
-export const randomContractData = (): ContractData => {
-  return {
-    aztecAddress: randomBytes(32),
-    ethAddress: randomBytes(20),
-  };
-};
+import { randomAppendOnlyTreeSnapshot, randomBytes, randomContractData } from './mocks.js';
+import { ContractData, RollupBlockData } from './rollup_block_data.js';
 
 describe('RollupProofData', () => {
   it('can encode a rollup proof data object to buffer and back', () => {
