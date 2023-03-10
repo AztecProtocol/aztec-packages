@@ -456,6 +456,7 @@ function $$SETUP_STATE(hydrateRuntimeState, basePath) {
             ["@aztec/eslint-config", "workspace:eslint-config"],\
             ["@jest/globals", "npm:29.5.0"],\
             ["@rushstack/eslint-patch", "npm:1.2.0"],\
+            ["@types/debug", "npm:4.1.7"],\
             ["@types/jest", "npm:29.4.0"],\
             ["@types/node", "npm:18.14.6"],\
             ["debug", "virtual:0c9322b41fab7d59285768a0e9d661e38864eba0258adfe39a8253e14f176a6b908423ed1fe2a13cb929c471127e6c8d9e2ce76373907f467366a10dca15a138#npm:4.3.4"],\
@@ -2383,22 +2384,12 @@ function $$SETUP_STATE(hydrateRuntimeState, basePath) {
           "linkType": "HARD"\
         }]\
       ]],\
-      ["@types/bn.js", [\
-        ["npm:5.1.1", {\
-          "packageLocation": "./.yarn/cache/@types-bn.js-npm-5.1.1-346449981b-e50ed2dd3a.zip/node_modules/@types/bn.js/",\
+      ["@types/debug", [\
+        ["npm:4.1.7", {\
+          "packageLocation": "./.yarn/cache/@types-debug-npm-4.1.7-f54c81f8db-0a7b89d8ed.zip/node_modules/@types/debug/",\
           "packageDependencies": [\
-            ["@types/bn.js", "npm:5.1.1"],\
-            ["@types/node", "npm:18.14.6"]\
-          ],\
-          "linkType": "HARD"\
-        }]\
-      ]],\
-      ["@types/elliptic", [\
-        ["npm:6.4.14", {\
-          "packageLocation": "./.yarn/cache/@types-elliptic-npm-6.4.14-77735f3256-d5a64f540e.zip/node_modules/@types/elliptic/",\
-          "packageDependencies": [\
-            ["@types/elliptic", "npm:6.4.14"],\
-            ["@types/bn.js", "npm:5.1.1"]\
+            ["@types/debug", "npm:4.1.7"],\
+            ["@types/ms", "npm:0.7.31"]\
           ],\
           "linkType": "HARD"\
         }]\
@@ -2468,6 +2459,15 @@ function $$SETUP_STATE(hydrateRuntimeState, basePath) {
           "packageLocation": "./.yarn/cache/@types-json-schema-npm-7.0.11-79462ae5ca-527bddfe62.zip/node_modules/@types/json-schema/",\
           "packageDependencies": [\
             ["@types/json-schema", "npm:7.0.11"]\
+          ],\
+          "linkType": "HARD"\
+        }]\
+      ]],\
+      ["@types/ms", [\
+        ["npm:0.7.31", {\
+          "packageLocation": "./.yarn/cache/@types-ms-npm-0.7.31-ea3b89342b-daadd354ae.zip/node_modules/@types/ms/",\
+          "packageDependencies": [\
+            ["@types/ms", "npm:0.7.31"]\
           ],\
           "linkType": "HARD"\
         }]\

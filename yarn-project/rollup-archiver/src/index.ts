@@ -1,4 +1,4 @@
-import { RollupArchiver } from './rollup-archiver.js';
+import { RollupArchiver } from './rollup_archiver.js';
 
 const {
   ETHEREUM_HOST = 'https://mainnet.infura.io/v3/9928b52099854248b3a096be07a6b23c',
