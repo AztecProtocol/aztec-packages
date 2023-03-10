@@ -1,13 +1,14 @@
 import { createLogger } from './movetofoundation/log/console.js';
-import { RollupSource } from './rollup_source.js';
+import { RollupBlockSource } from './rollup_source.js';
 import { ContractData, RollupBlockData } from './rollup_block_data/rollup_block_data.js';
 import { randomAppendOnlyTreeSnapshot, randomBytes, randomContractData } from './rollup_block_data/mocks.js';
 import { InterruptableSleep } from './movetofoundation/interruptable_sleep.js';
+import { State, Status } from './status.js';
 
 /**
  * Pulls rollups in a non-blocking manner and provides interface for their retrieval.
  */
-export class RollupArchiver implements RollupSource {
+export class RollupArchiver implements Status, RollupBlockSource {
   /**
    * A property which indicates whether the archiver sync loop is running.
    */
@@ -39,6 +40,16 @@ export class RollupArchiver implements RollupSource {
   constructor(private readonly ethProvider: string, private readonly rollupAddress: string) {}
 
   /**
+   * {@inheritDoc Status.state}
+   */
+  public state(): State {
+    return {
+      syncedToBlock: this.getSyncedToBlockNum(),
+      latestBlock: this.getLastBlockNum(),
+    };
+  }
+
+  /**
    * Starts the promise pulling the data.
    */
   public start() {
@@ -50,9 +61,21 @@ export class RollupArchiver implements RollupSource {
     this.running = true;
     this.runningPromise = (async () => {
       while (this.running) {
-        this.log('Fetching new rollups...');
+        this.log('Fetching rollup blocks...');
         const newRollupBlocks = [mockRandomRollupBlock(this.rollupBlocks.length)];
-        this.log(`Fetched ${newRollupBlocks.length} new rollup blocks.`);
+        if (newRollupBlocks.length === 0) {
+          this.log('No new rollup blocks found.');
+        } else if (newRollupBlocks.length === 1) {
+          this.log('Fetched rollup block ' + newRollupBlocks[0].rollupBlockNumber + '.');
+        } else {
+          this.log(
+            'Fetched rollup blocks ' +
+              newRollupBlocks[0].rollupBlockNumber +
+              ' to ' +
+              newRollupBlocks[newRollupBlocks.length - 1].rollupBlockNumber +
+              '.',
+          );
+        }
 
         this.rollupBlocks.push(...newRollupBlocks);
 
@@ -74,16 +97,16 @@ export class RollupArchiver implements RollupSource {
   }
 
   /**
-   * {@inheritDoc RollupSource.getLastRollupId}
+   * {@inheritDoc RollupSource.getSyncedToBlockNum}
    */
-  public getLastRollupId(): number {
+  public getSyncedToBlockNum(): number {
     return this.rollupBlocks.length === 0 ? -1 : this.rollupBlocks[this.rollupBlocks.length - 1].rollupBlockNumber;
   }
 
   /**
-   * {@inheritDoc RollupSource.getRollups}
+   * {@inheritDoc RollupSource.getRollupBlocks}
    */
-  public getRollups(from: number, take: number): RollupBlockData[] {
+  public getRollupBlocks(from: number, take: number): RollupBlockData[] {
     if (from > this.rollupBlocks.length) {
       const rollups: RollupBlockData[] = [];
       return rollups;
@@ -94,8 +117,17 @@ export class RollupArchiver implements RollupSource {
 
     return this.rollupBlocks.slice(from, from + take);
   }
+
+  /**
+   * {@inheritDoc RollupSource.getLastBlockNum}
+   */
+  public getLastBlockNum(): number {
+    // TODO: fetch the last block number from the rollup contract
+    return this.rollupBlocks.length + 100;
+  }
 }
 
+// not bothering with docs since it will be removed once L1 JS lib is in place
 function mockRandomRollupBlock(rollupBlockNumber: number): RollupBlockData {
   const newNullifiers = [randomBytes(32), randomBytes(32), randomBytes(32), randomBytes(32)];
   const newCommitments = [randomBytes(32), randomBytes(32), randomBytes(32), randomBytes(32)];

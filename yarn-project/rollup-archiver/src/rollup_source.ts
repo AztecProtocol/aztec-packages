@@ -3,18 +3,24 @@ import { RollupBlockData } from './rollup_block_data/rollup_block_data.js';
 /**
  * Interface of classes allowing for the retrieval of all the relevant rollup information.
  */
-export interface RollupSource {
+export interface RollupBlockSource {
   /**
-   * Gets the ID of the last rollup.
-   * @returns The ID of the last rollup.
+   * Gets the number of the last block the archiver is synced to.
+   * @returns The number of the last block the archiver is synced to.
    **/
-  getLastRollupId(): number;
+  getSyncedToBlockNum(): number;
 
   /**
-   * Gets the `take` rollups starting from ID `from`.
+   * Gets the number of the last rollup block processed by the rollup contract.
+   * @returns The number of the last rollup block processed by the rollup contract.
+   */
+  getLastBlockNum(): number;
+
+  /**
+   * Gets the `take` rollups starting from number `from`.
    * @param from - If of the first rollup to return (inclusive).
    * @param take - The number of rollups to return.
    * @returns The requested rollups.
    */
-  getRollups(from: number, take: number): RollupBlockData[];
+  getRollupBlocks(from: number, take: number): RollupBlockData[];
 }
