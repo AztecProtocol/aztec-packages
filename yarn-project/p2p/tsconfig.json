@@ -4,7 +4,8 @@
     "outDir": "dest",
     "rootDir": "src",
     "tsBuildInfoFile": ".tsbuildinfo",
-    "moduleResolution": "nodenext"
+    "moduleResolution": "nodenext",
+    "types": ["node"]
   },
   "include": ["src"]
 }

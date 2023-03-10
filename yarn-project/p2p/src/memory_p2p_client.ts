@@ -55,9 +55,14 @@ export class MemoryP2PCLient implements P2P {
   private ready = false;
 
   /**
-   * The JS promise that will be running during initial sync. Can be interrupted if the client is stopped.
+   * The JS promise that will be running to keep the client's data in sync. Can be interrupted if the client is stopped.
    */
   private runningSyncPromise!: Promise<void>;
+
+  /**
+   * The client's instance of a transaction pool.
+   */
+  private txPool: TxPool;
 
   /**
    * In-memory P2P client constructor.
@@ -70,6 +75,11 @@ export class MemoryP2PCLient implements P2P {
    */
   public start() {
     this.running = true;
+
+    let synced = false;
+    while (!synced) {
+      // TODO: perform rollup sync
+    }
   }
 
   /**

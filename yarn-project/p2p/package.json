@@ -29,7 +29,6 @@
     "rootDir": "./src"
   },
   "dependencies": {
-    "koa": "^2.14.1",
     "tslib": "^2.4.0"
   },
   "devDependencies": {
