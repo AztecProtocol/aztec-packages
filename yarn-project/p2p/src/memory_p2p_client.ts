@@ -1,39 +1,10 @@
+import { InMemoryTxPool } from './memory_tx_pool.js';
 import { P2P } from './p2p_client.js';
 import { Tx } from './tx.js';
+import { TxPool } from './tx_pool.js';
+import { Rollup, RollupSource } from './types.js';
 
-/**
- * Interface defining data contained in a rollup object.
- */
-interface Rollup {
-  /**
-   * The ID of the rollup (block height in L1 terminology).
-   */
-  id: number;
-
-  /**
-   * Timestamp of an L1 block in which the settlement tx containing this rollup was included.
-   */
-  settlementTimestamp: number;
-}
-
-/**
- * Interface of classes allowing for the retrieval of all the relevant rollup information.
- */
-interface RollupSource {
-  /**
-   * Gets the ID of the last rollup.
-   * @returns The ID of the last rollup.
-   **/
-  getLastRollupId(): number;
-
-  /**
-   * Gets the `take` rollups starting from ID `from`.
-   * @param from - If of the first rollup to return (inclusive).
-   * @param take - The number of rollups to return.
-   * @returns The requested rollups.
-   */
-  getRollups(from: number, take: number): Rollup[];
-}
+const TAKE_NUM = 10;
 
 /**
  * An in-memory implementation of the P2P client.
@@ -65,10 +36,17 @@ export class MemoryP2PCLient implements P2P {
   private txPool: TxPool;
 
   /**
+   * Store the ID of the latest rollup the client has synced to.
+   */
+  private syncedRollupId = 0;
+
+  /**
    * In-memory P2P client constructor.
    * @param rollupSource - P2P client's source for fetching existing rollup data.
    */
-  constructor(private rollupSource: RollupSource) {}
+  constructor(private rollupSource: RollupSource) {
+    this.txPool = new InMemoryTxPool();
+  }
 
   /**
    * Starts the P2P client.
@@ -76,10 +54,26 @@ export class MemoryP2PCLient implements P2P {
   public start() {
     this.running = true;
 
+    const lastRollupId = this.rollupSource.getLastRollupId();
+
     let synced = false;
+    let index = 0;
     while (!synced) {
-      // TODO: perform rollup sync
+      const rollups = this.rollupSource.getRollups(index, TAKE_NUM);
+      this.reconcileTxPool(rollups);
+      index += TAKE_NUM;
+      this.syncedRollupId = index;
+
+      if (index >= lastRollupId) {
+        synced = true;
+        this.syncedRollupId = lastRollupId;
+      }
     }
+    this.syncing = false;
+    this.ready = true;
+
+    // TODO start running sync promise that checks for new blocks
+    // and performs more reconciliation with our tx pool when they're published
   }
 
   /**
@@ -105,5 +99,33 @@ export class MemoryP2PCLient implements P2P {
    */
   public isRunning() {
     return this.running;
+  }
+
+  /**
+   * Lets consumers know if the p2p client is fully synced and ready to receive txs.
+   * @returns True if the P2P client is ready to receive txs.
+   */
+  public isReady() {
+    return this.ready;
+  }
+
+  /**
+   * Method to check the status the p2p client.
+   * @returns Information about p2p client status: ready, syncing, syncedRollupId.
+   */
+  public getStatus() {
+    return {
+      ready: this.ready,
+      syncing: this.syncing,
+      syncedRollupId: this.syncedRollupId,
+    };
+  }
+
+  /**
+   * Internal method that uses the provided rollups to check against the client's tx pool.
+   * @param rollups - A list of existing rollups with txs that the P2P client needs to ensure the tx pool is reconciled with.
+   */
+  private reconcileTxPool(rollups: Rollup[]) {
+    // TODO: go through provided rollups & reconcile tx pool.
   }
 }
