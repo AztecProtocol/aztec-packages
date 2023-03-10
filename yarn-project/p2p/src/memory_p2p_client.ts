@@ -31,11 +31,6 @@ export class MemoryP2PCLient implements P2P {
   private runningSyncPromise!: Promise<void>;
 
   /**
-   * The client's instance of a transaction pool.
-   */
-  private txPool: TxPool;
-
-  /**
    * Store the ID of the latest rollup the client has synced to.
    */
   private syncedRollupId = 0;
@@ -43,10 +38,9 @@ export class MemoryP2PCLient implements P2P {
   /**
    * In-memory P2P client constructor.
    * @param rollupSource - P2P client's source for fetching existing rollup data.
+   * @param txPool - The client's instance of a transaction pool. Defaults to in-memory implementation.
    */
-  constructor(private rollupSource: RollupSource) {
-    this.txPool = new InMemoryTxPool();
-  }
+  constructor(private rollupSource: RollupSource, private txPool: TxPool = new InMemoryTxPool()) {}
 
   /**
    * Starts the P2P client.
