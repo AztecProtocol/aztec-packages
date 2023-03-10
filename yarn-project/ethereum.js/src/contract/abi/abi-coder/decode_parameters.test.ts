@@ -77,7 +77,7 @@ describe('decodeParameters', () => {
   ];
   tests.forEach(test => {
     it('should convert correctly', () => {
-      expect(abiCoder.decodeParameters.apply(abiCoder, test.params as any)).toEqual(test.result);
+      expect(abiCoder.decodeParameters(...(test.params as [any, any]))).toEqual(test.result);
     });
   });
 
@@ -125,7 +125,7 @@ describe('decodeParameters', () => {
 
   failures.forEach(test => {
     it('should not convert ' + test.params[1] + ' to ' + test.params[0], () => {
-      expect(_ => abiCoder.decodeParameters.apply(abiCoder, test.params as any)).toThrow();
+      expect(() => abiCoder.decodeParameters(...(test.params as [any, any]))).toThrow();
     });
   });
 });

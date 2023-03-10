@@ -3,9 +3,9 @@ import { EthAddress } from '../../../../eth_address/index.js';
 import { toBigIntBE, toBufferBE } from '../../../../bigint_buffer/index.js';
 import { bufferToHex, hexToBuffer } from '../../../../hex_string/index.js';
 
-const NegativeOne: bigint = BigInt(-1);
-const Zero: bigint = BigInt(0);
-const MaxUint256: bigint = BigInt('0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff');
+const NegativeOne = BigInt(-1);
+const Zero = BigInt(0);
+const MaxUint256 = BigInt('0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff');
 
 type ParamType = {
   name?: string;
@@ -81,11 +81,11 @@ function parseParam(param: string, allowIndexed?: boolean): ParamType {
     throw new Error('unexpected character "' + param[i] + '" at position ' + i + ' in "' + param + '"');
   }
 
-  var parent: ParseNode = { type: '', name: '', state: { allowType: true } };
-  var node: any = parent;
+  const parent: ParseNode = { type: '', name: '', state: { allowType: true } };
+  let node: any = parent;
 
-  for (var i = 0; i < param.length; i++) {
-    var c = param[i];
+  for (let i = 0; i < param.length; i++) {
+    const c = param[i];
     switch (c) {
       case '(':
         if (!node.state.allowParams) {
@@ -97,7 +97,7 @@ function parseParam(param: string, allowIndexed?: boolean): ParamType {
         node = node.components[0];
         break;
 
-      case ')':
+      case ')': {
         delete node.state;
         if (allowIndexed && node.name === 'indexed') {
           node.indexed = true;
@@ -105,7 +105,7 @@ function parseParam(param: string, allowIndexed?: boolean): ParamType {
         }
         node.type = verifyType(node.type);
 
-        var child = node;
+        const child = node;
         node = node.parent;
         if (!node) {
           throwError(i);
@@ -115,8 +115,8 @@ function parseParam(param: string, allowIndexed?: boolean): ParamType {
         node.state.allowName = true;
         node.state.allowArray = true;
         break;
-
-      case ',':
+      }
+      case ',': {
         delete node.state;
         if (allowIndexed && node.name === 'indexed') {
           node.indexed = true;
@@ -124,12 +124,12 @@ function parseParam(param: string, allowIndexed?: boolean): ParamType {
         }
         node.type = verifyType(node.type);
 
-        var sibling: ParseNode = { type: '', name: '', parent: node.parent, state: { allowType: true } };
+        const sibling: ParseNode = { type: '', name: '', parent: node.parent, state: { allowType: true } };
         node.parent.components.push(sibling);
         delete node.parent;
         node = sibling;
         break;
-
+      }
       // Hit a space...
       case ' ':
         // If reading type, the type is done and may read a param or name
@@ -386,7 +386,7 @@ abstract class Coder {
   readonly type: string;
   readonly localName: string;
   readonly dynamic: boolean;
-  constructor(name: string, type: string, localName: string = '', dynamic: boolean) {
+  constructor(name: string, type: string, localName = '', dynamic: boolean) {
     this.name = name;
     this.type = type;
     this.localName = localName;
@@ -415,7 +415,7 @@ class CoderNull extends Coder {
     super('null', '', localName, false);
   }
 
-  encode(value: any): Buffer {
+  encode(): Buffer {
     return Buffer.alloc(0);
   }
 
@@ -483,8 +483,8 @@ class CoderNumber extends Coder {
         value: bufferToHex(data.subarray(offset, offset + 32)),
       });
     }
-    var junkLength = 32 - this.size;
-    var value = toBigIntBE(Buffer.from(data.subarray(offset + junkLength, offset + 32)));
+    const junkLength = 32 - this.size;
+    let value = toBigIntBE(Buffer.from(data.subarray(offset + junkLength, offset + 32)));
     if (this.signed && value > BigInt(1) << BigInt(this.size * 8 - 1)) {
       value = value - MaxUint256 - 1n;
     }
@@ -495,7 +495,7 @@ class CoderNumber extends Coder {
     };
   }
 }
-var uint256Coder = new CoderNumber(32, false, 'none');
+const uint256Coder = new CoderNumber(32, false, 'none');
 
 class CoderBoolean extends Coder {
   constructor(localName: string) {
@@ -503,12 +503,16 @@ class CoderBoolean extends Coder {
   }
 
   encode(value: boolean): Buffer {
-    return uint256Coder.encode(!!value ? 1 : 0);
+    return uint256Coder.encode(value ? 1 : 0);
   }
 
   decode(data: Buffer, offset: number): DecodedResult<boolean> {
     try {
-      var result = uint256Coder.decode(data, offset);
+      const result = uint256Coder.decode(data, offset);
+      return {
+        consumed: result.consumed,
+        value: !!Number(result.value),
+      };
     } catch (error: any) {
       if (error.reason === 'insufficient data for uint256 type') {
         errors.throwError('insufficient data for boolean type', errors.INVALID_ARGUMENT, {
@@ -519,10 +523,6 @@ class CoderBoolean extends Coder {
       }
       throw error;
     }
-    return {
-      consumed: result.consumed,
-      value: !!Number(result.value),
-    };
   }
 }
 
@@ -607,8 +607,8 @@ class CoderAddress extends Coder {
 }
 
 function _encodeDynamicBytes(value: Buffer): Buffer {
-  var dataLength = 32 * Math.ceil(value.length / 32);
-  var padding = new Buffer(dataLength - value.length);
+  const dataLength = 32 * Math.ceil(value.length / 32);
+  const padding = new Buffer(dataLength - value.length);
 
   return Buffer.concat([uint256Coder.encode(value.length), value, padding]);
 }
@@ -667,7 +667,7 @@ class CoderDynamicBytes extends Coder {
   }
 
   decode(data: Buffer, offset: number): DecodedResult {
-    var result = _decodeDynamicBytes(data, offset, this.localName);
+    const result = _decodeDynamicBytes(data, offset, this.localName);
     result.value = bufferToHex(result.value);
     return result;
   }
@@ -690,7 +690,7 @@ class CoderString extends Coder {
   }
 
   decode(data: Buffer, offset: number): DecodedResult {
-    var result = _decodeDynamicBytes(data, offset, this.localName);
+    const result = _decodeDynamicBytes(data, offset, this.localName);
     result.value = new TextDecoder('utf-8').decode(result.value);
     return result;
   }
@@ -704,7 +704,7 @@ function pack(coders: Array<Coder>, values: Array<any>): Buffer {
   if (Array.isArray(values)) {
     // do nothing
   } else if (values && typeof values === 'object') {
-    var arrayValues: Array<any> = [];
+    const arrayValues: Array<any> = [];
     coders.forEach(function (coder) {
       arrayValues.push((<any>values)[coder.localName]);
     });
@@ -723,13 +723,13 @@ function pack(coders: Array<Coder>, values: Array<any>): Buffer {
     });
   }
 
-  var parts: Array<{ dynamic: boolean; value: any }> = [];
+  const parts: Array<{ dynamic: boolean; value: any }> = [];
 
   coders.forEach(function (coder, index) {
     parts.push({ dynamic: coder.dynamic, value: coder.encode(values[index]) });
   });
 
-  var staticSize = 0,
+  let staticSize = 0,
     dynamicSize = 0;
   parts.forEach(function (part) {
     if (part.dynamic) {
@@ -740,9 +740,9 @@ function pack(coders: Array<Coder>, values: Array<any>): Buffer {
     }
   });
 
-  var offset = 0,
+  let offset = 0,
     dynamicOffset = staticSize;
-  var data = new Buffer(staticSize + dynamicSize);
+  const data = new Buffer(staticSize + dynamicSize);
 
   parts.forEach(function (part) {
     if (part.dynamic) {
@@ -761,17 +761,18 @@ function pack(coders: Array<Coder>, values: Array<any>): Buffer {
 }
 
 function unpack(coders: Array<Coder>, data: Buffer, offset: number): DecodedResult {
-  var baseOffset = offset;
-  var consumed = 0;
-  var value: any = [];
+  const baseOffset = offset;
+  let consumed = 0;
+  const value: any = [];
   coders.forEach(function (coder) {
+    let result;
     if (coder.dynamic) {
-      var dynamicOffset = uint256Coder.decode(data, offset);
-      var result = coder.decode(data, baseOffset + Number(dynamicOffset.value));
+      const dynamicOffset = uint256Coder.decode(data, offset);
+      result = coder.decode(data, baseOffset + Number(dynamicOffset.value));
       // The dynamic part is leap-frogged somewhere else; doesn't count towards size
       result.consumed = dynamicOffset.consumed;
     } else {
-      var result = coder.decode(data, offset);
+      result = coder.decode(data, offset);
     }
 
     if (result.value != undefined) {
@@ -826,9 +827,9 @@ class CoderArray extends Coder {
       });
     }
 
-    var count = this.length;
+    let count = this.length;
 
-    var result = new Buffer(0);
+    let result = new Buffer(0);
     if (count === -1) {
       count = value.length;
       result = uint256Coder.encode(count);
@@ -836,8 +837,8 @@ class CoderArray extends Coder {
 
     errors.checkArgumentCount(count, value.length, 'in coder array' + (this.localName ? ' ' + this.localName : ''));
 
-    var coders: any[] = [];
-    for (var i = 0; i < value.length; i++) {
+    const coders: any[] = [];
+    for (let i = 0; i < value.length; i++) {
       coders.push(this.coder);
     }
 
@@ -848,13 +849,14 @@ class CoderArray extends Coder {
     // @TODO:
     //if (data.length < offset + length * 32) { throw new Error('invalid array'); }
 
-    var consumed = 0;
+    let consumed = 0;
 
-    var count = this.length;
+    let count = this.length;
 
     if (count === -1) {
+      let decodedLength: any;
       try {
-        var decodedLength = uint256Coder.decode(data, offset);
+        decodedLength = uint256Coder.decode(data, offset);
       } catch (error: any) {
         return errors.throwError('insufficient data for dynamic array length', errors.INVALID_ARGUMENT, {
           arg: this.localName,
@@ -874,12 +876,12 @@ class CoderArray extends Coder {
       offset += decodedLength.consumed;
     }
 
-    var coders: any[] = [];
-    for (var i = 0; i < count; i++) {
+    const coders: any[] = [];
+    for (let i = 0; i < count; i++) {
       coders.push(new CoderAnonymous(this.coder));
     }
 
-    var result = unpack(coders, data, offset);
+    const result = unpack(coders, data, offset);
     result.consumed += consumed;
     return result;
   }
@@ -887,15 +889,15 @@ class CoderArray extends Coder {
 
 class CoderTuple extends Coder {
   constructor(private coders: Array<Coder>, localName: string) {
-    var dynamic = false;
-    var types: Array<string> = [];
+    let dynamic = false;
+    const types: Array<string> = [];
     coders.forEach(function (coder) {
       if (coder.dynamic) {
         dynamic = true;
       }
       types.push(coder.type);
     });
-    var type = 'tuple(' + types.join(',') + ')';
+    const type = 'tuple(' + types.join(',') + ')';
 
     super('tuple', type, localName, dynamic);
     this.coders = coders;
@@ -906,7 +908,7 @@ class CoderTuple extends Coder {
   }
 
   decode(data: Buffer, offset: number): DecodedResult {
-    var result = unpack(this.coders, data, offset);
+    const result = unpack(this.coders, data, offset);
     return result;
   }
 }
@@ -952,7 +954,7 @@ function getTupleParamCoder(components: Array<any>, localName: string): CoderTup
   if (!components) {
     components = [];
   }
-  var coders: Array<Coder> = [];
+  const coders: Array<Coder> = [];
   components.forEach(function (component) {
     coders.push(getParamCoder(component));
   });
@@ -961,13 +963,13 @@ function getTupleParamCoder(components: Array<any>, localName: string): CoderTup
 }
 
 function getParamCoder(param: ParamType): Coder {
-  var coder = paramTypeSimple[param.type];
+  const coder = paramTypeSimple[param.type];
   if (coder) {
     return new coder(param.name);
   }
-  var match = param.type.match(paramTypeNumber);
+  let match = param.type.match(paramTypeNumber);
   if (match) {
-    let size = parseInt(match[2] || '256');
+    const size = parseInt(match[2] || '256');
     if (size === 0 || size > 256 || size % 8 !== 0) {
       return errors.throwError('invalid ' + match[1] + ' bit length', errors.INVALID_ARGUMENT, {
         arg: 'param',
@@ -977,9 +979,9 @@ function getParamCoder(param: ParamType): Coder {
     return new CoderNumber(size / 8, match[1] === 'int', param.name!);
   }
 
-  var match = param.type.match(paramTypeBytes);
+  match = param.type.match(paramTypeBytes);
   if (match) {
-    let size = parseInt(match[1]);
+    const size = parseInt(match[1]);
     if (size === 0 || size > 32) {
       errors.throwError('invalid bytes length', errors.INVALID_ARGUMENT, {
         arg: 'param',
@@ -989,9 +991,9 @@ function getParamCoder(param: ParamType): Coder {
     return new CoderFixedBytes(size, param.name!);
   }
 
-  var match = param.type.match(paramTypeArray);
+  match = param.type.match(paramTypeArray);
   if (match) {
-    let size = parseInt(match[2] || '-1');
+    const size = parseInt(match[2] || '-1');
     param = {
       ...param,
       type: match[1],
@@ -1024,7 +1026,7 @@ export class AbiCoder {
       });
     }
 
-    var coders: Array<Coder> = [];
+    const coders: Array<Coder> = [];
     types.forEach(type => {
       // Convert types to type objects
       //   - "uint foo" => { type: "uint", name: "foo" }

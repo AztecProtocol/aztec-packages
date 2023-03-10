@@ -16,14 +16,14 @@ export const MISSING_ARGUMENT = 'MISSING_ARGUMENT';
 //   - expectedCount: The number of arguments expected
 export const UNEXPECTED_ARGUMENT = 'UNEXPECTED_ARGUMENT';
 
-let _censorErrors = false;
+const _censorErrors = false;
 
 export function throwError(message: string, code: string = UNKNOWN_ERROR, params: any = {}): never {
   if (_censorErrors) {
     throw new Error('unknown error');
   }
 
-  let messageDetails: Array<string> = [];
+  const messageDetails: Array<string> = [];
   Object.keys(params).forEach(key => {
     try {
       messageDetails.push(key + '=' + JSON.stringify(params[key]));
@@ -33,13 +33,13 @@ export function throwError(message: string, code: string = UNKNOWN_ERROR, params
   });
   messageDetails.push('version=1');
 
-  let reason = message;
+  const reason = message;
   if (messageDetails.length) {
     message += ' (' + messageDetails.join(', ') + ')';
   }
 
   // @TODO: Any??
-  let error: any = new Error(message);
+  const error: any = new Error(message);
   error.reason = reason;
   error.code = code;
 

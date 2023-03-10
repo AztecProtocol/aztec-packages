@@ -42,7 +42,7 @@ describe('eth', () => {
         ]);
         const methodAbi = contractAbi.functions[0];
 
-        mockEthereumProvider.request.mockImplementationOnce(async ({ method, params }) => {
+        mockEthereumProvider.request.mockImplementationOnce(({ method, params }) => {
           expect(method).toBe('eth_sendTransaction');
           expect(params).toEqual([
             {
@@ -56,18 +56,18 @@ describe('eth', () => {
               // gasPrice: '0x5af3107a4000',
             },
           ]);
-          return '0x1234000000000000000000000000000000000000000000000000000000056789';
+          return Promise.resolve('0x1234000000000000000000000000000000000000000000000000000000056789');
         });
 
-        mockEthereumProvider.request.mockImplementationOnce(async ({ method, params }) => {
+        mockEthereumProvider.request.mockImplementationOnce(({ method }) => {
           expect(method).toBe('eth_blockNumber');
-          return '0xa';
+          return Promise.resolve('0xa');
         });
 
-        mockEthereumProvider.request.mockImplementationOnce(async ({ method, params }) => {
+        mockEthereumProvider.request.mockImplementationOnce(({ method, params }) => {
           expect(method).toBe('eth_getTransactionReceipt');
           expect(params).toEqual(['0x1234000000000000000000000000000000000000000000000000000000056789']);
-          return {
+          return Promise.resolve({
             from: fromAddressLowercase,
             contractAddress: contractAddressLowercase,
             cumulativeGasUsed: '0xa',
@@ -76,7 +76,7 @@ describe('eth', () => {
             blockNumber: '0xa',
             blockHash: '0xbf1234',
             gasUsed: '0x0',
-          };
+          });
         });
 
         const args = [contractAddress, 10];
@@ -121,7 +121,7 @@ describe('eth', () => {
         ]);
         const methodAbi = contractAbi.functions[0];
 
-        mockEthereumProvider.request.mockImplementationOnce(async ({ method, params }) => {
+        mockEthereumProvider.request.mockImplementationOnce(({ method, params }) => {
           expect(method).toBe('eth_call');
           expect(params).toEqual([
             {
@@ -131,7 +131,7 @@ describe('eth', () => {
             },
             'latest',
           ]);
-          return '0x000000000000000000000000000000000000000000000000000000000000000a';
+          return Promise.resolve('0x000000000000000000000000000000000000000000000000000000000000000a');
         });
 
         const args = [contractAddress];

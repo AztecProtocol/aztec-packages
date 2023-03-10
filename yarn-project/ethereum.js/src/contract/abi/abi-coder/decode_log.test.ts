@@ -238,7 +238,7 @@ const tests = [
 describe('decodeLog', () => {
   tests.forEach(test => {
     it('should convert correctly', () => {
-      expect(abiCoder.decodeLog.apply(abiCoder, test.params as any)).toEqual(test.result);
+      expect(abiCoder.decodeLog(...(test.params as [any, any, any]))).toEqual(test.result);
     });
   });
 

@@ -79,7 +79,7 @@ function makeImports(name: string, importPath: string) {
 function makeEventType(definition: ContractEntryDefinition) {
   const props = ts.factory.createTypeLiteralNode(
     definition.inputs!.map(input =>
-      ts.factory.createPropertySignature(undefined, input.name, undefined, getTsTypeFromSolidityType(input, true)),
+      ts.factory.createPropertySignature(undefined, input.name, undefined, getTsTypeFromSolidityType(input)),
     ),
   );
 
@@ -190,7 +190,7 @@ function makeTransactionReceiptInterface(name: string) {
   );
 }
 
-function getBaseType(type: string, returnValue: boolean) {
+function getBaseType(type: string /*, returnValue: boolean*/) {
   let m: RegExpMatchArray | null;
   if ((m = type.match(/u?int(\d*)/) || type.match(/u?fixed([0-9x]*)/))) {
     const width = m[1] ? +m[1] : 256;
@@ -222,23 +222,23 @@ function getBaseType(type: string, returnValue: boolean) {
   return ts.factory.createKeywordTypeNode(ts.SyntaxKind.StringKeyword);
 }
 
-function getTupleType(components: AbiInput[], returnValue: boolean): ts.TypeLiteralNode {
+function getTupleType(components: AbiInput[]): ts.TypeLiteralNode {
   return ts.factory.createTypeLiteralNode(
     components!.map(prop =>
-      ts.factory.createPropertySignature(undefined, prop.name, undefined, getTsTypeFromSolidityType(prop, returnValue)),
+      ts.factory.createPropertySignature(undefined, prop.name, undefined, getTsTypeFromSolidityType(prop)),
     ),
   );
 }
 
-function getTsTypeFromSolidityType(input: AbiInput, returnValue: boolean, type?: string) {
+function getTsTypeFromSolidityType(input: AbiInput, type?: string) {
   type = type || input.type;
   const arrayMatched = type.match(/(.+)\[\d*\]$/);
   if (arrayMatched) {
-    const tsType = getTsTypeFromSolidityType(input, returnValue, arrayMatched[1]);
+    const tsType = getTsTypeFromSolidityType(input, arrayMatched[1]);
     return ts.factory.createArrayTypeNode(tsType);
   } else {
     const isTuple = type === 'tuple';
-    return isTuple ? getTupleType(input.components, returnValue) : getBaseType(type, returnValue);
+    return isTuple ? getTupleType(input.components) : getBaseType(type);
   }
 }
 
@@ -248,7 +248,7 @@ function makeParameter(input: AbiInput, index: number) {
     undefined,
     input.name || `a${index}`,
     undefined,
-    getTsTypeFromSolidityType(input, false),
+    getTsTypeFromSolidityType(input),
   );
 }
 
@@ -257,13 +257,13 @@ function generateReturnTypes(outputs: AbiOutput[]): ReadonlyArray<TypeNode> {
     return [];
   } else if (outputs.length === 1) {
     // original return value.
-    return [getTsTypeFromSolidityType(outputs[0], true)];
+    return [getTsTypeFromSolidityType(outputs[0])];
   } else {
     // multiple return values: return an object.
     const propSigs: PropertySignature[] = [];
     for (let index = 0; index < outputs.length; index++) {
       const output = outputs[index];
-      const type = getTsTypeFromSolidityType(output as AbiInput, true);
+      const type = getTsTypeFromSolidityType(output as AbiInput);
       if (output.name) {
         // name exists for the output: create a key for that
         const nameSig = ts.factory.createPropertySignature(
@@ -490,7 +490,7 @@ function makeFile(name: string, abi: ContractAbiDefinition, initData: string | u
   ]);
 }
 
-async function makeAndWriteAbi(outputPath: string, name: string, abi: ContractAbiDefinition, importPath: string) {
+function makeAndWriteAbi(outputPath: string, name: string, abi: ContractAbiDefinition, importPath: string) {
   const abiOutputFile = `${outputPath}/${name}Abi.ts`;
   const output = `import { ContractAbi} from '${getImport(
     importPath,
@@ -513,6 +513,7 @@ export async function makeAndWriteFiles(
 
   // Not sure how to make a single Node out of the NodeArray. Otherwise this would be a clean one liner.
   await fs.promises.unlink(interfaceOutputFile).catch(() => {});
+  fs.appendFileSync(interfaceOutputFile, '/* eslint-disable */\n');
   fs.appendFileSync(interfaceOutputFile, '// @ts-nocheck\n');
   for (const node of nodes) {
     fs.appendFileSync(interfaceOutputFile, printer.printNode(ts.EmitHint.Unspecified, node, resultFile) + '\n');
@@ -532,7 +533,7 @@ async function main() {
   await Promise.all(
     Object.entries(config.contracts).map(async entry => {
       const buildData = await loadDataFromConfig(entry[1]);
-      makeAndWriteFiles(outputPath, entry[0], buildData, importPath);
+      return makeAndWriteFiles(outputPath, entry[0], buildData, importPath);
     }),
   );
 }

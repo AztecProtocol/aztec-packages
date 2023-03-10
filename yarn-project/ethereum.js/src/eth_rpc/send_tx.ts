@@ -14,7 +14,7 @@ export class SentTransaction implements SendTx {
   constructor(protected eth: EthereumRpc, protected txHashPromise: Promise<TxHash>) {}
 
   public async getTxHash(): Promise<TxHash> {
-    return this.txHashPromise;
+    return await this.txHashPromise;
   }
 
   public async getReceipt(numConfirmations = 1, timeout = 0, interval = 10): Promise<TransactionReceipt> {
@@ -27,11 +27,11 @@ export class SentTransaction implements SendTx {
     return await this.handleReceipt(receipt);
   }
 
-  protected async handleReceipt(receipt: TransactionReceipt) {
+  protected handleReceipt(receipt: TransactionReceipt) {
     if (receipt.status === false) {
       throw new Error('Transaction has been reverted by the EVM.');
     }
-    return receipt;
+    return Promise.resolve(receipt);
   }
 }
 

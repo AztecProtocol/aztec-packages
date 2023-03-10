@@ -54,7 +54,7 @@ const tests = [
 describe('encodeEventSignature', () => {
   tests.forEach(test => {
     it('should convert correctly', () => {
-      expect(abiCoder.encodeEventSignature.apply(abiCoder, test.params as any)).toEqual(test.result);
+      expect(abiCoder.encodeEventSignature(...(test.params as [any]))).toEqual(test.result);
     });
   });
 });

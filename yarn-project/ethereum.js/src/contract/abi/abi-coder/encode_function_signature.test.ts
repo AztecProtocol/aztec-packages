@@ -100,7 +100,7 @@ const tests = [
 describe('encodeFunctionSignature', () => {
   tests.forEach(test => {
     it('should convert correctly', () => {
-      expect(abiCoder.encodeFunctionSignature.apply(abiCoder, test.params as any)).toEqual(test.result);
+      expect(abiCoder.encodeFunctionSignature(...(test.params as [any]))).toEqual(test.result);
     });
   });
 });

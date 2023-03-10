@@ -69,7 +69,7 @@ const tests = [
 describe('encodeFunctionCall', () => {
   tests.forEach(test => {
     it('should convert correctly', () => {
-      expect(abiCoder.encodeFunctionCall.apply(abiCoder, test.params as any)).toEqual(test.result);
+      expect(abiCoder.encodeFunctionCall(...(test.params as [any, any]))).toEqual(test.result);
     });
   });
 });

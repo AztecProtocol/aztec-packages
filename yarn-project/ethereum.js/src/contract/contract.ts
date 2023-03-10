@@ -227,7 +227,7 @@ export class Contract<T extends ContractDefinition | void = void> {
   //   return events;
   // }
 
-  private getLogOptions(eventName: string = 'allevents', options: LogRequest): LogRequest {
+  private getLogOptions(eventName = 'allevents', options: LogRequest): LogRequest {
     if (!this.address) {
       throw new Error('No contract address.');
     }
