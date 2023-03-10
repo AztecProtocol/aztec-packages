@@ -22,4 +22,10 @@ export interface TxPool {
    * @param txIds - An array of tx IDs to be removed from the tx pool.
    */
   deleteTxs(txIds: Buffer[]): void;
+
+  /**
+   * Gets all transactions currently in the tx pool.
+   * @returns An array of transaction objects found in the tx pool.
+   */
+  getAllTxs(): Tx[];
 }

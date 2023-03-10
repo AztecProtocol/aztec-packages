@@ -85,7 +85,7 @@ export class MemoryP2PCLient implements P2P {
    * @returns An array of Txs.
    */
   public getTxs(): Tx[] {
-    return [];
+    return this.txPool.getAllTxs();
   }
 
   /**
@@ -93,8 +93,7 @@ export class MemoryP2PCLient implements P2P {
    * @param tx - The tx to verify.
    **/
   public sendTx(tx: Tx): void {
-    console.log(JSON.stringify(tx));
-    return;
+    this.txPool.addTxs([tx]);
   }
 
   /**

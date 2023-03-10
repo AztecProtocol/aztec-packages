@@ -54,4 +54,12 @@ export class InMemoryTxPool implements TxPool {
   public deleteTxs(txIds: Buffer[]): void {
     txIds.forEach(txId => this.txs.delete(toBigInt(txId)));
   }
+
+  /**
+   * Gets all the transactions stored in the pool.
+   * @returns Array of tx objects in the order they were added to the pool.
+   */
+  public getAllTxs(): Tx[] {
+    return Array.from(this.txs.values());
+  }
 }
