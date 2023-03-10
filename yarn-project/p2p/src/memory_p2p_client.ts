@@ -77,6 +77,16 @@ export class MemoryP2PCLient implements P2P {
   }
 
   /**
+   * Allows consumers to stop the instance of the P2P client.
+   * 'running' & 'ready' will now return 'false' and the running promise that keeps the client synced is interrupted.
+   */
+  public stop() {
+    this.running = false;
+    this.ready = false;
+    // TODO: interrupt runningSyncPromise
+  }
+
+  /**
    * Returns all transactions in the transaction pool.
    * @returns An array of Txs.
    */
