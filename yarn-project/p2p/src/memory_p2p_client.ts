@@ -9,7 +9,7 @@ const TAKE_NUM = 10;
 /**
  * An in-memory implementation of the P2P client.
  */
-export class MemoryP2PCLient implements P2P {
+export class InMemoryP2PCLient implements P2P {
   /**
    * Property that indicates whether the client is running.
    */
@@ -28,7 +28,7 @@ export class MemoryP2PCLient implements P2P {
   /**
    * The JS promise that will be running to keep the client's data in sync. Can be interrupted if the client is stopped.
    */
-  private runningSyncPromise!: Promise<void>;
+  // private runningSyncPromise!: Promise<void>;
 
   /**
    * Store the ID of the latest rollup the client has synced to.

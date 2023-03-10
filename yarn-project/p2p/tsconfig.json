@@ -5,7 +5,7 @@
     "rootDir": "src",
     "tsBuildInfoFile": ".tsbuildinfo",
     "moduleResolution": "nodenext",
-    "types": ["node"]
+    "types": ["node", "jest"]
   },
   "include": ["src"]
 }

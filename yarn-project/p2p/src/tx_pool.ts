@@ -5,17 +5,17 @@ import { Tx } from './tx.js';
  */
 export interface TxPool {
   /**
+   * Adds a list of transactions to the pool. Duplicates are ignored.
+   * @param txs - An array of txs to be added to the pool.
+   */
+  addTxs(txs: Tx[]): void;
+
+  /**
    * Checks if a transaction exists in the pool and returns it.
    * @param txId - The generated tx ID.
    * @returns The transaction, if found, 'undefined' otherwise.
    */
   getTx(txId: Buffer): Tx | undefined;
-
-  /**
-   * Adds a list of transactions to the pool. Duplicates are ignored.
-   * @param txs - An array of txs to be added to the pool.
-   */
-  addTxs(txs: Tx[]): void;
 
   /**
    * Deletes transactions from the pool. Tx IDs that are not present are ignored.

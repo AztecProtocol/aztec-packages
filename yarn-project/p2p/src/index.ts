@@ -1,4 +1,4 @@
-import { MemoryP2PCLient } from './memory_p2p_client.js';
+import { InMemoryP2PCLient } from './memory_p2p_client.js';
 import { MockRollupSource } from './mocks.js';
 
 /**
@@ -7,7 +7,7 @@ import { MockRollupSource } from './mocks.js';
 function main() {
   // TODO: replace with actual rollup source that gets instantiated with env variables
   const rollupSource = new MockRollupSource();
-  const p2pClient = new MemoryP2PCLient(rollupSource);
+  const p2pClient = new InMemoryP2PCLient(rollupSource);
   p2pClient.start();
 
   const shutdown = () => {
