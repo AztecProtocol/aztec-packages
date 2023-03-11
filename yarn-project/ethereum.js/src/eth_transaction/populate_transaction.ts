@@ -20,7 +20,7 @@ export async function populateTransaction(
   }
 
   // Get the missing info from the Ethereum node.
-  const promises: [Promise<number>, Promise<BlockResponse> | undefined, Promise<number>] = [
+  const promises: [Promise<number>, Promise<BlockResponse | undefined> | undefined, Promise<number>] = [
     tx.chainId === undefined ? eth.getChainId() : Promise.resolve(tx.chainId),
     tx.maxFeePerGas === undefined ? eth.getBlockByNumber('latest') : undefined,
     tx.nonce === undefined ? eth.getTransactionCount(new EthAccount(privateKey).address) : Promise.resolve(tx.nonce),
@@ -30,7 +30,7 @@ export async function populateTransaction(
 
   const maxPriorityFeePerGas = tx.maxPriorityFeePerGas !== undefined ? tx.maxPriorityFeePerGas : BigInt(2500000000); // 2.5 gwei
   const maxFeePerGas = block
-    ? (block.baseFeePerGas * BigInt(115)) / BigInt(100) + maxPriorityFeePerGas
+    ? (block.baseFeePerGas! * BigInt(115)) / BigInt(100) + maxPriorityFeePerGas
     : tx.maxFeePerGas!;
   const { to, gas, value = BigInt(0), data } = tx;
 

@@ -1,4 +1,4 @@
-import { ContractAbi} from '../../contract/index.js';
+import { ContractAbi } from '../../contract/index.js';
 export default new ContractAbi([
   {
     "constant": false,

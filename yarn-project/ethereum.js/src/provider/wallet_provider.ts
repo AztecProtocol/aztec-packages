@@ -18,13 +18,11 @@ import { getTypedDataHash } from '../eth_typed_data/index.js';
  * Given an EIP1193 provider, wraps it, and provides the ability to add local accounts.
  */
 export class WalletProvider implements EthereumProvider {
-  private wallet = new EthWallet();
+  constructor(private provider: EthereumProvider, private wallet = new EthWallet()) {}
 
-  constructor(private provider: EthereumProvider) {}
-
-  public static fromHost(ethereumHost: string) {
+  public static fromHost(ethereumHost: string, wallet = new EthWallet()) {
     const provider = new JsonRpcProvider(ethereumHost);
-    return new WalletProvider(provider);
+    return new WalletProvider(provider, wallet);
   }
 
   public addAccount(privateKey: Buffer) {

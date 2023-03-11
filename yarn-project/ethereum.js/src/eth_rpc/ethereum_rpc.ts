@@ -1,6 +1,6 @@
 import { EthAddress } from '../eth_address/index.js';
 import { EthereumProvider } from '../provider/index.js';
-import { SendTx, SentTransaction } from './send_tx.js';
+import { SentTx, SentTransaction } from './sent_tx.js';
 import { TxHash } from './tx_hash.js';
 import {
   CallRequest,
@@ -18,8 +18,33 @@ import {
 } from './types/index.js';
 import { LogRequest, toRawLogRequest } from './types/log_request.js';
 
+/**
+ * Provides a direct 1 to 1 mapping with the ethereum JSON-RPC specification.
+ * https://ethereum.org/en/developers/docs/apis/json-rpc
+ *
+ * Types are marshalled to/from sensible types.
+ * Number
+ * BigInt
+ * Buffer
+ * TxHash
+ * EthAddress
+ */
 export class EthereumRpc {
   constructor(private provider: EthereumProvider) {}
+
+  public async protocolVersion() {
+    const result = await this.provider.request({ method: 'eth_protocolVersion' });
+    return Number(result);
+  }
+
+  public async syncing() {
+    const result = await this.provider.request({ method: 'eth_syncing' });
+    return {
+      startingBlock: Number(result.startingBlock),
+      currentBlock: Number(result.currentBlock),
+      highestBlock: Number(result.highestBlock),
+    };
+  }
 
   public async getChainId() {
     const result = await this.provider.request({ method: 'eth_chainId' });
@@ -57,9 +82,6 @@ export class EthereumRpc {
     return BigInt(result);
   }
 
-  /**
-   * TODO: Return proper type with converted properties.
-   */
   public async getTransactionByHash(txHash: TxHash) {
     const result = await this.provider.request({
       method: 'eth_getTransactionByHash',
@@ -89,7 +111,7 @@ export class EthereumRpc {
       method: 'eth_getBlockByNumber',
       params: [numberOrTagToHex(numberOrTag), fullTxs],
     });
-    return fromRawBlockResponse(result);
+    return result ? fromRawBlockResponse(result) : undefined;
   }
 
   public async sign(address: EthAddress, message: Buffer) {
@@ -124,7 +146,7 @@ export class EthereumRpc {
     return Buffer.from(data.slice(2), 'hex');
   }
 
-  public sendTransaction(tx: TransactionRequest): SendTx {
+  public sendTransaction(tx: TransactionRequest): SentTx {
     const txHashPromise = this.provider.request({
       method: 'eth_sendTransaction',
       params: [toRawTransactionRequest(tx)],

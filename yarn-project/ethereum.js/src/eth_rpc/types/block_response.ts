@@ -30,7 +30,7 @@ export interface RawBlockHeaderResponse {
   timestamp: string;
   extraData: string;
   nonce: string | null;
-  baseFeePerGas: string;
+  baseFeePerGas: string | null;
 }
 
 export interface RawBlockResponse extends RawBlockHeaderResponse {
@@ -56,7 +56,7 @@ export interface BlockHeaderResponse {
   timestamp: number;
   extraData: Buffer;
   nonce: Buffer | null;
-  baseFeePerGas: bigint;
+  baseFeePerGas: bigint | null;
 }
 
 export interface BlockResponse<T = TransactionResponse | Buffer> extends BlockHeaderResponse {
@@ -77,13 +77,13 @@ export function toRawBlockHeaderResponse(block: BlockHeaderResponse): RawBlockHe
     receiptsRoot: bufferToHex(block.receiptsRoot),
     logsBloom: block.logsBloom ? bufferToHex(block.logsBloom) : null,
     difficulty: bigIntToHex(block.difficulty),
-    number: block.number ? numberToHex(block.number)! : null,
+    number: block.number !== null ? numberToHex(block.number)! : null,
     gasLimit: numberToHex(block.gasLimit)!,
     gasUsed: numberToHex(block.gasUsed)!,
     timestamp: numberToHex(block.timestamp)!,
     extraData: bufferToHex(block.extraData),
-    nonce: block.nonce ? bufferToHex(block.nonce) : null,
-    baseFeePerGas: bigIntToHex(block.baseFeePerGas),
+    nonce: block.nonce !== null ? bufferToHex(block.nonce) : null,
+    baseFeePerGas: block.baseFeePerGas !== null ? bigIntToHex(block.baseFeePerGas) : null,
   };
 }
 
@@ -114,7 +114,7 @@ export function fromRawBlockHeaderResponse(block: RawBlockHeaderResponse): Block
     timestamp: hexToNumber(block.timestamp),
     extraData: hexToBuffer(block.extraData),
     nonce: block.nonce ? hexToBuffer(block.nonce) : null,
-    baseFeePerGas: hexToBigInt(block.baseFeePerGas),
+    baseFeePerGas: block.baseFeePerGas ? hexToBigInt(block.baseFeePerGas) : null,
   };
 }
 

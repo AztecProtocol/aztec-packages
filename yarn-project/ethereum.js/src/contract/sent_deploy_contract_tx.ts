@@ -1,9 +1,15 @@
 import { EthAddress } from '../eth_address/index.js';
 import { EthereumRpc, TransactionReceipt, TxHash } from '../eth_rpc/index.js';
 import { ContractAbi } from './abi/index.js';
-import { Contract } from './contract.js';
+import { ContractTxReceipt } from './contract_tx_receipt.js';
 import { SentContractTx } from './sent_contract_tx.js';
 
+// export class ContractDeployError extends Error {}
+
+/**
+ * Extends the standard contract SentContractTx class to execute a callback, which is currently used to set the
+ * contract address on the original Contract instance.
+ */
 export class SentDeployContractTx extends SentContractTx {
   constructor(
     eth: EthereumRpc,
@@ -14,25 +20,20 @@ export class SentDeployContractTx extends SentContractTx {
     super(eth, contractAbi, promise);
   }
 
-  protected async handleReceipt(receipt: TransactionReceipt) {
-    receipt = await super.handleReceipt(receipt);
+  protected async handleReceipt(receipt: TransactionReceipt): Promise<ContractTxReceipt> {
+    // if (!receipt.contractAddress) {
+    //   throw new Error('The contract deployment receipt did not contain a contract address.');
+    // }
 
-    if (!receipt.contractAddress) {
-      throw new Error('The contract deployment receipt did not contain a contract address.');
+    // const code = await this.ethRpc.getCode(receipt.contractAddress);
+    // if (code.length === 0) {
+    //   throw new Error(`Contract code could not be stored at ${receipt.contractAddress}.`);
+    // }
+
+    if (receipt.contractAddress) {
+      this.onDeployed(receipt.contractAddress);
     }
 
-    const code = await this.eth.getCode(receipt.contractAddress);
-    if (code.length === 0) {
-      throw new Error(`Contract code could not be stored at ${receipt.contractAddress}.`);
-    }
-
-    this.onDeployed(receipt.contractAddress);
-
-    return receipt;
-  }
-
-  public async getContract() {
-    const receipt = await this.getReceipt();
-    return new Contract(this.eth, this.contractAbi, receipt.contractAddress);
+    return await super.handleReceipt(receipt);
   }
 }

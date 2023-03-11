@@ -95,22 +95,22 @@ export class ABICoder {
 
   /**
    * Should be used to decode list of params
-   *
-   * @method decodeParameter
-   * @param {Array} outputs
-   * @param {String} bytes
-   * @return {Array} array of plain params
    */
-  public decodeParameters(outputs, bytes: Buffer | string) {
+  public decodeParameters(outputs, bytes: Buffer | string): { [k: string | number]: any } {
+    const returnValue: { [k: string | number]: any } = { __length__: 0 };
+
     if (typeof bytes === 'string') {
       bytes = hexToBuffer(bytes);
     }
+
     if (!bytes || bytes.length === 0) {
-      throw new Error("Returned values aren't valid, did it run Out of Gas?");
+      if (outputs.length === 0) {
+        return returnValue;
+      }
+      throw new Error("decodeParameters: Buffer length is 0.");
     }
 
     const res = this.ethersAbiCoder.decode(this.mapTypes(outputs), bytes);
-    const returnValue: { [k: string | number]: any } = { __length__: 0 };
 
     outputs.forEach((output, i) => {
       let decodedValue = res[returnValue.__length__];

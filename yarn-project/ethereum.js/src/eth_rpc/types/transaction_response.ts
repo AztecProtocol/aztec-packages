@@ -1,5 +1,12 @@
 import { EthAddress } from '../../eth_address/index.js';
-import { bigIntToHex, hexToBigInt, hexToNumber, numberToHex } from '../../hex_string/index.js';
+import {
+  bigIntToHex,
+  bufferToHex,
+  hexToBigInt,
+  hexToBuffer,
+  hexToNumber,
+  numberToHex,
+} from '../../hex_string/index.js';
 
 export interface RawTransactionResponse {
   blockHash: string | null;
@@ -30,7 +37,7 @@ export interface TransactionResponse {
   maxFeePerGas?: bigint;
   maxPriorityFeePerGas?: bigint;
   hash: string;
-  input: string;
+  input: Buffer;
   nonce: number;
   to: EthAddress | null;
   transactionIndex: number | null;
@@ -55,6 +62,7 @@ export function fromRawTransactionResponse(tx: RawTransactionResponse): Transact
     type: hexToNumber(tx.type),
     to: tx.to ? EthAddress.fromString(tx.to) : null,
     from: EthAddress.fromString(tx.from),
+    input: hexToBuffer(tx.input),
   };
 }
 
@@ -72,5 +80,6 @@ export function toRawTransactionResponse(tx: TransactionResponse): RawTransactio
     type: numberToHex(tx.type),
     to: tx.to ? tx.to.toString() : null,
     from: tx.from.toString(),
+    input: bufferToHex(tx.input),
   };
 }

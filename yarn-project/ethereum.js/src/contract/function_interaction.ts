@@ -3,7 +3,7 @@ import {
   CallRequest,
   EthereumRpc,
   NumberOrTag,
-  SendTx,
+  SentTx,
   TransactionReceipt,
   TransactionRequest,
 } from '../eth_rpc/index.js';
@@ -11,8 +11,6 @@ import { hexToBuffer } from '../hex_string/index.js';
 import { ContractAbi, ContractFunctionEntry } from './abi/index.js';
 import { decodeErrorFromContract } from './decode_error.js';
 import { SentContractTx } from './sent_contract_tx.js';
-
-export type TxFactory = (...args: any[]) => Tx;
 
 export interface Options {
   from?: EthAddress;
@@ -29,20 +27,34 @@ export interface SendOptions extends CallOptions {
   nonce?: number;
 }
 
+/**
+ * The interactions available when making a call.
+ */
 export interface TxCall<Return = any> {
   call(options?: CallOptions, block?: NumberOrTag): Promise<Return>;
   estimateGas(options?: CallOptions): Promise<number>;
   encodeABI(): Buffer;
 }
 
+/**
+ * The interactions available when performing a tx send.
+ */
 export interface TxSend<TxReceipt = TransactionReceipt, Return = any> {
   call(options?: CallOptions, block?: NumberOrTag): Promise<Return>;
-  send(options?: SendOptions): SendTx<TxReceipt>;
+  send(options?: SendOptions): SentTx<TxReceipt>;
   estimateGas(options?: CallOptions): Promise<number>;
   encodeABI(): Buffer;
 }
 
-export class Tx implements TxCall, TxSend {
+/**
+ * This is the class that is returned when calling e.g. `contract.methods.myMethod(arg1, arg2)`
+ * It represents an interaction that can occur with that method and arguments. Interactions are:
+ * - `estimateGas`
+ * - `call`
+ * - `send`
+ * - `encodeAbi`
+ */
+export class FunctionInteraction implements TxCall, TxSend {
   constructor(
     protected eth: EthereumRpc,
     protected contractEntry: ContractFunctionEntry,
@@ -56,10 +68,7 @@ export class Tx implements TxCall, TxSend {
     try {
       return await this.eth.estimateGas(this.getCallRequest(options));
     } catch (err: any) {
-      if (err.data) {
-        err.decodedData = decodeErrorFromContract(this.contractAbi, hexToBuffer(err.data));
-      }
-      throw err;
+      this.handleError(err);
     }
   }
 
@@ -68,14 +77,11 @@ export class Tx implements TxCall, TxSend {
       const result = await this.eth.call(this.getCallRequest(options), block);
       return this.contractEntry.decodeReturnValue(result);
     } catch (err: any) {
-      if (err.data) {
-        err.decodedData = decodeErrorFromContract(this.contractAbi, hexToBuffer(err.data));
-      }
-      throw err;
+      this.handleError(err);
     }
   }
 
-  public send(options: SendOptions): SendTx {
+  public send(options: SendOptions): SentTx {
     const tx = this.getTxRequest(options);
 
     if (!this.contractEntry.payable && tx.value !== undefined && tx.value > 0) {
@@ -94,7 +100,7 @@ export class Tx implements TxCall, TxSend {
   private getTxRequest(options: SendOptions = {}): TransactionRequest {
     const from = options.from || this.defaultOptions.from;
     if (!from) {
-      throw new Error('Missing from field.');
+      throw new Error('You must specify a from address to send a tx.');
     }
     return {
       ...this.defaultOptions,
@@ -112,5 +118,15 @@ export class Tx implements TxCall, TxSend {
       to: this.contractAddress!,
       data: this.encodeABI(),
     };
+  }
+
+  private handleError(err: any): never {
+    if (err.data && err.data.length > 2) {
+      const decoded = decodeErrorFromContract(this.contractAbi, hexToBuffer(err.data));
+      if (decoded) {
+        throw new Error(`call() failed: ${decoded.message}`);
+      }
+    }
+    throw new Error(`call() failed: ${err.message}`);
   }
 }

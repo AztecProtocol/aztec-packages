@@ -31,12 +31,10 @@ describe('decode_error', () => {
     expect(error).not.toBeUndefined();
     expect(error).toMatchObject({
       name: 'INCORRECT_STATE_HASH',
-      params: {
-        '0': '0x160e1512008ebe521f7650fddad39c8a4f092fc451263be0190d631da26d345f',
-        '1': '0x88b748f29261d3cc053519106d94b965cd94d9143d58104f9becb80814d6917c',
-        oldStateHash: '0x160e1512008ebe521f7650fddad39c8a4f092fc451263be0190d631da26d345f',
-        newStateHash: '0x88b748f29261d3cc053519106d94b965cd94d9143d58104f9becb80814d6917c',
-      },
+      params: [
+        '0x160e1512008ebe521f7650fddad39c8a4f092fc451263be0190d631da26d345f',
+        '0x88b748f29261d3cc053519106d94b965cd94d9143d58104f9becb80814d6917c',
+      ],
     });
   });
 });

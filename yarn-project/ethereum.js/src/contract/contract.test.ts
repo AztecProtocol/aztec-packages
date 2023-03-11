@@ -28,7 +28,7 @@ describe('contract', () => {
   describe('instantiation', () => {
     it('should construct without address', () => {
       const contract = new TestContract(eth);
-      expect(contract.address).toBeUndefined();
+      expect(contract.address).toEqual(EthAddress.ZERO);
     });
 
     it('should transform address from checksum addresses', () => {
@@ -93,10 +93,10 @@ describe('contract', () => {
   //       if (err) {
   //         return done(err);
   //       }
-  //       expect(result.returnValues.from).toEqual(address);
-  //       expect(result.returnValues.amount).toBe('1');
-  //       expect(result.returnValues.t1).toBe('1');
-  //       expect(result.returnValues.t2).toBe('8');
+  //       expect(result.args.from).toEqual(address);
+  //       expect(result.args.amount).toBe('1');
+  //       expect(result.args.t1).toBe('1');
+  //       expect(result.args.t2).toBe('8');
 
   //       event.unsubscribe();
   //       done();
@@ -111,10 +111,10 @@ describe('contract', () => {
   //     const event = contract.events['0x792991ed5ba9322deaef76cff5051ce4bedaaa4d097585970f9ad8f09f54e651'](
   //       { filter: { from: address } },
   //       (err, result) => {
-  //         expect(result.returnValues.from).toEqual(address);
-  //         expect(result.returnValues.amount).toBe('1');
-  //         expect(result.returnValues.t1).toBe('1');
-  //         expect(result.returnValues.t2).toBe('8');
+  //         expect(result.args.from).toEqual(address);
+  //         expect(result.args.amount).toBe('1');
+  //         expect(result.args.t1).toBe('1');
+  //         expect(result.args.t2).toBe('8');
 
   //         event.unsubscribe();
   //         done();
@@ -128,10 +128,10 @@ describe('contract', () => {
   //     const contract = new TestContract(eth, address);
 
   //     const event = contract.events[signature]({ filter: { from: address } }, (err, result) => {
-  //       expect(result.returnValues.from).toEqual(address);
-  //       expect(result.returnValues.amount).toBe('1');
-  //       expect(result.returnValues.t1).toBe('1');
-  //       expect(result.returnValues.t2).toBe('8');
+  //       expect(result.args.from).toEqual(address);
+  //       expect(result.args.amount).toBe('1');
+  //       expect(result.args.t1).toBe('1');
+  //       expect(result.args.t2).toBe('8');
 
   //       event.unsubscribe();
   //       done();
@@ -186,22 +186,22 @@ describe('contract', () => {
   //       count++;
 
   //       if (count === 1) {
-  //         expect(result.returnValues.from).toEqual(address);
-  //         expect(result.returnValues.amount).toBe('2');
-  //         expect(result.returnValues.t1).toBe('2');
-  //         expect(result.returnValues.t2).toBe('9');
+  //         expect(result.args.from).toEqual(address);
+  //         expect(result.args.amount).toBe('2');
+  //         expect(result.args.t1).toBe('2');
+  //         expect(result.args.t2).toBe('9');
   //       }
   //       if (count === 2) {
-  //         expect(result.returnValues.from).toEqual(address);
-  //         expect(result.returnValues.amount).toBe('3');
-  //         expect(result.returnValues.t1).toBe('4');
-  //         expect(result.returnValues.t2).toBe('5');
+  //         expect(result.args.from).toEqual(address);
+  //         expect(result.args.amount).toBe('3');
+  //         expect(result.args.t1).toBe('4');
+  //         expect(result.args.t2).toBe('5');
   //       }
   //       if (count === 3) {
-  //         expect(result.returnValues.from).toEqual(address);
-  //         expect(result.returnValues.amount).toBe('1');
-  //         expect(result.returnValues.t1).toBe('1');
-  //         expect(result.returnValues.t2).toBe('8');
+  //         expect(result.args.from).toEqual(address);
+  //         expect(result.args.amount).toBe('1');
+  //         expect(result.args.t1).toBe('1');
+  //         expect(result.args.t2).toBe('8');
 
   //         event.unsubscribe();
   //         done();
@@ -282,15 +282,15 @@ describe('contract', () => {
   //       count++;
 
   //       if (count === 1 && result.event === 'Changed') {
-  //         expect(result.returnValues.from).toEqual(address);
-  //         expect(result.returnValues.amount).toBe('1');
-  //         expect(result.returnValues.t1).toBe('1');
-  //         expect(result.returnValues.t2).toBe('8');
+  //         expect(result.args.from).toEqual(address);
+  //         expect(result.args.amount).toBe('1');
+  //         expect(result.args.t1).toBe('1');
+  //         expect(result.args.t2).toBe('8');
   //       }
   //       if (count === 2 && result.event === 'Unchanged') {
-  //         expect(result.returnValues.addressFrom).toEqual(address);
-  //         expect(result.returnValues.value).toBe('2');
-  //         expect(result.returnValues.t1).toBe('5');
+  //         expect(result.args.addressFrom).toEqual(address);
+  //         expect(result.args.value).toBe('2');
+  //         expect(result.args.t1).toBe('5');
 
   //         event.unsubscribe();
   //         done();
@@ -581,6 +581,7 @@ describe('contract', () => {
         blockNumber: '0xa',
         blockHash: '0x1234',
         gasUsed: '0x0',
+        status: '0x1',
         logs: [
           {
             address: addressLowercase,
@@ -646,7 +647,8 @@ describe('contract', () => {
         blockHash: '0x1234',
         gasUsed: 0,
         contractAddress: undefined,
-        status: undefined,
+        status: true,
+        logs: expect.any(Array),
         anonymousLogs: expect.any(Array),
         events: expect.any(Object),
       });
@@ -695,7 +697,7 @@ describe('contract', () => {
             blockHash: '0x1345',
             logIndex: 0,
             transactionIndex: 0,
-            returnValues: expect.any(Object),
+            args: expect.any(Object),
             event: 'Unchanged',
             signature: '0xf359668f205d0b5cfdc20d11353e05f633f83322e96f15486cbb007d210d66e5',
             raw: {
@@ -716,7 +718,7 @@ describe('contract', () => {
             blockHash: '0x1345',
             logIndex: 1,
             transactionIndex: 0,
-            returnValues: expect.any(Object),
+            args: expect.any(Object),
             event: 'Changed',
             signature: '0x792991ed5ba9322deaef76cff5051ce4bedaaa4d097585970f9ad8f09f54e651',
             raw: {
@@ -742,7 +744,7 @@ describe('contract', () => {
         .send({ from: address2, maxFeePerGas: 21345678654321n })
         .getReceipt();
 
-      expect(receipt.events!.Changed[0].returnValues).toEqual({
+      expect(receipt.events!.Changed[0].args).toEqual({
         0: address,
         1: 1n,
         2: 1n,
@@ -753,7 +755,7 @@ describe('contract', () => {
         t2: 8n,
       });
 
-      expect(receipt.events!.Unchanged[0].returnValues).toEqual({
+      expect(receipt.events!.Unchanged[0].args).toEqual({
         0: 2n,
         1: address,
         2: 5n,
@@ -782,6 +784,7 @@ describe('contract', () => {
         blockNumber: '0xa',
         blockHash: '0x1234',
         gasUsed: '0x0',
+        status: '0x1',
         logs: [
           {
             address: address.toString(),
@@ -834,7 +837,7 @@ describe('contract', () => {
             blockHash: '0x1345',
             logIndex: 4,
             transactionIndex: 0,
-            returnValues: {
+            args: {
               0: address,
               1: 1n,
               2: 1n,
@@ -862,7 +865,7 @@ describe('contract', () => {
             blockHash: '0x1345',
             logIndex: 5,
             transactionIndex: 0,
-            returnValues: {
+            args: {
               0: address,
               1: 2n,
               2: 1n,
@@ -906,6 +909,7 @@ describe('contract', () => {
         blockHash: '0x1234',
         gasUsed: '0x0',
         logs: [],
+        status: '0x1',
       });
 
       // eth_blockNumber
@@ -921,6 +925,7 @@ describe('contract', () => {
         blockHash: '0x1234',
         gasUsed: '0x0',
         logs: [],
+        status: '0x1',
       });
 
       const contract = new TestContract(eth, address);
@@ -938,8 +943,10 @@ describe('contract', () => {
         blockNumber: 10,
         blockHash: '0x1234',
         gasUsed: 0,
+        logs: [],
         anonymousLogs: [],
         events: {},
+        status: true,
       });
     });
 
@@ -1370,7 +1377,7 @@ describe('contract', () => {
               '0000000000000000000000000000000000000000000000000000000000000009',
             topics: topic1,
           },
-          returnValues: {
+          args: {
             0: address,
             1: 10n,
             2: 2n,
@@ -1396,7 +1403,7 @@ describe('contract', () => {
               '0000000000000000000000000000000000000000000000000000000000000005',
             topics: topic2,
           },
-          returnValues: {
+          args: {
             0: address,
             1: 3n,
             2: 4n,
@@ -1611,6 +1618,7 @@ describe('contract', () => {
   describe('deploy', () => {
     const txReceipt: RawTransactionReceipt = {
       transactionHash: '0x1234555555555555555555555555555555555555555555555555555555555555',
+      to: null,
       from: addressLowercase,
       contractAddress: address2Lowercase,
       blockHash: '0xffdd',
@@ -1618,6 +1626,8 @@ describe('contract', () => {
       blockNumber: '0x1',
       cumulativeGasUsed: '0x1',
       gasUsed: '0x1',
+      logs: [],
+      status: '0x1',
     };
 
     it('should deploy a contract and use all promise steps', async () => {
@@ -1678,61 +1688,6 @@ describe('contract', () => {
 
       expect(txHash).toBe('0x5550000000000000000000000000000000000000000000000000000000000032');
       expect(receipt.contractAddress).toEqual(address2);
-    });
-
-    it('should fail deployment if cannot retreive code', async () => {
-      // eth_sendTransaction
-      mockEthereumProvider.request.mockResolvedValueOnce(
-        '0x5550000000000000000000000000000000000000000000000000000000000032',
-      );
-
-      // eth_blockNumber
-      mockEthereumProvider.request.mockResolvedValueOnce('0x1');
-
-      // eth_getTransactionReceipt
-      mockEthereumProvider.request.mockResolvedValueOnce(txReceipt);
-
-      // eth_getCode
-      mockEthereumProvider.request.mockResolvedValueOnce('0x');
-
-      // eth_unsubscribe
-      mockEthereumProvider.request.mockResolvedValueOnce('0x1');
-
-      const contract = new TestContract(eth);
-
-      const sendTx = contract.deployBytecode('0x01234567', address, 200).send({
-        from: address,
-        gas: 50000,
-        maxFeePerGas: 3000n,
-      });
-
-      await expect(sendTx.getReceipt()).rejects.toThrowError('code could not be stored');
-    });
-
-    it('should fail deployment if no contract address in receipt', async () => {
-      // eth_sendTransaction
-      mockEthereumProvider.request.mockResolvedValueOnce(
-        '0x5550000000000000000000000000000000000000000000000000000000000032',
-      );
-
-      // eth_blockNumber
-      mockEthereumProvider.request.mockResolvedValueOnce('0x1');
-
-      // eth_getTransactionReceipt
-      mockEthereumProvider.request.mockResolvedValueOnce({ ...txReceipt, contractAddress: undefined });
-
-      // eth_unsubscribe
-      mockEthereumProvider.request.mockResolvedValueOnce('0x1');
-
-      const contract = new TestContract(eth);
-
-      const sendTx = contract.deployBytecode('0x01234567', address, 200).send({
-        from: address,
-        gas: 50000,
-        maxFeePerGas: 3000n,
-      });
-
-      await expect(sendTx.getReceipt()).rejects.toThrowError('contract address');
     });
 
     it('should deploy a contract with no ctor', async () => {

@@ -1,4 +1,4 @@
-export type AbiDataTypes = 'uint256' | 'boolean' | 'string' | 'bytes' | string;
+export type AbiDataTypes = 'bool' | 'string' | 'address' | 'function' | 'uint' | 'int' | 'bytes' | string;
 
 export type AbiInput = {
   components?: any;
@@ -22,7 +22,7 @@ export interface ContractEntryDefinition {
   inputs?: AbiInput[];
   name?: string;
   outputs?: AbiOutput[];
-  type: 'function' | 'constructor' | 'event' | 'fallback' | 'error';
+  type: 'function' | 'constructor' | 'event' | 'fallback' | 'error' | 'receive';
   stateMutability?: 'pure' | 'view' | 'payable' | 'nonpayable';
   signature?: string;
   gas?: number;

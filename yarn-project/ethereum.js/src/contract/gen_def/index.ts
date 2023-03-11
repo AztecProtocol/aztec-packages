@@ -1,11 +1,6 @@
 #!/usr/bin/env node
-/*
-  Copyright (c) 2019 xf00f
-
-  This file is part of web3x and is released under the MIT License.
-  https://opensource.org/licenses/MIT
-*/
-
+import sourceMapSupport from 'source-map-support';
+sourceMapSupport.install();
 import fs from 'fs';
 import ts, { ClassElement, PropertySignature, TypeNode } from 'typescript';
 import { AbiInput, AbiOutput, ContractAbiDefinition, ContractEntryDefinition } from '../abi/index.js';
@@ -42,8 +37,6 @@ function makeImports(name: string, importPath: string) {
         undefined,
         ts.factory.createNamedImports([
           ts.factory.createImportSpecifier(false, undefined, ts.factory.createIdentifier('EthereumRpc')),
-          ts.factory.createImportSpecifier(false, undefined, ts.factory.createIdentifier('EventLog')),
-          ts.factory.createImportSpecifier(false, undefined, ts.factory.createIdentifier('TransactionReceipt')),
         ]),
       ),
       ts.factory.createStringLiteral(getImport(importPath, 'eth_rpc')),
@@ -55,6 +48,8 @@ function makeImports(name: string, importPath: string) {
         undefined,
         ts.factory.createNamedImports([
           ts.factory.createImportSpecifier(false, undefined, ts.factory.createIdentifier('Contract')),
+          ts.factory.createImportSpecifier(false, undefined, ts.factory.createIdentifier('ContractTxReceipt')),
+          ts.factory.createImportSpecifier(false, undefined, ts.factory.createIdentifier('EventLog')),
           ts.factory.createImportSpecifier(false, undefined, ts.factory.createIdentifier('Options')),
           ts.factory.createImportSpecifier(false, undefined, ts.factory.createIdentifier('TxCall')),
           ts.factory.createImportSpecifier(false, undefined, ts.factory.createIdentifier('TxSend')),
@@ -181,7 +176,7 @@ function makeTransactionReceiptInterface(name: string) {
     undefined,
     [
       ts.factory.createHeritageClause(ts.SyntaxKind.ExtendsKeyword, [
-        ts.factory.createExpressionWithTypeArguments(ts.factory.createRegularExpressionLiteral('TransactionReceipt'), [
+        ts.factory.createExpressionWithTypeArguments(ts.factory.createRegularExpressionLiteral('ContractTxReceipt'), [
           ts.factory.createTypeReferenceNode(`${name}TxEventLogs`, undefined),
         ]),
       ]),
@@ -309,6 +304,7 @@ function getOutputType(name: string, definition: ContractEntryDefinition) {
   } else {
     return ts.factory.createTypeReferenceNode('TxSend', [
       ts.factory.createTypeReferenceNode(`${name}TransactionReceipt`, undefined),
+      ...generateReturnTypes(definition.outputs || []),
     ]);
   }
 }
@@ -492,7 +488,7 @@ function makeFile(name: string, abi: ContractAbiDefinition, initData: string | u
 
 function makeAndWriteAbi(outputPath: string, name: string, abi: ContractAbiDefinition, importPath: string) {
   const abiOutputFile = `${outputPath}/${name}Abi.ts`;
-  const output = `import { ContractAbi} from '${getImport(
+  const output = `import { ContractAbi } from '${getImport(
     importPath,
     'contract',
   )}';\nexport default new ContractAbi(${JSON.stringify(abi, undefined, 2)});`;
@@ -508,13 +504,12 @@ export async function makeAndWriteFiles(
   const interfaceOutputFile = `${outputPath}/${name}.ts`;
 
   const resultFile = ts.createSourceFile('', '', ts.ScriptTarget.Latest, false, ts.ScriptKind.TS);
-  // resultFile.statements = makeFile(name, abi, initData, importPath);
   const nodes = makeFile(name, abi, initData, importPath);
 
   // Not sure how to make a single Node out of the NodeArray. Otherwise this would be a clean one liner.
   await fs.promises.unlink(interfaceOutputFile).catch(() => {});
+  fs.appendFileSync(interfaceOutputFile, '// THIS IS GENERATED CODE, DO NOT EDIT!\n');
   fs.appendFileSync(interfaceOutputFile, '/* eslint-disable */\n');
-  fs.appendFileSync(interfaceOutputFile, '// @ts-nocheck\n');
   for (const node of nodes) {
     fs.appendFileSync(interfaceOutputFile, printer.printNode(ts.EmitHint.Unspecified, node, resultFile) + '\n');
   }

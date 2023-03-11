@@ -1,4 +1,5 @@
 import { EthAddress } from '../../eth_address/index.js';
+import { hexToBuffer } from '../../hex_string/index.js';
 import { fromRawTransactionResponse } from './transaction_response.js';
 
 describe('formatters', () => {
@@ -23,7 +24,7 @@ describe('formatters', () => {
           s: 's',
         }),
       ).toEqual({
-        input: '0x3454645634534',
+        input: hexToBuffer('0x3454645634534'),
         from: EthAddress.fromString('0x11f4d0A3c12e86B4b5F39B213F7E19D048276DAe'),
         to: EthAddress.fromString('0x11f4d0A3c12e86B4b5F39B213F7E19D048276DAe'),
         value: 1000n,
@@ -61,7 +62,7 @@ describe('formatters', () => {
           s: 's',
         }),
       ).toEqual({
-        input: '0x3454645634534',
+        input: hexToBuffer('0x3454645634534'),
         from: EthAddress.fromString('0x11f4d0A3c12e86B4b5F39B213F7E19D048276DAe'),
         to: null,
         value: 1000n,

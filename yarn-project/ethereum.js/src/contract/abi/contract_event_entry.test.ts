@@ -38,10 +38,10 @@ describe('contract', () => {
           '0000000000000000000000000000000000000000000000000000000000000008',
       });
 
-      expect(result.returnValues.from).toEqual(address);
-      expect(result.returnValues.amount).toBe(1n);
-      expect(result.returnValues.t1).toBe(1n);
-      expect(result.returnValues.t2).toBe(8n);
+      expect(result.args.from).toEqual(address);
+      expect(result.args.amount).toBe(1n);
+      expect(result.args.t1).toBe(1n);
+      expect(result.args.t2).toBe(8n);
     });
 
     const name = 'event1';
@@ -66,7 +66,7 @@ describe('contract', () => {
         expected: {
           event: name,
           signature: null,
-          returnValues: {},
+          args: {},
           logIndex: 1,
           transactionIndex: 16,
           transactionHash: '0x1234567890',
@@ -104,7 +104,7 @@ describe('contract', () => {
         expected: {
           event: name,
           signature: null,
-          returnValues: {
+          args: {
             0: 1n,
             a: 1n,
           },
@@ -168,7 +168,7 @@ describe('contract', () => {
         expected: {
           event: name,
           signature: address,
-          returnValues: {
+          args: {
             0: 1n,
             1: 10n,
             2: 4n,
@@ -245,7 +245,7 @@ describe('contract', () => {
         expected: {
           event: name,
           signature: null,
-          returnValues: {
+          args: {
             0: 1n,
             1: 10n,
             2: 4n,

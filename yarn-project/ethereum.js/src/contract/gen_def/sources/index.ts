@@ -17,10 +17,12 @@ export interface ContractBuildData {
   initData?: string;
 }
 
+const { ETHERSCAN_API_KEY = '', ETHEREUM_HOST = '' } = process.env;
+
 export async function loadDataFromConfig(contract: ContractConfig): Promise<ContractBuildData> {
   switch (contract.source) {
     case 'etherscan':
-      return await getFromEtherscan(contract.net, contract.address);
+      return await getFromEtherscan(contract.net, contract.address, ETHERSCAN_API_KEY, ETHEREUM_HOST);
     case 'files':
       return getFromFiles(contract.abiFile, contract.initDataFile);
     case 'truffle':

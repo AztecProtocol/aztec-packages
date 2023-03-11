@@ -1,5 +1,6 @@
-import { EventLog, LogResponse } from '../../eth_rpc/index.js';
+import { LogResponse } from '../../eth_rpc/index.js';
 import { hexToBuffer } from '../../hex_string/index.js';
+import { EventLog } from '../contract_tx_receipt.js';
 import { abiCoder } from './abi-coder/index.js';
 import { ContractEntryDefinition } from './contract_abi_definition.js';
 import { ContractEntry } from './contract_entry.js';
@@ -51,7 +52,7 @@ export class ContractEventEntry extends ContractEntry {
     return {
       ...formattedLog,
       event: name,
-      returnValues,
+      args: returnValues,
       signature: anonymous || !topics[0] ? null : topics[0],
       raw: {
         data,

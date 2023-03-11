@@ -1,30 +1,70 @@
 import { CallRequest, EthereumRpc, TxHash } from '../eth_rpc/index.js';
+import { hexToBuffer } from '../hex_string/index.js';
 import { ContractAbi } from './abi/contract_abi.js';
 
-export function decodeErrorFromContract(contract: ContractAbi, data: Buffer) {
+export interface DecodedError {
+  name?: string;
+  params?: any[];
+  message: string;
+}
+
+export function decodeErrorFromContract(contractAbi: ContractAbi, data: Buffer) {
   const sigHash = data.subarray(0, 4);
   const args = data.subarray(4);
 
-  const error = contract.errors.find(e => e.signature.equals(sigHash));
+  const error = contractAbi.errors.find(e => e.signature.equals(sigHash));
   if (!error) {
     return;
   }
+  const decoded = error.decodeParameters(args);
+  const params = Array.from({ length: decoded.__length__ }).map((_, i) => decoded[i]);
 
-  const errorValue = {
-    name: error.name,
-    params: error.decodeParameters(args),
+  const errorValue: DecodedError = {
+    name: error.name!,
+    params,
+    message: `${error.name!}(${params.map(p => p.toString()).join(',')})`,
   };
 
   return errorValue;
 }
 
-export async function decodeErrorFromContractByTxHash(contract: ContractAbi, txHash: TxHash, ethRpc: EthereumRpc) {
-  const txResp = await ethRpc.getTransactionByHash(txHash);
-  const rep = await ethRpc.call(txResp as CallRequest, txResp.blockNumber!);
-
-  if (!rep) {
-    return;
+/**
+ * If a transaction fails, you can call this to decode the error.
+ * It locates the block within which the tx failed, and then "replays" the tx via a call against the state of the prior
+ * block. This should reproduce the error deterministically, but will return data that can be decoded to show the error.
+ *
+ * @param contractAbi The abi of the contract.
+ * @param txHash
+ * @param ethRpc
+ * @returns
+ */
+export async function decodeErrorFromContractByTxHash(
+  contractAbi: ContractAbi,
+  txHash: TxHash,
+  ethRpc: EthereumRpc,
+): Promise<DecodedError> {
+  const { from, gas, to, maxFeePerGas, maxPriorityFeePerGas, value, input, blockNumber } =
+    await ethRpc.getTransactionByHash(txHash);
+  const callReq: CallRequest = {
+    from,
+    gas,
+    to: to!,
+    maxFeePerGas,
+    maxPriorityFeePerGas,
+    value,
+    data: input,
+  };
+  try {
+    await ethRpc.call(callReq, blockNumber! - 1);
+    // We expect the call the throw.
+    return { message: 'Cannot determine failure, as call succeeded when replaying transaction.' };
+  } catch (err: any) {
+    if (err.data && err.data.length > 2) {
+      const decodedError = decodeErrorFromContract(contractAbi, hexToBuffer(err.data));
+      if (decodedError) {
+        return decodedError;
+      }
+    }
+    return { message: err.message };
   }
-
-  return decodeErrorFromContract(contract, rep);
 }

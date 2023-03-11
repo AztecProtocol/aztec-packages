@@ -17,14 +17,16 @@
     "./provider": "./dest/provider/index.js",
     "./serialize": "./dest/serialize/index.js",
     "./log": "./dest/log/index.js",
-    "./timer": "./dest/timer/index.js"
+    "./timer": "./dest/timer/index.js",
+    "./units": "./dest/units/index.js"
   },
   "scripts": {
-    "build": "yarn clean && yarn formatting && tsc -b tsconfig.dest.json",
+    "build": "yarn clean && tsc -b tsconfig.dest.json",
+    "build:dev": "yarn build --watch",
     "clean": "rm -rf ./dest .tsbuildinfo",
     "formatting": "run -T prettier --check ./src && run -T eslint --max-warnings 0 ./src",
     "test": "NODE_NO_WARNINGS=1 node --openssl-legacy-provider --experimental-vm-modules $(yarn bin jest) --no-cache",
-    "gen_fixtures": "node ./dest/contract/gen_def/index.js ./src/contract/fixtures/contracts.json"
+    "gen_fixtures": "NODE_NO_WARNINGS=1 node ./dest/contract/gen_def/index.js ./src/contract/fixtures/contracts.json"
   },
   "bin": {
     "contract_gen_def": "./dest/contract/gen_def/index.js"
@@ -52,6 +54,7 @@
     "pbkdf2": "^3.1.2",
     "rlp": "^3.0.0",
     "sha3": "^2.1.4",
+    "source-map-support": "^0.5.21",
     "uuid": "^9.0.0"
   },
   "devDependencies": {

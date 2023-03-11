@@ -10,7 +10,7 @@ import {
 
 export interface CallRequest {
   from?: EthAddress;
-  to: EthAddress;
+  to?: EthAddress;
   gas?: number;
   maxFeePerGas?: bigint;
   maxPriorityFeePerGas?: bigint;
@@ -20,7 +20,7 @@ export interface CallRequest {
 
 export interface RawCallRequest {
   from?: string;
-  to: string;
+  to?: string;
   gas?: string;
   maxFeePerGas?: string;
   maxPriorityFeePerGas?: string;
@@ -32,7 +32,7 @@ export function toRawCallRequest(tx: CallRequest): RawCallRequest {
   const { from, to, gas, maxFeePerGas, maxPriorityFeePerGas, value, data } = tx;
   return {
     from: from ? from.toString().toLowerCase() : undefined,
-    to: to.toString().toLowerCase(),
+    to: to ? to.toString().toLowerCase() : undefined,
     data: data ? bufferToHex(data) : undefined,
     value: value ? bigIntToHex(value) : undefined,
     gas: gas ? numberToHex(gas) : undefined,
@@ -45,7 +45,7 @@ export function fromRawCallRequest(tx: RawCallRequest): CallRequest {
   const { from, to, gas, maxFeePerGas, maxPriorityFeePerGas, value, data } = tx;
   return {
     from: from ? EthAddress.fromString(from) : undefined,
-    to: EthAddress.fromString(to),
+    to: to ? EthAddress.fromString(to) : undefined,
     data: data ? hexToBuffer(data) : undefined,
     value: value ? hexToBigInt(value) : undefined,
     gas: gas ? hexToNumber(gas) : undefined,
