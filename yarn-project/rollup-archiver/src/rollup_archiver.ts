@@ -97,14 +97,14 @@ export class RollupArchiver implements Status, RollupBlockSource {
   }
 
   /**
-   * {@inheritDoc RollupSource.getSyncedToBlockNum}
+   * {@inheritDoc RollupBlockSource.getSyncedToBlockNum}
    */
   public getSyncedToBlockNum(): number {
     return this.rollupBlocks.length === 0 ? -1 : this.rollupBlocks[this.rollupBlocks.length - 1].rollupBlockNumber;
   }
 
   /**
-   * {@inheritDoc RollupSource.getRollupBlocks}
+   * {@inheritDoc RollupBlockSource.getRollupBlocks}
    */
   public getRollupBlocks(from: number, take: number): RollupBlockData[] {
     if (from > this.rollupBlocks.length) {
@@ -119,7 +119,7 @@ export class RollupArchiver implements Status, RollupBlockSource {
   }
 
   /**
-   * {@inheritDoc RollupSource.getLastBlockNum}
+   * {@inheritDoc RollupBlockSource.getLastBlockNum}
    */
   public getLastBlockNum(): number {
     // TODO: fetch the last block number from the rollup contract
