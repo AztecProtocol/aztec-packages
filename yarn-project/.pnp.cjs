@@ -56,6 +56,10 @@ function $$SETUP_STATE(hydrateRuntimeState, basePath) {
         "reference": "workspace:ethereum.js"\
       },\
       {\
+        "name": "@aztec/ethereum.js-example",\
+        "reference": "workspace:ethereum.js/example"\
+      },\
+      {\
         "name": "@aztec/kernel-simulator",\
         "reference": "workspace:kernel-simulator"\
       },\
@@ -102,6 +106,7 @@ function $$SETUP_STATE(hydrateRuntimeState, basePath) {
       ["@aztec/end-to-end", ["workspace:end-to-end"]],\
       ["@aztec/eslint-config", ["workspace:eslint-config"]],\
       ["@aztec/ethereum.js", ["workspace:ethereum.js"]],\
+      ["@aztec/ethereum.js-example", ["workspace:ethereum.js/example"]],\
       ["@aztec/kernel-simulator", ["workspace:kernel-simulator"]],\
       ["@aztec/key-store", ["workspace:key-store"]],\
       ["@aztec/p2p", ["workspace:p2p"]],\
@@ -334,9 +339,25 @@ function $$SETUP_STATE(hydrateRuntimeState, basePath) {
             ["pbkdf2", "npm:3.1.2"],\
             ["rlp", "npm:3.0.0"],\
             ["sha3", "npm:2.1.4"],\
+            ["source-map-support", "npm:0.5.21"],\
             ["ts-jest", "virtual:f9a9adc12f1961f857a1d6f69bee969c0c5ed002f7046df242e184c6cf1ee981838e93da93736418e9f7e83c7afd8056bc4b565652a25235501080ac9883ceac#npm:28.0.7"],\
             ["typescript", "patch:typescript@npm%3A4.9.5#~builtin<compat/typescript>::version=4.9.5&hash=23ec76"],\
             ["uuid", "npm:9.0.0"]\
+          ],\
+          "linkType": "SOFT"\
+        }]\
+      ]],\
+      ["@aztec/ethereum.js-example", [\
+        ["workspace:ethereum.js/example", {\
+          "packageLocation": "./ethereum.js/example/",\
+          "packageDependencies": [\
+            ["@aztec/ethereum.js-example", "workspace:ethereum.js/example"],\
+            ["@aztec/eslint-config", "workspace:eslint-config"],\
+            ["@aztec/ethereum.js", "workspace:ethereum.js"],\
+            ["@rushstack/eslint-patch", "npm:1.2.0"],\
+            ["@types/node", "npm:18.15.0"],\
+            ["source-map-support", "npm:0.5.21"],\
+            ["typescript", "patch:typescript@npm%3A4.9.5#~builtin<compat/typescript>::version=4.9.5&hash=23ec76"]\
           ],\
           "linkType": "SOFT"\
         }]\
@@ -6697,6 +6718,15 @@ function $$SETUP_STATE(hydrateRuntimeState, basePath) {
           "packageLocation": "./.yarn/cache/source-map-support-npm-0.5.13-377dfd7321-933550047b.zip/node_modules/source-map-support/",\
           "packageDependencies": [\
             ["source-map-support", "npm:0.5.13"],\
+            ["buffer-from", "npm:1.1.2"],\
+            ["source-map", "npm:0.6.1"]\
+          ],\
+          "linkType": "HARD"\
+        }],\
+        ["npm:0.5.21", {\
+          "packageLocation": "./.yarn/cache/source-map-support-npm-0.5.21-09ca99e250-43e98d700d.zip/node_modules/source-map-support/",\
+          "packageDependencies": [\
+            ["source-map-support", "npm:0.5.21"],\
             ["buffer-from", "npm:1.1.2"],\
             ["source-map", "npm:0.6.1"]\
           ],\

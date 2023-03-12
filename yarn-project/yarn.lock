@@ -170,7 +170,20 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@aztec/ethereum.js@workspace:ethereum.js":
+"@aztec/ethereum.js-example@workspace:ethereum.js/example":
+  version: 0.0.0-use.local
+  resolution: "@aztec/ethereum.js-example@workspace:ethereum.js/example"
+  dependencies:
+    "@aztec/eslint-config": "workspace:^"
+    "@aztec/ethereum.js": "workspace:^"
+    "@rushstack/eslint-patch": ^1.2.0
+    "@types/node": ^18.15.0
+    source-map-support: ^0.5.21
+    typescript: ^4.9.5
+  languageName: unknown
+  linkType: soft
+
+"@aztec/ethereum.js@workspace:^, @aztec/ethereum.js@workspace:ethereum.js":
   version: 0.0.0-use.local
   resolution: "@aztec/ethereum.js@workspace:ethereum.js"
   dependencies:
@@ -193,6 +206,7 @@ __metadata:
     pbkdf2: ^3.1.2
     rlp: ^3.0.0
     sha3: ^2.1.4
+    source-map-support: ^0.5.21
     ts-jest: 28.0.7
     typescript: ^4.9.5
     uuid: ^9.0.0
@@ -1660,7 +1674,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/node@npm:^18.14.6":
+"@types/node@npm:^18.14.6, @types/node@npm:^18.15.0":
   version: 18.15.0
   resolution: "@types/node@npm:18.15.0"
   checksum: d81372276dd5053b1743338b61a2178ff9722dc609189d01fc7d1c2acd539414039e0e4780678730514390dad3f29c366a28c29e8dbd5b0025651181f6dd6669
@@ -5448,6 +5462,16 @@ __metadata:
     buffer-from: ^1.0.0
     source-map: ^0.6.0
   checksum: 933550047b6c1a2328599a21d8b7666507427c0f5ef5eaadd56b5da0fd9505e239053c66fe181bf1df469a3b7af9d775778eee283cbb7ae16b902ddc09e93a97
+  languageName: node
+  linkType: hard
+
+"source-map-support@npm:^0.5.21":
+  version: 0.5.21
+  resolution: "source-map-support@npm:0.5.21"
+  dependencies:
+    buffer-from: ^1.0.0
+    source-map: ^0.6.0
+  checksum: 43e98d700d79af1d36f859bdb7318e601dfc918c7ba2e98456118ebc4c4872b327773e5a1df09b0524e9e5063bb18f0934538eace60cca2710d1fa687645d137
   languageName: node
   linkType: hard
 
