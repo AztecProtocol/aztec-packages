@@ -107,7 +107,7 @@ export class ABICoder {
       if (outputs.length === 0) {
         return returnValue;
       }
-      throw new Error("decodeParameters: Buffer length is 0.");
+      throw new Error('decodeParameters: Buffer length is 0.');
     }
 
     const res = this.ethersAbiCoder.decode(this.mapTypes(outputs), bytes);

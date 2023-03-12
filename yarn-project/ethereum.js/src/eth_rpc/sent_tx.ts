@@ -10,7 +10,12 @@ import { TransactionReceipt } from './types/index.js';
  */
 export interface SentTx<TxReceipt = TransactionReceipt> {
   getTxHash(): Promise<TxHash>;
-  getReceipt(throwOnError?: boolean, numConfirmations?: number, timeout?: number, interval?: number): Promise<TxReceipt>;
+  getReceipt(
+    throwOnError?: boolean,
+    numConfirmations?: number,
+    timeout?: number,
+    interval?: number,
+  ): Promise<TxReceipt>;
 }
 
 /**
@@ -27,7 +32,12 @@ export class SentTransaction implements SentTx {
     return await this.txHashPromise;
   }
 
-  public async getReceipt(throwOnError = true, numConfirmations = 1, timeout = 0, interval = 1): Promise<TransactionReceipt> {
+  public async getReceipt(
+    throwOnError = true,
+    numConfirmations = 1,
+    timeout = 0,
+    interval = 1,
+  ): Promise<TransactionReceipt> {
     if (this.receipt) {
       return this.receipt;
     }
