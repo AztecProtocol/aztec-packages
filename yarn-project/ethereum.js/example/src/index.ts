@@ -11,8 +11,8 @@ import { Contract, ContractAbi } from '@aztec/ethereum.js/contract';
 import { hashMessage, recoverFromSignature, sign } from '@aztec/ethereum.js/eth_sign';
 import { RollupProcessorContract } from './contracts/RollupProcessorContract.js';
 import { DaiContract } from './contracts/DaiContract.js';
-import { TypedData } from '@aztec/ethereum.js/eth_typed_data';
 import { ERC20Mintable } from './contracts/ERC20Mintable.js';
+import { createPermitData } from './create_permit_data.js';
 
 /**
  * Launch forked local chain e.g: `anvil -f https://mainnet.infura.io/v3/<api_key>`
@@ -137,7 +137,7 @@ async function main() {
     );
 
     // We can also pass the typed data to the ETHEREUM_HOST to sign.
-    // In this case it's intercepted by the wallet provider.
+    // In this case it's intercepted by the WalletProvider.
     const sig2 = await ethRpc.signTypedDataV4(acc1, permitData);
     console.log(`Direct sign vs provider sign equality check: ${sig.toString() === sig2.toString()}`);
     console.log('');
@@ -182,66 +182,6 @@ async function encryptDecryptWallet(wallet: EthWallet) {
 
   console.log(`Decrypted wallet has ${decryptedWallet.length} accounts:`);
   wallet.accounts.map(a => console.log(a.address.toString()));
-}
-
-/**
- * Generates the TypedData for performing a permit.
- */
-export function createPermitData(
-  name: string,
-  owner: EthAddress,
-  spender: EthAddress,
-  value: bigint,
-  nonce: bigint,
-  deadline: bigint,
-  verifyingContract: EthAddress,
-  chainId: number,
-  version = '1',
-): TypedData {
-  const types = {
-    EIP712Domain: [
-      { name: 'name', type: 'string' },
-      { name: 'version', type: 'string' },
-      { name: 'chainId', type: 'uint256' },
-      { name: 'verifyingContract', type: 'address' },
-    ],
-    Permit: [
-      {
-        name: 'owner',
-        type: 'address',
-      },
-      {
-        name: 'spender',
-        type: 'address',
-      },
-      {
-        name: 'value',
-        type: 'uint256',
-      },
-      {
-        name: 'nonce',
-        type: 'uint256',
-      },
-      {
-        name: 'deadline',
-        type: 'uint256',
-      },
-    ],
-  };
-  const domain = {
-    name,
-    version,
-    chainId: chainId,
-    verifyingContract: verifyingContract.toString(),
-  };
-  const message = {
-    owner: owner.toString(),
-    spender: spender.toString(),
-    value: value.toString(),
-    nonce: nonce.toString(),
-    deadline: deadline.toString(),
-  };
-  return { types, domain, message, primaryType: 'Permit' };
 }
 
 main().catch(console.error);

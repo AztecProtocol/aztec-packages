@@ -12,37 +12,6 @@ export default new ContractAbi([
     "type": "constructor"
   },
   {
-    "inputs": [
-      {
-        "internalType": "bytes32",
-        "name": "digest",
-        "type": "bytes32"
-      },
-      {
-        "internalType": "address",
-        "name": "recovered",
-        "type": "address"
-      },
-      {
-        "internalType": "uint8",
-        "name": "v",
-        "type": "uint8"
-      },
-      {
-        "internalType": "bytes32",
-        "name": "r",
-        "type": "bytes32"
-      },
-      {
-        "internalType": "bytes32",
-        "name": "s",
-        "type": "bytes32"
-      }
-    ],
-    "name": "DEBUG",
-    "type": "error"
-  },
-  {
     "anonymous": false,
     "inputs": [
       {

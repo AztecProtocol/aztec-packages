@@ -7,8 +7,7 @@
   "scripts": {
     "start": "yarn build && NODE_NO_WARNINGS=1 node ./dest",
     "build": "tsc -b tsconfig.json",
-    "clean": "rm -rf ./dest .tsbuildinfo",
-    "contract_gen_def": "NODE_NO_WARNINGS=1 contract_gen_def"
+    "clean": "rm -rf ./dest .tsbuildinfo"
   },
   "dependencies": {
     "@aztec/ethereum.js": "workspace:^",
