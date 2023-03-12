@@ -8,10 +8,10 @@ import { ERC20Permit } from './contracts/ERC20Permit.js';
 import { EthAccount } from '@aztec/ethereum.js/eth_account';
 import { EthWallet } from '@aztec/ethereum.js/eth_wallet';
 import { Contract, ContractAbi } from '@aztec/ethereum.js/contract';
-import { hashMessage, recover, sign } from '@aztec/ethereum.js/eth_sign';
+import { hashMessage, recoverFromSignature, sign } from '@aztec/ethereum.js/eth_sign';
 import { RollupProcessorContract } from './contracts/RollupProcessorContract.js';
 import { DaiContract } from './contracts/DaiContract.js';
-import { getTypedDataHash, TypedData } from '@aztec/ethereum.js/eth_typed_data';
+import { TypedData } from '@aztec/ethereum.js/eth_typed_data';
 import { ERC20Mintable } from './contracts/ERC20Mintable.js';
 
 /**
@@ -51,7 +51,7 @@ async function main() {
 
   // Demonstrate a failed tx receipt has a useful error message.
   {
-    console.log('Demoing decoded errors on receipts...');
+    console.log('Demoing decoded errors on receipts, should see INVALID_PROVIDER...');
     const contract = new RollupProcessorContract(ethRpc, rollupProcessorAddr, { from: acc1, gas: 5000000 });
     const { 0: escapeHatchOpen, 1: until } = await contract.methods.getEscapeHatchStatus().call();
 
@@ -130,12 +130,16 @@ async function main() {
     const deadline = BigInt(Math.floor(Date.now() / 1000) + 5 * 60);
     const nonce = await contract.methods.nonces(acc1).call();
     const permitData = createPermitData(symbol, acc1, acc2, 10n, nonce, deadline, contract.address, chainId);
-    const digest = getTypedDataHash(permitData);
-    const sig = wallet.accounts[0].signDigest(digest);
+    const sig = wallet.accounts[0].signTypedData(permitData);
     await contract.methods.permit(acc1, acc2, 10n, deadline, sig.v, sig.r, sig.s).send().getReceipt();
     console.log(
       `Allowance of ${acc2} to transfer from ${acc1}: ${await contract.methods.allowance(acc1, acc2).call()}`,
     );
+
+    // We can also pass the typed data to the ETHEREUM_HOST to sign.
+    // In this case it's intercepted by the wallet provider.
+    const sig2 = await ethRpc.signTypedDataV4(acc1, permitData);
+    console.log(`Direct sign vs provider sign equality check: ${sig.toString() === sig2.toString()}`);
     console.log('');
   }
 
@@ -157,7 +161,7 @@ function signMessage(signingAccount: EthAccount) {
   const sig = sign(messageHash, signingAccount.privateKey);
 
   // Verify message was signed by account.
-  const address = recover(messageHash, sig.signature);
+  const address = recoverFromSignature(messageHash, sig);
   if (address.equals(signingAccount.address)) {
     console.log(`Message was signed by: ${address}`);
   } else {

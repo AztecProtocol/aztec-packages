@@ -1,10 +1,12 @@
 import { decode, encode } from 'rlp';
 import { EthTransaction } from './eth_transaction.js';
-import { encodeSignature, recover, sign, EthSignature } from '../eth_sign/index.js';
+import { sign, EthSignature, recoverFromSignature } from '../eth_sign/index.js';
 import { keccak256 } from '../crypto/index.js';
 import { numToUInt8 } from '../serialize/index.js';
 
-export interface SignedEthTransaction extends EthSignature {
+export interface SignedEthTransaction {
+  signature: EthSignature;
+  messageHash: Buffer;
   rawTransaction: Buffer;
 }
 
@@ -15,10 +17,10 @@ export function recoverTransaction(rawTx: Buffer) {
   const v = values[9][0] || 0;
   const r = Buffer.from(values[10] as Uint8Array);
   const s = Buffer.from(values[11] as Uint8Array);
-  const signature = encodeSignature(v, r, s);
+  const signature = new EthSignature(r, s, v);
   const signingDataBuf = Buffer.from(encode(values.slice(0, 9)));
   const messageHash = keccak256(Buffer.concat([txType, signingDataBuf]));
-  return recover(messageHash, signature);
+  return recoverFromSignature(messageHash, signature);
 }
 
 /**
@@ -53,7 +55,29 @@ export function signTransaction(tx: EthTransaction, privateKey: Buffer): SignedE
   const rawTransaction = Buffer.concat([txType, Buffer.from(encode(rawTx))]);
 
   return {
-    ...signature,
+    signature,
+    messageHash,
     rawTransaction,
   };
+}
+
+export function signedTransaction(tx: EthTransaction, signature: EthSignature) {
+  const txType = numToUInt8(0x2);
+
+  const toEncode = [
+    tx.chainId,
+    tx.nonce,
+    tx.maxPriorityFeePerGas,
+    tx.maxFeePerGas,
+    tx.gas,
+    new Uint8Array(tx.to ? tx.to.toBuffer() : []),
+    tx.value,
+    new Uint8Array(tx.data || []),
+    [], // access_list
+  ];
+
+  const rlpEncoded = Buffer.from(encode(toEncode));
+  const messageHash = keccak256(Buffer.concat([txType, rlpEncoded]));
+
+  return recoverFromSignature(messageHash, signature);
 }

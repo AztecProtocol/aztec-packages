@@ -1,6 +1,6 @@
 import { EthAddress } from '../eth_address/index.js';
 import { hashMessage } from './hash_message.js';
-import { recover, recoverFromSigBuffer, recoverFromSignature, recoverFromVRS, sign } from './sign.js';
+import { recoverFromSigBuffer, recoverFromSignature, recoverFromVRS, sign } from './sign.js';
 
 const tests = [
   {
@@ -27,33 +27,27 @@ describe('eth_account sign', () => {
   tests.forEach(test => {
     it('sign data', () => {
       const data = sign(test.data, test.privateKey, 27);
-      expect(data.signature).toEqual(test.signature);
+      expect(data.toBuffer()).toEqual(test.signature);
     });
 
     it('recover signature from signature buffer', () => {
       const address1 = recoverFromSigBuffer(test.data, test.signature);
-      const address2 = recover(test.data, test.signature);
 
       expect(address1).toEqual(test.address);
-      expect(address2).toEqual(test.address);
     });
 
     it('recover signature using a hash and r s v values', () => {
       const sig = sign(test.data, test.privateKey);
       const address1 = recoverFromVRS(test.data, sig.v, sig.r, sig.s);
-      const address2 = recover(test.data, sig.v, sig.r, sig.s);
 
       expect(address1).toEqual(test.address);
-      expect(address2).toEqual(test.address);
     });
 
     it('recover signature using a signature object', () => {
       const sig = sign(test.data, test.privateKey);
-      const address1 = recoverFromSignature(sig);
-      const address2 = recover(sig);
+      const address1 = recoverFromSignature(test.data, sig);
 
       expect(address1).toEqual(test.address);
-      expect(address2).toEqual(test.address);
     });
   });
 });

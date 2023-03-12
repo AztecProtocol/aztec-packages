@@ -4,8 +4,10 @@ import hdkey from 'hdkey';
 import { default as elliptic } from 'elliptic';
 import { keccak256, randomBytes } from '../crypto/index.js';
 import { decryptFromKeyStoreJson, encryptToKeyStoreJson, KeyStoreJson } from '../keystore/index.js';
-import { recover, EthSignature, hashMessage, signMessage } from '../eth_sign/index.js';
-import { EthTransaction, signTransaction } from '../eth_transaction/index.js';
+import { EthSignature, hashMessage, recoverFromSignature, signMessage } from '../eth_sign/index.js';
+import { EthTransaction, signedTransaction, signTransaction } from '../eth_transaction/index.js';
+import { TypedData } from '../eth_typed_data/typed_data.js';
+import { getTypedDataHash } from '../eth_typed_data/index.js';
 
 const secp256k1 = new elliptic.ec('secp256k1');
 
@@ -48,6 +50,10 @@ export class EthAccount {
     return signTransaction(tx, this.privateKey);
   }
 
+  public signedTransaction(tx: EthTransaction, signature: EthSignature) {
+    return signedTransaction(tx, signature).equals(this.address);
+  }
+
   /**
    * Prefixes the arbitrary length message with the '\x19Ethereum Signed Message:\n' preamble, and signs the message.
    */
@@ -65,8 +71,12 @@ export class EthAccount {
     return signMessage(digest, this.privateKey);
   }
 
-  public signed(signature: EthSignature) {
-    return recover(signature).equals(this.address);
+  public signTypedData(data: TypedData) {
+    return this.signDigest(getTypedDataHash(data));
+  }
+
+  public signedMessage(message: Buffer, signature: EthSignature) {
+    return recoverFromSignature(hashMessage(message), signature).equals(this.address);
   }
 
   public toKeyStoreJson(password: string, options?: any) {

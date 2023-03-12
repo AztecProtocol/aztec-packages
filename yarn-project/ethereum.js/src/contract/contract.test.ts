@@ -933,7 +933,7 @@ describe('contract', () => {
       const receipt = await contract.methods
         .mySend(address, 10n)
         .send({ from: address2, maxFeePerGas: 21345678654321n })
-        .getReceipt(2, 0, 0);
+        .getReceipt(true, 2, 0, 0);
 
       expect(receipt).toEqual({
         from: address2,
@@ -1684,7 +1684,7 @@ describe('contract', () => {
       });
 
       const txHash = await sendTx.getTxHash();
-      const receipt = await sendTx.getReceipt(1, 0, 0);
+      const receipt = await sendTx.getReceipt(true, 1, 0, 0);
 
       expect(txHash).toBe('0x5550000000000000000000000000000000000000000000000000000000000032');
       expect(receipt.contractAddress).toEqual(address2);

@@ -33,8 +33,9 @@ describe('eth_account', () => {
   it('should sign message', () => {
     const privateKey = Buffer.from('7a28b5ba57c53603b0b07b56bba752f7784bf506fa95edc395f5cf6c7514fe9d', 'hex');
     const account = new EthAccount(privateKey);
-    const signature = account.signMessage(Buffer.from('data to sign'));
-    expect(account.signed(signature)).toBe(true);
+    const message = Buffer.from('data to sign');
+    const signature = account.signMessage(message);
+    expect(account.signedMessage(message, signature)).toBe(true);
   });
 
   it('should sign transaction', () => {
@@ -50,6 +51,6 @@ describe('eth_account', () => {
     };
     const account = new EthAccount(privateKey);
     const signedTx = account.signTransaction(tx);
-    expect(account.signed(signedTx)).toBe(true);
+    expect(account.signedTransaction(tx, signedTx.signature)).toBe(true);
   });
 });
