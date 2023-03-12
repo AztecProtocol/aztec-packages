@@ -8,6 +8,10 @@ export interface DecodedError {
   message: string;
 }
 
+/**
+ * Given a ContractAbi and a data buffer containing the return data of a failed call(), will attempt to lookup the
+ * error in the contracts abi and to decode the return data.
+ */
 export function decodeErrorFromContract(contractAbi: ContractAbi, data: Buffer) {
   const sigHash = data.subarray(0, 4);
   const args = data.subarray(4);
@@ -32,11 +36,6 @@ export function decodeErrorFromContract(contractAbi: ContractAbi, data: Buffer) 
  * If a transaction fails, you can call this to decode the error.
  * It locates the block within which the tx failed, and then "replays" the tx via a call against the state of the prior
  * block. This should reproduce the error deterministically, but will return data that can be decoded to show the error.
- *
- * @param contractAbi The abi of the contract.
- * @param txHash
- * @param ethRpc
- * @returns
  */
 export async function decodeErrorFromContractByTxHash(
   contractAbi: ContractAbi,

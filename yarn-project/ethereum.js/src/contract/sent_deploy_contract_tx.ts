@@ -19,15 +19,6 @@ export class SentDeployContractTx extends SentContractTx {
   }
 
   protected async handleReceipt(throwOnError = true, receipt: TransactionReceipt): Promise<ContractTxReceipt> {
-    // if (!receipt.contractAddress) {
-    //   throw new Error('The contract deployment receipt did not contain a contract address.');
-    // }
-
-    // const code = await this.ethRpc.getCode(receipt.contractAddress);
-    // if (code.length === 0) {
-    //   throw new Error(`Contract code could not be stored at ${receipt.contractAddress}.`);
-    // }
-
     if (receipt.contractAddress) {
       this.onDeployed(receipt.contractAddress);
     }

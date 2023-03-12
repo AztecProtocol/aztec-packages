@@ -6,9 +6,10 @@ import { decodeErrorFromContractByTxHash } from './decode_error.js';
 
 /**
  * Extends the generic eth_rpc SentTransaction class, to provide handling of the contract function call receipt.
- * It decodes the events and extends the receipt with two new properties:
+ * It decodes the events and extends the receipt with three new properties:
  * - `anonymousLogs`: Logs that were emitted as part of external contract calls (unknown to this contracts abi).
  * - `events`: A mapping from EventName to an object with named arguments to useful value types.
+ * - `error`: An optional error object `{ message: string, decodedError?: DecodedError }`.
  */
 export class SentContractTx extends SentTransaction {
   constructor(ethRpc: EthereumRpc, protected contractAbi: ContractAbi, promise: Promise<TxHash>) {
