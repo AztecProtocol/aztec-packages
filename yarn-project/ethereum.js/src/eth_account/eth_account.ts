@@ -4,7 +4,7 @@ import hdkey from 'hdkey';
 import { default as elliptic } from 'elliptic';
 import { keccak256, randomBytes } from '../crypto/index.js';
 import { decryptFromKeyStoreJson, encryptToKeyStoreJson, KeyStoreJson } from '../keystore/index.js';
-import { recover, sign, EthSignature, hashMessage } from '../eth_sign/index.js';
+import { recover, EthSignature, hashMessage, signMessage } from '../eth_sign/index.js';
 import { EthTransaction, signTransaction } from '../eth_transaction/index.js';
 
 const secp256k1 = new elliptic.ec('secp256k1');
@@ -48,15 +48,21 @@ export class EthAccount {
     return signTransaction(tx, this.privateKey);
   }
 
+  /**
+   * Prefixes the arbitrary length message with the '\x19Ethereum Signed Message:\n' preamble, and signs the message.
+   */
   public signMessage(message: Buffer) {
-    return sign(hashMessage(message), this.privateKey);
+    return signMessage(hashMessage(message), this.privateKey);
   }
 
-  public signDigest(message: Buffer) {
-    if (message.length !== 32) {
+  /**
+   * Signs a 32 byte digest.
+   */
+  public signDigest(digest: Buffer) {
+    if (digest.length !== 32) {
       throw new Error('Expected digest to be 32 bytes.');
     }
-    return sign(message, this.privateKey);
+    return signMessage(digest, this.privateKey);
   }
 
   public signed(signature: EthSignature) {

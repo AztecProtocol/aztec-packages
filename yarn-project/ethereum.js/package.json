@@ -15,10 +15,12 @@
     "./contract": "./dest/contract/index.js",
     "./contract/bytes.js": "./dest/contract/bytes.js",
     "./provider": "./dest/provider/index.js",
+    "./units": "./dest/units/index.js",
     "./serialize": "./dest/serialize/index.js",
     "./log": "./dest/log/index.js",
     "./timer": "./dest/timer/index.js",
-    "./units": "./dest/units/index.js"
+    "./bigint_buffer": "./dest/bigint_buffer/index.js",
+    "./crypto": "./dest/crypto/index.js"
   },
   "scripts": {
     "build": "yarn clean && tsc -b tsconfig.dest.json",

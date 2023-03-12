@@ -8,14 +8,13 @@ const secp256k1 = new elliptic.ec('secp256k1');
 
 export interface EthSignature {
   messageHash: Buffer;
-  r: bigint;
-  s: bigint;
+  r: Buffer;
+  s: Buffer;
   v: number;
   signature: Buffer;
 }
 
-export const encodeSignature = (v: number, r: bigint, s: bigint) =>
-  Buffer.concat([toBufferBE(r, 32), toBufferBE(s, 32), numToUInt8(v)]);
+export const encodeSignature = (v: number, r: Buffer, s: Buffer) => Buffer.concat([r, s, numToUInt8(v)]);
 
 export const decodeSignature = (buf: Buffer) => ({
   r: toBigIntBE(buf.subarray(0, 32)),
@@ -23,11 +22,15 @@ export const decodeSignature = (buf: Buffer) => ({
   v: buf[64],
 });
 
+export function signMessage(messageHash: Buffer, privateKey: Buffer) {
+  return sign(messageHash, privateKey, 27);
+}
+
 export function sign(messageHash: Buffer, privateKey: Buffer, addToV = 0): EthSignature {
   const signature = secp256k1.keyFromPrivate(privateKey).sign(messageHash, { canonical: true });
   const v = signature.recoveryParam! + addToV;
-  const r = toBigIntBE(signature.r.toBuffer('be', 32));
-  const s = toBigIntBE(signature.s.toBuffer('be', 32));
+  const r = signature.r.toBuffer('be', 32);
+  const s = signature.s.toBuffer('be', 32);
   return {
     messageHash,
     v,
@@ -42,7 +45,7 @@ export function recoverFromSignature(signature: EthSignature) {
   return recoverFromSigBuffer(messageHash, encodeSignature(v, r, s));
 }
 
-export function recoverFromVRS(messageHash: Buffer, v: number, r: bigint, s: bigint) {
+export function recoverFromVRS(messageHash: Buffer, v: number, r: Buffer, s: Buffer) {
   return recoverFromSigBuffer(messageHash, encodeSignature(v, r, s));
 }
 
@@ -62,7 +65,7 @@ export function recoverFromSigBuffer(messageHash: Buffer, signature: Buffer) {
 }
 
 export function recover(signature: EthSignature): EthAddress;
-export function recover(messageHash: Buffer, v: number, r: bigint, s: bigint): EthAddress;
+export function recover(messageHash: Buffer, v: number, r: Buffer, s: Buffer): EthAddress;
 export function recover(messageHash: Buffer, signature: Buffer): EthAddress;
 export function recover(...args: any[]): EthAddress {
   switch (args.length) {

@@ -15,8 +15,12 @@ export class SentContractTx extends SentTransaction {
     super(ethRpc, promise);
   }
 
-  protected async handleReceipt(receipt: TransactionReceipt) {
-    return await handleReceipt(receipt, this.contractAbi, this.ethRpc);
+  protected async handleReceipt(throwOnError = true, receipt: TransactionReceipt) {
+    const result = await handleReceipt(receipt, this.contractAbi, this.ethRpc);
+    if (result.error && throwOnError) {
+      throw new Error(`Receipt indicates transaction failed: ${result.error.message}`);
+    }
+    return result;
   }
 }
 

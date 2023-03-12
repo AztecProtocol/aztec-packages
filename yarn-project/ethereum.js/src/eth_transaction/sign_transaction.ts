@@ -1,7 +1,6 @@
 import { decode, encode } from 'rlp';
 import { EthTransaction } from './eth_transaction.js';
 import { encodeSignature, recover, sign, EthSignature } from '../eth_sign/index.js';
-import { toBigIntBE } from '../bigint_buffer/index.js';
 import { keccak256 } from '../crypto/index.js';
 import { numToUInt8 } from '../serialize/index.js';
 
@@ -14,8 +13,8 @@ export function recoverTransaction(rawTx: Buffer) {
   // Slice off txType.
   const values = decode(new Uint8Array(rawTx.slice(1)));
   const v = values[9][0] || 0;
-  const r = toBigIntBE(Buffer.from(values[10] as Uint8Array));
-  const s = toBigIntBE(Buffer.from(values[11] as Uint8Array));
+  const r = Buffer.from(values[10] as Uint8Array);
+  const s = Buffer.from(values[11] as Uint8Array);
   const signature = encodeSignature(v, r, s);
   const signingDataBuf = Buffer.from(encode(values.slice(0, 9)));
   const messageHash = keccak256(Buffer.concat([txType, signingDataBuf]));

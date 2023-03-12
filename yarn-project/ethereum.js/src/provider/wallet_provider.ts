@@ -13,6 +13,7 @@ import { EthAccount } from '../eth_account/index.js';
 import { EthTransaction, populateTransaction, signTransaction } from '../eth_transaction/index.js';
 import { EthereumRpc } from '../eth_rpc/index.js';
 import { getTypedDataHash } from '../eth_typed_data/index.js';
+import { bufferToHex } from '../hex_string/index.js';
 
 /**
  * Given an EIP1193 provider, wraps it, and provides the ability to add local accounts.
@@ -112,7 +113,7 @@ export class WalletProvider implements EthereumProvider {
     const account = this.wallet.getAccount(EthAddress.fromString(from));
     if (account) {
       const digest = getTypedDataHash(data);
-      return '0x' + account.signDigest(digest);
+      return bufferToHex(account.signDigest(digest).signature);
     }
     return await this.provider.request(args);
   }

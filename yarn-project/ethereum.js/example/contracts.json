@@ -14,6 +14,10 @@
     "ERC20Mintable": {
       "source": "foundry",
       "buildFile": "./src/abis/ERC20Mintable.json"
+    },
+    "ERC20Permit": {
+      "source": "foundry",
+      "buildFile": "./src/abis/ERC20Permit.json"
     }
   }
 }

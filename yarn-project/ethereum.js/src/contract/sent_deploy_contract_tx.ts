@@ -4,8 +4,6 @@ import { ContractAbi } from './abi/index.js';
 import { ContractTxReceipt } from './contract_tx_receipt.js';
 import { SentContractTx } from './sent_contract_tx.js';
 
-// export class ContractDeployError extends Error {}
-
 /**
  * Extends the standard contract SentContractTx class to execute a callback, which is currently used to set the
  * contract address on the original Contract instance.
@@ -20,7 +18,7 @@ export class SentDeployContractTx extends SentContractTx {
     super(eth, contractAbi, promise);
   }
 
-  protected async handleReceipt(receipt: TransactionReceipt): Promise<ContractTxReceipt> {
+  protected async handleReceipt(throwOnError = true, receipt: TransactionReceipt): Promise<ContractTxReceipt> {
     // if (!receipt.contractAddress) {
     //   throw new Error('The contract deployment receipt did not contain a contract address.');
     // }
@@ -34,6 +32,6 @@ export class SentDeployContractTx extends SentContractTx {
       this.onDeployed(receipt.contractAddress);
     }
 
-    return await super.handleReceipt(receipt);
+    return await super.handleReceipt(throwOnError, receipt);
   }
 }

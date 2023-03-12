@@ -10,7 +10,7 @@ import { TransactionReceipt } from './types/index.js';
  */
 export interface SentTx<TxReceipt = TransactionReceipt> {
   getTxHash(): Promise<TxHash>;
-  getReceipt(numConfirmations?: number, timeout?: number, interval?: number): Promise<TxReceipt>;
+  getReceipt(throwOnError?: boolean, numConfirmations?: number, timeout?: number, interval?: number): Promise<TxReceipt>;
 }
 
 /**
@@ -27,17 +27,20 @@ export class SentTransaction implements SentTx {
     return await this.txHashPromise;
   }
 
-  public async getReceipt(numConfirmations = 1, timeout = 0, interval = 1): Promise<TransactionReceipt> {
+  public async getReceipt(throwOnError = true, numConfirmations = 1, timeout = 0, interval = 1): Promise<TransactionReceipt> {
     if (this.receipt) {
       return this.receipt;
     }
 
     const txHash = await this.getTxHash();
     const receipt = await waitForTxReceipt(txHash, this.ethRpc, numConfirmations, timeout, interval);
-    return await this.handleReceipt(receipt);
+    return await this.handleReceipt(throwOnError, receipt);
   }
 
-  protected handleReceipt(receipt: TransactionReceipt) {
+  protected handleReceipt(throwOnError = true, receipt: TransactionReceipt) {
+    if (throwOnError && !receipt.status) {
+      throw new Error('Receipt indicates transaction failed. Try a call() to determine cause of failure.');
+    }
     return Promise.resolve(receipt);
   }
 }
