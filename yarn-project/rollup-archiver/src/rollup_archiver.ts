@@ -1,26 +1,14 @@
+import { Address, createPublicClient, http, parseAbiItem, PublicClient } from 'viem';
+import { localhost } from 'viem/chains';
 import { createLogger } from './movetofoundation/log/console.js';
+import { RollupBlockData } from './rollup_block_data/rollup_block_data.js';
 import { RollupBlockSource } from './rollup_source.js';
-import { ContractData, RollupBlockData } from './rollup_block_data/rollup_block_data.js';
-import { randomAppendOnlyTreeSnapshot, randomBytes, randomContractData } from './rollup_block_data/mocks.js';
-import { InterruptableSleep } from './movetofoundation/interruptable_sleep.js';
 import { State, Status } from './status.js';
 
 /**
  * Pulls rollups in a non-blocking manner and provides interface for their retrieval.
  */
 export class RollupArchiver implements Status, RollupBlockSource {
-  /**
-   * A property which indicates whether the archiver sync loop is running.
-   */
-  private running = false;
-  /**
-   * A promise in which we keep on pulling the rollups until `running` is set to false.
-   */
-  private runningPromise?: Promise<void>;
-  /**
-   * An object which allows us to pause the loop running in the promise and interrupt it.
-   */
-  private interruptableSleep = new InterruptableSleep();
   /**
    * A logger.
    */
@@ -32,12 +20,35 @@ export class RollupArchiver implements Status, RollupBlockSource {
   private rollupBlocks: RollupBlockData[] = [];
 
   /**
+   * A client for interacting with the Ethereum node.
+   */
+  private client: PublicClient;
+
+  private readonly blockEvent = parseAbiItem('event RollupBlockProcessed(uint256 indexed rollupBlockNumber)');
+  private readonly yeetEvent = parseAbiItem(
+    'event Yeet(uint256 indexed blockNum, address indexed sender, bytes blabber)',
+  );
+
+  private unwatchBlocks: (() => void) | undefined;
+  private unwatchYeets: (() => void) | undefined;
+
+  /**
    * Creates a new instance of the RollupArchiver.
-   * @param ethProvider - Ethereum provider
+   * @param ethereumHost - Ethereum provider
    * @param rollupAddress - Ethereum address of the rollup contract
+   * @param yeeterAddress - Ethereum address of the yeeter contract
    * TODO: replace strings with the corresponding types once they are implemented in ethereum.js
    */
-  constructor(private readonly ethProvider: string, private readonly rollupAddress: string) {}
+  constructor(
+    private readonly ethereumHost: string,
+    private readonly rollupAddress: Address,
+    private readonly yeeterAddress: Address,
+  ) {
+    this.client = createPublicClient({
+      chain: localhost,
+      transport: http(ethereumHost),
+    });
+  }
 
   /**
    * {@inheritDoc Status.state}
@@ -52,47 +63,75 @@ export class RollupArchiver implements Status, RollupBlockSource {
   /**
    * Starts the promise pulling the data.
    */
-  public start() {
+  public async start() {
     this.log(
-      'Initializing with provider: ' + this.ethProvider + ' and rollup contract address: ' + this.rollupAddress + '...',
+      'Initializing with provider: ' +
+        this.ethereumHost +
+        ' and rollup contract address: ' +
+        this.rollupAddress +
+        '...',
     );
 
-    // After which, we asynchronously kick off a polling loop for the latest messages.
-    this.running = true;
-    this.runningPromise = (async () => {
-      while (this.running) {
-        this.log('Fetching rollup blocks...');
-        const newRollupBlocks = [mockRandomRollupBlock(this.rollupBlocks.length)];
-        if (newRollupBlocks.length === 0) {
-          this.log('No new rollup blocks found.');
-        } else if (newRollupBlocks.length === 1) {
-          this.log('Fetched rollup block ' + newRollupBlocks[0].rollupBlockNumber + '.');
-        } else {
-          this.log(
-            'Fetched rollup blocks ' +
-              newRollupBlocks[0].rollupBlockNumber +
-              ' to ' +
-              newRollupBlocks[newRollupBlocks.length - 1].rollupBlockNumber +
-              '.',
-          );
-        }
+    await this.runInitialSync();
+    this.log('Initial sync finished.');
+    this.startWatchingEvents();
+    this.log('Watching for new data...');
+  }
 
-        this.rollupBlocks.push(...newRollupBlocks);
+  private async runInitialSync() {
+    const blockFilter = await this.client.createEventFilter({
+      address: this.rollupAddress,
+      fromBlock: 0n,
+      event: this.blockEvent,
+    });
 
-        await this.interruptableSleep.sleep(10000);
-      }
-    })();
+    const yeetFilter = await this.client.createEventFilter({
+      address: this.yeeterAddress,
+      event: this.yeetEvent,
+      fromBlock: 0n,
+    });
+
+    const blockLogs = await this.client.getFilterLogs({ filter: blockFilter });
+    const yeetLogs = await this.client.getFilterLogs({ filter: yeetFilter });
+
+    this.processBlockLogs(blockLogs);
+    this.processYeetLogs(yeetLogs);
+  }
+
+  private startWatchingEvents() {
+    this.unwatchBlocks = this.client.watchEvent({
+      address: this.rollupAddress,
+      event: this.blockEvent,
+      onLogs: logs => this.processBlockLogs(logs),
+    });
+
+    this.unwatchYeets = this.client.watchEvent({
+      address: this.yeeterAddress,
+      event: this.yeetEvent,
+      onLogs: logs => this.processYeetLogs(logs),
+    });
+  }
+
+  private processBlockLogs(logs: any[]) {
+    this.log('Processed ' + logs.length + ' L2 blocks...');
+  }
+
+  private processYeetLogs(logs: any[]) {
+    this.log('Processed ' + logs.length + ' yeets...');
   }
 
   /**
    * Stops the promise pulling the data.
    */
-  public async stop() {
+  public stop() {
     this.log('Stopping...');
+    if (this.unwatchBlocks === undefined || this.unwatchYeets === undefined) {
+      throw new Error('RollupArchiver is not running.');
+    }
 
-    this.running = false;
-    this.interruptableSleep.interrupt(false);
-    await this.runningPromise!;
+    this.unwatchBlocks();
+    this.unwatchYeets();
+
     this.log('Stopped.');
   }
 
@@ -128,27 +167,27 @@ export class RollupArchiver implements Status, RollupBlockSource {
 }
 
 // not bothering with docs since it will be removed once L1 JS lib is in place
-function mockRandomRollupBlock(rollupBlockNumber: number): RollupBlockData {
-  const newNullifiers = [randomBytes(32), randomBytes(32), randomBytes(32), randomBytes(32)];
-  const newCommitments = [randomBytes(32), randomBytes(32), randomBytes(32), randomBytes(32)];
-  const newContracts: Buffer[] = [randomBytes(32)];
-  const newContractsData: ContractData[] = [randomContractData()];
+// function mockRandomRollupBlock(rollupBlockNumber: number): RollupBlockData {
+//   const newNullifiers = [randomBytes(32), randomBytes(32), randomBytes(32), randomBytes(32)];
+//   const newCommitments = [randomBytes(32), randomBytes(32), randomBytes(32), randomBytes(32)];
+//   const newContracts: Buffer[] = [randomBytes(32)];
+//   const newContractsData: ContractData[] = [randomContractData()];
 
-  return new RollupBlockData(
-    rollupBlockNumber,
-    randomAppendOnlyTreeSnapshot(0),
-    randomAppendOnlyTreeSnapshot(0),
-    randomAppendOnlyTreeSnapshot(0),
-    randomAppendOnlyTreeSnapshot(0),
-    randomAppendOnlyTreeSnapshot(0),
-    randomAppendOnlyTreeSnapshot(newCommitments.length),
-    randomAppendOnlyTreeSnapshot(newNullifiers.length),
-    randomAppendOnlyTreeSnapshot(newContracts.length),
-    randomAppendOnlyTreeSnapshot(1),
-    randomAppendOnlyTreeSnapshot(1),
-    newCommitments,
-    newNullifiers,
-    newContracts,
-    newContractsData,
-  );
-}
+//   return new RollupBlockData(
+//     rollupBlockNumber,
+//     randomAppendOnlyTreeSnapshot(0),
+//     randomAppendOnlyTreeSnapshot(0),
+//     randomAppendOnlyTreeSnapshot(0),
+//     randomAppendOnlyTreeSnapshot(0),
+//     randomAppendOnlyTreeSnapshot(0),
+//     randomAppendOnlyTreeSnapshot(newCommitments.length),
+//     randomAppendOnlyTreeSnapshot(newNullifiers.length),
+//     randomAppendOnlyTreeSnapshot(newContracts.length),
+//     randomAppendOnlyTreeSnapshot(1),
+//     randomAppendOnlyTreeSnapshot(1),
+//     newCommitments,
+//     newNullifiers,
+//     newContracts,
+//     newContractsData,
+//   );
+// }
