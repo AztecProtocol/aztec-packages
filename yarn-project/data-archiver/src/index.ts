@@ -13,7 +13,7 @@ const {
 async function main() {
   const rollupAddress = getAddress(ROLLUP_ADDRESS);
   const yeeterAddress = getAddress(YEETER_ADDRESS);
-  const dataArchiver = new DataArchiver(ETHEREUM_HOST, rollupAddress, yeeterAddress);
+  const dataArchiver = new DataArchiver(new URL(ETHEREUM_HOST), rollupAddress, yeeterAddress);
 
   const shutdown = () => {
     dataArchiver.stop();
@@ -27,10 +27,10 @@ async function main() {
 
 main().then(
   () => {
-    console.log('DataArchiver has started successfully.');
+    console.log('DataArchiver started successfully.');
   },
   err => {
-    console.error('DataArchiver has failed to start:', err);
+    console.error('DataArchiver failed to start:', err);
     process.exit(1);
   },
 );

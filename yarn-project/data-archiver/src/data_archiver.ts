@@ -36,16 +36,15 @@ export class DataArchiver implements L2BlockSource {
    * @param ethereumHost - Ethereum provider
    * @param rollupAddress - Ethereum address of the rollup contract
    * @param yeeterAddress - Ethereum address of the yeeter contract
-   * TODO: replace strings with the corresponding types once they are implemented in ethereum.js
    */
   constructor(
-    private readonly ethereumHost: string,
+    private readonly ethereumHost: URL,
     private readonly rollupAddress: Address,
     private readonly yeeterAddress: Address,
   ) {
     this.client = createPublicClient({
       chain: localhost,
-      transport: http(ethereumHost),
+      transport: http(ethereumHost.toString()),
     });
   }
 
@@ -55,7 +54,7 @@ export class DataArchiver implements L2BlockSource {
   public getSyncStatus(): SyncStatus {
     return {
       syncedToBlock: -1, // TODO: fetch directly from contract
-      latestBlock: this.getLastBlockNum(),
+      latestBlock: this.getLatestBlockNum(),
     };
   }
 
@@ -152,7 +151,6 @@ export class DataArchiver implements L2BlockSource {
    * {@inheritDoc L2BlockSource.getLatestBlockNum}
    */
   public getLatestBlockNum(): number {
-    // TODO: fetch the last block number from the rollup contract
     return this.l2Blocks.length;
   }
 }
