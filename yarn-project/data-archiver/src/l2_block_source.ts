@@ -25,10 +25,10 @@ export interface L2BlockSource {
   getSyncStatus(): SyncStatus;
 
   /**
-   * Gets the number of the last L2 block processed by the rollup contract.
-   * @returns The number of the last L2 block processed by the rollup contract.
+   * Gets the number of the latest L2 block processed by the rollup contract.
+   * @returns The number of the latest L2 block processed by the rollup contract.
    */
-  getLastBlockNum(): number;
+  getLatestBlockNum(): number;
 
   /**
    * Gets the `take` amount of L2 blocks starting from `from`.

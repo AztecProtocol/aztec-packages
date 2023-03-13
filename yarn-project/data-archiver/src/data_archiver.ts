@@ -149,11 +149,11 @@ export class DataArchiver implements L2BlockSource {
   }
 
   /**
-   * {@inheritDoc L2BlockSource.getLastBlockNum}
+   * {@inheritDoc L2BlockSource.getLatestBlockNum}
    */
-  public getLastBlockNum(): number {
+  public getLatestBlockNum(): number {
     // TODO: fetch the last block number from the rollup contract
-    return this.l2Blocks.length + 100;
+    return this.l2Blocks.length;
   }
 }
 
