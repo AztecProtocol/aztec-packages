@@ -18,6 +18,6 @@
     "log",
     "sequencer-client",
     "wallet",
-    "wasm-worker"
+    "wasm"
   ]
 }

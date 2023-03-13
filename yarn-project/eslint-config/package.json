@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "@aztec/eslint-config": "link:../../../yarn-project/eslint-config",
-    "@aztec/wasm-worker": "link:../../../yarn-project/wasm-worker",
+    "@aztec/wasm": "link:../../../yarn-project/wasm",
     "@typescript-eslint/eslint-plugin": "^5.38.0",
     "@typescript-eslint/parser": "^5.38.0",
     "eslint": "^8.21.0",

@@ -151,7 +151,7 @@ __metadata:
   resolution: "@aztec/eslint-config@workspace:eslint-config"
   dependencies:
     "@aztec/eslint-config": "link:../../../yarn-project/eslint-config"
-    "@aztec/wasm-worker": "link:../../../yarn-project/wasm-worker"
+    "@aztec/wasm": "link:../../../yarn-project/wasm"
     "@typescript-eslint/eslint-plugin": ^5.38.0
     "@typescript-eslint/parser": ^5.38.0
     eslint: ^8.21.0
@@ -314,15 +314,15 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@aztec/wasm-worker@link:../../../yarn-project/wasm-worker::locator=%40aztec%2Feslint-config%40workspace%3Aeslint-config":
+"@aztec/wasm@link:../../../yarn-project/wasm::locator=%40aztec%2Feslint-config%40workspace%3Aeslint-config":
   version: 0.0.0-use.local
-  resolution: "@aztec/wasm-worker@link:../../../yarn-project/wasm-worker::locator=%40aztec%2Feslint-config%40workspace%3Aeslint-config"
+  resolution: "@aztec/wasm@link:../../../yarn-project/wasm::locator=%40aztec%2Feslint-config%40workspace%3Aeslint-config"
   languageName: node
   linkType: soft
 
-"@aztec/wasm-worker@workspace:wasm-worker":
+"@aztec/wasm@workspace:wasm":
   version: 0.0.0-use.local
-  resolution: "@aztec/wasm-worker@workspace:wasm-worker"
+  resolution: "@aztec/wasm@workspace:wasm"
   dependencies:
     "@aztec/eslint-config": "workspace:^"
     "@aztec/log": "workspace:^"

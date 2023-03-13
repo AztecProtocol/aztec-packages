@@ -28,7 +28,7 @@ export class WasmModule {
   constructor(
     private module: WebAssembly.Module | Buffer,
     private importFn: (module: WasmModule) => any,
-    loggerName = 'wasm-worker',
+    loggerName = 'wasm',
   ) {
     this.debug = createDebugLogger(loggerName);
     this.mutexQ.put(true);

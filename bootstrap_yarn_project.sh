@@ -12,7 +12,7 @@ for yarn_project in \
   yarn-project/aztec.js \
   yarn-project/log \
   yarn-project/key-store \
-  yarn-project/wasm-worker
+  yarn-project/wasm
 do
   echo "Bootstrapping $yarn_project"
   pushd $yarn_project > /dev/null
