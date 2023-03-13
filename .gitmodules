@@ -7,3 +7,6 @@
 [submodule "l1-contracts"]
 	path = l1-contracts
 	url = git@github.com:AztecProtocol/aztec3-l1-contracts.git
+[submodule "foundation"]
+	path = foundation
+	url = git@github.com:AztecProtocol/foundation.git
