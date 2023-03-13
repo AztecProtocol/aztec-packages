@@ -29,11 +29,11 @@ export type ContractData = {
 /**
  * The data that makes up the rollup proof, with encoder decoder functions.
  */
-export class RollupBlockData {
+export class L2BlockData {
   /**
-   * Construct a new RollupBlockData object.
+   * Construct a new L2BlockData object.
    * The data that goes into the rollup, BUT without the proof.
-   * @param rollupBlockNumber - The number of the rollup block.
+   * @param number - The number of the L2 block.
    * @param startPrivateDataTreeSnapshot - The tree snapshot of the private data tree at the start of the rollup.
    * @param startNullifierTreeSnapshot - The tree snapshot of the nullifier tree at the start of the rollup.
    * @param startContractTreeSnapshot - The tree snapshot of the contract tree at the start of the rollup.
@@ -50,7 +50,7 @@ export class RollupBlockData {
    * @param newContractData - The aztec_address and eth_address for the deployed contract and its portal contract.
    */
   constructor(
-    public rollupBlockNumber: number,
+    public number: number,
     public startPrivateDataTreeSnapshot: AppendOnlyTreeSnapshot,
     public startNullifierTreeSnapshot: AppendOnlyTreeSnapshot,
     public startContractTreeSnapshot: AppendOnlyTreeSnapshot,
@@ -68,12 +68,12 @@ export class RollupBlockData {
   ) {}
 
   /**
-   * Encode the rollup block data into a buffer that can be pushed to the rollup contract.
-   * @returns The encoded rollup block data.
+   * Encode the L2 block data into a buffer that can be pushed to the rollup contract.
+   * @returns The encoded L2 block data.
    */
   encode(): Buffer {
     return Buffer.concat([
-      numToUInt32BE(this.rollupBlockNumber),
+      numToUInt32BE(this.number),
       appendOnlyTreeSnapshotToBuffer(this.startPrivateDataTreeSnapshot),
       appendOnlyTreeSnapshotToBuffer(this.startNullifierTreeSnapshot),
       appendOnlyTreeSnapshotToBuffer(this.startContractTreeSnapshot),
@@ -95,9 +95,9 @@ export class RollupBlockData {
   }
 
   /**
-   * Decode the rollup block data from a buffer.
-   * @param encoded - The encoded rollup block data.
-   * @returns The decoded rollup block data.
+   * Decode the L2 block data from a buffer.
+   * @param encoded - The encoded L2 block data.
+   * @returns The decoded L2 block data.
    */
   static decode(encoded: Buffer) {
     let offset = 0;
@@ -161,7 +161,7 @@ export class RollupBlockData {
       offset += 52;
     }
 
-    return new RollupBlockData(
+    return new L2BlockData(
       rollupId,
       startPrivateDataTreeSnapshot,
       startNullifierTreeSnapshot,
@@ -252,7 +252,7 @@ export function numToUInt32BE(n: number, bufferSize = 4): Buffer {
 /**
  * The fixed size data that makes up the rollup header.
  */
-export type RollupBlockCalldataHeader = {
+export type L2BlockCalldataHeader = {
   /**
    * The id of the rollup.
    * Similar to the block number in Ethereum.
@@ -305,11 +305,11 @@ export type RollupBlockCalldataHeader = {
 /**
  * The data that makes up the rollup calldata.
  */
-export type RollupBlockCalldata = {
+export type L2BlockCalldata = {
   /**
    * The header of the rollup calldata.
    */
-  header: RollupBlockCalldataHeader;
+  header: L2BlockCalldataHeader;
   /**
    * The commitments to be inserted into the private data tree.
    * The commitments are field elements, and 4 commitments are inserted for each kernel proof.

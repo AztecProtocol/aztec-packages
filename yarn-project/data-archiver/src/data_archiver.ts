@@ -1,30 +1,29 @@
 import { Address, createPublicClient, http, parseAbiItem, PublicClient } from 'viem';
 import { localhost } from 'viem/chains';
+import { L2BlockData } from './l2_block_data/l2_block_data.js';
+import { L2BlockSource, SyncStatus } from './l2_block_source.js';
 import { createLogger } from './movetofoundation/log/console.js';
-import { RollupBlockData } from './rollup_block_data/rollup_block_data.js';
-import { RollupBlockSource } from './rollup_source.js';
-import { State, Status } from './status.js';
 
 /**
- * Pulls rollups in a non-blocking manner and provides interface for their retrieval.
+ * Pulls L2 blocks in a non-blocking manner and provides interface for their retrieval.
  */
-export class RollupArchiver implements Status, RollupBlockSource {
+export class DataArchiver implements L2BlockSource {
   /**
    * A logger.
    */
   private log = createLogger('Archiver');
 
   /**
-   * An array containing all the rollups that have been fetched so far.
+   * An array containing all the L2 blocks that have been fetched so far.
    */
-  private rollupBlocks: RollupBlockData[] = [];
+  private l2Blocks: L2BlockData[] = [];
 
   /**
    * A client for interacting with the Ethereum node.
    */
   private client: PublicClient;
 
-  private readonly blockEvent = parseAbiItem('event RollupBlockProcessed(uint256 indexed rollupBlockNumber)');
+  private readonly blockEvent = parseAbiItem('event L2BlockProcessed(uint256 indexed blockNum)');
   private readonly yeetEvent = parseAbiItem(
     'event Yeet(uint256 indexed blockNum, address indexed sender, bytes blabber)',
   );
@@ -33,7 +32,7 @@ export class RollupArchiver implements Status, RollupBlockSource {
   private unwatchYeets: (() => void) | undefined;
 
   /**
-   * Creates a new instance of the RollupArchiver.
+   * Creates a new instance of the DataArchiver.
    * @param ethereumHost - Ethereum provider
    * @param rollupAddress - Ethereum address of the rollup contract
    * @param yeeterAddress - Ethereum address of the yeeter contract
@@ -51,11 +50,11 @@ export class RollupArchiver implements Status, RollupBlockSource {
   }
 
   /**
-   * {@inheritDoc Status.state}
+   * {@inheritDoc L2BlockSource.getSyncStatus}
    */
-  public state(): State {
+  public getSyncStatus(): SyncStatus {
     return {
-      syncedToBlock: this.getSyncedToBlockNum(),
+      syncedToBlock: -1, // TODO: fetch directly from contract
       latestBlock: this.getLastBlockNum(),
     };
   }
@@ -126,7 +125,7 @@ export class RollupArchiver implements Status, RollupBlockSource {
   public stop() {
     this.log('Stopping...');
     if (this.unwatchBlocks === undefined || this.unwatchYeets === undefined) {
-      throw new Error('RollupArchiver is not running.');
+      throw new Error('DataArchiver is not running.');
     }
 
     this.unwatchBlocks();
@@ -136,45 +135,37 @@ export class RollupArchiver implements Status, RollupBlockSource {
   }
 
   /**
-   * {@inheritDoc RollupBlockSource.getSyncedToBlockNum}
+   * {@inheritDoc L2BlockSource.getL2Blocks}
    */
-  public getSyncedToBlockNum(): number {
-    return this.rollupBlocks.length === 0 ? -1 : this.rollupBlocks[this.rollupBlocks.length - 1].rollupBlockNumber;
+  public getL2Blocks(from: number, take: number): L2BlockData[] {
+    if (from > this.l2Blocks.length) {
+      return [];
+    }
+    if (from + take > this.l2Blocks.length) {
+      return this.l2Blocks.slice(from);
+    }
+
+    return this.l2Blocks.slice(from, from + take);
   }
 
   /**
-   * {@inheritDoc RollupBlockSource.getRollupBlocks}
-   */
-  public getRollupBlocks(from: number, take: number): RollupBlockData[] {
-    if (from > this.rollupBlocks.length) {
-      const rollups: RollupBlockData[] = [];
-      return rollups;
-    }
-    if (from + take > this.rollupBlocks.length) {
-      return this.rollupBlocks.slice(from);
-    }
-
-    return this.rollupBlocks.slice(from, from + take);
-  }
-
-  /**
-   * {@inheritDoc RollupBlockSource.getLastBlockNum}
+   * {@inheritDoc L2BlockSource.getLastBlockNum}
    */
   public getLastBlockNum(): number {
     // TODO: fetch the last block number from the rollup contract
-    return this.rollupBlocks.length + 100;
+    return this.l2Blocks.length + 100;
   }
 }
 
 // not bothering with docs since it will be removed once L1 JS lib is in place
-// function mockRandomRollupBlock(rollupBlockNumber: number): RollupBlockData {
+// function mockRandomL2Block(l2BlockNum: number): L2BlockData {
 //   const newNullifiers = [randomBytes(32), randomBytes(32), randomBytes(32), randomBytes(32)];
 //   const newCommitments = [randomBytes(32), randomBytes(32), randomBytes(32), randomBytes(32)];
 //   const newContracts: Buffer[] = [randomBytes(32)];
 //   const newContractsData: ContractData[] = [randomContractData()];
 
-//   return new RollupBlockData(
-//     rollupBlockNumber,
+//   return new L2BlockData(
+//     l2BlockNum,
 //     randomAppendOnlyTreeSnapshot(0),
 //     randomAppendOnlyTreeSnapshot(0),
 //     randomAppendOnlyTreeSnapshot(0),
