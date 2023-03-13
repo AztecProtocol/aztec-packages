@@ -1,3 +1,7 @@
+export interface Tx {
+  txId: Buffer;
+}
+
 /**
  * Interface defining data contained in a rollup object.
  */
@@ -11,6 +15,11 @@ export interface Rollup {
    * Timestamp of an L1 block in which the settlement tx containing this rollup was included.
    */
   settlementTimestamp: number;
+
+  /**
+   * List of rollup transactions.
+   */
+  txs?: Tx[];
 }
 
 /**

@@ -1,4 +1,4 @@
-import { Tx } from './tx.js';
+import { Tx } from './temp_types.js';
 
 /**
  * Interface of a P2P client.

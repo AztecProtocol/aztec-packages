@@ -1,4 +1,13 @@
-import { RollupSource, Rollup } from './types.js';
+import { randomBytes } from 'crypto';
+import { RollupSource, Rollup } from './temp_types.js';
+
+export class MockTx {
+  constructor(private _txId: Buffer = randomBytes(32)) {}
+
+  get txId() {
+    return this._txId;
+  }
+}
 
 export class MockRollupSource implements RollupSource {
   private rollups: Rollup[];

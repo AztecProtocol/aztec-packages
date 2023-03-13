@@ -1,8 +1,7 @@
 import { InMemoryTxPool } from './memory_tx_pool.js';
 import { P2P } from './p2p_client.js';
-import { Tx } from './tx.js';
 import { TxPool } from './tx_pool.js';
-import { Rollup, RollupSource } from './types.js';
+import { Rollup, RollupSource, Tx } from './temp_types.js';
 
 const TAKE_NUM = 10;
 
@@ -93,6 +92,9 @@ export class InMemoryP2PCLient implements P2P {
    * @param tx - The tx to verify.
    **/
   public sendTx(tx: Tx): void {
+    if (!this.ready || !this.running) {
+      return;
+    }
     this.txPool.addTxs([tx]);
   }
 

@@ -1,10 +1,10 @@
-import { Tx } from './tx.js';
+import { Tx } from './temp_types.js';
 import { TxPool } from './tx_pool.js';
 
-// TODO: place in/use from foundation repo
 /**
  * Helper to tranform Buffer IDs to a bigint.
  */
+// TODO: place in/use from foundation repo
 const toBigInt = (buf: Buffer): bigint => {
   const hex = buf.toString('hex');
   if (hex.length === 0) {
@@ -50,9 +50,11 @@ export class InMemoryTxPool implements TxPool {
   /**
    * Deletes transactions from the pool. Tx IDs that are not present are ignored.
    * @param txIds - An array of tx IDs to be removed from the tx pool.
+   * @returns The number of  transactions that was deleted from the pool.
    */
-  public deleteTxs(txIds: Buffer[]): void {
-    txIds.forEach(txId => this.txs.delete(toBigInt(txId)));
+  public deleteTxs(txIds: Buffer[]): number {
+    const numTxsRemoved = txIds.map(txId => this.txs.delete(toBigInt(txId))).filter(result => result === true).length;
+    return numTxsRemoved;
   }
 
   /**
