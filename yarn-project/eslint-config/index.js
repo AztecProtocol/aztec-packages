@@ -1,8 +1,6 @@
 const contexts = [
   'TSMethodDefinition',
   'MethodDefinition',
-  // 'TSPropertyDefinition',
-  // 'PropertyDefinition',
   'TSPropertySignature',
   'PropertySignature',
   'TSInterfaceDeclaration',
