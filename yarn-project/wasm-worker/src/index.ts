@@ -3,3 +3,4 @@ export { NodeDataStore } from './worker/node/index.js';
 
 export { WasmModule } from './wasm/index.js';
 export { AsyncCallState, AsyncFnState } from './wasm/index.js';
+export { Transfer, isTransferDescriptor } from './transport/interface/transferable.js';

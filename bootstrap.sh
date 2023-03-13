@@ -34,32 +34,6 @@ fi
 
 \. ~/.nvm/nvm.sh
 nvm install
-
-# Until we push .yarn/cache, we still need to install.
-cd yarn-project
-yarn install --immutable
-cd ..
-
-# Install yalc, which we will use for in-development packages
-yarn global add yalc
-
-# TODO add other packages that should be built under CI
-for yarn_project in \
-  yarn-project/eslint-config \
-  yarn-project/aztec.js \
-  yarn-project/log \
-  yarn-project/key-store \
-  yarn-project/wasm-worker
-do
-  echo "Bootstrapping $yarn_project"
-  pushd $yarn_project > /dev/null
-  yarn build
-  # Publish package to local yalc database
-  # This then lets us call yarn bundle-deps in the submodule repos (e.g. circuits)
-  # which lets the repos cache a local version of the package.
-  yalc push
-  popd > /dev/null
-done
-
+\. ./bootstrap_yarn_project.sh
 echo
 echo "Success! You could now run e.g.: ./scripts/tmux-splits e2e_deploy_contract"

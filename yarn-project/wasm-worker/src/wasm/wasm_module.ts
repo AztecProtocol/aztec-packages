@@ -165,16 +165,16 @@ export class WasmModule {
    * @param end - The end address.
    * @returns A Uint8Array view of memory.
    */
-  public sliceMemory(start: number, end: number) {
+  public getMemorySlice(start: number, end: number) {
     return this.getMemory().slice(start, end);
   }
 
   /**
    * Write data into the heap.
-   * @param arr - The data to write.
    * @param offset - The address to write data at.
+   * @param arr - The data to write.
    */
-  public transferToHeap(arr: Uint8Array, offset: number) {
+  public writeMemory(offset: number, arr: Uint8Array) {
     const mem = this.getMemory();
     for (let i = 0; i < arr.length; i++) {
       mem[i + offset] = arr[i];
@@ -182,9 +182,22 @@ export class WasmModule {
   }
 
   /**
+   * Read WASM memory as a JS string.
+   * @param addr - The memory address.
+   * @returns A JS string.
+   */
+  public getMemoryAsString(addr: number) {
+    addr = addr >>> 0;
+    const m = this.getMemory();
+    let i = addr;
+    for (; m[i] !== 0; ++i);
+    return Buffer.from(m.slice(addr, i)).toString('ascii');
+  }
+
+  /**
    * When calling the wasm, sometimes a caller will require exclusive access over a series of calls.
    * E.g. When a result is written to address 0, one cannot have another caller writing to the same address via
-   * transferToHeap before the result is read via sliceMemory.
+   * writeMemory before the result is read via sliceMemory.
    * Acquire() gets a single token from a fifo. The caller must call release() to add the token back.
    */
   public async acquire() {

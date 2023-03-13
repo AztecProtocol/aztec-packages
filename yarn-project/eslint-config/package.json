@@ -5,6 +5,9 @@
   "files": [
     "index.js"
   ],
+  "scripts": {
+    "build": "echo \"Did nothing.\""
+  },
   "dependencies": {
     "@aztec/eslint-config": "link:../../../yarn-project/eslint-config",
     "@aztec/wasm-worker": "link:../../../yarn-project/wasm-worker",
