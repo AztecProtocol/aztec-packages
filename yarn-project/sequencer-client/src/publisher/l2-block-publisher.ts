@@ -112,7 +112,7 @@ export class L2BlockPublisher implements L2BlockReceiver {
   private async sendTransaction(encodedData: EncodedL2BlockData): Promise<string | undefined> {
     while (!this.interrupted) {
       try {
-        return this.txSender.sendTransaction(encodedData);
+        return await this.txSender.sendTransaction(encodedData);
       } catch (err) {
         console.log(`Error sending tx to L1`, err);
         await this.sleepOrInterrupted();
@@ -125,7 +125,7 @@ export class L2BlockPublisher implements L2BlockReceiver {
   ): Promise<{ status: boolean; transactionHash: string } | undefined> {
     while (!this.interrupted) {
       try {
-        return this.txSender.getTransactionReceipt(txHash);
+        return await this.txSender.getTransactionReceipt(txHash);
       } catch (err) {
         console.log(`Error getting tx receipt`, err);
         await this.sleepOrInterrupted();

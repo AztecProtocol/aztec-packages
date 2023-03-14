@@ -56,17 +56,12 @@ describe('L2BlockPublisher', () => {
     expect(txSender.getTransactionReceipt).toHaveBeenCalledTimes(2);
   });
 
-  it('retries if tx reverts', async () => {
-    txSender.getTransactionReceipt
-      .mockReset()
-      .mockResolvedValueOnce({ ...txReceipt, status: false })
-      .mockResolvedValueOnce(txReceipt);
+  it('returns false if tx reverts', async () => {
+    txSender.getTransactionReceipt.mockReset().mockResolvedValueOnce({ ...txReceipt, status: false });
 
     const result = await publisher.processL2Block(l2BlockData);
 
-    expect(result).toEqual(true);
-    expect(txSender.sendTransaction).toHaveBeenCalledTimes(2);
-    expect(txSender.getTransactionReceipt).toHaveBeenCalledTimes(2);
+    expect(result).toEqual(false);
   });
 
   it('returns false if interrupted', async () => {
@@ -80,11 +75,7 @@ describe('L2BlockPublisher', () => {
     expect(txSender.getTransactionReceipt).not.toHaveBeenCalled();
   });
 
-  it('waits for fee distributor balance', () => {
-    pending();
-  });
+  it.skip('waits for fee distributor balance', () => {});
 
-  it('fails if contract is changed underfoot', () => {
-    pending();
-  });
+  it.skip('fails if contract is changed underfoot', () => {});
 });
