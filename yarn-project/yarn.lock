@@ -4445,7 +4445,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"jest-mock-extended@npm:^3.0.1":
+"jest-mock-extended@npm:^3.0.1, jest-mock-extended@npm:^3.0.3":
   version: 3.0.3
   resolution: "jest-mock-extended@npm:3.0.3"
   dependencies:
