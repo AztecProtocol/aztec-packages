@@ -52,4 +52,19 @@ describe('In-Memory P2P Client', () => {
 
     expect(txPool.addTxs).toHaveBeenCalledTimes(2);
   });
+
+  it('rejects txs after being stopped', () => {
+    const client = new InMemoryP2PCLient(rollupSource, txPool);
+    client.start();
+    const tx1 = new MockTx();
+    const tx2 = new MockTx();
+    client.sendTx(tx1);
+    client.sendTx(tx2);
+
+    expect(txPool.addTxs).toHaveBeenCalledTimes(2);
+    client.stop();
+    const tx3 = new MockTx();
+    client.sendTx(tx3);
+    expect(txPool.addTxs).toHaveBeenCalledTimes(2);
+  });
 });

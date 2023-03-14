@@ -107,11 +107,19 @@ export class InMemoryP2PCLient implements P2P {
   }
 
   /**
-   * Lets consumers know if the p2p client is fully synced and ready to receive txs.
+   * Public function to check if the p2p client is fully synced and ready to receive txs.
    * @returns True if the P2P client is ready to receive txs.
    */
   public isReady() {
     return this.ready;
+  }
+
+  /**
+   * Public function to check the latest rollup ID that the P2P client is synced to
+   * @returns
+   */
+  public getSyncedRollupId() {
+    return this.syncedRollupId;
   }
 
   /**
@@ -132,5 +140,9 @@ export class InMemoryP2PCLient implements P2P {
    */
   private reconcileTxPool(rollups: Rollup[]) {
     // TODO: go through provided rollups & reconcile tx pool.
+    for (let i = 0; i < rollups.length; i++) {
+      const { txs } = rollups[i];
+      this.txPool.deleteTxs(txs?.map(({ txId }) => txId) || []);
+    }
   }
 }
