@@ -8,6 +8,16 @@ import { Rollup, RollupSource, Tx } from './temp_types.js';
 const TAKE_NUM = 10;
 
 /**
+ * Enum defining the possible states of the p2p client.
+ */
+enum P2PClientState {
+  IDLE,
+  SYNCING,
+  RUNNING,
+  STOPPED,
+}
+
+/**
  * An in-memory implementation of the P2P client.
  */
 export class InMemoryP2PCLient implements P2P {
@@ -20,11 +30,6 @@ export class InMemoryP2PCLient implements P2P {
    * Property that indicates whether the client is running.
    */
   private running = false;
-
-  /**
-   * Property that indicates whether the client is currently syncing with a block source.
-   */
-  private syncing = false;
 
   /**
    * Property that indicates whether the client is ready to receive new txs.
@@ -87,7 +92,6 @@ export class InMemoryP2PCLient implements P2P {
         this.syncedRollupId = lastRollupId;
       }
     }
-    this.syncing = false;
     this.ready = true;
 
     const runningSyncPromise = async () => {
@@ -164,9 +168,15 @@ export class InMemoryP2PCLient implements P2P {
    * @returns Information about p2p client status: ready, syncing, syncedRollupId.
    */
   public getStatus() {
+    let clientState = P2PClientState.IDLE;
+    if (this.ready) {
+      clientState = P2PClientState.RUNNING;
+    } else if (this.running) {
+      clientState = P2PClientState.SYNCING;
+    }
+
     return {
-      ready: this.ready,
-      syncing: this.syncing,
+      state: clientState,
       syncedToRollup: this.syncedRollupId,
     };
   }
