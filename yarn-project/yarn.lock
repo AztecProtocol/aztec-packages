@@ -122,8 +122,9 @@ __metadata:
     "@jest/globals": ^29.5.0
     "@rushstack/eslint-patch": ^1.2.0
     "@types/debug": ^4.1.7
-    "@types/jest": ^29.4.0
-    "@types/node": ^18.15.1
+    "@types/jest": ^29.4.1
+    "@types/node": ^18.15.2
+    "@types/ws": ^8.5.4
     debug: ^4.3.4
     jest: ^29.5.0
     ts-jest: ^29.0.5
@@ -131,7 +132,8 @@ __metadata:
     tsc-watch: ^6.0.0
     tslib: ^2.5.0
     typescript: ^4.9.5
-    viem: ^0.1.14
+    viem: ^0.1.15
+    ws: ^8.13.0
   languageName: unknown
   linkType: soft
 
@@ -1800,6 +1802,16 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@types/jest@npm:^29.4.1":
+  version: 29.4.1
+  resolution: "@types/jest@npm:29.4.1"
+  dependencies:
+    expect: ^29.0.0
+    pretty-format: ^29.0.0
+  checksum: 75cdd1804615b663b88844eef61cb7c8104d65baf718190a1cd88ce199412dbe2ee136df3698604cc258a9a62ba7cbd7bd7712a17d8cb748909263ef56d6aac3
+  languageName: node
+  linkType: hard
+
 "@types/json-schema@npm:^7.0.9":
   version: 7.0.11
   resolution: "@types/json-schema@npm:7.0.11"
@@ -1821,7 +1833,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/node@npm:^18.14.6, @types/node@npm:^18.15.0, @types/node@npm:^18.15.1":
+"@types/node@npm:^18.14.6, @types/node@npm:^18.15.0, @types/node@npm:^18.15.2":
   version: 18.15.2
   resolution: "@types/node@npm:18.15.2"
   checksum: 6db83062d295f9da63e7b24477f734b497170a577b21e0c13637d6f355d53713f875536e52ff02938221330d919700b5ed787dc493e32624a3ecb6c86105cfc8
@@ -1853,6 +1865,15 @@ __metadata:
   version: 9.0.1
   resolution: "@types/uuid@npm:9.0.1"
   checksum: c472b8a77cbeded4bc529220b8611afa39bd64677f507838f8083d8aac8033b1f88cb9ddaa2f8589e0dcd2317291d0f6e1379f82d5ceebd6f74f3b4825288e00
+  languageName: node
+  linkType: hard
+
+"@types/ws@npm:^8.5.4":
+  version: 8.5.4
+  resolution: "@types/ws@npm:8.5.4"
+  dependencies:
+    "@types/node": "*"
+  checksum: fefbad20d211929bb996285c4e6f699b12192548afedbe4930ab4384f8a94577c9cd421acaad163cacd36b88649509970a05a0b8f20615b30c501ed5269038d1
   languageName: node
   linkType: hard
 
@@ -6659,9 +6680,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"viem@npm:^0.1.14":
-  version: 0.1.14
-  resolution: "viem@npm:0.1.14"
+"viem@npm:^0.1.15":
+  version: 0.1.15
+  resolution: "viem@npm:0.1.15"
   dependencies:
     "@noble/hashes": ^1.1.2
     "@wagmi/chains": ~0.2.11
@@ -6669,7 +6690,7 @@ __metadata:
     idna-uts46-hx: ^4.1.2
     isomorphic-ws: ^5.0.0
     ws: ^8.12.0
-  checksum: 5bbcf8bc4502377cff0d0e6368d4cc2db4ead7b963f4eac7680cf0f85cc70934563c314026ec4ec96b173a3fe36126221ee898a1bc66ff7d8ec10f50b3a54979
+  checksum: 9f935e5f8ad7bff674c491782b7ca47263fed7bf9ec52f97aa6914e23ee4418481e6f0c605819b86fb9e6c03fa578c547d5f1d3861a112cec8fc1ded2d45b5ad
   languageName: node
   linkType: hard
 
@@ -6789,7 +6810,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"ws@npm:^8.12.0":
+"ws@npm:^8.12.0, ws@npm:^8.13.0":
   version: 8.13.0
   resolution: "ws@npm:8.13.0"
   peerDependencies:
