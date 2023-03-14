@@ -19,12 +19,14 @@
     "ethereum.js",
     "kernel-simulator",
     "key-store",
+    "merkle-tree",
     "p2p",
     "prettier-config",
     "prover-client",
     "public-client",
     "sequencer-client",
-    "wallet"
+    "wallet",
+    "world-state"
   ],
   "prettier": "./prettier-config",
   "devDependencies": {
