@@ -7,5 +7,10 @@
     "moduleResolution": "nodenext",
     "types": ["node", "jest"]
   },
+  "references": [
+    {
+      "path": "../world-state/tsconfig.dest.json"
+    }
+  ],
   "include": ["src"]
 }

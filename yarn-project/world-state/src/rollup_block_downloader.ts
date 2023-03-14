@@ -28,7 +28,7 @@ export class RollupBlockDownloader {
     const fn = async () => {
       while (this.running) {
         try {
-          const blocks = await this.rollupProvider.getBlocks(this.from, 10);
+          const blocks = await this.rollupProvider.getRollups(this.from, 10);
 
           if (!blocks.length) {
             await this.interruptableSleep.sleep(10000);

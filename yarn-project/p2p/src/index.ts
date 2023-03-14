@@ -4,14 +4,14 @@ import { MockRollupSource } from './mocks.js';
 /**
  * Main function of P2P in-memory client that runs at init.
  */
-function main() {
+async function main() {
   // TODO: replace with actual rollup source that gets instantiated with env variables
   const rollupSource = new MockRollupSource();
   const p2pClient = new InMemoryP2PCLient(rollupSource);
-  p2pClient.start();
+  await p2pClient.start();
 
-  const shutdown = () => {
-    p2pClient.stop();
+  const shutdown = async () => {
+    await p2pClient.stop();
     process.exit(0);
   };
 
@@ -19,4 +19,4 @@ function main() {
   process.once('SIGTERM', shutdown);
 }
 
-main();
+main().catch(err => console.log('ERROR in main p2p function: ', err));

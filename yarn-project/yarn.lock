@@ -246,6 +246,7 @@ __metadata:
   resolution: "@aztec/p2p@workspace:p2p"
   dependencies:
     "@aztec/eslint-config": "workspace:^"
+    "@aztec/world-state": "workspace:^"
     "@jest/globals": ^29.4.3
     "@rushstack/eslint-patch": ^1.1.4
     "@types/jest": ^29.4.0
@@ -334,7 +335,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@aztec/world-state@workspace:world-state":
+"@aztec/world-state@workspace:^, @aztec/world-state@workspace:world-state":
   version: 0.0.0-use.local
   resolution: "@aztec/world-state@workspace:world-state"
   dependencies:

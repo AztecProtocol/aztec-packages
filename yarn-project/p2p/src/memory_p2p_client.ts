@@ -1,3 +1,5 @@
+import { InterruptableSleep, RollupBlockDownloader } from '@aztec/world-state';
+
 import { InMemoryTxPool } from './memory_tx_pool.js';
 import { P2P } from './p2p_client.js';
 import { TxPool } from './tx_pool.js';
@@ -9,6 +11,11 @@ const TAKE_NUM = 10;
  * An in-memory implementation of the P2P client.
  */
 export class InMemoryP2PCLient implements P2P {
+  /**
+   * L2 Block download that p2p client uses to stay in sync with latest blocks.
+   */
+  private blockDownloader: RollupBlockDownloader;
+
   /**
    * Property that indicates whether the client is running.
    */
@@ -27,7 +34,12 @@ export class InMemoryP2PCLient implements P2P {
   /**
    * The JS promise that will be running to keep the client's data in sync. Can be interrupted if the client is stopped.
    */
-  // private runningSyncPromise!: Promise<void>;
+  private runningSyncPromise!: Promise<void>;
+
+  /**
+   * A function that waits for a specified time or until it's interrupted
+   */
+  private interruptableSleep = new InterruptableSleep();
 
   /**
    * Store the ID of the latest rollup the client has synced to.
@@ -39,25 +51,38 @@ export class InMemoryP2PCLient implements P2P {
    * @param rollupSource - P2P client's source for fetching existing rollup data.
    * @param txPool - The client's instance of a transaction pool. Defaults to in-memory implementation.
    */
-  constructor(private rollupSource: RollupSource, private txPool: TxPool = new InMemoryTxPool()) {}
+  constructor(private rollupSource: RollupSource, private txPool: TxPool = new InMemoryTxPool()) {
+    this.blockDownloader = new RollupBlockDownloader(rollupSource, TAKE_NUM);
+  }
 
   /**
    * Starts the P2P client.
    */
-  public start() {
+  public async start() {
     this.running = true;
+
+    let synced = false;
 
     const lastRollupId = this.rollupSource.getLastRollupId();
 
-    let synced = false;
-    let index = 0;
-    while (!synced) {
-      const rollups = this.rollupSource.getRollups(index, TAKE_NUM);
-      this.reconcileTxPool(rollups);
-      index += TAKE_NUM;
-      this.syncedRollupId = index;
+    const txPoolSize = this.txPool.getAllTxs().keys.length;
+    if (!txPoolSize) {
+      // No initial reconciliation needed, proceed;
+      synced = true;
+      this.syncedRollupId = lastRollupId;
+      // start block downloader from latest L2 Block ID
+      this.blockDownloader.start(lastRollupId);
+    }
 
-      if (index >= lastRollupId) {
+    while (!synced) {
+      // start block downloader from the beginning
+      this.blockDownloader.start();
+      const rollups = await this.blockDownloader.getBlocks();
+      this.reconcileTxPool(rollups);
+
+      if (rollups.length) {
+        this.syncedRollupId = rollups[rollups.length - 1].id;
+      } else {
         synced = true;
         this.syncedRollupId = lastRollupId;
       }
@@ -65,18 +90,30 @@ export class InMemoryP2PCLient implements P2P {
     this.syncing = false;
     this.ready = true;
 
-    // TODO start running sync promise that checks for new blocks
-    // and performs more reconciliation with our tx pool when they're published
+    const runningSyncPromise = async () => {
+      while (this.running) {
+        const newRollups = await this.blockDownloader.getBlocks();
+        if (newRollups.length) {
+          this.reconcileTxPool(newRollups);
+        } else {
+          await this.interruptableSleep.sleep(10000);
+        }
+      }
+    };
+
+    this.runningSyncPromise = runningSyncPromise();
   }
 
   /**
    * Allows consumers to stop the instance of the P2P client.
    * 'running' & 'ready' will now return 'false' and the running promise that keeps the client synced is interrupted.
    */
-  public stop() {
+  public async stop() {
     this.running = false;
     this.ready = false;
-    // TODO: interrupt runningSyncPromise
+    this.blockDownloader.stop();
+    this.interruptableSleep.interrupt();
+    await this.runningSyncPromise;
   }
 
   /**
@@ -130,7 +167,7 @@ export class InMemoryP2PCLient implements P2P {
     return {
       ready: this.ready,
       syncing: this.syncing,
-      syncedRollupId: this.syncedRollupId,
+      syncedToRollup: this.syncedRollupId,
     };
   }
 
@@ -139,7 +176,6 @@ export class InMemoryP2PCLient implements P2P {
    * @param rollups - A list of existing rollups with txs that the P2P client needs to ensure the tx pool is reconciled with.
    */
   private reconcileTxPool(rollups: Rollup[]) {
-    // TODO: go through provided rollups & reconcile tx pool.
     for (let i = 0; i < rollups.length; i++) {
       const { txs } = rollups[i];
       this.txPool.deleteTxs(txs?.map(({ txId }) => txId) || []);
