@@ -1,4 +1,4 @@
-import { L2BlockData } from './l2_block_data/l2_block_data.js';
+import { L2Block } from './l2_block/l2_block.js';
 
 /**
  * Describes sync status of the archiver.
@@ -36,5 +36,5 @@ export interface L2BlockSource {
    * @param take - The number of blocks to return.
    * @returns The requested L2 blocks.
    */
-  getL2Blocks(from: number, take: number): L2BlockData[];
+  getL2Blocks(from: number, take: number): L2Block[];
 }

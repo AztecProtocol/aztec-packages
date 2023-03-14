@@ -1,14 +1,14 @@
 import { randomAppendOnlyTreeSnapshot, randomBytes, randomContractData } from './mocks.js';
-import { ContractData, L2BlockData } from './l2_block_data.js';
+import { ContractData, L2Block } from './l2_block.js';
 
-describe('L2BlockData', () => {
+describe('L2Block', () => {
   it('can encode a L2 block data object to buffer and back', () => {
     const newNullifiers = [randomBytes(32), randomBytes(32), randomBytes(32), randomBytes(32)];
     const newCommitments = [randomBytes(32), randomBytes(32), randomBytes(32), randomBytes(32)];
     const newContracts: Buffer[] = [randomBytes(32)];
     const newContractsData: ContractData[] = [randomContractData()];
 
-    const l2BlockData = new L2BlockData(
+    const l2BlockData = new L2Block(
       0,
       randomAppendOnlyTreeSnapshot(0),
       randomAppendOnlyTreeSnapshot(0),
@@ -27,7 +27,7 @@ describe('L2BlockData', () => {
     );
 
     const buffer = l2BlockData.encode();
-    const recovered = L2BlockData.decode(buffer);
+    const recovered = L2Block.decode(buffer);
 
     expect(recovered).toEqual(l2BlockData);
   });

@@ -1,6 +1,7 @@
 import { Address, createPublicClient, http, parseAbiItem, PublicClient } from 'viem';
 import { localhost } from 'viem/chains';
-import { L2BlockData } from './l2_block_data/l2_block_data.js';
+import { ContractData, L2Block } from './l2_block/l2_block.js';
+import { randomAppendOnlyTreeSnapshot, randomBytes, randomContractData } from './l2_block/mocks.js';
 import { L2BlockSource, SyncStatus } from './l2_block_source.js';
 import { createLogger } from './movetofoundation/log/console.js';
 
@@ -16,7 +17,9 @@ export class DataArchiver implements L2BlockSource {
   /**
    * An array containing all the L2 blocks that have been fetched so far.
    */
-  private l2Blocks: L2BlockData[] = [];
+  private l2Blocks: L2Block[] = [];
+
+  private pendingYeets: Buffer[] = [];
 
   /**
    * A client for interacting with the Ethereum node.
@@ -112,9 +115,34 @@ export class DataArchiver implements L2BlockSource {
 
   private processBlockLogs(logs: any[]) {
     this.log('Processed ' + logs.length + ' L2 blocks...');
+    for (const log of logs) {
+      const blockNum = log.args.blockNum;
+      if (blockNum !== BigInt(this.l2Blocks.length)) {
+        throw new Error('Block number mismatch. Expected: ' + this.l2Blocks.length + ' but got: ' + blockNum + '.');
+      }
+      const newBlock = mockRandomL2Block(log.args.blockNum);
+      const yeet = this.pendingYeets.find(yeet => yeet.readUInt32BE(0) === blockNum);
+      if (yeet !== undefined) {
+        newBlock.setYeet(yeet);
+        // remove yeet from pending
+        this.pendingYeets = this.pendingYeets.filter(yeet => yeet.readUInt32BE(0) !== blockNum);
+      }
+      this.l2Blocks.push(newBlock);
+    }
   }
 
   private processYeetLogs(logs: any[]) {
+    for (const log of logs) {
+      const blockNum = log.args.blockNum;
+      if (blockNum < BigInt(this.l2Blocks.length)) {
+        const block = this.l2Blocks[blockNum];
+        block.setYeet(log.args.blabber);
+        this.log('Enriched block ' + blockNum + ' with yeet.');
+      } else {
+        this.pendingYeets.push(log.args.blabber);
+        this.log('Added yeet with blockNum ' + blockNum + ' to pending list.');
+      }
+    }
     this.log('Processed ' + logs.length + ' yeets...');
   }
 
@@ -136,7 +164,7 @@ export class DataArchiver implements L2BlockSource {
   /**
    * {@inheritDoc L2BlockSource.getL2Blocks}
    */
-  public getL2Blocks(from: number, take: number): L2BlockData[] {
+  public getL2Blocks(from: number, take: number): L2Block[] {
     if (from > this.l2Blocks.length) {
       return [];
     }
@@ -155,28 +183,28 @@ export class DataArchiver implements L2BlockSource {
   }
 }
 
-// not bothering with docs since it will be removed once L1 JS lib is in place
-// function mockRandomL2Block(l2BlockNum: number): L2BlockData {
-//   const newNullifiers = [randomBytes(32), randomBytes(32), randomBytes(32), randomBytes(32)];
-//   const newCommitments = [randomBytes(32), randomBytes(32), randomBytes(32), randomBytes(32)];
-//   const newContracts: Buffer[] = [randomBytes(32)];
-//   const newContractsData: ContractData[] = [randomContractData()];
+// not bothering with docs since it will be removed once all the data is in place
+function mockRandomL2Block(l2BlockNum: bigint): L2Block {
+  const newNullifiers = [randomBytes(32), randomBytes(32), randomBytes(32), randomBytes(32)];
+  const newCommitments = [randomBytes(32), randomBytes(32), randomBytes(32), randomBytes(32)];
+  const newContracts: Buffer[] = [randomBytes(32)];
+  const newContractsData: ContractData[] = [randomContractData()];
 
-//   return new L2BlockData(
-//     l2BlockNum,
-//     randomAppendOnlyTreeSnapshot(0),
-//     randomAppendOnlyTreeSnapshot(0),
-//     randomAppendOnlyTreeSnapshot(0),
-//     randomAppendOnlyTreeSnapshot(0),
-//     randomAppendOnlyTreeSnapshot(0),
-//     randomAppendOnlyTreeSnapshot(newCommitments.length),
-//     randomAppendOnlyTreeSnapshot(newNullifiers.length),
-//     randomAppendOnlyTreeSnapshot(newContracts.length),
-//     randomAppendOnlyTreeSnapshot(1),
-//     randomAppendOnlyTreeSnapshot(1),
-//     newCommitments,
-//     newNullifiers,
-//     newContracts,
-//     newContractsData,
-//   );
-// }
+  return new L2Block(
+    l2BlockNum,
+    randomAppendOnlyTreeSnapshot(0),
+    randomAppendOnlyTreeSnapshot(0),
+    randomAppendOnlyTreeSnapshot(0),
+    randomAppendOnlyTreeSnapshot(0),
+    randomAppendOnlyTreeSnapshot(0),
+    randomAppendOnlyTreeSnapshot(newCommitments.length),
+    randomAppendOnlyTreeSnapshot(newNullifiers.length),
+    randomAppendOnlyTreeSnapshot(newContracts.length),
+    randomAppendOnlyTreeSnapshot(1),
+    randomAppendOnlyTreeSnapshot(1),
+    newCommitments,
+    newNullifiers,
+    newContracts,
+    newContractsData,
+  );
+}

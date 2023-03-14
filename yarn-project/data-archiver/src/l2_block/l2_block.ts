@@ -29,9 +29,11 @@ export type ContractData = {
 /**
  * The data that makes up the rollup proof, with encoder decoder functions.
  */
-export class L2BlockData {
+export class L2Block {
+  public yeet?: Buffer;
+
   /**
-   * Construct a new L2BlockData object.
+   * Construct a new L2Block object.
    * The data that goes into the rollup, BUT without the proof.
    * @param number - The number of the L2 block.
    * @param startPrivateDataTreeSnapshot - The tree snapshot of the private data tree at the start of the rollup.
@@ -50,7 +52,7 @@ export class L2BlockData {
    * @param newContractData - The aztec_address and eth_address for the deployed contract and its portal contract.
    */
   constructor(
-    public number: number,
+    public number: bigint,
     public startPrivateDataTreeSnapshot: AppendOnlyTreeSnapshot,
     public startNullifierTreeSnapshot: AppendOnlyTreeSnapshot,
     public startContractTreeSnapshot: AppendOnlyTreeSnapshot,
@@ -67,13 +69,17 @@ export class L2BlockData {
     public newContractData: ContractData[],
   ) {}
 
+  setYeet(yeet: Buffer) {
+    this.yeet = yeet;
+  }
+
   /**
    * Encode the L2 block data into a buffer that can be pushed to the rollup contract.
    * @returns The encoded L2 block data.
    */
   encode(): Buffer {
     return Buffer.concat([
-      numToUInt32BE(this.number),
+      numToUInt32BE(Number(this.number)),
       appendOnlyTreeSnapshotToBuffer(this.startPrivateDataTreeSnapshot),
       appendOnlyTreeSnapshotToBuffer(this.startNullifierTreeSnapshot),
       appendOnlyTreeSnapshotToBuffer(this.startContractTreeSnapshot),
@@ -101,7 +107,7 @@ export class L2BlockData {
    */
   static decode(encoded: Buffer) {
     let offset = 0;
-    const rollupId = encoded.readUInt32BE(offset);
+    const rollupId = BigInt(encoded.readUInt32BE(offset));
     offset += 4;
     const startPrivateDataTreeSnapshot = bufferToAppendOnlyTreeSnapshot(encoded.subarray(offset, offset + 36));
     offset += 36;
@@ -161,7 +167,7 @@ export class L2BlockData {
       offset += 52;
     }
 
-    return new L2BlockData(
+    return new L2Block(
       rollupId,
       startPrivateDataTreeSnapshot,
       startNullifierTreeSnapshot,

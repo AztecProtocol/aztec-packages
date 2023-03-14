@@ -1,5 +1,5 @@
 import nodeCrypto from 'crypto';
-import { AppendOnlyTreeSnapshot, ContractData } from './l2_block_data.js';
+import { AppendOnlyTreeSnapshot, ContractData } from './l2_block.js';
 
 export const randomBytes = (len: number) => {
   return nodeCrypto.randomBytes(len) as Buffer;
