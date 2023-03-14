@@ -1,40 +1,90 @@
 import { default as LevelUp } from 'levelup';
-import { MemDown } from 'memdown';
-import { BatchUpdate, TreeInfo, WorldStateDB, WorldStateTreeId } from './index.js';
-import { MerkleTree, Pedersen, HashPath } from '@aztec/merkle-tree';
+import {
+  StandardMerkleTree,
+  Pedersen,
+  SiblingPath,
+  MerkleTreeDb,
+  MerkleTreeId,
+  TreeInfo,
+  IndexedTree,
+} from '@aztec/merkle-tree';
+import { SerialQueue } from '../serial_queue.js';
 
-export class MemoryWorldStateDb implements WorldStateDB {
+export class MerkleTrees implements MerkleTreeDb {
   private trees: MerkleTree[] = [];
+  private jobQueue = new SerialQueue();
 
-  constructor() {
-    const db = new LevelUp(MemDown());
+  constructor(db: LevelUp) {
     const hasher = new Pedersen();
-    this.trees = [new MerkleTree(db, hasher, `${WorldStateTreeId[WorldStateTreeId.CONTRACT_TREE]}`, 32)];
+    const contractTree = StandardMerkleTree.new(db, hasher, `${MerkleTreeId[MerkleTreeId.CONTRACT_TREE]}`, 32);
+    const contractTreeRootsTree = StandardMerkleTree.new(
+      db,
+      hasher,
+      `${MerkleTreeId[MerkleTreeId.CONTRACT_TREE_ROOTS_TREE]}`,
+      7,
+    );
+    const nullifierTree = IndexedTree.new(db, hasher, `${MerkleTreeId[MerkleTreeId.NULLIFIER_TREE]}`, 32);
+    this.trees = [contractTree, contractTreeRootsTree, nullifierTree];
+    this.jobQueue.start();
   }
 
-  public getTreeInfo() {
-    const treeInfo = {
-      treeId: WorldStateTreeId.CONTRACT_TREE,
-      root: this.trees[WorldStateTreeId.CONTRACT_TREE].getRoot(),
-      size: this.trees[WorldStateTreeId.CONTRACT_TREE].getSize(),
-    } as TreeInfo;
-    return Promise.resolve([treeInfo]);
+  public async stop() {
+    await this.jobQueue.end();
   }
 
-  public getHashPath(treeId: WorldStateTreeId, index: number): Promise<HashPath> {
-    return this.trees[treeId].getHashPath(index);
+  public async getTreeInfo() {
+    return await this.synchronise(() => this._getTreeInfo());
   }
 
-  public async insertElements(batches: BatchUpdate[]): Promise<TreeInfo[]> {
-    const results: TreeInfo[] = [];
-    for (const batch of batches) {
-      await this.trees[batch.treeId].updateElements(this.trees[batch.treeId].getSize(), batch.elements);
-      results.push({
-        treeId: batch.treeId,
-        size: this.trees[batch.treeId].getSize(),
-        root: this.trees[batch.treeId].getRoot(),
-      } as TreeInfo);
+  public async getSiblingPath(treeId: MerkleTreeId, index: number): Promise<SiblingPath> {
+    return await this.synchronise(() => this._getSiblingPath(treeId, index));
+  }
+
+  public async appendLeaves(treeId: MerkleTreeId, leaves: Buffer[]): Promise<void> {
+    return await this.synchronise(() => this._appendLeaves(treeId, leaves));
+  }
+
+  public async commit() {
+    return await this.synchronise(() => this._commit());
+  }
+
+  public async rollback() {
+    return await this.synchronise(() => this._rollback());
+  }
+
+  private async synchronise<T>(fn: () => Promise<T>): Promise<T> {
+    return await this.jobQueue.put(fn);
+  }
+
+  private _getTreeInfo() {
+    return Promise.resolve(
+      this.trees.map((tree, index) => {
+        return {
+          treeId: MerkleTreeId[index],
+          root: tree.getRoot(),
+          size: tree.getSize(),
+        } as TreeInfo;
+      }),
+    );
+  }
+
+  private _getSiblingPath(treeId: MerkleTreeId, index: number): Promise<SiblingPath> {
+    return Promise.resolve(this.trees[treeId].getHashPath(index));
+  }
+
+  private async _appendLeaves(treeId: MerkleTreeId, leaves: Buffer[]) {
+    return await this.trees[treeId].appendLeaves(leaves);
+  }
+
+  private async _commit() {
+    for (const tree of this.trees) {
+      await tree.commit();
     }
-    return results;
+  }
+
+  private async _rollback() {
+    for (const tree of this.trees) {
+      await tree.rollback();
+    }
   }
 }

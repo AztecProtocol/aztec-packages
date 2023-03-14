@@ -1,29 +1,36 @@
 import { WorldStateRunningState, WorldStateStatus, WorldStateSynchroniser } from './world_state_synchroniser.js';
-import { RollupEmitter, Rollup } from '@aztec/data-archiver';
-import { BatchUpdate, TreeInfo, WorldStateDB, WorldStateTreeId } from '../world-state-db/index.js';
-import { MemoryFifo } from '../memory_fifo.js';
+import { RollupSource, Rollup } from '@aztec/data-archiver';
+import { BatchUpdate, WorldStateTreeId } from '../world-state-db/index.js';
+import { MerkleTreeDb } from '@aztec/merkle-tree';
+import { RollupBlockDownloader } from '../rollup_block_downloader.js';
 
 export class ServerWorldStateSynchroniser implements WorldStateSynchroniser {
-  private queue: MemoryFifo<() => Promise<void>> = new MemoryFifo<() => Promise<void>>();
-  private queuePromise?: Promise<void>;
   private currentRollupId = 0;
+  private rollupDownloader: RollupBlockDownloader;
+  private runningPromise: Promise<void> = Promise.resolve();
+  private running = false;
 
-  constructor(private worldStateDb: WorldStateDB, private rollupEmitter: RollupEmitter) {}
+  constructor(private merkleTreeDb: MerkleTreeDb, rollupSource: RollupSource, maxQueueSize = 1000) {
+    this.rollupDownloader = new RollupBlockDownloader(rollupSource, maxQueueSize);
+  }
 
-  public start() {
-    this.queuePromise = this.queue.process(fn => {
-      return fn();
-    });
-    this.rollupEmitter.on('rollup', (rollup: Rollup) => this.synchronise(() => this.handleRollup(rollup)));
-    this.rollupEmitter.start(this.currentRollupId, true);
+  public start(from = 0) {
+    this.running = true;
+    const blockProcess = async () => {
+      while (this.running) {
+        const blocks = await this.rollupDownloader.getBlocks();
+        await this.handleRollups(blocks);
+      }
+    };
+    this.runningPromise = blockProcess();
+
+    this.rollupDownloader.start(from);
   }
 
   public async stop() {
-    // first stop the emitter
-    await this.rollupEmitter.stop();
-    // now wait for the rollup queue to complete
-    this.queue.end();
-    await this.queuePromise;
+    await this.rollupDownloader.stop();
+    this.running = false;
+    await this.runningPromise;
   }
 
   public status(): Promise<WorldStateStatus> {
@@ -34,19 +41,10 @@ export class ServerWorldStateSynchroniser implements WorldStateSynchroniser {
     return Promise.resolve(status);
   }
 
-  public async getTreeInfo(): Promise<TreeInfo[]> {
-    return await this.synchronise(async () => {
-      return await this.worldStateDb.getTreeInfo();
-    });
-  }
-
-  private async synchronise<T>(fn: () => Promise<T>): Promise<T> {
-    return await new Promise(resolve => {
-      this.queue.put(async () => {
-        const result = await fn();
-        resolve(result);
-      });
-    });
+  private async handleRollups(rollups: Rollup[]) {
+    for (const rollup of rollups) {
+      await this.handleRollup(rollup);
+    }
   }
 
   private async handleRollup(rollup: Rollup) {
@@ -54,6 +52,7 @@ export class ServerWorldStateSynchroniser implements WorldStateSynchroniser {
       treeId: WorldStateTreeId.CONTRACT_TREE,
       elements: rollup.commitments,
     } as BatchUpdate;
-    await this.worldStateDb.insertElements([update]);
+    await this.merkleTreeDb.insertElements([update]);
+    this.currentRollupId = rollup.rollupId;
   }
 }

@@ -1,5 +1,3 @@
-import { TreeInfo } from '../world-state-db/index.js';
-
 export enum WorldStateRunningState {
   IDLE,
   SYNCHING,
@@ -16,5 +14,4 @@ export interface WorldStateSynchroniser {
   start(): void;
   status(): Promise<WorldStateStatus>;
   stop(): Promise<void>;
-  getTreeInfo(): Promise<TreeInfo[]>;
 }

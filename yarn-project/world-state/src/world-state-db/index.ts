@@ -14,9 +14,3 @@ export interface BatchUpdate {
   treeId: WorldStateTreeId;
   elements: Buffer[];
 }
-
-export interface WorldStateDB {
-  getTreeInfo(): Promise<TreeInfo[]>;
-  insertElements(batches: BatchUpdate[]): Promise<TreeInfo[]>;
-  getHashPath(treeId: WorldStateTreeId, index: number): Promise<HashPath>;
-}

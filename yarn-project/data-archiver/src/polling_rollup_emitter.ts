@@ -1,11 +1,12 @@
 import { EventEmitter } from 'stream';
 import { Rollup } from './rollup.js';
-import { RollupEmitter, RollupRetriever } from './rollup_emitter.js';
+import { RollupEmitter } from './rollup_emitter.js';
+import { RollupSource } from './rollup_source.js';
 import { RunningPromise } from './running_promise.js';
 
 export class PollingRollupEmitter extends EventEmitter implements RollupEmitter {
   private runningPromise?: RunningPromise;
-  constructor(private retriever: RollupRetriever, private pollingInterval = 10000) {
+  constructor(private retriever: RollupSource, private pollingInterval = 10000) {
     super();
   }
   public getRollups(from: number, take?: number): Promise<Rollup[]> {
