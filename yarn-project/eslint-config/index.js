@@ -3,10 +3,13 @@ const contexts = [
   'MethodDefinition',
   'TSPropertySignature',
   'PropertySignature',
+  'TSInterfaceDeclaration > TSPropertyDefinition',
+  'InterfaceDeclaration > PropertyDefinition',
   'TSInterfaceDeclaration',
   'InterfaceDeclaration',
   'TSTypeAliasDeclaration',
   'TypeAliasDeclaration',
+  // TODO how to ensure non-function exports are documented?
   'TSTypeDeclaration',
   'TypeDeclaration',
   'TSEnumDeclaration',

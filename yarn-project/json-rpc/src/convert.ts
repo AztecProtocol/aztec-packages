@@ -1,5 +1,12 @@
 import { ClassConverter } from './class_converter.js';
+import { Buffer } from 'buffer';
 
+/**
+ * Convert a JSON-friendly object, which may encode a class object.
+ * @param cc - The class converter.
+ * @param obj - The encoded object.
+ * @returns The decoded object.
+ */
 export function convertFromJsonObj(cc: ClassConverter, obj: any): any {
   if (!obj) {
     return obj; // Primitive type
@@ -30,6 +37,12 @@ export function convertFromJsonObj(cc: ClassConverter, obj: any): any {
   return obj;
 }
 
+/**
+ * Convert objects or classes to a JSON-friendly object.
+ * @param cc - The class converter.
+ * @param obj - The object.
+ * @returns The encoded object.
+ */
 export function convertToJsonObj(cc: ClassConverter, obj: any): any {
   if (!obj) {
     return obj; // Primitive type

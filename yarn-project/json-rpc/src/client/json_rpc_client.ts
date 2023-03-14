@@ -8,9 +8,17 @@ import { RemoteObject } from 'comlink';
 import { ClassConverter, ClassConverterInput } from '../class_converter.js';
 import { convertFromJsonObj, convertToJsonObj } from '../convert.js';
 
-export async function defaultFetch(host: string, method: string, body: any) {
-  logTrace(`JsonRpcClient.fetch`, host, method, '<-', body);
-  const resp = await fetch(`${host}/${method}`, {
+/**
+ * A normal fetch function that does not retry.
+ * Alternatives are a fetch function with retries, or a mocked fetch.
+ * @param host - The host URL.
+ * @param method - The RPC method name.
+ * @param body - The RPC payload.
+ * @returns The parsed JSON response, or throws an error.
+ */
+export async function defaultFetch(host: string, rpcMethod: string, body: any) {
+  logTrace(`JsonRpcClient.fetch`, host, rpcMethod, '<-', body);
+  const resp = await fetch(`${host}/${rpcMethod}`, {
     method: 'POST',
     body: JSON.stringify(body),
     headers: { 'content-type': 'application/json' },
@@ -28,13 +36,16 @@ export async function defaultFetch(host: string, method: string, body: any) {
   }
 }
 
-export async function mustSucceedFetch(host: string, method: string, body: any) {
-  return await retry(() => defaultFetch(host, method, body), 'JsonRpcClient request');
-}
 /**
- * Creates a Proxy object that delegates over RPC
- * and satisfies RemoteObject<T>
- * The server should have ran new JsonRpcServer()
+ * A fetch function with retries.
+ */
+export async function mustSucceedFetch(host: string, rpcMethod: string, body: any) {
+  return await retry(() => defaultFetch(host, rpcMethod, body), 'JsonRpcClient request');
+}
+
+/**
+ * Creates a Proxy object that delegates over RPC and satisfies RemoteObject<T>.
+ * The server should have ran new JsonRpcServer().
  */
 export function createJsonRpcClient<T extends object>(
   host: string,
@@ -65,10 +76,10 @@ export function createJsonRpcClient<T extends object>(
     {},
     {
       get:
-        (_, method: string) =>
+        (_, rpcMethod: string) =>
         (...params: any[]) => {
-          logTrace(`JsonRpcClient.constructor`, 'proxy', method, '<-', params);
-          return request(method, params);
+          logTrace(`JsonRpcClient.constructor`, 'proxy', rpcMethod, '<-', params);
+          return request(rpcMethod, params);
         },
     },
   ) as RemoteObject<T>;
