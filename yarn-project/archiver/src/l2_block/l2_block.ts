@@ -52,7 +52,7 @@ export class L2Block {
    * @param newContractData - The aztec_address and eth_address for the deployed contract and its portal contract.
    */
   constructor(
-    public number: bigint,
+    public number: number,
     public startPrivateDataTreeSnapshot: AppendOnlyTreeSnapshot,
     public startNullifierTreeSnapshot: AppendOnlyTreeSnapshot,
     public startContractTreeSnapshot: AppendOnlyTreeSnapshot,
@@ -107,7 +107,7 @@ export class L2Block {
    */
   static decode(encoded: Buffer) {
     let offset = 0;
-    const rollupId = BigInt(encoded.readUInt32BE(offset));
+    const blockNum = encoded.readUInt32BE(offset);
     offset += 4;
     const startPrivateDataTreeSnapshot = bufferToAppendOnlyTreeSnapshot(encoded.subarray(offset, offset + 36));
     offset += 36;
@@ -168,7 +168,7 @@ export class L2Block {
     }
 
     return new L2Block(
-      rollupId,
+      blockNum,
       startPrivateDataTreeSnapshot,
       startNullifierTreeSnapshot,
       startContractTreeSnapshot,
