@@ -1,5 +1,7 @@
-import { Address, createPublicClient, http, parseAbiItem, PublicClient } from 'viem';
+import { Address, createPublicClient, http, PublicClient } from 'viem';
 import { localhost } from 'viem/chains';
+import { rollupAbi } from './abis/rollup.js';
+import { yeeterAbi } from './abis/yeeter.js';
 import { ContractData, L2Block } from './l2_block/l2_block.js';
 import { randomAppendOnlyTreeSnapshot, randomBytes, randomContractData } from './l2_block/mocks.js';
 import { L2BlockSource, SyncStatus } from './l2_block_source.js';
@@ -28,12 +30,7 @@ export class Archiver implements L2BlockSource {
   /**
    * A client for interacting with the Ethereum node.
    */
-  private client: PublicClient;
-
-  private readonly blockEvent = parseAbiItem('event L2BlockProcessed(uint256 indexed blockNum)');
-  private readonly yeetEvent = parseAbiItem(
-    'event Yeet(uint256 indexed blockNum, address indexed sender, bytes blabber)',
-  );
+  private publicClient: PublicClient;
 
   private unwatchBlocks: (() => void) | undefined;
   private unwatchYeets: (() => void) | undefined;
@@ -49,7 +46,7 @@ export class Archiver implements L2BlockSource {
     private readonly rollupAddress: Address,
     private readonly yeeterAddress: Address,
   ) {
-    this.client = createPublicClient({
+    this.publicClient = createPublicClient({
       chain: localhost,
       transport: http(ethereumHost.toString()),
     });
@@ -58,10 +55,16 @@ export class Archiver implements L2BlockSource {
   /**
    * {@inheritDoc L2BlockSource.getSyncStatus}
    */
-  public getSyncStatus(): SyncStatus {
+  public async getSyncStatus(): Promise<SyncStatus> {
+    const nextBlockNum = await this.publicClient.readContract({
+      address: this.rollupAddress,
+      abi: rollupAbi,
+      functionName: 'nextBlockNum',
+    });
+
     return {
       syncedToBlock: this.getLatestBlockNum(),
-      latestBlock: -1, // TODO: fetch directly from contract
+      latestBlock: Number(nextBlockNum) - 1,
     };
   }
 
@@ -87,20 +90,20 @@ export class Archiver implements L2BlockSource {
    * Fetches all the L2BlockProcessed and Yeet events since genesis and processes them.
    */
   private async runInitialSync() {
-    const blockFilter = await this.client.createEventFilter({
+    const blockFilter = await this.publicClient.createEventFilter({
       address: this.rollupAddress,
       fromBlock: 0n,
-      event: this.blockEvent,
+      event: rollupAbi[0],
     });
 
-    const yeetFilter = await this.client.createEventFilter({
+    const yeetFilter = await this.publicClient.createEventFilter({
       address: this.yeeterAddress,
-      event: this.yeetEvent,
+      event: yeeterAbi[0],
       fromBlock: 0n,
     });
 
-    const blockLogs = await this.client.getFilterLogs({ filter: blockFilter });
-    const yeetLogs = await this.client.getFilterLogs({ filter: yeetFilter });
+    const blockLogs = await this.publicClient.getFilterLogs({ filter: blockFilter });
+    const yeetLogs = await this.publicClient.getFilterLogs({ filter: yeetFilter });
 
     this.processBlockLogs(blockLogs);
     this.processYeetLogs(yeetLogs);
@@ -110,15 +113,15 @@ export class Archiver implements L2BlockSource {
    * Starts a polling loop in the background which watches for new events and passes them to the respective handlers.
    */
   private startWatchingEvents() {
-    this.unwatchBlocks = this.client.watchEvent({
+    this.unwatchBlocks = this.publicClient.watchEvent({
       address: this.rollupAddress,
-      event: this.blockEvent,
+      event: rollupAbi[0],
       onLogs: logs => this.processBlockLogs(logs),
     });
 
-    this.unwatchYeets = this.client.watchEvent({
+    this.unwatchYeets = this.publicClient.watchEvent({
       address: this.yeeterAddress,
-      event: this.yeetEvent,
+      event: yeeterAbi[0],
       onLogs: logs => this.processYeetLogs(logs),
     });
   }
@@ -138,7 +141,7 @@ export class Archiver implements L2BlockSource {
       const yeet = this.pendingYeets.find(yeet => yeet.readUInt32BE(0) === blockNum);
       if (yeet !== undefined) {
         newBlock.setYeet(yeet);
-        // remove yeet from pending
+        // Remove yeet from pending
         this.pendingYeets = this.pendingYeets.filter(yeet => yeet.readUInt32BE(0) !== blockNum);
       }
       this.l2Blocks.push(newBlock);

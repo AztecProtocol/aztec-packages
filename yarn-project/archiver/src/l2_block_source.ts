@@ -22,11 +22,11 @@ export interface L2BlockSource {
    * Gets the sync status of the L2 block source.
    * @returns The sync status of the L2 block source.
    */
-  getSyncStatus(): SyncStatus;
+  getSyncStatus(): Promise<SyncStatus>;
 
   /**
-   * Gets the number of the latest L2 block processed by the rollup contract.
-   * @returns The number of the latest L2 block processed by the rollup contract.
+   * Gets the number of the latest L2 block processed by the block source implementation.
+   * @returns The number of the latest L2 block processed by the block source implementation.
    */
   getLatestBlockNum(): number;
 
