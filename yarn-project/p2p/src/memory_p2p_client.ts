@@ -1,8 +1,8 @@
 import { InterruptableSleep, RollupBlockDownloader } from '@aztec/world-state';
 
-import { InMemoryTxPool } from './memory_tx_pool.js';
+import { InMemoryTxPool } from './tx_pool/memory_tx_pool.js';
 import { P2P } from './p2p_client.js';
-import { TxPool } from './tx_pool.js';
+import { TxPool } from './tx_pool/index.js';
 import { Rollup, RollupSource, Tx } from './temp_types.js';
 
 const TAKE_NUM = 10;

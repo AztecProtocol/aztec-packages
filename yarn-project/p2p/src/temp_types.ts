@@ -2,15 +2,6 @@ export interface Tx {
   txId: Buffer;
 }
 
-export interface TxRequest {
-  from: Buffer; // deployer address,
-  to: Buffer;
-  function_data: Buffer;
-  args: Buffer[];
-  nonce: number; //random for private / incrementing for public,
-  // tx_context: TxContext,
-  chain_id: number
-};
 /**
  * Interface defining data contained in a rollup object.
  */

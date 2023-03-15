@@ -1,5 +1,5 @@
-import { Tx } from './temp_types.js';
-import { TxPool } from './tx_pool.js';
+import { Tx } from '../temp_types.js';
+import { TxPool } from './index.js';
 
 /**
  * Helper to tranform Buffer IDs to a bigint.

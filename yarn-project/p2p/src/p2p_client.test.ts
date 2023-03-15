@@ -1,7 +1,7 @@
 import { expect, jest } from '@jest/globals';
 
 import { InMemoryP2PCLient } from './memory_p2p_client.js';
-import { TxPool } from './tx_pool.js';
+import { TxPool } from './tx_pool/index.js';
 import { RollupSource } from './temp_types.js';
 import { MockRollupSource } from './mocks.js';
 import { MockTx } from './mocks.js';
@@ -28,23 +28,23 @@ describe('In-Memory P2P Client', () => {
     rollupSource = new MockRollupSource();
   });
 
-  it('can start & stop', () => {
+  it('can start & stop', async () => {
     const client = new InMemoryP2PCLient(rollupSource, txPool);
     expect(client.isReady()).toEqual(false);
     expect(client.isRunning()).toEqual(false);
 
-    client.start();
+    await client.start();
     expect(client.isReady()).toEqual(true);
     expect(client.isRunning()).toEqual(true);
 
-    client.stop();
+    await client.stop();
     expect(client.isReady()).toEqual(false);
     expect(client.isRunning()).toEqual(false);
   });
 
-  it('adds txs to pool', () => {
+  it('adds txs to pool', async () => {
     const client = new InMemoryP2PCLient(rollupSource, txPool);
-    client.start();
+    await client.start();
     const tx1 = new MockTx();
     const tx2 = new MockTx();
     client.sendTx(tx1);
@@ -53,16 +53,16 @@ describe('In-Memory P2P Client', () => {
     expect(txPool.addTxs).toHaveBeenCalledTimes(2);
   });
 
-  it('rejects txs after being stopped', () => {
+  it('rejects txs after being stopped', async () => {
     const client = new InMemoryP2PCLient(rollupSource, txPool);
-    client.start();
+    await client.start();
     const tx1 = new MockTx();
     const tx2 = new MockTx();
     client.sendTx(tx1);
     client.sendTx(tx2);
 
     expect(txPool.addTxs).toHaveBeenCalledTimes(2);
-    client.stop();
+    await client.stop();
     const tx3 = new MockTx();
     client.sendTx(tx3);
     expect(txPool.addTxs).toHaveBeenCalledTimes(2);
