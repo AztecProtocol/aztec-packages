@@ -5,13 +5,3 @@ export interface Config extends L1Addresses {
   ethereumHost: string;
   requiredConfirmations: number;
 }
-
-// TODO: Load sequencer pk from env
-export function getConfig(): Config {
-  return {
-    ...getL1Addresses(),
-    sequencerPrivateKey: '',
-    ethereumHost: '',
-    requiredConfirmations: 10,
-  };
-}
