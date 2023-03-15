@@ -35,6 +35,13 @@ export class WasmModule {
   }
 
   /**
+   * Return the wasm source.
+   * @returns The source.
+   */
+  public getModule(): WebAssembly.Module | Buffer {
+    return this.module;
+  }
+  /**
    * Initialize this wasm module.
    * @param wasmImportEnv - Linked to a module called "env". Functions implementations referenced from e.g. C++.
    * @param initial - 20 pages by default. 20*2**16 \> 1mb stack size plus other overheads.
