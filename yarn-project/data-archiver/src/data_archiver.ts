@@ -19,6 +19,10 @@ export class DataArchiver implements L2BlockSource {
    */
   private l2Blocks: L2Block[] = [];
 
+  /**
+   * An array yeets that have been fetched but not yet added to the L2 blocks.
+   * Note: Can happen when Yeet event is received before L2BlockProcessed event for whatever reason.
+   */
   private pendingYeets: Buffer[] = [];
 
   /**
@@ -36,9 +40,9 @@ export class DataArchiver implements L2BlockSource {
 
   /**
    * Creates a new instance of the DataArchiver.
-   * @param ethereumHost - Ethereum provider
-   * @param rollupAddress - Ethereum address of the rollup contract
-   * @param yeeterAddress - Ethereum address of the yeeter contract
+   * @param ethereumHost - Ethereum provider.
+   * @param rollupAddress - Ethereum address of the rollup contract.
+   * @param yeeterAddress - Ethereum address of the yeeter contract.
    */
   constructor(
     private readonly ethereumHost: URL,
@@ -56,13 +60,13 @@ export class DataArchiver implements L2BlockSource {
    */
   public getSyncStatus(): SyncStatus {
     return {
-      syncedToBlock: -1, // TODO: fetch directly from contract
-      latestBlock: this.getLatestBlockNum(),
+      syncedToBlock: this.getLatestBlockNum(),
+      latestBlock: -1, // TODO: fetch directly from contract
     };
   }
 
   /**
-   * Starts the promise pulling the data.
+   * Starts sync process.
    */
   public async start() {
     this.log(
@@ -79,6 +83,9 @@ export class DataArchiver implements L2BlockSource {
     this.log('Watching for new data...');
   }
 
+  /**
+   * Fetches all the L2BlockProcessed and Yeet events since genesis and processes them.
+   */
   private async runInitialSync() {
     const blockFilter = await this.client.createEventFilter({
       address: this.rollupAddress,
@@ -99,6 +106,9 @@ export class DataArchiver implements L2BlockSource {
     this.processYeetLogs(yeetLogs);
   }
 
+  /**
+   * Starts a polling loop in the background which watches for new events and passes them to the respective handlers.
+   */
   private startWatchingEvents() {
     this.unwatchBlocks = this.client.watchEvent({
       address: this.rollupAddress,
@@ -113,6 +123,10 @@ export class DataArchiver implements L2BlockSource {
     });
   }
 
+  /**
+   * Processes newly received L2BlockProcessed events.
+   * @param logs - L2BlockProcessed event logs.
+   */
   private processBlockLogs(logs: any[]) {
     this.log('Processed ' + logs.length + ' L2 blocks...');
     for (const log of logs) {
@@ -131,6 +145,10 @@ export class DataArchiver implements L2BlockSource {
     }
   }
 
+  /**
+   * Processes newly received Yeet events.
+   * @param logs - Yeet event logs.
+   */
   private processYeetLogs(logs: any[]) {
     for (const log of logs) {
       const blockNum = log.args.blockNum;
@@ -147,7 +165,7 @@ export class DataArchiver implements L2BlockSource {
   }
 
   /**
-   * Stops the promise pulling the data.
+   * Stops the event polling loop.
    */
   public stop() {
     this.log('Stopping...');
@@ -183,7 +201,11 @@ export class DataArchiver implements L2BlockSource {
   }
 }
 
-// not bothering with docs since it will be removed once all the data is in place
+/**
+ * Creates a random L2Block wiht the given block number.
+ * @param l2BlockNum - Block number.
+ * @returns Random L2Block.
+ */
 function mockRandomL2Block(l2BlockNum: bigint): L2Block {
   const newNullifiers = [randomBytes(32), randomBytes(32), randomBytes(32), randomBytes(32)];
   const newCommitments = [randomBytes(32), randomBytes(32), randomBytes(32), randomBytes(32)];
