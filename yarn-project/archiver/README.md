@@ -7,4 +7,3 @@ To run:
 
 Relevant unresolved issues:
 https://stackoverflow.com/questions/75739742/why-is-eslint-complaining-about-inheritdoc-tag
-https://github.com/wagmi-dev/viem/discussions/203

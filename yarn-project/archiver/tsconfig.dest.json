@@ -1,7 +1,4 @@
 {
   "extends": ".",
   "exclude": ["**/*.test.*", "**/fixtures/*"],
-  "compilerOptions": {
-    "noImplicitAny": false, // TODO: remove once the viem issue is resolved https://github.com/wagmi-dev/viem/discussions/203
-  },
 }
