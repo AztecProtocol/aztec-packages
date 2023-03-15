@@ -16,7 +16,7 @@ export class Archiver implements L2BlockSource {
   private l2Blocks: L2Block[] = [];
 
   /**
-   * An array yeets that have been fetched but not yet added to the L2 blocks.
+   * An array of yeets that have been fetched but not yet added as a property to L2 blocks.
    * Note: Can happen when Yeet event is received before L2BlockProcessed event for whatever reason.
    */
   private pendingYeets: Buffer[] = [];
