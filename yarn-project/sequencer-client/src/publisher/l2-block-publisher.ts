@@ -1,4 +1,5 @@
-import { L2BlockData, L2BlockReceiver } from '../receiver.js';
+import { L2Block } from '@aztec/archiver';
+import { L2BlockReceiver } from '../receiver.js';
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const MIN_FEE_DISTRIBUTOR_BALANCE = 5n * 10n ** 17n;
@@ -7,24 +8,17 @@ const MIN_FEE_DISTRIBUTOR_BALANCE = 5n * 10n ** 17n;
  * Component responsible of pushing the txs to the chain and waiting for completion.
  */
 export interface PublisherTxSender {
-  sendTransaction(encodedData: EncodedL2BlockData): Promise<string | undefined>;
+  sendTransaction(encodedData: L1ProcessRollupArgs): Promise<string | undefined>;
   getTransactionReceipt(txHash: string): Promise<{ status: boolean; transactionHash: string } | undefined>;
 }
 
 /**
- * Encoded block data ready to be pushed to the L1 contract.
+ * Encoded block data and proof ready to be pushed to the L1 contract.
  */
-export type EncodedL2BlockData = {
+export type L1ProcessRollupArgs = {
   proof: Buffer;
   inputs: Buffer;
 };
-
-/**
- * Component responsible of encoding the data of an l2 block to be published to the l1 rollup contract.
- */
-export interface PublisherDataEncoder {
-  encodeL2BlockDataForPublish(l2BlockData: L2BlockData): Promise<EncodedL2BlockData>;
-}
 
 /**
  * Publishes L2 blocks to the L1 rollup contracts. This implementation does *not* retry a transaction in
@@ -40,11 +34,7 @@ export class L2BlockPublisher implements L2BlockReceiver {
   private interruptResolve = () => {};
   private sleepTimeMs: number;
 
-  constructor(
-    private txSender: PublisherTxSender,
-    private encoder: PublisherDataEncoder,
-    opts?: { sleepTimeMs?: number },
-  ) {
+  constructor(private txSender: PublisherTxSender, opts?: { sleepTimeMs?: number }) {
     this.interruptPromise = new Promise(resolve => (this.interruptResolve = resolve));
     this.sleepTimeMs = opts?.sleepTimeMs ?? 60_000;
   }
@@ -53,8 +43,9 @@ export class L2BlockPublisher implements L2BlockReceiver {
    * Processes incoming L2 block data by publishing it to the L1 rollup contract.
    * @returns True once the tx has been confirmed and is successful, false on revert or interrupt, blocks otherwise.
    */
-  public async processL2Block(l2BlockData: L2BlockData): Promise<boolean> {
-    const txData = await this.encoder.encodeL2BlockDataForPublish(l2BlockData);
+  public async processL2Block(l2BlockData: L2Block): Promise<boolean> {
+    const proof = Buffer.alloc(0);
+    const txData = { proof, inputs: l2BlockData.encode() };
 
     while (!this.interrupted) {
       if (!(await this.checkFeeDistributorBalance())) {
@@ -73,7 +64,7 @@ export class L2BlockPublisher implements L2BlockReceiver {
       if (receipt.status) return true;
 
       // Check if someone else moved the block id
-      if (!(await this.checkNextL2BlockId(l2BlockData.id))) {
+      if (!(await this.checkNextL2BlockId(l2BlockData.number))) {
         console.log('Publish failed. Contract changed underfoot.');
         break;
       }
@@ -109,7 +100,7 @@ export class L2BlockPublisher implements L2BlockReceiver {
     return true;
   }
 
-  private async sendTransaction(encodedData: EncodedL2BlockData): Promise<string | undefined> {
+  private async sendTransaction(encodedData: L1ProcessRollupArgs): Promise<string | undefined> {
     while (!this.interrupted) {
       try {
         return await this.txSender.sendTransaction(encodedData);

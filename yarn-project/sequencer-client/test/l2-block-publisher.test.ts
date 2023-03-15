@@ -1,12 +1,11 @@
+import { L2Block, mockRandomL2Block } from '@aztec/archiver';
 import { EthAddress } from '@aztec/ethereum.js/eth_address';
 import { EthereumRpc } from '@aztec/ethereum.js/eth_rpc';
 import { WalletProvider } from '@aztec/ethereum.js/provider';
 import { Rollup } from '@aztec/l1-contracts';
-import { beforeAll, describe, it, expect } from '@jest/globals';
+import { beforeAll, describe, expect, it } from '@jest/globals';
 import { AztecEthereumjsTxSender } from '../src/publisher/aztec-ethereumjs-tx-sender.js';
-import { EncodedL2BlockData, L2BlockPublisher } from '../src/publisher/l2-block-publisher.js';
-import { MockL2DataEncoder } from '../src/publisher/mock-l2-block-encoder.js';
-import { L2BlockData } from '../src/receiver.js';
+import { L2BlockPublisher } from '../src/publisher/l2-block-publisher.js';
 import { hexStringToBuffer } from '../src/utils.js';
 
 // Accounts 4 and 5 of Anvil default startup with mnemonic: 'test test test test test test test test test test test junk'
@@ -18,16 +17,15 @@ describe('L2BlockPublisher integration', () => {
   let rollup: Rollup;
   let ethRpc: EthereumRpc;
   let publisher: L2BlockPublisher;
-  let l2BlockData: L2BlockData;
-  let encodedL2BlockData: EncodedL2BlockData;
+  let l2Block: L2Block;
+  let l2Proof: Buffer;
 
   beforeAll(async () => {
     let deployer: EthAddress;
     ({ ethRpc, rollup, deployer } = await deployRollup());
 
-    const encoder = new MockL2DataEncoder();
-    encodedL2BlockData = encoder.mockData;
-    l2BlockData = { id: 42 };
+    l2Block = mockRandomL2Block(42);
+    l2Proof = Buffer.alloc(0);
 
     publisher = new L2BlockPublisher(
       new AztecEthereumjsTxSender({ 
@@ -37,7 +35,6 @@ describe('L2BlockPublisher integration', () => {
         rollupContract: rollup.address.toChecksumString(), 
         sequencerPrivateKey: sequencerPK 
       }),
-      encoder,
       {
         sleepTimeMs: 100
       }
@@ -46,11 +43,15 @@ describe('L2BlockPublisher integration', () => {
 
   it('publishes l2 block data to l1 rollup contract', async () => {
     const blockNumber = await ethRpc.blockNumber();
-    await publisher.processL2Block(l2BlockData);
+    await publisher.processL2Block(l2Block);
 
     const logs = await rollup.getLogs('RollupBlockProcessed', { fromBlock: blockNumber });
     expect(logs).toHaveLength(1);
-    expect(logs[0].args.rollupBlockNumber).toEqual(1n);
+    expect(logs[0].args.rollupBlockNumber).toEqual(42n);
+
+    const tx = await ethRpc.getTransactionByHash(logs[0].transactionHash!);
+    const expectedData = rollup.methods.processRollup(l2Proof, l2Block.encode()).encodeABI();
+    expect(tx.input).toEqual(expectedData);
   });
 });
 

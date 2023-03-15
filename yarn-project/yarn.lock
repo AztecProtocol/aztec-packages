@@ -35,7 +35,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@aztec/archiver@workspace:archiver":
+"@aztec/archiver@workspace:^, @aztec/archiver@workspace:archiver":
   version: 0.0.0-use.local
   resolution: "@aztec/archiver@workspace:archiver"
   dependencies:
@@ -325,6 +325,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/sequencer-client@workspace:sequencer-client"
   dependencies:
+    "@aztec/archiver": "workspace:^"
     "@aztec/eslint-config": "workspace:^"
     "@aztec/ethereum.js": "workspace:^"
     "@aztec/l1-contracts": "workspace:^"

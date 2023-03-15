@@ -4,7 +4,7 @@ import { WalletProvider } from '@aztec/ethereum.js/provider';
 import { Rollup } from '@aztec/l1-contracts';
 import { Config } from '../config.js';
 import { hexStringToBuffer } from '../utils.js';
-import { EncodedL2BlockData, PublisherTxSender } from './l2-block-publisher.js';
+import { L1ProcessRollupArgs, PublisherTxSender } from './l2-block-publisher.js';
 
 /**
  * Pushes transactions to the L1 rollup contract using the custom aztec/ethereum.js library.
@@ -19,7 +19,9 @@ export class AztecEthereumjsTxSender implements PublisherTxSender {
     const provider = WalletProvider.fromHost(ethereumHost);
     provider.addAccount(hexStringToBuffer(sequencerPrivateKey));
     this.ethRpc = new EthereumRpc(provider);
-    this.rollupContract = new Rollup(this.ethRpc, EthAddress.fromString(rollupContractAddress), { from: provider.getAccount(0) });
+    this.rollupContract = new Rollup(this.ethRpc, EthAddress.fromString(rollupContractAddress), {
+      from: provider.getAccount(0),
+    });
     this.confirmations = requiredConfirmations;
   }
 
@@ -29,9 +31,12 @@ export class AztecEthereumjsTxSender implements PublisherTxSender {
     );
   }
 
-  async sendTransaction(encodedData: EncodedL2BlockData): Promise<string | undefined> {
+  async sendTransaction(encodedData: L1ProcessRollupArgs): Promise<string | undefined> {
     const methodCall = this.rollupContract.methods.processRollup(encodedData.proof, encodedData.inputs);
     const gas = await methodCall.estimateGas();
-    return methodCall.send({ gas }).getTxHash().then(hash => hash.toString());
+    return methodCall
+      .send({ gas })
+      .getTxHash()
+      .then(hash => hash.toString());
   }
 }
