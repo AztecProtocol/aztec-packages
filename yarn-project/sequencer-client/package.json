@@ -14,7 +14,9 @@
     "clean": "rm -rf ./dest .tsbuildinfo",
     "formatting": "run -T prettier --check ./src && run -T eslint --max-warnings 0 ./src",
     "formatting:fix": "run -T prettier -w ./src && run -T eslint --max-warnings 0 ./src",
-    "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules $(yarn bin jest) --no-cache --passWithNoTests"
+    "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules $(yarn bin jest) --no-cache --passWithNoTests",
+    "test:integration": "concurrently -k -s first -c reset,dim -n test,anvil \"yarn test:integration:run\" \"anvil\"",
+    "test:integration:run": "NODE_NO_WARNINGS=1 node --experimental-vm-modules $(yarn bin jest) --no-cache --config jest.integration.config.json"
   },
   "jest": {
     "preset": "ts-jest/presets/default-esm",
@@ -40,6 +42,7 @@
     "@rushstack/eslint-patch": "^1.1.4",
     "@types/jest": "^29.4.0",
     "@types/node": "^18.7.23",
+    "concurrently": "^7.6.0",
     "jest": "^28.1.3",
     "jest-mock-extended": "^3.0.3",
     "ts-jest": "^28.0.7",

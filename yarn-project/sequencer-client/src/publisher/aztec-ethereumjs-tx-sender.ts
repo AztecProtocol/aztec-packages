@@ -19,7 +19,7 @@ export class AztecEthereumjsTxSender implements PublisherTxSender {
     const provider = WalletProvider.fromHost(ethereumHost);
     provider.addAccount(hexStringToBuffer(sequencerPrivateKey));
     this.ethRpc = new EthereumRpc(provider);
-    this.rollupContract = new Rollup(this.ethRpc, EthAddress.fromString(rollupContractAddress));
+    this.rollupContract = new Rollup(this.ethRpc, EthAddress.fromString(rollupContractAddress), { from: provider.getAccount(0) });
     this.confirmations = requiredConfirmations;
   }
 
@@ -29,11 +29,9 @@ export class AztecEthereumjsTxSender implements PublisherTxSender {
     );
   }
 
-  sendTransaction(encodedData: EncodedL2BlockData): Promise<string | undefined> {
-    return this.rollupContract.methods
-      .processRollup(encodedData.proof, encodedData.inputs)
-      .send()
-      .getTxHash()
-      .then(hash => hash.toString());
+  async sendTransaction(encodedData: EncodedL2BlockData): Promise<string | undefined> {
+    const methodCall = this.rollupContract.methods.processRollup(encodedData.proof, encodedData.inputs);
+    const gas = await methodCall.estimateGas();
+    return methodCall.send({ gas }).getTxHash().then(hash => hash.toString());
   }
 }
