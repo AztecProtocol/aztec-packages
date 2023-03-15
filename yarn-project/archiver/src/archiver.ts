@@ -11,11 +11,6 @@ import { createLogger } from './movetofoundation/log/console.js';
  */
 export class Archiver implements L2BlockSource {
   /**
-   * A logger.
-   */
-  private log = createLogger('Archiver');
-
-  /**
    * An array containing all the L2 blocks that have been fetched so far.
    */
   private l2Blocks: L2Block[] = [];
@@ -34,11 +29,13 @@ export class Archiver implements L2BlockSource {
    * @param publicClient - A client for interacting with the Ethereum node.
    * @param rollupAddress - Ethereum address of the rollup contract.
    * @param yeeterAddress - Ethereum address of the yeeter contract.
+   * @param log - A logger.
    */
   constructor(
     private readonly publicClient: PublicClient,
     private readonly rollupAddress: Address,
     private readonly yeeterAddress: Address,
+    private readonly log = createLogger('Archiver'),
   ) {}
 
   /**

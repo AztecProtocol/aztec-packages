@@ -32,12 +32,7 @@ async function main() {
   await archiver.start();
 }
 
-main().then(
-  () => {
-    console.log('Archiver started successfully.');
-  },
-  err => {
-    console.error('Archiver failed to start:', err);
-    process.exit(1);
-  },
-);
+main().catch(err => {
+  console.log(err);
+  process.exit(1);
+});
