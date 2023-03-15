@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'url';
 import { createPublicClient, getAddress, http } from 'viem';
 import { localhost } from 'viem/chains';
 import { Archiver } from './archiver.js';
@@ -32,7 +33,14 @@ async function main() {
   await archiver.start();
 }
 
-main().catch(err => {
-  console.log(err);
-  process.exit(1);
-});
+// Thank you Rich Harris, and not just for Svelte
+// https://twitter.com/Rich_Harris/status/1355289863130673153
+if (process.argv[1] === fileURLToPath(import.meta.url).replace(/\/index\.js$/, '')) {
+  main().catch(err => {
+    console.log(err);
+    process.exit(1);
+  });
+}
+
+export { Archiver, mockRandomL2Block } from './archiver.js';
+export * from './l2_block/l2_block.js';
