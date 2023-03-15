@@ -273,6 +273,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/p2p@workspace:p2p"
   dependencies:
+    "@aztec/data-archiver": "workspace:^"
     "@aztec/eslint-config": "workspace:^"
     "@aztec/world-state": "workspace:^"
     "@jest/globals": ^29.4.3

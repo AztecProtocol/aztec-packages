@@ -1,8 +1,8 @@
 /* eslint-disable jsdoc/require-jsdoc */
 import { randomBytes } from 'crypto';
-import { RollupSource, Rollup } from './temp_types.js';
+import { RollupSource, Rollup, Tx } from './temp_types.js';
 
-export class MockTx {
+export class MockTx implements Tx {
   constructor(private _txId: Buffer = randomBytes(32)) {}
 
   get txId() {

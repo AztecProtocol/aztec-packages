@@ -1,9 +1,10 @@
 import { InterruptableSleep, RollupBlockDownloader } from '@aztec/world-state';
+import { RollupSource } from '@aztec/data-archiver';
 
 import { InMemoryTxPool } from './tx_pool/memory_tx_pool.js';
 import { P2P } from './p2p_client.js';
 import { TxPool } from './tx_pool/index.js';
-import { Rollup, RollupSource, Tx } from './temp_types.js';
+import { Tx, Rollup } from './temp_types.js';
 
 const TAKE_NUM = 10;
 
@@ -68,7 +69,7 @@ export class InMemoryP2PCLient implements P2P {
 
     let synced = false;
 
-    const lastRollupId = this.rollupSource.getLastRollupId();
+    const lastRollupId = await this.rollupSource.getLatestRollupId();
 
     const txPoolSize = this.txPool.getAllTxs().keys.length;
     if (!txPoolSize) {
@@ -86,7 +87,7 @@ export class InMemoryP2PCLient implements P2P {
       this.reconcileTxPool(rollups);
 
       if (rollups.length) {
-        this.syncedRollupId = rollups[rollups.length - 1].id;
+        this.syncedRollupId = rollups[rollups.length - 1].rollupId;
       } else {
         synced = true;
         this.syncedRollupId = lastRollupId;

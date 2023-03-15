@@ -437,6 +437,7 @@ function $$SETUP_STATE(hydrateRuntimeState, basePath) {
           "packageLocation": "./p2p/",\
           "packageDependencies": [\
             ["@aztec/p2p", "workspace:p2p"],\
+            ["@aztec/data-archiver", "workspace:data-archiver"],\
             ["@aztec/eslint-config", "workspace:eslint-config"],\
             ["@aztec/world-state", "workspace:world-state"],\
             ["@jest/globals", "npm:29.5.0"],\

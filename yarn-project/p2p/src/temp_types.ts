@@ -10,12 +10,12 @@ export interface Rollup {
   /**
    * The ID of the rollup (block height in L1 terminology).
    */
-  id: number;
+  rollupId: number;
 
   /**
    * Timestamp of an L1 block in which the settlement tx containing this rollup was included.
    */
-  settlementTimestamp: number;
+  settlementTimestamp?: number;
 
   /**
    * List of rollup transactions.

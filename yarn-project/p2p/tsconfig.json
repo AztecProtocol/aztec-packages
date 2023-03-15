@@ -8,7 +8,8 @@
     "types": ["node", "jest"]
   },
   "references": [
-    { "path": "../world-state/tsconfig.dest.json" }
+    { "path": "../world-state/tsconfig.dest.json" },
+    { "path": "../data-archiver/tsconfig.dest.json" }
   ],
   "include": ["src"]
 }
