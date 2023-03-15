@@ -1,4 +1,5 @@
-import { getAddress } from 'viem';
+import { createPublicClient, getAddress, http } from 'viem';
+import { localhost } from 'viem/chains';
 import { Archiver } from './archiver.js';
 
 const {
@@ -13,7 +14,13 @@ const {
 async function main() {
   const rollupAddress = getAddress(ROLLUP_ADDRESS);
   const yeeterAddress = getAddress(YEETER_ADDRESS);
-  const archiver = new Archiver(new URL(ETHEREUM_HOST), rollupAddress, yeeterAddress);
+
+  const publicClient = createPublicClient({
+    chain: localhost,
+    transport: http(ETHEREUM_HOST),
+  });
+
+  const archiver = new Archiver(publicClient, rollupAddress, yeeterAddress);
 
   const shutdown = () => {
     archiver.stop();

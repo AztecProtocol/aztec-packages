@@ -1,5 +1,4 @@
-import { Address, createPublicClient, http, PublicClient } from 'viem';
-import { localhost } from 'viem/chains';
+import { Address, PublicClient } from 'viem';
 import { rollupAbi } from './abis/rollup.js';
 import { yeeterAbi } from './abis/yeeter.js';
 import { ContractData, L2Block } from './l2_block/l2_block.js';
@@ -27,30 +26,20 @@ export class Archiver implements L2BlockSource {
    */
   private pendingYeets: Buffer[] = [];
 
-  /**
-   * A client for interacting with the Ethereum node.
-   */
-  private publicClient: PublicClient;
-
   private unwatchBlocks: (() => void) | undefined;
   private unwatchYeets: (() => void) | undefined;
 
   /**
    * Creates a new instance of the Archiver.
-   * @param ethereumHost - Ethereum provider.
+   * @param publicClient - A client for interacting with the Ethereum node.
    * @param rollupAddress - Ethereum address of the rollup contract.
    * @param yeeterAddress - Ethereum address of the yeeter contract.
    */
   constructor(
-    private readonly ethereumHost: URL,
+    private readonly publicClient: PublicClient,
     private readonly rollupAddress: Address,
     private readonly yeeterAddress: Address,
-  ) {
-    this.publicClient = createPublicClient({
-      chain: localhost,
-      transport: http(ethereumHost.toString()),
-    });
-  }
+  ) {}
 
   /**
    * {@inheritDoc L2BlockSource.getSyncStatus}
@@ -72,14 +61,7 @@ export class Archiver implements L2BlockSource {
    * Starts sync process.
    */
   public async start() {
-    this.log(
-      'Initializing with provider: ' +
-        this.ethereumHost +
-        ' and rollup contract address: ' +
-        this.rollupAddress +
-        '...',
-    );
-
+    this.log('Starting initial sync...');
     await this.runInitialSync();
     this.log('Initial sync finished.');
     this.startWatchingEvents();
