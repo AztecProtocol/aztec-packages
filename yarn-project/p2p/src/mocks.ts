@@ -1,3 +1,4 @@
+/* eslint-disable jsdoc/require-jsdoc */
 import { randomBytes } from 'crypto';
 import { RollupSource, Rollup } from './temp_types.js';
 

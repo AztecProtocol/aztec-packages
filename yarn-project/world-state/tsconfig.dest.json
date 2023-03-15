@@ -1,4 +1,8 @@
 {
   "extends": ".",
+  "references": [
+    { "path": "../data-archiver/tsconfig.dest.json" },
+    { "path": "../merkle-tree/tsconfig.dest.json" }
+  ],
   "exclude": ["**/*.test.*", "**/fixtures/*"]
 }

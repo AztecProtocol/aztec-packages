@@ -42,7 +42,7 @@ export class InMemoryP2PCLient implements P2P {
   private runningSyncPromise!: Promise<void>;
 
   /**
-   * A function that waits for a specified time or until it's interrupted
+   * A function that waits for a specified time or until it's interrupted.
    */
   private interruptableSleep = new InterruptableSleep();
 
@@ -156,8 +156,8 @@ export class InMemoryP2PCLient implements P2P {
   }
 
   /**
-   * Public function to check the latest rollup ID that the P2P client is synced to
-   * @returns
+   * Public function to check the latest rollup ID that the P2P client is synced to.
+   * @returns Rollup ID of latest L2 Block we've synced with.
    */
   public getSyncedRollupId() {
     return this.syncedRollupId;
