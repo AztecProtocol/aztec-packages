@@ -8,7 +8,7 @@ import { createLogger } from './movetofoundation/log/console.js';
 /**
  * Pulls L2 blocks in a non-blocking manner and provides interface for their retrieval.
  */
-export class DataArchiver implements L2BlockSource {
+export class Archiver implements L2BlockSource {
   /**
    * A logger.
    */
@@ -39,7 +39,7 @@ export class DataArchiver implements L2BlockSource {
   private unwatchYeets: (() => void) | undefined;
 
   /**
-   * Creates a new instance of the DataArchiver.
+   * Creates a new instance of the Archiver.
    * @param ethereumHost - Ethereum provider.
    * @param rollupAddress - Ethereum address of the rollup contract.
    * @param yeeterAddress - Ethereum address of the yeeter contract.
@@ -170,7 +170,7 @@ export class DataArchiver implements L2BlockSource {
   public stop() {
     this.log('Stopping...');
     if (this.unwatchBlocks === undefined || this.unwatchYeets === undefined) {
-      throw new Error('DataArchiver is not running.');
+      throw new Error('Archiver is not running.');
     }
 
     this.unwatchBlocks();
@@ -197,12 +197,12 @@ export class DataArchiver implements L2BlockSource {
    * {@inheritDoc L2BlockSource.getLatestBlockNum}
    */
   public getLatestBlockNum(): number {
-    return this.l2Blocks.length;
+    return this.l2Blocks.length - 1;
   }
 }
 
 /**
- * Creates a random L2Block wiht the given block number.
+ * Creates a random L2Block with the given block number.
  * @param l2BlockNum - Block number.
  * @returns Random L2Block.
  */

@@ -1,11 +1,11 @@
 {
-  "name": "@aztec/data-archiver",
+  "name": "@aztec/archiver",
   "version": "0.0.0",
   "type": "module",
   "exports": "./dest/index.js",
   "typedoc": {
     "entryPoint": "./src/index.ts",
-    "displayName": "Data Archiver",
+    "displayName": "Archiver",
     "tsconfig": "./tsconfig.dest.json"
   },
   "scripts": {
@@ -33,13 +33,13 @@
     "ws": "^8.13.0"
   },
   "devDependencies": {
-    "@types/ws": "^8.5.4",
     "@aztec/eslint-config": "workspace:^",
     "@jest/globals": "^29.5.0",
     "@rushstack/eslint-patch": "^1.2.0",
     "@types/debug": "^4.1.7",
     "@types/jest": "^29.4.1",
     "@types/node": "^18.15.2",
+    "@types/ws": "^8.5.4",
     "jest": "^29.5.0",
     "ts-jest": "^29.0.5",
     "ts-node": "^10.9.1",

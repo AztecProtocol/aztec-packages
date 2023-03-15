@@ -1,5 +1,5 @@
 import { getAddress } from 'viem';
-import { DataArchiver } from './data_archiver.js';
+import { Archiver } from './archiver.js';
 
 const {
   ETHEREUM_HOST = 'http://localhost:8545/',
@@ -8,29 +8,29 @@ const {
 } = process.env;
 
 /**
- * A function which instantiates and starts DataArchiver.
+ * A function which instantiates and starts Archiver.
  */
 async function main() {
   const rollupAddress = getAddress(ROLLUP_ADDRESS);
   const yeeterAddress = getAddress(YEETER_ADDRESS);
-  const dataArchiver = new DataArchiver(new URL(ETHEREUM_HOST), rollupAddress, yeeterAddress);
+  const archiver = new Archiver(new URL(ETHEREUM_HOST), rollupAddress, yeeterAddress);
 
   const shutdown = () => {
-    dataArchiver.stop();
+    archiver.stop();
     process.exit(0);
   };
   process.once('SIGINT', shutdown);
   process.once('SIGTERM', shutdown);
 
-  await dataArchiver.start();
+  await archiver.start();
 }
 
 main().then(
   () => {
-    console.log('DataArchiver started successfully.');
+    console.log('Archiver started successfully.');
   },
   err => {
-    console.error('DataArchiver failed to start:', err);
+    console.error('Archiver failed to start:', err);
     process.exit(1);
   },
 );
