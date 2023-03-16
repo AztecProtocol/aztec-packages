@@ -24,7 +24,7 @@
     "rootDir": "./src"
   },
   "dependencies": {
-    "@aztec/data-archiver": "workspace:^",
+    "@aztec/archiver": "workspace:^",
     "@aztec/merkle-tree": "workspace:^",
     "levelup": "^5.1.1",
     "memdown": "^6.1.1",
