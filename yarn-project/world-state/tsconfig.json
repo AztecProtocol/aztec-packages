@@ -6,7 +6,7 @@
     "tsBuildInfoFile": ".tsbuildinfo"
   },
   "references": [
-    { "path": "../data-archiver/tsconfig.dest.json" },
+    { "path": "../archiver/tsconfig.dest.json" },
     { "path": "../merkle-tree/tsconfig.dest.json" }
   ],
   "include": [ "src" ]

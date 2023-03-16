@@ -1,5 +1,5 @@
 import { InterruptableSleep, RollupBlockDownloader } from '@aztec/world-state';
-import { RollupSource } from '@aztec/data-archiver';
+import { RollupSource } from '@aztec/archiver';
 
 import { InMemoryTxPool } from './tx_pool/memory_tx_pool.js';
 import { P2P } from './p2p_client.js';

@@ -18,6 +18,7 @@
     "eslint-config",
     "ethereum.js",
     "ethereum.js/example",
+    "foundation",
     "kernel-simulator",
     "key-store",
     "merkle-tree",

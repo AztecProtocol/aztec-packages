@@ -1,8 +1,15 @@
 {
   "extends": ".",
   "references": [
-    { "path": "../world-state/tsconfig.dest.json" },
-    { "path": "../data-archiver/tsconfig.dest.json" }
+    {
+      "path": "../world-state/tsconfig.dest.json"
+    },
+    {
+      "path": "../archiver/tsconfig.dest.json"
+    }
   ],
-  "exclude": ["**/*.test.*", "**/fixtures/*"]
+  "exclude": [
+    "**/*.test.*",
+    "**/fixtures/*"
+  ]
 }
