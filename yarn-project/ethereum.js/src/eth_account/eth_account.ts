@@ -2,7 +2,7 @@ import { EthAddress } from '../eth_address/index.js';
 import { mnemonicToSeedSync } from 'bip39';
 import hdkey from 'hdkey';
 import { default as elliptic } from 'elliptic';
-import { keccak256, randomBytes } from '../crypto/index.js';
+import { keccak256 } from '../crypto/index.js';
 import { decryptFromKeyStoreJson, encryptToKeyStoreJson, KeyStoreJson } from '../keystore/index.js';
 import { EthSignature, hashMessage, recoverFromSignature, signMessage } from '../eth_sign/index.js';
 import { EthTransaction, signedTransaction, signTransaction } from '../eth_transaction/index.js';

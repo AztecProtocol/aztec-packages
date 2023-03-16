@@ -1,4 +1,3 @@
-import { randomBytes } from '../crypto/random/index.js';
 
 export class TxHash {
   constructor(private buffer: Buffer) {
