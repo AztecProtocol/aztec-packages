@@ -6,7 +6,10 @@
     },
     {
       "path": "../archiver/tsconfig.dest.json"
-    }
+    },
+    {
+      "path": "../foundation/tsconfig.dest.json"
+    },
   ],
   "exclude": [
     "**/*.test.*",

@@ -26,6 +26,7 @@
   "dependencies": {
     "@aztec/archiver": "workspace:^",
     "@aztec/merkle-tree": "workspace:^",
+    "@aztec/foundation": "workspace:^",
     "levelup": "^5.1.1",
     "memdown": "^6.1.1",
     "tslib": "^2.4.0"

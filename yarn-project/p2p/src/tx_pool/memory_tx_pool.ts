@@ -1,17 +1,7 @@
+import { toBigIntBE } from '@aztec/foundation';
+
 import { Tx } from '../temp_types.js';
 import { TxPool } from './index.js';
-
-/**
- * Helper to tranform Buffer IDs to a bigint.
- */
-// TODO: place in/use from foundation repo
-const toBigInt = (buf: Buffer): bigint => {
-  const hex = buf.toString('hex');
-  if (hex.length === 0) {
-    return BigInt(0);
-  }
-  return BigInt(`0x${hex}`);
-};
 
 /**
  * In-memory implementation of the Transaction Pool.
@@ -35,7 +25,7 @@ export class InMemoryTxPool implements TxPool {
    * @returns The transaction, if found, 'undefined' otherwise.
    */
   public getTx(txId: Buffer): Tx | undefined {
-    const result = this.txs.get(toBigInt(txId));
+    const result = this.txs.get(toBigIntBE(txId));
     return result;
   }
 
@@ -44,7 +34,7 @@ export class InMemoryTxPool implements TxPool {
    * @param txs - An array of txs to be added to the pool.
    */
   public addTxs(txs: Tx[]): void {
-    txs.forEach(tx => this.txs.set(toBigInt(tx.txId), tx));
+    txs.forEach(tx => this.txs.set(toBigIntBE(tx.txId), tx));
   }
 
   /**
@@ -53,7 +43,7 @@ export class InMemoryTxPool implements TxPool {
    * @returns The number of  transactions that was deleted from the pool.
    */
   public deleteTxs(txIds: Buffer[]): number {
-    const numTxsRemoved = txIds.map(txId => this.txs.delete(toBigInt(txId))).filter(result => result === true).length;
+    const numTxsRemoved = txIds.map(txId => this.txs.delete(toBigIntBE(txId))).filter(result => result === true).length;
     return numTxsRemoved;
   }
 
