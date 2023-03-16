@@ -1,7 +1,13 @@
+import { LevelUp } from 'levelup';
 import { toBigIntBE, toBufferBE } from './bigint_buffer.js';
 import { MerkleTree } from './merkle_tree.js';
 import { SiblingPath } from './sibling_path.js';
 import { StandardMerkleTree } from './standard_tree.js';
+import { Hasher } from './hasher.js';
+
+const indexToKeyLeaf = (name: string, index: bigint) => {
+  return `${name}:leaf:${index}`;
+};
 
 interface LeafData {
   value: bigint;
@@ -16,20 +22,50 @@ const encodeTreeValue = (leafData: LeafData) => {
   return Buffer.concat([valueAsBuffer, indexAsBuffer, nextValueAsBuffer]);
 };
 
+const decodeTreeValue = (buf: Buffer) => {
+  const value = toBigIntBE(buf.subarray(0, 32));
+  const nextIndex = toBigIntBE(buf.subarray(32, 64));
+  const nextValue = toBigIntBE(buf.subarray(64, 96));
+  return {
+    value,
+    nextIndex,
+    nextValue,
+  } as LeafData;
+};
+
+const initialLeaf: LeafData = {
+  value: 0n,
+  nextIndex: 0n,
+  nextValue: 0n,
+};
+
 export class IndexedTree implements MerkleTree {
   private leaves: LeafData[] = [];
-  constructor(private underlying: StandardMerkleTree) {}
+  private cachedLeaves: { [key: number]: LeafData } = {};
+  constructor(private underlying: StandardMerkleTree, private hasher: Hasher, private db: LevelUp) {}
 
-  public static async new(
-    db: LevelUp,
-    hasher: Hasher,
-    name: string,
-    depth: number,
-    initialLeafValue = StandardMerkleTree.ZERO_ELEMENT,
-  ) {
-    const underlying = await StandardMerkleTree.new(db, hasher, name, depth, initialLeafValue);
-    const tree = new IndexedTree(underlying);
+  public static async new(db: LevelUp, hasher: Hasher, name: string, depth: number) {
+    const underlying = await StandardMerkleTree.new(
+      db,
+      hasher,
+      name,
+      depth,
+      hasher.hashToField(encodeTreeValue(initialLeaf)),
+    );
+    const tree = new IndexedTree(underlying, hasher, db);
     await tree.init();
+    return tree;
+  }
+
+  static async fromName(db: LevelUp, hasher: Hasher, name: string) {
+    const underlying = await StandardMerkleTree.fromName(
+      db,
+      hasher,
+      name,
+      hasher.hashToField(encodeTreeValue(initialLeaf)),
+    );
+    const tree = new IndexedTree(underlying, hasher, db);
+    await tree.initFromDb();
     return tree;
   }
 
@@ -45,10 +81,12 @@ export class IndexedTree implements MerkleTree {
     }
   }
   public async commit(): Promise<void> {
-    return await this.underlying.commit();
+    await this.underlying.commit();
+    await this.commitLeaves();
   }
   public async rollback(): Promise<void> {
-    return await this.underlying.rollback();
+    await this.underlying.rollback();
+    this.rollbackLeaves();
   }
   public async getSiblingPath(index: bigint): Promise<SiblingPath> {
     return await this.underlying.getSiblingPath(index);
@@ -56,28 +94,35 @@ export class IndexedTree implements MerkleTree {
   private async appendLeaf(leaf: Buffer): Promise<void> {
     const newValue = toBigIntBE(leaf);
     const indexOfPrevious = this.findIndexOfPreviousValue(newValue);
+    const previousLeafCopy = this.getLatestLeafDataCopy(indexOfPrevious.index);
+    if (previousLeafCopy === undefined) {
+      throw new Error(`Previous leaf not found!`);
+    }
     const newLeaf = {
       value: newValue,
-      nextIndex: this.leaves[indexOfPrevious.index].nextIndex,
-      nextValue: this.leaves[indexOfPrevious.index].nextValue,
+      nextIndex: previousLeafCopy.nextIndex,
+      nextValue: previousLeafCopy.nextValue,
     } as LeafData;
-
-    if (!indexOfPrevious.alreadyPresent) {
-      this.leaves[indexOfPrevious.index].nextIndex = BigInt(this.leaves.length);
-      this.leaves[indexOfPrevious.index].nextValue = newLeaf.value;
-      this.leaves.push(newLeaf);
+    if (indexOfPrevious.alreadyPresent) {
+      return;
     }
-
-    const oldTreeValue = encodeTreeValue(this.leaves[indexOfPrevious.index]);
+    // insert a new leaf at the highest index and update the values of our previous leaf copy
+    const currentSize = this.underlying.getNumLeaves();
+    previousLeafCopy.nextIndex = BigInt(currentSize);
+    previousLeafCopy.nextValue = newLeaf.value;
+    this.cachedLeaves[Number(currentSize)] = newLeaf;
+    this.cachedLeaves[Number(indexOfPrevious.index)] = previousLeafCopy;
+    const previousTreeValue = encodeTreeValue(previousLeafCopy);
     const newTreeValue = encodeTreeValue(newLeaf);
-    await this.underlying.updateLeaf(oldTreeValue, BigInt(indexOfPrevious.index));
-    await this.underlying.appendLeaves([newTreeValue]);
+    await this.underlying.updateLeaf(this.hasher.hashToField(previousTreeValue), BigInt(indexOfPrevious.index));
+    await this.underlying.appendLeaves([this.hasher.hashToField(newTreeValue)]);
   }
+
   private findIndexOfPreviousValue(newValue: bigint) {
     const numLeaves = this.underlying.getNumLeaves();
     const diff: bigint[] = [];
     for (let i = 0; i < numLeaves; i++) {
-      const stored = this.leaves[i];
+      const stored = this.getLatestLeafDataCopy(i)!;
       if (stored.value > newValue) {
         diff.push(newValue);
       } else if (stored.value === newValue) {
@@ -94,11 +139,9 @@ export class IndexedTree implements MerkleTree {
     if (!values.length) {
       return 0;
     }
-    let min = values[0];
     let minIndex = 0;
     for (let i = 1; i < values.length; i++) {
-      if (min > values[i]) {
-        min = values[i];
+      if (values[minIndex] > values[i]) {
         minIndex = i;
       }
     }
@@ -106,13 +149,64 @@ export class IndexedTree implements MerkleTree {
   }
 
   private async init() {
-    const initialLeaf = {
-      value: 0n,
-      nextIndex: 0n,
-      nextValue: 0n,
-    } as LeafData;
     this.leaves.push(initialLeaf);
-    const initialData = encodeTreeValue(initialLeaf);
-    await this.underlying.appendLeaves(initialData);
+    await this.underlying.appendLeaves([this.hasher.hashToField(encodeTreeValue(initialLeaf))]);
+    await this.commit();
+  }
+
+  private async initFromDb(startingIndex = 0n) {
+    const values: LeafData[] = [];
+    const promise = new Promise<void>((resolve, reject) => {
+      this.db
+        .createReadStream({
+          gte: indexToKeyLeaf(this.underlying.getName(), startingIndex),
+          lte: indexToKeyLeaf(this.underlying.getName(), 2n ** BigInt(this.underlying.getDepth())),
+        })
+        .on('data', function (data) {
+          const index = Number(data.key);
+          values[index] = decodeTreeValue(data.value);
+        })
+        .on('close', function () {})
+        .on('end', function () {
+          resolve();
+        })
+        .on('error', function () {
+          console.log('stream error');
+          reject();
+        });
+    });
+    await promise;
+    this.leaves = values;
+  }
+
+  private async commitLeaves() {
+    const batch = this.db.batch();
+    const keys = Object.getOwnPropertyNames(this.cachedLeaves);
+    for (const key of keys) {
+      const index = Number(key);
+      batch.put(key, this.cachedLeaves[index]);
+      this.leaves[index] = this.cachedLeaves[index];
+    }
+    await batch.write();
+    this.clearCache();
+  }
+
+  private rollbackLeaves() {
+    this.clearCache();
+  }
+
+  private clearCache() {
+    this.cachedLeaves = {};
+  }
+
+  private getLatestLeafDataCopy(index: number) {
+    const leaf = this.cachedLeaves[index] ?? this.leaves[index];
+    return leaf
+      ? ({
+          value: leaf.value,
+          nextIndex: leaf.nextIndex,
+          nextValue: leaf.nextValue,
+        } as LeafData)
+      : undefined;
   }
 }

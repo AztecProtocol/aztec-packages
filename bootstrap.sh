@@ -52,11 +52,13 @@ PROJECTS=(
   # "yarn-project/ethereum.js:yarn build"
   # "yarn-project/kernel-simulator:yarn build"
   "yarn-project/key-store:yarn build"
+  "yarn-project/merkle-tree:yarn build"
   # "yarn-project/p2p:yarn build"
   # "yarn-project/prover-client:yarn build"
   # "yarn-project/public-client:yarn build"
   # "yarn-project/sequencer-client:yarn build"
   # "yarn-project/wallet:yarn build"
+  "yarn-project/world-state:yarn build"
 )
 
 for E in "${PROJECTS[@]}"; do
