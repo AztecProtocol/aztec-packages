@@ -8,7 +8,11 @@ export class MemoryFifo<T> {
   private items: T[] = [];
   private flushing = false;
 
-  public length() {
+  /**
+   * Returns the number of items in the queue.
+   * @returns The number of items in the queue.
+   */
+  public length(): number {
     return this.items.length;
   }
 
@@ -16,6 +20,8 @@ export class MemoryFifo<T> {
    * Returns next item within the queue, or blocks until an item has been put into the queue.
    * If given a timeout, the promise will reject if no item is received after `timeout` seconds.
    * If the queue is flushing, `null` is returned.
+   * @param timeout - The number of seconds to wait for an item before rejecting the promise.
+   * @returns The next item in the queue, or null if the queue is flushing.
    */
   public get(timeout?: number): Promise<T | null> {
     if (this.items.length) {
@@ -44,6 +50,7 @@ export class MemoryFifo<T> {
 
   /**
    * Put an item onto back of the queue.
+   * @param item - The item to put onto the queue.
    */
   public put(item: T) {
     if (this.flushing) {
@@ -77,7 +84,8 @@ export class MemoryFifo<T> {
   }
 
   /**
-   * Helper method that can be used to continously consume and process items on the queue.
+   * Helper method that can be used to continuously consume and process items on the queue.
+   * @param handler - The function to call for each item in the queue.
    */
   public async process(handler: (item: T) => Promise<void>) {
     try {
