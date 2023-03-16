@@ -1,20 +1,31 @@
-import { RollupSource, Rollup } from '@aztec/data-archiver';
+import { L2Block } from '@aztec/archiver/l2_block';
 import { MemoryFifo } from './memory_fifo.js';
 import { Semaphore } from './semaphore.js';
 import { InterruptableSleep } from './sleep.js';
+import { L2BlockSource } from '@aztec/archiver/l2_block_source';
 
-export class RollupBlockDownloader {
+/**
+ * Downloads L2 blocks from a L2BlockSource.
+ * The blocks are stored in a queue and can be retrieved using the getBlocks method.
+ * The queue size is limited by the maxQueueSize parameter.
+ * The downloader will pause when the queue is full or when the L2BlockSource is out of blocks.
+ */
+export class L2BlockDownloader {
   private runningPromise?: Promise<void>;
   private running = false;
   private from = 0;
   private interruptableSleep = new InterruptableSleep();
   private semaphore: Semaphore;
-  private queue = new MemoryFifo<Rollup[]>();
+  private queue = new MemoryFifo<L2Block[]>();
 
-  constructor(private rollupProvider: RollupSource, maxQueueSize: number) {
+  constructor(private l2BlockSource: L2BlockSource, maxQueueSize: number) {
     this.semaphore = new Semaphore(maxQueueSize);
   }
 
+  /**
+   * Starts the downloader.
+   * @param from - The block number to start downloading from. Defaults to 0.
+   */
   public start(from = 0) {
     this.from = from;
 
@@ -28,7 +39,7 @@ export class RollupBlockDownloader {
     const fn = async () => {
       while (this.running) {
         try {
-          const blocks = await this.rollupProvider.getBlocks(this.from, 10);
+          const blocks = this.l2BlockSource.getL2Blocks(this.from, 10);
 
           if (!blocks.length) {
             await this.interruptableSleep.sleep(10000);
@@ -50,6 +61,9 @@ export class RollupBlockDownloader {
     this.runningPromise = fn();
   }
 
+  /**
+   * Stops the downloader.
+   */
   public async stop() {
     this.running = false;
     this.interruptableSleep.interrupt();
@@ -57,7 +71,11 @@ export class RollupBlockDownloader {
     await this.runningPromise;
   }
 
-  public async getBlocks() {
+  /**
+   * Gets the next batch of blocks from the queue.
+   * @returns The next batch of blocks from the queue.
+   */
+  public async getL2Blocks() {
     const blocks = await this.queue.get();
     if (!blocks) {
       return [];

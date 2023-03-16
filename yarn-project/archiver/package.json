@@ -2,7 +2,10 @@
   "name": "@aztec/archiver",
   "version": "0.0.0",
   "type": "module",
-  "exports": "./dest/index.js",
+  "exports": {
+    "./l2_block": "./dest/l2_block/l2_block.js",
+    "./l2_block_source": "./dest/l2_block_source.js"
+  },
   "typedoc": {
     "entryPoint": "./src/index.ts",
     "displayName": "Archiver",
