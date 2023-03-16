@@ -16,6 +16,7 @@
     "end-to-end",
     "eslint-config",
     "ethereum.js",
+    "ethereum.js/example",
     "kernel-simulator",
     "key-store",
     "log",

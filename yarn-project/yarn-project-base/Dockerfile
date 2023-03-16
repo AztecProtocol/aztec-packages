@@ -19,6 +19,7 @@ COPY circuit.js/package.json circuit.js/package.json
 COPY data-archiver/package.json data-archiver/package.json
 COPY docs/package.json docs/package.json
 COPY end-to-end/package.json end-to-end/package.json
+COPY ethereum.js/example/package.json ethereum.js/example/package.json
 COPY ethereum.js/package.json ethereum.js/package.json
 COPY kernel-simulator/package.json kernel-simulator/package.json
 COPY key-store/package.json key-store/package.json
@@ -32,8 +33,10 @@ COPY wasm/package.json wasm/package.json
 # All workspaces use the linting config, so always include it.
 COPY eslint-config eslint-config
 COPY prettier-config prettier-config
-COPY .pnp.cjs .pnp.loader.mjs .yarnrc.yml package.json tsconfig.json yarn.lock ./
+COPY .pnp.cjs .pnp.loader.mjs package.json tsconfig.json yarn.lock ./
 COPY .yarn .yarn
+# Use PNP in CI context
+COPY .yarnrc.prod.yml .yarnrc.yml
 # Although we're attempting to be "zero-install", in practice we still need to build arch specific packages.
 RUN yarn --immutable
 # If everything's worked properly, we should no longer need access to the network.
