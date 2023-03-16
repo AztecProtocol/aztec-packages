@@ -1,5 +1,5 @@
 /**
- * Defines what kind of tree we are dealing with.
+ * Defines the possible tree IDs.
  */
 export enum WorldStateTreeId {
   CONTRACT_TREE = 0,
@@ -18,7 +18,7 @@ export interface TreeInfo {
    */
   root: Buffer;
   /**
-   * The number of leaves.
+   * The number of leaves in the tree.
    */
   size: number;
 }
