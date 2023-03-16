@@ -10,10 +10,16 @@ export class Semaphore {
     new Array(size).fill(true).map(() => this.queue.put(true));
   }
 
+  /**
+   * Acquires a token from the queue. If no token is available, blocks until a token is released.
+   */
   public async acquire() {
     await this.queue.get();
   }
 
+  /**
+   * Releases a token back into the queue.
+   */
   public release() {
     this.queue.put(true);
   }
