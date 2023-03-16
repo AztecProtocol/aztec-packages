@@ -194,6 +194,7 @@ __metadata:
   resolution: "@aztec/ethereum.js@workspace:ethereum.js"
   dependencies:
     "@aztec/eslint-config": "workspace:^"
+    "@aztec/foundation": "workspace:^"
     "@jest/globals": ^29.5.0
     "@rushstack/eslint-patch": ^1.2.0
     "@types/elliptic": ^6.4.14
@@ -221,7 +222,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@aztec/foundation@workspace:foundation":
+"@aztec/foundation@workspace:^, @aztec/foundation@workspace:foundation":
   version: 0.0.0-use.local
   resolution: "@aztec/foundation@workspace:foundation"
   dependencies:
@@ -405,6 +406,7 @@ __metadata:
   dependencies:
     "@aztec/archiver": "workspace:^"
     "@aztec/eslint-config": "workspace:^"
+    "@aztec/foundation": "workspace:^"
     "@aztec/merkle-tree": "workspace:^"
     "@jest/globals": ^29.4.3
     "@rushstack/eslint-patch": ^1.1.4

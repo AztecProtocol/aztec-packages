@@ -1,7 +1,7 @@
 import aes from 'browserify-aes';
 import { v4 } from 'uuid';
 import { EthAddress } from '../eth_address/index.js';
-import { pbkdf2, scrypt, keccak256, randomBytes } from '../crypto/index.js';
+import { pbkdf2, scrypt, keccak256 } from '../crypto/index.js';
 
 interface ScryptKdfParams {
   dklen: number;
