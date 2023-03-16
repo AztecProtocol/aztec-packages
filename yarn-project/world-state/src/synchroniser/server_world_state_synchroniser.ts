@@ -52,7 +52,7 @@ export class ServerWorldStateSynchroniser implements WorldStateSynchroniser {
    */
   public status(): Promise<WorldStateStatus> {
     const status = {
-      syncedToRollup: this.currentL2BlockNum,
+      syncedToL2Block: this.currentL2BlockNum,
       state: WorldStateRunningState.IDLE,
     } as WorldStateStatus;
     return Promise.resolve(status);

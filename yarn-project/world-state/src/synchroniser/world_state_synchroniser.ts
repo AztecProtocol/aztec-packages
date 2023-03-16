@@ -1,3 +1,6 @@
+/**
+ * Defines the possible states of the world state synchroniser.
+ */
 export enum WorldStateRunningState {
   IDLE,
   SYNCHING,
@@ -5,11 +8,23 @@ export enum WorldStateRunningState {
   STOPPED,
 }
 
+/**
+ * Defines the status of the world state synchroniser.
+ */
 export interface WorldStateStatus {
+  /**
+   * The current state of the world state synchroniser.
+   */
   state: WorldStateRunningState;
-  syncedToRollup: number;
+  /**
+   * The block number that the world state synchroniser is synced to.
+   */
+  syncedToL2Block: number;
 }
 
+/**
+ * Defines the interface for a world state synchroniser.
+ */
 export interface WorldStateSynchroniser {
   start(): void;
   status(): Promise<WorldStateStatus>;
