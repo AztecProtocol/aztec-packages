@@ -25,7 +25,7 @@ export class SiblingPath {
 
   static deserialize(buf: Buffer, offset = 0) {
     const deserializePath = (buf: Buffer, offset: number) => ({
-      elem: [buf.slice(offset, offset + 32)],
+      elem: buf.slice(offset, offset + 32),
       adv: 32,
     });
     const { elem, adv } = deserializeArrayFromVector(deserializePath, buf, offset);

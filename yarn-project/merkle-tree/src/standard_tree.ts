@@ -6,17 +6,17 @@ import { toBufferLE, toBigIntLE } from './bigint_buffer.js';
 
 const MAX_DEPTH = 32;
 
-const indexToKeyHash = (name: string, level: number, index: bigint) => Buffer.from(`${name}-${level}-${index}`);
+const indexToKeyHash = (name: string, level: number, index: bigint) => `${name}:${level}:${index}`;
 const encodeMeta = (root: Buffer, depth: number, size: bigint) => {
   const data = Buffer.alloc(36);
   root.copy(data);
   data.writeUInt32LE(depth, 32);
-  return Buffer.concat(data, toBufferLE(size, 32));
+  return Buffer.concat([data, toBufferLE(size, 32)]);
 };
 const decodeMeta = (meta: Buffer) => {
-  const root = meta.slice(0, 32);
+  const root = meta.subarray(0, 32);
   const depth = meta.readUInt32LE(32);
-  const size = toBigIntLE(data.slice(36));
+  const size = toBigIntLE(meta.subarray(36));
   return {
     root,
     depth,
@@ -46,7 +46,7 @@ export class StandardMerkleTree implements MerkleTree {
 
     // Compute the zero values at each layer.
     let current = initialLeafValue;
-    for (let i = 0; i < depth; ++i) {
+    for (let i = depth - 1; i >= 0; --i) {
       this.zeroHashes[i] = current;
       current = hasher.compress(current, current);
     }
@@ -67,13 +67,16 @@ export class StandardMerkleTree implements MerkleTree {
   }
 
   static async fromName(db: LevelUp, hasher: Hasher, name: string, initialLeafValue = StandardMerkleTree.ZERO_ELEMENT) {
-    const meta: Buffer = await db.get(Buffer.from(name));
+    const meta: Buffer = await db.get(name);
     const { root, depth, size } = decodeMeta(meta);
     return new StandardMerkleTree(db, hasher, name, depth, size, root, initialLeafValue);
   }
 
   public async syncFromDb() {
-    const meta: Buffer = await this.db.get(Buffer.from(this.name));
+    const meta: Buffer | undefined = await this.dbGet(this.name);
+    if (!meta) {
+      return;
+    }
     const { root, depth, size } = decodeMeta(meta);
     this.root = root;
     this.depth = depth;
@@ -89,6 +92,14 @@ export class StandardMerkleTree implements MerkleTree {
     return this.cachedSize ?? this.size;
   }
 
+  public getName() {
+    return this.name;
+  }
+
+  public getDepth() {
+    return this.depth;
+  }
+
   /**
    * Returns a sibling path for the element at the given index.
    * The sibling path is an array of sibling hashes, with the lowest hash (leaf hash) first, and the highest hash last.
@@ -96,11 +107,12 @@ export class StandardMerkleTree implements MerkleTree {
   public async getSiblingPath(index: bigint) {
     const path = new SiblingPath();
     let level = this.depth;
-    while (level >= 0) {
-      const isRight = (index >> BigInt(level)) & 0x01n;
+    while (level > 0) {
+      const isRight = index & 0x01n;
       const sibling = await this.getLatestValueAtIndex(level, isRight ? index - 1n : index + 1n);
       path.data.push(sibling);
       level -= 1;
+      index >>= 1n;
     }
     return path;
   }
@@ -128,9 +140,10 @@ export class StandardMerkleTree implements MerkleTree {
     for (const key of keys) {
       batch.put(key, this.cache[key]);
     }
+    this.size = this.getNumLeaves();
+    this.root = this.getRoot();
     await this.writeMeta(batch);
     await batch.write();
-    this.size = this.cachedSize ?? this.size;
     this.clearCache();
   }
 
@@ -149,7 +162,7 @@ export class StandardMerkleTree implements MerkleTree {
     let current = leaf;
     this.cache[key] = current;
     let level = this.depth;
-    while (level >= 0) {
+    while (level > 0) {
       const isRight = index & 0x01n;
       const sibling = await this.getLatestValueAtIndex(level, isRight ? index - 1n : index + 1n);
       const lhs = isRight ? sibling : current;
@@ -157,12 +170,12 @@ export class StandardMerkleTree implements MerkleTree {
       current = this.hasher.compress(lhs, rhs);
       level -= 1;
       index >>= 1n;
-      this.cache[indexToKeyHash(this.name, level, index)] = current;
+      const cacheKey = indexToKeyHash(this.name, level, index);
+      this.cache[cacheKey] = current;
     }
-    this.root = this.cache[indexToKeyHash(this.name, 0, 0n)];
   }
 
-  private async getLatestValueAtIndex(level: number, index: bigint): Promise<void> {
+  private async getLatestValueAtIndex(level: number, index: bigint): Promise<Buffer> {
     const key = indexToKeyHash(this.name, level, index);
     if (this.cache[key] !== undefined) {
       return this.cache[key];
@@ -171,14 +184,14 @@ export class StandardMerkleTree implements MerkleTree {
     if (comitted !== undefined) {
       return comitted;
     }
-    return this.zeroHashes[level];
+    return this.zeroHashes[level - 1];
   }
 
-  private async dbGet(key: Buffer): Promise<Buffer | undefined> {
+  private async dbGet(key: string): Promise<Buffer | undefined> {
     return await this.db.get(key).catch(() => {});
   }
 
-  private async writeMeta(batch?: LevelUpChain<Buffer, Buffer>) {
+  private async writeMeta(batch?: LevelUpChain<string, Buffer>) {
     const data = encodeMeta(this.getRoot(), this.depth, this.getNumLeaves());
     if (batch) {
       batch.put(this.name, data);
