@@ -1,3 +1,5 @@
+import { randomBytes } from '@aztec/foundation';
+
 import { keccak256String } from '../crypto/index.js';
 
 export class EthAddress {

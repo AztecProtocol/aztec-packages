@@ -310,6 +310,7 @@ __metadata:
   dependencies:
     "@aztec/archiver": "workspace:^"
     "@aztec/eslint-config": "workspace:^"
+    "@aztec/foundation": "workspace:^"
     "@aztec/world-state": "workspace:^"
     "@jest/globals": ^29.4.3
     "@rushstack/eslint-patch": ^1.1.4
