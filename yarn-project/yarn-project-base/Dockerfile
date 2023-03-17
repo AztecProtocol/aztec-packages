@@ -10,6 +10,9 @@ RUN apk update && apk add --no-cache build-base git python3 curl bash jq
 # COPY --from=1 /usr/src/circuits/build/bin /usr/src/circuits/build-wasm/bin
 # COPY --from=2 /usr/src/l1-contracts /usr/src/l1-contracts
 WORKDIR /usr/src/yarn-project
+
+RUN git submodule update --init foundation
+
 # We only want to copy the package.json's, to ensure we only rebuild this image if project dependencies changed.
 COPY acir-simulator/package.json acir-simulator/package.json
 COPY archiver/package.json archiver/package.json
@@ -21,6 +24,7 @@ COPY docs/package.json docs/package.json
 COPY end-to-end/package.json end-to-end/package.json
 COPY ethereum.js/example/package.json ethereum.js/example/package.json
 COPY ethereum.js/package.json ethereum.js/package.json
+COPY foundation/package.json foundation/package.json
 COPY kernel-simulator/package.json kernel-simulator/package.json
 COPY key-store/package.json key-store/package.json
 COPY merkle-tree/package.json merkle-tree/package.json

@@ -1,7 +1,5 @@
 import { L2Block } from '@aztec/archiver/l2_block';
-import { MemoryFifo } from './memory_fifo.js';
-import { Semaphore } from './semaphore.js';
-import { InterruptableSleep } from './sleep.js';
+import { Semaphore, MemoryFifo, InterruptableSleep } from '@aztec/foundation';
 import { L2BlockSource } from '@aztec/archiver/l2_block_source';
 
 /**
