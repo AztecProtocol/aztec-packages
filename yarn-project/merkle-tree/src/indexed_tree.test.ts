@@ -32,13 +32,13 @@ describe('IndexedMerkleTreeSpecific', () => {
     const tree = await createDb(db, pedersen, 'test', 3);
 
     /**
-     * Intial state:
+     * Initial state:
      *
      *  index     0       1       2       3        4       5       6       7
      *  ---------------------------------------------------------------------
      *  val       0       0       0       0        0       0       0       0
      *  nextIdx   0       0       0       0        0       0       0       0
-     *  nextVal   0       0       0       0        0       0       0       0
+     *  nextVal   0       0       0       0        0       0       0       0.
      */
 
     const zeroTreeLeafHash = pedersen.hashToField(createIndexedTreeLeaf(0, 0, 0));
@@ -57,7 +57,7 @@ describe('IndexedMerkleTreeSpecific', () => {
      *  ---------------------------------------------------------------------
      *  val       0       30      0       0        0       0       0       0
      *  nextIdx   1       0       0       0        0       0       0       0
-     *  nextVal   30      0       0       0        0       0       0       0
+     *  nextVal   30      0       0       0        0       0       0       0.
      */
     let index0Hash = pedersen.hashToField(createIndexedTreeLeaf(0, 1, 30));
     let index1Hash = pedersen.hashToField(createIndexedTreeLeaf(30, 0, 0));
@@ -78,7 +78,7 @@ describe('IndexedMerkleTreeSpecific', () => {
      *  ---------------------------------------------------------------------
      *  val       0       30      10      0        0       0       0       0
      *  nextIdx   2       0       1       0        0       0       0       0
-     *  nextVal   10      0       30      0        0       0       0       0
+     *  nextVal   10      0       30      0        0       0       0       0.
      */
     index0Hash = pedersen.hashToField(createIndexedTreeLeaf(0, 2, 10));
     let index2Hash = pedersen.hashToField(createIndexedTreeLeaf(10, 1, 30));
@@ -100,7 +100,7 @@ describe('IndexedMerkleTreeSpecific', () => {
      *  ---------------------------------------------------------------------
      *  val       0       30      10      20       0       0       0       0
      *  nextIdx   2       0       3       1        0       0       0       0
-     *  nextVal   10      0       20      30       0       0       0       0
+     *  nextVal   10      0       20      30       0       0       0       0.
      */
     e10 = pedersen.compress(index0Hash, index1Hash);
     index2Hash = pedersen.hashToField(createIndexedTreeLeaf(10, 3, 20));
@@ -122,7 +122,7 @@ describe('IndexedMerkleTreeSpecific', () => {
      *  ---------------------------------------------------------------------
      *  val       0       30      10      20       50      0       0       0
      *  nextIdx   2       4       3       1        0       0       0       0
-     *  nextVal   10      50      20      30       0       0       0       0
+     *  nextVal   10      50      20      30       0       0       0       0.
      */
     index1Hash = pedersen.hashToField(createIndexedTreeLeaf(30, 4, 50));
     const index4Hash = pedersen.hashToField(createIndexedTreeLeaf(50, 0, 0));
