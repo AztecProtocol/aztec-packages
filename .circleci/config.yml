@@ -53,6 +53,8 @@ checkout: &checkout
       git fetch --depth 50 --filter=blob:none origin $CIRCLE_SHA1
       git checkout FETCH_HEAD
       # Pull in build-system submodule.
+      git submodule update --init yarn-project/foundation
+      cd yarn-project/foundation
       git submodule update --init build-system
 
 # Called setup_env to setup a bunch of global variables used throughout the rest of the build process.
@@ -61,7 +63,7 @@ checkout: &checkout
 setup_env: &setup_env
   run:
     name: "Setup environment"
-    command: ./build-system/scripts/setup_env "$CIRCLE_SHA1" "$CIRCLE_TAG" "$CIRCLE_JOB" "$CIRCLE_REPOSITORY_URL" "$CIRCLE_BRANCH"
+    command: ./yarn-project/foundation/build-system/scripts/setup_env "$CIRCLE_SHA1" "$CIRCLE_TAG" "$CIRCLE_JOB" "$CIRCLE_REPOSITORY_URL" "$CIRCLE_BRANCH"
 
 jobs:
   yarn-project-base:
