@@ -29,6 +29,7 @@
     "rootDir": "./src"
   },
   "dependencies": {
+    "@aztec/barretenberg": "^2.1.93",
     "tslib": "^2.4.0"
   },
   "devDependencies": {

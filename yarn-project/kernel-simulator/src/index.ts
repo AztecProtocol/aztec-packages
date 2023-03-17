@@ -1,4 +1,2 @@
-/**
- * A placeholder for the Kernel Simulator.
- */
-export class KernelSimulator {}
+export * from './kernel_simulator.js';
+export * from './contract_leaf/index.js';
