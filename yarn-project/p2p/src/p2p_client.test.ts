@@ -1,9 +1,9 @@
 import { expect, jest } from '@jest/globals';
+import { L2BlockSource } from '@aztec/archiver';
 
 import { InMemoryP2PCLient } from './memory_p2p_client.js';
 import { TxPool } from './tx_pool/index.js';
-import { RollupSource } from './temp_types.js';
-import { MockRollupSource } from './mocks.js';
+import { MockBlockSource } from './mocks.js';
 import { MockTx } from './mocks.js';
 
 /**
@@ -15,7 +15,7 @@ type Mockify<T> = {
 
 describe('In-Memory P2P Client', () => {
   let txPool: Mockify<TxPool>;
-  let rollupSource: RollupSource;
+  let blockSource: L2BlockSource;
 
   beforeEach(() => {
     txPool = {
@@ -25,11 +25,11 @@ describe('In-Memory P2P Client', () => {
       getAllTxs: jest.fn().mockReturnValue([]),
     };
 
-    rollupSource = new MockRollupSource();
+    blockSource = new MockBlockSource();
   });
 
   it('can start & stop', async () => {
-    const client = new InMemoryP2PCLient(rollupSource, txPool);
+    const client = new InMemoryP2PCLient(blockSource, txPool);
     expect(client.isReady()).toEqual(false);
     expect(client.isRunning()).toEqual(false);
 
@@ -43,7 +43,7 @@ describe('In-Memory P2P Client', () => {
   });
 
   it('adds txs to pool', async () => {
-    const client = new InMemoryP2PCLient(rollupSource, txPool);
+    const client = new InMemoryP2PCLient(blockSource, txPool);
     await client.start();
     const tx1 = new MockTx();
     const tx2 = new MockTx();
@@ -54,7 +54,7 @@ describe('In-Memory P2P Client', () => {
   });
 
   it('rejects txs after being stopped', async () => {
-    const client = new InMemoryP2PCLient(rollupSource, txPool);
+    const client = new InMemoryP2PCLient(blockSource, txPool);
     await client.start();
     const tx1 = new MockTx();
     const tx2 = new MockTx();

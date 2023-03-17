@@ -27,13 +27,18 @@ export class AccumulatedTxData implements Tx {
    * @returns The transaction's id.
    */
   get txId() {
-    const txIdData = Buffer.concat([
-      ...this.newCommitments,
-      ...this.newNullifiers,
-      ...this.privateCallStack,
-      ...this.publicCallStack,
-    ]);
+    const constractTxData = this.newContracts[0];
     hash.reset();
-    return hash.update(txIdData).digest();
+    return hash.update(constractTxData).digest();
+  }
+
+  /**
+   * Utility function to generate tx ID.
+   * @param txData - Binary representation of the tx data.
+   * @returns A hash of the tx data that identifies the tx.
+   */
+  static createTxId(txData: Buffer) {
+    hash.reset();
+    return hash.update(txData).digest();
   }
 }
