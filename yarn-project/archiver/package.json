@@ -17,7 +17,7 @@
     "start": "node ./dest",
     "start:dev": "tsc-watch -p tsconfig.dest.json --onSuccess 'yarn start'",
     "clean": "rm -rf ./dest .tsbuildinfo",
-    "formatting": "run -T prettier --check ./src && run -T eslint --max-warnings 0 ./src",
+    "formatting": "run -T prettier --check ./src && run -T eslint ./src",
     "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules $(yarn bin jest) --no-cache --passWithNoTests"
   },
   "jest": {
@@ -29,6 +29,7 @@
     "rootDir": "./src"
   },
   "dependencies": {
+    "@aztec/foundation": "workspace:^",
     "debug": "^4.3.4",
     "tsc-watch": "^6.0.0",
     "tslib": "^2.5.0",

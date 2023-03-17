@@ -1,8 +1,9 @@
+import { RunningPromise } from '@aztec/foundation';
 import { EventEmitter } from 'stream';
+
 import { Rollup } from './rollup.js';
 import { RollupEmitter } from './rollup_emitter.js';
 import { RollupSource } from './rollup_source.js';
-import { RunningPromise } from './running_promise.js';
 
 export class PollingRollupEmitter extends EventEmitter implements RollupEmitter {
   private runningPromise?: RunningPromise;

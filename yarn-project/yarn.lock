@@ -37,6 +37,7 @@ __metadata:
   resolution: "@aztec/archiver@workspace:archiver"
   dependencies:
     "@aztec/eslint-config": "workspace:^"
+    "@aztec/foundation": "workspace:^"
     "@jest/globals": ^29.5.0
     "@rushstack/eslint-patch": ^1.2.0
     "@types/debug": ^4.1.7

@@ -1,10 +1,11 @@
 import { Address, PublicClient } from 'viem';
+import { randomBytes, createLogger } from '@aztec/foundation';
+
 import { rollupAbi } from './abis/rollup.js';
 import { yeeterAbi } from './abis/yeeter.js';
 import { ContractData, L2Block } from './l2_block/l2_block.js';
-import { randomAppendOnlyTreeSnapshot, randomBytes, randomContractData } from './l2_block/mocks.js';
+import { randomAppendOnlyTreeSnapshot, randomContractData } from './l2_block/mocks.js';
 import { L2BlockSource, SyncStatus } from './l2_block_source.js';
-import { createLogger } from './movetofoundation/log/console.js';
 
 /**
  * Pulls L2 blocks in a non-blocking manner and provides interface for their retrieval.
