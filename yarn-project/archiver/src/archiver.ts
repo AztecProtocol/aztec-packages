@@ -39,7 +39,8 @@ export class Archiver implements L2BlockSource {
   ) {}
 
   /**
-   * {@inheritDoc L2BlockSource.getSyncStatus}
+   * Gets the sync status of the L2 block source.
+   * @returns The sync status of the L2 block source.
    */
   public async getSyncStatus(): Promise<SyncStatus> {
     const nextBlockNum = await this.publicClient.readContract({
@@ -162,7 +163,10 @@ export class Archiver implements L2BlockSource {
   }
 
   /**
-   * {@inheritDoc L2BlockSource.getL2Blocks}
+   * Gets the `take` amount of L2 blocks starting from `from`.
+   * @param from - If of the first rollup to return (inclusive).
+   * @param take - The number of blocks to return.
+   * @returns The requested L2 blocks.
    */
   public getL2Blocks(from: number, take: number): L2Block[] {
     if (from > this.l2Blocks.length) {
@@ -176,7 +180,8 @@ export class Archiver implements L2BlockSource {
   }
 
   /**
-   * {@inheritDoc L2BlockSource.getLatestBlockNum}
+   * Gets the number of the latest L2 block processed by the block source implementation.
+   * @returns The number of the latest L2 block processed by the block source implementation.
    */
   public getLatestBlockNum(): number {
     return this.l2Blocks.length - 1;

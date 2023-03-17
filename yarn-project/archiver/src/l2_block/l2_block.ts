@@ -69,6 +69,10 @@ export class L2Block {
     public newContractData: ContractData[],
   ) {}
 
+  /**
+   * Sets the yeet on this block.
+   * @param yeet - The yeet to set.
+   */
   setYeet(yeet: Buffer) {
     this.yeet = yeet;
   }
