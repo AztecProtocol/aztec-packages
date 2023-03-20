@@ -1,6 +1,7 @@
 add_subdirectory(circuits)
 add_subdirectory(oracle)
 add_subdirectory(dbs)
+add_subdirectory(utils)
 
 if (WASM)
     # We can't build a wasm module by just linking to the libraries as that produces, nothing.
