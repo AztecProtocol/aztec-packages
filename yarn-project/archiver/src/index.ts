@@ -1,6 +1,11 @@
 import { createPublicClient, getAddress, http } from 'viem';
 import { localhost } from 'viem/chains';
-import { Archiver } from './archiver.js';
+import { Archiver } from './archiver/archiver.js';
+
+export * from './l2_block/l2_block_source.js';
+export * from './archiver/archiver.js';
+export * from './block_downloader/index.js';
+export * from './l2_block/index.js';
 
 const {
   ETHEREUM_HOST = 'http://localhost:8545/',

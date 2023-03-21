@@ -2,10 +2,7 @@
   "name": "@aztec/archiver",
   "version": "0.0.0",
   "type": "module",
-  "exports": {
-    "./l2_block": "./dest/l2_block/l2_block.js",
-    "./l2_block_source": "./dest/l2_block_source.js"
-  },
+  "exports": "./dest/index.js",
   "typedoc": {
     "entryPoint": "./src/index.ts",
     "displayName": "Archiver",
@@ -29,6 +26,7 @@
     "rootDir": "./src"
   },
   "dependencies": {
+    "@aztec/foundation": "workspace:^",
     "debug": "^4.3.4",
     "tsc-watch": "^6.0.0",
     "tslib": "^2.5.0",

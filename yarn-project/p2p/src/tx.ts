@@ -23,7 +23,7 @@ export class AccumulatedTxData implements Tx {
 
   /**
    * Construct & return transaction ID.
-   * // TODO: actually construct & return tx id
+   * // TODO: actually construct & return tx id.
    * @returns The transaction's id.
    */
   get txId() {

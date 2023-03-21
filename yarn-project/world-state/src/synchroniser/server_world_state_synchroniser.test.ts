@@ -1,11 +1,10 @@
-/* eslint-disable */
+/* eslint-disable jsdoc/require-jsdoc */
 import { ServerWorldStateSynchroniser } from './server_world_state_synchroniser.js';
-import { L2BlockSource, SyncStatus } from '@aztec/archiver/l2_block_source';
-import { L2Block } from '@aztec/archiver/l2_block';
-import { sleep } from '../sleep.js';
+import { L2BlockSource, SyncStatus, L2Block } from '@aztec/archiver';
 import { WorldStateRunningState } from './world_state_synchroniser.js';
-import { jest } from '@jest/globals';
 import { Pedersen, MerkleTreeDb, MerkleTreeId, SiblingPath, StandardMerkleTree } from '@aztec/merkle-tree';
+import { sleep } from '@aztec/foundation';
+import { jest } from '@jest/globals';
 
 type Mockify<T> = {
   [P in keyof T]: jest.Mock;
@@ -16,8 +15,8 @@ const syncStatus = {
   latestBlock: 0,
 } as SyncStatus;
 
-let latestBlockNumber = 5;
-const getLatestBlockNumber = () => latestBlockNumber;
+const LATEST_BLOCK_NUMBER = 5;
+const getLatestBlockNumber = () => LATEST_BLOCK_NUMBER;
 let nextBlocks: L2Block[] = [];
 const consumeNextBlocks = () => {
   const blocks = nextBlocks;
@@ -78,12 +77,12 @@ describe('server_world_state_synchroniser', () => {
     server.start(0).catch(() => console.log('Sync not completed!!'));
 
     // now setup a loop to monitor the sync progress and push new blocks in
-    while (currentBlockNumber <= latestBlockNumber) {
+    while (currentBlockNumber <= LATEST_BLOCK_NUMBER) {
       status = await server.status();
       expect(
         status.syncedToL2Block >= currentBlockNumber || status.syncedToL2Block <= currentBlockNumber + 1,
       ).toBeTruthy();
-      if (status.syncedToL2Block === latestBlockNumber) {
+      if (status.syncedToL2Block === LATEST_BLOCK_NUMBER) {
         break;
       }
       expect(
@@ -100,7 +99,7 @@ describe('server_world_state_synchroniser', () => {
     // check the status agian, should be fully synced
     status = await server.status();
     expect(status.state).toEqual(WorldStateRunningState.RUNNING);
-    expect(status.syncedToL2Block).toEqual(latestBlockNumber);
+    expect(status.syncedToL2Block).toEqual(LATEST_BLOCK_NUMBER);
 
     // stop the synchroniser
     await server.stop();
@@ -108,7 +107,7 @@ describe('server_world_state_synchroniser', () => {
     // check the final status
     status = await server.status();
     expect(status.state).toEqual(WorldStateRunningState.STOPPED);
-    expect(status.syncedToL2Block).toEqual(latestBlockNumber);
+    expect(status.syncedToL2Block).toEqual(LATEST_BLOCK_NUMBER);
   });
 
   it('enables blocking until synced', async () => {
@@ -116,7 +115,7 @@ describe('server_world_state_synchroniser', () => {
     let currentBlockNumber = -1;
 
     const newBlocks = async () => {
-      while (currentBlockNumber <= latestBlockNumber) {
+      while (currentBlockNumber <= LATEST_BLOCK_NUMBER) {
         await sleep(100);
         nextBlocks = [...nextBlocks, getMockBlock(++currentBlockNumber)];
       }
@@ -135,11 +134,11 @@ describe('server_world_state_synchroniser', () => {
 
     let status = await server.status();
     expect(status.state).toEqual(WorldStateRunningState.RUNNING);
-    expect(status.syncedToL2Block).toEqual(latestBlockNumber);
+    expect(status.syncedToL2Block).toEqual(LATEST_BLOCK_NUMBER);
     await server.stop();
     status = await server.status();
     expect(status.state).toEqual(WorldStateRunningState.STOPPED);
-    expect(status.syncedToL2Block).toEqual(latestBlockNumber);
+    expect(status.syncedToL2Block).toEqual(LATEST_BLOCK_NUMBER);
   });
 
   it('handles multiple calls to start', async () => {
@@ -147,7 +146,7 @@ describe('server_world_state_synchroniser', () => {
     let currentBlockNumber = -1;
 
     const newBlocks = async () => {
-      while (currentBlockNumber < latestBlockNumber) {
+      while (currentBlockNumber < LATEST_BLOCK_NUMBER) {
         await sleep(100);
         const newBlock = getMockBlock(++currentBlockNumber);
         nextBlocks = [...nextBlocks, newBlock];
@@ -180,7 +179,7 @@ describe('server_world_state_synchroniser', () => {
 
     const status = await server.status();
     expect(status.state).toBe(WorldStateRunningState.RUNNING);
-    expect(status.syncedToL2Block).toBe(latestBlockNumber);
+    expect(status.syncedToL2Block).toBe(LATEST_BLOCK_NUMBER);
     await server.stop();
   });
 
@@ -198,7 +197,7 @@ describe('server_world_state_synchroniser', () => {
   it('updates the contract tree', async () => {
     merkleTreeDb.appendLeaves.mockReset();
     const server = createSynchroniser(merkleTreeDb, rollupSource);
-    const totalBlocks = latestBlockNumber + 1;
+    const totalBlocks = LATEST_BLOCK_NUMBER + 1;
     nextBlocks = Array(totalBlocks)
       .fill(0)
       .map((_, index) => getMockBlock(index, [Buffer.alloc(32, index)]));

@@ -1,6 +1,9 @@
+/* eslint-disable jsdoc/require-jsdoc */
 import { default as levelup } from 'levelup';
 import { default as memdown } from 'memdown';
 import { Hasher, MerkleTree, Pedersen, SiblingPath } from '../index.js';
+
+const createMemDown = () => memdown.MemDown();
 
 const expectSameTrees = async (tree1: MerkleTree, tree2: MerkleTree) => {
   const size = tree1.getNumLeaves();
@@ -39,11 +42,11 @@ export const merkleTreeTestSuite = (
     // });
 
     it('should revert changes on rollback', async () => {
-      const levelDownEmpty = memdown();
+      const levelDownEmpty = createMemDown();
       const dbEmpty = levelup(levelDownEmpty);
       const emptyTree = await createDb(dbEmpty, pedersen, 'test', 10);
 
-      const levelDown = memdown();
+      const levelDown = createMemDown();
       const db = levelup(levelDown);
       const tree = await createDb(db, pedersen, 'test2', 10);
       await tree.appendLeaves(values.slice(0, 4));
@@ -69,11 +72,11 @@ export const merkleTreeTestSuite = (
     });
 
     it('should not revert changes after commit', async () => {
-      const levelDownEmpty = memdown();
+      const levelDownEmpty = createMemDown();
       const dbEmpty = levelup(levelDownEmpty);
       const emptyTree = await createDb(dbEmpty, pedersen, 'test', 10);
 
-      const levelDown = memdown();
+      const levelDown = createMemDown();
       const db = levelup(levelDown);
       const tree = await createDb(db, pedersen, 'test2', 10);
       await tree.appendLeaves(values.slice(0, 4));
@@ -87,7 +90,7 @@ export const merkleTreeTestSuite = (
     });
 
     it('should be able to restore from previous committed data', async () => {
-      const levelDown = memdown();
+      const levelDown = createMemDown();
       const db = levelup(levelDown);
       const tree = await createDb(db, pedersen, 'test', 10);
       await tree.appendLeaves(values.slice(0, 4));
@@ -103,7 +106,7 @@ export const merkleTreeTestSuite = (
     });
 
     it('should throw an error if previous data does not exist for the given name', async () => {
-      const db = levelup(memdown());
+      const db = levelup(createMemDown());
       await expect(
         (async () => {
           await createFromName(db, pedersen, 'a_whole_new_tree');
@@ -112,7 +115,7 @@ export const merkleTreeTestSuite = (
     });
 
     it('should serialize sibling path data to a buffer and be able to deserialize it back', async () => {
-      const db = levelup(memdown());
+      const db = levelup(createMemDown());
       const tree = await createDb(db, pedersen, 'test', 10);
       await tree.appendLeaves(values.slice(0, 1));
 

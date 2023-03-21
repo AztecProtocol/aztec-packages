@@ -1,3 +1,4 @@
+/* eslint-disable jsdoc/require-jsdoc */
 import { default as levelup } from 'levelup';
 import { default as memdown } from 'memdown';
 import { toBufferBE } from '../bigint_buffer.js';

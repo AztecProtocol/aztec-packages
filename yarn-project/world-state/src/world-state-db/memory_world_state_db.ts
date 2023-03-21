@@ -10,7 +10,7 @@ import {
   MerkleTreeDepths,
   MerkleTree,
 } from '@aztec/merkle-tree';
-import { SerialQueue } from '../serial_queue.js';
+import { SerialQueue } from '@aztec/foundation';
 
 /**
  * A convenience class for managing multiple merkle trees.

@@ -1,4 +1,4 @@
-import { L2Block } from './l2_block/l2_block.js';
+import { L2Block } from './index.js';
 
 /**
  * Describes sync status of the archiver.

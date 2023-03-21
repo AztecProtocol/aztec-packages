@@ -1,8 +1,6 @@
 import { WorldStateRunningState, WorldStateStatus, WorldStateSynchroniser } from './world_state_synchroniser.js';
 import { MerkleTreeDb, MerkleTreeId } from '@aztec/merkle-tree';
-import { L2BlockDownloader } from '../l2_block_downloader.js';
-import { L2BlockSource } from '@aztec/archiver/l2_block_source';
-import { L2Block } from '@aztec/archiver/l2_block';
+import { L2BlockSource, L2BlockDownloader, L2Block } from '@aztec/archiver';
 
 /**
  * Synchronises the world state with the L2 blocks from a L2BlockSource.

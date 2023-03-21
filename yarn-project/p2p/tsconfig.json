@@ -5,20 +5,12 @@
     "rootDir": "src",
     "tsBuildInfoFile": ".tsbuildinfo",
     "moduleResolution": "nodenext",
-    "types": [
-      "node",
-      "jest"
-    ]
+    "types": ["node", "jest"]
   },
   "references": [
-    {
-      "path": "../world-state/tsconfig.dest.json"
-    },
     {
       "path": "../archiver/tsconfig.dest.json"
     }
   ],
-  "include": [
-    "src"
-  ]
+  "include": ["src"]
 }
