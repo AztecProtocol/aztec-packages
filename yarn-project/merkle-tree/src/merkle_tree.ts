@@ -1,4 +1,4 @@
-import { SiblingPath } from './sibling_path.js';
+import { SiblingPath } from './sibling_path/sibling_path.js';
 
 /**
  * Defines the possible Merkle tree IDs.
@@ -7,6 +7,15 @@ export enum MerkleTreeId {
   CONTRACT_TREE = 0,
   CONTRACT_TREE_ROOTS_TREE = 1,
   NULLIFIER_TREE = 2,
+}
+
+/**
+ * Defines the depths of the various merkle trees.
+ */
+export enum MerkleTreeDepths {
+  CONTRACT_TREE = 32,
+  CONTRACT_TREE_ROOTS_TREE = 8,
+  NULLIFIER_TREE = 32,
 }
 
 /**
@@ -25,20 +34,6 @@ export interface TreeInfo {
    * The number of leaves in the tree.
    */
   size: bigint;
-}
-
-/**
- * Defines the interface for a batch update.
- */
-export interface BatchUpdate {
-  /**
-   * The ID of the Merkle tree to be updated.
-   */
-  treeId: MerkleTreeId;
-  /**
-   * The elements to be updated.
-   */
-  elements: Buffer[];
 }
 
 /**

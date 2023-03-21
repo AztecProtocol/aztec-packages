@@ -37,7 +37,7 @@ describe('Archiver', () => {
   it('can start, sync and stop', async () => {
     const archiver = new Archiver(publicClient, rollupAddress, yeeterAddress);
     let syncStatus = await archiver.getSyncStatus();
-    let latestBlockNum = archiver.getLatestBlockNum();
+    let latestBlockNum = await archiver.getLatestBlockNum();
     expect(syncStatus).toStrictEqual({
       syncedToBlock: -1,
       latestBlock: 2,
@@ -47,7 +47,7 @@ describe('Archiver', () => {
     await archiver.start();
 
     syncStatus = await archiver.getSyncStatus();
-    latestBlockNum = archiver.getLatestBlockNum();
+    latestBlockNum = await archiver.getLatestBlockNum();
     expect(syncStatus).toStrictEqual({
       syncedToBlock: 2,
       latestBlock: 2,

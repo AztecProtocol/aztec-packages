@@ -1,9 +1,9 @@
 import { LevelUp } from 'levelup';
-import { toBigIntBE, toBufferBE } from './bigint_buffer.js';
-import { MerkleTree } from './merkle_tree.js';
-import { SiblingPath } from './sibling_path.js';
-import { StandardMerkleTree } from './standard_tree.js';
-import { Hasher } from './hasher.js';
+import { toBigIntBE, toBufferBE } from '../bigint_buffer.js';
+import { MerkleTree } from '../merkle_tree.js';
+import { SiblingPath } from '../sibling_path/sibling_path.js';
+import { StandardMerkleTree } from '../standard_tree/standard_tree.js';
+import { Hasher } from '../hasher.js';
 
 const indexToKeyLeaf = (name: string, index: bigint) => {
   return `${name}:leaf:${index}`;
@@ -186,6 +186,11 @@ export class IndexedTree implements MerkleTree {
     await this.underlying.appendLeaves([this.hasher.hashToField(newTreeValue)]);
   }
 
+  /**
+   * Finds the index of the largest leaf whose value is less than or equal to the provided value.
+   * @param newValue - The new value to be inserted into the tree.
+   * @returns Tuple containing the leaf index and a flag to say if the value is a duplicate.
+   */
   private findIndexOfPreviousValue(newValue: bigint) {
     const numLeaves = this.underlying.getNumLeaves();
     const diff: bigint[] = [];
@@ -203,6 +208,11 @@ export class IndexedTree implements MerkleTree {
     return { index: minIndex, alreadyPresent: false };
   }
 
+  /**
+   * Finds the index of the minimum value in an array.
+   * @param values - The collection of values to be searched.
+   * @returns The index of the minimum value in the array.
+   */
   private findMinIndex(values: bigint[]) {
     if (!values.length) {
       return 0;

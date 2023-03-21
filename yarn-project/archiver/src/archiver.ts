@@ -50,7 +50,7 @@ export class Archiver implements L2BlockSource {
     });
 
     return {
-      syncedToBlock: this.getLatestBlockNum(),
+      syncedToBlock: await this.getLatestBlockNum(),
       latestBlock: Number(nextBlockNum) - 1,
     };
   }
@@ -168,23 +168,23 @@ export class Archiver implements L2BlockSource {
    * @param take - The number of blocks to return.
    * @returns The requested L2 blocks.
    */
-  public getL2Blocks(from: number, take: number): L2Block[] {
+  public getL2Blocks(from: number, take: number): Promise<L2Block[]> {
     if (from > this.l2Blocks.length) {
-      return [];
+      return Promise.resolve([]);
     }
     if (from + take > this.l2Blocks.length) {
-      return this.l2Blocks.slice(from);
+      return Promise.resolve(this.l2Blocks.slice(from));
     }
 
-    return this.l2Blocks.slice(from, from + take);
+    return Promise.resolve(this.l2Blocks.slice(from, from + take));
   }
 
   /**
    * Gets the number of the latest L2 block processed by the block source implementation.
    * @returns The number of the latest L2 block processed by the block source implementation.
    */
-  public getLatestBlockNum(): number {
-    return this.l2Blocks.length - 1;
+  public getLatestBlockNum(): Promise<number> {
+    return Promise.resolve(this.l2Blocks.length - 1);
   }
 }
 

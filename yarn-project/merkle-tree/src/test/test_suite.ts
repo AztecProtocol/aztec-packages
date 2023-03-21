@@ -1,6 +1,6 @@
 import { default as levelup } from 'levelup';
 import { default as memdown } from 'memdown';
-import { Hasher, MerkleTree, Pedersen, SiblingPath } from './index.js';
+import { Hasher, MerkleTree, Pedersen, SiblingPath } from '../index.js';
 
 const expectSameTrees = async (tree1: MerkleTree, tree2: MerkleTree) => {
   const size = tree1.getNumLeaves();

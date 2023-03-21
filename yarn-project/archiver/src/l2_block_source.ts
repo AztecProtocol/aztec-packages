@@ -28,7 +28,7 @@ export interface L2BlockSource {
    * Gets the number of the latest L2 block processed by the block source implementation.
    * @returns The number of the latest L2 block processed by the block source implementation.
    */
-  getLatestBlockNum(): number;
+  getLatestBlockNum(): Promise<number>;
 
   /**
    * Gets the `take` amount of L2 blocks starting from `from`.
@@ -36,5 +36,5 @@ export interface L2BlockSource {
    * @param take - The number of blocks to return.
    * @returns The requested L2 blocks.
    */
-  getL2Blocks(from: number, take: number): L2Block[];
+  getL2Blocks(from: number, take: number): Promise<L2Block[]>;
 }

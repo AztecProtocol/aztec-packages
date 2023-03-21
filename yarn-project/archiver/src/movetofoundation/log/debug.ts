@@ -1,3 +1,4 @@
+/* eslint-disable */
 import debug from 'debug';
 
 let preLogHook: ((...args: any[]) => void) | undefined;

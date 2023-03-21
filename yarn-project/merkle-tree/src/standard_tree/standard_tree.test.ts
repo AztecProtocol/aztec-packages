@@ -1,7 +1,10 @@
 import { default as levelup } from 'levelup';
 import { default as memdown } from 'memdown';
-import { Hasher, Pedersen, SiblingPath, StandardMerkleTree } from './index.js';
-import { merkleTreeTestSuite } from './test_suite.js';
+import { Hasher } from '../hasher.js';
+import { SiblingPath } from '../index.js';
+import { Pedersen } from '../pedersen.js';
+import { StandardMerkleTree } from './standard_tree.js';
+import { merkleTreeTestSuite } from '../test/test_suite.js';
 
 const createDb = async (levelUp: levelup.LevelUp, hasher: Hasher, name: string, depth: number) => {
   return await StandardMerkleTree.new(levelUp, hasher, name, depth);

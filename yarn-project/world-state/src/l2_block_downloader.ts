@@ -18,7 +18,7 @@ export class L2BlockDownloader {
   private semaphore: Semaphore;
   private queue = new MemoryFifo<L2Block[]>();
 
-  constructor(private l2BlockSource: L2BlockSource, maxQueueSize: number) {
+  constructor(private l2BlockSource: L2BlockSource, maxQueueSize: number, private pollIntervalMS = 10000) {
     this.semaphore = new Semaphore(maxQueueSize);
   }
 
@@ -39,21 +39,20 @@ export class L2BlockDownloader {
     const fn = async () => {
       while (this.running) {
         try {
-          const blocks = this.l2BlockSource.getL2Blocks(this.from, 10);
+          const blocks = await this.l2BlockSource.getL2Blocks(this.from, 10);
 
           if (!blocks.length) {
-            await this.interruptableSleep.sleep(10000);
+            await this.interruptableSleep.sleep(this.pollIntervalMS);
             continue;
           }
 
           // Blocks if there are maxQueueSize results in the queue, until released after the callback.
           await this.semaphore.acquire();
-
           this.queue.put(blocks);
           this.from += blocks.length;
         } catch (err) {
           console.log(err);
-          await this.interruptableSleep.sleep(10000);
+          await this.interruptableSleep.sleep(this.pollIntervalMS);
         }
       }
     };
