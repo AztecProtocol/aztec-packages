@@ -17,7 +17,7 @@ export class MemoryFifo<T> {
   }
 
   /**
-   * Returns next item within the queue, or blocks until and item has been put into the queue.
+   * Returns next item within the queue, or blocks until an item has been put into the queue.
    * If given a timeout, the promise will reject if no item is received after `timeout` seconds.
    * If the queue is flushing, `null` is returned.
    * @param timeout - The number of seconds to wait for an item before rejecting the promise.

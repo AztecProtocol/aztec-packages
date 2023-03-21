@@ -1,4 +1,22 @@
+import { InMemoryP2PCLient } from './memory_p2p_client.js';
+import { MockRollupSource } from './mocks.js';
+
 /**
- * A placeholder for the P2P layer.
+ * Main function of P2P in-memory client that runs at init.
  */
-export class P2P {}
+async function main() {
+  // TODO: replace with actual rollup source that gets instantiated with env variables
+  const rollupSource = new MockRollupSource();
+  const p2pClient = new InMemoryP2PCLient(rollupSource);
+  await p2pClient.start();
+
+  const shutdown = async () => {
+    await p2pClient.stop();
+    process.exit(0);
+  };
+
+  process.once('SIGINT', shutdown);
+  process.once('SIGTERM', shutdown);
+}
+
+main().catch(err => console.log('ERROR in main p2p function: ', err));

@@ -10,3 +10,6 @@
 [submodule "barretenberg"]
 	path = barretenberg
 	url = git@github.com:AztecProtocol/barretenberg.git
+[submodule "yarn-project/foundation"]
+	path = yarn-project/foundation
+	url = git@github.com:AztecProtocol/foundation.git

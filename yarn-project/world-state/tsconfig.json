@@ -5,5 +5,9 @@
     "rootDir": "src",
     "tsBuildInfoFile": ".tsbuildinfo"
   },
-  "include": ["src"]
+  "references": [
+    { "path": "../archiver/tsconfig.dest.json" },
+    { "path": "../merkle-tree/tsconfig.dest.json" }
+  ],
+  "include": [ "src" ]
 }
