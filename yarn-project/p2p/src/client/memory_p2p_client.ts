@@ -1,9 +1,9 @@
 import { InterruptableSleep } from '@aztec/foundation';
 import { L2Block, L2BlockSource, L2BlockDownloader } from '@aztec/archiver';
 
-import { InMemoryTxPool } from './tx_pool/memory_tx_pool.js';
+import { InMemoryTxPool } from '../tx_pool/memory_tx_pool.js';
 import { P2P } from './p2p_client.js';
-import { TxPool } from './tx_pool/index.js';
+import { TxPool } from '../tx_pool/index.js';
 import { Tx } from './temp_types.js';
 import { AccumulatedTxData } from './tx.js';
 
@@ -117,7 +117,7 @@ export class InMemoryP2PCLient implements P2P {
   public async stop() {
     this.running = false;
     this.ready = false;
-    this.blockDownloader.stop();
+    await this.blockDownloader.stop();
     this.interruptableSleep.interrupt();
     await this.runningSyncPromise;
   }
@@ -126,19 +126,20 @@ export class InMemoryP2PCLient implements P2P {
    * Returns all transactions in the transaction pool.
    * @returns An array of Txs.
    */
-  public getTxs(): Tx[] {
-    return this.txPool.getAllTxs();
+  public getTxs(): Promise<Tx[]> {
+    return Promise.resolve(this.txPool.getAllTxs());
   }
 
   /**
    * Verifies the 'tx' and, if valid, adds it to local tx pool and forwards it to other peers.
    * @param tx - The tx to verify.
+   * @returns Empty promise.
    **/
-  public sendTx(tx: Tx): void {
-    if (!this.ready || !this.running) {
-      return;
+  public sendTx(tx: Tx): Promise<void> {
+    if (this.ready && this.running) {
+      this.txPool.addTxs([tx]);
     }
-    this.txPool.addTxs([tx]);
+    return Promise.resolve();
   }
 
   /**

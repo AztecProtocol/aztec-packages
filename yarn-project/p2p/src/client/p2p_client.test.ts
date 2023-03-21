@@ -2,7 +2,7 @@ import { expect, jest } from '@jest/globals';
 import { L2BlockSource } from '@aztec/archiver';
 
 import { InMemoryP2PCLient } from './memory_p2p_client.js';
-import { TxPool } from './tx_pool/index.js';
+import { TxPool } from '../tx_pool/index.js';
 import { MockBlockSource } from './mocks.js';
 import { MockTx } from './mocks.js';
 
@@ -47,8 +47,8 @@ describe('In-Memory P2P Client', () => {
     await client.start();
     const tx1 = new MockTx();
     const tx2 = new MockTx();
-    client.sendTx(tx1);
-    client.sendTx(tx2);
+    await client.sendTx(tx1);
+    await client.sendTx(tx2);
 
     expect(txPool.addTxs).toHaveBeenCalledTimes(2);
   });
@@ -58,13 +58,13 @@ describe('In-Memory P2P Client', () => {
     await client.start();
     const tx1 = new MockTx();
     const tx2 = new MockTx();
-    client.sendTx(tx1);
-    client.sendTx(tx2);
+    await client.sendTx(tx1);
+    await client.sendTx(tx2);
 
     expect(txPool.addTxs).toHaveBeenCalledTimes(2);
     await client.stop();
     const tx3 = new MockTx();
-    client.sendTx(tx3);
+    await client.sendTx(tx3);
     expect(txPool.addTxs).toHaveBeenCalledTimes(2);
   });
 });

@@ -3,7 +3,7 @@ import { rollupAbi } from '../abis/rollup.js';
 import { yeeterAbi } from '../abis/yeeter.js';
 import { ContractData, L2Block } from '../l2_block/l2_block.js';
 import { randomAppendOnlyTreeSnapshot, randomBytes, randomContractData } from '../l2_block/mocks.js';
-import { L2BlockSource, SyncStatus } from '../l2_block/l2_block_source.js';
+import { L2BlockSource, L2BlockSourceSyncStatus } from '../l2_block/l2_block_source.js';
 import { createLogger } from '@aztec/foundation';
 
 /**
@@ -42,7 +42,7 @@ export class Archiver implements L2BlockSource {
    * Gets the sync status of the L2 block source.
    * @returns The sync status of the L2 block source.
    */
-  public async getSyncStatus(): Promise<SyncStatus> {
+  public async getSyncStatus(): Promise<L2BlockSourceSyncStatus> {
     const nextBlockNum = await this.publicClient.readContract({
       address: this.rollupAddress,
       abi: rollupAbi,

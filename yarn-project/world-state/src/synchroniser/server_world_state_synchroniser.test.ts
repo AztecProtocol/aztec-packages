@@ -1,6 +1,6 @@
 /* eslint-disable jsdoc/require-jsdoc */
 import { ServerWorldStateSynchroniser } from './server_world_state_synchroniser.js';
-import { L2BlockSource, SyncStatus, L2Block } from '@aztec/archiver';
+import { L2BlockSource, L2BlockSourceSyncStatus, L2Block } from '@aztec/archiver';
 import { WorldStateRunningState } from './world_state_synchroniser.js';
 import { Pedersen, MerkleTreeDb, MerkleTreeId, SiblingPath, StandardMerkleTree } from '@aztec/merkle-tree';
 import { sleep } from '@aztec/foundation';
@@ -13,7 +13,7 @@ type Mockify<T> = {
 const syncStatus = {
   syncedToBlock: 0,
   latestBlock: 0,
-} as SyncStatus;
+} as L2BlockSourceSyncStatus;
 
 const LATEST_BLOCK_NUMBER = 5;
 const getLatestBlockNumber = () => LATEST_BLOCK_NUMBER;

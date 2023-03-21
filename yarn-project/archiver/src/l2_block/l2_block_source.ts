@@ -3,7 +3,7 @@ import { L2Block } from './index.js';
 /**
  * Describes sync status of the archiver.
  */
-export interface SyncStatus {
+export interface L2BlockSourceSyncStatus {
   /**
    * The height of the L2 block that the archiver is synced to.
    */
@@ -22,7 +22,7 @@ export interface L2BlockSource {
    * Gets the sync status of the L2 block source.
    * @returns The sync status of the L2 block source.
    */
-  getSyncStatus(): Promise<SyncStatus>;
+  getSyncStatus(): Promise<L2BlockSourceSyncStatus>;
 
   /**
    * Gets the number of the latest L2 block processed by the block source implementation.

@@ -7,11 +7,11 @@ export interface P2P {
   /**
    * Verifies the 'tx' and, if valid, adds it to local tx pool and forwards it to other peers.
    **/
-  sendTx(tx: Tx): void;
+  sendTx(tx: Tx): Promise<void>;
 
   /**
    * Returns all transactions in the transaction pool.
    * @returns An array of Txs.
    */
-  getTxs(): Tx[];
+  getTxs(): Promise<Tx[]>;
 }
