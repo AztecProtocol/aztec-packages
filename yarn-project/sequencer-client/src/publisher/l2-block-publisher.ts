@@ -22,7 +22,7 @@ export type L1ProcessRollupArgs = {
 
 /**
  * Publishes L2 blocks to the L1 rollup contracts. This implementation does *not* retry a transaction in
- * the event of network congestion.
+ * the event of network congestion, but should work for local development.
  * - If sending (not mining) a tx fails, it retries indefinitely at 1-minute intervals.
  * - If the tx is not mined, keeps polling indefinitely at 1-second intervals.
  *

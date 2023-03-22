@@ -9,7 +9,7 @@ import { L1ProcessRollupArgs, PublisherTxSender } from './l2-block-publisher.js'
 /**
  * Pushes transactions to the L1 rollup contract using the custom aztec/ethereum.js library.
  */
-export class AztecEthereumjsTxSender implements PublisherTxSender {
+export class EthereumjsTxSender implements PublisherTxSender {
   private ethRpc: EthereumRpc;
   private rollupContract: Rollup;
   private confirmations: number;

@@ -4,7 +4,7 @@ import { EthereumRpc } from '@aztec/ethereum.js/eth_rpc';
 import { WalletProvider } from '@aztec/ethereum.js/provider';
 import { Rollup } from '@aztec/l1-contracts';
 import { beforeAll, describe, expect, it } from '@jest/globals';
-import { AztecEthereumjsTxSender } from '../src/publisher/aztec-ethereumjs-tx-sender.js';
+import { EthereumjsTxSender } from '../src/publisher/ethereumjs-tx-sender.js';
 import { L2BlockPublisher } from '../src/publisher/l2-block-publisher.js';
 import { hexStringToBuffer } from '../src/utils.js';
 
@@ -28,7 +28,7 @@ describe('L2BlockPublisher integration', () => {
     l2Proof = Buffer.alloc(0);
 
     publisher = new L2BlockPublisher(
-      new AztecEthereumjsTxSender({ 
+      new EthereumjsTxSender({ 
         ethereumHost: anvilHost, 
         feeDistributor: deployer.toChecksumString(), 
         requiredConfirmations: 1, 
