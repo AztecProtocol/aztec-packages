@@ -49,6 +49,17 @@ export class MerkleTrees implements MerkleTreeDb {
   }
 
   /**
+   * Method to asynchronously create and initialise a MerkleTrees instance.
+   * @param db - The db instance to use for data persistance.
+   * @returns - A fully initialised MerkleTrees instance.
+   */
+  public static async new(db: levelup.LevelUp) {
+    const merkleTrees = new MerkleTrees(db);
+    await merkleTrees.init();
+    return merkleTrees;
+  }
+
+  /**
    * Stops the job queue (waits for all jobs to finish).
    */
   public async stop() {

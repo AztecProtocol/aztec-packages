@@ -4,9 +4,9 @@ import { yeeterAbi } from '../abis/yeeter.js';
 import { ContractData, L2Block } from '../l2_block/l2_block.js';
 import { randomAppendOnlyTreeSnapshot, randomBytes, randomContractData } from '../l2_block/mocks.js';
 import { L2BlockSource, L2BlockSourceSyncStatus } from '../l2_block/l2_block_source.js';
-import { createLogger } from '@aztec/foundation';
 import { EthAddress } from '@aztec/ethereum.js/eth_address';
 import { localhost } from 'viem/chains';
+import { createDebugLogger } from '@aztec/foundation';
 
 /**
  * Pulls L2 blocks in a non-blocking manner and provides interface for their retrieval.
@@ -37,7 +37,7 @@ export class Archiver implements L2BlockSource {
     private readonly publicClient: PublicClient,
     private readonly rollupAddress: EthAddress,
     private readonly yeeterAddress: EthAddress,
-    private readonly log = createLogger('Archiver'),
+    private readonly log = createDebugLogger('aztec:archiver'),
   ) {}
 
   /**

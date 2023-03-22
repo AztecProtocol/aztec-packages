@@ -8,15 +8,11 @@ import {
   randomAppendOnlyTreeSnapshot,
   L2BlockSourceSyncStatus,
 } from '@aztec/archiver';
-import { Tx } from './tx.js';
+import { AccumulatedTxData, Tx } from './tx.js';
 
-export class MockTx implements Tx {
-  constructor(private _txId: Buffer = randomBytes(32)) {}
-
-  get txId() {
-    return this._txId;
-  }
-}
+export const MockTx = () => {
+  return new Tx(AccumulatedTxData.random());
+};
 
 export class MockBlockSource implements L2BlockSource {
   private l2Blocks: L2Block[];

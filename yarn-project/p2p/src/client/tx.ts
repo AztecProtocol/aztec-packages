@@ -1,33 +1,45 @@
+/* eslint-disable jsdoc/require-jsdoc */
 import { randomBytes } from 'crypto';
 import { Keccak } from 'sha3';
 
 const hash = new Keccak(256);
 
 /**
- * The interface of an L2 transaction.
+ * Accumulated data of an A3 transaction.
  */
-export interface Tx {
-  /**
-   * The id of the transaction.
-   */
-  txId: Buffer;
+export class AccumulatedTxData {
+  constructor(
+    public newCommitments: Buffer[],
+    public newNullifiers: Buffer[],
+    public privateCallStack: Buffer[],
+    public publicCallStack: Buffer[],
+    public l1MsgStack: Buffer[],
+    public newContracts: Buffer[],
+    public optionallyRevealedData: Buffer[],
+    public aggregationObject?: object,
+    public callCount?: number,
+  ) {}
+
+  public static random() {
+    return new AccumulatedTxData(
+      [randomBytes(32)],
+      [randomBytes(32)],
+      [randomBytes(32)],
+      [randomBytes(32)],
+      [randomBytes(32)],
+      [randomBytes(32)],
+      [randomBytes(32)],
+      undefined,
+      undefined,
+    );
+  }
 }
 
 /**
- * Accumulated data of an A3 transaction.
+ * The interface of an L2 transaction.
  */
-export class AccumulatedTxData implements Tx {
-  constructor(
-    private aggregationObject?: object,
-    private callCount?: number,
-    private newCommitments: Buffer[] = [randomBytes(32)],
-    private newNullifiers: Buffer[] = [randomBytes(32)],
-    private privateCallStack: Buffer[] = [randomBytes(32)],
-    private publicCallStack: Buffer[] = [randomBytes(32)],
-    private l1MsgStack: Buffer[] = [randomBytes(32)],
-    private newContracts: Buffer[] = [randomBytes(32)],
-    private optionallyRevealedData: Buffer[] = [randomBytes(32)],
-  ) {}
+export class Tx {
+  constructor(private txData: AccumulatedTxData) {}
 
   /**
    * Construct & return transaction ID.
@@ -35,7 +47,7 @@ export class AccumulatedTxData implements Tx {
    * @returns The transaction's id.
    */
   get txId() {
-    const constractTxData = this.newContracts[0];
+    const constractTxData = this.txData.newContracts[0];
     hash.reset();
     return hash.update(constractTxData).digest();
   }

@@ -1,3 +1,4 @@
+import { createDebugLogger } from '@aztec/foundation';
 import { Tx } from '../index.js';
 import { TxPool } from './index.js';
 
@@ -24,8 +25,9 @@ export class InMemoryTxPool implements TxPool {
 
   /**
    * Class constructor for in-memory TxPool. Initiates our transaction pool as a JS Map.
+   * @param log - A logger.
    */
-  constructor() {
+  constructor(private log = createDebugLogger('aztec:tx_pool')) {
     this.txs = new Map<bigint, Tx>();
   }
 
@@ -44,6 +46,7 @@ export class InMemoryTxPool implements TxPool {
    * @param txs - An array of txs to be added to the pool.
    */
   public addTxs(txs: Tx[]): void {
+    this.log(`Adding tx with id ${txs[0].txId.toString('hex')}`);
     txs.forEach(tx => this.txs.set(toBigInt(tx.txId), tx));
   }
 
