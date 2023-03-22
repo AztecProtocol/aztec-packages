@@ -1,45 +1,14 @@
 /* eslint-disable jsdoc/require-jsdoc */
-import { randomBytes } from 'crypto';
+import {  PrivateKernelPublicInputs } from '@aztec/circuits.js';
 import { Keccak } from 'sha3';
 
 const hash = new Keccak(256);
 
 /**
- * Accumulated data of an A3 transaction.
- */
-export class AccumulatedTxData {
-  constructor(
-    public newCommitments: Buffer[],
-    public newNullifiers: Buffer[],
-    public privateCallStack: Buffer[],
-    public publicCallStack: Buffer[],
-    public l1MsgStack: Buffer[],
-    public newContracts: Buffer[],
-    public optionallyRevealedData: Buffer[],
-    public aggregationObject?: object,
-    public callCount?: number,
-  ) {}
-
-  public static random() {
-    return new AccumulatedTxData(
-      [randomBytes(32)],
-      [randomBytes(32)],
-      [randomBytes(32)],
-      [randomBytes(32)],
-      [randomBytes(32)],
-      [randomBytes(32)],
-      [randomBytes(32)],
-      undefined,
-      undefined,
-    );
-  }
-}
-
-/**
  * The interface of an L2 transaction.
  */
 export class Tx {
-  constructor(private txData: AccumulatedTxData) {}
+  constructor(private txData: PrivateKernelPublicInputs) {}
 
   /**
    * Construct & return transaction ID.
@@ -47,9 +16,14 @@ export class Tx {
    * @returns The transaction's id.
    */
   get txId() {
-    const constractTxData = this.txData.newContracts[0];
+    const contractTxData = this.txData.end.newContracts[0];
     hash.reset();
-    return hash.update(constractTxData).digest();
+    // TODO: is toBuffer the correct way to serialize contractTxData to get its digest?
+    return hash.update(contractTxData.toBuffer()).digest();
+  }
+
+  get data() {
+    return this.txData;
   }
 
   /**

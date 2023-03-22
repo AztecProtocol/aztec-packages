@@ -8,10 +8,11 @@ import {
   randomAppendOnlyTreeSnapshot,
   L2BlockSourceSyncStatus,
 } from '@aztec/archiver';
-import { AccumulatedTxData, Tx } from './tx.js';
+import { makePrivateKernelPublicInputs } from '@aztec/circuits.js/factories';
+import { Tx } from './tx.js';
 
 export const MockTx = () => {
-  return new Tx(AccumulatedTxData.random());
+  return new Tx(makePrivateKernelPublicInputs());
 };
 
 export class MockBlockSource implements L2BlockSource {
