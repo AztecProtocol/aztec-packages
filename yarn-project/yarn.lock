@@ -137,6 +137,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/eslint-config@workspace:eslint-config"
   dependencies:
+    "@aztec/foundation": "workspace:^"
     "@typescript-eslint/eslint-plugin": ^5.38.0
     "@typescript-eslint/parser": ^5.38.0
     eslint: ^8.21.0
@@ -299,6 +300,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/prettier-config@workspace:prettier-config"
   dependencies:
+    "@aztec/foundation": "workspace:^"
     prettier: ^2.7.1
   languageName: unknown
   linkType: soft

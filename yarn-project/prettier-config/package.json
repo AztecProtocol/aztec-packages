@@ -3,6 +3,7 @@
   "version": "0.0.0",
   "packageManager": "yarn@3.2.2",
   "dependencies": {
+    "@aztec/foundation": "workspace:^",
     "prettier": "^2.7.1"
   }
 }
