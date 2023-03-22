@@ -1,4 +1,11 @@
-import { BaseRollupInputs, BaseRollupPublicInputs, MergeRollupInputs, MergeRollupPublicInputs, RootRollupInputs, RootRollupPublicInputs } from '@aztec/circuits.js';
+import {
+  BaseRollupInputs,
+  BaseRollupPublicInputs,
+  MergeRollupInputs,
+  MergeRollupPublicInputs,
+  RootRollupInputs,
+  RootRollupPublicInputs,
+} from '@aztec/circuits.js';
 
 export interface Prover {
   baseRollupCircuit(input: BaseRollupInputs): Promise<BaseRollupPublicInputs>;

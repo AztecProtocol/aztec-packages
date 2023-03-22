@@ -4,11 +4,11 @@ export class RunningPromise {
   private runningPromise = Promise.resolve();
   private interruptPromise = Promise.resolve();
   private interruptResolve = () => {};
-  
+
   private pollingInterval: number;
   private includeRunningTime: boolean;
 
-  constructor(private fn: () => Promise<void>, opts?: { pollingInterval?: number, includeRunningTime?: boolean }) {
+  constructor(private fn: () => Promise<void>, opts?: { pollingInterval?: number; includeRunningTime?: boolean }) {
     this.pollingInterval = opts?.pollingInterval ?? 10_000;
     this.includeRunningTime = opts?.includeRunningTime ?? false;
   }

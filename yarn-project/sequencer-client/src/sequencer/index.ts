@@ -1,7 +1,9 @@
 import { mockRandomL2Block } from "@aztec/archiver";
+import { BaseRollupInputs } from "@aztec/circuits.js";
+import { MerkleTreeDb } from "@aztec/merkle-tree";
 import { P2P, Tx } from '@aztec/p2p';
+import { WorldStateSynchroniser } from '@aztec/world-state';
 import { RunningPromise } from "../deps/running_promise.js";
-import { WorldStateSynchroniser } from "../deps/worldstate.js";
 import { Prover } from "../prover/index.js";
 import { L2BlockPublisher } from "../publisher/l2-block-publisher.js";
 
@@ -27,6 +29,7 @@ export class Sequencer {
     private publisher: L2BlockPublisher,
     private p2pClient: P2P,
     private worldState: WorldStateSynchroniser,
+    private db: MerkleTreeDb, // TODO: Can we access the underlying db via the worldState?
     private prover: Prover,
     opts?: { pollingIntervalMs?: number, blockIntervalMs?: number }
   ) {
@@ -36,7 +39,7 @@ export class Sequencer {
 
   public async start() {
     // TODO: Should we wait for worldstate to be ready, or is the caller expected to run await start?
-    this.lastBlockNumber = await this.worldState.status().then(s => s.syncedToRollup);
+    this.lastBlockNumber = await this.worldState.status().then(s => s.syncedToL2Block);
     
     this.runningPromise = new RunningPromise(this.work.bind(this), { pollingInterval: this.pollingIntervalMs });
     this.runningPromise.start();
@@ -118,7 +121,7 @@ export class Sequencer {
    * Returns whether the previous block sent has been mined, and all dependencies have caught up with it.
    */
   protected async isBlockSynched() {
-    return await this.worldState.status().then(s => s.syncedToRollup) >= this.lastBlockNumber
+    return await this.worldState.status().then(s => s.syncedToL2Block) >= this.lastBlockNumber
       && this.p2pClient.getStatus().syncedToBlockNum >= this.lastBlockNumber;
   }
 
