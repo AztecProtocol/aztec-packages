@@ -26,6 +26,7 @@
     "rootDir": "./src"
   },
   "dependencies": {
+    "@aztec/ethereum.js": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "debug": "^4.3.4",
     "tsc-watch": "^6.0.0",

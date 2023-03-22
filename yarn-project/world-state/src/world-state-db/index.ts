@@ -1,3 +1,4 @@
+export * from './memory_world_state_db.js';
 /**
  * Defines the possible tree IDs.
  */

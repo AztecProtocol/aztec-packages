@@ -1,4 +1,4 @@
-import { Tx } from '../client/temp_types.js';
+import { Tx } from '../index.js';
 import { TxPool } from './index.js';
 
 /**

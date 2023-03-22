@@ -54,6 +54,6 @@ describe('Archiver', () => {
     });
     expect(latestBlockNum).toBe(syncStatus.syncedToBlock);
 
-    archiver.stop();
+    await archiver.stop();
   });
 });

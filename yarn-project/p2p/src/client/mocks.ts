@@ -8,8 +8,7 @@ import {
   randomAppendOnlyTreeSnapshot,
   L2BlockSourceSyncStatus,
 } from '@aztec/archiver';
-
-import { Tx } from './temp_types.js';
+import { Tx } from './tx.js';
 
 export class MockTx implements Tx {
   constructor(private _txId: Buffer = randomBytes(32)) {}
@@ -30,7 +29,7 @@ export class MockBlockSource implements L2BlockSource {
   }
 
   public getLatestBlockNum() {
-    return Promise.resolve(this.l2Blocks.length);
+    return Promise.resolve(this.l2Blocks.length - 1);
   }
 
   public getL2Blocks(from: number, take: number) {
@@ -43,6 +42,14 @@ export class MockBlockSource implements L2BlockSource {
       latestBlock: this.numBlocks,
     } as L2BlockSourceSyncStatus);
   }
+
+  public start(): Promise<void> {
+    return Promise.resolve();
+  }
+
+  public stop(): Promise<void> {
+    return Promise.resolve();
+  }
 }
 
 export class MockBlock extends L2Block {
@@ -53,7 +60,7 @@ export class MockBlock extends L2Block {
     const newContractsData: ContractData[] = [randomContractData()];
 
     super(
-      0,
+      _id,
       randomAppendOnlyTreeSnapshot(0),
       randomAppendOnlyTreeSnapshot(0),
       randomAppendOnlyTreeSnapshot(0),

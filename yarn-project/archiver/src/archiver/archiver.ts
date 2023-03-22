@@ -1,10 +1,12 @@
-import { Address, PublicClient } from 'viem';
+import { PublicClient, getAddress, http, createPublicClient } from 'viem';
 import { rollupAbi } from '../abis/rollup.js';
 import { yeeterAbi } from '../abis/yeeter.js';
 import { ContractData, L2Block } from '../l2_block/l2_block.js';
 import { randomAppendOnlyTreeSnapshot, randomBytes, randomContractData } from '../l2_block/mocks.js';
 import { L2BlockSource, L2BlockSourceSyncStatus } from '../l2_block/l2_block_source.js';
 import { createLogger } from '@aztec/foundation';
+import { EthAddress } from '@aztec/ethereum.js/eth_address';
+import { localhost } from 'viem/chains';
 
 /**
  * Pulls L2 blocks in a non-blocking manner and provides interface for their retrieval.
@@ -33,10 +35,25 @@ export class Archiver implements L2BlockSource {
    */
   constructor(
     private readonly publicClient: PublicClient,
-    private readonly rollupAddress: Address,
-    private readonly yeeterAddress: Address,
+    private readonly rollupAddress: EthAddress,
+    private readonly yeeterAddress: EthAddress,
     private readonly log = createLogger('Archiver'),
   ) {}
+
+  /**
+   * Creates a new instance of the Archiver.
+   * @param rpcUrl - The RPC url for connecting to an eth node.
+   * @param rollupAddress - Ethereum address of the rollup contract.
+   * @param yeeterAddress - Ethereum address of the yeeter contract.
+   * @returns - An instance of the archiver.
+   */
+  public static new(rpcUrl: string, rollupAddress: EthAddress, yeeterAddress: EthAddress) {
+    const publicClient = createPublicClient({
+      chain: localhost,
+      transport: http(rpcUrl),
+    });
+    return new Archiver(publicClient, rollupAddress, yeeterAddress);
+  }
 
   /**
    * Gets the sync status of the L2 block source.
@@ -44,7 +61,7 @@ export class Archiver implements L2BlockSource {
    */
   public async getSyncStatus(): Promise<L2BlockSourceSyncStatus> {
     const nextBlockNum = await this.publicClient.readContract({
-      address: this.rollupAddress,
+      address: getAddress(this.rollupAddress.toString()),
       abi: rollupAbi,
       functionName: 'nextBlockNum',
     });
@@ -71,13 +88,13 @@ export class Archiver implements L2BlockSource {
    */
   private async runInitialSync() {
     const blockFilter = await this.publicClient.createEventFilter({
-      address: this.rollupAddress,
+      address: getAddress(this.rollupAddress.toString()),
       fromBlock: 0n,
       event: rollupAbi[0],
     });
 
     const yeetFilter = await this.publicClient.createEventFilter({
-      address: this.yeeterAddress,
+      address: getAddress(this.yeeterAddress.toString()),
       event: yeeterAbi[0],
       fromBlock: 0n,
     });
@@ -94,13 +111,13 @@ export class Archiver implements L2BlockSource {
    */
   private startWatchingEvents() {
     this.unwatchBlocks = this.publicClient.watchEvent({
-      address: this.rollupAddress,
+      address: getAddress(this.rollupAddress.toString()),
       event: rollupAbi[0],
       onLogs: logs => this.processBlockLogs(logs),
     });
 
     this.unwatchYeets = this.publicClient.watchEvent({
-      address: this.yeeterAddress,
+      address: getAddress(this.yeeterAddress.toString()),
       event: yeeterAbi[0],
       onLogs: logs => this.processYeetLogs(logs),
     });
@@ -148,9 +165,10 @@ export class Archiver implements L2BlockSource {
   }
 
   /**
-   * Stops the event polling loop.
+   * Stops the archiver.
+   * @returns A promise signalling completion of the stop process.
    */
-  public stop() {
+  public stop(): Promise<void> {
     this.log('Stopping...');
     if (this.unwatchBlocks === undefined || this.unwatchYeets === undefined) {
       throw new Error('Archiver is not running.');
@@ -160,6 +178,7 @@ export class Archiver implements L2BlockSource {
     this.unwatchYeets();
 
     this.log('Stopped.');
+    return Promise.resolve();
   }
 
   /**

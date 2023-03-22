@@ -50,7 +50,7 @@
     "projectDir": "yarn-project/archiver",
     "dockerfile": "archiver/Dockerfile",
     "rebuildPatterns": ["^yarn-project/archiver/"],
-    "dependencies": ["yarn-project-base"]
+    "dependencies": ["yarn-project-base", "ethereum.js"]
   },
   "aztec-cli": {
     "buildDir": "yarn-project",
@@ -106,7 +106,7 @@
     "projectDir": "yarn-project/p2p",
     "dockerfile": "p2p/Dockerfile",
     "rebuildPatterns": ["^yarn-project/p2p/"],
-    "dependencies": ["yarn-project-base"]
+    "dependencies": ["yarn-project-base", "archiver"]
   },
   "prover-client": {
     "buildDir": "yarn-project",
@@ -141,6 +141,6 @@
     "projectDir": "yarn-project/world-state",
     "dockerfile": "world-state/Dockerfile",
     "rebuildPatterns": ["^yarn-project/world-state/"],
-    "dependencies": ["yarn-project-base"]
+    "dependencies": ["yarn-project-base", "merkle-tree"]
   }
 }

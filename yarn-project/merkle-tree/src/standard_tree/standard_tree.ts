@@ -28,6 +28,9 @@ const decodeMeta = (meta: Buffer) => {
  * A Merkle tree implementation that uses a LevelDB database to store the tree.
  */
 export class StandardMerkleTree implements MerkleTree {
+  /**
+   * The value of an 'empty' leaf.
+   */
   public static ZERO_ELEMENT = Buffer.from('0000000000000000000000000000000000000000000000000000000000000000', 'hex');
   private root!: Buffer;
   private zeroHashes: Buffer[] = [];

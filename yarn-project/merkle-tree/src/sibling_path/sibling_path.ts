@@ -22,7 +22,16 @@ export class SiblingPath {
     return new SiblingPath(bufs);
   }
 
-  constructor(public data: Buffer[] = []) {}
+  /**
+   * Constructor.
+   * @param data - The sibling path data.
+   */
+  constructor(
+    /**
+     * The sibling path data.
+     */
+    public data: Buffer[] = [],
+  ) {}
 
   /**
    * Serializes this SiblingPath object to a buffer.

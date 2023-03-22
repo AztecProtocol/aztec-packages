@@ -1,4 +1,4 @@
-import { MockTx } from '../mocks.js';
+import { MockTx } from '../client/mocks.js';
 import { InMemoryTxPool } from './index.js';
 
 describe('In-Memory TX pool', () => {

@@ -1,9 +1,17 @@
 import { randomBytes } from 'crypto';
 import { Keccak } from 'sha3';
 
-import { Tx } from './temp_types.js';
-
 const hash = new Keccak(256);
+
+/**
+ * The interface of an L2 transaction.
+ */
+export interface Tx {
+  /**
+   * The id of the transaction.
+   */
+  txId: Buffer;
+}
 
 /**
  * Accumulated data of an A3 transaction.

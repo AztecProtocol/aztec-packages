@@ -13,7 +13,6 @@ export class ServerWorldStateSynchroniser implements WorldStateSynchroniser {
   private l2BlockDownloader: L2BlockDownloader;
   private syncPromise: Promise<void> = Promise.resolve();
   private syncResolve?: () => void = undefined;
-  private syncReject?: () => void = undefined;
   private stopping = false;
   private runningPromise: Promise<void> = Promise.resolve();
   private currentState: WorldStateRunningState = WorldStateRunningState.IDLE;
@@ -46,9 +45,8 @@ export class ServerWorldStateSynchroniser implements WorldStateSynchroniser {
     // if there are blocks to be retrieved, go to a synching state
     if (from < this.latestBlockNumberAtStart) {
       this.currentState = WorldStateRunningState.SYNCHING;
-      this.syncPromise = new Promise((resolve, reject) => {
+      this.syncPromise = new Promise(resolve => {
         this.syncResolve = resolve;
-        this.syncReject = reject;
       });
     } else {
       // if no blocks to be retrieved, go straight to running
@@ -73,12 +71,9 @@ export class ServerWorldStateSynchroniser implements WorldStateSynchroniser {
    * Stops the synchroniser.
    */
   public async stop() {
-    await this.l2BlockDownloader.stop();
     this.stopping = true;
+    await this.l2BlockDownloader.stop();
     await this.runningPromise;
-    if (this.currentState === WorldStateRunningState.SYNCHING && this.syncReject !== undefined) {
-      this.syncReject();
-    }
     this.currentState = WorldStateRunningState.STOPPED;
   }
 

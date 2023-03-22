@@ -37,4 +37,16 @@ export interface L2BlockSource {
    * @returns The requested L2 blocks.
    */
   getL2Blocks(from: number, take: number): Promise<L2Block[]>;
+
+  /**
+   * Starts the L2 block source.
+   * @returns A promise signalling completion of the start process.
+   */
+  start(): Promise<void>;
+
+  /**
+   * Stops the L2 block source.
+   * @returns A promise signalling completion of the stop process.
+   */
+  stop(): Promise<void>;
 }
