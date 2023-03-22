@@ -11,6 +11,7 @@ using aztec3::utils::types::NativeTypes;
 using plonk::stdlib::witness_t;
 
 template <typename NCT> struct OptionallyRevealedData {
+    typedef typename NCT::address address;
     typedef typename NCT::boolean boolean;
     typedef typename NCT::fr fr;
 
@@ -18,7 +19,7 @@ template <typename NCT> struct OptionallyRevealedData {
     FunctionData<NCT> function_data;
     std::array<fr, EMITTED_EVENTS_LENGTH> emitted_events;
     fr vk_hash;
-    fr portal_contract_address; // an ETH address
+    address portal_contract_address;
     boolean pay_fee_from_l1;
     boolean pay_fee_from_public_l2;
     boolean called_from_l1;
@@ -68,7 +69,7 @@ template <typename NCT> struct OptionallyRevealedData {
         function_data.set_public();
         set_array_public(emitted_events);
         vk_hash.set_public();
-        portal_contract_address.set_public();
+        portal_contract_address.to_field().set_public();
         fr(pay_fee_from_l1).set_public();
         fr(pay_fee_from_public_l2).set_public();
         fr(called_from_l1).set_public();
@@ -83,5 +84,50 @@ template <typename NCT> struct OptionallyRevealedData {
         }
     }
 };
+
+template <typename NCT> void read(uint8_t const*& it, OptionallyRevealedData<NCT>& data)
+{
+    using serialize::read;
+
+    read(it, data.call_stack_item_hash);
+    read(it, data.function_data);
+    read(it, data.emitted_events);
+    read(it, data.vk_hash);
+    read(it, data.portal_contract_address);
+    read(it, data.pay_fee_from_l1);
+    read(it, data.pay_fee_from_public_l2);
+    read(it, data.called_from_l1);
+    read(it, data.called_from_public_l2);
+};
+
+template <typename NCT> void write(std::vector<uint8_t>& buf, OptionallyRevealedData<NCT> const& data)
+{
+    using serialize::write;
+
+    write(buf, data.call_stack_item_hash);
+    write(buf, data.function_data);
+    write(buf, data.emitted_events);
+    write(buf, data.vk_hash);
+    write(buf, data.portal_contract_address);
+    write(buf, data.pay_fee_from_l1);
+    write(buf, data.pay_fee_from_public_l2);
+    write(buf, data.called_from_l1);
+    write(buf, data.called_from_public_l2);
+};
+
+template <typename NCT> std::ostream& operator<<(std::ostream& os, OptionallyRevealedData<NCT> const& data)
+{
+    return os << "call_stack_item_hash: " << data.call_stack_item_hash << "\n"
+              << "function_data:\n"
+              << data.function_data << "\n"
+              << "emitted_events:\n"
+              << data.emitted_events << "\n"
+              << "vk_hash: " << data.vk_hash << "\n"
+              << "portal_contract_address: " << data.portal_contract_address << "\n"
+              << "pay_fee_from_l1: " << data.pay_fee_from_l1 << "\n"
+              << "pay_fee_from_public_l2: " << data.pay_fee_from_public_l2 << "\n"
+              << "called_from_l1: " << data.called_from_l1 << "\n"
+              << "called_from_public_l2: " << data.called_from_public_l2 << "\n";
+}
 
 } // namespace aztec3::circuits::abis
