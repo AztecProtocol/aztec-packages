@@ -1,7 +1,8 @@
 import { mockRandomL2Block } from "@aztec/archiver";
-import { RollupEmitter } from "../deps/archiver.js";
-import { P2P, Tx } from "../deps/p2p.js";
+import { P2P, Tx } from '@aztec/p2p';
 import { RunningPromise } from "../deps/running_promise.js";
+import { WorldStateSynchroniser } from "../deps/worldstate.js";
+import { Prover } from "../prover/index.js";
 import { L2BlockPublisher } from "../publisher/l2-block-publisher.js";
 
 /**
@@ -16,35 +17,36 @@ import { L2BlockPublisher } from "../publisher/l2-block-publisher.js";
  */
 export class Sequencer {
   private runningPromise?: RunningPromise;
-  private intervalMs: number;
+  private blockIntervalMs: number;
+  private pollingIntervalMs: number;
   private lastBlockNumber: number = 0;
-  private state = SequencerRunningState.STOPPED;
+  private lastBlockSentAt: Date | undefined = undefined;
+  private state = SequencerState.STOPPED;
 
   constructor(
-    private rollupEmitter: RollupEmitter,
     private publisher: L2BlockPublisher,
     private p2pClient: P2P,
-    opts?: { intervalMs?: number }
+    private worldState: WorldStateSynchroniser,
+    private prover: Prover,
+    opts?: { pollingIntervalMs?: number, blockIntervalMs?: number }
   ) {
-    this.intervalMs = opts?.intervalMs ?? 1_000;
+    this.pollingIntervalMs = opts?.pollingIntervalMs ?? 1_000;
+    this.blockIntervalMs = opts?.blockIntervalMs ?? 10_000;
   }
 
   public async start() {
-    this.lastBlockNumber = await this.getLastBlockNumber();
-    this.runningPromise = new RunningPromise(this.work.bind(this), { pollingInterval: this.intervalMs, includeRunningTime: true });
+    // TODO: Should we wait for worldstate to be ready, or is the caller expected to run await start?
+    this.lastBlockNumber = await this.worldState.status().then(s => s.syncedToRollup);
+    
+    this.runningPromise = new RunningPromise(this.work.bind(this), { pollingInterval: this.pollingIntervalMs });
     this.runningPromise.start();
-    this.state = SequencerRunningState.IDLE;
+    this.state = SequencerState.IDLE;
   }
   
-  // TODO: Load from worldstatesyncer?
-  private async getLastBlockNumber(): Promise<number> {
-    return 1;
-  }
-
   public async stop(): Promise<void> {
     await this.runningPromise?.stop();
     this.publisher.interrupt();
-    this.state = SequencerRunningState.STOPPED;
+    this.state = SequencerState.STOPPED;
   }
 
   public status() {
@@ -56,46 +58,83 @@ export class Sequencer {
    */
   protected async work() {
     try {
-      await this.waitForSync();
+      // Update state when the previous block has been synched
+      const prevBlockSynched = await this.isBlockSynched();
+      if (prevBlockSynched && this.state === SequencerState.PUBLISHING_BLOCK) {
+        this.log(`Block has been synched`);
+        this.state = SequencerState.IDLE;
+      }
 
-      const [tx] = this.p2pClient.getTxs();
+      // Bail if new block is not yet due
+      if (!this.isNewBlockDue()) {
+        return;
+      }
+
+      // Do not go forward with new block if the previous one has not been mined and processed
+      if (!prevBlockSynched) {
+        this.log(`Previous block has not been mined or synched yet`);
+        return;
+      }
+      
+      this.log(`Constructing new block`);
+      this.state = SequencerState.CREATING_BLOCK;
+
+      // Get a single tx (for now) to build the new block
+      // P2P client is responsible for ensuring this tx is eligible (proof ok, not mined yet, etc)
+      const [tx] = await this.p2pClient.getTxs();
       if (!tx) {
-        this.log(`No txs seen in the mempool`);
+        this.log(`No txs in the mempool for a new block`);
         return;
       } else {
         this.log(`Processing tx ${tx.txId}`);
       }
 
+      // Build the new block by running the rollup circuits
       const block = await this.buildBlock(tx);
       this.log(`Assembled block ${block.number}`);
 
+      // Publishes new block to the network and awaits the tx to be mined
+      this.state = SequencerState.PUBLISHING_BLOCK;
       const published = await this.publisher.processL2Block(block);
       if (published) {
         this.log(`Successfully published block ${block.number}`);
+        this.lastBlockNumber++;
+      } else {
+        this.log(`Failed to publish block`);
       }
     } catch (err) {
-      console.error(`Error doing work`, err);
+      this.log(`Error doing work: ${err}`, 'error');
     }
   }
 
-  // TODO: Implement me
-  protected async waitForSync() {
+  /**
+   * Returns whether a new block should be sent given the blockIntervalMs.
+   */
+  protected async isNewBlockDue() {
+    return !this.lastBlockSentAt || +this.lastBlockSentAt + this.blockIntervalMs >= Date.now();
+  }
 
+  /**
+   * Returns whether the previous block sent has been mined, and all dependencies have caught up with it.
+   */
+  protected async isBlockSynched() {
+    return await this.worldState.status().then(s => s.syncedToRollup) >= this.lastBlockNumber
+      && this.p2pClient.getStatus().syncedToBlockNum >= this.lastBlockNumber;
   }
 
   protected async buildBlock(tx: Tx) {
-    return mockRandomL2Block(++this.lastBlockNumber);
+    return mockRandomL2Block(this.lastBlockNumber);
   }
 
   // TODO: Is there a unified logging interface?
-  private log(message: string, ...optionalParams: any[]) {
+  private log(message: string, level: 'log' | 'warn' | 'error' = 'log') {
     if (process.env.NODE_ENV !== 'test') {
-      console.log(`Sequencer:`, message, ...optionalParams);
+      console[level](`Sequencer:`, message);
     }
   }
 }
 
-export enum SequencerRunningState {
+export enum SequencerState {
   IDLE,
   CREATING_BLOCK,
   PUBLISHING_BLOCK,

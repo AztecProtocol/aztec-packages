@@ -1,5 +1,4 @@
-// Adapted from yarn-project/data-archiver/src/polling_rollup_emitter.ts
-// Added includeRunningTime setting
+// yarn-project/data-archiver/src/polling_rollup_emitter.ts
 export class RunningPromise {
   private running = false;
   private runningPromise = Promise.resolve();
