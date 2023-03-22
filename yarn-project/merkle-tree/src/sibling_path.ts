@@ -1,5 +1,5 @@
+import { deserializeArrayFromVector, serializeBufferArrayToVector } from '@aztec/foundation';
 import { Pedersen } from './pedersen.js';
-import { deserializeArrayFromVector, serializeBufferArrayToVector } from './serialise.js';
 
 export class SiblingPath {
   public static ZERO(size: number, zeroElement: Buffer, pedersen: Pedersen) {

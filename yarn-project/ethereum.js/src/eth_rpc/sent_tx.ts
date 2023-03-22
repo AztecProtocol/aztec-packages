@@ -1,4 +1,4 @@
-import { retryUntil } from '../retry/index.js';
+import { retryUntil } from '@aztec/foundation';
 import { EthereumRpc } from './ethereum_rpc.js';
 import { TxHash } from './tx_hash.js';
 import { TransactionReceipt } from './types/index.js';

@@ -1,6 +1,6 @@
+import { retry } from '@aztec/foundation';
+import { createDebugLogger } from '@aztec/foundation';
 import { EthereumProvider, RequestArguments } from './ethereum_provider.js';
-import { retry } from '../retry/index.js';
-import { createDebugLogger } from '../log/index.js';
 
 const log = createDebugLogger('json_rpc_provider');
 
