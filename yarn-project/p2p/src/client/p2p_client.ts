@@ -10,7 +10,7 @@ const TAKE_NUM = 1;
 /**
  * Enum defining the possible states of the p2p client.
  */
-enum P2PClientState {
+export enum P2PClientState {
   IDLE,
   SYNCHING,
   RUNNING,
@@ -49,12 +49,17 @@ export interface P2P {
    * @returns A boolean flag indicating readiness.
    */
   isReady(): Promise<boolean>;
+  
+  /*
+   * Returns the current status of the p2p client.
+   */
+  getStatus(): { state: P2PClientState, syncedToBlockNum: number };
 }
 
 /**
  * The P2P client implementation.
  */
-export class P2PCLient implements P2P {
+export class P2PClient implements P2P {
   /**
    * L2 Block download that p2p client uses to stay in sync with latest blocks.
    */
