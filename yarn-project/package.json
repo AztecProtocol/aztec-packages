@@ -11,6 +11,7 @@
     "archiver",
     "aztec-cli",
     "aztec.js",
+    "circuits",
     "docs",
     "end-to-end",
     "eslint-config",
@@ -36,5 +37,12 @@
     "prettier": "^2.7.1",
     "typedoc": "^0.23.26",
     "typescript": "^4.9.5"
+  },
+  "resolutions": {
+    "@aztec/log": "file:circuits/.yalc/@aztec/log"
+  },
+  "comments": {
+    "comments": "A JSON file does not allow for comments, but it does not restrict adding new nodes, so we can add a comments section to be able to comment on other sections",
+    "resolutions": "Yarn has a bug where it does not load resolutions from packages in a workspace, so those need to be hoisted here. See https://github.com/yarnpkg/yarn/issues/5039."
   }
 }

@@ -129,6 +129,34 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@aztec/circuits.js@workspace:^, @aztec/circuits.js@workspace:circuits":
+  version: 0.0.0-use.local
+  resolution: "@aztec/circuits.js@workspace:circuits"
+  dependencies:
+    "@aztec/eslint-config": "file:.yalc/@aztec/eslint-config"
+    "@aztec/log": "file:.yalc/@aztec/log"
+    "@aztec/wasm": "file:.yalc/@aztec/wasm"
+    "@aztec/wasm-worker": "file:.yalc/@aztec/wasm-worker"
+    "@jest/globals": ^29.4.3
+    "@rushstack/eslint-patch": ^1.1.4
+    "@types/detect-node": ^2.0.0
+    "@types/jest": ^29.4.0
+    "@types/node": ^18.7.23
+    "@typescript-eslint/eslint-plugin": ^5.54.1
+    "@typescript-eslint/parser": ^5.54.1
+    cross-fetch: ^3.1.5
+    detect-node: ^2.1.0
+    eslint: ^8.35.0
+    jest: ^28.1.3
+    prettier: ^2.8.4
+    ts-dedent: ^2.2.0
+    ts-jest: ^28.0.7
+    ts-node: ^10.9.1
+    tslib: ^2.4.0
+    typescript: ^4.9.5
+  languageName: unknown
+  linkType: soft
+
 "@aztec/docs@workspace:docs":
   version: 0.0.0-use.local
   resolution: "@aztec/docs@workspace:docs"
@@ -153,6 +181,28 @@ __metadata:
     tslib: ^2.4.0
     typescript: ^4.9.5
   languageName: unknown
+  linkType: soft
+
+"@aztec/eslint-config@file:.yalc/@aztec/eslint-config::locator=%40aztec%2Fcircuits.js%40workspace%3Acircuits":
+  version: 0.0.0
+  resolution: "@aztec/eslint-config@file:.yalc/@aztec/eslint-config#.yalc/@aztec/eslint-config::hash=715053&locator=%40aztec%2Fcircuits.js%40workspace%3Acircuits"
+  dependencies:
+    "@aztec/eslint-config": "link:../../../yarn-project/eslint-config"
+    "@aztec/wasm-worker": "link:../../../yarn-project/wasm-worker"
+    "@typescript-eslint/eslint-plugin": ^5.38.0
+    "@typescript-eslint/parser": ^5.38.0
+    eslint: ^8.21.0
+    eslint-config-prettier: ^8.5.0
+    eslint-plugin-jsdoc: ^40.0.0
+    eslint-plugin-tsdoc: ^0.2.17
+  checksum: b2e1a6dd74ad949e55a8ff58cebb5965deab9ebaacab714c076d54e3f9190f2e8578fa928dbb2b41f079615450acaef141afdfed89edfa3050f309ae0d65443b
+  languageName: node
+  linkType: hard
+
+"@aztec/eslint-config@link:../../../yarn-project/eslint-config::locator=%40aztec%2Feslint-config%40file%3A.yalc%2F%40aztec%2Feslint-config%23.yalc%2F%40aztec%2Feslint-config%3A%3Ahash%3D715053%26locator%3D%2540aztec%252Fcircuits.js%2540workspace%253Acircuits":
+  version: 0.0.0-use.local
+  resolution: "@aztec/eslint-config@link:../../../yarn-project/eslint-config::locator=%40aztec%2Feslint-config%40file%3A.yalc%2F%40aztec%2Feslint-config%23.yalc%2F%40aztec%2Feslint-config%3A%3Ahash%3D715053%26locator%3D%2540aztec%252Fcircuits.js%2540workspace%253Acircuits"
+  languageName: node
   linkType: soft
 
 "@aztec/eslint-config@workspace:^, @aztec/eslint-config@workspace:eslint-config":
@@ -290,6 +340,13 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@aztec/log@file:circuits/.yalc/@aztec/log::locator=%40aztec%2Faztec3-packages%40workspace%3A.":
+  version: 0.0.0
+  resolution: "@aztec/log@file:circuits/.yalc/@aztec/log#circuits/.yalc/@aztec/log::hash=8c69d8&locator=%40aztec%2Faztec3-packages%40workspace%3A."
+  checksum: 369c0f579727af1a13ef2ad3ea67e1bab5dacd8b75fca7d6b0b8137c0b0f8be82c29991d342a4c92a45ef148c0b2ec55bd965e012155d3fe4bcd0f86e4adf7c3
+  languageName: node
+  linkType: hard
+
 "@aztec/merkle-tree@workspace:^, @aztec/merkle-tree@workspace:merkle-tree":
   version: 0.0.0-use.local
   resolution: "@aztec/merkle-tree@workspace:merkle-tree"
@@ -384,9 +441,12 @@ __metadata:
   resolution: "@aztec/sequencer-client@workspace:sequencer-client"
   dependencies:
     "@aztec/archiver": "workspace:^"
+    "@aztec/circuits.js": "workspace:^"
     "@aztec/eslint-config": "workspace:^"
     "@aztec/ethereum.js": "workspace:^"
     "@aztec/l1-contracts": "workspace:^"
+    "@aztec/p2p": "workspace:^"
+    "@aztec/world-state": "workspace:^"
     "@jest/globals": ^29.4.3
     "@rushstack/eslint-patch": ^1.1.4
     "@types/jest": ^29.4.0
@@ -417,6 +477,42 @@ __metadata:
     typescript: ^4.9.5
   languageName: unknown
   linkType: soft
+
+"@aztec/wasm-worker@file:.yalc/@aztec/wasm-worker::locator=%40aztec%2Fcircuits.js%40workspace%3Acircuits":
+  version: 0.0.0
+  resolution: "@aztec/wasm-worker@file:.yalc/@aztec/wasm-worker#.yalc/@aztec/wasm-worker::hash=a8e5e9&locator=%40aztec%2Fcircuits.js%40workspace%3Acircuits"
+  dependencies:
+    "@aztec/log": "*"
+    "@types/leveldown": ^4.0.3
+    detect-node: ^2.1.0
+    leveldown: ^6.1.1
+    levelup: ^5.1.1
+    memdown: ^6.1.1
+    tslib: ^2.4.0
+  checksum: 113eb29b53fc930ecb383b84298812417ffa6877e92f337d2c62bb6d2d016a03e7b6d1f2ef4db669a71a78ae6e13c91e650280118d26d398010057074da85316
+  languageName: node
+  linkType: hard
+
+"@aztec/wasm-worker@link:../../../yarn-project/wasm-worker::locator=%40aztec%2Feslint-config%40file%3A.yalc%2F%40aztec%2Feslint-config%23.yalc%2F%40aztec%2Feslint-config%3A%3Ahash%3D715053%26locator%3D%2540aztec%252Fcircuits.js%2540workspace%253Acircuits":
+  version: 0.0.0-use.local
+  resolution: "@aztec/wasm-worker@link:../../../yarn-project/wasm-worker::locator=%40aztec%2Feslint-config%40file%3A.yalc%2F%40aztec%2Feslint-config%23.yalc%2F%40aztec%2Feslint-config%3A%3Ahash%3D715053%26locator%3D%2540aztec%252Fcircuits.js%2540workspace%253Acircuits"
+  languageName: node
+  linkType: soft
+
+"@aztec/wasm@file:.yalc/@aztec/wasm::locator=%40aztec%2Fcircuits.js%40workspace%3Acircuits":
+  version: 0.0.0
+  resolution: "@aztec/wasm@file:.yalc/@aztec/wasm#.yalc/@aztec/wasm::hash=a2f254&locator=%40aztec%2Fcircuits.js%40workspace%3Acircuits"
+  dependencies:
+    "@aztec/log": "*"
+    "@types/leveldown": ^4.0.3
+    detect-node: ^2.1.0
+    leveldown: ^6.1.1
+    levelup: ^5.1.1
+    memdown: ^6.1.1
+    tslib: ^2.4.0
+  checksum: 144eae7ddaf9a3edbc3a6e7cb2f833960bfd06101f821352f7cc05c33362d1d20a271811f5b8fe8b2ddde5f8c33189f150af7dfd61d10a49d5fadd14c1c50e84
+  languageName: node
+  linkType: hard
 
 "@aztec/world-state@workspace:^, @aztec/world-state@workspace:world-state":
   version: 0.0.0-use.local
@@ -1965,6 +2061,16 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@types/leveldown@npm:^4.0.3":
+  version: 4.0.3
+  resolution: "@types/leveldown@npm:4.0.3"
+  dependencies:
+    "@types/abstract-leveldown": "*"
+    "@types/node": "*"
+  checksum: 0a476bd8d3c71266fdb323875d3312bf7828d6ab9f1bf9882a0ff93d04044660e45cd211ca8ec34c5665eaa773f98fe9fee14235792835bd06cb68192fe44669
+  languageName: node
+  linkType: hard
+
 "@types/levelup@npm:^5.1.2":
   version: 5.1.2
   resolution: "@types/levelup@npm:5.1.2"
@@ -2061,7 +2167,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@typescript-eslint/eslint-plugin@npm:^5.38.0":
+"@typescript-eslint/eslint-plugin@npm:^5.38.0, @typescript-eslint/eslint-plugin@npm:^5.54.1":
   version: 5.56.0
   resolution: "@typescript-eslint/eslint-plugin@npm:5.56.0"
   dependencies:
@@ -2085,7 +2191,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@typescript-eslint/parser@npm:^5.38.0":
+"@typescript-eslint/parser@npm:^5.38.0, @typescript-eslint/parser@npm:^5.54.1":
   version: 5.56.0
   resolution: "@typescript-eslint/parser@npm:5.56.0"
   dependencies:
@@ -3373,7 +3479,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"eslint@npm:^8.21.0":
+"eslint@npm:^8.21.0, eslint@npm:^8.35.0":
   version: 8.36.0
   resolution: "eslint@npm:8.36.0"
   dependencies:
@@ -5246,6 +5352,18 @@ __metadata:
   languageName: node
   linkType: hard
 
+"leveldown@npm:^6.1.1":
+  version: 6.1.1
+  resolution: "leveldown@npm:6.1.1"
+  dependencies:
+    abstract-leveldown: ^7.2.0
+    napi-macros: ~2.0.0
+    node-gyp: latest
+    node-gyp-build: ^4.3.0
+  checksum: 00ba086f83c930683271aae35c89ce684bd31afcc4ba15912a071865f21d86000c48eb83b55ae554b6d328e0ba82a08868dd3b64abed750db89f38b8718c84af
+  languageName: node
+  linkType: hard
+
 "levelup@npm:^5.1.1":
   version: 5.1.1
   resolution: "levelup@npm:5.1.1"
@@ -5632,6 +5750,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"napi-macros@npm:~2.0.0":
+  version: 2.0.0
+  resolution: "napi-macros@npm:2.0.0"
+  checksum: 30384819386977c1f82034757014163fa60ab3c5a538094f778d38788bebb52534966279956f796a92ea771c7f8ae072b975df65de910d051ffbdc927f62320c
+  languageName: node
+  linkType: hard
+
 "natural-compare-lite@npm:^1.4.0":
   version: 1.4.0
   resolution: "natural-compare-lite@npm:1.4.0"
@@ -5683,7 +5808,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"node-gyp-build@npm:^4.2.0":
+"node-gyp-build@npm:^4.2.0, node-gyp-build@npm:^4.3.0":
   version: 4.6.0
   resolution: "node-gyp-build@npm:4.6.0"
   bin:
@@ -5977,7 +6102,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"prettier@npm:^2.7.1":
+"prettier@npm:^2.7.1, prettier@npm:^2.8.4":
   version: 2.8.6
   resolution: "prettier@npm:2.8.6"
   bin:
@@ -6731,6 +6856,13 @@ __metadata:
   bin:
     tree-kill: cli.js
   checksum: 49117f5f410d19c84b0464d29afb9642c863bc5ba40fcb9a245d474c6d5cc64d1b177a6e6713129eb346b40aebb9d4631d967517f9fbe8251c35b21b13cd96c7
+  languageName: node
+  linkType: hard
+
+"ts-dedent@npm:^2.2.0":
+  version: 2.2.0
+  resolution: "ts-dedent@npm:2.2.0"
+  checksum: 93ed8f7878b6d5ed3c08d99b740010eede6bccfe64bce61c5a4da06a2c17d6ddbb80a8c49c2d15251de7594a4f93ffa21dd10e7be75ef66a4dc9951b4a94e2af
   languageName: node
   linkType: hard
 
