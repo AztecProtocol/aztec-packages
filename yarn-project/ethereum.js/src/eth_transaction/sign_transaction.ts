@@ -1,8 +1,8 @@
+import { numToUInt8 } from '@aztec/foundation';
 import { decode, encode } from 'rlp';
 import { EthTransaction } from './eth_transaction.js';
 import { sign, EthSignature, recoverFromSignature } from '../eth_sign/index.js';
 import { keccak256 } from '../crypto/index.js';
-import { numToUInt8 } from '../serialize/index.js';
 
 export interface SignedEthTransaction {
   signature: EthSignature;

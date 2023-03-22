@@ -1,4 +1,5 @@
-import { InterruptableSleep, L2BlockDownloader } from '@aztec/world-state';
+import { InterruptableSleep } from '@aztec/foundation';
+import { L2BlockDownloader } from '@aztec/world-state';
 import { L2BlockSource, L2Block } from '@aztec/archiver';
 
 import { InMemoryTxPool } from './tx_pool/memory_tx_pool.js';

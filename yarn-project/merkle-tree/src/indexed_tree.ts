@@ -1,5 +1,5 @@
+import { toBigIntBE, toBufferBE } from '@aztec/foundation';
 import { LevelUp } from 'levelup';
-import { toBigIntBE, toBufferBE } from './bigint_buffer.js';
 import { MerkleTree } from './merkle_tree.js';
 import { SiblingPath } from './sibling_path.js';
 import { StandardMerkleTree } from './standard_tree.js';
