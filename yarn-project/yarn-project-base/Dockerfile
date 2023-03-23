@@ -20,7 +20,9 @@ COPY docs/package.json docs/package.json
 COPY end-to-end/package.json end-to-end/package.json
 COPY ethereum.js/example/package.json ethereum.js/example/package.json
 COPY ethereum.js/package.json ethereum.js/package.json
+# Note: foundation has its own lock file, we need to copy it and build
 COPY foundation/package.json foundation/package.json
+COPY foundation/yarn.lock foundation/yarn.lock
 COPY kernel-simulator/package.json kernel-simulator/package.json
 COPY key-store/package.json key-store/package.json
 COPY merkle-tree/package.json merkle-tree/package.json
@@ -37,6 +39,8 @@ COPY .yarn .yarn
 
 # Although we're attempting to be "zero-install", in practice we still need to build arch specific packages.
 RUN yarn --immutable
+# Build submodule packages that have their own yarn.lock
+RUN cd foundation && yarn --imutable && cd ..
 # If everything's worked properly, we should no longer need access to the network.
 RUN echo "enableNetwork: false" >> .yarnrc.yml
 
