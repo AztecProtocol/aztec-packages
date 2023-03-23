@@ -107,7 +107,6 @@ __metadata:
     "@types/jest": ^29.4.0
     "@types/node": ^18.7.23
     jest: ^28.1.3
-    prettier: ^2.8.6
     ts-jest: ^28.0.7
     ts-node: ^10.9.1
     tslib: ^2.4.0
@@ -119,8 +118,6 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/aztec3-packages@workspace:."
   dependencies:
-    "@aztec/foundation": "workspace:^"
-    "@typescript-eslint/eslint-plugin": ^5.56.0
     eslint: ^8.21.0
     prettier: ^2.7.1
     typedoc: ^0.23.26
@@ -2001,7 +1998,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@typescript-eslint/eslint-plugin@npm:^5.38.0, @typescript-eslint/eslint-plugin@npm:^5.56.0":
+"@typescript-eslint/eslint-plugin@npm:^5.38.0":
   version: 5.56.0
   resolution: "@typescript-eslint/eslint-plugin@npm:5.56.0"
   dependencies:
@@ -5869,7 +5866,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"prettier@npm:^2.7.1, prettier@npm:^2.8.6":
+"prettier@npm:^2.7.1":
   version: 2.8.6
   resolution: "prettier@npm:2.8.6"
   bin:
