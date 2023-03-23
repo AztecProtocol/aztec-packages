@@ -41,6 +41,11 @@ describe('Archiver', () => {
   });
 });
 
+/**
+ * Makes a fake rollup event for testing purposes.
+ * @param blockNum - L2Block number.
+ * @returns A rollup event log.
+ */
 function makeRollupEvent(blockNum: number) {
   return { args: { blockNum: BigInt(blockNum) }, transactionHash: `0x${blockNum}` } as unknown as Log<
     bigint,
@@ -51,6 +56,11 @@ function makeRollupEvent(blockNum: number) {
   >;
 }
 
+/**
+ * Makes a fake rollup tx for testing purposes.
+ * @param blockNum - L2Block number.
+ * @returns A fake tx with calldata that corresponds to calling process in the Rollup contract.
+ */
 function makeRollupTx(blockNum: number) {
   const proof = `0x`;
   const block = toHex(mockRandomL2Block(blockNum).encode());

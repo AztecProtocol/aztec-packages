@@ -97,7 +97,7 @@ export class Archiver implements L2BlockSource {
 
   /**
    * Starts a polling loop in the background which watches for new events and passes them to the respective handlers.
-   * TODO: Handle reorgs, consider using github.com/ethereumjs/ethereumjs-blockstream
+   * TODO: Handle reorgs, consider using github.com/ethereumjs/ethereumjs-blockstream.
    */
   private startWatchingEvents() {
     this.unwatchBlocks = this.publicClient.watchContractEvent({
@@ -166,11 +166,12 @@ export class Archiver implements L2BlockSource {
   /**
    * Builds an L2 block out of calldata from the tx that published it.
    * Assumes that the block was published from an EOA.
-   * TODO: Add retries and error management
+   * TODO: Add retries and error management.
    * @param txHash - Hash of the tx that published it.
    * @param l2BlockNum - L2 block number.
+   * @returns An L2 block deserialized from the calldata.
    */
-  private async getBlockFromCallData(txHash: `0x${string}`, l2BlockNum: BigInt): Promise<L2Block> {
+  private async getBlockFromCallData(txHash: `0x${string}`, l2BlockNum: bigint): Promise<L2Block> {
     const { input: data } = await this.publicClient.getTransaction({ hash: txHash });
     // TODO: File a bug in viem who complains if we dont remove the ctor from the abi here
     const { functionName, args } = decodeFunctionData({
@@ -224,9 +225,9 @@ export class Archiver implements L2BlockSource {
    * Gets the number of the latest L2 block processed by the block source implementation.
    * @returns The number of the latest L2 block processed by the block source implementation.
    */
-  public async getLatestBlockNum(): Promise<number> {
-    if (this.l2Blocks.length === 0) return -1;
-    return this.l2Blocks[this.l2Blocks.length - 1].number;
+  public getLatestBlockNum(): Promise<number> {
+    if (this.l2Blocks.length === 0) return Promise.resolve(-1);
+    return Promise.resolve(this.l2Blocks[this.l2Blocks.length - 1].number);
   }
 }
 

@@ -17,15 +17,17 @@ export class ContractData {
   ) {}
 
   /**
-   * Serializes this instance into a buffer, using 20 bytes for the eth address
+   * Serializes this instance into a buffer, using 20 bytes for the eth address.
+   * @returns Encoded buffer.
    */
   public toBuffer(): Buffer {
     return serializeToBuffer(this.aztecAddress, this.ethAddress.buffer);
   }
 
   /**
-   * Deserializes a contract data object from an encoded buffer, using 20 bytes for the eth address
-   * @param buffer - Byte array resulting from calling toBuffer
+   * Deserializes a contract data object from an encoded buffer, using 20 bytes for the eth address.
+   * @param buffer - Byte array resulting from calling toBuffer.
+   * @returns Deserialized instance.
    */
   static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
@@ -37,7 +39,7 @@ export class ContractData {
 
 /**
  * The data that makes up the rollup proof, with encoder decoder functions.
- * TODO: Reuse data types and serialization functions from circuits package
+ * TODO: Reuse data types and serialization functions from circuits package.
  */
 export class L2Block {
   /**
@@ -119,6 +121,7 @@ export class L2Block {
 
   /**
    * Alias for encode.
+   * @returns The encoded L2 block data.
    */
   toBuffer() {
     return this.encode();

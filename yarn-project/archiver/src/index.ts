@@ -17,6 +17,7 @@ const {
 /**
  * A function which instantiates and starts Archiver.
  */
+// eslint-disable-next-line require-await
 async function main() {
   const rollupAddress = getAddress(ROLLUP_ADDRESS);
   const yeeterAddress = getAddress(YEETER_ADDRESS);
@@ -32,8 +33,8 @@ async function main() {
     EthAddress.fromString(yeeterAddress),
   );
 
-  const shutdown = () => {
-    archiver.stop();
+  const shutdown = async () => {
+    await archiver.stop();
     process.exit(0);
   };
   process.once('SIGINT', shutdown);
@@ -42,6 +43,7 @@ async function main() {
 
 // See https://twitter.com/Rich_Harris/status/1355289863130673153
 if (process.argv[1] === fileURLToPath(import.meta.url).replace(/\/index\.js$/, '')) {
+  // eslint-disable-next-line @typescript-eslint/no-floating-promises
   main().catch(err => {
     console.log(err);
     process.exit(1);
