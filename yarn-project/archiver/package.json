@@ -30,8 +30,8 @@
   },
   "dependencies": {
     "@aztec/ethereum.js": "workspace:^",
-    "@aztec/l1-contracts": "workspace:^",
     "@aztec/foundation": "workspace:^",
+    "@aztec/l1-contracts": "workspace:^",
     "debug": "^4.3.4",
     "tsc-watch": "^6.0.0",
     "tslib": "^2.5.0",
