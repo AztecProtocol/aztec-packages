@@ -1,31 +1,45 @@
-/**
- * A snapshot of an append only tree.
- */
-export type AppendOnlyTreeSnapshot = {
-  /**
-   * The root of the tree, as a field element.
-   */
-  root: Buffer;
-  /**
-   * The next available index in the tree.
-   */
-  nextAvailableLeafIndex: number;
-};
+import { AppendOnlyTreeSnapshot, EthAddress, Fr } from "@aztec/circuits.js";
+import { BufferReader, serializeToBuffer } from "@aztec/circuits.js/utils";
 
 /**
  * A contract data blob, containing L1 and L2 addresses.
  */
-export type ContractData = {
-  /**
-   * The L2 address of the contract, as a field element (32 bytes).
-   */
-  aztecAddress: Buffer;
-  /**
-   * The L1 address of the contract, (20 bytes).
-   */
-  ethAddress: Buffer;
-};
+export class ContractData {
 
+  constructor(
+    /**
+     * The L2 address of the contract, as a field element (32 bytes).
+     */
+    public aztecAddress: Fr,
+    /**
+     * The L1 address of the contract, (20 bytes).
+     */
+    public ethAddress: EthAddress,
+  ) { }
+
+  /**
+   * Serializes this instance into a buffer, using 20 bytes for the eth address
+   */
+  public toBuffer(): Buffer {
+    return serializeToBuffer(
+      this.aztecAddress,
+      this.ethAddress.buffer,
+    )
+  }
+
+  /**
+   * Deserializes a contract data object from an encoded buffer, using 20 bytes for the eth address
+   * @param buffer - Byte array resulting from calling toBuffer
+   */
+  static fromBuffer(buffer: Buffer | BufferReader) {
+    const reader = BufferReader.asReader(buffer);
+    return new ContractData(
+      reader.readFr(),
+      new EthAddress(reader.readBytes(EthAddress.SIZE_IN_BYTES)),
+    )
+  }
+}
+  
 /* eslint-disable jsdoc/require-jsdoc */
 
 /**
@@ -69,9 +83,9 @@ export class L2Block {
     public endContractTreeSnapshot: AppendOnlyTreeSnapshot,
     public endTreeOfHistoricPrivateDataTreeRootsSnapshot: AppendOnlyTreeSnapshot,
     public endTreeOfHistoricContractTreeRootsSnapshot: AppendOnlyTreeSnapshot,
-    public newCommitments: Buffer[],
-    public newNullifiers: Buffer[],
-    public newContracts: Buffer[],
+    public newCommitments: Fr[],
+    public newNullifiers: Fr[],
+    public newContracts: Fr[],
     public newContractData: ContractData[],
   ) {}
 
@@ -88,26 +102,33 @@ export class L2Block {
    * @returns The encoded L2 block data.
    */
   encode(): Buffer {
-    return Buffer.concat([
-      numToUInt32BE(Number(this.number)),
-      appendOnlyTreeSnapshotToBuffer(this.startPrivateDataTreeSnapshot),
-      appendOnlyTreeSnapshotToBuffer(this.startNullifierTreeSnapshot),
-      appendOnlyTreeSnapshotToBuffer(this.startContractTreeSnapshot),
-      appendOnlyTreeSnapshotToBuffer(this.startTreeOfHistoricPrivateDataTreeRootsSnapshot),
-      appendOnlyTreeSnapshotToBuffer(this.startTreeOfHistoricContractTreeRootsSnapshot),
-      appendOnlyTreeSnapshotToBuffer(this.endPrivateDataTreeSnapshot),
-      appendOnlyTreeSnapshotToBuffer(this.endNullifierTreeSnapshot),
-      appendOnlyTreeSnapshotToBuffer(this.endContractTreeSnapshot),
-      appendOnlyTreeSnapshotToBuffer(this.endTreeOfHistoricPrivateDataTreeRootsSnapshot),
-      appendOnlyTreeSnapshotToBuffer(this.endTreeOfHistoricContractTreeRootsSnapshot),
-      numToUInt32BE(this.newCommitments.length),
-      ...this.newCommitments,
-      numToUInt32BE(this.newNullifiers.length),
-      ...this.newNullifiers,
-      numToUInt32BE(this.newContracts.length),
-      ...this.newContracts,
-      ...this.newContractData.map(contractData => contractDataToBuffer(contractData)),
-    ]);
+    return serializeToBuffer(
+      this.number,
+      this.startPrivateDataTreeSnapshot,
+      this.startNullifierTreeSnapshot,
+      this.startContractTreeSnapshot,
+      this.startTreeOfHistoricPrivateDataTreeRootsSnapshot,
+      this.startTreeOfHistoricContractTreeRootsSnapshot,
+      this.endPrivateDataTreeSnapshot,
+      this.endNullifierTreeSnapshot,
+      this.endContractTreeSnapshot,
+      this.endTreeOfHistoricPrivateDataTreeRootsSnapshot,
+      this.endTreeOfHistoricContractTreeRootsSnapshot,
+      this.newCommitments.length,
+      this.newCommitments,
+      this.newNullifiers.length,
+      this.newNullifiers,
+      this.newContracts.length,
+      this.newContracts,
+      this.newContractData,
+    );
+  }
+
+  /**
+   * Alias for encode.
+   */
+  toBuffer() {
+    return this.encode();
   }
 
   /**
@@ -115,70 +136,26 @@ export class L2Block {
    * @param encoded - The encoded L2 block data.
    * @returns The decoded L2 block data.
    */
-  static decode(encoded: Buffer) {
-    let offset = 0;
-    const blockNum = encoded.readUInt32BE(offset);
-    offset += 4;
-    const startPrivateDataTreeSnapshot = bufferToAppendOnlyTreeSnapshot(encoded.subarray(offset, offset + 36));
-    offset += 36;
-    const startNullifierTreeSnapshot = bufferToAppendOnlyTreeSnapshot(encoded.subarray(offset, offset + 36));
-    offset += 36;
-    const startContractTreeSnapshot = bufferToAppendOnlyTreeSnapshot(encoded.subarray(offset, offset + 36));
-    offset += 36;
-    const startTreeOfHistoricPrivateDataTreeRootsSnapshot = bufferToAppendOnlyTreeSnapshot(
-      encoded.subarray(offset, offset + 36),
-    );
-    offset += 36;
-    const startTreeOfHistoricContractTreeRootsSnapshot = bufferToAppendOnlyTreeSnapshot(
-      encoded.subarray(offset, offset + 36),
-    );
-    offset += 36;
-    const endPrivateDataTreeSnapshot = bufferToAppendOnlyTreeSnapshot(encoded.subarray(offset, offset + 36));
-    offset += 36;
-    const endNullifierTreeSnapshot = bufferToAppendOnlyTreeSnapshot(encoded.subarray(offset, offset + 36));
-    offset += 36;
-    const endContractTreeSnapshot = bufferToAppendOnlyTreeSnapshot(encoded.subarray(offset, offset + 36));
-    offset += 36;
-    const endTreeOfHistoricPrivateDataTreeRootsSnapshot = bufferToAppendOnlyTreeSnapshot(
-      encoded.subarray(offset, offset + 36),
-    );
-    offset += 36;
-    const endTreeOfHistoricContractTreeRootsSnapshot = bufferToAppendOnlyTreeSnapshot(
-      encoded.subarray(offset, offset + 36),
-    );
-    offset += 36;
-
-    const newCommitments: Buffer[] = [];
-    const newNullifiers: Buffer[] = [];
-    const newContracts: Buffer[] = [];
-    const newContractData: ContractData[] = [];
-
-    const newCommitmentCount = encoded.readUInt32BE(offset);
-    offset += 4;
-    for (let i = 0; i < newCommitmentCount; i++) {
-      newCommitments.push(encoded.subarray(offset, offset + 32));
-      offset += 32;
-    }
-    const newNullifierCount = encoded.readUInt32BE(offset);
-    offset += 4;
-    for (let i = 0; i < newNullifierCount; i++) {
-      newNullifiers.push(encoded.subarray(offset, offset + 32));
-      offset += 32;
-    }
-
-    const newContractCount = encoded.readUInt32BE(offset);
-    offset += 4;
-    for (let i = 0; i < newContractCount; i++) {
-      newContracts.push(encoded.subarray(offset, offset + 32));
-      offset += 32;
-    }
-    for (let i = 0; i < newContractCount; i++) {
-      newContractData.push(bufferToContractData(encoded.subarray(offset, offset + 52)));
-      offset += 52;
-    }
-
+  static decode(encoded: Buffer | BufferReader) {
+    const reader = BufferReader.asReader(encoded);
+    const number = reader.readNumber();
+    const startPrivateDataTreeSnapshot = reader.readObject(AppendOnlyTreeSnapshot);
+    const startNullifierTreeSnapshot = reader.readObject(AppendOnlyTreeSnapshot);
+    const startContractTreeSnapshot = reader.readObject(AppendOnlyTreeSnapshot);
+    const startTreeOfHistoricPrivateDataTreeRootsSnapshot = reader.readObject(AppendOnlyTreeSnapshot);
+    const startTreeOfHistoricContractTreeRootsSnapshot = reader.readObject(AppendOnlyTreeSnapshot);
+    const endPrivateDataTreeSnapshot = reader.readObject(AppendOnlyTreeSnapshot);
+    const endNullifierTreeSnapshot = reader.readObject(AppendOnlyTreeSnapshot);
+    const endContractTreeSnapshot = reader.readObject(AppendOnlyTreeSnapshot);
+    const endTreeOfHistoricPrivateDataTreeRootsSnapshot = reader.readObject(AppendOnlyTreeSnapshot);
+    const endTreeOfHistoricContractTreeRootsSnapshot = reader.readObject(AppendOnlyTreeSnapshot);
+    const newCommitments = reader.readVector(Fr);
+    const newNullifiers = reader.readVector(Fr);
+    const newContracts = reader.readVector(Fr);
+    const newContractData = reader.readArray(newContracts.length, ContractData);
+  
     return new L2Block(
-      blockNum,
+      number,
       startPrivateDataTreeSnapshot,
       startNullifierTreeSnapshot,
       startContractTreeSnapshot,
@@ -195,70 +172,6 @@ export class L2Block {
       newContractData,
     );
   }
-}
-
-/**
- * UTILITIES.
- */
-
-/**
- * Serialize the contract data as a buffer.
- * @param contractData - The contract data to serialize.
- * @returns The serialized contract data as a buffer.
- */
-export function contractDataToBuffer(contractData: ContractData): Buffer {
-  return Buffer.concat([contractData.aztecAddress, contractData.ethAddress]);
-}
-
-/**
- * Deserialize the contract data from a buffer.
- * @param buffer - The buffer to deserialize.
- * @returns The contract data.
- */
-export function bufferToContractData(buffer: Buffer): ContractData {
-  return {
-    aztecAddress: buffer.subarray(0, 32),
-    ethAddress: buffer.subarray(32, 52),
-  };
-}
-
-/**
- * Serialize the append only tree snapshot as a buffer.
- * @param snapshot - The snapshot to serialize.
- * @returns The serialized snapshot as a buffer.
- */
-export function appendOnlyTreeSnapshotToBuffer(snapshot: AppendOnlyTreeSnapshot): Buffer {
-  const buffer = Buffer.concat([numToUInt32BE(snapshot.nextAvailableLeafIndex), snapshot.root]);
-  return buffer;
-}
-
-/**
- * Deserialize the append only tree snapshot from a buffer.
- * @param buffer - The buffer to deserialize.
- * @returns The append only tree snapshot.
- */
-export function bufferToAppendOnlyTreeSnapshot(buffer: Buffer): AppendOnlyTreeSnapshot {
-  const nextAvailableLeafIndex = buffer.readUInt32BE(0);
-  const root = buffer.subarray(4);
-  return {
-    nextAvailableLeafIndex,
-    root,
-  };
-}
-
-/**
- * FUNCTIONS THAT SHOULD NOT BE HERE.
- */
-
-/**
- * For serializing numbers to 32 byte big-endian form.
- * @param n - The number to serialize.
- * @param bufferSize - The size of the buffer to serialize to, defaults to 4.
- */
-export function numToUInt32BE(n: number, bufferSize = 4): Buffer {
-  const buf = Buffer.alloc(bufferSize);
-  buf.writeUInt32BE(n, bufferSize - 4);
-  return buf;
 }
 
 /**

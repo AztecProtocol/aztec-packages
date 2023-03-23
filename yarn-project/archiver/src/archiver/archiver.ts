@@ -1,3 +1,4 @@
+import { fr, makeAppendOnlyTreeSnapshot, makeEthAddress } from '@aztec/circuits.js/factories';
 import { EthAddress } from '@aztec/ethereum.js/eth_address';
 import { createDebugLogger } from '@aztec/foundation';
 import { RollupAbi, YeeterAbi } from '@aztec/l1-contracts/viem';
@@ -12,7 +13,6 @@ import {
 import { localhost } from 'viem/chains';
 import { ContractData, L2Block } from '../l2_block/l2_block.js';
 import { L2BlockSource } from '../l2_block/l2_block_source.js';
-import { randomAppendOnlyTreeSnapshot, randomBytes, randomContractData } from '../l2_block/mocks.js';
 
 // Rollup contract refuses to accept a block with id 0
 const INITIAL_BLOCK_NUM = 1;
@@ -239,23 +239,23 @@ export class Archiver implements L2BlockSource {
  * @returns Random L2Block.
  */
 export function mockRandomL2Block(l2BlockNum: number): L2Block {
-  const newNullifiers = [randomBytes(32), randomBytes(32), randomBytes(32), randomBytes(32)];
-  const newCommitments = [randomBytes(32), randomBytes(32), randomBytes(32), randomBytes(32)];
-  const newContracts: Buffer[] = [randomBytes(32)];
-  const newContractsData: ContractData[] = [randomContractData()];
+  const newNullifiers = [fr(0x1), fr(0x2), fr(0x3), fr(0x4)];
+  const newCommitments = [fr(0x101), fr(0x102), fr(0x103), fr(0x104)];
+  const newContracts = [fr(0x201)];
+  const newContractsData: ContractData[] = [new ContractData(fr(0x301), makeEthAddress(0x302))];
 
   return new L2Block(
     l2BlockNum,
-    randomAppendOnlyTreeSnapshot(0),
-    randomAppendOnlyTreeSnapshot(0),
-    randomAppendOnlyTreeSnapshot(0),
-    randomAppendOnlyTreeSnapshot(0),
-    randomAppendOnlyTreeSnapshot(0),
-    randomAppendOnlyTreeSnapshot(newCommitments.length),
-    randomAppendOnlyTreeSnapshot(newNullifiers.length),
-    randomAppendOnlyTreeSnapshot(newContracts.length),
-    randomAppendOnlyTreeSnapshot(1),
-    randomAppendOnlyTreeSnapshot(1),
+    makeAppendOnlyTreeSnapshot(0),
+    makeAppendOnlyTreeSnapshot(0),
+    makeAppendOnlyTreeSnapshot(0),
+    makeAppendOnlyTreeSnapshot(0),
+    makeAppendOnlyTreeSnapshot(0),
+    makeAppendOnlyTreeSnapshot(newCommitments.length),
+    makeAppendOnlyTreeSnapshot(newNullifiers.length),
+    makeAppendOnlyTreeSnapshot(newContracts.length),
+    makeAppendOnlyTreeSnapshot(1),
+    makeAppendOnlyTreeSnapshot(1),
     newCommitments,
     newNullifiers,
     newContracts,
