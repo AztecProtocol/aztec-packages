@@ -92,6 +92,17 @@ jobs:
           name: "Build and test"
           command: build aztec.js
 
+  noir-contracts:
+    machine:
+      image: ubuntu-2004:202010-01
+    resource_class: large
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Build and test"
+          command: build noir-contracts
+
   end-to-end:
     machine:
       image: ubuntu-2004:202010-01
@@ -155,5 +166,7 @@ workflows:
             - ethereum-js
             - aztec-js
             - end-to-end
+            - noir-contracts
           <<: *defaults
       - e2e-deploy-contract: *e2e_test
+      - noir-contracts: *yarn_project

@@ -20,6 +20,7 @@
     "kernel-simulator",
     "key-store",
     "merkle-tree",
+    "noir-contracts",
     "p2p",
     "prettier-config",
     "prover-client",
