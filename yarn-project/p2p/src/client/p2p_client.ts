@@ -18,6 +18,20 @@ export enum P2PClientState {
 }
 
 /**
+ * The synchronisation status of the P2P client.
+ */
+export interface P2PSyncState {
+  /**
+   * The current state of the p2p client.
+   */
+  state: P2PClientState;
+  /**
+   * The block number that the p2p client is synced to.
+   */
+  syncedToL2Block: number;
+}
+
+/**
  * Interface of a P2P client.
  **/
 export interface P2P {
@@ -49,11 +63,11 @@ export interface P2P {
    * @returns A boolean flag indicating readiness.
    */
   isReady(): Promise<boolean>;
-  
+
   /*
    * Returns the current status of the p2p client.
    */
-  getStatus(): { state: P2PClientState, syncedToBlockNum: number };
+  getStatus(): Promise<P2PSyncState>;
 }
 
 /**
@@ -194,11 +208,11 @@ export class P2PClient implements P2P {
    * Method to check the status the p2p client.
    * @returns Information about p2p client status: state & syncedToBlockNum.
    */
-  public getStatus() {
-    return {
+  public getStatus(): Promise<P2PSyncState> {
+    return Promise.resolve({
       state: this.currentState,
-      syncedToBlockNum: this.syncedBlockNum,
-    };
+      syncedToL2Block: this.syncedBlockNum,
+    } as P2PSyncState);
   }
 
   /**

@@ -14,7 +14,7 @@ export class RunningPromise {
   }
 
   /**
-   * Starts the running promise
+   * Starts the running promise.
    */
   public start() {
     this.running = true;

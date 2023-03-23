@@ -25,6 +25,7 @@
   },
   "dependencies": {
     "@aztec/archiver": "workspace:^",
+    "@aztec/circuits.js": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "@aztec/merkle-tree": "workspace:^",
     "levelup": "^5.1.1",

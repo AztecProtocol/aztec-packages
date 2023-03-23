@@ -1,5 +1,5 @@
 /* eslint-disable jsdoc/require-jsdoc */
-import {  PrivateKernelPublicInputs } from '@aztec/circuits.js';
+import { PrivateKernelPublicInputs } from '@aztec/circuits.js';
 import { Keccak } from 'sha3';
 
 const hash = new Keccak(256);

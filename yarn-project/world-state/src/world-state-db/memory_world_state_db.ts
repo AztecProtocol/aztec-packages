@@ -7,10 +7,16 @@ import {
   MerkleTreeId,
   TreeInfo,
   IndexedTree,
-  MerkleTreeDepths,
   MerkleTree,
 } from '@aztec/merkle-tree';
 import { SerialQueue } from '@aztec/foundation';
+import {
+  CONTRACT_TREE_HEIGHT,
+  CONTRACT_ROOTS_TREE_HEIGHT,
+  NULLIFIER_TREE_HEIGHT,
+  PRIVATE_DATA_TREE_HEIGHT,
+  PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT,
+} from '@aztec/circuits.js';
 
 /**
  * A convenience class for managing multiple merkle trees.
@@ -30,21 +36,33 @@ export class MerkleTrees implements MerkleTreeDb {
       this.db,
       hasher,
       `${MerkleTreeId[MerkleTreeId.CONTRACT_TREE]}`,
-      MerkleTreeDepths.CONTRACT_TREE,
+      CONTRACT_TREE_HEIGHT,
     );
     const contractTreeRootsTree = await StandardMerkleTree.new(
       this.db,
       hasher,
       `${MerkleTreeId[MerkleTreeId.CONTRACT_TREE_ROOTS_TREE]}`,
-      MerkleTreeDepths.CONTRACT_TREE_ROOTS_TREE,
+      CONTRACT_ROOTS_TREE_HEIGHT,
     );
     const nullifierTree = await IndexedTree.new(
       this.db,
       hasher,
       `${MerkleTreeId[MerkleTreeId.NULLIFIER_TREE]}`,
-      MerkleTreeDepths.NULLIFIER_TREE,
+      NULLIFIER_TREE_HEIGHT,
     );
-    this.trees = [contractTree, contractTreeRootsTree, nullifierTree];
+    const dataTree = await StandardMerkleTree.new(
+      this.db,
+      hasher,
+      `${MerkleTreeId[MerkleTreeId.DATA_TREE]}`,
+      PRIVATE_DATA_TREE_HEIGHT,
+    );
+    const dataTreeRootsTree = await StandardMerkleTree.new(
+      this.db,
+      hasher,
+      `${MerkleTreeId[MerkleTreeId.DATA_TREE_ROOTS_TREE]}`,
+      PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT,
+    );
+    this.trees = [contractTree, contractTreeRootsTree, nullifierTree, dataTree, dataTreeRootsTree];
     this.jobQueue.start();
   }
 

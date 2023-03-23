@@ -1,27 +1,28 @@
-import { mockRandomL2Block } from "@aztec/archiver";
-import { BaseRollupInputs } from "@aztec/circuits.js";
-import { MerkleTreeDb } from "@aztec/merkle-tree";
-import { P2P, Tx } from '@aztec/p2p';
-import { WorldStateSynchroniser } from '@aztec/world-state';
-import { RunningPromise } from "../deps/running_promise.js";
-import { Prover } from "../prover/index.js";
-import { L2BlockPublisher } from "../publisher/l2-block-publisher.js";
+import { mockRandomL2Block } from '@aztec/archiver';
+import { MerkleTreeDb } from '@aztec/merkle-tree';
+import { P2P, P2PClientState, Tx } from '@aztec/p2p';
+import { WorldStateSynchroniser, WorldStateStatus } from '@aztec/world-state';
+import { RunningPromise } from '../deps/running_promise.js';
+import { Prover } from '../prover/index.js';
+import { L2BlockPublisher } from '../publisher/l2-block-publisher.js';
+import { createDebugLogger } from '@aztec/foundation';
+import { BlockBuilder } from './block_builder.js';
 
 /**
  * Sequencer client
  * - Wins a period of time to become the sequencer (depending on finalised protocol).
-  * - Chooses a set of txs from the tx pool to be in the rollup.
-  * - Simulate the rollup of txs.
-  * - Adds proof requests to the request pool (not for this milestone).
-  * - Receives results to those proofs from the network (repeats as necessary) (not for this milestone).
-  * - Publishes L1 tx(s) to the rollup contract via RollupPublisher.
-  * - For this milestone, the sequencer will just simulate and publish a 1x1 rollup and publish it to L1.
+ * - Chooses a set of txs from the tx pool to be in the rollup.
+ * - Simulate the rollup of txs.
+ * - Adds proof requests to the request pool (not for this milestone).
+ * - Receives results to those proofs from the network (repeats as necessary) (not for this milestone).
+ * - Publishes L1 tx(s) to the rollup contract via RollupPublisher.
+ * - For this milestone, the sequencer will just simulate and publish a 1x1 rollup and publish it to L1.
  */
 export class Sequencer {
   private runningPromise?: RunningPromise;
   private blockIntervalMs: number;
   private pollingIntervalMs: number;
-  private lastBlockNumber: number = 0;
+  private lastBlockNumber = -1;
   private lastBlockSentAt: Date | undefined = undefined;
   private state = SequencerState.STOPPED;
 
@@ -30,8 +31,8 @@ export class Sequencer {
     private p2pClient: P2P,
     private worldState: WorldStateSynchroniser,
     private db: MerkleTreeDb, // TODO: Can we access the underlying db via the worldState?
-    private prover: Prover,
-    opts?: { pollingIntervalMs?: number, blockIntervalMs?: number }
+    private log = createDebugLogger('aztec:sequencer_client'),
+    opts?: { pollingIntervalMs?: number; blockIntervalMs?: number },
   ) {
     this.pollingIntervalMs = opts?.pollingIntervalMs ?? 1_000;
     this.blockIntervalMs = opts?.blockIntervalMs ?? 10_000;
@@ -39,13 +40,13 @@ export class Sequencer {
 
   public async start() {
     // TODO: Should we wait for worldstate to be ready, or is the caller expected to run await start?
-    this.lastBlockNumber = await this.worldState.status().then(s => s.syncedToL2Block);
-    
+    this.lastBlockNumber = await this.worldState.status().then((s: WorldStateStatus) => s.syncedToL2Block);
+
     this.runningPromise = new RunningPromise(this.work.bind(this), { pollingInterval: this.pollingIntervalMs });
     this.runningPromise.start();
     this.state = SequencerState.IDLE;
   }
-  
+
   public async stop(): Promise<void> {
     await this.runningPromise?.stop();
     this.publisher.interrupt();
@@ -57,7 +58,7 @@ export class Sequencer {
   }
 
   /**
-   * Grabs a single tx from the p2p client, constructs a block, and pushes it to L1
+   * Grabs a single tx from the p2p client, constructs a block, and pushes it to L1.
    */
   protected async work() {
     try {
@@ -78,9 +79,9 @@ export class Sequencer {
         this.log(`Previous block has not been mined or synched yet`);
         return;
       }
-      
-      this.log(`Constructing new block`);
-      this.state = SequencerState.CREATING_BLOCK;
+
+      this.log(`Waiting for txs...`);
+      this.state = SequencerState.WAITING_FOR_TXS;
 
       // Get a single tx (for now) to build the new block
       // P2P client is responsible for ensuring this tx is eligible (proof ok, not mined yet, etc)
@@ -91,6 +92,8 @@ export class Sequencer {
       } else {
         this.log(`Processing tx ${tx.txId}`);
       }
+
+      this.state = SequencerState.CREATING_BLOCK;
 
       // Build the new block by running the rollup circuits
       const block = await this.buildBlock(tx);
@@ -112,33 +115,32 @@ export class Sequencer {
 
   /**
    * Returns whether a new block should be sent given the blockIntervalMs.
+   * @returns Boolean indicating if a new block is due.
    */
-  protected async isNewBlockDue() {
-    return !this.lastBlockSentAt || +this.lastBlockSentAt + this.blockIntervalMs >= Date.now();
+  protected isNewBlockDue() {
+    return Promise.resolve(!this.lastBlockSentAt || +this.lastBlockSentAt + this.blockIntervalMs >= Date.now());
   }
 
   /**
    * Returns whether the previous block sent has been mined, and all dependencies have caught up with it.
+   * @returns Boolean indicating if our dependencies are synched to the latest block.
    */
   protected async isBlockSynched() {
-    return await this.worldState.status().then(s => s.syncedToL2Block) >= this.lastBlockNumber
-      && this.p2pClient.getStatus().syncedToBlockNum >= this.lastBlockNumber;
+    return (
+      (await this.worldState.status().then((s: WorldStateStatus) => s.syncedToL2Block)) >= this.lastBlockNumber &&
+      (await this.p2pClient.getStatus().then((s: P2PClientState) => s.syncedToBlockNum)) >= this.lastBlockNumber
+    );
   }
 
   protected async buildBlock(tx: Tx) {
-    return mockRandomL2Block(this.lastBlockNumber);
-  }
-
-  // TODO: Is there a unified logging interface?
-  private log(message: string, level: 'log' | 'warn' | 'error' = 'log') {
-    if (process.env.NODE_ENV !== 'test') {
-      console[level](`Sequencer:`, message);
-    }
+    const blockBuilder = new BlockBuilder(this.db, this.lastBlockNumber + 1, tx);
+    return await blockBuilder.buildL2Block();
   }
 }
 
 export enum SequencerState {
   IDLE,
+  WAITING_FOR_TXS,
   CREATING_BLOCK,
   PUBLISHING_BLOCK,
   STOPPED,

@@ -111,6 +111,7 @@ export class ServerWorldStateSynchroniser implements WorldStateSynchroniser {
    */
   private async handleL2Block(l2block: L2Block) {
     this.log(`committing block ${l2block.number}`);
+    await this.merkleTreeDb.rollback();
     await this.merkleTreeDb.appendLeaves(MerkleTreeId.CONTRACT_TREE, l2block.newContracts);
     await this.merkleTreeDb.commit();
     this.log(`committed block ${l2block.number} to world state`);
