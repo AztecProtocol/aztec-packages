@@ -21,6 +21,8 @@ COPY end-to-end/package.json end-to-end/package.json
 COPY ethereum.js/example/package.json ethereum.js/example/package.json
 COPY ethereum.js/package.json ethereum.js/package.json
 COPY foundation/package.json foundation/package.json
+# NOTE: since foundation is also stand-alone, we need its yarn.lock
+COPY foundation/yarn.lock foundation/yarn.lock
 COPY kernel-simulator/package.json kernel-simulator/package.json
 COPY key-store/package.json key-store/package.json
 COPY merkle-tree/package.json merkle-tree/package.json
