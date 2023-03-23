@@ -3,4 +3,4 @@ export interface L1Addresses {
   feeDistributor: string;
 }
 
-export * from './aztec-ethereumjs-contracts/Rollup.js';
+export * from './ethereumjs-contracts/Rollup.js';
