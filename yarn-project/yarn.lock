@@ -52,6 +52,7 @@ __metadata:
     concurrently: ^7.6.0
     debug: ^4.3.4
     jest: ^29.5.0
+    jest-mock-extended: ^3.0.4
     ts-jest: ^29.0.5
     ts-node: ^10.9.1
     tsc-watch: ^6.0.0
@@ -4786,6 +4787,18 @@ __metadata:
     jest: ^24.0.0 || ^25.0.0 || ^26.0.0 || ^27.0.0 || ^28.0.0 || ^29.0.0
     typescript: ^3.0.0 || ^4.0.0
   checksum: 826d619b0e9e5f4a7691259a5f8919fd40d6468d13d9c0d8c0724d8ebd106404e7416079692f4dce5b4d42e3579b5948ea789b951ab6858ab76c192113e1d759
+  languageName: node
+  linkType: hard
+
+"jest-mock-extended@npm:^3.0.4":
+  version: 3.0.4
+  resolution: "jest-mock-extended@npm:3.0.4"
+  dependencies:
+    ts-essentials: ^7.0.3
+  peerDependencies:
+    jest: ^24.0.0 || ^25.0.0 || ^26.0.0 || ^27.0.0 || ^28.0.0 || ^29.0.0
+    typescript: ^3.0.0 || ^4.0.0 || ^5.0.0
+  checksum: f861253c63508b30d971fbbbc1bf2911ff4406cd260d0e23483a1d4514898b18ba5efbd43fbdf6d94996dc09b20eb1aad1b46aeaea9c99244ba12dc99814fd3f
   languageName: node
   linkType: hard
 

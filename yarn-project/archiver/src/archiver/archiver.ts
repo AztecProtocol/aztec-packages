@@ -227,8 +227,9 @@ export class Archiver implements L2BlockSource {
    * Gets the number of the latest L2 block processed by the block source implementation.
    * @returns The number of the latest L2 block processed by the block source implementation.
    */
-  public getLatestBlockNum(): Promise<number> {
-    return Promise.resolve(this.l2Blocks.length - 1);
+  public async getLatestBlockNum(): Promise<number> {
+    if (this.l2Blocks.length === 0) return -1;
+    return this.l2Blocks[this.l2Blocks.length - 1].number;
   }
 }
 
