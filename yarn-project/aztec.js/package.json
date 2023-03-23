@@ -30,7 +30,6 @@
   },
   "dependencies": {
     "@aztec/aztec-rpc": "workspace:^",
-    "sha3": "^2.1.4",
     "tslib": "^2.4.0"
   },
   "devDependencies": {
