@@ -1,126 +1,5 @@
 import { randomBytes } from './foundation.js';
 
-/**
- * A named type.
- */
-export interface ABIVariable {
-  /**
-   * The name of the variable.
-   */
-  name: string;
-  /**
-   * The type of the variable.
-   */
-  type: ABIType;
-}
-
-/**
- * A function parameter.
- */
-export interface ABIParameter extends ABIVariable {
-  /**
-   * Whether the parameter is unpacked.
-   */
-  unpacked: boolean;
-}
-
-/**
- * A basic type.
- */
-export interface BasicType<T extends string> {
-  /**
-   * The kind of the type.
-   */
-  kind: T;
-}
-
-/**
- * A variable type.
- */
-export type ABIType = BasicType<'field'> | BasicType<'boolean'> | IntegerType | ArrayType | StringType | StructType;
-
-/**
- * An integer type.
- */
-export interface IntegerType extends BasicType<'integer'> {
-  /**
-   * The sign of the integer.
-   */
-  sign: string;
-  /**
-   * The width of the integer in bits.
-   */
-  width: number;
-}
-
-/**
- * An array type.
- */
-export interface ArrayType extends BasicType<'array'> {
-  /**
-   * The length of the array.
-   */
-  length: number;
-  /**
-   * The type of the array elements.
-   */
-  type: ABIType;
-}
-
-/**
- * A string type.
- */
-export interface StringType extends BasicType<'string'> {
-  /**
-   * The length of the string.
-   */
-  length: number;
-}
-
-/**
- * A struct type.
- */
-export interface StructType extends BasicType<'struct'> {
-  /**
-   * The fields of the struct.
-   */
-  fields: ABIVariable[];
-}
-
-/**
- * The ABI entry of a function.
- */
-export interface FunctionAbi {
-  /**
-   * The name of the function.
-   */
-  name: string;
-  /**
-   * Whether the function is a constructor.
-   */
-  isConstructor: boolean;
-  /**
-   * Whether the function is secret.
-   */
-  isSecret: boolean;
-  /**
-   * Function parameters.
-   */
-  parameters: ABIParameter[];
-  /**
-   * The types of the return values.
-   */
-  returnTypes: ABIType[];
-  /**
-   * The ACIR bytecode of the function.
-   */
-  bytecode: string;
-  /**
-   * The verification key of the function.
-   */
-  verificationKey: string;
-}
-
 export class Fr {
   public static ZERO = new Fr(Buffer.alloc(32));
 
@@ -142,50 +21,108 @@ export class EthAddress {
 }
 
 export class AztecAddress {
-  public static ZERO = new AztecAddress(Buffer.alloc(32));
+  public static SIZE = 64;
+
+  public static ZERO = new AztecAddress(Buffer.alloc(AztecAddress.SIZE));
 
   public static random() {
-    return new AztecAddress(randomBytes(32));
+    return new AztecAddress(randomBytes(AztecAddress.SIZE));
+  }
+
+  constructor(public readonly buffer: Buffer) {}
+
+  public equals(rhs: AztecAddress) {
+    return this.buffer.equals(rhs.buffer);
+  }
+}
+
+export class Signature {
+  public static SIZE = 64;
+
+  public static random() {
+    return new EthAddress(randomBytes(Signature.SIZE));
   }
 
   constructor(public readonly buffer: Buffer) {}
 }
 
-export class Signature {}
-
-export class TxHash {}
-
 export interface FunctionData {
-  functionEncoding: number;
-  isPrivate: boolean;
+  functionSelector: Buffer;
+  isSecret: boolean;
   isContructor: boolean;
 }
 
-export interface ContractDeploymentData {
-  contractDataHash: Fr;
-  functionTreeRoot: Fr;
-  constructorHash: Fr;
-  contractAddressSalt: Fr;
-  portalContractAddress: Fr;
+export class ContractDeploymentData {
+  public static EMPTY = new ContractDeploymentData(Fr.ZERO, Fr.ZERO, Fr.ZERO, Fr.ZERO, Fr.ZERO);
+
+  constructor(
+    public readonly contractDataHash: Fr,
+    public readonly functionTreeRoot: Fr,
+    public readonly constructorHash: Fr,
+    public readonly contractAddressSalt: Fr,
+    public readonly portalContractAddress: Fr,
+  ) {}
 }
 
-export interface TxContext {
-  isFeePaymentTx: boolean;
-  isRebatePaymentTx: boolean;
-  isContractDeploymentTx: boolean;
-  contractDeploymentData: ContractDeploymentData;
+export class TxContext {
+  constructor(
+    public readonly isFeePaymentTx: boolean,
+    public readonly isRebatePaymentTx: boolean,
+    public readonly isContractDeploymentTx: boolean,
+    public readonly contractDeploymentData: ContractDeploymentData,
+  ) {}
 }
 
-export interface TxRequest {
-  from: AztecAddress;
-  to?: AztecAddress;
-  functionData: FunctionData;
-  args: Fr[];
-  txContext: TxContext;
-  nonce: Fr;
-  chainId: Fr;
+export class TxRequest {
+  constructor(
+    public readonly from: AztecAddress,
+    public readonly to: AztecAddress,
+    public readonly functionData: FunctionData,
+    public readonly args: Fr[],
+    public readonly txContext: TxContext,
+    public readonly nonce: Fr,
+    public readonly chainId: Fr,
+  ) {}
+
+  toBuffer() {
+    return Buffer.alloc(0);
+  }
 }
 
-export interface Tx {
-  proofData: Buffer;
+export class PreviousKernelData {}
+
+export class PrivateCallData {}
+
+export class AccumulatedTxData {}
+
+export class KernelPrivateInputs {
+  constructor(
+    public readonly txRequest: TxRequest,
+    public readonly signature: Signature,
+    public readonly previousKernelData: PreviousKernelData,
+    public readonly privateCallData: PrivateCallData,
+  ) {}
+}
+
+export class KernelProofData {
+  public readonly accumulatedTxData: AccumulatedTxData;
+
+  constructor(public readonly proofData: Buffer) {
+    this.accumulatedTxData = new AccumulatedTxData();
+  }
+}
+
+export class KernelCircuitProver {
+  public createProof(inputs: KernelPrivateInputs) {
+    return Promise.resolve(new KernelProofData(Buffer.alloc(100)));
+  }
+}
+
+export function generateContractAddress(
+  deployerAddress: AztecAddress,
+  salt: Fr,
+  args: Fr[],
+  // functionLeaves: Fr[],
+) {
+  return AztecAddress.random();
 }

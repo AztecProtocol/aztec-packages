@@ -1,18 +1,9 @@
-import { ABIParameter } from '../noir.js';
-import { keccak256 } from './keccak256.js';
+import { ABIParameter } from '@aztec/aztec-rpc';
 
 export * from './hex_string.js';
 
 function pack(parameter: ABIParameter, value: any) {
   return Buffer.alloc(32);
-}
-
-export function generateFunctionSignature(name: string, parameters: ABIParameter[]) {
-  return `${name}(${parameters.map(p => p.type.kind).join(',')})`;
-}
-
-export function encodeFunctionSignature(signature: string) {
-  return keccak256(Buffer.from(signature)).slice(0, 4);
 }
 
 export function encodeParameters(parameters: ABIParameter[], args: any[]) {

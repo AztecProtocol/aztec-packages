@@ -1,7 +1,5 @@
-import { AztecAddress, AztecRPCClient, EthAddress, Fr } from '@aztec/aztec-rpc';
-import { hexToBuffer } from '../abi_coder/index.js';
+import { AztecAddress, AztecRPCClient, ContractAbi, EthAddress, Fr } from '@aztec/aztec-rpc';
 import { ContractFunction, SendMethod, SendMethodOptions } from '../contract/index.js';
-import { ContractAbi } from '../noir.js';
 
 export interface ConstructorOptions extends SendMethodOptions {
   contractAddressSalt?: Fr;
@@ -23,13 +21,13 @@ export class ConstructorMethod extends SendMethod {
       throw new Error('Cannot find constructor in the ABI.');
     }
 
-    super(arc, EthAddress.ZERO, new ContractFunction(constructorAbi), args, defaultOptions);
+    super(arc, AztecAddress.ZERO, new ContractFunction(constructorAbi), args, defaultOptions);
   }
 
   public async request(options: ConstructorOptions = {}) {
     const { contractAddressSalt, from } = { ...this.defaultOptions, ...options };
     this.txRequest = await this.arc.createDeploymentTxRequest(
-      hexToBuffer(this.abi.bytecode),
+      this.abi,
       this.entry.encodeParameters(this.args).map(p => new Fr(p)),
       this.portalContract,
       contractAddressSalt || Fr.random(),

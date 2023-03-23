@@ -94,10 +94,6 @@ export interface FunctionAbi {
    */
   name: string;
   /**
-   * Whether the function is a constructor.
-   */
-  // isConstructor: boolean;
-  /**
    * Whether the function is secret.
    */
   isSecret: boolean;
@@ -112,7 +108,7 @@ export interface FunctionAbi {
   /**
    * The ACIR bytecode of the function.
    */
-  // bytecode: string;
+  bytecode: string;
   /**
    * The verification key of the function.
    */
@@ -124,8 +120,4 @@ export interface ContractAbi {
    * The functions of the contract.
    */
   functions: FunctionAbi[];
-  /**
-   * The ACIR bytecode of the contract.
-   */
-  bytecode: string;
 }

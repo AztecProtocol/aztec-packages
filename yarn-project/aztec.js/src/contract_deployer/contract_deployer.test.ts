@@ -2,6 +2,7 @@ import { mock } from 'jest-mock-extended';
 import {
   AztecAddress,
   AztecRPCClient,
+  ContractAbi,
   EthAddress,
   Fr,
   Signature,
@@ -10,13 +11,11 @@ import {
   TxReceipt,
   TxRequest,
 } from '@aztec/aztec-rpc';
-import { ContractAbi } from '../noir.js';
 import { ContractDeployer } from './contract_deployer.js';
 
 describe('Contract Deployer', () => {
   let arc: ReturnType<typeof mock<AztecRPCClient>>;
 
-  const bytecodeBuf = Buffer.from([0, 1, 2, 3, 4, 5, 6, 7]);
   const abi: ContractAbi = {
     functions: [
       {
@@ -24,10 +23,10 @@ describe('Contract Deployer', () => {
         isSecret: true,
         parameters: [],
         returnTypes: [],
+        bytecode: '0x01234567',
         verificationKey: '0x98765432',
       },
     ],
-    bytecode: `0x${bytecodeBuf.toString('hex')}`,
   };
 
   const portalContract = EthAddress.random();
@@ -62,13 +61,7 @@ describe('Contract Deployer', () => {
     expect(txHash).toBe(mockTxHash);
     expect(receipt).toBe(mockTxReceipt);
     expect(arc.createDeploymentTxRequest).toHaveBeenCalledTimes(1);
-    expect(arc.createDeploymentTxRequest).toHaveBeenCalledWith(
-      bytecodeBuf,
-      [],
-      portalContract,
-      contractAddressSalt,
-      account,
-    );
+    expect(arc.createDeploymentTxRequest).toHaveBeenCalledWith(abi, [], portalContract, contractAddressSalt, account);
     expect(arc.createTxRequest).toHaveBeenCalledTimes(0);
     expect(arc.signTxRequest).toHaveBeenCalledTimes(1);
     expect(arc.signTxRequest).toHaveBeenCalledWith(mockTxRequest);
@@ -94,13 +87,7 @@ describe('Contract Deployer', () => {
     expect(tx).toBe(mockTx);
     expect(receipt).toBe(mockTxReceipt);
     expect(arc.createDeploymentTxRequest).toHaveBeenCalledTimes(1);
-    expect(arc.createDeploymentTxRequest).toHaveBeenCalledWith(
-      bytecodeBuf,
-      [],
-      portalContract,
-      contractAddressSalt,
-      account,
-    );
+    expect(arc.createDeploymentTxRequest).toHaveBeenCalledWith(abi, [], portalContract, contractAddressSalt, account);
     expect(arc.createTxRequest).toHaveBeenCalledTimes(0);
     expect(arc.signTxRequest).toHaveBeenCalledTimes(1);
     expect(arc.createTx).toHaveBeenCalledTimes(1);
@@ -112,7 +99,7 @@ describe('Contract Deployer', () => {
     const deployment = deployer.deploy();
     await deployment.request();
     expect(arc.createDeploymentTxRequest).toHaveBeenCalledWith(
-      bytecodeBuf,
+      abi,
       [],
       EthAddress.ZERO, // portalContract
       expect.anything(), // contractAddressSalt

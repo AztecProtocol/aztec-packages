@@ -1,5 +1,4 @@
-import { AztecRPCClient, EthAddress } from '@aztec/aztec-rpc';
-import { ContractAbi } from '../noir.js';
+import { AztecRPCClient, ContractAbi, EthAddress } from '@aztec/aztec-rpc';
 import { ConstructorMethod, ConstructorOptions } from './constructor_method.js';
 
 /**
