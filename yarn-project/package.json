@@ -4,7 +4,8 @@
   "private": true,
   "scripts": {
     "docs": "typedoc --out docs/dist && cd docs && yarn serve",
-    "formatting": "yarn workspaces foreach run formatting"
+    "formatting": "yarn workspaces foreach run formatting",
+    "formatting:fix": "yarn workspaces foreach run formatting:fix"
   },
   "workspaces": [
     "acir-simulator",
