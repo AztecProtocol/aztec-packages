@@ -1,4 +1,4 @@
-FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/yarn-project-base AS builder
+FROM yarn-project-base
 
 COPY noir-contracts noir-contracts
 WORKDIR /usr/src/yarn-project/noir-contracts
