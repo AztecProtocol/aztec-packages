@@ -28,8 +28,6 @@ export type ContractData = {
   ethAddress: Buffer;
 };
 
-/* eslint-disable jsdoc/require-jsdoc */
-
 /**
  * The data that makes up the rollup proof, with encoder decoder functions.
  */

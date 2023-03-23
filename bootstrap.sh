@@ -32,9 +32,6 @@ if [ ! -f ~/.nvm/nvm.sh ]; then
   exit 1
 fi
 
-\. ~/.nvm/nvm.sh
-nvm install
-
 # Until we push .yarn/cache, we still need to install.
 cd yarn-project
 yarn install --immutable

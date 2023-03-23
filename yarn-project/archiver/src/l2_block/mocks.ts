@@ -1,4 +1,3 @@
-import nodeCrypto from 'crypto';
 import { randomBytes } from '@aztec/foundation';
 
 import { AppendOnlyTreeSnapshot, ContractData } from './l2_block.js';
