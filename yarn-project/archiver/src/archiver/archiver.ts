@@ -1,21 +1,17 @@
 import { EthAddress } from '@aztec/ethereum.js/eth_address';
 import { createDebugLogger } from '@aztec/foundation';
+import { RollupAbi, YeeterAbi } from '@aztec/l1-contracts/viem';
 import {
-  createPublicClient,
-  decodeAbiParameters,
-  decodeFunctionData,
-  fromHex,
-  getAddress,
+  createPublicClient, decodeFunctionData, getAddress,
   Hex,
   hexToBytes,
   http,
   Log,
-  PublicClient,
+  PublicClient
 } from 'viem';
 import { localhost } from 'viem/chains';
-import { RollupAbi, YeeterAbi } from '@aztec/l1-contracts/viem';
 import { ContractData, L2Block } from '../l2_block/l2_block.js';
-import { L2BlockSource, L2BlockSourceSyncStatus } from '../l2_block/l2_block_source.js';
+import { L2BlockSource } from '../l2_block/l2_block_source.js';
 import { randomAppendOnlyTreeSnapshot, randomBytes, randomContractData } from '../l2_block/mocks.js';
 
 // Rollup contract refuses to accept a block with id 0
@@ -69,29 +65,14 @@ export class Archiver implements L2BlockSource {
   }
 
   /**
-   * Gets the sync status of the L2 block source.
-   * @returns The sync status of the L2 block source.
-   */
-  public async getSyncStatus(): Promise<L2BlockSourceSyncStatus> {
-    const rollupBlockNumber = await this.publicClient.readContract({
-      address: getAddress(this.rollupAddress.toString()),
-      abi: RollupAbi,
-      functionName: 'rollupBlockNumber',
-    });
-
-    return {
-      syncedToBlock: await this.getLatestBlockNum(),
-      latestBlock: Number(rollupBlockNumber),
-    };
-  }
-
-  /**
    * Starts sync process.
    */
   public async start() {
     this.log('Starting initial sync...');
     await this.runInitialSync();
     this.log('Initial sync finished.');
+    // TODO: Any logs emitted between the initial sync and the start watching will be lost
+    // We should start watching before we start the initial sync
     this.startWatchingEvents();
     this.log('Watching for new data...');
   }
@@ -123,6 +104,7 @@ export class Archiver implements L2BlockSource {
 
   /**
    * Starts a polling loop in the background which watches for new events and passes them to the respective handlers.
+   * TODO: Handle reorgs, consider using github.com/ethereumjs/ethereumjs-blockstream
    */
   private startWatchingEvents() {
     this.unwatchBlocks = this.publicClient.watchContractEvent({
@@ -245,8 +227,9 @@ export class Archiver implements L2BlockSource {
    * Gets the number of the latest L2 block processed by the block source implementation.
    * @returns The number of the latest L2 block processed by the block source implementation.
    */
-  public getLatestBlockNum(): Promise<number> {
-    return Promise.resolve(this.l2Blocks.length - 1);
+  public async getLatestBlockNum(): Promise<number> {
+    if (this.l2Blocks.length === 0) return -1;
+    return this.l2Blocks[this.l2Blocks.length - 1].number;
   }
 }
 

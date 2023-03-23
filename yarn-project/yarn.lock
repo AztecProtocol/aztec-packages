@@ -52,6 +52,7 @@ __metadata:
     concurrently: ^7.6.0
     debug: ^4.3.4
     jest: ^29.5.0
+    jest-mock-extended: ^3.0.4
     ts-jest: ^29.0.5
     ts-node: ^10.9.1
     tsc-watch: ^6.0.0
@@ -155,7 +156,7 @@ __metadata:
     ts-jest: ^28.0.7
     ts-node: ^10.9.1
     tslib: ^2.4.0
-    typescript: ^5.1.0-dev.20230322
+    typescript: ^4.9.5
   languageName: unknown
   linkType: soft
 
@@ -4791,6 +4792,18 @@ __metadata:
   languageName: node
   linkType: hard
 
+"jest-mock-extended@npm:^3.0.4":
+  version: 3.0.4
+  resolution: "jest-mock-extended@npm:3.0.4"
+  dependencies:
+    ts-essentials: ^7.0.3
+  peerDependencies:
+    jest: ^24.0.0 || ^25.0.0 || ^26.0.0 || ^27.0.0 || ^28.0.0 || ^29.0.0
+    typescript: ^3.0.0 || ^4.0.0 || ^5.0.0
+  checksum: f861253c63508b30d971fbbbc1bf2911ff4406cd260d0e23483a1d4514898b18ba5efbd43fbdf6d94996dc09b20eb1aad1b46aeaea9c99244ba12dc99814fd3f
+  languageName: node
+  linkType: hard
+
 "jest-mock@npm:^28.1.3":
   version: 28.1.3
   resolution: "jest-mock@npm:28.1.3"
@@ -7115,16 +7128,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"typescript@npm:^5.1.0-dev.20230322":
-  version: 5.1.0-dev.20230322
-  resolution: "typescript@npm:5.1.0-dev.20230322"
-  bin:
-    tsc: bin/tsc
-    tsserver: bin/tsserver
-  checksum: c9e9b47766fd8c47f411343fdd040052bd324853bf4c533a1945be1429f047b31163ffba062ab81f4a4e89c0cf9ef3a9397030a7d261ff3794519514292721ee
-  languageName: node
-  linkType: hard
-
 "typescript@patch:typescript@^4.9.5#~builtin<compat/typescript>":
   version: 4.9.5
   resolution: "typescript@patch:typescript@npm%3A4.9.5#~builtin<compat/typescript>::version=4.9.5&hash=23ec76"
@@ -7132,16 +7135,6 @@ __metadata:
     tsc: bin/tsc
     tsserver: bin/tsserver
   checksum: ab417a2f398380c90a6cf5a5f74badd17866adf57f1165617d6a551f059c3ba0a3e4da0d147b3ac5681db9ac76a303c5876394b13b3de75fdd5b1eaa06181c9d
-  languageName: node
-  linkType: hard
-
-"typescript@patch:typescript@^5.1.0-dev.20230322#~builtin<compat/typescript>":
-  version: 5.1.0-dev.20230322
-  resolution: "typescript@patch:typescript@npm%3A5.1.0-dev.20230322#~builtin<compat/typescript>::version=5.1.0-dev.20230322&hash=1f5320"
-  bin:
-    tsc: bin/tsc
-    tsserver: bin/tsserver
-  checksum: 9898c5977cfd585c54ca8c24690af58cc3e8b1820a11a0ae26d662e8be4f897bd9ba44081f1b85fda702c02774966294406c2e10ddeb061d4a72389c84458e3d
   languageName: node
   linkType: hard
 
