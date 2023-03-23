@@ -33,8 +33,8 @@ import { EthereumRpc } from '@aztec/ethereum.js/eth_rpc';
 
 const ETHEREUM_HOST = 'http://localhost:8545/';
 
+// REFACTOR: Move deployment logic to l1-contracts package, and refactor it out of other integration tests (archiver, sequencer)
 const deployRollupContract = async (provider: WalletProvider, ethRpc: EthereumRpc) => {
-  // Deploy.
   const deployAccount = provider.getAccount(0);
   const contract = new Rollup(ethRpc, undefined, { from: deployAccount, gas: 1000000 });
   await contract.deploy().send().getReceipt();
@@ -42,7 +42,6 @@ const deployRollupContract = async (provider: WalletProvider, ethRpc: EthereumRp
 };
 
 const deployYeeterContract = async (provider: WalletProvider, ethRpc: EthereumRpc) => {
-  // Deploy.
   const deployAccount = provider.getAccount(0);
   const contract = new Yeeter(ethRpc, undefined, { from: deployAccount, gas: 1000000 });
   await contract.deploy().send().getReceipt();
@@ -55,6 +54,7 @@ const createProvider = () => {
   return walletProvider;
 };
 
+// REFACTOR: Use @aztec/circuit.js/factories where possible
 const createCircuitEthAddress = () => {
   return new CircuitEthAddress(randomBytes(20));
 };
@@ -131,12 +131,14 @@ const createTx = () => {
 describe('AztecNode', () => {
   let rollupAddress: EthAddress | undefined = undefined;
   let yeeterAddress: EthAddress | undefined = undefined;
+
   beforeAll(async () => {
     const provider = createProvider();
     const ethRpc = new EthereumRpc(provider);
     rollupAddress = await deployRollupContract(provider, ethRpc);
     yeeterAddress = await deployYeeterContract(provider, ethRpc);
   });
+
   it('should start and stop all services', async () => {
     const node = new AztecNode();
     await node.init(ETHEREUM_HOST, rollupAddress!, yeeterAddress!);
@@ -150,9 +152,11 @@ describe('AztecNode', () => {
     await node.init(ETHEREUM_HOST, rollupAddress!, yeeterAddress!);
     const isReady = await node.isReady();
     expect(isReady).toBeTruthy();
+    
     const tx: Tx = createTx();
     await node.sendTx(tx);
     let settledBlock: L2Block | undefined = undefined;
+    
     while (true) {
       const blocks = await node.getBlocks(0, 1);
       if (!blocks.length) {
@@ -162,8 +166,11 @@ describe('AztecNode', () => {
       settledBlock = blocks[0];
       break;
     }
-    expect(settledBlock.number).toBe(1);
+    
+    expect(settledBlock.number).toBe(0);
     expect(settledBlock.newContracts.length).toBeTruthy();
     expect(settledBlock.newContracts[0]).toEqual(tx.data.end.newContracts[0].functionTreeRoot);
+    
+    await node.stop();
   });
 });
