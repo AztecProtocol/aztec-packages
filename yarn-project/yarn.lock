@@ -272,6 +272,24 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@aztec/l1-contracts@workspace:^, @aztec/l1-contracts@workspace:l1-contracts":
+  version: 0.0.0-use.local
+  resolution: "@aztec/l1-contracts@workspace:l1-contracts"
+  dependencies:
+    "@aztec/eslint-config": "workspace:^"
+    "@aztec/ethereum.js": "workspace:^"
+    "@jest/globals": ^29.4.3
+    "@rushstack/eslint-patch": ^1.1.4
+    "@types/jest": ^29.4.0
+    "@types/node": ^18.7.23
+    jest: ^28.1.3
+    ts-jest: ^28.0.7
+    ts-node: ^10.9.1
+    tslib: ^2.4.0
+    typescript: ^4.9.5
+  languageName: unknown
+  linkType: soft
+
 "@aztec/merkle-tree@workspace:^, @aztec/merkle-tree@workspace:merkle-tree":
   version: 0.0.0-use.local
   resolution: "@aztec/merkle-tree@workspace:merkle-tree"
@@ -365,23 +383,6 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/sequencer-client@workspace:sequencer-client"
   dependencies:
-    "@aztec/eslint-config": "workspace:^"
-    "@jest/globals": ^29.4.3
-    "@rushstack/eslint-patch": ^1.1.4
-    "@types/jest": ^29.4.0
-    "@types/node": ^18.7.23
-    jest: ^28.1.3
-    ts-jest: ^28.0.7
-    ts-node: ^10.9.1
-    tslib: ^2.4.0
-    typescript: ^4.9.5
-  languageName: unknown
-  linkType: soft
-
-"@aztec/wallet@workspace:wallet":
-  version: 0.0.0-use.local
-  resolution: "@aztec/wallet@workspace:wallet"
-  dependencies:
     "@aztec/archiver": "workspace:^"
     "@aztec/eslint-config": "workspace:^"
     "@aztec/ethereum.js": "workspace:^"
@@ -393,6 +394,23 @@ __metadata:
     concurrently: ^7.6.0
     jest: ^28.1.3
     jest-mock-extended: ^3.0.3
+    ts-jest: ^28.0.7
+    ts-node: ^10.9.1
+    tslib: ^2.4.0
+    typescript: ^4.9.5
+  languageName: unknown
+  linkType: soft
+
+"@aztec/wallet@workspace:wallet":
+  version: 0.0.0-use.local
+  resolution: "@aztec/wallet@workspace:wallet"
+  dependencies:
+    "@aztec/eslint-config": "workspace:^"
+    "@jest/globals": ^29.4.3
+    "@rushstack/eslint-patch": ^1.1.4
+    "@types/jest": ^29.4.0
+    "@types/node": ^18.7.23
+    jest: ^28.1.3
     ts-jest: ^28.0.7
     ts-node: ^10.9.1
     tslib: ^2.4.0
@@ -6704,6 +6722,15 @@ __metadata:
   version: 0.0.3
   resolution: "tr46@npm:0.0.3"
   checksum: 726321c5eaf41b5002e17ffbd1fb7245999a073e8979085dacd47c4b4e8068ff5777142fc6726d6ca1fd2ff16921b48788b87225cbc57c72636f6efa8efbffe3
+  languageName: node
+  linkType: hard
+
+"tree-kill@npm:^1.2.2":
+  version: 1.2.2
+  resolution: "tree-kill@npm:1.2.2"
+  bin:
+    tree-kill: cli.js
+  checksum: 49117f5f410d19c84b0464d29afb9642c863bc5ba40fcb9a245d474c6d5cc64d1b177a6e6713129eb346b40aebb9d4631d967517f9fbe8251c35b21b13cd96c7
   languageName: node
   linkType: hard
 
