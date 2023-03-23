@@ -142,13 +142,19 @@ defaults: &defaults
       only: *tag_regex
   context:
     - build
+foundation: &foundation
+  requires:
+    - yarn-project-base
+  <<: *defaults
 yarn_project: &yarn_project
   requires:
     - yarn-project-base
+    - foundation
   <<: *defaults
 e2e_test: &e2e_test
   requires:
     - e2e-join
+    - foundation
   <<: *defaults
 
 workflows:
@@ -167,6 +173,7 @@ workflows:
             - aztec-js
             - end-to-end
             - noir-contracts
+            - foundation
           <<: *defaults
       - e2e-deploy-contract: *e2e_test
       - noir-contracts: *yarn_project
