@@ -45,7 +45,7 @@ export class AztecNode {
     this.worldStateSynchroniser = new ServerWorldStateSynchroniser(this.merkleTreeDB, this.blockSource);
 
     // start both and wait for them to sync from the block source
-    const p2pSyncPromise = this.p2pClient.start();
+    const p2pSyncPromise = this.p2pClient!.start();
     const worldStateSyncPromise = this.worldStateSynchroniser.start();
     await Promise.all([p2pSyncPromise, worldStateSyncPromise]);
 
@@ -62,6 +62,7 @@ export class AztecNode {
     } as Config;
     const blockPublisher = getL2BlockPublisher(config);
     const sequencer = new Sequencer(blockPublisher, this.p2pClient, this.worldStateSynchroniser, this.merkleTreeDB);
+    await sequencer.start();
   }
 
   /**
