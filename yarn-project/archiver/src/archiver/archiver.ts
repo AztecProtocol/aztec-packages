@@ -1,21 +1,17 @@
 import { EthAddress } from '@aztec/ethereum.js/eth_address';
 import { createDebugLogger } from '@aztec/foundation';
+import { RollupAbi, YeeterAbi } from '@aztec/l1-contracts/viem';
 import {
-  createPublicClient,
-  decodeAbiParameters,
-  decodeFunctionData,
-  fromHex,
-  getAddress,
+  createPublicClient, decodeFunctionData, getAddress,
   Hex,
   hexToBytes,
   http,
   Log,
-  PublicClient,
+  PublicClient
 } from 'viem';
 import { localhost } from 'viem/chains';
-import { RollupAbi, YeeterAbi } from '@aztec/l1-contracts/viem';
 import { ContractData, L2Block } from '../l2_block/l2_block.js';
-import { L2BlockSource, L2BlockSourceSyncStatus } from '../l2_block/l2_block_source.js';
+import { L2BlockSource } from '../l2_block/l2_block_source.js';
 import { randomAppendOnlyTreeSnapshot, randomBytes, randomContractData } from '../l2_block/mocks.js';
 
 // Rollup contract refuses to accept a block with id 0
@@ -66,23 +62,6 @@ export class Archiver implements L2BlockSource {
       transport: http(rpcUrl),
     });
     return new Archiver(publicClient, rollupAddress, yeeterAddress);
-  }
-
-  /**
-   * Gets the sync status of the L2 block source.
-   * @returns The sync status of the L2 block source.
-   */
-  public async getSyncStatus(): Promise<L2BlockSourceSyncStatus> {
-    const rollupBlockNumber = await this.publicClient.readContract({
-      address: getAddress(this.rollupAddress.toString()),
-      abi: RollupAbi,
-      functionName: 'rollupBlockNumber',
-    });
-
-    return {
-      syncedToBlock: await this.getLatestBlockNum(),
-      latestBlock: Number(rollupBlockNumber),
-    };
   }
 
   /**
