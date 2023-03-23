@@ -56,7 +56,7 @@ export class AztecNode {
       sequencerPrivateKey: walletProvider.getPrivateKey(0),
       ethereumHost: rpcUrl,
       requiredConfirmations: ANVIL_CONFIRMATIONS,
-      rollupAddress,
+      rollupContract: rollupAddress,
       yeeterAddress,
     } as Config;
     const blockPublisher = getL2BlockPublisher(config);
