@@ -26,7 +26,11 @@ async function main() {
     transport: http(ETHEREUM_HOST),
   });
 
-  const archiver = new Archiver(publicClient, EthAddress.fromString(rollupAddress), EthAddress.fromString(yeeterAddress));
+  const archiver = new Archiver(
+    publicClient,
+    EthAddress.fromString(rollupAddress),
+    EthAddress.fromString(yeeterAddress),
+  );
 
   const shutdown = () => {
     archiver.stop();
