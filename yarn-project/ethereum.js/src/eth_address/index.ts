@@ -1,6 +1,5 @@
-import { randomBytes } from '@aztec/foundation';
-
 import { keccak256String } from '../crypto/index.js';
+import { randomBytes } from '../crypto/random/index.js';
 
 export class EthAddress {
   public static ZERO = new EthAddress(Buffer.alloc(20));

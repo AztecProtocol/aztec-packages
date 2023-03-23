@@ -1,5 +1,5 @@
-import { numToUInt8 } from '@aztec/foundation';
 import { EthAddress } from '../eth_address/index.js';
+import { numToUInt8 } from '../serialize/index.js';
 import { keccak256 } from '../crypto/index.js';
 import elliptic from 'elliptic';
 import { hexToBuffer } from '../hex_string/index.js';
