@@ -19,9 +19,11 @@
     "kernel-simulator",
     "key-store",
     "merkle-tree",
+    "noir-contracts",
+    "l1-contracts",
     "p2p",
     "prover-client",
-    "public-client",
+    "aztec-node",
     "sequencer-client",
     "wallet",
     "world-state"

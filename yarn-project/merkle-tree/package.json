@@ -24,6 +24,7 @@
     "rootDir": "./src"
   },
   "dependencies": {
+    "@aztec/foundation": "workspace:^",
     "levelup": "^5.1.1",
     "memdown": "^6.1.1",
     "sha256": "^0.2.0",

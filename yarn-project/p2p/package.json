@@ -33,7 +33,6 @@
   "dependencies": {
     "@aztec/archiver": "workspace:^",
     "@aztec/foundation": "workspace:^",
-    "@aztec/world-state": "workspace:^",
     "sha3": "^2.1.4",
     "tslib": "^2.4.0"
   },

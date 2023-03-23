@@ -24,9 +24,11 @@ COPY foundation/package.json foundation/package.json
 COPY kernel-simulator/package.json kernel-simulator/package.json
 COPY key-store/package.json key-store/package.json
 COPY merkle-tree/package.json merkle-tree/package.json
+COPY noir-contracts/package.json noir-contracts/package.json
+COPY l1-contracts/package.json l1-contracts/package.json
 COPY p2p/package.json p2p/package.json
 COPY prover-client/package.json prover-client/package.json
-COPY public-client/package.json public-client/package.json
+COPY aztec-node/package.json aztec-node/package.json
 COPY sequencer-client/package.json sequencer-client/package.json
 COPY wallet/package.json wallet/package.json
 COPY world-state/package.json world-state/package.json

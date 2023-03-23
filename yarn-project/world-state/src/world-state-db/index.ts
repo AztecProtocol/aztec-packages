@@ -1,5 +1,11 @@
+<<<<<<< HEAD
 /**
  * Defines what kind of tree we are dealing with.
+=======
+export * from './memory_world_state_db.js';
+/**
+ * Defines the possible tree IDs.
+>>>>>>> master
  */
 export enum WorldStateTreeId {
   CONTRACT_TREE = 0,
@@ -18,7 +24,11 @@ export interface TreeInfo {
    */
   root: Buffer;
   /**
+<<<<<<< HEAD
    * The number of leaves.
+=======
+   * The number of leaves in the tree.
+>>>>>>> master
    */
   size: number;
 }

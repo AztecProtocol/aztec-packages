@@ -1,4 +1,9 @@
 {
   "extends": ".",
+<<<<<<< HEAD
   "exclude": ["**/*.test.*", "**/fixtures/*"]
+=======
+  "exclude": ["**/*.test.*", "**/fixtures/*"],
+  "references": [{ "path": "../foundation/tsconfig.dest.json" }]
+>>>>>>> master
 }

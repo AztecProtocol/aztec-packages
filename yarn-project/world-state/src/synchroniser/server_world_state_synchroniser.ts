@@ -1,10 +1,7 @@
-import { MerkleTreeDb } from '@aztec/merkle-tree';
-import { L2BlockSource } from '@aztec/archiver/l2_block_source';
-import { L2Block } from '@aztec/archiver/l2_block';
-
 import { WorldStateRunningState, WorldStateStatus, WorldStateSynchroniser } from './world_state_synchroniser.js';
-import { BatchUpdate, WorldStateTreeId } from '../world-state-db/index.js';
-import { L2BlockDownloader } from '../l2_block_downloader.js';
+import { MerkleTreeDb, MerkleTreeId } from '@aztec/merkle-tree';
+import { L2BlockSource, L2BlockDownloader, L2Block } from '@aztec/archiver';
+import { createDebugLogger } from '@aztec/foundation';
 
 /**
  * Synchronises the world state with the L2 blocks from a L2BlockSource.
@@ -12,39 +9,78 @@ import { L2BlockDownloader } from '../l2_block_downloader.js';
  * tree.
  */
 export class ServerWorldStateSynchroniser implements WorldStateSynchroniser {
-  private currentL2BlockNum = 0;
+  private currentL2BlockNum = -1;
+  private latestBlockNumberAtStart = -1;
   private l2BlockDownloader: L2BlockDownloader;
+  private syncPromise: Promise<void> = Promise.resolve();
+  private syncResolve?: () => void = undefined;
+  private stopping = false;
   private runningPromise: Promise<void> = Promise.resolve();
-  private running = false;
+  private currentState: WorldStateRunningState = WorldStateRunningState.IDLE;
 
-  constructor(private merkleTreeDb: MerkleTreeDb, l2BlockSource: L2BlockSource, maxQueueSize = 1000) {
-    this.l2BlockDownloader = new L2BlockDownloader(l2BlockSource, maxQueueSize);
+  constructor(
+    private merkleTreeDb: MerkleTreeDb,
+    private l2BlockSource: L2BlockSource,
+    maxQueueSize = 1000,
+    pollIntervalMS = 10000,
+    private log = createDebugLogger('aztec:world_state'),
+  ) {
+    this.l2BlockDownloader = new L2BlockDownloader(l2BlockSource, maxQueueSize, pollIntervalMS);
   }
 
   /**
    * Starts the synchroniser.
    * @param from - The block number to start downloading from. Defaults to 0.
+   * @returns A promise that resolves once the initial sync is completed.
    */
-  public start(from = 0) {
-    this.running = true;
+  public async start(from = 0) {
+    if (this.currentState === WorldStateRunningState.STOPPED) {
+      throw new Error('Synchroniser already stopped');
+    }
+    if (this.currentState !== WorldStateRunningState.IDLE) {
+      return this.syncPromise;
+    }
+
+    // get the current latest block number
+    this.latestBlockNumberAtStart = await this.l2BlockSource.getLatestBlockNum();
+
+    // if there are blocks to be retrieved, go to a synching state
+    if (from < this.latestBlockNumberAtStart) {
+      this.setCurrentState(WorldStateRunningState.SYNCHING);
+      this.syncPromise = new Promise(resolve => {
+        this.syncResolve = resolve;
+      });
+      this.log(`starting sync from ${from}, latest block ${this.latestBlockNumberAtStart}`);
+    } else {
+      // if no blocks to be retrieved, go straight to running
+      this.setCurrentState(WorldStateRunningState.RUNNING);
+      this.currentL2BlockNum = this.latestBlockNumberAtStart;
+      this.syncPromise = Promise.resolve();
+      this.log(`already synched to latest block at ${this.latestBlockNumberAtStart}`);
+    }
+
+    // start looking for further blocks
     const blockProcess = async () => {
-      while (this.running) {
+      while (!this.stopping) {
         const blocks = await this.l2BlockDownloader.getL2Blocks();
         await this.handleL2Blocks(blocks);
       }
     };
     this.runningPromise = blockProcess();
-
     this.l2BlockDownloader.start(from);
+    this.log(`started block downloader from block ${from}`);
+    return this.syncPromise;
   }
 
   /**
    * Stops the synchroniser.
    */
   public async stop() {
+    this.log('stopping world state...');
+    this.stopping = true;
     await this.l2BlockDownloader.stop();
-    this.running = false;
     await this.runningPromise;
+    this.setCurrentState(WorldStateRunningState.STOPPED);
   }
 
   /**
@@ -54,7 +90,7 @@ export class ServerWorldStateSynchroniser implements WorldStateSynchroniser {
   public status(): Promise<WorldStateStatus> {
     const status = {
       syncedToL2Block: this.currentL2BlockNum,
-      state: WorldStateRunningState.IDLE,
+      state: this.currentState,
     } as WorldStateStatus;
     return Promise.resolve(status);
   }
@@ -74,11 +110,28 @@ export class ServerWorldStateSynchroniser implements WorldStateSynchroniser {
    * @param l2block - The L2 block to handle.
    */
   private async handleL2Block(l2block: L2Block) {
-    const update = {
-      treeId: WorldStateTreeId.CONTRACT_TREE,
-      elements: l2block.newCommitments,
-    } as BatchUpdate;
-    await this.merkleTreeDb.insertElements([update]);
+    this.log(`committing block ${l2block.number}`);
+    await this.merkleTreeDb.appendLeaves(MerkleTreeId.CONTRACT_TREE, l2block.newContracts);
+    await this.merkleTreeDb.commit();
+    this.log(`committed block ${l2block.number} to world state`);
     this.currentL2BlockNum = l2block.number;
+    if (
+      this.currentState === WorldStateRunningState.SYNCHING &&
+      this.currentL2BlockNum >= this.latestBlockNumberAtStart
+    ) {
+      this.setCurrentState(WorldStateRunningState.RUNNING);
+      if (this.syncResolve !== undefined) {
+        this.syncResolve();
+      }
+    }
+  }
+
+  /**
+   * Method to set the value of the current state.
+   * @param newState - New state value.
+   */
+  private setCurrentState(newState: WorldStateRunningState) {
+    this.currentState = newState;
+    this.log(`moved to state ${WorldStateRunningState[this.currentState]}`);
   }
 }

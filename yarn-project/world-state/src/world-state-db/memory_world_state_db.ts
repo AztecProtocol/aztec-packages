@@ -1,13 +1,14 @@
-import { default as LevelUp } from 'levelup';
+import { default as levelup } from 'levelup';
 import {
   StandardMerkleTree,
   Pedersen,
   SiblingPath,
-  MerkleTree,
   MerkleTreeDb,
   MerkleTreeId,
   TreeInfo,
   IndexedTree,
+  MerkleTreeDepths,
+  MerkleTree,
 } from '@aztec/merkle-tree';
 import { SerialQueue } from '@aztec/foundation';
 
@@ -18,18 +19,44 @@ export class MerkleTrees implements MerkleTreeDb {
   private trees: MerkleTree[] = [];
   private jobQueue = new SerialQueue();
 
-  constructor(db: LevelUp) {
+  constructor(private db: levelup.LevelUp) {}
+
+  /**
+   * Initialises the collection of Merkle Trees.
+   */
+  public async init() {
     const hasher = new Pedersen();
-    const contractTree = StandardMerkleTree.new(db, hasher, `${MerkleTreeId[MerkleTreeId.CONTRACT_TREE]}`, 32);
-    const contractTreeRootsTree = StandardMerkleTree.new(
-      db,
+    const contractTree = await StandardMerkleTree.new(
+      this.db,
+      hasher,
+      `${MerkleTreeId[MerkleTreeId.CONTRACT_TREE]}`,
+      MerkleTreeDepths.CONTRACT_TREE,
+    );
+    const contractTreeRootsTree = await StandardMerkleTree.new(
+      this.db,
       hasher,
       `${MerkleTreeId[MerkleTreeId.CONTRACT_TREE_ROOTS_TREE]}`,
-      7,
+      MerkleTreeDepths.CONTRACT_TREE_ROOTS_TREE,
     );
-    const nullifierTree = IndexedTree.new(db, hasher, `${MerkleTreeId[MerkleTreeId.NULLIFIER_TREE]}`, 32);
+    const nullifierTree = await IndexedTree.new(
+      this.db,
+      hasher,
+      `${MerkleTreeId[MerkleTreeId.NULLIFIER_TREE]}`,
+      MerkleTreeDepths.NULLIFIER_TREE,
+    );
     this.trees = [contractTree, contractTreeRootsTree, nullifierTree];
     this.jobQueue.start();
+  }
+
+  /**
+   * Method to asynchronously create and initialise a MerkleTrees instance.
+   * @param db - The db instance to use for data persistance.
+   * @returns - A fully initialised MerkleTrees instance.
+   */
+  public static async new(db: levelup.LevelUp) {
+    const merkleTrees = new MerkleTrees(db);
+    await merkleTrees.init();
+    return merkleTrees;
   }
 
   /**
@@ -40,11 +67,12 @@ export class MerkleTrees implements MerkleTreeDb {
   }
 
   /**
-   * Gets the tree info for all trees.
-   * @returns The tree info for all trees.
+   * Gets the tree info for the specified tree.
+   * @param treeId - Id of the tree to get information from.
+   * @returns The tree info for the specified tree.
    */
-  public async getTreeInfo(): Promise<TreeInfo[]> {
-    return await this.synchronise(() => this._getTreeInfo());
+  public async getTreeInfo(treeId: MerkleTreeId): Promise<TreeInfo> {
+    return await this.synchronise(() => this._getTreeInfo(treeId));
   }
 
   /**
@@ -53,7 +81,7 @@ export class MerkleTrees implements MerkleTreeDb {
    * @param index - The index of the leaf.
    * @returns The sibling path for the leaf.
    */
-  public async getSiblingPath(treeId: MerkleTreeId, index: number): Promise<SiblingPath> {
+  public async getSiblingPath(treeId: MerkleTreeId, index: bigint): Promise<SiblingPath> {
     return await this.synchronise(() => this._getSiblingPath(treeId, index));
   }
 
@@ -93,19 +121,17 @@ export class MerkleTrees implements MerkleTreeDb {
   }
 
   /**
-   * Returns the tree info for all trees.
-   * @returns The tree info for all trees.
+   * Returns the tree info for the specified tree.
+   * @param treeId - Id of the tree to get information from.
+   * @returns The tree info for the specified tree.
    */
-  private _getTreeInfo(): Promise<TreeInfo[]> {
-    return Promise.resolve(
-      this.trees.map((tree, index) => {
-        return {
-          treeId: MerkleTreeId[index],
-          root: tree.getRoot(),
-          size: tree.getSize(),
-        } as TreeInfo;
-      }),
-    );
+  private _getTreeInfo(treeId: MerkleTreeId): Promise<TreeInfo> {
+    const treeInfo = {
+      treeId,
+      root: this.trees[treeId].getRoot(),
+      size: this.trees[treeId].getNumLeaves(),
+    } as TreeInfo;
+    return Promise.resolve(treeInfo);
   }
 
   /**
@@ -114,8 +140,8 @@ export class MerkleTrees implements MerkleTreeDb {
    * @param index - Index of the leaf to get the sibling path for.
    * @returns Promise containing the sibling path for the leaf.
    */
-  private _getSiblingPath(treeId: MerkleTreeId, index: number): Promise<SiblingPath> {
-    return Promise.resolve(this.trees[treeId].getHashPath(index));
+  private _getSiblingPath(treeId: MerkleTreeId, index: bigint): Promise<SiblingPath> {
+    return Promise.resolve(this.trees[treeId].getSiblingPath(index));
   }
 
   /**
