@@ -27,6 +27,9 @@ fi
 
 git submodule update --init --recursive
 
+\. ~/.nvm/nvm.sh
+nvm install
+
 if [ ! -f ~/.nvm/nvm.sh ]; then
   echo "Nvm not found at ~/.nvm"
   exit 1
