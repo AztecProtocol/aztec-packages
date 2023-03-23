@@ -1,6 +1,3 @@
-/* eslint-disable jsdoc/require-jsdoc */
-// import { default as levelup } from 'levelup';
-// import { default as memdown } from 'memdown';
 import { EthAddress } from '@aztec/ethereum.js/eth_address';
 import { AccumulatedTxData, Tx } from '@aztec/p2p';
 import { AztecNode } from './index.js';

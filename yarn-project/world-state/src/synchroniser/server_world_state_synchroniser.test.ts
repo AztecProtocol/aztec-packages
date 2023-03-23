@@ -1,4 +1,3 @@
-/* eslint-disable jsdoc/require-jsdoc */
 import { ServerWorldStateSynchroniser } from './server_world_state_synchroniser.js';
 import { L2BlockSource, L2BlockSourceSyncStatus, L2Block } from '@aztec/archiver';
 import { WorldStateRunningState } from './world_state_synchroniser.js';
@@ -6,6 +5,9 @@ import { Pedersen, MerkleTreeDb, MerkleTreeId, SiblingPath, StandardMerkleTree }
 import { sleep } from '@aztec/foundation';
 import { jest } from '@jest/globals';
 
+/**
+ * Generic mock implementation.
+ */
 type Mockify<T> = {
   [P in keyof T]: jest.Mock;
 };

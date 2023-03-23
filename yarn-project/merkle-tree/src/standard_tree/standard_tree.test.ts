@@ -1,11 +1,9 @@
-/* eslint-disable jsdoc/require-jsdoc */
 import { default as levelup } from 'levelup';
-import { default as memdown } from 'memdown';
 import { Hasher } from '../hasher.js';
 import { SiblingPath } from '../index.js';
 import { Pedersen } from '../pedersen.js';
 import { StandardMerkleTree } from './standard_tree.js';
-import { merkleTreeTestSuite } from '../test/test_suite.js';
+import { merkleTreeTestSuite, createMemDown } from '../test/test_suite.js';
 
 const createDb = async (levelUp: levelup.LevelUp, hasher: Hasher, name: string, depth: number) => {
   return await StandardMerkleTree.new(levelUp, hasher, name, depth);
@@ -29,7 +27,7 @@ describe('StandardMerkleTreeSpecific', () => {
     }
   });
   it('should have correct root and sibling paths', async () => {
-    const db = levelup(memdown());
+    const db = levelup(createMemDown());
     const tree = await createDb(db, pedersen, 'test', 2);
 
     const zeroTreeLeafHash = StandardMerkleTree.ZERO_ELEMENT;

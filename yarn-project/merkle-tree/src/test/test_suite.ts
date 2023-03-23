@@ -1,11 +1,10 @@
-/* eslint-disable jsdoc/require-jsdoc */
 import { default as levelup } from 'levelup';
 import { default as memdown } from 'memdown';
 import { Hasher, MerkleTree, Pedersen, SiblingPath } from '../index.js';
 
 /* eslint-disable @typescript-eslint/ban-ts-comment */
 // @ts-ignore
-const createMemDown = () => memdown();
+export const createMemDown = () => memdown();
 
 const expectSameTrees = async (tree1: MerkleTree, tree2: MerkleTree) => {
   const size = tree1.getNumLeaves();

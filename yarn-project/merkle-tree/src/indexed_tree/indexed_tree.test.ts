@@ -1,10 +1,8 @@
-/* eslint-disable jsdoc/require-jsdoc */
 import { default as levelup } from 'levelup';
-import { default as memdown } from 'memdown';
 import { toBufferBE } from '../bigint_buffer.js';
 import { Hasher, Pedersen, SiblingPath } from '../index.js';
 import { IndexedTree } from './indexed_tree.js';
-import { merkleTreeTestSuite } from '../test/test_suite.js';
+import { merkleTreeTestSuite, createMemDown } from '../test/test_suite.js';
 
 const createDb = async (levelUp: levelup.LevelUp, hasher: Hasher, name: string, depth: number) => {
   return await IndexedTree.new(levelUp, hasher, name, depth);
@@ -29,7 +27,7 @@ describe('IndexedMerkleTreeSpecific', () => {
 
   it('produces the correct roots and sibling paths', async () => {
     // Create a depth-3 indexed merkle tree
-    const db = levelup(memdown());
+    const db = levelup(createMemDown());
     const tree = await createDb(db, pedersen, 'test', 3);
 
     /**
