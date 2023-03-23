@@ -5,25 +5,24 @@ import {
   KERNEL_NEW_COMMITMENTS_LENGTH,
   KERNEL_NEW_NULLIFIERS_LENGTH,
   AppendOnlyTreeSnapshot,
+  NewContractData,
 } from '@aztec/circuits.js';
 import { MerkleTreeDb, MerkleTreeId } from '@aztec/world-state';
 import { Tx } from '@aztec/p2p';
+
+const mapContractData = (n: NewContractData) => {
+  const contractData = new ContractData(n.contractAddress, n.portalContractAddress);
+  return contractData;
+};
 
 export class BlockBuilder {
   private dataTreeLeaves: Buffer[] = [];
   private nullifierTreeLeaves: Buffer[] = [];
   private contractTreeLeaves: Buffer[] = [];
   constructor(private db: MerkleTreeDb, private nextRollupId: number, private tx: Tx) {
-    this.dataTreeLeaves = Array(KERNEL_NEW_COMMITMENTS_LENGTH)
-      .fill(0)
-      .map((_, index) => Buffer.alloc(32, index + nextRollupId * KERNEL_NEW_COMMITMENTS_LENGTH));
-    this.nullifierTreeLeaves = Array(KERNEL_NEW_NULLIFIERS_LENGTH)
-      .fill(0)
-      .map((_, index) => Buffer.alloc(32, index + nextRollupId * KERNEL_NEW_NULLIFIERS_LENGTH));
-    this.contractTreeLeaves = Array(KERNEL_NEW_CONTRACTS_LENGTH)
-      .fill(0)
-      .map((_, index) => Buffer.alloc(32, index + nextRollupId * KERNEL_NEW_CONTRACTS_LENGTH));
-    this.contractTreeLeaves[0] = tx.data.end.newContracts[0].functionTreeRoot.toBuffer();
+    this.dataTreeLeaves = tx.data.end.newCommitments.map((x: Fr) => x.toBuffer());
+    this.nullifierTreeLeaves = tx.data.end.newNullifiers.map((x: Fr) => x.toBuffer());
+    this.contractTreeLeaves = tx.data.end.newContracts.map((x: NewContractData) => x.functionTreeRoot.toBuffer());
   }
 
   public async buildL2Block() {
@@ -40,10 +39,6 @@ export class BlockBuilder {
     const endContractTreeSnapshot = await this.getTreeSnapshot(MerkleTreeId.NULLIFIER_TREE);
     const endDataTreeRootsTreeSnapshot = await this.getTreeSnapshot(MerkleTreeId.DATA_TREE_ROOTS_TREE);
     const endContractTreeRootsTreeSnapshot = await this.getTreeSnapshot(MerkleTreeId.CONTRACT_TREE_ROOTS_TREE);
-    const contractData: ContractData = new ContractData(
-      this.tx.data.end.newContracts[0].contractAddress,
-      this.tx.data.end.newContracts[0].portalContractAddress,
-    );
     const l2block = new L2Block(
       this.nextRollupId,
       startDataTreeSnapshot,
@@ -59,7 +54,7 @@ export class BlockBuilder {
       this.dataTreeLeaves.map(b => new Fr(b)),
       this.nullifierTreeLeaves.map(b => new Fr(b)),
       this.contractTreeLeaves.map(b => new Fr(b)),
-      [contractData],
+      this.tx.data.end.newContracts.map(mapContractData),
     );
     return l2block;
   }
