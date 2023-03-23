@@ -81,6 +81,17 @@ jobs:
           name: "Build and test"
           command: build ethereum.js
 
+  foundation
+    machine:
+      image: ubuntu-2004:202010-01
+    resource_class: large
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Build and test"
+          command: build foundation
+
   aztec-js:
     machine:
       image: ubuntu-2004:202010-01
