@@ -71,7 +71,7 @@
     "projectDir": "yarn-project/end-to-end",
     "dockerfile": "end-to-end/Dockerfile",
     "rebuildPatterns": ["^yarn-project/end-to-end/"],
-    "dependencies": ["yarn-project-base", "foundation"]]
+    "dependencies": ["yarn-project-base", "foundation"]
   },
   "ethereum.js": {
     "buildDir": "yarn-project",
