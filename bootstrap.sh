@@ -45,6 +45,7 @@ PROJECTS=(
   # "circuits:./bootstrap.sh db_cli rollup_cli"
   # "yarn-project/acir-simulator:yarn build"
   # "yarn-project/aztec-cli:yarn build"
+  "yarn-project/aztec-rpc:yarn build"
   "yarn-project/aztec.js:yarn build"
   "yarn-project/archiver:yarn build"
   # "yarn-project/ethereum.js:yarn build"
@@ -54,7 +55,6 @@ PROJECTS=(
   # "yarn-project/prover-client:yarn build"
   # "yarn-project/public-client:yarn build"
   # "yarn-project/sequencer-client:yarn build"
-  # "yarn-project/wallet:yarn build"
 )
 
 for E in "${PROJECTS[@]}"; do

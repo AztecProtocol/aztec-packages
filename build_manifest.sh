@@ -14,6 +14,7 @@ PROJECTS=(
   # acir-simulator:yarn-project
   # archiver:yarn-project
   # aztec-cli:yarn-project
+  # aztec-rpc:yarn-project
   # aztec.js:yarn-project
   # end-to-end:yarn-project
   # ethereum.js:yarn-project
@@ -23,5 +24,4 @@ PROJECTS=(
   # prover-client:yarn-project
   # public-client:yarn-project
   # sequencer-client:yarn-project
-  # wallet:yarn-project
 )

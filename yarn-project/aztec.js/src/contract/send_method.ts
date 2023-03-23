@@ -1,4 +1,4 @@
-import { AztecAddress, AztecRPCClient, Fr, Signature, Tx, TxHash, TxRequest } from '../aztec_rpc/index.js';
+import { AztecAddress, AztecRPCClient, Fr, Signature, Tx, TxHash, TxRequest } from '@aztec/aztec-rpc';
 import { ContractFunction } from './contract_function.js';
 import { SentTx } from './sent_tx.js';
 
@@ -11,7 +11,7 @@ export interface SendMethodOptions {
  * This is the class that is returned when calling e.g. `contract.methods.myMethod(arg0, arg1)`.
  * It contains available interactions one can call on a `send` method.
  */
-export class SendMethodInteraction {
+export class SendMethod {
   protected txRequest?: TxRequest;
   private signature?: Signature;
   private tx?: Tx;

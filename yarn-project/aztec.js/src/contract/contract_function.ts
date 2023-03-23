@@ -1,5 +1,5 @@
 import { encodeFunctionSignature, encodeParameters, generateFunctionSignature } from '../abi_coder/index.js';
-import { FunctionAbi } from '../noir_js/index.js';
+import { FunctionAbi } from '../noir.js';
 
 export class ContractFunction {
   constructor(private abi: FunctionAbi) {}

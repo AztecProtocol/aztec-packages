@@ -1,9 +1,3 @@
-import nodeCrypto from 'crypto';
-
-export const randomBytes = (len: number) => {
-  return nodeCrypto.randomBytes(len) as Buffer;
-};
-
 export function sleep(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }

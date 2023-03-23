@@ -1,6 +1,6 @@
-import { AztecAddress, EthAddress, Fr, Signature, Tx, TxHash, TxRequest } from './circuit_js.js';
+import { AztecAddress, EthAddress, Fr, Signature, Tx, TxHash, TxRequest } from './circuits.js';
 
-export * from './circuit_js.js';
+export * from './circuits.js';
 
 export interface TxReceipt {
   txHash: TxHash;

@@ -1,8 +1,7 @@
+import { AztecAddress, AztecRPCClient, EthAddress, Fr } from '@aztec/aztec-rpc';
 import { hexToBuffer } from '../abi_coder/index.js';
-import { AztecAddress, AztecRPCClient, EthAddress, Fr } from '../aztec_rpc/index.js';
-import { ContractAbi } from '../noir_js/index.js';
-import { ContractFunction } from './contract_function.js';
-import { SendMethodOptions, SendMethodInteraction } from './send_method_interaction.js';
+import { ContractFunction, SendMethod, SendMethodOptions } from '../contract/index.js';
+import { ContractAbi } from '../noir.js';
 
 export interface ConstructorOptions extends SendMethodOptions {
   contractAddressSalt?: Fr;
@@ -11,7 +10,7 @@ export interface ConstructorOptions extends SendMethodOptions {
 /**
  * Extends the SendMethodInteraction to create TxRequest for constructors (deployments).
  */
-export class ConstructorInteraction extends SendMethodInteraction {
+export class ConstructorMethod extends SendMethod {
   constructor(
     arc: AztecRPCClient,
     private abi: ContractAbi,

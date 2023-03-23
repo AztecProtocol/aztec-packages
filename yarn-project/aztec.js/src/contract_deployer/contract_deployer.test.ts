@@ -9,8 +9,8 @@ import {
   TxHash,
   TxReceipt,
   TxRequest,
-} from '../aztec_rpc/index.js';
-import { ContractAbi } from '../noir_js/index.js';
+} from '@aztec/aztec-rpc';
+import { ContractAbi } from '../noir.js';
 import { ContractDeployer } from './contract_deployer.js';
 
 describe('Contract Deployer', () => {

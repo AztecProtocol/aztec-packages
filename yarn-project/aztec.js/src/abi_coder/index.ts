@@ -1,4 +1,4 @@
-import { ABIParameter } from '../noir_js/index.js';
+import { ABIParameter } from '../noir.js';
 import { keccak256 } from './keccak256.js';
 
 export * from './hex_string.js';

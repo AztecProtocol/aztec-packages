@@ -1,4 +1,4 @@
-import { randomBytes } from '../foundation/index.js';
+import { randomBytes } from './foundation.js';
 
 /**
  * A named type.
