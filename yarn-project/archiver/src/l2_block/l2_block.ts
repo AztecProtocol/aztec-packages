@@ -168,6 +168,40 @@ export class L2Block {
       newContractData,
     );
   }
+
+  /**
+   * Inspect for debugging purposes.
+   * @returns a human-friendly string representation of the l2block
+   */
+  inspect(maxBufferSize = 4): string {
+    const inspectTreeSnapshot = (s: AppendOnlyTreeSnapshot): string => (
+      `(${s.nextAvailableLeafIndex}, 0x${s.root.toBuffer().subarray(0, maxBufferSize).toString('hex')})`
+    );
+    const inspectFrArray = (arr: Fr[]): string => (
+      '[' + arr.map(fr => '0x' + fr.toBuffer().subarray(0, maxBufferSize).toString('hex')).join(', ') + ']'
+    );
+    const inspectContractDataArray = (arr: ContractData[]): string => (
+      '[' + arr.map(cd => `(0x${cd.aztecAddress.toBuffer().subarray(0, maxBufferSize).toString('hex')}, 0x${cd.ethAddress.buffer.subarray(0, maxBufferSize).toString('hex')})`).join(', ') + ']'
+    );
+    return [
+      `L2Block`,
+      `number: ${this.number}`,
+      `startPrivateDataTreeSnapshot: ${inspectTreeSnapshot(this.startPrivateDataTreeSnapshot)}`,
+      `startNullifierTreeSnapshot: ${inspectTreeSnapshot(this.startNullifierTreeSnapshot)}`,
+      `startContractTreeSnapshot: ${inspectTreeSnapshot(this.startContractTreeSnapshot)}`,
+      `startTreeOfHistoricPrivateDataTreeRootsSnapshot: ${inspectTreeSnapshot(this.startTreeOfHistoricPrivateDataTreeRootsSnapshot)}`,
+      `startTreeOfHistoricContractTreeRootsSnapshot: ${inspectTreeSnapshot(this.startTreeOfHistoricContractTreeRootsSnapshot)}`,
+      `endPrivateDataTreeSnapshot: ${inspectTreeSnapshot(this.endPrivateDataTreeSnapshot)}`,
+      `endNullifierTreeSnapshot: ${inspectTreeSnapshot(this.endNullifierTreeSnapshot)}`,
+      `endContractTreeSnapshot: ${inspectTreeSnapshot(this.endContractTreeSnapshot)}`,
+      `endTreeOfHistoricPrivateDataTreeRootsSnapshot: ${inspectTreeSnapshot(this.endTreeOfHistoricPrivateDataTreeRootsSnapshot)}`,
+      `endTreeOfHistoricContractTreeRootsSnapshot: ${inspectTreeSnapshot(this.endTreeOfHistoricContractTreeRootsSnapshot)}`,
+      `newCommitments: ${inspectFrArray(this.newCommitments)}`,
+      `newNullifiers: ${inspectFrArray(this.newNullifiers)}`,
+      `newContracts: ${inspectFrArray(this.newContracts)}`,
+      `newContractData: ${inspectContractDataArray(this.newContractData)}`,
+    ].join('\n');
+  }
 }
 
 /**

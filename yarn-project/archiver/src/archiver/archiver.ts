@@ -136,6 +136,7 @@ export class Archiver implements L2BlockSource {
       }
       // TODO: Fetch blocks from calldata in parallel
       const newBlock = await this.getBlockFromCallData(log.transactionHash!, log.args.blockNum);
+      this.log(`Processed new block: ${newBlock.inspect()}`);
       const yeet = this.pendingYeets.find(yeet => BigInt(yeet.readUInt32BE(0)) === blockNum);
       if (yeet !== undefined) {
         newBlock.setYeet(yeet);
