@@ -18,7 +18,7 @@ COPY aztec-cli/package.json aztec-cli/package.json
 COPY aztec.js/package.json aztec.js/package.json
 COPY docs/package.json docs/package.json
 COPY end-to-end/package.json end-to-end/package.json
-COPY ethereum.js/example/package.json ethereum.js/example/package.json
+COPY ethereum.js/example/package.json ethereufm.js/example/package.json
 COPY ethereum.js/package.json ethereum.js/package.json
 COPY foundation/package.json foundation/package.json
 COPY kernel-simulator/package.json kernel-simulator/package.json
