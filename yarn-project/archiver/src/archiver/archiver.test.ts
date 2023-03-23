@@ -1,12 +1,13 @@
+import { EthAddress } from '@aztec/ethereum.js/eth_address';
 import { jest } from '@jest/globals';
-import { getAddress, PublicClient } from 'viem';
+import { PublicClient } from 'viem';
 import { Archiver } from './archiver.js';
 
 jest.mock('viem');
 
 describe('Archiver', () => {
-  const rollupAddress = getAddress('0x0000000000000000000000000000000000000000');
-  const yeeterAddress = getAddress('0x0000000000000000000000000000000000000000');
+  const rollupAddress = '0x0000000000000000000000000000000000000000';
+  const yeeterAddress = '0x0000000000000000000000000000000000000000';
   let publicClient: PublicClient;
 
   beforeEach(() => {
@@ -35,7 +36,11 @@ describe('Archiver', () => {
   });
 
   it('can start, sync and stop', async () => {
-    const archiver = new Archiver(publicClient, rollupAddress, yeeterAddress);
+    const archiver = new Archiver(
+      publicClient,
+      EthAddress.fromString(rollupAddress),
+      EthAddress.fromString(yeeterAddress),
+    );
     let syncStatus = await archiver.getSyncStatus();
     let latestBlockNum = await archiver.getLatestBlockNum();
     expect(syncStatus).toStrictEqual({

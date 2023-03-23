@@ -30,38 +30,39 @@ describe('In-Memory P2P Client', () => {
 
   it('can start & stop', async () => {
     const client = new P2PCLient(blockSource, txPool);
-    expect(client.isReady()).toEqual(false);
+    expect(await client.isReady()).toEqual(false);
 
     await client.start();
-    expect(client.isReady()).toEqual(true);
+    expect(await client.isReady()).toEqual(true);
 
     await client.stop();
-    expect(client.isReady()).toEqual(false);
+    expect(await client.isReady()).toEqual(false);
   });
 
   it('adds txs to pool', async () => {
     const client = new P2PCLient(blockSource, txPool);
     await client.start();
-    const tx1 = new MockTx();
-    const tx2 = new MockTx();
-    await client.sendTx(tx1);
-    await client.sendTx(tx2);
-
-    expect(txPool.addTxs).toHaveBeenCalledTimes(2);
-  });
-
-  it('rejects txs after being stopped', async () => {
-    const client = new P2PCLient(blockSource, txPool);
-    await client.start();
-    const tx1 = new MockTx();
-    const tx2 = new MockTx();
+    const tx1 = MockTx();
+    const tx2 = MockTx();
     await client.sendTx(tx1);
     await client.sendTx(tx2);
 
     expect(txPool.addTxs).toHaveBeenCalledTimes(2);
     await client.stop();
-    const tx3 = new MockTx();
-    await client.sendTx(tx3);
+  });
+
+  it('rejects txs after being stopped', async () => {
+    const client = new P2PCLient(blockSource, txPool);
+    await client.start();
+    const tx1 = MockTx();
+    const tx2 = MockTx();
+    await client.sendTx(tx1);
+    await client.sendTx(tx2);
+
+    expect(txPool.addTxs).toHaveBeenCalledTimes(2);
+    await client.stop();
+    const tx3 = MockTx();
+    await expect(client.sendTx(tx3)).rejects.toThrow();
     expect(txPool.addTxs).toHaveBeenCalledTimes(2);
   });
 });
