@@ -18,6 +18,9 @@ import { ContractData, L2Block } from '../l2_block/l2_block.js';
 import { L2BlockSource, L2BlockSourceSyncStatus } from '../l2_block/l2_block_source.js';
 import { randomAppendOnlyTreeSnapshot, randomBytes, randomContractData } from '../l2_block/mocks.js';
 
+// Rollup contract refuses to accept a block with id 0
+const INITIAL_BLOCK_NUM = 1;
+
 /**
  * Pulls L2 blocks in a non-blocking manner and provides interface for their retrieval.
  */
@@ -114,7 +117,7 @@ export class Archiver implements L2BlockSource {
     const blockLogs = await this.publicClient.getFilterLogs({ filter: blockFilter });
     const yeetLogs = await this.publicClient.getFilterLogs({ filter: yeetFilter });
 
-    this.processBlockLogs(blockLogs);
+    await this.processBlockLogs(blockLogs);
     this.processYeetLogs(yeetLogs);
   }
 
@@ -145,9 +148,16 @@ export class Archiver implements L2BlockSource {
     this.log('Processed ' + logs.length + ' L2 blocks...');
     for (const log of logs) {
       const blockNum = log.args.blockNum;
-      if (blockNum !== BigInt(this.l2Blocks.length)) {
-        throw new Error('Block number mismatch. Expected: ' + this.l2Blocks.length + ' but got: ' + blockNum + '.');
+      if (blockNum !== BigInt(this.l2Blocks.length + INITIAL_BLOCK_NUM)) {
+        throw new Error(
+          'Block number mismatch. Expected: ' +
+            (this.l2Blocks.length + INITIAL_BLOCK_NUM) +
+            ' but got: ' +
+            blockNum +
+            '.',
+        );
       }
+      // TODO: Fetch blocks from calldata in parallel
       const newBlock = await this.getBlockFromCallData(log.transactionHash!, log.args.blockNum);
       const yeet = this.pendingYeets.find(yeet => BigInt(yeet.readUInt32BE(0)) === blockNum);
       if (yeet !== undefined) {
@@ -167,7 +177,7 @@ export class Archiver implements L2BlockSource {
     for (const log of logs) {
       const blockNum = log.args.l2blockNum;
       if (blockNum < BigInt(this.l2Blocks.length)) {
-        const block = this.l2Blocks[Number(blockNum)];
+        const block = this.l2Blocks[Number(blockNum) - INITIAL_BLOCK_NUM];
         block.setYeet(Buffer.from(hexToBytes(log.args.blabber)));
         this.log('Enriched block ' + blockNum + ' with yeet.');
       } else {
@@ -187,7 +197,11 @@ export class Archiver implements L2BlockSource {
    */
   private async getBlockFromCallData(txHash: `0x${string}`, l2BlockNum: BigInt): Promise<L2Block> {
     const { input: data } = await this.publicClient.getTransaction({ hash: txHash });
-    const { functionName, args } = decodeFunctionData({ abi: RollupAbi, data });
+    // TODO: File a bug in viem who complains if we dont remove the ctor from the abi here
+    const { functionName, args } = decodeFunctionData({
+      abi: RollupAbi.filter(item => item.type !== 'constructor'),
+      data,
+    });
     if (functionName !== 'process') throw new Error(`Unexpected method called ${functionName}`);
     const [_proofHex, l2blockHex] = args! as [Hex, Hex];
     return L2Block.decode(Buffer.from(hexToBytes(l2blockHex)));

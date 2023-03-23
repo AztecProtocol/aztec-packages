@@ -4,3 +4,4 @@ export interface L1Addresses {
 }
 
 export * from './ethereumjs-contracts/Rollup.js';
+export * from './ethereumjs-contracts/Yeeter.js';
