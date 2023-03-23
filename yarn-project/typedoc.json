@@ -12,7 +12,7 @@
     "noir-contracts",
     "p2p",
     "prover-client",
-    "public-client",
+    "aztec-node",
     "sequencer-client",
     "wallet"
   ]

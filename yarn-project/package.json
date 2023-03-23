@@ -24,7 +24,7 @@
     "p2p",
     "prettier-config",
     "prover-client",
-    "public-client",
+    "aztec-node",
     "sequencer-client",
     "wallet",
     "world-state"

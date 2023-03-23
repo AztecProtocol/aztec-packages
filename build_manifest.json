@@ -122,11 +122,11 @@
     "rebuildPatterns": ["^yarn-project/prover-client/"],
     "dependencies": ["yarn-project-base"]
   },
-  "public-client": {
+  "aztec-node": {
     "buildDir": "yarn-project",
-    "projectDir": "yarn-project/public-client",
-    "dockerfile": "public-client/Dockerfile",
-    "rebuildPatterns": ["^yarn-project/public-client/"],
+    "projectDir": "yarn-project/aztec-node",
+    "dockerfile": "aztec-node/Dockerfile",
+    "rebuildPatterns": ["^yarn-project/aztec-node/"],
     "dependencies": ["yarn-project-base"]
   },
   "sequencer-client": {
