@@ -85,6 +85,47 @@ export class L2Block {
   ) {}
 
   /**
+   * Constructs a new instance from named fields.
+   * @param fields - fields to pass to the constructor
+   * @returns a new instance
+   */
+  static fromFields(fields: {
+    number: number,
+    startPrivateDataTreeSnapshot: AppendOnlyTreeSnapshot,
+    startNullifierTreeSnapshot: AppendOnlyTreeSnapshot,
+    startContractTreeSnapshot: AppendOnlyTreeSnapshot,
+    startTreeOfHistoricPrivateDataTreeRootsSnapshot: AppendOnlyTreeSnapshot,
+    startTreeOfHistoricContractTreeRootsSnapshot: AppendOnlyTreeSnapshot,
+    endPrivateDataTreeSnapshot: AppendOnlyTreeSnapshot,
+    endNullifierTreeSnapshot: AppendOnlyTreeSnapshot,
+    endContractTreeSnapshot: AppendOnlyTreeSnapshot,
+    endTreeOfHistoricPrivateDataTreeRootsSnapshot: AppendOnlyTreeSnapshot,
+    endTreeOfHistoricContractTreeRootsSnapshot: AppendOnlyTreeSnapshot,
+    newCommitments: Fr[],
+    newNullifiers: Fr[],
+    newContracts: Fr[],
+    newContractData: ContractData[],
+  }) {
+    return new this(
+      fields.number,
+      fields.startPrivateDataTreeSnapshot,
+      fields.startNullifierTreeSnapshot,
+      fields.startContractTreeSnapshot,
+      fields.startTreeOfHistoricPrivateDataTreeRootsSnapshot,
+      fields.startTreeOfHistoricContractTreeRootsSnapshot,
+      fields.endPrivateDataTreeSnapshot,
+      fields.endNullifierTreeSnapshot,
+      fields.endContractTreeSnapshot,
+      fields.endTreeOfHistoricPrivateDataTreeRootsSnapshot,
+      fields.endTreeOfHistoricContractTreeRootsSnapshot,
+      fields.newCommitments,
+      fields.newNullifiers,
+      fields.newContracts,
+      fields.newContractData,
+    )
+  }
+
+  /**
    * Sets the yeet on this block.
    * @param yeet - The yeet to set.
    */

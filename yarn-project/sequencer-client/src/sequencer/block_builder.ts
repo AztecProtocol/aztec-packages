@@ -19,6 +19,7 @@ export class BlockBuilder {
   private dataTreeLeaves: Buffer[] = [];
   private nullifierTreeLeaves: Buffer[] = [];
   private contractTreeLeaves: Buffer[] = [];
+
   constructor(private db: MerkleTreeDb, private nextRollupId: number, private tx: Tx) {
     this.dataTreeLeaves = tx.data.end.newCommitments.map((x: Fr) => x.toBuffer());
     this.nullifierTreeLeaves = tx.data.end.newNullifiers.map((x: Fr) => x.toBuffer());
@@ -26,36 +27,37 @@ export class BlockBuilder {
   }
 
   public async buildL2Block() {
-    const startDataTreeSnapshot = await this.getTreeSnapshot(MerkleTreeId.DATA_TREE);
+    const startPrivateDataTreeSnapshot = await this.getTreeSnapshot(MerkleTreeId.DATA_TREE);
     const startNullifierTreeSnapshot = await this.getTreeSnapshot(MerkleTreeId.NULLIFIER_TREE);
     const startContractTreeSnapshot = await this.getTreeSnapshot(MerkleTreeId.CONTRACT_TREE);
-    const startDataTreeRootsTreeSnapshot = await this.getTreeSnapshot(MerkleTreeId.DATA_TREE_ROOTS_TREE);
-    const startContractTreeRootsTreeSnapshot = await this.getTreeSnapshot(MerkleTreeId.CONTRACT_TREE_ROOTS_TREE);
+    const startTreeOfHistoricPrivateDataTreeRootsSnapshot = await this.getTreeSnapshot(MerkleTreeId.DATA_TREE_ROOTS_TREE);
+    const startTreeOfHistoricContractTreeRootsSnapshot = await this.getTreeSnapshot(MerkleTreeId.CONTRACT_TREE_ROOTS_TREE);
 
     await this.updateTrees();
 
-    const endDataTreeSnapshot = await this.getTreeSnapshot(MerkleTreeId.DATA_TREE);
+    const endPrivateDataTreeSnapshot = await this.getTreeSnapshot(MerkleTreeId.DATA_TREE);
     const endNullifierTreeSnapshot = await this.getTreeSnapshot(MerkleTreeId.NULLIFIER_TREE);
     const endContractTreeSnapshot = await this.getTreeSnapshot(MerkleTreeId.CONTRACT_TREE);
-    const endDataTreeRootsTreeSnapshot = await this.getTreeSnapshot(MerkleTreeId.DATA_TREE_ROOTS_TREE);
-    const endContractTreeRootsTreeSnapshot = await this.getTreeSnapshot(MerkleTreeId.CONTRACT_TREE_ROOTS_TREE);
-    const l2block = new L2Block(
-      this.nextRollupId,
-      startDataTreeSnapshot,
-      endDataTreeSnapshot,
+    const endTreeOfHistoricPrivateDataTreeRootsSnapshot = await this.getTreeSnapshot(MerkleTreeId.DATA_TREE_ROOTS_TREE);
+    const endTreeOfHistoricContractTreeRootsSnapshot = await this.getTreeSnapshot(MerkleTreeId.CONTRACT_TREE_ROOTS_TREE);
+    
+    const l2block = L2Block.fromFields({
+      number: this.nextRollupId,
+      startPrivateDataTreeSnapshot,
+      endPrivateDataTreeSnapshot,
       startNullifierTreeSnapshot,
       endNullifierTreeSnapshot,
       startContractTreeSnapshot,
       endContractTreeSnapshot,
-      startDataTreeRootsTreeSnapshot,
-      endDataTreeRootsTreeSnapshot,
-      startContractTreeRootsTreeSnapshot,
-      endContractTreeRootsTreeSnapshot,
-      this.dataTreeLeaves.map(b => new Fr(b)),
-      this.nullifierTreeLeaves.map(b => new Fr(b)),
-      this.contractTreeLeaves.map(b => new Fr(b)),
-      this.tx.data.end.newContracts.map(mapContractData),
-    );
+      startTreeOfHistoricPrivateDataTreeRootsSnapshot,
+      endTreeOfHistoricPrivateDataTreeRootsSnapshot,
+      startTreeOfHistoricContractTreeRootsSnapshot,
+      endTreeOfHistoricContractTreeRootsSnapshot,
+      newCommitments: this.dataTreeLeaves.map(b => new Fr(b)),
+      newNullifiers: this.nullifierTreeLeaves.map(b => new Fr(b)),
+      newContracts: this.contractTreeLeaves.map(b => new Fr(b)),
+      newContractData: this.tx.data.end.newContracts.map(mapContractData),
+    });
     return l2block;
   }
 
@@ -69,10 +71,10 @@ export class BlockBuilder {
       await this.db.appendLeaves(MerkleTreeId.DATA_TREE, [this.dataTreeLeaves[i]]);
     }
     for (let i = 0; i < KERNEL_NEW_NULLIFIERS_LENGTH; i++) {
-      await this.db.appendLeaves(MerkleTreeId.NULLIFIER_TREE, this.nullifierTreeLeaves);
+      await this.db.appendLeaves(MerkleTreeId.NULLIFIER_TREE, [this.nullifierTreeLeaves[i]]);
     }
     for (let i = 0; i < KERNEL_NEW_CONTRACTS_LENGTH; i++) {
-      await this.db.appendLeaves(MerkleTreeId.CONTRACT_TREE, this.contractTreeLeaves);
+      await this.db.appendLeaves(MerkleTreeId.CONTRACT_TREE, [this.contractTreeLeaves[i]]);
     }
     const newDataTreeInfo = await this.getTreeSnapshot(MerkleTreeId.DATA_TREE);
     const newContractsTreeInfo = await this.getTreeSnapshot(MerkleTreeId.CONTRACT_TREE);
