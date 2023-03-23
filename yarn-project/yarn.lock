@@ -101,6 +101,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/aztec.js@workspace:aztec.js"
   dependencies:
+    "@aztec/foundation": "workspace:^"
     "@jest/globals": ^29.4.3
     "@rushstack/eslint-patch": ^1.1.4
     "@types/jest": ^29.4.0
@@ -137,6 +138,7 @@ __metadata:
   resolution: "@aztec/end-to-end@workspace:end-to-end"
   dependencies:
     "@aztec/aztec.js": "workspace:^"
+    "@aztec/foundation": "workspace:^"
     "@jest/globals": ^29.4.3
     "@rushstack/eslint-patch": ^1.1.4
     "@types/jest": ^29.4.0
@@ -294,6 +296,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/noir-contracts@workspace:noir-contracts"
   dependencies:
+    "@aztec/foundation": "workspace:^"
     "@jest/globals": ^29.4.3
     "@noir-lang/noir-source-resolver": ^1.1.0
     "@noir-lang/noir_wasm": 0.3.2-29b1f7df
