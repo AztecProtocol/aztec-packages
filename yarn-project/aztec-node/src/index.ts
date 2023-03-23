@@ -6,6 +6,8 @@ import { MerkleTrees, WorldStateSynchroniser, ServerWorldStateSynchroniser } fro
 import { EthAddress } from '@aztec/ethereum.js/eth_address';
 import { Tx } from '@aztec/p2p';
 
+export { AccumulatedTxData, Tx } from '@aztec/p2p';
+
 /* eslint-disable @typescript-eslint/ban-ts-comment */
 // @ts-ignore
 export const createMemDown = () => memdown();

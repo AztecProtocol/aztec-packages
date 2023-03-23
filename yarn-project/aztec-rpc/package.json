@@ -29,6 +29,7 @@
     "rootDir": "./src"
   },
   "dependencies": {
+    "@aztec/aztec-node": "workspace:^",
     "tslib": "^2.4.0"
   },
   "devDependencies": {

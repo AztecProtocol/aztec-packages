@@ -17,6 +17,10 @@ export class EthAddress {
     return new EthAddress(randomBytes(20));
   }
 
+  public static fromString(address: string) {
+    return new EthAddress(Buffer.from(address.replace(/^0x/i, ''), 'hex'));
+  }
+
   constructor(public readonly buffer: Buffer) {}
 }
 

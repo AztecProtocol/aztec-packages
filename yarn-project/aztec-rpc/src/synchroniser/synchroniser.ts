@@ -1,5 +1,5 @@
+import { AztecNode } from '@aztec/aztec-node';
 import { AccountState } from '../account_state/index.js';
-import { AztecNode } from '../aztec_node.js';
 import { AztecAddress } from '../circuits.js';
 import { Database } from '../database/index.js';
 
