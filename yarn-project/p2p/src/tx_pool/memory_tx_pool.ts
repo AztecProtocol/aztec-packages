@@ -1,11 +1,3 @@
-<<<<<<< HEAD
-import { toBigIntBE } from '@aztec/foundation';
-
-import { Tx } from '../temp_types.js';
-import { TxPool } from './index.js';
-
-/**
-=======
 import { createDebugLogger } from '@aztec/foundation';
 import { Tx } from '../index.js';
 import { TxPool } from './index.js';
@@ -23,7 +15,6 @@ const toBigInt = (buf: Buffer): bigint => {
 };
 
 /**
->>>>>>> master
  * In-memory implementation of the Transaction Pool.
  */
 export class InMemoryTxPool implements TxPool {
@@ -34,14 +25,9 @@ export class InMemoryTxPool implements TxPool {
 
   /**
    * Class constructor for in-memory TxPool. Initiates our transaction pool as a JS Map.
-<<<<<<< HEAD
-   */
-  constructor() {
-=======
    * @param log - A logger.
    */
   constructor(private log = createDebugLogger('aztec:tx_pool')) {
->>>>>>> master
     this.txs = new Map<bigint, Tx>();
   }
 
@@ -51,11 +37,7 @@ export class InMemoryTxPool implements TxPool {
    * @returns The transaction, if found, 'undefined' otherwise.
    */
   public getTx(txId: Buffer): Tx | undefined {
-<<<<<<< HEAD
-    const result = this.txs.get(toBigIntBE(txId));
-=======
     const result = this.txs.get(toBigInt(txId));
->>>>>>> master
     return result;
   }
 
@@ -64,12 +46,8 @@ export class InMemoryTxPool implements TxPool {
    * @param txs - An array of txs to be added to the pool.
    */
   public addTxs(txs: Tx[]): void {
-<<<<<<< HEAD
-    txs.forEach(tx => this.txs.set(toBigIntBE(tx.txId), tx));
-=======
     this.log(`Adding tx with id ${txs[0].txId.toString('hex')}`);
     txs.forEach(tx => this.txs.set(toBigInt(tx.txId), tx));
->>>>>>> master
   }
 
   /**
@@ -78,11 +56,7 @@ export class InMemoryTxPool implements TxPool {
    * @returns The number of  transactions that was deleted from the pool.
    */
   public deleteTxs(txIds: Buffer[]): number {
-<<<<<<< HEAD
-    const numTxsRemoved = txIds.map(txId => this.txs.delete(toBigIntBE(txId))).filter(result => result === true).length;
-=======
     const numTxsRemoved = txIds.map(txId => this.txs.delete(toBigInt(txId))).filter(result => result === true).length;
->>>>>>> master
     return numTxsRemoved;
   }
 
