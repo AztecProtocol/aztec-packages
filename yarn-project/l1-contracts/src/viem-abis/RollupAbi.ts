@@ -1,5 +1,5 @@
 /**
- * Rollup ABI for viem
+ * Rollup ABI for viem.
  */
 export const RollupAbi = [
   {

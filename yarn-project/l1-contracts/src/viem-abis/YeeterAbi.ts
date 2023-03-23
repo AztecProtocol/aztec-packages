@@ -1,5 +1,5 @@
 /**
- * Yeeter ABI for viem
+ * Yeeter ABI for viem.
  */
 export const YeeterAbi = [
   {
