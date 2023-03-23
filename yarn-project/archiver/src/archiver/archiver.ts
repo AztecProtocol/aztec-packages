@@ -2,14 +2,7 @@ import { fr, makeAppendOnlyTreeSnapshot, makeEthAddress } from '@aztec/circuits.
 import { EthAddress } from '@aztec/ethereum.js/eth_address';
 import { createDebugLogger } from '@aztec/foundation';
 import { RollupAbi, YeeterAbi } from '@aztec/l1-contracts/viem';
-import {
-  createPublicClient, decodeFunctionData, getAddress,
-  Hex,
-  hexToBytes,
-  http,
-  Log,
-  PublicClient
-} from 'viem';
+import { createPublicClient, decodeFunctionData, getAddress, Hex, hexToBytes, http, Log, PublicClient } from 'viem';
 import { localhost } from 'viem/chains';
 import { ContractData, L2Block } from '../l2_block/l2_block.js';
 import { L2BlockSource } from '../l2_block/l2_block_source.js';

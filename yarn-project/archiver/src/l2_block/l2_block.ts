@@ -1,11 +1,10 @@
-import { AppendOnlyTreeSnapshot, EthAddress, Fr } from "@aztec/circuits.js";
-import { BufferReader, serializeToBuffer } from "@aztec/circuits.js/utils";
+import { AppendOnlyTreeSnapshot, EthAddress, Fr } from '@aztec/circuits.js';
+import { BufferReader, serializeToBuffer } from '@aztec/circuits.js/utils';
 
 /**
  * A contract data blob, containing L1 and L2 addresses.
  */
 export class ContractData {
-
   constructor(
     /**
      * The L2 address of the contract, as a field element (32 bytes).
@@ -15,16 +14,13 @@ export class ContractData {
      * The L1 address of the contract, (20 bytes).
      */
     public ethAddress: EthAddress,
-  ) { }
+  ) {}
 
   /**
    * Serializes this instance into a buffer, using 20 bytes for the eth address
    */
   public toBuffer(): Buffer {
-    return serializeToBuffer(
-      this.aztecAddress,
-      this.ethAddress.buffer,
-    )
+    return serializeToBuffer(this.aztecAddress, this.ethAddress.buffer);
   }
 
   /**
@@ -33,13 +29,10 @@ export class ContractData {
    */
   static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
-    return new ContractData(
-      reader.readFr(),
-      new EthAddress(reader.readBytes(EthAddress.SIZE_IN_BYTES)),
-    )
+    return new ContractData(reader.readFr(), new EthAddress(reader.readBytes(EthAddress.SIZE_IN_BYTES)));
   }
 }
-  
+
 /* eslint-disable jsdoc/require-jsdoc */
 
 /**
@@ -153,7 +146,7 @@ export class L2Block {
     const newNullifiers = reader.readVector(Fr);
     const newContracts = reader.readVector(Fr);
     const newContractData = reader.readArray(newContracts.length, ContractData);
-  
+
     return new L2Block(
       number,
       startPrivateDataTreeSnapshot,
