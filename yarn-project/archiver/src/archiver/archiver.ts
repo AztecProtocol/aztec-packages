@@ -71,6 +71,8 @@ export class Archiver implements L2BlockSource {
     this.log('Starting initial sync...');
     await this.runInitialSync();
     this.log('Initial sync finished.');
+    // TODO: Any logs emitted between the initial sync and the start watching will be lost
+    // We should start watching before we start the initial sync
     this.startWatchingEvents();
     this.log('Watching for new data...');
   }
@@ -102,6 +104,7 @@ export class Archiver implements L2BlockSource {
 
   /**
    * Starts a polling loop in the background which watches for new events and passes them to the respective handlers.
+   * TODO: Handle reorgs, consider using github.com/ethereumjs/ethereumjs-blockstream
    */
   private startWatchingEvents() {
     this.unwatchBlocks = this.publicClient.watchContractEvent({
