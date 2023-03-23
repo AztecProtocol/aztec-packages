@@ -1,5 +1,5 @@
 import { Pedersen } from '../pedersen.js';
-import { deserializeArrayFromVector, serializeBufferArrayToVector } from '../serialise.js';
+import { deserializeArrayFromVector, serializeBufferArrayToVector } from '@aztec/foundation';
 
 /**
  * Contains functionality to compute and serialize/deserialize a sibling path.

@@ -256,6 +256,7 @@ __metadata:
   resolution: "@aztec/merkle-tree@workspace:merkle-tree"
   dependencies:
     "@aztec/eslint-config": "workspace:^"
+    "@aztec/foundation": "workspace:^"
     "@jest/globals": ^29.4.3
     "@rushstack/eslint-patch": ^1.1.4
     "@types/jest": ^29.4.0
@@ -294,7 +295,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@aztec/p2p@workspace:^, @aztec/p2p@workspace:p2p":
+"@aztec/p2p@workspace:p2p":
   version: 0.0.0-use.local
   resolution: "@aztec/p2p@workspace:p2p"
   dependencies:
@@ -327,27 +328,6 @@ __metadata:
   resolution: "@aztec/prover-client@workspace:prover-client"
   dependencies:
     "@aztec/eslint-config": "workspace:^"
-    "@jest/globals": ^29.4.3
-    "@rushstack/eslint-patch": ^1.1.4
-    "@types/jest": ^29.4.0
-    "@types/node": ^18.7.23
-    jest: ^28.1.3
-    ts-jest: ^28.0.7
-    ts-node: ^10.9.1
-    tslib: ^2.4.0
-    typescript: ^4.9.5
-  languageName: unknown
-  linkType: soft
-
-"@aztec/public-client@workspace:public-client":
-  version: 0.0.0-use.local
-  resolution: "@aztec/public-client@workspace:public-client"
-  dependencies:
-    "@aztec/archiver": "workspace:^"
-    "@aztec/eslint-config": "workspace:^"
-    "@aztec/ethereum.js": "workspace:^"
-    "@aztec/p2p": "workspace:^"
-    "@aztec/world-state": "workspace:^"
     "@jest/globals": ^29.4.3
     "@rushstack/eslint-patch": ^1.1.4
     "@types/jest": ^29.4.0
@@ -394,7 +374,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@aztec/world-state@workspace:^, @aztec/world-state@workspace:world-state":
+"@aztec/world-state@workspace:world-state":
   version: 0.0.0-use.local
   resolution: "@aztec/world-state@workspace:world-state"
   dependencies:
