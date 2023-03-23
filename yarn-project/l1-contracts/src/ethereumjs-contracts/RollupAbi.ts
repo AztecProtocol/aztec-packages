@@ -1,86 +1,86 @@
 import { ContractAbi } from '@aztec/ethereum.js/contract';
 export default new ContractAbi([
   {
-    "inputs": [],
-    "stateMutability": "nonpayable",
-    "type": "constructor"
+    inputs: [],
+    stateMutability: 'nonpayable',
+    type: 'constructor',
   },
   {
-    "inputs": [],
-    "name": "InvalidProof",
-    "type": "error"
+    inputs: [],
+    name: 'InvalidProof',
+    type: 'error',
   },
   {
-    "inputs": [
+    inputs: [
       {
-        "internalType": "bytes32",
-        "name": "expected",
-        "type": "bytes32"
+        internalType: 'bytes32',
+        name: 'expected',
+        type: 'bytes32',
       },
       {
-        "internalType": "bytes32",
-        "name": "actual",
-        "type": "bytes32"
-      }
+        internalType: 'bytes32',
+        name: 'actual',
+        type: 'bytes32',
+      },
     ],
-    "name": "InvalidStateHash",
-    "type": "error"
+    name: 'InvalidStateHash',
+    type: 'error',
   },
   {
-    "anonymous": false,
-    "inputs": [
+    anonymous: false,
+    inputs: [
       {
-        "indexed": true,
-        "internalType": "uint256",
-        "name": "blockNum",
-        "type": "uint256"
-      }
+        indexed: true,
+        internalType: 'uint256',
+        name: 'blockNum',
+        type: 'uint256',
+      },
     ],
-    "name": "L2BlockProcessed",
-    "type": "event"
+    name: 'L2BlockProcessed',
+    type: 'event',
   },
   {
-    "inputs": [],
-    "name": "VERIFIER",
-    "outputs": [
+    inputs: [],
+    name: 'VERIFIER',
+    outputs: [
       {
-        "internalType": "contract MockVerifier",
-        "name": "",
-        "type": "address"
-      }
+        internalType: 'contract MockVerifier',
+        name: '',
+        type: 'address',
+      },
     ],
-    "stateMutability": "view",
-    "type": "function"
+    stateMutability: 'view',
+    type: 'function',
   },
   {
-    "inputs": [
+    inputs: [
       {
-        "internalType": "bytes",
-        "name": "_proof",
-        "type": "bytes"
+        internalType: 'bytes',
+        name: '_proof',
+        type: 'bytes',
       },
       {
-        "internalType": "bytes",
-        "name": "_l2Block",
-        "type": "bytes"
-      }
+        internalType: 'bytes',
+        name: '_l2Block',
+        type: 'bytes',
+      },
     ],
-    "name": "process",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
+    name: 'process',
+    outputs: [],
+    stateMutability: 'nonpayable',
+    type: 'function',
   },
   {
-    "inputs": [],
-    "name": "rollupStateHash",
-    "outputs": [
+    inputs: [],
+    name: 'rollupStateHash',
+    outputs: [
       {
-        "internalType": "bytes32",
-        "name": "",
-        "type": "bytes32"
-      }
+        internalType: 'bytes32',
+        name: '',
+        type: 'bytes32',
+      },
     ],
-    "stateMutability": "view",
-    "type": "function"
-  }
+    stateMutability: 'view',
+    type: 'function',
+  },
 ]);
