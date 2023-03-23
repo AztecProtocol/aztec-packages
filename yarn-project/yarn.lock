@@ -296,15 +296,6 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@aztec/prettier-config@workspace:prettier-config":
-  version: 0.0.0-use.local
-  resolution: "@aztec/prettier-config@workspace:prettier-config"
-  dependencies:
-    "@aztec/foundation": "workspace:^"
-    prettier: ^2.7.1
-  languageName: unknown
-  linkType: soft
-
 "@aztec/prover-client@workspace:prover-client":
   version: 0.0.0-use.local
   resolution: "@aztec/prover-client@workspace:prover-client"
