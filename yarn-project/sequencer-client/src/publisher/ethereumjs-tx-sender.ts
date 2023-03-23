@@ -32,7 +32,7 @@ export class EthereumjsTxSender implements PublisherTxSender {
   }
 
   async sendTransaction(encodedData: L1ProcessRollupArgs): Promise<string | undefined> {
-    const methodCall = this.rollupContract.methods.processRollup(encodedData.proof, encodedData.inputs);
+    const methodCall = this.rollupContract.methods.process(encodedData.proof, encodedData.inputs);
     const gas = await methodCall.estimateGas();
     return methodCall
       .send({ gas })

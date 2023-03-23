@@ -45,12 +45,12 @@ describe('L2BlockPublisher integration', () => {
     const blockNumber = await ethRpc.blockNumber();
     await publisher.processL2Block(l2Block);
 
-    const logs = await rollup.getLogs('RollupBlockProcessed', { fromBlock: blockNumber });
+    const logs = await rollup.getLogs('L2BlockProcessed', { fromBlock: blockNumber });
     expect(logs).toHaveLength(1);
-    expect(logs[0].args.rollupBlockNumber).toEqual(42n);
+    expect(logs[0].args.blockNum).toEqual(42n);
 
     const tx = await ethRpc.getTransactionByHash(logs[0].transactionHash!);
-    const expectedData = rollup.methods.processRollup(l2Proof, l2Block.encode()).encodeABI();
+    const expectedData = rollup.methods.process(l2Proof, l2Block.encode()).encodeABI();
     expect(tx.input).toEqual(expectedData);
   });
 });
