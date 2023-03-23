@@ -116,7 +116,13 @@ export class AztecNode {
    * Method to verify that we are initialised, throws if not.
    */
   private verifyInitialised() {
-    const invalid = [this.blockSource, this.merkleTreeDB, this.p2pClient, this.worldStateSynchroniser, this.sequencer].filter(x => !x);
+    const invalid = [
+      this.blockSource,
+      this.merkleTreeDB,
+      this.p2pClient,
+      this.worldStateSynchroniser,
+      this.sequencer,
+    ].filter(x => !x);
     if (invalid.length) {
       throw new Error('Aztec Node not initialised');
     }

@@ -90,21 +90,21 @@ export class L2Block {
    * @returns a new instance
    */
   static fromFields(fields: {
-    number: number,
-    startPrivateDataTreeSnapshot: AppendOnlyTreeSnapshot,
-    startNullifierTreeSnapshot: AppendOnlyTreeSnapshot,
-    startContractTreeSnapshot: AppendOnlyTreeSnapshot,
-    startTreeOfHistoricPrivateDataTreeRootsSnapshot: AppendOnlyTreeSnapshot,
-    startTreeOfHistoricContractTreeRootsSnapshot: AppendOnlyTreeSnapshot,
-    endPrivateDataTreeSnapshot: AppendOnlyTreeSnapshot,
-    endNullifierTreeSnapshot: AppendOnlyTreeSnapshot,
-    endContractTreeSnapshot: AppendOnlyTreeSnapshot,
-    endTreeOfHistoricPrivateDataTreeRootsSnapshot: AppendOnlyTreeSnapshot,
-    endTreeOfHistoricContractTreeRootsSnapshot: AppendOnlyTreeSnapshot,
-    newCommitments: Fr[],
-    newNullifiers: Fr[],
-    newContracts: Fr[],
-    newContractData: ContractData[],
+    number: number;
+    startPrivateDataTreeSnapshot: AppendOnlyTreeSnapshot;
+    startNullifierTreeSnapshot: AppendOnlyTreeSnapshot;
+    startContractTreeSnapshot: AppendOnlyTreeSnapshot;
+    startTreeOfHistoricPrivateDataTreeRootsSnapshot: AppendOnlyTreeSnapshot;
+    startTreeOfHistoricContractTreeRootsSnapshot: AppendOnlyTreeSnapshot;
+    endPrivateDataTreeSnapshot: AppendOnlyTreeSnapshot;
+    endNullifierTreeSnapshot: AppendOnlyTreeSnapshot;
+    endContractTreeSnapshot: AppendOnlyTreeSnapshot;
+    endTreeOfHistoricPrivateDataTreeRootsSnapshot: AppendOnlyTreeSnapshot;
+    endTreeOfHistoricContractTreeRootsSnapshot: AppendOnlyTreeSnapshot;
+    newCommitments: Fr[];
+    newNullifiers: Fr[];
+    newContracts: Fr[];
+    newContractData: ContractData[];
   }) {
     return new this(
       fields.number,
@@ -122,7 +122,7 @@ export class L2Block {
       fields.newNullifiers,
       fields.newContracts,
       fields.newContractData,
-    )
+    );
   }
 
   /**
@@ -215,28 +215,42 @@ export class L2Block {
    * @returns a human-friendly string representation of the l2block
    */
   inspect(maxBufferSize = 4): string {
-    const inspectTreeSnapshot = (s: AppendOnlyTreeSnapshot): string => (
-      `(${s.nextAvailableLeafIndex}, 0x${s.root.toBuffer().subarray(0, maxBufferSize).toString('hex')})`
-    );
-    const inspectFrArray = (arr: Fr[]): string => (
-      '[' + arr.map(fr => '0x' + fr.toBuffer().subarray(0, maxBufferSize).toString('hex')).join(', ') + ']'
-    );
-    const inspectContractDataArray = (arr: ContractData[]): string => (
-      '[' + arr.map(cd => `(0x${cd.aztecAddress.toBuffer().subarray(0, maxBufferSize).toString('hex')}, 0x${cd.ethAddress.buffer.subarray(0, maxBufferSize).toString('hex')})`).join(', ') + ']'
-    );
+    const inspectTreeSnapshot = (s: AppendOnlyTreeSnapshot): string =>
+      `(${s.nextAvailableLeafIndex}, 0x${s.root.toBuffer().subarray(0, maxBufferSize).toString('hex')})`;
+    const inspectFrArray = (arr: Fr[]): string =>
+      '[' + arr.map(fr => '0x' + fr.toBuffer().subarray(0, maxBufferSize).toString('hex')).join(', ') + ']';
+    const inspectContractDataArray = (arr: ContractData[]): string =>
+      '[' +
+      arr
+        .map(
+          cd =>
+            `(0x${cd.aztecAddress.toBuffer().subarray(0, maxBufferSize).toString('hex')}, 0x${cd.ethAddress.buffer
+              .subarray(0, maxBufferSize)
+              .toString('hex')})`,
+        )
+        .join(', ') +
+      ']';
     return [
       `L2Block`,
       `number: ${this.number}`,
       `startPrivateDataTreeSnapshot: ${inspectTreeSnapshot(this.startPrivateDataTreeSnapshot)}`,
       `startNullifierTreeSnapshot: ${inspectTreeSnapshot(this.startNullifierTreeSnapshot)}`,
       `startContractTreeSnapshot: ${inspectTreeSnapshot(this.startContractTreeSnapshot)}`,
-      `startTreeOfHistoricPrivateDataTreeRootsSnapshot: ${inspectTreeSnapshot(this.startTreeOfHistoricPrivateDataTreeRootsSnapshot)}`,
-      `startTreeOfHistoricContractTreeRootsSnapshot: ${inspectTreeSnapshot(this.startTreeOfHistoricContractTreeRootsSnapshot)}`,
+      `startTreeOfHistoricPrivateDataTreeRootsSnapshot: ${inspectTreeSnapshot(
+        this.startTreeOfHistoricPrivateDataTreeRootsSnapshot,
+      )}`,
+      `startTreeOfHistoricContractTreeRootsSnapshot: ${inspectTreeSnapshot(
+        this.startTreeOfHistoricContractTreeRootsSnapshot,
+      )}`,
       `endPrivateDataTreeSnapshot: ${inspectTreeSnapshot(this.endPrivateDataTreeSnapshot)}`,
       `endNullifierTreeSnapshot: ${inspectTreeSnapshot(this.endNullifierTreeSnapshot)}`,
       `endContractTreeSnapshot: ${inspectTreeSnapshot(this.endContractTreeSnapshot)}`,
-      `endTreeOfHistoricPrivateDataTreeRootsSnapshot: ${inspectTreeSnapshot(this.endTreeOfHistoricPrivateDataTreeRootsSnapshot)}`,
-      `endTreeOfHistoricContractTreeRootsSnapshot: ${inspectTreeSnapshot(this.endTreeOfHistoricContractTreeRootsSnapshot)}`,
+      `endTreeOfHistoricPrivateDataTreeRootsSnapshot: ${inspectTreeSnapshot(
+        this.endTreeOfHistoricPrivateDataTreeRootsSnapshot,
+      )}`,
+      `endTreeOfHistoricContractTreeRootsSnapshot: ${inspectTreeSnapshot(
+        this.endTreeOfHistoricContractTreeRootsSnapshot,
+      )}`,
       `newCommitments: ${inspectFrArray(this.newCommitments)}`,
       `newNullifiers: ${inspectFrArray(this.newNullifiers)}`,
       `newContracts: ${inspectFrArray(this.newContracts)}`,

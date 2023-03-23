@@ -30,8 +30,12 @@ export class BlockBuilder {
     const startPrivateDataTreeSnapshot = await this.getTreeSnapshot(MerkleTreeId.DATA_TREE);
     const startNullifierTreeSnapshot = await this.getTreeSnapshot(MerkleTreeId.NULLIFIER_TREE);
     const startContractTreeSnapshot = await this.getTreeSnapshot(MerkleTreeId.CONTRACT_TREE);
-    const startTreeOfHistoricPrivateDataTreeRootsSnapshot = await this.getTreeSnapshot(MerkleTreeId.DATA_TREE_ROOTS_TREE);
-    const startTreeOfHistoricContractTreeRootsSnapshot = await this.getTreeSnapshot(MerkleTreeId.CONTRACT_TREE_ROOTS_TREE);
+    const startTreeOfHistoricPrivateDataTreeRootsSnapshot = await this.getTreeSnapshot(
+      MerkleTreeId.DATA_TREE_ROOTS_TREE,
+    );
+    const startTreeOfHistoricContractTreeRootsSnapshot = await this.getTreeSnapshot(
+      MerkleTreeId.CONTRACT_TREE_ROOTS_TREE,
+    );
 
     await this.updateTrees();
 
@@ -39,8 +43,10 @@ export class BlockBuilder {
     const endNullifierTreeSnapshot = await this.getTreeSnapshot(MerkleTreeId.NULLIFIER_TREE);
     const endContractTreeSnapshot = await this.getTreeSnapshot(MerkleTreeId.CONTRACT_TREE);
     const endTreeOfHistoricPrivateDataTreeRootsSnapshot = await this.getTreeSnapshot(MerkleTreeId.DATA_TREE_ROOTS_TREE);
-    const endTreeOfHistoricContractTreeRootsSnapshot = await this.getTreeSnapshot(MerkleTreeId.CONTRACT_TREE_ROOTS_TREE);
-    
+    const endTreeOfHistoricContractTreeRootsSnapshot = await this.getTreeSnapshot(
+      MerkleTreeId.CONTRACT_TREE_ROOTS_TREE,
+    );
+
     const l2block = L2Block.fromFields({
       number: this.nextRollupId,
       startPrivateDataTreeSnapshot,
