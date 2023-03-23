@@ -11,8 +11,6 @@ RUN apk update && apk add --no-cache build-base git python3 curl bash jq
 # COPY --from=2 /usr/src/l1-contracts /usr/src/l1-contracts
 WORKDIR /usr/src/yarn-project
 
-RUN git submodule update --init foundation
-
 # We only want to copy the package.json's, to ensure we only rebuild this image if project dependencies changed.
 COPY acir-simulator/package.json acir-simulator/package.json
 COPY archiver/package.json archiver/package.json
