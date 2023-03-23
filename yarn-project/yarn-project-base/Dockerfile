@@ -21,8 +21,6 @@ COPY end-to-end/package.json end-to-end/package.json
 COPY ethereum.js/example/package.json ethereum.js/example/package.json
 COPY ethereum.js/package.json ethereum.js/package.json
 COPY foundation/package.json foundation/package.json
-# NOTE: since foundation is also stand-alone, we need its yarn.lock
-COPY foundation/yarn.lock foundation/yarn.lock
 COPY kernel-simulator/package.json kernel-simulator/package.json
 COPY key-store/package.json key-store/package.json
 COPY merkle-tree/package.json merkle-tree/package.json
@@ -36,13 +34,9 @@ COPY wallet/package.json wallet/package.json
 COPY world-state/package.json world-state/package.json
 COPY package.json tsconfig.json yarn.lock ./
 COPY .yarn .yarn
-# Use PNP in CI context
-COPY .yarnrc.prod.yml .yarnrc.yml
 
 # Although we're attempting to be "zero-install", in practice we still need to build arch specific packages.
 RUN yarn --immutable
-# Make sure to run yarn from foundation, has its own yarn.lock
-RUN cd foundation && yarn && cd ..
 # If everything's worked properly, we should no longer need access to the network.
 RUN echo "enableNetwork: false" >> .yarnrc.yml
 
