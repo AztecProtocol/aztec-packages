@@ -87,7 +87,7 @@ export class Sequencer {
         this.log(`No txs in the mempool for a new block`);
         return;
       } else {
-        this.log(`Processing tx ${tx.txId}`);
+        this.log(`Processing tx ${tx.txId.toString('hex')}`);
       }
 
       this.state = SequencerState.CREATING_BLOCK;

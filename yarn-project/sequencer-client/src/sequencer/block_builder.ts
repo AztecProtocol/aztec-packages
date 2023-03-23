@@ -28,7 +28,7 @@ export class BlockBuilder {
   public async buildL2Block() {
     const startDataTreeSnapshot = await this.getTreeSnapshot(MerkleTreeId.DATA_TREE);
     const startNullifierTreeSnapshot = await this.getTreeSnapshot(MerkleTreeId.NULLIFIER_TREE);
-    const startContractTreeSnapshot = await this.getTreeSnapshot(MerkleTreeId.NULLIFIER_TREE);
+    const startContractTreeSnapshot = await this.getTreeSnapshot(MerkleTreeId.CONTRACT_TREE);
     const startDataTreeRootsTreeSnapshot = await this.getTreeSnapshot(MerkleTreeId.DATA_TREE_ROOTS_TREE);
     const startContractTreeRootsTreeSnapshot = await this.getTreeSnapshot(MerkleTreeId.CONTRACT_TREE_ROOTS_TREE);
 
@@ -36,7 +36,7 @@ export class BlockBuilder {
 
     const endDataTreeSnapshot = await this.getTreeSnapshot(MerkleTreeId.DATA_TREE);
     const endNullifierTreeSnapshot = await this.getTreeSnapshot(MerkleTreeId.NULLIFIER_TREE);
-    const endContractTreeSnapshot = await this.getTreeSnapshot(MerkleTreeId.NULLIFIER_TREE);
+    const endContractTreeSnapshot = await this.getTreeSnapshot(MerkleTreeId.CONTRACT_TREE);
     const endDataTreeRootsTreeSnapshot = await this.getTreeSnapshot(MerkleTreeId.DATA_TREE_ROOTS_TREE);
     const endContractTreeRootsTreeSnapshot = await this.getTreeSnapshot(MerkleTreeId.CONTRACT_TREE_ROOTS_TREE);
     const l2block = new L2Block(
