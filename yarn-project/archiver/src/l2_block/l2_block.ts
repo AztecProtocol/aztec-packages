@@ -1,11 +1,10 @@
-import { AppendOnlyTreeSnapshot, EthAddress, Fr } from "@aztec/circuits.js";
-import { BufferReader, serializeToBuffer } from "@aztec/circuits.js/utils";
+import { AppendOnlyTreeSnapshot, EthAddress, Fr } from '@aztec/circuits.js';
+import { BufferReader, serializeToBuffer } from '@aztec/circuits.js/utils';
 
 /**
  * A contract data blob, containing L1 and L2 addresses.
  */
 export class ContractData {
-
   constructor(
     /**
      * The L2 address of the contract, as a field element (32 bytes).
@@ -15,36 +14,32 @@ export class ContractData {
      * The L1 address of the contract, (20 bytes).
      */
     public ethAddress: EthAddress,
-  ) { }
+  ) {}
 
   /**
-   * Serializes this instance into a buffer, using 20 bytes for the eth address
+   * Serializes this instance into a buffer, using 20 bytes for the eth address.
+   * @returns Encoded buffer.
    */
   public toBuffer(): Buffer {
-    return serializeToBuffer(
-      this.aztecAddress,
-      this.ethAddress.buffer,
-    )
+    return serializeToBuffer(this.aztecAddress, this.ethAddress.buffer);
   }
 
   /**
-   * Deserializes a contract data object from an encoded buffer, using 20 bytes for the eth address
-   * @param buffer - Byte array resulting from calling toBuffer
+   * Deserializes a contract data object from an encoded buffer, using 20 bytes for the eth address.
+   * @param buffer - Byte array resulting from calling toBuffer.
+   * @returns Deserialized instance.
    */
   static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
-    return new ContractData(
-      reader.readFr(),
-      new EthAddress(reader.readBytes(EthAddress.SIZE_IN_BYTES)),
-    )
+    return new ContractData(reader.readFr(), new EthAddress(reader.readBytes(EthAddress.SIZE_IN_BYTES)));
   }
 }
-  
+
 /* eslint-disable jsdoc/require-jsdoc */
 
 /**
  * The data that makes up the rollup proof, with encoder decoder functions.
- * TODO: Reuse data types and serialization functions from circuits package
+ * TODO: Reuse data types and serialization functions from circuits package.
  */
 export class L2Block {
   /**
@@ -126,6 +121,7 @@ export class L2Block {
 
   /**
    * Alias for encode.
+   * @returns The encoded L2 block data.
    */
   toBuffer() {
     return this.encode();
@@ -153,7 +149,7 @@ export class L2Block {
     const newNullifiers = reader.readVector(Fr);
     const newContracts = reader.readVector(Fr);
     const newContractData = reader.readArray(newContracts.length, ContractData);
-  
+
     return new L2Block(
       number,
       startPrivateDataTreeSnapshot,

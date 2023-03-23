@@ -20,12 +20,12 @@ describe('Archiver', () => {
       EthAddress.fromString(rollupAddress),
       EthAddress.fromString(yeeterAddress),
     );
-    
+
     let latestBlockNum = await archiver.getLatestBlockNum();
     expect(latestBlockNum).toEqual(-1);
-    
-    const rollupLogs = [1,2,3].map(makeRollupEvent);
-    const rollupTxs = [1,2,3].map(makeRollupTx);
+
+    const rollupLogs = [1, 2, 3].map(makeRollupEvent);
+    const rollupTxs = [1, 2, 3].map(makeRollupTx);
     const yeeterLogs = [] as Log<bigint, number, undefined, typeof YeeterAbi, 'Yeet'>[];
 
     publicClient.getFilterLogs.mockResolvedValueOnce(rollupLogs).mockResolvedValueOnce(yeeterLogs);
@@ -41,10 +41,26 @@ describe('Archiver', () => {
   });
 });
 
+/**
+ * Makes a fake rollup event for testing purposes.
+ * @param blockNum - L2Block number.
+ * @returns A rollup event log.
+ */
 function makeRollupEvent(blockNum: number) {
-  return { args: { blockNum: BigInt(blockNum) }, transactionHash: `0x${blockNum}` } as unknown as Log<bigint, number, undefined, typeof RollupAbi, 'L2BlockProcessed'>;
+  return { args: { blockNum: BigInt(blockNum) }, transactionHash: `0x${blockNum}` } as unknown as Log<
+    bigint,
+    number,
+    undefined,
+    typeof RollupAbi,
+    'L2BlockProcessed'
+  >;
 }
 
+/**
+ * Makes a fake rollup tx for testing purposes.
+ * @param blockNum - L2Block number.
+ * @returns A fake tx with calldata that corresponds to calling process in the Rollup contract.
+ */
 function makeRollupTx(blockNum: number) {
   const proof = `0x`;
   const block = toHex(mockRandomL2Block(blockNum).encode());
