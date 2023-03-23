@@ -28,6 +28,7 @@
     "wallet",
     "world-state"
   ],
+  "prettier": "@aztec/foundation/prettier",
   "devDependencies": {
     "eslint": "^8.21.0",
     "prettier": "^2.7.1",
