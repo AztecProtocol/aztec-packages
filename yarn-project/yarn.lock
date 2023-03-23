@@ -93,6 +93,7 @@ __metadata:
     "@aztec/ethereum.js": "workspace:^"
     "@aztec/l1-contracts": "workspace:^"
     "@aztec/p2p": "workspace:^"
+    "@aztec/sequencer-client": "workspace:^"
     "@aztec/world-state": "workspace:^"
     "@jest/globals": ^29.4.3
     "@rushstack/eslint-patch": ^1.1.4
@@ -442,7 +443,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@aztec/sequencer-client@workspace:sequencer-client":
+"@aztec/sequencer-client@workspace:^, @aztec/sequencer-client@workspace:sequencer-client":
   version: 0.0.0-use.local
   resolution: "@aztec/sequencer-client@workspace:sequencer-client"
   dependencies:
@@ -452,7 +453,6 @@ __metadata:
     "@aztec/ethereum.js": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/l1-contracts": "workspace:^"
-    "@aztec/merkle-tree": "workspace:^"
     "@aztec/p2p": "workspace:^"
     "@aztec/world-state": "workspace:^"
     "@jest/globals": ^29.4.3

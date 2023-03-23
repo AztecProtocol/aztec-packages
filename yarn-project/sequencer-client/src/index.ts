@@ -1,4 +1,2 @@
-/**
- * A placeholder for the Sequencer Client.
- */
-export class SequencerClient {}
+export * from './sequencer/index.js';
+export * from './publisher/index.js';

@@ -1,9 +1,6 @@
-import { mockRandomL2Block } from '@aztec/archiver';
-import { MerkleTreeDb } from '@aztec/merkle-tree';
 import { P2P, P2PClientState, Tx } from '@aztec/p2p';
-import { WorldStateSynchroniser, WorldStateStatus } from '@aztec/world-state';
+import { WorldStateSynchroniser, WorldStateStatus, MerkleTrees } from '@aztec/world-state';
 import { RunningPromise } from '../deps/running_promise.js';
-import { Prover } from '../prover/index.js';
 import { L2BlockPublisher } from '../publisher/l2-block-publisher.js';
 import { createDebugLogger } from '@aztec/foundation';
 import { BlockBuilder } from './block_builder.js';
@@ -30,7 +27,7 @@ export class Sequencer {
     private publisher: L2BlockPublisher,
     private p2pClient: P2P,
     private worldState: WorldStateSynchroniser,
-    private db: MerkleTreeDb, // TODO: Can we access the underlying db via the worldState?
+    private db: MerkleTrees, // TODO: Can we access the underlying db via the worldState?
     private log = createDebugLogger('aztec:sequencer_client'),
     opts?: { pollingIntervalMs?: number; blockIntervalMs?: number },
   ) {

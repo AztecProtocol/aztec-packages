@@ -5,10 +5,15 @@ import { P2P, P2PCLient } from '@aztec/p2p';
 import { MerkleTrees, WorldStateSynchroniser, ServerWorldStateSynchroniser } from '@aztec/world-state';
 import { EthAddress } from '@aztec/ethereum.js/eth_address';
 import { Tx } from '@aztec/p2p';
+import { WalletProvider } from '@aztec/ethereum.js/provider';
+import { getL2BlockPublisher, Config, Sequencer } from '@aztec/sequencer-client';
 
 /* eslint-disable @typescript-eslint/ban-ts-comment */
 // @ts-ignore
 export const createMemDown = () => memdown();
+
+const ANVIL_MNEMONIC = 'test test test test test test test test test test test junk';
+const ANVIL_CONFIRMATIONS = 1;
 
 /**
  * The public client.
@@ -45,7 +50,18 @@ export class AztecNode {
     await Promise.all([p2pSyncPromise, worldStateSyncPromise]);
 
     // create and start the sequencer
-    // new Sequencer(this.blockSource, this.p2pClient, this.merkleTreeDB, this.publisher);
+    const walletProvider = WalletProvider.fromHost(rpcUrl);
+    walletProvider.addAccountsFromMnemonic(ANVIL_MNEMONIC, 1);
+
+    const config = {
+      sequencerPrivateKey: walletProvider.getPrivateKey(0),
+      ethereumHost: rpcUrl,
+      requiredConfirmations: ANVIL_CONFIRMATIONS,
+      rollupAddress,
+      yeeterAddress,
+    } as Config;
+    const blockPublisher = getL2BlockPublisher(config);
+    const sequencer = new Sequencer(blockPublisher, this.p2pClient, this.worldStateSynchroniser, this.merkleTreeDB);
   }
 
   /**
