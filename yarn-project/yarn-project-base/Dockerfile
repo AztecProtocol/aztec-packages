@@ -39,7 +39,7 @@ COPY .yarn .yarn
 
 # Although we're attempting to be "zero-install", in practice we still need to build arch specific packages.
 RUN yarn --immutable
-# Build submodule packages that have their own yarn.lock
+# Build submodule packages that have their own yarn.lock.
 RUN cd foundation && yarn --immutable && cd ..
 # If everything's worked properly, we should no longer need access to the network.
 RUN echo "enableNetwork: false" >> .yarnrc.yml
