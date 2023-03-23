@@ -1,7 +1,7 @@
 import { AztecAddress, AztecRPCClient, ContractDeployer } from '@aztec/aztec.js';
 import { createAztecNode } from '@aztec/aztec-node';
 import { createAztecRPCServer } from '@aztec/aztec-rpc';
-import { abi } from './fixtures/test_contract.json';
+import abi from '@aztec/noir-contracts/examples/test_contract.json';
 
 describe('e2e_deploy_contract', () => {
   let arc: AztecRPCClient;
@@ -25,7 +25,8 @@ describe('e2e_deploy_contract', () => {
     );
 
     const { contractAddress } = receipt;
-    const bytecode = await arc.getCode(contractAddress);
-    expect(bytecode).toEqual(abi.bytecode);
+    const constructor = abi.functions.find(f => f.name === 'constructor')!;
+    const bytecode = await arc.getCode(contractAddress!);
+    expect(bytecode).toEqual(constructor.bytecode);
   });
 });

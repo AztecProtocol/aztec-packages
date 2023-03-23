@@ -71,7 +71,7 @@
     "projectDir": "yarn-project/aztec.js",
     "dockerfile": "aztec.js/Dockerfile",
     "rebuildPatterns": ["^yarn-project/aztec.js/"],
-    "dependencies": ["yarn-project-base"]
+    "dependencies": ["aztec-rpc"]
   },
   "end-to-end": {
     "buildDir": "yarn-project",
