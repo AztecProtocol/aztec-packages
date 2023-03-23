@@ -37,6 +37,11 @@ cd yarn-project
 yarn install --immutable
 cd ..
 
+# make sure to run yarn install from foundation, has its own yarn.lock
+pushd yarn-project/foundation >/dev/null
+yarn install
+popd
+
 # We only bootstrap projects that produce artefacts needed for running end-to-end tests.
 PROJECTS=(
   # "circuits:./bootstrap.sh db_cli rollup_cli"
