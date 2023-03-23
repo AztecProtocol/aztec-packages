@@ -148,10 +148,6 @@
     "projectDir": "yarn-project/world-state",
     "dockerfile": "world-state/Dockerfile",
     "rebuildPatterns": ["^yarn-project/world-state/"],
-<<<<<<< HEAD
-    "dependencies": ["yarn-project-base"]
-=======
     "dependencies": ["yarn-project-base", "merkle-tree"]
->>>>>>> master
   }
 }
