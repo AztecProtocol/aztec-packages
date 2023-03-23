@@ -127,7 +127,15 @@
     "projectDir": "yarn-project/aztec-node",
     "dockerfile": "aztec-node/Dockerfile",
     "rebuildPatterns": ["^yarn-project/aztec-node/"],
-    "dependencies": ["yarn-project-base"]
+    "dependencies": [
+      "yarn-project-base",
+      "archiver",
+      "world-state",
+      "p2p",
+      "sequencer-client",
+      "ethereum.js",
+      "circuits.js"
+    ]
   },
   "sequencer-client": {
     "buildDir": "yarn-project",

@@ -1,4 +1,3 @@
-import { EthAddress } from '@aztec/ethereum.js/eth_address';
 import { EthereumRpc, TxHash, waitForTxReceipt } from '@aztec/ethereum.js/eth_rpc';
 import { WalletProvider } from '@aztec/ethereum.js/provider';
 import { Rollup } from '@aztec/l1-contracts';
@@ -18,7 +17,7 @@ export class EthereumjsTxSender implements PublisherTxSender {
     const provider = WalletProvider.fromHost(ethereumHost);
     provider.addAccount(sequencerPrivateKey);
     this.ethRpc = new EthereumRpc(provider);
-    this.rollupContract = new Rollup(this.ethRpc, EthAddress.fromString(rollupContractAddress), {
+    this.rollupContract = new Rollup(this.ethRpc, rollupContractAddress, {
       from: provider.getAccount(0),
     });
     this.confirmations = requiredConfirmations;

@@ -1,10 +1,9 @@
 import { default as levelup } from 'levelup';
 import { default as memdown } from 'memdown';
 import { L2BlockSource, Archiver } from '@aztec/archiver';
-import { P2P, P2PCLient } from '@aztec/p2p';
+import { P2P, P2PClient, Tx } from '@aztec/p2p';
 import { MerkleTrees, WorldStateSynchroniser, ServerWorldStateSynchroniser } from '@aztec/world-state';
 import { EthAddress } from '@aztec/ethereum.js/eth_address';
-import { Tx } from '@aztec/p2p';
 import { WalletProvider } from '@aztec/ethereum.js/provider';
 import { getL2BlockPublisher, Config, Sequencer } from '@aztec/sequencer-client';
 
@@ -39,7 +38,7 @@ export class AztecNode {
     await this.blockSource.start();
 
     // give the block source to the P2P network and the world state synchroniser
-    this.p2pClient = new P2PCLient(this.blockSource);
+    this.p2pClient = new P2PClient(this.blockSource);
     const db = levelup(createMemDown());
     this.merkleTreeDB = await MerkleTrees.new(db);
     this.worldStateSynchroniser = new ServerWorldStateSynchroniser(this.merkleTreeDB, this.blockSource);

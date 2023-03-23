@@ -61,7 +61,7 @@ const createCircuitEthAddress = () => {
 const createRandomCommitments = (num: number) => {
   return Array(num)
     .fill(0)
-    .map(_ => new Fr(randomBytes(32)));
+    .map(() => new Fr(randomBytes(32)));
 };
 
 const createOptionallyRetrievedData = () => {
@@ -82,7 +82,7 @@ const createOptionallyRetrievedData = () => {
 const createOptionallyRetrievedDatas = (num: number) => {
   return Array(num)
     .fill(0)
-    .map(_ => createOptionallyRetrievedData());
+    .map(() => createOptionallyRetrievedData());
 };
 
 const createNewContractData = () => {
@@ -92,7 +92,7 @@ const createNewContractData = () => {
 const createNewContractDatas = (num: number) => {
   return Array(num)
     .fill(0)
-    .map(_ => createNewContractData());
+    .map(() => createNewContractData());
 };
 
 const createTx = () => {
