@@ -1,12 +1,12 @@
 {
-  "name": "@aztec/public-client",
+  "name": "@aztec/aztec-node",
   "version": "0.0.0",
   "main": "dest/index.js",
   "type": "module",
   "exports": "./dest/index.js",
   "typedoc": {
     "entryPoint": "./src/index.ts",
-    "displayName": "Public Client",
+    "displayName": "Aztec Node",
     "tsconfig": "./tsconfig.dest.json"
   },
   "scripts": {

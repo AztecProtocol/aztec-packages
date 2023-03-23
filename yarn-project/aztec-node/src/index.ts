@@ -6,6 +6,10 @@ import { MerkleTrees, WorldStateSynchroniser, ServerWorldStateSynchroniser } fro
 import { EthAddress } from '@aztec/ethereum.js/eth_address';
 import { Tx } from '@aztec/p2p';
 
+/* eslint-disable @typescript-eslint/ban-ts-comment */
+// @ts-ignore
+export const createMemDown = () => memdown();
+
 /**
  * The public client.
  */
@@ -31,7 +35,7 @@ export class AztecNode {
 
     // give the block source to the P2P network and the world state synchroniser
     this.p2pClient = new P2PCLient(this.blockSource);
-    const db = levelup(memdown());
+    const db = levelup(createMemDown());
     this.merkleTreeDB = await MerkleTrees.new(db);
     this.worldStateSynchroniser = new ServerWorldStateSynchroniser(this.merkleTreeDB, this.blockSource);
 
