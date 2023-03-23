@@ -90,6 +90,7 @@ __metadata:
     "@aztec/archiver": "workspace:^"
     "@aztec/eslint-config": "workspace:^"
     "@aztec/ethereum.js": "workspace:^"
+    "@aztec/l1-contracts": "workspace:^"
     "@aztec/p2p": "workspace:^"
     "@aztec/world-state": "workspace:^"
     "@jest/globals": ^29.4.3
