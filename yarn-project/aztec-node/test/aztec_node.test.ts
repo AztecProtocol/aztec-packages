@@ -1,6 +1,6 @@
 import { EthAddress } from '@aztec/ethereum.js/eth_address';
 import { Tx } from '@aztec/p2p';
-import { AztecNode } from './index.js';
+import { AztecNode } from '../src/index.js';
 import { WalletProvider } from '@aztec/ethereum.js/provider';
 import { Rollup, Yeeter } from '@aztec/l1-contracts';
 import {
@@ -29,21 +29,22 @@ import {
 } from '@aztec/circuits.js';
 import { randomBytes, sleep } from '@aztec/foundation';
 import { L2Block } from '@aztec/archiver';
+import { EthereumRpc } from '@aztec/ethereum.js/eth_rpc';
 
 const ETHEREUM_HOST = 'http://localhost:8545/';
 
-const deployRollupContract = async (provider: WalletProvider) => {
+const deployRollupContract = async (provider: WalletProvider, ethRpc: EthereumRpc) => {
   // Deploy.
   const deployAccount = provider.getAccount(0);
-  const contract = new Rollup(provider, undefined, { from: deployAccount, gas: 1000000 });
+  const contract = new Rollup(ethRpc, undefined, { from: deployAccount, gas: 1000000 });
   await contract.deploy().send().getReceipt();
   return contract.address;
 };
 
-const deployYeeterContract = async (provider: WalletProvider) => {
+const deployYeeterContract = async (provider: WalletProvider, ethRpc: EthereumRpc) => {
   // Deploy.
   const deployAccount = provider.getAccount(0);
-  const contract = new Yeeter(provider, undefined, { from: deployAccount, gas: 1000000 });
+  const contract = new Yeeter(ethRpc, undefined, { from: deployAccount, gas: 1000000 });
   await contract.deploy().send().getReceipt();
   return contract.address;
 };
@@ -132,8 +133,9 @@ describe('AztecNode', () => {
   let yeeterAddress: EthAddress | undefined = undefined;
   beforeAll(async () => {
     const provider = createProvider();
-    rollupAddress = await deployRollupContract(provider);
-    yeeterAddress = await deployYeeterContract(provider);
+    const ethRpc = new EthereumRpc(provider);
+    rollupAddress = await deployRollupContract(provider, ethRpc);
+    yeeterAddress = await deployYeeterContract(provider, ethRpc);
   });
   it('should start and stop all services', async () => {
     const node = new AztecNode();
@@ -162,6 +164,6 @@ describe('AztecNode', () => {
     }
     expect(settledBlock.number).toBe(1);
     expect(settledBlock.newContracts.length).toBeTruthy();
-    expect(settledBlock.newContracts[0]).toEqual(tx.txData.newContracts[0].functionTreeRoot);
+    expect(settledBlock.newContracts[0]).toEqual(tx.data.end.newContracts[0].functionTreeRoot);
   });
 });
