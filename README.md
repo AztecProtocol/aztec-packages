@@ -5,6 +5,7 @@ The Aztec 3 system consists of the following sub projects.
 - `acir-simulator`
 - `archiver`
 - `aztec-cli`
+- `aztec-rpc`
 - `aztec.js`
 - `ethereum.js`
 - `kernel-simulator`
@@ -13,4 +14,3 @@ The Aztec 3 system consists of the following sub projects.
 - `prover-client`
 - `public-client`
 - `sequencer-client`
-- `wallet`

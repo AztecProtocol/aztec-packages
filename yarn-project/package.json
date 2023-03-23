@@ -10,6 +10,7 @@
     "acir-simulator",
     "archiver",
     "aztec-cli",
+    "aztec-rpc",
     "aztec.js",
     "docs",
     "end-to-end",
@@ -23,8 +24,7 @@
     "prettier-config",
     "prover-client",
     "public-client",
-    "sequencer-client",
-    "wallet"
+    "sequencer-client"
   ],
   "prettier": "./prettier-config",
   "devDependencies": {

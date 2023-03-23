@@ -14,6 +14,7 @@ WORKDIR /usr/src/yarn-project
 COPY acir-simulator/package.json acir-simulator/package.json
 COPY archiver/package.json archiver/package.json
 COPY aztec-cli/package.json aztec-cli/package.json
+COPY aztec-rpc/package.json aztec-rpc/package.json
 COPY aztec.js/package.json aztec.js/package.json
 COPY docs/package.json docs/package.json
 COPY end-to-end/package.json end-to-end/package.json
@@ -26,7 +27,6 @@ COPY p2p/package.json p2p/package.json
 COPY prover-client/package.json prover-client/package.json
 COPY public-client/package.json public-client/package.json
 COPY sequencer-client/package.json sequencer-client/package.json
-COPY wallet/package.json wallet/package.json
 # All workspaces use the linting config, so always include it.
 COPY eslint-config eslint-config
 COPY prettier-config prettier-config
