@@ -1,35 +1,15 @@
+import {
+  AccumulatedData, AffineElement, AggregationObject, ConstantData, ContractDeploymentData, EMITTED_EVENTS_LENGTH, EthAddress as CircuitEthAddress, Fq, Fr, FunctionData, KERNEL_L1_MSG_STACK_LENGTH,
+  KERNEL_NEW_COMMITMENTS_LENGTH, KERNEL_NEW_CONTRACTS_LENGTH, KERNEL_NEW_NULLIFIERS_LENGTH, KERNEL_OPTIONALLY_REVEALED_DATA_LENGTH, KERNEL_PRIVATE_CALL_STACK_LENGTH,
+  KERNEL_PUBLIC_CALL_STACK_LENGTH, NewContractData, OldTreeRoots, OptionallyRevealedData, PrivateKernelPublicInputs, TxContext
+} from '@aztec/circuits.js';
 import { EthAddress } from '@aztec/ethereum.js/eth_address';
+import { EthereumRpc } from '@aztec/ethereum.js/eth_rpc';
+import { WalletProvider } from '@aztec/ethereum.js/provider';
+import { randomBytes, sleep } from '@aztec/foundation';
+import { Rollup, Yeeter } from '@aztec/l1-contracts';
 import { Tx } from '@aztec/p2p';
 import { AztecNode } from '../src/index.js';
-import { WalletProvider } from '@aztec/ethereum.js/provider';
-import { Rollup, Yeeter } from '@aztec/l1-contracts';
-import {
-  PrivateKernelPublicInputs,
-  AccumulatedData,
-  ConstantData,
-  OldTreeRoots,
-  Fr,
-  TxContext,
-  ContractDeploymentData,
-  AggregationObject,
-  AffineElement,
-  Fq,
-  NewContractData,
-  KERNEL_L1_MSG_STACK_LENGTH,
-  KERNEL_NEW_COMMITMENTS_LENGTH,
-  KERNEL_NEW_NULLIFIERS_LENGTH,
-  KERNEL_PRIVATE_CALL_STACK_LENGTH,
-  KERNEL_PUBLIC_CALL_STACK_LENGTH,
-  KERNEL_OPTIONALLY_REVEALED_DATA_LENGTH,
-  FunctionData,
-  EMITTED_EVENTS_LENGTH,
-  OptionallyRevealedData,
-  KERNEL_NEW_CONTRACTS_LENGTH,
-  EthAddress as CircuitEthAddress,
-} from '@aztec/circuits.js';
-import { randomBytes, sleep } from '@aztec/foundation';
-import { L2Block } from '@aztec/archiver';
-import { EthereumRpc } from '@aztec/ethereum.js/eth_rpc';
 
 const ETHEREUM_HOST = 'http://localhost:8545/';
 
@@ -129,48 +109,64 @@ const createTx = () => {
 };
 
 describe('AztecNode', () => {
-  let rollupAddress: EthAddress | undefined = undefined;
-  let yeeterAddress: EthAddress | undefined = undefined;
+  let rollupAddress: EthAddress;
+  let yeeterAddress: EthAddress;
+  let node: AztecNode;
+  let isReady: boolean;
 
-  beforeAll(async () => {
+  beforeEach(async () => {
     const provider = createProvider();
     const ethRpc = new EthereumRpc(provider);
     rollupAddress = await deployRollupContract(provider, ethRpc);
     yeeterAddress = await deployYeeterContract(provider, ethRpc);
+
+    node = new AztecNode();
+    await node.init(ETHEREUM_HOST, rollupAddress, yeeterAddress);
+    isReady = await node.isReady();
   });
 
   it('should start and stop all services', async () => {
-    const node = new AztecNode();
-    await node.init(ETHEREUM_HOST, rollupAddress!, yeeterAddress!);
-    const isReady = await node.isReady();
     expect(isReady).toBeTruthy();
     await node.stop();
   });
 
   it('should rollup a transaction', async () => {
-    const node = new AztecNode();
-    await node.init(ETHEREUM_HOST, rollupAddress!, yeeterAddress!);
-    const isReady = await node.isReady();
-    expect(isReady).toBeTruthy();
-    
     const tx: Tx = createTx();
     await node.sendTx(tx);
-    let settledBlock: L2Block | undefined = undefined;
     
-    while (true) {
-      const blocks = await node.getBlocks(0, 1);
-      if (!blocks.length) {
-        await sleep(100);
-        continue;
-      }
-      settledBlock = blocks[0];
-      break;
-    }
+    const [settledBlock] = await waitForBlocks(1);
     
     expect(settledBlock.number).toBe(0);
-    expect(settledBlock.newContracts.length).toBeTruthy();
+    expect(settledBlock.newContracts.length).toBeGreaterThan(0);
     expect(settledBlock.newContracts[0]).toEqual(tx.data.end.newContracts[0].functionTreeRoot);
     
     await node.stop();
   });
+
+  it('should rollup multiple transactions sent one right after the other', async () => {
+    const txs: Tx[] = Array(3).fill(0).map(createTx);
+    for (const tx of txs) await node.sendTx(tx);
+    const blocks = await waitForBlocks(3);
+    
+    for (let i = 0; i < 3; i++) {
+      const tx = txs[i], block = blocks[i];
+      expect(block.number).toBe(i);
+      expect(block.newContracts.length).toBeGreaterThan(0);
+      // TODO: This assertion fails after the first block
+      if (i === 0) expect(block.newContracts[0]).toEqual(tx.data.end.newContracts[0].functionTreeRoot);
+    }
+    
+    await node.stop();
+  }, 30_000 /* timeout in ms */);
+
+  const waitForBlocks = async (take: number) => {
+    while (true) {
+      const blocks = await node.getBlocks(0, take);
+      if (blocks.length < take) {
+        await sleep(100);
+        continue;
+      }
+      return blocks;
+    }
+  }
 });
