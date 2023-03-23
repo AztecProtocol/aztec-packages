@@ -142,10 +142,6 @@ defaults: &defaults
       only: *tag_regex
   context:
     - build
-foundation: &foundation
-  requires:
-    - yarn-project-base
-  <<: *defaults
 yarn_project: &yarn_project
   requires:
     - yarn-project-base
@@ -167,6 +163,10 @@ workflows:
       - ethereum-js: *yarn_project
       - aztec-js: *yarn_project
       - end-to-end: *yarn_project
+      - foundation:
+          requires:
+            - yarn-project-base
+          <<: *defaults
       - e2e-join:
           requires:
             - ethereum-js
