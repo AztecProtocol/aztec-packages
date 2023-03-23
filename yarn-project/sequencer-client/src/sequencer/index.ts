@@ -1,4 +1,4 @@
-import { P2P, P2PClientState, Tx } from '@aztec/p2p';
+import { P2P, Tx } from '@aztec/p2p';
 import { WorldStateSynchroniser, WorldStateStatus, MerkleTrees } from '@aztec/world-state';
 import { RunningPromise } from '../deps/running_promise.js';
 import { L2BlockPublisher } from '../publisher/l2-block-publisher.js';
@@ -125,7 +125,7 @@ export class Sequencer {
   protected async isBlockSynched() {
     return (
       (await this.worldState.status().then((s: WorldStateStatus) => s.syncedToL2Block)) >= this.lastBlockNumber &&
-      (await this.p2pClient.getStatus().then((s: P2PClientState) => s.syncedToBlockNum)) >= this.lastBlockNumber
+      (await this.p2pClient.getStatus().then(s => s.syncedToL2Block)) >= this.lastBlockNumber
     );
   }
 

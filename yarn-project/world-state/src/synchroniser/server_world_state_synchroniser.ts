@@ -1,7 +1,7 @@
 import { WorldStateRunningState, WorldStateStatus, WorldStateSynchroniser } from './world_state_synchroniser.js';
-import { MerkleTreeDb, MerkleTreeId } from '@aztec/merkle-tree';
 import { L2BlockSource, L2BlockDownloader, L2Block } from '@aztec/archiver';
 import { createDebugLogger } from '@aztec/foundation';
+import { MerkleTreeDb, MerkleTreeId } from '../index.js';
 
 /**
  * Synchronises the world state with the L2 blocks from a L2BlockSource.
@@ -112,7 +112,10 @@ export class ServerWorldStateSynchroniser implements WorldStateSynchroniser {
   private async handleL2Block(l2block: L2Block) {
     this.log(`committing block ${l2block.number}`);
     await this.merkleTreeDb.rollback();
-    await this.merkleTreeDb.appendLeaves(MerkleTreeId.CONTRACT_TREE, l2block.newContracts);
+    await this.merkleTreeDb.appendLeaves(
+      MerkleTreeId.CONTRACT_TREE,
+      l2block.newContracts.map(fr => fr.toBuffer()),
+    );
     await this.merkleTreeDb.commit();
     this.log(`committed block ${l2block.number} to world state`);
     this.currentL2BlockNum = l2block.number;

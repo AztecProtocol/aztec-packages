@@ -4,6 +4,7 @@ import { InMemoryTxPool } from '../tx_pool/memory_tx_pool.js';
 import { TxPool } from '../tx_pool/index.js';
 import { Tx } from './tx.js';
 import { createDebugLogger } from '@aztec/foundation';
+import { Fr } from '@aztec/circuits.js';
 
 const TAKE_NUM = 1;
 
@@ -223,7 +224,7 @@ export class P2PClient implements P2P {
   private reconcileTxPool(blocks: L2Block[]): Promise<void> {
     for (let i = 0; i < blocks.length; i++) {
       const { newContracts } = blocks[i];
-      this.txPool.deleteTxs(newContracts?.map((data: Buffer) => Tx.createTxId(data)) || []);
+      this.txPool.deleteTxs(newContracts?.map((fr: Fr) => Tx.createTxId(fr.toBuffer())) || []);
     }
     return Promise.resolve();
   }

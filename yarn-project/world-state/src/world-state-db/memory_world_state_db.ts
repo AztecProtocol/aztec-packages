@@ -1,22 +1,14 @@
 import { default as levelup } from 'levelup';
-import {
-  StandardMerkleTree,
-  Pedersen,
-  SiblingPath,
-  MerkleTreeDb,
-  MerkleTreeId,
-  TreeInfo,
-  IndexedTree,
-  MerkleTree,
-} from '@aztec/merkle-tree';
+import { StandardMerkleTree, Pedersen, SiblingPath, IndexedTree, MerkleTree } from '@aztec/merkle-tree';
 import { SerialQueue } from '@aztec/foundation';
 import {
   CONTRACT_TREE_HEIGHT,
-  CONTRACT_ROOTS_TREE_HEIGHT,
+  CONTRACT_TREE_ROOTS_TREE_HEIGHT,
   NULLIFIER_TREE_HEIGHT,
   PRIVATE_DATA_TREE_HEIGHT,
   PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT,
 } from '@aztec/circuits.js';
+import { MerkleTreeDb, MerkleTreeId, TreeInfo } from './index.js';
 
 /**
  * A convenience class for managing multiple merkle trees.
@@ -42,7 +34,7 @@ export class MerkleTrees implements MerkleTreeDb {
       this.db,
       hasher,
       `${MerkleTreeId[MerkleTreeId.CONTRACT_TREE_ROOTS_TREE]}`,
-      CONTRACT_ROOTS_TREE_HEIGHT,
+      CONTRACT_TREE_ROOTS_TREE_HEIGHT,
     );
     const nullifierTree = await IndexedTree.new(
       this.db,
