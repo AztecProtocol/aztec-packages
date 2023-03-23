@@ -7,8 +7,10 @@ import { localhost } from 'viem/chains';
 import { ContractData, L2Block } from '../l2_block/l2_block.js';
 import { L2BlockSource } from '../l2_block/l2_block_source.js';
 
-// Rollup contract refuses to accept a block with id 0
-const INITIAL_BLOCK_NUM = 1;
+/**
+ * ID of the first block
+ */
+export const INITIAL_BLOCK_NUM = 0;
 
 /**
  * Pulls L2 blocks in a non-blocking manner and provides interface for their retrieval.

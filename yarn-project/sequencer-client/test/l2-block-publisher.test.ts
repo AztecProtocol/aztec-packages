@@ -21,8 +21,7 @@ describe('L2BlockPublisher integration', () => {
   let l2Proof: Buffer;
 
   beforeAll(async () => {
-    let deployer: EthAddress;
-    ({ ethRpc, rollup, deployer } = await deployRollup());
+    ({ ethRpc, rollup } = await deployRollup());
 
     l2Block = mockRandomL2Block(42);
     l2Proof = Buffer.alloc(0);
@@ -30,10 +29,9 @@ describe('L2BlockPublisher integration', () => {
     publisher = new L2BlockPublisher(
       new EthereumjsTxSender({ 
         ethereumHost: anvilHost, 
-        feeDistributor: deployer.toChecksumString(), 
         requiredConfirmations: 1, 
-        rollupContract: rollup.address.toChecksumString(), 
-        sequencerPrivateKey: sequencerPK 
+        rollupContract: rollup.address, 
+        sequencerPrivateKey: hexStringToBuffer(sequencerPK)
       }),
       {
         sleepTimeMs: 100
