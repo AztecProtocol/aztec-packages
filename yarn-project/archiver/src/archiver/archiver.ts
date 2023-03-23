@@ -178,8 +178,12 @@ export class Archiver implements L2BlockSource {
       data,
     });
     if (functionName !== 'process') throw new Error(`Unexpected method called ${functionName}`);
-    const [_proofHex, l2blockHex] = args! as [Hex, Hex];
-    return L2Block.decode(Buffer.from(hexToBytes(l2blockHex)));
+    const [, l2blockHex] = args! as [Hex, Hex];
+    const block = L2Block.decode(Buffer.from(hexToBytes(l2blockHex)));
+    if (BigInt(block.number) !== l2BlockNum) {
+      throw new Error(`Block number mismatch: expected ${l2BlockNum} but got ${block.number}`);
+    }
+    return block;
   }
 
   /**
