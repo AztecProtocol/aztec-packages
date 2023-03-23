@@ -32,7 +32,7 @@ COPY aztec-node/package.json aztec-node/package.json
 COPY sequencer-client/package.json sequencer-client/package.json
 COPY wallet/package.json wallet/package.json
 COPY world-state/package.json world-state/package.json
-COPY package.json tsconfig.json yarn.lock ./
+COPY package.json tsconfig.json yarn.lock .yarnrc.yml ./
 COPY .yarn .yarn
 
 # Although we're attempting to be "zero-install", in practice we still need to build arch specific packages.
