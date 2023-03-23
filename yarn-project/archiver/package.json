@@ -2,10 +2,7 @@
   "name": "@aztec/archiver",
   "version": "0.0.0",
   "type": "module",
-  "exports": {
-    "./l2_block": "./dest/l2_block/l2_block.js",
-    "./l2_block_source": "./dest/l2_block_source.js"
-  },
+  "exports": "./dest/index.js",
   "typedoc": {
     "entryPoint": "./src/index.ts",
     "displayName": "Archiver",
@@ -17,7 +14,7 @@
     "start": "node ./dest",
     "start:dev": "tsc-watch -p tsconfig.dest.json --onSuccess 'yarn start'",
     "clean": "rm -rf ./dest .tsbuildinfo",
-    "formatting": "run -T prettier --check ./src && run -T eslint ./src",
+    "formatting": "run -T prettier --check ./src && run -T eslint --max-warnings 0 ./src",
     "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules $(yarn bin jest) --no-cache --passWithNoTests"
   },
   "jest": {
