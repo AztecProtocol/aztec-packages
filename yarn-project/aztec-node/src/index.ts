@@ -22,6 +22,7 @@ export class AztecNode {
   private blockSource?: L2BlockSource;
   private merkleTreeDB?: MerkleTrees;
   private worldStateSynchroniser?: WorldStateSynchroniser;
+  private sequencer?: Sequencer;
 
   constructor() {}
 
@@ -60,8 +61,8 @@ export class AztecNode {
       yeeterAddress,
     } as Config;
     const blockPublisher = getL2BlockPublisher(config);
-    const sequencer = new Sequencer(blockPublisher, this.p2pClient, this.worldStateSynchroniser, this.merkleTreeDB);
-    await sequencer.start();
+    this.sequencer = new Sequencer(blockPublisher, this.p2pClient, this.worldStateSynchroniser, this.merkleTreeDB);
+    await this.sequencer.start();
   }
 
   /**
@@ -96,11 +97,11 @@ export class AztecNode {
    * Method to stop the aztec node.
    */
   public async stop() {
-    this.verifyInitialised();
-    await this.p2pClient!.stop();
-    await this.worldStateSynchroniser!.stop();
-    await this.merkleTreeDB!.stop();
-    await this.blockSource!.stop();
+    await this.p2pClient?.stop();
+    await this.worldStateSynchroniser?.stop();
+    await this.merkleTreeDB?.stop();
+    await this.blockSource?.stop();
+    await this.sequencer?.stop();
   }
 
   /**
@@ -115,7 +116,7 @@ export class AztecNode {
    * Method to verify that we are initialised, throws if not.
    */
   private verifyInitialised() {
-    const invalid = [this.blockSource, this.merkleTreeDB, this.p2pClient, this.worldStateSynchroniser].filter(x => !x);
+    const invalid = [this.blockSource, this.merkleTreeDB, this.p2pClient, this.worldStateSynchroniser, this.sequencer].filter(x => !x);
     if (invalid.length) {
       throw new Error('Aztec Node not initialised');
     }
