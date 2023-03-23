@@ -1,4 +1,4 @@
-FROM yarn-project-base as builder
+FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/yarn-project-base AS builder
 
 COPY foundation foundation
 COPY ethereum.js ethereum.js
