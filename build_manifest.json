@@ -94,6 +94,13 @@
     "rebuildPatterns": ["^yarn-project/key-store/"],
     "dependencies": ["yarn-project-base"]
   },
+  "foundation": {
+    "buildDir": "yarn-project",
+    "projectDir": "yarn-project/foundation",
+    "dockerfile": "foundation/Dockerfile",
+    "rebuildPatterns": ["^yarn-project/foundation/"],
+    "dependencies": ["yarn-project-base"]
+  },
   "merkle-tree": {
     "buildDir": "yarn-project",
     "projectDir": "yarn-project/merkle-tree",
