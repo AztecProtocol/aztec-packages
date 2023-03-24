@@ -50,8 +50,7 @@ checkout: &checkout
       # Initialize submodules recursively
       git submodule update --init --recursive circuits build-system yarn-project/foundation
       # We have build problems with symlinks in yarn-project. Resolve them.
-      rm yarn-project/circuits && cp -r circuits yarn-project/circuits
-      ls yarn-project/circuits
+      rm yarn-project/circuits && cp -r circuits/ts yarn-project/circuits
 
 # Called setup_env to setup a bunch of global variables used throughout the rest of the build process.
 # It takes the required CCI environment variables as inputs, and gives them normalised names for the rest of
