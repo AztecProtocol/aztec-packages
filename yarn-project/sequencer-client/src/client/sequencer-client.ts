@@ -1,5 +1,5 @@
 import { P2P } from '@aztec/p2p';
-import { MerkleTrees, WorldStateSynchroniser } from '@aztec/world-state';
+import { WorldStateSynchroniser } from '@aztec/world-state';
 import { getL2BlockPublisher, L2BlockPublisher, Sequencer, SequencerClientConfig } from '../index.js';
 
 /**
@@ -12,10 +12,9 @@ export class SequencerClient {
     config: SequencerClientConfig,
     p2pClient: P2P,
     worldStateSynchroniser: WorldStateSynchroniser,
-    db: MerkleTrees,
   ) {
     const publisher = getL2BlockPublisher(config);
-    const sequencer = new Sequencer(publisher, p2pClient, worldStateSynchroniser, db, config);
+    const sequencer = new Sequencer(publisher, p2pClient, worldStateSynchroniser, config);
     await sequencer.start();
     return new SequencerClient(publisher, sequencer);
   }

@@ -31,8 +31,7 @@ describe('AztecNode', () => {
       archiverPollingInterval: 100,
     } as AztecNodeConfig;
 
-    node = new AztecNode();
-    await node.init(aztecNodeConfig);
+    node = await AztecNode.createAndSync(aztecNodeConfig);
     isReady = await node.isReady();
   });
 
