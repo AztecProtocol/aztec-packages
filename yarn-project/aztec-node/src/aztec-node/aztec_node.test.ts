@@ -5,10 +5,12 @@ import { Tx } from '@aztec/p2p';
 import { AztecNodeConfig } from './config.js';
 import { AztecNode } from '../index.js';
 import { createProvider, createTx, deployRollupContract, deployYeeterContract } from './fixtures.js';
-import { sleep } from '@aztec/foundation';
+import { createDebugLogger, sleep } from '@aztec/foundation';
 
 const ETHEREUM_HOST = 'http://localhost:8545/';
 const MNEMONIC = 'test test test test test test test test test test test junk';
+
+const logger = createDebugLogger('aztec:e2e_test');
 
 describe('AztecNode', () => {
   let rollupAddress: EthAddress;
@@ -55,8 +57,13 @@ describe('AztecNode', () => {
 
   it('should rollup multiple transactions', async () => {
     const txs: Tx[] = Array(3).fill(0).map(createTx);
-    for (const tx of txs) await node.sendTx(tx);
+    for (let i = 0; i < txs.length; i++) {
+      logger(`Sending tx ${i + 1} of ${txs.length}`);
+      await node.sendTx(txs[i]);
+    }
     const blocks = await waitForBlocks(3);
+
+    logger(`Received ${blocks.length} settled blocks`);
 
     for (let i = 0; i < 3; i++) {
       const tx = txs[i];
@@ -64,6 +71,7 @@ describe('AztecNode', () => {
       expect(block.number).toBe(i + 1);
       expect(block.newContracts.length).toBeGreaterThan(0);
       expect(block.newContracts[0]).toEqual(tx.data.end.newContracts[0].functionTreeRoot);
+      logger(`Verified tx ${i + 1}`);
     }
 
     await node.stop();
