@@ -46,6 +46,7 @@ COPY .yarn .yarn
 RUN yarn --immutable
 # Build submodule packages that have their own yarn.lock.
 RUN cd foundation && yarn --immutable && cd ..
+RUN cd circuits && yarn --immutable && cd ..
 # If everything's worked properly, we should no longer need access to the network.
 RUN echo "enableNetwork: false" >> .yarnrc.yml
 
