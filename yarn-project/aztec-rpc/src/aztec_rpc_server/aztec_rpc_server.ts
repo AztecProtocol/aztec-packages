@@ -21,6 +21,7 @@ import { ContractAbi } from '../noir.js';
 import { Synchroniser } from '../synchroniser/index.js';
 import { TxHash } from '../tx/index.js';
 import { AccumulatedTxData } from '@aztec/p2p';
+import { ContractDao } from '../contract_data_source/contract_dao.js';
 
 export class AztecRPCServer implements AztecRPCClient {
   constructor(
@@ -73,7 +74,7 @@ export class AztecRPCServer implements AztecRPCClient {
     const txContext = new TxContext(false, false, false, contractDeploymentData);
 
     const contractAddress = generateContractAddress(from, contractAddressSalt, args);
-    await this.db.addContract(contractAddress, abi, false);
+    await this.db.addContract(contractAddress, portalContract, abi, false);
 
     return new TxRequest(
       from,
@@ -87,19 +88,16 @@ export class AztecRPCServer implements AztecRPCClient {
   }
 
   public async createTxRequest(functionSelector: Buffer, args: Fr[], to: AztecAddress, from: AztecAddress) {
-    const abi = await this.db.getContract(to);
-    if (!abi) {
+    const contract = await this.db.getContract(to);
+    if (!contract) {
       throw new Error('Unknown contract.');
     }
 
-    const functionAbi = abi.functions.find(f => f.selector.equals(functionSelector));
-    if (!functionAbi) {
-      throw new Error('Unknown function.');
-    }
+    const functionDao = this.findFunction(contract, functionSelector);
 
     const functionData = {
       functionSelector,
-      isSecret: functionAbi.isSecret,
+      isSecret: functionDao.isSecret,
       isContructor: false,
     };
 
@@ -121,11 +119,33 @@ export class AztecRPCServer implements AztecRPCClient {
   }
 
   public async createTx(txRequest: TxRequest, signature: Signature) {
-    // TODO - get the contract/fn details from the db
-    const entryPointACIR = Buffer.alloc(0);
-    const portalContractAddress = EthAddress.ZERO;
-    const oldRoots = new OldTreeRoots(Fr.ZERO, Fr.ZERO, Fr.ZERO, Fr.ZERO); // TODO - get old roots from the database
-    const executionResult = await this.acirSimulator.run(txRequest, entryPointACIR, portalContractAddress, oldRoots);
+    let contractAddress;
+
+    if (txRequest.to === AztecAddress.ZERO) {
+      contractAddress = generateContractAddress(
+        txRequest.from,
+        txRequest.txContext.contractDeploymentData.contractAddressSalt,
+        txRequest.args,
+      );
+    } else {
+      contractAddress = txRequest.to;
+    }
+
+    const contract = await this.db.getContract(contractAddress);
+
+    if (!contract) {
+      throw new Error('Unknown contract.');
+    }
+
+    const functionDao = this.findFunction(contract, txRequest.functionData.functionSelector);
+
+    const oldRoots = new OldTreeRoots(Fr.ZERO, Fr.ZERO, Fr.ZERO, Fr.ZERO); // TODO - get old roots from the database/node
+    const executionResult = await this.acirSimulator.run(
+      txRequest,
+      Buffer.from(functionDao.bytecode, 'base64'),
+      contract.portalAddress,
+      oldRoots,
+    );
     // TODO - kernel prover should use the signature along with the request
     const { publicInputs, proof } = await this.kernelProver.prove(txRequest, executionResult, oldRoots);
     return this.buildTx(publicInputs, proof);
@@ -176,5 +196,13 @@ export class AztecRPCServer implements AztecRPCClient {
       error: tx.error,
       status: !tx.error,
     };
+  }
+
+  private findFunction(contract: ContractDao, functionSelector: Buffer) {
+    const functionDao = contract.functions.find(f => f.selector.equals(functionSelector));
+    if (!functionDao) {
+      throw new Error('Unknown function.');
+    }
+    return functionDao;
   }
 }
