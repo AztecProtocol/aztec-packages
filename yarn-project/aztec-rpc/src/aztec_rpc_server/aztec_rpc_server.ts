@@ -137,15 +137,15 @@ export class AztecRPCServer implements AztecRPCClient {
     //TODO I think the TX should include all the data from the publicInputs + proof
     return new Tx(
       new AccumulatedTxData(
-        accumulatedData.newCommitments.map(fr => fr.buffer), // newCommitments
-        accumulatedData.newNullifiers.map(fr => fr.buffer), // newNullifiers
-        accumulatedData.privateCallStack.map(fr => fr.buffer), // privateCallStack
-        accumulatedData.publicCallStack.map(fr => fr.buffer), // publicCallStack
-        accumulatedData.l1MsgStack.map(fr => fr.buffer), // l1MsgStack
-        accumulatedData.newContracts.map(() => Buffer.alloc(0)), // newContracts TODO: use toBuffer from circuits/ts
-        accumulatedData.newCommitments.map(fr => fr.buffer), // optionallyRevealedData
-        {}, // aggregationObject
-        accumulatedData.privateCallCount.buffer.readUInt32BE(), // callCount TODO: check if correct
+        accumulatedData.newCommitments.map(fr => fr.buffer),
+        accumulatedData.newNullifiers.map(fr => fr.buffer),
+        accumulatedData.privateCallStack.map(fr => fr.buffer),
+        accumulatedData.publicCallStack.map(fr => fr.buffer),
+        accumulatedData.l1MsgStack.map(fr => fr.buffer),
+        accumulatedData.newContracts.map(() => Buffer.alloc(0)), // TODO: use toBuffer from circuits/ts
+        accumulatedData.newCommitments.map(fr => fr.buffer),
+        {}, // TODO aggregationObject from circuits/ts
+        accumulatedData.privateCallCount.buffer.readUInt32BE(), // TODO: check if correct
       ),
     );
   }
