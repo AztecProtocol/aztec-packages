@@ -1,3 +1,5 @@
+import { numToUInt32BE } from '@aztec/foundation';
+
 /**
  * A snapshot of an append only tree.
  */
@@ -30,6 +32,9 @@ export type ContractData = {
  * The data that makes up the rollup proof, with encoder decoder functions.
  */
 export class L2Block {
+  /**
+   * A yeet to go with the block.
+   */
   public yeet?: Buffer;
 
   /**
@@ -69,6 +74,10 @@ export class L2Block {
     public newContractData: ContractData[],
   ) {}
 
+  /**
+   * Sets the yeet on this block.
+   * @param yeet - The yeet to set.
+   */
   setYeet(yeet: Buffer) {
     this.yeet = yeet;
   }
@@ -234,21 +243,6 @@ export function bufferToAppendOnlyTreeSnapshot(buffer: Buffer): AppendOnlyTreeSn
     nextAvailableLeafIndex,
     root,
   };
-}
-
-/**
- * FUNCTIONS THAT SHOULD NOT BE HERE.
- */
-
-/**
- * For serializing numbers to 32 byte big-endian form.
- * @param n - The number to serialize.
- * @param bufferSize - The size of the buffer to serialize to, defaults to 4.
- */
-export function numToUInt32BE(n: number, bufferSize = 4): Buffer {
-  const buf = Buffer.alloc(bufferSize);
-  buf.writeUInt32BE(n, bufferSize - 4);
-  return buf;
 }
 
 /**

@@ -3,7 +3,6 @@ import {
   CallContext,
   PrivateCircuitPublicInputs,
   TxRequest,
-  Fr,
   EthAddress,
   PrivateCallStackItem,
   OldTreeRoots,

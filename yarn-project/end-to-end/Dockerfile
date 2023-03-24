@@ -1,10 +1,12 @@
 FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/yarn-project-base AS builder
+COPY foundation foundation
+COPY noir-contracts noir-contracts
 COPY aztec.js aztec.js
 RUN cd aztec.js && yarn build
 
 COPY end-to-end end-to-end
 WORKDIR /usr/src/yarn-project/end-to-end
-RUN yarn build && yarn formatting
+RUN yarn formatting
 
 # Prune dev dependencies. See comment in base image.
 RUN yarn cache clean

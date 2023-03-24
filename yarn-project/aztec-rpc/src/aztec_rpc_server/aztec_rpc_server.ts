@@ -1,6 +1,6 @@
+import { AztecNode, Tx } from '@aztec/aztec-node';
 import { generateFunctionSelector } from '../abi_coder/index.js';
 import { AcirSimulator } from '../acir_simulator.js';
-import { AztecNode, Tx, TxHash } from '../aztec_node.js';
 import { AztecRPCClient } from '../aztec_rpc_client/index.js';
 import {
   AztecAddress,
@@ -18,6 +18,7 @@ import { KeyStore } from '../key_store/index.js';
 import { ContractAbi } from '../noir.js';
 import { ProofGenerator } from '../proof_generator/index.js';
 import { Synchroniser } from '../synchroniser/index.js';
+import { TxHash } from '../tx/index.js';
 
 export class AztecRPCServer implements AztecRPCClient {
   constructor(
@@ -122,12 +123,13 @@ export class AztecRPCServer implements AztecRPCClient {
   public async createTx(txRequest: TxRequest, signature: Signature) {
     const { kernelData, callData } = await this.simulator.simulate(txRequest);
     const privateInputs = new KernelPrivateInputs(txRequest, signature, kernelData, callData);
-    const { proofData, accumulatedTxData } = await this.proofGenerator.createProof(privateInputs);
-    return new Tx(proofData, accumulatedTxData);
+    const { accumulatedTxData } = await this.proofGenerator.createProof(privateInputs);
+    return new Tx(accumulatedTxData);
   }
 
-  public sendTx(tx: Tx) {
-    return this.node.sendTx(tx);
+  public async sendTx(tx: Tx) {
+    await this.node.sendTx(tx);
+    return new TxHash(tx.txId);
   }
 
   public async getTxReceipt(txHash: TxHash) {

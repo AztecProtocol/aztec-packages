@@ -3,8 +3,9 @@ import { KernelCircuitProver, KernelPrivateInputs } from '../circuits.js';
 export class ProofGenerator {
   constructor(private prover: KernelCircuitProver) {}
 
-  createProof(inputs: KernelPrivateInputs) {
+  public async createProof(inputs: KernelPrivateInputs) {
     // TODO - iterate
-    return this.prover.createProof(inputs);
+    const { accumulatedTxData } = await this.prover.createProof(inputs);
+    return { accumulatedTxData: accumulatedTxData as any };
   }
 }

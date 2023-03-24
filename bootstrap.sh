@@ -40,21 +40,24 @@ cd yarn-project
 yarn install --immutable
 cd ..
 
+# make sure to run yarn install from foundation, has its own yarn.lock
+pushd yarn-project/foundation >/dev/null
+yarn install
+popd >/dev/null
+
 # We only bootstrap projects that produce artefacts needed for running end-to-end tests.
 PROJECTS=(
-  # "circuits:./bootstrap.sh db_cli rollup_cli"
-  # "yarn-project/acir-simulator:yarn build"
-  # "yarn-project/aztec-cli:yarn build"
+  # "yarn-project/foundation:yarn build"
+  "yarn-project/ethereum.js:yarn build"
+  "yarn-project/merkle-tree:yarn build"
+  "yarn-project/archiver:yarn build"
+  "yarn-project/world-state:yarn build"
+  "yarn-project/p2p:yarn build"
+  "yarn-project/aztec-node:yarn build"
+  "yarn-project/key-store:yarn build"
+  "yarn-project/acir-simulator:yarn build"
   "yarn-project/aztec-rpc:yarn build"
   "yarn-project/aztec.js:yarn build"
-  "yarn-project/archiver:yarn build"
-  # "yarn-project/ethereum.js:yarn build"
-  # "yarn-project/kernel-simulator:yarn build"
-  "yarn-project/key-store:yarn build"
-  # "yarn-project/p2p:yarn build"
-  # "yarn-project/prover-client:yarn build"
-  # "yarn-project/public-client:yarn build"
-  # "yarn-project/sequencer-client:yarn build"
 )
 
 for E in "${PROJECTS[@]}"; do

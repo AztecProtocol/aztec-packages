@@ -13,7 +13,9 @@
     "noir-contracts",
     "p2p",
     "prover-client",
-    "public-client",
-    "sequencer-client"
+    "aztec-node",
+    "sequencer-client",
+    "world-state",
+    "merkle-tree"
   ]
 }
