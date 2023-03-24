@@ -6,6 +6,8 @@ COPY archiver archiver
 COPY world-state world-state
 COPY p2p p2p
 COPY aztec-node aztec-node
+COPY acir-simulator acir-simulator
+COPY kernel-prover kernel-prover
 COPY aztec-rpc aztec-rpc
 COPY aztec.js aztec.js
 RUN cd ethereum.js && yarn build
