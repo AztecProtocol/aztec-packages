@@ -177,3 +177,11 @@ export class TxRequest {
     return Buffer.alloc(0);
   }
 }
+
+export class PrivateCallStackItem {
+  constructor(
+    public readonly contractAddress: AztecAddress,
+    public readonly functionSelector: Buffer,
+    public readonly publicInputs: PrivateCircuitPublicInputs,
+  ) {}
+}

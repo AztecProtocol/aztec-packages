@@ -1,5 +1,12 @@
 import { execute, ExecutionPreimages } from './acvm.js';
-import { CallContext, PrivateCircuitPublicInputs, TxRequest, Fr, EthAddress } from './circuits.js';
+import {
+  CallContext,
+  PrivateCircuitPublicInputs,
+  TxRequest,
+  Fr,
+  EthAddress,
+  PrivateCallStackItem,
+} from './circuits.js';
 import { DBOracle } from './db_oracle.js';
 
 export interface ExecutionResult {
@@ -7,7 +14,7 @@ export interface ExecutionResult {
   acir: Buffer;
   partialWitness: Buffer;
   // Needed for the verifier (kernel)
-  publicInputs: PrivateCircuitPublicInputs;
+  callStackItem: PrivateCallStackItem;
   // Needed for the user
   preimages: ExecutionPreimages;
   // Nested executions
@@ -60,7 +67,7 @@ export class AcirSimulator {
     return Promise.resolve({
       acir: entryPointACIR,
       partialWitness: Buffer.alloc(0),
-      publicInputs: publicInputs,
+      callStackItem: new PrivateCallStackItem(request.to, request.functionData.functionSelector, publicInputs),
       preimages: {
         newNotes: [],
         nullifiedNotes: [],

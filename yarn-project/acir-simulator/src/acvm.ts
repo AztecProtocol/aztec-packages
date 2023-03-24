@@ -1,7 +1,7 @@
 import { AztecAddress, CallContext, ContractDeploymentData } from './circuits.js';
 import { NoteLoadOracleInputs } from './db_oracle.js';
 
-interface ACIRCallback {
+export interface ACIRCallback {
   getSecretKey(keyId: Buffer): Promise<Buffer>;
   getNotes(storageSlot: Buffer): Promise<NoteLoadOracleInputs[]>;
   getRandomField(): Promise<Buffer>;
@@ -17,7 +17,7 @@ export interface ExecutionPreimages {
   nullifiedNotes: Buffer[];
 }
 
-interface Executionresult {
+export interface ACIRExecutionResult {
   preimages: ExecutionPreimages;
   partialWitness: Buffer;
 }
@@ -28,4 +28,4 @@ export type execute = (
   callContext: CallContext,
   contractDeploymentData: ContractDeploymentData,
   oracle: ACIRCallback,
-) => Promise<Executionresult>;
+) => Promise<ACIRExecutionResult>;
