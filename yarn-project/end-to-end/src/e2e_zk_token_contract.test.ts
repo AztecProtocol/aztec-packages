@@ -7,7 +7,7 @@ describe('e2e_zk_token', () => {
   let accounts: AztecAddress[];
   let contract: Contract;
   const initialBalance = 987n;
-  const mintAmount = 65n;
+  const transferAmount = 65n;
 
   const expectBalance = async (accountIdx: number, expectedBalance: bigint) => {
     const balance = await contract.methods.getBalance().call({ from: accounts[accountIdx] });
@@ -25,14 +25,14 @@ describe('e2e_zk_token', () => {
     contract = new Contract(contractAddress, abi, arc);
   });
 
-  it('should call mint and increase account balance', async () => {
+  it('should transfer to another account', async () => {
     await expectBalance(0, initialBalance);
     await expectBalance(1, 0n);
 
-    const receipt = await contract.methods.mint(mintAmount).send({ from: accounts[1] }).getReceipt();
+    const receipt = await contract.methods.trasnfer(accounts[1], transferAmount).send().getReceipt();
     expect(receipt.status).toBe(true);
 
     await expectBalance(0, initialBalance);
-    await expectBalance(1, mintAmount);
+    await expectBalance(1, transferAmount);
   });
 });
