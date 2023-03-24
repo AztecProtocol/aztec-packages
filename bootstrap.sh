@@ -54,7 +54,7 @@ PROJECTS=(
   "yarn-project/aztec.js:yarn build"
   "yarn-project/archiver:yarn build"
   "yarn-project/ethereum.js:yarn build"
-  #"yarn-project/foundation:yarn build"
+  "yarn-project/foundation:yarn build"
   # "yarn-project/kernel-simulator:yarn build"
   "yarn-project/key-store:yarn build"
   "yarn-project/merkle-tree:yarn build"

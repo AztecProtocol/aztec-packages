@@ -120,7 +120,7 @@
     "projectDir": "yarn-project/p2p",
     "dockerfile": "p2p/Dockerfile",
     "rebuildPatterns": ["^yarn-project/p2p/"],
-    "dependencies": ["yarn-project-base", "archiver"]
+    "dependencies": ["yarn-project-base", "archiver", "foundation"]
   },
   "prover-client": {
     "buildDir": "yarn-project",
@@ -149,7 +149,13 @@
     "projectDir": "yarn-project/sequencer-client",
     "dockerfile": "sequencer-client/Dockerfile",
     "rebuildPatterns": ["^yarn-project/sequencer-client/"],
-    "dependencies": ["yarn-project-base"]
+    "dependencies": [
+      "yarn-project-base",
+      "world-state",
+      "foundation",
+      "p2p",
+      "archiver"
+    ]
   },
   "wallet": {
     "buildDir": "yarn-project",
@@ -163,6 +169,11 @@
     "projectDir": "yarn-project/world-state",
     "dockerfile": "world-state/Dockerfile",
     "rebuildPatterns": ["^yarn-project/world-state/"],
-    "dependencies": ["yarn-project-base", "merkle-tree"]
+    "dependencies": [
+      "yarn-project-base",
+      "merkle-tree",
+      "archiver",
+      "foundation"
+    ]
   }
 }
