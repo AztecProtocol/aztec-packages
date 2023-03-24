@@ -2,6 +2,7 @@ import { AztecAddress, AztecRPCClient, ContractAbi, EthAddress, Fr } from '@azte
 import { ContractFunction, SendMethod, SendMethodOptions } from '../contract/index.js';
 
 export interface ConstructorOptions extends SendMethodOptions {
+  portalContract?: EthAddress;
   contractAddressSalt?: Fr;
 }
 
@@ -12,8 +13,7 @@ export class ConstructorMethod extends SendMethod {
   constructor(
     arc: AztecRPCClient,
     private abi: ContractAbi,
-    private portalContract: EthAddress,
-    args: any[],
+    args: any[] = [],
     defaultOptions: ConstructorOptions = {},
   ) {
     const constructorAbi = abi.functions.find(f => f.name === 'constructor');
@@ -25,11 +25,11 @@ export class ConstructorMethod extends SendMethod {
   }
 
   public async request(options: ConstructorOptions = {}) {
-    const { contractAddressSalt, from } = { ...this.defaultOptions, ...options };
+    const { portalContract, contractAddressSalt, from } = { ...this.defaultOptions, ...options };
     this.txRequest = await this.arc.createDeploymentTxRequest(
       this.abi,
       this.entry.encodeParameters(this.args).map(p => new Fr(p)),
-      this.portalContract,
+      portalContract || EthAddress.ZERO,
       contractAddressSalt || Fr.random(),
       from || AztecAddress.ZERO,
     );

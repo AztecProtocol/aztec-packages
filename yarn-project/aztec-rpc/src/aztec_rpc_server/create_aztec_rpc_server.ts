@@ -14,7 +14,7 @@ export async function createAztecRPCServer({
   synchroniser,
   acirSimulator,
   kernelProver,
-  rpcUrl,
+  ethRpcUrl,
   rollupAddress,
   yeeterAddress,
 }: {
@@ -24,14 +24,14 @@ export async function createAztecRPCServer({
   synchroniser?: Synchroniser;
   acirSimulator?: AcirSimulator;
   kernelProver?: KernelProver;
-  rpcUrl?: string;
+  ethRpcUrl?: string;
   rollupAddress?: EthAddress;
   yeeterAddress?: EthAddress;
 } = {}) {
   keyStore = keyStore || new TestKeyStore();
   if (!node) {
-    if (!rpcUrl) {
-      throw new Error('`rpcUrl` undefined.');
+    if (!ethRpcUrl) {
+      throw new Error('`ethRpcUrl` undefined.');
     }
     if (!rollupAddress) {
       throw new Error('`rollupAddress` undefined.');
@@ -40,7 +40,7 @@ export async function createAztecRPCServer({
       throw new Error('`yeeterAddress` undefined.');
     }
     node = new AztecNode();
-    await node.init(rpcUrl!, rollupAddress! as any, yeeterAddress! as any);
+    await node.init(ethRpcUrl, rollupAddress as any, yeeterAddress as any);
   }
   db = db || new MemoryDB();
   synchroniser = synchroniser || new Synchroniser(node, db);
