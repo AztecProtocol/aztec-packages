@@ -15,7 +15,6 @@
     "circuits",
     "docs",
     "end-to-end",
-    "eslint-config",
     "ethereum.js",
     "ethereum.js/example",
     "foundation",
@@ -25,14 +24,13 @@
     "noir-contracts",
     "l1-contracts",
     "p2p",
-    "prettier-config",
     "prover-client",
     "aztec-node",
     "sequencer-client",
     "wallet",
     "world-state"
   ],
-  "prettier": "./prettier-config",
+  "prettier": "@aztec/foundation/prettier",
   "devDependencies": {
     "eslint": "^8.21.0",
     "prettier": "^2.7.1",

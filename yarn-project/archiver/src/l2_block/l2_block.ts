@@ -35,8 +35,6 @@ export class ContractData {
   }
 }
 
-/* eslint-disable jsdoc/require-jsdoc */
-
 /**
  * The data that makes up the rollup proof, with encoder decoder functions.
  * TODO: Reuse data types and serialization functions from circuits package.
