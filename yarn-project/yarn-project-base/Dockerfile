@@ -15,6 +15,7 @@ WORKDIR /usr/src/yarn-project
 COPY acir-simulator/package.json acir-simulator/package.json
 COPY archiver/package.json archiver/package.json
 COPY aztec-cli/package.json aztec-cli/package.json
+COPY aztec-node/package.json aztec-node/package.json
 COPY aztec.js/package.json aztec.js/package.json
 COPY docs/package.json docs/package.json
 COPY end-to-end/package.json end-to-end/package.json
@@ -30,6 +31,7 @@ COPY noir-contracts/package.json noir-contracts/package.json
 COPY l1-contracts/package.json l1-contracts/package.json
 # Note: circuits bundles a .yalc folder, must make it available
 COPY circuits/package.json circuits/package.json
+COPY circuits/yarn.lock circuits/yarn.lock
 COPY circuits/.yalc circuits/.yalc
 COPY p2p/package.json p2p/package.json
 COPY prover-client/package.json prover-client/package.json
