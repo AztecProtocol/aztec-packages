@@ -15,7 +15,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@aztec/acir-simulator@workspace:acir-simulator":
+"@aztec/acir-simulator@workspace:^, @aztec/acir-simulator@workspace:acir-simulator":
   version: 0.0.0-use.local
   resolution: "@aztec/acir-simulator@workspace:acir-simulator"
   dependencies:
@@ -214,6 +214,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/kernel-simulator@workspace:kernel-simulator"
   dependencies:
+    "@aztec/acir-simulator": "workspace:^"
     "@aztec/eslint-config": "workspace:^"
     "@jest/globals": ^29.4.3
     "@rushstack/eslint-patch": ^1.1.4

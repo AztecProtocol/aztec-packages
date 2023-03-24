@@ -6,6 +6,7 @@ import {
   Fr,
   EthAddress,
   PrivateCallStackItem,
+  OldTreeRoots,
 } from './circuits.js';
 import { DBOracle } from './db_oracle.js';
 
@@ -18,13 +19,7 @@ export interface ExecutionResult {
   // Needed for the user
   preimages: ExecutionPreimages;
   // Nested executions
-  nestedExecutions: ExecutionResult[];
-}
-
-export interface HistoricRoots {
-  historicPrivateDataTreeRoot: Fr;
-  historicPrivateNullifierTreeRoot: Fr;
-  historicContractTreeRoot: Fr;
+  nestedExecutions: this[];
 }
 
 /**
@@ -37,7 +32,7 @@ export class AcirSimulator {
     request: TxRequest,
     entryPointACIR: Buffer,
     portalContractAddress: EthAddress,
-    historicRoots: HistoricRoots,
+    oldRoots: OldTreeRoots,
   ): Promise<ExecutionResult> {
     const callContext = new CallContext(
       request.from,
@@ -58,9 +53,9 @@ export class AcirSimulator {
       [], // privateCallStack,
       [], // publicCallStack,
       [], // l1MsgStack,
-      historicRoots.historicPrivateDataTreeRoot,
-      historicRoots.historicPrivateNullifierTreeRoot,
-      historicRoots.historicContractTreeRoot,
+      oldRoots.privateDataTreeRoot,
+      oldRoots.nullifierTreeRoot,
+      oldRoots.contractTreeRoot,
       request.txContext.contractDeploymentData,
     );
 
