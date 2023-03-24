@@ -9,12 +9,12 @@ COPY aztec-node aztec-node
 COPY aztec-rpc aztec-rpc
 COPY aztec.js aztec.js
 RUN cd ethereum.js && yarn build
-RUN cd ../archiver && yarn build 
-RUN cd ../merkle-tree && yarn build 
-RUN cd ../world-state && yarn build
-RUN cd ../p2p && yarn build
-RUN cd ../aztec-node && yarn build
-RUN cd ../aztec-rpc && yarn build
+RUN cd archiver && yarn build 
+RUN cd merkle-tree && yarn build 
+RUN cd world-state && yarn build
+RUN cd p2p && yarn build
+RUN cd aztec-node && yarn build
+RUN cd aztec-rpc && yarn build
 WORKDIR /usr/src/yarn-project/aztec.js
 RUN yarn build && yarn formatting && yarn test
 
