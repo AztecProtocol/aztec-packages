@@ -64,7 +64,7 @@
     "projectDir": "yarn-project/aztec-node",
     "dockerfile": "aztec-node/Dockerfile",
     "rebuildPatterns": ["^yarn-project/aztec-node/"],
-    "dependencies": ["p2p", "world-state", "ethereum.js"]
+    "dependencies": ["foundation", "p2p", "world-state", "ethereum.js"]
   },
   "aztec-rpc": {
     "buildDir": "yarn-project",
@@ -92,7 +92,7 @@
     "projectDir": "yarn-project/ethereum.js",
     "dockerfile": "ethereum.js/Dockerfile",
     "rebuildPatterns": ["^yarn-project/ethereum.js/"],
-    "dependencies": ["yarn-project-base"]
+    "dependencies": ["yarn-project-base", "foundation"]
   },
   "foundation": {
     "buildDir": "yarn-project",
@@ -127,7 +127,7 @@
     "projectDir": "yarn-project/noir-contracts",
     "dockerfile": "noir-contracts/Dockerfile",
     "rebuildPatterns": ["^yarn-project/noir-contracts/"],
-    "dependencies": ["yarn-project-base"]
+    "dependencies": ["yarn-project-base", "foundation"]
   },
   "p2p": {
     "buildDir": "yarn-project",
