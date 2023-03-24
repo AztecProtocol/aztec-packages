@@ -1,4 +1,3 @@
-import { AccumulatedTxData } from '@aztec/aztec-node';
 import { KernelCircuitProver, KernelPrivateInputs } from '../circuits.js';
 
 export class ProofGenerator {
@@ -7,6 +6,6 @@ export class ProofGenerator {
   public async createProof(inputs: KernelPrivateInputs) {
     // TODO - iterate
     const { accumulatedTxData } = await this.prover.createProof(inputs);
-    return { accumulatedTxData: accumulatedTxData as AccumulatedTxData };
+    return { accumulatedTxData: accumulatedTxData as any };
   }
 }
