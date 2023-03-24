@@ -1,15 +1,20 @@
 FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/yarn-project-base AS builder
 COPY foundation foundation
 COPY ethereum.js ethereum.js
+COPY merkle-tree merkle-tree
 COPY archiver archiver
 COPY world-state world-state
 COPY p2p p2p
 COPY aztec-node aztec-node
 COPY aztec-rpc aztec-rpc
 COPY aztec.js aztec.js
-RUN cd ethereum.js && yarn build && cd ../archiver && yarn build && cd ../world-state && yarn build && cd ../p2p && yarn build
-RUN cd ../aztec-node && yarn build
-RUN cd ../aztec-rpc && yarn build
+RUN cd ethereum.js && yarn build
+RUN cd archiver && yarn build 
+RUN cd merkle-tree && yarn build 
+RUN cd world-state && yarn build
+RUN cd p2p && yarn build
+RUN cd aztec-node && yarn build
+RUN cd aztec-rpc && yarn build
 WORKDIR /usr/src/yarn-project/aztec.js
 RUN yarn build && yarn formatting && yarn test
 
