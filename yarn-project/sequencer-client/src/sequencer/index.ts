@@ -1,5 +1,5 @@
 import { P2P, Tx } from '@aztec/p2p';
-import { WorldStateSynchroniser, WorldStateStatus, MerkleTrees } from '@aztec/world-state';
+import { WorldStateSynchroniser, WorldStateStatus } from '@aztec/world-state';
 import { RunningPromise } from '../deps/running_promise.js';
 import { L2BlockPublisher } from '../publisher/l2-block-publisher.js';
 import { createDebugLogger } from '@aztec/foundation';
