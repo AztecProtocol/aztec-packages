@@ -1,4 +1,4 @@
-import { execute, ExecutionPreimages } from './acvm.js';
+import { ExecutionPreimages } from './acvm.js';
 import {
   CallContext,
   PrivateCircuitPublicInputs,
@@ -7,7 +7,6 @@ import {
   PrivateCallStackItem,
   OldTreeRoots,
 } from './circuits.js';
-import { DBOracle } from './db_oracle.js';
 
 export interface ExecutionResult {
   // Needed for prover
@@ -25,8 +24,6 @@ export interface ExecutionResult {
  * A placeholder for the Acir Simulator.
  */
 export class AcirSimulator {
-  constructor(private dbOracle: DBOracle, private acvmExecute: execute) {}
-
   run(
     request: TxRequest,
     entryPointACIR: Buffer,

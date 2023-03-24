@@ -1,6 +1,7 @@
 import { AztecNode, Tx } from '@aztec/aztec-node';
+import { AcirSimulator } from '@aztec/acir-simulator';
+import { KernelProver } from '@aztec/kernel-simulator';
 import { generateFunctionSelector } from '../abi_coder/index.js';
-import { AcirSimulator } from '../acir_simulator.js';
 import { AztecRPCClient } from '../aztec_rpc_client/index.js';
 import {
   AztecAddress,
@@ -8,7 +9,8 @@ import {
   EthAddress,
   Fr,
   generateContractAddress,
-  KernelPrivateInputs,
+  OldTreeRoots,
+  PrivateKernelPublicInputs,
   Signature,
   TxContext,
   TxRequest,
@@ -16,16 +18,16 @@ import {
 import { Database } from '../database/index.js';
 import { KeyStore } from '../key_store/index.js';
 import { ContractAbi } from '../noir.js';
-import { ProofGenerator } from '../proof_generator/index.js';
 import { Synchroniser } from '../synchroniser/index.js';
 import { TxHash } from '../tx/index.js';
+import { AccumulatedTxData } from '@aztec/p2p';
 
 export class AztecRPCServer implements AztecRPCClient {
   constructor(
     private keyStore: KeyStore,
     private synchroniser: Synchroniser,
-    private simulator: AcirSimulator,
-    private proofGenerator: ProofGenerator,
+    private acirSimulator: AcirSimulator,
+    private kernelProver: KernelProver,
     private node: AztecNode,
     private db: Database,
   ) {}
@@ -60,13 +62,11 @@ export class AztecRPCServer implements AztecRPCClient {
       isContructor: true,
     };
 
-    const contractDataHash = Fr.ZERO;
+    const constructorVkHash = Fr.ZERO;
     const functionTreeRoot = Fr.ZERO;
-    const constructorHash = Fr.ZERO;
     const contractDeploymentData = new ContractDeploymentData(
-      contractDataHash,
+      constructorVkHash,
       functionTreeRoot,
-      constructorHash,
       contractAddressSalt,
       portalContract,
     );
@@ -121,10 +121,33 @@ export class AztecRPCServer implements AztecRPCClient {
   }
 
   public async createTx(txRequest: TxRequest, signature: Signature) {
-    const { kernelData, callData } = await this.simulator.simulate(txRequest);
-    const privateInputs = new KernelPrivateInputs(txRequest, signature, kernelData, callData);
-    const { accumulatedTxData } = await this.proofGenerator.createProof(privateInputs);
-    return new Tx(accumulatedTxData);
+    // TODO - get the contract/fn details from the db
+    const entryPointACIR = Buffer.alloc(0);
+    const portalContractAddress = EthAddress.ZERO;
+    const oldRoots = new OldTreeRoots(Fr.ZERO, Fr.ZERO, Fr.ZERO, Fr.ZERO); // TODO - get old roots from the database
+    const executionResult = await this.acirSimulator.run(txRequest, entryPointACIR, portalContractAddress, oldRoots);
+    // TODO - kernel prover should use the signature along with the request
+    const { publicInputs, proof } = await this.kernelProver.prove(txRequest, executionResult, oldRoots);
+    return this.buildTx(publicInputs, proof);
+  }
+
+  private buildTx(publicInputs: PrivateKernelPublicInputs, proof: Buffer) {
+    const accumulatedData = publicInputs.end;
+
+    //TODO I think the TX should include all the data from the publicInputs + proof
+    return new Tx(
+      new AccumulatedTxData(
+        accumulatedData.newCommitments.map(fr => fr.buffer), // newCommitments
+        accumulatedData.newNullifiers.map(fr => fr.buffer), // newNullifiers
+        accumulatedData.privateCallStack.map(fr => fr.buffer), // privateCallStack
+        accumulatedData.publicCallStack.map(fr => fr.buffer), // publicCallStack
+        accumulatedData.l1MsgStack.map(fr => fr.buffer), // l1MsgStack
+        accumulatedData.newContracts.map(() => Buffer.alloc(0)), // newContracts TODO: use toBuffer from circuits/ts
+        accumulatedData.newCommitments.map(fr => fr.buffer), // optionallyRevealedData
+        {}, // aggregationObject
+        accumulatedData.privateCallCount.buffer.readUInt32BE(), // callCount TODO: check if correct
+      ),
+    );
   }
 
   public async sendTx(tx: Tx) {

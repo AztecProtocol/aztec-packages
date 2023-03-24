@@ -29,7 +29,9 @@
     "rootDir": "./src"
   },
   "dependencies": {
+    "@aztec/acir-simulator": "workspace:^",
     "@aztec/aztec-node": "workspace:^",
+    "@aztec/kernel-simulator": "workspace:^",
     "sha3": "^2.1.4",
     "tslib": "^2.4.0"
   },
