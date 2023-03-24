@@ -56,15 +56,18 @@ export interface FunctionData {
   isContructor: boolean;
 }
 
+/**
+ * Contract deployment data in a TxContext
+ * cpp/src/aztec3/circuits/abis/contract_deployment_data.hpp
+ */
 export class ContractDeploymentData {
-  public static EMPTY = new ContractDeploymentData(Fr.ZERO, Fr.ZERO, Fr.ZERO, Fr.ZERO, Fr.ZERO);
+  public static EMPTY = new ContractDeploymentData(Fr.ZERO, Fr.ZERO, Fr.ZERO, Fr.ZERO);
 
   constructor(
-    public readonly contractDataHash: Fr,
-    public readonly functionTreeRoot: Fr,
-    public readonly constructorHash: Fr,
-    public readonly contractAddressSalt: Fr,
-    public readonly portalContractAddress: Fr,
+    public constructorVkHash: Fr,
+    public functionTreeRoot: Fr,
+    public contractAddressSalt: Fr,
+    public portalContractAddress: EthAddress,
   ) {}
 }
 
@@ -97,8 +100,6 @@ export class PreviousKernelData {}
 
 export class PrivateCallData {}
 
-export class AccumulatedTxData {}
-
 export class KernelPrivateInputs {
   constructor(
     public readonly txRequest: TxRequest,
@@ -108,20 +109,6 @@ export class KernelPrivateInputs {
   ) {}
 }
 
-export class KernelProofData {
-  public readonly accumulatedTxData: AccumulatedTxData;
-
-  constructor(public readonly proofData: Buffer) {
-    this.accumulatedTxData = new AccumulatedTxData();
-  }
-}
-
-export class KernelCircuitProver {
-  public createProof(inputs: KernelPrivateInputs) {
-    return Promise.resolve(new KernelProofData(Buffer.alloc(100)));
-  }
-}
-
 export function generateContractAddress(
   deployerAddress: AztecAddress,
   salt: Fr,
@@ -129,4 +116,52 @@ export function generateContractAddress(
   // functionLeaves: Fr[],
 ) {
   return AztecAddress.random();
+}
+
+export class OldTreeRoots {
+  constructor(
+    public privateDataTreeRoot: Fr,
+    public nullifierTreeRoot: Fr,
+    public contractTreeRoot: Fr,
+    public privateKernelVkTreeRoot: Fr, // future enhancement
+  ) {}
+}
+
+export class ConstantData {
+  constructor(public oldTreeRoots: OldTreeRoots, public txContext: TxContext) {}
+}
+
+export class AggregationObject {}
+
+export class NewContractData {
+  constructor(
+    public readonly contractAddress: AztecAddress,
+    public readonly portalContractAddress: EthAddress,
+    public readonly functionTreeRoot: Fr,
+  ) {}
+}
+
+export class OptionallyRevealedData {}
+
+export class AccumulatedTxData {
+  constructor(
+    public aggregationObject: AggregationObject, // Contains the aggregated proof of all previous kernel iterations
+
+    public privateCallCount: Fr,
+
+    public newCommitments: Fr[],
+    public newNullifiers: Fr[],
+
+    public privateCallStack: Fr[],
+    public publicCallStack: Fr[],
+    public l1MsgStack: Fr[],
+
+    public newContracts: NewContractData[],
+
+    public optionallyRevealedData: OptionallyRevealedData[],
+  ) {}
+}
+
+export class PrivateKernelPublicInputs {
+  constructor(public end: AccumulatedTxData, public constants: ConstantData, public isPrivateKernel: true) {}
 }

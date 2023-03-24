@@ -1,9 +1,9 @@
+import { AcirSimulator } from '@aztec/acir-simulator';
 import { AztecNode } from '@aztec/aztec-node';
-import { AcirSimulator } from '../acir_simulator.js';
-import { EthAddress, KernelCircuitProver } from '../circuits.js';
+import { KernelProver } from '@aztec/kernel-prover';
+import { EthAddress } from '../circuits.js';
 import { MemoryDB } from '../database/index.js';
 import { KeyStore, TestKeyStore } from '../key_store/index.js';
-import { ProofGenerator } from '../proof_generator/index.js';
 import { Synchroniser } from '../synchroniser/index.js';
 import { AztecRPCServer } from './aztec_rpc_server.js';
 
@@ -12,8 +12,8 @@ export async function createAztecRPCServer({
   node,
   db,
   synchroniser,
-  simulator,
-  proofGenerator,
+  acirSimulator,
+  kernelProver,
   ethRpcUrl,
   rollupAddress,
   yeeterAddress,
@@ -22,8 +22,8 @@ export async function createAztecRPCServer({
   node?: AztecNode;
   db?: MemoryDB;
   synchroniser?: Synchroniser;
-  simulator?: AcirSimulator;
-  proofGenerator?: ProofGenerator;
+  acirSimulator?: AcirSimulator;
+  kernelProver?: KernelProver;
   ethRpcUrl?: string;
   rollupAddress?: EthAddress;
   yeeterAddress?: EthAddress;
@@ -44,8 +44,8 @@ export async function createAztecRPCServer({
   }
   db = db || new MemoryDB();
   synchroniser = synchroniser || new Synchroniser(node, db);
-  simulator = simulator || new AcirSimulator();
-  proofGenerator = proofGenerator || new ProofGenerator(new KernelCircuitProver());
+  acirSimulator = acirSimulator || new AcirSimulator();
+  kernelProver = kernelProver || new KernelProver();
 
-  return new AztecRPCServer(keyStore, synchroniser, simulator, proofGenerator, node, db);
+  return new AztecRPCServer(keyStore, synchroniser, acirSimulator, kernelProver, node, db);
 }

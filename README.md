@@ -8,7 +8,7 @@ The Aztec 3 system consists of the following sub projects.
 - `aztec-rpc`
 - `aztec.js`
 - `ethereum.js`
-- `kernel-simulator`
+- `kernel-prover`
 - `key-store`
 - `l1-contracts`
 - `p2p`

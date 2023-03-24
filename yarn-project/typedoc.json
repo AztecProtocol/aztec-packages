@@ -8,7 +8,7 @@
     "aztec-rpc",
     "aztec.js",
     "ethereum.js",
-    "kernel-simulator",
+    "kernel-prover",
     "key-store",
     "noir-contracts",
     "p2p",

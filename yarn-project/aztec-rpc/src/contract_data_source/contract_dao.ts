@@ -1,5 +1,5 @@
 import { generateFunctionSelector } from '../abi_coder/index.js';
-import { AztecAddress } from '../circuits.js';
+import { AztecAddress, EthAddress } from '../circuits.js';
 import { ContractAbi, FunctionAbi } from '../noir.js';
 
 export interface ContractFunctionDao extends FunctionAbi {
@@ -8,6 +8,7 @@ export interface ContractFunctionDao extends FunctionAbi {
 
 export interface ContractDao extends ContractAbi {
   address: AztecAddress;
+  portalAddress: EthAddress;
   functions: ContractFunctionDao[];
   deployed: boolean;
 }
@@ -20,9 +21,15 @@ export function functionAbiToFunctionDao(abi: FunctionAbi) {
   };
 }
 
-export function contractAbiToContractDao(address: AztecAddress, abi: ContractAbi, deployed: boolean): ContractDao {
+export function contractAbiToContractDao(
+  address: AztecAddress,
+  portalAddress: EthAddress,
+  abi: ContractAbi,
+  deployed: boolean,
+): ContractDao {
   return {
     address,
+    portalAddress,
     functions: abi.functions.map(functionAbiToFunctionDao),
     deployed,
   };

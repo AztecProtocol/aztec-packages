@@ -1,4 +1,4 @@
-import { AztecAddress } from '../circuits.js';
+import { AztecAddress, EthAddress } from '../circuits.js';
 import { ContractAbi } from '../noir.js';
 import { contractAbiToContractDao, ContractDao } from './contract_dao.js';
 import { ContractDataSource } from './contract_data_source.js';
@@ -6,8 +6,8 @@ import { ContractDataSource } from './contract_data_source.js';
 export class MemoryContractDataSource implements ContractDataSource {
   private contracts: ContractDao[] = [];
 
-  public addContract(address: AztecAddress, abi: ContractAbi, deployed = false) {
-    this.contracts.push(contractAbiToContractDao(address, abi, deployed));
+  public addContract(address: AztecAddress, portalAddress: EthAddress, abi: ContractAbi, deployed = false) {
+    this.contracts.push(contractAbiToContractDao(address, portalAddress, abi, deployed));
     return Promise.resolve();
   }
 
