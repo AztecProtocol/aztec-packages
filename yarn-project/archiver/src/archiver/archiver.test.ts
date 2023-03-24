@@ -22,7 +22,7 @@ describe('Archiver', () => {
     );
 
     let latestBlockNum = await archiver.getLatestBlockNum();
-    expect(latestBlockNum).toEqual(-1);
+    expect(latestBlockNum).toEqual(0);
 
     const rollupLogs = [1, 2, 3].map(makeRollupEvent);
     const rollupTxs = [1, 2, 3].map(makeRollupTx);

@@ -1,9 +1,7 @@
 import { L2Block } from '@aztec/archiver';
-import { createDebugLogger } from '@aztec/foundation';
+import { createDebugLogger, InterruptableSleep } from '@aztec/foundation';
 import { L2BlockReceiver } from '../receiver.js';
-
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const MIN_FEE_DISTRIBUTOR_BALANCE = 5n * 10n ** 17n;
+import { PublisherConfig } from './config.js';
 
 /**
  * Component responsible of pushing the txs to the chain and waiting for completion.
@@ -30,15 +28,13 @@ export type L1ProcessRollupArgs = {
  * Adapted from https://github.com/AztecProtocol/aztec2-internal/blob/master/falafel/src/rollup_publisher.ts.
  */
 export class L2BlockPublisher implements L2BlockReceiver {
-  private interrupted = false;
-  private interruptPromise = Promise.resolve();
-  private interruptResolve = () => {};
+  private interruptableSleep = new InterruptableSleep();
   private sleepTimeMs: number;
+  private interrupted = false;
   private log = createDebugLogger('aztec:sequencer');
 
-  constructor(private txSender: PublisherTxSender, opts?: { sleepTimeMs?: number }) {
-    this.interruptPromise = new Promise(resolve => (this.interruptResolve = resolve));
-    this.sleepTimeMs = opts?.sleepTimeMs ?? 60_000;
+  constructor(private txSender: PublisherTxSender, config?: PublisherConfig) {
+    this.sleepTimeMs = config?.retryIntervalMs ?? 60_000;
   }
 
   /**
@@ -48,7 +44,7 @@ export class L2BlockPublisher implements L2BlockReceiver {
   public async processL2Block(l2BlockData: L2Block): Promise<boolean> {
     const proof = Buffer.alloc(0);
     const txData = { proof, inputs: l2BlockData.encode() };
-    this.log(`Publishing L2 block: ${l2BlockData.inspect()}`);
+    //this.log(`Publishing L2 block: ${l2BlockData.inspect()}`);
 
     while (!this.interrupted) {
       if (!(await this.checkFeeDistributorBalance())) {
@@ -88,7 +84,7 @@ export class L2BlockPublisher implements L2BlockReceiver {
    */
   public interrupt() {
     this.interrupted = true;
-    this.interruptResolve();
+    this.interruptableSleep.interrupt();
   }
 
   // TODO: Check fee distributor has at least 0.5 ETH.
@@ -128,7 +124,6 @@ export class L2BlockPublisher implements L2BlockReceiver {
   }
 
   protected async sleepOrInterrupted() {
-    const ms = this.sleepTimeMs;
-    await Promise.race([new Promise(resolve => setTimeout(resolve, ms)), this.interruptPromise]);
+    await this.interruptableSleep.sleep(this.sleepTimeMs);
   }
 }

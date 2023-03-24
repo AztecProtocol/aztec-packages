@@ -32,12 +32,18 @@ export interface TreeInfo {
 }
 
 /**
- * Defines the interface for a database that stores Merkle trees.
+ * Defines the interface for Merkle Tree operations.
  */
-export interface MerkleTreeDb {
+export interface MerkleTreeOperations {
   getTreeInfo(treeId: MerkleTreeId): Promise<TreeInfo>;
   appendLeaves(treeId: MerkleTreeId, leaves: Buffer[]): Promise<void>;
   getSiblingPath(treeId: MerkleTreeId, index: bigint): Promise<SiblingPath>;
+}
+
+/**
+ * Defines the interface for a database that stores Merkle trees.
+ */
+export interface MerkleTreeDb extends MerkleTreeOperations {
   commit(): Promise<void>;
   rollback(): Promise<void>;
 }

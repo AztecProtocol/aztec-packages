@@ -4,6 +4,7 @@ import { RunningPromise } from '../deps/running_promise.js';
 import { L2BlockPublisher } from '../publisher/l2-block-publisher.js';
 import { createDebugLogger } from '@aztec/foundation';
 import { BlockBuilder } from './block_builder.js';
+import { SequencerConfig } from './config.js';
 
 /**
  * Sequencer client
@@ -17,22 +18,18 @@ import { BlockBuilder } from './block_builder.js';
  */
 export class Sequencer {
   private runningPromise?: RunningPromise;
-  private blockIntervalMs: number;
   private pollingIntervalMs: number;
   private lastBlockNumber = -1;
-  private lastBlockSentAt: Date | undefined = undefined;
   private state = SequencerState.STOPPED;
 
   constructor(
     private publisher: L2BlockPublisher,
     private p2pClient: P2P,
     private worldState: WorldStateSynchroniser,
-    private db: MerkleTrees, // TODO: Can we access the underlying db via the worldState?
-    private log = createDebugLogger('aztec:sequencer_client'),
-    opts?: { pollingIntervalMs?: number; blockIntervalMs?: number },
+    config?: SequencerConfig,
+    private log = createDebugLogger('aztec:sequencer'),
   ) {
-    this.pollingIntervalMs = opts?.pollingIntervalMs ?? 1_000;
-    this.blockIntervalMs = opts?.blockIntervalMs ?? 10_000;
+    this.pollingIntervalMs = config?.transactionPollingInterval ?? 1_000;
   }
 
   public async start() {
@@ -48,6 +45,7 @@ export class Sequencer {
     await this.runningPromise?.stop();
     this.publisher.interrupt();
     this.state = SequencerState.STOPPED;
+    this.log('Stopped sequencer');
   }
 
   public status() {
@@ -66,18 +64,11 @@ export class Sequencer {
         this.state = SequencerState.IDLE;
       }
 
-      // Bail if new block is not yet due
-      if (!this.isNewBlockDue()) {
-        return;
-      }
-
       // Do not go forward with new block if the previous one has not been mined and processed
       if (!prevBlockSynched) {
-        this.log(`Previous block has not been mined or synched yet`);
         return;
       }
 
-      this.log(`Waiting for txs...`);
       this.state = SequencerState.WAITING_FOR_TXS;
 
       // Get a single tx (for now) to build the new block
@@ -111,14 +102,6 @@ export class Sequencer {
   }
 
   /**
-   * Returns whether a new block should be sent given the blockIntervalMs.
-   * @returns Boolean indicating if a new block is due.
-   */
-  protected isNewBlockDue() {
-    return Promise.resolve(!this.lastBlockSentAt || +this.lastBlockSentAt + this.blockIntervalMs >= Date.now());
-  }
-
-  /**
    * Returns whether the previous block sent has been mined, and all dependencies have caught up with it.
    * @returns Boolean indicating if our dependencies are synched to the latest block.
    */
@@ -130,7 +113,7 @@ export class Sequencer {
   }
 
   protected async buildBlock(tx: Tx) {
-    const blockBuilder = new BlockBuilder(this.db, this.lastBlockNumber + 1, tx);
+    const blockBuilder = new BlockBuilder(this.worldState, this.lastBlockNumber + 1, tx);
     return await blockBuilder.buildL2Block();
   }
 }

@@ -91,6 +91,7 @@ __metadata:
     "@aztec/archiver": "workspace:^"
     "@aztec/eslint-config": "workspace:^"
     "@aztec/ethereum.js": "workspace:^"
+    "@aztec/foundation": "workspace:^"
     "@aztec/l1-contracts": "workspace:^"
     "@aztec/p2p": "workspace:^"
     "@aztec/sequencer-client": "workspace:^"

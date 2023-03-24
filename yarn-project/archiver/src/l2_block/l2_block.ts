@@ -86,8 +86,8 @@ export class L2Block {
 
   /**
    * Constructs a new instance from named fields.
-   * @param fields - fields to pass to the constructor
-   * @returns a new instance
+   * @param fields - Fields to pass to the constructor.
+   * @returns A new instance.
    */
   static fromFields(fields: {
     number: number;
@@ -211,8 +211,9 @@ export class L2Block {
   }
 
   /**
-   * Inspect for debugging purposes.
-   * @returns a human-friendly string representation of the l2block
+   * Inspect for debugging purposes..
+   * @param maxBufferSize - The number of bytes to be extracted from buffer.
+   * @returns A human-friendly string representation of the l2block.
    */
   inspect(maxBufferSize = 4): string {
     const inspectTreeSnapshot = (s: AppendOnlyTreeSnapshot): string =>

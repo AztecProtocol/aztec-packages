@@ -1,7 +1,7 @@
 import { EthereumRpc, TxHash, waitForTxReceipt } from '@aztec/ethereum.js/eth_rpc';
 import { WalletProvider } from '@aztec/ethereum.js/provider';
 import { Rollup } from '@aztec/l1-contracts';
-import { Config } from '../config.js';
+import { TxSenderConfig } from './config.js';
 import { L1ProcessRollupArgs, PublisherTxSender } from './l2-block-publisher.js';
 
 /**
@@ -12,10 +12,10 @@ export class EthereumjsTxSender implements PublisherTxSender {
   private rollupContract: Rollup;
   private confirmations: number;
 
-  constructor(config: Config) {
-    const { ethereumHost, sequencerPrivateKey, rollupContract: rollupContractAddress, requiredConfirmations } = config;
-    const provider = WalletProvider.fromHost(ethereumHost);
-    provider.addAccount(sequencerPrivateKey);
+  constructor(config: TxSenderConfig) {
+    const { rpcUrl, publisherPrivateKey, rollupContract: rollupContractAddress, requiredConfirmations } = config;
+    const provider = WalletProvider.fromHost(rpcUrl);
+    provider.addAccount(publisherPrivateKey);
     this.ethRpc = new EthereumRpc(provider);
     this.rollupContract = new Rollup(this.ethRpc, rollupContractAddress, {
       from: provider.getAccount(0),

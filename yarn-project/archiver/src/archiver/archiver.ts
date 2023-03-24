@@ -4,13 +4,10 @@ import { createDebugLogger } from '@aztec/foundation';
 import { RollupAbi, YeeterAbi } from '@aztec/l1-contracts/viem';
 import { createPublicClient, decodeFunctionData, getAddress, Hex, hexToBytes, http, Log, PublicClient } from 'viem';
 import { localhost } from 'viem/chains';
+import { ArchiverConfig } from './config.js';
 import { ContractData, L2Block } from '../l2_block/l2_block.js';
 import { L2BlockSource } from '../l2_block/l2_block_source.js';
-
-/**
- * ID of the first block
- */
-export const INITIAL_BLOCK_NUM = 0;
+import { INITIAL_ROLLUP_ID } from '@aztec/l1-contracts';
 
 /**
  * Pulls L2 blocks in a non-blocking manner and provides interface for their retrieval.
@@ -35,28 +32,35 @@ export class Archiver implements L2BlockSource {
    * @param publicClient - A client for interacting with the Ethereum node.
    * @param rollupAddress - Ethereum address of the rollup contract.
    * @param yeeterAddress - Ethereum address of the yeeter contract.
+   * @param pollingInterval - The interval for polling for rollup events.
    * @param log - A logger.
    */
   constructor(
     private readonly publicClient: PublicClient,
     private readonly rollupAddress: EthAddress,
     private readonly yeeterAddress: EthAddress,
+    private readonly pollingInterval = 10_000,
     private readonly log = createDebugLogger('aztec:archiver'),
   ) {}
 
   /**
-   * Creates a new instance of the Archiver.
-   * @param rpcUrl - The RPC url for connecting to an eth node.
-   * @param rollupAddress - Ethereum address of the rollup contract.
-   * @param yeeterAddress - Ethereum address of the yeeter contract.
+   * Creates a new instance of the Archiver and blocks until it syncs from chain.
+   * @param config - The archiver's desired configuration.
    * @returns - An instance of the archiver.
    */
-  public static new(rpcUrl: string, rollupAddress: EthAddress, yeeterAddress: EthAddress) {
+  public static async createAndSync(config: ArchiverConfig) {
     const publicClient = createPublicClient({
       chain: localhost,
-      transport: http(rpcUrl),
+      transport: http(config.rpcUrl),
     });
-    return new Archiver(publicClient, rollupAddress, yeeterAddress);
+    const archiver = new Archiver(
+      publicClient,
+      config.rollupContract,
+      config.yeeterContract,
+      config.archiverPollingInterval,
+    );
+    await archiver.start();
+    return archiver;
   }
 
   /**
@@ -107,6 +111,7 @@ export class Archiver implements L2BlockSource {
       abi: RollupAbi,
       eventName: 'L2BlockProcessed',
       onLogs: logs => this.processBlockLogs(logs),
+      pollingInterval: this.pollingInterval,
     });
 
     this.unwatchYeets = this.publicClient.watchContractEvent({
@@ -114,6 +119,7 @@ export class Archiver implements L2BlockSource {
       abi: YeeterAbi,
       eventName: 'Yeet',
       onLogs: logs => this.processYeetLogs(logs),
+      pollingInterval: this.pollingInterval,
     });
   }
 
@@ -122,13 +128,12 @@ export class Archiver implements L2BlockSource {
    * @param logs - L2BlockProcessed event logs.
    */
   private async processBlockLogs(logs: Log<bigint, number, undefined, typeof RollupAbi, 'L2BlockProcessed'>[]) {
-    this.log('Processed ' + logs.length + ' L2 blocks...');
     for (const log of logs) {
       const blockNum = log.args.blockNum;
-      if (blockNum !== BigInt(this.l2Blocks.length + INITIAL_BLOCK_NUM)) {
+      if (blockNum !== BigInt(this.l2Blocks.length + INITIAL_ROLLUP_ID)) {
         throw new Error(
           'Block number mismatch. Expected: ' +
-            (this.l2Blocks.length + INITIAL_BLOCK_NUM) +
+            (this.l2Blocks.length + INITIAL_ROLLUP_ID) +
             ' but got: ' +
             blockNum +
             '.',
@@ -136,7 +141,8 @@ export class Archiver implements L2BlockSource {
       }
       // TODO: Fetch blocks from calldata in parallel
       const newBlock = await this.getBlockFromCallData(log.transactionHash!, log.args.blockNum);
-      this.log(`Processed new block: ${newBlock.inspect()}`);
+      this.log(`Retrieved block ${newBlock.number} from chain`);
+      //this.log(`Processed new block: ${newBlock.inspect()}`);
       const yeet = this.pendingYeets.find(yeet => BigInt(yeet.readUInt32BE(0)) === blockNum);
       if (yeet !== undefined) {
         newBlock.setYeet(yeet);
@@ -155,7 +161,7 @@ export class Archiver implements L2BlockSource {
     for (const log of logs) {
       const blockNum = log.args.l2blockNum;
       if (blockNum < BigInt(this.l2Blocks.length)) {
-        const block = this.l2Blocks[Number(blockNum) - INITIAL_BLOCK_NUM];
+        const block = this.l2Blocks[Number(blockNum) - INITIAL_ROLLUP_ID];
         block.setYeet(Buffer.from(hexToBytes(log.args.blabber)));
         this.log('Enriched block ' + blockNum + ' with yeet.');
       } else {
@@ -209,19 +215,20 @@ export class Archiver implements L2BlockSource {
 
   /**
    * Gets the `take` amount of L2 blocks starting from `from`.
-   * @param from - If of the first rollup to return (inclusive).
+   * @param from - Id of the first rollup to return (inclusive).
    * @param take - The number of blocks to return.
    * @returns The requested L2 blocks.
    */
   public getL2Blocks(from: number, take: number): Promise<L2Block[]> {
+    if (from < INITIAL_ROLLUP_ID) {
+      throw new Error(`Invalid block range ${from}`);
+    }
     if (from > this.l2Blocks.length) {
       return Promise.resolve([]);
     }
-    if (from + take > this.l2Blocks.length) {
-      return Promise.resolve(this.l2Blocks.slice(from));
-    }
-
-    return Promise.resolve(this.l2Blocks.slice(from, from + take));
+    const startIndex = from - 1;
+    const endIndex = startIndex + take;
+    return Promise.resolve(this.l2Blocks.slice(startIndex, endIndex));
   }
 
   /**
@@ -229,7 +236,7 @@ export class Archiver implements L2BlockSource {
    * @returns The number of the latest L2 block processed by the block source implementation.
    */
   public getLatestBlockNum(): Promise<number> {
-    if (this.l2Blocks.length === 0) return Promise.resolve(-1);
+    if (this.l2Blocks.length === 0) return Promise.resolve(INITIAL_ROLLUP_ID - 1);
     return Promise.resolve(this.l2Blocks[this.l2Blocks.length - 1].number);
   }
 }

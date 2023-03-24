@@ -7,7 +7,7 @@ import {
   AppendOnlyTreeSnapshot,
   NewContractData,
 } from '@aztec/circuits.js';
-import { MerkleTreeDb, MerkleTreeId } from '@aztec/world-state';
+import { MerkleTreeId, MerkleTreeOperations } from '@aztec/world-state';
 import { Tx } from '@aztec/p2p';
 
 const mapContractData = (n: NewContractData) => {
@@ -20,7 +20,7 @@ export class BlockBuilder {
   private nullifierTreeLeaves: Buffer[] = [];
   private contractTreeLeaves: Buffer[] = [];
 
-  constructor(private db: MerkleTreeDb, private nextRollupId: number, private tx: Tx) {
+  constructor(private db: MerkleTreeOperations, private nextRollupId: number, private tx: Tx) {
     this.dataTreeLeaves = tx.data.end.newCommitments.map((x: Fr) => x.toBuffer());
     this.nullifierTreeLeaves = tx.data.end.newNullifiers.map((x: Fr) => x.toBuffer());
     this.contractTreeLeaves = tx.data.end.newContracts.map((x: NewContractData) => x.functionTreeRoot.toBuffer());
