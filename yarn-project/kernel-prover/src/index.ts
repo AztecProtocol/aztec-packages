@@ -7,11 +7,13 @@ import {
   NewContractData,
   OldTreeRoots,
   PrivateKernelPublicInputs,
+  Signature,
   TxRequest,
 } from './circuits.js';
 export class KernelProver {
   prove(
     txRequest: TxRequest,
+    txSignature: Signature,
     executionResult: ExecutionResult,
     oldRoots: OldTreeRoots,
   ): Promise<{ publicInputs: PrivateKernelPublicInputs; proof: Buffer }> {

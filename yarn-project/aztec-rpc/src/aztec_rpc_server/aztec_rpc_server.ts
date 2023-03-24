@@ -146,15 +146,14 @@ export class AztecRPCServer implements AztecRPCClient {
       contract.portalAddress,
       oldRoots,
     );
-    // TODO - kernel prover should use the signature along with the request
-    const { publicInputs, proof } = await this.kernelProver.prove(txRequest, executionResult, oldRoots);
+    const { publicInputs, proof } = await this.kernelProver.prove(txRequest, signature, executionResult, oldRoots);
     return this.buildTx(publicInputs, proof);
   }
 
   private buildTx(publicInputs: PrivateKernelPublicInputs, proof: Buffer) {
     const accumulatedData = publicInputs.end;
 
-    //TODO I think the TX should include all the data from the publicInputs + proof
+    // TODO I think the TX should include all the data from the publicInputs + proof
     return new Tx(
       new AccumulatedTxData(
         accumulatedData.newCommitments.map(fr => fr.buffer),

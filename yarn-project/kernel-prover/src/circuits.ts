@@ -227,3 +227,9 @@ export class AccumulatedTxData {
 export class PrivateKernelPublicInputs {
   constructor(public end: AccumulatedTxData, public constants: ConstantData, public isPrivateKernel: true) {}
 }
+
+export class Signature {
+  public static SIZE = 64;
+
+  constructor(public readonly buffer: Buffer) {}
+}
