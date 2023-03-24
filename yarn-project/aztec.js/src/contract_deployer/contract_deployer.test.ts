@@ -51,7 +51,8 @@ describe('Contract Deployer', () => {
 
   it('should request, sign, craete and send a contract deployment tx', async () => {
     const deployer = new ContractDeployer(abi, arc);
-    const sentTx = deployer.deploy(portalContract).send({
+    const sentTx = deployer.deploy().send({
+      portalContract,
       contractAddressSalt,
       from: account,
     });
@@ -73,8 +74,9 @@ describe('Contract Deployer', () => {
 
   it('should be able to deploy a contract step by step', async () => {
     const deployer = new ContractDeployer(abi, arc);
-    const deployment = deployer.deploy(portalContract);
+    const deployment = deployer.deploy();
     const txRequest = await deployment.request({
+      portalContract,
       contractAddressSalt,
       from: account,
     });

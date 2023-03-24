@@ -1,4 +1,4 @@
-import { AztecRPCClient, ContractAbi, EthAddress } from '@aztec/aztec-rpc';
+import { AztecRPCClient, ContractAbi } from '@aztec/aztec-rpc';
 import { ConstructorMethod, ConstructorOptions } from './constructor_method.js';
 
 /**
@@ -7,7 +7,7 @@ import { ConstructorMethod, ConstructorOptions } from './constructor_method.js';
 export class ContractDeployer {
   constructor(private abi: ContractAbi, private arc: AztecRPCClient, private defaultOptions: ConstructorOptions = {}) {}
 
-  public deploy(portalContract = EthAddress.ZERO, ...args: any[]) {
-    return new ConstructorMethod(this.arc, this.abi, portalContract, args, this.defaultOptions);
+  public deploy(...args: any[]) {
+    return new ConstructorMethod(this.arc, this.abi, args, this.defaultOptions);
   }
 }

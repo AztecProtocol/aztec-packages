@@ -1,5 +1,4 @@
-import { AztecAddress, AztecRPCClient, ContractDeployer } from '@aztec/aztec.js';
-import { createAztecRPCServer, EthAddress } from '@aztec/aztec-rpc';
+import { AztecAddress, AztecRPCClient, ContractDeployer, createAztecRPCServer, EthAddress, Fr } from '@aztec/aztec.js';
 import abi from '@aztec/noir-contracts/examples/test_contract.json';
 
 const {
@@ -14,7 +13,7 @@ describe('e2e_deploy_contract', () => {
 
   beforeAll(async () => {
     arc = await createAztecRPCServer({
-      rpcUrl: ETHEREUM_HOST,
+      ethRpcUrl: ETHEREUM_HOST,
       rollupAddress: EthAddress.fromString(ROLLUP_ROLLUP_ADDRESS),
       yeeterAddress: EthAddress.fromString(YEETER_ADDRESS),
     });
