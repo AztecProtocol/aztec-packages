@@ -14,6 +14,8 @@ RUN cd merkle-tree && yarn build
 RUN cd world-state && yarn build
 RUN cd p2p && yarn build
 RUN cd aztec-node && yarn build
+RUN cd acir-simulator && yarn build
+RUN cd kernel-prover && yarn build
 RUN cd aztec-rpc && yarn build
 WORKDIR /usr/src/yarn-project/aztec.js
 RUN yarn build && yarn formatting && yarn test
