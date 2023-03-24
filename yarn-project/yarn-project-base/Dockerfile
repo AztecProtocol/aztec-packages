@@ -29,10 +29,7 @@ COPY key-store/package.json key-store/package.json
 COPY merkle-tree/package.json merkle-tree/package.json
 COPY noir-contracts/package.json noir-contracts/package.json
 COPY l1-contracts/package.json l1-contracts/package.json
-# Note: circuits bundles a .yalc folder, must make it available
-COPY circuits/package.json circuits/package.json
-COPY circuits/yarn.lock circuits/yarn.lock
-COPY circuits/.yalc circuits/.yalc
+COPY circuits.js/package.json circuits.js/package.json
 COPY p2p/package.json p2p/package.json
 COPY prover-client/package.json prover-client/package.json
 COPY aztec-node/package.json aztec-node/package.json
@@ -41,12 +38,13 @@ COPY wallet/package.json wallet/package.json
 COPY world-state/package.json world-state/package.json
 COPY package.json tsconfig.json yarn.lock .yarnrc.yml ./
 COPY .yarn .yarn
+# bundled dependencies
+COPY .yalc .yalc
 
-# Although we're attempting to be "zero-install", in practice we still need to build arch specific packages.
-RUN yarn --immutable
 # Build submodule packages that have their own yarn.lock.
 RUN cd foundation && yarn --immutable && cd ..
-RUN cd circuits && yarn --immutable && cd ..
+# Although we're attempting to be "zero-install", in practice we still need to build arch specific packages.
+RUN yarn --immutable
 # If everything's worked properly, we should no longer need access to the network.
 RUN echo "enableNetwork: false" >> .yarnrc.yml
 
