@@ -1,5 +1,5 @@
 {
-  "name": "@aztec/kernel-simulator",
+  "name": "@aztec/kernel-prover",
   "version": "0.0.0",
   "type": "module",
   "exports": "./dest/index.js",

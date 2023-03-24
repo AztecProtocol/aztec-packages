@@ -101,11 +101,11 @@
     "rebuildPatterns": ["^yarn-project/foundation/"],
     "dependencies": []
   },
-  "kernel-simulator": {
+  "kernel-prover": {
     "buildDir": "yarn-project",
-    "projectDir": "yarn-project/kernel-simulator",
-    "dockerfile": "kernel-simulator/Dockerfile",
-    "rebuildPatterns": ["^yarn-project/kernel-simulator/"],
+    "projectDir": "yarn-project/kernel-prover",
+    "dockerfile": "kernel-prover/Dockerfile",
+    "rebuildPatterns": ["^yarn-project/kernel-prover/"],
     "dependencies": ["yarn-project-base"]
   },
   "key-store": {

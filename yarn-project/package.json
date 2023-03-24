@@ -17,7 +17,7 @@
     "ethereum.js",
     "ethereum.js/example",
     "foundation",
-    "kernel-simulator",
+    "kernel-prover",
     "key-store",
     "merkle-tree",
     "noir-contracts",

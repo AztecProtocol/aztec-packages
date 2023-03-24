@@ -1,6 +1,6 @@
 import { AztecNode, Tx } from '@aztec/aztec-node';
 import { AcirSimulator } from '@aztec/acir-simulator';
-import { KernelProver } from '@aztec/kernel-simulator';
+import { KernelProver } from '@aztec/kernel-prover';
 import { generateFunctionSelector } from '../abi_coder/index.js';
 import { AztecRPCClient } from '../aztec_rpc_client/index.js';
 import {

@@ -103,7 +103,7 @@ __metadata:
   dependencies:
     "@aztec/acir-simulator": "workspace:^"
     "@aztec/aztec-node": "workspace:^"
-    "@aztec/kernel-simulator": "workspace:^"
+    "@aztec/kernel-prover": "workspace:^"
     "@jest/globals": ^29.4.3
     "@rushstack/eslint-patch": ^1.1.4
     "@types/jest": ^29.4.0
@@ -244,9 +244,9 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@aztec/kernel-simulator@workspace:^, @aztec/kernel-simulator@workspace:kernel-simulator":
+"@aztec/kernel-prover@workspace:^, @aztec/kernel-prover@workspace:kernel-prover":
   version: 0.0.0-use.local
-  resolution: "@aztec/kernel-simulator@workspace:kernel-simulator"
+  resolution: "@aztec/kernel-prover@workspace:kernel-prover"
   dependencies:
     "@aztec/acir-simulator": "workspace:^"
     "@jest/globals": ^29.4.3

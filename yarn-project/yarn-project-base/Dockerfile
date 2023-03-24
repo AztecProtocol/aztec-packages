@@ -24,7 +24,7 @@ COPY ethereum.js/package.json ethereum.js/package.json
 # Note: foundation has its own lock file, we need to copy it and build
 COPY foundation/package.json foundation/package.json
 COPY foundation/yarn.lock foundation/yarn.lock
-COPY kernel-simulator/package.json kernel-simulator/package.json
+COPY kernel-prover/package.json kernel-prover/package.json
 COPY key-store/package.json key-store/package.json
 COPY merkle-tree/package.json merkle-tree/package.json
 COPY noir-contracts/package.json noir-contracts/package.json

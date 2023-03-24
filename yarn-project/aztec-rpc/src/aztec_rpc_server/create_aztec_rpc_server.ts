@@ -1,6 +1,6 @@
 import { AcirSimulator } from '@aztec/acir-simulator';
 import { AztecNode } from '@aztec/aztec-node';
-import { KernelProver } from '@aztec/kernel-simulator';
+import { KernelProver } from '@aztec/kernel-prover';
 import { EthAddress } from '../circuits.js';
 import { MemoryDB } from '../database/index.js';
 import { KeyStore, TestKeyStore } from '../key_store/index.js';

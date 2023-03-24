@@ -18,7 +18,7 @@ PROJECTS=(
   # aztec.js:yarn-project
   # end-to-end:yarn-project
   # ethereum.js:yarn-project
-  # kernel-simulator:yarn-project
+  # kernel-prover:yarn-project
   # key-store:yarn-project
   # merkle-tree:yarn-project
   # p2p:yarn-project
