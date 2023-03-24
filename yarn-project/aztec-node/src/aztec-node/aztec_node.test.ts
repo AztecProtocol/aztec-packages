@@ -53,7 +53,7 @@ describe('AztecNode', () => {
     await node.stop();
   }, 30_000);
 
-  it('should rollup multiple transactions sent one right after the other', async () => {
+  it('should rollup multiple transactions', async () => {
     const txs: Tx[] = Array(3).fill(0).map(createTx);
     for (const tx of txs) await node.sendTx(tx);
     const blocks = await waitForBlocks(3);
