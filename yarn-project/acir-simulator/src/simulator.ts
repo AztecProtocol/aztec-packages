@@ -1,0 +1,71 @@
+import { execute, ExecutionPreimages } from './acvm.js';
+import { CallContext, PrivateCircuitPublicInputs, TxRequest, Fr, EthAddress } from './circuits.js';
+import { DBOracle } from './db_oracle.js';
+
+export interface ExecutionResult {
+  // Needed for prover
+  acir: Buffer;
+  partialWitness: Buffer;
+  // Needed for the verifier (kernel)
+  publicInputs: PrivateCircuitPublicInputs;
+  // Needed for the user
+  preimages: ExecutionPreimages;
+  // Nested executions
+  nestedExecutions: ExecutionResult[];
+}
+
+export interface HistoricRoots {
+  historicPrivateDataTreeRoot: Fr;
+  historicPrivateNullifierTreeRoot: Fr;
+  historicContractTreeRoot: Fr;
+}
+
+/**
+ * A placeholder for the Acir Simulator.
+ */
+export class AcirSimulator {
+  constructor(private dbOracle: DBOracle, private acvmExecute: execute) {}
+
+  run(
+    request: TxRequest,
+    entryPointACIR: Buffer,
+    portalContractAddress: EthAddress,
+    historicRoots: HistoricRoots,
+  ): Promise<ExecutionResult> {
+    const callContext = new CallContext(
+      request.from,
+      request.to,
+      portalContractAddress,
+      false,
+      false,
+      request.functionData.isContructor,
+    );
+
+    const publicInputs = new PrivateCircuitPublicInputs(
+      callContext,
+      request.args,
+      [], // returnValues,
+      [], // emittedEvents,
+      [], // newCommitments,
+      [], // newNullifiers,
+      [], // privateCallStack,
+      [], // publicCallStack,
+      [], // l1MsgStack,
+      historicRoots.historicPrivateDataTreeRoot,
+      historicRoots.historicPrivateNullifierTreeRoot,
+      historicRoots.historicContractTreeRoot,
+      request.txContext.contractDeploymentData,
+    );
+
+    return Promise.resolve({
+      acir: entryPointACIR,
+      partialWitness: Buffer.alloc(0),
+      publicInputs: publicInputs,
+      preimages: {
+        newNotes: [],
+        nullifiedNotes: [],
+      },
+      nestedExecutions: [],
+    });
+  }
+}

@@ -1,4 +1,1 @@
-/**
- * A placeholder for the Acir Simulator.
- */
-export class AcirSimulator {}
+export * from './simulator.js';
