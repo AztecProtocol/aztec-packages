@@ -1,4 +1,3 @@
-/* eslint-disable jsdoc/require-jsdoc */
 import { L2Block, L2BlockSource, mockRandomL2Block } from '@aztec/archiver';
 import { makePrivateKernelPublicInputs } from '@aztec/circuits.js/factories';
 import { Tx } from './tx.js';

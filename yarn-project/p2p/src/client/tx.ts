@@ -1,4 +1,3 @@
-/* eslint-disable jsdoc/require-jsdoc */
 import { L2Block } from '@aztec/archiver';
 import {
   KERNEL_NEW_COMMITMENTS_LENGTH,
