@@ -2,6 +2,9 @@ import { AztecAddress, AztecRPCClient, ContractDeployer } from '@aztec/aztec.js'
 import abi from '@aztec/noir-contracts/examples/test_contract.json';
 import { createTestAztecRPCClient } from './create_aztec_rpc_client.js';
 
+/**
+ * Milestone 1 test - Ability to deploy a contract.
+ */
 describe('e2e_deploy_contract', () => {
   let arc: AztecRPCClient;
   let accounts: AztecAddress[];
