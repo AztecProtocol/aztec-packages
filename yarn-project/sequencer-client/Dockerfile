@@ -8,7 +8,6 @@ RUN yarn build && yarn formatting && yarn test
 RUN yarn cache clean
 RUN yarn workspaces focus --production > /dev/null
 
-
 FROM node:18-alpine
 COPY --from=builder /usr/src/yarn-project/sequencer-client /usr/src/yarn-project/sequencer-client
 WORKDIR /usr/src/yarn-project/sequencer-client
