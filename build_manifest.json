@@ -59,13 +59,6 @@
     "rebuildPatterns": ["^yarn-project/aztec-cli/"],
     "dependencies": ["aztec.js"]
   },
-  "aztec-node": {
-    "buildDir": "yarn-project",
-    "projectDir": "yarn-project/aztec-node",
-    "dockerfile": "aztec-node/Dockerfile",
-    "rebuildPatterns": ["^yarn-project/aztec-node/"],
-    "dependencies": ["foundation", "p2p", "world-state", "ethereum.js"]
-  },
   "aztec-rpc": {
     "buildDir": "yarn-project",
     "projectDir": "yarn-project/aztec-rpc",
@@ -143,8 +136,6 @@
     "rebuildPatterns": ["^yarn-project/prover-client/"],
     "dependencies": ["yarn-project-base"]
   },
-<<<<<<< HEAD
-=======
   "aztec-node": {
     "buildDir": "yarn-project",
     "projectDir": "yarn-project/aztec-node",
@@ -160,7 +151,6 @@
       "circuits.js"
     ]
   },
->>>>>>> origin/master
   "sequencer-client": {
     "buildDir": "yarn-project",
     "projectDir": "yarn-project/sequencer-client",
