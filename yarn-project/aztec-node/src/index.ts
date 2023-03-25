@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import { default as levelup } from 'levelup';
 import { default as memdown } from 'memdown';
 import { L2BlockSource, Archiver } from '@aztec/archiver';
@@ -107,3 +108,7 @@ export class AztecNode {
     }
   }
 }
+=======
+export * from './aztec-node/aztec-node.js';
+export * from './aztec-node/config.js';
+>>>>>>> origin/master
