@@ -1,4 +1,4 @@
-import { AztecAddress, AztecRPCClient, Contract, ContractDeployer } from '@aztec/aztec.js';
+import { AztecAddress, AztecRPCClient, ContractDeployer } from '@aztec/aztec.js';
 import abi from '@aztec/noir-contracts/examples/zk_token_contract.json';
 import { createTestAztecRPCClient } from './create_aztec_rpc_client.js';
 
@@ -6,7 +6,7 @@ describe('e2e_zk_token', () => {
   let arc: AztecRPCClient;
   let account: AztecAddress;
 
-  beforeAll(async () => {
+  beforeEach(async () => {
     arc = await createTestAztecRPCClient();
     [account] = await arc.getAccounts();
   });
@@ -15,9 +15,7 @@ describe('e2e_zk_token', () => {
     const initialBalance = 987n;
 
     const deployer = new ContractDeployer(abi, arc);
-    const receipt = await deployer.deploy(initialBalance).send().getReceipt();
-    const contractAddress = receipt.contractAddress!;
-    const contract = new Contract(contractAddress, abi, arc);
+    const contract = await deployer.deploy(initialBalance).send().getContract();
 
     const balance = await contract.methods.getBalance(account);
     expect(balance).toBe(initialBalance);
