@@ -146,8 +146,9 @@ jobs:
       - *checkout
       - *setup_env
       - run:
-          name: "Build and test"
-          command: build foundation
+          name: "foundation"
+          command: |
+            deploy_ecr foundation
 
   noir-contracts:
     machine:
