@@ -28,13 +28,8 @@
     "prover-client",
     "aztec-node",
     "sequencer-client",
-<<<<<<< HEAD
-    "world-state"
-=======
-    "wallet",
     "world-state",
     ".yalc/*/*"
->>>>>>> origin/master
   ],
   "prettier": "@aztec/foundation/prettier",
   "devDependencies": {
