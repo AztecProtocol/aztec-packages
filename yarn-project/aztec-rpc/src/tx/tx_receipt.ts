@@ -9,6 +9,6 @@ export interface TxReceipt {
   from: AztecAddress;
   to?: AztecAddress;
   contractAddress?: AztecAddress;
-  error?: string;
   status: boolean;
+  error: string;
 }

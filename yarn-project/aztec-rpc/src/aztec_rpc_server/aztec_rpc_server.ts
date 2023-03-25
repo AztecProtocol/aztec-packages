@@ -1,6 +1,7 @@
-import { AztecNode, Tx } from '@aztec/aztec-node';
 import { AcirSimulator } from '@aztec/acir-simulator';
+import { AztecNode } from '@aztec/aztec-node';
 import { KernelProver } from '@aztec/kernel-prover';
+import { Tx } from '@aztec/p2p';
 import { generateFunctionSelector } from '../abi_coder/index.js';
 import { AztecRPCClient } from '../aztec_rpc_client/index.js';
 import {
@@ -10,18 +11,16 @@ import {
   Fr,
   generateContractAddress,
   OldTreeRoots,
-  PrivateKernelPublicInputs,
   Signature,
   TxContext,
   TxRequest,
 } from '../circuits.js';
+import { ContractDao } from '../contract_data_source/contract_dao.js';
 import { Database } from '../database/index.js';
 import { KeyStore } from '../key_store/index.js';
 import { ContractAbi } from '../noir.js';
 import { Synchroniser } from '../synchroniser/index.js';
 import { TxHash } from '../tx/index.js';
-import { AccumulatedTxData } from '@aztec/p2p';
-import { ContractDao } from '../contract_data_source/contract_dao.js';
 
 export class AztecRPCServer implements AztecRPCClient {
   constructor(
@@ -146,27 +145,14 @@ export class AztecRPCServer implements AztecRPCClient {
       contract.portalAddress,
       oldRoots,
     );
-    const { publicInputs, proof } = await this.kernelProver.prove(txRequest, signature, executionResult, oldRoots);
-    return this.buildTx(publicInputs, proof);
-  }
-
-  private buildTx(publicInputs: PrivateKernelPublicInputs, proof: Buffer) {
-    const accumulatedData = publicInputs.end;
-
-    // TODO I think the TX should include all the data from the publicInputs + proof
-    return new Tx(
-      new AccumulatedTxData(
-        accumulatedData.newCommitments.map(fr => fr.buffer),
-        accumulatedData.newNullifiers.map(fr => fr.buffer),
-        accumulatedData.privateCallStack.map(fr => fr.buffer),
-        accumulatedData.publicCallStack.map(fr => fr.buffer),
-        accumulatedData.l1MsgStack.map(fr => fr.buffer),
-        accumulatedData.newContracts.map(() => Buffer.alloc(0)), // TODO: use toBuffer from circuits/ts
-        accumulatedData.newCommitments.map(fr => fr.buffer),
-        {}, // TODO aggregationObject from circuits/ts
-        accumulatedData.privateCallCount.buffer.readUInt32BE(), // TODO: check if correct
-      ),
+    const { publicInputs, proof } = await this.kernelProver.prove(
+      txRequest as any, // TODO - remove `as any`
+      signature,
+      executionResult,
+      oldRoots as any, // TODO - remove `as any`
     );
+    // TODO I think the TX should include all the data from the publicInputs + proof
+    return new Tx(publicInputs);
   }
 
   public async sendTx(tx: Tx) {

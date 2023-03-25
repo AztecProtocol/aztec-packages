@@ -1,15 +1,14 @@
 import { ExecutionResult } from '@aztec/acir-simulator';
 import {
-  AccumulatedTxData,
+  AccumulatedData,
   AggregationObject,
   ConstantData,
   Fr,
   NewContractData,
   OldTreeRoots,
   PrivateKernelPublicInputs,
-  Signature,
-  TxRequest,
-} from './circuits.js';
+} from '@aztec/circuits.js';
+import { Signature, TxRequest } from './circuits.js';
 export class KernelProver {
   prove(
     txRequest: TxRequest,
@@ -19,7 +18,7 @@ export class KernelProver {
   ): Promise<{ publicInputs: PrivateKernelPublicInputs; proof: Buffer }> {
     // TODO: implement this
     const newContracts = [];
-    if (txRequest.functionData.isContructor) {
+    if (txRequest.functionData.isConstructor) {
       newContracts.push(
         new NewContractData(
           txRequest.to,
@@ -28,8 +27,8 @@ export class KernelProver {
         ),
       );
     }
-    const accumulatedTxData = new AccumulatedTxData(
-      new AggregationObject(),
+    const accumulatedTxData = new AccumulatedData(
+      AggregationObject.fromBuffer(Buffer.alloc(0)), // TODO - Fix this.
       new Fr(Buffer.from([1])),
       [], // newCommitments
       [], // newNullifiers

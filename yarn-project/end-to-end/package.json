@@ -23,6 +23,7 @@
     "rootDir": "./src"
   },
   "dependencies": {
+    "@aztec/aztec-node": "workspace:^",
     "@aztec/aztec.js": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "@aztec/noir-contracts": "workspace:^",

@@ -1,23 +1,13 @@
-import { AztecAddress, AztecRPCClient, ContractDeployer, createAztecRPCServer, EthAddress, Fr } from '@aztec/aztec.js';
+import { AztecAddress, AztecRPCClient, ContractDeployer } from '@aztec/aztec.js';
 import abi from '@aztec/noir-contracts/examples/test_contract.json';
-
-const {
-  ETHEREUM_HOST = 'http://localhost:8545',
-  ROLLUP_ROLLUP_ADDRESS = '0x5FbDB2315678afecb367f032d93F642f64180aa3',
-  YEETER_ADDRESS = '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512',
-} = process.env;
+import { createTestAztecRPCClient } from './create_aztec_rpc_client.js';
 
 describe('e2e_deploy_contract', () => {
   let arc: AztecRPCClient;
   let accounts: AztecAddress[];
 
   beforeAll(async () => {
-    arc = await createAztecRPCServer({
-      ethRpcUrl: ETHEREUM_HOST,
-      rollupAddress: EthAddress.fromString(ROLLUP_ROLLUP_ADDRESS),
-      yeeterAddress: EthAddress.fromString(YEETER_ADDRESS),
-    });
-    await arc.addAccount();
+    arc = await createTestAztecRPCClient(1);
     accounts = await arc.getAccounts();
   });
 
@@ -27,13 +17,15 @@ describe('e2e_deploy_contract', () => {
     expect(receipt).toEqual(
       expect.objectContaining({
         from: accounts[0],
+        to: undefined,
         status: true,
+        error: '',
       }),
     );
 
-    const { contractAddress } = receipt;
+    const contractAddress = receipt.contractAddress!;
     const constructor = abi.functions.find(f => f.name === 'constructor')!;
-    const bytecode = await arc.getCode(contractAddress!);
+    const bytecode = await arc.getCode(contractAddress);
     expect(bytecode).toEqual(constructor.bytecode);
   });
 });

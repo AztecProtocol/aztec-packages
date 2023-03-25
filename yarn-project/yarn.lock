@@ -112,6 +112,7 @@ __metadata:
     "@aztec/acir-simulator": "workspace:^"
     "@aztec/aztec-node": "workspace:^"
     "@aztec/kernel-prover": "workspace:^"
+    "@aztec/p2p": "workspace:^"
     "@jest/globals": ^29.4.3
     "@rushstack/eslint-patch": ^1.1.4
     "@types/jest": ^29.4.0
@@ -192,6 +193,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/end-to-end@workspace:end-to-end"
   dependencies:
+    "@aztec/aztec-node": "workspace:^"
     "@aztec/aztec.js": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/noir-contracts": "workspace:^"
@@ -282,6 +284,7 @@ __metadata:
   resolution: "@aztec/kernel-prover@workspace:kernel-prover"
   dependencies:
     "@aztec/acir-simulator": "workspace:^"
+    "@aztec/circuits.js": "workspace:^"
     "@jest/globals": ^29.4.3
     "@rushstack/eslint-patch": ^1.1.4
     "@types/jest": ^29.4.0
