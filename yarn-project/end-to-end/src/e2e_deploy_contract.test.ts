@@ -6,7 +6,7 @@ describe('e2e_deploy_contract', () => {
   let arc: AztecRPCClient;
   let accounts: AztecAddress[];
 
-  beforeAll(async () => {
+  beforeEach(async () => {
     arc = await createTestAztecRPCClient(1);
     accounts = await arc.getAccounts();
   });
