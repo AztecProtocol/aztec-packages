@@ -7,7 +7,7 @@ import { AztecNode } from '../index.js';
 import { createProvider, createTx, deployRollupContract, deployYeeterContract } from './fixtures.js';
 import { createDebugLogger, sleep } from '@aztec/foundation';
 
-const ETHEREUM_HOST = 'http://localhost:8545/';
+const ETHEREUM_HOST = 'http://127.0.0.1:8545/';
 const MNEMONIC = 'test test test test test test test test test test test junk';
 
 const logger = createDebugLogger('aztec:e2e_test');
