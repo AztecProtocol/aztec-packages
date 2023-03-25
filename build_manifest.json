@@ -73,6 +73,13 @@
     "rebuildPatterns": ["^yarn-project/aztec.js/"],
     "dependencies": ["aztec-rpc"]
   },
+  "circuits.js": {
+    "buildDir": "yarn-project",
+    "projectDir": "yarn-project/circuits.js",
+    "dockerfile": "circuits.js/Dockerfile",
+    "rebuildPatterns": ["^yarn-project/circuits.js/"],
+    "dependencies": ["foundation"]
+  },
   "end-to-end": {
     "buildDir": "yarn-project",
     "projectDir": "yarn-project/end-to-end",
