@@ -147,8 +147,7 @@ jobs:
       - *setup_env
       - run:
           name: "foundation"
-          command: |
-            deploy_ecr foundation
+          command: build foundation
 
   noir-contracts:
     machine:
