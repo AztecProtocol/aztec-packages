@@ -72,6 +72,61 @@ jobs:
           name: "Build"
           command: build yarn-project-base
 
+  archiver:
+    machine:
+      image: ubuntu-2004:202010-01
+    resource_class: large
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Build and test"
+          command: build archiver
+
+  aztec-js:
+    machine:
+      image: ubuntu-2004:202010-01
+    resource_class: large
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Build and test"
+          command: build aztec.js
+
+  aztec-node:
+    machine:
+      image: ubuntu-2004:202010-01
+    resource_class: large
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Build and test"
+          command: build aztec-node
+
+  aztec-rpc:
+    machine:
+      image: ubuntu-2004:202010-01
+    resource_class: large
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Build and test"
+          command: build aztec-node
+
+  circuits-js:
+    machine:
+      image: ubuntu-2004:202010-01
+    resource_class: large
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Build and test"
+          command: build circuits.js
+
   ethereum-js:
     machine:
       image: ubuntu-2004:202010-01
@@ -93,17 +148,6 @@ jobs:
       - run:
           name: "Build and test"
           command: build foundation
-
-  aztec-js:
-    machine:
-      image: ubuntu-2004:202010-01
-    resource_class: large
-    steps:
-      - *checkout
-      - *setup_env
-      - run:
-          name: "Build and test"
-          command: build aztec.js
 
   noir-contracts:
     machine:
@@ -174,7 +218,25 @@ workflows:
       - yarn-project-base:
           <<: *defaults
       - ethereum-js: *yarn_project
-      - aztec-js: *yarn_project
+      - archiver:
+          requires:
+            - ethereum-js
+          <<: *defaults
+      - aztec-node:
+          requires:
+            - foundation
+          <<: *defaults
+      - aztec-rpc:
+          requires:
+            - aztec-node
+            - foundation
+          <<: *defaults
+      - aztec-js:
+          requires:
+            - circuits-js
+            - foundation
+          <<: *defaults
+      - circuits-js: *yarn_project
       - end-to-end:
           requires:
             - ethereum-js
