@@ -15,8 +15,7 @@ import {
   TxContext,
   TxRequest,
 } from '../circuits.js';
-import { ContractDao } from '../contract_data_source/contract_dao.js';
-import { Database } from '../database/index.js';
+import { ContractDao, ContractDataSource } from '../contract_data_source/index.js';
 import { KeyStore } from '../key_store/index.js';
 import { ContractAbi } from '../noir.js';
 import { Synchroniser } from '../synchroniser/index.js';
@@ -29,15 +28,17 @@ export class AztecRPCServer implements AztecRPCClient {
     private acirSimulator: AcirSimulator,
     private kernelProver: KernelProver,
     private node: AztecNode,
-    private db: Database,
+    private db: ContractDataSource,
   ) {}
 
-  public addAccount() {
-    return this.keyStore.addAccount();
+  public async addAccount() {
+    const accountPublicKey = await this.keyStore.addAccount();
+    await this.synchroniser.addAccount(accountPublicKey);
+    return accountPublicKey;
   }
 
   public getAccounts() {
-    return this.keyStore.getAccounts();
+    return Promise.resolve(this.synchroniser.getAccounts().map(a => a.publicKey));
   }
 
   public getCode(contract: AztecAddress, functionSelector?: Buffer) {
@@ -145,7 +146,7 @@ export class AztecRPCServer implements AztecRPCClient {
       contract.portalAddress,
       oldRoots,
     );
-    const { publicInputs, proof } = await this.kernelProver.prove(
+    const { publicInputs } = await this.kernelProver.prove(
       txRequest as any, // TODO - remove `as any`
       signature,
       executionResult,
@@ -160,27 +161,8 @@ export class AztecRPCServer implements AztecRPCClient {
     return new TxHash(tx.txId);
   }
 
-  public async getTxReceipt(txHash: TxHash) {
-    const tx = await this.db.getTx(txHash);
-    if (!tx) {
-      return;
-    }
-
-    const account = this.synchroniser.getAccount(tx.from);
-    if (!account) {
-      throw new Error('Unauthorised account.');
-    }
-
-    return {
-      txHash: tx.txHash,
-      blockHash: tx.blockHash,
-      blockNumber: tx.blockNumber,
-      from: tx.from,
-      to: tx.to,
-      contractAddress: tx.contractAddress,
-      error: tx.error,
-      status: !tx.error,
-    };
+  public getTxReceipt(txHash: TxHash) {
+    return this.synchroniser.getTxReceipt(txHash);
   }
 
   private findFunction(contract: ContractDao, functionSelector: Buffer) {

@@ -11,6 +11,20 @@ export class MemoryContractDataSource implements ContractDataSource {
     return Promise.resolve();
   }
 
+  public confirmContractsDeployed(addresses: AztecAddress[]) {
+    const contractIndices: Map<string, number> = new Map();
+    this.contracts.forEach((c, i) => {
+      contractIndices.set(c.address.toString(), i);
+    });
+    addresses.forEach(a => {
+      const index = contractIndices.get(a.toString());
+      if (index !== undefined) {
+        this.contracts[index] = { ...this.contracts[index], deployed: true };
+      }
+    });
+    return Promise.resolve();
+  }
+
   public getContract(address: AztecAddress) {
     return Promise.resolve(this.contracts.find(c => c.address.equals(address)));
   }
