@@ -121,7 +121,7 @@ export class AztecRPCServer implements AztecRPCClient {
   public async createTx(txRequest: TxRequest, signature: Signature) {
     let contractAddress;
 
-    if (txRequest.to === AztecAddress.ZERO) {
+    if (txRequest.to.equals(AztecAddress.ZERO)) {
       contractAddress = generateContractAddress(
         txRequest.from,
         txRequest.txContext.contractDeploymentData.contractAddressSalt,
