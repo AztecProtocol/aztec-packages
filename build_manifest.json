@@ -147,8 +147,7 @@
       "world-state",
       "p2p",
       "sequencer-client",
-      "ethereum.js",
-      "circuits.js"
+      "ethereum.js"
     ]
   },
   "sequencer-client": {
