@@ -1,6 +1,5 @@
 FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/yarn-project-base AS builder
-COPY aztec-node aztec-node
-COPY aztec-rpc aztec-rpc
+COPY . .
 RUN cd aztec-node && yarn build
 WORKDIR /usr/src/yarn-project/aztec-rpc
 RUN yarn build && yarn formatting && yarn test
