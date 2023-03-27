@@ -145,10 +145,10 @@ export class AztecRPCServer implements AztecRPCClient {
 
     const oldRoots = new OldTreeRoots(Fr.ZERO, Fr.ZERO, Fr.ZERO, Fr.ZERO); // TODO - get old roots from the database/node
     const executionResult = await this.acirSimulator.run(
-      txRequest,
+      txRequest as any, // TODO - remove `as any`
       Buffer.from(functionDao.bytecode, 'base64'),
-      contract.portalAddress,
-      oldRoots,
+      contract.portalAddress as any, // TODO - remove `as any`
+      oldRoots as any, // TODO - remove `as any`
     );
     const { publicInputs } = await this.kernelProver.prove(
       txRequest as any, // TODO - remove `as any`
@@ -156,7 +156,7 @@ export class AztecRPCServer implements AztecRPCClient {
       executionResult,
       oldRoots as any, // TODO - remove `as any`
     );
-    // TODO I think the TX should include all the data from the publicInputs + proof
+    // TODO The TX should include the proof in the future
     return new Tx(publicInputs);
   }
 

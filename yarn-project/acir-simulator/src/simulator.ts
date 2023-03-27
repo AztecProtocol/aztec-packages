@@ -1,12 +1,15 @@
-import { ExecutionPreimages } from './acvm.js';
 import {
   CallContext,
   PrivateCircuitPublicInputs,
-  TxRequest,
   EthAddress,
-  PrivateCallStackItem,
   OldTreeRoots,
-} from './circuits.js';
+} from '@aztec/circuits.js';
+import { PrivateCallStackItem, TxRequest } from './circuits.js';
+
+export interface ExecutionPreimages {
+  newNotes: Buffer[];
+  nullifiedNotes: Buffer[];
+}
 
 export interface ExecutionResult {
   // Needed for prover
@@ -36,7 +39,7 @@ export class AcirSimulator {
       portalContractAddress,
       false,
       false,
-      request.functionData.isContructor,
+      request.functionData.isConstructor,
     );
 
     const publicInputs = new PrivateCircuitPublicInputs(

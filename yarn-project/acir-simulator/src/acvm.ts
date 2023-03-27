@@ -1,31 +1,19 @@
-import { AztecAddress, CallContext, ContractDeploymentData } from './circuits.js';
 import { NoteLoadOracleInputs } from './db_oracle.js';
 
 export interface ACIRCallback {
-  getSecretKey(keyId: Buffer): Promise<Buffer>;
-  getNotes(storageSlot: Buffer): Promise<NoteLoadOracleInputs[]>;
+  getSecretKey(publicKey: Buffer): Promise<Buffer>;
+  getNotes2(storageSlot: Buffer): Promise<NoteLoadOracleInputs[]>;
   getRandomField(): Promise<Buffer>;
-  privateFunctionCall(
-    contractAddress: AztecAddress,
-    functionSelector: string,
-    args: Array<Buffer>,
-  ): Promise<Array<Buffer>>;
-}
-
-export interface ExecutionPreimages {
-  newNotes: Buffer[];
-  nullifiedNotes: Buffer[];
+  notifyCreateNote(notePreimage: Buffer) : Promise<void>;
+  notifyNullifiedNote(notePreimage: Buffer): Promise<void>;
 }
 
 export interface ACIRExecutionResult {
-  preimages: ExecutionPreimages;
-  partialWitness: Buffer;
+  partialWitness: Map<number, `0x${string}`>,
 }
 
 export type execute = (
   acir: Buffer,
-  args: Array<Buffer>,
-  callContext: CallContext,
-  contractDeploymentData: ContractDeploymentData,
+  initialWitness: Map<number, `0x${string}`>,
   oracle: ACIRCallback,
 ) => Promise<ACIRExecutionResult>;
