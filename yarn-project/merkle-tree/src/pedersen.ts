@@ -1,4 +1,5 @@
-import { BarretenbergWasm, pedersenCompress, pedersenGetHash, pedersenGetHashTree } from '@aztec/barretenberg.js';
+import { pedersenCompress, pedersenGetHash, pedersenGetHashTree } from '@aztec/barretenberg.js/crypto';
+import { BarretenbergWasm } from '@aztec/barretenberg.js/wasm';
 
 import { Hasher } from './hasher.js';
 

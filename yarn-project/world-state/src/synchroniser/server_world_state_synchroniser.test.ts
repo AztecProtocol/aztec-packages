@@ -6,7 +6,7 @@ import { randomBytes, sleep } from '@aztec/foundation';
 import { jest } from '@jest/globals';
 import { AppendOnlyTreeSnapshot, EthAddress, Fr } from '@aztec/circuits.js';
 import { MerkleTreeDb, MerkleTreeId } from '../index.js';
-import { BarretenbergWasm } from '@aztec/barretenberg.js';
+import { BarretenbergWasm } from '@aztec/barretenberg.js/wasm';
 
 /**
  * Generic mock implementation.
@@ -57,7 +57,7 @@ const createSynchroniser = (merkleTreeDb: any, rollupSource: any) =>
   new ServerWorldStateSynchroniser(merkleTreeDb as MerkleTreeDb, rollupSource as L2BlockSource);
 
 describe('server_world_state_synchroniser', async () => {
-  const wasm = await BarretenbergWasm.new()
+  const wasm = await BarretenbergWasm.new();
   const pedersen: Pedersen = new Pedersen(wasm);
   const rollupSource: Mockify<L2BlockSource> = {
     getLatestBlockNum: jest.fn().mockImplementation(getLatestBlockNumber),

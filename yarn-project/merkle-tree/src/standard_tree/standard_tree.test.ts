@@ -4,7 +4,7 @@ import { SiblingPath } from '../index.js';
 import { Pedersen } from '../pedersen.js';
 import { StandardMerkleTree } from './standard_tree.js';
 import { merkleTreeTestSuite, createMemDown } from '../test/test_suite.js';
-import { BarretenbergWasm } from '@aztec/barretenberg.js';
+import { BarretenbergWasm } from '@aztec/barretenberg.js/wasm';
 
 const createDb = async (levelUp: levelup.LevelUp, hasher: Hasher, name: string, depth: number) => {
   return await StandardMerkleTree.new(levelUp, hasher, name, depth);
@@ -16,9 +16,9 @@ const createFromName = async (levelUp: levelup.LevelUp, hasher: Hasher, name: st
 
 merkleTreeTestSuite('StandardMerkleTree', createDb, createFromName);
 
-describe('StandardMerkleTreeSpecific', async () => {
-  const wasm = await BarretenbergWasm.new()
-  const pedersen = new Pedersen(wasm);
+describe('StandardMerkleTreeSpecific', () => {
+  let wasm: BarretenbergWasm;
+  let pedersen: Pedersen;
   const values: Buffer[] = [];
 
   beforeAll(() => {
@@ -27,6 +27,10 @@ describe('StandardMerkleTreeSpecific', async () => {
       v.writeUInt32BE(i, 28);
       values[i] = v;
     }
+  });
+  beforeEach(async () => {
+    wasm = await BarretenbergWasm.new();
+    pedersen = new Pedersen(wasm);
   });
   it('should have correct root and sibling paths', async () => {
     const db = levelup(createMemDown());

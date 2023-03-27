@@ -9,7 +9,7 @@ import {
   PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT,
 } from '@aztec/circuits.js';
 import { MerkleTreeDb, MerkleTreeId, TreeInfo } from './index.js';
-import { BarretenbergWasm } from '@aztec/barretenberg.js';
+import { BarretenbergWasm } from '@aztec/barretenberg.js/wasm';
 
 /**
  * A convenience class for managing multiple merkle trees.
@@ -24,7 +24,7 @@ export class MerkleTrees implements MerkleTreeDb {
    * Initialises the collection of Merkle Trees.
    */
   public async init() {
-    const wasm = await BarretenbergWasm.new()
+    const wasm = await BarretenbergWasm.new();
     const hasher = new Pedersen(wasm);
     const contractTree = await StandardMerkleTree.new(
       this.db,

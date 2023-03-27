@@ -1,4 +1,4 @@
-import { BarretenbergWasm } from '@aztec/barretenberg.js';
+import { BarretenbergWasm } from '@aztec/barretenberg.js/wasm';
 import { default as levelup } from 'levelup';
 import { default as memdown } from 'memdown';
 import { Hasher, MerkleTree, Pedersen, SiblingPath } from '../index.js';
@@ -24,10 +24,10 @@ export const merkleTreeTestSuite = (
   createDb: (levelup: levelup.LevelUp, hasher: Hasher, name: string, depth: number) => Promise<MerkleTree>,
   createFromName: (levelup: levelup.LevelUp, hasher: Hasher, name: string) => Promise<MerkleTree>,
 ) => {
-  describe(testName, async () => {
-    const wasm = await BarretenbergWasm.new()
-    const pedersen = new Pedersen(wasm);
+  describe(testName, () => {
     const values: Buffer[] = [];
+    let wasm: BarretenbergWasm;
+    let pedersen: Pedersen;
 
     beforeAll(() => {
       for (let i = 0; i < 32; ++i) {
@@ -35,6 +35,11 @@ export const merkleTreeTestSuite = (
         v.writeUInt32BE(i, 28);
         values[i] = v;
       }
+    });
+
+    beforeEach(async () => {
+      wasm = await BarretenbergWasm.new();
+      pedersen = new Pedersen(wasm);
     });
 
     // it('should have correct empty tree root for depth 32', async () => {
