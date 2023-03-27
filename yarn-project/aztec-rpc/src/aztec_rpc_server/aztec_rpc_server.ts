@@ -13,8 +13,7 @@ import {
   OldTreeRoots,
   Signature,
   TxContext,
-  TxRequest,
-} from '../circuits.js';
+} from '@aztec/circuits.js';
 import { ContractDao, ContractDataSource } from '../contract_data_source/index.js';
 import { KeyStore } from '../key_store/index.js';
 import { ContractAbi } from '../noir.js';
@@ -80,9 +79,11 @@ export class AztecRPCServer implements AztecRPCClient {
     const contractAddress = generateContractAddress(from, contractAddressSalt, args);
     await this.db.addContract(contractAddress, portalContract, abi, false);
 
+    console.log(`Function data ${functionData.isContructor}`);
+
     return new TxRequest(
       from,
-      AztecAddress.ZERO, // to
+      contractAddress,
       functionData,
       args,
       txContext,
@@ -133,6 +134,7 @@ export class AztecRPCServer implements AztecRPCClient {
       );
     } else {
       contractAddress = txRequest.to;
+      console.log(`to is not zero ${contractAddress.buffer.toString('hex')}`);
     }
 
     const contract = await this.db.getContract(contractAddress);

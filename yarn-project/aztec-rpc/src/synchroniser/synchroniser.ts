@@ -14,7 +14,7 @@ export class Synchroniser {
 
   constructor(private node: AztecNode, private db: Database) {}
 
-  public start(from = 0, take = 1, retryInterval = 10000) {
+  public start(from = 1, take = 1, retryInterval = 10000) {
     if (this.running) {
       return;
     }
@@ -35,6 +35,7 @@ export class Synchroniser {
             .map(b => b.newContractData.map(d => d.aztecAddress))
             .flat()
             .map(fr => new AztecAddress(fr.toBuffer()));
+          console.log(`address ${contractAddresses[0].buffer.toString('hex')}`);
           await this.db.confirmContractsDeployed(contractAddresses);
 
           from += blocks.length;

@@ -1,13 +1,27 @@
 import { ExecutionResult } from '@aztec/acir-simulator';
 import {
   AccumulatedData,
+  AffineElement,
   AggregationObject,
   ConstantData,
+  EMITTED_EVENTS_LENGTH,
+  EthAddress,
+  Fq,
   Fr,
+  FunctionData,
+  KERNEL_L1_MSG_STACK_LENGTH,
+  KERNEL_NEW_COMMITMENTS_LENGTH,
+  KERNEL_NEW_CONTRACTS_LENGTH,
+  KERNEL_NEW_NULLIFIERS_LENGTH,
+  KERNEL_OPTIONALLY_REVEALED_DATA_LENGTH,
+  KERNEL_PRIVATE_CALL_STACK_LENGTH,
+  KERNEL_PUBLIC_CALL_STACK_LENGTH,
   NewContractData,
   OldTreeRoots,
+  OptionallyRevealedData,
   PrivateKernelPublicInputs,
 } from '@aztec/circuits.js';
+import { randomBytes } from 'crypto';
 import { Signature, TxRequest } from './circuits.js';
 export class KernelProver {
   prove(
@@ -17,7 +31,16 @@ export class KernelProver {
     oldRoots: OldTreeRoots,
   ): Promise<{ publicInputs: PrivateKernelPublicInputs; proof: Buffer }> {
     // TODO: implement this
+    const createRandomFields = (num: number) => {
+      return Array(num)
+        .fill(0)
+        .map(() => new Fr(randomBytes(32)));
+    };
+    const createRandomContractData = () => {
+      return new NewContractData(new Fr(randomBytes(32)), new EthAddress(randomBytes(20)), createRandomFields(1)[0]);
+    };
     const newContracts = [];
+    console.log(`is contructor ${txRequest.functionData.isConstructor} request to ${txRequest.to.toString()}`);
     if (txRequest.functionData.isConstructor) {
       newContracts.push(
         new NewContractData(
@@ -27,16 +50,45 @@ export class KernelProver {
         ),
       );
     }
+    newContracts.push(
+      ...Array(KERNEL_NEW_CONTRACTS_LENGTH - newContracts.length)
+        .fill(0)
+        .map(() => createRandomContractData()),
+    );
+
+    const aggregationObject = new AggregationObject(
+      new AffineElement(new Fq(0), new Fq(0)),
+      new AffineElement(new Fq(0), new Fq(0)),
+      [],
+      [],
+      false,
+    );
+    const createOptionallyRevealedData = () => {
+      const optionallyRevealedData = new OptionallyRevealedData(
+        createRandomFields(1)[0],
+        new FunctionData(1, true, true),
+        createRandomFields(EMITTED_EVENTS_LENGTH),
+        createRandomFields(1)[0],
+        new EthAddress(randomBytes(20)),
+        true,
+        true,
+        true,
+        true,
+      );
+      return optionallyRevealedData;
+    };
     const accumulatedTxData = new AccumulatedData(
-      AggregationObject.fromBuffer(Buffer.alloc(0)), // TODO - Fix this.
-      new Fr(Buffer.from([1])),
-      [], // newCommitments
-      [], // newNullifiers
-      [], // privateCallStack
-      [], // publicCallStack
-      [], // l1MsgStack
+      aggregationObject,
+      new Fr(0),
+      createRandomFields(KERNEL_NEW_COMMITMENTS_LENGTH),
+      createRandomFields(KERNEL_NEW_NULLIFIERS_LENGTH),
+      createRandomFields(KERNEL_PRIVATE_CALL_STACK_LENGTH),
+      createRandomFields(KERNEL_PUBLIC_CALL_STACK_LENGTH),
+      createRandomFields(KERNEL_L1_MSG_STACK_LENGTH),
       newContracts,
-      [], // optionallyRevealedData
+      Array(KERNEL_OPTIONALLY_REVEALED_DATA_LENGTH)
+        .fill(0)
+        .map(() => createOptionallyRevealedData()),
     );
 
     const publicInputs = new PrivateKernelPublicInputs(

@@ -26,6 +26,7 @@ export class SendMethod {
 
   public async request(options: SendMethodOptions = {}) {
     const { from } = { ...this.defaultOptions, ...options };
+    console.log(`send address ${this.contractAddress.buffer.toString('hex')}`);
     this.txRequest = await this.arc.createTxRequest(
       this.entry.encodeABI(),
       this.entry.encodeParameters(this.args).map(p => new Fr(p)),
@@ -36,6 +37,7 @@ export class SendMethod {
   }
 
   public async sign(options: SendMethodOptions = {}) {
+    console.log(`signing ${this.txRequest}`);
     if (!this.txRequest) {
       await this.request(options);
     }
@@ -60,6 +62,11 @@ export class SendMethod {
     } else {
       promise = (async () => {
         await this.create(options);
+        console.log(
+          `final address ${this.tx!.data.end.newContracts[0].contractAddress.toString()}, is const ${
+            this.txRequest?.functionData.isContructor
+          }`,
+        );
         return this.arc.sendTx(this.tx!);
       })();
     }

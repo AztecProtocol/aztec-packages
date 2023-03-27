@@ -1,7 +1,6 @@
-// See aztec3/constants.hpp
-// Copied here for prototyping purposes
-
-import { AztecAddress, Fr, FunctionData, TxContext } from '@aztec/circuits.js';
+import { AztecAddress, EthAddress, Fr, FunctionData, TxContext } from '@aztec/circuits.js';
+import { randomBytes } from '@aztec/foundation';
+//import { randomBytes } from '@aztec/foundation';
 
 export class TxRequest {
   constructor(
@@ -15,12 +14,32 @@ export class TxRequest {
   ) {}
 
   toBuffer() {
-    return Buffer.alloc(0);
+    const buf = Buffer.alloc(4);
+    buf.writeUInt32BE(this.functionData.functionSelector);
+    return Buffer.concat([
+      buf,
+      Buffer.concat(this.args.map(x => x.toBuffer())),
+      this.nonce.toBuffer(),
+      this.chainId.toBuffer(),
+    ]);
   }
 }
 
 export class Signature {
   public static SIZE = 64;
 
+  public static random() {
+    return new EthAddress(randomBytes(Signature.SIZE));
+  }
+
   constructor(public readonly buffer: Buffer) {}
 }
+
+// export function generateContractAddress(
+//   deployerAddress: AztecAddress,
+//   salt: Fr,
+//   args: Fr[],
+//   // functionLeaves: Fr[],
+// ) {
+//   return new Fr(randomBytes(32));
+// }

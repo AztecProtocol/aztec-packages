@@ -1,4 +1,4 @@
-import { TxRequest } from '../circuits.js';
+import { TxRequest, AztecAddress } from '../circuits.js';
 import { ConstantKeyPair, KeyPair } from './key_pair.js';
 import { KeyStore } from './key_store.js';
 
@@ -24,7 +24,9 @@ export class TestKeyStore implements KeyStore {
   }
 
   signTxRequest(txRequest: TxRequest) {
-    const account = this.accounts.find(a => a.getPublicKey().equals(txRequest.from));
+    const account = txRequest.from.equals(AztecAddress.ZERO)
+      ? this.accounts[0]
+      : this.accounts.find(a => a.getPublicKey().equals(txRequest.from));
     if (!account) {
       throw new Error('Unknown account.');
     }

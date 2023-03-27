@@ -33,6 +33,7 @@ export class ConstructorMethod extends SendMethod {
       contractAddressSalt || Fr.random(),
       from || AztecAddress.ZERO,
     );
+    console.log(`contract address ${this.txRequest.to.buffer.toString('hex')}`);
     return this.txRequest;
   }
 

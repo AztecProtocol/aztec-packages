@@ -24,7 +24,10 @@ export async function createAztecRPCServer(
 ) {
   keyStore = keyStore || new TestKeyStore();
   db = db || new MemoryDB();
-  synchroniser = synchroniser || new Synchroniser(aztecNode, db);
+  if (!synchroniser) {
+    synchroniser = new Synchroniser(aztecNode, db);
+    synchroniser.start();
+  }
   acirSimulator = acirSimulator || new AcirSimulator();
   kernelProver = kernelProver || new KernelProver();
 
