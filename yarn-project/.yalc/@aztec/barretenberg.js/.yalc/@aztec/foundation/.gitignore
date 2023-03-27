@@ -1,9 +1,0 @@
-dest
-node_modules
-.cache
-.env
-*.log
-*.swp
-.tsbuildinfo
-.pnp.cjs
-.pnp.loader.mjs

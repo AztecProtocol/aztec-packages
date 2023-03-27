@@ -150,7 +150,6 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/aztec3-packages@workspace:."
   dependencies:
-    "@aztec/barretenberg.js": "file:.yalc/@aztec/barretenberg.js"
     eslint: ^8.21.0
     prettier: ^2.7.1
     typedoc: ^0.23.26
@@ -158,24 +157,11 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@aztec/barretenberg.js@file:.yalc/@aztec/barretenberg.js::locator=%40aztec%2Faztec3-packages%40workspace%3A.":
-  version: 0.0.0
-  resolution: "@aztec/barretenberg.js@file:.yalc/@aztec/barretenberg.js#.yalc/@aztec/barretenberg.js::hash=ae2041&locator=%40aztec%2Faztec3-packages%40workspace%3A."
-  dependencies:
-    "@aztec/foundation": "file:.yalc/@aztec/foundation"
-    cross-fetch: ^3.1.5
-    detect-node: ^2.1.0
-    eslint: ^8.35.0
-    tslib: ^2.4.0
-  checksum: b6e6c8fa51cc9f310fb004bb5db0e650bf096dc5da1740a3374ba289bd2d2a8111f08c0fc6a72e62d9279b509c95afe56ca058962619944ef5254b7c709376fc
-  languageName: node
-  linkType: hard
-
-"@aztec/barretenberg.js@workspace:.yalc/@aztec/barretenberg.js, @aztec/barretenberg.js@workspace:^":
+"@aztec/barretenberg.js@workspace:^, @aztec/barretenberg.js@workspace:barretenberg.js":
   version: 0.0.0-use.local
-  resolution: "@aztec/barretenberg.js@workspace:.yalc/@aztec/barretenberg.js"
+  resolution: "@aztec/barretenberg.js@workspace:barretenberg.js"
   dependencies:
-    "@aztec/foundation": "file:.yalc/@aztec/foundation"
+    "@aztec/foundation": "workspace:^"
     "@jest/globals": ^29.4.3
     "@rushstack/eslint-patch": ^1.1.4
     "@types/detect-node": ^2.0.0
@@ -292,44 +278,6 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@aztec/foundation@file:.yalc/@aztec/foundation::locator=%40aztec%2Fbarretenberg.js%40file%3A.yalc%2F%40aztec%2Fbarretenberg.js%23.yalc%2F%40aztec%2Fbarretenberg.js%3A%3Ahash%3Dae2041%26locator%3D%2540aztec%252Faztec3-packages%2540workspace%253A.":
-  version: 0.0.0
-  resolution: "@aztec/foundation@file:.yalc/@aztec/foundation#.yalc/@aztec/foundation::hash=5e4ca2&locator=%40aztec%2Fbarretenberg.js%40file%3A.yalc%2F%40aztec%2Fbarretenberg.js%23.yalc%2F%40aztec%2Fbarretenberg.js%3A%3Ahash%3Dae2041%26locator%3D%2540aztec%252Faztec3-packages%2540workspace%253A."
-  dependencies:
-    "@koa/cors": ^4.0.0
-    debug: ^4.3.4
-    detect-node: ^2.1.0
-    koa: ^2.14.1
-    koa-bodyparser: ^4.4.0
-    koa-compress: ^5.1.0
-    koa-router: ^12.0.0
-    leveldown: ^6.1.1
-    levelup: ^5.1.1
-    memdown: ^6.1.1
-    sha3: ^2.1.4
-  checksum: 9b5dc0ace5d91e839ba8b82ffdd3655673fbfca581bb8bf4e0f56749a821a795492a5c5ef216d0c812843e480768c730e32518d8a35e3ed813848c54309cf90b
-  languageName: node
-  linkType: hard
-
-"@aztec/foundation@file:.yalc/@aztec/foundation::locator=%40aztec%2Fbarretenberg.js%40workspace%3A.yalc%2F%40aztec%2Fbarretenberg.js":
-  version: 0.0.0
-  resolution: "@aztec/foundation@file:.yalc/@aztec/foundation#.yalc/@aztec/foundation::hash=5e4ca2&locator=%40aztec%2Fbarretenberg.js%40workspace%3A.yalc%2F%40aztec%2Fbarretenberg.js"
-  dependencies:
-    "@koa/cors": ^4.0.0
-    debug: ^4.3.4
-    detect-node: ^2.1.0
-    koa: ^2.14.1
-    koa-bodyparser: ^4.4.0
-    koa-compress: ^5.1.0
-    koa-router: ^12.0.0
-    leveldown: ^6.1.1
-    levelup: ^5.1.1
-    memdown: ^6.1.1
-    sha3: ^2.1.4
-  checksum: 9b5dc0ace5d91e839ba8b82ffdd3655673fbfca581bb8bf4e0f56749a821a795492a5c5ef216d0c812843e480768c730e32518d8a35e3ed813848c54309cf90b
-  languageName: node
-  linkType: hard
-
 "@aztec/foundation@workspace:^, @aztec/foundation@workspace:foundation":
   version: 0.0.0-use.local
   resolution: "@aztec/foundation@workspace:foundation"
@@ -433,6 +381,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/merkle-tree@workspace:merkle-tree"
   dependencies:
+    "@aztec/barretenberg.js": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@jest/globals": ^29.4.3
     "@rushstack/eslint-patch": ^1.1.4
