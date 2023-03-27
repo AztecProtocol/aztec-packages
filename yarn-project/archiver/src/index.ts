@@ -4,9 +4,9 @@ import { createPublicClient, getAddress, http } from 'viem';
 import { localhost } from 'viem/chains';
 import { Archiver } from './archiver/index.js';
 
+export * from '@aztec/l2-block';
 export * from './archiver/index.js';
 export * from './block_downloader/index.js';
-export * from './l2_block/index.js';
 
 const {
   ETHEREUM_HOST = 'http://localhost:8545/',
@@ -49,6 +49,3 @@ if (process.argv[1] === fileURLToPath(import.meta.url).replace(/\/index\.js$/, '
     process.exit(1);
   });
 }
-
-export { Archiver, mockRandomL2Block } from './archiver/index.js';
-export * from './l2_block/l2_block.js';

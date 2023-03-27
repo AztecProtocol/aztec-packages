@@ -42,6 +42,7 @@ __metadata:
     "@aztec/ethereum.js": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/l1-contracts": "workspace:^"
+    "@aztec/l2-block": "workspace:^"
     "@jest/globals": ^29.5.0
     "@rushstack/eslint-patch": ^1.2.0
     "@types/debug": ^4.1.7
@@ -353,7 +354,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@aztec/l2-block@workspace:l2-block":
+"@aztec/l2-block@workspace:^, @aztec/l2-block@workspace:l2-block":
   version: 0.0.0-use.local
   resolution: "@aztec/l2-block@workspace:l2-block"
   dependencies:
@@ -455,11 +456,11 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/sequencer-client@workspace:sequencer-client"
   dependencies:
-    "@aztec/archiver": "workspace:^"
     "@aztec/circuits.js": "workspace:^"
     "@aztec/ethereum.js": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/l1-contracts": "workspace:^"
+    "@aztec/l2-block": "workspace:^"
     "@aztec/p2p": "workspace:^"
     "@aztec/world-state": "workspace:^"
     "@jest/globals": ^29.4.3
