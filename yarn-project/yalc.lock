@@ -1,9 +1,0 @@
-{
-  "version": "v1",
-  "packages": {
-    "@aztec/barretenberg.js": {
-      "signature": "de0201424c6ec9677d8cbd52159e90d0",
-      "file": true
-    }
-  }
-}
