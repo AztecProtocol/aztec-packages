@@ -1,4 +1,4 @@
-import { Pedersen } from '../pedersen.js';
+// import { Pedersen } from '../pedersen.js';
 import { deserializeArrayFromVector, serializeBufferArrayToVector } from '@aztec/foundation';
 
 /**

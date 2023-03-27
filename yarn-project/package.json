@@ -40,5 +40,8 @@
   },
   "comments": {
     "resolutions": "Yarn has a bug where it does not load resolutions from packages in a workspace, so those need to be hoisted here. See https://github.com/yarnpkg/yarn/issues/5039."
+  },
+  "dependencies": {
+    "@aztec/barretenberg.js": "file:.yalc/@aztec/barretenberg.js"
   }
 }

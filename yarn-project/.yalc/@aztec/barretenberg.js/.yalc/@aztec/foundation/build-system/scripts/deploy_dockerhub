@@ -1,0 +1,26 @@
+#!/bin/bash
+set -e
+
+if [ -z "$COMMIT_TAG" ]; then
+  echo "Will only push tagged builds to dockerhub. Skipping."
+  exit 0
+fi
+
+REPOSITORY=$1
+IMAGE_COMMIT_URI=$ECR_DEPLOY_URL/$REPOSITORY:$COMMIT_HASH
+IMAGE_DEPLOY_URI=aztecprotocol/$REPOSITORY:$COMMIT_TAG
+
+echo "Deploying to dockerhub: $IMAGE_DEPLOY_URI"
+
+# Login.
+ensure_repo $REPOSITORY $ECR_DEPLOY_REGION
+
+# Pull image.
+docker pull $IMAGE_COMMIT_URI
+
+# Login to dockerhub.
+echo "$DOCKERHUB_PASSWORD" | docker login -u aztecprotocolci --password-stdin
+
+# Push image to dockerhub.
+docker tag $IMAGE_COMMIT_URI $IMAGE_DEPLOY_URI
+docker push $IMAGE_DEPLOY_URI
