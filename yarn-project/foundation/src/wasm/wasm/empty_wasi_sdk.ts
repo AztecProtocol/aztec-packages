@@ -7,7 +7,6 @@ import { createDebugLogger } from '../../log/index.js';
  * TODO find a way to update off of wasi 12.
  */
 /* eslint-disable camelcase */
-/* eslint-disable jsdoc/require-jsdoc */
 export const getEmptyWasiSdk = (debug = createDebugLogger('wasm:empty_wasi_sdk')) => ({
   clock_time_get() {
     debug('clock_time_get');
