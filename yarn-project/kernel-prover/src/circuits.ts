@@ -34,12 +34,3 @@ export class Signature {
 
   constructor(public readonly buffer: Buffer) {}
 }
-
-// export function generateContractAddress(
-//   deployerAddress: AztecAddress,
-//   salt: Fr,
-//   args: Fr[],
-//   // functionLeaves: Fr[],
-// ) {
-//   return new Fr(randomBytes(32));
-// }

@@ -9,9 +9,8 @@ import {
   ContractDeploymentData,
   EthAddress,
   Fr,
-  generateContractAddress,
+  FunctionData,
   OldTreeRoots,
-  Signature,
   TxContext,
 } from '@aztec/circuits.js';
 import { ContractDao, ContractDataSource } from '../contract_data_source/index.js';
@@ -19,6 +18,8 @@ import { KeyStore } from '../key_store/index.js';
 import { ContractAbi } from '../noir.js';
 import { Synchroniser } from '../synchroniser/index.js';
 import { TxHash } from '../tx/index.js';
+import { generateContractAddress, selectorToNumber, Signature, TxRequest, ZERO_FR } from '../circuits.js';
+import { randomBytes } from '@aztec/foundation';
 
 export class AztecRPCServer implements AztecRPCClient {
   constructor(
@@ -60,26 +61,26 @@ export class AztecRPCServer implements AztecRPCClient {
       throw new Error('Cannot find constructor in the ABI.');
     }
 
-    const functionData = {
-      functionSelector: generateFunctionSelector(constructorAbi.name, constructorAbi.parameters),
-      isSecret: true,
-      isContructor: true,
-    };
+    const functionData = new FunctionData(
+      selectorToNumber(generateFunctionSelector(constructorAbi.name, constructorAbi.parameters)),
+      true,
+      true,
+    );
 
-    const constructorVkHash = Fr.ZERO;
-    const functionTreeRoot = Fr.ZERO;
+    const constructorVkHash = ZERO_FR;
+    const functionTreeRoot = ZERO_FR;
     const contractDeploymentData = new ContractDeploymentData(
       constructorVkHash,
       functionTreeRoot,
       contractAddressSalt,
       portalContract,
     );
-    const txContext = new TxContext(false, false, false, contractDeploymentData);
+    const txContext = new TxContext(false, false, true, contractDeploymentData);
 
     const contractAddress = generateContractAddress(from, contractAddressSalt, args);
     await this.db.addContract(contractAddress, portalContract, abi, false);
 
-    console.log(`Function data ${functionData.isContructor}`);
+    console.log(`Function data ${functionData.isConstructor}`);
 
     return new TxRequest(
       from,
@@ -87,8 +88,8 @@ export class AztecRPCServer implements AztecRPCClient {
       functionData,
       args,
       txContext,
-      Fr.random(), // nonce
-      Fr.ZERO, // chainId
+      new Fr(randomBytes(Fr.SIZE_IN_BYTES)), // nonce
+      ZERO_FR, // chainId
     );
   }
 
@@ -100,13 +101,18 @@ export class AztecRPCServer implements AztecRPCClient {
 
     const functionDao = this.findFunction(contract, functionSelector);
 
-    const functionData = {
-      functionSelector,
-      isSecret: functionDao.isSecret,
-      isContructor: false,
-    };
+    const functionData = new FunctionData(
+      functionSelector.readUint32BE(),
+      functionDao.isSecret as any, // TODO: remove as any
+      false as any, // TODO: remove as any
+    );
 
-    const txContext = new TxContext(false, false, false, ContractDeploymentData.EMPTY);
+    const txContext = new TxContext(
+      false,
+      false,
+      true,
+      new ContractDeploymentData(ZERO_FR, ZERO_FR, ZERO_FR, new EthAddress(Buffer.alloc(EthAddress.SIZE_IN_BYTES))),
+    );
 
     return new TxRequest(
       from,
@@ -114,8 +120,8 @@ export class AztecRPCServer implements AztecRPCClient {
       functionData,
       args,
       txContext,
-      Fr.random(), // nonce
-      Fr.ZERO, // chainId
+      new Fr(randomBytes(Fr.SIZE_IN_BYTES)), // nonce
+      ZERO_FR, // chainId
     );
   }
 
@@ -126,7 +132,7 @@ export class AztecRPCServer implements AztecRPCClient {
   public async createTx(txRequest: TxRequest, signature: Signature) {
     let contractAddress;
 
-    if (txRequest.to.equals(AztecAddress.ZERO)) {
+    if (txRequest.to.toBuffer().equals(ZERO_FR.toBuffer())) {
       contractAddress = generateContractAddress(
         txRequest.from,
         txRequest.txContext.contractDeploymentData.contractAddressSalt,
@@ -134,7 +140,7 @@ export class AztecRPCServer implements AztecRPCClient {
       );
     } else {
       contractAddress = txRequest.to;
-      console.log(`to is not zero ${contractAddress.buffer.toString('hex')}`);
+      console.log(`to is not zero ${contractAddress.toBuffer().toString('hex')}`);
     }
 
     const contract = await this.db.getContract(contractAddress);
@@ -143,9 +149,12 @@ export class AztecRPCServer implements AztecRPCClient {
       throw new Error('Unknown contract.');
     }
 
-    const functionDao = this.findFunction(contract, txRequest.functionData.functionSelector);
+    const selector = Buffer.alloc(4);
+    selector.writeUint32BE(txRequest.functionData.functionSelector);
 
-    const oldRoots = new OldTreeRoots(Fr.ZERO, Fr.ZERO, Fr.ZERO, Fr.ZERO); // TODO - get old roots from the database/node
+    const functionDao = this.findFunction(contract, selector);
+
+    const oldRoots = new OldTreeRoots(ZERO_FR, ZERO_FR, ZERO_FR, ZERO_FR); // TODO - get old roots from the database/node
     const executionResult = await this.acirSimulator.run(
       txRequest,
       Buffer.from(functionDao.bytecode, 'base64'),

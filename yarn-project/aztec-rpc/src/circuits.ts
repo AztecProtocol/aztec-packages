@@ -1,6 +1,8 @@
 import { AztecAddress, EthAddress, Fr, FunctionData, TxContext } from '@aztec/circuits.js';
 import { randomBytes } from '@aztec/foundation';
 
+export const ZERO_FR = new Fr(Buffer.alloc(32));
+
 export class TxRequest {
   constructor(
     public readonly from: AztecAddress,
@@ -41,4 +43,8 @@ export function generateContractAddress(
   // functionLeaves: Fr[],
 ) {
   return new Fr(randomBytes(32));
+}
+
+export function selectorToNumber(selector: Buffer) {
+  return selector.readUInt32BE();
 }

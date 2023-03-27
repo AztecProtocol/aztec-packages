@@ -1,4 +1,5 @@
-import { AztecAddress, Signature } from '../circuits.js';
+import { AztecAddress, Fr } from '@aztec/circuits.js';
+import { Signature } from '../circuits.js';
 import { randomBytes } from '../foundation.js';
 
 export interface KeyPair {
@@ -10,7 +11,7 @@ export interface KeyPair {
 export class ConstantKeyPair implements KeyPair {
   public static random() {
     const privateKey = randomBytes(32);
-    const publicKey = AztecAddress.random();
+    const publicKey = new Fr(randomBytes(Fr.SIZE_IN_BYTES));
     return new ConstantKeyPair(publicKey, privateKey);
   }
 

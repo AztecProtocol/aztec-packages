@@ -1,7 +1,7 @@
 import { AztecNode } from '@aztec/aztec-node';
 import { InterruptableSleep } from '@aztec/foundation';
 import { AccountState } from '../account_state/index.js';
-import { AztecAddress, EthAddress } from '../circuits.js';
+import { AztecAddress, EthAddress, Fr } from '@aztec/circuits.js';
 import { Database } from '../database/index.js';
 import { ContractAbi } from '../noir.js';
 import { TxHash } from '../tx/index.js';
@@ -34,8 +34,8 @@ export class Synchroniser {
           const contractAddresses = blocks
             .map(b => b.newContractData.map(d => d.aztecAddress))
             .flat()
-            .map(fr => new AztecAddress(fr.toBuffer()));
-          console.log(`address ${contractAddresses[0].buffer.toString('hex')}`);
+            .map(fr => new Fr(fr.toBuffer()));
+          console.log(`address ${contractAddresses[0].toBuffer().toString('hex')}`);
           await this.db.confirmContractsDeployed(contractAddresses);
 
           from += blocks.length;
@@ -61,7 +61,7 @@ export class Synchroniser {
   }
 
   public getAccount(account: AztecAddress) {
-    return this.accountStates.find(as => as.publicKey.equals(account));
+    return this.accountStates.find(as => as.publicKey.toBuffer().equals(account.toBuffer()));
   }
 
   public getAccounts() {

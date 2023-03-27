@@ -1,4 +1,5 @@
-import { AztecAddress, AztecRPCClient, Fr, Signature, Tx, TxHash, TxRequest } from '@aztec/aztec-rpc';
+import { AztecRPCClient, Signature, Tx, TxHash, TxRequest, ZERO_FR } from '@aztec/aztec-rpc';
+import { AztecAddress, Fr } from '@aztec/circuits.js';
 import { ContractFunction } from './contract_function.js';
 import { SentTx } from './sent_tx.js';
 
@@ -26,12 +27,12 @@ export class SendMethod {
 
   public async request(options: SendMethodOptions = {}) {
     const { from } = { ...this.defaultOptions, ...options };
-    console.log(`send address ${this.contractAddress.buffer.toString('hex')}`);
+    console.log(`send address ${this.contractAddress.toBuffer().toString('hex')}`);
     this.txRequest = await this.arc.createTxRequest(
       this.entry.encodeABI(),
       this.entry.encodeParameters(this.args).map(p => new Fr(p)),
       this.contractAddress,
-      from || AztecAddress.ZERO,
+      from || ZERO_FR,
     );
     return this.txRequest;
   }
@@ -62,11 +63,6 @@ export class SendMethod {
     } else {
       promise = (async () => {
         await this.create(options);
-        console.log(
-          `final address ${this.tx!.data.end.newContracts[0].contractAddress.toString()}, is const ${
-            this.txRequest?.functionData.isContructor
-          }`,
-        );
         return this.arc.sendTx(this.tx!);
       })();
     }

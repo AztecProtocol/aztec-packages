@@ -1,4 +1,4 @@
-import { AztecAddress } from '../circuits.js';
+import { AztecAddress } from '@aztec/circuits.js';
 import { Database } from '../database/index.js';
 import { TxHash } from '../tx/index.js';
 
