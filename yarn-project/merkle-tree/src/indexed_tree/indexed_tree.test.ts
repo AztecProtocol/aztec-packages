@@ -3,6 +3,7 @@ import { Hasher, Pedersen, SiblingPath } from '../index.js';
 import { IndexedTree } from './indexed_tree.js';
 import { merkleTreeTestSuite, createMemDown } from '../test/test_suite.js';
 import { toBufferBE } from '@aztec/foundation';
+import { BarretenbergWasm } from '@aztec/barretenberg.js';
 
 const createDb = async (levelUp: levelup.LevelUp, hasher: Hasher, name: string, depth: number) => {
   return await IndexedTree.new(levelUp, hasher, name, depth);
@@ -22,8 +23,9 @@ const createIndexedTreeLeaf = (value: number, nextIndex: number, nextValue: numb
 
 merkleTreeTestSuite('IndexedMerkleTree', createDb, createFromName);
 
-describe('IndexedMerkleTreeSpecific', () => {
-  const pedersen = new Pedersen();
+describe('IndexedMerkleTreeSpecific', async () => {
+  const wasm = await BarretenbergWasm.new()
+  const pedersen = new Pedersen(wasm);
 
   it('produces the correct roots and sibling paths', async () => {
     // Create a depth-3 indexed merkle tree

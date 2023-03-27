@@ -1,5 +1,4 @@
 import { BarretenbergWasm, pedersenCompress, pedersenGetHash, pedersenGetHashTree } from '@aztec/barretenberg.js';
-import { default as sha256 } from 'sha256';
 
 import { Hasher } from './hasher.js';
 

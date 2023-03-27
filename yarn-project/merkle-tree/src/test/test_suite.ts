@@ -1,3 +1,4 @@
+import { BarretenbergWasm } from '@aztec/barretenberg.js';
 import { default as levelup } from 'levelup';
 import { default as memdown } from 'memdown';
 import { Hasher, MerkleTree, Pedersen, SiblingPath } from '../index.js';
@@ -23,8 +24,9 @@ export const merkleTreeTestSuite = (
   createDb: (levelup: levelup.LevelUp, hasher: Hasher, name: string, depth: number) => Promise<MerkleTree>,
   createFromName: (levelup: levelup.LevelUp, hasher: Hasher, name: string) => Promise<MerkleTree>,
 ) => {
-  describe(testName, () => {
-    const pedersen = new Pedersen();
+  describe(testName, async () => {
+    const wasm = await BarretenbergWasm.new()
+    const pedersen = new Pedersen(wasm);
     const values: Buffer[] = [];
 
     beforeAll(() => {
