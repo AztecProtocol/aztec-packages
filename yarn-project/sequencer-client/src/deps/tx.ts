@@ -24,15 +24,15 @@ import {
 } from '@aztec/circuits.js';
 import { AccumulatedData } from '@aztec/circuits.js';
 import { UInt8Vector } from '@aztec/circuits.js';
-import { Tx } from '@aztec/p2p';
+import { Tx } from '@aztec/tx';
 import times from 'lodash.times';
 
 function frZero() {
-  return new Fr(Buffer.alloc(32, 0));
+  return Fr.fromBuffer(Buffer.alloc(32, 0));
 }
 
 function fqZero() {
-  return new Fq(Buffer.alloc(32, 0));
+  return Fq.fromBuffer(Buffer.alloc(32, 0));
 }
 
 function makeEmptyEthAddress() {

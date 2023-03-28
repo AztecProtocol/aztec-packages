@@ -24,7 +24,7 @@ export class ConstructorMethod extends ContractFunctionInteraction {
     this.txRequest = await this.arc.createDeploymentTxRequest(
       this.abi,
       [],
-      portalContract || EthAddress.ZERO,
+      portalContract || new EthAddress(Buffer.alloc(EthAddress.SIZE_IN_BYTES)),
       contractAddressSalt || Fr.random(),
       from || AztecAddress.ZERO,
     );

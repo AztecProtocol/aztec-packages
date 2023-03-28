@@ -32,6 +32,10 @@ if [ ! -f ~/.nvm/nvm.sh ]; then
   exit 1
 fi
 
+cd circuits/cpp
+./bootstrap.sh
+cd ../..
+
 \. ~/.nvm/nvm.sh
 nvm install
 
@@ -50,6 +54,7 @@ PROJECTS=(
   "yarn-project/archiver:yarn build"
   "yarn-project/world-state:yarn build"
   "yarn-project/p2p:yarn build"
+  "yarn-project/tx:yarn build"
   "yarn-project/sequencer-client:yarn build"
   "yarn-project/aztec-node:yarn build"
   "yarn-project/key-store:yarn build"
@@ -57,6 +62,7 @@ PROJECTS=(
   "yarn-project/kernel-prover:yarn build"
   "yarn-project/aztec-rpc:yarn build"
   "yarn-project/aztec.js:yarn build"
+  "yarn-project/noir-contracts:yarn build"
 )
 
 for E in "${PROJECTS[@]}"; do

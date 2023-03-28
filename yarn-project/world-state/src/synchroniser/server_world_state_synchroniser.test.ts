@@ -2,10 +2,11 @@ import { ServerWorldStateSynchroniser } from './server_world_state_synchroniser.
 import { L2BlockSource, L2Block, ContractData } from '@aztec/l2-block';
 import { WorldStateRunningState } from './world_state_synchroniser.js';
 import { Pedersen, SiblingPath, StandardMerkleTree } from '@aztec/merkle-tree';
-import { randomBytes, sleep } from '@aztec/foundation';
+import { AztecAddress, randomBytes, sleep } from '@aztec/foundation';
 import { jest } from '@jest/globals';
 import { AppendOnlyTreeSnapshot, EthAddress, Fr } from '@aztec/circuits.js';
 import { MerkleTreeDb, MerkleTreeId } from '../index.js';
+import { BarretenbergWasm } from '@aztec/barretenberg.js/wasm';
 
 /**
  * Generic mock implementation.
@@ -24,11 +25,11 @@ const consumeNextBlocks = () => {
 };
 
 const getMockTreeSnapshot = () => {
-  return new AppendOnlyTreeSnapshot(new Fr(randomBytes(32)), 16);
+  return new AppendOnlyTreeSnapshot(Fr.random(), 16);
 };
 
 const getMockContractData = () => {
-  return new ContractData(new Fr(randomBytes(32)), new EthAddress(randomBytes(20)));
+  return new ContractData(AztecAddress.random(), new EthAddress(randomBytes(20)));
 };
 
 const getMockBlock = (blockNumber: number, newContractsCommitments?: Buffer[]) => {
@@ -44,9 +45,9 @@ const getMockBlock = (blockNumber: number, newContractsCommitments?: Buffer[]) =
     getMockTreeSnapshot(),
     getMockTreeSnapshot(),
     getMockTreeSnapshot(),
-    [new Fr(randomBytes(32))],
-    [new Fr(randomBytes(32))],
-    newContractsCommitments?.map(x => new Fr(x)) ?? [new Fr(randomBytes(32))],
+    [Fr.random()],
+    [Fr.random()],
+    newContractsCommitments?.map(x => Fr.fromBuffer(x)) ?? [Fr.random()],
     [getMockContractData()],
   );
   return block;
@@ -56,7 +57,6 @@ const createSynchroniser = (merkleTreeDb: any, rollupSource: any) =>
   new ServerWorldStateSynchroniser(merkleTreeDb as MerkleTreeDb, rollupSource as L2BlockSource);
 
 describe('server_world_state_synchroniser', () => {
-  const pedersen: Pedersen = new Pedersen();
   const rollupSource: Mockify<L2BlockSource> = {
     getLatestBlockNum: jest.fn().mockImplementation(getLatestBlockNumber),
     getL2Blocks: jest.fn().mockImplementation(consumeNextBlocks),
@@ -70,7 +70,11 @@ describe('server_world_state_synchroniser', () => {
       ),
     appendLeaves: jest.fn().mockImplementation(() => Promise.resolve()),
     getSiblingPath: jest.fn().mockImplementation(() => {
-      return Promise.resolve(SiblingPath.ZERO(32, StandardMerkleTree.ZERO_ELEMENT, pedersen));
+      return async () => {
+        const wasm = await BarretenbergWasm.new();
+        const pedersen: Pedersen = new Pedersen(wasm);
+        SiblingPath.ZERO(32, StandardMerkleTree.ZERO_ELEMENT, pedersen);
+      }; //Promise.resolve();
     }),
     commit: jest.fn().mockImplementation(() => Promise.resolve()),
     rollback: jest.fn().mockImplementation(() => Promise.resolve()),
