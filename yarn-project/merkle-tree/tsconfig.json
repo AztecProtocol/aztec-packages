@@ -1,9 +1,10 @@
 {
   "compilerOptions": {
+    "target": "es2020",
     "outDir": "dest",
     "rootDir": "src",
-    "tsBuildInfoFile": ".tsbuildinfo",
     "moduleResolution": "nodenext",
+    "allowSyntheticDefaultImports": true,
     "types": [
       "node",
       "jest"

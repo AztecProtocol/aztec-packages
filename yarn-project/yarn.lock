@@ -157,7 +157,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@aztec/barretenberg.js@workspace:barretenberg.js":
+"@aztec/barretenberg.js@workspace:^, @aztec/barretenberg.js@workspace:barretenberg.js":
   version: 0.0.0-use.local
   resolution: "@aztec/barretenberg.js@workspace:barretenberg.js"
   dependencies:
@@ -381,6 +381,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/merkle-tree@workspace:merkle-tree"
   dependencies:
+    "@aztec/barretenberg.js": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@jest/globals": ^29.4.3
     "@rushstack/eslint-patch": ^1.1.4
