@@ -63,7 +63,7 @@ export class L2BlockPublisher implements L2BlockReceiver {
       if (receipt.status) return true;
 
       // Check if someone else moved the block id
-      if (!(await this.checkNextL2BlockId(l2BlockData.number))) {
+      if (!(await this.checkNextL2BlockNum(l2BlockData.number))) {
         this.log('Publish failed. Contract changed underfoot.');
         break;
       }
@@ -93,9 +93,9 @@ export class L2BlockPublisher implements L2BlockReceiver {
     return true;
   }
 
-  // TODO: Fail if blockchainStatus.nextRollupId > thisBlockId.
+  // TODO: Fail if blockchainStatus.nextBlockNum > thisBlockNum.
   // eslint-disable-next-line require-await, @typescript-eslint/no-unused-vars
-  private async checkNextL2BlockId(thisBlockId: number): Promise<boolean> {
+  private async checkNextL2BlockNum(thisBlockNum: number): Promise<boolean> {
     return true;
   }
 

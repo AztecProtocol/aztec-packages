@@ -20,7 +20,7 @@ export class BlockBuilder {
   private nullifierTreeLeaves: Buffer[] = [];
   private contractTreeLeaves: Buffer[] = [];
 
-  constructor(private db: MerkleTreeOperations, private nextRollupId: number, private tx: Tx) {
+  constructor(private db: MerkleTreeOperations, private nextBlockNum: number, private tx: Tx) {
     this.dataTreeLeaves = tx.data.end.newCommitments.map((x: Fr) => x.toBuffer());
     this.nullifierTreeLeaves = tx.data.end.newNullifiers.map((x: Fr) => x.toBuffer());
     this.contractTreeLeaves = tx.data.end.newContracts.map((x: NewContractData) => x.functionTreeRoot.toBuffer());
@@ -48,7 +48,7 @@ export class BlockBuilder {
     );
 
     const l2block = L2Block.fromFields({
-      number: this.nextRollupId,
+      number: this.nextBlockNum,
       startPrivateDataTreeSnapshot,
       endPrivateDataTreeSnapshot,
       startNullifierTreeSnapshot,

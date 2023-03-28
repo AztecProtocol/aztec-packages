@@ -36,24 +36,24 @@ export class ContractData {
 }
 
 /**
- * The data that makes up the rollup proof, with encoder decoder functions.
+ * The data that makes up the L2 block proof, with encoder decoder functions.
  * TODO: Reuse data types and serialization functions from circuits package.
  */
 export class L2Block {
   /**
    * Construct a new L2Block object.
-   * The data that goes into the rollup, BUT without the proof.
+   * The data that goes into the L2 block, BUT without the proof.
    * @param number - The number of the L2 block.
-   * @param startPrivateDataTreeSnapshot - The tree snapshot of the private data tree at the start of the rollup.
-   * @param startNullifierTreeSnapshot - The tree snapshot of the nullifier tree at the start of the rollup.
-   * @param startContractTreeSnapshot - The tree snapshot of the contract tree at the start of the rollup.
-   * @param startTreeOfHistoricPrivateDataTreeRootsSnapshot - The tree snapshot of the historic private data tree roots at the start of the rollup.
-   * @param startTreeOfHistoricContractTreeRootsSnapshot - The tree snapshot of the historic contract tree roots at the start of the rollup.
-   * @param endPrivateDataTreeSnapshot - The tree snapshot of the private data tree at the end of the rollup.
-   * @param endNullifierTreeSnapshot - The tree snapshot of the nullifier tree at the end of the rollup.
-   * @param endContractTreeSnapshot - The tree snapshot of the contract tree at the end of the rollup.
-   * @param endTreeOfHistoricPrivateDataTreeRootsSnapshot - The tree snapshot of the historic private data tree roots at the end of the rollup.
-   * @param endTreeOfHistoricContractTreeRootsSnapshot - The tree snapshot of the historic contract tree roots at the end of the rollup.
+   * @param startPrivateDataTreeSnapshot - The tree snapshot of the private data tree at the start of the L2 block.
+   * @param startNullifierTreeSnapshot - The tree snapshot of the nullifier tree at the start of the L2 block.
+   * @param startContractTreeSnapshot - The tree snapshot of the contract tree at the start of the L2 block.
+   * @param startTreeOfHistoricPrivateDataTreeRootsSnapshot - The tree snapshot of the historic private data tree roots at the start of the L2 block.
+   * @param startTreeOfHistoricContractTreeRootsSnapshot - The tree snapshot of the historic contract tree roots at the start of the L2 block.
+   * @param endPrivateDataTreeSnapshot - The tree snapshot of the private data tree at the end of the L2 block.
+   * @param endNullifierTreeSnapshot - The tree snapshot of the nullifier tree at the end of the L2 block.
+   * @param endContractTreeSnapshot - The tree snapshot of the contract tree at the end of the L2 block.
+   * @param endTreeOfHistoricPrivateDataTreeRootsSnapshot - The tree snapshot of the historic private data tree roots at the end of the L2 block.
+   * @param endTreeOfHistoricContractTreeRootsSnapshot - The tree snapshot of the historic contract tree roots at the end of the L2 block.
    * @param newCommitments - The commitments to be inserted into the private data tree.
    * @param newNullifiers - The nullifiers to be inserted into the nullifier tree.
    * @param newContracts - The contracts leafs to be inserted into the contract tree.
@@ -119,7 +119,7 @@ export class L2Block {
   }
 
   /**
-   * Encode the L2 block data into a buffer that can be pushed to the rollup contract.
+   * Encode the L2 block data into a buffer that can be pushed to the L2 block contract.
    * @returns The encoded L2 block data.
    */
   encode(): Buffer {
@@ -250,64 +250,63 @@ export class L2Block {
  */
 
 /**
- * The fixed size data that makes up the rollup header.
+ * The fixed size data that makes up the L2 block header.
  */
 export type L2BlockCalldataHeader = {
   /**
-   * The id of the rollup.
-   * Similar to the block number in Ethereum.
+   * L2 block
    */
-  rollupId: number;
+  blockNum: number;
   /**
-   * The tree snapshot of the private data tree at the start of the rollup.
+   * The tree snapshot of the private data tree at the start of the L2 block.
    */
   startPrivateDataTreeSnapshot: AppendOnlyTreeSnapshot;
   /**
-   * The tree snapshot of the nullifier tree at the start of the rollup.
+   * The tree snapshot of the nullifier tree at the start of the L2 block.
    */
   startNullifierTreeSnapshot: AppendOnlyTreeSnapshot;
   /**
-   * The tree snapshot of the contract tree at the start of the rollup.
+   * The tree snapshot of the contract tree at the start of the L2 block.
    */
   startContractTreeSnapshot: AppendOnlyTreeSnapshot;
   /**
-   * The tree snapshot of the historic private data tree roots at the start of the rollup.
+   * The tree snapshot of the historic private data tree roots at the start of the L2 block.
    */
   startTreeOfHistoricPrivateDataTreeRootsSnapshot: AppendOnlyTreeSnapshot;
   /**
-   * The tree snapshot of the historic contract tree roots at the start of the rollup.
+   * The tree snapshot of the historic contract tree roots at the start of the L2 block.
    */
   startTreeOfHistoricContractTreeRootsSnapshot: AppendOnlyTreeSnapshot;
   /**
-   * The tree snapshot of the private data tree at the end of the rollup.
-   * By using start and end, we know the number of new commitments in the rollup.
+   * The tree snapshot of the private data tree at the end of the L2 block.
+   * By using start and end, we know the number of new commitments in the L2 block.
    */
   endPrivateDataTreeSnapshot: AppendOnlyTreeSnapshot;
   /**
-   * The tree snapshot of the nullifier tree at the end of the rollup.
-   * By using start and end, we know the number of new nullifiers in the rollup.
+   * The tree snapshot of the nullifier tree at the end of the L2 block.
+   * By using start and end, we know the number of new nullifiers in the L2 block.
    */
   endNullifierTreeSnapshot: AppendOnlyTreeSnapshot;
   /**
-   * The tree snapshot of the contract tree at the end of the rollup.
+   * The tree snapshot of the contract tree at the end of the L2 block.
    */
   endContractTreeSnapshot: AppendOnlyTreeSnapshot;
   /**
-   * The tree snapshot of the historic private data tree roots at the end of the rollup.
+   * The tree snapshot of the historic private data tree roots at the end of the L2 block.
    */
   endTreeOfHistoricPrivateDataTreeRootsSnapshot: AppendOnlyTreeSnapshot;
   /**
-   * The tree snapshot of the historic contract tree roots at the end of the rollup.
+   * The tree snapshot of the historic contract tree roots at the end of the L2 block.
    */
   endTreeOfHistoricContractTreeRootsSnapshot: AppendOnlyTreeSnapshot;
 };
 
 /**
- * The data that makes up the rollup calldata.
+ * The data that makes up the L2 block calldata.
  */
 export type L2BlockCalldata = {
   /**
-   * The header of the rollup calldata.
+   * The header of the L2 block calldata.
    */
   header: L2BlockCalldataHeader;
   /**
