@@ -1,6 +1,6 @@
 import { AcirSimulator } from '@aztec/acir-simulator';
 import { AztecNode } from '@aztec/aztec-node';
-import { TxRequest, UInt8Vector } from '@aztec/circuits.js';
+import { ARGS_LENGTH, TxRequest, UInt8Vector } from '@aztec/circuits.js';
 import { KernelProver } from '@aztec/kernel-prover';
 import { Tx } from '@aztec/p2p';
 import { generateFunctionSelector } from '../abi_coder/index.js';
@@ -94,11 +94,17 @@ export class AztecRPCServer implements AztecRPCClient {
     const contractAddress = generateContractAddress(fromAddress, contractAddressSalt, args);
     await this.db.addContract(contractAddress, portalContract, abi, false);
 
+    const txRequestArgs = args.concat(
+      Array(ARGS_LENGTH - args.length)
+        .fill(0)
+        .map(() => new Fr(0)),
+    );
+
     return new TxRequest(
       fromAddress,
       contractAddress,
       functionData,
-      args,
+      txRequestArgs,
       new Fr(randomBytes(Fr.SIZE_IN_BYTES)), // nonce
       txContext,
       ZERO_FR, // chainId
