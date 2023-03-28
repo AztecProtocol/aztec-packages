@@ -12,6 +12,7 @@ import {
 import { Database, TxDao } from '../database/index.js';
 import { ContractAbi } from '../noir.js';
 import { L2Block } from '@aztec/l2-block';
+import { keccak } from '@aztec/foundation';
 
 export class Synchroniser {
   private runningPromise?: Promise<void>;
@@ -123,9 +124,9 @@ export class Synchroniser {
               .map(x => x.toBuffer()),
           ].flat(),
         );
-        const txDao: TxDao | undefined = await this.db.getTx(new TxHash(keccak256(dataToHash)));
+        const txDao: TxDao | undefined = await this.db.getTx(new TxHash(keccak(dataToHash)));
         if (txDao !== undefined) {
-          txDao.blockHash = keccak256(block.encode());
+          txDao.blockHash = keccak(block.encode());
           txDao.blockNumber = block.number;
           await this.db.addOrUpdateTx(txDao);
         }
