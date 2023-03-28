@@ -1,6 +1,7 @@
 import { ContractData, L2Block } from '@aztec/archiver';
 import {
   AppendOnlyTreeSnapshot,
+  AztecAddress,
   BaseRollupInputs,
   BaseRollupPublicInputs,
   ConstantBaseRollupData,
@@ -87,9 +88,7 @@ export class CircuitPoweredBlockBuilder {
       newCommitments: tx.data.end.newCommitments,
       newNullifiers: tx.data.end.newNullifiers,
       newContracts: tx.data.end.newContracts.map(x => x.functionTreeRoot),
-      newContractData: tx.data.end.newContracts.map(
-        n => new ContractData(new Fr(n.contractAddress.toBuffer()), n.portalContractAddress),
-      ),
+      newContractData: tx.data.end.newContracts.map(n => new ContractData(n.contractAddress, n.portalContractAddress)),
     });
     return l2block;
   }
