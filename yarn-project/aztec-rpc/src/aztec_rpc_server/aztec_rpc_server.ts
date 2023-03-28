@@ -189,7 +189,6 @@ export class AztecRPCServer implements AztecRPCClient {
       '',
     );
     await this.db.addOrUpdateTx(dao);
-
     return tx;
   }
 
