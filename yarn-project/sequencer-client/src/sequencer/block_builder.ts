@@ -9,7 +9,7 @@ import {
   AztecAddress,
 } from '@aztec/circuits.js';
 import { MerkleTreeId, MerkleTreeOperations } from '@aztec/world-state';
-import { Tx } from '@aztec/p2p';
+import { Tx } from '@aztec/tx';
 
 const mapContractData = (n: NewContractData) => {
   const contractData = new ContractData(AztecAddress.fromBuffer(n.contractAddress.toBuffer()), n.portalContractAddress);
