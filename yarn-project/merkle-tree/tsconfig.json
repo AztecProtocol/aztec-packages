@@ -1,11 +1,8 @@
 {
+  "extends": "..",
   "compilerOptions": {
-    "target": "es2020",
     "outDir": "dest",
     "rootDir": "src",
-    "moduleResolution": "nodenext",
-    "allowSyntheticDefaultImports": true,
-    "composite": true,
     "types": [
       "node",
       "jest"
