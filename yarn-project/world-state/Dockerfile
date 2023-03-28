@@ -6,12 +6,15 @@ COPY foundation foundation
 COPY circuits.js circuits.js
 COPY l2-block l2-block
 COPY merkle-tree merkle-tree
+COPY barretenberg.js barretenberg.js
 # TODO(AD) why do we need to build dependencies? dont tsc project refs solve this?
 WORKDIR /usr/src/yarn-project/foundation
 RUN yarn build
 WORKDIR /usr/src/yarn-project/circuits.js
 RUN yarn build
 WORKDIR /usr/src/yarn-project/l2-block
+RUN yarn build
+WORKDIR /usr/src/yarn-project/barretenberg.js
 RUN yarn build
 WORKDIR /usr/src/yarn-project/merkle-tree
 RUN yarn build
