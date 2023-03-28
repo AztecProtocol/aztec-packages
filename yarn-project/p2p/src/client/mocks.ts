@@ -1,4 +1,11 @@
 import { L2Block, L2BlockSource } from '@aztec/l2-block';
+import { UInt8Vector } from '@aztec/circuits.js';
+import { Tx } from '@aztec/tx';
+import { makePrivateKernelPublicInputs } from '@aztec/circuits.js/factories';
+
+export const MockTx = () => {
+  return new Tx(makePrivateKernelPublicInputs(), new UInt8Vector(Buffer.alloc(0)));
+};
 
 export class MockBlockSource implements L2BlockSource {
   private l2Blocks: L2Block[];

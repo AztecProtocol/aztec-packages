@@ -42,7 +42,6 @@
     "tslib": "^2.4.0"
   },
   "devDependencies": {
-    "@aztec/foundation": "workspace:^",
     "@jest/globals": "^29.4.3",
     "@types/detect-node": "^2.0.0",
     "@types/jest": "^29.4.0",
