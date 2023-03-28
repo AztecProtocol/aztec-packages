@@ -1,4 +1,4 @@
-import { AztecNode, AztecNodeConfig } from '@aztec/aztec-node';
+import { AztecNode } from '@aztec/aztec-node';
 import { AztecAddress, AztecRPCServer, ContractDeployer, Fr } from '@aztec/aztec.js';
 import { EthAddress } from '@aztec/ethereum.js/eth_address';
 import { EthereumRpc } from '@aztec/ethereum.js/eth_rpc';
