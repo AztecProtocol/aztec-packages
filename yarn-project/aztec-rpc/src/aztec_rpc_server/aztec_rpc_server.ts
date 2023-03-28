@@ -17,8 +17,8 @@ import { ContractDao } from '../contract_data_source/index.js';
 import { KeyStore } from '../key_store/index.js';
 import { ContractAbi } from '../noir.js';
 import { Synchroniser } from '../synchroniser/index.js';
-import { generateContractAddress, selectorToNumber, Signature, ZERO_FR } from '../circuits.js';
-import { createDebugLogger, randomBytes, Fr } from '@aztec/foundation';
+import { generateContractAddress, selectorToNumber, Signature } from '../circuits.js';
+import { createDebugLogger, Fr } from '@aztec/foundation';
 import { Database } from '../database/database.js';
 import { TxDao } from '../database/tx_dao.js';
 
@@ -77,8 +77,8 @@ export class AztecRPCServer implements AztecRPCClient {
       true,
     );
 
-    const constructorVkHash = ZERO_FR;
-    const functionTreeRoot = ZERO_FR;
+    const constructorVkHash = Fr.ZERO;
+    const functionTreeRoot = Fr.ZERO;
     const contractDeploymentData = new ContractDeploymentData(
       constructorVkHash,
       functionTreeRoot,
@@ -87,7 +87,7 @@ export class AztecRPCServer implements AztecRPCClient {
     );
     const txContext = new TxContext(false, false, true, contractDeploymentData);
 
-    const fromAddress = from.toBuffer().equals(ZERO_FR.toBuffer()) ? (await this.keyStore.getAccounts())[0] : from;
+    const fromAddress = from.toBuffer().equals(Fr.ZERO.toBuffer()) ? (await this.keyStore.getAccounts())[0] : from;
 
     const contractAddress = generateContractAddress(fromAddress, contractAddressSalt, args);
     await this.db.addContract(contractAddress, portalContract, abi, false);
@@ -95,7 +95,7 @@ export class AztecRPCServer implements AztecRPCClient {
     const txRequestArgs = args.concat(
       Array(ARGS_LENGTH - args.length)
         .fill(0)
-        .map(() => new Fr(0)),
+        .map(() => new Fr(0n)),
     );
 
     return new TxRequest(
@@ -103,9 +103,9 @@ export class AztecRPCServer implements AztecRPCClient {
       contractAddress,
       functionData,
       txRequestArgs,
-      new Fr(randomBytes(Fr.SIZE_IN_BYTES)), // nonce
+      Fr.random(), // nonce
       txContext,
-      ZERO_FR, // chainId
+      Fr.ZERO, // chainId
     );
   }
 
@@ -127,7 +127,7 @@ export class AztecRPCServer implements AztecRPCClient {
       false,
       false,
       true,
-      new ContractDeploymentData(ZERO_FR, ZERO_FR, ZERO_FR, new EthAddress(Buffer.alloc(EthAddress.SIZE_IN_BYTES))),
+      new ContractDeploymentData(Fr.ZERO, Fr.ZERO, Fr.ZERO, new EthAddress(Buffer.alloc(EthAddress.SIZE_IN_BYTES))),
     );
 
     return new TxRequest(
@@ -135,9 +135,9 @@ export class AztecRPCServer implements AztecRPCClient {
       to,
       functionData,
       args,
-      new Fr(randomBytes(Fr.SIZE_IN_BYTES)), // nonce
+      Fr.random(), // nonce
       txContext,
-      ZERO_FR, // chainId
+      Fr.ZERO, // chainId
     );
   }
 
@@ -148,7 +148,7 @@ export class AztecRPCServer implements AztecRPCClient {
   public async createTx(txRequest: TxRequest, signature: Signature) {
     let contractAddress;
 
-    if (txRequest.to.toBuffer().equals(ZERO_FR.toBuffer())) {
+    if (txRequest.to.toBuffer().equals(Fr.ZERO.toBuffer())) {
       contractAddress = generateContractAddress(
         txRequest.from,
         txRequest.txContext.contractDeploymentData.contractAddressSalt,
@@ -169,7 +169,7 @@ export class AztecRPCServer implements AztecRPCClient {
 
     const functionDao = this.findFunction(contract, selector);
 
-    const oldRoots = new OldTreeRoots(ZERO_FR, ZERO_FR, ZERO_FR, ZERO_FR); // TODO - get old roots from the database/node
+    const oldRoots = new OldTreeRoots(Fr.ZERO, Fr.ZERO, Fr.ZERO, Fr.ZERO); // TODO - get old roots from the database/node
     const executionResult = await this.acirSimulator.run(
       txRequest,
       Buffer.from(functionDao.bytecode, 'base64'),
