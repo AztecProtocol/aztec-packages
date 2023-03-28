@@ -56,9 +56,7 @@ const getMockBlock = (blockNumber: number, newContractsCommitments?: Buffer[]) =
 const createSynchroniser = (merkleTreeDb: any, rollupSource: any) =>
   new ServerWorldStateSynchroniser(merkleTreeDb as MerkleTreeDb, rollupSource as L2BlockSource);
 
-describe('server_world_state_synchroniser', async () => {
-  const wasm = await BarretenbergWasm.new();
-  const pedersen: Pedersen = new Pedersen(wasm);
+describe('server_world_state_synchroniser', () => {
   const rollupSource: Mockify<L2BlockSource> = {
     getLatestBlockNum: jest.fn().mockImplementation(getLatestBlockNumber),
     getL2Blocks: jest.fn().mockImplementation(consumeNextBlocks),
@@ -72,7 +70,11 @@ describe('server_world_state_synchroniser', async () => {
       ),
     appendLeaves: jest.fn().mockImplementation(() => Promise.resolve()),
     getSiblingPath: jest.fn().mockImplementation(() => {
-      return Promise.resolve(SiblingPath.ZERO(32, StandardMerkleTree.ZERO_ELEMENT, pedersen));
+      return async () => {
+        const wasm = await BarretenbergWasm.new();
+        const pedersen: Pedersen = new Pedersen(wasm);
+        SiblingPath.ZERO(32, StandardMerkleTree.ZERO_ELEMENT, pedersen);
+      }; //Promise.resolve();
     }),
     commit: jest.fn().mockImplementation(() => Promise.resolve()),
     rollback: jest.fn().mockImplementation(() => Promise.resolve()),
