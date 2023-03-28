@@ -116,8 +116,8 @@ export class CircuitsWasm {
         env_load_prover_crs: this.wrapAsyncImportFn(async (numPoints: number) => {
           const crs = new Crs(numPoints);
           await crs.init();
-          const crsPtr = wasm.call('bbmalloc', crs.getData().length);
-          wasm.writeMemory(crsPtr, crs.getData());
+          const crsPtr = wasm.call('bbmalloc', crs.getG1Data().length);
+          wasm.writeMemory(crsPtr, crs.getG1Data());
           return crsPtr;
         }),
         memory: module.getRawMemory(),

@@ -5,10 +5,11 @@ import { dirname } from 'path';
 import { fileURLToPath } from 'url';
 
 /**
- * The path to our SRS object, assuming that we are in aztec3-circuits/ts folder.
+ * The path to our SRS object, assuming that we are in the aztec3-packages folder structure.
  */
-const SRS_DEV_PATH =
-  dirname(fileURLToPath(import.meta.url)) + '/../../../cpp/barretenberg/cpp/srs_db/ignition/monomial/transcript00.dat';
+export const SRS_DEV_PATH =
+  dirname(fileURLToPath(import.meta.url)) +
+  '/../../../../circuits/cpp/barretenberg/cpp/srs_db/ignition/monomial/transcript00.dat';
 /**
  * Downloader for CRS from the web or local.
  */
@@ -63,7 +64,7 @@ export class NetCrs {
    * Verification key data.
    * @returns The verification key.
    */
-  getData(): Uint8Array {
+  getG1Data(): Uint8Array {
     return this.data;
   }
 
@@ -118,7 +119,7 @@ export class FileCrs {
    * Verification key data.
    * @returns The verification key.
    */
-  getData(): Uint8Array {
+  getG1Data(): Uint8Array {
     return this.data;
   }
 
@@ -157,8 +158,8 @@ export class Crs {
    * Verification key data.
    * @returns The verification key.
    */
-  getData(): Uint8Array {
-    return this.crs.getData();
+  getG1Data(): Uint8Array {
+    return this.crs.getG1Data();
   }
 
   /**
