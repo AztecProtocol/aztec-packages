@@ -155,7 +155,7 @@ export class BaseRollupPublicInputs {
     public endPrivateDataTreeSnapshot: AppendOnlyTreeSnapshot,
 
     public startNullifierTreeSnapshot: AppendOnlyTreeSnapshot,
-    public endNullifierTreeSnapshots: AppendOnlyTreeSnapshot,
+    public endNullifierTreeSnapshot: AppendOnlyTreeSnapshot,
 
     public startContractTreeSnapshot: AppendOnlyTreeSnapshot,
     public endContractTreeSnapshot: AppendOnlyTreeSnapshot,
@@ -196,7 +196,7 @@ export class BaseRollupPublicInputs {
       this.endPrivateDataTreeSnapshot,
 
       this.startNullifierTreeSnapshot,
-      this.endNullifierTreeSnapshots,
+      this.endNullifierTreeSnapshot,
 
       this.startContractTreeSnapshot,
       this.endContractTreeSnapshot,
