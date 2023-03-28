@@ -1,11 +1,11 @@
 import { AztecNode, AztecNodeConfig } from '@aztec/aztec-node';
-import { AztecAddress, AztecRPCClient, ContractDeployer, Fr } from '@aztec/aztec.js';
+import { AztecAddress, AztecRPCServer, ContractDeployer, Fr } from '@aztec/aztec.js';
 import { EthAddress } from '@aztec/ethereum.js/eth_address';
 import { EthereumRpc } from '@aztec/ethereum.js/eth_rpc';
 import { WalletProvider } from '@aztec/ethereum.js/provider';
-import { createDebugLogger } from '@aztec/foundation';
+import { createDebugLogger, randomBytes } from '@aztec/foundation';
 import { TestContractAbi } from '@aztec/noir-contracts/examples';
-import { createAztecRPCClient } from './create_aztec_rpc_client.js';
+import { createAztecRpcServer } from './create_aztec_rpc_client.js';
 import { createProvider, deployRollupContract, deployYeeterContract } from './deploy_l1_contracts.js';
 
 const ETHEREUM_HOST = 'http://localhost:8545';
@@ -25,6 +25,7 @@ const createAztecNode = async (
     retryIntervalMs: 1000,
     requiredConfirmations: 1,
     transactionPollingInterval: 1000,
+    archiverPollingInterval: 1000,
   };
   return await AztecNode.createAndSync(config);
 };
@@ -34,7 +35,7 @@ const logger = createDebugLogger('aztec:e2e_test');
 describe('e2e_deploy_contract', () => {
   let provider: WalletProvider;
   let node: AztecNode;
-  let arc: AztecRPCClient;
+  let aztecRpcServer: AztecRPCServer;
   let rollupAddress: EthAddress;
   let yeeterAddress: EthAddress;
   let accounts: AztecAddress[];
@@ -43,20 +44,21 @@ describe('e2e_deploy_contract', () => {
   beforeAll(async () => {
     provider = createProvider(ETHEREUM_HOST, MNEMONIC, 1);
     const ethRpc = new EthereumRpc(provider);
-    logger('deploying contracts...');
+    logger('Deploying contracts...');
     rollupAddress = await deployRollupContract(provider, ethRpc);
     yeeterAddress = await deployYeeterContract(provider, ethRpc);
-    logger('deployed contracts...');
+    logger('Deployed contracts...');
   });
 
   beforeEach(async () => {
     node = await createAztecNode(rollupAddress, yeeterAddress, ETHEREUM_HOST, provider.getPrivateKey(0)!);
-    arc = await createAztecRPCClient(1, node);
-    accounts = await arc.getAccounts();
+    aztecRpcServer = await createAztecRpcServer(1, node);
+    accounts = await aztecRpcServer.getAccounts();
   });
 
   afterEach(async () => {
     await node.stop();
+    await aztecRpcServer.stop();
   });
 
   /**
@@ -64,11 +66,10 @@ describe('e2e_deploy_contract', () => {
    * https://hackmd.io/ouVCnacHQRq2o1oRc5ksNA#Interfaces-and-Responsibilities
    */
   it('should deploy a contract', async () => {
-    const deployer = new ContractDeployer(abi, arc);
+    const deployer = new ContractDeployer(abi, aztecRpcServer);
     const tx = deployer.deploy().send();
     logger(`Tx sent!`);
     const receipt = await tx.getReceipt();
-    logger(`Receipt received`);
     expect(receipt).toEqual(
       expect.objectContaining({
         from: accounts[0],
@@ -77,10 +78,11 @@ describe('e2e_deploy_contract', () => {
         error: '',
       }),
     );
+    logger(`Receipt received`);
 
     const contractAddress = receipt.contractAddress!;
     const constructor = abi.functions.find(f => f.name === 'constructor')!;
-    const bytecode = await arc.getCode(contractAddress);
+    const bytecode = await aztecRpcServer.getCode(contractAddress);
     expect(bytecode).toEqual(constructor.bytecode);
   }, 30_000);
 
@@ -89,8 +91,8 @@ describe('e2e_deploy_contract', () => {
    * https://hackmd.io/-a5DjEfHTLaMBR49qy6QkA
    */
   it.skip('should not deploy a contract with the same salt twice', async () => {
-    const contractAddressSalt = Fr.random();
-    const deployer = new ContractDeployer(abi, arc, { contractAddressSalt });
+    const contractAddressSalt = new Fr(randomBytes(32));
+    const deployer = new ContractDeployer(abi, aztecRpcServer, { contractAddressSalt });
 
     {
       const receipt = await deployer.deploy().send().getReceipt();

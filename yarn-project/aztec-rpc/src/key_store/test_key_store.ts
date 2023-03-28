@@ -5,9 +5,7 @@ import { KeyStore } from './key_store.js';
 export class TestKeyStore implements KeyStore {
   private accounts: KeyPair[] = [];
 
-  constructor() {
-    this.accounts.push(ConstantKeyPair.random());
-  }
+  constructor() {}
 
   public addAccount() {
     const keyPair = ConstantKeyPair.random();

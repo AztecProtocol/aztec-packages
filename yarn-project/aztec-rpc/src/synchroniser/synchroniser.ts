@@ -1,10 +1,19 @@
 import { AztecNode } from '@aztec/aztec-node';
-import { InterruptableSleep } from '@aztec/foundation';
+import { createDebugLogger, InterruptableSleep } from '@aztec/foundation';
 import { AccountState } from '../account_state/index.js';
-import { AztecAddress, EthAddress, Fr } from '@aztec/circuits.js';
-import { Database } from '../database/index.js';
+import {
+  AztecAddress,
+  EthAddress,
+  Fr,
+  KERNEL_NEW_COMMITMENTS_LENGTH,
+  KERNEL_NEW_CONTRACTS_LENGTH,
+  KERNEL_NEW_NULLIFIERS_LENGTH,
+} from '@aztec/circuits.js';
+import { Database, TxDao } from '../database/index.js';
 import { ContractAbi } from '../noir.js';
 import { TxHash } from '../tx/index.js';
+import { L2Block } from '@aztec/archiver';
+import { keccak256 } from '../foundation.js';
 
 export class Synchroniser {
   private runningPromise?: Promise<void>;
@@ -12,9 +21,9 @@ export class Synchroniser {
   private interruptableSleep = new InterruptableSleep();
   private running = false;
 
-  constructor(private node: AztecNode, private db: Database) {}
+  constructor(private node: AztecNode, private db: Database, private log = createDebugLogger('aztec:synchroniser')) {}
 
-  public start(from = 1, take = 1, retryInterval = 10000) {
+  public start(from = 1, take = 1, retryInterval = 1000) {
     if (this.running) {
       return;
     }
@@ -31,12 +40,7 @@ export class Synchroniser {
             continue;
           }
 
-          const contractAddresses = blocks
-            .map(b => b.newContractData.map(d => d.aztecAddress))
-            .flat()
-            .map(fr => new Fr(fr.toBuffer()));
-          console.log(`address ${contractAddresses[0].toBuffer().toString('hex')}`);
-          await this.db.confirmContractsDeployed(contractAddresses);
+          await this.decodeBlocks(blocks);
 
           from += blocks.length;
         } catch (err) {
@@ -47,12 +51,14 @@ export class Synchroniser {
     };
 
     this.runningPromise = run();
+    this.log('Started');
   }
 
   public async stop() {
     this.running = false;
     this.interruptableSleep.interrupt();
     await this.runningPromise;
+    this.log('Stopped');
   }
 
   public async addAccount(account: AztecAddress) {
@@ -77,6 +83,9 @@ export class Synchroniser {
     if (!tx) {
       return;
     }
+    if (!tx.blockHash) {
+      return;
+    }
 
     const account = this.getAccount(tx.from);
     if (!account) {
@@ -93,5 +102,40 @@ export class Synchroniser {
       error: tx.error,
       status: !tx.error,
     };
+  }
+
+  private async decodeBlocks(l2Blocks: L2Block[]) {
+    for (const block of l2Blocks) {
+      let i = 0;
+      const numTxs = Math.floor(block.newCommitments.length / KERNEL_NEW_COMMITMENTS_LENGTH);
+      while (i < numTxs) {
+        const dataToHash = Buffer.concat(
+          [
+            block.newCommitments
+              .slice(
+                i * KERNEL_NEW_COMMITMENTS_LENGTH,
+                i * KERNEL_NEW_COMMITMENTS_LENGTH + KERNEL_NEW_COMMITMENTS_LENGTH,
+              )
+              .map(x => x.toBuffer()),
+            block.newNullifiers
+              .slice(i * KERNEL_NEW_NULLIFIERS_LENGTH, i * KERNEL_NEW_NULLIFIERS_LENGTH + KERNEL_NEW_NULLIFIERS_LENGTH)
+              .map(x => x.toBuffer()),
+            block.newContracts
+              .slice(i * KERNEL_NEW_CONTRACTS_LENGTH, i * KERNEL_NEW_CONTRACTS_LENGTH + KERNEL_NEW_CONTRACTS_LENGTH)
+              .map(x => x.toBuffer()),
+          ].flat(),
+        );
+        const txDao: TxDao | undefined = await this.db.getTx(new TxHash(keccak256(dataToHash)));
+        if (txDao !== undefined) {
+          txDao.blockHash = keccak256(block.encode());
+          txDao.blockNumber = block.number;
+          await this.db.addOrUpdateTx(txDao);
+        }
+        i++;
+      }
+      const contractAddresses = block.newContractData.map(d => d.aztecAddress).flat();
+      await this.db.confirmContractsDeployed(contractAddresses);
+      this.log(`Synched block ${block.number}`);
+    }
   }
 }

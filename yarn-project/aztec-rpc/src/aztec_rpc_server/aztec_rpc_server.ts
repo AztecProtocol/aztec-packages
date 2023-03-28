@@ -19,20 +19,31 @@ import { ContractAbi } from '../noir.js';
 import { Synchroniser } from '../synchroniser/index.js';
 import { TxHash } from '../tx/index.js';
 import { generateContractAddress, selectorToNumber, Signature, TxRequest, ZERO_FR } from '../circuits.js';
-import { randomBytes } from '@aztec/foundation';
+import { createDebugLogger, createLogger, randomBytes } from '@aztec/foundation';
+import { Database } from '../database/database.js';
+import { TxDao } from '../database/tx_dao.js';
 
 export class AztecRPCServer implements AztecRPCClient {
+  private synchroniser: Synchroniser;
   constructor(
     private keyStore: KeyStore,
-    private synchroniser: Synchroniser,
     private acirSimulator: AcirSimulator,
     private kernelProver: KernelProver,
     private node: AztecNode,
-    private db: ContractDataSource,
-  ) {}
+    private db: Database,
+    private log = createDebugLogger('aztec:rpc_server'),
+  ) {
+    this.synchroniser = new Synchroniser(node, db);
+    this.synchroniser.start();
+  }
+
+  public async stop() {
+    await this.synchroniser.stop();
+  }
 
   public async addAccount() {
     const accountPublicKey = await this.keyStore.addAccount();
+    this.log(`adding account ${accountPublicKey.toString()}`);
     await this.synchroniser.addAccount(accountPublicKey);
     return accountPublicKey;
   }
@@ -77,13 +88,13 @@ export class AztecRPCServer implements AztecRPCClient {
     );
     const txContext = new TxContext(false, false, true, contractDeploymentData);
 
-    const contractAddress = generateContractAddress(from, contractAddressSalt, args);
+    const fromAddress = from.toBuffer().equals(ZERO_FR.toBuffer()) ? (await this.keyStore.getAccounts())[0] : from;
+
+    const contractAddress = generateContractAddress(fromAddress, contractAddressSalt, args);
     await this.db.addContract(contractAddress, portalContract, abi, false);
 
-    console.log(`Function data ${functionData.isConstructor}`);
-
     return new TxRequest(
-      from,
+      fromAddress,
       contractAddress,
       functionData,
       args,
@@ -140,7 +151,6 @@ export class AztecRPCServer implements AztecRPCClient {
       );
     } else {
       contractAddress = txRequest.to;
-      console.log(`to is not zero ${contractAddress.toBuffer().toString('hex')}`);
     }
 
     const contract = await this.db.getContract(contractAddress);
@@ -167,8 +177,19 @@ export class AztecRPCServer implements AztecRPCClient {
       executionResult,
       oldRoots as any, // TODO - remove `as any`
     );
+    const tx = new Tx(publicInputs);
+    const dao: TxDao = new TxDao(
+      new TxHash(tx.txId),
+      undefined,
+      undefined,
+      txRequest.from,
+      undefined,
+      txRequest.to,
+      '',
+    );
+    await this.db.addOrUpdateTx(dao);
     // TODO I think the TX should include all the data from the publicInputs + proof
-    return new Tx(publicInputs);
+    return tx;
   }
 
   public async sendTx(tx: Tx) {

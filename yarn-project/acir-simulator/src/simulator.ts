@@ -1,5 +1,19 @@
 import { ExecutionPreimages } from './acvm.js';
-import { CallContext, PrivateCircuitPublicInputs, EthAddress, OldTreeRoots } from '@aztec/circuits.js';
+import {
+  CallContext,
+  PrivateCircuitPublicInputs,
+  EthAddress,
+  OldTreeRoots,
+  Fr,
+  ARGS_LENGTH,
+  EMITTED_EVENTS_LENGTH,
+  NEW_COMMITMENTS_LENGTH,
+  NEW_NULLIFIERS_LENGTH,
+  PRIVATE_CALL_STACK_LENGTH,
+  PUBLIC_CALL_STACK_LENGTH,
+  L1_MSG_STACK_LENGTH,
+  RETURN_VALUES_LENGTH,
+} from '@aztec/circuits.js';
 import { PrivateCallStackItem, TxRequest } from './circuits.js';
 
 export interface ExecutionResult {
@@ -33,16 +47,22 @@ export class AcirSimulator {
       request.functionData.isConstructor,
     );
 
+    const randomFields = (num: number) => {
+      return Array(num)
+        .fill(0)
+        .map(() => new Fr(0));
+    };
+
     const publicInputs = new PrivateCircuitPublicInputs(
       callContext,
-      request.args,
-      [], // returnValues,
-      [], // emittedEvents,
-      [], // newCommitments,
-      [], // newNullifiers,
-      [], // privateCallStack,
-      [], // publicCallStack,
-      [], // l1MsgStack,
+      request.args.concat(randomFields(ARGS_LENGTH - request.args.length)),
+      randomFields(RETURN_VALUES_LENGTH), // returnValues,
+      randomFields(EMITTED_EVENTS_LENGTH), // emittedEvents,
+      randomFields(NEW_COMMITMENTS_LENGTH), // newCommitments,
+      randomFields(NEW_NULLIFIERS_LENGTH), // newNullifiers,
+      randomFields(PRIVATE_CALL_STACK_LENGTH), // privateCallStack,
+      randomFields(PUBLIC_CALL_STACK_LENGTH), // publicCallStack,
+      randomFields(L1_MSG_STACK_LENGTH), // l1MsgStack,
       oldRoots.privateDataTreeRoot,
       oldRoots.nullifierTreeRoot,
       oldRoots.contractTreeRoot,

@@ -40,7 +40,6 @@ export class KernelProver {
       return new NewContractData(new Fr(randomBytes(32)), new EthAddress(randomBytes(20)), createRandomFields(1)[0]);
     };
     const newContracts = [];
-    console.log(`is contructor ${txRequest.functionData.isConstructor} request to ${txRequest.to.toString()}`);
     if (txRequest.functionData.isConstructor) {
       newContracts.push(
         new NewContractData(

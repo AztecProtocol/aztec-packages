@@ -33,6 +33,7 @@
     "@aztec/aztec-node": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "@aztec/kernel-prover": "workspace:^",
+    "aztec/circuits.js": "workspace:^",
     "@aztec/p2p": "workspace:^",
     "sha3": "^2.1.4",
     "tslib": "^2.4.0"

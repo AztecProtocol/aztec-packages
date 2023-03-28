@@ -16,7 +16,6 @@ export class SentTx {
     }
 
     const txHash = await this.getTxHash();
-    console.log('tx hash');
     this.receipt = await retryUntil(() => this.arc.getTxReceipt(txHash), 'getReceipt', timeout, interval);
     return this.receipt;
   }

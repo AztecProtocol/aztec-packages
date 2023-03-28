@@ -30,7 +30,7 @@ export class Signature {
   public static SIZE = 64;
 
   public static random() {
-    return new EthAddress(randomBytes(Signature.SIZE));
+    return new Signature(randomBytes(Signature.SIZE));
   }
 
   constructor(public readonly buffer: Buffer) {}
