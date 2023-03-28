@@ -196,7 +196,11 @@ export class CircuitPoweredBlockBuilder {
     this.validateSimulatedTree(localTree, simulatedTree, name);
   }
 
-  protected validateSimulatedTree(localTree: AppendOnlyTreeSnapshot, simulatedTree: AppendOnlyTreeSnapshot, name: string) {
+  protected validateSimulatedTree(
+    localTree: AppendOnlyTreeSnapshot,
+    simulatedTree: AppendOnlyTreeSnapshot,
+    name: string,
+  ) {
     if (!simulatedTree.root.toBuffer().equals(localTree.root.toBuffer())) {
       throw new Error(`${name} tree root mismatch (local ${localTree.root}, simulated ${simulatedTree.root})`);
     }
