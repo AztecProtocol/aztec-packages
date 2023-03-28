@@ -1,4 +1,4 @@
-import { Fr } from './circuits.js';
+import { Fr } from '@aztec/circuits.js';
 
 export type ACVMField = `0x${string}`;
 

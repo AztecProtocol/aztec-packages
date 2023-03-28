@@ -7,3 +7,5 @@ export { Tx } from '@aztec/p2p';
 // TODO - only export necessary stuffs
 export * from './circuits.js';
 export * from './noir.js';
+
+export { Fr, TxRequest, AztecAddress, EthAddress } from '@aztec/circuits.js';

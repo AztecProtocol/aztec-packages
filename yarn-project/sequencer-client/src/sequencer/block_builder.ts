@@ -1,4 +1,4 @@
-import { ContractData, L2Block } from '@aztec/archiver';
+import { ContractData, L2Block } from '@aztec/l2-block';
 import {
   Fr,
   KERNEL_NEW_CONTRACTS_LENGTH,
@@ -9,9 +9,10 @@ import {
 } from '@aztec/circuits.js';
 import { MerkleTreeId, MerkleTreeOperations } from '@aztec/world-state';
 import { Tx } from '@aztec/p2p';
+import { createDebugLogger } from '@aztec/foundation';
 
 const mapContractData = (n: NewContractData) => {
-  const contractData = new ContractData(n.contractAddress, n.portalContractAddress);
+  const contractData = new ContractData(new Fr(n.contractAddress.toBuffer()), n.portalContractAddress);
   return contractData;
 };
 
@@ -20,7 +21,12 @@ export class BlockBuilder {
   private nullifierTreeLeaves: Buffer[] = [];
   private contractTreeLeaves: Buffer[] = [];
 
-  constructor(private db: MerkleTreeOperations, private nextRollupId: number, private tx: Tx) {
+  constructor(
+    private db: MerkleTreeOperations,
+    private nextRollupId: number,
+    private tx: Tx,
+    private log = createDebugLogger('aztec:block_builder'),
+  ) {
     this.dataTreeLeaves = tx.data.end.newCommitments.map((x: Fr) => x.toBuffer());
     this.nullifierTreeLeaves = tx.data.end.newNullifiers.map((x: Fr) => x.toBuffer());
     this.contractTreeLeaves = tx.data.end.newContracts.map((x: NewContractData) => x.functionTreeRoot.toBuffer());
@@ -46,6 +52,7 @@ export class BlockBuilder {
     const endTreeOfHistoricContractTreeRootsSnapshot = await this.getTreeSnapshot(
       MerkleTreeId.CONTRACT_TREE_ROOTS_TREE,
     );
+    this.log(`contract address ${this.tx.data.end.newContracts[0].contractAddress.toString()}`);
 
     const l2block = L2Block.fromFields({
       number: this.nextRollupId,

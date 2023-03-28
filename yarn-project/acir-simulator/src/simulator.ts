@@ -1,4 +1,4 @@
-import { EthAddress, OldTreeRoots, TxRequest, AztecAddress } from './circuits.js';
+import { EthAddress, OldTreeRoots, TxRequest, AztecAddress } from '@aztec/circuits.js';
 import { DBOracle } from './db_oracle.js';
 import { Execution, ExecutionResult } from './execution.js';
 

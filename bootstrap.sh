@@ -45,6 +45,7 @@ PROJECTS=(
   "yarn-project/foundation:yarn build"
   "yarn-project/ethereum.js:yarn build"
   "yarn-project/l1-contracts:yarn build"
+  "yarn-project/l2-block:yarn build"
   "yarn-project/merkle-tree:yarn build"
   "yarn-project/archiver:yarn build"
   "yarn-project/world-state:yarn build"
@@ -56,6 +57,7 @@ PROJECTS=(
   "yarn-project/kernel-prover:yarn build"
   "yarn-project/aztec-rpc:yarn build"
   "yarn-project/aztec.js:yarn build"
+  "yarn-project/noir-contracts:yarn build"
 )
 
 for E in "${PROJECTS[@]}"; do
