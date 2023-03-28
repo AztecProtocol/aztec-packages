@@ -21,7 +21,11 @@ export class BlockBuilder {
   private nullifierTreeLeaves: Buffer[] = [];
   private contractTreeLeaves: Buffer[] = [];
 
-  constructor(private db: MerkleTreeOperations, private nextBlockNum: number, private tx: Tx, private log = createDebugLogger('aztec:block_builder'),
+  constructor(
+    private db: MerkleTreeOperations,
+    private nextBlockNum: number,
+    private tx: Tx,
+    private log = createDebugLogger('aztec:block_builder'),
   ) {
     this.dataTreeLeaves = tx.data.end.newCommitments.map((x: Fr) => x.toBuffer());
     this.nullifierTreeLeaves = tx.data.end.newNullifiers.map((x: Fr) => x.toBuffer());
