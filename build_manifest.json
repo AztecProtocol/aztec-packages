@@ -108,6 +108,13 @@
     "rebuildPatterns": ["^yarn-project/key-store/"],
     "dependencies": ["yarn-project-base"]
   },
+  "l2-block": {
+    "buildDir": "yarn-project",
+    "projectDir": "yarn-project/l2-block",
+    "dockerfile": "l2-block/Dockerfile",
+    "rebuildPatterns": ["^yarn-project/l2-block/"],
+    "dependencies": ["yarn-project-base"]
+  },
   "merkle-tree": {
     "buildDir": "yarn-project",
     "projectDir": "yarn-project/merkle-tree",
