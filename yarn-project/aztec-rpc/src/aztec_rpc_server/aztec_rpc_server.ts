@@ -1,5 +1,6 @@
 import { AcirSimulator } from '@aztec/acir-simulator';
 import { AztecNode } from '@aztec/aztec-node';
+import { UInt8Vector } from '@aztec/circuits.js';
 import { KernelProver } from '@aztec/kernel-prover';
 import { Tx } from '@aztec/p2p';
 import { generateFunctionSelector } from '../abi_coder/index.js';
@@ -189,7 +190,7 @@ export class AztecRPCServer implements AztecRPCClient {
     );
     await this.db.addOrUpdateTx(dao);
     // TODO I think the TX should include all the data from the publicInputs + proof
-    return tx;
+    return new Tx(publicInputs, new UInt8Vector(Buffer.alloc(0)));
   }
 
   public async sendTx(tx: Tx) {
