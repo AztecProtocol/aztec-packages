@@ -1,5 +1,4 @@
-import { TxHash } from '@aztec/tx';
-import { AztecRPCClient, TxReceipt } from '@aztec/aztec-rpc';
+import { AztecRPCClient, TxReceipt, TxHash } from '@aztec/aztec-rpc';
 import { retryUntil } from '@aztec/foundation';
 
 export class SentTx {

@@ -6,9 +6,6 @@
     },
     {
       "path": "../foundation/tsconfig.dest.json"
-    },
-    {
-      "path": "../tx/tsconfig.dest.json"
     }
   ],
   "exclude": [

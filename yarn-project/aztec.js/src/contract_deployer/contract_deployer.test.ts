@@ -6,10 +6,11 @@ import {
   EthAddress,
   Fr,
   Signature,
+  Tx,
+  TxHash,
   TxReceipt,
   TxRequest,
 } from '@aztec/aztec-rpc';
-import { Tx, TxHash } from '@aztec/tx';
 
 import { ContractDeployer } from './contract_deployer.js';
 
