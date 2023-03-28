@@ -1,4 +1,4 @@
-import { Fr } from '@aztec/circuits.js';
+import { AztecAddress, EthAddress, Fr } from '@aztec/circuits.js';
 
 export type ACVMField = `0x${string}`;
 
@@ -33,16 +33,21 @@ export const acvmMock: execute = (_, initialWitness) => {
   return Promise.resolve({ partialWitness });
 };
 
-export function toACVMField(value: Fr | Buffer | boolean): `0x${string}` {
+export function toACVMField(value: EthAddress | AztecAddress | Fr | Buffer | boolean): `0x${string}` {
   if (typeof value === 'boolean') {
     return value ? '0x01' : '0x00';
   }
+
   let buffer;
-  if (!Buffer.isBuffer(value)) {
-    buffer = value.buffer;
-  } else {
+
+  if (Buffer.isBuffer(value)) {
     buffer = value;
+  } else if (value instanceof EthAddress) {
+    buffer = value.toBuffer();
+  } else {
+    buffer = value.toBuffer();
   }
+
   return `0x${buffer.toString('hex')}`;
 }
 

@@ -1,5 +1,5 @@
 import { ACVMWitness, fromACVMField, toACVMField } from './acvm.js';
-import { AztecAddress, EthAddress, Fr } from './circuits.js';
+import { AztecAddress, EthAddress, Fr } from '@aztec/circuits.js';
 
 export class WitnessReader {
   constructor(private currentIndex: number, private witness: ACVMWitness) {}
@@ -43,13 +43,14 @@ export class WitnessWriter {
 }
 
 export function frToAztecAddress(fr: Fr): AztecAddress {
-  return new AztecAddress(fr.buffer.slice(-AztecAddress.SIZE));
+  return new AztecAddress(fr.toBuffer().slice(-AztecAddress.SIZE_IN_BYTES));
 }
 
 export function frToEthAddress(fr: Fr): EthAddress {
-  return new EthAddress(fr.buffer.slice(-EthAddress.SIZE_IN_BYTES));
+  return new EthAddress(fr.toBuffer().slice(-EthAddress.SIZE_IN_BYTES));
 }
 
 export function frToBoolean(fr: Fr): boolean {
-  return fr.buffer[fr.buffer.length - 1] !== 0;
+  const buf = fr.toBuffer();
+  return buf[buf.length - 1] !== 0;
 }

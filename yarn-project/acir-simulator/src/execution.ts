@@ -11,15 +11,15 @@ import {
   NEW_COMMITMENTS_LENGTH,
   NEW_NULLIFIERS_LENGTH,
   OldTreeRoots,
-  PrivateCallStackItem,
   PrivateCircuitPublicInputs,
   PRIVATE_CALL_STACK_LENGTH,
   PUBLIC_CALL_STACK_LENGTH,
   RETURN_VALUES_LENGTH,
   TxRequest,
-} from './circuits.js';
-import { DBOracle } from './db_oracle.js';
+} from '@aztec/circuits.js';
+import { DBOracle, PrivateCallStackItem } from './db_oracle.js';
 import { frToAztecAddress, frToBoolean, frToEthAddress, WitnessReader, WitnessWriter } from './witness_io.js';
+import { randomBytes } from '@aztec/foundation';
 
 export interface ExecutionPreimages {
   newNotes: Fr[][];
@@ -71,7 +71,7 @@ export class Execution {
   private async runExternalFunction(
     acir: Buffer,
     contractAddress: AztecAddress,
-    functionSelector: Buffer,
+    functionSelector: number,
     args: Fr[],
     callContext: CallContext,
   ): Promise<ExecutionResult> {
@@ -82,11 +82,11 @@ export class Execution {
 
     const { partialWitness } = await acvmMock(acir, initialWitness, {
       getSecretKey: async (publicKey: ACVMField) => {
-        const key = await this.db.getSecretKey(contractAddress, fromACVMField(publicKey).buffer);
+        const key = await this.db.getSecretKey(contractAddress, fromACVMField(publicKey).toBuffer());
         return toACVMField(key);
       },
       getNotes2: async (storageSlot: ACVMField) => {
-        const notes = await this.db.getNotes(contractAddress, fromACVMField(storageSlot).buffer);
+        const notes = await this.db.getNotes(contractAddress, fromACVMField(storageSlot).toBuffer());
         const mapped: ACVMNoteInputs[] = notes.slice(0, 2).map(note => ({
           note: note.note.map(f => toACVMField(f)),
           siblingPath: note.siblingPath.map(f => toACVMField(f)),
@@ -95,7 +95,7 @@ export class Execution {
         }));
         return mapped;
       },
-      getRandomField: () => Promise.resolve(toACVMField(Fr.random())),
+      getRandomField: () => Promise.resolve(toACVMField(new Fr(randomBytes(Fr.SIZE_IN_BYTES)))),
       notifyCreatedNote: (notePreimage: ACVMField[]) => {
         const preimage = notePreimage.map(f => fromACVMField(f));
         newNotePreimages.push(preimage);
