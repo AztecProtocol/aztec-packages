@@ -3,9 +3,10 @@ import { default as memdown } from 'memdown';
 import { L2BlockSource, Archiver } from '@aztec/archiver';
 import { P2P, P2PClient } from '@aztec/p2p';
 import { Tx } from '@aztec/tx';
-import { MerkleTrees, WorldStateSynchroniser, ServerWorldStateSynchroniser } from '@aztec/world-state';
+import { MerkleTrees, WorldStateSynchroniser, ServerWorldStateSynchroniser, MerkleTreeId } from '@aztec/world-state';
 import { SequencerClient } from '@aztec/sequencer-client';
 import { AztecNodeConfig } from './config.js';
+import { SiblingPath } from '@aztec/merkle-tree';
 
 /* eslint-disable @typescript-eslint/ban-ts-comment */
 // @ts-ignore
@@ -16,11 +17,11 @@ export const createMemDown = () => memdown();
  */
 export class AztecNode {
   constructor(
-    private p2pClient?: P2P,
-    private blockSource?: L2BlockSource,
-    private merkleTreeDB?: MerkleTrees,
-    private worldStateSynchroniser?: WorldStateSynchroniser,
-    private sequencer?: SequencerClient,
+    private p2pClient: P2P,
+    private blockSource: L2BlockSource,
+    private merkleTreeDB: MerkleTrees,
+    private worldStateSynchroniser: WorldStateSynchroniser,
+    private sequencer: SequencerClient,
   ) {}
 
   /**
@@ -52,7 +53,7 @@ export class AztecNode {
    * @returns - Flag indicating the readiness for tx submission.
    */
   public async isReady() {
-    return (await this.p2pClient?.isReady()) ?? false;
+    return (await this.p2pClient.isReady()) ?? false;
   }
 
   /**
@@ -62,8 +63,7 @@ export class AztecNode {
    * @returns The blocks requested.
    */
   public async getBlocks(from: number, take: number) {
-    this.verifyInitialised();
-    return (await this.blockSource?.getL2Blocks(from, take)) ?? [];
+    return (await this.blockSource.getL2Blocks(from, take)) ?? [];
   }
 
   /**
@@ -71,7 +71,6 @@ export class AztecNode {
    * @param tx - The transaction to be submitted.
    */
   public async sendTx(tx: Tx) {
-    this.verifyInitialised();
     await this.p2pClient!.sendTx(tx);
   }
 
@@ -79,11 +78,11 @@ export class AztecNode {
    * Method to stop the aztec node.
    */
   public async stop() {
-    await this.p2pClient?.stop();
-    await this.worldStateSynchroniser?.stop();
-    await this.merkleTreeDB?.stop();
-    await this.sequencer?.stop();
-    await this.blockSource?.stop();
+    await this.p2pClient.stop();
+    await this.worldStateSynchroniser.stop();
+    await this.merkleTreeDB.stop();
+    await this.sequencer.stop();
+    await this.blockSource.stop();
   }
 
   /**
@@ -94,19 +93,10 @@ export class AztecNode {
     return await this.p2pClient!.getTxs();
   }
 
-  /**
-   * Method to verify that we are initialised, throws if not.
-   */
-  private verifyInitialised() {
-    const invalid = [
-      this.blockSource,
-      this.merkleTreeDB,
-      this.p2pClient,
-      this.worldStateSynchroniser,
-      this.sequencer,
-    ].findIndex(x => !x);
-    if (invalid != -1) {
-      throw new Error('Aztec Node not initialised');
-    }
+  public findContractIndex(leafValue: Buffer): Promise<bigint | undefined> {
+    return this.merkleTreeDB.findLeafIndex(MerkleTreeId.CONTRACT_TREE, leafValue);
+  }
+  public getContractPath(leafIndex: bigint): Promise<SiblingPath> {
+    return this.merkleTreeDB.getSiblingPath(MerkleTreeId.CONTRACT_TREE, leafIndex);
   }
 }
