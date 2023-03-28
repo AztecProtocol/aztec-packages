@@ -1,4 +1,4 @@
-import { Fr, Fq } from '../primitives/fields.js';
+import { Fr, Fq } from '../fields/fields.js';
 
 export class BufferReader {
   private index: number;
@@ -26,11 +26,11 @@ export class BufferReader {
   }
 
   public readFr(): Fr {
-    return Fr.fromBufferReader(this);
+    return Fr.fromBuffer(this.buffer.subarray(this.index, (this.index += Fr.SIZE_IN_BYTES)));
   }
 
   public readFq(): Fq {
-    return Fq.fromBufferReader(this);
+    return Fq.fromBuffer(this.buffer.subarray(this.index, (this.index += Fq.SIZE_IN_BYTES)));
   }
 
   public readNumberVector(): number[] {

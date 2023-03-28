@@ -29,7 +29,7 @@ export class KernelProver {
     }
     const accumulatedTxData = new AccumulatedData(
       AggregationObject.fromBuffer(Buffer.alloc(0)), // TODO - Fix this.
-      new Fr(Buffer.from([1])),
+      new Fr(1n),
       [], // newCommitments
       [], // newNullifiers
       [], // privateCallStack

@@ -1,6 +1,7 @@
 import {
   AffineElement,
   AggregationObject,
+  AztecAddress,
   ConstantData,
   ContractDeploymentData,
   EMITTED_EVENTS_LENGTH,
@@ -27,11 +28,11 @@ import { Tx } from '@aztec/p2p';
 import times from 'lodash.times';
 
 function frZero() {
-  return new Fr(Buffer.alloc(32, 0));
+  return Fr.fromBuffer(Buffer.alloc(32, 0));
 }
 
 function fqZero() {
-  return new Fq(Buffer.alloc(32, 0));
+  return Fq.fromBuffer(Buffer.alloc(32, 0));
 }
 
 function makeEmptyEthAddress() {
@@ -39,7 +40,7 @@ function makeEmptyEthAddress() {
 }
 
 export function makeEmptyNewContractData(): NewContractData {
-  return new NewContractData(frZero(), makeEmptyEthAddress(), frZero());
+  return new NewContractData(AztecAddress.ZERO, makeEmptyEthAddress(), frZero());
 }
 
 export function makeEmptyAggregationObject(): AggregationObject {

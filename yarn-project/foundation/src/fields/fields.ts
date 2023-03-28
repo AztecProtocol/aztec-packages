@@ -8,18 +8,20 @@ export class Fr {
   static MAX_VALUE = Fr.MODULUS - 1n;
   static SIZE_IN_BYTES = 32;
 
-  constructor(public readonly value: bigint) {}
+  constructor(public readonly value: bigint) {
+    if (value > Fr.MAX_VALUE) {
+      throw new Error(`Fr out of range ${value}.`);
+    }
+  }
 
   static random() {
     const r = toBigIntBE(randomBytes(64)) % Fr.MODULUS;
     return new Fr(r);
   }
 
-  static fromBuffer(buffer: Buffer) {
-    if (buffer.length > this.SIZE_IN_BYTES) {
-      throw new Error(`Unexpected buffer size ${buffer.length} (expected ${this.SIZE_IN_BYTES} bytes)`);
-    }
-    return new this(toBigIntBE(buffer));
+  static fromBuffer(buffer: Buffer | BufferReader) {
+    const reader = BufferReader.asReader(buffer);
+    return new this(toBigIntBE(reader.readBytes(32)));
   }
 
   static fromBufferReader(reader: BufferReader) {
@@ -36,7 +38,11 @@ export class Fq {
   static MAX_VALUE = Fr.MODULUS - 1n;
   static SIZE_IN_BYTES = 32;
 
-  constructor(public readonly value: bigint) {}
+  constructor(public readonly value: bigint) {
+    if (value > Fq.MAX_VALUE) {
+      throw new Error(`Fr out of range ${value}.`);
+    }
+  }
 
   static random() {
     const r = toBigIntBE(randomBytes(64)) % Fr.MODULUS;

@@ -1,5 +1,5 @@
 import { toBigIntBE, toBufferBE } from '../bigint-buffer/index.js';
-import { Fr } from '../primitives/fields.js';
+import { Fr } from '../fields/index.js';
 
 // For serializing bool.
 export function boolToByte(b: boolean) {

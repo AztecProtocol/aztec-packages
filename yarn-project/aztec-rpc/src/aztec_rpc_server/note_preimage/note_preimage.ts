@@ -1,7 +1,7 @@
 import { deserializeField, Deserializer, serializeBufferArrayToVector } from '@aztec/foundation';
 import { decryptNotePreimage, encryptNotePreimage } from './encrypt_note_preimage.js';
 import { Grumpkin } from '@aztec/barretenberg.js/crypto';
-import { Fr } from '@aztec/foundation/primitives';
+import { Fr } from '@aztec/foundation/fields';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 
 export class NotePreImage {

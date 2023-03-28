@@ -1,4 +1,5 @@
 import { randomBytes } from '../crypto/index.js';
+import { BufferReader } from '../index.js';
 
 export class AztecAddress {
   public static SIZE_IN_BYTES = 32;
@@ -8,6 +9,11 @@ export class AztecAddress {
     if (buffer.length !== AztecAddress.SIZE_IN_BYTES) {
       throw new Error(`Expect buffer size to be ${AztecAddress.SIZE_IN_BYTES}. Got ${buffer.length}.`);
     }
+  }
+
+  static fromBuffer(bufferOrReader: Buffer | BufferReader) {
+    const reader = BufferReader.asReader(bufferOrReader);
+    return new AztecAddress(reader.readBytes(32));
   }
 
   public static fromString(address: string) {
