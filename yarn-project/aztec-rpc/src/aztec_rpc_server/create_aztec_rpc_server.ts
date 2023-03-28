@@ -26,7 +26,7 @@ export async function createAztecRPCServer(
   keyStore = keyStore || new TestKeyStore();
   db = db || new MemoryDB();
   synchroniser = synchroniser || new Synchroniser(aztecNode, db);
-  acirSimulator = acirSimulator || new AcirSimulator(new SimulatorOracle(db));
+  acirSimulator = acirSimulator || new AcirSimulator(new SimulatorOracle(db, keyStore));
   kernelProver = kernelProver || new KernelProver();
 
   return await Promise.resolve(new AztecRPCServer(keyStore, synchroniser, acirSimulator, kernelProver, aztecNode, db));

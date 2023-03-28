@@ -19,7 +19,6 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/acir-simulator@workspace:acir-simulator"
   dependencies:
-    "@aztec/circuits.js": "workspace:^"
     "@jest/globals": ^29.4.3
     "@noir-lang/noir-source-resolver": ^1.1.0
     "@noir-lang/noir_wasm": 0.3.2-29b1f7df

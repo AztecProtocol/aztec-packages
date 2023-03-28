@@ -147,6 +147,7 @@ export class AztecRPCServer implements AztecRPCClient {
     const executionResult = await this.acirSimulator.run(
       txRequest as any, // TODO - remove `as any`
       Buffer.from(functionDao.bytecode, 'base64'),
+      contractAddress,
       contract.portalAddress as any, // TODO - remove `as any`
       oldRoots as any, // TODO - remove `as any`
     );
