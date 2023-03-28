@@ -1,5 +1,5 @@
 import { EthAddress } from '@aztec/ethereum.js/eth_address';
-import { createDebugLogger } from '@aztec/foundation';
+import { createDebugLogger, toBigIntBE } from '@aztec/foundation';
 import { RollupAbi, YeeterAbi } from '@aztec/l1-contracts/viem';
 import { L2Block, L2BlockSource } from '@aztec/l2-block';
 import { createPublicClient, decodeFunctionData, getAddress, Hex, hexToBytes, http, Log, PublicClient } from 'viem';
@@ -19,9 +19,9 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource {
 
   /**
    * An array containing all the `unverifiedData` that have been fetched so far.
-   * Note: Index equals to (corresponding L2 block's number - INITIAL_L2_BLOCK_NUM).
+   * Note: Index in the "outer" array equals to (corresponding L2 block's number - INITIAL_L2_BLOCK_NUM).
    */
-  private unverifiedDatas: Buffer[] = [];
+  private unverifiedDatas: Buffer[][] = [];
 
   private unwatchBlocks: (() => void) | undefined;
   private unwatchYeets: (() => void) | undefined;
@@ -161,8 +161,25 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource {
             '.',
         );
       }
-      this.unverifiedDatas.push(Buffer.from(hexToBytes(log.args.blabber)));
-      this.log('Added unverifiedData with blockNum ' + blockNum + '.');
+      const unverifiedDataBuf = Buffer.from(hexToBytes(log.args.blabber));
+      let currIndex = 0;
+      const chunks: Buffer[] = [];
+      while (currIndex < unverifiedDataBuf.length) {
+        const nextChunkLength = Number(toBigIntBE(unverifiedDataBuf.slice(currIndex, currIndex + 4)));
+        currIndex += 4;
+        const nextChunk = unverifiedDataBuf.slice(currIndex, currIndex + nextChunkLength);
+        currIndex += nextChunkLength;
+        chunks.push(nextChunk);
+      }
+      if (currIndex !== unverifiedDataBuf.length) {
+        console.error(
+          `Unverified data buffer was not fully consumed. Consumed ${currIndex + 1} bytes. Total length: ${
+            unverifiedDataBuf.length
+          } bytes.`,
+        );
+      }
+      this.unverifiedDatas.push(chunks);
+      this.log(`Added ${chunks.length} chunks of unverifiedData corresponding to block ${blockNum}`);
     }
     this.log('Processed unverifiedData corresponding to ' + logs.length + ' blocks.');
   }
@@ -232,7 +249,7 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource {
    * @param take - The number of `unverifiedData` to return.
    * @returns The requested `unverifiedData`.
    */
-  public getUnverifiedData(from: number, take: number): Promise<Buffer[]> {
+  public getUnverifiedData(from: number, take: number): Promise<Buffer[][]> {
     if (from < INITIAL_L2_BLOCK_NUM) {
       throw new Error(`Invalid block range ${from}`);
     }

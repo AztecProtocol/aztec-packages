@@ -8,7 +8,7 @@ export interface UnverifiedDataSource {
    * @param take - The number of `unverifiedData` to return.
    * @returns The requested `unverifiedData`.
    */
-  getUnverifiedData(from: number, take: number): Promise<Buffer[]>;
+  getUnverifiedData(from: number, take: number): Promise<Buffer[][]>;
 
   /**
    * Starts the unverified data source.

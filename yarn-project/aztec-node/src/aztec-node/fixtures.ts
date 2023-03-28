@@ -25,7 +25,7 @@ import {
 } from '@aztec/circuits.js';
 import { EthereumRpc } from '@aztec/ethereum.js/eth_rpc';
 import { WalletProvider } from '@aztec/ethereum.js/provider';
-import { AztecAddress, randomBytes } from '@aztec/foundation';
+import { AztecAddress, randomBytes, toBufferBE } from '@aztec/foundation';
 import { Rollup, Yeeter } from '@aztec/l1-contracts';
 import { Tx } from '@aztec/tx';
 
@@ -59,6 +59,16 @@ export const createRandomCommitments = (num: number) => {
   return Array(num)
     .fill(0)
     .map(() => new Fr(randomBytes(32)));
+};
+
+export const createRandomEncryptedNotePreimage = () => {
+  const encryptedNotePreimageBuf = randomBytes(144);
+  return Buffer.concat([toBufferBE(BigInt(encryptedNotePreimageBuf.length), 4), encryptedNotePreimageBuf]);
+};
+
+export const createRandomUnverifiedData = (numPreimages: number) => {
+  const encryptedNotePreimageBuf = createRandomEncryptedNotePreimage();
+  return Buffer.concat(Array(numPreimages).fill(encryptedNotePreimageBuf));
 };
 
 export const createOptionallyRetrievedData = () => {
@@ -121,6 +131,6 @@ export const createTx = () => {
     createOptionallyRetrievedDatas(KERNEL_OPTIONALLY_REVEALED_DATA_LENGTH),
   );
   const kernelInputs = new PrivateKernelPublicInputs(accumulatedData, constantData, true);
-  const unverifiedData = randomBytes(100); // not yet determined what the valid size will be
+  const unverifiedData = createRandomUnverifiedData(8);
   return new Tx(kernelInputs, new UInt8Vector(Buffer.alloc(0)), unverifiedData);
 };
