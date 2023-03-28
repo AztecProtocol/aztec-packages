@@ -21,6 +21,7 @@ import {
   VK_TREE_HEIGHT,
 } from '@aztec/circuits.js';
 import { Tx } from '@aztec/tx';
+import { toBigIntBE, toBufferBE } from '@aztec/foundation';
 import { MerkleTreeId, MerkleTreeDb } from '@aztec/world-state';
 import flatMap from 'lodash.flatmap';
 import { makeEmptyTx } from '../deps/tx.js';
@@ -28,9 +29,8 @@ import { Proof, Prover } from '../prover/index.js';
 import { Simulator } from '../simulator/index.js';
 import { VerificationKeys } from './vks.js';
 
-// REFACTOR: Move this somewhere generic, and do something less horrible without going through hex strings.
-const frToBigInt = (fr: Fr) => fr.value;
-const bigintToFr = (num: bigint) => new Fr(num);
+const frToBigInt = (fr: Fr) => toBigIntBE(fr.toBuffer());
+const bigintToFr = (num: bigint) => new Fr(toBufferBE(num, 32));
 const bigintToNum = (num: bigint) => Number(num);
 
 // Denotes fields that are not used now, but will be in the future
