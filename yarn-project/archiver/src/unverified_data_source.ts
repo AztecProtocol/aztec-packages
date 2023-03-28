@@ -3,6 +3,12 @@
  */
 export interface UnverifiedDataSource {
   /**
+   * Gets the L2 block number associated with the latest unverified data.
+   * @returns The L2 block number associated with the latest unverified data.
+   */
+  getLatestUnverifiedDataBlockNum(): Promise<number>;
+
+  /**
    * Gets the `take` amount of unverified data starting from `from`.
    * @param from - Number of the L2 block to which corresponds the first `unverifiedData` to be returned.
    * @param take - The number of `unverifiedData` to return.

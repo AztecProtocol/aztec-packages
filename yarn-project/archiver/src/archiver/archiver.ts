@@ -269,4 +269,13 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource {
     if (this.l2Blocks.length === 0) return Promise.resolve(INITIAL_L2_BLOCK_NUM - 1);
     return Promise.resolve(this.l2Blocks[this.l2Blocks.length - 1].number);
   }
+
+  /**
+   * Gets the L2 block number associated with the latest unverified data.
+   * @returns The L2 block number associated with the latest unverified data.
+   */
+  public getLatestUnverifiedDataBlockNum(): Promise<number> {
+    if (this.unverifiedDatas.length === 0) return Promise.resolve(INITIAL_L2_BLOCK_NUM - 1);
+    return Promise.resolve(this.unverifiedDatas.length + INITIAL_L2_BLOCK_NUM - 1);
+  }
 }
