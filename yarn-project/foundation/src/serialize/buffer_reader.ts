@@ -26,11 +26,11 @@ export class BufferReader {
   }
 
   public readFr(): Fr {
-    return Fr.fromBuffer(this);
+    return Fr.fromBufferReader(this);
   }
 
   public readFq(): Fq {
-    return Fq.fromBuffer(this);
+    return Fq.fromBufferReader(this);
   }
 
   public readNumberVector(): number[] {

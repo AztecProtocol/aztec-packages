@@ -165,9 +165,6 @@ export class UInt8Vector {
 
 export type UInt32 = number;
 
-// TODO: Define proper type for AztecAddress
-export type AztecAddress = Fr;
-
 /**
  * Affine element of a group, composed of two elements in Fq.
  * cpp/barretenberg/cpp/src/aztec/ecc/groups/affine_element.hpp
