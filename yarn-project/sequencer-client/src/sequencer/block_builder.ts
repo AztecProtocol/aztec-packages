@@ -1,4 +1,4 @@
-import { ContractData, L2Block } from '@aztec/archiver';
+import { ContractData, L2Block } from '@aztec/l2-block';
 import {
   Fr,
   KERNEL_NEW_CONTRACTS_LENGTH,
@@ -11,7 +11,7 @@ import { MerkleTreeId, MerkleTreeOperations } from '@aztec/world-state';
 import { Tx } from '@aztec/p2p';
 
 const mapContractData = (n: NewContractData) => {
-  const contractData = new ContractData(n.contractAddress, n.portalContractAddress);
+  const contractData = new ContractData(new Fr(n.contractAddress.toBuffer()), n.portalContractAddress);
   return contractData;
 };
 

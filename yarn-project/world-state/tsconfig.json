@@ -7,7 +7,7 @@
   },
   "references": [
     {
-      "path": "../archiver/tsconfig.dest.json"
+      "path": "../l2-block/tsconfig.dest.json"
     },
     {
       "path": "../merkle-tree/tsconfig.dest.json"
