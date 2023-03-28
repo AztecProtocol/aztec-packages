@@ -1,9 +1,10 @@
-import { L2Block } from '@aztec/archiver';
+import { L2Block } from '@aztec/l2-block';
 import {
   KERNEL_NEW_COMMITMENTS_LENGTH,
   KERNEL_NEW_CONTRACTS_LENGTH,
   KERNEL_NEW_NULLIFIERS_LENGTH,
   PrivateKernelPublicInputs,
+  UInt8Vector,
 } from '@aztec/circuits.js';
 import { Keccak } from 'sha3';
 
@@ -17,10 +18,11 @@ export class Tx {
 
   /**
    * 
-   * @param txData - Tx inputs.
+   * @param data - Tx inputs.
+   * @param proof - Tx proof.
    * @param unverifiedData  - Information not needed to verify the tx (e.g. encrypted note pre-images etc.)
    */
-  constructor(private txData: PrivateKernelPublicInputs, public unverifiedData: Buffer) {}
+  constructor(public readonly data: PrivateKernelPublicInputs, public readonly proof: UInt8Vector, public readonly unverifiedData: Buffer) {}
 
   /**
    * Construct & return transaction ID.
@@ -34,10 +36,6 @@ export class Tx {
     return this._id;
   }
 
-  get data() {
-    return this.txData;
-  }
-
   /**
    * Utility function to generate tx ID.
    * @param tx - The transaction from which to generate the id.
@@ -47,9 +45,9 @@ export class Tx {
     hash.reset();
     const dataToHash = Buffer.concat(
       [
-        tx.txData.end.newCommitments.map(x => x.toBuffer()),
-        tx.txData.end.newNullifiers.map(x => x.toBuffer()),
-        tx.txData.end.newContracts.map(x => x.functionTreeRoot.toBuffer()),
+        tx.data.end.newCommitments.map(x => x.toBuffer()),
+        tx.data.end.newNullifiers.map(x => x.toBuffer()),
+        tx.data.end.newContracts.map(x => x.functionTreeRoot.toBuffer()),
       ].flat(),
     );
     return hash.update(dataToHash).digest();

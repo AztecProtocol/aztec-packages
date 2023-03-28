@@ -1,4 +1,4 @@
-import { L2Block, mockRandomL2Block } from '@aztec/archiver';
+import { L2Block } from '@aztec/l2-block';
 import { TxHash } from '@aztec/ethereum.js/eth_rpc';
 import { mock, MockProxy } from 'jest-mock-extended';
 import { sleep } from '../utils.js';
@@ -14,7 +14,7 @@ describe('L1Publisher', () => {
   let publisher: L1Publisher;
 
   beforeEach(() => {
-    l2Block = mockRandomL2Block(42);
+    l2Block = L2Block.random(42);
     l2Inputs = l2Block.encode();
     l2Proof = Buffer.alloc(0);
 

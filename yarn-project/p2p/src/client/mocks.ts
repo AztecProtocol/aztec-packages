@@ -1,10 +1,11 @@
-import { L2Block, L2BlockSource, mockRandomL2Block } from '@aztec/archiver';
+import { L2Block, L2BlockSource } from '@aztec/l2-block';
+import { UInt8Vector } from '@aztec/circuits.js';
 import { makePrivateKernelPublicInputs } from '@aztec/circuits.js/factories';
 import { Tx } from './tx.js';
 import { randomBytes } from 'crypto';
 
 export const MockTx = () => {
-  return new Tx(makePrivateKernelPublicInputs(), randomBytes(100));
+  return new Tx(makePrivateKernelPublicInputs(), new UInt8Vector(Buffer.alloc(0)), randomBytes(100));
 };
 
 export class MockBlockSource implements L2BlockSource {
@@ -13,7 +14,7 @@ export class MockBlockSource implements L2BlockSource {
   constructor(private numBlocks = 100) {
     this.l2Blocks = [];
     for (let i = 0; i < this.numBlocks; i++) {
-      this.l2Blocks.push(mockRandomL2Block(i));
+      this.l2Blocks.push(L2Block.random(i));
     }
   }
 

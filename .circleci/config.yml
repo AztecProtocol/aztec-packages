@@ -48,9 +48,7 @@ checkout: &checkout
       git fetch --depth 50 --filter=blob:none origin $CIRCLE_SHA1
       git checkout FETCH_HEAD
       # Initialize submodules recursively
-      git submodule update --init --recursive circuits build-system yarn-project/foundation
-      # We have build problems with symlinks in yarn-project. Resolve them.
-      rm yarn-project/circuits.js && cp -r circuits/ts yarn-project/circuits.js
+      git submodule update --init --recursive circuits build-system
 
 # Called setup_env to setup a bunch of global variables used throughout the rest of the build process.
 # It takes the required CCI environment variables as inputs, and gives them normalised names for the rest of
@@ -158,12 +156,10 @@ defaults: &defaults
 yarn_project: &yarn_project
   requires:
     - yarn-project-base
-    - foundation
   <<: *defaults
 e2e_test: &e2e_test
   requires:
     - e2e-join
-    - foundation
   <<: *defaults
 
 workflows:
@@ -176,10 +172,7 @@ workflows:
       - ethereum-js: *yarn_project
       - aztec-js: *yarn_project
       - end-to-end: *yarn_project
-      - foundation:
-          requires:
-            - yarn-project-base
-          <<: *defaults
+      - foundation: *yarn_project
       - e2e-join:
           requires:
             - ethereum-js
