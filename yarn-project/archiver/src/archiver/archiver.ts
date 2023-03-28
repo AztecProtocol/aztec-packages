@@ -8,22 +8,22 @@ import { ArchiverConfig } from './config.js';
 import { ContractData, L2Block } from '../l2_block/l2_block.js';
 import { L2BlockSource } from '../l2_block/l2_block_source.js';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/l1-contracts';
-import { AuxDataSource } from '../aux_data_source.js';
+import { UnverifiedDataSource } from '../unverified_data_source.js';
 
 /**
  * Pulls L2 blocks in a non-blocking manner and provides interface for their retrieval.
  */
-export class Archiver implements L2BlockSource, AuxDataSource {
+export class Archiver implements L2BlockSource, UnverifiedDataSource {
   /**
    * An array containing all the L2 blocks that have been fetched so far.
    */
   private l2Blocks: L2Block[] = [];
 
   /**
-   * An array containing all the `auxData` that have been fetched so far.
+   * An array containing all the `unverifiedData` that have been fetched so far.
    * Note: Index equals to (corresponding L2 block's number - INITIAL_L2_BLOCK_NUM).
    */
-  private auxDatas: Buffer[] = [];
+  private unverifiedDatas: Buffer[] = [];
 
   private unwatchBlocks: (() => void) | undefined;
   private unwatchYeets: (() => void) | undefined;
@@ -163,10 +163,10 @@ export class Archiver implements L2BlockSource, AuxDataSource {
             '.',
         );
       }
-      this.auxDatas.push(Buffer.from(hexToBytes(log.args.blabber)));
-      this.log('Added auxData with blockNum ' + blockNum + '.');
+      this.unverifiedDatas.push(Buffer.from(hexToBytes(log.args.blabber)));
+      this.log('Added unverifiedData with blockNum ' + blockNum + '.');
     }
-    this.log('Processed auxData corresponding to ' + logs.length + ' blocks.');
+    this.log('Processed unverifiedData corresponding to ' + logs.length + ' blocks.');
   }
 
   /**
@@ -229,21 +229,21 @@ export class Archiver implements L2BlockSource, AuxDataSource {
   }
 
   /**
-   * Gets the `take` amount of auxiliary data starting from `from`.
-   * @param from - Number of the L2 block to which corresponds the first `auxData` to be returned.
-   * @param take - The number of `auxData` to return.
-   * @returns The requested `auxData`.
+   * Gets the `take` amount of unverified data starting from `from`.
+   * @param from - Number of the L2 block to which corresponds the first `unverifiedData` to be returned.
+   * @param take - The number of `unverifiedData` to return.
+   * @returns The requested `unverifiedData`.
    */
-  public getAuxData(from: number, take: number): Promise<Buffer[]> {
+  public getUnverifiedData(from: number, take: number): Promise<Buffer[]> {
     if (from < INITIAL_L2_BLOCK_NUM) {
       throw new Error(`Invalid block range ${from}`);
     }
-    if (from > this.auxDatas.length) {
+    if (from > this.unverifiedDatas.length) {
       return Promise.resolve([]);
     }
     const startIndex = from - INITIAL_L2_BLOCK_NUM;
     const endIndex = startIndex + take;
-    return Promise.resolve(this.auxDatas.slice(startIndex, endIndex));
+    return Promise.resolve(this.unverifiedDatas.slice(startIndex, endIndex));
   }
 
   /**

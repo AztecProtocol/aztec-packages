@@ -48,8 +48,8 @@ export class EthereumjsTxSender implements L1PublisherTxSender {
       .then(hash => hash.toString());
   }
 
-  async sendYeetTx(l2BlockNum: number, auxData: Buffer): Promise<string | undefined> {
-    const methodCall = this.yeeterContract.methods.yeet(BigInt(l2BlockNum), auxData);
+  async sendYeetTx(l2BlockNum: number, unverifiedData: Buffer): Promise<string | undefined> {
+    const methodCall = this.yeeterContract.methods.yeet(BigInt(l2BlockNum), unverifiedData);
     const gas = await methodCall.estimateGas();
     return methodCall
       .send({ gas })

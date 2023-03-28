@@ -97,13 +97,13 @@ export class Sequencer {
         this.log(`Failed to publish block`);
       }
 
-      // Publishes new auxiliary data to the network and awaits the tx to be mined
-      this.state = SequencerState.PUBLISHING_AUX_DATA;
-      const publishedAuxData = await this.publisher.processAuxData(block.number, tx.auxData);
-      if (publishedAuxData) {
-        this.log(`Successfully published auxData for block ${block.number}`);
+      // Publishes new unverified data to the network and awaits the tx to be mined
+      this.state = SequencerState.PUBLISHING_UNVERIFIED_DATA;
+      const publishedUnverifiedData = await this.publisher.processUnverifiedData(block.number, tx.unverifiedData);
+      if (publishedUnverifiedData) {
+        this.log(`Successfully published unverifiedData for block ${block.number}`);
       } else {
-        this.log(`Failed to publish auxData for block ${block.number}`);
+        this.log(`Failed to publish unverifiedData for block ${block.number}`);
       }
     } catch (err) {
       this.log(`Error doing work: ${err}`, 'error');
@@ -132,6 +132,6 @@ export enum SequencerState {
   WAITING_FOR_TXS,
   CREATING_BLOCK,
   PUBLISHING_BLOCK,
-  PUBLISHING_AUX_DATA,
+  PUBLISHING_UNVERIFIED_DATA,
   STOPPED,
 }
