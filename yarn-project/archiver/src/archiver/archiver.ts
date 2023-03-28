@@ -7,7 +7,7 @@ import { localhost } from 'viem/chains';
 import { ArchiverConfig } from './config.js';
 import { ContractData, L2Block } from '../l2_block/l2_block.js';
 import { L2BlockSource } from '../l2_block/l2_block_source.js';
-import { INITIAL_ROLLUP_ID } from '@aztec/l1-contracts';
+import { INITIAL_L2_BLOCK_NUM } from '@aztec/l1-contracts';
 
 /**
  * Pulls L2 blocks in a non-blocking manner and provides interface for their retrieval.
@@ -19,10 +19,10 @@ export class Archiver implements L2BlockSource {
   private l2Blocks: L2Block[] = [];
 
   /**
-   * An array of yeets that have been fetched but not yet added as a property to L2 blocks.
-   * Note: Can happen when Yeet event is received before L2BlockProcessed event for whatever reason.
+   * An array containing all the `auxData` that have been fetched so far.
+   * Note: Index equals to (corresponding L2 block's number - INITIAL_L2_BLOCK_NUM).
    */
-  private pendingYeets: Buffer[] = [];
+  private auxData: Buffer[] = [];
 
   private unwatchBlocks: (() => void) | undefined;
   private unwatchYeets: (() => void) | undefined;
@@ -130,10 +130,10 @@ export class Archiver implements L2BlockSource {
   private async processBlockLogs(logs: Log<bigint, number, undefined, typeof RollupAbi, 'L2BlockProcessed'>[]) {
     for (const log of logs) {
       const blockNum = log.args.blockNum;
-      if (blockNum !== BigInt(this.l2Blocks.length + INITIAL_ROLLUP_ID)) {
+      if (blockNum !== BigInt(this.l2Blocks.length + INITIAL_L2_BLOCK_NUM)) {
         throw new Error(
           'Block number mismatch. Expected: ' +
-            (this.l2Blocks.length + INITIAL_ROLLUP_ID) +
+            (this.l2Blocks.length + INITIAL_L2_BLOCK_NUM) +
             ' but got: ' +
             blockNum +
             '.',
@@ -142,13 +142,6 @@ export class Archiver implements L2BlockSource {
       // TODO: Fetch blocks from calldata in parallel
       const newBlock = await this.getBlockFromCallData(log.transactionHash!, log.args.blockNum);
       this.log(`Retrieved block ${newBlock.number} from chain`);
-      //this.log(`Processed new block: ${newBlock.inspect()}`);
-      const yeet = this.pendingYeets.find(yeet => BigInt(yeet.readUInt32BE(0)) === blockNum);
-      if (yeet !== undefined) {
-        newBlock.setYeet(yeet);
-        // Remove yeet from pending
-        this.pendingYeets = this.pendingYeets.filter(yeet => BigInt(yeet.readUInt32BE(0)) !== blockNum);
-      }
       this.l2Blocks.push(newBlock);
     }
   }
@@ -160,16 +153,19 @@ export class Archiver implements L2BlockSource {
   private processYeetLogs(logs: Log<bigint, number, undefined, typeof YeeterAbi, 'Yeet'>[]) {
     for (const log of logs) {
       const blockNum = log.args.l2blockNum;
-      if (blockNum < BigInt(this.l2Blocks.length)) {
-        const block = this.l2Blocks[Number(blockNum) - INITIAL_ROLLUP_ID];
-        block.setYeet(Buffer.from(hexToBytes(log.args.blabber)));
-        this.log('Enriched block ' + blockNum + ' with yeet.');
-      } else {
-        this.pendingYeets.push(Buffer.from(hexToBytes(log.args.blabber)));
-        this.log('Added yeet with blockNum ' + blockNum + ' to pending list.');
+      if (blockNum !== BigInt(this.l2Blocks.length + INITIAL_L2_BLOCK_NUM)) {
+        throw new Error(
+          'Block number mismatch. Expected: ' +
+            (this.l2Blocks.length + INITIAL_L2_BLOCK_NUM) +
+            ' but got: ' +
+            blockNum +
+            '.',
+        );
       }
+      this.auxData.push(Buffer.from(hexToBytes(log.args.blabber)));
+      this.log('Added auxData with blockNum ' + blockNum + '.');
     }
-    this.log('Processed ' + logs.length + ' yeets...');
+    this.log('Processed auxData corresponding to ' + logs.length + ' blocks.');
   }
 
   /**
@@ -220,7 +216,7 @@ export class Archiver implements L2BlockSource {
    * @returns The requested L2 blocks.
    */
   public getL2Blocks(from: number, take: number): Promise<L2Block[]> {
-    if (from < INITIAL_ROLLUP_ID) {
+    if (from < INITIAL_L2_BLOCK_NUM) {
       throw new Error(`Invalid block range ${from}`);
     }
     if (from > this.l2Blocks.length) {
@@ -236,7 +232,7 @@ export class Archiver implements L2BlockSource {
    * @returns The number of the latest L2 block processed by the block source implementation.
    */
   public getLatestBlockNum(): Promise<number> {
-    if (this.l2Blocks.length === 0) return Promise.resolve(INITIAL_ROLLUP_ID - 1);
+    if (this.l2Blocks.length === 0) return Promise.resolve(INITIAL_L2_BLOCK_NUM - 1);
     return Promise.resolve(this.l2Blocks[this.l2Blocks.length - 1].number);
   }
 }
