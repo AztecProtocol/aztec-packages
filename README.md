@@ -11,7 +11,9 @@ The Aztec 3 system consists of the following sub projects.
 - `kernel-prover`
 - `key-store`
 - `l1-contracts`
+- `l2-block`
 - `p2p`
 - `prover-client`
 - `aztec-node`
 - `sequencer-client`
+- `tx`

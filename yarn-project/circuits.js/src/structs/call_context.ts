@@ -1,5 +1,6 @@
 import { serializeToBuffer } from '../utils/serialize.js';
-import { AztecAddress, EthAddress } from './shared.js';
+import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { EthAddress } from '@aztec/foundation/eth-address';
 
 /**
  * Call context.

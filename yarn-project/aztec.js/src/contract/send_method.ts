@@ -1,4 +1,5 @@
-import { AztecAddress, AztecRPCClient, Fr, Signature, Tx, TxHash, TxRequest } from '@aztec/aztec-rpc';
+import { AztecRPCClient, Signature, Tx, TxHash, TxRequest } from '@aztec/aztec-rpc';
+import { AztecAddress, Fr } from '@aztec/circuits.js';
 import { ContractFunction } from './contract_function.js';
 import { SentTx } from './sent_tx.js';
 
@@ -28,7 +29,7 @@ export class SendMethod {
     const { from } = { ...this.defaultOptions, ...options };
     this.txRequest = await this.arc.createTxRequest(
       this.entry.encodeABI(),
-      this.entry.encodeParameters(this.args).map(p => new Fr(p)),
+      this.entry.encodeParameters(this.args).map(p => Fr.fromBuffer(p)),
       this.contractAddress,
       from || AztecAddress.ZERO,
     );

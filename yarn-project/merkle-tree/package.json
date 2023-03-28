@@ -8,6 +8,7 @@
     "build:dev": "tsc -b tsconfig.dest.json --watch",
     "clean": "rm -rf ./dest .tsbuildinfo",
     "formatting": "run -T prettier --check ./src && run -T eslint --max-warnings 0 ./src",
+    "formatting:fix": "run -T prettier -w ./src",
     "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules $(yarn bin jest) --no-cache --passWithNoTests"
   },
   "jest": {
@@ -24,6 +25,7 @@
     "rootDir": "./src"
   },
   "dependencies": {
+    "@aztec/barretenberg.js": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "levelup": "^5.1.1",
     "memdown": "^6.1.1",

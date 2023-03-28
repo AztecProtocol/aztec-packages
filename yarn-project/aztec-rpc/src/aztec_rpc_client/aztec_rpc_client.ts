@@ -1,11 +1,19 @@
-import { Tx } from '@aztec/p2p';
-import { AztecAddress, EthAddress, Fr, Signature, TxRequest } from '../circuits.js';
+import { AztecAddress, EthAddress, Fr, TxRequest } from '@aztec/circuits.js';
+import { Tx, TxHash } from '@aztec/tx';
+import { Signature } from '../circuits.js';
 import { ContractAbi } from '../noir.js';
-import { TxHash, TxReceipt } from '../tx/index.js';
+import { TxReceipt } from '../tx/index.js';
+
+export interface DeployedContract {
+  abi: ContractAbi;
+  address: AztecAddress;
+  portalAddress: EthAddress;
+}
 
 export interface AztecRPCClient {
   addAccount(): Promise<AztecAddress>;
   getAccounts(): Promise<AztecAddress[]>;
+  addContracts(contracts: DeployedContract[]): Promise<void>;
   getCode(contract: AztecAddress, functionSelector?: Buffer): Promise<string | undefined>;
   createDeploymentTxRequest(
     abi: ContractAbi,

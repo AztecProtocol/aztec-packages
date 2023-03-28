@@ -1,4 +1,6 @@
-import { AztecAddress, AztecRPCClient, ContractAbi, EthAddress, Fr } from '@aztec/aztec-rpc';
+import { AztecRPCClient, ContractAbi } from '@aztec/aztec-rpc';
+import { EthAddress, Fr } from '@aztec/circuits.js';
+import { AztecAddress } from '@aztec/foundation';
 import { ContractFunction, SendMethod, SendMethodOptions } from '../contract/index.js';
 
 export interface ConstructorOptions extends SendMethodOptions {
@@ -28,8 +30,8 @@ export class ConstructorMethod extends SendMethod {
     const { portalContract, contractAddressSalt, from } = { ...this.defaultOptions, ...options };
     this.txRequest = await this.arc.createDeploymentTxRequest(
       this.abi,
-      this.entry.encodeParameters(this.args).map(p => new Fr(p)),
-      portalContract || EthAddress.ZERO,
+      this.entry.encodeParameters(this.args).map(p => Fr.fromBuffer(p)),
+      portalContract || new EthAddress(Buffer.alloc(EthAddress.SIZE_IN_BYTES)),
       contractAddressSalt || Fr.random(),
       from || AztecAddress.ZERO,
     );
