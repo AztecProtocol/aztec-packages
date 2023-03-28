@@ -1,7 +1,7 @@
 import { mock } from 'jest-mock-extended';
 import { AztecRPCClient, ContractAbi, Signature, Tx, TxHash, TxReceipt, TxRequest, ZERO_FR } from '@aztec/aztec-rpc';
 import { ContractDeployer } from './contract_deployer.js';
-import { EthAddress, Fr } from '@aztec/circuits.js';
+import { AztecAddress, EthAddress, Fr } from '@aztec/circuits.js';
 import { randomBytes } from 'crypto';
 
 describe('Contract Deployer', () => {
@@ -22,7 +22,7 @@ describe('Contract Deployer', () => {
 
   const portalContract = new EthAddress(randomBytes(EthAddress.SIZE_IN_BYTES));
   const contractAddressSalt = new Fr(randomBytes(Fr.SIZE_IN_BYTES));
-  const account = new Fr(randomBytes(Fr.SIZE_IN_BYTES));
+  const account = AztecAddress.random();
 
   const mockTxRequest = { type: 'TxRequest' } as any as TxRequest;
   const mockSignature = { type: 'Signature' } as any as Signature;

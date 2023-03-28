@@ -13,8 +13,9 @@ import {
   PUBLIC_CALL_STACK_LENGTH,
   L1_MSG_STACK_LENGTH,
   RETURN_VALUES_LENGTH,
+  TxRequest,
 } from '@aztec/circuits.js';
-import { PrivateCallStackItem, TxRequest } from './circuits.js';
+import { PrivateCallStackItem } from './db_oracle.js';
 
 export interface ExecutionResult {
   // Needed for prover

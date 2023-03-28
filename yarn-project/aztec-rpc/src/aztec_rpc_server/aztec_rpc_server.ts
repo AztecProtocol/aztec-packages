@@ -1,6 +1,6 @@
 import { AcirSimulator } from '@aztec/acir-simulator';
 import { AztecNode } from '@aztec/aztec-node';
-import { UInt8Vector } from '@aztec/circuits.js';
+import { TxRequest, UInt8Vector } from '@aztec/circuits.js';
 import { KernelProver } from '@aztec/kernel-prover';
 import { Tx } from '@aztec/p2p';
 import { generateFunctionSelector } from '../abi_coder/index.js';
@@ -14,13 +14,13 @@ import {
   OldTreeRoots,
   TxContext,
 } from '@aztec/circuits.js';
-import { ContractDao, ContractDataSource } from '../contract_data_source/index.js';
+import { ContractDao } from '../contract_data_source/index.js';
 import { KeyStore } from '../key_store/index.js';
 import { ContractAbi } from '../noir.js';
 import { Synchroniser } from '../synchroniser/index.js';
 import { TxHash } from '../tx/index.js';
-import { generateContractAddress, selectorToNumber, Signature, TxRequest, ZERO_FR } from '../circuits.js';
-import { createDebugLogger, createLogger, randomBytes } from '@aztec/foundation';
+import { generateContractAddress, selectorToNumber, Signature, ZERO_FR } from '../circuits.js';
+import { createDebugLogger, randomBytes } from '@aztec/foundation';
 import { Database } from '../database/database.js';
 import { TxDao } from '../database/tx_dao.js';
 
@@ -99,8 +99,8 @@ export class AztecRPCServer implements AztecRPCClient {
       contractAddress,
       functionData,
       args,
-      txContext,
       new Fr(randomBytes(Fr.SIZE_IN_BYTES)), // nonce
+      txContext,
       ZERO_FR, // chainId
     );
   }
@@ -131,8 +131,8 @@ export class AztecRPCServer implements AztecRPCClient {
       to,
       functionData,
       args,
-      txContext,
       new Fr(randomBytes(Fr.SIZE_IN_BYTES)), // nonce
+      txContext,
       ZERO_FR, // chainId
     );
   }
@@ -178,7 +178,7 @@ export class AztecRPCServer implements AztecRPCClient {
       executionResult,
       oldRoots as any, // TODO - remove `as any`
     );
-    const tx = new Tx(publicInputs);
+    const tx = new Tx(publicInputs, new UInt8Vector(Buffer.alloc(0)));
     const dao: TxDao = new TxDao(
       new TxHash(tx.txId),
       undefined,
@@ -189,8 +189,8 @@ export class AztecRPCServer implements AztecRPCClient {
       '',
     );
     await this.db.addOrUpdateTx(dao);
-    // TODO I think the TX should include all the data from the publicInputs + proof
-    return new Tx(publicInputs, new UInt8Vector(Buffer.alloc(0)));
+
+    return tx;
   }
 
   public async sendTx(tx: Tx) {

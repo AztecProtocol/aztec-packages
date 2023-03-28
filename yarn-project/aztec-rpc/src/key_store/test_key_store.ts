@@ -1,4 +1,5 @@
-import { TxRequest, ZERO_FR } from '../circuits.js';
+import { TxRequest } from '@aztec/circuits.js';
+import { ZERO_FR } from '../circuits.js';
 import { ConstantKeyPair, KeyPair } from './key_pair.js';
 import { KeyStore } from './key_store.js';
 
