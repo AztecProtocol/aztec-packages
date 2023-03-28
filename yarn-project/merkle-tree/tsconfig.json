@@ -5,6 +5,7 @@
     "rootDir": "src",
     "moduleResolution": "nodenext",
     "allowSyntheticDefaultImports": true,
+    "composite": true,
     "types": [
       "node",
       "jest"
