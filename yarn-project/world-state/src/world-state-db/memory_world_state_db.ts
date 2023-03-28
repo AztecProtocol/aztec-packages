@@ -125,7 +125,7 @@ export class MerkleTrees implements MerkleTreeDb {
     treeId: IndexedMerkleTreeId,
     value: bigint,
   ): Promise<{ index: number; alreadyPresent: boolean }> {
-    return this._getIndexedTree(treeId).findIndexOfPreviousValue(value);
+    return await this.synchronise(() => Promise.resolve(this._getIndexedTree(treeId).findIndexOfPreviousValue(value)));
   }
 
   public getLeafData(treeId: IndexedMerkleTreeId, index: number): LeafData | undefined {
@@ -139,14 +139,16 @@ export class MerkleTrees implements MerkleTreeDb {
    * @returns The index of the first leaf found with that value, or undefined is not found.
    */
   public async findLeafIndex(treeId: MerkleTreeId, needle: Buffer): Promise<bigint | undefined> {
-    const tree = this.trees[treeId];
-    for (let i = 0n; i < tree.getNumLeaves(); i++) {
-      const value = await tree.getLeafValue(i);
-      if (value && needle.equals(value)) {
-        return i;
+    return await this.synchronise(async () => {
+      const tree = this.trees[treeId];
+      for (let i = 0n; i < tree.getNumLeaves(); i++) {
+        const value = await tree.getLeafValue(i);
+        if (value && needle.equals(value)) {
+          return i;
+        }
       }
-    }
-    return undefined;
+      return undefined;
+    });
   }
 
   /**
