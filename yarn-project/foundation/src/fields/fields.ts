@@ -21,11 +21,11 @@ export class Fr {
 
   static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
-    return new this(toBigIntBE(reader.readBytes(32)));
+    return new this(toBigIntBE(reader.readBytes(this.SIZE_IN_BYTES)));
   }
 
   toBuffer() {
-    return toBufferBE(this.value, 32);
+    return toBufferBE(this.value, Fr.SIZE_IN_BYTES);
   }
 }
 
@@ -47,10 +47,10 @@ export class Fq {
 
   static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
-    return new this(toBigIntBE(reader.readBytes(32)));
+    return new this(toBigIntBE(reader.readBytes(this.SIZE_IN_BYTES)));
   }
 
   toBuffer() {
-    return toBufferBE(this.value, 32);
+    return toBufferBE(this.value, Fq.SIZE_IN_BYTES);
   }
 }
