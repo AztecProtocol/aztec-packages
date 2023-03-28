@@ -8,4 +8,6 @@ services:
 
   end-to-end:
     image: aztecprotocol/end-to-end:latest
+    environment:
+      ETHEREUM_HOST: http://fork:8545
     command: ${TEST:-./src/e2e_deploy_contract.test.ts}
