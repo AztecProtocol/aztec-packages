@@ -24,10 +24,6 @@ export class Fr {
     return new this(toBigIntBE(reader.readBytes(32)));
   }
 
-  static fromBufferReader(reader: BufferReader) {
-    return this.fromBuffer(reader.readBytes(this.SIZE_IN_BYTES));
-  }
-
   toBuffer() {
     return toBufferBE(this.value, 32);
   }
@@ -49,15 +45,9 @@ export class Fq {
     return new this(r);
   }
 
-  static fromBuffer(buffer: Buffer) {
-    if (buffer.length > this.SIZE_IN_BYTES) {
-      throw new Error(`Unexpected buffer size ${buffer.length} (expected ${this.SIZE_IN_BYTES} bytes)`);
-    }
-    return new this(toBigIntBE(buffer));
-  }
-
-  static fromBufferReader(reader: BufferReader) {
-    return this.fromBuffer(reader.readBytes(this.SIZE_IN_BYTES));
+  static fromBuffer(buffer: Buffer | BufferReader) {
+    const reader = BufferReader.asReader(buffer);
+    return new this(toBigIntBE(reader.readBytes(32)));
   }
 
   toBuffer() {
