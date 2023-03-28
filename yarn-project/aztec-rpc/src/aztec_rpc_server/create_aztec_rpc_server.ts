@@ -3,6 +3,7 @@ import { AztecNode } from '@aztec/aztec-node';
 import { KernelProver } from '@aztec/kernel-prover';
 import { MemoryDB } from '../database/index.js';
 import { KeyStore, TestKeyStore } from '../key_store/index.js';
+import { SimulatorOracle } from '../simulator_oracle/index.js';
 import { Synchroniser } from '../synchroniser/index.js';
 import { AztecRPCServer } from './aztec_rpc_server.js';
 
@@ -25,7 +26,7 @@ export async function createAztecRPCServer(
   keyStore = keyStore || new TestKeyStore();
   db = db || new MemoryDB();
   synchroniser = synchroniser || new Synchroniser(aztecNode, db);
-  acirSimulator = acirSimulator || new AcirSimulator();
+  acirSimulator = acirSimulator || new AcirSimulator(new SimulatorOracle(db));
   kernelProver = kernelProver || new KernelProver();
 
   return await Promise.resolve(new AztecRPCServer(keyStore, synchroniser, acirSimulator, kernelProver, aztecNode, db));

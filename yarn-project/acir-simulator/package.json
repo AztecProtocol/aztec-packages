@@ -29,7 +29,6 @@
     "rootDir": "./src"
   },
   "dependencies": {
-    "@aztec/circuits.js": "workspace:^",
     "tslib": "^2.4.0"
   },
   "devDependencies": {

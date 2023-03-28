@@ -3,30 +3,18 @@ import {
   PrivateCircuitPublicInputs,
   EthAddress,
   OldTreeRoots,
-} from '@aztec/circuits.js';
-import { PrivateCallStackItem, TxRequest } from './circuits.js';
-
-export interface ExecutionPreimages {
-  newNotes: Buffer[];
-  nullifiedNotes: Buffer[];
-}
-
-export interface ExecutionResult {
-  // Needed for prover
-  acir: Buffer;
-  partialWitness: Buffer;
-  // Needed for the verifier (kernel)
-  callStackItem: PrivateCallStackItem;
-  // Needed for the user
-  preimages: ExecutionPreimages;
-  // Nested executions
-  nestedExecutions: this[];
-}
+  PrivateCallStackItem,
+  TxRequest,
+} from './circuits.js';
+import { DBOracle } from './db_oracle.js';
+import { ExecutionResult } from './execution.js';
 
 /**
  * A placeholder for the Acir Simulator.
  */
 export class AcirSimulator {
+  constructor(private db: DBOracle) {}
+
   run(
     request: TxRequest,
     entryPointACIR: Buffer,

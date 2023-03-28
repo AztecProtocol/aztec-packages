@@ -1,19 +1,32 @@
-import { NoteLoadOracleInputs } from './db_oracle.js';
+export type ACVMField = `0x${string}`;
+
+export interface ACVMNoteInputs {
+  note: ACVMField[];
+  siblingPath: ACVMField[];
+  index: number;
+  root: ACVMField;
+}
+
+export type ACVMWitness = Map<number, ACVMField>;
 
 export interface ACIRCallback {
-  getSecretKey(publicKey: Buffer): Promise<Buffer>;
-  getNotes2(storageSlot: Buffer): Promise<NoteLoadOracleInputs[]>;
-  getRandomField(): Promise<Buffer>;
-  notifyCreateNote(notePreimage: Buffer) : Promise<void>;
-  notifyNullifiedNote(notePreimage: Buffer): Promise<void>;
+  getSecretKey(publicKey: ACVMField): Promise<ACVMField>;
+  getNotes2(storageSlot: ACVMField): Promise<ACVMNoteInputs[]>;
+  getRandomField(): Promise<ACVMField>;
+  notifyCreatedNote(notePreimage: ACVMField[]): Promise<void>;
+  notifyNullifiedNote(nullifier: ACVMField): Promise<void>;
 }
 
 export interface ACIRExecutionResult {
-  partialWitness: Map<number, `0x${string}`>,
+  partialWitness: ACVMWitness;
 }
 
-export type execute = (
-  acir: Buffer,
-  initialWitness: Map<number, `0x${string}`>,
-  oracle: ACIRCallback,
-) => Promise<ACIRExecutionResult>;
+export type execute = (acir: Buffer, initialWitness: ACVMWitness, oracle: ACIRCallback) => Promise<ACIRExecutionResult>;
+
+export const acvmMock: execute = (_, initialWitness) => {
+  const partialWitness = new Map<number, ACVMField>();
+  for (const [key, value] of initialWitness.entries()) {
+    partialWitness.set(key, value);
+  }
+  return Promise.resolve({ partialWitness });
+};
