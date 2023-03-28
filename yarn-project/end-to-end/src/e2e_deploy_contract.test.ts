@@ -40,10 +40,10 @@ describe('e2e_deploy_contract', () => {
    */
   it.skip('should not deploy a contract with the same salt twice', async () => {
     const contractAddressSalt = Fr.random();
-    const deployer = new ContractDeployer(abi, arc, { contractAddressSalt });
+    const deployer = new ContractDeployer(abi, arc);
 
     {
-      const receipt = await deployer.deploy().send().getReceipt();
+      const receipt = await deployer.deploy().send({ contractAddressSalt }).getReceipt();
       expect(receipt.status).toBe(true);
       expect(receipt.error).toBe('');
     }

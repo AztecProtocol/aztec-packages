@@ -28,6 +28,7 @@ export function contractAbiToContractDao(
   deployed: boolean,
 ): ContractDao {
   return {
+    name: abi.name,
     address,
     portalAddress,
     functions: abi.functions.map(functionAbiToFunctionDao),

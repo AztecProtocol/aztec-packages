@@ -5,6 +5,7 @@ import {
   ContractAbi,
   EthAddress,
   Fr,
+  FunctionType,
   Signature,
   Tx,
   TxHash,
@@ -17,14 +18,14 @@ describe('Contract Deployer', () => {
   let arc: ReturnType<typeof mock<AztecRPCClient>>;
 
   const abi: ContractAbi = {
+    name: 'MyContract',
     functions: [
       {
         name: 'constructor',
-        isSecret: true,
+        functionType: FunctionType.SECRET,
         parameters: [],
         returnTypes: [],
-        bytecode: '0x01234567',
-        verificationKey: '0x98765432',
+        bytecode: '0af',
       },
     ],
   };

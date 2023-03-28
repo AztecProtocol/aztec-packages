@@ -18,7 +18,7 @@ import {
 } from '../circuits.js';
 import { ContractDao, ContractDataSource } from '../contract_data_source/index.js';
 import { KeyStore } from '../key_store/index.js';
-import { ContractAbi } from '../noir.js';
+import { ContractAbi, FunctionType } from '../noir.js';
 import { Synchroniser } from '../synchroniser/index.js';
 import { TxHash } from '../tx/index.js';
 
@@ -92,17 +92,20 @@ export class AztecRPCServer implements AztecRPCClient {
     );
   }
 
-  public async createTxRequest(functionSelector: Buffer, args: Fr[], to: AztecAddress, from: AztecAddress) {
+  public async createTxRequest(functionName: string, args: Fr[], to: AztecAddress, from: AztecAddress) {
     const contract = await this.db.getContract(to);
     if (!contract) {
       throw new Error('Unknown contract.');
     }
 
-    const functionDao = this.findFunction(contract, functionSelector);
+    const functionDao = contract.functions.find(f => f.name === functionName);
+    if (!functionDao) {
+      throw new Error('Unknown function.');
+    }
 
     const functionData = {
-      functionSelector,
-      isSecret: functionDao.isSecret,
+      functionSelector: functionDao.selector,
+      isSecret: functionDao.functionType === FunctionType.SECRET,
       isContructor: false,
     };
 
@@ -142,12 +145,15 @@ export class AztecRPCServer implements AztecRPCClient {
       throw new Error('Unknown contract.');
     }
 
-    const functionDao = this.findFunction(contract, txRequest.functionData.functionSelector);
+   const functionDao = contract.functions.find(f => f.selector.equals(txRequest.functionData.functionSelector));
+    if (!functionDao) {
+      throw new Error('Unknown function.');
+    }
 
     const oldRoots = new OldTreeRoots(Fr.ZERO, Fr.ZERO, Fr.ZERO, Fr.ZERO); // TODO - get old roots from the database/node
     const executionResult = await this.acirSimulator.run(
       txRequest,
-      Buffer.from(functionDao.bytecode, 'base64'),
+      Buffer.from(functionDao.bytecode),
       contract.portalAddress,
       oldRoots,
     );
@@ -170,11 +176,5 @@ export class AztecRPCServer implements AztecRPCClient {
     return this.synchroniser.getTxReceipt(txHash);
   }
 
-  private findFunction(contract: ContractDao, functionSelector: Buffer) {
-    const functionDao = contract.functions.find(f => f.selector.equals(functionSelector));
-    if (!functionDao) {
-      throw new Error('Unknown function.');
-    }
-    return functionDao;
-  }
+
 }

@@ -1,4 +1,5 @@
 import { randomBytes } from './foundation.js';
+import { FunctionType } from './noir.js';
 
 export class Fr {
   public static ZERO = new Fr(Buffer.alloc(32));
