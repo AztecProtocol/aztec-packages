@@ -2,6 +2,9 @@ import { AztecAddress, EthAddress, Fr } from '@aztec/circuits.js';
 
 export type ACVMField = `0x${string}`;
 
+const ZERO_ACVM_FIELD: ACVMField = `0x${Buffer.alloc(32).toString('hex')}`;
+const ONE_ACVM_FIELD: ACVMField = `0x${'00'.repeat(31)}01`;
+
 export interface ACVMNoteInputs {
   note: ACVMField[];
   siblingPath: ACVMField[];
@@ -27,15 +30,29 @@ export type execute = (acir: Buffer, initialWitness: ACVMWitness, oracle: ACIRCa
 
 export const acvmMock: execute = (_, initialWitness) => {
   const partialWitness = new Map<number, ACVMField>();
-  for (const [key, value] of initialWitness.entries()) {
-    partialWitness.set(key, value);
+  for (let i = 0; i < 100; i++) {
+    if (initialWitness.has(i)) {
+      partialWitness.set(i, initialWitness.get(i)!);
+    } else {
+      partialWitness.set(i, ZERO_ACVM_FIELD);
+    }
   }
+
   return Promise.resolve({ partialWitness });
 };
 
+function adaptBufferSize(originalBuf: Buffer) {
+  const buffer = Buffer.alloc(32);
+  if (originalBuf.length > buffer.length) {
+    throw new Error('Buffer does not fit in 32 bytes');
+  }
+  originalBuf.copy(buffer, buffer.length - originalBuf.length);
+  return buffer;
+}
+
 export function toACVMField(value: EthAddress | AztecAddress | Fr | Buffer | boolean): `0x${string}` {
   if (typeof value === 'boolean') {
-    return value ? '0x01' : '0x00';
+    return value ? ONE_ACVM_FIELD : ZERO_ACVM_FIELD;
   }
 
   let buffer;
@@ -48,10 +65,15 @@ export function toACVMField(value: EthAddress | AztecAddress | Fr | Buffer | boo
     buffer = value.toBuffer();
   }
 
-  return `0x${buffer.toString('hex')}`;
+  return `0x${adaptBufferSize(buffer).toString('hex')}`;
 }
 
 export function fromACVMField(field: `0x${string}`): Fr {
   const buffer = Buffer.from(field.slice(2), 'hex');
   return new Fr(buffer);
+}
+
+export interface FunctionWitnessIndexes {
+  paramWitnesses: Record<string, number>;
+  returnWitneses: number[];
 }

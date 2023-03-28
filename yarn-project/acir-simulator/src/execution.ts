@@ -135,7 +135,9 @@ export class Execution {
     writer.writeField(callContext.isStaticCall);
     writer.writeField(callContext.isContractDeployment);
 
-    writer.writeFieldArray(new Array(ARGS_LENGTH).fill(Fr.ZERO).map((value, i) => args[i] || value));
+    writer.writeFieldArray(
+      new Array(ARGS_LENGTH).fill(new Fr(Buffer.alloc(Fr.SIZE_IN_BYTES))).map((value, i) => args[i] || value),
+    );
 
     writer.jump(RETURN_VALUES_LENGTH);
     writer.jump(EMITTED_EVENTS_LENGTH);

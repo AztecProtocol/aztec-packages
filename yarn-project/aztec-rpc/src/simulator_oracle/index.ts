@@ -1,5 +1,5 @@
 import { DBOracle, NoteLoadOracleInputs } from '@aztec/acir-simulator';
-import { AztecAddress, EthAddress } from '../circuits.js';
+import { AztecAddress, EthAddress } from '@aztec/circuits.js';
 import { Database } from '../database/database.js';
 import { KeyStore } from '../key_store/key_store.js';
 
