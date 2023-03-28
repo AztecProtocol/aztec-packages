@@ -120,5 +120,6 @@ export const createTx = () => {
     createOptionallyRetrievedDatas(KERNEL_OPTIONALLY_REVEALED_DATA_LENGTH),
   );
   const kernelInputs = new PrivateKernelPublicInputs(accumulatedData, constantData, true);
-  return new Tx(kernelInputs);
+  const auxData = randomBytes(100); // not yet determined what the valid size will be
+  return new Tx(kernelInputs, auxData);
 };

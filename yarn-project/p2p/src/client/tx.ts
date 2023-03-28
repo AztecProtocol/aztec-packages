@@ -14,7 +14,13 @@ const hash = new Keccak(256);
  */
 export class Tx {
   private _id?: Buffer;
-  constructor(private txData: PrivateKernelPublicInputs) {}
+
+  /**
+   * 
+   * @param txData - Tx inputs.
+   * @param auxData  - Information not needed to verify the tx (e.g. encrypted note pre-images etc.)
+   */
+  constructor(private txData: PrivateKernelPublicInputs, private auxData: Buffer) {}
 
   /**
    * Construct & return transaction ID.

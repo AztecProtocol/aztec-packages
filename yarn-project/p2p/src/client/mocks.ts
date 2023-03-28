@@ -1,9 +1,10 @@
 import { L2Block, L2BlockSource, mockRandomL2Block } from '@aztec/archiver';
 import { makePrivateKernelPublicInputs } from '@aztec/circuits.js/factories';
 import { Tx } from './tx.js';
+import { randomBytes } from 'crypto';
 
 export const MockTx = () => {
-  return new Tx(makePrivateKernelPublicInputs());
+  return new Tx(makePrivateKernelPublicInputs(), randomBytes(100));
 };
 
 export class MockBlockSource implements L2BlockSource {
