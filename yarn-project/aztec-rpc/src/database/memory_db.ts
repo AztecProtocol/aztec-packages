@@ -1,12 +1,12 @@
 import { AztecAddress, Fr } from '@aztec/foundation';
-import { MemoryContractDataSource } from '../contract_data_source/index.js';
-import { TxHash } from '../tx/index.js';
+import { TxHash } from '@aztec/tx';
+
+import { MemoryContractDatabase } from '../contract_database/index.js';
 import { Database } from './database.js';
 import { NoteDao } from './note_dao.js';
 import { TxDao } from './tx_dao.js';
 
-// TODO Transform this into a mixin?
-export class MemoryDB extends MemoryContractDataSource implements Database {
+export class MemoryDB extends MemoryContractDatabase implements Database {
   private txs: TxDao[] = [];
   private notes: NoteDao[] = [];
 

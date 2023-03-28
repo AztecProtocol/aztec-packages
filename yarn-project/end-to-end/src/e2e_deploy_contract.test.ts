@@ -1,4 +1,4 @@
-import { AztecNode, AztecNodeConfig } from '@aztec/aztec-node';
+import { AztecNode } from '@aztec/aztec-node';
 import { AztecAddress, AztecRPCServer, ContractDeployer, Fr } from '@aztec/aztec.js';
 import { EthAddress } from '@aztec/ethereum.js/eth_address';
 import { EthereumRpc } from '@aztec/ethereum.js/eth_rpc';
@@ -9,7 +9,7 @@ import { createAztecNode } from './create_aztec_node.js';
 import { createAztecRpcServer } from './create_aztec_rpc_client.js';
 import { createProvider, deployRollupContract, deployYeeterContract } from './deploy_l1_contracts.js';
 
-const ETHEREUM_HOST = 'http://localhost:8545';
+const { ETHEREUM_HOST = 'http://localhost:8545' } = process.env;
 const MNEMONIC = 'test test test test test test test test test test test junk';
 
 const logger = createDebugLogger('aztec:e2e_deploy_contract');

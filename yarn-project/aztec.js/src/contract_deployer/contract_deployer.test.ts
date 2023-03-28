@@ -1,5 +1,6 @@
 import { mock } from 'jest-mock-extended';
-import { AztecRPCClient, ContractAbi, Signature, Tx, TxHash, TxReceipt, TxRequest, ZERO_FR } from '@aztec/aztec-rpc';
+import { AztecRPCClient, ContractAbi, Signature, Tx, TxHash, TxReceipt, TxRequest } from '@aztec/aztec-rpc';
+
 import { ContractDeployer } from './contract_deployer.js';
 import { AztecAddress, EthAddress, Fr } from '@aztec/circuits.js';
 import { randomBytes } from 'crypto';
@@ -96,10 +97,10 @@ describe('Contract Deployer', () => {
       [],
       new EthAddress(Buffer.alloc(EthAddress.SIZE_IN_BYTES)), // portalContract
       expect.anything(), // contractAddressSalt
-      ZERO_FR, // account
+      new Fr(0), // account
     );
     const defaultContractAddressSalt = arc.createDeploymentTxRequest.mock.calls[0][3];
     expect(defaultContractAddressSalt).not.toEqual(contractAddressSalt);
-    expect(defaultContractAddressSalt).not.toEqual(ZERO_FR);
+    expect(defaultContractAddressSalt).not.toEqual(new Fr(0));
   });
 });

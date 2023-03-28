@@ -1,5 +1,5 @@
+import { TxHash } from '@aztec/tx';
 import { AztecAddress } from '@aztec/circuits.js';
-import { TxHash } from './tx_hash.js';
 
 export interface TxReceipt {
   txHash: TxHash;

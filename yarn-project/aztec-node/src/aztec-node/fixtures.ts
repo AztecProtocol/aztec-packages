@@ -27,7 +27,7 @@ import { EthereumRpc } from '@aztec/ethereum.js/eth_rpc';
 import { WalletProvider } from '@aztec/ethereum.js/provider';
 import { AztecAddress, randomBytes } from '@aztec/foundation';
 import { Rollup, Yeeter } from '@aztec/l1-contracts';
-import { Tx } from '@aztec/p2p';
+import { Tx } from '@aztec/tx';
 
 // REFACTOR: Use @aztec/circuit.js/factories where possible
 export const createCircuitEthAddress = () => {

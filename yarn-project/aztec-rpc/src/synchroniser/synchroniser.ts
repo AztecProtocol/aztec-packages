@@ -1,3 +1,4 @@
+import { TxHash } from '@aztec/tx';
 import { AztecNode } from '@aztec/aztec-node';
 import { createDebugLogger, InterruptableSleep } from '@aztec/foundation';
 import { AccountState } from '../account_state/index.js';
@@ -10,9 +11,8 @@ import {
 } from '@aztec/circuits.js';
 import { Database, TxDao } from '../database/index.js';
 import { ContractAbi } from '../noir.js';
-import { TxHash } from '../tx/index.js';
-import { L2Block } from '@aztec/archiver';
-import { keccak256 } from '../foundation.js';
+import { L2Block } from '@aztec/l2-block';
+import { keccak } from '@aztec/foundation';
 
 export class Synchroniser {
   private runningPromise?: Promise<void>;
@@ -20,7 +20,11 @@ export class Synchroniser {
   private interruptableSleep = new InterruptableSleep();
   private running = false;
 
-  constructor(private node: AztecNode, private db: Database, private log = createDebugLogger('aztec:synchroniser')) {}
+  constructor(
+    private node: AztecNode,
+    private db: Database,
+    private log = createDebugLogger('aztec:aztec_rps_synchroniser'),
+  ) {}
 
   public start(from = 1, take = 1, retryInterval = 1000) {
     if (this.running) {
@@ -124,16 +128,14 @@ export class Synchroniser {
               .map(x => x.toBuffer()),
           ].flat(),
         );
-        const txDao: TxDao | undefined = await this.db.getTx(new TxHash(keccak256(dataToHash)));
+        const txDao: TxDao | undefined = await this.db.getTx(new TxHash(keccak(dataToHash)));
         if (txDao !== undefined) {
-          txDao.blockHash = keccak256(block.encode());
+          txDao.blockHash = keccak(block.encode());
           txDao.blockNumber = block.number;
           await this.db.addOrUpdateTx(txDao);
         }
         i++;
       }
-      const contractAddresses = block.newContractData.map(d => new AztecAddress(d.aztecAddress.toBuffer())).flat();
-      await this.db.confirmContractsDeployed(contractAddresses);
       this.log(`Synched block ${block.number}`);
     }
   }

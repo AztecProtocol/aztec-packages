@@ -1,6 +1,7 @@
 import { AztecAddress, Fr } from '@aztec/foundation';
-import { ContractDataSource } from '../contract_data_source/index.js';
-import { TxHash } from '../tx/index.js';
+import { TxHash } from '@aztec/tx';
+
+import { ContractDataSource } from '../contract_database/index.js';
 import { NoteDao } from './note_dao.js';
 import { TxDao } from './tx_dao.js';
 

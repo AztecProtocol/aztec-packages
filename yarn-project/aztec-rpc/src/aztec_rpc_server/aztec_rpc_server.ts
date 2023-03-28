@@ -1,26 +1,26 @@
 import { AcirSimulator } from '@aztec/acir-simulator';
 import { AztecNode } from '@aztec/aztec-node';
-import { TxRequest, UInt8Vector } from '@aztec/circuits.js';
-import { KernelProver } from '@aztec/kernel-prover';
-import { Tx } from '@aztec/p2p';
-import { generateFunctionSelector } from '../abi_coder/index.js';
-import { AztecRPCClient } from '../aztec_rpc_client/index.js';
 import {
+  ARGS_LENGTH,
+  TxRequest,
+  UInt8Vector,
   AztecAddress,
   ContractDeploymentData,
   EthAddress,
-  Fr,
   FunctionData,
   OldTreeRoots,
   TxContext,
 } from '@aztec/circuits.js';
-import { ContractDao } from '../contract_data_source/index.js';
+import { KernelProver } from '@aztec/kernel-prover';
+import { Tx, TxHash } from '@aztec/tx';
+import { generateFunctionSelector } from '../abi_coder/index.js';
+import { AztecRPCClient, DeployedContract } from '../aztec_rpc_client/index.js';
+import { ContractDao } from '../contract_database/index.js';
 import { KeyStore } from '../key_store/index.js';
 import { ContractAbi } from '../noir.js';
 import { Synchroniser } from '../synchroniser/index.js';
-import { TxHash } from '../tx/index.js';
 import { generateContractAddress, selectorToNumber, Signature, ZERO_FR } from '../circuits.js';
-import { createDebugLogger, randomBytes } from '@aztec/foundation';
+import { createDebugLogger, randomBytes, Fr } from '@aztec/foundation';
 import { Database } from '../database/database.js';
 import { TxDao } from '../database/tx_dao.js';
 
@@ -47,6 +47,10 @@ export class AztecRPCServer implements AztecRPCClient {
     this.log(`adding account ${accountPublicKey.toString()}`);
     await this.synchroniser.addAccount(accountPublicKey);
     return accountPublicKey;
+  }
+
+  public async addContracts(contracts: DeployedContract[]) {
+    await Promise.all(contracts.map(c => this.db.addContract(c.address, c.portalAddress, c.abi)));
   }
 
   public getAccounts() {
@@ -94,11 +98,17 @@ export class AztecRPCServer implements AztecRPCClient {
     const contractAddress = generateContractAddress(fromAddress, contractAddressSalt, args);
     await this.db.addContract(contractAddress, portalContract, abi, false);
 
+    const txRequestArgs = args.concat(
+      Array(ARGS_LENGTH - args.length)
+        .fill(0)
+        .map(() => new Fr(0)),
+    );
+
     return new TxRequest(
       fromAddress,
       contractAddress,
       functionData,
-      args,
+      txRequestArgs,
       new Fr(randomBytes(Fr.SIZE_IN_BYTES)), // nonce
       txContext,
       ZERO_FR, // chainId
