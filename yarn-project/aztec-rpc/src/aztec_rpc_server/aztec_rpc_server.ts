@@ -9,7 +9,6 @@ import {
   AztecAddress,
   ContractDeploymentData,
   EthAddress,
-  Fr,
   FunctionData,
   OldTreeRoots,
   TxContext,
@@ -19,7 +18,7 @@ import { KeyStore } from '../key_store/index.js';
 import { ContractAbi } from '../noir.js';
 import { Synchroniser } from '../synchroniser/index.js';
 import { generateContractAddress, selectorToNumber, Signature } from '../circuits.js';
-import { createDebugLogger, randomBytes } from '@aztec/foundation';
+import { createDebugLogger, randomBytes, Fr } from '@aztec/foundation';
 import { Database } from '../database/database.js';
 import { TxDao } from '../database/tx_dao.js';
 
@@ -106,7 +105,7 @@ export class AztecRPCServer implements AztecRPCClient {
       txRequestArgs,
       new Fr(randomBytes(Fr.SIZE_IN_BYTES)), // nonce
       txContext,
-      ZERO_FR, // chainId
+      Fr.ZERO, // chainId
     );
   }
 
