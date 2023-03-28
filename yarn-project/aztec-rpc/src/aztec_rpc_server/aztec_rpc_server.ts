@@ -178,7 +178,7 @@ export class AztecRPCServer implements AztecRPCClient {
       executionResult,
       oldRoots as any, // TODO - remove `as any`
     );
-    const tx = new Tx(publicInputs);
+    const tx = new Tx(publicInputs, new UInt8Vector(Buffer.alloc(0)));
     const dao: TxDao = new TxDao(
       new TxHash(tx.txId),
       undefined,
@@ -190,7 +190,7 @@ export class AztecRPCServer implements AztecRPCClient {
     );
     await this.db.addOrUpdateTx(dao);
     // TODO I think the TX should include all the data from the publicInputs + proof
-    return new Tx(publicInputs, new UInt8Vector(Buffer.alloc(0)));
+    return tx;
   }
 
   public async sendTx(tx: Tx) {
