@@ -5,8 +5,6 @@ import { L2Block, L2BlockSource } from '@aztec/l2-block';
 import { createPublicClient, decodeFunctionData, getAddress, Hex, hexToBytes, http, Log, PublicClient } from 'viem';
 import { localhost } from 'viem/chains';
 import { ArchiverConfig } from './config.js';
-import { L2Block } from '../l2_block/l2_block.js';
-import { L2BlockSource } from '../l2_block/l2_block_source.js';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/l1-contracts';
 import { UnverifiedDataSource } from '../unverified_data_source.js';
 
