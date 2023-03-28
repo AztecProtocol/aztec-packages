@@ -1,6 +1,3 @@
-import { default as levelup } from 'levelup';
-import { StandardMerkleTree, Pedersen, SiblingPath, IndexedTree, MerkleTree, LeafData } from '@aztec/merkle-tree';
-import { SerialQueue } from '@aztec/foundation';
 import {
   CONTRACT_TREE_HEIGHT,
   CONTRACT_TREE_ROOTS_TREE_HEIGHT,
@@ -8,6 +5,9 @@ import {
   PRIVATE_DATA_TREE_HEIGHT,
   PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT,
 } from '@aztec/circuits.js';
+import { SerialQueue } from '@aztec/foundation';
+import { IndexedTree, LeafData, MerkleTree, Pedersen, SiblingPath, StandardMerkleTree } from '@aztec/merkle-tree';
+import { default as levelup } from 'levelup';
 import { IndexedMerkleTreeId, MerkleTreeDb, MerkleTreeId, TreeInfo } from './index.js';
 
 /**
@@ -121,12 +121,32 @@ export class MerkleTrees implements MerkleTreeDb {
     return await this.synchronise(() => this._rollback());
   }
 
-  public async getPreviousValueIndex(treeId: IndexedMerkleTreeId, value: bigint): Promise<{ index: number, alreadyPresent: boolean }> {
+  public async getPreviousValueIndex(
+    treeId: IndexedMerkleTreeId,
+    value: bigint,
+  ): Promise<{ index: number; alreadyPresent: boolean }> {
     return this._getIndexedTree(treeId).findIndexOfPreviousValue(value);
   }
-  
+
   public getLeafData(treeId: IndexedMerkleTreeId, index: number): LeafData | undefined {
     return this._getIndexedTree(treeId).getLatestLeafDataCopy(index);
+  }
+
+  /**
+   * Returns the index of a leaf given its value, or undefined if no leaf with that value is found.
+   * @param treeId - The ID of the tree.
+   * @param needle - The value to look for.
+   * @returns The index of the first leaf found with that value, or undefined is not found.
+   */
+  public async findLeafIndex(treeId: MerkleTreeId, needle: Buffer): Promise<bigint | undefined> {
+    const tree = this.trees[treeId];
+    for (let i = 0n; i < tree.getNumLeaves(); i++) {
+      const value = await tree.getLeafValue(i);
+      if (value && needle.equals(value)) {
+        return i;
+      }
+    }
+    return undefined;
   }
 
   /**

@@ -308,4 +308,10 @@ export class IndexedTree implements MerkleTree {
         } as LeafData)
       : undefined;
   }
+
+  public async getLeafValue(index: bigint): Promise<Buffer | undefined> {
+    const leaf = this.getLatestLeafDataCopy(Number(index));
+    if (!leaf) return undefined;
+    return toBufferBE(leaf.value, 32);
+  }
 }

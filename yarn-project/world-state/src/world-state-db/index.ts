@@ -41,7 +41,10 @@ export interface MerkleTreeOperations {
   getTreeInfo(treeId: MerkleTreeId): Promise<TreeInfo>;
   appendLeaves(treeId: MerkleTreeId, leaves: Buffer[]): Promise<void>;
   getSiblingPath(treeId: MerkleTreeId, index: bigint): Promise<SiblingPath>;
-  getPreviousValueIndex(treeId: IndexedMerkleTreeId, value: bigint): Promise<{ index: number, alreadyPresent: boolean }>;
+  getPreviousValueIndex(
+    treeId: IndexedMerkleTreeId,
+    value: bigint,
+  ): Promise<{ index: number; alreadyPresent: boolean }>;
   getLeafData(treeId: IndexedMerkleTreeId, index: number): LeafData | undefined;
   findLeafIndex(treeId: MerkleTreeId, value: Buffer): Promise<bigint | undefined>;
 }

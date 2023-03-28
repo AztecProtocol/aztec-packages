@@ -23,21 +23,18 @@ import { Proof, Prover } from '../prover/index.js';
 import { Simulator } from '../simulator/index.js';
 import { VerificationKeys } from './vks.js';
 
-// Convert Fr to and from bigint.
 // REFACTOR: Move this somewhere generic, and do something less horrible without going through hex strings.
 const frToBigInt = (fr: Fr) => BigInt(`0x${fr.toBuffer().toString('hex')}`);
-
 const bigintToFr = (num: bigint) => new Fr(Buffer.from(num.toString(16), 'hex'));
-
 const bigintToNum = (num: bigint) => Number(num);
 
+// Denotes fields that are not used now, but will be in the future
 const FUTURE_FR = new Fr(0);
 const FUTURE_NUM = 0;
+
+// Denotes fields that should be deleted
 const DELETE_FR = new Fr(0);
 const DELETE_ANY: any = {};
-const TODO_FR = new Fr(0);
-const TODO_NUM = 0;
-const TODO: any = {};
 
 export class CircuitPoweredBlockBuilder {
   constructor(
