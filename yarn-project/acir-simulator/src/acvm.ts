@@ -18,8 +18,8 @@ export interface ACIRCallback {
   getSecretKey(publicKey: ACVMField): Promise<ACVMField>;
   getNotes2(storageSlot: ACVMField): Promise<ACVMNoteInputs[]>;
   getRandomField(): Promise<ACVMField>;
-  notifyCreatedNote(notePreimage: ACVMField[]): Promise<void>;
-  notifyNullifiedNote(nullifier: ACVMField): Promise<void>;
+  notifyCreatedNote(preimage: ACVMField[], commitment: ACVMField): Promise<void>;
+  notifyNullifiedNote(preimage: ACVMField[], nullifier: ACVMField): Promise<void>;
 }
 
 export interface ACIRExecutionResult {
