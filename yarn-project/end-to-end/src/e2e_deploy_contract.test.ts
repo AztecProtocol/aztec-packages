@@ -5,32 +5,14 @@ import { EthereumRpc } from '@aztec/ethereum.js/eth_rpc';
 import { WalletProvider } from '@aztec/ethereum.js/provider';
 import { createDebugLogger, randomBytes } from '@aztec/foundation';
 import { TestContractAbi } from '@aztec/noir-contracts/examples';
+import { createAztecNode } from './create_aztec_node.js';
 import { createAztecRpcServer } from './create_aztec_rpc_client.js';
 import { createProvider, deployRollupContract, deployYeeterContract } from './deploy_l1_contracts.js';
 
 const ETHEREUM_HOST = 'http://localhost:8545';
 const MNEMONIC = 'test test test test test test test test test test test junk';
 
-const createAztecNode = async (
-  rollupContract: EthAddress,
-  yeeterContract: EthAddress,
-  rpcUrl: string,
-  publisherPrivateKey: Buffer,
-) => {
-  const config: AztecNodeConfig = {
-    rollupContract,
-    yeeterContract,
-    rpcUrl,
-    publisherPrivateKey,
-    retryIntervalMs: 1000,
-    requiredConfirmations: 1,
-    transactionPollingInterval: 1000,
-    archiverPollingInterval: 1000,
-  };
-  return await AztecNode.createAndSync(config);
-};
-
-const logger = createDebugLogger('aztec:e2e_test');
+const logger = createDebugLogger('aztec:e2e_deploy_contract');
 
 describe('e2e_deploy_contract', () => {
   let provider: WalletProvider;
