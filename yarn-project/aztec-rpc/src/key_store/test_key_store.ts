@@ -33,7 +33,7 @@ export class TestKeyStore implements KeyStore {
   signTxRequest(txRequest: TxRequest) {
     const account = txRequest.from.equals(AztecAddress.ZERO)
       ? this.accounts[0]
-      : this.accounts.find(a => a.getPublicKey().toBuffer().equals(txRequest.from.toBuffer()));
+      : this.accounts.find(a => a.getPublicKey().equals(txRequest.from));
     if (!account) {
       throw new Error('Unknown account.');
     }

@@ -31,6 +31,14 @@ export class WitnessWriter {
     this.currentIndex += 1;
   }
 
+  public writeAddress(address: AztecAddress) {
+    const buffer = address.toBuffer();
+    const first32Bytes = buffer.slice(0, 32);
+    const second32Bytes = buffer.slice(32, 64);
+    this.writeField(Fr.fromBuffer(first32Bytes));
+    this.writeField(Fr.fromBuffer(second32Bytes));
+  }
+
   public writeFieldArray(array: Fr[]) {
     for (const field of array) {
       this.writeField(field);
@@ -42,8 +50,9 @@ export class WitnessWriter {
   }
 }
 
-export function frToAztecAddress(fr: Fr): AztecAddress {
-  return new AztecAddress(fr.toBuffer().slice(-AztecAddress.SIZE_IN_BYTES));
+export function frsToAztecAddress(coords: [Fr, Fr]): AztecAddress {
+  const buf = Buffer.concat([coords[0].toBuffer(), coords[1].toBuffer()]);
+  return new AztecAddress(buf);
 }
 
 export function frToEthAddress(fr: Fr): EthAddress {

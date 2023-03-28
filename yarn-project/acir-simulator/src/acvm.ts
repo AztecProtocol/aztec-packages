@@ -1,4 +1,4 @@
-import { AztecAddress, EthAddress, Fr } from '@aztec/circuits.js';
+import { EthAddress, Fr } from '@aztec/circuits.js';
 
 export type ACVMField = `0x${string}`;
 
@@ -50,7 +50,7 @@ function adaptBufferSize(originalBuf: Buffer) {
   return buffer;
 }
 
-export function toACVMField(value: EthAddress | AztecAddress | Fr | Buffer | boolean): `0x${string}` {
+export function toACVMField(value: EthAddress | Fr | Buffer | boolean): `0x${string}` {
   if (typeof value === 'boolean') {
     return value ? ONE_ACVM_FIELD : ZERO_ACVM_FIELD;
   }
@@ -70,7 +70,7 @@ export function toACVMField(value: EthAddress | AztecAddress | Fr | Buffer | boo
 
 export function fromACVMField(field: `0x${string}`): Fr {
   const buffer = Buffer.from(field.slice(2), 'hex');
-  return new Fr(buffer);
+  return Fr.fromBuffer(buffer);
 }
 
 export interface FunctionWitnessIndexes {

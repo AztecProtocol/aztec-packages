@@ -70,7 +70,7 @@ export class Synchroniser {
   }
 
   public getAccount(account: AztecAddress) {
-    return this.accountStates.find(as => as.publicKey.toBuffer().equals(account.toBuffer()));
+    return this.accountStates.find(as => as.publicKey.equals(account));
   }
 
   public getAccounts() {

@@ -18,7 +18,7 @@ import {
   TxRequest,
 } from '@aztec/circuits.js';
 import { DBOracle, PrivateCallStackItem } from './db_oracle.js';
-import { frToAztecAddress, frToBoolean, frToEthAddress, WitnessReader, WitnessWriter } from './witness_io.js';
+import { frsToAztecAddress, frToBoolean, frToEthAddress, WitnessReader, WitnessWriter } from './witness_io.js';
 import { randomBytes } from '@aztec/foundation';
 
 export interface ExecutionPreimages {
@@ -95,7 +95,7 @@ export class Execution {
         }));
         return mapped;
       },
-      getRandomField: () => Promise.resolve(toACVMField(new Fr(randomBytes(Fr.SIZE_IN_BYTES)))),
+      getRandomField: () => Promise.resolve(toACVMField(Fr.fromBuffer(randomBytes(Fr.SIZE_IN_BYTES)))),
       notifyCreatedNote: (acvmPreimage: ACVMField[], commitment: ACVMField) => {
         const preimage = acvmPreimage.map(f => fromACVMField(f));
         newNotePreimages.push({
@@ -134,15 +134,15 @@ export class Execution {
 
     const writer = new WitnessWriter(1, witness);
 
-    writer.writeField(callContext.msgSender);
-    writer.writeField(callContext.storageContractAddress);
+    writer.writeAddress(callContext.msgSender);
+    writer.writeAddress(callContext.storageContractAddress);
     writer.writeField(callContext.portalContractAddress);
     writer.writeField(callContext.isDelegateCall);
     writer.writeField(callContext.isStaticCall);
     writer.writeField(callContext.isContractDeployment);
 
     writer.writeFieldArray(
-      new Array(ARGS_LENGTH).fill(new Fr(Buffer.alloc(Fr.SIZE_IN_BYTES))).map((value, i) => args[i] || value),
+      new Array(ARGS_LENGTH).fill(Fr.fromBuffer(Buffer.alloc(Fr.SIZE_IN_BYTES))).map((value, i) => args[i] || value),
     );
 
     writer.jump(RETURN_VALUES_LENGTH);
@@ -169,8 +169,8 @@ export class Execution {
     const witnessReader = new WitnessReader(1, partialWitness);
 
     const callContext = new CallContext(
-      frToAztecAddress(witnessReader.readField()),
-      frToAztecAddress(witnessReader.readField()),
+      frsToAztecAddress([witnessReader.readField(), witnessReader.readField()]),
+      frsToAztecAddress([witnessReader.readField(), witnessReader.readField()]),
       frToEthAddress(witnessReader.readField()),
       frToBoolean(witnessReader.readField()),
       frToBoolean(witnessReader.readField()),
