@@ -7,14 +7,15 @@ import { PublisherConfig } from './config.js';
  * Component responsible of pushing the txs to the chain and waiting for completion.
  */
 export interface PublisherTxSender {
-  sendTransaction(encodedData: L1ProcessRollupArgs): Promise<string | undefined>;
+  sendProcessTx(encodedData: L1ProcessArgs): Promise<string | undefined>;
+  sendYeetTx(l2BlockNum: number, auxData: Buffer): Promise<string | undefined>;
   getTransactionReceipt(txHash: string): Promise<{ status: boolean; transactionHash: string } | undefined>;
 }
 
 /**
  * Encoded block data and proof ready to be pushed to the L1 contract.
  */
-export type L1ProcessRollupArgs = {
+export type L1ProcessArgs = {
   proof: Buffer;
   inputs: Buffer;
 };
@@ -53,7 +54,7 @@ export class L2BlockPublisher implements L2BlockReceiver {
         continue;
       }
 
-      const txHash = await this.sendTransaction(txData);
+      const txHash = await this.sendProcessTx(txData);
       if (!txHash) break;
 
       const receipt = await this.getTransactionReceipt(txHash);
@@ -62,7 +63,7 @@ export class L2BlockPublisher implements L2BlockReceiver {
       // Tx was mined successfully
       if (receipt.status) return true;
 
-      // Check if someone else moved the block id
+      // Check if someone else incremented the block number
       if (!(await this.checkNextL2BlockNum(l2BlockData.number))) {
         this.log('Publish failed. Contract changed underfoot.');
         break;
@@ -72,7 +73,38 @@ export class L2BlockPublisher implements L2BlockReceiver {
       await this.sleepOrInterrupted();
     }
 
-    this.log('Publish rollup interrupted.');
+    this.log('L2 block interrupted interrupted.');
+    return false;
+  }
+
+  /**
+   * Publishes auxData to L1.
+   * @param l2BlockNum The L2 block number that the auxData is associated with.
+   * @param auxData The auxData to publish.
+   * @returns True once the tx has been confirmed and is successful, false on revert or interrupt, blocks otherwise.
+   */
+  public async processAuxData(l2BlockNum: number, auxData: Buffer): Promise<boolean> {
+    while (!this.interrupted) {
+      if (!(await this.checkFeeDistributorBalance())) {
+        this.log(`Fee distributor ETH balance too low, awaiting top up...`);
+        await this.sleepOrInterrupted();
+        continue;
+      }
+
+      const txHash = await this.sendYeetTx(l2BlockNum, auxData);
+      if (!txHash) break;
+
+      const receipt = await this.getTransactionReceipt(txHash);
+      if (!receipt) break;
+
+      // Tx was mined successfully
+      if (receipt.status) return true;
+
+      this.log(`Transaction status failed: ${receipt.transactionHash}`);
+      await this.sleepOrInterrupted();
+    }
+
+    this.log('L2 block interrupted interrupted.');
     return false;
   }
 
@@ -99,10 +131,21 @@ export class L2BlockPublisher implements L2BlockReceiver {
     return true;
   }
 
-  private async sendTransaction(encodedData: L1ProcessRollupArgs): Promise<string | undefined> {
+  private async sendProcessTx(encodedData: L1ProcessArgs): Promise<string | undefined> {
     while (!this.interrupted) {
       try {
-        return await this.txSender.sendTransaction(encodedData);
+        return await this.txSender.sendProcessTx(encodedData);
+      } catch (err) {
+        this.log(`Error sending tx to L1`, err);
+        await this.sleepOrInterrupted();
+      }
+    }
+  }
+
+  private async sendYeetTx(l2BlockNum: number, auxData: Buffer): Promise<string | undefined> {
+    while (!this.interrupted) {
+      try {
+        return await this.txSender.sendYeetTx(l2BlockNum, auxData);
       } catch (err) {
         this.log(`Error sending tx to L1`, err);
         await this.sleepOrInterrupted();

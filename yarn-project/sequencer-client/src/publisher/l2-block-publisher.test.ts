@@ -21,7 +21,7 @@ describe('L2BlockPublisher', () => {
     txSender = mock<PublisherTxSender>();
     txHash = TxHash.random().toString();
     txReceipt = { transactionHash: txHash, status: true };
-    txSender.sendTransaction.mockResolvedValueOnce(txHash);
+    txSender.sendProcessTx.mockResolvedValueOnce(txHash);
     txSender.getTransactionReceipt.mockResolvedValueOnce(txReceipt);
 
     publisher = new L2BlockPublisher(txSender, { retryIntervalMs: 1 });
@@ -31,17 +31,17 @@ describe('L2BlockPublisher', () => {
     const result = await publisher.processL2Block(l2Block);
 
     expect(result).toEqual(true);
-    expect(txSender.sendTransaction).toHaveBeenCalledWith({ proof: l2Proof, inputs: l2Inputs });
+    expect(txSender.sendProcessTx).toHaveBeenCalledWith({ proof: l2Proof, inputs: l2Inputs });
     expect(txSender.getTransactionReceipt).toHaveBeenCalledWith(txHash);
   });
 
   it('retries if sending a tx fails', async () => {
-    txSender.sendTransaction.mockReset().mockRejectedValueOnce(new Error()).mockResolvedValueOnce(txHash);
+    txSender.sendProcessTx.mockReset().mockRejectedValueOnce(new Error()).mockResolvedValueOnce(txHash);
 
     const result = await publisher.processL2Block(l2Block);
 
     expect(result).toEqual(true);
-    expect(txSender.sendTransaction).toHaveBeenCalledTimes(2);
+    expect(txSender.sendProcessTx).toHaveBeenCalledTimes(2);
   });
 
   it('retries if fetching the receipt fails', async () => {
@@ -62,7 +62,7 @@ describe('L2BlockPublisher', () => {
   });
 
   it('returns false if interrupted', async () => {
-    txSender.sendTransaction.mockReset().mockImplementationOnce(() => sleep(10, txHash));
+    txSender.sendProcessTx.mockReset().mockImplementationOnce(() => sleep(10, txHash));
 
     const resultPromise = publisher.processL2Block(l2Block);
     publisher.interrupt();

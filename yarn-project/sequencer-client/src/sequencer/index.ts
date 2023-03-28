@@ -89,12 +89,21 @@ export class Sequencer {
 
       // Publishes new block to the network and awaits the tx to be mined
       this.state = SequencerState.PUBLISHING_BLOCK;
-      const published = await this.publisher.processL2Block(block);
-      if (published) {
+      const publishedL2Block = await this.publisher.processL2Block(block);
+      if (publishedL2Block) {
         this.log(`Successfully published block ${block.number}`);
         this.lastBlockNumber++;
       } else {
         this.log(`Failed to publish block`);
+      }
+
+      // Publishes new auxiliary data to the network and awaits the tx to be mined
+      this.state = SequencerState.PUBLISHING_AUX_DATA;
+      const publishedAuxData = await this.publisher.processAuxData(block.number, tx.auxData);
+      if (publishedAuxData) {
+        this.log(`Successfully published auxData for block ${block.number}`);
+      } else {
+        this.log(`Failed to publish auxData for block ${block.number}`);
       }
     } catch (err) {
       this.log(`Error doing work: ${err}`, 'error');
@@ -123,5 +132,6 @@ export enum SequencerState {
   WAITING_FOR_TXS,
   CREATING_BLOCK,
   PUBLISHING_BLOCK,
+  PUBLISHING_AUX_DATA,
   STOPPED,
 }
