@@ -6,7 +6,7 @@ import { PublisherConfig } from './config.js';
 /**
  * Component responsible of pushing the txs to the chain and waiting for completion.
  */
-export interface PublisherTxSender {
+export interface L1PublisherTxSender {
   sendProcessTx(encodedData: L1ProcessArgs): Promise<string | undefined>;
   sendYeetTx(l2BlockNum: number, auxData: Buffer): Promise<string | undefined>;
   getTransactionReceipt(txHash: string): Promise<{ status: boolean; transactionHash: string } | undefined>;
@@ -21,20 +21,20 @@ export type L1ProcessArgs = {
 };
 
 /**
- * Publishes L2 blocks to the L1 rollup contracts. This implementation does *not* retry a transaction in
+ * Publishes L2 blocks and unverified data to L1. This implementation does *not* retry a transaction in
  * the event of network congestion, but should work for local development.
  * - If sending (not mining) a tx fails, it retries indefinitely at 1-minute intervals.
  * - If the tx is not mined, keeps polling indefinitely at 1-second intervals.
  *
  * Adapted from https://github.com/AztecProtocol/aztec2-internal/blob/master/falafel/src/rollup_publisher.ts.
  */
-export class L2BlockPublisher implements L2BlockReceiver {
+export class L1Publisher implements L2BlockReceiver {
   private interruptableSleep = new InterruptableSleep();
   private sleepTimeMs: number;
   private interrupted = false;
   private log = createDebugLogger('aztec:sequencer');
 
-  constructor(private txSender: PublisherTxSender, config?: PublisherConfig) {
+  constructor(private txSender: L1PublisherTxSender, config?: PublisherConfig) {
     this.sleepTimeMs = config?.retryIntervalMs ?? 60_000;
   }
 

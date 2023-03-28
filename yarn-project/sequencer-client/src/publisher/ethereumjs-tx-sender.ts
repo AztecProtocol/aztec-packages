@@ -2,12 +2,12 @@ import { EthereumRpc, TxHash, waitForTxReceipt } from '@aztec/ethereum.js/eth_rp
 import { WalletProvider } from '@aztec/ethereum.js/provider';
 import { Rollup, Yeeter } from '@aztec/l1-contracts';
 import { TxSenderConfig } from './config.js';
-import { L1ProcessArgs as ProcessTxArgs, PublisherTxSender } from './l2-block-publisher.js';
+import { L1ProcessArgs as ProcessTxArgs, L1PublisherTxSender } from './l1-publisher.js';
 
 /**
  * Pushes transactions to the L1 rollup contract using the custom aztec/ethereum.js library.
  */
-export class EthereumjsTxSender implements PublisherTxSender {
+export class EthereumjsTxSender implements L1PublisherTxSender {
   private ethRpc: EthereumRpc;
   private rollupContract: Rollup;
   private yeeterContract: Yeeter;

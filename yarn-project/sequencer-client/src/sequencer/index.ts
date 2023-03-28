@@ -1,7 +1,7 @@
 import { P2P, Tx } from '@aztec/p2p';
 import { WorldStateSynchroniser, WorldStateStatus } from '@aztec/world-state';
 import { RunningPromise } from '../deps/running_promise.js';
-import { L2BlockPublisher } from '../publisher/l2-block-publisher.js';
+import { L1Publisher } from '../publisher/l1-publisher.js';
 import { createDebugLogger } from '@aztec/foundation';
 import { BlockBuilder } from './block_builder.js';
 import { SequencerConfig } from './config.js';
@@ -23,7 +23,7 @@ export class Sequencer {
   private state = SequencerState.STOPPED;
 
   constructor(
-    private publisher: L2BlockPublisher,
+    private publisher: L1Publisher,
     private p2pClient: P2P,
     private worldState: WorldStateSynchroniser,
     config?: SequencerConfig,
