@@ -1,14 +1,15 @@
-import { readFile } from 'fs/promises';
+import { open } from 'fs/promises';
 import { existsSync } from 'fs';
 
 import { dirname } from 'path';
 import { fileURLToPath } from 'url';
 
 /**
- * The path to our SRS object, assuming that we are in barretenberg/ts folder.
+ * The path to our SRS object, assuming that we are in the aztec3-packages folder structure.
  */
-export const SRS_DEV_PATH =
-  dirname(fileURLToPath(import.meta.url)) + '/../../../cpp/srs_db/ignition/monomial/transcript00.dat';
+const SRS_DEV_PATH =
+  dirname(fileURLToPath(import.meta.url)) +
+  '/../../../circuits/cpp/barretenberg/cpp/srs_db/ignition/monomial/transcript00.dat';
 /**
  * Downloader for CRS from the web or local.
  */
@@ -28,7 +29,6 @@ export class NetCrs {
    */
   async init() {
     // We need numPoints number of g1 points.
-    // numPoints should be circuitSize + 1.
     const g1Start = 28;
     const g1End = g1Start + this.numPoints * 64 - 1;
 
@@ -61,15 +61,15 @@ export class NetCrs {
   }
 
   /**
-   * G1 points data for prover key.
-   * @returns The points data.
+   * Verification key data.
+   * @returns The verification key.
    */
-  getG1Data(): Uint8Array {
+  getData(): Uint8Array {
     return this.data;
   }
 
   /**
-   * G2 points data for verification key.
+   * G2 points data.
    * @returns The points data.
    */
   getG2Data(): Uint8Array {
@@ -96,29 +96,35 @@ export class FileCrs {
    * Read the data file.
    */
   async init() {
-    // We need this.numPoints number of g1 points.
-    // numPoints should be circuitSize + 1.
+    // We need numPoints number of g1 points.
     const g1Start = 28;
-    const g1End = g1Start + this.numPoints * 64;
-
-    const data = await readFile(this.path);
-    this.data = data.subarray(g1Start, g1End);
+    const g1Length = this.numPoints * 64;
 
     const g2Start = 28 + 5040000 * 64;
-    const g2End = g2Start + 128;
-    this.g2Data = data.subarray(g2Start, g2End);
+    const g2Length = 128;
+    // Lazily seek our data
+    const fileHandle = await open(this.path, 'r');
+    try {
+      this.data = Buffer.alloc(g1Length);
+      await fileHandle.read(this.data, 0, g1Length, g1Start);
+
+      this.g2Data = Buffer.alloc(g2Length);
+      await fileHandle.read(this.g2Data, 0, g2Length, g2Start);
+    } finally {
+      await fileHandle.close();
+    }
   }
 
   /**
-   * G1 points data for prover key.
-   * @returns The points data.
+   * Verification key data.
+   * @returns The verification key.
    */
-  getG1Data(): Uint8Array {
+  getData(): Uint8Array {
     return this.data;
   }
 
   /**
-   * G2 points data for verification key.
+   * G2 points data.
    * @returns The points data.
    */
   getG2Data(): Uint8Array {
@@ -149,15 +155,15 @@ export class Crs {
   }
 
   /**
-   * G1 points data for prover key.
-   * @returns The points data.
+   * Verification key data.
+   * @returns The verification key.
    */
-  getG1Data(): Uint8Array {
-    return this.crs.getG1Data();
+  getData(): Uint8Array {
+    return this.crs.getData();
   }
 
   /**
-   * G2 points data for verification key.
+   * G2 points data.
    * @returns The points data.
    */
   getG2Data(): Uint8Array {
