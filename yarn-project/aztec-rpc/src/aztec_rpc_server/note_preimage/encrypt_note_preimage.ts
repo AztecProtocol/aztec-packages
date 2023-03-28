@@ -30,7 +30,6 @@ export function encryptNotePreimage(
   const aesKey = aesSecret.subarray(0, 16);
   const iv = aesSecret.subarray(16, 32);
   const cipher = createCipheriv('aes-128-cbc', aesKey, iv);
-  cipher.setAutoPadding(false); // plaintext is already a multiple of 16 bytes
   const plaintext = Buffer.concat([iv.subarray(0, 8), data.toBuffer()]);
   return Buffer.concat([cipher.update(plaintext), cipher.final(), ephPubKey]);
 }
@@ -42,7 +41,7 @@ export function decryptNotePreimage(data: Buffer, ownerPrivKey: Buffer, grumpkin
   const iv = aesSecret.subarray(16, 32);
   const cipher = createDecipheriv('aes-128-cbc', aesKey, iv);
   const plaintext = Buffer.concat([cipher.update(data.subarray(0, -64)), cipher.final()]);
-  if (!plaintext.subarray(0, 8).equals(iv)) {
+  if (!plaintext.subarray(0, 8).equals(iv.subarray(0, 8))) {
     return;
   }
   return plaintext.subarray(8);

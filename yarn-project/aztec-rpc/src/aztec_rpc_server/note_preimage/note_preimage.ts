@@ -1,4 +1,4 @@
-import { deserializeField, Deserializer, serializeBufferArrayToVector } from '@aztec/foundation';
+import { BufferReader, serializeBufferArrayToVector } from '@aztec/foundation';
 import { decryptNotePreimage, encryptNotePreimage } from './encrypt_note_preimage.js';
 import { Grumpkin } from '@aztec/barretenberg.js/crypto';
 import { Fr } from '@aztec/foundation/fields';
@@ -7,10 +7,9 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 export class NotePreImage {
   constructor(public readonly fields: Fr[]) {}
 
-  static fromBuffer(buf: Buffer) {
-    const deserializer = new Deserializer(buf);
-    const fields = deserializer.deserializeArray(deserializeField);
-
+  static fromBuffer(buf: Buffer | BufferReader) {
+    const reader = BufferReader.asReader(buf);
+    const fields = reader.readVector(Fr);
     return new NotePreImage(fields);
   }
 

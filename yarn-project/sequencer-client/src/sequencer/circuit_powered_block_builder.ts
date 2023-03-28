@@ -1,7 +1,6 @@
 import { ContractData, L2Block } from '@aztec/archiver';
 import {
   AppendOnlyTreeSnapshot,
-  AztecAddress,
   BaseRollupInputs,
   BaseRollupPublicInputs,
   ConstantBaseRollupData,
@@ -63,7 +62,7 @@ export class CircuitPoweredBlockBuilder {
       ].map(tree => this.getTreeSnapshot(tree)),
     );
 
-    const [circuitsOutput, _circuitsProof] = await this.runCircuits(tx);
+    const [circuitsOutput] = await this.runCircuits(tx);
 
     const {
       endPrivateDataTreeSnapshot,
@@ -101,12 +100,9 @@ export class CircuitPoweredBlockBuilder {
   private async runCircuits(tx: Tx): Promise<[RootRollupPublicInputs, Proof]> {
     const emptyTx = makeEmptyTx();
 
-    const [_baseRollupInputLeft, baseRollupOutputLeft, baseRollupProofLeft] = await this.baseRollupCircuit(tx, emptyTx);
+    const [, baseRollupOutputLeft, baseRollupProofLeft] = await this.baseRollupCircuit(tx, emptyTx);
 
-    const [_baseRollupInputRight, baseRollupOutputRight, baseRollupProofRight] = await this.baseRollupCircuit(
-      emptyTx,
-      emptyTx,
-    );
+    const [, baseRollupOutputRight, baseRollupProofRight] = await this.baseRollupCircuit(emptyTx, emptyTx);
 
     const rootInput = await this.getRootRollupInput(
       baseRollupOutputLeft,

@@ -2,7 +2,7 @@ import { randomBytes } from '../crypto/index.js';
 import { BufferReader } from '../index.js';
 
 export class AztecAddress {
-  public static SIZE_IN_BYTES = 32;
+  public static SIZE_IN_BYTES = 64;
   public static ZERO = new AztecAddress(Buffer.alloc(AztecAddress.SIZE_IN_BYTES));
 
   constructor(private buffer: Buffer) {
@@ -13,7 +13,7 @@ export class AztecAddress {
 
   static fromBuffer(bufferOrReader: Buffer | BufferReader) {
     const reader = BufferReader.asReader(bufferOrReader);
-    return new AztecAddress(reader.readBytes(32));
+    return new AztecAddress(reader.readBytes(AztecAddress.SIZE_IN_BYTES));
   }
 
   public static fromString(address: string) {
