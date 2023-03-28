@@ -1,31 +1,79 @@
-import { AztecAddress, CallContext, ContractDeploymentData } from '@aztec/circuits.js';
-import { NoteLoadOracleInputs } from './db_oracle.js';
+import { AztecAddress, EthAddress, Fr } from '@aztec/circuits.js';
 
-export interface ACIRCallback {
-  getSecretKey(keyId: Buffer): Promise<Buffer>;
-  getNotes(storageSlot: Buffer): Promise<NoteLoadOracleInputs[]>;
-  getRandomField(): Promise<Buffer>;
-  privateFunctionCall(
-    contractAddress: AztecAddress,
-    functionSelector: string,
-    args: Array<Buffer>,
-  ): Promise<Array<Buffer>>;
+export type ACVMField = `0x${string}`;
+
+const ZERO_ACVM_FIELD: ACVMField = `0x${Buffer.alloc(32).toString('hex')}`;
+const ONE_ACVM_FIELD: ACVMField = `0x${'00'.repeat(31)}01`;
+
+export interface ACVMNoteInputs {
+  note: ACVMField[];
+  siblingPath: ACVMField[];
+  index: number;
+  root: ACVMField;
 }
 
-export interface ExecutionPreimages {
-  newNotes: Buffer[];
-  nullifiedNotes: Buffer[];
+export type ACVMWitness = Map<number, ACVMField>;
+
+export interface ACIRCallback {
+  getSecretKey(publicKey: ACVMField): Promise<ACVMField>;
+  getNotes2(storageSlot: ACVMField): Promise<ACVMNoteInputs[]>;
+  getRandomField(): Promise<ACVMField>;
+  notifyCreatedNote(notePreimage: ACVMField[]): Promise<void>;
+  notifyNullifiedNote(nullifier: ACVMField): Promise<void>;
 }
 
 export interface ACIRExecutionResult {
-  preimages: ExecutionPreimages;
-  partialWitness: Buffer;
+  partialWitness: ACVMWitness;
 }
 
-export type execute = (
-  acir: Buffer,
-  args: Array<Buffer>,
-  callContext: CallContext,
-  contractDeploymentData: ContractDeploymentData,
-  oracle: ACIRCallback,
-) => Promise<ACIRExecutionResult>;
+export type execute = (acir: Buffer, initialWitness: ACVMWitness, oracle: ACIRCallback) => Promise<ACIRExecutionResult>;
+
+export const acvmMock: execute = (_, initialWitness) => {
+  const partialWitness = new Map<number, ACVMField>();
+  for (let i = 0; i < 100; i++) {
+    if (initialWitness.has(i)) {
+      partialWitness.set(i, initialWitness.get(i)!);
+    } else {
+      partialWitness.set(i, ZERO_ACVM_FIELD);
+    }
+  }
+
+  return Promise.resolve({ partialWitness });
+};
+
+function adaptBufferSize(originalBuf: Buffer) {
+  const buffer = Buffer.alloc(32);
+  if (originalBuf.length > buffer.length) {
+    throw new Error('Buffer does not fit in 32 bytes');
+  }
+  originalBuf.copy(buffer, buffer.length - originalBuf.length);
+  return buffer;
+}
+
+export function toACVMField(value: EthAddress | AztecAddress | Fr | Buffer | boolean): `0x${string}` {
+  if (typeof value === 'boolean') {
+    return value ? ONE_ACVM_FIELD : ZERO_ACVM_FIELD;
+  }
+
+  let buffer;
+
+  if (Buffer.isBuffer(value)) {
+    buffer = value;
+  } else if (value instanceof EthAddress) {
+    buffer = value.toBuffer();
+  } else {
+    buffer = value.toBuffer();
+  }
+
+  return `0x${adaptBufferSize(buffer).toString('hex')}`;
+}
+
+export function fromACVMField(field: `0x${string}`): Fr {
+  const buffer = Buffer.from(field.slice(2), 'hex');
+  return new Fr(buffer);
+}
+
+export interface FunctionWitnessIndexes {
+  paramWitnesses: Record<string, number>;
+  returnWitneses: number[];
+}
