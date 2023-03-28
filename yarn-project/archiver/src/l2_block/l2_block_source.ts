@@ -12,11 +12,19 @@ export interface L2BlockSource {
 
   /**
    * Gets the `take` amount of L2 blocks starting from `from`.
-   * @param from - If of the first rollup to return (inclusive).
+   * @param from - Number of the first block to return (inclusive).
    * @param take - The number of blocks to return.
    * @returns The requested L2 blocks.
    */
   getL2Blocks(from: number, take: number): Promise<L2Block[]>;
+
+  /**
+   * Gets the `take` amount of auxiliary data starting from `from`.
+   * @param from - Number of the L2 block to which corresponds the first `auxData` to be returned.
+   * @param take - The number of `auxData` to return.
+   * @returns The requested `auxData`.
+   */
+  getAuxData(from: number, take: number): Promise<Buffer[]>;
 
   /**
    * Starts the L2 block source.

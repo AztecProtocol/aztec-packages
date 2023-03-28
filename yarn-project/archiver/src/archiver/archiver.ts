@@ -22,7 +22,7 @@ export class Archiver implements L2BlockSource {
    * An array containing all the `auxData` that have been fetched so far.
    * Note: Index equals to (corresponding L2 block's number - INITIAL_L2_BLOCK_NUM).
    */
-  private auxData: Buffer[] = [];
+  private auxDatas: Buffer[] = [];
 
   private unwatchBlocks: (() => void) | undefined;
   private unwatchYeets: (() => void) | undefined;
@@ -162,7 +162,7 @@ export class Archiver implements L2BlockSource {
             '.',
         );
       }
-      this.auxData.push(Buffer.from(hexToBytes(log.args.blabber)));
+      this.auxDatas.push(Buffer.from(hexToBytes(log.args.blabber)));
       this.log('Added auxData with blockNum ' + blockNum + '.');
     }
     this.log('Processed auxData corresponding to ' + logs.length + ' blocks.');
@@ -211,7 +211,7 @@ export class Archiver implements L2BlockSource {
 
   /**
    * Gets the `take` amount of L2 blocks starting from `from`.
-   * @param from - Id of the first rollup to return (inclusive).
+   * @param from - Number of the first block to return (inclusive).
    * @param take - The number of blocks to return.
    * @returns The requested L2 blocks.
    */
@@ -222,9 +222,27 @@ export class Archiver implements L2BlockSource {
     if (from > this.l2Blocks.length) {
       return Promise.resolve([]);
     }
-    const startIndex = from - 1;
+    const startIndex = from - INITIAL_L2_BLOCK_NUM;
     const endIndex = startIndex + take;
     return Promise.resolve(this.l2Blocks.slice(startIndex, endIndex));
+  }
+
+  /**
+   * Gets the `take` amount of auxiliary data starting from `from`.
+   * @param from - Number of the L2 block to which corresponds the first `auxData` to be returned.
+   * @param take - The number of `auxData` to return.
+   * @returns The requested `auxData`.
+   */
+  public getAuxData(from: number, take: number): Promise<Buffer[]> {
+    if (from < INITIAL_L2_BLOCK_NUM) {
+      throw new Error(`Invalid block range ${from}`);
+    }
+    if (from > this.auxDatas.length) {
+      return Promise.resolve([]);
+    }
+    const startIndex = from - INITIAL_L2_BLOCK_NUM;
+    const endIndex = startIndex + take;
+    return Promise.resolve(this.auxDatas.slice(startIndex, endIndex));
   }
 
   /**
