@@ -1,7 +1,7 @@
 import { L2Block, L2BlockSource } from '@aztec/l2-block';
 import { UInt8Vector } from '@aztec/circuits.js';
+import { Tx } from '@aztec/tx';
 import { makePrivateKernelPublicInputs } from '@aztec/circuits.js/factories';
-import { Tx } from './tx.js';
 import { randomBytes } from 'crypto';
 
 export const MockTx = () => {
