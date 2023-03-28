@@ -27,6 +27,8 @@ fi
 
 git submodule update --init --recursive
 
+# `yarn-project/barretenberg.js/src/wasm/barretenberg.wasm` is a symlink to `circuits/cpp/build-wasm/bin/aztec3-circuits.wasm`.
+# So let's make sure the latter exists!
 if [ ! -f circuits/cpp/build-wasm/bin/aztec3-circuits.wasm ]; then
   echo "Circuits not built. Building."
   (cd circuits/cpp && ./bootstrap.sh)
@@ -48,23 +50,23 @@ cd ..
 # We only bootstrap projects that produce artefacts needed for running end-to-end tests.
 # TODO: someone should figure out which of these actually need to be built for e2e tests, so we're not building everything (it's too slow!).
 PROJECTS=(
-  "yarn-project/foundation:yarn build"
-  "yarn-project/ethereum.js:yarn build"
-  "yarn-project/l1-contracts:yarn build"
-  "yarn-project/l2-block:yarn build"
-  "yarn-project/merkle-tree:yarn build"
-  "yarn-project/archiver:yarn build"
-  "yarn-project/world-state:yarn build"
-  "yarn-project/p2p:yarn build"
-  "yarn-project/tx:yarn build"
-  "yarn-project/sequencer-client:yarn build"
-  "yarn-project/aztec-node:yarn build"
-  "yarn-project/key-store:yarn build"
-  "yarn-project/acir-simulator:yarn build"
-  "yarn-project/kernel-prover:yarn build"
-  "yarn-project/aztec-rpc:yarn build"
-  "yarn-project/aztec.js:yarn build"
-  "yarn-project/noir-contracts:yarn build"
+  # "yarn-project/foundation:yarn build"
+  # "yarn-project/ethereum.js:yarn build"
+  # "yarn-project/l1-contracts:yarn build"
+  # "yarn-project/l2-block:yarn build"
+  # "yarn-project/merkle-tree:yarn build"
+  # "yarn-project/archiver:yarn build"
+  # "yarn-project/world-state:yarn build"
+  # "yarn-project/p2p:yarn build"
+  # "yarn-project/tx:yarn build"
+  # "yarn-project/sequencer-client:yarn build"
+  # "yarn-project/aztec-node:yarn build"
+  # "yarn-project/key-store:yarn build"
+  # "yarn-project/acir-simulator:yarn build"
+  # "yarn-project/kernel-prover:yarn build"
+  # "yarn-project/aztec-rpc:yarn build"
+  # "yarn-project/aztec.js:yarn build"
+  # "yarn-project/noir-contracts:yarn build"
 )
 
 for E in "${PROJECTS[@]}"; do
@@ -76,6 +78,11 @@ for E in "${PROJECTS[@]}"; do
   $COMMAND
   popd > /dev/null
 done
+
+if [ ! -f barratenberg.js/src/wasm/barretenberg.wasm ]; then
+  echo "Copying barretenberg.wasm symlink"
+  (cd yarn-project/barretenberg.js && cp src/wasm/barretenberg.wasm dest/wasm/barretenberg.wasm)
+fi
 
 echo
 echo "Success! You could now run e.g.: ./scripts/tmux-splits e2e_deploy_contract"
