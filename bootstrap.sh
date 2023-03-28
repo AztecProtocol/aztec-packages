@@ -27,6 +27,11 @@ fi
 
 git submodule update --init --recursive
 
+if [ ! -f circuits/cpp/build-wasm/bin/aztec3-circuits.wasm ]; then
+  echo "Circuits not built. Building."
+  (cd circuits/cpp && ./bootstrap.sh)
+fi
+
 if [ ! -f ~/.nvm/nvm.sh ]; then
   echo "Nvm not found at ~/.nvm"
   exit 1
@@ -41,6 +46,7 @@ yarn install --immutable
 cd ..
 
 # We only bootstrap projects that produce artefacts needed for running end-to-end tests.
+# TODO: someone should figure out which of these actually need to be built for e2e tests, so we're not building everything (it's too slow!).
 PROJECTS=(
   "yarn-project/foundation:yarn build"
   "yarn-project/ethereum.js:yarn build"
