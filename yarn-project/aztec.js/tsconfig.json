@@ -11,7 +11,12 @@
     },
     {
       "path": "../foundation/tsconfig.dest.json"
+    },
+    {
+      "path": "../tx/tsconfig.dest.json"
     }
   ],
-  "include": ["src"]
+  "include": [
+    "src"
+  ]
 }

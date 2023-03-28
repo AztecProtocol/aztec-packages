@@ -1,10 +1,4 @@
 import { L2Block, L2BlockSource } from '@aztec/l2-block';
-import { makePrivateKernelPublicInputs } from '@aztec/circuits.js/factories';
-import { Tx } from './tx.js';
-
-export const MockTx = () => {
-  return new Tx(makePrivateKernelPublicInputs());
-};
 
 export class MockBlockSource implements L2BlockSource {
   private l2Blocks: L2Block[];
