@@ -1,6 +1,9 @@
 import { EthAddress, Fr } from '@aztec/circuits.js';
 import { BufferReader, serializeToBuffer } from '@aztec/circuits.js/utils';
 
+export { EthAddress } from '@aztec/circuits.js';
+export { BufferReader } from '@aztec/circuits.js/utils';
+
 /**
  * A contract data blob, containing L1 and L2 addresses.
  */

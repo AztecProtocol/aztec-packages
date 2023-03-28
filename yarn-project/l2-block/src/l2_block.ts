@@ -3,6 +3,8 @@ import { fr, makeAppendOnlyTreeSnapshot, makeEthAddress } from '@aztec/circuits.
 import { BufferReader, serializeToBuffer } from '@aztec/circuits.js/utils';
 import { ContractData } from './contract_data.js';
 
+export { Fr } from '@aztec/circuits.js';
+
 /**
  * The data that makes up the rollup proof, with encoder decoder functions.
  * TODO: Reuse data types and serialization functions from circuits package.

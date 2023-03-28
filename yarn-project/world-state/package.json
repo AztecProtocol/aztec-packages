@@ -25,16 +25,15 @@
     "rootDir": "./src"
   },
   "dependencies": {
-    "@aztec/archiver": "workspace:^",
     "@aztec/circuits.js": "workspace:^",
     "@aztec/foundation": "workspace:^",
+    "@aztec/l2-block": "workspace:^",
     "@aztec/merkle-tree": "workspace:^",
     "levelup": "^5.1.1",
     "memdown": "^6.1.1",
     "tslib": "^2.4.0"
   },
   "devDependencies": {
-    "@aztec/archiver": "workspace:^",
     "@jest/globals": "^29.4.3",
     "@rushstack/eslint-patch": "^1.1.4",
     "@types/jest": "^29.4.0",
