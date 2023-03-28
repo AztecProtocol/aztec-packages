@@ -333,6 +333,7 @@ __metadata:
   dependencies:
     "@aztec/acir-simulator": "workspace:^"
     "@aztec/circuits.js": "workspace:^"
+    "@aztec/foundation": "workspace:^"
     "@jest/globals": ^29.4.3
     "@rushstack/eslint-patch": ^1.1.4
     "@types/jest": ^29.4.0
