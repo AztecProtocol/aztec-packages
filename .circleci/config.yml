@@ -125,6 +125,18 @@ jobs:
           name: "Build and test"
           command: build world-state
 
+  circuits-js:
+    machine:
+      image: ubuntu-2004:202010-01
+    resource_class: large
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Build and test"
+          command: build circuits.js
+
+
   end-to-end:
     machine:
       image: ubuntu-2004:202010-01
@@ -184,6 +196,7 @@ workflows:
       - aztec-js: *yarn_project
       - end-to-end: *yarn_project
       - foundation: *yarn_project
+      - circuits-js: *yarn_project
       - e2e-join:
           requires:
             - ethereum-js
@@ -191,6 +204,7 @@ workflows:
             - end-to-end
             - noir-contracts
             - foundation
+            - circuits-js
           <<: *defaults
       - e2e-deploy-contract: *e2e_test
       - world-state: *yarn_project
