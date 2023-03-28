@@ -8,7 +8,7 @@ import {
   NewContractData,
 } from '@aztec/circuits.js';
 import { MerkleTreeId, MerkleTreeOperations } from '@aztec/world-state';
-import { Tx } from '@aztec/p2p';
+import { Tx } from '@aztec/tx';
 import { createDebugLogger } from '@aztec/foundation';
 
 const mapContractData = (n: NewContractData) => {

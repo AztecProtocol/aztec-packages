@@ -1,3 +1,4 @@
+import { TxHash } from '@aztec/tx';
 import { AztecNode } from '@aztec/aztec-node';
 import { createDebugLogger, InterruptableSleep } from '@aztec/foundation';
 import { AccountState } from '../account_state/index.js';
@@ -10,9 +11,7 @@ import {
 } from '@aztec/circuits.js';
 import { Database, TxDao } from '../database/index.js';
 import { ContractAbi } from '../noir.js';
-import { TxHash } from '../tx/index.js';
-import { L2Block } from '@aztec/archiver';
-import { keccak256 } from '../foundation.js';
+import { L2Block } from '@aztec/l2-block';
 
 export class Synchroniser {
   private runningPromise?: Promise<void>;
