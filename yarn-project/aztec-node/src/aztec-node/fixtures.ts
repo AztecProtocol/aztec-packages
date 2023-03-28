@@ -24,7 +24,7 @@ import {
 } from '@aztec/circuits.js';
 import { EthereumRpc } from '@aztec/ethereum.js/eth_rpc';
 import { WalletProvider } from '@aztec/ethereum.js/provider';
-import { randomBytes } from '@aztec/foundation';
+import { AztecAddress, randomBytes } from '@aztec/foundation';
 import { Rollup, Yeeter } from '@aztec/l1-contracts';
 import { Tx } from '@aztec/p2p';
 
@@ -82,7 +82,7 @@ export const createOptionallyRetrievedDatas = (num: number) => {
 };
 
 export const createNewContractData = () => {
-  return new NewContractData(new Fr(randomBytes(32)), createCircuitEthAddress(), new Fr(randomBytes(32)));
+  return new NewContractData(AztecAddress.random(), createCircuitEthAddress(), new Fr(randomBytes(32)));
 };
 
 export const createNewContractDatas = (num: number) => {
