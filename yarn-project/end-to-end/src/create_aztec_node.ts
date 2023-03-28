@@ -1,19 +1,21 @@
-import { AztecNode } from '@aztec/aztec-node';
+import { AztecNode, AztecNodeConfig } from '@aztec/aztec-node';
 import { EthAddress } from '@aztec/ethereum.js/eth_address';
 
-export async function createAztecNode(
+export const createAztecNode = async (
   rollupContract: EthAddress,
   yeeterContract: EthAddress,
   rpcUrl: string,
   publisherPrivateKey: Buffer,
-) {
-  return await AztecNode.createAndSync({
-    rpcUrl,
+) => {
+  const config: AztecNodeConfig = {
     rollupContract,
     yeeterContract,
-    retryIntervalMs: 10000,
-    publisherPrivateKey: publisherPrivateKey,
+    rpcUrl,
+    publisherPrivateKey,
+    retryIntervalMs: 1000,
     requiredConfirmations: 1,
     transactionPollingInterval: 1000,
-  });
-}
+    archiverPollingInterval: 1000,
+  };
+  return await AztecNode.createAndSync(config);
+};

@@ -54,7 +54,7 @@ export class AztecRPCServer implements AztecRPCClient {
   }
 
   public getStorageAt(contract: AztecAddress, storageSlot: Fr) {
-    return Promise.resolve();
+    return Promise.resolve([[0]]);
   }
 
   public getCode(contract: AztecAddress, functionSelector?: Buffer) {
