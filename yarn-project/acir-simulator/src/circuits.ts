@@ -79,6 +79,7 @@ export class AztecAddress {
 
 export class EthAddress {
   public static ZERO = new EthAddress(Buffer.alloc(20));
+  static SIZE_IN_BYTES = 20;
 
   constructor(public readonly buffer: Buffer) {}
 }

@@ -1,3 +1,5 @@
+import { Fr } from './circuits.js';
+
 export type ACVMField = `0x${string}`;
 
 export interface ACVMNoteInputs {
@@ -30,3 +32,21 @@ export const acvmMock: execute = (_, initialWitness) => {
   }
   return Promise.resolve({ partialWitness });
 };
+
+export function toACVMField(value: Fr | Buffer | boolean): `0x${string}` {
+  if (typeof value === 'boolean') {
+    return value ? '0x01' : '0x00';
+  }
+  let buffer;
+  if (!Buffer.isBuffer(value)) {
+    buffer = value.buffer;
+  } else {
+    buffer = value;
+  }
+  return `0x${buffer.toString('hex')}`;
+}
+
+export function fromACVMField(field: `0x${string}`): Fr {
+  const buffer = Buffer.from(field.slice(2), 'hex');
+  return new Fr(buffer);
+}

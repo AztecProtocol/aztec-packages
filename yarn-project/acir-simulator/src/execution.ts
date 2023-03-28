@@ -1,8 +1,9 @@
-import { ACVMField, acvmMock, ACVMWitness, ACVMNoteInputs } from './acvm.js';
+import { ACVMField, acvmMock, ACVMWitness, ACVMNoteInputs, toACVMField, fromACVMField } from './acvm.js';
 import {
   ARGS_LENGTH,
   AztecAddress,
   CallContext,
+  ContractDeploymentData,
   EMITTED_EVENTS_LENGTH,
   EthAddress,
   Fr,
@@ -11,12 +12,14 @@ import {
   NEW_NULLIFIERS_LENGTH,
   OldTreeRoots,
   PrivateCallStackItem,
+  PrivateCircuitPublicInputs,
   PRIVATE_CALL_STACK_LENGTH,
   PUBLIC_CALL_STACK_LENGTH,
   RETURN_VALUES_LENGTH,
   TxRequest,
 } from './circuits.js';
 import { DBOracle } from './db_oracle.js';
+import { frToAztecAddress, frToBoolean, frToEthAddress, WitnessReader, WitnessWriter } from './witness_io.js';
 
 export interface ExecutionPreimages {
   newNotes: Fr[][];
@@ -26,7 +29,7 @@ export interface ExecutionPreimages {
 export interface ExecutionResult {
   // Needed for prover
   acir: Buffer;
-  partialWitness: Map<number, Fr>;
+  partialWitness: Map<number, ACVMField>;
   // Needed for the verifier (kernel)
   callStackItem: PrivateCallStackItem;
   // Needed for the user
@@ -77,36 +80,32 @@ export class Execution {
     const newNullifiers: Fr[] = [];
     const nestedExecutionContexts: ExecutionResult[] = [];
 
-    const { partialWitness: partialACVMWitness } = await acvmMock(acir, initialWitness, {
+    const { partialWitness } = await acvmMock(acir, initialWitness, {
       getSecretKey: async (publicKey: ACVMField) => {
-        const key = await this.db.getSecretKey(contractAddress, this.fromACVMField(publicKey).buffer);
-        return this.toACVMField(key);
+        const key = await this.db.getSecretKey(contractAddress, fromACVMField(publicKey).buffer);
+        return toACVMField(key);
       },
       getNotes2: async (storageSlot: ACVMField) => {
-        const notes = await this.db.getNotes(contractAddress, this.fromACVMField(storageSlot).buffer);
+        const notes = await this.db.getNotes(contractAddress, fromACVMField(storageSlot).buffer);
         const mapped: ACVMNoteInputs[] = notes.slice(0, 2).map(note => ({
-          note: note.note.map(f => this.toACVMField(f)),
-          siblingPath: note.siblingPath.map(f => this.toACVMField(f)),
+          note: note.note.map(f => toACVMField(f)),
+          siblingPath: note.siblingPath.map(f => toACVMField(f)),
           index: note.index,
-          root: this.toACVMField(this.oldRoots.privateDataTreeRoot),
+          root: toACVMField(this.oldRoots.privateDataTreeRoot),
         }));
         return mapped;
       },
-      getRandomField: () => Promise.resolve(this.toACVMField(Fr.random())),
+      getRandomField: () => Promise.resolve(toACVMField(Fr.random())),
       notifyCreatedNote: (notePreimage: ACVMField[]) => {
-        const preimage = notePreimage.map(f => this.fromACVMField(f));
+        const preimage = notePreimage.map(f => fromACVMField(f));
         newNotePreimages.push(preimage);
         return Promise.resolve();
       },
       notifyNullifiedNote: (notePreimage: ACVMField) => {
-        newNullifiers.push(this.fromACVMField(notePreimage));
+        newNullifiers.push(fromACVMField(notePreimage));
         return Promise.resolve();
       },
     });
-
-    const partialWitness = new Map<number, Fr>(
-      Array.from(partialACVMWitness).map(([k, v]) => [k, this.fromACVMField(v)]),
-    );
 
     const publicInputs = this.extractPublicInputs(partialWitness);
 
@@ -126,60 +125,84 @@ export class Execution {
 
   private arrangeInitialWitness(args: Fr[], callContext: CallContext) {
     const witness: ACVMWitness = new Map();
-    // TODO get these indices from circuits.js and consider offset
-    witness.set(1, this.toACVMField(callContext.msgSender));
-    witness.set(2, this.toACVMField(callContext.storageContractAddress));
-    witness.set(3, this.toACVMField(callContext.portalContractAddress));
-    witness.set(4, this.toACVMField(callContext.isDelegateCall));
-    witness.set(5, this.toACVMField(callContext.isStaticCall));
-    witness.set(6, this.toACVMField(callContext.isContractDeployment));
 
-    for (let i = 0; i < ARGS_LENGTH; i++) {
-      witness.set(7 + i, this.toACVMField(args[i]));
-    }
+    const writer = new WitnessWriter(1, witness);
 
-    const ROOTS_INDEX =
-      7 +
-      ARGS_LENGTH +
-      RETURN_VALUES_LENGTH +
-      EMITTED_EVENTS_LENGTH +
-      NEW_COMMITMENTS_LENGTH +
-      NEW_NULLIFIERS_LENGTH +
-      PRIVATE_CALL_STACK_LENGTH +
-      PUBLIC_CALL_STACK_LENGTH +
-      L1_MSG_STACK_LENGTH;
+    writer.writeField(callContext.msgSender);
+    writer.writeField(callContext.storageContractAddress);
+    writer.writeField(callContext.portalContractAddress);
+    writer.writeField(callContext.isDelegateCall);
+    writer.writeField(callContext.isStaticCall);
+    writer.writeField(callContext.isContractDeployment);
 
-    witness.set(ROOTS_INDEX, this.toACVMField(this.oldRoots.privateDataTreeRoot));
-    witness.set(ROOTS_INDEX + 1, this.toACVMField(this.oldRoots.nullifierTreeRoot));
-    witness.set(ROOTS_INDEX + 2, this.toACVMField(this.oldRoots.contractTreeRoot));
+    writer.writeFieldArray(new Array(ARGS_LENGTH).fill(Fr.ZERO).map((value, i) => args[i] || value));
 
-    witness.set(ROOTS_INDEX + 3, this.toACVMField(this.request.txContext.contractDeploymentData.constructorVkHash));
-    witness.set(ROOTS_INDEX + 4, this.toACVMField(this.request.txContext.contractDeploymentData.functionTreeRoot));
-    witness.set(ROOTS_INDEX + 5, this.toACVMField(this.request.txContext.contractDeploymentData.contractAddressSalt));
-    witness.set(ROOTS_INDEX + 6, this.toACVMField(this.request.txContext.contractDeploymentData.portalContractAddress));
+    writer.jump(RETURN_VALUES_LENGTH);
+    writer.jump(EMITTED_EVENTS_LENGTH);
+    writer.jump(NEW_COMMITMENTS_LENGTH);
+    writer.jump(NEW_NULLIFIERS_LENGTH);
+    writer.jump(PRIVATE_CALL_STACK_LENGTH);
+    writer.jump(PUBLIC_CALL_STACK_LENGTH);
+    writer.jump(L1_MSG_STACK_LENGTH);
+
+    writer.writeField(this.oldRoots.privateDataTreeRoot);
+    writer.writeField(this.oldRoots.nullifierTreeRoot);
+    writer.writeField(this.oldRoots.contractTreeRoot);
+
+    writer.writeField(this.request.txContext.contractDeploymentData.constructorVkHash);
+    writer.writeField(this.request.txContext.contractDeploymentData.functionTreeRoot);
+    writer.writeField(this.request.txContext.contractDeploymentData.contractAddressSalt);
+    writer.writeField(this.request.txContext.contractDeploymentData.portalContractAddress);
 
     return witness;
   }
 
-  private extractPublicInputs(partialWitness: Map<number, Fr>): Fr[] {
-    // TODO get these indices from circuits.js and consider offset
-  }
+  private extractPublicInputs(partialWitness: ACVMWitness): PrivateCircuitPublicInputs {
+    const witnessReader = new WitnessReader(1, partialWitness);
 
-  private toACVMField(value: Fr | Buffer | boolean): `0x${string}` {
-    if (typeof value === 'boolean') {
-      return value ? '0x01' : '0x00';
-    }
-    let buffer;
-    if (!Buffer.isBuffer(value)) {
-      buffer = value.buffer;
-    } else {
-      buffer = value;
-    }
-    return `0x${buffer.toString('hex')}`;
-  }
+    const callContext = new CallContext(
+      frToAztecAddress(witnessReader.readField()),
+      frToAztecAddress(witnessReader.readField()),
+      frToEthAddress(witnessReader.readField()),
+      frToBoolean(witnessReader.readField()),
+      frToBoolean(witnessReader.readField()),
+      frToBoolean(witnessReader.readField()),
+    );
 
-  private fromACVMField(field: `0x${string}`): Fr {
-    const buffer = Buffer.from(field.slice(2), 'hex');
-    return new Fr(buffer);
+    const args = witnessReader.readFieldArray(ARGS_LENGTH);
+    const returnValues = witnessReader.readFieldArray(RETURN_VALUES_LENGTH);
+    const emittedEvents = witnessReader.readFieldArray(EMITTED_EVENTS_LENGTH);
+    const newCommitments = witnessReader.readFieldArray(NEW_COMMITMENTS_LENGTH);
+    const newNullifiers = witnessReader.readFieldArray(NEW_NULLIFIERS_LENGTH);
+    const privateCallStack = witnessReader.readFieldArray(PRIVATE_CALL_STACK_LENGTH);
+    const publicCallStack = witnessReader.readFieldArray(PUBLIC_CALL_STACK_LENGTH);
+    const l1MsgStack = witnessReader.readFieldArray(L1_MSG_STACK_LENGTH);
+
+    const privateDataTreeRoot = witnessReader.readField();
+    const nullifierTreeRoot = witnessReader.readField();
+    const contractTreeRoot = witnessReader.readField();
+
+    const contractDeploymentData = new ContractDeploymentData(
+      witnessReader.readField(),
+      witnessReader.readField(),
+      witnessReader.readField(),
+      frToEthAddress(witnessReader.readField()),
+    );
+
+    return new PrivateCircuitPublicInputs(
+      callContext,
+      args,
+      returnValues,
+      emittedEvents,
+      newCommitments,
+      newNullifiers,
+      privateCallStack,
+      publicCallStack,
+      l1MsgStack,
+      privateDataTreeRoot,
+      nullifierTreeRoot,
+      contractTreeRoot,
+      contractDeploymentData,
+    );
   }
 }
