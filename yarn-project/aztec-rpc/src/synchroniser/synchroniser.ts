@@ -20,7 +20,11 @@ export class Synchroniser {
   private interruptableSleep = new InterruptableSleep();
   private running = false;
 
-  constructor(private node: AztecNode, private db: Database, private log = createDebugLogger('aztec:synchroniser')) {}
+  constructor(
+    private node: AztecNode,
+    private db: Database,
+    private log = createDebugLogger('aztec:aztec_rps_synchroniser'),
+  ) {}
 
   public start(from = 1, take = 1, retryInterval = 1000) {
     if (this.running) {
