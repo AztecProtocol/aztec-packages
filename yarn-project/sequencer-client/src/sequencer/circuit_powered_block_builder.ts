@@ -30,7 +30,7 @@ import { Simulator } from '../simulator/index.js';
 import { VerificationKeys } from './vks.js';
 
 const frToBigInt = (fr: Fr) => toBigIntBE(fr.toBuffer());
-const bigintToFr = (num: bigint) => new Fr(toBufferBE(num, 32));
+const bigintToFr = (num: bigint) => new Fr(num);
 const bigintToNum = (num: bigint) => Number(num);
 
 // Denotes fields that are not used now, but will be in the future

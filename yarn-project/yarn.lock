@@ -492,6 +492,7 @@ __metadata:
     "@aztec/foundation": "workspace:^"
     "@aztec/l1-contracts": "workspace:^"
     "@aztec/l2-block": "workspace:^"
+    "@aztec/merkle-tree": "workspace:^"
     "@aztec/p2p": "workspace:^"
     "@aztec/tx": "workspace:^"
     "@aztec/world-state": "workspace:^"
