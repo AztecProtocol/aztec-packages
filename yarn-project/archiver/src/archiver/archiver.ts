@@ -8,11 +8,12 @@ import { ArchiverConfig } from './config.js';
 import { ContractData, L2Block } from '../l2_block/l2_block.js';
 import { L2BlockSource } from '../l2_block/l2_block_source.js';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/l1-contracts';
+import { AuxDataSource } from '../aux_data_source.js';
 
 /**
  * Pulls L2 blocks in a non-blocking manner and provides interface for their retrieval.
  */
-export class Archiver implements L2BlockSource {
+export class Archiver implements L2BlockSource, AuxDataSource {
   /**
    * An array containing all the L2 blocks that have been fetched so far.
    */
