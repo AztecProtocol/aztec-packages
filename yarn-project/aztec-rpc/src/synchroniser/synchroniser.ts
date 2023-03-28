@@ -4,7 +4,6 @@ import { AccountState } from '../account_state/index.js';
 import {
   AztecAddress,
   EthAddress,
-  Fr,
   KERNEL_NEW_COMMITMENTS_LENGTH,
   KERNEL_NEW_CONTRACTS_LENGTH,
   KERNEL_NEW_NULLIFIERS_LENGTH,
@@ -133,7 +132,7 @@ export class Synchroniser {
         }
         i++;
       }
-      const contractAddresses = block.newContractData.map(d => d.aztecAddress).flat();
+      const contractAddresses = block.newContractData.map(d => new AztecAddress(d.aztecAddress.toBuffer())).flat();
       await this.db.confirmContractsDeployed(contractAddresses);
       this.log(`Synched block ${block.number}`);
     }

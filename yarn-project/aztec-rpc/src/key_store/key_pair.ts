@@ -11,7 +11,7 @@ export interface KeyPair {
 export class ConstantKeyPair implements KeyPair {
   public static random() {
     const privateKey = randomBytes(32);
-    const publicKey = new Fr(randomBytes(Fr.SIZE_IN_BYTES));
+    const publicKey = AztecAddress.random();
     return new ConstantKeyPair(publicKey, privateKey);
   }
 

@@ -3,6 +3,7 @@ import {
   AccumulatedData,
   AffineElement,
   AggregationObject,
+  AztecAddress,
   ConstantData,
   EMITTED_EVENTS_LENGTH,
   EthAddress,
@@ -20,13 +21,14 @@ import {
   OldTreeRoots,
   OptionallyRevealedData,
   PrivateKernelPublicInputs,
+  TxRequest,
 } from '@aztec/circuits.js';
 import { randomBytes } from 'crypto';
-import { Signature, TxRequest } from './circuits.js';
+
 export class KernelProver {
   prove(
     txRequest: TxRequest,
-    txSignature: Signature,
+    txSignature: unknown,
     executionResult: ExecutionResult,
     oldRoots: OldTreeRoots,
   ): Promise<{ publicInputs: PrivateKernelPublicInputs; proof: Buffer }> {
@@ -37,7 +39,7 @@ export class KernelProver {
         .map(() => new Fr(randomBytes(32)));
     };
     const createRandomContractData = () => {
-      return new NewContractData(new Fr(randomBytes(32)), new EthAddress(randomBytes(20)), createRandomFields(1)[0]);
+      return new NewContractData(AztecAddress.random(), new EthAddress(randomBytes(20)), createRandomFields(1)[0]);
     };
     const newContracts = [];
     if (txRequest.functionData.isConstructor) {
