@@ -6,9 +6,6 @@ import {
   ConstantBaseRollupData,
   CONTRACT_TREE_ROOTS_TREE_HEIGHT,
   Fr,
-  KERNEL_NEW_COMMITMENTS_LENGTH,
-  KERNEL_NEW_CONTRACTS_LENGTH,
-  KERNEL_NEW_NULLIFIERS_LENGTH,
   MembershipWitness,
   NullifierLeafPreimage,
   NULLIFIER_TREE_HEIGHT,
@@ -20,10 +17,11 @@ import {
   UInt8Vector,
   VK_TREE_HEIGHT,
 } from '@aztec/circuits.js';
+import { toBigIntBE } from '@aztec/foundation';
 import { Tx } from '@aztec/tx';
-import { toBigIntBE, toBufferBE } from '@aztec/foundation';
-import { MerkleTreeId, MerkleTreeDb } from '@aztec/world-state';
+import { MerkleTreeDb, MerkleTreeId } from '@aztec/world-state';
 import flatMap from 'lodash.flatmap';
+import times from 'lodash.times';
 import { makeEmptyTx } from '../deps/tx.js';
 import { Proof, Prover } from '../prover/index.js';
 import { Simulator } from '../simulator/index.js';
@@ -264,8 +262,14 @@ export class CircuitPoweredBlockBuilder {
     treeId: MerkleTreeId,
     height: N,
   ): Promise<MembershipWitness<N>> {
+    // If this is an empty tx, then just return zeroes
+    if (value.value === 0n) return this.makeEmptyMembershipWitness(height);
+
     const index = await this.db.findLeafIndex(treeId, value.toBuffer());
-    if (!index) throw new Error(`Leaf with value ${value} not found in tree ${treeId}`);
+    if (index === undefined) {
+      await this.inspectTree(treeId);
+      throw new Error(`Leaf with value ${value} not found in tree ${treeId}`);
+    }
     const path = await this.db.getSiblingPath(treeId, index);
     // TODO: Check conversion from bigint to number
     return new MembershipWitness(
@@ -288,11 +292,21 @@ export class CircuitPoweredBlockBuilder {
   }
 
   protected async getLowNullifierInfo(nullifier: Fr) {
+    // Return empty nullifier info for an empty tx
+    if (nullifier.value === 0n) {
+      return {
+        index: 0,
+        leafPreimage: new NullifierLeafPreimage(new Fr(0n), new Fr(0n), 0),
+        witness: this.makeEmptyMembershipWitness(NULLIFIER_TREE_HEIGHT),
+      };
+    }
+
     const tree = MerkleTreeId.NULLIFIER_TREE;
     const prevValueIndex = await this.db.getPreviousValueIndex(tree, frToBigInt(nullifier));
     const prevValueInfo = this.db.getLeafData(tree, prevValueIndex.index);
     if (!prevValueInfo) throw new Error(`Nullifier tree should have one initial leaf`);
     const prevValueSiblingPath = await this.db.getSiblingPath(tree, BigInt(prevValueIndex.index));
+
     return {
       index: prevValueIndex,
       leafPreimage: new NullifierLeafPreimage(
@@ -361,20 +375,18 @@ export class CircuitPoweredBlockBuilder {
         PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT,
       );
 
-    // Calculate subtree heights as the log2 of the total number of new elements inserted by this circuit
-    const dataSubtreeSize = Math.log2(KERNEL_NEW_COMMITMENTS_LENGTH) + 1;
-    const contractSubtreeSize = Math.log2(KERNEL_NEW_CONTRACTS_LENGTH) + 1;
-    const nullifierSubtreeSize = Math.log2(KERNEL_NEW_NULLIFIERS_LENGTH) + 1;
-
     // Get the subtree sibling paths for the circuit
-    const newCommitmentsSubtreeSiblingPath = await this.getSubtreeSiblingPath(MerkleTreeId.DATA_TREE, dataSubtreeSize);
+    const newCommitmentsSubtreeSiblingPath = await this.getSubtreeSiblingPath(
+      MerkleTreeId.DATA_TREE,
+      BaseRollupInputs.PRIVATE_DATA_SUBTREE_HEIGHT,
+    );
     const newContractsSubtreeSiblingPath = await this.getSubtreeSiblingPath(
       MerkleTreeId.CONTRACT_TREE,
-      contractSubtreeSize,
+      BaseRollupInputs.CONTRACT_SUBTREE_HEIGHT,
     );
     const newNullifiersSubtreeSiblingPath = await this.getSubtreeSiblingPath(
       MerkleTreeId.NULLIFIER_TREE,
-      nullifierSubtreeSize,
+      BaseRollupInputs.NULLIFIER_SUBTREE_HEIGHT,
     );
 
     return BaseRollupInputs.from({
@@ -397,5 +409,24 @@ export class CircuitPoweredBlockBuilder {
         await getDataMembershipWitnessFor(tx2),
       ],
     } as BaseRollupInputs);
+  }
+
+  // For debugging purposes (maybe move it to merkle tree db?)
+  protected async inspectTree(treeId: MerkleTreeId) {
+    for (let i = 0; i < (await this.db.getTreeInfo(treeId).then(t => t.size)); i++) {
+      console.log(
+        `Tree ${treeId} leaf ${i}: ${await this.db
+          .getLeafValue(treeId, BigInt(i))
+          .then(x => x?.toString('hex') ?? '[undefined]')}`,
+      );
+    }
+  }
+
+  protected makeEmptyMembershipWitness<N extends number>(height: N) {
+    return new MembershipWitness(
+      height,
+      0,
+      times(height, () => new Fr(0n)),
+    );
   }
 }
