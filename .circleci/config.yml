@@ -67,7 +67,7 @@ jobs:
       - *checkout
       - *setup_env
       - run:
-          name: 'Build'
+          name: "Build"
           command: build circuits-wasm-linux-clang
   yarn-project-base:
     machine:
@@ -188,7 +188,8 @@ workflows:
     when:
       equal: [system, << pipeline.parameters.workflow >>]
     jobs:
-      - wasm-linux-clang
+      - wasm-linux-clang:
+          <<: *defaults
       - yarn-project-base:
           requires:
             - wasm-linux-clang
