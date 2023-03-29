@@ -8,7 +8,7 @@ export interface DeployOptions extends SendMethodOptions {
 
 /**
  * Creates a TxRequest from a contract ABI, for contract deployment.
- * Extends the SendMethod class.
+ * Extends the ContractFunctionInteraction class.
  */
 export class DeployMethod extends ContractFunctionInteraction {
   constructor(arc: AztecRPCClient, private abi: ContractAbi, args: any[] = []) {
