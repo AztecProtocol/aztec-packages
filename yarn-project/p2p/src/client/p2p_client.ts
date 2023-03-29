@@ -224,7 +224,7 @@ export class P2PClient implements P2P {
     for (let i = 0; i < blocks.length; i++) {
       const txHashes = createTxHashes(blocks[i]);
       for (const txHash of txHashes) {
-        this.log(`Deleting tx id ${txHash.toString()} from tx pool`);
+        this.log(`Deleting tx hash ${txHash.toString()} from tx pool`);
       }
       this.txPool.deleteTxs(txHashes);
     }

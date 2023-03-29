@@ -8,7 +8,7 @@ import { TxPool } from './index.js';
  */
 export class InMemoryTxPool implements TxPool {
   /**
-   * Our tx pool, stored as a Map in-memory, with K: tx ID and V: the transaction.
+   * Our tx pool, stored as a Map in-memory, with K: tx hash and V: the transaction.
    */
   private txs: Map<bigint, Tx>;
 
