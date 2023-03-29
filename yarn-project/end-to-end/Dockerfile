@@ -1,11 +1,7 @@
 FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/yarn-project-base AS builder
 
-# (1) project
-COPY end-to-end end-to-end
-# (2) dependencies
-COPY merkle-tree merkle-tree
-COPY aztec.js aztec.js
-COPY noir-contracts noir-contracts 
+# (1) project and (2) dependencies
+COPY . .
 
 # (3) build
 WORKDIR /usr/src/yarn-project/end-to-end
