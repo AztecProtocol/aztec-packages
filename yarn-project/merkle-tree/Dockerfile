@@ -8,7 +8,8 @@ WORKDIR /usr/src/yarn-project/foundation
 RUN yarn build
 WORKDIR /usr/src/yarn-project/barretenberg.js
 RUN yarn build
-RUN ln -fs /usr/src/aztec3-circuits/cpp/build-wasm/bin/barretenberg.wasm dest/wasm/barretenberg.wasm
+RUN cp /usr/src/aztec3-circuits/cpp/build-wasm/bin/aztec3-circuits.wasm dest/wasm/barretenberg.wasm
+
 WORKDIR /usr/src/yarn-project/merkle-tree
 RUN yarn build && yarn formatting && yarn test
 
