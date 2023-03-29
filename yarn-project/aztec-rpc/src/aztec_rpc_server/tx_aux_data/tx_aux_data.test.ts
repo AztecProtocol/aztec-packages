@@ -2,12 +2,12 @@ import { Grumpkin } from '@aztec/barretenberg.js/crypto';
 import { BarretenbergWasm } from '@aztec/barretenberg.js/wasm';
 import { AztecAddress, randomBytes } from '@aztec/foundation';
 import { Fr } from '@aztec/foundation/fields';
-import { NotePreImage } from './note_preimage.js';
+import { NotePreimage } from './note_preimage.js';
 import { TxAuxData } from './tx_aux_data.js';
 
 const randomTxAuxData = () => {
   const fields = Array.from({ length: 5 }).map(() => Fr.random());
-  const notePreImage = new NotePreImage(fields);
+  const notePreImage = new NotePreimage(fields);
   const contractAddress = AztecAddress.random();
   const storageSlot = Fr.random();
   return new TxAuxData(notePreImage, contractAddress, storageSlot);

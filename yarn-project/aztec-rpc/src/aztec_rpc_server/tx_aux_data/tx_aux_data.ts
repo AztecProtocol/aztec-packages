@@ -1,17 +1,17 @@
 import { Fr } from '@aztec/foundation/fields';
 import { AztecAddress } from '@aztec/circuits.js';
 import { BufferReader } from '@aztec/foundation/serialize';
-import { NotePreImage } from './note_preimage.js';
+import { NotePreimage } from './note_preimage.js';
 import { serializeToBuffer } from '@aztec/circuits.js/utils';
 import { decryptBuffer, encryptBuffer } from './encrypt_buffer.js';
 import { Grumpkin } from '@aztec/barretenberg.js/crypto';
 
 export class TxAuxData {
-  constructor(public notePreImage: NotePreImage, public contractAddress: AztecAddress, public storageSlot: Fr) {}
+  constructor(public notePreImage: NotePreimage, public contractAddress: AztecAddress, public storageSlot: Fr) {}
 
   static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
-    return new TxAuxData(reader.readObject(NotePreImage), reader.readObject(AztecAddress), reader.readFr());
+    return new TxAuxData(reader.readObject(NotePreimage), reader.readObject(AztecAddress), reader.readFr());
   }
 
   toBuffer() {
