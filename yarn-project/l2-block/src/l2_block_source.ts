@@ -1,3 +1,5 @@
+import { AztecAddress } from '@aztec/foundation';
+import { ContractData } from './contract_data.js';
 import { L2Block } from './l2_block.js';
 
 /**
@@ -17,6 +19,22 @@ export interface L2BlockSource {
    * @returns The requested L2 blocks.
    */
   getL2Blocks(from: number, take: number): Promise<L2Block[]>;
+
+  // /**
+  //  * Lookup the aztec portal address for this contract.
+  //  * The portal handles L1 message communication.
+  //  * Errors if the contract is not defined.
+  //  * @returns The portal address (if we didn't throw an error).
+  //  */
+  // getContractPortalAddress(contractAddress: AztecAddress): Promise<EthAddress | undefined>;
+
+  /**
+   * Lookup the L2 contract data for this contract.
+   * Contains information such as the ethereum portal address.
+   * @param contractAddress - The contract data address.
+   * @returns The portal address (if we didn't throw an error).
+   */
+  getContractData(contractAddress: AztecAddress): Promise<ContractData | undefined>;
 
   /**
    * Starts the L2 block source.
