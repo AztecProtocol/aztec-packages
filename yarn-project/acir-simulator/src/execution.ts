@@ -22,7 +22,7 @@ import { frToAztecAddress, frToBoolean, frToEthAddress, WitnessReader, WitnessWr
 import { randomBytes } from '@aztec/foundation';
 
 export interface ExecutionPreimages {
-  newNotes: Array<{ nullifier: Fr; preimage: Fr[] }>;
+  newNotes: Array<{ preimage: Fr[]; storageSlot: Fr }>;
   nullifiedNotes: Fr[];
 }
 
@@ -78,13 +78,13 @@ export class Execution {
     callContext: CallContext,
   ): Promise<ExecutionResult> {
     const initialWitness = this.arrangeInitialWitness(args, callContext, witnessStartIndex);
-    const newNotePreimages: Array<{ nullifier: Fr; preimage: Fr[]; storageSlot: Fr }> = [];
+    const newNotePreimages: Array<{ preimage: Fr[]; storageSlot: Fr }> = [];
     const newNullifiers: Fr[] = [];
     const nestedExecutionContexts: ExecutionResult[] = [];
 
     const { partialWitness } = await acvmMock(acir, initialWitness, {
       getSecretKey: async (publicKey: ACVMField) => {
-        const key = await this.db.getSecretKey(contractAddress, fromACVMField(publicKey).toBuffer());
+        const key = await this.db.getSecretKey(contractAddress, frToAztecAddress(fromACVMField(publicKey)));
         return toACVMField(key);
       },
       getNotes2: async (storageSlot: ACVMField) => {
@@ -98,12 +98,11 @@ export class Execution {
         return mapped;
       },
       getRandomField: () => Promise.resolve(toACVMField(Fr.fromBuffer(randomBytes(Fr.SIZE_IN_BYTES)))),
-      notifyCreatedNote: (acvmPreimage: ACVMField[], storageSlot: ACVMField, nullifier: ACVMField) => {
+      notifyCreatedNote: (acvmPreimage: ACVMField[], storageSlot: ACVMField) => {
         const preimage = acvmPreimage.map(f => fromACVMField(f));
         newNotePreimages.push({
           preimage,
           storageSlot: fromACVMField(storageSlot),
-          nullifier: fromACVMField(nullifier),
         });
         return Promise.resolve();
       },

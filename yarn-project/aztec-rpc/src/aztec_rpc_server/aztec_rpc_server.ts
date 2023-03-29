@@ -96,7 +96,7 @@ export class AztecRPCServer implements AztecRPCClient {
     const fromAddress = from.equals(AztecAddress.ZERO) ? (await this.keyStore.getAccounts())[0] : from;
 
     const contractAddress = generateContractAddress(fromAddress, contractAddressSalt, args);
-    await this.db.addContract(contractAddress, portalContract, abi, false);
+    await this.db.addContract(contractAddress, portalContract, abi);
 
     const txRequestArgs = args.concat(
       Array(ARGS_LENGTH - args.length)

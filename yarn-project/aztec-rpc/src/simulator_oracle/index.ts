@@ -6,9 +6,8 @@ import { KeyStore } from '../key_store/key_store.js';
 export class SimulatorOracle implements DBOracle {
   constructor(private db: Database, private keyStore: KeyStore) {}
 
-  async getSecretKey(): Promise<Buffer> {
-    const [address] = await this.keyStore.getAccounts();
-    return this.keyStore.getAccountPrivateKey(address);
+  getSecretKey(_: AztecAddress, publicKey: AztecAddress): Promise<Buffer> {
+    return this.keyStore.getAccountPrivateKey(publicKey);
   }
 
   async getNotes(contractAddress: AztecAddress, storageSlot: Buffer): Promise<NoteLoadOracleInputs[]> {

@@ -14,8 +14,8 @@ import { AcirSimulator } from './simulator.js';
 describe('ACIR simulator', () => {
   it('should be able to run and extract public inputs', async () => {
     const acirSimulator = new AcirSimulator({
-      getSecretKey: (contractAddress: AztecAddress, keyId: Buffer) => {
-        console.log('getSecretKey', contractAddress, keyId);
+      getSecretKey: (contractAddress: AztecAddress, publicKey: AztecAddress) => {
+        console.log('getSecretKey', contractAddress, publicKey);
         return Promise.resolve(Buffer.from(''));
       },
       getNotes: (contractAddress: AztecAddress, storageSlot: Buffer) => {
