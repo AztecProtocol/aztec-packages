@@ -12,6 +12,9 @@ import { TxHash } from '@aztec/tx';
 import { AccountState } from '../account_state/index.js';
 import { Database, TxDao } from '../database/index.js';
 import { ContractAbi } from '../noir.js';
+import { L2Block, UnverifiedData } from '@aztec/l2-block';
+import { keccak } from '@aztec/foundation';
+import { TxReceipt, TxStatus } from '../tx/index.js';
 
 export class Synchroniser {
   private runningPromise?: Promise<void>;
@@ -22,7 +25,7 @@ export class Synchroniser {
   constructor(
     private node: AztecNode,
     private db: Database,
-    private log = createDebugLogger('aztec:aztec_rps_synchroniser'),
+    private log = createDebugLogger('aztec:aztec_rpc_synchroniser'),
   ) {}
 
   public start(from = 1, take = 1, retryInterval = 1000) {
@@ -32,19 +35,32 @@ export class Synchroniser {
 
     this.running = true;
 
+    let fromBlock = from;
+    let fromUnverifiedData = from;
+
     const run = async () => {
       while (this.running) {
         try {
-          const blocks = await this.node.getBlocks(from, take);
+          const blocks = await this.node.getBlocks(fromBlock, take);
+          const unverifiedData = await this.node.getUnverifiedData(fromUnverifiedData, take);
 
-          if (!blocks.length) {
+          if (!blocks.length && !unverifiedData.length) {
             await this.interruptableSleep.sleep(retryInterval);
             continue;
           }
 
-          await this.decodeBlocks(blocks);
+          if (blocks.length) {
+            await this.decodeBlocks(blocks);
+          }
 
-          from += blocks.length;
+          if (unverifiedData.length) {
+            for (const accountState of this.accountStates) {
+              await accountState.processUnverifiedData(unverifiedData);
+            }
+          }
+
+          fromBlock += blocks.length;
+          fromUnverifiedData += unverifiedData.length;
         } catch (err) {
           console.log(err);
           await this.interruptableSleep.sleep(retryInterval);
@@ -69,7 +85,7 @@ export class Synchroniser {
   }
 
   public getAccount(account: AztecAddress) {
-    return this.accountStates.find(as => as.publicKey.equals(account));
+    return this.accountStates.find(as => as.pubKey.equals(account));
   }
 
   public getAccounts() {

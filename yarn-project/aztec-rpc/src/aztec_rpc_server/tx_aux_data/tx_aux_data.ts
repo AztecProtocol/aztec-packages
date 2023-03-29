@@ -22,7 +22,7 @@ export class TxAuxData {
     return encryptBuffer(this.toBuffer(), ownerPubKey, ephPrivKey, grumpkin);
   }
 
-  static fromEncryptedBuffer(data: Buffer, ownerPrivKey: Buffer, grumpkin: Grumpkin) {
+  static fromEncryptedBuffer(data: Buffer, ownerPrivKey: Buffer, grumpkin: Grumpkin): TxAuxData | undefined {
     const buf = decryptBuffer(data, ownerPrivKey, grumpkin);
     if (!buf) {
       return;

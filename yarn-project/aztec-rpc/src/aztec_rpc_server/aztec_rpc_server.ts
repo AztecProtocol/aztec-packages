@@ -63,7 +63,7 @@ export class AztecRPCServer implements AztecRPCClient {
   }
 
   public getAccounts() {
-    return Promise.resolve(this.synchroniser.getAccounts().map(a => a.publicKey));
+    return Promise.resolve(this.synchroniser.getAccounts().map(a => a.pubKey));
   }
 
   public async getStorageAt(contract: AztecAddress, storageSlot: Fr) {
