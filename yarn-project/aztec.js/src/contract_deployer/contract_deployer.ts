@@ -1,5 +1,5 @@
 import { AztecRPCClient, ContractAbi } from '@aztec/aztec-rpc';
-import { DeployMethod, DeployOptions } from './deploy_method.js';
+import { DeployMethod } from './deploy_method.js';
 
 /**
  * A class for deploying contract.
