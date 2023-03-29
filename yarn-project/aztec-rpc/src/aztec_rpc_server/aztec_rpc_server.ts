@@ -198,22 +198,19 @@ export class AztecRPCServer implements AztecRPCClient {
       oldRoots as any, // TODO - remove `as any`
     );
     const tx = new Tx(publicInputs, new UInt8Vector(Buffer.alloc(0)), Buffer.alloc(0));
-    const dao: TxDao = new TxDao(
-      new TxHash(tx.txId),
-      undefined,
-      undefined,
-      txRequest.from,
-      undefined,
-      txRequest.to,
-      '',
-    );
+    const dao: TxDao = new TxDao(tx.txHash, undefined, undefined, txRequest.from, undefined, txRequest.to, '');
     await this.db.addOrUpdateTx(dao);
     return tx;
   }
 
-  public async sendTx(tx: Tx) {
+  /**
+   * Send a transaction.
+   * @param tx - The transaction
+   * @returns A hash of the transaction, used to identify it.
+   */
+  public async sendTx(tx: Tx): Promise<TxHash> {
     await this.node.sendTx(tx);
-    return new TxHash(tx.txId);
+    return tx.txHash;
   }
 
   public getTxReceipt(txHash: TxHash) {
