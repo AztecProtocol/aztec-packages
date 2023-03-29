@@ -1,4 +1,4 @@
-FROM 278380418400.dkr.ecr.us-east-2.amazonaws.com/yarn-project-base AS builder
+FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/yarn-project-base AS builder
 
 COPY . .
 RUN cd merkle-tree && yarn build
