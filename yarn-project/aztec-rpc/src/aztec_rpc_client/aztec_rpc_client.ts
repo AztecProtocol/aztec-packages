@@ -14,7 +14,7 @@ export interface AztecRPCClient {
   addAccount(): Promise<AztecAddress>;
   getAccounts(): Promise<AztecAddress[]>;
   addContracts(contracts: DeployedContract[]): Promise<void>;
-  getCode(contract: AztecAddress, functionSelector?: Buffer): Promise<string | undefined>;
+  isContractDeployed(contract: AztecAddress): Promise<boolean>;
   createDeploymentTxRequest(
     abi: ContractAbi,
     args: Fr[],

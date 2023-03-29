@@ -24,6 +24,10 @@ import { createDebugLogger, Fr } from '@aztec/foundation';
 import { Database } from '../database/database.js';
 import { TxDao } from '../database/tx_dao.js';
 
+/**
+ * Implements a remote Aztec RPC client provider.
+ * Combines our major components into one API.
+ */
 export class AztecRPCServer implements AztecRPCClient {
   private synchroniser: Synchroniser;
   constructor(
@@ -61,8 +65,8 @@ export class AztecRPCServer implements AztecRPCClient {
     return Promise.resolve([[0]]);
   }
 
-  public getCode(contract: AztecAddress, functionSelector?: Buffer) {
-    return this.db.getCode(contract, functionSelector || generateFunctionSelector('constructor', []));
+  public async isContractDeployed(contract: AztecAddress): Promise<boolean> {
+    return !!(await this.db.getContract(contract));
   }
 
   public async createDeploymentTxRequest(

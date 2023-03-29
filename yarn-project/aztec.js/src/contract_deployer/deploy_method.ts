@@ -3,21 +3,17 @@ import { EthAddress, Fr } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation';
 import { ContractFunction, SendMethod, SendMethodOptions } from '../contract/index.js';
 
-export interface ConstructorOptions extends SendMethodOptions {
+export interface DeployOptions extends SendMethodOptions {
   portalContract?: EthAddress;
   contractAddressSalt?: Fr;
 }
 
 /**
- * Extends the SendMethodInteraction to create TxRequest for constructors (deployments).
+ * Creates a TxRequest from a contract ABI, for contract deployment.
+ * Extends the SendMethod class.
  */
-export class ConstructorMethod extends SendMethod {
-  constructor(
-    arc: AztecRPCClient,
-    private abi: ContractAbi,
-    args: any[] = [],
-    defaultOptions: ConstructorOptions = {},
-  ) {
+export class DeployMethod extends SendMethod {
+  constructor(arc: AztecRPCClient, private abi: ContractAbi, args: any[] = [], defaultOptions: DeployOptions = {}) {
     const constructorAbi = abi.functions.find(f => f.name === 'constructor');
     if (!constructorAbi) {
       throw new Error('Cannot find constructor in the ABI.');
@@ -26,7 +22,7 @@ export class ConstructorMethod extends SendMethod {
     super(arc, AztecAddress.ZERO, new ContractFunction(constructorAbi), args, defaultOptions);
   }
 
-  public async request(options: ConstructorOptions = {}) {
+  public async request(options: DeployOptions = {}) {
     const { portalContract, contractAddressSalt, from } = { ...this.defaultOptions, ...options };
     this.txRequest = await this.arc.createDeploymentTxRequest(
       this.abi,
@@ -38,15 +34,15 @@ export class ConstructorMethod extends SendMethod {
     return this.txRequest;
   }
 
-  public sign(options: ConstructorOptions = {}) {
+  public sign(options: DeployOptions = {}) {
     return super.sign(options);
   }
 
-  public create(options: ConstructorOptions = {}) {
+  public create(options: DeployOptions = {}) {
     return super.create(options);
   }
 
-  public send(options: ConstructorOptions = {}) {
+  public send(options: DeployOptions = {}) {
     return super.send(options);
   }
 }
