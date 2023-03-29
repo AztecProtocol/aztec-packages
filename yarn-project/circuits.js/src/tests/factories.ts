@@ -1,5 +1,5 @@
-import { EthAddress, Fq, Fr, AztecAddress } from '@aztec/foundation';
-import { CallContext, PrivateCircuitPublicInputs } from '../index.js';
+import { AztecAddress, EthAddress, Fq, Fr } from '@aztec/foundation';
+import { CallContext, PrivateCircuitPublicInputs, RootRollupPublicInputs } from '../index.js';
 import { AppendOnlyTreeSnapshot, BaseRollupPublicInputs, ConstantBaseRollupData } from '../structs/base_rollup.js';
 import {
   ARGS_LENGTH,
@@ -38,10 +38,9 @@ import {
   AffineElement,
   AggregationObject,
   ComposerType,
+  EcdsaSignature,
   MembershipWitness,
   UInt8Vector,
-  RollupTypes,
-  EcdsaSignature,
 } from '../structs/shared.js';
 import { ContractDeploymentData, SignedTxRequest, TxContext, TxRequest } from '../structs/tx.js';
 import { CommitmentMap, G1AffineElement, VerificationKey } from '../structs/verification_key.js';
@@ -95,8 +94,8 @@ export function makeOptionallyRevealedData(seed = 1): OptionallyRevealedData {
 
 export function makeAggregationObject(seed = 1): AggregationObject {
   return new AggregationObject(
-    new AffineElement(new Fq(seed), new Fq(seed + 1)),
-    new AffineElement(new Fq(seed + 0x100), new Fq(seed + 0x101)),
+    new AffineElement(new Fq(BigInt(seed)), new Fq(BigInt(seed + 1))),
+    new AffineElement(new Fq(BigInt(seed + 0x100)), new Fq(BigInt(seed + 0x101))),
     range(4, seed + 2).map(fr),
     range(6, seed + 6),
   );
@@ -198,20 +197,15 @@ export function makePrivateCircuitPublicInputs(seed = 0): PrivateCircuitPublicIn
     privateCallStack: range(PRIVATE_CALL_STACK_LENGTH, seed + 0x600).map(fr),
     publicCallStack: range(PUBLIC_CALL_STACK_LENGTH, seed + 0x700).map(fr),
     l1MsgStack: range(L1_MSG_STACK_LENGTH, seed + 0x800).map(fr),
-    historicContractTreeRoot: new Fr(numToUInt32BE(seed + 0x900, 32)), // TODO not in spec
-    historicPrivateDataTreeRoot: new Fr(numToUInt32BE(seed + 0x1000, 32)),
-    historicPrivateNullifierTreeRoot: new Fr(numToUInt32BE(seed + 0x1100, 32)), // TODO not in spec
+    historicContractTreeRoot: fr(seed + 0x900), // TODO not in spec
+    historicPrivateDataTreeRoot: fr(seed + 0x1000),
+    historicPrivateNullifierTreeRoot: fr(seed + 0x1100), // TODO not in spec
     contractDeploymentData: makeContractDeploymentData(),
   });
 }
 
 export function makeContractDeploymentData(seed = 1) {
-  return new ContractDeploymentData(
-    new Fr(numToUInt32BE(seed, 32)),
-    new Fr(numToUInt32BE(seed + 1, 32)),
-    new Fr(numToUInt32BE(seed + 2, 32)),
-    new EthAddress(numToUInt32BE(seed + 3, 20)),
-  );
+  return new ContractDeploymentData(fr(seed), fr(seed + 1), fr(seed + 2), new EthAddress(numToUInt32BE(seed + 3, 20)));
 }
 
 export function makeConstantBaseRollupData(seed = 1): ConstantBaseRollupData {
@@ -244,20 +238,37 @@ export function makeEcdsaSignature(seed = 1): EcdsaSignature {
 
 export function makeBaseRollupPublicInputs(seed = 0) {
   return new BaseRollupPublicInputs(
-    RollupTypes.Base,
     makeAggregationObject(seed + 0x100),
     makeConstantBaseRollupData(seed + 0x200),
     makeAppendOnlyTreeSnapshot(seed + 0x300),
     makeAppendOnlyTreeSnapshot(seed + 0x400),
-    fr(seed + 0x501),
-    fr(seed + 0x502),
-    fr(seed + 0x503),
-    fr(seed + 0x601),
-    fr(seed + 0x602),
-    fr(seed + 0x603),
-    fr(seed + 0x604),
-    fr(seed + 0x605),
+    makeAppendOnlyTreeSnapshot(seed + 0x500),
+    makeAppendOnlyTreeSnapshot(seed + 0x600),
+    makeAppendOnlyTreeSnapshot(seed + 0x700),
+    makeAppendOnlyTreeSnapshot(seed + 0x800),
+    [fr(seed + 0x901), fr(seed + 0x902)],
   );
+}
+
+export function makeRootRollupPublicInputs(seed = 0) {
+  return RootRollupPublicInputs.from({
+    startContractTreeSnapshot: makeAppendOnlyTreeSnapshot(seed + 0x100),
+    startNullifierTreeSnapshot: makeAppendOnlyTreeSnapshot(seed + 0x200),
+    startPrivateDataTreeSnapshot: makeAppendOnlyTreeSnapshot(seed + 0x300),
+    startTreeOfHistoricContractTreeRootsSnapshot: makeAppendOnlyTreeSnapshot(seed + 0x400),
+    startTreeOfHistoricPrivateDataTreeRootsSnapshot: makeAppendOnlyTreeSnapshot(seed + 0x500),
+    endContractTreeSnapshot: makeAppendOnlyTreeSnapshot(seed + 0x600),
+    endNullifierTreeSnapshot: makeAppendOnlyTreeSnapshot(seed + 0x700),
+    endPrivateDataTreeSnapshot: makeAppendOnlyTreeSnapshot(seed + 0x800),
+    endTreeOfHistoricContractTreeRootsSnapshot: makeAppendOnlyTreeSnapshot(seed + 0x900),
+    endTreeOfHistoricPrivateDataTreeRootsSnapshot: makeAppendOnlyTreeSnapshot(seed + 0x1000),
+    endAggregationObject: makeAggregationObject(seed + 0x1100),
+    newCommitmentsHash: fr(seed + 0x1200),
+    newContractDataHash: fr(seed + 0x1200),
+    newL1MsgsHash: fr(seed + 0x1200),
+    newNullifiersHash: fr(seed + 0x1200),
+    proverContributionsHash: fr(seed + 0x1200),
+  });
 }
 
 /**
@@ -267,5 +278,5 @@ export function makeBaseRollupPublicInputs(seed = 0) {
  * @returns The buffer.
  */
 export function fr(n: number) {
-  return new Fr(numToUInt32BE(n, 32));
+  return new Fr(BigInt(n));
 }

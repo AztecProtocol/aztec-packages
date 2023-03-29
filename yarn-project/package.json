@@ -5,7 +5,8 @@
   "scripts": {
     "docs": "typedoc --out docs/dist && cd docs && yarn serve",
     "formatting": "yarn workspaces foreach run formatting",
-    "formatting:fix": "yarn workspaces foreach run formatting:fix"
+    "formatting:fix": "yarn workspaces foreach run formatting:fix",
+    "build": "yarn workspaces foreach run build"
   },
   "workspaces": [
     "acir-simulator",
@@ -30,8 +31,8 @@
     "prover-client",
     "aztec-node",
     "sequencer-client",
-    "world-state",
-    ".yalc/*/*"
+    "tx",
+    "world-state"
   ],
   "prettier": "@aztec/foundation/prettier",
   "devDependencies": {

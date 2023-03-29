@@ -7,6 +7,12 @@
   },
   "references": [
     {
+      "path": "../barretenberg.js/tsconfig.dest.json"
+    },
+    {
+      "path": "../l1-contracts/tsconfig.dest.json"
+    },
+    {
       "path": "../l2-block/tsconfig.dest.json"
     },
     {

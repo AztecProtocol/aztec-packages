@@ -1,5 +1,5 @@
 # FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/circuits-x86_64-linux-clang
-# FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/circuits-wasm-linux-clang
+FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/aztec3-circuits-wasm-linux-clang
 # FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/l1-contracts
 
 FROM node:18-alpine
@@ -9,6 +9,8 @@ RUN apk update && apk add --no-cache build-base git python3 curl bash jq
 # COPY --from=0 /usr/src/circuits/build/bin /usr/src/circuits/build/bin
 # COPY --from=1 /usr/src/circuits/build/bin /usr/src/circuits/build-wasm/bin
 # COPY --from=2 /usr/src/l1-contracts /usr/src/l1-contracts
+COPY --from=0 /usr/src/aztec3-circuits/cpp/build-wasm/bin/aztec3-circuits.wasm /usr/src/aztec3-circuits/cpp/build-wasm/bin/aztec3-circuits.wasm
+
 WORKDIR /usr/src/yarn-project
 
 # We only want to copy the package.json's, to ensure we only rebuild this image if project dependencies changed.
@@ -34,11 +36,10 @@ COPY circuits.js/package.json circuits.js/package.json
 COPY p2p/package.json p2p/package.json
 COPY prover-client/package.json prover-client/package.json
 COPY sequencer-client/package.json sequencer-client/package.json
+COPY tx/package.json tx/package.json
 COPY world-state/package.json world-state/package.json
 COPY package.json tsconfig.json yarn.lock .yarnrc.yml ./
 COPY .yarn .yarn
-# bundled dependencies
-COPY .yalc .yalc
 
 # Although we're attempting to be "zero-install", in practice we still need to build arch specific packages.
 RUN yarn --immutable
@@ -55,9 +56,9 @@ RUN echo "enableNetwork: false" >> .yarnrc.yml
 # - Do a `yarn workspaces focus --production` to install production dependencies from the global cache, to .yarn/cache
 # - A final stage of the build strips away the global cache.
 RUN /bin/bash -c '\
-[ -d /root/.yarn/berry/cache ] && exit 0; \
-cd .yarn/cache && \
-mkdir -p /root/.yarn/berry/cache && \
-for F in *; do \
+  [ -d /root/.yarn/berry/cache ] && exit 0; \
+  cd .yarn/cache && \
+  mkdir -p /root/.yarn/berry/cache && \
+  for F in *; do \
   [[ $F =~ (.*-) ]] && ln $F /root/.yarn/berry/cache/${BASH_REMATCH[1]}8.zip; \
-done'
+  done'

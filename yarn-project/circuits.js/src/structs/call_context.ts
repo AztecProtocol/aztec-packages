@@ -1,5 +1,6 @@
-import { AztecAddress, EthAddress } from '@aztec/foundation';
 import { serializeToBuffer } from '../utils/serialize.js';
+import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { EthAddress } from '@aztec/foundation/eth-address';
 
 /**
  * Call context.
@@ -22,7 +23,7 @@ export class CallContext {
     return serializeToBuffer(
       this.msgSender,
       this.storageContractAddress,
-      this.portalContractAddress.toBuffer(),
+      this.portalContractAddress,
       this.isDelegateCall,
       this.isStaticCall,
       this.isContractDeployment,

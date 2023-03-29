@@ -1,69 +1,19 @@
-import { ExecutionPreimages } from './acvm.js';
-import {
-  CallContext,
-  PrivateCircuitPublicInputs,
-  TxRequest,
-  EthAddress,
-  PrivateCallStackItem,
-  OldTreeRoots,
-} from './circuits.js';
+import { EthAddress, OldTreeRoots, TxRequest, AztecAddress } from '@aztec/circuits.js';
+import { DBOracle } from './db_oracle.js';
+import { Execution, ExecutionResult } from './execution.js';
 
-export interface ExecutionResult {
-  // Needed for prover
-  acir: Buffer;
-  partialWitness: Buffer;
-  // Needed for the verifier (kernel)
-  callStackItem: PrivateCallStackItem;
-  // Needed for the user
-  preimages: ExecutionPreimages;
-  // Nested executions
-  nestedExecutions: this[];
-}
-
-/**
- * A placeholder for the Acir Simulator.
- */
 export class AcirSimulator {
+  constructor(private db: DBOracle) {}
+
   run(
     request: TxRequest,
     entryPointACIR: Buffer,
+    contractAddress: AztecAddress,
     portalContractAddress: EthAddress,
     oldRoots: OldTreeRoots,
   ): Promise<ExecutionResult> {
-    const callContext = new CallContext(
-      request.from,
-      request.to,
-      portalContractAddress,
-      false,
-      false,
-      request.functionData.isContructor,
-    );
+    const execution = new Execution(this.db, request, entryPointACIR, contractAddress, portalContractAddress, oldRoots);
 
-    const publicInputs = new PrivateCircuitPublicInputs(
-      callContext,
-      request.args,
-      [], // returnValues,
-      [], // emittedEvents,
-      [], // newCommitments,
-      [], // newNullifiers,
-      [], // privateCallStack,
-      [], // publicCallStack,
-      [], // l1MsgStack,
-      oldRoots.privateDataTreeRoot,
-      oldRoots.nullifierTreeRoot,
-      oldRoots.contractTreeRoot,
-      request.txContext.contractDeploymentData,
-    );
-
-    return Promise.resolve({
-      acir: entryPointACIR,
-      partialWitness: Buffer.alloc(0),
-      callStackItem: new PrivateCallStackItem(request.to, request.functionData.functionSelector, publicInputs),
-      preimages: {
-        newNotes: [],
-        nullifiedNotes: [],
-      },
-      nestedExecutions: [],
-    });
+    return execution.run();
   }
 }
