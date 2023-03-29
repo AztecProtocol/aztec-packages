@@ -57,7 +57,7 @@ describe('sequencer/circuit_block_builder', () => {
       ['contractTreeRoot', MerkleTreeId.CONTRACT_TREE],
       ['nullifierTreeRoot', MerkleTreeId.NULLIFIER_TREE],
     ] as const) {
-      tx.data.constants.oldTreeRoots[name] = new Fr((await db.getTreeInfo(id)).root);
+      tx.data.constants.oldTreeRoots[name] = Fr.fromBuffer((await db.getTreeInfo(id)).root);
     }
 
     // Actually build a block!
