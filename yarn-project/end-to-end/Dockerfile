@@ -1,4 +1,4 @@
-FROM 278380418400.dkr.ecr.us-east-2.amazonaws.com/yarn-project-base:cache-ba91938d5f16a848547285fbb3c417e0989db17b AS builder
+FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/yarn-project-base AS builder
 
 COPY . .
 RUN cd merkle-tree && yarn build
@@ -7,6 +7,10 @@ RUN cd noir-contracts && yarn build
 WORKDIR /usr/src/yarn-project/end-to-end
 RUN yarn build
 # RUN yarn formatting
+
+# copy bb.js wasm binaries
+WORKDIR /usr/src/yarn-project/barretenberg.js
+RUN cp /usr/src/aztec3-circuits/cpp/build-wasm/bin/aztec3-circuits.wasm dest/wasm/barretenberg.wasm
 
 # copy bb.js wasm binaries
 WORKDIR /usr/src/yarn-project/barretenberg.js
