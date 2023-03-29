@@ -9,6 +9,7 @@ import {
   TxContext,
   TxRequest,
 } from '@aztec/circuits.js';
+import { TestContractAbi } from '@aztec/noir-contracts/examples';
 import { AcirSimulator } from './simulator.js';
 
 describe('ACIR simulator', () => {
@@ -43,7 +44,13 @@ describe('ACIR simulator', () => {
       new Fr(0n),
     );
     const oldRoots = new OldTreeRoots(new Fr(0n), new Fr(0n), new Fr(0n), new Fr(0n));
-    const result = await acirSimulator.run(txRequest, Buffer.alloc(0), AztecAddress.ZERO, EthAddress.ZERO, oldRoots);
+    const result = await acirSimulator.run(
+      txRequest,
+      Buffer.from(TestContractAbi.functions[0].bytecode, 'hex'),
+      AztecAddress.ZERO,
+      EthAddress.ZERO,
+      oldRoots,
+    );
     console.log(result.callStackItem.publicInputs.contractDeploymentData);
   });
 });

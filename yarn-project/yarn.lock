@@ -20,7 +20,9 @@ __metadata:
   resolution: "@aztec/acir-simulator@workspace:acir-simulator"
   dependencies:
     "@aztec/circuits.js": "workspace:^"
+    "@aztec/noir-contracts": "workspace:^"
     "@jest/globals": ^29.4.3
+    "@noir-lang/barretenberg_browser_stopgap_wasm": "github:joss-aztec/barretenberg_browser_stopgap_wasm_build#8f5479cffb59a4883461e7a936e6d161a45bdd1c"
     "@noir-lang/noir-source-resolver": ^1.1.0
     "@noir-lang/noir_wasm": 0.3.2-29b1f7df
     "@rushstack/eslint-patch": ^1.1.4
@@ -1812,6 +1814,13 @@ __metadata:
     "@nodelib/fs.scandir": 2.1.5
     fastq: ^1.6.0
   checksum: 190c643f156d8f8f277bf2a6078af1ffde1fd43f498f187c2db24d35b4b4b5785c02c7dc52e356497b9a1b65b13edc996de08de0b961c32844364da02986dc53
+  languageName: node
+  linkType: hard
+
+"@noir-lang/barretenberg_browser_stopgap_wasm@github:joss-aztec/barretenberg_browser_stopgap_wasm_build#8f5479cffb59a4883461e7a936e6d161a45bdd1c":
+  version: 0.1.0-1e86f86
+  resolution: "@noir-lang/barretenberg_browser_stopgap_wasm@https://github.com/joss-aztec/barretenberg_browser_stopgap_wasm_build.git#commit=8f5479cffb59a4883461e7a936e6d161a45bdd1c"
+  checksum: e90e85ed68810ee01eabfce01ac47425719b46022a819a315219c823774bb3b796cb82dfab3a88325704f2a3ea7b3333ec597b1c5c70798b860cc6d63f77ac5e
   languageName: node
   linkType: hard
 

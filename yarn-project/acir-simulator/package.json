@@ -30,9 +30,11 @@
   },
   "dependencies": {
     "@aztec/circuits.js": "workspace:^",
+    "@noir-lang/barretenberg_browser_stopgap_wasm": "github:joss-aztec/barretenberg_browser_stopgap_wasm_build#8f5479cffb59a4883461e7a936e6d161a45bdd1c",
     "tslib": "^2.4.0"
   },
   "devDependencies": {
+    "@aztec/noir-contracts": "workspace:^",
     "@jest/globals": "^29.4.3",
     "@noir-lang/noir-source-resolver": "^1.1.0",
     "@noir-lang/noir_wasm": "0.3.2-29b1f7df",

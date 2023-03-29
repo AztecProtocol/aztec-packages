@@ -1,4 +1,4 @@
-import { ACVMField, acvmMock, ACVMWitness, toACVMField, fromACVMField } from './acvm.js';
+import { ACVMField, acvm, ACVMWitness, toACVMField, fromACVMField } from './acvm.js';
 import {
   ARGS_LENGTH,
   AztecAddress,
@@ -82,7 +82,7 @@ export class Execution {
     const newNullifiers: Fr[] = [];
     const nestedExecutionContexts: ExecutionResult[] = [];
 
-    const { partialWitness } = await acvmMock(acir, initialWitness, {
+    const { partialWitness } = await acvm(acir, initialWitness, {
       getSecretKey: ([address]: ACVMField[]) => {
         return this.getSecretKey(contractAddress, address);
       },
