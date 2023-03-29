@@ -31,7 +31,6 @@ export class Tx {
 
   /**
    * Construct & return transaction hash.
-   * // TODO: actually construct & return tx hash.
    * @returns The transaction's hash.
    */
   get txHash() {
