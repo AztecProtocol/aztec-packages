@@ -19,7 +19,7 @@ export class MerkleTrees implements MerkleTreeDb {
   private jobQueue = new SerialQueue();
 
   constructor(private db: levelup.LevelUp) {}
-  
+
   /**
    * Initialises the collection of Merkle Trees.
    */
