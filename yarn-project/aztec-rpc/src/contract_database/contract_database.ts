@@ -5,5 +5,4 @@ import { ContractDao } from './contract_dao.js';
 export interface ContractDatabase {
   addContract(address: AztecAddress, portalAddress: EthAddress, abi: ContractAbi): Promise<void>;
   getContract(address: AztecAddress): Promise<ContractDao | undefined>;
-  getCode(contractAddress: AztecAddress, functionSelector: Buffer): Promise<string | undefined>;
 }
