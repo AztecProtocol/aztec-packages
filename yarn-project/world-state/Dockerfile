@@ -13,7 +13,7 @@ RUN yarn build
 
 WORKDIR /usr/src/yarn-project/barretenberg.js
 RUN yarn build
-RUN cp /usr/src/aztec3-circuits/cpp/build-wasm/bin/barretenberg.wasm dest/wasm/barretenberg.wasm
+# RUN ln -fs /usr/src/aztec3-circuits/cpp/build-wasm/bin/barretenberg.wasm dest/wasm/barretenberg.wasm
 
 WORKDIR /usr/src/yarn-project/circuits.js
 RUN yarn build

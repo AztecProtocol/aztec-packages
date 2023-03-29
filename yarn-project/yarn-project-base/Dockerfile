@@ -9,7 +9,7 @@ RUN apk update && apk add --no-cache build-base git python3 curl bash jq
 # COPY --from=0 /usr/src/circuits/build/bin /usr/src/circuits/build/bin
 # COPY --from=1 /usr/src/circuits/build/bin /usr/src/circuits/build-wasm/bin
 # COPY --from=2 /usr/src/l1-contracts /usr/src/l1-contracts
-COPY --from=0 /usr/src/aztec3-circuits/cpp/build-wasm/bin/aztec3-circuits.wasm /usr/src/aztec3-circuits/cpp/build-wasm/bin/barretenberg.wasm
+COPY --from=0 /usr/src/aztec3-circuits/cpp/build-wasm/bin/aztec3-circuits.wasm /usr/src/yarn-project/barretenberg.js/src/wasm/barretenberg.wasm
 WORKDIR /usr/src/yarn-project
 
 # We only want to copy the package.json's, to ensure we only rebuild this image if project dependencies changed.

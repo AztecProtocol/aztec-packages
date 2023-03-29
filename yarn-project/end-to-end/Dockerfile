@@ -5,6 +5,10 @@ RUN cd noir-contracts && yarn build
 WORKDIR /usr/src/yarn-project/end-to-end
 RUN yarn formatting
 
+# # symlink barretenberg wasm binaries
+# WORKDIR /usr/src/yarn-project/barretenberg.js
+# RUN ln -fs /usr/src/aztec3-circuits/cpp/build-wasm/bin/barretenberg.wasm dest/wasm/barretenberg.wasm
+
 # Prune dev dependencies. See comment in base image.
 RUN yarn cache clean
 RUN yarn workspaces focus --production > /dev/null
