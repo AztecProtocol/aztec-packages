@@ -6,8 +6,6 @@ export interface NoteDao {
   contractSlot: Fr;
   notePreimage: NotePreImage;
   // Computed properties
-  siblingPath: Fr[];
   nullifier: Fr;
-  commitment: Fr;
   index: number;
 }

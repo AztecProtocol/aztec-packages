@@ -61,6 +61,7 @@ export class Execution {
     return this.runExternalFunction(
       this.entryPointACIR,
       this.contractAddress,
+      1, // TODO this comes from contract ABI
       this.request.functionData.functionSelector,
       this.request.args,
       callContext,
@@ -71,11 +72,12 @@ export class Execution {
   private async runExternalFunction(
     acir: Buffer,
     contractAddress: AztecAddress,
+    witnessStartIndex: number,
     functionSelector: number,
     args: Fr[],
     callContext: CallContext,
   ): Promise<ExecutionResult> {
-    const initialWitness = this.arrangeInitialWitness(args, callContext);
+    const initialWitness = this.arrangeInitialWitness(args, callContext, witnessStartIndex);
     const newNotePreimages: Array<{ nullifier: Fr; preimage: Fr[]; storageSlot: Fr }> = [];
     const newNullifiers: Fr[] = [];
     const nestedExecutionContexts: ExecutionResult[] = [];
@@ -111,7 +113,7 @@ export class Execution {
       },
     });
 
-    const publicInputs = this.extractPublicInputs(partialWitness);
+    const publicInputs = this.extractPublicInputs(partialWitness, witnessStartIndex);
 
     const callStackItem = new PrivateCallStackItem(contractAddress, functionSelector, publicInputs);
 
@@ -127,10 +129,10 @@ export class Execution {
     };
   }
 
-  private arrangeInitialWitness(args: Fr[], callContext: CallContext) {
+  private arrangeInitialWitness(args: Fr[], callContext: CallContext, witnessStartIndex: number) {
     const witness: ACVMWitness = new Map();
 
-    const writer = new WitnessWriter(1, witness);
+    const writer = new WitnessWriter(witnessStartIndex, witness);
 
     writer.writeField(callContext.msgSender);
     writer.writeField(callContext.storageContractAddress);
@@ -143,13 +145,13 @@ export class Execution {
       new Array(ARGS_LENGTH).fill(Fr.fromBuffer(Buffer.alloc(Fr.SIZE_IN_BYTES))).map((value, i) => args[i] || value),
     );
 
-    writer.jump(RETURN_VALUES_LENGTH);
-    writer.jump(EMITTED_EVENTS_LENGTH);
-    writer.jump(NEW_COMMITMENTS_LENGTH);
-    writer.jump(NEW_NULLIFIERS_LENGTH);
-    writer.jump(PRIVATE_CALL_STACK_LENGTH);
-    writer.jump(PUBLIC_CALL_STACK_LENGTH);
-    writer.jump(L1_MSG_STACK_LENGTH);
+    writer.writeFieldArray(new Array(RETURN_VALUES_LENGTH).fill(new Fr(0n)));
+    writer.writeFieldArray(new Array(EMITTED_EVENTS_LENGTH).fill(new Fr(0n)));
+    writer.writeFieldArray(new Array(NEW_COMMITMENTS_LENGTH).fill(new Fr(0n)));
+    writer.writeFieldArray(new Array(NEW_NULLIFIERS_LENGTH).fill(new Fr(0n)));
+    writer.writeFieldArray(new Array(PRIVATE_CALL_STACK_LENGTH).fill(new Fr(0n)));
+    writer.writeFieldArray(new Array(PUBLIC_CALL_STACK_LENGTH).fill(new Fr(0n)));
+    writer.writeFieldArray(new Array(L1_MSG_STACK_LENGTH).fill(new Fr(0n)));
 
     writer.writeField(this.oldRoots.privateDataTreeRoot);
     writer.writeField(this.oldRoots.nullifierTreeRoot);
@@ -163,8 +165,8 @@ export class Execution {
     return witness;
   }
 
-  private extractPublicInputs(partialWitness: ACVMWitness): PrivateCircuitPublicInputs {
-    const witnessReader = new WitnessReader(1, partialWitness);
+  private extractPublicInputs(partialWitness: ACVMWitness, witnessStartIndex: number): PrivateCircuitPublicInputs {
+    const witnessReader = new WitnessReader(witnessStartIndex, partialWitness);
 
     const callContext = new CallContext(
       frToAztecAddress(witnessReader.readField()),

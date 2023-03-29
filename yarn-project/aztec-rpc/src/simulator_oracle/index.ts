@@ -13,12 +13,11 @@ export class SimulatorOracle implements DBOracle {
 
   async getNotes(contractAddress: AztecAddress, storageSlot: Buffer): Promise<NoteLoadOracleInputs[]> {
     const noteDaos = await this.db.getNotes(contractAddress, storageSlot);
-    return noteDaos
-      .map(noteDao => ({
-        note: noteDao.notePreimage.fields,
-        siblingPath: noteDao.siblingPath,
-        index: noteDao.index,
-      }));
+    return noteDaos.map(noteDao => ({
+      note: noteDao.notePreimage.fields,
+      siblingPath: [], // TODO get this from node
+      index: noteDao.index,
+    }));
   }
 
   async getBytecode(contractAddress: AztecAddress, functionSelector: Buffer): Promise<Buffer> {
