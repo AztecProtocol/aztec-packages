@@ -15,7 +15,12 @@ export interface AztecRPCClient {
   addAccount(): Promise<AztecAddress>;
   getAccounts(): Promise<AztecAddress[]>;
   addContracts(contracts: DeployedContract[]): Promise<void>;
-  getCode(contract: AztecAddress, functionSelector?: Buffer): Promise<string | undefined>;
+  /**
+   * Is an L2 contract deployed at this address?
+   * @param contractAddress - The contract data address.
+   * @returns Whether the contract was deployed.
+   */
+  isContractDeployed(contract: AztecAddress): Promise<boolean>;
   createDeploymentTxRequest(
     abi: ContractAbi,
     args: Fr[],
