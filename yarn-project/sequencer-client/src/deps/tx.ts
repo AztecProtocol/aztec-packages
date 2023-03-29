@@ -102,5 +102,6 @@ function makeEmptyPrivateKernelPublicInputs() {
 }
 
 export function makeEmptyTx(): Tx {
-  return new Tx(makeEmptyPrivateKernelPublicInputs(), makeEmptyProof());
+  const isEmpty = true;
+  return new Tx(makeEmptyPrivateKernelPublicInputs(), makeEmptyProof(), isEmpty);
 }

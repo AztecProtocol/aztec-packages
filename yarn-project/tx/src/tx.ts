@@ -15,7 +15,7 @@ const hash = new Keccak(256);
  */
 export class Tx {
   private _id?: Buffer;
-  constructor(public readonly data: PrivateKernelPublicInputs, public readonly proof: UInt8Vector) {}
+  constructor(public readonly data: PrivateKernelPublicInputs, public readonly proof: UInt8Vector, public readonly isEmpty = false) {}
 
   /**
    * Construct & return transaction ID.
