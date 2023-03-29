@@ -1,6 +1,6 @@
 import { createDebugLogger } from '@aztec/foundation';
 import { L2Block, L2BlockDownloader, L2BlockSource } from '@aztec/l2-block';
-import { createTxIds, Tx } from '@aztec/tx';
+import { createTxHashes, Tx, TxHash } from '@aztec/tx';
 
 import { TxPool } from '../tx_pool/index.js';
 import { InMemoryTxPool } from '../tx_pool/memory_tx_pool.js';
@@ -37,6 +37,12 @@ export interface P2P {
    * Verifies the 'tx' and, if valid, adds it to local tx pool and forwards it to other peers.
    **/
   sendTx(tx: Tx): Promise<void>;
+
+  /**
+   * Deletes 'txs' from the pool, given hashes.
+   * NOT used if we use sendTx as reconcileTxPool will handle this.
+   **/
+  deleteTxs(txHashes: TxHash[]): Promise<void>;
 
   /**
    * Returns all transactions in the transaction pool.
@@ -189,6 +195,20 @@ export class P2PClient implements P2P {
   }
 
   /**
+   * Deletes the 'txs' from the pool.
+   * NOT used if we use sendTx as reconcileTxPool will handle this.
+   * @param txs - The transactions to delete.
+   * @returns Empty promise.
+   **/
+  public async deleteTxs(txHashes: TxHash[]): Promise<void> {
+    const ready = await this.isReady();
+    if (!ready) {
+      throw new Error('P2P client not ready');
+    }
+    this.txPool.deleteTxs(txHashes);
+  }
+
+  /**
    * Public function to check if the p2p client is fully synced and ready to receive txs.
    * @returns True if the P2P client is ready to receive txs.
    */
@@ -222,11 +242,11 @@ export class P2PClient implements P2P {
    */
   private reconcileTxPool(blocks: L2Block[]): Promise<void> {
     for (let i = 0; i < blocks.length; i++) {
-      const txIds = createTxIds(blocks[i]);
-      for (let i = 0; i < txIds.length; i++) {
-        this.log(`Deleting tx id ${txIds[i].toString('hex')} from tx pool`);
+      const txHashes = createTxHashes(blocks[i]);
+      for (const txHash of txHashes) {
+        this.log(`Deleting tx hash ${txHash.toString()} from tx pool`);
       }
-      this.txPool.deleteTxs(txIds);
+      this.txPool.deleteTxs(txHashes);
     }
     return Promise.resolve();
   }

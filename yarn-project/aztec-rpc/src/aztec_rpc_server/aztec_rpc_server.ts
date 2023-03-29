@@ -23,6 +23,10 @@ import { KeyStore } from '../key_store/index.js';
 import { ContractAbi, FunctionType } from '../noir.js';
 import { Synchroniser } from '../synchroniser/index.js';
 
+/**
+ * Implements a remote Aztec RPC client provider.
+ * Combines our major components into one API.
+ */
 export class AztecRPCServer implements AztecRPCClient {
   private synchroniser: Synchroniser;
   constructor(
@@ -60,8 +64,13 @@ export class AztecRPCServer implements AztecRPCClient {
     return Promise.resolve([[0]]);
   }
 
-  public getCode(contract: AztecAddress, functionSelector?: Buffer) {
-    return this.db.getCode(contract, functionSelector || generateFunctionSelector('constructor', []));
+  /**
+   * Is an L2 contract deployed at this address?
+   * @param contractAddress - The contract data address.
+   * @returns Whether the contract was deployed.
+   */
+  public async isContractDeployed(contractAddress: AztecAddress): Promise<boolean> {
+    return !!(await this.node.getContractData(contractAddress));
   }
 
   public async createDeploymentTxRequest(
@@ -91,10 +100,11 @@ export class AztecRPCServer implements AztecRPCClient {
       portalContract,
     );
     const txContext = new TxContext(false, false, true, contractDeploymentData);
-    const fromAddress = from.toBuffer().equals(Fr.ZERO.toBuffer()) ? (await this.keyStore.getAccounts())[0] : from;
+
+    const fromAddress = from.equals(AztecAddress.ZERO) ? (await this.keyStore.getAccounts())[0] : from;
 
     const contractAddress = generateContractAddress(fromAddress, contractAddressSalt, args);
-    await this.db.addContract(contractAddress, portalContract, abi, false);
+    await this.db.addContract(contractAddress, portalContract, abi);
 
     const txRequestArgs = args.concat(
       Array(ARGS_LENGTH - args.length)
@@ -155,7 +165,7 @@ export class AztecRPCServer implements AztecRPCClient {
   public async createTx(txRequest: TxRequest, signature: Signature) {
     let contractAddress;
 
-    if (txRequest.to.toBuffer().equals(Fr.ZERO.toBuffer())) {
+    if (txRequest.to.equals(AztecAddress.ZERO)) {
       contractAddress = generateContractAddress(
         txRequest.from,
         txRequest.txContext.contractDeploymentData.contractAddressSalt,
@@ -182,6 +192,7 @@ export class AztecRPCServer implements AztecRPCClient {
     const executionResult = await this.acirSimulator.run(
       txRequest,
       Buffer.from(functionDao.bytecode),
+      contractAddress,
       contract.portalAddress,
       oldRoots,
     );
@@ -192,22 +203,19 @@ export class AztecRPCServer implements AztecRPCClient {
       oldRoots as any, // TODO - remove `as any`
     );
     const tx = new Tx(publicInputs, new UInt8Vector(Buffer.alloc(0)), Buffer.alloc(0));
-    const dao: TxDao = new TxDao(
-      new TxHash(tx.txId),
-      undefined,
-      undefined,
-      txRequest.from,
-      undefined,
-      txRequest.to,
-      '',
-    );
+    const dao: TxDao = new TxDao(tx.txHash, undefined, undefined, txRequest.from, undefined, txRequest.to, '');
     await this.db.addOrUpdateTx(dao);
     return tx;
   }
 
-  public async sendTx(tx: Tx) {
+  /**
+   * Send a transaction.
+   * @param tx - The transaction
+   * @returns A hash of the transaction, used to identify it.
+   */
+  public async sendTx(tx: Tx): Promise<TxHash> {
     await this.node.sendTx(tx);
-    return new TxHash(tx.txId);
+    return tx.txHash;
   }
 
   public getTxReceipt(txHash: TxHash) {
