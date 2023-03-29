@@ -1,20 +1,14 @@
 FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/yarn-project-base AS builder
 
-COPY . .
-RUN cd merkle-tree && yarn build
-RUN cd aztec.js && yarn build
-RUN cd noir-contracts && yarn build
+# dependencies
+COPY merkle-tree merkle-tree
+COPY aztec.js aztec.js
+COPY noir-contracts noir-contracts 
+
 WORKDIR /usr/src/yarn-project/end-to-end
-RUN yarn build
-# RUN yarn formatting
-
+RUN yarn build && yarn formatting
 # copy bb.js wasm binaries
-WORKDIR /usr/src/yarn-project/barretenberg.js
-RUN cp /usr/src/aztec3-circuits/cpp/build-wasm/bin/aztec3-circuits.wasm dest/wasm/barretenberg.wasm
-
-# copy bb.js wasm binaries
-WORKDIR /usr/src/yarn-project/barretenberg.js
-RUN cp /usr/src/aztec3-circuits/cpp/build-wasm/bin/aztec3-circuits.wasm dest/wasm/barretenberg.wasm
+RUN cp /usr/src/aztec3-circuits/cpp/build-wasm/bin/aztec3-circuits.wasm /usr/src/yarn-project/barretenberg.js/dest/wasm/barretenberg.wasm
 
 # Prune dev dependencies. See comment in base image.
 RUN yarn cache clean
