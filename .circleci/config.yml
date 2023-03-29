@@ -135,6 +135,17 @@ jobs:
           name: "Build and test"
           command: build world-state
 
+  merkle-tree:
+    machine:
+      image: ubuntu-2004:202010-01
+    resource_class: large
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Build and test"
+          command: build merkle-tree
+
   end-to-end:
     machine:
       image: ubuntu-2004:202010-01
