@@ -1,4 +1,5 @@
 FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/yarn-project-base AS builder
+RUN echo "force rebuild..."
 
 COPY . .
 RUN cd aztec.js && yarn build
