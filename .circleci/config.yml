@@ -68,11 +68,7 @@ jobs:
       - *setup_env
       - run:
           name: "Build"
-<<<<<<< HEAD
           command: cond_spot_run_build aztec3-circuits-wasm-linux-clang 64
-=======
-          command: cond_spot_run_build circuits-wasm-linux-clang 64
->>>>>>> master
   yarn-project-base:
     machine:
       image: ubuntu-2004:202010-01
