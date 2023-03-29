@@ -106,11 +106,11 @@ export type Bufferable =
   | number
   | string
   | {
-    /**
-     * Serialize to a buffer of 32 bytes.
-     */
-    toBuffer32: () => Buffer;
-  }
+      /**
+       * Serialize to a buffer of 32 bytes.
+       */
+      toBuffer32: () => Buffer;
+    }
   | {
       /**
        * Serialize to a buffer.
@@ -145,7 +145,7 @@ export function serializeToBufferArray(...objs: Bufferable[]): Buffer[] {
       ret.push(numToUInt32BE(obj.length));
       ret.push(Buffer.from(obj));
     } else if (isSerializableToBuffer32(obj)) {
-      ret.push(obj.toBuffer32())
+      ret.push(obj.toBuffer32());
     } else {
       ret.push(obj.toBuffer());
     }
