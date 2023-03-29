@@ -1,9 +1,10 @@
-import { EthAddress, Fq, Fr, AztecAddress } from '@aztec/foundation';
-import { CallContext, PrivateCircuitPublicInputs } from '../index.js';
+import { AztecAddress, EthAddress, Fq, Fr } from '@aztec/foundation';
+import { CallContext, PreviousRollupData, PrivateCircuitPublicInputs, RootRollupInputs, RootRollupPublicInputs } from '../index.js';
 import { AppendOnlyTreeSnapshot, BaseRollupPublicInputs, ConstantBaseRollupData } from '../structs/base_rollup.js';
 import {
   ARGS_LENGTH,
   CONTRACT_TREE_HEIGHT,
+  CONTRACT_TREE_ROOTS_TREE_HEIGHT,
   EMITTED_EVENTS_LENGTH,
   FUNCTION_TREE_HEIGHT,
   KERNEL_L1_MSG_STACK_LENGTH,
@@ -17,9 +18,11 @@ import {
   NEW_COMMITMENTS_LENGTH,
   NEW_NULLIFIERS_LENGTH,
   PRIVATE_CALL_STACK_LENGTH,
+  PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT,
   PUBLIC_CALL_STACK_LENGTH,
   RETURN_VALUES_LENGTH,
-  VK_TREE_HEIGHT,
+  ROLLUP_VK_TREE_HEIGHT,
+  VK_TREE_HEIGHT
 } from '../structs/constants.js';
 import { FunctionData } from '../structs/function_data.js';
 import {
@@ -31,16 +34,16 @@ import {
   PreviousKernelData,
   PrivateCallData,
   PrivateKernelInputs,
-  PrivateKernelPublicInputs,
+  PrivateKernelPublicInputs
 } from '../structs/kernel.js';
 import { PrivateCallStackItem } from '../structs/private_call_stack_item.js';
 import {
   AffineElement,
   AggregationObject,
   ComposerType,
-  MembershipWitness,
-  UInt8Vector,
   EcdsaSignature,
+  MembershipWitness,
+  UInt8Vector
 } from '../structs/shared.js';
 import { ContractDeploymentData, SignedTxRequest, TxContext, TxRequest } from '../structs/tx.js';
 import { CommitmentMap, G1AffineElement, VerificationKey } from '../structs/verification_key.js';
@@ -246,7 +249,42 @@ export function makeBaseRollupPublicInputs(seed = 0) {
     makeAppendOnlyTreeSnapshot(seed + 0x600),
     makeAppendOnlyTreeSnapshot(seed + 0x700),
     makeAppendOnlyTreeSnapshot(seed + 0x800),
-    range(2, seed + 0x901).map(fr) as [Fr, Fr],
+    [fr(seed + 0x901), fr(seed + 0x902)],
+  );
+}
+
+export function makePreviousBaseRollupData(seed = 0) {
+  return new PreviousRollupData(
+    makeBaseRollupPublicInputs(seed),
+    makeDynamicSizeBuffer(16, seed + 0x50),
+    makeVerificationKey(),
+    seed + 0x110,
+    makeMembershipWitness(ROLLUP_VK_TREE_HEIGHT, seed + 0x120),
+  )
+}
+
+export function makeRootRollupInputs(seed = 0) {
+  return new RootRollupInputs(
+    [makePreviousBaseRollupData(seed), makePreviousBaseRollupData(seed + 0x1000)],
+    range(PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT, 0x2000).map(fr),
+    range(CONTRACT_TREE_ROOTS_TREE_HEIGHT, 0x2100).map(fr),
+  );
+}
+
+export function makeRootRollupPublicInputs(seed = 0) {
+  return new RootRollupPublicInputs(
+    makeAggregationObject(seed),
+    makeAppendOnlyTreeSnapshot(seed + 0x100),
+    makeAppendOnlyTreeSnapshot(seed + 0x200),
+    makeAppendOnlyTreeSnapshot(seed + 0x300),
+    makeAppendOnlyTreeSnapshot(seed + 0x400),
+    makeAppendOnlyTreeSnapshot(seed + 0x500),
+    makeAppendOnlyTreeSnapshot(seed + 0x600),
+    makeAppendOnlyTreeSnapshot(seed + 0x700),
+    makeAppendOnlyTreeSnapshot(seed + 0x800),
+    makeAppendOnlyTreeSnapshot(seed + 0x900),
+    makeAppendOnlyTreeSnapshot(seed + 0x1000),
+    [fr(seed + 0x1200), fr(seed + 0x1201)],
   );
 }
 

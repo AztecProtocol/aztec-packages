@@ -1,9 +1,8 @@
+import { BarretenbergWasm } from '@aztec/barretenberg.js/wasm';
+import { pedersenCompressInputs } from '@aztec/barretenberg.js/crypto';
+import { AztecAddress, EthAddress, Fr } from '@aztec/foundation';
 import {
-  AztecAddress,
-  EthAddress,
-  Fr
-} from "@aztec/foundation";
-import {
+  AccumulatedData,
   AffineElement,
   AggregationObject,
   ConstantData,
@@ -23,9 +22,8 @@ import {
   OptionallyRevealedData,
   PrivateKernelPublicInputs,
   TxContext,
+  UInt8Vector,
 } from '@aztec/circuits.js';
-import { AccumulatedData } from '@aztec/circuits.js';
-import { UInt8Vector } from '@aztec/circuits.js';
 import { Tx } from '@aztec/tx';
 import times from 'lodash.times';
 
@@ -41,11 +39,11 @@ function makeEmptyEthAddress() {
   return new EthAddress(Buffer.alloc(20, 0));
 }
 
-export function makeEmptyNewContractData(): NewContractData {
+function makeEmptyNewContractData(): NewContractData {
   return new NewContractData(AztecAddress.ZERO, makeEmptyEthAddress(), frZero());
 }
 
-export function makeEmptyAggregationObject(): AggregationObject {
+function makeEmptyAggregationObject(): AggregationObject {
   return new AggregationObject(
     new AffineElement(fqZero(), fqZero()),
     new AffineElement(fqZero(), fqZero()),
@@ -54,20 +52,20 @@ export function makeEmptyAggregationObject(): AggregationObject {
   );
 }
 
-export function makeEmptyTxContext(): TxContext {
+function makeEmptyTxContext(): TxContext {
   const deploymentData = new ContractDeploymentData(frZero(), frZero(), frZero(), makeEmptyEthAddress());
   return new TxContext(false, false, true, deploymentData);
 }
 
-export function makeEmptyOldTreeRoots(): OldTreeRoots {
+function makeEmptyOldTreeRoots(): OldTreeRoots {
   return new OldTreeRoots(frZero(), frZero(), frZero(), frZero());
 }
 
-export function makeEmptyConstantData(): ConstantData {
+function makeEmptyConstantData(): ConstantData {
   return new ConstantData(makeEmptyOldTreeRoots(), makeEmptyTxContext());
 }
 
-export function makeEmptyOptionallyRevealedData(): OptionallyRevealedData {
+function makeEmptyOptionallyRevealedData(): OptionallyRevealedData {
   return new OptionallyRevealedData(
     frZero(),
     new FunctionData(0, true, true),
@@ -81,7 +79,7 @@ export function makeEmptyOptionallyRevealedData(): OptionallyRevealedData {
   );
 }
 
-export function makeEmptyAccumulatedData(): AccumulatedData {
+function makeEmptyAccumulatedData(): AccumulatedData {
   return new AccumulatedData(
     makeEmptyAggregationObject(),
     frZero(),
@@ -108,5 +106,13 @@ function makeEmptyUnverifiedData() {
 }
 
 export function makeEmptyTx(): Tx {
-  return new Tx(makeEmptyPrivateKernelPublicInputs(), makeEmptyProof(), makeEmptyUnverifiedData());
+  const isEmpty = true;
+  return new Tx(makeEmptyPrivateKernelPublicInputs(), makeEmptyProof(), makeEmptyUnverifiedData(), isEmpty);
+}
+
+export function hashNewContractData(wasm: BarretenbergWasm, cd: NewContractData) {
+  return pedersenCompressInputs(
+    wasm,
+    [cd.contractAddress, cd.portalContractAddress, cd.functionTreeRoot].map(x => x.toBuffer()),
+  );
 }

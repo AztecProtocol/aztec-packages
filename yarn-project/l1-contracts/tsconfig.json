@@ -8,6 +8,9 @@
   "references": [
     {
       "path": "../foundation/tsconfig.dest.json"
+    },
+    {
+      "path": "../ethereum.js/tsconfig.dest.json"
     }
   ],
   "include": ["src"]

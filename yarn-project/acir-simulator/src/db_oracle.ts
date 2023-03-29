@@ -1,18 +1,16 @@
+import { AztecAddress, EthAddress, Fr } from '@aztec/foundation';
 import { PrivateCircuitPublicInputs } from '@aztec/circuits.js';
-import { AztecAddress, EthAddress } from '@aztec/foundation';
 
 export interface NoteLoadOracleInputs {
-  note: Buffer;
-  siblingPath: Buffer;
-  leafIndex: number;
-  root: Buffer;
+  note: Fr[];
+  siblingPath: Fr[];
+  index: number;
 }
 
 export interface DBOracle {
-  getSecretKey(contractAddress: AztecAddress, keyId: Buffer): Promise<Buffer>;
-  getNotes(contractAddress: AztecAddress, storageSlot: Buffer): Promise<NoteLoadOracleInputs[]>;
-  getBytecode(contractAddress: AztecAddress, functionSelector: string): Promise<Buffer>;
-  getProvingKey(contractAddress: AztecAddress, functionSelector: string): Promise<Buffer>;
+  getSecretKey(contractAddress: AztecAddress, address: AztecAddress): Promise<Buffer>;
+  getNotes(contractAddress: AztecAddress, storageSlot: Fr): Promise<NoteLoadOracleInputs[]>;
+  getBytecode(contractAddress: AztecAddress, functionSelector: Buffer): Promise<Buffer>;
   getPortalContractAddress(contractAddress: AztecAddress): Promise<EthAddress>;
 }
 
