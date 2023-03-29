@@ -77,10 +77,6 @@ export class Synchroniser {
     return [...this.accountStates];
   }
 
-  public async addPendingContractAbi(contractAddress: AztecAddress, portalContract: EthAddress, abi: ContractAbi) {
-    await this.db.addContract(contractAddress, portalContract, abi, false);
-  }
-
   public async getTxReceipt(txHash: TxHash) {
     const tx = await this.db.getTx(txHash);
     if (!tx) {
