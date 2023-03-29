@@ -62,6 +62,7 @@ describe('e2e_deploy_contract', () => {
     );
     logger(`Receipt received`);
 
+    expect(await aztecRpcServer.isContractDeployed(AztecAddress.random())).toBe(false);
     const contractAddress = receipt.contractAddress!;
     expect(await aztecRpcServer.isContractDeployed(contractAddress)).toBe(true);
   }, 30_000);
