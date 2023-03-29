@@ -1,11 +1,13 @@
-import { CircuitsWasm } from '../wasm/index.js';
+import { AztecAddress, serializeBufferArrayToVector } from '@aztec/foundation';
 import { Buffer } from 'buffer';
-import { serializeBufferArrayToVector } from '@aztec/foundation';
+import { CircuitsWasm } from '../wasm/index.js';
+import { TxRequest } from '../index.js';
 
-export function abisHashTxRequest(wasm: CircuitsWasm, txRequest: Uint8Array) {
-  wasm.writeMemory(0, txRequest);
-  wasm.call('abis__hash_tx_request', 0, txRequest.length);
-  return Buffer.from(wasm.getMemorySlice(txRequest.length, 32));
+export function abisHashTxRequest(wasm: CircuitsWasm, txRequest: TxRequest) {
+  const txReqBuf = txRequest.toBuffer();
+  wasm.writeMemory(0, txReqBuf);
+  wasm.call('abis__hash_tx_request', 0, txReqBuf.length);
+  return Buffer.from(wasm.getMemorySlice(txReqBuf.length, 32));
 }
 
 export function computeFunctionSelector(wasm: CircuitsWasm, funcSig: string) {
@@ -42,4 +44,32 @@ export function hashConstructor(wasm: CircuitsWasm, funcSigBuf: Uint8Array, args
   wasm.call('abis__hash_constructor', 0, funcSigBuf.length, funcSigBuf.length + inputVector.length);
   const memLoc = funcSigBuf.length + inputVector.length + constructorVK.length;
   return Buffer.from(wasm.getMemorySlice(memLoc, 32));
+}
+
+export function computeContractAddress(
+  wasm: CircuitsWasm,
+  deployerAddr: AztecAddress,
+  contractAddr: AztecAddress,
+  fnTreeRoot: Buffer,
+  constructorHash: Buffer,
+) {
+  const deployerAddrBuf = deployerAddr.toBuffer();
+  const contractAddrBuf = contractAddr.toBuffer();
+  const memLoc1 = deployerAddrBuf.length;
+  const memLoc2 = memLoc1 + contractAddrBuf.length;
+  const memLoc3 = memLoc2 + fnTreeRoot.length;
+  const memLoc4 = memLoc3 + constructorHash.length;
+  wasm.writeMemory(0, deployerAddrBuf);
+  wasm.writeMemory(memLoc1, contractAddrBuf);
+  wasm.writeMemory(memLoc2, fnTreeRoot);
+  wasm.writeMemory(memLoc3, constructorHash);
+  wasm.call('abis__compute_contract_address', 0, memLoc1, memLoc2, memLoc3);
+  const resultBuf = Buffer.from(wasm.getMemorySlice(memLoc4, 32));
+  return AztecAddress.fromBuffer(resultBuf);
+}
+
+export function computeContractLeaf(wasm: CircuitsWasm, leafPreimage: Buffer) {
+  wasm.writeMemory(0, leafPreimage);
+  wasm.call('abis__compute_contract_leaf', 0);
+  return Buffer.from(wasm.getMemorySlice(leafPreimage.length, 32));
 }
