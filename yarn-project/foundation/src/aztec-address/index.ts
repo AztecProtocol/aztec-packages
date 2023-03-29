@@ -21,7 +21,7 @@ export class AztecAddress {
   }
 
   public static random() {
-    return new AztecAddress(randomBytes(64));
+    return new AztecAddress(randomBytes(AztecAddress.SIZE_IN_BYTES));
   }
 
   public equals(rhs: AztecAddress) {
