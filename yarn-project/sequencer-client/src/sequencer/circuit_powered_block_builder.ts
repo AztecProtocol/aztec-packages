@@ -5,7 +5,6 @@ import {
   BaseRollupPublicInputs,
   ConstantBaseRollupData,
   CONTRACT_TREE_ROOTS_TREE_HEIGHT,
-  Fr,
   MembershipWitness,
   NullifierLeafPreimage,
   NULLIFIER_TREE_HEIGHT,
@@ -16,6 +15,7 @@ import {
   RootRollupPublicInputs,
   VK_TREE_HEIGHT,
 } from '@aztec/circuits.js';
+import { Fr } from '@aztec/foundation';
 import { Tx } from '@aztec/tx';
 import { MerkleTreeId, MerkleTreeOperations } from '@aztec/world-state';
 import { makeEmptyTx } from '../deps/tx.js';

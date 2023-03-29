@@ -1,6 +1,5 @@
 import { AztecRPCClient, ContractAbi } from '@aztec/aztec-rpc';
-import { EthAddress, Fr } from '@aztec/circuits.js';
-import { AztecAddress } from '@aztec/foundation';
+import { AztecAddress, EthAddress, Fr } from '@aztec/foundation';
 import { ContractFunction, SendMethod, SendMethodOptions } from '../contract/index.js';
 
 export interface ConstructorOptions extends SendMethodOptions {

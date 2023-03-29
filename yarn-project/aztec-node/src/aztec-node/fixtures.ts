@@ -5,9 +5,7 @@ import {
   ConstantData,
   ContractDeploymentData,
   EMITTED_EVENTS_LENGTH,
-  EthAddress as CircuitEthAddress,
   Fq,
-  Fr,
   FunctionData,
   KERNEL_L1_MSG_STACK_LENGTH,
   KERNEL_NEW_COMMITMENTS_LENGTH,
@@ -25,7 +23,7 @@ import {
 } from '@aztec/circuits.js';
 import { EthereumRpc } from '@aztec/ethereum.js/eth_rpc';
 import { WalletProvider } from '@aztec/ethereum.js/provider';
-import { AztecAddress, randomBytes } from '@aztec/foundation';
+import { AztecAddress, EthAddress as CircuitEthAddress, randomBytes, Fr } from '@aztec/foundation';
 import { Rollup, Yeeter } from '@aztec/l1-contracts';
 import { Tx } from '@aztec/tx';
 
