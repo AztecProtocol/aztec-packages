@@ -103,7 +103,7 @@ export class Sequencer {
       // skip in this manner and do something more DDOS-proof (like letting the transaction fail and pay a fee).
       if (await this.isTxDoubleSpend(tx)) {
         // Make sure we remove this from the tx pool so we do not consider it again
-        await this.p2pClient.deleteTxs([tx]);
+        await this.p2pClient.deleteTxs([tx.txHash]);
         return;
       }
 

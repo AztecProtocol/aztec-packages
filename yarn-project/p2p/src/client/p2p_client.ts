@@ -1,6 +1,6 @@
 import { createDebugLogger } from '@aztec/foundation';
 import { L2Block, L2BlockDownloader, L2BlockSource } from '@aztec/l2-block';
-import { createTxHashes, Tx } from '@aztec/tx';
+import { createTxHashes, Tx, TxHash } from '@aztec/tx';
 
 import { TxPool } from '../tx_pool/index.js';
 import { InMemoryTxPool } from '../tx_pool/memory_tx_pool.js';
@@ -39,10 +39,10 @@ export interface P2P {
   sendTx(tx: Tx): Promise<void>;
 
   /**
-   * Deletes 'txs' from the pool.
+   * Deletes 'txs' from the pool, given hashes.
    * NOT used if we use sendTx as reconcileTxPool will handle this.
    **/
-  deleteTxs(txs: Tx[]): Promise<void>;
+  deleteTxs(txHashes: TxHash[]): Promise<void>;
 
   /**
    * Returns all transactions in the transaction pool.
@@ -200,12 +200,12 @@ export class P2PClient implements P2P {
    * @param txs - The transactions to delete.
    * @returns Empty promise.
    **/
-  public async deleteTxs(txs: Tx[]): Promise<void> {
+  public async deleteTxs(txHashes: TxHash[]): Promise<void> {
     const ready = await this.isReady();
     if (!ready) {
       throw new Error('P2P client not ready');
     }
-    this.txPool.deleteTxs(txs.map(tx => tx.txId));
+    this.txPool.deleteTxs(txHashes);
   }
 
   /**
