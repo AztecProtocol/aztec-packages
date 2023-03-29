@@ -3,7 +3,7 @@ import { Buffer } from 'buffer';
 import { CircuitsWasm } from '../wasm/index.js';
 import { TxRequest } from '../index.js';
 
-export function abisHashTxRequest(wasm: CircuitsWasm, txRequest: TxRequest) {
+export function hashTxRequest(wasm: CircuitsWasm, txRequest: TxRequest) {
   const txReqBuf = txRequest.toBuffer();
   wasm.writeMemory(0, txReqBuf);
   wasm.call('abis__hash_tx_request', 0, txReqBuf.length);
