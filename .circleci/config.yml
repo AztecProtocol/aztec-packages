@@ -68,7 +68,7 @@ jobs:
       - *setup_env
       - run:
           name: "Build"
-          command: build circuits-wasm-linux-clang
+          command: cond_spot_run_build circuits-wasm-linux-clang 4
   yarn-project-base:
     machine:
       image: ubuntu-2004:202010-01
