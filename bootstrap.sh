@@ -46,6 +46,7 @@ cd ..
 
 # We only bootstrap projects that produce artefacts needed for running end-to-end tests.
 PROJECTS=(
+  "yarn-project/barretenberg.js:yarn build"
   "yarn-project/foundation:yarn build"
   "yarn-project/ethereum.js:yarn build"
   "yarn-project/l1-contracts:yarn build"
