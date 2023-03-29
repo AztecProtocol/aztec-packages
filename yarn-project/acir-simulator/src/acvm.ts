@@ -1,25 +1,19 @@
 import { AztecAddress, EthAddress, Fr } from '@aztec/circuits.js';
+// import { solve_intermediate_witness as solveIntermediateWitness } from '@noir-lang/barretenberg_browser_stopgap_wasm';
 
 export type ACVMField = `0x${string}`;
 
 const ZERO_ACVM_FIELD: ACVMField = `0x${Buffer.alloc(32).toString('hex')}`;
 const ONE_ACVM_FIELD: ACVMField = `0x${'00'.repeat(31)}01`;
 
-export interface ACVMNoteInputs {
-  note: ACVMField[];
-  siblingPath: ACVMField[];
-  index: number;
-  root: ACVMField;
-}
-
 export type ACVMWitness = Map<number, ACVMField>;
 
 export interface ACIRCallback {
-  getSecretKey(publicKey: ACVMField): Promise<ACVMField>;
-  getNotes2(storageSlot: ACVMField): Promise<ACVMNoteInputs[]>;
-  getRandomField(): Promise<ACVMField>;
-  notifyCreatedNote(preimage: ACVMField[], storageSlot: ACVMField): Promise<void>;
-  notifyNullifiedNote(nullifier: ACVMField): Promise<void>;
+  getSecretKey(params: ACVMField[]): Promise<ACVMField[]>;
+  getNotes2(params: ACVMField[]): Promise<ACVMField[]>;
+  getRandomField(): Promise<ACVMField[]>;
+  notifyCreatedNote(params: ACVMField[]): Promise<ACVMField[]>;
+  notifyNullifiedNote(params: ACVMField[]): Promise<ACVMField[]>;
 }
 
 export interface ACIRExecutionResult {
@@ -41,6 +35,14 @@ export const acvmMock: execute = (_, initialWitness) => {
   return Promise.resolve({ partialWitness });
 };
 
+// export const acvmMock: execute = async (acir, initialWitness, callback) => {
+//   const partialWitness = await solveIntermediateWitness(acir, initialWitness, (name: string, args: ACVMField[]) => {
+//     if (!(name in callback)) throw new Error(`Callback ${name} not found`);
+//     return callback[name as keyof ACIRCallback](args);
+//   });
+//   return Promise.resolve({ partialWitness });
+// };
+
 function adaptBufferSize(originalBuf: Buffer) {
   const buffer = Buffer.alloc(32);
   if (originalBuf.length > buffer.length) {
@@ -50,7 +52,7 @@ function adaptBufferSize(originalBuf: Buffer) {
   return buffer;
 }
 
-export function toACVMField(value: AztecAddress | EthAddress | Fr | Buffer | boolean): `0x${string}` {
+export function toACVMField(value: AztecAddress | EthAddress | Fr | Buffer | boolean | number): `0x${string}` {
   if (typeof value === 'boolean') {
     return value ? ONE_ACVM_FIELD : ZERO_ACVM_FIELD;
   }
@@ -59,6 +61,9 @@ export function toACVMField(value: AztecAddress | EthAddress | Fr | Buffer | boo
 
   if (Buffer.isBuffer(value)) {
     buffer = value;
+  } else if (typeof value === 'number') {
+    buffer = Buffer.alloc(32);
+    buffer.writeUInt32BE(value, 28);
   } else {
     buffer = value.toBuffer();
   }

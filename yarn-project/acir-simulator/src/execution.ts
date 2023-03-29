@@ -1,4 +1,4 @@
-import { ACVMField, acvmMock, ACVMWitness, ACVMNoteInputs, toACVMField, fromACVMField } from './acvm.js';
+import { ACVMField, acvmMock, ACVMWitness, toACVMField, fromACVMField } from './acvm.js';
 import {
   ARGS_LENGTH,
   AztecAddress,
@@ -83,32 +83,25 @@ export class Execution {
     const nestedExecutionContexts: ExecutionResult[] = [];
 
     const { partialWitness } = await acvmMock(acir, initialWitness, {
-      getSecretKey: async (publicKey: ACVMField) => {
-        const key = await this.db.getSecretKey(contractAddress, frToAztecAddress(fromACVMField(publicKey)));
-        return toACVMField(key);
+      getSecretKey: ([publicKey]: ACVMField[]) => {
+        return this.getSecretKey(contractAddress, publicKey);
       },
-      getNotes2: async (storageSlot: ACVMField) => {
-        const notes = await this.db.getNotes(contractAddress, fromACVMField(storageSlot).toBuffer());
-        const mapped: ACVMNoteInputs[] = notes.slice(0, 2).map(note => ({
-          note: note.note.map(f => toACVMField(f)),
-          siblingPath: note.siblingPath.map(f => toACVMField(f)),
-          index: note.index,
-          root: toACVMField(this.oldRoots.privateDataTreeRoot),
-        }));
-        return mapped;
+      getNotes2: async ([storageSlot]: ACVMField[]) => {
+        return await this.getNotes(contractAddress, storageSlot, 2);
       },
-      getRandomField: () => Promise.resolve(toACVMField(Fr.fromBuffer(randomBytes(Fr.SIZE_IN_BYTES)))),
-      notifyCreatedNote: (acvmPreimage: ACVMField[], storageSlot: ACVMField) => {
+      getRandomField: () => Promise.resolve([toACVMField(Fr.fromBuffer(randomBytes(Fr.SIZE_IN_BYTES)))]),
+      notifyCreatedNote: (params: ACVMField[]) => {
+        const [storageSlot, ...acvmPreimage] = params;
         const preimage = acvmPreimage.map(f => fromACVMField(f));
         newNotePreimages.push({
           preimage,
           storageSlot: fromACVMField(storageSlot),
         });
-        return Promise.resolve();
+        return Promise.resolve([]);
       },
-      notifyNullifiedNote: (nullifier: ACVMField) => {
+      notifyNullifiedNote: ([nullifier]: ACVMField[]) => {
         newNullifiers.push(fromACVMField(nullifier));
-        return Promise.resolve();
+        return Promise.resolve([]);
       },
     });
 
@@ -126,6 +119,24 @@ export class Execution {
       },
       nestedExecutions: nestedExecutionContexts,
     };
+  }
+
+  private async getNotes(contractAddress: AztecAddress, storageSlot: ACVMField, count: number) {
+    const notes = await this.db.getNotes(contractAddress, fromACVMField(storageSlot).toBuffer());
+    const mapped = notes
+      .slice(0, count)
+      .flatMap(note => [
+        toACVMField(note.index),
+        ...note.note.map(f => toACVMField(f)),
+        toACVMField(this.oldRoots.privateDataTreeRoot),
+        ...note.siblingPath.map(f => toACVMField(f)),
+      ]);
+    return mapped;
+  }
+
+  private async getSecretKey(contractAddress: AztecAddress, publicKey: ACVMField) {
+    const key = await this.db.getSecretKey(contractAddress, frToAztecAddress(fromACVMField(publicKey)));
+    return [toACVMField(key)];
   }
 
   private arrangeInitialWitness(args: Fr[], callContext: CallContext, witnessStartIndex: number) {
