@@ -39,6 +39,12 @@ export interface P2P {
   sendTx(tx: Tx): Promise<void>;
 
   /**
+   * Deletes 'txs' from the pool.
+   * NOT used if we use sendTx as reconcileTxPool will handle this.
+   **/
+  deleteTxs(txs: Tx[]): Promise<void>;
+
+  /**
    * Returns all transactions in the transaction pool.
    * @returns An array of Txs.
    */
@@ -186,6 +192,20 @@ export class P2PClient implements P2P {
       throw new Error('P2P client not ready');
     }
     this.txPool.addTxs([tx]);
+  }
+
+  /**
+   * Deletes the 'txs' from the pool.
+   * NOT used if we use sendTx as reconcileTxPool will handle this.
+   * @param txs - The transactions to delete.
+   * @returns Empty promise.
+   **/
+  public async deleteTxs(txs: Tx[]): Promise<void> {
+    const ready = await this.isReady();
+    if (!ready) {
+      throw new Error('P2P client not ready');
+    }
+    this.txPool.deleteTxs(txs.map(tx => tx.txId));
   }
 
   /**
