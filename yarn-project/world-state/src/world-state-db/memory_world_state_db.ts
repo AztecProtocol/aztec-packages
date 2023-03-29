@@ -19,7 +19,7 @@ export class MerkleTrees implements MerkleTreeDb {
   private jobQueue = new SerialQueue();
 
   constructor(private db: levelup.LevelUp) {}
-
+  
   /**
    * Initialises the collection of Merkle Trees.
    */
@@ -85,6 +85,10 @@ export class MerkleTrees implements MerkleTreeDb {
    */
   public async getTreeInfo(treeId: MerkleTreeId): Promise<TreeInfo> {
     return await this.synchronise(() => this._getTreeInfo(treeId));
+  }
+
+  public async getLeafValue(treeId: MerkleTreeId, index: bigint): Promise<Buffer | undefined> {
+    return await this.synchronise(() => this.trees[treeId].getLeafValue(index));
   }
 
   /**

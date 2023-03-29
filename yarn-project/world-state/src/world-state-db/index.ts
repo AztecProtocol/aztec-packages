@@ -47,6 +47,7 @@ export interface MerkleTreeOperations {
   ): Promise<{ index: number; alreadyPresent: boolean }>;
   getLeafData(treeId: IndexedMerkleTreeId, index: number): LeafData | undefined;
   findLeafIndex(treeId: MerkleTreeId, value: Buffer): Promise<bigint | undefined>;
+  getLeafValue(treeId: MerkleTreeId, index: bigint): Promise<Buffer | undefined>
 }
 
 /**
