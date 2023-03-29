@@ -19,10 +19,11 @@ export class MemoryDB extends MemoryContractDatabase implements Database {
     return Promise.resolve();
   }
 
-  public getNotes(contractAddress: AztecAddress, storageSlot: Buffer): Promise<NoteDao[]> {
+  public getNotes(contractAddress: AztecAddress, storageSlot: Fr): Promise<NoteDao[]> {
     return Promise.resolve(
       this.notes.filter(
-        note => note.contractAddress.equals(contractAddress) && note.contractSlot.toBuffer().equals(storageSlot),
+        note =>
+          note.contractAddress.equals(contractAddress) && note.contractSlot.toBuffer().equals(storageSlot.toBuffer()),
       ),
     );
   }

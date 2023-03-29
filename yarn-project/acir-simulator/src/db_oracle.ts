@@ -7,8 +7,8 @@ export interface NoteLoadOracleInputs {
 }
 
 export interface DBOracle {
-  getSecretKey(contractAddress: AztecAddress, publicKey: AztecAddress): Promise<Buffer>;
-  getNotes(contractAddress: AztecAddress, storageSlot: Buffer): Promise<NoteLoadOracleInputs[]>;
+  getSecretKey(contractAddress: AztecAddress, address: AztecAddress): Promise<Buffer>;
+  getNotes(contractAddress: AztecAddress, storageSlot: Fr): Promise<NoteLoadOracleInputs[]>;
   getBytecode(contractAddress: AztecAddress, functionSelector: Buffer): Promise<Buffer>;
   getPortalContractAddress(contractAddress: AztecAddress): Promise<EthAddress>;
 }

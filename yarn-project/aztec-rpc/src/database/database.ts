@@ -9,6 +9,6 @@ export interface Database extends ContractDatabase {
   getTx(txHash: TxHash): Promise<TxDao | undefined>;
 
   addNote(note: NoteDao): Promise<void>;
-  getNotes(contractAddress: AztecAddress, storageSlot: Buffer): Promise<NoteDao[]>;
+  getNotes(contractAddress: AztecAddress, storageSlot: Fr): Promise<NoteDao[]>;
   addOrUpdateTx(tx: TxDao): Promise<void>;
 }

@@ -14,11 +14,11 @@ import { AcirSimulator } from './simulator.js';
 describe('ACIR simulator', () => {
   it('should be able to run and extract public inputs', async () => {
     const acirSimulator = new AcirSimulator({
-      getSecretKey: (contractAddress: AztecAddress, publicKey: AztecAddress) => {
-        console.log('getSecretKey', contractAddress, publicKey);
+      getSecretKey: (contractAddress: AztecAddress, address: AztecAddress) => {
+        console.log('getSecretKey', contractAddress, address);
         return Promise.resolve(Buffer.from(''));
       },
-      getNotes: (contractAddress: AztecAddress, storageSlot: Buffer) => {
+      getNotes: (contractAddress: AztecAddress, storageSlot: Fr) => {
         console.log('getNotes', contractAddress, storageSlot);
         return Promise.resolve([]);
       },

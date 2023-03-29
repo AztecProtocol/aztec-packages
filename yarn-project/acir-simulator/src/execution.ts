@@ -83,8 +83,8 @@ export class Execution {
     const nestedExecutionContexts: ExecutionResult[] = [];
 
     const { partialWitness } = await acvmMock(acir, initialWitness, {
-      getSecretKey: ([publicKey]: ACVMField[]) => {
-        return this.getSecretKey(contractAddress, publicKey);
+      getSecretKey: ([address]: ACVMField[]) => {
+        return this.getSecretKey(contractAddress, address);
       },
       getNotes2: async ([storageSlot]: ACVMField[]) => {
         return await this.getNotes(contractAddress, storageSlot, 2);
@@ -122,7 +122,7 @@ export class Execution {
   }
 
   private async getNotes(contractAddress: AztecAddress, storageSlot: ACVMField, count: number) {
-    const notes = await this.db.getNotes(contractAddress, fromACVMField(storageSlot).toBuffer());
+    const notes = await this.db.getNotes(contractAddress, fromACVMField(storageSlot));
     const mapped = notes
       .slice(0, count)
       .flatMap(note => [
@@ -134,8 +134,8 @@ export class Execution {
     return mapped;
   }
 
-  private async getSecretKey(contractAddress: AztecAddress, publicKey: ACVMField) {
-    const key = await this.db.getSecretKey(contractAddress, frToAztecAddress(fromACVMField(publicKey)));
+  private async getSecretKey(contractAddress: AztecAddress, address: ACVMField) {
+    const key = await this.db.getSecretKey(contractAddress, frToAztecAddress(fromACVMField(address)));
     return [toACVMField(key)];
   }
 
