@@ -4,7 +4,7 @@ FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/yarn-project-base AS builder
 COPY . .
 
 # (2) build
-WORKDIR /usr/src/yarn-project/end-to-end
+WORKDIR /usr/src/yarn-project/sequencer-client
 RUN yarn build && yarn formatting
 # (3) copy bb.js wasm binaries
 RUN cp /usr/src/aztec3-circuits/cpp/build-wasm/bin/aztec3-circuits.wasm /usr/src/yarn-project/barretenberg.js/dest/wasm/barretenberg.wasm
