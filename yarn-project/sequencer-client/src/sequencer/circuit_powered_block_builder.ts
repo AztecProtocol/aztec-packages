@@ -1,3 +1,4 @@
+import { createDebugLogger } from '@aztec/foundation';
 import { ContractData, L2Block } from '@aztec/archiver';
 import { BarretenbergWasm } from '@aztec/barretenberg.js/wasm';
 import {
@@ -20,7 +21,7 @@ import {
 } from '@aztec/circuits.js';
 import { toBigIntBE } from '@aztec/foundation';
 import { Tx } from '@aztec/tx';
-import { inspectTree, MerkleTreeDb, MerkleTreeId } from '@aztec/world-state';
+import { MerkleTreeDb, MerkleTreeId } from '@aztec/world-state';
 import flatMap from 'lodash.flatmap';
 import times from 'lodash.times';
 import { hashNewContractData, makeEmptyTx } from '../deps/tx.js';
@@ -39,7 +40,6 @@ const FUTURE_NUM = 0;
 // Denotes fields that should be deleted
 const DELETE_FR = new Fr(0n);
 const DELETE_ANY: any = {};
-const TODO_ANY: any = {};
 
 export class CircuitPoweredBlockBuilder {
   constructor(
@@ -49,6 +49,7 @@ export class CircuitPoweredBlockBuilder {
     protected simulator: Simulator,
     protected prover: Prover,
     protected wasm: BarretenbergWasm,
+    protected debug = createDebugLogger('aztec:sequencer'),
   ) {}
 
   public async buildL2Block(tx: Tx): Promise<[L2Block, UInt8Vector]> {
@@ -120,16 +121,20 @@ export class CircuitPoweredBlockBuilder {
     const [tx1, tx2, tx3, tx4] = txs;
 
     // Simulate both base rollup circuits, updating the data, contract, and nullifier trees in the process
+    this.debug(`Running left base rollup simulator`);
     const [baseRollupInputLeft, baseRollupOutputLeft] = await this.baseRollupCircuit(tx1, tx2);
+    this.debug(`Running right base rollup simulator`);
     const [baseRollupInputRight, baseRollupOutputRight] = await this.baseRollupCircuit(tx3, tx4);
 
     // Get the proofs for them in parallel (faked for now)
+    this.debug(`Running base rollup circuit provers`);
     const [baseRollupProofLeft, baseRollupProofRight] = await Promise.all([
       this.prover.getBaseRollupProof(baseRollupInputLeft, baseRollupOutputLeft),
       this.prover.getBaseRollupProof(baseRollupInputRight, baseRollupOutputRight),
     ]);
 
     // Get the input for the root rollup circuit based on the base rollup ones
+    this.debug(`Producing root rollup inputs`);
     const rootInput = await this.getRootRollupInput(
       baseRollupOutputLeft,
       baseRollupProofLeft,
@@ -138,11 +143,14 @@ export class CircuitPoweredBlockBuilder {
     );
 
     // Simulate and get proof for the root circuit
+    this.debug(`Running root rollup simulator`);
     const rootOutput = await this.simulator.rootRollupCircuit(rootInput);
+    this.debug(`Running root rollup circuit prover`);
     const rootProof = await this.prover.getRootRollupProof(rootInput, rootOutput);
 
     // Update the root trees with the latest data and contract tree roots,
     // and validate them against the output of the root circuit simulation
+    this.debug(`Updating and validating root trees`);
     await this.updateRootTrees();
     await this.validateRootOutput(rootOutput);
 
@@ -152,7 +160,6 @@ export class CircuitPoweredBlockBuilder {
   protected async baseRollupCircuit(tx1: Tx, tx2: Tx) {
     const rollupInput = await this.buildBaseRollupInput(tx1, tx2);
     const rollupOutput = await this.simulator.baseRollupCircuit(rollupInput);
-    console.log(`Ran base rollup circuit`);
     await this.validateTrees(rollupOutput);
     return [rollupInput, rollupOutput] as const;
   }
@@ -194,8 +201,6 @@ export class CircuitPoweredBlockBuilder {
   ) {
     const localTree = await this.getTreeSnapshot(treeId);
     const simulatedTree = rootOutput[`endTreeOfHistoric${name}TreeRootsSnapshot`];
-    console.log(`Validating root tree ${name}`);
-    await inspectTree(this.db, treeId);
     this.validateSimulatedTree(localTree, simulatedTree, name, `Roots ${name}`);
   }
 
@@ -298,7 +303,6 @@ export class CircuitPoweredBlockBuilder {
 
     const index = await this.db.findLeafIndex(treeId, value.toBuffer());
     if (index === undefined) {
-      await inspectTree(this.db, treeId);
       throw new Error(`Leaf with value ${value} not found in tree ${treeId}`);
     }
     const path = await this.db.getSiblingPath(treeId, index);
