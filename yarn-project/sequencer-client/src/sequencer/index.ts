@@ -62,6 +62,7 @@ export class Sequencer {
   private async isTxDoubleSpend(tx: Tx): Promise<boolean> {
     // eslint-disable-next-line @typescript-eslint/await-thenable
     for (const nullifier of tx.data.end.newNullifiers) {
+      // TODO(AD): this is an exhaustive search currently
       if (!(await this.worldState.findLeafIndex(MerkleTreeId.NULLIFIER_TREE, nullifier.toBuffer()))) {
         // Our nullifier tree has this nullifier already - this transaction is a double spend / not well-formed
         return true;
