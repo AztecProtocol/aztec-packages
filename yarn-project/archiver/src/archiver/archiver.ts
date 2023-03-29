@@ -1,12 +1,11 @@
 import { EthAddress } from '@aztec/ethereum.js/eth_address';
 import { createDebugLogger, toBigIntBE } from '@aztec/foundation';
 import { RollupAbi, YeeterAbi } from '@aztec/l1-contracts/viem';
-import { L2Block, L2BlockSource } from '@aztec/l2-block';
+import { L2Block, L2BlockSource, UnverifiedData, UnverifiedDataSource } from '@aztec/l2-block';
 import { createPublicClient, decodeFunctionData, getAddress, Hex, hexToBytes, http, Log, PublicClient } from 'viem';
 import { localhost } from 'viem/chains';
 import { ArchiverConfig } from './config.js';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/l1-contracts';
-import { UnverifiedDataSource } from '../unverified_data_source.js';
 
 /**
  * Pulls L2 blocks in a non-blocking manner and provides interface for their retrieval.
@@ -21,7 +20,7 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource {
    * An array containing all the `unverifiedData` that have been fetched so far.
    * Note: Index in the "outer" array equals to (corresponding L2 block's number - INITIAL_L2_BLOCK_NUM).
    */
-  private unverifiedDatas: Buffer[][] = [];
+  private unverifiedDatas: UnverifiedData[] = [];
 
   private unwatchBlocks: (() => void) | undefined;
   private unwatchYeets: (() => void) | undefined;
@@ -178,7 +177,7 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource {
           } bytes.`,
         );
       }
-      this.unverifiedDatas.push(chunks);
+      this.unverifiedDatas.push(new UnverifiedData(chunks));
       this.log(`Added ${chunks.length} chunks of unverifiedData corresponding to block ${blockNum}`);
     }
     this.log('Processed unverifiedData corresponding to ' + logs.length + ' blocks.');
@@ -249,7 +248,7 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource {
    * @param take - The number of `unverifiedData` to return.
    * @returns The requested `unverifiedData`.
    */
-  public getUnverifiedData(from: number, take: number): Promise<Buffer[][]> {
+  public getUnverifiedData(from: number, take: number): Promise<UnverifiedData[]> {
     if (from < INITIAL_L2_BLOCK_NUM) {
       throw new Error(`Invalid block range ${from}`);
     }
