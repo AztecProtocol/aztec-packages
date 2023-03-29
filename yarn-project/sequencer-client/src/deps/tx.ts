@@ -103,6 +103,10 @@ function makeEmptyPrivateKernelPublicInputs() {
   return new PrivateKernelPublicInputs(makeEmptyAccumulatedData(), makeEmptyConstantData(), true);
 }
 
+function makeEmptyUnverifiedData() {
+  return Buffer.alloc(0);
+}
+
 export function makeEmptyTx(): Tx {
-  return new Tx(makeEmptyPrivateKernelPublicInputs(), makeEmptyProof());
+  return new Tx(makeEmptyPrivateKernelPublicInputs(), makeEmptyProof(), makeEmptyUnverifiedData());
 }

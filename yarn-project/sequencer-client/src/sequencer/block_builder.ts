@@ -22,7 +22,7 @@ export class BlockBuilder {
 
   constructor(
     private db: MerkleTreeOperations,
-    private nextRollupId: number,
+    private nextBlockNum: number,
     private tx: Tx,
     private log = createDebugLogger('aztec:block_builder'),
   ) {
@@ -54,7 +54,7 @@ export class BlockBuilder {
     this.log(`contract address ${this.tx.data.end.newContracts[0].contractAddress.toString()}`);
 
     const l2block = L2Block.fromFields({
-      number: this.nextRollupId,
+      number: this.nextBlockNum,
       startPrivateDataTreeSnapshot,
       endPrivateDataTreeSnapshot,
       startNullifierTreeSnapshot,
