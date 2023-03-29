@@ -8,4 +8,5 @@ export { Tx, TxHash } from '@aztec/tx';
 export * from './circuits.js';
 export * from './noir.js';
 
-export { Fr, TxRequest, AztecAddress, EthAddress } from '@aztec/circuits.js';
+export { TxRequest } from '@aztec/circuits.js';
+export { Fr, AztecAddress, EthAddress } from '@aztec/foundation';

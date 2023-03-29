@@ -1,5 +1,5 @@
-import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { AppendOnlyTreeSnapshot, Fr } from '@aztec/circuits.js';
+import { AztecAddress, Fr } from '@aztec/foundation/aztec-address';
+import { AppendOnlyTreeSnapshot } from '@aztec/circuits.js';
 import { fr, makeAppendOnlyTreeSnapshot, makeEthAddress } from '@aztec/circuits.js/factories';
 import { BufferReader, serializeToBuffer } from '@aztec/circuits.js/utils';
 import { ContractData } from './contract_data.js';

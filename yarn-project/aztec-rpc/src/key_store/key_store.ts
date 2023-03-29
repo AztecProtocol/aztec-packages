@@ -1,4 +1,5 @@
-import { AztecAddress, TxRequest } from '@aztec/circuits.js';
+import { AztecAddress } from '@aztec/foundation';
+import { TxRequest } from '@aztec/circuits.js';
 import { Signature } from '../circuits.js';
 
 export interface KeyStore {

@@ -1,5 +1,5 @@
 import { AztecRPCClient } from '@aztec/aztec-rpc';
-import { AztecAddress } from '@aztec/circuits.js';
+import { AztecAddress } from '@aztec/foundation';
 import { ContractFunction } from './contract_function.js';
 
 export interface CallMethodOptions {

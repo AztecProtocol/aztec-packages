@@ -1,4 +1,4 @@
-import { AztecAddress, Fr } from '@aztec/circuits.js';
+import { AztecAddress, Fr } from '@aztec/foundation';
 import { Signature } from '../circuits.js';
 import { randomBytes } from '../foundation.js';
 

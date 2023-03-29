@@ -3,8 +3,6 @@ import { AztecNode } from '@aztec/aztec-node';
 import { createDebugLogger, InterruptableSleep } from '@aztec/foundation';
 import { AccountState } from '../account_state/index.js';
 import {
-  AztecAddress,
-  EthAddress,
   KERNEL_NEW_COMMITMENTS_LENGTH,
   KERNEL_NEW_CONTRACTS_LENGTH,
   KERNEL_NEW_NULLIFIERS_LENGTH,
@@ -12,7 +10,11 @@ import {
 import { Database, TxDao } from '../database/index.js';
 import { ContractAbi } from '../noir.js';
 import { L2Block } from '@aztec/l2-block';
-import { keccak } from '@aztec/foundation';
+import { 
+  AztecAddress,
+  EthAddress,
+  keccak
+} from '@aztec/foundation';
 
 export class Synchroniser {
   private runningPromise?: Promise<void>;

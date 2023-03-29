@@ -1,5 +1,4 @@
-import { AztecAddress, Fr } from '@aztec/circuits.js';
-import { randomBytes } from '@aztec/foundation';
+import { AztecAddress, Fr, randomBytes } from '@aztec/foundation';
 
 export class Signature {
   public static SIZE = 64;

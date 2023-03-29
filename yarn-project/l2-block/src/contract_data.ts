@@ -1,7 +1,7 @@
-import { AztecAddress, EthAddress } from '@aztec/circuits.js';
+import { AztecAddress, EthAddress } from '@aztec/foundation';
 import { BufferReader, serializeToBuffer } from '@aztec/circuits.js/utils';
 
-export { EthAddress } from '@aztec/circuits.js';
+export { EthAddress } from '@aztec/foundation';
 export { BufferReader } from '@aztec/circuits.js/utils';
 
 /**

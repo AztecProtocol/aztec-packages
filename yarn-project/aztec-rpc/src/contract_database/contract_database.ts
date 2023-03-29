@@ -1,4 +1,4 @@
-import { AztecAddress, EthAddress } from '@aztec/circuits.js';
+import { AztecAddress, EthAddress } from '@aztec/foundation';
 import { ContractAbi } from '../noir.js';
 import { ContractDao } from './contract_dao.js';
 

@@ -4,9 +4,7 @@ import {
   ARGS_LENGTH,
   TxRequest,
   UInt8Vector,
-  AztecAddress,
   ContractDeploymentData,
-  EthAddress,
   FunctionData,
   OldTreeRoots,
   TxContext,
@@ -20,7 +18,7 @@ import { KeyStore } from '../key_store/index.js';
 import { ContractAbi } from '../noir.js';
 import { Synchroniser } from '../synchroniser/index.js';
 import { generateContractAddress, selectorToNumber, Signature } from '../circuits.js';
-import { createDebugLogger, Fr } from '@aztec/foundation';
+import { AztecAddress, EthAddress, createDebugLogger, Fr } from '@aztec/foundation';
 import { Database } from '../database/database.js';
 import { TxDao } from '../database/tx_dao.js';
 

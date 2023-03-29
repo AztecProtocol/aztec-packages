@@ -1,5 +1,5 @@
 import { generateFunctionSelector } from '../abi_coder/index.js';
-import { AztecAddress, EthAddress } from '@aztec/circuits.js';
+import { AztecAddress, EthAddress } from '@aztec/foundation';
 import { ContractAbi, FunctionAbi } from '../noir.js';
 
 export interface ContractFunctionDao extends FunctionAbi {
