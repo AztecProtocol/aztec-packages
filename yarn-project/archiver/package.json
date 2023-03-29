@@ -34,7 +34,6 @@
     "rootDir": "./src"
   },
   "dependencies": {
-    "@aztec/circuits.js": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "@aztec/l1-contracts": "workspace:^",
     "@aztec/l2-block": "workspace:^",
