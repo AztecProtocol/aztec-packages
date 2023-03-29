@@ -1,4 +1,4 @@
-import { EthAddress, Fr } from '@aztec/circuits.js';
+import { AztecAddress, EthAddress, Fr } from '@aztec/circuits.js';
 
 export type ACVMField = `0x${string}`;
 
@@ -18,8 +18,8 @@ export interface ACIRCallback {
   getSecretKey(publicKey: ACVMField): Promise<ACVMField>;
   getNotes2(storageSlot: ACVMField): Promise<ACVMNoteInputs[]>;
   getRandomField(): Promise<ACVMField>;
-  notifyCreatedNote(preimage: ACVMField[], commitment: ACVMField): Promise<void>;
-  notifyNullifiedNote(preimage: ACVMField[], nullifier: ACVMField): Promise<void>;
+  notifyCreatedNote(preimage: ACVMField[], storageSlot: ACVMField, nullifier: ACVMField): Promise<void>;
+  notifyNullifiedNote(nullifier: ACVMField): Promise<void>;
 }
 
 export interface ACIRExecutionResult {
@@ -50,7 +50,7 @@ function adaptBufferSize(originalBuf: Buffer) {
   return buffer;
 }
 
-export function toACVMField(value: EthAddress | Fr | Buffer | boolean): `0x${string}` {
+export function toACVMField(value: AztecAddress | EthAddress | Fr | Buffer | boolean): `0x${string}` {
   if (typeof value === 'boolean') {
     return value ? ONE_ACVM_FIELD : ZERO_ACVM_FIELD;
   }
@@ -59,8 +59,6 @@ export function toACVMField(value: EthAddress | Fr | Buffer | boolean): `0x${str
 
   if (Buffer.isBuffer(value)) {
     buffer = value;
-  } else if (value instanceof EthAddress) {
-    buffer = value.toBuffer();
   } else {
     buffer = value.toBuffer();
   }

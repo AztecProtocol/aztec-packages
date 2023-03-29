@@ -18,12 +18,12 @@ import {
   TxRequest,
 } from '@aztec/circuits.js';
 import { DBOracle, PrivateCallStackItem } from './db_oracle.js';
-import { frsToAztecAddress, frToBoolean, frToEthAddress, WitnessReader, WitnessWriter } from './witness_io.js';
+import { frToAztecAddress, frToBoolean, frToEthAddress, WitnessReader, WitnessWriter } from './witness_io.js';
 import { randomBytes } from '@aztec/foundation';
 
 export interface ExecutionPreimages {
-  newNotes: Array<{ commitment: Fr; preimage: Fr[] }>;
-  nullifiedNotes: Array<{ nullifier: Fr; preimage: Fr[] }>;
+  newNotes: Array<{ nullifier: Fr; preimage: Fr[] }>;
+  nullifiedNotes: Fr[];
 }
 
 export interface ExecutionResult {
@@ -76,8 +76,8 @@ export class Execution {
     callContext: CallContext,
   ): Promise<ExecutionResult> {
     const initialWitness = this.arrangeInitialWitness(args, callContext);
-    const newNotePreimages: Array<{ commitment: Fr; preimage: Fr[] }> = [];
-    const newNullifiers: Array<{ nullifier: Fr; preimage: Fr[] }> = [];
+    const newNotePreimages: Array<{ nullifier: Fr; preimage: Fr[]; storageSlot: Fr }> = [];
+    const newNullifiers: Fr[] = [];
     const nestedExecutionContexts: ExecutionResult[] = [];
 
     const { partialWitness } = await acvmMock(acir, initialWitness, {
@@ -96,19 +96,17 @@ export class Execution {
         return mapped;
       },
       getRandomField: () => Promise.resolve(toACVMField(Fr.fromBuffer(randomBytes(Fr.SIZE_IN_BYTES)))),
-      notifyCreatedNote: (acvmPreimage: ACVMField[], commitment: ACVMField) => {
+      notifyCreatedNote: (acvmPreimage: ACVMField[], storageSlot: ACVMField, nullifier: ACVMField) => {
         const preimage = acvmPreimage.map(f => fromACVMField(f));
         newNotePreimages.push({
           preimage,
-          commitment: fromACVMField(commitment),
+          storageSlot: fromACVMField(storageSlot),
+          nullifier: fromACVMField(nullifier),
         });
         return Promise.resolve();
       },
-      notifyNullifiedNote: (acvmPreimage: ACVMField[], nullifier: ACVMField) => {
-        newNullifiers.push({
-          preimage: acvmPreimage.map(f => fromACVMField(f)),
-          nullifier: fromACVMField(nullifier),
-        });
+      notifyNullifiedNote: (nullifier: ACVMField) => {
+        newNullifiers.push(fromACVMField(nullifier));
         return Promise.resolve();
       },
     });
@@ -134,8 +132,8 @@ export class Execution {
 
     const writer = new WitnessWriter(1, witness);
 
-    writer.writeAddress(callContext.msgSender);
-    writer.writeAddress(callContext.storageContractAddress);
+    writer.writeField(callContext.msgSender);
+    writer.writeField(callContext.storageContractAddress);
     writer.writeField(callContext.portalContractAddress);
     writer.writeField(callContext.isDelegateCall);
     writer.writeField(callContext.isStaticCall);
@@ -169,8 +167,8 @@ export class Execution {
     const witnessReader = new WitnessReader(1, partialWitness);
 
     const callContext = new CallContext(
-      frsToAztecAddress([witnessReader.readField(), witnessReader.readField()]),
-      frsToAztecAddress([witnessReader.readField(), witnessReader.readField()]),
+      frToAztecAddress(witnessReader.readField()),
+      frToAztecAddress(witnessReader.readField()),
       frToEthAddress(witnessReader.readField()),
       frToBoolean(witnessReader.readField()),
       frToBoolean(witnessReader.readField()),

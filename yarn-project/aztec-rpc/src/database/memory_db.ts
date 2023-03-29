@@ -19,14 +19,6 @@ export class MemoryDB extends MemoryContractDatabase implements Database {
     return Promise.resolve();
   }
 
-  public getNote(nullifier: Fr) {
-    const found = this.notes.find(note => note.nullifier.toBuffer().equals(nullifier.toBuffer()));
-    if (!found) {
-      return Promise.reject();
-    }
-    return Promise.resolve(found);
-  }
-
   public getNotes(contractAddress: AztecAddress, storageSlot: Buffer): Promise<NoteDao[]> {
     return Promise.resolve(
       this.notes.filter(

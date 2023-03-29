@@ -5,10 +5,9 @@ export interface NoteDao {
   contractAddress: AztecAddress;
   contractSlot: Fr;
   notePreimage: NotePreImage;
-  commitment: Fr;
   // Computed properties
-  available: boolean;
   siblingPath: Fr[];
-  nullifier: Fr; // TODO Review
+  nullifier: Fr;
+  commitment: Fr;
   index: number;
 }
