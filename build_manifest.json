@@ -32,10 +32,7 @@
   "yarn-project-base": {
     "buildDir": "yarn-project",
     "dockerfile": "yarn-project-base/Dockerfile",
-    "rebuildPatterns": [
-      "^yarn-project/yarn-project-base/",
-      "^yarn-project/yarn.lock"
-    ],
+    "rebuildPatterns": ["."],
     "dependencies": []
   },
   "acir-simulator": {
@@ -84,7 +81,7 @@
     "buildDir": "yarn-project",
     "projectDir": "yarn-project/end-to-end",
     "dockerfile": "end-to-end/Dockerfile",
-    "rebuildPatterns": ["^yarn-project/end-to-end/"],
+    "rebuildPatterns": ["."],
     "dependencies": ["aztec.js", "noir-contracts"]
   },
   "ethereum.js": {
