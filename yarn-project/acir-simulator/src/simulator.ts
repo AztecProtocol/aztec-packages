@@ -1,20 +1,19 @@
-import { ExecutionPreimages } from './acvm.js';
 import {
-  CallContext,
-  PrivateCircuitPublicInputs,
-  EthAddress,
-  OldTreeRoots,
-  Fr,
   ARGS_LENGTH,
+  CallContext,
   EMITTED_EVENTS_LENGTH,
+  L1_MSG_STACK_LENGTH,
   NEW_COMMITMENTS_LENGTH,
   NEW_NULLIFIERS_LENGTH,
+  OldTreeRoots,
+  PrivateCircuitPublicInputs,
   PRIVATE_CALL_STACK_LENGTH,
   PUBLIC_CALL_STACK_LENGTH,
-  L1_MSG_STACK_LENGTH,
   RETURN_VALUES_LENGTH,
   TxRequest,
 } from '@aztec/circuits.js';
+import { EthAddress, Fr } from '@aztec/foundation';
+import { ExecutionPreimages } from './acvm.js';
 import { PrivateCallStackItem } from './db_oracle.js';
 
 export interface ExecutionResult {
