@@ -34,8 +34,8 @@
     "rootDir": "./src"
   },
   "dependencies": {
-    "tslib": "^2.4.0",
-    "@aztec/foundation": "workspace:^"
+    "@aztec/foundation": "workspace:^",
+    "tslib": "^2.4.0"
   },
   "devDependencies": {
     "@aztec/ethereum.js": "workspace:^",
