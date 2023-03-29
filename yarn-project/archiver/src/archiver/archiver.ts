@@ -152,10 +152,10 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource {
   private processYeetLogs(logs: Log<bigint, number, undefined, typeof YeeterAbi, 'Yeet'>[]) {
     for (const log of logs) {
       const blockNum = log.args.l2blockNum;
-      if (blockNum !== BigInt(this.l2Blocks.length + INITIAL_L2_BLOCK_NUM)) {
+      if (blockNum !== BigInt(this.unverifiedDatas.length + INITIAL_L2_BLOCK_NUM)) {
         throw new Error(
           'Block number mismatch. Expected: ' +
-            (this.l2Blocks.length + INITIAL_L2_BLOCK_NUM) +
+            (this.unverifiedDatas.length + INITIAL_L2_BLOCK_NUM) +
             ' but got: ' +
             blockNum +
             '.',
