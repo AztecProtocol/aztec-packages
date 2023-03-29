@@ -97,7 +97,7 @@ export class Sequencer {
         this.log(`No txs in the mempool for a new block`);
         return;
       } else {
-        this.log(`Processing tx ${tx.txId.toString('hex')}`);
+        this.log(`Processing tx ${tx.txHash.toString()}`);
       }
       // TODO(AD) - eventually we should add a limit to how many transactions we
       // skip in this manner and do something more DDOS-proof (like letting the transaction fail and pay a fee).
