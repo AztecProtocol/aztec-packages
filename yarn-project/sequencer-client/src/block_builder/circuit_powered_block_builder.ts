@@ -111,7 +111,7 @@ export class CircuitPoweredBlockBuilder {
   }
 
   protected async getTreeSnapshot(id: MerkleTreeId): Promise<AppendOnlyTreeSnapshot> {
-    const treeInfo = await this.db.getTreeInfo(id);
+    const treeInfo = await this.db.getTreeInfo(id, true);
     return new AppendOnlyTreeSnapshot(Fr.fromBuffer(treeInfo.root), Number(treeInfo.size));
   }
 
@@ -168,7 +168,7 @@ export class CircuitPoweredBlockBuilder {
       [MerkleTreeId.DATA_TREE, MerkleTreeId.DATA_TREE_ROOTS_TREE],
       [MerkleTreeId.CONTRACT_TREE, MerkleTreeId.CONTRACT_TREE_ROOTS_TREE],
     ] as const) {
-      const newTreeInfo = await this.db.getTreeInfo(newTree);
+      const newTreeInfo = await this.db.getTreeInfo(newTree, true);
       await this.db.appendLeaves(rootTree, [newTreeInfo.root]);
     }
   }
@@ -247,9 +247,9 @@ export class CircuitPoweredBlockBuilder {
 
     const getRootTreeSiblingPath = async (treeId: MerkleTreeId) => {
       // TODO: Synchronize these operations into the tree db to avoid race conditions
-      const { size } = await this.db.getTreeInfo(treeId);
+      const { size } = await this.db.getTreeInfo(treeId, true);
       // TODO: Check for off-by-one errors
-      const path = await this.db.getSiblingPath(treeId, size);
+      const path = await this.db.getSiblingPath(treeId, size, true);
       return path.data.map(b => Fr.fromBuffer(b));
     };
 
@@ -300,11 +300,11 @@ export class CircuitPoweredBlockBuilder {
     // If this is an empty tx, then just return zeroes
     if (value.value === 0n) return this.makeEmptyMembershipWitness(height);
 
-    const index = await this.db.findLeafIndex(treeId, value.toBuffer());
+    const index = await this.db.findLeafIndex(treeId, value.toBuffer(), true);
     if (index === undefined) {
       throw new Error(`Leaf with value ${value} not found in tree ${treeId}`);
     }
-    const path = await this.db.getSiblingPath(treeId, index);
+    const path = await this.db.getSiblingPath(treeId, index, true);
     // TODO: Check conversion from bigint to number
     return new MembershipWitness(
       height,
@@ -352,8 +352,8 @@ export class CircuitPoweredBlockBuilder {
     }
 
     const tree = MerkleTreeId.NULLIFIER_TREE;
-    const prevValueIndex = await this.db.getPreviousValueIndex(tree, frToBigInt(nullifier));
-    const prevValueInfo = this.db.getLeafData(tree, prevValueIndex.index);
+    const prevValueIndex = await this.db.getPreviousValueIndex(tree, frToBigInt(nullifier), true);
+    const prevValueInfo = await this.db.getLeafData(tree, prevValueIndex.index, true);
     if (!prevValueInfo) throw new Error(`Nullifier tree should have one initial leaf`);
     const prevValueSiblingPath = await this.db.getSiblingPath(tree, BigInt(prevValueIndex.index));
 
@@ -374,8 +374,8 @@ export class CircuitPoweredBlockBuilder {
 
   protected async getSubtreeSiblingPath(treeId: MerkleTreeId, subtreeHeight: number): Promise<Fr[]> {
     // Get sibling path to the last leaf we inserted
-    const lastLeafIndex = (await this.db.getTreeInfo(treeId).then(t => t.size)) - 1n;
-    const fullSiblingPath = await this.db.getSiblingPath(treeId, lastLeafIndex);
+    const lastLeafIndex = (await this.db.getTreeInfo(treeId, true).then(t => t.size)) - 1n;
+    const fullSiblingPath = await this.db.getSiblingPath(treeId, lastLeafIndex, true);
 
     // Drop the first subtreeHeight items since we only care about the path to the subtree root
     return fullSiblingPath.data.slice(subtreeHeight).map(b => Fr.fromBuffer(b));

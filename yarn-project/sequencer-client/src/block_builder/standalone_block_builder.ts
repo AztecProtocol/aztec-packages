@@ -74,7 +74,7 @@ export class StandaloneBlockBuilder {
   }
 
   private async getTreeSnapshot(id: MerkleTreeId): Promise<AppendOnlyTreeSnapshot> {
-    const treeInfo = await this.db.getTreeInfo(id);
+    const treeInfo = await this.db.getTreeInfo(id, true);
     return new AppendOnlyTreeSnapshot(Fr.fromBuffer(treeInfo.root), Number(treeInfo.size));
   }
 

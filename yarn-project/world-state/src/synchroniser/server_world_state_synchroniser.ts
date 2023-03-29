@@ -38,7 +38,7 @@ export class ServerWorldStateSynchroniser implements WorldStateSynchroniser {
     return this.merkleTreeDb.getPreviousValueIndex(treeId, value);
   }
 
-  public getLeafData(treeId: MerkleTreeId.NULLIFIER_TREE, index: number): LeafData | undefined {
+  public getLeafData(treeId: MerkleTreeId.NULLIFIER_TREE, index: number): Promise<LeafData | undefined> {
     return this.merkleTreeDb.getLeafData(treeId, index);
   }
 
