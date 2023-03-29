@@ -7,14 +7,14 @@ import { Hasher, MerkleTree, Pedersen, SiblingPath } from '../index.js';
 // @ts-ignore
 export const createMemDown = () => memdown();
 
-const expectSameTrees = async (tree1: MerkleTree, tree2: MerkleTree) => {
-  const size = tree1.getNumLeaves();
-  expect(size).toBe(tree2.getNumLeaves());
-  expect(tree1.getRoot().toString('hex')).toBe(tree2.getRoot().toString('hex'));
+const expectSameTrees = async (tree1: MerkleTree, tree2: MerkleTree, includeUncommitted = true) => {
+  const size = tree1.getNumLeaves(includeUncommitted);
+  expect(size).toBe(tree2.getNumLeaves(includeUncommitted));
+  expect(tree1.getRoot(includeUncommitted).toString('hex')).toBe(tree2.getRoot(includeUncommitted).toString('hex'));
 
   for (let i = 0; i < size; ++i) {
-    const siblingPath1 = await tree1.getSiblingPath(BigInt(i));
-    const siblingPath2 = await tree2.getSiblingPath(BigInt(i));
+    const siblingPath1 = await tree1.getSiblingPath(BigInt(i), includeUncommitted);
+    const siblingPath2 = await tree2.getSiblingPath(BigInt(i), includeUncommitted);
     expect(siblingPath2).toStrictEqual(siblingPath1);
   }
 };
@@ -52,9 +52,9 @@ export const merkleTreeTestSuite = (
       const tree = await createDb(db, pedersen, 'test2', 10);
       await tree.appendLeaves(values.slice(0, 4));
 
-      const firstRoot = tree.getRoot();
+      const firstRoot = tree.getRoot(true);
 
-      expect(firstRoot).not.toEqual(emptyTree.getRoot());
+      expect(firstRoot).not.toEqual(emptyTree.getRoot(true));
 
       await tree.rollback();
 
@@ -63,9 +63,9 @@ export const merkleTreeTestSuite = (
       // append the leaves again
       await tree.appendLeaves(values.slice(0, 4));
 
-      expect(tree.getRoot()).toEqual(firstRoot);
+      expect(tree.getRoot(true)).toEqual(firstRoot);
 
-      expect(firstRoot).not.toEqual(emptyTree.getRoot());
+      expect(firstRoot).not.toEqual(emptyTree.getRoot(true));
 
       await tree.rollback();
 
@@ -82,12 +82,12 @@ export const merkleTreeTestSuite = (
       const tree = await createDb(db, pedersen, 'test2', 10);
       await tree.appendLeaves(values.slice(0, 4));
 
-      expect(tree.getRoot()).not.toEqual(emptyTree.getRoot());
+      expect(tree.getRoot(true)).not.toEqual(emptyTree.getRoot(true));
 
       await tree.commit();
       await tree.rollback();
 
-      expect(tree.getRoot()).not.toEqual(emptyTree.getRoot());
+      expect(tree.getRoot(true)).not.toEqual(emptyTree.getRoot(true));
     });
 
     it('should be able to restore from previous committed data', async () => {
@@ -100,9 +100,9 @@ export const merkleTreeTestSuite = (
       const db2 = levelup(levelDown);
       const tree2 = await createFromName(db2, pedersen, 'test');
 
-      expect(tree.getRoot()).toEqual(tree2.getRoot());
+      expect(tree.getRoot(true)).toEqual(tree2.getRoot(true));
       for (let i = 0; i < 4; ++i) {
-        expect(await tree.getSiblingPath(BigInt(i))).toEqual(await tree2.getSiblingPath(BigInt(i)));
+        expect(await tree.getSiblingPath(BigInt(i), true)).toEqual(await tree2.getSiblingPath(BigInt(i), true));
       }
     });
 
@@ -120,7 +120,7 @@ export const merkleTreeTestSuite = (
       const tree = await createDb(db, pedersen, 'test', 10);
       await tree.appendLeaves(values.slice(0, 1));
 
-      const siblingPath = await tree.getSiblingPath(0n);
+      const siblingPath = await tree.getSiblingPath(0n, true);
       const buf = siblingPath.toBuffer();
       const recovered = SiblingPath.fromBuffer(buf);
       expect(recovered).toEqual(siblingPath);

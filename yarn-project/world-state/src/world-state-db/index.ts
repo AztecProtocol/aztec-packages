@@ -38,16 +38,17 @@ export interface TreeInfo {
  * Defines the interface for Merkle Tree operations.
  */
 export interface MerkleTreeOperations {
-  getTreeInfo(treeId: MerkleTreeId): Promise<TreeInfo>;
+  getTreeInfo(treeId: MerkleTreeId, includeUncommitted?: boolean): Promise<TreeInfo>;
   appendLeaves(treeId: MerkleTreeId, leaves: Buffer[]): Promise<void>;
-  getSiblingPath(treeId: MerkleTreeId, index: bigint): Promise<SiblingPath>;
+  getSiblingPath(treeId: MerkleTreeId, index: bigint, includeUncommitted?: boolean): Promise<SiblingPath>;
   getPreviousValueIndex(
     treeId: IndexedMerkleTreeId,
     value: bigint,
+    includeUncommitted?: boolean,
   ): Promise<{ index: number; alreadyPresent: boolean }>;
-  getLeafData(treeId: IndexedMerkleTreeId, index: number): LeafData | undefined;
-  findLeafIndex(treeId: MerkleTreeId, value: Buffer): Promise<bigint | undefined>;
-  getLeafValue(treeId: MerkleTreeId, index: bigint): Promise<Buffer | undefined>;
+  getLeafData(treeId: IndexedMerkleTreeId, index: number, includeUncommitted?: boolean): Promise<LeafData | undefined>;
+  findLeafIndex(treeId: MerkleTreeId, value: Buffer, includeUncommitted?: boolean): Promise<bigint | undefined>;
+  getLeafValue(treeId: MerkleTreeId, index: bigint, includeUncommitted?: boolean): Promise<Buffer | undefined>;
 }
 
 /**
