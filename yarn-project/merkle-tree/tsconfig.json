@@ -3,10 +3,8 @@
   "compilerOptions": {
     "outDir": "dest",
     "rootDir": "src",
-    "types": [
-      "node",
-      "jest"
-    ]
+    "tsBuildInfoFile": ".tsbuildinfo",
+    "types": ["node", "jest"]
   },
   "references": [
     {
@@ -16,7 +14,5 @@
       "path": "../barretenberg.js/tsconfig.dest.json"
     }
   ],
-  "include": [
-    "src"
-  ]
+  "include": ["src"]
 }

@@ -1,6 +1,6 @@
 import { Grumpkin } from '@aztec/barretenberg.js/crypto';
 import { BarretenbergWasm } from '@aztec/barretenberg.js/wasm';
-import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { Point } from '@aztec/foundation/fields';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { decryptBuffer, encryptBuffer } from './encrypt_buffer.js';
 
@@ -9,7 +9,7 @@ describe('encrypt buffer', () => {
     const grumpkin = new Grumpkin(await BarretenbergWasm.new());
     const data = randomBytes(253);
     const ownerPrivKey = randomBytes(32);
-    const ownerPubKey = AztecAddress.fromBuffer(grumpkin.mul(Grumpkin.generator, ownerPrivKey));
+    const ownerPubKey = Point.fromBuffer(grumpkin.mul(Grumpkin.generator, ownerPrivKey));
     const ephPrivKey = randomBytes(32);
     const encrypted = encryptBuffer(data, ownerPubKey, ephPrivKey, grumpkin);
     const decrypted = decryptBuffer(encrypted, ownerPrivKey, grumpkin);
@@ -22,7 +22,7 @@ describe('encrypt buffer', () => {
     const data = randomBytes(253);
     const ownerPrivKey = randomBytes(32);
     const ephPrivKey = randomBytes(32);
-    const ownerPubKey = AztecAddress.fromBuffer(grumpkin.mul(Grumpkin.generator, ownerPrivKey));
+    const ownerPubKey = Point.fromBuffer(grumpkin.mul(Grumpkin.generator, ownerPrivKey));
     const encrypted = encryptBuffer(data, ownerPubKey, ephPrivKey, grumpkin);
 
     // Introduce gibberish.

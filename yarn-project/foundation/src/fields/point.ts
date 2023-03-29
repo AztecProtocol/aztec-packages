@@ -1,30 +1,30 @@
 import { randomBytes } from '../crypto/index.js';
 import { BufferReader } from '../index.js';
 
-export class AztecAddress {
-  public static SIZE_IN_BYTES = 32;
-  public static ZERO = new AztecAddress(Buffer.alloc(AztecAddress.SIZE_IN_BYTES));
+export class Point {
+  public static SIZE_IN_BYTES = 64;
+  public static ZERO = new Point(Buffer.alloc(Point.SIZE_IN_BYTES));
 
   constructor(private buffer: Buffer) {
-    if (buffer.length !== AztecAddress.SIZE_IN_BYTES) {
-      throw new Error(`Expect buffer size to be ${AztecAddress.SIZE_IN_BYTES}. Got ${buffer.length}.`);
+    if (buffer.length !== Point.SIZE_IN_BYTES) {
+      throw new Error(`Expect buffer size to be ${Point.SIZE_IN_BYTES}. Got ${buffer.length}.`);
     }
   }
 
   static fromBuffer(bufferOrReader: Buffer | BufferReader) {
     const reader = BufferReader.asReader(bufferOrReader);
-    return new AztecAddress(reader.readBytes(this.SIZE_IN_BYTES));
+    return new Point(reader.readBytes(this.SIZE_IN_BYTES));
   }
 
   public static fromString(address: string) {
-    return new AztecAddress(Buffer.from(address.replace(/^0x/i, ''), 'hex'));
+    return new Point(Buffer.from(address.replace(/^0x/i, ''), 'hex'));
   }
 
   public static random() {
-    return new AztecAddress(randomBytes(this.SIZE_IN_BYTES));
+    return new Point(randomBytes(this.SIZE_IN_BYTES));
   }
 
-  public equals(rhs: AztecAddress) {
+  public equals(rhs: Point) {
     return this.buffer.equals(rhs.toBuffer());
   }
 
