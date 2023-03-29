@@ -73,6 +73,13 @@
     "rebuildPatterns": ["^yarn-project/aztec.js/"],
     "dependencies": ["aztec-rpc"]
   },
+  "barretenberg.js": {
+    "buildDir": "yarn-project",
+    "projectDir": "yarn-project/barretenberg.js",
+    "dockerfile": "aztec.js/Dockerfile",
+    "rebuildPatterns": ["^yarn-project/barretenberg.js/"],
+    "dependencies": []
+  },
   "end-to-end": {
     "buildDir": "yarn-project",
     "projectDir": "yarn-project/end-to-end",
@@ -120,7 +127,7 @@
     "projectDir": "yarn-project/merkle-tree",
     "dockerfile": "merkle-tree/Dockerfile",
     "rebuildPatterns": ["^yarn-project/merkle-tree/"],
-    "dependencies": ["foundation"]
+    "dependencies": ["foundation", "barretenberg.js"]
   },
   "noir-contracts": {
     "buildDir": "yarn-project",
