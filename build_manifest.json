@@ -1,5 +1,5 @@
 {
-  "circuits-wasm-linux-clang": {
+  "aztec3-circuits-wasm-linux-clang": {
     "buildDir": "circuits/cpp",
     "dockerfile": "dockerfiles/Dockerfile.wasm-linux-clang",
     "rebuildPatterns": ["^circuits/"],
