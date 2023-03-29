@@ -167,7 +167,7 @@ export class StandardMerkleTree implements MerkleTree {
    * @returns Empty promise.
    */
   public async appendLeaves(leaves: Buffer[]): Promise<void> {
-    const numLeaves = this.getNumLeaves();
+    const numLeaves = this.getNumLeaves(true);
     for (let i = 0; i < leaves.length; i++) {
       const index = numLeaves + BigInt(i);
       await this.addLeafToCacheAndHashToRoot(leaves[i], index);
@@ -182,7 +182,7 @@ export class StandardMerkleTree implements MerkleTree {
    */
   public async updateLeaf(leaf: Buffer, index: bigint) {
     await this.addLeafToCacheAndHashToRoot(leaf, index);
-    const numLeaves = this.getNumLeaves();
+    const numLeaves = this.getNumLeaves(true);
     if (index >= numLeaves) {
       this.cachedSize = index + 1n;
     }
@@ -198,8 +198,8 @@ export class StandardMerkleTree implements MerkleTree {
     for (const key of keys) {
       batch.put(key, this.cache[key]);
     }
-    this.size = this.getNumLeaves();
-    this.root = this.getRoot();
+    this.size = this.getNumLeaves(true);
+    this.root = this.getRoot(true);
     await this.writeMeta(batch);
     await batch.write();
     this.clearCache();
@@ -282,7 +282,7 @@ export class StandardMerkleTree implements MerkleTree {
    * @param batch - The batch to which to write the meta data.
    */
   private async writeMeta(batch?: LevelUpChain<string, Buffer>) {
-    const data = encodeMeta(this.getRoot(), this.depth, this.getNumLeaves());
+    const data = encodeMeta(this.getRoot(true), this.depth, this.getNumLeaves(true));
     if (batch) {
       batch.put(this.name, data);
     } else {

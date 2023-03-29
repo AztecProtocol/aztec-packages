@@ -53,23 +53,30 @@ export const merkleTreeTestSuite = (
       await tree.appendLeaves(values.slice(0, 4));
 
       const firstRoot = tree.getRoot(true);
-
       expect(firstRoot).not.toEqual(emptyTree.getRoot(true));
+      // committed root should still be the empty root
+      expect(tree.getRoot(false)).toEqual(emptyTree.getRoot());
 
       await tree.rollback();
 
-      await expectSameTrees(tree, emptyTree);
+      // both committed and uncommitted trees should be equal to the empty tree
+      await expectSameTrees(tree, emptyTree, true);
+      await expectSameTrees(tree, emptyTree, false);
 
       // append the leaves again
       await tree.appendLeaves(values.slice(0, 4));
 
       expect(tree.getRoot(true)).toEqual(firstRoot);
+      // committed root should still be the empty root
+      expect(tree.getRoot(false)).toEqual(emptyTree.getRoot());
 
       expect(firstRoot).not.toEqual(emptyTree.getRoot(true));
 
       await tree.rollback();
 
-      await expectSameTrees(tree, emptyTree);
+      // both committed and uncommitted trees should be equal to the empty tree
+      await expectSameTrees(tree, emptyTree, true);
+      await expectSameTrees(tree, emptyTree, false);
     });
 
     it('should not revert changes after commit', async () => {
@@ -83,11 +90,14 @@ export const merkleTreeTestSuite = (
       await tree.appendLeaves(values.slice(0, 4));
 
       expect(tree.getRoot(true)).not.toEqual(emptyTree.getRoot(true));
+      // committed root should still be the empty root
+      expect(tree.getRoot(false)).toEqual(emptyTree.getRoot());
 
       await tree.commit();
       await tree.rollback();
 
       expect(tree.getRoot(true)).not.toEqual(emptyTree.getRoot(true));
+      expect(tree.getRoot(false)).not.toEqual(emptyTree.getRoot(true));
     });
 
     it('should be able to restore from previous committed data', async () => {
@@ -100,9 +110,12 @@ export const merkleTreeTestSuite = (
       const db2 = levelup(levelDown);
       const tree2 = await createFromName(db2, pedersen, 'test');
 
+      // both committed and uncommitted should be equal to the restored data
       expect(tree.getRoot(true)).toEqual(tree2.getRoot(true));
+      expect(tree.getRoot(false)).toEqual(tree2.getRoot(false));
       for (let i = 0; i < 4; ++i) {
         expect(await tree.getSiblingPath(BigInt(i), true)).toEqual(await tree2.getSiblingPath(BigInt(i), true));
+        expect(await tree.getSiblingPath(BigInt(i), false)).toEqual(await tree2.getSiblingPath(BigInt(i), false));
       }
     });
 

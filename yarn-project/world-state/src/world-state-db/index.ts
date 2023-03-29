@@ -38,15 +38,49 @@ export interface TreeInfo {
  * Defines the interface for Merkle Tree operations.
  */
 export interface MerkleTreeOperations {
+  /**
+   * Returns information about the given tree
+   * @param treeId - The tree to be queried
+   * @param includeUncommitted - Set to true to include uncommitted updates in the returned info
+   */
   getTreeInfo(treeId: MerkleTreeId, includeUncommitted?: boolean): Promise<TreeInfo>;
+  /**
+   * Appends leaves to a given tree
+   * @param treeId - The tree to be updated
+   * @param leaves - The set of leaves to be appended
+   */
   appendLeaves(treeId: MerkleTreeId, leaves: Buffer[]): Promise<void>;
+  /**
+   *
+   * @param treeId - The tree to be queried for a sibling path
+   * @param index - The index of the leaf for which a sibling path should be returned
+   * @param includeUncommitted - Set to true to include uncommitted updates in the calculation
+   */
   getSiblingPath(treeId: MerkleTreeId, index: bigint, includeUncommitted?: boolean): Promise<SiblingPath>;
+  /**
+   * Returns the previous index for a given value in an indexed tree
+   * @param treeId - The tree for which the previous value index is required
+   * @param value - The value to be queried
+   * @param includeUncommitted - Set to true to include uncommitted state in the calcuation
+   */
   getPreviousValueIndex(
     treeId: IndexedMerkleTreeId,
     value: bigint,
     includeUncommitted?: boolean,
   ): Promise<{ index: number; alreadyPresent: boolean }>;
+  /**
+   * Returns the data at a specific leaf
+   * @param treeId - The tree for which leaf data should be returned
+   * @param index - The index of the leaf required
+   * @param includeUncommitted - Set to true to include uncommitted updates in the queired daatset
+   */
   getLeafData(treeId: IndexedMerkleTreeId, index: number, includeUncommitted?: boolean): Promise<LeafData | undefined>;
+  /**
+   * Returns the index containing a leaf value
+   * @param treeId - The tree for which the index should be returned
+   * @param value - The value to search for in the tree
+   * @param includeUncommitted - Set to true to include uncommitted updates in the queired daatset
+   */
   findLeafIndex(treeId: MerkleTreeId, value: Buffer, includeUncommitted?: boolean): Promise<bigint | undefined>;
   getLeafValue(treeId: MerkleTreeId, index: bigint, includeUncommitted?: boolean): Promise<Buffer | undefined>;
 }
