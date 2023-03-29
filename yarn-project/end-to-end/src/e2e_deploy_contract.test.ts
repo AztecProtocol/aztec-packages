@@ -27,6 +27,7 @@ describe('e2e_deploy_contract', () => {
     provider = createProvider(ETHEREUM_HOST, MNEMONIC, 1);
     const ethRpc = new EthereumRpc(provider);
     logger('Deploying contracts...');
+    logger('force rebuild...');
     rollupAddress = await deployRollupContract(provider, ethRpc);
     yeeterAddress = await deployYeeterContract(provider, ethRpc);
     logger('Deployed contracts...');
