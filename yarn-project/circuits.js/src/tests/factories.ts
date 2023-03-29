@@ -19,7 +19,7 @@ import {
   PRIVATE_CALL_STACK_LENGTH,
   PUBLIC_CALL_STACK_LENGTH,
   RETURN_VALUES_LENGTH,
-  VK_TREE_HEIGHT
+  VK_TREE_HEIGHT,
 } from '../structs/constants.js';
 import { FunctionData } from '../structs/function_data.js';
 import {
@@ -31,14 +31,16 @@ import {
   PreviousKernelData,
   PrivateCallData,
   PrivateKernelInputs,
-  PrivateKernelPublicInputs
+  PrivateKernelPublicInputs,
 } from '../structs/kernel.js';
 import { PrivateCallStackItem } from '../structs/private_call_stack_item.js';
 import {
   AffineElement,
   AggregationObject,
-  ComposerType, EcdsaSignature, MembershipWitness,
-  UInt8Vector
+  ComposerType,
+  EcdsaSignature,
+  MembershipWitness,
+  UInt8Vector,
 } from '../structs/shared.js';
 import { ContractDeploymentData, SignedTxRequest, TxContext, TxRequest } from '../structs/tx.js';
 import { CommitmentMap, G1AffineElement, VerificationKey } from '../structs/verification_key.js';
