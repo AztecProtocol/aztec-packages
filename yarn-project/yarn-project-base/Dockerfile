@@ -1,5 +1,5 @@
 # FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/circuits-x86_64-linux-clang
-FROM 278380418400.dkr.ecr.us-east-2.amazonaws.com/aztec3-circuits-wasm-linux-clang
+FROM 278380418400.dkr.ecr.us-east-2.amazonaws.com/aztec3-circuits-wasm-linux-clang:cache-aedb4beaf96c618c1c4c89507930e131092be641
 # FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/l1-contracts
 
 FROM node:18-alpine
