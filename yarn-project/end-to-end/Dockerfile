@@ -1,4 +1,4 @@
-FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/yarn-project-base AS builder
+FROM 278380418400.dkr.ecr.us-east-2.amazonaws.com/yarn-project-base:cache-ba91938d5f16a848547285fbb3c417e0989db17b AS builder
 
 COPY . .
 RUN cd merkle-tree && yarn build
@@ -19,5 +19,7 @@ RUN yarn workspaces focus --production > /dev/null
 FROM node:18-alpine
 RUN apk update && apk add --no-cache curl jq bash
 COPY --from=builder /usr/src/yarn-project /usr/src/yarn-project
+WORKDIR /usr/src/yarn-project/
+RUN yarn install
 WORKDIR /usr/src/yarn-project/end-to-end
 ENTRYPOINT ["yarn", "test"]
