@@ -1,11 +1,12 @@
-FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/yarn-project-base AS builder
-RUN echo "force rebuild..."
+FROM 278380418400.dkr.ecr.us-east-2.amazonaws.com/yarn-project-base AS builder
 
 COPY . .
+RUN cd merkle-tree && yarn build
 RUN cd aztec.js && yarn build
 RUN cd noir-contracts && yarn build
 WORKDIR /usr/src/yarn-project/end-to-end
-RUN yarn formatting
+RUN yarn build
+# RUN yarn formatting
 
 # copy bb.js wasm binaries
 WORKDIR /usr/src/yarn-project/barretenberg.js
