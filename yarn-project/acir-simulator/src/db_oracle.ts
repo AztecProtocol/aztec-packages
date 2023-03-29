@@ -1,4 +1,5 @@
-import { AztecAddress, EthAddress, PrivateCircuitPublicInputs } from '@aztec/circuits.js';
+import { PrivateCircuitPublicInputs } from '@aztec/circuits.js';
+import { AztecAddress, EthAddress } from '@aztec/foundation';
 
 export interface NoteLoadOracleInputs {
   note: Buffer;

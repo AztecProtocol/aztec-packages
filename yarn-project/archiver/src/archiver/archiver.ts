@@ -1,5 +1,4 @@
-import { EthAddress } from '@aztec/ethereum.js/eth_address';
-import { createDebugLogger } from '@aztec/foundation';
+import { createDebugLogger, EthAddress } from '@aztec/foundation';
 import { INITIAL_ROLLUP_ID } from '@aztec/l1-contracts';
 import { RollupAbi, YeeterAbi } from '@aztec/l1-contracts/viem';
 import { L2Block, L2BlockSource } from '@aztec/l2-block';

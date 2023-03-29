@@ -43,14 +43,20 @@
     "projectDir": "yarn-project/acir-simulator",
     "dockerfile": "acir-simulator/Dockerfile",
     "rebuildPatterns": ["^yarn-project/acir-simulator/"],
-    "dependencies": ["yarn-project-base"]
+    "dependencies": ["foundation", "circuits.js"]
   },
   "archiver": {
     "buildDir": "yarn-project",
     "projectDir": "yarn-project/archiver",
     "dockerfile": "archiver/Dockerfile",
     "rebuildPatterns": ["^yarn-project/archiver/"],
-    "dependencies": ["foundation", "ethereum.js", "l1-contracts", "l2-block"]
+    "dependencies": [
+      "foundation",
+      "circuits.js",
+      "ethereum.js",
+      "l1-contracts",
+      "l2-block"
+    ]
   },
   "aztec-cli": {
     "buildDir": "yarn-project",
@@ -64,7 +70,13 @@
     "projectDir": "yarn-project/aztec-rpc",
     "dockerfile": "aztec-rpc/Dockerfile",
     "rebuildPatterns": ["^yarn-project/aztec-rpc/"],
-    "dependencies": ["aztec-node"]
+    "dependencies": [
+      "foundation",
+      "acir-simulator",
+      "aztec-node",
+      "kernel-prover",
+      "tx"
+    ]
   },
   "aztec.js": {
     "buildDir": "yarn-project",
@@ -151,10 +163,12 @@
     "dependencies": [
       "foundation",
       "archiver",
-      "world-state",
+      "ethereum.js",
+      "l1-contracts",
       "p2p",
       "sequencer-client",
-      "ethereum.js"
+      "tx",
+      "world-state"
     ]
   },
   "sequencer-client": {
