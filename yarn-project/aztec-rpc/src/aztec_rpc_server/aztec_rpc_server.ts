@@ -91,7 +91,6 @@ export class AztecRPCServer implements AztecRPCClient {
       portalContract,
     );
     const txContext = new TxContext(false, false, true, contractDeploymentData);
-
     const fromAddress = from.toBuffer().equals(Fr.ZERO.toBuffer()) ? (await this.keyStore.getAccounts())[0] : from;
 
     const contractAddress = generateContractAddress(fromAddress, contractAddressSalt, args);
