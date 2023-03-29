@@ -148,7 +148,7 @@
     "projectDir": "yarn-project/prover-client",
     "dockerfile": "prover-client/Dockerfile",
     "rebuildPatterns": ["^yarn-project/prover-client/"],
-    "dependencies": ["foundation", "yarn-project-base"]
+    "dependencies": ["foundation"]
   },
   "aztec-node": {
     "buildDir": "yarn-project",

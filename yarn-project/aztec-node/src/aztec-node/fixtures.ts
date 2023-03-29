@@ -23,7 +23,7 @@ import {
 } from '@aztec/circuits.js';
 import { EthereumRpc } from '@aztec/ethereum.js/eth_rpc';
 import { WalletProvider } from '@aztec/ethereum.js/provider';
-import { AztecAddress, EthAddress as CircuitEthAddress, randomBytes, toBufferBE, Fr } from '@aztec/foundation';
+import { AztecAddress, EthAddress, randomBytes, toBufferBE, Fr } from '@aztec/foundation';
 import { Rollup, Yeeter } from '@aztec/l1-contracts';
 import { Tx } from '@aztec/tx';
 
@@ -49,7 +49,7 @@ export const createProvider = (host: string, mnemonic: string, accounts: number)
 
 // REFACTOR: Use @aztec/circuit.js/factories where possible
 export const createCircuitEthAddress = () => {
-  return new CircuitEthAddress(randomBytes(20));
+  return new EthAddress(randomBytes(20));
 };
 
 export const createRandomCommitments = (num: number) => {
@@ -57,7 +57,7 @@ export const createRandomCommitments = (num: number) => {
     .fill(0)
     .map(() => Fr.random());
 };
-CircuitEthAddress;
+
 export const createRandomEncryptedNotePreimage = () => {
   const encryptedNotePreimageBuf = randomBytes(144);
   return Buffer.concat([toBufferBE(BigInt(encryptedNotePreimageBuf.length), 4), encryptedNotePreimageBuf]);

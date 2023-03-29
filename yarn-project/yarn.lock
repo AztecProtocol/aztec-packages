@@ -20,6 +20,7 @@ __metadata:
   resolution: "@aztec/acir-simulator@workspace:acir-simulator"
   dependencies:
     "@aztec/circuits.js": "workspace:^"
+    "@aztec/foundation": "workspace:^"
     "@jest/globals": ^29.4.3
     "@noir-lang/noir-source-resolver": ^1.1.0
     "@noir-lang/noir_wasm": 0.3.2-29b1f7df
@@ -39,8 +40,6 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/archiver@workspace:archiver"
   dependencies:
-    "@aztec/circuits.js": "workspace:^"
-    "@aztec/ethereum.js": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/l1-contracts": "workspace:^"
     "@aztec/l2-block": "workspace:^"
@@ -68,6 +67,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/aztec-cli@workspace:aztec-cli"
   dependencies:
+    "@aztec/foundation": "workspace:^"
     "@jest/globals": ^29.4.3
     "@rushstack/eslint-patch": ^1.1.4
     "@types/jest": ^29.4.0
@@ -115,6 +115,7 @@ __metadata:
   dependencies:
     "@aztec/acir-simulator": "workspace:^"
     "@aztec/aztec-node": "workspace:^"
+    "@aztec/circuits.js": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/kernel-prover": "workspace:^"
     "@aztec/tx": "workspace:^"
@@ -138,7 +139,6 @@ __metadata:
   dependencies:
     "@aztec/aztec-rpc": "workspace:^"
     "@aztec/foundation": "workspace:^"
-    "@aztec/tx": "workspace:^"
     "@jest/globals": ^29.4.3
     "@rushstack/eslint-patch": ^1.1.4
     "@types/jest": ^29.4.0
@@ -373,6 +373,7 @@ __metadata:
   resolution: "@aztec/l1-contracts@workspace:l1-contracts"
   dependencies:
     "@aztec/ethereum.js": "workspace:^"
+    "@aztec/foundation": "workspace:^"
     "@jest/globals": ^29.4.3
     "@rushstack/eslint-patch": ^1.1.4
     "@types/jest": ^29.4.0
@@ -472,6 +473,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/prover-client@workspace:prover-client"
   dependencies:
+    "@aztec/foundation": "workspace:^"
     "@jest/globals": ^29.4.3
     "@rushstack/eslint-patch": ^1.1.4
     "@types/jest": ^29.4.0
@@ -517,6 +519,7 @@ __metadata:
   resolution: "@aztec/tx@workspace:tx"
   dependencies:
     "@aztec/circuits.js": "workspace:^"
+    "@aztec/foundation": "workspace:^"
     "@aztec/l2-block": "workspace:^"
     "@jest/globals": ^29.4.3
     "@rushstack/eslint-patch": ^1.1.4
