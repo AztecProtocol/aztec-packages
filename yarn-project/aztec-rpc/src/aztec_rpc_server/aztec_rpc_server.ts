@@ -65,8 +65,13 @@ export class AztecRPCServer implements AztecRPCClient {
     return Promise.resolve([[0]]);
   }
 
-  public async isContractDeployed(contract: AztecAddress): Promise<boolean> {
-    return !!(await this.db.getContract(contract));
+  /**
+   * Is an L2 contract deployed at this address?
+   * @param contractAddress - The contract data address.
+   * @returns Whether the contract was deployed.
+   */
+  public async isContractDeployed(contractAddress: AztecAddress): Promise<boolean> {
+    return !!(await this.node.getContractData(contractAddress));
   }
 
   public async createDeploymentTxRequest(
