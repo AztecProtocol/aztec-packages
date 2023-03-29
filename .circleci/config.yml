@@ -208,4 +208,5 @@ workflows:
           <<: *defaults
       - e2e-deploy-contract: *e2e_test
       - world-state: *yarn_project
+      - merkle-tree: *yarn_project
       - noir-contracts: *yarn_project
