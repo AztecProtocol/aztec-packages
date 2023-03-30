@@ -1,8 +1,6 @@
-import { ContractAbi, ABIType, StructType } from '@aztec/aztec-rpc';
+import { ContractAbi, ABIType, BasicType, StructType } from '@aztec/aztec-rpc';
 
-type Attributes = {
-  [name: string]: string;
-};
+type TypeWithoutKind<T> = Omit<{ [key in keyof T]: any }, 'kind'>;
 
 export function abiChecker(abi: ContractAbi) {
   if (!abi.functions || abi.functions.length === 0) {
@@ -40,7 +38,7 @@ function abiParameterTypeChecker(type: ABIType): boolean {
   switch (type.kind) {
     case 'field':
     case 'boolean':
-      return checkAttributes(type);
+      return checkAttributes(type, {});
     case 'integer':
       return checkAttributes(type, { sign: 'string', width: 'number' });
     case 'string':
@@ -63,7 +61,7 @@ function checkStruct(type: StructType) {
   }, true);
 }
 
-function checkAttributes(type: ABIType, incompleteAttributes: Attributes = {}) {
+function checkAttributes<T extends BasicType<string>>(type: T, incompleteAttributes: TypeWithoutKind<T>) {
   const typeKeys = Object.keys(type);
   const attributes = { ...incompleteAttributes, kind: 'string' };
 
