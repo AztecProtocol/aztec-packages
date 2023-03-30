@@ -34,15 +34,18 @@ export class AccountState {
   }
 
   public async processUnverifiedData(unverifiedData: UnverifiedData[]): Promise<void> {
+    let numDecryptedAuxData = 0;
     for (const data of unverifiedData) {
       for (const encryptedTxAuxData of data.dataChunks) {
         const txAuxData = TxAuxData.fromEncryptedBuffer(encryptedTxAuxData, this.privKey, await this.getGrumpkin());
         if (txAuxData) {
           const txAuxDataDao = TxAuxDataDao.fromTxAuxData(txAuxData);
           await this.db.addTxAuxDataDao(txAuxDataDao);
+          numDecryptedAuxData++;
         }
       }
     }
+    console.log(`Decrypted ${numDecryptedAuxData} tx aux data in account state`);
   }
 
   private async getGrumpkin(): Promise<Grumpkin> {

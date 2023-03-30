@@ -29,4 +29,8 @@ export class TxAuxData {
     }
     return TxAuxData.fromBuffer(buf);
   }
+
+  static random() {
+    return new TxAuxData(NotePreimage.random(), AztecAddress.random(), Fr.random());
+  }
 }

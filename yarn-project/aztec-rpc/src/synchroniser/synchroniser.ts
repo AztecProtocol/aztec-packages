@@ -51,6 +51,9 @@ export class Synchroniser {
           }
 
           if (unverifiedData.length) {
+            this.log(
+              `Forwarded ${unverifiedData.length} unverified data to ${this.accountStates.length} account states`,
+            );
             for (const accountState of this.accountStates) {
               await accountState.processUnverifiedData(unverifiedData);
             }
