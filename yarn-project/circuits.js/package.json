@@ -18,7 +18,7 @@
     "clean": "rm -rf ./dest .tsbuildinfo",
     "formatting": "prettier --check ./src && eslint --max-warnings 278 ./src",
     "formatting:fix": "prettier -w ./src",
-    "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules $(yarn bin jest) --no-cache --passWithNoTests",
+    "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules $(yarn bin jest) --no-cache --passWithNoTests --maxWorkers=2",
     "test-debug": "NODE_NO_WARNINGS=1 node --inspect-brk --experimental-vm-modules $(yarn bin jest) --no-cache --passWithNoTests --runInBand"
   },
   "jest": {
