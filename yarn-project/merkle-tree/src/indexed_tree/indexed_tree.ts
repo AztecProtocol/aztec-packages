@@ -27,7 +27,7 @@ export interface LeafData {
   nextValue: bigint;
 }
 
-// eslint-disable-next-line no-unused-vars
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const encodeTreeValue = (leafData: LeafData) => {
   const valueAsBuffer = toBufferBE(leafData.value, 32);
   const indexAsBuffer = toBufferBE(leafData.nextIndex, 32);
