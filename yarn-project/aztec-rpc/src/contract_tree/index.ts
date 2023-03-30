@@ -20,10 +20,11 @@ function generateFunctionLeaves(functions: ContractFunctionDao[], wasm: Circuits
     .filter(f => f.functionType !== FunctionType.UNCONSTRAINED && !isConstructor(f))
     .map(f => {
       const selector = generateFunctionSelector(f.name, f.parameters);
+      const isPrivate = f.functionType === FunctionType.SECRET;
       // All non-unconstrained functions have vks
       const vkHash = hashVK(wasm, Buffer.from(f.verificationKey!, 'hex'));
       const acirHash = keccak(Buffer.from(f.bytecode, 'hex'));
-      return computeFunctionLeaf(wasm, selector, f.functionType === FunctionType.SECRET, vkHash, acirHash);
+      return computeFunctionLeaf(wasm, Buffer.concat([selector, Buffer.from([isPrivate ? 1 : 0]), vkHash, acirHash]));
     });
 }
 
@@ -58,7 +59,13 @@ export class ContractTree {
       args.map(a => a.toBuffer()),
       Buffer.from(constructorFunc.verificationKey!, 'hex'),
     );
-    const address = computeContractAddress(wasm, from, contractAddressSalt, root, constructorHash);
+    const address = computeContractAddress(
+      wasm,
+      from,
+      contractAddressSalt.toBuffer(),
+      root.toBuffer(),
+      constructorHash,
+    );
     const contractDao: ContractDao = {
       ...abi,
       address,
