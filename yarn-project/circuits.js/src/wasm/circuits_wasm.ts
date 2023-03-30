@@ -7,7 +7,6 @@ import { dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { numToUInt32LE } from '../utils/serialize.js';
 import { Crs } from '../crs/index.js';
-import { dir } from 'console';
 
 /**
  * Get the WASM binary for barretenberg.
