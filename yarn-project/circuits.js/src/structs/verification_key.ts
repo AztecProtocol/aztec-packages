@@ -6,7 +6,13 @@ import { ComposerType } from './shared.js';
  * Curve data.
  */
 export class G1AffineElement {
-  constructor(public x: Fr, public y: Fr) {}
+  private x: Fr;
+  private y: Fr;
+
+  constructor(x: Fr | bigint, y: Fr | bigint) {
+    this.x = typeof x === 'bigint' ? new Fr(x) : x;
+    this.y = typeof y === 'bigint' ? new Fr(y) : y;
+  }
   /**
    * Serialize as a buffer.
    * @returns The buffer.
