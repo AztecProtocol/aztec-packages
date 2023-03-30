@@ -28,7 +28,7 @@
 #include <barretenberg/common/map.hpp>
 #include <barretenberg/common/test.hpp>
 #include <barretenberg/stdlib/merkle_tree/membership.hpp>
-
+#include <barretenberg/stdlib/hash/keccak/keccak.hpp>
 #include <gtest/gtest.h>
 
 namespace {
@@ -53,6 +53,8 @@ using aztec3::circuits::abis::KernelCircuitPublicInputs;
 using aztec3::circuits::abis::PrivateHistoricTreeRoots;
 using aztec3::circuits::abis::private_kernel::PrivateCallData;
 using aztec3::circuits::abis::private_kernel::PrivateInputs;
+
+using aztec3::circuits::kernel::private_kernel::utils::compute_ethereum_address_from_public_key;
 
 using aztec3::circuits::apps::test_apps::basic_contract_deployment::constructor;
 using aztec3::circuits::apps::test_apps::escrow::deposit;
@@ -184,10 +186,10 @@ PrivateInputs<NT> do_private_call_get_kernel_inputs(bool const is_constructor,
     const NT::fr contract_address_salt = 34567;
     const NT::fr acir_hash = 12341234;
 
-    const NT::fr msg_sender_private_key = 123456789;
-    const NT::address msg_sender =
-        NT::fr(uint256_t(0x01071e9a23e0f7edULL, 0x5d77b35d1830fa3eULL, 0xc6ba3660bb1f0c0bULL, 0x2ef9f7f09867fd6eULL));
-    const NT::address& tx_origin = msg_sender;
+    const NT::secp256k1_fr msg_sender_private_key = NT::secp256k1_fr::random_element();
+    const NT::secp256k1_point msg_sender_public_key = NT::secp256k1_group::one * msg_sender_private_key;
+    const NT::address msg_sender = compute_ethereum_address_from_public_key(msg_sender_public_key);
+    const NT::address tx_origin = msg_sender;
 
     FunctionData<NT> const function_data{
         .function_selector = 1,  // TODO: deduce this from the contract, somehow.
@@ -279,12 +281,20 @@ PrivateInputs<NT> do_private_call_get_kernel_inputs(bool const is_constructor,
     //***************************************************************************
     Composer private_circuit_composer = Composer("../barretenberg/cpp/srs_db/ignition");
 
+    // TODO(Suyash): Oracle needs a bn254::fr private key so we are temporarily casting a secp256k1::fr
+    // private key to bn254::fr.
+    // TODO: We still need to figure how many different kinds of keys we will have eventually:
+    // signing key (secp256k1), note/nullifier key (grumpkin), decryption key (grumpkin?)
     DB db;
     NativeOracle oracle =
         is_constructor
-            ? NativeOracle(
-                  db, contract_address, function_data, call_context, contract_deployment_data, msg_sender_private_key)
-            : NativeOracle(db, contract_address, function_data, call_context, msg_sender_private_key);
+            ? NativeOracle(db,
+                           contract_address,
+                           function_data,
+                           call_context,
+                           contract_deployment_data,
+                           NT::fr(msg_sender_private_key))
+            : NativeOracle(db, contract_address, function_data, call_context, NT::fr(msg_sender_private_key));
 
     OracleWrapper oracle_wrapper = OracleWrapper(private_circuit_composer, oracle);
 
@@ -306,6 +316,7 @@ PrivateInputs<NT> do_private_call_get_kernel_inputs(bool const is_constructor,
     //***************************************************************************
     auto const tx_request = TxRequest<NT>{
         .from = tx_origin,
+        .from_public_key = msg_sender_public_key,
         .to = contract_address,
         .function_data = function_data,
         .args = private_circuit_public_inputs.args,
@@ -320,11 +331,8 @@ PrivateInputs<NT> do_private_call_get_kernel_inputs(bool const is_constructor,
         .chain_id = 1,
     };
 
-    auto const signed_tx_request = SignedTxRequest<NT>{
-        .tx_request = tx_request,
-
-        //.signature = TODO: need a method for signing a TxRequest.
-    };
+    SignedTxRequest<NT> signed_tx_request = SignedTxRequest<NT>{ .tx_request = tx_request };
+    signed_tx_request.compute_signature(msg_sender_private_key);
 
     //***************************************************************************
     // We mock a kernel circuit proof for the base case of kernel recursion (because even the first iteration of the

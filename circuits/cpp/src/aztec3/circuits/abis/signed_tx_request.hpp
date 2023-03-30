@@ -7,6 +7,7 @@
 #include <aztec3/utils/types/native_types.hpp>
 
 #include <barretenberg/stdlib/primitives/witness/witness.hpp>
+#include <barretenberg/crypto/hashers/hashers.hpp>
 
 namespace aztec3::circuits::abis {
 
@@ -14,6 +15,7 @@ using aztec3::utils::types::CircuitTypes;
 using aztec3::utils::types::NativeTypes;
 
 template <typename NCT> struct SignedTxRequest {
+    using fr = NCT::fr;
     using boolean = typename NCT::boolean;
     using Signature = typename NCT::ecdsa_signature;
     using fr = typename NCT::fr;
@@ -31,17 +33,10 @@ template <typename NCT> struct SignedTxRequest {
         static_assert((std::is_same<NativeTypes, NCT>::value));
 
         // Capture the composer:
-        // auto to_ct = [&](auto& e) { return aztec3::utils::types::to_ct(composer, e); };
+        auto to_ct = [&](auto& e) { return aztec3::utils::types::to_ct(composer, e); };
         auto to_circuit_type = [&](auto& e) { return e.to_circuit_type(composer); };
 
-        SignedTxRequest<CircuitTypes<Composer>> signed_tx_request;
-        signed_tx_request.tx_request = to_circuit_type(tx_request);
-        // TODO: to_ct(signature) is yielding an error.
-        // = {
-        //     to_circuit_type(tx_request),
-        //     to_ct(signature)
-        // };
-
+        SignedTxRequest<CircuitTypes<Composer>> signed_tx_request = { to_circuit_type(tx_request), to_ct(signature) };
         return signed_tx_request;
     };
 
@@ -53,6 +48,7 @@ template <typename NCT> struct SignedTxRequest {
 
         SignedTxRequest<NativeTypes> signed_tx_request = {
             to_native_type(tx_request),
+            to_native_type(signature),
         };
 
         return signed_tx_request;
@@ -66,6 +62,35 @@ template <typename NCT> struct SignedTxRequest {
         fr const vfr = signature.v;
         std::vector<fr> const inputs = { tx_request.hash(), rfr, sfr, vfr };
         return NCT::compress(inputs, GeneratorIndex::SIGNED_TX_REQUEST);
+    }
+
+    fr compute_signing_message() const
+    {
+        std::vector<fr> messages;
+        messages.push_back(tx_request.from.to_field());
+        messages.push_back(tx_request.to.to_field());
+        messages.push_back(tx_request.function_data.hash());
+        messages.push_back(NCT::compress(tx_request.args, aztec3::CONSTRUCTOR_ARGS));
+        messages.push_back(tx_request.nonce);
+        messages.push_back(tx_request.tx_context.hash());
+        messages.push_back(tx_request.chain_id);
+
+        return NCT::compress(messages, aztec3::SIGNED_TX_REQUEST_MESSAGE);
+    }
+
+    void compute_signature(const NativeTypes::secp256k1_fr& private_key)
+    {
+        static_assert((std::is_same<NativeTypes, NCT>::value));
+        auto signing_message = compute_signing_message().to_buffer();
+        std::string signing_message_str(signing_message.begin(), signing_message.end());
+        crypto::ecdsa::key_pair<NativeTypes::secp256k1_fr, NativeTypes::secp256k1_group> account;
+        account.private_key = private_key;
+        account.public_key = tx_request.from_public_key;
+
+        signature = crypto::ecdsa::construct_signature<Sha256Hasher,
+                                                       NativeTypes::secp256k1_group::Fq,
+                                                       NativeTypes::secp256k1_group::Fr,
+                                                       NativeTypes::secp256k1_group>(signing_message_str, account);
     }
 };
 

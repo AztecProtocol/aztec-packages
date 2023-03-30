@@ -13,6 +13,7 @@
 #include <barretenberg/stdlib/primitives/bool/bool.hpp>
 #include <barretenberg/stdlib/primitives/byte_array/byte_array.hpp>
 #include <barretenberg/stdlib/primitives/curves/bn254.hpp>
+#include <barretenberg/stdlib/primitives/curves/secp256k1.hpp>
 #include <barretenberg/stdlib/primitives/group/group.hpp>
 #include <barretenberg/stdlib/primitives/packed_byte_array/packed_byte_array.hpp>
 #include <barretenberg/stdlib/primitives/point/point.hpp>
@@ -49,6 +50,10 @@ template <typename Composer> struct CircuitTypes {
     using bn254 = stdlib::bn254<Composer>;
     // typedef bn254::g1_ct bn254_point;
     using bn254_point = stdlib::element<Composer, fq, fr, barretenberg::g1>;  // affine
+
+    using secp256k1 = stdlib::secp256k1<Composer>;
+    using secp256k1_fr = typename secp256k1::bigfr_ct;
+    using secp256k1_point = typename secp256k1::g1_bigfr_ct;
 
     using bit_array = stdlib::bit_array<Composer>;
     using byte_array = stdlib::byte_array<Composer>;
