@@ -13,6 +13,8 @@ import {
   TxRequest,
   UInt8Vector,
 } from '@aztec/circuits.js';
+import { CircuitsWasm } from '@aztec/circuits.js/wasm';
+import { hashVK, computeFunctionLeaf, computeFunctionTreeRoot } from '@aztec/circuits.js/abis';
 import { createDebugLogger, Fr } from '@aztec/foundation';
 import { KernelProver } from '@aztec/kernel-prover';
 import { Tx, TxHash } from '@aztec/tx';
@@ -25,6 +27,7 @@ import { TxReceipt, TxStatus } from '../tx/index.js';
 import { KeyStore } from '../key_store/index.js';
 import { ContractAbi, FunctionType } from '../noir.js';
 import { Synchroniser } from '../synchroniser/index.js';
+import { keccak256 } from '../foundation.js';
 
 /**
  * Implements a remote Aztec RPC client provider.
@@ -32,13 +35,14 @@ import { Synchroniser } from '../synchroniser/index.js';
  */
 export class AztecRPCServer implements AztecRPCClient {
   private synchroniser: Synchroniser;
+
   constructor(
     private keyStore: KeyStore,
     private acirSimulator: AcirSimulator,
     private kernelProver: KernelProver,
     private node: AztecNode,
     private db: Database,
-    private wasm: CircuitsWasm,
+    private circuitsWasm: CircuitsWasm,
     private log = createDebugLogger('aztec:rpc_server'),
   ) {
     this.synchroniser = new Synchroniser(node, db);
@@ -89,17 +93,23 @@ export class AztecRPCServer implements AztecRPCClient {
       throw new Error('Cannot find constructor in the ABI.');
     }
 
+    if (!constructorAbi.verificationKey) {
+      throw new Error('Missing verification key for the constructor.');
+    }
+
     const functionData = new FunctionData(
       selectorToNumber(generateFunctionSelector(constructorAbi.name, constructorAbi.parameters)),
       true,
       true,
     );
 
-    const constructorVkHash = Fr.ZERO;
-    const functionTreeRoot = Fr.ZERO;
+    const constructorVkHash = Fr.fromBuffer(
+      hashVK(this.circuitsWasm, Buffer.from(constructorAbi.verificationKey, 'hex')),
+    );
+
     const contractDeploymentData = new ContractDeploymentData(
       constructorVkHash,
-      functionTreeRoot,
+      this.generateFunctionTreeRoot(abi),
       contractAddressSalt,
       portalContract,
     );
@@ -205,7 +215,7 @@ export class AztecRPCServer implements AztecRPCClient {
       signature,
       executionResult,
       oldRoots as any, // TODO - remove `as any`
-      this.wasm,
+      this.circuitsWasm,
     );
     const tx = new Tx(publicInputs, new UInt8Vector(Buffer.alloc(0)), Buffer.alloc(0));
     const dao: TxDao = new TxDao(tx.txHash, undefined, undefined, txRequest.from, undefined, txRequest.to, '');
@@ -229,41 +239,64 @@ export class AztecRPCServer implements AztecRPCClient {
    */
   public async getTxReceipt(txHash: TxHash): Promise<TxReceipt> {
     const localTx = await this.synchroniser.getTxByHash(txHash);
+    const partialReceipt = {
+      txHash: txHash,
+      blockHash: localTx?.blockHash,
+      blockNumber: localTx?.blockNumber,
+      from: localTx?.from,
+      to: localTx?.to,
+      contractAddress: localTx?.contractAddress,
+      error: '',
+    };
 
     if (localTx && localTx.blockHash) {
       return {
-        txHash: txHash,
-        blockHash: localTx.blockHash,
-        blockNumber: localTx.blockNumber,
-        from: localTx.from,
-        to: localTx.to,
-        contractAddress: localTx.contractAddress,
-        error: '',
+        ...partialReceipt,
         status: TxStatus.MINED,
       };
     }
 
-    const pendingTx = await this.node.getTxByHash(txHash);
-
+    const pendingTx = await this.node.getPendingTxByHash(txHash);
     if (pendingTx) {
       return {
-        txHash: txHash,
-        blockHash: undefined,
-        blockNumber: undefined,
-        from: localTx?.from,
-        to: undefined,
-        contractAddress: undefined,
-        error: '',
+        ...partialReceipt,
         status: TxStatus.PENDING,
       };
     }
 
+    // if the transaction mined it will be removed from the pending pool and there is a race condition here as the synchroniser will not have the tx as mined yet, so it will appear dropped
+    // until the synchroniser picks this up
+
+    const remoteBlockHeight = await this.node.getBlockHeight();
+    const accountBlockHeight = this.synchroniser.getAccount(localTx.from)?.syncedTo || 0;
+
+    if (localTx && remoteBlockHeight > accountBlockHeight) {
+      // there is a pending L2 block, which means the transaction will not be in the tx pool but may be awaiting mine on L1
+      return {
+        ...partialReceipt,
+        status: TxStatus.PENDING,
+      };
+    }
+
+    // TODO we should refactor this once the node can store transactions. At that point we should query the node and not deal with block heights.
+
     return {
-      txHash: txHash,
-      blockHash: undefined,
-      blockNumber: undefined,
-      error: 'Transaction not found in local tx pool or p2p pools',
+      ...partialReceipt,
       status: TxStatus.DROPPED,
     };
+  }
+
+  private generateFunctionTreeRoot(abi: ContractAbi) {
+    const leaves = abi.functions
+      .filter(f => f.functionType !== FunctionType.UNCONSTRAINED)
+      .map(f => {
+        const selector = generateFunctionSelector(f.name, f.parameters);
+        const isPrivate = Buffer.from([f.functionType === FunctionType.SECRET ? 1 : 0]);
+        // All non-unconstrained functions have vks
+        const vkHash = hashVK(this.circuitsWasm, Buffer.from(f.verificationKey!, 'hex'));
+        const acirHash = keccak256(Buffer.from(f.bytecode, 'hex'));
+        return computeFunctionLeaf(this.circuitsWasm, Buffer.concat([selector, isPrivate, vkHash, acirHash]));
+      });
+    return Fr.fromBuffer(computeFunctionTreeRoot(this.circuitsWasm, leaves));
   }
 }
