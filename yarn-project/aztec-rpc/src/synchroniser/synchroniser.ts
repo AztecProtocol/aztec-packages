@@ -79,13 +79,13 @@ export class Synchroniser {
     this.log('Stopped');
   }
 
-  public async addAccount(account: AztecAddress) {
-    this.accountStates.push(new AccountState(account, this.db));
+  public async addAccount(privKey: Buffer) {
+    this.accountStates.push(new AccountState(privKey, this.db));
     await Promise.resolve();
   }
 
   public getAccount(account: AztecAddress) {
-    return this.accountStates.find(as => as.pubKey.equals(account));
+    return this.accountStates.find(async as => (await as.getPubKey()).equals(account));
   }
 
   public getAccounts() {

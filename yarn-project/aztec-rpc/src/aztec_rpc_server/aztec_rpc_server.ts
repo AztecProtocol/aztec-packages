@@ -53,8 +53,9 @@ export class AztecRPCServer implements AztecRPCClient {
 
   public async addAccount() {
     const accountPublicKey = await this.keyStore.addAccount();
+    const accountPrivateKey = await this.keyStore.getAccountPrivateKey(accountPublicKey);
     this.log(`adding account ${accountPublicKey.toString()}`);
-    await this.synchroniser.addAccount(accountPublicKey);
+    await this.synchroniser.addAccount(accountPrivateKey);
     return accountPublicKey;
   }
 
@@ -62,8 +63,9 @@ export class AztecRPCServer implements AztecRPCClient {
     await Promise.all(contracts.map(c => this.db.addContract(c.address, c.portalAddress, c.abi)));
   }
 
-  public getAccounts() {
-    return Promise.resolve(this.synchroniser.getAccounts().map(a => a.pubKey));
+  public async getAccounts(): Promise<AztecAddress[]> {
+    const accounts = this.synchroniser.getAccounts();
+    return await Promise.all(accounts.map(async a => await a.getPubKey()));
   }
 
   public async getStorageAt(contract: AztecAddress, storageSlot: Fr) {

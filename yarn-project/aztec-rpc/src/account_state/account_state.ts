@@ -11,8 +11,9 @@ import { TxAuxDataDao } from '../database/tx_aux_data_dao.js';
 export class AccountState {
   public syncedTo = 0;
   private grumpkin?: Grumpkin;
+  private pubKey?: AztecAddress;
 
-  constructor(private readonly privKey: Buffer, public readonly pubKey: AztecAddress, private db: Database) {
+  constructor(private readonly privKey: Buffer, private db: Database) {
     if (privKey.length !== 32) {
       throw new Error(`Invalid private key length. Received ${privKey.length}, expected 32`);
     }
@@ -24,6 +25,14 @@ export class AccountState {
 
   public syncToBlock(block: L2Block) {
     this.syncedTo = block.number;
+
+  }
+  public async getPubKey(): Promise<AztecAddress> {
+    if (!this.pubKey) {
+      const grumpkin = await this.getGrumpkin();
+      this.pubKey = AztecAddress.fromBuffer(grumpkin.mul(Grumpkin.generator, this.privKey));
+    }
+    return this.pubKey;
   }
 
   public async processUnverifiedData(unverifiedData: UnverifiedData[]): Promise<void> {
