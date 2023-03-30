@@ -79,7 +79,7 @@ for E in "${PROJECTS[@]}"; do
   popd > /dev/null
 done
 
-if [ ! -f barratenberg.js/src/wasm/barretenberg.wasm ]; then
+if [ ! -f barretenberg.js/src/wasm/barretenberg.wasm ]; then
   echo "Copying barretenberg.wasm symlink"
   (cd yarn-project/barretenberg.js && cp src/wasm/barretenberg.wasm dest/wasm/barretenberg.wasm)
 fi
