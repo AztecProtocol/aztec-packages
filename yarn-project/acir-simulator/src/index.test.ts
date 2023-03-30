@@ -72,7 +72,7 @@ describe('ACIR simulator', () => {
         oldRoots,
       );
 
-      expect(result.preimages.newNotes[0]).toHaveLength(1);
+      expect(result.preimages.newNotes).toHaveLength(1);
       expect(result.callStackItem.publicInputs.newCommitments.filter(field => !field.equals(Fr.ZERO))).toHaveLength(1);
     });
   });
