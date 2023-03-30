@@ -17,7 +17,7 @@ describe('abis wasm bindings', () => {
   it('computes a function selector', () => {
     const funcSig = 'transfer(address,uint256)';
     const res = computeFunctionSelector(wasm, funcSig);
-    expect(res).toBeTruthy();
+    expect(res).toMatchSnapshot();
   });
 
   it('computes a contract address', () => {
@@ -26,6 +26,6 @@ describe('abis wasm bindings', () => {
     const treeRoot = Buffer.alloc(32);
     const constructorHash = Buffer.alloc(32);
     const res = computeContractAddress(wasm, deployerAddr, contractAddr, treeRoot, constructorHash);
-    expect(res).toBeTruthy();
+    expect(res).toMatchSnapshot();
   });
 });
