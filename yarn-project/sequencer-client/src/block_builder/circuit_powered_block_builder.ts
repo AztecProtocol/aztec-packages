@@ -40,7 +40,7 @@ const FUTURE_NUM = 0;
 
 // Denotes fields that should be deleted
 const DELETE_FR = new Fr(0n);
-const DELETE_ANY: any = {};
+const DELETE_NUM = 0;
 
 export class CircuitPoweredBlockBuilder {
   constructor(
@@ -339,7 +339,7 @@ export class CircuitPoweredBlockBuilder {
       publicKernelVkTreeRoot: FUTURE_FR,
       startTreeOfHistoricContractTreeRootsSnapshot: await this.getTreeSnapshot(MerkleTreeId.CONTRACT_TREE_ROOTS_TREE),
       startTreeOfHistoricPrivateDataTreeRootsSnapshot: await this.getTreeSnapshot(MerkleTreeId.DATA_TREE_ROOTS_TREE),
-      treeOfHistoricL1ToL2MsgTreeRootsSnapshot: DELETE_ANY,
+      treeOfHistoricL1ToL2MsgTreeRootsSnapshot: new AppendOnlyTreeSnapshot(DELETE_FR, DELETE_NUM),
     });
   }
 
