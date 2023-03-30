@@ -1,10 +1,10 @@
 import { expectSerializeToMatchSnapshot } from '../tests/expectSerialize.js';
 import { makePreviousKernelData, makePrivateKernelInputs } from '../tests/factories.js';
-import { CircuitsWasm } from '../wasm/circuits_wasm.js';
+import { Aztec3Wasm } from '../wasm/circuits_wasm.js';
 
 describe('structs/kernel', () => {
   it(`serializes and prints previous_kernel_data`, async () => {
-    const wasm = await CircuitsWasm.new();
+    const wasm = await Aztec3Wasm.new();
     const previousKernelData = makePreviousKernelData();
     await expectSerializeToMatchSnapshot(
       previousKernelData.toBuffer(),
@@ -14,7 +14,7 @@ describe('structs/kernel', () => {
   });
 
   it(`serializes and prints private_kernel_inputs`, async () => {
-    const wasm = await CircuitsWasm.new();
+    const wasm = await Aztec3Wasm.new();
     const kernelInputs = makePrivateKernelInputs();
     await expectSerializeToMatchSnapshot(
       kernelInputs.toBuffer(),

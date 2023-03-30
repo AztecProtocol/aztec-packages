@@ -1,10 +1,12 @@
 import { BufferReader } from '@aztec/foundation';
 import { Fq, Fr } from '@aztec/foundation/fields';
 import { assertLength, range } from '../utils/jsUtils.js';
+import { Aztec3Wasm } from '@aztec/barretenberg.js';
 import { Bufferable, serializeToBuffer } from '../utils/serialize.js';
 export class MembershipWitness<N extends number> {
   constructor(pathSize: N, public leafIndex: UInt32, public siblingPath: Fr[]) {
     assertLength(this, 'siblingPath', pathSize);
+    Aztec3Wasm.new();
   }
 
   toBuffer() {

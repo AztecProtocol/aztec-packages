@@ -1,5 +1,5 @@
-import { CircuitsWasm } from '../wasm/circuits_wasm.js';
 import { uint8ArrayToNum } from '../utils/serialize.js';
+import { Aztec3Wasm } from '@aztec/barretenberg.js';
 
 /**
  * Simplify e.g. 0x0003 into 0x3.
@@ -20,8 +20,8 @@ function simplifyHexValues(input: string) {
  * @param serializeMethod - Method to use buffer with.
  * @param wasm - Optional circuit wasm.
  */
-async function callWasm(inputBuf: Buffer, serializeMethod: string, wasm?: CircuitsWasm): Promise<Buffer> {
-  wasm = wasm || (await CircuitsWasm.new());
+async function callWasm(inputBuf: Buffer, serializeMethod: string, wasm?: Aztec3Wasm): Promise<Buffer> {
+  wasm = wasm || (await Aztec3Wasm.new());
   const inputBufPtr = wasm.call('bbmalloc', inputBuf.length);
   wasm.writeMemory(inputBufPtr, inputBuf);
   const outputBufSizePtr = wasm.call('bbmalloc', 4);
@@ -49,7 +49,7 @@ async function callWasm(inputBuf: Buffer, serializeMethod: string, wasm?: Circui
  * @param inputBuf - Buffer to write.
  * @param serializeMethod - Method to use buffer with.
  */
-export async function expectSerializeToMatchSnapshot(inputBuf: Buffer, serializeMethod: string, wasm?: CircuitsWasm) {
+export async function expectSerializeToMatchSnapshot(inputBuf: Buffer, serializeMethod: string, wasm?: Aztec3Wasm) {
   const outputBuf = await callWasm(inputBuf, serializeMethod, wasm);
   const outputStr = simplifyHexValues(Buffer.from(outputBuf).toString('utf-8'));
   expect(outputStr).toMatchSnapshot();
@@ -65,7 +65,7 @@ export async function expectReserializeToMatchObject<T extends { toBuffer: () =>
   inputObj: T,
   serializeMethod: string,
   deserialize: (buf: Buffer) => T,
-  wasm?: CircuitsWasm,
+  wasm?: Aztec3Wasm,
 ) {
   const outputBuf = await callWasm(inputObj.toBuffer(), serializeMethod, wasm);
   const deserializedObj = deserialize(outputBuf);

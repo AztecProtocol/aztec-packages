@@ -1,1 +1,1 @@
-export { BarretenbergWasm } from './barretenberg_wasm.js';
+export { Aztec3Wasm } from './aztec3_wasm.js';

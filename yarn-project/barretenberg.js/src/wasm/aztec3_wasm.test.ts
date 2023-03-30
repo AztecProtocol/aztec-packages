@@ -1,11 +1,11 @@
 import { FileCrs, SRS_DEV_PATH } from '../crs/index.js';
-import { BarretenbergWasm } from './barretenberg_wasm.js';
+import { Aztec3Wasm } from './aztec3_wasm.js';
 
 describe('basic barretenberg smoke test', () => {
-  const wasm: BarretenbergWasm = new BarretenbergWasm();
+  let wasm: Aztec3Wasm;
 
   beforeAll(async () => {
-    await wasm.init();
+    wasm = await Aztec3Wasm.getInstance();
   });
 
   it('should new malloc, transfer and slice mem', () => {

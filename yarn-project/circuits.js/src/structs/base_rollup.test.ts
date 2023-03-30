@@ -7,7 +7,6 @@ import {
   makePreviousKernelData,
 } from '../tests/factories.js';
 import { range } from '../utils/jsUtils.js';
-import { CircuitsWasm } from '../wasm/circuits_wasm.js';
 import { BaseRollupInputs, BaseRollupPublicInputs, NullifierLeafPreimage } from './base_rollup.js';
 import {
   CONTRACT_TREE_HEIGHT,
@@ -81,7 +80,7 @@ describe('structs/base_rollup', () => {
       constants,
     });
 
-    const wasm = await CircuitsWasm.new();
+    const wasm = await Aztec3Wasm.new();
     await expectSerializeToMatchSnapshot(
       baseRollupInputs.toBuffer(),
       'abis__test_roundtrip_serialize_base_rollup_inputs',

@@ -1,12 +1,12 @@
-import { BarretenbergWasm } from '../../wasm/barretenberg_wasm.js';
+import { AztecWasm } from '../../wasm/aztec3_wasm.js';
 import { pedersenGetHashTree } from './pedersen.js';
 
 describe('pedersen', () => {
-  let barretenbergWasm!: BarretenbergWasm;
+  let barretenbergWasm!: AztecWasm;
   const values: Buffer[] = [];
 
   beforeAll(async () => {
-    barretenbergWasm = await BarretenbergWasm.new();
+    barretenbergWasm = await AztecWasm.new();
 
     // TODO was originally 2 ** 12
     for (let i = 0; i < 2 ** 2; ++i) {

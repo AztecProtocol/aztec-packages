@@ -10,11 +10,11 @@
   "typedoc": {
     "entryPoint": "./src/index.ts",
     "displayName": "Circuits.js",
-    "tsconfig": "./tsconfig.dest.json"
+    "tsconfig": "./tsconfig.json"
   },
   "scripts": {
-    "build": "yarn clean && yarn formatting && tsc -b tsconfig.dest.json",
-    "build:dev": "tsc -b tsconfig.dest.json --watch",
+    "build": "yarn clean && yarn formatting && tsc -b tsconfig.json",
+    "build:dev": "tsc -b tsconfig.json --watch",
     "clean": "rm -rf ./dest .tsbuildinfo",
     "formatting": "prettier --check ./src && eslint --max-warnings 278 ./src",
     "formatting:fix": "prettier -w ./src",
