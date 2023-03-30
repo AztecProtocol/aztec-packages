@@ -1,5 +1,5 @@
 import { Buffer } from 'buffer';
-import { AztecAddress, Fr, serializeBufferArrayToVector } from '@aztec/foundation';
+import { AztecAddress, serializeBufferArrayToVector } from '@aztec/foundation';
 import { CircuitsWasm } from '../wasm/index.js';
 import { FUNCTION_SELECTOR_NUM_BYTES, NullifierLeafPreimage, TxRequest } from '../index.js';
 
@@ -25,17 +25,10 @@ export function hashVK(wasm: CircuitsWasm, vkBuf: Uint8Array) {
   return Buffer.from(wasm.getMemorySlice(vkBuf.length, vkBuf.length + 32));
 }
 
-export function computeFunctionLeaf(
-  wasm: CircuitsWasm,
-  functionSelector: Buffer,
-  isPrivate: boolean,
-  vkHash: Buffer,
-  acirHash: Buffer,
-) {
+export function computeFunctionLeaf(wasm: CircuitsWasm, fnLeaf: Buffer) {
   wasm.call('pedersen__init');
-  const fnLeaf = Buffer.concat([functionSelector, Buffer.from([isPrivate ? 1 : 0]), vkHash, acirHash]);
   wasm.writeMemory(0, fnLeaf);
-  wasm.call('abis__compute_function_leaf', fnLeaf.length);
+  wasm.call('abis__compute_function_leaf', 0, fnLeaf.length);
   return Buffer.from(wasm.getMemorySlice(fnLeaf.length, fnLeaf.length + 32));
 }
 
@@ -43,7 +36,7 @@ export function computeFunctionTreeRoot(wasm: CircuitsWasm, fnLeafs: Buffer[]) {
   const inputVector = serializeBufferArrayToVector(fnLeafs);
   wasm.call('pedersen__init');
   wasm.writeMemory(0, inputVector);
-  wasm.call('abis__compute_function_tree_root', 0, fnLeafs.length);
+  wasm.call('abis__compute_function_tree_root', 0, inputVector.length);
   return Buffer.from(wasm.getMemorySlice(inputVector.length, inputVector.length + 32));
 }
 
@@ -53,31 +46,29 @@ export function hashConstructor(wasm: CircuitsWasm, funcSigBuf: Uint8Array, args
   wasm.writeMemory(0, funcSigBuf);
   wasm.writeMemory(funcSigBuf.length, inputVector);
   wasm.writeMemory(funcSigBuf.length + inputVector.length, constructorVK);
-  wasm.call('abis__hash_constructor', 0, funcSigBuf.length, funcSigBuf.length + inputVector.length);
-  const memLoc = funcSigBuf.length + inputVector.length + constructorVK.length;
-  return Buffer.from(wasm.getMemorySlice(memLoc, memLoc + 32));
+  const outpuMemLoc = funcSigBuf.length + inputVector.length + constructorVK.length;
+  wasm.call('abis__hash_constructor', 0, funcSigBuf.length, funcSigBuf.length + inputVector.length, outpuMemLoc);
+  return Buffer.from(wasm.getMemorySlice(outpuMemLoc, outpuMemLoc + 32));
 }
 
 export function computeContractAddress(
   wasm: CircuitsWasm,
   deployerAddr: AztecAddress,
-  contractAddrSalt: Fr,
-  fnTreeRoot: Fr,
+  contractAddrSalt: Buffer,
+  fnTreeRoot: Buffer,
   constructorHash: Buffer,
 ) {
   const deployerAddrBuf = deployerAddr.toBuffer();
-  const contractAddrSaltBuf = contractAddrSalt.toBuffer();
-  const fnTreeRootBuf = fnTreeRoot.toBuffer();
   const memLoc1 = deployerAddrBuf.length;
-  const memLoc2 = memLoc1 + contractAddrSaltBuf.length;
-  const memLoc3 = memLoc2 + fnTreeRootBuf.length;
+  const memLoc2 = memLoc1 + contractAddrSalt.length;
+  const memLoc3 = memLoc2 + fnTreeRoot.length;
   const memLoc4 = memLoc3 + constructorHash.length;
   wasm.call('pedersen__init');
   wasm.writeMemory(0, deployerAddrBuf);
-  wasm.writeMemory(memLoc1, contractAddrSaltBuf);
-  wasm.writeMemory(memLoc2, fnTreeRootBuf);
+  wasm.writeMemory(memLoc1, contractAddrSalt);
+  wasm.writeMemory(memLoc2, fnTreeRoot);
   wasm.writeMemory(memLoc3, constructorHash);
-  wasm.call('abis__compute_contract_address', 0, memLoc1, memLoc2, memLoc3);
+  wasm.call('abis__compute_contract_address', 0, memLoc1, memLoc2, memLoc3, memLoc4);
   const resultBuf = Buffer.from(wasm.getMemorySlice(memLoc4, memLoc4 + 32));
   return AztecAddress.fromBuffer(resultBuf);
 }
@@ -86,6 +77,6 @@ export function computeContractLeaf(wasm: CircuitsWasm, leafPreimage: NullifierL
   const data = leafPreimage.toBuffer();
   wasm.call('pedersen__init');
   wasm.writeMemory(0, leafPreimage.toBuffer());
-  wasm.call('abis__compute_contract_leaf', 0);
+  wasm.call('abis__compute_contract_leaf', 0, data.length);
   return Buffer.from(wasm.getMemorySlice(data.length, data.length + 32));
 }
