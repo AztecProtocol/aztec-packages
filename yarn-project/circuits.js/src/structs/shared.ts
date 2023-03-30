@@ -65,6 +65,13 @@ export class UInt8Vector {
   toBuffer() {
     return serializeToBuffer(this.buffer.length, this.buffer);
   }
+
+  static fromBuffer(buffer: Buffer | BufferReader): UInt8Vector {
+    const reader = BufferReader.asReader(buffer);
+    const size = reader.readNumber();
+    const buf = reader.readBytes(size);
+    return new UInt8Vector(buf);
+  }
 }
 
 export type UInt32 = number;
