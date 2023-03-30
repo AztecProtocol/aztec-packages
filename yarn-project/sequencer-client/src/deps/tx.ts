@@ -107,8 +107,9 @@ export function hashNewContractData(wasm: CircuitsWasm | BarretenbergWasm, cd: N
   if (cd.contractAddress.isZero() && cd.portalContractAddress.isZero() && cd.functionTreeRoot.isZero()) {
     return Buffer.alloc(32, 0);
   }
-  return pedersenCompressInputs(
-    wasm as BarretenbergWasm,
-    [cd.contractAddress, cd.portalContractAddress, cd.functionTreeRoot].map(x => x.toBuffer()),
-  );
+  return pedersenCompressInputs(wasm as BarretenbergWasm, [
+    cd.contractAddress.toBuffer(),
+    cd.portalContractAddress.toBuffer32(),
+    cd.functionTreeRoot.toBuffer(),
+  ]);
 }
