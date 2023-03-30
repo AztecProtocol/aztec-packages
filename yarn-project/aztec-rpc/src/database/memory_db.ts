@@ -44,4 +44,12 @@ export class MemoryDB extends MemoryContractDatabase implements Database {
     this.txAccountData.push(txAuxDataDao);
     return Promise.resolve();
   }
+
+  public getStorageAt(contract: AztecAddress, storageSlot: Fr): TxAuxDataDao | undefined {
+    return this.txAccountData.find(
+      txAccountData =>
+        txAccountData.contractAddress.equals(contract) &&
+        txAccountData.storageSlot.toBuffer().equals(storageSlot.toBuffer()),
+    );
+  }
 }

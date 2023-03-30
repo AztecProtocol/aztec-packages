@@ -16,7 +16,7 @@ describe('Synchroniser', () => {
   let database: Database;
   let synchroniser: Synchroniser;
   const ownerPrivKey = randomBytes(32);
-  let ownerPubKey: Point;
+  const allMockedTxAuxData: TxAuxData[] = [];
 
   beforeAll(async () => {
     const wasm = await BarretenbergWasm.new();
@@ -29,7 +29,11 @@ describe('Synchroniser', () => {
       .map((_, i) => L2Block.random(i));
     const mockedUnverifiedData = Array(10)
       .fill(0)
-      .map(() => createRandomUnverifiedData(ownerPubKey, grumpkin));
+      .map(() => {
+        const mockedTxAuxData = createArrayOfRandomTxAuxData();
+        allMockedTxAuxData.push(...mockedTxAuxData);
+        return createRandomUnverifiedData(mockedTxAuxData, ownerPubKey, grumpkin);
+      });
 
     aztecNode = mock<AztecNode>();
     aztecNode.getBlocks.mockResolvedValueOnce(mockedBlocks);
@@ -43,15 +47,29 @@ describe('Synchroniser', () => {
   it('Synchroniser synchronises', async () => {
     synchroniser.start();
     await synchroniser.stop();
+    // check all the mocked txAuxData are in the database
+    for (const txAuxData of allMockedTxAuxData) {
+      const txAuxDataDao = database.getStorageAt(txAuxData.contractAddress, txAuxData.storageSlot);
+      expect(txAuxDataDao).toBeDefined();
+    }
   });
 });
 
-function createRandomUnverifiedData(ownerPubKey: Point, grumpkin: Grumpkin): UnverifiedData {
-  // pick random number between 1 and 10
+function createArrayOfRandomTxAuxData(): TxAuxData[] {
   const numTxAuxData = Math.floor(Math.random() * 10) + 1;
-  const ephPrivKey = randomBytes(32);
-  const encryptedMockedTxAuxData = Array(numTxAuxData)
+  return Array(numTxAuxData)
     .fill(0)
-    .map(() => TxAuxData.random().toEncryptedBuffer(ownerPubKey, ephPrivKey, grumpkin));
+    .map(() => TxAuxData.random());
+}
+
+function createRandomUnverifiedData(
+  mockedTxAuxData: TxAuxData[],
+  ownerPubKey: Point,
+  grumpkin: Grumpkin,
+): UnverifiedData {
+  const ephPrivKey = randomBytes(32);
+  const encryptedMockedTxAuxData = mockedTxAuxData.map(txAuxData => {
+    return txAuxData.toEncryptedBuffer(ownerPubKey, ephPrivKey, grumpkin);
+  });
   return new UnverifiedData(encryptedMockedTxAuxData);
 }

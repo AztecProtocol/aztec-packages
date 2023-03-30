@@ -13,4 +13,5 @@ export interface Database extends ContractDatabase {
   getNotes(contractAddress: AztecAddress, storageSlot: Fr): Promise<NoteDao[]>;
   addOrUpdateTx(tx: TxDao): Promise<void>;
   addTxAuxDataDao(txAuxDataDao: TxAuxDataDao): Promise<void>;
+  getStorageAt(contract: AztecAddress, storageSlot: Fr): TxAuxDataDao | undefined;
 }
