@@ -28,6 +28,7 @@ import {
 } from '@aztec/circuits.js';
 import { Tx } from '@aztec/tx';
 import times from 'lodash.times';
+import { makeEmptyAggregationObject } from './aggregation_object.js';
 
 function frZero() {
   return Fr.fromBuffer(Buffer.alloc(32, 0));
@@ -43,15 +44,6 @@ function makeEmptyEthAddress() {
 
 function makeEmptyNewContractData(): NewContractData {
   return new NewContractData(AztecAddress.ZERO, makeEmptyEthAddress(), frZero());
-}
-
-function makeEmptyAggregationObject(): AggregationObject {
-  return new AggregationObject(
-    new AffineElement(fqZero(), fqZero()),
-    new AffineElement(fqZero(), fqZero()),
-    times(4, frZero),
-    times(6, () => 0),
-  );
 }
 
 function makeEmptyTxContext(): TxContext {
