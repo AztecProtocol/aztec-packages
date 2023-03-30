@@ -1,4 +1,4 @@
-import { ACVMField, acvm, toACVMField, fromACVMField } from './acvm.js';
+import { ACVMField, acvm, toACVMField, fromACVMField, ZERO_ACVM_FIELD } from './acvm.js';
 import { AztecAddress, CallContext, EthAddress, Fr, OldTreeRoots, TxRequest } from '@aztec/circuits.js';
 import { DBOracle, PrivateCallStackItem } from './db_oracle.js';
 import { arrangeInitialWitness, extractPublicInputs, frToAztecAddress } from './witness_io.js';
@@ -80,11 +80,11 @@ export class Execution {
           preimage,
           storageSlot: fromACVMField(storageSlot),
         });
-        return Promise.resolve([]);
+        return Promise.resolve([ZERO_ACVM_FIELD]);
       },
       notifyNullifiedNote: ([nullifier]: ACVMField[]) => {
         newNullifiers.push(fromACVMField(nullifier));
-        return Promise.resolve([]);
+        return Promise.resolve([ZERO_ACVM_FIELD]);
       },
     });
 
