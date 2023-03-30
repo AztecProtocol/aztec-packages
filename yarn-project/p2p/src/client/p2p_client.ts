@@ -1,6 +1,6 @@
 import { createDebugLogger } from '@aztec/foundation';
 import { L2Block, L2BlockDownloader, L2BlockSource } from '@aztec/l2-block';
-import { createTxIds, Tx } from '@aztec/tx';
+import { createTxHashes, Tx, TxHash } from '@aztec/tx';
 
 import { TxPool } from '../tx_pool/index.js';
 import { InMemoryTxPool } from '../tx_pool/memory_tx_pool.js';
@@ -39,10 +39,22 @@ export interface P2P {
   sendTx(tx: Tx): Promise<void>;
 
   /**
+   * Deletes 'txs' from the pool, given hashes.
+   * NOT used if we use sendTx as reconcileTxPool will handle this.
+   **/
+  deleteTxs(txHashes: TxHash[]): Promise<void>;
+
+  /**
    * Returns all transactions in the transaction pool.
    * @returns An array of Txs.
    */
   getTxs(): Promise<Tx[]>;
+
+  /**
+   * Returns a transaction in the transaction pool by its hash
+   * @returns A single tx or undefined
+   */
+  getTxByhash(txHash: TxHash): Promise<Tx | undefined>;
 
   /**
    * Starts the p2p client.
@@ -176,6 +188,14 @@ export class P2PClient implements P2P {
   }
 
   /**
+   * Returns a transaction in the transaction pool by its hash
+   * @returns A single tx or undefined
+   */
+  getTxByhash(txHash: TxHash): Promise<Tx | undefined> {
+    return Promise.resolve(this.txPool.getTxByHash(txHash));
+  }
+
+  /**
    * Verifies the 'tx' and, if valid, adds it to local tx pool and forwards it to other peers.
    * @param tx - The tx to verify.
    * @returns Empty promise.
@@ -186,6 +206,20 @@ export class P2PClient implements P2P {
       throw new Error('P2P client not ready');
     }
     this.txPool.addTxs([tx]);
+  }
+
+  /**
+   * Deletes the 'txs' from the pool.
+   * NOT used if we use sendTx as reconcileTxPool will handle this.
+   * @param txs - The transactions to delete.
+   * @returns Empty promise.
+   **/
+  public async deleteTxs(txHashes: TxHash[]): Promise<void> {
+    const ready = await this.isReady();
+    if (!ready) {
+      throw new Error('P2P client not ready');
+    }
+    this.txPool.deleteTxs(txHashes);
   }
 
   /**
@@ -222,11 +256,11 @@ export class P2PClient implements P2P {
    */
   private reconcileTxPool(blocks: L2Block[]): Promise<void> {
     for (let i = 0; i < blocks.length; i++) {
-      const txIds = createTxIds(blocks[i]);
-      for (let i = 0; i < txIds.length; i++) {
-        this.log(`Deleting tx id ${txIds[i].toString('hex')} from tx pool`);
+      const txHashes = createTxHashes(blocks[i]);
+      for (const txHash of txHashes) {
+        this.log(`Deleting tx hash ${txHash.toString()} from tx pool`);
       }
-      this.txPool.deleteTxs(txIds);
+      this.txPool.deleteTxs(txHashes);
     }
     return Promise.resolve();
   }

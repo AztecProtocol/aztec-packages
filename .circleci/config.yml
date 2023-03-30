@@ -59,6 +59,17 @@ setup_env: &setup_env
     command: ./build-system/scripts/setup_env "$CIRCLE_SHA1" "$CIRCLE_TAG" "$CIRCLE_JOB" "$CIRCLE_REPOSITORY_URL" "$CIRCLE_BRANCH"
 
 jobs:
+  wasm-linux-clang:
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Build"
+          command: cond_spot_run_build aztec3-circuits-wasm-linux-clang 64
+  
   yarn-project-base:
     machine:
       image: ubuntu-2004:202010-01
@@ -80,6 +91,17 @@ jobs:
       - run:
           name: "Build and test"
           command: build ethereum.js
+
+  circuits-js:
+    machine:
+      image: ubuntu-2004:202010-01
+    resource_class: large
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Build and test"
+          command: build circuits.js
 
   foundation:
     machine:
@@ -125,7 +147,7 @@ jobs:
           name: "Build and test"
           command: build world-state
 
-  circuits-js:
+  merkle-tree:
     machine:
       image: ubuntu-2004:202010-01
     resource_class: large
@@ -134,8 +156,18 @@ jobs:
       - *setup_env
       - run:
           name: "Build and test"
-          command: build circuits.js
+          command: build merkle-tree
 
+  acir-simulator:
+    machine:
+      image: ubuntu-2004:202010-01
+    resource_class: large
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Build and test"
+          command: build acir-simulator
 
   end-to-end:
     machine:
@@ -190,7 +222,11 @@ workflows:
     when:
       equal: [system, << pipeline.parameters.workflow >>]
     jobs:
+      - wasm-linux-clang:
+          <<: *defaults
       - yarn-project-base:
+          requires:
+            - wasm-linux-clang
           <<: *defaults
       - ethereum-js: *yarn_project
       - aztec-js: *yarn_project
@@ -208,4 +244,6 @@ workflows:
           <<: *defaults
       - e2e-deploy-contract: *e2e_test
       - world-state: *yarn_project
+      - acir-simulator: *yarn_project
+      - merkle-tree: *yarn_project
       - noir-contracts: *yarn_project

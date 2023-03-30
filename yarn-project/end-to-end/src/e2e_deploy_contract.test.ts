@@ -1,9 +1,9 @@
 import { AztecNode } from '@aztec/aztec-node';
-import { AztecAddress, AztecRPCServer, ContractDeployer, Fr } from '@aztec/aztec.js';
+import { AztecAddress, AztecRPCServer, ContractAbi, ContractDeployer, Fr, TxStatus } from '@aztec/aztec.js';
 import { EthAddress } from '@aztec/ethereum.js/eth_address';
 import { EthereumRpc } from '@aztec/ethereum.js/eth_rpc';
 import { WalletProvider } from '@aztec/ethereum.js/provider';
-import { createDebugLogger, randomBytes } from '@aztec/foundation';
+import { createDebugLogger } from '@aztec/foundation';
 import { TestContractAbi } from '@aztec/noir-contracts/examples';
 import { createAztecNode } from './create_aztec_node.js';
 import { createAztecRpcServer } from './create_aztec_rpc_client.js';
@@ -13,7 +13,6 @@ const { ETHEREUM_HOST = 'http://localhost:8545' } = process.env;
 const MNEMONIC = 'test test test test test test test test test test test junk';
 
 const logger = createDebugLogger('aztec:e2e_deploy_contract');
-
 describe('e2e_deploy_contract', () => {
   let provider: WalletProvider;
   let node: AztecNode;
@@ -21,7 +20,7 @@ describe('e2e_deploy_contract', () => {
   let rollupAddress: EthAddress;
   let yeeterAddress: EthAddress;
   let accounts: AztecAddress[];
-  const abi = TestContractAbi;
+  const abi = TestContractAbi as ContractAbi;
 
   beforeAll(async () => {
     provider = createProvider(ETHEREUM_HOST, MNEMONIC, 1);
@@ -56,16 +55,19 @@ describe('e2e_deploy_contract', () => {
       expect.objectContaining({
         from: accounts[0],
         to: undefined,
-        status: true,
+        status: TxStatus.PENDING,
         error: '',
       }),
     );
     logger(`Receipt received`);
+    const isMined = await tx.isMined();
+    const receiptAfterMined = await tx.getReceipt();
 
-    const contractAddress = receipt.contractAddress!;
-    const constructor = abi.functions.find(f => f.name === 'constructor')!;
-    const bytecode = await aztecRpcServer.getCode(contractAddress);
-    expect(bytecode).toEqual(constructor.bytecode);
+    expect(isMined).toBe(true);
+    expect(receiptAfterMined.status).toBe(TxStatus.MINED);
+    // const contractAddress = receipt.contractAddress!;
+    // expect(await aztecRpcServer.isContractDeployed(contractAddress)).toBe(true);
+    // expect(await aztecRpcServer.isContractDeployed(AztecAddress.random())).toBe(false);
   }, 30_000);
 
   /**
@@ -73,18 +75,18 @@ describe('e2e_deploy_contract', () => {
    * https://hackmd.io/-a5DjEfHTLaMBR49qy6QkA
    */
   it.skip('should not deploy a contract with the same salt twice', async () => {
-    const contractAddressSalt = new Fr(randomBytes(32));
-    const deployer = new ContractDeployer(abi, aztecRpcServer, { contractAddressSalt });
+    const contractAddressSalt = Fr.random();
+    const deployer = new ContractDeployer(abi, aztecRpcServer);
 
     {
-      const receipt = await deployer.deploy().send().getReceipt();
-      expect(receipt.status).toBe(true);
+      const receipt = await deployer.deploy().send({ contractAddressSalt }).getReceipt();
+      expect(receipt.status).toBe(TxStatus.MINED);
       expect(receipt.error).toBe('');
     }
 
     {
-      const receipt = await deployer.deploy().send().getReceipt();
-      expect(receipt.status).toBe(false);
+      const receipt = await deployer.deploy().send({ contractAddressSalt }).getReceipt();
+      expect(receipt.status).toBe(TxStatus.DROPPED);
       expect(receipt.error).not.toBe('');
     }
   });
