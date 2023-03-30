@@ -1,11 +1,4 @@
-import { inspectTree, MerkleTreeDb, MerkleTreeId, MerkleTrees } from '@aztec/world-state';
-import { mock, MockProxy } from 'jest-mock-extended';
-import { Prover } from '../prover/index.js';
-import { Simulator } from '../simulator/index.js';
-import { CircuitPoweredBlockBuilder } from './circuit_powered_block_builder.js';
-import { VerificationKeys, getVerificationKeys } from './vks.js';
-import { default as memdown } from 'memdown';
-import { default as levelup } from 'levelup';
+import { BarretenbergWasm } from '@aztec/barretenberg.js/wasm';
 import {
   AppendOnlyTreeSnapshot,
   BaseRollupInputs,
@@ -14,15 +7,22 @@ import {
   RootRollupPublicInputs,
   UInt8Vector,
 } from '@aztec/circuits.js';
-import { Tx } from '@aztec/tx';
 import {
   makeBaseRollupPublicInputs,
   makePrivateKernelPublicInputs,
   makeRootRollupPublicInputs,
 } from '@aztec/circuits.js/factories';
-import { hashNewContractData, makeEmptyTx } from '../deps/tx.js';
+import { Tx } from '@aztec/tx';
+import { MerkleTreeDb, MerkleTreeId, MerkleTrees } from '@aztec/world-state';
+import { mock, MockProxy } from 'jest-mock-extended';
+import { default as levelup } from 'levelup';
 import flatMap from 'lodash.flatmap';
-import { BarretenbergWasm } from '@aztec/barretenberg.js/wasm';
+import { default as memdown } from 'memdown';
+import { hashNewContractData, makeEmptyTx } from '../deps/tx.js';
+import { getVerificationKeys, VerificationKeys } from '../deps/verification_keys.js';
+import { Prover } from '../prover/index.js';
+import { Simulator } from '../simulator/index.js';
+import { CircuitPoweredBlockBuilder } from './circuit_powered_block_builder.js';
 
 /* eslint-disable @typescript-eslint/ban-ts-comment */
 // @ts-ignore
@@ -77,7 +77,7 @@ describe('sequencer/circuit_block_builder', () => {
       .mockResolvedValueOnce(baseRollupOutputLeft)
       .mockResolvedValueOnce(baseRollupOutputRight);
     simulator.rootRollupCircuit.mockResolvedValue(rootRollupOutput);
-  });
+  }, 20_000);
 
   const updateRootTrees = async () => {
     for (const [newTree, rootTree] of [

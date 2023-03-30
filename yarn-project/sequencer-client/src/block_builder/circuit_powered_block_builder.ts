@@ -28,7 +28,7 @@ import times from 'lodash.times';
 import { hashNewContractData, makeEmptyTx } from '../deps/tx.js';
 import { Proof, Prover } from '../prover/index.js';
 import { Simulator } from '../simulator/index.js';
-import { VerificationKeys } from './vks.js';
+import { VerificationKeys } from '../deps/verification_keys.js';
 
 const frToBigInt = (fr: Fr) => toBigIntBE(fr.toBuffer());
 const bigintToFr = (num: bigint) => new Fr(num);
