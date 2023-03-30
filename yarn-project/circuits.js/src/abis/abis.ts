@@ -1,20 +1,31 @@
 import { AztecAddress, serializeBufferArrayToVector } from '@aztec/foundation';
 import { Buffer } from 'buffer';
 import { CircuitsWasm } from '../wasm/index.js';
-import { TxRequest } from '../index.js';
+import { FUNCTION_SELECTOR_NUM_BYTES, TxRequest } from '../index.js';
 
 export function hashTxRequest(wasm: CircuitsWasm, txRequest: TxRequest) {
-  const txReqBuf = txRequest.toBuffer();
-  wasm.writeMemory(0, txReqBuf);
-  wasm.call('abis__hash_tx_request', 0, txReqBuf.length);
-  return Buffer.from(wasm.getMemorySlice(txReqBuf.length, 32));
+  // const inputPtr = wasm.call('bbmalloc', txReqBuf.length);
+  // const outputMem = wasm.call('bbmalloc', 32);
+  // wasm.writeMemory(inputPtr, txReqBuf);
+  // const resultPtr = wasm.call('abis__hash_tx_request', inputPtr, outputMem);
+  // const resultData = Buffer.from(wasm.getMemorySlice(resultPtr, resultPtr + 32));
+  // return resultData;
+  // const resBuf =
+  // const mem = wasm.call('bbmalloc', 32);
+  const data = txRequest.toBuffer();
+  console.log(1);
+  wasm.writeMemory(0, data);
+  console.log(2);
+  wasm.call('abis__hash_tx_request', 0, data.length);
+  console.log(3);
+  return Buffer.from(wasm.getMemorySlice(data.length, data.length + 32));
 }
 
 export function computeFunctionSelector(wasm: CircuitsWasm, funcSig: string) {
   const buf = Buffer.from(funcSig);
   wasm.writeMemory(0, buf);
   wasm.call('abis__compute_function_selector', 0, buf.length);
-  return Buffer.from(wasm.getMemorySlice(buf.length, 4));
+  return Buffer.from(wasm.getMemorySlice(buf.length, buf.length + FUNCTION_SELECTOR_NUM_BYTES));
 }
 
 export function hashVK(wasm: CircuitsWasm, vkBuf: Uint8Array) {
