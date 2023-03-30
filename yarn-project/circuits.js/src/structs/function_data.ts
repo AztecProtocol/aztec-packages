@@ -1,3 +1,4 @@
+import { BufferReader } from '@aztec/foundation';
 import { serializeToBuffer } from '../utils/serialize.js';
 
 /**
@@ -16,5 +17,13 @@ export class FunctionData {
 
   public static empty() {
     return new FunctionData(0);
+  }
+  /**
+   * Deserializes from a buffer or reader, corresponding to a write in cpp.
+   * @param buffer - Buffer to read from.
+   */
+  static fromBuffer(buffer: Buffer | BufferReader): FunctionData {
+    const reader = BufferReader.asReader(buffer);
+    return new FunctionData(reader.readNumber(), reader.readBoolean(), reader.readBoolean());
   }
 }

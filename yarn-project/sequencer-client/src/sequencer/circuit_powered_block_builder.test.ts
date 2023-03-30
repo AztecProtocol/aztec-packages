@@ -84,6 +84,9 @@ describe('sequencer/circuit_block_builder', () => {
       [MerkleTreeId.DATA_TREE, MerkleTreeId.DATA_TREE_ROOTS_TREE],
       [MerkleTreeId.CONTRACT_TREE, MerkleTreeId.CONTRACT_TREE_ROOTS_TREE],
     ] as const) {
+      if (rootTree === MerkleTreeId.CONTRACT_TREE_ROOTS_TREE) {
+        await inspectTree(expectsDb, rootTree);
+      }
       const newTreeInfo = await expectsDb.getTreeInfo(newTree);
       await expectsDb.appendLeaves(rootTree, [newTreeInfo.root]);
     }

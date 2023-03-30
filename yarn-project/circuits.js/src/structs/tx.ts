@@ -3,7 +3,7 @@ import { serializeToBuffer } from '../utils/serialize.js';
 import { ARGS_LENGTH } from './constants.js';
 import { FunctionData } from './function_data.js';
 import { EcdsaSignature } from './shared.js';
-import { AztecAddress, EthAddress, Fr } from '@aztec/foundation';
+import { AztecAddress, BufferReader, EthAddress, Fr } from '@aztec/foundation';
 
 /**
  * Contract deployment data in a TxContext
@@ -28,6 +28,14 @@ export class ContractDeploymentData {
 
   public static empty() {
     return new ContractDeploymentData(Fr.ZERO, Fr.ZERO, Fr.ZERO, EthAddress.ZERO);
+  }
+  /**
+   * Deserializes from a buffer or reader, corresponding to a write in cpp.
+   * @param buffer - Buffer to read from.
+   */
+  static fromBuffer(buffer: Buffer | BufferReader): ContractDeploymentData {
+    const reader = BufferReader.asReader(buffer);
+    return new ContractDeploymentData(reader.readFr(), reader.readFr(), reader.readFr(), reader.readObject(EthAddress));
   }
 }
 
@@ -54,6 +62,15 @@ export class TxContext {
       this.isContractDeployment,
       this.contractDeploymentData,
     );
+  }
+
+  /**
+   * Deserializes from a buffer or reader, corresponding to a write in cpp.
+   * @param buffer - Buffer to read from.
+   */
+  static fromBuffer(buffer: Buffer | BufferReader): TxContext {
+    const reader = BufferReader.asReader(buffer);
+    return new TxContext(false, false, true, reader.readObject(ContractDeploymentData));
   }
 }
 
