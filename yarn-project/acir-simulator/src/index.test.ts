@@ -9,6 +9,7 @@ import {
   TxContext,
   TxRequest,
 } from '@aztec/circuits.js';
+import { FunctionAbi } from '@aztec/noir-contracts';
 import { TestContractAbi } from '@aztec/noir-contracts/examples';
 import { AcirSimulator } from './simulator.js';
 
@@ -46,7 +47,7 @@ describe('ACIR simulator', () => {
     const oldRoots = new OldTreeRoots(new Fr(0n), new Fr(0n), new Fr(0n), new Fr(0n));
     const result = await acirSimulator.run(
       txRequest,
-      Buffer.from(TestContractAbi.functions[0].bytecode, 'hex'),
+      TestContractAbi.functions[0] as FunctionAbi,
       AztecAddress.ZERO,
       EthAddress.ZERO,
       oldRoots,
