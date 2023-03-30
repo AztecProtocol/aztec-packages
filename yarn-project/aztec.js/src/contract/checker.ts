@@ -1,4 +1,6 @@
-import { ContractAbi, ABIType } from '@aztec/aztec-rpc';
+// import { ContractAbi, ABIType } from '@aztec/aztec-rpc';
+
+import { ContractAbi, ABIType } from './types.js';
 
 export function abiChecker(abi: ContractAbi) {
   if (!abi.functions || abi.functions.length === 0) {

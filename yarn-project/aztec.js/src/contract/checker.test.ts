@@ -1,4 +1,4 @@
-import { abiChecker } from './parser.js';
+import { abiChecker } from './checker.js';
 
 describe('abiChecker', () => {
   describe('no functions', () => {
