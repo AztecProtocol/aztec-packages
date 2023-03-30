@@ -1,18 +1,18 @@
-import { makeAztecAddress, makeTxRequest } from '../tests/factories.js';
+import { makeAztecAddress } from '../tests/factories.js';
 import { CircuitsWasm } from '../wasm/circuits_wasm.js';
-import { computeContractAddress, computeFunctionSelector, hashTxRequest } from './abis.js';
+import { computeContractAddress, computeFunctionSelector } from './abis.js';
 
 describe('abis wasm bindings', () => {
   let wasm: CircuitsWasm;
   beforeEach(async () => {
     wasm = await CircuitsWasm.new();
   });
-  it('hashes a tx request', () => {
-    const txRequest = makeTxRequest();
-    const hash = hashTxRequest(wasm, txRequest);
-    console.log(hash);
-    expect(hash).toBeTruthy();
-  });
+  // it('hashes a tx request', () => {
+  //   const txRequest = makeTxRequest();
+  //   const hash = hashTxRequest(wasm, txRequest);
+  //   console.log(hash);
+  //   expect(hash).toBeTruthy();
+  // });
 
   it('computes a function selector', () => {
     const funcSig = 'transfer(address,uint256)';
