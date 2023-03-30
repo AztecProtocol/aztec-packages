@@ -75,7 +75,13 @@ export type UInt32 = number;
  * cpp/barretenberg/cpp/src/aztec/ecc/curves/bn254/g1.hpp
  */
 export class AffineElement {
-  constructor(public x: Fq, public y: Fq) {}
+  public x: Fq;
+  public y: Fq;
+
+  constructor(x: Fq | bigint, y: Fq | bigint) {
+    this.x = typeof x === 'bigint' ? new Fq(x) : x;
+    this.y = typeof y === 'bigint' ? new Fq(y) : y;
+  }
 
   toBuffer() {
     return serializeToBuffer(this.x, this.y);
