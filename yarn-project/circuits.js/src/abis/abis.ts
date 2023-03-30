@@ -33,10 +33,12 @@ export function computeFunctionLeaf(wasm: CircuitsWasm, fnLeaf: Uint8Array) {
 }
 
 export function computeFunctionTreeRoot(wasm: CircuitsWasm, fnLeafs: Buffer[]) {
+  console.log('fnLeafs', fnLeafs);
   const inputVector = serializeBufferArrayToVector(fnLeafs);
+  console.log('inputVector', inputVector);
   wasm.call('pedersen__init');
   wasm.writeMemory(0, inputVector);
-  wasm.call('abis__compute_function_tree_root', 0, inputVector.length);
+  wasm.call('abis__compute_function_tree_root', 0, fnLeafs.length, inputVector.length);
   return Buffer.from(wasm.getMemorySlice(inputVector.length, inputVector.length + 32));
 }
 
