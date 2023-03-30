@@ -82,9 +82,7 @@ export class TxRequest {
     public nonce: Fr,
     public txContext: TxContext,
     public chainId: Fr,
-  ) {
-    assertLength(this, 'args', ARGS_LENGTH);
-  }
+  ) {}
 
   static getFields(fields: FieldsOf<TxRequest>) {
     return [

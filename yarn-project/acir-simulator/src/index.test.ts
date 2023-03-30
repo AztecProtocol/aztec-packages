@@ -11,7 +11,7 @@ import {
   TxRequest,
 } from '@aztec/circuits.js';
 import { FunctionAbi } from '@aztec/noir-contracts';
-import { TestContractAbi } from '@aztec/noir-contracts/examples';
+import { TestContractAbi, ZkTokenContractAbi } from '@aztec/noir-contracts/examples';
 import { DBOracle } from './db_oracle.js';
 import { AcirSimulator } from './simulator.js';
 
@@ -28,7 +28,7 @@ describe('ACIR simulator', () => {
         AztecAddress.random(),
         AztecAddress.ZERO,
         new FunctionData(0, true, true),
-        new Array(ARGS_LENGTH).fill(new Fr(0n)),
+        [],
         Fr.random(),
         txContext,
         new Fr(0n),
@@ -44,6 +44,36 @@ describe('ACIR simulator', () => {
       expect(result.callStackItem.publicInputs.newCommitments).toEqual(
         new Array(NEW_COMMITMENTS_LENGTH).fill(new Fr(0n)),
       );
+    });
+
+    it('should a constructor with arguments that creates notes', async () => {
+      const acirSimulator = new AcirSimulator({} as DBOracle);
+
+      const txRequest = new TxRequest(
+        AztecAddress.random(),
+        AztecAddress.ZERO,
+        new FunctionData(0, true, true),
+        [
+          27n,
+          {
+            x: 42n,
+            y: 28n,
+          },
+        ],
+        Fr.random(),
+        txContext,
+        new Fr(0n),
+      );
+      const result = await acirSimulator.run(
+        txRequest,
+        ZkTokenContractAbi.functions[0] as unknown as FunctionAbi,
+        AztecAddress.ZERO,
+        EthAddress.ZERO,
+        oldRoots,
+      );
+
+      console.log(result.preimages.newNotes[0]);
+      expect(result.callStackItem.publicInputs.newCommitments.filter(field => !field.equals(Fr.ZERO))).toHaveLength(1);
     });
   });
 });

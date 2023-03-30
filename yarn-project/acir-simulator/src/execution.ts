@@ -1,8 +1,9 @@
 import { ACVMField, acvm, toACVMField, fromACVMField, ZERO_ACVM_FIELD } from './acvm.js';
 import { AztecAddress, CallContext, EthAddress, Fr, OldTreeRoots, TxRequest } from '@aztec/circuits.js';
 import { DBOracle, PrivateCallStackItem } from './db_oracle.js';
-import { arrangeInitialWitness, extractPublicInputs, frToAztecAddress } from './witness_io.js';
+import { writeInputs, extractPublicInputs, frToAztecAddress } from './witness_io.js';
 import { FunctionAbi } from '@aztec/noir-contracts';
+import { encodeArguments } from './arguments.js';
 
 export interface ExecutionPreimages {
   newNotes: Array<{ preimage: Fr[]; storageSlot: Fr }>;
@@ -42,11 +43,13 @@ export class Execution {
       this.request.functionData.isConstructor,
     );
 
+    const encodedArgs = encodeArguments(this.entryPointABI, this.request.args);
+
     return this.runExternalFunction(
       this.entryPointABI,
       this.contractAddress,
       this.request.functionData.functionSelector,
-      this.request.args,
+      encodedArgs,
       callContext,
     );
   }
@@ -60,7 +63,7 @@ export class Execution {
     callContext: CallContext,
   ): Promise<ExecutionResult> {
     const acir = Buffer.from(abi.bytecode, 'hex');
-    const initialWitness = arrangeInitialWitness(args, callContext, this.request.txContext, this.oldRoots);
+    const initialWitness = writeInputs(args, callContext, this.request.txContext, this.oldRoots);
     const newNotePreimages: Array<{ preimage: Fr[]; storageSlot: Fr }> = [];
     const newNullifiers: Fr[] = [];
     const nestedExecutionContexts: ExecutionResult[] = [];

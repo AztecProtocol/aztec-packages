@@ -51,7 +51,7 @@ export function frToBoolean(fr: Fr): boolean {
   return buf[buf.length - 1] !== 0;
 }
 
-export function arrangeInitialWitness(
+export function writeInputs(
   args: Fr[],
   callContext: CallContext,
   txContext: TxContext,
