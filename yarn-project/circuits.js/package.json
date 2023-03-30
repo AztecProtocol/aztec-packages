@@ -4,19 +4,15 @@
   "type": "module",
   "exports": {
     ".": "./dest/index.js",
-    "./abis": "./dest/abis/index.js",
     "./factories": "./dest/tests/factories.js",
-    "./utils": "./dest/utils/index.js",
-    "./wasm": "./dest/wasm/index.js"
+    "./utils": "./dest/utils/index.js"
   },
   "typedoc": {
     "entryPoint": "./src/index.ts",
-    "displayName": "Circuits.js",
-    "tsconfig": "./tsconfig.dest.json"
+    "displayName": "Circuits.js"
   },
   "scripts": {
-    "redo-ts-refs": "../../scripts/update-tsconfig-references tsconfig.dest.json",
-    "build": "yarn redo-ts-refs && tsc -b tsconfig.dest.json",
+    "build": "tsc -b",
     "build:dev": "tsc -b tsconfig.json --watch",
     "clean": "rm -rf ./dest .tsbuildinfo",
     "formatting": "prettier --check ./src && eslint --max-warnings 278 ./src",

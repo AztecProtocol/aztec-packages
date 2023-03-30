@@ -1,6 +1,5 @@
 import { AcirSimulator } from '@aztec/acir-simulator';
 import { AztecNode } from '@aztec/aztec-node';
-import { CircuitsWasm } from '@aztec/circuits.js/wasm';
 import { KernelProver } from '@aztec/kernel-prover';
 import { MemoryDB } from '../database/index.js';
 import { KeyStore, TestKeyStore } from '../key_store/index.js';
@@ -26,5 +25,5 @@ export async function createAztecRPCServer(
   acirSimulator = acirSimulator || new AcirSimulator(new SimulatorOracle(db, keyStore));
   kernelProver = kernelProver || new KernelProver();
 
-  return new AztecRPCServer(keyStore, acirSimulator, kernelProver, aztecNode, db, await CircuitsWasm.new());
+  return await Promise.resolve(new AztecRPCServer(keyStore, acirSimulator, kernelProver, aztecNode, db));
 }

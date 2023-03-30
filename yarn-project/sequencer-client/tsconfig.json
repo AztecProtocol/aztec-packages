@@ -1,5 +1,5 @@
 {
-  "extends": "..",
+  "extends": "../tsconfig.base.json",
   "compilerOptions": {
     "outDir": "dest",
     "rootDir": "src",
@@ -7,13 +7,32 @@
   },
   "include": ["src", "test"],
   "references": [
-    { "path": "../archiver/tsconfig.dest.json" },
-    { "path": "../circuits.js/tsconfig.dest.json" },
-    { "path": "../l1-contracts/tsconfig.dest.json" },
-    { "path": "../l2-block/tsconfig.dest.json" },
-    { "path": "../merkle-tree/tsconfig.dest.json" },
-    { "path": "../p2p/tsconfig.dest.json" },
-    { "path": "../tx/tsconfig.dest.json" },
-    { "path": "../world-state/tsconfig.dest.json" }
+    {
+      "path": "../circuits.js"
+    },
+    {
+      "path": "../ethereum.js"
+    },
+    {
+      "path": "../foundation"
+    },
+    {
+      "path": "../l1-contracts"
+    },
+    {
+      "path": "../l2-block"
+    },
+    {
+      "path": "../merkle-tree"
+    },
+    {
+      "path": "../p2p"
+    },
+    {
+      "path": "../tx"
+    },
+    {
+      "path": "../world-state"
+    }
   ]
 }

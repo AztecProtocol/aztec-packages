@@ -1,9 +1,0 @@
-{
-  "extends": ".",
-  "exclude": ["**/*.test.*", "**/fixtures/*"],
-  "references": [
-    {
-      "path": "../circuits.js/tsconfig.dest.json"
-    }
-  ]
-}

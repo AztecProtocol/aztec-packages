@@ -3,9 +3,11 @@
   "packageManager": "yarn@3.4.1",
   "private": true,
   "scripts": {
+    "prepare": "workspaces-to-typescript-project-references",
     "docs": "typedoc --out docs/dist && cd docs && yarn serve",
     "formatting": "yarn workspaces foreach run formatting",
     "formatting:fix": "yarn workspaces foreach run formatting:fix",
+    "test": "yarn workspaces foreach run test",
     "build": "yarn workspaces foreach run build"
   },
   "workspaces": [
@@ -36,6 +38,7 @@
   ],
   "prettier": "@aztec/foundation/prettier",
   "devDependencies": {
+    "@monorepo-utils/workspaces-to-typescript-project-references": "^2.9.0",
     "eslint": "^8.21.0",
     "prettier": "^2.7.1",
     "typedoc": "^0.23.26",

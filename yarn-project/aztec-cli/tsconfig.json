@@ -1,9 +1,10 @@
 {
-  "extends": "..",
+  "extends": "../tsconfig.base.json",
   "compilerOptions": {
     "outDir": "dest",
     "rootDir": "src",
     "tsBuildInfoFile": ".tsbuildinfo"
   },
-  "include": ["src"]
+  "include": ["src"],
+  "references": []
 }

@@ -5,14 +5,13 @@
   "exports": "./dest/index.js",
   "typedoc": {
     "entryPoint": "./src/index.ts",
-    "displayName": "TXs",
-    "tsconfig": "./tsconfig.dest.json"
+    "displayName": "TXs"
   },
   "scripts": {
-    "build": "yarn clean && tsc -b tsconfig.dest.json",
-    "build:dev": "tsc -b tsconfig.dest.json --watch",
+    "build": "yarn clean && tsc -b",
+    "build:dev": "tsc -b --watch",
     "start": "node ./dest",
-    "start:dev": "tsc-watch -p tsconfig.dest.json --onSuccess 'yarn start'",
+    "start:dev": "tsc-watch --onSuccess 'yarn start'",
     "clean": "rm -rf ./dest .tsbuildinfo",
     "formatting": "run -T prettier --check ./src && run -T eslint --max-warnings 0 ./src",
     "formatting:fix": "run -T prettier -w ./src",

@@ -1,5 +1,5 @@
 {
-  "extends": "..",
+  "extends": "../tsconfig.base.json",
   "compilerOptions": {
     "outDir": "dest",
     "rootDir": "src",
@@ -8,7 +8,12 @@
     "types": ["node", "jest"]
   },
   "references": [
-    { "path": "../l2-block/tsconfig.dest.json" }
+    {
+      "path": "../circuits.js"
+    },
+    {
+      "path": "../l2-block"
+    }
   ],
   "include": ["src"]
 }

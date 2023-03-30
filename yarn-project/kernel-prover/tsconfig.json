@@ -1,5 +1,5 @@
 {
-  "extends": "..",
+  "extends": "../tsconfig.base.json",
   "compilerOptions": {
     "outDir": "dest",
     "rootDir": "src",
@@ -7,10 +7,13 @@
   },
   "references": [
     {
-      "path": "../acir-simulator/tsconfig.dest.json"
+      "path": "../acir-simulator"
     },
     {
-      "path": "../circuits.js/tsconfig.dest.json"
+      "path": "../circuits.js"
+    },
+    {
+      "path": "../foundation"
     }
   ],
   "include": ["src"]

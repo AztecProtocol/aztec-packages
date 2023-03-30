@@ -1,30 +1,19 @@
 {
+  "extends": "./tsconfig.base.json",
   "compilerOptions": {
-    "target": "es2020",
-    "lib": ["dom", "esnext", "es2017.object"],
-    "module": "NodeNext",
-    "rootDir": "..",
-    "moduleResolution": "NodeNext",
-    "strict": true,
-    "declaration": true,
-    "allowSyntheticDefaultImports": true,
-    "esModuleInterop": true,
-    "downlevelIteration": true,
-    "inlineSourceMap": true,
-    "declarationMap": true,
-    "importHelpers": true,
-    "resolveJsonModule": true,
-    "composite": true
+    "rootDir": "."
   },
   "include": ["**/*.ts", "**/*.tsx"],
+  "exclude": [],
   "references": [
-    { "path": "archiver/tsconfig.dest.json" },
-    { "path": "barretenberg.js/tsconfig.dest.json" },
-    { "path": "l1-contracts/tsconfig.dest.json" },
-    { "path": "l2-block/tsconfig.dest.json" },
-    { "path": "merkle-tree/tsconfig.dest.json" },
-    { "path": "p2p/tsconfig.dest.json" },
-    { "path": "tx/tsconfig.dest.json" },
-    { "path": "world-state/tsconfig.dest.json" }
-  ]
+    { "path": "archiver" },
+    { "path": "barretenberg.js" },
+    { "path": "l1-contracts" },
+    { "path": "l2-block" },
+    { "path": "merkle-tree" },
+    { "path": "p2p" },
+    { "path": "tx" },
+    { "path": "world-state" }
+  ],
+  "files": []
 }

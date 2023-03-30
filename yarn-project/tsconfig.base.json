@@ -14,5 +14,6 @@
     "importHelpers": true,
     "resolveJsonModule": true,
     "composite": true
-  }
+  },
+  "exclude": ["**/*.test.*", "**/fixtures/*"]
 }

@@ -1,5 +1,5 @@
 {
-  "extends": "..",
+  "extends": "../tsconfig.base.json",
   "compilerOptions": {
     "outDir": "dest",
     "rootDir": "src",
@@ -7,7 +7,7 @@
   },
   "references": [
     {
-      "path": "../circuits.js/tsconfig.dest.json"
+      "path": "../circuits.js"
     }
   ],
   "include": ["src"]

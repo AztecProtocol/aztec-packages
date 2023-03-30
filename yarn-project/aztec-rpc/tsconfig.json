@@ -1,5 +1,5 @@
 {
-  "extends": "..",
+  "extends": "../tsconfig.base.json",
   "compilerOptions": {
     "outDir": "dest",
     "rootDir": "src",
@@ -7,25 +7,20 @@
   },
   "references": [
     {
-      "path": "../barretenberg.js/tsconfig.dest.json"
+      "path": "../acir-simulator"
     },
     {
-      "path": "../acir-simulator/tsconfig.dest.json"
+      "path": "../aztec-node"
     },
     {
-      "path": "../aztec-node/tsconfig.dest.json"
+      "path": "../foundation"
     },
     {
-      "path": "../foundation/tsconfig.dest.json"
+      "path": "../kernel-prover"
     },
     {
-      "path": "../kernel-prover/tsconfig.dest.json"
-    },
-    {
-      "path": "../tx/tsconfig.dest.json"
+      "path": "../tx"
     }
   ],
-  "include": [
-    "src"
-  ]
+  "include": ["src"]
 }

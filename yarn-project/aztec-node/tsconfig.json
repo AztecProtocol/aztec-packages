@@ -1,5 +1,5 @@
 {
-  "extends": "..",
+  "extends": "../tsconfig.base.json",
   "compilerOptions": {
     "outDir": "dest",
     "rootDir": "src",
@@ -7,32 +7,32 @@
   },
   "references": [
     {
-      "path": "../archiver/tsconfig.dest.json"
+      "path": "../archiver"
     },
     {
-      "path": "../foundation/tsconfig.dest.json"
+      "path": "../ethereum.js"
     },
     {
-      "path": "../p2p/tsconfig.dest.json"
+      "path": "../foundation"
     },
     {
-      "path": "../world-state/tsconfig.dest.json"
+      "path": "../l1-contracts"
     },
     {
-      "path": "../ethereum.js/tsconfig.dest.json"
+      "path": "../l2-block"
     },
     {
-      "path": "../l1-contracts/tsconfig.dest.json"
+      "path": "../p2p"
     },
     {
-      "path": "../sequencer-client/tsconfig.dest.json"
+      "path": "../sequencer-client"
     },
     {
-      "path": "../tx/tsconfig.dest.json"
+      "path": "../tx"
+    },
+    {
+      "path": "../world-state"
     }
   ],
-  "include": [
-    "src",
-    "test"
-  ]
+  "include": ["src", "test"]
 }

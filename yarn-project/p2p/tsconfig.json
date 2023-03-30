@@ -1,5 +1,5 @@
 {
-  "extends": "..",
+  "extends": "../tsconfig.base.json",
   "compilerOptions": {
     "outDir": "dest",
     "rootDir": "src",
@@ -8,9 +8,15 @@
     "types": ["node", "jest"]
   },
   "references": [
-    { "path": "../foundation/tsconfig.dest.json" },
-    { "path": "../l2-block/tsconfig.dest.json" },
-    { "path": "../tx/tsconfig.dest.json" }
+    {
+      "path": "../foundation"
+    },
+    {
+      "path": "../l2-block"
+    },
+    {
+      "path": "../tx"
+    }
   ],
   "include": ["src"]
 }

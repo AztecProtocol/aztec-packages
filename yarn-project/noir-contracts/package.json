@@ -8,12 +8,11 @@
   },
   "typedoc": {
     "entryPoint": "./src/index.ts",
-    "displayName": "Noir contracts",
-    "tsconfig": "./tsconfig.dest.json"
+    "displayName": "Noir contracts"
   },
   "scripts": {
-    "build": "yarn clean && tsc -b tsconfig.dest.json",
-    "build:dev": "tsc -p tsconfig.dest.json --watch",
+    "build": "yarn clean && tsc -b",
+    "build:dev": "tsc --watch",
     "clean": "rm -rf ./dest .tsbuildinfo",
     "formatting": "run -T prettier --check ./src && run -T eslint --max-warnings 0 ./src",
     "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules $(yarn bin jest) --no-cache --passWithNoTests"

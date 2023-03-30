@@ -1,5 +1,5 @@
 {
-  "extends": "..",
+  "extends": "../tsconfig.base.json",
   "compilerOptions": {
     "outDir": "dest",
     "rootDir": "src",
@@ -7,13 +7,17 @@
   },
   "references": [
     {
-      "path": "../aztec-rpc/tsconfig.dest.json"
+      "path": "../aztec-rpc"
     },
     {
-      "path": "../foundation/tsconfig.dest.json"
+      "path": "../foundation"
+    },
+    {
+      "path": "../sequencer-client"
+    },
+    {
+      "path": "../tx"
     }
   ],
-  "include": [
-    "src"
-  ]
+  "include": ["src"]
 }
