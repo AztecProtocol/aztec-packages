@@ -84,7 +84,7 @@ describe('abiChecker', () => {
       });
 
       it('should error if ABI function has incorrect parameter', () => {
-        expect(() => abiChecker(abi)).toThrowError('ABI function parameter has an incorrectly formed integer');
+        expect(() => abiChecker(abi)).toThrowError('Unrecognised attribute on type integer');
       });
     });
   });
@@ -127,7 +127,7 @@ describe('abiChecker', () => {
       });
     });
 
-    describe('valid matrix of integers', () => {
+    describe('valid struct', () => {
       let abi: any;
 
       beforeEach(() => {

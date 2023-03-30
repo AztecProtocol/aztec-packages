@@ -1,5 +1,9 @@
 import { ContractAbi, ABIType, StructType } from '@aztec/aztec-rpc';
 
+type Attributes = {
+  [name: string]: string;
+};
+
 export function abiChecker(abi: ContractAbi) {
   if (!abi.functions || abi.functions.length === 0) {
     throw new Error('ABI has no functions');
@@ -36,27 +40,15 @@ function abiParameterTypeChecker(type: ABIType): boolean {
   switch (type.kind) {
     case 'field':
     case 'boolean':
-      return checkAttributeCount(type, 1);
+      return checkAttributes(type);
     case 'integer':
-      if (!('sign' in type && typeof type.sign === 'string') || !('width' in type && typeof type.width === 'number')) {
-        throw new Error('ABI function parameter has an incorrectly formed integer');
-      }
-      return checkAttributeCount(type, 3);
+      return checkAttributes(type, { sign: 'string', width: 'number' });
     case 'string':
-      if (!('length' in type && typeof type.length === 'number')) {
-        throw new Error('ABI function parameter has an incorrectly formed string');
-      }
-      return checkAttributeCount(type, 2);
+      return checkAttributes(type, { length: 'number' });
     case 'array':
-      if (!('length' in type && typeof type.length === 'number' && 'type' in type)) {
-        throw new Error('ABI function parameter has an incorrectly formed array');
-      }
-      return abiParameterTypeChecker(type.type) && checkAttributeCount(type, 3);
+      return checkAttributes(type, { length: 'number', type: 'object' }) && abiParameterTypeChecker(type.type);
     case 'struct':
-      if (!('fields' in type)) {
-        throw new Error('ABI function parameter has an incorrectly formed struct');
-      }
-      return checkStruct(type) && checkAttributeCount(type, 2);
+      return checkAttributes(type, { fields: 'object' }) && checkStruct(type);
     default:
       throw new Error('ABI function parameter has an unrecognised type');
   }
@@ -71,9 +63,19 @@ function checkStruct(type: StructType) {
   }, true);
 }
 
-function checkAttributeCount(type: ABIType, length: number) {
-  if (Object.keys(type).length > length) {
+function checkAttributes(type: ABIType, incompleteAttributes: Attributes = {}) {
+  const typeKeys = Object.keys(type);
+  const attributes = { ...incompleteAttributes, kind: 'string' };
+
+  if (typeKeys.length !== Object.keys(attributes).length) {
     throw new Error(`Unrecognised attribute on type ${type.kind}`);
   }
+
+  typeKeys.forEach(element => {
+    if (!(element in type && typeof (type as any)[element] === (attributes as any)[element])) {
+      throw new Error(`ABI function parameter has an incorrectly formed ${type.kind}`);
+    }
+  });
+
   return true;
 }
