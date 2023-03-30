@@ -1,6 +1,7 @@
 import { toBigIntBE, toBufferBE } from '../bigint-buffer/index.js';
 import { Fr } from './index.js';
 import { BufferReader } from '../serialize/buffer_reader.js';
+import { AztecAddress } from '../aztec-address/index.js';
 
 export class Point {
   static SIZE_IN_BYTES = 64;
@@ -47,5 +48,9 @@ export class Point {
 
   equals(rhs: Point) {
     return this.buffer.equals(rhs.buffer);
+  }
+
+  toAddress(): AztecAddress {
+    return AztecAddress.fromBuffer(this.buffer.slice(0, AztecAddress.SIZE_IN_BYTES));
   }
 }

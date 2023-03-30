@@ -65,7 +65,7 @@ export class AztecRPCServer implements AztecRPCClient {
 
   public async getAccounts(): Promise<AztecAddress[]> {
     const accounts = this.synchroniser.getAccounts();
-    return await Promise.all(accounts.map(async a => await a.getPubKey()));
+    return await Promise.all(accounts.map(async a => (await a.getPubKey()).toAddress()));
   }
 
   public async getStorageAt(contract: AztecAddress, storageSlot: Fr) {
