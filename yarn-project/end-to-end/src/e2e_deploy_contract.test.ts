@@ -65,9 +65,9 @@ describe('e2e_deploy_contract', () => {
 
     expect(isMined).toBe(true);
     expect(receiptAfterMined.status).toBe(TxStatus.MINED);
-    // const contractAddress = receipt.contractAddress!;
-    // expect(await aztecRpcServer.isContractDeployed(contractAddress)).toBe(true);
-    // expect(await aztecRpcServer.isContractDeployed(AztecAddress.random())).toBe(false);
+    const contractAddress = receipt.contractAddress!;
+    expect(await aztecRpcServer.isContractDeployed(contractAddress)).toBe(true);
+    expect(await aztecRpcServer.isContractDeployed(AztecAddress.random())).toBe(false);
   }, 30_000);
 
   /**
@@ -79,12 +79,20 @@ describe('e2e_deploy_contract', () => {
     const deployer = new ContractDeployer(abi, aztecRpcServer);
 
     {
-      const receipt = await deployer.deploy().send({ contractAddressSalt }).getReceipt();
+      const tx = deployer.deploy().send({ contractAddressSalt });
+      const isMined = await tx.isMined();
+      expect(isMined).toBe(true);
+
+      const receipt = await tx.getReceipt();
       expect(receipt.status).toBe(TxStatus.MINED);
       expect(receipt.error).toBe('');
     }
 
     {
+      const tx = deployer.deploy().send({ contractAddressSalt });
+      const isMined = await tx.isMined();
+      expect(isMined).toBe(false);
+
       const receipt = await deployer.deploy().send({ contractAddressSalt }).getReceipt();
       expect(receipt.status).toBe(TxStatus.DROPPED);
       expect(receipt.error).not.toBe('');
