@@ -51,6 +51,6 @@ describe('ACIR simulator', () => {
       EthAddress.ZERO,
       oldRoots,
     );
-    console.log(result.callStackItem.publicInputs.contractDeploymentData);
+    console.log(result.callStackItem.publicInputs.newCommitments);
   });
 });

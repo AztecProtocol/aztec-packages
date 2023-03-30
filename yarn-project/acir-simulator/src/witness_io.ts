@@ -1,17 +1,16 @@
-import { ACVMWitness, fromACVMField, toACVMField } from './acvm.js';
+import { ACVMField, ACVMWitness, fromACVMField, toACVMField } from './acvm.js';
 import { AztecAddress, EthAddress, Fr } from '@aztec/circuits.js';
+import { select_return_flattened as selectPublicWitnessFlattened } from '@noir-lang/noir_util_wasm';
 
 export class WitnessReader {
-  constructor(private currentIndex: number, private witness: ACVMWitness) {}
+  private publicInputs: ACVMField[];
+
+  constructor(witness: ACVMWitness, acir: Buffer) {
+    this.publicInputs = selectPublicWitnessFlattened(acir, witness);
+  }
 
   public readField(): Fr {
-    const field = this.witness.get(this.currentIndex);
-    if (!field) {
-      throw new Error(`Missing field at index ${this.currentIndex}`);
-    }
-
-    this.currentIndex += 1;
-    return fromACVMField(field);
+    return fromACVMField(this.publicInputs.shift()!);
   }
 
   public readFieldArray(length: number): Fr[] {

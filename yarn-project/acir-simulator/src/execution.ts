@@ -89,7 +89,7 @@ export class Execution {
       getNotes2: async ([storageSlot]: ACVMField[]) => {
         return await this.getNotes(contractAddress, storageSlot, 2);
       },
-      getRandomField: () => Promise.resolve([toACVMField(Fr.fromBuffer(randomBytes(Fr.SIZE_IN_BYTES)))]),
+      getRandomField: () => Promise.resolve([toACVMField(Fr.random())]),
       notifyCreatedNote: (params: ACVMField[]) => {
         const [storageSlot, ...acvmPreimage] = params;
         const preimage = acvmPreimage.map(f => fromACVMField(f));
@@ -105,7 +105,7 @@ export class Execution {
       },
     });
 
-    const publicInputs = this.extractPublicInputs(partialWitness, witnessStartIndex);
+    const publicInputs = this.extractPublicInputs(partialWitness, acir);
 
     const callStackItem = new PrivateCallStackItem(contractAddress, functionSelector, publicInputs);
 
@@ -144,39 +144,31 @@ export class Execution {
 
     const writer = new WitnessWriter(witnessStartIndex, witness);
 
-    writer.writeField(callContext.msgSender);
-    writer.writeField(callContext.storageContractAddress);
-    writer.writeField(callContext.portalContractAddress);
-    writer.writeField(callContext.isDelegateCall);
-    writer.writeField(callContext.isStaticCall);
-    writer.writeField(callContext.isContractDeployment);
-
     writer.writeFieldArray(
       new Array(ARGS_LENGTH).fill(Fr.fromBuffer(Buffer.alloc(Fr.SIZE_IN_BYTES))).map((value, i) => args[i] || value),
     );
 
-    writer.writeFieldArray(new Array(RETURN_VALUES_LENGTH).fill(new Fr(0n)));
-    writer.writeFieldArray(new Array(EMITTED_EVENTS_LENGTH).fill(new Fr(0n)));
-    writer.writeFieldArray(new Array(NEW_COMMITMENTS_LENGTH).fill(new Fr(0n)));
-    writer.writeFieldArray(new Array(NEW_NULLIFIERS_LENGTH).fill(new Fr(0n)));
-    writer.writeFieldArray(new Array(PRIVATE_CALL_STACK_LENGTH).fill(new Fr(0n)));
-    writer.writeFieldArray(new Array(PUBLIC_CALL_STACK_LENGTH).fill(new Fr(0n)));
-    writer.writeFieldArray(new Array(L1_MSG_STACK_LENGTH).fill(new Fr(0n)));
-
-    writer.writeField(this.oldRoots.privateDataTreeRoot);
-    writer.writeField(this.oldRoots.nullifierTreeRoot);
-    writer.writeField(this.oldRoots.contractTreeRoot);
+    writer.writeField(callContext.isContractDeployment);
+    writer.writeField(callContext.isDelegateCall);
+    writer.writeField(callContext.isStaticCall);
+    writer.writeField(callContext.msgSender);
+    writer.writeField(callContext.portalContractAddress);
+    writer.writeField(callContext.storageContractAddress);
 
     writer.writeField(this.request.txContext.contractDeploymentData.constructorVkHash);
-    writer.writeField(this.request.txContext.contractDeploymentData.functionTreeRoot);
     writer.writeField(this.request.txContext.contractDeploymentData.contractAddressSalt);
+    writer.writeField(this.request.txContext.contractDeploymentData.functionTreeRoot);
+    writer.writeField(false);
     writer.writeField(this.request.txContext.contractDeploymentData.portalContractAddress);
+
+    writer.writeField(this.oldRoots.contractTreeRoot);
+    writer.writeField(this.oldRoots.nullifierTreeRoot);
 
     return witness;
   }
 
-  private extractPublicInputs(partialWitness: ACVMWitness, witnessStartIndex: number): PrivateCircuitPublicInputs {
-    const witnessReader = new WitnessReader(witnessStartIndex, partialWitness);
+  private extractPublicInputs(partialWitness: ACVMWitness, acir: Buffer): PrivateCircuitPublicInputs {
+    const witnessReader = new WitnessReader(partialWitness, acir);
 
     const callContext = new CallContext(
       frToAztecAddress(witnessReader.readField()),
