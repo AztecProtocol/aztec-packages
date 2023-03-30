@@ -1,4 +1,4 @@
-import { BaseRollupInputs, BaseRollupPublicInputs } from '../index.js';
+import { BaseRollupInputs, BaseRollupPublicInputs, RootRollupInputs, RootRollupPublicInputs } from '../index.js';
 import { uint8ArrayToNum } from '../utils/serialize.js';
 import { CircuitsWasm } from '../wasm/circuits_wasm.js';
 
@@ -7,6 +7,10 @@ export class RollupWasmWrapper {
 
   public simulateBaseRollup(baseRollupInputs: BaseRollupInputs): Promise<BaseRollupPublicInputs> {
     return this.callWasm('base_rollup__sim', baseRollupInputs, BaseRollupPublicInputs);
+  }
+
+  public simulateRootRollup(rootRollupInputs: RootRollupInputs): Promise<RootRollupPublicInputs> {
+    return this.callWasm('root_rollup__sim', rootRollupInputs, RootRollupPublicInputs);
   }
 
   // Adapted from yarn-project/circuits.js/src/tests/expectSerialize.ts

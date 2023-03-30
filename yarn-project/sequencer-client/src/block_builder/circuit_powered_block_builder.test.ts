@@ -1,8 +1,10 @@
 import { BarretenbergWasm } from '@aztec/barretenberg.js/wasm';
 import {
+  AggregationObject,
   AppendOnlyTreeSnapshot,
   BaseRollupInputs,
   BaseRollupPublicInputs,
+  CircuitsWasm,
   Fr,
   RootRollupPublicInputs,
   UInt8Vector,
@@ -20,8 +22,10 @@ import flatMap from 'lodash.flatmap';
 import { default as memdown } from 'memdown';
 import { hashNewContractData, makeEmptyTx } from '../deps/tx.js';
 import { getVerificationKeys, VerificationKeys } from '../deps/verification_keys.js';
+import { EmptyProver } from '../prover/empty.js';
 import { Prover } from '../prover/index.js';
 import { Simulator } from '../simulator/index.js';
+import { WasmCircuitSimulator } from '../simulator/wasm.js';
 import { CircuitPoweredBlockBuilder } from './circuit_powered_block_builder.js';
 
 /* eslint-disable @typescript-eslint/ban-ts-comment */
@@ -33,6 +37,7 @@ describe('sequencer/circuit_block_builder', () => {
   let builderDb: MerkleTreeDb;
   let expectsDb: MerkleTreeDb;
   let vks: VerificationKeys;
+
   let simulator: MockProxy<Simulator>;
   let prover: MockProxy<Prover>;
 
@@ -41,13 +46,13 @@ describe('sequencer/circuit_block_builder', () => {
   let baseRollupOutputRight: BaseRollupPublicInputs;
   let rootRollupOutput: RootRollupPublicInputs;
 
-  let wasm: BarretenbergWasm;
+  let wasm: CircuitsWasm;
 
   const emptyProof = new UInt8Vector(Buffer.alloc(32, 0));
   const emptyUnverifiedData = Buffer.alloc(0);
 
   beforeAll(async () => {
-    wasm = new BarretenbergWasm();
+    wasm = new CircuitsWasm();
     await wasm.init();
   });
 
@@ -63,7 +68,6 @@ describe('sequencer/circuit_block_builder', () => {
     // Populate root trees with first roots from the empty trees
     // TODO: Should this be responsibility of the MerkleTreeDb init?
     await updateRootTrees();
-    await builder.updateRootTrees();
 
     // Create mock outputs for simualator
     baseRollupOutputLeft = makeBaseRollupPublicInputs();
@@ -105,12 +109,15 @@ describe('sequencer/circuit_block_builder', () => {
     return new AppendOnlyTreeSnapshot(Fr.fromBuffer(treeInfo.root), Number(treeInfo.size));
   };
 
-  it('builds an L2 block', async () => {
+  it('builds an L2 block using mock simulator', async () => {
+    // Create instance to test
+    builder = new TestSubject(builderDb, blockNumber, vks, simulator, prover, wasm);
+    await builder.updateRootTrees();
+
     // Assemble a fake transaction, we'll tweak some fields below
     const tx = new Tx(makePrivateKernelPublicInputs(), emptyProof, emptyUnverifiedData);
     const txsLeft = [tx, makeEmptyTx()];
     const txsRight = [makeEmptyTx(), makeEmptyTx()];
-    const txs = [...txsLeft, ...txsRight];
 
     // Set tree roots to proper values in the tx
     for (const [name, id] of [
@@ -150,6 +157,17 @@ describe('sequencer/circuit_block_builder', () => {
 
     expect(l2block.number).toEqual(blockNumber);
     expect(proof).toEqual(emptyProof);
+  });
+
+  it('builds an L2 block with empty txs using wasm circuits', async () => {
+    const simulator = new WasmCircuitSimulator(wasm);
+    const prover = new EmptyProver();
+    builder = new TestSubject(builderDb, blockNumber, vks, simulator, prover, wasm);
+    await builder.updateRootTrees();
+    const tx = makeEmptyTx();
+
+    const [l2block, proof] = await builder.buildL2Block(tx);
+    expect(l2block.number).toEqual(blockNumber);
   });
 });
 

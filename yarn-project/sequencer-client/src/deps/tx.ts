@@ -1,10 +1,10 @@
-import { BarretenbergWasm } from '@aztec/barretenberg.js/wasm';
 import { pedersenCompressInputs } from '@aztec/barretenberg.js/crypto';
+import { BarretenbergWasm } from '@aztec/barretenberg.js/wasm';
 import {
   AccumulatedData,
-  AffineElement,
   AggregationObject,
   AztecAddress,
+  CircuitsWasm,
   ConstantData,
   ContractDeploymentData,
   EMITTED_EVENTS_LENGTH,
@@ -103,9 +103,12 @@ export function makeEmptyTx(): Tx {
   return new Tx(makeEmptyPrivateKernelPublicInputs(), makeEmptyProof(), makeEmptyUnverifiedData(), isEmpty);
 }
 
-export function hashNewContractData(wasm: BarretenbergWasm, cd: NewContractData) {
+export function hashNewContractData(wasm: CircuitsWasm | BarretenbergWasm, cd: NewContractData) {
+  if (cd.contractAddress.isZero() && cd.portalContractAddress.isZero() && cd.functionTreeRoot.isZero()) {
+    return Buffer.alloc(32, 0);
+  }
   return pedersenCompressInputs(
-    wasm,
+    wasm as BarretenbergWasm,
     [cd.contractAddress, cd.portalContractAddress, cd.functionTreeRoot].map(x => x.toBuffer()),
   );
 }

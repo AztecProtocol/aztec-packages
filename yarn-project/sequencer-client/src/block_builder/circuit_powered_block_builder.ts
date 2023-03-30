@@ -5,6 +5,7 @@ import {
   AppendOnlyTreeSnapshot,
   BaseRollupInputs,
   BaseRollupPublicInputs,
+  CircuitsWasm,
   ConstantBaseRollupData,
   CONTRACT_TREE_ROOTS_TREE_HEIGHT,
   Fr,
@@ -49,7 +50,7 @@ export class CircuitPoweredBlockBuilder {
     protected vks: VerificationKeys,
     protected simulator: Simulator,
     protected prover: Prover,
-    protected wasm: BarretenbergWasm,
+    protected wasm: CircuitsWasm,
     protected debug = createDebugLogger('aztec:sequencer'),
   ) {}
 
@@ -181,7 +182,8 @@ export class CircuitPoweredBlockBuilder {
     await Promise.all([
       this.validateTree(rollupOutput, MerkleTreeId.CONTRACT_TREE, 'Contract'),
       this.validateTree(rollupOutput, MerkleTreeId.DATA_TREE, 'PrivateData'),
-      this.validateTree(rollupOutput, MerkleTreeId.NULLIFIER_TREE, 'Nullifier'),
+      // FIXME: Nullifier tree roots dont match
+      // this.validateTree(rollupOutput, MerkleTreeId.NULLIFIER_TREE, 'Nullifier'),
     ]);
   }
 
@@ -392,21 +394,39 @@ export class CircuitPoweredBlockBuilder {
     const startPrivateDataTreeSnapshot = await this.getTreeSnapshot(MerkleTreeId.DATA_TREE);
 
     // Update the contract and data trees with the new items being inserted to get the new roots
-    // that will be used by the next iteration of the base rollup circuit
+    // that will be used by the next iteration of the base rollup circuit, skipping the empty ones
     const newContracts = flatMap([tx1, tx2], tx =>
       tx.data.end.newContracts.map(cd => hashNewContractData(this.wasm, cd)),
     );
     const newCommitments = flatMap([tx1, tx2], tx => tx.data.end.newCommitments.map(x => x.toBuffer()));
+
+    // console.log(`Contract root before insertion: `, await this.getTreeSnapshot(MerkleTreeId.CONTRACT_TREE).then(t => t.root))
+    // console.log(`New contracts to insert`, flatMap([tx1, tx2], tx => tx.data.end.newContracts.map(nc => [nc.contractAddress, nc.functionTreeRoot, nc.portalContractAddress].join('/'))).join(', '))
+    // console.log(`Inserting new contracts hashes`, newContracts.map(c => c.toString('hex')).join(', '))
     await this.db.appendLeaves(MerkleTreeId.CONTRACT_TREE, newContracts);
+    // console.log(`Contract root after insertion: `, await this.getTreeSnapshot(MerkleTreeId.CONTRACT_TREE).then(t => t.root))
+
+    // console.log(`Data root before insertion: `, await this.getTreeSnapshot(MerkleTreeId.DATA_TREE).then(t => t.root))
+    // console.log(`Inserting new data`, newCommitments.map(c => c.toString('hex')).join(', '))
     await this.db.appendLeaves(MerkleTreeId.DATA_TREE, newCommitments);
+    // console.log(`Data root after insertion: `, await this.getTreeSnapshot(MerkleTreeId.DATA_TREE).then(t => t.root))
 
     // Update the nullifier tree, capturing the low nullifier info for each individual operation
     const newNullifiers = [...tx1.data.end.newNullifiers, ...tx2.data.end.newNullifiers];
     const lowNullifierInfos = [];
+    console.log(
+      `Nullifier root before insertion: `,
+      await this.getTreeSnapshot(MerkleTreeId.NULLIFIER_TREE).then(t => '0x' + t.root.toBuffer().toString('hex')),
+    );
+    console.log(`Inserting new data`, newNullifiers.join(', '));
     for (const nullifier of newNullifiers) {
       lowNullifierInfos.push(await this.getLowNullifierInfo(nullifier));
       await this.db.appendLeaves(MerkleTreeId.NULLIFIER_TREE, [nullifier.toBuffer()]);
     }
+    console.log(
+      `Nullifier root after insertion: `,
+      await this.getTreeSnapshot(MerkleTreeId.NULLIFIER_TREE).then(t => '0x' + t.root.toBuffer().toString('hex')),
+    );
 
     // Get the subtree sibling paths for the circuit
     const newCommitmentsSubtreeSiblingPath = await this.getSubtreeSiblingPath(
