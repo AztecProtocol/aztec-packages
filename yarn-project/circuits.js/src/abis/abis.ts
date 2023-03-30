@@ -36,7 +36,7 @@ export function computeFunctionTreeRoot(wasm: CircuitsWasm, fnLeafs: Buffer[]) {
   const inputVector = serializeBufferArrayToVector(fnLeafs);
   wasm.call('pedersen__init');
   wasm.writeMemory(0, inputVector);
-  wasm.call('abis__compute_function_tree_root', 0, inputVector.length);
+  wasm.call('abis__compute_function_tree_root', 0, fnLeafs.length, inputVector.length);
   return Buffer.from(wasm.getMemorySlice(inputVector.length, inputVector.length + 32));
 }
 
