@@ -6,13 +6,8 @@ COPY circuits.js circuits.js
 WORKDIR /usr/src/yarn-project/foundation
 RUN yarn build
 
-# TODO: It seems we're loading the wasm from dest and from src, depending on how we run,
-# so we copy the wasm to both locations just in case, but we should set up a proper pipeline
-# and location for the wasm.
-RUN cp /usr/src/aztec3-circuits/cpp/build-wasm/bin/aztec3-circuits.wasm dest/wasm/aztec3-circuits.wasm
-RUN cp /usr/src/aztec3-circuits/cpp/build-wasm/bin/aztec3-circuits.wasm src/wasm/aztec3-circuits.wasm
-
 WORKDIR /usr/src/yarn-project/circuits.js
+RUN cp /usr/src/aztec3-circuits/cpp/build-wasm/bin/aztec3-circuits.wasm src/wasm/aztec3-circuits.wasm
 RUN yarn build && yarn formatting && yarn test
 
 # Prune dev dependencies. See comment in base image.
