@@ -120,6 +120,7 @@ __metadata:
     "@aztec/aztec-node": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/kernel-prover": "workspace:^"
+    "@aztec/noir-contracts": "workspace:^"
     "@aztec/tx": "workspace:^"
     "@jest/globals": ^29.4.3
     "@rushstack/eslint-patch": ^1.1.4
@@ -141,6 +142,7 @@ __metadata:
   dependencies:
     "@aztec/aztec-rpc": "workspace:^"
     "@aztec/foundation": "workspace:^"
+    "@aztec/noir-contracts": "workspace:^"
     "@aztec/sequencer-client": "workspace:^"
     "@aztec/tx": "workspace:^"
     "@jest/globals": ^29.4.3

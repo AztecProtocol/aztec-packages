@@ -1,9 +1,10 @@
 import { AztecNode } from '@aztec/aztec-node';
-import { AztecAddress, AztecRPCServer, ContractAbi, ContractDeployer, Fr, TxStatus } from '@aztec/aztec.js';
+import { AztecAddress, AztecRPCServer, ContractDeployer, Fr, TxStatus } from '@aztec/aztec.js';
 import { EthAddress } from '@aztec/ethereum.js/eth_address';
 import { EthereumRpc } from '@aztec/ethereum.js/eth_rpc';
 import { WalletProvider } from '@aztec/ethereum.js/provider';
 import { createDebugLogger } from '@aztec/foundation';
+import { ContractAbi } from '@aztec/noir-contracts';
 import { TestContractAbi } from '@aztec/noir-contracts/examples';
 import { createAztecNode } from './create_aztec_node.js';
 import { createAztecRpcServer } from './create_aztec_rpc_client.js';
@@ -65,9 +66,9 @@ describe('e2e_deploy_contract', () => {
 
     expect(isMined).toBe(true);
     expect(receiptAfterMined.status).toBe(TxStatus.MINED);
-    // const contractAddress = receipt.contractAddress!;
-    // expect(await aztecRpcServer.isContractDeployed(contractAddress)).toBe(true);
-    // expect(await aztecRpcServer.isContractDeployed(AztecAddress.random())).toBe(false);
+    const contractAddress = receipt.contractAddress!;
+    expect(await aztecRpcServer.isContractDeployed(contractAddress)).toBe(true);
+    expect(await aztecRpcServer.isContractDeployed(AztecAddress.random())).toBe(false);
   }, 30_000);
 
   /**
@@ -79,12 +80,20 @@ describe('e2e_deploy_contract', () => {
     const deployer = new ContractDeployer(abi, aztecRpcServer);
 
     {
-      const receipt = await deployer.deploy().send({ contractAddressSalt }).getReceipt();
+      const tx = deployer.deploy().send({ contractAddressSalt });
+      const isMined = await tx.isMined();
+      expect(isMined).toBe(true);
+
+      const receipt = await tx.getReceipt();
       expect(receipt.status).toBe(TxStatus.MINED);
       expect(receipt.error).toBe('');
     }
 
     {
+      const tx = deployer.deploy().send({ contractAddressSalt });
+      const isMined = await tx.isMined();
+      expect(isMined).toBe(false);
+
       const receipt = await deployer.deploy().send({ contractAddressSalt }).getReceipt();
       expect(receipt.status).toBe(TxStatus.DROPPED);
       expect(receipt.error).not.toBe('');
