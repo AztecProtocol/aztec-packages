@@ -18,7 +18,7 @@ export function computeFunctionSelector(wasm: CircuitsWasm, funcSig: string) {
   return Buffer.from(wasm.getMemorySlice(buf.length, buf.length + FUNCTION_SELECTOR_NUM_BYTES));
 }
 
-export function hashVK(wasm: CircuitsWasm, vkBuf: Uint8Array) {
+export function hashVK(wasm: CircuitsWasm, vkBuf: Buffer) {
   wasm.call('pedersen__init');
   wasm.writeMemory(0, vkBuf);
   wasm.call('abis__hash_vk', 0, vkBuf.length);
@@ -40,12 +40,7 @@ export function computeFunctionTreeRoot(wasm: CircuitsWasm, fnLeafs: Buffer[]) {
   return Buffer.from(wasm.getMemorySlice(inputVector.length, inputVector.length + 32));
 }
 
-export function hashConstructor(
-  wasm: CircuitsWasm,
-  functionData: FunctionData,
-  args: Fr[],
-  constructorVKHash: Uint8Array,
-) {
+export function hashConstructor(wasm: CircuitsWasm, functionData: FunctionData, args: Fr[], constructorVKHash: Buffer) {
   const functionDataBuf = functionData.toBuffer();
   const inputVector = serializeBufferArrayToVector(args.map(fr => fr.toBuffer()));
   const memLoc1 = functionDataBuf.length;
