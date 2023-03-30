@@ -1,6 +1,6 @@
 import { generateFunctionSelector } from '../abi_coder/index.js';
 import { AztecAddress, EthAddress } from '@aztec/circuits.js';
-import { ContractAbi, FunctionAbi } from '../noir.js';
+import { ContractAbi, FunctionAbi } from '@aztec/noir-contracts';
 
 export interface ContractFunctionDao extends FunctionAbi {
   selector: Buffer;

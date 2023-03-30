@@ -11,7 +11,7 @@ import { L2Block } from '@aztec/l2-block';
 import { TxHash } from '@aztec/tx';
 import { AccountState } from '../account_state/index.js';
 import { Database, TxDao } from '../database/index.js';
-import { ContractAbi } from '../noir.js';
+import { ContractAbi } from '@aztec/noir-contracts';
 
 export class Synchroniser {
   private runningPromise?: Promise<void>;

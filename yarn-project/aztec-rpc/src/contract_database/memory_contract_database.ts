@@ -1,5 +1,5 @@
 import { AztecAddress, EthAddress } from '@aztec/circuits.js';
-import { ContractAbi } from '../noir.js';
+import { ContractAbi } from '@aztec/noir-contracts';
 import { contractAbiToContractDao, ContractDao } from './contract_dao.js';
 import { ContractDatabase } from './contract_database.js';
 
