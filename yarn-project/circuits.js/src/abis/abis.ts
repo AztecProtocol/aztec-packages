@@ -1,5 +1,5 @@
 import { Buffer } from 'buffer';
-import { AztecAddress, serializeBufferArrayToVector } from '@aztec/foundation';
+import { AztecAddress, Fr, serializeBufferArrayToVector } from '@aztec/foundation';
 import { CircuitsWasm } from '../wasm/index.js';
 import { FUNCTION_SELECTOR_NUM_BYTES, NullifierLeafPreimage, TxRequest } from '../index.js';
 
@@ -25,8 +25,15 @@ export function hashVK(wasm: CircuitsWasm, vkBuf: Uint8Array) {
   return Buffer.from(wasm.getMemorySlice(vkBuf.length, vkBuf.length + 32));
 }
 
-export function computeFunctionLeaf(wasm: CircuitsWasm, fnLeaf: Uint8Array) {
+export function computeFunctionLeaf(
+  wasm: CircuitsWasm,
+  functionSelector: Buffer,
+  isPrivate: boolean,
+  vkHash: Buffer,
+  acirHash: Buffer,
+) {
   wasm.call('pedersen__init');
+  const fnLeaf = Buffer.concat([functionSelector, Buffer.from([isPrivate ? 1 : 0]), vkHash, acirHash]);
   wasm.writeMemory(0, fnLeaf);
   wasm.call('abis__compute_function_leaf', fnLeaf.length);
   return Buffer.from(wasm.getMemorySlice(fnLeaf.length, fnLeaf.length + 32));
@@ -54,20 +61,21 @@ export function hashConstructor(wasm: CircuitsWasm, funcSigBuf: Uint8Array, args
 export function computeContractAddress(
   wasm: CircuitsWasm,
   deployerAddr: AztecAddress,
-  contractAddr: AztecAddress,
-  fnTreeRoot: Buffer,
+  contractAddrSalt: Fr,
+  fnTreeRoot: Fr,
   constructorHash: Buffer,
 ) {
   const deployerAddrBuf = deployerAddr.toBuffer();
-  const contractAddrBuf = contractAddr.toBuffer();
+  const contractAddrSaltBuf = contractAddrSalt.toBuffer();
+  const fnTreeRootBuf = fnTreeRoot.toBuffer();
   const memLoc1 = deployerAddrBuf.length;
-  const memLoc2 = memLoc1 + contractAddrBuf.length;
-  const memLoc3 = memLoc2 + fnTreeRoot.length;
+  const memLoc2 = memLoc1 + contractAddrSaltBuf.length;
+  const memLoc3 = memLoc2 + fnTreeRootBuf.length;
   const memLoc4 = memLoc3 + constructorHash.length;
   wasm.call('pedersen__init');
   wasm.writeMemory(0, deployerAddrBuf);
-  wasm.writeMemory(memLoc1, contractAddrBuf);
-  wasm.writeMemory(memLoc2, fnTreeRoot);
+  wasm.writeMemory(memLoc1, contractAddrSaltBuf);
+  wasm.writeMemory(memLoc2, fnTreeRootBuf);
   wasm.writeMemory(memLoc3, constructorHash);
   wasm.call('abis__compute_contract_address', 0, memLoc1, memLoc2, memLoc3);
   const resultBuf = Buffer.from(wasm.getMemorySlice(memLoc4, memLoc4 + 32));

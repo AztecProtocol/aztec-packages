@@ -3,7 +3,7 @@ import { AztecAddress, AztecRPCServer, ContractAbi, ContractDeployer, Fr, TxStat
 import { EthAddress } from '@aztec/ethereum.js/eth_address';
 import { EthereumRpc } from '@aztec/ethereum.js/eth_rpc';
 import { WalletProvider } from '@aztec/ethereum.js/provider';
-import { createDebugLogger } from '@aztec/foundation';
+import { createDebugLogger, enableLogs } from '@aztec/foundation';
 import { TestContractAbi } from '@aztec/noir-contracts/examples';
 import { createAztecNode } from './create_aztec_node.js';
 import { createAztecRpcServer } from './create_aztec_rpc_client.js';
@@ -11,6 +11,7 @@ import { createProvider, deployRollupContract, deployYeeterContract } from './de
 
 const { ETHEREUM_HOST = 'http://localhost:8545' } = process.env;
 const MNEMONIC = 'test test test test test test test test test test test junk';
+enableLogs('aztec:*');
 
 const logger = createDebugLogger('aztec:e2e_deploy_contract');
 describe('e2e_deploy_contract', () => {
@@ -74,17 +75,25 @@ describe('e2e_deploy_contract', () => {
    * Milestone 1.2
    * https://hackmd.io/-a5DjEfHTLaMBR49qy6QkA
    */
-  it.skip('should not deploy a contract with the same salt twice', async () => {
+  it.only('should not deploy a contract with the same salt twice', async () => {
     const contractAddressSalt = Fr.random();
     const deployer = new ContractDeployer(abi, aztecRpcServer);
 
     {
-      const receipt = await deployer.deploy().send({ contractAddressSalt }).getReceipt();
+      const tx = deployer.deploy().send({ contractAddressSalt });
+      const isMined = await tx.isMined();
+      expect(isMined).toBe(true);
+
+      const receipt = await tx.getReceipt();
       expect(receipt.status).toBe(TxStatus.MINED);
       expect(receipt.error).toBe('');
     }
 
     {
+      const tx = deployer.deploy().send({ contractAddressSalt });
+      const isMined = await tx.isMined();
+      expect(isMined).toBe(false);
+
       const receipt = await deployer.deploy().send({ contractAddressSalt }).getReceipt();
       expect(receipt.status).toBe(TxStatus.DROPPED);
       expect(receipt.error).not.toBe('');
