@@ -1,6 +1,6 @@
 import { AztecAddress, EthAddress, Fr, TxRequest, EcdsaSignature } from '@aztec/circuits.js';
 import { Tx, TxHash } from '@aztec/tx';
-import { ContractAbi } from '../noir.js';
+import { ContractAbi } from '@aztec/noir-contracts';
 import { TxReceipt } from '../tx/index.js';
 
 export interface DeployedContract {

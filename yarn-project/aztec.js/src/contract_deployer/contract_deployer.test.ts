@@ -1,9 +1,10 @@
 import { mock } from 'jest-mock-extended';
-import { AztecRPCClient, ContractAbi, Tx, TxHash, TxReceipt, TxRequest, FunctionType } from '@aztec/aztec-rpc';
+import { AztecRPCClient, Tx, TxHash, TxReceipt, TxRequest } from '@aztec/aztec-rpc';
 
 import { ContractDeployer } from './contract_deployer.js';
 import { AztecAddress, EcdsaSignature, EthAddress, Fr } from '@aztec/circuits.js';
 import { randomBytes } from 'crypto';
+import { ContractAbi, FunctionType } from '@aztec/noir-contracts';
 
 describe('Contract Deployer', () => {
   let arc: ReturnType<typeof mock<AztecRPCClient>>;

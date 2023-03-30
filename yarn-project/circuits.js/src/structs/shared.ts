@@ -2,6 +2,8 @@ import { BufferReader, randomBytes } from '@aztec/foundation';
 import { Fq, Fr } from '@aztec/foundation/fields';
 import { assertLength, range } from '../utils/jsUtils.js';
 import { Bufferable, serializeToBuffer } from '../utils/serialize.js';
+import times from 'lodash.times';
+
 export class MembershipWitness<N extends number> {
   constructor(pathSize: N, public leafIndex: UInt32, public siblingPath: Fr[]) {
     assertLength(this, 'siblingPath', pathSize);
@@ -49,6 +51,16 @@ export class AggregationObject {
       reader.readBoolean(),
     );
   }
+
+  static makeFake() {
+    return new AggregationObject(
+      new AffineElement(new Fq(1n), new Fq(2n)),
+      new AffineElement(new Fq(1n), new Fq(2n)),
+      [],
+      times(16, i => 3027 + i),
+      false,
+    );
+  }
 }
 
 export class Vector<T extends Bufferable> {
@@ -82,7 +94,13 @@ export type UInt32 = number;
  * cpp/barretenberg/cpp/src/aztec/ecc/curves/bn254/g1.hpp
  */
 export class AffineElement {
-  constructor(public x: Fq, public y: Fq) {}
+  public x: Fq;
+  public y: Fq;
+
+  constructor(x: Fq | bigint, y: Fq | bigint) {
+    this.x = typeof x === 'bigint' ? new Fq(x) : x;
+    this.y = typeof y === 'bigint' ? new Fq(y) : y;
+  }
 
   toBuffer() {
     return serializeToBuffer(this.x, this.y);
