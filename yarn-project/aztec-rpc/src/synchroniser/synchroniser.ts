@@ -83,7 +83,7 @@ export class Synchroniser {
   }
 
   public getAccount(account: AztecAddress) {
-    return this.accountStates.find(async as => (await as.getPubKey()).equals(account));
+    return this.accountStates.find(async as => (await as.getPubKey()).toAddress().equals(account));
   }
 
   public getAccounts() {
