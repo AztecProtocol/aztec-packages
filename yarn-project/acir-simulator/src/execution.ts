@@ -58,7 +58,7 @@ export class Execution {
   private async runExternalFunction(
     abi: FunctionAbi,
     contractAddress: AztecAddress,
-    functionSelector: number,
+    functionSelector: Buffer,
     args: Fr[],
     callContext: CallContext,
   ): Promise<ExecutionResult> {
