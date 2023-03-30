@@ -121,6 +121,46 @@ Object {
 }
 `;
 
+exports[`abis wasm bindings computes contract leaf 1`] = `
+Object {
+  "data": Array [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+  ],
+  "type": "Buffer",
+}
+`;
+
 exports[`abis wasm bindings computes function tree root 1`] = `
 Object {
   "data": Array [
