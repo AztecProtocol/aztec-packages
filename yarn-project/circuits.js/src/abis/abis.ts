@@ -1,7 +1,7 @@
 import { Buffer } from 'buffer';
-import { AztecAddress, serializeBufferArrayToVector } from '@aztec/foundation';
+import { AztecAddress, Fr, serializeBufferArrayToVector } from '@aztec/foundation';
 import { CircuitsWasm } from '../wasm/index.js';
-import { FUNCTION_SELECTOR_NUM_BYTES, NullifierLeafPreimage, TxRequest } from '../index.js';
+import { FunctionData, FUNCTION_SELECTOR_NUM_BYTES, NullifierLeafPreimage, TxRequest } from '../index.js';
 
 export function hashTxRequest(wasm: CircuitsWasm, txRequest: TxRequest) {
   const data = txRequest.toBuffer();
@@ -40,15 +40,23 @@ export function computeFunctionTreeRoot(wasm: CircuitsWasm, fnLeafs: Buffer[]) {
   return Buffer.from(wasm.getMemorySlice(inputVector.length, inputVector.length + 32));
 }
 
-export function hashConstructor(wasm: CircuitsWasm, funcSigBuf: Uint8Array, args: Buffer[], constructorVK: Uint8Array) {
-  const inputVector = serializeBufferArrayToVector(args);
+export function hashConstructor(
+  wasm: CircuitsWasm,
+  functionData: FunctionData,
+  args: Fr[],
+  constructorVKHash: Uint8Array,
+) {
+  const functionDataBuf = functionData.toBuffer();
+  const inputVector = serializeBufferArrayToVector(args.map(fr => fr.toBuffer()));
+  const memLoc1 = functionDataBuf.length;
+  const memLoc2 = memLoc1 + inputVector.length;
+  const memLoc3 = memLoc2 + constructorVKHash.length;
   wasm.call('pedersen__init');
-  wasm.writeMemory(0, funcSigBuf);
-  wasm.writeMemory(funcSigBuf.length, inputVector);
-  wasm.writeMemory(funcSigBuf.length + inputVector.length, constructorVK);
-  wasm.call('abis__hash_constructor', 0, funcSigBuf.length, funcSigBuf.length + inputVector.length);
-  const memLoc = funcSigBuf.length + inputVector.length + constructorVK.length;
-  return Buffer.from(wasm.getMemorySlice(memLoc, memLoc + 32));
+  wasm.writeMemory(0, functionDataBuf);
+  wasm.writeMemory(memLoc1, inputVector);
+  wasm.writeMemory(memLoc2, constructorVKHash);
+  wasm.call('abis__hash_constructor', 0, memLoc1, memLoc2, memLoc3);
+  return Buffer.from(wasm.getMemorySlice(memLoc3, memLoc3 + 32));
 }
 
 export function computeContractAddress(

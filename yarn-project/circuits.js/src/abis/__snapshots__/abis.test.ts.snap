@@ -201,6 +201,46 @@ Object {
 }
 `;
 
+exports[`abis wasm bindings hash constructor info 1`] = `
+Object {
+  "data": Array [
+    7,
+    86,
+    13,
+    102,
+    174,
+    78,
+    50,
+    98,
+    72,
+    218,
+    75,
+    172,
+    4,
+    186,
+    59,
+    34,
+    65,
+    24,
+    250,
+    188,
+    38,
+    16,
+    180,
+    152,
+    27,
+    184,
+    60,
+    40,
+    106,
+    162,
+    17,
+    127,
+  ],
+  "type": "Buffer",
+}
+`;
+
 exports[`abis wasm bindings hashes VK 1`] = `
 Object {
   "data": Array [
