@@ -37,7 +37,9 @@ const encodeTreeValue = (leafData: LeafData) => {
 
 // TODO: Check which version of hash we need to match the cpp implementation
 const hashEncodedTreeValue = (leaf: LeafData, hasher: Hasher) => {
-  return hasher.hashToField(Buffer.concat([leaf.value, leaf.nextIndex, leaf.nextValue].map(val => toBufferBE(val, 32))));
+  return hasher.hashToField(
+    Buffer.concat([leaf.value, leaf.nextIndex, leaf.nextValue].map(val => toBufferBE(val, 32))),
+  );
   return hasher.compressInputs([leaf.value, leaf.nextIndex, leaf.nextValue].map(val => toBufferBE(val, 32)));
 };
 
