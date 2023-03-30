@@ -1,9 +1,16 @@
 import { AztecAddress, EthAddress, Fq, Fr } from '@aztec/foundation';
-import { CallContext, PrivateCircuitPublicInputs, RootRollupPublicInputs } from '../index.js';
+import {
+  CallContext,
+  PreviousRollupData,
+  PrivateCircuitPublicInputs,
+  RootRollupInputs,
+  RootRollupPublicInputs,
+} from '../index.js';
 import { AppendOnlyTreeSnapshot, BaseRollupPublicInputs, ConstantBaseRollupData } from '../structs/base_rollup.js';
 import {
   ARGS_LENGTH,
   CONTRACT_TREE_HEIGHT,
+  CONTRACT_TREE_ROOTS_TREE_HEIGHT,
   EMITTED_EVENTS_LENGTH,
   FUNCTION_TREE_HEIGHT,
   KERNEL_L1_MSG_STACK_LENGTH,
@@ -17,8 +24,10 @@ import {
   NEW_COMMITMENTS_LENGTH,
   NEW_NULLIFIERS_LENGTH,
   PRIVATE_CALL_STACK_LENGTH,
+  PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT,
   PUBLIC_CALL_STACK_LENGTH,
   RETURN_VALUES_LENGTH,
+  ROLLUP_VK_TREE_HEIGHT,
   VK_TREE_HEIGHT,
 } from '../structs/constants.js';
 import { FunctionData } from '../structs/function_data.js';
@@ -247,6 +256,24 @@ export function makeBaseRollupPublicInputs(seed = 0) {
     makeAppendOnlyTreeSnapshot(seed + 0x700),
     makeAppendOnlyTreeSnapshot(seed + 0x800),
     [fr(seed + 0x901), fr(seed + 0x902)],
+  );
+}
+
+export function makePreviousBaseRollupData(seed = 0) {
+  return new PreviousRollupData(
+    makeBaseRollupPublicInputs(seed),
+    makeDynamicSizeBuffer(16, seed + 0x50),
+    makeVerificationKey(),
+    seed + 0x110,
+    makeMembershipWitness(ROLLUP_VK_TREE_HEIGHT, seed + 0x120),
+  );
+}
+
+export function makeRootRollupInputs(seed = 0) {
+  return new RootRollupInputs(
+    [makePreviousBaseRollupData(seed), makePreviousBaseRollupData(seed + 0x1000)],
+    range(PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT, 0x2000).map(fr),
+    range(CONTRACT_TREE_ROOTS_TREE_HEIGHT, 0x2100).map(fr),
   );
 }
 

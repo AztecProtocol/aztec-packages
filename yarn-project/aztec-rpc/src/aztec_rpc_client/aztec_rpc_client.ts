@@ -1,7 +1,5 @@
-import { AztecAddress, EcdsaSignature, EthAddress, Fr, TxRequest } from '@aztec/circuits.js';
-import { ContractData } from '@aztec/l2-block';
+import { AztecAddress, EthAddress, Fr, TxRequest, EcdsaSignature } from '@aztec/circuits.js';
 import { Tx, TxHash } from '@aztec/tx';
-import { Signature } from '../circuits.js';
 import { ContractAbi } from '../noir.js';
 import { TxReceipt } from '../tx/index.js';
 
