@@ -28,7 +28,6 @@ import {
 } from '@aztec/circuits.js';
 import { Tx } from '@aztec/tx';
 import times from 'lodash.times';
-import { makeEmptyAggregationObject } from './aggregation_object.js';
 
 function frZero() {
   return Fr.fromBuffer(Buffer.alloc(32, 0));
@@ -75,7 +74,7 @@ function makeEmptyOptionallyRevealedData(): OptionallyRevealedData {
 
 function makeEmptyAccumulatedData(): AccumulatedData {
   return new AccumulatedData(
-    makeEmptyAggregationObject(),
+    AggregationObject.makeFake(),
     frZero(),
     times(KERNEL_NEW_COMMITMENTS_LENGTH, frZero),
     times(KERNEL_NEW_NULLIFIERS_LENGTH, frZero),

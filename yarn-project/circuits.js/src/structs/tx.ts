@@ -32,7 +32,12 @@ export class ContractDeploymentData {
    */
   static fromBuffer(buffer: Buffer | BufferReader): ContractDeploymentData {
     const reader = BufferReader.asReader(buffer);
-    return new ContractDeploymentData(reader.readFr(), reader.readFr(), reader.readFr(), reader.readObject(EthAddress));
+    return new ContractDeploymentData(
+      reader.readFr(),
+      reader.readFr(),
+      reader.readFr(),
+      new EthAddress(reader.readBytes(32)),
+    );
   }
 }
 

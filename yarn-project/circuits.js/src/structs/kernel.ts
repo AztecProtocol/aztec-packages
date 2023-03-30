@@ -83,7 +83,7 @@ export class NewContractData {
    */
   static fromBuffer(buffer: Buffer | BufferReader): NewContractData {
     const reader = BufferReader.asReader(buffer);
-    return new NewContractData(reader.readObject(AztecAddress), reader.readObject(EthAddress), reader.readFr());
+    return new NewContractData(reader.readObject(AztecAddress), new EthAddress(reader.readBytes(32)), reader.readFr());
   }
 }
 
@@ -127,7 +127,7 @@ export class OptionallyRevealedData {
       reader.readObject(FunctionData),
       reader.readArray(EMITTED_EVENTS_LENGTH, Fr),
       reader.readFr(),
-      reader.readObject(EthAddress),
+      new EthAddress(reader.readBytes(32)),
       reader.readBoolean(),
       reader.readBoolean(),
       reader.readBoolean(),

@@ -2,6 +2,8 @@ import { BufferReader } from '@aztec/foundation';
 import { Fq, Fr } from '@aztec/foundation/fields';
 import { assertLength, range } from '../utils/jsUtils.js';
 import { Bufferable, serializeToBuffer } from '../utils/serialize.js';
+import times from 'lodash.times';
+
 export class MembershipWitness<N extends number> {
   constructor(pathSize: N, public leafIndex: UInt32, public siblingPath: Fr[]) {
     assertLength(this, 'siblingPath', pathSize);
@@ -47,6 +49,16 @@ export class AggregationObject {
       reader.readVector(Fr),
       reader.readNumberVector(),
       reader.readBoolean(),
+    );
+  }
+
+  static makeFake() {
+    return new AggregationObject(
+      new AffineElement(new Fq(1n), new Fq(2n)),
+      new AffineElement(new Fq(1n), new Fq(2n)),
+      [],
+      times(16, i => 3027 + i),
+      false,
     );
   }
 }

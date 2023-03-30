@@ -389,7 +389,7 @@ export class CircuitPoweredBlockBuilder {
     const constants = await this.getConstantBaseRollupData();
     const startNullifierTreeSnapshot = await this.getTreeSnapshot(MerkleTreeId.NULLIFIER_TREE);
     const startContractTreeSnapshot = await this.getTreeSnapshot(MerkleTreeId.CONTRACT_TREE);
-    const startPrivateDateTreeSnapshot = await this.getTreeSnapshot(MerkleTreeId.DATA_TREE);
+    const startPrivateDataTreeSnapshot = await this.getTreeSnapshot(MerkleTreeId.DATA_TREE);
 
     // Update the contract and data trees with the new items being inserted to get the new roots
     // that will be used by the next iteration of the base rollup circuit
@@ -426,7 +426,7 @@ export class CircuitPoweredBlockBuilder {
       constants,
       startNullifierTreeSnapshot,
       startContractTreeSnapshot,
-      startPrivateDateTreeSnapshot,
+      startPrivateDataTreeSnapshot,
       newCommitmentsSubtreeSiblingPath,
       newContractsSubtreeSiblingPath,
       newNullifiersSubtreeSiblingPath,
