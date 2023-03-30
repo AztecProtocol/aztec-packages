@@ -52,11 +52,11 @@ export class AztecRPCServer implements AztecRPCClient {
   }
 
   public async addAccount() {
-    const accountPublicKey = await this.keyStore.addAccount();
-    const accountPrivateKey = await this.keyStore.getAccountPrivateKey(accountPublicKey);
-    this.log(`adding account ${accountPublicKey.toString()}`);
+    const accountAddress = await this.keyStore.addAccount();
+    const accountPrivateKey = await this.keyStore.getAccountPrivateKey(accountAddress);
+    this.log(`adding account ${accountAddress.toString()}`);
     await this.synchroniser.addAccount(accountPrivateKey);
-    return accountPublicKey;
+    return accountAddress;
   }
 
   public async addContracts(contracts: DeployedContract[]) {
