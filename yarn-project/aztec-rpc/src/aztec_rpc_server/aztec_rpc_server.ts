@@ -5,9 +5,11 @@ import {
   AztecAddress,
   CircuitsWasm,
   ContractDeploymentData,
+  CONTRACT_TREE_HEIGHT,
   EcdsaSignature,
   EthAddress,
   FunctionData,
+  MembershipWitness,
   OldTreeRoots,
   TxContext,
   TxRequest,
@@ -216,6 +218,7 @@ export class AztecRPCServer implements AztecRPCClient {
       executionResult,
       oldRoots as any, // TODO - remove `as any`
       this.circuitsWasm,
+      this.getContractSiblingPath,
     );
     const tx = new Tx(publicInputs, new UInt8Vector(Buffer.alloc(0)), Buffer.alloc(0));
     const dao: TxDao = new TxDao(tx.txHash, undefined, undefined, txRequest.from, undefined, txRequest.to, '');
@@ -298,5 +301,18 @@ export class AztecRPCServer implements AztecRPCClient {
         return computeFunctionLeaf(this.circuitsWasm, Buffer.concat([selector, isPrivate, vkHash, acirHash]));
       });
     return Fr.fromBuffer(computeFunctionTreeRoot(this.circuitsWasm, leaves));
+  }
+
+  private async getContractSiblingPath(committment: Buffer) {
+    const index = await this.node.findContractIndex(committment);
+    if (index === undefined) {
+      throw new Error('Failed to find contract');
+    }
+    const siblingPath = await this.node.getContractPath(index);
+    return new MembershipWitness<typeof CONTRACT_TREE_HEIGHT>(
+      CONTRACT_TREE_HEIGHT,
+      Number(index),
+      siblingPath.data.map(x => new Fr(x.readBigInt64BE())),
+    );
   }
 }

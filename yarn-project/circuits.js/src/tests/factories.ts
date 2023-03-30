@@ -4,7 +4,6 @@ import { AppendOnlyTreeSnapshot, BaseRollupPublicInputs, ConstantBaseRollupData 
 import {
   ARGS_LENGTH,
   CONTRACT_TREE_HEIGHT,
-  CONTRACT_TREE_ROOTS_TREE_HEIGHT,
   EMITTED_EVENTS_LENGTH,
   FUNCTION_TREE_HEIGHT,
   KERNEL_L1_MSG_STACK_LENGTH,
@@ -18,10 +17,8 @@ import {
   NEW_COMMITMENTS_LENGTH,
   NEW_NULLIFIERS_LENGTH,
   PRIVATE_CALL_STACK_LENGTH,
-  PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT,
   PUBLIC_CALL_STACK_LENGTH,
   RETURN_VALUES_LENGTH,
-  ROLLUP_VK_TREE_HEIGHT,
   VK_TREE_HEIGHT,
 } from '../structs/constants.js';
 import { FunctionData } from '../structs/function_data.js';
@@ -266,11 +263,7 @@ export function makeRootRollupPublicInputs(seed = 0) {
     endTreeOfHistoricContractTreeRootsSnapshot: makeAppendOnlyTreeSnapshot(seed + 0x900),
     endTreeOfHistoricPrivateDataTreeRootsSnapshot: makeAppendOnlyTreeSnapshot(seed + 0x1000),
     endAggregationObject: makeAggregationObject(seed + 0x1100),
-    newCommitmentsHash: fr(seed + 0x1200),
-    newContractDataHash: fr(seed + 0x1200),
-    newL1MsgsHash: fr(seed + 0x1200),
-    newNullifiersHash: fr(seed + 0x1200),
-    proverContributionsHash: fr(seed + 0x1200),
+    calldataHash: [new Fr(0n), new Fr(0n)],
   });
 }
 

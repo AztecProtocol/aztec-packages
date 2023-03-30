@@ -1,2 +1,3 @@
 export * from './structs/index.js';
 export * from './wasm/index.js';
+export * from './kernel/index.js';

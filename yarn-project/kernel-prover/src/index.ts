@@ -1,25 +1,6 @@
 import { ExecutionResult } from '@aztec/acir-simulator';
 import {
-  AccumulatedData,
-  AffineElement,
-  AggregationObject,
-  AztecAddress,
-  ConstantData,
-  EMITTED_EVENTS_LENGTH,
-  EthAddress,
-  Fq,
-  Fr,
-  FunctionData,
-  KERNEL_L1_MSG_STACK_LENGTH,
-  KERNEL_NEW_COMMITMENTS_LENGTH,
-  KERNEL_NEW_CONTRACTS_LENGTH,
-  KERNEL_NEW_NULLIFIERS_LENGTH,
-  KERNEL_OPTIONALLY_REVEALED_DATA_LENGTH,
-  KERNEL_PRIVATE_CALL_STACK_LENGTH,
-  KERNEL_PUBLIC_CALL_STACK_LENGTH,
-  NewContractData,
   OldTreeRoots,
-  OptionallyRevealedData,
   PrivateKernelPublicInputs,
   TxRequest,
   CircuitsWasm,
@@ -32,13 +13,10 @@ import {
   EcdsaSignature,
   MembershipWitness,
   CONTRACT_TREE_HEIGHT,
-  VerificationKey,
-  ComposerType,
-  CommitmentMap,
-  G1AffineElement,
-  VK_TREE_HEIGHT,
+  getDummyPreviousKernelData,
+  privateKernelSim,
+  privateKernelProve
 } from '@aztec/circuits.js';
-import { randomBytes } from 'crypto';
 
 export class KernelProver {
   prove(
@@ -50,10 +28,10 @@ export class KernelProver {
     getContractSiblingPath: (committment: Buffer) => Promise<MembershipWitness<typeof CONTRACT_TREE_HEIGHT>>,
   ): Promise<{ publicInputs: PrivateKernelPublicInputs; proof: Buffer }> {
     // TODO: implement this
-    const signedTxRequest: SignedTxRequest = {
+    const signedTxRequest = new SignedTxRequest(
       txRequest,
-      signature: txSignature,
-    };
+      txSignature,
+    );
 
     const privateCallData: PrivateCallData = {
       callStackItem: executionResult.callStackItem,
@@ -66,13 +44,13 @@ export class KernelProver {
     };
 
     
-    const previousKernelData: PreviousKernelData = {
-
-    }
+    const previousKernelData: PreviousKernelData = await getDummyPreviousKernelData(wasm);
+    const publicInputs = privateKernelSim(wasm, signedTxRequest, previousKernelData, privateCallData);
+    const proof = privateKernelProve(wasm, signedTxRequest, previousKernelData, privateCallData);
 
     return Promise.resolve({
       publicInputs,
-      proof: Buffer.alloc(0),
+      proof,
     });
   }
 
