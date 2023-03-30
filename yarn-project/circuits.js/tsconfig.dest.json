@@ -1,5 +1,15 @@
 {
   "extends": ".",
-  "exclude": ["**/*.test.*", "**/fixtures/*"],
-  "todo": "This is no longer needed as eslint uses a generic test override. But to not mess up too many refs, I have punted actually removing these files."
+  "exclude": [
+    "**/*.test.*",
+    "**/fixtures/*"
+  ],
+  "references": [
+    {
+      "path": "../barretenberg.js/tsconfig.dest.json"
+    },
+    {
+      "path": "../foundation/tsconfig.dest.json"
+    }
+  ]
 }

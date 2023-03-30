@@ -36,7 +36,14 @@ module.exports = {
     {
       files: ['*.ts', '*.tsx'],
       parserOptions: {
-        project: __dirname + '/tsconfig.test.json',
+        project: true,
+      },
+    },
+    {
+      files: ['*.test.ts', '*.test.tsx'],
+      parserOptions: {
+        tsconfigRootDir: __dirname + '/..',
+        project: __dirname + '/../tsconfig.test.json',
       },
     },
   ],

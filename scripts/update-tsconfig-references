@@ -34,5 +34,3 @@ REFERENCES=${REFERENCES%,}
 REFERENCES+="]"
 
 jq --argjson references "$REFERENCES" '.references = $references' "$TSCONFIG_FILE" > "${TSCONFIG_FILE}.tmp" && mv "${TSCONFIG_FILE}.tmp" "$TSCONFIG_FILE"
-
-echo "Updated project references in $TSCONFIG_FILE"
