@@ -1,9 +1,7 @@
 import { Grumpkin } from '@aztec/barretenberg.js/crypto';
 import { BarretenbergWasm } from '@aztec/barretenberg.js/wasm';
-import { AztecAddress } from '@aztec/circuits.js';
-import { L2Block } from '@aztec/l2-block';
 import { Point } from '@aztec/foundation';
-import { UnverifiedData } from '@aztec/l2-block';
+import { L2Block, UnverifiedData } from '@aztec/l2-block';
 import { TxHash } from '@aztec/tx';
 import { TxAuxData } from '../aztec_rpc_server/tx_aux_data/tx_aux_data.js';
 import { Database } from '../database/index.js';
@@ -26,7 +24,6 @@ export class AccountState {
 
   public syncToBlock(block: L2Block) {
     this.syncedTo = block.number;
-
   }
   public async getPubKey(): Promise<Point> {
     if (!this.pubKey) {

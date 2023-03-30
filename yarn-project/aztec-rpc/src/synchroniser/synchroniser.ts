@@ -12,9 +12,6 @@ import { TxHash } from '@aztec/tx';
 import { AccountState } from '../account_state/index.js';
 import { Database, TxDao } from '../database/index.js';
 import { ContractAbi } from '../noir.js';
-import { L2Block, UnverifiedData } from '@aztec/l2-block';
-import { keccak } from '@aztec/foundation';
-import { TxReceipt, TxStatus } from '../tx/index.js';
 
 export class Synchroniser {
   private runningPromise?: Promise<void>;
