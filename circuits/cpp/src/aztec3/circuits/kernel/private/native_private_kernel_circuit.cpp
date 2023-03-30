@@ -10,6 +10,8 @@
 #include <aztec3/utils/dummy_composer.hpp>
 
 #include <barretenberg/stdlib/merkle_tree/membership.hpp>
+#include <barretenberg/stdlib/hash/keccak/keccak.hpp>
+#include <barretenberg/crypto/ecdsa/ecdsa.hpp>
 
 namespace aztec3::circuits::kernel::private_kernel {
 
@@ -299,6 +301,42 @@ void validate_inputs(DummyComposer& composer, PrivateInputs<NT> const& private_i
     NT::fr const start_public_call_stack_length = array_length(start.public_call_stack);
     NT::fr const start_new_l2_to_l1_msgs_length = array_length(start.new_l2_to_l1_msgs);
 
+    {
+        // Verify public key hash matches ethereum address of the sender
+        // TODO(Suyash): Do we want to perform this check only for base case?
+        // TODO(Suyash): I think its okay to check this for each kernel iteration.
+        NT::address sender_address = private_inputs.signed_tx_request.tx_request.from;
+        NT::secp256k1_point sender_public_key = private_inputs.signed_tx_request.tx_request.from_public_key;
+
+        NT::byte_array sender_public_key_bytes = sender_public_key.to_buffer();
+        NT::byte_array sender_public_key_hash = stdlib::keccak<UltraComposer>::hash_native(sender_public_key_bytes);
+        NT::byte_array sender_address_bytes = sender_address.to_field().to_buffer();
+
+        // Check if the sender address matches the keccak hash of the public key
+        // Specifically, first 12 bytes must be 0, remaining 20 bytes must match.
+        for (size_t i = 0; i < 12; i++) {
+            ASSERT(sender_address_bytes[i] == 0);
+            composer.do_assert(sender_address_bytes[i] == 0,
+                               format("sender address at index ", i, " is non-zero"),
+                               CircuitErrorCode::PRIVATE_KERNEL__INVALID_SENDER_ADDRESS_BYTE_SIZE);
+        }
+        for (size_t i = 12; i < 32; i++) {
+            composer.do_assert(sender_address_bytes[i] == sender_public_key_hash[i],
+                               format("hash of public key does not match the sender address at index ", i),
+                               CircuitErrorCode::PRIVATE_KERNEL__SENDER_ADDRESS_SENDER_PUBLIC_KEY_MISMATCH);
+        }
+    }
+
+    // Verify signature against the first function being called (subsequent function calls do not
+    // need to be signed over by the sender, the sender only signs the inputs to the very first function)
+    NT::byte_array message_bytes = private_inputs.signed_tx_request.compute_signing_message().to_buffer();
+    std::string message(message_bytes.begin(), message_bytes.end());
+    bool sig_verification_result =
+        crypto::ecdsa::verify_signature<Sha256Hasher, secp256k1::fq, secp256k1::fr, secp256k1::g1>(
+            message,
+            private_inputs.signed_tx_request.tx_request.from_public_key,
+            private_inputs.signed_tx_request.signature);
+
     // Base Case
     if (is_base_case) {
         // TODO: change to allow 3 initial calls on the private call stack, so a fee can be paid and a gas
@@ -335,6 +373,11 @@ void validate_inputs(DummyComposer& composer, PrivateInputs<NT> const& private_i
         // TODO: Assert that the previous kernel data is empty. (Or rather, the verify_proof() function needs a valid
         // dummy proof and vk to complete execution, so actually what we want is for that mockvk to be
         // hard-coded into the circuit and assert that that is the one which has been used in the base case).
+
+        // Verify signature
+        composer.do_assert(sig_verification_result == true,
+                           "Signature verification failed",
+                           CircuitErrorCode::PRIVATE_KERNEL__ECDSA_SIGNATURE_VERIFICATION_FAILED);
     } else {
         // is_recursive_case
 

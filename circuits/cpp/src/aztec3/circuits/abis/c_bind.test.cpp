@@ -58,6 +58,7 @@ TEST(abi_tests, hash_tx_request)
     // Construct TxRequest with some randomized fields
     TxRequest<NT> const tx_request = TxRequest<NT>{
         .from = NT::fr::random_element(),
+        .from_public_key = NT::secp256k1_point::random_element(),
         .to = NT::fr::random_element(),
         .function_data = FunctionData<NT>(),
         .args = args,
