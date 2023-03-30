@@ -45,12 +45,10 @@ export class ContractTree {
       throw new Error('Constructor not found.');
     }
 
-    const functions = abi.functions
-      .filter(f => !isConstructor(f))
-      .map(f => ({
-        ...f,
-        selector: generateFunctionSelector(f.name, f.parameters),
-      }));
+    const functions = abi.functions.map(f => ({
+      ...f,
+      selector: generateFunctionSelector(f.name, f.parameters),
+    }));
     const leaves = generateFunctionLeaves(functions, wasm);
     const root = Fr.fromBuffer(computeFunctionTreeRoot(wasm, leaves));
     const constructorSelector = generateFunctionSelector(constructorFunc.name, constructorFunc.parameters);
@@ -71,12 +69,10 @@ export class ContractTree {
   }
 
   static fromAddress(address: AztecAddress, abi: ContractAbi, portalAddress: EthAddress, wasm: CircuitsWasm) {
-    const functions = abi.functions
-      .filter(f => !isConstructor(f))
-      .map(f => ({
-        ...f,
-        selector: generateFunctionSelector(f.name, f.parameters),
-      }));
+    const functions = abi.functions.map(f => ({
+      ...f,
+      selector: generateFunctionSelector(f.name, f.parameters),
+    }));
     const contractDao: ContractDao = {
       ...abi,
       address,

@@ -111,6 +111,7 @@ export class AztecRPCServer implements AztecRPCClient {
       fromAddress,
       this.circuitsWasm,
     );
+    const contract = contractTree.contract;
 
     const functionData = new FunctionData(
       selectorToNumber(generateFunctionSelector(constructorAbi.name, constructorAbi.parameters)),
@@ -131,7 +132,6 @@ export class AztecRPCServer implements AztecRPCClient {
 
     const txContext = new TxContext(false, false, true, contractDeploymentData);
 
-    const contract = contractTree.contract;
     await this.db.addContract(contract);
 
     return new TxRequest(
