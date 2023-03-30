@@ -1,3 +1,4 @@
+import { randomBytes } from 'crypto';
 import { fr, makeAztecAddress, makeTxRequest, makeVerificationKey } from '../tests/factories.js';
 import { CircuitsWasm } from '../wasm/circuits_wasm.js';
 import {
@@ -6,10 +7,11 @@ import {
   computeFunctionLeaf,
   computeFunctionSelector,
   computeFunctionTreeRoot,
+  hashConstructor,
   hashTxRequest,
   hashVK,
 } from './abis.js';
-import { NullifierLeafPreimage } from '../index.js';
+import { Fr, FunctionData, NullifierLeafPreimage } from '../index.js';
 
 describe('abis wasm bindings', () => {
   let wasm: CircuitsWasm;
@@ -45,12 +47,20 @@ describe('abis wasm bindings', () => {
     expect(res).toMatchSnapshot();
   });
 
+  it('hash constructor info', () => {
+    const functionData = new FunctionData(0, true, true);
+    const args = [new Fr(0n), new Fr(1n)];
+    const vkHash = Buffer.alloc(32);
+    const res = hashConstructor(wasm, functionData, args, vkHash);
+    expect(res).toMatchSnapshot();
+  });
+
   it('computes a contract address', () => {
     const deployerAddr = makeAztecAddress(1);
-    const contractAddr = makeAztecAddress(2);
-    const treeRoot = Buffer.alloc(32);
-    const constructorHash = Buffer.alloc(32);
-    const res = computeContractAddress(wasm, deployerAddr, contractAddr, treeRoot, constructorHash);
+    const contractAddrSalt = randomBytes(32);
+    const treeRoot = randomBytes(32);
+    const constructorHash = randomBytes(32);
+    const res = computeContractAddress(wasm, deployerAddr, contractAddrSalt, treeRoot, constructorHash);
     expect(res).toMatchSnapshot();
   });
 
