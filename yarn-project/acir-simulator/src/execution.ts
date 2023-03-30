@@ -73,7 +73,7 @@ export class Execution {
     acir: Buffer,
     contractAddress: AztecAddress,
     witnessStartIndex: number,
-    functionSelector: number,
+    functionSelector: Buffer,
     args: Fr[],
     callContext: CallContext,
   ): Promise<ExecutionResult> {
