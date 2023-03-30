@@ -5,7 +5,7 @@ import { Fr, Point } from '@aztec/foundation/fields';
 import { NotePreimage } from './note_preimage.js';
 import { TxAuxData } from './tx_aux_data.js';
 
-const randomTxAuxData = () => {
+export const randomTxAuxData = () => {
   const fields = Array.from({ length: 5 }).map(() => Fr.random());
   const notePreImage = new NotePreimage(fields);
   const contractAddress = AztecAddress.random();

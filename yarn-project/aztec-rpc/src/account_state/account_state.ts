@@ -2,6 +2,7 @@ import { Grumpkin } from '@aztec/barretenberg.js/crypto';
 import { BarretenbergWasm } from '@aztec/barretenberg.js/wasm';
 import { AztecAddress } from '@aztec/circuits.js';
 import { L2Block } from '@aztec/l2-block';
+import { Point } from '@aztec/foundation';
 import { UnverifiedData } from '@aztec/l2-block';
 import { TxHash } from '@aztec/tx';
 import { TxAuxData } from '../aztec_rpc_server/tx_aux_data/tx_aux_data.js';
@@ -11,7 +12,7 @@ import { TxAuxDataDao } from '../database/tx_aux_data_dao.js';
 export class AccountState {
   public syncedTo = 0;
   private grumpkin?: Grumpkin;
-  private pubKey?: AztecAddress;
+  private pubKey?: Point;
 
   constructor(private readonly privKey: Buffer, private db: Database) {
     if (privKey.length !== 32) {
@@ -27,10 +28,10 @@ export class AccountState {
     this.syncedTo = block.number;
 
   }
-  public async getPubKey(): Promise<AztecAddress> {
+  public async getPubKey(): Promise<Point> {
     if (!this.pubKey) {
       const grumpkin = await this.getGrumpkin();
-      this.pubKey = AztecAddress.fromBuffer(grumpkin.mul(Grumpkin.generator, this.privKey));
+      this.pubKey = Point.fromBuffer(grumpkin.mul(Grumpkin.generator, this.privKey));
     }
     return this.pubKey;
   }

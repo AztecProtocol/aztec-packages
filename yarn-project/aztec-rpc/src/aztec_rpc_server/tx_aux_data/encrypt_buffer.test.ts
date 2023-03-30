@@ -5,8 +5,13 @@ import { randomBytes } from '@aztec/foundation/crypto';
 import { decryptBuffer, deriveAESSecret, encryptBuffer } from './encrypt_buffer.js';
 
 describe('encrypt buffer', () => {
-  it('derive shared secret', async () => {
-    const grumpkin = new Grumpkin(await BarretenbergWasm.new());
+  let grumpkin: Grumpkin;
+
+  beforeAll(async () => {
+    grumpkin = new Grumpkin(await BarretenbergWasm.new());
+  });
+
+  it('derive shared secret', () => {
     const ownerPrivKey = randomBytes(32);
     const ownerPubKey = Point.fromBuffer(grumpkin.mul(Grumpkin.generator, ownerPrivKey));
     const ephPrivKey = randomBytes(32);
@@ -17,8 +22,7 @@ describe('encrypt buffer', () => {
     expect(secretBySender.toString('hex')).toEqual(secretByReceiver.toString('hex'));
   });
 
-  it('convert to and from encrypted buffer', async () => {
-    const grumpkin = new Grumpkin(await BarretenbergWasm.new());
+  it('convert to and from encrypted buffer', () => {
     const data = randomBytes(253);
     const ownerPrivKey = randomBytes(32);
     const ownerPubKey = Point.fromBuffer(grumpkin.mul(Grumpkin.generator, ownerPrivKey));
@@ -29,8 +33,7 @@ describe('encrypt buffer', () => {
     expect(decrypted).toEqual(data);
   });
 
-  it('decrypting gibberish returns undefined', async () => {
-    const grumpkin = new Grumpkin(await BarretenbergWasm.new());
+  it('decrypting gibberish returns undefined', () => {
     const data = randomBytes(253);
     const ownerPrivKey = randomBytes(32);
     const ephPrivKey = randomBytes(32);
