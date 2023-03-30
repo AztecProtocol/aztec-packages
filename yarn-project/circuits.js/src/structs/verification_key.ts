@@ -1,4 +1,4 @@
-import { Fr } from '@aztec/foundation';
+import { BufferReader, Fr } from '@aztec/foundation';
 import { serializeToBuffer } from '../utils/serialize.js';
 import { ComposerType } from './shared.js';
 
@@ -14,6 +14,15 @@ export class G1AffineElement {
   toBuffer() {
     return serializeToBuffer(this.x, this.y);
   }
+
+  /**
+   * Deserializes from a buffer or reader, corresponding to a write in cpp.
+   * @param buffer - Buffer to read from.
+   */
+  static fromBuffer(buffer: Buffer | BufferReader): G1AffineElement {
+    const reader = BufferReader.asReader(buffer);
+    return new G1AffineElement(reader.readFr(), reader.readFr());
+  }
 }
 
 /**
@@ -28,6 +37,15 @@ export class CommitmentMap {
   toBuffer() {
     const values = Object.entries(this.record);
     return serializeToBuffer(values.length, ...values.flat());
+  }
+
+  /**
+   * Deserializes from a buffer or reader, corresponding to a write in cpp.
+   * @param buffer - Buffer to read from.
+   */
+  static fromBuffer(buffer: Buffer | BufferReader): CommitmentMap {
+    const reader = BufferReader.asReader(buffer);
+    return new CommitmentMap(reader.readMap(G1AffineElement));
   }
 }
 
@@ -75,6 +93,22 @@ export class VerificationKey {
       this.commitments,
       this.containsRecursiveProof,
       serializeToBuffer(this.recursiveProofPublicInputIndices.length, this.recursiveProofPublicInputIndices),
+    );
+  }
+
+  /**
+   * Deserializes from a buffer or reader, corresponding to a write in cpp.
+   * @param buffer - Buffer to read from.
+   */
+  static fromBuffer(buffer: Buffer | BufferReader): VerificationKey {
+    const reader = BufferReader.asReader(buffer);
+    return new VerificationKey(
+      reader.readNumber(),
+      reader.readNumber(),
+      reader.readNumber(),
+      reader.readObject(CommitmentMap),
+      reader.readBoolean(),
+      reader.readNumberVector(),
     );
   }
 }
