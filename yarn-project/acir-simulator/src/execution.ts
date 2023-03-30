@@ -16,8 +16,10 @@ import {
   PUBLIC_CALL_STACK_LENGTH,
   RETURN_VALUES_LENGTH,
   TxRequest,
+  PrivateCallStackItem,
+  VerificationKey,
 } from '@aztec/circuits.js';
-import { DBOracle, PrivateCallStackItem } from './db_oracle.js';
+import { DBOracle } from './db_oracle.js';
 import { frToAztecAddress, frToBoolean, frToEthAddress, WitnessReader, WitnessWriter } from './witness_io.js';
 import { randomBytes } from '@aztec/foundation';
 
@@ -36,6 +38,7 @@ export interface ExecutionResult {
   preimages: ExecutionPreimages;
   // Nested executions
   nestedExecutions: this[];
+  vk: VerificationKey;
 }
 
 export class Execution {

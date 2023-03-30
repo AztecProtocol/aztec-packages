@@ -13,4 +13,8 @@ export class FunctionData {
   toBuffer(): Buffer {
     return serializeToBuffer(this.functionSelector, this.isPrivate, this.isConstructor);
   }
+
+  public static empty() {
+    return new FunctionData(0);
+  }
 }

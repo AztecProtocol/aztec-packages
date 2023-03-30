@@ -7,7 +7,6 @@ import {
   EthAddress,
   Fr,
   FunctionType,
-  Signature,
   Tx,
   TxHash,
   TxReceipt,
@@ -15,6 +14,7 @@ import {
 } from '@aztec/aztec-rpc';
 
 import { Contract } from './contract.js';
+import { EcdsaSignature } from '@aztec/circuits.js';
 
 describe('Contract Class', () => {
   let arc: ReturnType<typeof mock<AztecRPCClient>>;
@@ -24,7 +24,7 @@ describe('Contract Class', () => {
   const account = AztecAddress.random();
 
   const mockTxRequest = { type: 'TxRequest' } as any as TxRequest;
-  const mockSignature = { type: 'Signature' } as any as Signature;
+  const mockSignature = { type: 'EcdsaSignature' } as any as EcdsaSignature;
   const mockTx = { type: 'Tx' } as any as Tx;
   const mockTxHash = { type: 'TxHash' } as any as TxHash;
   const mockTxReceipt = { type: 'TxReceipt' } as any as TxReceipt;

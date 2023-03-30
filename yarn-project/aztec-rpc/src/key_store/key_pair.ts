@@ -1,11 +1,10 @@
-import { AztecAddress, Fr } from '@aztec/circuits.js';
-import { Signature } from '../circuits.js';
+import { AztecAddress, EcdsaSignature, Fr } from '@aztec/circuits.js';
 import { randomBytes } from '../foundation.js';
 
 export interface KeyPair {
   getPublicKey(): AztecAddress;
   getPrivateKey(): Promise<Buffer>;
-  signMessage(message: Buffer): Promise<Signature>;
+  signMessage(message: Buffer): Promise<EcdsaSignature>;
 }
 
 export class ConstantKeyPair implements KeyPair {
@@ -30,6 +29,6 @@ export class ConstantKeyPair implements KeyPair {
       throw new Error('Cannot sign over empty message.');
     }
 
-    return Promise.resolve(Signature.random());
+    return Promise.resolve(EcdsaSignature.random());
   }
 }

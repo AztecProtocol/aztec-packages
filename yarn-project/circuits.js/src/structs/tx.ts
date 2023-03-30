@@ -25,6 +25,10 @@ export class ContractDeploymentData {
       this.portalContractAddress,
     );
   }
+
+  public static empty() {
+    return new ContractDeploymentData(Fr.ZERO, Fr.ZERO, Fr.ZERO, EthAddress.ZERO);
+  }
 }
 
 /**

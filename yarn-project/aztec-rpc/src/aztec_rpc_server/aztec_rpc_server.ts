@@ -3,7 +3,9 @@ import { AztecNode } from '@aztec/aztec-node';
 import {
   ARGS_LENGTH,
   AztecAddress,
+  CircuitsWasm,
   ContractDeploymentData,
+  EcdsaSignature,
   EthAddress,
   FunctionData,
   OldTreeRoots,
@@ -36,6 +38,7 @@ export class AztecRPCServer implements AztecRPCClient {
     private kernelProver: KernelProver,
     private node: AztecNode,
     private db: Database,
+    private wasm: CircuitsWasm,
     private log = createDebugLogger('aztec:rpc_server'),
   ) {
     this.synchroniser = new Synchroniser(node, db);
@@ -163,7 +166,7 @@ export class AztecRPCServer implements AztecRPCClient {
     return this.keyStore.signTxRequest(txRequest);
   }
 
-  public async createTx(txRequest: TxRequest, signature: Signature) {
+  public async createTx(txRequest: TxRequest, signature: EcdsaSignature) {
     let contractAddress;
 
     if (txRequest.to.equals(AztecAddress.ZERO)) {
@@ -202,6 +205,7 @@ export class AztecRPCServer implements AztecRPCClient {
       signature,
       executionResult,
       oldRoots as any, // TODO - remove `as any`
+      this.wasm,
     );
     const tx = new Tx(publicInputs, new UInt8Vector(Buffer.alloc(0)), Buffer.alloc(0));
     const dao: TxDao = new TxDao(tx.txHash, undefined, undefined, txRequest.from, undefined, txRequest.to, '');

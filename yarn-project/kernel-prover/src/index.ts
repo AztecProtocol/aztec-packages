@@ -22,81 +22,46 @@ import {
   OptionallyRevealedData,
   PrivateKernelPublicInputs,
   TxRequest,
+  CircuitsWasm,
+  SignedTxRequest,
+  PrivateCallData,
+  PRIVATE_CALL_STACK_LENGTH,
+  PrivateCallStackItem,
+  PreviousKernelData,
+  UInt8Vector,
+  EcdsaSignature,
+  MembershipWitness,
+  CONTRACT_TREE_HEIGHT,
 } from '@aztec/circuits.js';
 import { randomBytes } from 'crypto';
 
 export class KernelProver {
   prove(
     txRequest: TxRequest,
-    txSignature: unknown,
+    txSignature: EcdsaSignature,
     executionResult: ExecutionResult,
     oldRoots: OldTreeRoots,
+    wasm: CircuitsWasm,
+    getContractSiblingPath: (committment: Buffer) => Promise<MembershipWitness<typeof CONTRACT_TREE_HEIGHT>>,
   ): Promise<{ publicInputs: PrivateKernelPublicInputs; proof: Buffer }> {
     // TODO: implement this
-    const createRandomFields = (num: number) => {
-      return Array(num)
-        .fill(0)
-        .map(() => Fr.random());
+    const signedTxRequest: SignedTxRequest = {
+      txRequest,
+      signature: txSignature,
     };
-    const createRandomContractData = () => {
-      return new NewContractData(AztecAddress.random(), new EthAddress(randomBytes(20)), createRandomFields(1)[0]);
-    };
-    const newContracts = [];
-    if (txRequest.functionData.isConstructor) {
-      newContracts.push(
-        new NewContractData(
-          txRequest.to,
-          txRequest.txContext.contractDeploymentData.portalContractAddress,
-          txRequest.txContext.contractDeploymentData.functionTreeRoot,
-        ),
-      );
-    }
-    newContracts.push(
-      ...Array(KERNEL_NEW_CONTRACTS_LENGTH - newContracts.length)
-        .fill(0)
-        .map(() => createRandomContractData()),
-    );
 
-    const aggregationObject = new AggregationObject(
-      new AffineElement(new Fq(0n), new Fq(0n)),
-      new AffineElement(new Fq(0n), new Fq(0n)),
-      [],
-      [],
-      false,
-    );
-    const createOptionallyRevealedData = () => {
-      const optionallyRevealedData = new OptionallyRevealedData(
-        createRandomFields(1)[0],
-        new FunctionData(1, true, true),
-        createRandomFields(EMITTED_EVENTS_LENGTH),
-        createRandomFields(1)[0],
-        new EthAddress(randomBytes(20)),
-        true,
-        true,
-        true,
-        true,
-      );
-      return optionallyRevealedData;
+    const privateCallData: PrivateCallData = {
+      callStackItem: executionResult.callStackItem,
+      privateCallStackPreimages: Array(PRIVATE_CALL_STACK_LENGTH).fill(0).map(() => PrivateCallStackItem.empty()),
+      proof: new UInt8Vector(Buffer.alloc(256)),
+      vk: executionResult.vk,
+      functionLeafMembershipWitness: // get from wasm
+      contractLeafMembershipWitness: //grab sibling paths from aztec node
+      portalContractAddress: txRequest.txContext.contractDeploymentData.portalContractAddress,    
     };
-    const accumulatedTxData = new AccumulatedData(
-      aggregationObject,
-      new Fr(0n),
-      createRandomFields(KERNEL_NEW_COMMITMENTS_LENGTH),
-      createRandomFields(KERNEL_NEW_NULLIFIERS_LENGTH),
-      createRandomFields(KERNEL_PRIVATE_CALL_STACK_LENGTH),
-      createRandomFields(KERNEL_PUBLIC_CALL_STACK_LENGTH),
-      createRandomFields(KERNEL_L1_MSG_STACK_LENGTH),
-      newContracts,
-      Array(KERNEL_OPTIONALLY_REVEALED_DATA_LENGTH)
-        .fill(0)
-        .map(() => createOptionallyRevealedData()),
-    );
 
-    const publicInputs = new PrivateKernelPublicInputs(
-      accumulatedTxData,
-      new ConstantData(oldRoots, txRequest.txContext),
-      true,
-    );
+    
+
 
     return Promise.resolve({
       publicInputs,

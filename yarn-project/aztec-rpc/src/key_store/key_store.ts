@@ -1,10 +1,9 @@
-import { AztecAddress, TxRequest } from '@aztec/circuits.js';
-import { Signature } from '../circuits.js';
+import { AztecAddress, EcdsaSignature, TxRequest } from '@aztec/circuits.js';
 
 export interface KeyStore {
   addAccount(): Promise<AztecAddress>;
   getAccounts(): Promise<AztecAddress[]>;
   getAccountPrivateKey(address: AztecAddress): Promise<Buffer>;
   getSigningPublicKeys(): Promise<AztecAddress[]>;
-  signTxRequest(txRequest: TxRequest): Promise<Signature>;
+  signTxRequest(txRequest: TxRequest): Promise<EcdsaSignature>;
 }
