@@ -490,16 +490,18 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/sequencer-client@workspace:sequencer-client"
   dependencies:
+    "@aztec/archiver": "workspace:^"
+    "@aztec/barretenberg.js": "workspace:^"
     "@aztec/circuits.js": "workspace:^"
     "@aztec/ethereum.js": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/l1-contracts": "workspace:^"
     "@aztec/l2-block": "workspace:^"
-    "@aztec/merkle-tree": "workspace:^"
     "@aztec/p2p": "workspace:^"
     "@aztec/tx": "workspace:^"
     "@aztec/world-state": "workspace:^"
     "@jest/globals": ^29.4.3
+    "@monorepo-utils/workspaces-to-typescript-project-references": ^2.9.0
     "@rushstack/eslint-patch": ^1.1.4
     "@types/jest": ^29.4.0
     "@types/lodash.flatmap": ^4.5.7

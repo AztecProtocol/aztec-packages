@@ -5,16 +5,16 @@
     "rootDir": "src",
     "tsBuildInfoFile": ".tsbuildinfo"
   },
-  "include": ["src", "test"],
+  "include": [
+    "src",
+    "test"
+  ],
   "references": [
     {
-      "path": "../circuits.js"
+      "path": "../archiver"
     },
     {
       "path": "../ethereum.js"
-    },
-    {
-      "path": "../foundation"
     },
     {
       "path": "../l1-contracts"
@@ -23,16 +23,22 @@
       "path": "../l2-block"
     },
     {
-      "path": "../merkle-tree"
+      "path": "../circuits.js"
     },
     {
-      "path": "../p2p"
+      "path": "../world-state"
     },
     {
       "path": "../tx"
     },
     {
-      "path": "../world-state"
+      "path": "../barretenberg.js"
+    },
+    {
+      "path": "../p2p"
+    },
+    {
+      "path": "../foundation"
     }
   ]
 }

@@ -7,6 +7,7 @@ import { fileURLToPath } from 'url';
 
 import { numToUInt32LE } from './serialize.js';
 import { Crs } from '../crs/index.js';
+import { existsSync } from 'fs';
 
 /**
  * Get the WASM binary for barretenberg.
@@ -15,7 +16,11 @@ import { Crs } from '../crs/index.js';
 export async function fetchCode() {
   if (isNode) {
     const __dirname = dirname(fileURLToPath(import.meta.url));
-    return await readFile(__dirname + '/barretenberg.wasm');
+    let path = __dirname + '/barretenberg.wasm';
+    if (!existsSync(path)) {
+      path = __dirname + '/../src/wasm/barretenberg.wasm';
+    }
+    return await readFile(path);
   } else {
     const res = await fetch('/barretenberg.wasm');
     return Buffer.from(await res.arrayBuffer());
