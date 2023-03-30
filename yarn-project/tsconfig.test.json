@@ -16,7 +16,7 @@
     "resolveJsonModule": true,
     "composite": true
   },
-  "include": ["../**/*.ts", "**/*.tsx", "<tsconfigRootDir>/**/*.ts"],
+  "include": ["**/*.ts", "**/*.tsx"],
   "references": [
     { "path": "archiver/tsconfig.dest.json" },
     { "path": "barretenberg.js/tsconfig.dest.json" },
