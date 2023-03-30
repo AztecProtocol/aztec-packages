@@ -11,17 +11,19 @@ import {
   FunctionData,
   MembershipWitness,
   OldTreeRoots,
+  PrivateCallStackItem,
   TxContext,
   TxRequest,
   UInt8Vector,
 } from '@aztec/circuits.js';
 import { hashVK } from '@aztec/circuits.js/abis';
-import { createDebugLogger, Fr } from '@aztec/foundation';
+import { createDebugLogger, Fr, numToInt32BE } from '@aztec/foundation';
 import { KernelProver } from '@aztec/kernel-prover';
 import { Tx, TxHash } from '@aztec/tx';
 import { generateFunctionSelector } from '../abi_coder/index.js';
 import { AztecRPCClient, DeployedContract } from '../aztec_rpc_client/index.js';
 import { selectorToNumber } from '../circuits.js';
+import { ContractDao } from '../contract_database/index.js';
 import { ContractTree } from '../contract_tree/index.js';
 import { Database } from '../database/database.js';
 import { TxDao } from '../database/tx_dao.js';
@@ -211,18 +213,32 @@ export class AztecRPCServer implements AztecRPCClient {
       contract.portalAddress,
       oldRoots,
     );
+
     const { publicInputs } = await this.kernelProver.prove(
       txRequest as any, // TODO - remove `as any`
       signature,
       executionResult,
       oldRoots as any, // TODO - remove `as any`
       this.circuitsWasm,
+      (callStackItem: PrivateCallStackItem) => {
+        return this.getFunctionTreeInfo(contract, callStackItem);
+      },
       this.getContractSiblingPath,
     );
     const tx = new Tx(publicInputs, new UInt8Vector(Buffer.alloc(0)), Buffer.alloc(0));
     const dao: TxDao = new TxDao(tx.txHash, undefined, undefined, txRequest.from, undefined, txRequest.to, '');
     await this.db.addOrUpdateTx(dao);
     return tx;
+  }
+
+  private async getFunctionTreeInfo(contract: ContractDao, callStackItem: PrivateCallStackItem) {
+    const tree = new ContractTree(contract, this.circuitsWasm);
+    const index =
+      contract.functions.findIndex(f => f.selector.equals(numToInt32BE(callStackItem.functionData.functionSelector))) -
+      1;
+    if (index < 0) {
+      return {} as FunctionTreeInfo;
+    }
   }
 
   /**

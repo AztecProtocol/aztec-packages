@@ -15,35 +15,43 @@ import {
   CONTRACT_TREE_HEIGHT,
   getDummyPreviousKernelData,
   privateKernelSim,
-  privateKernelProve
+  privateKernelProve,
+  FUNCTION_TREE_HEIGHT,
 } from '@aztec/circuits.js';
 
+interface FunctionTreeInfo {
+  root: Buffer;
+  membershipWitness: MembershipWitness<typeof FUNCTION_TREE_HEIGHT>;
+}
+
 export class KernelProver {
-  prove(
+  async prove(
     txRequest: TxRequest,
     txSignature: EcdsaSignature,
     executionResult: ExecutionResult,
     oldRoots: OldTreeRoots,
     wasm: CircuitsWasm,
+    getFunctionTreeInfo: (callStackItem: PrivateCallStackItem) => Promise<FunctionTreeInfo>,
     getContractSiblingPath: (committment: Buffer) => Promise<MembershipWitness<typeof CONTRACT_TREE_HEIGHT>>,
   ): Promise<{ publicInputs: PrivateKernelPublicInputs; proof: Buffer }> {
     // TODO: implement this
-    const signedTxRequest = new SignedTxRequest(
-      txRequest,
-      txSignature,
+    const signedTxRequest = new SignedTxRequest(txRequest, txSignature);
+
+    const functionTreeInfo = await getFunctionTreeInfo(executionResult.callStackItem);
+    const contractLeafMembershipWitness = await getContractSiblingPath(functionTreeInfo.root);
+
+    const privateCallData = new PrivateCallData(
+      executionResult.callStackItem,
+      Array(PRIVATE_CALL_STACK_LENGTH)
+        .fill(0)
+        .map(() => PrivateCallStackItem.empty()),
+      new UInt8Vector(Buffer.alloc(42)),
+      executionResult.vk,
+      functionTreeInfo.membershipWitness,
+      contractLeafMembershipWitness,
+      txRequest.txContext.contractDeploymentData.portalContractAddress,
     );
 
-    const privateCallData: PrivateCallData = {
-      callStackItem: executionResult.callStackItem,
-      privateCallStackPreimages: Array(PRIVATE_CALL_STACK_LENGTH).fill(0).map(() => PrivateCallStackItem.empty()),
-      proof: new UInt8Vector(Buffer.alloc(256)),
-      vk: executionResult.vk,
-      functionLeafMembershipWitness: // get from wasm
-      contractLeafMembershipWitness: //grab sibling paths from aztec node
-      portalContractAddress: txRequest.txContext.contractDeploymentData.portalContractAddress,    
-    };
-
-    
     const previousKernelData: PreviousKernelData = await getDummyPreviousKernelData(wasm);
     const publicInputs = privateKernelSim(wasm, signedTxRequest, previousKernelData, privateCallData);
     const proof = privateKernelProve(wasm, signedTxRequest, previousKernelData, privateCallData);
@@ -137,7 +145,7 @@ export class KernelProver {
   //     }),
   //     false,
   //     Array(16).fill(0).map((_, i) => i),
-  //   ); 
+  //   );
   // }
 
   // private makePreviousKernelData(seed = 1): PreviousKernelData {
