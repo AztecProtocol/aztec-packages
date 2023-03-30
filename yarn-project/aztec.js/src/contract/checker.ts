@@ -1,6 +1,4 @@
-// import { ContractAbi, ABIType } from '@aztec/aztec-rpc';
-
-import { ContractAbi, ABIType } from './types.js';
+import { ContractAbi, ABIType, StructType } from '@aztec/aztec-rpc';
 
 export function abiChecker(abi: ContractAbi) {
   if (!abi.functions || abi.functions.length === 0) {
@@ -38,33 +36,44 @@ function abiParameterTypeChecker(type: ABIType): boolean {
   switch (type.kind) {
     case 'field':
     case 'boolean':
-      return true;
+      return checkAttributeCount(type, 1);
     case 'integer':
-      if (!('sign' in type && typeof type.sign === 'string')) {
+      if (!('sign' in type && typeof type.sign === 'string') || !('width' in type && typeof type.width === 'number')) {
         throw new Error('ABI function parameter has an incorrectly formed integer');
       }
-      return true;
+      return checkAttributeCount(type, 3);
     case 'string':
       if (!('length' in type && typeof type.length === 'number')) {
         throw new Error('ABI function parameter has an incorrectly formed string');
       }
-      return true;
+      return checkAttributeCount(type, 2);
     case 'array':
       if (!('length' in type && typeof type.length === 'number' && 'type' in type)) {
         throw new Error('ABI function parameter has an incorrectly formed array');
       }
-      return abiParameterTypeChecker(type.type);
+      return abiParameterTypeChecker(type.type) && checkAttributeCount(type, 3);
     case 'struct':
       if (!('fields' in type)) {
         throw new Error('ABI function parameter has an incorrectly formed struct');
       }
-      return type.fields.reduce((acc, field) => {
-        if (!('name' in field && typeof field.name === 'string')) {
-          throw new Error('ABI function parameter has an incorrectly formed struct');
-        }
-        return acc && abiParameterTypeChecker(field.type);
-      }, true);
+      return checkStruct(type) && checkAttributeCount(type, 2);
     default:
       throw new Error('ABI function parameter has an unrecognised type');
   }
+}
+
+function checkStruct(type: StructType) {
+  return type.fields.reduce((acc, field) => {
+    if (!('name' in field && typeof field.name === 'string')) {
+      throw new Error('ABI function parameter has an incorrectly formed struct');
+    }
+    return acc && abiParameterTypeChecker(field.type);
+  }, true);
+}
+
+function checkAttributeCount(type: ABIType, length: number) {
+  if (Object.keys(type).length > length) {
+    throw new Error(`Unrecognised attribute on type ${type.kind}`);
+  }
+  return true;
 }
