@@ -191,9 +191,13 @@ export class AztecRPCServer implements AztecRPCClient {
   }
 
   public async createTx(txRequest: TxRequest, signature: Signature) {
+    const accountState = this.synchroniser.getAccount(txRequest.from);
+    if (!accountState) {
+      throw new Error('Cannot create tx for an unauthorized account.');
+    }
+
     const contractAddress = txRequest.to;
     const contract = await this.db.getContract(txRequest.to);
-
     if (!contract) {
       throw new Error('Unknown contract.');
     }
@@ -218,12 +222,16 @@ export class AztecRPCServer implements AztecRPCClient {
       executionResult,
       oldRoots as any, // TODO - remove `as any`
     );
-    const tx = new Tx(publicInputs, new UInt8Vector(Buffer.alloc(0)), Buffer.alloc(0));
+
+    const unverifiedData = accountState.createUnverifiedData(contractAddress, executionResult.preimages.newNotes);
+    const tx = new Tx(publicInputs, new UInt8Vector(Buffer.alloc(0)), unverifiedData);
+
     const [toContract, newContract] = txRequest.functionData.isConstructor
       ? [undefined, contractAddress]
       : [contractAddress, undefined];
     const dao = new TxDao(tx.txHash, undefined, undefined, txRequest.from, toContract, newContract, '');
     await this.db.addTx(dao);
+
     return tx;
   }
 
@@ -236,6 +244,7 @@ export class AztecRPCServer implements AztecRPCClient {
     await this.node.sendTx(tx);
     return tx.txHash;
   }
+
   /**
    * Fetchs a transaction receipt for a tx
    * @param txHash - The transaction hash
