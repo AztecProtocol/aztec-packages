@@ -1,4 +1,4 @@
-import { ACVMField, ACVMWitness, fromACVMField, toACVMField } from './acvm.js';
+import { ACVMField, ACVMWitness, fromACVMField, toACVMField } from './fields.js';
 import {
   ARGS_LENGTH,
   AztecAddress,
