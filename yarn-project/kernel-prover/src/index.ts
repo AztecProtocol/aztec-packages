@@ -73,7 +73,7 @@ export class KernelProver {
   }
 
   private createDummyVk() {
-    return new VerificationKey(ComposerType.TURBO, 1, 1, new CommitmentMap({}), false, []);
+    return VerificationKey.makeFake();
   }
 
   private createRandomMembershipWitness() {
