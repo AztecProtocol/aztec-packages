@@ -34,16 +34,16 @@
     "rootDir": "./src"
   },
   "dependencies": {
+    "@aztec/archiver": "workspace:^",
     "@aztec/ethereum.js": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "@aztec/l1-contracts": "workspace:^",
-    "@aztec/tx": "workspace:^",
-    "@aztec/archiver": "workspace:^",
     "@aztec/l2-block": "workspace:^",
-    "@aztec/p2p": "workspace:^",
-    "@aztec/world-state": "workspace:^",
-    "@aztec/sequencer-client": "workspace:^",
     "@aztec/merkle-tree": "workspace:^",
+    "@aztec/p2p": "workspace:^",
+    "@aztec/sequencer-client": "workspace:^",
+    "@aztec/tx": "workspace:^",
+    "@aztec/world-state": "workspace:^",
     "tslib": "^2.4.0"
   },
   "devDependencies": {

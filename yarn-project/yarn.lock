@@ -42,7 +42,6 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/archiver@workspace:archiver"
   dependencies:
-    "@aztec/circuits.js": "workspace:^"
     "@aztec/ethereum.js": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/l1-contracts": "workspace:^"
@@ -95,6 +94,7 @@ __metadata:
     "@aztec/foundation": "workspace:^"
     "@aztec/l1-contracts": "workspace:^"
     "@aztec/l2-block": "workspace:^"
+    "@aztec/merkle-tree": "workspace:^"
     "@aztec/p2p": "workspace:^"
     "@aztec/sequencer-client": "workspace:^"
     "@aztec/tx": "workspace:^"
@@ -118,8 +118,11 @@ __metadata:
   dependencies:
     "@aztec/acir-simulator": "workspace:^"
     "@aztec/aztec-node": "workspace:^"
+    "@aztec/barretenberg.js": "workspace:^"
+    "@aztec/circuits.js": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/kernel-prover": "workspace:^"
+    "@aztec/l2-block": "workspace:^"
     "@aztec/noir-contracts": "workspace:^"
     "@aztec/tx": "workspace:^"
     "@jest/globals": ^29.4.3
@@ -141,10 +144,9 @@ __metadata:
   resolution: "@aztec/aztec.js@workspace:aztec.js"
   dependencies:
     "@aztec/aztec-rpc": "workspace:^"
+    "@aztec/circuits.js": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/noir-contracts": "workspace:^"
-    "@aztec/sequencer-client": "workspace:^"
-    "@aztec/tx": "workspace:^"
     "@jest/globals": ^29.4.3
     "@rushstack/eslint-patch": ^1.1.4
     "@types/jest": ^29.4.0
@@ -235,6 +237,8 @@ __metadata:
     "@aztec/aztec-node": "workspace:^"
     "@aztec/aztec.js": "workspace:^"
     "@aztec/ethereum.js": "workspace:^"
+    "@aztec/foundation": "workspace:^"
+    "@aztec/l1-contracts": "workspace:^"
     "@aztec/noir-contracts": "workspace:^"
     "@jest/globals": ^29.4.3
     "@rushstack/eslint-patch": ^1.1.4
@@ -266,7 +270,6 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/ethereum.js@workspace:ethereum.js"
   dependencies:
-    "@aztec/foundation": "workspace:^"
     "@jest/globals": ^29.5.0
     "@rushstack/eslint-patch": ^1.2.0
     "@types/elliptic": ^6.4.14
@@ -346,8 +349,6 @@ __metadata:
   resolution: "@aztec/kernel-prover@workspace:kernel-prover"
   dependencies:
     "@aztec/acir-simulator": "workspace:^"
-    "@aztec/circuits.js": "workspace:^"
-    "@aztec/foundation": "workspace:^"
     "@jest/globals": ^29.4.3
     "@rushstack/eslint-patch": ^1.1.4
     "@types/jest": ^29.4.0
@@ -364,7 +365,6 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/key-store@workspace:key-store"
   dependencies:
-    "@aztec/foundation": "workspace:^"
     "@jest/globals": ^29.4.3
     "@rushstack/eslint-patch": ^1.1.4
     "@types/jest": ^29.4.0
@@ -400,6 +400,7 @@ __metadata:
   dependencies:
     "@aztec/circuits.js": "workspace:^"
     "@aztec/foundation": "workspace:^"
+    "@aztec/l1-contracts": "workspace:^"
     "@jest/globals": ^29.4.3
     "@rushstack/eslint-patch": ^1.1.4
     "@types/jest": ^29.4.0
@@ -441,7 +442,6 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/noir-contracts@workspace:noir-contracts"
   dependencies:
-    "@aztec/foundation": "workspace:^"
     "@jest/globals": ^29.4.3
     "@noir-lang/noir-source-resolver": ^1.1.0
     "@noir-lang/noir_wasm": 0.3.2-29b1f7df
@@ -461,6 +461,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/p2p@workspace:p2p"
   dependencies:
+    "@aztec/circuits.js": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/l2-block": "workspace:^"
     "@aztec/tx": "workspace:^"
@@ -508,7 +509,6 @@ __metadata:
     "@aztec/tx": "workspace:^"
     "@aztec/world-state": "workspace:^"
     "@jest/globals": ^29.4.3
-    "@monorepo-utils/workspaces-to-typescript-project-references": ^2.9.0
     "@rushstack/eslint-patch": ^1.1.4
     "@types/jest": ^29.4.0
     "@types/lodash.flatmap": ^4.5.7
@@ -532,7 +532,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/tx@workspace:tx"
   dependencies:
-    "@aztec/circuits.js": "workspace:^"
+    "@aztec/foundation": "workspace:^"
     "@aztec/l2-block": "workspace:^"
     "@jest/globals": ^29.4.3
     "@rushstack/eslint-patch": ^1.1.4

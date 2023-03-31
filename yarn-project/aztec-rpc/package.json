@@ -30,15 +30,15 @@
     "rootDir": "./src"
   },
   "dependencies": {
-    "@aztec/circuits.js": "workspace:^",
-    "@aztec/tx": "workspace:^",
-    "@aztec/foundation": "workspace:^",
-    "@aztec/aztec-node": "workspace:^",
     "@aztec/acir-simulator": "workspace:^",
-    "@aztec/kernel-prover": "workspace:^",
+    "@aztec/aztec-node": "workspace:^",
     "@aztec/barretenberg.js": "workspace:^",
-    "@aztec/noir-contracts": "workspace:^",
+    "@aztec/circuits.js": "workspace:^",
+    "@aztec/foundation": "workspace:^",
+    "@aztec/kernel-prover": "workspace:^",
     "@aztec/l2-block": "workspace:^",
+    "@aztec/noir-contracts": "workspace:^",
+    "@aztec/tx": "workspace:^",
     "browserify-cipher": "^1.0.1",
     "sha3": "^2.1.4",
     "tslib": "^2.4.0"

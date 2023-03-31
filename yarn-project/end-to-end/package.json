@@ -28,11 +28,11 @@
   },
   "dependencies": {
     "@aztec/aztec-node": "workspace:^",
-    "@aztec/ethereum.js": "workspace:^",
     "@aztec/aztec.js": "workspace:^",
+    "@aztec/ethereum.js": "workspace:^",
     "@aztec/foundation": "workspace:^",
-    "@aztec/noir-contracts": "workspace:^",
     "@aztec/l1-contracts": "workspace:^",
+    "@aztec/noir-contracts": "workspace:^",
     "@types/jest": "^29.4.0",
     "jest": "^28.1.3",
     "ts-jest": "^28.0.7",

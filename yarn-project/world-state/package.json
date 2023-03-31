@@ -27,11 +27,11 @@
     "rootDir": "./src"
   },
   "dependencies": {
+    "@aztec/barretenberg.js": "workspace:^",
+    "@aztec/circuits.js": "workspace:^",
+    "@aztec/foundation": "workspace:^",
     "@aztec/l2-block": "workspace:^",
     "@aztec/merkle-tree": "workspace:^",
-    "@aztec/foundation": "workspace:^",
-    "@aztec/circuits.js": "workspace:^",
-    "@aztec/barretenberg.js": "workspace:^",
     "levelup": "^5.1.1",
     "memdown": "^6.1.1",
     "tslib": "^2.4.0"
