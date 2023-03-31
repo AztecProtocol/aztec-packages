@@ -11,6 +11,7 @@
     "displayName": "L1 Contracts"
   },
   "scripts": {
+    "prepare": "../../scripts/derive-package-deps.py package.json",
     "build": "yarn clean && tsc -b",
     "build:dev": "tsc -b --watch",
     "generate": "contract_gen_def && bash scripts/update-viem-abis.sh && yarn formatting:fix",

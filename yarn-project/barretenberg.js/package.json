@@ -12,6 +12,7 @@
     "displayName": "Barretenberg.js"
   },
   "scripts": {
+    "prepare": "../../scripts/derive-package-deps.py package.json",
     "build": "tsc -b",
     "build:dev": "tsc -b --watch",
     "clean": "rm -rf ./dest .tsbuildinfo",

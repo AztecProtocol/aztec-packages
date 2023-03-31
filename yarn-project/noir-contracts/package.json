@@ -11,6 +11,7 @@
     "displayName": "Noir contracts"
   },
   "scripts": {
+    "prepare": "../../scripts/derive-package-deps.py package.json",
     "build": "yarn clean && tsc -b",
     "build:dev": "tsc --watch",
     "clean": "rm -rf ./dest .tsbuildinfo",

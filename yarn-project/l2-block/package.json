@@ -7,6 +7,7 @@
     "entryPoint": "./src/index.ts"
   },
   "scripts": {
+    "prepare": "../../scripts/derive-package-deps.py package.json",
     "build": "yarn clean && tsc -b",
     "build:dev": "tsc -b --watch",
     "clean": "rm -rf ./dest .tsbuildinfo",

@@ -23,6 +23,7 @@
     "./crypto": "./dest/crypto/index.js"
   },
   "scripts": {
+    "prepare": "../../scripts/derive-package-deps.py package.json",
     "build": "yarn clean && tsc -b",
     "build:dev": "yarn build --watch",
     "clean": "rm -rf ./dest .tsbuildinfo",
