@@ -1,3 +1,4 @@
+import { FunctionData } from '@aztec/circuits.js';
 import {
   computeContractAddress,
   computeFunctionLeaf,
@@ -9,7 +10,7 @@ import { CircuitsWasm } from '@aztec/circuits.js/wasm';
 import { AztecAddress, EthAddress, Fr, keccak } from '@aztec/foundation';
 import { generateFunctionSelector } from '../abi_coder/index.js';
 import { ContractDao, ContractFunctionDao } from '../contract_database/index.js';
-import { ContractAbi, FunctionType } from '../noir.js';
+import { ContractAbi, FunctionType } from '@aztec/noir-contracts';
 
 function isConstructor({ name }: { name: string }) {
   return name === 'constructor';
@@ -55,8 +56,8 @@ export class ContractTree {
     const constructorSelector = generateFunctionSelector(constructorFunc.name, constructorFunc.parameters);
     const constructorHash = hashConstructor(
       wasm,
-      constructorSelector,
-      args.map(a => a.toBuffer()),
+      new FunctionData(constructorSelector),
+      args,
       Buffer.from(constructorFunc.verificationKey!, 'hex'),
     );
     const address = computeContractAddress(
