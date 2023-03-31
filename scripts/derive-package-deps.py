@@ -38,7 +38,7 @@ def update_dependencies(package_json_file: str):
 
     # Filter out existing Aztec dependencies
     existing_dependencies = {
-        key: value for key, value in package_data["dependencies"].items()
+        key: value for key, value in package_data.get("dependencies", {}).items()
         if not key.startswith("@aztec/")
     }
 
@@ -74,20 +74,24 @@ def update_build_manifest(build_manifest_file: str, dependencies: dict, project_
 
 # Entry point for the script
 if __name__ == "__main__":
-    # Check if the path to the package.json file is provided as a command-line argument
-    if len(sys.argv) == 1:
-        print(f"Usage: {sys.argv[0]} path/to/package.json")
-        sys.exit(1)
+    try:
+        # Check if the path to the package.json file is provided as a command-line argument
+        if len(sys.argv) == 1:
+            print(f"Usage: {sys.argv[0]} path/to/package.json")
+            sys.exit(1)
 
-    # Call the update_dependencies function with the provided package.json file path
-    package_json_file = sys.argv[1]
-    dependencies = update_dependencies(package_json_file)
+        # Call the update_dependencies function with the provided package.json file path
+        package_json_file = sys.argv[1]
+        dependencies = update_dependencies(package_json_file)
 
-    # Get the directory name of the directory that holds package.json
-    project_key = os.path.basename(os.path.dirname(os.path.abspath(package_json_file)))
+        # Get the directory name of the directory that holds package.json
+        project_key = os.path.basename(os.path.dirname(os.path.abspath(package_json_file)))
 
-    # Add the path to the build-manifest.json file
-    build_manifest_file = os.path.join(os.path.dirname(package_json_file), '..', '..', 'build_manifest.json')
+        # Add the path to the build-manifest.json file
+        build_manifest_file = os.path.join(os.path.dirname(package_json_file), '..', '..', 'build_manifest.json')
 
-    # Call the update_build_manifest function with the provided build_manifest file path, the dependencies, and the project_key
-    update_build_manifest(build_manifest_file, dependencies, project_key)
+        # Call the update_build_manifest function with the provided build_manifest file path, the dependencies, and the project_key
+        update_build_manifest(build_manifest_file, dependencies, project_key)
+    except Exception as err:
+        print("Failed updating " + os.path.abspath(sys.argv[1]))
+        print(err)

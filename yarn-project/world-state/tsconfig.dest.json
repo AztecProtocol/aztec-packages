@@ -7,20 +7,22 @@
   },
   "references": [
     {
-      "path": "../barretenberg.js"
+      "path": "../l2-block/tsconfig.dest.json"
     },
     {
-      "path": "../circuits.js"
+      "path": "../merkle-tree/tsconfig.dest.json"
     },
     {
-      "path": "../foundation"
+      "path": "../foundation/tsconfig.dest.json"
     },
     {
-      "path": "../l2-block"
+      "path": "../circuits.js/tsconfig.dest.json"
     },
     {
-      "path": "../merkle-tree"
+      "path": "../barretenberg.js/tsconfig.dest.json"
     }
   ],
-  "include": ["src"]
+  "include": [
+    "src"
+  ]
 }

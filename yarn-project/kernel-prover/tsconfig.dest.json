@@ -5,16 +5,8 @@
     "rootDir": "src",
     "tsBuildInfoFile": ".tsbuildinfo"
   },
-  "references": [
-    {
-      "path": "../acir-simulator"
-    },
-    {
-      "path": "../circuits.js"
-    },
-    {
-      "path": "../foundation"
-    }
-  ],
-  "include": ["src"]
+  "references": [],
+  "include": [
+    "src"
+  ]
 }

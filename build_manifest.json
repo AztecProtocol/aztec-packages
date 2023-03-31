@@ -2,32 +2,44 @@
   "aztec3-circuits-wasm-linux-clang": {
     "buildDir": "circuits/cpp",
     "dockerfile": "dockerfiles/Dockerfile.wasm-linux-clang",
-    "rebuildPatterns": ["^circuits/"],
+    "rebuildPatterns": [
+      "^circuits/"
+    ],
     "dependencies": []
   },
   "circuits-x86_64-linux-clang": {
     "buildDir": "circuits",
     "dockerfile": "dockerfiles/Dockerfile.x86_64-linux-clang",
-    "rebuildPatterns": ["^circuits/"],
+    "rebuildPatterns": [
+      "^circuits/"
+    ],
     "dependencies": []
   },
   "circuits-x86_64-linux-clang-assert": {
     "buildDir": "circuits",
     "dockerfile": "dockerfiles/Dockerfile.x86_64-linux-clang-assert",
-    "rebuildPatterns": ["^circuits/"],
+    "rebuildPatterns": [
+      "^circuits/"
+    ],
     "dependencies": []
   },
   "circuits-x86_64-linux-gcc": {
     "buildDir": "circuits",
     "dockerfile": "dockerfiles/Dockerfile.x86_64-linux-gcc",
-    "rebuildPatterns": ["^circuits/"],
+    "rebuildPatterns": [
+      "^circuits/"
+    ],
     "dependencies": []
   },
   "l1-contracts": {
     "buildDir": "l1-contracts",
     "dockerfile": "Dockerfile",
-    "rebuildPatterns": ["^l1-contracts/"],
-    "dependencies": []
+    "rebuildPatterns": [
+      "^l1-contracts/"
+    ],
+    "dependencies": [
+      "ethereum.js"
+    ]
   },
   "yarn-project-base": {
     "buildDir": "yarn-project",
@@ -42,160 +54,280 @@
     "buildDir": "yarn-project",
     "projectDir": "yarn-project/acir-simulator",
     "dockerfile": "acir-simulator/Dockerfile",
-    "rebuildPatterns": ["^yarn-project/acir-simulator/"],
-    "dependencies": ["yarn-project-base", "circuits.js"]
+    "rebuildPatterns": [
+      "^yarn-project/acir-simulator/"
+    ],
+    "dependencies": [
+      "circuits.js",
+      "noir-contracts"
+    ]
   },
   "archiver": {
     "buildDir": "yarn-project",
     "projectDir": "yarn-project/archiver",
     "dockerfile": "archiver/Dockerfile",
-    "rebuildPatterns": ["^yarn-project/archiver/"],
-    "dependencies": ["foundation", "ethereum.js", "l1-contracts", "l2-block"]
+    "rebuildPatterns": [
+      "^yarn-project/archiver/"
+    ],
+    "dependencies": [
+      "ethereum.js",
+      "l1-contracts",
+      "l2-block",
+      "foundation"
+    ]
   },
   "aztec-cli": {
     "buildDir": "yarn-project",
     "projectDir": "yarn-project/aztec-cli",
     "dockerfile": "aztec-cli/Dockerfile",
-    "rebuildPatterns": ["^yarn-project/aztec-cli/"],
-    "dependencies": ["aztec.js"]
+    "rebuildPatterns": [
+      "^yarn-project/aztec-cli/"
+    ],
+    "dependencies": []
   },
   "aztec-rpc": {
     "buildDir": "yarn-project",
     "projectDir": "yarn-project/aztec-rpc",
     "dockerfile": "aztec-rpc/Dockerfile",
-    "rebuildPatterns": ["^yarn-project/aztec-rpc/"],
-    "dependencies": ["aztec-node"]
+    "rebuildPatterns": [
+      "^yarn-project/aztec-rpc/"
+    ],
+    "dependencies": [
+      "circuits.js",
+      "tx",
+      "foundation",
+      "aztec-node",
+      "acir-simulator",
+      "kernel-prover",
+      "barretenberg.js",
+      "noir-contracts",
+      "l2-block"
+    ]
   },
   "aztec.js": {
     "buildDir": "yarn-project",
     "projectDir": "yarn-project/aztec.js",
     "dockerfile": "aztec.js/Dockerfile",
-    "rebuildPatterns": ["^yarn-project/aztec.js/"],
-    "dependencies": ["aztec-rpc"]
+    "rebuildPatterns": [
+      "^yarn-project/aztec.js/"
+    ],
+    "dependencies": [
+      "aztec-rpc",
+      "circuits.js",
+      "noir-contracts",
+      "foundation"
+    ]
   },
   "barretenberg.js": {
     "buildDir": "yarn-project",
     "projectDir": "yarn-project/barretenberg.js",
     "dockerfile": "barretenberg.js/Dockerfile",
-    "rebuildPatterns": ["^yarn-project/barretenberg.js/"],
-    "dependencies": []
+    "rebuildPatterns": [
+      "^yarn-project/barretenberg.js/"
+    ],
+    "dependencies": [
+      "foundation"
+    ]
   },
   "circuits.js": {
     "buildDir": "yarn-project",
     "projectDir": "yarn-project/circuits.js",
     "dockerfile": "circuits.js/Dockerfile",
-    "rebuildPatterns": ["^yarn-project/circuits.js/"],
-    "dependencies": []
+    "rebuildPatterns": [
+      "^yarn-project/circuits.js/"
+    ],
+    "dependencies": [
+      "foundation"
+    ]
   },
   "end-to-end": {
     "buildDir": "yarn-project",
     "projectDir": "yarn-project/end-to-end",
     "dockerfile": "end-to-end/Dockerfile",
-    "rebuildPatterns": ["^yarn-project/end-to-end/"],
-    "dependencies": ["aztec.js", "noir-contracts"]
+    "rebuildPatterns": [
+      "^yarn-project/end-to-end/"
+    ],
+    "dependencies": [
+      "aztec-node",
+      "ethereum.js",
+      "aztec.js",
+      "foundation",
+      "noir-contracts",
+      "l1-contracts"
+    ]
+  },
+  "docs": {
+    "buildDir": "yarn-project",
+    "projectDir": "yarn-project/docs",
+    "dockerfile": "docs/Dockerfile",
+    "rebuildPatterns": [
+      "^yarn-project/docs/"
+    ],
+    "dependencies": []
   },
   "ethereum.js": {
     "buildDir": "yarn-project",
     "projectDir": "yarn-project/ethereum.js",
     "dockerfile": "ethereum.js/Dockerfile",
-    "rebuildPatterns": ["^yarn-project/ethereum.js/"],
-    "dependencies": ["foundation"]
+    "rebuildPatterns": [
+      "^yarn-project/ethereum.js/"
+    ],
+    "dependencies": [
+      "ethereum.js"
+    ]
   },
   "foundation": {
     "buildDir": "yarn-project",
     "projectDir": "yarn-project/foundation",
     "dockerfile": "foundation/Dockerfile",
-    "rebuildPatterns": ["^yarn-project/foundation/"],
-    "dependencies": ["yarn-project-base"]
+    "rebuildPatterns": [
+      "^yarn-project/foundation/"
+    ],
+    "dependencies": []
   },
   "kernel-prover": {
     "buildDir": "yarn-project",
     "projectDir": "yarn-project/kernel-prover",
     "dockerfile": "kernel-prover/Dockerfile",
-    "rebuildPatterns": ["^yarn-project/kernel-prover/"],
-    "dependencies": ["acir-simulator"]
+    "rebuildPatterns": [
+      "^yarn-project/kernel-prover/"
+    ],
+    "dependencies": [
+      "acir-simulator"
+    ]
   },
   "key-store": {
     "buildDir": "yarn-project",
     "projectDir": "yarn-project/key-store",
     "dockerfile": "key-store/Dockerfile",
-    "rebuildPatterns": ["^yarn-project/key-store/"],
-    "dependencies": ["foundation"]
+    "rebuildPatterns": [
+      "^yarn-project/key-store/"
+    ],
+    "dependencies": []
   },
   "l2-block": {
     "buildDir": "yarn-project",
     "projectDir": "yarn-project/l2-block",
     "dockerfile": "l2-block/Dockerfile",
-    "rebuildPatterns": ["^yarn-project/l2-block/"],
-    "dependencies": ["foundation"]
+    "rebuildPatterns": [
+      "^yarn-project/l2-block/"
+    ],
+    "dependencies": [
+      "circuits.js",
+      "foundation",
+      "l1-contracts"
+    ]
   },
   "merkle-tree": {
     "buildDir": "yarn-project",
     "projectDir": "yarn-project/merkle-tree",
     "dockerfile": "merkle-tree/Dockerfile",
-    "rebuildPatterns": ["^yarn-project/merkle-tree/"],
-    "dependencies": ["foundation", "barretenberg.js"]
+    "rebuildPatterns": [
+      "^yarn-project/merkle-tree/"
+    ],
+    "dependencies": [
+      "barretenberg.js",
+      "foundation"
+    ]
   },
   "noir-contracts": {
     "buildDir": "yarn-project",
     "projectDir": "yarn-project/noir-contracts",
     "dockerfile": "noir-contracts/Dockerfile",
-    "rebuildPatterns": ["^yarn-project/noir-contracts/"],
-    "dependencies": ["foundation"]
+    "rebuildPatterns": [
+      "^yarn-project/noir-contracts/"
+    ],
+    "dependencies": []
   },
   "p2p": {
     "buildDir": "yarn-project",
     "projectDir": "yarn-project/p2p",
     "dockerfile": "p2p/Dockerfile",
-    "rebuildPatterns": ["^yarn-project/p2p/"],
-    "dependencies": ["foundation", "l2-block"]
+    "rebuildPatterns": [
+      "^yarn-project/p2p/"
+    ],
+    "dependencies": [
+      "tx",
+      "l2-block",
+      "foundation",
+      "circuits.js"
+    ]
   },
   "prover-client": {
     "buildDir": "yarn-project",
     "projectDir": "yarn-project/prover-client",
     "dockerfile": "prover-client/Dockerfile",
-    "rebuildPatterns": ["^yarn-project/prover-client/"],
-    "dependencies": ["yarn-project-base"]
+    "rebuildPatterns": [
+      "^yarn-project/prover-client/"
+    ],
+    "dependencies": []
   },
   "aztec-node": {
     "buildDir": "yarn-project",
     "projectDir": "yarn-project/aztec-node",
     "dockerfile": "aztec-node/Dockerfile",
-    "rebuildPatterns": ["^yarn-project/aztec-node/"],
+    "rebuildPatterns": [
+      "^yarn-project/aztec-node/"
+    ],
     "dependencies": [
+      "ethereum.js",
       "foundation",
+      "l1-contracts",
+      "tx",
       "archiver",
-      "world-state",
+      "l2-block",
       "p2p",
+      "world-state",
       "sequencer-client",
-      "ethereum.js"
+      "merkle-tree"
     ]
   },
   "sequencer-client": {
     "buildDir": "yarn-project",
     "projectDir": "yarn-project/sequencer-client",
     "dockerfile": "sequencer-client/Dockerfile",
-    "rebuildPatterns": ["^yarn-project/sequencer-client/"],
+    "rebuildPatterns": [
+      "^yarn-project/sequencer-client/"
+    ],
     "dependencies": [
-      "foundation",
-      "world-state",
+      "archiver",
       "ethereum.js",
+      "l1-contracts",
+      "l2-block",
+      "circuits.js",
+      "world-state",
+      "tx",
+      "barretenberg.js",
       "p2p",
-      "l2-block"
+      "foundation"
     ]
   },
   "tx": {
     "buildDir": "yarn-project",
     "projectDir": "yarn-project/tx",
     "dockerfile": "tx/Dockerfile",
-    "rebuildPatterns": ["^yarn-project/tx/"],
-    "dependencies": ["circuits.js", "l2-block"]
+    "rebuildPatterns": [
+      "^yarn-project/tx/"
+    ],
+    "dependencies": [
+      "l2-block",
+      "circuits.js",
+      "foundation"
+    ]
   },
   "world-state": {
     "buildDir": "yarn-project",
     "projectDir": "yarn-project/world-state",
     "dockerfile": "world-state/Dockerfile",
-    "rebuildPatterns": ["^yarn-project/world-state/"],
-    "dependencies": ["foundation", "merkle-tree", "l2-block"]
+    "rebuildPatterns": [
+      "^yarn-project/world-state/"
+    ],
+    "dependencies": [
+      "l2-block",
+      "merkle-tree",
+      "foundation",
+      "circuits.js",
+      "barretenberg.js"
+    ]
   }
 }

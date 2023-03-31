@@ -9,8 +9,11 @@
   },
   "references": [
     {
-      "path": "../foundation"
+      "path": "tsconfig.dest.json"
     }
   ],
-  "include": ["src", "src/eth_typed_data/fixtures/*.json"]
+  "include": [
+    "src",
+    "src/eth_typed_data/fixtures/*.json"
+  ]
 }
