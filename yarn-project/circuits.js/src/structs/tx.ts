@@ -49,7 +49,7 @@ export class TxContext {
   constructor(
     public isFeePaymentTx: false,
     public isRebatePaymentTx: false,
-    public isContractDeployment: true,
+    public isContractDeployment: boolean,
     public contractDeploymentData: ContractDeploymentData,
   ) {}
 

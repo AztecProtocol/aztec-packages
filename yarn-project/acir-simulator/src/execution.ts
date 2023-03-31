@@ -136,15 +136,13 @@ export class Execution {
   }
 
   private async getNotes(contractAddress: AztecAddress, storageSlot: ACVMField, count: number) {
-    const notes = await this.db.getNotes(contractAddress, fromACVMField(storageSlot));
-    const mapped = notes
-      .slice(0, count)
-      .flatMap(note => [
-        toACVMField(note.index),
-        ...note.note.map(f => toACVMField(f)),
-        toACVMField(this.oldRoots.privateDataTreeRoot),
-        ...note.siblingPath.map(f => toACVMField(f)),
-      ]);
+    const notes = await this.db.getNotes(contractAddress, fromACVMField(storageSlot), count);
+    const mapped = notes.flatMap(note => [
+      toACVMField(note.index),
+      ...note.note.map(f => toACVMField(f)),
+      toACVMField(this.oldRoots.privateDataTreeRoot),
+      ...note.siblingPath.map(f => toACVMField(f)),
+    ]);
     return mapped;
   }
 
