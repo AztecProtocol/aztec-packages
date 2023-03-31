@@ -11,3 +11,4 @@ RUN yarn workspaces focus --production > /dev/null
 
 FROM alpine:latest
 COPY --from=builder /usr/src/yarn-project/ethereum.js /usr/src/yarn-project/ethereum.js
+COPY --from=builder /usr/src/yarn-project/tsconfig.json /usr/src/yarn-project/tsconfig.json
