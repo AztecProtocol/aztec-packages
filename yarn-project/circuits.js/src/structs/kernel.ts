@@ -389,6 +389,6 @@ function makeEmptyAccumulatedData(): AccumulatedData {
   );
 }
 
-function makeEmptyProof() {
+export function makeEmptyProof() {
   return new UInt8Vector(Buffer.alloc(0));
 }
