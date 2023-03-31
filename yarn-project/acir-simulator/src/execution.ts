@@ -17,7 +17,7 @@ import {
   RETURN_VALUES_LENGTH,
   TxRequest,
   PrivateCallStackItem,
-  VerificationKey,
+  FunctionData,
 } from '@aztec/circuits.js';
 import { DBOracle } from './db_oracle.js';
 import { frToAztecAddress, frToBoolean, frToEthAddress, WitnessReader, WitnessWriter } from './witness_io.js';
@@ -40,7 +40,6 @@ export interface ExecutionResult {
   preimages: ExecutionPreimages;
   // Nested executions
   nestedExecutions: this[];
-  vk: VerificationKey;
 }
 
 export class Execution {
@@ -113,7 +112,7 @@ export class Execution {
 
     const publicInputs = this.extractPublicInputs(partialWitness, witnessStartIndex);
 
-    const callStackItem = new PrivateCallStackItem(contractAddress, functionSelector, publicInputs);
+    const callStackItem = new PrivateCallStackItem(contractAddress, new FunctionData(functionSelector), publicInputs);
 
     return {
       acir,

@@ -17,6 +17,9 @@ import {
   privateKernelSim,
   privateKernelProve,
   FUNCTION_TREE_HEIGHT,
+  VerificationKey,
+  ComposerType,
+  CommitmentMap,
 } from '@aztec/circuits.js';
 
 interface FunctionTreeInfo {
@@ -46,7 +49,7 @@ export class KernelProver {
         .fill(0)
         .map(() => PrivateCallStackItem.empty()),
       new UInt8Vector(Buffer.alloc(42)),
-      executionResult.vk,
+      this.createDummyVk(),
       functionTreeInfo.membershipWitness,
       contractLeafMembershipWitness,
       txRequest.txContext.contractDeploymentData.portalContractAddress,
@@ -60,6 +63,10 @@ export class KernelProver {
       publicInputs,
       proof,
     });
+  }
+
+  private createDummyVk() {
+    return new VerificationKey(ComposerType.TURBO, 1, 1, new CommitmentMap({}), false, []);
   }
 
   // private makeProofData() {
