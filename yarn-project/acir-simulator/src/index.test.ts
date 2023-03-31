@@ -9,6 +9,7 @@ import {
   TxContext,
   TxRequest,
 } from '@aztec/circuits.js';
+
 import { FunctionAbi } from '@aztec/noir-contracts';
 import { TestContractAbi, ZkTokenContractAbi } from '@aztec/noir-contracts/examples';
 import { DBOracle } from './db_oracle.js';

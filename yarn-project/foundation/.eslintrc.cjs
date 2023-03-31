@@ -36,16 +36,15 @@ module.exports = {
     {
       files: ['*.ts', '*.tsx'],
       parserOptions: {
-        project: 'tsconfig.dest.json',
+        project: true,
       },
     },
-    {
-      files: ['*.test.ts', '*.test.tsx'],
-      parserOptions: {
-        tsconfigRootDir: __dirname + '/..',
-        project: __dirname + '/../tsconfig.json',
-      },
-    },
+    // {
+    //   files: ['*.test.ts', '*.test.tsx'],
+    //   parserOptions: {
+    //     project: true,
+    //   },
+    // },
   ],
   env: {
     node: true,
