@@ -58,7 +58,8 @@ export async function privateKernelProve(
   const privateCallDataBuffer = privateCallData.toBuffer();
   const previousKernelBufferOffset = signedTxRequestBuffer.length;
   const privateCallDataOffset = previousKernelBufferOffset + previousKernelBuffer.length;
-  const firstInterationOffset = privateCallDataOffset + privateCallDataBuffer.length;
+  // The is an unused pointer argument here, so we offset the first iteration arg by 4 further bytes
+  const firstInterationOffset = privateCallDataOffset + privateCallDataBuffer.length + 4;
   wasm.writeMemory(0, signedTxRequestBuffer);
   wasm.writeMemory(previousKernelBufferOffset, previousKernelBuffer);
   wasm.writeMemory(privateCallDataOffset, privateCallDataBuffer);
