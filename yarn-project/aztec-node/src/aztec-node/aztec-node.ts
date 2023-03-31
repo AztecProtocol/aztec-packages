@@ -1,12 +1,14 @@
 import { default as levelup } from 'levelup';
 import { default as memdown } from 'memdown';
-import { L2BlockSource, Archiver } from '@aztec/archiver';
+import { Archiver } from '@aztec/archiver';
+import { ContractData, L2Block, L2BlockSource, UnverifiedData, UnverifiedDataSource } from '@aztec/l2-block';
 import { P2P, P2PClient } from '@aztec/p2p';
-import { Tx } from '@aztec/tx';
+import { Tx, TxHash } from '@aztec/tx';
 import { MerkleTrees, WorldStateSynchroniser, ServerWorldStateSynchroniser, MerkleTreeId } from '@aztec/world-state';
 import { SequencerClient } from '@aztec/sequencer-client';
 import { AztecNodeConfig } from './config.js';
 import { SiblingPath } from '@aztec/merkle-tree';
+import { AztecAddress } from '@aztec/foundation';
 
 /* eslint-disable @typescript-eslint/ban-ts-comment */
 // @ts-ignore
@@ -19,6 +21,7 @@ export class AztecNode {
   constructor(
     private p2pClient: P2P,
     private blockSource: L2BlockSource,
+    private unverifiedDataSource: UnverifiedDataSource,
     private merkleTreeDB: MerkleTrees,
     private worldStateSynchroniser: WorldStateSynchroniser,
     private sequencer: SequencerClient,
@@ -31,21 +34,21 @@ export class AztecNode {
    */
   public static async createAndSync(config: AztecNodeConfig) {
     // first create and sync the archiver
-    const blockSource = await Archiver.createAndSync(config);
+    const archiver = await Archiver.createAndSync(config);
 
     // give the block source to the P2P network
-    const p2pClient = new P2PClient(blockSource);
+    const p2pClient = new P2PClient(archiver);
 
     // now create the merkle trees and the world state syncher
     const merkleTreeDB = await MerkleTrees.new(levelup(createMemDown()));
-    const worldStateSynchroniser = new ServerWorldStateSynchroniser(merkleTreeDB, blockSource);
+    const worldStateSynchroniser = new ServerWorldStateSynchroniser(merkleTreeDB, archiver);
 
     // start both and wait for them to sync from the block source
     await Promise.all([p2pClient.start(), worldStateSynchroniser.start()]);
 
     // now create the sequencer
     const sequencer = await SequencerClient.new(config, p2pClient, worldStateSynchroniser);
-    return new AztecNode(p2pClient, blockSource, merkleTreeDB, worldStateSynchroniser, sequencer);
+    return new AztecNode(p2pClient, archiver, archiver, merkleTreeDB, worldStateSynchroniser, sequencer);
   }
 
   /**
@@ -62,8 +65,36 @@ export class AztecNode {
    * @param take - The number of blocks desired.
    * @returns The blocks requested.
    */
-  public async getBlocks(from: number, take: number) {
+  public async getBlocks(from: number, take: number): Promise<L2Block[]> {
     return (await this.blockSource.getL2Blocks(from, take)) ?? [];
+  }
+
+  /**
+   * Method to fetch the current block height
+   * @returns The block height as a number.
+   */
+  public async getBlockHeight(): Promise<number> {
+    return await this.blockSource.getBlockHeight();
+  }
+
+  /**
+   * Lookup the L2 contract data for this contract.
+   * Contains information such as the ethereum portal address.
+   * @param contractAddress - The contract data address.
+   * @returns The portal address (if we didn't throw an error).
+   */
+  public async getContractData(contractAddress: AztecAddress): Promise<ContractData | undefined> {
+    return await this.blockSource.getL2ContractData(contractAddress);
+  }
+
+  /**
+   * Gets the `take` amount of unverified data starting from `from`.
+   * @param from - Number of the L2 block to which corresponds the first `unverifiedData` to be returned.
+   * @param take - The number of `unverifiedData` to return.
+   * @returns The requested `unverifiedData`.
+   */
+  public getUnverifiedData(from: number, take: number): Promise<UnverifiedData[]> {
+    return this.unverifiedDataSource.getUnverifiedData(from, take);
   }
 
   /**
@@ -89,8 +120,17 @@ export class AztecNode {
    * Method to retrieve pending txs.
    * @returns - The pending txs.
    */
-  public async getTxs() {
+  public async getPendingTxs() {
     return await this.p2pClient!.getTxs();
+  }
+
+  /**
+   * Method to retrieve a single pending tx
+   * @param txHash - The transaction hash to return.
+   * @returns - The pending tx if it exists
+   */
+  public async getPendingTxByHash(txHash: TxHash) {
+    return await this.p2pClient!.getTxByhash(txHash);
   }
 
   public findContractIndex(leafValue: Buffer): Promise<bigint | undefined> {

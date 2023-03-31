@@ -1,3 +1,4 @@
+import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { AppendOnlyTreeSnapshot, Fr } from '@aztec/circuits.js';
 import { fr, makeAppendOnlyTreeSnapshot, makeEthAddress } from '@aztec/circuits.js/factories';
 import { BufferReader, serializeToBuffer } from '@aztec/circuits.js/utils';
@@ -10,11 +11,6 @@ export { Fr } from '@aztec/circuits.js';
  * TODO: Reuse data types and serialization functions from circuits package.
  */
 export class L2Block {
-  /**
-   * A yeet to go with the block.
-   */
-  public yeet?: Buffer;
-
   /**
    * Construct a new L2Block object.
    * The data that goes into the rollup, BUT without the proof.
@@ -56,7 +52,9 @@ export class L2Block {
     const newNullifiers = [fr(0x1), fr(0x2), fr(0x3), fr(0x4)];
     const newCommitments = [fr(0x101), fr(0x102), fr(0x103), fr(0x104)];
     const newContracts = [fr(0x201)];
-    const newContractsData: ContractData[] = [new ContractData(fr(0x301), makeEthAddress(0x302))];
+    const newContractsData: ContractData[] = [
+      new ContractData(AztecAddress.fromBuffer(fr(0x301).toBuffer()), makeEthAddress(0x302)),
+    ];
 
     return new L2Block(
       l2BlockNum,
@@ -116,14 +114,6 @@ export class L2Block {
       fields.newContracts,
       fields.newContractData,
     );
-  }
-
-  /**
-   * Sets the yeet on this block.
-   * @param yeet - The yeet to set.
-   */
-  setYeet(yeet: Buffer) {
-    this.yeet = yeet;
   }
 
   /**

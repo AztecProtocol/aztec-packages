@@ -1,9 +1,9 @@
 import { Fr } from '@aztec/foundation';
-import { assertLength, FieldsOf } from '../utils/jsUtils.js';
+import { FieldsOf } from '../utils/jsUtils.js';
 import { serializeToBuffer } from '../utils/serialize.js';
 import { AppendOnlyTreeSnapshot, BaseRollupPublicInputs, ConstantBaseRollupData } from './base_rollup.js';
-import { VK_TREE_HEIGHT } from './constants.js';
-import { AggregationObject, UInt32, UInt8Vector, RollupTypes } from './shared.js';
+import { ROLLUP_VK_TREE_HEIGHT } from './constants.js';
+import { AggregationObject, MembershipWitness, RollupTypes, UInt32, UInt8Vector } from './shared.js';
 import { VerificationKey } from './verification_key.js';
 
 export class PreviousRollupData {
@@ -15,10 +15,8 @@ export class PreviousRollupData {
      * The index of the rollup circuit's vk in a big tree of rollup circuit vks.
      */
     public vkIndex: UInt32,
-    public vkSiblingPath: Fr[],
-  ) {
-    assertLength(this, 'vkSiblingPath', VK_TREE_HEIGHT);
-  }
+    public vkSiblingPath: MembershipWitness<typeof ROLLUP_VK_TREE_HEIGHT>,
+  ) {}
 
   toBuffer() {
     return serializeToBuffer(this.publicInputs, this.proof, this.vk, this.vkIndex, this.vkSiblingPath);
@@ -26,10 +24,10 @@ export class PreviousRollupData {
 }
 
 export class MergeRollupInputs {
-  constructor(public previousRollupData: [PreviousRollupData, PreviousRollupData], public proverId: Fr) {}
+  constructor(public previousRollupData: [PreviousRollupData, PreviousRollupData]) {}
 
   toBuffer() {
-    return serializeToBuffer(this.previousRollupData, this.proverId);
+    return serializeToBuffer(this.previousRollupData);
   }
 }
 

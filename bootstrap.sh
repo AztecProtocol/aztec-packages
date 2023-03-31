@@ -39,6 +39,10 @@ if [ ! -f ~/.nvm/nvm.sh ]; then
   exit 1
 fi
 
+cd circuits/cpp
+./bootstrap.sh
+cd ../..
+
 \. ~/.nvm/nvm.sh
 nvm install
 

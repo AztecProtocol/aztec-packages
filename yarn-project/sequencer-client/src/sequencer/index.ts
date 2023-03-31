@@ -1,10 +1,10 @@
 import { Tx } from '@aztec/tx';
 import { P2P } from '@aztec/p2p';
-import { WorldStateSynchroniser, WorldStateStatus } from '@aztec/world-state';
+import { WorldStateSynchroniser, WorldStateStatus, MerkleTreeId } from '@aztec/world-state';
 import { RunningPromise } from '../deps/running_promise.js';
-import { L2BlockPublisher } from '../publisher/l2-block-publisher.js';
+import { L1Publisher } from '../publisher/l1-publisher.js';
 import { createDebugLogger } from '@aztec/foundation';
-import { BlockBuilder } from './block_builder.js';
+import { StandaloneBlockBuilder } from '../block_builder/standalone_block_builder.js';
 import { SequencerConfig } from './config.js';
 
 /**
@@ -24,7 +24,7 @@ export class Sequencer {
   private state = SequencerState.STOPPED;
 
   constructor(
-    private publisher: L2BlockPublisher,
+    private publisher: L1Publisher,
     private p2pClient: P2P,
     private worldState: WorldStateSynchroniser,
     config?: SequencerConfig,
@@ -54,6 +54,24 @@ export class Sequencer {
   }
 
   /**
+   * Returns true if one of the transaction nullifiers exist.
+   * Nullifiers prevent double spends in a private context.
+   * @param tx - The transaction.
+   * @returns Whether this is a problematic double spend that the L1 contract would reject.
+   */
+  private async isTxDoubleSpend(tx: Tx): Promise<boolean> {
+    // eslint-disable-next-line @typescript-eslint/await-thenable
+    for (const nullifier of tx.data.end.newNullifiers) {
+      // TODO(AD): this is an exhaustive search currently
+      if ((await this.worldState.findLeafIndex(MerkleTreeId.NULLIFIER_TREE, nullifier.toBuffer())) !== undefined) {
+        // Our nullifier tree has this nullifier already - this transaction is a double spend / not well-formed
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
    * Grabs a single tx from the p2p client, constructs a block, and pushes it to L1.
    */
   protected async work() {
@@ -79,7 +97,14 @@ export class Sequencer {
         this.log(`No txs in the mempool for a new block`);
         return;
       } else {
-        this.log(`Processing tx ${tx.txId.toString('hex')}`);
+        this.log(`Processing tx ${tx.txHash.toString()}`);
+      }
+      // TODO(AD) - eventually we should add a limit to how many transactions we
+      // skip in this manner and do something more DDOS-proof (like letting the transaction fail and pay a fee).
+      if (await this.isTxDoubleSpend(tx)) {
+        // Make sure we remove this from the tx pool so we do not consider it again
+        await this.p2pClient.deleteTxs([tx.txHash]);
+        return;
       }
 
       this.state = SequencerState.CREATING_BLOCK;
@@ -90,12 +115,21 @@ export class Sequencer {
 
       // Publishes new block to the network and awaits the tx to be mined
       this.state = SequencerState.PUBLISHING_BLOCK;
-      const published = await this.publisher.processL2Block(block);
-      if (published) {
+      const publishedL2Block = await this.publisher.processL2Block(block);
+      if (publishedL2Block) {
         this.log(`Successfully published block ${block.number}`);
         this.lastBlockNumber++;
       } else {
         this.log(`Failed to publish block`);
+      }
+
+      // Publishes new unverified data to the network and awaits the tx to be mined
+      this.state = SequencerState.PUBLISHING_UNVERIFIED_DATA;
+      const publishedUnverifiedData = await this.publisher.processUnverifiedData(block.number, tx.unverifiedData);
+      if (publishedUnverifiedData) {
+        this.log(`Successfully published unverifiedData for block ${block.number}`);
+      } else {
+        this.log(`Failed to publish unverifiedData for block ${block.number}`);
       }
     } catch (err) {
       this.log(`Error doing work: ${err}`, 'error');
@@ -114,7 +148,7 @@ export class Sequencer {
   }
 
   protected async buildBlock(tx: Tx) {
-    const blockBuilder = new BlockBuilder(this.worldState, this.lastBlockNumber + 1, tx);
+    const blockBuilder = new StandaloneBlockBuilder(this.worldState, this.lastBlockNumber + 1, tx);
     return await blockBuilder.buildL2Block();
   }
 }
@@ -124,5 +158,6 @@ export enum SequencerState {
   WAITING_FOR_TXS,
   CREATING_BLOCK,
   PUBLISHING_BLOCK,
+  PUBLISHING_UNVERIFIED_DATA,
   STOPPED,
 }
