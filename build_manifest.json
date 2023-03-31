@@ -172,9 +172,7 @@
     "rebuildPatterns": [
       "^yarn-project/ethereum.js/"
     ],
-    "dependencies": [
-      "ethereum.js"
-    ]
+    "dependencies": []
   },
   "foundation": {
     "buildDir": "yarn-project",
@@ -248,8 +246,8 @@
     ],
     "dependencies": [
       "tx",
-      "l2-block",
       "foundation",
+      "l2-block",
       "circuits.js"
     ]
   },
@@ -294,12 +292,12 @@
       "ethereum.js",
       "l1-contracts",
       "l2-block",
+      "foundation",
       "circuits.js",
-      "world-state",
       "tx",
-      "barretenberg.js",
       "p2p",
-      "foundation"
+      "world-state",
+      "barretenberg.js"
     ]
   },
   "tx": {
@@ -311,7 +309,6 @@
     ],
     "dependencies": [
       "l2-block",
-      "circuits.js",
       "foundation"
     ]
   },

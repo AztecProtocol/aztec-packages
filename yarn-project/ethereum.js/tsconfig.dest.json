@@ -7,11 +7,7 @@
     "tsBuildInfoFile": ".tsbuildinfo",
     "skipLibCheck": true
   },
-  "references": [
-    {
-      "path": "tsconfig.dest.json"
-    }
-  ],
+  "references": [],
   "include": [
     "src",
     "src/eth_typed_data/fixtures/*.json"

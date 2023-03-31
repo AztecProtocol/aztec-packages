@@ -7,8 +7,10 @@
   },
   "references": [
     {
-      "path": "../ethereum.js"
+      "path": "../ethereum.js/tsconfig.dest.json"
     }
   ],
-  "include": ["src"]
+  "include": [
+    "src"
+  ]
 }
