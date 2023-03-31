@@ -215,6 +215,12 @@ export class AztecRPCServer implements AztecRPCClient {
       contract.portalAddress,
       oldRoots,
     );
+
+    // TODO: Unhardcode public inputs for ctor hash calculation
+    executionResult.callStackItem.publicInputs.args[0] = Fr.fromBuffer(
+      Buffer.from('0000000800000000000000000000000000000000000000000000000000000000', 'hex'),
+    );
+
     this.log(`Executing Prover...`);
     const { publicInputs } = await this.kernelProver.prove(
       txRequest as any, // TODO - remove `as any`
