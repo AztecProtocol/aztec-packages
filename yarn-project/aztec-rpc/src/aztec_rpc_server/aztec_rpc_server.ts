@@ -22,7 +22,6 @@ import { KernelProver } from '@aztec/kernel-prover';
 import { Tx, TxHash } from '@aztec/tx';
 import { generateFunctionSelector } from '../abi_coder/index.js';
 import { AztecRPCClient, DeployedContract } from '../aztec_rpc_client/index.js';
-import { selectorToNumber } from '../circuits.js';
 import { ContractDao } from '../contract_database/index.js';
 import { ContractTree } from '../contract_tree/index.js';
 import { Database } from '../database/database.js';
@@ -120,7 +119,7 @@ export class AztecRPCServer implements AztecRPCClient {
     const contract = contractTree.contract;
 
     const functionData = new FunctionData(
-      selectorToNumber(generateFunctionSelector(constructorAbi.name, constructorAbi.parameters)),
+      generateFunctionSelector(constructorAbi.name, constructorAbi.parameters),
       true,
       true,
     );
@@ -163,7 +162,7 @@ export class AztecRPCServer implements AztecRPCClient {
     }
 
     const functionData = new FunctionData(
-      functionDao.selector.readUint32BE(),
+      functionDao.selector,
       functionDao.functionType === FunctionType.SECRET,
       false,
     );
@@ -197,8 +196,7 @@ export class AztecRPCServer implements AztecRPCClient {
     if (!contract) {
       throw new Error('Unknown contract.');
     }
-    const selector = Buffer.alloc(4);
-    selector.writeUint32BE(txRequest.functionData.functionSelector);
+    const selector = txRequest.functionData.functionSelector;
 
     const functionDao = contract.functions.find(f => f.selector.equals(selector));
     if (!functionDao) {
@@ -301,6 +299,7 @@ export class AztecRPCServer implements AztecRPCClient {
     return {
       ...partialReceipt,
       status: TxStatus.DROPPED,
+      error: 'Tx dropped by P2P node',
     };
   }
 
