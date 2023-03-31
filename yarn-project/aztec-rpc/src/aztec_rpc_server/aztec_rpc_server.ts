@@ -9,6 +9,7 @@ import {
   EcdsaSignature,
   EthAddress,
   FunctionData,
+  FUNCTION_TREE_HEIGHT,
   MembershipWitness,
   OldTreeRoots,
   PrivateCallStackItem,
@@ -16,9 +17,9 @@ import {
   TxRequest,
   UInt8Vector,
 } from '@aztec/circuits.js';
-import { hashVK } from '@aztec/circuits.js/abis';
-import { createDebugLogger, Fr, numToInt32BE } from '@aztec/foundation';
-import { KernelProver } from '@aztec/kernel-prover';
+import { computeFunctionLeaf, hashVK } from '@aztec/circuits.js/abis';
+import { createDebugLogger, Fr } from '@aztec/foundation';
+import { KernelProver, FunctionTreeInfo } from '@aztec/kernel-prover';
 import { Tx, TxHash } from '@aztec/tx';
 import { generateFunctionSelector } from '../abi_coder/index.js';
 import { AztecRPCClient, DeployedContract } from '../aztec_rpc_client/index.js';
@@ -229,14 +230,55 @@ export class AztecRPCServer implements AztecRPCClient {
     return tx;
   }
 
-  private async getFunctionTreeInfo(contract: ContractDao, callStackItem: PrivateCallStackItem) {
+  private getFunctionTreeInfo(contract: ContractDao, callStackItem: PrivateCallStackItem) {
+    return Promise.resolve(this.computeFunctionTreeInfo(contract, callStackItem));
+  }
+
+  private computeFunctionTreeInfo(contract: ContractDao, callStackItem: PrivateCallStackItem) {
     const tree = new ContractTree(contract, this.circuitsWasm);
-    const index =
-      contract.functions.findIndex(f => f.selector.equals(numToInt32BE(callStackItem.functionData.functionSelector))) -
-      1;
-    if (index < 0) {
-      return {} as FunctionTreeInfo;
+    const functionIndex =
+      contract.functions.findIndex(f => f.selector.equals(callStackItem.functionData.functionSelector)) - 1;
+    if (functionIndex < 0) {
+      return {
+        root: Buffer.alloc(32),
+        membershipWitness: new MembershipWitness<typeof FUNCTION_TREE_HEIGHT>(
+          FUNCTION_TREE_HEIGHT,
+          0,
+          Array(FUNCTION_TREE_HEIGHT)
+            .fill(0)
+            .map(() => Fr.ZERO),
+        ),
+      } as FunctionTreeInfo;
     }
+
+    const leaves = tree.getFunctionLeaves();
+    const functionTree = this.getFunctionTree(leaves);
+    let rowSize = Math.ceil(functionTree.length / 2);
+    let rowOffset = 0;
+    let index = functionIndex;
+    const nodes: Fr[] = [];
+    while (rowSize > 1) {
+      const isRight = index & 1;
+      nodes.push(functionTree[rowOffset + index + (isRight ? -1 : 1)]);
+      rowOffset += rowSize;
+      rowSize >>= 1;
+      index >>= 1;
+    }
+    const membershipWitness = new MembershipWitness<typeof FUNCTION_TREE_HEIGHT>(
+      FUNCTION_TREE_HEIGHT,
+      functionIndex,
+      nodes,
+    );
+    const root = functionTree[functionTree.length - 1].toBuffer();
+    return {
+      root,
+      membershipWitness,
+    } as FunctionTreeInfo;
+  }
+
+  private getFunctionTree(leaves: Buffer[]) {
+    const array: Fr[] = [];
+    return array;
   }
 
   /**

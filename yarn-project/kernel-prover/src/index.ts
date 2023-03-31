@@ -22,7 +22,7 @@ import {
   CommitmentMap,
 } from '@aztec/circuits.js';
 
-interface FunctionTreeInfo {
+export interface FunctionTreeInfo {
   root: Buffer;
   membershipWitness: MembershipWitness<typeof FUNCTION_TREE_HEIGHT>;
 }

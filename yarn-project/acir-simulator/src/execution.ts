@@ -4,6 +4,7 @@ import {
   CallContext,
   EthAddress,
   Fr,
+  FunctionData,
   OldTreeRoots,
   PrivateCallStackItem,
   TxRequest,
