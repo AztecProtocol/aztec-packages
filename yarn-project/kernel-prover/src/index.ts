@@ -21,6 +21,7 @@ import {
   ComposerType,
   CommitmentMap,
 } from '@aztec/circuits.js';
+import { createDebugLogger } from '@aztec/foundation';
 
 export interface FunctionTreeInfo {
   root: Buffer;
@@ -36,6 +37,7 @@ export class KernelProver {
     wasm: CircuitsWasm,
     getFunctionTreeInfo: (callStackItem: PrivateCallStackItem) => Promise<FunctionTreeInfo>,
     getContractSiblingPath: (committment: Buffer) => Promise<MembershipWitness<typeof CONTRACT_TREE_HEIGHT>>,
+    log = createDebugLogger('aztec:kernel_prover'),
   ): Promise<{ publicInputs: PrivateKernelPublicInputs; proof: Buffer }> {
     // TODO: implement this
     const signedTxRequest = new SignedTxRequest(txRequest, txSignature);

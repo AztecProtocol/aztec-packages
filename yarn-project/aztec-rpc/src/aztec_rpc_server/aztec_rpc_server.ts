@@ -4,6 +4,7 @@ import {
   ARGS_LENGTH,
   AztecAddress,
   CircuitsWasm,
+  computeFunctionTree,
   ContractDeploymentData,
   CONTRACT_TREE_HEIGHT,
   EcdsaSignature,
@@ -17,8 +18,7 @@ import {
   TxRequest,
   UInt8Vector,
 } from '@aztec/circuits.js';
-import { computeFunctionLeaf, hashVK } from '@aztec/circuits.js/abis';
-import { createDebugLogger, Fr } from '@aztec/foundation';
+import { createDebugLogger, Fr, toBigIntBE } from '@aztec/foundation';
 import { KernelProver, FunctionTreeInfo } from '@aztec/kernel-prover';
 import { Tx, TxHash } from '@aztec/tx';
 import { generateFunctionSelector } from '../abi_coder/index.js';
@@ -205,6 +205,7 @@ export class AztecRPCServer implements AztecRPCClient {
     }
 
     const oldRoots = new OldTreeRoots(Fr.ZERO, Fr.ZERO, Fr.ZERO, Fr.ZERO); // TODO - get old roots from the database/node
+    this.log(`Executing simulator...`);
     const executionResult = await this.acirSimulator.run(
       txRequest,
       functionDao,
@@ -212,7 +213,7 @@ export class AztecRPCServer implements AztecRPCClient {
       contract.portalAddress,
       oldRoots,
     );
-
+    this.log(`Executing Prover...`);
     const { publicInputs } = await this.kernelProver.prove(
       txRequest as any, // TODO - remove `as any`
       signature,
@@ -224,6 +225,7 @@ export class AztecRPCServer implements AztecRPCClient {
       },
       this.getContractSiblingPath,
     );
+    this.log(`Proof completed!`);
     const tx = new Tx(publicInputs, new UInt8Vector(Buffer.alloc(0)), Buffer.alloc(0));
     const dao: TxDao = new TxDao(tx.txHash, undefined, undefined, txRequest.from, undefined, txRequest.to, '');
     await this.db.addOrUpdateTx(dao);
@@ -277,8 +279,10 @@ export class AztecRPCServer implements AztecRPCClient {
   }
 
   private getFunctionTree(leaves: Buffer[]) {
-    const array: Fr[] = [];
-    return array;
+    return computeFunctionTree(
+      this.circuitsWasm,
+      leaves.map(x => new Fr(toBigIntBE(x))),
+    );
   }
 
   /**
