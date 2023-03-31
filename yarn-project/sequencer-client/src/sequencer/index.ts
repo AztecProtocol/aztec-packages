@@ -62,6 +62,8 @@ export class Sequencer {
   private async isTxDoubleSpend(tx: Tx): Promise<boolean> {
     // eslint-disable-next-line @typescript-eslint/await-thenable
     for (const nullifier of tx.data.end.newNullifiers) {
+      // Skip nullifier if it's empty
+      if (nullifier.isZero()) continue;
       // TODO(AD): this is an exhaustive search currently
       if ((await this.worldState.findLeafIndex(MerkleTreeId.NULLIFIER_TREE, nullifier.toBuffer())) !== undefined) {
         // Our nullifier tree has this nullifier already - this transaction is a double spend / not well-formed
@@ -103,6 +105,7 @@ export class Sequencer {
       // skip in this manner and do something more DDOS-proof (like letting the transaction fail and pay a fee).
       if (await this.isTxDoubleSpend(tx)) {
         // Make sure we remove this from the tx pool so we do not consider it again
+        this.log(`Deleting double spend tx ${tx.txHash.toString()}`);
         await this.p2pClient.deleteTxs([tx.txHash]);
         return;
       }
