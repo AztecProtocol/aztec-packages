@@ -23,7 +23,8 @@
     "globals": {
       "ts-jest": {
         "useESM": true,
-        "tsconfig": "../tsconfig.test.json"
+        "rootDir": "..",
+        "tsconfig": "../tsconfig.json"
       }
     },
     "moduleNameMapper": {
