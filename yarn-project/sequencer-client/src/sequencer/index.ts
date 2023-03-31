@@ -1,4 +1,4 @@
-import { CircuitsWasm } from '@aztec/circuits.js/src/index.js';
+import { CircuitsWasm } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation';
 import { P2P } from '@aztec/p2p';
 import { Tx } from '@aztec/tx';

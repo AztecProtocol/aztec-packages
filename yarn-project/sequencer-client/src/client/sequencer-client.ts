@@ -1,4 +1,4 @@
-import { CircuitsWasm } from '@aztec/circuits.js/src/index.js';
+import { CircuitsWasm } from '@aztec/circuits.js';
 import { P2P } from '@aztec/p2p';
 import { WorldStateSynchroniser } from '@aztec/world-state';
 import { getL1Publisher, L1Publisher, Sequencer, SequencerClientConfig } from '../index.js';
