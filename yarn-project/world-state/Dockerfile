@@ -24,5 +24,6 @@ RUN yarn workspaces focus --production > /dev/null
 # (6) set up entry point
 FROM node:18-alpine
 COPY --from=builder /usr/src/yarn-project/world-state /usr/src/yarn-project/world-state
+COPY --from=builder /usr/src/yarn-project/tsconfig.json /usr/src/yarn-project/tsconfig.json
 WORKDIR /usr/src/yarn-project/world-state
 ENTRYPOINT ["yarn", "test"]
