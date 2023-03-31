@@ -1,4 +1,4 @@
-import { numToUInt32BE, BufferReader, numToUInt8 } from '@aztec/foundation';
+import { BufferReader } from '@aztec/foundation';
 import { Buffer } from 'buffer';
 import {
   Fr,
@@ -7,7 +7,6 @@ import {
   PrivateCallData,
   PrivateKernelPublicInputs,
   SignedTxRequest,
-  Vector,
 } from '../index.js';
 import { boolToBuffer, serializeToBuffer, uint8ArrayToNum } from '../utils/serialize.js';
 import { CircuitsWasm } from '../wasm/index.js';
@@ -48,7 +47,7 @@ export function computeFunctionTree(wasm: CircuitsWasm, leaves: Fr[]): Fr[] {
   return output;
 }
 
-export function privateKernelProve(
+export async function privateKernelProve(
   wasm: CircuitsWasm,
   signedTxRequest: SignedTxRequest,
   previousKernel: PreviousKernelData,
@@ -66,7 +65,7 @@ export function privateKernelProve(
   wasm.writeMemory(firstInterationOffset, boolToBuffer(true));
 
   const proofOutputAddressPtr = wasm.call('bbmalloc', 4);
-  const proofSize = wasm.call(
+  const proofSize = await wasm.asyncCall(
     'private_kernel__prove',
     0,
     previousKernelBufferOffset,
@@ -81,7 +80,7 @@ export function privateKernelProve(
   return Buffer.from(wasm.getMemorySlice(address, address + proofSize));
 }
 
-export function privateKernelSim(
+export async function privateKernelSim(
   wasm: CircuitsWasm,
   signedTxRequest: SignedTxRequest,
   previousKernel: PreviousKernelData,
@@ -99,7 +98,7 @@ export function privateKernelSim(
   wasm.writeMemory(firstInterationOffset, boolToBuffer(true));
 
   const publicInputOutputAddressPtr = wasm.call('bbmalloc', 4);
-  const outputSize = wasm.call(
+  const outputSize = await wasm.asyncCall(
     'private_kernel__sim',
     0,
     previousKernelBufferOffset,

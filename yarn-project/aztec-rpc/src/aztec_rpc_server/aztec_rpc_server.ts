@@ -31,6 +31,7 @@ import { KeyStore } from '../key_store/index.js';
 import { ContractAbi, FunctionType } from '@aztec/noir-contracts';
 import { Synchroniser } from '../synchroniser/index.js';
 import { TxReceipt, TxStatus } from '../tx/index.js';
+import { hashVK } from '@aztec/circuits.js/abis';
 
 /**
  * Implements a remote Aztec RPC client provider.
@@ -191,6 +192,7 @@ export class AztecRPCServer implements AztecRPCClient {
   }
 
   public async createTx(txRequest: TxRequest, signature: EcdsaSignature) {
+    this.log(`Creating Tx`);
     const contractAddress = txRequest.to;
     const contract = await this.db.getContract(txRequest.to);
 
@@ -223,7 +225,9 @@ export class AztecRPCServer implements AztecRPCClient {
       (callStackItem: PrivateCallStackItem) => {
         return this.getFunctionTreeInfo(contract, callStackItem);
       },
-      this.getContractSiblingPath,
+      (committment: Buffer) => {
+        return this.getContractSiblingPath(committment);
+      },
     );
     this.log(`Proof completed!`);
     const tx = new Tx(publicInputs, new UInt8Vector(Buffer.alloc(0)), Buffer.alloc(0));
@@ -319,6 +323,7 @@ export class AztecRPCServer implements AztecRPCClient {
     }
 
     const pendingTx = await this.node.getPendingTxByHash(txHash);
+    this.log(`Pending Tx ${pendingTx?.txHash.toString()}`);
     if (pendingTx) {
       return {
         ...partialReceipt,

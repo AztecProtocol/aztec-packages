@@ -20,7 +20,7 @@ import {
   ComposerType,
   CommitmentMap,
 } from '@aztec/circuits.js';
-import { createDebugLogger } from '@aztec/foundation';
+import { createDebugLogger, Fr } from '@aztec/foundation';
 
 export interface FunctionTreeInfo {
   root: Buffer;
@@ -28,6 +28,7 @@ export interface FunctionTreeInfo {
 }
 
 export class KernelProver {
+  constructor(private log = createDebugLogger('aztec:kernel_prover')) {}
   async prove(
     txRequest: TxRequest,
     txSignature: EcdsaSignature,
@@ -36,13 +37,14 @@ export class KernelProver {
     wasm: CircuitsWasm,
     getFunctionTreeInfo: (callStackItem: PrivateCallStackItem) => Promise<FunctionTreeInfo>,
     getContractSiblingPath: (committment: Buffer) => Promise<MembershipWitness<typeof CONTRACT_TREE_HEIGHT>>,
-    log = createDebugLogger('aztec:kernel_prover'),
   ): Promise<{ publicInputs: PrivateKernelPublicInputs; proof: Buffer }> {
     // TODO: implement this
     const signedTxRequest = new SignedTxRequest(txRequest, txSignature);
 
     const functionTreeInfo = await getFunctionTreeInfo(executionResult.callStackItem);
-    const contractLeafMembershipWitness = await getContractSiblingPath(functionTreeInfo.root);
+    const contractLeafMembershipWitness = txRequest.functionData.isConstructor
+      ? this.createRandomMembershipWitness()
+      : await getContractSiblingPath(functionTreeInfo.root);
 
     const privateCallData = new PrivateCallData(
       executionResult.callStackItem,
@@ -57,8 +59,11 @@ export class KernelProver {
     );
 
     const previousKernelData: PreviousKernelData = PreviousKernelData.makeEmpty();
-    const publicInputs = privateKernelSim(wasm, signedTxRequest, previousKernelData, privateCallData);
-    const proof = privateKernelProve(wasm, signedTxRequest, previousKernelData, privateCallData);
+    this.log(`Executing private kernel simulation...`);
+    const publicInputs = await privateKernelSim(wasm, signedTxRequest, previousKernelData, privateCallData);
+    this.log(`Executing private kernel simulation...`);
+    const proof = await privateKernelProve(wasm, signedTxRequest, previousKernelData, privateCallData);
+    this.log('Kernel Prover Completed!');
 
     return Promise.resolve({
       publicInputs,
@@ -68,5 +73,15 @@ export class KernelProver {
 
   private createDummyVk() {
     return new VerificationKey(ComposerType.TURBO, 1, 1, new CommitmentMap({}), false, []);
+  }
+
+  private createRandomMembershipWitness() {
+    return new MembershipWitness<typeof CONTRACT_TREE_HEIGHT>(
+      CONTRACT_TREE_HEIGHT,
+      0,
+      Array(CONTRACT_TREE_HEIGHT)
+        .fill(0)
+        .map(() => Fr.random()),
+    );
   }
 }
