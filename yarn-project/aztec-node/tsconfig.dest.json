@@ -1,5 +1,5 @@
 {
-  "extends": "../tsconfig.base.json",
+  "extends": "../tsconfig.dest.json",
   "compilerOptions": {
     "outDir": "dest",
     "rootDir": "src",
@@ -37,8 +37,5 @@
       "path": "../merkle-tree/tsconfig.dest.json"
     }
   ],
-  "include": [
-    "src",
-    "test"
-  ]
+  "include": ["src", "test"]
 }

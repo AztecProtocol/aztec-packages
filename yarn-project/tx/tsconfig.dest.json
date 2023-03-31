@@ -1,14 +1,11 @@
 {
-  "extends": "../tsconfig.base.json",
+  "extends": "../tsconfig.dest.json",
   "compilerOptions": {
     "outDir": "dest",
     "rootDir": "src",
     "tsBuildInfoFile": ".tsbuildinfo",
     "moduleResolution": "nodenext",
-    "types": [
-      "node",
-      "jest"
-    ]
+    "types": ["node", "jest"]
   },
   "references": [
     {
@@ -18,7 +15,5 @@
       "path": "../foundation/tsconfig.dest.json"
     }
   ],
-  "include": [
-    "src"
-  ]
+  "include": ["src"]
 }

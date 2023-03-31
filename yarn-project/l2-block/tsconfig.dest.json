@@ -1,5 +1,5 @@
 {
-  "extends": "../tsconfig.base.json",
+  "extends": "../tsconfig.dest.json",
   "compilerOptions": {
     "outDir": "dest",
     "rootDir": "src",
@@ -16,7 +16,5 @@
       "path": "../l1-contracts/tsconfig.dest.json"
     }
   ],
-  "include": [
-    "src"
-  ]
+  "include": ["src"]
 }

@@ -1,5 +1,5 @@
 {
-  "extends": "../tsconfig.base.json",
+  "extends": "../tsconfig.dest.json",
   "compilerOptions": {
     "noImplicitAny": false,
     "outDir": "dest",
@@ -8,8 +8,5 @@
     "skipLibCheck": true
   },
   "references": [],
-  "include": [
-    "src",
-    "src/eth_typed_data/fixtures/*.json"
-  ]
+  "include": ["src", "src/eth_typed_data/fixtures/*.json"]
 }
