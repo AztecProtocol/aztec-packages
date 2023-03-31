@@ -76,9 +76,10 @@ export async function privateKernelProve(
     proofOutputAddressPtr,
   );
   const address = uint8ArrayToNum(wasm.getMemorySlice(proofOutputAddressPtr, proofOutputAddressPtr + 4));
+  const proof = Buffer.from(wasm.getMemorySlice(address, address + proofSize));
   wasm.call('bbfree', proofOutputAddressPtr);
-
-  return Buffer.from(wasm.getMemorySlice(address, address + proofSize));
+  wasm.call('bbfree', address);
+  return proof;
 }
 
 export async function privateKernelSim(
@@ -108,8 +109,8 @@ export async function privateKernelSim(
     publicInputOutputAddressPtr,
   );
   const address = uint8ArrayToNum(wasm.getMemorySlice(publicInputOutputAddressPtr, publicInputOutputAddressPtr + 4));
-  wasm.call('bbfree', publicInputOutputAddressPtr);
-
   const publicInputBuffer = Buffer.from(wasm.getMemorySlice(address, address + outputSize));
+  wasm.call('bbfree', publicInputOutputAddressPtr);
+  wasm.call('bbfree', address);
   return PrivateKernelPublicInputs.fromBuffer(publicInputBuffer);
 }
