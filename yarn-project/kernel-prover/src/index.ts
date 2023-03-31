@@ -52,7 +52,7 @@ export class KernelProver {
         .fill(0)
         .map(() => PrivateCallStackItem.empty()),
       new UInt8Vector(Buffer.alloc(42)),
-      this.createDummyVk(),
+  VerificationKey.fromBuffer(executionResult.vk),
       functionTreeInfo.membershipWitness,
       contractLeafMembershipWitness,
       txRequest.txContext.contractDeploymentData.portalContractAddress,
