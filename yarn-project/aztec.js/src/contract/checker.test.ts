@@ -83,8 +83,93 @@ describe('abiChecker', () => {
         };
       });
 
-      it('should error if ABI function has incorrect parameter', () => {
+      it('should error if integer is incorrectly formed', () => {
         expect(() => abiChecker(abi)).toThrowError('Unrecognised attribute on type integer');
+      });
+    });
+
+    describe('incorrectly formed string', () => {
+      let abi: any;
+
+      beforeEach(() => {
+        abi = {
+          name: 'TEST_ABI',
+          functions: [
+            {
+              name: 'constructor',
+              bytecode: '0af',
+              parameters: [{ type: { kind: 'string', sign: 5, additionalParam: true } }],
+            },
+          ],
+        };
+      });
+
+      it('should error if string is incorrectly formed', () => {
+        expect(() => abiChecker(abi)).toThrowError('Unrecognised attribute on type string');
+      });
+    });
+
+    describe('incorrectly formed struct', () => {
+      let abi: any;
+
+      beforeEach(() => {
+        abi = {
+          name: 'TEST_ABI',
+          functions: [
+            {
+              name: 'constructor',
+              bytecode: '0af',
+              parameters: [
+                {
+                  type: {
+                    kind: 'struct',
+                  },
+                },
+              ],
+            },
+          ],
+        };
+      });
+
+      it('should error if struct is incorrectly formed', () => {
+        expect(() => abiChecker(abi)).toThrowError('Unrecognised attribute on type struct');
+      });
+    });
+
+    describe('incorrectly formed array', () => {
+      let abi: any;
+
+      beforeEach(() => {
+        abi = {
+          name: 'TEST_ABI',
+          functions: [
+            {
+              name: 'constructor',
+              bytecode: '0af',
+              parameters: [
+                {
+                  type: {
+                    kind: 'array',
+                    length: 5,
+                    type: {
+                      kind: 'array',
+                      length: '5',
+                      type: {
+                        sign: 'value',
+                        width: 5,
+                        kind: 'integer',
+                      },
+                    },
+                  },
+                },
+              ],
+            },
+          ],
+        };
+      });
+
+      it('should error if array is incorrectly formed', () => {
+        expect(() => abiChecker(abi)).toThrowError('ABI function parameter has an incorrectly formed array');
       });
     });
   });
