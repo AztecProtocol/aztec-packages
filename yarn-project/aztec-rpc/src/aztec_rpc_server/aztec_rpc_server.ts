@@ -1,5 +1,6 @@
 import { AcirSimulator } from '@aztec/acir-simulator';
 import { AztecNode } from '@aztec/aztec-node';
+import { BarretenbergWasm } from '@aztec/barretenberg.js/wasm';
 import {
   ARGS_LENGTH,
   AztecAddress,
@@ -42,9 +43,10 @@ export class AztecRPCServer implements AztecRPCClient {
     private node: AztecNode,
     private db: Database,
     private circuitsWasm: CircuitsWasm,
+    bbWasm: BarretenbergWasm,
     private log = createDebugLogger('aztec:rpc_server'),
   ) {
-    this.synchroniser = new Synchroniser(node, db);
+    this.synchroniser = new Synchroniser(node, db, bbWasm);
     this.synchroniser.start();
   }
 
@@ -67,12 +69,12 @@ export class AztecRPCServer implements AztecRPCClient {
 
   public async getAccounts(): Promise<AztecAddress[]> {
     const accounts = this.synchroniser.getAccounts();
-    return await Promise.all(accounts.map(async a => (await a.getPubKey()).toAddress()));
+    return await Promise.all(accounts.map(a => a.getPublicKey().toAddress()));
   }
 
   public async getStorageAt(contract: AztecAddress, storageSlot: Fr) {
-    const notes = await this.db.getNotes(contract, storageSlot);
-    return notes.map(n => n.notePreimage.items.map(item => item.value));
+    const txAuxData = await this.db.getTxAuxData(contract, storageSlot);
+    return txAuxData.map(d => d.notePreimage.items.map(item => item.value));
   }
 
   /**
@@ -221,7 +223,7 @@ export class AztecRPCServer implements AztecRPCClient {
       ? [undefined, contractAddress]
       : [contractAddress, undefined];
     const dao = new TxDao(tx.txHash, undefined, undefined, txRequest.from, toContract, newContract, '');
-    await this.db.addOrUpdateTx(dao);
+    await this.db.addTx(dao);
     return tx;
   }
 
@@ -251,7 +253,7 @@ export class AztecRPCServer implements AztecRPCClient {
       error: '',
     };
 
-    if (localTx && localTx.blockHash) {
+    if (localTx?.blockHash) {
       return {
         ...partialReceipt,
         status: TxStatus.MINED,
@@ -269,10 +271,8 @@ export class AztecRPCServer implements AztecRPCClient {
     // if the transaction mined it will be removed from the pending pool and there is a race condition here as the synchroniser will not have the tx as mined yet, so it will appear dropped
     // until the synchroniser picks this up
 
-    const remoteBlockHeight = await this.node.getBlockHeight();
-    const accountBlockHeight = this.synchroniser.getAccount(localTx.from)?.syncedTo || 0;
-
-    if (localTx && remoteBlockHeight > accountBlockHeight) {
+    const accountState = this.synchroniser.getAccount(localTx.from);
+    if (accountState && !(await accountState.isSynchronised())) {
       // there is a pending L2 block, which means the transaction will not be in the tx pool but may be awaiting mine on L1
       return {
         ...partialReceipt,
@@ -285,7 +285,7 @@ export class AztecRPCServer implements AztecRPCClient {
     return {
       ...partialReceipt,
       status: TxStatus.DROPPED,
-      error: 'Tx dropped by P2P node',
+      error: 'Tx dropped by P2P node.',
     };
   }
 }
