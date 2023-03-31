@@ -14,11 +14,11 @@ import {
   MembershipWitness,
   CONTRACT_TREE_HEIGHT,
   privateKernelSim,
-  privateKernelProve,
   FUNCTION_TREE_HEIGHT,
   VerificationKey,
   ComposerType,
   CommitmentMap,
+  makeEmptyProof,
 } from '@aztec/circuits.js';
 import { createDebugLogger, Fr } from '@aztec/foundation';
 
@@ -61,8 +61,9 @@ export class KernelProver {
     const previousKernelData: PreviousKernelData = PreviousKernelData.makeEmpty();
     this.log(`Executing private kernel simulation...`);
     const publicInputs = await privateKernelSim(wasm, signedTxRequest, previousKernelData, privateCallData);
-    this.log(`Executing private kernel simulation...`);
-    const proof = await privateKernelProve(wasm, signedTxRequest, previousKernelData, privateCallData);
+    this.log(`Skipping private kernel proving...`);
+    // const proof = await privateKernelProve(wasm, signedTxRequest, previousKernelData, privateCallData);
+    const proof = makeEmptyProof().buffer;
     this.log('Kernel Prover Completed!');
 
     return Promise.resolve({
