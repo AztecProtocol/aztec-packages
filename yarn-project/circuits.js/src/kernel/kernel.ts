@@ -53,6 +53,7 @@ export async function privateKernelProve(
   previousKernel: PreviousKernelData,
   privateCallData: PrivateCallData,
 ) {
+  wasm.call('pedersen__init');
   const signedTxRequestBuffer = signedTxRequest.toBuffer();
   const previousKernelBuffer = previousKernel.toBuffer();
   const privateCallDataBuffer = privateCallData.toBuffer();
@@ -88,6 +89,7 @@ export async function privateKernelSim(
   previousKernel: PreviousKernelData,
   privateCallData: PrivateCallData,
 ) {
+  wasm.call('pedersen__init');
   const signedTxRequestBuffer = signedTxRequest.toBuffer();
   const previousKernelBuffer = previousKernel.toBuffer();
   const privateCallDataBuffer = privateCallData.toBuffer();
