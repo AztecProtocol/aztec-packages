@@ -7,7 +7,7 @@ import { getL1Publisher, L1Publisher, Sequencer, SequencerClientConfig } from '.
  * Encapsulates the full sequencer and publisher.
  */
 export class SequencerClient {
-  constructor(private publisher: L1Publisher, private sequencer: Sequencer) {}
+  constructor(private sequencer: Sequencer) {}
 
   public static async new(
     config: SequencerClientConfig,
@@ -18,7 +18,7 @@ export class SequencerClient {
     const publisher = getL1Publisher(config);
     const sequencer = new Sequencer(publisher, p2pClient, worldStateSynchroniser, wasm, config);
     await sequencer.start();
-    return new SequencerClient(publisher, sequencer);
+    return new SequencerClient(sequencer);
   }
 
   public async stop() {
