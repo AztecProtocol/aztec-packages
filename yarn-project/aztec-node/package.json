@@ -6,7 +6,8 @@
   "exports": "./dest/index.js",
   "typedoc": {
     "entryPoint": "./src/index.ts",
-    "displayName": "Aztec Node"
+    "displayName": "Aztec Node",
+    "tsconfig": "./tsconfig.dest.json"
   },
   "scripts": {
     "prepare": "../../scripts/derive-package-deps.py package.json",

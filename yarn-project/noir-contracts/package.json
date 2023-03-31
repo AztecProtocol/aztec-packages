@@ -8,7 +8,8 @@
   },
   "typedoc": {
     "entryPoint": "./src/index.ts",
-    "displayName": "Noir contracts"
+    "displayName": "Noir contracts",
+    "tsconfig": "./tsconfig.dest.json"
   },
   "scripts": {
     "prepare": "../../scripts/derive-package-deps.py package.json",

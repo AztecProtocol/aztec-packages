@@ -4,7 +4,9 @@
   "type": "module",
   "exports": "./dest/index.js",
   "typedoc": {
-    "entryPoint": "./src/index.ts"
+    "entryPoint": "./src/index.ts",
+    "displayName": "L2 Block",
+    "tsconfig": "./tsconfig.dest.json"
   },
   "scripts": {
     "prepare": "../../scripts/derive-package-deps.py package.json",

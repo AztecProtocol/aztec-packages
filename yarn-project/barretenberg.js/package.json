@@ -9,7 +9,8 @@
   },
   "typedoc": {
     "entryPoint": "./src/index.ts",
-    "displayName": "Barretenberg.js"
+    "displayName": "Barretenberg.js",
+    "tsconfig": "./tsconfig.dest.json"
   },
   "scripts": {
     "prepare": "../../scripts/derive-package-deps.py package.json",

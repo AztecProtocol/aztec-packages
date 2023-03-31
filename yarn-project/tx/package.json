@@ -5,7 +5,8 @@
   "exports": "./dest/index.js",
   "typedoc": {
     "entryPoint": "./src/index.ts",
-    "displayName": "TXs"
+    "displayName": "TXs",
+    "tsconfig": "./tsconfig.dest.json"
   },
   "scripts": {
     "prepare": "../../scripts/derive-package-deps.py package.json",
