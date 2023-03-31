@@ -13,8 +13,5 @@
       "path": "../noir-contracts/tsconfig.dest.json"
     }
   ],
-  "include": [
-    "src",
-    "test"
-  ]
+  "include": ["src", "test"]
 }
