@@ -15,7 +15,6 @@ import { existsSync } from 'fs';
  */
 export async function fetchCode() {
   if (isNode) {
-    throw new Error();
     const __dirname = dirname(fileURLToPath(import.meta.url));
     let path = __dirname + '/barretenberg.wasm';
     if (!existsSync(path)) {
