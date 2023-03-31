@@ -1,8 +1,9 @@
 import { AztecNode } from '@aztec/aztec-node';
-import { AztecRPCServer, ContractAbi, ContractDeployer, AztecAddress, EthAddress, Fr } from '@aztec/aztec.js';
+import { AztecAddress, EthAddress, AztecRPCServer, ContractDeployer, Fr, TxStatus } from '@aztec/aztec.js';
 import { EthereumRpc } from '@aztec/ethereum.js/eth_rpc';
 import { WalletProvider } from '@aztec/ethereum.js/provider';
 import { createDebugLogger } from '@aztec/foundation';
+import { ContractAbi } from '@aztec/noir-contracts';
 import { TestContractAbi } from '@aztec/noir-contracts/examples';
 import { createAztecNode } from './create_aztec_node.js';
 import { createAztecRpcServer } from './create_aztec_rpc_client.js';
@@ -12,7 +13,6 @@ const { ETHEREUM_HOST = 'http://localhost:8545' } = process.env;
 const MNEMONIC = 'test test test test test test test test test test test junk';
 
 const logger = createDebugLogger('aztec:e2e_deploy_contract');
-
 describe('e2e_deploy_contract', () => {
   let provider: WalletProvider;
   let node: AztecNode;
@@ -55,35 +55,48 @@ describe('e2e_deploy_contract', () => {
       expect.objectContaining({
         from: accounts[0],
         to: undefined,
-        status: true,
+        status: TxStatus.PENDING,
         error: '',
       }),
     );
     logger(`Receipt received`);
+    const isMined = await tx.isMined();
+    const receiptAfterMined = await tx.getReceipt();
 
-    expect(await aztecRpcServer.isContractDeployed(AztecAddress.random())).toBe(false);
+    expect(isMined).toBe(true);
+    expect(receiptAfterMined.status).toBe(TxStatus.MINED);
     const contractAddress = receipt.contractAddress!;
     expect(await aztecRpcServer.isContractDeployed(contractAddress)).toBe(true);
+    expect(await aztecRpcServer.isContractDeployed(AztecAddress.random())).toBe(false);
   }, 30_000);
 
   /**
    * Milestone 1.2
    * https://hackmd.io/-a5DjEfHTLaMBR49qy6QkA
    */
-  it.skip('should not deploy a contract with the same salt twice', async () => {
+  it('should not deploy a contract with the same salt twice', async () => {
     const contractAddressSalt = Fr.random();
     const deployer = new ContractDeployer(abi, aztecRpcServer);
 
     {
-      const receipt = await deployer.deploy().send({ contractAddressSalt }).getReceipt();
-      expect(receipt.status).toBe(true);
+      const tx = deployer.deploy().send({ contractAddressSalt });
+      const isMined = await tx.isMined();
+
+      expect(isMined).toBe(true);
+      const receipt = await tx.getReceipt();
+
+      expect(receipt.status).toBe(TxStatus.MINED);
       expect(receipt.error).toBe('');
     }
 
     {
-      const receipt = await deployer.deploy().send({ contractAddressSalt }).getReceipt();
-      expect(receipt.status).toBe(false);
-      expect(receipt.error).not.toBe('');
+      const tx = deployer.deploy().send({ contractAddressSalt });
+      const isMined = await tx.isMined();
+      expect(isMined).toBe(false);
+      const receipt = await tx.getReceipt();
+
+      expect(receipt.status).toBe(TxStatus.DROPPED);
+      expect(receipt.error).toBe('Tx dropped by P2P node');
     }
-  });
+  }, 30_000);
 });

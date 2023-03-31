@@ -3,7 +3,7 @@ import { serializeToBuffer } from '../utils/serialize.js';
 import { ARGS_LENGTH } from './constants.js';
 import { FunctionData } from './function_data.js';
 import { EcdsaSignature } from './shared.js';
-import { AztecAddress, EthAddress, Fr } from '@aztec/foundation';
+import { AztecAddress, BufferReader, EthAddress, Fr } from '@aztec/foundation';
 
 /**
  * Contract deployment data in a TxContext
@@ -23,6 +23,20 @@ export class ContractDeploymentData {
       this.functionTreeRoot,
       this.contractAddressSalt,
       this.portalContractAddress,
+    );
+  }
+
+  /**
+   * Deserializes from a buffer or reader, corresponding to a write in cpp.
+   * @param buffer - Buffer to read from.
+   */
+  static fromBuffer(buffer: Buffer | BufferReader): ContractDeploymentData {
+    const reader = BufferReader.asReader(buffer);
+    return new ContractDeploymentData(
+      reader.readFr(),
+      reader.readFr(),
+      reader.readFr(),
+      new EthAddress(reader.readBytes(32)),
     );
   }
 }
@@ -51,6 +65,15 @@ export class TxContext {
       this.contractDeploymentData,
     );
   }
+
+  /**
+   * Deserializes from a buffer or reader, corresponding to a write in cpp.
+   * @param buffer - Buffer to read from.
+   */
+  static fromBuffer(buffer: Buffer | BufferReader): TxContext {
+    const reader = BufferReader.asReader(buffer);
+    return new TxContext(false, false, true, reader.readObject(ContractDeploymentData));
+  }
 }
 
 /**
@@ -78,13 +101,11 @@ export class TxRequest {
     public from: AztecAddress,
     public to: AztecAddress,
     public functionData: FunctionData,
-    public args: Fr[],
+    public args: any[],
     public nonce: Fr,
     public txContext: TxContext,
     public chainId: Fr,
-  ) {
-    assertLength(this, 'args', ARGS_LENGTH);
-  }
+  ) {}
 
   static getFields(fields: FieldsOf<TxRequest>) {
     return [

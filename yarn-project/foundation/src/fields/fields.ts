@@ -9,9 +9,9 @@ export class Fr {
   static SIZE_IN_BYTES = 32;
 
   constructor(public readonly value: bigint) {
-    if (value > Fr.MAX_VALUE) {
-      throw new Error(`Fr out of range ${value}.`);
-    }
+    // if (value > Fr.MAX_VALUE) {
+    //   throw new Error(`Fr out of range ${value}.`);
+    // }
   }
 
   static random() {
@@ -24,12 +24,29 @@ export class Fr {
     return new this(toBigIntBE(reader.readBytes(this.SIZE_IN_BYTES)));
   }
 
+  static fromString(address: string) {
+    return Fr.fromBuffer(Buffer.from(address.replace(/^0x/i, ''), 'hex'));
+  }
+
   toBuffer() {
     return toBufferBE(this.value, Fr.SIZE_IN_BYTES);
   }
 
   toString() {
     return '0x' + this.value.toString(16);
+  }
+
+  toShortString() {
+    const str = this.toString();
+    return `${str.slice(0, 10)}...${str.slice(-4)}`;
+  }
+
+  equals(rhs: Fr) {
+    return this.value === rhs.value;
+  }
+
+  isZero() {
+    return this.value === 0n;
   }
 }
 
@@ -45,7 +62,7 @@ export class Fq {
   }
 
   static random() {
-    const r = toBigIntBE(randomBytes(64)) % Fr.MODULUS;
+    const r = toBigIntBE(randomBytes(64)) % Fq.MODULUS;
     return new this(r);
   }
 
@@ -60,5 +77,9 @@ export class Fq {
 
   toString() {
     return '0x' + this.value.toString(16);
+  }
+
+  isZero() {
+    return this.value === 0n;
   }
 }

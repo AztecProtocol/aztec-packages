@@ -1,20 +1,14 @@
-import { TxHash } from '@aztec/tx';
 import { AztecNode } from '@aztec/aztec-node';
-import { createDebugLogger, InterruptableSleep } from '@aztec/foundation';
-import { AccountState } from '../account_state/index.js';
 import {
   KERNEL_NEW_COMMITMENTS_LENGTH,
   KERNEL_NEW_CONTRACTS_LENGTH,
   KERNEL_NEW_NULLIFIERS_LENGTH,
 } from '@aztec/circuits.js';
-import { Database, TxDao } from '../database/index.js';
-import { ContractAbi } from '../noir.js';
+import { AztecAddress, createDebugLogger, InterruptableSleep, keccak } from '@aztec/foundation';
 import { L2Block } from '@aztec/l2-block';
-import { 
-  AztecAddress,
-  EthAddress,
-  keccak
-} from '@aztec/foundation';
+import { TxHash } from '@aztec/tx';
+import { AccountState } from '../account_state/index.js';
+import { Database, TxDao } from '../database/index.js';
 
 export class Synchroniser {
   private runningPromise?: Promise<void>;
@@ -79,13 +73,10 @@ export class Synchroniser {
     return [...this.accountStates];
   }
 
-  public async getTxReceipt(txHash: TxHash) {
+  public async getTxByHash(txHash: TxHash): Promise<TxDao> {
     const tx = await this.db.getTx(txHash);
     if (!tx) {
-      return;
-    }
-    if (!tx.blockHash) {
-      return;
+      throw new Error('Transaction not found in RPC database');
     }
 
     const account = this.getAccount(tx.from);
@@ -93,16 +84,7 @@ export class Synchroniser {
       throw new Error('Unauthorised account.');
     }
 
-    return {
-      txHash: tx.txHash,
-      blockHash: tx.blockHash,
-      blockNumber: tx.blockNumber,
-      from: tx.from,
-      to: tx.to,
-      contractAddress: tx.contractAddress,
-      error: tx.error,
-      status: !tx.error,
-    };
+    return tx;
   }
 
   private async decodeBlocks(l2Blocks: L2Block[]) {
@@ -133,6 +115,9 @@ export class Synchroniser {
           await this.db.addOrUpdateTx(txDao);
         }
         i++;
+      }
+      for (const key in this.accountStates) {
+        this.accountStates[key].syncToBlock(block);
       }
       this.log(`Synched block ${block.number}`);
     }

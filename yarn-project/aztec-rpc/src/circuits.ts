@@ -1,4 +1,4 @@
-import { AztecAddress, Fr, randomBytes } from '@aztec/foundation';
+import { randomBytes } from '@aztec/foundation';
 
 export class Signature {
   public static SIZE = 64;
@@ -8,17 +8,4 @@ export class Signature {
   }
 
   constructor(public readonly buffer: Buffer) {}
-}
-
-export function generateContractAddress(
-  deployerAddress: AztecAddress,
-  salt: Fr,
-  args: Fr[],
-  // functionLeaves: Fr[],
-) {
-  return AztecAddress.random();
-}
-
-export function selectorToNumber(selector: Buffer) {
-  return selector.readUInt32BE();
 }

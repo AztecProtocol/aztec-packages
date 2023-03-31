@@ -1,6 +1,18 @@
 import { AztecAddress, EthAddress, Fq, Fr } from '@aztec/foundation';
-import { CallContext, PreviousRollupData, PrivateCircuitPublicInputs, RootRollupInputs, RootRollupPublicInputs } from '../index.js';
-import { AppendOnlyTreeSnapshot, BaseRollupPublicInputs, ConstantBaseRollupData } from '../structs/base_rollup.js';
+import {
+  CallContext,
+  PreviousRollupData,
+  PrivateCircuitPublicInputs,
+  RootRollupInputs,
+  RootRollupPublicInputs,
+} from '../index.js';
+import {
+  AppendOnlyTreeSnapshot,
+  BaseRollupInputs,
+  BaseRollupPublicInputs,
+  ConstantBaseRollupData,
+  NullifierLeafPreimage,
+} from '../structs/base_rollup.js';
 import {
   ARGS_LENGTH,
   CONTRACT_TREE_HEIGHT,
@@ -17,12 +29,14 @@ import {
   L1_MSG_STACK_LENGTH,
   NEW_COMMITMENTS_LENGTH,
   NEW_NULLIFIERS_LENGTH,
+  NULLIFIER_TREE_HEIGHT,
   PRIVATE_CALL_STACK_LENGTH,
+  PRIVATE_DATA_TREE_HEIGHT,
   PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT,
   PUBLIC_CALL_STACK_LENGTH,
   RETURN_VALUES_LENGTH,
   ROLLUP_VK_TREE_HEIGHT,
-  VK_TREE_HEIGHT
+  VK_TREE_HEIGHT,
 } from '../structs/constants.js';
 import { FunctionData } from '../structs/function_data.js';
 import {
@@ -34,7 +48,7 @@ import {
   PreviousKernelData,
   PrivateCallData,
   PrivateKernelInputs,
-  PrivateKernelPublicInputs
+  PrivateKernelPublicInputs,
 } from '../structs/kernel.js';
 import { PrivateCallStackItem } from '../structs/private_call_stack_item.js';
 import {
@@ -43,7 +57,7 @@ import {
   ComposerType,
   EcdsaSignature,
   MembershipWitness,
-  UInt8Vector
+  UInt8Vector,
 } from '../structs/shared.js';
 import { ContractDeploymentData, SignedTxRequest, TxContext, TxRequest } from '../structs/tx.js';
 import { CommitmentMap, G1AffineElement, VerificationKey } from '../structs/verification_key.js';
@@ -61,6 +75,12 @@ export function makeOldTreeRoots(seed: number): OldTreeRoots {
 
 export function makeConstantData(seed = 1): ConstantData {
   return new ConstantData(makeOldTreeRoots(seed), makeTxContext(seed + 4));
+}
+
+export function makeSelector(seed: number) {
+  const buffer = Buffer.alloc(4);
+  buffer.writeUInt32BE(seed, 0);
+  return buffer;
 }
 
 export function makeAccumulatedData(seed = 1): AccumulatedData {
@@ -84,7 +104,7 @@ export function makeNewContractData(seed = 1): NewContractData {
 export function makeOptionallyRevealedData(seed = 1): OptionallyRevealedData {
   return new OptionallyRevealedData(
     fr(seed),
-    new FunctionData(seed + 1, true, true),
+    new FunctionData(makeSelector(seed + 1), true, true),
     range(EMITTED_EVENTS_LENGTH, seed + 0x100).map(x => fr(x)),
     fr(seed + 2),
     makeEthAddress(seed + 3),
@@ -154,7 +174,7 @@ export function makeTxRequest(seed = 1): TxRequest {
   return TxRequest.from({
     from: makeAztecAddress(seed),
     to: makeAztecAddress(seed + 0x10),
-    functionData: new FunctionData(seed + 0x100, true, true),
+    functionData: new FunctionData(makeSelector(seed + 0x100), true, true),
     args: range(ARGS_LENGTH, seed + 0x200).map(x => fr(x)),
     nonce: fr(seed + 0x300),
     txContext: makeTxContext(seed + 0x400),
@@ -177,7 +197,7 @@ export function makePrivateCallData(seed = 1): PrivateCallData {
 export function makeCallStackItem(seed = 1): PrivateCallStackItem {
   return new PrivateCallStackItem(
     makeAztecAddress(seed),
-    new FunctionData(seed + 0x1, true, true),
+    new FunctionData(makeSelector(seed + 0x1), true, true),
     makePrivateCircuitPublicInputs(seed + 0x10),
   );
 }
@@ -260,7 +280,7 @@ export function makePreviousBaseRollupData(seed = 0) {
     makeVerificationKey(),
     seed + 0x110,
     makeMembershipWitness(ROLLUP_VK_TREE_HEIGHT, seed + 0x120),
-  )
+  );
 }
 
 export function makeRootRollupInputs(seed = 0) {
@@ -286,6 +306,69 @@ export function makeRootRollupPublicInputs(seed = 0) {
     makeAppendOnlyTreeSnapshot(seed + 0x1000),
     [fr(seed + 0x1200), fr(seed + 0x1201)],
   );
+}
+
+export function makeBaseRollupInputs(seed = 0) {
+  const kernelData: [PreviousKernelData, PreviousKernelData] = [
+    makePreviousKernelData(seed + 0x100),
+    makePreviousKernelData(seed + 0x200),
+  ];
+
+  const startPrivateDataTreeSnapshot = makeAppendOnlyTreeSnapshot(seed + 0x100);
+  const startNullifierTreeSnapshot = makeAppendOnlyTreeSnapshot(seed + 0x200);
+  const startContractTreeSnapshot = makeAppendOnlyTreeSnapshot(seed + 0x300);
+
+  const lowNullifierLeafPreimages = range(2 * KERNEL_NEW_NULLIFIERS_LENGTH, seed + 0x1000).map(
+    x => new NullifierLeafPreimage(fr(x), fr(x + 0x100), x + 0x200),
+  );
+
+  const lowNullifierMembershipWitness = range(2 * KERNEL_NEW_NULLIFIERS_LENGTH, seed + 0x2000).map(x =>
+    makeMembershipWitness(NULLIFIER_TREE_HEIGHT, x),
+  );
+
+  const newCommitmentsSubtreeSiblingPath = range(
+    PRIVATE_DATA_TREE_HEIGHT - BaseRollupInputs.PRIVATE_DATA_SUBTREE_HEIGHT,
+    seed + 0x3000,
+  ).map(x => fr(x));
+
+  const newNullifiersSubtreeSiblingPath = range(
+    NULLIFIER_TREE_HEIGHT - BaseRollupInputs.NULLIFIER_SUBTREE_HEIGHT,
+    seed + 0x4000,
+  ).map(x => fr(x));
+
+  const newContractsSubtreeSiblingPath = range(
+    CONTRACT_TREE_HEIGHT - BaseRollupInputs.CONTRACT_SUBTREE_HEIGHT,
+    seed + 0x5000,
+  ).map(x => fr(x));
+
+  const historicPrivateDataTreeRootMembershipWitnesses: BaseRollupInputs['historicPrivateDataTreeRootMembershipWitnesses'] =
+    [
+      makeMembershipWitness(PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT, seed + 0x6000),
+      makeMembershipWitness(PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT, seed + 0x7000),
+    ];
+
+  const historicContractsTreeRootMembershipWitnesses: BaseRollupInputs['historicContractsTreeRootMembershipWitnesses'] =
+    [
+      makeMembershipWitness(CONTRACT_TREE_ROOTS_TREE_HEIGHT, seed + 0x8000),
+      makeMembershipWitness(CONTRACT_TREE_ROOTS_TREE_HEIGHT, seed + 0x9000),
+    ];
+
+  const constants = makeConstantBaseRollupData(0x100);
+
+  return BaseRollupInputs.from({
+    kernelData,
+    startPrivateDataTreeSnapshot,
+    startNullifierTreeSnapshot,
+    startContractTreeSnapshot,
+    lowNullifierLeafPreimages,
+    lowNullifierMembershipWitness,
+    newCommitmentsSubtreeSiblingPath,
+    newNullifiersSubtreeSiblingPath,
+    newContractsSubtreeSiblingPath,
+    historicPrivateDataTreeRootMembershipWitnesses,
+    historicContractsTreeRootMembershipWitnesses,
+    constants,
+  });
 }
 
 /**

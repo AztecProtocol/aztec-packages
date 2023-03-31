@@ -1,5 +1,6 @@
-import { AztecRPCClient, ContractAbi, FunctionAbi } from '@aztec/aztec-rpc';
 import { AztecAddress } from '@aztec/foundation';
+import { AztecRPCClient } from '@aztec/aztec-rpc';
+import { ContractAbi, FunctionAbi } from '@aztec/noir-contracts';
 import { ContractFunctionInteraction } from './contract_function_interaction.js';
 
 export class Contract {

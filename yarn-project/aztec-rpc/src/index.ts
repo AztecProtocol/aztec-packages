@@ -6,7 +6,6 @@ export * from './tx/index.js';
 export { Tx, TxHash } from '@aztec/tx';
 // TODO - only export necessary stuffs
 export * from './circuits.js';
-export * from './noir.js';
 
 export { TxRequest } from '@aztec/circuits.js';
 export { Fr, AztecAddress, EthAddress } from '@aztec/foundation';

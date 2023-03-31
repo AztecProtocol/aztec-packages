@@ -43,6 +43,7 @@ export class KernelProver {
     const createRandomContractData = () => {
       return new NewContractData(AztecAddress.random(), new EthAddress(randomBytes(20)), createRandomFields(1)[0]);
     };
+    const newNullifiers = createRandomFields(KERNEL_NEW_NULLIFIERS_LENGTH);
     const newContracts = [];
     if (txRequest.functionData.isConstructor) {
       newContracts.push(
@@ -52,7 +53,9 @@ export class KernelProver {
           txRequest.txContext.contractDeploymentData.functionTreeRoot,
         ),
       );
+      newNullifiers[0] = Fr.fromBuffer(txRequest.to.toBuffer());
     }
+
     newContracts.push(
       ...Array(KERNEL_NEW_CONTRACTS_LENGTH - newContracts.length)
         .fill(0)
@@ -67,9 +70,12 @@ export class KernelProver {
       false,
     );
     const createOptionallyRevealedData = () => {
+      const selector = Buffer.alloc(4);
+      selector.writeUInt32BE(1, 0);
+
       const optionallyRevealedData = new OptionallyRevealedData(
         createRandomFields(1)[0],
-        new FunctionData(1, true, true),
+        new FunctionData(selector, true, true),
         createRandomFields(EMITTED_EVENTS_LENGTH),
         createRandomFields(1)[0],
         new EthAddress(randomBytes(20)),
@@ -84,7 +90,7 @@ export class KernelProver {
       aggregationObject,
       new Fr(0n),
       createRandomFields(KERNEL_NEW_COMMITMENTS_LENGTH),
-      createRandomFields(KERNEL_NEW_NULLIFIERS_LENGTH),
+      newNullifiers, // first element should be a stubbed "real" nullfiier for the contract address
       createRandomFields(KERNEL_PRIVATE_CALL_STACK_LENGTH),
       createRandomFields(KERNEL_PUBLIC_CALL_STACK_LENGTH),
       createRandomFields(KERNEL_L1_MSG_STACK_LENGTH),

@@ -69,6 +69,7 @@ jobs:
       - run:
           name: "Build"
           command: cond_spot_run_build aztec3-circuits-wasm-linux-clang 64
+
   yarn-project-base:
     machine:
       image: ubuntu-2004:202010-01
@@ -157,6 +158,17 @@ jobs:
           name: "Build and test"
           command: build acir-simulator
 
+  sequencer-client:
+    machine:
+      image: ubuntu-2004:202010-01
+    resource_class: large
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Build and test"
+          command: build sequencer-client
+
   end-to-end:
     machine:
       image: ubuntu-2004:202010-01
@@ -233,3 +245,4 @@ workflows:
       - acir-simulator: *yarn_project
       - merkle-tree: *yarn_project
       - noir-contracts: *yarn_project
+      - sequencer-client: *yarn_project

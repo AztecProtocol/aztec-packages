@@ -3,7 +3,7 @@ import { default as memdown } from 'memdown';
 import { Archiver } from '@aztec/archiver';
 import { ContractData, L2Block, L2BlockSource, UnverifiedData, UnverifiedDataSource } from '@aztec/l2-block';
 import { P2P, P2PClient } from '@aztec/p2p';
-import { Tx } from '@aztec/tx';
+import { Tx, TxHash } from '@aztec/tx';
 import { MerkleTrees, WorldStateSynchroniser, ServerWorldStateSynchroniser, MerkleTreeId } from '@aztec/world-state';
 import { SequencerClient } from '@aztec/sequencer-client';
 import { AztecNodeConfig } from './config.js';
@@ -70,6 +70,14 @@ export class AztecNode {
   }
 
   /**
+   * Method to fetch the current block height
+   * @returns The block height as a number.
+   */
+  public async getBlockHeight(): Promise<number> {
+    return await this.blockSource.getBlockHeight();
+  }
+
+  /**
    * Lookup the L2 contract data for this contract.
    * Contains information such as the ethereum portal address.
    * @param contractAddress - The contract data address.
@@ -112,8 +120,17 @@ export class AztecNode {
    * Method to retrieve pending txs.
    * @returns - The pending txs.
    */
-  public async getTxs() {
+  public async getPendingTxs() {
     return await this.p2pClient!.getTxs();
+  }
+
+  /**
+   * Method to retrieve a single pending tx
+   * @param txHash - The transaction hash to return.
+   * @returns - The pending tx if it exists
+   */
+  public async getPendingTxByHash(txHash: TxHash) {
+    return await this.p2pClient!.getTxByhash(txHash);
   }
 
   public findContractIndex(leafValue: Buffer): Promise<bigint | undefined> {

@@ -194,7 +194,7 @@ describe('server_world_state_synchroniser', () => {
 
   it('immediately syncs if no new blocks', async () => {
     const server = createSynchroniser(merkleTreeDb, rollupSource);
-    rollupSource.getLatestBlockNum.mockImplementationOnce(() => {
+    rollupSource.getBlockHeight.mockImplementationOnce(() => {
       return Promise.resolve(0);
     });
 
@@ -212,7 +212,7 @@ describe('server_world_state_synchroniser', () => {
 
   it("can't be started if already stopped", async () => {
     const server = createSynchroniser(merkleTreeDb, rollupSource);
-    rollupSource.getLatestBlockNum.mockImplementationOnce(() => {
+    rollupSource.getBlockHeight.mockImplementationOnce(() => {
       return Promise.resolve(0);
     });
 

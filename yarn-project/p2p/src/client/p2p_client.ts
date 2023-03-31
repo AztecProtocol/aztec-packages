@@ -51,6 +51,12 @@ export interface P2P {
   getTxs(): Promise<Tx[]>;
 
   /**
+   * Returns a transaction in the transaction pool by its hash
+   * @returns A single tx or undefined
+   */
+  getTxByhash(txHash: TxHash): Promise<Tx | undefined>;
+
+  /**
    * Starts the p2p client.
    * @returns A promise signalling the completion of the block sync.
    */
@@ -130,7 +136,7 @@ export class P2PClient implements P2P {
     }
 
     // get the current latest block number
-    this.latestBlockNumberAtStart = await this.l2BlockSource.getLatestBlockNum();
+    this.latestBlockNumberAtStart = await this.l2BlockSource.getBlockHeight();
 
     const blockToDownloadFrom = this.currentL2BlockNum + 1;
 
@@ -179,6 +185,14 @@ export class P2PClient implements P2P {
    */
   public getTxs(): Promise<Tx[]> {
     return Promise.resolve(this.txPool.getAllTxs());
+  }
+
+  /**
+   * Returns a transaction in the transaction pool by its hash
+   * @returns A single tx or undefined
+   */
+  getTxByhash(txHash: TxHash): Promise<Tx | undefined> {
+    return Promise.resolve(this.txPool.getTxByHash(txHash));
   }
 
   /**

@@ -22,7 +22,7 @@ describe('Archiver', () => {
       EthAddress.fromString(yeeterAddress),
     );
 
-    let latestBlockNum = await archiver.getLatestBlockNum();
+    let latestBlockNum = await archiver.getBlockHeight();
     expect(latestBlockNum).toEqual(0);
     let getLatestUnverifiedDataBlockNum = await archiver.getLatestUnverifiedDataBlockNum();
     expect(getLatestUnverifiedDataBlockNum).toEqual(0);
@@ -37,7 +37,7 @@ describe('Archiver', () => {
 
     await archiver.start();
 
-    latestBlockNum = await archiver.getLatestBlockNum();
+    latestBlockNum = await archiver.getBlockHeight();
     expect(latestBlockNum).toEqual(3);
     getLatestUnverifiedDataBlockNum = await archiver.getLatestUnverifiedDataBlockNum();
     expect(getLatestUnverifiedDataBlockNum).toEqual(2);

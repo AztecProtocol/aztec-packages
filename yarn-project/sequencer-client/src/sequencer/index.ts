@@ -4,7 +4,7 @@ import { WorldStateSynchroniser, WorldStateStatus, MerkleTreeId } from '@aztec/w
 import { RunningPromise } from '../deps/running_promise.js';
 import { L1Publisher } from '../publisher/l1-publisher.js';
 import { createDebugLogger } from '@aztec/foundation';
-import { BlockBuilder } from './block_builder.js';
+import { StandaloneBlockBuilder } from '../block_builder/standalone_block_builder.js';
 import { SequencerConfig } from './config.js';
 
 /**
@@ -63,7 +63,7 @@ export class Sequencer {
     // eslint-disable-next-line @typescript-eslint/await-thenable
     for (const nullifier of tx.data.end.newNullifiers) {
       // TODO(AD): this is an exhaustive search currently
-      if (!(await this.worldState.findLeafIndex(MerkleTreeId.NULLIFIER_TREE, nullifier.toBuffer()))) {
+      if ((await this.worldState.findLeafIndex(MerkleTreeId.NULLIFIER_TREE, nullifier.toBuffer())) !== undefined) {
         // Our nullifier tree has this nullifier already - this transaction is a double spend / not well-formed
         return true;
       }
@@ -148,7 +148,7 @@ export class Sequencer {
   }
 
   protected async buildBlock(tx: Tx) {
-    const blockBuilder = new BlockBuilder(this.worldState, this.lastBlockNumber + 1, tx);
+    const blockBuilder = new StandaloneBlockBuilder(this.worldState, this.lastBlockNumber + 1, tx);
     return await blockBuilder.buildL2Block();
   }
 }

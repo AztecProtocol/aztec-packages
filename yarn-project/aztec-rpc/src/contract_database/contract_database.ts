@@ -1,8 +1,7 @@
-import { AztecAddress, EthAddress } from '@aztec/foundation';
-import { ContractAbi } from '../noir.js';
+import { AztecAddress } from '@aztec/foundation';
 import { ContractDao } from './contract_dao.js';
 
 export interface ContractDatabase {
-  addContract(address: AztecAddress, portalAddress: EthAddress, abi: ContractAbi): Promise<void>;
+  addContract(contract: ContractDao): Promise<void>;
   getContract(address: AztecAddress): Promise<ContractDao | undefined>;
 }

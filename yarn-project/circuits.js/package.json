@@ -4,8 +4,10 @@
   "type": "module",
   "exports": {
     ".": "./dest/index.js",
+    "./abis": "./dest/abis/index.js",
     "./factories": "./dest/tests/factories.js",
-    "./utils": "./dest/utils/index.js"
+    "./utils": "./dest/utils/index.js",
+    "./wasm": "./dest/wasm/index.js"
   },
   "typedoc": {
     "entryPoint": "./src/index.ts",
@@ -13,8 +15,10 @@
     "tsconfig": "./tsconfig.dest.json"
   },
   "scripts": {
-    "build": "yarn clean && yarn formatting && tsc -b tsconfig.dest.json",
+    "build": "yarn redo-ts-refs && tsc -b tsconfig.dest.json && yarn build:link",
     "build:dev": "tsc -b tsconfig.dest.json --watch",
+    "build:link": "ln -nf src/wasm/aztec3-circuits.wasm dest/wasm/aztec3-circuits.wasm",
+    "redo-ts-refs": "../../scripts/update-tsconfig-references tsconfig.dest.json",
     "clean": "rm -rf ./dest .tsbuildinfo",
     "formatting": "prettier --check ./src && eslint --max-warnings 278 ./src",
     "formatting:fix": "prettier -w ./src",
@@ -36,9 +40,11 @@
   },
   "dependencies": {
     "@aztec/foundation": "workspace:^",
+    "@types/lodash.times": "^4.3.7",
     "cross-fetch": "^3.1.5",
     "detect-node": "^2.1.0",
     "eslint": "^8.35.0",
+    "lodash.times": "^4.3.2",
     "tslib": "^2.4.0"
   },
   "devDependencies": {
