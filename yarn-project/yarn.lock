@@ -20,6 +20,7 @@ __metadata:
   resolution: "@aztec/acir-simulator@workspace:acir-simulator"
   dependencies:
     "@aztec/circuits.js": "workspace:^"
+    "@aztec/foundation": "workspace:^"
     "@aztec/noir-contracts": "workspace:^"
     "@jest/globals": ^29.4.3
     "@noir-lang/aztec_backend_wasm": "github:joss-aztec/barretenberg_browser_stopgap_wasm_build#78606b521f3147ec6b88879e738067a3b2b6f2fd"
