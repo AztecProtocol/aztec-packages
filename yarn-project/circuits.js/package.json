@@ -12,15 +12,9 @@
     "displayName": "Circuits.js"
   },
   "scripts": {
-<<<<<<< HEAD
+    "prepare": "../../scripts/derive-package-deps.py package.json",
     "build": "tsc -b",
     "build:dev": "tsc -b tsconfig.json --watch",
-=======
-    "build": "yarn redo-ts-refs && tsc -b tsconfig.dest.json && yarn build:link",
-    "build:dev": "tsc -b tsconfig.dest.json --watch",
-    "build:link": "ln -nf src/wasm/aztec3-circuits.wasm dest/wasm/aztec3-circuits.wasm",
-    "redo-ts-refs": "../../scripts/update-tsconfig-references tsconfig.dest.json",
->>>>>>> origin/master
     "clean": "rm -rf ./dest .tsbuildinfo",
     "formatting": "prettier --check ./src && eslint --max-warnings 278 ./src",
     "formatting:fix": "prettier -w ./src",

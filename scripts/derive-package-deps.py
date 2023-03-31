@@ -84,10 +84,10 @@ if __name__ == "__main__":
     dependencies = update_dependencies(package_json_file)
 
     # Get the directory name of the directory that holds package.json
-    project_key = os.path.basename(os.path.dirname(package_json_file))
+    project_key = os.path.basename(os.path.dirname(os.path.abspath(package_json_file)))
 
     # Add the path to the build-manifest.json file
-    build_manifest_file = os.path.join(os.path.dirname(package_json_file), '..', 'build-manifest.json')
+    build_manifest_file = os.path.join(os.path.dirname(package_json_file), '..', '..', 'build_manifest.json')
 
     # Call the update_build_manifest function with the provided build_manifest file path, the dependencies, and the project_key
     update_build_manifest(build_manifest_file, dependencies, project_key)
