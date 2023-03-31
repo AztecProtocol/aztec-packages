@@ -216,7 +216,10 @@ export class AztecRPCServer implements AztecRPCClient {
       oldRoots as any, // TODO - remove `as any`
     );
     const tx = new Tx(publicInputs, new UInt8Vector(Buffer.alloc(0)), Buffer.alloc(0));
-    const dao: TxDao = new TxDao(tx.txHash, undefined, undefined, txRequest.from, undefined, txRequest.to, '');
+    const [toContract, newContract] = txRequest.functionData.isConstructor
+      ? [undefined, contractAddress]
+      : [contractAddress, undefined];
+    const dao = new TxDao(tx.txHash, undefined, undefined, txRequest.from, toContract, newContract, '');
     await this.db.addOrUpdateTx(dao);
     return tx;
   }
