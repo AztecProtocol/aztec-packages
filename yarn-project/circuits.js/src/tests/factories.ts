@@ -36,7 +36,7 @@ import {
   PUBLIC_CALL_STACK_LENGTH,
   RETURN_VALUES_LENGTH,
   ROLLUP_VK_TREE_HEIGHT,
-  VK_TREE_HEIGHT
+  VK_TREE_HEIGHT,
 } from '../structs/constants.js';
 import { FunctionData } from '../structs/function_data.js';
 import {
@@ -48,7 +48,7 @@ import {
   PreviousKernelData,
   PrivateCallData,
   PrivateKernelInputs,
-  PrivateKernelPublicInputs
+  PrivateKernelPublicInputs,
 } from '../structs/kernel.js';
 import { PrivateCallStackItem } from '../structs/private_call_stack_item.js';
 import {
@@ -57,7 +57,7 @@ import {
   ComposerType,
   EcdsaSignature,
   MembershipWitness,
-  UInt8Vector
+  UInt8Vector,
 } from '../structs/shared.js';
 import { ContractDeploymentData, SignedTxRequest, TxContext, TxRequest } from '../structs/tx.js';
 import { CommitmentMap, G1AffineElement, VerificationKey } from '../structs/verification_key.js';
@@ -280,7 +280,7 @@ export function makePreviousBaseRollupData(seed = 0) {
     makeVerificationKey(),
     seed + 0x110,
     makeMembershipWitness(ROLLUP_VK_TREE_HEIGHT, seed + 0x120),
-  )
+  );
 }
 
 export function makeRootRollupInputs(seed = 0) {

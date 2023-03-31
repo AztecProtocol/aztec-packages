@@ -15,8 +15,7 @@ import { Crs } from '../crs/index.js';
 export async function fetchCode() {
   if (isNode) {
     const __dirname = dirname(fileURLToPath(import.meta.url));
-    // TODO properly package this
-    return await readFile(__dirname + '/../../../circuits/cpp/build-wasm/bin/aztec3-circuits.wasm');
+    return await readFile(__dirname + '/aztec3-circuits.wasm');
   } else {
     const res = await fetch('/aztec3-circuits.wasm');
     return Buffer.from(await res.arrayBuffer());
