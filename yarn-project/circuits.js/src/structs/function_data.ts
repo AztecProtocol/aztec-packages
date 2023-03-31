@@ -20,7 +20,7 @@ export class FunctionData {
   }
 
   public static empty() {
-    return new FunctionData(0);
+    return new FunctionData(Buffer.alloc(4, 0));
   }
   /**
    * Deserializes from a buffer or reader, corresponding to a write in cpp.

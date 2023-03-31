@@ -1,7 +1,16 @@
+import { numToUInt32BE, BufferReader, numToUInt8 } from '@aztec/foundation';
 import { Buffer } from 'buffer';
+import {
+  Fr,
+  FUNCTION_TREE_HEIGHT,
+  PreviousKernelData,
+  PrivateCallData,
+  PrivateKernelPublicInputs,
+  SignedTxRequest,
+  Vector,
+} from '../index.js';
+import { boolToBuffer, serializeToBuffer, uint8ArrayToNum } from '../utils/serialize.js';
 import { CircuitsWasm } from '../wasm/index.js';
-import { boolToBuffer, uint8ArrayToNum } from '../utils/serialize.js';
-import { PreviousKernelData, PrivateCallData, PrivateKernelPublicInputs, SignedTxRequest } from '../index.js';
 
 export async function getDummyPreviousKernelData(wasm: CircuitsWasm) {
   const ptr = wasm.call('bbmalloc', 4);
@@ -10,6 +19,33 @@ export async function getDummyPreviousKernelData(wasm: CircuitsWasm) {
   wasm.call('bbfree', ptr);
   const result = Buffer.from(wasm.getMemorySlice(data, data + outputBufSize));
   return PreviousKernelData.fromBuffer(result);
+}
+
+export function computeFunctionTree(wasm: CircuitsWasm, leaves: Fr[]): Fr[] {
+  // Init pedersen if needed
+  wasm.call('pedersen__init');
+
+  // Size of the tree is 2^height times size of each element,
+  // plus 4 for the size used in the std::vector serialization
+  const outputBufSize = 2 ** (FUNCTION_TREE_HEIGHT + 1) * Fr.SIZE_IN_BYTES + 4;
+
+  // Allocate memory for the input and output buffers, and populate input buffer
+  const inputBuf = serializeToBuffer(leaves);
+  const inputBufPtr = wasm.call('bbmalloc', inputBuf.length);
+  const outputBufPtr = wasm.call('bbmalloc', outputBufSize * 100);
+  wasm.writeMemory(inputBufPtr, inputBuf);
+
+  // Run and read outputs
+  wasm.asyncCall('abis__compute_function_tree', inputBufPtr, leaves.length, outputBufPtr);
+  const outputBuf = Buffer.from(wasm.getMemorySlice(outputBufPtr, outputBufPtr + outputBufSize));
+  const reader = new BufferReader(outputBuf);
+  const output = reader.readVector(Fr);
+
+  // Free memory
+  wasm.call('bbfree', outputBufPtr);
+  wasm.call('bbfree', inputBufPtr);
+
+  return output;
 }
 
 export function privateKernelProve(
