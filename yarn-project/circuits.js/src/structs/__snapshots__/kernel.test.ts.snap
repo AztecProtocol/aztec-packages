@@ -6,18 +6,12 @@ aggregation_object:
 P0: { 0x1, 0x2 }
 P1: { 0x101, 0x102 }
 public_inputs: [
-  0: 0x3
-  1: 0x4
-  2: 0x5
-  3: 0x6
+ 0x3
+ 0x4
+ 0x5
+ 0x6
 ]
-proof_witness_indices: [
-  0: 7
-  1: 8
-  2: 9
-  3: 10
-  4: 11
-  5: 12
+proof_witness_indices: [ 7 8 9 10 11 12 ]
 has_data: 0
 
 private_call_count: 0xd
@@ -114,7 +108,16 @@ portal_contract_address: 0x808080808080808080808080808080808080808
 is_private: 1
 
 proof: [ 81 81 81 81 81 81 81 81 81 81 81 81 81 81 81 81 ]
-vk: 0x12afc0
+vk:
+key.composer_type: 0
+key.circuit_size: 101
+key.num_public_inputs: 102
+key.commitments: [
+ A: { 0x200, 0x300 }
+]
+key.contains_recursive_proof: 1
+key.recursive_proof_public_input_indices: [ 400 401 402 403 404 ]
+
 vk_index: 66
 vk_path: [ 0x1000 0x1001 0x1002 ]
 "
@@ -150,18 +153,12 @@ aggregation_object:
 P0: { 0x1001, 0x1002 }
 P1: { 0x1101, 0x1102 }
 public_inputs: [
-  0: 0x1003
-  1: 0x1004
-  2: 0x1005
-  3: 0x1006
+ 0x1003
+ 0x1004
+ 0x1005
+ 0x1006
 ]
-proof_witness_indices: [
-  0: 4103
-  1: 4104
-  2: 4105
-  3: 4106
-  4: 4107
-  5: 4108
+proof_witness_indices: [ 4103 4104 4105 4106 4107 4108 ]
 has_data: 0
 
 private_call_count: 0x100d
@@ -258,7 +255,16 @@ portal_contract_address: 0x808080808080808080808080808080808080808
 is_private: 1
 
 proof: [ 81 81 81 81 81 81 81 81 81 81 81 81 81 81 81 81 ]
-vk: 0x12d000
+vk:
+key.composer_type: 0
+key.circuit_size: 101
+key.num_public_inputs: 102
+key.commitments: [
+ A: { 0x200, 0x300 }
+]
+key.contains_recursive_proof: 1
+key.recursive_proof_public_input_indices: [ 400 401 402 403 404 ]
+
 vk_index: 66
 vk_path: [ 0x1000 0x1001 0x1002 ]
 
@@ -271,7 +277,7 @@ is_constructor: 1
 
 public_inputs: call_context: msg_sender: 0x2012
 storage_contract_address: 0x2013
-tx_origin: 0x2014
+portal_contract_address: 0x2014
 is_delegate_call: 1
 is_static_call: 1
 is_contract_deployment: 1
@@ -306,7 +312,7 @@ is_constructor: 1
 
 public_inputs: call_context: msg_sender: 0x2022
 storage_contract_address: 0x2023
-tx_origin: 0x2024
+portal_contract_address: 0x2024
 is_delegate_call: 1
 is_static_call: 1
 is_contract_deployment: 1
@@ -339,7 +345,7 @@ is_constructor: 1
 
 public_inputs: call_context: msg_sender: 0x2023
 storage_contract_address: 0x2024
-tx_origin: 0x2025
+portal_contract_address: 0x2025
 is_delegate_call: 1
 is_static_call: 1
 is_contract_deployment: 1
@@ -372,7 +378,7 @@ is_constructor: 1
 
 public_inputs: call_context: msg_sender: 0x2024
 storage_contract_address: 0x2025
-tx_origin: 0x2026
+portal_contract_address: 0x2026
 is_delegate_call: 1
 is_static_call: 1
 is_contract_deployment: 1
@@ -405,7 +411,7 @@ is_constructor: 1
 
 public_inputs: call_context: msg_sender: 0x2025
 storage_contract_address: 0x2026
-tx_origin: 0x2027
+portal_contract_address: 0x2027
 is_delegate_call: 1
 is_static_call: 1
 is_contract_deployment: 1
@@ -435,7 +441,15 @@ portal_contract_address: 0x4
 proof:
 [ 51 51 51 51 51 51 51 51 51 51 51 51 51 51 51 51 ]
 vk:
-0x135a40
+key.composer_type: 0
+key.circuit_size: 101
+key.num_public_inputs: 102
+key.commitments: [
+ A: { 0x200, 0x300 }
+]
+key.contains_recursive_proof: 1
+key.recursive_proof_public_input_indices: [ 400 401 402 403 404 ]
+
 function_leaf_membership_witness:
 leaf_index: 8241
 sibling_path: [ 0x2031 0x2032 0x2033 0x2034 ]
