@@ -5,7 +5,11 @@
     "rootDir": "src",
     "tsBuildInfoFile": ".tsbuildinfo"
   },
-  "references": [],
+  "references": [
+    {
+      "path": "../acir-simulator/tsconfig.dest.json"
+    }
+  ],
   "include": [
     "src"
   ]
