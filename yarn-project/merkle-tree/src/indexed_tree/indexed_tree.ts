@@ -159,7 +159,7 @@ export class IndexedTree implements MerkleTree {
   // 1. There are 8 nullifiers provided and they are all unique
   // 2. If kc 0 has 1 nullifier, and kc 1 has 3 nullifiers the layout will assume to be the sparse
   //   nullifier layout: [kc0N, 0, 0, 0, kc1N, kc1N, kc1N, 0]
-  public async getAndPerformBaseRollupBatchInsertionProofs(leaves: Buffer[]): Promise<LowNullifierWitnessData> {
+  public async getAndPerformBaseRollupBatchInsertionProofs(leaves: Buffer[]): Promise<LowNullifierWitnessData[]> {
     // Keep track of the touched during batch insertion
     const touchedNodes: Set<number> = new Set<number>();
     
@@ -202,9 +202,8 @@ export class IndexedTree implements MerkleTree {
         const newValue = toBigIntBE(leaf);
         const lowNullifier = this.getLatestLeafDataCopy(indexOfPrevious.index);
 
-        if (!lowNullifier) {
-          // TODO: work out what to throw if the index is not found
-          return null;
+        if (lowNullifier === undefined) {
+          throw new Error(`Previous leaf not found!`);
         }
         
         // Get sibling path for existence of the old leaf

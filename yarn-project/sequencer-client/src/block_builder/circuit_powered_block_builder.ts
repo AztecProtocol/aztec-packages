@@ -11,6 +11,7 @@ import {
   PreviousKernelData,
   PreviousRollupData,
   PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT,
+  PRIVATE_DATA_TREE_HEIGHT,
   ROLLUP_VK_TREE_HEIGHT,
   RootRollupInputs,
   RootRollupPublicInputs,
@@ -416,14 +417,14 @@ export class CircuitPoweredBlockBuilder {
     // );
     // console.log(`Inserting new data`, newNullifiers.join(', '));
     
+    // TODO: handle exception
     const nullifierWitnesses = await this.db.getAndPerformBaseRollupBatchInsertionProofs(
       MerkleTreeId.NULLIFIER_TREE,
-      newNullifiers
+      newNullifiers.map(fr => fr.toBuffer())
     );
-    const lowNullifierMembershipWitnesses: MembershipWitness<BaseRollupInputs.PRIVATE_DATA_TREE_HEIGHT> = nullifierWitnesses.map(w => ({
-      leafIndex: w.index,
-      siblingPath: w.witness.siblingPath.map((b: Buffer) => Fr.fromBuffer(b)),
-    }))
+    // Extract witness objects from returned data
+    const lowNullifierMembershipWitnesses = nullifierWitnesses.map(w  => MembershipWitness.fromSiblingPath(Number(w.index), w.siblingPath),
+    )
 
     // console.log(
     //   `Nullifier root after insertion: `,

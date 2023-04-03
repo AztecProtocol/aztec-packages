@@ -1,3 +1,4 @@
+import { LowNullifierWitnessData } from '@aztec/merkle-tree';
 import { LeafData, SiblingPath } from '@aztec/merkle-tree';
 
 export * from './merkle_trees.js';
@@ -100,6 +101,7 @@ export interface MerkleTreeOperations {
    * @param index - The index of the leaf
    */
   getLeafValue(treeId: MerkleTreeId, index: bigint): Promise<Buffer | undefined>;
+  getAndPerformBaseRollupBatchInsertionProofs(treeId: MerkleTreeId, leaves: Buffer[]): Promise<LowNullifierWitnessData[]>;
 }
 
 /**
