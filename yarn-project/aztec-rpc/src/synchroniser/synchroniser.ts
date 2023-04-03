@@ -1,7 +1,5 @@
 import { AztecNode } from '@aztec/aztec-node';
-import {
-  AztecAddress
-} from '@aztec/circuits.js';
+import { AztecAddress } from '@aztec/circuits.js';
 import { InterruptableSleep, createDebugLogger, keccak } from '@aztec/foundation';
 import { L2Block } from '@aztec/l2-block';
 import { TxHash, createTxHashes } from '@aztec/tx';
@@ -17,7 +15,7 @@ export class Synchroniser {
   constructor(
     private node: AztecNode,
     private db: Database,
-    private log = createDebugLogger('aztec:aztec_rps_synchroniser'),
+    private log = createDebugLogger('aztec:aztec_rpc_synchroniser'),
   ) {}
 
   public start(from = 1, take = 1, retryInterval = 1000) {
