@@ -41,7 +41,7 @@ describe('Account State', () => {
         ownedTxAuxData.push(txAuxData);
       }
     }
-    return { dataChunks };
+    return new UnverifiedData(dataChunks);
   };
 
   const publishBlocks = (ownedData: (number[] | undefined)[] = []) => {
