@@ -140,7 +140,32 @@ describe('ACIR simulator', () => {
       );
       const result = await acirSimulator.run(
         txRequest,
-        ZkTokenContractAbi.functions[0] as unknown as FunctionAbi,
+        ZkTokenContractAbi.functions.find(f => f.name === 'constructor') as unknown as FunctionAbi,
+        AztecAddress.ZERO,
+        EthAddress.ZERO,
+        oldRoots,
+      );
+
+      expect(result.preimages.newNotes).toHaveLength(1);
+      expect(result.callStackItem.publicInputs.newCommitments.filter(field => !field.equals(Fr.ZERO))).toHaveLength(1);
+    });
+
+    it('should run the mint function', async () => {
+      const oldRoots = new OldTreeRoots(new Fr(0n), new Fr(0n), new Fr(0n), new Fr(0n));
+      const contractAddress = AztecAddress.random();
+
+      const txRequest = new TxRequest(
+        AztecAddress.random(),
+        contractAddress,
+        new FunctionData(Buffer.alloc(4), true, false),
+        [140, owner],
+        Fr.random(),
+        txContext,
+        new Fr(0n),
+      );
+      const result = await acirSimulator.run(
+        txRequest,
+        ZkTokenContractAbi.functions.find(f => f.name === 'mint') as unknown as FunctionAbi,
         AztecAddress.ZERO,
         EthAddress.ZERO,
         oldRoots,
