@@ -1,5 +1,4 @@
 const fs = require('fs');
-const path = require('path');
 
 const contexts = [
   'TSMethodDefinition',
@@ -29,22 +28,15 @@ const contexts = [
   'EnumExpression',
 ];
 
-function hasTsConfigInParents() {
-  let currentDir = process.cwd();
-  // Stop searching when reaching the root directory
-  while (currentDir !== path.parse(currentDir).root) {
-    const tsconfigPath = path.join(currentDir, 'tsconfig.json');
-
-    if (fs.existsSync(tsconfigPath)) {
-      return true;
+// hacky workaround for CI not having the same tsconfig setup
+// TODO ensure CI always has a ../tsconfig.json relative to our project
+function getFirstExisting(files) {
+  for (const file of files) {
+    if (fs.existsSync(file)) {
+      return file;
     }
-
-    // Move up to the parent directory
-    currentDir = path.dirname(currentDir);
   }
-
-  // Return null if the tsconfig.json is not found
-  return false;
+  throw new Error('Found no existing file of: ' + files.join(', '));
 }
 
 module.exports = {
@@ -57,8 +49,7 @@ module.exports = {
     {
       files: ['*.ts', '*.tsx'],
       parserOptions: {
-        // Hack: Support our CI environment, which only has a tsconfig.dest.json, no tsconfig.json
-        project: hasTsConfigInParents() ? true : 'tsconfig.dest.json',
+        project: getFirstExisting(['./tsconfig.json', '../tsconfig.json', './tsconfig.dest.json']),
       },
     },
   ],
