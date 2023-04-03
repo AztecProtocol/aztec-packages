@@ -23,7 +23,6 @@ describe('e2e_zk_token_contract', () => {
   let yeeterAddress: EthAddress;
   let accounts: AztecAddress[];
   let contract: Contract;
-  const zkAbi = ZkTokenContractAbi as ContractAbi;
 
   beforeAll(async () => {
     provider = createProvider(ETHEREUM_HOST, MNEMONIC, 1);
@@ -54,16 +53,17 @@ describe('e2e_zk_token_contract', () => {
     expect(balance).toBe(expectedBalance);
   };
 
-  // const expectBalance = async (accountIdx: number, expectedBalance: bigint) => {
-  //   const balance = await contract.methods.getBalance().call({ from: accounts[accountIdx] });
-  //   logger(`Account ${accountIdx} balance: ${balance}`);
-  //   expect(balance).toBe(expectedBalance);
-  // };
+  const expectBalance = async (accountIdx: number, expectedBalance: bigint) => {
+    const balance = await contract.methods.getBalance().view({ from: accounts[accountIdx] });
+    logger(`Account ${accountIdx} balance: ${balance}`);
+    expect(balance).toBe(expectedBalance);
+  };
 
   const deployContract = async (initialBalance = 0n) => {
-    const deployer = new ContractDeployer(zkAbi, aztecRpcServer);
+    // TODO: Remove explicit casts
+    const deployer = new ContractDeployer(ZkTokenContractAbi as ContractAbi, aztecRpcServer);
     const receipt = await deployer.deploy(initialBalance).send().getReceipt();
-    return new Contract(receipt.contractAddress!, zkAbi, aztecRpcServer);
+    return new Contract(receipt.contractAddress!, ZkTokenContractAbi as ContractAbi, aztecRpcServer);
   };
 
   /**
@@ -98,19 +98,19 @@ describe('e2e_zk_token_contract', () => {
   /**
    * Milestone 1.5
    */
-  // it.skip('should call transfer and increase balance of another account', async () => {
-  //   const initialBalance = 987n;
-  //   const transferAmount = 654n;
+  it.skip('should call transfer and increase balance of another account', async () => {
+    const initialBalance = 987n;
+    const transferAmount = 654n;
 
-  //   await deployContract(initialBalance);
+    await deployContract(initialBalance);
 
-  //   await expectBalance(0, initialBalance);
-  //   await expectBalance(1, 0n);
+    await expectBalance(0, initialBalance);
+    await expectBalance(1, 0n);
 
-  //   const receipt = await contract.methods.transfer(accounts[1]).send({ from: accounts[0] }).getReceipt();
-  //   expect(receipt.status).toBe(true);
+    const receipt = await contract.methods.transfer(accounts[1]).send({ from: accounts[0] }).getReceipt();
+    expect(receipt.status).toBe(true);
 
-  //   await expectBalance(0, initialBalance - transferAmount);
-  //   await expectBalance(1, transferAmount);
-  // });
+    await expectBalance(0, initialBalance - transferAmount);
+    await expectBalance(1, transferAmount);
+  });
 });
