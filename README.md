@@ -1,5 +1,7 @@
 # AZTEC 3 Monorepo
 
+All the packages that make up Aztec 3. Typescript projects exist in yarn-project.
+
 Package development:
 
 - Run `yarn build:dev` in the root to interactively build the package.
