@@ -1,13 +1,10 @@
 import { AztecNode } from '@aztec/aztec-node';
 import {
-  AztecAddress,
-  KERNEL_NEW_COMMITMENTS_LENGTH,
-  KERNEL_NEW_CONTRACTS_LENGTH,
-  KERNEL_NEW_NULLIFIERS_LENGTH,
+  AztecAddress
 } from '@aztec/circuits.js';
-import { createDebugLogger, InterruptableSleep, keccak } from '@aztec/foundation';
+import { InterruptableSleep, createDebugLogger, keccak } from '@aztec/foundation';
 import { L2Block } from '@aztec/l2-block';
-import { TxHash } from '@aztec/tx';
+import { TxHash, createTxHashes } from '@aztec/tx';
 import { AccountState } from '../account_state/index.js';
 import { Database, TxDao } from '../database/index.js';
 
@@ -90,33 +87,18 @@ export class Synchroniser {
 
   private async decodeBlocks(l2Blocks: L2Block[]) {
     for (const block of l2Blocks) {
-      let i = 0;
-      const numTxs = Math.floor(block.newCommitments.length / KERNEL_NEW_COMMITMENTS_LENGTH);
-      while (i < numTxs) {
-        const dataToHash = Buffer.concat(
-          [
-            block.newCommitments
-              .slice(
-                i * KERNEL_NEW_COMMITMENTS_LENGTH,
-                i * KERNEL_NEW_COMMITMENTS_LENGTH + KERNEL_NEW_COMMITMENTS_LENGTH,
-              )
-              .map(x => x.toBuffer()),
-            block.newNullifiers
-              .slice(i * KERNEL_NEW_NULLIFIERS_LENGTH, i * KERNEL_NEW_NULLIFIERS_LENGTH + KERNEL_NEW_NULLIFIERS_LENGTH)
-              .map(x => x.toBuffer()),
-            block.newContracts
-              .slice(i * KERNEL_NEW_CONTRACTS_LENGTH, i * KERNEL_NEW_CONTRACTS_LENGTH + KERNEL_NEW_CONTRACTS_LENGTH)
-              .map(x => x.toBuffer()),
-          ].flat(),
-        );
-        const txDao: TxDao | undefined = await this.db.getTx(new TxHash(keccak(dataToHash)));
+      for (const txHash of createTxHashes(block)) {
+        const txDao: TxDao | undefined = await this.db.getTx(txHash);
         if (txDao !== undefined) {
           txDao.blockHash = keccak(block.encode());
           txDao.blockNumber = block.number;
           await this.db.addOrUpdateTx(txDao);
+          this.log(`Added tx with hash ${txHash.toString()} from block ${block.number}`);
+        } else {
+          this.log(`Tx with hash ${txHash.toString()} from block ${block.number} not found in db`);
         }
-        i++;
       }
+
       for (const key in this.accountStates) {
         this.accountStates[key].syncToBlock(block);
       }

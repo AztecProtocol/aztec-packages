@@ -1,5 +1,5 @@
 import { AztecNode } from '@aztec/aztec-node';
-import { AztecAddress, AztecRPCServer, ContractDeployer, Fr, TxStatus } from '@aztec/aztec.js';
+import { AztecAddress, AztecRPCServer, ContractDeployer, Fr, Tx, TxStatus } from '@aztec/aztec.js';
 import { EthAddress } from '@aztec/ethereum.js/eth_address';
 import { EthereumRpc } from '@aztec/ethereum.js/eth_rpc';
 import { WalletProvider } from '@aztec/ethereum.js/provider';
@@ -50,7 +50,7 @@ describe('e2e_deploy_contract', () => {
   it('should deploy a contract', async () => {
     const deployer = new ContractDeployer(abi, aztecRpcServer);
     const tx = deployer.deploy().send();
-    logger(`Tx sent!`);
+    logger(`Tx sent with hash ${await tx.getTxHash()}`);
     const receipt = await tx.getReceipt();
     expect(receipt).toEqual(
       expect.objectContaining({
@@ -60,7 +60,7 @@ describe('e2e_deploy_contract', () => {
         error: '',
       }),
     );
-    logger(`Receipt received`);
+    logger(`Receipt received and expecting contract deployment at ${receipt.contractAddress}`);
     const isMined = await tx.isMined();
     const receiptAfterMined = await tx.getReceipt();
 
