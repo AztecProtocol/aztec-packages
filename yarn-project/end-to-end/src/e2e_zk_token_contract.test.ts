@@ -8,6 +8,7 @@ import { ZkTokenContractAbi } from '@aztec/noir-contracts/examples';
 import { createAztecNode } from './create_aztec_node.js';
 import { createAztecRpcServer } from './create_aztec_rpc_client.js';
 import { createProvider, deployRollupContract, deployYeeterContract } from './deploy_l1_contracts.js';
+import { ContractAbi } from '@aztec/noir-contracts';
 
 const ETHEREUM_HOST = 'http://localhost:8545';
 const MNEMONIC = 'test test test test test test test test test test test junk';
@@ -53,15 +54,16 @@ describe('e2e_zk_token_contract', () => {
   };
 
   const expectBalance = async (accountIdx: number, expectedBalance: bigint) => {
-    const balance = await contract.methods.getBalance().call({ from: accounts[accountIdx] });
+    const balance = await contract.methods.getBalance().view({ from: accounts[accountIdx] });
     logger(`Account ${accountIdx} balance: ${balance}`);
     expect(balance).toBe(expectedBalance);
   };
 
   const deployContract = async (initialBalance = 0n) => {
-    const deployer = new ContractDeployer(ZkTokenContractAbi, aztecRpcServer);
+    // TODO: Remove explicit casts
+    const deployer = new ContractDeployer(ZkTokenContractAbi as ContractAbi, aztecRpcServer);
     const receipt = await deployer.deploy(initialBalance).send().getReceipt();
-    return new Contract(receipt.contractAddress!, ZkTokenContractAbi, aztecRpcServer);
+    return new Contract(receipt.contractAddress!, ZkTokenContractAbi as ContractAbi, aztecRpcServer);
   };
 
   /**
