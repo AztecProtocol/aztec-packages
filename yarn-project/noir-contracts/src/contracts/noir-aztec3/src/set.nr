@@ -98,7 +98,8 @@ impl Set {
         // );
         let note_getter_data = get_2_notes(contract_address, storage_slot);
 
-        let process_data = |data| {
+        // Forwarded vars added due to https://github.com/noir-lang/noir/issues/1088
+        let process_data = |data, storage_slot_forwarded, contract_address_forwarded| {
             let NoteGetterData { note, leaf_index, sibling_path, root } = data;
             let _ignored = sibling_path;
 
@@ -106,8 +107,8 @@ impl Set {
             let siloed_note_hash = dep::std::hash::pedersen([
                 crate::NoteStorageSlot,
                 note_hash, 
-                storage_slot, 
-                contract_address           ])[0];
+                storage_slot_forwarded, 
+                contract_address_forwarded           ])[0];
 
             // Check existence in tree:
             constrain std::merkle::check_membership(
@@ -124,8 +125,8 @@ impl Set {
                 constrain outputs.old_private_data_tree_root == root;
             }
         };
-        process_data(note_getter_data.0);
-        process_data(note_getter_data.1);
+        process_data(note_getter_data.0, storage_slot, contract_address);
+        process_data(note_getter_data.1, storage_slot, contract_address);
 
         let notes = (note_getter_data.0.note, note_getter_data.1.note);
         (outputs, notes)
