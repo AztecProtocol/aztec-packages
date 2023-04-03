@@ -1,11 +1,11 @@
-global MAX_ARGS: comptime Field = 8;
-global MAX_RETURN_VALUES: comptime Field = 4;
-global MAX_LOGS: comptime Field = 4;
-global MAX_NEW_COMMITMENTS: comptime Field = 4;
-global MAX_NEW_NULLIFIERS: comptime Field = 4;
-global MAX_PRIVATE_CALL_STACK : comptime Field = 4;
-global MAX_PUBLIC_CALL_STACK: comptime Field = 4;
-global MAX_L1_MSG_STACK : comptime Field = 2;
+global MAX_ARGS: comptime Field = 5;
+global MAX_RETURN_VALUES: comptime Field = 5;
+global MAX_LOGS: comptime Field = 5;
+global MAX_NEW_COMMITMENTS: comptime Field = 5;
+global MAX_NEW_NULLIFIERS: comptime Field = 5;
+global MAX_PRIVATE_CALL_STACK : comptime Field = 5;
+global MAX_PUBLIC_CALL_STACK: comptime Field = 5;
+global MAX_L1_MSG_STACK : comptime Field = 5;
 
 struct PublicInputs {
     call_context : CallContext,
@@ -43,4 +43,5 @@ struct ContractDeploymentData {
     function_tree_root : Field,
     contract_address_salt : Field,
     portal_contract_address : Field,
+    hide_private_function_data : bool,
 }
