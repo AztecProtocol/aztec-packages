@@ -17,7 +17,7 @@ import {
   TxContext,
   TxRequest,
   UInt8Vector,
-  computeFunctionTree
+  computeFunctionTree,
 } from '@aztec/circuits.js';
 import { hashVK } from '@aztec/circuits.js/abis';
 import { Fr, createDebugLogger, toBigIntBE } from '@aztec/foundation';

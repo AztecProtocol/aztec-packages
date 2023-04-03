@@ -16,8 +16,6 @@ import {
   privateKernelSim,
   FUNCTION_TREE_HEIGHT,
   VerificationKey,
-  ComposerType,
-  CommitmentMap,
   makeEmptyProof,
 } from '@aztec/circuits.js';
 import { createDebugLogger, Fr } from '@aztec/foundation';

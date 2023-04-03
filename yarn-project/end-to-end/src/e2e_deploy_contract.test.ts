@@ -1,5 +1,5 @@
 import { AztecNode } from '@aztec/aztec-node';
-import { AztecAddress, AztecRPCServer, ContractDeployer, Fr, Tx, TxStatus } from '@aztec/aztec.js';
+import { AztecAddress, AztecRPCServer, ContractDeployer, Fr, TxStatus } from '@aztec/aztec.js';
 import { EthAddress } from '@aztec/ethereum.js/eth_address';
 import { EthereumRpc } from '@aztec/ethereum.js/eth_rpc';
 import { WalletProvider } from '@aztec/ethereum.js/provider';

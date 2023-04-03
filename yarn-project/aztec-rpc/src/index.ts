@@ -5,4 +5,5 @@ export * from './tx/index.js';
 
 export { Tx, TxHash } from '@aztec/tx';
 
-export { Fr, TxRequest, AztecAddress, EthAddress } from '@aztec/circuits.js';
+export { TxRequest } from '@aztec/circuits.js';
+export { Fr, AztecAddress, EthAddress } from '@aztec/foundation';

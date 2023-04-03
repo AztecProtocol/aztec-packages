@@ -6,7 +6,6 @@ import {
   CircuitsWasm,
   ConstantBaseRollupData,
   CONTRACT_TREE_ROOTS_TREE_HEIGHT,
-  Fr,
   MembershipWitness,
   NullifierLeafPreimage,
   NULLIFIER_TREE_HEIGHT,
