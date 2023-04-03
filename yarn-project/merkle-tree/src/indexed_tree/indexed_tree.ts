@@ -27,20 +27,19 @@ export interface LeafData {
   nextValue: bigint;
 }
 
-export interface BaseRollupBatchInsertionProofData {
+export interface LowNullifierWitnessData {
   /**
    * Preimage of the low nullifier that proves non membership
     */
-  lowNullifierLeafPreimages: LeafData[];
+  preimage: LeafData;
   /**
    * Sibling path to prove membership of low nullifier
     */
-  lowNullifierMembershipWitnesses: SiblingPath[];
-  // /**
-  //  * Sibling path of the batch insertion subtree root
-  //   * For efficiently proving insertion of all nullifiers in the batch
-  //   */
-  // newNullifiersSubtreeInsertionPath: SiblingPath;
+  siblingPath: SiblingPath;
+  /**
+   * The index of low nullifier
+   */
+  index: bigint;
 }
 
 
@@ -160,12 +159,11 @@ export class IndexedTree implements MerkleTree {
   // 1. There are 8 nullifiers provided and they are all unique
   // 2. If kc 0 has 1 nullifier, and kc 1 has 3 nullifiers the layout will assume to be the sparse
   //   nullifier layout: [kc0N, 0, 0, 0, kc1N, kc1N, kc1N, 0]
-  public async getAndPerformBaseRollupBatchInsertionProofs(leaves: Buffer[]): Promise<BaseRollupBatchInsertionProofData> {
+  public async getAndPerformBaseRollupBatchInsertionProofs(leaves: Buffer[]): Promise<LowNullifierWitnessData> {
     // Keep track of the touched during batch insertion
     const touchedNodes: Set<number> = new Set<number>();
-    const lowNullifiers: LeafData[] = [];
-    const lowNullifierIndexes: bigint[] = [];
-    const lowNullifierSiblingPaths: SiblingPath[] = [];
+    
+    const lowNullifierWitnesses: LowNullifierWitnessData[] = [];
     const startInsertionIndex: bigint = this.getNumLeaves();
     let currInsertionIndex: bigint = startInsertionIndex;
     
@@ -189,9 +187,12 @@ export class IndexedTree implements MerkleTree {
         // If the node has already been touched, then we return an empty leaf and sibling path
         const emptySP = new SiblingPath();
         emptySP.data = Array(this.underlying.getDepth()).fill(Buffer.from("0000000000000000000000000000000000000000000000000000000000000000", "hex"));
-        lowNullifierSiblingPaths.push(emptySP);
-        lowNullifiers.push(initialLeaf);
-        lowNullifierIndexes.push(0n);
+        const witness: LowNullifierWitnessData = {
+            preimage: initialLeaf,
+            index: 0n,
+            siblingPath: emptySP
+        };
+        lowNullifierWitnesses.push(witness);
       } else {
         // If the node has not been touched, we update its low nullifier pointer, but we do NOT insert it yet, inserting it now 
         // will alter non membership paths of the not yet inserted members
@@ -210,10 +211,12 @@ export class IndexedTree implements MerkleTree {
         const siblingPath = await this.underlying.getSiblingPath(BigInt(indexOfPrevious.index));
 
         // Update the running paths
-        lowNullifierSiblingPaths.push(siblingPath);
-        lowNullifierIndexes.push(BigInt(indexOfPrevious.index));
-        lowNullifiers.push(lowNullifier);
-
+        const witness = {
+          preimage: lowNullifier,
+          index: BigInt(indexOfPrevious.index),
+          siblingPath: siblingPath
+        }
+        lowNullifierWitnesses.push(witness);
 
         // Update subtree insertion leaf from null data
         nullifierLeaf =  {
@@ -242,7 +245,7 @@ export class IndexedTree implements MerkleTree {
       const newValue = toBigIntBE(leaves[i]);
 
       // We have already fetched the new low nullifier for this leaf, so we can set its low nullifier
-      const lowNullifier = lowNullifiers[i];
+      const lowNullifier = lowNullifierWitnesses[i].preimage;
       // If the lowNullifier is 0, then we check the previous leaves for the low nullifier leaf
       if (lowNullifier.value === 0n && lowNullifier.nextIndex === 0n && lowNullifier.nextValue === 0n) {
         for (let j = 0; j < i; j++) {
@@ -264,10 +267,7 @@ export class IndexedTree implements MerkleTree {
       await this.underlying.appendLeaves([hashEncodedTreeValue(insertionSubtree[i], this.hasher)]);
     }
 
-    return {
-      lowNullifierLeafPreimages: lowNullifiers,
-      lowNullifierMembershipWitnesses: lowNullifierSiblingPaths,
-    }
+    return lowNullifierWitnesses;
   }
 
   

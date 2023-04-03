@@ -420,6 +420,10 @@ export class CircuitPoweredBlockBuilder {
       MerkleTreeId.NULLIFIER_TREE,
       newNullifiers
     );
+    const lowNullifierMembershipWitnesses: MembershipWitness<BaseRollupInputs.PRIVATE_DATA_TREE_HEIGHT> = nullifierWitnesses.map(w => ({
+      leafIndex: w.index,
+      siblingPath: w.witness.siblingPath.map((b: Buffer) => Fr.fromBuffer(b)),
+    }))
 
     // console.log(
     //   `Nullifier root after insertion: `,
@@ -448,8 +452,9 @@ export class CircuitPoweredBlockBuilder {
       newCommitmentsSubtreeSiblingPath,
       newContractsSubtreeSiblingPath,
       newNullifiersSubtreeSiblingPath,
-      lowNullifierLeafPreimages: nullifierWitnesses.lowNullifierLeafPreimages,
-      lowNullifierMembershipWitness: nullifierWitnesses.lowNullifierMembershipWitness,
+      // TODO: typing for `LowNullifierWitnessData`
+      lowNullifierLeafPreimages: nullifierWitnesses.map((w: any)  => w.preimage),
+      lowNullifierMembershipWitness: lowNullifierMembershipWitnesses,
       kernelData: [this.getKernelDataFor(tx1), this.getKernelDataFor(tx2)],
       historicContractsTreeRootMembershipWitnesses: [
         await this.getContractMembershipWitnessFor(tx1),
