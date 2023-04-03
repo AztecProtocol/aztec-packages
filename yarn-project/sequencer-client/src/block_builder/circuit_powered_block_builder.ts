@@ -1,4 +1,3 @@
-import { ContractData, L2Block } from '@aztec/archiver';
 import {
   AppendOnlyTreeSnapshot,
   BaseRollupInputs,
@@ -18,7 +17,7 @@ import {
   UInt8Vector,
   VK_TREE_HEIGHT,
 } from '@aztec/circuits.js';
-import { createDebugLogger, toBigIntBE } from '@aztec/foundation';
+import { Fr, createDebugLogger, toBigIntBE } from '@aztec/foundation';
 import { Tx } from '@aztec/tx';
 import { MerkleTreeId, MerkleTreeOperations } from '@aztec/world-state';
 import flatMap from 'lodash.flatmap';
@@ -27,6 +26,7 @@ import { hashNewContractData, makeEmptyTx } from '../deps/tx.js';
 import { VerificationKeys } from '../deps/verification_keys.js';
 import { Proof, Prover } from '../prover/index.js';
 import { Simulator } from '../simulator/index.js';
+import { ContractData, L2Block } from '@aztec/l2-block';
 
 const frToBigInt = (fr: Fr) => toBigIntBE(fr.toBuffer());
 const bigintToFr = (num: bigint) => new Fr(num);
