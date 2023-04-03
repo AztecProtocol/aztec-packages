@@ -1,7 +1,7 @@
 import { AztecAddress, EthAddress, Fr } from '@aztec/circuits.js';
 
 export interface NoteLoadOracleInputs {
-  note: Fr[];
+  preimage: Fr[];
   siblingPath: Fr[];
   index: number;
 }
