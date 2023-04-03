@@ -1,11 +1,5 @@
 FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/yarn-project-base AS builder
-
-COPY acir-simulator acir-simulator
-# dependencies
-COPY foundation foundation
-COPY circuits.js circuits.js
-COPY noir-contracts noir-contracts
-
+COPY . .
 WORKDIR /usr/src/yarn-project/acir-simulator
 RUN yarn build && yarn formatting && yarn test
 
@@ -14,6 +8,6 @@ RUN yarn cache clean
 RUN yarn workspaces focus --production > /dev/null
 
 FROM node:18-alpine
-COPY --from=builder /usr/src/yarn-project/acir-simulator /usr/src/yarn-project/acir-simulator
-WORKDIR /usr/src/yarn-project/acir-simulator
+COPY --from=builder /usr/src/yarn-project/aztec-rpc /usr/src/yarn-project/aztec-rpc
+WORKDIR /usr/src/yarn-project/aztec-rpc
 ENTRYPOINT ["yarn"]
