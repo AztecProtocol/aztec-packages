@@ -48,7 +48,54 @@
     {
       "name": "transfer",
       "functionType": "secret",
-      "parameters": [],
+      "parameters": [
+        {
+          "name": "amount",
+          "type": {
+            "kind": "field"
+          }
+        },
+        {
+          "name": "sender",
+          "type": {
+            "kind": "struct",
+            "fields": [
+              {
+                "name": "x",
+                "type": {
+                  "kind": "field"
+                }
+              },
+              {
+                "name": "y",
+                "type": {
+                  "kind": "field"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "name": "recipient",
+          "type": {
+            "kind": "struct",
+            "fields": [
+              {
+                "name": "x",
+                "type": {
+                  "kind": "field"
+                }
+              },
+              {
+                "name": "y",
+                "type": {
+                  "kind": "field"
+                }
+              }
+            ]
+          }
+        }
+      ],
       "paramWitnesses": {},
       "returnTypes": [],
       "returnWitnesses": [],

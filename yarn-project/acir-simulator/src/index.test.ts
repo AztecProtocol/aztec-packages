@@ -9,13 +9,23 @@ import {
   TxContext,
   TxRequest,
 } from '@aztec/circuits.js';
+import { Grumpkin } from '@aztec/barretenberg.js/crypto';
 import { FunctionAbi } from '@aztec/noir-contracts';
 import { TestContractAbi, ZkTokenContractAbi } from '@aztec/noir-contracts/examples';
 import { DBOracle } from './db_oracle.js';
 import { AcirSimulator } from './simulator.js';
 import { jest } from '@jest/globals';
+import { randomBytes, toBigIntBE } from '@aztec/foundation';
+import { BarretenbergWasm } from '@aztec/barretenberg.js/wasm';
+
+type NoirPoint = {
+  x: bigint;
+  y: bigint;
+};
 
 describe('ACIR simulator', () => {
+  let bbWasm: BarretenbergWasm;
+
   const oracle = {
     getNotes: jest.fn(),
     getSecretKey: jest.fn(),
@@ -25,6 +35,10 @@ describe('ACIR simulator', () => {
   const acirSimulator = new AcirSimulator(oracle as unknown as DBOracle);
 
   const oldRoots = new OldTreeRoots(new Fr(0n), new Fr(0n), new Fr(0n), new Fr(0n));
+
+  beforeAll(async () => {
+    bbWasm = await BarretenbergWasm.new();
+  });
 
   describe('constructors', () => {
     const contractDeploymentData = new ContractDeploymentData(Fr.random(), Fr.random(), Fr.random(), EthAddress.ZERO);
@@ -83,21 +97,50 @@ describe('ACIR simulator', () => {
   });
 
   describe('transfer', () => {
+    let currentNonce = 0n;
     const SIBLING_PATH_SIZE = 5;
-    const PREIMAGE_FIELD_COUNT = 6;
+
+    function buildNote(amount: bigint, owner: NoirPoint, isDummy = false) {
+      return [
+        new Fr(amount),
+        new Fr(owner.x),
+        new Fr(owner.y),
+        new Fr(4n),
+        new Fr(currentNonce++),
+        new Fr(isDummy ? 1n : 0n),
+      ];
+    }
+
+    function toPublicKey(privateKey: Buffer, grumpkin: Grumpkin): NoirPoint {
+      const publicKey = grumpkin.mul(Grumpkin.generator, privateKey);
+      return {
+        x: toBigIntBE(publicKey.slice(0, 32)),
+        y: toBigIntBE(publicKey.slice(32, 64)),
+      };
+    }
+
     const contractDeploymentData = new ContractDeploymentData(Fr.ZERO, Fr.ZERO, Fr.ZERO, EthAddress.ZERO);
     const txContext = new TxContext(false, false, false, contractDeploymentData);
 
-    it.skip('should run the transfer function', async () => {
+    it.only('should run the transfer function', async () => {
+      const grumpkin = new Grumpkin(bbWasm);
+
+      const amountToTransfer = 100n;
+      const ownerPk = randomBytes(32);
+      const recipientPk = randomBytes(32);
+
+      const owner = toPublicKey(ownerPk, grumpkin);
+      const recipient = toPublicKey(recipientPk, grumpkin);
+
       oracle.getNotes.mockReturnValue(
         Promise.resolve([
           {
-            note: new Array(PREIMAGE_FIELD_COUNT).fill(new Fr(0n)),
-            siblingPath: new Array(SIBLING_PATH_SIZE).fill(new Fr(1n)),
-            index: 27,
+            note: buildNote(60n, owner),
+            siblingPath: new Array(SIBLING_PATH_SIZE).fill(new Fr(3n)),
+            index: 42,
           },
           {
-            note: new Array(PREIMAGE_FIELD_COUNT).fill(new Fr(2n)),
+            note: buildNote(60n, owner),
             siblingPath: new Array(SIBLING_PATH_SIZE).fill(new Fr(3n)),
             index: 42,
           },
@@ -110,13 +153,7 @@ describe('ACIR simulator', () => {
         AztecAddress.random(),
         AztecAddress.random(),
         new FunctionData(Buffer.alloc(4), true, true),
-        [
-          27n,
-          {
-            x: 42n,
-            y: 28n,
-          },
-        ],
+        [amountToTransfer, owner, recipient],
         Fr.random(),
         txContext,
         new Fr(0n),
