@@ -1,4 +1,4 @@
-import { ContractAbi, ABIType, BasicType, StructType } from '@aztec/aztec-rpc';
+import { ABIType, BasicType, ContractAbi, StructType } from '@aztec/noir-contracts';
 
 type TypeWithoutKind<T> = Omit<{ [key in keyof T]: any }, 'kind'>;
 
