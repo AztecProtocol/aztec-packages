@@ -40,6 +40,9 @@ contract PrivateToken {
         let owner_balance = balances.at(owner.x);
         let note = Note::new(initial_supply, owner);
 
+        let note_hash = note.compute_note_hash();
+        outputs.return_values = outputs.return_values.push(note_hash);
+
         owner_balance.insert(inputs, outputs, note)
             .finish(inputs)
 

@@ -1,12 +1,18 @@
-import { EthAddress, OldTreeRoots, TxRequest, AztecAddress } from '@aztec/circuits.js';
+import { EthAddress, OldTreeRoots, TxRequest, AztecAddress, Fr } from '@aztec/circuits.js';
 import { FunctionAbi } from '@aztec/noir-contracts';
 import { DBOracle } from './db_oracle.js';
 import { Execution, ExecutionResult } from './execution.js';
+import { BarretenbergWasm } from '@aztec/barretenberg.js/wasm';
+import { pedersenGetHash } from '@aztec/barretenberg.js/crypto';
+
+export const NOTE_PEDERSEN_CONSTANT = new Fr(1n);
+export const NOTE_SLOT_PEDERSEN_CONSTANT = new Fr(3n);
+export const NULLIFIER_PEDERSEN_CONSTANT = new Fr(5n);
 
 export class AcirSimulator {
   constructor(private db: DBOracle) {}
 
-  run(
+  public run(
     request: TxRequest,
     entryPointABI: FunctionAbi,
     contractAddress: AztecAddress,
@@ -16,5 +22,16 @@ export class AcirSimulator {
     const execution = new Execution(this.db, request, entryPointABI, contractAddress, portalContractAddress, oldRoots);
 
     return execution.run();
+  }
+
+  public computeNoteHash(notePreimage: Fr[], bbWasm: BarretenbergWasm) {
+    const buffer = Buffer.concat([NOTE_PEDERSEN_CONSTANT.toBuffer(), ...notePreimage.map(x => x.toBuffer())]);
+    return pedersenGetHash(bbWasm, buffer);
+  }
+
+  public computeNullifier(notePreimage: Fr[], privateKey: Buffer, bbWasm: BarretenbergWasm) {
+    const noteHash = this.computeNoteHash(notePreimage, bbWasm);
+    const buffer = Buffer.concat([NULLIFIER_PEDERSEN_CONSTANT.toBuffer(), noteHash, privateKey]);
+    return pedersenGetHash(bbWasm, buffer);
   }
 }

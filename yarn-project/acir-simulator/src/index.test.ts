@@ -9,11 +9,11 @@ import {
   TxContext,
   TxRequest,
 } from '@aztec/circuits.js';
-import { Grumpkin } from '@aztec/barretenberg.js/crypto';
+import { Grumpkin, pedersenGetHash } from '@aztec/barretenberg.js/crypto';
 import { FunctionAbi } from '@aztec/noir-contracts';
 import { TestContractAbi, ZkTokenContractAbi } from '@aztec/noir-contracts/examples';
 import { DBOracle } from './db_oracle.js';
-import { AcirSimulator } from './simulator.js';
+import { AcirSimulator, NOTE_SLOT_PEDERSEN_CONSTANT } from './simulator.js';
 import { jest } from '@jest/globals';
 import { toBigIntBE } from '@aztec/foundation';
 import { BarretenbergWasm } from '@aztec/barretenberg.js/wasm';
@@ -99,13 +99,10 @@ describe('ACIR simulator', () => {
       ];
     }
 
-    function computeNotehash(note: Fr[], pedersen: Pedersen) {
-      return pedersen.hashToField(Buffer.concat(note.map(field => field.toBuffer())));
-    }
-
-    function computeCommitment(noteHash: Buffer, slot: Fr, contractAddress: AztecAddress, pedersen: Pedersen) {
-      return pedersen.hashToField(
-        Buffer.concat([new Fr(3n).toBuffer(), noteHash, slot.toBuffer(), contractAddress.toBuffer()]),
+    function computeCommitment(noteHash: Buffer, slot: Fr, contractAddress: AztecAddress, bbWasm: BarretenbergWasm) {
+      return pedersenGetHash(
+        bbWasm,
+        Buffer.concat([NOTE_SLOT_PEDERSEN_CONSTANT.toBuffer(), noteHash, slot.toBuffer(), contractAddress.toBuffer()]),
       );
     }
 
@@ -128,6 +125,7 @@ describe('ACIR simulator', () => {
 
     it('should a constructor with arguments that creates notes', async () => {
       const oldRoots = new OldTreeRoots(new Fr(0n), new Fr(0n), new Fr(0n), new Fr(0n));
+      const contractAddress = AztecAddress.random();
 
       const txRequest = new TxRequest(
         AztecAddress.random(),
@@ -141,13 +139,27 @@ describe('ACIR simulator', () => {
       const result = await acirSimulator.run(
         txRequest,
         ZkTokenContractAbi.functions.find(f => f.name === 'constructor') as unknown as FunctionAbi,
-        AztecAddress.ZERO,
+        contractAddress,
         EthAddress.ZERO,
         oldRoots,
       );
 
       expect(result.preimages.newNotes).toHaveLength(1);
-      expect(result.callStackItem.publicInputs.newCommitments.filter(field => !field.equals(Fr.ZERO))).toHaveLength(1);
+      const newCommitments = result.callStackItem.publicInputs.newCommitments.filter(field => !field.equals(Fr.ZERO));
+      expect(newCommitments).toHaveLength(1);
+
+      // TODO cannot get a consistent hash with noir
+      // const [commitment] = newCommitments;
+      // expect(commitment).toEqual(
+      //   Fr.fromBuffer(
+      //     computeCommitment(
+      //       acirSimulator.computeNoteHash(result.preimages.newNotes[0].preimage, bbWasm),
+      //       NOTES_SLOT,
+      //       contractAddress,
+      //       bbWasm,
+      //     ),
+      //   ),
+      // );
     });
 
     it('should run the mint function', async () => {
@@ -186,7 +198,7 @@ describe('ACIR simulator', () => {
       const preimages = [buildNote(60n, owner), buildNote(80n, owner)];
       await tree.appendLeaves(
         preimages.map(preimage =>
-          computeCommitment(computeNotehash(preimage, pedersen), NOTES_SLOT, contractAddress, pedersen),
+          computeCommitment(acirSimulator.computeNoteHash(preimage, bbWasm), NOTES_SLOT, contractAddress, bbWasm),
         ),
       );
 

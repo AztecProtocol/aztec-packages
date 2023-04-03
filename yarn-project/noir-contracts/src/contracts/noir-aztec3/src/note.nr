@@ -50,12 +50,12 @@ impl Note {
     fn compute_note_hash(self) -> Field {
         dep::std::hash::pedersen([
             crate::NoteHash,
-            self.value, 
+            self.is_dummy as Field,
+            self.nonce, 
             self.owner.x, 
             self.owner.y,
             self.randomness, 
-            self.nonce, 
-            self.is_dummy as Field,
+            self.value, 
         ])[0]
     }
 
