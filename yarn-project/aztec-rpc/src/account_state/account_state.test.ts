@@ -5,7 +5,6 @@ import { KERNEL_NEW_COMMITMENTS_LENGTH } from '@aztec/circuits.js';
 import { Point } from '@aztec/foundation';
 import { L2Block, UnverifiedData } from '@aztec/l2-block';
 import { jest } from '@jest/globals';
-import { randomBytes } from 'crypto';
 import { mock } from 'jest-mock-extended';
 import { TxAuxData } from '../aztec_rpc_server/tx_aux_data/index.js';
 import { Database, MemoryDB } from '../database/index.js';
@@ -35,8 +34,7 @@ describe('Account State', () => {
       const txAuxData = TxAuxData.random();
       const isOwner = ownedDataIndices.includes(i);
       const publicKey = isOwner ? owner.getPublicKey() : Point.random();
-      const ephPrivKey = randomBytes(32);
-      dataChunks.push(txAuxData.toEncryptedBuffer(publicKey, ephPrivKey, grumpkin));
+      dataChunks.push(txAuxData.toEncryptedBuffer(publicKey, grumpkin));
       if (isOwner) {
         ownedTxAuxData.push(txAuxData);
       }

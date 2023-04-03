@@ -1,7 +1,7 @@
 import { AztecNode } from '@aztec/aztec-node';
 import { Grumpkin } from '@aztec/barretenberg.js/crypto';
 import { KERNEL_NEW_COMMITMENTS_LENGTH } from '@aztec/circuits.js';
-import { AztecAddress, createDebugLogger, Fr, keccak, Point, randomBytes } from '@aztec/foundation';
+import { AztecAddress, createDebugLogger, Fr, keccak, Point } from '@aztec/foundation';
 import { L2Block, UnverifiedData } from '@aztec/l2-block';
 import { getTxHash } from '@aztec/tx';
 import { NotePreimage, TxAuxData } from '../aztec_rpc_server/tx_aux_data/index.js';
@@ -52,8 +52,7 @@ export class AccountState {
     const chunks = txAuxDatas.map(txAuxData => {
       // TODO - Should use the correct recipient public key.
       const recipient = this.publicKey;
-      const ephPrivKey = randomBytes(32);
-      return txAuxData.toEncryptedBuffer(recipient, ephPrivKey, this.grumpkin);
+      return txAuxData.toEncryptedBuffer(recipient, this.grumpkin);
     });
     return new UnverifiedData(chunks);
   }

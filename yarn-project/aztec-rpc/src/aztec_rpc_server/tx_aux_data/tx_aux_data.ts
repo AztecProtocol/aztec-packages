@@ -5,6 +5,7 @@ import { NotePreimage } from './note_preimage.js';
 import { serializeToBuffer } from '@aztec/circuits.js/utils';
 import { decryptBuffer, encryptBuffer } from './encrypt_buffer.js';
 import { Grumpkin } from '@aztec/barretenberg.js/crypto';
+import { randomBytes } from '@aztec/foundation';
 
 /**
  * A class which wraps the data required to compute a nullifier. Along with that this class contains the necessary
@@ -43,11 +44,11 @@ export class TxAuxData {
   /**
    * Encrypt the TxAuxData object using the owner's public key and the ephemeral private key.
    * @param ownerPubKey - Public key of the owner of the TxAuxData object.
-   * @param ephPrivKey - Ephemeral private key used to encrypt the TxAuxData object.
    * @param grumpkin - Arbitrary Grumpkin class instance.
    * @returns The encrypted TxAuxData object.
    */
-  public toEncryptedBuffer(ownerPubKey: Point, ephPrivKey: Buffer, grumpkin: Grumpkin): Buffer {
+  public toEncryptedBuffer(ownerPubKey: Point, grumpkin: Grumpkin): Buffer {
+    const ephPrivKey = randomBytes(32);
     return encryptBuffer(this.toBuffer(), ownerPubKey, ephPrivKey, grumpkin);
   }
 
