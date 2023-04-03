@@ -17,6 +17,7 @@ RUN ./download_ignition.sh 1
 WORKDIR /usr/src/yarn-project
 
 # We only want to copy the package.json's, to ensure we only rebuild this image if project dependencies changed.
+# TODO is this redundant with our rebuild patterns?
 COPY acir-simulator/package.json acir-simulator/package.json
 COPY archiver/package.json archiver/package.json
 COPY aztec-cli/package.json aztec-cli/package.json
