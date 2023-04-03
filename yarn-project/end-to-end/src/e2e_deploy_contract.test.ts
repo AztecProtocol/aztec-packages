@@ -50,7 +50,7 @@ describe('e2e_deploy_contract', () => {
   it('should deploy a contract', async () => {
     const deployer = new ContractDeployer(abi, aztecRpcServer);
     const tx = deployer.deploy().send();
-    logger(`Tx sent with hash ${tx.txHash}`);
+    logger(`Tx sent with hash ${await tx.getTxHash()}`);
     const receipt = await tx.getReceipt();
     expect(receipt).toEqual(
       expect.objectContaining({
