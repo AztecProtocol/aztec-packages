@@ -32,6 +32,8 @@
   },
   "dependencies": {
     "@aztec/acir-simulator": "workspace:^",
+    "@aztec/circuits.js": "workspace:^",
+    "@aztec/foundation": "workspace:^",
     "tslib": "^2.4.0"
   },
   "devDependencies": {
