@@ -109,7 +109,7 @@ export class AztecRPCServer implements AztecRPCClient {
     );
 
     const fromAddress = from.equals(AztecAddress.ZERO) ? (await this.keyStore.getAccounts())[0] : from;
-    const contractTree = ContractTree.new(
+    const contractTree = await ContractTree.new(
       abi,
       txRequestArgs,
       portalContract,
@@ -125,13 +125,13 @@ export class AztecRPCServer implements AztecRPCClient {
       true,
     );
 
-    const constructorVkHash = Fr.fromBuffer(
-      hashVK(this.circuitsWasm, Buffer.from(constructorAbi.verificationKey, 'hex')),
-    );
+    const constructorVkHash = await hashVK(this.circuitsWasm, Buffer.from(constructorAbi.verificationKey, 'hex'));
+
+    const functionTreeRoot = await contractTree.getFunctionTreeRoot();
 
     const contractDeploymentData = new ContractDeploymentData(
-      constructorVkHash,
-      contractTree.getFunctionTreeRoot(),
+      Fr.fromBuffer(constructorVkHash),
+      functionTreeRoot,
       contractAddressSalt,
       portalContract,
     );
