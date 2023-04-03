@@ -90,7 +90,8 @@
           "name": "amount",
           "type": {
             "kind": "field"
-          }
+          },
+          "visibility": "public"
         },
         {
           "name": "sender",
@@ -109,7 +110,8 @@
                   "kind": "field"
                 }
               }
-            ]
+            ],
+            "visibility": "public"
           }
         },
         {
@@ -129,7 +131,8 @@
                   "kind": "field"
                 }
               }
-            ]
+            ],
+            "visibility": "public"
           }
         }
       ],
