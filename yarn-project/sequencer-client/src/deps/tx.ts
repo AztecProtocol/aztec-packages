@@ -1,19 +1,21 @@
 import { pedersenCompressInputs } from '@aztec/barretenberg.js/crypto';
 import { BarretenbergWasm } from '@aztec/barretenberg.js/wasm';
 import { CircuitsWasm, NewContractData, PrivateKernelPublicInputs, UInt8Vector } from '@aztec/circuits.js';
+import { UnverifiedData } from '@aztec/l2-block';
 import { Tx } from '@aztec/tx';
 
 function makeEmptyProof() {
   return new UInt8Vector(Buffer.alloc(0));
 }
 
-function makeEmptyUnverifiedData() {
-  return Buffer.alloc(0);
+export function makeEmptyUnverifiedData(): UnverifiedData {
+  const chunks = [Buffer.alloc(0)];
+  return new UnverifiedData(chunks);
 }
 
 export function makeEmptyTx(): Tx {
   const isEmpty = true;
-  return new Tx(PrivateKernelPublicInputs.makeEmpty(), makeEmptyProof(), makeEmptyUnverifiedData(), isEmpty);
+  return new Tx(PrivateKernelPublicInputs.makeEmpty(), makeEmptyProof(), makeEmptyUnverifiedData(), undefined, isEmpty);
 }
 
 export function hashNewContractData(wasm: CircuitsWasm | BarretenbergWasm, cd: NewContractData) {

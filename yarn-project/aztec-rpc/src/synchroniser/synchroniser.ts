@@ -1,4 +1,6 @@
 import { AztecNode } from '@aztec/aztec-node';
+import { Grumpkin } from '@aztec/barretenberg.js/crypto';
+import { BarretenbergWasm } from '@aztec/barretenberg.js/wasm';
 import {
   AztecAddress
 } from '@aztec/circuits.js';
@@ -17,29 +19,34 @@ export class Synchroniser {
   constructor(
     private node: AztecNode,
     private db: Database,
-    private log = createDebugLogger('aztec:aztec_rps_synchroniser'),
+    private bbWasm: BarretenbergWasm,
+    private log = createDebugLogger('aztec:aztec_rpc_synchroniser'),
   ) {}
 
-  public start(from = 1, take = 1, retryInterval = 1000) {
+  public start(fromBlock = 1, take = 1, retryInterval = 1000) {
     if (this.running) {
       return;
     }
 
     this.running = true;
+    let fromUnverifiedData = fromBlock;
 
     const run = async () => {
       while (this.running) {
         try {
-          const blocks = await this.node.getBlocks(from, take);
+          const unverifiedData = await this.node.getUnverifiedData(fromUnverifiedData, take);
 
-          if (!blocks.length) {
+          if (!unverifiedData.length) {
             await this.interruptableSleep.sleep(retryInterval);
             continue;
           }
 
-          await this.decodeBlocks(blocks);
+          this.log(`Forwarded ${unverifiedData.length} unverified data to ${this.accountStates.length} account states`);
+          for (const accountState of this.accountStates) {
+            await accountState.processUnverifiedData(unverifiedData, fromUnverifiedData, take);
+          }
 
-          from += blocks.length;
+          fromUnverifiedData += unverifiedData.length;
         } catch (err) {
           console.log(err);
           await this.interruptableSleep.sleep(retryInterval);
@@ -58,13 +65,13 @@ export class Synchroniser {
     this.log('Stopped');
   }
 
-  public async addAccount(account: AztecAddress) {
-    this.accountStates.push(new AccountState(account, this.db));
+  public async addAccount(privKey: Buffer) {
+    this.accountStates.push(new AccountState(privKey, this.db, this.node, new Grumpkin(this.bbWasm)));
     await Promise.resolve();
   }
 
   public getAccount(account: AztecAddress) {
-    return this.accountStates.find(as => as.publicKey.equals(account));
+    return this.accountStates.find(as => as.getPublicKey().toAddress().equals(account));
   }
 
   public getAccounts() {
@@ -83,26 +90,5 @@ export class Synchroniser {
     }
 
     return tx;
-  }
-
-  private async decodeBlocks(l2Blocks: L2Block[]) {
-    for (const block of l2Blocks) {
-      for (const txHash of createTxHashes(block)) {
-        const txDao: TxDao | undefined = await this.db.getTx(txHash);
-        if (txDao !== undefined) {
-          txDao.blockHash = keccak(block.encode());
-          txDao.blockNumber = block.number;
-          await this.db.addOrUpdateTx(txDao);
-          this.log(`Added tx with hash ${txHash.toString()} from block ${block.number}`);
-        } else {
-          this.log(`Tx with hash ${txHash.toString()} from block ${block.number} not found in db`);
-        }
-      }
-
-      for (const key in this.accountStates) {
-        this.accountStates[key].syncToBlock(block);
-      }
-      this.log(`Synched block ${block.number}`);
-    }
   }
 }

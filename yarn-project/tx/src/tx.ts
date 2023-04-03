@@ -6,18 +6,14 @@ import {
   UInt8Vector
 } from '@aztec/circuits.js';
 import { serializeToBuffer } from '@aztec/circuits.js/utils';
-import { L2Block } from '@aztec/l2-block';
-import { Keccak } from 'sha3';
+import { keccak } from '@aztec/foundation';
+import { L2Block, UnverifiedData } from '@aztec/l2-block';
 import { TxHash } from './tx_hash.js';
-
-const hash = new Keccak(256);
 
 /**
  * The interface of an L2 transaction.
  */
 export class Tx {
-  private _hash?: TxHash;
-
   /**
    *
    * @param data - Tx inputs.
@@ -28,7 +24,8 @@ export class Tx {
   constructor(
     public readonly data: PrivateKernelPublicInputs,
     public readonly proof: UInt8Vector,
-    public readonly unverifiedData: Buffer,
+    public readonly unverifiedData: UnverifiedData,
+    private hash?: TxHash,
     public readonly isEmpty = false,
   ) {}
 
@@ -37,10 +34,10 @@ export class Tx {
    * @returns The transaction's hash.
    */
   get txHash() {
-    if (!this._hash) {
-      this._hash = Tx.createTxHash(this);
+    if (!this.hash) {
+      this.hash = Tx.createTxHash(this);
     }
-    return this._hash;
+    return this.hash;
   }
 
   /**
@@ -49,7 +46,6 @@ export class Tx {
    * @returns A hash of the tx data that identifies the tx.
    */
   static createTxHash(tx: Tx): TxHash {
-    hash.reset();
     const dataToHash = Buffer.concat(
       [
         tx.data.end.newCommitments.map(x => x.toBuffer()),
@@ -58,8 +54,38 @@ export class Tx {
         tx.data.end.newContracts.map(x => serializeToBuffer(x.contractAddress, x.portalContractAddress)),
       ].flat(),
     );
-    return new TxHash(hash.update(dataToHash).digest());
+    return new TxHash(keccak(dataToHash));
   }
+}
+
+/**
+ * Generates transaction hash for the ith transaction in an L2 block.
+ * @param block - The L2 block.
+ * @param txIndex - The index of the tx in the block.
+ * @returns TxHash of the tx.
+ */
+export function getTxHash(block: L2Block, txIndex: number) {
+  const dataToHash = Buffer.concat(
+    [
+      block.newCommitments
+        .slice(
+          txIndex * KERNEL_NEW_COMMITMENTS_LENGTH,
+          txIndex * KERNEL_NEW_COMMITMENTS_LENGTH + KERNEL_NEW_COMMITMENTS_LENGTH,
+        )
+        .map(x => x.toBuffer()),
+      block.newNullifiers
+        .slice(
+          txIndex * KERNEL_NEW_NULLIFIERS_LENGTH,
+          txIndex * KERNEL_NEW_NULLIFIERS_LENGTH + KERNEL_NEW_NULLIFIERS_LENGTH,
+        )
+        .map(x => x.toBuffer()),
+      // Keep this in sync with createTxHash
+      block.newContractData
+        .slice(txIndex * KERNEL_NEW_CONTRACTS_LENGTH, txIndex * KERNEL_NEW_CONTRACTS_LENGTH + KERNEL_NEW_CONTRACTS_LENGTH)
+        .map(x => serializeToBuffer(x.aztecAddress, x.ethAddress)),
+    ].flat(),
+  );
+  return new TxHash(keccak(dataToHash));
 }
 
 /**
@@ -68,27 +94,8 @@ export class Tx {
  * @returns An array of hashes, one for each tx.
  */
 export function createTxHashes(block: L2Block) {
-  hash.reset();
-  let i = 0;
   const numTxs = Math.floor(block.newCommitments.length / KERNEL_NEW_COMMITMENTS_LENGTH);
-  const txHashes: TxHash[] = [];
-  while (i < numTxs) {
-    const dataToHash = Buffer.concat(
-      [
-        block.newCommitments
-          .slice(i * KERNEL_NEW_COMMITMENTS_LENGTH, i * KERNEL_NEW_COMMITMENTS_LENGTH + KERNEL_NEW_COMMITMENTS_LENGTH)
-          .map(x => x.toBuffer()),
-        block.newNullifiers
-          .slice(i * KERNEL_NEW_NULLIFIERS_LENGTH, i * KERNEL_NEW_NULLIFIERS_LENGTH + KERNEL_NEW_NULLIFIERS_LENGTH)
-          .map(x => x.toBuffer()),
-        // Keep this in sync with createTxHash
-        block.newContractData
-          .slice(i * KERNEL_NEW_CONTRACTS_LENGTH, i * KERNEL_NEW_CONTRACTS_LENGTH + KERNEL_NEW_CONTRACTS_LENGTH)
-          .map(x => serializeToBuffer(x.aztecAddress, x.ethAddress)),
-      ].flat(),
-    );
-    txHashes.push(new TxHash(hash.update(dataToHash).digest()));
-    i++;
-  }
-  return txHashes;
+  return Array(numTxs)
+    .fill(0)
+    .map((_, i) => getTxHash(block, i));
 }
