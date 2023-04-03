@@ -94,15 +94,15 @@ export class Sequencer {
    */
   protected async work() {
     try {
-      // Update state when the previous block has been synched
-      const prevBlockSynched = await this.isBlockSynced();
-      if (prevBlockSynched && this.state === SequencerState.PUBLISHING_BLOCK) {
-        this.log(`Block has been synched`);
+      // Update state when the previous block has been synced
+      const prevBlockSynced = await this.isBlockSynced();
+      if (prevBlockSynced && this.state === SequencerState.PUBLISHING_BLOCK) {
+        this.log(`Block has been synced`);
         this.state = SequencerState.IDLE;
       }
 
       // Do not go forward with new block if the previous one has not been mined and processed
-      if (!prevBlockSynched) {
+      if (!prevBlockSynced) {
         return;
       }
 

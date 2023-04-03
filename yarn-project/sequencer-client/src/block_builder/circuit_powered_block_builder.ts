@@ -415,10 +415,12 @@ export class CircuitPoweredBlockBuilder {
     //   await this.getTreeSnapshot(MerkleTreeId.NULLIFIER_TREE).then(t => '0x' + t.root.toBuffer().toString('hex')),
     // );
     // console.log(`Inserting new data`, newNullifiers.join(', '));
-    for (const nullifier of newNullifiers) {
-      lowNullifierInfos.push(await this.getLowNullifierInfo(nullifier));
-      await this.db.appendLeaves(MerkleTreeId.NULLIFIER_TREE, [nullifier.toBuffer()]);
-    }
+    
+    const nullifierWitnesses = await this.db.getAndPerformBaseRollupBatchInsertionProofs(
+      MerkleTreeId.NULLIFIER_TREE,
+      newNullifiers
+    );
+
     // console.log(
     //   `Nullifier root after insertion: `,
     //   await this.getTreeSnapshot(MerkleTreeId.NULLIFIER_TREE).then(t => '0x' + t.root.toBuffer().toString('hex')),
@@ -446,8 +448,8 @@ export class CircuitPoweredBlockBuilder {
       newCommitmentsSubtreeSiblingPath,
       newContractsSubtreeSiblingPath,
       newNullifiersSubtreeSiblingPath,
-      lowNullifierLeafPreimages: lowNullifierInfos.map(i => i.leafPreimage),
-      lowNullifierMembershipWitness: lowNullifierInfos.map(i => i.witness),
+      lowNullifierLeafPreimages: nullifierWitnesses.lowNullifierLeafPreimages,
+      lowNullifierMembershipWitness: nullifierWitnesses.lowNullifierMembershipWitness,
       kernelData: [this.getKernelDataFor(tx1), this.getKernelDataFor(tx2)],
       historicContractsTreeRootMembershipWitnesses: [
         await this.getContractMembershipWitnessFor(tx1),
