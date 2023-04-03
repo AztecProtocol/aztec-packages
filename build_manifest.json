@@ -38,12 +38,6 @@
     ],
     "dependencies": []
   },
-  "yarn-project-build": {
-    "buildDir": "yarn-project",
-    "dockerfile": "yarn-project-build/Dockerfile",
-    "rebuildPatterns": ["^yarn-project"],
-    "dependencies": ["yarn-project-base"]
-  },
   "acir-simulator": {
     "buildDir": "yarn-project",
     "projectDir": "yarn-project/acir-simulator",
