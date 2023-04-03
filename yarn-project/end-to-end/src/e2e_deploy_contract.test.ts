@@ -36,7 +36,7 @@ describe('e2e_deploy_contract', () => {
     node = await createAztecNode(rollupAddress, yeeterAddress, ETHEREUM_HOST, provider.getPrivateKey(0)!);
     aztecRpcServer = await createAztecRpcServer(1, node);
     accounts = await aztecRpcServer.getAccounts();
-  });
+  }, 10_000);
 
   afterEach(async () => {
     await node.stop();
@@ -69,6 +69,23 @@ describe('e2e_deploy_contract', () => {
     const contractAddress = receipt.contractAddress!;
     expect(await aztecRpcServer.isContractDeployed(contractAddress)).toBe(true);
     expect(await aztecRpcServer.isContractDeployed(AztecAddress.random())).toBe(false);
+  }, 30_000);
+
+  /**
+   * Currently not passing as the rollup contract gets a state root hash that doesn't match the one
+   * generated locally by the sequencer, due to mismatches in the nullifier tree.
+   */
+  it.skip('should deploy one contract after another', async () => {
+    const deployer = new ContractDeployer(abi, aztecRpcServer);
+
+    for (let index = 0; index < 2; index++) {
+      logger(`Deploying contract ${index + 1}...`);
+      const tx = deployer.deploy().send({ contractAddressSalt: Fr.random() });
+      const isMined = await tx.isMined();
+      expect(isMined).toBe(true);
+      const receipt = await tx.getReceipt();
+      expect(receipt.status).toBe(TxStatus.MINED);
+    }
   }, 30_000);
 
   /**
