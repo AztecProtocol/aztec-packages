@@ -4,9 +4,8 @@ import { BarretenbergWasm } from '@aztec/barretenberg.js/wasm';
 import {
   AztecAddress
 } from '@aztec/circuits.js';
-import { InterruptableSleep, createDebugLogger, keccak } from '@aztec/foundation';
-import { L2Block } from '@aztec/l2-block';
-import { TxHash, createTxHashes } from '@aztec/tx';
+import { InterruptableSleep, createDebugLogger } from '@aztec/foundation';
+import { TxHash } from '@aztec/tx';
 import { AccountState } from '../account_state/index.js';
 import { Database, TxDao } from '../database/index.js';
 

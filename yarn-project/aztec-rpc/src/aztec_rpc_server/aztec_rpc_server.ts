@@ -340,7 +340,6 @@ export class AztecRPCServer implements AztecRPCClient {
     }
 
     const pendingTx = await this.node.getPendingTxByHash(txHash);
-    this.log(`Pending Tx ${pendingTx?.txHash.toString()}`);
     if (pendingTx) {
       return {
         ...partialReceipt,

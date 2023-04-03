@@ -4,7 +4,6 @@ import { EthAddress } from '@aztec/ethereum.js/eth_address';
 import { EthereumRpc } from '@aztec/ethereum.js/eth_rpc';
 import { WalletProvider } from '@aztec/ethereum.js/provider';
 import { createDebugLogger } from '@aztec/foundation';
-import { ContractAbi } from '@aztec/noir-contracts';
 import { ZkTokenContractAbi } from '@aztec/noir-contracts/examples';
 import { createAztecNode } from './create_aztec_node.js';
 import { createAztecRpcServer } from './create_aztec_rpc_client.js';
@@ -48,22 +47,21 @@ describe('e2e_zk_token_contract', () => {
     // We only generate 1 note in each test. Balance is the first field of the only note.
     // TBD - how to calculate storage slot?
     const storageSlot = Fr.ZERO;
-    const [[balance]] = await aztecRpcServer.getStorageAt(contract.address, storageSlot);
+    const [[balance]] = await aztecRpcServer.getStorageAt(contract.address!, storageSlot);
     logger(`Account ${accountIdx} balance: ${balance}`);
     expect(balance).toBe(expectedBalance);
   };
 
-  // const expectBalance = async (accountIdx: number, expectedBalance: bigint) => {
-  //   const balance = await contract.methods.getBalance().call({ from: accounts[accountIdx] });
-  //   logger(`Account ${accountIdx} balance: ${balance}`);
-  //   expect(balance).toBe(expectedBalance);
-  // };
+  const expectBalance = async (accountIdx: number, expectedBalance: bigint) => {
+    const balance = await contract.methods.getBalance().call({ from: accounts[accountIdx] });
+    logger(`Account ${accountIdx} balance: ${balance}`);
+    expect(balance).toBe(expectedBalance);
+  };
 
   const deployContract = async (initialBalance = 0n) => {
-    const abi = ZkTokenContractAbi as ContractAbi;
-    const deployer = new ContractDeployer(abi, aztecRpcServer);
+    const deployer = new ContractDeployer(ZkTokenContractAbi, aztecRpcServer);
     const receipt = await deployer.deploy(initialBalance).send().getReceipt();
-    return new Contract(receipt.contractAddress!, abi, aztecRpcServer);
+    return new Contract(receipt.contractAddress!, ZkTokenContractAbi, aztecRpcServer);
   };
 
   /**
@@ -98,19 +96,19 @@ describe('e2e_zk_token_contract', () => {
   /**
    * Milestone 1.5
    */
-  // it.skip('should call transfer and increase balance of another account', async () => {
-  //   const initialBalance = 987n;
-  //   const transferAmount = 654n;
+  it.skip('should call transfer and increase balance of another account', async () => {
+    const initialBalance = 987n;
+    const transferAmount = 654n;
 
-  //   await deployContract(initialBalance);
+    await deployContract(initialBalance);
 
-  //   await expectBalance(0, initialBalance);
-  //   await expectBalance(1, 0n);
+    await expectBalance(0, initialBalance);
+    await expectBalance(1, 0n);
 
-  //   const receipt = await contract.methods.transfer(accounts[1]).send({ from: accounts[0] }).getReceipt();
-  //   expect(receipt.status).toBe(true);
+    const receipt = await contract.methods.transfer(accounts[1]).send({ from: accounts[0] }).getReceipt();
+    expect(receipt.status).toBe(true);
 
-  //   await expectBalance(0, initialBalance - transferAmount);
-  //   await expectBalance(1, transferAmount);
-  // });
+    await expectBalance(0, initialBalance - transferAmount);
+    await expectBalance(1, transferAmount);
+  });
 });
