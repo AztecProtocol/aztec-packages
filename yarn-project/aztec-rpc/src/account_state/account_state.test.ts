@@ -153,4 +153,9 @@ describe('Account State', () => {
     expect(txs).toEqual([]);
     expect(addTxAuxDataBatchSpy).toHaveBeenCalledTimes(0);
   });
+
+  it('should throw an error if invalid privKey is passed on input', () => {
+    const ownerPrivateKey = Buffer.alloc(0);
+    expect(() => new AccountState(ownerPrivateKey, database, aztecNode, grumpkin)).toThrowError();
+  });
 });
