@@ -90,6 +90,7 @@ __metadata:
   resolution: "@aztec/aztec-node@workspace:aztec-node"
   dependencies:
     "@aztec/archiver": "workspace:^"
+    "@aztec/barretenberg.js": "workspace:^"
     "@aztec/ethereum.js": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/l1-contracts": "workspace:^"
