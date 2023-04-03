@@ -1,3 +1,6 @@
+const fs = require('fs');
+const path = require('path');
+
 const contexts = [
   'TSMethodDefinition',
   'MethodDefinition',
@@ -26,6 +29,24 @@ const contexts = [
   'EnumExpression',
 ];
 
+function hasTsConfigInParents() {
+  let currentDir = process.cwd();
+  // Stop searching when reaching the root directory
+  while (currentDir !== path.parse(currentDir).root) {
+    const tsconfigPath = path.join(currentDir, 'tsconfig.json');
+
+    if (fs.existsSync(tsconfigPath)) {
+      return true;
+    }
+
+    // Move up to the parent directory
+    currentDir = path.dirname(currentDir);
+  }
+
+  // Return null if the tsconfig.json is not found
+  return false;
+}
+
 module.exports = {
   extends: ['eslint:recommended', 'plugin:@typescript-eslint/recommended', 'prettier'],
   root: true,
@@ -36,7 +57,8 @@ module.exports = {
     {
       files: ['*.ts', '*.tsx'],
       parserOptions: {
-        project: true,
+        // Hack: Support our CI environment, which only has a tsconfig.dest.json, no tsconfig.json
+        project: hasTsConfigInParents() ? true : 'tsconfig.dest.json',
       },
     },
   ],
