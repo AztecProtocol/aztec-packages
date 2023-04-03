@@ -1,5 +1,5 @@
 {
-  "extends": ".",
+  "extends": "..",
   "references": [
     {
       "path": "../acir-simulator/tsconfig.dest.json"

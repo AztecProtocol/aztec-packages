@@ -1,12 +1,9 @@
 {
-  "extends": ".",
+  "extends": "..",
   "references": [
     {
       "path": "../foundation/tsconfig.dest.json"
     }
   ],
-  "exclude": [
-    "src/**/*.test.ts",
-    "src/**/fixtures/*"
-  ]
+  "exclude": ["src/**/*.test.ts", "src/**/fixtures/*"]
 }

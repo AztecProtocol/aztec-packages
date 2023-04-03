@@ -1,5 +1,5 @@
 {
-  "extends": ".",
+  "extends": "..",
   "exclude": ["**/*.test.*", "**/fixtures/*"],
   "references": [
     {

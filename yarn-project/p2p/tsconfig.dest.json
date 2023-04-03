@@ -1,5 +1,5 @@
 {
-  "extends": ".",
+  "extends": "..",
   "references": [
     { "path": "../foundation/tsconfig.dest.json" },
     { "path": "../l2-block/tsconfig.dest.json" },

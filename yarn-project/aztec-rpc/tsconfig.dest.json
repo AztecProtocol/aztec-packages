@@ -1,5 +1,5 @@
 {
-  "extends": ".",
+  "extends": "..",
   "references": [
     {
       "path": "../acir-simulator/tsconfig.dest.json"
@@ -21,7 +21,7 @@
     },
     {
       "path": "../noir-contracts/tsconfig.dest.json"
-    },
+    }
   ],
   "exclude": ["**/*.test.*", "**/fixtures/*"]
 }
