@@ -1,14 +1,9 @@
 {
-  "extends": "../tsconfig.base.json",
-  "compilerOptions": {
-    "outDir": "dest",
-    "rootDir": "src",
-    "tsBuildInfoFile": ".tsbuildinfo"
-  },
+  "extends": "..",
+  "exclude": ["**/*.test.*", "**/fixtures/*"],
   "references": [
     {
       "path": "../ethereum.js/tsconfig.dest.json"
     }
-  ],
-  "include": ["src"]
+  ]
 }

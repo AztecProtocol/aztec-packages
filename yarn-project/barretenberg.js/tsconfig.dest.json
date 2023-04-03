@@ -1,14 +1,9 @@
 {
-  "extends": "../tsconfig.base.json",
-  "compilerOptions": {
-    "outDir": "dest",
-    "rootDir": "src",
-    "tsBuildInfoFile": ".tsbuildinfo"
-  },
-  "include": ["src/**/*.ts", "src/**/*.tsx"],
+  "extends": "./tsconfig.json",
   "references": [
     {
       "path": "../foundation/tsconfig.dest.json"
     }
-  ]
+  ],
+  "exclude": ["**/*.test.*", "**/fixtures/*"]
 }

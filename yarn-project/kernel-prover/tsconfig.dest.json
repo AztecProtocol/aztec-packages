@@ -1,14 +1,12 @@
 {
-  "extends": "../tsconfig.base.json",
-  "compilerOptions": {
-    "outDir": "dest",
-    "rootDir": "src",
-    "tsBuildInfoFile": ".tsbuildinfo"
-  },
+  "extends": "..",
   "references": [
     {
       "path": "../acir-simulator/tsconfig.dest.json"
+    },
+    {
+      "path": "../circuits.js/tsconfig.dest.json"
     }
   ],
-  "include": ["src"]
+  "exclude": ["**/*.test.*", "**/fixtures/*"]
 }

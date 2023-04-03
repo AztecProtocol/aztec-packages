@@ -1,10 +1,6 @@
 {
-  "extends": "../tsconfig.base.json",
-  "compilerOptions": {
-    "outDir": "dest",
-    "rootDir": "src",
-    "tsBuildInfoFile": ".tsbuildinfo"
-  },
+  "extends": "..",
+  "exclude": ["**/*.test.*", "**/fixtures/*"],
   "references": [
     {
       "path": "../circuits.js/tsconfig.dest.json"
@@ -12,6 +8,5 @@
     {
       "path": "../noir-contracts/tsconfig.dest.json"
     }
-  ],
-  "include": ["src", "test"]
+  ]
 }

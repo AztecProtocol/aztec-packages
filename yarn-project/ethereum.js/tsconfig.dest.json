@@ -1,12 +1,9 @@
 {
-  "extends": "../tsconfig.base.json",
-  "compilerOptions": {
-    "noImplicitAny": false,
-    "outDir": "dest",
-    "rootDir": "src",
-    "tsBuildInfoFile": ".tsbuildinfo",
-    "skipLibCheck": true
-  },
-  "references": [],
-  "include": ["src", "src/eth_typed_data/fixtures/*.json"]
+  "extends": "..",
+  "references": [
+    {
+      "path": "../foundation/tsconfig.dest.json"
+    }
+  ],
+  "exclude": ["src/**/*.test.ts", "src/**/fixtures/*"]
 }
