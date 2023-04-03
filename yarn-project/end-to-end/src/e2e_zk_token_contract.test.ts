@@ -8,6 +8,7 @@ import { ZkTokenContractAbi } from '@aztec/noir-contracts/examples';
 import { createAztecNode } from './create_aztec_node.js';
 import { createAztecRpcServer } from './create_aztec_rpc_client.js';
 import { createProvider, deployRollupContract, deployYeeterContract } from './deploy_l1_contracts.js';
+import { ContractAbi } from '@aztec/noir-contracts';
 
 const ETHEREUM_HOST = 'http://localhost:8545';
 const MNEMONIC = 'test test test test test test test test test test test junk';
@@ -22,6 +23,7 @@ describe('e2e_zk_token_contract', () => {
   let yeeterAddress: EthAddress;
   let accounts: AztecAddress[];
   let contract: Contract;
+  const zkAbi = ZkTokenContractAbi as ContractAbi;
 
   beforeAll(async () => {
     provider = createProvider(ETHEREUM_HOST, MNEMONIC, 1);
@@ -52,28 +54,28 @@ describe('e2e_zk_token_contract', () => {
     expect(balance).toBe(expectedBalance);
   };
 
-  const expectBalance = async (accountIdx: number, expectedBalance: bigint) => {
-    const balance = await contract.methods.getBalance().call({ from: accounts[accountIdx] });
-    logger(`Account ${accountIdx} balance: ${balance}`);
-    expect(balance).toBe(expectedBalance);
-  };
+  // const expectBalance = async (accountIdx: number, expectedBalance: bigint) => {
+  //   const balance = await contract.methods.getBalance().call({ from: accounts[accountIdx] });
+  //   logger(`Account ${accountIdx} balance: ${balance}`);
+  //   expect(balance).toBe(expectedBalance);
+  // };
 
   const deployContract = async (initialBalance = 0n) => {
-    const deployer = new ContractDeployer(ZkTokenContractAbi, aztecRpcServer);
+    const deployer = new ContractDeployer(zkAbi, aztecRpcServer);
     const receipt = await deployer.deploy(initialBalance).send().getReceipt();
-    return new Contract(receipt.contractAddress!, ZkTokenContractAbi, aztecRpcServer);
+    return new Contract(receipt.contractAddress!, zkAbi, aztecRpcServer);
   };
 
   /**
    * Milestone 1.3
    * https://hackmd.io/AG5rb9DyTRu3y7mBptWauA
    */
-  it.skip('should deploy zk token contract with initial token minted to the account', async () => {
+  it('should deploy zk token contract with initial token minted to the account', async () => {
     const initialBalance = 987n;
     await deployContract(initialBalance);
     await expectStorageSlot(0, initialBalance);
     await expectStorageSlot(1, 0n);
-  });
+  }, 30_000);
 
   /**
    * Milestone 1.4
@@ -96,19 +98,19 @@ describe('e2e_zk_token_contract', () => {
   /**
    * Milestone 1.5
    */
-  it.skip('should call transfer and increase balance of another account', async () => {
-    const initialBalance = 987n;
-    const transferAmount = 654n;
+  // it.skip('should call transfer and increase balance of another account', async () => {
+  //   const initialBalance = 987n;
+  //   const transferAmount = 654n;
 
-    await deployContract(initialBalance);
+  //   await deployContract(initialBalance);
 
-    await expectBalance(0, initialBalance);
-    await expectBalance(1, 0n);
+  //   await expectBalance(0, initialBalance);
+  //   await expectBalance(1, 0n);
 
-    const receipt = await contract.methods.transfer(accounts[1]).send({ from: accounts[0] }).getReceipt();
-    expect(receipt.status).toBe(true);
+  //   const receipt = await contract.methods.transfer(accounts[1]).send({ from: accounts[0] }).getReceipt();
+  //   expect(receipt.status).toBe(true);
 
-    await expectBalance(0, initialBalance - transferAmount);
-    await expectBalance(1, transferAmount);
-  });
+  //   await expectBalance(0, initialBalance - transferAmount);
+  //   await expectBalance(1, transferAmount);
+  // });
 });
