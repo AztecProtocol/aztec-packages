@@ -4,10 +4,11 @@ import { BarretenbergWasm } from '@aztec/barretenberg.js/wasm';
 import {
   AztecAddress
 } from '@aztec/circuits.js';
-import { InterruptableSleep, createDebugLogger } from '@aztec/foundation';
-import { TxHash } from '@aztec/tx';
+import { InterruptableSleep, createDebugLogger, keccak } from '@aztec/foundation';
+import { TxHash, createTxHashes } from '@aztec/tx';
 import { AccountState } from '../account_state/index.js';
 import { Database, TxDao } from '../database/index.js';
+import { L2Block } from '@aztec/l2-block';
 
 export class Synchroniser {
   private runningPromise?: Promise<void>;
@@ -33,8 +34,11 @@ export class Synchroniser {
     const run = async () => {
       while (this.running) {
         try {
-          const unverifiedData = await this.node.getUnverifiedData(fromUnverifiedData, take);
+          // TODO: Blocks should be processed as part of getUnverifiedData
+          const blocks = await this.node.getBlocks(fromBlock, take);
+          await this.decodeBlocks(blocks);
 
+          const unverifiedData = await this.node.getUnverifiedData(fromUnverifiedData, take);
           if (!unverifiedData.length) {
             await this.interruptableSleep.sleep(retryInterval);
             continue;
@@ -90,4 +94,27 @@ export class Synchroniser {
 
     return tx;
   }
+
+  // TODO: Drop in favor of AccountState.processBlocks
+  private async decodeBlocks(l2Blocks: L2Block[]) {
+    for (const block of l2Blocks) {
+      for (const txHash of createTxHashes(block)) {
+        const txDao: TxDao | undefined = await this.db.getTx(txHash);
+        if (txDao !== undefined) {
+          txDao.blockHash = keccak(block.encode());
+          txDao.blockNumber = block.number;
+          await this.db.addTx(txDao);
+          this.log(`Added tx with hash ${txHash.toString()} from block ${block.number}`);
+        } else {
+          this.log(`Tx with hash ${txHash.toString()} from block ${block.number} not found in db`);
+        }
+      }
+
+      for (const key in this.accountStates) {
+        this.accountStates[key].syncToBlock(block);
+      }
+      this.log(`Synched block ${block.number}`);
+    }
+  }
+
 }

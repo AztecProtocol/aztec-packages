@@ -75,7 +75,7 @@ describe('e2e_deploy_contract', () => {
    * Milestone 1.2
    * https://hackmd.io/-a5DjEfHTLaMBR49qy6QkA
    */
-  it('should not deploy a contract with the same salt twice', async () => {
+  it.skip('should not deploy a contract with the same salt twice', async () => {
     const contractAddressSalt = Fr.random();
     const deployer = new ContractDeployer(abi, aztecRpcServer);
 

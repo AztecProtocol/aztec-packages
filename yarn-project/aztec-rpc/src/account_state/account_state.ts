@@ -126,4 +126,9 @@ export class AccountState {
     }
     await this.db.addTxs(txDaos);
   }
+
+  // TODO: Remove in favor of processUnverifiedData advancing this pointer
+  public syncToBlock(block: { number: number }) {
+    this.syncedToBlock = block.number;
+  }
 }
