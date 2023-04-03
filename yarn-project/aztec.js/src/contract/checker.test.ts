@@ -1,55 +1,35 @@
 import { abiChecker } from './checker.js';
 
 describe('abiChecker', () => {
+  let abi: any;
+
   describe('no functions', () => {
-    let abi: any;
-
-    describe('no functions', () => {
-      beforeEach(() => {
-        abi = {
-          name: 'TEST_ABI',
-        };
-      });
-
-      it('should error if it has no functions', () => {
-        expect(() => abiChecker(abi)).toThrowError('ABI has no functions');
-      });
-    });
-
-    describe('empty functions', () => {
-      beforeEach(() => {
-        const abi = {
-          name: 'TEST_ABI',
-          functions: [],
-        };
-      });
-
-      it('should error if it has no functions', () => {
-        expect(() => abiChecker(abi)).toThrowError('ABI has no functions');
-      });
+    it('should throw an error if it has no functions', () => {
+      abi = {
+        name: 'TEST_ABI',
+      };
+      expect(() => abiChecker(abi)).toThrowError('ABI has no functions');
+      abi = {
+        name: 'TEST_ABI',
+        functions: [],
+      };
+      expect(() => abiChecker(abi)).toThrowError('ABI has no functions');
     });
   });
 
   describe('no names', () => {
-    let abi: any;
-
-    beforeEach(() => {
+    it('should error if ABI has no names', () => {
       abi = {
         name: 'TEST_ABI',
         functions: [{ bytecode: '0af', parameters: [{ type: { kind: 'test' } }] }],
       };
-    });
-
-    it('should error if ABI has no names', () => {
       expect(() => abiChecker(abi)).toThrowError('ABI function has no name');
     });
   });
 
   describe('wrong types', () => {
     describe('unrecognised type', () => {
-      let abi: any;
-
-      beforeEach(() => {
+      it('should error if ABI function has incorrect parameter', () => {
         abi = {
           name: 'TEST_ABI',
           functions: [
@@ -60,17 +40,12 @@ describe('abiChecker', () => {
             },
           ],
         };
-      });
-
-      it('should error if ABI function has incorrect parameter', () => {
         expect(() => abiChecker(abi)).toThrowError('ABI function parameter has an unrecognised type');
       });
     });
 
     describe('incorrectly formed integer', () => {
-      let abi: any;
-
-      beforeEach(() => {
+      it('should error if integer is incorrectly formed', () => {
         abi = {
           name: 'TEST_ABI',
           functions: [
@@ -81,17 +56,12 @@ describe('abiChecker', () => {
             },
           ],
         };
-      });
-
-      it('should error if integer is incorrectly formed', () => {
         expect(() => abiChecker(abi)).toThrowError('Unrecognised attribute on type integer');
       });
     });
 
     describe('incorrectly formed string', () => {
-      let abi: any;
-
-      beforeEach(() => {
+      it('should error if string is incorrectly formed', () => {
         abi = {
           name: 'TEST_ABI',
           functions: [
@@ -102,17 +72,12 @@ describe('abiChecker', () => {
             },
           ],
         };
-      });
-
-      it('should error if string is incorrectly formed', () => {
         expect(() => abiChecker(abi)).toThrowError('Unrecognised attribute on type string');
       });
     });
 
     describe('incorrectly formed struct', () => {
-      let abi: any;
-
-      beforeEach(() => {
+      it('should error if struct is incorrectly formed', () => {
         abi = {
           name: 'TEST_ABI',
           functions: [
@@ -129,17 +94,12 @@ describe('abiChecker', () => {
             },
           ],
         };
-      });
-
-      it('should error if struct is incorrectly formed', () => {
         expect(() => abiChecker(abi)).toThrowError('Unrecognised attribute on type struct');
       });
     });
 
     describe('incorrectly formed array', () => {
-      let abi: any;
-
-      beforeEach(() => {
+      it('should error if array is incorrectly formed', () => {
         abi = {
           name: 'TEST_ABI',
           functions: [
@@ -166,9 +126,6 @@ describe('abiChecker', () => {
             },
           ],
         };
-      });
-
-      it('should error if array is incorrectly formed', () => {
         expect(() => abiChecker(abi)).toThrowError('ABI function parameter has an incorrectly formed array');
       });
     });
@@ -176,9 +133,7 @@ describe('abiChecker', () => {
 
   describe('valid types', () => {
     describe('valid matrix of integers', () => {
-      let abi: any;
-
-      beforeEach(() => {
+      it('should pass checker', () => {
         abi = {
           name: 'TEST_ABI',
           functions: [
@@ -205,17 +160,12 @@ describe('abiChecker', () => {
             },
           ],
         };
-      });
-
-      it('should pass checker', () => {
         expect(abiChecker(abi)).toBe(true);
       });
     });
 
     describe('valid struct', () => {
-      let abi: any;
-
-      beforeEach(() => {
+      it('should pass checker', () => {
         abi = {
           name: 'TEST_ABI',
           functions: [
@@ -242,9 +192,6 @@ describe('abiChecker', () => {
             },
           ],
         };
-      });
-
-      it('should pass checker', () => {
         expect(abiChecker(abi)).toBe(true);
       });
     });
