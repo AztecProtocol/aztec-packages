@@ -16,7 +16,7 @@ def update_dependencies(package_json_file: str):
     # Locate the directory of the package.json file to search for TypeScript files
     tsconfig_dir = os.path.dirname(package_json_file)
     ts_files = list(Path(tsconfig_dir).rglob("*.ts*"))
-    # TODO hack
+    # TODO
     ts_files = filter(lambda f: "example" not in str(f), ts_files)
 
     # Regular expression pattern to match import statements from @aztec packages
