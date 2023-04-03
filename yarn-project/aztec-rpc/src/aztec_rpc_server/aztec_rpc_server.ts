@@ -1,5 +1,6 @@
 import { AcirSimulator } from '@aztec/acir-simulator';
 import { AztecNode } from '@aztec/aztec-node';
+import { BarretenbergWasm } from '@aztec/barretenberg.js/wasm';
 import {
   ARGS_LENGTH,
   ContractDeploymentData,
@@ -13,15 +14,16 @@ import { hashVK } from '@aztec/circuits.js/abis';
 import { CircuitsWasm } from '@aztec/circuits.js/wasm';
 import { AztecAddress, EthAddress, createDebugLogger, Fr } from '@aztec/foundation';
 import { KernelProver } from '@aztec/kernel-prover';
+import { ContractAbi, FunctionType } from '@aztec/noir-contracts';
 import { Tx, TxHash } from '@aztec/tx';
 import { generateFunctionSelector } from '../abi_coder/index.js';
 import { AztecRPCClient, DeployedContract } from '../aztec_rpc_client/index.js';
 import { Signature } from '../circuits.js';
+import { toContractDao } from '../contract_database/index.js';
 import { ContractTree } from '../contract_tree/index.js';
 import { Database } from '../database/database.js';
 import { TxDao } from '../database/tx_dao.js';
 import { KeyStore } from '../key_store/index.js';
-import { ContractAbi, FunctionType } from '@aztec/noir-contracts';
 import { Synchroniser } from '../synchroniser/index.js';
 import { TxReceipt, TxStatus } from '../tx/index.js';
 
@@ -39,9 +41,10 @@ export class AztecRPCServer implements AztecRPCClient {
     private node: AztecNode,
     private db: Database,
     private circuitsWasm: CircuitsWasm,
+    bbWasm: BarretenbergWasm,
     private log = createDebugLogger('aztec:rpc_server'),
   ) {
-    this.synchroniser = new Synchroniser(node, db);
+    this.synchroniser = new Synchroniser(node, db, bbWasm);
     this.synchroniser.start();
   }
 
@@ -58,18 +61,18 @@ export class AztecRPCServer implements AztecRPCClient {
   }
 
   public async addContracts(contracts: DeployedContract[]) {
-    const trees = contracts.map(c => ContractTree.fromAddress(c.address, c.abi, c.portalAddress, this.circuitsWasm));
-    await Promise.all(trees.map(t => this.db.addContract(t.contract)));
+    const contractDaos = contracts.map(c => toContractDao(c.abi, c.address, c.portalContract));
+    await Promise.all(contractDaos.map(c => this.db.addContract(c)));
   }
 
   public async getAccounts(): Promise<AztecAddress[]> {
     const accounts = this.synchroniser.getAccounts();
-    return await Promise.all(accounts.map(async a => (await a.getPubKey()).toAddress()));
+    return await Promise.all(accounts.map(a => a.getPublicKey().toAddress()));
   }
 
   public async getStorageAt(contract: AztecAddress, storageSlot: Fr) {
-    const notes = await this.db.getNotes(contract, storageSlot);
-    return notes.map(n => n.notePreimage.items.map(item => item.value));
+    const txAuxData = await this.db.getTxAuxData(contract, storageSlot);
+    return txAuxData.map(d => d.notePreimage.items.map(item => item.value));
   }
 
   /**
@@ -186,9 +189,13 @@ export class AztecRPCServer implements AztecRPCClient {
   }
 
   public async createTx(txRequest: TxRequest, signature: Signature) {
+    const accountState = this.synchroniser.getAccount(txRequest.from);
+    if (!accountState) {
+      throw new Error('Cannot create tx for an unauthorized account.');
+    }
+
     const contractAddress = txRequest.to;
     const contract = await this.db.getContract(txRequest.to);
-
     if (!contract) {
       throw new Error('Unknown contract.');
     }
@@ -204,7 +211,7 @@ export class AztecRPCServer implements AztecRPCClient {
       txRequest,
       functionDao,
       contractAddress,
-      contract.portalAddress,
+      contract.portalContract,
       oldRoots,
     );
     const { publicInputs } = await this.kernelProver.prove(
@@ -213,12 +220,16 @@ export class AztecRPCServer implements AztecRPCClient {
       executionResult,
       oldRoots as any, // TODO - remove `as any`
     );
-    const tx = new Tx(publicInputs, new UInt8Vector(Buffer.alloc(0)), Buffer.alloc(0));
+
+    const unverifiedData = accountState.createUnverifiedData(contractAddress, executionResult.preimages.newNotes);
+    const tx = new Tx(publicInputs, new UInt8Vector(Buffer.alloc(0)), unverifiedData);
+
     const [toContract, newContract] = txRequest.functionData.isConstructor
       ? [undefined, contractAddress]
       : [contractAddress, undefined];
     const dao = new TxDao(tx.txHash, undefined, undefined, txRequest.from, toContract, newContract, '');
-    await this.db.addOrUpdateTx(dao);
+    await this.db.addTx(dao);
+
     return tx;
   }
 
@@ -231,6 +242,7 @@ export class AztecRPCServer implements AztecRPCClient {
     await this.node.sendTx(tx);
     return tx.txHash;
   }
+
   /**
    * Fetchs a transaction receipt for a tx
    * @param txHash - The transaction hash
@@ -248,7 +260,7 @@ export class AztecRPCServer implements AztecRPCClient {
       error: '',
     };
 
-    if (localTx && localTx.blockHash) {
+    if (localTx?.blockHash) {
       return {
         ...partialReceipt,
         status: TxStatus.MINED,
@@ -266,10 +278,8 @@ export class AztecRPCServer implements AztecRPCClient {
     // if the transaction mined it will be removed from the pending pool and there is a race condition here as the synchroniser will not have the tx as mined yet, so it will appear dropped
     // until the synchroniser picks this up
 
-    const remoteBlockHeight = await this.node.getBlockHeight();
-    const accountBlockHeight = this.synchroniser.getAccount(localTx.from)?.syncedTo || 0;
-
-    if (localTx && remoteBlockHeight > accountBlockHeight) {
+    const accountState = this.synchroniser.getAccount(localTx.from);
+    if (accountState && !(await accountState.isSynchronised())) {
       // there is a pending L2 block, which means the transaction will not be in the tx pool but may be awaiting mine on L1
       return {
         ...partialReceipt,
@@ -282,7 +292,7 @@ export class AztecRPCServer implements AztecRPCClient {
     return {
       ...partialReceipt,
       status: TxStatus.DROPPED,
-      error: 'Tx dropped by P2P node',
+      error: 'Tx dropped by P2P node.',
     };
   }
 }
