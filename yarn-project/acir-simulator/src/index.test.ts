@@ -15,32 +15,38 @@ import { TestContractAbi, ZkTokenContractAbi } from '@aztec/noir-contracts/examp
 import { DBOracle } from './db_oracle.js';
 import { AcirSimulator } from './simulator.js';
 import { jest } from '@jest/globals';
-import { randomBytes, toBigIntBE } from '@aztec/foundation';
+import { toBigIntBE } from '@aztec/foundation';
 import { BarretenbergWasm } from '@aztec/barretenberg.js/wasm';
+import { default as levelup } from 'levelup';
+import { default as memdown } from 'memdown';
+import { Pedersen, StandardMerkleTree } from '@aztec/merkle-tree';
 
 type NoirPoint = {
   x: bigint;
   y: bigint;
 };
 
+/* eslint-disable @typescript-eslint/ban-ts-comment */
+// @ts-ignore
+export const createMemDown = () => memdown();
+
 describe('ACIR simulator', () => {
   let bbWasm: BarretenbergWasm;
 
   const oracle = {
-    getNotes: jest.fn(),
-    getSecretKey: jest.fn(),
-    getBytecode: jest.fn(),
-    getPortalContractAddress: jest.fn(),
+    getNotes: jest.fn<DBOracle['getNotes']>(),
+    getSecretKey: jest.fn<DBOracle['getSecretKey']>(),
+    getBytecode: jest.fn<DBOracle['getBytecode']>(),
+    getPortalContractAddress: jest.fn<DBOracle['getPortalContractAddress']>(),
   };
   const acirSimulator = new AcirSimulator(oracle as unknown as DBOracle);
-
-  const oldRoots = new OldTreeRoots(new Fr(0n), new Fr(0n), new Fr(0n), new Fr(0n));
 
   beforeAll(async () => {
     bbWasm = await BarretenbergWasm.new();
   });
 
-  describe('constructors', () => {
+  describe('empty constructor', () => {
+    const oldRoots = new OldTreeRoots(new Fr(0n), new Fr(0n), new Fr(0n), new Fr(0n));
     const contractDeploymentData = new ContractDeploymentData(Fr.random(), Fr.random(), Fr.random(), EthAddress.ZERO);
     const txContext = new TxContext(false, false, true, contractDeploymentData);
 
@@ -66,19 +72,68 @@ describe('ACIR simulator', () => {
         new Array(NEW_COMMITMENTS_LENGTH).fill(new Fr(0n)),
       );
     });
+  });
+
+  describe('token contract', () => {
+    let currentNonce = 0n;
+    const SIBLING_PATH_SIZE = 5;
+
+    const contractDeploymentData = new ContractDeploymentData(Fr.ZERO, Fr.ZERO, Fr.ZERO, EthAddress.ZERO);
+    const txContext = new TxContext(false, false, false, contractDeploymentData);
+
+    const NOTES_SLOT = new Fr(17571339747851400718196372497847437556758957203378296768198856403538385673618n);
+
+    let ownerPk: Buffer;
+    let owner: NoirPoint;
+    let recipientPk: Buffer;
+    let recipient: NoirPoint;
+
+    function buildNote(amount: bigint, owner: NoirPoint, isDummy = false) {
+      return [
+        new Fr(amount),
+        new Fr(owner.x),
+        new Fr(owner.y),
+        new Fr(4n),
+        new Fr(currentNonce++),
+        new Fr(isDummy ? 1n : 0n),
+      ];
+    }
+
+    function computeNotehash(note: Fr[], pedersen: Pedersen) {
+      return pedersen.hashToField(Buffer.concat(note.map(field => field.toBuffer())));
+    }
+
+    function computeCommitment(noteHash: Buffer, slot: Fr, contractAddress: AztecAddress, pedersen: Pedersen) {
+      return pedersen.hashToField(
+        Buffer.concat([new Fr(3n).toBuffer(), noteHash, slot.toBuffer(), contractAddress.toBuffer()]),
+      );
+    }
+
+    function toPublicKey(privateKey: Buffer, grumpkin: Grumpkin): NoirPoint {
+      const publicKey = grumpkin.mul(Grumpkin.generator, privateKey);
+      return {
+        x: toBigIntBE(publicKey.slice(0, 32)),
+        y: toBigIntBE(publicKey.slice(32, 64)),
+      };
+    }
+
+    beforeAll(() => {
+      ownerPk = Buffer.from('5e30a2f886b4b6a11aea03bf4910fbd5b24e61aa27ea4d05c393b3ab592a8d33', 'hex');
+      recipientPk = Buffer.from('0c9ed344548e8f9ba8aa3c9f8651eaa2853130f6c1e9c050ccf198f7ea18a7ec', 'hex');
+
+      const grumpkin = new Grumpkin(bbWasm);
+      owner = toPublicKey(ownerPk, grumpkin);
+      recipient = toPublicKey(recipientPk, grumpkin);
+    });
 
     it('should a constructor with arguments that creates notes', async () => {
+      const oldRoots = new OldTreeRoots(new Fr(0n), new Fr(0n), new Fr(0n), new Fr(0n));
+
       const txRequest = new TxRequest(
         AztecAddress.random(),
         AztecAddress.ZERO,
         new FunctionData(Buffer.alloc(4), true, true),
-        [
-          27n,
-          {
-            x: 42n,
-            y: 28n,
-          },
-        ],
+        [140, owner],
         Fr.random(),
         txContext,
         new Fr(0n),
@@ -94,64 +149,39 @@ describe('ACIR simulator', () => {
       expect(result.preimages.newNotes).toHaveLength(1);
       expect(result.callStackItem.publicInputs.newCommitments.filter(field => !field.equals(Fr.ZERO))).toHaveLength(1);
     });
-  });
 
-  describe('transfer', () => {
-    let currentNonce = 0n;
-    const SIBLING_PATH_SIZE = 5;
+    it.skip('should run the transfer function', async () => {
+      const db = levelup(createMemDown());
+      const pedersen = new Pedersen(bbWasm);
 
-    function buildNote(amount: bigint, owner: NoirPoint, isDummy = false) {
-      return [
-        new Fr(amount),
-        new Fr(owner.x),
-        new Fr(owner.y),
-        new Fr(4n),
-        new Fr(currentNonce++),
-        new Fr(isDummy ? 1n : 0n),
-      ];
-    }
-
-    function toPublicKey(privateKey: Buffer, grumpkin: Grumpkin): NoirPoint {
-      const publicKey = grumpkin.mul(Grumpkin.generator, privateKey);
-      return {
-        x: toBigIntBE(publicKey.slice(0, 32)),
-        y: toBigIntBE(publicKey.slice(32, 64)),
-      };
-    }
-
-    const contractDeploymentData = new ContractDeploymentData(Fr.ZERO, Fr.ZERO, Fr.ZERO, EthAddress.ZERO);
-    const txContext = new TxContext(false, false, false, contractDeploymentData);
-
-    it.only('should run the transfer function', async () => {
-      const grumpkin = new Grumpkin(bbWasm);
-
+      const contractAddress = AztecAddress.random();
       const amountToTransfer = 100n;
-      const ownerPk = randomBytes(32);
-      const recipientPk = randomBytes(32);
 
-      const owner = toPublicKey(ownerPk, grumpkin);
-      const recipient = toPublicKey(recipientPk, grumpkin);
-
-      oracle.getNotes.mockReturnValue(
-        Promise.resolve([
-          {
-            note: buildNote(60n, owner),
-            siblingPath: new Array(SIBLING_PATH_SIZE).fill(new Fr(3n)),
-            index: 42,
-          },
-          {
-            note: buildNote(60n, owner),
-            siblingPath: new Array(SIBLING_PATH_SIZE).fill(new Fr(3n)),
-            index: 42,
-          },
-        ]),
+      const tree = await StandardMerkleTree.new(db, pedersen, 'privateData', SIBLING_PATH_SIZE);
+      const preimages = [buildNote(60n, owner), buildNote(80n, owner)];
+      await tree.appendLeaves(
+        preimages.map(preimage =>
+          computeCommitment(computeNotehash(preimage, pedersen), NOTES_SLOT, contractAddress, pedersen),
+        ),
       );
 
-      oracle.getSecretKey.mockReturnValue(Promise.resolve(Buffer.alloc(32)));
+      const oldRoots = new OldTreeRoots(Fr.fromBuffer(tree.getRoot()), new Fr(0n), new Fr(0n), new Fr(0n));
+
+      oracle.getNotes.mockImplementation(() => {
+        return Promise.all(
+          preimages.map(async (preimage, index) => ({
+            preimage,
+            siblingPath: (await tree.getSiblingPath(BigInt(index))).data.map(buf => Fr.fromBuffer(buf)),
+            index,
+          })),
+        );
+      });
+
+      oracle.getSecretKey.mockReturnValue(Promise.resolve(ownerPk));
 
       const txRequest = new TxRequest(
         AztecAddress.random(),
-        AztecAddress.random(),
+        contractAddress,
         new FunctionData(Buffer.alloc(4), true, true),
         [amountToTransfer, owner, recipient],
         Fr.random(),

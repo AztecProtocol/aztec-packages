@@ -93,7 +93,7 @@ export class Execution {
       getSecretKey: ([address]: ACVMField[]) => {
         return this.getSecretKey(contractAddress, address);
       },
-      getNotes2: async ([storageSlot]: ACVMField[]) => {
+      getNotes2: async ([, storageSlot]: ACVMField[]) => {
         return await this.getNotes(contractAddress, storageSlot, 2);
       },
       getRandomField: () => Promise.resolve([toACVMField(Fr.random())]),
