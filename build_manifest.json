@@ -40,7 +40,7 @@
   },
   "yarn-project-build": {
     "buildDir": "yarn-project",
-    "dockerfile": "yarn-project-base/Dockerfile",
+    "dockerfile": "yarn-project-build/Dockerfile",
     "rebuildPatterns": ["^yarn-project/*"],
     "dependencies": ["yarn-project-base"]
   },
