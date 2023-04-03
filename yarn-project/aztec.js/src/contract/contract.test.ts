@@ -1,4 +1,13 @@
-import { AztecAddress, AztecRPCClient, DeployedContract, EthAddress, Tx, TxHash, TxReceipt, TxRequest } from '@aztec/aztec-rpc';
+import {
+  AztecAddress,
+  AztecRPCClient,
+  DeployedContract,
+  EthAddress,
+  Tx,
+  TxHash,
+  TxReceipt,
+  TxRequest,
+} from '@aztec/aztec-rpc';
 import { randomBytes } from '@aztec/foundation';
 import { ABIParameterVisibility, ContractAbi, FunctionType } from '@aztec/noir-contracts';
 import { mock } from 'jest-mock-extended';
