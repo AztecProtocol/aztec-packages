@@ -1,7 +1,6 @@
 {
-  "extends": "./tsconfig.base.json",
-  "include": ["**/*.ts", "**/*.tsx"],
-  "exclude": [],
+  "files": [],
+  "include": [],
   "references": [
     { "path": "acir-simulator/tsconfig.dest.json" },
     { "path": "archiver/tsconfig.dest.json" },
@@ -25,6 +24,5 @@
     { "path": "sequencer-client/tsconfig.dest.json" },
     { "path": "tx/tsconfig.dest.json" },
     { "path": "world-state/tsconfig.dest.json" }
-  ],
-  "files": []
+  ]
 }

@@ -36,13 +36,7 @@ module.exports = {
     {
       files: ['*.ts', '*.tsx'],
       parserOptions: {
-        project: 'tsconfig.dest.json',
-      },
-    },
-    {
-      files: ['*.test.ts', '*.test.tsx'],
-      parserOptions: {
-        project: '../tsconfig.json',
+        project: '/Users/adomurad/sources/aztec3-packages/yarn-project/tsconfig.eslint.json',
       },
     },
   ],
