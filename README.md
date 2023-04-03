@@ -1,12 +1,14 @@
 # AZTEC 3 Monorepo
 
-tsconfig management:
-To update dependencies, do
+Package development:
 
-- yarn prepare
-  from the root folder. This updates tsconfig.dest.json project references and the build_manifest.json file via the references in package.json.
-  Note this only handles imports to @aztec/\* packages.
+- Run `yarn build:dev` in the root to interactively build the package.
+- Run `yarn prepare` in the root to update tsconfig.dest.json and build_manifest.json files based on package.json contents.
+  Note this only analyzes package.json imports to @aztec/\* packages.
 
-The yarn-project/tsconfig.json file is read by tools that need to understand test files, such as vscode and jest, while
-we build with the per-package tsconfig.dest.json files.
-Eslint needed its own minimal tsconfig.eslint.json without project references.
+Repo architecture:
+
+- yarn-project/tsconfig.base.json: Inherited by every tsconfig.json file, except tsconfig.dest.json (as it merely references other tsconfig files).
+- yarn-project/tsconfig.json: Used by vscode and eslint. Includes the whole project without listing project references.
+- yarn-project/tsconfig.dest.json: Used by `yarn build:dev` in root.
+- package/tsconfig.dest.json: Each package has its own file that specifies its project reference dependencies. This allows them to be built independently.
