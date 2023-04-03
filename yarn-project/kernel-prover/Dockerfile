@@ -10,6 +10,5 @@ RUN yarn workspaces focus --production > /dev/null
 
 FROM node:18-alpine
 COPY --from=builder /usr/src/yarn-project/kernel-prover /usr/src/yarn-project/kernel-prover
-COPY --from=builder /usr/src/yarn-project/tsconfig.json /usr/src/yarn-project/tsconfig.json
 WORKDIR /usr/src/yarn-project/kernel-prover
 ENTRYPOINT ["yarn"]

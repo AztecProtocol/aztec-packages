@@ -4,6 +4,10 @@ COPY foundation foundation
 COPY merkle-tree merkle-tree
 COPY barretenberg.js barretenberg.js
 
+WORKDIR /usr/src/yarn-project/foundation
+RUN yarn build
+WORKDIR /usr/src/yarn-project/barretenberg.js
+RUN yarn build
 RUN cp /usr/src/circuits/cpp/build-wasm/bin/aztec3-circuits.wasm dest/wasm/barretenberg.wasm
 
 WORKDIR /usr/src/yarn-project/merkle-tree
@@ -15,6 +19,5 @@ RUN yarn workspaces focus --production > /dev/null
 
 FROM node:18-alpine
 COPY --from=builder /usr/src/yarn-project/merkle-tree /usr/src/yarn-project/merkle-tree
-COPY --from=builder /usr/src/yarn-project/tsconfig.json /usr/src/yarn-project/tsconfig.json
 WORKDIR /usr/src/yarn-project/merkle-tree
 ENTRYPOINT ["yarn"]

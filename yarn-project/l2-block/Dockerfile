@@ -11,6 +11,5 @@ RUN yarn workspaces focus --production > /dev/null
 
 FROM node:18-alpine
 COPY --from=builder /usr/src/yarn-project/l2-block /usr/src/yarn-project/l2-block
-COPY --from=builder /usr/src/yarn-project/tsconfig.json /usr/src/yarn-project/tsconfig.json
 WORKDIR /usr/src/yarn-project/l2-block
 ENTRYPOINT ["yarn"]
