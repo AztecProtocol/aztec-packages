@@ -95,7 +95,7 @@ function makeEmptyPrivateKernelPublicInputs() {
   return new PrivateKernelPublicInputs(makeEmptyAccumulatedData(), makeEmptyConstantData(), true);
 }
 
-function makeEmptyUnverifiedData():UnverifiedData {
+export function makeEmptyUnverifiedData(): UnverifiedData {
   const chunks = [Buffer.alloc(0)];
   return new UnverifiedData(chunks);
 }
