@@ -4,7 +4,7 @@
   "type": "module",
   "exports": "./dest/index.js",
   "scripts": {
-    "prepare": "../../scripts/derive-package-deps.py package.json",
+    "prepare": "node ../../scripts/update_build_manifest.mjs package.json",
     "build": "yarn clean && tsc -b tsconfig.dest.json",
     "build:dev": "tsc -b tsconfig.dest.json --watch",
     "clean": "rm -rf ./dest .tsbuildinfo",
