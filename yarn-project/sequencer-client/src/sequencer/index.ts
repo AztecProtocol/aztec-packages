@@ -95,7 +95,7 @@ export class Sequencer {
   protected async work() {
     try {
       // Update state when the previous block has been synched
-      const prevBlockSynched = await this.isBlockSynched();
+      const prevBlockSynched = await this.isBlockSynced();
       if (prevBlockSynched && this.state === SequencerState.PUBLISHING_BLOCK) {
         this.log(`Block has been synched`);
         this.state = SequencerState.IDLE;
@@ -157,9 +157,9 @@ export class Sequencer {
 
   /**
    * Returns whether the previous block sent has been mined, and all dependencies have caught up with it.
-   * @returns Boolean indicating if our dependencies are synched to the latest block.
+   * @returns Boolean indicating if our dependencies are synced to the latest block.
    */
-  protected async isBlockSynched() {
+  protected async isBlockSynced() {
     return (
       (await this.worldState.status().then((s: WorldStateStatus) => s.syncedToL2Block)) >= this.lastBlockNumber &&
       (await this.p2pClient.getStatus().then(s => s.syncedToL2Block)) >= this.lastBlockNumber
