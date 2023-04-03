@@ -13,8 +13,7 @@
     "tsconfig": "./tsconfig.dest.json"
   },
   "scripts": {
-    "prepare": "../../scripts/derive-package-deps.py package.json",
-    "build": "tsc -b tsconfig.dest.json",
+    "build": "tsc -b tsconfig.dest.json && cp ./src/wasm/barretenberg.wasm ./dest/wasm",
     "build:dev": "tsc -b tsconfig.dest.json --watch",
     "clean": "rm -rf ./dest .tsbuildinfo",
     "formatting": "prettier --check ./src && eslint --max-warnings 0 ./src",
