@@ -261,6 +261,7 @@ __metadata:
     "@aztec/foundation": "workspace:^"
     "@rushstack/eslint-patch": ^1.2.0
     "@types/node": ^18.15.0
+    "@types/source-map-support": ^0.5.6
     source-map-support: ^0.5.21
     typescript: ^4.9.5
   languageName: unknown
@@ -2448,6 +2449,15 @@ __metadata:
   dependencies:
     "@types/node": "*"
   checksum: f3c8e0dcaf11d833292b7dd19db567ef41b23036b2fb9ea7335cba100aac8c56e1346171fae6c63885f6c0e1048550506fd165628bc0001902fea010a16d3842
+  languageName: node
+  linkType: hard
+
+"@types/source-map-support@npm:^0.5.6":
+  version: 0.5.6
+  resolution: "@types/source-map-support@npm:0.5.6"
+  dependencies:
+    source-map: ^0.6.0
+  checksum: b2b52b3e4901e52df30ebd23056885a352462c0d6fd73418e793684665a7602168e7c337241f0391562e8c1051ff37cbcb9b7d775990ee1f2a0d8a6ffa2cb22a
   languageName: node
   linkType: hard
 

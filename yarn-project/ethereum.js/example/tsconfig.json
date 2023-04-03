@@ -8,10 +8,10 @@
   "include": ["src"],
   "references": [
     {
-      "path": ".."
+      "path": "../tsconfig.dest.json"
     },
     {
-      "path": "../../foundation"
+      "path": "../../foundation/tsconfig.dest.json"
     }
   ]
 }
