@@ -33,7 +33,12 @@ describe('e2e_deploy_contract', () => {
   });
 
   beforeEach(async () => {
-    node = await createAztecNode(rollupAddress, unverifiedDataEmitterAddress, ETHEREUM_HOST, provider.getPrivateKey(0)!);
+    node = await createAztecNode(
+      rollupAddress,
+      unverifiedDataEmitterAddress,
+      ETHEREUM_HOST,
+      provider.getPrivateKey(0)!,
+    );
     aztecRpcServer = await createAztecRpcServer(1, node);
     accounts = await aztecRpcServer.getAccounts();
   }, 10_000);

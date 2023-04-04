@@ -34,7 +34,12 @@ describe('e2e_zk_token_contract', () => {
   });
 
   beforeEach(async () => {
-    node = await createAztecNode(rollupAddress, unverifiedDataEmitterAddress, ETHEREUM_HOST, provider.getPrivateKey(0)!);
+    node = await createAztecNode(
+      rollupAddress,
+      unverifiedDataEmitterAddress,
+      ETHEREUM_HOST,
+      provider.getPrivateKey(0)!,
+    );
     aztecRpcServer = await createAztecRpcServer(1, node);
     accounts = await aztecRpcServer.getAccounts();
   });
