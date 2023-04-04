@@ -7,11 +7,11 @@ import {
   TxRequest,
 } from '@aztec/circuits.js';
 import { AztecAddress, EthAddress, Fr } from '@aztec/foundation';
-import { Grumpkin, pedersenGetHash } from '@aztec/barretenberg.js/crypto';
+import { Grumpkin, pedersenCompressInputs } from '@aztec/barretenberg.js/crypto';
 import { FunctionAbi } from '@aztec/noir-contracts';
 import { TestContractAbi, ZkTokenContractAbi } from '@aztec/noir-contracts/examples';
 import { DBOracle } from './db_oracle.js';
-import { AcirSimulator, NOTE_SLOT_PEDERSEN_CONSTANT } from './simulator.js';
+import { AcirSimulator, MAPPING_SLOT_PEDERSEN_CONSTANT, NOTE_SLOT_PEDERSEN_CONSTANT } from './simulator.js';
 import { jest } from '@jest/globals';
 import { toBigIntBE } from '@aztec/foundation';
 import { BarretenbergWasm } from '@aztec/barretenberg.js/wasm';
@@ -79,7 +79,14 @@ describe('ACIR simulator', () => {
     const contractDeploymentData = new ContractDeploymentData(Fr.ZERO, Fr.ZERO, Fr.ZERO, EthAddress.ZERO);
     const txContext = new TxContext(false, false, false, contractDeploymentData);
 
-    const NOTES_SLOT = new Fr(17571339747851400718196372497847437556758957203378296768198856403538385673618n);
+    function computeSlot(mappingSlot: Fr, owner: NoirPoint, bbWasm: BarretenbergWasm) {
+      return Fr.fromBuffer(
+        pedersenCompressInputs(
+          bbWasm,
+          [MAPPING_SLOT_PEDERSEN_CONSTANT, mappingSlot, new Fr(owner.x)].map(f => f.toBuffer()),
+        ),
+      );
+    }
 
     let ownerPk: Buffer;
     let owner: NoirPoint;
@@ -98,10 +105,12 @@ describe('ACIR simulator', () => {
     }
 
     function computeCommitment(noteHash: Buffer, slot: Fr, contractAddress: AztecAddress, bbWasm: BarretenbergWasm) {
-      return pedersenGetHash(
-        bbWasm,
-        Buffer.concat([NOTE_SLOT_PEDERSEN_CONSTANT.toBuffer(), noteHash, slot.toBuffer(), contractAddress.toBuffer()]),
-      );
+      return pedersenCompressInputs(bbWasm, [
+        NOTE_SLOT_PEDERSEN_CONSTANT.toBuffer(),
+        noteHash,
+        slot.toBuffer(),
+        contractAddress.toBuffer(),
+      ]);
     }
 
     function toPublicKey(privateKey: Buffer, grumpkin: Grumpkin): NoirPoint {
@@ -146,13 +155,13 @@ describe('ACIR simulator', () => {
       const newCommitments = result.callStackItem.publicInputs.newCommitments.filter(field => !field.equals(Fr.ZERO));
       expect(newCommitments).toHaveLength(1);
 
-      // TODO cannot get a consistent hash with noir
+      // TODO get a consistent commitment with noir
       // const [commitment] = newCommitments;
       // expect(commitment).toEqual(
       //   Fr.fromBuffer(
       //     computeCommitment(
       //       acirSimulator.computeNoteHash(result.preimages.newNotes[0].preimage, bbWasm),
-      //       NOTES_SLOT,
+      //       computeSlot(new Fr(1n), owner, bbWasm),
       //       contractAddress,
       //       bbWasm,
       //     ),
@@ -196,7 +205,12 @@ describe('ACIR simulator', () => {
       const preimages = [buildNote(60n, owner), buildNote(80n, owner)];
       await tree.appendLeaves(
         preimages.map(preimage =>
-          computeCommitment(acirSimulator.computeNoteHash(preimage, bbWasm), NOTES_SLOT, contractAddress, bbWasm),
+          computeCommitment(
+            acirSimulator.computeNoteHash(preimage, bbWasm),
+            computeSlot(new Fr(1n), owner, bbWasm),
+            contractAddress,
+            bbWasm,
+          ),
         ),
       );
 
