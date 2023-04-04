@@ -1,5 +1,9 @@
 FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/yarn-project-base AS builder
 COPY . .
+# Build barretenberg.js to ensure wasm is in the dest folder.
+WORKDIR /usr/src/yarn-project/barretenberg.js
+RUN yarn build
+
 WORKDIR /usr/src/yarn-project/acir-simulator
 RUN yarn build && yarn formatting && yarn test
 
