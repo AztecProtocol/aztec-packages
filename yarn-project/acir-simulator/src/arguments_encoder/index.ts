@@ -1,3 +1,4 @@
+import { ARGS_LENGTH } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation';
 import { ABIType, FunctionAbi } from '@aztec/noir-contracts';
 
@@ -40,5 +41,9 @@ class ArgumentEncoder {
 }
 
 export function encodeArguments(abi: FunctionAbi, args: any[]) {
-  return new ArgumentEncoder(abi, args).encode();
+  const flatArgs = new ArgumentEncoder(abi, args).encode();
+  if (flatArgs.length > ARGS_LENGTH) {
+    throw new Error(`Too many arguments: ${flatArgs.length}`);
+  }
+  return flatArgs.concat(new Array(ARGS_LENGTH - flatArgs.length).fill(new Fr(0n)));
 }

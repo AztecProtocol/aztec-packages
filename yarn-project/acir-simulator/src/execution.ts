@@ -4,7 +4,6 @@ import { CallContext, OldTreeRoots, TxRequest, PrivateCallStackItem, FunctionDat
 import { DBOracle } from './db_oracle.js';
 import { writeInputs, extractPublicInputs, frToAztecAddress } from './acvm/witness_io.js';
 import { FunctionAbi } from '@aztec/noir-contracts';
-import { encodeArguments } from './arguments_encoder/index.js';
 
 interface NewNoteData {
   preimage: Fr[];
@@ -56,13 +55,11 @@ export class Execution {
       this.request.functionData.isConstructor,
     );
 
-    const encodedArgs = encodeArguments(this.entryPointABI, this.request.args);
-
     return this.runExternalFunction(
       this.entryPointABI,
       this.contractAddress,
       this.request.functionData,
-      encodedArgs,
+      this.request.args,
       callContext,
     );
   }

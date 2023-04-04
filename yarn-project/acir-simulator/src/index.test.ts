@@ -1,4 +1,5 @@
 import {
+  ARGS_LENGTH,
   ContractDeploymentData,
   FunctionData,
   NEW_COMMITMENTS_LENGTH,
@@ -18,6 +19,7 @@ import { BarretenbergWasm } from '@aztec/barretenberg.js/wasm';
 import { default as levelup } from 'levelup';
 import { default as memdown } from 'memdown';
 import { Pedersen, StandardMerkleTree } from '@aztec/merkle-tree';
+import { encodeArguments } from './arguments_encoder/index.js';
 
 type NoirPoint = {
   x: bigint;
@@ -53,7 +55,7 @@ describe('ACIR simulator', () => {
         AztecAddress.random(),
         AztecAddress.ZERO,
         new FunctionData(Buffer.alloc(4), true, true),
-        [],
+        new Array(ARGS_LENGTH).fill(new Fr(0n)),
         Fr.random(),
         txContext,
         new Fr(0n),
@@ -133,23 +135,18 @@ describe('ACIR simulator', () => {
     it('should a constructor with arguments that creates notes', async () => {
       const oldRoots = new OldTreeRoots(new Fr(0n), new Fr(0n), new Fr(0n), new Fr(0n));
       const contractAddress = AztecAddress.random();
+      const abi = ZkTokenContractAbi.functions.find(f => f.name === 'constructor') as unknown as FunctionAbi;
 
       const txRequest = new TxRequest(
         AztecAddress.random(),
         AztecAddress.ZERO,
         new FunctionData(Buffer.alloc(4), true, true),
-        [140, owner],
+        encodeArguments(abi, [140, owner]),
         Fr.random(),
         txContext,
         new Fr(0n),
       );
-      const result = await acirSimulator.run(
-        txRequest,
-        ZkTokenContractAbi.functions.find(f => f.name === 'constructor') as unknown as FunctionAbi,
-        contractAddress,
-        EthAddress.ZERO,
-        oldRoots,
-      );
+      const result = await acirSimulator.run(txRequest, abi, contractAddress, EthAddress.ZERO, oldRoots);
 
       expect(result.preimages.newNotes).toHaveLength(1);
       const newCommitments = result.callStackItem.publicInputs.newCommitments.filter(field => !field.equals(Fr.ZERO));
@@ -172,23 +169,18 @@ describe('ACIR simulator', () => {
     it('should run the mint function', async () => {
       const oldRoots = new OldTreeRoots(new Fr(0n), new Fr(0n), new Fr(0n), new Fr(0n));
       const contractAddress = AztecAddress.random();
+      const abi = ZkTokenContractAbi.functions.find(f => f.name === 'mint') as unknown as FunctionAbi;
 
       const txRequest = new TxRequest(
         AztecAddress.random(),
         contractAddress,
         new FunctionData(Buffer.alloc(4), true, false),
-        [140, owner],
+        encodeArguments(abi, [140, owner]),
         Fr.random(),
         txContext,
         new Fr(0n),
       );
-      const result = await acirSimulator.run(
-        txRequest,
-        ZkTokenContractAbi.functions.find(f => f.name === 'mint') as unknown as FunctionAbi,
-        AztecAddress.ZERO,
-        EthAddress.ZERO,
-        oldRoots,
-      );
+      const result = await acirSimulator.run(txRequest, abi, AztecAddress.ZERO, EthAddress.ZERO, oldRoots);
 
       expect(result.preimages.newNotes).toHaveLength(1);
       expect(result.callStackItem.publicInputs.newCommitments.filter(field => !field.equals(Fr.ZERO))).toHaveLength(1);
@@ -200,6 +192,7 @@ describe('ACIR simulator', () => {
 
       const contractAddress = AztecAddress.random();
       const amountToTransfer = 100n;
+      const abi = ZkTokenContractAbi.functions.find(f => f.name === 'transfer') as unknown as FunctionAbi;
 
       const tree = await StandardMerkleTree.new(db, pedersen, 'privateData', SIBLING_PATH_SIZE);
       const preimages = [buildNote(60n, owner), buildNote(80n, owner)];
@@ -232,19 +225,13 @@ describe('ACIR simulator', () => {
         AztecAddress.random(),
         contractAddress,
         new FunctionData(Buffer.alloc(4), true, true),
-        [amountToTransfer, owner, recipient],
+        encodeArguments(abi, [amountToTransfer, owner, recipient]),
         Fr.random(),
         txContext,
         new Fr(0n),
       );
 
-      const result = await acirSimulator.run(
-        txRequest,
-        ZkTokenContractAbi.functions.find(f => f.name === 'transfer') as unknown as FunctionAbi,
-        AztecAddress.random(),
-        EthAddress.ZERO,
-        oldRoots,
-      );
+      const result = await acirSimulator.run(txRequest, abi, AztecAddress.random(), EthAddress.ZERO, oldRoots);
 
       console.log(result);
     });
