@@ -1,8 +1,7 @@
-import { AcirSimulator } from '@aztec/acir-simulator';
+import { AcirSimulator, encodeArguments } from '@aztec/acir-simulator';
 import { AztecNode } from '@aztec/aztec-node';
 import { BarretenbergWasm } from '@aztec/barretenberg.js/wasm';
 import {
-  ARGS_LENGTH,
   AztecAddress,
   CONTRACT_TREE_HEIGHT,
   CircuitsWasm,
@@ -20,7 +19,7 @@ import {
   computeFunctionTree,
 } from '@aztec/circuits.js';
 import { hashVK } from '@aztec/circuits.js/abis';
-import { Fr, createDebugLogger, toBigIntBE } from '@aztec/foundation';
+import { Fr, Point, createDebugLogger, toBigIntBE } from '@aztec/foundation';
 import { FunctionTreeInfo, KernelProver } from '@aztec/kernel-prover';
 import { ContractAbi, FunctionType } from '@aztec/noir-contracts';
 import { Tx, TxHash } from '@aztec/tx';
@@ -77,6 +76,10 @@ export class AztecRPCServer implements AztecRPCClient {
     return await Promise.all(accounts.map(a => a.getPublicKey().toAddress()));
   }
 
+  public getAccountPublicKey(address: AztecAddress): Promise<Point> {
+    return this.keyStore.getAccountPublicKey(address);
+  }
+
   public async getStorageAt(contract: AztecAddress, storageSlot: Fr) {
     const txAuxData = await this.db.getTxAuxData(contract, storageSlot);
     return txAuxData.map(d => d.notePreimage.items.map(item => item.value));
@@ -107,16 +110,12 @@ export class AztecRPCServer implements AztecRPCClient {
       throw new Error('Missing verification key for the constructor.');
     }
 
-    const txRequestArgs = args.concat(
-      Array(ARGS_LENGTH - args.length)
-        .fill(0)
-        .map(() => new Fr(0n)),
-    );
+    const flatArgs = encodeArguments(constructorAbi, args);
 
     const fromAddress = from.equals(AztecAddress.ZERO) ? (await this.keyStore.getAccounts())[0] : from;
     const contractTree = ContractTree.new(
       abi,
-      txRequestArgs,
+      flatArgs,
       portalContract,
       contractAddressSalt,
       fromAddress,
@@ -149,7 +148,7 @@ export class AztecRPCServer implements AztecRPCClient {
       fromAddress,
       contract.address,
       functionData,
-      txRequestArgs,
+      flatArgs,
       Fr.random(), // nonce
       txContext,
       Fr.ZERO, // chainId
@@ -166,6 +165,8 @@ export class AztecRPCServer implements AztecRPCClient {
     if (!functionDao) {
       throw new Error('Unknown function.');
     }
+
+    const flatArgs = encodeArguments(functionDao, args);
 
     const functionData = new FunctionData(
       functionDao.selector,
@@ -184,7 +185,7 @@ export class AztecRPCServer implements AztecRPCClient {
       from,
       to,
       functionData,
-      args,
+      flatArgs,
       Fr.random(), // nonce
       txContext,
       Fr.ZERO, // chainId

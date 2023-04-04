@@ -109,7 +109,7 @@ export class TxRequest {
     public from: AztecAddress,
     public to: AztecAddress,
     public functionData: FunctionData,
-    public args: any[],
+    public args: Fr[],
     public nonce: Fr,
     public txContext: TxContext,
     public chainId: Fr,

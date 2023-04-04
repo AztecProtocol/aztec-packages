@@ -12,7 +12,6 @@ import {
 import { DBOracle } from './db_oracle.js';
 import { writeInputs, extractPublicInputs, frToAztecAddress } from './witness_io.js';
 import { FunctionAbi } from '@aztec/noir-contracts';
-import { encodeArguments } from './arguments.js';
 
 export interface ExecutionPreimages {
   newNotes: Array<{ preimage: Fr[]; storageSlot: Fr }>;
@@ -52,13 +51,11 @@ export class Execution {
       this.request.functionData.isConstructor,
     );
 
-    const encodedArgs = encodeArguments(this.entryPointABI, this.request.args);
-
     return this.runExternalFunction(
       this.entryPointABI,
       this.contractAddress,
       this.request.functionData.functionSelector,
-      encodedArgs,
+      this.request.args,
       callContext,
     );
   }

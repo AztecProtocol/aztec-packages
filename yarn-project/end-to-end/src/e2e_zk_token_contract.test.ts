@@ -1,6 +1,6 @@
 import { AztecNode } from '@aztec/aztec-node';
 import { AztecAddress, AztecRPCServer, Contract, ContractDeployer, Fr } from '@aztec/aztec.js';
-import { EthAddress } from '@aztec/foundation';
+import { EthAddress, Point, toBigIntBE } from '@aztec/foundation';
 import { EthereumRpc } from '@aztec/ethereum.js/eth_rpc';
 import { WalletProvider } from '@aztec/ethereum.js/provider';
 import { createDebugLogger } from '@aztec/foundation';
@@ -59,10 +59,19 @@ describe('e2e_zk_token_contract', () => {
     expect(balance).toBe(expectedBalance);
   };
 
-  const deployContract = async (initialBalance = 0n) => {
+  const pointToPublicKey = (point: Point) => {
+    const x = point.buffer.subarray(0, 32);
+    const y = point.buffer.subarray(32, 64);
+    return {
+      x: toBigIntBE(x),
+      y: toBigIntBE(y),
+    };
+  };
+
+  const deployContract = async (initialBalance = 0n, owner = { x: 0n, y: 0n }) => {
     // TODO: Remove explicit casts
     const deployer = new ContractDeployer(ZkTokenContractAbi as ContractAbi, aztecRpcServer);
-    const receipt = await deployer.deploy(initialBalance).send().getReceipt();
+    const receipt = await deployer.deploy(initialBalance, owner).send().getReceipt();
     return new Contract(receipt.contractAddress!, ZkTokenContractAbi as ContractAbi, aztecRpcServer);
   };
 
@@ -72,7 +81,8 @@ describe('e2e_zk_token_contract', () => {
    */
   it('should deploy zk token contract with initial token minted to the account', async () => {
     const initialBalance = 987n;
-    await deployContract(initialBalance);
+    const owner = await aztecRpcServer.getAccountPublicKey(accounts[0]);
+    await deployContract(initialBalance, pointToPublicKey(owner));
     await expectStorageSlot(0, initialBalance);
     await expectStorageSlot(1, 0n);
   }, 30_000);
