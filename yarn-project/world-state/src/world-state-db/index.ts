@@ -17,6 +17,13 @@ export enum MerkleTreeId {
 export type IndexedMerkleTreeId = MerkleTreeId.NULLIFIER_TREE;
 
 /**
+ * The nullifier tree must be pre filled with the number of leaves that are added by one rollup.
+ * The tree must be initially padded as the pre-populated 0 index prevents efficient subtree insertion.
+ * Padding with some values solves this issue.
+ */
+export const INITIAL_NULLIFIER_TREE_SIZE = 8;
+
+/**
  *  Defines tree information.
  */
 export interface TreeInfo {

@@ -9,8 +9,15 @@ import { BarretenbergWasm } from '@aztec/barretenberg.js/wasm';
 import { SerialQueue } from '@aztec/foundation';
 import { IndexedTree, LeafData, MerkleTree, Pedersen, SiblingPath, StandardMerkleTree } from '@aztec/merkle-tree';
 import { default as levelup } from 'levelup';
-import { IndexedMerkleTreeId, MerkleTreeDb, MerkleTreeId, MerkleTreeOperations, TreeInfo } from './index.js';
 import { MerkleTreeOperationsFacade } from '../merkle-tree/merkle_tree_operations_facade.js';
+import {
+  INITIAL_NULLIFIER_TREE_SIZE,
+  IndexedMerkleTreeId,
+  MerkleTreeDb,
+  MerkleTreeId,
+  MerkleTreeOperations,
+  TreeInfo,
+} from './index.js';
 
 /**
  * A convenience class for managing multiple merkle trees.
@@ -44,6 +51,7 @@ export class MerkleTrees implements MerkleTreeDb {
       hasher,
       `${MerkleTreeId[MerkleTreeId.NULLIFIER_TREE]}`,
       NULLIFIER_TREE_HEIGHT,
+      INITIAL_NULLIFIER_TREE_SIZE,
     );
     const dataTree = await StandardMerkleTree.new(
       this.db,
