@@ -1,3 +1,4 @@
+import { LeafData } from './index.js';
 import { SiblingPath } from './sibling_path/sibling_path.js';
 
 /**
@@ -35,6 +36,12 @@ export interface MerkleTree extends SiblingPathSource {
    * Commit pending updates to the tree
    */
   commit(): Promise<void>;
+  /**
+   * Updates a leaf at a given index in the tree
+   * @param leaf The leaf value to be updated
+   * @param index The leaf to be updated
+   */
+  updateLeaf(leaf: Buffer | LeafData, index: bigint): Promise<void>;
   /**
    * Rollback pending update to the tree
    */

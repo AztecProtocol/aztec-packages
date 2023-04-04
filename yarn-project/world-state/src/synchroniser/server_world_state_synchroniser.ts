@@ -5,7 +5,6 @@ import { MerkleTreeOperationsFacade } from '../merkle-tree/merkle_tree_operation
 import { WorldStateRunningState, WorldStateStatus, WorldStateSynchroniser } from './world_state_synchroniser.js';
 import { MerkleTreeDb, MerkleTreeId, TreeInfo } from '../index.js';
 import { LeafData, SiblingPath } from '@aztec/merkle-tree';
-import { LowNullifierWitnessData } from '@aztec/merkle-tree';
 
 /**
  * Synchronises the world state with the L2 blocks from a L2BlockSource.
@@ -36,6 +35,25 @@ export class ServerWorldStateSynchroniser implements WorldStateSynchroniser {
 
   public getCommitted(): MerkleTreeOperations {
     return new MerkleTreeOperationsFacade(this.merkleTreeDb, false);
+  }
+
+  public getPreviousValueIndex(
+    treeId: MerkleTreeId.NULLIFIER_TREE,
+    value: bigint,
+  ): Promise<{ index: number; alreadyPresent: boolean }> {
+    return this.merkleTreeDb.getPreviousValueIndex(treeId, value);
+  }
+
+  public getLeafData(treeId: MerkleTreeId.NULLIFIER_TREE, index: number): LeafData | undefined {
+    return this.merkleTreeDb.getLeafData(treeId, index);
+  }
+
+  public updateLeaf(treeId: MerkleTreeId.NULLIFIER_TREE, leaf: LeafData, index: bigint): Promise<void> {
+    return this.merkleTreeDb.updateLeaf(treeId, leaf, index);
+  }
+
+  public findLeafIndex(treeId: MerkleTreeId, value: Buffer): Promise<bigint | undefined> {
+    return this.merkleTreeDb.findLeafIndex(treeId, value);
   }
 
   /**

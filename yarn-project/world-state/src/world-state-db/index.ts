@@ -1,4 +1,3 @@
-import { LowNullifierWitnessData } from '@aztec/merkle-tree';
 import { LeafData, SiblingPath } from '@aztec/merkle-tree';
 
 export * from './merkle_trees.js';
@@ -33,6 +32,11 @@ export interface TreeInfo {
    * The number of leaves in the tree.
    */
   size: bigint;
+
+  /**
+   * The depth of the tree.
+   */
+  depth: number;
 }
 
 /**
@@ -90,6 +94,13 @@ export interface MerkleTreeOperations {
    */
   getLeafData(treeId: IndexedMerkleTreeId, index: number): Promise<LeafData | undefined>;
   /**
+   * Update the leaf data at the given index
+   * @param treeId - The tree for which leaf data should be edited
+   * @param leaf - The updated leaf value
+   * @param index - The index of the leaf to be updated
+   */
+  updateLeaf(treeId: IndexedMerkleTreeId, leaf: LeafData, index: bigint): Promise<void>;
+  /**
    * Returns the index containing a leaf value
    * @param treeId - The tree for which the index should be returned
    * @param value - The value to search for in the tree
@@ -101,10 +112,6 @@ export interface MerkleTreeOperations {
    * @param index - The index of the leaf
    */
   getLeafValue(treeId: MerkleTreeId, index: bigint): Promise<Buffer | undefined>;
-  getAndPerformBaseRollupBatchInsertionProofs(
-    treeId: MerkleTreeId,
-    leaves: Buffer[],
-  ): Promise<LowNullifierWitnessData[] | undefined>;
 }
 
 /**
