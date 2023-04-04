@@ -26,9 +26,7 @@ type NoirPoint = {
   y: bigint;
 };
 
-/* eslint-disable @typescript-eslint/ban-ts-comment */
-// @ts-ignore
-export const createMemDown = () => memdown();
+export const createMemDown = () => (memdown as any)();
 
 describe('ACIR simulator', () => {
   let bbWasm: BarretenbergWasm;
