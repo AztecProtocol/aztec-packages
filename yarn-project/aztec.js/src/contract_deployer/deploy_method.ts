@@ -1,4 +1,5 @@
-import { AztecAddress, AztecRPCClient, EthAddress, Fr } from '@aztec/aztec-rpc';
+import { AztecAddress, EthAddress, Fr } from '@aztec/foundation';
+import { AztecRPCClient } from '@aztec/aztec-rpc';
 import { ContractAbi, FunctionType } from '@aztec/noir-contracts';
 import { ContractFunctionInteraction, SendMethodOptions } from '../contract/index.js';
 
@@ -25,7 +26,7 @@ export class DeployMethod extends ContractFunctionInteraction {
     const { portalContract, contractAddressSalt, from } = options;
     this.txRequest = await this.arc.createDeploymentTxRequest(
       this.abi,
-      [],
+      this.args,
       portalContract || new EthAddress(Buffer.alloc(EthAddress.SIZE_IN_BYTES)),
       contractAddressSalt || Fr.random(),
       from || AztecAddress.ZERO,

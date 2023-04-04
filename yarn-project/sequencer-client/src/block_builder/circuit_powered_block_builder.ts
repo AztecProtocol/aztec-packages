@@ -1,6 +1,3 @@
-import { createDebugLogger } from '@aztec/foundation';
-import { ContractData, L2Block } from '@aztec/archiver';
-import { BarretenbergWasm } from '@aztec/barretenberg.js/wasm';
 import {
   AppendOnlyTreeSnapshot,
   BaseRollupInputs,
@@ -8,7 +5,6 @@ import {
   CircuitsWasm,
   ConstantBaseRollupData,
   CONTRACT_TREE_ROOTS_TREE_HEIGHT,
-  Fr,
   MembershipWitness,
   NullifierLeafPreimage,
   NULLIFIER_TREE_HEIGHT,
@@ -21,15 +17,16 @@ import {
   UInt8Vector,
   VK_TREE_HEIGHT,
 } from '@aztec/circuits.js';
-import { toBigIntBE } from '@aztec/foundation';
+import { Fr, createDebugLogger, toBigIntBE } from '@aztec/foundation';
 import { Tx } from '@aztec/tx';
-import { MerkleTreeDb, MerkleTreeId } from '@aztec/world-state';
+import { MerkleTreeId, MerkleTreeOperations } from '@aztec/world-state';
 import flatMap from 'lodash.flatmap';
 import times from 'lodash.times';
 import { hashNewContractData, makeEmptyTx } from '../deps/tx.js';
+import { VerificationKeys } from '../deps/verification_keys.js';
 import { Proof, Prover } from '../prover/index.js';
 import { Simulator } from '../simulator/index.js';
-import { VerificationKeys } from '../deps/verification_keys.js';
+import { ContractData, L2Block } from '@aztec/l2-block';
 
 const frToBigInt = (fr: Fr) => toBigIntBE(fr.toBuffer());
 const bigintToFr = (num: bigint) => new Fr(num);
@@ -45,8 +42,7 @@ const DELETE_NUM = 0;
 
 export class CircuitPoweredBlockBuilder {
   constructor(
-    protected db: MerkleTreeDb,
-    protected nextRollupId: number,
+    protected db: MerkleTreeOperations,
     protected vks: VerificationKeys,
     protected simulator: Simulator,
     protected prover: Prover,
@@ -54,7 +50,7 @@ export class CircuitPoweredBlockBuilder {
     protected debug = createDebugLogger('aztec:sequencer'),
   ) {}
 
-  public async buildL2Block(tx: Tx): Promise<[L2Block, UInt8Vector]> {
+  public async buildL2Block(blockNumber: number, tx: Tx): Promise<[L2Block, UInt8Vector]> {
     const [
       startPrivateDataTreeSnapshot,
       startNullifierTreeSnapshot,
@@ -93,8 +89,8 @@ export class CircuitPoweredBlockBuilder {
       n => new ContractData(n.contractAddress, n.portalContractAddress),
     );
 
-    const l2block = L2Block.fromFields({
-      number: this.nextRollupId,
+    const l2Block = L2Block.fromFields({
+      number: blockNumber,
       startPrivateDataTreeSnapshot,
       endPrivateDataTreeSnapshot,
       startNullifierTreeSnapshot,
@@ -111,7 +107,7 @@ export class CircuitPoweredBlockBuilder {
       newContractData,
     });
 
-    return [l2block, proof];
+    return [l2Block, proof];
   }
 
   protected async getTreeSnapshot(id: MerkleTreeId): Promise<AppendOnlyTreeSnapshot> {

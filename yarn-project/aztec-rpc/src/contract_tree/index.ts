@@ -61,12 +61,8 @@ export class ContractTree {
     const functionTreeRoot = await computeFunctionTreeRoot(wasm, leaves);
     const root = Fr.fromBuffer(functionTreeRoot);
     const constructorSelector = generateFunctionSelector(constructorFunc.name, constructorFunc.parameters);
-    const constructorHash = await hashConstructor(
-      wasm,
-      new FunctionData(constructorSelector),
-      args,
-      Buffer.from(constructorFunc.verificationKey!, 'hex'),
-    );
+    const vkHash = await hashVK(wasm, Buffer.from(constructorFunc.verificationKey!, 'hex'));
+    const constructorHash = await hashConstructor(wasm, new FunctionData(constructorSelector), args, vkHash);
     const address = await computeContractAddress(
       wasm,
       from,

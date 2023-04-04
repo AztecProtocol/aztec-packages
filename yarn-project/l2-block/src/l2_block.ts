@@ -1,6 +1,6 @@
+import { Fr } from '@aztec/foundation';
 import {
   AppendOnlyTreeSnapshot,
-  Fr,
   KERNEL_NEW_COMMITMENTS_LENGTH,
   KERNEL_NEW_CONTRACTS_LENGTH,
   KERNEL_NEW_NULLIFIERS_LENGTH,
@@ -8,8 +8,6 @@ import {
 import { makeAppendOnlyTreeSnapshot } from '@aztec/circuits.js/factories';
 import { BufferReader, serializeToBuffer } from '@aztec/circuits.js/utils';
 import { ContractData } from './contract_data.js';
-
-export { Fr } from '@aztec/circuits.js';
 
 /**
  * The data that makes up the rollup proof, with encoder decoder functions.
@@ -207,7 +205,7 @@ export class L2Block {
   /**
    * Inspect for debugging purposes..
    * @param maxBufferSize - The number of bytes to be extracted from buffer.
-   * @returns A human-friendly string representation of the l2block.
+   * @returns A human-friendly string representation of the l2Block.
    */
   inspect(maxBufferSize = 4): string {
     const inspectTreeSnapshot = (s: AppendOnlyTreeSnapshot): string =>

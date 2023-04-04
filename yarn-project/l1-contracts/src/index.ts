@@ -1,4 +1,4 @@
-import { EthAddress } from '@aztec/ethereum.js/eth_address';
+import { EthAddress } from '@aztec/foundation';
 
 export const INITIAL_L2_BLOCK_NUM = 1;
 
@@ -12,10 +12,10 @@ export interface L1Addresses {
   rollupContract: EthAddress;
 
   /**
-   * Yeeter contract address.
+   * UnverifiedDataEmitter contract address.
    */
-  yeeterContract: EthAddress;
+  unverifiedDataEmitterContract: EthAddress;
 }
 
 export * from './ethereumjs-contracts/Rollup.js';
-export * from './ethereumjs-contracts/Yeeter.js';
+export * from './ethereumjs-contracts/UnverifiedDataEmitter.js';

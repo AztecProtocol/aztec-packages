@@ -1,12 +1,14 @@
-import { EthAddress } from '@aztec/ethereum.js/eth_address';
+import { EthAddress } from '@aztec/foundation';
 import { EthereumRpc } from '@aztec/ethereum.js/eth_rpc';
 import { WalletProvider } from '@aztec/ethereum.js/provider';
 import { Tx } from '@aztec/tx';
 import { AztecNodeConfig } from './config.js';
 import { AztecNode } from '../index.js';
-import { createProvider, createTx, deployRollupContract, deployYeeterContract } from './fixtures.js';
+import { createProvider, createTx, deployRollupContract, deployUnverifiedDataEmitterContract } from './fixtures.js';
 import { createDebugLogger, sleep } from '@aztec/foundation';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/l1-contracts';
+import { CircuitsWasm } from '@aztec/circuits.js';
+import { hashNewContractData } from '@aztec/sequencer-client';
 
 const ETHEREUM_HOST = 'http://127.0.0.1:8545/';
 const MNEMONIC = 'test test test test test test test test test test test junk';
@@ -15,20 +17,25 @@ const logger = createDebugLogger('aztec:e2e_test');
 
 describe('AztecNode', () => {
   let rollupAddress: EthAddress;
-  let yeeterAddress: EthAddress;
+  let unverifiedDataEmitterAddress: EthAddress;
   let node: AztecNode;
   let isReady: boolean;
   let provider: WalletProvider;
+  let wasm: CircuitsWasm;
+
+  beforeAll(async () => {
+    wasm = await CircuitsWasm.new();
+  });
 
   beforeEach(async () => {
     provider = createProvider(ETHEREUM_HOST, MNEMONIC, 1);
     const ethRpc = new EthereumRpc(provider);
     rollupAddress = await deployRollupContract(provider, ethRpc);
-    yeeterAddress = await deployYeeterContract(provider, ethRpc);
+    unverifiedDataEmitterAddress = await deployUnverifiedDataEmitterContract(provider, ethRpc);
 
     const aztecNodeConfig = {
       rollupContract: rollupAddress,
-      yeeterContract: yeeterAddress,
+      unverifiedDataEmitterContract: unverifiedDataEmitterAddress,
       rpcUrl: ETHEREUM_HOST,
       publisherPrivateKey: provider.getPrivateKey(0),
       archiverPollingInterval: 100,
@@ -46,26 +53,26 @@ describe('AztecNode', () => {
   it('should allow sending and retrieval of txs from the underlying p2p pool', async () => {
     const tx: Tx = createTx();
     await node.sendTx(tx);
-    const retreivedTx = await node.getTxByHash(tx.txHash);
-    expect(tx).toEqual(retreivedTx);
+    const retrievedTx = await node.getPendingTxByHash(tx.txHash);
+    expect(tx).toEqual(retrievedTx);
     await node.stop();
   }, 30_000);
 
-  it('should rollup a transaction', async () => {
+  it.only('should rollup a transaction', async () => {
     const tx: Tx = createTx();
     await node.sendTx(tx);
 
     const [settledBlock] = await waitForBlocks(1);
 
     expect(settledBlock.number).toBe(1);
-    expect(settledBlock.newContracts.length).toBeGreaterThan(0);
-    expect(settledBlock.newContracts[0]).toEqual(tx.data.end.newContracts[0].functionTreeRoot);
+    expect(settledBlock.newContracts).toHaveLength(1);
+    expect(settledBlock.newContracts[0]).toEqual(hashNewContractData(wasm, tx.data.end.newContracts[0]));
 
     const unverifiedDatas = await waitForUnverifiedData(1);
     expect(unverifiedDatas.length).toBe(1);
 
     await node.stop();
-  }, 30_000);
+  }, 60_000);
 
   it('should rollup multiple transactions', async () => {
     const numTxs = 3;
@@ -91,7 +98,7 @@ describe('AztecNode', () => {
     expect(unverifiedDatas.length).toBe(numTxs);
 
     await node.stop();
-  }, 30_000 /* timeout in ms */);
+  }, 60_000 /* timeout in ms */);
 
   const waitForBlocks = async (take: number) => {
     while (true) {

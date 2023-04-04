@@ -5,9 +5,7 @@ import {
   ConstantData,
   ContractDeploymentData,
   EMITTED_EVENTS_LENGTH,
-  EthAddress as CircuitEthAddress,
   Fq,
-  Fr,
   FunctionData,
   KERNEL_L1_MSG_STACK_LENGTH,
   KERNEL_NEW_COMMITMENTS_LENGTH,
@@ -25,8 +23,9 @@ import {
 } from '@aztec/circuits.js';
 import { EthereumRpc } from '@aztec/ethereum.js/eth_rpc';
 import { WalletProvider } from '@aztec/ethereum.js/provider';
-import { AztecAddress, randomBytes, toBufferBE } from '@aztec/foundation';
-import { Rollup, Yeeter } from '@aztec/l1-contracts';
+import { AztecAddress, EthAddress, Fr, randomBytes, toBufferBE } from '@aztec/foundation';
+import { Rollup, UnverifiedDataEmitter } from '@aztec/l1-contracts';
+import { UnverifiedData } from '@aztec/l2-block';
 import { Tx } from '@aztec/tx';
 
 export const deployRollupContract = async (provider: WalletProvider, ethRpc: EthereumRpc) => {
@@ -36,9 +35,9 @@ export const deployRollupContract = async (provider: WalletProvider, ethRpc: Eth
   return contract.address;
 };
 
-export const deployYeeterContract = async (provider: WalletProvider, ethRpc: EthereumRpc) => {
+export const deployUnverifiedDataEmitterContract = async (provider: WalletProvider, ethRpc: EthereumRpc) => {
   const deployAccount = provider.getAccount(0);
-  const contract = new Yeeter(ethRpc, undefined, { from: deployAccount, gas: 1000000 });
+  const contract = new UnverifiedDataEmitter(ethRpc, undefined, { from: deployAccount, gas: 1000000 });
   await contract.deploy().send().getReceipt();
   return contract.address;
 };
@@ -51,7 +50,7 @@ export const createProvider = (host: string, mnemonic: string, accounts: number)
 
 // REFACTOR: Use @aztec/circuit.js/factories where possible
 export const createCircuitEthAddress = () => {
-  return new CircuitEthAddress(randomBytes(20));
+  return new EthAddress(randomBytes(20));
 };
 
 export const createRandomCommitments = (num: number) => {
@@ -130,6 +129,5 @@ export const createTx = () => {
     createOptionallyRetrievedDatas(KERNEL_OPTIONALLY_REVEALED_DATA_LENGTH),
   );
   const kernelInputs = new PrivateKernelPublicInputs(accumulatedData, constantData, true);
-  const unverifiedData = createRandomUnverifiedData(8);
-  return new Tx(kernelInputs, new UInt8Vector(Buffer.alloc(0)), unverifiedData);
+  return new Tx(kernelInputs, new UInt8Vector(Buffer.alloc(0)), UnverifiedData.random(8));
 };
