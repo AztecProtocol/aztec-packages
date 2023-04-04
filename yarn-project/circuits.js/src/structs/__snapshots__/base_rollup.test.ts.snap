@@ -115,7 +115,16 @@ portal_contract_address: 0x707070707070707070707070707070707070707
 is_private: 1
 
 proof: [ 80 80 80 80 80 80 80 80 80 80 80 80 80 80 80 80 ]
-vk: 0x12cbc0
+vk:
+key.composer_type: 0
+key.circuit_size: 65
+key.num_public_inputs: 66
+key.commitments: [
+ A: { 0x200, 0x300 }
+]
+key.contains_recursive_proof: 1
+key.recursive_proof_public_input_indices: [ 190 191 192 193 194 ]
+
 vk_index: 42
 vk_path: [ 0x1000 0x1001 0x1002 ]
  public_inputs: end:
@@ -231,7 +240,16 @@ portal_contract_address: 0x707070707070707070707070707070707070707
 is_private: 1
 
 proof: [ 80 80 80 80 80 80 80 80 80 80 80 80 80 80 80 80 ]
-vk: 0x135700
+vk:
+key.composer_type: 0
+key.circuit_size: 65
+key.num_public_inputs: 66
+key.commitments: [
+ A: { 0x200, 0x300 }
+]
+key.contains_recursive_proof: 1
+key.recursive_proof_public_input_indices: [ 190 191 192 193 194 ]
+
 vk_index: 42
 vk_path: [ 0x1000 0x1001 0x1002 ]
  ]
