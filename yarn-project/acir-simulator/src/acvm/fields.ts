@@ -1,4 +1,4 @@
-import { AztecAddress, EthAddress, Fr } from '@aztec/circuits.js';
+import { AztecAddress, EthAddress, Fr } from '@aztec/foundation';
 
 export type ACVMField = `0x${string}`;
 export type ACVMWitness = Map<number, ACVMField>;

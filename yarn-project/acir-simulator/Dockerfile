@@ -8,6 +8,6 @@ RUN yarn cache clean
 RUN yarn workspaces focus --production > /dev/null
 
 FROM node:18-alpine
-COPY --from=builder /usr/src/yarn-project/aztec-rpc /usr/src/yarn-project/aztec-rpc
-WORKDIR /usr/src/yarn-project/aztec-rpc
+COPY --from=builder /usr/src/yarn-project/acir-simulator /usr/src/yarn-project/acir-simulator
+WORKDIR /usr/src/yarn-project/acir-simulator
 ENTRYPOINT ["yarn"]

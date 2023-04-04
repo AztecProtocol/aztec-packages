@@ -1,4 +1,4 @@
-import { AztecAddress, EthAddress, Fr } from '@aztec/circuits.js';
+import { AztecAddress, EthAddress, Fr } from '@aztec/foundation';
 
 export interface NoteLoadOracleInputs {
   preimage: Fr[];

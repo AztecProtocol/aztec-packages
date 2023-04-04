@@ -1,14 +1,12 @@
 import {
-  AztecAddress,
   ContractDeploymentData,
-  EthAddress,
-  Fr,
   FunctionData,
   NEW_COMMITMENTS_LENGTH,
   OldTreeRoots,
   TxContext,
   TxRequest,
 } from '@aztec/circuits.js';
+import { AztecAddress, EthAddress, Fr } from '@aztec/foundation';
 import { Grumpkin, pedersenGetHash } from '@aztec/barretenberg.js/crypto';
 import { FunctionAbi } from '@aztec/noir-contracts';
 import { TestContractAbi, ZkTokenContractAbi } from '@aztec/noir-contracts/examples';

@@ -1,14 +1,6 @@
 import { ACVMField, acvm, toACVMField, fromACVMField, ZERO_ACVM_FIELD } from './acvm/index.js';
-import {
-  AztecAddress,
-  CallContext,
-  EthAddress,
-  Fr,
-  OldTreeRoots,
-  TxRequest,
-  PrivateCallStackItem,
-  FunctionData,
-} from '@aztec/circuits.js';
+import { AztecAddress, EthAddress, Fr } from '@aztec/foundation';
+import { CallContext, OldTreeRoots, TxRequest, PrivateCallStackItem, FunctionData } from '@aztec/circuits.js';
 import { DBOracle } from './db_oracle.js';
 import { writeInputs, extractPublicInputs, frToAztecAddress } from './acvm/witness_io.js';
 import { FunctionAbi } from '@aztec/noir-contracts';
