@@ -1,18 +1,16 @@
 {
   "extends": "..",
   "compilerOptions": {
+    "noImplicitAny": false,
     "outDir": "dest",
     "rootDir": "src",
-    "tsBuildInfoFile": ".tsbuildinfo"
+    "tsBuildInfoFile": ".tsbuildinfo",
+    "skipLibCheck": true
   },
   "references": [
     {
       "path": "../foundation/tsconfig.dest.json"
-    },
-    {
-      "path": "../ethereum.js/tsconfig.dest.json"
     }
   ],
-  "include": ["src"],
-  "exclude": ["**/*.test.*", "**/fixtures/*"]
+  "include": ["src", "src/eth_typed_data/fixtures/*.json"]
 }
