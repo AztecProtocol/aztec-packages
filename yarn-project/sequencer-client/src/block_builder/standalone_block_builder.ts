@@ -74,7 +74,7 @@ export class StandaloneBlockBuilder {
   }
 
   private async getTreeSnapshot(id: MerkleTreeId): Promise<AppendOnlyTreeSnapshot> {
-    const treeInfo = await this.db.getTreeInfo(id, true);
+    const treeInfo = await this.db.getTreeInfo(id);
     return new AppendOnlyTreeSnapshot(Fr.fromBuffer(treeInfo.root), Number(treeInfo.size));
   }
 
@@ -93,51 +93,4 @@ export class StandaloneBlockBuilder {
     await this.db.appendLeaves(MerkleTreeId.CONTRACT_TREE_ROOTS_TREE, [newContractsTreeInfo.root.toBuffer()]);
     await this.db.appendLeaves(MerkleTreeId.DATA_TREE_ROOTS_TREE, [newDataTreeInfo.root.toBuffer()]);
   }
-
-  // private async getCurrentTreeRoots() {
-  //   return await Promise.all([
-  //     this.getTreeRoot(MerkleTreeId.NULLIFIER_TREE),
-  //     this.getTreeRoot(MerkleTreeId.CONTRACT_TREE),
-  //   ]);
-  // }
-
-  // private getTxContext(tx: Tx) {
-  //   if (tx.data.end.newContracts.length !== 1) {
-  //     throw new Error(`Only txs that deploy exactly one contract are supported for now`);
-  //   }
-  //   const [newContract] = tx.data.end.newContracts;
-
-  //   return new TxContext(
-  //     false, // isFeePayment
-  //     false, // isRebatePayment
-  //     true, // isContractDeployment
-  //     new ContractDeploymentData(
-  //       TODO_FR, // TODO: constructorVkHash
-  //       newContract.functionTreeRoot,
-  //       TODO_FR, // TODO: contractAddressSalt
-  //       newContract.portalContractAddress,
-  //     ),
-  //   );
-  // }
-
-  // private getKernelDataFor(tx: Tx) {
-  //   return new PreviousKernelData(
-  //     tx.data,
-  //     TODO, // TODO: proof, isn't this the tx.data.end.aggregationObject?,
-  //     TODO, // TODO: vk
-  //     TODO_NUM, // TODO: vkIndex
-  //     Array(VK_TREE_HEIGHT).fill(TODO_FR), // TODO: vkSiblingPath
-  //   );
-  // }
-
-  // private getConstantBaseRollupData(): Promise<ConstantBaseRollupData> {
-  //   throw new Error('Unimplemented');
-  // }
-
-  // private async getBaseRollupInputsFor(tx: Tx) {
-  //   return BaseRollupInputs.from({
-  //     proverId: TODO_FR,
-  //     constants: await this.getConstantBaseRollupData(),
-  //   } as any); // TODO: Carry on...
-  // }
 }

@@ -9,7 +9,8 @@ import { BarretenbergWasm } from '@aztec/barretenberg.js/wasm';
 import { SerialQueue } from '@aztec/foundation';
 import { IndexedTree, LeafData, MerkleTree, Pedersen, SiblingPath, StandardMerkleTree } from '@aztec/merkle-tree';
 import { default as levelup } from 'levelup';
-import { IndexedMerkleTreeId, MerkleTreeDb, MerkleTreeId, TreeInfo } from './index.js';
+import { IndexedMerkleTreeId, MerkleTreeDb, MerkleTreeId, MerkleTreeOperations, TreeInfo } from './index.js';
+import { MerkleTreeOperationsFacade } from '../merkle-tree/merkle_tree_operations_facade.js';
 
 /**
  * A convenience class for managing multiple merkle trees.
@@ -79,16 +80,36 @@ export class MerkleTrees implements MerkleTreeDb {
   }
 
   /**
+   * Gets a view of this db that returns uncommitted data.
+   * @returns - A facade for this instance.
+   */
+  public asLatest(): MerkleTreeOperations {
+    return new MerkleTreeOperationsFacade(this, true);
+  }
+
+  /**
+   * Gets a view of this db that returns committed data only.
+   * @returns - A facade for this instance.
+   */
+  public asCommitted(): MerkleTreeOperations {
+    return new MerkleTreeOperationsFacade(this, false);
+  }
+
+  /**
    * Gets the tree info for the specified tree.
    * @param treeId - Id of the tree to get information from.
    * @returns The tree info for the specified tree.
    */
-  public async getTreeInfo(treeId: MerkleTreeId, includeUncommitted = false): Promise<TreeInfo> {
+  public async getTreeInfo(treeId: MerkleTreeId, includeUncommitted: boolean): Promise<TreeInfo> {
     return await this.synchronise(() => this._getTreeInfo(treeId, includeUncommitted));
   }
 
-  public async getLeafValue(treeId: MerkleTreeId, index: bigint): Promise<Buffer | undefined> {
-    return await this.synchronise(() => this.trees[treeId].getLeafValue(index));
+  public async getLeafValue(
+    treeId: MerkleTreeId,
+    index: bigint,
+    includeUncommitted: boolean,
+  ): Promise<Buffer | undefined> {
+    return await this.synchronise(() => this.trees[treeId].getLeafValue(index, includeUncommitted));
   }
 
   /**
@@ -97,7 +118,7 @@ export class MerkleTrees implements MerkleTreeDb {
    * @param index - The index of the leaf.
    * @returns The sibling path for the leaf.
    */
-  public async getSiblingPath(treeId: MerkleTreeId, index: bigint, includeUncommitted = false): Promise<SiblingPath> {
+  public async getSiblingPath(treeId: MerkleTreeId, index: bigint, includeUncommitted: boolean): Promise<SiblingPath> {
     return await this.synchronise(() => this._getSiblingPath(treeId, index, includeUncommitted));
   }
 
@@ -130,7 +151,7 @@ export class MerkleTrees implements MerkleTreeDb {
   public async getPreviousValueIndex(
     treeId: IndexedMerkleTreeId,
     value: bigint,
-    includeUncommitted = false,
+    includeUncommitted: boolean,
   ): Promise<{ index: number; alreadyPresent: boolean }> {
     return await this.synchronise(() =>
       Promise.resolve(this._getIndexedTree(treeId).findIndexOfPreviousValue(value, includeUncommitted)),
@@ -140,7 +161,7 @@ export class MerkleTrees implements MerkleTreeDb {
   public async getLeafData(
     treeId: IndexedMerkleTreeId,
     index: number,
-    includeUncommitted = false,
+    includeUncommitted: boolean,
   ): Promise<LeafData | undefined> {
     return await this.synchronise(() =>
       Promise.resolve(this._getIndexedTree(treeId).getLatestLeafDataCopy(index, includeUncommitted)),
@@ -156,7 +177,7 @@ export class MerkleTrees implements MerkleTreeDb {
   public async findLeafIndex(
     treeId: MerkleTreeId,
     needle: Buffer,
-    includeUncommitted = false,
+    includeUncommitted: boolean,
   ): Promise<bigint | undefined> {
     return await this.synchronise(async () => {
       const tree = this.trees[treeId];
@@ -184,7 +205,7 @@ export class MerkleTrees implements MerkleTreeDb {
    * @param treeId - Id of the tree to get information from.
    * @returns The tree info for the specified tree.
    */
-  private _getTreeInfo(treeId: MerkleTreeId, includeUncommitted = false): Promise<TreeInfo> {
+  private _getTreeInfo(treeId: MerkleTreeId, includeUncommitted: boolean): Promise<TreeInfo> {
     const treeInfo = {
       treeId,
       root: this.trees[treeId].getRoot(includeUncommitted),
@@ -203,7 +224,7 @@ export class MerkleTrees implements MerkleTreeDb {
    * @param index - Index of the leaf to get the sibling path for.
    * @returns Promise containing the sibling path for the leaf.
    */
-  private _getSiblingPath(treeId: MerkleTreeId, index: bigint, includeUncommitted?: boolean): Promise<SiblingPath> {
+  private _getSiblingPath(treeId: MerkleTreeId, index: bigint, includeUncommitted: boolean): Promise<SiblingPath> {
     return Promise.resolve(this.trees[treeId].getSiblingPath(index, includeUncommitted));
   }
 

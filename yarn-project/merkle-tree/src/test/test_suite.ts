@@ -55,7 +55,7 @@ export const merkleTreeTestSuite = (
       const firstRoot = tree.getRoot(true);
       expect(firstRoot).not.toEqual(emptyTree.getRoot(true));
       // committed root should still be the empty root
-      expect(tree.getRoot(false)).toEqual(emptyTree.getRoot());
+      expect(tree.getRoot(false)).toEqual(emptyTree.getRoot(false));
 
       await tree.rollback();
 
@@ -68,7 +68,7 @@ export const merkleTreeTestSuite = (
 
       expect(tree.getRoot(true)).toEqual(firstRoot);
       // committed root should still be the empty root
-      expect(tree.getRoot(false)).toEqual(emptyTree.getRoot());
+      expect(tree.getRoot(false)).toEqual(emptyTree.getRoot(false));
 
       expect(firstRoot).not.toEqual(emptyTree.getRoot(true));
 
@@ -91,7 +91,7 @@ export const merkleTreeTestSuite = (
 
       expect(tree.getRoot(true)).not.toEqual(emptyTree.getRoot(true));
       // committed root should still be the empty root
-      expect(tree.getRoot(false)).toEqual(emptyTree.getRoot());
+      expect(tree.getRoot(false)).toEqual(emptyTree.getRoot(false));
 
       await tree.commit();
       await tree.rollback();
