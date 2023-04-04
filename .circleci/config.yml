@@ -168,6 +168,17 @@ jobs:
       - run:
           name: "Build and test"
           command: build archiver
+  
+  aztec-rpc:
+    machine:
+      image: ubuntu-2004:202010-01
+    resource_class: large
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Build and test"
+          command: build aztec-rpc
 
   circuits-js:
     machine:
@@ -266,6 +277,7 @@ workflows:
       - world-state: *yarn_project
       - acir-simulator: *yarn_project
       - archiver: *yarn_project
+      - aztec-rpc: *yarn_project
       - merkle-tree: *yarn_project
       - noir-contracts: *yarn_project
       - sequencer-client: *yarn_project
