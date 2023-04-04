@@ -245,7 +245,7 @@ exports[`abis wasm bindings hashes VK 1`] = `
 Object {
   "data": Array [
     3,
-    215,
+    210,
     112,
     230,
     112,
