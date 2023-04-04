@@ -43,6 +43,10 @@ export interface MerkleTree extends SiblingPathSource {
    */
   updateLeaf(leaf: Buffer | LeafData, index: bigint): Promise<void>;
   /**
+   * Returns the depth of the tree
+   */
+  getDepth(): number;
+  /**
    * Rollback pending update to the tree
    */
   rollback(): Promise<void>;

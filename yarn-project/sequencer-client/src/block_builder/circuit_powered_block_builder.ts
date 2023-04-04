@@ -459,7 +459,7 @@ export class CircuitPoweredBlockBuilder {
         // Insertion is done at the end once updates have already occurred.
         touchedNodes.add(indexOfPrevious.index);
 
-        const lowNullifier = this.db.getLeafData(MerkleTreeId.NULLIFIER_TREE, indexOfPrevious.index);
+        const lowNullifier = await this.db.getLeafData(MerkleTreeId.NULLIFIER_TREE, indexOfPrevious.index);
 
         // If no low nullifier can be found, abort - this means the nullifier is invalid
         // in some way (it should not happen)
