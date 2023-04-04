@@ -410,21 +410,23 @@ export class CircuitPoweredBlockBuilder {
 
     // Update the nullifier tree, capturing the low nullifier info for each individual operation
     const newNullifiers = [...tx1.data.end.newNullifiers, ...tx2.data.end.newNullifiers];
-    const lowNullifierInfos = [];
     // console.log(
     //   `Nullifier root before insertion: `,
     //   await this.getTreeSnapshot(MerkleTreeId.NULLIFIER_TREE).then(t => '0x' + t.root.toBuffer().toString('hex')),
     // );
     // console.log(`Inserting new data`, newNullifiers.join(', '));
-    
-    // TODO: handle exception
+
     const nullifierWitnesses = await this.db.getAndPerformBaseRollupBatchInsertionProofs(
       MerkleTreeId.NULLIFIER_TREE,
-      newNullifiers.map(fr => fr.toBuffer())
+      newNullifiers.map(fr => fr.toBuffer()),
     );
+    if (nullifierWitnesses === undefined) {
+      throw new Error(`Could not craft nullifier batch insertion proofs`);
+    }
     // Extract witness objects from returned data
-    const lowNullifierMembershipWitnesses = nullifierWitnesses.map(w  => MembershipWitness.fromSiblingPath(Number(w.index), w.siblingPath),
-    )
+    const lowNullifierMembershipWitnesses = nullifierWitnesses.map(w =>
+      MembershipWitness.fromSiblingPath(Number(w.index), w.siblingPath),
+    );
 
     // console.log(
     //   `Nullifier root after insertion: `,
@@ -454,7 +456,7 @@ export class CircuitPoweredBlockBuilder {
       newContractsSubtreeSiblingPath,
       newNullifiersSubtreeSiblingPath,
       // TODO: typing for `LowNullifierWitnessData`
-      lowNullifierLeafPreimages: nullifierWitnesses.map((w: any)  => w.preimage),
+      lowNullifierLeafPreimages: nullifierWitnesses.map((w: any) => w.preimage),
       lowNullifierMembershipWitness: lowNullifierMembershipWitnesses,
       kernelData: [this.getKernelDataFor(tx1), this.getKernelDataFor(tx2)],
       historicContractsTreeRootMembershipWitnesses: [

@@ -101,7 +101,10 @@ export interface MerkleTreeOperations {
    * @param index - The index of the leaf
    */
   getLeafValue(treeId: MerkleTreeId, index: bigint): Promise<Buffer | undefined>;
-  getAndPerformBaseRollupBatchInsertionProofs(treeId: MerkleTreeId, leaves: Buffer[]): Promise<LowNullifierWitnessData[]>;
+  getAndPerformBaseRollupBatchInsertionProofs(
+    treeId: MerkleTreeId,
+    leaves: Buffer[],
+  ): Promise<LowNullifierWitnessData[] | undefined>;
 }
 
 /**
