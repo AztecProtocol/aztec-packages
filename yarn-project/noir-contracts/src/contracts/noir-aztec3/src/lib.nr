@@ -1,8 +1,11 @@
 mod abi;
-mod map;
-mod note;
-mod set;
-mod vec; //This can/should be moved out into another library
+mod notes;
+mod state_vars;
+mod types;
+// mod map;
+// mod note;
+// mod set;
+// mod vec; //This can/should be moved out into another library
 
 global Nonce = 1;
 global NoteHash = 2;

@@ -7,8 +7,8 @@ global MAX_PRIVATE_CALL_STACK : comptime Field = 4;
 global MAX_PUBLIC_CALL_STACK: comptime Field = 4;
 global MAX_L1_MSG_STACK : comptime Field = 2;
 
-use crate::note::Note;
-use crate::vec::BoundedVec;
+use crate::notes::note::Note;
+use crate::types::vec::BoundedVec;
 
 // Inputs are expected to be provided to each contract function
 struct Inputs {

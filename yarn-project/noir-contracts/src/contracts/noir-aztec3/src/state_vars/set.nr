@@ -1,8 +1,8 @@
 use dep::std;
 use crate::abi::Inputs;
 use crate::abi::IntermediateOutputs;
-use crate::note::Note;
-use crate::note::Point;
+use crate::notes::note::Note;
+use crate::types::point::Point;
 
 #[builtin(notifyCreatedNote)]
 fn notify_created_note(

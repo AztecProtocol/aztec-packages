@@ -1,8 +1,7 @@
 contract PrivateToken {
-    use dep::aztec3::note::Note;
-    use dep::aztec3::note::Point;
-    use dep::aztec3::set::Set;
-    use dep::aztec3::abi;
+    use dep::aztec3::notes::note::Note;
+    use dep::aztec3::types::point::Point;
+    use dep::aztec3::state_vars::set::Set;
     use dep::aztec3::abi::Inputs;
     use dep::aztec3::abi::Outputs;
     use dep::aztec3::abi::FinalOutputs;
