@@ -7,11 +7,12 @@ import { computeFunctionTree, getDummyPreviousKernelData } from './kernel.js';
 describe('abis wasm bindings', () => {
   let wasm: CircuitsWasm;
 
-  beforeAll(async () => {
+  beforeEach(async () => {
     wasm = await CircuitsWasm.new();
   });
 
-  it.skip('gets dummy kernel data', async () => {
+  it('gets dummy kernel data', async () => {
+    console.log('runs dummy kernel data test');
     await expect(getDummyPreviousKernelData(wasm)).resolves.toBeDefined();
   });
 

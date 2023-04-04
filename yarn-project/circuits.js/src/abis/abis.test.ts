@@ -1,4 +1,3 @@
-import { randomBytes } from 'crypto';
 import { fr, makeAztecAddress, makeTxRequest, makeVerificationKey } from '../tests/factories.js';
 import { CircuitsWasm } from '../wasm/circuits_wasm.js';
 import {
@@ -62,9 +61,9 @@ describe('abis wasm bindings', () => {
 
   it('computes a contract address', async () => {
     const deployerAddr = makeAztecAddress(1);
-    const contractAddrSalt = randomBytes(32);
-    const treeRoot = randomBytes(32);
-    const constructorHash = randomBytes(32);
+    const contractAddrSalt = Buffer.alloc(32);
+    const treeRoot = Buffer.alloc(32);
+    const constructorHash = Buffer.alloc(32);
     const res = await computeContractAddress(wasm, deployerAddr, contractAddrSalt, treeRoot, constructorHash);
     expect(res).toMatchSnapshot();
   });

@@ -12,6 +12,7 @@ import { boolToBuffer, serializeToBuffer, uint8ArrayToNum } from '../utils/seria
 import { CircuitsWasm } from '../wasm/index.js';
 
 export async function getDummyPreviousKernelData(wasm: CircuitsWasm) {
+  wasm.call('pedersen__init');
   const ptr = wasm.call('bbmalloc', 4);
   const data = await wasm.asyncCall('private_kernel__dummy_previous_kernel', ptr);
   const outputBufSize = uint8ArrayToNum(wasm.getMemorySlice(ptr, ptr + 4));
@@ -20,7 +21,7 @@ export async function getDummyPreviousKernelData(wasm: CircuitsWasm) {
   return PreviousKernelData.fromBuffer(result);
 }
 
-export function computeFunctionTree(wasm: CircuitsWasm, leaves: Fr[]): Fr[] {
+export async function computeFunctionTree(wasm: CircuitsWasm, leaves: Fr[]): Promise<Fr[]> {
   // Init pedersen if needed
   wasm.call('pedersen__init');
 
@@ -35,7 +36,7 @@ export function computeFunctionTree(wasm: CircuitsWasm, leaves: Fr[]): Fr[] {
   wasm.writeMemory(inputBufPtr, inputBuf);
 
   // Run and read outputs
-  wasm.asyncCall('abis__compute_function_tree', inputBufPtr, leaves.length, outputBufPtr);
+  await wasm.asyncCall('abis__compute_function_tree', inputBufPtr, leaves.length, outputBufPtr);
   const outputBuf = Buffer.from(wasm.getMemorySlice(outputBufPtr, outputBufPtr + outputBufSize));
   const reader = new BufferReader(outputBuf);
   const output = reader.readVector(Fr);
