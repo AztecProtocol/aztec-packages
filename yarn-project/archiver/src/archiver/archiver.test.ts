@@ -1,11 +1,10 @@
-import { EthAddress } from '@aztec/ethereum.js/eth_address';
-import { randomBytes, toBufferBE } from '@aztec/foundation';
-import { RollupAbi, UnverifiedDataEmitterAbi } from '@aztec/l1-contracts/viem';
+import { EthAddress, randomBytes, toBufferBE } from '@aztec/foundation';
 import { L2Block } from '@aztec/l2-block';
 import { jest } from '@jest/globals';
 import { mock, MockProxy } from 'jest-mock-extended';
 import { encodeFunctionData, Log, PublicClient, toHex, Transaction } from 'viem';
 import { Archiver } from './archiver.js';
+import { RollupAbi, UnverifiedDataEmitterAbi } from '@aztec/l1-contracts/viem';
 
 describe('Archiver', () => {
   const rollupAddress = '0x0000000000000000000000000000000000000000';
