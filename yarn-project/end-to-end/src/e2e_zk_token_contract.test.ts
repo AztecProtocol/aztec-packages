@@ -42,7 +42,7 @@ describe('e2e_zk_token_contract', () => {
       ETHEREUM_HOST,
       provider.getPrivateKey(0)!,
     );
-    aztecRpcServer = await createAztecRpcServer(1, node);
+    aztecRpcServer = await createAztecRpcServer(2, node);
     accounts = await aztecRpcServer.getAccounts();
   });
 
@@ -64,7 +64,6 @@ describe('e2e_zk_token_contract', () => {
       ),
     );
 
-    console.log('Computed slot', storageSlot);
     return storageSlot;
   };
 
@@ -72,9 +71,18 @@ describe('e2e_zk_token_contract', () => {
     // We only generate 1 note in each test. Balance is the first field of the only note.
     // TBD - how to calculate storage slot?
     const storageSlot = await calculateStorageSlot(accountIdx);
-    const [[balance]] = await aztecRpcServer.getStorageAt(contract.address!, storageSlot);
+    const [values] = await aztecRpcServer.getStorageAt(contract.address!, storageSlot);
+    const balance = values[5];
     logger(`Account ${accountIdx} balance: ${balance}`);
     expect(balance).toBe(expectedBalance);
+  };
+
+  const expectEmptyStorageSlotForAccount = async (accountIdx: number) => {
+    // We only generate 1 note in each test. Balance is the first field of the only note.
+    // TBD - how to calculate storage slot?
+    const storageSlot = await calculateStorageSlot(accountIdx);
+    const values = await aztecRpcServer.getStorageAt(contract.address!, storageSlot);
+    expect(values.length).toBe(0);
   };
 
   const expectBalance = async (accountIdx: number, expectedBalance: bigint) => {
@@ -95,8 +103,12 @@ describe('e2e_zk_token_contract', () => {
   const deployContract = async (initialBalance = 0n, owner = { x: 0n, y: 0n }) => {
     // TODO: Remove explicit casts
     const deployer = new ContractDeployer(ZkTokenContractAbi as ContractAbi, aztecRpcServer);
-    const receipt = await deployer.deploy(initialBalance, owner).send().getReceipt();
-    return new Contract(receipt.contractAddress!, ZkTokenContractAbi as ContractAbi, aztecRpcServer);
+    const tx = deployer.deploy(initialBalance, owner).send();
+    const receipt = await tx.getReceipt();
+    contract = new Contract(receipt.contractAddress!, ZkTokenContractAbi as ContractAbi, aztecRpcServer);
+    await tx.isMined();
+    await tx.getReceipt();
+    return contract;
   };
 
   /**
@@ -108,7 +120,7 @@ describe('e2e_zk_token_contract', () => {
     const owner = await aztecRpcServer.getAccountPublicKey(accounts[0]);
     await deployContract(initialBalance, pointToPublicKey(owner));
     await expectStorageSlot(0, initialBalance);
-    await expectStorageSlot(1, 0n);
+    await expectEmptyStorageSlotForAccount(1);
   }, 30_000);
 
   /**
