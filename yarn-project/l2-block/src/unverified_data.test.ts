@@ -1,4 +1,4 @@
-import { UnverifiedData } from "./unverified_data.js";
+import { UnverifiedData } from './unverified_data.js';
 
 describe('UnverifiedData', () => {
   it('can encode UnverifiedData to buffer and back', () => {
