@@ -31,7 +31,7 @@ export default new ContractAbi([
       {
         indexed: true,
         internalType: 'uint256',
-        name: 'blockNum',
+        name: 'l2blockNum',
         type: 'uint256',
       },
       {

@@ -29,7 +29,13 @@ describe('Archiver', () => {
 
     const rollupLogs = [1, 2, 3].map(makeL2BlockProcessedEvent);
     const rollupTxs = [1, 2, 3].map(makeRollupTx);
-    const unverifiedDataEmitterLogs: Log<bigint, number, undefined, typeof UnverifiedDataEmitterAbi, 'UnverifiedData'>[] = [1, 2].map(makeUnverifiedDataEvent);
+    const unverifiedDataEmitterLogs: Log<
+      bigint,
+      number,
+      undefined,
+      typeof UnverifiedDataEmitterAbi,
+      'UnverifiedData'
+    >[] = [1, 2].map(makeUnverifiedDataEvent);
 
     publicClient.getFilterLogs.mockResolvedValueOnce(rollupLogs).mockResolvedValueOnce(unverifiedDataEmitterLogs);
     rollupTxs.forEach(tx => publicClient.getTransaction.mockResolvedValueOnce(tx));
@@ -71,7 +77,7 @@ function makeUnverifiedDataEvent(blockNum: number) {
     args: {
       l2blockNum: BigInt(blockNum),
       sender: EthAddress.random(),
-      blabber: '0x' + createRandomUnverifiedData(16).toString('hex'),
+      data: '0x' + createRandomUnverifiedData(16).toString('hex'),
     },
     transactionHash: `0x${blockNum}`,
   } as unknown as Log<bigint, number, undefined, typeof UnverifiedDataEmitterAbi, 'UnverifiedData'>;

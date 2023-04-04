@@ -147,15 +147,17 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource {
    * Processes newly received UnverifiedData events.
    * @param logs - UnverifiedData event logs.
    */
-  private processUnverifiedDataLogs(logs: Log<bigint, number, undefined, typeof UnverifiedDataEmitterAbi, 'UnverifiedData'>[]) {
+  private processUnverifiedDataLogs(
+    logs: Log<bigint, number, undefined, typeof UnverifiedDataEmitterAbi, 'UnverifiedData'>[],
+  ) {
     for (const log of logs) {
-      const blockNum = log.args.l2blockNum;
-      if (blockNum !== BigInt(this.unverifiedData.length + INITIAL_L2_BLOCK_NUM)) {
+      const l2blockNum = log.args.l2blockNum;
+      if (l2blockNum !== BigInt(this.unverifiedData.length + INITIAL_L2_BLOCK_NUM)) {
         throw new Error(
           'Block number mismatch. Expected: ' +
             (this.unverifiedData.length + INITIAL_L2_BLOCK_NUM) +
             ' but got: ' +
-            blockNum +
+            l2blockNum +
             '.',
         );
       }
