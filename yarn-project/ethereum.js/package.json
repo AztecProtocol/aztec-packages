@@ -28,7 +28,7 @@
     "build:dev": "yarn build --watch",
     "clean": "rm -rf ./dest .tsbuildinfo",
     "formatting": "run -T prettier --check ./src && run -T eslint --max-warnings 0 ./src",
-    "test": "NODE_NO_WARNINGS=1 node --openssl-legacy-provider --experimental-vm-modules $(yarn bin jest) --no-cache",
+    "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules $(yarn bin jest) --no-cache",
     "gen_fixtures": "NODE_NO_WARNINGS=1 node ./dest/contract/gen_def/index.js ./src/contract/fixtures/contracts.json"
   },
   "bin": {
@@ -38,8 +38,7 @@
     "preset": "ts-jest/presets/default-esm",
     "globals": {
       "ts-jest": {
-        "useESM": true,
-        "tsconfig": "../tsconfig.json"
+        "useESM": true
       }
     },
     "moduleNameMapper": {
