@@ -1,4 +1,4 @@
-import { randomBytes } from 'crypto';
+import { Fr, FunctionData, NullifierLeafPreimage } from '../index.js';
 import { fr, makeAztecAddress, makeBytes, makeTxRequest, makeVerificationKey } from '../tests/factories.js';
 import { CircuitsWasm } from '../wasm/circuits_wasm.js';
 import {
@@ -11,7 +11,6 @@ import {
   hashTxRequest,
   hashVK,
 } from './abis.js';
-import { Fr, FunctionData, NullifierLeafPreimage } from '../index.js';
 
 describe('abis wasm bindings', () => {
   let wasm: CircuitsWasm;
