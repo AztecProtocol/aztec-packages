@@ -30,18 +30,17 @@ export interface LeafData {
 export interface LowNullifierWitnessData {
   /**
    * Preimage of the low nullifier that proves non membership
-    */
+   */
   preimage: LeafData;
   /**
    * Sibling path to prove membership of low nullifier
-    */
+   */
   siblingPath: SiblingPath;
   /**
    * The index of low nullifier
    */
   index: bigint;
 }
-
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const encodeTreeValue = (leafData: LeafData) => {
@@ -53,9 +52,6 @@ const encodeTreeValue = (leafData: LeafData) => {
 
 // TODO: Check which version of hash we need to match the cpp implementation
 const hashEncodedTreeValue = (leaf: LeafData, hasher: Hasher) => {
-  return hasher.hashToField(
-    Buffer.concat([leaf.value, leaf.nextIndex, leaf.nextValue].map(val => toBufferBE(val, 32))),
-  );
   return hasher.compressInputs([leaf.value, leaf.nextIndex, leaf.nextValue].map(val => toBufferBE(val, 32)));
 };
 
@@ -90,12 +86,19 @@ export class IndexedTree implements MerkleTree {
    * @param hasher - A hasher used to compute hash paths.
    * @param name - A name of the tree.
    * @param depth - A depth of the tree.
+   * @param prefilledSize - {optional} A number of leaves that are prefilled with values.
    * @returns A promise with the new Merkle tree.
    */
-  public static async new(db: LevelUp, hasher: Hasher, name: string, depth: number): Promise<IndexedTree> {
+  public static async new(
+    db: LevelUp,
+    hasher: Hasher,
+    name: string,
+    depth: number,
+    prefilledSize = 0,
+  ): Promise<IndexedTree> {
     const underlying = await StandardMerkleTree.new(db, hasher, name, depth, hashEncodedTreeValue(initialLeaf, hasher));
     const tree = new IndexedTree(underlying, hasher, db);
-    await tree.init();
+    await tree.init(prefilledSize);
     return tree;
   }
 
@@ -140,20 +143,19 @@ export class IndexedTree implements MerkleTree {
     }
   }
 
-
   // TODO: this will have alot more information returned from it to craft the correct inputs
   // TODO: should this function similate on a copy of the tree rather than making actual changes?
   /**
-   * Each base rollup needs to provide non membership / inclusion proofs for each of the nullifiers 
-   * generated in the kernel circuit that it is rolling up. 
-   * 
-   * As leaves are batch inserted at the end, batch updates are a special case. 
-   * 
+   * Each base rollup needs to provide non membership / inclusion proofs for each of the nullifiers
+   * generated in the kernel circuit that it is rolling up.
+   *
+   * As leaves are batch inserted at the end, batch updates are a special case.
+   *
    * WARNING: This function has side effects, it will insert values into the tree.
    *
    * TODO: include indepth insertion writeup in this comment
    * @param leaves Values to insert into the tree
-   * @returns 
+   * @returns
    */
   // TODO: assumptions
   // 1. There are 8 nullifiers provided and they are all unique
@@ -162,11 +164,11 @@ export class IndexedTree implements MerkleTree {
   public async getAndPerformBaseRollupBatchInsertionProofs(leaves: Buffer[]): Promise<LowNullifierWitnessData[]> {
     // Keep track of the touched during batch insertion
     const touchedNodes: Set<number> = new Set<number>();
-    
+
     const lowNullifierWitnesses: LowNullifierWitnessData[] = [];
     const startInsertionIndex: bigint = this.getNumLeaves();
     let currInsertionIndex: bigint = startInsertionIndex;
-    
+
     // Leaf data of hte leaves to be inserted
     const insertionSubtree: LeafData[] = [];
 
@@ -174,27 +176,29 @@ export class IndexedTree implements MerkleTree {
     for (const leaf of leaves) {
       const newValue = toBigIntBE(leaf);
       const indexOfPrevious = this.findIndexOfPreviousValue(newValue);
-      
+
       // NOTE: null values for nullfier leaves are being changed to 0n current impl is a hack
       // Default value
       let nullifierLeaf: LeafData = {
         value: 0n,
         nextIndex: 0n,
-        nextValue: 0n
+        nextValue: 0n,
       };
 
       if (touchedNodes.has(indexOfPrevious.index)) {
         // If the node has already been touched, then we return an empty leaf and sibling path
         const emptySP = new SiblingPath();
-        emptySP.data = Array(this.underlying.getDepth()).fill(Buffer.from("0000000000000000000000000000000000000000000000000000000000000000", "hex"));
+        emptySP.data = Array(this.underlying.getDepth()).fill(
+          Buffer.from('0000000000000000000000000000000000000000000000000000000000000000', 'hex'),
+        );
         const witness: LowNullifierWitnessData = {
-            preimage: initialLeaf,
-            index: 0n,
-            siblingPath: emptySP
+          preimage: initialLeaf,
+          index: 0n,
+          siblingPath: emptySP,
         };
         lowNullifierWitnesses.push(witness);
       } else {
-        // If the node has not been touched, we update its low nullifier pointer, but we do NOT insert it yet, inserting it now 
+        // If the node has not been touched, we update its low nullifier pointer, but we do NOT insert it yet, inserting it now
         // will alter non membership paths of the not yet inserted members
         // Insertion is done at the end once updates have already occured.
         touchedNodes.add(indexOfPrevious.index);
@@ -205,7 +209,7 @@ export class IndexedTree implements MerkleTree {
         if (lowNullifier === undefined) {
           throw new Error(`Previous leaf not found!`);
         }
-        
+
         // Get sibling path for existence of the old leaf
         const siblingPath = await this.underlying.getSiblingPath(BigInt(indexOfPrevious.index));
 
@@ -213,12 +217,12 @@ export class IndexedTree implements MerkleTree {
         const witness = {
           preimage: lowNullifier,
           index: BigInt(indexOfPrevious.index),
-          siblingPath: siblingPath
-        }
+          siblingPath: siblingPath,
+        };
         lowNullifierWitnesses.push(witness);
 
         // Update subtree insertion leaf from null data
-        nullifierLeaf =  {
+        nullifierLeaf = {
           value: newValue,
           nextIndex: lowNullifier.nextIndex,
           nextValue: lowNullifier.nextValue,
@@ -230,7 +234,10 @@ export class IndexedTree implements MerkleTree {
 
         // Update the old leaf in the tree
         this.cachedLeaves[Number(indexOfPrevious.index)] = lowNullifier;
-        await this.underlying.updateLeaf(hashEncodedTreeValue(lowNullifier, this.hasher), BigInt(indexOfPrevious.index));
+        await this.underlying.updateLeaf(
+          hashEncodedTreeValue(lowNullifier, this.hasher),
+          BigInt(indexOfPrevious.index),
+        );
       }
 
       // increment insertion index
@@ -240,7 +247,7 @@ export class IndexedTree implements MerkleTree {
 
     // Create insertion subtree and forcefully insert in series
     // Here we calculate the pointers for the inserted values, if they have not already been updated
-    for (let i = 0 ; i < leaves.length; i++) {
+    for (let i = 0; i < leaves.length; i++) {
       const newValue = toBigIntBE(leaves[i]);
 
       // We have already fetched the new low nullifier for this leaf, so we can set its low nullifier
@@ -248,28 +255,26 @@ export class IndexedTree implements MerkleTree {
       // If the lowNullifier is 0, then we check the previous leaves for the low nullifier leaf
       if (lowNullifier.value === 0n && lowNullifier.nextIndex === 0n && lowNullifier.nextValue === 0n) {
         for (let j = 0; j < i; j++) {
-          if ((insertionSubtree[j].nextValue >newValue&&
-               insertionSubtree[j].value < newValue) ||
-              (insertionSubtree[j].nextValue == 0n && insertionSubtree[j].nextIndex == 0n)) {
-
-              insertionSubtree[j].nextIndex = startInsertionIndex + BigInt(i);
-              insertionSubtree[j].nextValue = newValue;
+          if (
+            (insertionSubtree[j].nextValue > newValue && insertionSubtree[j].value < newValue) ||
+            (insertionSubtree[j].nextValue == 0n && insertionSubtree[j].nextIndex == 0n)
+          ) {
+            insertionSubtree[j].nextIndex = startInsertionIndex + BigInt(i);
+            insertionSubtree[j].nextValue = newValue;
           }
-      }
+        }
       }
     }
 
     // For each calculated new leaf, we insert it into the tree at the next position
-    for (let i = 0 ; i < leaves.length; i++) {
+    for (let i = 0; i < leaves.length; i++) {
       // TODO: can we skip inserting the empty values
-      this.cachedLeaves[Number(startInsertionIndex)+i] = insertionSubtree[i];
+      this.cachedLeaves[Number(startInsertionIndex) + i] = insertionSubtree[i];
       await this.underlying.appendLeaves([hashEncodedTreeValue(insertionSubtree[i], this.hasher)]);
     }
 
     return lowNullifierWitnesses;
   }
-
-  
 
   /**
    * Commits the changes to the database.
@@ -374,12 +379,18 @@ export class IndexedTree implements MerkleTree {
 
   /**
    * Saves the initial leaf to this object and saves it to a database.
+   * TODO: what will the size be
    */
-  private async init() {
+  private async init(initialSize: number = 0) {
     // TODO: increase the initial size of the tree to the size of a full rollup insertion - change reflected in c++ to allow subtree insertion
 
     this.leaves.push(initialLeaf);
     await this.underlying.appendLeaves([hashEncodedTreeValue(initialLeaf, this.hasher)]);
+
+    // TODO: optimise
+    for (let i = 1; i < initialSize; i++) {
+      await this.appendLeaf(Buffer.from([i]));
+    }
     await this.commit();
   }
 
