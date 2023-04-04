@@ -49,8 +49,8 @@ export class EthereumjsTxSender implements L1PublisherTxSender {
       .then(hash => hash.toString());
   }
 
-  async sendEmitContractDeploymentTx(l2BlockNum: number, unverifiedData: UnverifiedData): Promise<string | undefined> {
-    const methodCall = this.unverifiedDataEmitterContract.methods.emitContractDeployment(BigInt(l2BlockNum), unverifiedData.toBuffer());
+  async sendEmitUnverifiedDataTx(l2BlockNum: number, unverifiedData: UnverifiedData): Promise<string | undefined> {
+    const methodCall = this.unverifiedDataEmitterContract.methods.emitUnverifiedData(BigInt(l2BlockNum), unverifiedData.toBuffer());
     const gas = await methodCall.estimateGas();
     return methodCall
       .send({ gas })

@@ -1,5 +1,4 @@
-import { EthAddress } from '@aztec/ethereum.js/eth_address';
-import { AztecAddress, createDebugLogger } from '@aztec/foundation';
+import { AztecAddress, EthAddress, createDebugLogger } from '@aztec/foundation';
 import { RollupAbi, UnverifiedDataEmitterAbi } from '@aztec/l1-contracts/viem';
 import { ContractData, L2Block, L2BlockSource, UnverifiedData, UnverifiedDataSource } from '@aztec/l2-block';
 import { createPublicClient, decodeFunctionData, getAddress, Hex, hexToBytes, http, Log, PublicClient } from 'viem';

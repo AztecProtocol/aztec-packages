@@ -23,7 +23,7 @@ import {
 } from '@aztec/circuits.js';
 import { EthereumRpc } from '@aztec/ethereum.js/eth_rpc';
 import { WalletProvider } from '@aztec/ethereum.js/provider';
-import { AztecAddress, Fr, randomBytes, toBufferBE } from '@aztec/foundation';
+import { AztecAddress, EthAddress, Fr, randomBytes, toBufferBE } from '@aztec/foundation';
 import { Rollup, UnverifiedDataEmitter } from '@aztec/l1-contracts';
 import { UnverifiedData } from '@aztec/l2-block';
 import { Tx } from '@aztec/tx';
