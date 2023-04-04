@@ -1,6 +1,10 @@
 {
-  "extends": ".",
-  "exclude": ["**/*.test.*", "**/fixtures/*"],
+  "extends": "..",
+  "compilerOptions": {
+    "outDir": "dest",
+    "rootDir": "src",
+    "tsBuildInfoFile": ".tsbuildinfo"
+  },
   "references": [
     {
       "path": "../barretenberg.js/tsconfig.dest.json"
@@ -17,5 +21,7 @@
     {
       "path": "../noir-contracts/tsconfig.dest.json"
     }
-  ]
+  ],
+  "exclude": ["**/*.test.*", "**/fixtures/*"],
+  "include": ["src"]
 }
