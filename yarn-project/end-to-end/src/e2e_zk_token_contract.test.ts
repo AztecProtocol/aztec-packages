@@ -9,6 +9,8 @@ import { createAztecNode } from './create_aztec_node.js';
 import { createAztecRpcServer } from './create_aztec_rpc_client.js';
 import { createProvider, deployRollupContract, deployUnverifiedDataEmitterContract } from './deploy_l1_contracts.js';
 import { ContractAbi } from '@aztec/noir-contracts';
+import { BarretenbergWasm } from '@aztec/barretenberg.js/wasm';
+import { pedersenCompressInputs } from '@aztec/barretenberg.js/crypto';
 
 const { ETHEREUM_HOST = 'http://localhost:8545' } = process.env;
 const MNEMONIC = 'test test test test test test test test test test test junk';
@@ -49,10 +51,27 @@ describe('e2e_zk_token_contract', () => {
     await aztecRpcServer.stop();
   });
 
+  const calculateStorageSlot = async (accountIdx: number) => {
+    const ownerPublicKey = await aztecRpcServer.getAccountPublicKey(accounts[accountIdx]);
+    const xCoordinate = Fr.fromBuffer(ownerPublicKey.buffer.subarray(0, 32));
+    const bbWasm = await BarretenbergWasm.new();
+
+    // We only generate 1 note in each test. Balance is the first field of the only note.
+    const storageSlot = Fr.fromBuffer(
+      pedersenCompressInputs(
+        bbWasm,
+        [new Fr(4n), new Fr(1n), xCoordinate].map(f => f.toBuffer()),
+      ),
+    );
+
+    console.log('Computed slot', storageSlot);
+    return storageSlot;
+  };
+
   const expectStorageSlot = async (accountIdx: number, expectedBalance: bigint) => {
     // We only generate 1 note in each test. Balance is the first field of the only note.
     // TBD - how to calculate storage slot?
-    const storageSlot = Fr.ZERO;
+    const storageSlot = await calculateStorageSlot(accountIdx);
     const [[balance]] = await aztecRpcServer.getStorageAt(contract.address!, storageSlot);
     logger(`Account ${accountIdx} balance: ${balance}`);
     expect(balance).toBe(expectedBalance);
