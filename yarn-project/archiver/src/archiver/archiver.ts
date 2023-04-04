@@ -151,13 +151,13 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource {
     logs: Log<bigint, number, undefined, typeof UnverifiedDataEmitterAbi, 'UnverifiedData'>[],
   ) {
     for (const log of logs) {
-      const l2blockNum = log.args.l2blockNum;
-      if (l2blockNum !== BigInt(this.unverifiedData.length + INITIAL_L2_BLOCK_NUM)) {
+      const l2BlockNum = log.args.l2BlockNum;
+      if (l2BlockNum !== BigInt(this.unverifiedData.length + INITIAL_L2_BLOCK_NUM)) {
         throw new Error(
           'Block number mismatch. Expected: ' +
             (this.unverifiedData.length + INITIAL_L2_BLOCK_NUM) +
             ' but got: ' +
-            l2blockNum +
+            l2BlockNum +
             '.',
         );
       }
@@ -184,8 +184,8 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource {
       data,
     });
     if (functionName !== 'process') throw new Error(`Unexpected method called ${functionName}`);
-    const [, l2blockHex] = args! as [Hex, Hex];
-    const block = L2Block.decode(Buffer.from(hexToBytes(l2blockHex)));
+    const [, l2BlockHex] = args! as [Hex, Hex];
+    const block = L2Block.decode(Buffer.from(hexToBytes(l2BlockHex)));
     if (BigInt(block.number) !== l2BlockNum) {
       throw new Error(`Block number mismatch: expected ${l2BlockNum} but got ${block.number}`);
     }

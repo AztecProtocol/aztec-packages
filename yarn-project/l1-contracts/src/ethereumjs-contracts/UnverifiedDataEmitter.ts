@@ -11,7 +11,7 @@ export type ContractDeploymentEvent = {
   acir: Bytes.Bytes;
 };
 export type UnverifiedDataEvent = {
-  l2blockNum: bigint;
+  l2BlockNum: bigint;
   sender: EthAddress;
   data: Bytes.Bytes;
 };
@@ -36,7 +36,7 @@ interface UnverifiedDataEmitterMethods {
     _portalAddress: EthAddress,
     _acir: Bytes.Bytes,
   ): TxSend<UnverifiedDataEmitterTransactionReceipt>;
-  emitUnverifiedData(_l2blockNum: bigint, _data: Bytes.Bytes): TxSend<UnverifiedDataEmitterTransactionReceipt>;
+  emitUnverifiedData(_l2BlockNum: bigint, _data: Bytes.Bytes): TxSend<UnverifiedDataEmitterTransactionReceipt>;
 }
 export interface UnverifiedDataEmitterDefinition {
   methods: UnverifiedDataEmitterMethods;

@@ -75,7 +75,7 @@ function makeL2BlockProcessedEvent(blockNum: number) {
 function makeUnverifiedDataEvent(blockNum: number) {
   return {
     args: {
-      l2blockNum: BigInt(blockNum),
+      l2BlockNum: BigInt(blockNum),
       sender: EthAddress.random(),
       data: '0x' + createRandomUnverifiedData(16).toString('hex'),
     },
