@@ -57,7 +57,41 @@ export class AccountState {
     return new UnverifiedData(chunks);
   }
 
-  public async processUnverifiedData(unverifiedData: UnverifiedData[], from: number, take: number): Promise<void> {
+  public async process(l2Blocks: L2Block[], unverifiedData: UnverifiedData[]): Promise<void> {
+    if (l2Blocks.length !== unverifiedData.length) {
+      throw new Error(`Number of blocks and unverifiedData is not equal. Received ${l2Blocks.length} blocks, ${unverifiedData.length} unverified data.`)
+    }
+
+    this.syncedToBlock = l2Blocks[l2Blocks.length - 2].number;
+  }
+
+  private async processBlocks(blocks: L2Block[], txIndices: number[][], txAuxDataDaos: TxAuxDataDao[][]) {
+    const txDaos: TxDao[] = [];
+    for (let i = 0; i < blocks.length; ++i) {
+      const block = blocks[i];
+      txIndices[i].map((txIndex, j) => {
+        const txHash = getTxHash(block, txIndex);
+        this.log(`Processing tx ${txHash.toString()} from block ${block.number}`);
+        const txAuxData = txAuxDataDaos[i][j];
+        const isContractDeployment = true; // TODO
+        const [to, contractAddress] = isContractDeployment
+          ? [undefined, txAuxData.contractAddress]
+          : [txAuxData.contractAddress, undefined];
+        txDaos.push({
+          txHash,
+          blockHash: keccak(block.encode()),
+          blockNumber: block.number,
+          from: this.address,
+          to,
+          contractAddress,
+          error: '',
+        });
+      });
+    }
+    await this.db.addTxs(txDaos);
+  }
+
+  private async processUnverifiedData(unverifiedData: UnverifiedData[]) {
     const decrypted: { blockNo: number; txIndices: number[]; txAuxDataDaos: TxAuxDataDao[] }[] = [];
     const toBlockNo = from + unverifiedData.length - 1;
     let dataStartIndex = (from - 1) * this.TXS_PER_BLOCK * KERNEL_NEW_COMMITMENTS_LENGTH;
@@ -97,38 +131,5 @@ export class AccountState {
       const txIndices = decrypted.map(({ txIndices }) => txIndices);
       await this.processBlocks(targetBlocks, txIndices, txAuxDataDaos);
     }
-
-    this.syncedToBlock = toBlockNo;
-  }
-
-  private async processBlocks(blocks: L2Block[], txIndices: number[][], txAuxDataDaos: TxAuxDataDao[][]) {
-    const txDaos: TxDao[] = [];
-    for (let i = 0; i < blocks.length; ++i) {
-      const block = blocks[i];
-      txIndices[i].map((txIndex, j) => {
-        const txHash = getTxHash(block, txIndex);
-        this.log(`Processing tx ${txHash.toString()} from block ${block.number}`);
-        const txAuxData = txAuxDataDaos[i][j];
-        const isContractDeployment = true; // TODO
-        const [to, contractAddress] = isContractDeployment
-          ? [undefined, txAuxData.contractAddress]
-          : [txAuxData.contractAddress, undefined];
-        txDaos.push({
-          txHash,
-          blockHash: keccak(block.encode()),
-          blockNumber: block.number,
-          from: this.address,
-          to,
-          contractAddress,
-          error: '',
-        });
-      });
-    }
-    await this.db.addTxs(txDaos);
-  }
-
-  // TODO: Remove in favor of processUnverifiedData advancing this pointer
-  public syncToBlock(block: { number: number }) {
-    this.syncedToBlock = block.number;
   }
 }
