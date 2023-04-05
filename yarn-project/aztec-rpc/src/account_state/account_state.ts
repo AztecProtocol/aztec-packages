@@ -6,6 +6,7 @@ import { L2Block, UnverifiedData } from '@aztec/l2-block';
 import { getTxHash } from '@aztec/tx';
 import { NotePreimage, TxAuxData } from '../aztec_rpc_server/tx_aux_data/index.js';
 import { Database, TxAuxDataDao, TxDao } from '../database/index.js';
+import { INITIAL_L2_BLOCK_NUM } from '@aztec/l1-contracts';
 
 export class AccountState {
   public syncedToBlock = 0;
@@ -57,29 +58,71 @@ export class AccountState {
     return new UnverifiedData(chunks);
   }
 
-  public async process(l2Blocks: L2Block[], unverifiedData: UnverifiedData[]): Promise<void> {
-    if (l2Blocks.length !== unverifiedData.length) {
-      throw new Error(`Number of blocks and unverifiedData is not equal. Received ${l2Blocks.length} blocks, ${unverifiedData.length} unverified data.`)
+  public async process(l2Blocks: L2Block[], unverifiedDatas: UnverifiedData[]): Promise<void> {
+    if (l2Blocks.length !== unverifiedDatas.length) {
+      throw new Error(
+        `Number of blocks and unverifiedData is not equal. Received ${l2Blocks.length} blocks, ${unverifiedDatas.length} unverified data.`,
+      );
+    }
+    if (!l2Blocks.length) {
+      return;
     }
 
-    this.syncedToBlock = l2Blocks[l2Blocks.length - 2].number;
+    let dataStartIndex =
+      (l2Blocks[0].number - INITIAL_L2_BLOCK_NUM) * this.TXS_PER_BLOCK * KERNEL_NEW_COMMITMENTS_LENGTH;
+    // We will store all the decrypted data in this array so that we can later batch insert it all into the database.
+    const blocksAndTxAuxData: { block: L2Block; txIndices: number[]; txAuxDataDaos: TxAuxDataDao[] }[] = [];
+
+    // Iterate over both blocks and unverified data.
+    for (let i = 0; i < unverifiedDatas.length; ++i) {
+      const l2Block = l2Blocks[i];
+      const dataChunks = unverifiedDatas[i].dataChunks;
+
+      // Try decrypting the unverified data.
+      const txIndices: Set<number> = new Set();
+      const txAuxDataDaos: TxAuxDataDao[] = [];
+      for (let j = 0; j < dataChunks.length; ++j) {
+        const txAuxData = TxAuxData.fromEncryptedBuffer(dataChunks[j], this.privKey, this.grumpkin);
+        if (txAuxData) {
+          // We have successfully decrypted the data.
+          const txIndex = Math.floor(j / KERNEL_NEW_COMMITMENTS_LENGTH);
+          txIndices.add(txIndex);
+          txAuxDataDaos.push({
+            ...txAuxData,
+            nullifier: Fr.random(), // TODO
+            index: dataStartIndex + j,
+          });
+        }
+      }
+
+      blocksAndTxAuxData.push({ block: l2Block, txIndices: [...txIndices], txAuxDataDaos });
+      dataStartIndex += dataChunks.length;
+    }
+
+    await this.processBlocksAndTxAuxData(blocksAndTxAuxData);
+
+    this.syncedToBlock = l2Blocks[l2Blocks.length - 1].number;
   }
 
-  private async processBlocks(blocks: L2Block[], txIndices: number[][], txAuxDataDaos: TxAuxDataDao[][]) {
+  private async processBlocksAndTxAuxData(
+    blocksAndTxAuxData: { block: L2Block; txIndices: number[]; txAuxDataDaos: TxAuxDataDao[] }[],
+  ) {
+    const txAuxDataDaos: TxAuxDataDao[] = [];
     const txDaos: TxDao[] = [];
-    for (let i = 0; i < blocks.length; ++i) {
-      const block = blocks[i];
-      txIndices[i].map((txIndex, j) => {
+    for (let i = 0; i < blocksAndTxAuxData.length; ++i) {
+      const { block, txIndices, txAuxDataDaos } = blocksAndTxAuxData[i];
+      const blockHash = keccak(block.encode());
+      txIndices.map((txIndex, j) => {
         const txHash = getTxHash(block, txIndex);
         this.log(`Processing tx ${txHash.toString()} from block ${block.number}`);
-        const txAuxData = txAuxDataDaos[i][j];
+        const txAuxData = txAuxDataDaos[j];
         const isContractDeployment = true; // TODO
         const [to, contractAddress] = isContractDeployment
           ? [undefined, txAuxData.contractAddress]
           : [txAuxData.contractAddress, undefined];
         txDaos.push({
           txHash,
-          blockHash: keccak(block.encode()),
+          blockHash,
           blockNumber: block.number,
           from: this.address,
           to,
@@ -87,49 +130,9 @@ export class AccountState {
           error: '',
         });
       });
+      txAuxDataDaos.push(...txAuxDataDaos);
     }
+    await this.db.addTxAuxDataBatch(txAuxDataDaos);
     await this.db.addTxs(txDaos);
-  }
-
-  private async processUnverifiedData(unverifiedData: UnverifiedData[]) {
-    const decrypted: { blockNo: number; txIndices: number[]; txAuxDataDaos: TxAuxDataDao[] }[] = [];
-    const toBlockNo = from + unverifiedData.length - 1;
-    let dataStartIndex = (from - 1) * this.TXS_PER_BLOCK * KERNEL_NEW_COMMITMENTS_LENGTH;
-    for (let blockNo = from; blockNo <= toBlockNo; ++blockNo) {
-      const dataChunks = unverifiedData[blockNo - from].dataChunks;
-      const txIndices: Set<number> = new Set();
-      const txAuxDataDaos: TxAuxDataDao[] = [];
-      for (let i = 0; i < dataChunks.length; ++i) {
-        const txAuxData = TxAuxData.fromEncryptedBuffer(dataChunks[i], this.privKey, this.grumpkin);
-        if (txAuxData) {
-          const txIndex = Math.floor(i / KERNEL_NEW_COMMITMENTS_LENGTH);
-          txIndices.add(txIndex);
-          txAuxDataDaos.push({
-            ...txAuxData,
-            nullifier: Fr.random(), // TODO
-            index: dataStartIndex + i,
-          });
-        }
-      }
-
-      if (txIndices.size) {
-        decrypted.push({ blockNo, txIndices: [...txIndices], txAuxDataDaos });
-        this.log(`Decrypted ${txIndices.size} tx aux data in block ${blockNo}.`);
-      } else {
-        this.log(`No tx aux data found in block ${blockNo}`);
-      }
-
-      dataStartIndex += dataChunks.length;
-    }
-
-    if (decrypted.length) {
-      const txAuxDataDaos = decrypted.map(({ txAuxDataDaos }) => txAuxDataDaos);
-      await this.db.addTxAuxDataBatch(txAuxDataDaos.flat());
-
-      const blocks = await this.node.getBlocks(from, take);
-      const targetBlocks = decrypted.map(({ blockNo }) => blocks.find(b => b.number === blockNo)!);
-      const txIndices = decrypted.map(({ txIndices }) => txIndices);
-      await this.processBlocks(targetBlocks, txIndices, txAuxDataDaos);
-    }
   }
 }

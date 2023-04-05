@@ -1,11 +1,10 @@
 import { AztecNode } from '@aztec/aztec-node';
-import { AztecAddress, createDebugLogger, InterruptableSleep, keccak } from '@aztec/foundation';
 import { Grumpkin } from '@aztec/barretenberg.js/crypto';
 import { BarretenbergWasm } from '@aztec/barretenberg.js/wasm';
-import { TxHash, createTxHashes } from '@aztec/tx';
+import { AztecAddress, createDebugLogger, InterruptableSleep } from '@aztec/foundation';
+import { TxHash } from '@aztec/tx';
 import { AccountState } from '../account_state/index.js';
 import { Database, TxDao } from '../database/index.js';
-import { L2Block } from '@aztec/l2-block';
 
 export class Synchroniser {
   private runningPromise?: Promise<void>;
@@ -39,13 +38,14 @@ export class Synchroniser {
           // Note: If less than `take` unverified data is returned, then I fetch only that number of blocks.
           const blocks = await this.node.getBlocks(from, unverifiedData.length);
           if (blocks.length !== unverifiedData.length) {
-            this.log(`Warning: Received less blocks than unverified data. Expected ${unverifiedData.length} blocks, got ${blocks.length}`);
+            throw new Error(
+              `Received less blocks than unverified data. Expected ${unverifiedData.length} blocks, got ${blocks.length}`,
+            );
           }
-
 
           this.log(`Forwarded ${unverifiedData.length} unverified data to ${this.accountStates.length} account states`);
           for (const accountState of this.accountStates) {
-            await accountState.processUnverifiedData(unverifiedData, fromUnverifiedData, take);
+            await accountState.process(blocks, unverifiedData);
           }
 
           from += unverifiedData.length;
