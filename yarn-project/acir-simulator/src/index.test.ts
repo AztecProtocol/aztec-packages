@@ -138,13 +138,14 @@ describe('ACIR simulator', () => {
       const result = await acirSimulator.run(txRequest, abi, contractAddress, EthAddress.ZERO, oldRoots);
 
       expect(result.preimages.newNotes).toHaveLength(1);
+      const newNote = result.preimages.newNotes[0];
+      expect(newNote.storageSlot).toEqual(computeSlot(new Fr(1n), owner, bbWasm));
+
       const newCommitments = result.callStackItem.publicInputs.newCommitments.filter(field => !field.equals(Fr.ZERO));
       expect(newCommitments).toHaveLength(1);
 
       const [commitment] = newCommitments;
-      expect(commitment).toEqual(
-        Fr.fromBuffer(acirSimulator.computeNoteHash(result.preimages.newNotes[0].preimage, bbWasm)),
-      );
+      expect(commitment).toEqual(Fr.fromBuffer(acirSimulator.computeNoteHash(newNote.preimage, bbWasm)));
     });
 
     it('should run the mint function', async () => {
@@ -164,7 +165,14 @@ describe('ACIR simulator', () => {
       const result = await acirSimulator.run(txRequest, abi, AztecAddress.ZERO, EthAddress.ZERO, oldRoots);
 
       expect(result.preimages.newNotes).toHaveLength(1);
-      expect(result.callStackItem.publicInputs.newCommitments.filter(field => !field.equals(Fr.ZERO))).toHaveLength(1);
+      const newNote = result.preimages.newNotes[0];
+      expect(newNote.storageSlot).toEqual(computeSlot(new Fr(1n), owner, bbWasm));
+
+      const newCommitments = result.callStackItem.publicInputs.newCommitments.filter(field => !field.equals(Fr.ZERO));
+      expect(newCommitments).toHaveLength(1);
+
+      const [commitment] = newCommitments;
+      expect(commitment).toEqual(Fr.fromBuffer(acirSimulator.computeNoteHash(newNote.preimage, bbWasm)));
     });
 
     it.skip('should run the transfer function', async () => {
