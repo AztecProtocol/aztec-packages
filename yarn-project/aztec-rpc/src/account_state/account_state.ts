@@ -132,7 +132,7 @@ export class AccountState {
       });
       txAuxDataDaosBatch.push(...txAuxDataDaos);
     }
-    await this.db.addTxAuxDataBatch(txAuxDataDaosBatch);
-    await this.db.addTxs(txDaos);
+    if (txAuxDataDaosBatch.length) await this.db.addTxAuxDataBatch(txAuxDataDaosBatch);
+    if (txDaos.length) await this.db.addTxs(txDaos);
   }
 }
