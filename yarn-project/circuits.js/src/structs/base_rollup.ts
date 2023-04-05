@@ -170,7 +170,6 @@ export class BaseRollupInputs {
  */
 export class BaseOrMergeRollupPublicInputs {
   constructor(
-
     public rollupType: RollupTypes,
     public rollupSubtreeHeight: Fr,
     public endAggregationObject: AggregationObject,
