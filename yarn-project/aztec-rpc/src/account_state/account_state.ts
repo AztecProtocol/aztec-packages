@@ -71,7 +71,7 @@ export class AccountState {
     let dataStartIndex =
       (l2Blocks[0].number - INITIAL_L2_BLOCK_NUM) * this.TXS_PER_BLOCK * KERNEL_NEW_COMMITMENTS_LENGTH;
     // We will store all the decrypted data in this array so that we can later batch insert it all into the database.
-    const blocksAndTxAuxData: { block: L2Block; txIndices: number[]; txAuxDataDaos: TxAuxDataDao[] }[] = [];
+    const blocksAndTxAuxData: { block: L2Block; userPertainingTxIndices: number[]; txAuxDataDaos: TxAuxDataDao[] }[] = [];
 
     // Iterate over both blocks and unverified data.
     for (let i = 0; i < unverifiedDatas.length; ++i) {
@@ -95,7 +95,7 @@ export class AccountState {
         }
       }
 
-      blocksAndTxAuxData.push({ block: l2Block, txIndices: [...txIndices], txAuxDataDaos });
+      blocksAndTxAuxData.push({ block: l2Block, userPertainingTxIndices: [...txIndices], txAuxDataDaos });
       dataStartIndex += dataChunks.length;
     }
 
@@ -106,15 +106,15 @@ export class AccountState {
   }
 
   private async processBlocksAndTxAuxData(
-    blocksAndTxAuxData: { block: L2Block; txIndices: number[]; txAuxDataDaos: TxAuxDataDao[] }[],
+    blocksAndTxAuxData: { block: L2Block; userPertainingTxIndices: number[]; txAuxDataDaos: TxAuxDataDao[] }[],
   ) {
     const txAuxDataDaosBatch: TxAuxDataDao[] = [];
     const txDaos: TxDao[] = [];
     for (let i = 0; i < blocksAndTxAuxData.length; ++i) {
-      const { block, txIndices, txAuxDataDaos } = blocksAndTxAuxData[i];
+      const { block, userPertainingTxIndices, txAuxDataDaos } = blocksAndTxAuxData[i];
       const blockHash = keccak(block.encode());
-      txIndices.map((txIndex, j) => {
-        const txHash = getTxHash(block, txIndex);
+      userPertainingTxIndices.map((userPertainingTxIndex, j) => {
+        const txHash = getTxHash(block, userPertainingTxIndex);
         this.log(`Processing tx ${txHash.toString()} from block ${block.number}`);
         const txAuxData = txAuxDataDaos[j];
         const isContractDeployment = true; // TODO
