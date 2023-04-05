@@ -9,7 +9,7 @@ import {
 import {
   AppendOnlyTreeSnapshot,
   BaseRollupInputs,
-  BaseRollupPublicInputs,
+  BaseOrMergeRollupPublicInputs,
   ConstantBaseRollupData,
   NullifierLeafPreimage,
 } from '../structs/base_rollup.js';
@@ -263,23 +263,25 @@ export function makeEcdsaSignature(seed = 1): EcdsaSignature {
   return new EcdsaSignature(Buffer.alloc(32, seed), Buffer.alloc(32, seed + 1));
 }
 
-export function makeBaseRollupPublicInputs(seed = 0) {
-  return new BaseRollupPublicInputs(
-    makeAggregationObject(seed + 0x100),
-    makeConstantBaseRollupData(seed + 0x200),
-    makeAppendOnlyTreeSnapshot(seed + 0x300),
+export function makeBaseOrMergeRollupPublicInputs(seed = 0, rollupType = 0) {
+  return new BaseOrMergeRollupPublicInputs(
+    rollupType,
+    fr(seed + 0x100),
+    makeAggregationObject(seed + 0x200),
+    makeConstantBaseRollupData(seed + 0x300),
     makeAppendOnlyTreeSnapshot(seed + 0x400),
     makeAppendOnlyTreeSnapshot(seed + 0x500),
     makeAppendOnlyTreeSnapshot(seed + 0x600),
     makeAppendOnlyTreeSnapshot(seed + 0x700),
     makeAppendOnlyTreeSnapshot(seed + 0x800),
-    [fr(seed + 0x901), fr(seed + 0x902)],
+    makeAppendOnlyTreeSnapshot(seed + 0x900),
+    [fr(seed + 0x1001), fr(seed + 0x1002)],
   );
 }
 
 export function makePreviousBaseRollupData(seed = 0) {
   return new PreviousRollupData(
-    makeBaseRollupPublicInputs(seed),
+    makeBaseOrMergeRollupPublicInputs(seed),
     makeDynamicSizeBuffer(16, seed + 0x50),
     makeVerificationKey(),
     seed + 0x110,

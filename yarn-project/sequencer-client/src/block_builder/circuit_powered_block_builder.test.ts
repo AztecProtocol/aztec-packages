@@ -1,14 +1,14 @@
 import {
   AppendOnlyTreeSnapshot,
   BaseRollupInputs,
-  BaseRollupPublicInputs,
+  BaseOrMergeRollupPublicInputs,
   CircuitsWasm,
   Fr,
   RootRollupPublicInputs,
   UInt8Vector,
 } from '@aztec/circuits.js';
 import {
-  makeBaseRollupPublicInputs,
+  makeBaseOrMergeRollupPublicInputs,
   makeNewContractData,
   makePrivateKernelPublicInputs,
   makeRootRollupPublicInputs,
@@ -41,8 +41,8 @@ describe('sequencer/circuit_block_builder', () => {
   let prover: MockProxy<Prover>;
 
   let blockNumber: number;
-  let baseRollupOutputLeft: BaseRollupPublicInputs;
-  let baseRollupOutputRight: BaseRollupPublicInputs;
+  let baseRollupOutputLeft: BaseOrMergeRollupPublicInputs;
+  let baseRollupOutputRight: BaseOrMergeRollupPublicInputs;
   let rootRollupOutput: RootRollupPublicInputs;
 
   let wasm: CircuitsWasm;
@@ -68,8 +68,8 @@ describe('sequencer/circuit_block_builder', () => {
     await updateRootTrees();
 
     // Create mock outputs for simualator
-    baseRollupOutputLeft = makeBaseRollupPublicInputs();
-    baseRollupOutputRight = makeBaseRollupPublicInputs();
+    baseRollupOutputLeft = makeBaseOrMergeRollupPublicInputs();
+    baseRollupOutputRight = makeBaseOrMergeRollupPublicInputs();
     rootRollupOutput = makeRootRollupPublicInputs();
 
     // Set up mocks

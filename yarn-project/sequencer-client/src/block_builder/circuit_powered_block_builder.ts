@@ -1,7 +1,7 @@
 import {
   AppendOnlyTreeSnapshot,
   BaseRollupInputs,
-  BaseRollupPublicInputs,
+  BaseOrMergeRollupPublicInputs,
   CircuitsWasm,
   ConstantBaseRollupData,
   CONTRACT_TREE_ROOTS_TREE_HEIGHT,
@@ -194,7 +194,7 @@ export class CircuitPoweredBlockBuilder {
   }
 
   // Validate that the new roots we calculated from manual insertions match the outputs of the simulation
-  protected async validateTrees(rollupOutput: BaseRollupPublicInputs | RootRollupPublicInputs) {
+  protected async validateTrees(rollupOutput: BaseOrMergeRollupPublicInputs | RootRollupPublicInputs) {
     await Promise.all([
       this.validateTree(rollupOutput, MerkleTreeId.CONTRACT_TREE, 'Contract'),
       this.validateTree(rollupOutput, MerkleTreeId.DATA_TREE, 'PrivateData'),
@@ -224,7 +224,7 @@ export class CircuitPoweredBlockBuilder {
 
   // Helper for validating a non-roots tree against a circuit simulation output
   protected async validateTree(
-    output: BaseRollupPublicInputs | RootRollupPublicInputs,
+    output: BaseOrMergeRollupPublicInputs | RootRollupPublicInputs,
     treeId: MerkleTreeId,
     name: 'PrivateData' | 'Contract' | 'Nullifier',
   ) {
@@ -254,9 +254,9 @@ export class CircuitPoweredBlockBuilder {
 
   // Builds the inputs for the root rollup circuit, without making any changes to trees
   protected async getRootRollupInput(
-    rollupOutputLeft: BaseRollupPublicInputs,
+    rollupOutputLeft: BaseOrMergeRollupPublicInputs,
     rollupProofLeft: Proof,
-    rollupOutputRight: BaseRollupPublicInputs,
+    rollupOutputRight: BaseOrMergeRollupPublicInputs,
     rollupProofRight: Proof,
   ) {
     const previousRollupData: RootRollupInputs['previousRollupData'] = [
@@ -284,7 +284,7 @@ export class CircuitPoweredBlockBuilder {
     });
   }
 
-  protected getPreviousRollupDataFromBaseRollup(rollupOutput: BaseRollupPublicInputs, rollupProof: Proof) {
+  protected getPreviousRollupDataFromBaseRollup(rollupOutput: BaseOrMergeRollupPublicInputs, rollupProof: Proof) {
     return new PreviousRollupData(
       rollupOutput,
       rollupProof,
