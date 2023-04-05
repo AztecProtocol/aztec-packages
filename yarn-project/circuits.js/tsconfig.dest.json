@@ -8,6 +8,9 @@
   "references": [
     {
       "path": "../foundation/tsconfig.dest.json"
+    },
+    {
+      "path": "../merkle-tree/tsconfig.dest.json"
     }
   ],
   "include": ["src"],
