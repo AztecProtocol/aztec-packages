@@ -202,6 +202,17 @@ jobs:
           name: "Build and test"
           command: build archiver
   
+  aztec-node:
+    machine:
+      image: ubuntu-2004:202010-01
+    resource_class: large
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Build and test"
+          command: build aztec-node
+
   aztec-rpc:
     machine:
       image: ubuntu-2004:202010-01
@@ -322,6 +333,7 @@ workflows:
       - world-state: *yarn_project
       - acir-simulator: *yarn_project
       - archiver: *yarn_project
+      - aztec-node: *yarn_project
       - aztec-rpc: *yarn_project
       - barretenberg-js: *yarn_project
       - l2-block: *yarn_project
