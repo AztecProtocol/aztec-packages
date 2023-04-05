@@ -71,7 +71,8 @@ export class AccountState {
     let dataStartIndex =
       (l2Blocks[0].number - INITIAL_L2_BLOCK_NUM) * this.TXS_PER_BLOCK * KERNEL_NEW_COMMITMENTS_LENGTH;
     // We will store all the decrypted data in this array so that we can later batch insert it all into the database.
-    const blocksAndTxAuxData: { block: L2Block; userPertainingTxIndices: number[]; txAuxDataDaos: TxAuxDataDao[] }[] = [];
+    const blocksAndTxAuxData: { block: L2Block; userPertainingTxIndices: number[]; txAuxDataDaos: TxAuxDataDao[] }[] =
+      [];
 
     // Iterate over both blocks and unverified data.
     for (let i = 0; i < unverifiedDatas.length; ++i) {
