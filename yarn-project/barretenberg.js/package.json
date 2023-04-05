@@ -13,8 +13,9 @@
     "tsconfig": "./tsconfig.dest.json"
   },
   "scripts": {
-    "build": "tsc -b tsconfig.dest.json && cp ./src/wasm/barretenberg.wasm ./dest/wasm",
+    "build": "tsc -b tsconfig.dest.json && yarn build:link",
     "build:dev": "tsc -b tsconfig.dest.json --watch",
+    "build:link": "ln -nf src/wasm/barretenberg.wasm dest/wasm/barretenberg.wasm",
     "clean": "rm -rf ./dest .tsbuildinfo",
     "formatting": "prettier --check ./src && eslint --max-warnings 0 ./src",
     "formatting:fix": "prettier -w ./src",

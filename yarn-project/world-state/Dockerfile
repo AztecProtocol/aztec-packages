@@ -18,14 +18,11 @@ RUN yarn build && yarn formatting
 # (3.5) test
 RUN yarn test
 
-# (4) copy bb.js wasm binaries
-RUN cp /usr/src/circuits/cpp/build-wasm/bin/aztec3-circuits.wasm /usr/src/yarn-project/barretenberg.js/dest/wasm/barretenberg.wasm
-
-# (5) Prune dev dependencies. See comment in base image.
+# (4) Prune dev dependencies. See comment in base image.
 RUN yarn cache clean
 RUN yarn workspaces focus --production > /dev/null
 
-# (6) set up entry point
+# (5) set up entry point
 FROM node:18-alpine
 COPY --from=builder /usr/src/yarn-project/world-state /usr/src/yarn-project/world-state
 WORKDIR /usr/src/yarn-project/world-state
