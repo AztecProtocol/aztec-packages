@@ -35,7 +35,6 @@ const encodeTreeValue = (leafData: LeafData) => {
   return Buffer.concat([valueAsBuffer, indexAsBuffer, nextValueAsBuffer]);
 };
 
-// TODO: Check which version of hash we need to match the cpp implementation
 const hashEncodedTreeValue = (leaf: LeafData, hasher: Hasher) => {
   return hasher.compressInputs([leaf.value, leaf.nextIndex, leaf.nextValue].map(val => toBufferBE(val, 32)));
 };
@@ -180,7 +179,7 @@ export class IndexedTree implements MerkleTree {
    */
   public async updateLeaf(leaf: LeafData, index: bigint): Promise<void> {
     this.cachedLeaves[Number(index)] = leaf;
-    const encodedLeaf = encodeTreeValue(leaf);
+    const encodedLeaf = hashEncodedTreeValue(leaf, this.hasher);
     await this.underlying.updateLeaf(encodedLeaf, index);
   }
 
