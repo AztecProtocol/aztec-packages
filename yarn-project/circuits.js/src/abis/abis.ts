@@ -85,19 +85,21 @@ export async function computeContractAddress(
   return AztecAddress.fromBuffer(resultBuf);
 }
 
-export async function computeContractLeaf(wasm: CircuitsWasm, newContractData: NewContractData) {
+export function computeContractLeaf(wasm: CircuitsWasm, newContractData: NewContractData): Promise<Buffer> {
   if (
     newContractData.contractAddress.isZero() &&
     newContractData.portalContractAddress.isZero() &&
     newContractData.functionTreeRoot.isZero()
   ) {
-    return Buffer.alloc(32, 0);
+    return Promise.resolve(Buffer.alloc(32, 0));
   }
-  return await pedersenCompressInputs(wasm as any as BarretenbergWasm, [
-    newContractData.contractAddress.toBuffer(),
-    newContractData.portalContractAddress.toBuffer32(),
-    newContractData.functionTreeRoot.toBuffer(),
-  ]);
+  return Promise.resolve(
+    pedersenCompressInputs(wasm as any as BarretenbergWasm, [
+      newContractData.contractAddress.toBuffer(),
+      newContractData.portalContractAddress.toBuffer32(),
+      newContractData.functionTreeRoot.toBuffer(),
+    ]),
+  );
   // const data = newContractData.toBuffer();
 
   // wasm.call('pedersen__init');
