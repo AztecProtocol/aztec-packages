@@ -126,20 +126,25 @@ describe('e2e_zk_token_contract', () => {
   /**
    * Milestone 1.4
    */
-  it.skip('should call mint and increase balance', async () => {
+  it('should call mint and increase balance', async () => {
     const mintAmount = 65n;
 
-    await deployContract();
+    const [owner, receiver] = accounts;
+
+    await deployContract(0n, pointToPublicKey(await aztecRpcServer.getAccountPublicKey(owner)));
 
     await expectStorageSlot(0, 0n);
-    await expectStorageSlot(1, 0n);
+    await expectEmptyStorageSlotForAccount(1);
 
-    const receipt = await contract.methods.mint(mintAmount).send({ from: accounts[1] }).getReceipt();
+    const receipt = await contract.methods
+      .mint(mintAmount, pointToPublicKey(await aztecRpcServer.getAccountPublicKey(receiver)))
+      .send({ from: receiver })
+      .getReceipt();
     expect(receipt.status).toBe(true);
 
     await expectStorageSlot(0, 0n);
     await expectStorageSlot(1, mintAmount);
-  });
+  }, 30_000);
 
   /**
    * Milestone 1.5
