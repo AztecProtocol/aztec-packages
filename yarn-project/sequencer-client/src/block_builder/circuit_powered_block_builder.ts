@@ -82,8 +82,15 @@ export class CircuitPoweredBlockBuilder {
     // Collect all new nullifiers, commitments, and contracts from all txs in this block
     const newNullifiers = flatMap(txs, tx => tx.data.end.newNullifiers);
     const newCommitments = flatMap(txs, tx => tx.data.end.newCommitments);
-    const newContracts = flatMap(txs, tx => tx.data.end.newContracts).map(cd =>
-      Fr.fromBuffer(hashNewContractData(this.wasm, cd)),
+    // const newContracts = flatMap(txs, tx => tx.data.end.newContracts).map(cd =>
+    //   Fr.fromBuffer(hashNewContractData(this.wasm, cd)),
+    // );
+    const newContracts = await Promise.all(
+      txs
+        .flatMap(tx => tx.data.end.newContracts)
+        .map(async newContract => {
+          return Fr.fromBuffer(await hashNewContractData(this.wasm, newContract));
+        }),
     );
     const newContractData = flatMap(txs, tx => tx.data.end.newContracts).map(
       n => new ContractData(n.contractAddress, n.portalContractAddress),
@@ -391,10 +398,18 @@ export class CircuitPoweredBlockBuilder {
 
     // Update the contract and data trees with the new items being inserted to get the new roots
     // that will be used by the next iteration of the base rollup circuit, skipping the empty ones
-    const newContracts = flatMap([tx1, tx2], tx =>
-      tx.data.end.newContracts.map(cd => hashNewContractData(this.wasm, cd)),
-    );
+    // const newContracts = flatMap([tx1, tx2], tx =>
+    //   tx.data.end.newContracts.map(cd => hashNewContractData(this.wasm, cd)),
+    // );
     const newCommitments = flatMap([tx1, tx2], tx => tx.data.end.newCommitments.map(x => x.toBuffer()));
+
+    const newContracts = await Promise.all(
+      [tx1, tx2]
+        .flatMap(tx => tx.data.end.newContracts)
+        .map(async newContract => {
+          return await hashNewContractData(this.wasm, newContract);
+        }),
+    );
 
     // console.log(`Contract root before insertion: `, await this.getTreeSnapshot(MerkleTreeId.CONTRACT_TREE).then(t => t.root.toBuffer().toString('hex')))
     // console.log(`New contracts to insert`, flatMap([tx1, tx2], tx => tx.data.end.newContracts.map(nc => [nc.contractAddress, nc.functionTreeRoot, nc.portalContractAddress].join('/'))).join(', '))

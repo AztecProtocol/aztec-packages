@@ -1,8 +1,10 @@
 import { Buffer } from 'buffer';
 import { AztecAddress, Fr, serializeBufferArrayToVector } from '@aztec/foundation';
 import { CircuitsWasm } from '../wasm/index.js';
-import { FunctionData, FUNCTION_SELECTOR_NUM_BYTES, NullifierLeafPreimage, TxRequest } from '../index.js';
+import { FunctionData, FUNCTION_SELECTOR_NUM_BYTES, TxRequest, NewContractData } from '../index.js';
 import { serializeToBuffer } from '../utils/serialize.js';
+import { BarretenbergWasm } from '@aztec/barretenberg.js/wasm';
+import { pedersenCompressInputs } from '@aztec/barretenberg.js/crypto';
 
 export async function hashTxRequest(wasm: CircuitsWasm, txRequest: TxRequest) {
   const data = txRequest.toBuffer();
@@ -83,10 +85,23 @@ export async function computeContractAddress(
   return AztecAddress.fromBuffer(resultBuf);
 }
 
-export async function computeContractLeaf(wasm: CircuitsWasm, leafPreimage: NullifierLeafPreimage) {
-  const data = leafPreimage.toBuffer();
-  wasm.call('pedersen__init');
-  wasm.writeMemory(0, leafPreimage.toBuffer());
-  await wasm.asyncCall('abis__compute_contract_leaf', 0, data.length);
-  return Buffer.from(wasm.getMemorySlice(data.length, data.length + 32));
+export async function computeContractLeaf(wasm: CircuitsWasm, newContractData: NewContractData) {
+  if (
+    newContractData.contractAddress.isZero() &&
+    newContractData.portalContractAddress.isZero() &&
+    newContractData.functionTreeRoot.isZero()
+  ) {
+    return Buffer.alloc(32, 0);
+  }
+  return await pedersenCompressInputs(wasm as any as BarretenbergWasm, [
+    newContractData.contractAddress.toBuffer(),
+    newContractData.portalContractAddress.toBuffer32(),
+    newContractData.functionTreeRoot.toBuffer(),
+  ]);
+  // const data = newContractData.toBuffer();
+
+  // wasm.call('pedersen__init');
+  // wasm.writeMemory(0, data);
+  // await wasm.asyncCall('abis__compute_contract_leaf', 0, data.length);
+  // return Buffer.from(wasm.getMemorySlice(data.length, data.length + 32));
 }

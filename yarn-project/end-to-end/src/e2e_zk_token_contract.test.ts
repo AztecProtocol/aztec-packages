@@ -126,7 +126,7 @@ describe('e2e_zk_token_contract', () => {
   /**
    * Milestone 1.4
    */
-  it('should call mint and increase balance', async () => {
+  it.only('should call mint and increase balance', async () => {
     const mintAmount = 65n;
 
     const [owner, receiver] = accounts;

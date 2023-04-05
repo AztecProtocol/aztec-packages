@@ -205,6 +205,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/circuits.js@workspace:circuits.js"
   dependencies:
+    "@aztec/barretenberg.js": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@jest/globals": ^29.4.3
     "@types/detect-node": ^2.0.0

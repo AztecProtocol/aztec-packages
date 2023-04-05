@@ -17,7 +17,9 @@ import {
   FUNCTION_TREE_HEIGHT,
   VerificationKey,
   makeEmptyProof,
+  NewContractData,
 } from '@aztec/circuits.js';
+import { computeContractLeaf } from '@aztec/circuits.js/abis';
 import { createDebugLogger, Fr } from '@aztec/foundation';
 
 export interface FunctionTreeInfo {
@@ -40,9 +42,14 @@ export class KernelProver {
     const signedTxRequest = new SignedTxRequest(txRequest, txSignature);
 
     const functionTreeInfo = await getFunctionTreeInfo(executionResult.callStackItem);
+    const newContractData = new NewContractData(
+      executionResult.callStackItem.publicInputs.callContext.storageContractAddress,
+      executionResult.callStackItem.publicInputs.callContext.portalContractAddress,
+      Fr.fromBuffer(functionTreeInfo.root),
+    );
     const contractLeafMembershipWitness = txRequest.functionData.isConstructor
       ? this.createRandomMembershipWitness()
-      : await getContractSiblingPath(functionTreeInfo.root);
+      : await getContractSiblingPath(await computeContractLeaf(wasm, newContractData));
 
     const privateCallData = new PrivateCallData(
       executionResult.callStackItem,
