@@ -64,6 +64,8 @@ describe('AztecNode', () => {
 
     const [settledBlock] = await waitForBlocks(1);
 
+    console.log(settledBlock.newContracts);
+
     expect(settledBlock.number).toBe(1);
     expect(settledBlock.newContracts).toHaveLength(1);
     expect(settledBlock.newContracts[0]).toEqual(hashNewContractData(wasm, tx.data.end.newContracts[0]));
