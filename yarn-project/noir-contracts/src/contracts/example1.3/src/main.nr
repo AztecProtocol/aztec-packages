@@ -1,5 +1,7 @@
 contract PrivateToken {
-    use dep::aztec3::notes::note::Note;
+    use dep::aztec3::notes::value_note::Note;
+    use dep::aztec3::notes::value_note::get_value_note_functions;
+    use dep::aztec3::notes::generic_note_functions::GenericNoteFunctions;
     use dep::aztec3::types::point::Point;
     use dep::aztec3::state_vars::set::Set;
     use dep::aztec3::abi::Inputs;
@@ -7,7 +9,7 @@ contract PrivateToken {
     use dep::aztec3::abi::FinalOutputs;
 
     //*********************************/
-    global a = Set { storage_slot: 1 };
+    global a = Set { storage_slot: 1, note_functions: get_value_note_functions() };
     // Should eventually be replaced by:
     // `a: Set<Note>;`
     //*********************************/

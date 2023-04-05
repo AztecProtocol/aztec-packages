@@ -2,13 +2,17 @@ contract PrivateToken {
     use dep::aztec3::abi::Inputs;
     use dep::aztec3::abi::Outputs;
     use dep::aztec3::abi::FinalOutputs;
-    use dep::aztec3::notes::note::Note;
+    use dep::aztec3::notes::value_note::Note;
+    // use dep::aztec3::notes::value_note::get_value_note_functions;
+    // use dep::aztec3::notes::value_note::note_size;
+    // use dep::aztec3::notes::generic_note_functions::GenericNoteFunctions;
     use dep::aztec3::types::point::Point;
     use dep::aztec3::state_vars::set::Set;
+    use dep::aztec3::state_vars::set::new_value_note_set;
     use dep::aztec3::state_vars::map::Map;
 
     //*********************************/
-    global balances = Map { storage_slot: 1 };
+    global balances = Map { storage_slot: 1, new_v: new_value_note_set };
     // Should eventually be replaced by:
     // `balances: Mapping<Field, Set<Note>>;`
     //*********************************/
@@ -40,8 +44,10 @@ contract PrivateToken {
         let owner_balance = balances.at(owner.x);
         let note = Note::new(initial_supply, owner);
 
-        let note_hash = note.compute_note_hash();
-        outputs.return_values = outputs.return_values.push(note_hash);
+        // MIKE: this should not happen here. Note methods should only be called from within `Set`.
+        // In fact, what's the reason for returning the note_hash via return_values? Seems incorrect.
+        // let note_hash = note.compute_note_hash();
+        // outputs.return_values = outputs.return_values.push(note_hash);
 
         owner_balance.insert(inputs, outputs, note)
             .finish(inputs)

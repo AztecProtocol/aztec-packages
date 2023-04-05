@@ -7,7 +7,7 @@ global MAX_PRIVATE_CALL_STACK : comptime Field = 4;
 global MAX_PUBLIC_CALL_STACK: comptime Field = 4;
 global MAX_L1_MSG_STACK : comptime Field = 2;
 
-use crate::notes::note::Note;
+// use crate::notes::value_note::Note;
 use crate::types::vec::BoundedVec;
 
 // Inputs are expected to be provided to each contract function
@@ -52,7 +52,7 @@ struct Outputs {
 
     old_private_data_tree_root: Field,
 
-    new_note_values: [Field; 4],
+    new_notes: [Field; 4],
     new_note_owner_xs: [Field; 4],
     new_note_owner_ys: [Field; 4],
     new_note_randomness: [Field; 4],
@@ -302,23 +302,25 @@ impl IntermediateOutputs {
         self
     }
 
-    fn push_new_note(mut self: Self, note: Note) -> Self {
-        self.new_note_values = self.new_note_values.push(note.value);
-        self.new_note_owner_xs = self.new_note_owner_xs.push(note.owner.x);
-        self.new_note_owner_ys = self.new_note_owner_ys.push(note.owner.y);
-        self.new_note_randomness = self.new_note_randomness.push(note.randomness);
-        self.new_note_nonce = self.new_note_nonce.push(note.nonce);
-        self.new_note_is_dummies = self.new_note_is_dummies.push(note.is_dummy);
+    fn push_new_note<N, Note>(mut self: Self, note: Note, note_to_fields: fn(Note) -> [Field; N]) -> Self {
+        let note_fields: [Field; N] = note_to_fields(note);
+        self.new_note_values = self.new_note_values.push(note_fields[0]);
+        self.new_note_owner_xs = self.new_note_owner_xs.push(note_fields[1]);
+        self.new_note_owner_ys = self.new_note_owner_ys.push(note_fields[2]);
+        self.new_note_randomness = self.new_note_randomness.push(note_fields[3]);
+        self.new_note_nonce = self.new_note_nonce.push(note_fields[4]);
+        self.new_note_is_dummies = self.new_note_is_dummies.push(note_fields[5] as bool);
         self
     }
 
-    fn push_nullified_note(mut self: Self, note: Note) -> Self {
-        self.nullified_note_values = self.nullified_note_values.push(note.value);
-        self.nullified_note_owner_xs = self.nullified_note_owner_xs.push(note.owner.x);
-        self.nullified_note_owner_ys = self.nullified_note_owner_ys.push(note.owner.y);
-        self.nullified_note_randomness = self.nullified_note_randomness.push(note.randomness);
-        self.nullified_note_nonce = self.nullified_note_nonce.push(note.nonce);
-        self.nullified_note_is_dummies = self.nullified_note_is_dummies.push(note.is_dummy);
+    fn push_nullified_note<N, Note>(mut self: Self, note: Note, note_to_fields: fn(Note) -> [Field; N]) -> Self {
+        let note_fields: [Field; N] = note_to_fields(note);
+        self.nullified_note_values = self.nullified_note_values.push(note_fields[0]);
+        self.nullified_note_owner_xs = self.nullified_note_owner_xs.push(note_fields[1]);
+        self.nullified_note_owner_ys = self.nullified_note_owner_ys.push(note_fields[2]);
+        self.nullified_note_randomness = self.nullified_note_randomness.push(note_fields[3]);
+        self.nullified_note_nonce = self.nullified_note_nonce.push(note_fields[4]);
+        self.nullified_note_is_dummies = self.nullified_note_is_dummies.push(note_fields[5] as bool);
         self
     }
 }
