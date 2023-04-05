@@ -4,7 +4,7 @@ import isNode from 'detect-node';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 
-const NAME = 'barretenberg';
+const NAME = 'primitives';
 /**
  * A low-level wrapper for an instance of the barretenberg primitives wasm.
  */
