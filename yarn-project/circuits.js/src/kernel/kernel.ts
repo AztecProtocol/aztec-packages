@@ -1,4 +1,4 @@
-import { BufferReader, serializeBufferArrayToVector } from '@aztec/foundation';
+import { BufferReader } from '@aztec/foundation';
 import { Buffer } from 'buffer';
 import {
   Fr,
@@ -8,7 +8,7 @@ import {
   PrivateKernelPublicInputs,
   SignedTxRequest,
 } from '../index.js';
-import { boolToBuffer, uint8ArrayToNum } from '../utils/serialize.js';
+import { boolToBuffer, serializeToBuffer, uint8ArrayToNum } from '../utils/serialize.js';
 import { CircuitsWasm } from '../wasm/index.js';
 
 export async function getDummyPreviousKernelData(wasm: CircuitsWasm) {
@@ -22,20 +22,18 @@ export async function getDummyPreviousKernelData(wasm: CircuitsWasm) {
 }
 
 export async function computeFunctionTree(wasm: CircuitsWasm, leaves: Buffer[]): Promise<Fr[]> {
-  const inputVector = serializeBufferArrayToVector(leaves);
   // Init pedersen if needed
   wasm.call('pedersen__init');
-
-  wasm.writeMemory(0, inputVector);
 
   // Size of the tree is 2^height times size of each element,
   // plus 4 for the size used in the std::vector serialization
   const outputBufSize = 2 ** (FUNCTION_TREE_HEIGHT + 1) * Fr.SIZE_IN_BYTES + 4;
 
   // Allocate memory for the input and output buffers, and populate input buffer
-  const inputBufPtr = wasm.call('bbmalloc', inputVector.length);
+  const inputBuf = serializeToBuffer(leaves);
+  const inputBufPtr = wasm.call('bbmalloc', inputBuf.length);
   const outputBufPtr = wasm.call('bbmalloc', outputBufSize * 100);
-  wasm.writeMemory(inputBufPtr, inputVector);
+  wasm.writeMemory(inputBufPtr, inputBuf);
 
   // Run and read outputs
   await wasm.asyncCall('abis__compute_function_tree', inputBufPtr, leaves.length, outputBufPtr);

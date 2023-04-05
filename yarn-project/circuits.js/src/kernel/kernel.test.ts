@@ -23,6 +23,7 @@ describe('abis wasm bindings', () => {
     const tree = await computeFunctionTree(wasm, leaves);
 
     expect(tree).toHaveLength(2 ** (FUNCTION_TREE_HEIGHT + 1) - 1);
+    expect(tree.slice(0, numLeaves)).toEqual(leaves.map(leaf => Fr.fromBuffer(leaf)));
 
     const root = tree[tree.length - 1];
     expect(root).toEqual(Fr.fromBuffer(await computeFunctionTreeRoot(wasm, leaves)));
