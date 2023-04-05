@@ -8,9 +8,6 @@
   "references": [
     {
       "path": "../foundation/tsconfig.dest.json"
-    },
-    {
-      "path": "../barretenberg.js/tsconfig.dest.json"
     }
   ],
   "include": ["src"],
