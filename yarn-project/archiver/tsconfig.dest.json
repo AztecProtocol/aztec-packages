@@ -14,8 +14,7 @@
     },
     {
       "path": "../l2-block/tsconfig.dest.json"
-    },
-    { "path": "../merkle-tree/tsconfig.dest.json" }
+    }
   ],
   "exclude": ["**/*.test.*", "**/fixtures/*"],
   "include": ["src"]

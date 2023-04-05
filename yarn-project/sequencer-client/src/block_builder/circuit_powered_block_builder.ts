@@ -19,7 +19,7 @@ import {
   VK_TREE_HEIGHT,
 } from '@aztec/circuits.js';
 import { Fr, createDebugLogger, toBigIntBE } from '@aztec/foundation';
-import { LeafData } from '@aztec/merkle-tree';
+import { LeafData, SiblingPath } from '@aztec/merkle-tree';
 import { Tx } from '@aztec/tx';
 import { MerkleTreeId, MerkleTreeOperations } from '@aztec/world-state';
 import flatMap from 'lodash.flatmap';
