@@ -186,7 +186,7 @@ export class IndexedTree implements MerkleTree {
   /**
    * Special case which will force append zero into the tree by increasing its size
    */
-  private async appendZero(): Promise<void> {
+  private appendZero(): void {
     this.underlying.forceAppendEmptyLeaf();
   }
 

@@ -1,6 +1,5 @@
 import { BufferReader, randomBytes } from '@aztec/foundation';
 import { Fq, Fr } from '@aztec/foundation/fields';
-import { SiblingPath } from '@aztec/merkle-tree';
 import { assertLength, range } from '../utils/jsUtils.js';
 import { Bufferable, serializeToBuffer } from '../utils/serialize.js';
 import times from 'lodash.times';
@@ -29,11 +28,11 @@ export class MembershipWitness<N extends number> {
     return new MembershipWitness<N>(pathSize, leafIndex, arr);
   }
 
-  static fromSiblingPath(leafIndex: number, siblingPath: SiblingPath) {
+  static fromBufferArray(leafIndex: number, siblingPath: Buffer[]) {
     return new MembershipWitness(
-      siblingPath.data.length,
+      siblingPath.length,
       leafIndex,
-      siblingPath.data.map(x => Fr.fromBuffer(x)),
+      siblingPath.map(x => Fr.fromBuffer(x)),
     );
   }
 }
