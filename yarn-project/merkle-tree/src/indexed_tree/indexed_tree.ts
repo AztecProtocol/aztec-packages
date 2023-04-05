@@ -260,7 +260,7 @@ export class IndexedTree implements MerkleTree {
    * Saves the initial leaf to this object and saves it to a database.
    * TODO: what will the size be
    */
-  private async init(initialSize = 0) {
+  private async init(initialSize = 1) {
     // TODO: increase the initial size of the tree to the size of a full rollup insertion - change reflected in c++ to allow subtree insertion
 
     this.leaves.push(initialLeaf);

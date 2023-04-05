@@ -178,7 +178,6 @@ export class CircuitPoweredBlockBuilder {
 
   protected async baseRollupCircuit(tx1: Tx, tx2: Tx) {
     const rollupInput = await this.buildBaseRollupInput(tx1, tx2);
-    // console.log(`Da rollup input`, toFriendlyJSON(rollupInput));
     const rollupOutput = await this.simulator.baseRollupCircuit(rollupInput);
     await this.validateTrees(rollupOutput);
     return [rollupInput, rollupOutput] as const;
