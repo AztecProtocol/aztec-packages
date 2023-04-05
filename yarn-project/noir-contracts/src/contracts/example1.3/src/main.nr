@@ -9,6 +9,7 @@ contract PrivateToken {
     use dep::aztec3::abi::FinalOutputs;
 
     //*********************************/
+    // Set<Note, N>
     global a = Set { storage_slot: 1, note_functions: get_value_note_functions() };
     // Should eventually be replaced by:
     // `a: Set<Note>;`

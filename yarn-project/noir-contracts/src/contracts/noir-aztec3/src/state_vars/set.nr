@@ -1,7 +1,7 @@
 use dep::std;
 use crate::abi::Inputs;
 use crate::abi::IntermediateOutputs;
-// use crate::notes::value_note::Note;
+use crate::notes::value_note::Note;
 use crate::notes::generic_note_functions::GenericNoteFunctions;
 use crate::notes::value_note::get_value_note_functions;
 use crate::types::point::Point;
@@ -9,16 +9,16 @@ use crate::state_vars::note_getter_data::NoteGetterData;
 
 
 #[builtin(notifyCreatedNote)]
-fn notify_created_note<Note>(
+fn notify_created_note<T>(
     _storage_slot: Field,
-    _note: Note,
+    _note: T,
 ) -> Field {}
 
 #[builtin(notifyNullifiedNote)]
-fn notify_nullified_note<Note>(
+fn notify_nullified_note<T>(
     _storage_slot: Field,
     _nullifier: Field,
-    _note: Note,
+    _note: T,
 ) -> Field {}
 
 #[builtin(getNotes2)]
@@ -48,11 +48,11 @@ fn get_notes_2_internal(
 //     }
 // }
 
-fn get_2_notes<N, Note, NoteGetterData>(
+fn get_2_notes<N, T, NoteGetterData>(
     contract_address: Field,
     storage_slot: Field,
-    note_from_fields: fn ([Field; N], comptime Field) -> Note,
-    note_getter_data_from_fields: fn ([Field], comptime Field, fn ([Field; N], comptime Field) -> Note) -> NoteGetterData
+    note_from_fields: fn ([Field; N], comptime Field) -> T,
+    note_getter_data_from_fields: fn ([Field], comptime Field, fn ([Field; N], comptime Field) -> T) -> NoteGetterData
 ) -> (NoteGetterData, NoteGetterData) {
     let notes_as_fields = get_notes_2_internal(contract_address, storage_slot);
     let data1 = note_getter_data_from_fields(notes_as_fields, 0, note_from_fields);
@@ -61,14 +61,13 @@ fn get_2_notes<N, Note, NoteGetterData>(
 }
 
 
-
-struct Set<Note, N> {
+struct Set<T, N> {
     storage_slot: Field,
-    note_functions: GenericNoteFunctions<Note, N>,
+    note_functions: GenericNoteFunctions<T, N>,
 }
 
-impl<Note, N> Set<Note, N> {
-    fn new(storage_slot: Field, note_functions: GenericNoteFunctions<Note, N>) -> Self {
+impl<T, N> Set<T, N> {
+    fn new(storage_slot: Field, note_functions: GenericNoteFunctions<T, N>) -> Self {
         Self { storage_slot, note_functions }
     }
 
@@ -76,12 +75,14 @@ impl<Note, N> Set<Note, N> {
         self,
         inputs: Inputs,
         mut outputs: IntermediateOutputs,
-        note: Note,
+        note: T,
     ) -> IntermediateOutputs {
         let contract_address = inputs.call_context.storage_contract_address;
         let storage_slot = self.storage_slot;
 
-        let { compute_note_hash, to_fields } = self.note_functions;
+        let compute_note_hash = self.note_functions.compute_note_hash;
+        let to_fields = self.note_functions.to_fields;
+
         let note_hash = compute_note_hash(note);
         let siloed_note_hash = dep::std::hash::pedersen([
             crate::NoteStorageSlot,
@@ -100,7 +101,7 @@ impl<Note, N> Set<Note, N> {
         self,
         inputs: Inputs,
         mut outputs: IntermediateOutputs,
-    ) -> (IntermediateOutputs, (Note, Note)) {
+    ) -> (IntermediateOutputs, (T, T)) {
         let contract_address = inputs.call_context.storage_contract_address;
         let storage_slot = self.storage_slot;
 
@@ -109,14 +110,15 @@ impl<Note, N> Set<Note, N> {
         //     NoteGetterData { note: Note::dummy(), leaf_index: 0, sibling_path: [1, 2, 3, 4, 5], root: 1 },
         //     NoteGetterData { note: Note::dummy(), leaf_index: 1, sibling_path: [1, 2, 3, 4, 5], root: 1 },
         // );
-        let note_getter_data = get_2_notes(contract_address, storage_slot, self.note_functions.from_fields, NoteGetterData::from_fields);
+        let f = NoteGetterData::from_fields;
+        let note_getter_data = get_2_notes(contract_address, storage_slot, self.note_functions.from_fields, f);
 
         // Forwarded vars added due to https://github.com/noir-lang/noir/issues/1088
         let process_data = |data, storage_slot_forwarded, contract_address_forwarded| {
             let NoteGetterData { note, leaf_index, sibling_path, root } = data;
             let _ignored = sibling_path;
 
-            let { compute_note_hash } = self.note_functions;
+            let compute_note_hash = self.note_functions.compute_note_hash;
             let note_hash = compute_note_hash(note);
             let siloed_note_hash = dep::std::hash::pedersen([
                 crate::NoteStorageSlot,
@@ -152,12 +154,15 @@ impl<Note, N> Set<Note, N> {
         self,
         inputs: Inputs,
         mut outputs: IntermediateOutputs,
-        note: Note,
+        note: T,
     ) -> IntermediateOutputs {
         let contract_address = inputs.call_context.storage_contract_address;
         let storage_slot = self.storage_slot;
 
-        let { compute_note_hash, compute_nullifier, to_fields } = self.note_functions;
+        let compute_note_hash = self.note_functions.compute_note_hash;
+        let compute_nullifier = self.note_functions.compute_nullifier;
+        let to_fields = self.note_functions.to_fields;
+
         let note_hash = compute_note_hash(note);
         let siloed_note_hash = dep::std::hash::pedersen([
             crate::NoteStorageSlot,
@@ -177,6 +182,6 @@ impl<Note, N> Set<Note, N> {
 
 // Specialisations:
 
-fn new_value_note_set(storage_slot: Field) -> Set {
+fn new_value_note_set(storage_slot: Field) -> Set<Note, 6> {
     Set::new(storage_slot, get_value_note_functions())
 }

@@ -3,6 +3,7 @@ contract PrivateToken {
     use dep::aztec3::abi::Outputs;
     use dep::aztec3::abi::FinalOutputs;
     use dep::aztec3::notes::value_note::Note;
+    use dep::aztec3::state_vars::note_getter_data::NoteGetterData;
     // use dep::aztec3::notes::value_note::get_value_note_functions;
     // use dep::aztec3::notes::value_note::note_size;
     // use dep::aztec3::notes::generic_note_functions::GenericNoteFunctions;
@@ -12,6 +13,8 @@ contract PrivateToken {
     use dep::aztec3::state_vars::map::Map;
 
     //*********************************/
+    // Map<Set<Note>>
+    // Set::new() <-- new_v
     global balances = Map { storage_slot: 1, new_v: new_value_note_set };
     // Should eventually be replaced by:
     // `balances: Mapping<Field, Set<Note>>;`
@@ -28,6 +31,7 @@ contract PrivateToken {
         // owner: pub Point,
         inputs: pub Inputs,
     ) -> pub FinalOutputs {
+        // let f = NoteGetterData::from_fields;
         //*********************************/
         // Should eventually be hidden:
         // let mut public_inputs = abi::PublicInputs::empty();

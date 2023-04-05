@@ -1,5 +1,5 @@
 struct GenericNoteFunctions<Note, N> {
-    // size: fn () -> comptime Field,
+    // note: Note,
 
     from_fields: fn ([Field; N], comptime Field) -> (Note, comptime Field),
 
