@@ -8,7 +8,7 @@ import {
   PrivateKernelPublicInputs,
   SignedTxRequest,
 } from '../index.js';
-import { boolToBuffer, serializeToBuffer, uint8ArrayToNum } from '../utils/serialize.js';
+import { boolToBuffer, uint8ArrayToNum } from '../utils/serialize.js';
 import { CircuitsWasm } from '../wasm/index.js';
 
 export async function getDummyPreviousKernelData(wasm: CircuitsWasm) {
