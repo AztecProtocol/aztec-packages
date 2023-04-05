@@ -3,7 +3,7 @@ import { Grumpkin } from '@aztec/barretenberg.js/crypto';
 import { KERNEL_NEW_COMMITMENTS_LENGTH } from '@aztec/circuits.js';
 import { AztecAddress, createDebugLogger, Fr, keccak, Point } from '@aztec/foundation';
 import { L2Block, UnverifiedData } from '@aztec/l2-block';
-import { getTxHash } from '@aztec/tx';
+import { createTxHashes, getTxHash } from '@aztec/tx';
 import { NotePreimage, TxAuxData } from '../aztec_rpc_server/tx_aux_data/index.js';
 import { Database, TxAuxDataDao, TxDao } from '../database/index.js';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/l1-contracts';
@@ -102,6 +102,7 @@ export class AccountState {
     await this.processBlocksAndTxAuxData(blocksAndTxAuxData);
 
     this.syncedToBlock = l2Blocks[l2Blocks.length - 1].number;
+    this.log(`Synched block ${this.syncedToBlock}`);
   }
 
   private async processBlocksAndTxAuxData(
@@ -131,8 +132,23 @@ export class AccountState {
         });
       });
       txAuxDataDaosBatch.push(...txAuxDataDaos);
+      await this.updateBlockInfoInBlockTxs(block);
     }
     if (txAuxDataDaosBatch.length) await this.db.addTxAuxDataBatch(txAuxDataDaosBatch);
     if (txDaos.length) await this.db.addTxs(txDaos);
+  }
+
+  private async updateBlockInfoInBlockTxs(block: L2Block) {
+    for (const txHash of createTxHashes(block)) {
+      const txDao: TxDao | undefined = await this.db.getTx(txHash);
+      if (txDao !== undefined) {
+        txDao.blockHash = keccak(block.encode());
+        txDao.blockNumber = block.number;
+        await this.db.addTx(txDao);
+        this.log(`Added tx with hash ${txHash.toString()} from block ${block.number}`);
+      } else {
+        this.log(`Tx with hash ${txHash.toString()} from block ${block.number} not found in db`);
+      }
+    }
   }
 }
