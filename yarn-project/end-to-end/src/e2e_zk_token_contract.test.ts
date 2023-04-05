@@ -136,10 +136,13 @@ describe('e2e_zk_token_contract', () => {
     await expectStorageSlot(0, 0n);
     await expectEmptyStorageSlotForAccount(1);
 
-    const receipt = await contract.methods
+    const tx = await contract.methods
       .mint(mintAmount, pointToPublicKey(await aztecRpcServer.getAccountPublicKey(receiver)))
-      .send({ from: receiver })
-      .getReceipt();
+      .send({ from: receiver });
+
+    await tx.isMined();
+    const receipt = await tx.getReceipt();
+
     expect(receipt.status).toBe(true);
 
     await expectStorageSlot(0, 0n);
