@@ -17,6 +17,7 @@ import {
   FUNCTION_TREE_HEIGHT,
   VerificationKey,
   makeEmptyProof,
+  getDummyPreviousKernelData,
 } from '@aztec/circuits.js';
 import { createDebugLogger, Fr } from '@aztec/foundation';
 
@@ -56,7 +57,7 @@ export class KernelProver {
       txRequest.txContext.contractDeploymentData.portalContractAddress,
     );
 
-    const previousKernelData: PreviousKernelData = PreviousKernelData.makeEmpty();
+    const previousKernelData: PreviousKernelData = await getDummyPreviousKernelData(wasm);
     this.log(`Executing private kernel simulation...`);
     const publicInputs = await privateKernelSim(wasm, signedTxRequest, previousKernelData, privateCallData);
     this.log(`Skipping private kernel proving...`);
