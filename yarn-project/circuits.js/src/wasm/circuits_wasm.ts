@@ -1,11 +1,17 @@
 import { loadProverCrs, loadVerifierCrs } from '@aztec/barretenberg.js/wasm';
 import { AsyncWasmWrapper, WasmModule } from '@aztec/foundation/wasm';
 
+import isNode from 'detect-node';
+import { dirname, join } from 'path';
+import { fileURLToPath } from 'url';
+
+const NAME = '/aztec3-circuits';
+
 /**
  * A low-level wrapper for an instance of Aztec3 Circuits WASM.
  */
 export class CircuitsWasm extends AsyncWasmWrapper {
-  codeRelativePath: string = '/aztec3-circuits.wasm';
+  codePath = isNode ? join(dirname(fileURLToPath(import.meta.url)), `${NAME}.wasm`) : `${NAME}.wasm`;
 
   /**
    * Create and initialize a Circuits module.

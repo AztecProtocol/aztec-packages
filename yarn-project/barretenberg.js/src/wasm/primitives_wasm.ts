@@ -1,11 +1,16 @@
 import { WasmWrapper } from '@aztec/foundation/wasm';
 
+import isNode from 'detect-node';
+import { dirname, join } from 'path';
+import { fileURLToPath } from 'url';
+
+const NAME = 'barretenberg';
 /**
  * A low-level wrapper for an instance of the barretenberg primitives wasm.
  */
 export class PrimitivesWasm extends WasmWrapper {
   // TODO: Load primitives.wasm instead of bb.wasm
-  codeRelativePath: string = '/barretenberg.wasm';
+  codePath = isNode ? join(dirname(fileURLToPath(import.meta.url)), `${NAME}.wasm`) : `${NAME}.wasm`;
 
   static instance: Promise<PrimitivesWasm>;
 

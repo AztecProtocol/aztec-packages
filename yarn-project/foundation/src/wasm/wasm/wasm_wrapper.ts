@@ -7,15 +7,14 @@ import { fileURLToPath } from 'url';
 
 /**
  * Get the WASM binary.
- * @param relativePath - Relative path to the code (eg '/barretenberg.wasm')
+ * @param path - Path to the code
  * @returns The binary buffer.
  */
-export async function fetchCode(relativePath: string) {
+export async function fetchCode(path: string) {
   if (isNode) {
-    const __dirname = dirname(fileURLToPath(import.meta.url));
-    return await readFile(__dirname + relativePath);
+    return await readFile(path);
   } else {
-    const res = await fetch(relativePath);
+    const res = await fetch(path);
     return Buffer.from(await res.arrayBuffer());
   }
 }
@@ -27,7 +26,7 @@ export abstract class WasmWrapper {
   protected store = isNode ? new NodeDataStore() : new WebDataStore();
   protected wasm!: WasmModule;
 
-  abstract codeRelativePath: string;
+  abstract codePath: string;
 
   constructor(private loggerName?: string) {}
 
@@ -41,7 +40,7 @@ export abstract class WasmWrapper {
   public async init(initial = 20, maximum = 8192): Promise<WasmWrapper> {
     let wasm: WasmModule;
     this.wasm = wasm = new WasmModule(
-      await fetchCode(this.codeRelativePath),
+      await fetchCode(this.codePath),
       module => ({
         /**
          * Log a string from wasm.

@@ -1,12 +1,17 @@
 import { AsyncWasmWrapper, WasmModule } from '@aztec/foundation/wasm';
 
+import isNode from 'detect-node';
+import { dirname, join } from 'path';
+import { fileURLToPath } from 'url';
 import { loadProverCrs, loadVerifierCrs } from './load_crs.js';
+
+const NAME = 'barretenberg';
 
 /**
  * A low-level wrapper for an instance of Barretenberg WASM.
  */
 export class BarretenbergWasm extends AsyncWasmWrapper {
-  codeRelativePath: string = '/barretenberg.wasm';
+  codePath = isNode ? join(dirname(fileURLToPath(import.meta.url)), `${NAME}.wasm`) : `${NAME}.wasm`;
 
   /**
    * Create and initialize a BarretenbergWasm module.

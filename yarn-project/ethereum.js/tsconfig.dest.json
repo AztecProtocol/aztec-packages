@@ -6,11 +6,7 @@
     "rootDir": "src",
     "tsBuildInfoFile": ".tsbuildinfo"
   },
-  "references": [
-    {
-      "path": "../foundation/tsconfig.dest.json"
-    }
-  ],
+  "references": [],
   "include": ["src"],
   "exclude": ["src/**/*.test.ts", "src/**/fixtures/*"]
 }
