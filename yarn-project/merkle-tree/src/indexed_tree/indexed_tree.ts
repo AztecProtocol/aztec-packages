@@ -101,7 +101,6 @@ export class IndexedTree implements MerkleTree {
   }
 
   /**
-   * TODO: Just export this or keep it static?
    * Returns an empty leaf of the tree.
    * @returns An empty leaf.
    */
@@ -272,15 +271,11 @@ export class IndexedTree implements MerkleTree {
 
   /**
    * Saves the initial leaf to this object and saves it to a database.
-   * TODO: what will the size be
    */
   private async init(initialSize = 1) {
-    // TODO: increase the initial size of the tree to the size of a full rollup insertion - change reflected in c++ to allow subtree insertion
-
     this.leaves.push(initialLeaf);
     await this.underlying.appendLeaves([hashEncodedTreeValue(initialLeaf, this.hasher)]);
 
-    // TODO: optimise
     for (let i = 1; i < initialSize; i++) {
       await this.appendLeaf(Buffer.from([i]));
     }

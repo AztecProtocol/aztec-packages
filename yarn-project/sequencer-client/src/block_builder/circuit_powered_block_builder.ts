@@ -42,7 +42,9 @@ const FUTURE_NUM = 0;
 const DELETE_FR = new Fr(0n);
 const DELETE_NUM = 0;
 
-// TODO: doc
+/**
+ * All of the data required for the circuit compute and verify nullifiers
+ */
 export interface LowNullifierWitnessData {
   /**
    * Preimage of the low nullifier that proves non membership
@@ -57,6 +59,7 @@ export interface LowNullifierWitnessData {
    */
   index: bigint;
 }
+
 export class CircuitPoweredBlockBuilder {
   constructor(
     protected db: MerkleTreeOperations,
@@ -398,19 +401,22 @@ export class CircuitPoweredBlockBuilder {
   }
 
   /**
-   * Each base rollup needs to provide non membership / inclusion proofs for each of the nullifiers
-   * generated in the kernel circuit that it is rolling up.
+   * Each base rollup needs to provide non membership / inclusion proofs for each of the nullifier.
+   * This method will return membership proofs and perform partial node updates that will
+   * allow the circuit to incrementally update the tree and perform a batch insertion.
    *
-   * As leaves are batch inserted at the end, batch updates are a special case.
+   * This offers massive circuit performance savings over doing incremental insertions.
+   *
+   * A description of the algorithm can be found here: https://colab.research.google.com/drive/1A0gizduSi4FIiIJZ8OylwIpO9-OTqV-R
    *
    * WARNING: This function has side effects, it will insert values into the tree.
    *
    * Assumptions:
    * 1. There are 8 nullifiers provided and they are all unique
    * 2. If kc 0 has 1 nullifier, and kc 1 has 3 nullifiers the layout will assume to be the sparse
-   *   nullifier layout: [kc0N, 0, 0, 0, kc1N, kc1N, kc1N, 0]
+   *   nullifier layout: [kc0-0, 0, 0, 0, kc1-0, kc1-1, kc1-2, 0]
    *
-   * TODO: include indepth insertion writeup in this comment
+   * TODO: this implementation will change once the zero value is changed from h(0,0,0). Changes incoming over the next sprint
    * @param leaves Values to insert into the tree
    * @returns
    */
