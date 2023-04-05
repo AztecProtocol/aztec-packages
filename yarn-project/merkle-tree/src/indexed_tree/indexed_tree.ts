@@ -184,12 +184,26 @@ export class IndexedTree implements MerkleTree {
   }
 
   /**
+   * Special case which will force append zero into the tree by increasing its size
+   */
+  private async appendZero(): Promise<void> {
+    this.underlying.forceAppendEmptyLeaf();
+  }
+
+  /**
    * Appends the given leaf to the tree.
    * @param leaf - The leaf to append.
    * @returns Empty promise.
    */
   private async appendLeaf(leaf: Buffer): Promise<void> {
     const newValue = toBigIntBE(leaf);
+
+    // Special case when appending zero
+    if (newValue === 0n) {
+      this.appendZero();
+      return;
+    }
+
     const indexOfPrevious = this.findIndexOfPreviousValue(newValue, true);
     const previousLeafCopy = this.getLatestLeafDataCopy(indexOfPrevious.index, true);
     if (previousLeafCopy === undefined) {

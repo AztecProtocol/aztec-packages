@@ -205,7 +205,7 @@ export class MerkleTrees implements MerkleTreeDb {
    * @param leaf - The new leaf value
    * @param index - The index to insert into
    */
-  public async updateLeaf(treeId: IndexedMerkleTreeId, leaf: Buffer | LeafData, index: bigint): Promise<void> {
+  public async updateLeaf(treeId: IndexedMerkleTreeId, leaf: LeafData, index: bigint): Promise<void> {
     return await this.synchronise(() => this.trees[treeId].updateLeaf(leaf, index));
   }
 
