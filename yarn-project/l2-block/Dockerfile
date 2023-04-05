@@ -1,18 +1,27 @@
 FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/yarn-project-base AS builder
-COPY l2-block l2-block
-# dependencies
-COPY circuits.js circuits.js
-COPY ethereum.js ethereum.js
-COPY foundation foundation
-COPY l1-contracts l1-contracts
+
+# Copy in the whole of yarn-project.
+COPY . .
+
+# Build circuits.js to ensure wasm is in the dest folder.
+WORKDIR /usr/src/yarn-project/circuits.js
+RUN yarn build
+
+# Build barretenberg.js to ensure wasm is in the dest folder.
+WORKDIR /usr/src/yarn-project/barretenberg.js
+RUN yarn build
+
+# Build l2-block.
 WORKDIR /usr/src/yarn-project/l2-block
-RUN yarn build && yarn formatting && yarn test
+RUN yarn build && yarn formatting
 
 # Prune dev dependencies. See comment in base image.
 RUN yarn cache clean
 RUN yarn workspaces focus --production > /dev/null
 
+# Create final, minimal size image.
 FROM node:18-alpine
-COPY --from=builder /usr/src/yarn-project/l2-block /usr/src/yarn-project/l2-block
+RUN apk update && apk add --no-cache curl jq bash
+COPY --from=builder /usr/src /usr/src
 WORKDIR /usr/src/yarn-project/l2-block
 ENTRYPOINT ["yarn"]

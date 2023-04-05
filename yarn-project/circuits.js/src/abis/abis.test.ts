@@ -1,4 +1,5 @@
-import { Fr, FunctionData, NullifierLeafPreimage } from '../index.js';
+import { toBufferBE } from '@aztec/foundation';
+import { AztecAddress, EthAddress, Fr, FunctionData, NewContractData, NullifierLeafPreimage } from '../index.js';
 import { fr, makeAztecAddress, makeBytes, makeTxRequest, makeVerificationKey } from '../tests/factories.js';
 import { CircuitsWasm } from '../wasm/circuits_wasm.js';
 import {
@@ -72,8 +73,14 @@ describe('abis wasm bindings', () => {
   });
 
   it('computes contract leaf', async () => {
-    const leafPreImage = new NullifierLeafPreimage(fr(2), fr(2 + 0x100), 2 + 0x200);
-    const res = await computeContractLeaf(wasm, leafPreImage);
+    const res = await computeContractLeaf(
+      wasm,
+      new NewContractData(
+        new AztecAddress(toBufferBE(27n, AztecAddress.SIZE_IN_BYTES)),
+        new EthAddress(toBufferBE(42n, EthAddress.SIZE_IN_BYTES)),
+        new Fr(99n),
+      ),
+    );
     expect(res).toMatchSnapshot();
   });
 });
