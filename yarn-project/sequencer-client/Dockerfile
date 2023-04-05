@@ -5,6 +5,7 @@ COPY sequencer-client sequencer-client
 
 # (2) dependencies
 COPY circuits.js circuits.js
+COPY barretenberg.js barretenberg.js
 COPY ethereum.js ethereum.js
 COPY foundation foundation
 COPY l1-contracts l1-contracts
