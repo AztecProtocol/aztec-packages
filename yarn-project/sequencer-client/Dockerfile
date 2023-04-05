@@ -1,7 +1,10 @@
 FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/yarn-project-base AS builder
 
 # (1) project
-COPY . .
+COPY sequencer-client sequencer-client
+
+# (2) dependencies
+COPY circuits.js circuits.js
 
 # (2) build
 WORKDIR /usr/src/yarn-project/sequencer-client
