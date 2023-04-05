@@ -19,8 +19,6 @@ describe('Account State', () => {
   let accountState: AccountState;
   let owner: KeyPair;
   let ownedTxAuxData: TxAuxData[] = [];
-  let publishedUnverifiedData: UnverifiedData[] = [];
-  let publishedBlocks: L2Block[] = [];
 
   const createUnverifiedData = (ownedDataIndices: number[] = []): UnverifiedData => {
     ownedDataIndices.forEach(index => {
@@ -42,15 +40,16 @@ describe('Account State', () => {
     return new UnverifiedData(dataChunks);
   };
 
-  const publishBlocks = (ownedData: (number[] | undefined)[] = []) => {
+  const getUnverifiedDataAndBlocks = (firstBlockNum: number, ownedData: number[][]) => {
+    const blocks: L2Block[] = [];
+    const unverifiedData: UnverifiedData[] = [];
+    // First create the necessary blocks and unverified data.
     for (let i = 0; i < ownedData.length; ++i) {
-      const blockNumber = publishedBlocks.length + 1;
-      publishedBlocks.push(L2Block.random(blockNumber));
-      publishedUnverifiedData.push(createUnverifiedData(ownedData[i]));
+      blocks.push(L2Block.random(firstBlockNum + i));
+      unverifiedData.push(createUnverifiedData(ownedData[i]));
     }
+    return { blocks, unverifiedData };
   };
-
-  const getUnverifiedData = (from: number, take: number) => publishedUnverifiedData.slice(from - 1, from - 1 + take);
 
   beforeAll(async () => {
     const wasm = await BarretenbergWasm.new();
@@ -60,16 +59,14 @@ describe('Account State', () => {
 
   beforeEach(async () => {
     ownedTxAuxData = [];
-    publishedUnverifiedData = [];
-    publishedBlocks = [];
 
     database = new MemoryDB();
     addTxAuxDataBatchSpy = jest.spyOn(database, 'addTxAuxDataBatch');
 
     aztecNode = mock<AztecNode>();
-    aztecNode.getBlocks.mockImplementation((from, take) =>
-      Promise.resolve(publishedBlocks.slice(from - 1, from - 1 + take)),
-    );
+    // aztecNode.getBlocks.mockImplementation((from, take) =>
+    // Promise.resolve(publishedBlocks.slice(from - 1, from - 1 + take)),
+    // );
 
     const ownerPrivateKey = await owner.getPrivateKey();
     accountState = new AccountState(ownerPrivateKey, database, aztecNode, grumpkin);
@@ -80,12 +77,9 @@ describe('Account State', () => {
   });
 
   it('should store a tx that belong to us', async () => {
-    publishBlocks([[2]]);
-
-    const from = 1;
-    const take = 10;
-    const unverifiedData = getUnverifiedData(from, take);
-    await accountState.processUnverifiedData(unverifiedData, from, take);
+    const firstBlockNum = 1;
+    const { blocks, unverifiedData } = getUnverifiedDataAndBlocks(firstBlockNum, [[2]]);
+    await accountState.process(blocks, unverifiedData);
 
     const txs = await accountState.getTxs();
     expect(txs).toEqual([
@@ -104,12 +98,9 @@ describe('Account State', () => {
   });
 
   it('should store multiple txs that belong to us', async () => {
-    publishBlocks([[], [1], [], [], [0, 2], []]);
-
-    const from = 1;
-    const take = 10;
-    const unverifiedData = getUnverifiedData(from, take);
-    await accountState.processUnverifiedData(unverifiedData, from, take);
+    const firstBlockNum = 1;
+    const { blocks, unverifiedData } = getUnverifiedDataAndBlocks(firstBlockNum, [[], [1], [], [], [0, 2], []]);
+    await accountState.process(blocks, unverifiedData);
 
     const txs = await accountState.getTxs();
     expect(txs).toEqual([
@@ -140,12 +131,9 @@ describe('Account State', () => {
   });
 
   it('should not store txs that do not belong to us', async () => {
-    publishBlocks([[], []]);
-
-    const from = 1;
-    const take = 10;
-    const unverifiedData = getUnverifiedData(from, take);
-    await accountState.processUnverifiedData(unverifiedData, from, take);
+    const firstBlockNum = 1;
+    const { blocks, unverifiedData } = getUnverifiedDataAndBlocks(firstBlockNum, [[], []]);
+    await accountState.process(blocks, unverifiedData);
 
     const txs = await accountState.getTxs();
     expect(txs).toEqual([]);

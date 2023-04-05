@@ -107,7 +107,7 @@ export class AccountState {
   private async processBlocksAndTxAuxData(
     blocksAndTxAuxData: { block: L2Block; txIndices: number[]; txAuxDataDaos: TxAuxDataDao[] }[],
   ) {
-    const txAuxDataDaos: TxAuxDataDao[] = [];
+    const txAuxDataDaosBatch: TxAuxDataDao[] = [];
     const txDaos: TxDao[] = [];
     for (let i = 0; i < blocksAndTxAuxData.length; ++i) {
       const { block, txIndices, txAuxDataDaos } = blocksAndTxAuxData[i];
@@ -130,9 +130,9 @@ export class AccountState {
           error: '',
         });
       });
-      txAuxDataDaos.push(...txAuxDataDaos);
+      txAuxDataDaosBatch.push(...txAuxDataDaos);
     }
-    await this.db.addTxAuxDataBatch(txAuxDataDaos);
+    await this.db.addTxAuxDataBatch(txAuxDataDaosBatch);
     await this.db.addTxs(txDaos);
   }
 }
