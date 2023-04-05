@@ -35,12 +35,12 @@ export async function computeFunctionLeaf(wasm: CircuitsWasm, fnLeaf: Buffer) {
   return Buffer.from(wasm.getMemorySlice(fnLeaf.length, fnLeaf.length + 32));
 }
 
-export async function computeFunctionTreeRoot(wasm: CircuitsWasm, fnLeafs: Buffer[]) {
-  const inputVector = serializeBufferArrayToVector(fnLeafs);
+export async function computeFunctionTreeRoot(wasm: CircuitsWasm, leaves: Buffer[]) {
+  const inputBuf = serializeToBuffer(leaves);
   wasm.call('pedersen__init');
-  wasm.writeMemory(0, inputVector);
-  await wasm.asyncCall('abis__compute_function_tree_root', 0, fnLeafs.length, inputVector.length);
-  return Buffer.from(wasm.getMemorySlice(inputVector.length, inputVector.length + 32));
+  wasm.writeMemory(0, inputBuf);
+  await wasm.asyncCall('abis__compute_function_tree_root', 0, leaves.length, inputBuf.length);
+  return Buffer.from(wasm.getMemorySlice(inputBuf.length, inputBuf.length + 32));
 }
 
 export async function hashConstructor(
