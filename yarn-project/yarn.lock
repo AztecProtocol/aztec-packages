@@ -550,6 +550,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/tx@workspace:tx"
   dependencies:
+    "@aztec/barretenberg.js": "workspace:^"
     "@aztec/circuits.js": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/unverified-data": "workspace:^"

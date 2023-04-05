@@ -114,14 +114,14 @@ export class Sequencer {
       if (!tx) {
         return;
       } else {
-        this.log(`Processing tx ${tx.txHash.toString()}`);
+        this.log(`Processing tx ${tx.getTxHash.toString()}`);
       }
       // TODO(AD) - eventually we should add a limit to how many transactions we
       // skip in this manner and do something more DDOS-proof (like letting the transaction fail and pay a fee).
       if (await this.isTxDoubleSpend(tx)) {
         // Make sure we remove this from the tx pool so we do not consider it again
-        this.log(`Deleting double spend tx ${tx.txHash.toString()}`);
-        await this.p2pClient.deleteTxs([tx.txHash]);
+        this.log(`Deleting double spend tx ${await tx.getTxHash().then(x => x.toString())}`);
+        await this.p2pClient.deleteTxs([await tx.getTxHash()]);
         return;
       }
 

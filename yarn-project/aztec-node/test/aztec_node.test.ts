@@ -53,7 +53,7 @@ describe('AztecNode', () => {
   it('should allow sending and retrieval of txs from the underlying p2p pool', async () => {
     const tx: Tx = createTx();
     await node.sendTx(tx);
-    const retrievedTx = await node.getPendingTxByHash(tx.txHash);
+    const retrievedTx = await node.getPendingTxByHash(await tx.getTxHash());
     expect(tx).toEqual(retrievedTx);
     await node.stop();
   }, 30_000);

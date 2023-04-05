@@ -1,6 +1,12 @@
-import { PrivateKernelPublicInputs, UInt8Vector } from '@aztec/circuits.js';
-import { serializeToBuffer } from '@aztec/circuits.js/utils';
-import { keccak } from '@aztec/foundation';
+import { pedersenCompressInputs } from '@aztec/barretenberg.js/crypto';
+import { PrimitivesWasm } from '@aztec/barretenberg.js/wasm';
+import {
+  NewContractData,
+  PrivateKernelPublicInputs,
+  UInt8Vector
+} from '@aztec/circuits.js';
+import { Fr, keccak } from '@aztec/foundation';
+import { WasmWrapper } from '@aztec/foundation/wasm';
 import { UnverifiedData } from '@aztec/unverified-data';
 import { TxHash } from './tx_hash.js';
 
@@ -8,6 +14,8 @@ import { TxHash } from './tx_hash.js';
  * The interface of an L2 transaction.
  */
 export class Tx {
+  private hashPromise?: Promise<TxHash>;
+
   /**
    *
    * @param data - Tx inputs.
@@ -19,7 +27,6 @@ export class Tx {
     public readonly data: PrivateKernelPublicInputs,
     public readonly proof: UInt8Vector,
     public readonly unverifiedData: UnverifiedData,
-    private hash?: TxHash,
     public readonly isEmpty = false,
   ) {}
 
@@ -27,11 +34,11 @@ export class Tx {
    * Construct & return transaction hash.
    * @returns The transaction's hash.
    */
-  get txHash() {
-    if (!this.hash) {
-      this.hash = Tx.createTxHash(this);
+  getTxHash() {
+    if (!this.hashPromise) {
+      this.hashPromise = Tx.createTxHash(this);
     }
-    return this.hash;
+    return this.hashPromise;
   }
 
   /**
@@ -39,15 +46,38 @@ export class Tx {
    * @param tx - The transaction from which to generate the hash.
    * @returns A hash of the tx data that identifies the tx.
    */
-  static createTxHash(tx: Tx): TxHash {
-    const dataToHash = Buffer.concat(
-      [
-        tx.data.end.newCommitments.map(x => x.toBuffer()),
-        tx.data.end.newNullifiers.map(x => x.toBuffer()),
-        // Keep this line in sync with newContractData from createTxHashes
-        tx.data.end.newContracts.map(x => serializeToBuffer(x.contractAddress, x.portalContractAddress)),
-      ].flat(),
+  static async createTxHash(tx: Tx): Promise<TxHash> {
+    const wasm = await PrimitivesWasm.get();
+    return hashTxData(
+      tx.data.end.newCommitments,
+      tx.data.end.newNullifiers,
+      tx.data.end.newContracts.map(cd => hashNewContractData(wasm, cd)),
     );
-    return new TxHash(keccak(dataToHash));
   }
+}
+
+export function hashNewContractData(wasm: WasmWrapper, cd: NewContractData) {
+  if (cd.contractAddress.isZero() && cd.portalContractAddress.isZero() && cd.functionTreeRoot.isZero()) {
+    return Buffer.alloc(32, 0);
+  }
+  return pedersenCompressInputs(wasm, [
+    cd.contractAddress.toBuffer(),
+    cd.portalContractAddress.toBuffer32(),
+    cd.functionTreeRoot.toBuffer(),
+  ]);
+}
+
+export function hashTxData(
+  newCommitments: Fr[] | Buffer[],
+  newNullifiers: Fr[] | Buffer[],
+  newContracts: Fr[] | Buffer[],
+) {
+  const dataToHash = Buffer.concat(
+    [
+      newCommitments.map(x => (Buffer.isBuffer(x) ? x : x.toBuffer())),
+      newNullifiers.map(x => (Buffer.isBuffer(x) ? x : x.toBuffer())),
+      newContracts.map(x => (Buffer.isBuffer(x) ? x : x.toBuffer())),
+    ].flat(),
+  );
+  return new TxHash(keccak(dataToHash));
 }
