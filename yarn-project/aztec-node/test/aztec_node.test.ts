@@ -7,7 +7,7 @@ import { AztecNode } from '../index.js';
 import { createProvider, createTx, deployRollupContract, deployUnverifiedDataEmitterContract } from './fixtures.js';
 import { createDebugLogger, sleep } from '@aztec/foundation';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/l1-contracts';
-import { CircuitsWasm } from '@aztec/circuits.js';
+import { CircuitsWasm, computeContractLeaf } from '@aztec/circuits.js';
 import { hashNewContractData } from '@aztec/sequencer-client';
 
 const ETHEREUM_HOST = 'http://127.0.0.1:8545/';
@@ -66,7 +66,7 @@ describe('AztecNode', () => {
 
     expect(settledBlock.number).toBe(1);
     expect(settledBlock.newContracts).toHaveLength(1);
-    expect(settledBlock.newContracts[0]).toEqual(hashNewContractData(wasm, tx.data.end.newContracts[0]));
+    expect(settledBlock.newContracts[0]).toEqual(await computeContractLeaf(wasm, tx.data.end.newContracts[0]));
 
     const unverifiedDatas = await waitForUnverifiedData(1);
     expect(unverifiedDatas.length).toBe(1);

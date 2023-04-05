@@ -16,13 +16,14 @@ import {
   RootRollupPublicInputs,
   UInt8Vector,
   VK_TREE_HEIGHT,
+  computeContractLeaf,
 } from '@aztec/circuits.js';
 import { Fr, createDebugLogger, toBigIntBE } from '@aztec/foundation';
 import { Tx } from '@aztec/tx';
 import { MerkleTreeId, MerkleTreeOperations } from '@aztec/world-state';
 import flatMap from 'lodash.flatmap';
 import times from 'lodash.times';
-import { hashNewContractData, makeEmptyTx } from '../deps/tx.js';
+import { makeEmptyTx } from '../deps/tx.js';
 import { VerificationKeys } from '../deps/verification_keys.js';
 import { Proof, Prover } from '../prover/index.js';
 import { Simulator } from '../simulator/index.js';
@@ -82,14 +83,12 @@ export class CircuitPoweredBlockBuilder {
     // Collect all new nullifiers, commitments, and contracts from all txs in this block
     const newNullifiers = flatMap(txs, tx => tx.data.end.newNullifiers);
     const newCommitments = flatMap(txs, tx => tx.data.end.newCommitments);
-    // const newContracts = flatMap(txs, tx => tx.data.end.newContracts).map(cd =>
-    //   Fr.fromBuffer(hashNewContractData(this.wasm, cd)),
-    // );
+
     const newContracts = await Promise.all(
       txs
         .flatMap(tx => tx.data.end.newContracts)
         .map(async newContract => {
-          return Fr.fromBuffer(await hashNewContractData(this.wasm, newContract));
+          return Fr.fromBuffer(await computeContractLeaf(this.wasm, newContract));
         }),
     );
     const newContractData = flatMap(txs, tx => tx.data.end.newContracts).map(
@@ -398,16 +397,13 @@ export class CircuitPoweredBlockBuilder {
 
     // Update the contract and data trees with the new items being inserted to get the new roots
     // that will be used by the next iteration of the base rollup circuit, skipping the empty ones
-    // const newContracts = flatMap([tx1, tx2], tx =>
-    //   tx.data.end.newContracts.map(cd => hashNewContractData(this.wasm, cd)),
-    // );
     const newCommitments = flatMap([tx1, tx2], tx => tx.data.end.newCommitments.map(x => x.toBuffer()));
 
     const newContracts = await Promise.all(
       [tx1, tx2]
         .flatMap(tx => tx.data.end.newContracts)
         .map(async newContract => {
-          return await hashNewContractData(this.wasm, newContract);
+          return await computeContractLeaf(this.wasm, newContract);
         }),
     );
 

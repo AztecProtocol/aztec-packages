@@ -6,6 +6,7 @@ import {
   Fr,
   RootRollupPublicInputs,
   UInt8Vector,
+  computeContractLeaf,
 } from '@aztec/circuits.js';
 import {
   makeBaseRollupPublicInputs,
@@ -14,12 +15,12 @@ import {
   makeRootRollupPublicInputs,
 } from '@aztec/circuits.js/factories';
 import { Tx } from '@aztec/tx';
-import { MerkleTreeDb, MerkleTreeId, MerkleTreeOperations, MerkleTrees } from '@aztec/world-state';
+import { MerkleTreeId, MerkleTreeOperations, MerkleTrees } from '@aztec/world-state';
 import { MockProxy, mock } from 'jest-mock-extended';
 import { default as levelup } from 'levelup';
 import flatMap from 'lodash.flatmap';
 import { default as memdown } from 'memdown';
-import { hashNewContractData, makeEmptyTx, makeEmptyUnverifiedData } from '../deps/tx.js';
+import { makeEmptyTx, makeEmptyUnverifiedData } from '../deps/tx.js';
 import { VerificationKeys, getVerificationKeys } from '../deps/verification_keys.js';
 import { EmptyProver } from '../prover/empty.js';
 import { Prover } from '../prover/index.js';
@@ -95,7 +96,10 @@ describe('sequencer/circuit_block_builder', () => {
   const updateExpectedTreesFromTxs = async (txs: Tx[]) => {
     for (const [tree, leaves] of [
       [MerkleTreeId.DATA_TREE, flatMap(txs, tx => tx.data.end.newCommitments.map(l => l.toBuffer()))],
-      [MerkleTreeId.CONTRACT_TREE, flatMap(txs, tx => tx.data.end.newContracts.map(n => hashNewContractData(wasm, n)))],
+      [
+        MerkleTreeId.CONTRACT_TREE,
+        await Promise.all(txs.flatMap(tx => tx.data.end.newContracts).map(n => computeContractLeaf(wasm, n))),
+      ],
       [MerkleTreeId.NULLIFIER_TREE, flatMap(txs, tx => tx.data.end.newNullifiers.map(l => l.toBuffer()))],
     ] as const) {
       await expectsDb.appendLeaves(tree, leaves);
