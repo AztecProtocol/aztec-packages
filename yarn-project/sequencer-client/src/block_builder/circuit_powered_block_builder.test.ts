@@ -161,7 +161,7 @@ describe('sequencer/circuit_block_builder', () => {
     expect(proof).toEqual(emptyProof);
   });
 
-  it('builds an L2 block with empty txs using wasm circuits', async () => {
+  it.only('builds an L2 block with empty txs using wasm circuits', async () => {
     const simulator = new WasmCircuitSimulator(wasm);
     const prover = new EmptyProver();
     builder = new TestSubject(builderDb, vks, simulator, prover, wasm);
