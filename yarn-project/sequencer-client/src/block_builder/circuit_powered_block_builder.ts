@@ -18,9 +18,8 @@ import {
   UInt8Vector,
   VK_TREE_HEIGHT,
 } from '@aztec/circuits.js';
-import { toFriendlyJSON } from '@aztec/circuits.js/utils';
 import { Fr, createDebugLogger, toBigIntBE } from '@aztec/foundation';
-import { IndexedTree, LeafData, SiblingPath } from '@aztec/merkle-tree';
+import { LeafData, SiblingPath } from '@aztec/merkle-tree';
 import { Tx } from '@aztec/tx';
 import { MerkleTreeId, MerkleTreeOperations } from '@aztec/world-state';
 import flatMap from 'lodash.flatmap';
@@ -48,7 +47,7 @@ export interface LowNullifierWitnessData {
   /**
    * Preimage of the low nullifier that proves non membership
    */
-  preimage: LeafData;
+  preimage: NullifierLeafPreimage;
   /**
    * Sibling path to prove membership of low nullifier
    */
@@ -139,6 +138,10 @@ export class CircuitPoweredBlockBuilder {
     // Simulate both base rollup circuits, updating the data, contract, and nullifier trees in the process
     this.debug(`Running left base rollup simulator`);
     const [baseRollupInputLeft, baseRollupOutputLeft] = await this.baseRollupCircuit(tx1, tx2);
+    console.log('BASE ROLLUP OUTPUT');
+    console.log(baseRollupOutputLeft);
+    console.log('END NULL');
+    console.log(baseRollupOutputLeft.endNullifierTreeSnapshot.root.toBuffer().toString('hex'));
     this.debug(`Running right base rollup simulator`);
     const [baseRollupInputRight, baseRollupOutputRight] = await this.baseRollupCircuit(tx3, tx4);
 
@@ -175,7 +178,7 @@ export class CircuitPoweredBlockBuilder {
 
   protected async baseRollupCircuit(tx1: Tx, tx2: Tx) {
     const rollupInput = await this.buildBaseRollupInput(tx1, tx2);
-    console.log(`Da rollup input`, toFriendlyJSON(rollupInput));
+    // console.log(`Da rollup input`, toFriendlyJSON(rollupInput));
     const rollupOutput = await this.simulator.baseRollupCircuit(rollupInput);
     await this.validateTrees(rollupOutput);
     return [rollupInput, rollupOutput] as const;
@@ -198,7 +201,7 @@ export class CircuitPoweredBlockBuilder {
       this.validateTree(rollupOutput, MerkleTreeId.CONTRACT_TREE, 'Contract'),
       this.validateTree(rollupOutput, MerkleTreeId.DATA_TREE, 'PrivateData'),
       // TODO: Wait for new implementation of nullifier tree to avoid mismatches here
-      // this.validateTree(rollupOutput, MerkleTreeId.NULLIFIER_TREE, 'Nullifier'),
+      this.validateTree(rollupOutput, MerkleTreeId.NULLIFIER_TREE, 'Nullifier'),
     ]);
   }
 
@@ -428,7 +431,7 @@ export class CircuitPoweredBlockBuilder {
     let currInsertionIndex: bigint = startInsertionIndex;
 
     // Leaf data of hte leaves to be inserted
-    const insertionSubtree: LeafData[] = [];
+    const insertionSubtree: NullifierLeafPreimage[] = [];
 
     // Low nullifier membership proof sibling paths
     for (const leaf of leaves) {
@@ -437,11 +440,7 @@ export class CircuitPoweredBlockBuilder {
 
       // NOTE: null values for nullfier leaves are being changed to 0n current impl is a hack
       // Default value
-      const nullifierLeaf: LeafData = {
-        value: newValue,
-        nextIndex: 0n,
-        nextValue: 0n,
-      };
+      const nullifierLeaf: NullifierLeafPreimage = new NullifierLeafPreimage(new Fr(newValue), new Fr(0n), 0);
 
       if (touchedNodes.has(indexOfPrevious.index)) {
         // If the node has already been touched, then we return an empty leaf and sibling path
@@ -450,7 +449,7 @@ export class CircuitPoweredBlockBuilder {
           Buffer.from('0000000000000000000000000000000000000000000000000000000000000000', 'hex'),
         );
         const witness: LowNullifierWitnessData = {
-          preimage: IndexedTree.initialLeaf(),
+          preimage: NullifierLeafPreimage.empty(),
           index: 0n,
           siblingPath: emptySP,
         };
@@ -462,27 +461,32 @@ export class CircuitPoweredBlockBuilder {
         touchedNodes.add(indexOfPrevious.index);
 
         const lowNullifier = await this.db.getLeafData(MerkleTreeId.NULLIFIER_TREE, indexOfPrevious.index);
-
         // If no low nullifier can be found, abort - this means the nullifier is invalid
         // in some way (it should not happen)
         if (lowNullifier === undefined) {
           return undefined;
         }
 
+        const lowNullifierPreimage = new NullifierLeafPreimage(
+          new Fr(lowNullifier.value),
+          new Fr(lowNullifier.nextValue),
+          Number(lowNullifier.nextIndex),
+        );
+
         // Get sibling path for existence of the old leaf
         const siblingPath = await this.db.getSiblingPath(MerkleTreeId.NULLIFIER_TREE, BigInt(indexOfPrevious.index));
 
         // Update the running paths
         const witness = {
-          preimage: lowNullifier,
+          preimage: lowNullifierPreimage,
           index: BigInt(indexOfPrevious.index),
           siblingPath: siblingPath,
         };
         lowNullifierWitnesses.push(witness);
 
         // Update subtree insertion leaf from null data
-        nullifierLeaf.nextIndex = lowNullifier.nextValue;
-        nullifierLeaf.nextValue = lowNullifier.nextValue;
+        nullifierLeaf.nextIndex = lowNullifierPreimage.nextIndex;
+        nullifierLeaf.nextValue = lowNullifierPreimage.nextValue;
 
         // Update the current low nullifier
         lowNullifier.nextIndex = currInsertionIndex;
@@ -500,18 +504,18 @@ export class CircuitPoweredBlockBuilder {
     // Create insertion subtree and forcefully insert in series
     // Here we calculate the pointers for the inserted values, if they have not already been updated
     for (let i = 0; i < leaves.length; i++) {
-      const newValue = toBigIntBE(leaves[i]);
+      const newValue = new Fr(toBigIntBE(leaves[i]));
 
       // We have already fetched the new low nullifier for this leaf, so we can set its low nullifier
       const lowNullifier = lowNullifierWitnesses[i].preimage;
       // If the lowNullifier is 0, then we check the previous leaves for the low nullifier leaf
-      if (lowNullifier.value === 0n && lowNullifier.nextIndex === 0n && lowNullifier.nextValue === 0n) {
+      if (lowNullifier.leafValue.isZero() && lowNullifier.nextValue.isZero() && lowNullifier.nextIndex === 0) {
         for (let j = 0; j < i; j++) {
           if (
-            (insertionSubtree[j].nextValue > newValue && insertionSubtree[j].value < newValue) ||
-            (insertionSubtree[j].nextValue == 0n && insertionSubtree[j].nextIndex == 0n)
+            (insertionSubtree[j].nextValue > newValue && insertionSubtree[j].leafValue < newValue) ||
+            (insertionSubtree[j].nextValue.isZero() && insertionSubtree[j].nextIndex === 0)
           ) {
-            insertionSubtree[j].nextIndex = startInsertionIndex + BigInt(i);
+            insertionSubtree[j].nextIndex = Number(startInsertionIndex) + i;
             insertionSubtree[j].nextValue = newValue;
           }
         }
@@ -523,12 +527,18 @@ export class CircuitPoweredBlockBuilder {
       // We can skip inserting empty leaves
       if (
         !(
-          insertionSubtree[i].value === 0n &&
-          insertionSubtree[i].nextIndex === 0n &&
-          insertionSubtree[i].nextValue === 0n
+          insertionSubtree[i].leafValue.isZero() &&
+          insertionSubtree[i].nextValue.isZero() &&
+          insertionSubtree[i].nextIndex === 0
         )
       ) {
-        await this.db.updateLeaf(MerkleTreeId.NULLIFIER_TREE, insertionSubtree[i], startInsertionIndex + BigInt(i));
+        // TODO: build first class conversion methods
+        const asLeafData: LeafData = {
+          value: insertionSubtree[i].leafValue.value,
+          nextValue: insertionSubtree[i].nextValue.value,
+          nextIndex: BigInt(insertionSubtree[i].nextIndex),
+        };
+        await this.db.updateLeaf(MerkleTreeId.NULLIFIER_TREE, asLeafData, startInsertionIndex + BigInt(i));
       }
     }
 
@@ -605,8 +615,7 @@ export class CircuitPoweredBlockBuilder {
       newCommitmentsSubtreeSiblingPath,
       newContractsSubtreeSiblingPath,
       newNullifiersSubtreeSiblingPath,
-      // TODO: typing for `LowNullifierWitnessData`
-      lowNullifierLeafPreimages: nullifierWitnesses.map((w: any) => w.preimage),
+      lowNullifierLeafPreimages: nullifierWitnesses.map((w: LowNullifierWitnessData) => w.preimage),
       lowNullifierMembershipWitness: lowNullifierMembershipWitnesses,
       kernelData: [this.getKernelDataFor(tx1), this.getKernelDataFor(tx2)],
       historicContractsTreeRootMembershipWitnesses: [
