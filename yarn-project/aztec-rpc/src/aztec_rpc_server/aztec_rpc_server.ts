@@ -253,6 +253,16 @@ export class AztecRPCServer implements AztecRPCClient {
     const leaves = await tree.getFunctionLeaves();
     const functionTree = await this.getFunctionTree(leaves);
     const functionTreeData = computeFunctionTreeData(functionTree, functionIndex);
+    console.log(
+      'Root from contractTree',
+      await tree.getFunctionTreeRoot(),
+      'root of computeFunctionTreeData',
+      functionTreeData.root,
+      'leaves are',
+      leaves.map(leaf => Fr.fromBuffer(leaf)),
+      'functionTree is ',
+      functionTree,
+    );
     const membershipWitness = new MembershipWitness<typeof FUNCTION_TREE_HEIGHT>(
       FUNCTION_TREE_HEIGHT,
       functionIndex,
