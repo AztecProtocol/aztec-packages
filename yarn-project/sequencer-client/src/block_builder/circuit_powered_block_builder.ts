@@ -178,7 +178,6 @@ export class CircuitPoweredBlockBuilder {
   protected async baseRollupCircuit(tx1: Tx, tx2: Tx) {
     const rollupInput = await this.buildBaseRollupInput(tx1, tx2);
     const rollupOutput = await this.simulator.baseRollupCircuit(rollupInput);
-    console.log(`contract tree root`, rollupOutput.endContractTreeSnapshot.root.toString());
     await this.validateTrees(rollupOutput);
     return [rollupInput, rollupOutput] as const;
   }
@@ -553,10 +552,6 @@ export class CircuitPoweredBlockBuilder {
       flatMap([tx1, tx2], tx => tx.data.end.newContracts.map(async cd => await computeContractLeaf(this.wasm, cd))),
     );
     const newCommitments = flatMap([tx1, tx2], tx => tx.data.end.newCommitments.map(x => x.toBuffer()));
-    console.log(
-      `buffers `,
-      newContracts.map(x => x.toBuffer().toString('hex')),
-    );
     await this.db.appendLeaves(
       MerkleTreeId.CONTRACT_TREE,
       newContracts.map(x => x.toBuffer()),
