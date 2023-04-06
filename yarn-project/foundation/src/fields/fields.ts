@@ -6,8 +6,6 @@ import { BufferReader } from '../serialize/buffer_reader.js';
  * Fr represents a field of integers modulo the prime number MODULUS.
  * It provides utility functions to work with elements in this field, such as conversions between different representations and checks for equality and zero values. The elements can be serialized to and deserialized from byte buffers or strings.
  * Some use cases include working with cryptographic operations and finite fields.
- *
- * @property {bigint} value - The element's value as a bigint.
  */
 export class Fr {
   static ZERO = new Fr(0n);

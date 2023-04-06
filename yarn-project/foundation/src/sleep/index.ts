@@ -9,16 +9,16 @@ import { InterruptError } from '../errors/index.js';
  * @example
  * const sleeper = new InterruptableSleep();
  *
- * async function longRunningTask() {
- *   try {
+ * async function longRunningTask() \{
+ *   try \{
  *     await sleeper.sleep(3000);
  *     console.log('Task completed after 3 seconds');
- *   } catch (e) {
+ *   \} catch (e) \{
  *     console.log('Task was interrupted');
- *   }
- * }
+ *   \}
+ * \}
  *
- * setTimeout(() => sleeper.interrupt(true), 1500); // Interrupt the sleep after 1.5 seconds
+ * setTimeout(() =\> sleeper.interrupt(true), 1500); // Interrupt the sleep after 1.5 seconds
  */
 export class InterruptableSleep {
   private interruptResolve: (shouldThrow: boolean) => void = () => {};

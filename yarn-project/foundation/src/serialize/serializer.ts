@@ -8,8 +8,6 @@ import {
   serializeDate,
 } from './free_funcs.js';
 
-// export type DeserializeFn<T> = (buf: Buffer, offset: number) => { elem: T; adv: number };
-
 export class Serializer {
   private buf: Buffer[] = [];
 
@@ -62,6 +60,7 @@ export class Serializer {
 
   /**
    * The given buffer is of variable length. Prefixes the buffer with its length.
+   * @param buf - The buffer to serialize as a variable-length vector.
    */
   public vector(buf: Buffer) {
     this.buf.push(serializeBufferToVector(buf));
@@ -72,6 +71,7 @@ export class Serializer {
    * It is assumed the corresponding deserialize function will handle variable length data, thus the length
    * does not need to be prefixed here.
    * If serializing a raw, variable length buffer, use vector().
+   * @param buf - The buffer to serialize as a fixed-length array.
    */
   public buffer(buf: Buffer) {
     this.buf.push(buf);
