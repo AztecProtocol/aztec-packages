@@ -6,16 +6,16 @@ describe('In-Memory TX pool', () => {
     const pool = new InMemoryTxPool();
     const tx1 = MockTx();
 
-    pool.addTxs([tx1]);
+    await pool.addTxs([tx1]);
     const poolTx = pool.getTxByHash(await tx1.getTxHash());
-    expect(poolTx?.getTxHash()).toEqual(tx1.getTxHash());
+    expect(await poolTx!.getTxHash()).toEqual(await tx1.getTxHash());
   });
 
   it('Removes txs from the pool', async () => {
     const pool = new InMemoryTxPool();
     const tx1 = MockTx();
 
-    pool.addTxs([tx1]);
+    await pool.addTxs([tx1]);
     pool.deleteTxs([await tx1.getTxHash()]);
 
     const poolTx = pool.getTxByHash(await tx1.getTxHash());

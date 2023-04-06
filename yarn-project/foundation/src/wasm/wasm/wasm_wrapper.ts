@@ -1,9 +1,7 @@
-import { AsyncCallState, AsyncFnState, NodeDataStore, WasmModule, WebDataStore } from '@aztec/foundation/wasm';
+import { NodeDataStore, WasmModule, WebDataStore } from '@aztec/foundation/wasm';
 
 import isNode from 'detect-node';
 import { readFile } from 'fs/promises';
-import { dirname } from 'path';
-import { fileURLToPath } from 'url';
 
 /**
  * Get the WASM binary.

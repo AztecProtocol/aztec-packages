@@ -34,7 +34,7 @@ export class Tx {
    * Construct & return transaction hash.
    * @returns The transaction's hash.
    */
-  getTxHash() {
+  getTxHash(): Promise<TxHash> {
     if (!this.hashPromise) {
       this.hashPromise = Tx.createTxHash(this);
     }

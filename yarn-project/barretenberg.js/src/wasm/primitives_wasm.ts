@@ -18,7 +18,7 @@ export class PrimitivesWasm extends WasmWrapper {
    * Get a singleton instance of the module.
    * @returns The singleton.
    */
-  public static async get() {
+  public static get(): Promise<PrimitivesWasm> {
     if (!this.instance) this.instance = new PrimitivesWasm().init();
     return this.instance;
   }
