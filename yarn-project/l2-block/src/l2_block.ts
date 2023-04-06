@@ -204,11 +204,11 @@ export class L2Block {
   }
 
   /**
- * Generates transaction hash for the ith transaction in an L2 block.
- * @param block - The L2 block.
- * @param txIndex - The index of the tx in the block.
- * @returns TxHash of the tx.
- */
+   * Generates transaction hash for the ith transaction in an L2 block.
+   * @param block - The L2 block.
+   * @param txIndex - The index of the tx in the block.
+   * @returns TxHash of the tx.
+   */
   getTxHash(txIndex: number): TxHash {
     const dataToHash = Buffer.concat(
       [
@@ -226,7 +226,10 @@ export class L2Block {
           .map(x => x.toBuffer()),
         // Keep this in sync with createTxHash
         this.newContractData
-          .slice(txIndex * KERNEL_NEW_CONTRACTS_LENGTH, txIndex * KERNEL_NEW_CONTRACTS_LENGTH + KERNEL_NEW_CONTRACTS_LENGTH)
+          .slice(
+            txIndex * KERNEL_NEW_CONTRACTS_LENGTH,
+            txIndex * KERNEL_NEW_CONTRACTS_LENGTH + KERNEL_NEW_CONTRACTS_LENGTH,
+          )
           .map(x => serializeToBuffer(x.aztecAddress, x.ethAddress)),
       ].flat(),
     );

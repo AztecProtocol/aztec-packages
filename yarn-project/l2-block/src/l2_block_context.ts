@@ -13,7 +13,7 @@ export class L2BlockContext {
 
   public getBlockHash(): Buffer {
     if (!this.blockHash) {
-      this.blockHash = keccak(this.block.encode())
+      this.blockHash = keccak(this.block.encode());
     }
     return this.blockHash;
   }
