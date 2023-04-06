@@ -8,7 +8,7 @@ import { InterruptError } from '../errors/index.js';
  *
  * @example
  * const sleeper = new InterruptableSleep();
- * 
+ *
  * async function longRunningTask() {
  *   try {
  *     await sleeper.sleep(3000);
@@ -26,14 +26,14 @@ export class InterruptableSleep {
   private timeouts: NodeJS.Timeout[] = [];
 
   /**
-     * Sleep for a specified amount of time in milliseconds.
-     * The sleep function will pause the execution of the current async function
-     * for the given time period, allowing other tasks to run before resuming.
-     *
-     * @param ms - The number of milliseconds to sleep.
-     * @returns A Promise that resolves after the specified time has passed.
-     */
-public async sleep(ms: number) {
+   * Sleep for a specified amount of time in milliseconds.
+   * The sleep function will pause the execution of the current async function
+   * for the given time period, allowing other tasks to run before resuming.
+   *
+   * @param ms - The number of milliseconds to sleep.
+   * @returns A Promise that resolves after the specified time has passed.
+   */
+  public async sleep(ms: number) {
     let timeout!: NodeJS.Timeout;
     const promise = new Promise<boolean>(resolve => (timeout = setTimeout(() => resolve(false), ms)));
     this.timeouts.push(timeout);
@@ -46,13 +46,13 @@ public async sleep(ms: number) {
   }
 
   /**
- * Interrupts the current sleep operation and optionally throws an error if specified.
- * By default, when interrupted, the sleep operation will resolve without throwing.
- * If 'sleepShouldThrow' is set to true, the sleep operation will throw an InterruptError instead.
- *
- * @param sleepShouldThrow - A boolean value indicating whether the sleep operation should throw an error when interrupted. Default is false.
- */
-public interrupt(sleepShouldThrow = false) {
+   * Interrupts the current sleep operation and optionally throws an error if specified.
+   * By default, when interrupted, the sleep operation will resolve without throwing.
+   * If 'sleepShouldThrow' is set to true, the sleep operation will throw an InterruptError instead.
+   *
+   * @param sleepShouldThrow - A boolean value indicating whether the sleep operation should throw an error when interrupted. Default is false.
+   */
+  public interrupt(sleepShouldThrow = false) {
     this.interruptResolve(sleepShouldThrow);
     this.interruptPromise = new Promise(resolve => (this.interruptResolve = resolve));
   }

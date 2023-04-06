@@ -16,13 +16,13 @@ export class WorkerConnector implements Connector {
   constructor(private worker: Worker) {}
 
   /**
- * Creates a new MessagePortSocket instance by establishing a connection between the Worker and the main thread.
- * A MessageChannel is created, and one of its ports is sent to the Worker using postMessage.
- * The other port is used to create a new MessagePortSocket which is then returned as a Promise.
- *
- * @returns {Promise<MessagePortSocket>} A Promise that resolves to a new MessagePortSocket instance.
- */
-createSocket() {
+   * Creates a new MessagePortSocket instance by establishing a connection between the Worker and the main thread.
+   * A MessageChannel is created, and one of its ports is sent to the Worker using postMessage.
+   * The other port is used to create a new MessagePortSocket which is then returned as a Promise.
+   *
+   * @returns {Promise<MessagePortSocket>} A Promise that resolves to a new MessagePortSocket instance.
+   */
+  createSocket() {
     const channel = new MessageChannel();
     this.worker.postMessage('', [channel.port2]);
     return Promise.resolve(new MessagePortSocket(channel.port1));

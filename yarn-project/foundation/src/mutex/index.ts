@@ -29,14 +29,14 @@ export class Mutex {
   ) {}
 
   /**
- * Acquire a lock on the mutex. If 'untilAcquired' is true, the method will keep trying to acquire the lock until it
- * successfully acquires it. If 'untilAcquired' is false, the method will try to acquire the lock once and return
- * immediately with a boolean indicating if the lock has been acquired or not.
- *
- * @param untilAcquired - Optional parameter, set to true by default. If true, the method will keep trying to acquire the lock until success. If false, the method will try only once and return a boolean value.
- * @returns A Promise that resolves to true if the lock has been acquired, or false when 'untilAcquired' is false and the lock could not be immediately acquired.
- */
-public async lock(untilAcquired = true) {
+   * Acquire a lock on the mutex. If 'untilAcquired' is true, the method will keep trying to acquire the lock until it
+   * successfully acquires it. If 'untilAcquired' is false, the method will try to acquire the lock once and return
+   * immediately with a boolean indicating if the lock has been acquired or not.
+   *
+   * @param untilAcquired - Optional parameter, set to true by default. If true, the method will keep trying to acquire the lock until success. If false, the method will try only once and return a boolean value.
+   * @returns A Promise that resolves to true if the lock has been acquired, or false when 'untilAcquired' is false and the lock could not be immediately acquired.
+   */
+  public async lock(untilAcquired = true) {
     while (true) {
       if (await this.db.acquireLock(this.name, this.timeout)) {
         const id = this.id;
@@ -52,28 +52,28 @@ public async lock(untilAcquired = true) {
   }
 
   /**
- * Unlocks the mutex, allowing other instances to acquire the lock.
- * This method also clears the internal ping timeout and increments the internal ID
- * to ensure stale pings do not extend the lock after it has been released.
- *
- * @returns A promise that resolves once the lock has been released in the database.
- */
-public async unlock() {
+   * Unlocks the mutex, allowing other instances to acquire the lock.
+   * This method also clears the internal ping timeout and increments the internal ID
+   * to ensure stale pings do not extend the lock after it has been released.
+   *
+   * @returns A promise that resolves once the lock has been released in the database.
+   */
+  public async unlock() {
     clearTimeout(this.pingTimeout);
     this.id++;
     await this.db.releaseLock(this.name);
   }
 
   /**
- * Periodically extends the lock's lifetime by updating the database record with a new expiration time.
- * This method is called recursively using setTimeout. If the id passed to the ping method does not match
- * the current lock instance's id, it means the lock has been released or acquired by another instance
- * and the ping should not proceed further.
- *
- * @param id - The id of the current lock instance.
- * @private
- */
-private async ping(id: number) {
+   * Periodically extends the lock's lifetime by updating the database record with a new expiration time.
+   * This method is called recursively using setTimeout. If the id passed to the ping method does not match
+   * the current lock instance's id, it means the lock has been released or acquired by another instance
+   * and the ping should not proceed further.
+   *
+   * @param id - The id of the current lock instance.
+   * @private
+   */
+  private async ping(id: number) {
     if (id !== this.id) {
       return;
     }

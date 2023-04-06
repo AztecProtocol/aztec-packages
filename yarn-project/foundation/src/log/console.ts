@@ -11,14 +11,14 @@ class ConsoleLogger {
   constructor(private prefix: string, private logger: (...args: any[]) => void = console.log) {}
 
   /**
- * Log messages with the specified prefix using the provided logger.
- * By default, it uses 'console.log' as the logger but can be overridden
- * during ConsoleLogger instantiation. This method allows for easy
- * organization and readability of log messages in the console.
- *
- * @param args - The data to be logged, any number of arguments can be passed to this function.
- */
-public log(...args: any[]) {
+   * Log messages with the specified prefix using the provided logger.
+   * By default, it uses 'console.log' as the logger but can be overridden
+   * during ConsoleLogger instantiation. This method allows for easy
+   * organization and readability of log messages in the console.
+   *
+   * @param args - The data to be logged, any number of arguments can be passed to this function.
+   */
+  public log(...args: any[]) {
     this.logger(`${this.prefix}:`, ...args);
   }
 }

@@ -9,12 +9,12 @@ export class MemoryFifo<T> {
   private flushing = false;
 
   /**
- * Returns the current number of items in the queue.
- * The length represents the size of the queue at the time of invocation and may change as new items are added or consumed.
- *
- * @returns The number of items in the queue.
- */
-public length() {
+   * Returns the current number of items in the queue.
+   * The length represents the size of the queue at the time of invocation and may change as new items are added or consumed.
+   *
+   * @returns The number of items in the queue.
+   */
+  public length() {
     return this.items.length;
   }
 

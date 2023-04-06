@@ -17,13 +17,13 @@ export class NodeConnector implements Connector {
   constructor(private worker: Worker) {}
 
   /**
- * Creates a new instance of NodeConnectorSocket using the worker provided in the constructor.
- * The createSocket method is used to establish connections using the worker_threads module,
- * allowing for efficient and fast communication between different parts of the application.
- *
- * @returns A Promise that resolves to a newly created NodeConnectorSocket instance.
- */
-createSocket() {
+   * Creates a new instance of NodeConnectorSocket using the worker provided in the constructor.
+   * The createSocket method is used to establish connections using the worker_threads module,
+   * allowing for efficient and fast communication between different parts of the application.
+   *
+   * @returns A Promise that resolves to a newly created NodeConnectorSocket instance.
+   */
+  createSocket() {
     return Promise.resolve(new NodeConnectorSocket(this.worker));
   }
 }

@@ -20,19 +20,19 @@ export class WorkerListener extends EventEmitter implements Listener {
   }
 
   /**
-     * Initializes the WorkerListener by setting the 'onmessage' event handler of the worker.
-     * The 'onmessage' event will be triggered when the worker receives a message, and it will then
-     * call the handleMessageEvent method to handle incoming connections.
-     */
-open() {
+   * Initializes the WorkerListener by setting the 'onmessage' event handler of the worker.
+   * The 'onmessage' event will be triggered when the worker receives a message, and it will then
+   * call the handleMessageEvent method to handle incoming connections.
+   */
+  open() {
     this.worker.onmessage = this.handleMessageEvent;
   }
 
   /**
- * Close the worker listener by removing the 'onmessage' event handler.
- * This method effectively stops the WorkerListener from reacting to new incoming messages.
- */
-close() {
+   * Close the worker listener by removing the 'onmessage' event handler.
+   * This method effectively stops the WorkerListener from reacting to new incoming messages.
+   */
+  close() {
     this.worker.onmessage = () => {};
   }
 

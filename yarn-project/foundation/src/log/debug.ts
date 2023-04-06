@@ -75,7 +75,7 @@ export function enableLogs(str: string) {
 
 /**
  * Check if the logging is enabled for a given namespace.
- * The input 'str' represents the namespace for which the log status is being checked. 
+ * The input 'str' represents the namespace for which the log status is being checked.
  * Returns true if the logging is enabled, otherwise false.
  *
  * @param str - The namespace string used to determine if logging is enabled.
