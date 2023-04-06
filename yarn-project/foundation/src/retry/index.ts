@@ -43,9 +43,17 @@ export async function retry<Result>(fn: () => Promise<Result>, name = 'Operation
   }
 }
 
-// Call `fn` repeatedly until it returns true or timeout.
-// Both `interval` and `timeout` are seconds.
-// Will never timeout if the value is 0.
+/**
+ * Retry an asynchronous function until it returns a truthy value or the specified timeout is exceeded.
+ * The function is retried periodically with a fixed interval between attempts. The operation can be named for better error messages.
+ * Will never timeout if the value is 0.
+ *
+ * @param fn - The asynchronous function to be retried, which should return a truthy value upon success or undefined otherwise.
+ * @param name - The optional name of the operation, used for generating timeout error message.
+ * @param timeout - The optional maximum time, in seconds, to keep retrying before throwing a timeout error. Defaults to 0 (never timeout).
+ * @param interval - The optional interval, in seconds, between retry attempts. Defaults to 1 second.
+ * @returns A Promise that resolves with the successful (truthy) result of the provided function, or rejects if timeout is exceeded.
+ */
 export async function retryUntil<T>(fn: () => Promise<T | undefined>, name = '', timeout = 0, interval = 1) {
   const timer = new Timer();
   while (true) {

@@ -69,7 +69,9 @@ export class SerialQueue {
     });
   }
 
-  // Awaiting this ensures the queue is empty before resuming.
+  /**
+   * Awaiting this ensures the queue is empty before resuming.
+   */
   public async syncPoint() {
     await this.put(async () => {});
   }
