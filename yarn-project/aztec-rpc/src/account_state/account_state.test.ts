@@ -3,13 +3,14 @@ import { Grumpkin } from '@aztec/barretenberg.js/crypto';
 import { BarretenbergWasm } from '@aztec/barretenberg.js/wasm';
 import { KERNEL_NEW_COMMITMENTS_LENGTH } from '@aztec/circuits.js';
 import { Point } from '@aztec/foundation';
-import { L2Block, UnverifiedData } from '@aztec/l2-block';
+import { L2Block, L2BlockContext } from '@aztec/l2-block';
 import { jest } from '@jest/globals';
 import { mock } from 'jest-mock-extended';
 import { TxAuxData } from '../aztec_rpc_server/tx_aux_data/index.js';
 import { Database, MemoryDB } from '../database/index.js';
 import { ConstantKeyPair, KeyPair } from '../key_store/index.js';
 import { AccountState } from './account_state.js';
+import { UnverifiedData } from '@aztec/unverified-data';
 
 describe('Account State', () => {
   let grumpkin: Grumpkin;
@@ -42,16 +43,17 @@ describe('Account State', () => {
   };
 
   const mockData = (firstBlockNum: number, ownedData: number[][]) => {
-    const blocks: L2Block[] = [];
+    const blockContexts: L2BlockContext[] = [];
     const unverifiedDatas: UnverifiedData[] = [];
     const ownedTxAuxDatas: TxAuxData[] = [];
     for (let i = 0; i < ownedData.length; ++i) {
-      blocks.push(L2Block.random(firstBlockNum + i));
+      const randomBlockContext = new L2BlockContext(L2Block.random(firstBlockNum + i));
+      blockContexts.push(randomBlockContext);
       const { unverifiedData, ownedTxAuxData } = createUnverifiedDataAndOwnedTxAuxData(ownedData[i]);
       unverifiedDatas.push(unverifiedData);
       ownedTxAuxDatas.push(...ownedTxAuxData);
     }
-    return { blocks, unverifiedDatas, ownedTxAuxDatas };
+    return { blockContexts, unverifiedDatas, ownedTxAuxDatas };
   };
 
   beforeAll(async () => {
@@ -75,8 +77,8 @@ describe('Account State', () => {
 
   it('should store a tx that belong to us', async () => {
     const firstBlockNum = 1;
-    const { blocks, unverifiedDatas, ownedTxAuxDatas } = mockData(firstBlockNum, [[2]]);
-    await accountState.process(blocks, unverifiedDatas);
+    const { blockContexts, unverifiedDatas, ownedTxAuxDatas } = mockData(firstBlockNum, [[2]]);
+    await accountState.process(blockContexts, unverifiedDatas);
 
     const txs = await accountState.getTxs();
     expect(txs).toEqual([
@@ -96,8 +98,8 @@ describe('Account State', () => {
 
   it('should store multiple txs that belong to us', async () => {
     const firstBlockNum = 1;
-    const { blocks, unverifiedDatas, ownedTxAuxDatas } = mockData(firstBlockNum, [[], [1], [], [], [0, 2], []]);
-    await accountState.process(blocks, unverifiedDatas);
+    const { blockContexts, unverifiedDatas, ownedTxAuxDatas } = mockData(firstBlockNum, [[], [1], [], [], [0, 2], []]);
+    await accountState.process(blockContexts, unverifiedDatas);
 
     const txs = await accountState.getTxs();
     expect(txs).toEqual([
@@ -129,8 +131,8 @@ describe('Account State', () => {
 
   it('should not store txs that do not belong to us', async () => {
     const firstBlockNum = 1;
-    const { blocks, unverifiedDatas } = mockData(firstBlockNum, [[], []]);
-    await accountState.process(blocks, unverifiedDatas);
+    const { blockContexts, unverifiedDatas } = mockData(firstBlockNum, [[], []]);
+    await accountState.process(blockContexts, unverifiedDatas);
 
     const txs = await accountState.getTxs();
     expect(txs).toEqual([]);
