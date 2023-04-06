@@ -526,8 +526,6 @@ export class CircuitPoweredBlockBuilder {
 
     // For each calculated new leaf, we insert it into the tree at the next position
     for (let i = 0; i < insertionSubtree.length; i++) {
-      // We can skip inserting empty leaves
-
       const asLeafData: LeafData = {
         value: insertionSubtree[i].leafValue.value,
         nextValue: insertionSubtree[i].nextValue.value,
