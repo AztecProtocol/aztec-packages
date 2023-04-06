@@ -4,9 +4,6 @@
  * Additional information such as execution time can be retrieved using getTime method after the task has been executed.
  *
  * @typeparam T - The return type of the asynchronous function to be executed.
- * @property fn - The asynchronous function to manage and execute.
- * @property timeout - The duration (in milliseconds) before the task is automatically interrupted; defaults to 0 (no timeout).
- * @property fnName - An optional name or description for the asynchronous function, which will appear in the error message when a timeout occurs.
  */
 export class TimeoutTask<T> {
   private interruptPromise!: Promise<any>;
@@ -25,7 +22,7 @@ export class TimeoutTask<T> {
    * The total execution time of the function will be stored in the totalTime property.
    *
    * @returns The result of the executed function if completed within the timeout.
-   * @throws {Error} An error with a message indicating the function was interrupted due to exceeding the specified timeout.
+   * @throws An error with a message indicating the function was interrupted due to exceeding the specified timeout.
    */
   public async exec() {
     const interruptTimeout = !this.timeout ? 0 : setTimeout(this.interrupt, this.timeout);
