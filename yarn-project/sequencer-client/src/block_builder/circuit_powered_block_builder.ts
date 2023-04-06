@@ -412,7 +412,7 @@ export class CircuitPoweredBlockBuilder {
    * WARNING: This function has side effects, it will insert values into the tree.
    *
    * Assumptions:
-   * 1. There are 8 nullifiers provided and they are all unique
+   * 1. There are 8 nullifiers provided and they are either unique or empty. (denoted as 0)
    * 2. If kc 0 has 1 nullifier, and kc 1 has 3 nullifiers the layout will assume to be the sparse
    *   nullifier layout: [kc0-0, 0, 0, 0, kc1-0, kc1-1, kc1-2, 0]
    *
