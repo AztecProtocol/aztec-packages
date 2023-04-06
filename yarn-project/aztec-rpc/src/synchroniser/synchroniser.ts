@@ -47,6 +47,7 @@ export class Synchroniser {
           }
 
           fromUnverifiedData += unverifiedData.length;
+          fromBlock += blocks.length;
         } catch (err) {
           console.log(err);
           await this.interruptableSleep.sleep(retryInterval);
