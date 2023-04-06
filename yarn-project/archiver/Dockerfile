@@ -1,7 +1,14 @@
 FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/yarn-project-base AS builder
 
-# Copy in the whole of yarn-project.
-COPY . .
+COPY archiver archiver
+# dependencies
+COPY ethereum.js ethereum.js
+COPY foundation foundation
+COPY circuits.js circuits.js
+COPY l1-contracts l1-contracts
+COPY l2-block l2-block
+COPY tx tx
+COPY unverified-data unverified-data
 
 # Build circuits.js to ensure wasm is in the dest folder.
 WORKDIR /usr/src/yarn-project/circuits.js

@@ -1,7 +1,7 @@
 import {
   AppendOnlyTreeSnapshot,
   BaseRollupInputs,
-  BaseRollupPublicInputs,
+  BaseOrMergeRollupPublicInputs,
   CircuitsWasm,
   ConstantBaseRollupData,
   CONTRACT_TREE_ROOTS_TREE_HEIGHT,
@@ -19,6 +19,7 @@ import {
   computeContractLeaf,
 } from '@aztec/circuits.js';
 import { Fr, createDebugLogger, toBigIntBE } from '@aztec/foundation';
+import { LeafData, SiblingPath } from '@aztec/merkle-tree';
 import { Tx } from '@aztec/tx';
 import { MerkleTreeId, MerkleTreeOperations } from '@aztec/world-state';
 import flatMap from 'lodash.flatmap';
@@ -28,6 +29,7 @@ import { VerificationKeys } from '../deps/verification_keys.js';
 import { Proof, Prover } from '../prover/index.js';
 import { Simulator } from '../simulator/index.js';
 import { ContractData, L2Block } from '@aztec/l2-block';
+import { computeContractLeaf } from '@aztec/circuits.js/abis';
 
 const frToBigInt = (fr: Fr) => toBigIntBE(fr.toBuffer());
 const bigintToFr = (num: bigint) => new Fr(num);
@@ -40,6 +42,24 @@ const FUTURE_NUM = 0;
 // Denotes fields that should be deleted
 const DELETE_FR = new Fr(0n);
 const DELETE_NUM = 0;
+
+/**
+ * All of the data required for the circuit compute and verify nullifiers
+ */
+export interface LowNullifierWitnessData {
+  /**
+   * Preimage of the low nullifier that proves non membership
+   */
+  preimage: NullifierLeafPreimage;
+  /**
+   * Sibling path to prove membership of low nullifier
+   */
+  siblingPath: SiblingPath;
+  /**
+   * The index of low nullifier
+   */
+  index: bigint;
+}
 
 export class CircuitPoweredBlockBuilder {
   constructor(
@@ -83,13 +103,8 @@ export class CircuitPoweredBlockBuilder {
     // Collect all new nullifiers, commitments, and contracts from all txs in this block
     const newNullifiers = flatMap(txs, tx => tx.data.end.newNullifiers);
     const newCommitments = flatMap(txs, tx => tx.data.end.newCommitments);
-
     const newContracts = await Promise.all(
-      txs
-        .flatMap(tx => tx.data.end.newContracts)
-        .map(async newContract => {
-          return Fr.fromBuffer(await computeContractLeaf(this.wasm, newContract));
-        }),
+      flatMap(txs, tx => tx.data.end.newContracts).map(async cd => await computeContractLeaf(this.wasm, cd)),
     );
     const newContractData = flatMap(txs, tx => tx.data.end.newContracts).map(
       n => new ContractData(n.contractAddress, n.portalContractAddress),
@@ -180,12 +195,11 @@ export class CircuitPoweredBlockBuilder {
   }
 
   // Validate that the new roots we calculated from manual insertions match the outputs of the simulation
-  protected async validateTrees(rollupOutput: BaseRollupPublicInputs | RootRollupPublicInputs) {
+  protected async validateTrees(rollupOutput: BaseOrMergeRollupPublicInputs | RootRollupPublicInputs) {
     await Promise.all([
       this.validateTree(rollupOutput, MerkleTreeId.CONTRACT_TREE, 'Contract'),
       this.validateTree(rollupOutput, MerkleTreeId.DATA_TREE, 'PrivateData'),
-      // TODO: Wait for new implementation of nullifier tree to avoid mismatches here
-      // this.validateTree(rollupOutput, MerkleTreeId.NULLIFIER_TREE, 'Nullifier'),
+      this.validateTree(rollupOutput, MerkleTreeId.NULLIFIER_TREE, 'Nullifier'),
     ]);
   }
 
@@ -211,7 +225,7 @@ export class CircuitPoweredBlockBuilder {
 
   // Helper for validating a non-roots tree against a circuit simulation output
   protected async validateTree(
-    output: BaseRollupPublicInputs | RootRollupPublicInputs,
+    output: BaseOrMergeRollupPublicInputs | RootRollupPublicInputs,
     treeId: MerkleTreeId,
     name: 'PrivateData' | 'Contract' | 'Nullifier',
   ) {
@@ -241,9 +255,9 @@ export class CircuitPoweredBlockBuilder {
 
   // Builds the inputs for the root rollup circuit, without making any changes to trees
   protected async getRootRollupInput(
-    rollupOutputLeft: BaseRollupPublicInputs,
+    rollupOutputLeft: BaseOrMergeRollupPublicInputs,
     rollupProofLeft: Proof,
-    rollupOutputRight: BaseRollupPublicInputs,
+    rollupOutputRight: BaseOrMergeRollupPublicInputs,
     rollupProofRight: Proof,
   ) {
     const previousRollupData: RootRollupInputs['previousRollupData'] = [
@@ -271,7 +285,7 @@ export class CircuitPoweredBlockBuilder {
     });
   }
 
-  protected getPreviousRollupDataFromBaseRollup(rollupOutput: BaseRollupPublicInputs, rollupProof: Proof) {
+  protected getPreviousRollupDataFromBaseRollup(rollupOutput: BaseOrMergeRollupPublicInputs, rollupProof: Proof) {
     return new PreviousRollupData(
       rollupOutput,
       rollupProof,
@@ -387,6 +401,144 @@ export class CircuitPoweredBlockBuilder {
     return fullSiblingPath.data.slice(subtreeHeight).map(b => Fr.fromBuffer(b));
   }
 
+  /**
+   * Each base rollup needs to provide non membership / inclusion proofs for each of the nullifier.
+   * This method will return membership proofs and perform partial node updates that will
+   * allow the circuit to incrementally update the tree and perform a batch insertion.
+   *
+   * This offers massive circuit performance savings over doing incremental insertions.
+   *
+   * A description of the algorithm can be found here: https://colab.research.google.com/drive/1A0gizduSi4FIiIJZ8OylwIpO9-OTqV-R
+   *
+   * WARNING: This function has side effects, it will insert values into the tree.
+   *
+   * Assumptions:
+   * 1. There are 8 nullifiers provided and they are either unique or empty. (denoted as 0)
+   * 2. If kc 0 has 1 nullifier, and kc 1 has 3 nullifiers the layout will assume to be the sparse
+   *   nullifier layout: [kc0-0, 0, 0, 0, kc1-0, kc1-1, kc1-2, 0]
+   *
+   * TODO: this implementation will change once the zero value is changed from h(0,0,0). Changes incoming over the next sprint
+   * @param leaves Values to insert into the tree
+   * @returns
+   */
+  public async performBaseRollupBatchInsertionProofs(leaves: Buffer[]): Promise<LowNullifierWitnessData[] | undefined> {
+    // Keep track of the touched during batch insertion
+    const touchedNodes: Set<number> = new Set<number>();
+
+    // Return data
+    const lowNullifierWitnesses: LowNullifierWitnessData[] = [];
+    const dbInfo = await this.db.getTreeInfo(MerkleTreeId.NULLIFIER_TREE);
+    const startInsertionIndex: bigint = dbInfo.size;
+    let currInsertionIndex: bigint = startInsertionIndex;
+
+    // Leaf data of hte leaves to be inserted
+    const insertionSubtree: NullifierLeafPreimage[] = [];
+
+    // Low nullifier membership proof sibling paths
+    for (const leaf of leaves) {
+      const newValue = toBigIntBE(leaf);
+      const indexOfPrevious = await this.db.getPreviousValueIndex(MerkleTreeId.NULLIFIER_TREE, newValue);
+
+      // NOTE: null values for nullfier leaves are being changed to 0n current impl is a hack
+      // Default value
+      const nullifierLeaf: NullifierLeafPreimage = new NullifierLeafPreimage(new Fr(newValue), new Fr(0n), 0);
+      if (touchedNodes.has(indexOfPrevious.index) || newValue === 0n) {
+        // If the node has already been touched, then we return an empty leaf and sibling path
+        const emptySP = new SiblingPath();
+        emptySP.data = Array(dbInfo.depth).fill(
+          Buffer.from('0000000000000000000000000000000000000000000000000000000000000000', 'hex'),
+        );
+        const witness: LowNullifierWitnessData = {
+          preimage: NullifierLeafPreimage.empty(),
+          index: 0n,
+          siblingPath: emptySP,
+        };
+        lowNullifierWitnesses.push(witness);
+      } else {
+        // If the node has not been touched, we update its low nullifier pointer, but we do NOT insert it yet, inserting it now
+        // will alter non membership paths of the not yet inserted members
+        // Insertion is done at the end once updates have already occurred.
+        touchedNodes.add(indexOfPrevious.index);
+
+        const lowNullifier = await this.db.getLeafData(MerkleTreeId.NULLIFIER_TREE, indexOfPrevious.index);
+
+        // If no low nullifier can be found, abort - this means the nullifier is invalid
+        // in some way (it should not happen)
+        if (lowNullifier === undefined) {
+          return undefined;
+        }
+
+        const lowNullifierPreimage = new NullifierLeafPreimage(
+          new Fr(lowNullifier.value),
+          new Fr(lowNullifier.nextValue),
+          Number(lowNullifier.nextIndex),
+        );
+
+        // Get sibling path for existence of the old leaf
+        const siblingPath = await this.db.getSiblingPath(MerkleTreeId.NULLIFIER_TREE, BigInt(indexOfPrevious.index));
+
+        // Update the running paths
+        const witness = {
+          preimage: lowNullifierPreimage,
+          index: BigInt(indexOfPrevious.index),
+          siblingPath: siblingPath,
+        };
+        lowNullifierWitnesses.push(witness);
+
+        // Update subtree insertion leaf from null data
+        nullifierLeaf.nextIndex = lowNullifierPreimage.nextIndex;
+        nullifierLeaf.nextValue = lowNullifierPreimage.nextValue;
+
+        // Update the current low nullifier
+        lowNullifier.nextIndex = currInsertionIndex;
+        lowNullifier.nextValue = BigInt(newValue);
+
+        // Update the old leaf in the tree
+        await this.db.updateLeaf(MerkleTreeId.NULLIFIER_TREE, lowNullifier, BigInt(indexOfPrevious.index));
+      }
+
+      // increment insertion index
+      currInsertionIndex++;
+      insertionSubtree.push(nullifierLeaf);
+    }
+
+    // Create insertion subtree and forcefully insert in series
+    // Here we calculate the pointers for the inserted values, if they have not already been updated
+    for (let i = 0; i < leaves.length; i++) {
+      const newValue = new Fr(toBigIntBE(leaves[i]));
+
+      if (newValue.isZero()) continue;
+
+      // We have already fetched the new low nullifier for this leaf, so we can set its low nullifier
+      const lowNullifier = lowNullifierWitnesses[i].preimage;
+      // If the lowNullifier is 0, then we check the previous leaves for the low nullifier leaf
+      if (lowNullifier.leafValue.isZero() && lowNullifier.nextValue.isZero() && lowNullifier.nextIndex === 0) {
+        for (let j = 0; j < i; j++) {
+          if (
+            (insertionSubtree[j].nextValue > newValue && insertionSubtree[j].leafValue < newValue) ||
+            (insertionSubtree[j].nextValue.isZero() && insertionSubtree[j].nextIndex === 0)
+          ) {
+            insertionSubtree[j].nextIndex = Number(startInsertionIndex) + i;
+            insertionSubtree[j].nextValue = newValue;
+          }
+        }
+      }
+    }
+
+    // For each calculated new leaf, we insert it into the tree at the next position
+    for (let i = 0; i < insertionSubtree.length; i++) {
+      const asLeafData: LeafData = {
+        value: insertionSubtree[i].leafValue.value,
+        nextValue: insertionSubtree[i].nextValue.value,
+        nextIndex: BigInt(insertionSubtree[i].nextIndex),
+      };
+
+      await this.db.updateLeaf(MerkleTreeId.NULLIFIER_TREE, asLeafData, startInsertionIndex + BigInt(i));
+    }
+
+    return lowNullifierWitnesses;
+  }
+
   // Builds the base rollup inputs, updating the contract, nullifier, and data trees in the process
   protected async buildBaseRollupInput(tx1: Tx, tx2: Tx) {
     // Get trees info before any changes hit
@@ -397,43 +549,28 @@ export class CircuitPoweredBlockBuilder {
 
     // Update the contract and data trees with the new items being inserted to get the new roots
     // that will be used by the next iteration of the base rollup circuit, skipping the empty ones
-    const newCommitments = flatMap([tx1, tx2], tx => tx.data.end.newCommitments.map(x => x.toBuffer()));
-
     const newContracts = await Promise.all(
-      [tx1, tx2]
-        .flatMap(tx => tx.data.end.newContracts)
-        .map(async newContract => {
-          return await computeContractLeaf(this.wasm, newContract);
-        }),
+      flatMap([tx1, tx2], tx => tx.data.end.newContracts.map(async cd => await computeContractLeaf(this.wasm, cd))),
+    );
+    const newCommitments = flatMap([tx1, tx2], tx => tx.data.end.newCommitments.map(x => x.toBuffer()));
+    await this.db.appendLeaves(
+      MerkleTreeId.CONTRACT_TREE,
+      newContracts.map(x => x.toBuffer()),
     );
 
-    // console.log(`Contract root before insertion: `, await this.getTreeSnapshot(MerkleTreeId.CONTRACT_TREE).then(t => t.root.toBuffer().toString('hex')))
-    // console.log(`New contracts to insert`, flatMap([tx1, tx2], tx => tx.data.end.newContracts.map(nc => [nc.contractAddress, nc.functionTreeRoot, nc.portalContractAddress].join('/'))).join(', '))
-    // console.log(`Inserting new contracts hashes`, newContracts.map(c => c.toString('hex')).join(', '))
-    await this.db.appendLeaves(MerkleTreeId.CONTRACT_TREE, newContracts);
-    // console.log(`Contract root after insertion: `, await this.getTreeSnapshot(MerkleTreeId.CONTRACT_TREE).then(t => t.root))
-
-    // console.log(`Data root before insertion: `, await this.getTreeSnapshot(MerkleTreeId.DATA_TREE).then(t => t.root))
-    // console.log(`Inserting new data`, newCommitments.map(c => c.toString('hex')).join(', '))
     await this.db.appendLeaves(MerkleTreeId.DATA_TREE, newCommitments);
-    // console.log(`Data root after insertion: `, await this.getTreeSnapshot(MerkleTreeId.DATA_TREE).then(t => t.root))
 
     // Update the nullifier tree, capturing the low nullifier info for each individual operation
     const newNullifiers = [...tx1.data.end.newNullifiers, ...tx2.data.end.newNullifiers];
-    const lowNullifierInfos = [];
-    // console.log(
-    //   `Nullifier root before insertion: `,
-    //   await this.getTreeSnapshot(MerkleTreeId.NULLIFIER_TREE).then(t => '0x' + t.root.toBuffer().toString('hex')),
-    // );
-    // console.log(`Inserting new data`, newNullifiers.join(', '));
-    for (const nullifier of newNullifiers) {
-      lowNullifierInfos.push(await this.getLowNullifierInfo(nullifier));
-      await this.db.appendLeaves(MerkleTreeId.NULLIFIER_TREE, [nullifier.toBuffer()]);
+
+    const nullifierWitnesses = await this.performBaseRollupBatchInsertionProofs(newNullifiers.map(fr => fr.toBuffer()));
+    if (nullifierWitnesses === undefined) {
+      throw new Error(`Could not craft nullifier batch insertion proofs`);
     }
-    // console.log(
-    //   `Nullifier root after insertion: `,
-    //   await this.getTreeSnapshot(MerkleTreeId.NULLIFIER_TREE).then(t => '0x' + t.root.toBuffer().toString('hex')),
-    // );
+    // Extract witness objects from returned data
+    const lowNullifierMembershipWitnesses = nullifierWitnesses.map(w =>
+      MembershipWitness.fromBufferArray(Number(w.index), w.siblingPath.data),
+    );
 
     // Get the subtree sibling paths for the circuit
     const newCommitmentsSubtreeSiblingPath = await this.getSubtreeSiblingPath(
@@ -457,8 +594,8 @@ export class CircuitPoweredBlockBuilder {
       newCommitmentsSubtreeSiblingPath,
       newContractsSubtreeSiblingPath,
       newNullifiersSubtreeSiblingPath,
-      lowNullifierLeafPreimages: lowNullifierInfos.map(i => i.leafPreimage),
-      lowNullifierMembershipWitness: lowNullifierInfos.map(i => i.witness),
+      lowNullifierLeafPreimages: nullifierWitnesses.map((w: LowNullifierWitnessData) => w.preimage),
+      lowNullifierMembershipWitness: lowNullifierMembershipWitnesses,
       kernelData: [this.getKernelDataFor(tx1), this.getKernelDataFor(tx2)],
       historicContractsTreeRootMembershipWitnesses: [
         await this.getContractMembershipWitnessFor(tx1),
