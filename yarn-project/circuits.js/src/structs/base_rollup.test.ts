@@ -16,7 +16,7 @@ describe('structs/base_rollup', () => {
 
     await expectSerializeToMatchSnapshot(
       baseRollupPublicInputs.toBuffer(),
-      'abis__test_roundtrip_serialize_base_rollup_public_inputs',
+      'abis__test_roundtrip_serialize_base_or_merge_rollup_public_inputs',
     );
   });
 
@@ -25,7 +25,7 @@ describe('structs/base_rollup', () => {
 
     await expectReserializeToMatchObject(
       baseRollupPublicInputs,
-      'abis__test_roundtrip_reserialize_base_rollup_public_inputs',
+      'abis__test_roundtrip_reserialize_base_or_merge_rollup_public_inputs',
       BaseOrMergeRollupPublicInputs.fromBuffer,
     );
   });
