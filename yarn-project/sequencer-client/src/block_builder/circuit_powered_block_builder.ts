@@ -11,7 +11,6 @@ import {
   PreviousKernelData,
   PreviousRollupData,
   PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT,
-  PRIVATE_DATA_TREE_HEIGHT,
   ROLLUP_VK_TREE_HEIGHT,
   RootRollupInputs,
   RootRollupPublicInputs,
