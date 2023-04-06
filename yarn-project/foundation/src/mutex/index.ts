@@ -71,7 +71,6 @@ export class Mutex {
    * and the ping should not proceed further.
    *
    * @param id - The id of the current lock instance.
-   * @private
    */
   private async ping(id: number) {
     if (id !== this.id) {

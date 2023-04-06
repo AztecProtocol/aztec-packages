@@ -53,6 +53,8 @@ export class SerialQueue {
   /**
    * Enqueues fn for execution on the serial queue.
    * Returns the result of the function after execution.
+   * @param fn - The function to enqueue.
+   * @returns A resolution promise.
    */
   public put<T>(fn: () => Promise<T>): Promise<T> {
     return new Promise((resolve, reject) => {

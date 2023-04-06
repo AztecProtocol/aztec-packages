@@ -9,8 +9,6 @@ export type Logger = (...args: any[]) => void;
  * ConsoleLogger is a utility class that provides customizable console logging functionality.
  * It allows setting a custom prefix for log messages and an optional custom logger function,
  * which can be useful for controlling the format of the output or redirecting logs to a different destination.
- *
- * @class ConsoleLogger
  */
 class ConsoleLogger {
   constructor(private prefix: string, private logger: (...args: any[]) => void = console.log) {}

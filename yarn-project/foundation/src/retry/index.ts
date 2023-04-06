@@ -7,7 +7,7 @@ import { Timer } from '../timer/index.js';
  * This generator can be used in combination with the `retry` function to perform
  * retries with exponential backoff and capped at 64 seconds between attempts.
  *
- * @yields The next backoff value in seconds as an integer.
+ * @returns A generator that yields the next backoff value in seconds as an integer.
  */
 export function* backoffGenerator() {
   const v = [1, 1, 1, 2, 4, 8, 16, 32, 64];
