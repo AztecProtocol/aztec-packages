@@ -1,6 +1,6 @@
 import { PrivateKernelPublicInputs, UInt8Vector } from '@aztec/circuits.js';
-import { UnverifiedData } from '@aztec/l2-block';
 import { Tx } from '@aztec/tx';
+import { UnverifiedData } from '@aztec/unverified-data';
 
 function makeEmptyProof() {
   return new UInt8Vector(Buffer.alloc(0));
