@@ -19,13 +19,6 @@ declare interface SharedWorkerGlobalScope {
  * It provides functionality to handle incoming messages from a shared worker and emit events for new sockets
  * created in response to these incoming connections. This class is meant to be used in the context of managing
  * MessagePort connections within the SharedWorkerGlobalScope.
- *
- * @example
- * const listener = new SharedWorkerListener(sharedWorkerGlobalScope);
- * listener.on('new_socket', (socket) => {
- *   // Handle the new socket connection here
- * });
- * listener.open();
  */
 export class SharedWorkerListener extends EventEmitter implements Listener {
   constructor(private worker: SharedWorkerGlobalScope) {

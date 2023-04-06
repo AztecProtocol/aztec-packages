@@ -11,7 +11,7 @@ export class RunningPromise {
   constructor(private fn: () => Promise<void>, private pollingInterval = 10000) {}
 
   /**
-   * Starts the running promise
+   * Starts the running promise.
    */
   public start() {
     this.running = true;
@@ -38,8 +38,8 @@ export class RunningPromise {
 
   /**
    * A sleep function that can be interrupted before the specified time.
-   * The sleep duration is determined by 'timeInMs', and it can be terminated
-   * early if the 'interruptPromise' is resolved.
+   * The sleep duration is determined by 'timeInMs', and it can be terminated early if the 'interruptPromise' is resolved.
+   * @param timeInMs - The time in milliseconds.
    */
   private async interruptableSleep(timeInMs: number) {
     let timeout!: NodeJS.Timeout;
@@ -52,7 +52,7 @@ export class RunningPromise {
 
   /**
    * Checks if the running promise is currently active.
-   * Returns true if the promise is running, false otherwise.
+   * @returns True if the promise is running.
    */
   public isRunning() {
     return this.running;

@@ -6,12 +6,25 @@ import { createDebugLogger } from '../log/index.js';
 
 const debug = createDebugLogger('aztec:transport_client');
 
+/**
+ * Represents a pending request in the TransportClient.
+ * Contains information about the message ID, and resolve/reject functions for handling responses.
+ * Used to track and manage asynchronous request/response communication with the TransportServer.
+ */
 interface PendingRequest {
+  /**
+   * The unique message identifier used for tracking and matching request/response pairs.
+   */
   msgId: number;
   resolve(data: any): void;
   reject(error: Error): void;
 }
 
+/**
+ * Represents a transport client for communication between TransportServer and clients.
+ * Provides request/response functionality, event handling, and multiplexing support
+ * for efficient and concurrent communication with a corresponding TransportServer.
+ */
 export interface TransportClient<Payload> extends EventEmitter {
   on(name: 'event_msg', handler: (payload: Payload) => void): this;
   emit(name: 'event_msg', payload: Payload): boolean;

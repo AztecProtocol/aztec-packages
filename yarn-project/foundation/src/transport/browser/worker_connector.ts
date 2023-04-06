@@ -20,7 +20,7 @@ export class WorkerConnector implements Connector {
    * A MessageChannel is created, and one of its ports is sent to the Worker using postMessage.
    * The other port is used to create a new MessagePortSocket which is then returned as a Promise.
    *
-   * @returns {Promise<MessagePortSocket>} A Promise that resolves to a new MessagePortSocket instance.
+   * @returns A Promise that resolves to a new MessagePortSocket instance.
    */
   createSocket() {
     const channel = new MessageChannel();

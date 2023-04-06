@@ -5,13 +5,6 @@ import { MessagePortSocket } from './message_port_socket.js';
  * SharedWorkerConnector is an implementation of the Connector interface, specifically for SharedWorkers.
  * It enables the creation of MessagePortSockets that communicate with a shared worker and allow
  * multiple scripts to communicate with the worker using the same connection.
- *
- * @example
- * const worker = new SharedWorker('./worker.js');
- * const connector = new SharedWorkerConnector(worker);
- * const socket = await connector.createSocket();
- *
- * @implements {Connector}
  */
 export class SharedWorkerConnector implements Connector {
   constructor(private worker: SharedWorker) {}

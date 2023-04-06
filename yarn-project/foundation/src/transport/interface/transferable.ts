@@ -1,8 +1,22 @@
 const $transferable = Symbol('thread.transferable');
 
+/**
+ * Represents a descriptor for transferable objects in multi-threaded environments.
+ * Provides a structure for marking certain objects as transferable and managing the ownership transfer
+ * between threads, particularly useful when working with Web Workers.
+ */
 export interface TransferDescriptor<T = any> {
+  /**
+   * A unique symbol indicating that an object is a TransferDescriptor.
+   */
   [$transferable]: true;
+  /**
+   * The transferable data to be sent between threads.
+   */
   send: T;
+  /**
+   * An array of objects that can be transferred between threads without serialization and deserialization.
+   */
   transferables: Transferable[];
 }
 
