@@ -4,13 +4,12 @@ import { CircuitsWasm } from '../wasm/index.js';
 import { FunctionData, FUNCTION_SELECTOR_NUM_BYTES, TxRequest, NewContractData } from '../index.js';
 import { serializeToBuffer } from '../utils/serialize.js';
 
-export async function wasmCall<T>(
+export async function wasmCall(
   wasm: CircuitsWasm,
   fnName: string,
   input: { toBuffer: () => Buffer },
   expectedOutputLength: number,
-  output?: { fromBuffer: (buf: Buffer) => T },
-): Promise<T | Buffer> {
+): Promise<Buffer> {
   const inputData = input.toBuffer();
   const outputBuf = wasm.call('bbmalloc', expectedOutputLength);
   const inputBuf = wasm.call('bbmalloc', inputData.length);
@@ -19,7 +18,7 @@ export async function wasmCall<T>(
   const buf = Buffer.from(wasm.getMemorySlice(outputBuf, outputBuf + expectedOutputLength));
   wasm.call('bbfree', outputBuf);
   wasm.call('bbfree', inputBuf);
-  return output?.fromBuffer(buf) ?? buf;
+  return buf;
 }
 
 export async function hashTxRequest(wasm: CircuitsWasm, txRequest: TxRequest) {
@@ -130,6 +129,6 @@ export async function computeContractAddress(
 
 export async function computeContractLeaf(wasm: CircuitsWasm, cd: NewContractData) {
   wasm.call('pedersen__init');
-  const value = await wasmCall<Fr>(wasm, 'abis__compute_contract_leaf', { toBuffer: () => cd.toBuffer() }, 32, Fr);
-  return value as Fr;
+  const value = await wasmCall(wasm, 'abis__compute_contract_leaf', { toBuffer: () => cd.toBuffer() }, 32);
+  return Fr.fromBuffer(value);
 }
