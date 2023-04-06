@@ -8,6 +8,12 @@ import {
   serializeDate,
 } from './free_funcs.js';
 
+/**
+ * The Serializer class provides a convenient and efficient way to serialize various data types into binary format.
+ * It supports serialization of primitive types (like boolean, signed/unsigned integers, BigInt), as well as more complex types (like Buffer, Date, and custom structures with their own 'toBuffer()' methods).
+ * The class maintains an internal buffer array that accumulates serialized data, allowing for easy concatenation and retrieval of the final serialized Buffer.
+ * This can be useful in various applications such as network communication, file storage, or other scenarios where binary data representation is needed.
+ */
 export class Serializer {
   private buf: Buffer[] = [];
 
