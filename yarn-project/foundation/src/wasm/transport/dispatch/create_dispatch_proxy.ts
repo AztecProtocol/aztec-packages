@@ -14,7 +14,7 @@ type Promisify<Base extends { [key: string]: (...args: any) => any }> = {
 };
 
 /**
- * Unpack transfer types
+ * Unpack transfer types.
  */
 type TransferTypes<Tuple extends [...args: any]> = {
   [Index in keyof Tuple]: Tuple[Index] | (Tuple[Index] extends Transferable ? TransferDescriptor<Tuple[Index]> : never);
@@ -27,9 +27,9 @@ type TransferTypes<Tuple extends [...args: any]> = {
  * So instead we inline the Parameters builtin and apply the TransferTypes to the parameters within the inline.
  * Once the above is fixed we could in theory just do:
  *
- * type MakeFunctionTransferrable<TFunction extends (...args: any) => any> = (
- *   ...args: TransferTypes<Parameters<TFunction>>
- * ) => ReturnType<TFunction>;.
+ * type MakeFunctionTransferrable\<TFunction extends (...args: any) =\> any\> = (
+ *   ...args: TransferTypes\<Parameters\<TFunction\>\>
+ * ) =\> ReturnType<TFunction>;.
  */
 type MakeFunctionTransferrable<TFunction extends (...args: any) => any> = (
   ...args: TFunction extends (...args: infer P) => any ? TransferTypes<P> : never
@@ -67,7 +67,7 @@ export function createDispatchProxyFromFn<T>(
 }
 
 /**
- * Create a proxy object of our class T that uses transportClient
+ * Create a proxy object of our class T that uses transportClient.
  * @param class_ - Our class T.
  * @param transportClient - The transport infrastructure.
  * @returns A proxy over T.

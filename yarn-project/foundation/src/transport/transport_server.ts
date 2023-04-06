@@ -65,6 +65,8 @@ export class TransportServer<Payload> {
   /**
    * Detect the 'transferables' argument to our socket from our message
    * handler return type.
+   * @param data - The compound payload data.
+   * @returns The split data and transferables.
    */
   private getPayloadAndTransfers(data: any): [any, Transferable[]] {
     if (isTransferDescriptor(data)) {

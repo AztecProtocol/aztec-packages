@@ -16,32 +16,18 @@ declare interface SharedWorkerGlobalScope {
  * Listens for connections to a shared worker.
  */
 export class SharedWorkerListener extends EventEmitter implements Listener {
-  /**
-   *
-   * @param worker
-   */
   constructor(private worker: SharedWorkerGlobalScope) {
     super();
   }
 
-  /**
-   *
-   */
   open() {
     this.worker.onconnect = this.handleMessageEvent;
   }
 
-  /**
-   *
-   */
   close() {
     this.worker.onconnect = () => {};
   }
 
-  /**
-   *
-   * @param event
-   */
   private handleMessageEvent = (event: MessageEvent) => {
     const [port] = event.ports;
     if (!port) {
