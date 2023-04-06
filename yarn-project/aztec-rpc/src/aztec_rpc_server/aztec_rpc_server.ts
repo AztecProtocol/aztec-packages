@@ -107,7 +107,7 @@ export class AztecRPCServer implements AztecRPCClient {
     abi: ContractAbi,
     args: any[],
     portalContract: EthAddress,
-    contractAddressSalt?: Fr,
+    contractAddressSalt = Fr.random(),
     from?: AztecAddress,
   ) {
     const fromAddress = this.ensureAccountOrDefault(from);
@@ -122,12 +122,11 @@ export class AztecRPCServer implements AztecRPCClient {
     }
 
     const flatArgs = encodeArguments(constructorAbi, args);
-    const addressSalt = contractAddressSalt || Fr.random();
     const contractTree = await ContractTree.new(
       abi,
       flatArgs,
       portalContract,
-      addressSalt,
+      contractAddressSalt,
       fromAddress,
       this.circuitsWasm,
     );
@@ -145,7 +144,7 @@ export class AztecRPCServer implements AztecRPCClient {
     const contractDeploymentData = new ContractDeploymentData(
       Fr.fromBuffer(constructorVkHash),
       functionTreeRoot,
-      addressSalt,
+      contractAddressSalt,
       portalContract,
     );
 
