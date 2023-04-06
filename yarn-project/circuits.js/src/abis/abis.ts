@@ -1,7 +1,7 @@
 import { Buffer } from 'buffer';
 import { AztecAddress, Fr, serializeBufferArrayToVector } from '@aztec/foundation';
 import { CircuitsWasm } from '../wasm/index.js';
-import { FunctionData, FUNCTION_SELECTOR_NUM_BYTES, NullifierLeafPreimage, TxRequest } from '../index.js';
+import { FunctionData, FUNCTION_SELECTOR_NUM_BYTES, TxRequest, NewContractData } from '../index.js';
 import { serializeToBuffer } from '../utils/serialize.js';
 
 export async function hashTxRequest(wasm: CircuitsWasm, txRequest: TxRequest) {
@@ -83,10 +83,10 @@ export async function computeContractAddress(
   return AztecAddress.fromBuffer(resultBuf);
 }
 
-export async function computeContractLeaf(wasm: CircuitsWasm, leafPreimage: NullifierLeafPreimage) {
-  const data = leafPreimage.toBuffer();
+export async function computeContractLeaf(wasm: CircuitsWasm, cd: NewContractData) {
+  const data = cd.toBuffer();
   wasm.call('pedersen__init');
-  wasm.writeMemory(0, leafPreimage.toBuffer());
+  wasm.writeMemory(0, cd.toBuffer());
   await wasm.asyncCall('abis__compute_contract_leaf', 0, data.length);
-  return Buffer.from(wasm.getMemorySlice(data.length, data.length + 32));
+  return Fr.fromBuffer(Buffer.from(wasm.getMemorySlice(data.length, data.length + 32)));
 }
