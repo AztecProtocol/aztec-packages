@@ -15,19 +15,48 @@ export class Serializer {
 
   constructor() {}
 
-  public bool(bool: boolean) {
+  /**
+ * Serialize a boolean value into a Buffer and append it to the internal buffer array.
+ * The serialized boolean will be stored as a single byte, where true is represented as 1 and false as 0.
+ * This method updates the Serializer's internal state and does not return any values.
+ *
+ * @param bool - The boolean value to be serialized.
+ */
+public bool(bool: boolean) {
     this.buf.push(boolToByte(bool));
   }
 
-  public uInt32(num: number) {
+  /**
+     * Encodes a given unsigned 32-bit integer into a Buffer and appends it to the internal buffer array.
+     * The provided number should be within the range of 0 and 2^32 - 1, inclusive.
+     * Throws an error if the input value is out of range or not a valid number.
+     *
+     * @param num - The unsigned 32-bit integer to be encoded and appended.
+     */
+public uInt32(num: number) {
     this.buf.push(numToUInt32BE(num));
   }
 
-  public int32(num: number) {
+  /**
+ * Serialize a signed 32-bit integer (int32) into the internal buffer.
+ * The number should be within the range of -2147483648 to 2147483647 inclusive.
+ * Throws an error if the input is not within the valid int32 range.
+ *
+ * @param num - The signed 32-bit integer to serialize.
+ */
+public int32(num: number) {
     this.buf.push(numToInt32BE(num));
   }
 
-  public bigInt(num: bigint) {
+  /**
+ * Serializes a BigInt into a Buffer and appends it to the internal buffer array.
+ * The given 'num' is treated as a signed integer and is serialized using
+ * little-endian byte order. This method is useful for efficiently storing
+ * large integer values that may not fit within the range of a standard number.
+ *
+ * @param num - The BigInt value to serialize.
+ */
+public bigInt(num: bigint) {
     this.buf.push(serializeBigInt(num));
   }
 
@@ -48,19 +77,46 @@ export class Serializer {
     this.buf.push(buf);
   }
 
-  public string(str: string) {
+  /**
+ * Serialize a string by first converting it to a buffer and then encoding its length as a prefix.
+ * The serialized string can be deserialized by reading the prefixed length and extracting the corresponding data.
+ * This method is useful for serializing strings of variable length in a consistent format.
+ *
+ * @param str - The input string to be serialized.
+ */
+public string(str: string) {
     this.vector(Buffer.from(str));
   }
 
-  public date(date: Date) {
+  /**
+ * Serialize a given Date instance into a Buffer and append it to the internal buffer list.
+ * The serialized date is stored as an 8-byte BigInt representing the number of milliseconds since the Unix epoch.
+ * This function facilitates serialization of JavaScript's built-in Date objects for subsequent data transmission or storage.
+ *
+ * @param date - The Date instance to be serialized.
+ */
+public date(date: Date) {
     this.buf.push(serializeDate(date));
   }
 
-  public getBuffer() {
+  /**
+ * Returns the serialized Buffer object that was created by calling various serialization methods on this Serializer instance.
+ * The resulting buffer can be used for sending or storing serialized data in binary format.
+ *
+ * @returns A Buffer containing the serialized data.
+ */
+public getBuffer() {
     return Buffer.concat(this.buf);
   }
 
-  public serializeArray<T>(arr: T[]) {
+  /**
+ * Serializes an array of elements, where each element has a 'toBuffer()' method, into a single Buffer.
+ * The resulting buffer is prefixed with its length (number of elements), allowing for easy deserialization.
+ * This method is useful for serializing arrays of custom classes or data structures that have their own serialization logic.
+ *
+ * @param arr - The array of elements to be serialized. Each element must have a 'toBuffer()' method for serialization.
+ */
+public serializeArray<T>(arr: T[]) {
     this.buf.push(serializeBufferArrayToVector(arr.map((e: any) => e.toBuffer())));
   }
 }

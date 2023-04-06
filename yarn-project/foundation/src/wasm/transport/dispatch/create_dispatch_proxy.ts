@@ -41,6 +41,17 @@ type Transferrable<Base extends { [key: string]: (...args: any[]) => any }> = {
 
 export type Proxify<T> = Promisify<Transferrable<FilterOutAttributes<T>>>;
 
+/**
+ * Creates a proxy object of class T that uses the provided request function to handle method calls.
+ * This function generates a proxy with same methods as in class T's prototype, and each method call
+ * on the proxy will be handled by the provided request function. The request function should return a
+ * Promise that resolves to the result of the original method call.
+ *
+ * @template T - The type of the class to create a proxy for.
+ * @param class_ - The class to create a proxy for.
+ * @param requestFn - A function that takes a method name and returns a function handling method calls.
+ * @returns A proxy object of class T with methods handled by the provided request function.
+ */
 export function createDispatchProxyFromFn<T>(
   class_: { new (...args: any[]): T },
   requestFn: (fn: string) => (...args: any[]) => Promise<any>,

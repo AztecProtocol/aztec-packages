@@ -38,6 +38,20 @@ type Transferrable<Base extends { [key: string]: (...any: any) => any }> = {
 
 export type Proxify<T> = Promisify<Transferrable<FilterOutAttributes<T>>>;
 
+/**
+ * Creates a proxy object for the provided class, wrapping each method in a request function.
+ * The resulting proxy object allows invoking methods of the original class, but their execution
+ * is delegated to the request function. This is useful when executing methods across different
+ * environments or threads, such as Web Workers or Node.js processes.
+ *
+ * @typeParam T - The type of the class to create a proxy for.
+ * @param class_ - The class constructor to create a proxy for.
+ * @param requestFn - A higher-order function that takes a method name and returns a function
+ *                    with the same signature as the original method, which wraps the actual
+ *                    invocation in a custom logic (e.g., sending a message to another thread).
+ * @returns An object whose methods match those of the original class, but whose execution is
+ *          delegated to the provided request function.
+ */
 export function createDispatchProxyFromFn<T>(
   class_: { new (...args: any[]): T },
   requestFn: (fn: string) => (...args: any[]) => Promise<any>,
@@ -52,6 +66,16 @@ export function createDispatchProxyFromFn<T>(
   return proxy;
 }
 
+/**
+ * Creates a proxy for the given class that transparently dispatches method calls over a transport client.
+ * The proxy allows calling methods on remote instances of the class through the provided transport client
+ * while maintaining the correct return types and handling promises. If the class inherits from EventEmitter,
+ * it also handles event emissions through the transport client.
+ *
+ * @param class_ - The constructor function of the class to create the proxy for.
+ * @param transportClient - The TransportClient instance used to handle communication between proxies.
+ * @returns A proxified version of the given class with methods dispatched over the transport client.
+ */
 export function createDispatchProxy<T>(
   class_: { new (...args: any[]): T },
   transportClient: TransportClient<DispatchMsg>,

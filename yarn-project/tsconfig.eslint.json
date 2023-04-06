@@ -15,6 +15,5 @@
     "importHelpers": true,
     "resolveJsonModule": true,
     "composite": true
-  },
-  "include": ["**/*.ts", "**/*.tsx", "**/*.json"]
+  }
 }
