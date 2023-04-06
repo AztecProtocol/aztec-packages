@@ -130,5 +130,6 @@ export async function computeContractAddress(
 
 export async function computeContractLeaf(wasm: CircuitsWasm, cd: NewContractData) {
   wasm.call('pedersen__init');
-  return await wasmCall(wasm, 'abis__compute_contract_leaf', { toBuffer: () => cd.toBuffer() }, 32, Fr);
+  const value = await wasmCall<Fr>(wasm, 'abis__compute_contract_leaf', { toBuffer: () => cd.toBuffer() }, 32, Fr);
+  return value as Fr;
 }
