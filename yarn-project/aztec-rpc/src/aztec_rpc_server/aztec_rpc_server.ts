@@ -55,15 +55,22 @@ export class AztecRPCServer implements AztecRPCClient {
     this.synchroniser.start();
   }
 
+  public async start() {
+    const accounts = await this.keyStore.getAccounts();
+    for (const account of accounts) {
+      await this.initAccountState(account);
+    }
+    this.log(`Started. ${accounts.length} initial accounts.`);
+  }
+
   public async stop() {
     await this.synchroniser.stop();
+    this.log('Stopped.');
   }
 
   public async addAccount() {
     const accountAddress = await this.keyStore.addAccount();
-    const accountPrivateKey = await this.keyStore.getAccountPrivateKey(accountAddress);
-    this.log(`adding account ${accountAddress.toString()}`);
-    await this.synchroniser.addAccount(accountPrivateKey);
+    await this.initAccountState(accountAddress);
     return accountAddress;
   }
 
@@ -74,11 +81,12 @@ export class AztecRPCServer implements AztecRPCClient {
 
   public async getAccounts(): Promise<AztecAddress[]> {
     const accounts = this.synchroniser.getAccounts();
-    return await Promise.all(accounts.map(a => a.getPublicKey().toAddress()));
+    return await Promise.all(accounts.map(a => a.getAddress()));
   }
 
   public getAccountPublicKey(address: AztecAddress): Promise<Point> {
-    return this.keyStore.getAccountPublicKey(address);
+    const account = this.ensureAccount(address);
+    return Promise.resolve(account.getPublicKey());
   }
 
   public async getStorageAt(contract: AztecAddress, storageSlot: Fr) {
@@ -99,9 +107,11 @@ export class AztecRPCServer implements AztecRPCClient {
     abi: ContractAbi,
     args: any[],
     portalContract: EthAddress,
-    contractAddressSalt: Fr,
-    from: AztecAddress,
+    contractAddressSalt?: Fr,
+    from?: AztecAddress,
   ) {
+    const fromAddress = this.ensureAccountOrDefault(from);
+
     const constructorAbi = abi.functions.find(f => f.name === 'constructor');
     if (!constructorAbi) {
       throw new Error('Cannot find constructor in the ABI.');
@@ -112,17 +122,15 @@ export class AztecRPCServer implements AztecRPCClient {
     }
 
     const flatArgs = encodeArguments(constructorAbi, args);
-
-    const fromAddress = from.equals(AztecAddress.ZERO) ? (await this.keyStore.getAccounts())[0] : from;
+    const addressSalt = contractAddressSalt || Fr.random();
     const contractTree = await ContractTree.new(
       abi,
       flatArgs,
       portalContract,
-      contractAddressSalt,
+      addressSalt,
       fromAddress,
       this.circuitsWasm,
     );
-    const contract = contractTree.contract;
 
     const functionData = new FunctionData(
       generateFunctionSelector(constructorAbi.name, constructorAbi.parameters),
@@ -137,12 +145,13 @@ export class AztecRPCServer implements AztecRPCClient {
     const contractDeploymentData = new ContractDeploymentData(
       Fr.fromBuffer(constructorVkHash),
       functionTreeRoot,
-      contractAddressSalt,
+      addressSalt,
       portalContract,
     );
 
     const txContext = new TxContext(false, false, true, contractDeploymentData);
 
+    const contract = contractTree.contract;
     await this.db.addContract(contract);
 
     return new TxRequest(
@@ -156,7 +165,9 @@ export class AztecRPCServer implements AztecRPCClient {
     );
   }
 
-  public async createTxRequest(functionName: string, args: any[], to: AztecAddress, from: AztecAddress) {
+  public async createTxRequest(functionName: string, args: any[], to: AztecAddress, from?: AztecAddress) {
+    const fromAddress = this.ensureAccountOrDefault(from);
+
     const contract = await this.db.getContract(to);
     if (!contract) {
       throw new Error('Unknown contract.');
@@ -183,7 +194,7 @@ export class AztecRPCServer implements AztecRPCClient {
     );
 
     return new TxRequest(
-      from,
+      fromAddress,
       to,
       functionData,
       flatArgs,
@@ -194,14 +205,12 @@ export class AztecRPCServer implements AztecRPCClient {
   }
 
   public signTxRequest(txRequest: TxRequest) {
+    this.ensureAccount(txRequest.from);
     return this.keyStore.signTxRequest(txRequest);
   }
 
   public async createTx(txRequest: TxRequest, signature: EcdsaSignature) {
-    const accountState = this.synchroniser.getAccount(txRequest.from);
-    if (!accountState) {
-      throw new Error('Cannot create tx for an unauthorized account.');
-    }
+    const accountState = this.ensureAccount(txRequest.from);
 
     const { executionResult, oldRoots, contract } = await this.simulate(txRequest);
 
@@ -281,7 +290,7 @@ export class AztecRPCServer implements AztecRPCClient {
     return tx.txHash;
   }
 
-  public async viewTx(functionName: string, args: any[], to: AztecAddress, from: AztecAddress) {
+  public async viewTx(functionName: string, args: any[], to: AztecAddress, from?: AztecAddress) {
     const txRequest = await this.createTxRequest(functionName, args, to, from);
 
     const { executionResult } = await this.simulate(txRequest);
@@ -341,6 +350,32 @@ export class AztecRPCServer implements AztecRPCClient {
       status: TxStatus.DROPPED,
       error: 'Tx dropped by P2P node.',
     };
+  }
+
+  private async initAccountState(address: AztecAddress) {
+    const accountPrivateKey = await this.keyStore.getAccountPrivateKey(address);
+    await this.synchroniser.addAccount(accountPrivateKey);
+    this.log(`Account added: ${address.toString()}`);
+  }
+
+  private ensureAccountOrDefault(account?: AztecAddress) {
+    const address = account || this.synchroniser.getAccounts()[0]?.getAddress();
+    if (!address) {
+      throw new Error('No accounts available in the key store.');
+    }
+
+    this.ensureAccount(address);
+
+    return address;
+  }
+
+  private ensureAccount(account: AztecAddress) {
+    const accountState = this.synchroniser.getAccount(account);
+    if (!accountState) {
+      throw new Error(`Unknown account: ${account.toShortString()}.`);
+    }
+
+    return accountState;
   }
 
   private async simulate(txRequest: TxRequest) {

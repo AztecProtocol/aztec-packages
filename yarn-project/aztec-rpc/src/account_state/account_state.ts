@@ -41,6 +41,10 @@ export class AccountState {
     return this.publicKey;
   }
 
+  public getAddress() {
+    return this.publicKey.toAddress();
+  }
+
   public getTxs() {
     return this.db.getTxsByAddress(this.address);
   }
