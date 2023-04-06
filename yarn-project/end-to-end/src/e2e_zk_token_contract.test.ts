@@ -143,7 +143,7 @@ describe('e2e_zk_token_contract', () => {
     await tx.isMined();
     const receipt = await tx.getReceipt();
 
-    expect(receipt.status).toBe(true);
+    expect(receipt.status).toBe(TxStatus.MINED);
 
     await expectStorageSlot(0, 0n);
     await expectStorageSlot(1, mintAmount);
