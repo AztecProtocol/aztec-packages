@@ -13,13 +13,19 @@ import {
  * the number of bytes advanced in the buffer. This type is used to provide custom deserialization logic for arrays,
  * objects or custom data types while working with the Deserializer class.
  */
-export type DeserializeFn<T> = (buf: Buffer, offset: number) => { /**
- * The deserialized element of the specified data type.
- */
-elem: T; /**
- * The number of bytes advanced in the buffer during deserialization.
- */
-adv: number };
+export type DeserializeFn<T> = (
+  buf: Buffer,
+  offset: number,
+) => {
+  /**
+   * The deserialized element of the specified data type.
+   */
+  elem: T;
+  /**
+   * The number of bytes advanced in the buffer during deserialization.
+   */
+  adv: number;
+};
 
 /**
  * Deserializer class provides a set of methods to deserialize different data types from a buffer.
@@ -151,7 +157,7 @@ export class Deserializer {
    * element and the number of bytes advanced in the buffer. This method is useful for custom deserialization logic
    * or implementing new deserialization functions.
    *
-   * @template T - The type of the deserialized element.
+   * @typeparam T - The type of the deserialized element.
    * @param fn - The deserialization function to execute.
    * @returns The deserialized element of type T.
    */

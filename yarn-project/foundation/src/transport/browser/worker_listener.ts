@@ -8,9 +8,9 @@ import { MessagePortSocket } from './message_port_socket.js';
  */
 declare interface DedicatedWorkerGlobalScope {
   /**
- * Handler for incoming messages from other threads or workers.
- */
-onmessage: (...args: any) => any;
+   * Handler for incoming messages from other threads or workers.
+   */
+  onmessage: (...args: any) => any;
 }
 
 /**

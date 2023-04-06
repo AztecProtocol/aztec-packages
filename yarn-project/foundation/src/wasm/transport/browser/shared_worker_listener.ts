@@ -21,20 +21,20 @@ export class SharedWorkerListener extends EventEmitter implements Listener {
   }
 
   /**
- * Opens the shared worker and starts listening for incoming connections.
- * The 'onconnect' event of the SharedWorkerGlobalScope is set to handle incoming connection events,
- * creating a new socket for each connection.
- */
-open() {
+   * Opens the shared worker and starts listening for incoming connections.
+   * The 'onconnect' event of the SharedWorkerGlobalScope is set to handle incoming connection events,
+   * creating a new socket for each connection.
+   */
+  open() {
     this.worker.onconnect = this.handleMessageEvent;
   }
 
   /**
- * Closes the listener and stops handling new connections to the shared worker.
- * This function removes the event handler for the 'onconnect' event, effectively
- * preventing the SharedWorkerListener from emitting any further 'new_socket' events.
- */
-close() {
+   * Closes the listener and stops handling new connections to the shared worker.
+   * This function removes the event handler for the 'onconnect' event, effectively
+   * preventing the SharedWorkerListener from emitting any further 'new_socket' events.
+   */
+  close() {
     this.worker.onconnect = () => {};
   }
 

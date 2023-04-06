@@ -8,9 +8,9 @@ import { MessagePortSocket } from './message_port_socket.js';
  */
 declare interface DedicatedWorkerGlobalScope {
   /**
- * The event handler for incoming messages from the main thread to the dedicated worker.
- */
-onmessage: any;
+   * The event handler for incoming messages from the main thread to the dedicated worker.
+   */
+  onmessage: any;
 }
 
 /**
@@ -24,19 +24,19 @@ export class WorkerListener extends EventEmitter implements Listener {
   }
 
   /**
- * Opens the worker listener to start receiving messages from the DedicatedWorkerGlobalScope.
- * Upon opening, it sets the 'onmessage' event handler of the worker to 'handleMessageEvent'.
- * This method should be called when you want to start listening for new MessagePort connections from the worker.
- */
-open() {
+   * Opens the worker listener to start receiving messages from the DedicatedWorkerGlobalScope.
+   * Upon opening, it sets the 'onmessage' event handler of the worker to 'handleMessageEvent'.
+   * This method should be called when you want to start listening for new MessagePort connections from the worker.
+   */
+  open() {
     this.worker.onmessage = this.handleMessageEvent;
   }
 
   /**
- * Closes the WorkerListener by removing the event listener for 'onmessage' from the worker.
- * This function is useful when you want to stop listening for new connections from the worker.
- */
-close() {
+   * Closes the WorkerListener by removing the event listener for 'onmessage' from the worker.
+   * This function is useful when you want to stop listening for new connections from the worker.
+   */
+  close() {
     this.worker.onmessage = () => {};
   }
 

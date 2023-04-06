@@ -113,10 +113,12 @@ export class BufferReader {
    * @param itemDeserializer - Object with 'fromBuffer' method to deserialize vector elements.
    * @returns An array of deserialized elements of type T.
    */
-  public readVector<T>(itemDeserializer: { /**
- * A method to deserialize data from a buffer.
- */
-fromBuffer: (reader: BufferReader) => T }): T[] {
+  public readVector<T>(itemDeserializer: {
+    /**
+     * A method to deserialize data from a buffer.
+     */
+    fromBuffer: (reader: BufferReader) => T;
+  }): T[] {
     const size = this.readNumber();
     const result = new Array<T>(size);
     for (let i = 0; i < size; i++) {
@@ -139,9 +141,9 @@ fromBuffer: (reader: BufferReader) => T }): T[] {
     size: number,
     itemDeserializer: {
       /**
- * A function for deserializing data from a BufferReader instance.
- */
-fromBuffer: (reader: BufferReader) => T;
+       * A function for deserializing data from a BufferReader instance.
+       */
+      fromBuffer: (reader: BufferReader) => T;
     },
   ): T[] {
     const result = new Array<T>(size);
@@ -154,16 +156,16 @@ fromBuffer: (reader: BufferReader) => T;
   /**
    * Reads a serialized object from a buffer and returns the deserialized object using the given deserializer.
    *
-   * @template T - The type of the deserialized object.
+   * @typeparam T - The type of the deserialized object.
    * @param deserializer - An object with a 'fromBuffer' method that takes a BufferReader instance and returns an instance of the deserialized object.
    * @returns The deserialized object of type T.
    */
-  public readObject<T>(deserializer: { ```
-/**
- * A method that takes a BufferReader instance and returns an instance of the deserialized data type.
- */
-```
-fromBuffer: (reader: BufferReader) => T }): T {
+  public readObject<T>(deserializer: {
+    /**
+     * A method that takes a BufferReader instance and returns an instance of the deserialized data type.
+     */
+    fromBuffer: (reader: BufferReader) => T;
+  }): T {
     return deserializer.fromBuffer(this);
   }
 
@@ -171,7 +173,7 @@ fromBuffer: (reader: BufferReader) => T }): T {
    * Returns a Buffer containing the next n bytes from the current buffer without modifying the reader's index position.
    * If n is not provided or exceeds the remaining length of the buffer, it returns all bytes from the current position till the end of the buffer.
    *
-   * @param n - The number of bytes to peek from the current buffer. (Optional)
+   * @param n - The number of bytes to peek from the current buffer. (Optional).
    * @returns A Buffer with the next n bytes or the remaining bytes if n is not provided or exceeds the buffer length.
    */
   public peekBytes(n?: number): Buffer {
@@ -193,7 +195,7 @@ fromBuffer: (reader: BufferReader) => T }): T {
    * Reads a buffer from the current position of the reader and advances the index.
    * The method first reads the size (number) of bytes to be read, and then returns
    * a Buffer with that size containing the bytes. Useful for reading variable-length
-   * binary data encoded as {size, data} format.
+   * binary data encoded as (size, data) format.
    *
    * @returns A Buffer containing the read bytes.
    */
@@ -211,10 +213,12 @@ fromBuffer: (reader: BufferReader) => T }): T {
    * @param deserializer - An object with a `fromBuffer` method to deserialize the values in the map.
    * @returns A map object with string keys and deserialized values based on the provided deserializer.
    */
-  public readMap<T>(deserializer: { /**
- * Deserializes an element of type T from a BufferReader instance.
- */
-fromBuffer: (reader: BufferReader) => T }): { [key: string]: T } {
+  public readMap<T>(deserializer: {
+    /**
+     * Deserializes an element of type T from a BufferReader instance.
+     */
+    fromBuffer: (reader: BufferReader) => T;
+  }): { [key: string]: T } {
     const numEntries = this.readNumber();
     const map: { [key: string]: T } = {};
     for (let i = 0; i < numEntries; i++) {

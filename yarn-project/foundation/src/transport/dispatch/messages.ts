@@ -4,13 +4,13 @@
  */
 export interface RequestMessage<Payload> {
   /**
- * A unique identifier for a message.
- */
-msgId: number;
+   * A unique identifier for a message.
+   */
+  msgId: number;
   /**
- * The data content carried within a message.
- */
-payload: Payload;
+   * The data content carried within a message.
+   */
+  payload: Payload;
 }
 
 /**
@@ -19,19 +19,17 @@ payload: Payload;
  */
 export interface ResponseMessage<Payload> {
   /**
- * A unique identifier for the message.
- */
-msgId: number;
-  ```
-/**
- * The data content carried within the message.
- */
-```
-payload?: Payload;
+   * A unique identifier for the message.
+   */
+  msgId: number;
   /**
- * An optional error description in case the response contains an error instead of a payload.
- */
-error?: string;
+   * The data content carried within the message.
+   */
+  payload?: Payload;
+  /**
+   * An optional error description in case the response contains an error instead of a payload.
+   */
+  error?: string;
 }
 
 /**
@@ -40,9 +38,9 @@ error?: string;
  */
 export interface EventMessage<Payload> {
   /**
- * The data content associated with a message.
- */
-payload: Payload;
+   * The data content associated with a message.
+   */
+  payload: Payload;
 }
 
 /**

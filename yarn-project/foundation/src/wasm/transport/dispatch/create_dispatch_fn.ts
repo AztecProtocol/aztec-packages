@@ -4,13 +4,13 @@
  */
 export interface DispatchMsg {
   /**
- * The name of the function to be called on the target object.
- */
-fn: string;
+   * The name of the function to be called on the target object.
+   */
+  fn: string;
   /**
- * An array of arguments to be passed to the target function.
- */
-args: any[];
+   * An array of arguments to be passed to the target function.
+   */
+  args: any[];
 }
 
 /**

@@ -9,9 +9,9 @@ import { MessagePortSocket } from './message_port_socket.js';
  */
 declare interface SharedWorkerGlobalScope {
   /**
- * Event handler for new connections to the Shared Worker.
- */
-onconnect: (...args: any) => any;
+   * Event handler for new connections to the Shared Worker.
+   */
+  onconnect: (...args: any) => any;
 }
 
 /**
