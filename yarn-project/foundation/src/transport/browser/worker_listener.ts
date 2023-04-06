@@ -2,8 +2,15 @@ import EventEmitter from 'events';
 import { Listener } from '../interface/listener.js';
 import { MessagePortSocket } from './message_port_socket.js';
 
+/**
+ * Represents a DedicatedWorkerGlobalScope, which is the global execution context for a dedicated worker.
+ * Provides properties and methods to manage the worker's lifecycle and communication with other threads or workers.
+ */
 declare interface DedicatedWorkerGlobalScope {
-  onmessage: (...args: any) => any;
+  /**
+ * Handler for incoming messages from other threads or workers.
+ */
+onmessage: (...args: any) => any;
 }
 
 /**

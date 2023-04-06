@@ -7,7 +7,19 @@ import {
   deserializeUInt32,
 } from './free_funcs.js';
 
-export type DeserializeFn<T> = (buf: Buffer, offset: number) => { elem: T; adv: number };
+/**
+ * DeserializeFn is a type representing a deserialization function for a specific data type. The function takes
+ * a buffer and an offset as input, and returns an object containing the deserialized element of the data type and
+ * the number of bytes advanced in the buffer. This type is used to provide custom deserialization logic for arrays,
+ * objects or custom data types while working with the Deserializer class.
+ */
+export type DeserializeFn<T> = (buf: Buffer, offset: number) => { /**
+ * The deserialized element of the specified data type.
+ */
+elem: T; /**
+ * The number of bytes advanced in the buffer during deserialization.
+ */
+adv: number };
 
 /**
  * Deserializer class provides a set of methods to deserialize different data types from a buffer.

@@ -17,7 +17,13 @@ export class Point {
   static MODULUS = 0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001n;
   static MAX_VALUE = Point.MODULUS - 1n;
 
-  constructor(public readonly buffer: Buffer) {
+  constructor(/**
+ * A buffer containing the x and y coordinates of the elliptic curve point.
+ */
+/**
+ * A buffer containing the x and y coordinates of the elliptic curve point.
+ */
+public readonly buffer: Buffer) {
     const coordinateX = toBigIntBE(buffer.subarray(0, 32));
     const coordinateY = toBigIntBE(buffer.subarray(32, 64));
     if (coordinateX > Point.MAX_VALUE) {

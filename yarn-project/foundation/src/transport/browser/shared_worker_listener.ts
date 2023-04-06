@@ -2,8 +2,16 @@ import EventEmitter from 'events';
 import { Listener } from '../interface/listener.js';
 import { MessagePortSocket } from './message_port_socket.js';
 
+/**
+ * Represents the global scope of a Shared Worker.
+ * Provides functionality to handle incoming connections and manage communication with other scripts
+ * running in a shared context, enabling concurrent access and efficient resource sharing among those scripts.
+ */
 declare interface SharedWorkerGlobalScope {
-  onconnect: (...args: any) => any;
+  /**
+ * Event handler for new connections to the Shared Worker.
+ */
+onconnect: (...args: any) => any;
 }
 
 /**

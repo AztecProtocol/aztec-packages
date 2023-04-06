@@ -1,16 +1,48 @@
+/**
+ * Represents a request message.
+ * Contains a unique identifier (msgId) and a payload object.
+ */
 export interface RequestMessage<Payload> {
-  msgId: number;
-  payload: Payload;
+  /**
+ * A unique identifier for a message.
+ */
+msgId: number;
+  /**
+ * The data content carried within a message.
+ */
+payload: Payload;
 }
 
+/**
+ * Represents a structured response message.
+ * Contains an identifier to match with the corresponding request.
+ */
 export interface ResponseMessage<Payload> {
-  msgId: number;
-  payload?: Payload;
-  error?: string;
+  /**
+ * A unique identifier for the message.
+ */
+msgId: number;
+  ```
+/**
+ * The data content carried within the message.
+ */
+```
+payload?: Payload;
+  /**
+ * An optional error description in case the response contains an error instead of a payload.
+ */
+error?: string;
 }
 
+/**
+ * Represents an event-based message in a communication system.
+ * Contains a payload with the relevant data associated with a specific event occurrence.
+ */
 export interface EventMessage<Payload> {
-  payload: Payload;
+  /**
+ * The data content associated with a message.
+ */
+payload: Payload;
 }
 
 /**

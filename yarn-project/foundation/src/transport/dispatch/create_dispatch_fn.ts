@@ -1,6 +1,16 @@
+/**
+ * Represents a message object for dispatching function calls.
+ * Contains the function name ('fn') and an array of arguments ('args') required to call the target method.
+ */
 export interface DispatchMsg {
-  fn: string;
-  args: any[];
+  /**
+ * Name of the target method to be called.
+ */
+fn: string;
+  /**
+ * An array of arguments to be passed to the target method.
+ */
+args: any[];
 }
 
 /**
