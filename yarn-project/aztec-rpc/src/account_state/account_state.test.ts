@@ -1,9 +1,11 @@
+import { AcirSimulator } from '@aztec/acir-simulator';
 import { AztecNode } from '@aztec/aztec-node';
 import { Grumpkin } from '@aztec/barretenberg.js/crypto';
 import { BarretenbergWasm } from '@aztec/barretenberg.js/wasm';
 import { KERNEL_NEW_COMMITMENTS_LENGTH } from '@aztec/circuits.js';
 import { Point } from '@aztec/foundation';
-import { L2Block, UnverifiedData } from '@aztec/l2-block';
+import { L2Block, L2BlockContext } from '@aztec/l2-block';
+import { UnverifiedData } from '@aztec/unverified-data';
 import { jest } from '@jest/globals';
 import { mock } from 'jest-mock-extended';
 import { TxAuxData } from '../aztec_rpc_server/tx_aux_data/index.js';
@@ -13,16 +15,14 @@ import { AccountState } from './account_state.js';
 
 describe('Account State', () => {
   let grumpkin: Grumpkin;
-  let aztecNode: ReturnType<typeof mock<AztecNode>>;
   let database: Database;
+  let simulator: AcirSimulator;
+  let aztecNode: ReturnType<typeof mock<AztecNode>>;
   let addTxAuxDataBatchSpy: any;
   let accountState: AccountState;
   let owner: KeyPair;
-  let ownedTxAuxData: TxAuxData[] = [];
-  let publishedUnverifiedData: UnverifiedData[] = [];
-  let publishedBlocks: L2Block[] = [];
 
-  const createUnverifiedData = (ownedDataIndices: number[] = []): UnverifiedData => {
+  const createUnverifiedDataAndOwnedTxAuxData = (ownedDataIndices: number[] = []) => {
     ownedDataIndices.forEach(index => {
       if (index >= KERNEL_NEW_COMMITMENTS_LENGTH) {
         throw new Error(`Data index should be less than ${KERNEL_NEW_COMMITMENTS_LENGTH}.`);
@@ -30,6 +30,7 @@ describe('Account State', () => {
     });
 
     const dataChunks: Buffer[] = [];
+    const ownedTxAuxData: TxAuxData[] = [];
     for (let i = 0; i < KERNEL_NEW_COMMITMENTS_LENGTH; ++i) {
       const txAuxData = TxAuxData.random();
       const isOwner = ownedDataIndices.includes(i);
@@ -39,18 +40,23 @@ describe('Account State', () => {
         ownedTxAuxData.push(txAuxData);
       }
     }
-    return new UnverifiedData(dataChunks);
+    const unverifiedData = new UnverifiedData(dataChunks);
+    return { unverifiedData, ownedTxAuxData };
   };
 
-  const publishBlocks = (ownedData: (number[] | undefined)[] = []) => {
+  const mockData = (firstBlockNum: number, ownedData: number[][]) => {
+    const blockContexts: L2BlockContext[] = [];
+    const unverifiedDatas: UnverifiedData[] = [];
+    const ownedTxAuxDatas: TxAuxData[] = [];
     for (let i = 0; i < ownedData.length; ++i) {
-      const blockNumber = publishedBlocks.length + 1;
-      publishedBlocks.push(L2Block.random(blockNumber));
-      publishedUnverifiedData.push(createUnverifiedData(ownedData[i]));
+      const randomBlockContext = new L2BlockContext(L2Block.random(firstBlockNum + i));
+      blockContexts.push(randomBlockContext);
+      const { unverifiedData, ownedTxAuxData } = createUnverifiedDataAndOwnedTxAuxData(ownedData[i]);
+      unverifiedDatas.push(unverifiedData);
+      ownedTxAuxDatas.push(...ownedTxAuxData);
     }
+    return { blockContexts, unverifiedDatas, ownedTxAuxDatas };
   };
-
-  const getUnverifiedData = (from: number, take: number) => publishedUnverifiedData.slice(from - 1, from - 1 + take);
 
   beforeAll(async () => {
     const wasm = await BarretenbergWasm.new();
@@ -59,20 +65,13 @@ describe('Account State', () => {
   });
 
   beforeEach(async () => {
-    ownedTxAuxData = [];
-    publishedUnverifiedData = [];
-    publishedBlocks = [];
-
     database = new MemoryDB();
     addTxAuxDataBatchSpy = jest.spyOn(database, 'addTxAuxDataBatch');
 
-    aztecNode = mock<AztecNode>();
-    aztecNode.getBlocks.mockImplementation((from, take) =>
-      Promise.resolve(publishedBlocks.slice(from - 1, from - 1 + take)),
-    );
-
     const ownerPrivateKey = await owner.getPrivateKey();
-    accountState = new AccountState(ownerPrivateKey, database, aztecNode, grumpkin);
+    aztecNode = mock<AztecNode>();
+    simulator = mock<AcirSimulator>();
+    accountState = new AccountState(ownerPrivateKey, database, simulator, aztecNode, grumpkin);
   });
 
   afterEach(() => {
@@ -80,12 +79,9 @@ describe('Account State', () => {
   });
 
   it('should store a tx that belong to us', async () => {
-    publishBlocks([[2]]);
-
-    const from = 1;
-    const take = 10;
-    const unverifiedData = getUnverifiedData(from, take);
-    await accountState.processUnverifiedData(unverifiedData, from, take);
+    const firstBlockNum = 1;
+    const { blockContexts, unverifiedDatas, ownedTxAuxDatas } = mockData(firstBlockNum, [[2]]);
+    await accountState.process(blockContexts, unverifiedDatas);
 
     const txs = await accountState.getTxs();
     expect(txs).toEqual([
@@ -97,19 +93,16 @@ describe('Account State', () => {
     expect(addTxAuxDataBatchSpy).toHaveBeenCalledTimes(1);
     expect(addTxAuxDataBatchSpy).toHaveBeenCalledWith([
       expect.objectContaining({
-        ...ownedTxAuxData[0],
+        ...ownedTxAuxDatas[0],
         index: 2,
       }),
     ]);
   });
 
   it('should store multiple txs that belong to us', async () => {
-    publishBlocks([[], [1], [], [], [0, 2], []]);
-
-    const from = 1;
-    const take = 10;
-    const unverifiedData = getUnverifiedData(from, take);
-    await accountState.processUnverifiedData(unverifiedData, from, take);
+    const firstBlockNum = 1;
+    const { blockContexts, unverifiedDatas, ownedTxAuxDatas } = mockData(firstBlockNum, [[], [1], [], [], [0, 2], []]);
+    await accountState.process(blockContexts, unverifiedDatas);
 
     const txs = await accountState.getTxs();
     expect(txs).toEqual([
@@ -125,27 +118,24 @@ describe('Account State', () => {
     expect(addTxAuxDataBatchSpy).toHaveBeenCalledTimes(1);
     expect(addTxAuxDataBatchSpy).toHaveBeenCalledWith([
       expect.objectContaining({
-        ...ownedTxAuxData[0],
+        ...ownedTxAuxDatas[0],
         index: KERNEL_NEW_COMMITMENTS_LENGTH + 1,
       }),
       expect.objectContaining({
-        ...ownedTxAuxData[1],
+        ...ownedTxAuxDatas[1],
         index: KERNEL_NEW_COMMITMENTS_LENGTH * 4,
       }),
       expect.objectContaining({
-        ...ownedTxAuxData[2],
+        ...ownedTxAuxDatas[2],
         index: KERNEL_NEW_COMMITMENTS_LENGTH * 4 + 2,
       }),
     ]);
   });
 
   it('should not store txs that do not belong to us', async () => {
-    publishBlocks([[], []]);
-
-    const from = 1;
-    const take = 10;
-    const unverifiedData = getUnverifiedData(from, take);
-    await accountState.processUnverifiedData(unverifiedData, from, take);
+    const firstBlockNum = 1;
+    const { blockContexts, unverifiedDatas } = mockData(firstBlockNum, [[], []]);
+    await accountState.process(blockContexts, unverifiedDatas);
 
     const txs = await accountState.getTxs();
     expect(txs).toEqual([]);
@@ -154,6 +144,6 @@ describe('Account State', () => {
 
   it('should throw an error if invalid privKey is passed on input', () => {
     const ownerPrivateKey = Buffer.alloc(0);
-    expect(() => new AccountState(ownerPrivateKey, database, aztecNode, grumpkin)).toThrowError();
+    expect(() => new AccountState(ownerPrivateKey, database, simulator, aztecNode, grumpkin)).toThrowError();
   });
 });
