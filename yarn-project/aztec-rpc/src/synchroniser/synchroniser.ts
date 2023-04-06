@@ -5,6 +5,7 @@ import { AztecAddress, createDebugLogger, InterruptableSleep } from '@aztec/foun
 import { TxHash } from '@aztec/tx';
 import { AccountState } from '../account_state/index.js';
 import { Database, TxDao } from '../database/index.js';
+import { L2BlockContext } from '@aztec/l2-block';
 
 export class Synchroniser {
   private runningPromise?: Promise<void>;
@@ -42,9 +43,14 @@ export class Synchroniser {
             unverifiedData = unverifiedData.slice(0, blocks.length);
           }
 
-          this.log(`Forwarded ${unverifiedData.length} unverified data to ${this.accountStates.length} account states`);
+          // Wrap blocks in block contexts.
+          const blockContexts = blocks.map(block => new L2BlockContext(block));
+
+          this.log(
+            `Forwarding ${unverifiedData.length} unverified data and blocks to ${this.accountStates.length} account states`,
+          );
           for (const accountState of this.accountStates) {
-            await accountState.process(blocks, unverifiedData);
+            await accountState.process(blockContexts, unverifiedData);
           }
 
           from += unverifiedData.length;

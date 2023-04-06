@@ -1,12 +1,12 @@
 import { AztecNode } from '@aztec/aztec-node';
 import { Grumpkin } from '@aztec/barretenberg.js/crypto';
 import { KERNEL_NEW_COMMITMENTS_LENGTH } from '@aztec/circuits.js';
-import { AztecAddress, createDebugLogger, Fr, keccak, Point } from '@aztec/foundation';
-import { L2Block, UnverifiedData } from '@aztec/l2-block';
-import { createTxHashes, getTxHash } from '@aztec/tx';
+import { AztecAddress, createDebugLogger, Fr, Point } from '@aztec/foundation';
+import { INITIAL_L2_BLOCK_NUM } from '@aztec/l1-contracts';
+import { L2BlockContext } from '@aztec/l2-block';
+import { UnverifiedData } from '@aztec/unverified-data';
 import { NotePreimage, TxAuxData } from '../aztec_rpc_server/tx_aux_data/index.js';
 import { Database, TxAuxDataDao, TxDao } from '../database/index.js';
-import { INITIAL_L2_BLOCK_NUM } from '@aztec/l1-contracts';
 
 export class AccountState {
   public syncedToBlock = 0;
@@ -58,25 +58,27 @@ export class AccountState {
     return new UnverifiedData(chunks);
   }
 
-  public async process(l2Blocks: L2Block[], unverifiedDatas: UnverifiedData[]): Promise<void> {
-    if (l2Blocks.length !== unverifiedDatas.length) {
+  public async process(l2BlockContexts: L2BlockContext[], unverifiedDatas: UnverifiedData[]): Promise<void> {
+    if (l2BlockContexts.length !== unverifiedDatas.length) {
       throw new Error(
-        `Number of blocks and unverifiedData is not equal. Received ${l2Blocks.length} blocks, ${unverifiedDatas.length} unverified data.`,
+        `Number of blocks and unverifiedData is not equal. Received ${l2BlockContexts.length} blocks, ${unverifiedDatas.length} unverified data.`,
       );
     }
-    if (!l2Blocks.length) {
+    if (!l2BlockContexts.length) {
       return;
     }
 
     let dataStartIndex =
-      (l2Blocks[0].number - INITIAL_L2_BLOCK_NUM) * this.TXS_PER_BLOCK * KERNEL_NEW_COMMITMENTS_LENGTH;
+      (l2BlockContexts[0].block.number - INITIAL_L2_BLOCK_NUM) * this.TXS_PER_BLOCK * KERNEL_NEW_COMMITMENTS_LENGTH;
     // We will store all the decrypted data in this array so that we can later batch insert it all into the database.
-    const blocksAndTxAuxData: { block: L2Block; userPertainingTxIndices: number[]; txAuxDataDaos: TxAuxDataDao[] }[] =
-      [];
+    const blocksAndTxAuxData: {
+      blockContext: L2BlockContext;
+      userPertainingTxIndices: number[];
+      txAuxDataDaos: TxAuxDataDao[];
+    }[] = [];
 
     // Iterate over both blocks and unverified data.
     for (let i = 0; i < unverifiedDatas.length; ++i) {
-      const l2Block = l2Blocks[i];
       const dataChunks = unverifiedDatas[i].dataChunks;
 
       // Try decrypting the unverified data.
@@ -96,27 +98,36 @@ export class AccountState {
         }
       }
 
-      blocksAndTxAuxData.push({ block: l2Block, userPertainingTxIndices: [...txIndices], txAuxDataDaos });
+      blocksAndTxAuxData.push({
+        blockContext: l2BlockContexts[i],
+        userPertainingTxIndices: [...txIndices],
+        txAuxDataDaos,
+      });
       dataStartIndex += dataChunks.length;
     }
 
     await this.processBlocksAndTxAuxData(blocksAndTxAuxData);
 
-    this.syncedToBlock = l2Blocks[l2Blocks.length - 1].number;
+    this.syncedToBlock = l2BlockContexts[l2BlockContexts.length - 1].block.number;
     this.log(`Synched block ${this.syncedToBlock}`);
   }
 
   private async processBlocksAndTxAuxData(
-    blocksAndTxAuxData: { block: L2Block; userPertainingTxIndices: number[]; txAuxDataDaos: TxAuxDataDao[] }[],
+    blocksAndTxAuxData: {
+      blockContext: L2BlockContext;
+      userPertainingTxIndices: number[];
+      txAuxDataDaos: TxAuxDataDao[];
+    }[],
   ) {
     const txAuxDataDaosBatch: TxAuxDataDao[] = [];
     const txDaos: TxDao[] = [];
     for (let i = 0; i < blocksAndTxAuxData.length; ++i) {
-      const { block, userPertainingTxIndices, txAuxDataDaos } = blocksAndTxAuxData[i];
-      const blockHash = keccak(block.encode());
+      const { blockContext, userPertainingTxIndices, txAuxDataDaos } = blocksAndTxAuxData[i];
+
+      // Process all the user pertaining txs.
       userPertainingTxIndices.map((userPertainingTxIndex, j) => {
-        const txHash = getTxHash(block, userPertainingTxIndex);
-        this.log(`Processing tx ${txHash.toString()} from block ${block.number}`);
+        const txHash = blockContext.getTxHash(userPertainingTxIndex);
+        this.log(`Processing tx ${txHash!.toString()} from block ${blockContext.block.number}`);
         const txAuxData = txAuxDataDaos[j];
         const isContractDeployment = true; // TODO
         const [to, contractAddress] = isContractDeployment
@@ -124,8 +135,8 @@ export class AccountState {
           : [txAuxData.contractAddress, undefined];
         txDaos.push({
           txHash,
-          blockHash,
-          blockNumber: block.number,
+          blockHash: blockContext.getBlockHash(),
+          blockNumber: blockContext.block.number,
           from: this.address,
           to,
           contractAddress,
@@ -133,22 +144,24 @@ export class AccountState {
         });
       });
       txAuxDataDaosBatch.push(...txAuxDataDaos);
-      await this.updateBlockInfoInBlockTxs(block);
+
+      // Ensure all the other txs are updated with newly settled block info.
+      await this.updateBlockInfoInBlockTxs(blockContext);
     }
     if (txAuxDataDaosBatch.length) await this.db.addTxAuxDataBatch(txAuxDataDaosBatch);
     if (txDaos.length) await this.db.addTxs(txDaos);
   }
 
-  private async updateBlockInfoInBlockTxs(block: L2Block) {
-    for (const txHash of createTxHashes(block)) {
+  private async updateBlockInfoInBlockTxs(blockContext: L2BlockContext) {
+    for (const txHash of blockContext.getTxHashes()) {
       const txDao: TxDao | undefined = await this.db.getTx(txHash);
       if (txDao !== undefined) {
-        txDao.blockHash = keccak(block.encode());
-        txDao.blockNumber = block.number;
+        txDao.blockHash = blockContext.getBlockHash();
+        txDao.blockNumber = blockContext.block.number;
         await this.db.addTx(txDao);
-        this.log(`Added tx with hash ${txHash.toString()} from block ${block.number}`);
+        this.log(`Added tx with hash ${txHash.toString()} from block ${blockContext.block.number}`);
       } else {
-        this.log(`Tx with hash ${txHash.toString()} from block ${block.number} not found in db`);
+        this.log(`Tx with hash ${txHash.toString()} from block ${blockContext.block.number} not found in db`);
       }
     }
   }
