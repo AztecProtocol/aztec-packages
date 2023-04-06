@@ -2,7 +2,7 @@ import { ABIParameter } from '@aztec/noir-contracts';
 
 export * from './hex_string.js';
 
-function pack(parameter: ABIParameter, value: any) {
+function pack(_parameter: ABIParameter, _value: any) {
   return Buffer.alloc(32);
 }
 
