@@ -6,9 +6,9 @@
  *
  * @example
  * const timer = new Timer();
- * setTimeout(() => {
+ * setTimeout(() =\> \{
  *   console.log(`Elapsed time: ${timer.ms()} ms`);
- * }, 1000);
+ * \}, 1000);
  */
 export class Timer {
   private start: number;
@@ -33,7 +33,7 @@ export class Timer {
    * The value is calculated by subtracting the initial start time from the current time
    * and dividing the result by 1000 to convert milliseconds to seconds.
    *
-   * @returns {number} The elapsed time in seconds.
+   * @returns The elapsed time in seconds.
    */
   public s() {
     return (new Date().getTime() - this.start) / 1000;
