@@ -15,3 +15,5 @@ export function makeEmptyTx(): Tx {
   const isEmpty = true;
   return new Tx(PrivateKernelPublicInputs.makeEmpty(), makeEmptyProof(), makeEmptyUnverifiedData(), isEmpty);
 }
+
+export { hashNewContractData } from '@aztec/tx';
