@@ -11,7 +11,6 @@ import {
   FUNCTION_TREE_HEIGHT,
   FunctionData,
   MembershipWitness,
-  OldTreeRoots,
   PrivateCallStackItem,
   TxContext,
   TxRequest,
@@ -43,7 +42,7 @@ export class AztecRPCServer implements AztecRPCClient {
 
   constructor(
     private keyStore: KeyStore,
-    private acirSimulator: AcirSimulator,
+    acirSimulator: AcirSimulator,
     private kernelProver: KernelProver,
     private node: AztecNode,
     private db: Database,
@@ -51,7 +50,7 @@ export class AztecRPCServer implements AztecRPCClient {
     bbWasm: BarretenbergWasm,
     private log = createDebugLogger('aztec:rpc_server'),
   ) {
-    this.synchroniser = new Synchroniser(node, db, bbWasm);
+    this.synchroniser = new Synchroniser(node, db, acirSimulator, bbWasm);
     this.synchroniser.start();
   }
 
@@ -211,7 +210,7 @@ export class AztecRPCServer implements AztecRPCClient {
   public async createTx(txRequest: TxRequest, signature: EcdsaSignature) {
     const accountState = this.ensureAccount(txRequest.from);
 
-    const { executionResult, oldRoots, contract } = await this.simulate(txRequest);
+    const { executionResult, oldRoots, contract } = await accountState.simulate(txRequest);
 
     this.log(`Executing Prover...`);
     const { publicInputs } = await this.kernelProver.prove(
@@ -291,8 +290,8 @@ export class AztecRPCServer implements AztecRPCClient {
 
   public async viewTx(functionName: string, args: any[], to: AztecAddress, from?: AztecAddress) {
     const txRequest = await this.createTxRequest(functionName, args, to, from);
-
-    const { executionResult } = await this.simulate(txRequest);
+    const accountState = this.ensureAccount(txRequest.from);
+    const { executionResult } = await accountState.simulate(txRequest);
 
     // TODO - Return typed result based on the function abi.
     return executionResult.preimages;
@@ -375,33 +374,6 @@ export class AztecRPCServer implements AztecRPCClient {
     }
 
     return accountState;
-  }
-
-  private async simulate(txRequest: TxRequest) {
-    const contractAddress = txRequest.to;
-    const contract = await this.db.getContract(txRequest.to);
-    if (!contract) {
-      throw new Error('Unknown contract.');
-    }
-
-    const selector = txRequest.functionData.functionSelector;
-    const functionDao = contract.functions.find(f => f.selector.equals(selector));
-    if (!functionDao) {
-      throw new Error('Unknown function.');
-    }
-
-    const oldRoots = new OldTreeRoots(Fr.ZERO, Fr.ZERO, Fr.ZERO, Fr.ZERO); // TODO - get old roots from the database/node
-
-    this.log(`Executing simulator...`);
-    const executionResult = await this.acirSimulator.run(
-      txRequest,
-      functionDao,
-      contractAddress,
-      contract.portalContract,
-      oldRoots,
-    );
-
-    return { contract, oldRoots, executionResult };
   }
 
   private async getContractSiblingPath(committment: Buffer) {
