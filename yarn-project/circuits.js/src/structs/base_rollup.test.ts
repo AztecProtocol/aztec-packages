@@ -1,6 +1,6 @@
 import { expectReserializeToMatchObject, expectSerializeToMatchSnapshot } from '../tests/expectSerialize.js';
 import { makeBaseRollupInputs, makeBaseRollupPublicInputs } from '../tests/factories.js';
-import { BaseRollupPublicInputs } from './base_rollup.js';
+import { BaseOrMergeRollupPublicInputs } from './base_rollup.js';
 
 describe('structs/base_rollup', () => {
   it(`serializes and prints BaseRollupInputs`, async () => {
@@ -26,7 +26,7 @@ describe('structs/base_rollup', () => {
     await expectReserializeToMatchObject(
       baseRollupPublicInputs,
       'abis__test_roundtrip_reserialize_base_rollup_public_inputs',
-      BaseRollupPublicInputs.fromBuffer,
+      BaseOrMergeRollupPublicInputs.fromBuffer,
     );
   });
 });

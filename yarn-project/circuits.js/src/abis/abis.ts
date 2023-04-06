@@ -84,9 +84,14 @@ export async function computeContractAddress(
 }
 
 export async function computeContractLeaf(wasm: CircuitsWasm, cd: NewContractData) {
-  const data = cd.toBuffer();
   wasm.call('pedersen__init');
-  wasm.writeMemory(0, cd.toBuffer());
-  await wasm.asyncCall('abis__compute_contract_leaf', 0, data.length);
-  return Fr.fromBuffer(Buffer.from(wasm.getMemorySlice(data.length, data.length + 32)));
+  const data = cd.toBuffer();
+  const outputBuf = wasm.call('bbmalloc', 32);
+  const inputBuf = wasm.call('bbmalloc', data.length);
+  wasm.writeMemory(inputBuf, data);
+  await wasm.asyncCall('abis__compute_contract_leaf', inputBuf, outputBuf);
+  const buf = Buffer.from(wasm.getMemorySlice(outputBuf, outputBuf + 32));
+  wasm.call('bbfree', outputBuf);
+  wasm.call('bbfree', inputBuf);
+  return Fr.fromBuffer(buf);
 }
