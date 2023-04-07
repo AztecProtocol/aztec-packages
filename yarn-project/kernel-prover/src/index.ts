@@ -47,7 +47,6 @@ export class KernelProver {
       executionResult.callStackItem.publicInputs.callContext.portalContractAddress,
       functionTreeInfo.root,
     );
-    console.log(`new contract `, newContractData);
     const committment = await computeContractLeaf(wasm, newContractData);
     const contractLeafMembershipWitness = txRequest.functionData.isConstructor
       ? this.createRandomMembershipWitness()
@@ -72,8 +71,6 @@ export class KernelProver {
     // const proof = await privateKernelProve(wasm, signedTxRequest, previousKernelData, privateCallData);
     const proof = makeEmptyProof().buffer;
     this.log('Kernel Prover Completed!');
-
-    console.log(`public input `, publicInputs.end.newContracts);
 
     return Promise.resolve({
       publicInputs,
