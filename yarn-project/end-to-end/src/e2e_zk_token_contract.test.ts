@@ -155,7 +155,7 @@ describe('e2e_zk_token_contract', () => {
   /**
    * Milestone 1.5
    */
-  it.skip('should call transfer and increase balance of another account', async () => {
+  it.skip('1.5 should call transfer and increase balance of another account', async () => {
     const initialBalance = 987n;
     const transferAmount = 654n;
 
