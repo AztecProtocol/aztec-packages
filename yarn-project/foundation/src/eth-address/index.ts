@@ -31,7 +31,7 @@ export class EthAddress {
 
   /**
    * Creates an EthAddress instance from a valid Ethereum address string.
-   * The input 'address' can be either in checksum format or lowercase, and it should be prefixed with '0x'.
+   * The input 'address' can be either in checksum format or lowercase, and it can be prefixed with '0x'.
    * Throws an error if the input is not a valid Ethereum address.
    *
    * @param address - The string representing the Ethereum address.
