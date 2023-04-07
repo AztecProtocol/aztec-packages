@@ -18,7 +18,7 @@ import {
   computeFunctionTree,
 } from '@aztec/circuits.js';
 import { hashVK } from '@aztec/circuits.js/abis';
-import { Fr, Point, createDebugLogger, toBigIntBE } from '@aztec/foundation';
+import { Fr, Point, createDebugLogger } from '@aztec/foundation';
 import { FunctionTreeInfo, KernelProver } from '@aztec/kernel-prover';
 import { ContractAbi, FunctionType } from '@aztec/noir-contracts';
 import { Tx, TxHash } from '@aztec/tx';
@@ -252,30 +252,27 @@ export class AztecRPCServer implements AztecRPCClient {
       contract.functions.findIndex(f => f.selector.equals(callStackItem.functionData.functionSelector)) - 1;
     if (functionIndex < 0) {
       return {
-        root: Buffer.alloc(32),
+        root: new Fr(0n),
         membershipWitness: MembershipWitness.makeEmpty(FUNCTION_TREE_HEIGHT, 0),
       } as FunctionTreeInfo;
     }
 
     const leaves = await tree.getFunctionLeaves();
-    const functionTree = await this.getFunctionTree(leaves);
+    const functionTree = await computeFunctionTree(
+      this.circuitsWasm,
+      leaves.map(x => Fr.fromBuffer(x)),
+    );
     const functionTreeData = computeFunctionTreeData(functionTree, functionIndex);
     const membershipWitness = new MembershipWitness<typeof FUNCTION_TREE_HEIGHT>(
       FUNCTION_TREE_HEIGHT,
       functionIndex,
       functionTreeData.siblingPath,
     );
+    const root = await tree.getFunctionTreeRoot();
     return {
-      root: functionTreeData.root.toBuffer(),
+      root,
       membershipWitness,
     } as FunctionTreeInfo;
-  }
-
-  private async getFunctionTree(leaves: Buffer[]) {
-    return await computeFunctionTree(
-      this.circuitsWasm,
-      leaves.map(x => new Fr(toBigIntBE(x))),
-    );
   }
 
   /**

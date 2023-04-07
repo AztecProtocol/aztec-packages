@@ -23,7 +23,7 @@ import { computeContractLeaf } from '@aztec/circuits.js/abis';
 import { createDebugLogger, Fr } from '@aztec/foundation';
 
 export interface FunctionTreeInfo {
-  root: Buffer;
+  root: Fr;
   membershipWitness: MembershipWitness<typeof FUNCTION_TREE_HEIGHT>;
 }
 
@@ -45,11 +45,13 @@ export class KernelProver {
     const newContractData = new NewContractData(
       executionResult.callStackItem.publicInputs.callContext.storageContractAddress,
       executionResult.callStackItem.publicInputs.callContext.portalContractAddress,
-      Fr.fromBuffer(functionTreeInfo.root),
+      functionTreeInfo.root,
     );
+    console.log(`new contract `, newContractData);
+    const committment = await computeContractLeaf(wasm, newContractData);
     const contractLeafMembershipWitness = txRequest.functionData.isConstructor
       ? this.createRandomMembershipWitness()
-      : await getContractSiblingPath((await computeContractLeaf(wasm, newContractData)).toBuffer());
+      : await getContractSiblingPath(committment.toBuffer());
 
     const privateCallData = new PrivateCallData(
       executionResult.callStackItem,
@@ -70,6 +72,8 @@ export class KernelProver {
     // const proof = await privateKernelProve(wasm, signedTxRequest, previousKernelData, privateCallData);
     const proof = makeEmptyProof().buffer;
     this.log('Kernel Prover Completed!');
+
+    console.log(`public input `, publicInputs.end.newContracts);
 
     return Promise.resolve({
       publicInputs,
