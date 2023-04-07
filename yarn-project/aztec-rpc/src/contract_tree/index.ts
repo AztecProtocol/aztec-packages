@@ -28,7 +28,7 @@ async function generateFunctionLeaves(functions: ContractFunctionDao[], wasm: Ci
     const acirHash = keccak(Buffer.from(f.bytecode, 'hex'));
     const fnLeaf = await computeFunctionLeaf(
       wasm,
-      Buffer.concat([selector, Buffer.from([isPrivate ? 1 : 0]), vkHash, acirHash]),
+      Buffer.concat([selector, Buffer.alloc(28, 0), Buffer.from([isPrivate ? 1 : 0]), vkHash, acirHash]),
     );
     result.push(fnLeaf);
   }

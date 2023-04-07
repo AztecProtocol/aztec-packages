@@ -26,16 +26,17 @@ describe('e2e_zk_token_contract', () => {
   let accounts: AztecAddress[];
   let contract: Contract;
 
-  beforeAll(async () => {
+  beforeAll(() => {
     provider = createProvider(ETHEREUM_HOST, MNEMONIC, 1);
+  });
+
+  beforeEach(async () => {
     const ethRpc = new EthereumRpc(provider);
     logger('Deploying contracts...');
     rollupAddress = await deployRollupContract(provider, ethRpc);
     unverifiedDataEmitterAddress = await deployUnverifiedDataEmitterContract(provider, ethRpc);
     logger('Deployed contracts...');
-  });
 
-  beforeEach(async () => {
     node = await createAztecNode(
       rollupAddress,
       unverifiedDataEmitterAddress,
@@ -117,7 +118,7 @@ describe('e2e_zk_token_contract', () => {
    * Milestone 1.3
    * https://hackmd.io/AG5rb9DyTRu3y7mBptWauA
    */
-  it.skip('should deploy zk token contract with initial token minted to the account', async () => {
+  it('1.3 should deploy zk token contract with initial token minted to the account', async () => {
     const initialBalance = 987n;
     const owner = await aztecRpcServer.getAccountPublicKey(accounts[0]);
     await deployContract(initialBalance, pointToPublicKey(owner));
@@ -128,7 +129,7 @@ describe('e2e_zk_token_contract', () => {
   /**
    * Milestone 1.4
    */
-  it.only('should call mint and increase balance', async () => {
+  it('1.4 should call mint and increase balance', async () => {
     const mintAmount = 65n;
 
     const [owner, receiver] = accounts;

@@ -248,11 +248,12 @@ export class AztecRPCServer implements AztecRPCClient {
 
   private async computeFunctionTreeInfo(contract: ContractDao, callStackItem: PrivateCallStackItem) {
     const tree = new ContractTree(contract, this.circuitsWasm);
+    const root = await tree.getFunctionTreeRoot();
     const functionIndex =
       contract.functions.findIndex(f => f.selector.equals(callStackItem.functionData.functionSelector)) - 1;
     if (functionIndex < 0) {
       return {
-        root: new Fr(0n),
+        root,
         membershipWitness: MembershipWitness.makeEmpty(FUNCTION_TREE_HEIGHT, 0),
       } as FunctionTreeInfo;
     }
@@ -268,7 +269,6 @@ export class AztecRPCServer implements AztecRPCClient {
       functionIndex,
       functionTreeData.siblingPath,
     );
-    const root = await tree.getFunctionTreeRoot();
     return {
       root,
       membershipWitness,
