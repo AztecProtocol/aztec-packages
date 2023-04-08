@@ -51,7 +51,6 @@ export class AztecRPCServer implements AztecRPCClient {
     private log = createDebugLogger('aztec:rpc_server'),
   ) {
     this.synchroniser = new Synchroniser(node, db, acirSimulator, bbWasm);
-    this.synchroniser.start();
   }
 
   public async start() {
@@ -59,6 +58,7 @@ export class AztecRPCServer implements AztecRPCClient {
     for (const account of accounts) {
       await this.initAccountState(account);
     }
+    this.synchroniser.start();
     this.log(`Started. ${accounts.length} initial accounts.`);
   }
 
