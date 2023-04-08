@@ -1,7 +1,6 @@
 import { PrivateKernelPublicInputs, UInt8Vector } from '@aztec/circuits.js';
-import { serializeToBuffer } from '@aztec/circuits.js/utils';
-import { keccak } from '@aztec/foundation';
 import { UnverifiedData } from '@aztec/unverified-data';
+import { createTxHash } from './create_tx_hash.js';
 import { TxHash } from './tx_hash.js';
 
 /**
@@ -29,25 +28,8 @@ export class Tx {
    */
   get txHash() {
     if (!this.hash) {
-      this.hash = Tx.createTxHash(this);
+      this.hash = createTxHash(this.data.end);
     }
     return this.hash;
-  }
-
-  /**
-   * Utility function to generate tx hash.
-   * @param tx - The transaction from which to generate the hash.
-   * @returns A hash of the tx data that identifies the tx.
-   */
-  static createTxHash(tx: Tx): TxHash {
-    const dataToHash = Buffer.concat(
-      [
-        tx.data.end.newCommitments.map(x => x.toBuffer()),
-        tx.data.end.newNullifiers.map(x => x.toBuffer()),
-        // Keep this line in sync with newContractData from createTxHashes
-        tx.data.end.newContracts.map(x => serializeToBuffer(x.contractAddress, x.portalContractAddress)),
-      ].flat(),
-    );
-    return new TxHash(keccak(dataToHash));
   }
 }

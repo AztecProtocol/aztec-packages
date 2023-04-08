@@ -1,4 +1,3 @@
-import { Fr, keccak } from '@aztec/foundation';
 import {
   AppendOnlyTreeSnapshot,
   KERNEL_NEW_COMMITMENTS_LENGTH,
@@ -7,8 +6,9 @@ import {
 } from '@aztec/circuits.js';
 import { makeAppendOnlyTreeSnapshot } from '@aztec/circuits.js/factories';
 import { BufferReader, serializeToBuffer } from '@aztec/circuits.js/utils';
+import { Fr } from '@aztec/foundation';
 import { ContractData } from './contract_data.js';
-import { TxHash } from '@aztec/tx';
+import { L2Tx } from './l2_tx.js';
 
 /**
  * The data that makes up the rollup proof, with encoder decoder functions.
@@ -203,37 +203,24 @@ export class L2Block {
     );
   }
 
-  /**
-   * Generates transaction hash for the ith transaction in an L2 block.
-   * @param block - The L2 block.
-   * @param txIndex - The index of the tx in the block.
-   * @returns TxHash of the tx.
-   */
-  getTxHash(txIndex: number): TxHash {
-    const dataToHash = Buffer.concat(
-      [
-        this.newCommitments
-          .slice(
-            txIndex * KERNEL_NEW_COMMITMENTS_LENGTH,
-            txIndex * KERNEL_NEW_COMMITMENTS_LENGTH + KERNEL_NEW_COMMITMENTS_LENGTH,
-          )
-          .map(x => x.toBuffer()),
-        this.newNullifiers
-          .slice(
-            txIndex * KERNEL_NEW_NULLIFIERS_LENGTH,
-            txIndex * KERNEL_NEW_NULLIFIERS_LENGTH + KERNEL_NEW_NULLIFIERS_LENGTH,
-          )
-          .map(x => x.toBuffer()),
-        // Keep this in sync with createTxHash
-        this.newContractData
-          .slice(
-            txIndex * KERNEL_NEW_CONTRACTS_LENGTH,
-            txIndex * KERNEL_NEW_CONTRACTS_LENGTH + KERNEL_NEW_CONTRACTS_LENGTH,
-          )
-          .map(x => serializeToBuffer(x.aztecAddress, x.ethAddress)),
-      ].flat(),
+  getTx(txIndex: number) {
+    const newCommitments = this.newCommitments.slice(
+      txIndex * KERNEL_NEW_COMMITMENTS_LENGTH,
+      txIndex * KERNEL_NEW_COMMITMENTS_LENGTH + KERNEL_NEW_COMMITMENTS_LENGTH,
     );
-    return new TxHash(keccak(dataToHash));
+    const newNullifiers = this.newNullifiers.slice(
+      txIndex * KERNEL_NEW_NULLIFIERS_LENGTH,
+      txIndex * KERNEL_NEW_NULLIFIERS_LENGTH + KERNEL_NEW_NULLIFIERS_LENGTH,
+    );
+    const newContracts = this.newContracts.slice(
+      txIndex * KERNEL_NEW_CONTRACTS_LENGTH,
+      txIndex * KERNEL_NEW_CONTRACTS_LENGTH + KERNEL_NEW_CONTRACTS_LENGTH,
+    );
+    const newContractData = this.newContractData.slice(
+      txIndex * KERNEL_NEW_CONTRACTS_LENGTH,
+      txIndex * KERNEL_NEW_CONTRACTS_LENGTH + KERNEL_NEW_CONTRACTS_LENGTH,
+    );
+    return new L2Tx(newCommitments, newNullifiers, newContracts, newContractData);
   }
 
   /**
@@ -251,10 +238,10 @@ export class L2Block {
       arr
         .map(
           cd =>
-            `(0x${cd.aztecAddress.toBuffer().subarray(0, maxBufferSize).toString('hex')}, 0x${cd.ethAddress
+            `(0x${cd.contractAddress
               .toBuffer()
               .subarray(0, maxBufferSize)
-              .toString('hex')})`,
+              .toString('hex')}, 0x${cd.portalContractAddress.toBuffer().subarray(0, maxBufferSize).toString('hex')})`,
         )
         .join(', ') +
       ']';
