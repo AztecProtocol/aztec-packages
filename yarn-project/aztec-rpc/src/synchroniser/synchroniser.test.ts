@@ -15,7 +15,7 @@ describe('Synchroniser', () => {
   let synchroniser: Synchroniser;
 
   beforeAll(async () => {
-    const wasm = await BarretenbergWasm.new();
+    const wasm = await BarretenbergWasm.get();
     grumpkin = new Grumpkin(wasm);
 
     aztecNode = mock<AztecNode>();

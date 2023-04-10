@@ -15,8 +15,8 @@ import {
 
 describe('abis wasm bindings', () => {
   let wasm: CircuitsWasm;
-  beforeEach(async () => {
-    wasm = await CircuitsWasm.new();
+  beforeAll(async () => {
+    wasm = await CircuitsWasm.get();
   });
 
   it('hashes a tx request', async () => {
