@@ -101,4 +101,5 @@ COPY unverified-data/tsconfig.dest.json unverified-data/tsconfig.dest.json
 COPY world-state/tsconfig.dest.json world-state/tsconfig.dest.json
 
 # Check that dependencies config are up to date
+COPY yarn-project-base/scripts yarn-project-base/scripts
 RUN yarn prepare:check
