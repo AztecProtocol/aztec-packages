@@ -13,8 +13,6 @@ export function keccak(input: Buffer) {
 
 /**
  * Computes the keccak-256 hash of a given input string and returns the result as a hexadecimal string.
- * This function will first reset the internal state of the hash object before updating it with the input data.
- * The input string is expected to be utf8 encoded.
  */
 export function keccak256String(input: string) {
   const hash = new Keccak(256);
