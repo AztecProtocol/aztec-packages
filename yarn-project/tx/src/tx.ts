@@ -41,6 +41,10 @@ export class Tx {
    * @returns A hash of the tx data that identifies the tx.
    */
   static async createTxHash(tx: Tx): Promise<TxHash> {
+    // NOTE: We are using computeContractLeaf here to ensure consistency with how circuits compute
+    // contract tree leaves, which then go into the L2 block, which are then used to regenerate
+    // the tx hashes. This means we need the full circuits wasm, and cannot use the lighter primitives
+    // wasm. Alternatively, we could stop using computeContractLeaf and manually use the same
     const wasm = await CircuitsWasm.get();
     return hashTxData(
       tx.data.end.newCommitments,
@@ -62,6 +66,5 @@ export function hashTxData(
       newContracts.map(x => (Buffer.isBuffer(x) ? x : x.toBuffer())),
     ].flat(),
   );
-  console.log(`Hashing: `, dataToHash.toString('hex'));
   return new TxHash(keccak(dataToHash));
 }
