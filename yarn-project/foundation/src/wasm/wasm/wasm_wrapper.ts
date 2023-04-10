@@ -65,6 +65,7 @@ export abstract class WasmWrapper {
    * @param module - The wasm module.
    * @returns An object of functions called from cpp that need to be answered by ts.
    */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   protected getImportFns(module: WasmModule): any {
     return {};
   }

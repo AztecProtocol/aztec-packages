@@ -1,10 +1,6 @@
 import { pedersenCompressInputs } from '@aztec/barretenberg.js/crypto';
 import { PrimitivesWasm } from '@aztec/barretenberg.js/wasm';
-import {
-  NewContractData,
-  PrivateKernelPublicInputs,
-  UInt8Vector
-} from '@aztec/circuits.js';
+import { NewContractData, PrivateKernelPublicInputs, UInt8Vector } from '@aztec/circuits.js';
 import { Fr, keccak } from '@aztec/foundation';
 import { WasmWrapper } from '@aztec/foundation/wasm';
 import { UnverifiedData } from '@aztec/unverified-data';
