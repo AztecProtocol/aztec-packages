@@ -18,7 +18,7 @@ function isConstructor({ name }: { name: string }) {
 
 async function generateFunctionLeaves(functions: ContractFunctionDao[], wasm: CircuitsWasm) {
   const filteredFunctions = functions.filter(f => f.functionType !== FunctionType.UNCONSTRAINED && !isConstructor(f));
-  const result: Buffer[] = [];
+  const result: Fr[] = [];
   for (let i = 0; i < filteredFunctions.length; i++) {
     const f = filteredFunctions[i];
     const selector = generateFunctionSelector(f.name, f.parameters);
@@ -26,9 +26,10 @@ async function generateFunctionLeaves(functions: ContractFunctionDao[], wasm: Ci
     // All non-unconstrained functions have vks
     const vkHash = await hashVK(wasm, Buffer.from(f.verificationKey!, 'hex'));
     const acirHash = keccak(Buffer.from(f.bytecode, 'hex'));
+    // TODO: selector is currently padded to 32 bytes in CBINDS, check this.
     const fnLeaf = await computeFunctionLeaf(
       wasm,
-      Buffer.concat([selector, Buffer.from([isPrivate ? 1 : 0]), vkHash, acirHash]),
+      Buffer.concat([selector, Buffer.alloc(28, 0), Buffer.from([isPrivate ? 1 : 0]), vkHash, acirHash]),
     );
     result.push(fnLeaf);
   }
@@ -36,7 +37,7 @@ async function generateFunctionLeaves(functions: ContractFunctionDao[], wasm: Ci
 }
 
 export class ContractTree {
-  private functionLeaves?: Buffer[];
+  private functionLeaves?: Fr[];
 
   constructor(public readonly contract: ContractDao, private wasm: CircuitsWasm) {}
 
@@ -58,8 +59,7 @@ export class ContractTree {
       selector: generateFunctionSelector(f.name, f.parameters),
     }));
     const leaves = await generateFunctionLeaves(functions, wasm);
-    const functionTreeRoot = await computeFunctionTreeRoot(wasm, leaves);
-    const root = Fr.fromBuffer(functionTreeRoot);
+    const root = await computeFunctionTreeRoot(wasm, leaves);
     const constructorSelector = generateFunctionSelector(constructorFunc.name, constructorFunc.parameters);
     const vkHash = await hashVK(wasm, Buffer.from(constructorFunc.verificationKey!, 'hex'));
     const constructorHash = await hashConstructor(wasm, new FunctionData(constructorSelector), args, vkHash);
@@ -88,7 +88,6 @@ export class ContractTree {
 
   async getFunctionTreeRoot() {
     const leaves = await this.getFunctionLeaves();
-    const treeRoot = await computeFunctionTreeRoot(this.wasm, leaves);
-    return Fr.fromBuffer(treeRoot);
+    return computeFunctionTreeRoot(this.wasm, leaves);
   }
 }
