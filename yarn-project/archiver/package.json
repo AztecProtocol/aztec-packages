@@ -31,6 +31,7 @@
     "rootDir": "./src"
   },
   "dependencies": {
+    "@aztec/ethereum.js": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "@aztec/l1-contracts": "workspace:^",
     "@aztec/l2-block": "workspace:^",
