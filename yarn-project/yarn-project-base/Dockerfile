@@ -52,7 +52,7 @@ RUN yarn --immutable
 RUN echo "enableNetwork: false" >> .yarnrc.yml
 
 # Check that dependencies config are up to date
-COPY scripts ./scripts
+COPY /usr/src/scripts /usr/src/scripts
 RUN yarn prepare:check
 
 # Yarn devs won't provide an extremely simple and useful feature of pruning dev dependencies from the local cache:
