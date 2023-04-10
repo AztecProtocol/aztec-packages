@@ -44,6 +44,7 @@ COPY tx/package.json tx/package.json
 COPY unverified-data/package.json unverified-data/package.json
 COPY world-state/package.json world-state/package.json
 COPY package.json tsconfig.json tsconfig.dest.json tsconfig.eslint.json yarn.lock .yarnrc.yml ./
+COPY ../scripts ../scripts
 COPY .yarn .yarn
 
 # Although we're attempting to be "zero-install", in practice we still need to build arch specific packages.
@@ -52,7 +53,6 @@ RUN yarn --immutable
 RUN echo "enableNetwork: false" >> .yarnrc.yml
 
 # Check that dependencies config are up to date
-COPY /usr/src/scripts /usr/src/scripts
 RUN yarn prepare:check
 
 # Yarn devs won't provide an extremely simple and useful feature of pruning dev dependencies from the local cache:
