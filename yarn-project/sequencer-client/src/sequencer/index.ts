@@ -6,6 +6,7 @@ import { CircuitBlockBuilder } from '../block_builder/circuit_block_builder.js';
 import { RunningPromise } from '../deps/running_promise.js';
 import { L1Publisher } from '../publisher/l1-publisher.js';
 import { SequencerConfig } from './config.js';
+import { makeEmptyTx } from '../index.js';
 
 /**
  * Sequencer client
@@ -156,7 +157,12 @@ export class Sequencer {
   }
 
   protected async buildBlock(tx: Tx) {
-    const [block] = await this.blockBuilder.buildL2Block(this.lastBlockNumber + 1, tx);
+    const [block] = await this.blockBuilder.buildL2Block(this.lastBlockNumber + 1, [
+      tx,
+      makeEmptyTx(),
+      makeEmptyTx(),
+      makeEmptyTx(),
+    ]);
     return block;
   }
 }

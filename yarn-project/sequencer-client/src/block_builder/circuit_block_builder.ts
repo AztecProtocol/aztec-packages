@@ -73,7 +73,7 @@ export class CircuitBlockBuilder {
     protected debug = createDebugLogger('aztec:sequencer'),
   ) {}
 
-  public async buildL2Block(blockNumber: number, tx: Tx): Promise<[L2Block, UInt8Vector]> {
+  public async buildL2Block(blockNumber: number, txs: Tx[]): Promise<[L2Block, UInt8Vector]> {
     const [
       startPrivateDataTreeSnapshot,
       startNullifierTreeSnapshot,
@@ -91,7 +91,6 @@ export class CircuitBlockBuilder {
     );
 
     // We fill the tx batch with empty txs, we process only one tx at a time for now
-    const txs = [tx, makeEmptyTx(), makeEmptyTx(), makeEmptyTx()];
     const [circuitsOutput, proof] = await this.runCircuits(txs);
 
     const {
