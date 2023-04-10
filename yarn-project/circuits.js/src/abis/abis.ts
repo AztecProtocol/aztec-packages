@@ -1,11 +1,29 @@
 import { Buffer } from 'buffer';
-import { AztecAddress, Fr, serializeBufferArrayToVector } from '@aztec/foundation';
+import { AztecAddress, Fr } from '@aztec/foundation';
 import { CircuitsWasm } from '../wasm/index.js';
 import { FunctionData, FUNCTION_SELECTOR_NUM_BYTES, TxRequest, NewContractData } from '../index.js';
 import { serializeToBuffer } from '../utils/serialize.js';
+import { AsyncWasmWrapper, WasmWrapper } from '@aztec/foundation/wasm';
 
-export async function wasmCall(
-  wasm: CircuitsWasm,
+export function wasmSyncCall(
+  wasm: WasmWrapper,
+  fnName: string,
+  input: { toBuffer: () => Buffer },
+  expectedOutputLength: number,
+): Buffer {
+  const inputData = input.toBuffer();
+  const outputBuf = wasm.call('bbmalloc', expectedOutputLength);
+  const inputBuf = wasm.call('bbmalloc', inputData.length);
+  wasm.writeMemory(inputBuf, inputData);
+  wasm.call(fnName, inputBuf, outputBuf);
+  const buf = Buffer.from(wasm.getMemorySlice(outputBuf, outputBuf + expectedOutputLength));
+  wasm.call('bbfree', outputBuf);
+  wasm.call('bbfree', inputBuf);
+  return buf;
+}
+
+export async function wasmAsyncCall(
+  wasm: AsyncWasmWrapper,
   fnName: string,
   input: { toBuffer: () => Buffer },
   expectedOutputLength: number,
@@ -23,11 +41,11 @@ export async function wasmCall(
 
 export async function hashTxRequest(wasm: CircuitsWasm, txRequest: TxRequest) {
   wasm.call('pedersen__init');
-  return await wasmCall(wasm, 'abis__hash_tx_request', txRequest, 32);
+  return await wasmAsyncCall(wasm, 'abis__hash_tx_request', txRequest, 32);
 }
 
 export async function computeFunctionSelector(wasm: CircuitsWasm, funcSig: string) {
-  return await wasmCall(
+  return await wasmAsyncCall(
     wasm,
     'abis__compute_function_selector',
     { toBuffer: () => Buffer.from(funcSig) },
@@ -37,22 +55,24 @@ export async function computeFunctionSelector(wasm: CircuitsWasm, funcSig: strin
 
 export async function hashVK(wasm: CircuitsWasm, vkBuf: Buffer) {
   wasm.call('pedersen__init');
-  return await wasmCall(wasm, 'abis__hash_vk', { toBuffer: () => vkBuf }, 32);
+  return await wasmAsyncCall(wasm, 'abis__hash_vk', { toBuffer: () => vkBuf }, 32);
 }
 
 export async function computeFunctionLeaf(wasm: CircuitsWasm, fnLeaf: Buffer) {
+  // Size must match circuits/cpp/src/aztec3/circuits/abis/function_leaf_preimage.hpp
+  if (fnLeaf.length !== 32 + 1 + 32 + 32) throw new Error(`Invalid length for function leaf`);
   wasm.call('pedersen__init');
-  return await wasmCall(wasm, 'abis__compute_function_leaf', { toBuffer: () => fnLeaf }, 32);
+  return Fr.fromBuffer(await wasmAsyncCall(wasm, 'abis__compute_function_leaf', { toBuffer: () => fnLeaf }, 32));
 }
 
-export async function computeFunctionTreeRoot(wasm: CircuitsWasm, fnLeafs: Buffer[]) {
-  const inputVector = serializeBufferArrayToVector(fnLeafs);
+export async function computeFunctionTreeRoot(wasm: CircuitsWasm, fnLeafs: Fr[]) {
+  const inputBuf = serializeToBuffer(fnLeafs);
   wasm.call('pedersen__init');
   const outputBuf = wasm.call('bbmalloc', 32);
-  const inputBuf = wasm.call('bbmalloc', inputVector.length);
-  wasm.writeMemory(inputBuf, inputVector);
-  await wasm.asyncCall('abis__compute_function_tree_root', inputBuf, fnLeafs.length, outputBuf);
-  return Buffer.from(wasm.getMemorySlice(outputBuf, outputBuf + 32));
+  const inputBufPtr = wasm.call('bbmalloc', inputBuf.length);
+  wasm.writeMemory(inputBufPtr, inputBuf);
+  await wasm.asyncCall('abis__compute_function_tree_root', inputBufPtr, fnLeafs.length, outputBuf);
+  return Fr.fromBuffer(Buffer.from(wasm.getMemorySlice(outputBuf, outputBuf + 32)));
 }
 
 // not yet working
@@ -127,8 +147,8 @@ export async function computeContractAddress(
   return AztecAddress.fromBuffer(resultBuf);
 }
 
-export async function computeContractLeaf(wasm: CircuitsWasm, cd: NewContractData) {
+export function computeContractLeaf(wasm: WasmWrapper, cd: NewContractData) {
   wasm.call('pedersen__init');
-  const value = await wasmCall(wasm, 'abis__compute_contract_leaf', { toBuffer: () => cd.toBuffer() }, 32);
+  const value = wasmSyncCall(wasm, 'abis__compute_contract_leaf', { toBuffer: () => cd.toBuffer() }, 32);
   return Fr.fromBuffer(value);
 }

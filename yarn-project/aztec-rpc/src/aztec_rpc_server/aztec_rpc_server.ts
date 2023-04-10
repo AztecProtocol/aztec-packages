@@ -1,6 +1,5 @@
 import { AcirSimulator, encodeArguments } from '@aztec/acir-simulator';
 import { AztecNode } from '@aztec/aztec-node';
-import { BarretenbergWasm } from '@aztec/barretenberg.js/wasm';
 import {
   AztecAddress,
   CONTRACT_TREE_HEIGHT,
@@ -46,11 +45,9 @@ export class AztecRPCServer implements AztecRPCClient {
     private kernelProver: KernelProver,
     private node: AztecNode,
     private db: Database,
-    private circuitsWasm: CircuitsWasm,
-    bbWasm: BarretenbergWasm,
     private log = createDebugLogger('aztec:rpc_server'),
   ) {
-    this.synchroniser = new Synchroniser(node, db, acirSimulator, bbWasm);
+    this.synchroniser = new Synchroniser(node, db, acirSimulator);
     this.synchroniser.start();
   }
 
@@ -109,6 +106,7 @@ export class AztecRPCServer implements AztecRPCClient {
     contractAddressSalt = Fr.random(),
     from?: AztecAddress,
   ) {
+    const wasm = await CircuitsWasm.get();
     const fromAddress = this.ensureAccountOrDefault(from);
 
     const constructorAbi = abi.functions.find(f => f.name === 'constructor');
@@ -121,14 +119,7 @@ export class AztecRPCServer implements AztecRPCClient {
     }
 
     const flatArgs = encodeArguments(constructorAbi, args);
-    const contractTree = await ContractTree.new(
-      abi,
-      flatArgs,
-      portalContract,
-      contractAddressSalt,
-      fromAddress,
-      this.circuitsWasm,
-    );
+    const contractTree = await ContractTree.new(abi, flatArgs, portalContract, contractAddressSalt, fromAddress);
 
     const functionData = new FunctionData(
       generateFunctionSelector(constructorAbi.name, constructorAbi.parameters),
@@ -136,7 +127,7 @@ export class AztecRPCServer implements AztecRPCClient {
       true,
     );
 
-    const constructorVkHash = await hashVK(this.circuitsWasm, Buffer.from(constructorAbi.verificationKey, 'hex'));
+    const constructorVkHash = await hashVK(wasm, Buffer.from(constructorAbi.verificationKey, 'hex'));
 
     const functionTreeRoot = await contractTree.getFunctionTreeRoot();
 
@@ -218,7 +209,6 @@ export class AztecRPCServer implements AztecRPCClient {
       signature,
       executionResult,
       oldRoots,
-      this.circuitsWasm,
       (callStackItem: PrivateCallStackItem) => {
         return this.getFunctionTreeInfo(contract, callStackItem);
       },
@@ -236,7 +226,7 @@ export class AztecRPCServer implements AztecRPCClient {
     const [toContract, newContract] = txRequest.functionData.isConstructor
       ? [undefined, contractAddress]
       : [contractAddress, undefined];
-    const dao = new TxDao(tx.txHash, undefined, undefined, txRequest.from, toContract, newContract, '');
+    const dao = new TxDao(await tx.getTxHash(), undefined, undefined, txRequest.from, toContract, newContract, '');
     await this.db.addTx(dao);
 
     return tx;
@@ -247,7 +237,8 @@ export class AztecRPCServer implements AztecRPCClient {
   }
 
   private async computeFunctionTreeInfo(contract: ContractDao, callStackItem: PrivateCallStackItem) {
-    const tree = new ContractTree(contract, this.circuitsWasm);
+    const wasm = await CircuitsWasm.get();
+    const tree = new ContractTree(contract, wasm);
     const root = await tree.getFunctionTreeRoot();
     const functionIndex =
       contract.functions.findIndex(f => f.selector.equals(callStackItem.functionData.functionSelector)) - 1;
@@ -259,10 +250,7 @@ export class AztecRPCServer implements AztecRPCClient {
     }
 
     const leaves = await tree.getFunctionLeaves();
-    const functionTree = await computeFunctionTree(
-      this.circuitsWasm,
-      leaves.map(x => Fr.fromBuffer(x)),
-    );
+    const functionTree = await computeFunctionTree(wasm, leaves);
     const functionTreeData = computeFunctionTreeData(functionTree, functionIndex);
     const membershipWitness = new MembershipWitness<typeof FUNCTION_TREE_HEIGHT>(
       FUNCTION_TREE_HEIGHT,
@@ -282,7 +270,7 @@ export class AztecRPCServer implements AztecRPCClient {
    */
   public async sendTx(tx: Tx): Promise<TxHash> {
     await this.node.sendTx(tx);
-    return tx.txHash;
+    return tx.getTxHash();
   }
 
   public async viewTx(functionName: string, args: any[], to: AztecAddress, from?: AztecAddress) {

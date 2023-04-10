@@ -34,15 +34,14 @@ function getFirstExisting(files) {
       return file;
     }
   }
-  throw new Error('Found no existing file of: ' + files.join(', '));
+  throw new Error('Found no existing file of: ' + files.join(', ') + ' at ' + process.cwd());
 }
 
 module.exports = {
   extends: ['eslint:recommended', 'plugin:@typescript-eslint/recommended', 'prettier'],
   root: true,
   parser: '@typescript-eslint/parser',
-  // plugins: ['@typescript-eslint', 'eslint-plugin-tsdoc', 'jsdoc'],
-  plugins: ['@typescript-eslint'],
+  plugins: ['@typescript-eslint', 'eslint-plugin-tsdoc', 'jsdoc'],
   overrides: [
     {
       files: ['*.ts', '*.tsx'],
@@ -67,6 +66,7 @@ module.exports = {
     '@typescript-eslint/no-empty-function': 'off',
     '@typescript-eslint/await-thenable': 'error',
     '@typescript-eslint/no-floating-promises': 2,
+    '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
     'require-await': 2,
     'no-constant-condition': 'off',
     camelcase: 2,
@@ -85,27 +85,28 @@ module.exports = {
         ],
       },
     ],
-    // 'tsdoc/syntax': 'warn',
-    // 'jsdoc/require-jsdoc': [
-    //   'warn',
-    //   {
-    //     contexts,
-    //     checkConstructors: false,
-    //     checkGetters: true,
-    //     checkSetters: true,
-    //   },
-    // ],
-    // 'jsdoc/require-description': ['warn', { contexts }],
-    // 'jsdoc/require-description-complete-sentence': ['warn'],
-    // 'jsdoc/require-hyphen-before-param-description': ['warn'],
+    'tsdoc/syntax': 'warn',
+    'jsdoc/require-jsdoc': [
+      'warn',
+      {
+        contexts,
+        checkConstructors: false,
+        checkGetters: true,
+        checkSetters: true,
+      },
+    ],
+    'jsdoc/require-description': ['warn', { contexts }],
+    'jsdoc/require-description-complete-sentence': ['warn'],
+    'jsdoc/require-hyphen-before-param-description': ['warn'],
+    // TODO(AD): we can reevaluate this - seemed low value
     // 'jsdoc/require-param': ['warn', { contexts, checkDestructured: false }],
-    // 'jsdoc/require-param-description': ['warn', { contexts }],
-    // 'jsdoc/require-param-name': ['warn', { contexts }],
-    // 'jsdoc/require-property': ['warn', { contexts }],
-    // 'jsdoc/require-property-description': ['warn', { contexts }],
-    // 'jsdoc/require-property-name': ['warn', { contexts }],
-    // 'jsdoc/require-returns': ['warn', { contexts }],
-    // 'jsdoc/require-returns-description': ['warn', { contexts }],
+    'jsdoc/require-param-description': ['warn', { contexts }],
+    'jsdoc/require-param-name': ['warn', { contexts }],
+    'jsdoc/require-property': ['warn', { contexts }],
+    'jsdoc/require-property-description': ['warn', { contexts }],
+    'jsdoc/require-property-name': ['warn', { contexts }],
+    'jsdoc/require-returns': ['warn', { contexts }],
+    'jsdoc/require-returns-description': ['warn', { contexts }],
   },
   ignorePatterns: ['node_modules', 'dest*', 'dist', '*.js', '.eslintrc.cjs'],
 };
