@@ -68,13 +68,36 @@ RUN /bin/bash -c '\
   [[ $F =~ (.*-) ]] && ln $F /root/.yarn/berry/cache/${BASH_REMATCH[1]}8.zip; \
   done'
 
-# Copy the full yarn-project
-# TODO: We can now remove this from each individual image, see https://github.com/AztecProtocol/aztec3-packages/issues/224
-COPY . .
-
 # We hack around the build context by copying the build manifest to and from the yarn_project root,
 # see the comment in .circleci/config.yml for more info.
 RUN cp build_manifest.json ../
+
+# Copy tsconfig to check dependencies
+COPY acir-simulator/tsconfig.dest.json acir-simulator/tsconfig.dest.json
+COPY archiver/tsconfig.dest.json archiver/tsconfig.dest.json
+COPY aztec-cli/tsconfig.dest.json aztec-cli/tsconfig.dest.json
+COPY aztec-rpc/tsconfig.dest.json aztec-rpc/tsconfig.dest.json
+COPY aztec-node/tsconfig.dest.json aztec-node/tsconfig.dest.json
+COPY aztec.js/tsconfig.dest.json aztec.js/tsconfig.dest.json
+COPY docs/tsconfig.dest.json docs/tsconfig.dest.json
+COPY end-to-end/tsconfig.dest.json end-to-end/tsconfig.dest.json
+COPY ethereum.js/example/tsconfig.dest.json ethereum.js/example/tsconfig.dest.json
+COPY ethereum.js/tsconfig.dest.json ethereum.js/tsconfig.dest.json
+COPY foundation/tsconfig.dest.json foundation/tsconfig.dest.json
+COPY kernel-prover/tsconfig.dest.json kernel-prover/tsconfig.dest.json
+COPY key-store/tsconfig.dest.json key-store/tsconfig.dest.json
+COPY l2-block/tsconfig.dest.json l2-block/tsconfig.dest.json
+COPY merkle-tree/tsconfig.dest.json merkle-tree/tsconfig.dest.json
+COPY noir-contracts/tsconfig.dest.json noir-contracts/tsconfig.dest.json
+COPY l1-contracts/tsconfig.dest.json l1-contracts/tsconfig.dest.json
+COPY barretenberg.js/tsconfig.dest.json barretenberg.js/tsconfig.dest.json
+COPY circuits.js/tsconfig.dest.json circuits.js/tsconfig.dest.json
+COPY p2p/tsconfig.dest.json p2p/tsconfig.dest.json
+COPY prover-client/tsconfig.dest.json prover-client/tsconfig.dest.json
+COPY sequencer-client/tsconfig.dest.json sequencer-client/tsconfig.dest.json
+COPY tx/tsconfig.dest.json tx/tsconfig.dest.json
+COPY unverified-data/tsconfig.dest.json unverified-data/tsconfig.dest.json
+COPY world-state/tsconfig.dest.json world-state/tsconfig.dest.json
 
 # Check that dependencies config are up to date
 RUN yarn prepare:check
