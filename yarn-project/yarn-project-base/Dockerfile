@@ -82,9 +82,7 @@ COPY aztec-cli/tsconfig.dest.json aztec-cli/tsconfig.dest.json
 COPY aztec-rpc/tsconfig.dest.json aztec-rpc/tsconfig.dest.json
 COPY aztec-node/tsconfig.dest.json aztec-node/tsconfig.dest.json
 COPY aztec.js/tsconfig.dest.json aztec.js/tsconfig.dest.json
-COPY docs/tsconfig.dest.json docs/tsconfig.dest.json
 COPY end-to-end/tsconfig.dest.json end-to-end/tsconfig.dest.json
-COPY ethereum.js/example/tsconfig.dest.json ethereum.js/example/tsconfig.dest.json
 COPY ethereum.js/tsconfig.dest.json ethereum.js/tsconfig.dest.json
 COPY foundation/tsconfig.dest.json foundation/tsconfig.dest.json
 COPY kernel-prover/tsconfig.dest.json kernel-prover/tsconfig.dest.json
