@@ -42,10 +42,10 @@ export async function hashVK(wasm: CircuitsWasm, vkBuf: Buffer) {
 
 export async function computeFunctionLeaf(wasm: CircuitsWasm, fnLeaf: Buffer) {
   wasm.call('pedersen__init');
-  return await wasmCall(wasm, 'abis__compute_function_leaf', { toBuffer: () => fnLeaf }, 32);
+  return Fr.fromBuffer(await wasmCall(wasm, 'abis__compute_function_leaf', { toBuffer: () => fnLeaf }, 32));
 }
 
-export async function computeFunctionTreeRoot(wasm: CircuitsWasm, fnLeafs: Buffer[]) {
+export async function computeFunctionTreeRoot(wasm: CircuitsWasm, fnLeafs: Fr[]) {
   const inputBuf = serializeToBuffer(fnLeafs);
   wasm.call('pedersen__init');
   const outputBuf = wasm.call('bbmalloc', 32);

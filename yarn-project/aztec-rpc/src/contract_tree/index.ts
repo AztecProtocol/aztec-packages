@@ -18,7 +18,7 @@ function isConstructor({ name }: { name: string }) {
 
 async function generateFunctionLeaves(functions: ContractFunctionDao[], wasm: CircuitsWasm) {
   const filteredFunctions = functions.filter(f => f.functionType !== FunctionType.UNCONSTRAINED && !isConstructor(f));
-  const result: Buffer[] = [];
+  const result: Fr[] = [];
   for (let i = 0; i < filteredFunctions.length; i++) {
     const f = filteredFunctions[i];
     const selector = generateFunctionSelector(f.name, f.parameters);
@@ -37,7 +37,7 @@ async function generateFunctionLeaves(functions: ContractFunctionDao[], wasm: Ci
 }
 
 export class ContractTree {
-  private functionLeaves?: Buffer[];
+  private functionLeaves?: Fr[];
 
   constructor(public readonly contract: ContractDao, private wasm: CircuitsWasm) {}
 

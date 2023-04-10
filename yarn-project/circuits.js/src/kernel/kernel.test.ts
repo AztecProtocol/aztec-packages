@@ -25,11 +25,6 @@ describe('abis wasm bindings', () => {
     expect(tree.slice(0, numLeaves)).toEqual(leaves);
 
     const root = tree[tree.length - 1];
-    expect(root).toEqual(
-      await computeFunctionTreeRoot(
-        wasm,
-        leaves.map(l => l.toBuffer()),
-      ),
-    );
+    expect(root).toEqual(await computeFunctionTreeRoot(wasm, leaves));
   });
 });
