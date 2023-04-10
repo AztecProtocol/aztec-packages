@@ -1,8 +1,6 @@
-import { pedersenCompressInputs } from '@aztec/barretenberg.js/crypto';
-import { PrimitivesWasm } from '@aztec/barretenberg.js/wasm';
-import { NewContractData, PrivateKernelPublicInputs, UInt8Vector } from '@aztec/circuits.js';
+import { CircuitsWasm, PrivateKernelPublicInputs, UInt8Vector } from '@aztec/circuits.js';
+import { computeContractLeaf } from '@aztec/circuits.js/abis';
 import { Fr, keccak } from '@aztec/foundation';
-import { WasmWrapper } from '@aztec/foundation/wasm';
 import { UnverifiedData } from '@aztec/unverified-data';
 import { TxHash } from './tx_hash.js';
 
@@ -43,24 +41,13 @@ export class Tx {
    * @returns A hash of the tx data that identifies the tx.
    */
   static async createTxHash(tx: Tx): Promise<TxHash> {
-    const wasm = await PrimitivesWasm.get();
+    const wasm = await CircuitsWasm.get();
     return hashTxData(
       tx.data.end.newCommitments,
       tx.data.end.newNullifiers,
-      tx.data.end.newContracts.map(cd => hashNewContractData(wasm, cd)),
+      tx.data.end.newContracts.map(cd => computeContractLeaf(wasm, cd)),
     );
   }
-}
-
-export function hashNewContractData(wasm: WasmWrapper, cd: NewContractData) {
-  if (cd.contractAddress.isZero() && cd.portalContractAddress.isZero() && cd.functionTreeRoot.isZero()) {
-    return Buffer.alloc(32, 0);
-  }
-  return pedersenCompressInputs(wasm, [
-    cd.contractAddress.toBuffer(),
-    cd.portalContractAddress.toBuffer32(),
-    cd.functionTreeRoot.toBuffer(),
-  ]);
 }
 
 export function hashTxData(
@@ -75,5 +62,6 @@ export function hashTxData(
       newContracts.map(x => (Buffer.isBuffer(x) ? x : x.toBuffer())),
     ].flat(),
   );
+  console.log(`Hashing: `, dataToHash.toString('hex'));
   return new TxHash(keccak(dataToHash));
 }
