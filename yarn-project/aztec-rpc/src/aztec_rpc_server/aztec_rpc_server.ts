@@ -11,7 +11,6 @@ import {
   FUNCTION_TREE_HEIGHT,
   FunctionData,
   MembershipWitness,
-  OldTreeRoots,
   PrivateCallStackItem,
   TxContext,
   TxRequest,
@@ -19,7 +18,7 @@ import {
   computeFunctionTree,
 } from '@aztec/circuits.js';
 import { hashVK } from '@aztec/circuits.js/abis';
-import { Fr, Point, createDebugLogger, toBigIntBE } from '@aztec/foundation';
+import { Fr, Point, createDebugLogger } from '@aztec/foundation';
 import { FunctionTreeInfo, KernelProver } from '@aztec/kernel-prover';
 import { ContractAbi, FunctionType } from '@aztec/noir-contracts';
 import { Tx, TxHash } from '@aztec/tx';
@@ -43,7 +42,7 @@ export class AztecRPCServer implements AztecRPCClient {
 
   constructor(
     private keyStore: KeyStore,
-    private acirSimulator: AcirSimulator,
+    acirSimulator: AcirSimulator,
     private kernelProver: KernelProver,
     private node: AztecNode,
     private db: Database,
@@ -51,19 +50,26 @@ export class AztecRPCServer implements AztecRPCClient {
     bbWasm: BarretenbergWasm,
     private log = createDebugLogger('aztec:rpc_server'),
   ) {
-    this.synchroniser = new Synchroniser(node, db, bbWasm);
+    this.synchroniser = new Synchroniser(node, db, acirSimulator, bbWasm);
     this.synchroniser.start();
+  }
+
+  public async start() {
+    const accounts = await this.keyStore.getAccounts();
+    for (const account of accounts) {
+      await this.initAccountState(account);
+    }
+    this.log(`Started. ${accounts.length} initial accounts.`);
   }
 
   public async stop() {
     await this.synchroniser.stop();
+    this.log('Stopped.');
   }
 
   public async addAccount() {
     const accountAddress = await this.keyStore.addAccount();
-    const accountPrivateKey = await this.keyStore.getAccountPrivateKey(accountAddress);
-    this.log(`adding account ${accountAddress.toString()}`);
-    await this.synchroniser.addAccount(accountPrivateKey);
+    await this.initAccountState(accountAddress);
     return accountAddress;
   }
 
@@ -74,11 +80,12 @@ export class AztecRPCServer implements AztecRPCClient {
 
   public async getAccounts(): Promise<AztecAddress[]> {
     const accounts = this.synchroniser.getAccounts();
-    return await Promise.all(accounts.map(a => a.getPublicKey().toAddress()));
+    return await Promise.all(accounts.map(a => a.getAddress()));
   }
 
   public getAccountPublicKey(address: AztecAddress): Promise<Point> {
-    return this.keyStore.getAccountPublicKey(address);
+    const account = this.ensureAccount(address);
+    return Promise.resolve(account.getPublicKey());
   }
 
   public async getStorageAt(contract: AztecAddress, storageSlot: Fr) {
@@ -99,9 +106,11 @@ export class AztecRPCServer implements AztecRPCClient {
     abi: ContractAbi,
     args: any[],
     portalContract: EthAddress,
-    contractAddressSalt: Fr,
-    from: AztecAddress,
+    contractAddressSalt = Fr.random(),
+    from?: AztecAddress,
   ) {
+    const fromAddress = this.ensureAccountOrDefault(from);
+
     const constructorAbi = abi.functions.find(f => f.name === 'constructor');
     if (!constructorAbi) {
       throw new Error('Cannot find constructor in the ABI.');
@@ -112,8 +121,6 @@ export class AztecRPCServer implements AztecRPCClient {
     }
 
     const flatArgs = encodeArguments(constructorAbi, args);
-
-    const fromAddress = from.equals(AztecAddress.ZERO) ? (await this.keyStore.getAccounts())[0] : from;
     const contractTree = await ContractTree.new(
       abi,
       flatArgs,
@@ -122,7 +129,6 @@ export class AztecRPCServer implements AztecRPCClient {
       fromAddress,
       this.circuitsWasm,
     );
-    const contract = contractTree.contract;
 
     const functionData = new FunctionData(
       generateFunctionSelector(constructorAbi.name, constructorAbi.parameters),
@@ -143,6 +149,7 @@ export class AztecRPCServer implements AztecRPCClient {
 
     const txContext = new TxContext(false, false, true, contractDeploymentData);
 
+    const contract = contractTree.contract;
     await this.db.addContract(contract);
 
     return new TxRequest(
@@ -156,7 +163,9 @@ export class AztecRPCServer implements AztecRPCClient {
     );
   }
 
-  public async createTxRequest(functionName: string, args: any[], to: AztecAddress, from: AztecAddress) {
+  public async createTxRequest(functionName: string, args: any[], to: AztecAddress, from?: AztecAddress) {
+    const fromAddress = this.ensureAccountOrDefault(from);
+
     const contract = await this.db.getContract(to);
     if (!contract) {
       throw new Error('Unknown contract.');
@@ -183,7 +192,7 @@ export class AztecRPCServer implements AztecRPCClient {
     );
 
     return new TxRequest(
-      from,
+      fromAddress,
       to,
       functionData,
       flatArgs,
@@ -194,16 +203,14 @@ export class AztecRPCServer implements AztecRPCClient {
   }
 
   public signTxRequest(txRequest: TxRequest) {
+    this.ensureAccount(txRequest.from);
     return this.keyStore.signTxRequest(txRequest);
   }
 
   public async createTx(txRequest: TxRequest, signature: EcdsaSignature) {
-    const accountState = this.synchroniser.getAccount(txRequest.from);
-    if (!accountState) {
-      throw new Error('Cannot create tx for an unauthorized account.');
-    }
+    const accountState = this.ensureAccount(txRequest.from);
 
-    const { executionResult, oldRoots, contract } = await this.simulate(txRequest);
+    const { executionResult, oldRoots, contract } = await accountState.simulate(txRequest);
 
     this.log(`Executing Prover...`);
     const { publicInputs } = await this.kernelProver.prove(
@@ -241,17 +248,21 @@ export class AztecRPCServer implements AztecRPCClient {
 
   private async computeFunctionTreeInfo(contract: ContractDao, callStackItem: PrivateCallStackItem) {
     const tree = new ContractTree(contract, this.circuitsWasm);
+    const root = await tree.getFunctionTreeRoot();
     const functionIndex =
       contract.functions.findIndex(f => f.selector.equals(callStackItem.functionData.functionSelector)) - 1;
     if (functionIndex < 0) {
       return {
-        root: Buffer.alloc(32),
+        root,
         membershipWitness: MembershipWitness.makeEmpty(FUNCTION_TREE_HEIGHT, 0),
       } as FunctionTreeInfo;
     }
 
     const leaves = await tree.getFunctionLeaves();
-    const functionTree = await this.getFunctionTree(leaves);
+    const functionTree = await computeFunctionTree(
+      this.circuitsWasm,
+      leaves.map(x => Fr.fromBuffer(x)),
+    );
     const functionTreeData = computeFunctionTreeData(functionTree, functionIndex);
     const membershipWitness = new MembershipWitness<typeof FUNCTION_TREE_HEIGHT>(
       FUNCTION_TREE_HEIGHT,
@@ -259,16 +270,9 @@ export class AztecRPCServer implements AztecRPCClient {
       functionTreeData.siblingPath,
     );
     return {
-      root: functionTreeData.root.toBuffer(),
+      root,
       membershipWitness,
     } as FunctionTreeInfo;
-  }
-
-  private async getFunctionTree(leaves: Buffer[]) {
-    return await computeFunctionTree(
-      this.circuitsWasm,
-      leaves.map(x => new Fr(toBigIntBE(x))),
-    );
   }
 
   /**
@@ -281,10 +285,10 @@ export class AztecRPCServer implements AztecRPCClient {
     return tx.txHash;
   }
 
-  public async viewTx(functionName: string, args: any[], to: AztecAddress, from: AztecAddress) {
+  public async viewTx(functionName: string, args: any[], to: AztecAddress, from?: AztecAddress) {
     const txRequest = await this.createTxRequest(functionName, args, to, from);
-
-    const { executionResult } = await this.simulate(txRequest);
+    const accountState = this.ensureAccount(txRequest.from);
+    const { executionResult } = await accountState.simulate(txRequest);
 
     // TODO - Return typed result based on the function abi.
     return executionResult.preimages;
@@ -343,31 +347,30 @@ export class AztecRPCServer implements AztecRPCClient {
     };
   }
 
-  private async simulate(txRequest: TxRequest) {
-    const contractAddress = txRequest.to;
-    const contract = await this.db.getContract(txRequest.to);
-    if (!contract) {
-      throw new Error('Unknown contract.');
+  private async initAccountState(address: AztecAddress) {
+    const accountPrivateKey = await this.keyStore.getAccountPrivateKey(address);
+    await this.synchroniser.addAccount(accountPrivateKey);
+    this.log(`Account added: ${address.toString()}`);
+  }
+
+  private ensureAccountOrDefault(account?: AztecAddress) {
+    const address = account || this.synchroniser.getAccounts()[0]?.getAddress();
+    if (!address) {
+      throw new Error('No accounts available in the key store.');
     }
 
-    const selector = txRequest.functionData.functionSelector;
-    const functionDao = contract.functions.find(f => f.selector.equals(selector));
-    if (!functionDao) {
-      throw new Error('Unknown function.');
+    this.ensureAccount(address);
+
+    return address;
+  }
+
+  private ensureAccount(account: AztecAddress) {
+    const accountState = this.synchroniser.getAccount(account);
+    if (!accountState) {
+      throw new Error(`Unknown account: ${account.toShortString()}.`);
     }
 
-    const oldRoots = new OldTreeRoots(Fr.ZERO, Fr.ZERO, Fr.ZERO, Fr.ZERO); // TODO - get old roots from the database/node
-
-    this.log(`Executing simulator...`);
-    const executionResult = await this.acirSimulator.run(
-      txRequest,
-      functionDao,
-      contractAddress,
-      contract.portalContract,
-      oldRoots,
-    );
-
-    return { contract, oldRoots, executionResult };
+    return accountState;
   }
 
   private async getContractSiblingPath(committment: Buffer) {

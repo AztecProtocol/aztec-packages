@@ -40,8 +40,9 @@ COPY p2p/package.json p2p/package.json
 COPY prover-client/package.json prover-client/package.json
 COPY sequencer-client/package.json sequencer-client/package.json
 COPY tx/package.json tx/package.json
+COPY unverified-data/package.json unverified-data/package.json
 COPY world-state/package.json world-state/package.json
-COPY package.json tsconfig.json tsconfig.dest.json yarn.lock .yarnrc.yml ./
+COPY package.json tsconfig.json tsconfig.dest.json tsconfig.eslint.json yarn.lock .yarnrc.yml ./
 COPY .yarn .yarn
 
 # Although we're attempting to be "zero-install", in practice we still need to build arch specific packages.

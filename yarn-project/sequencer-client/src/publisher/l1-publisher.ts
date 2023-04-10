@@ -1,7 +1,8 @@
-import { L2Block, UnverifiedData } from '@aztec/l2-block';
+import { L2Block } from '@aztec/l2-block';
 import { createDebugLogger, InterruptableSleep } from '@aztec/foundation';
 import { L2BlockReceiver } from '../receiver.js';
 import { PublisherConfig } from './config.js';
+import { UnverifiedData } from '@aztec/unverified-data';
 
 /**
  * Component responsible of pushing the txs to the chain and waiting for completion.
@@ -91,7 +92,7 @@ export class L1Publisher implements L2BlockReceiver {
         continue;
       }
 
-      const txHash = await this.sendYeetTx(l2BlockNum, unverifiedData);
+      const txHash = await this.sendEmitUnverifiedDataTx(l2BlockNum, unverifiedData);
       if (!txHash) break;
 
       const receipt = await this.getTransactionReceipt(txHash);
@@ -142,7 +143,10 @@ export class L1Publisher implements L2BlockReceiver {
     }
   }
 
-  private async sendYeetTx(l2BlockNum: number, unverifiedData: UnverifiedData): Promise<string | undefined> {
+  private async sendEmitUnverifiedDataTx(
+    l2BlockNum: number,
+    unverifiedData: UnverifiedData,
+  ): Promise<string | undefined> {
     while (!this.interrupted) {
       try {
         return await this.txSender.sendEmitUnverifiedDataTx(l2BlockNum, unverifiedData);

@@ -241,9 +241,17 @@ key.recursive_proof_public_input_indices: [ 190 191 192 193 194 ]
 vk_index: 42
 vk_path: [ 0x1000 0x1001 0x1002 ]
  ]
+start_private_data_tree_snapshot:
+root: 0x100
+next_available_leaf_index: 256
+
 start_nullifier_tree_snapshot:
 root: 0x200
 next_available_leaf_index: 512
+
+start_contract_tree_snapshot:
+root: 0x300
+next_available_leaf_index: 768
 
 low_nullifier_leaf_preimages:
 [ leaf_value: 0x1000
@@ -329,7 +337,11 @@ merge_rollup_vk_hash: 0x404
 `;
 
 exports[`structs/base_rollup serializes and prints BaseRollupPublicInputs 1`] = `
-"end_aggregation_object:
+"rollup_type:
+0
+rollup_subtree_height:
+0x0
+end_aggregation_object:
 P0: { 0x100, 0x101 }
 P1: { 0x200, 0x201 }
 public_inputs: [
@@ -371,7 +383,7 @@ start_nullifier_tree_snapshot:
 root: 0x500
 next_available_leaf_index: 1280
 
-end_nullifier_tree_snapshots:
+end_nullifier_tree_snapshot:
 root: 0x600
 next_available_leaf_index: 1536
 

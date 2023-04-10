@@ -9,11 +9,17 @@ COPY barretenberg.js barretenberg.js
 COPY l1-contracts l1-contracts
 COPY circuits.js circuits.js
 COPY l2-block l2-block
+COPY tx tx
+COPY unverified-data unverified-data
 COPY merkle-tree merkle-tree
 
 # (3) build
 WORKDIR /usr/src/yarn-project/world-state
 RUN yarn build && yarn formatting
+
+# (3.5) test
+RUN yarn test
+
 # (4) copy bb.js wasm binaries
 RUN cp /usr/src/circuits/cpp/build-wasm/bin/aztec3-circuits.wasm /usr/src/yarn-project/barretenberg.js/dest/wasm/barretenberg.wasm
 
