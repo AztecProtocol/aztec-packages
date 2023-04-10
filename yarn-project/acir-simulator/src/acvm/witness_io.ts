@@ -1,4 +1,4 @@
-import { ACVMField, ACVMWitness, fromACVMField, toACVMField } from './fields.js';
+import { ACVMField, ACVMWitness, fromACVMField, toACVMField } from './acvm.js';
 import { AztecAddress, Fr, EthAddress } from '@aztec/foundation';
 import {
   ARGS_LENGTH,
@@ -49,6 +49,12 @@ export function frToBoolean(fr: Fr): boolean {
   return buf[buf.length - 1] !== 0;
 }
 
+export function frToSelector(fr: Fr): Buffer {
+  return fr.toBuffer().slice(-4);
+}
+
+// We still need this function until we can get user-defined ordering of structs for fn arguments
+// TODO When that is sorted out on noir side, we can use instead the utilities in serialize.ts
 export function writeInputs(
   args: Fr[],
   callContext: CallContext,

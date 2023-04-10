@@ -1,8 +1,15 @@
-import { ACVMField, acvm, toACVMField, fromACVMField, ZERO_ACVM_FIELD } from './acvm/index.js';
+import {
+  ACVMField,
+  acvm,
+  toACVMField,
+  fromACVMField,
+  ZERO_ACVM_FIELD,
+  toAcvmCallPrivateStackItem,
+} from './acvm/index.js';
 import { AztecAddress, EthAddress, Fr } from '@aztec/foundation';
 import { CallContext, OldTreeRoots, TxRequest, PrivateCallStackItem, FunctionData } from '@aztec/circuits.js';
 import { DBOracle } from './db_oracle.js';
-import { writeInputs, extractPublicInputs, frToAztecAddress } from './acvm/witness_io.js';
+import { writeInputs, extractPublicInputs, frToAztecAddress, frToSelector } from './acvm/witness_io.js';
 import { FunctionAbi } from '@aztec/noir-contracts';
 
 interface NewNoteData {
@@ -105,6 +112,18 @@ export class Execution {
         });
         return Promise.resolve([ZERO_ACVM_FIELD]);
       },
+      privateFunctionCall: async ([acvmContractAddress, acvmFunctionSelector, ...acvmArgs]) => {
+        const childExecutionResult = await this.privateFunctionCall(
+          frToAztecAddress(fromACVMField(acvmContractAddress)),
+          frToSelector(fromACVMField(acvmFunctionSelector)),
+          acvmArgs.map(f => fromACVMField(f)),
+          callContext,
+        );
+
+        nestedExecutionContexts.push(childExecutionResult);
+
+        return toAcvmCallPrivateStackItem(childExecutionResult.callStackItem);
+      },
     });
 
     const publicInputs = extractPublicInputs(partialWitness, acir);
@@ -138,5 +157,42 @@ export class Execution {
   private async getSecretKey(contractAddress: AztecAddress, address: ACVMField) {
     const key = await this.db.getSecretKey(contractAddress, frToAztecAddress(fromACVMField(address)));
     return [toACVMField(key)];
+  }
+
+  private async privateFunctionCall(
+    targetContractAddress: AztecAddress,
+    targetFunctionSelector: Buffer,
+    args: Fr[],
+    callerContext: CallContext,
+  ) {
+    const abi = await this.db.getFunctionABI(targetContractAddress, targetFunctionSelector);
+    const portalContractAddress = await this.db.getPortalContractAddress(targetContractAddress);
+    const functionData = new FunctionData(targetFunctionSelector, true, false);
+    const derivedCallContext = this.deriveCallContext(
+      callerContext,
+      targetContractAddress,
+      portalContractAddress,
+      false,
+      false,
+    );
+
+    return this.runExternalFunction(abi, targetContractAddress, functionData, args, derivedCallContext);
+  }
+
+  private deriveCallContext(
+    parentContext: CallContext,
+    targetContractAddress: AztecAddress,
+    portalContractAddress: EthAddress,
+    isDelegateCall = false,
+    isStaticCall = false,
+  ) {
+    return new CallContext(
+      parentContext.storageContractAddress,
+      targetContractAddress,
+      portalContractAddress,
+      isDelegateCall,
+      isStaticCall,
+      false,
+    );
   }
 }
