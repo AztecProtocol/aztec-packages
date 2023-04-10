@@ -72,5 +72,9 @@ RUN /bin/bash -c '\
 # TODO: We can now remove this from each individual image, see https://github.com/AztecProtocol/aztec3-packages/issues/224
 COPY . .
 
+# We hack around the build context by copying the build manifest to and from the yarn_project root,
+# see the comment in .circleci/config.yml for more info.
+RUN cp build_manifest.json ../
+
 # Check that dependencies config are up to date
 RUN yarn prepare:check
