@@ -1,5 +1,5 @@
 import { Buffer } from 'buffer';
-import { AztecAddress, Fr, serializeBufferArrayToVector } from '@aztec/foundation';
+import { AztecAddress, Fr } from '@aztec/foundation';
 import { CircuitsWasm } from '../wasm/index.js';
 import { FunctionData, FUNCTION_SELECTOR_NUM_BYTES, TxRequest, NewContractData } from '../index.js';
 import { serializeToBuffer } from '../utils/serialize.js';
@@ -42,17 +42,17 @@ export async function hashVK(wasm: CircuitsWasm, vkBuf: Buffer) {
 
 export async function computeFunctionLeaf(wasm: CircuitsWasm, fnLeaf: Buffer) {
   wasm.call('pedersen__init');
-  wasm.writeMemory(0, fnLeaf);
-  await wasm.asyncCall('abis__compute_function_leaf', 0, fnLeaf.length);
-  return Buffer.from(wasm.getMemorySlice(fnLeaf.length, fnLeaf.length + 32));
+  return Fr.fromBuffer(await wasmCall(wasm, 'abis__compute_function_leaf', { toBuffer: () => fnLeaf }, 32));
 }
 
-export async function computeFunctionTreeRoot(wasm: CircuitsWasm, fnLeafs: Buffer[]) {
-  const inputVector = serializeBufferArrayToVector(fnLeafs);
+export async function computeFunctionTreeRoot(wasm: CircuitsWasm, fnLeafs: Fr[]) {
+  const inputBuf = serializeToBuffer(fnLeafs);
   wasm.call('pedersen__init');
-  wasm.writeMemory(0, inputVector);
-  await wasm.asyncCall('abis__compute_function_tree_root', 0, fnLeafs.length, inputVector.length);
-  return Buffer.from(wasm.getMemorySlice(inputVector.length, inputVector.length + 32));
+  const outputBuf = wasm.call('bbmalloc', 32);
+  const inputBufPtr = wasm.call('bbmalloc', inputBuf.length);
+  wasm.writeMemory(inputBufPtr, inputBuf);
+  await wasm.asyncCall('abis__compute_function_tree_root', inputBufPtr, fnLeafs.length, outputBuf);
+  return Fr.fromBuffer(Buffer.from(wasm.getMemorySlice(outputBuf, outputBuf + 32)));
 }
 
 // not yet working
