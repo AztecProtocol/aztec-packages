@@ -43,6 +43,8 @@ COPY sequencer-client/package.json sequencer-client/package.json
 COPY tx/package.json tx/package.json
 COPY unverified-data/package.json unverified-data/package.json
 COPY world-state/package.json world-state/package.json
+
+# Copy root files
 COPY package.json tsconfig.json tsconfig.dest.json tsconfig.eslint.json yarn.lock .yarnrc.yml ./
 COPY .yarn .yarn
 
@@ -70,6 +72,7 @@ RUN /bin/bash -c '\
 
 # We hack around the build context by copying the build manifest to and from the yarn_project root,
 # see the comment in .circleci/config.yml for more info.
+COPY build_manifest.json ./
 RUN cp build_manifest.json ../
 
 # Copy tsconfig to check dependencies
