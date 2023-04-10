@@ -4,7 +4,7 @@ import { solve_intermediate_witness as solveIntermediateWitness } from '@noir-la
 export type ACVMField = `0x${string}`;
 export type ACVMWitness = Map<number, ACVMField>;
 
-export const ZERO_ACVM_FIELD: ACVMField = `0x${Buffer.alloc(32).toString('hex')}`;
+export const ZERO_ACVM_FIELD: ACVMField = `0x${'00'.repeat(32)}`;
 export const ONE_ACVM_FIELD: ACVMField = `0x${'00'.repeat(31)}01`;
 
 export interface ACIRCallback {
