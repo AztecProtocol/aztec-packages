@@ -51,10 +51,6 @@ RUN yarn --immutable
 # If everything's worked properly, we should no longer need access to the network.
 RUN echo "enableNetwork: false" >> .yarnrc.yml
 
-# Check that dependencies config are up to date
-COPY yarn-project-base/scripts yarn-project-base/scripts
-RUN yarn prepare:check
-
 # Yarn devs won't provide an extremely simple and useful feature of pruning dev dependencies from the local cache:
 # https://github.com/yarnpkg/berry/issues/1789
 #
@@ -71,3 +67,10 @@ RUN /bin/bash -c '\
   for F in *; do \
   [[ $F =~ (.*-) ]] && ln $F /root/.yarn/berry/cache/${BASH_REMATCH[1]}8.zip; \
   done'
+
+# Copy the full yarn-project
+# TODO: We can now remove this from each individual image, see https://github.com/AztecProtocol/aztec3-packages/issues/224
+COPY . .
+
+# Check that dependencies config are up to date
+RUN yarn prepare:check
