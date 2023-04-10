@@ -1,11 +1,18 @@
+import { ACVMField, toACVMField } from './acvm.js';
+import { Fr } from '@aztec/foundation';
 import {
   CallContext,
   ContractDeploymentData,
   FunctionData,
+  OldTreeRoots,
   PrivateCallStackItem,
   PrivateCircuitPublicInputs,
+  TxContext,
 } from '@aztec/circuits.js';
-import { ACVMField, toACVMField } from './acvm.js';
+import { NoteLoadOracleInputs } from '../db_oracle.js';
+
+// Utilities to write TS classes to ACVM Field arrays
+// In the order that the ACVM expects them
 
 export function toACVMFunctionData(functionData: FunctionData): ACVMField[] {
   return [
@@ -62,4 +69,51 @@ export function toAcvmCallPrivateStackItem(item: PrivateCallStackItem): ACVMFiel
     ...toACVMFunctionData(item.functionData),
     ...toACVMPublicInputs(item.publicInputs),
   ];
+}
+
+export function toAcvmNoteLoadOracleInputs(
+  noteLoadOracleInputs: NoteLoadOracleInputs,
+  privateDataTreeRoot: Fr,
+): ACVMField[] {
+  return [
+    ...noteLoadOracleInputs.preimage.map(f => toACVMField(f)),
+    toACVMField(noteLoadOracleInputs.index),
+    ...noteLoadOracleInputs.siblingPath.map(f => toACVMField(f)),
+    toACVMField(privateDataTreeRoot),
+  ];
+}
+
+// We still need this function until we can get user-defined ordering of structs for fn arguments
+// TODO When that is sorted out on noir side, we can use instead the utilities in this file
+export function writeInputs(
+  args: Fr[],
+  callContext: CallContext,
+  txContext: TxContext,
+  oldRoots: OldTreeRoots,
+  witnessStartIndex = 1,
+) {
+  const fields = [
+    ...args.map(arg => toACVMField(arg)),
+
+    toACVMField(callContext.isContractDeployment),
+    toACVMField(callContext.isDelegateCall),
+    toACVMField(callContext.isStaticCall),
+    toACVMField(callContext.msgSender),
+    toACVMField(callContext.portalContractAddress),
+    toACVMField(callContext.storageContractAddress),
+
+    toACVMField(txContext.contractDeploymentData.constructorVkHash),
+    toACVMField(txContext.contractDeploymentData.contractAddressSalt),
+    toACVMField(txContext.contractDeploymentData.functionTreeRoot),
+    toACVMField(false),
+    toACVMField(txContext.contractDeploymentData.portalContractAddress),
+
+    toACVMField(oldRoots.contractTreeRoot),
+    toACVMField(oldRoots.nullifierTreeRoot),
+  ];
+
+  return fields.reduce((witness, field, index) => {
+    witness.set(index + witnessStartIndex, field);
+    return witness;
+  }, new Map<number, ACVMField>());
 }

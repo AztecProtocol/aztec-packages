@@ -5,11 +5,13 @@ import {
   fromACVMField,
   ZERO_ACVM_FIELD,
   toAcvmCallPrivateStackItem,
+  toAcvmNoteLoadOracleInputs,
+  writeInputs,
 } from './acvm/index.js';
 import { AztecAddress, EthAddress, Fr } from '@aztec/foundation';
 import { CallContext, OldTreeRoots, TxRequest, PrivateCallStackItem, FunctionData } from '@aztec/circuits.js';
 import { DBOracle } from './db_oracle.js';
-import { writeInputs, extractPublicInputs, frToAztecAddress, frToSelector } from './acvm/witness_io.js';
+import { extractPublicInputs, frToAztecAddress, frToSelector } from './acvm/deserialize.js';
 import { FunctionAbi } from '@aztec/noir-contracts';
 
 interface NewNoteData {
@@ -145,12 +147,9 @@ export class Execution {
 
   private async getNotes(contractAddress: AztecAddress, storageSlot: ACVMField, count: number) {
     const notes = await this.db.getNotes(contractAddress, fromACVMField(storageSlot), count);
-    const mapped = notes.flatMap(noteGetData => [
-      ...noteGetData.preimage.map(f => toACVMField(f)),
-      toACVMField(noteGetData.index),
-      ...noteGetData.siblingPath.map(f => toACVMField(f)),
-      toACVMField(this.oldRoots.privateDataTreeRoot),
-    ]);
+    const mapped = notes.flatMap(noteGetData =>
+      toAcvmNoteLoadOracleInputs(noteGetData, this.oldRoots.privateDataTreeRoot),
+    );
     return mapped;
   }
 
