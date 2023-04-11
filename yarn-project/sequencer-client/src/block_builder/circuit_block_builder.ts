@@ -441,7 +441,7 @@ export class CircuitBlockBuilder {
   public async performBaseRollupBatchInsertionProofs(leaves: Buffer[]): Promise<LowNullifierWitnessData[] | undefined> {
     const touched = new Map<number, bigint[]>();
 
-    const lowNullifierWitness: LowNullifierWitnessData[] = [];
+    const lowNullifierWitnesses: LowNullifierWitnessData[] = [];
 
     const pendingInsertionSubtree: NullifierLeafPreimage[] = [];
     const dbInfo = await this.db.getTreeInfo(MerkleTreeId.NULLIFIER_TREE);
@@ -455,6 +455,16 @@ export class CircuitBlockBuilder {
       // Keep space and just insert zero values
       if (newValue === 0n) {
         pendingInsertionSubtree.push(zeroPreimage);
+        const emptySP = new SiblingPath();
+        emptySP.data = Array(dbInfo.depth).fill(
+          Buffer.from('0000000000000000000000000000000000000000000000000000000000000000', 'hex'),
+        );
+        const witness: LowNullifierWitnessData = {
+          preimage: NullifierLeafPreimage.empty(),
+          index: 0n,
+          siblingPath: emptySP,
+        };
+        lowNullifierWitnesses.push(witness);
         continue;
       }
 
@@ -488,6 +498,18 @@ export class CircuitBlockBuilder {
             break;
           }
         }
+
+        // Any node updated in this space will need to calculate its low nullifier from a previously inserted value
+        const emptySP = new SiblingPath();
+        emptySP.data = Array(dbInfo.depth).fill(
+          Buffer.from('0000000000000000000000000000000000000000000000000000000000000000', 'hex'),
+        );
+        const witness: LowNullifierWitnessData = {
+          preimage: NullifierLeafPreimage.empty(),
+          index: 0n,
+          siblingPath: emptySP,
+        };
+        lowNullifierWitnesses.push(witness);
       } else {
         // Update the touched mapping
         if (prevNodes) {
@@ -502,6 +524,21 @@ export class CircuitBlockBuilder {
         if (lowNullifier === undefined) {
           return undefined;
         }
+
+        const lowNullifierPreimage = new NullifierLeafPreimage(
+          new Fr(lowNullifier.value),
+          new Fr(lowNullifier.nextValue),
+          Number(lowNullifier.nextIndex),
+        );
+        const siblingPath = await this.db.getSiblingPath(MerkleTreeId.NULLIFIER_TREE, BigInt(indexOfPrevious.index));
+
+        // Update the running paths
+        const witness: LowNullifierWitnessData = {
+          preimage: lowNullifierPreimage,
+          index: BigInt(indexOfPrevious.index),
+          siblingPath: siblingPath,
+        };
+        lowNullifierWitnesses.push(witness);
 
         // The low nullifier the inserted value will have
         const currentLeafLowNullifier = new NullifierLeafPreimage(
@@ -529,8 +566,10 @@ export class CircuitBlockBuilder {
 
       await this.db.updateLeaf(MerkleTreeId.NULLIFIER_TREE, asLeafData, startInsertionIndex + BigInt(i));
     }
+    console.log('witnesses');
+    console.log(lowNullifierWitnesses);
 
-    return lowNullifierWitness;
+    return lowNullifierWitnesses;
   }
 
   // Builds the base rollup inputs, updating the contract, nullifier, and data trees in the process
