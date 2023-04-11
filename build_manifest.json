@@ -79,7 +79,6 @@
       "ethereum.js",
       "foundation",
       "l1-contracts",
-      "l2-block",
       "types"
     ]
   },
@@ -108,9 +107,7 @@
       "circuits.js",
       "foundation",
       "kernel-prover",
-      "l2-block",
       "noir-contracts",
-      "tx",
       "types"
     ]
   },
@@ -256,8 +253,6 @@
     "dependencies": [
       "circuits.js",
       "foundation",
-      "l2-block",
-      "tx",
       "types"
     ]
   },
@@ -285,11 +280,9 @@
       "ethereum.js",
       "foundation",
       "l1-contracts",
-      "l2-block",
       "merkle-tree",
       "p2p",
       "sequencer-client",
-      "tx",
       "types",
       "world-state"
     ]
@@ -306,10 +299,8 @@
       "ethereum.js",
       "foundation",
       "l1-contracts",
-      "l2-block",
       "merkle-tree",
       "p2p",
-      "tx",
       "types",
       "world-state"
     ]
@@ -350,8 +341,8 @@
       "barretenberg.js",
       "circuits.js",
       "foundation",
-      "l2-block",
-      "merkle-tree"
+      "merkle-tree",
+      "types"
     ]
   }
 }
