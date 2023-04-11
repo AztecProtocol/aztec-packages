@@ -96,7 +96,6 @@ COPY prover-client/tsconfig.dest.json prover-client/tsconfig.dest.json
 COPY sequencer-client/tsconfig.dest.json sequencer-client/tsconfig.dest.json
 COPY types/tsconfig.dest.json types/tsconfig.dest.json
 COPY world-state/tsconfig.dest.json world-state/tsconfig.dest.json
-COPY yarn-project-base/tsconfig.dest.json yarn-project-base/tsconfig.dest.json
 
 # Check that dependencies config are up to date
 COPY yarn-project-base/scripts yarn-project-base/scripts
