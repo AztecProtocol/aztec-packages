@@ -204,7 +204,13 @@ export class IndexedTree implements MerkleTree {
     }
 
     const indexOfPrevious = this.findIndexOfPreviousValue(newValue, true);
+    console.log('index of previous: ', indexOfPrevious);
+
     const previousLeafCopy = this.getLatestLeafDataCopy(indexOfPrevious.index, true);
+
+    console.log('new value', newValue);
+    console.log('previous leaf copy: ', previousLeafCopy);
+
     if (previousLeafCopy === undefined) {
       throw new Error(`Previous leaf not found!`);
     }
@@ -239,6 +245,14 @@ export class IndexedTree implements MerkleTree {
     const diff: bigint[] = [];
     for (let i = 0; i < numLeaves; i++) {
       const storedLeaf = this.getLatestLeafDataCopy(i, includeUncommitted)!;
+
+      // TODO: the 0 case?
+      // The stored leaf can be undefined if there is nothing stored there, the number of leaves is not the size of the tree
+      if (storedLeaf === undefined) {
+        console.log(i, storedLeaf, newValue);
+        continue;
+      }
+
       if (storedLeaf.value > newValue) {
         diff.push(newValue);
       } else if (storedLeaf.value === newValue) {
