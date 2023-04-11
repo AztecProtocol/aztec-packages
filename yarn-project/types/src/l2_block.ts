@@ -203,6 +203,11 @@ export class L2Block {
     );
   }
 
+  /**
+   * Get the ith transaction in an L2 block.
+   * @param txIndex - The index of the tx in the block.
+   * @returns The tx.
+   */
   getTx(txIndex: number) {
     const numTxs = Math.floor(this.newCommitments.length / KERNEL_NEW_COMMITMENTS_LENGTH);
     if (txIndex >= numTxs) {

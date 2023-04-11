@@ -1,5 +1,4 @@
-import { serializeToBuffer } from '@aztec/circuits.js/utils';
-import { AztecAddress, EthAddress, Fr, keccak } from '@aztec/foundation';
+import { Fr, keccak } from '@aztec/foundation';
 import { TxHash } from './tx_hash.js';
 
 export interface TxData {
