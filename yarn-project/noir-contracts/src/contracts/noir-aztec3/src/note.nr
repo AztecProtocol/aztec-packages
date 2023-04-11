@@ -1,7 +1,7 @@
 // global KEY_GENERATOR = Point { x: 1234, y: 5678 }; // would need to be some valid generator point.
 
 #[builtin(rand)]
-fn rand() -> Field {}
+fn rand(_idx: Field) -> Field {}
 
 #[builtin(getSecretKey)]
 fn get_secret_key(_owner: Point) -> Field {}
@@ -30,11 +30,16 @@ impl Note {
         }
     }
 
-    fn new(value: Field, owner: Point) -> Note {
+    fn new(value: Field, owner: Point, rand_idx: Field) -> Note {
         // let randomness = ORACLE::rand(); // ORACLE CALL
         // let nonce = ORACLE::rand(); // ORACLE CALL (nonce not secure: would need to be better in production).
 
-        let randomness = rand();//4; // Chosen by fair dice roll
+        // rand_idx prevents repeated oracles + args from being optimised away.
+        // The + 1 is a workaround for:
+        //     The application panicked (crashed).
+        //     Message:  unexpected constant expression
+        //     Location: crates/noirc_evaluator/src/ssa/acir_gen/operations/intrinsics.rs:280
+        let randomness = rand(rand_idx + 1);
         // let randomness = 4; // Chosen by fair dice roll
         let nonce = 3;      // Guaranteed to be random
 
