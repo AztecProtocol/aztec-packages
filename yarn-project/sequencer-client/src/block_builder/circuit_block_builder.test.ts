@@ -174,55 +174,43 @@ describe('sequencer/circuit_block_builder', () => {
       await builder.updateRootTrees();
     });
 
-    const makeContractDeployTx = async (seed = 0x1000) => {
+    const makeContractDeployTx = async (seed = 0x1) => {
       const tx = makeEmptyTx();
       await setTxOldTreeRoots(tx);
-      tx.data.end.newContracts = [makeNewContractData(seed)];
+      tx.data.end.newContracts = [makeNewContractData(seed + 0x1000)];
       return tx;
     };
 
-    it('builds an L2 block with 4 empty txs using wasm circuits', async () => {
-      const contractTreeBefore = await builderDb.getTreeInfo(MerkleTreeId.CONTRACT_TREE);
+    it.each([
+      [0, 4],
+      [1, 4],
+      [4, 4],
+    ] as const)(
+      'builds an L2 block with %i contract deploy txs and %i txs total',
+      async (deployCount: number, totalCount: number) => {
+        const contractTreeBefore = await builderDb.getTreeInfo(MerkleTreeId.CONTRACT_TREE);
 
-      const txs = [makeEmptyTx(), makeEmptyTx(), makeEmptyTx(), makeEmptyTx()];
-      const [l2Block] = await builder.buildL2Block(blockNumber, txs);
-      expect(l2Block.number).toEqual(blockNumber);
+        const txs = [
+          ...(await Promise.all(times(deployCount, makeContractDeployTx))),
+          ...times(totalCount - deployCount, makeEmptyTx),
+        ];
 
-      const contractTreeAfter = await builderDb.getTreeInfo(MerkleTreeId.CONTRACT_TREE);
-      expect(contractTreeAfter.root).toEqual(contractTreeBefore.root);
-      expect(contractTreeAfter.size).toEqual(4n);
-    });
+        const [l2Block] = await builder.buildL2Block(blockNumber, txs);
+        expect(l2Block.number).toEqual(blockNumber);
 
-    it('builds an L2 block with a contract deployment tx using wasm circuits', async () => {
-      const contractTreeBefore = await builderDb.getTreeInfo(MerkleTreeId.CONTRACT_TREE);
+        await updateExpectedTreesFromTxs(txs);
+        const contractTreeAfter = await builderDb.getTreeInfo(MerkleTreeId.CONTRACT_TREE);
 
-      const txs = [await makeContractDeployTx(), makeEmptyTx(), makeEmptyTx(), makeEmptyTx()];
+        if (deployCount > 0) {
+          expect(contractTreeAfter.root).not.toEqual(contractTreeBefore.root);
+        }
 
-      const [l2Block] = await builder.buildL2Block(blockNumber, txs);
-      expect(l2Block.number).toEqual(blockNumber);
-
-      await updateExpectedTreesFromTxs(txs);
-      const contractTreeAfter = await builderDb.getTreeInfo(MerkleTreeId.CONTRACT_TREE);
-
-      expect(contractTreeAfter.root).not.toEqual(contractTreeBefore.root);
-      expect(contractTreeAfter.root).toEqual(await expectsDb.getTreeInfo(MerkleTreeId.CONTRACT_TREE).then(t => t.root));
-      expect(contractTreeAfter.size).toEqual(4n);
-    }, 10000);
-
-    it('builds an L2 block with 16 contract deployment txs using wasm circuits', async () => {
-      const contractTreeBefore = await builderDb.getTreeInfo(MerkleTreeId.CONTRACT_TREE);
-
-      const txs = await Promise.all(times(16, makeContractDeployTx));
-      const [l2Block] = await builder.buildL2Block(blockNumber, txs);
-      expect(l2Block.number).toEqual(blockNumber);
-
-      await updateExpectedTreesFromTxs(txs);
-      const contractTreeAfter = await builderDb.getTreeInfo(MerkleTreeId.CONTRACT_TREE);
-
-      expect(contractTreeAfter.root).not.toEqual(contractTreeBefore.root);
-      expect(contractTreeAfter.root).toEqual(await expectsDb.getTreeInfo(MerkleTreeId.CONTRACT_TREE).then(t => t.root));
-      expect(contractTreeAfter.size).toEqual(16n);
-    });
+        const expectedContractTreeAfter = await expectsDb.getTreeInfo(MerkleTreeId.CONTRACT_TREE).then(t => t.root);
+        expect(contractTreeAfter.root).toEqual(expectedContractTreeAfter);
+        expect(contractTreeAfter.size).toEqual(BigInt(totalCount));
+      },
+      10000,
+    );
   });
 });
 
