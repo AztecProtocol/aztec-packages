@@ -204,12 +204,7 @@ export class IndexedTree implements MerkleTree {
     }
 
     const indexOfPrevious = this.findIndexOfPreviousValue(newValue, true);
-    console.log('index of previous: ', indexOfPrevious);
-
     const previousLeafCopy = this.getLatestLeafDataCopy(indexOfPrevious.index, true);
-
-    console.log('new value', newValue);
-    console.log('previous leaf copy: ', previousLeafCopy);
 
     if (previousLeafCopy === undefined) {
       throw new Error(`Previous leaf not found!`);
