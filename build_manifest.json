@@ -327,7 +327,9 @@
       "^yarn-project/types/"
     ],
     "dependencies": [
-      "foundation"
+      "circuits.js",
+      "foundation",
+      "l1-contracts"
     ]
   },
   "world-state": {

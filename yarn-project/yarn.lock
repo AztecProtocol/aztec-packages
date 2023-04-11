@@ -528,7 +528,9 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/types@workspace:types"
   dependencies:
+    "@aztec/circuits.js": "workspace:^"
     "@aztec/foundation": "workspace:^"
+    "@aztec/l1-contracts": "workspace:^"
     "@jest/globals": ^29.4.3
     "@rushstack/eslint-patch": ^1.1.4
     "@types/jest": ^29.4.0
