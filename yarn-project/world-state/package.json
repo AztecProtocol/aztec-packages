@@ -31,7 +31,7 @@
     "@aztec/barretenberg.js": "workspace:^",
     "@aztec/circuits.js": "workspace:^",
     "@aztec/foundation": "workspace:^",
-    "@aztec/l2-block": "workspace:^",
+    "@aztec/types": "workspace:^",
     "@aztec/merkle-tree": "workspace:^",
     "levelup": "^5.1.1",
     "memdown": "^6.1.1",

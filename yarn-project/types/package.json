@@ -1,11 +1,11 @@
 {
-  "name": "@aztec/unverified-data",
+  "name": "@aztec/types",
   "version": "0.0.0",
   "type": "module",
   "exports": "./dest/index.js",
   "typedoc": {
     "entryPoint": "./src/index.ts",
-    "displayName": "Unverified Data",
+    "displayName": "Aztec 3 Types",
     "tsconfig": "./tsconfig.dest.json"
   },
   "scripts": {
