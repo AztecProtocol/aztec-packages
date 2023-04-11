@@ -66,7 +66,7 @@ async function main() {
       }
       if (!checkOnly && updated) {
         console.log(`Updated ${file}`);
-        writeFileSync(file, JSON.stringify(packageData, null, 2));
+        writeFileSync(file, JSON.stringify(packageData, null, 2) + '\n');
       }
     }
   }
