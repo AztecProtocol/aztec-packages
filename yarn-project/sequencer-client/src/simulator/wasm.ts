@@ -17,10 +17,14 @@ export class WasmCircuitSimulator implements Simulator {
     this.rollupWasmWrapper = new RollupWasmWrapper(wasm);
   }
 
+  public static async new() {
+    return new this(await CircuitsWasm.get());
+  }
+
   baseRollupCircuit(input: BaseRollupInputs): Promise<BaseOrMergeRollupPublicInputs> {
     return this.rollupWasmWrapper.simulateBaseRollup(input);
   }
-  mergeRollupCircuit(input: MergeRollupInputs): Promise<MergeRollupPublicInputs> {
+  mergeRollupCircuit(_input: MergeRollupInputs): Promise<MergeRollupPublicInputs> {
     throw new Error('Method not implemented.');
   }
   rootRollupCircuit(input: RootRollupInputs): Promise<RootRollupPublicInputs> {

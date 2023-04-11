@@ -15,8 +15,8 @@ import {
 
 describe('abis wasm bindings', () => {
   let wasm: CircuitsWasm;
-  beforeEach(async () => {
-    wasm = await CircuitsWasm.new();
+  beforeAll(async () => {
+    wasm = await CircuitsWasm.get();
   });
 
   it('hashes a tx request', async () => {
@@ -40,18 +40,13 @@ describe('abis wasm bindings', () => {
   });
 
   it('computes a function leaf', async () => {
-    const leaf = Buffer.alloc(32);
+    const leaf = Buffer.alloc(32 + 1 + 32 + 32, 0);
     const res = await computeFunctionLeaf(wasm, leaf);
     expect(res).toMatchSnapshot();
   });
 
   it('computes function tree root', async () => {
-    const res = await computeFunctionTreeRoot(wasm, [
-      Buffer.alloc(32),
-      Buffer.alloc(32),
-      Buffer.alloc(32),
-      Buffer.alloc(32),
-    ]);
+    const res = await computeFunctionTreeRoot(wasm, [new Fr(0n), new Fr(0n), new Fr(0n), new Fr(0n)]);
     expect(res).toMatchSnapshot();
   });
 
@@ -72,9 +67,9 @@ describe('abis wasm bindings', () => {
     expect(res).toMatchSnapshot();
   });
 
-  it('computes contract leaf', async () => {
+  it('computes contract leaf', () => {
     const cd = new NewContractData(makeAztecAddress(), makeEthAddress(), new Fr(3n));
-    const res = await computeContractLeaf(wasm, cd);
+    const res = computeContractLeaf(wasm, cd);
     expect(res).toMatchSnapshot();
   });
 });

@@ -205,20 +205,20 @@ export class L2Block {
 
   getTx(txIndex: number) {
     const newCommitments = this.newCommitments.slice(
-      txIndex * KERNEL_NEW_COMMITMENTS_LENGTH,
-      txIndex * KERNEL_NEW_COMMITMENTS_LENGTH + KERNEL_NEW_COMMITMENTS_LENGTH,
+      KERNEL_NEW_COMMITMENTS_LENGTH * txIndex,
+      KERNEL_NEW_COMMITMENTS_LENGTH * (txIndex + 1),
     );
     const newNullifiers = this.newNullifiers.slice(
-      txIndex * KERNEL_NEW_NULLIFIERS_LENGTH,
-      txIndex * KERNEL_NEW_NULLIFIERS_LENGTH + KERNEL_NEW_NULLIFIERS_LENGTH,
+      KERNEL_NEW_NULLIFIERS_LENGTH * txIndex,
+      (txIndex + 1) * KERNEL_NEW_NULLIFIERS_LENGTH,
     );
     const newContracts = this.newContracts.slice(
       txIndex * KERNEL_NEW_CONTRACTS_LENGTH,
-      txIndex * KERNEL_NEW_CONTRACTS_LENGTH + KERNEL_NEW_CONTRACTS_LENGTH,
+      (txIndex + 1) * KERNEL_NEW_CONTRACTS_LENGTH,
     );
     const newContractData = this.newContractData.slice(
       txIndex * KERNEL_NEW_CONTRACTS_LENGTH,
-      txIndex * KERNEL_NEW_CONTRACTS_LENGTH + KERNEL_NEW_CONTRACTS_LENGTH,
+      (txIndex + 1) * KERNEL_NEW_CONTRACTS_LENGTH,
     );
     return new L2Tx(newCommitments, newNullifiers, newContracts, newContractData);
   }
