@@ -1,8 +1,15 @@
-import { CircuitsWasm } from '@aztec/circuits.js';
-import { computeContractLeaf } from '@aztec/circuits.js/abis';
-import { EthereumRpc } from '@aztec/ethereum.js/eth_rpc';
+import { AztecNode, AztecNodeConfig } from '@aztec/aztec-node';
+import { CircuitsWasm, KERNEL_NEW_CONTRACTS_LENGTH } from '@aztec/circuits.js';
 import { WalletProvider } from '@aztec/ethereum.js/provider';
 import { EthAddress, createDebugLogger, sleep } from '@aztec/foundation';
+import {
+  createProvider,
+  createTx,
+  deployRollupContract,
+  deployUnverifiedDataEmitterContract,
+} from './aztec_node_fixtures.js';
+import { EthereumRpc } from '@aztec/ethereum.js/eth_rpc';
+import { Tx } from '@aztec/tx';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/l1-contracts';
 <<<<<<<< HEAD:yarn-project/aztec-node/src/test/aztec_node.test.ts
 import { Tx } from '@aztec/types';
@@ -20,7 +27,10 @@ import { createProvider, createTx, deployRollupContract, deployUnverifiedDataEmi
 import { AztecNode, AztecNodeConfig } from '@aztec/aztec-node';
 >>>>>>>> 98e36643 (chore: moved node test to e2e):yarn-project/end-to-end/src/integration_aztec_node.test.ts
 
+const ETHEREUM_HOST = 'http://127.0.0.1:8545/';
 const MNEMONIC = 'test test test test test test test test test test test junk';
+
+const NUM_TXS_PER_BLOCK = 4;
 
 const logger = createDebugLogger('aztec:e2e_test');
 
@@ -72,7 +82,7 @@ describe.skip('AztecNode', () => {
     const [settledBlock] = await waitForBlocks(1);
 
     expect(settledBlock.number).toBe(1);
-    expect(settledBlock.newContracts).toHaveLength(1);
+    expect(settledBlock.newContracts).toHaveLength(NUM_TXS_PER_BLOCK * KERNEL_NEW_CONTRACTS_LENGTH);
     expect(settledBlock.newContracts[0]).toEqual(computeContractLeaf(wasm, tx.data.end.newContracts[0]));
 
     const unverifiedDatas = await waitForUnverifiedData(1);

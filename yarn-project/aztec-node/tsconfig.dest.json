@@ -43,6 +43,6 @@
       "path": "../world-state/tsconfig.dest.json"
     }
   ],
-  "include": ["src", "test", "../end-to-end/src/aztec_node_fixtures.ts", "../end-to-end/src/integration_aztec_node.test.ts"],
+  "include": ["src"],
   "exclude": ["**/*.test.*", "**/fixtures/*"]
 }
