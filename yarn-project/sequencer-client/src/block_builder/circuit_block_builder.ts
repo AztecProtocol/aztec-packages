@@ -1,38 +1,38 @@
 import {
   AppendOnlyTreeSnapshot,
-  BaseRollupInputs,
   BaseOrMergeRollupPublicInputs,
+  BaseRollupInputs,
+  CONTRACT_TREE_ROOTS_TREE_HEIGHT,
   CircuitsWasm,
   ConstantBaseRollupData,
-  CONTRACT_TREE_ROOTS_TREE_HEIGHT,
   MembershipWitness,
-  NullifierLeafPreimage,
+  MergeRollupInputs,
   NULLIFIER_TREE_HEIGHT,
+  NullifierLeafPreimage,
+  PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT,
   PreviousKernelData,
   PreviousRollupData,
-  PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT,
   ROLLUP_VK_TREE_HEIGHT,
+  RollupTypes,
   RootRollupInputs,
   RootRollupPublicInputs,
   UInt8Vector,
   VK_TREE_HEIGHT,
-  MergeRollupInputs,
   VerificationKey,
-  RollupTypes,
 } from '@aztec/circuits.js';
+import { computeContractLeaf } from '@aztec/circuits.js/abis';
 import { Fr, createDebugLogger, toBigIntBE } from '@aztec/foundation';
 import { LeafData, SiblingPath } from '@aztec/merkle-tree';
-import { Tx } from '@aztec/types';
+import { ContractData, L2Block, Tx } from '@aztec/types';
 import { MerkleTreeId, MerkleTreeOperations } from '@aztec/world-state';
+import chunk from 'lodash.chunk';
 import flatMap from 'lodash.flatmap';
 import times from 'lodash.times';
-import { makeEmptyTx } from '../deps/tx.js';
 import { VerificationKeys } from '../deps/verification_keys.js';
 import { Proof, Prover } from '../prover/index.js';
 import { Simulator } from '../simulator/index.js';
-import { ContractData, L2Block } from '@aztec/types';
-import { computeContractLeaf } from '@aztec/circuits.js/abis';
-import chunk from 'lodash.chunk';
+
+import { BlockBuilder } from './index.js';
 
 const frToBigInt = (fr: Fr) => toBigIntBE(fr.toBuffer());
 const bigintToFr = (num: bigint) => new Fr(num);
@@ -64,7 +64,7 @@ export interface LowNullifierWitnessData {
   index: bigint;
 }
 
-export class CircuitBlockBuilder {
+export class CircuitBlockBuilder implements BlockBuilder {
   constructor(
     protected db: MerkleTreeOperations,
     protected vks: VerificationKeys,
