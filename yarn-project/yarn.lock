@@ -261,17 +261,16 @@ __metadata:
     "@aztec/foundation": "workspace:^"
     "@aztec/l1-contracts": "workspace:^"
     "@aztec/noir-contracts": "workspace:^"
+    "@aztec/unverified-data": "workspace:^"
     "@jest/globals": ^29.5.0
-    "@rushstack/eslint-patch": ^1.1.4
+    "@rushstack/eslint-patch": ^1.2.0
     "@types/jest": ^29.5.0
-    "@types/lodash.times": ^4.3.7
-    "@types/node": ^18.7.23
-    concurrently: ^7.6.0
+    "@types/node": ^18.15.11
+    concurrently: ^8.0.1
     jest: ^29.5.0
-    lodash.times: ^4.3.2
     ts-jest: ^29.1.0
     ts-node: ^10.9.1
-    tslib: ^2.4.0
+    tslib: ^2.5.0
     typescript: ^5.0.4
   languageName: unknown
   linkType: soft
