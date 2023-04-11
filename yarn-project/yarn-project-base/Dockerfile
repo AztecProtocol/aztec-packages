@@ -44,7 +44,7 @@ COPY world-state/package.json world-state/package.json
 COPY yarn-project-base/package.json yarn-project-base/package.json
 
 # Copy root files
-COPY package.json tsconfig.json tsconfig.dest.json tsconfig.eslint.json yarn.lock .yarnrc.yml ./
+COPY package.json package.*.json tsconfig.json tsconfig.dest.json tsconfig.eslint.json yarn.lock .yarnrc.yml ./
 COPY .yarn .yarn
 
 # Although we're attempting to be "zero-install", in practice we still need to build arch specific packages.
