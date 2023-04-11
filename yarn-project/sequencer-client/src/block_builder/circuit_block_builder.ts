@@ -86,6 +86,15 @@ export class CircuitBlockBuilder {
       ].map(tree => this.getTreeSnapshot(tree)),
     );
 
+    console.log('blockNumber', blockNumber);
+    console.log('start nullifier tree snapshot: ', startNullifierTreeSnapshot.root.toFriendlyJSON());
+    console.log('next available leaf index: ', startNullifierTreeSnapshot.nextAvailableLeafIndex);
+
+    console.log('WHAT IS IN THE NULLIFIER TREE');
+    for (let i = 0; i < startNullifierTreeSnapshot.nextAvailableLeafIndex; i++) {
+      console.log(i, await this.db.getLeafData(MerkleTreeId.NULLIFIER_TREE, i));
+    }
+
     // We fill the tx batch with empty txs, we process only one tx at a time for now
     const txs = [tx, makeEmptyTx(), makeEmptyTx(), makeEmptyTx()];
     const [circuitsOutput, proof] = await this.runCircuits(txs);
@@ -97,6 +106,12 @@ export class CircuitBlockBuilder {
       endTreeOfHistoricPrivateDataTreeRootsSnapshot,
       endTreeOfHistoricContractTreeRootsSnapshot,
     } = circuitsOutput;
+
+    // END NULLIFIER TREE
+    console.log('WHAT IS IN THE END NULLIFIER TREE');
+    for (let i = 0; i < endNullifierTreeSnapshot.nextAvailableLeafIndex; i++) {
+      console.log(i, await this.db.getLeafData(MerkleTreeId.NULLIFIER_TREE, i));
+    }
 
     // Collect all new nullifiers, commitments, and contracts from all txs in this block
     const wasm = await CircuitsWasm.get();
@@ -238,6 +253,11 @@ export class CircuitBlockBuilder {
     name: string,
     label?: string,
   ) {
+    if (name == 'Nullifier') {
+      console.log('Simulated tree', simulatedTree.root.toBuffer().toString('hex'));
+      console.log('Local tree', localTree.root.toBuffer().toString('hex'));
+    }
+
     if (!simulatedTree.root.toBuffer().equals(localTree.root.toBuffer())) {
       throw new Error(`${label ?? name} tree root mismatch (local ${localTree.root}, simulated ${simulatedTree.root})`);
     }
@@ -419,121 +439,98 @@ export class CircuitBlockBuilder {
    * @returns
    */
   public async performBaseRollupBatchInsertionProofs(leaves: Buffer[]): Promise<LowNullifierWitnessData[] | undefined> {
-    // Keep track of the touched during batch insertion
-    const touchedNodes: Set<number> = new Set<number>();
+    const touched = new Map<number, bigint[]>();
 
-    // Return data
-    const lowNullifierWitnesses: LowNullifierWitnessData[] = [];
+    const lowNullifierWitness: LowNullifierWitnessData[] = [];
+
+    const pendingInsertionSubtree: NullifierLeafPreimage[] = [];
     const dbInfo = await this.db.getTreeInfo(MerkleTreeId.NULLIFIER_TREE);
     const startInsertionIndex: bigint = dbInfo.size;
-    let currInsertionIndex: bigint = startInsertionIndex;
 
-    // Leaf data of hte leaves to be inserted
-    const insertionSubtree: NullifierLeafPreimage[] = [];
+    const zeroPreimage: NullifierLeafPreimage = new NullifierLeafPreimage(new Fr(0n), new Fr(0n), 0);
 
-    // Low nullifier membership proof sibling paths
-    for (const leaf of leaves) {
-      const newValue = toBigIntBE(leaf);
+    for (let i = 0; i < leaves.length; i++) {
+      const newValue = toBigIntBE(leaves[i]);
+
+      // Keep space and just insert zero values
+      if (newValue === 0n) {
+        pendingInsertionSubtree.push(zeroPreimage);
+        continue;
+      }
+
       const indexOfPrevious = await this.db.getPreviousValueIndex(MerkleTreeId.NULLIFIER_TREE, newValue);
 
-      // NOTE: null values for nullfier leaves are being changed to 0n current impl is a hack
-      // Default value
-      const nullifierLeaf: NullifierLeafPreimage = new NullifierLeafPreimage(new Fr(newValue), new Fr(0n), 0);
-      if (touchedNodes.has(indexOfPrevious.index) || newValue === 0n) {
-        // If the node has already been touched, then we return an empty leaf and sibling path
-        const emptySP = new SiblingPath();
-        emptySP.data = Array(dbInfo.depth).fill(
-          Buffer.from('0000000000000000000000000000000000000000000000000000000000000000', 'hex'),
-        );
-        const witness: LowNullifierWitnessData = {
-          preimage: NullifierLeafPreimage.empty(),
-          index: 0n,
-          siblingPath: emptySP,
-        };
-        lowNullifierWitnesses.push(witness);
+      // If a touched node has a value that is less greater than the current value
+      const prevNodes = touched.get(indexOfPrevious.index);
+      if (prevNodes && prevNodes.some(v => v < newValue)) {
+        // check the pending low nullifiers for a low nullifier that works
+        // This is the case where the next value is less than the pending
+        for (let j = 0; j < pendingInsertionSubtree.length; j++) {
+          if (pendingInsertionSubtree[j].leafValue.isZero()) continue;
+
+          if (
+            pendingInsertionSubtree[j].leafValue.value < newValue &&
+            (pendingInsertionSubtree[j].nextValue.value > newValue || pendingInsertionSubtree[j].nextValue.isZero())
+          ) {
+            // add the new value to the pending low nullifiers
+            const currentLeafLowNullifier = new NullifierLeafPreimage(
+              new Fr(newValue),
+              pendingInsertionSubtree[j].nextValue,
+              Number(pendingInsertionSubtree[j].nextIndex),
+            );
+
+            pendingInsertionSubtree.push(currentLeafLowNullifier);
+
+            // Update the pending low nullifier to point at the new value
+            pendingInsertionSubtree[j].nextValue = new Fr(newValue);
+            pendingInsertionSubtree[j].nextIndex = Number(startInsertionIndex) + i;
+
+            break;
+          }
+        }
       } else {
-        // If the node has not been touched, we update its low nullifier pointer, but we do NOT insert it yet, inserting it now
-        // will alter non membership paths of the not yet inserted members
-        // Insertion is done at the end once updates have already occurred.
-        touchedNodes.add(indexOfPrevious.index);
+        // Update the touched mapping
+        if (prevNodes) {
+          prevNodes.push(newValue);
+          touched.set(indexOfPrevious.index, prevNodes);
+        } else {
+          touched.set(indexOfPrevious.index, [newValue]);
+        }
 
+        // get the low nullifier
         const lowNullifier = await this.db.getLeafData(MerkleTreeId.NULLIFIER_TREE, indexOfPrevious.index);
-
-        // If no low nullifier can be found, abort - this means the nullifier is invalid
-        // in some way (it should not happen)
         if (lowNullifier === undefined) {
           return undefined;
         }
 
-        const lowNullifierPreimage = new NullifierLeafPreimage(
-          new Fr(lowNullifier.value),
+        // The low nullifier the inserted value will have
+        const currentLeafLowNullifier = new NullifierLeafPreimage(
+          new Fr(newValue),
           new Fr(lowNullifier.nextValue),
           Number(lowNullifier.nextIndex),
         );
+        pendingInsertionSubtree.push(currentLeafLowNullifier);
 
-        // Get sibling path for existence of the old leaf
-        const siblingPath = await this.db.getSiblingPath(MerkleTreeId.NULLIFIER_TREE, BigInt(indexOfPrevious.index));
+        // Update the old low nullifier
+        lowNullifier.nextValue = newValue;
+        lowNullifier.nextIndex = startInsertionIndex + BigInt(i);
 
-        // Update the running paths
-        const witness = {
-          preimage: lowNullifierPreimage,
-          index: BigInt(indexOfPrevious.index),
-          siblingPath: siblingPath,
-        };
-        lowNullifierWitnesses.push(witness);
-
-        // Update subtree insertion leaf from null data
-        nullifierLeaf.nextIndex = lowNullifierPreimage.nextIndex;
-        nullifierLeaf.nextValue = lowNullifierPreimage.nextValue;
-
-        // Update the current low nullifier
-        lowNullifier.nextIndex = currInsertionIndex;
-        lowNullifier.nextValue = BigInt(newValue);
-
-        // Update the old leaf in the tree
         await this.db.updateLeaf(MerkleTreeId.NULLIFIER_TREE, lowNullifier, BigInt(indexOfPrevious.index));
       }
-
-      // increment insertion index
-      currInsertionIndex++;
-      insertionSubtree.push(nullifierLeaf);
     }
 
-    // Create insertion subtree and forcefully insert in series
-    // Here we calculate the pointers for the inserted values, if they have not already been updated
-    for (let i = 0; i < leaves.length; i++) {
-      const newValue = new Fr(toBigIntBE(leaves[i]));
-
-      if (newValue.isZero()) continue;
-
-      // We have already fetched the new low nullifier for this leaf, so we can set its low nullifier
-      const lowNullifier = lowNullifierWitnesses[i].preimage;
-      // If the lowNullifier is 0, then we check the previous leaves for the low nullifier leaf
-      if (lowNullifier.leafValue.isZero() && lowNullifier.nextValue.isZero() && lowNullifier.nextIndex === 0) {
-        for (let j = 0; j < i; j++) {
-          if (
-            (insertionSubtree[j].nextValue > newValue && insertionSubtree[j].leafValue < newValue) ||
-            (insertionSubtree[j].nextValue.isZero() && insertionSubtree[j].nextIndex === 0)
-          ) {
-            insertionSubtree[j].nextIndex = Number(startInsertionIndex) + i;
-            insertionSubtree[j].nextValue = newValue;
-          }
-        }
-      }
-    }
-
-    // For each calculated new leaf, we insert it into the tree at the next position
-    for (let i = 0; i < insertionSubtree.length; i++) {
+    // Perform batch insertion of new pending values
+    for (let i = 0; i < pendingInsertionSubtree.length; i++) {
       const asLeafData: LeafData = {
-        value: insertionSubtree[i].leafValue.value,
-        nextValue: insertionSubtree[i].nextValue.value,
-        nextIndex: BigInt(insertionSubtree[i].nextIndex),
+        value: pendingInsertionSubtree[i].leafValue.value,
+        nextValue: pendingInsertionSubtree[i].nextValue.value,
+        nextIndex: BigInt(pendingInsertionSubtree[i].nextIndex),
       };
 
       await this.db.updateLeaf(MerkleTreeId.NULLIFIER_TREE, asLeafData, startInsertionIndex + BigInt(i));
     }
 
-    return lowNullifierWitnesses;
+    return lowNullifierWitness;
   }
 
   // Builds the base rollup inputs, updating the contract, nullifier, and data trees in the process

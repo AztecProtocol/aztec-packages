@@ -243,17 +243,15 @@ export class IndexedTree implements MerkleTree {
   public findIndexOfPreviousValue(newValue: bigint, includeUncommitted: boolean) {
     const numLeaves = this.underlying.getNumLeaves(includeUncommitted);
     const diff: bigint[] = [];
+
     for (let i = 0; i < numLeaves; i++) {
       const storedLeaf = this.getLatestLeafDataCopy(i, includeUncommitted)!;
 
-      // TODO: the 0 case?
-      // The stored leaf can be undefined if there is nothing stored there, the number of leaves is not the size of the tree
+      // The stored leaf can be undefined if it addresses an empty leaf
+      // If the leaf is empty we do the same as if the leaf was larger
       if (storedLeaf === undefined) {
-        console.log(i, storedLeaf, newValue);
-        continue;
-      }
-
-      if (storedLeaf.value > newValue) {
+        diff.push(newValue);
+      } else if (storedLeaf.value > newValue) {
         diff.push(newValue);
       } else if (storedLeaf.value === newValue) {
         return { index: i, alreadyPresent: true };

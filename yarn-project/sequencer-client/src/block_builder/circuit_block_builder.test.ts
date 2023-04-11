@@ -27,6 +27,8 @@ import { Simulator } from '../simulator/index.js';
 import { WasmCircuitSimulator } from '../simulator/wasm.js';
 import { CircuitBlockBuilder } from './circuit_block_builder.js';
 import { computeContractLeaf } from '@aztec/circuits.js/abis';
+import { buffer } from 'stream/consumers';
+import { toBufferBE } from '@aztec/foundation';
 
 /* eslint-disable @typescript-eslint/ban-ts-comment */
 // @ts-ignore
@@ -199,6 +201,46 @@ describe('sequencer/circuit_block_builder', () => {
     expect(contractTreeAfter.root).toEqual(await expectsDb.getTreeInfo(MerkleTreeId.CONTRACT_TREE).then(t => t.root));
     expect(contractTreeAfter.size).toEqual(4n);
   }, 10000);
+
+  it('test nullifier tree impl, inserting descending values', async () => {
+    const leaves = [16, 15, 14, 13, 0, 0, 0, 0].map(i => toBufferBE(BigInt(i), 32));
+    await expectsDb.appendLeaves(MerkleTreeId.NULLIFIER_TREE, leaves);
+
+    builder = new TestSubject(builderDb, vks, simulator, prover);
+
+    await builder.performBaseRollupBatchInsertionProofs(leaves);
+
+    // assert snapshots
+    const expectsSnapshot = await expectsDb.getTreeInfo(MerkleTreeId.NULLIFIER_TREE);
+    const buildSnapshot = await builderDb.getTreeInfo(MerkleTreeId.NULLIFIER_TREE);
+    expect(buildSnapshot).toEqual(expectsSnapshot);
+  });
+
+  it('test nullifier tree impl, inserting ascending values', async () => {
+    const leaves = [13, 14, 15, 16, 0, 0, 0, 0].map(i => toBufferBE(BigInt(i), 32));
+    await expectsDb.appendLeaves(MerkleTreeId.NULLIFIER_TREE, leaves);
+    builder = new TestSubject(builderDb, vks, simulator, prover);
+
+    await builder.performBaseRollupBatchInsertionProofs(leaves);
+
+    // assert snapshots
+    const expectsSnapshot = await expectsDb.getTreeInfo(MerkleTreeId.NULLIFIER_TREE);
+    const buildSnapshot = await builderDb.getTreeInfo(MerkleTreeId.NULLIFIER_TREE);
+    expect(buildSnapshot).toEqual(expectsSnapshot);
+  });
+
+  it('test nullifier tree impl, inserting arbitrary random values', async () => {
+    const leaves = [1234, 98, 0, 0, 99999, 88, 54, 0].map(i => toBufferBE(BigInt(i), 32));
+    await expectsDb.appendLeaves(MerkleTreeId.NULLIFIER_TREE, leaves);
+    builder = new TestSubject(builderDb, vks, simulator, prover);
+
+    await builder.performBaseRollupBatchInsertionProofs(leaves);
+
+    // assert snapshots
+    const expectsSnapshot = await expectsDb.getTreeInfo(MerkleTreeId.NULLIFIER_TREE);
+    const buildSnapshot = await builderDb.getTreeInfo(MerkleTreeId.NULLIFIER_TREE);
+    expect(buildSnapshot).toEqual(expectsSnapshot);
+  });
 });
 
 // Test subject class that exposes internal functions for testing
