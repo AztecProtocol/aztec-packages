@@ -52,6 +52,7 @@ describe.skip('AztecNode', () => {
     provider = createProvider(config.rpcUrl, MNEMONIC, 1);
     const ethRpc = new EthereumRpc(provider);
     rollupAddress = await deployRollupContract(provider, ethRpc);
+    logger(`Rollup contract deployed at ${rollupAddress}`);
     unverifiedDataEmitterAddress = await deployUnverifiedDataEmitterContract(provider, ethRpc);
 
     config.rollupContract = rollupAddress;
@@ -121,7 +122,7 @@ describe.skip('AztecNode', () => {
     while (true) {
       const blocks = await node.getBlocks(INITIAL_L2_BLOCK_NUM, take);
       if (blocks.length < take) {
-        await sleep(100);
+        await sleep(1000);
         continue;
       }
       return blocks;
@@ -132,7 +133,7 @@ describe.skip('AztecNode', () => {
     while (true) {
       const unverifiedDatas = await node.getUnverifiedData(INITIAL_L2_BLOCK_NUM, take);
       if (unverifiedDatas.length < take) {
-        await sleep(100);
+        await sleep(1000);
         continue;
       }
       return unverifiedDatas;
