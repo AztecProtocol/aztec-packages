@@ -119,7 +119,6 @@ describe('sequencer/circuit_block_builder', () => {
   };
 
   it('builds an L2 block using mock simulator', async () => {
-    throw new Error(`Foo!`);
     // Create instance to test
     builder = new TestSubject(builderDb, vks, simulator, prover);
     await builder.updateRootTrees();
