@@ -37,6 +37,9 @@
     "formatting:fix": "prettier -w ./src",
     "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules $(yarn bin jest) --no-cache"
   },
+  "inherits": [
+    "../package.scripts.json"
+  ],
   "jest": {
     "preset": "ts-jest/presets/default-esm",
     "globals": {

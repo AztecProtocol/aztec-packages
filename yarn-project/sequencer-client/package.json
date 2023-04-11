@@ -20,6 +20,9 @@
     "test:integration": "concurrently -k -s first -c reset,dim -n test,anvil \"yarn test:integration:run\" \"anvil\"",
     "test:integration:run": "NODE_NO_WARNINGS=1 node --experimental-vm-modules $(yarn bin jest) --no-cache --config jest.integration.config.json"
   },
+  "inherits": [
+    "../package.scripts.json"
+  ],
   "jest": {
     "preset": "ts-jest/presets/default-esm",
     "globals": {
