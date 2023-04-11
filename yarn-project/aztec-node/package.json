@@ -41,10 +41,10 @@
     "@aztec/ethereum.js": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "@aztec/l1-contracts": "workspace:^",
-    "@aztec/types": "workspace:^",
     "@aztec/merkle-tree": "workspace:^",
     "@aztec/p2p": "workspace:^",
     "@aztec/sequencer-client": "workspace:^",
+    "@aztec/types": "workspace:^",
     "@aztec/world-state": "workspace:^",
     "tslib": "^2.4.0"
   },
