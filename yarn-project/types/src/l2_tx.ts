@@ -1,6 +1,7 @@
 import { Fr } from '@aztec/foundation';
 import { ContractData } from './contract_data.js';
-import { TxHash, createTxHash } from '@aztec/tx';
+import { TxHash } from './tx_hash.js';
+import { createTxHash } from './create_tx_hash.js';
 
 export class L2Tx {
   constructor(
