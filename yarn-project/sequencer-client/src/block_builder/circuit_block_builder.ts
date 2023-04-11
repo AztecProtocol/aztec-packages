@@ -168,6 +168,7 @@ export class CircuitBlockBuilder implements BlockBuilder {
   }
 
   protected async baseRollupCircuit(tx1: Tx, tx2: Tx): Promise<[BaseOrMergeRollupPublicInputs, Proof]> {
+    this.debug(`Running base rollup for ${await tx1.getTxHash()} ${await tx2.getTxHash()}`);
     const rollupInput = await this.buildBaseRollupInput(tx1, tx2);
     const rollupOutput = await this.simulator.baseRollupCircuit(rollupInput);
     await this.validateTrees(rollupOutput);
@@ -185,9 +186,8 @@ export class CircuitBlockBuilder implements BlockBuilder {
       this.getPreviousRollupDataFromPublicInputs(right[0], right[1], vk),
     ]);
 
-    this.debug(`Running merge rollup simulator`);
+    this.debug(`Running merge rollup circuit`);
     const output = await this.simulator.mergeRollupCircuit(mergeInputs);
-    this.debug(`Running merge rollup prover`);
     const proof = await this.prover.getMergeRollupProof(mergeInputs, output);
     return [output, proof];
   }
@@ -207,13 +207,11 @@ export class CircuitBlockBuilder implements BlockBuilder {
     left: [BaseOrMergeRollupPublicInputs, Proof],
     right: [BaseOrMergeRollupPublicInputs, Proof],
   ): Promise<[RootRollupPublicInputs, Proof]> {
-    this.debug(`Building root rollup input`);
+    this.debug(`Running root rollup circuit`);
     const rootInput = await this.getRootRollupInput(...left, ...right);
 
     // Simulate and get proof for the root circuit
-    this.debug(`Running root rollup simulator`);
     const rootOutput = await this.simulator.rootRollupCircuit(rootInput);
-    this.debug(`Running root rollup circuit prover`);
     const rootProof = await this.prover.getRootRollupProof(rootInput, rootOutput);
 
     // Update the root trees with the latest data and contract tree roots,

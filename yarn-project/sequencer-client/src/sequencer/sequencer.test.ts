@@ -1,7 +1,6 @@
 import { makeEmptyProof } from '@aztec/circuits.js';
-import { L2Block } from '@aztec/l2-block';
 import { P2P, P2PClientState } from '@aztec/p2p';
-import { UnverifiedData } from '@aztec/unverified-data';
+import { L2Block, UnverifiedData } from '@aztec/types';
 import { MerkleTreeId, MerkleTreeOperations, WorldStateRunningState, WorldStateSynchroniser } from '@aztec/world-state';
 import { MockProxy, mock } from 'jest-mock-extended';
 import { BlockBuilder } from '../block_builder/index.js';

@@ -43,6 +43,7 @@ export class Sequencer {
     this.runningPromise = new RunningPromise(this.work.bind(this), { pollingInterval: this.pollingIntervalMs });
     this.runningPromise.start();
     this.state = SequencerState.IDLE;
+    this.log('Sequencer started');
   }
 
   public async stop(): Promise<void> {
@@ -50,6 +51,12 @@ export class Sequencer {
     this.publisher.interrupt();
     this.state = SequencerState.STOPPED;
     this.log('Stopped sequencer');
+  }
+
+  public restart() {
+    this.log('Restarting sequencer');
+    this.runningPromise!.start();
+    this.state = SequencerState.IDLE;
   }
 
   public status() {
@@ -84,6 +91,7 @@ export class Sequencer {
       // P2P client is responsible for ensuring this tx is eligible (proof ok, not mined yet, etc)
       const pendingTxs = await this.p2pClient.getTxs(); //.then(txs => txs.slice(0, this.maxTxsPerBlock));
       if (pendingTxs.length === 0) return;
+      this.log(`Processing ${pendingTxs.length} txs from P2P pool`);
 
       const validTxs = [];
       const doubleSpendTxs = [];
@@ -105,10 +113,14 @@ export class Sequencer {
       // Make sure we remove these from the tx pool so we do not consider it again
       if (doubleSpendTxs.length > 0) {
         const doubleSpendTxsHashes = await Promise.all(doubleSpendTxs.map(t => t.getTxHash()));
-        this.log(`Deleting double spend txs ${doubleSpendTxsHashes.join(',')}`);
+        this.log(`Deleting double spend txs ${doubleSpendTxsHashes.join(', ')}`);
         await this.p2pClient.deleteTxs(doubleSpendTxsHashes);
       }
 
+      if (validTxs.length === 0) return;
+
+      const validTxHashes = await Promise.all(validTxs.map(tx => tx.getTxHash()));
+      this.log(`Assembling block with txs ${validTxHashes.join(', ')}`);
       this.state = SequencerState.CREATING_BLOCK;
 
       // Build the new block by running the rollup circuits
@@ -137,7 +149,8 @@ export class Sequencer {
         this.log(`Failed to publish unverifiedData for block ${block.number}`);
       }
     } catch (err) {
-      this.log(`Error doing work: ${err}`, 'error');
+      this.log(err, 'error');
+      // TODO: Rollback changes to DB
     }
   }
 
