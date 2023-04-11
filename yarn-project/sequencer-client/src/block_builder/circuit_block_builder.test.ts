@@ -187,6 +187,41 @@ describe('sequencer/circuit_block_builder', () => {
     expect(contractTreeAfter.size).toEqual(4n);
   });
 
+  it('builds an L2 block with edge case txs using wasm circuits', async () => {
+    //   8 {
+    //     value: 10617590912659865961701467775623194442522019650336360045981976509028944824391n,
+    //     nextIndex: 0n,
+    //     nextValue: 0n
+    //   }
+    //     at CircuitBlockBuilder.buildL2Block (../../sequencer-client/src/block_builder/circuit_block_builder.ts:95:15)
+    // console.log
+    //   9 {
+    //     value: 5905192156657423293680568395457100494140811868379973982229358327640004958473n,
+    //     nextIndex: 8n,
+    //     nextValue: 10617590912659865961701467775623194442522019650336360045981976509028944824391n
+    //   }
+    // add these two values
+    //     const simulator = await WasmCircuitSimulator.new();
+    //     const prover = new EmptyProver();
+    //     builder = new TestSubject(builderDb, vks, simulator, prover);
+    //     await builder.updateRootTrees();
+    //     const contractTreeBefore = await builderDb.getTreeInfo(MerkleTreeId.CONTRACT_TREE);
+    //     const tx = makeEmptyTx();
+    //     // Fr {
+    //     //   value: 10617590912659865961701467775623194442522019650336360045981976509028944824391n
+    //     // },
+    //     // Fr {
+    //     //   value: 5905192156657423293680568395457100494140811868379973982229358327640004958473n
+    //     // },
+    // const
+    //     tx.
+    //     const [l2Block] = await builder.buildL2Block(blockNumber, tx);
+    //     expect(l2Block.number).toEqual(blockNumber);
+    //     const contractTreeAfter = await builderDb.getTreeInfo(MerkleTreeId.CONTRACT_TREE);
+    //     expect(contractTreeAfter.root).toEqual(contractTreeBefore.root);
+    //     expect(contractTreeAfter.size).toEqual(4n);
+  });
+
   it('builds an L2 block with a contract deployment tx using wasm circuits', async () => {
     const simulator = await WasmCircuitSimulator.new();
     const prover = new EmptyProver();
@@ -237,6 +272,19 @@ describe('sequencer/circuit_block_builder', () => {
 
   it('test nullifier tree impl, inserting arbitrary random values', async () => {
     const leaves = [1234, 98, 0, 0, 99999, 88, 54, 0].map(i => toBufferBE(BigInt(i), 32));
+    await expectsDb.appendLeaves(MerkleTreeId.NULLIFIER_TREE, leaves);
+    builder = new TestSubject(builderDb, vks, simulator, prover);
+
+    await builder.performBaseRollupBatchInsertionProofs(leaves);
+
+    // assert snapshots
+    const expectsSnapshot = await expectsDb.getTreeInfo(MerkleTreeId.NULLIFIER_TREE);
+    const buildSnapshot = await builderDb.getTreeInfo(MerkleTreeId.NULLIFIER_TREE);
+    expect(buildSnapshot).toEqual(expectsSnapshot);
+  });
+
+  it('test nullifier tree impl, inserting arbitrary random values #2', async () => {
+    const leaves = [97, 98, 10, 0, 99999, 88, 100001, 9000000].map(i => toBufferBE(BigInt(i), 32));
     await expectsDb.appendLeaves(MerkleTreeId.NULLIFIER_TREE, leaves);
     builder = new TestSubject(builderDb, vks, simulator, prover);
 
