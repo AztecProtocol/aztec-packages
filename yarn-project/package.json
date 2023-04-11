@@ -36,7 +36,8 @@
     "aztec-node",
     "sequencer-client",
     "types",
-    "world-state"
+    "world-state",
+    "yarn-project-base"
   ],
   "prettier": "@aztec/foundation/prettier",
   "devDependencies": {
