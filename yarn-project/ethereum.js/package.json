@@ -26,11 +26,11 @@
     "prepare": "node ../yarn-project-base/scripts/update_build_manifest.mjs package.json",
     "prepare:check": "node ../yarn-project-base/scripts/update_build_manifest.mjs package.json --check",
     "build": "yarn clean && tsc -b tsconfig.dest.json",
-    "build:dev": "yarn build --watch",
+    "build:dev": "tsc -b tsconfig.dest.json --watch",
     "clean": "rm -rf ./dest .tsbuildinfo",
-    "formatting": "run -T prettier --check ./src && run -T eslint --max-warnings 0 ./src",
+    "formatting": "prettier --check ./src && eslint ./src",
     "formatting:fix": "prettier -w ./src",
-    "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules $(yarn bin jest) --no-cache",
+    "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules $(yarn bin jest) --passWithNoTests",
     "gen_fixtures": "NODE_NO_WARNINGS=1 node ./dest/contract/gen_def/index.js ./src/contract/fixtures/contracts.json"
   },
   "inherits": [

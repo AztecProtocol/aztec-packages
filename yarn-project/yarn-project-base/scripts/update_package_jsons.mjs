@@ -46,8 +46,8 @@ async function main() {
         const source = await getSource(parentFullPath);
         for (const key in source) {
           const updatedValue = {
-            ...source[key],
             ...packageData[key],
+            ...source[key],
           };
           updated = updated || JSON.stringify(updatedValue) !== JSON.stringify(packageData[key]);
           if (checkOnly) {
