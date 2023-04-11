@@ -33,11 +33,7 @@ export class L2BlockContext {
     // First ensure that all tx hashes are calculated
     for (let txIndex = 0; txIndex < this.txHashes.length; txIndex++) {
       if (!this.txHashes[txIndex]) {
-        const txHash = this.block.getTx(txIndex).txHash;
-        if (txHash === undefined) {
-          throw new Error(`Tx hash for tx ${txIndex} in block ${this.block.number} is undefined`);
-        }
-        this.txHashes[txIndex] = txHash;
+        this.txHashes[txIndex] = this.block.getTx(txIndex).txHash;
       }
     }
     return this.txHashes as TxHash[];

@@ -47,25 +47,9 @@ export class Tx {
     // the tx hashes. This means we need the full circuits wasm, and cannot use the lighter primitives
     // wasm. Alternatively, we could stop using computeContractLeaf and manually use the same
     const wasm = await CircuitsWasm.get();
-    return hashTxData(
-      tx.data.end.newCommitments,
-      tx.data.end.newNullifiers,
-      tx.data.end.newContracts.map(cd => computeContractLeaf(wasm, cd)),
-    );
+    return createTxHash({
+      ...tx.data.end,
+      newContracts: tx.data.end.newContracts.map(cd => computeContractLeaf(wasm, cd)),
+    });
   }
-}
-
-export function hashTxData(
-  newCommitments: Fr[] | Buffer[],
-  newNullifiers: Fr[] | Buffer[],
-  newContracts: Fr[] | Buffer[],
-) {
-  const dataToHash = Buffer.concat(
-    [
-      newCommitments.map(x => (Buffer.isBuffer(x) ? x : x.toBuffer())),
-      newNullifiers.map(x => (Buffer.isBuffer(x) ? x : x.toBuffer())),
-      newContracts.map(x => (Buffer.isBuffer(x) ? x : x.toBuffer())),
-    ].flat(),
-  );
-  return new TxHash(keccak(dataToHash));
 }

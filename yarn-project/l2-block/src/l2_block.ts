@@ -204,21 +204,26 @@ export class L2Block {
   }
 
   getTx(txIndex: number) {
+    const numTxs = Math.floor(this.newCommitments.length / KERNEL_NEW_COMMITMENTS_LENGTH);
+    if (txIndex >= numTxs) {
+      throw new Error(`Failed to get tx ${txIndex}. Block ${this.number} only has ${numTxs} txs.`);
+    }
+
     const newCommitments = this.newCommitments.slice(
       KERNEL_NEW_COMMITMENTS_LENGTH * txIndex,
       KERNEL_NEW_COMMITMENTS_LENGTH * (txIndex + 1),
     );
     const newNullifiers = this.newNullifiers.slice(
       KERNEL_NEW_NULLIFIERS_LENGTH * txIndex,
-      (txIndex + 1) * KERNEL_NEW_NULLIFIERS_LENGTH,
+      KERNEL_NEW_NULLIFIERS_LENGTH * (txIndex + 1),
     );
     const newContracts = this.newContracts.slice(
-      txIndex * KERNEL_NEW_CONTRACTS_LENGTH,
-      (txIndex + 1) * KERNEL_NEW_CONTRACTS_LENGTH,
+      KERNEL_NEW_CONTRACTS_LENGTH * txIndex,
+      KERNEL_NEW_CONTRACTS_LENGTH * (txIndex + 1),
     );
     const newContractData = this.newContractData.slice(
-      txIndex * KERNEL_NEW_CONTRACTS_LENGTH,
-      (txIndex + 1) * KERNEL_NEW_CONTRACTS_LENGTH,
+      KERNEL_NEW_CONTRACTS_LENGTH * txIndex,
+      KERNEL_NEW_CONTRACTS_LENGTH * (txIndex + 1),
     );
     return new L2Tx(newCommitments, newNullifiers, newContracts, newContractData);
   }

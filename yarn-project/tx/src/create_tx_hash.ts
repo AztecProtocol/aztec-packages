@@ -2,13 +2,10 @@ import { serializeToBuffer } from '@aztec/circuits.js/utils';
 import { AztecAddress, EthAddress, Fr, keccak } from '@aztec/foundation';
 import { TxHash } from './tx_hash.js';
 
-export interface TxDataToHash {
+export interface TxData {
   newCommitments: Fr[];
   newNullifiers: Fr[];
-  newContracts: {
-    contractAddress: AztecAddress;
-    portalContractAddress: EthAddress;
-  }[];
+  newContracts: Fr[];
 }
 
 /**
@@ -16,12 +13,12 @@ export interface TxDataToHash {
  * @param tx - The transaction from which to generate the hash.
  * @returns A hash of the tx data that identifies the tx.
  */
-export function createTxHash(tx: TxDataToHash): TxHash {
+export function createTxHash(tx: TxData) {
   const data = Buffer.concat(
     [
       tx.newCommitments.map(x => x.toBuffer()),
       tx.newNullifiers.map(x => x.toBuffer()),
-      tx.newContracts.map(x => serializeToBuffer(x.contractAddress, x.portalContractAddress)),
+      tx.newContracts.map(x => x.toBuffer()),
     ].flat(),
   );
   return new TxHash(keccak(data));
