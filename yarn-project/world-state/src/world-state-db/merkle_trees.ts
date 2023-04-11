@@ -1,3 +1,4 @@
+import { PrimitivesWasm } from '@aztec/barretenberg.js/wasm';
 import {
   CONTRACT_TREE_HEIGHT,
   CONTRACT_TREE_ROOTS_TREE_HEIGHT,
@@ -5,8 +6,8 @@ import {
   PRIVATE_DATA_TREE_HEIGHT,
   PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT,
 } from '@aztec/circuits.js';
-import { BarretenbergWasm, PrimitivesWasm } from '@aztec/barretenberg.js/wasm';
 import { SerialQueue } from '@aztec/foundation';
+import { WasmWrapper } from '@aztec/foundation/wasm';
 import { IndexedTree, LeafData, MerkleTree, Pedersen, SiblingPath, StandardMerkleTree } from '@aztec/merkle-tree';
 import { default as levelup } from 'levelup';
 import { MerkleTreeOperationsFacade } from '../merkle-tree/merkle_tree_operations_facade.js';
@@ -18,7 +19,6 @@ import {
   MerkleTreeOperations,
   TreeInfo,
 } from './index.js';
-import { WasmWrapper } from '@aztec/foundation/wasm';
 
 /**
  * A convenience class for managing multiple merkle trees.
