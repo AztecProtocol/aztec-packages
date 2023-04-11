@@ -7,6 +7,9 @@ import { RunningPromise } from '../deps/running_promise.js';
 import { L1Publisher } from '../publisher/l1-publisher.js';
 import { SequencerConfig } from './config.js';
 import { makeEmptyTx } from '../index.js';
+import { ceilPowerOfTwo } from '../utils.js';
+import times from 'lodash.times';
+import { UnverifiedData } from '@aztec/unverified-data';
 
 /**
  * Sequencer client
@@ -21,6 +24,7 @@ import { makeEmptyTx } from '../index.js';
 export class Sequencer {
   private runningPromise?: RunningPromise;
   private pollingIntervalMs: number;
+  private maxTxsPerBlock = 4;
   private lastBlockNumber = -1;
   private state = SequencerState.STOPPED;
 
@@ -79,7 +83,7 @@ export class Sequencer {
   }
 
   /**
-   * Grabs a single tx from the p2p client, constructs a block, and pushes it to L1.
+   * Grabs up to maxTxsPerBlock from the p2p client, constructs a block, and pushes it to L1.
    */
   protected async work() {
     try {
@@ -99,27 +103,35 @@ export class Sequencer {
 
       // Get a single tx (for now) to build the new block
       // P2P client is responsible for ensuring this tx is eligible (proof ok, not mined yet, etc)
-      const [tx] = await this.p2pClient.getTxs();
-      const txHash = await tx?.getTxHash();
+      const pendingTxs = await this.p2pClient.getTxs(); //.then(txs => txs.slice(0, this.maxTxsPerBlock));
+      if (pendingTxs.length === 0) return;
 
-      if (!tx) {
-        return;
-      } else {
-        this.log(`Processing tx ${txHash}`);
+      const validTxs = [];
+      const doubleSpendTxs = [];
+
+      // Process txs until we get to maxTxsPerBlock, rejecting double spends in the process
+      for (const tx of pendingTxs) {
+        // TODO(AD) - eventually we should add a limit to how many transactions we
+        // skip in this manner and do something more DDOS-proof (like letting the transaction fail and pay a fee).
+        if (await this.isTxDoubleSpend(tx)) {
+          doubleSpendTxs.push(tx);
+        } else {
+          validTxs.push(tx);
+        }
+        if (validTxs.length >= this.maxTxsPerBlock) {
+          break;
+        }
       }
-      // TODO(AD) - eventually we should add a limit to how many transactions we
-      // skip in this manner and do something more DDOS-proof (like letting the transaction fail and pay a fee).
-      if (await this.isTxDoubleSpend(tx)) {
-        // Make sure we remove this from the tx pool so we do not consider it again
-        this.log(`Deleting double spend tx ${txHash}`);
-        await this.p2pClient.deleteTxs([txHash]);
-        return;
-      }
+
+      // Make sure we remove these from the tx pool so we do not consider it again
+      const doubleSpendTxsHashes = await Promise.all(doubleSpendTxs.map(t => t.getTxHash()));
+      this.log(`Deleting double spend txs ${doubleSpendTxsHashes.join(',')}`);
+      await this.p2pClient.deleteTxs(doubleSpendTxsHashes);
 
       this.state = SequencerState.CREATING_BLOCK;
 
       // Build the new block by running the rollup circuits
-      const block = await this.buildBlock(tx);
+      const block = await this.buildBlock(validTxs);
       this.log(`Assembled block ${block.number}`);
 
       // Publishes new block to the network and awaits the tx to be mined
@@ -134,7 +146,10 @@ export class Sequencer {
 
       // Publishes new unverified data to the network and awaits the tx to be mined
       this.state = SequencerState.PUBLISHING_UNVERIFIED_DATA;
-      const publishedUnverifiedData = await this.publisher.processUnverifiedData(block.number, tx.unverifiedData);
+      const publishedUnverifiedData = await this.publisher.processUnverifiedData(
+        block.number,
+        UnverifiedData.join(validTxs.map(tx => tx.unverifiedData)),
+      );
       if (publishedUnverifiedData) {
         this.log(`Successfully published unverifiedData for block ${block.number}`);
       } else {
@@ -156,13 +171,12 @@ export class Sequencer {
     );
   }
 
-  protected async buildBlock(tx: Tx) {
-    const [block] = await this.blockBuilder.buildL2Block(this.lastBlockNumber + 1, [
-      tx,
-      makeEmptyTx(),
-      makeEmptyTx(),
-      makeEmptyTx(),
-    ]);
+  protected async buildBlock(txs: Tx[]) {
+    // Pad the txs array with empty txs to be a power of two
+    const txsTargetSize = ceilPowerOfTwo(txs.length);
+    const allTxs = [...txs, ...times(txsTargetSize - txs.length, makeEmptyTx)];
+
+    const [block] = await this.blockBuilder.buildL2Block(this.lastBlockNumber + 1, allTxs);
     return block;
   }
 }
