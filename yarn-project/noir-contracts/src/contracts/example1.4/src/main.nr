@@ -16,21 +16,14 @@ contract PrivateToken {
     fn constructor(
         //*********************************/
         // Should eventually be hidden:
-        // call_context: pub abi::CallContext, 
-        // contract_deployment_data: pub abi::ContractDeploymentData,
-        // //*********************************/
+        inputs: pub Inputs,
+        //*********************************/
 
         // initial_supply: pub Field, 
         // owner: pub Point,
-        inputs: pub Inputs,
     ) -> pub FinalOutputs {
         //*********************************/
         // Should eventually be hidden:
-        // let mut public_inputs = abi::PublicInputs::empty();
-
-        // public_inputs.call_context = call_context;
-        // public_inputs.contract_deployment_data = contract_deployment_data;
-
         let initial_supply = inputs.args[0];
         let owner = Point::new(inputs.args[1], inputs.args[2]);
 
@@ -42,32 +35,20 @@ contract PrivateToken {
 
         owner_balance.insert(outputs, note)
             .finish(inputs)
-
-        //*********************************/
-        // Eventually hidden:
-        // ctx // Return this, but NOT PUBLIC!
-        //*********************************/
     }
 
 
     fn mint(
         //*********************************/
         // Should eventually be hidden:
-        // call_context: pub abi::CallContext, 
-        // contract_deployment_data: pub abi::ContractDeploymentData,
-        // //*********************************/
-
-        // initial_supply: pub Field, 
-        // owner: pub Point,
         inputs: pub Inputs,
+        //*********************************/
+
+        // amount: pub Field, 
+        // owner: pub Point,
     ) -> pub FinalOutputs {
         //*********************************/
         // Should eventually be hidden:
-        // let mut public_inputs = abi::PublicInputs::empty();
-
-        // public_inputs.call_context = call_context;
-        // public_inputs.contract_deployment_data = contract_deployment_data;
-
         let amount = inputs.args[0];
         let owner = Point::new(inputs.args[1], inputs.args[2]);
 
@@ -79,33 +60,21 @@ contract PrivateToken {
 
         owner_balance.insert(outputs, note)
             .finish(inputs)
-
-        //*********************************/
-        // Eventually hidden:
-        // ctx // Return this, but NOT PUBLIC!
-        //*********************************/
     }
 
 
     fn transfer(
         //*********************************/
         // Should eventually be hidden:
-        // call_context: pub abi::CallContext, 
-        // contract_deployment_data: pub abi::ContractDeploymentData,
-        // //*********************************/
+        inputs: pub Inputs,
+        //*********************************/
         // 
         // amount: pub Field, 
         // sender: pub Point, 
         // recipient: pub Point
-        inputs: pub Inputs,
     ) -> pub FinalOutputs {
         //*********************************/
         // Should eventually be hidden:
-        // let mut public_inputs = abi::PublicInputs::empty();
-
-        // public_inputs.call_context = call_context;
-        // public_inputs.contract_deployment_data = contract_deployment_data;
-
         let amount = inputs.args[0];
         let sender = Point::new(inputs.args[1], inputs.args[2]);
         let recipient = Point::new(inputs.args[3], inputs.args[4]);
@@ -138,6 +107,9 @@ contract PrivateToken {
 
         let recipient_note = Note::new(amount, recipient);
         let change_note = Note::new(change_value, sender);
+
+        outputs.return_values = outputs.return_values.push(recipient_note.value);
+        outputs.return_values = outputs.return_values.push(change_note.value);
 
         let recipient_balance = balances.at(recipient.x);
         outputs = recipient_balance.insert(outputs, recipient_note);

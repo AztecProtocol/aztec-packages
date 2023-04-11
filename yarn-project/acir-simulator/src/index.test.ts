@@ -175,7 +175,7 @@ describe('ACIR simulator', () => {
       expect(commitment).toEqual(Fr.fromBuffer(acirSimulator.computeNoteHash(newNote.preimage, bbWasm)));
     });
 
-    it.skip('should run the transfer function', async () => {
+    it.only('should run the transfer function', async () => {
       const db = levelup(createMemDown());
       const pedersen = new Pedersen(bbWasm);
 
@@ -214,7 +214,7 @@ describe('ACIR simulator', () => {
 
       const result = await acirSimulator.run(txRequest, abi, AztecAddress.random(), EthAddress.ZERO, oldRoots);
 
-      console.log(result);
-    });
+      console.log(result.callStackItem.publicInputs.newCommitments);
+    }, 30_000);
   });
 });

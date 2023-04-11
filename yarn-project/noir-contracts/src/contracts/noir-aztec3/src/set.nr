@@ -92,35 +92,44 @@ impl Set {
         let note_getter_data = get_2_notes(contract_address, storage_slot);
 
         // Forwarded vars added due to https://github.com/noir-lang/noir/issues/1088
-        let process_data = |data, storage_slot_forwarded, contract_address_forwarded| {
-            let NoteGetterData { note, leaf_index, sibling_path, root } = data;
-            let _ignored = sibling_path;
+        // let process_data = |data, storage_slot_forwarded, contract_address_forwarded| {
+        //     let NoteGetterData { note, leaf_index, sibling_path, root } = data;
+        //     let _ignored = sibling_path;
 
-            let note_hash = note.compute_note_hash();
-            let siloed_note_hash = dep::std::hash::pedersen([
-                crate::NoteStorageSlot,
-                note_hash, 
-                storage_slot_forwarded, 
-                contract_address_forwarded           ])[0];
+        //     let note_hash = note.compute_note_hash();
+        //     let siloed_note_hash = dep::std::hash::pedersen([
+        //         crate::NoteStorageSlot,
+        //         note_hash, 
+        //         storage_slot_forwarded, 
+        //         contract_address_forwarded           ])[0];
 
-            // Check existence in tree:
-            constrain std::merkle::check_membership(
-                root,
-                siloed_note_hash,
-                leaf_index,
-                sibling_path,
-            ) == 1;
+        //     // Check existence in tree:
+        //     constrain std::merkle::check_membership(
+        //         root,
+        //         siloed_note_hash,
+        //         leaf_index,
+        //         sibling_path,
+        //     ) == 1;
 
-            // Set the public input of the 'old private data tree root' to be the computed root (if it hasn't already been set); otherwise constrain equality with the previously-set value.
+        //     // Set the public input of the 'old private data tree root' to be the computed root (if it hasn't already been set); otherwise constrain equality with the previously-set value.
+        //     if outputs.old_private_data_tree_root == 0 {
+        //         outputs.old_private_data_tree_root = root;
+        //     } else {
+        //         constrain outputs.old_private_data_tree_root == root;
+        //     }
+        // };
+        // process_data(note_getter_data.0, storage_slot, contract_address);
+        // process_data(note_getter_data.1, storage_slot, contract_address);
+        let process_data = |data: NoteGetterData| {
             if outputs.old_private_data_tree_root == 0 {
-                outputs.old_private_data_tree_root = root;
+                outputs.old_private_data_tree_root = data.root;
             } else {
-                constrain outputs.old_private_data_tree_root == root;
+                constrain outputs.old_private_data_tree_root == data.root;
             }
         };
-        process_data(note_getter_data.0, storage_slot, contract_address);
-        process_data(note_getter_data.1, storage_slot, contract_address);
-
+        process_data(note_getter_data.0);
+        process_data(note_getter_data.1);
+        
         let notes = (note_getter_data.0.note, note_getter_data.1.note);
         (outputs, notes)
     }
