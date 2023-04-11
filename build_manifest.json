@@ -160,10 +160,12 @@
     "dependencies": [
       "aztec-node",
       "aztec.js",
+      "circuits.js",
       "ethereum.js",
       "foundation",
       "l1-contracts",
-      "noir-contracts"
+      "noir-contracts",
+      "unverified-data"
     ]
   },
   "ethereum.js": {
