@@ -41,6 +41,7 @@ COPY prover-client/package.json prover-client/package.json
 COPY sequencer-client/package.json sequencer-client/package.json
 COPY types/package.json types/package.json
 COPY world-state/package.json world-state/package.json
+COPY yarn-project-base/package.json yarn-project-base/package.json
 
 # Copy root files
 COPY package.json tsconfig.json tsconfig.dest.json tsconfig.eslint.json yarn.lock .yarnrc.yml ./
@@ -95,6 +96,7 @@ COPY prover-client/tsconfig.dest.json prover-client/tsconfig.dest.json
 COPY sequencer-client/tsconfig.dest.json sequencer-client/tsconfig.dest.json
 COPY types/tsconfig.dest.json types/tsconfig.dest.json
 COPY world-state/tsconfig.dest.json world-state/tsconfig.dest.json
+COPY yarn-project-base/tsconfig.dest.json yarn-project-base/tsconfig.dest.json
 
 # Check that dependencies config are up to date
 COPY yarn-project-base/scripts yarn-project-base/scripts
