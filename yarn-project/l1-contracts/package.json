@@ -23,7 +23,7 @@
     "generate": "contract_gen_def && bash scripts/update-viem-abis.sh && yarn formatting:fix"
   },
   "inherits": [
-    "../package.scripts.json"
+    "../package.common.json"
   ],
   "jest": {
     "preset": "ts-jest/presets/default-esm",

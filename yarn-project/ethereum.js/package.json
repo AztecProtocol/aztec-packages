@@ -34,7 +34,7 @@
     "gen_fixtures": "NODE_NO_WARNINGS=1 node ./dest/contract/gen_def/index.js ./src/contract/fixtures/contracts.json"
   },
   "inherits": [
-    "../package.scripts.json"
+    "../package.common.json"
   ],
   "bin": {
     "contract_gen_def": "./dest/contract/gen_def/index.js"

@@ -24,7 +24,7 @@
     "test-debug": "NODE_NO_WARNINGS=1 node --inspect-brk --experimental-vm-modules $(yarn bin jest) --no-cache --passWithNoTests --runInBand"
   },
   "inherits": [
-    "../package.scripts.json"
+    "../package.common.json"
   ],
   "jest": {
     "preset": "ts-jest/presets/default-esm",

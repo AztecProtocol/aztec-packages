@@ -21,7 +21,7 @@
     "start:dev": "tsc-watch -p tsconfig.json --onSuccess 'yarn start'"
   },
   "inherits": [
-    "../package.scripts.json"
+    "../package.common.json"
   ],
   "jest": {
     "preset": "ts-jest/presets/default-esm",
