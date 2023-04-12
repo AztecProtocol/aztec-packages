@@ -93,30 +93,6 @@ describe('e2e_deploy_contract', () => {
   }, 30_000);
 
   /**
-   * Verify that we can produce a rollup with multiple txs
-   */
-  // TODO: Unskip after nullifier tree errors have been dealt with
-  it.skip('should deploy multiple contracts in a single block', async () => {
-    const deployer = new ContractDeployer(abi, aztecRpcServer);
-    await (node as unknown as TestAztecNode).sequencer.stop();
-
-    const txs = [];
-    for (let index = 0; index < 2; index++) {
-      const tx = deployer.deploy().send({ contractAddressSalt: Fr.random() });
-      await tx.getTxHash(); // Wait for each kernel circuit to finish due to asyncify limitations
-      txs.push(tx);
-    }
-
-    (node as unknown as TestAztecNode).sequencer.restart();
-    const areMined = await Promise.all(txs.map(tx => tx.isMined()));
-    expect(areMined).toEqual([true, true]);
-
-    const receipts = await Promise.all(txs.map(tx => tx.getReceipt()));
-    expect(receipts.map(r => r.status)).toEqual([TxStatus.MINED, TxStatus.MINED]);
-    expect(receipts[0].blockNumber).toEqual(receipts[1].blockNumber);
-  }, 30_000);
-
-  /**
    * Milestone 1.2
    * https://hackmd.io/-a5DjEfHTLaMBR49qy6QkA
    */
