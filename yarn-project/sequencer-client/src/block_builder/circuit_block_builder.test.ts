@@ -28,6 +28,7 @@ import { WasmCircuitSimulator } from '../simulator/wasm.js';
 import { CircuitBlockBuilder } from './circuit_block_builder.js';
 import { computeContractLeaf } from '@aztec/circuits.js/abis';
 import { toBufferBE } from '@aztec/foundation';
+import times from 'lodash.times';
 
 /* eslint-disable @typescript-eslint/ban-ts-comment */
 // @ts-ignore
@@ -119,117 +120,150 @@ describe('sequencer/circuit_block_builder', () => {
     }
   };
 
-  it('builds an L2 block using mock simulator', async () => {
-    // Create instance to test
-    builder = new TestSubject(builderDb, vks, simulator, prover);
-    await builder.updateRootTrees();
+  describe('mock simulator', () => {
+    it('builds an L2 block using mock simulator', async () => {
+      // Create instance to test
+      builder = new TestSubject(builderDb, vks, simulator, prover);
+      await builder.updateRootTrees();
 
-    // Assemble a fake transaction, we'll tweak some fields below
-    const tx = new Tx(makePrivateKernelPublicInputs(), emptyProof, makeEmptyUnverifiedData());
-    const txsLeft = [tx, makeEmptyTx()];
-    const txsRight = [makeEmptyTx(), makeEmptyTx()];
+      // Assemble a fake transaction, we'll tweak some fields below
+      const tx = new Tx(makePrivateKernelPublicInputs(), emptyProof, makeEmptyUnverifiedData());
+      const txsLeft = [tx, makeEmptyTx()];
+      const txsRight = [makeEmptyTx(), makeEmptyTx()];
 
-    // Set tree roots to proper values in the tx
-    await setTxOldTreeRoots(tx);
+      // Set tree roots to proper values in the tx
+      await setTxOldTreeRoots(tx);
 
-    // Calculate what would be the tree roots after the txs from the first base rollup land and update mock circuit output
-    await updateExpectedTreesFromTxs(txsLeft);
-    baseRollupOutputLeft.endContractTreeSnapshot = await getTreeSnapshot(MerkleTreeId.CONTRACT_TREE);
-    baseRollupOutputLeft.endNullifierTreeSnapshot = await getTreeSnapshot(MerkleTreeId.NULLIFIER_TREE);
-    baseRollupOutputLeft.endPrivateDataTreeSnapshot = await getTreeSnapshot(MerkleTreeId.DATA_TREE);
+      // Calculate what would be the tree roots after the txs from the first base rollup land and update mock circuit output
+      await updateExpectedTreesFromTxs(txsLeft);
+      baseRollupOutputLeft.endContractTreeSnapshot = await getTreeSnapshot(MerkleTreeId.CONTRACT_TREE);
+      baseRollupOutputLeft.endNullifierTreeSnapshot = await getTreeSnapshot(MerkleTreeId.NULLIFIER_TREE);
+      baseRollupOutputLeft.endPrivateDataTreeSnapshot = await getTreeSnapshot(MerkleTreeId.DATA_TREE);
 
-    // Same for the two txs on the right
-    await updateExpectedTreesFromTxs(txsRight);
-    baseRollupOutputRight.endContractTreeSnapshot = await getTreeSnapshot(MerkleTreeId.CONTRACT_TREE);
-    baseRollupOutputRight.endNullifierTreeSnapshot = await getTreeSnapshot(MerkleTreeId.NULLIFIER_TREE);
-    baseRollupOutputRight.endPrivateDataTreeSnapshot = await getTreeSnapshot(MerkleTreeId.DATA_TREE);
+      // Same for the two txs on the right
+      await updateExpectedTreesFromTxs(txsRight);
+      baseRollupOutputRight.endContractTreeSnapshot = await getTreeSnapshot(MerkleTreeId.CONTRACT_TREE);
+      baseRollupOutputRight.endNullifierTreeSnapshot = await getTreeSnapshot(MerkleTreeId.NULLIFIER_TREE);
+      baseRollupOutputRight.endPrivateDataTreeSnapshot = await getTreeSnapshot(MerkleTreeId.DATA_TREE);
 
-    // And update the root trees now to create proper output to the root rollup circuit
-    await updateRootTrees();
-    rootRollupOutput.endContractTreeSnapshot = await getTreeSnapshot(MerkleTreeId.CONTRACT_TREE);
-    rootRollupOutput.endNullifierTreeSnapshot = await getTreeSnapshot(MerkleTreeId.NULLIFIER_TREE);
-    rootRollupOutput.endPrivateDataTreeSnapshot = await getTreeSnapshot(MerkleTreeId.DATA_TREE);
-    rootRollupOutput.endTreeOfHistoricContractTreeRootsSnapshot = await getTreeSnapshot(
-      MerkleTreeId.CONTRACT_TREE_ROOTS_TREE,
-    );
-    rootRollupOutput.endTreeOfHistoricPrivateDataTreeRootsSnapshot = await getTreeSnapshot(
-      MerkleTreeId.DATA_TREE_ROOTS_TREE,
-    );
+      // And update the root trees now to create proper output to the root rollup circuit
+      await updateRootTrees();
+      rootRollupOutput.endContractTreeSnapshot = await getTreeSnapshot(MerkleTreeId.CONTRACT_TREE);
+      rootRollupOutput.endNullifierTreeSnapshot = await getTreeSnapshot(MerkleTreeId.NULLIFIER_TREE);
+      rootRollupOutput.endPrivateDataTreeSnapshot = await getTreeSnapshot(MerkleTreeId.DATA_TREE);
+      rootRollupOutput.endTreeOfHistoricContractTreeRootsSnapshot = await getTreeSnapshot(
+        MerkleTreeId.CONTRACT_TREE_ROOTS_TREE,
+      );
+      rootRollupOutput.endTreeOfHistoricPrivateDataTreeRootsSnapshot = await getTreeSnapshot(
+        MerkleTreeId.DATA_TREE_ROOTS_TREE,
+      );
 
-    // Actually build a block!
-    const [l2Block, proof] = await builder.buildL2Block(blockNumber, tx);
+      // Actually build a block!
+      const txs = [tx, makeEmptyTx(), makeEmptyTx(), makeEmptyTx()];
+      const [l2Block, proof] = await builder.buildL2Block(blockNumber, txs);
 
-    expect(l2Block.number).toEqual(blockNumber);
-    expect(proof).toEqual(emptyProof);
-  }, 20000);
-
-  it('builds an L2 block with empty txs using wasm circuits', async () => {
-    const simulator = await WasmCircuitSimulator.new();
-    const prover = new EmptyProver();
-    builder = new TestSubject(builderDb, vks, simulator, prover);
-    await builder.updateRootTrees();
-    const contractTreeBefore = await builderDb.getTreeInfo(MerkleTreeId.CONTRACT_TREE);
-
-    const tx = makeEmptyTx();
-
-    const [l2Block] = await builder.buildL2Block(blockNumber, tx);
-    expect(l2Block.number).toEqual(blockNumber);
-
-    const contractTreeAfter = await builderDb.getTreeInfo(MerkleTreeId.CONTRACT_TREE);
-    expect(contractTreeAfter.root).toEqual(contractTreeBefore.root);
-    expect(contractTreeAfter.size).toEqual(4n);
+      expect(l2Block.number).toEqual(blockNumber);
+      expect(proof).toEqual(emptyProof);
+    }, 20000);
   });
 
-  it('build edge case test', async () => {
-    // Regression test - this recreates the edge case
+  describe('circuits simulator', () => {
+    beforeEach(async () => {
+      const simulator = await WasmCircuitSimulator.new();
+      const prover = new EmptyProver();
+      builder = new TestSubject(builderDb, vks, simulator, prover);
+      await builder.updateRootTrees();
+    });
 
-    const simulator = await WasmCircuitSimulator.new();
-    const prover = new EmptyProver();
-    builder = new TestSubject(builderDb, vks, simulator, prover);
-    // update the starting tree
-    const updateVals = Array(16).fill(0n);
-    updateVals[0] = 19777494491628650244807463906174285795660759352776418619064841306523677458742n;
-    updateVals[1] = 10246291467305176436335175657884940686778521321101740385288169037814567547848n;
+    const makeContractDeployTx = async (seed = 0x1) => {
+      const tx = makeEmptyTx();
+      await setTxOldTreeRoots(tx);
+      tx.data.end.newContracts = [makeNewContractData(seed + 0x1000)];
+      return tx;
+    };
 
-    await builder.updateRootTrees();
-    await builderDb.appendLeaves(
-      MerkleTreeId.NULLIFIER_TREE,
-      updateVals.map(v => toBufferBE(v, 32)),
+    it.each([
+      [0, 4],
+      [1, 4],
+      [4, 4],
+    ] as const)(
+      'builds an L2 block with %i contract deploy txs and %i txs total',
+      async (deployCount: number, totalCount: number) => {
+        const contractTreeBefore = await builderDb.getTreeInfo(MerkleTreeId.CONTRACT_TREE);
+
+        const txs = [
+          ...(await Promise.all(times(deployCount, makeContractDeployTx))),
+          ...times(totalCount - deployCount, makeEmptyTx),
+        ];
+
+        const [l2Block] = await builder.buildL2Block(blockNumber, txs);
+        expect(l2Block.number).toEqual(blockNumber);
+
+        await updateExpectedTreesFromTxs(txs);
+        const contractTreeAfter = await builderDb.getTreeInfo(MerkleTreeId.CONTRACT_TREE);
+
+        if (deployCount > 0) {
+          expect(contractTreeAfter.root).not.toEqual(contractTreeBefore.root);
+        }
+
+        const expectedContractTreeAfter = await expectsDb.getTreeInfo(MerkleTreeId.CONTRACT_TREE).then(t => t.root);
+        expect(contractTreeAfter.root).toEqual(expectedContractTreeAfter);
+        expect(contractTreeAfter.size).toEqual(BigInt(totalCount));
+      },
+      10000,
     );
 
-    // new added values
-    const tx = makeEmptyTx();
-    tx.data.end.newNullifiers[0] = new Fr(
-      10336601644835972678500657502133589897705389664587188571002640950065546264856n,
-    );
-    tx.data.end.newNullifiers[1] = new Fr(
-      17490072961923661940560522096125238013953043065748521735636170028491723851741n,
-    );
+    it.each([
+      [16, 15, 14, 13, 0, 0, 0, 0],
+      [13, 14, 15, 16, 0, 0, 0, 0],
+      [1234, 98, 0, 0, 99999, 88, 54, 0],
+      [97, 98, 10, 0, 99999, 88, 100001, 9000000],
+    ] as const)('Provides low nullifier tree information correctly', async (nullifiers: number[]) => {
+      const leaves = nullifiers.map(i => toBufferBE(BigInt(i), 32));
+      await expectsDb.appendLeaves(MerkleTreeId.NULLIFIER_TREE, leaves);
 
-    const [l2Block] = await builder.buildL2Block(blockNumber, tx);
-    expect(l2Block.number).toEqual(blockNumber);
+      builder = new TestSubject(builderDb, vks, simulator, prover);
+
+      await builder.performBaseRollupBatchInsertionProofs(leaves);
+
+      // assert snapshots
+      const expectsSnapshot = await expectsDb.getTreeInfo(MerkleTreeId.NULLIFIER_TREE);
+      const buildSnapshot = await builderDb.getTreeInfo(MerkleTreeId.NULLIFIER_TREE);
+      expect(buildSnapshot).toEqual(expectsSnapshot);
+    });
+
+    it('build edge case test', async () => {
+      // Regression test - this recreates the edge case
+
+      const simulator = await WasmCircuitSimulator.new();
+      const prover = new EmptyProver();
+      builder = new TestSubject(builderDb, vks, simulator, prover);
+      // update the starting tree
+      const updateVals = Array(16).fill(0n);
+      updateVals[0] = 19777494491628650244807463906174285795660759352776418619064841306523677458742n;
+      updateVals[1] = 10246291467305176436335175657884940686778521321101740385288169037814567547848n;
+
+      await builder.updateRootTrees();
+      await builderDb.appendLeaves(
+        MerkleTreeId.NULLIFIER_TREE,
+        updateVals.map(v => toBufferBE(v, 32)),
+      );
+
+      // new added values
+      const tx = makeEmptyTx();
+      tx.data.end.newNullifiers[0] = new Fr(
+        10336601644835972678500657502133589897705389664587188571002640950065546264856n,
+      );
+      tx.data.end.newNullifiers[1] = new Fr(
+        17490072961923661940560522096125238013953043065748521735636170028491723851741n,
+      );
+
+      const [l2Block] = await builder.buildL2Block(blockNumber, tx);
+      expect(l2Block.number).toEqual(blockNumber);
+    });
   });
 
-  it('builds an L2 block with a contract deployment tx using wasm circuits', async () => {
-    const simulator = await WasmCircuitSimulator.new();
-    const prover = new EmptyProver();
-    builder = new TestSubject(builderDb, vks, simulator, prover);
-    await builder.updateRootTrees();
-    const contractTreeBefore = await builderDb.getTreeInfo(MerkleTreeId.CONTRACT_TREE);
-
-    const tx = makeEmptyTx();
-    await setTxOldTreeRoots(tx);
-    tx.data.end.newContracts = [makeNewContractData(0x1000)];
-
-    const [l2Block] = await builder.buildL2Block(blockNumber, tx);
-    expect(l2Block.number).toEqual(blockNumber);
-
-    await updateExpectedTreesFromTxs([tx]);
-    const contractTreeAfter = await builderDb.getTreeInfo(MerkleTreeId.CONTRACT_TREE);
-    expect(contractTreeAfter.root).not.toEqual(contractTreeBefore.root);
-    expect(contractTreeAfter.root).toEqual(await expectsDb.getTreeInfo(MerkleTreeId.CONTRACT_TREE).then(t => t.root));
-    expect(contractTreeAfter.size).toEqual(4n);
-  }, 10000);
+  // TODO: use the same syntax as above
 
   it('test nullifier tree impl, inserting descending values', async () => {
     const leaves = [16, 15, 14, 13, 0, 0, 0, 0].map(i => toBufferBE(BigInt(i), 32));
@@ -245,44 +279,44 @@ describe('sequencer/circuit_block_builder', () => {
     expect(buildSnapshot).toEqual(expectsSnapshot);
   });
 
-  it('test nullifier tree impl, inserting ascending values', async () => {
-    const leaves = [13, 14, 15, 16, 0, 0, 0, 0].map(i => toBufferBE(BigInt(i), 32));
-    await expectsDb.appendLeaves(MerkleTreeId.NULLIFIER_TREE, leaves);
-    builder = new TestSubject(builderDb, vks, simulator, prover);
+  // it('test nullifier tree impl, inserting ascending values', async () => {
+  //   const leaves = [13, 14, 15, 16, 0, 0, 0, 0].map(i => toBufferBE(BigInt(i), 32));
+  //   await expectsDb.appendLeaves(MerkleTreeId.NULLIFIER_TREE, leaves);
+  //   builder = new TestSubject(builderDb, vks, simulator, prover);
 
-    await builder.performBaseRollupBatchInsertionProofs(leaves);
+  //   await builder.performBaseRollupBatchInsertionProofs(leaves);
 
-    // assert snapshots
-    const expectsSnapshot = await expectsDb.getTreeInfo(MerkleTreeId.NULLIFIER_TREE);
-    const buildSnapshot = await builderDb.getTreeInfo(MerkleTreeId.NULLIFIER_TREE);
-    expect(buildSnapshot).toEqual(expectsSnapshot);
-  });
+  //   // assert snapshots
+  //   const expectsSnapshot = await expectsDb.getTreeInfo(MerkleTreeId.NULLIFIER_TREE);
+  //   const buildSnapshot = await builderDb.getTreeInfo(MerkleTreeId.NULLIFIER_TREE);
+  //   expect(buildSnapshot).toEqual(expectsSnapshot);
+  // });
 
-  it('test nullifier tree impl, inserting arbitrary random values', async () => {
-    const leaves = [1234, 98, 0, 0, 99999, 88, 54, 0].map(i => toBufferBE(BigInt(i), 32));
-    await expectsDb.appendLeaves(MerkleTreeId.NULLIFIER_TREE, leaves);
-    builder = new TestSubject(builderDb, vks, simulator, prover);
+  // it('test nullifier tree impl, inserting arbitrary random values', async () => {
+  //   const leaves = [1234, 98, 0, 0, 99999, 88, 54, 0].map(i => toBufferBE(BigInt(i), 32));
+  //   await expectsDb.appendLeaves(MerkleTreeId.NULLIFIER_TREE, leaves);
+  //   builder = new TestSubject(builderDb, vks, simulator, prover);
 
-    await builder.performBaseRollupBatchInsertionProofs(leaves);
+  //   await builder.performBaseRollupBatchInsertionProofs(leaves);
 
-    // assert snapshots
-    const expectsSnapshot = await expectsDb.getTreeInfo(MerkleTreeId.NULLIFIER_TREE);
-    const buildSnapshot = await builderDb.getTreeInfo(MerkleTreeId.NULLIFIER_TREE);
-    expect(buildSnapshot).toEqual(expectsSnapshot);
-  });
+  //   // assert snapshots
+  //   const expectsSnapshot = await expectsDb.getTreeInfo(MerkleTreeId.NULLIFIER_TREE);
+  //   const buildSnapshot = await builderDb.getTreeInfo(MerkleTreeId.NULLIFIER_TREE);
+  //   expect(buildSnapshot).toEqual(expectsSnapshot);
+  // });
 
-  it('test nullifier tree impl, inserting arbitrary random values #2', async () => {
-    const leaves = [97, 98, 10, 0, 99999, 88, 100001, 9000000].map(i => toBufferBE(BigInt(i), 32));
-    await expectsDb.appendLeaves(MerkleTreeId.NULLIFIER_TREE, leaves);
-    builder = new TestSubject(builderDb, vks, simulator, prover);
+  // it('test nullifier tree impl, inserting arbitrary random values #2', async () => {
+  //   const leaves = [97, 98, 10, 0, 99999, 88, 100001, 9000000].map(i => toBufferBE(BigInt(i), 32));
+  //   await expectsDb.appendLeaves(MerkleTreeId.NULLIFIER_TREE, leaves);
+  //   builder = new TestSubject(builderDb, vks, simulator, prover);
 
-    await builder.performBaseRollupBatchInsertionProofs(leaves);
+  //   await builder.performBaseRollupBatchInsertionProofs(leaves);
 
-    // assert snapshots
-    const expectsSnapshot = await expectsDb.getTreeInfo(MerkleTreeId.NULLIFIER_TREE);
-    const buildSnapshot = await builderDb.getTreeInfo(MerkleTreeId.NULLIFIER_TREE);
-    expect(buildSnapshot).toEqual(expectsSnapshot);
-  });
+  //   // assert snapshots
+  //   const expectsSnapshot = await expectsDb.getTreeInfo(MerkleTreeId.NULLIFIER_TREE);
+  //   const buildSnapshot = await builderDb.getTreeInfo(MerkleTreeId.NULLIFIER_TREE);
+  //   expect(buildSnapshot).toEqual(expectsSnapshot);
+  // });
 });
 
 // Test subject class that exposes internal functions for testing
