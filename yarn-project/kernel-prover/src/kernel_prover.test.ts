@@ -1,10 +1,11 @@
 import { ExecutionResult } from '@aztec/acir-simulator';
 import {
+  AztecAddress,
   EcdsaSignature,
-  MembershipWitness,
   PRIVATE_CALL_STACK_LENGTH,
+  PrivateCallStackItem,
+  PrivateCircuitPublicInputs,
   TxRequest,
-  VK_TREE_HEIGHT,
   VerificationKey,
 } from '@aztec/circuits.js';
 import { makeTxRequest } from '@aztec/circuits.js/factories';
@@ -21,39 +22,31 @@ describe('Kernel Prover', () => {
   let prover: KernelProver;
   let dependencies: { [name: string]: string[] } = {};
 
-  const mockExecutionResult = (callStackItem: string, nestedExecutions: ExecutionResult[] = []) =>
+  const vk = VerificationKey.makeFake().toBuffer();
+  const createExecutionResult = (entry: string): ExecutionResult =>
     ({
-      callStackItem: callStackItem as any,
-      nestedExecutions,
-      vk: VerificationKey.makeFake().toBuffer(),
+      callStackItem: new PrivateCallStackItem(AztecAddress.ZERO, entry as any, PrivateCircuitPublicInputs.empty()),
+      nestedExecutions: (dependencies[entry] || []).map(name => createExecutionResult(name)),
+      vk,
     } as ExecutionResult);
 
-  const createExecutionResult = (entry: string): ExecutionResult =>
-    mockExecutionResult(
-      entry,
-      (dependencies[entry] || []).map(name => createExecutionResult(name)),
-    );
-
   const expectExecution = (fns: string[]) => {
-    const callStackItems = proofCreator.createProof.mock.calls.map(args => args[2]);
+    const callStackItems = proofCreator.createProof.mock.calls.map(args => args[4].functionData);
     expect(callStackItems).toEqual(fns);
     proofCreator.createProof.mockClear();
   };
 
-  const prove = (executionResult: ExecutionResult) =>
-    prover.prove(txRequest, txSignature, executionResult, oracle, proofCreator);
+  const prove = (executionResult: ExecutionResult) => prover.prove(txRequest, txSignature, executionResult);
 
   beforeEach(() => {
     txRequest = makeTxRequest();
     txSignature = EcdsaSignature.random();
-
     oracle = mock<ProvingDataOracle>();
-    oracle.getVkMembershipWitness.mockResolvedValue(MembershipWitness.random(VK_TREE_HEIGHT));
 
     proofCreator = mock<ProofCreator>();
     proofCreator.createProof.mockResolvedValue({} as any);
 
-    prover = new KernelProver();
+    prover = new KernelProver(oracle, proofCreator);
   });
 
   it('should create proofs in correct order', async () => {

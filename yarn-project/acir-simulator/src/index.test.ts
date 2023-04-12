@@ -30,8 +30,7 @@ export const createMemDown = () => (memdown as any)();
 describe('ACIR simulator', () => {
   let bbWasm: BarretenbergWasm;
   let oracle: ReturnType<typeof mock<DBOracle>>;
-
-  const acirSimulator = new AcirSimulator();
+  let acirSimulator: AcirSimulator;
 
   beforeAll(async () => {
     bbWasm = await BarretenbergWasm.get();
@@ -39,6 +38,7 @@ describe('ACIR simulator', () => {
 
   beforeEach(() => {
     oracle = mock<DBOracle>();
+    acirSimulator = new AcirSimulator(oracle);
   });
 
   describe('empty constructor', () => {
@@ -62,7 +62,6 @@ describe('ACIR simulator', () => {
         AztecAddress.ZERO,
         EthAddress.ZERO,
         oldRoots,
-        oracle,
       );
 
       expect(result.callStackItem.publicInputs.newCommitments).toEqual(
@@ -134,7 +133,7 @@ describe('ACIR simulator', () => {
         txContext,
         new Fr(0n),
       );
-      const result = await acirSimulator.run(txRequest, abi, contractAddress, EthAddress.ZERO, oldRoots, oracle);
+      const result = await acirSimulator.run(txRequest, abi, contractAddress, EthAddress.ZERO, oldRoots);
 
       expect(result.preimages.newNotes).toHaveLength(1);
       const newNote = result.preimages.newNotes[0];
@@ -161,7 +160,7 @@ describe('ACIR simulator', () => {
         txContext,
         new Fr(0n),
       );
-      const result = await acirSimulator.run(txRequest, abi, AztecAddress.ZERO, EthAddress.ZERO, oldRoots, oracle);
+      const result = await acirSimulator.run(txRequest, abi, AztecAddress.ZERO, EthAddress.ZERO, oldRoots);
 
       expect(result.preimages.newNotes).toHaveLength(1);
       const newNote = result.preimages.newNotes[0];
@@ -211,7 +210,7 @@ describe('ACIR simulator', () => {
         new Fr(0n),
       );
 
-      const result = await acirSimulator.run(txRequest, abi, AztecAddress.random(), EthAddress.ZERO, oldRoots, oracle);
+      const result = await acirSimulator.run(txRequest, abi, AztecAddress.random(), EthAddress.ZERO, oldRoots);
 
       console.log(result);
     });

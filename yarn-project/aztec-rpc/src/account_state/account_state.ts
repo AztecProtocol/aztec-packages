@@ -62,8 +62,6 @@ export class AccountState {
       contractDataOracle = new ContractDataOracle(this.db, this.node);
     }
 
-    const simulatorOracle = new SimulatorOracle(contractDataOracle, this.db, this.keyPair);
-
     const contractAddress = txRequest.to;
     const functionAbi = await contractDataOracle.getFunctionAbi(
       contractAddress,
@@ -72,9 +70,13 @@ export class AccountState {
     const portalContract = await contractDataOracle.getPortalContractAddress(contractAddress);
     const oldRoots = new OldTreeRoots(Fr.ZERO, Fr.ZERO, Fr.ZERO, Fr.ZERO); // TODO - get old roots from the database/node
 
-    const simulator = new AcirSimulator();
-    this.log(`Executing simulator...`);
-    return await simulator.run(txRequest, functionAbi, contractAddress, portalContract, oldRoots, simulatorOracle);
+    const simulatorOracle = new SimulatorOracle(contractDataOracle, this.db, this.keyPair);
+    const simulator = new AcirSimulator(simulatorOracle);
+    this.log('Executing simulator...');
+    const result = await simulator.run(txRequest, functionAbi, contractAddress, portalContract, oldRoots);
+    this.log('Simulation completed!');
+
+    return result;
   }
 
   public async simulateAndProve(txRequest: TxRequest, signature: EcdsaSignature) {
@@ -83,13 +85,14 @@ export class AccountState {
     const contractDataOracle = new ContractDataOracle(this.db, this.node);
     const executionResult = await this.simulate(txRequest, contractDataOracle);
 
-    const kernelProver = new KernelProver();
-    this.log(`Executing Prover...`);
-    const { proof, publicInputs } = await kernelProver.prove(txRequest, signature, executionResult, contractDataOracle);
-    this.log(`Proof completed!`);
+    const kernelProver = new KernelProver(contractDataOracle);
+    this.log('Executing Prover...');
+    const { proof, publicInputs } = await kernelProver.prove(txRequest, signature, executionResult);
+    this.log('Proof completed!');
 
     const contractAddress = txRequest.to;
     const unverifiedData = this.createUnverifiedData(contractAddress, executionResult.preimages.newNotes);
+
     return new Tx(publicInputs, proof, unverifiedData);
   }
 
