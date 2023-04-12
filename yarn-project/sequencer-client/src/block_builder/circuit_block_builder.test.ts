@@ -187,39 +187,34 @@ describe('sequencer/circuit_block_builder', () => {
     expect(contractTreeAfter.size).toEqual(4n);
   });
 
-  it('builds an L2 block with edge case txs using wasm circuits', async () => {
-    //   8 {
-    //     value: 10617590912659865961701467775623194442522019650336360045981976509028944824391n,
-    //     nextIndex: 0n,
-    //     nextValue: 0n
-    //   }
-    //     at CircuitBlockBuilder.buildL2Block (../../sequencer-client/src/block_builder/circuit_block_builder.ts:95:15)
-    // console.log
-    //   9 {
-    //     value: 5905192156657423293680568395457100494140811868379973982229358327640004958473n,
-    //     nextIndex: 8n,
-    //     nextValue: 10617590912659865961701467775623194442522019650336360045981976509028944824391n
-    //   }
-    // add these two values
-    //     const simulator = await WasmCircuitSimulator.new();
-    //     const prover = new EmptyProver();
-    //     builder = new TestSubject(builderDb, vks, simulator, prover);
-    //     await builder.updateRootTrees();
-    //     const contractTreeBefore = await builderDb.getTreeInfo(MerkleTreeId.CONTRACT_TREE);
-    //     const tx = makeEmptyTx();
-    //     // Fr {
-    //     //   value: 10617590912659865961701467775623194442522019650336360045981976509028944824391n
-    //     // },
-    //     // Fr {
-    //     //   value: 5905192156657423293680568395457100494140811868379973982229358327640004958473n
-    //     // },
-    // const
-    //     tx.
-    //     const [l2Block] = await builder.buildL2Block(blockNumber, tx);
-    //     expect(l2Block.number).toEqual(blockNumber);
-    //     const contractTreeAfter = await builderDb.getTreeInfo(MerkleTreeId.CONTRACT_TREE);
-    //     expect(contractTreeAfter.root).toEqual(contractTreeBefore.root);
-    //     expect(contractTreeAfter.size).toEqual(4n);
+  it('build edge case test', async () => {
+    // Regression test - this recreates the edge case
+
+    const simulator = await WasmCircuitSimulator.new();
+    const prover = new EmptyProver();
+    builder = new TestSubject(builderDb, vks, simulator, prover);
+    // update the starting tree
+    const updateVals = Array(16).fill(0n);
+    updateVals[0] = 19777494491628650244807463906174285795660759352776418619064841306523677458742n;
+    updateVals[1] = 10246291467305176436335175657884940686778521321101740385288169037814567547848n;
+
+    await builder.updateRootTrees();
+    await builderDb.appendLeaves(
+      MerkleTreeId.NULLIFIER_TREE,
+      updateVals.map(v => toBufferBE(v, 32)),
+    );
+
+    // new added values
+    const tx = makeEmptyTx();
+    tx.data.end.newNullifiers[0] = new Fr(
+      10336601644835972678500657502133589897705389664587188571002640950065546264856n,
+    );
+    tx.data.end.newNullifiers[1] = new Fr(
+      17490072961923661940560522096125238013953043065748521735636170028491723851741n,
+    );
+
+    const [l2Block] = await builder.buildL2Block(blockNumber, tx);
+    expect(l2Block.number).toEqual(blockNumber);
   });
 
   it('builds an L2 block with a contract deployment tx using wasm circuits', async () => {

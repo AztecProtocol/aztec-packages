@@ -86,15 +86,6 @@ export class CircuitBlockBuilder {
       ].map(tree => this.getTreeSnapshot(tree)),
     );
 
-    console.log('blockNumber', blockNumber);
-    console.log('start nullifier tree snapshot: ', startNullifierTreeSnapshot.root.toFriendlyJSON());
-    console.log('next available leaf index: ', startNullifierTreeSnapshot.nextAvailableLeafIndex);
-
-    console.log('WHAT IS IN THE NULLIFIER TREE');
-    for (let i = 0; i < startNullifierTreeSnapshot.nextAvailableLeafIndex; i++) {
-      console.log(i, await this.db.getLeafData(MerkleTreeId.NULLIFIER_TREE, i));
-    }
-
     // We fill the tx batch with empty txs, we process only one tx at a time for now
     const txs = [tx, makeEmptyTx(), makeEmptyTx(), makeEmptyTx()];
     const [circuitsOutput, proof] = await this.runCircuits(txs);
@@ -106,12 +97,6 @@ export class CircuitBlockBuilder {
       endTreeOfHistoricPrivateDataTreeRootsSnapshot,
       endTreeOfHistoricContractTreeRootsSnapshot,
     } = circuitsOutput;
-
-    // END NULLIFIER TREE
-    console.log('WHAT IS IN THE END NULLIFIER TREE');
-    for (let i = 0; i < endNullifierTreeSnapshot.nextAvailableLeafIndex; i++) {
-      console.log(i, await this.db.getLeafData(MerkleTreeId.NULLIFIER_TREE, i));
-    }
 
     // Collect all new nullifiers, commitments, and contracts from all txs in this block
     const wasm = await CircuitsWasm.get();
@@ -253,11 +238,6 @@ export class CircuitBlockBuilder {
     name: string,
     label?: string,
   ) {
-    if (name == 'Nullifier') {
-      console.log('Simulated tree', simulatedTree.root.toBuffer().toString('hex'));
-      console.log('Local tree', localTree.root.toBuffer().toString('hex'));
-    }
-
     if (!simulatedTree.root.toBuffer().equals(localTree.root.toBuffer())) {
       throw new Error(`${label ?? name} tree root mismatch (local ${localTree.root}, simulated ${simulatedTree.root})`);
     }
@@ -566,8 +546,6 @@ export class CircuitBlockBuilder {
 
       await this.db.updateLeaf(MerkleTreeId.NULLIFIER_TREE, asLeafData, startInsertionIndex + BigInt(i));
     }
-    console.log('witnesses');
-    console.log(lowNullifierWitnesses);
 
     return lowNullifierWitnesses;
   }
