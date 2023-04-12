@@ -1,94 +1,136 @@
 import { ExecutionResult } from '@aztec/acir-simulator';
 import {
-  OldTreeRoots,
-  PrivateKernelPublicInputs,
-  TxRequest,
-  CircuitsWasm,
-  SignedTxRequest,
-  PrivateCallData,
-  PRIVATE_CALL_STACK_LENGTH,
-  PrivateCallStackItem,
-  PreviousKernelData,
-  UInt8Vector,
-  EcdsaSignature,
-  MembershipWitness,
   CONTRACT_TREE_HEIGHT,
-  privateKernelSim,
+  CircuitsWasm,
+  EcdsaSignature,
   FUNCTION_TREE_HEIGHT,
+  MembershipWitness,
+  PRIVATE_CALL_STACK_LENGTH,
+  PreviousKernelData,
+  PrivateCallData,
+  PrivateCallStackItem,
+  PrivateKernelPublicInputs,
+  SignedTxRequest,
+  TxRequest,
+  UInt8Vector,
+  VK_TREE_HEIGHT,
   VerificationKey,
   makeEmptyProof,
-  NewContractData,
+  privateKernelSim,
 } from '@aztec/circuits.js';
-import { computeContractLeaf } from '@aztec/circuits.js/abis';
-import { createDebugLogger, Fr } from '@aztec/foundation';
+import { AztecAddress, createDebugLogger } from '@aztec/foundation';
 
-export interface FunctionTreeInfo {
-  root: Fr;
-  membershipWitness: MembershipWitness<typeof FUNCTION_TREE_HEIGHT>;
+export interface ProvingDataOracle {
+  getVkMembershipWitness(vk: VerificationKey): Promise<MembershipWitness<typeof VK_TREE_HEIGHT>>;
+  getContractMembershipWitness(contractAddress: AztecAddress): Promise<MembershipWitness<typeof CONTRACT_TREE_HEIGHT>>;
+  getFunctionMembershipWitness(
+    contractAddress: AztecAddress,
+    functionSelector: Buffer,
+  ): Promise<MembershipWitness<typeof FUNCTION_TREE_HEIGHT>>;
+}
+
+export interface KernelProverOutput {
+  publicInputs: PrivateKernelPublicInputs;
+  proof: UInt8Vector;
 }
 
 export class KernelProver {
   constructor(private log = createDebugLogger('aztec:kernel_prover')) {}
+
   async prove(
     txRequest: TxRequest,
     txSignature: EcdsaSignature,
     executionResult: ExecutionResult,
-    oldRoots: OldTreeRoots,
-    getFunctionTreeInfo: (callStackItem: PrivateCallStackItem) => Promise<FunctionTreeInfo>,
-    getContractSiblingPath: (committment: Buffer) => Promise<MembershipWitness<typeof CONTRACT_TREE_HEIGHT>>,
-  ): Promise<{ publicInputs: PrivateKernelPublicInputs; proof: Buffer }> {
-    const wasm = await CircuitsWasm.get();
-    // TODO: implement this
+    oracle: ProvingDataOracle,
+  ): Promise<KernelProverOutput> {
     const signedTxRequest = new SignedTxRequest(txRequest, txSignature);
+    const executionStack = [executionResult];
+    let preVerificationKey: VerificationKey | undefined;
+    let output = {
+      publicInputs: PrivateKernelPublicInputs.makeEmpty(),
+      proof: makeEmptyProof(),
+    };
+    while (executionStack.length) {
+      const vkMembershipWitness = preVerificationKey
+        ? await oracle.getVkMembershipWitness(preVerificationKey)
+        : MembershipWitness.random(VK_TREE_HEIGHT);
+      const previousKernelData = new PreviousKernelData(
+        output.publicInputs,
+        output.proof,
+        preVerificationKey || VerificationKey.makeFake(),
+        vkMembershipWitness.leafIndex,
+        vkMembershipWitness.siblingPath,
+      );
 
-    const functionTreeInfo = await getFunctionTreeInfo(executionResult.callStackItem);
-    const newContractData = new NewContractData(
-      executionResult.callStackItem.publicInputs.callContext.storageContractAddress,
-      executionResult.callStackItem.publicInputs.callContext.portalContractAddress,
-      functionTreeInfo.root,
+      const { callStackItem, vk, nestedExecutions } = executionStack.pop()!;
+      const verificationKey = VerificationKey.fromBuffer(vk);
+      executionStack.push(...nestedExecutions);
+
+      const privateCallStackPreimages = executionStack.map(result => result.callStackItem);
+      if (privateCallStackPreimages.length > PRIVATE_CALL_STACK_LENGTH) {
+        throw new Error(
+          `Too many items in the call stack. Maximum amount is ${PRIVATE_CALL_STACK_LENGTH}. Got ${privateCallStackPreimages.length}.`,
+        );
+      }
+      privateCallStackPreimages.push(
+        ...Array(PRIVATE_CALL_STACK_LENGTH - privateCallStackPreimages.length)
+          .fill(0)
+          .map(() => PrivateCallStackItem.empty()),
+      );
+
+      output = await this.createProof(
+        signedTxRequest,
+        previousKernelData,
+        callStackItem,
+        privateCallStackPreimages,
+        verificationKey,
+        oracle,
+      );
+      preVerificationKey = verificationKey;
+    }
+
+    return output;
+  }
+
+  private async createProof(
+    signedTxRequest: SignedTxRequest,
+    previousKernelData: PreviousKernelData,
+    callStackItem: PrivateCallStackItem,
+    privateCallStackPreimages: PrivateCallStackItem[],
+    vk: VerificationKey,
+    oracle: ProvingDataOracle,
+  ) {
+    const { storageContractAddress: contractAddress, portalContractAddress } = callStackItem.publicInputs.callContext;
+    const functionLeafMembershipWitness = await oracle.getFunctionMembershipWitness(
+      contractAddress,
+      callStackItem.functionData.functionSelector,
     );
-    const committment = computeContractLeaf(wasm, newContractData);
-    const contractLeafMembershipWitness = txRequest.functionData.isConstructor
-      ? this.createRandomMembershipWitness()
-      : await getContractSiblingPath(committment.toBuffer());
+
+    const contractLeafMembershipWitness = callStackItem.functionData.isConstructor
+      ? MembershipWitness.random(CONTRACT_TREE_HEIGHT)
+      : await oracle.getContractMembershipWitness(contractAddress);
 
     const privateCallData = new PrivateCallData(
-      executionResult.callStackItem,
-      Array(PRIVATE_CALL_STACK_LENGTH)
-        .fill(0)
-        .map(() => PrivateCallStackItem.empty()),
+      callStackItem,
+      privateCallStackPreimages,
       new UInt8Vector(Buffer.alloc(42)),
-      VerificationKey.fromBuffer(executionResult.vk),
-      functionTreeInfo.membershipWitness,
+      vk,
+      functionLeafMembershipWitness,
       contractLeafMembershipWitness,
-      txRequest.txContext.contractDeploymentData.portalContractAddress,
+      portalContractAddress,
     );
 
-    const previousKernelData: PreviousKernelData = PreviousKernelData.makeEmpty();
+    const wasm = await CircuitsWasm.get();
     this.log(`Executing private kernel simulation...`);
     const publicInputs = await privateKernelSim(wasm, signedTxRequest, previousKernelData, privateCallData);
     this.log(`Skipping private kernel proving...`);
     // const proof = await privateKernelProve(wasm, signedTxRequest, previousKernelData, privateCallData);
-    const proof = makeEmptyProof().buffer;
+    const proof = makeEmptyProof();
     this.log('Kernel Prover Completed!');
 
-    return Promise.resolve({
+    return {
       publicInputs,
       proof,
-    });
-  }
-
-  private createDummyVk() {
-    return VerificationKey.makeFake();
-  }
-
-  private createRandomMembershipWitness() {
-    return new MembershipWitness<typeof CONTRACT_TREE_HEIGHT>(
-      CONTRACT_TREE_HEIGHT,
-      0,
-      Array(CONTRACT_TREE_HEIGHT)
-        .fill(0)
-        .map(() => Fr.random()),
-    );
+    };
   }
 }

@@ -1,13 +1,17 @@
 import { DBOracle, NoteLoadOracleInputs } from '@aztec/acir-simulator';
 import { AztecAddress, EthAddress, Fr } from '@aztec/circuits.js';
 import { Database } from '../database/database.js';
-import { KeyStore } from '../key_store/key_store.js';
+import { ContractDataOracle } from '../contract_data_oracle/index.js';
+import { KeyPair } from '../key_store/key_pair.js';
 
 export class SimulatorOracle implements DBOracle {
-  constructor(private db: Database, private keyStore: KeyStore) {}
+  constructor(private contractDataOracle: ContractDataOracle, private db: Database, private keyPair: KeyPair) {}
 
   getSecretKey(_: AztecAddress, address: AztecAddress): Promise<Buffer> {
-    return this.keyStore.getAccountPrivateKey(address);
+    if (!address.equals(this.keyPair.getPublicKey().toAddress())) {
+      throw new Error('Only allow access to the secret keys of the tx creator.');
+    }
+    return this.keyPair.getPrivateKey();
   }
 
   async getNotes(contractAddress: AztecAddress, storageSlot: Fr, n: number): Promise<NoteLoadOracleInputs[]> {
@@ -20,24 +24,11 @@ export class SimulatorOracle implements DBOracle {
   }
 
   async getBytecode(contractAddress: AztecAddress, functionSelector: Buffer): Promise<Buffer> {
-    const contract = await this.db.getContract(contractAddress);
-    if (!contract) {
-      throw new Error(`Contract ${contractAddress} not found`);
-    }
-
-    const storedFunction = contract.functions.find(f => f.selector === functionSelector);
-    if (!storedFunction) {
-      throw new Error(`Function ${functionSelector} not found`);
-    }
-
-    return Buffer.from(storedFunction.bytecode, 'base64');
+    const bytecode = await this.contractDataOracle.getBytecode(contractAddress, functionSelector);
+    return Buffer.from(bytecode, 'base64');
   }
 
   async getPortalContractAddress(contractAddress: AztecAddress): Promise<EthAddress> {
-    const contract = await this.db.getContract(contractAddress);
-    if (!contract) {
-      throw new Error(`Contract ${contractAddress} not found`);
-    }
-    return contract.portalContract;
+    return await this.contractDataOracle.getPortalContractAddress(contractAddress);
   }
 }

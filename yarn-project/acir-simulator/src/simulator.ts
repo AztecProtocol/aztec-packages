@@ -11,17 +11,15 @@ export const MAPPING_SLOT_PEDERSEN_CONSTANT = new Fr(4n);
 export const NULLIFIER_PEDERSEN_CONSTANT = new Fr(5n);
 
 export class AcirSimulator {
-  constructor(private db: DBOracle) {}
-
   public run(
     request: TxRequest,
     entryPointABI: FunctionAbi,
     contractAddress: AztecAddress,
     portalContractAddress: EthAddress,
     oldRoots: OldTreeRoots,
+    db: DBOracle,
   ): Promise<ExecutionResult> {
-    const execution = new Execution(this.db, request, entryPointABI, contractAddress, portalContractAddress, oldRoots);
-
+    const execution = new Execution(db, request, entryPointABI, contractAddress, portalContractAddress, oldRoots);
     return execution.run();
   }
 

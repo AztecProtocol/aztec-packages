@@ -1,3 +1,5 @@
+import { Grumpkin, pedersenCompressInputs } from '@aztec/barretenberg.js/crypto';
+import { BarretenbergWasm } from '@aztec/barretenberg.js/wasm';
 import {
   ARGS_LENGTH,
   ContractDeploymentData,
@@ -7,19 +9,16 @@ import {
   TxContext,
   TxRequest,
 } from '@aztec/circuits.js';
-import { AztecAddress, EthAddress, Fr } from '@aztec/foundation';
-import { Grumpkin, pedersenCompressInputs } from '@aztec/barretenberg.js/crypto';
+import { AztecAddress, EthAddress, Fr, toBigIntBE } from '@aztec/foundation';
+import { Pedersen, StandardMerkleTree } from '@aztec/merkle-tree';
 import { FunctionAbi } from '@aztec/noir-contracts';
 import { TestContractAbi, ZkTokenContractAbi } from '@aztec/noir-contracts/examples';
-import { DBOracle } from './db_oracle.js';
-import { AcirSimulator, MAPPING_SLOT_PEDERSEN_CONSTANT } from './simulator.js';
-import { jest } from '@jest/globals';
-import { toBigIntBE } from '@aztec/foundation';
-import { BarretenbergWasm } from '@aztec/barretenberg.js/wasm';
+import { mock } from 'jest-mock-extended';
 import { default as levelup } from 'levelup';
 import { default as memdown } from 'memdown';
-import { Pedersen, StandardMerkleTree } from '@aztec/merkle-tree';
 import { encodeArguments } from './arguments_encoder/index.js';
+import { DBOracle } from './db_oracle.js';
+import { AcirSimulator, MAPPING_SLOT_PEDERSEN_CONSTANT } from './simulator.js';
 
 type NoirPoint = {
   x: bigint;
@@ -30,17 +29,16 @@ export const createMemDown = () => (memdown as any)();
 
 describe('ACIR simulator', () => {
   let bbWasm: BarretenbergWasm;
+  let oracle: ReturnType<typeof mock<DBOracle>>;
 
-  const oracle = {
-    getNotes: jest.fn<DBOracle['getNotes']>(),
-    getSecretKey: jest.fn<DBOracle['getSecretKey']>(),
-    getBytecode: jest.fn<DBOracle['getBytecode']>(),
-    getPortalContractAddress: jest.fn<DBOracle['getPortalContractAddress']>(),
-  };
-  const acirSimulator = new AcirSimulator(oracle as unknown as DBOracle);
+  const acirSimulator = new AcirSimulator();
 
   beforeAll(async () => {
     bbWasm = await BarretenbergWasm.get();
+  });
+
+  beforeEach(() => {
+    oracle = mock<DBOracle>();
   });
 
   describe('empty constructor', () => {
@@ -64,6 +62,7 @@ describe('ACIR simulator', () => {
         AztecAddress.ZERO,
         EthAddress.ZERO,
         oldRoots,
+        oracle,
       );
 
       expect(result.callStackItem.publicInputs.newCommitments).toEqual(
@@ -135,7 +134,7 @@ describe('ACIR simulator', () => {
         txContext,
         new Fr(0n),
       );
-      const result = await acirSimulator.run(txRequest, abi, contractAddress, EthAddress.ZERO, oldRoots);
+      const result = await acirSimulator.run(txRequest, abi, contractAddress, EthAddress.ZERO, oldRoots, oracle);
 
       expect(result.preimages.newNotes).toHaveLength(1);
       const newNote = result.preimages.newNotes[0];
@@ -162,7 +161,7 @@ describe('ACIR simulator', () => {
         txContext,
         new Fr(0n),
       );
-      const result = await acirSimulator.run(txRequest, abi, AztecAddress.ZERO, EthAddress.ZERO, oldRoots);
+      const result = await acirSimulator.run(txRequest, abi, AztecAddress.ZERO, EthAddress.ZERO, oldRoots, oracle);
 
       expect(result.preimages.newNotes).toHaveLength(1);
       const newNote = result.preimages.newNotes[0];
@@ -212,7 +211,7 @@ describe('ACIR simulator', () => {
         new Fr(0n),
       );
 
-      const result = await acirSimulator.run(txRequest, abi, AztecAddress.random(), EthAddress.ZERO, oldRoots);
+      const result = await acirSimulator.run(txRequest, abi, AztecAddress.random(), EthAddress.ZERO, oldRoots, oracle);
 
       console.log(result);
     });
