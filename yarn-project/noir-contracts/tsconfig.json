@@ -7,7 +7,7 @@
   },
   "references": [
     {
-      "path": "../foundation/tsconfig.dest.json"
+      "path": "../foundation/tsconfig.json"
     }
   ],
   "include": ["src", "src/**/*.json"],

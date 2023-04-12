@@ -7,28 +7,28 @@
   },
   "references": [
     {
-      "path": "../acir-simulator/tsconfig.dest.json"
+      "path": "../acir-simulator/tsconfig.json"
     },
     {
-      "path": "../aztec-node/tsconfig.dest.json"
+      "path": "../aztec-node/tsconfig.json"
     },
     {
-      "path": "../barretenberg.js/tsconfig.dest.json"
+      "path": "../barretenberg.js/tsconfig.json"
     },
     {
-      "path": "../circuits.js/tsconfig.dest.json"
+      "path": "../circuits.js/tsconfig.json"
     },
     {
-      "path": "../foundation/tsconfig.dest.json"
+      "path": "../foundation/tsconfig.json"
     },
     {
-      "path": "../kernel-prover/tsconfig.dest.json"
+      "path": "../kernel-prover/tsconfig.json"
     },
     {
-      "path": "../noir-contracts/tsconfig.dest.json"
+      "path": "../noir-contracts/tsconfig.json"
     },
     {
-      "path": "../types/tsconfig.dest.json"
+      "path": "../types/tsconfig.json"
     }
   ],
   "include": ["src"],
