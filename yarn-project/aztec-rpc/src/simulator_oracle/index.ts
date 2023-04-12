@@ -1,8 +1,9 @@
 import { DBOracle, NoteLoadOracleInputs } from '@aztec/acir-simulator';
 import { AztecAddress, EthAddress, Fr } from '@aztec/circuits.js';
-import { Database } from '../database/database.js';
+import { FunctionAbi } from '@aztec/noir-contracts';
 import { ContractDataOracle } from '../contract_data_oracle/index.js';
-import { KeyPair } from '../key_store/key_pair.js';
+import { Database } from '../database/index.js';
+import { KeyPair } from '../key_store/index.js';
 
 export class SimulatorOracle implements DBOracle {
   constructor(private contractDataOracle: ContractDataOracle, private db: Database, private keyPair: KeyPair) {}
@@ -23,9 +24,8 @@ export class SimulatorOracle implements DBOracle {
     }));
   }
 
-  async getBytecode(contractAddress: AztecAddress, functionSelector: Buffer): Promise<Buffer> {
-    const bytecode = await this.contractDataOracle.getBytecode(contractAddress, functionSelector);
-    return Buffer.from(bytecode, 'base64');
+  async getFunctionABI(contractAddress: AztecAddress, functionSelector: Buffer): Promise<FunctionAbi> {
+    return await this.contractDataOracle.getFunctionAbi(contractAddress, functionSelector);
   }
 
   async getPortalContractAddress(contractAddress: AztecAddress): Promise<EthAddress> {
