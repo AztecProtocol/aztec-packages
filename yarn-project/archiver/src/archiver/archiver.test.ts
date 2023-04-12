@@ -23,34 +23,37 @@ describe('Archiver', () => {
 
     let latestBlockNum = await archiver.getBlockHeight();
     expect(latestBlockNum).toEqual(0);
-    let getLatestUnverifiedDataBlockNum = await archiver.getLatestUnverifiedDataBlockNum();
-    expect(getLatestUnverifiedDataBlockNum).toEqual(0);
+    let latestUnverifiedDataBlockNum = await archiver.getLatestUnverifiedDataBlockNum();
+    expect(latestUnverifiedDataBlockNum).toEqual(0);
 
-    const rollupLogs = [1, 2, 3].map(makeL2BlockProcessedEvent);
     const rollupTxs = [1, 2, 3].map(makeRollupTx);
-    const unverifiedDataEmitterLogs: Log<
-      bigint,
-      number,
-      undefined,
-      typeof UnverifiedDataEmitterAbi,
-      'UnverifiedData'
-    >[] = [1, 2].map(makeUnverifiedDataEvent);
 
-    publicClient.getBlockNumber.mockResolvedValue(100n);
-    publicClient.getLogs.mockResolvedValueOnce(rollupLogs).mockResolvedValueOnce(unverifiedDataEmitterLogs);
+    publicClient.getBlockNumber.mockResolvedValue(2500n);
+    publicClient.getLogs
+      .mockResolvedValueOnce([makeL2BlockProcessedEvent(100n, 1n)])
+      .mockResolvedValueOnce([makeUnverifiedDataEvent(102n, 1n)])
+      .mockResolvedValueOnce([makeL2BlockProcessedEvent(1100n, 2n), makeL2BlockProcessedEvent(1150n, 3n)])
+      .mockResolvedValueOnce([makeUnverifiedDataEvent(1100n, 2n)])
+      .mockResolvedValue([]);
     rollupTxs.forEach(tx => publicClient.getTransaction.mockResolvedValueOnce(tx));
 
     await archiver.start();
 
     // Wait until block 3 is processed. If this won't happen the test will fail with timeout.
-    while ((await archiver.getBlockHeight()) < 3) {
+    while ((await archiver.getBlockHeight()) !== 3) {
       await sleep(100);
     }
 
     latestBlockNum = await archiver.getBlockHeight();
     expect(latestBlockNum).toEqual(3);
-    getLatestUnverifiedDataBlockNum = await archiver.getLatestUnverifiedDataBlockNum();
-    expect(getLatestUnverifiedDataBlockNum).toEqual(2);
+
+    // Wait until unverified data corresponding to block 2 is processed. If this won't happen the test will fail with
+    // timeout.
+    while ((await archiver.getLatestUnverifiedDataBlockNum()) !== 2) {
+      await sleep(100);
+    }
+    latestUnverifiedDataBlockNum = await archiver.getLatestUnverifiedDataBlockNum();
+    expect(latestUnverifiedDataBlockNum).toEqual(2);
 
     await archiver.stop();
   }, 10_000);
@@ -58,32 +61,33 @@ describe('Archiver', () => {
 
 /**
  * Makes a fake L2BlockProcessed event for testing purposes.
- * @param blockNum - L2Block number.
+ * @param l1BlockNum - L1 block number.
+ * @param l2BlockNum - L2Block number.
  * @returns An L2BlockProcessed event log.
  */
-function makeL2BlockProcessedEvent(blockNum: number) {
-  return { args: { blockNum: BigInt(blockNum) }, transactionHash: `0x${blockNum}` } as unknown as Log<
-    bigint,
-    number,
-    undefined,
-    typeof RollupAbi,
-    'L2BlockProcessed'
-  >;
+function makeL2BlockProcessedEvent(l1BlockNum: bigint, l2BlockNum: bigint) {
+  return {
+    blockNumber: l1BlockNum,
+    args: { blockNum: l2BlockNum },
+    transactionHash: `0x${l2BlockNum}`,
+  } as unknown as Log<bigint, number, undefined, typeof RollupAbi, 'L2BlockProcessed'>;
 }
 
 /**
  * Makes a fake UnverifiedData event for testing purposes.
- * @param blockNum - L2Block number.
+ * @param l1BlockNum - L1 block number.
+ * @param l2BlockNum - L2Block number.
  * @returns An UnverifiedData event log.
  */
-function makeUnverifiedDataEvent(blockNum: number) {
+function makeUnverifiedDataEvent(l1BlockNum: bigint, l2BlockNum: bigint) {
   return {
+    blockNumber: l1BlockNum,
     args: {
-      l2BlockNum: BigInt(blockNum),
+      l2BlockNum,
       sender: EthAddress.random(),
       data: '0x' + createRandomUnverifiedData(16).toString('hex'),
     },
-    transactionHash: `0x${blockNum}`,
+    transactionHash: `0x${l2BlockNum}`,
   } as unknown as Log<bigint, number, undefined, typeof UnverifiedDataEmitterAbi, 'UnverifiedData'>;
 }
 

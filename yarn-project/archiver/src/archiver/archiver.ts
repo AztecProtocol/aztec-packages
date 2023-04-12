@@ -21,8 +21,21 @@ import { ArchiverConfig } from './config.js';
  * need to concern themselves with it.
  */
 export class Archiver implements L2BlockSource, UnverifiedDataSource {
+  /**
+   * The number of blocks that we will fetch in a single batch.
+   */
   private readonly numBlocksPerFetch = 1000n;
-  private readonly initialSyncDistanceFromLatest = 1000n;
+
+  /**
+   * A range of blocks in which we will expect a potential node sync issue as described in
+   * https://github.com/wagmi-dev/viem/discussions/354
+   * Danger zone is defined as [BLOCK_HEIGHT - dangeZoneBlockLength, BLOCK_HEIGHT].
+   */
+  private readonly dangerZoneBlockLength = 1000n;
+
+  /**
+   * A promise in which we will be continually fetching new L2 blocks.
+   */
   private runningPromise?: RunningPromise;
 
   /**
@@ -36,8 +49,8 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource {
    */
   private unverifiedData: UnverifiedData[] = [];
 
-  private lastL2BlockEventBlockNum = 0n;
-  private lastUnverifiedDataEventBlockNum = 0n;
+  private lastL2BlockEventEthBlockNum = 0n;
+  private lastUnverifiedDataEventEthBlockNum = 0n;
 
   /**
    * Creates a new instance of the Archiver.
@@ -90,36 +103,39 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource {
   }
 
   /**
-   * Initial sync runs until it has reached block EHEREUM_BLOCK_HEIGHT - this.initialSyncDistanceFromLatest. Then the
-   * initial syncs stops and switches in to more careful sync which takes the bellow linked issue into account.
+   * Initial sync runs until the next block range would intersect with the danger zone. Danger zone is set as
+   * `ETH_BLOCK_HEIGHT - this.initialSyncDistanceFromLatest`. Then the initial sync stops and switches to a more
+   * careful sync which takes the bellow linked issue into account.
    * https://github.com/wagmi-dev/viem/discussions/354
    */
   private async initialSync() {
     const currentBlockNumber = await this.publicClient.getBlockNumber();
-    if (currentBlockNumber < this.initialSyncDistanceFromLatest) {
+    if (currentBlockNumber < this.dangerZoneBlockLength + this.numBlocksPerFetch) {
       this.log('Current block number is less than initial sync distance from latest. Skipping initial sync.');
       return;
     }
-    const maxInitialSyncBlock = currentBlockNumber - this.initialSyncDistanceFromLatest;
+    // Subtracting `this.numBlocksPerFetch` as well to make sure the initial sync range doesn't "touch" the danger zone
+    // with any of its blocks.
+    const maxInitialSyncBlock = currentBlockNumber - this.dangerZoneBlockLength - this.numBlocksPerFetch;
 
-    while (this.lastL2BlockEventBlockNum < maxInitialSyncBlock) {
+    while (this.lastL2BlockEventEthBlockNum < maxInitialSyncBlock) {
       const l2BlockProcessedLogs = await this.getL2BlockProcessedLogs(
-        this.lastL2BlockEventBlockNum,
-        this.lastL2BlockEventBlockNum + this.numBlocksPerFetch,
+        this.lastL2BlockEventEthBlockNum,
+        this.lastL2BlockEventEthBlockNum + this.numBlocksPerFetch,
       );
 
       if (l2BlockProcessedLogs) await this.processBlockLogs(l2BlockProcessedLogs);
-      this.lastL2BlockEventBlockNum += this.numBlocksPerFetch;
+      this.lastL2BlockEventEthBlockNum += this.numBlocksPerFetch;
     }
 
-    while (this.lastUnverifiedDataEventBlockNum < maxInitialSyncBlock) {
+    while (this.lastUnverifiedDataEventEthBlockNum < maxInitialSyncBlock) {
       const unverifiedDataLogs = await this.getUnverifiedDataLogs(
-        this.lastUnverifiedDataEventBlockNum,
-        this.lastUnverifiedDataEventBlockNum + this.numBlocksPerFetch,
+        this.lastUnverifiedDataEventEthBlockNum,
+        this.lastUnverifiedDataEventEthBlockNum + this.numBlocksPerFetch,
       );
 
       if (unverifiedDataLogs) this.processUnverifiedDataLogs(unverifiedDataLogs);
-      this.lastUnverifiedDataEventBlockNum += this.numBlocksPerFetch;
+      this.lastUnverifiedDataEventEthBlockNum += this.numBlocksPerFetch;
     }
   }
 
@@ -128,11 +144,17 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource {
    * `lastUnverifiedDataEventBlockNum` and processes them.
    */
   private async sync() {
-    const l2BlockProcessedLogs = await this.getL2BlockProcessedLogs(this.lastL2BlockEventBlockNum);
-    const unverifiedDataLogs = await this.getUnverifiedDataLogs(this.lastUnverifiedDataEventBlockNum);
+    const l2BlockProcessedLogs = await this.getL2BlockProcessedLogs(this.lastL2BlockEventEthBlockNum);
+    const unverifiedDataLogs = await this.getUnverifiedDataLogs(this.lastUnverifiedDataEventEthBlockNum);
 
-    if (l2BlockProcessedLogs) await this.processBlockLogs(l2BlockProcessedLogs);
-    if (unverifiedDataLogs) this.processUnverifiedDataLogs(unverifiedDataLogs);
+    if (l2BlockProcessedLogs) {
+      await this.processBlockLogs(l2BlockProcessedLogs);
+      this.lastL2BlockEventEthBlockNum = l2BlockProcessedLogs[l2BlockProcessedLogs.length - 1].blockNumber;
+    }
+    if (unverifiedDataLogs) {
+      this.processUnverifiedDataLogs(unverifiedDataLogs);
+      this.lastUnverifiedDataEventEthBlockNum = unverifiedDataLogs[unverifiedDataLogs.length - 1].blockNumber;
+    }
   }
 
   private async getL2BlockProcessedLogs(fromBlock: bigint, toBlock?: bigint): Promise<any[]> {
