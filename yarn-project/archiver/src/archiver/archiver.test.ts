@@ -1,10 +1,9 @@
-import { EthAddress, randomBytes, toBufferBE } from '@aztec/foundation';
-import { L2Block } from '@aztec/types';
-import { jest } from '@jest/globals';
-import { mock, MockProxy } from 'jest-mock-extended';
-import { encodeFunctionData, Log, PublicClient, toHex, Transaction } from 'viem';
-import { Archiver } from './archiver.js';
+import { EthAddress, randomBytes, sleep, toBufferBE } from '@aztec/foundation';
 import { RollupAbi, UnverifiedDataEmitterAbi } from '@aztec/l1-contracts/viem';
+import { L2Block } from '@aztec/types';
+import { MockProxy, mock } from 'jest-mock-extended';
+import { Log, PublicClient, Transaction, encodeFunctionData, toHex } from 'viem';
+import { Archiver } from './archiver.js';
 
 describe('Archiver', () => {
   const rollupAddress = '0x0000000000000000000000000000000000000000';
@@ -37,11 +36,16 @@ describe('Archiver', () => {
       'UnverifiedData'
     >[] = [1, 2].map(makeUnverifiedDataEvent);
 
-    publicClient.getFilterLogs.mockResolvedValueOnce(rollupLogs).mockResolvedValueOnce(unverifiedDataEmitterLogs);
+    publicClient.getBlockNumber.mockResolvedValue(100n);
+    publicClient.getLogs.mockResolvedValueOnce(rollupLogs).mockResolvedValueOnce(unverifiedDataEmitterLogs);
     rollupTxs.forEach(tx => publicClient.getTransaction.mockResolvedValueOnce(tx));
-    publicClient.watchContractEvent.mockReturnValue(jest.fn());
 
     await archiver.start();
+
+    // Wait until block 3 is processed. If this won't happen the test will fail with timeout.
+    while ((await archiver.getBlockHeight()) < 3) {
+      await sleep(100);
+    }
 
     latestBlockNum = await archiver.getBlockHeight();
     expect(latestBlockNum).toEqual(3);
@@ -49,7 +53,7 @@ describe('Archiver', () => {
     expect(getLatestUnverifiedDataBlockNum).toEqual(2);
 
     await archiver.stop();
-  });
+  }, 10_000);
 });
 
 /**

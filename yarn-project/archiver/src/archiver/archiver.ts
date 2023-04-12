@@ -10,7 +10,7 @@ import {
   getAbiItem,
   getAddress,
   hexToBytes,
-  http
+  http,
 } from 'viem';
 import { localhost } from 'viem/chains';
 import { ArchiverConfig } from './config.js';
@@ -97,6 +97,7 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource {
   private async initialSync() {
     const currentBlockNumber = await this.publicClient.getBlockNumber();
     if (currentBlockNumber < this.initialSyncDistanceFromLatest) {
+      this.log('Current block number is less than initial sync distance from latest. Skipping initial sync.');
       return;
     }
     const maxInitialSyncBlock = currentBlockNumber - this.initialSyncDistanceFromLatest;
@@ -106,13 +107,19 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource {
         this.lastL2BlockEventBlockNum,
         this.lastL2BlockEventBlockNum + this.numBlocksPerFetch,
       );
+
+      if (l2BlockProcessedLogs) await this.processBlockLogs(l2BlockProcessedLogs);
+      this.lastL2BlockEventBlockNum += this.numBlocksPerFetch;
+    }
+
+    while (this.lastUnverifiedDataEventBlockNum < maxInitialSyncBlock) {
       const unverifiedDataLogs = await this.getUnverifiedDataLogs(
         this.lastUnverifiedDataEventBlockNum,
         this.lastUnverifiedDataEventBlockNum + this.numBlocksPerFetch,
       );
 
-      if (l2BlockProcessedLogs) await this.processBlockLogs(l2BlockProcessedLogs);
       if (unverifiedDataLogs) this.processUnverifiedDataLogs(unverifiedDataLogs);
+      this.lastUnverifiedDataEventBlockNum += this.numBlocksPerFetch;
     }
   }
 
@@ -122,7 +129,6 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource {
    */
   private async sync() {
     const l2BlockProcessedLogs = await this.getL2BlockProcessedLogs(this.lastL2BlockEventBlockNum);
-
     const unverifiedDataLogs = await this.getUnverifiedDataLogs(this.lastUnverifiedDataEventBlockNum);
 
     if (l2BlockProcessedLogs) await this.processBlockLogs(l2BlockProcessedLogs);
@@ -162,6 +168,9 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource {
     for (const log of logs) {
       const blockNum = log.args.blockNum;
       if (blockNum !== BigInt(this.l2Blocks.length + INITIAL_L2_BLOCK_NUM)) {
+        console.log(log);
+        console.log('blockNum', blockNum);
+        console.log('expected', this.l2Blocks.length + INITIAL_L2_BLOCK_NUM);
         throw new Error(
           'Block number mismatch. Expected: ' +
             (this.l2Blocks.length + INITIAL_L2_BLOCK_NUM) +
@@ -175,7 +184,6 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource {
       this.log(`Retrieved block ${newBlock.number} from chain`);
       this.l2Blocks.push(newBlock);
     }
-    console.log(this.l2Blocks);
   }
 
   /**
