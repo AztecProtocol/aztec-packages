@@ -7,13 +7,13 @@
   },
   "references": [
     {
-      "path": "../circuits.js/tsconfig.json"
+      "path": "../circuits.js"
     },
     {
-      "path": "../foundation/tsconfig.json"
+      "path": "../foundation"
     },
     {
-      "path": "../types/tsconfig.json"
+      "path": "../types"
     }
   ],
   "include": ["src"]

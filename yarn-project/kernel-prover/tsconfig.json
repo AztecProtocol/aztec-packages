@@ -7,13 +7,13 @@
   },
   "references": [
     {
-      "path": "../acir-simulator/tsconfig.json"
+      "path": "../acir-simulator"
     },
     {
-      "path": "../circuits.js/tsconfig.json"
+      "path": "../circuits.js"
     },
     {
-      "path": "../foundation/tsconfig.json"
+      "path": "../foundation"
     }
   ],
   "include": ["src"]

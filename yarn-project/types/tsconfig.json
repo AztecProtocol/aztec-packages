@@ -7,13 +7,13 @@
   },
   "references": [
     {
-      "path": "../circuits.js/tsconfig.json"
+      "path": "../circuits.js"
     },
     {
-      "path": "../foundation/tsconfig.json"
+      "path": "../foundation"
     },
     {
-      "path": "../l1-contracts/tsconfig.json"
+      "path": "../l1-contracts"
     }
   ],
   "include": ["src"]

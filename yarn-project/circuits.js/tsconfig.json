@@ -7,10 +7,10 @@
   },
   "references": [
     {
-      "path": "../barretenberg.js/tsconfig.json"
+      "path": "../barretenberg.js"
     },
     {
-      "path": "../foundation/tsconfig.json"
+      "path": "../foundation"
     }
   ],
   "include": ["src"]

@@ -7,34 +7,34 @@
   },
   "references": [
     {
-      "path": "../archiver/tsconfig.json"
+      "path": "../archiver"
     },
     {
-      "path": "../barretenberg.js/tsconfig.json"
+      "path": "../barretenberg.js"
     },
     {
-      "path": "../ethereum.js/tsconfig.json"
+      "path": "../ethereum.js"
     },
     {
-      "path": "../foundation/tsconfig.json"
+      "path": "../foundation"
     },
     {
-      "path": "../l1-contracts/tsconfig.json"
+      "path": "../l1-contracts"
     },
     {
-      "path": "../merkle-tree/tsconfig.json"
+      "path": "../merkle-tree"
     },
     {
-      "path": "../p2p/tsconfig.json"
+      "path": "../p2p"
     },
     {
-      "path": "../sequencer-client/tsconfig.json"
+      "path": "../sequencer-client"
     },
     {
-      "path": "../types/tsconfig.json"
+      "path": "../types"
     },
     {
-      "path": "../world-state/tsconfig.json"
+      "path": "../world-state"
     }
   ],
   "include": ["src", "test"]

@@ -7,16 +7,16 @@
   },
   "references": [
     {
-      "path": "../aztec-rpc/tsconfig.json"
+      "path": "../aztec-rpc"
     },
     {
-      "path": "../circuits.js/tsconfig.json"
+      "path": "../circuits.js"
     },
     {
-      "path": "../foundation/tsconfig.json"
+      "path": "../foundation"
     },
     {
-      "path": "../noir-contracts/tsconfig.json"
+      "path": "../noir-contracts"
     }
   ],
   "include": ["src"]

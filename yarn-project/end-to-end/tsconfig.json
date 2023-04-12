@@ -7,22 +7,22 @@
   },
   "references": [
     {
-      "path": "../aztec-node/tsconfig.json"
+      "path": "../aztec-node"
     },
     {
-      "path": "../aztec.js/tsconfig.json"
+      "path": "../aztec.js"
     },
     {
-      "path": "../ethereum.js/tsconfig.json"
+      "path": "../ethereum.js"
     },
     {
-      "path": "../foundation/tsconfig.json"
+      "path": "../foundation"
     },
     {
-      "path": "../l1-contracts/tsconfig.json"
+      "path": "../l1-contracts"
     },
     {
-      "path": "../noir-contracts/tsconfig.json"
+      "path": "../noir-contracts"
     }
   ],
   "include": ["src"]

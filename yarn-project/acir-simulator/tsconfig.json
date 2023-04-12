@@ -7,19 +7,19 @@
   },
   "references": [
     {
-      "path": "../barretenberg.js/tsconfig.json"
+      "path": "../barretenberg.js"
     },
     {
-      "path": "../circuits.js/tsconfig.json"
+      "path": "../circuits.js"
     },
     {
-      "path": "../foundation/tsconfig.json"
+      "path": "../foundation"
     },
     {
-      "path": "../merkle-tree/tsconfig.json"
+      "path": "../merkle-tree"
     },
     {
-      "path": "../noir-contracts/tsconfig.json"
+      "path": "../noir-contracts"
     }
   ],
   "include": ["src"]
