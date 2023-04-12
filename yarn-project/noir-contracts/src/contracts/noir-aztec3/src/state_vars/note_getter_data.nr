@@ -5,8 +5,12 @@ use crate::types::point::Point;
 struct NoteGetterData {
     note: Note,
     leaf_index: Field,
-    sibling_path: [Field; crate::TREE_HEIGHT],
+    sibling_path: [Field; crate::PRIVATE_DATA_TREE_HEIGHT],
     root: Field,
+}
+
+fn note_getter_data_len() -> comptime Field {
+    6 + 1 + crate::PRIVATE_DATA_TREE_HEIGHT + 1
 }
 
 fn make_note_getter_data(fields: [Field], start: comptime Field) -> NoteGetterData {
@@ -25,7 +29,10 @@ fn make_note_getter_data(fields: [Field], start: comptime Field) -> NoteGetterDa
             fields[start + 9],
             fields[start + 10],
             fields[start + 11],
+            fields[start + 12],
+            fields[start + 13],
+            fields[start + 14],
         ],
-        root: fields[start + 12],
+        root: fields[start + 15],
     }
 }

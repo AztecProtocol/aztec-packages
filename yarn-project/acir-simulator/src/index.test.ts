@@ -4,6 +4,7 @@ import {
   FunctionData,
   NEW_COMMITMENTS_LENGTH,
   OldTreeRoots,
+  PRIVATE_DATA_TREE_HEIGHT,
   TxContext,
   TxRequest,
 } from '@aztec/circuits.js';
@@ -74,7 +75,6 @@ describe('ACIR simulator', () => {
 
   describe('token contract', () => {
     let currentNonce = 0n;
-    const SIBLING_PATH_SIZE = 5;
 
     const contractDeploymentData = new ContractDeploymentData(Fr.ZERO, Fr.ZERO, Fr.ZERO, EthAddress.ZERO);
     const txContext = new TxContext(false, false, false, contractDeploymentData);
@@ -183,7 +183,7 @@ describe('ACIR simulator', () => {
       const amountToTransfer = 100n;
       const abi = ZkTokenContractAbi.functions.find(f => f.name === 'transfer') as unknown as FunctionAbi;
 
-      const tree = await StandardMerkleTree.new(db, pedersen, 'privateData', SIBLING_PATH_SIZE);
+      const tree = await StandardMerkleTree.new(db, pedersen, 'privateData', PRIVATE_DATA_TREE_HEIGHT);
       const preimages = [buildNote(60n, owner), buildNote(80n, owner)];
       // TODO for this we need that noir siloes the commitment the same way as the kernel does, to do merkle membership
       await tree.appendLeaves(preimages.map(preimage => acirSimulator.computeNoteHash(preimage, bbWasm)));
@@ -235,6 +235,53 @@ describe('ACIR simulator', () => {
         Fr.fromBuffer(acirSimulator.computeNoteHash(recipientNote.preimage, bbWasm)),
       );
       expect(changeNoteCommitment).toEqual(Fr.fromBuffer(acirSimulator.computeNoteHash(changeNote.preimage, bbWasm)));
+    }, 30_000);
+
+    it.skip('should be able to transfer with dummy notes', async () => {
+      const db = levelup(createMemDown());
+      const pedersen = new Pedersen(bbWasm);
+
+      const contractAddress = AztecAddress.random();
+      const amountToTransfer = 100n;
+      const abi = ZkTokenContractAbi.functions.find(f => f.name === 'transfer') as unknown as FunctionAbi;
+
+      const tree = await StandardMerkleTree.new(db, pedersen, 'privateData', PRIVATE_DATA_TREE_HEIGHT);
+      const preimages = [buildNote(160n, owner)];
+      // TODO for this we need that noir siloes the commitment the same way as the kernel does, to do merkle membership
+      await tree.appendLeaves(preimages.map(preimage => acirSimulator.computeNoteHash(preimage, bbWasm)));
+
+      const oldRoots = new OldTreeRoots(Fr.fromBuffer(tree.getRoot()), new Fr(0n), new Fr(0n), new Fr(0n));
+
+      oracle.getNotes.mockImplementation(() => {
+        return Promise.all(
+          preimages.map(async (preimage, index) => ({
+            preimage,
+            siblingPath: (await tree.getSiblingPath(BigInt(index))).data.map(buf => Fr.fromBuffer(buf)),
+            index,
+          })),
+        );
+      });
+
+      oracle.getSecretKey.mockReturnValue(Promise.resolve(ownerPk));
+
+      const txRequest = new TxRequest(
+        AztecAddress.random(),
+        contractAddress,
+        new FunctionData(Buffer.alloc(4), true, true),
+        encodeArguments(abi, [amountToTransfer, owner, recipient]),
+        Fr.random(),
+        txContext,
+        new Fr(0n),
+      );
+
+      const result = await acirSimulator.run(txRequest, abi, AztecAddress.random(), EthAddress.ZERO, oldRoots);
+
+      const newNullifiers = result.callStackItem.publicInputs.newNullifiers.filter(field => !field.equals(Fr.ZERO));
+      expect(newNullifiers).toHaveLength(2);
+
+      expect(newNullifiers[0]).toEqual(Fr.fromBuffer(acirSimulator.computeNullifier(preimages[0], ownerPk, bbWasm)));
+
+      expect(result.preimages.newNotes).toHaveLength(2);
     }, 30_000);
   });
 });

@@ -89,14 +89,14 @@ contract PrivateToken {
         let constrain_note = |note: Note, sender_forwarded: Point| {
             if note.is_dummy {
                 constrain note.value == 0;
+            } else {
+                constrain sender_forwarded.x == note.owner.x;
+                constrain sender_forwarded.y == note.owner.y;
             }
-            constrain sender_forwarded.x == note.owner.x;
-            constrain sender_forwarded.y == note.owner.y;
             note.value
         };
         sum += constrain_note(note1, sender);
         sum += constrain_note(note2, sender);
-
 
         constrain sum as u64 >= amount as u64;
 

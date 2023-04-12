@@ -9,4 +9,4 @@ global NoteStorageSlot = 3;
 global MappingStorageSlot = 4;
 global Nullifier = 5;
 
-global TREE_HEIGHT: comptime Field = 5;
+global PRIVATE_DATA_TREE_HEIGHT: comptime Field = 8;

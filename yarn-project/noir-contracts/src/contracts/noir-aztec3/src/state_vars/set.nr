@@ -5,6 +5,7 @@ use crate::notes::value_note::Note;
 use crate::types::point::Point;
 use crate::state_vars::note_getter_data::NoteGetterData;
 use crate::state_vars::note_getter_data::make_note_getter_data;
+use crate::state_vars::note_getter_data::note_getter_data_len;
 
 #[builtin(notifyCreatedNote)]
 fn notify_created_note(
@@ -24,12 +25,12 @@ fn notify_nullified_note(
 fn get_notes_2_internal(
     _contract_address: Field,
     _storage_slot: Field,
-) -> [Field; 26] {}
+) -> [Field; 32] {}
 
 fn get_2_notes(contract_address: Field, storage_slot: Field) -> (NoteGetterData, NoteGetterData) {
     let fields = get_notes_2_internal(contract_address, storage_slot);
     let data1 = make_note_getter_data(fields, 0);
-    let data2 = make_note_getter_data(fields, 13);
+    let data2 = make_note_getter_data(fields, note_getter_data_len());
     (data1, data2)
 }
 
