@@ -27,10 +27,8 @@ export const acvm: execute = async (acir, initialWitness, callback) => {
     acir,
     initialWitness,
     async (name: string, args: ACVMField[]) => {
-      console.log('Callback!', name, args);
       if (!(name in callback)) throw new Error(`Callback ${name} not found`);
       const result = await callback[name as keyof ACIRCallback](args);
-      console.log('Callback result', result);
       return result;
     },
   );
