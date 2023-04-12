@@ -299,7 +299,7 @@ defaults: &defaults
   post-steps:
     - slack/notify:
         event: fail
-        branch_pattern: "master,chore/slack-notification"
+        branch_pattern: "master"
 yarn_project: &yarn_project
   requires:
     - yarn-project-base
