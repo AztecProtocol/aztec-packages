@@ -27,7 +27,6 @@ import { Simulator } from '../simulator/index.js';
 import { WasmCircuitSimulator } from '../simulator/wasm.js';
 import { CircuitBlockBuilder } from './circuit_block_builder.js';
 import { computeContractLeaf } from '@aztec/circuits.js/abis';
-import { buffer } from 'stream/consumers';
 import { toBufferBE } from '@aztec/foundation';
 
 /* eslint-disable @typescript-eslint/ban-ts-comment */
@@ -181,6 +180,36 @@ describe('sequencer/circuit_block_builder', () => {
     expect(contractTreeAfter.size).toEqual(4n);
   });
 
+  it('build edge case test', async () => {
+    // Regression test - this recreates the edge case
+
+    const simulator = await WasmCircuitSimulator.new();
+    const prover = new EmptyProver();
+    builder = new TestSubject(builderDb, vks, simulator, prover);
+    // update the starting tree
+    const updateVals = Array(16).fill(0n);
+    updateVals[0] = 19777494491628650244807463906174285795660759352776418619064841306523677458742n;
+    updateVals[1] = 10246291467305176436335175657884940686778521321101740385288169037814567547848n;
+
+    await builder.updateRootTrees();
+    await builderDb.appendLeaves(
+      MerkleTreeId.NULLIFIER_TREE,
+      updateVals.map(v => toBufferBE(v, 32)),
+    );
+
+    // new added values
+    const tx = makeEmptyTx();
+    tx.data.end.newNullifiers[0] = new Fr(
+      10336601644835972678500657502133589897705389664587188571002640950065546264856n,
+    );
+    tx.data.end.newNullifiers[1] = new Fr(
+      17490072961923661940560522096125238013953043065748521735636170028491723851741n,
+    );
+
+    const [l2Block] = await builder.buildL2Block(blockNumber, tx);
+    expect(l2Block.number).toEqual(blockNumber);
+  });
+
   it('builds an L2 block with a contract deployment tx using wasm circuits', async () => {
     const simulator = await WasmCircuitSimulator.new();
     const prover = new EmptyProver();
@@ -231,6 +260,19 @@ describe('sequencer/circuit_block_builder', () => {
 
   it('test nullifier tree impl, inserting arbitrary random values', async () => {
     const leaves = [1234, 98, 0, 0, 99999, 88, 54, 0].map(i => toBufferBE(BigInt(i), 32));
+    await expectsDb.appendLeaves(MerkleTreeId.NULLIFIER_TREE, leaves);
+    builder = new TestSubject(builderDb, vks, simulator, prover);
+
+    await builder.performBaseRollupBatchInsertionProofs(leaves);
+
+    // assert snapshots
+    const expectsSnapshot = await expectsDb.getTreeInfo(MerkleTreeId.NULLIFIER_TREE);
+    const buildSnapshot = await builderDb.getTreeInfo(MerkleTreeId.NULLIFIER_TREE);
+    expect(buildSnapshot).toEqual(expectsSnapshot);
+  });
+
+  it('test nullifier tree impl, inserting arbitrary random values #2', async () => {
+    const leaves = [97, 98, 10, 0, 99999, 88, 100001, 9000000].map(i => toBufferBE(BigInt(i), 32));
     await expectsDb.appendLeaves(MerkleTreeId.NULLIFIER_TREE, leaves);
     builder = new TestSubject(builderDb, vks, simulator, prover);
 
