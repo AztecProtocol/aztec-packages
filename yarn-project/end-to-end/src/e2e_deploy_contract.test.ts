@@ -5,7 +5,6 @@ import { WalletProvider } from '@aztec/ethereum.js/provider';
 import { EthAddress, createDebugLogger } from '@aztec/foundation';
 import { ContractAbi } from '@aztec/noir-contracts';
 import { TestContractAbi } from '@aztec/noir-contracts/examples';
-import { SequencerClient } from '@aztec/sequencer-client';
 import { createAztecNode } from './create_aztec_node.js';
 import { createAztecRpcServer } from './create_aztec_rpc_client.js';
 import { createProvider, deployRollupContract, deployUnverifiedDataEmitterContract } from './deploy_l1_contracts.js';
@@ -122,7 +121,3 @@ describe('e2e_deploy_contract', () => {
     }
   }, 30_000);
 });
-
-interface TestAztecNode {
-  sequencer: SequencerClient;
-}
