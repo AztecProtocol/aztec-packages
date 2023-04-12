@@ -78,5 +78,11 @@
     "jest-mock-extended": "^3.0.1",
     "ts-jest": "28.0.7",
     "typescript": "^4.9.5"
-  }
+  },
+  "files": [
+    "dest",
+    "src",
+    "!*.test.*"
+  ],
+  "types": "./dest/index.d.ts"
 }

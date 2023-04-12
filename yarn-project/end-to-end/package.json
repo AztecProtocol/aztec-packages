@@ -45,5 +45,11 @@
     "@types/node": "^18.7.23",
     "concurrently": "^7.6.0",
     "ts-node": "^10.9.1"
-  }
+  },
+  "files": [
+    "dest",
+    "src",
+    "!*.test.*"
+  ],
+  "types": "./dest/index.d.ts"
 }
