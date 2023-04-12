@@ -25,19 +25,20 @@ export class KernelProver {
   ): Promise<ProofOutput> {
     const signedTxRequest = new SignedTxRequest(txRequest, txSignature);
     const executionStack = [executionResult];
-    let preVerificationKey: VerificationKey | undefined;
+    let firstIteration = true;
+    let preVerificationKey = VerificationKey.makeFake();
     let output: ProofOutput = {
       publicInputs: PrivateKernelPublicInputs.makeEmpty(),
       proof: makeEmptyProof(),
     };
     while (executionStack.length) {
-      const vkMembershipWitness = preVerificationKey
-        ? await oracle.getVkMembershipWitness(preVerificationKey)
-        : MembershipWitness.random(VK_TREE_HEIGHT);
+      const vkMembershipWitness = firstIteration
+        ? MembershipWitness.random(VK_TREE_HEIGHT)
+        : await oracle.getVkMembershipWitness(preVerificationKey);
       const previousKernelData = new PreviousKernelData(
         output.publicInputs,
         output.proof,
-        preVerificationKey || VerificationKey.makeFake(),
+        preVerificationKey,
         vkMembershipWitness.leafIndex,
         vkMembershipWitness.siblingPath,
       );
@@ -64,8 +65,10 @@ export class KernelProver {
         callStackItem,
         privateCallStackPreimages,
         verificationKey,
+        firstIteration,
       );
       preVerificationKey = verificationKey;
+      firstIteration = false;
     }
 
     return output;

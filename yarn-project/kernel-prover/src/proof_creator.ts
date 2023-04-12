@@ -27,6 +27,7 @@ export interface ProofCreator {
     callStackItem: PrivateCallStackItem,
     privateCallStackPreimages: PrivateCallStackItem[],
     vk: VerificationKey,
+    firstIteration: boolean,
   ): Promise<ProofOutput>;
 }
 
@@ -39,6 +40,7 @@ export class KernelProofCreator {
     callStackItem: PrivateCallStackItem,
     privateCallStackPreimages: PrivateCallStackItem[],
     vk: VerificationKey,
+    firstIteration: boolean,
   ): Promise<ProofOutput> {
     const { storageContractAddress: contractAddress, portalContractAddress } = callStackItem.publicInputs.callContext;
     const functionLeafMembershipWitness = await this.oracle.getFunctionMembershipWitness(
@@ -53,7 +55,7 @@ export class KernelProofCreator {
     const privateCallData = new PrivateCallData(
       callStackItem,
       privateCallStackPreimages,
-      new UInt8Vector(Buffer.alloc(42)),
+      makeEmptyProof(),
       vk,
       functionLeafMembershipWitness,
       contractLeafMembershipWitness,
@@ -62,10 +64,16 @@ export class KernelProofCreator {
 
     const wasm = await CircuitsWasm.get();
     this.log(`Executing private kernel simulation...`);
-    const publicInputs = await privateKernelSim(wasm, signedTxRequest, previousKernelData, privateCallData);
+    const publicInputs = await privateKernelSim(
+      wasm,
+      signedTxRequest,
+      previousKernelData,
+      privateCallData,
+      firstIteration,
+    );
     this.log(`Skipping private kernel proving...`);
     // TODO
-    // const proof = await privateKernelProve(wasm, signedTxRequest, previousKernelData, privateCallData);
+    // const proof = await privateKernelProve(wasm, signedTxRequest, previousKernelData, privateCallData, firstIteration);
     const proof = makeEmptyProof();
     this.log('Kernel Prover Completed!');
 
