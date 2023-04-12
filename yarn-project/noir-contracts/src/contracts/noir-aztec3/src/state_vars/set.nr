@@ -94,15 +94,8 @@ impl Set {
         // process_data(note_getter_data.0, storage_slot, contract_address);
         // process_data(note_getter_data.1, storage_slot, contract_address);
 
-        constrain note_getter_data.0.root == note_getter_data.1.root;
-        
-        let root = note_getter_data.0.root;
-
-        if outputs.old_private_data_tree_root == 0 {
-            outputs.old_private_data_tree_root = root;
-        } else {
-            constrain outputs.old_private_data_tree_root == root;
-        }
+        constrain note_getter_data.0.root == inputs.old_private_data_tree_root;
+        constrain note_getter_data.1.root == inputs.old_private_data_tree_root;
 
         let notes = (note_getter_data.0.note, note_getter_data.1.note);
         (outputs, notes)

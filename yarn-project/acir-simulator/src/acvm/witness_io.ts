@@ -77,6 +77,7 @@ export function writeInputs(
 
   writer.writeField(oldRoots.contractTreeRoot);
   writer.writeField(oldRoots.nullifierTreeRoot);
+  writer.writeField(oldRoots.privateDataTreeRoot);
 
   return witness;
 }

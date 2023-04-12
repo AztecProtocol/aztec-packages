@@ -175,7 +175,7 @@ describe('ACIR simulator', () => {
       expect(commitment).toEqual(Fr.fromBuffer(acirSimulator.computeNoteHash(newNote.preimage, bbWasm)));
     });
 
-    it.only('should run the transfer function', async () => {
+    it('should run the transfer function', async () => {
       const db = levelup(createMemDown());
       const pedersen = new Pedersen(bbWasm);
 
@@ -222,17 +222,19 @@ describe('ACIR simulator', () => {
         preimages.map(preimage => Fr.fromBuffer(acirSimulator.computeNullifier(preimage, ownerPk, bbWasm))),
       );
 
-      const recipientNote = result.preimages.newNotes[0];
+      expect(result.preimages.newNotes).toHaveLength(2);
+      const [recipientNote, changeNote] = result.preimages.newNotes;
       expect(recipientNote.storageSlot).toEqual(computeSlot(new Fr(1n), recipient, bbWasm));
 
       const newCommitments = result.callStackItem.publicInputs.newCommitments.filter(field => !field.equals(Fr.ZERO));
 
-      // expect(newCommitments).toHaveLength(2);
+      expect(newCommitments).toHaveLength(2);
 
-      const [recipientNoteCommitment] = newCommitments;
+      const [recipientNoteCommitment, changeNoteCommitment] = newCommitments;
       expect(recipientNoteCommitment).toEqual(
         Fr.fromBuffer(acirSimulator.computeNoteHash(recipientNote.preimage, bbWasm)),
       );
+      expect(changeNoteCommitment).toEqual(Fr.fromBuffer(acirSimulator.computeNoteHash(changeNote.preimage, bbWasm)));
     }, 30_000);
   });
 });

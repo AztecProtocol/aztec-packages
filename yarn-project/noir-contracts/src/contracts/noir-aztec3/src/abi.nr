@@ -14,6 +14,7 @@ use crate::types::vec::BoundedVec;
 struct Inputs {
     call_context : CallContext,
 
+    old_private_data_tree_root : Field,
     old_nullifier_tree_root : Field,
     old_contract_tree_root : Field,
 
@@ -50,8 +51,6 @@ struct Outputs {
     public_call_stack: [Field; MAX_PUBLIC_CALL_STACK],
     l1_message_stack: [Field; MAX_L1_MSG_STACK],
 
-    old_private_data_tree_root: Field,
-
     new_note_values: [Field; 4],
     new_note_owner_xs: [Field; 4],
     new_note_owner_ys: [Field; 4],
@@ -80,8 +79,6 @@ struct IntermediateOutputs {
     private_call_stack : BoundedVec<Field, MAX_PRIVATE_CALL_STACK>,
     public_call_stack : BoundedVec<Field, MAX_PUBLIC_CALL_STACK>,
     l1_message_stack : BoundedVec<Field, MAX_L1_MSG_STACK>,
-
-    old_private_data_tree_root : Field,
 
     new_note_values: BoundedVec<Field, MAX_NEW_COMMITMENTS>,
     new_note_owner_xs: BoundedVec<Field, MAX_NEW_COMMITMENTS>,
@@ -148,8 +145,6 @@ impl IntermediateOutputs {
             public_call_stack: BoundedVec::new(0),
             l1_message_stack: BoundedVec::new(0),
 
-            old_private_data_tree_root: 0,
-
             new_note_values: BoundedVec::new(0),
             new_note_owner_xs: BoundedVec::new(0),
             new_note_owner_ys: BoundedVec::new(0),
@@ -188,8 +183,7 @@ impl IntermediateOutputs {
             ord_18_public_call_stack: self.public_call_stack.storage,
             ord_19_l1_message_stack: self.l1_message_stack.storage,
 
-            ord_20_old_private_data_tree_root: self.old_private_data_tree_root,
-
+            ord_20_old_private_data_tree_root: inputs.old_private_data_tree_root,
             ord_21_old_nullifier_tree_root: inputs.old_nullifier_tree_root,
             ord_22_old_contract_tree_root: inputs.old_contract_tree_root,
 
