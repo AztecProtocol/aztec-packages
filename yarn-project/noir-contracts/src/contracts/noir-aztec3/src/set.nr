@@ -120,16 +120,17 @@ impl Set {
         // };
         // process_data(note_getter_data.0, storage_slot, contract_address);
         // process_data(note_getter_data.1, storage_slot, contract_address);
-        let process_data = |data: NoteGetterData| {
-            if outputs.old_private_data_tree_root == 0 {
-                outputs.old_private_data_tree_root = data.root;
-            } else {
-                constrain outputs.old_private_data_tree_root == data.root;
-            }
-        };
-        process_data(note_getter_data.0);
-        process_data(note_getter_data.1);
+
+        constrain note_getter_data.0.root == note_getter_data.1.root;
         
+        let root = note_getter_data.0.root;
+
+        if outputs.old_private_data_tree_root == 0 {
+            outputs.old_private_data_tree_root = root;
+        } else {
+            constrain outputs.old_private_data_tree_root == root;
+        }
+
         let notes = (note_getter_data.0.note, note_getter_data.1.note);
         (outputs, notes)
     }
