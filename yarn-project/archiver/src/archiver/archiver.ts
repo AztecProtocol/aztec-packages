@@ -52,8 +52,8 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource {
    */
   private unverifiedData: UnverifiedData[] = [];
 
-  private lastL2BlockEventEthBlockNum = 0n;
-  private lastUnverifiedDataEventEthBlockNum = 0n;
+  private nextL2BlockEventEthBlockNum = 0n;
+  private nextUnverifiedDataEventEthBlockNum = 0n;
 
   /**
    * Creates a new instance of the Archiver.
@@ -121,24 +121,24 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource {
     // with any of its blocks.
     const maxInitialSyncBlock = currentBlockNumber - this.dangerZoneBlockLength - this.numBlocksPerFetch;
 
-    while (this.lastL2BlockEventEthBlockNum < maxInitialSyncBlock) {
+    while (this.nextL2BlockEventEthBlockNum < maxInitialSyncBlock) {
       const l2BlockProcessedLogs = await this.getL2BlockProcessedLogs(
-        this.lastL2BlockEventEthBlockNum,
-        this.lastL2BlockEventEthBlockNum + this.numBlocksPerFetch,
+        this.nextL2BlockEventEthBlockNum,
+        this.nextL2BlockEventEthBlockNum + this.numBlocksPerFetch,
       );
 
       if (l2BlockProcessedLogs) await this.processBlockLogs(l2BlockProcessedLogs);
-      this.lastL2BlockEventEthBlockNum += this.numBlocksPerFetch;
+      this.nextL2BlockEventEthBlockNum += this.numBlocksPerFetch;
     }
 
-    while (this.lastUnverifiedDataEventEthBlockNum < maxInitialSyncBlock) {
+    while (this.nextUnverifiedDataEventEthBlockNum < maxInitialSyncBlock) {
       const unverifiedDataLogs = await this.getUnverifiedDataLogs(
-        this.lastUnverifiedDataEventEthBlockNum,
-        this.lastUnverifiedDataEventEthBlockNum + this.numBlocksPerFetch,
+        this.nextUnverifiedDataEventEthBlockNum,
+        this.nextUnverifiedDataEventEthBlockNum + this.numBlocksPerFetch,
       );
 
       if (unverifiedDataLogs) this.processUnverifiedDataLogs(unverifiedDataLogs);
-      this.lastUnverifiedDataEventEthBlockNum += this.numBlocksPerFetch;
+      this.nextUnverifiedDataEventEthBlockNum += this.numBlocksPerFetch;
     }
   }
 
@@ -147,20 +147,22 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource {
    * `lastUnverifiedDataEventBlockNum` and processes them.
    */
   private async sync() {
-    const l2BlockProcessedLogs = await this.getL2BlockProcessedLogs(this.lastL2BlockEventEthBlockNum);
-    const unverifiedDataLogs = await this.getUnverifiedDataLogs(this.lastUnverifiedDataEventEthBlockNum);
+    const l2BlockProcessedLogs = await this.getL2BlockProcessedLogs(this.nextL2BlockEventEthBlockNum);
+    const unverifiedDataLogs = await this.getUnverifiedDataLogs(this.nextUnverifiedDataEventEthBlockNum);
 
-    if (l2BlockProcessedLogs) {
+    if (l2BlockProcessedLogs.length > 0) {
       await this.processBlockLogs(l2BlockProcessedLogs);
-      this.lastL2BlockEventEthBlockNum = l2BlockProcessedLogs[l2BlockProcessedLogs.length - 1].blockNumber!;
+      this.nextL2BlockEventEthBlockNum = l2BlockProcessedLogs[l2BlockProcessedLogs.length - 1].blockNumber! + 1n;
     }
-    if (unverifiedDataLogs) {
+    if (unverifiedDataLogs.length > 0) {
       this.processUnverifiedDataLogs(unverifiedDataLogs);
-      this.lastUnverifiedDataEventEthBlockNum = unverifiedDataLogs[unverifiedDataLogs.length - 1].blockNumber;
+      this.nextUnverifiedDataEventEthBlockNum = unverifiedDataLogs[unverifiedDataLogs.length - 1].blockNumber + 1n;
     }
   }
 
   private async getL2BlockProcessedLogs(fromBlock: bigint, toBlock?: bigint) {
+    // Note: For some reason the return type of `getLogs` would not get correctly derived if I didn't set the abitItem
+    //       as a standalone constant.
     const abiItem = getAbiItem({
       abi: RollupAbi,
       name: 'L2BlockProcessed',
@@ -174,6 +176,8 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource {
   }
 
   private async getUnverifiedDataLogs(fromBlock: bigint, toBlock?: bigint): Promise<any[]> {
+    // Note: For some reason the return type of `getLogs` would not get correctly derived if I didn't set the abitItem
+    //       as a standalone constant.
     const abiItem = getAbiItem({
       abi: UnverifiedDataEmitterAbi,
       name: 'UnverifiedData',
@@ -194,9 +198,6 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource {
     for (const log of logs) {
       const blockNum = log.args.blockNum;
       if (blockNum !== BigInt(this.l2Blocks.length + INITIAL_L2_BLOCK_NUM)) {
-        console.log(log);
-        console.log('blockNum', blockNum);
-        console.log('expected', this.l2Blocks.length + INITIAL_L2_BLOCK_NUM);
         throw new Error(
           'Block number mismatch. Expected: ' +
             (this.l2Blocks.length + INITIAL_L2_BLOCK_NUM) +
@@ -207,8 +208,8 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource {
       }
       // TODO: Fetch blocks from calldata in parallel
       const newBlock = await this.getBlockFromCallData(log.transactionHash!, log.args.blockNum);
-      this.log(`Retrieved block ${newBlock.number} from chain`);
       this.l2Blocks.push(newBlock);
+      this.log(`Processed block ${newBlock.number}.`);
     }
   }
 
