@@ -114,7 +114,7 @@ contract PrivateToken {
         let recipient_balance = balances.at(recipient.x);
         outputs = recipient_balance.insert(outputs, recipient_note);
 
-        // outputs = sender_balance.insert(outputs, change_note);
+        outputs = sender_balance.insert(outputs, change_note);
 
         //*********************************/
         // Eventually hidden:
