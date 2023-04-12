@@ -2,16 +2,16 @@ import { EthAddress, randomBytes, sleep, toBufferBE } from '@aztec/foundation';
 import { RollupAbi, UnverifiedDataEmitterAbi } from '@aztec/l1-contracts/viem';
 import { L2Block } from '@aztec/types';
 import { MockProxy, mock } from 'jest-mock-extended';
-import { Log, PublicClient, Transaction, encodeFunctionData, toHex } from 'viem';
+import { Chain, HttpTransport, Log, PublicClient, Transaction, encodeFunctionData, toHex } from 'viem';
 import { Archiver } from './archiver.js';
 
 describe('Archiver', () => {
   const rollupAddress = '0x0000000000000000000000000000000000000000';
   const unverifiedDataEmitterAddress = '0x0000000000000000000000000000000000000000';
-  let publicClient: MockProxy<PublicClient>;
+  let publicClient: MockProxy<PublicClient<HttpTransport, Chain>>;
 
   beforeEach(() => {
-    publicClient = mock<PublicClient>();
+    publicClient = mock<PublicClient<HttpTransport, Chain>>();
   });
 
   it('can start, sync and stop', async () => {

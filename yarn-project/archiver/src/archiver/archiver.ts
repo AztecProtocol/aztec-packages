@@ -3,7 +3,10 @@ import { INITIAL_L2_BLOCK_NUM } from '@aztec/l1-contracts';
 import { RollupAbi, UnverifiedDataEmitterAbi } from '@aztec/l1-contracts/viem';
 import { ContractData, L2Block, L2BlockSource, UnverifiedData, UnverifiedDataSource } from '@aztec/types';
 import {
+  Chain,
   Hex,
+  HttpTransport,
+  Log,
   PublicClient,
   createPublicClient,
   decodeFunctionData,
@@ -61,7 +64,7 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource {
    * @param log - A logger.
    */
   constructor(
-    private readonly publicClient: PublicClient,
+    private readonly publicClient: PublicClient<HttpTransport, Chain>,
     private readonly rollupAddress: EthAddress,
     private readonly unverifiedDataEmitterAddress: EthAddress,
     private readonly pollingIntervalMs = 10_000,
@@ -149,7 +152,7 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource {
 
     if (l2BlockProcessedLogs) {
       await this.processBlockLogs(l2BlockProcessedLogs);
-      this.lastL2BlockEventEthBlockNum = l2BlockProcessedLogs[l2BlockProcessedLogs.length - 1].blockNumber;
+      this.lastL2BlockEventEthBlockNum = l2BlockProcessedLogs[l2BlockProcessedLogs.length - 1].blockNumber!;
     }
     if (unverifiedDataLogs) {
       this.processUnverifiedDataLogs(unverifiedDataLogs);
@@ -157,25 +160,27 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource {
     }
   }
 
-  private async getL2BlockProcessedLogs(fromBlock: bigint, toBlock?: bigint): Promise<any[]> {
+  private async getL2BlockProcessedLogs(fromBlock: bigint, toBlock?: bigint) {
+    const abiItem = getAbiItem({
+      abi: RollupAbi,
+      name: 'L2BlockProcessed',
+    });
     return await this.publicClient.getLogs({
       address: getAddress(this.rollupAddress.toString()),
-      event: getAbiItem({
-        abi: RollupAbi,
-        name: 'L2BlockProcessed',
-      }),
+      event: abiItem,
       fromBlock,
       toBlock,
     });
   }
 
   private async getUnverifiedDataLogs(fromBlock: bigint, toBlock?: bigint): Promise<any[]> {
+    const abiItem = getAbiItem({
+      abi: UnverifiedDataEmitterAbi,
+      name: 'UnverifiedData',
+    });
     return await this.publicClient.getLogs({
       address: getAddress(this.unverifiedDataEmitterAddress.toString()),
-      event: getAbiItem({
-        abi: UnverifiedDataEmitterAbi,
-        name: 'UnverifiedData',
-      }),
+      event: abiItem,
       fromBlock,
       toBlock,
     });
@@ -185,8 +190,7 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource {
    * Processes newly received L2BlockProcessed events.
    * @param logs - L2BlockProcessed event logs.
    */
-  // private async processBlockLogs(logs: Log<bigint, number, undefined, typeof RollupAbi, 'L2BlockProcessed'>[]) {
-  private async processBlockLogs(logs: any[]) {
+  private async processBlockLogs(logs: Log<bigint, number, undefined, typeof RollupAbi, 'L2BlockProcessed'>[]) {
     for (const log of logs) {
       const blockNum = log.args.blockNum;
       if (blockNum !== BigInt(this.l2Blocks.length + INITIAL_L2_BLOCK_NUM)) {
@@ -213,8 +217,7 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource {
    * @param logs - UnverifiedData event logs.
    */
   private processUnverifiedDataLogs(
-    // logs: Log<bigint, number, undefined, typeof UnverifiedDataEmitterAbi, 'UnverifiedData'>[],
-    logs: any[],
+    logs: Log<bigint, number, undefined, typeof UnverifiedDataEmitterAbi, 'UnverifiedData'>[],
   ) {
     for (const log of logs) {
       const l2BlockNum = log.args.l2BlockNum;
