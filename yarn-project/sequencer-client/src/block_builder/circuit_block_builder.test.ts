@@ -13,14 +13,8 @@ import {
   makePrivateKernelPublicInputs,
   makeRootRollupPublicInputs,
 } from '@aztec/circuits.js/factories';
-import { Tx } from '@aztec/tx';
-import {
-  INITIAL_NULLIFIER_TREE_SIZE,
-  LeafData,
-  MerkleTreeId,
-  MerkleTreeOperations,
-  MerkleTrees,
-} from '@aztec/world-state';
+import { Tx } from '@aztec/types';
+import { MerkleTreeId, MerkleTreeOperations, MerkleTrees } from '@aztec/world-state';
 import { MockProxy, mock } from 'jest-mock-extended';
 import { default as levelup } from 'levelup';
 import flatMap from 'lodash.flatmap';
@@ -33,7 +27,6 @@ import { Simulator } from '../simulator/index.js';
 import { WasmCircuitSimulator } from '../simulator/wasm.js';
 import { CircuitBlockBuilder } from './circuit_block_builder.js';
 import { computeContractLeaf } from '@aztec/circuits.js/abis';
-import { buffer } from 'stream/consumers';
 import { toBufferBE } from '@aztec/foundation';
 
 /* eslint-disable @typescript-eslint/ban-ts-comment */

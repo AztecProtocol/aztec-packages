@@ -1,15 +1,16 @@
 import { Archiver } from '@aztec/archiver';
 import { AztecAddress } from '@aztec/foundation';
-import { ContractData, L2Block, L2BlockSource } from '@aztec/l2-block';
+import { ContractData, L2Block, L2BlockSource } from '@aztec/types';
 import { SiblingPath } from '@aztec/merkle-tree';
 import { P2P, P2PClient } from '@aztec/p2p';
 import { SequencerClient } from '@aztec/sequencer-client';
-import { Tx, TxHash } from '@aztec/tx';
-import { UnverifiedData, UnverifiedDataSource } from '@aztec/unverified-data';
+import { Tx, TxHash } from '@aztec/types';
+import { UnverifiedData, UnverifiedDataSource } from '@aztec/types';
 import { MerkleTreeId, MerkleTrees, ServerWorldStateSynchroniser, WorldStateSynchroniser } from '@aztec/world-state';
 import { default as levelup } from 'levelup';
 import { default as memdown } from 'memdown';
 import { AztecNodeConfig } from './config.js';
+import { CircuitsWasm } from '@aztec/circuits.js';
 
 /* eslint-disable @typescript-eslint/ban-ts-comment */
 // @ts-ignore
@@ -41,7 +42,7 @@ export class AztecNode {
     const p2pClient = new P2PClient(archiver);
 
     // now create the merkle trees and the world state syncher
-    const merkleTreeDB = await MerkleTrees.new(levelup(createMemDown()));
+    const merkleTreeDB = await MerkleTrees.new(levelup(createMemDown()), await CircuitsWasm.get());
     const worldStateSynchroniser = new ServerWorldStateSynchroniser(merkleTreeDB, archiver);
 
     // start both and wait for them to sync from the block source

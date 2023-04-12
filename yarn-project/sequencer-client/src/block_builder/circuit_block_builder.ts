@@ -19,7 +19,7 @@ import {
 } from '@aztec/circuits.js';
 import { Fr, createDebugLogger, toBigIntBE } from '@aztec/foundation';
 import { LeafData, SiblingPath } from '@aztec/merkle-tree';
-import { Tx } from '@aztec/tx';
+import { Tx } from '@aztec/types';
 import { MerkleTreeId, MerkleTreeOperations } from '@aztec/world-state';
 import flatMap from 'lodash.flatmap';
 import times from 'lodash.times';
@@ -27,7 +27,7 @@ import { makeEmptyTx } from '../deps/tx.js';
 import { VerificationKeys } from '../deps/verification_keys.js';
 import { Proof, Prover } from '../prover/index.js';
 import { Simulator } from '../simulator/index.js';
-import { ContractData, L2Block } from '@aztec/l2-block';
+import { ContractData, L2Block } from '@aztec/types';
 import { computeContractLeaf } from '@aztec/circuits.js/abis';
 
 const frToBigInt = (fr: Fr) => toBigIntBE(fr.toBuffer());
@@ -419,32 +419,37 @@ export class CircuitBlockBuilder {
    * @returns
    */
   public async performBaseRollupBatchInsertionProofs(leaves: Buffer[]): Promise<LowNullifierWitnessData[] | undefined> {
+    // Keep track of touched low nullifiers
     const touched = new Map<number, bigint[]>();
 
+    // Accumulators
     const lowNullifierWitnesses: LowNullifierWitnessData[] = [];
-
     const pendingInsertionSubtree: NullifierLeafPreimage[] = [];
+
+    // Start info
     const dbInfo = await this.db.getTreeInfo(MerkleTreeId.NULLIFIER_TREE);
     const startInsertionIndex: bigint = dbInfo.size;
 
+    // Prefill empty values
     const zeroPreimage: NullifierLeafPreimage = new NullifierLeafPreimage(new Fr(0n), new Fr(0n), 0);
+    const emptySP = new SiblingPath();
+    emptySP.data = Array(dbInfo.depth).fill(
+      Buffer.from('0000000000000000000000000000000000000000000000000000000000000000', 'hex'),
+    );
+    const emptyWitness: LowNullifierWitnessData = {
+      preimage: NullifierLeafPreimage.empty(),
+      index: 0n,
+      siblingPath: emptySP,
+    };
 
+    // Get insertion path for each leaf
     for (let i = 0; i < leaves.length; i++) {
       const newValue = toBigIntBE(leaves[i]);
 
       // Keep space and just insert zero values
       if (newValue === 0n) {
         pendingInsertionSubtree.push(zeroPreimage);
-        const emptySP = new SiblingPath();
-        emptySP.data = Array(dbInfo.depth).fill(
-          Buffer.from('0000000000000000000000000000000000000000000000000000000000000000', 'hex'),
-        );
-        const witness: LowNullifierWitnessData = {
-          preimage: NullifierLeafPreimage.empty(),
-          index: 0n,
-          siblingPath: emptySP,
-        };
-        lowNullifierWitnesses.push(witness);
+        lowNullifierWitnesses.push(emptyWitness);
         continue;
       }
 
@@ -480,16 +485,7 @@ export class CircuitBlockBuilder {
         }
 
         // Any node updated in this space will need to calculate its low nullifier from a previously inserted value
-        const emptySP = new SiblingPath();
-        emptySP.data = Array(dbInfo.depth).fill(
-          Buffer.from('0000000000000000000000000000000000000000000000000000000000000000', 'hex'),
-        );
-        const witness: LowNullifierWitnessData = {
-          preimage: NullifierLeafPreimage.empty(),
-          index: 0n,
-          siblingPath: emptySP,
-        };
-        lowNullifierWitnesses.push(witness);
+        lowNullifierWitnesses.push(emptyWitness);
       } else {
         // Update the touched mapping
         if (prevNodes) {
