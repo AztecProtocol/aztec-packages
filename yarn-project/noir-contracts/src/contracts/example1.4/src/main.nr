@@ -86,16 +86,16 @@ contract PrivateToken {
         let (mut outputs, (note1, note2)) = sender_balance.get_2(inputs, outputs1);
 
         let mut sum = 0;
-        let constrain_note = |note: Note| {
+        let constrain_note = |note: Note, sender_forwarded: Point| {
             if note.is_dummy {
                 constrain note.value == 0;
             }
-            constrain sender.x == note.owner.x;
-            constrain sender.y == note.owner.y;
+            constrain sender_forwarded.x == note.owner.x;
+            constrain sender_forwarded.y == note.owner.y;
             note.value
         };
-        sum += constrain_note(note1);
-        sum += constrain_note(note2);
+        sum += constrain_note(note1, sender);
+        sum += constrain_note(note2, sender);
 
 
         constrain sum as u64 >= amount as u64;
@@ -114,7 +114,7 @@ contract PrivateToken {
         let recipient_balance = balances.at(recipient.x);
         outputs = recipient_balance.insert(outputs, recipient_note);
 
-        outputs = sender_balance.insert(outputs, change_note);
+        // outputs = sender_balance.insert(outputs, change_note);
 
         //*********************************/
         // Eventually hidden:

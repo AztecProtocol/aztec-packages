@@ -35,11 +35,11 @@ struct NoteGetterData {
 fn make_note_getter_data(fields: [Field], start: comptime Field) -> NoteGetterData {
     NoteGetterData {
         note: Note {
-            value: fields[start],
-            owner: Point::new(fields[start + 1], fields[start + 2]),
-            randomness: fields[start + 3],
-            nonce: fields[start + 4],
-            is_dummy: fields[start + 5] as bool,
+            is_dummy: fields[start] as bool,
+            nonce: fields[start + 1],
+            owner: Point::new(fields[start + 2], fields[start + 3]),
+            randomness: fields[start + 4],
+            value: fields[start + 5],
         },
         leaf_index: fields[start + 6],
         sibling_path: [
@@ -147,7 +147,10 @@ impl Set {
             contract_address,
         ])[0];
 
-        let nullifier = note.compute_nullifier(siloed_note_hash);
+        let mut nullifier = note.compute_nullifier(siloed_note_hash);
+        // TODO remove this when we can specify hash index
+        nullifier = note.compute_nullifier(note_hash);
+
         constrain notify_nullified_note(storage_slot, nullifier, note) == 0;
         outputs = outputs.push_new_nullifier(nullifier);
         outputs.push_nullified_note(note)

@@ -95,12 +95,12 @@ describe('ACIR simulator', () => {
 
     function buildNote(amount: bigint, owner: NoirPoint, isDummy = false) {
       return [
-        new Fr(amount),
+        new Fr(isDummy ? 1n : 0n),
+        new Fr(currentNonce++),
         new Fr(owner.x),
         new Fr(owner.y),
         new Fr(4n),
-        new Fr(currentNonce++),
-        new Fr(isDummy ? 1n : 0n),
+        new Fr(amount),
       ];
     }
 
@@ -214,7 +214,25 @@ describe('ACIR simulator', () => {
 
       const result = await acirSimulator.run(txRequest, abi, AztecAddress.random(), EthAddress.ZERO, oldRoots);
 
-      console.log(result.callStackItem.publicInputs.newCommitments);
+      // The two notes were nullified
+      const newNullifiers = result.callStackItem.publicInputs.newNullifiers.filter(field => !field.equals(Fr.ZERO));
+      expect(newNullifiers).toHaveLength(2);
+
+      expect(newNullifiers).toEqual(
+        preimages.map(preimage => Fr.fromBuffer(acirSimulator.computeNullifier(preimage, ownerPk, bbWasm))),
+      );
+
+      const recipientNote = result.preimages.newNotes[0];
+      expect(recipientNote.storageSlot).toEqual(computeSlot(new Fr(1n), recipient, bbWasm));
+
+      const newCommitments = result.callStackItem.publicInputs.newCommitments.filter(field => !field.equals(Fr.ZERO));
+
+      // expect(newCommitments).toHaveLength(2);
+
+      const [recipientNoteCommitment] = newCommitments;
+      expect(recipientNoteCommitment).toEqual(
+        Fr.fromBuffer(acirSimulator.computeNoteHash(recipientNote.preimage, bbWasm)),
+      );
     }, 30_000);
   });
 });
