@@ -22,6 +22,5 @@
       "path": "../types/tsconfig.json"
     }
   ],
-  "include": ["src"],
-  "exclude": ["**/*.test.*", "**/fixtures/*"]
+  "include": ["src"]
 }

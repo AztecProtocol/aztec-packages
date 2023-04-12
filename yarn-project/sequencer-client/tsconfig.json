@@ -31,6 +31,5 @@
       "path": "../world-state/tsconfig.json"
     }
   ],
-  "include": ["src", "test"],
-  "exclude": ["**/*.test.*", "**/fixtures/*"]
+  "include": ["src"]
 }

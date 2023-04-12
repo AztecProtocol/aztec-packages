@@ -10,6 +10,5 @@
       "path": "../foundation/tsconfig.json"
     }
   ],
-  "include": ["src"],
-  "exclude": ["**/*.test.*", "**/fixtures/*"]
+  "include": ["src"]
 }

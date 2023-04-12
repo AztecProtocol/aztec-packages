@@ -19,6 +19,5 @@
       "path": "../noir-contracts/tsconfig.json"
     }
   ],
-  "include": ["src"],
-  "exclude": ["**/*.test.*", "**/fixtures/*"]
+  "include": ["src"]
 }
