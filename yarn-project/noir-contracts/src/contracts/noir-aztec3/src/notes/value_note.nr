@@ -1,5 +1,7 @@
 // global KEY_GENERATOR = Point { x: 1234, y: 5678 }; // would need to be some valid generator point.
 
+use crate::types::point::Point;
+
 #[builtin(rand)]
 fn rand(_idx: Field) -> Field {}
 
@@ -12,11 +14,6 @@ struct Note {
     randomness: Field,
     nonce: Field,
     is_dummy: bool
-}
-
-struct Point {
-    x: Field,
-    y: Field,
 }
 
 impl Note {
@@ -76,10 +73,4 @@ impl Note {
 
         dep::std::hash::pedersen([crate::Nullifier, note_hash, secret_key])[0]
     }
-}
-
-impl Point {
-    fn new(x: Field, y: Field) -> Self {
-        Point { x, y }
-    } 
 }

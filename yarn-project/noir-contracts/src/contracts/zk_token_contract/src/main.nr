@@ -2,10 +2,10 @@ contract PrivateToken {
     use dep::aztec3::abi::Inputs;
     use dep::aztec3::abi::Outputs;
     use dep::aztec3::abi::FinalOutputs;
-    use dep::aztec3::note::Note;
-    use dep::aztec3::note::Point;
-    use dep::aztec3::set::Set;
-    use dep::aztec3::map::Map;
+    use dep::aztec3::notes::value_note::Note;
+    use dep::aztec3::types::point::Point;
+    use dep::aztec3::state_vars::map::Map;
+    use dep::aztec3::state_vars::set::Set;
 
     //*********************************/
     global balances = Map { storage_slot: 1 };

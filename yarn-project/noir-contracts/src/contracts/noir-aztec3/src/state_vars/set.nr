@@ -1,8 +1,10 @@
 use dep::std;
 use crate::abi::Inputs;
 use crate::abi::IntermediateOutputs;
-use crate::note::Note;
-use crate::note::Point;
+use crate::notes::value_note::Note;
+use crate::types::point::Point;
+use crate::state_vars::note_getter_data::NoteGetterData;
+use crate::state_vars::note_getter_data::make_note_getter_data;
 
 #[builtin(notifyCreatedNote)]
 fn notify_created_note(
@@ -23,35 +25,6 @@ fn get_notes_2_internal(
     _contract_address: Field,
     _storage_slot: Field,
 ) -> [Field; 26] {}
-
-// Data returned when getting a note
-struct NoteGetterData {
-    note: Note,
-    leaf_index: Field,
-    sibling_path: [Field; crate::TREE_HEIGHT],
-    root: Field,
-}
-
-fn make_note_getter_data(fields: [Field], start: comptime Field) -> NoteGetterData {
-    NoteGetterData {
-        note: Note {
-            is_dummy: fields[start] as bool,
-            nonce: fields[start + 1],
-            owner: Point::new(fields[start + 2], fields[start + 3]),
-            randomness: fields[start + 4],
-            value: fields[start + 5],
-        },
-        leaf_index: fields[start + 6],
-        sibling_path: [
-            fields[start + 7],
-            fields[start + 8],
-            fields[start + 9],
-            fields[start + 10],
-            fields[start + 11],
-        ],
-        root: fields[start + 12],
-    }
-}
 
 fn get_2_notes(contract_address: Field, storage_slot: Field) -> (NoteGetterData, NoteGetterData) {
     let fields = get_notes_2_internal(contract_address, storage_slot);
