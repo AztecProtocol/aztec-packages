@@ -24,9 +24,6 @@
     "formatting:fix": "run -T prettier -w ./src",
     "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules $(yarn bin jest) --passWithNoTests --testTimeout=15000"
   },
-  "inherits": [
-    "../package.common.json"
-  ],
   "jest": {
     "preset": "ts-jest/presets/default-esm",
     "globals": {
