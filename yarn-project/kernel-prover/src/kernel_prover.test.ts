@@ -2,10 +2,12 @@ import { ExecutionResult } from '@aztec/acir-simulator';
 import {
   AztecAddress,
   EcdsaSignature,
+  MembershipWitness,
   PRIVATE_CALL_STACK_LENGTH,
   PrivateCallStackItem,
   PrivateCircuitPublicInputs,
   TxRequest,
+  VK_TREE_HEIGHT,
   VerificationKey,
 } from '@aztec/circuits.js';
 import { makeTxRequest } from '@aztec/circuits.js/factories';
@@ -31,7 +33,7 @@ describe('Kernel Prover', () => {
     } as ExecutionResult);
 
   const expectExecution = (fns: string[]) => {
-    const callStackItems = proofCreator.createProof.mock.calls.map(args => args[4].functionData);
+    const callStackItems = proofCreator.createProof.mock.calls.map(args => args[2].callStackItem.functionData);
     expect(callStackItems).toEqual(fns);
     proofCreator.createProof.mockClear();
   };
@@ -41,7 +43,9 @@ describe('Kernel Prover', () => {
   beforeEach(() => {
     txRequest = makeTxRequest();
     txSignature = EcdsaSignature.random();
+
     oracle = mock<ProvingDataOracle>();
+    oracle.getVkMembershipWitness.mockResolvedValue(MembershipWitness.random(VK_TREE_HEIGHT));
 
     proofCreator = mock<ProofCreator>();
     proofCreator.createProof.mockResolvedValue({} as any);

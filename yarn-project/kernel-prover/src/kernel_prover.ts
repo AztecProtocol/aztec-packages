@@ -4,6 +4,8 @@ import {
   EcdsaSignature,
   MembershipWitness,
   PRIVATE_CALL_STACK_LENGTH,
+  PreviousKernelData,
+  PrivateCallData,
   PrivateCallStackItem,
   PrivateKernelPublicInputs,
   SignedTxRequest,
@@ -26,19 +28,25 @@ export class KernelProver {
     const signedTxRequest = new SignedTxRequest(txRequest, txSignature);
     const executionStack = [executionResult];
     let firstIteration = true;
+    let previousVerificationKey = VerificationKey.makeFake();
     let output: ProofOutput = {
       publicInputs: PrivateKernelPublicInputs.makeEmpty(),
       proof: makeEmptyProof(),
-      vk: VerificationKey.makeFake(),
     };
     while (executionStack.length) {
       const previousVkMembershipWitness = firstIteration
         ? MembershipWitness.random(VK_TREE_HEIGHT)
-        : await this.oracle.getVkMembershipWitness(output.vk);
+        : await this.oracle.getVkMembershipWitness(previousVerificationKey);
+      const previousKernelData = new PreviousKernelData(
+        output.publicInputs,
+        output.proof,
+        previousVerificationKey,
+        previousVkMembershipWitness.leafIndex,
+        previousVkMembershipWitness.siblingPath,
+      );
 
-      const { callStackItem, vk, nestedExecutions } = executionStack.pop()!;
-      executionStack.push(...nestedExecutions);
-
+      const currentExecution = executionStack.pop()!;
+      executionStack.push(...currentExecution.nestedExecutions);
       const privateCallStackPreimages = executionStack.map(result => result.callStackItem);
       if (privateCallStackPreimages.length > PRIVATE_CALL_STACK_LENGTH) {
         throw new Error(
@@ -51,30 +59,46 @@ export class KernelProver {
           .map(() => PrivateCallStackItem.empty()),
       );
 
-      const { storageContractAddress: contractAddress } = callStackItem.publicInputs.callContext;
-      const contractLeafMembershipWitness = callStackItem.functionData.isConstructor
-        ? MembershipWitness.random(CONTRACT_TREE_HEIGHT)
-        : await this.oracle.getContractMembershipWitness(contractAddress);
-
-      const functionLeafMembershipWitness = await this.oracle.getFunctionMembershipWitness(
-        contractAddress,
-        callStackItem.functionData.functionSelector,
-      );
+      const privateCallData = await this.createPrivateCallData(currentExecution, privateCallStackPreimages);
 
       output = await this.proofCreator.createProof(
         signedTxRequest,
-        output,
-        previousVkMembershipWitness,
+        previousKernelData,
+        privateCallData,
         firstIteration,
-        callStackItem,
-        privateCallStackPreimages,
-        VerificationKey.fromBuffer(vk),
-        contractLeafMembershipWitness,
-        functionLeafMembershipWitness,
       );
       firstIteration = false;
+      previousVerificationKey = privateCallData.vk;
     }
 
     return output;
+  }
+
+  private async createPrivateCallData(
+    { callStackItem, vk }: ExecutionResult,
+    privateCallStackPreimages: PrivateCallStackItem[],
+  ) {
+    const { storageContractAddress: contractAddress, portalContractAddress } = callStackItem.publicInputs.callContext;
+    const contractLeafMembershipWitness = callStackItem.functionData.isConstructor
+      ? MembershipWitness.random(CONTRACT_TREE_HEIGHT)
+      : await this.oracle.getContractMembershipWitness(contractAddress);
+
+    const functionLeafMembershipWitness = await this.oracle.getFunctionMembershipWitness(
+      contractAddress,
+      callStackItem.functionData.functionSelector,
+    );
+
+    // TODO
+    const proof = makeEmptyProof();
+
+    return new PrivateCallData(
+      callStackItem,
+      privateCallStackPreimages,
+      proof,
+      VerificationKey.fromBuffer(vk),
+      functionLeafMembershipWitness,
+      contractLeafMembershipWitness,
+      portalContractAddress,
+    );
   }
 }
