@@ -11,6 +11,14 @@ import { bufferToHex } from '../../../hex_string/index.js';
 import { JsonRpcProvider } from '../../../provider/json_rpc_provider.js';
 import { ContractAbiDefinition } from '../../abi/index.js';
 
+/**
+ * Get the API host for a given Ethereum network.
+ * The function maps an input network string to its corresponding etherscan.io API host URL.
+ * Supported networks are 'mainnet', 'kovan', and 'ropsten'. Throws an error if an unknown network is provided.
+ *
+ * @param net - The Ethereum network string (e.g., 'mainnet', 'kovan', or 'ropsten').
+ * @returns The etherscan.io API host URL for the specified network.
+ */
 function getApiHost(net: string) {
   switch (net) {
     case 'mainnet':
@@ -24,6 +32,16 @@ function getApiHost(net: string) {
   }
 }
 
+/**
+ * Fetches the Contract Application Binary Interface (ABI) for a given Ethereum contract address from Etherscan API.
+ * The ABI is essential for interacting with smart contracts and decoding transactions in Ethereum.
+ *
+ * @param net - The Ethereum network identifier, such as 'mainnet', 'kovan', or 'ropsten'.
+ * @param address - The Ethereum contract address to fetch the ABI for.
+ * @param apiKey - The Etherscan API key for accessing their services.
+ * @returns A Promise that resolves to the ContractAbiDefinition containing the fetched ABI.
+ * @throws An Error if the network is unknown, or fetching the ABI fails.
+ */
 async function getAbi(net: string, address: string, apiKey: string): Promise<ContractAbiDefinition> {
   const host = getApiHost(net);
   const abiUrl = `http://${host}/api?module=contract&action=getabi&address=${address}&format=raw&apikey=${apiKey}`;
