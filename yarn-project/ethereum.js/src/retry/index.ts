@@ -1,13 +1,7 @@
 import { sleep } from '../sleep/index.js';
 import { Timer } from '../timer/index.js';
 
-/**
- * Generates a backoff sequence iterator for exponential backoff with pre-defined values.
- * The iterator will yield a series of time intervals (in seconds) to be used for backing off
- * in error handling scenarios. The sequence is [1, 1, 1, 2, 4, 8, 16, 32, 64] and will not exceed 64.
- *
- * @yields {number} The next value in the backoff sequence.
- */
+
 export function* backoffGenerator() {
   const v = [1, 1, 1, 2, 4, 8, 16, 32, 64];
   let i = 0;
@@ -16,17 +10,7 @@ export function* backoffGenerator() {
   }
 }
 
-/**
- * Retry executing the provided asynchronous function until it is successful, using a backoff strategy.
- * The `backoff` generator determines the waiting time between retries. It defaults to the `backoffGenerator` function
- * which increases the waiting time exponentially. The operation can be named for better error logging.
- * If the backoff generator stops producing new values (returns undefined), the latest error will be thrown.
- *
- * @param fn - The asynchronous function to execute and retry if it fails.
- * @param name - Optional name of the operation for better error logging.
- * @param backoff - Optional custom backoff generator, defaults to exponential backoff.
- * @returns A Promise that resolves with the successful result or rejects with the latest error after all retries fail.
- */
+
 export async function retry<Result>(fn: () => Promise<Result>, name = 'Operation', backoff = backoffGenerator()) {
   while (true) {
     try {
