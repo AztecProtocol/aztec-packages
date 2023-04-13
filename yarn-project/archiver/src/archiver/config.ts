@@ -22,9 +22,7 @@ export function getConfigEnvVars(): ArchiverConfig {
   return {
     rpcUrl: ETHEREUM_HOST || 'http://127.0.0.1:8545/',
     archiverPollingInterval: ARCHIVER_POLLING_INTERVAL ? +ARCHIVER_POLLING_INTERVAL : 1_000,
-    rollupContract: EthAddress.fromString(ROLLUP_CONTRACT_ADDRESS || '0x5FbDB2315678afecb367f032d93F642f64180aa3'),
-    unverifiedDataEmitterContract: EthAddress.fromString(
-      UNVERIFIED_DATA_EMITTER_ADDRESS || '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512',
-    ),
+    rollupContract: EthAddress.fromString(ROLLUP_CONTRACT_ADDRESS || '0x0'),
+    unverifiedDataEmitterContract: EthAddress.fromString(UNVERIFIED_DATA_EMITTER_ADDRESS || '0x0'),
   };
 }

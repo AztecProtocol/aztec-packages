@@ -109,7 +109,7 @@ describe('e2e_zk_token_contract', () => {
     const tx = deployer.deploy(initialBalance, owner).send();
     const receipt = await tx.getReceipt();
     contract = new Contract(receipt.contractAddress!, ZkTokenContractAbi as ContractAbi, aztecRpcServer);
-    await tx.isMined();
+    await tx.isMined(0, 0.1);
     await tx.getReceipt();
     logger('L2 contract deployed');
     return contract;
@@ -139,7 +139,6 @@ describe('e2e_zk_token_contract', () => {
       0n,
       pointToPublicKey(await aztecRpcServer.getAccountPublicKey(owner)),
     );
-
     await expectStorageSlot(0, 0n);
     await expectEmptyStorageSlotForAccount(1);
 
@@ -147,7 +146,7 @@ describe('e2e_zk_token_contract', () => {
       .mint(mintAmount, pointToPublicKey(await aztecRpcServer.getAccountPublicKey(receiver)))
       .send({ from: receiver });
 
-    await tx.isMined();
+    await tx.isMined(0, 0.1);
     const receipt = await tx.getReceipt();
 
     expect(receipt.status).toBe(TxStatus.MINED);
@@ -164,8 +163,10 @@ describe('e2e_zk_token_contract', () => {
 
     await expectBalance(0, initialBalance);
     await expectBalance(1, 0n);
+    const timer = Date.now();
 
     const receipt = await contract.methods.transfer(accounts[1]).send({ from: accounts[0] }).getReceipt();
+    console.log('getting receipt took: ', Date.now() - timer);
     expect(receipt.status).toBe(true);
 
     await expectBalance(0, initialBalance - transferAmount);

@@ -21,10 +21,8 @@ export function getConfigEnvVars(): SequencerClientConfig {
     requiredConfirmations: SEQ_REQUIRED_CONFS ? +SEQ_REQUIRED_CONFS : 1,
     retryIntervalMs: SEQ_RETRY_INTERVAL ? +SEQ_RETRY_INTERVAL : 1_000,
     transactionPollingInterval: SEQ_TX_POLLING_INTERVAL ? +SEQ_TX_POLLING_INTERVAL : 1_000,
-    rollupContract: EthAddress.fromString(ROLLUP_CONTRACT_ADDRESS || '0x5FbDB2315678afecb367f032d93F642f64180aa3'),
-    unverifiedDataEmitterContract: EthAddress.fromString(
-      UNVERIFIED_DATA_EMITTER_ADDRESS || '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512',
-    ),
+    rollupContract: EthAddress.fromString(ROLLUP_CONTRACT_ADDRESS || '0x0'),
+    unverifiedDataEmitterContract: EthAddress.fromString(UNVERIFIED_DATA_EMITTER_ADDRESS || '0x0'),
     publisherPrivateKey: Buffer.from(SEQ_PUBLISHER_PRIVATE_KEY || ''),
     maxTxsPerBlock: SEQ_MAX_TX_PER_BLOCK ? +SEQ_MAX_TX_PER_BLOCK : 4,
   };
