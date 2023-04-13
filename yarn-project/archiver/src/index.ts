@@ -11,9 +11,6 @@ export * from './archiver/index.js';
  */
 // eslint-disable-next-line require-await
 async function main() {
-  // const rollupAddress = getAddress(ROLLUP_ADDRESS);
-  // const unverifiedDataEmitterAddress = getAddress(UNVERIFIED_DATA_EMITTER_ADDRESS);
-
   const config = getConfigEnvVars();
   const { rpcUrl, rollupContract, unverifiedDataEmitterContract } = config;
 

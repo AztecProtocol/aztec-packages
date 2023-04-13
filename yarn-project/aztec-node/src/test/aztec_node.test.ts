@@ -14,7 +14,6 @@ import {
 } from '../aztec-node/fixtures.js';
 import { getConfigEnvVars } from '../index.js';
 
-// const ETHEREUM_HOST = 'http://127.0.0.1:8545/';
 const MNEMONIC = 'test test test test test test test test test test test junk';
 
 const logger = createDebugLogger('aztec:e2e_test');
