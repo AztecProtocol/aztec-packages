@@ -165,6 +165,26 @@ describe('sequencer/circuit_block_builder', () => {
       expect(l2Block.number).toEqual(blockNumber);
       expect(proof).toEqual(emptyProof);
     }, 20000);
+
+    // For varying orders of insertions assert the local batch insertion generator creates the correct proofs
+    it.each([
+      [[16, 15, 14, 13, 0, 0, 0, 0]],
+      [[13, 14, 15, 16, 0, 0, 0, 0]],
+      [[1234, 98, 0, 0, 99999, 88, 54, 0]],
+      [[97, 98, 10, 0, 99999, 88, 100001, 9000000]],
+    ] as const)('Provides low nullifier tree information correctly', async nullifiers => {
+      const leaves = nullifiers.map(i => toBufferBE(BigInt(i), 32));
+      await expectsDb.appendLeaves(MerkleTreeId.NULLIFIER_TREE, leaves);
+
+      builder = new TestSubject(builderDb, vks, simulator, prover);
+
+      await builder.performBaseRollupBatchInsertionProofs(leaves);
+
+      // assert snapshots
+      const expectsSnapshot = await expectsDb.getTreeInfo(MerkleTreeId.NULLIFIER_TREE);
+      const buildSnapshot = await builderDb.getTreeInfo(MerkleTreeId.NULLIFIER_TREE);
+      expect(buildSnapshot).toEqual(expectsSnapshot);
+    });
   });
 
   describe('circuits simulator', () => {
@@ -213,25 +233,6 @@ describe('sequencer/circuit_block_builder', () => {
       10000,
     );
 
-    it.each([
-      [16, 15, 14, 13, 0, 0, 0, 0],
-      [13, 14, 15, 16, 0, 0, 0, 0],
-      [1234, 98, 0, 0, 99999, 88, 54, 0],
-      [97, 98, 10, 0, 99999, 88, 100001, 9000000],
-    ] as const)('Provides low nullifier tree information correctly', async (nullifiers: number[]) => {
-      const leaves = nullifiers.map(i => toBufferBE(BigInt(i), 32));
-      await expectsDb.appendLeaves(MerkleTreeId.NULLIFIER_TREE, leaves);
-
-      builder = new TestSubject(builderDb, vks, simulator, prover);
-
-      await builder.performBaseRollupBatchInsertionProofs(leaves);
-
-      // assert snapshots
-      const expectsSnapshot = await expectsDb.getTreeInfo(MerkleTreeId.NULLIFIER_TREE);
-      const buildSnapshot = await builderDb.getTreeInfo(MerkleTreeId.NULLIFIER_TREE);
-      expect(buildSnapshot).toEqual(expectsSnapshot);
-    });
-
     it('build edge case test', async () => {
       // Regression test - this recreates the edge case
 
@@ -257,66 +258,12 @@ describe('sequencer/circuit_block_builder', () => {
       tx.data.end.newNullifiers[1] = new Fr(
         17490072961923661940560522096125238013953043065748521735636170028491723851741n,
       );
+      const txs = [tx, makeEmptyTx(), makeEmptyTx(), makeEmptyTx()];
 
-      const [l2Block] = await builder.buildL2Block(blockNumber, tx);
+      const [l2Block] = await builder.buildL2Block(blockNumber, txs);
       expect(l2Block.number).toEqual(blockNumber);
     });
   });
-
-  // TODO: use the same syntax as above
-
-  it('test nullifier tree impl, inserting descending values', async () => {
-    const leaves = [16, 15, 14, 13, 0, 0, 0, 0].map(i => toBufferBE(BigInt(i), 32));
-    await expectsDb.appendLeaves(MerkleTreeId.NULLIFIER_TREE, leaves);
-
-    builder = new TestSubject(builderDb, vks, simulator, prover);
-
-    await builder.performBaseRollupBatchInsertionProofs(leaves);
-
-    // assert snapshots
-    const expectsSnapshot = await expectsDb.getTreeInfo(MerkleTreeId.NULLIFIER_TREE);
-    const buildSnapshot = await builderDb.getTreeInfo(MerkleTreeId.NULLIFIER_TREE);
-    expect(buildSnapshot).toEqual(expectsSnapshot);
-  });
-
-  // it('test nullifier tree impl, inserting ascending values', async () => {
-  //   const leaves = [13, 14, 15, 16, 0, 0, 0, 0].map(i => toBufferBE(BigInt(i), 32));
-  //   await expectsDb.appendLeaves(MerkleTreeId.NULLIFIER_TREE, leaves);
-  //   builder = new TestSubject(builderDb, vks, simulator, prover);
-
-  //   await builder.performBaseRollupBatchInsertionProofs(leaves);
-
-  //   // assert snapshots
-  //   const expectsSnapshot = await expectsDb.getTreeInfo(MerkleTreeId.NULLIFIER_TREE);
-  //   const buildSnapshot = await builderDb.getTreeInfo(MerkleTreeId.NULLIFIER_TREE);
-  //   expect(buildSnapshot).toEqual(expectsSnapshot);
-  // });
-
-  // it('test nullifier tree impl, inserting arbitrary random values', async () => {
-  //   const leaves = [1234, 98, 0, 0, 99999, 88, 54, 0].map(i => toBufferBE(BigInt(i), 32));
-  //   await expectsDb.appendLeaves(MerkleTreeId.NULLIFIER_TREE, leaves);
-  //   builder = new TestSubject(builderDb, vks, simulator, prover);
-
-  //   await builder.performBaseRollupBatchInsertionProofs(leaves);
-
-  //   // assert snapshots
-  //   const expectsSnapshot = await expectsDb.getTreeInfo(MerkleTreeId.NULLIFIER_TREE);
-  //   const buildSnapshot = await builderDb.getTreeInfo(MerkleTreeId.NULLIFIER_TREE);
-  //   expect(buildSnapshot).toEqual(expectsSnapshot);
-  // });
-
-  // it('test nullifier tree impl, inserting arbitrary random values #2', async () => {
-  //   const leaves = [97, 98, 10, 0, 99999, 88, 100001, 9000000].map(i => toBufferBE(BigInt(i), 32));
-  //   await expectsDb.appendLeaves(MerkleTreeId.NULLIFIER_TREE, leaves);
-  //   builder = new TestSubject(builderDb, vks, simulator, prover);
-
-  //   await builder.performBaseRollupBatchInsertionProofs(leaves);
-
-  //   // assert snapshots
-  //   const expectsSnapshot = await expectsDb.getTreeInfo(MerkleTreeId.NULLIFIER_TREE);
-  //   const buildSnapshot = await builderDb.getTreeInfo(MerkleTreeId.NULLIFIER_TREE);
-  //   expect(buildSnapshot).toEqual(expectsSnapshot);
-  // });
 });
 
 // Test subject class that exposes internal functions for testing
