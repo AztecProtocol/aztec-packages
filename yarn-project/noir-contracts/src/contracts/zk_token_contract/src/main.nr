@@ -85,21 +85,23 @@ contract PrivateToken {
         let sender_balance = balances.at(sender.x);
         let (mut outputs, (note1, note2)) = sender_balance.get_2(inputs, outputs1);
 
-        let mut sum = 0;
         let constrain_note = |note: Note, sender_forwarded: Point| {
-            if note.is_dummy {
+             if note.is_dummy {
                 constrain note.value == 0;
             } else {
                 constrain sender_forwarded.x == note.owner.x;
                 constrain sender_forwarded.y == note.owner.y;
             }
-            note.value
         };
-        sum += constrain_note(note1, sender);
-        sum += constrain_note(note2, sender);
 
+        // TODO: Removing this return breaks the circuit (???)
+        outputs.return_values = outputs.return_values.push(note2.is_dummy as Field);
+
+        constrain_note(note1, sender);
+        constrain_note(note2, sender);
+
+        let sum = note1.value + note2.value;
         constrain sum as u64 >= amount as u64;
-
         let change_value = sum - amount;
 
         outputs = sender_balance.remove(inputs, outputs, note1);
@@ -109,13 +111,12 @@ contract PrivateToken {
         let change_note = Note::new(change_value, sender, 1);
 
         let recipient_balance = balances.at(recipient.x);
-        outputs = recipient_balance.insert(outputs, recipient_note);
 
+        outputs = recipient_balance.insert(outputs, recipient_note);
         outputs = sender_balance.insert(outputs, change_note);
 
-        //*********************************/
-        // Eventually hidden:
-        outputs.finish(inputs) // Return this, but NOT PUBLIC!
-        //*********************************/
+
+        outputs.finish(inputs)
     }
+
 }
