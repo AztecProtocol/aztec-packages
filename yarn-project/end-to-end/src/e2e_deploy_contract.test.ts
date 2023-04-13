@@ -1,13 +1,13 @@
-import { AztecNode } from '@aztec/aztec-node';
+import { AztecNode, getConfigEnvVars } from '@aztec/aztec-node';
 import { AztecAddress, AztecRPCServer, ContractDeployer, Fr, TxStatus } from '@aztec/aztec.js';
 import { EthereumRpc } from '@aztec/ethereum.js/eth_rpc';
 import { WalletProvider } from '@aztec/ethereum.js/provider';
 import { EthAddress, createDebugLogger } from '@aztec/foundation';
 import { ContractAbi } from '@aztec/noir-contracts';
 import { TestContractAbi } from '@aztec/noir-contracts/examples';
+
 import { createAztecRpcServer } from './create_aztec_rpc_client.js';
 import { createProvider, deployRollupContract, deployUnverifiedDataEmitterContract } from './deploy_l1_contracts.js';
-import { getConfigEnvVars } from '../../aztec-node/src/index.js';
 
 const MNEMONIC = 'test test test test test test test test test test test junk';
 
