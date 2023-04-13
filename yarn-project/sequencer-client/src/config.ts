@@ -11,6 +11,7 @@ export function getConfigEnvVars(): SequencerClientConfig {
     SEQ_REQUIRED_CONFS,
     SEQ_RETRY_INTERVAL,
     SEQ_TX_POLLING_INTERVAL,
+    SEQ_MAX_TX_PER_BLOCK,
     ROLLUP_CONTRACT_ADDRESS,
     UNVERIFIED_DATA_EMITTER_ADDRESS,
   } = process.env;
@@ -25,5 +26,6 @@ export function getConfigEnvVars(): SequencerClientConfig {
       UNVERIFIED_DATA_EMITTER_ADDRESS || '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512',
     ),
     publisherPrivateKey: Buffer.from(SEQ_PUBLISHER_PRIVATE_KEY || ''),
+    maxTxsPerBlock: SEQ_MAX_TX_PER_BLOCK ? +SEQ_MAX_TX_PER_BLOCK : 4,
   };
 }

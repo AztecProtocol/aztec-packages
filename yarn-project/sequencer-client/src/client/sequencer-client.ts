@@ -33,4 +33,8 @@ export class SequencerClient {
   public async stop() {
     await this.sequencer.stop();
   }
+
+  public restart() {
+    this.sequencer.restart();
+  }
 }
