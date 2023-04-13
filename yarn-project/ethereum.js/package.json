@@ -23,14 +23,19 @@
     "./crypto": "./dest/crypto/index.js"
   },
   "scripts": {
-    "prepare": "node ../../scripts/update_build_manifest.mjs package.json",
-    "build": "yarn clean && tsc -b tsconfig.dest.json",
-    "build:dev": "yarn build --watch",
+    "prepare": "node ../yarn-project-base/scripts/update_build_manifest.mjs package.json",
+    "prepare:check": "node ../yarn-project-base/scripts/update_build_manifest.mjs package.json --check",
+    "build": "yarn clean && tsc -b",
+    "build:dev": "tsc -b --watch",
     "clean": "rm -rf ./dest .tsbuildinfo",
-    "formatting": "run -T prettier --check ./src && run -T eslint --max-warnings 0 ./src",
-    "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules $(yarn bin jest) --no-cache",
+    "formatting": "run -T prettier --check ./src && run -T eslint ./src",
+    "formatting:fix": "run -T prettier -w ./src",
+    "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules $(yarn bin jest) --passWithNoTests",
     "gen_fixtures": "NODE_NO_WARNINGS=1 node ./dest/contract/gen_def/index.js ./src/contract/fixtures/contracts.json"
   },
+  "inherits": [
+    "../package.common.json"
+  ],
   "bin": {
     "contract_gen_def": "./dest/contract/gen_def/index.js"
   },
@@ -73,5 +78,11 @@
     "jest-mock-extended": "^3.0.1",
     "ts-jest": "28.0.7",
     "typescript": "^4.9.5"
-  }
+  },
+  "files": [
+    "dest",
+    "src",
+    "!*.test.*"
+  ],
+  "types": "./dest/index.d.ts"
 }

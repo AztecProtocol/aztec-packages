@@ -20,7 +20,7 @@ import { hashVK } from '@aztec/circuits.js/abis';
 import { Fr, Point, createDebugLogger } from '@aztec/foundation';
 import { FunctionTreeInfo, KernelProver } from '@aztec/kernel-prover';
 import { ContractAbi, FunctionType } from '@aztec/noir-contracts';
-import { Tx, TxHash } from '@aztec/tx';
+import { Tx, TxHash } from '@aztec/types';
 import { generateFunctionSelector } from '../abi_coder/index.js';
 import { AztecRPCClient, DeployedContract } from '../aztec_rpc_client/index.js';
 import { ContractDao, toContractDao } from '../contract_database/contract_dao.js';
@@ -48,7 +48,6 @@ export class AztecRPCServer implements AztecRPCClient {
     private log = createDebugLogger('aztec:rpc_server'),
   ) {
     this.synchroniser = new Synchroniser(node, db, acirSimulator);
-    this.synchroniser.start();
   }
 
   public async start() {
@@ -56,6 +55,7 @@ export class AztecRPCServer implements AztecRPCClient {
     for (const account of accounts) {
       await this.initAccountState(account);
     }
+    this.synchroniser.start();
     this.log(`Started. ${accounts.length} initial accounts.`);
   }
 

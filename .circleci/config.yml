@@ -15,6 +15,10 @@
 # There are some `join` steps that are just noops. They are just used to produce cleaner graph rendering in CCI.
 
 version: 2.1
+
+orbs:
+  slack: circleci/slack@4.12.1
+
 parameters:
   workflow:
     type: string
@@ -77,6 +81,12 @@ jobs:
     steps:
       - *checkout
       - *setup_env
+      # We make the build_manifest in the root available to yarn-project. We should be injecting another
+      # build context to docker instead, but that requires modifying the build script from build-system
+      # to accept arbitrary arguments to be passed to docker build, so we avoid it for now.
+      - run:
+          name: "Make build manifest available"
+          command: cp build_manifest.json yarn-project/
       - run:
           name: "Build"
           command: build yarn-project-base
@@ -125,7 +135,7 @@ jobs:
           name: "Build and test"
           command: build barretenberg.js
 
-  l2-block:
+  types:
     machine:
       image: ubuntu-2004:202010-01
     resource_class: large
@@ -134,7 +144,7 @@ jobs:
       - *setup_env
       - run:
           name: "Build and test"
-          command: build l2-block
+          command: build types
 
   noir-contracts:
     machine:
@@ -285,6 +295,11 @@ defaults: &defaults
       only: *tag_regex
   context:
     - build
+    - slack
+  post-steps:
+    - slack/notify:
+        event: fail
+        branch_pattern: "master"
 yarn_project: &yarn_project
   requires:
     - yarn-project-base
@@ -305,10 +320,23 @@ workflows:
           requires:
             - wasm-linux-clang
           <<: *defaults
+
       - ethereum-js: *yarn_project
       - aztec-js: *yarn_project
       - end-to-end: *yarn_project
       - foundation: *yarn_project
+      - world-state: *yarn_project
+      - acir-simulator: *yarn_project
+      - archiver: *yarn_project
+      - aztec-rpc: *yarn_project
+      - barretenberg-js: *yarn_project
+      - merkle-tree: *yarn_project
+      - p2p: *yarn_project
+      - noir-contracts: *yarn_project
+      - sequencer-client: *yarn_project
+      - types: *yarn_project
+      - circuits-js: *yarn_project
+
       - e2e-join:
           requires:
             - ethereum-js
@@ -317,16 +345,6 @@ workflows:
             - noir-contracts
             - foundation
           <<: *defaults
+      
       - e2e-deploy-contract: *e2e_test
       - e2e-zk-token-contract: *e2e_test
-      - world-state: *yarn_project
-      - acir-simulator: *yarn_project
-      - archiver: *yarn_project
-      - aztec-rpc: *yarn_project
-      - barretenberg-js: *yarn_project
-      - l2-block: *yarn_project
-      - merkle-tree: *yarn_project
-      - p2p: *yarn_project
-      - noir-contracts: *yarn_project
-      - sequencer-client: *yarn_project
-      - circuits-js: *yarn_project
