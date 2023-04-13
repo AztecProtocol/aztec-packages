@@ -9,7 +9,6 @@ import { createAztecRpcServer } from './create_aztec_rpc_client.js';
 import { createProvider, deployRollupContract, deployUnverifiedDataEmitterContract } from './deploy_l1_contracts.js';
 import { getConfigEnvVars } from '../../aztec-node/src/index.js';
 
-// const { ETHEREUM_HOST = 'http://localhost:8545' } = process.env;
 const MNEMONIC = 'test test test test test test test test test test test junk';
 
 const logger = createDebugLogger('aztec:e2e_deploy_contract');
