@@ -2,11 +2,20 @@
 
 use crate::types::point::Point;
 
-#[builtin(rand)]
-fn rand(_idx: Field) -> Field {}
+#[oracle(rand)]
+fn rand_oracle(_idx: Field) -> [Field; 2] {}
 
-#[builtin(getSecretKey)]
-fn get_secret_key(_owner: Point) -> Field {}
+unconstrained fn rand(idx: Field) -> Field {
+    rand_oracle(idx)[0]
+}
+
+#[oracle(getSecretKey)]
+fn get_secret_key_oracle(_owner: Point) -> [Field; 2] {}
+
+unconstrained fn get_secret_key(owner: Point) -> Field {
+    get_secret_key_oracle(owner)[0]
+}
+
 
 struct Note {
     value: Field,

@@ -7,25 +7,48 @@ use crate::state_vars::note_getter_data::NoteGetterData;
 use crate::state_vars::note_getter_data::make_note_getter_data;
 use crate::state_vars::note_getter_data::note_getter_data_len;
 
-#[builtin(notifyCreatedNote)]
-fn notify_created_note(
+#[oracle(notifyCreatedNote)]
+fn notify_created_note_oracle(
     _storage_slot: Field,
     _owner: Point,
     _note: Note,
-) -> Field {}
+) -> [Field; 2] {}
 
-#[builtin(notifyNullifiedNote)]
-fn notify_nullified_note(
+unconstrained fn notify_created_note(
+    storage_slot: Field,
+    owner: Point,
+    note: Note,
+) -> Field {
+    notify_created_note_oracle(storage_slot, owner, note)[0]
+}
+
+#[oracle(notifyNullifiedNote)]
+fn notify_nullified_note_oracle(
     _storage_slot: Field,
     _nullifier: Field,
     _note: Note,
-) -> Field {}
+) -> [Field; 2] {}
 
-#[builtin(getNotes2)]
-fn get_notes_2_internal(
+unconstrained fn notify_nullified_note(
+    storage_slot: Field,
+    nullifier: Field,
+    note: Note,
+) -> Field {
+    notify_nullified_note_oracle(storage_slot, nullifier, note)[0]
+}
+
+#[oracle(getNotes2)]
+fn get_notes_2_oracle(
     _contract_address: Field,
     _storage_slot: Field,
 ) -> [Field; 32] {}
+
+unconstrained fn get_notes_2_internal(
+    contract_address: Field,
+    storage_slot: Field,
+) -> [Field; 32] {
+    get_notes_2_oracle(contract_address, storage_slot)
+}
 
 fn get_2_notes(contract_address: Field, storage_slot: Field) -> (NoteGetterData, NoteGetterData) {
     let fields = get_notes_2_internal(contract_address, storage_slot);
