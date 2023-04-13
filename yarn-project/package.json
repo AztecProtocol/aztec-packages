@@ -9,8 +9,8 @@
     "formatting": "yarn workspaces foreach -v run formatting",
     "formatting:fix": "yarn workspaces foreach -v run formatting:fix",
     "test": "yarn build && yarn workspaces foreach -v run test",
-    "build": "tsc -b tsconfig.dest.json",
-    "build:dev": "tsc -b tsconfig.dest.json --watch",
+    "build": "tsc -b tsconfig.json",
+    "build:dev": "tsc -b tsconfig.json --watch",
     "clean": "yarn workspaces foreach -v run clean"
   },
   "workspaces": [
