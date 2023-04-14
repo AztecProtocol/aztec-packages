@@ -16,7 +16,7 @@ fn note_getter_data_len() -> comptime Field {
 fn make_note_getter_data(fields: [Field], start: comptime Field) -> NoteGetterData {
     NoteGetterData {
         note: Note {
-            is_dummy: fields[start] as bool,
+            is_real: fields[start] as bool,
             nonce: fields[start + 1],
             owner: Point::new(fields[start + 2], fields[start + 3]),
             randomness: fields[start + 4],

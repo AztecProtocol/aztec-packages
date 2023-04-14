@@ -56,14 +56,14 @@ struct Outputs {
     new_note_owner_ys: [Field; 4],
     new_note_randomness: [Field; 4],
     new_note_nonce: [Field; 4],
-    new_note_is_dummies: [bool; 4],
+    new_note_is_realsies: [bool; 4],
 
     nullified_note_values: [Field; 4],
     nullified_note_owner_xs: [Field; 4],
     nullified_note_owner_ys: [Field; 4],
     nullified_note_randomness: [Field; 4],
     nullified_note_nonce: [Field; 4],
-    nullified_note_is_dummies: [bool; 4],
+    nullified_note_is_realsies: [bool; 4],
 }
 
 // Equivalent to Outputs, but uses BoundedVecs instead of arrays to
@@ -85,14 +85,14 @@ struct IntermediateOutputs {
     new_note_owner_ys: BoundedVec<Field, MAX_NEW_COMMITMENTS>,
     new_note_randomness: BoundedVec<Field, MAX_NEW_COMMITMENTS>,
     new_note_nonce: BoundedVec<Field, MAX_NEW_COMMITMENTS>,
-    new_note_is_dummies: BoundedVec<bool, MAX_NEW_COMMITMENTS>,
+    new_note_is_realsies: BoundedVec<bool, MAX_NEW_COMMITMENTS>,
 
     nullified_note_values: BoundedVec<Field, MAX_NEW_NULLIFIERS>,
     nullified_note_owner_xs: BoundedVec<Field, MAX_NEW_NULLIFIERS>,
     nullified_note_owner_ys: BoundedVec<Field, MAX_NEW_NULLIFIERS>,
     nullified_note_randomness: BoundedVec<Field, MAX_NEW_NULLIFIERS>,
     nullified_note_nonce: BoundedVec<Field, MAX_NEW_NULLIFIERS>,
-    nullified_note_is_dummies: BoundedVec<bool, MAX_NEW_NULLIFIERS>,
+    nullified_note_is_realsies: BoundedVec<bool, MAX_NEW_NULLIFIERS>,
 }
 
 impl Outputs {
@@ -150,14 +150,14 @@ impl IntermediateOutputs {
             new_note_owner_ys: BoundedVec::new(0),
             new_note_randomness: BoundedVec::new(0),
             new_note_nonce: BoundedVec::new(0),
-            new_note_is_dummies: BoundedVec::new(true),
+            new_note_is_realsies: BoundedVec::new(false),
 
             nullified_note_values: BoundedVec::new(0),
             nullified_note_owner_xs: BoundedVec::new(0),
             nullified_note_owner_ys: BoundedVec::new(0),
             nullified_note_randomness: BoundedVec::new(0),
             nullified_note_nonce: BoundedVec::new(0),
-            nullified_note_is_dummies: BoundedVec::new(true),
+            nullified_note_is_realsies: BoundedVec::new(false),
         }
     }
 
@@ -210,7 +210,7 @@ impl IntermediateOutputs {
         self.new_note_owner_ys = self.new_note_owner_ys.push(note.owner.y);
         self.new_note_randomness = self.new_note_randomness.push(note.randomness);
         self.new_note_nonce = self.new_note_nonce.push(note.nonce);
-        self.new_note_is_dummies = self.new_note_is_dummies.push(note.is_dummy);
+        self.new_note_is_realsies = self.new_note_is_realsies.push(note.is_real);
         self
     }
 
@@ -220,7 +220,7 @@ impl IntermediateOutputs {
         self.nullified_note_owner_ys = self.nullified_note_owner_ys.push(note.owner.y);
         self.nullified_note_randomness = self.nullified_note_randomness.push(note.randomness);
         self.nullified_note_nonce = self.nullified_note_nonce.push(note.nonce);
-        self.nullified_note_is_dummies = self.nullified_note_is_dummies.push(note.is_dummy);
+        self.nullified_note_is_realsies = self.nullified_note_is_realsies.push(note.is_real);
         self
     }
 }

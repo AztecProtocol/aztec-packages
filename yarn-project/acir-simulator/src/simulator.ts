@@ -9,7 +9,8 @@ import { pedersenCompressInputs } from '@aztec/barretenberg.js/crypto';
 export const NOTE_PEDERSEN_CONSTANT = new Fr(2n);
 export const MAPPING_SLOT_PEDERSEN_CONSTANT = new Fr(4n);
 export const NULLIFIER_PEDERSEN_CONSTANT = new Fr(5n);
-
+// To be extracted from the specific contract
+export const DUMMY_NOTE_LENGTH = 6;
 export class AcirSimulator {
   constructor(private db: DBOracle) {}
 

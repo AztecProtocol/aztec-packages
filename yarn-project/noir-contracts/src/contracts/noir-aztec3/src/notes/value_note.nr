@@ -22,7 +22,7 @@ struct Note {
     owner: Point,
     randomness: Field,
     nonce: Field,
-    is_dummy: bool
+    is_real: bool
 }
 
 impl Note {
@@ -32,7 +32,7 @@ impl Note {
             owner: Point { x: 0, y: 0 },
             randomness: 0,
             nonce: 0,
-            is_dummy: true,
+            is_real: false,
         }
     }
 
@@ -54,14 +54,14 @@ impl Note {
             owner,
             randomness,
             nonce,
-            is_dummy: false,
+            is_real: true,
         }
     }
 
     fn compute_note_hash(self) -> Field {
         dep::std::hash::pedersen([
             crate::NoteHash,
-            self.is_dummy as Field,
+            self.is_real as Field,
             self.nonce, 
             self.owner.x, 
             self.owner.y,

@@ -20,6 +20,7 @@ import {
 import { DBOracle } from './db_oracle.js';
 import { extractPublicInputs, frToAztecAddress, frToSelector } from './acvm/deserialize.js';
 import { FunctionAbi } from '@aztec/noir-contracts';
+import { DUMMY_NOTE_LENGTH } from './simulator.js';
 
 interface NewNoteData {
   preimage: Fr[];
@@ -131,24 +132,19 @@ export class Execution {
   }
 
   private async getNotes(contractAddress: AztecAddress, storageSlot: ACVMField, count: number) {
-    let notes = await this.db.getNotes(contractAddress, fromACVMField(storageSlot), count);
-    if (notes.length < count) {
-      const dummyCount = count - notes.length;
-      const dummyNotes = Array(dummyCount)
-        .fill(null)
-        .map(() => this.createDummyNote());
-      notes = notes.concat(dummyNotes);
-    }
-    const mapped = notes.flatMap(noteGetData =>
-      toAcvmNoteLoadOracleInputs(noteGetData, this.oldRoots.privateDataTreeRoot),
-    );
-    return mapped;
+    const notes = await this.db.getNotes(contractAddress, fromACVMField(storageSlot), count);
+    const dummyCount = Math.max(0, count - notes.length);
+    const dummyNotes = Array.from({ length: dummyCount }, () => this.createDummyNote());
+
+    return notes
+      .concat(dummyNotes)
+      .flatMap(noteGetData => toAcvmNoteLoadOracleInputs(noteGetData, this.oldRoots.privateDataTreeRoot));
   }
 
   // TODO this should use an unconstrained fn in the future
   private createDummyNote() {
     return {
-      preimage: [new Fr(1n), new Fr(0n), new Fr(0n), new Fr(0n), new Fr(0n), new Fr(0n)],
+      preimage: Array(DUMMY_NOTE_LENGTH).fill(new Fr(0n)),
       siblingPath: new Array(PRIVATE_DATA_TREE_HEIGHT).fill(new Fr(0n)),
       index: 0,
     };

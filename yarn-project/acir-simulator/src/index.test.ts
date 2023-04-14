@@ -13,7 +13,7 @@ import { Grumpkin, pedersenCompressInputs } from '@aztec/barretenberg.js/crypto'
 import { FunctionAbi } from '@aztec/noir-contracts';
 import { TestContractAbi, ZkTokenContractAbi } from '@aztec/noir-contracts/examples';
 import { DBOracle } from './db_oracle.js';
-import { AcirSimulator, MAPPING_SLOT_PEDERSEN_CONSTANT } from './simulator.js';
+import { AcirSimulator, DUMMY_NOTE_LENGTH, MAPPING_SLOT_PEDERSEN_CONSTANT } from './simulator.js';
 import { jest } from '@jest/globals';
 import { toBigIntBE } from '@aztec/foundation';
 import { BarretenbergWasm } from '@aztec/barretenberg.js/wasm';
@@ -94,14 +94,10 @@ describe('ACIR simulator', () => {
     let recipient: NoirPoint;
 
     function buildNote(amount: bigint, owner: NoirPoint, isDummy = false) {
-      return [
-        new Fr(isDummy ? 1n : 0n),
-        new Fr(currentNonce++),
-        new Fr(owner.x),
-        new Fr(owner.y),
-        new Fr(4n),
-        new Fr(amount),
-      ];
+      if (isDummy) {
+        return Array(DUMMY_NOTE_LENGTH).fill(new Fr(0n));
+      }
+      return [new Fr(1n), new Fr(currentNonce++), new Fr(owner.x), new Fr(owner.y), new Fr(4n), new Fr(amount)];
     }
 
     function toPublicKey(privateKey: Buffer, grumpkin: Grumpkin): NoirPoint {

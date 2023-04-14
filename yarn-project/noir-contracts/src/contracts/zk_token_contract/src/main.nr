@@ -86,16 +86,16 @@ contract PrivateToken {
         let (mut outputs, (note1, note2)) = sender_balance.get_2(inputs, outputs1);
 
         let constrain_note = |note: Note, sender_forwarded: Point| {
-             if note.is_dummy {
-                constrain note.value == 0;
-            } else {
+             if note.is_real {
                 constrain sender_forwarded.x == note.owner.x;
                 constrain sender_forwarded.y == note.owner.y;
+            } else {
+                constrain note.value == 0;
             }
         };
 
         // TODO: Removing this return breaks the circuit (???)
-        outputs.return_values = outputs.return_values.push(note2.is_dummy as Field);
+        outputs.return_values = outputs.return_values.push(note2.is_real as Field);
 
         constrain_note(note1, sender);
         constrain_note(note2, sender);
