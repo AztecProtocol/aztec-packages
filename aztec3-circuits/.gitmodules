@@ -1,0 +1,7 @@
+[submodule "barretenberg"]
+	path = cpp/barretenberg
+	url = git@github.com:AztecProtocol/barretenberg.git
+	branch = aztec3
+[submodule "aztec-build-system"]
+	path = build-system
+	url = git@github.com:AztecProtocol/build-system.git

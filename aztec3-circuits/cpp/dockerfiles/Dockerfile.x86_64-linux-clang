@@ -1,0 +1,22 @@
+FROM alpine:3.17 AS builder
+RUN apk update \
+    && apk upgrade \
+    && apk add --no-cache \
+        build-base \
+        clang15 \
+        openmp-dev \
+        cmake \
+        ninja \
+        git \
+        curl \
+        perl
+
+WORKDIR /usr/src/aztec3-circuits/cpp
+
+COPY . .
+# Build the entire project, as we want to check everything builds under clang
+RUN cmake --preset default -DUSE_TURBO=true && cmake --build --preset default
+
+FROM alpine:3.17
+RUN apk update && apk add openmp
+COPY --from=builder /usr/src/aztec3-circuits/cpp/barretenberg/cpp/srs_db /usr/src/aztec3-circuits/cpp/barretenberg/cpp/srs_db
