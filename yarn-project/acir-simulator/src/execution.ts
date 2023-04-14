@@ -21,6 +21,7 @@ import { DBOracle } from './db_oracle.js';
 import { extractPublicInputs, frToAztecAddress, frToSelector } from './acvm/deserialize.js';
 import { FunctionAbi } from '@aztec/noir-contracts';
 import { DUMMY_NOTE_LENGTH } from './simulator.js';
+import { createDebugLogger } from '@aztec/foundation/log';
 
 interface NewNoteData {
   preimage: Fr[];
@@ -64,9 +65,17 @@ export class Execution {
     private functionData: FunctionData,
     private args: Fr[],
     private callContext: CallContext,
+
+    private log = createDebugLogger('aztec:simulator:execution'),
   ) {}
 
   public async run(): Promise<ExecutionResult> {
+    this.log(
+      `Executing external function ${this.contractAddress.toShortString()}:${this.functionData.functionSelector.toString(
+        'hex',
+      )}`,
+    );
+
     const acir = Buffer.from(this.abi.bytecode, 'hex');
     const initialWitness = writeInputs(this.args, this.callContext, this.request.txContext, this.oldRoots);
     const newNotePreimages: NewNoteData[] = [];
