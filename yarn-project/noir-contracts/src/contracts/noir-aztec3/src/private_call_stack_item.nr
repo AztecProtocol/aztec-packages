@@ -37,19 +37,19 @@ impl PrivateCallStackItem {
         let item = PrivateCallStackItem {
             contract_address: fields[0],
             function_data: FunctionData {
-            function_selector: fields[1],
-            is_private: fields[2] as bool,
-            is_constructor: fields[3] as bool,
+                function_selector: fields[1],
+                is_private: fields[2] as bool,
+                is_constructor: fields[3] as bool,
             },
             public_inputs: PrivateCircuitPublicInputs {
                 call_context: CallContext {
-                        msg_sender : fields[4],
-                        storage_contract_address : fields[5],
-                        portal_contract_address : fields[6],
+                    msg_sender : fields[4],
+                    storage_contract_address : fields[5],
+                    portal_contract_address : fields[6],
 
-                        is_delegate_call : fields[7] as bool,
-                        is_static_call : fields[8] as bool,
-                        is_contract_deployment: fields[9] as bool
+                    is_delegate_call : fields[7] as bool,
+                    is_static_call : fields[8] as bool,
+                    is_contract_deployment: fields[9] as bool
                 },
                 // TODO handle the offsets as a variable incremented during extraction?
                 args: arr_copy_slice(fields, [0; crate::abi::MAX_ARGS], 10),
