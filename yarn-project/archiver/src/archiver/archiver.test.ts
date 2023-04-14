@@ -38,7 +38,7 @@ describe('Archiver', () => {
       .mockResolvedValue([]);
     rollupTxs.forEach(tx => publicClient.getTransaction.mockResolvedValueOnce(tx));
 
-    archiver.start();
+    await archiver.start(false);
 
     // Wait until block 3 is processed. If this won't happen the test will fail with timeout.
     while ((await archiver.getBlockHeight()) !== 3) {

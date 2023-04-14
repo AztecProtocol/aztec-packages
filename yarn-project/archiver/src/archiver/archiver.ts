@@ -69,9 +69,10 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource {
   /**
    * Creates a new instance of the Archiver and blocks until it syncs from chain.
    * @param config - The archiver's desired configuration.
+   * @param blockUntilSynced - If true, blocks until the archiver has fully synced.
    * @returns - An instance of the archiver.
    */
-  public static createAndSync(config: ArchiverConfig) {
+  public static async createAndSync(config: ArchiverConfig, blockUntilSynced = true): Promise<Archiver> {
     const publicClient = createPublicClient({
       chain: localhost,
       transport: http(config.rpcUrl),
@@ -82,50 +83,77 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource {
       config.unverifiedDataEmitterContract,
       config.archiverPollingInterval,
     );
-    archiver.start();
+    await archiver.start(blockUntilSynced);
     return archiver;
   }
 
   /**
    * Starts sync process.
+   * @param blockUntilSynced - If true, blocks until the archiver has fully synced.
    */
-  public start() {
+  public async start(blockUntilSynced: boolean): Promise<void> {
     if (this.runningPromise) {
       throw new Error('Archiver is already running');
     }
 
-    this.runningPromise = new RunningPromise(() => this.sync(), this.pollingIntervalMs);
+    if (blockUntilSynced) {
+      await this.sync(blockUntilSynced);
+    }
+
+    this.runningPromise = new RunningPromise(() => this.sync(false), this.pollingIntervalMs);
     this.runningPromise.start();
   }
 
   /**
    * Fetches `L2BlockProcessed` and `UnverifiedData` logs from `nextL2BlockFromBlock` and
    * `nextUnverifiedDataFromBlock` and processes them.
+   * @param blockUntilSynced - If true, blocks until the archiver has fully synced.
    */
-  private async sync() {
+  private async sync(blockUntilSynced: boolean) {
     const currentBlockNumber = await this.publicClient.getBlockNumber();
 
-    if (this.nextL2BlockFromBlock <= currentBlockNumber) {
+    await this.syncBlocks(blockUntilSynced, currentBlockNumber);
+    await this.syncUnverifiedData(blockUntilSynced, currentBlockNumber);
+  }
+
+  private async syncBlocks(blockUntilSynced: boolean, currentBlockNumber: bigint) {
+    do {
+      if (this.nextL2BlockFromBlock > currentBlockNumber) {
+        break;
+      }
+
       this.log(`Synching L2BlockProcessed logs from block ${this.nextL2BlockFromBlock}`);
       const l2BlockProcessedLogs = await this.getL2BlockProcessedLogs(this.nextL2BlockFromBlock);
-      if (l2BlockProcessedLogs.length > 0) {
-        await this.processBlockLogs(l2BlockProcessedLogs);
-        // Setting `nextL2BlockFromBlock` to the block number of the last log + 1 because last log's block is the only
-        // block we can be sure was synced to by the ETH node.
-        this.nextL2BlockFromBlock = l2BlockProcessedLogs[l2BlockProcessedLogs.length - 1].blockNumber! + 1n;
-      }
-    }
 
-    if (this.nextUnverifiedDataFromBlock <= currentBlockNumber) {
+      if (l2BlockProcessedLogs.length === 0) {
+        break;
+      }
+
+      await this.processBlockLogs(l2BlockProcessedLogs);
+
+      // Setting `nextL2BlockFromBlock` to the block number of the last log + 1 because last log's block is the only
+      // block we can be sure was synced to by the ETH node.
+      this.nextL2BlockFromBlock = l2BlockProcessedLogs[l2BlockProcessedLogs.length - 1].blockNumber! + 1n;
+    } while (blockUntilSynced && this.nextL2BlockFromBlock <= currentBlockNumber);
+  }
+
+  private async syncUnverifiedData(blockUntilSynced: boolean, currentBlockNumber: bigint) {
+    do {
+      if (this.nextUnverifiedDataFromBlock > currentBlockNumber) {
+        break;
+      }
+
       this.log(`Synching UnverifiedData logs from block ${this.nextUnverifiedDataFromBlock}`);
       const unverifiedDataLogs = await this.getUnverifiedDataLogs(this.nextUnverifiedDataFromBlock);
-      if (unverifiedDataLogs.length > 0) {
-        this.processUnverifiedDataLogs(unverifiedDataLogs);
-        // Setting `nextL2BlockFromBlock` to the block number of the last log + 1 because last log's block is the only
-        // block we can be sure was synced to by the ETH node.
-        this.nextUnverifiedDataFromBlock = unverifiedDataLogs[unverifiedDataLogs.length - 1].blockNumber + 1n;
+
+      if (unverifiedDataLogs.length === 0) {
+        break;
       }
-    }
+
+      this.processUnverifiedDataLogs(unverifiedDataLogs);
+
+      this.nextUnverifiedDataFromBlock = unverifiedDataLogs[unverifiedDataLogs.length - 1].blockNumber + 1n;
+    } while (blockUntilSynced && this.nextUnverifiedDataFromBlock <= currentBlockNumber);
   }
 
   /**
