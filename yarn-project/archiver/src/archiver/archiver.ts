@@ -25,18 +25,6 @@ import { ArchiverConfig } from './config.js';
  */
 export class Archiver implements L2BlockSource, UnverifiedDataSource {
   /**
-   * The number of blocks that we will fetch in a single batch.
-   */
-  private readonly numL1BlocksPerFetch = 1000n;
-
-  /**
-   * A range of blocks in which we expect a potential node sync issue as described in
-   * https://github.com/wagmi-dev/viem/discussions/354
-   * Danger zone is defined as [BLOCK_HEIGHT - dangeZoneBlockLength, BLOCK_HEIGHT].
-   */
-  private readonly dangerZoneBlockLength = 1000n;
-
-  /**
    * A promise in which we will be continually fetching new L2 blocks.
    */
   private runningPromise?: RunningPromise;
@@ -83,7 +71,7 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource {
    * @param config - The archiver's desired configuration.
    * @returns - An instance of the archiver.
    */
-  public static async createAndSync(config: ArchiverConfig) {
+  public static createAndSync(config: ArchiverConfig) {
     const publicClient = createPublicClient({
       chain: localhost,
       transport: http(config.rpcUrl),
@@ -94,62 +82,20 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource {
       config.unverifiedDataEmitterContract,
       config.archiverPollingInterval,
     );
-    await archiver.start();
+    archiver.start();
     return archiver;
   }
 
   /**
    * Starts sync process.
    */
-  public async start() {
+  public start() {
     if (this.runningPromise) {
       throw new Error('Archiver is already running');
     }
 
-    await this.initialSync();
-
     this.runningPromise = new RunningPromise(() => this.sync(), this.pollingIntervalMs);
     this.runningPromise.start();
-  }
-
-  /**
-   * Initial sync runs until the next block range would intersect with the danger zone. Danger zone is set as
-   * `ETH_BLOCK_HEIGHT - this.initialSyncDistanceFromLatest`. Then the initial sync stops and switches to a more
-   * careful sync which takes the bellow linked issue into account.
-   * https://github.com/wagmi-dev/viem/discussions/354
-   */
-  private async initialSync() {
-    const currentBlockNumber = await this.publicClient.getBlockNumber();
-    if (currentBlockNumber < this.dangerZoneBlockLength + this.numL1BlocksPerFetch) {
-      this.log('Current block number is less than initial sync distance from latest. Skipping initial sync.');
-      return;
-    }
-    // Subtracting `this.numBlocksPerFetch` as well to make sure the initial sync range doesn't "touch" the danger zone
-    // with any of its blocks.
-    const maxFromBlock = currentBlockNumber - this.dangerZoneBlockLength - this.numL1BlocksPerFetch;
-    this.log(
-      `Starting initial sync for L2BlockProcessed logs from ${this.nextL2BlockFromBlock} and for UnverifiedData logs from ${this.nextUnverifiedDataFromBlock}`,
-    );
-
-    while (this.nextL2BlockFromBlock < maxFromBlock) {
-      const l2BlockProcessedLogs = await this.getL2BlockProcessedLogs(
-        this.nextL2BlockFromBlock,
-        this.nextL2BlockFromBlock + this.numL1BlocksPerFetch - 1n, // decrementing by 1 because `toBlock` is inclusive
-      );
-
-      if (l2BlockProcessedLogs) await this.processBlockLogs(l2BlockProcessedLogs);
-      this.nextL2BlockFromBlock += this.numL1BlocksPerFetch;
-    }
-
-    while (this.nextUnverifiedDataFromBlock < maxFromBlock) {
-      const unverifiedDataLogs = await this.getUnverifiedDataLogs(
-        this.nextUnverifiedDataFromBlock,
-        this.nextUnverifiedDataFromBlock + this.numL1BlocksPerFetch - 1n, // decrementing by 1 because `toBlock` is inclusive
-      );
-
-      if (unverifiedDataLogs) this.processUnverifiedDataLogs(unverifiedDataLogs);
-      this.nextUnverifiedDataFromBlock += this.numL1BlocksPerFetch;
-    }
   }
 
   /**
@@ -157,41 +103,37 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource {
    * `nextUnverifiedDataFromBlock` and processes them.
    */
   private async sync() {
-    this.log(
-      `Syncing L2BlockProcessed logs from ${this.nextL2BlockFromBlock} and UnverifiedData logs from ${this.nextUnverifiedDataFromBlock}`,
-    );
-    const l2BlockProcessedLogs = await this.getL2BlockProcessedLogs(
-      this.nextL2BlockFromBlock,
-      this.nextL2BlockFromBlock + this.numL1BlocksPerFetch - 1n,
-    );
-    const unverifiedDataLogs = await this.getUnverifiedDataLogs(
-      this.nextUnverifiedDataFromBlock,
-      this.nextUnverifiedDataFromBlock + this.numL1BlocksPerFetch - 1n,
-    );
+    const currentBlockNumber = await this.publicClient.getBlockNumber();
 
-    if (l2BlockProcessedLogs.length > 0) {
-      await this.processBlockLogs(l2BlockProcessedLogs);
-      // Setting `nextL2BlockFromBlock` to the block number of the last log + 1 because last log's block is the only
-      // block we can be sure was synced to by the ETH node.
-      this.nextL2BlockFromBlock = l2BlockProcessedLogs[l2BlockProcessedLogs.length - 1].blockNumber! + 1n;
+    if (this.nextL2BlockFromBlock <= currentBlockNumber) {
+      this.log(`Syncing L2BlockProcessed logs from ${this.nextL2BlockFromBlock}`);
+      const l2BlockProcessedLogs = await this.getL2BlockProcessedLogs(this.nextL2BlockFromBlock);
+      if (l2BlockProcessedLogs.length > 0) {
+        await this.processBlockLogs(l2BlockProcessedLogs);
+        // Setting `nextL2BlockFromBlock` to the block number of the last log + 1 because last log's block is the only
+        // block we can be sure was synced to by the ETH node.
+        this.nextL2BlockFromBlock = l2BlockProcessedLogs[l2BlockProcessedLogs.length - 1].blockNumber! + 1n;
+      }
     }
-    if (unverifiedDataLogs.length > 0) {
-      this.processUnverifiedDataLogs(unverifiedDataLogs);
-      // Setting `nextL2BlockFromBlock` to the block number of the last log + 1 because last log's block is the only
-      // block we can be sure was synced to by the ETH node.
-      this.nextUnverifiedDataFromBlock = unverifiedDataLogs[unverifiedDataLogs.length - 1].blockNumber + 1n;
+
+    if (this.nextUnverifiedDataFromBlock <= currentBlockNumber) {
+      this.log(`Syncing UnverifiedData logs from ${this.nextUnverifiedDataFromBlock}`);
+      const unverifiedDataLogs = await this.getUnverifiedDataLogs(this.nextUnverifiedDataFromBlock);
+      if (unverifiedDataLogs.length > 0) {
+        this.processUnverifiedDataLogs(unverifiedDataLogs);
+        // Setting `nextL2BlockFromBlock` to the block number of the last log + 1 because last log's block is the only
+        // block we can be sure was synced to by the ETH node.
+        this.nextUnverifiedDataFromBlock = unverifiedDataLogs[unverifiedDataLogs.length - 1].blockNumber + 1n;
+      }
     }
   }
 
   /**
    * Gets relevant `L2BlockProcessed` logs from chain.
    * @param fromBlock - First block to get logs from (inclusive).
-   * @param toBlock - Last block to get logs from (inclusive).
    * @returns An array of `L2BlockProcessed` logs.
    */
-  private async getL2BlockProcessedLogs(fromBlock: bigint, toBlock: bigint) {
-    toBlock = await this.capToBlock(toBlock);
-    if (toBlock < fromBlock) return [];
+  private async getL2BlockProcessedLogs(fromBlock: bigint) {
     // Note: For some reason the return type of `getLogs` would not get correctly derived if I didn't set the abiItem
     //       as a standalone constant.
     const abiItem = getAbiItem({
@@ -202,19 +144,15 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource {
       address: getAddress(this.rollupAddress.toString()),
       event: abiItem,
       fromBlock,
-      toBlock,
     });
   }
 
   /**
    * Gets relevant `UnverifiedData` logs from chain.
    * @param fromBlock - First block to get logs from (inclusive).
-   * @param toBlock - Last block to get logs from (inclusive).
    * @returns An array of `UnverifiedData` logs.
    */
-  private async getUnverifiedDataLogs(fromBlock: bigint, toBlock: bigint): Promise<any[]> {
-    toBlock = await this.capToBlock(toBlock);
-    if (toBlock < fromBlock) return [];
+  private async getUnverifiedDataLogs(fromBlock: bigint): Promise<any[]> {
     // Note: For some reason the return type of `getLogs` would not get correctly derived if I didn't set the abiItem
     //       as a standalone constant.
     const abiItem = getAbiItem({
@@ -225,18 +163,7 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource {
       address: getAddress(this.unverifiedDataEmitterAddress.toString()),
       event: abiItem,
       fromBlock,
-      toBlock,
     });
-  }
-
-  /**
-   * Caps the given block number to the current block number.
-   * @param blockNum - Block number to cap.
-   * @returns The capped block number.
-   */
-  private async capToBlock(blockNum: bigint): Promise<bigint> {
-    const currentBlockNumber = await this.publicClient.getBlockNumber();
-    return blockNum > currentBlockNumber ? currentBlockNumber : blockNum;
   }
 
   /**

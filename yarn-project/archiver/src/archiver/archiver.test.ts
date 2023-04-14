@@ -19,6 +19,7 @@ describe('Archiver', () => {
       publicClient,
       EthAddress.fromString(rollupAddress),
       EthAddress.fromString(unverifiedDataEmitterAddress),
+      1000,
     );
 
     let latestBlockNum = await archiver.getBlockHeight();
@@ -37,7 +38,7 @@ describe('Archiver', () => {
       .mockResolvedValue([]);
     rollupTxs.forEach(tx => publicClient.getTransaction.mockResolvedValueOnce(tx));
 
-    await archiver.start();
+    archiver.start();
 
     // Wait until block 3 is processed. If this won't happen the test will fail with timeout.
     while ((await archiver.getBlockHeight()) !== 3) {

@@ -34,7 +34,7 @@ export class AztecNode {
    */
   public static async createAndSync(config: AztecNodeConfig) {
     // first create and sync the archiver
-    const archiver = await Archiver.createAndSync(config);
+    const archiver = Archiver.createAndSync(config);
 
     // give the block source to the P2P network
     const p2pClient = new P2PClient(archiver);

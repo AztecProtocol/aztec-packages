@@ -30,9 +30,8 @@ export interface L2BlockSource {
 
   /**
    * Starts the L2 block source.
-   * @returns A promise signalling completion of the start process.
    */
-  start(): Promise<void>;
+  start(): void;
 
   /**
    * Stops the L2 block source.

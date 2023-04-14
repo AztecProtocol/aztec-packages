@@ -20,9 +20,8 @@ export interface UnverifiedDataSource {
 
   /**
    * Starts the unverified data source.
-   * @returns A promise signalling completion of the start process.
    */
-  start(): Promise<void>;
+  start(): void;
 
   /**
    * Stops the unverified data source.
