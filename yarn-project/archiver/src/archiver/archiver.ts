@@ -165,10 +165,14 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource {
 
     if (l2BlockProcessedLogs.length > 0) {
       await this.processBlockLogs(l2BlockProcessedLogs);
+      // Setting `nextL2BlockFromBlock` to the block number of the last log + 1 because last log's block is the only
+      // block we can be sure was synced to by the ETH node.
       this.nextL2BlockFromBlock = l2BlockProcessedLogs[l2BlockProcessedLogs.length - 1].blockNumber! + 1n;
     }
     if (unverifiedDataLogs.length > 0) {
       this.processUnverifiedDataLogs(unverifiedDataLogs);
+      // Setting `nextL2BlockFromBlock` to the block number of the last log + 1 because last log's block is the only
+      // block we can be sure was synced to by the ETH node.
       this.nextUnverifiedDataFromBlock = unverifiedDataLogs[unverifiedDataLogs.length - 1].blockNumber + 1n;
     }
   }
