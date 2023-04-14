@@ -127,6 +127,9 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource {
     // Subtracting `this.numBlocksPerFetch` as well to make sure the initial sync range doesn't "touch" the danger zone
     // with any of its blocks.
     const maxFromBlock = currentBlockNumber - this.dangerZoneBlockLength - this.numL1BlocksPerFetch;
+    this.log(
+      `Starting initial sync for L2BlockProcessed logs from ${this.nextL2BlockFromBlock} and for UnverifiedData logs from ${this.nextUnverifiedDataFromBlock}`,
+    );
 
     while (this.nextL2BlockFromBlock < maxFromBlock) {
       const l2BlockProcessedLogs = await this.getL2BlockProcessedLogs(
@@ -154,6 +157,9 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource {
    * `nextUnverifiedDataFromBlock` and processes them.
    */
   private async sync() {
+    this.log(
+      `Syncing L2BlockProcessed logs from ${this.nextL2BlockFromBlock} and UnverifiedData logs from ${this.nextUnverifiedDataFromBlock}`,
+    );
     const l2BlockProcessedLogs = await this.getL2BlockProcessedLogs(
       this.nextL2BlockFromBlock,
       this.nextL2BlockFromBlock + this.numL1BlocksPerFetch - 1n,
