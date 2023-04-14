@@ -170,7 +170,7 @@ describe('sequencer/circuit_block_builder', () => {
       [[13, 14, 15, 16, 0, 0, 0, 0]],
       [[1234, 98, 0, 0, 99999, 88, 54, 0]],
       [[97, 98, 10, 0, 99999, 88, 100001, 9000000]],
-    ] as const)('Provides low nullifier tree information correctly', async nullifiers => {
+    ] as const)('Preforms nullifier tree batch insertion correctly', async nullifiers => {
       const leaves = nullifiers.map(i => toBufferBE(BigInt(i), 32));
       await expectsDb.appendLeaves(MerkleTreeId.NULLIFIER_TREE, leaves);
 
@@ -231,9 +231,8 @@ describe('sequencer/circuit_block_builder', () => {
       10000,
     );
 
-    it('build edge case test', async () => {
-      // Regression test - this recreates the edge case
-
+    // This test specifically tests nullifier values which previously caused e2e_zk_token test to fail
+    it('e2e edge case - regression test', async () => {
       const simulator = await WasmCircuitSimulator.new();
       const prover = new EmptyProver();
       builder = new TestSubject(builderDb, vks, simulator, prover);
