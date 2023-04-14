@@ -9,45 +9,45 @@ import { TxHash } from '../tx_hash.js';
  */
 export interface RawLogResponse {
   /**
- * Unique identifier for a log event.
- */
-id?: string;
+   * Unique identifier for a log event.
+   */
+  id?: string;
   /**
- * Indicates if the log entry has been removed due to a chain reorganization.
- */
-removed?: boolean;
+   * Indicates if the log entry has been removed due to a chain reorganization.
+   */
+  removed?: boolean;
   /**
- * The index of the log entry within its corresponding block.
- */
-logIndex: string | null;
+   * The index of the log entry within its corresponding block.
+   */
+  logIndex: string | null;
   /**
- * The block number where the log was generated.
- */
-blockNumber: string | null;
+   * The block number where the log was generated.
+   */
+  blockNumber: string | null;
   /**
- * The unique identifier (hash) of the block containing the log event.
- */
-blockHash: string | null;
+   * The unique identifier (hash) of the block containing the log event.
+   */
+  blockHash: string | null;
   /**
- * The unique hash identifying a specific transaction.
- */
-transactionHash: string | null;
+   * The unique hash identifying a specific transaction.
+   */
+  transactionHash: string | null;
   /**
- * The index position of the transaction within a block.
- */
-transactionIndex: string | null;
+   * The index position of the transaction within a block.
+   */
+  transactionIndex: string | null;
   /**
- * The Ethereum address associated with the log event.
- */
-address: string;
+   * The Ethereum address associated with the log event.
+   */
+  address: string;
   /**
- * The hexadecimal encoded data associated with the log event.
- */
-data: string;
+   * The hexadecimal encoded data associated with the log event.
+   */
+  data: string;
   /**
- * An array of indexed event parameters.
- */
-topics: string[];
+   * An array of indexed event parameters.
+   */
+  topics: string[];
 }
 
 /**
@@ -57,50 +57,50 @@ topics: string[];
  */
 export interface LogResponse {
   /**
- * Unique identifier for the log event.
- */
-id: string | null;
+   * Unique identifier for the log event.
+   */
+  id: string | null;
   /**
- * Indicates whether the log entry has been removed due to a chain reorganization.
- */
-removed?: boolean;
+   * Indicates whether the log entry has been removed due to a chain reorganization.
+   */
+  removed?: boolean;
   /**
- * The index position of the log entry within the block.
- */
-logIndex: number | null;
+   * The index position of the log entry within the block.
+   */
+  logIndex: number | null;
   /**
- * The block number in which the log was generated.
- */
-blockNumber: number | null;
+   * The block number in which the log was generated.
+   */
+  blockNumber: number | null;
   /**
- * The unique hash identifier of the block containing the log entry.
- */
-blockHash: string | null;
+   * The unique hash identifier of the block containing the log entry.
+   */
+  blockHash: string | null;
   /**
- * The unique identifier of the transaction in the blockchain.
- */
-transactionHash: TxHash | null;
+   * The unique identifier of the transaction in the blockchain.
+   */
+  transactionHash: TxHash | null;
   /**
- * The index position of the transaction within the block.
- */
-transactionIndex: number | null;
+   * The index position of the transaction within the block.
+   */
+  transactionIndex: number | null;
   /**
- * The Ethereum address associated with the log event.
- */
-address: EthAddress;
+   * The Ethereum address associated with the log event.
+   */
+  address: EthAddress;
   /**
- * The data field of a logged event in the Ethereum contract.
- */
-data: string;
+   * The data field of a logged event in the Ethereum contract.
+   */
+  data: string;
   /**
- * An array of indexed event arguments.
- */
-topics: string[];
+   * An array of indexed event arguments.
+   */
+  topics: string[];
 }
 
 /**
  * Converts a RawLogResponse object into a LogResponse object.
- * The function generates a custom log id, if not provided, by concatenating the blockHash, transactionHash, and logIndex values after removing the '0x' prefix. 
+ * The function generates a custom log id, if not provided, by concatenating the blockHash, transactionHash, and logIndex values after removing the '0x' prefix.
  * It also converts string representations of blockNumber, transactionIndex, and logIndex to their corresponding numeric values.
  * Additionally, it creates EthAddress and TxHash instances for address and transactionHash fields, respectively.
  *

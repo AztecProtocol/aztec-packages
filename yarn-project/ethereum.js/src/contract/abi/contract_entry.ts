@@ -19,13 +19,13 @@ export class ContractEntry {
   }
 
   /**
- * Returns a string representation of the ContractEntry instance using ABI encoding.
- * This method utilizes the 'abiCoder' module to convert the contract entry definition
- * into a readable and formatted string.
- *
- * @returns A string representation of the ContractEntry instance with ABI encoding.
- */
-public asString() {
+   * Returns a string representation of the ContractEntry instance using ABI encoding.
+   * This method utilizes the 'abiCoder' module to convert the contract entry definition
+   * into a readable and formatted string.
+   *
+   * @returns A string representation of the ContractEntry instance with ABI encoding.
+   */
+  public asString() {
     return abiCoder.abiMethodToString(this.entry);
   }
 }

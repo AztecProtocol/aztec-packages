@@ -8,25 +8,25 @@ import { NumberOrTag, numberOrTagToHex } from './number_or_tag.js';
  */
 export interface LogRequest<Event = { [k: string]: any }> {
   /**
- * Filter object for specifying event fields to be matched in logs.
- */
-filter?: Partial<Event>;
+   * Filter object for specifying event fields to be matched in logs.
+   */
+  filter?: Partial<Event>;
   /**
- * The block number or block tag to end the log search.
- */
-toBlock?: NumberOrTag;
+   * The block number or block tag to end the log search.
+   */
+  toBlock?: NumberOrTag;
   /**
- * The starting block number or identifier to fetch logs from.
- */
-fromBlock?: NumberOrTag;
+   * The starting block number or identifier to fetch logs from.
+   */
+  fromBlock?: NumberOrTag;
   /**
- * Ethereum address or array of addresses to filter logs by.
- */
-address?: EthAddress | EthAddress[];
+   * Ethereum address or array of addresses to filter logs by.
+   */
+  address?: EthAddress | EthAddress[];
   /**
- * An array of topic filters for log events, allowing the selection of specific events or a combination thereof.
- */
-topics?: (Buffer | Buffer[] | null)[];
+   * An array of topic filters for log events, allowing the selection of specific events or a combination thereof.
+   */
+  topics?: (Buffer | Buffer[] | null)[];
 }
 
 /**
@@ -35,21 +35,21 @@ topics?: (Buffer | Buffer[] | null)[];
  */
 export interface RawLogRequest {
   /**
- * The block number or tag until which logs should be fetched, inclusive.
- */
-toBlock?: string;
+   * The block number or tag until which logs should be fetched, inclusive.
+   */
+  toBlock?: string;
   /**
- * The starting block for the log search, inclusive.
- */
-fromBlock?: string;
+   * The starting block for the log search, inclusive.
+   */
+  fromBlock?: string;
   /**
- * Ethereum address or an array of addresses, used as a filter for the logs.
- */
-address?: string | string[];
+   * Ethereum address or an array of addresses, used as a filter for the logs.
+   */
+  address?: string | string[];
   /**
- * An array of topics used for filtering specific event logs.
- */
-topics?: ((string | null) | (string | null)[])[];
+   * An array of topics used for filtering specific event logs.
+   */
+  topics?: ((string | null) | (string | null)[])[];
 }
 
 /**

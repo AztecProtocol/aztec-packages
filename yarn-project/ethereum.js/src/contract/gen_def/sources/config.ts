@@ -14,21 +14,21 @@ import { ContractAbiDefinition } from '../../abi/index.js';
  */
 interface FileSource {
   /**
- * The origin of contract configuration data.
- */
-source: 'files';
+   * The origin of contract configuration data.
+   */
+  source: 'files';
   /**
- * The unique identifier for the contract configuration.
- */
-name: string;
+   * The unique identifier for the contract configuration.
+   */
+  name: string;
   /**
- * Path to the contract's ABI file.
- */
-abiFile: string;
+   * Path to the contract's ABI file.
+   */
+  abiFile: string;
   /**
- * Optional file containing initialization data for the contract.
- */
-initDataFile?: string;
+   * Optional file containing initialization data for the contract.
+   */
+  initDataFile?: string;
 }
 
 /**
@@ -37,21 +37,21 @@ initDataFile?: string;
  */
 interface EtherscanSource {
   /**
- * The source from which the contract definition is obtained.
- */
-source: 'etherscan';
+   * The source from which the contract definition is obtained.
+   */
+  source: 'etherscan';
   /**
- * The unique identifier for the contract.
- */
-name: string;
+   * The unique identifier for the contract.
+   */
+  name: string;
   /**
- * The Ethereum network identifier.
- */
-net: string;
+   * The Ethereum network identifier.
+   */
+  net: string;
   /**
- * The Ethereum contract address.
- */
-address: string;
+   * The Ethereum contract address.
+   */
+  address: string;
 }
 
 /**
@@ -61,17 +61,17 @@ address: string;
  */
 interface TruffleSource {
   /**
- * The origin of contract information.
- */
-source: 'truffle';
+   * The origin of contract information.
+   */
+  source: 'truffle';
   /**
- * The unique identifier for the contract.
- */
-name: string;
+   * The unique identifier for the contract.
+   */
+  name: string;
   /**
- * The path to the build file containing contract information.
- */
-buildFile: string;
+   * The path to the build file containing contract information.
+   */
+  buildFile: string;
 }
 
 /**
@@ -80,17 +80,17 @@ buildFile: string;
  */
 interface FoundrySource {
   /**
- * The origin of the contract configuration data.
- */
-source: 'foundry';
+   * The origin of the contract configuration data.
+   */
+  source: 'foundry';
   /**
- * The unique identifier for a contract.
- */
-name: string;
+   * The unique identifier for a contract.
+   */
+  name: string;
   /**
- * The path to the build file containing contract information.
- */
-buildFile: string;
+   * The path to the build file containing contract information.
+   */
+  buildFile: string;
 }
 
 /**
@@ -99,21 +99,21 @@ buildFile: string;
  */
 interface InlineSource {
   /**
- * The origin of contract ABI and initialization data.
- */
-source: 'inline';
+   * The origin of contract ABI and initialization data.
+   */
+  source: 'inline';
   /**
- * The name identifier for the contract.
- */
-name: string;
+   * The name identifier for the contract.
+   */
+  name: string;
   /**
- * The contract's Application Binary Interface (ABI) definition.
- */
-abi: ContractAbiDefinition;
+   * The contract's Application Binary Interface (ABI) definition.
+   */
+  abi: ContractAbiDefinition;
   /**
- * Initialization data for contract deployment.
- */
-initData?: string;
+   * Initialization data for contract deployment.
+   */
+  initData?: string;
 }
 
 /**
@@ -127,15 +127,15 @@ export type ContractConfig = FileSource | EtherscanSource | TruffleSource | Inli
  */
 export interface Config {
   /**
- * The path to import contracts from.
- */
-importPath?: string;
+   * The path to import contracts from.
+   */
+  importPath?: string;
   /**
- * The destination path for generated output files.
- */
-outputPath?: string;
+   * The destination path for generated output files.
+   */
+  outputPath?: string;
   /**
- * An array of contract configurations for various sources.
- */
-contracts: ContractConfig[];
+   * An array of contract configurations for various sources.
+   */
+  contracts: ContractConfig[];
 }

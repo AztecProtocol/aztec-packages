@@ -173,13 +173,19 @@ export function serializeBufferArrayToVector(arr: Buffer[]) {
  * @returns An object containing the deserialized array of elements (elem) and the total bytes consumed in the process (adv).
  */
 export function deserializeArrayFromVector<T>(
-  deserialize: (buf: Buffer, offset: number) => { /**
- * The deserialized element from the buffer.
- */
-elem: T; /**
- * The number of bytes advanced in the buffer during deserialization.
- */
-adv: number },
+  deserialize: (
+    buf: Buffer,
+    offset: number,
+  ) => {
+    /**
+     * The deserialized element from the buffer.
+     */
+    elem: T;
+    /**
+     * The number of bytes advanced in the buffer during deserialization.
+     */
+    adv: number;
+  },
   vector: Buffer,
   offset = 0,
 ) {

@@ -5,42 +5,47 @@
  */
 export interface TypedData {
   /**
- * Represents EIP-712 domain data containing application-specific information for signing typed data.
- */
-domain: {
+   * Represents EIP-712 domain data containing application-specific information for signing typed data.
+   */
+  domain: {
     /**
- * The identifying name of the domain.
- */
-name: string;
+     * The identifying name of the domain.
+     */
+    name: string;
     /**
- * Version identifier for the domain.
- */
-version: string;
+     * Version identifier for the domain.
+     */
+    version: string;
     /**
- * The unique identifier of the blockchain network.
- */
-chainId: number;
+     * The unique identifier of the blockchain network.
+     */
+    chainId: number;
     /**
- * The address of the contract responsible for data verification.
- */
-verifyingContract: string;
+     * The address of the contract responsible for data verification.
+     */
+    verifyingContract: string;
   };
   /**
- * An object containing structured data types for EIP-712 signing.
- */
-types: { [key: string]: { /**
- * The name of the domain in which the TypedData is structured.
- */
-name: string; /**
- * A mapping of data types with their corresponding properties, including name and type.
- */
-type: string }[] };
+   * An object containing structured data types for EIP-712 signing.
+   */
+  types: {
+    [key: string]: {
+      /**
+       * The name of the domain in which the TypedData is structured.
+       */
+      name: string;
+      /**
+       * A mapping of data types with their corresponding properties, including name and type.
+       */
+      type: string;
+    }[];
+  };
   /**
- * The specific structured data to be signed and verified.
- */
-message: any;
+   * The specific structured data to be signed and verified.
+   */
+  message: any;
   /**
- * The main type used for structuring and verifying the EIP-712 typed data.
- */
-primaryType: string;
+   * The main type used for structuring and verifying the EIP-712 typed data.
+   */
+  primaryType: string;
 }

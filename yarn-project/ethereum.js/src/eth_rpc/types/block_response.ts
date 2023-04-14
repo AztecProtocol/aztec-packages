@@ -21,69 +21,69 @@ import {
  */
 export interface RawBlockHeaderResponse {
   /**
- * The unique identifier of a block.
- */
-hash: string | null;
+   * The unique identifier of a block.
+   */
+  hash: string | null;
   /**
- * The parent block's hash value.
- */
-parentHash: string;
+   * The parent block's hash value.
+   */
+  parentHash: string;
   /**
- * The Keccak-256 hash of the uncles data in the block.
- */
-sha3Uncles: string;
+   * The Keccak-256 hash of the uncles data in the block.
+   */
+  sha3Uncles: string;
   /**
- * The Ethereum address of the block miner.
- */
-miner: string;
+   * The Ethereum address of the block miner.
+   */
+  miner: string;
   /**
- * The root hash of the Ethereum state trie.
- */
-stateRoot: string;
+   * The root hash of the Ethereum state trie.
+   */
+  stateRoot: string;
   /**
- * The root hash of the merkle tree representing all transactions in the block.
- */
-transactionsRoot: string;
+   * The root hash of the merkle tree representing all transactions in the block.
+   */
+  transactionsRoot: string;
   /**
- * The root hash of the trie structure containing all transaction receipts in the block.
- */
-receiptsRoot: string;
+   * The root hash of the trie structure containing all transaction receipts in the block.
+   */
+  receiptsRoot: string;
   /**
- * Bloom filter containing logs for all transactions in the block.
- */
-logsBloom: string | null;
+   * Bloom filter containing logs for all transactions in the block.
+   */
+  logsBloom: string | null;
   /**
- * The computational effort required to mine a new block.
- */
-difficulty: string;
+   * The computational effort required to mine a new block.
+   */
+  difficulty: string;
   /**
- * The block number in the blockchain.
- */
-number: string | null;
+   * The block number in the blockchain.
+   */
+  number: string | null;
   /**
- * The maximum amount of gas allowed in the block.
- */
-gasLimit: string;
+   * The maximum amount of gas allowed in the block.
+   */
+  gasLimit: string;
   /**
- * The total amount of gas consumed by all transactions in the block.
- */
-gasUsed: string;
+   * The total amount of gas consumed by all transactions in the block.
+   */
+  gasUsed: string;
   /**
- * Unix timestamp representing the block creation time.
- */
-timestamp: string;
+   * Unix timestamp representing the block creation time.
+   */
+  timestamp: string;
   /**
- * Extra arbitrary metadata included in the block.
- */
-extraData: string;
+   * Extra arbitrary metadata included in the block.
+   */
+  extraData: string;
   /**
- * A unique number used to prevent double-spending and ensure the validity of a transaction.
- */
-nonce: string | null;
+   * A unique number used to prevent double-spending and ensure the validity of a transaction.
+   */
+  nonce: string | null;
   /**
- * The base fee per gas for each block, used in EIP-1559.
- */
-baseFeePerGas: string | null;
+   * The base fee per gas for each block, used in EIP-1559.
+   */
+  baseFeePerGas: string | null;
 }
 
 /**
@@ -92,21 +92,21 @@ baseFeePerGas: string | null;
  */
 export interface RawBlockResponse extends RawBlockHeaderResponse {
   /**
- * The total accumulated difficulty of the blockchain up to this block.
- */
-totalDifficulty: string;
+   * The total accumulated difficulty of the blockchain up to this block.
+   */
+  totalDifficulty: string;
   /**
- * Size of the block in bytes.
- */
-size: string;
+   * Size of the block in bytes.
+   */
+  size: string;
   /**
- * A list of transactions included within the block.
- */
-transactions: (RawTransactionResponse | string)[];
+   * A list of transactions included within the block.
+   */
+  transactions: (RawTransactionResponse | string)[];
   /**
- * An array of uncle blocks in the blockchain.
- */
-uncles: string[];
+   * An array of uncle blocks in the blockchain.
+   */
+  uncles: string[];
 }
 
 /**
@@ -115,69 +115,69 @@ uncles: string[];
  */
 export interface BlockHeaderResponse {
   /**
- * The hash representing the unique identifier of a block.
- */
-hash: Buffer | null;
+   * The hash representing the unique identifier of a block.
+   */
+  hash: Buffer | null;
   /**
- * The hash of the parent block in the blockchain.
- */
-parentHash: Buffer;
+   * The hash of the parent block in the blockchain.
+   */
+  parentHash: Buffer;
   /**
- * The Keccak-256 hash of the uncle blocks included in the block.
- */
-sha3Uncles: Buffer;
+   * The Keccak-256 hash of the uncle blocks included in the block.
+   */
+  sha3Uncles: Buffer;
   /**
- * The Ethereum address of the miner who successfully mined the block.
- */
-miner: EthAddress;
+   * The Ethereum address of the miner who successfully mined the block.
+   */
+  miner: EthAddress;
   /**
- * The root hash of the state trie after applying transactions.
- */
-stateRoot: Buffer;
+   * The root hash of the state trie after applying transactions.
+   */
+  stateRoot: Buffer;
   /**
- * The root hash of the Merkle tree containing all transaction hashes in the block.
- */
-transactionsRoot: Buffer;
+   * The root hash of the Merkle tree containing all transaction hashes in the block.
+   */
+  transactionsRoot: Buffer;
   /**
- * The root hash of the Merkle tree containing transaction receipts.
- */
-receiptsRoot: Buffer;
+   * The root hash of the Merkle tree containing transaction receipts.
+   */
+  receiptsRoot: Buffer;
   /**
- * A compressed representation of logs' topics and data for efficient filtering.
- */
-logsBloom: Buffer | null;
+   * A compressed representation of logs' topics and data for efficient filtering.
+   */
+  logsBloom: Buffer | null;
   /**
- * The computational effort required to mine a new block.
- */
-difficulty: bigint;
+   * The computational effort required to mine a new block.
+   */
+  difficulty: bigint;
   /**
- * The block number within the blockchain.
- */
-number: number | null;
+   * The block number within the blockchain.
+   */
+  number: number | null;
   /**
- * The maximum amount of gas allowed in a block.
- */
-gasLimit: number;
+   * The maximum amount of gas allowed in a block.
+   */
+  gasLimit: number;
   /**
- * The total amount of gas consumed by all transactions in the block.
- */
-gasUsed: number;
+   * The total amount of gas consumed by all transactions in the block.
+   */
+  gasUsed: number;
   /**
- * The UNIX timestamp when the block was mined.
- */
-timestamp: number;
+   * The UNIX timestamp when the block was mined.
+   */
+  timestamp: number;
   /**
- * Arbitrary data included by the block miner.
- */
-extraData: Buffer;
+   * Arbitrary data included by the block miner.
+   */
+  extraData: Buffer;
   /**
- * A unique value used to prevent duplicate transactions and secure block mining.
- */
-nonce: Buffer | null;
+   * A unique value used to prevent duplicate transactions and secure block mining.
+   */
+  nonce: Buffer | null;
   /**
- * The base fee per gas for the block, used in EIP-1559 transactions.
- */
-baseFeePerGas: bigint | null;
+   * The base fee per gas for the block, used in EIP-1559 transactions.
+   */
+  baseFeePerGas: bigint | null;
 }
 
 /**
@@ -186,21 +186,21 @@ baseFeePerGas: bigint | null;
  */
 export interface BlockResponse<T = TransactionResponse | Buffer> extends BlockHeaderResponse {
   /**
- * The cumulative proof-of-work difficulty of the blockchain up to this block.
- */
-totalDifficulty: bigint;
+   * The cumulative proof-of-work difficulty of the blockchain up to this block.
+   */
+  totalDifficulty: bigint;
   /**
- * The byte size of the block.
- */
-size: number;
+   * The byte size of the block.
+   */
+  size: number;
   /**
- * Array of transactions included in the block.
- */
-transactions: T[];
+   * Array of transactions included in the block.
+   */
+  transactions: T[];
   /**
- * Uncles are stale blocks included in the main chain to provide a reward for partially mined blocks.
- */
-uncles: string[];
+   * Uncles are stale blocks included in the main chain to provide a reward for partially mined blocks.
+   */
+  uncles: string[];
 }
 
 /**

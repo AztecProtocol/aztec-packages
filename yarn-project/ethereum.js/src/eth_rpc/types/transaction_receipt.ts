@@ -10,49 +10,49 @@ import { TxHash } from '../tx_hash.js';
  */
 export interface RawTransactionReceipt {
   /**
- * The unique identifier of the transaction.
- */
-transactionHash: string;
+   * The unique identifier of the transaction.
+   */
+  transactionHash: string;
   /**
- * The index of the transaction within the block.
- */
-transactionIndex: string;
+   * The index of the transaction within the block.
+   */
+  transactionIndex: string;
   /**
- * The hash identifier of the block containing the transaction.
- */
-blockHash: string;
+   * The hash identifier of the block containing the transaction.
+   */
+  blockHash: string;
   /**
- * The block number in which the transaction was included.
- */
-blockNumber: string;
+   * The block number in which the transaction was included.
+   */
+  blockNumber: string;
   /**
- * The Ethereum address of the transaction sender.
- */
-from: string;
+   * The Ethereum address of the transaction sender.
+   */
+  from: string;
   /**
- * The destination Ethereum address involved in the transaction.
- */
-to: string | null;
+   * The destination Ethereum address involved in the transaction.
+   */
+  to: string | null;
   /**
- * The total amount of gas used by all transactions in the block up to and including this transaction.
- */
-cumulativeGasUsed: string;
+   * The total amount of gas used by all transactions in the block up to and including this transaction.
+   */
+  cumulativeGasUsed: string;
   /**
- * The amount of gas consumed by the transaction.
- */
-gasUsed: string;
+   * The amount of gas consumed by the transaction.
+   */
+  gasUsed: string;
   /**
- * Address of the deployed contract, if applicable.
- */
-contractAddress: string | null;
+   * Address of the deployed contract, if applicable.
+   */
+  contractAddress: string | null;
   /**
- * An array of event logs emitted by the smart contract during the transaction execution.
- */
-logs: RawLogResponse[];
+   * An array of event logs emitted by the smart contract during the transaction execution.
+   */
+  logs: RawLogResponse[];
   /**
- * The transaction success status, where 'true' indicates success and 'false' indicates failure.
- */
-status: string;
+   * The transaction success status, where 'true' indicates success and 'false' indicates failure.
+   */
+  status: string;
 }
 
 /**
@@ -61,49 +61,49 @@ status: string;
  */
 export interface TransactionReceipt {
   /**
- * The unique hash identifier of the transaction.
- */
-transactionHash: TxHash;
+   * The unique hash identifier of the transaction.
+   */
+  transactionHash: TxHash;
   /**
- * The index of the transaction within its containing block.
- */
-transactionIndex: number;
+   * The index of the transaction within its containing block.
+   */
+  transactionIndex: number;
   /**
- * The unique identifier of the block containing the transaction.
- */
-blockHash: string;
+   * The unique identifier of the block containing the transaction.
+   */
+  blockHash: string;
   /**
- * The block number containing the transaction.
- */
-blockNumber: number;
+   * The block number containing the transaction.
+   */
+  blockNumber: number;
   /**
- * The Ethereum address of the transaction sender.
- */
-from: EthAddress;
+   * The Ethereum address of the transaction sender.
+   */
+  from: EthAddress;
   /**
- * The destination Ethereum address involved in the transaction.
- */
-to?: EthAddress;
+   * The destination Ethereum address involved in the transaction.
+   */
+  to?: EthAddress;
   /**
- * The total amount of gas used by all transactions up to and including this one in the block.
- */
-cumulativeGasUsed: number;
+   * The total amount of gas used by all transactions up to and including this one in the block.
+   */
+  cumulativeGasUsed: number;
   /**
- * The amount of gas utilized during the transaction execution.
- */
-gasUsed: number;
+   * The amount of gas utilized during the transaction execution.
+   */
+  gasUsed: number;
   /**
- * The Ethereum address of the deployed smart contract, if applicable.
- */
-contractAddress?: EthAddress;
+   * The Ethereum address of the deployed smart contract, if applicable.
+   */
+  contractAddress?: EthAddress;
   /**
- * An array of log events emitted by the transaction.
- */
-logs: LogResponse[];
+   * An array of log events emitted by the transaction.
+   */
+  logs: LogResponse[];
   /**
- * The transaction execution status; true if successful, false otherwise.
- */
-status: boolean;
+   * The transaction execution status; true if successful, false otherwise.
+   */
+  status: boolean;
 }
 
 /**

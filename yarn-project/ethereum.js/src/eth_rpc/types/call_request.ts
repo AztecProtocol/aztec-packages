@@ -15,33 +15,33 @@ import {
  */
 export interface CallRequest {
   /**
- * The sender's Ethereum address.
- */
-from?: EthAddress;
+   * The sender's Ethereum address.
+   */
+  from?: EthAddress;
   /**
- * The destination Ethereum address for the call request.
- */
-to?: EthAddress;
+   * The destination Ethereum address for the call request.
+   */
+  to?: EthAddress;
   /**
- * The maximum amount of gas units to be used for the transaction execution.
- */
-gas?: number;
+   * The maximum amount of gas units to be used for the transaction execution.
+   */
+  gas?: number;
   /**
- * Maximum fee per gas unit for transaction processing.
- */
-maxFeePerGas?: bigint;
+   * Maximum fee per gas unit for transaction processing.
+   */
+  maxFeePerGas?: bigint;
   /**
- * Maximum fee per gas for transaction priority.
- */
-maxPriorityFeePerGas?: bigint;
+   * Maximum fee per gas for transaction priority.
+   */
+  maxPriorityFeePerGas?: bigint;
   /**
- * The amount of Ether (in wei) to be transferred with the call.
- */
-value?: bigint;
+   * The amount of Ether (in wei) to be transferred with the call.
+   */
+  value?: bigint;
   /**
- * The input data to be executed by the called contract.
- */
-data?: Buffer;
+   * The input data to be executed by the called contract.
+   */
+  data?: Buffer;
 }
 
 /**
@@ -51,33 +51,33 @@ data?: Buffer;
  */
 export interface RawCallRequest {
   /**
- * The Ethereum address initiating the call.
- */
-from?: string;
+   * The Ethereum address initiating the call.
+   */
+  from?: string;
   /**
- * The destination Ethereum address for the call request.
- */
-to?: string;
+   * The destination Ethereum address for the call request.
+   */
+  to?: string;
   /**
- * The maximum amount of gas allowed for executing the transaction.
- */
-gas?: string;
+   * The maximum amount of gas allowed for executing the transaction.
+   */
+  gas?: string;
   /**
- * Maximum fee per gas unit for transaction processing.
- */
-maxFeePerGas?: string;
+   * Maximum fee per gas unit for transaction processing.
+   */
+  maxFeePerGas?: string;
   /**
- * The maximum fee per gas unit prioritized for transaction inclusion.
- */
-maxPriorityFeePerGas?: string;
+   * The maximum fee per gas unit prioritized for transaction inclusion.
+   */
+  maxPriorityFeePerGas?: string;
   /**
- * The amount of Ether to be transferred in the transaction, represented as a bigint.
- */
-value?: string;
+   * The amount of Ether to be transferred in the transaction, represented as a bigint.
+   */
+  value?: string;
   /**
- * The encoded function call data for the contract method.
- */
-data?: string;
+   * The encoded function call data for the contract method.
+   */
+  data?: string;
 }
 
 /**

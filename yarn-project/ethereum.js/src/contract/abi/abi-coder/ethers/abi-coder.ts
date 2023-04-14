@@ -12,21 +12,21 @@ const MaxUint256 = BigInt('0xfffffffffffffffffffffffffffffffffffffffffffffffffff
  */
 type ParamType = {
   /**
- * The name of the parameter or variable.
- */
-name?: string;
+   * The name of the parameter or variable.
+   */
+  name?: string;
   /**
- * The data type for a specific parameter.
- */
-type: string;
+   * The data type for a specific parameter.
+   */
+  type: string;
   /**
- * Indicates whether the event parameter is indexed or not.
- */
-indexed?: boolean;
+   * Indicates whether the event parameter is indexed or not.
+   */
+  indexed?: boolean;
   /**
- * An array of component objects representing the structure and types of a tuple.
- */
-components?: Array<any>;
+   * An array of component objects representing the structure and types of a tuple.
+   */
+  components?: Array<any>;
 };
 
 // type EventFragment = {
@@ -79,25 +79,25 @@ function verifyType(type: string): string {
  */
 type ParseState = {
   /**
- * Indicates whether an array type is allowed.
- */
-allowArray?: boolean;
+   * Indicates whether an array type is allowed.
+   */
+  allowArray?: boolean;
   /**
- * Determines if a name is allowed for the parameter.
- */
-allowName?: boolean;
+   * Determines if a name is allowed for the parameter.
+   */
+  allowName?: boolean;
   /**
- * Indicates whether parameters are allowed for the current node.
- */
-allowParams?: boolean;
+   * Indicates whether parameters are allowed for the current node.
+   */
+  allowParams?: boolean;
   /**
- * Determines if type can be accepted or not.
- */
-allowType?: boolean;
+   * Determines if type can be accepted or not.
+   */
+  allowType?: boolean;
   /**
- * Indicates whether the array is being read during parsing.
- */
-readArray?: boolean;
+   * Indicates whether the array is being read during parsing.
+   */
+  readArray?: boolean;
 };
 
 /**
@@ -105,29 +105,29 @@ readArray?: boolean;
  */
 type ParseNode = {
   /**
- * The parent node of the current parse tree.
- */
-parent?: any;
+   * The parent node of the current parse tree.
+   */
+  parent?: any;
   /**
- * The data type of the parameter.
- */
-type?: string;
+   * The data type of the parameter.
+   */
+  type?: string;
   /**
- * The name representing an identifiable entity.
- */
-name?: string;
+   * The name representing an identifiable entity.
+   */
+  name?: string;
   /**
- * Represents the current state of parsing in a given node.
- */
-state?: ParseState;
+   * Represents the current state of parsing in a given node.
+   */
+  state?: ParseState;
   /**
- * Indicates if the parameter is indexed in event logs.
- */
-indexed?: boolean;
+   * Indicates if the parameter is indexed in event logs.
+   */
+  indexed?: boolean;
   /**
- * An array of nested parameter types.
- */
-components?: Array<any>;
+   * An array of nested parameter types.
+   */
+  components?: Array<any>;
 };
 
 /**
@@ -142,16 +142,16 @@ components?: Array<any>;
  */
 function parseParam(param: string, allowIndexed?: boolean): ParamType {
   /**
- * Throws a custom error with the specified reason, code, and additional error information.
- * This function is used to generate standardized error messages for better error handling
- * and debugging throughout the codebase.
- *
- * @param reason - The main reason for the error being thrown.
- * @param code - The error code associated with the particular type of error.
- * @param params - An optional object containing any additional information related to the error.
- * @throws {Error} A custom error with the provided details.
- */
-function throwError(i: number) {
+   * Throws a custom error with the specified reason, code, and additional error information.
+   * This function is used to generate standardized error messages for better error handling
+   * and debugging throughout the codebase.
+   *
+   * @param reason - The main reason for the error being thrown.
+   * @param code - The error code associated with the particular type of error.
+   * @param params - An optional object containing any additional information related to the error.
+   * @throws {Error} A custom error with the provided details.
+   */
+  function throwError(i: number) {
     throw new Error('unexpected character "' + param[i] + '" at position ' + i + ' in "' + param + '"');
   }
 
@@ -454,19 +454,22 @@ function throwError(i: number) {
 ///////////////////////////////////
 // Coders
 
-type DecodedResult<T = any> = { /**
- * The number of bytes consumed during decoding.
- */
-/**
- * The number of bytes consumed during decoding.
- */
-consumed: number; /**
- * The actual data value for the corresponding coder type.
- */
-/**
- * The actual data value for the corresponding coder type.
- */
-value: T };
+type DecodedResult<T = any> = {
+  /**
+   * The number of bytes consumed during decoding.
+   */
+  /**
+   * The number of bytes consumed during decoding.
+   */
+  consumed: number;
+  /**
+   * The actual data value for the corresponding coder type.
+   */
+  /**
+   * The actual data value for the corresponding coder type.
+   */
+  value: T;
+};
 /**
  * The Coder class is an abstract base class that provides encoding and decoding functionality
  * for specific types in the Ethereum ABI (Application Binary Interface) format. It handles the
@@ -487,25 +490,25 @@ abstract class Coder {
   }
 
   /**
- * Encode the given value using the coder's type and rules.
- * The function takes a value as input, processes it according to the specific
- * coder implementation and returns a buffer containing the encoded value.
- * Throws an error if the input value is not valid for the coder's type.
- *
- * @param value - The value to be encoded.
- * @returns A Buffer containing the encoded value.
- */
-abstract encode(value: any): Buffer;
+   * Encode the given value using the coder's type and rules.
+   * The function takes a value as input, processes it according to the specific
+   * coder implementation and returns a buffer containing the encoded value.
+   * Throws an error if the input value is not valid for the coder's type.
+   *
+   * @param value - The value to be encoded.
+   * @returns A Buffer containing the encoded value.
+   */
+  abstract encode(value: any): Buffer;
   /**
- * Decodes the given data buffer at the specified offset using the coder's type and properties.
- * Returns an object containing the number of bytes consumed during decoding and the decoded value.
- * Throws an error if there is insufficient data or any issues encountered during the decoding process.
- *
- * @param data - The input data buffer to be decoded.
- * @param offset - The starting position in the data buffer where decoding should begin.
- * @returns A DecodedResult object with the 'consumed' and 'value' properties.
- */
-abstract decode(data: Buffer, offset: number): DecodedResult;
+   * Decodes the given data buffer at the specified offset using the coder's type and properties.
+   * Returns an object containing the number of bytes consumed during decoding and the decoded value.
+   * Throws an error if there is insufficient data or any issues encountered during the decoding process.
+   *
+   * @param data - The input data buffer to be decoded.
+   * @param offset - The starting position in the data buffer where decoding should begin.
+   * @returns A DecodedResult object with the 'consumed' and 'value' properties.
+   */
+  abstract decode(data: Buffer, offset: number): DecodedResult;
 }
 
 // Clones the functionality of an existing Coder, but without a localName
@@ -514,27 +517,27 @@ class CoderAnonymous extends Coder {
     super(coder.name, coder.type, undefined, coder.dynamic);
   }
   /**
- * Encode the given value into a Buffer based on the coder type.
- * This function handles various data types such as numbers, booleans, fixed bytes, and strings.
- * Throws an error if the input value is invalid or not compatible with the coder type.
- *
- * @param value - The value to be encoded according to the coder type.
- * @returns A Buffer containing the encoded value.
- */
-encode(value: any): Buffer {
+   * Encode the given value into a Buffer based on the coder type.
+   * This function handles various data types such as numbers, booleans, fixed bytes, and strings.
+   * Throws an error if the input value is invalid or not compatible with the coder type.
+   *
+   * @param value - The value to be encoded according to the coder type.
+   * @returns A Buffer containing the encoded value.
+   */
+  encode(value: any): Buffer {
     return this.coder.encode(value);
   }
   /**
- * Decodes the given data starting from the specified offset using the associated coder.
- * Returns an object containing the consumed bytes and the decoded value.
- * Throws an error if there is insufficient data for decoding or any other issue occurs during decoding.
- *
- * @param data - The buffer containing the encoded data to be decoded.
- * @param offset - The position in the buffer where the decoding should start.
- * @returns An object with 'consumed' property indicating the number of bytes consumed during decoding,
- *          and 'value' property holding the decoded value.
- */
-decode(data: Buffer, offset: number): DecodedResult {
+   * Decodes the given data starting from the specified offset using the associated coder.
+   * Returns an object containing the consumed bytes and the decoded value.
+   * Throws an error if there is insufficient data for decoding or any other issue occurs during decoding.
+   *
+   * @param data - The buffer containing the encoded data to be decoded.
+   * @param offset - The position in the buffer where the decoding should start.
+   * @returns An object with 'consumed' property indicating the number of bytes consumed during decoding,
+   *          and 'value' property holding the decoded value.
+   */
+  decode(data: Buffer, offset: number): DecodedResult {
     return this.coder.decode(data, offset);
   }
 }
@@ -551,31 +554,31 @@ class CoderNull extends Coder {
   }
 
   /**
- * Encode the given value using the Coder's type and rules.
- * Converts various data types (boolean, number, string, etc.) into a Buffer representation
- * based on the ABI encoding specifications. Throws an error if the input value is invalid
- * or cannot be encoded according to the Coder's rules.
- *
- * @param value - The value to be encoded according to the Coder's type and rules.
- * @returns A Buffer containing the encoded representation of the input value.
- */
-encode(): Buffer {
+   * Encode the given value using the Coder's type and rules.
+   * Converts various data types (boolean, number, string, etc.) into a Buffer representation
+   * based on the ABI encoding specifications. Throws an error if the input value is invalid
+   * or cannot be encoded according to the Coder's rules.
+   *
+   * @param value - The value to be encoded according to the Coder's type and rules.
+   * @returns A Buffer containing the encoded representation of the input value.
+   */
+  encode(): Buffer {
     return Buffer.alloc(0);
   }
 
   /**
- * Decodes the provided data buffer starting from the given offset and returns an object with
- * the decoded value and the number of bytes consumed during the decoding process.
- * This function is used to decode ABI-encoded data for the specific coder type.
- *
- * @param data - The buffer containing the ABI-encoded data to be decoded.
- * @param offset - The index at which to start decoding in the data buffer.
- * @returns An object with the following properties:
- *   - `value`: The decoded value according to the coder type.
- *   - `consumed`: The number of bytes consumed during the decoding process.
- * @throws An error if there is insufficient data or the data is invalid for the coder type.
- */
-decode(data: Buffer, offset: number): DecodedResult {
+   * Decodes the provided data buffer starting from the given offset and returns an object with
+   * the decoded value and the number of bytes consumed during the decoding process.
+   * This function is used to decode ABI-encoded data for the specific coder type.
+   *
+   * @param data - The buffer containing the ABI-encoded data to be decoded.
+   * @param offset - The index at which to start decoding in the data buffer.
+   * @returns An object with the following properties:
+   *   - `value`: The decoded value according to the coder type.
+   *   - `consumed`: The number of bytes consumed during the decoding process.
+   * @throws An error if there is insufficient data or the data is invalid for the coder type.
+   */
+  decode(data: Buffer, offset: number): DecodedResult {
     if (offset > data.length) {
       throw new Error('invalid null');
     }
@@ -605,16 +608,16 @@ class CoderNumber extends Coder {
   }
 
   /**
- * Encodes the given array of values according to the CoderArray rules.
- * The input value must be an array, and its length should match
- * the length specified in the CoderArray instance. If the length is dynamic,
- * any number of elements are allowed. Throws an error if the input is not an array
- * or its length does not match the expected length.
- *
- * @param value - The array of values to be encoded.
- * @returns A Buffer containing the encoded data.
- */
-encode(value: any): Buffer {
+   * Encodes the given array of values according to the CoderArray rules.
+   * The input value must be an array, and its length should match
+   * the length specified in the CoderArray instance. If the length is dynamic,
+   * any number of elements are allowed. Throws an error if the input is not an array
+   * or its length does not match the expected length.
+   *
+   * @param value - The array of values to be encoded.
+   * @returns A Buffer containing the encoded data.
+   */
+  encode(value: any): Buffer {
     try {
       let v = BigInt(value);
       if (this.signed) {
@@ -649,15 +652,15 @@ encode(value: any): Buffer {
   }
 
   /**
- * Decodes the provided data buffer at the specified offset using the current coder instance.
- * Consumes a certain number of bytes from the data buffer and returns the decoded value along with the consumed byte count.
- * Throws an error if there is insufficient data or any issues while decoding the given data.
- *
- * @param data - The data buffer to decode.
- * @param offset - The starting offset in the data buffer for decoding.
- * @returns An object containing the decoded value and the number of bytes consumed from the data buffer.
- */
-decode(data: Buffer, offset: number): DecodedResult<bigint | number> {
+   * Decodes the provided data buffer at the specified offset using the current coder instance.
+   * Consumes a certain number of bytes from the data buffer and returns the decoded value along with the consumed byte count.
+   * Throws an error if there is insufficient data or any issues while decoding the given data.
+   *
+   * @param data - The data buffer to decode.
+   * @param offset - The starting offset in the data buffer for decoding.
+   * @returns An object containing the decoded value and the number of bytes consumed from the data buffer.
+   */
+  decode(data: Buffer, offset: number): DecodedResult<bigint | number> {
     if (data.length < offset + 32) {
       errors.throwError('insufficient data for ' + this.name + ' type', errors.INVALID_ARGUMENT, {
         arg: this.localName,
@@ -693,26 +696,26 @@ class CoderBoolean extends Coder {
   }
 
   /**
- * Encodes the given value using the appropriate Coder, resulting in a Buffer.
- * The encoded data can be later decoded using the corresponding 'decode' function.
- * Throws an error if the input value is invalid or not compatible with the Coder type.
- *
- * @param value - The value to be encoded according to the Coder's type.
- * @returns A Buffer containing the encoded data.
- */
-encode(value: boolean): Buffer {
+   * Encodes the given value using the appropriate Coder, resulting in a Buffer.
+   * The encoded data can be later decoded using the corresponding 'decode' function.
+   * Throws an error if the input value is invalid or not compatible with the Coder type.
+   *
+   * @param value - The value to be encoded according to the Coder's type.
+   * @returns A Buffer containing the encoded data.
+   */
+  encode(value: boolean): Buffer {
     return uint256Coder.encode(value ? 1 : 0);
   }
 
   /**
- * Decodes the binary data from the provided buffer using the coder's associated type and offset.
- * Throws an error if there is insufficient data, or if the decoded value does not match the expected format.
- *
- * @param data - The buffer containing the binary data to decode.
- * @param offset - The starting position within the buffer to begin decoding.
- * @returns An object containing the number of bytes consumed and the decoded value of the specified type.
- */
-decode(data: Buffer, offset: number): DecodedResult<boolean> {
+   * Decodes the binary data from the provided buffer using the coder's associated type and offset.
+   * Throws an error if there is insufficient data, or if the decoded value does not match the expected format.
+   *
+   * @param data - The buffer containing the binary data to decode.
+   * @param offset - The starting position within the buffer to begin decoding.
+   * @returns An object containing the number of bytes consumed and the decoded value of the specified type.
+   */
+  decode(data: Buffer, offset: number): DecodedResult<boolean> {
     try {
       const result = uint256Coder.decode(data, offset);
       return {
@@ -746,16 +749,16 @@ class CoderFixedBytes extends Coder {
   }
 
   /**
- * Encodes the given value using the coder and returns a Buffer.
- * This function handles various data types such as numbers, booleans, fixed bytes,
- * addresses, dynamic bytes, strings, arrays and tuples. It validates the input value
- * based on the coder properties and converts them into a suitable binary format
- * compatible with Ethereum encoding standards.
- *
- * @param value - The value to be encoded.
- * @returns A Buffer containing the encoded value.
- */
-encode(value: Buffer | string): Buffer {
+   * Encodes the given value using the coder and returns a Buffer.
+   * This function handles various data types such as numbers, booleans, fixed bytes,
+   * addresses, dynamic bytes, strings, arrays and tuples. It validates the input value
+   * based on the coder properties and converts them into a suitable binary format
+   * compatible with Ethereum encoding standards.
+   *
+   * @param value - The value to be encoded.
+   * @returns A Buffer containing the encoded value.
+   */
+  encode(value: Buffer | string): Buffer {
     if (typeof value === 'string') {
       value = hexToBuffer(value);
     }
@@ -776,15 +779,15 @@ encode(value: Buffer | string): Buffer {
   }
 
   /**
- * Decode the given data buffer starting from the specified offset using the implemented coder.
- * Returns an object containing the decoded value and the number of bytes consumed during decoding.
- * Throws an error if the input data is insufficient or invalid for the implemented coder type.
- *
- * @param data - The data buffer to be decoded.
- * @param offset - The starting index for decoding in the data buffer.
- * @returns DecodedResult object containing the decoded value and the consumed bytes count.
- */
-decode(data: Buffer, offset: number): DecodedResult {
+   * Decode the given data buffer starting from the specified offset using the implemented coder.
+   * Returns an object containing the decoded value and the number of bytes consumed during decoding.
+   * Throws an error if the input data is insufficient or invalid for the implemented coder type.
+   *
+   * @param data - The data buffer to be decoded.
+   * @param offset - The starting index for decoding in the data buffer.
+   * @returns DecodedResult object containing the decoded value and the consumed bytes count.
+   */
+  decode(data: Buffer, offset: number): DecodedResult {
     if (data.length < offset + 32) {
       errors.throwError('insufficient data for ' + name + ' type', errors.INVALID_ARGUMENT, {
         arg: this.localName,
@@ -814,16 +817,16 @@ class CoderAddress extends Coder {
   }
 
   /**
- * Encode the provided value according to the Coder type rules.
- * This function converts any given value into a Buffer format based on the specific
- * encoding rules defined for each Coder type, such as address, boolean, number, etc.
- * Throws an error if the input value is not compatible with the Coder type or if
- * any internal encoding operation fails.
- *
- * @param value - The value to be encoded according to the Coder rules.
- * @returns A Buffer instance containing the encoded value.
- */
-encode(value: EthAddress | string): Buffer {
+   * Encode the provided value according to the Coder type rules.
+   * This function converts any given value into a Buffer format based on the specific
+   * encoding rules defined for each Coder type, such as address, boolean, number, etc.
+   * Throws an error if the input value is not compatible with the Coder type or if
+   * any internal encoding operation fails.
+   *
+   * @param value - The value to be encoded according to the Coder rules.
+   * @returns A Buffer instance containing the encoded value.
+   */
+  encode(value: EthAddress | string): Buffer {
     if (typeof value === 'string') {
       value = EthAddress.fromString(value);
     }
@@ -839,16 +842,16 @@ encode(value: EthAddress | string): Buffer {
   }
 
   /**
- * Decode the data buffer at the given offset according to the coder's type.
- * This function extracts and interprets the relevant data from the buffer based on the coder specification,
- * consuming a specific number of bytes in the process. It returns an object containing the decoded value
- * and the number of bytes consumed during decoding.
- *
- * @param data - The data buffer to decode.
- * @param offset - The starting offset within the data buffer to begin decoding.
- * @returns An object containing the decoded value and the number of bytes consumed during decoding.
- */
-decode(data: Buffer, offset: number): DecodedResult {
+   * Decode the data buffer at the given offset according to the coder's type.
+   * This function extracts and interprets the relevant data from the buffer based on the coder specification,
+   * consuming a specific number of bytes in the process. It returns an object containing the decoded value
+   * and the number of bytes consumed during decoding.
+   *
+   * @param data - The data buffer to decode.
+   * @param offset - The starting offset within the data buffer to begin decoding.
+   * @returns An object containing the decoded value and the number of bytes consumed during decoding.
+   */
+  decode(data: Buffer, offset: number): DecodedResult {
     if (data.length < offset + 32) {
       errors.throwError('insufficuent data for address type', errors.INVALID_ARGUMENT, {
         arg: this.localName,
@@ -923,7 +926,7 @@ function _decodeDynamicBytes(data: Buffer, offset: number, localName: string): D
 
 /**
  * The CoderDynamicBytes class is a coder for encoding and decoding dynamic bytes data types in ABI.
- * It handles the variable-length byte arrays, allowing efficient serialization and deserialization of 
+ * It handles the variable-length byte arrays, allowing efficient serialization and deserialization of
  * such data while interacting with the Ethereum blockchain through smart contracts. The class extends the
  * base Coder class and overrides its methods to provide specific implementation for dynamic bytes.
  */
@@ -933,15 +936,15 @@ class CoderDynamicBytes extends Coder {
   }
 
   /**
- * Encodes the input values according to the specified ABI types, returning a hex-encoded string of the packed data.
- * This function takes an array of types and an array of corresponding values as input, and generates a representation
- * that can be used in Ethereum smart contracts for function calls or events.
- *
- * @param types - An array of strings or ParamType objects describing the types of the input values.
- * @param values - An array of input values matching the types specified in the "types" parameter.
- * @returns A hex-encoded string representing the packed data according to the ABI types.
- */
-encode(value: Buffer | string): Buffer {
+   * Encodes the input values according to the specified ABI types, returning a hex-encoded string of the packed data.
+   * This function takes an array of types and an array of corresponding values as input, and generates a representation
+   * that can be used in Ethereum smart contracts for function calls or events.
+   *
+   * @param types - An array of strings or ParamType objects describing the types of the input values.
+   * @param values - An array of input values matching the types specified in the "types" parameter.
+   * @returns A hex-encoded string representing the packed data according to the ABI types.
+   */
+  encode(value: Buffer | string): Buffer {
     try {
       if (typeof value === 'string') {
         value = hexToBuffer(value);
@@ -957,17 +960,17 @@ encode(value: Buffer | string): Buffer {
   }
 
   /**
- * Decodes the given data according to the specified parameter types.
- * The types array represents the data types of the expected decoding results,
- * where each type is either a string or a ParamType object.
- * The data argument should be a buffer containing the encoded data.
- * Returns an array of decoded values, with each value corresponding to the provided types.
- *
- * @param types - An array of strings or ParamType objects representing the data types to decode.
- * @param data - A Buffer containing the encoded data to be decoded.
- * @returns An array of decoded values corresponding to the specified types.
- */
-decode(data: Buffer, offset: number): DecodedResult {
+   * Decodes the given data according to the specified parameter types.
+   * The types array represents the data types of the expected decoding results,
+   * where each type is either a string or a ParamType object.
+   * The data argument should be a buffer containing the encoded data.
+   * Returns an array of decoded values, with each value corresponding to the provided types.
+   *
+   * @param types - An array of strings or ParamType objects representing the data types to decode.
+   * @param data - A Buffer containing the encoded data to be decoded.
+   * @returns An array of decoded values corresponding to the specified types.
+   */
+  decode(data: Buffer, offset: number): DecodedResult {
     const result = _decodeDynamicBytes(data, offset, this.localName);
     result.value = bufferToHex(result.value);
     return result;
@@ -986,16 +989,16 @@ class CoderString extends Coder {
   }
 
   /**
- * Encodes the given types and values into a single ABI-formatted hex string.
- * The types array should contain a list of type strings or ParamType objects that describe each value's type.
- * The values array should have the same length as the types array and contain the data to be encoded.
- * Throws an error if the types/values length mismatch or if any invalid argument is encountered during encoding.
- *
- * @param types - An array of type strings or ParamType objects describing each value's type.
- * @param values - An array of values corresponding to the types provided.
- * @returns A hex-encoded ABI-formatted string representing the encoded values.
- */
-encode(value: string): Buffer {
+   * Encodes the given types and values into a single ABI-formatted hex string.
+   * The types array should contain a list of type strings or ParamType objects that describe each value's type.
+   * The values array should have the same length as the types array and contain the data to be encoded.
+   * Throws an error if the types/values length mismatch or if any invalid argument is encountered during encoding.
+   *
+   * @param types - An array of type strings or ParamType objects describing each value's type.
+   * @param values - An array of values corresponding to the types provided.
+   * @returns A hex-encoded ABI-formatted string representing the encoded values.
+   */
+  encode(value: string): Buffer {
     if (typeof value !== 'string') {
       errors.throwError('invalid string value', errors.INVALID_ARGUMENT, {
         arg: this.localName,
@@ -1007,17 +1010,17 @@ encode(value: string): Buffer {
   }
 
   /**
- * Decodes the ABI-encoded data based on the specified input types.
- * Takes an array of input types (strings or ParamType objects) and a buffer containing
- * the ABI-encoded data. Returns an array or an object containing the decoded values, depending
- * on whether the local names are available in the input types. If any error occurs during decoding,
- * it throws an exception with a detailed message about the issue.
- *
- * @param types - An array of input types, either as strings or ParamType objects.
- * @param data - A Buffer containing the ABI-encoded data to decode.
- * @returns An array or an object containing the decoded values based on the input types.
- */
-decode(data: Buffer, offset: number): DecodedResult {
+   * Decodes the ABI-encoded data based on the specified input types.
+   * Takes an array of input types (strings or ParamType objects) and a buffer containing
+   * the ABI-encoded data. Returns an array or an object containing the decoded values, depending
+   * on whether the local names are available in the input types. If any error occurs during decoding,
+   * it throws an exception with a detailed message about the issue.
+   *
+   * @param types - An array of input types, either as strings or ParamType objects.
+   * @param data - A Buffer containing the ABI-encoded data to decode.
+   * @returns An array or an object containing the decoded values based on the input types.
+   */
+  decode(data: Buffer, offset: number): DecodedResult {
     const result = _decodeDynamicBytes(data, offset, this.localName);
     result.value = new TextDecoder('utf-8').decode(result.value);
     return result;
@@ -1069,19 +1072,22 @@ function pack(coders: Array<Coder>, values: Array<any>): Buffer {
     });
   }
 
-  const parts: Array<{ /**
- * Indicates if the coder has a dynamic size.
- */
-/**
- * Indicates if the coder has a dynamic size.
- */
-dynamic: boolean; /**
- * The encoded or decoded value based on the ABI data type.
- */
-/**
- * The encoded or decoded value based on the ABI data type.
- */
-value: any }> = [];
+  const parts: Array<{
+    /**
+     * Indicates if the coder has a dynamic size.
+     */
+    /**
+     * Indicates if the coder has a dynamic size.
+     */
+    dynamic: boolean;
+    /**
+     * The encoded or decoded value based on the ABI data type.
+     */
+    /**
+     * The encoded or decoded value based on the ABI data type.
+     */
+    value: any;
+  }> = [];
 
   coders.forEach(function (coder, index) {
     parts.push({ dynamic: coder.dynamic, value: coder.encode(values[index]) });
@@ -1195,18 +1201,18 @@ class CoderArray extends Coder {
   }
 
   /**
- * Encode the given input types and values into a hexadecimal string according to the ABI specification.
- * The function takes an array of types and values, and encodes them into a single data string,
- * which can be used for contract function calls or event encoding. The types array should contain
- * strings representing Ethereum Solidity types (e.g. 'uint256', 'address', 'bytes32'),
- * and the values array should contain corresponding JavaScript values to be encoded.
- * Throws an error if the types and values length mismatch or if there's an issue during encoding.
- *
- * @param types - An array of strings or ParamType objects representing the Ethereum Solidity types.
- * @param values - An array of JavaScript values corresponding to the input types.
- * @returns A hex-encoded string of the encoded input types and values.
- */
-encode(value: Array<any>): Buffer {
+   * Encode the given input types and values into a hexadecimal string according to the ABI specification.
+   * The function takes an array of types and values, and encodes them into a single data string,
+   * which can be used for contract function calls or event encoding. The types array should contain
+   * strings representing Ethereum Solidity types (e.g. 'uint256', 'address', 'bytes32'),
+   * and the values array should contain corresponding JavaScript values to be encoded.
+   * Throws an error if the types and values length mismatch or if there's an issue during encoding.
+   *
+   * @param types - An array of strings or ParamType objects representing the Ethereum Solidity types.
+   * @param values - An array of JavaScript values corresponding to the input types.
+   * @returns A hex-encoded string of the encoded input types and values.
+   */
+  encode(value: Array<any>): Buffer {
     if (!Array.isArray(value)) {
       errors.throwError('expected array value', errors.INVALID_ARGUMENT, {
         arg: this.localName,
@@ -1234,15 +1240,15 @@ encode(value: Array<any>): Buffer {
   }
 
   /**
- * Decodes the ABI (Application Binary Interface) encoded data based on the specified types.
- * The function takes an array of type descriptors and a buffer containing the ABI encoded data,
- * and returns an object with decoded values.
- *
- * @param {Array<string | ParamType>} types - An array of type descriptors, either as strings or ParamType objects.
- * @param {Buffer} data - A Buffer containing the ABI encoded data to be decoded.
- * @returns {any} An object with the decoded values based on the provided types.
- */
-decode(data: Buffer, offset: number) {
+   * Decodes the ABI (Application Binary Interface) encoded data based on the specified types.
+   * The function takes an array of type descriptors and a buffer containing the ABI encoded data,
+   * and returns an object with decoded values.
+   *
+   * @param {Array<string | ParamType>} types - An array of type descriptors, either as strings or ParamType objects.
+   * @param {Buffer} data - A Buffer containing the ABI encoded data to be decoded.
+   * @returns {any} An object with the decoded values based on the provided types.
+   */
+  decode(data: Buffer, offset: number) {
     // @TODO:
     //if (data.length < offset + length * 32) { throw new Error('invalid array'); }
 
@@ -1286,7 +1292,7 @@ decode(data: Buffer, offset: number) {
 
 /**
  * The CoderTuple class is responsible for encoding and decoding tuple data types in the ABI encoding format.
- * It extends the Coder class and takes an array of coders representing each component. 
+ * It extends the Coder class and takes an array of coders representing each component.
  * When encoding, it processes the components using the appropriate coder instances and returns the encoded data.
  * When decoding, it parses the encoded data and constructs the tuple by applying each coder's decode method to their respective components.
  */
@@ -1307,31 +1313,31 @@ class CoderTuple extends Coder {
   }
 
   /**
- * Encodes the given function signature with the corresponding parameter types and values.
- * This function takes an array of parameter types, such as strings or ParamType objects,
- * and an array of corresponding parameter values to generate the ABI-encoded data.
- * The generated encoded data is useful for interacting with smart contracts.
- * Throws an error if the length of the input types and values mismatch.
- *
- * @param types - An array of parameter types represented as strings or ParamType objects.
- * @param values - An array of corresponding values to be encoded with the parameter types.
- * @returns A hex-encoded string representing the ABI-encoded data.
- */
-encode(value: Array<any>): Buffer {
+   * Encodes the given function signature with the corresponding parameter types and values.
+   * This function takes an array of parameter types, such as strings or ParamType objects,
+   * and an array of corresponding parameter values to generate the ABI-encoded data.
+   * The generated encoded data is useful for interacting with smart contracts.
+   * Throws an error if the length of the input types and values mismatch.
+   *
+   * @param types - An array of parameter types represented as strings or ParamType objects.
+   * @param values - An array of corresponding values to be encoded with the parameter types.
+   * @returns A hex-encoded string representing the ABI-encoded data.
+   */
+  encode(value: Array<any>): Buffer {
     return pack(this.coders, value);
   }
 
   /**
- * Decodes the provided data using the specified input types and returns an array of decoded values.
- * The input 'types' is an array of either strings or ParamType objects representing the expected data types.
- * The input 'data' should be a Buffer containing the encoded data to decode.
- * Throws an error if the number of input types does not match the number of values in the data or if decoding fails.
- *
- * @param types - Array of strings or ParamType objects representing the expected data types.
- * @param data - Buffer containing the encoded data to decode.
- * @returns An array of decoded values.
- */
-decode(data: Buffer, offset: number): DecodedResult {
+   * Decodes the provided data using the specified input types and returns an array of decoded values.
+   * The input 'types' is an array of either strings or ParamType objects representing the expected data types.
+   * The input 'data' should be a Buffer containing the encoded data to decode.
+   * Throws an error if the number of input types does not match the number of values in the data or if decoding fails.
+   *
+   * @param types - Array of strings or ParamType objects representing the expected data types.
+   * @param data - Buffer containing the encoded data to decode.
+   * @returns An array of decoded values.
+   */
+  decode(data: Buffer, offset: number): DecodedResult {
     const result = unpack(this.coders, data, offset);
     return result;
   }
@@ -1468,16 +1474,16 @@ export class AbiCoder {
   constructor() {}
 
   /**
- * Encodes the given types and values into a hex-encoded ABI string.
- * Takes an array of types (strings or ParamType objects) and an array of corresponding values.
- * Each type in the 'types' array should have a corresponding value in the 'values' array.
- * Throws an error if the length of types and values arrays do not match, or if there are any issues during encoding.
- *
- * @param types - An array of strings or ParamType objects representing the data types.
- * @param values - An array of values corresponding to the types.
- * @returns A hex-encoded string representing the encoded ABI data.
- */
-encode(types: Array<string | ParamType>, values: Array<any>): string {
+   * Encodes the given types and values into a hex-encoded ABI string.
+   * Takes an array of types (strings or ParamType objects) and an array of corresponding values.
+   * Each type in the 'types' array should have a corresponding value in the 'values' array.
+   * Throws an error if the length of types and values arrays do not match, or if there are any issues during encoding.
+   *
+   * @param types - An array of strings or ParamType objects representing the data types.
+   * @param values - An array of values corresponding to the types.
+   * @returns A hex-encoded string representing the encoded ABI data.
+   */
+  encode(types: Array<string | ParamType>, values: Array<any>): string {
     if (types.length !== values.length) {
       errors.throwError('types/values length mismatch', errors.INVALID_ARGUMENT, {
         count: { types: types.length, values: values.length },
@@ -1504,19 +1510,18 @@ encode(types: Array<string | ParamType>, values: Array<any>): string {
     return bufferToHex(new CoderTuple(coders, '_').encode(values));
   }
 
-  ```
-/**
- * Decodes the ABI-encoded data using the provided array of types and returns the corresponding values.
- * Each type can be a string or a ParamType object, which includes type information and an optional name.
- * The input 'data' should be a valid ABI-encoded Buffer.
- * Throws an error if the types and data do not match, or if any decoding issues occur.
- *
- * @param types - An array of strings or ParamType objects representing the expected types of the decoded data.
- * @param data - A Buffer containing the ABI-encoded data to be decoded.
- * @returns An array or an object containing the decoded values, with optional keys if names are provided in the types.
- */
-```
-decode(types: Array<string | ParamType>, data: Buffer): any {
+  /**
+   * Decodes the ABI-encoded data using the provided array of types and returns the corresponding values.
+   * Each type can be a string or a ParamType object, which includes type information and an optional name.
+   * The input 'data' should be a valid ABI-encoded Buffer.
+   * Throws an error if the types and data do not match, or if any decoding issues occur.
+   *
+   * @param types - An array of strings or ParamType objects representing the expected types of the decoded data.
+   * @param data - A Buffer containing the ABI-encoded data to be decoded.
+   * @returns An array or an object containing the decoded values, with optional keys if names are provided in the types.
+   */
+
+  decode(types: Array<string | ParamType>, data: Buffer): any {
     const coders = types.map(type => {
       if (typeof type === 'string') {
         type = parseParam(type);

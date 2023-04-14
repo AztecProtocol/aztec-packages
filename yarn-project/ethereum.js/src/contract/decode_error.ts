@@ -9,19 +9,19 @@ import { ContractAbi } from './abi/contract_abi.js';
  */
 export interface DecodedError {
   /**
- * The name of the decoded error.
- */
-name?: string;
-  ```
-/**
- * An array of decoded error parameters.
- */
-```
-params?: any[];
+   * The name of the decoded error.
+   */
+  name?: string;
+
   /**
- * A human-readable description of the error.
- */
-message: string;
+   * An array of decoded error parameters.
+   */
+
+  params?: any[];
+  /**
+   * A human-readable description of the error.
+   */
+  message: string;
 }
 
 /**

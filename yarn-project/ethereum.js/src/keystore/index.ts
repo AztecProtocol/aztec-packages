@@ -9,25 +9,25 @@ import { pbkdf2, scrypt, keccak256, randomBytes } from '../crypto/index.js';
  */
 interface ScryptKdfParams {
   /**
- * The desired output key length in bytes.
- */
-dklen: number;
+   * The desired output key length in bytes.
+   */
+  dklen: number;
   /**
- * The cost factor for scrypt key derivation function.
- */
-n: number;
+   * The cost factor for scrypt key derivation function.
+   */
+  n: number;
   /**
- * The parallelization factor for the scrypt key derivation function.
- */
-p: number;
+   * The parallelization factor for the scrypt key derivation function.
+   */
+  p: number;
   /**
- * The CPU/memory cost factor for scrypt key derivation.
- */
-r: number;
+   * The CPU/memory cost factor for scrypt key derivation.
+   */
+  r: number;
   /**
- * A cryptographic element used to enhance password security.
- */
-salt: string;
+   * A cryptographic element used to enhance password security.
+   */
+  salt: string;
 }
 
 /**
@@ -36,21 +36,21 @@ salt: string;
  */
 interface PbKdf2Params {
   /**
- * The desired length of the derived key in bytes.
- */
-dklen: number;
+   * The desired length of the derived key in bytes.
+   */
+  dklen: number;
   /**
- * The iteration count for the PBKDF2 key derivation function.
- */
-c: number;
+   * The iteration count for the PBKDF2 key derivation function.
+   */
+  c: number;
   /**
- * Pseudorandom function (PRF) used for key derivation.
- */
-prf: string;
+   * Pseudorandom function (PRF) used for key derivation.
+   */
+  prf: string;
   /**
- * A random sequence of bytes used as an additional input for the key derivation function.
- */
-salt: string;
+   * A random sequence of bytes used as an additional input for the key derivation function.
+   */
+  salt: string;
 }
 
 /**
@@ -59,51 +59,51 @@ salt: string;
  */
 export interface KeyStoreJson {
   /**
- * Ethereum address associated with the keystore.
- */
-address?: string;
+   * Ethereum address associated with the keystore.
+   */
+  address?: string;
   /**
- * Cryptographic configurations and encrypted data.
- */
-crypto: {
+   * Cryptographic configurations and encrypted data.
+   */
+  crypto: {
     /**
- * The encryption algorithm used to secure the private key.
- */
-cipher: string;
+     * The encryption algorithm used to secure the private key.
+     */
+    cipher: string;
     /**
- * The encrypted private key in hexadecimal format.
- */
-ciphertext: string;
+     * The encrypted private key in hexadecimal format.
+     */
+    ciphertext: string;
     /**
- * Parameters required for cipher initialization.
- */
-cipherparams: {
+     * Parameters required for cipher initialization.
+     */
+    cipherparams: {
       /**
- * Initialization vector for the cipher algorithm.
- */
-iv: string;
+       * Initialization vector for the cipher algorithm.
+       */
+      iv: string;
     };
     /**
- * Key derivation function used for encryption.
- */
-kdf: string;
+     * Key derivation function used for encryption.
+     */
+    kdf: string;
     /**
- * Key derivation function parameters for password-based key generation.
- */
-kdfparams: ScryptKdfParams | PbKdf2Params;
+     * Key derivation function parameters for password-based key generation.
+     */
+    kdfparams: ScryptKdfParams | PbKdf2Params;
     /**
- * Message authentication code generated from encrypted data.
- */
-mac: string;
+     * Message authentication code generated from encrypted data.
+     */
+    mac: string;
   };
   /**
- * Unique identifier for the keystore object.
- */
-id: string;
+   * Unique identifier for the keystore object.
+   */
+  id: string;
   /**
- * The version of the key store format.
- */
-version: number;
+   * The version of the key store format.
+   */
+  version: number;
 }
 
 /**
@@ -165,45 +165,45 @@ export async function decryptFromKeyStoreJson(v3Keystore: KeyStoreJson, password
  */
 export interface KeyStoreEncryptOptions {
   /**
- * Cipher algorithm used for encryption.
- */
-cipher?: string;
+   * Cipher algorithm used for encryption.
+   */
+  cipher?: string;
   /**
- * A random value used to ensure unique derived encryption keys.
- */
-salt?: Buffer;
+   * A random value used to ensure unique derived encryption keys.
+   */
+  salt?: Buffer;
   /**
- * Initialization Vector for the AES cipher.
- */
-iv?: Buffer;
+   * Initialization Vector for the AES cipher.
+   */
+  iv?: Buffer;
   /**
- * Key derivation function used for encryption/decryption.
- */
-kdf?: 'scrypt' | 'pbkdf2';
+   * Key derivation function used for encryption/decryption.
+   */
+  kdf?: 'scrypt' | 'pbkdf2';
   /**
- * Unique identifier for the key store.
- */
-id?: string;
+   * Unique identifier for the key store.
+   */
+  id?: string;
   /**
- * The iteration count for the PBKDF2 key derivation function.
- */
-c?: number;
+   * The iteration count for the PBKDF2 key derivation function.
+   */
+  c?: number;
   /**
- * Length of the derived key in bytes.
- */
-dklen?: number;
+   * Length of the derived key in bytes.
+   */
+  dklen?: number;
   /**
- * The cost factor determining the CPU/memory complexity of the scrypt key derivation function.
- */
-n?: number;
+   * The cost factor determining the CPU/memory complexity of the scrypt key derivation function.
+   */
+  n?: number;
   /**
- * The scrypt memory cost factor.
- */
-r?: number;
+   * The scrypt memory cost factor.
+   */
+  r?: number;
   /**
- * The parallelization factor for the scrypt key derivation function.
- */
-p?: number;
+   * The parallelization factor for the scrypt key derivation function.
+   */
+  p?: number;
 }
 
 /**

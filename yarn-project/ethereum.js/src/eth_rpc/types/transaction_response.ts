@@ -14,73 +14,73 @@ import {
  */
 export interface RawTransactionResponse {
   /**
- * The hash of the block containing the transaction.
- */
-blockHash: string | null;
+   * The hash of the block containing the transaction.
+   */
+  blockHash: string | null;
   /**
- * The block number in which the transaction is included.
- */
-blockNumber: string | null;
+   * The block number in which the transaction is included.
+   */
+  blockNumber: string | null;
   /**
- * The originating Ethereum address of the transaction.
- */
-from: string;
+   * The originating Ethereum address of the transaction.
+   */
+  from: string;
   /**
- * The amount of gas required for the transaction execution.
- */
-gas: string;
+   * The amount of gas required for the transaction execution.
+   */
+  gas: string;
   /**
- * The price per unit of gas in the transaction.
- */
-gasPrice: string;
+   * The price per unit of gas in the transaction.
+   */
+  gasPrice: string;
   /**
- * Maximum fee per gas unit for a transaction.
- */
-maxFeePerGas?: string;
+   * Maximum fee per gas unit for a transaction.
+   */
+  maxFeePerGas?: string;
   /**
- * The maximum fee per gas unit for transaction prioritization.
- */
-maxPriorityFeePerGas?: string;
+   * The maximum fee per gas unit for transaction prioritization.
+   */
+  maxPriorityFeePerGas?: string;
   /**
- * The unique identifier of the transaction.
- */
-hash: string;
+   * The unique identifier of the transaction.
+   */
+  hash: string;
   /**
- * Raw input data of the transaction.
- */
-input: string;
+   * Raw input data of the transaction.
+   */
+  input: string;
   /**
- * A unique transaction counter for the sender.
- */
-nonce: string;
+   * A unique transaction counter for the sender.
+   */
+  nonce: string;
   /**
- * The destination Ethereum address involved in the transaction.
- */
-to: string | null;
+   * The destination Ethereum address involved in the transaction.
+   */
+  to: string | null;
   /**
- * The index of the transaction within its containing block.
- */
-transactionIndex: string | null;
+   * The index of the transaction within its containing block.
+   */
+  transactionIndex: string | null;
   /**
- * The Ethereum transaction type identifier.
- */
-type: string;
+   * The Ethereum transaction type identifier.
+   */
+  type: string;
   /**
- * The amount of Ether transferred in the transaction.
- */
-value: string;
+   * The amount of Ether transferred in the transaction.
+   */
+  value: string;
   /**
- * The recovery identifier of the transaction signature.
- */
-v: string;
+   * The recovery identifier of the transaction signature.
+   */
+  v: string;
   /**
- * The 'r' value of the transaction's ECDSA signature.
- */
-r: string;
+   * The 'r' value of the transaction's ECDSA signature.
+   */
+  r: string;
   /**
- * Signature component for transaction verification.
- */
-s: string;
+   * Signature component for transaction verification.
+   */
+  s: string;
 }
 
 /**
@@ -89,73 +89,73 @@ s: string;
  */
 export interface TransactionResponse {
   /**
- * The hash of the block containing the transaction.
- */
-blockHash: string | null;
+   * The hash of the block containing the transaction.
+   */
+  blockHash: string | null;
   /**
- * The block number containing the transaction, or null if not yet mined.
- */
-blockNumber: number | null;
+   * The block number containing the transaction, or null if not yet mined.
+   */
+  blockNumber: number | null;
   /**
- * The originating Ethereum address of the transaction.
- */
-from: EthAddress;
+   * The originating Ethereum address of the transaction.
+   */
+  from: EthAddress;
   /**
- * Amount of gas units required for executing the transaction.
- */
-gas: number;
+   * Amount of gas units required for executing the transaction.
+   */
+  gas: number;
   /**
- * The amount of Ether paid per unit of gas for the transaction.
- */
-gasPrice: bigint;
+   * The amount of Ether paid per unit of gas for the transaction.
+   */
+  gasPrice: bigint;
   /**
- * The maximum fee per gas unit for the transaction.
- */
-maxFeePerGas?: bigint;
+   * The maximum fee per gas unit for the transaction.
+   */
+  maxFeePerGas?: bigint;
   /**
- * The maximum fee per gas a user is willing to pay for transaction priority.
- */
-maxPriorityFeePerGas?: bigint;
+   * The maximum fee per gas a user is willing to pay for transaction priority.
+   */
+  maxPriorityFeePerGas?: bigint;
   /**
- * The unique identifier of the transaction.
- */
-hash: string;
+   * The unique identifier of the transaction.
+   */
+  hash: string;
   /**
- * Raw binary data representing smart contract method calls and parameters.
- */
-input: Buffer;
+   * Raw binary data representing smart contract method calls and parameters.
+   */
+  input: Buffer;
   /**
- * An integer value representing the number of transactions sent by the sender.
- */
-nonce: number;
+   * An integer value representing the number of transactions sent by the sender.
+   */
+  nonce: number;
   /**
- * The destination Ethereum address for the transaction.
- */
-to: EthAddress | null;
+   * The destination Ethereum address for the transaction.
+   */
+  to: EthAddress | null;
   /**
- * The position of the transaction within the block.
- */
-transactionIndex: number | null;
+   * The position of the transaction within the block.
+   */
+  transactionIndex: number | null;
   /**
- * Transaction type identifier.
- */
-type: number;
+   * Transaction type identifier.
+   */
+  type: number;
   /**
- * The value transferred in the transaction, represented as a bigint.
- */
-value: bigint;
+   * The value transferred in the transaction, represented as a bigint.
+   */
+  value: bigint;
   /**
- * The recovery identifier of the ECDSA signature.
- */
-v: string;
+   * The recovery identifier of the ECDSA signature.
+   */
+  v: string;
   /**
- * The 'r' value of the ECDSA signature.
- */
-r: string;
+   * The 'r' value of the ECDSA signature.
+   */
+  r: string;
   /**
- * Signature recovery value for ECDSA.
- */
-s: string;
+   * Signature recovery value for ECDSA.
+   */
+  s: string;
 }
 
 /**

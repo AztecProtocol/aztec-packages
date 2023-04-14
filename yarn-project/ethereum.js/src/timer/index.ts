@@ -1,4 +1,3 @@
-
 export class Timer {
   private start: number;
 
@@ -6,13 +5,11 @@ export class Timer {
     this.start = new Date().getTime();
   }
 
- 
-public ms() {
+  public ms() {
     return new Date().getTime() - this.start;
   }
 
- 
-public s() {
+  public s() {
     return (new Date().getTime() - this.start) / 1000;
   }
 }

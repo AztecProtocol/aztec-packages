@@ -10,17 +10,17 @@ import { numToUInt8 } from '../serialize/index.js';
  */
 export interface SignedEthTransaction {
   /**
- * The cryptographic signature of the transaction.
- */
-signature: EthSignature;
+   * The cryptographic signature of the transaction.
+   */
+  signature: EthSignature;
   /**
- * The Keccak-256 hash of the signed transaction message.
- */
-messageHash: Buffer;
+   * The Keccak-256 hash of the signed transaction message.
+   */
+  messageHash: Buffer;
   /**
- * The serialized raw Ethereum transaction in RLP-encoded format.
- */
-rawTransaction: Buffer;
+   * The serialized raw Ethereum transaction in RLP-encoded format.
+   */
+  rawTransaction: Buffer;
 }
 
 /**

@@ -11,17 +11,17 @@ import { ConstructorInteraction } from './constructor_interaction.js';
  */
 export interface ContractOptions {
   /**
- * The Ethereum address initiating the contract interaction.
- */
-from?: EthAddress;
+   * The Ethereum address initiating the contract interaction.
+   */
+  from?: EthAddress;
   /**
- * Gas price for executing contract transactions.
- */
-gasPrice?: string | number;
+   * Gas price for executing contract transactions.
+   */
+  gasPrice?: string | number;
   /**
- * The maximum amount of gas units allowed for the contract execution.
- */
-gas?: number;
+   * The maximum amount of gas units allowed for the contract execution.
+   */
+  gas?: number;
 }
 
 /**
@@ -31,17 +31,17 @@ gas?: number;
  */
 interface ContractDefinition {
   /**
- * Collection of named functions to interact with the contract methods.
- */
-methods: any;
+   * Collection of named functions to interact with the contract methods.
+   */
+  methods: any;
   /**
- * Collection of contract event definitions for ease of interaction.
- */
-events?: any;
+   * Collection of contract event definitions for ease of interaction.
+   */
+  events?: any;
   /**
- * A collection of event logs for the contract.
- */
-eventLogs?: any;
+   * A collection of event logs for the contract.
+   */
+  eventLogs?: any;
 }
 
 /**
@@ -98,9 +98,9 @@ type GetContractMethods<T> = T extends ContractDefinition
  */
 export class Contract<T extends ContractDefinition | void = void> {
   /**
- * Collection of named functions for interacting with the contract methods.
- */
-public readonly methods: GetContractMethods<T>;
+   * Collection of named functions for interacting with the contract methods.
+   */
+  public readonly methods: GetContractMethods<T>;
   // public readonly events: GetContractEvents<T>;
   private linkTable: { [name: string]: EthAddress } = {};
 
@@ -108,9 +108,9 @@ public readonly methods: GetContractMethods<T>;
     private eth: EthereumRpc,
     private contractAbi: ContractAbi,
     /**
- * Ethereum contract address for interaction.
- */
-public address = EthAddress.ZERO,
+     * Ethereum contract address for interaction.
+     */
+    public address = EthAddress.ZERO,
     private defaultOptions: ContractOptions = {},
   ) {
     this.methods = this.buildMethods();
@@ -154,60 +154,60 @@ public address = EthAddress.ZERO,
   }
 
   /**
- * Retrieves event logs from the contract based on the specified event and options.
- * If 'allevents' is passed as the event, it will return logs for all events in the contract. 
- * Otherwise, it returns logs for the specific event name or signature provided.
- * The LogRequest options allow filtering, such as setting a block range or topics to search for logs.
- *
- * @param event - The event name, signature, or 'allevents' to retrieve logs for.
- * @param options - Optional LogRequest object to filter the log results.
- * @returns An array of EventLog objects for the specified event(s) and filtered based on the provided options.
- */
-public async getLogs<Event extends Events<T>>(
+   * Retrieves event logs from the contract based on the specified event and options.
+   * If 'allevents' is passed as the event, it will return logs for all events in the contract.
+   * Otherwise, it returns logs for the specific event name or signature provided.
+   * The LogRequest options allow filtering, such as setting a block range or topics to search for logs.
+   *
+   * @param event - The event name, signature, or 'allevents' to retrieve logs for.
+   * @param options - Optional LogRequest object to filter the log results.
+   * @returns An array of EventLog objects for the specified event(s) and filtered based on the provided options.
+   */
+  public async getLogs<Event extends Events<T>>(
     event: Event,
     options: LogRequest<GetEvent<T, Event>>,
   ): Promise<GetEventLog<T, Event>[]>;
   /**
- * Retrieves event logs for the specified event or all events emitted by the contract.
- * This function takes an event name and optional log request options as parameters, then
- * fetches the matching event logs from the Ethereum blockchain. If the event name is 'allevents',
- * it will retrieve logs for all events emitted by the contract. The resulting event logs are
- * decoded according to the contract's ABI before being returned as an array.
- *
- * @param event - The name of the event or 'allevents' to retrieve logs for all events.
- * @param options - Optional log request options such as filter, address, and topics.
- * @returns An array of decoded event logs matching the specified event name and options.
- */
-public async getLogs(event: 'allevents', options: LogRequest): Promise<EventLog<any>[]>;
+   * Retrieves event logs for the specified event or all events emitted by the contract.
+   * This function takes an event name and optional log request options as parameters, then
+   * fetches the matching event logs from the Ethereum blockchain. If the event name is 'allevents',
+   * it will retrieve logs for all events emitted by the contract. The resulting event logs are
+   * decoded according to the contract's ABI before being returned as an array.
+   *
+   * @param event - The name of the event or 'allevents' to retrieve logs for all events.
+   * @param options - Optional log request options such as filter, address, and topics.
+   * @returns An array of decoded event logs matching the specified event name and options.
+   */
+  public async getLogs(event: 'allevents', options: LogRequest): Promise<EventLog<any>[]>;
   /**
- * Fetches event logs from the blockchain based on the given event and options.
- * This function can either retrieve logs for a specific event or all events in a contract.
- * It returns an array of decoded event logs based on the ContractDefinition type parameter.
- * The `eventName` parameter should be the name or signature of the event, or 'allevents' to fetch
- * logs for all events in a contract. The `options` parameter allows filtering logs by block range,
- * address, and other criteria.
- *
- * @param eventName - The name, signature, or 'allevents' string representing the event(s) to fetch logs for.
- * @param options - A LogRequest object with optional properties to filter event logs.
- * @returns A Promise that resolves to an array of decoded event logs.
- */
-public async getLogs(event: Events<T> & 'allevents', options: LogRequest = {}): Promise<EventLog<any>[]> {
+   * Fetches event logs from the blockchain based on the given event and options.
+   * This function can either retrieve logs for a specific event or all events in a contract.
+   * It returns an array of decoded event logs based on the ContractDefinition type parameter.
+   * The `eventName` parameter should be the name or signature of the event, or 'allevents' to fetch
+   * logs for all events in a contract. The `options` parameter allows filtering logs by block range,
+   * address, and other criteria.
+   *
+   * @param eventName - The name, signature, or 'allevents' string representing the event(s) to fetch logs for.
+   * @param options - A LogRequest object with optional properties to filter event logs.
+   * @returns A Promise that resolves to an array of decoded event logs.
+   */
+  public async getLogs(event: Events<T> & 'allevents', options: LogRequest = {}): Promise<EventLog<any>[]> {
     const logOptions = this.getLogOptions(event, options);
     const result = await this.eth.getLogs(logOptions);
     return result.map(log => this.contractAbi.decodeEvent(log));
   }
 
   /**
- * Retrieves a contract method by name and input/output types as an executor factory.
- * The method can be called with the specified arguments to create a FunctionInteraction instance.
- * Throws an error if no contract address is available or if there is no matching method with the provided arguments length.
- *
- * @param name - The name of the contract method.
- * @param inputTypes - An array of input data types for the method.
- * @param outputTypes - An array of output data types for the method.
- * @returns A TxFactory instance representing the contract method.
- */
-public getMethod(name: string, inputTypes: AbiDataTypes[], outputTypes: AbiDataTypes[]) {
+   * Retrieves a contract method by name and input/output types as an executor factory.
+   * The method can be called with the specified arguments to create a FunctionInteraction instance.
+   * Throws an error if no contract address is available or if there is no matching method with the provided arguments length.
+   *
+   * @param name - The name of the contract method.
+   * @param inputTypes - An array of input data types for the method.
+   * @param outputTypes - An array of output data types for the method.
+   * @returns A TxFactory instance representing the contract method.
+   */
+  public getMethod(name: string, inputTypes: AbiDataTypes[], outputTypes: AbiDataTypes[]) {
     const abiEntry: ContractEntryDefinition = {
       inputs: inputTypes.map((type, i) => ({ name: `a${i}`, type })),
       name,
@@ -244,14 +244,14 @@ public getMethod(name: string, inputTypes: AbiDataTypes[], outputTypes: AbiDataT
   }
 
   /**
- * Generates a collection of named functions on the public `methods` property based on the contract ABI.
- * It groups and assigns contract functions to their respective method names.
- * In case of function overloads, it will create an executor factory for all matching functions.
- *
- * @private
- * @returns An object containing the generated methods mapped to their respective names.
- */
-private buildMethods() {
+   * Generates a collection of named functions on the public `methods` property based on the contract ABI.
+   * It groups and assigns contract functions to their respective method names.
+   * In case of function overloads, it will create an executor factory for all matching functions.
+   *
+   * @private
+   * @returns An object containing the generated methods mapped to their respective names.
+   */
+  private buildMethods() {
     const methods: any = {};
 
     this.contractAbi.functions.forEach(f => {
@@ -273,15 +273,15 @@ private buildMethods() {
   }
 
   /**
- * Generates a LogRequest object for the specified event and request options.
- * This is used to filter and retrieve logs related to a contract event.
- * Throws an error if no contract address is available or the specified event is not found in the ABI.
- *
- * @param eventName - The name or signature of the contract event.
- * @param options - A LogRequest object containing filter and topic options for the log query.
- * @returns A LogRequest object with the specified event and request options combined.
- */
-private getLogOptions(eventName = 'allevents', options: LogRequest): LogRequest {
+   * Generates a LogRequest object for the specified event and request options.
+   * This is used to filter and retrieve logs related to a contract event.
+   * Throws an error if no contract address is available or the specified event is not found in the ABI.
+   *
+   * @param eventName - The name or signature of the contract event.
+   * @param options - A LogRequest object containing filter and topic options for the log query.
+   * @returns A LogRequest object with the specified event and request options combined.
+   */
+  private getLogOptions(eventName = 'allevents', options: LogRequest): LogRequest {
     if (!this.address) {
       throw new Error('No contract address.');
     }

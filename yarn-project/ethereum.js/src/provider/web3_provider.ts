@@ -4,21 +4,21 @@
  */
 interface JsonRpcRequest {
   /**
- * A JSON-RPC version identifier.
- */
-jsonrpc: string;
+   * A JSON-RPC version identifier.
+   */
+  jsonrpc: string;
   /**
- * The name of the JSON-RPC method to call.
- */
-method: string;
+   * The name of the JSON-RPC method to call.
+   */
+  method: string;
   /**
- * An array of method-specific parameters.
- */
-params: any[];
+   * An array of method-specific parameters.
+   */
+  params: any[];
   /**
- * Unique identifier for the JSON-RPC request.
- */
-id: number;
+   * Unique identifier for the JSON-RPC request.
+   */
+  id: number;
 }
 
 /**
@@ -28,33 +28,33 @@ id: number;
  */
 interface JsonRpcResponse {
   /**
- * JSON-RPC version used for communication.
- */
-jsonrpc: string;
+   * JSON-RPC version used for communication.
+   */
+  jsonrpc: string;
   /**
- * A unique identifier for the JSON-RPC request.
- */
-id: number;
+   * A unique identifier for the JSON-RPC request.
+   */
+  id: number;
   /**
- * The outcome of the invoked method.
- */
-result?: any;
+   * The outcome of the invoked method.
+   */
+  result?: any;
   /**
- * Represents error details returned in JSON-RPC response.
- */
-error?: {
+   * Represents error details returned in JSON-RPC response.
+   */
+  error?: {
     /**
- * The numerical error code representing the type of error occurred.
- */
-code: number;
+     * The numerical error code representing the type of error occurred.
+     */
+    code: number;
     /**
- * The name of the method to be called on the remote server.
- */
-message: string;
+     * The name of the method to be called on the remote server.
+     */
+    message: string;
     /**
- * Additional information related to the error.
- */
-data?: any;
+     * Additional information related to the error.
+     */
+    data?: any;
   };
 }
 

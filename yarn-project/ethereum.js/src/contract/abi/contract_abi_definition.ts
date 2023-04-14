@@ -10,25 +10,25 @@ export type AbiDataTypes = 'bool' | 'string' | 'address' | 'function' | 'uint' |
  */
 export type AbiInput = {
   /**
- * Represents the structure of nested tuple elements.
- */
-components?: any;
+   * Represents the structure of nested tuple elements.
+   */
+  components?: any;
   /**
- * The name identifier for the contract entry.
- */
-name: string;
+   * The name identifier for the contract entry.
+   */
+  name: string;
   /**
- * Represents the type of a Contract Entry in the ABI (Application Binary Interface) definition.
- */
-type: AbiDataTypes;
+   * Represents the type of a Contract Entry in the ABI (Application Binary Interface) definition.
+   */
+  type: AbiDataTypes;
   /**
- * Indicates if the parameter is indexed in events.
- */
-indexed?: boolean;
+   * Indicates if the parameter is indexed in events.
+   */
+  indexed?: boolean;
   /**
- * The internal representation of the data type.
- */
-internalType?: string;
+   * The internal representation of the data type.
+   */
+  internalType?: string;
 };
 
 /**
@@ -36,21 +36,21 @@ internalType?: string;
  */
 export type AbiOutput = {
   /**
- * Nested structure defining the data type components.
- */
-components?: any;
+   * Nested structure defining the data type components.
+   */
+  components?: any;
   /**
- * The name identifier of the contract entry.
- */
-name: string;
+   * The name identifier of the contract entry.
+   */
+  name: string;
   /**
- * The type of contract entry, such as function, constructor, event, fallback, error, or receive.
- */
-type: AbiDataTypes;
+   * The type of contract entry, such as function, constructor, event, fallback, error, or receive.
+   */
+  type: AbiDataTypes;
   /**
- * Represents the internal Solidity type of the input/output.
- */
-internalType?: string;
+   * Represents the internal Solidity type of the input/output.
+   */
+  internalType?: string;
 };
 
 /**
@@ -60,45 +60,45 @@ internalType?: string;
  */
 export interface ContractEntryDefinition {
   /**
- * Indicates if the contract entry is constant (read-only).
- */
-constant?: boolean;
+   * Indicates if the contract entry is constant (read-only).
+   */
+  constant?: boolean;
   /**
- * Indicates whether the contract entry can receive Ether.
- */
-payable?: boolean;
+   * Indicates whether the contract entry can receive Ether.
+   */
+  payable?: boolean;
   /**
- * Indicates if the event is anonymous, omitting event signature from logs.
- */
-anonymous?: boolean;
+   * Indicates if the event is anonymous, omitting event signature from logs.
+   */
+  anonymous?: boolean;
   /**
- * An array of input parameters for the contract function or event.
- */
-inputs?: AbiInput[];
+   * An array of input parameters for the contract function or event.
+   */
+  inputs?: AbiInput[];
   /**
- * The identifier for the contract function, event, or variable.
- */
-name?: string;
+   * The identifier for the contract function, event, or variable.
+   */
+  name?: string;
   /**
- * An array of output parameters for the contract function or event.
- */
-outputs?: AbiOutput[];
+   * An array of output parameters for the contract function or event.
+   */
+  outputs?: AbiOutput[];
   /**
- * The type of contract entry, representing its purpose and functionality.
- */
-type: 'function' | 'constructor' | 'event' | 'fallback' | 'error' | 'receive';
+   * The type of contract entry, representing its purpose and functionality.
+   */
+  type: 'function' | 'constructor' | 'event' | 'fallback' | 'error' | 'receive';
   /**
- * Represents the mutability of a contract's state during function execution.
- */
-stateMutability?: 'pure' | 'view' | 'payable' | 'nonpayable';
+   * Represents the mutability of a contract's state during function execution.
+   */
+  stateMutability?: 'pure' | 'view' | 'payable' | 'nonpayable';
   /**
- * The unique function identifier generated from the function's name and input types.
- */
-signature?: string;
+   * The unique function identifier generated from the function's name and input types.
+   */
+  signature?: string;
   /**
- * The estimated gas cost for executing the function.
- */
-gas?: number;
+   * The estimated gas cost for executing the function.
+   */
+  gas?: number;
 }
 
 /**

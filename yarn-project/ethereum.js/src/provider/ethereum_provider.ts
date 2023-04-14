@@ -12,13 +12,13 @@ export enum ProviderError {
  */
 export interface ProviderMessage {
   /**
- * The type of provider notification event.
- */
-readonly type: string;
+   * The type of provider notification event.
+   */
+  readonly type: string;
   /**
- * Arbitrary data associated with the provider message.
- */
-readonly data: unknown;
+   * Arbitrary data associated with the provider message.
+   */
+  readonly data: unknown;
 }
 
 /**
@@ -27,13 +27,13 @@ readonly data: unknown;
  */
 export interface RequestArguments {
   /**
- * The JSON-RPC method to be called.
- */
-readonly method: string;
+   * The JSON-RPC method to be called.
+   */
+  readonly method: string;
   /**
- * An optional array of method-specific parameters.
- */
-readonly params?: any[];
+   * An optional array of method-specific parameters.
+   */
+  readonly params?: any[];
 }
 
 /**
@@ -43,17 +43,17 @@ readonly params?: any[];
  */
 export interface ProviderRpcError extends Error {
   /**
- * Represents a provider-specific message, typically used for communicating events or updates.
- */
-message: string;
+   * Represents a provider-specific message, typically used for communicating events or updates.
+   */
+  message: string;
   /**
- * The error code representing the type of provider error.
- */
-code: ProviderError | number;
+   * The error code representing the type of provider error.
+   */
+  code: ProviderError | number;
   /**
- * An arbitrary data payload related to the corresponding provider event or error.
- */
-data?: unknown;
+   * An arbitrary data payload related to the corresponding provider event or error.
+   */
+  data?: unknown;
 }
 
 /**
@@ -62,9 +62,9 @@ data?: unknown;
  */
 export interface ProviderConnectInfo {
   /**
- * The unique identifier for the connected blockchain network.
- */
-readonly chainId: string;
+   * The unique identifier for the connected blockchain network.
+   */
+  readonly chainId: string;
 }
 
 /**

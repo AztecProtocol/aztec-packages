@@ -21,14 +21,14 @@ export class ConstructorInteraction extends FunctionInteraction {
   }
 
   /**
- * Sends a transaction with the encoded contract bytecode and constructor arguments, creating a new deployment of the contract.
- * Returns a SentDeployContractTx instance that can be used to track the transaction status and retrieve the deployed contract address.
- * The 'options' parameter can be used to customize the transaction, such as specifying gas price, gas limit, or value to send.
- *
- * @param options - An object containing optional parameters for customizing the transaction.
- * @returns A SentDeployContractTx instance representing the sent transaction.
- */
-public send(options: SendOptions): SentTx {
+   * Sends a transaction with the encoded contract bytecode and constructor arguments, creating a new deployment of the contract.
+   * Returns a SentDeployContractTx instance that can be used to track the transaction status and retrieve the deployed contract address.
+   * The 'options' parameter can be used to customize the transaction, such as specifying gas price, gas limit, or value to send.
+   *
+   * @param options - An object containing optional parameters for customizing the transaction.
+   * @returns A SentDeployContractTx instance representing the sent transaction.
+   */
+  public send(options: SendOptions): SentTx {
     const sentTx = super.send(options);
     return new SentDeployContractTx(this.eth, this.contractAbi, sentTx.getTxHash(), this.onDeployed);
   }

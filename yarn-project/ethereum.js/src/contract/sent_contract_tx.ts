@@ -17,19 +17,19 @@ export class SentContractTx extends SentTransaction {
   }
 
   /**
- * Processes the transaction receipt by decoding events, handling errors, and populating anonymous logs.
- * The function takes a TransactionReceipt, a ContractAbi, and an EthereumRpc as its input parameters,
- * and returns a Promise that resolves to a ContractTxReceipt containing the processed data.
- * It separates logs into anonymousLogs (emitted by external contract calls) and decodes events
- * according to the contract's ABI. If the transaction status is falsy, it attempts to decode
- * the error using the provided ABI and includes it in the resulting ContractTxReceipt.
- *
- * @param receipt - The TransactionReceipt to be processed.
- * @param contractAbi - The ContractAbi instance used for event decoding and error handling.
- * @param ethRpc - The EthereumRpc instance used for interacting with the Ethereum network.
- * @returns A Promise that resolves to a ContractTxReceipt object containing anonymousLogs, decoded events, and optional error information.
- */
-protected async handleReceipt(throwOnError = true, receipt: TransactionReceipt) {
+   * Processes the transaction receipt by decoding events, handling errors, and populating anonymous logs.
+   * The function takes a TransactionReceipt, a ContractAbi, and an EthereumRpc as its input parameters,
+   * and returns a Promise that resolves to a ContractTxReceipt containing the processed data.
+   * It separates logs into anonymousLogs (emitted by external contract calls) and decodes events
+   * according to the contract's ABI. If the transaction status is falsy, it attempts to decode
+   * the error using the provided ABI and includes it in the resulting ContractTxReceipt.
+   *
+   * @param receipt - The TransactionReceipt to be processed.
+   * @param contractAbi - The ContractAbi instance used for event decoding and error handling.
+   * @param ethRpc - The EthereumRpc instance used for interacting with the Ethereum network.
+   * @returns A Promise that resolves to a ContractTxReceipt object containing anonymousLogs, decoded events, and optional error information.
+   */
+  protected async handleReceipt(throwOnError = true, receipt: TransactionReceipt) {
     const result = await handleReceipt(receipt, this.contractAbi, this.ethRpc);
     if (result.error && throwOnError) {
       throw new Error(`Receipt indicates transaction failed: ${result.error.message}`);

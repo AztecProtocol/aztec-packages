@@ -10,25 +10,25 @@ import { ContractAbiDefinition, ContractErrorEntry, ContractEventEntry, Contract
  */
 export class ContractAbi {
   /**
- * A list of contract functions.
- */
-public functions: ContractFunctionEntry[];
+   * A list of contract functions.
+   */
+  public functions: ContractFunctionEntry[];
   /**
- * An array containing contract event entries.
- */
-public events: ContractEventEntry[];
+   * An array containing contract event entries.
+   */
+  public events: ContractEventEntry[];
   /**
- * A collection of error entries in the contract ABI.
- */
-public errors: ContractErrorEntry[];
+   * A collection of error entries in the contract ABI.
+   */
+  public errors: ContractErrorEntry[];
   /**
- * The constructor entry for the contract.
- */
-public ctor: ContractFunctionEntry;
+   * The constructor entry for the contract.
+   */
+  public ctor: ContractFunctionEntry;
   /**
- * The fallback function to be executed when no other function matches the provided signature.
- */
-public fallback?: ContractFunctionEntry;
+   * The fallback function to be executed when no other function matches the provided signature.
+   */
+  public fallback?: ContractFunctionEntry;
 
   constructor(definition: ContractAbiDefinition) {
     this.functions = definition.filter(e => e.type === 'function').map(entry => new ContractFunctionEntry(entry));
@@ -43,26 +43,26 @@ public fallback?: ContractFunctionEntry;
   }
 
   /**
- * Find the matching event entry for a given log response in the contract ABI.
- * This function iterates through the events defined in the ABI and compares their signatures with the log's topic.
- * Returns the first matching event entry, or undefined if no match is found.
- *
- * @param log - The LogResponse object containing the log data to be matched against event signatures.
- * @returns A ContractEventEntry instance that matches the log's topic, or undefined if no match is found.
- */
-public findEntryForLog(log: LogResponse) {
+   * Find the matching event entry for a given log response in the contract ABI.
+   * This function iterates through the events defined in the ABI and compares their signatures with the log's topic.
+   * Returns the first matching event entry, or undefined if no match is found.
+   *
+   * @param log - The LogResponse object containing the log data to be matched against event signatures.
+   * @returns A ContractEventEntry instance that matches the log's topic, or undefined if no match is found.
+   */
+  public findEntryForLog(log: LogResponse) {
     return this.events.find(abiDef => abiDef.signature === log.topics[0]);
   }
 
   /**
- * Decodes the event log data using the Contract ABI event definitions.
- * Finds the matching event signature in the ABI, then decodes the log data accordingly.
- * Throws an error if no matching event signature is found for the given log.
- *
- * @param log - The LogResponse object containing the event log data to be decoded.
- * @returns A decoded event object with event name and decoded parameters.
- */
-public decodeEvent(log: LogResponse) {
+   * Decodes the event log data using the Contract ABI event definitions.
+   * Finds the matching event signature in the ABI, then decodes the log data accordingly.
+   * Throws an error if no matching event signature is found for the given log.
+   *
+   * @param log - The LogResponse object containing the event log data to be decoded.
+   * @returns A decoded event object with event name and decoded parameters.
+   */
+  public decodeEvent(log: LogResponse) {
     const event = this.findEntryForLog(log);
     if (!event) {
       throw new Error(`Unable to find matching event signature for log: ${log.id}`);
@@ -71,14 +71,14 @@ public decodeEvent(log: LogResponse) {
   }
 
   /**
- * Decodes the function data from a given buffer and returns the decoded parameters.
- * The input 'data' should contain the first 4 bytes as the function signature, followed by the encoded parameters.
- * Returns undefined if no matching function is found in the ABI for the provided signature.
- *
- * @param data - The buffer containing the function signature and encoded parameters.
- * @returns An object with the decoded parameters or undefined if no matching function is found.
- */
-public decodeFunctionData(data: Buffer) {
+   * Decodes the function data from a given buffer and returns the decoded parameters.
+   * The input 'data' should contain the first 4 bytes as the function signature, followed by the encoded parameters.
+   * Returns undefined if no matching function is found in the ABI for the provided signature.
+   *
+   * @param data - The buffer containing the function signature and encoded parameters.
+   * @returns An object with the decoded parameters or undefined if no matching function is found.
+   */
+  public decodeFunctionData(data: Buffer) {
     const funcSig = bufferToHex(data.subarray(0, 4));
     const func = this.functions.find(f => f.signature === funcSig);
     return func ? func.decodeParameters(data.slice(4)) : undefined;

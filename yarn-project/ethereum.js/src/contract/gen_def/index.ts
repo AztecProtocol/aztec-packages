@@ -632,7 +632,7 @@ function makeAbiExport(name: string) {
 }
 
 /**
- * Generate TypeScript source code as AST nodes for a Contract based on the provided ABI and initialization data. 
+ * Generate TypeScript source code as AST nodes for a Contract based on the provided ABI and initialization data.
  * The generated code includes imports, event types, event log interfaces, events interface, transaction receipt interface,
  * methods interface, definition interface, contract class, and ABI export.
  *

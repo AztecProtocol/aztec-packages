@@ -13,60 +13,62 @@ const secp256k1 = new elliptic.ec('secp256k1');
  * Ethereum transactions that require signing and validation processes.
  */
 export class EthSignature {
-  constructor(/**
- * The 'r' value of an ECDSA signature.
- */
-public r: Buffer, /**
- * The 's' value of the ECDSA signature.
- */
-public s: Buffer, /**
- * The recovery parameter used in ECDSA signatures.
- */
-public v: number) {}
+  constructor(
+    /**
+     * The 'r' value of an ECDSA signature.
+     */
+    public r: Buffer,
+    /**
+     * The 's' value of the ECDSA signature.
+     */ public s: Buffer,
+    /**
+     * The recovery parameter used in ECDSA signatures.
+     */ public v: number,
+  ) {}
 
   /**
- * Create an EthSignature instance from a given buffer.
- * The input 'buf' should be a Buffer containing the 'r', 's', and 'v' values of the signature.
- * 'r' and 's' values are each 32 bytes long, while 'v' is a single byte.
- * Throws an error if the input buffer length is not exactly 65 bytes.
- *
- * @param buf - The Buffer containing the 'r', 's', and 'v' values of the signature.
- * @returns An EthSignature instance.
- */
-static fromBuffer(buf: Buffer) {
+   * Create an EthSignature instance from a given buffer.
+   * The input 'buf' should be a Buffer containing the 'r', 's', and 'v' values of the signature.
+   * 'r' and 's' values are each 32 bytes long, while 'v' is a single byte.
+   * Throws an error if the input buffer length is not exactly 65 bytes.
+   *
+   * @param buf - The Buffer containing the 'r', 's', and 'v' values of the signature.
+   * @returns An EthSignature instance.
+   */
+  static fromBuffer(buf: Buffer) {
     return new EthSignature(buf.subarray(0, 32), buf.subarray(32, 64), buf[64]);
   }
 
   /**
- * Create an EthSignature instance from a hex-encoded string.
- * The input 'hex' should be prefixed with '0x', followed by 128 hex characters (for r, s) and 2 hex characters for the `v` value.
- * Throws an error if the input length is invalid or any of the r, s, v values are out of range.
- *
- * @param hex - The hex-encoded string representing the Ethereum signature.
- * @returns An EthSignature instance.
- */
-static fromString(hex: string) {
+   * Create an EthSignature instance from a hex-encoded string.
+   * The input 'hex' should be prefixed with '0x', followed by 128 hex characters (for r, s) and 2 hex characters for the `v` value.
+   * Throws an error if the input length is invalid or any of the r, s, v values are out of range.
+   *
+   * @param hex - The hex-encoded string representing the Ethereum signature.
+   * @returns An EthSignature instance.
+   */
+  static fromString(hex: string) {
     return EthSignature.fromBuffer(hexToBuffer(hex));
   }
 
   /**
- * Converts the EthSignature instance to a Buffer representation.
- * The resulting buffer contains the concatenated 'r', 's', and 'v' values of the signature.
- * This function is useful when working with raw binary data or when storing the signature.
- *
- * @returns A Buffer containing the concatenated 'r', 's', and 'v' values of the EthSignature instance.
- */
-toBuffer() {
+   * Converts the EthSignature instance to a Buffer representation.
+   * The resulting buffer contains the concatenated 'r', 's', and 'v' values of the signature.
+   * This function is useful when working with raw binary data or when storing the signature.
+   *
+   * @returns A Buffer containing the concatenated 'r', 's', and 'v' values of the EthSignature instance.
+   */
+  toBuffer() {
     return Buffer.concat([this.r, this.s, numToUInt8(this.v)]);
   }
 
   /**
- * Convert the EthSignature instance into a hex-encoded string.
- * The resulting string is prefixed with '0x' and represents the concatenated r, s, and v values of the signature.
- *
- * @returns A hex-encoded string representing the EthSignature instance.
- */
-toString() {
+   * Convert the EthSignature instance into a hex-encoded string.
+   * The resulting string is prefixed with '0x' and represents the concatenated r, s, and v values of the signature.
+   *
+   * @returns A hex-encoded string representing the EthSignature instance.
+   */
+  toString() {
     return '0x' + this.toBuffer().toString('hex');
   }
 }

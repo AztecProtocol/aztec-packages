@@ -16,13 +16,16 @@ import { ContractAbiDefinition } from '../../abi/index.js';
  * @param buildFile - The path to the foundry build file containing the ABI and bytecode information.
  * @returns An object containing the contract ABI definition and optional initialization data as properties.
  */
-export function getFromFoundry(buildFile: string): { /**
- * The contract's Application Binary Interface.
- */
-abi: ContractAbiDefinition; /**
- * The bytecode object representing the contract's initial state.
- */
-initData?: string } {
+export function getFromFoundry(buildFile: string): {
+  /**
+   * The contract's Application Binary Interface.
+   */
+  abi: ContractAbiDefinition;
+  /**
+   * The bytecode object representing the contract's initial state.
+   */
+  initData?: string;
+} {
   const {
     abi,
     bytecode: { object: initData },

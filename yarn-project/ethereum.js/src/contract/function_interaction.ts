@@ -18,21 +18,21 @@ import { SentContractTx } from './sent_contract_tx.js';
  */
 export interface Options {
   /**
- * The Ethereum address initiating the transaction.
- */
-from?: EthAddress;
+   * The Ethereum address initiating the transaction.
+   */
+  from?: EthAddress;
   /**
- * The maximum fee per gas unit for the transaction.
- */
-maxFeePerGas?: bigint;
+   * The maximum fee per gas unit for the transaction.
+   */
+  maxFeePerGas?: bigint;
   /**
- * The maximum priority fee per gas unit for the transaction.
- */
-maxPriorityFeePerGas?: bigint;
+   * The maximum priority fee per gas unit for the transaction.
+   */
+  maxPriorityFeePerGas?: bigint;
   /**
- * The maximum amount of gas units to be used for the transaction.
- */
-gas?: number;
+   * The maximum amount of gas units to be used for the transaction.
+   */
+  gas?: number;
 }
 
 /**
@@ -42,9 +42,9 @@ gas?: number;
  */
 export interface CallOptions extends Options {
   /**
- * The amount of ether (in wei) to transfer during the transaction.
- */
-value?: bigint;
+   * The amount of ether (in wei) to transfer during the transaction.
+   */
+  value?: bigint;
 }
 
 /**
@@ -53,9 +53,9 @@ value?: bigint;
  */
 export interface SendOptions extends CallOptions {
   /**
- * The nonce value representing the number of transactions sent from the sender's address.
- */
-nonce?: number;
+   * The nonce value representing the number of transactions sent from the sender's address.
+   */
+  nonce?: number;
 }
 
 /**
@@ -96,15 +96,15 @@ export class FunctionInteraction implements TxCall, TxSend {
   ) {}
 
   /**
- * Estimate the amount of gas required to perform a transaction for the function interaction.
- * The gas estimation is based on the provided 'options' object, which can include parameters such as 'from', 'maxFeePerGas', 'maxPriorityFeePerGas', and 'gas'.
- * If the transaction execution fails or there's an error in the call, it attempts to handle the error gracefully by providing a meaningful message.
- *
- * @param options - An optional object containing transaction parameters and overrides for the function interaction.
- * @returns A Promise that resolves to the estimated gas amount required for the transaction.
- * @throws Will throw an error if the call fails with a decoded error message, or a generic error message if decoding fails.
- */
-public async estimateGas(options: CallOptions = {}) {
+   * Estimate the amount of gas required to perform a transaction for the function interaction.
+   * The gas estimation is based on the provided 'options' object, which can include parameters such as 'from', 'maxFeePerGas', 'maxPriorityFeePerGas', and 'gas'.
+   * If the transaction execution fails or there's an error in the call, it attempts to handle the error gracefully by providing a meaningful message.
+   *
+   * @param options - An optional object containing transaction parameters and overrides for the function interaction.
+   * @returns A Promise that resolves to the estimated gas amount required for the transaction.
+   * @throws Will throw an error if the call fails with a decoded error message, or a generic error message if decoding fails.
+   */
+  public async estimateGas(options: CallOptions = {}) {
     try {
       return await this.eth.estimateGas(this.getCallRequest(options));
     } catch (err: any) {
@@ -113,16 +113,16 @@ public async estimateGas(options: CallOptions = {}) {
   }
 
   /**
- * Executes a read-only contract function call, returning the decoded result.
- * This interaction does not require a transaction on the blockchain and is thus gas-free.
- * If the call encounters an error, it attempts to decode the error message from the contract
- * and throws an error with a meaningful message. Otherwise, it throws the original error.
- *
- * @param options - Optional settings specifying "from", "value", "maxFeePerGas", "maxPriorityFeePerGas" and "gas".
- * @param block - Optional specification of the block number or tag at which the call must be executed.
- * @returns The return value of the contract function call after successful decoding.
- */
-public async call(options: CallOptions = {}, block?: NumberOrTag) {
+   * Executes a read-only contract function call, returning the decoded result.
+   * This interaction does not require a transaction on the blockchain and is thus gas-free.
+   * If the call encounters an error, it attempts to decode the error message from the contract
+   * and throws an error with a meaningful message. Otherwise, it throws the original error.
+   *
+   * @param options - Optional settings specifying "from", "value", "maxFeePerGas", "maxPriorityFeePerGas" and "gas".
+   * @param block - Optional specification of the block number or tag at which the call must be executed.
+   * @returns The return value of the contract function call after successful decoding.
+   */
+  public async call(options: CallOptions = {}, block?: NumberOrTag) {
     try {
       const result = await this.eth.call(this.getCallRequest(options), block);
       return this.contractEntry.decodeReturnValue(result);
@@ -132,14 +132,14 @@ public async call(options: CallOptions = {}, block?: NumberOrTag) {
   }
 
   /**
- * Sends a transaction to the specified contract method with given options.
- * It returns a SentTx instance containing the transaction receipt and decoded return value (if any).
- * Throws an error if the from address is not specified or attempting to send value to a non-payable method.
- *
- * @param options - An object containing optional parameters: from, nonce, value, maxFeePerGas, maxPriorityFeePerGas, and gas.
- * @returns A SentTx instance representing the sent transaction.
- */
-public send(options: SendOptions): SentTx {
+   * Sends a transaction to the specified contract method with given options.
+   * It returns a SentTx instance containing the transaction receipt and decoded return value (if any).
+   * Throws an error if the from address is not specified or attempting to send value to a non-payable method.
+   *
+   * @param options - An object containing optional parameters: from, nonce, value, maxFeePerGas, maxPriorityFeePerGas, and gas.
+   * @returns A SentTx instance representing the sent transaction.
+   */
+  public send(options: SendOptions): SentTx {
     const tx = this.getTxRequest(options);
 
     if (!this.contractEntry.payable && tx.value !== undefined && tx.value > 0) {
@@ -152,26 +152,26 @@ public send(options: SendOptions): SentTx {
   }
 
   /**
- * Encodes the ABI (Application Binary Interface) for the function interaction with the provided arguments.
- * The encoded ABI is a serialized representation of the function's signature and its arguments, which can be used
- * by the Ethereum client to process the method call or transaction. This is useful for encoding contract function
- * calls when interacting with the Ethereum blockchain.
- *
- * @returns A Buffer containing the encoded ABI for the function interaction.
- */
-public encodeABI() {
+   * Encodes the ABI (Application Binary Interface) for the function interaction with the provided arguments.
+   * The encoded ABI is a serialized representation of the function's signature and its arguments, which can be used
+   * by the Ethereum client to process the method call or transaction. This is useful for encoding contract function
+   * calls when interacting with the Ethereum blockchain.
+   *
+   * @returns A Buffer containing the encoded ABI for the function interaction.
+   */
+  public encodeABI() {
     return this.contractEntry.encodeABI(this.args);
   }
 
   /**
- * Construct a transaction request object by merging the provided send options with the default options, `from` address, contract address, and encoded ABI data.
- * This transaction request object is used for sending transactions to the Ethereum network.
- * Throws an error if the `from` address is not specified.
- *
- * @param options - The send options containing information required for constructing the transaction request object.
- * @returns A TransactionRequest instance with all necessary data for sending the transaction.
- */
-private getTxRequest(options: SendOptions = {}): TransactionRequest {
+   * Construct a transaction request object by merging the provided send options with the default options, `from` address, contract address, and encoded ABI data.
+   * This transaction request object is used for sending transactions to the Ethereum network.
+   * Throws an error if the `from` address is not specified.
+   *
+   * @param options - The send options containing information required for constructing the transaction request object.
+   * @returns A TransactionRequest instance with all necessary data for sending the transaction.
+   */
+  private getTxRequest(options: SendOptions = {}): TransactionRequest {
     const from = options.from || this.defaultOptions.from;
     if (!from) {
       throw new Error('You must specify a from address to send a tx.');
@@ -186,16 +186,16 @@ private getTxRequest(options: SendOptions = {}): TransactionRequest {
   }
 
   /**
- * Constructs and returns a CallRequest object for the current contract function interaction.
- * The CallRequest object combines the provided options with the default options and includes
- * the encoded ABI data of the function call. This object can be used to perform various
- * interactions such as estimating gas, making calls, or sending transactions.
- *
- * @param options - An optional CallOptions object containing values such as from address,
- *                  maxFeePerGas, maxPriorityFeePerGas, gas, and value.
- * @returns A CallRequest object with the necessary information for further interactions.
- */
-private getCallRequest(options: CallOptions = {}): CallRequest {
+   * Constructs and returns a CallRequest object for the current contract function interaction.
+   * The CallRequest object combines the provided options with the default options and includes
+   * the encoded ABI data of the function call. This object can be used to perform various
+   * interactions such as estimating gas, making calls, or sending transactions.
+   *
+   * @param options - An optional CallOptions object containing values such as from address,
+   *                  maxFeePerGas, maxPriorityFeePerGas, gas, and value.
+   * @returns A CallRequest object with the necessary information for further interactions.
+   */
+  private getCallRequest(options: CallOptions = {}): CallRequest {
     return {
       ...this.defaultOptions,
       ...options,
@@ -205,14 +205,14 @@ private getCallRequest(options: CallOptions = {}): CallRequest {
   }
 
   /**
- * Handles errors occurring during the execution of a contract function call.
- * If the error data contains a decodable error message, throws an error with a decoded message.
- * Otherwise, throws the original error with its message.
- *
- * @param err - The error object caught during the contract function call execution.
- * @throws {Error} An error with either the decoded error message or the original error message.
- */
-private handleError(err: any): never {
+   * Handles errors occurring during the execution of a contract function call.
+   * If the error data contains a decodable error message, throws an error with a decoded message.
+   * Otherwise, throws the original error with its message.
+   *
+   * @param err - The error object caught during the contract function call execution.
+   * @throws {Error} An error with either the decoded error message or the original error message.
+   */
+  private handleError(err: any): never {
     if (err.data && err.data.length > 2) {
       const decoded = decodeErrorFromContract(this.contractAbi, hexToBuffer(err.data));
       if (decoded) {

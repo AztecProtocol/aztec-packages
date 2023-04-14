@@ -1,7 +1,6 @@
 import { sleep } from '../sleep/index.js';
 import { Timer } from '../timer/index.js';
 
-
 export function* backoffGenerator() {
   const v = [1, 1, 1, 2, 4, 8, 16, 32, 64];
   let i = 0;
@@ -9,7 +8,6 @@ export function* backoffGenerator() {
     yield v[Math.min(i++, v.length - 1)];
   }
 }
-
 
 export async function retry<Result>(fn: () => Promise<Result>, name = 'Operation', backoff = backoffGenerator()) {
   while (true) {

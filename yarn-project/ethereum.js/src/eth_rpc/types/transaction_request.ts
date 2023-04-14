@@ -14,37 +14,37 @@ import {
  */
 export interface TransactionRequest {
   /**
- * The Ethereum address initiating the transaction.
- */
-from: EthAddress;
+   * The Ethereum address initiating the transaction.
+   */
+  from: EthAddress;
   /**
- * The destination Ethereum address for the transaction.
- */
-to?: EthAddress;
+   * The destination Ethereum address for the transaction.
+   */
+  to?: EthAddress;
   /**
- * The maximum amount of gas units allowed for the transaction execution.
- */
-gas?: number;
+   * The maximum amount of gas units allowed for the transaction execution.
+   */
+  gas?: number;
   /**
- * The maximum fee per gas unit for the transaction.
- */
-maxFeePerGas?: bigint;
+   * The maximum fee per gas unit for the transaction.
+   */
+  maxFeePerGas?: bigint;
   /**
- * The maximum fee per gas unit that the sender is willing to pay for transaction priority.
- */
-maxPriorityFeePerGas?: bigint;
+   * The maximum fee per gas unit that the sender is willing to pay for transaction priority.
+   */
+  maxPriorityFeePerGas?: bigint;
   /**
- * The amount of Ether to be transferred in the transaction.
- */
-value?: bigint;
+   * The amount of Ether to be transferred in the transaction.
+   */
+  value?: bigint;
   /**
- * The encoded contract function call data.
- */
-data?: Buffer;
+   * The encoded contract function call data.
+   */
+  data?: Buffer;
   /**
- * A unique number that prevents double-spending in transactions.
- */
-nonce?: number;
+   * A unique number that prevents double-spending in transactions.
+   */
+  nonce?: number;
 }
 
 /**

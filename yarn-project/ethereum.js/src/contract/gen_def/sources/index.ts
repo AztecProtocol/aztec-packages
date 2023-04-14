@@ -18,13 +18,13 @@ import { getFromTruffle } from './source-truffle.js';
  */
 export interface ContractBuildData {
   /**
- * The Application Binary Interface (ABI) for a smart contract.
- */
-abi: ContractAbiDefinition;
+   * The Application Binary Interface (ABI) for a smart contract.
+   */
+  abi: ContractAbiDefinition;
   /**
- * Initial deployment data for the contract.
- */
-initData?: string;
+   * Initial deployment data for the contract.
+   */
+  initData?: string;
 }
 
 const { ETHERSCAN_API_KEY = '', ETHEREUM_HOST = '' } = process.env;
