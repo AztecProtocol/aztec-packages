@@ -104,11 +104,20 @@ function makeRollupTx(blockNum: number) {
   return { input } as Transaction<bigint, number>;
 }
 
+/**
+ * Creates random encrypted note preimage.
+ * @returns A random encrypted note preimage.
+ */
 const createRandomEncryptedNotePreimage = () => {
   const encryptedNotePreimageBuf = randomBytes(144);
   return Buffer.concat([toBufferBE(BigInt(encryptedNotePreimageBuf.length), 4), encryptedNotePreimageBuf]);
 };
 
+/**
+ * Crate random unverified data.
+ * @param numPreimages - Number of preimages to create.
+ * @returns Unverified data containing `numPreimages` encrypted note preimages.
+ */
 const createRandomUnverifiedData = (numPreimages: number) => {
   const encryptedNotePreimageBuf = createRandomEncryptedNotePreimage();
   return Buffer.concat(Array(numPreimages).fill(encryptedNotePreimageBuf));
