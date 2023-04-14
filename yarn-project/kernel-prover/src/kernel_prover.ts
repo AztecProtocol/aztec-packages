@@ -2,6 +2,7 @@ import { ExecutionResult } from '@aztec/acir-simulator';
 import {
   CONTRACT_TREE_HEIGHT,
   EcdsaSignature,
+  Fr,
   MembershipWitness,
   PRIVATE_CALL_STACK_LENGTH,
   PreviousKernelData,
@@ -89,6 +90,10 @@ export class KernelProver {
     );
 
     // TODO
+    // const acirHash = keccak(Buffer.from(bytecode, 'hex'));
+    const acirHash = Fr.fromBuffer(Buffer.alloc(32, 0)); //acirHash, // FIXME: https://github.com/AztecProtocol/aztec3-packages/issues/262
+
+    // TODO
     const proof = makeEmptyProof();
 
     return new PrivateCallData(
@@ -99,6 +104,7 @@ export class KernelProver {
       functionLeafMembershipWitness,
       contractLeafMembershipWitness,
       portalContractAddress,
+      acirHash,
     );
   }
 }

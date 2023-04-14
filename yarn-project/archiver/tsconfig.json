@@ -1,0 +1,23 @@
+{
+  "extends": "..",
+  "compilerOptions": {
+    "outDir": "dest",
+    "rootDir": "src",
+    "tsBuildInfoFile": ".tsbuildinfo"
+  },
+  "references": [
+    {
+      "path": "../ethereum.js"
+    },
+    {
+      "path": "../foundation"
+    },
+    {
+      "path": "../l1-contracts"
+    },
+    {
+      "path": "../types"
+    }
+  ],
+  "include": ["src"]
+}
