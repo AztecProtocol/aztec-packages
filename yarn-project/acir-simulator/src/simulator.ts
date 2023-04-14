@@ -1,5 +1,5 @@
 import { AztecAddress, EthAddress, Fr } from '@aztec/foundation';
-import { OldTreeRoots, TxRequest } from '@aztec/circuits.js';
+import { CallContext, OldTreeRoots, TxRequest } from '@aztec/circuits.js';
 import { FunctionAbi } from '@aztec/noir-contracts';
 import { DBOracle } from './db_oracle.js';
 import { Execution, ExecutionResult } from './execution.js';
@@ -20,7 +20,25 @@ export class AcirSimulator {
     portalContractAddress: EthAddress,
     oldRoots: OldTreeRoots,
   ): Promise<ExecutionResult> {
-    const execution = new Execution(this.db, request, entryPointABI, contractAddress, portalContractAddress, oldRoots);
+    const callContext = new CallContext(
+      request.from,
+      contractAddress,
+      portalContractAddress,
+      false,
+      false,
+      request.functionData.isConstructor,
+    );
+
+    const execution = new Execution(
+      this.db,
+      request,
+      oldRoots,
+      entryPointABI,
+      contractAddress,
+      request.functionData,
+      request.args,
+      callContext,
+    );
 
     return execution.run();
   }

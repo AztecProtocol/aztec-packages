@@ -53,53 +53,31 @@ export interface ExecutionResult {
 
 export class Execution {
   constructor(
+    // Global to the tx
     private db: DBOracle,
     private request: TxRequest,
-    private entryPointABI: FunctionAbi,
-    private contractAddress: AztecAddress,
-    private portalContractAddress: EthAddress,
     private oldRoots: OldTreeRoots,
+    // Concrete to this execution
+    private abi: FunctionAbi,
+    private contractAddress: AztecAddress,
+    private functionData: FunctionData,
+    private args: Fr[],
+    private callContext: CallContext,
   ) {}
 
-  public run(): Promise<ExecutionResult> {
-    const callContext = new CallContext(
-      this.request.from,
-      this.contractAddress,
-      this.portalContractAddress,
-      false,
-      false,
-      this.request.functionData.isConstructor,
-    );
-
-    return this.runExternalFunction(
-      this.entryPointABI,
-      this.contractAddress,
-      this.request.functionData,
-      this.request.args,
-      callContext,
-    );
-  }
-
-  // Separate function so we can recurse in the future
-  private async runExternalFunction(
-    abi: FunctionAbi,
-    contractAddress: AztecAddress,
-    functionData: FunctionData,
-    args: Fr[],
-    callContext: CallContext,
-  ): Promise<ExecutionResult> {
-    const acir = Buffer.from(abi.bytecode, 'hex');
-    const initialWitness = writeInputs(args, callContext, this.request.txContext, this.oldRoots);
+  public async run(): Promise<ExecutionResult> {
+    const acir = Buffer.from(this.abi.bytecode, 'hex');
+    const initialWitness = writeInputs(this.args, this.callContext, this.request.txContext, this.oldRoots);
     const newNotePreimages: NewNoteData[] = [];
     const newNullifiers: NewNullifierData[] = [];
     const nestedExecutionContexts: ExecutionResult[] = [];
 
     const { partialWitness } = await acvm(acir, initialWitness, {
       getSecretKey: ([address]: ACVMField[]) => {
-        return this.getSecretKey(contractAddress, address);
+        return this.getSecretKey(this.contractAddress, address);
       },
       getNotes2: async ([, storageSlot]: ACVMField[]) => {
-        return await this.getNotes(contractAddress, storageSlot, 2);
+        return await this.getNotes(this.contractAddress, storageSlot, 2);
       },
       getRandomField: () => Promise.resolve([toACVMField(Fr.random())]),
       notifyCreatedNote: ([storageSlot, ownerX, ownerY, ...acvmPreimage]: ACVMField[]) => {
@@ -126,7 +104,7 @@ export class Execution {
           frToAztecAddress(fromACVMField(acvmContractAddress)),
           frToSelector(fromACVMField(acvmFunctionSelector)),
           acvmArgs.map(f => fromACVMField(f)),
-          callContext,
+          this.callContext,
         );
 
         nestedExecutionContexts.push(childExecutionResult);
@@ -137,7 +115,7 @@ export class Execution {
 
     const publicInputs = extractPublicInputs(partialWitness, acir);
 
-    const callStackItem = new PrivateCallStackItem(contractAddress, functionData, publicInputs);
+    const callStackItem = new PrivateCallStackItem(this.contractAddress, this.functionData, publicInputs);
 
     return {
       acir,
@@ -147,7 +125,7 @@ export class Execution {
         newNotes: newNotePreimages,
         nullifiedNotes: newNullifiers,
       },
-      vk: Buffer.from(abi.verificationKey!, 'hex'),
+      vk: Buffer.from(this.abi.verificationKey!, 'hex'),
       nestedExecutions: nestedExecutionContexts,
     };
   }
@@ -184,21 +162,32 @@ export class Execution {
   private async privateFunctionCall(
     targetContractAddress: AztecAddress,
     targetFunctionSelector: Buffer,
-    args: Fr[],
+    targetArgs: Fr[],
     callerContext: CallContext,
   ) {
-    const abi = await this.db.getFunctionABI(targetContractAddress, targetFunctionSelector);
-    const portalContractAddress = await this.db.getPortalContractAddress(targetContractAddress);
-    const functionData = new FunctionData(targetFunctionSelector, true, false);
+    const targetAbi = await this.db.getFunctionABI(targetContractAddress, targetFunctionSelector);
+    const targetPortalContractAddress = await this.db.getPortalContractAddress(targetContractAddress);
+    const targetFunctionData = new FunctionData(targetFunctionSelector, true, false);
     const derivedCallContext = this.deriveCallContext(
       callerContext,
       targetContractAddress,
-      portalContractAddress,
+      targetPortalContractAddress,
       false,
       false,
     );
 
-    return this.runExternalFunction(abi, targetContractAddress, functionData, args, derivedCallContext);
+    const nestedExecution = new Execution(
+      this.db,
+      this.request,
+      this.oldRoots,
+      targetAbi,
+      targetContractAddress,
+      targetFunctionData,
+      targetArgs,
+      derivedCallContext,
+    );
+
+    return nestedExecution.run();
   }
 
   private deriveCallContext(
