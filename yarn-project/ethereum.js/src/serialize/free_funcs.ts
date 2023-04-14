@@ -166,7 +166,7 @@ export function serializeBufferArrayToVector(arr: Buffer[]) {
  * elements and applies the provided deserialization function on each element. Returns an array
  * of the deserialized elements and the total bytes consumed in the process.
  *
- * @template T - The type of the deserialized elements.
+ * @typeparam - The type of the deserialized elements.
  * @param deserialize - The deserialization function to be applied on each element of the array.
  * @param vector - The source buffer containing the serialized data.
  * @param offset - The starting position in the buffer to begin deserialization (optional, default is 0).
