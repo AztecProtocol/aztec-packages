@@ -106,7 +106,7 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource {
     const currentBlockNumber = await this.publicClient.getBlockNumber();
 
     if (this.nextL2BlockFromBlock <= currentBlockNumber) {
-      this.log(`Syncing L2BlockProcessed logs from ${this.nextL2BlockFromBlock}`);
+      this.log(`Synching L2BlockProcessed logs from block ${this.nextL2BlockFromBlock}`);
       const l2BlockProcessedLogs = await this.getL2BlockProcessedLogs(this.nextL2BlockFromBlock);
       if (l2BlockProcessedLogs.length > 0) {
         await this.processBlockLogs(l2BlockProcessedLogs);
@@ -117,7 +117,7 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource {
     }
 
     if (this.nextUnverifiedDataFromBlock <= currentBlockNumber) {
-      this.log(`Syncing UnverifiedData logs from ${this.nextUnverifiedDataFromBlock}`);
+      this.log(`Synching UnverifiedData logs from block ${this.nextUnverifiedDataFromBlock}`);
       const unverifiedDataLogs = await this.getUnverifiedDataLogs(this.nextUnverifiedDataFromBlock);
       if (unverifiedDataLogs.length > 0) {
         this.processUnverifiedDataLogs(unverifiedDataLogs);
