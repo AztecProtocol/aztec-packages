@@ -26,16 +26,17 @@ describe('e2e_zk_token_contract', () => {
   let accounts: AztecAddress[];
   let contract: Contract;
 
-  beforeAll(async () => {
+  beforeAll(() => {
     provider = createProvider(ETHEREUM_HOST, MNEMONIC, 1);
+  });
+
+  beforeEach(async () => {
     const ethRpc = new EthereumRpc(provider);
     logger('Deploying contracts...');
     rollupAddress = await deployRollupContract(provider, ethRpc);
     unverifiedDataEmitterAddress = await deployUnverifiedDataEmitterContract(provider, ethRpc);
     logger('Deployed contracts...');
-  });
 
-  beforeEach(async () => {
     node = await createAztecNode(
       rollupAddress,
       unverifiedDataEmitterAddress,
