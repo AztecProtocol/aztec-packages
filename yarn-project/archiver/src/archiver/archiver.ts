@@ -161,7 +161,8 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource {
   }
 
   private async getL2BlockProcessedLogs(fromBlock: bigint, toBlock?: bigint) {
-    // Note: For some reason the return type of `getLogs` would not get correctly derived if I didn't set the abitItem
+    if (!(await this.blockExists(fromBlock))) return [];
+    // Note: For some reason the return type of `getLogs` would not get correctly derived if I didn't set the abiItem
     //       as a standalone constant.
     const abiItem = getAbiItem({
       abi: RollupAbi,
@@ -176,7 +177,8 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource {
   }
 
   private async getUnverifiedDataLogs(fromBlock: bigint, toBlock?: bigint): Promise<any[]> {
-    // Note: For some reason the return type of `getLogs` would not get correctly derived if I didn't set the abitItem
+    if (!(await this.blockExists(fromBlock))) return [];
+    // Note: For some reason the return type of `getLogs` would not get correctly derived if I didn't set the abiItem
     //       as a standalone constant.
     const abiItem = getAbiItem({
       abi: UnverifiedDataEmitterAbi,
@@ -188,6 +190,11 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource {
       fromBlock,
       toBlock,
     });
+  }
+
+  private async blockExists(blockNum: bigint): Promise<boolean> {
+    const currentBlockNumber = await this.publicClient.getBlockNumber();
+    return blockNum <= currentBlockNumber;
   }
 
   /**
