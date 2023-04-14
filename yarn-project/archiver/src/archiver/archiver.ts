@@ -63,6 +63,23 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource {
   private nextUnverifiedDataFromBlock = 0n;
 
   /**
+   * The time after which we will consider the current block number to be outdated.
+   * Note: 12 seconds may seem high but in this case it doesn't matter because we want to introduce a delay
+   *       due to the "fear" of reorgs.
+   */
+  private readonly lastCurrentBlockExpirationTime = 12; // 12 seconds
+
+  /**
+   * The time at which the current block number was last updated.
+   */
+  private lastCurrentBlockUpdateTime = 0;
+
+  /**
+   * The current block number.
+   */
+  private lastCurrentBlockNumber = 0n;
+
+  /**
    * Creates a new instance of the Archiver.
    * @param publicClient - A client for interacting with the Ethereum node.
    * @param rollupAddress - Ethereum address of the rollup contract.
@@ -75,6 +92,7 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource {
     private readonly rollupAddress: EthAddress,
     private readonly unverifiedDataEmitterAddress: EthAddress,
     private readonly pollingIntervalMs = 10_000,
+    private readonly minConfirmations = 1n,
     private readonly log = createDebugLogger('aztec:archiver'),
   ) {}
 
@@ -190,7 +208,7 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource {
    * @returns An array of `L2BlockProcessed` logs.
    */
   private async getL2BlockProcessedLogs(fromBlock: bigint, toBlock: bigint) {
-    toBlock = await this.capToBlock(toBlock);
+    toBlock = await this.capBlock(toBlock);
     if (toBlock < fromBlock) return [];
     // Note: For some reason the return type of `getLogs` would not get correctly derived if I didn't set the abiItem
     //       as a standalone constant.
@@ -213,7 +231,7 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource {
    * @returns An array of `UnverifiedData` logs.
    */
   private async getUnverifiedDataLogs(fromBlock: bigint, toBlock: bigint): Promise<any[]> {
-    toBlock = await this.capToBlock(toBlock);
+    toBlock = await this.capBlock(toBlock);
     if (toBlock < fromBlock) return [];
     // Note: For some reason the return type of `getLogs` would not get correctly derived if I didn't set the abiItem
     //       as a standalone constant.
@@ -234,9 +252,14 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource {
    * @param blockNum - Block number to cap.
    * @returns The capped block number.
    */
-  private async capToBlock(blockNum: bigint): Promise<bigint> {
-    const currentBlockNumber = await this.publicClient.getBlockNumber();
-    return blockNum > currentBlockNumber ? currentBlockNumber : blockNum;
+  private async capBlock(blockNum: bigint): Promise<bigint> {
+    // Check if the current block number needs to be updated.
+    if (this.lastCurrentBlockUpdateTime + this.lastCurrentBlockExpirationTime < Date.now()) {
+      // Update the current block number (take into account the minimum number of confirmations).
+      this.lastCurrentBlockNumber = (await this.publicClient.getBlockNumber()) + 1n - this.minConfirmations;
+      this.lastCurrentBlockUpdateTime = Date.now();
+    }
+    return blockNum > this.lastCurrentBlockNumber ? this.lastCurrentBlockNumber : blockNum;
   }
 
   /**
