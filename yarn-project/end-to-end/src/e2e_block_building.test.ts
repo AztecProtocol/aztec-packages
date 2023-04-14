@@ -26,6 +26,7 @@ describe('e2e_block_building', () => {
 
   beforeEach(async () => {
     provider = createProvider(config.rpcUrl, MNEMONIC, 1);
+    config.publisherPrivateKey = provider.getPrivateKey(0) || Buffer.alloc(32);
     const ethRpc = new EthereumRpc(provider);
     logger('Deploying contracts...');
     rollupAddress = await deployRollupContract(provider, ethRpc);
