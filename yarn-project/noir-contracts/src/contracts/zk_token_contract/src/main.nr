@@ -95,6 +95,7 @@ contract PrivateToken {
         };
 
         // TODO: Removing this return breaks the circuit (???)
+        outputs.return_values = outputs.return_values.push(note1.is_real as Field);
         outputs.return_values = outputs.return_values.push(note2.is_real as Field);
 
         constrain_note(note1, sender);
