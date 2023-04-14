@@ -24,7 +24,7 @@ fn make_note_getter_data(fields: [Field], start: comptime Field) -> NoteGetterDa
             value: fields[start + 5],
         },
         leaf_index: fields[start + 6],
-        sibling_path: arr_copy_slice(fields, [0; crate::PRIVATE_DATA_TREE_HEIGHT], crate::PRIVATE_DATA_TREE_HEIGHT),
+        sibling_path: arr_copy_slice(fields, [0; crate::PRIVATE_DATA_TREE_HEIGHT], 7),
         root: fields[start + 15],
     }
 }
