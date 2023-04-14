@@ -70,7 +70,7 @@ __metadata:
     ts-node: ^10.9.1
     tsc-watch: ^6.0.0
     tslib: ^2.5.0
-    typescript: ^5.0.3
+    typescript: ^5.0.4
     viem: ^0.3.1
     ws: ^8.13.0
   languageName: unknown

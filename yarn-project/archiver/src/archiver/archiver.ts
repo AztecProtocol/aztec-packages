@@ -27,10 +27,10 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource {
   /**
    * The number of blocks that we will fetch in a single batch.
    */
-  private readonly numBlocksPerFetch = 1000n;
+  private readonly numL1BlocksPerFetch = 1000n;
 
   /**
-   * A range of blocks in which we will expect a potential node sync issue as described in
+   * A range of blocks in which we expect a potential node sync issue as described in
    * https://github.com/wagmi-dev/viem/discussions/354
    * Danger zone is defined as [BLOCK_HEIGHT - dangeZoneBlockLength, BLOCK_HEIGHT].
    */
@@ -53,21 +53,21 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource {
   private unverifiedData: UnverifiedData[] = [];
 
   /**
-   * Next L1 block number to fetch `L2BlockProcessed` events from.
+   * Next L1 block number to fetch `L2BlockProcessed` logs from (i.e. `fromBlock` in eth_getLogs).
    */
-  private nextL2BlockEventL1BlockNum = 0n;
+  private nextL2BlockFromBlock = 0n;
 
   /**
-   * Next L1 block number to fetch `UnverifiedData` events from.
+   * Next L1 block number to fetch `UnverifiedData` logs from (i.e. `fromBlock` in eth_getLogs)
    */
-  private nextUnverifiedDataEventL1BlockNum = 0n;
+  private nextUnverifiedDataFromBlock = 0n;
 
   /**
    * Creates a new instance of the Archiver.
    * @param publicClient - A client for interacting with the Ethereum node.
    * @param rollupAddress - Ethereum address of the rollup contract.
    * @param unverifiedDataEmitterAddress - Ethereum address of the unverifiedDataEmitter contract.
-   * @param pollingInterval - The interval for polling for rollup events.
+   * @param pollingInterval - The interval for polling for rollup logs.
    * @param log - A logger.
    */
   constructor(
@@ -120,50 +120,56 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource {
    */
   private async initialSync() {
     const currentBlockNumber = await this.publicClient.getBlockNumber();
-    if (currentBlockNumber < this.dangerZoneBlockLength + this.numBlocksPerFetch) {
+    if (currentBlockNumber < this.dangerZoneBlockLength + this.numL1BlocksPerFetch) {
       this.log('Current block number is less than initial sync distance from latest. Skipping initial sync.');
       return;
     }
     // Subtracting `this.numBlocksPerFetch` as well to make sure the initial sync range doesn't "touch" the danger zone
     // with any of its blocks.
-    const maxInitialSyncBlock = currentBlockNumber - this.dangerZoneBlockLength - this.numBlocksPerFetch;
+    const maxFromBlock = currentBlockNumber - this.dangerZoneBlockLength - this.numL1BlocksPerFetch;
 
-    while (this.nextL2BlockEventL1BlockNum < maxInitialSyncBlock) {
+    while (this.nextL2BlockFromBlock < maxFromBlock) {
       const l2BlockProcessedLogs = await this.getL2BlockProcessedLogs(
-        this.nextL2BlockEventL1BlockNum,
-        this.nextL2BlockEventL1BlockNum + this.numBlocksPerFetch,
+        this.nextL2BlockFromBlock,
+        this.nextL2BlockFromBlock + this.numL1BlocksPerFetch - 1n, // decrementing by 1 because `toBlock` is inclusive
       );
 
       if (l2BlockProcessedLogs) await this.processBlockLogs(l2BlockProcessedLogs);
-      this.nextL2BlockEventL1BlockNum += this.numBlocksPerFetch;
+      this.nextL2BlockFromBlock += this.numL1BlocksPerFetch;
     }
 
-    while (this.nextUnverifiedDataEventL1BlockNum < maxInitialSyncBlock) {
+    while (this.nextUnverifiedDataFromBlock < maxFromBlock) {
       const unverifiedDataLogs = await this.getUnverifiedDataLogs(
-        this.nextUnverifiedDataEventL1BlockNum,
-        this.nextUnverifiedDataEventL1BlockNum + this.numBlocksPerFetch,
+        this.nextUnverifiedDataFromBlock,
+        this.nextUnverifiedDataFromBlock + this.numL1BlocksPerFetch - 1n, // decrementing by 1 because `toBlock` is inclusive
       );
 
       if (unverifiedDataLogs) this.processUnverifiedDataLogs(unverifiedDataLogs);
-      this.nextUnverifiedDataEventL1BlockNum += this.numBlocksPerFetch;
+      this.nextUnverifiedDataFromBlock += this.numL1BlocksPerFetch;
     }
   }
 
   /**
-   * Fetches `L2BlockProcessed` and `UnverifiedData` events since `lastL2BlockEventBlockNum` and
-   * `lastUnverifiedDataEventBlockNum` and processes them.
+   * Fetches `L2BlockProcessed` and `UnverifiedData` logs from `nextL2BlockFromBlock` and
+   * `nextUnverifiedDataFromBlock` and processes them.
    */
   private async sync() {
-    const l2BlockProcessedLogs = await this.getL2BlockProcessedLogs(this.nextL2BlockEventL1BlockNum);
-    const unverifiedDataLogs = await this.getUnverifiedDataLogs(this.nextUnverifiedDataEventL1BlockNum);
+    const l2BlockProcessedLogs = await this.getL2BlockProcessedLogs(
+      this.nextL2BlockFromBlock,
+      this.nextL2BlockFromBlock + this.numL1BlocksPerFetch - 1n,
+    );
+    const unverifiedDataLogs = await this.getUnverifiedDataLogs(
+      this.nextUnverifiedDataFromBlock,
+      this.nextUnverifiedDataFromBlock + this.numL1BlocksPerFetch - 1n,
+    );
 
     if (l2BlockProcessedLogs.length > 0) {
       await this.processBlockLogs(l2BlockProcessedLogs);
-      this.nextL2BlockEventL1BlockNum = l2BlockProcessedLogs[l2BlockProcessedLogs.length - 1].blockNumber! + 1n;
+      this.nextL2BlockFromBlock = l2BlockProcessedLogs[l2BlockProcessedLogs.length - 1].blockNumber! + 1n;
     }
     if (unverifiedDataLogs.length > 0) {
       this.processUnverifiedDataLogs(unverifiedDataLogs);
-      this.nextUnverifiedDataEventL1BlockNum = unverifiedDataLogs[unverifiedDataLogs.length - 1].blockNumber + 1n;
+      this.nextUnverifiedDataFromBlock = unverifiedDataLogs[unverifiedDataLogs.length - 1].blockNumber + 1n;
     }
   }
 
@@ -173,8 +179,9 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource {
    * @param toBlock - Last block to get logs from (inclusive).
    * @returns An array of `L2BlockProcessed` logs.
    */
-  private async getL2BlockProcessedLogs(fromBlock: bigint, toBlock?: bigint) {
-    if (!(await this.blockExists(fromBlock))) return [];
+  private async getL2BlockProcessedLogs(fromBlock: bigint, toBlock: bigint) {
+    toBlock = await this.capToBlock(toBlock);
+    if (toBlock < fromBlock) return [];
     // Note: For some reason the return type of `getLogs` would not get correctly derived if I didn't set the abiItem
     //       as a standalone constant.
     const abiItem = getAbiItem({
@@ -195,8 +202,9 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource {
    * @param toBlock - Last block to get logs from (inclusive).
    * @returns An array of `UnverifiedData` logs.
    */
-  private async getUnverifiedDataLogs(fromBlock: bigint, toBlock?: bigint): Promise<any[]> {
-    if (!(await this.blockExists(fromBlock))) return [];
+  private async getUnverifiedDataLogs(fromBlock: bigint, toBlock: bigint): Promise<any[]> {
+    toBlock = await this.capToBlock(toBlock);
+    if (toBlock < fromBlock) return [];
     // Note: For some reason the return type of `getLogs` would not get correctly derived if I didn't set the abiItem
     //       as a standalone constant.
     const abiItem = getAbiItem({
@@ -212,18 +220,18 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource {
   }
 
   /**
-   * Checks if a block exists on chain.
-   * @param blockNum - Block number to check.
-   * @returns A boolean indicating if the block exists.
+   * Caps the given block number to the current block number.
+   * @param blockNum - Block number to cap.
+   * @returns The capped block number.
    */
-  private async blockExists(blockNum: bigint): Promise<boolean> {
+  private async capToBlock(blockNum: bigint): Promise<bigint> {
     const currentBlockNumber = await this.publicClient.getBlockNumber();
-    return blockNum <= currentBlockNumber;
+    return blockNum > currentBlockNumber ? currentBlockNumber : blockNum;
   }
 
   /**
-   * Processes newly received L2BlockProcessed events.
-   * @param logs - L2BlockProcessed event logs.
+   * Processes newly received L2BlockProcessed logs.
+   * @param logs - L2BlockProcessed logs.
    */
   private async processBlockLogs(logs: Log<bigint, number, undefined, typeof RollupAbi, 'L2BlockProcessed'>[]) {
     for (const log of logs) {
@@ -245,8 +253,8 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource {
   }
 
   /**
-   * Processes newly received UnverifiedData events.
-   * @param logs - UnverifiedData event logs.
+   * Processes newly received UnverifiedData logs.
+   * @param logs - UnverifiedData logs.
    */
   private processUnverifiedDataLogs(
     logs: Log<bigint, number, undefined, typeof UnverifiedDataEmitterAbi, 'UnverifiedData'>[],
