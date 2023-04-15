@@ -2,8 +2,8 @@
 
 exports[`abis wasm bindings computes a contract address 1`] = `
 AztecAddress {
-  "buffer": Object {
-    "data": Array [
+  "buffer": {
+    "data": [
       39,
       161,
       170,
