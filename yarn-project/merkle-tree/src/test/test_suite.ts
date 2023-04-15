@@ -1,10 +1,8 @@
 import { PrimitivesWasm } from '@aztec/barretenberg.js/wasm';
 import { WasmWrapper } from '@aztec/foundation/wasm';
 import { default as levelup } from 'levelup';
-import { default as memdown, type MemDown } from 'memdown';
 import { Hasher, MerkleTree, Pedersen, SiblingPath } from '../index.js';
-
-export const createMemDown = () => (memdown as any)() as MemDown<any, any>;
+import { appendLeaves, createMemDown } from './utils.js';
 
 const expectSameTrees = async (tree1: MerkleTree, tree2: MerkleTree, includeUncommitted = true) => {
   const size = tree1.getNumLeaves(includeUncommitted);
@@ -22,6 +20,7 @@ export const merkleTreeTestSuite = (
   testName: string,
   createDb: (levelup: levelup.LevelUp, hasher: Hasher, name: string, depth: number) => Promise<MerkleTree>,
   createFromName: (levelup: levelup.LevelUp, hasher: Hasher, name: string) => Promise<MerkleTree>,
+  appendImplemented = true,
 ) => {
   describe(testName, () => {
     const values: Buffer[] = [];
@@ -49,7 +48,7 @@ export const merkleTreeTestSuite = (
       const levelDown = createMemDown();
       const db = levelup(levelDown);
       const tree = await createDb(db, pedersen, 'test2', 10);
-      await tree.appendLeaves(values.slice(0, 4));
+      await appendLeaves(appendImplemented, tree, values.slice(0, 4));
 
       const firstRoot = tree.getRoot(true);
       expect(firstRoot).not.toEqual(emptyTree.getRoot(true));
@@ -63,7 +62,7 @@ export const merkleTreeTestSuite = (
       await expectSameTrees(tree, emptyTree, false);
 
       // append the leaves again
-      await tree.appendLeaves(values.slice(0, 4));
+      await appendLeaves(appendImplemented, tree, values.slice(0, 4));
 
       expect(tree.getRoot(true)).toEqual(firstRoot);
       // committed root should still be the empty root
@@ -86,7 +85,7 @@ export const merkleTreeTestSuite = (
       const levelDown = createMemDown();
       const db = levelup(levelDown);
       const tree = await createDb(db, pedersen, 'test2', 10);
-      await tree.appendLeaves(values.slice(0, 4));
+      await appendLeaves(appendImplemented, tree, values.slice(0, 4));
 
       expect(tree.getRoot(true)).not.toEqual(emptyTree.getRoot(true));
       // committed root should still be the empty root
@@ -103,7 +102,7 @@ export const merkleTreeTestSuite = (
       const levelDown = createMemDown();
       const db = levelup(levelDown);
       const tree = await createDb(db, pedersen, 'test', 10);
-      await tree.appendLeaves(values.slice(0, 4));
+      await appendLeaves(appendImplemented, tree, values.slice(0, 4));
       await tree.commit();
 
       const db2 = levelup(levelDown);
@@ -130,7 +129,7 @@ export const merkleTreeTestSuite = (
     it('should serialize sibling path data to a buffer and be able to deserialize it back', async () => {
       const db = levelup(createMemDown());
       const tree = await createDb(db, pedersen, 'test', 10);
-      await tree.appendLeaves(values.slice(0, 1));
+      await appendLeaves(appendImplemented, tree, values.slice(0, 1));
 
       const siblingPath = await tree.getSiblingPath(0n, true);
       const buf = siblingPath.toBuffer();

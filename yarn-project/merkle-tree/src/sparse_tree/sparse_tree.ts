@@ -166,13 +166,8 @@ export class SparseMerkleTree implements MerkleTree {
    * @param leaves - The leaves to append.
    * @returns Empty promise.
    */
-  public async appendLeaves(leaves: Buffer[]): Promise<void> {
-    const numLeaves = this.getNumLeaves(true);
-    for (let i = 0; i < leaves.length; i++) {
-      const index = numLeaves + BigInt(i);
-      await this.addLeafToCacheAndHashToRoot(leaves[i], index);
-    }
-    this.cachedSize = numLeaves + BigInt(leaves.length);
+  public appendLeaves(leaves: Buffer[]): Promise<void> {
+    throw Error('Not implemented');
   }
 
   /**

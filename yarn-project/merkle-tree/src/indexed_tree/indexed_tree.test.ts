@@ -1,9 +1,10 @@
 import { default as levelup } from 'levelup';
 import { Hasher, MerkleTree, Pedersen, SiblingPath } from '../index.js';
 import { IndexedTree } from './indexed_tree.js';
-import { merkleTreeTestSuite, createMemDown } from '../test/test_suite.js';
+import { merkleTreeTestSuite } from '../test/test_suite.js';
 import { toBufferBE } from '@aztec/foundation';
 import { BarretenbergWasm } from '@aztec/barretenberg.js/wasm';
+import { createMemDown } from '../test/utils.js';
 
 const createDb = async (levelUp: levelup.LevelUp, hasher: Hasher, name: string, depth: number) => {
   return await IndexedTree.new(levelUp, hasher, name, depth);
