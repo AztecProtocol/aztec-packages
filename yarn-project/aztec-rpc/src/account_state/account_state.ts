@@ -3,7 +3,7 @@ import { AztecNode } from '@aztec/aztec-node';
 import { Grumpkin } from '@aztec/barretenberg.js/crypto';
 import { EcdsaSignature, KERNEL_NEW_COMMITMENTS_LENGTH, OldTreeRoots, TxRequest } from '@aztec/circuits.js';
 import { AztecAddress, Fr, Point, createDebugLogger } from '@aztec/foundation';
-import { KernelProver } from '@aztec/kernel-prover';
+import { KernelProver, OutputNoteData } from '@aztec/kernel-prover';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/l1-contracts';
 import { L2BlockContext, Tx, UnverifiedData } from '@aztec/types';
 import { NotePreimage, TxAuxData } from '../aztec_rpc_server/tx_aux_data/index.js';
@@ -87,11 +87,10 @@ export class AccountState {
 
     const kernelProver = new KernelProver(contractDataOracle);
     this.log('Executing Prover...');
-    const { proof, publicInputs } = await kernelProver.prove(txRequest, signature, executionResult);
+    const { proof, publicInputs, outputNotes } = await kernelProver.prove(txRequest, signature, executionResult);
     this.log('Proof completed!');
 
-    const contractAddress = txRequest.to;
-    const unverifiedData = this.createUnverifiedData(contractAddress, executionResult.preimages.newNotes);
+    const unverifiedData = this.createUnverifiedData(outputNotes);
 
     return new Tx(publicInputs, proof, unverifiedData);
   }
@@ -150,20 +149,15 @@ export class AccountState {
     this.log(`Synched block ${this.syncedToBlock}`);
   }
 
-  private createUnverifiedData(
-    contract: AztecAddress,
-    newNotes: { preimage: Fr[]; storageSlot: Fr }[],
-  ): UnverifiedData {
-    const txAuxDatas = newNotes.map(({ preimage, storageSlot }) => {
+  private createUnverifiedData(outputNotes: OutputNoteData[]) {
+    const dataChunks = outputNotes.map(({ contractAddress, data }) => {
+      const { preimage, storageSlot, owner } = data;
       const notePreimage = new NotePreimage(preimage);
-      return new TxAuxData(notePreimage, contract, storageSlot);
+      const txAuxData = new TxAuxData(notePreimage, contractAddress, storageSlot);
+      const ownerPublicKey = Point.fromBuffer(Buffer.concat([owner.x.toBuffer(), owner.y.toBuffer()]));
+      return txAuxData.toEncryptedBuffer(ownerPublicKey, this.grumpkin);
     });
-    const chunks = txAuxDatas.map(txAuxData => {
-      // TODO - Should use the correct recipient public key.
-      const recipient = this.publicKey;
-      return txAuxData.toEncryptedBuffer(recipient, this.grumpkin);
-    });
-    return new UnverifiedData(chunks);
+    return new UnverifiedData(dataChunks);
   }
 
   private async processBlocksAndTxAuxData(

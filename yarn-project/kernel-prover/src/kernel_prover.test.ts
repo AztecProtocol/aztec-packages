@@ -1,18 +1,20 @@
-import { ExecutionResult } from '@aztec/acir-simulator';
+import { ExecutionResult, NewNoteData } from '@aztec/acir-simulator';
 import {
-  AztecAddress,
   EcdsaSignature,
   MembershipWitness,
   PRIVATE_CALL_STACK_LENGTH,
   PrivateCallStackItem,
   PrivateCircuitPublicInputs,
+  PrivateKernelPublicInputs,
   TxRequest,
   VK_TREE_HEIGHT,
   VerificationKey,
+  makeEmptyProof,
 } from '@aztec/circuits.js';
 import { makeTxRequest } from '@aztec/circuits.js/factories';
+import { AztecAddress, Fr } from '@aztec/foundation';
 import { mock } from 'jest-mock-extended';
-import { KernelProver } from './kernel_prover.js';
+import { KernelProver, OutputNoteData } from './kernel_prover.js';
 import { ProofCreator } from './proof_creator.js';
 import { ProvingDataOracle } from './proving_data_oracle.js';
 
@@ -24,18 +26,52 @@ describe('Kernel Prover', () => {
   let prover: KernelProver;
   let dependencies: { [name: string]: string[] } = {};
 
-  const vk = VerificationKey.makeFake().toBuffer();
-  const createExecutionResult = (entry: string): ExecutionResult =>
-    ({
-      callStackItem: new PrivateCallStackItem(AztecAddress.ZERO, entry as any, PrivateCircuitPublicInputs.empty()),
-      nestedExecutions: (dependencies[entry] || []).map(name => createExecutionResult(name)),
-      vk,
-    } as ExecutionResult);
+  const notes: NewNoteData[] = Array(10)
+    .fill(null)
+    .map(() => ({
+      preimage: [Fr.random(), Fr.random(), Fr.random()],
+      storageSlot: Fr.random(),
+      owner: { x: Fr.random(), y: Fr.random() },
+    }));
+
+  const createFakeSiloedCommitment = (commitment: Fr) => new Fr(commitment.value + 1n);
+  const generateFakeCommitment = (note: NewNoteData) => note.preimage[0];
+  const generateFakeSiloedCommitment = (note: NewNoteData) => createFakeSiloedCommitment(generateFakeCommitment(note));
+
+  const createExecutionResult = (fnName: string, newNoteIndices: number[] = []): ExecutionResult => {
+    const publicInputs = PrivateCircuitPublicInputs.empty();
+    publicInputs.newCommitments = newNoteIndices.map(idx => generateFakeCommitment(notes[idx]));
+    return {
+      // Replace `FunctionData` with `string` for easier testing.
+      callStackItem: new PrivateCallStackItem(AztecAddress.ZERO, fnName as any, publicInputs),
+      nestedExecutions: (dependencies[fnName] || []).map(name => createExecutionResult(name)),
+      vk: VerificationKey.makeFake().toBuffer(),
+      preimages: { newNotes: newNoteIndices.map(idx => notes[idx]), nullifiedNotes: [] },
+      acir: Buffer.alloc(0),
+      partialWitness: new Map(),
+    } as ExecutionResult;
+  };
+
+  const createProofOutput = (newNoteIndices: number[]) => {
+    const publicInputs = PrivateKernelPublicInputs.makeEmpty();
+    publicInputs.end.newCommitments = newNoteIndices.map(idx => generateFakeSiloedCommitment(notes[idx]));
+    return {
+      publicInputs,
+      proof: makeEmptyProof(),
+    };
+  };
 
   const expectExecution = (fns: string[]) => {
     const callStackItems = proofCreator.createProof.mock.calls.map(args => args[2].callStackItem.functionData);
     expect(callStackItems).toEqual(fns);
     proofCreator.createProof.mockClear();
+  };
+
+  const expectOutputNotes = (outputNotes: OutputNoteData[], expectedNoteIndices: number[]) => {
+    expect(outputNotes.length).toBe(expectedNoteIndices.length);
+    outputNotes.forEach((n, i) => {
+      expect(n.data).toEqual(notes[expectedNoteIndices[i]]);
+    });
   };
 
   const prove = (executionResult: ExecutionResult) => prover.prove(txRequest, txSignature, executionResult);
@@ -48,7 +84,10 @@ describe('Kernel Prover', () => {
     oracle.getVkMembershipWitness.mockResolvedValue(MembershipWitness.random(VK_TREE_HEIGHT));
 
     proofCreator = mock<ProofCreator>();
-    proofCreator.createProof.mockResolvedValue({} as any);
+    proofCreator.getSiloedCommitments.mockImplementation(publicInputs =>
+      Promise.resolve(publicInputs.newCommitments.map(createFakeSiloedCommitment)),
+    );
+    proofCreator.createProof.mockResolvedValue(createProofOutput([]));
 
     prover = new KernelProver(oracle, proofCreator);
   });
@@ -89,5 +128,22 @@ describe('Kernel Prover', () => {
       .map((_, i) => `${i}`);
     const executionResult = createExecutionResult('a');
     await expect(prove(executionResult)).rejects.toThrow();
+  });
+
+  it('should only return notes that are outputted from the final proof', async () => {
+    const resultA = createExecutionResult('a', [1, 2, 3]);
+    const resultB = createExecutionResult('b', [4]);
+    const resultC = createExecutionResult('c', [5, 6]);
+    proofCreator.createProof.mockResolvedValueOnce(createProofOutput([1, 2, 3]));
+    proofCreator.createProof.mockResolvedValueOnce(createProofOutput([1, 3, 4]));
+    proofCreator.createProof.mockResolvedValueOnce(createProofOutput([1, 3, 5, 6]));
+
+    const executionResult = {
+      ...resultA,
+      nestedExecutions: [resultB, resultC],
+    };
+    const { outputNotes } = await prove(executionResult);
+    expectExecution(['a', 'c', 'b']);
+    expectOutputNotes(outputNotes, [1, 3, 5, 6]);
   });
 });

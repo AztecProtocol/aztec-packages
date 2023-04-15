@@ -1,8 +1,7 @@
-import { ExecutionResult } from '@aztec/acir-simulator';
+import { ExecutionResult, NewNoteData } from '@aztec/acir-simulator';
 import {
   CONTRACT_TREE_HEIGHT,
   EcdsaSignature,
-  Fr,
   MembershipWitness,
   PRIVATE_CALL_STACK_LENGTH,
   PreviousKernelData,
@@ -15,8 +14,19 @@ import {
   VerificationKey,
   makeEmptyProof,
 } from '@aztec/circuits.js';
+import { AztecAddress, Fr } from '@aztec/foundation';
 import { KernelProofCreator, ProofCreator, ProofOutput } from './proof_creator.js';
 import { ProvingDataOracle } from './proving_data_oracle.js';
+
+export interface OutputNoteData {
+  contractAddress: AztecAddress;
+  data: NewNoteData;
+  commitment: Fr;
+}
+
+export interface KernelProverOutput extends ProofOutput {
+  outputNotes: OutputNoteData[];
+}
 
 export class KernelProver {
   constructor(private oracle: ProvingDataOracle, private proofCreator: ProofCreator = new KernelProofCreator()) {}
@@ -25,9 +35,10 @@ export class KernelProver {
     txRequest: TxRequest,
     txSignature: EcdsaSignature,
     executionResult: ExecutionResult,
-  ): Promise<ProofOutput> {
+  ): Promise<KernelProverOutput> {
     const signedTxRequest = new SignedTxRequest(txRequest, txSignature);
     const executionStack = [executionResult];
+    const newNotes: { [commitmentStr: string]: OutputNoteData } = {};
     let firstIteration = true;
     let previousVerificationKey = VerificationKey.makeFake();
     let output: ProofOutput = {
@@ -68,30 +79,40 @@ export class KernelProver {
         privateCallData,
         firstIteration,
       );
+      (await this.getNewNotes(currentExecution)).forEach(n => {
+        newNotes[n.commitment.toString()] = n;
+      });
       firstIteration = false;
       previousVerificationKey = privateCallData.vk;
     }
 
-    return output;
+    // Only return the notes whose commitment is in the commitments of the final proof.
+    const finalNewCommitments = output.publicInputs.end.newCommitments;
+    const outputNotes = finalNewCommitments.map(c => newNotes[c.toString()]).filter(c => !!c);
+
+    return { ...output, outputNotes };
   }
 
   private async createPrivateCallData(
     { callStackItem, vk }: ExecutionResult,
     privateCallStackPreimages: PrivateCallStackItem[],
   ) {
-    const { storageContractAddress: contractAddress, portalContractAddress } = callStackItem.publicInputs.callContext;
-    const contractLeafMembershipWitness = callStackItem.functionData.isConstructor
+    const { contractAddress, functionData, publicInputs } = callStackItem;
+    const { portalContractAddress } = publicInputs.callContext;
+
+    const contractLeafMembershipWitness = functionData.isConstructor
       ? MembershipWitness.random(CONTRACT_TREE_HEIGHT)
       : await this.oracle.getContractMembershipWitness(contractAddress);
 
     const functionLeafMembershipWitness = await this.oracle.getFunctionMembershipWitness(
       contractAddress,
-      callStackItem.functionData.functionSelector,
+      functionData.functionSelector,
     );
 
     // TODO
+    // FIXME: https://github.com/AztecProtocol/aztec3-packages/issues/262
     // const acirHash = keccak(Buffer.from(bytecode, 'hex'));
-    const acirHash = Fr.fromBuffer(Buffer.alloc(32, 0)); //acirHash, // FIXME: https://github.com/AztecProtocol/aztec3-packages/issues/262
+    const acirHash = Fr.fromBuffer(Buffer.alloc(32, 0));
 
     // TODO
     const proof = makeEmptyProof();
@@ -106,5 +127,20 @@ export class KernelProver {
       portalContractAddress,
       acirHash,
     );
+  }
+
+  private async getNewNotes(executionResult: ExecutionResult): Promise<OutputNoteData[]> {
+    const {
+      callStackItem: { publicInputs },
+      preimages,
+    } = executionResult;
+    const contractAddress = publicInputs.callContext.storageContractAddress;
+    // Assuming that for each new commitment there's an output note added to the execution result.
+    const newCommitments = await this.proofCreator.getSiloedCommitments(publicInputs);
+    return preimages.newNotes.map((data, i) => ({
+      contractAddress,
+      data,
+      commitment: newCommitments[i],
+    }));
   }
 }
