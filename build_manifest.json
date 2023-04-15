@@ -8,7 +8,7 @@
   "aztec3-circuits-wasm-linux-clang-assert": {
     "buildDir": "aztec3-circuits/cpp",
     "dockerfile": "dockerfiles/Dockerfile.wasm-linux-clang-assert",
-    "rebuildPatterns": ["^cpp/"],
+    "rebuildPatterns": ["^aztec3-circuits/"],
     "dependencies": []
   },
   "aztec3-circuits-x86_64-linux-clang": {

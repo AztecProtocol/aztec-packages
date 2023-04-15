@@ -6,7 +6,7 @@ cmake_minimum_required(VERSION 3.24)
 # Get the full path to barretenberg. This is helpful because the required
 # relative path changes based on where in cmake the path is used.
 # `BBERG_DIR` must be set before toolchain.cmake is imported because
-# `BBERG_DIR` is used in toolchain.cmake to determine `WASI_SDK_PREFIX`.
+# `BBERG_DIR` is used in toolchain.cmake to determine `WASI_SDK_PREFIX`
 get_filename_component(BBERG_DIR ../barretenberg/cpp
                        REALPATH BASE_DIR "${CMAKE_BINARY_DIR}")
 
