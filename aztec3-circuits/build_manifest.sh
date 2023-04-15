@@ -6,6 +6,7 @@
 
 # Commenting out a few projects, as the main use case is now to build the images needed to run end-to-end tests.
 # If wanting to just see if docker images actually build, you can temporarily uncomment required projects.
+
 PROJECTS=(
   aztec3-circuits-wasm:cpp:./dockerfiles/Dockerfile.wasm-linux-clang:aztec3-circuits-wasm-linux-clang
   aztec3-circuits-wasm-assert:cpp:./dockerfiles/Dockerfile.wasm-linux-clang-assert:aztec3-circuits-wasm-linux-clang-assert

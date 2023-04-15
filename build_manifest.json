@@ -5,20 +5,26 @@
     "rebuildPatterns": ["^aztec3-circuits/"],
     "dependencies": []
   },
+  "aztec3-circuits-wasm-linux-clang-assert": {
+    "buildDir": "aztec3-circuits/cpp",
+    "dockerfile": "dockerfiles/Dockerfile.wasm-linux-clang-assert",
+    "rebuildPatterns": ["^cpp/"],
+    "dependencies": []
+  },
   "aztec3-circuits-x86_64-linux-clang": {
-    "buildDir": "aztec3-circuits",
+    "buildDir": "aztec3-circuits/cpp",
     "dockerfile": "dockerfiles/Dockerfile.x86_64-linux-clang",
     "rebuildPatterns": ["^aztec3-circuits/"],
     "dependencies": []
   },
   "aztec3-circuits-x86_64-linux-clang-assert": {
-    "buildDir": "aztec3-circuits",
+    "buildDir": "aztec3-circuits/cpp",
     "dockerfile": "dockerfiles/Dockerfile.x86_64-linux-clang-assert",
     "rebuildPatterns": ["^aztec3-circuits/"],
     "dependencies": []
   },
   "aztec3-circuits-x86_64-linux-gcc": {
-    "buildDir": "aztec3-circuits",
+    "buildDir": "aztec3-circuits/cpp",
     "dockerfile": "dockerfiles/Dockerfile.x86_64-linux-gcc",
     "rebuildPatterns": ["^aztec3-circuits/"],
     "dependencies": []
