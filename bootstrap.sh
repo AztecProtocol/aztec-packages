@@ -32,9 +32,9 @@ if [ ! -f ~/.nvm/nvm.sh ]; then
   exit 1
 fi
 
-#cd aztec3-circuits/cpp
-#./bootstrap.sh
-#cd ../..
+cd aztec3-circuits/cpp
+./bootstrap.sh
+cd ../..
 
 if [ "$(uname)" = "Darwin" ]; then
   # works around https://github.com/AztecProtocol/aztec3-packages/issues/158
@@ -47,37 +47,6 @@ nvm install
 # Until we push .yarn/cache, we still need to install.
 cd yarn-project
 yarn install --immutable
+# We do not need to build individual packages, yarn build will build the root tsconfig.json
 yarn build
-cd ..
-
-PROJECTS=(
-  "yarn-project/foundation:yarn build"
-  "yarn-project/ethereum.js:yarn build"
-  "yarn-project/l1-contracts:yarn build"
-  "yarn-project/types:yarn build"
-  "yarn-project/merkle-tree:yarn build"
-  "yarn-project/archiver:yarn build"
-  "yarn-project/world-state:yarn build"
-  "yarn-project/p2p:yarn build"
-  "yarn-project/sequencer-client:yarn build"
-  "yarn-project/aztec-node:yarn build"
-  "yarn-project/key-store:yarn build"
-  "yarn-project/acir-simulator:yarn build"
-  "yarn-project/kernel-prover:yarn build"
-  "yarn-project/aztec-rpc:yarn build"
-  "yarn-project/aztec.js:yarn build"
-  "yarn-project/noir-contracts:yarn build"
-)
-
-for E in "${PROJECTS[@]}"; do
-  ARR=(${E//:/ })
-  DIR=${ARR[0]}
-  COMMAND=${ARR[@]:1}
-  echo "Bootstrapping $DIR: $COMMAND"
-  pushd $DIR > /dev/null
-  $COMMAND
-  popd > /dev/null
-done
-
-echo
 echo "Success! You could now run e.g.: ./scripts/tmux-splits e2e_deploy_contract"

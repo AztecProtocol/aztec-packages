@@ -9,7 +9,7 @@ import { fileURLToPath } from 'url';
  */
 export const SRS_DEV_PATH =
   dirname(fileURLToPath(import.meta.url)) +
-  '/../../../../circuits/cpp/barretenberg/cpp/srs_db/ignition/monomial/transcript00.dat';
+  '/../../../../aztec3-circuits/cpp/barretenberg/cpp/srs_db/ignition/monomial/transcript00.dat';
 /**
  * Downloader for CRS from the web or local.
  */

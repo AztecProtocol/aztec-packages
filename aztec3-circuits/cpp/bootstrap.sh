@@ -8,17 +8,17 @@ export WASI_VERSION=12
 # Update the submodule
 git submodule update --init --recursive
 
-# # Remove all untracked files and directories.
-# if [ -n "${CLEAN:-}" ]; then
-#   # Clean.
-#   rm -rf ./build
-#   rm -rf ./build-wasm
+# Remove all untracked files and directories.
+if [ -n "${CLEAN:-}" ]; then
+  # Clean.
+  rm -rf ./build
+  rm -rf ./build-wasm
 
-#   # Clean barretenberg.
-#   rm -rf ./barretenberg/cpp/build
-#   rm -rf ./barretenberg/cpp/build-wasm
-#   rm -rf ./barretenberg/cpp/src/wasi-sdk-*
-# fi
+  # Clean barretenberg.
+  rm -rf ./barretenberg/cpp/build
+  rm -rf ./barretenberg/cpp/build-wasm
+  rm -rf ./barretenberg/cpp/src/wasi-sdk-*
+fi
 
 # Install formatting git hook.
 HOOKS_DIR=$(git rev-parse --git-path hooks)
