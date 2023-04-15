@@ -4,8 +4,8 @@
       "name": "Linux",
       "includePath": [
         "${workspaceFolder}/**",
-        "${workspaceFolder}/circuits/src",
-        "${workspaceFolder}/circuits/barretenberg/cpp/src/aztec"
+        "${workspaceFolder}/aztec3-circuits/src",
+        "${workspaceFolder}/aztec3-circuits/barretenberg/cpp/src/aztec"
       ],
       "defines": [],
       "compilerPath": "/usr/bin/clang",

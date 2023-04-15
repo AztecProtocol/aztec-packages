@@ -1,5 +1,5 @@
 # This config consists of currently 1 workflow.
-# - system: The main Aztec 3 circuits and C++
+# - system: The main Aztec 3 aztec3-circuits and C++
 #
 # The default workflow is system. To trigger the other workflows, trigger a workflow from CCI
 # setting a string variable called `workflow` to another name.
@@ -28,7 +28,7 @@ version: 2.1
 # It then checks out the fetched head to actually download the data.
 checkout: &checkout
   run:
-    name: 'Checkout code'
+    name: "Checkout code"
     command: |
       cd $HOME
       mkdir -p .ssh
@@ -52,7 +52,7 @@ checkout: &checkout
 # Initially it just fetches the latest version.
 benchmark_add_keys: &benchmark_add_keys
   run:
-    name: 'Add keys for getting the benchmark archive'
+    name: "Add keys for getting the benchmark archive"
     command: |
       cd $HOME
       mkdir -p .ssh
@@ -79,7 +79,7 @@ benchmark_add_keys: &benchmark_add_keys
 # the build process. This enables easy running of the build system external to CCI, as used for powerful EC2 builds.
 setup_env: &setup_env
   run:
-    name: 'Setup environment'
+    name: "Setup environment"
     command: ./build-system/scripts/setup_env "$CIRCLE_SHA1" "$CIRCLE_TAG" "$CIRCLE_JOB" "$CIRCLE_REPOSITORY_URL" "$CIRCLE_BRANCH"
 
 # This step is used to save logs from various barretenberg test to the workspace so that they can be used later to parse benchmark values out of them
@@ -98,7 +98,7 @@ jobs:
       - *checkout
       - *setup_env
       - run:
-          name: 'Build'
+          name: "Build"
           command: cond_spot_run_build aztec3-circuits-wasm-linux-clang 64
 
   wasm-linux-clang-assert:
@@ -109,7 +109,7 @@ jobs:
       - *checkout
       - *setup_env
       - run:
-          name: 'Build'
+          name: "Build"
           command: cond_spot_run_build aztec3-circuits-wasm-linux-clang-assert 64
 
   x86_64-linux-clang:
@@ -120,7 +120,7 @@ jobs:
       - *checkout
       - *setup_env
       - run:
-          name: 'Build'
+          name: "Build"
           command: cond_spot_run_build aztec3-circuits-x86_64-linux-clang 64
 
   x86_64-linux-clang-assert:
@@ -131,7 +131,7 @@ jobs:
       - *checkout
       - *setup_env
       - run:
-          name: 'Build'
+          name: "Build"
           command: cond_spot_run_build aztec3-circuits-x86_64-linux-clang-assert 64
 
   aztec3-circuits-wasm-tests:
@@ -142,7 +142,7 @@ jobs:
       - *checkout
       - *setup_env
       - run:
-          name: 'Test'
+          name: "Test"
           command: cond_spot_run_tests aztec3-circuits-wasm-linux-clang-assert 1 a3-tests USE_WASM_TIME
       - *save_logs
 
@@ -154,7 +154,7 @@ jobs:
       - *checkout
       - *setup_env
       - run:
-          name: 'Test'
+          name: "Test"
           command: cond_spot_run_tests aztec3-circuits-x86_64-linux-clang-assert 1 a3-tests
       - *save_logs
 
@@ -175,7 +175,7 @@ tag_regex: &tag_regex /v[0-9]+(\.[0-9]+)*(-[a-zA-Z-]+\.[0-9]+)?/
 defaults: &defaults
   context:
     - build
-  filters: 
+  filters:
     tags:
       only: *tag_regex
 a3_wasm_test: &a3_wasm_test

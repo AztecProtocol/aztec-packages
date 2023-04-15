@@ -32,9 +32,9 @@ if [ ! -f ~/.nvm/nvm.sh ]; then
   exit 1
 fi
 
-cd circuits/cpp
-./bootstrap.sh
-cd ../..
+#cd aztec3-circuits/cpp
+#./bootstrap.sh
+#cd ../..
 
 if [ "$(uname)" = "Darwin" ]; then
   # works around https://github.com/AztecProtocol/aztec3-packages/issues/158

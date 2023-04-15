@@ -52,7 +52,7 @@ checkout: &checkout
       git fetch --depth 50 --filter=blob:none origin $CIRCLE_SHA1
       git checkout FETCH_HEAD
       # Initialize submodules recursively
-      git submodule update --init --recursive circuits build-system
+      git submodule update --init --recursive
 
 # Called setup_env to setup a bunch of global variables used throughout the rest of the build process.
 # It takes the required CCI environment variables as inputs, and gives them normalised names for the rest of
@@ -113,7 +113,7 @@ jobs:
           name: "Build and test"
           command: build foundation
 
-  aztec-js: 
+  aztec-js:
     machine:
       image: ubuntu-2004:202010-01
     resource_class: large
@@ -211,7 +211,7 @@ jobs:
       - run:
           name: "Build and test"
           command: build archiver
-  
+
   aztec-rpc:
     machine:
       image: ubuntu-2004:202010-01
@@ -356,7 +356,7 @@ workflows:
             - noir-contracts
             - foundation
           <<: *defaults
-      
+
       - e2e-deploy-contract: *e2e_test
       - e2e-zk-token-contract: *e2e_test
       - e2e-block-building: *e2e_test

@@ -11,7 +11,7 @@
   },
   "typedoc": {
     "entryPoint": "./src/index.ts",
-    "displayName": "Circuits.js",
+    "displayName": "circuits.js",
     "tsconfig": "./tsconfig.json"
   },
   "scripts": {

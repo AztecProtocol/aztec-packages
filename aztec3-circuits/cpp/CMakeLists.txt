@@ -12,7 +12,7 @@ get_filename_component(BBERG_DIR ../barretenberg/cpp
 
 project(
     Aztec3Circuits
-    DESCRIPTION "Project containing Aztec3 Circuits Infrastucture in C++."
+    DESCRIPTION "Project containing Aztec3 aztec3-circuits Infrastucture in C++."
     VERSION 0.1.0
     LANGUAGES CXX C
 )
