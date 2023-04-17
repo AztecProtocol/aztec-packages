@@ -74,4 +74,39 @@ describe('SparseMerkleTreeSpecific', () => {
     await tree.updateLeaf(SparseMerkleTree.ZERO_ELEMENT, randomIndex);
     expect(tree.getNumLeaves(true)).toEqual(0n);
   });
+
+  it('should have correct root and sibling path after in a "non-append-only" way', async () => {
+    const db = levelup(createMemDown());
+    const tree = await createDb(db, pedersen, 'test', 3);
+
+    const zeroTreeLeafHash = SparseMerkleTree.ZERO_ELEMENT;
+    const level2ZeroHash = pedersen.compress(zeroTreeLeafHash, zeroTreeLeafHash);
+    const level1ZeroHash = pedersen.compress(level2ZeroHash, level2ZeroHash);
+
+    expect(tree.getNumLeaves()).toEqual(0n);
+    expect(tree.getRoot()).toEqual(pedersen.compress(level1ZeroHash, level1ZeroHash));
+
+    // Insert leaf at index 3
+    let level1LeftHash: Buffer;
+    {
+      const leafAtIndex3 = randomBytes(32);
+      await tree.updateLeaf(leafAtIndex3, 3n);
+      expect(tree.getNumLeaves(true)).toEqual(1n);
+      const level2Hash = pedersen.compress(zeroTreeLeafHash, leafAtIndex3);
+      level1LeftHash = pedersen.compress(level2ZeroHash, level2Hash);
+      const root = pedersen.compress(level1LeftHash, level1ZeroHash);
+      expect(tree.getRoot(true)).toEqual(root);
+    }
+
+    // Insert leaf at index 6
+    {
+      const leafAtIndex6 = randomBytes(32);
+      await tree.updateLeaf(leafAtIndex6, 6n);
+      expect(tree.getNumLeaves(true)).toEqual(2n);
+      const level2Hash = pedersen.compress(leafAtIndex6, zeroTreeLeafHash);
+      const level1RightHash = pedersen.compress(level2ZeroHash, level2Hash);
+      const root = pedersen.compress(level1LeftHash, level1RightHash);
+      expect(tree.getRoot(true)).toEqual(root);
+    }
+  });
 });
