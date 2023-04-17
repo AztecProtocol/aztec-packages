@@ -11,6 +11,7 @@ import { ContractDataOracle } from '../contract_data_oracle/index.js';
 import { Database, TxAuxDataDao, TxDao } from '../database/index.js';
 import { ConstantKeyPair, KeyPair } from '../key_store/index.js';
 import { SimulatorOracle } from '../simulator_oracle/index.js';
+import { BarretenbergWasm } from '@aztec/barretenberg.js/wasm';
 
 export class AccountState {
   public syncedToBlock = 0;
@@ -129,7 +130,7 @@ export class AccountState {
           txIndices.add(txIndex);
           txAuxDataDaos.push({
             ...txAuxData,
-            nullifier: Fr.random(), // TODO
+            nullifier: await this.computeNullifier(txAuxData),
             index: dataStartIndex + j,
           });
         }
@@ -147,6 +148,15 @@ export class AccountState {
 
     this.syncedToBlock = l2BlockContexts[l2BlockContexts.length - 1].block.number;
     this.log(`Synched block ${this.syncedToBlock}`);
+  }
+
+  private async computeNullifier(txAuxData: TxAuxData) {
+    const simulatorOracle = new SimulatorOracle(new ContractDataOracle(this.db, this.node), this.db, this.keyPair);
+    const simulator = new AcirSimulator(simulatorOracle);
+    // TODO In the future, we'll need to simulate an unconstrained fn associated with the contract ABI and slot
+    return Fr.fromBuffer(
+      simulator.computeNullifier(txAuxData.notePreimage.items, this.privKey, await BarretenbergWasm.get()),
+    );
   }
 
   private createUnverifiedData(outputNotes: OutputNoteData[]) {

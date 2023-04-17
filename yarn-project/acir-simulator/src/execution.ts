@@ -20,7 +20,6 @@ import {
 import { DBOracle } from './db_oracle.js';
 import { extractPublicInputs, frToAztecAddress, frToSelector } from './acvm/deserialize.js';
 import { FunctionAbi } from '@aztec/noir-contracts';
-import { DUMMY_NOTE_LENGTH } from './simulator.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 
 export interface NewNoteData {
@@ -153,13 +152,17 @@ export class Execution {
   // TODO this should use an unconstrained fn in the future
   private createDummyNote() {
     return {
-      preimage: Array(DUMMY_NOTE_LENGTH).fill(new Fr(0n)),
+      preimage: [new Fr(0n), Fr.random(), Fr.ZERO, Fr.ZERO, Fr.random(), new Fr(0n)],
       siblingPath: new Array(PRIVATE_DATA_TREE_HEIGHT).fill(new Fr(0n)),
       index: 0,
     };
   }
 
   private async getSecretKey(contractAddress: AztecAddress, address: ACVMField) {
+    // TODO remove this when we have brillig oracles that don't execute on false branches
+    if (address === ZERO_ACVM_FIELD) {
+      return [ZERO_ACVM_FIELD];
+    }
     const key = await this.db.getSecretKey(contractAddress, frToAztecAddress(fromACVMField(address)));
     return [toACVMField(key)];
   }
