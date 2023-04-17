@@ -36,6 +36,7 @@ export class StandardMerkleTree implements MerkleTree {
   private zeroHashes: Buffer[] = [];
   private cache: { [key: string]: Buffer } = {};
   private cachedSize?: bigint;
+  public readonly maxIndex: bigint;
 
   constructor(
     private db: LevelUp,
@@ -58,6 +59,7 @@ export class StandardMerkleTree implements MerkleTree {
     }
 
     this.root = root ? root : current;
+    this.maxIndex = 2n ** BigInt(depth) - 1n;
   }
 
   /**
@@ -168,6 +170,9 @@ export class StandardMerkleTree implements MerkleTree {
    */
   public async appendLeaves(leaves: Buffer[]): Promise<void> {
     const numLeaves = this.getNumLeaves(true);
+    if (numLeaves + BigInt(leaves.length) - 1n > this.maxIndex) {
+      throw Error(`Can't append beyond max index. Max index: ${this.maxIndex}`);
+    }
     for (let i = 0; i < leaves.length; i++) {
       const index = numLeaves + BigInt(i);
       await this.addLeafToCacheAndHashToRoot(leaves[i], index);
@@ -181,6 +186,9 @@ export class StandardMerkleTree implements MerkleTree {
    * @param index - Index of the leaf to be updated.
    */
   public async updateLeaf(leaf: Buffer, index: bigint) {
+    if (index > this.maxIndex) {
+      throw Error(`Index out of bounds. Index ${index}, max index: ${this.maxIndex}.`);
+    }
     await this.addLeafToCacheAndHashToRoot(leaf, index);
     const numLeaves = this.getNumLeaves(true);
     if (index >= numLeaves) {
@@ -192,7 +200,11 @@ export class StandardMerkleTree implements MerkleTree {
    * Force increase the size of the tree
    */
   public forceAppendEmptyLeaf() {
-    this.cachedSize = (this.cachedSize ?? this.size) + 1n;
+    const newSize = (this.cachedSize ?? this.size) + 1n;
+    if (newSize - 1n > this.maxIndex) {
+      throw Error(`Can't append beyond max index. Max index: ${this.maxIndex}`);
+    }
+    this.cachedSize = newSize;
   }
 
   /**

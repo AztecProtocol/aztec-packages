@@ -3,6 +3,7 @@ import { default as levelup } from 'levelup';
 import { Hasher, Pedersen, SiblingPath, StandardMerkleTree } from '../index.js';
 import { SparseMerkleTree } from '../sparse_tree/sparse_tree.js';
 import { appendLeaves, createMemDown } from './utils.js';
+import { randomBytes } from 'crypto';
 
 export const standardBasedTreeTestSuite = (
   testName: string,
@@ -36,6 +37,13 @@ export const standardBasedTreeTestSuite = (
       const tree = await createDb(db, pedersen, 'test', 32);
       const root = tree.getRoot();
       expect(root.toString('hex')).toEqual('18ceb5cd201e1cee669a5c3ad96d3c4e933a365b37046fc3178264bede32c68d');
+    });
+
+    it('should throw when appending beyond max index', async () => {
+      const db = levelup(createMemDown());
+      const tree = await createDb(db, pedersen, 'test', 2);
+      const leaves = Array.from({ length: 5 }, _ => randomBytes(32));
+      await expect(appendLeaves(appendImplemented, tree, leaves)).rejects.toThrow();
     });
 
     it('should have correct root and sibling paths', async () => {
