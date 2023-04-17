@@ -146,7 +146,7 @@ export class Execution {
     const dummyNotes = Array.from({ length: dummyCount }, () => ({
       preimage: createDummyNote(),
       siblingPath: new Array(PRIVATE_DATA_TREE_HEIGHT).fill(new Fr(0n)),
-      index: 0,
+      index: 0n,
     }));
 
     return notes

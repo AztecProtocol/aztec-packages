@@ -71,7 +71,7 @@ export class AccountState {
     const portalContract = await contractDataOracle.getPortalContractAddress(contractAddress);
     const oldRoots = new OldTreeRoots(Fr.ZERO, Fr.ZERO, Fr.ZERO, Fr.ZERO); // TODO - get old roots from the database/node
 
-    const simulatorOracle = new SimulatorOracle(contractDataOracle, this.db, this.keyPair);
+    const simulatorOracle = new SimulatorOracle(contractDataOracle, this.db, this.keyPair, this.node);
     const simulator = new AcirSimulator(simulatorOracle);
     this.log('Executing simulator...');
     const result = await simulator.run(txRequest, functionAbi, contractAddress, portalContract, oldRoots);
@@ -131,7 +131,7 @@ export class AccountState {
           txAuxDataDaos.push({
             ...txAuxData,
             nullifier: await this.computeNullifier(txAuxData),
-            index: dataStartIndex + j,
+            index: BigInt(dataStartIndex + j),
           });
         }
       }
@@ -151,7 +151,12 @@ export class AccountState {
   }
 
   private async computeNullifier(txAuxData: TxAuxData) {
-    const simulatorOracle = new SimulatorOracle(new ContractDataOracle(this.db, this.node), this.db, this.keyPair);
+    const simulatorOracle = new SimulatorOracle(
+      new ContractDataOracle(this.db, this.node),
+      this.db,
+      this.keyPair,
+      this.node,
+    );
     const simulator = new AcirSimulator(simulatorOracle);
     // TODO In the future, we'll need to simulate an unconstrained fn associated with the contract ABI and slot
     return Fr.fromBuffer(

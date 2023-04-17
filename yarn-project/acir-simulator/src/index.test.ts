@@ -186,7 +186,7 @@ describe('ACIR simulator', () => {
           preimages.map(async (preimage, index) => ({
             preimage,
             siblingPath: (await tree.getSiblingPath(BigInt(index))).data.map(buf => Fr.fromBuffer(buf)),
-            index,
+            index: BigInt(index),
           })),
         );
       });
@@ -252,7 +252,7 @@ describe('ACIR simulator', () => {
           preimages.map(async (preimage, index) => ({
             preimage,
             siblingPath: (await tree.getSiblingPath(BigInt(index))).data.map(buf => Fr.fromBuffer(buf)),
-            index,
+            index: BigInt(index),
           })),
         );
       });

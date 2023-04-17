@@ -44,7 +44,7 @@ function adaptBufferSize(originalBuf: Buffer) {
   return buffer;
 }
 
-export function toACVMField(value: AztecAddress | EthAddress | Fr | Buffer | boolean | number): ACVMField {
+export function toACVMField(value: AztecAddress | EthAddress | Fr | Buffer | boolean | number | bigint): ACVMField {
   if (typeof value === 'boolean') {
     return value ? ONE_ACVM_FIELD : ZERO_ACVM_FIELD;
   }
@@ -56,6 +56,8 @@ export function toACVMField(value: AztecAddress | EthAddress | Fr | Buffer | boo
   } else if (typeof value === 'number') {
     buffer = Buffer.alloc(32);
     buffer.writeUInt32BE(value, 28);
+  } else if (typeof value === 'bigint') {
+    buffer = new Fr(value).toBuffer();
   } else {
     buffer = value.toBuffer();
   }

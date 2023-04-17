@@ -9,5 +9,5 @@ export interface TxAuxDataDao {
   // Computed properties
   nullifier: Fr;
   // The location in the tree
-  index: number;
+  index: bigint;
 }
