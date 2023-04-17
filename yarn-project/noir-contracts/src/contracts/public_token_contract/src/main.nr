@@ -31,7 +31,7 @@ contract PublicToken {
         let recipient_balance = balances.at(recipient.x);
 
         // TODO: It should not be needed to assign to an unused variable
-        let _old_recipient_balance = recipient_balance.write(owner_balance.read() + amount);
+        let _old_recipient_balance = recipient_balance.write(recipient_balance.read() + amount);
 
         outputs.finish(inputs)
     }
