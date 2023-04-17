@@ -7,6 +7,7 @@ import {
   toAcvmCallPrivateStackItem,
   toAcvmNoteLoadOracleInputs,
   writeInputs,
+  createDummyNote,
 } from './acvm/index.js';
 import { AztecAddress, EthAddress, Fr } from '@aztec/foundation';
 import {
@@ -142,20 +143,15 @@ export class Execution {
   private async getNotes(contractAddress: AztecAddress, storageSlot: ACVMField, count: number) {
     const notes = await this.db.getNotes(contractAddress, fromACVMField(storageSlot), count);
     const dummyCount = Math.max(0, count - notes.length);
-    const dummyNotes = Array.from({ length: dummyCount }, () => this.createDummyNote());
+    const dummyNotes = Array.from({ length: dummyCount }, () => ({
+      preimage: createDummyNote(),
+      siblingPath: new Array(PRIVATE_DATA_TREE_HEIGHT).fill(new Fr(0n)),
+      index: 0,
+    }));
 
     return notes
       .concat(dummyNotes)
       .flatMap(noteGetData => toAcvmNoteLoadOracleInputs(noteGetData, this.oldRoots.privateDataTreeRoot));
-  }
-
-  // TODO this should use an unconstrained fn in the future
-  private createDummyNote() {
-    return {
-      preimage: [new Fr(0n), Fr.random(), Fr.ZERO, Fr.ZERO, Fr.random(), new Fr(0n)],
-      siblingPath: new Array(PRIVATE_DATA_TREE_HEIGHT).fill(new Fr(0n)),
-      index: 0,
-    };
   }
 
   private async getSecretKey(contractAddress: AztecAddress, address: ACVMField) {

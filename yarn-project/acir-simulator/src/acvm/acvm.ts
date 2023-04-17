@@ -1,4 +1,4 @@
-import { AztecAddress, DebugLogger, EthAddress, Fr, createDebugLogger } from '@aztec/foundation';
+import { AztecAddress, EthAddress, Fr } from '@aztec/foundation';
 import { solve_intermediate_witness as solveIntermediateWitness } from '@noir-lang/aztec_backend_wasm';
 
 export type ACVMField = `0x${string}`;
@@ -66,4 +66,9 @@ export function toACVMField(value: AztecAddress | EthAddress | Fr | Buffer | boo
 export function fromACVMField(field: `0x${string}`): Fr {
   const buffer = Buffer.from(field.slice(2), 'hex');
   return Fr.fromBuffer(buffer);
+}
+
+// TODO this should use an unconstrained fn in the future
+export function createDummyNote() {
+  return [new Fr(0n), Fr.random(), Fr.ZERO, Fr.ZERO, Fr.random(), new Fr(0n)];
 }

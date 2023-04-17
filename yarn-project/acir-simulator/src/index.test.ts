@@ -91,10 +91,7 @@ describe('ACIR simulator', () => {
     let recipientPk: Buffer;
     let recipient: NoirPoint;
 
-    function buildNote(amount: bigint, owner: NoirPoint, isDummy = false) {
-      if (isDummy) {
-        return [new Fr(0n), new Fr(currentNonce++), Fr.random(), Fr.random(), Fr.random(), new Fr(0n)];
-      }
+    function buildNote(amount: bigint, owner: NoirPoint) {
       return [new Fr(1n), new Fr(currentNonce++), new Fr(owner.x), new Fr(owner.y), Fr.random(), new Fr(amount)];
     }
 
