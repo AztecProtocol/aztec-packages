@@ -23,15 +23,17 @@ export class SparseMerkleTree extends TreeBase {
     if (index > this.maxIndex) {
       throw Error(`Index out of bounds. Index ${index}, max index: ${this.maxIndex}.`);
     }
-    const insertingEmpty = leaf.equals(SparseMerkleTree.ZERO_ELEMENT);
-    const originallyEmpty = (await this.getLeafValue(index, true))?.equals(SparseMerkleTree.ZERO_ELEMENT);
-    if (insertingEmpty && originallyEmpty) {
+    const insertingZeroElement = leaf.equals(SparseMerkleTree.ZERO_ELEMENT);
+    const originallyZeroElement = (await this.getLeafValue(index, true))?.equals(SparseMerkleTree.ZERO_ELEMENT);
+    if (insertingZeroElement && originallyZeroElement) {
       return;
     }
     await this.addLeafToCacheAndHashToRoot(leaf, index);
-    if (insertingEmpty) {
-      this.cachedSize!--;
-    } else if (originallyEmpty) {
+    if (insertingZeroElement) {
+      // Deleting element (originally non-zero and new value is zero)
+      this.cachedSize = (this.cachedSize ?? this.size) - 1n;
+    } else if (originallyZeroElement) {
+      // Inserting new element (originally zero and new value is non-zero)
       this.cachedSize = (this.cachedSize ?? this.size) + 1n;
     }
   }
