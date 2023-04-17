@@ -48,4 +48,13 @@ export class MemoryDB extends MemoryContractDatabase implements Database {
     );
     return Promise.resolve(res);
   }
+
+  public removeNullifiedTxAuxDatas(nullifiers: Fr[]) {
+    const nullifierSet = new Set(nullifiers.map(nullifier => nullifier.toBuffer().toString('utf-8')));
+    this.txAuxDataTable = this.txAuxDataTable.filter(
+      txAuxData => !nullifierSet.has(txAuxData.nullifier.toBuffer().toString('utf-8')),
+    );
+
+    return Promise.resolve();
+  }
 }

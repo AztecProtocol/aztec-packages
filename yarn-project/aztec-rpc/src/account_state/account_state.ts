@@ -155,7 +155,12 @@ export class AccountState {
     const simulator = new AcirSimulator(simulatorOracle);
     // TODO In the future, we'll need to simulate an unconstrained fn associated with the contract ABI and slot
     return Fr.fromBuffer(
-      simulator.computeNullifier(txAuxData.notePreimage.items, this.privKey, await BarretenbergWasm.get()),
+      simulator.computeSiloedNullifier(
+        txAuxData.contractAddress,
+        txAuxData.notePreimage.items,
+        this.privKey,
+        await BarretenbergWasm.get(),
+      ),
     );
   }
 
@@ -179,6 +184,8 @@ export class AccountState {
   ) {
     const txAuxDataDaosBatch: TxAuxDataDao[] = [];
     const txDaos: TxDao[] = [];
+    let newNullifiers: Fr[] = [];
+
     for (let i = 0; i < blocksAndTxAuxData.length; ++i) {
       const { blockContext, userPertainingTxIndices, txAuxDataDaos } = blocksAndTxAuxData[i];
 
@@ -204,11 +211,14 @@ export class AccountState {
       });
       txAuxDataDaosBatch.push(...txAuxDataDaos);
 
+      newNullifiers = newNullifiers.concat(blockContext.block.newNullifiers);
+
       // Ensure all the other txs are updated with newly settled block info.
       await this.updateBlockInfoInBlockTxs(blockContext);
     }
     if (txAuxDataDaosBatch.length) await this.db.addTxAuxDataBatch(txAuxDataDaosBatch);
     if (txDaos.length) await this.db.addTxs(txDaos);
+    if (newNullifiers.length) await this.db.removeNullifiedTxAuxDatas(newNullifiers);
   }
 
   private async updateBlockInfoInBlockTxs(blockContext: L2BlockContext) {

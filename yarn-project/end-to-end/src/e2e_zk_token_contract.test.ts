@@ -179,6 +179,6 @@ describe('e2e_zk_token_contract', () => {
     expect(receipt.status).toBe(TxStatus.MINED);
 
     await expectStorageSlot(0, initialBalance - transferAmount);
-    await expectBalance(1, transferAmount);
+    await expectStorageSlot(1, transferAmount);
   }, 60_000);
 });
