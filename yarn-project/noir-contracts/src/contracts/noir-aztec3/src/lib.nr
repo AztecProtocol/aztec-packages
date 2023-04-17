@@ -1,5 +1,4 @@
 mod abi;
-mod pub_abi;
 mod notes;
 mod state_vars;
 mod types;
