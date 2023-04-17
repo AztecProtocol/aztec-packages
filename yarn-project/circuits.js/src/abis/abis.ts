@@ -118,8 +118,8 @@ export async function hashConstructor(
 export async function computeContractAddress(
   wasm: CircuitsWasm,
   deployerAddr: AztecAddress,
-  contractAddrSalt: Buffer,
-  fnTreeRoot: Buffer,
+  contractAddrSalt: Fr,
+  fnTreeRoot: Fr,
   constructorHash: Buffer,
 ) {
   const deployerAddrBuf = deployerAddr.toBuffer();
@@ -127,7 +127,7 @@ export async function computeContractAddress(
   const result = await inputBuffersToOutputBuffer(
     wasm,
     'abis__compute_contract_address',
-    [deployerAddrBuf, contractAddrSalt, fnTreeRoot, constructorHash],
+    [deployerAddrBuf, contractAddrSalt.toBuffer(), fnTreeRoot.toBuffer(), constructorHash],
     32,
   );
   return AztecAddress.fromBuffer(result);
