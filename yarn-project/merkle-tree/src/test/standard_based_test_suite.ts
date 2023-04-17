@@ -2,7 +2,8 @@ import { BarretenbergWasm } from '@aztec/barretenberg.js/wasm';
 import { default as levelup } from 'levelup';
 import { Hasher, Pedersen, SiblingPath, StandardMerkleTree } from '../index.js';
 import { SparseMerkleTree } from '../sparse_tree/sparse_tree.js';
-import { appendLeaves, createMemDown } from './utils.js';
+import { appendLeaves } from './utils/append_leaves.js';
+import { createMemDown } from './utils/create_mem_down.js';
 import { randomBytes } from 'crypto';
 
 export const standardBasedTreeTestSuite = (

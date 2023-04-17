@@ -4,7 +4,7 @@ import { IndexedTree } from './indexed_tree.js';
 import { merkleTreeTestSuite } from '../test/test_suite.js';
 import { toBufferBE } from '@aztec/foundation';
 import { BarretenbergWasm } from '@aztec/barretenberg.js/wasm';
-import { createMemDown } from '../test/utils.js';
+import { createMemDown } from '../test/utils/create_mem_down.js';
 
 const createDb = async (levelUp: levelup.LevelUp, hasher: Hasher, name: string, depth: number) => {
   return await IndexedTree.new(levelUp, hasher, name, depth);

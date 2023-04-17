@@ -3,7 +3,7 @@ import { Hasher } from '../hasher.js';
 import { merkleTreeTestSuite } from '../test/test_suite.js';
 import { SparseMerkleTree } from './sparse_tree.js';
 import { standardBasedTreeTestSuite } from '../test/standard_based_test_suite.js';
-import { createMemDown } from '../test/utils.js';
+import { createMemDown } from '../test/utils/create_mem_down.js';
 import { BarretenbergWasm } from '@aztec/barretenberg.js/wasm';
 import { Pedersen } from '../pedersen.js';
 import { randomBytes } from 'crypto';

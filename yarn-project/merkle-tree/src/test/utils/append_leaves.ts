@@ -1,7 +1,4 @@
-import { default as memdown, type MemDown } from 'memdown';
-import { MerkleTree } from '../merkle_tree.js';
-
-export const createMemDown = () => (memdown as any)() as MemDown<any, any>;
+import { MerkleTree } from '../../merkle_tree.js';
 
 export const appendLeaves = async (appendImplemented: boolean, tree: MerkleTree, leaves: Buffer[]) => {
   if (appendImplemented) {

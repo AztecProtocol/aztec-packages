@@ -2,7 +2,8 @@ import { PrimitivesWasm } from '@aztec/barretenberg.js/wasm';
 import { WasmWrapper } from '@aztec/foundation/wasm';
 import { default as levelup } from 'levelup';
 import { Hasher, MerkleTree, Pedersen, SiblingPath } from '../index.js';
-import { appendLeaves, createMemDown } from './utils.js';
+import { appendLeaves } from './utils/append_leaves.js';
+import { createMemDown } from './utils/create_mem_down.js';
 
 const expectSameTrees = async (tree1: MerkleTree, tree2: MerkleTree, includeUncommitted = true) => {
   const size = tree1.getNumLeaves(includeUncommitted);
