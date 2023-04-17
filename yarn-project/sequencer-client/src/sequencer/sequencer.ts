@@ -21,7 +21,7 @@ import { SequencerConfig } from './config.js';
 export class Sequencer {
   private runningPromise?: RunningPromise;
   private pollingIntervalMs: number;
-  private maxTxsPerBlock = 4;
+  private maxTxsPerBlock = 32;
   private lastBlockNumber = -1;
   private state = SequencerState.STOPPED;
 
@@ -34,6 +34,9 @@ export class Sequencer {
     private log = createDebugLogger('aztec:sequencer'),
   ) {
     this.pollingIntervalMs = config?.transactionPollingInterval ?? 1_000;
+    if (config?.maxTxsPerBlock) {
+      this.maxTxsPerBlock = config.maxTxsPerBlock;
+    }
   }
 
   public async start() {
