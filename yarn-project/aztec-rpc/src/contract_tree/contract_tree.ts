@@ -66,6 +66,7 @@ export interface NewContractConstructor {
 
 export class ContractTree {
   private functionLeaves?: Fr[];
+  private functionTree?: Fr[];
   private functionTreeRoot?: Fr;
   private contractMembershipWitness?: MembershipWitness<typeof CONTRACT_TREE_HEIGHT>;
 
@@ -165,9 +166,11 @@ export class ContractTree {
       return MembershipWitness.makeEmpty(FUNCTION_TREE_HEIGHT, 0);
     }
 
-    const leaves = await this.getFunctionLeaves();
-    const functionTree = await computeFunctionTree(this.wasm, leaves);
-    const functionTreeData = computeFunctionTreeData(functionTree, functionIndex);
+    if (!this.functionTree) {
+      const leaves = await this.getFunctionLeaves();
+      this.functionTree = await computeFunctionTree(this.wasm, leaves);
+    }
+    const functionTreeData = computeFunctionTreeData(this.functionTree, functionIndex);
     return new MembershipWitness<typeof FUNCTION_TREE_HEIGHT>(
       FUNCTION_TREE_HEIGHT,
       functionIndex,
