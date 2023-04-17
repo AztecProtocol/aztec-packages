@@ -4,7 +4,7 @@ import { Hasher } from '../hasher.js';
 import { MerkleTree } from '../merkle_tree.js';
 import { toBufferLE, toBigIntLE } from '@aztec/foundation';
 
-const MAX_DEPTH = 32;
+const MAX_DEPTH = 254;
 
 const indexToKeyHash = (name: string, level: number, index: bigint) => `${name}:${level}:${index}`;
 const encodeMeta = (root: Buffer, depth: number, size: bigint) => {

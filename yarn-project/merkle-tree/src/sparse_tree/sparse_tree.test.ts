@@ -51,27 +51,27 @@ describe('SparseMerkleTreeSpecific', () => {
     const randomIndex = BigInt(Math.floor(Math.random() * Number(tree.maxIndex)));
     expect(tree.getNumLeaves()).toEqual(0n);
 
-    // Insert the leaf
+    // Insert a leaf
     await tree.updateLeaf(randomBytes(32), randomIndex);
     expect(tree.getNumLeaves(true)).toEqual(1n);
 
-    // Update the leaf
+    // Update a leaf
     await tree.updateLeaf(randomBytes(32), randomIndex);
     expect(tree.getNumLeaves(true)).toEqual(1n);
   });
 
   it('deleting leaf decrements tree size', async () => {
     const db = levelup(createMemDown());
-    const tree = await createDb(db, pedersen, 'test', 32);
+    const tree = await createDb(db, pedersen, 'test', 254);
 
     const randomIndex = BigInt(Math.floor(Math.random() * Number(tree.maxIndex)));
     expect(tree.getNumLeaves()).toEqual(0n);
 
-    // Insert the leaf
+    // Insert a leaf
     await tree.updateLeaf(randomBytes(32), randomIndex);
     expect(tree.getNumLeaves(true)).toEqual(1n);
 
-    // Delete the leaf
+    // Delete a leaf
     await tree.updateLeaf(SparseMerkleTree.ZERO_ELEMENT, randomIndex);
     expect(tree.getNumLeaves(true)).toEqual(0n);
   });
@@ -145,4 +145,17 @@ describe('SparseMerkleTreeSpecific', () => {
       );
     }
   });
+
+  it.skip('measures time of inserting 1000 leaves at random positions for depth 254', async () => {
+    const db = levelup(createMemDown());
+    const tree = await createDb(db, pedersen, 'test', 254);
+
+    const leaves = Array.from({ length: 1000 }).map(() => randomBytes(32));
+    const indices = Array.from({ length: 1000 }).map(() => BigInt(Math.floor(Math.random() * Number(tree.maxIndex))));
+
+    const start = Date.now();
+    await Promise.all(leaves.map((leaf, i) => tree.updateLeaf(leaf, indices[i])));
+    const end = Date.now();
+    console.log(`Inserting 1000 leaves at random positions for depth 254 took ${end - start}ms`);
+  }, 300_000);
 });
