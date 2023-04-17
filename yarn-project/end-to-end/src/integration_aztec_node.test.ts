@@ -9,34 +9,18 @@ import {
   deployUnverifiedDataEmitterContract,
 } from './aztec_node_fixtures.js';
 import { EthereumRpc } from '@aztec/ethereum.js/eth_rpc';
-import { Tx } from '@aztec/tx';
-import { INITIAL_L2_BLOCK_NUM } from '@aztec/l1-contracts';
-<<<<<<<< HEAD:yarn-project/aztec-node/src/test/aztec_node.test.ts
 import { Tx } from '@aztec/types';
-import { AztecNode } from '../index.js';
-import {
-  createProvider,
-  createTx,
-  deployRollupContract,
-  deployUnverifiedDataEmitterContract,
-} from '../aztec-node/fixtures.js';
-import { getConfigEnvVars } from '../index.js';
-========
-import { Tx } from '@aztec/tx';
-import { createProvider, createTx, deployRollupContract, deployUnverifiedDataEmitterContract } from './fixtures.js';
-import { AztecNode, AztecNodeConfig } from '@aztec/aztec-node';
->>>>>>>> 98e36643 (chore: moved node test to e2e):yarn-project/end-to-end/src/integration_aztec_node.test.ts
+import { INITIAL_L2_BLOCK_NUM } from '@aztec/l1-contracts';
+import { computeContractLeaf } from '@aztec/circuits.js/abis';
 
-const ETHEREUM_HOST = 'http://127.0.0.1:8545/';
+const { ETHEREUM_HOST = 'http://localhost:8545' } = process.env;
 const MNEMONIC = 'test test test test test test test test test test test junk';
 
 const NUM_TXS_PER_BLOCK = 4;
 
 const logger = createDebugLogger('aztec:e2e_test');
 
-const config = getConfigEnvVars();
-
-describe.skip('AztecNode', () => {
+describe('AztecNode', () => {
   let rollupAddress: EthAddress;
   let unverifiedDataEmitterAddress: EthAddress;
   let node: AztecNode;
@@ -49,17 +33,21 @@ describe.skip('AztecNode', () => {
   });
 
   beforeEach(async () => {
-    provider = createProvider(config.rpcUrl, MNEMONIC, 1);
+    provider = createProvider(ETHEREUM_HOST, MNEMONIC, 1);
     const ethRpc = new EthereumRpc(provider);
     rollupAddress = await deployRollupContract(provider, ethRpc);
     logger(`Rollup contract deployed at ${rollupAddress}`);
     unverifiedDataEmitterAddress = await deployUnverifiedDataEmitterContract(provider, ethRpc);
 
-    config.rollupContract = rollupAddress;
-    config.unverifiedDataEmitterContract = unverifiedDataEmitterAddress;
-    config.publisherPrivateKey = provider.getPrivateKey(0) || Buffer.alloc(32);
+    const aztecNodeConfig = {
+      rollupContract: rollupAddress,
+      unverifiedDataEmitterContract: unverifiedDataEmitterAddress,
+      rpcUrl: ETHEREUM_HOST,
+      publisherPrivateKey: provider.getPrivateKey(0),
+      archiverPollingInterval: 100,
+    } as AztecNodeConfig;
 
-    node = await AztecNode.createAndSync(config);
+    node = await AztecNode.createAndSync(aztecNodeConfig);
     isReady = await node.isReady();
   });
 

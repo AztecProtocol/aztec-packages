@@ -165,7 +165,7 @@
       "foundation",
       "l1-contracts",
       "noir-contracts",
-      "unverified-data"
+      "types"
     ]
   },
   "ethereum.js": {
