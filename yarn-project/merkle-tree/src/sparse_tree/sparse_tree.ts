@@ -36,6 +36,7 @@ export class SparseMerkleTree implements MerkleTree {
   private zeroHashes: Buffer[] = [];
   private cache: { [key: string]: Buffer } = {};
   private cachedSize?: bigint;
+  public readonly maxIndex: bigint;
 
   constructor(
     private db: LevelUp,
@@ -58,6 +59,7 @@ export class SparseMerkleTree implements MerkleTree {
     }
 
     this.root = root ? root : current;
+    this.maxIndex = 2n ** BigInt(depth) - 1n;
   }
 
   /**
@@ -175,19 +177,21 @@ export class SparseMerkleTree implements MerkleTree {
    * @param leaf - New contents of the leaf.
    * @param index - Index of the leaf to be updated.
    */
-  public async updateLeaf(leaf: Buffer, index: bigint) {
-    await this.addLeafToCacheAndHashToRoot(leaf, index);
-    const numLeaves = this.getNumLeaves(true);
-    if (index >= numLeaves) {
-      this.cachedSize = index + 1n;
+  public async updateLeaf(leaf: Buffer, index: bigint): Promise<void> {
+    if (index > this.maxIndex) {
+      throw Error(`Index out of bounds. Index ${index}, max index: ${this.maxIndex}.`);
     }
-  }
-
-  /**
-   * Force increase the size of the tree
-   */
-  public forceAppendEmptyLeaf() {
-    this.cachedSize = (this.cachedSize ?? this.size) + 1n;
+    const insertingEmpty = leaf.equals(SparseMerkleTree.ZERO_ELEMENT);
+    const originallyEmpty = (await this.getLeafValue(index, true))?.equals(SparseMerkleTree.ZERO_ELEMENT);
+    if (insertingEmpty && originallyEmpty) {
+      return;
+    }
+    await this.addLeafToCacheAndHashToRoot(leaf, index);
+    if (insertingEmpty) {
+      this.cachedSize!--;
+    } else if (originallyEmpty) {
+      this.cachedSize = (this.cachedSize ?? this.size) + 1n;
+    }
   }
 
   /**
