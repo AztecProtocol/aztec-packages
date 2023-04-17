@@ -13,7 +13,7 @@ import {
 import { AztecAddress, EthAddress, Fr, toBigIntBE } from '@aztec/foundation';
 import { Pedersen, StandardMerkleTree } from '@aztec/merkle-tree';
 import { FunctionAbi } from '@aztec/noir-contracts';
-import { TestContractAbi, ZkTokenContractAbi } from '@aztec/noir-contracts/examples';
+import { ChildAbi, ParentAbi, TestContractAbi, ZkTokenContractAbi } from '@aztec/noir-contracts/examples';
 import { mock } from 'jest-mock-extended';
 import { default as levelup } from 'levelup';
 import { default as memdown, type MemDown } from 'memdown';
@@ -284,5 +284,55 @@ describe('ACIR simulator', () => {
       expect(recipientNote.preimage[5]).toEqual(new Fr(amountToTransfer));
       expect(changeNote.preimage[5]).toEqual(new Fr(balance - amountToTransfer));
     }, 30_000);
+  });
+
+  describe('nested calls', () => {
+    const oldRoots = new OldTreeRoots(new Fr(0n), new Fr(0n), new Fr(0n), new Fr(0n));
+    const contractDeploymentData = new ContractDeploymentData(Fr.random(), Fr.random(), Fr.random(), EthAddress.ZERO);
+    const txContext = new TxContext(false, false, true, contractDeploymentData);
+
+    it('child function should be callable', async () => {
+      const abi = ChildAbi.functions.find(f => f.name === 'value') as unknown as FunctionAbi;
+
+      const txRequest = new TxRequest(
+        AztecAddress.random(),
+        AztecAddress.ZERO,
+        new FunctionData(Buffer.alloc(4), true, false),
+        encodeArguments(abi, [100n]),
+        Fr.random(),
+        txContext,
+        new Fr(0n),
+      );
+      const result = await acirSimulator.run(txRequest, abi, AztecAddress.ZERO, EthAddress.ZERO, oldRoots);
+
+      expect(result.callStackItem.publicInputs.returnValues[0]).toEqual(new Fr(142n));
+    });
+
+    it('parent should call child', async () => {
+      const childAbi = ChildAbi.functions.find(f => f.name === 'value') as unknown as FunctionAbi;
+      const parentAbi = ParentAbi.functions.find(f => f.name === 'entryPoint') as unknown as FunctionAbi;
+      const childAddress = AztecAddress.random();
+      const childSelector = Buffer.alloc(4, 1); // should match the call
+
+      oracle.getFunctionABI.mockImplementation(() => Promise.resolve(childAbi));
+      oracle.getPortalContractAddress.mockImplementation(() => Promise.resolve(EthAddress.ZERO));
+
+      const txRequest = new TxRequest(
+        AztecAddress.random(),
+        AztecAddress.ZERO,
+        new FunctionData(Buffer.alloc(4), true, false),
+        encodeArguments(parentAbi, [Fr.fromBuffer(childAddress.toBuffer()).value, Fr.fromBuffer(childSelector).value]),
+        Fr.random(),
+        txContext,
+        new Fr(0n),
+      );
+      const result = await acirSimulator.run(txRequest, parentAbi, AztecAddress.random(), EthAddress.ZERO, oldRoots);
+
+      expect(result.callStackItem.publicInputs.returnValues[0]).toEqual(new Fr(42n));
+      expect(oracle.getFunctionABI.mock.calls[0]).toEqual([childAddress, childSelector]);
+      expect(oracle.getPortalContractAddress.mock.calls[0]).toEqual([childAddress]);
+      expect(result.nestedExecutions).toHaveLength(1);
+      expect(result.nestedExecutions[0].callStackItem.publicInputs.returnValues[0]).toEqual(new Fr(42n));
+    });
   });
 });
