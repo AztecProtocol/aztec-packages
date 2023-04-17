@@ -21,8 +21,17 @@
 
 namespace aztec3::circuits::rollup::native_base_rollup {
 
-const NT::fr EMPTY_COMMITMENTS_SUBTREE_ROOT = MerkleTree(PRIVATE_DATA_SUBTREE_DEPTH).root();
-const NT::fr EMPTY_CONTRACTS_SUBTREE_ROOT = MerkleTree(CONTRACT_SUBTREE_DEPTH).root();
+NT::fr calculate_empty_commitments_tree_root()
+{
+    MerkleTree empty_commitments_tree = MerkleTree(PRIVATE_DATA_SUBTREE_DEPTH);
+    return empty_commitments_tree.root();
+}
+
+NT::fr calculate_empty_contracts_tree_root()
+{
+    MerkleTree empty_contracts_tree = MerkleTree(CONTRACT_SUBTREE_DEPTH);
+    return empty_contracts_tree.root();
+}
 
 // Note: this is temporary until I work out how to encode a large fr in a constant
 NT::fr calculate_empty_nullifier_subtree_root()
@@ -424,11 +433,12 @@ BaseOrMergeRollupPublicInputs base_rollup_circuit(DummyComposer& composer, BaseR
     NT::fr commitments_tree_subroot = calculate_commitments_subtree(composer, baseRollupInputs);
 
     // Insert commitment subtrees:
+    const auto empty_commitments_tree_root = calculate_empty_commitments_tree_root();
     auto end_private_data_tree_snapshot =
         components::insert_subtree_to_snapshot_tree(composer,
                                                     baseRollupInputs.start_private_data_tree_snapshot,
                                                     baseRollupInputs.new_commitments_subtree_sibling_path,
-                                                    EMPTY_COMMITMENTS_SUBTREE_ROOT,
+                                                    empty_commitments_tree_root,
                                                     commitments_tree_subroot,
                                                     PRIVATE_DATA_SUBTREE_DEPTH);
 
@@ -437,7 +447,7 @@ BaseOrMergeRollupPublicInputs base_rollup_circuit(DummyComposer& composer, BaseR
         components::insert_subtree_to_snapshot_tree(composer,
                                                     baseRollupInputs.start_contract_tree_snapshot,
                                                     baseRollupInputs.new_contracts_subtree_sibling_path,
-                                                    EMPTY_CONTRACTS_SUBTREE_ROOT,
+                                                    empty_commitments_tree_root,
                                                     contracts_tree_subroot,
                                                     CONTRACT_SUBTREE_DEPTH);
 
