@@ -179,5 +179,3 @@ Below is a list of the private kernel circuit's high-level responsibilities:
 13. Add recursion byproducts to `aggregation_object`
 14. TODO: L1 messages
 15. Section in progress...
-
-force
