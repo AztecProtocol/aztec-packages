@@ -106,86 +106,44 @@ export class IndexedTree extends MerkleTreeBase implements AppendOnlyMerkleTree 
   //   return initialLeaf;
   // }
 
-  // /**
-  //  * Returns the root of the tree.
-  //  * @returns The root of the tree.
-  //  */
-  // public getRoot(includeUncommitted: boolean): Buffer {
-  //   return this.underlying.getRoot(includeUncommitted);
-  // }
-
-  // /**
-  //  * Returns the depth of the tree.
-  //  * @returns The depth of the tree.
-  //  */
-  // public getDepth(): number {
-  //   return this.underlying.getDepth();
-  // }
-
-  // /**
-  //  * Returns the number of leaves in the tree.
-  //  * @returns The number of leaves in the tree.
-  //  */
-  // public getNumLeaves(includeUncommitted: boolean): bigint {
-  //   return this.underlying.getNumLeaves(includeUncommitted);
-  // }
-
   /**
    * Appends the given leaves to the tree.
    * @param leaves - The leaves to append.
    * @returns Empty promise.
    */
   public async appendLeaves(leaves: Buffer[]): Promise<void> {
-    for (const leaf of leaves) {
-      await this.appendLeaf(leaf);
+    const numLeaves = this.getNumLeaves(true);
+    for (let i = 0; i < leaves.length; i++) {
+      const index = numLeaves + BigInt(i);
+      await this.appendLeaf(leaves[i], index);
     }
+    this.cachedSize = numLeaves + BigInt(leaves.length);
   }
 
-  // /**
-  //  * Commits the changes to the database.
-  //  * @returns Empty promise.
-  //  */
-  // public async commit(): Promise<void> {
-  //   await this.underlying.commit();
-  //   await this.commitLeaves();
-  // }
+  /**
+   * Commits the changes to the database.
+   * @returns Empty promise.
+   */
+  public async commit(): Promise<void> {
+    await super.commit();
+    await this.commitLeaves();
+  }
 
-  // /**
-  //  * Rolls back the not-yet-committed changes.
-  //  * @returns Empty promise.
-  //  */
-  // public async rollback(): Promise<void> {
-  //   await this.underlying.rollback();
-  //   this.rollbackLeaves();
-  // }
-
-  // /**
-  //  * Returns a sibling path for the element at the given index.
-  //  * @param index - The index of the element.
-  //  * @returns A sibling path for the element at the given index.
-  //  * Note: The sibling path is an array of sibling hashes, with the lowest hash (leaf hash) first, and the highest hash last.
-  //  */
-  // public async getSiblingPath(index: bigint, includeUncommitted: boolean): Promise<SiblingPath> {
-  //   return await this.underlying.getSiblingPath(index, includeUncommitted);
-  // }
-
-  // /**
-  //  * Exposes the underlying tree's update leaf method
-  //  * @param leaf - The hash to set at the leaf
-  //  * @param index - The index of the element
-  //  */
-  // public async updateLeaf(leaf: LeafData, index: bigint): Promise<void> {
-  //   this.cachedLeaves[Number(index)] = leaf;
-  //   const encodedLeaf = hashEncodedTreeValue(leaf, this.hasher);
-  //   await this.underlying.updateLeaf(encodedLeaf, index);
-  // }
+  /**
+   * Rolls back the not-yet-committed changes.
+   * @returns Empty promise.
+   */
+  public async rollback(): Promise<void> {
+    await super.rollback();
+    this.clearCachedLeaves();
+  }
 
   /**
    * Appends the given leaf to the tree.
    * @param leaf - The leaf to append.
    * @returns Empty promise.
    */
-  private async appendLeaf(leaf: Buffer): Promise<void> {
+  private async appendLeaf(leaf: Buffer, underlyingIndex: bigint): Promise<void> {
     const newValue = toBigIntBE(leaf);
 
     // Special case when appending zero
@@ -219,7 +177,7 @@ export class IndexedTree extends MerkleTreeBase implements AppendOnlyMerkleTree 
     this.cachedLeaves[Number(currentSize)] = newLeaf;
     this.cachedLeaves[Number(indexOfPrevious.index)] = previousLeafCopy;
     await this.updateLeaf(hashEncodedTreeValue(previousLeafCopy, this.hasher), BigInt(indexOfPrevious.index));
-    await this.appendLeaves([hashEncodedTreeValue(newLeaf, this.hasher)]);
+    await this.addLeafToCacheAndHashToRoot(hashEncodedTreeValue(newLeaf, this.hasher), underlyingIndex);
   }
 
   /**
@@ -273,11 +231,8 @@ export class IndexedTree extends MerkleTreeBase implements AppendOnlyMerkleTree 
    */
   private async init(initialSize = 1) {
     this.leaves.push(initialLeaf);
-    await this.appendLeaves([hashEncodedTreeValue(initialLeaf, this.hasher)]);
-
-    for (let i = 1; i < initialSize; i++) {
-      await this.appendLeaf(Buffer.from([i]));
-    }
+    await this.addLeafToCacheAndHashToRoot(hashEncodedTreeValue(initialLeaf, this.hasher), 0n);
+    this.cachedSize = 1n;
     await this.commit();
   }
 
@@ -310,34 +265,27 @@ export class IndexedTree extends MerkleTreeBase implements AppendOnlyMerkleTree 
     this.leaves = values;
   }
 
-  // /**
-  //  * Commits all the leaves to the database and removes them from a cache.
-  //  */
-  // private async commitLeaves(): Promise<void> {
-  //   const batch = this.db.batch();
-  //   const keys = Object.getOwnPropertyNames(this.cachedLeaves);
-  //   for (const key of keys) {
-  //     const index = Number(key);
-  //     batch.put(key, this.cachedLeaves[index]);
-  //     this.leaves[index] = this.cachedLeaves[index];
-  //   }
-  //   await batch.write();
-  //   this.clearCache();
-  // }
+  /**
+   * Commits all the leaves to the database and removes them from a cache.
+   */
+  private async commitLeaves(): Promise<void> {
+    const batch = this.db.batch();
+    const keys = Object.getOwnPropertyNames(this.cachedLeaves);
+    for (const key of keys) {
+      const index = Number(key);
+      batch.put(key, this.cachedLeaves[index]);
+      this.leaves[index] = this.cachedLeaves[index];
+    }
+    await batch.write();
+    this.clearCachedLeaves();
+  }
 
-  // /**
-  //  * Wipes all the leaves in a cache.
-  //  */
-  // private rollbackLeaves() {
-  //   this.clearCache();
-  // }
-
-  // /**
-  //  * Clears the cache.
-  //  */
-  // private clearCache() {
-  //   this.cachedLeaves = {};
-  // }
+  /**
+   * Clears the cache.
+   */
+  private clearCachedLeaves() {
+    this.cachedLeaves = {};
+  }
 
   /**
    * Gets the latest LeafData copy.
