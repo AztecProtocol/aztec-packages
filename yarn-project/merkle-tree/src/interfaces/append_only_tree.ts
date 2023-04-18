@@ -1,6 +1,6 @@
 import { MerkleTree } from './merkle_tree.js';
 
-export interface AppendOnlyMerkleTree extends MerkleTree {
+export interface AppendOnlyTree extends MerkleTree {
   /**
    * Appends a set of leaf values to the tree
    * @param leaves - The set of leaves to be appended

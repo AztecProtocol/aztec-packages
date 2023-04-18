@@ -1,8 +1,8 @@
 import { LevelUp } from 'levelup';
-import { MerkleTreeBase, decodeMeta } from './merkle_tree_base.js';
+import { TreeBase, decodeMeta } from './tree_base.js';
 import { Hasher } from './hasher.js';
 
-export abstract class MerkleTreeBaseStaticInitializable extends MerkleTreeBase {
+export abstract class TreeBaseStaticInitializable extends TreeBase {
   /**
    * Creates a new tree.
    * @param db - A database used to store the Merkle tree data.
@@ -12,12 +12,12 @@ export abstract class MerkleTreeBaseStaticInitializable extends MerkleTreeBase {
    * @param initialLeafValue - The initial value of the leaves.
    * @returns The newly created tree.
    */
-  static async new<T extends MerkleTreeBaseStaticInitializable>(
+  static async new<T extends TreeBaseStaticInitializable>(
     db: LevelUp,
     hasher: Hasher,
     name: string,
     depth: number,
-    initialLeafValue = MerkleTreeBaseStaticInitializable.ZERO_ELEMENT,
+    initialLeafValue = TreeBaseStaticInitializable.ZERO_ELEMENT,
   ): Promise<T> {
     const tree = Reflect.construct(this, [db, hasher, name, depth, 0n, undefined, initialLeafValue]) as T;
     await tree.writeMeta();
@@ -32,11 +32,11 @@ export abstract class MerkleTreeBaseStaticInitializable extends MerkleTreeBase {
    * @param initialLeafValue - The initial value of the leaves before assigned.
    * @returns The newly created tree.
    */
-  static async fromName<T extends MerkleTreeBaseStaticInitializable>(
+  static async fromName<T extends TreeBaseStaticInitializable>(
     db: LevelUp,
     hasher: Hasher,
     name: string,
-    initialLeafValue = MerkleTreeBaseStaticInitializable.ZERO_ELEMENT,
+    initialLeafValue = TreeBaseStaticInitializable.ZERO_ELEMENT,
   ): Promise<T> {
     const meta: Buffer = await db.get(name);
     const { root, depth, size } = decodeMeta(meta);

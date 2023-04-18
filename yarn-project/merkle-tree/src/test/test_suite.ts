@@ -4,12 +4,12 @@ import { default as levelup } from 'levelup';
 import { Hasher, Pedersen, SiblingPath } from '../index.js';
 import { appendLeaves } from './utils/append_leaves.js';
 import { createMemDown } from './utils/create_mem_down.js';
-import { AppendOnlyMerkleTree } from '../interfaces/append_only_merkle_tree.js';
-import { UpdateOnlyMerkleTree } from '../interfaces/update_only_merkle_tree.js';
+import { AppendOnlyTree } from '../interfaces/append_only_tree.js';
+import { UpdateOnlyTree } from '../interfaces/update_only_tree.js';
 
 const expectSameTrees = async (
-  tree1: AppendOnlyMerkleTree | UpdateOnlyMerkleTree,
-  tree2: AppendOnlyMerkleTree | UpdateOnlyMerkleTree,
+  tree1: AppendOnlyTree | UpdateOnlyTree,
+  tree2: AppendOnlyTree | UpdateOnlyTree,
   includeUncommitted = true,
 ) => {
   const size = tree1.getNumLeaves(includeUncommitted);
@@ -30,12 +30,8 @@ export const merkleTreeTestSuite = (
     hasher: Hasher,
     name: string,
     depth: number,
-  ) => Promise<AppendOnlyMerkleTree | UpdateOnlyMerkleTree>,
-  createFromName: (
-    levelup: levelup.LevelUp,
-    hasher: Hasher,
-    name: string,
-  ) => Promise<AppendOnlyMerkleTree | UpdateOnlyMerkleTree>,
+  ) => Promise<AppendOnlyTree | UpdateOnlyTree>,
+  createFromName: (levelup: levelup.LevelUp, hasher: Hasher, name: string) => Promise<AppendOnlyTree | UpdateOnlyTree>,
 ) => {
   describe(testName, () => {
     const values: Buffer[] = [];

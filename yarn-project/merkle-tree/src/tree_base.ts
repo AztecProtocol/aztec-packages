@@ -27,7 +27,7 @@ export const decodeMeta = (meta: Buffer) => {
 /**
  * A Merkle tree implementation that uses a LevelDB database to store the tree.
  */
-export abstract class MerkleTreeBase implements MerkleTree {
+export abstract class TreeBase implements MerkleTree {
   /**
    * The value of an 'empty' leaf.
    */
@@ -45,7 +45,7 @@ export abstract class MerkleTreeBase implements MerkleTree {
     private depth: number,
     protected size: bigint = 0n,
     root?: Buffer,
-    initialLeafValue = MerkleTreeBase.ZERO_ELEMENT,
+    initialLeafValue = TreeBase.ZERO_ELEMENT,
   ) {
     if (!(depth >= 1 && depth <= MAX_DEPTH)) {
       throw Error('Bad depth');

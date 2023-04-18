@@ -8,22 +8,18 @@ import { BarretenbergWasm } from '@aztec/barretenberg.js/wasm';
 import { Pedersen } from '../pedersen.js';
 import { randomBytes } from 'crypto';
 import { SiblingPath } from '../index.js';
-import { UpdateOnlyMerkleTree } from '../interfaces/update_only_merkle_tree.js';
+import { UpdateOnlyTree } from '../interfaces/update_only_tree.js';
 
 const createDb = async (
   levelUp: levelup.LevelUp,
   hasher: Hasher,
   name: string,
   depth: number,
-): Promise<UpdateOnlyMerkleTree> => {
+): Promise<UpdateOnlyTree> => {
   return await SparseMerkleTree.new<SparseMerkleTree>(levelUp, hasher, name, depth);
 };
 
-const createFromName = async (
-  levelUp: levelup.LevelUp,
-  hasher: Hasher,
-  name: string,
-): Promise<UpdateOnlyMerkleTree> => {
+const createFromName = async (levelUp: levelup.LevelUp, hasher: Hasher, name: string): Promise<UpdateOnlyTree> => {
   return await SparseMerkleTree.fromName<SparseMerkleTree>(levelUp, hasher, name);
 };
 

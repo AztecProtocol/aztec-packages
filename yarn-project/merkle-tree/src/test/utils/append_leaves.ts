@@ -1,7 +1,7 @@
-import { AppendOnlyMerkleTree } from '../../interfaces/append_only_merkle_tree.js';
-import { UpdateOnlyMerkleTree } from '../../interfaces/update_only_merkle_tree.js';
+import { AppendOnlyTree } from '../../interfaces/append_only_tree.js';
+import { UpdateOnlyTree } from '../../interfaces/update_only_tree.js';
 
-export const appendLeaves = async (tree: AppendOnlyMerkleTree | UpdateOnlyMerkleTree, leaves: Buffer[]) => {
+export const appendLeaves = async (tree: AppendOnlyTree | UpdateOnlyTree, leaves: Buffer[]) => {
   if ('appendLeaves' in tree) {
     // This branch is used by the standard tree test suite, which implements appendLeaves
     await tree.appendLeaves(leaves);

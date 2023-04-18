@@ -4,8 +4,8 @@ import { Hasher, Pedersen, SiblingPath, StandardMerkleTree } from '../index.js';
 import { appendLeaves } from './utils/append_leaves.js';
 import { createMemDown } from './utils/create_mem_down.js';
 import { randomBytes } from 'crypto';
-import { AppendOnlyMerkleTree } from '../interfaces/append_only_merkle_tree.js';
-import { UpdateOnlyMerkleTree } from '../interfaces/update_only_merkle_tree.js';
+import { AppendOnlyTree } from '../interfaces/append_only_tree.js';
+import { UpdateOnlyTree } from '../interfaces/update_only_tree.js';
 
 export const standardBasedTreeTestSuite = (
   testName: string,
@@ -14,7 +14,7 @@ export const standardBasedTreeTestSuite = (
     hasher: Hasher,
     name: string,
     depth: number,
-  ) => Promise<AppendOnlyMerkleTree | UpdateOnlyMerkleTree>,
+  ) => Promise<AppendOnlyTree | UpdateOnlyTree>,
 ) => {
   describe(testName, () => {
     let wasm: BarretenbergWasm;

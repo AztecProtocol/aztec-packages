@@ -1,7 +1,7 @@
 import { LeafData } from '../index.js';
 import { MerkleTree } from './merkle_tree.js';
 
-export interface UpdateOnlyMerkleTree extends MerkleTree {
+export interface UpdateOnlyTree extends MerkleTree {
   /**
    * Updates a leaf at a given index in the tree
    * @param leaf The leaf value to be updated

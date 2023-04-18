@@ -9,13 +9,13 @@ import {
 import { SerialQueue } from '@aztec/foundation';
 import { WasmWrapper } from '@aztec/foundation/wasm';
 import {
-  AppendOnlyMerkleTree,
+  AppendOnlyTree,
   IndexedTree,
   LeafData,
   Pedersen,
   SiblingPath,
   StandardMerkleTree,
-  UpdateOnlyMerkleTree,
+  UpdateOnlyTree,
 } from '@aztec/merkle-tree';
 import { default as levelup } from 'levelup';
 import { MerkleTreeOperationsFacade } from '../merkle-tree/merkle_tree_operations_facade.js';
@@ -32,7 +32,7 @@ import {
  * A convenience class for managing multiple merkle trees.
  */
 export class MerkleTrees implements MerkleTreeDb {
-  private trees: (AppendOnlyMerkleTree | UpdateOnlyMerkleTree)[] = [];
+  private trees: (AppendOnlyTree | UpdateOnlyTree)[] = [];
   private jobQueue = new SerialQueue();
 
   constructor(private db: levelup.LevelUp) {}
@@ -43,13 +43,13 @@ export class MerkleTrees implements MerkleTreeDb {
   public async init(optionalWasm?: WasmWrapper) {
     const wasm = optionalWasm ?? (await PrimitivesWasm.get());
     const hasher = new Pedersen(wasm);
-    const contractTree: AppendOnlyMerkleTree = await StandardMerkleTree.new<StandardMerkleTree>(
+    const contractTree: AppendOnlyTree = await StandardMerkleTree.new<StandardMerkleTree>(
       this.db,
       hasher,
       `${MerkleTreeId[MerkleTreeId.CONTRACT_TREE]}`,
       CONTRACT_TREE_HEIGHT,
     );
-    const contractTreeRootsTree: AppendOnlyMerkleTree = await StandardMerkleTree.new<StandardMerkleTree>(
+    const contractTreeRootsTree: AppendOnlyTree = await StandardMerkleTree.new<StandardMerkleTree>(
       this.db,
       hasher,
       `${MerkleTreeId[MerkleTreeId.CONTRACT_TREE_ROOTS_TREE]}`,
@@ -62,13 +62,13 @@ export class MerkleTrees implements MerkleTreeDb {
       NULLIFIER_TREE_HEIGHT,
       INITIAL_NULLIFIER_TREE_SIZE,
     );
-    const dataTree: AppendOnlyMerkleTree = await StandardMerkleTree.new<StandardMerkleTree>(
+    const dataTree: AppendOnlyTree = await StandardMerkleTree.new<StandardMerkleTree>(
       this.db,
       hasher,
       `${MerkleTreeId[MerkleTreeId.DATA_TREE]}`,
       PRIVATE_DATA_TREE_HEIGHT,
     );
-    const dataTreeRootsTree: AppendOnlyMerkleTree = await StandardMerkleTree.new<StandardMerkleTree>(
+    const dataTreeRootsTree: AppendOnlyTree = await StandardMerkleTree.new<StandardMerkleTree>(
       this.db,
       hasher,
       `${MerkleTreeId[MerkleTreeId.DATA_TREE_ROOTS_TREE]}`,

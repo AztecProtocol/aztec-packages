@@ -1,8 +1,8 @@
 import { toBigIntBE, toBufferBE } from '@aztec/foundation';
 import { LevelUp } from 'levelup';
 import { Hasher } from '../hasher.js';
-import { AppendOnlyMerkleTree } from '../interfaces/append_only_merkle_tree.js';
-import { MerkleTreeBase, decodeMeta } from '../merkle_tree_base.js';
+import { AppendOnlyTree } from '../interfaces/append_only_tree.js';
+import { TreeBase, decodeMeta } from '../tree_base.js';
 
 const indexToKeyLeaf = (name: string, index: bigint) => {
   return `${name}:leaf:${index}`;
@@ -58,7 +58,7 @@ const initialLeaf: LeafData = {
 /**
  * A Merkle tree that supports efficient lookup of leaves by value.
  */
-export class IndexedTree extends MerkleTreeBase implements AppendOnlyMerkleTree {
+export class IndexedTree extends TreeBase implements AppendOnlyTree {
   private leaves: LeafData[] = [];
   private cachedLeaves: { [key: number]: LeafData } = {};
 

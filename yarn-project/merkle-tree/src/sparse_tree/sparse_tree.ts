@@ -1,10 +1,10 @@
-import { UpdateOnlyMerkleTree } from '../interfaces/update_only_merkle_tree.js';
-import { MerkleTreeBaseStaticInitializable } from '../merkle_tree_base_static_initializable.js';
+import { UpdateOnlyTree } from '../interfaces/update_only_tree.js';
+import { TreeBaseStaticInitializable } from '../tree_base_static_initializable.js';
 
 /**
  * A Merkle tree implementation that uses a LevelDB database to store the tree.
  */
-export class SparseMerkleTree extends MerkleTreeBaseStaticInitializable implements UpdateOnlyMerkleTree {
+export class SparseMerkleTree extends TreeBaseStaticInitializable implements UpdateOnlyTree {
   /**
    * Updates a leaf in the tree.
    * @param leaf - New contents of the leaf.
