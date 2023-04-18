@@ -52,9 +52,11 @@ describe('abis wasm bindings', () => {
 
   it('hash constructor info', async () => {
     const functionData = new FunctionData(Buffer.alloc(4), true, true);
-    const args = [new Fr(0n), new Fr(1n)];
+    // args needs to have a FIXED length of 8
+    const args = [new Fr(0n), new Fr(1n), new Fr(0n), new Fr(1n), new Fr(0n), new Fr(1n), new Fr(0n), new Fr(1n)];
     const vkHash = Buffer.alloc(32);
     const res = await hashConstructor(wasm, functionData, args, vkHash);
+    console.log('res', Uint8Array.from(res));
     expect(res).toMatchSnapshot();
   });
 
