@@ -1,21 +1,10 @@
-import { CallContext, FunctionData, TxRequest } from '@aztec/circuits.js';
+import { CallContext, FunctionData, StateRead, StateTransition, TxRequest } from '@aztec/circuits.js';
 import { AztecAddress, EthAddress, Fr } from '@aztec/foundation';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { FunctionAbi } from '@aztec/noir-contracts';
 import { acvm, fromACVMField, toACVMField, toACVMWitness } from '../acvm/index.js';
 import { PublicDB } from './db.js';
 import { select_return_flattened as selectPublicWitnessFlattened } from '@noir-lang/noir_util_wasm';
-
-export interface StateRead {
-  storageSlot: Fr;
-  value: Fr;
-}
-
-export interface StateTransition {
-  storageSlot: Fr;
-  oldValue: Fr;
-  newValue: Fr;
-}
 
 export interface PublicExecutionResult {
   acir: Buffer;
@@ -40,12 +29,12 @@ function getInitialWitness(args: Fr[], callContext: CallContext, witnessStartInd
 
 export class PublicExecution {
   constructor(
-    private db: PublicDB,
-    private abi: FunctionAbi,
-    private contractAddress: AztecAddress,
-    private functionData: FunctionData,
-    private args: Fr[],
-    private callContext: CallContext,
+    public readonly db: PublicDB,
+    public readonly abi: FunctionAbi,
+    public readonly contractAddress: AztecAddress,
+    public readonly functionData: FunctionData,
+    public readonly args: Fr[],
+    public readonly callContext: CallContext,
 
     private log = createDebugLogger('aztec:simulator:public-execution'),
   ) {}
