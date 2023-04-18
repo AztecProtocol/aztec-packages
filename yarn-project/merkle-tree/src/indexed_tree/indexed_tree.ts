@@ -1,9 +1,8 @@
-import { LevelUp } from 'levelup';
 import { toBigIntBE, toBufferBE } from '@aztec/foundation';
-import { MerkleTree } from '../merkle_tree.js';
-import { SiblingPath } from '../sibling_path/sibling_path.js';
-import { StandardMerkleTree } from '../standard_tree/standard_tree.js';
+import { LevelUp } from 'levelup';
 import { Hasher } from '../hasher.js';
+import { AppendOnlyMerkleTree } from '../interfaces/append_only_merkle_tree.js';
+import { MerkleTreeBase, decodeMeta } from '../merkle_tree_base.js';
 
 const indexToKeyLeaf = (name: string, index: bigint) => {
   return `${name}:leaf:${index}`;
@@ -59,10 +58,9 @@ const initialLeaf: LeafData = {
 /**
  * A Merkle tree that supports efficient lookup of leaves by value.
  */
-export class IndexedTree implements MerkleTree {
+export class IndexedTree extends MerkleTreeBase implements AppendOnlyMerkleTree {
   private leaves: LeafData[] = [];
   private cachedLeaves: { [key: number]: LeafData } = {};
-  constructor(private underlying: StandardMerkleTree, private hasher: Hasher, private db: LevelUp) {}
 
   /**
    * Creates an IndexedTree object.
@@ -80,14 +78,7 @@ export class IndexedTree implements MerkleTree {
     depth: number,
     prefilledSize = 0,
   ): Promise<IndexedTree> {
-    const underlying = await StandardMerkleTree.new<StandardMerkleTree>(
-      db,
-      hasher,
-      name,
-      depth,
-      hashEncodedTreeValue(initialLeaf, hasher),
-    );
-    const tree = new IndexedTree(underlying, hasher, db);
+    const tree = new IndexedTree(db, hasher, name, depth, 0n, undefined, hashEncodedTreeValue(initialLeaf, hasher));
     await tree.init(prefilledSize);
     return tree;
   }
@@ -100,48 +91,44 @@ export class IndexedTree implements MerkleTree {
    * @returns The newly created tree.
    */
   static async fromName(db: LevelUp, hasher: Hasher, name: string): Promise<IndexedTree> {
-    const underlying = await StandardMerkleTree.fromName<StandardMerkleTree>(
-      db,
-      hasher,
-      name,
-      hashEncodedTreeValue(initialLeaf, hasher),
-    );
-    const tree = new IndexedTree(underlying, hasher, db);
+    const meta: Buffer = await db.get(name);
+    const { root, depth, size } = decodeMeta(meta);
+    const tree = new IndexedTree(db, hasher, name, depth, size, root, hashEncodedTreeValue(initialLeaf, hasher));
     await tree.initFromDb();
     return tree;
   }
 
-  /**
-   * Returns an empty leaf of the tree.
-   * @returns An empty leaf.
-   */
-  static initialLeaf(): LeafData {
-    return initialLeaf;
-  }
+  // /**
+  //  * Returns an empty leaf of the tree.
+  //  * @returns An empty leaf.
+  //  */
+  // static initialLeaf(): LeafData {
+  //   return initialLeaf;
+  // }
 
-  /**
-   * Returns the root of the tree.
-   * @returns The root of the tree.
-   */
-  public getRoot(includeUncommitted: boolean): Buffer {
-    return this.underlying.getRoot(includeUncommitted);
-  }
+  // /**
+  //  * Returns the root of the tree.
+  //  * @returns The root of the tree.
+  //  */
+  // public getRoot(includeUncommitted: boolean): Buffer {
+  //   return this.underlying.getRoot(includeUncommitted);
+  // }
 
-  /**
-   * Returns the depth of the tree.
-   * @returns The depth of the tree.
-   */
-  public getDepth(): number {
-    return this.underlying.getDepth();
-  }
+  // /**
+  //  * Returns the depth of the tree.
+  //  * @returns The depth of the tree.
+  //  */
+  // public getDepth(): number {
+  //   return this.underlying.getDepth();
+  // }
 
-  /**
-   * Returns the number of leaves in the tree.
-   * @returns The number of leaves in the tree.
-   */
-  public getNumLeaves(includeUncommitted: boolean): bigint {
-    return this.underlying.getNumLeaves(includeUncommitted);
-  }
+  // /**
+  //  * Returns the number of leaves in the tree.
+  //  * @returns The number of leaves in the tree.
+  //  */
+  // public getNumLeaves(includeUncommitted: boolean): bigint {
+  //   return this.underlying.getNumLeaves(includeUncommitted);
+  // }
 
   /**
    * Appends the given leaves to the tree.
@@ -154,51 +141,44 @@ export class IndexedTree implements MerkleTree {
     }
   }
 
-  /**
-   * Commits the changes to the database.
-   * @returns Empty promise.
-   */
-  public async commit(): Promise<void> {
-    await this.underlying.commit();
-    await this.commitLeaves();
-  }
+  // /**
+  //  * Commits the changes to the database.
+  //  * @returns Empty promise.
+  //  */
+  // public async commit(): Promise<void> {
+  //   await this.underlying.commit();
+  //   await this.commitLeaves();
+  // }
 
-  /**
-   * Rolls back the not-yet-committed changes.
-   * @returns Empty promise.
-   */
-  public async rollback(): Promise<void> {
-    await this.underlying.rollback();
-    this.rollbackLeaves();
-  }
+  // /**
+  //  * Rolls back the not-yet-committed changes.
+  //  * @returns Empty promise.
+  //  */
+  // public async rollback(): Promise<void> {
+  //   await this.underlying.rollback();
+  //   this.rollbackLeaves();
+  // }
 
-  /**
-   * Returns a sibling path for the element at the given index.
-   * @param index - The index of the element.
-   * @returns A sibling path for the element at the given index.
-   * Note: The sibling path is an array of sibling hashes, with the lowest hash (leaf hash) first, and the highest hash last.
-   */
-  public async getSiblingPath(index: bigint, includeUncommitted: boolean): Promise<SiblingPath> {
-    return await this.underlying.getSiblingPath(index, includeUncommitted);
-  }
+  // /**
+  //  * Returns a sibling path for the element at the given index.
+  //  * @param index - The index of the element.
+  //  * @returns A sibling path for the element at the given index.
+  //  * Note: The sibling path is an array of sibling hashes, with the lowest hash (leaf hash) first, and the highest hash last.
+  //  */
+  // public async getSiblingPath(index: bigint, includeUncommitted: boolean): Promise<SiblingPath> {
+  //   return await this.underlying.getSiblingPath(index, includeUncommitted);
+  // }
 
-  /**
-   * Exposes the underlying tree's update leaf method
-   * @param leaf - The hash to set at the leaf
-   * @param index - The index of the element
-   */
-  public async updateLeaf(leaf: LeafData, index: bigint): Promise<void> {
-    this.cachedLeaves[Number(index)] = leaf;
-    const encodedLeaf = hashEncodedTreeValue(leaf, this.hasher);
-    await this.underlying.updateLeaf(encodedLeaf, index);
-  }
-
-  /**
-   * Special case which will force append zero into the tree by increasing its size
-   */
-  private appendZero(): void {
-    this.underlying.forceAppendEmptyLeaf();
-  }
+  // /**
+  //  * Exposes the underlying tree's update leaf method
+  //  * @param leaf - The hash to set at the leaf
+  //  * @param index - The index of the element
+  //  */
+  // public async updateLeaf(leaf: LeafData, index: bigint): Promise<void> {
+  //   this.cachedLeaves[Number(index)] = leaf;
+  //   const encodedLeaf = hashEncodedTreeValue(leaf, this.hasher);
+  //   await this.underlying.updateLeaf(encodedLeaf, index);
+  // }
 
   /**
    * Appends the given leaf to the tree.
@@ -210,7 +190,11 @@ export class IndexedTree implements MerkleTree {
 
     // Special case when appending zero
     if (newValue === 0n) {
-      this.appendZero();
+      const newSize = (this.cachedSize ?? this.size) + 1n;
+      if (newSize - 1n > this.maxIndex) {
+        throw Error(`Can't append beyond max index. Max index: ${this.maxIndex}`);
+      }
+      this.cachedSize = newSize;
       return;
     }
 
@@ -229,16 +213,13 @@ export class IndexedTree implements MerkleTree {
       return;
     }
     // insert a new leaf at the highest index and update the values of our previous leaf copy
-    const currentSize = this.underlying.getNumLeaves(true);
+    const currentSize = this.getNumLeaves(true);
     previousLeafCopy.nextIndex = BigInt(currentSize);
     previousLeafCopy.nextValue = newLeaf.value;
     this.cachedLeaves[Number(currentSize)] = newLeaf;
     this.cachedLeaves[Number(indexOfPrevious.index)] = previousLeafCopy;
-    await this.underlying.updateLeaf(
-      hashEncodedTreeValue(previousLeafCopy, this.hasher),
-      BigInt(indexOfPrevious.index),
-    );
-    await this.underlying.appendLeaves([hashEncodedTreeValue(newLeaf, this.hasher)]);
+    await this.updateLeaf(hashEncodedTreeValue(previousLeafCopy, this.hasher), BigInt(indexOfPrevious.index));
+    await this.appendLeaves([hashEncodedTreeValue(newLeaf, this.hasher)]);
   }
 
   /**
@@ -247,7 +228,7 @@ export class IndexedTree implements MerkleTree {
    * @returns Tuple containing the leaf index and a flag to say if the value is a duplicate.
    */
   public findIndexOfPreviousValue(newValue: bigint, includeUncommitted: boolean) {
-    const numLeaves = this.underlying.getNumLeaves(includeUncommitted);
+    const numLeaves = this.getNumLeaves(includeUncommitted);
     const diff: bigint[] = [];
 
     for (let i = 0; i < numLeaves; i++) {
@@ -292,7 +273,7 @@ export class IndexedTree implements MerkleTree {
    */
   private async init(initialSize = 1) {
     this.leaves.push(initialLeaf);
-    await this.underlying.appendLeaves([hashEncodedTreeValue(initialLeaf, this.hasher)]);
+    await this.appendLeaves([hashEncodedTreeValue(initialLeaf, this.hasher)]);
 
     for (let i = 1; i < initialSize; i++) {
       await this.appendLeaf(Buffer.from([i]));
@@ -309,8 +290,8 @@ export class IndexedTree implements MerkleTree {
     const promise = new Promise<void>((resolve, reject) => {
       this.db
         .createReadStream({
-          gte: indexToKeyLeaf(this.underlying.getName(), startingIndex),
-          lte: indexToKeyLeaf(this.underlying.getName(), 2n ** BigInt(this.underlying.getDepth())),
+          gte: indexToKeyLeaf(this.getName(), startingIndex),
+          lte: indexToKeyLeaf(this.getName(), 2n ** BigInt(this.getDepth())),
         })
         .on('data', function (data) {
           const index = Number(data.key);
@@ -329,34 +310,34 @@ export class IndexedTree implements MerkleTree {
     this.leaves = values;
   }
 
-  /**
-   * Commits all the leaves to the database and removes them from a cache.
-   */
-  private async commitLeaves(): Promise<void> {
-    const batch = this.db.batch();
-    const keys = Object.getOwnPropertyNames(this.cachedLeaves);
-    for (const key of keys) {
-      const index = Number(key);
-      batch.put(key, this.cachedLeaves[index]);
-      this.leaves[index] = this.cachedLeaves[index];
-    }
-    await batch.write();
-    this.clearCache();
-  }
+  // /**
+  //  * Commits all the leaves to the database and removes them from a cache.
+  //  */
+  // private async commitLeaves(): Promise<void> {
+  //   const batch = this.db.batch();
+  //   const keys = Object.getOwnPropertyNames(this.cachedLeaves);
+  //   for (const key of keys) {
+  //     const index = Number(key);
+  //     batch.put(key, this.cachedLeaves[index]);
+  //     this.leaves[index] = this.cachedLeaves[index];
+  //   }
+  //   await batch.write();
+  //   this.clearCache();
+  // }
 
-  /**
-   * Wipes all the leaves in a cache.
-   */
-  private rollbackLeaves() {
-    this.clearCache();
-  }
+  // /**
+  //  * Wipes all the leaves in a cache.
+  //  */
+  // private rollbackLeaves() {
+  //   this.clearCache();
+  // }
 
-  /**
-   * Clears the cache.
-   */
-  private clearCache() {
-    this.cachedLeaves = {};
-  }
+  // /**
+  //  * Clears the cache.
+  //  */
+  // private clearCache() {
+  //   this.cachedLeaves = {};
+  // }
 
   /**
    * Gets the latest LeafData copy.
@@ -378,5 +359,21 @@ export class IndexedTree implements MerkleTree {
     const leaf = this.getLatestLeafDataCopy(Number(index), includeUncommitted);
     if (!leaf) return Promise.resolve(undefined);
     return Promise.resolve(toBufferBE(leaf.value, 32));
+  }
+
+  /**
+   * Updates a leaf in the tree.
+   * @param leaf - New contents of the leaf.
+   * @param index - Index of the leaf to be updated.
+   */
+  private async updateLeaf(leaf: Buffer, index: bigint) {
+    if (index > this.maxIndex) {
+      throw Error(`Index out of bounds. Index ${index}, max index: ${this.maxIndex}.`);
+    }
+    await this.addLeafToCacheAndHashToRoot(leaf, index);
+    const numLeaves = this.getNumLeaves(true);
+    if (index >= numLeaves) {
+      this.cachedSize = index + 1n;
+    }
   }
 }

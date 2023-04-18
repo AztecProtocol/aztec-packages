@@ -8,17 +8,27 @@ import { BarretenbergWasm } from '@aztec/barretenberg.js/wasm';
 import { Pedersen } from '../pedersen.js';
 import { randomBytes } from 'crypto';
 import { SiblingPath } from '../index.js';
+import { UpdateOnlyMerkleTree } from '../interfaces/update_only_merkle_tree.js';
 
-const createDb = async (levelUp: levelup.LevelUp, hasher: Hasher, name: string, depth: number) => {
-  return await SparseMerkleTree.new(levelUp, hasher, name, depth);
+const createDb = async (
+  levelUp: levelup.LevelUp,
+  hasher: Hasher,
+  name: string,
+  depth: number,
+): Promise<UpdateOnlyMerkleTree> => {
+  return await SparseMerkleTree.new<SparseMerkleTree>(levelUp, hasher, name, depth);
 };
 
-const createFromName = async (levelUp: levelup.LevelUp, hasher: Hasher, name: string) => {
-  return await SparseMerkleTree.fromName(levelUp, hasher, name);
+const createFromName = async (
+  levelUp: levelup.LevelUp,
+  hasher: Hasher,
+  name: string,
+): Promise<UpdateOnlyMerkleTree> => {
+  return await SparseMerkleTree.fromName<SparseMerkleTree>(levelUp, hasher, name);
 };
 
-merkleTreeTestSuite('SparseMerkleTree', createDb, createFromName, false);
-standardBasedTreeTestSuite('SparseMerkleTree', createDb, false);
+merkleTreeTestSuite('SparseMerkleTree', createDb, createFromName);
+standardBasedTreeTestSuite('SparseMerkleTree', createDb);
 
 describe('SparseMerkleTreeSpecific', () => {
   let wasm: BarretenbergWasm;
@@ -27,12 +37,6 @@ describe('SparseMerkleTreeSpecific', () => {
   beforeEach(async () => {
     wasm = await BarretenbergWasm.get();
     pedersen = new Pedersen(wasm);
-  });
-
-  it('throws when calling `appendLeaves`', async () => {
-    const db = levelup(createMemDown());
-    const tree = await createDb(db, pedersen, 'test', 32);
-    expect(() => tree.appendLeaves([])).toThrow();
   });
 
   it('throws when index is bigger than (2^DEPTH - 1) ', async () => {
@@ -45,11 +49,14 @@ describe('SparseMerkleTreeSpecific', () => {
   });
 
   it('updating non-empty leaf does not change tree size', async () => {
-    const db = levelup(createMemDown());
-    const tree = await createDb(db, pedersen, 'test', 32);
+    const depth = 32;
+    const maxIndex = 2 ** depth - 1;
 
-    const randomIndex = BigInt(Math.floor(Math.random() * Number(tree.maxIndex)));
-    expect(tree.getNumLeaves()).toEqual(0n);
+    const db = levelup(createMemDown());
+    const tree = await createDb(db, pedersen, 'test', depth);
+
+    const randomIndex = BigInt(Math.floor(Math.random() * maxIndex));
+    expect(tree.getNumLeaves(false)).toEqual(0n);
 
     // Insert a leaf
     await tree.updateLeaf(randomBytes(32), randomIndex);
@@ -61,11 +68,14 @@ describe('SparseMerkleTreeSpecific', () => {
   });
 
   it('deleting leaf decrements tree size', async () => {
-    const db = levelup(createMemDown());
-    const tree = await createDb(db, pedersen, 'test', 254);
+    const depth = 254;
+    const maxIndex = 2 ** depth - 1;
 
-    const randomIndex = BigInt(Math.floor(Math.random() * Number(tree.maxIndex)));
-    expect(tree.getNumLeaves()).toEqual(0n);
+    const db = levelup(createMemDown());
+    const tree = await createDb(db, pedersen, 'test', depth);
+
+    const randomIndex = BigInt(Math.floor(Math.random() * maxIndex));
+    expect(tree.getNumLeaves(false)).toEqual(0n);
 
     // Insert a leaf
     await tree.updateLeaf(randomBytes(32), randomIndex);
@@ -84,8 +94,8 @@ describe('SparseMerkleTreeSpecific', () => {
     const level2ZeroHash = pedersen.compress(zeroElement, zeroElement);
     const level1ZeroHash = pedersen.compress(level2ZeroHash, level2ZeroHash);
 
-    expect(tree.getNumLeaves()).toEqual(0n);
-    expect(tree.getRoot()).toEqual(pedersen.compress(level1ZeroHash, level1ZeroHash));
+    expect(tree.getNumLeaves(false)).toEqual(0n);
+    expect(tree.getRoot(false)).toEqual(pedersen.compress(level1ZeroHash, level1ZeroHash));
 
     // Insert leaf at index 3
     let level1LeftHash: Buffer;
@@ -147,11 +157,14 @@ describe('SparseMerkleTreeSpecific', () => {
   });
 
   it.skip('measures time of inserting 1000 leaves at random positions for depth 254', async () => {
+    const depth = 254;
+    const maxIndex = 2 ** depth - 1;
+
     const db = levelup(createMemDown());
-    const tree = await createDb(db, pedersen, 'test', 254);
+    const tree = await createDb(db, pedersen, 'test', depth);
 
     const leaves = Array.from({ length: 1000 }).map(() => randomBytes(32));
-    const indices = Array.from({ length: 1000 }).map(() => BigInt(Math.floor(Math.random() * Number(tree.maxIndex))));
+    const indices = Array.from({ length: 1000 }).map(() => BigInt(Math.floor(Math.random() * maxIndex)));
 
     const start = Date.now();
     await Promise.all(leaves.map((leaf, i) => tree.updateLeaf(leaf, indices[i])));

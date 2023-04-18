@@ -1,19 +1,10 @@
-import { TreeBase } from '../tree_base.js';
+import { UpdateOnlyMerkleTree } from '../interfaces/update_only_merkle_tree.js';
+import { MerkleTreeBaseStaticInitializable } from '../merkle_tree_base_static_initializable.js';
 
 /**
  * A Merkle tree implementation that uses a LevelDB database to store the tree.
  */
-export class SparseMerkleTree extends TreeBase {
-  /**
-   * Appends the given leaves to the tree.
-   * @param leaves - The leaves to append.
-   * @returns Empty promise.
-   */
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  public appendLeaves(leaves: Buffer[]): Promise<void> {
-    throw Error('Not implemented');
-  }
-
+export class SparseMerkleTree extends MerkleTreeBaseStaticInitializable implements UpdateOnlyMerkleTree {
   /**
    * Updates a leaf in the tree.
    * @param leaf - New contents of the leaf.

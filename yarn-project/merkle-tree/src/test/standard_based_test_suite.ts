@@ -1,10 +1,11 @@
 import { BarretenbergWasm } from '@aztec/barretenberg.js/wasm';
 import { default as levelup } from 'levelup';
 import { Hasher, Pedersen, SiblingPath, StandardMerkleTree } from '../index.js';
-import { SparseMerkleTree } from '../sparse_tree/sparse_tree.js';
 import { appendLeaves } from './utils/append_leaves.js';
 import { createMemDown } from './utils/create_mem_down.js';
 import { randomBytes } from 'crypto';
+import { AppendOnlyMerkleTree } from '../interfaces/append_only_merkle_tree.js';
+import { UpdateOnlyMerkleTree } from '../interfaces/update_only_merkle_tree.js';
 
 export const standardBasedTreeTestSuite = (
   testName: string,
@@ -13,8 +14,7 @@ export const standardBasedTreeTestSuite = (
     hasher: Hasher,
     name: string,
     depth: number,
-  ) => Promise<StandardMerkleTree | SparseMerkleTree>,
-  appendImplemented = true,
+  ) => Promise<AppendOnlyMerkleTree | UpdateOnlyMerkleTree>,
 ) => {
   describe(testName, () => {
     let wasm: BarretenbergWasm;
@@ -36,7 +36,7 @@ export const standardBasedTreeTestSuite = (
     it('should have correct empty tree root for depth 32', async () => {
       const db = levelup(createMemDown());
       const tree = await createDb(db, pedersen, 'test', 32);
-      const root = tree.getRoot();
+      const root = tree.getRoot(false);
       expect(root.toString('hex')).toEqual('18ceb5cd201e1cee669a5c3ad96d3c4e933a365b37046fc3178264bede32c68d');
     });
 
@@ -44,7 +44,7 @@ export const standardBasedTreeTestSuite = (
       const db = levelup(createMemDown());
       const tree = await createDb(db, pedersen, 'test', 2);
       const leaves = Array.from({ length: 5 }, _ => randomBytes(32));
-      await expect(appendLeaves(appendImplemented, tree, leaves)).rejects.toThrow();
+      await expect(appendLeaves(tree, leaves)).rejects.toThrow();
     });
 
     it('should have correct root and sibling paths', async () => {
@@ -53,11 +53,11 @@ export const standardBasedTreeTestSuite = (
 
       const zeroTreeLeafHash = StandardMerkleTree.ZERO_ELEMENT;
       const level1ZeroHash = pedersen.compress(zeroTreeLeafHash, zeroTreeLeafHash);
-      expect(tree.getNumLeaves()).toEqual(0n);
-      expect(tree.getRoot()).toEqual(pedersen.compress(level1ZeroHash, level1ZeroHash));
-      expect(await tree.getSiblingPath(0n)).toEqual(new SiblingPath([zeroTreeLeafHash, level1ZeroHash]));
+      expect(tree.getNumLeaves(false)).toEqual(0n);
+      expect(tree.getRoot(false)).toEqual(pedersen.compress(level1ZeroHash, level1ZeroHash));
+      expect(await tree.getSiblingPath(0n, false)).toEqual(new SiblingPath([zeroTreeLeafHash, level1ZeroHash]));
 
-      await appendLeaves(appendImplemented, tree, [values[0]]);
+      await appendLeaves(tree, [values[0]]);
       expect(tree.getNumLeaves(true)).toEqual(1n);
       expect(tree.getNumLeaves(false)).toEqual(0n);
       expect(tree.getRoot(true)).toEqual(
@@ -67,7 +67,7 @@ export const standardBasedTreeTestSuite = (
       expect(tree.getRoot(false)).toEqual(pedersen.compress(level1ZeroHash, level1ZeroHash));
       expect(await tree.getSiblingPath(0n, false)).toEqual(new SiblingPath([zeroTreeLeafHash, level1ZeroHash]));
 
-      await appendLeaves(appendImplemented, tree, [values[1]]);
+      await appendLeaves(tree, [values[1]]);
       expect(tree.getNumLeaves(true)).toEqual(2n);
       expect(tree.getRoot(true)).toEqual(pedersen.compress(pedersen.compress(values[0], values[1]), level1ZeroHash));
       expect(await tree.getSiblingPath(1n, true)).toEqual(new SiblingPath([values[0], level1ZeroHash]));
@@ -75,7 +75,7 @@ export const standardBasedTreeTestSuite = (
       expect(tree.getRoot(false)).toEqual(pedersen.compress(level1ZeroHash, level1ZeroHash));
       expect(await tree.getSiblingPath(1n, false)).toEqual(new SiblingPath([zeroTreeLeafHash, level1ZeroHash]));
 
-      await appendLeaves(appendImplemented, tree, [values[2]]);
+      await appendLeaves(tree, [values[2]]);
       expect(tree.getNumLeaves(true)).toEqual(3n);
       expect(tree.getRoot(true)).toEqual(
         pedersen.compress(pedersen.compress(values[0], values[1]), pedersen.compress(values[2], zeroTreeLeafHash)),
@@ -83,11 +83,11 @@ export const standardBasedTreeTestSuite = (
       expect(await tree.getSiblingPath(2n, true)).toEqual(
         new SiblingPath([zeroTreeLeafHash, pedersen.compress(values[0], values[1])]),
       );
-      expect(tree.getNumLeaves()).toEqual(0n);
-      expect(tree.getRoot()).toEqual(pedersen.compress(level1ZeroHash, level1ZeroHash));
-      expect(await tree.getSiblingPath(2n)).toEqual(new SiblingPath([zeroTreeLeafHash, level1ZeroHash]));
+      expect(tree.getNumLeaves(false)).toEqual(0n);
+      expect(tree.getRoot(false)).toEqual(pedersen.compress(level1ZeroHash, level1ZeroHash));
+      expect(await tree.getSiblingPath(2n, false)).toEqual(new SiblingPath([zeroTreeLeafHash, level1ZeroHash]));
 
-      await appendLeaves(appendImplemented, tree, [values[3]]);
+      await appendLeaves(tree, [values[3]]);
       expect(tree.getNumLeaves(true)).toEqual(4n);
       expect(tree.getRoot(true)).toEqual(
         pedersen.compress(pedersen.compress(values[0], values[1]), pedersen.compress(values[2], values[3])),
