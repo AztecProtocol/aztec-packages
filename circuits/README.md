@@ -51,7 +51,7 @@ Here is an example of rapidly rebuilding and running only the abis tests for `wa
 
 You can choose which tests will run via a gtest filter. This one below runs only tests that _omit_ the string '.circuit':
 ```
-(cd build && ./bin/aztec3_circuits_abis_tests --gtest_filter=*hash_tx_request*)
+./scripts/run_tests_local wasm aztec3_circuits_abis_tests -*.circuit*
 ```
 
 ---
@@ -87,7 +87,7 @@ You can choose `wasm` instead of `x86_64`. You can also specify individual test 
 
 > At this time, it is common to run wasm tests with the filter `-*.circuit*` as there are circuit issues in wasm.
 
-> The `build_run_tests_docker_local` script builds the chosen docker image (`x86_64` or `wasm`) and then runs the `run_tests_local` script (used above).
+> The `build_run_tests_docker_local` script builds the chosen docker image (`x86_64` or `wasm`) and then launches a container from that image to run the `run_tests_local` script (used above).
 
 ---
 
