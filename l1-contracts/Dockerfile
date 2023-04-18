@@ -14,8 +14,7 @@ ENV PATH="/usr/src/contracts/.foundry/bin:${PATH}"
 # Install deps
 RUN forge install --no-commit \
   https://github.com/foundry-rs/forge-std \
-  https://github.com/openzeppelin/openzeppelin-contracts \
-  https://github.com/aztecprotocol/aztec-verifier-contracts
+  https://github.com/openzeppelin/openzeppelin-contracts
 ENV MAINNET_RPC_URL='https://mainnet.infura.io/v3/9928b52099854248b3a096be07a6b23c'
 
 # Run build and tests
