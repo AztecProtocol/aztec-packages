@@ -28,4 +28,8 @@ export class FunctionLeafPreimage {
     const reader = BufferReader.asReader(buffer);
     return new FunctionLeafPreimage(reader.readBytes(4), reader.readBoolean(), reader.readFr(), reader.readFr());
   }
+
+  static verifyBufferSize(buffer: Buffer): boolean {
+    return buffer.length === 4 + 1 + 32 + 32;
+  }
 }

@@ -89,7 +89,7 @@ export async function hashVK(wasm: CircuitsWasm, vkBuf: Buffer) {
 
 export async function computeFunctionLeaf(wasm: CircuitsWasm, fnLeaf: FunctionLeafPreimage) {
   const fnLeafBuf = fnLeaf.toBuffer();
-  if (fnLeafBuf.length !== 32 + 1 + 32 + 32) throw new Error(`Invalid length for function leaf`);
+  if (!FunctionLeafPreimage.verifyBufferSize(fnLeafBuf)) throw new Error(`Invalid length for function leaf`);
   wasm.call('pedersen__init');
   return Fr.fromBuffer(await wasmAsyncCall(wasm, 'abis__compute_function_leaf', { toBuffer: () => fnLeafBuf }, 32));
 }

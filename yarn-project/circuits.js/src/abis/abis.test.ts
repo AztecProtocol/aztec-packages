@@ -1,4 +1,4 @@
-import { Fr, FunctionData, NewContractData } from '../index.js';
+import { Fr, FunctionData, FunctionLeafPreimage, NewContractData } from '../index.js';
 import { makeEthAddress } from '../tests/factories.js';
 import { makeAztecAddress, makeBytes, makeTxRequest, makeVerificationKey } from '../tests/factories.js';
 import { CircuitsWasm } from '../wasm/circuits_wasm.js';
@@ -40,7 +40,7 @@ describe('abis wasm bindings', () => {
   });
 
   it('computes a function leaf', async () => {
-    const leaf = Buffer.alloc(32 + 1 + 32 + 32, 0);
+    const leaf = new FunctionLeafPreimage(Buffer.from([0, 0, 0, 123]), true, Fr.ZERO, Fr.ZERO);
     const res = await computeFunctionLeaf(wasm, leaf);
     expect(res).toMatchSnapshot();
   });
