@@ -1,7 +1,7 @@
 import { default as levelup } from 'levelup';
 import { Hasher } from '../hasher.js';
-import { merkleTreeTestSuite } from '../test/test_suite.js';
-import { SparseMerkleTree } from './sparse_tree.js';
+import { treeTestSuite } from '../test/test_suite.js';
+import { SparseTree } from './sparse_tree.js';
 import { standardBasedTreeTestSuite } from '../test/standard_based_test_suite.js';
 import { createMemDown } from '../test/utils/create_mem_down.js';
 import { BarretenbergWasm } from '@aztec/barretenberg.js/wasm';
@@ -16,17 +16,17 @@ const createDb = async (
   name: string,
   depth: number,
 ): Promise<UpdateOnlyTree> => {
-  return await SparseMerkleTree.new<SparseMerkleTree>(levelUp, hasher, name, depth);
+  return await SparseTree.new<SparseTree>(levelUp, hasher, name, depth);
 };
 
 const createFromName = async (levelUp: levelup.LevelUp, hasher: Hasher, name: string): Promise<UpdateOnlyTree> => {
-  return await SparseMerkleTree.fromName<SparseMerkleTree>(levelUp, hasher, name);
+  return await SparseTree.fromName<SparseTree>(levelUp, hasher, name);
 };
 
-merkleTreeTestSuite('SparseMerkleTree', createDb, createFromName);
-standardBasedTreeTestSuite('SparseMerkleTree', createDb);
+treeTestSuite('SparseTree', createDb, createFromName);
+standardBasedTreeTestSuite('SparseTree', createDb);
 
-describe('SparseMerkleTreeSpecific', () => {
+describe('SparseTreeSpecific', () => {
   let wasm: BarretenbergWasm;
   let pedersen: Pedersen;
 
@@ -78,7 +78,7 @@ describe('SparseMerkleTreeSpecific', () => {
     expect(tree.getNumLeaves(true)).toEqual(1n);
 
     // Delete a leaf
-    await tree.updateLeaf(SparseMerkleTree.ZERO_ELEMENT, randomIndex);
+    await tree.updateLeaf(SparseTree.ZERO_ELEMENT, randomIndex);
     expect(tree.getNumLeaves(true)).toEqual(0n);
   });
 
@@ -86,7 +86,7 @@ describe('SparseMerkleTreeSpecific', () => {
     const db = levelup(createMemDown());
     const tree = await createDb(db, pedersen, 'test', 3);
 
-    const zeroElement = SparseMerkleTree.ZERO_ELEMENT;
+    const zeroElement = SparseTree.ZERO_ELEMENT;
     const level2ZeroHash = pedersen.compress(zeroElement, zeroElement);
     const level1ZeroHash = pedersen.compress(level2ZeroHash, level2ZeroHash);
 

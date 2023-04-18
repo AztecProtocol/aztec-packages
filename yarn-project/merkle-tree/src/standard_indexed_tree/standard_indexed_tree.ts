@@ -1,30 +1,12 @@
 import { toBigIntBE, toBufferBE } from '@aztec/foundation';
 import { LevelUp } from 'levelup';
 import { Hasher } from '../hasher.js';
-import { AppendOnlyTree } from '../interfaces/append_only_tree.js';
+import { IndexedTree, LeafData } from '../interfaces/indexed_tree.js';
 import { TreeBase, decodeMeta } from '../tree_base.js';
 
 const indexToKeyLeaf = (name: string, index: bigint) => {
   return `${name}:leaf:${index}`;
 };
-
-/**
- * A leaf of a tree.
- */
-export interface LeafData {
-  /**
-   * A value of the leaf.
-   */
-  value: bigint;
-  /**
-   * An index of the next leaf.
-   */
-  nextIndex: bigint;
-  /**
-   * A value of the next leaf.
-   */
-  nextValue: bigint;
-}
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const encodeTreeValue = (leafData: LeafData) => {
@@ -58,7 +40,7 @@ const initialLeaf: LeafData = {
 /**
  * A Merkle tree that supports efficient lookup of leaves by value.
  */
-export class IndexedTree extends TreeBase implements AppendOnlyTree {
+export class StandardIndexedTree extends TreeBase implements IndexedTree {
   private leaves: LeafData[] = [];
   private cachedLeaves: { [key: number]: LeafData } = {};
 
@@ -77,8 +59,16 @@ export class IndexedTree extends TreeBase implements AppendOnlyTree {
     name: string,
     depth: number,
     prefilledSize = 0,
-  ): Promise<IndexedTree> {
-    const tree = new IndexedTree(db, hasher, name, depth, 0n, undefined, hashEncodedTreeValue(initialLeaf, hasher));
+  ): Promise<StandardIndexedTree> {
+    const tree = new StandardIndexedTree(
+      db,
+      hasher,
+      name,
+      depth,
+      0n,
+      undefined,
+      hashEncodedTreeValue(initialLeaf, hasher),
+    );
     await tree.init(prefilledSize);
     return tree;
   }
@@ -90,10 +80,18 @@ export class IndexedTree extends TreeBase implements AppendOnlyTree {
    * @param name - Name of the tree.
    * @returns The newly created tree.
    */
-  static async fromName(db: LevelUp, hasher: Hasher, name: string): Promise<IndexedTree> {
+  static async fromName(db: LevelUp, hasher: Hasher, name: string): Promise<StandardIndexedTree> {
     const meta: Buffer = await db.get(name);
     const { root, depth, size } = decodeMeta(meta);
-    const tree = new IndexedTree(db, hasher, name, depth, size, root, hashEncodedTreeValue(initialLeaf, hasher));
+    const tree = new StandardIndexedTree(
+      db,
+      hasher,
+      name,
+      depth,
+      size,
+      root,
+      hashEncodedTreeValue(initialLeaf, hasher),
+    );
     await tree.initFromDb();
     return tree;
   }
@@ -135,12 +133,22 @@ export class IndexedTree extends TreeBase implements AppendOnlyTree {
     this.clearCachedLeaves();
   }
 
+  public getLeafValue(index: bigint, includeUncommitted: boolean): Promise<Buffer | undefined> {
+    const leaf = this.getLatestLeafDataCopy(Number(index), includeUncommitted);
+    if (!leaf) return Promise.resolve(undefined);
+    return Promise.resolve(toBufferBE(leaf.value, 32));
+  }
+
   /**
    * Finds the index of the largest leaf whose value is less than or equal to the provided value.
    * @param newValue - The new value to be inserted into the tree.
+   * @param includeUncommitted - If true, the uncommitted changes are included in the search.
    * @returns Tuple containing the leaf index and a flag to say if the value is a duplicate.
    */
-  public findIndexOfPreviousValue(newValue: bigint, includeUncommitted: boolean) {
+  public findIndexOfPreviousValue(
+    newValue: bigint,
+    includeUncommitted: boolean,
+  ): { index: number; alreadyPresent: boolean } {
     const numLeaves = this.getNumLeaves(includeUncommitted);
     const diff: bigint[] = [];
 
@@ -166,6 +174,7 @@ export class IndexedTree extends TreeBase implements AppendOnlyTree {
   /**
    * Gets the latest LeafData copy.
    * @param index - Index of the leaf of which to obtain the LeafData copy.
+   * @param includeUncommitted - If true, the uncommitted changes are included in the search.
    * @returns A copy of the leaf data at the given index or undefined if the leaf was not found.
    */
   public getLatestLeafDataCopy(index: number, includeUncommitted: boolean): LeafData | undefined {
@@ -177,12 +186,6 @@ export class IndexedTree extends TreeBase implements AppendOnlyTree {
           nextValue: leaf.nextValue,
         } as LeafData)
       : undefined;
-  }
-
-  public getLeafValue(index: bigint, includeUncommitted: boolean): Promise<Buffer | undefined> {
-    const leaf = this.getLatestLeafDataCopy(Number(index), includeUncommitted);
-    if (!leaf) return Promise.resolve(undefined);
-    return Promise.resolve(toBufferBE(leaf.value, 32));
   }
 
   /**

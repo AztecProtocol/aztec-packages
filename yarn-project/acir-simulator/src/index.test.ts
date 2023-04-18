@@ -11,7 +11,7 @@ import {
   TxRequest,
 } from '@aztec/circuits.js';
 import { AztecAddress, EthAddress, Fr } from '@aztec/foundation';
-import { AppendOnlyTree, Pedersen, StandardMerkleTree } from '@aztec/merkle-tree';
+import { AppendOnlyTree, Pedersen, StandardTree } from '@aztec/merkle-tree';
 import { FunctionAbi } from '@aztec/noir-contracts';
 import { ChildAbi, ParentAbi, TestContractAbi, ZkTokenContractAbi } from '@aztec/noir-contracts/examples';
 import { mock } from 'jest-mock-extended';
@@ -153,7 +153,7 @@ describe('ACIR simulator', () => {
       const amountToTransfer = 100n;
       const abi = ZkTokenContractAbi.functions.find(f => f.name === 'transfer') as unknown as FunctionAbi;
 
-      const tree: AppendOnlyTree = await StandardMerkleTree.new<StandardMerkleTree>(
+      const tree: AppendOnlyTree = await StandardTree.new<StandardTree>(
         db,
         pedersen,
         'privateData',
@@ -224,7 +224,7 @@ describe('ACIR simulator', () => {
       const balance = 160n;
       const abi = ZkTokenContractAbi.functions.find(f => f.name === 'transfer') as unknown as FunctionAbi;
 
-      const tree: AppendOnlyTree = await StandardMerkleTree.new<StandardMerkleTree>(
+      const tree: AppendOnlyTree = await StandardTree.new<StandardTree>(
         db,
         pedersen,
         'privateData',

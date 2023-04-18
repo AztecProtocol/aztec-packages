@@ -1,17 +1,17 @@
 import { default as levelup } from 'levelup';
 import { Hasher, MerkleTree, Pedersen, SiblingPath } from '../index.js';
-import { IndexedTree } from './indexed_tree.js';
-import { merkleTreeTestSuite } from '../test/test_suite.js';
+import { StandardIndexedTree } from './standard_indexed_tree.js';
+import { treeTestSuite } from '../test/test_suite.js';
 import { toBufferBE } from '@aztec/foundation';
 import { BarretenbergWasm } from '@aztec/barretenberg.js/wasm';
 import { createMemDown } from '../test/utils/create_mem_down.js';
 
 const createDb = async (levelUp: levelup.LevelUp, hasher: Hasher, name: string, depth: number) => {
-  return await IndexedTree.new(levelUp, hasher, name, depth);
+  return await StandardIndexedTree.new(levelUp, hasher, name, depth);
 };
 
 const createFromName = async (levelUp: levelup.LevelUp, hasher: Hasher, name: string) => {
-  return await IndexedTree.fromName(levelUp, hasher, name);
+  return await StandardIndexedTree.fromName(levelUp, hasher, name);
 };
 
 const createIndexedTreeLeaf = (value: number, nextIndex: number, nextValue: number) => {
@@ -29,7 +29,7 @@ const verifyCommittedState = async (
   expect(await tree.getSiblingPath(siblingPathIndex, false)).toEqual(emptySiblingPath);
 };
 
-merkleTreeTestSuite('IndexedMerkleTree', createDb, createFromName);
+treeTestSuite('IndexedMerkleTree', createDb, createFromName);
 
 describe('IndexedMerkleTreeSpecific', () => {
   let wasm: BarretenbergWasm;

@@ -10,11 +10,11 @@ import { SerialQueue } from '@aztec/foundation';
 import { WasmWrapper } from '@aztec/foundation/wasm';
 import {
   AppendOnlyTree,
-  IndexedTree,
+  StandardIndexedTree,
   LeafData,
   Pedersen,
   SiblingPath,
-  StandardMerkleTree,
+  StandardTree,
   UpdateOnlyTree,
 } from '@aztec/merkle-tree';
 import { default as levelup } from 'levelup';
@@ -43,32 +43,32 @@ export class MerkleTrees implements MerkleTreeDb {
   public async init(optionalWasm?: WasmWrapper) {
     const wasm = optionalWasm ?? (await PrimitivesWasm.get());
     const hasher = new Pedersen(wasm);
-    const contractTree: AppendOnlyTree = await StandardMerkleTree.new<StandardMerkleTree>(
+    const contractTree: AppendOnlyTree = await StandardTree.new<StandardTree>(
       this.db,
       hasher,
       `${MerkleTreeId[MerkleTreeId.CONTRACT_TREE]}`,
       CONTRACT_TREE_HEIGHT,
     );
-    const contractTreeRootsTree: AppendOnlyTree = await StandardMerkleTree.new<StandardMerkleTree>(
+    const contractTreeRootsTree: AppendOnlyTree = await StandardTree.new<StandardTree>(
       this.db,
       hasher,
       `${MerkleTreeId[MerkleTreeId.CONTRACT_TREE_ROOTS_TREE]}`,
       CONTRACT_TREE_ROOTS_TREE_HEIGHT,
     );
-    const nullifierTree = await IndexedTree.new(
+    const nullifierTree = await StandardIndexedTree.new(
       this.db,
       hasher,
       `${MerkleTreeId[MerkleTreeId.NULLIFIER_TREE]}`,
       NULLIFIER_TREE_HEIGHT,
       INITIAL_NULLIFIER_TREE_SIZE,
     );
-    const dataTree: AppendOnlyTree = await StandardMerkleTree.new<StandardMerkleTree>(
+    const dataTree: AppendOnlyTree = await StandardTree.new<StandardTree>(
       this.db,
       hasher,
       `${MerkleTreeId[MerkleTreeId.DATA_TREE]}`,
       PRIVATE_DATA_TREE_HEIGHT,
     );
-    const dataTreeRootsTree: AppendOnlyTree = await StandardMerkleTree.new<StandardMerkleTree>(
+    const dataTreeRootsTree: AppendOnlyTree = await StandardTree.new<StandardTree>(
       this.db,
       hasher,
       `${MerkleTreeId[MerkleTreeId.DATA_TREE_ROOTS_TREE]}`,
@@ -246,8 +246,8 @@ export class MerkleTrees implements MerkleTreeDb {
     return Promise.resolve(treeInfo);
   }
 
-  private _getIndexedTree(treeId: IndexedMerkleTreeId): IndexedTree {
-    return this.trees[treeId] as IndexedTree;
+  private _getIndexedTree(treeId: IndexedMerkleTreeId): StandardIndexedTree {
+    return this.trees[treeId] as StandardIndexedTree;
   }
 
   /**

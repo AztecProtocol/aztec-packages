@@ -23,7 +23,7 @@ const expectSameTrees = async (
   }
 };
 
-export const merkleTreeTestSuite = (
+export const treeTestSuite = (
   testName: string,
   createDb: (
     levelup: levelup.LevelUp,
