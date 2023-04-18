@@ -80,7 +80,7 @@ export class IndexedTree implements MerkleTree {
     depth: number,
     prefilledSize = 0,
   ): Promise<IndexedTree> {
-    const underlying = await StandardMerkleTree.new(db, hasher, name, depth, hashEncodedTreeValue(initialLeaf, hasher));
+    const underlying = await StandardMerkleTree.new(db, hasher, name, depth);
     const tree = new IndexedTree(underlying, hasher, db);
     await tree.init(prefilledSize);
     return tree;
@@ -94,7 +94,7 @@ export class IndexedTree implements MerkleTree {
    * @returns The newly created tree.
    */
   static async fromName(db: LevelUp, hasher: Hasher, name: string): Promise<IndexedTree> {
-    const underlying = await StandardMerkleTree.fromName(db, hasher, name, hashEncodedTreeValue(initialLeaf, hasher));
+    const underlying = await StandardMerkleTree.fromName(db, hasher, name);
     const tree = new IndexedTree(underlying, hasher, db);
     await tree.initFromDb();
     return tree;
