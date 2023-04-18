@@ -132,6 +132,7 @@ export class AccountState {
             ...txAuxData,
             nullifier: await this.computeNullifier(txAuxData),
             index: BigInt(dataStartIndex + j),
+            account: this.publicKey,
           });
         }
       }
@@ -221,9 +222,17 @@ export class AccountState {
       // Ensure all the other txs are updated with newly settled block info.
       await this.updateBlockInfoInBlockTxs(blockContext);
     }
-    if (txAuxDataDaosBatch.length) await this.db.addTxAuxDataBatch(txAuxDataDaosBatch);
+    if (txAuxDataDaosBatch.length) {
+      await this.db.addTxAuxDataBatch(txAuxDataDaosBatch);
+      txAuxDataDaosBatch.forEach(txAuxData => {
+        this.log(`Added tx aux data with nullifier ${txAuxData.nullifier.toString()}}`);
+      });
+    }
     if (txDaos.length) await this.db.addTxs(txDaos);
-    if (newNullifiers.length) await this.db.removeNullifiedTxAuxDatas(newNullifiers);
+    const removedAuxData = await this.db.removeNullifiedTxAuxData(newNullifiers, this.publicKey);
+    removedAuxData.forEach(txAuxData => {
+      this.log(`Removed tx aux data with nullifier ${txAuxData.nullifier.toString()}}`);
+    });
   }
 
   private async updateBlockInfoInBlockTxs(blockContext: L2BlockContext) {

@@ -1,5 +1,5 @@
 import { DBOracle, NoteLoadOracleInputs } from '@aztec/acir-simulator';
-import { AztecAddress, EthAddress, Fr, PRIVATE_DATA_TREE_HEIGHT } from '@aztec/circuits.js';
+import { AztecAddress, EthAddress, Fr } from '@aztec/circuits.js';
 import { FunctionAbi } from '@aztec/noir-contracts';
 import { ContractDataOracle } from '../contract_data_oracle/index.js';
 import { Database } from '../database/index.js';

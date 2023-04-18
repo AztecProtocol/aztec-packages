@@ -1,4 +1,4 @@
-import { AztecAddress, Fr } from '@aztec/foundation';
+import { AztecAddress, Fr, Point } from '@aztec/foundation';
 import { TxHash } from '@aztec/types';
 import { MemoryContractDatabase } from '../contract_database/index.js';
 import { Database } from './database.js';
@@ -49,12 +49,23 @@ export class MemoryDB extends MemoryContractDatabase implements Database {
     return Promise.resolve(res);
   }
 
-  public removeNullifiedTxAuxDatas(nullifiers: Fr[]) {
-    const nullifierSet = new Set(nullifiers.map(nullifier => nullifier.toBuffer().toString('utf-8')));
-    this.txAuxDataTable = this.txAuxDataTable.filter(
-      txAuxData => !nullifierSet.has(txAuxData.nullifier.toBuffer().toString('utf-8')),
+  public removeNullifiedTxAuxData(nullifiers: Fr[], account: Point) {
+    const nullifierSet = new Set(nullifiers.map(nullifier => nullifier.toString()));
+    const [remaining, removed] = this.txAuxDataTable.reduce(
+      (acc: [TxAuxDataDao[], TxAuxDataDao[]], txAuxData) => {
+        const nullifier = txAuxData.nullifier.toString();
+        if (txAuxData.account.equals(account) && nullifierSet.has(nullifier)) {
+          acc[1].push(txAuxData);
+        } else {
+          acc[0].push(txAuxData);
+        }
+        return acc;
+      },
+      [[], []],
     );
 
-    return Promise.resolve();
+    this.txAuxDataTable = remaining;
+
+    return Promise.resolve(removed);
   }
 }
