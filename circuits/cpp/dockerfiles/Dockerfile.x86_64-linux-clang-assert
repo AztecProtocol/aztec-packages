@@ -12,7 +12,7 @@ RUN apk update \
         perl
 
 WORKDIR /usr/src/circuits/cpp
-ARG CACHEBUST=1
+ADD "https://www.random.org/cgi-bin/randbyte?nbytes=10&format=h" skipcache
 COPY . .
 # Build everything to ensure everything builds. All tests will be run from the result of this build.
 RUN cmake --preset default -DCMAKE_BUILD_TYPE=RelWithAssert -DCI=ON -DUSE_TURBO=true && cmake --build --preset default
