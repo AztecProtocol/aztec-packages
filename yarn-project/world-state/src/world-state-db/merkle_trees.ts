@@ -8,7 +8,16 @@ import {
 } from '@aztec/circuits.js';
 import { SerialQueue } from '@aztec/foundation';
 import { WasmWrapper } from '@aztec/foundation/wasm';
-import { IndexedTree, LeafData, MerkleTree, Pedersen, SiblingPath, StandardMerkleTree } from '@aztec/merkle-tree';
+import {
+  AppendOnlyMerkleTree,
+  IndexedTree,
+  LeafData,
+  MerkleTree,
+  Pedersen,
+  SiblingPath,
+  StandardMerkleTree,
+  UpdateOnlyMerkleTree,
+} from '@aztec/merkle-tree';
 import { default as levelup } from 'levelup';
 import { MerkleTreeOperationsFacade } from '../merkle-tree/merkle_tree_operations_facade.js';
 import {
@@ -24,7 +33,7 @@ import {
  * A convenience class for managing multiple merkle trees.
  */
 export class MerkleTrees implements MerkleTreeDb {
-  private trees: MerkleTree[] = [];
+  private trees: (AppendOnlyMerkleTree | UpdateOnlyMerkleTree)[] = [];
   private jobQueue = new SerialQueue();
 
   constructor(private db: levelup.LevelUp) {}
@@ -35,13 +44,13 @@ export class MerkleTrees implements MerkleTreeDb {
   public async init(optionalWasm?: WasmWrapper) {
     const wasm = optionalWasm ?? (await PrimitivesWasm.get());
     const hasher = new Pedersen(wasm);
-    const contractTree = await StandardMerkleTree.new(
+    const contractTree: AppendOnlyMerkleTree = await StandardMerkleTree.new<StandardMerkleTree>(
       this.db,
       hasher,
       `${MerkleTreeId[MerkleTreeId.CONTRACT_TREE]}`,
       CONTRACT_TREE_HEIGHT,
     );
-    const contractTreeRootsTree = await StandardMerkleTree.new(
+    const contractTreeRootsTree: AppendOnlyMerkleTree = await StandardMerkleTree.new<StandardMerkleTree>(
       this.db,
       hasher,
       `${MerkleTreeId[MerkleTreeId.CONTRACT_TREE_ROOTS_TREE]}`,
@@ -54,13 +63,13 @@ export class MerkleTrees implements MerkleTreeDb {
       NULLIFIER_TREE_HEIGHT,
       INITIAL_NULLIFIER_TREE_SIZE,
     );
-    const dataTree = await StandardMerkleTree.new(
+    const dataTree: AppendOnlyMerkleTree = await StandardMerkleTree.new<StandardMerkleTree>(
       this.db,
       hasher,
       `${MerkleTreeId[MerkleTreeId.DATA_TREE]}`,
       PRIVATE_DATA_TREE_HEIGHT,
     );
-    const dataTreeRootsTree = await StandardMerkleTree.new(
+    const dataTreeRootsTree: AppendOnlyMerkleTree = await StandardMerkleTree.new<StandardMerkleTree>(
       this.db,
       hasher,
       `${MerkleTreeId[MerkleTreeId.DATA_TREE_ROOTS_TREE]}`,
@@ -207,7 +216,11 @@ export class MerkleTrees implements MerkleTreeDb {
    * @param index - The index to insert into
    */
   public async updateLeaf(treeId: IndexedMerkleTreeId, leaf: LeafData, index: bigint): Promise<void> {
-    return await this.synchronise(() => this.trees[treeId].updateLeaf(leaf, index));
+    const tree = this.trees[treeId];
+    if (!('updateLeaf' in tree)) {
+      throw new Error('Tree does not support `updateLeaf` method');
+    }
+    return await this.synchronise(() => tree.updateLeaf(leaf, index));
   }
 
   /**
@@ -255,7 +268,11 @@ export class MerkleTrees implements MerkleTreeDb {
    * @returns Empty promise.
    */
   private async _appendLeaves(treeId: MerkleTreeId, leaves: Buffer[]): Promise<void> {
-    return await this.trees[treeId].appendLeaves(leaves);
+    const tree = this.trees[treeId];
+    if (!('appendLeaves' in tree)) {
+      throw new Error('Tree does not support `appendLeaves` method');
+    }
+    return await tree.appendLeaves(leaves);
   }
 
   /**

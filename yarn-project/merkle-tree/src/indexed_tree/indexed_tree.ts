@@ -98,13 +98,13 @@ export class IndexedTree extends MerkleTreeBase implements AppendOnlyMerkleTree 
     return tree;
   }
 
-  // /**
-  //  * Returns an empty leaf of the tree.
-  //  * @returns An empty leaf.
-  //  */
-  // static initialLeaf(): LeafData {
-  //   return initialLeaf;
-  // }
+  /**
+   * Returns an empty leaf of the tree.
+   * @returns An empty leaf.
+   */
+  static initialLeaf(): LeafData {
+    return initialLeaf;
+  }
 
   /**
    * Appends the given leaves to the tree.
@@ -112,12 +112,9 @@ export class IndexedTree extends MerkleTreeBase implements AppendOnlyMerkleTree 
    * @returns Empty promise.
    */
   public async appendLeaves(leaves: Buffer[]): Promise<void> {
-    const numLeaves = this.getNumLeaves(true);
-    for (let i = 0; i < leaves.length; i++) {
-      const index = numLeaves + BigInt(i);
-      await this.appendLeaf(leaves[i], index);
+    for (const leaf of leaves) {
+      await this.appendLeaf(leaf);
     }
-    this.cachedSize = numLeaves + BigInt(leaves.length);
   }
 
   /**
@@ -143,7 +140,7 @@ export class IndexedTree extends MerkleTreeBase implements AppendOnlyMerkleTree 
    * @param leaf - The leaf to append.
    * @returns Empty promise.
    */
-  private async appendLeaf(leaf: Buffer, underlyingIndex: bigint): Promise<void> {
+  private async appendLeaf(leaf: Buffer): Promise<void> {
     const newValue = toBigIntBE(leaf);
 
     // Special case when appending zero
@@ -177,7 +174,7 @@ export class IndexedTree extends MerkleTreeBase implements AppendOnlyMerkleTree 
     this.cachedLeaves[Number(currentSize)] = newLeaf;
     this.cachedLeaves[Number(indexOfPrevious.index)] = previousLeafCopy;
     await this.updateLeaf(hashEncodedTreeValue(previousLeafCopy, this.hasher), BigInt(indexOfPrevious.index));
-    await this.addLeafToCacheAndHashToRoot(hashEncodedTreeValue(newLeaf, this.hasher), underlyingIndex);
+    await this.updateLeaf(hashEncodedTreeValue(newLeaf, this.hasher), this.getNumLeaves(true));
   }
 
   /**
@@ -231,8 +228,12 @@ export class IndexedTree extends MerkleTreeBase implements AppendOnlyMerkleTree 
    */
   private async init(initialSize = 1) {
     this.leaves.push(initialLeaf);
-    await this.addLeafToCacheAndHashToRoot(hashEncodedTreeValue(initialLeaf, this.hasher), 0n);
-    this.cachedSize = 1n;
+    await this.updateLeaf(hashEncodedTreeValue(initialLeaf, this.hasher), 0n);
+
+    for (let i = 1; i < initialSize; i++) {
+      await this.appendLeaf(Buffer.from([i]));
+    }
+
     await this.commit();
   }
 
