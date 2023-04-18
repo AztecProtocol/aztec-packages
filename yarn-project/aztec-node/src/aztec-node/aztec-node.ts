@@ -6,7 +6,7 @@ import { P2P, P2PClient } from '@aztec/p2p';
 import { SequencerClient } from '@aztec/sequencer-client';
 import { Tx, TxHash } from '@aztec/types';
 import { UnverifiedData, UnverifiedDataSource } from '@aztec/types';
-import { MerkleTreeId, MerkleTrees, ServerWorldStateSynchroniser, WorldStateSynchroniser } from '@aztec/world-state';
+import { TreeId, MerkleTrees, ServerWorldStateSynchroniser, WorldStateSynchroniser } from '@aztec/world-state';
 import { default as levelup } from 'levelup';
 import { default as memdown, MemDown } from 'memdown';
 import { AztecNodeConfig } from './config.js';
@@ -134,14 +134,14 @@ export class AztecNode {
   }
 
   public findContractIndex(leafValue: Buffer): Promise<bigint | undefined> {
-    return this.merkleTreeDB.findLeafIndex(MerkleTreeId.CONTRACT_TREE, leafValue, false);
+    return this.merkleTreeDB.findLeafIndex(TreeId.CONTRACT_TREE, leafValue, false);
   }
 
   public getContractPath(leafIndex: bigint): Promise<SiblingPath> {
-    return this.merkleTreeDB.getSiblingPath(MerkleTreeId.CONTRACT_TREE, leafIndex, false);
+    return this.merkleTreeDB.getSiblingPath(TreeId.CONTRACT_TREE, leafIndex, false);
   }
 
   public getDataTreePath(leafIndex: bigint): Promise<SiblingPath> {
-    return this.merkleTreeDB.getSiblingPath(MerkleTreeId.DATA_TREE, leafIndex, false);
+    return this.merkleTreeDB.getSiblingPath(TreeId.DATA_TREE, leafIndex, false);
   }
 }

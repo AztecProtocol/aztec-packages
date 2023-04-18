@@ -59,7 +59,7 @@ export class StandardIndexedTree extends TreeBase implements IndexedTree {
     name: string,
     depth: number,
     prefilledSize = 0,
-  ): Promise<StandardIndexedTree> {
+  ): Promise<IndexedTree> {
     const tree = new StandardIndexedTree(
       db,
       hasher,

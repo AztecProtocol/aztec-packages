@@ -6,7 +6,7 @@ export { LeafData } from '@aztec/merkle-tree';
 /**
  * Defines the possible Merkle tree IDs.
  */
-export enum MerkleTreeId {
+export enum TreeId {
   CONTRACT_TREE = 0,
   CONTRACT_TREE_ROOTS_TREE = 1,
   NULLIFIER_TREE = 2,
@@ -14,7 +14,7 @@ export enum MerkleTreeId {
   DATA_TREE_ROOTS_TREE = 4,
 }
 
-export type IndexedMerkleTreeId = MerkleTreeId.NULLIFIER_TREE;
+export type IndexedTreeId = TreeId.NULLIFIER_TREE;
 
 /**
  * The nullifier tree must be pre filled with the number of leaves that are added by one rollup.
@@ -30,7 +30,7 @@ export interface TreeInfo {
   /**
    * The tree ID.
    */
-  treeId: MerkleTreeId;
+  treeId: TreeId;
   /**
    * The tree root.
    */
@@ -73,52 +73,49 @@ export interface MerkleTreeOperations {
    * @param treeId - The tree to be updated
    * @param leaves - The set of leaves to be appended
    */
-  appendLeaves(treeId: MerkleTreeId, leaves: Buffer[]): Promise<void>;
+  appendLeaves(treeId: TreeId, leaves: Buffer[]): Promise<void>;
   /**
    * Returns information about the given tree
    * @param treeId - The tree to be queried
    */
-  getTreeInfo(treeId: MerkleTreeId): Promise<TreeInfo>;
+  getTreeInfo(treeId: TreeId): Promise<TreeInfo>;
   /**
    * Gets sibling path for a leaf.
    * @param treeId - The tree to be queried for a sibling path
    * @param index - The index of the leaf for which a sibling path should be returned
    */
-  getSiblingPath(treeId: MerkleTreeId, index: bigint): Promise<SiblingPath>;
+  getSiblingPath(treeId: TreeId, index: bigint): Promise<SiblingPath>;
   /**
    * Returns the previous index for a given value in an indexed tree
    * @param treeId - The tree for which the previous value index is required
    * @param value - The value to be queried
    */
-  getPreviousValueIndex(
-    treeId: IndexedMerkleTreeId,
-    value: bigint,
-  ): Promise<{ index: number; alreadyPresent: boolean }>;
+  getPreviousValueIndex(treeId: IndexedTreeId, value: bigint): Promise<{ index: number; alreadyPresent: boolean }>;
   /**
    * Returns the data at a specific leaf
    * @param treeId - The tree for which leaf data should be returned
    * @param index - The index of the leaf required
    */
-  getLeafData(treeId: IndexedMerkleTreeId, index: number): Promise<LeafData | undefined>;
+  getLeafData(treeId: IndexedTreeId, index: number): Promise<LeafData | undefined>;
   /**
    * Update the leaf data at the given index
    * @param treeId - The tree for which leaf data should be edited
    * @param leaf - The updated leaf value
    * @param index - The index of the leaf to be updated
    */
-  updateLeaf(treeId: IndexedMerkleTreeId, leaf: LeafData, index: bigint): Promise<void>;
+  updateLeaf(treeId: IndexedTreeId, leaf: LeafData, index: bigint): Promise<void>;
   /**
    * Returns the index containing a leaf value
    * @param treeId - The tree for which the index should be returned
    * @param value - The value to search for in the tree
    */
-  findLeafIndex(treeId: MerkleTreeId, value: Buffer): Promise<bigint | undefined>;
+  findLeafIndex(treeId: TreeId, value: Buffer): Promise<bigint | undefined>;
   /**
    * Gets the value for a leaf in the tree.
    * @param treeId - The tree for which the index should be returned
    * @param index - The index of the leaf
    */
-  getLeafValue(treeId: MerkleTreeId, index: bigint): Promise<Buffer | undefined>;
+  getLeafValue(treeId: TreeId, index: bigint): Promise<Buffer | undefined>;
 }
 
 /**
@@ -138,7 +135,7 @@ export interface MerkleTreeDb extends MerkleTreeDbOperations {
 /**
  * Outputs a tree leaves to console.log for debugging purposes.
  */
-export async function inspectTree(db: MerkleTreeOperations, treeId: MerkleTreeId) {
+export async function inspectTree(db: MerkleTreeOperations, treeId: TreeId) {
   const info = await db.getTreeInfo(treeId);
   const output = [`Tree id=${treeId} size=${info.size} root=0x${info.root.toString('hex')}`];
   for (let i = 0; i < info.size; i++) {

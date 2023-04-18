@@ -16,14 +16,15 @@ import {
   SiblingPath,
   StandardTree,
   UpdateOnlyTree,
+  IndexedTree,
 } from '@aztec/merkle-tree';
 import { default as levelup } from 'levelup';
 import { MerkleTreeOperationsFacade } from '../merkle-tree/merkle_tree_operations_facade.js';
 import {
   INITIAL_NULLIFIER_TREE_SIZE,
-  IndexedMerkleTreeId,
+  IndexedTreeId,
   MerkleTreeDb,
-  MerkleTreeId,
+  TreeId,
   MerkleTreeOperations,
   TreeInfo,
 } from './index.js';
@@ -46,32 +47,32 @@ export class MerkleTrees implements MerkleTreeDb {
     const contractTree: AppendOnlyTree = await StandardTree.new<StandardTree>(
       this.db,
       hasher,
-      `${MerkleTreeId[MerkleTreeId.CONTRACT_TREE]}`,
+      `${TreeId[TreeId.CONTRACT_TREE]}`,
       CONTRACT_TREE_HEIGHT,
     );
     const contractTreeRootsTree: AppendOnlyTree = await StandardTree.new<StandardTree>(
       this.db,
       hasher,
-      `${MerkleTreeId[MerkleTreeId.CONTRACT_TREE_ROOTS_TREE]}`,
+      `${TreeId[TreeId.CONTRACT_TREE_ROOTS_TREE]}`,
       CONTRACT_TREE_ROOTS_TREE_HEIGHT,
     );
     const nullifierTree = await StandardIndexedTree.new(
       this.db,
       hasher,
-      `${MerkleTreeId[MerkleTreeId.NULLIFIER_TREE]}`,
+      `${TreeId[TreeId.NULLIFIER_TREE]}`,
       NULLIFIER_TREE_HEIGHT,
       INITIAL_NULLIFIER_TREE_SIZE,
     );
     const dataTree: AppendOnlyTree = await StandardTree.new<StandardTree>(
       this.db,
       hasher,
-      `${MerkleTreeId[MerkleTreeId.DATA_TREE]}`,
+      `${TreeId[TreeId.DATA_TREE]}`,
       PRIVATE_DATA_TREE_HEIGHT,
     );
     const dataTreeRootsTree: AppendOnlyTree = await StandardTree.new<StandardTree>(
       this.db,
       hasher,
-      `${MerkleTreeId[MerkleTreeId.DATA_TREE_ROOTS_TREE]}`,
+      `${TreeId[TreeId.DATA_TREE_ROOTS_TREE]}`,
       PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT,
     );
     this.trees = [contractTree, contractTreeRootsTree, nullifierTree, dataTree, dataTreeRootsTree];
@@ -117,15 +118,11 @@ export class MerkleTrees implements MerkleTreeDb {
    * @param treeId - Id of the tree to get information from.
    * @returns The tree info for the specified tree.
    */
-  public async getTreeInfo(treeId: MerkleTreeId, includeUncommitted: boolean): Promise<TreeInfo> {
+  public async getTreeInfo(treeId: TreeId, includeUncommitted: boolean): Promise<TreeInfo> {
     return await this.synchronise(() => this._getTreeInfo(treeId, includeUncommitted));
   }
 
-  public async getLeafValue(
-    treeId: MerkleTreeId,
-    index: bigint,
-    includeUncommitted: boolean,
-  ): Promise<Buffer | undefined> {
+  public async getLeafValue(treeId: TreeId, index: bigint, includeUncommitted: boolean): Promise<Buffer | undefined> {
     return await this.synchronise(() => this.trees[treeId].getLeafValue(index, includeUncommitted));
   }
 
@@ -135,7 +132,7 @@ export class MerkleTrees implements MerkleTreeDb {
    * @param index - The index of the leaf.
    * @returns The sibling path for the leaf.
    */
-  public async getSiblingPath(treeId: MerkleTreeId, index: bigint, includeUncommitted: boolean): Promise<SiblingPath> {
+  public async getSiblingPath(treeId: TreeId, index: bigint, includeUncommitted: boolean): Promise<SiblingPath> {
     return await this.synchronise(() => this._getSiblingPath(treeId, index, includeUncommitted));
   }
 
@@ -145,7 +142,7 @@ export class MerkleTrees implements MerkleTreeDb {
    * @param leaves - The leaves to append.
    * @returns Empty promise.
    */
-  public async appendLeaves(treeId: MerkleTreeId, leaves: Buffer[]): Promise<void> {
+  public async appendLeaves(treeId: TreeId, leaves: Buffer[]): Promise<void> {
     return await this.synchronise(() => this._appendLeaves(treeId, leaves));
   }
 
@@ -166,7 +163,7 @@ export class MerkleTrees implements MerkleTreeDb {
   }
 
   public async getPreviousValueIndex(
-    treeId: IndexedMerkleTreeId,
+    treeId: IndexedTreeId,
     value: bigint,
     includeUncommitted: boolean,
   ): Promise<{ index: number; alreadyPresent: boolean }> {
@@ -176,7 +173,7 @@ export class MerkleTrees implements MerkleTreeDb {
   }
 
   public async getLeafData(
-    treeId: IndexedMerkleTreeId,
+    treeId: IndexedTreeId,
     index: number,
     includeUncommitted: boolean,
   ): Promise<LeafData | undefined> {
@@ -191,11 +188,7 @@ export class MerkleTrees implements MerkleTreeDb {
    * @param needle - The value to look for.
    * @returns The index of the first leaf found with that value, or undefined is not found.
    */
-  public async findLeafIndex(
-    treeId: MerkleTreeId,
-    needle: Buffer,
-    includeUncommitted: boolean,
-  ): Promise<bigint | undefined> {
+  public async findLeafIndex(treeId: TreeId, needle: Buffer, includeUncommitted: boolean): Promise<bigint | undefined> {
     return await this.synchronise(async () => {
       const tree = this.trees[treeId];
       for (let i = 0n; i < tree.getNumLeaves(includeUncommitted); i++) {
@@ -214,7 +207,7 @@ export class MerkleTrees implements MerkleTreeDb {
    * @param leaf - The new leaf value
    * @param index - The index to insert into
    */
-  public async updateLeaf(treeId: IndexedMerkleTreeId, leaf: LeafData, index: bigint): Promise<void> {
+  public async updateLeaf(treeId: IndexedTreeId, leaf: LeafData, index: bigint): Promise<void> {
     const tree = this.trees[treeId];
     if (!('updateLeaf' in tree)) {
       throw new Error('Tree does not support `updateLeaf` method');
@@ -236,7 +229,7 @@ export class MerkleTrees implements MerkleTreeDb {
    * @param treeId - Id of the tree to get information from.
    * @returns The tree info for the specified tree.
    */
-  private _getTreeInfo(treeId: MerkleTreeId, includeUncommitted: boolean): Promise<TreeInfo> {
+  private _getTreeInfo(treeId: TreeId, includeUncommitted: boolean): Promise<TreeInfo> {
     const treeInfo = {
       treeId,
       root: this.trees[treeId].getRoot(includeUncommitted),
@@ -246,8 +239,8 @@ export class MerkleTrees implements MerkleTreeDb {
     return Promise.resolve(treeInfo);
   }
 
-  private _getIndexedTree(treeId: IndexedMerkleTreeId): StandardIndexedTree {
-    return this.trees[treeId] as StandardIndexedTree;
+  private _getIndexedTree(treeId: IndexedTreeId): IndexedTree {
+    return this.trees[treeId] as IndexedTree;
   }
 
   /**
@@ -256,7 +249,7 @@ export class MerkleTrees implements MerkleTreeDb {
    * @param index - Index of the leaf to get the sibling path for.
    * @returns Promise containing the sibling path for the leaf.
    */
-  private _getSiblingPath(treeId: MerkleTreeId, index: bigint, includeUncommitted: boolean): Promise<SiblingPath> {
+  private _getSiblingPath(treeId: TreeId, index: bigint, includeUncommitted: boolean): Promise<SiblingPath> {
     return Promise.resolve(this.trees[treeId].getSiblingPath(index, includeUncommitted));
   }
 
@@ -266,7 +259,7 @@ export class MerkleTrees implements MerkleTreeDb {
    * @param leaves - Leaves to append.
    * @returns Empty promise.
    */
-  private async _appendLeaves(treeId: MerkleTreeId, leaves: Buffer[]): Promise<void> {
+  private async _appendLeaves(treeId: TreeId, leaves: Buffer[]): Promise<void> {
     const tree = this.trees[treeId];
     if (!('appendLeaves' in tree)) {
       throw new Error('Tree does not support `appendLeaves` method');

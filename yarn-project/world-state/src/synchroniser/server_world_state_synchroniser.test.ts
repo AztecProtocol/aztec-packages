@@ -6,7 +6,7 @@ import { AztecAddress, randomBytes, sleep } from '@aztec/foundation';
 import { jest } from '@jest/globals';
 import { EthAddress, Fr } from '@aztec/foundation';
 import { AppendOnlyTreeSnapshot } from '@aztec/circuits.js';
-import { MerkleTreeDb, MerkleTreeId } from '../index.js';
+import { MerkleTreeDb, TreeId } from '../index.js';
 import { BarretenbergWasm } from '@aztec/barretenberg.js/wasm';
 
 /**
@@ -66,9 +66,7 @@ describe('server_world_state_synchroniser', () => {
   const merkleTreeDb: Mockify<MerkleTreeDb> = {
     getTreeInfo: jest
       .fn()
-      .mockImplementation(() =>
-        Promise.resolve({ treeId: MerkleTreeId.CONTRACT_TREE, root: Buffer.alloc(32, 0), size: 0n }),
-      ),
+      .mockImplementation(() => Promise.resolve({ treeId: TreeId.CONTRACT_TREE, root: Buffer.alloc(32, 0), size: 0n })),
     appendLeaves: jest.fn().mockImplementation(() => Promise.resolve()),
     getSiblingPath: jest.fn().mockImplementation(() => {
       return async () => {
@@ -239,7 +237,7 @@ describe('server_world_state_synchroniser', () => {
     for (let i = 0; i < totalBlocks; i++) {
       expect(
         merkleTreeDb.appendLeaves.mock.calls.findIndex(call => {
-          if (call[0] !== MerkleTreeId.CONTRACT_TREE) {
+          if (call[0] !== TreeId.CONTRACT_TREE) {
             return false;
           }
           const leaves = call[1] as Buffer[];
