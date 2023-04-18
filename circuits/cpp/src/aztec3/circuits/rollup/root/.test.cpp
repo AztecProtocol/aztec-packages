@@ -108,7 +108,6 @@ class root_rollup_tests : public ::testing::Test {
                    RootRollupPublicInputs& expected_public_inputs,
                    bool compare_pubins = true)
     {
-        info("Retesting via cbinds....");
         // TODO might be able to get rid of proving key buffer
         uint8_t const* pk_buf;
         size_t pk_size = root_rollup__init_proving_key(&pk_buf);
