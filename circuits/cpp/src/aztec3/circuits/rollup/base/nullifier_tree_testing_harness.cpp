@@ -6,7 +6,6 @@
 
 using NullifierMemoryTree = proof_system::plonk::stdlib::merkle_tree::NullifierMemoryTree;
 using nullifier_leaf = proof_system::plonk::stdlib::merkle_tree::nullifier_leaf;
-using NullifierLeaf = proof_system::plonk::stdlib::merkle_tree::NullifierLeaf;
 
 NullifierMemoryTreeTestingHarness::NullifierMemoryTreeTestingHarness(size_t depth)
     : NullifierMemoryTree(depth)

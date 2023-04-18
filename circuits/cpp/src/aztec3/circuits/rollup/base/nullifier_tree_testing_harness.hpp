@@ -11,7 +11,6 @@
  */
 class NullifierMemoryTreeTestingHarness : public proof_system::plonk::stdlib::merkle_tree::NullifierMemoryTree {
     using nullifier_leaf = proof_system::plonk::stdlib::merkle_tree::nullifier_leaf;
-    using NullifierLeaf = proof_system::plonk::stdlib::merkle_tree::NullifierLeaf;
 
   public:
     NullifierMemoryTreeTestingHarness(size_t depth);

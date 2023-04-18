@@ -177,8 +177,13 @@ export class IndexedTree implements MerkleTree {
    * @param index - The index of the element
    */
   public async updateLeaf(leaf: LeafData, index: bigint): Promise<void> {
+    let encodedLeaf;
+    if (leaf.value == 0n) {
+      encodedLeaf = toBufferBE(0n, 32);
+    } else {
+      encodedLeaf = hashEncodedTreeValue(leaf, this.hasher);
+    }
     this.cachedLeaves[Number(index)] = leaf;
-    const encodedLeaf = hashEncodedTreeValue(leaf, this.hasher);
     await this.underlying.updateLeaf(encodedLeaf, index);
   }
 
