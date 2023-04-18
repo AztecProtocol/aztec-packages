@@ -11,6 +11,7 @@ RUN apk update \
         curl \
         perl
 
+ADD "https://www.random.org/cgi-bin/randbyte?nbytes=10&format=h" skipcache
 WORKDIR /usr/src/circuits/cpp
 ADD "https://www.random.org/cgi-bin/randbyte?nbytes=10&format=h" skipcache
 COPY . .
