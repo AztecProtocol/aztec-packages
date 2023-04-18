@@ -1,10 +1,10 @@
 import { RunningPromise, createDebugLogger } from '@aztec/foundation';
 import { P2P } from '@aztec/p2p';
-import { Tx, UnverifiedData } from '@aztec/types';
+import { PrivateTx, PublicTx, Tx, UnverifiedData, isPrivateTx } from '@aztec/types';
 import { MerkleTreeId, WorldStateStatus, WorldStateSynchroniser } from '@aztec/world-state';
 import times from 'lodash.times';
 import { BlockBuilder } from '../block_builder/index.js';
-import { makeEmptyTx } from '../index.js';
+import { makeEmptyPrivateTx } from '../index.js';
 import { L1Publisher } from '../publisher/l1-publisher.js';
 import { ceilPowerOfTwo } from '../utils.js';
 import { SequencerConfig } from './config.js';
@@ -83,43 +83,21 @@ export class Sequencer {
       }
 
       // Do not go forward with new block if the previous one has not been mined and processed
-      if (!prevBlockSynced) {
-        return;
-      }
+      if (!prevBlockSynced) return;
 
       this.state = SequencerState.WAITING_FOR_TXS;
 
       // Get a single tx (for now) to build the new block
       // P2P client is responsible for ensuring this tx is eligible (proof ok, not mined yet, etc)
-      const pendingTxs = await this.p2pClient.getTxs(); //.then(txs => txs.slice(0, this.maxTxsPerBlock));
+      const pendingTxs = await this.p2pClient.getTxs();
       if (pendingTxs.length === 0) return;
       this.log(`Processing ${pendingTxs.length} txs from P2P pool`);
 
-      const validTxs = [];
-      const doubleSpendTxs = [];
-
-      // Process txs until we get to maxTxsPerBlock, rejecting double spends in the process
-      for (const tx of pendingTxs) {
-        // TODO(AD) - eventually we should add a limit to how many transactions we
-        // skip in this manner and do something more DDOS-proof (like letting the transaction fail and pay a fee).
-        if (await this.isTxDoubleSpend(tx)) {
-          doubleSpendTxs.push(tx);
-        } else {
-          validTxs.push(tx);
-        }
-        if (validTxs.length >= this.maxTxsPerBlock) {
-          break;
-        }
+      const validTxs = await this.takeValidTxs(pendingTxs);
+      if (validTxs.length === 0) {
+        this.log(`No valid txs left after processing`);
+        return;
       }
-
-      // Make sure we remove these from the tx pool so we do not consider it again
-      if (doubleSpendTxs.length > 0) {
-        const doubleSpendTxsHashes = await Promise.all(doubleSpendTxs.map(t => t.getTxHash()));
-        this.log(`Deleting double spend txs ${doubleSpendTxsHashes.join(', ')}`);
-        await this.p2pClient.deleteTxs(doubleSpendTxsHashes);
-      }
-
-      if (validTxs.length === 0) return;
 
       const validTxHashes = await Promise.all(validTxs.map(tx => tx.getTxHash()));
       this.log(`Assembling block with txs ${validTxHashes.join(', ')}`);
@@ -139,11 +117,11 @@ export class Sequencer {
         this.log(`Failed to publish block`);
       }
 
-      // Publishes new unverified data to the network and awaits the tx to be mined
+      // Publishes new unverified data for private txs to the network and awaits the tx to be mined
       this.state = SequencerState.PUBLISHING_UNVERIFIED_DATA;
       const publishedUnverifiedData = await this.publisher.processUnverifiedData(
         block.number,
-        UnverifiedData.join(validTxs.map(tx => tx.unverifiedData)),
+        UnverifiedData.join(validTxs.filter(isPrivateTx).map(tx => tx.unverifiedData)),
       );
       if (publishedUnverifiedData) {
         this.log(`Successfully published unverifiedData for block ${block.number}`);
@@ -154,6 +132,42 @@ export class Sequencer {
       this.log(err, 'error');
       // TODO: Rollback changes to DB
     }
+  }
+
+  protected async takeValidTxs(txs: Tx[]) {
+    const validTxs = [];
+    const doubleSpendTxs = [];
+    const invalidSigTxs = [];
+
+    // Process txs until we get to maxTxsPerBlock, rejecting double spends in the process
+    for (const tx of txs) {
+      // TODO(AD) - eventually we should add a limit to how many transactions we
+      // skip in this manner and do something more DDOS-proof (like letting the transaction fail and pay a fee).
+      if (tx.isPrivate() && (await this.isTxDoubleSpend(tx))) {
+        this.log(`Deleting double spend tx ${await tx.getTxHash()}`);
+        doubleSpendTxs.push(tx);
+        continue;
+      }
+
+      if (tx.isPublic() && !(await this.isValidSignature(tx))) {
+        this.log(`Deleting invalid signature tx ${await tx.getTxHash()}`);
+        invalidSigTxs.push(tx);
+        continue;
+      }
+
+      validTxs.push(tx);
+      if (validTxs.length >= this.maxTxsPerBlock) {
+        break;
+      }
+    }
+
+    // Make sure we remove these from the tx pool so we do not consider it again
+    if (doubleSpendTxs.length > 0 || invalidSigTxs.length > 0) {
+      const hashes = await Promise.all([...doubleSpendTxs, ...invalidSigTxs].map(t => t.getTxHash()));
+      await this.p2pClient.deleteTxs(hashes);
+    }
+
+    return validTxs;
   }
 
   /**
@@ -170,7 +184,7 @@ export class Sequencer {
   protected async buildBlock(txs: Tx[]) {
     // Pad the txs array with empty txs to be a power of two, at least 4
     const txsTargetSize = Math.max(ceilPowerOfTwo(txs.length), 4);
-    const allTxs = [...txs, ...times(txsTargetSize - txs.length, makeEmptyTx)];
+    const allTxs = [...txs, ...times(txsTargetSize - txs.length, makeEmptyPrivateTx)];
 
     const [block] = await this.blockBuilder.buildL2Block(this.lastBlockNumber + 1, allTxs);
     return block;
@@ -182,7 +196,7 @@ export class Sequencer {
    * @param tx - The transaction.
    * @returns Whether this is a problematic double spend that the L1 contract would reject.
    */
-  protected async isTxDoubleSpend(tx: Tx): Promise<boolean> {
+  protected async isTxDoubleSpend(tx: PrivateTx): Promise<boolean> {
     // eslint-disable-next-line @typescript-eslint/await-thenable
     for (const nullifier of tx.data.end.newNullifiers) {
       // Skip nullifier if it's empty
@@ -197,6 +211,11 @@ export class Sequencer {
       }
     }
     return false;
+  }
+
+  protected isValidSignature(tx: PublicTx): Promise<boolean> {
+    // TODO: Validate tx ECDSA signature!
+    return Promise.resolve(true);
   }
 }
 

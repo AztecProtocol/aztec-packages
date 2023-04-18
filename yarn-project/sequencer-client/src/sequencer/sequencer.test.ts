@@ -4,7 +4,7 @@ import { L2Block, UnverifiedData } from '@aztec/types';
 import { MerkleTreeId, MerkleTreeOperations, WorldStateRunningState, WorldStateSynchroniser } from '@aztec/world-state';
 import { MockProxy, mock } from 'jest-mock-extended';
 import { BlockBuilder } from '../block_builder/index.js';
-import { L1Publisher, makeEmptyTx, makeTx } from '../index.js';
+import { L1Publisher, makeEmptyPrivateTx, makePrivateTx } from '../index.js';
 import { Sequencer } from './sequencer.js';
 
 describe('sequencer', () => {
@@ -38,7 +38,7 @@ describe('sequencer', () => {
   });
 
   it('builds a block out of a single tx', async () => {
-    const tx = makeTx();
+    const tx = makePrivateTx();
     const block = L2Block.random(lastBlockNumber + 1);
     const proof = makeEmptyProof();
 
@@ -50,7 +50,7 @@ describe('sequencer', () => {
     await sequencer.initialSync();
     await sequencer.work();
 
-    const expectedTxs = [tx, makeEmptyTx(), makeEmptyTx(), makeEmptyTx()];
+    const expectedTxs = [tx, makeEmptyPrivateTx(), makeEmptyPrivateTx(), makeEmptyPrivateTx()];
     const expectedUnverifiedData = tx.unverifiedData;
 
     expect(blockBuilder.buildL2Block).toHaveBeenCalledWith(lastBlockNumber + 1, expectedTxs);
@@ -59,7 +59,7 @@ describe('sequencer', () => {
   });
 
   it('builds a block out of several txs rejecting double spends', async () => {
-    const txs = [makeTx(0x10000), makeTx(0x20000), makeTx(0x30000)];
+    const txs = [makePrivateTx(0x10000), makePrivateTx(0x20000), makePrivateTx(0x30000)];
     const doubleSpendTx = txs[1];
     const block = L2Block.random(lastBlockNumber + 1);
     const proof = makeEmptyProof();
@@ -80,7 +80,7 @@ describe('sequencer', () => {
     await sequencer.initialSync();
     await sequencer.work();
 
-    const expectedTxs = [txs[0], txs[2], makeEmptyTx(), makeEmptyTx()];
+    const expectedTxs = [txs[0], txs[2], makeEmptyPrivateTx(), makeEmptyPrivateTx()];
     const expectedUnverifiedData = new UnverifiedData([
       ...txs[0].unverifiedData.dataChunks,
       ...txs[2].unverifiedData.dataChunks,
