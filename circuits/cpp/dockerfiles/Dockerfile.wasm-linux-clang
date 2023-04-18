@@ -9,4 +9,3 @@ RUN cmake --preset wasm -DUSE_TURBO=true && cmake --build --preset wasm
 FROM alpine:3.17
 COPY --from=builder /usr/src/circuits/cpp/build-wasm/bin/aztec3-circuits.wasm /usr/src/circuits/cpp/build-wasm/bin/aztec3-circuits.wasm
 COPY --from=builder /usr/src/circuits/cpp/barretenberg/cpp/build-wasm/bin/primitives.wasm /usr/src/circuits/cpp/barretenberg/cpp/build-wasm/bin/primitives.wasm
-COPY --from=builder /usr/src/circuits/cpp/barretenberg/cpp/srs_db /usr/src/circuits/cpp/barretenberg/cpp/srs_db
