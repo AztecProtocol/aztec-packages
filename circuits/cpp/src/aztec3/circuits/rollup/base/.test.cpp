@@ -506,7 +506,7 @@ void perform_standard_nullifier_test(std::array<fr, KERNEL_NEW_NULLIFIERS_LENGTH
 {
     // Regression test caught when testing the typescript nullifier tree implementation
     DummyComposer composer = DummyComposer();
-    BaseRollupInputs empty_inputs = dummy_base_rollup_inputs_with_vk_proof();
+    BaseRollupInputs empty_inputs = dummy_base_rollup_inputs();
 
     std::vector<fr> initial_values(7, 0);
     for (size_t i = 0; i < 7; i++) {
