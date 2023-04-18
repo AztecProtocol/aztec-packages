@@ -5,6 +5,7 @@ import { FunctionAbi } from '@aztec/noir-contracts';
 import { acvm, fromACVMField, toACVMField, toACVMWitness } from '../acvm/index.js';
 import { PublicDB } from './db.js';
 import { select_return_flattened as selectPublicWitnessFlattened } from '@noir-lang/noir_util_wasm';
+import { StateActionsCollector } from './state_actions.js';
 
 export interface PublicExecutionResult {
   acir: Buffer;
@@ -63,9 +64,7 @@ export class PublicExecution {
 
     const acir = Buffer.from(this.abi.bytecode, 'hex');
     const initialWitness = getInitialWitness(this.args, this.callContext);
-
-    const stateReads: StateRead[] = [];
-    const stateTransitions: StateTransition[] = [];
+    const stateActions = new StateActionsCollector(this.db, this.contractAddress);
 
     const notAvailable = () => Promise.reject(`Built-in not available for public execution simulation`);
 
@@ -78,16 +77,14 @@ export class PublicExecution {
       callPrivateFunction: notAvailable,
       storageRead: async ([slot]) => {
         const storageSlot = fromACVMField(slot);
-        const value = await this.db.storageRead(this.contractAddress, storageSlot);
-        stateReads.push({ value, storageSlot });
+        const value = await stateActions.read(storageSlot);
         this.log(`Oracle storage read: slot=${storageSlot.toShortString()} value=${value.toString()}`);
         return [toACVMField(value)];
       },
       storageWrite: async ([slot, value]) => {
         const storageSlot = fromACVMField(slot);
         const newValue = fromACVMField(value);
-        const oldValue = await this.db.storageWrite(this.contractAddress, storageSlot, newValue);
-        stateTransitions.push({ storageSlot, newValue, oldValue });
+        await stateActions.write(storageSlot, newValue);
         this.log(`Oracle storage write: slot=${storageSlot.toShortString()} value=${value.toString()}`);
         return [toACVMField(newValue)];
       },
@@ -95,6 +92,7 @@ export class PublicExecution {
 
     const returnValues = selectPublicWitnessFlattened(acir, partialWitness).map(fromACVMField);
     const vk = Buffer.from(this.abi.verificationKey!, 'hex');
+    const [stateReads, stateTransitions] = stateActions.collect();
 
     return {
       acir,
