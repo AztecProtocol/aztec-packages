@@ -136,6 +136,56 @@ export class IndexedTree extends MerkleTreeBase implements AppendOnlyMerkleTree 
   }
 
   /**
+   * Finds the index of the largest leaf whose value is less than or equal to the provided value.
+   * @param newValue - The new value to be inserted into the tree.
+   * @returns Tuple containing the leaf index and a flag to say if the value is a duplicate.
+   */
+  public findIndexOfPreviousValue(newValue: bigint, includeUncommitted: boolean) {
+    const numLeaves = this.getNumLeaves(includeUncommitted);
+    const diff: bigint[] = [];
+
+    for (let i = 0; i < numLeaves; i++) {
+      const storedLeaf = this.getLatestLeafDataCopy(i, includeUncommitted)!;
+
+      // The stored leaf can be undefined if it addresses an empty leaf
+      // If the leaf is empty we do the same as if the leaf was larger
+      if (storedLeaf === undefined) {
+        diff.push(newValue);
+      } else if (storedLeaf.value > newValue) {
+        diff.push(newValue);
+      } else if (storedLeaf.value === newValue) {
+        return { index: i, alreadyPresent: true };
+      } else {
+        diff.push(newValue - storedLeaf.value);
+      }
+    }
+    const minIndex = this.findMinIndex(diff);
+    return { index: minIndex, alreadyPresent: false };
+  }
+
+  /**
+   * Gets the latest LeafData copy.
+   * @param index - Index of the leaf of which to obtain the LeafData copy.
+   * @returns A copy of the leaf data at the given index or undefined if the leaf was not found.
+   */
+  public getLatestLeafDataCopy(index: number, includeUncommitted: boolean): LeafData | undefined {
+    const leaf = !includeUncommitted ? this.leaves[index] : this.cachedLeaves[index] ?? this.leaves[index];
+    return leaf
+      ? ({
+          value: leaf.value,
+          nextIndex: leaf.nextIndex,
+          nextValue: leaf.nextValue,
+        } as LeafData)
+      : undefined;
+  }
+
+  public getLeafValue(index: bigint, includeUncommitted: boolean): Promise<Buffer | undefined> {
+    const leaf = this.getLatestLeafDataCopy(Number(index), includeUncommitted);
+    if (!leaf) return Promise.resolve(undefined);
+    return Promise.resolve(toBufferBE(leaf.value, 32));
+  }
+
+  /**
    * Appends the given leaf to the tree.
    * @param leaf - The leaf to append.
    * @returns Empty promise.
@@ -175,34 +225,6 @@ export class IndexedTree extends MerkleTreeBase implements AppendOnlyMerkleTree 
     this.cachedLeaves[Number(indexOfPrevious.index)] = previousLeafCopy;
     await this.updateLeaf(hashEncodedTreeValue(previousLeafCopy, this.hasher), BigInt(indexOfPrevious.index));
     await this.updateLeaf(hashEncodedTreeValue(newLeaf, this.hasher), this.getNumLeaves(true));
-  }
-
-  /**
-   * Finds the index of the largest leaf whose value is less than or equal to the provided value.
-   * @param newValue - The new value to be inserted into the tree.
-   * @returns Tuple containing the leaf index and a flag to say if the value is a duplicate.
-   */
-  public findIndexOfPreviousValue(newValue: bigint, includeUncommitted: boolean) {
-    const numLeaves = this.getNumLeaves(includeUncommitted);
-    const diff: bigint[] = [];
-
-    for (let i = 0; i < numLeaves; i++) {
-      const storedLeaf = this.getLatestLeafDataCopy(i, includeUncommitted)!;
-
-      // The stored leaf can be undefined if it addresses an empty leaf
-      // If the leaf is empty we do the same as if the leaf was larger
-      if (storedLeaf === undefined) {
-        diff.push(newValue);
-      } else if (storedLeaf.value > newValue) {
-        diff.push(newValue);
-      } else if (storedLeaf.value === newValue) {
-        return { index: i, alreadyPresent: true };
-      } else {
-        diff.push(newValue - storedLeaf.value);
-      }
-    }
-    const minIndex = this.findMinIndex(diff);
-    return { index: minIndex, alreadyPresent: false };
   }
 
   /**
@@ -286,28 +308,6 @@ export class IndexedTree extends MerkleTreeBase implements AppendOnlyMerkleTree 
    */
   private clearCachedLeaves() {
     this.cachedLeaves = {};
-  }
-
-  /**
-   * Gets the latest LeafData copy.
-   * @param index - Index of the leaf of which to obtain the LeafData copy.
-   * @returns A copy of the leaf data at the given index or undefined if the leaf was not found.
-   */
-  public getLatestLeafDataCopy(index: number, includeUncommitted: boolean): LeafData | undefined {
-    const leaf = !includeUncommitted ? this.leaves[index] : this.cachedLeaves[index] ?? this.leaves[index];
-    return leaf
-      ? ({
-          value: leaf.value,
-          nextIndex: leaf.nextIndex,
-          nextValue: leaf.nextValue,
-        } as LeafData)
-      : undefined;
-  }
-
-  public getLeafValue(index: bigint, includeUncommitted: boolean): Promise<Buffer | undefined> {
-    const leaf = this.getLatestLeafDataCopy(Number(index), includeUncommitted);
-    if (!leaf) return Promise.resolve(undefined);
-    return Promise.resolve(toBufferBE(leaf.value, 32));
   }
 
   /**

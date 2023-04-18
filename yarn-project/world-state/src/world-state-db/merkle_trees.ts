@@ -12,7 +12,6 @@ import {
   AppendOnlyMerkleTree,
   IndexedTree,
   LeafData,
-  MerkleTree,
   Pedersen,
   SiblingPath,
   StandardMerkleTree,
