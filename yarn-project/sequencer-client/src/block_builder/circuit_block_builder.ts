@@ -29,8 +29,8 @@ import chunk from 'lodash.chunk';
 import flatMap from 'lodash.flatmap';
 import times from 'lodash.times';
 import { VerificationKeys } from '../mocks/verification_keys.js';
-import { Proof, Prover } from '../prover/index.js';
-import { Simulator } from '../simulator/index.js';
+import { Proof, RollupProver } from '../prover/index.js';
+import { RollupSimulator } from '../simulator/index.js';
 
 import { BlockBuilder } from './index.js';
 
@@ -75,8 +75,8 @@ export class CircuitBlockBuilder implements BlockBuilder {
   constructor(
     protected db: MerkleTreeOperations,
     protected vks: VerificationKeys,
-    protected simulator: Simulator,
-    protected prover: Prover,
+    protected simulator: RollupSimulator,
+    protected prover: RollupProver,
     protected debug = createDebugLogger('aztec:sequencer'),
   ) {}
 

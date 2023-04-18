@@ -4,8 +4,11 @@ import { WorldStateSynchroniser } from '@aztec/world-state';
 import { CircuitBlockBuilder } from '../block_builder/circuit_block_builder.js';
 import { getL1Publisher, getVerificationKeys, Sequencer } from '../index.js';
 import { SequencerClientConfig } from '../config.js';
-import { EmptyProver } from '../prover/empty.js';
+import { EmptyPublicProver, EmptyRollupProver } from '../prover/empty.js';
 import { WasmCircuitSimulator } from '../simulator/wasm.js';
+import { PublicProcessor } from '../sequencer/public.js';
+import { FakePublicCircuitSimulator } from '../simulator/fake_public.js';
+import { MockPublicKernelCircuitSimulator } from '../simulator/mock_public_kernel.js';
 
 /**
  * Encapsulates the full sequencer and publisher.
@@ -19,13 +22,31 @@ export class SequencerClient {
     worldStateSynchroniser: WorldStateSynchroniser,
   ) {
     const publisher = getL1Publisher(config);
+    const merkleTreeDb = worldStateSynchroniser.getLatest();
+
     const blockBuilder = new CircuitBlockBuilder(
-      worldStateSynchroniser.getLatest(),
+      merkleTreeDb,
       getVerificationKeys(),
       await WasmCircuitSimulator.new(),
-      new EmptyProver(),
+      new EmptyRollupProver(),
     );
-    const sequencer = new Sequencer(publisher, p2pClient, worldStateSynchroniser, blockBuilder, config);
+
+    const publicProcessor = new PublicProcessor(
+      merkleTreeDb,
+      new FakePublicCircuitSimulator(merkleTreeDb),
+      new MockPublicKernelCircuitSimulator(),
+      new EmptyPublicProver(),
+    );
+
+    const sequencer = new Sequencer(
+      publisher,
+      p2pClient,
+      worldStateSynchroniser,
+      blockBuilder,
+      publicProcessor,
+      config,
+    );
+
     await sequencer.start();
     return new SequencerClient(sequencer);
   }

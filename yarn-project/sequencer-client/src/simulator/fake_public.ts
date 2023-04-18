@@ -1,12 +1,12 @@
 import { PublicDB, PublicExecution, computeSlot } from '@aztec/acir-simulator';
 import { BarretenbergWasm } from '@aztec/barretenberg.js/wasm';
 import { AztecAddress, EthAddress, Fr, PublicCircuitPublicInputs, TxRequest } from '@aztec/circuits.js';
+import { FunctionAbi } from '@aztec/noir-contracts';
 import { MerkleTreeId, MerkleTreeOperations } from '@aztec/world-state';
 import { PublicCircuitSimulator } from './index.js';
-import { FunctionAbi } from '@aztec/noir-contracts';
 
 export class FakePublicCircuitSimulator implements PublicCircuitSimulator {
-  private db: WorldStatePublicDB;
+  public readonly db: WorldStatePublicDB;
 
   constructor(merkleTree: MerkleTreeOperations) {
     this.db = new WorldStatePublicDB(merkleTree);
@@ -35,23 +35,9 @@ export class FakePublicCircuitSimulator implements PublicCircuitSimulator {
 class WorldStatePublicDB implements PublicDB {
   constructor(private db: MerkleTreeOperations) {}
 
-  private async getIndex(contract: AztecAddress, slot: Fr) {
-    const index = computeSlot(slot, contract.toField(), await BarretenbergWasm.get());
-    return index.value;
-  }
-
   public async storageRead(contract: AztecAddress, slot: Fr): Promise<Fr> {
-    const value = await this.db.getLeafValue(MerkleTreeId.PUBLIC_DATA_TREE, await this.getIndex(contract, slot));
-    if (!value) return Fr.ZERO;
-    return Fr.fromBuffer(value);
-  }
-
-  public async storageWrite(contract: AztecAddress, slot: Fr, value: Fr): Promise<Fr> {
-    const index = await this.getIndex(contract, slot);
-    const oldValue = await this.db.getLeafValue(MerkleTreeId.PUBLIC_DATA_TREE, index);
-    // TODO: Update leaf once the interface is available
-    // await this.db.updateLeaf(MerkleTreeId.PUBLIC_DATA_TREE, value.toBuffer(), index);
-    if (!oldValue) return Fr.ZERO;
-    return Fr.fromBuffer(oldValue);
+    const index = computeSlot(slot, contract.toField(), await BarretenbergWasm.get()).value;
+    const value = await this.db.getLeafValue(MerkleTreeId.PUBLIC_DATA_TREE, index);
+    return value ? Fr.fromBuffer(value) : Fr.ZERO;
   }
 }

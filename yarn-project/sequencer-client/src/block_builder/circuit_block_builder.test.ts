@@ -21,9 +21,9 @@ import flatMap from 'lodash.flatmap';
 import { default as memdown, type MemDown } from 'memdown';
 import { makeEmptyPrivateTx, makeEmptyUnverifiedData } from '../mocks/tx.js';
 import { VerificationKeys, getVerificationKeys } from '../mocks/verification_keys.js';
-import { EmptyProver } from '../prover/empty.js';
-import { Prover } from '../prover/index.js';
-import { Simulator } from '../simulator/index.js';
+import { EmptyRollupProver } from '../prover/empty.js';
+import { RollupProver } from '../prover/index.js';
+import { RollupSimulator } from '../simulator/index.js';
 import { WasmCircuitSimulator } from '../simulator/wasm.js';
 import { CircuitBlockBuilder } from './circuit_block_builder.js';
 import { computeContractLeaf } from '@aztec/circuits.js/abis';
@@ -38,8 +38,8 @@ describe('sequencer/circuit_block_builder', () => {
   let expectsDb: MerkleTreeOperations;
   let vks: VerificationKeys;
 
-  let simulator: MockProxy<Simulator>;
-  let prover: MockProxy<Prover>;
+  let simulator: MockProxy<RollupSimulator>;
+  let prover: MockProxy<RollupProver>;
 
   let blockNumber: number;
   let baseRollupOutputLeft: BaseOrMergeRollupPublicInputs;
@@ -59,8 +59,8 @@ describe('sequencer/circuit_block_builder', () => {
     builderDb = await MerkleTrees.new(levelup(createMemDown())).then(t => t.asLatest());
     expectsDb = await MerkleTrees.new(levelup(createMemDown())).then(t => t.asLatest());
     vks = getVerificationKeys();
-    simulator = mock<Simulator>();
-    prover = mock<Prover>();
+    simulator = mock<RollupSimulator>();
+    prover = mock<RollupProver>();
     builder = new TestSubject(builderDb, vks, simulator, prover);
 
     // Populate root trees with first roots from the empty trees
@@ -188,7 +188,7 @@ describe('sequencer/circuit_block_builder', () => {
   describe('circuits simulator', () => {
     beforeEach(async () => {
       const simulator = await WasmCircuitSimulator.new();
-      const prover = new EmptyProver();
+      const prover = new EmptyRollupProver();
       builder = new TestSubject(builderDb, vks, simulator, prover);
       await builder.updateRootTrees();
     });
@@ -236,7 +236,7 @@ describe('sequencer/circuit_block_builder', () => {
     // This test specifically tests nullifier values which previously caused e2e_zk_token test to fail
     it('e2e edge case - regression test', async () => {
       const simulator = await WasmCircuitSimulator.new();
-      const prover = new EmptyProver();
+      const prover = new EmptyRollupProver();
       builder = new TestSubject(builderDb, vks, simulator, prover);
       // update the starting tree
       const updateVals = Array(16).fill(0n);

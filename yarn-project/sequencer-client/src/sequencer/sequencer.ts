@@ -1,6 +1,6 @@
 import { RunningPromise, createDebugLogger } from '@aztec/foundation';
 import { P2P } from '@aztec/p2p';
-import { PrivateTx, PublicTx, Tx, UnverifiedData, isPrivateTx } from '@aztec/types';
+import { PrivateTx, PublicTx, Tx, UnverifiedData, isPrivateTx, isPublicTx } from '@aztec/types';
 import { MerkleTreeId, WorldStateStatus, WorldStateSynchroniser } from '@aztec/world-state';
 import times from 'lodash.times';
 import { BlockBuilder } from '../block_builder/index.js';
@@ -8,6 +8,7 @@ import { makeEmptyPrivateTx } from '../index.js';
 import { L1Publisher } from '../publisher/l1-publisher.js';
 import { ceilPowerOfTwo } from '../utils.js';
 import { SequencerConfig } from './config.js';
+import { PublicProcessor } from './public.js';
 
 /**
  * Sequencer client
@@ -30,6 +31,7 @@ export class Sequencer {
     private p2pClient: P2P,
     private worldState: WorldStateSynchroniser,
     private blockBuilder: BlockBuilder,
+    private publicProcessor: PublicProcessor,
     config?: SequencerConfig,
     private log = createDebugLogger('aztec:sequencer'),
   ) {
@@ -87,12 +89,12 @@ export class Sequencer {
 
       this.state = SequencerState.WAITING_FOR_TXS;
 
-      // Get a single tx (for now) to build the new block
-      // P2P client is responsible for ensuring this tx is eligible (proof ok, not mined yet, etc)
+      // Get txs to build the new block
       const pendingTxs = await this.p2pClient.getTxs();
       if (pendingTxs.length === 0) return;
       this.log(`Processing ${pendingTxs.length} txs from P2P pool`);
 
+      // Filter out invalid txs
       const validTxs = await this.takeValidTxs(pendingTxs);
       if (validTxs.length === 0) {
         this.log(`No valid txs left after processing`);
@@ -103,7 +105,15 @@ export class Sequencer {
       this.log(`Assembling block with txs ${validTxHashes.join(', ')}`);
       this.state = SequencerState.CREATING_BLOCK;
 
+      // Process public txs
+      const publicTxs = validTxs.filter(isPublicTx);
+      if (publicTxs.length > 0) {
+        // TODO: Filter out txs that errored here
+        const [_txs, _outputs] = await this.publicProcessor.process(publicTxs);
+      }
+
       // Build the new block by running the rollup circuits
+      // TODO: Get the public tx combined outputs in here!
       const block = await this.buildBlock(validTxs);
       this.log(`Assembled block ${block.number}`);
 
@@ -119,10 +129,8 @@ export class Sequencer {
 
       // Publishes new unverified data for private txs to the network and awaits the tx to be mined
       this.state = SequencerState.PUBLISHING_UNVERIFIED_DATA;
-      const publishedUnverifiedData = await this.publisher.processUnverifiedData(
-        block.number,
-        UnverifiedData.join(validTxs.filter(isPrivateTx).map(tx => tx.unverifiedData)),
-      );
+      const unverifiedData = UnverifiedData.join(validTxs.filter(isPrivateTx).map(tx => tx.unverifiedData));
+      const publishedUnverifiedData = await this.publisher.processUnverifiedData(block.number, unverifiedData);
       if (publishedUnverifiedData) {
         this.log(`Successfully published unverifiedData for block ${block.number}`);
       } else {
@@ -134,6 +142,7 @@ export class Sequencer {
     }
   }
 
+  // TODO: It should be responsibility of the P2P layer to validate txs before passing them on here
   protected async takeValidTxs(txs: Tx[]) {
     const validTxs = [];
     const doubleSpendTxs = [];
@@ -213,7 +222,7 @@ export class Sequencer {
     return false;
   }
 
-  protected isValidSignature(tx: PublicTx): Promise<boolean> {
+  protected isValidSignature(_tx: PublicTx): Promise<boolean> {
     // TODO: Validate tx ECDSA signature!
     return Promise.resolve(true);
   }

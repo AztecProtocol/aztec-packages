@@ -6,6 +6,7 @@ import { MockProxy, mock } from 'jest-mock-extended';
 import { BlockBuilder } from '../block_builder/index.js';
 import { L1Publisher, makeEmptyPrivateTx, makePrivateTx } from '../index.js';
 import { Sequencer } from './sequencer.js';
+import { PublicProcessor } from './public.js';
 
 describe('sequencer', () => {
   let publisher: MockProxy<L1Publisher>;
@@ -13,6 +14,7 @@ describe('sequencer', () => {
   let worldState: MockProxy<WorldStateSynchroniser>;
   let blockBuilder: MockProxy<BlockBuilder>;
   let merkleTreeOps: MockProxy<MerkleTreeOperations>;
+  let publicProcessor: MockProxy<PublicProcessor>;
 
   let lastBlockNumber: number;
 
@@ -34,7 +36,9 @@ describe('sequencer', () => {
       status: () => Promise.resolve({ state: WorldStateRunningState.IDLE, syncedToL2Block: lastBlockNumber }),
     });
 
-    sequencer = new TestSubject(publisher, p2p, worldState, blockBuilder);
+    publicProcessor = mock<PublicProcessor>();
+
+    sequencer = new TestSubject(publisher, p2p, worldState, blockBuilder, publicProcessor);
   });
 
   it('builds a block out of a single tx', async () => {
