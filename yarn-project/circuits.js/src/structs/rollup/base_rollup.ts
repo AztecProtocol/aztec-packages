@@ -1,6 +1,6 @@
 import { BufferReader, Fr } from '@aztec/foundation';
-import { assertLength, FieldsOf } from '../utils/jsUtils.js';
-import { serializeToBuffer } from '../utils/serialize.js';
+import { assertLength, FieldsOf } from '../../utils/jsUtils.js';
+import { serializeToBuffer } from '../../utils/serialize.js';
 import {
   CONTRACT_TREE_HEIGHT,
   CONTRACT_TREE_ROOTS_TREE_HEIGHT,
@@ -12,9 +12,11 @@ import {
   PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT,
   PUBLIC_DATA_TREE_HEIGHT,
   STATE_TRANSITIONS_LENGTH,
-} from './constants.js';
-import { PreviousKernelData } from './private_kernel.js';
-import { AggregationObject, MembershipWitness, RollupTypes, UInt32 } from './shared.js';
+} from '../constants.js';
+import { PreviousKernelData } from '../kernel/previous_kernel_data.js';
+import { UInt32 } from '../shared.js';
+import { MembershipWitness } from '../membership_witness.js';
+import { AppendOnlyTreeSnapshot } from './append_only_tree_snapshot.js';
 
 export class NullifierLeafPreimage {
   constructor(public leafValue: Fr, public nextValue: Fr, public nextIndex: UInt32) {}
@@ -25,23 +27,6 @@ export class NullifierLeafPreimage {
 
   static empty() {
     return new NullifierLeafPreimage(Fr.ZERO, Fr.ZERO, 0);
-  }
-}
-
-export class AppendOnlyTreeSnapshot {
-  constructor(public root: Fr, public nextAvailableLeafIndex: UInt32) {}
-
-  toBuffer() {
-    return serializeToBuffer(this.root, this.nextAvailableLeafIndex);
-  }
-
-  static fromBuffer(buffer: Buffer | BufferReader): AppendOnlyTreeSnapshot {
-    const reader = BufferReader.asReader(buffer);
-    return new AppendOnlyTreeSnapshot(reader.readFr(), reader.readNumber());
-  }
-
-  static empty() {
-    return new AppendOnlyTreeSnapshot(Fr.ZERO, 0);
   }
 }
 
@@ -173,82 +158,5 @@ export class BaseRollupInputs {
 
   toBuffer() {
     return serializeToBuffer(...BaseRollupInputs.getFields(this));
-  }
-}
-
-/**
- * Output of the base rollup circuit
- */
-export class BaseOrMergeRollupPublicInputs {
-  constructor(
-    public rollupType: RollupTypes,
-    public rollupSubTreeHeight: Fr,
-    public endAggregationObject: AggregationObject,
-    public constants: ConstantBaseRollupData,
-
-    public startPrivateDataTreeSnapshot: AppendOnlyTreeSnapshot,
-    public endPrivateDataTreeSnapshot: AppendOnlyTreeSnapshot,
-
-    public startNullifierTreeSnapshot: AppendOnlyTreeSnapshot,
-    public endNullifierTreeSnapshot: AppendOnlyTreeSnapshot,
-
-    public startContractTreeSnapshot: AppendOnlyTreeSnapshot,
-    public endContractTreeSnapshot: AppendOnlyTreeSnapshot,
-
-    public startPublicDataTreeTreeSnapshot: AppendOnlyTreeSnapshot,
-    public endPublicDataTreeTreeSnapshot: AppendOnlyTreeSnapshot,
-
-    // Hashes (sha256), to make public inputs constant-sized (to then be unpacked on-chain). Length 2 for high and low
-    public calldataHash: [Fr, Fr],
-  ) {}
-
-  /**
-   * Deserializes from a buffer or reader, corresponding to a write in cpp.
-   * @param bufferReader - Buffer to read from.
-   */
-  static fromBuffer(buffer: Buffer | BufferReader): BaseOrMergeRollupPublicInputs {
-    const reader = BufferReader.asReader(buffer);
-    return new BaseOrMergeRollupPublicInputs(
-      reader.readNumber(),
-      reader.readFr(),
-      reader.readObject(AggregationObject),
-      reader.readObject(ConstantBaseRollupData),
-      reader.readObject(AppendOnlyTreeSnapshot),
-      reader.readObject(AppendOnlyTreeSnapshot),
-      reader.readObject(AppendOnlyTreeSnapshot),
-      reader.readObject(AppendOnlyTreeSnapshot),
-      reader.readObject(AppendOnlyTreeSnapshot),
-      reader.readObject(AppendOnlyTreeSnapshot),
-      reader.readObject(AppendOnlyTreeSnapshot),
-      reader.readObject(AppendOnlyTreeSnapshot),
-      reader.readArray(2, Fr) as [Fr, Fr],
-    );
-  }
-
-  /**
-   * Serialize this as a buffer.
-   * @returns The buffer.
-   */
-  toBuffer() {
-    return serializeToBuffer(
-      this.rollupType,
-      this.rollupSubTreeHeight,
-      this.endAggregationObject,
-      this.constants,
-
-      this.startPrivateDataTreeSnapshot,
-      this.endPrivateDataTreeSnapshot,
-
-      this.startNullifierTreeSnapshot,
-      this.endNullifierTreeSnapshot,
-
-      this.startContractTreeSnapshot,
-      this.endContractTreeSnapshot,
-
-      this.startPublicDataTreeTreeSnapshot,
-      this.endPublicDataTreeTreeSnapshot,
-
-      this.calldataHash,
-    );
   }
 }

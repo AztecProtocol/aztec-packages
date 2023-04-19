@@ -1,5 +1,5 @@
-import { expectSerializeToMatchSnapshot } from '../tests/expectSerialize.js';
-import { makePreviousKernelData, makePrivateKernelInputs, makeKernelPublicInputs } from '../tests/factories.js';
+import { expectSerializeToMatchSnapshot } from '../../tests/expectSerialize.js';
+import { makePreviousKernelData, makePrivateKernelInputs, makeKernelPublicInputs } from '../../tests/factories.js';
 
 describe('structs/kernel', () => {
   it(`serializes and prints previous_kernel_data`, async () => {

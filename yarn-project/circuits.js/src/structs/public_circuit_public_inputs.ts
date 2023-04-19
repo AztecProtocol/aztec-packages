@@ -85,6 +85,7 @@ export class PublicCircuitPublicInputs {
     assertLength(this, 'stateTransitions', STATE_TRANSITIONS_LENGTH);
     assertLength(this, 'stateReads', STATE_READS_LENGTH);
   }
+
   /**
    * Create PublicCircuitPublicInputs from a fields dictionary.
    * @param fields - The dictionary.
@@ -131,5 +132,13 @@ export class PublicCircuitPublicInputs {
       fields.historicPublicDataTreeRoot,
       fields.proverAddress,
     ] as const;
+  }
+
+  /**
+   * Serialize this as a buffer.
+   * @returns The buffer.
+   */
+  toBuffer(): Buffer {
+    return serializeToBuffer(...PublicCircuitPublicInputs.getFields(this));
   }
 }

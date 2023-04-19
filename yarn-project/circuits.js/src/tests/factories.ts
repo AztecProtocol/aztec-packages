@@ -1,21 +1,30 @@
 import { AztecAddress, EthAddress, Fq, Fr } from '@aztec/foundation';
 import {
+  BaseOrMergeRollupPublicInputs,
+  BaseRollupInputs,
   CallContext,
+  CombinedAccumulatedData,
+  CombinedConstantData,
+  CombinedOldTreeRoots,
+  ConstantBaseRollupData,
+  KernelCircuitPublicInputs,
   MergeRollupInputs,
+  NewContractData,
+  NullifierLeafPreimage,
+  OptionallyRevealedData,
+  PreviousKernelData,
   PreviousRollupData,
+  PrivateCallData,
   PrivateCircuitPublicInputs,
+  PrivateKernelInputs,
+  PrivateOldTreeRoots,
   RootRollupInputs,
   RootRollupPublicInputs,
   StateRead,
   StateTransition,
 } from '../index.js';
-import {
-  AppendOnlyTreeSnapshot,
-  BaseRollupInputs,
-  BaseOrMergeRollupPublicInputs,
-  ConstantBaseRollupData,
-  NullifierLeafPreimage,
-} from '../structs/base_rollup.js';
+import { AggregationObject } from '../structs/aggregation_object.js';
+import { PrivateCallStackItem } from '../structs/call_stack_item.js';
 import {
   ARGS_LENGTH,
   CONTRACT_TREE_HEIGHT,
@@ -45,29 +54,11 @@ import {
   VK_TREE_HEIGHT,
 } from '../structs/constants.js';
 import { FunctionData } from '../structs/function_data.js';
-import {
-  CombinedAccumulatedData,
-  CombinedConstantData,
-  NewContractData,
-  PrivateOldTreeRoots,
-  OptionallyRevealedData,
-  PreviousKernelData,
-  PrivateCallData,
-  PrivateKernelInputs,
-  KernelCircuitPublicInputs,
-  CombinedOldTreeRoots,
-} from '../structs/private_kernel.js';
-import { PrivateCallStackItem } from '../structs/private_call_stack_item.js';
-import {
-  AffineElement,
-  AggregationObject,
-  ComposerType,
-  EcdsaSignature,
-  MembershipWitness,
-  RollupTypes,
-  UInt8Vector,
-} from '../structs/shared.js';
-import { ContractDeploymentData, SignedTxRequest, TxContext, TxRequest } from '../structs/tx.js';
+import { MembershipWitness } from '../structs/membership_witness.js';
+import { AppendOnlyTreeSnapshot } from '../structs/rollup/append_only_tree_snapshot.js';
+import { AffineElement, ComposerType, EcdsaSignature, RollupTypes, UInt8Vector } from '../structs/shared.js';
+import { ContractDeploymentData, TxContext } from '../structs/tx_context.js';
+import { SignedTxRequest, TxRequest } from '../structs/tx_request.js';
 import { CommitmentMap, G1AffineElement, VerificationKey } from '../structs/verification_key.js';
 import { range } from '../utils/jsUtils.js';
 import { numToUInt32BE } from '../utils/serialize.js';
