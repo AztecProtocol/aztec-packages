@@ -45,12 +45,14 @@ export class MerkleTrees implements MerkleTreeDb {
     const wasm = optionalWasm ?? (await PrimitivesWasm.get());
     const hasher = new Pedersen(wasm);
     const contractTree: AppendOnlyTree = await StandardTree.new<StandardTree>(
+      StandardTree,
       this.db,
       hasher,
       `${MerkleTreeId[MerkleTreeId.CONTRACT_TREE]}`,
       CONTRACT_TREE_HEIGHT,
     );
     const contractTreeRootsTree: AppendOnlyTree = await StandardTree.new<StandardTree>(
+      StandardTree,
       this.db,
       hasher,
       `${MerkleTreeId[MerkleTreeId.CONTRACT_TREE_ROOTS_TREE]}`,
@@ -64,12 +66,14 @@ export class MerkleTrees implements MerkleTreeDb {
       INITIAL_NULLIFIER_TREE_SIZE,
     );
     const dataTree: AppendOnlyTree = await StandardTree.new<StandardTree>(
+      StandardTree,
       this.db,
       hasher,
       `${MerkleTreeId[MerkleTreeId.DATA_TREE]}`,
       PRIVATE_DATA_TREE_HEIGHT,
     );
     const dataTreeRootsTree: AppendOnlyTree = await StandardTree.new<StandardTree>(
+      StandardTree,
       this.db,
       hasher,
       `${MerkleTreeId[MerkleTreeId.DATA_TREE_ROOTS_TREE]}`,

@@ -154,6 +154,7 @@ describe('ACIR simulator', () => {
       const abi = ZkTokenContractAbi.functions.find(f => f.name === 'transfer') as unknown as FunctionAbi;
 
       const tree: AppendOnlyTree = await StandardTree.new<StandardTree>(
+        StandardTree,
         db,
         pedersen,
         'privateData',
@@ -225,6 +226,7 @@ describe('ACIR simulator', () => {
       const abi = ZkTokenContractAbi.functions.find(f => f.name === 'transfer') as unknown as FunctionAbi;
 
       const tree: AppendOnlyTree = await StandardTree.new<StandardTree>(
+        StandardTree,
         db,
         pedersen,
         'privateData',
