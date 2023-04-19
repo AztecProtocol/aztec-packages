@@ -19,14 +19,12 @@ template <typename NCT> struct PublicKernelInputs {
     typedef typename NCT::fr fr;
     typedef typename NCT::boolean boolean;
 
-    SignedTxRequest<NCT> signed_tx_request{};
     PreviousKernelData<NCT> previous_kernel{};
     PublicCallData<NCT> public_call{};
 
     boolean operator==(PublicKernelInputs<NCT> const& other) const
     {
-        return signed_tx_request == other.signed_tx_request && previous_kernel == other.previous_kernel &&
-               public_call == other.public_call;
+        return previous_kernel == other.previous_kernel && public_call == other.public_call;
     };
 
     template <typename Composer> PublicKernelInputs<CircuitTypes<Composer>> to_circuit_type(Composer& composer) const
@@ -34,8 +32,6 @@ template <typename NCT> struct PublicKernelInputs {
         static_assert((std::is_same<NativeTypes, NCT>::value));
 
         PublicKernelInputs<CircuitTypes<Composer>> public_kernel_inputs = {
-            // TODO to_ct(signature),
-            signed_tx_request.to_circuit_type(composer),
             previous_kernel.to_circuit_type(composer),
             public_call.to_circuit_type(composer),
         };
@@ -48,7 +44,6 @@ template <typename NCT> void read(uint8_t const*& it, PublicKernelInputs<NCT>& p
 {
     using serialize::read;
 
-    read(it, public_kernel_inputs.signed_tx_request);
     read(it, public_kernel_inputs.previous_kernel);
     read(it, public_kernel_inputs.public_call);
 };
@@ -57,16 +52,13 @@ template <typename NCT> void write(std::vector<uint8_t>& buf, PublicKernelInputs
 {
     using serialize::write;
 
-    write(buf, public_kernel_inputs.signed_tx_request);
     write(buf, public_kernel_inputs.previous_kernel);
     write(buf, public_kernel_inputs.public_call);
 };
 
 template <typename NCT> std::ostream& operator<<(std::ostream& os, PublicKernelInputs<NCT> const& public_kernel_inputs)
 {
-    return os << "signed_tx_request:\n"
-              << public_kernel_inputs.signed_tx_request << "\n"
-              << "previous_kernel:\n"
+    return os << "previous_kernel:\n"
               << public_kernel_inputs.previous_kernel << "\n"
               << "public_call:\n"
               << public_kernel_inputs.public_call << "\n";

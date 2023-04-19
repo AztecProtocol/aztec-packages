@@ -1,6 +1,6 @@
 #pragma once
 
-#include "previous_kernel_data.hpp"
+#include "../previous_kernel_data.hpp"
 #include "public_call_data.hpp"
 #include "../signed_tx_request.hpp"
 #include "../membership_witness.hpp"
@@ -21,8 +21,9 @@ template <typename NCT> struct WitnessedPublicCallData {
     typedef typename NCT::boolean boolean;
 
     PublicCallData public_call_data;
-    std::array<MembershipWitness<PUBLIC_DATA_TREE_HEIGHT>, STATE_TRANSITIONS_LENGTH> state_transitions_sibling_paths;
-    std::array<MembershipWitness<PUBLIC_DATA_TREE_HEIGHT>, STATE_READS_LENGTH> state_reads_sibling_paths;
+    std::array<MembershipWitness<NCT, PUBLIC_DATA_TREE_HEIGHT>, STATE_TRANSITIONS_LENGTH>
+        state_transitions_sibling_paths;
+    std::array<MembershipWitness<NCT, PUBLIC_DATA_TREE_HEIGHT>, STATE_READS_LENGTH> state_reads_sibling_paths;
     fr public_data_tree_root;
 
     boolean operator==(WitnessedPublicCallData<NCT> const& other) const
