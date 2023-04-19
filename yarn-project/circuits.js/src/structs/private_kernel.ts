@@ -284,7 +284,7 @@ export class KernelCircuitPublicInputs {
   ) {}
 
   toBuffer() {
-    return serializeToBuffer(this.end, this.constants, this.isPrivateKernel, this.isPrivateKernel);
+    return serializeToBuffer(this.end, this.constants, this.isPrivateKernel);
   }
 
   /**
