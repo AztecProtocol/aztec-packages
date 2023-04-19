@@ -28,7 +28,7 @@
           "visibility": "public"
         }
       ],
-      "returnType": [
+      "returnTypes": [
         {
           "kind": "field"
         }

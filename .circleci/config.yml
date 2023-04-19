@@ -137,7 +137,7 @@ jobs:
           name: "Test"
           command: cond_spot_run_tests circuits-x86_64-linux-clang-assert 1 a3-tests
       - *save_logs
-  
+
   l1-contracts:
     machine:
       image: ubuntu-2004:202010-01
@@ -148,7 +148,6 @@ jobs:
       - run:
           name: "Build"
           command: build l1-contracts
-
 
   #circuits-<individual>-tests:
   #  docker:
@@ -377,6 +376,17 @@ jobs:
           name: "Test"
           command: cond_spot_run_tests end-to-end e2e_block_building.test.ts
 
+  e2e-nested-contract:
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Test"
+          command: cond_spot_run_tests end-to-end e2e_nested_contract.test.ts
+
   e2e-join:
     docker:
       - image: cimg/base:current
@@ -463,3 +473,4 @@ workflows:
       - e2e-deploy-contract: *e2e_test
       - e2e-zk-token-contract: *e2e_test
       - e2e-block-building: *e2e_test
+      - e2e-nested-contract: *e2e_test

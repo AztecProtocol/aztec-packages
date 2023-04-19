@@ -17,7 +17,7 @@ import { ChildAbi, ParentAbi, TestContractAbi, ZkTokenContractAbi } from '@aztec
 import { mock } from 'jest-mock-extended';
 import { default as levelup } from 'levelup';
 import { default as memdown, type MemDown } from 'memdown';
-import { encodeArguments } from './arguments_encoder/index.js';
+import { encodeArguments } from './abi_coder/index.js';
 import { DBOracle } from './db_oracle.js';
 import { AcirSimulator } from './simulator.js';
 import { NoirPoint, computeSlot, toPublicKey } from './utils.js';
@@ -281,7 +281,7 @@ describe('ACIR simulator', () => {
       );
       const result = await acirSimulator.run(txRequest, abi, AztecAddress.ZERO, EthAddress.ZERO, oldRoots);
 
-      expect(result.callStackItem.publicInputs.returnValues[0]).toEqual(new Fr(142n));
+      expect(result.returnValues[0]).toEqual(142n);
     });
 
     it('parent should call child', async () => {
@@ -304,11 +304,11 @@ describe('ACIR simulator', () => {
       );
       const result = await acirSimulator.run(txRequest, parentAbi, AztecAddress.random(), EthAddress.ZERO, oldRoots);
 
-      expect(result.callStackItem.publicInputs.returnValues[0]).toEqual(new Fr(42n));
+      expect(result.returnValues[0]).toEqual(42n);
       expect(oracle.getFunctionABI.mock.calls[0]).toEqual([childAddress, childSelector]);
       expect(oracle.getPortalContractAddress.mock.calls[0]).toEqual([childAddress]);
       expect(result.nestedExecutions).toHaveLength(1);
-      expect(result.nestedExecutions[0].callStackItem.publicInputs.returnValues[0]).toEqual(new Fr(42n));
+      expect(result.nestedExecutions[0].returnValues[0]).toEqual(42n);
     });
   });
 });
