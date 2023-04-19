@@ -34,4 +34,12 @@ export interface IndexedTree extends AppendOnlyTree {
    * @returns A copy of the leaf data at the given index or undefined if the leaf was not found.
    */
   getLatestLeafDataCopy(index: number, includeUncommitted: boolean): LeafData | undefined;
+
+  /**
+   * Exposes the underlying tree's update leaf method
+   * @param leaf - The hash to set at the leaf
+   * @param index - The index of the element
+   */
+  // TODO: remove once the batch insertion functionality is moved to StandardIndexedTree from circuit_block_builder.ts
+  updateLeaf(leaf: LeafData, index: bigint): Promise<void>;
 }

@@ -226,8 +226,8 @@ export class StandardIndexedTree extends TreeBase implements IndexedTree {
     previousLeafCopy.nextValue = newLeaf.value;
     this.cachedLeaves[Number(currentSize)] = newLeaf;
     this.cachedLeaves[Number(indexOfPrevious.index)] = previousLeafCopy;
-    await this.updateLeaf(hashEncodedTreeValue(previousLeafCopy, this.hasher), BigInt(indexOfPrevious.index));
-    await this.updateLeaf(hashEncodedTreeValue(newLeaf, this.hasher), this.getNumLeaves(true));
+    await this._updateLeaf(hashEncodedTreeValue(previousLeafCopy, this.hasher), BigInt(indexOfPrevious.index));
+    await this._updateLeaf(hashEncodedTreeValue(newLeaf, this.hasher), this.getNumLeaves(true));
   }
 
   /**
@@ -253,7 +253,7 @@ export class StandardIndexedTree extends TreeBase implements IndexedTree {
    */
   private async init(initialSize = 1) {
     this.leaves.push(initialLeaf);
-    await this.updateLeaf(hashEncodedTreeValue(initialLeaf, this.hasher), 0n);
+    await this._updateLeaf(hashEncodedTreeValue(initialLeaf, this.hasher), 0n);
 
     for (let i = 1; i < initialSize; i++) {
       await this.appendLeaf(Buffer.from([i]));
@@ -318,7 +318,8 @@ export class StandardIndexedTree extends TreeBase implements IndexedTree {
    * @param leaf - New contents of the leaf.
    * @param index - Index of the leaf to be updated.
    */
-  private async updateLeaf(leaf: Buffer, index: bigint) {
+  // TODO: rename back to updateLeaf once the old updateLeaf is removed
+  private async _updateLeaf(leaf: Buffer, index: bigint) {
     if (index > this.maxIndex) {
       throw Error(`Index out of bounds. Index ${index}, max index: ${this.maxIndex}.`);
     }
@@ -327,5 +328,17 @@ export class StandardIndexedTree extends TreeBase implements IndexedTree {
     if (index >= numLeaves) {
       this.cachedSize = index + 1n;
     }
+  }
+
+  /**
+   * Exposes the underlying tree's update leaf method
+   * @param leaf - The hash to set at the leaf
+   * @param index - The index of the element
+   */
+  // TODO: remove once the batch insertion functionality is moved here from circuit_block_builder.ts
+  public async updateLeaf(leaf: LeafData, index: bigint): Promise<void> {
+    this.cachedLeaves[Number(index)] = leaf;
+    const encodedLeaf = hashEncodedTreeValue(leaf, this.hasher);
+    await this._updateLeaf(encodedLeaf, index);
   }
 }
