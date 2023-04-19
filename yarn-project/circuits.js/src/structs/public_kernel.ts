@@ -93,8 +93,20 @@ export class PreviousPublicKernelData {
 export class PublicKernelPublicInputs {
   public readonly isPrivateKernel = false;
   constructor(public readonly end: CombinedAccumulatedData, public readonly constants: CombinedConstantData) {}
+
+  static empty() {
+    return new this(CombinedAccumulatedData.empty(), CombinedConstantData.empty());
+  }
 }
 
-class CombinedAccumulatedData {}
+class CombinedAccumulatedData {
+  static empty() {
+    return new this();
+  }
+}
 
-class CombinedConstantData {}
+class CombinedConstantData {
+  static empty() {
+    return new this();
+  }
+}

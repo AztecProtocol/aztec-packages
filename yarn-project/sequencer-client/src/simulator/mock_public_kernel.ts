@@ -6,15 +6,16 @@ import {
 } from '@aztec/circuits.js';
 import { PublicKernelCircuitSimulator } from './index.js';
 
-// TODO: Fill with mock values until we get the real circuit
 export class MockPublicKernelCircuitSimulator implements PublicKernelCircuitSimulator {
-  publicKernelCircuitNoInput(inputs: PublicKernelInputsNoKernelInput): Promise<PublicKernelPublicInputs> {
-    throw new Error('Method not implemented.');
+  publicKernelCircuitNoInput(_inputs: PublicKernelInputsNoKernelInput): Promise<PublicKernelPublicInputs> {
+    return Promise.resolve(PublicKernelPublicInputs.empty());
   }
-  publicKernelCircuitPrivateInput(inputs: PublicKernelInputsPrivateKernelInput): Promise<PublicKernelPublicInputs> {
-    throw new Error('Method not implemented.');
+  publicKernelCircuitPrivateInput(_inputs: PublicKernelInputsPrivateKernelInput): Promise<PublicKernelPublicInputs> {
+    return Promise.resolve(PublicKernelPublicInputs.empty());
   }
-  publicKernelCircuitNonFirstIteration(inputs: PublicKernelInputsNonFirstIteration): Promise<PublicKernelPublicInputs> {
-    throw new Error('Method not implemented.');
+  publicKernelCircuitNonFirstIteration(
+    _inputs: PublicKernelInputsNonFirstIteration,
+  ): Promise<PublicKernelPublicInputs> {
+    return Promise.resolve(PublicKernelPublicInputs.empty());
   }
 }

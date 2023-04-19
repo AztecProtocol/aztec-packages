@@ -8,7 +8,7 @@ import { makeEmptyPrivateTx } from '../index.js';
 import { L1Publisher } from '../publisher/l1-publisher.js';
 import { ceilPowerOfTwo } from '../utils.js';
 import { SequencerConfig } from './config.js';
-import { PublicProcessor } from './public.js';
+import { PublicProcessor } from './public_processor.js';
 
 /**
  * Sequencer client
@@ -101,15 +101,15 @@ export class Sequencer {
         return;
       }
 
-      const validTxHashes = await Promise.all(validTxs.map(tx => tx.getTxHash()));
-      this.log(`Assembling block with txs ${validTxHashes.join(', ')}`);
+      this.log(`Assembling block with txs ${(await Tx.getHashes(validTxs)).join(', ')}`);
       this.state = SequencerState.CREATING_BLOCK;
 
-      // Process public txs
+      // Process public txs and drop the ones that fail processing
       const publicTxs = validTxs.filter(isPublicTx);
-      if (publicTxs.length > 0) {
-        // TODO: Filter out txs that errored here
-        const [_txs, _outputs] = await this.publicProcessor.process(publicTxs);
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const [processedTxs, failedTxs] = await this.publicProcessor.process(publicTxs);
+      if (failedTxs.length > 0) {
+        await this.p2pClient.deleteTxs(await Tx.getHashes(failedTxs));
       }
 
       // Build the new block by running the rollup circuits
@@ -172,8 +172,7 @@ export class Sequencer {
 
     // Make sure we remove these from the tx pool so we do not consider it again
     if (doubleSpendTxs.length > 0 || invalidSigTxs.length > 0) {
-      const hashes = await Promise.all([...doubleSpendTxs, ...invalidSigTxs].map(t => t.getTxHash()));
-      await this.p2pClient.deleteTxs(hashes);
+      await this.p2pClient.deleteTxs(await Tx.getHashes([...doubleSpendTxs, ...invalidSigTxs]));
     }
 
     return validTxs;

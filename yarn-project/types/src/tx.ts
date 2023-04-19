@@ -90,6 +90,15 @@ export class Tx {
   }
 
   /**
+   * Convenience function to get array of hashes for an array of txs.
+   * @param txs - the txs to get the hashes from
+   * @returns The corresponding array of hashes
+   */
+  static async getHashes(txs: Tx[]): Promise<TxHash[]> {
+    return await Promise.all(txs.map(tx => tx.getTxHash()));
+  }
+
+  /**
    * Utility function to generate tx hash.
    * @param tx - The transaction from which to generate the hash.
    * @returns A hash of the tx data that identifies the tx.

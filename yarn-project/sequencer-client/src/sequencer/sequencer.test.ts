@@ -6,7 +6,7 @@ import { MockProxy, mock } from 'jest-mock-extended';
 import { BlockBuilder } from '../block_builder/index.js';
 import { L1Publisher, makeEmptyPrivateTx, makePrivateTx } from '../index.js';
 import { Sequencer } from './sequencer.js';
-import { PublicProcessor } from './public.js';
+import { PublicProcessor } from './public_processor.js';
 
 describe('sequencer', () => {
   let publisher: MockProxy<L1Publisher>;

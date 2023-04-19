@@ -23,6 +23,11 @@ import { computeSlot } from '@aztec/acir-simulator';
 import { BarretenbergWasm } from '@aztec/barretenberg.js/wasm';
 import { createDebugLogger } from '@aztec/foundation';
 
+type ProcessedPublicTx = {
+  tx: PublicTx;
+  publicKernelOutput: PublicKernelPublicInputs;
+};
+
 export class PublicProcessor {
   constructor(
     protected db: MerkleTreeOperations,
@@ -38,13 +43,20 @@ export class PublicProcessor {
    * @param txs - public txs to process
    * @returns the list of processed txs with their circuit simulation outputs.
    */
-  public async process(txs: PublicTx[]): Promise<[PublicTx, PublicKernelPublicInputs][]> {
-    const result: [PublicTx, PublicKernelPublicInputs][] = [];
+  public async process(txs: PublicTx[]): Promise<[ProcessedPublicTx[], PublicTx[]]> {
+    const result: ProcessedPublicTx[] = [];
+    const failed: PublicTx[] = [];
+
     for (const tx of txs) {
       this.log(`Processing public tx ${await tx.getTxHash()}`);
-      result.push([tx, await this.processTx(tx)]);
+      try {
+        result.push({ tx, publicKernelOutput: await this.processTx(tx) });
+      } catch (err) {
+        this.log(`Error processing public tx ${await tx.getTxHash()}: ${err}`);
+        failed.push(tx);
+      }
     }
-    return result;
+    return [result, failed];
   }
 
   protected async processTx(tx: PublicTx): Promise<PublicKernelPublicInputs> {
@@ -118,5 +130,11 @@ export class PublicProcessor {
   protected async getMembershipWitness(leafIndex: bigint) {
     const path = await this.db.getSiblingPath(MerkleTreeId.PUBLIC_DATA_TREE, leafIndex);
     return new MembershipWitness(PUBLIC_DATA_TREE_HEIGHT, Number(leafIndex), path.data.map(Fr.fromBuffer));
+  }
+}
+
+export class MockPublicProcessor extends PublicProcessor {
+  public process(_txs: PublicTx[]): Promise<[ProcessedPublicTx[], PublicTx[]]> {
+    return Promise.resolve([[], []]);
   }
 }
