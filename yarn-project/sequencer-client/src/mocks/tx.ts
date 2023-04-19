@@ -12,7 +12,7 @@ export function makeEmptyUnverifiedData(): UnverifiedData {
 }
 
 export function makeEmptyPrivateTx(): PrivateTx {
-  return Tx.createPrivate(KernelCircuitPublicInputs.makeEmpty(), makeEmptyProof(), makeEmptyUnverifiedData());
+  return Tx.createPrivate(KernelCircuitPublicInputs.empty(), makeEmptyProof(), makeEmptyUnverifiedData());
 }
 
 export function makePrivateTx(seed = 0): PrivateTx {

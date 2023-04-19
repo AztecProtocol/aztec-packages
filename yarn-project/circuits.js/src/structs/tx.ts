@@ -81,6 +81,10 @@ export class TxContext {
       reader.readObject(ContractDeploymentData),
     );
   }
+
+  static empty() {
+    return new this(false, false, true, ContractDeploymentData.empty());
+  }
 }
 
 /**

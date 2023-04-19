@@ -53,7 +53,7 @@ describe('Kernel Prover', () => {
   };
 
   const createProofOutput = (newNoteIndices: number[]) => {
-    const publicInputs = KernelCircuitPublicInputs.makeEmpty();
+    const publicInputs = KernelCircuitPublicInputs.empty();
     publicInputs.end.newCommitments = newNoteIndices.map(idx => generateFakeSiloedCommitment(notes[idx]));
     return {
       publicInputs,

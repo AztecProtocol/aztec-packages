@@ -42,7 +42,7 @@ export class KernelProver {
     let firstIteration = true;
     let previousVerificationKey = VerificationKey.makeFake();
     let output: ProofOutput = {
-      publicInputs: KernelCircuitPublicInputs.makeEmpty(),
+      publicInputs: KernelCircuitPublicInputs.empty(),
       proof: makeEmptyProof(),
     };
     while (executionStack.length) {

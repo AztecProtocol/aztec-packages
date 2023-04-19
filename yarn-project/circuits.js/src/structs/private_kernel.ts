@@ -50,6 +50,10 @@ export class PrivateOldTreeRoots {
     const reader = BufferReader.asReader(buffer);
     return new PrivateOldTreeRoots(reader.readFr(), reader.readFr(), reader.readFr(), reader.readFr());
   }
+
+  static empty() {
+    return new this(Fr.ZERO, Fr.ZERO, Fr.ZERO, Fr.ZERO);
+  }
 }
 
 export class CombinedOldTreeRoots {
@@ -62,6 +66,10 @@ export class CombinedOldTreeRoots {
   static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
     return new this(reader.readObject(PrivateOldTreeRoots), reader.readFr());
+  }
+
+  static empty() {
+    return new this(PrivateOldTreeRoots.empty(), Fr.ZERO);
   }
 }
 
@@ -79,6 +87,10 @@ export class CombinedConstantData {
   static fromBuffer(buffer: Buffer | BufferReader): CombinedConstantData {
     const reader = BufferReader.asReader(buffer);
     return new CombinedConstantData(reader.readObject(CombinedOldTreeRoots), reader.readObject(TxContext));
+  }
+
+  static empty() {
+    return new this(CombinedOldTreeRoots.empty(), TxContext.empty());
   }
 }
 
@@ -101,6 +113,10 @@ export class NewContractData {
   static fromBuffer(buffer: Buffer | BufferReader): NewContractData {
     const reader = BufferReader.asReader(buffer);
     return new NewContractData(reader.readObject(AztecAddress), new EthAddress(reader.readBytes(32)), reader.readFr());
+  }
+
+  static empty() {
+    return new this(AztecAddress.ZERO, EthAddress.ZERO, Fr.ZERO);
   }
 }
 
@@ -149,6 +165,20 @@ export class OptionallyRevealedData {
       reader.readBoolean(),
       reader.readBoolean(),
       reader.readBoolean(),
+    );
+  }
+
+  static empty() {
+    return new this(
+      Fr.ZERO,
+      FunctionData.empty(),
+      times(EMITTED_EVENTS_LENGTH, Fr.zero),
+      Fr.ZERO,
+      EthAddress.ZERO,
+      false,
+      false,
+      false,
+      false,
     );
   }
 }
@@ -223,6 +253,23 @@ export class CombinedAccumulatedData {
       reader.readArray(STATE_READS_LENGTH, StateRead),
     );
   }
+
+  static empty() {
+    return new this(
+      AggregationObject.makeFake(),
+      Fr.ZERO,
+      Fr.ZERO,
+      times(KERNEL_NEW_COMMITMENTS_LENGTH, Fr.zero),
+      times(KERNEL_NEW_NULLIFIERS_LENGTH, Fr.zero),
+      times(KERNEL_PRIVATE_CALL_STACK_LENGTH, Fr.zero),
+      times(KERNEL_PUBLIC_CALL_STACK_LENGTH, Fr.zero),
+      times(KERNEL_L1_MSG_STACK_LENGTH, Fr.zero),
+      times(KERNEL_NEW_CONTRACTS_LENGTH, NewContractData.empty),
+      times(KERNEL_OPTIONALLY_REVEALED_DATA_LENGTH, OptionallyRevealedData.empty),
+      times(STATE_TRANSITIONS_LENGTH, StateTransition.empty),
+      times(STATE_READS_LENGTH, StateRead.empty),
+    );
+  }
 }
 
 /**
@@ -253,8 +300,8 @@ export class KernelCircuitPublicInputs {
     );
   }
 
-  static makeEmpty() {
-    return new KernelCircuitPublicInputs(makeEmptyAccumulatedData(), makeEmptyConstantData(), true);
+  static empty() {
+    return new KernelCircuitPublicInputs(CombinedAccumulatedData.empty(), CombinedConstantData.empty(), true);
   }
 }
 
@@ -295,13 +342,13 @@ export class PreviousKernelData {
   /**
    * Creates an empty instance, valid enough to be accepted by circuits
    */
-  static makeEmpty() {
+  static empty() {
     return new PreviousKernelData(
-      KernelCircuitPublicInputs.makeEmpty(),
+      KernelCircuitPublicInputs.empty(),
       makeEmptyProof(),
       VerificationKey.makeFake(),
       0,
-      Array(VK_TREE_HEIGHT).fill(frZero()),
+      times(VK_TREE_HEIGHT, Fr.zero),
     );
   }
 }
@@ -392,71 +439,6 @@ export class PrivateKernelInputs {
   toBuffer() {
     return serializeToBuffer(this.signedTxRequest, this.previousKernel, this.privateCall);
   }
-}
-
-// Helper functions for making empty structs (delete them eventually to use real data or factories instances)
-// or move them somewhere generic, or within each struct
-
-// TODO: MOVE THEM
-
-function frZero() {
-  return Fr.fromBuffer(Buffer.alloc(32, 0));
-}
-
-function makeEmptyEthAddress() {
-  return new EthAddress(Buffer.alloc(20, 0));
-}
-
-function makeEmptyNewContractData(): NewContractData {
-  return new NewContractData(AztecAddress.ZERO, makeEmptyEthAddress(), frZero());
-}
-
-function makeEmptyTxContext(): TxContext {
-  const deploymentData = new ContractDeploymentData(frZero(), frZero(), frZero(), makeEmptyEthAddress());
-  return new TxContext(false, false, true, deploymentData);
-}
-
-function makeEmptyPrivateOldTreeRoots(): PrivateOldTreeRoots {
-  return new PrivateOldTreeRoots(frZero(), frZero(), frZero(), frZero());
-}
-
-function makeEmptyCombinedOldTreeRoots(): CombinedOldTreeRoots {
-  return new CombinedOldTreeRoots(makeEmptyPrivateOldTreeRoots(), frZero());
-}
-
-function makeEmptyConstantData(): CombinedConstantData {
-  return new CombinedConstantData(makeEmptyCombinedOldTreeRoots(), makeEmptyTxContext());
-}
-
-function makeEmptyOptionallyRevealedData(): OptionallyRevealedData {
-  return new OptionallyRevealedData(
-    frZero(),
-    new FunctionData(Buffer.alloc(4), true, true),
-    times(EMITTED_EVENTS_LENGTH, frZero),
-    frZero(),
-    makeEmptyEthAddress(),
-    false,
-    false,
-    false,
-    false,
-  );
-}
-
-function makeEmptyAccumulatedData(): CombinedAccumulatedData {
-  return new CombinedAccumulatedData(
-    AggregationObject.makeFake(),
-    frZero(),
-    frZero(),
-    times(KERNEL_NEW_COMMITMENTS_LENGTH, frZero),
-    times(KERNEL_NEW_NULLIFIERS_LENGTH, frZero),
-    times(KERNEL_PRIVATE_CALL_STACK_LENGTH, frZero),
-    times(KERNEL_PUBLIC_CALL_STACK_LENGTH, frZero),
-    times(KERNEL_L1_MSG_STACK_LENGTH, frZero),
-    times(KERNEL_NEW_CONTRACTS_LENGTH, makeEmptyNewContractData),
-    times(KERNEL_OPTIONALLY_REVEALED_DATA_LENGTH, makeEmptyOptionallyRevealedData),
-    times(STATE_TRANSITIONS_LENGTH, StateTransition.empty),
-    times(STATE_READS_LENGTH, StateRead.empty),
-  );
 }
 
 export function makeEmptyProof() {
