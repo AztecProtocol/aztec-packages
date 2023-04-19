@@ -302,7 +302,13 @@ describe('ACIR simulator', () => {
         txContext,
         new Fr(0n),
       );
-      const result = await acirSimulator.run(txRequest, parentAbi, AztecAddress.random(), EthAddress.ZERO, historicRoots);
+      const result = await acirSimulator.run(
+        txRequest,
+        parentAbi,
+        AztecAddress.random(),
+        EthAddress.ZERO,
+        historicRoots,
+      );
 
       expect(result.callStackItem.publicInputs.returnValues[0]).toEqual(new Fr(42n));
       expect(oracle.getFunctionABI.mock.calls[0]).toEqual([childAddress, childSelector]);
