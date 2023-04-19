@@ -52,7 +52,7 @@ describe('abis wasm bindings', () => {
 
   it('hash constructor info', async () => {
     const functionData = new FunctionData(Buffer.alloc(4), true, true);
-    // args needs to have a FIXED length of 8
+    // args needs to have a FIXED length of 8, due to a circuit constant `aztec3::ARGS_SIZE`.
     const args = [new Fr(0n), new Fr(1n), new Fr(0n), new Fr(1n), new Fr(0n), new Fr(1n), new Fr(0n), new Fr(1n)];
     const vkHash = Buffer.alloc(32);
     const res = await hashConstructor(wasm, functionData, args, vkHash);

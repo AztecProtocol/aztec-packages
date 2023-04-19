@@ -60,11 +60,12 @@ describe('IndexedMerkleTreeSpecific', () => {
     const level2ZeroHash = pedersen.compress(level1ZeroHash, level1ZeroHash);
 
     let index0Hash = initialLeafHash;
+    // Each element is named by the level followed by the index on that level. E.g. e10 -> level 1, index 0, e21 -> level 2, index 1
     let e10 = pedersen.compress(index0Hash, zeroTreeLeafHash);
     let e20 = pedersen.compress(e10, level1ZeroHash);
 
-    const inite20 = e20; // Kept for calculating committed state later
-    const inite10 = e10;
+    const initialE20 = e20; // Kept for calculating committed state later
+    const initialE10 = e10;
 
     let root = pedersen.compress(e20, level2ZeroHash);
     const initialRoot = root;
@@ -127,7 +128,7 @@ describe('IndexedMerkleTreeSpecific', () => {
     expect(await tree.getSiblingPath(2n, true)).toEqual(new SiblingPath([zeroTreeLeafHash, e10, level2ZeroHash]));
 
     // ensure the committed state is correct
-    await verifyCommittedState(tree, initialRoot, 2n, new SiblingPath([zeroTreeLeafHash, inite10, level2ZeroHash]));
+    await verifyCommittedState(tree, initialRoot, 2n, new SiblingPath([zeroTreeLeafHash, initialE10, level2ZeroHash]));
 
     /**
      * Add new value 20:
@@ -152,7 +153,7 @@ describe('IndexedMerkleTreeSpecific', () => {
     expect(await tree.getSiblingPath(3n, true)).toEqual(new SiblingPath([index2Hash, e10, level2ZeroHash]));
 
     // ensure the committed state is correct
-    await verifyCommittedState(tree, initialRoot, 3n, new SiblingPath([zeroTreeLeafHash, inite10, level2ZeroHash]));
+    await verifyCommittedState(tree, initialRoot, 3n, new SiblingPath([zeroTreeLeafHash, initialE10, level2ZeroHash]));
 
     /**
      * Add new value 50:
@@ -177,7 +178,7 @@ describe('IndexedMerkleTreeSpecific', () => {
     expect(tree.getNumLeaves(true)).toEqual(5n);
 
     // ensure the committed state is correct
-    await verifyCommittedState(tree, initialRoot, 4n, new SiblingPath([zeroTreeLeafHash, level1ZeroHash, inite20]));
+    await verifyCommittedState(tree, initialRoot, 4n, new SiblingPath([zeroTreeLeafHash, level1ZeroHash, initialE20]));
 
     // check all uncommitted hash paths
     expect(await tree.getSiblingPath(0n, true)).toEqual(new SiblingPath([index1Hash, e11, e21]));
@@ -192,9 +193,13 @@ describe('IndexedMerkleTreeSpecific', () => {
     // check all committed hash paths
     expect(await tree.getSiblingPath(0n, false)).toEqual(emptySiblingPath);
     expect(await tree.getSiblingPath(1n, false)).toEqual(initialSiblingPath);
-    expect(await tree.getSiblingPath(2n, false)).toEqual(new SiblingPath([zeroTreeLeafHash, inite10, level2ZeroHash]));
-    expect(await tree.getSiblingPath(3n, false)).toEqual(new SiblingPath([zeroTreeLeafHash, inite10, level2ZeroHash]));
-    const e2SiblingPath = new SiblingPath([zeroTreeLeafHash, level1ZeroHash, inite20]);
+    expect(await tree.getSiblingPath(2n, false)).toEqual(
+      new SiblingPath([zeroTreeLeafHash, initialE10, level2ZeroHash]),
+    );
+    expect(await tree.getSiblingPath(3n, false)).toEqual(
+      new SiblingPath([zeroTreeLeafHash, initialE10, level2ZeroHash]),
+    );
+    const e2SiblingPath = new SiblingPath([zeroTreeLeafHash, level1ZeroHash, initialE20]);
     expect(await tree.getSiblingPath(4n, false)).toEqual(e2SiblingPath);
     expect(await tree.getSiblingPath(5n, false)).toEqual(e2SiblingPath);
     expect(await tree.getSiblingPath(6n, false)).toEqual(e2SiblingPath);
