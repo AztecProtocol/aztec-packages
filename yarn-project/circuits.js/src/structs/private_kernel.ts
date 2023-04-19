@@ -1,4 +1,4 @@
-import { CircuitsWasm, getDummyPreviousKernelData } from '../index.js';
+import { CircuitsWasm, StateRead, StateTransition, getDummyPreviousKernelData } from '../index.js';
 import { assertLength, FieldsOf } from '../utils/jsUtils.js';
 import { serializeToBuffer } from '../utils/serialize.js';
 import {
@@ -13,6 +13,8 @@ import {
   KERNEL_PRIVATE_CALL_STACK_LENGTH,
   KERNEL_PUBLIC_CALL_STACK_LENGTH,
   PRIVATE_CALL_STACK_LENGTH,
+  STATE_READS_LENGTH,
+  STATE_TRANSITIONS_LENGTH,
   VK_TREE_HEIGHT,
 } from './constants.js';
 import { FunctionData } from './function_data.js';
@@ -23,7 +25,7 @@ import { VerificationKey } from './verification_key.js';
 import { AztecAddress, EthAddress, Fr, BufferReader } from '@aztec/foundation';
 import times from 'lodash.times';
 
-export class OldTreeRoots {
+export class PrivateOldTreeRoots {
   constructor(
     public privateDataTreeRoot: Fr,
     public nullifierTreeRoot: Fr,
@@ -44,14 +46,27 @@ export class OldTreeRoots {
    * Deserializes from a buffer or reader, corresponding to a write in cpp.
    * @param buffer - Buffer to read from.
    */
-  static fromBuffer(buffer: Buffer | BufferReader): OldTreeRoots {
+  static fromBuffer(buffer: Buffer | BufferReader): PrivateOldTreeRoots {
     const reader = BufferReader.asReader(buffer);
-    return new OldTreeRoots(reader.readFr(), reader.readFr(), reader.readFr(), reader.readFr());
+    return new PrivateOldTreeRoots(reader.readFr(), reader.readFr(), reader.readFr(), reader.readFr());
   }
 }
 
-export class ConstantData {
-  constructor(public oldTreeRoots: OldTreeRoots, public txContext: TxContext) {}
+export class CombinedOldTreeRoots {
+  constructor(public readonly privateOldTreeRoots: PrivateOldTreeRoots, public readonly publicDataTreeRoot: Fr) {}
+
+  toBuffer() {
+    return serializeToBuffer(this.privateOldTreeRoots, this.publicDataTreeRoot);
+  }
+
+  static fromBuffer(buffer: Buffer | BufferReader) {
+    const reader = BufferReader.asReader(buffer);
+    return new this(reader.readObject(PrivateOldTreeRoots), reader.readFr());
+  }
+}
+
+export class CombinedConstantData {
+  constructor(public oldTreeRoots: CombinedOldTreeRoots, public txContext: TxContext) {}
 
   toBuffer() {
     return serializeToBuffer(this.oldTreeRoots, this.txContext);
@@ -61,9 +76,9 @@ export class ConstantData {
    * Deserializes from a buffer or reader, corresponding to a write in cpp.
    * @param buffer - Buffer to read from.
    */
-  static fromBuffer(buffer: Buffer | BufferReader): ConstantData {
+  static fromBuffer(buffer: Buffer | BufferReader): CombinedConstantData {
     const reader = BufferReader.asReader(buffer);
-    return new ConstantData(reader.readObject(OldTreeRoots), reader.readObject(TxContext));
+    return new CombinedConstantData(reader.readObject(CombinedOldTreeRoots), reader.readObject(TxContext));
   }
 }
 
@@ -138,11 +153,12 @@ export class OptionallyRevealedData {
   }
 }
 
-export class AccumulatedData {
+export class CombinedAccumulatedData {
   constructor(
     public aggregationObject: AggregationObject, // Contains the aggregated proof of all previous kernel iterations
 
     public privateCallCount: Fr,
+    public publicCallCount: Fr,
 
     public newCommitments: Fr[],
     public newNullifiers: Fr[],
@@ -154,6 +170,9 @@ export class AccumulatedData {
     public newContracts: NewContractData[],
 
     public optionallyRevealedData: OptionallyRevealedData[],
+
+    public stateTransitions: StateTransition[],
+    public stateReads: StateRead[],
   ) {
     assertLength(this, 'newCommitments', KERNEL_NEW_COMMITMENTS_LENGTH);
     assertLength(this, 'newNullifiers', KERNEL_NEW_NULLIFIERS_LENGTH);
@@ -162,12 +181,15 @@ export class AccumulatedData {
     assertLength(this, 'l1MsgStack', KERNEL_L1_MSG_STACK_LENGTH);
     assertLength(this, 'newContracts', KERNEL_NEW_CONTRACTS_LENGTH);
     assertLength(this, 'optionallyRevealedData', KERNEL_OPTIONALLY_REVEALED_DATA_LENGTH);
+    assertLength(this, 'stateTransitions', STATE_TRANSITIONS_LENGTH);
+    assertLength(this, 'stateReads', STATE_READS_LENGTH);
   }
 
   toBuffer() {
     return serializeToBuffer(
       this.aggregationObject,
       this.privateCallCount,
+      this.publicCallCount,
       this.newCommitments,
       this.newNullifiers,
       this.privateCallStack,
@@ -175,6 +197,8 @@ export class AccumulatedData {
       this.l1MsgStack,
       this.newContracts,
       this.optionallyRevealedData,
+      this.stateTransitions,
+      this.stateReads,
     );
   }
 
@@ -182,10 +206,11 @@ export class AccumulatedData {
    * Deserializes from a buffer or reader, corresponding to a write in cpp.
    * @param buffer - Buffer to read from.
    */
-  static fromBuffer(buffer: Buffer | BufferReader): AccumulatedData {
+  static fromBuffer(buffer: Buffer | BufferReader): CombinedAccumulatedData {
     const reader = BufferReader.asReader(buffer);
-    return new AccumulatedData(
+    return new CombinedAccumulatedData(
       reader.readObject(AggregationObject),
+      reader.readFr(),
       reader.readFr(),
       reader.readArray(KERNEL_NEW_COMMITMENTS_LENGTH, Fr),
       reader.readArray(KERNEL_NEW_NULLIFIERS_LENGTH, Fr),
@@ -194,6 +219,8 @@ export class AccumulatedData {
       reader.readArray(KERNEL_L1_MSG_STACK_LENGTH, Fr),
       reader.readArray(KERNEL_NEW_CONTRACTS_LENGTH, NewContractData),
       reader.readArray(KERNEL_OPTIONALLY_REVEALED_DATA_LENGTH, OptionallyRevealedData),
+      reader.readArray(STATE_TRANSITIONS_LENGTH, StateTransition),
+      reader.readArray(STATE_READS_LENGTH, StateRead),
     );
   }
 }
@@ -203,7 +230,11 @@ export class AccumulatedData {
  * @see circuits/cpp/src/aztec3/circuits/abis/kernel_circuit_public_inputs.hpp
  */
 export class KernelCircuitPublicInputs {
-  constructor(public end: AccumulatedData, public constants: ConstantData, public isPrivateKernel: boolean) {}
+  constructor(
+    public end: CombinedAccumulatedData,
+    public constants: CombinedConstantData,
+    public isPrivateKernel: boolean,
+  ) {}
 
   toBuffer() {
     return serializeToBuffer(this.end, this.constants, this.isPrivateKernel, this.isPrivateKernel);
@@ -216,8 +247,8 @@ export class KernelCircuitPublicInputs {
   static fromBuffer(buffer: Buffer | BufferReader): KernelCircuitPublicInputs {
     const reader = BufferReader.asReader(buffer);
     return new KernelCircuitPublicInputs(
-      reader.readObject(AccumulatedData),
-      reader.readObject(ConstantData),
+      reader.readObject(CombinedAccumulatedData),
+      reader.readObject(CombinedConstantData),
       reader.readBoolean(),
     );
   }
@@ -366,6 +397,8 @@ export class PrivateKernelInputs {
 // Helper functions for making empty structs (delete them eventually to use real data or factories instances)
 // or move them somewhere generic, or within each struct
 
+// TODO: MOVE THEM
+
 function frZero() {
   return Fr.fromBuffer(Buffer.alloc(32, 0));
 }
@@ -383,12 +416,16 @@ function makeEmptyTxContext(): TxContext {
   return new TxContext(false, false, true, deploymentData);
 }
 
-function makeEmptyOldTreeRoots(): OldTreeRoots {
-  return new OldTreeRoots(frZero(), frZero(), frZero(), frZero());
+function makeEmptyPrivateOldTreeRoots(): PrivateOldTreeRoots {
+  return new PrivateOldTreeRoots(frZero(), frZero(), frZero(), frZero());
 }
 
-function makeEmptyConstantData(): ConstantData {
-  return new ConstantData(makeEmptyOldTreeRoots(), makeEmptyTxContext());
+function makeEmptyCombinedOldTreeRoots(): CombinedOldTreeRoots {
+  return new CombinedOldTreeRoots(makeEmptyPrivateOldTreeRoots(), frZero());
+}
+
+function makeEmptyConstantData(): CombinedConstantData {
+  return new CombinedConstantData(makeEmptyCombinedOldTreeRoots(), makeEmptyTxContext());
 }
 
 function makeEmptyOptionallyRevealedData(): OptionallyRevealedData {
@@ -405,9 +442,10 @@ function makeEmptyOptionallyRevealedData(): OptionallyRevealedData {
   );
 }
 
-function makeEmptyAccumulatedData(): AccumulatedData {
-  return new AccumulatedData(
+function makeEmptyAccumulatedData(): CombinedAccumulatedData {
+  return new CombinedAccumulatedData(
     AggregationObject.makeFake(),
+    frZero(),
     frZero(),
     times(KERNEL_NEW_COMMITMENTS_LENGTH, frZero),
     times(KERNEL_NEW_NULLIFIERS_LENGTH, frZero),
@@ -416,6 +454,8 @@ function makeEmptyAccumulatedData(): AccumulatedData {
     times(KERNEL_L1_MSG_STACK_LENGTH, frZero),
     times(KERNEL_NEW_CONTRACTS_LENGTH, makeEmptyNewContractData),
     times(KERNEL_OPTIONALLY_REVEALED_DATA_LENGTH, makeEmptyOptionallyRevealedData),
+    times(STATE_TRANSITIONS_LENGTH, StateTransition.empty),
+    times(STATE_READS_LENGTH, StateRead.empty),
   );
 }
 

@@ -6,6 +6,8 @@ import {
   PrivateCircuitPublicInputs,
   RootRollupInputs,
   RootRollupPublicInputs,
+  StateRead,
+  StateTransition,
 } from '../index.js';
 import {
   AppendOnlyTreeSnapshot,
@@ -38,20 +40,22 @@ import {
   PUBLIC_DATA_TREE_HEIGHT,
   RETURN_VALUES_LENGTH,
   ROLLUP_VK_TREE_HEIGHT,
+  STATE_READS_LENGTH,
   STATE_TRANSITIONS_LENGTH,
   VK_TREE_HEIGHT,
 } from '../structs/constants.js';
 import { FunctionData } from '../structs/function_data.js';
 import {
-  AccumulatedData,
-  ConstantData,
+  CombinedAccumulatedData,
+  CombinedConstantData,
   NewContractData,
-  OldTreeRoots,
+  PrivateOldTreeRoots,
   OptionallyRevealedData,
   PreviousKernelData,
   PrivateCallData,
   PrivateKernelInputs,
   KernelCircuitPublicInputs,
+  CombinedOldTreeRoots,
 } from '../structs/private_kernel.js';
 import { PrivateCallStackItem } from '../structs/private_call_stack_item.js';
 import {
@@ -73,12 +77,16 @@ export function makeTxContext(seed: number): TxContext {
   return new TxContext(false, false, true, deploymentData);
 }
 
-export function makeOldTreeRoots(seed: number): OldTreeRoots {
-  return new OldTreeRoots(fr(seed), fr(seed + 1), fr(seed + 2), fr(seed + 3));
+export function makePrivateOldTreeRoots(seed: number): PrivateOldTreeRoots {
+  return new PrivateOldTreeRoots(fr(seed), fr(seed + 1), fr(seed + 2), fr(seed + 3));
 }
 
-export function makeConstantData(seed = 1): ConstantData {
-  return new ConstantData(makeOldTreeRoots(seed), makeTxContext(seed + 4));
+export function makeCombinedOldTreeRoots(seed: number): CombinedOldTreeRoots {
+  return new CombinedOldTreeRoots(makePrivateOldTreeRoots(seed), fr(seed + 4));
+}
+
+export function makeConstantData(seed = 1): CombinedConstantData {
+  return new CombinedConstantData(makeCombinedOldTreeRoots(seed), makeTxContext(seed + 4));
 }
 
 export function makeSelector(seed: number) {
@@ -87,10 +95,19 @@ export function makeSelector(seed: number) {
   return buffer;
 }
 
-export function makeAccumulatedData(seed = 1): AccumulatedData {
-  return new AccumulatedData(
+export function makeStateTransition(seed = 1) {
+  return new StateTransition(fr(seed), fr(seed + 1), fr(seed + 2));
+}
+
+export function makeStateRead(seed = 1) {
+  return new StateRead(fr(seed), fr(seed + 1));
+}
+
+export function makeAccumulatedData(seed = 1): CombinedAccumulatedData {
+  return new CombinedAccumulatedData(
     makeAggregationObject(seed),
     fr(seed + 12),
+    fr(seed + 13),
     range(KERNEL_NEW_COMMITMENTS_LENGTH, seed + 0x100).map(fr),
     range(KERNEL_NEW_NULLIFIERS_LENGTH, seed + 0x200).map(fr),
     range(KERNEL_PRIVATE_CALL_STACK_LENGTH, seed + 0x300).map(fr),
@@ -98,6 +115,8 @@ export function makeAccumulatedData(seed = 1): AccumulatedData {
     range(KERNEL_L1_MSG_STACK_LENGTH, seed + 0x500).map(fr),
     range(KERNEL_NEW_CONTRACTS_LENGTH, seed + 0x600).map(makeNewContractData),
     range(KERNEL_OPTIONALLY_REVEALED_DATA_LENGTH, seed + 0x700).map(makeOptionallyRevealedData),
+    range(STATE_TRANSITIONS_LENGTH, seed + 0x800).map(makeStateTransition),
+    range(STATE_READS_LENGTH, seed + 0x900).map(makeStateRead),
   );
 }
 
