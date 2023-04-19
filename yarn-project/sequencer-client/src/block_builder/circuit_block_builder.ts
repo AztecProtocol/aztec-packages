@@ -10,12 +10,14 @@ import {
   NULLIFIER_TREE_HEIGHT,
   NullifierLeafPreimage,
   PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT,
+  PUBLIC_DATA_TREE_HEIGHT,
   PreviousKernelData,
   PreviousRollupData,
   ROLLUP_VK_TREE_HEIGHT,
   RollupTypes,
   RootRollupInputs,
   RootRollupPublicInputs,
+  STATE_TRANSITIONS_LENGTH,
   UInt8Vector,
   VK_TREE_HEIGHT,
   VerificationKey,
@@ -687,6 +689,10 @@ export class CircuitBlockBuilder implements BlockBuilder {
     const startContractTreeSnapshot = await this.getTreeSnapshot(MerkleTreeId.CONTRACT_TREE);
     const startPrivateDataTreeSnapshot = await this.getTreeSnapshot(MerkleTreeId.DATA_TREE);
 
+    // TODO: Uncomment once the public data tree gets merged
+    // const startPublicDataTreeSnapshot = await this.getTreeSnapshot(MerkleTreeId.PUBLIC_DATA_TREE);
+    const startPublicDataTreeSnapshot = AppendOnlyTreeSnapshot.empty();
+
     // Update the contract and data trees with the new items being inserted to get the new roots
     // that will be used by the next iteration of the base rollup circuit, skipping the empty ones
     const wasm = await CircuitsWasm.get();
@@ -725,14 +731,21 @@ export class CircuitBlockBuilder implements BlockBuilder {
       BaseRollupInputs.NULLIFIER_SUBTREE_HEIGHT,
     );
 
+    // TODO: Implement based on public tx data
+    const newStateTransitionsSiblingPath = times(2 * STATE_TRANSITIONS_LENGTH, () =>
+      MembershipWitness.empty(PUBLIC_DATA_TREE_HEIGHT, 0),
+    );
+
     return BaseRollupInputs.from({
       constants,
       startNullifierTreeSnapshot,
       startContractTreeSnapshot,
       startPrivateDataTreeSnapshot,
+      startPublicDataTreeSnapshot,
       newCommitmentsSubtreeSiblingPath,
       newContractsSubtreeSiblingPath,
       newNullifiersSubtreeSiblingPath,
+      newStateTransitionsSiblingPath,
       lowNullifierLeafPreimages: nullifierWitnesses.map((w: LowNullifierWitnessData) => w.preimage),
       lowNullifierMembershipWitness: lowNullifierMembershipWitnesses,
       kernelData: [this.getKernelDataFor(tx1), this.getKernelDataFor(tx2)],
@@ -744,7 +757,7 @@ export class CircuitBlockBuilder implements BlockBuilder {
         await this.getDataMembershipWitnessFor(tx1),
         await this.getDataMembershipWitnessFor(tx2),
       ],
-    } as BaseRollupInputs);
+    });
   }
 
   protected makeEmptyMembershipWitness<N extends number>(height: N) {
