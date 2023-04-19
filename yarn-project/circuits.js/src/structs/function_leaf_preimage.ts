@@ -6,9 +6,13 @@ import { serializeToBuffer } from '../utils/serialize.js';
  * @see abis/function_leaf_preimage.hpp
  */
 export class FunctionLeafPreimage {
+  readonly FUNCTION_SELECTOR_LENGTH = 4;
+
   constructor(public functionSelector: Buffer, public isPrivate: boolean, public vkHash: Fr, public acirHash: Fr) {
-    if (functionSelector.byteLength !== 4) {
-      throw new Error(`Function selector must be 4 bytes long, got ${functionSelector.byteLength} bytes.`);
+    if (functionSelector.byteLength !== this.FUNCTION_SELECTOR_LENGTH) {
+      throw new Error(
+        `Function selector must be ${this.FUNCTION_SELECTOR_LENGTH} bytes long, got ${functionSelector.byteLength} bytes.`,
+      );
     }
   }
 
@@ -17,6 +21,11 @@ export class FunctionLeafPreimage {
    * @returns The buffer.
    */
   toBuffer(): Buffer {
+    if (this.functionSelector.byteLength !== this.FUNCTION_SELECTOR_LENGTH) {
+      throw new Error(
+        `Function selector must be ${this.FUNCTION_SELECTOR_LENGTH} bytes long, got ${this.functionSelector.byteLength} bytes.`,
+      );
+    }
     return serializeToBuffer(this.functionSelector, this.isPrivate, this.vkHash, this.acirHash);
   }
 
@@ -27,9 +36,5 @@ export class FunctionLeafPreimage {
   static fromBuffer(buffer: Buffer | BufferReader): FunctionLeafPreimage {
     const reader = BufferReader.asReader(buffer);
     return new FunctionLeafPreimage(reader.readBytes(4), reader.readBoolean(), reader.readFr(), reader.readFr());
-  }
-
-  static verifyBufferSize(buffer: Buffer): boolean {
-    return buffer.length === 4 + 1 + 32 + 32;
   }
 }
