@@ -49,7 +49,7 @@ import {
   PreviousKernelData,
   PrivateCallData,
   PrivateKernelInputs,
-  PrivateKernelPublicInputs,
+  KernelCircuitPublicInputs,
 } from '../structs/private_kernel.js';
 import { PrivateCallStackItem } from '../structs/private_call_stack_item.js';
 import {
@@ -126,8 +126,8 @@ export function makeAggregationObject(seed = 1): AggregationObject {
   );
 }
 
-export function makePrivateKernelPublicInputs(seed = 1): PrivateKernelPublicInputs {
-  return new PrivateKernelPublicInputs(makeAccumulatedData(seed), makeConstantData(seed + 0x100), true);
+export function makePrivateKernelPublicInputs(seed = 1): KernelCircuitPublicInputs {
+  return new KernelCircuitPublicInputs(makeAccumulatedData(seed), makeConstantData(seed + 0x100), true);
 }
 
 export function makeDynamicSizeBuffer(size: number, fill: number) {

@@ -198,30 +198,38 @@ export class AccumulatedData {
   }
 }
 
-export class PrivateKernelPublicInputs {
-  constructor(public end: AccumulatedData, public constants: ConstantData, public isPrivateKernel: true) {}
+/**
+ * Public inputs of the public and private kernel circuits.
+ * @see circuits/cpp/src/aztec3/circuits/abis/kernel_circuit_public_inputs.hpp
+ */
+export class KernelCircuitPublicInputs {
+  constructor(public end: AccumulatedData, public constants: ConstantData, public isPrivateKernel: boolean) {}
 
   toBuffer() {
-    return serializeToBuffer(this.end, this.constants, this.isPrivateKernel);
+    return serializeToBuffer(this.end, this.constants, this.isPrivateKernel, this.isPrivateKernel);
   }
 
   /**
    * Deserializes from a buffer or reader, corresponding to a write in cpp.
    * @param buffer - Buffer to read from.
    */
-  static fromBuffer(buffer: Buffer | BufferReader): PrivateKernelPublicInputs {
+  static fromBuffer(buffer: Buffer | BufferReader): KernelCircuitPublicInputs {
     const reader = BufferReader.asReader(buffer);
-    return new PrivateKernelPublicInputs(reader.readObject(AccumulatedData), reader.readObject(ConstantData), true);
+    return new KernelCircuitPublicInputs(
+      reader.readObject(AccumulatedData),
+      reader.readObject(ConstantData),
+      reader.readBoolean(),
+    );
   }
 
   static makeEmpty() {
-    return new PrivateKernelPublicInputs(makeEmptyAccumulatedData(), makeEmptyConstantData(), true);
+    return new KernelCircuitPublicInputs(makeEmptyAccumulatedData(), makeEmptyConstantData(), true);
   }
 }
 
 export class PreviousKernelData {
   constructor(
-    public publicInputs: PrivateKernelPublicInputs,
+    public publicInputs: KernelCircuitPublicInputs,
     public proof: UInt8Vector,
     public vk: VerificationKey,
     public vkIndex: UInt32, // the index of the kernel circuit's vk in a big tree of kernel circuit vks
@@ -245,7 +253,7 @@ export class PreviousKernelData {
   static fromBuffer(buffer: Buffer | BufferReader): PreviousKernelData {
     const reader = BufferReader.asReader(buffer);
     return new PreviousKernelData(
-      reader.readObject(PrivateKernelPublicInputs),
+      reader.readObject(KernelCircuitPublicInputs),
       reader.readObject(UInt8Vector),
       reader.readObject(VerificationKey),
       reader.readNumber(),
@@ -258,7 +266,7 @@ export class PreviousKernelData {
    */
   static makeEmpty() {
     return new PreviousKernelData(
-      PrivateKernelPublicInputs.makeEmpty(),
+      KernelCircuitPublicInputs.makeEmpty(),
       makeEmptyProof(),
       VerificationKey.makeFake(),
       0,
@@ -288,7 +296,7 @@ export class DummyPreviousKernelData {
 
 /**
  * Private call data.
- * @see cpp/src/aztec3/circuits/abis/call_stack_item.hpp.
+ * @see circuits/cpp/src/aztec3/circuits/abis/call_stack_item.hpp
  */
 export class PrivateCallData {
   constructor(
