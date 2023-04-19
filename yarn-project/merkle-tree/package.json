@@ -48,7 +48,9 @@
   "files": [
     "dest",
     "src",
-    "!*.test.*"
+    "!*.test.*",
+    "!dest/test",
+    "!src/test"
   ],
   "types": "./dest/index.d.ts"
 }
