@@ -1,6 +1,6 @@
 #pragma once
 #include "../../append_only_tree_snapshot.hpp"
-#include "../../private_kernel/previous_kernel_data.hpp"
+#include "../../previous_kernel_data.hpp"
 #include "../../membership_witness.hpp"
 #include "../nullifier_leaf_preimage.hpp"
 #include "../constant_rollup_data.hpp"
@@ -17,7 +17,7 @@ template <typename NCT> struct BaseRollupInputs {
 
     typedef typename NCT::fr fr;
 
-    std::array<private_kernel::PreviousKernelData<NCT>, 2> kernel_data;
+    std::array<PreviousKernelData<NCT>, 2> kernel_data;
 
     AppendOnlyTreeSnapshot<NCT> start_private_data_tree_snapshot;
     AppendOnlyTreeSnapshot<NCT> start_nullifier_tree_snapshot;

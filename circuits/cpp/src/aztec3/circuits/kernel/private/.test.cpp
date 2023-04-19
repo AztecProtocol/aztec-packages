@@ -18,11 +18,12 @@
 #include <aztec3/circuits/abis/tx_request.hpp>
 #include <aztec3/circuits/abis/private_circuit_public_inputs.hpp>
 #include <aztec3/circuits/abis/private_kernel/private_inputs.hpp>
-#include <aztec3/circuits/abis/private_kernel/public_inputs.hpp>
-#include <aztec3/circuits/abis/private_kernel/accumulated_data.hpp>
-#include <aztec3/circuits/abis/private_kernel/constant_data.hpp>
-#include <aztec3/circuits/abis/private_kernel/old_tree_roots.hpp>
+#include <aztec3/circuits/abis/kernel_circuit_public_inputs.hpp>
+#include <aztec3/circuits/abis/combined_accumulated_data.hpp>
+#include <aztec3/circuits/abis/combined_constant_data.hpp>
+#include <aztec3/circuits/abis/private_old_tree_roots.hpp>
 #include <aztec3/circuits/abis/private_kernel/globals.hpp>
+#include <aztec3/circuits/abis/types.hpp>
 
 #include "aztec3/circuits/kernel/private/utils.hpp"
 #include <aztec3/circuits/mock/mock_kernel_circuit.hpp>
@@ -37,24 +38,25 @@ namespace {
 using aztec3::circuits::compute_empty_sibling_path;
 using aztec3::circuits::abis::CallContext;
 using aztec3::circuits::abis::CallStackItem;
-using aztec3::circuits::abis::CallType;
 using aztec3::circuits::abis::ContractDeploymentData;
 using aztec3::circuits::abis::FunctionData;
 using aztec3::circuits::abis::FunctionLeafPreimage;
+using aztec3::circuits::abis::NewContractData;
 using aztec3::circuits::abis::OptionalPrivateCircuitPublicInputs;
 using aztec3::circuits::abis::PrivateCircuitPublicInputs;
+using aztec3::circuits::abis::PrivateTypes;
 using aztec3::circuits::abis::SignedTxRequest;
 using aztec3::circuits::abis::TxContext;
 using aztec3::circuits::abis::TxRequest;
-using aztec3::circuits::abis::private_kernel::NewContractData;
 
-using aztec3::circuits::abis::private_kernel::AccumulatedData;
-using aztec3::circuits::abis::private_kernel::ConstantData;
-using aztec3::circuits::abis::private_kernel::OldTreeRoots;
-using aztec3::circuits::abis::private_kernel::PreviousKernelData;
+using aztec3::circuits::abis::CombinedAccumulatedData;
+using aztec3::circuits::abis::CombinedConstantData;
+using aztec3::circuits::abis::CombinedOldTreeRoots;
+using aztec3::circuits::abis::KernelCircuitPublicInputs;
+using aztec3::circuits::abis::PreviousKernelData;
+using aztec3::circuits::abis::PrivateOldTreeRoots;
 using aztec3::circuits::abis::private_kernel::PrivateCallData;
 using aztec3::circuits::abis::private_kernel::PrivateInputs;
-using aztec3::circuits::abis::private_kernel::PublicInputs;
 
 using aztec3::circuits::apps::test_apps::basic_contract_deployment::constructor;
 using aztec3::circuits::apps::test_apps::escrow::deposit;
@@ -323,7 +325,7 @@ PrivateInputs<NT> do_private_call_get_kernel_inputs(bool const is_constructor,
     // verify in the first round of recursion, OR, we have some fiddly conditional logic in the circuit to ignore
     // certain checks if we're handling the 'base case' of the recursion.
     // I've chosen the former, for now.
-    const CallStackItem<NT, CallType::Private> call_stack_item{
+    const CallStackItem<NT, PrivateTypes<NT>> call_stack_item{
         .contract_address = tx_request.to,
         .function_data = tx_request.function_data,
         .public_inputs = private_circuit_public_inputs,
@@ -333,21 +335,22 @@ PrivateInputs<NT> do_private_call_get_kernel_inputs(bool const is_constructor,
     initial_kernel_private_call_stack[0] = call_stack_item.hash();
 
     // Some test data:
-    auto mock_kernel_public_inputs = PublicInputs<NT>{
+    auto mock_kernel_public_inputs = KernelCircuitPublicInputs<NT>{
         .end =
-            AccumulatedData<NT>{
+            CombinedAccumulatedData<NT>{
                 .private_call_stack = initial_kernel_private_call_stack,
             },
 
         // These will be constant throughout all recursions, so can be set to those of the first function call - the tx.
         .constants =
-            ConstantData<NT>{
+            CombinedConstantData<NT>{
                 .old_tree_roots =
-                    OldTreeRoots<NT>{
-                        .private_data_tree_root = private_circuit_public_inputs.historic_private_data_tree_root,
-                        // .nullifier_tree_root =
-                        .contract_tree_root = private_circuit_public_inputs.historic_contract_tree_root,
-                        // .private_kernel_vk_tree_root =
+                    CombinedOldTreeRoots<NT>{
+                        .private_old_tree_roots =
+                            PrivateOldTreeRoots<NT>{
+                                .private_data_tree_root = private_circuit_public_inputs.historic_private_data_tree_root,
+                                .contract_tree_root = private_circuit_public_inputs.historic_contract_tree_root,
+                            },
                     },
                 .tx_context = tx_request.tx_context,
             },
@@ -412,7 +415,8 @@ PrivateInputs<NT> do_private_call_get_kernel_inputs(bool const is_constructor,
  * @param private_inputs to be used in manual computation
  * @param public_inputs that contain the expected new contract address
  */
-void validate_deployed_contract_address(PrivateInputs<NT> const& private_inputs, PublicInputs<NT> const& public_inputs)
+void validate_deployed_contract_address(PrivateInputs<NT> const& private_inputs,
+                                        KernelCircuitPublicInputs<NT> const& public_inputs)
 {
 
     auto tx_request = private_inputs.signed_tx_request.tx_request;

@@ -73,7 +73,7 @@ using aztec3::circuits::abis::private_kernel::OldTreeRoots;
 using aztec3::circuits::abis::private_kernel::PreviousKernelData;
 using aztec3::circuits::abis::private_kernel::PrivateCallData;
 using aztec3::circuits::abis::private_kernel::PrivateInputs;
-using aztec3::circuits::abis::private_kernel::PublicInputs;
+using aztec3::circuits::abis::private_kernel::PrivateKernelPublicInputs;
 
 using aztec3::circuits::apps::test_apps::basic_contract_deployment::constructor;
 using aztec3::circuits::apps::test_apps::escrow::deposit;
