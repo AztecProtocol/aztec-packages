@@ -88,9 +88,8 @@ export async function hashVK(wasm: CircuitsWasm, vkBuf: Buffer) {
 }
 
 export async function computeFunctionLeaf(wasm: CircuitsWasm, fnLeaf: FunctionLeafPreimage) {
-  const fnLeafBuf = fnLeaf.toBuffer();
   wasm.call('pedersen__init');
-  return Fr.fromBuffer(await wasmAsyncCall(wasm, 'abis__compute_function_leaf', { toBuffer: () => fnLeafBuf }, 32));
+  return Fr.fromBuffer(await wasmAsyncCall(wasm, 'abis__compute_function_leaf', fnLeaf, 32));
 }
 
 export async function computeFunctionTreeRoot(wasm: CircuitsWasm, fnLeafs: Fr[]) {
