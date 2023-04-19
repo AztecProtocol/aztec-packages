@@ -23,7 +23,7 @@ import { ArchiverConfig } from './config.js';
  * Responsible for handling robust L1 polling so that other components do not need to
  * concern themselves with it.
  */
-export class Archiver implements L2BlockSource, UnverifiedDataSource {
+export class Archiver implements L2BlockSource, UnverifiedDataSource, ContractDataSource {
   /**
    * A promise in which we will be continually fetching new L2 blocks.
    */
@@ -311,6 +311,19 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource {
       }
     }
     return Promise.resolve(undefined);
+  }
+
+  /**
+   * Lookup all contract data in an L2 block.
+   * @param blockNumber - The block number to get all contract data from.
+   * @returns All new contract data in the block (if found)
+   */
+  public getL2ContractDataInBlock(blockNum: number): Promise<ContractData[]> {
+    if (blockNum > this.l2Blocks.length) {
+      return Promise.resolve([]);
+    }
+    const block = this.l2Blocks[blockNum];
+    return Promise.resolve(block.newContractData);
   }
 
   /**

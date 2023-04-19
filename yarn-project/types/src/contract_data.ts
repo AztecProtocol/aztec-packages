@@ -4,6 +4,25 @@ import { BufferReader, serializeToBuffer } from '@aztec/circuits.js/utils';
 export { BufferReader } from '@aztec/circuits.js/utils';
 
 /**
+ * Used for retrieval of contract data (A3 address, portal contract address, bytecode)
+ */
+export interface ContractDataSource {
+  /**
+   * Lookup the L2 contract data for this contract.
+   * Contains information such as the ethereum portal address and bytecode.
+   * @param contractAddress - The contract data address.
+   * @returns The portal address (if found).
+   */
+  getL2ContractData(contractAddress: AztecAddress): Promise<ContractData | undefined>;
+
+  /**
+   * Lookup all contract data in an L2 block.
+   * @param blockNumber - The block number
+   */
+  getL2ContractDataInBlock(blockNumber: number): Promise<ContractData>[];
+}
+
+/**
  * A contract data blob, containing L1 and L2 addresses.
  */
 export class ContractData {
