@@ -11,18 +11,20 @@ class ReturnValuesDecoder {
         return this.getNextField().value;
       case 'boolean':
         return !this.getNextField().isZero();
-      case 'array':
-        let array = [];
+      case 'array': {
+        const array = [];
         for (let i = 0; i < abiType.length; i += 1) {
           array.push(this.decodeReturn(abiType.type));
         }
         break;
-      case 'struct':
-        let struct: any = {};
+      }
+      case 'struct': {
+        const struct: any = {};
         for (const field of abiType.fields) {
           struct[field.name] = this.decodeReturn(field.type);
         }
         break;
+      }
       default:
         throw new Error(`Unsupported type: ${abiType.kind}`);
     }
