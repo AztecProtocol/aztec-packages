@@ -10,6 +10,8 @@ import {
   NULLIFIER_TREE_HEIGHT,
   PRIVATE_DATA_TREE_HEIGHT,
   PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT,
+  PUBLIC_DATA_TREE_HEIGHT,
+  STATE_TRANSITIONS_LENGTH,
 } from './constants.js';
 import { PreviousKernelData } from './private_kernel.js';
 import { AggregationObject, MembershipWitness, RollupTypes, UInt32 } from './shared.js';
@@ -101,6 +103,7 @@ export class BaseRollupInputs {
     public startPrivateDataTreeSnapshot: AppendOnlyTreeSnapshot,
     public startNullifierTreeSnapshot: AppendOnlyTreeSnapshot,
     public startContractTreeSnapshot: AppendOnlyTreeSnapshot,
+    public startPublicDataTreeSnapshot: AppendOnlyTreeSnapshot,
 
     public lowNullifierLeafPreimages: NullifierLeafPreimage[],
     public lowNullifierMembershipWitness: MembershipWitness<typeof NULLIFIER_TREE_HEIGHT>[],
@@ -108,6 +111,7 @@ export class BaseRollupInputs {
     public newCommitmentsSubtreeSiblingPath: Fr[],
     public newNullifiersSubtreeSiblingPath: Fr[],
     public newContractsSubtreeSiblingPath: Fr[],
+    public newStateTransitionsSiblingPath: MembershipWitness<typeof PUBLIC_DATA_TREE_HEIGHT>[],
 
     public historicPrivateDataTreeRootMembershipWitnesses: [
       MembershipWitness<typeof PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT>,
@@ -137,6 +141,7 @@ export class BaseRollupInputs {
       'newContractsSubtreeSiblingPath',
       CONTRACT_TREE_HEIGHT - BaseRollupInputs.CONTRACT_SUBTREE_HEIGHT,
     );
+    assertLength(this, 'newStateTransitionsSiblingPath', 2 * STATE_TRANSITIONS_LENGTH);
   }
 
   static from(fields: FieldsOf<BaseRollupInputs>): BaseRollupInputs {
@@ -149,11 +154,13 @@ export class BaseRollupInputs {
       fields.startPrivateDataTreeSnapshot,
       fields.startNullifierTreeSnapshot,
       fields.startContractTreeSnapshot,
+      fields.startPublicDataTreeSnapshot,
       fields.lowNullifierLeafPreimages,
       fields.lowNullifierMembershipWitness,
       fields.newCommitmentsSubtreeSiblingPath,
       fields.newNullifiersSubtreeSiblingPath,
       fields.newContractsSubtreeSiblingPath,
+      fields.newStateTransitionsSiblingPath,
       fields.historicPrivateDataTreeRootMembershipWitnesses,
       fields.historicContractsTreeRootMembershipWitnesses,
       fields.constants,
@@ -184,6 +191,9 @@ export class BaseOrMergeRollupPublicInputs {
     public startContractTreeSnapshot: AppendOnlyTreeSnapshot,
     public endContractTreeSnapshot: AppendOnlyTreeSnapshot,
 
+    public startPublicDataTreeTreeSnapshot: AppendOnlyTreeSnapshot,
+    public endPublicDataTreeTreeSnapshot: AppendOnlyTreeSnapshot,
+
     // Hashes (sha256), to make public inputs constant-sized (to then be unpacked on-chain). Length 2 for high and low
     public calldataHash: [Fr, Fr],
   ) {}
@@ -199,6 +209,8 @@ export class BaseOrMergeRollupPublicInputs {
       reader.readFr(),
       reader.readObject(AggregationObject),
       reader.readObject(ConstantBaseRollupData),
+      reader.readObject(AppendOnlyTreeSnapshot),
+      reader.readObject(AppendOnlyTreeSnapshot),
       reader.readObject(AppendOnlyTreeSnapshot),
       reader.readObject(AppendOnlyTreeSnapshot),
       reader.readObject(AppendOnlyTreeSnapshot),
@@ -228,6 +240,9 @@ export class BaseOrMergeRollupPublicInputs {
 
       this.startContractTreeSnapshot,
       this.endContractTreeSnapshot,
+
+      this.startPublicDataTreeTreeSnapshot,
+      this.endPublicDataTreeTreeSnapshot,
 
       this.calldataHash,
     );
