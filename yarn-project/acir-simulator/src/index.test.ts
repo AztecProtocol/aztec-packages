@@ -1,46 +1,41 @@
+import { Grumpkin } from '@aztec/barretenberg.js/crypto';
+import { BarretenbergWasm } from '@aztec/barretenberg.js/wasm';
 import {
   ARGS_LENGTH,
   ContractDeploymentData,
   FunctionData,
   NEW_COMMITMENTS_LENGTH,
   OldTreeRoots,
+  PRIVATE_DATA_TREE_HEIGHT,
   TxContext,
   TxRequest,
 } from '@aztec/circuits.js';
 import { AztecAddress, EthAddress, Fr } from '@aztec/foundation';
-import { Grumpkin, pedersenCompressInputs } from '@aztec/barretenberg.js/crypto';
-import { FunctionAbi } from '@aztec/noir-contracts';
-import { TestContractAbi, ZkTokenContractAbi } from '@aztec/noir-contracts/examples';
-import { DBOracle } from './db_oracle.js';
-import { AcirSimulator, MAPPING_SLOT_PEDERSEN_CONSTANT } from './simulator.js';
-import { jest } from '@jest/globals';
-import { toBigIntBE } from '@aztec/foundation';
-import { BarretenbergWasm } from '@aztec/barretenberg.js/wasm';
-import { default as levelup } from 'levelup';
-import { default as memdown } from 'memdown';
 import { Pedersen, StandardMerkleTree } from '@aztec/merkle-tree';
+import { FunctionAbi } from '@aztec/noir-contracts';
+import { ChildAbi, ParentAbi, TestContractAbi, ZkTokenContractAbi } from '@aztec/noir-contracts/examples';
+import { mock } from 'jest-mock-extended';
+import { default as levelup } from 'levelup';
+import { default as memdown, type MemDown } from 'memdown';
 import { encodeArguments } from './arguments_encoder/index.js';
+import { DBOracle } from './db_oracle.js';
+import { AcirSimulator } from './simulator.js';
+import { NoirPoint, computeSlot, toPublicKey } from './utils.js';
 
-type NoirPoint = {
-  x: bigint;
-  y: bigint;
-};
-
-export const createMemDown = () => (memdown as any)();
+export const createMemDown = () => (memdown as any)() as MemDown<any, any>;
 
 describe('ACIR simulator', () => {
   let bbWasm: BarretenbergWasm;
-
-  const oracle = {
-    getNotes: jest.fn<DBOracle['getNotes']>(),
-    getSecretKey: jest.fn<DBOracle['getSecretKey']>(),
-    getFunctionABI: jest.fn<DBOracle['getFunctionABI']>(),
-    getPortalContractAddress: jest.fn<DBOracle['getPortalContractAddress']>(),
-  };
-  const acirSimulator = new AcirSimulator(oracle as unknown as DBOracle);
+  let oracle: ReturnType<typeof mock<DBOracle>>;
+  let acirSimulator: AcirSimulator;
 
   beforeAll(async () => {
     bbWasm = await BarretenbergWasm.get();
+  });
+
+  beforeEach(() => {
+    oracle = mock<DBOracle>();
+    acirSimulator = new AcirSimulator(oracle);
   });
 
   describe('empty constructor', () => {
@@ -72,44 +67,19 @@ describe('ACIR simulator', () => {
     });
   });
 
-  describe('token contract', () => {
+  describe('zk token contract', () => {
     let currentNonce = 0n;
-    const SIBLING_PATH_SIZE = 5;
 
     const contractDeploymentData = new ContractDeploymentData(Fr.ZERO, Fr.ZERO, Fr.ZERO, EthAddress.ZERO);
     const txContext = new TxContext(false, false, false, contractDeploymentData);
-
-    function computeSlot(mappingSlot: Fr, owner: NoirPoint, bbWasm: BarretenbergWasm) {
-      return Fr.fromBuffer(
-        pedersenCompressInputs(
-          bbWasm,
-          [MAPPING_SLOT_PEDERSEN_CONSTANT, mappingSlot, new Fr(owner.x)].map(f => f.toBuffer()),
-        ),
-      );
-    }
 
     let ownerPk: Buffer;
     let owner: NoirPoint;
     let recipientPk: Buffer;
     let recipient: NoirPoint;
 
-    function buildNote(amount: bigint, owner: NoirPoint, isDummy = false) {
-      return [
-        new Fr(amount),
-        new Fr(owner.x),
-        new Fr(owner.y),
-        new Fr(4n),
-        new Fr(currentNonce++),
-        new Fr(isDummy ? 1n : 0n),
-      ];
-    }
-
-    function toPublicKey(privateKey: Buffer, grumpkin: Grumpkin): NoirPoint {
-      const publicKey = grumpkin.mul(Grumpkin.generator, privateKey);
-      return {
-        x: toBigIntBE(publicKey.slice(0, 32)),
-        y: toBigIntBE(publicKey.slice(32, 64)),
-      };
+    function buildNote(amount: bigint, owner: NoirPoint) {
+      return [new Fr(1n), new Fr(currentNonce++), new Fr(owner.x), new Fr(owner.y), Fr.random(), new Fr(amount)];
     }
 
     beforeAll(() => {
@@ -175,7 +145,7 @@ describe('ACIR simulator', () => {
       expect(commitment).toEqual(Fr.fromBuffer(acirSimulator.computeNoteHash(newNote.preimage, bbWasm)));
     });
 
-    it.skip('should run the transfer function', async () => {
+    it('should run the transfer function', async () => {
       const db = levelup(createMemDown());
       const pedersen = new Pedersen(bbWasm);
 
@@ -183,7 +153,7 @@ describe('ACIR simulator', () => {
       const amountToTransfer = 100n;
       const abi = ZkTokenContractAbi.functions.find(f => f.name === 'transfer') as unknown as FunctionAbi;
 
-      const tree = await StandardMerkleTree.new(db, pedersen, 'privateData', SIBLING_PATH_SIZE);
+      const tree = await StandardMerkleTree.new(db, pedersen, 'privateData', PRIVATE_DATA_TREE_HEIGHT);
       const preimages = [buildNote(60n, owner), buildNote(80n, owner)];
       // TODO for this we need that noir siloes the commitment the same way as the kernel does, to do merkle membership
       await tree.appendLeaves(preimages.map(preimage => acirSimulator.computeNoteHash(preimage, bbWasm)));
@@ -195,7 +165,7 @@ describe('ACIR simulator', () => {
           preimages.map(async (preimage, index) => ({
             preimage,
             siblingPath: (await tree.getSiblingPath(BigInt(index))).data.map(buf => Fr.fromBuffer(buf)),
-            index,
+            index: BigInt(index),
           })),
         );
       });
@@ -214,7 +184,131 @@ describe('ACIR simulator', () => {
 
       const result = await acirSimulator.run(txRequest, abi, AztecAddress.random(), EthAddress.ZERO, oldRoots);
 
-      console.log(result);
+      // The two notes were nullified
+      const newNullifiers = result.callStackItem.publicInputs.newNullifiers.filter(field => !field.equals(Fr.ZERO));
+      expect(newNullifiers).toHaveLength(2);
+
+      expect(newNullifiers).toEqual(
+        preimages.map(preimage => Fr.fromBuffer(acirSimulator.computeNullifier(preimage, ownerPk, bbWasm))),
+      );
+
+      expect(result.preimages.newNotes).toHaveLength(2);
+      const [recipientNote, changeNote] = result.preimages.newNotes;
+      expect(recipientNote.storageSlot).toEqual(computeSlot(new Fr(1n), recipient, bbWasm));
+
+      const newCommitments = result.callStackItem.publicInputs.newCommitments.filter(field => !field.equals(Fr.ZERO));
+
+      expect(newCommitments).toHaveLength(2);
+
+      const [recipientNoteCommitment, changeNoteCommitment] = newCommitments;
+      expect(recipientNoteCommitment).toEqual(
+        Fr.fromBuffer(acirSimulator.computeNoteHash(recipientNote.preimage, bbWasm)),
+      );
+      expect(changeNoteCommitment).toEqual(Fr.fromBuffer(acirSimulator.computeNoteHash(changeNote.preimage, bbWasm)));
+
+      expect(recipientNote.preimage[5]).toEqual(new Fr(amountToTransfer));
+      expect(changeNote.preimage[5]).toEqual(new Fr(40n));
+    }, 30_000);
+
+    it('should be able to transfer with dummy notes', async () => {
+      const db = levelup(createMemDown());
+      const pedersen = new Pedersen(bbWasm);
+
+      const contractAddress = AztecAddress.random();
+      const amountToTransfer = 100n;
+      const balance = 160n;
+      const abi = ZkTokenContractAbi.functions.find(f => f.name === 'transfer') as unknown as FunctionAbi;
+
+      const tree = await StandardMerkleTree.new(db, pedersen, 'privateData', PRIVATE_DATA_TREE_HEIGHT);
+      const preimages = [buildNote(balance, owner)];
+      // TODO for this we need that noir siloes the commitment the same way as the kernel does, to do merkle membership
+      await tree.appendLeaves(preimages.map(preimage => acirSimulator.computeNoteHash(preimage, bbWasm)));
+
+      const oldRoots = new OldTreeRoots(Fr.fromBuffer(tree.getRoot()), new Fr(0n), new Fr(0n), new Fr(0n));
+
+      oracle.getNotes.mockImplementation(() => {
+        return Promise.all(
+          preimages.map(async (preimage, index) => ({
+            preimage,
+            siblingPath: (await tree.getSiblingPath(BigInt(index))).data.map(buf => Fr.fromBuffer(buf)),
+            index: BigInt(index),
+          })),
+        );
+      });
+
+      oracle.getSecretKey.mockReturnValue(Promise.resolve(ownerPk));
+
+      const txRequest = new TxRequest(
+        AztecAddress.random(),
+        contractAddress,
+        new FunctionData(Buffer.alloc(4), true, true),
+        encodeArguments(abi, [amountToTransfer, owner, recipient]),
+        Fr.random(),
+        txContext,
+        new Fr(0n),
+      );
+
+      const result = await acirSimulator.run(txRequest, abi, AztecAddress.random(), EthAddress.ZERO, oldRoots);
+
+      const newNullifiers = result.callStackItem.publicInputs.newNullifiers.filter(field => !field.equals(Fr.ZERO));
+      expect(newNullifiers).toHaveLength(2);
+
+      expect(newNullifiers[0]).toEqual(Fr.fromBuffer(acirSimulator.computeNullifier(preimages[0], ownerPk, bbWasm)));
+
+      expect(result.preimages.newNotes).toHaveLength(2);
+      const [recipientNote, changeNote] = result.preimages.newNotes;
+      expect(recipientNote.preimage[5]).toEqual(new Fr(amountToTransfer));
+      expect(changeNote.preimage[5]).toEqual(new Fr(balance - amountToTransfer));
+    }, 30_000);
+  });
+
+  describe('nested calls', () => {
+    const oldRoots = new OldTreeRoots(new Fr(0n), new Fr(0n), new Fr(0n), new Fr(0n));
+    const contractDeploymentData = new ContractDeploymentData(Fr.random(), Fr.random(), Fr.random(), EthAddress.ZERO);
+    const txContext = new TxContext(false, false, true, contractDeploymentData);
+
+    it('child function should be callable', async () => {
+      const abi = ChildAbi.functions.find(f => f.name === 'value') as unknown as FunctionAbi;
+
+      const txRequest = new TxRequest(
+        AztecAddress.random(),
+        AztecAddress.ZERO,
+        new FunctionData(Buffer.alloc(4), true, false),
+        encodeArguments(abi, [100n]),
+        Fr.random(),
+        txContext,
+        new Fr(0n),
+      );
+      const result = await acirSimulator.run(txRequest, abi, AztecAddress.ZERO, EthAddress.ZERO, oldRoots);
+
+      expect(result.callStackItem.publicInputs.returnValues[0]).toEqual(new Fr(142n));
+    });
+
+    it('parent should call child', async () => {
+      const childAbi = ChildAbi.functions.find(f => f.name === 'value') as unknown as FunctionAbi;
+      const parentAbi = ParentAbi.functions.find(f => f.name === 'entryPoint') as unknown as FunctionAbi;
+      const childAddress = AztecAddress.random();
+      const childSelector = Buffer.alloc(4, 1); // should match the call
+
+      oracle.getFunctionABI.mockImplementation(() => Promise.resolve(childAbi));
+      oracle.getPortalContractAddress.mockImplementation(() => Promise.resolve(EthAddress.ZERO));
+
+      const txRequest = new TxRequest(
+        AztecAddress.random(),
+        AztecAddress.ZERO,
+        new FunctionData(Buffer.alloc(4), true, false),
+        encodeArguments(parentAbi, [Fr.fromBuffer(childAddress.toBuffer()).value, Fr.fromBuffer(childSelector).value]),
+        Fr.random(),
+        txContext,
+        new Fr(0n),
+      );
+      const result = await acirSimulator.run(txRequest, parentAbi, AztecAddress.random(), EthAddress.ZERO, oldRoots);
+
+      expect(result.callStackItem.publicInputs.returnValues[0]).toEqual(new Fr(42n));
+      expect(oracle.getFunctionABI.mock.calls[0]).toEqual([childAddress, childSelector]);
+      expect(oracle.getPortalContractAddress.mock.calls[0]).toEqual([childAddress]);
+      expect(result.nestedExecutions).toHaveLength(1);
+      expect(result.nestedExecutions[0].callStackItem.publicInputs.returnValues[0]).toEqual(new Fr(42n));
     });
   });
 });

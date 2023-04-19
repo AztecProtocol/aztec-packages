@@ -1,5 +1,5 @@
 {
-  "aztec3-circuits-wasm-linux-clang": {
+  "circuits-wasm-linux-clang": {
     "buildDir": "circuits/cpp",
     "dockerfile": "dockerfiles/Dockerfile.wasm-linux-clang",
     "rebuildPatterns": [
@@ -7,8 +7,16 @@
     ],
     "dependencies": []
   },
+  "circuits-wasm-linux-clang-assert": {
+    "buildDir": "circuits/cpp",
+    "dockerfile": "dockerfiles/Dockerfile.wasm-linux-clang-assert",
+    "rebuildPatterns": [
+      "^circuits/"
+    ],
+    "dependencies": []
+  },
   "circuits-x86_64-linux-clang": {
-    "buildDir": "circuits",
+    "buildDir": "circuits/cpp",
     "dockerfile": "dockerfiles/Dockerfile.x86_64-linux-clang",
     "rebuildPatterns": [
       "^circuits/"
@@ -16,7 +24,7 @@
     "dependencies": []
   },
   "circuits-x86_64-linux-clang-assert": {
-    "buildDir": "circuits",
+    "buildDir": "circuits/cpp",
     "dockerfile": "dockerfiles/Dockerfile.x86_64-linux-clang-assert",
     "rebuildPatterns": [
       "^circuits/"
@@ -24,7 +32,7 @@
     "dependencies": []
   },
   "circuits-x86_64-linux-gcc": {
-    "buildDir": "circuits",
+    "buildDir": "circuits/cpp",
     "dockerfile": "dockerfiles/Dockerfile.x86_64-linux-gcc",
     "rebuildPatterns": [
       "^circuits/"
@@ -46,11 +54,12 @@
     "buildDir": "yarn-project",
     "dockerfile": "yarn-project-base/Dockerfile",
     "rebuildPatterns": [
+      "^circuits/",
       "^yarn-project/yarn-project-base/",
       "^yarn-project/yarn.lock"
     ],
     "dependencies": [
-      "aztec3-circuits-wasm-linux-clang"
+      "circuits-wasm-linux-clang"
     ]
   },
   "acir-simulator": {
@@ -299,6 +308,7 @@
       "^yarn-project/sequencer-client/"
     ],
     "dependencies": [
+      "acir-simulator",
       "circuits.js",
       "ethereum.js",
       "foundation",

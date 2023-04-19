@@ -21,6 +21,16 @@ export class MembershipWitness<N extends number> {
     );
   }
 
+  public static random<N extends number>(pathSize: N) {
+    return new MembershipWitness<N>(
+      pathSize,
+      0,
+      Array(pathSize)
+        .fill(0)
+        .map(() => Fr.random()),
+    );
+  }
+
   public static makeEmpty<N extends number>(pathSize: N, leafIndex: UInt32) {
     const arr = Array(pathSize)
       .fill(0)
@@ -161,6 +171,6 @@ export enum ComposerType {
  */
 export enum RollupTypes {
   Base = 0,
-  Rollup = 1,
-  Merge = 2,
+  Merge = 1,
+  Root = 2,
 }

@@ -50,7 +50,7 @@ import {
   PrivateCallData,
   PrivateKernelInputs,
   PrivateKernelPublicInputs,
-} from '../structs/kernel.js';
+} from '../structs/private_kernel.js';
 import { PrivateCallStackItem } from '../structs/private_call_stack_item.js';
 import {
   AffineElement,
@@ -188,11 +188,12 @@ export function makePrivateCallData(seed = 1): PrivateCallData {
   return PrivateCallData.from({
     callStackItem: makeCallStackItem(seed),
     privateCallStackPreimages: range(PRIVATE_CALL_STACK_LENGTH, seed + 0x10).map(makeCallStackItem),
-    contractLeafMembershipWitness: makeMembershipWitness(CONTRACT_TREE_HEIGHT, seed + 0x20),
-    functionLeafMembershipWitness: makeMembershipWitness(FUNCTION_TREE_HEIGHT, seed + 0x30),
-    portalContractAddress: makeEthAddress(seed + 0x40),
     proof: makeDynamicSizeBuffer(16, seed + 0x50),
     vk: makeVerificationKey(),
+    functionLeafMembershipWitness: makeMembershipWitness(FUNCTION_TREE_HEIGHT, seed + 0x30),
+    contractLeafMembershipWitness: makeMembershipWitness(CONTRACT_TREE_HEIGHT, seed + 0x20),
+    portalContractAddress: makeEthAddress(seed + 0x40),
+    acirHash: fr(seed + 0x60),
   });
 }
 

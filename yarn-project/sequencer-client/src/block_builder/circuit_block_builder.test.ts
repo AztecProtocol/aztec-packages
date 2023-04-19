@@ -13,25 +13,24 @@ import {
   makePrivateKernelPublicInputs,
   makeRootRollupPublicInputs,
 } from '@aztec/circuits.js/factories';
-import { Tx } from '@aztec/types';
+import { PrivateTx, Tx } from '@aztec/types';
 import { MerkleTreeId, MerkleTreeOperations, MerkleTrees } from '@aztec/world-state';
 import { MockProxy, mock } from 'jest-mock-extended';
 import { default as levelup } from 'levelup';
 import flatMap from 'lodash.flatmap';
-import { default as memdown } from 'memdown';
-import { makeEmptyTx, makeEmptyUnverifiedData } from '../mocks/tx.js';
+import { default as memdown, type MemDown } from 'memdown';
+import { makeEmptyPrivateTx, makeEmptyUnverifiedData } from '../mocks/tx.js';
 import { VerificationKeys, getVerificationKeys } from '../mocks/verification_keys.js';
-import { EmptyProver } from '../prover/empty.js';
-import { Prover } from '../prover/index.js';
-import { Simulator } from '../simulator/index.js';
+import { EmptyRollupProver } from '../prover/empty.js';
+import { RollupProver } from '../prover/index.js';
+import { RollupSimulator } from '../simulator/index.js';
 import { WasmCircuitSimulator } from '../simulator/wasm.js';
 import { CircuitBlockBuilder } from './circuit_block_builder.js';
 import { computeContractLeaf } from '@aztec/circuits.js/abis';
+import { toBufferBE } from '@aztec/foundation';
 import times from 'lodash.times';
 
-/* eslint-disable @typescript-eslint/ban-ts-comment */
-// @ts-ignore
-export const createMemDown = () => memdown();
+export const createMemDown = () => (memdown as any)() as MemDown<any, any>;
 
 describe('sequencer/circuit_block_builder', () => {
   let builder: TestSubject;
@@ -39,8 +38,8 @@ describe('sequencer/circuit_block_builder', () => {
   let expectsDb: MerkleTreeOperations;
   let vks: VerificationKeys;
 
-  let simulator: MockProxy<Simulator>;
-  let prover: MockProxy<Prover>;
+  let simulator: MockProxy<RollupSimulator>;
+  let prover: MockProxy<RollupProver>;
 
   let blockNumber: number;
   let baseRollupOutputLeft: BaseOrMergeRollupPublicInputs;
@@ -60,8 +59,8 @@ describe('sequencer/circuit_block_builder', () => {
     builderDb = await MerkleTrees.new(levelup(createMemDown())).then(t => t.asLatest());
     expectsDb = await MerkleTrees.new(levelup(createMemDown())).then(t => t.asLatest());
     vks = getVerificationKeys();
-    simulator = mock<Simulator>();
-    prover = mock<Prover>();
+    simulator = mock<RollupSimulator>();
+    prover = mock<RollupProver>();
     builder = new TestSubject(builderDb, vks, simulator, prover);
 
     // Populate root trees with first roots from the empty trees
@@ -93,7 +92,7 @@ describe('sequencer/circuit_block_builder', () => {
   };
 
   // Updates the expectedDb trees based on the new commitments, contracts, and nullifiers from these txs
-  const updateExpectedTreesFromTxs = async (txs: Tx[]) => {
+  const updateExpectedTreesFromTxs = async (txs: PrivateTx[]) => {
     const newContracts = flatMap(txs, tx => tx.data.end.newContracts.map(n => computeContractLeaf(wasm, n)));
     for (const [tree, leaves] of [
       [MerkleTreeId.DATA_TREE, flatMap(txs, tx => tx.data.end.newCommitments.map(l => l.toBuffer()))],
@@ -109,7 +108,7 @@ describe('sequencer/circuit_block_builder', () => {
     return new AppendOnlyTreeSnapshot(Fr.fromBuffer(treeInfo.root), Number(treeInfo.size));
   };
 
-  const setTxOldTreeRoots = async (tx: Tx) => {
+  const setTxOldTreeRoots = async (tx: PrivateTx) => {
     for (const [name, id] of [
       ['privateDataTreeRoot', MerkleTreeId.DATA_TREE],
       ['contractTreeRoot', MerkleTreeId.CONTRACT_TREE],
@@ -126,9 +125,9 @@ describe('sequencer/circuit_block_builder', () => {
       await builder.updateRootTrees();
 
       // Assemble a fake transaction, we'll tweak some fields below
-      const tx = new Tx(makePrivateKernelPublicInputs(), emptyProof, makeEmptyUnverifiedData());
-      const txsLeft = [tx, makeEmptyTx()];
-      const txsRight = [makeEmptyTx(), makeEmptyTx()];
+      const tx = Tx.createPrivate(makePrivateKernelPublicInputs(), emptyProof, makeEmptyUnverifiedData());
+      const txsLeft = [tx, makeEmptyPrivateTx()];
+      const txsRight = [makeEmptyPrivateTx(), makeEmptyPrivateTx()];
 
       // Set tree roots to proper values in the tx
       await setTxOldTreeRoots(tx);
@@ -158,24 +157,44 @@ describe('sequencer/circuit_block_builder', () => {
       );
 
       // Actually build a block!
-      const txs = [tx, makeEmptyTx(), makeEmptyTx(), makeEmptyTx()];
+      const txs = [tx, makeEmptyPrivateTx(), makeEmptyPrivateTx(), makeEmptyPrivateTx()];
       const [l2Block, proof] = await builder.buildL2Block(blockNumber, txs);
 
       expect(l2Block.number).toEqual(blockNumber);
       expect(proof).toEqual(emptyProof);
     }, 20000);
+
+    // For varying orders of insertions assert the local batch insertion generator creates the correct proofs
+    it.each([
+      [[16, 15, 14, 13, 0, 0, 0, 0]],
+      [[13, 14, 15, 16, 0, 0, 0, 0]],
+      [[1234, 98, 0, 0, 99999, 88, 54, 0]],
+      [[97, 98, 10, 0, 99999, 88, 100001, 9000000]],
+    ] as const)('Preforms nullifier tree batch insertion correctly', async nullifiers => {
+      const leaves = nullifiers.map(i => toBufferBE(BigInt(i), 32));
+      await expectsDb.appendLeaves(MerkleTreeId.NULLIFIER_TREE, leaves);
+
+      builder = new TestSubject(builderDb, vks, simulator, prover);
+
+      await builder.performBaseRollupBatchInsertionProofs(leaves);
+
+      // assert snapshots
+      const expectsSnapshot = await expectsDb.getTreeInfo(MerkleTreeId.NULLIFIER_TREE);
+      const buildSnapshot = await builderDb.getTreeInfo(MerkleTreeId.NULLIFIER_TREE);
+      expect(buildSnapshot).toEqual(expectsSnapshot);
+    });
   });
 
   describe('circuits simulator', () => {
     beforeEach(async () => {
       const simulator = await WasmCircuitSimulator.new();
-      const prover = new EmptyProver();
+      const prover = new EmptyRollupProver();
       builder = new TestSubject(builderDb, vks, simulator, prover);
       await builder.updateRootTrees();
     });
 
     const makeContractDeployTx = async (seed = 0x1) => {
-      const tx = makeEmptyTx();
+      const tx = makeEmptyPrivateTx();
       await setTxOldTreeRoots(tx);
       tx.data.end.newContracts = [makeNewContractData(seed + 0x1000)];
       return tx;
@@ -185,6 +204,8 @@ describe('sequencer/circuit_block_builder', () => {
       [0, 4],
       [1, 4],
       [4, 4],
+      [0, 16],
+      [16, 16],
     ] as const)(
       'builds an L2 block with %i contract deploy txs and %i txs total',
       async (deployCount: number, totalCount: number) => {
@@ -192,7 +213,7 @@ describe('sequencer/circuit_block_builder', () => {
 
         const txs = [
           ...(await Promise.all(times(deployCount, makeContractDeployTx))),
-          ...times(totalCount - deployCount, makeEmptyTx),
+          ...times(totalCount - deployCount, makeEmptyPrivateTx),
         ];
 
         const [l2Block] = await builder.buildL2Block(blockNumber, txs);
@@ -211,12 +232,42 @@ describe('sequencer/circuit_block_builder', () => {
       },
       10000,
     );
+
+    // This test specifically tests nullifier values which previously caused e2e_zk_token test to fail
+    it('e2e edge case - regression test', async () => {
+      const simulator = await WasmCircuitSimulator.new();
+      const prover = new EmptyRollupProver();
+      builder = new TestSubject(builderDb, vks, simulator, prover);
+      // update the starting tree
+      const updateVals = Array(16).fill(0n);
+      updateVals[0] = 19777494491628650244807463906174285795660759352776418619064841306523677458742n;
+      updateVals[1] = 10246291467305176436335175657884940686778521321101740385288169037814567547848n;
+
+      await builder.updateRootTrees();
+      await builderDb.appendLeaves(
+        MerkleTreeId.NULLIFIER_TREE,
+        updateVals.map(v => toBufferBE(v, 32)),
+      );
+
+      // new added values
+      const tx = makeEmptyPrivateTx();
+      tx.data.end.newNullifiers[0] = new Fr(
+        10336601644835972678500657502133589897705389664587188571002640950065546264856n,
+      );
+      tx.data.end.newNullifiers[1] = new Fr(
+        17490072961923661940560522096125238013953043065748521735636170028491723851741n,
+      );
+      const txs = [tx, makeEmptyPrivateTx(), makeEmptyPrivateTx(), makeEmptyPrivateTx()];
+
+      const [l2Block] = await builder.buildL2Block(blockNumber, txs);
+      expect(l2Block.number).toEqual(blockNumber);
+    });
   });
 });
 
 // Test subject class that exposes internal functions for testing
 class TestSubject extends CircuitBlockBuilder {
-  public buildBaseRollupInput(tx1: Tx, tx2: Tx): Promise<BaseRollupInputs> {
+  public buildBaseRollupInput(tx1: PrivateTx, tx2: PrivateTx): Promise<BaseRollupInputs> {
     return super.buildBaseRollupInput(tx1, tx2);
   }
 
