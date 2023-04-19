@@ -45,6 +45,22 @@ describe('abis wasm bindings', () => {
     expect(res).toMatchSnapshot();
   });
 
+  it('compute function leaf should revert if buffer is over 4 bytes', () => {
+    expect(() => {
+      new FunctionLeafPreimage(Buffer.from([0, 0, 0, 0, 123]), true, Fr.ZERO, Fr.ZERO);
+    }).toThrow('Function selector must be 4 bytes long, got 5 bytes.');
+  });
+
+  it('function leaf toBuffer should revert if buffer is over 4 bytes ', () => {
+    const initBuffer = Buffer.from([0, 0, 0, 123]);
+    const largerBuffer = Buffer.from([0, 0, 0, 0, 123]);
+    expect(() => {
+      const leaf = new FunctionLeafPreimage(initBuffer, true, Fr.ZERO, Fr.ZERO);
+      leaf.functionSelector = largerBuffer;
+      leaf.toBuffer();
+    }).toThrow('Function selector must be 4 bytes long, got 5 bytes.');
+  });
+
   it('computes function tree root', async () => {
     const res = await computeFunctionTreeRoot(wasm, [new Fr(0n), new Fr(0n), new Fr(0n), new Fr(0n)]);
     expect(res).toMatchSnapshot();

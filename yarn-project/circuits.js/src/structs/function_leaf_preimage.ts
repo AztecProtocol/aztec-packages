@@ -9,6 +9,13 @@ export class FunctionLeafPreimage {
   readonly FUNCTION_SELECTOR_LENGTH = 4;
 
   constructor(public functionSelector: Buffer, public isPrivate: boolean, public vkHash: Fr, public acirHash: Fr) {
+    this.assertFunctionSelectorLength(functionSelector);
+  }
+
+  /**
+   * Assert the function selector buffer length matches `FUNCTION_SELECTOR_LENGTH`
+   */
+  private assertFunctionSelectorLength(functionSelector: Buffer) {
     if (functionSelector.byteLength !== this.FUNCTION_SELECTOR_LENGTH) {
       throw new Error(
         `Function selector must be ${this.FUNCTION_SELECTOR_LENGTH} bytes long, got ${functionSelector.byteLength} bytes.`,
@@ -21,11 +28,7 @@ export class FunctionLeafPreimage {
    * @returns The buffer.
    */
   toBuffer(): Buffer {
-    if (this.functionSelector.byteLength !== this.FUNCTION_SELECTOR_LENGTH) {
-      throw new Error(
-        `Function selector must be ${this.FUNCTION_SELECTOR_LENGTH} bytes long, got ${this.functionSelector.byteLength} bytes.`,
-      );
-    }
+    this.assertFunctionSelectorLength(this.functionSelector);
     return serializeToBuffer(this.functionSelector, this.isPrivate, this.vkHash, this.acirHash);
   }
 
