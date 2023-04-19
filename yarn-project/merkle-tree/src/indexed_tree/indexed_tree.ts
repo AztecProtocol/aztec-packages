@@ -110,6 +110,7 @@ export class IndexedTree implements MerkleTree {
 
   /**
    * Returns the root of the tree.
+   * @param includeUncommitted Include uncommitted changes in the root computation.
    * @returns The root of the tree.
    */
   public getRoot(includeUncommitted: boolean): Buffer {
@@ -126,6 +127,7 @@ export class IndexedTree implements MerkleTree {
 
   /**
    * Returns the number of leaves in the tree.
+   * @param includeUncommitted include uncommitted leaves in the computation.
    * @returns The number of leaves in the tree.
    */
   public getNumLeaves(includeUncommitted: boolean): bigint {
@@ -164,6 +166,7 @@ export class IndexedTree implements MerkleTree {
   /**
    * Returns a sibling path for the element at the given index.
    * @param index - The index of the element.
+   * @param includeUncommitted include uncommitted leaves in the computation.
    * @returns A sibling path for the element at the given index.
    * Note: The sibling path is an array of sibling hashes, with the lowest hash (leaf hash) first, and the highest hash last.
    */
@@ -238,6 +241,7 @@ export class IndexedTree implements MerkleTree {
   /**
    * Finds the index of the largest leaf whose value is less than or equal to the provided value.
    * @param newValue - The new value to be inserted into the tree.
+   * @param includeUncommitted include uncommitted leaves in the computation.
    * @returns Tuple containing the leaf index and a flag to say if the value is a duplicate.
    */
   public findIndexOfPreviousValue(newValue: bigint, includeUncommitted: boolean) {
@@ -355,6 +359,7 @@ export class IndexedTree implements MerkleTree {
   /**
    * Gets the latest LeafData copy.
    * @param index - Index of the leaf of which to obtain the LeafData copy.
+   * @param includeUncommitted include uncommitted leaves in the computation.
    * @returns A copy of the leaf data at the given index or undefined if the leaf was not found.
    */
   public getLatestLeafDataCopy(index: number, includeUncommitted: boolean): LeafData | undefined {
@@ -368,6 +373,12 @@ export class IndexedTree implements MerkleTree {
       : undefined;
   }
 
+  /**
+   * Gets the value of the leaf at the given index.
+   * @param index - Index of the leaf of which to obtain the value.
+   * @param includeUncommitted include uncommitted leaves in the computation.
+   * @returns The value of the leaf at the given index or undefined if the leaf is empty.
+   */
   public getLeafValue(index: bigint, includeUncommitted: boolean): Promise<Buffer | undefined> {
     const leaf = this.getLatestLeafDataCopy(Number(index), includeUncommitted);
     if (!leaf) return Promise.resolve(undefined);
