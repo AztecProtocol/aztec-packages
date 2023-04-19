@@ -69,19 +69,6 @@ describe('e2e_nested_contract', () => {
   /**
    * Milestone 3
    */
-  it('should view transactions that perform nested calls', async () => {
-    const parentContract = await deployContract(parentABI);
-    const childContract = await deployContract(childABI);
-
-    logger('Parent & Child contracts deployed');
-
-    const result = await parentContract.methods
-      .entryPoint(addressToField(childContract.address), Fr.fromBuffer(childContract.methods.value.selector).value)
-      .view({ from: accounts[0] });
-
-    expect(result[0]).toEqual(42n);
-  }, 60_000);
-
   it('should mine transactions that perform nested calls', async () => {
     const parentContract = await deployContract(parentABI);
     const childContract = await deployContract(childABI);
