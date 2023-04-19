@@ -22,7 +22,7 @@ describe('structs/kernel', () => {
     const kernelInputs = makePrivateKernelPublicInputs();
     await expectSerializeToMatchSnapshot(
       kernelInputs.toBuffer(),
-      'abis__test_roundtrip_serialize_private_kernel_public_inputs',
+      'abis__test_roundtrip_serialize_kernel_circuit_public_inputs',
     );
   });
 });
