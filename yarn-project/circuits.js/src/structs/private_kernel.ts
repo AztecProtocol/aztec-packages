@@ -52,7 +52,7 @@ export class PrivateOldTreeRoots {
   }
 
   static empty() {
-    return new this(Fr.ZERO, Fr.ZERO, Fr.ZERO, Fr.ZERO);
+    return new PrivateOldTreeRoots(Fr.ZERO, Fr.ZERO, Fr.ZERO, Fr.ZERO);
   }
 }
 
@@ -65,11 +65,11 @@ export class CombinedOldTreeRoots {
 
   static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
-    return new this(reader.readObject(PrivateOldTreeRoots), reader.readFr());
+    return new CombinedOldTreeRoots(reader.readObject(PrivateOldTreeRoots), reader.readFr());
   }
 
   static empty() {
-    return new this(PrivateOldTreeRoots.empty(), Fr.ZERO);
+    return new CombinedOldTreeRoots(PrivateOldTreeRoots.empty(), Fr.ZERO);
   }
 }
 
@@ -90,7 +90,7 @@ export class CombinedConstantData {
   }
 
   static empty() {
-    return new this(CombinedOldTreeRoots.empty(), TxContext.empty());
+    return new CombinedConstantData(CombinedOldTreeRoots.empty(), TxContext.empty());
   }
 }
 
@@ -116,7 +116,7 @@ export class NewContractData {
   }
 
   static empty() {
-    return new this(AztecAddress.ZERO, EthAddress.ZERO, Fr.ZERO);
+    return new NewContractData(AztecAddress.ZERO, EthAddress.ZERO, Fr.ZERO);
   }
 }
 
@@ -169,7 +169,7 @@ export class OptionallyRevealedData {
   }
 
   static empty() {
-    return new this(
+    return new OptionallyRevealedData(
       Fr.ZERO,
       FunctionData.empty(),
       times(EMITTED_EVENTS_LENGTH, Fr.zero),
@@ -255,7 +255,7 @@ export class CombinedAccumulatedData {
   }
 
   static empty() {
-    return new this(
+    return new CombinedAccumulatedData(
       AggregationObject.makeFake(),
       Fr.ZERO,
       Fr.ZERO,

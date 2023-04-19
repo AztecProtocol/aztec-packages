@@ -31,7 +31,7 @@ export class MembershipWitness<N extends number> {
     );
   }
 
-  public static makeEmpty<N extends number>(pathSize: N, leafIndex: UInt32) {
+  public static empty<N extends number>(pathSize: N, leafIndex: UInt32) {
     const arr = Array(pathSize)
       .fill(0)
       .map(() => Fr.ZERO);

@@ -78,7 +78,7 @@ export class PublicCallStackItem {
   ) {}
 
   static empty() {
-    return new this(AztecAddress.ZERO, FunctionData.empty(), PublicCircuitPublicInputs.empty());
+    return new PublicCallStackItem(AztecAddress.ZERO, FunctionData.empty(), PublicCircuitPublicInputs.empty());
   }
 }
 
@@ -95,18 +95,18 @@ export class PublicKernelPublicInputs {
   constructor(public readonly end: CombinedAccumulatedData, public readonly constants: CombinedConstantData) {}
 
   static empty() {
-    return new this(CombinedAccumulatedData.empty(), CombinedConstantData.empty());
+    return new PublicKernelPublicInputs(CombinedAccumulatedData.empty(), CombinedConstantData.empty());
   }
 }
 
 class CombinedAccumulatedData {
   static empty() {
-    return new this();
+    return new CombinedAccumulatedData();
   }
 }
 
 class CombinedConstantData {
   static empty() {
-    return new this();
+    return new CombinedConstantData();
   }
 }

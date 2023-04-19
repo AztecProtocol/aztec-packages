@@ -83,7 +83,7 @@ export class TxContext {
   }
 
   static empty() {
-    return new this(false, false, true, ContractDeploymentData.empty());
+    return new TxContext(false, false, true, ContractDeploymentData.empty());
   }
 }
 

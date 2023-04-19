@@ -39,6 +39,10 @@ export class AppendOnlyTreeSnapshot {
     const reader = BufferReader.asReader(buffer);
     return new AppendOnlyTreeSnapshot(reader.readFr(), reader.readNumber());
   }
+
+  static empty() {
+    return new AppendOnlyTreeSnapshot(Fr.ZERO, 0);
+  }
 }
 
 export class ConstantBaseRollupData {

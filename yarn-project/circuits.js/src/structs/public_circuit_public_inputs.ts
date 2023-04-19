@@ -20,7 +20,7 @@ export class StateRead {
   constructor(public readonly storageSlot: Fr, public readonly value: Fr) {}
 
   static from(args: { storageSlot: Fr; value: Fr }) {
-    return new this(args.storageSlot, args.value);
+    return new StateRead(args.storageSlot, args.value);
   }
 
   toBuffer() {
@@ -29,11 +29,11 @@ export class StateRead {
 
   static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
-    return new this(reader.readFr(), reader.readFr());
+    return new StateRead(reader.readFr(), reader.readFr());
   }
 
   static empty() {
-    return new this(Fr.ZERO, Fr.ZERO);
+    return new StateRead(Fr.ZERO, Fr.ZERO);
   }
 }
 
@@ -44,7 +44,7 @@ export class StateTransition {
   constructor(public readonly storageSlot: Fr, public readonly oldValue: Fr, public readonly newValue: Fr) {}
 
   static from(args: { storageSlot: Fr; oldValue: Fr; newValue: Fr }) {
-    return new this(args.storageSlot, args.oldValue, args.newValue);
+    return new StateTransition(args.storageSlot, args.oldValue, args.newValue);
   }
 
   toBuffer() {
@@ -53,11 +53,11 @@ export class StateTransition {
 
   static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
-    return new this(reader.readFr(), reader.readFr(), reader.readFr());
+    return new StateTransition(reader.readFr(), reader.readFr(), reader.readFr());
   }
 
   static empty() {
-    return new this(Fr.ZERO, Fr.ZERO, Fr.ZERO);
+    return new StateTransition(Fr.ZERO, Fr.ZERO, Fr.ZERO);
   }
 }
 

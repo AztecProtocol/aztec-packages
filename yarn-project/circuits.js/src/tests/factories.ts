@@ -147,7 +147,7 @@ export function makeAggregationObject(seed = 1): AggregationObject {
   );
 }
 
-export function makePrivateKernelPublicInputs(seed = 1): KernelCircuitPublicInputs {
+export function makeKernelPublicInputs(seed = 1): KernelCircuitPublicInputs {
   return new KernelCircuitPublicInputs(makeAccumulatedData(seed), makeConstantData(seed + 0x100), true);
 }
 
@@ -173,7 +173,7 @@ export function makeVerificationKey(): VerificationKey {
 }
 export function makePreviousKernelData(seed = 1): PreviousKernelData {
   return new PreviousKernelData(
-    makePrivateKernelPublicInputs(seed),
+    makeKernelPublicInputs(seed),
     makeDynamicSizeBuffer(16, seed + 0x80),
     makeVerificationKey(),
     0x42,

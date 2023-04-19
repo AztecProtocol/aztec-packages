@@ -10,7 +10,7 @@ import {
 import {
   makeBaseRollupPublicInputs,
   makeNewContractData,
-  makePrivateKernelPublicInputs,
+  makeKernelPublicInputs,
   makeRootRollupPublicInputs,
 } from '@aztec/circuits.js/factories';
 import { PrivateTx, Tx } from '@aztec/types';
@@ -125,7 +125,7 @@ describe('sequencer/circuit_block_builder', () => {
       await builder.updateRootTrees();
 
       // Assemble a fake transaction, we'll tweak some fields below
-      const tx = Tx.createPrivate(makePrivateKernelPublicInputs(), emptyProof, makeEmptyUnverifiedData());
+      const tx = Tx.createPrivate(makeKernelPublicInputs(), emptyProof, makeEmptyUnverifiedData());
       const txsLeft = [tx, makeEmptyPrivateTx()];
       const txsRight = [makeEmptyPrivateTx(), makeEmptyPrivateTx()];
 
