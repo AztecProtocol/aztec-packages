@@ -19,7 +19,7 @@ export interface ContractDataSource {
    * Lookup all contract data in an L2 block.
    * @param blockNumber - The block number
    */
-  getL2ContractDataInBlock(blockNumber: number): Promise<ContractData>[];
+  getL2ContractDataInBlock(blockNumber: number): Promise<ContractData[]>;
 }
 
 /**
