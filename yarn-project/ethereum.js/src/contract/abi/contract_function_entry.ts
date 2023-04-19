@@ -22,11 +22,11 @@ export class ContractFunctionEntry extends ContractEntry {
         ? 'constructor'
         : abiCoder.encodeFunctionSignature(abiCoder.abiMethodToString(entry));
   }
-
+  // eslint-disable-next-line jsdoc/require-jsdoc
   public get constant() {
     return this.entry.stateMutability === 'view' || this.entry.stateMutability === 'pure' || this.entry.constant;
   }
-
+  // eslint-disable-next-line jsdoc/require-jsdoc
   public get payable() {
     return this.entry.stateMutability === 'payable' || this.entry.payable;
   }

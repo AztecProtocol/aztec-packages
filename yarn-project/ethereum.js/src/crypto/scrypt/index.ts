@@ -1,9 +1,11 @@
 import { pbkdf2, pbkdf2Sync } from '../pbkdf2/index.js';
 
 const MAX_VALUE = 0x7fffffff;
-
-// The following is an adaptation of scryptsy
-// See: https://www.npmjs.com/package/scryptsy
+/**
+ * The following is an adaptation of scryptsy.
+ *  See: https://www.npmjs.com/package/scryptsy.
+ *
+ */
 function blockmixSalsa8(BY, Yi, r, x, _X) {
   let i;
 
@@ -87,8 +89,9 @@ function salsa208(B, x) {
     B[i] += x[i];
   }
 }
-
-// naive approach... going back to loop unrolling may yield additional performance
+/**
+ * Naive approach; going back to loop unrolling may yield additional performance.
+ */
 function blockxor(S, Si, D, len) {
   for (let i = 0; i < len; i++) {
     D[i] ^= S[Si + i];
@@ -119,7 +122,7 @@ function arraycopy(src, srcPos, dest, destPos, length) {
  * @param value - The value to be checked as an integer.
  * @param name - A string representing the name of the parameter, used in the error message if the value is not an integer.
  * @returns The integer value if the value is a valid integer.
- * @throws {Error} If the provided value is not an integer.
+ * @throws If the provided value is not an integer.
  */
 function ensureInteger(value, name) {
   const intValue = parseInt(value, 10);
@@ -128,9 +131,10 @@ function ensureInteger(value, name) {
   }
   return intValue;
 }
-
-// N = Cpu cost, r = Memory cost, p = parallelization cost
-// callback(error, progress, key)
+/**
+ * N = Cpu cost, r = Memory cost, p = parallelization cost.
+ * Callback(error, progress, key).
+ */
 export function scrypt(password, salt, N, r, p, dkLen, callback?: (progress: number) => boolean) {
   return new Promise<Buffer>((resolve, reject) => {
     N = ensureInteger(N, 'N');

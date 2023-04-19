@@ -1,3 +1,4 @@
+// eslint-disable-next-line jsdoc/require-jsdoc
 export class InterruptError extends Error {}
 
 /**
@@ -11,6 +12,7 @@ export class InterruptableSleep {
   private interruptPromise = new Promise<boolean>(resolve => (this.interruptResolve = resolve));
   private timeouts: NodeJS.Timeout[] = [];
 
+  // eslint-disable-next-line jsdoc/require-jsdoc
   public async sleep(ms: number) {
     let timeout!: NodeJS.Timeout;
     const promise = new Promise<boolean>(resolve => (timeout = setTimeout(() => resolve(false), ms)));
@@ -23,12 +25,14 @@ export class InterruptableSleep {
     }
   }
 
+  // eslint-disable-next-line jsdoc/require-jsdoc
   public interrupt(sleepShouldThrow = false) {
     this.interruptResolve(sleepShouldThrow);
     this.interruptPromise = new Promise(resolve => (this.interruptResolve = resolve));
   }
 }
 
+// eslint-disable-next-line jsdoc/require-jsdoc
 export function sleep(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }

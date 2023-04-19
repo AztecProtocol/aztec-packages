@@ -16,7 +16,6 @@ export interface DecodedError {
   /**
    * An array of decoded error parameters.
    */
-
   params?: any[];
   /**
    * A human-readable description of the error.

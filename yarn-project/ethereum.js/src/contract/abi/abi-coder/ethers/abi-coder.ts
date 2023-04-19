@@ -63,6 +63,15 @@ const paramTypeArray = new RegExp(/^(.*)\[([0-9]*)\]$/);
 // const regexParen = new RegExp('^([^)(]*)\\((.*)\\)([^)(]*)$');
 // const regexIdentifier = new RegExp('^[A-Za-z_][A-Za-z0-9_]*$');
 
+/**
+ * Verifies and transforms the given type string to its full description if necessary.
+ * This function handles cases where the input type is a shorthand for specific types
+ * like 'uint' or 'int', converting them into their complete representations, such as 'uint256' or 'int256'.
+ * In all other cases, the input type is returned as-is.
+ *
+ * @param type - The data type string to be verified and transformed if necessary.
+ * @returns A string representing the full description of the input type.
+ */
 function verifyType(type: string): string {
   // These need to be transformed to their full description
   if (type.match(/^uint($|[^1-9])/)) {
@@ -149,7 +158,7 @@ function parseParam(param: string, allowIndexed?: boolean): ParamType {
    * @param reason - The main reason for the error being thrown.
    * @param code - The error code associated with the particular type of error.
    * @param params - An optional object containing any additional information related to the error.
-   * @throws {Error} A custom error with the provided details.
+   * @throws Error - A custom error with the provided details.
    */
   function throwError(i: number) {
     throw new Error('unexpected character "' + param[i] + '" at position ' + i + ' in "' + param + '"');
@@ -453,18 +462,15 @@ function parseParam(param: string, allowIndexed?: boolean): ParamType {
 
 ///////////////////////////////////
 // Coders
-
+/**
+ * Represents the result of a decoding operation, containing both the decoded value and the number of bytes consumed during the process.
+ * This type is used to return information from functions that decode binary data according to specific data types or encoding schemes.
+ */
 type DecodedResult<T = any> = {
   /**
    * The number of bytes consumed during decoding.
    */
-  /**
-   * The number of bytes consumed during decoding.
-   */
   consumed: number;
-  /**
-   * The actual data value for the corresponding coder type.
-   */
   /**
    * The actual data value for the corresponding coder type.
    */
@@ -511,7 +517,9 @@ abstract class Coder {
   abstract decode(data: Buffer, offset: number): DecodedResult;
 }
 
-// Clones the functionality of an existing Coder, but without a localName
+/**
+ * Clones the functionality of an existing Coder, but without a localName.
+ */
 class CoderAnonymous extends Coder {
   constructor(private coder: Coder) {
     super(coder.name, coder.type, undefined, coder.dynamic);
@@ -1244,9 +1252,9 @@ class CoderArray extends Coder {
    * The function takes an array of type descriptors and a buffer containing the ABI encoded data,
    * and returns an object with decoded values.
    *
-   * @param {Array<string | ParamType>} types - An array of type descriptors, either as strings or ParamType objects.
-   * @param {Buffer} data - A Buffer containing the ABI encoded data to be decoded.
-   * @returns {any} An object with the decoded values based on the provided types.
+   * @param types - An array of type descriptors, either as strings or ParamType objects.
+   * @param  data - A Buffer containing the ABI encoded data to be decoded.
+   * @returns - An object with the decoded values based on the provided types.
    */
   decode(data: Buffer, offset: number) {
     // @TODO:
@@ -1520,7 +1528,6 @@ export class AbiCoder {
    * @param data - A Buffer containing the ABI-encoded data to be decoded.
    * @returns An array or an object containing the decoded values, with optional keys if names are provided in the types.
    */
-
   decode(types: Array<string | ParamType>, data: Buffer): any {
     const coders = types.map(type => {
       if (typeof type === 'string') {

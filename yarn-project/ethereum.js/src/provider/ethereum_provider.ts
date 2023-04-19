@@ -1,3 +1,8 @@
+/**
+ * ProviderError is an enumeration representing specific error codes related to Ethereum provider communication.
+ * These error codes can be used by applications to handle various provider-related events or issues, such as user rejection, unauthorized access, unsupported functionality, and connection problems.
+ * By standardizing these error codes, it allows for more consistent and robust error handling across different Ethereum providers and applications.
+ */
 export enum ProviderError {
   USER_REJECTED = 4001,
   UNAUTHORIZED = 4100,

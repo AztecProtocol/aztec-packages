@@ -74,7 +74,19 @@ async function getAbi(net: string, address: string, apiKey: string): Promise<Con
 // }
 // return initCode;
 // }
-
+/**
+ * Retrieves the Contract Application Binary Interface (ABI) and bytecode for a given Ethereum contract address
+ * from the Etherscan API, using the specified network and API key. The ABI is essential for interacting with
+ * smart contracts and decoding transactions in Ethereum. If an Ethereum host is provided, this function will
+ * also fetch the contract's bytecode.
+ *
+ * @param net - The Ethereum network identifier, such as 'mainnet', 'kovan', or 'ropsten'.
+ * @param address - The Ethereum contract address to fetch the ABI for.
+ * @param apiKey - The Etherscan API key for accessing their services.
+ * @param ethHost - The Ethereum host URL, if available, to fetch the bytecode of the contract.
+ * @returns A Promise that resolves to an object containing the fetched ABI and optionally the bytecode.
+ * @throws An Error if the network is unknown, or fetching the ABI fails.
+ */
 export async function getFromEtherscan(net: string, address: string, apiKey: string, ethHost: string) {
   const abi = await getAbi(net, address, apiKey);
 

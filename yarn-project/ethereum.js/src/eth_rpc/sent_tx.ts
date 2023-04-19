@@ -45,11 +45,11 @@ export class SentTransaction implements SentTx {
    * returning the receipt. If 'throwOnError' is set to true, it will throw an error if the receipt
    * indicates that the transaction failed. Allows setting a 'timeout' and custom polling 'interval'.
    *
-   * @param {boolean} throwOnError - Whether to throw an error if the receipt status indicates failure.
-   * @param {number} numConfirmations - The minimum number of confirmations required before returning the receipt.
-   * @param {number} timeout - The maximum time in seconds to wait for the receipt before giving up. A value of 0 disables the timeout.
-   * @param {number} interval - The time in seconds between polling attempts to fetch the receipt.
-   * @returns {Promise<TransactionReceipt>} A promise that resolves to the fetched transaction receipt.
+   * @param throwOnError - Whether to throw an error if the receipt status indicates failure.
+   * @param  numConfirmations - The minimum number of confirmations required before returning the receipt.
+   * @param timeout - The maximum time in seconds to wait for the receipt before giving up. A value of 0 disables the timeout.
+   * @param  interval - The time in seconds between polling attempts to fetch the receipt.
+   * @returns A promise that resolves to the fetched transaction receipt.
    */
   public async getReceipt(
     throwOnError = true,

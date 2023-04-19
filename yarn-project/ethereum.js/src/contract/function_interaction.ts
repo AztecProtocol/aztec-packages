@@ -78,12 +78,12 @@ export interface TxSend<TxReceipt = TransactionReceipt, Return = any> {
 }
 
 /**
- * This is the class that is returned when calling e.g. `contract.methods.myMethod(arg1, arg2)`
- * It represents an interaction that can occur with that method and arguments. Interactions are:
- * - `estimateGas`
- * - `call`
- * - `send`
- * - `encodeAbi`
+ * This is the class that is returned when calling e.g. `contract.methods.myMethod(arg1, arg2)`.
+ * It represents an interaction that can occur with that method and arguments. Interactions are:.
+ * - `estimateGas`.
+ * - `call`.
+ * - `send`.
+ * - `encodeAbi`.
  */
 export class FunctionInteraction implements TxCall, TxSend {
   constructor(
@@ -210,7 +210,7 @@ export class FunctionInteraction implements TxCall, TxSend {
    * Otherwise, throws the original error with its message.
    *
    * @param err - The error object caught during the contract function call execution.
-   * @throws {Error} An error with either the decoded error message or the original error message.
+   * @throws  An error with either the decoded error message or the original error message.
    */
   private handleError(err: any): never {
     if (err.data && err.data.length > 2) {

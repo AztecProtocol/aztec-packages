@@ -43,8 +43,8 @@ export class Web3Adapter implements EthereumProvider {
    * Adds an event listener for the specified event on the Web3Adapter instance.
    * Please note that this method is not implemented and will throw an error when called, as events are not supported.
    *
-   * @throws {Error} Will throw an error if the method is called, because events are not supported in this implementation.
-   * @returns {this} Returns the Web3Adapter instance for chaining purposes (if events were supported).
+   * @throws Will throw an error if the method is called, because events are not supported in this implementation.
+   * @returns Returns the Web3Adapter instance for chaining purposes (if events were supported).
    */
   on(): this {
     throw new Error('Events not supported.');
@@ -54,8 +54,8 @@ export class Web3Adapter implements EthereumProvider {
    * Remove an event listener from the Ethereum provider.
    * This method is not supported for the Web3Adapter class, and calling it will result in an error being thrown.
    *
-   * @throws {Error} - An error indicating that event removal is not supported.
-   * @returns {this} - The current instance of the Web3Adapter class.
+   * @throws - An error indicating that event removal is not supported.
+   * @returns  - The current instance of the Web3Adapter class.
    */
   removeListener(): this {
     throw new Error('Events not supported.');

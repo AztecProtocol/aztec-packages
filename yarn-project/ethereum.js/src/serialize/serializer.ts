@@ -10,6 +10,12 @@ import {
 
 // export type DeserializeFn<T> = (buf: Buffer, offset: number) => { elem: T; adv: number };
 
+/**
+ * The Serializer class is a utility for converting various data types into binary format (Buffer) suitable for transmission or storage.
+ * It offers several methods to serialize different data types, such as bool, int32, uInt32, bigInt, vector, buffer, string, and date.
+ * Additionally, it allows serializing arrays of elements with custom 'toBuffer' methods. Serialized data can be retrieved as a single
+ * Buffer using the getBuffer method. The class ensures proper serialization of variable-length data by prefixing them with their corresponding length.
+ */
 export class Serializer {
   private buf: Buffer[] = [];
 

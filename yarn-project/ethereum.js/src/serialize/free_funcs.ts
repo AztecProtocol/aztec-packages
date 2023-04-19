@@ -1,6 +1,9 @@
 import { toBigIntBE, toBufferBE } from '../bigint_buffer/index.js';
 
 // For serializing bool.
+/**
+ *
+ */
 export function boolToByte(b: boolean) {
   const buf = Buffer.alloc(1);
   buf.writeUInt8(b ? 1 : 0);
@@ -8,6 +11,9 @@ export function boolToByte(b: boolean) {
 }
 
 // For serializing numbers to 32 bit little-endian form.
+/**
+ *
+ */
 export function numToUInt32LE(n: number, bufferSize = 4) {
   const buf = Buffer.alloc(bufferSize);
   buf.writeUInt32LE(n, bufferSize - 4);
@@ -15,6 +21,9 @@ export function numToUInt32LE(n: number, bufferSize = 4) {
 }
 
 // For serializing numbers to 32 bit big-endian form.
+/**
+ *
+ */
 export function numToUInt32BE(n: number, bufferSize = 4) {
   const buf = Buffer.alloc(bufferSize);
   buf.writeUInt32BE(n, bufferSize - 4);
@@ -22,6 +31,9 @@ export function numToUInt32BE(n: number, bufferSize = 4) {
 }
 
 // For serializing signed numbers to 32 bit big-endian form.
+/**
+ *
+ */
 export function numToInt32BE(n: number, bufferSize = 4) {
   const buf = Buffer.alloc(bufferSize);
   buf.writeInt32BE(n, bufferSize - 4);
@@ -29,6 +41,9 @@ export function numToInt32BE(n: number, bufferSize = 4) {
 }
 
 // For serializing numbers to 32 bit big-endian form.
+/**
+ *
+ */
 export function numToUInt8(n: number) {
   const bufferSize = 1;
   const buf = Buffer.alloc(bufferSize);
@@ -37,6 +52,9 @@ export function numToUInt8(n: number) {
 }
 
 // For serializing a buffer as a vector.
+/**
+ *
+ */
 export function serializeBufferToVector(buf: Buffer) {
   const lengthBuf = Buffer.alloc(4);
   lengthBuf.writeUInt32BE(buf.length, 0);
@@ -154,6 +172,9 @@ export function deserializeField(buf: Buffer, offset = 0) {
 }
 
 // For serializing an array of fixed length elements.
+/**
+ *
+ */
 export function serializeBufferArrayToVector(arr: Buffer[]) {
   const lengthBuf = Buffer.alloc(4);
   lengthBuf.writeUInt32BE(arr.length, 0);
@@ -166,7 +187,7 @@ export function serializeBufferArrayToVector(arr: Buffer[]) {
  * elements and applies the provided deserialization function on each element. Returns an array
  * of the deserialized elements and the total bytes consumed in the process.
  *
- * @typeparam - The type of the deserialized elements.
+ * @typeparam T - The type of the deserialized elements.
  * @param deserialize - The deserialization function to be applied on each element of the array.
  * @param vector - The source buffer containing the serialized data.
  * @param offset - The starting position in the buffer to begin deserialization (optional, default is 0).

@@ -126,10 +126,10 @@ export class Contract<T extends ContractDefinition | void = void> {
   }
 
   /**
-   *
-   * @param data Contract bytecode as a hex string.
-   * @param args Constructor arguments.
-   * @returns
+   * DeployBytecode.
+   * @param data - Contract bytecode as a hex string.
+   * @param args - Constructor arguments.
+   * @returns ConstructorInteraction.
    */
   public deployBytecode(data: string, ...args: any[]) {
     const linkedData = Object.entries(this.linkTable).reduce(
@@ -218,8 +218,11 @@ export class Contract<T extends ContractDefinition | void = void> {
     return this.executorFactory([new ContractFunctionEntry(abiEntry)]);
   }
 
-  // PRIVATE METHODS
+  /**
+   * PRIVATE METHODS.
+   */
 
+  // eslint-disable-next-line jsdoc/require-jsdoc
   private executorFactory(functions: ContractFunctionEntry[]): TxFactory {
     return (...args: any[]): FunctionInteraction => {
       if (this.address.equals(EthAddress.ZERO)) {
@@ -248,7 +251,7 @@ export class Contract<T extends ContractDefinition | void = void> {
    * It groups and assigns contract functions to their respective method names.
    * In case of function overloads, it will create an executor factory for all matching functions.
    *
-   * @private
+   *
    * @returns An object containing the generated methods mapped to their respective names.
    */
   private buildMethods() {

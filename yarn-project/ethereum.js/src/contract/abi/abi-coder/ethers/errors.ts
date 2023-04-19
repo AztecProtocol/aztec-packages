@@ -25,8 +25,8 @@ const _censorErrors = false;
  *
  * @param message - The custom error message to display.
  * @param code - The specific error code for this error (default is UNKNOWN_ERROR).
- * @param params - An object containing additional information related to the error (e.g. argument name, value, etc.).
- * @returns never - This function always throws an error and does not return any value.
+ * @param params - An object containing additional information related to the error.
+ * @returns - This function always throws an error and does not return any value.
  */
 export function throwError(message: string, code: string = UNKNOWN_ERROR, params: any = {}): never {
   if (_censorErrors) {
@@ -68,7 +68,7 @@ export function throwError(message: string, code: string = UNKNOWN_ERROR, params
  * @param count - The actual number of arguments received by the function.
  * @param expectedCount - The expected number of arguments for the function.
  * @param suffix - Optional string to be appended to the error message when thrown.
- * @throws {Error} If either too few or too many arguments are provided.
+ * @throws  If either too few or too many arguments are provided.
  */
 export function checkArgumentCount(count: number, expectedCount: number, suffix?: string): void {
   if (!suffix) {

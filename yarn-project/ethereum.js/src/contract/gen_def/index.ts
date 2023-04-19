@@ -619,7 +619,7 @@ function makeDefinitionInterface(name: string) {
 
 /**
  * Generate a TypeScript export statement for the given ABI name.
- * The exported variable is named '${name}Abi' and its value is the 'abi' identifier.
+ * The exported variable is named '$(name)Abi' and its value is the 'abi' identifier.
  *
  * @param name - The name of the contract ABI to be exported.
  * @returns A TypeScript export statement node.
@@ -639,7 +639,7 @@ function makeAbiExport(name: string) {
  * @param name - The name of the Contract.
  * @param abi - The Contract ABI Definition.
  * @param initData - The initialization data (bytecode) of the Contract.
- * @param importPath - Path to '@aztec/ethereum.js' package used for generating import statements.
+ * @param importPath - Path to '\@aztec/ethereum.js' package used for generating import statements.
  * @returns An array of TypeScript Nodes representing the generated source code.
  */
 function makeFile(name: string, abi: ContractAbiDefinition, initData: string | undefined, importPath: string) {
@@ -672,7 +672,7 @@ function makeFile(name: string, abi: ContractAbiDefinition, initData: string | u
 
 /**
  * Generate the ABI (Application Binary Interface) for a contract and write it to a file.
- * The output file will be named as '{name}Abi.ts' in the specified 'outputPath'.
+ * The output file will be named as '(name)Abi.ts' in the specified 'outputPath'.
  * The generated file contains an exported default instance of ContractAbi class created
  * with the provided ABI definition. The import path for the required modules is also generated.
  *
@@ -698,7 +698,7 @@ function makeAndWriteAbi(outputPath: string, name: string, abi: ContractAbiDefin
  * @param outputPath - The path where the output files will be created.
  * @param name - The name of the contract used as a prefix for the generated files.
  * @param buildData - An object containing the ABI and initData of the contract.
- * @param importPath - The import path for the '@aztec/ethereum.js' module.
+ * @param importPath - The import path for the '\@aztec/ethereum.js' module.
  * @returns A Promise that resolves when all files have been written.
  */
 export async function makeAndWriteFiles(

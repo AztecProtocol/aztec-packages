@@ -23,14 +23,14 @@ import { LogRequest, toRawLogRequest } from './types/log_request.js';
 
 /**
  * Provides a direct 1 to 1 mapping with the ethereum JSON-RPC specification.
- * https://ethereum.org/en/developers/docs/apis/json-rpc
+ * Link - https://ethereum.org/en/developers/docs/apis/json-rpc.
  *
  * Types are marshalled to/from sensible types.
- * Number
- * BigInt
- * Buffer
- * TxHash
- * EthAddress
+ * Number.
+ * BigInt.
+ * Buffer.
+ * TxHash.
+ * EthAddress.
  */
 export class EthereumRpc {
   constructor(private provider: EthereumProvider) {}

@@ -5,7 +5,7 @@ import { keccak256 } from '../crypto/index.js';
  * The function adds the Ethereum Signed Message preamble and message length before hashing the data.
  * This helps ensure that the data being signed cannot be misinterpreted as a transaction or other data.
  *
- * @param data - a Buffer containing the data to be hashed.
+ * @param data - A Buffer containing the data to be hashed.
  * @returns A Buffer containing the keccak256 hashed Ethereum message.
  */
 export function hashMessage(data: Buffer) {

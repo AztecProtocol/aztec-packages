@@ -130,7 +130,8 @@ export class EthAccount {
   }
 
   /**
-   * Prefixes the arbitrary length message with the '\x19Ethereum Signed Message:\n' preamble, and signs the message.
+   * Prefixes the arbitrary length message with the 'x19Ethereum Signed Message:n' preamble, and signs the message.
+   * @returns An EthSignature instance with the signature components (r, s, v).
    */
   public signMessage(message: Buffer) {
     return signMessage(hashMessage(message), this.privateKey);
@@ -138,6 +139,7 @@ export class EthAccount {
 
   /**
    * Signs a 32 byte digest.
+   * @returns An EthSignature instance with the signature components (r, s, v).
    */
   public signDigest(digest: Buffer) {
     if (digest.length !== 32) {

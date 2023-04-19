@@ -20,10 +20,10 @@ export class JsonRpcProvider implements EthereumProvider {
    * The 'method' should be a valid Ethereum JSON-RPC method, and 'params' should be an array of inputs required for that method.
    * Returns a promise which resolves to the result of the request, or rejects with an error if the request fails.
    *
-   * @param {RequestArguments} requestArguments - An object containing 'method' and 'params' properties.
-   * @param {string} requestArguments.method - The Ethereum JSON-RPC method to call.
-   * @param {Array<any>} requestArguments.params - The parameters required for the called method.
-   * @returns {Promise<any>} A promise resolving to the result of the request, or rejecting with an error if the request fails.
+   * @param requestArguments - An object containing 'method' and 'params' properties.
+   * @param  method - The Ethereum JSON-RPC method to call.
+   * @param params - The parameters required for the called method.
+   * @returns A promise resolving to the result of the request, or rejecting with an error if the request fails.
    */
   public async request({ method, params }: RequestArguments): Promise<any> {
     const body = {
@@ -45,8 +45,8 @@ export class JsonRpcProvider implements EthereumProvider {
    * Registers an event listener for the specified event on the JsonRpcProvider instance.
    * This method is not supported in the current implementation and will throw an error when called.
    *
-   * @throws {Error} An error indicating that events are not supported by the JsonRpcProvider.
-   * @returns {this} The current JsonRpcProvider instance.
+   * @throws  An error indicating that events are not supported by the JsonRpcProvider.
+   * @returns  The current JsonRpcProvider instance.
    */
   on(): this {
     throw new Error('Events not supported.');
@@ -56,8 +56,8 @@ export class JsonRpcProvider implements EthereumProvider {
    * Remove an event listener from the Ethereum provider. This method is not supported by JsonRpcProvider
    * and will throw an error when called. To use event handling, consider using a different provider implementation.
    *
-   * @throws {Error} Throws an error indicating that events are not supported by this provider.
-   * @returns {this} Returns the current instance of the class for chaining purposes.
+   * @throws Throws an error indicating that events are not supported by this provider.
+   * @returns  Returns the current instance of the class for chaining purposes.
    */
   removeListener(): this {
     throw new Error('Events not supported.');

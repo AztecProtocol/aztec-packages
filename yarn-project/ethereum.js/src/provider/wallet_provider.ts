@@ -165,6 +165,7 @@ export class WalletProvider implements EthereumProvider {
 
   /**
    * The message will be prefixed and hashed, and the hash is signed.
+   * @returns Promise.
    */
   private async ethSign(args: RequestArguments) {
     const [from, message] = args.params!;
@@ -177,8 +178,9 @@ export class WalletProvider implements EthereumProvider {
   }
 
   /**
-   * personal_sign is the same as eth_sign but with args reversed.
-   * This is favoured as it has better client support r.e. displaying the message to the user before signing.
+   * Personal_sign is the same as eth_sign but with args reversed.
+   * This is favoured as it has better client support r.e. Displaying the message to the user before signing.
+   * @returns Promise | string.
    */
   private async personalSign(args: RequestArguments) {
     const [message, from] = args.params!;
@@ -211,6 +213,7 @@ export class WalletProvider implements EthereumProvider {
 
   /**
    * Given a tx in Eth Json Rpc format, create an EthTransaction, populate any missing fields, and sign.
+   * @returns Buffer.
    */
   private async signTxLocally(tx: any, account: EthAccount) {
     const { chainId, to, gas, maxFeePerGas, maxPriorityFeePerGas, value, data, nonce } = tx;

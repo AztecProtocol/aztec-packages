@@ -48,7 +48,7 @@ export function recoverTransaction(rawTx: Buffer) {
 }
 
 /**
- * Transaction type 2 (EIP1559 as per https://github.com/ethereum/EIPs/blob/master/EIPS/eip-1559.md)
+ * Transaction type 2 (EIP1559 as per https://github.com/ethereum/EIPs/blob/master/EIPS/eip-1559.md).
  */
 export function signTransaction(tx: EthTransaction, privateKey: Buffer): SignedEthTransaction {
   const { nonce, gas, maxFeePerGas, maxPriorityFeePerGas, chainId } = tx;

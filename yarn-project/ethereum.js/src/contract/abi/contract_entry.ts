@@ -9,11 +9,11 @@ import { ContractEntryDefinition } from './contract_abi_definition.js';
  */
 export class ContractEntry {
   constructor(protected entry: ContractEntryDefinition) {}
-
+  // eslint-disable-next-line jsdoc/require-jsdoc
   public get name() {
     return this.entry.name;
   }
-
+  // eslint-disable-next-line jsdoc/require-jsdoc
   public get anonymous() {
     return this.entry.anonymous || false;
   }
