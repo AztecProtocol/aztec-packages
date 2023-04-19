@@ -50,7 +50,6 @@ async function generateFunctionLeaves(functions: ContractFunctionDao[], wasm: Ci
     // All non-unconstrained functions have vks
     const vkHash = await hashVKStr(f.verificationKey!, wasm);
     const acirHash = keccak(Buffer.from(f.bytecode, 'hex'));
-    // TODO: selector is currently padded to 32 bytes in CBINDS, check this.
     const fnLeafPreimage = new FunctionLeafPreimage(
       selector,
       isPrivate,
