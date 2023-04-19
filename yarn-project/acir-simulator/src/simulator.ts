@@ -20,7 +20,7 @@ export class AcirSimulator {
     entryPointABI: FunctionAbi,
     contractAddress: AztecAddress,
     portalContractAddress: EthAddress,
-    oldRoots: HistoricTreeRoots,
+    historicRoots: HistoricTreeRoots,
   ): Promise<ExecutionResult> {
     const callContext = new CallContext(
       request.from,
@@ -34,7 +34,7 @@ export class AcirSimulator {
     const execution = new Execution(
       this.db,
       request,
-      oldRoots,
+      historicRoots,
       entryPointABI,
       contractAddress,
       request.functionData,
