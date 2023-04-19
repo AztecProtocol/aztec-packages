@@ -1,7 +1,14 @@
 import { AztecAddress, EthAddress, RunningPromise, createDebugLogger } from '@aztec/foundation';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/l1-contracts';
 import { RollupAbi, UnverifiedDataEmitterAbi } from '@aztec/l1-contracts/viem';
-import { ContractData, L2Block, L2BlockSource, UnverifiedData, UnverifiedDataSource } from '@aztec/types';
+import {
+  ContractData,
+  ContractDataSource,
+  L2Block,
+  L2BlockSource,
+  UnverifiedData,
+  UnverifiedDataSource,
+} from '@aztec/types';
 import {
   Chain,
   Hex,
