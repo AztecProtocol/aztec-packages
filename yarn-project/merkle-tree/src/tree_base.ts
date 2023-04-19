@@ -104,21 +104,6 @@ export abstract class TreeBase implements MerkleTree {
   }
 
   /**
-   * Sets the root, depth and size of the tree based on the meta data which are associated with the tree name.
-   */
-  public async syncFromDb() {
-    const meta: Buffer | undefined = await this.dbGet(this.name);
-    if (!meta) {
-      return;
-    }
-    const { root, depth, size } = decodeMeta(meta);
-    this.root = root;
-    this.depth = depth;
-    this.size = size;
-    this.clearCache();
-  }
-
-  /**
    * Returns the root of the tree.
    * @returns The root of the tree.
    */
@@ -263,14 +248,18 @@ export abstract class TreeBase implements MerkleTree {
    * @param prefilledSize - {optional} A number of leaves that are prefilled with values.
    * @returns Empty promise.
    */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   protected async init(prefilledSize: number): Promise<void> {
+    // prefilledSize is used only by Indexed Tree.
     await this.writeMeta();
   }
 
   /**
    * Initializes the tree from the database.
    */
-  protected async initFromDb(): Promise<void> {}
+  protected async initFromDb(): Promise<void> {
+    // Implemented only by Inedexed Tree to populate the leaf cache.
+  }
 
   /**
    * Writes meta data to the provided batch.
