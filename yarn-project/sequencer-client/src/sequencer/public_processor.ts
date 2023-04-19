@@ -1,3 +1,5 @@
+import { computeSlot } from '@aztec/acir-simulator';
+import { BarretenbergWasm } from '@aztec/barretenberg.js/wasm';
 import {
   Fr,
   MembershipWitness,
@@ -8,20 +10,17 @@ import {
   PublicCircuitPublicInputs,
   PublicKernelInputsNoKernelInput,
   PublicKernelPublicInputs,
-  SignedTxRequest,
   StateRead,
   StateTransition,
   TxRequest,
   WitnessedPublicCallData,
 } from '@aztec/circuits.js';
+import { createDebugLogger } from '@aztec/foundation';
 import { PublicTx } from '@aztec/types';
 import { MerkleTreeId, MerkleTreeOperations } from '@aztec/world-state';
 import times from 'lodash.times';
 import { Proof, PublicProver } from '../prover/index.js';
 import { PublicCircuitSimulator, PublicKernelCircuitSimulator } from '../simulator/index.js';
-import { computeSlot } from '@aztec/acir-simulator';
-import { BarretenbergWasm } from '@aztec/barretenberg.js/wasm';
-import { createDebugLogger } from '@aztec/foundation';
 
 type ProcessedPublicTx = {
   tx: PublicTx;

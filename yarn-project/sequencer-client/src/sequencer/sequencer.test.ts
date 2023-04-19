@@ -37,6 +37,7 @@ describe('sequencer', () => {
     });
 
     publicProcessor = mock<PublicProcessor>();
+    publicProcessor.process.mockResolvedValue([[], []]);
 
     sequencer = new TestSubject(publisher, p2p, worldState, blockBuilder, publicProcessor);
   });
