@@ -51,13 +51,14 @@ Here is an example of rapidly rebuilding and running all tests for `x86_64`:
 ./bootstrap.sh
 ./scripts/run_tests_local x86_64 glob
 ```
+> **WARNING:** the `x86_64` (and `wasm` used below) as well as the keyword `glob` **MUST BE LOWERCASE**!
 
 Here is an example of rapidly rebuilding and running only the abis tests for `wasm`:
 ```
 ./bootstrap.sh aztec3_circuits_abis_tests
 ./scripts/run_tests_local wasm aztec3_circuits_abis_tests
 ```
-> **Note:** to run wasm tests you must first follow the [instructions here](https://docs.wasmtime.dev/cli-install.html) to install `wasmtime`.
+> Note: to run wasm tests you must first follow the [instructions here](https://docs.wasmtime.dev/cli-install.html) to install `wasmtime`.
 
 You can choose which tests will run via a gtest filter. This one below runs only tests that _omit_ the string '.circuit':
 ```

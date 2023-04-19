@@ -59,11 +59,14 @@ echo "*** Running $ARCH tests${GTEST_FILTER:+ (with filter: $GTEST_FILTER)}: $TE
 
 cd $BUILD_DIR;
 for BIN in $TESTS; do
-  # if gtest filter is non-empty, use it
   if [ "$ARCH" != "wasm" ]; then
+    # run test executables directly
+    # if gtest filter is non-empty, use it
     # gtest filter is a command line arg to native executable
     ./bin/$BIN ${GTEST_FILTER:+--gtest_filter=$GTEST_FILTER} $@
   else
+    # run test executables via wasmtime
+    # if gtest filter is non-empty, use it
     # gtest filter is an env var to wasmtime
     wasmtime --dir .. ./bin/$BIN --env ${GTEST_FILTER:+--env GTEST_FILTER=$GTEST_FILTER} --env GTEST_COLOR=1
   fi
