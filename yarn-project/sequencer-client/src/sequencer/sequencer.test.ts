@@ -1,7 +1,7 @@
 import { makeEmptyProof } from '@aztec/circuits.js';
 import { P2P, P2PClientState } from '@aztec/p2p';
 import { L2Block, UnverifiedData } from '@aztec/types';
-import { TreeId, MerkleTreeOperations, WorldStateRunningState, WorldStateSynchroniser } from '@aztec/world-state';
+import { MerkleTreeId, MerkleTreeOperations, WorldStateRunningState, WorldStateSynchroniser } from '@aztec/world-state';
 import { MockProxy, mock } from 'jest-mock-extended';
 import { BlockBuilder } from '../block_builder/index.js';
 import { L1Publisher, makeEmptyTx, makeTx } from '../index.js';
@@ -71,8 +71,10 @@ describe('sequencer', () => {
 
     // We make a nullifier from tx1 a part of the nullifier tree, so it gets rejected as double spend
     const doubleSpendNullifier = doubleSpendTx.data.end.newNullifiers[0].toBuffer();
-    merkleTreeOps.findLeafIndex.mockImplementation((treeId: TreeId, value: Buffer) => {
-      return Promise.resolve(treeId === TreeId.NULLIFIER_TREE && value.equals(doubleSpendNullifier) ? 1n : undefined);
+    merkleTreeOps.findLeafIndex.mockImplementation((treeId: MerkleTreeId, value: Buffer) => {
+      return Promise.resolve(
+        treeId === MerkleTreeId.NULLIFIER_TREE && value.equals(doubleSpendNullifier) ? 1n : undefined,
+      );
     });
 
     await sequencer.initialSync();

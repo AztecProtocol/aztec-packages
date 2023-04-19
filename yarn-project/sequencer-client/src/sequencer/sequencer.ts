@@ -1,7 +1,7 @@
 import { RunningPromise, createDebugLogger } from '@aztec/foundation';
 import { P2P } from '@aztec/p2p';
 import { Tx, UnverifiedData } from '@aztec/types';
-import { TreeId, WorldStateStatus, WorldStateSynchroniser } from '@aztec/world-state';
+import { MerkleTreeId, WorldStateStatus, WorldStateSynchroniser } from '@aztec/world-state';
 import times from 'lodash.times';
 import { BlockBuilder } from '../block_builder/index.js';
 import { makeEmptyTx } from '../index.js';
@@ -189,7 +189,8 @@ export class Sequencer {
       if (nullifier.isZero()) continue;
       // TODO(AD): this is an exhaustive search currently
       if (
-        (await this.worldState.getLatest().findLeafIndex(TreeId.NULLIFIER_TREE, nullifier.toBuffer())) !== undefined
+        (await this.worldState.getLatest().findLeafIndex(MerkleTreeId.NULLIFIER_TREE, nullifier.toBuffer())) !==
+        undefined
       ) {
         // Our nullifier tree has this nullifier already - this transaction is a double spend / not well-formed
         return true;

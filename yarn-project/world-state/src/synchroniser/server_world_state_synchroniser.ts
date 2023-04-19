@@ -1,6 +1,6 @@
 import { createDebugLogger } from '@aztec/foundation';
 import { L2Block, L2BlockDownloader, L2BlockSource } from '@aztec/types';
-import { MerkleTreeDb, TreeId, MerkleTreeOperations } from '../index.js';
+import { MerkleTreeDb, MerkleTreeId, MerkleTreeOperations } from '../index.js';
 import { MerkleTreeOperationsFacade } from '../merkle-tree/merkle_tree_operations_facade.js';
 import { WorldStateRunningState, WorldStateStatus, WorldStateSynchroniser } from './world_state_synchroniser.js';
 import { getConfigEnvVars } from './config.js';
@@ -119,16 +119,22 @@ export class ServerWorldStateSynchroniser implements WorldStateSynchroniser {
    * @param l2Block - The L2 block to handle.
    */
   private async handleL2Block(l2Block: L2Block) {
-    const compareRoot = async (root: Buffer, treeId: TreeId) => {
+    const compareRoot = async (root: Buffer, treeId: MerkleTreeId) => {
       const treeInfo = await this.merkleTreeDb.getTreeInfo(treeId, true);
       return treeInfo.root.equals(root);
     };
     const rootChecks = await Promise.all([
-      compareRoot(l2Block.endContractTreeSnapshot.root.toBuffer(), TreeId.CONTRACT_TREE),
-      compareRoot(l2Block.endNullifierTreeSnapshot.root.toBuffer(), TreeId.NULLIFIER_TREE),
-      compareRoot(l2Block.endPrivateDataTreeSnapshot.root.toBuffer(), TreeId.DATA_TREE),
-      compareRoot(l2Block.endTreeOfHistoricContractTreeRootsSnapshot.root.toBuffer(), TreeId.CONTRACT_TREE_ROOTS_TREE),
-      compareRoot(l2Block.endTreeOfHistoricPrivateDataTreeRootsSnapshot.root.toBuffer(), TreeId.DATA_TREE_ROOTS_TREE),
+      compareRoot(l2Block.endContractTreeSnapshot.root.toBuffer(), MerkleTreeId.CONTRACT_TREE),
+      compareRoot(l2Block.endNullifierTreeSnapshot.root.toBuffer(), MerkleTreeId.NULLIFIER_TREE),
+      compareRoot(l2Block.endPrivateDataTreeSnapshot.root.toBuffer(), MerkleTreeId.DATA_TREE),
+      compareRoot(
+        l2Block.endTreeOfHistoricContractTreeRootsSnapshot.root.toBuffer(),
+        MerkleTreeId.CONTRACT_TREE_ROOTS_TREE,
+      ),
+      compareRoot(
+        l2Block.endTreeOfHistoricPrivateDataTreeRootsSnapshot.root.toBuffer(),
+        MerkleTreeId.DATA_TREE_ROOTS_TREE,
+      ),
     ]);
     const ourBlock = rootChecks.every(x => x);
     if (ourBlock) {
@@ -139,9 +145,9 @@ export class ServerWorldStateSynchroniser implements WorldStateSynchroniser {
       await this.merkleTreeDb.rollback();
 
       for (const [tree, leaves] of [
-        [TreeId.CONTRACT_TREE, l2Block.newContracts],
-        [TreeId.NULLIFIER_TREE, l2Block.newNullifiers],
-        [TreeId.DATA_TREE, l2Block.newCommitments],
+        [MerkleTreeId.CONTRACT_TREE, l2Block.newContracts],
+        [MerkleTreeId.NULLIFIER_TREE, l2Block.newNullifiers],
+        [MerkleTreeId.DATA_TREE, l2Block.newCommitments],
       ] as const) {
         await this.merkleTreeDb.appendLeaves(
           tree,
@@ -150,8 +156,8 @@ export class ServerWorldStateSynchroniser implements WorldStateSynchroniser {
       }
 
       for (const [newTree, rootTree] of [
-        [TreeId.DATA_TREE, TreeId.DATA_TREE_ROOTS_TREE],
-        [TreeId.CONTRACT_TREE, TreeId.CONTRACT_TREE_ROOTS_TREE],
+        [MerkleTreeId.DATA_TREE, MerkleTreeId.DATA_TREE_ROOTS_TREE],
+        [MerkleTreeId.CONTRACT_TREE, MerkleTreeId.CONTRACT_TREE_ROOTS_TREE],
       ] as const) {
         const newTreeInfo = await this.merkleTreeDb.getTreeInfo(newTree, true);
         await this.merkleTreeDb.appendLeaves(rootTree, [newTreeInfo.root]);

@@ -1,36 +1,36 @@
 import { SiblingPath } from '@aztec/merkle-tree';
-import { LeafData, MerkleTreeDbOperations, TreeId, MerkleTreeOperations, TreeInfo } from '../index.js';
+import { LeafData, MerkleTreeDbOperations, MerkleTreeId, MerkleTreeOperations, TreeInfo } from '../index.js';
 
 /**
  * Wraps a MerkleTreeDbOperations to call all functions with a preset includeUncommitted flag.
  */
 export class MerkleTreeOperationsFacade implements MerkleTreeOperations {
   constructor(private trees: MerkleTreeDbOperations, private includeUncommitted: boolean) {}
-  getTreeInfo(treeId: TreeId): Promise<TreeInfo> {
+  getTreeInfo(treeId: MerkleTreeId): Promise<TreeInfo> {
     return this.trees.getTreeInfo(treeId, this.includeUncommitted);
   }
-  appendLeaves(treeId: TreeId, leaves: Buffer[]): Promise<void> {
+  appendLeaves(treeId: MerkleTreeId, leaves: Buffer[]): Promise<void> {
     return this.trees.appendLeaves(treeId, leaves);
   }
-  getSiblingPath(treeId: TreeId, index: bigint): Promise<SiblingPath> {
+  getSiblingPath(treeId: MerkleTreeId, index: bigint): Promise<SiblingPath> {
     return this.trees.getSiblingPath(treeId, index, this.includeUncommitted);
   }
   getPreviousValueIndex(
-    treeId: TreeId.NULLIFIER_TREE,
+    treeId: MerkleTreeId.NULLIFIER_TREE,
     value: bigint,
   ): Promise<{ index: number; alreadyPresent: boolean }> {
     return this.trees.getPreviousValueIndex(treeId, value, this.includeUncommitted);
   }
-  updateLeaf(treeId: TreeId.NULLIFIER_TREE, leaf: LeafData, index: bigint): Promise<void> {
+  updateLeaf(treeId: MerkleTreeId.NULLIFIER_TREE, leaf: LeafData, index: bigint): Promise<void> {
     return this.trees.updateLeaf(treeId, leaf, index, this.includeUncommitted);
   }
-  getLeafData(treeId: TreeId.NULLIFIER_TREE, index: number): Promise<LeafData | undefined> {
+  getLeafData(treeId: MerkleTreeId.NULLIFIER_TREE, index: number): Promise<LeafData | undefined> {
     return this.trees.getLeafData(treeId, index, this.includeUncommitted);
   }
-  findLeafIndex(treeId: TreeId, value: Buffer): Promise<bigint | undefined> {
+  findLeafIndex(treeId: MerkleTreeId, value: Buffer): Promise<bigint | undefined> {
     return this.trees.findLeafIndex(treeId, value, this.includeUncommitted);
   }
-  getLeafValue(treeId: TreeId, index: bigint): Promise<Buffer | undefined> {
+  getLeafValue(treeId: MerkleTreeId, index: bigint): Promise<Buffer | undefined> {
     return this.trees.getLeafValue(treeId, index, this.includeUncommitted);
   }
 }

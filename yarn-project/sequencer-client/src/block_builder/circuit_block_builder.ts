@@ -24,7 +24,7 @@ import { computeContractLeaf } from '@aztec/circuits.js/abis';
 import { Fr, createDebugLogger, toBigIntBE, toBufferBE } from '@aztec/foundation';
 import { LeafData, SiblingPath } from '@aztec/merkle-tree';
 import { ContractData, L2Block, Tx } from '@aztec/types';
-import { TreeId, MerkleTreeOperations } from '@aztec/world-state';
+import { MerkleTreeId, MerkleTreeOperations } from '@aztec/world-state';
 import chunk from 'lodash.chunk';
 import flatMap from 'lodash.flatmap';
 import times from 'lodash.times';
@@ -89,11 +89,11 @@ export class CircuitBlockBuilder implements BlockBuilder {
       startTreeOfHistoricContractTreeRootsSnapshot,
     ] = await Promise.all(
       [
-        TreeId.DATA_TREE,
-        TreeId.NULLIFIER_TREE,
-        TreeId.CONTRACT_TREE,
-        TreeId.DATA_TREE_ROOTS_TREE,
-        TreeId.CONTRACT_TREE_ROOTS_TREE,
+        MerkleTreeId.DATA_TREE,
+        MerkleTreeId.NULLIFIER_TREE,
+        MerkleTreeId.CONTRACT_TREE,
+        MerkleTreeId.DATA_TREE_ROOTS_TREE,
+        MerkleTreeId.CONTRACT_TREE_ROOTS_TREE,
       ].map(tree => this.getTreeSnapshot(tree)),
     );
 
@@ -138,7 +138,7 @@ export class CircuitBlockBuilder implements BlockBuilder {
     return [l2Block, proof];
   }
 
-  protected async getTreeSnapshot(id: TreeId): Promise<AppendOnlyTreeSnapshot> {
+  protected async getTreeSnapshot(id: MerkleTreeId): Promise<AppendOnlyTreeSnapshot> {
     const treeInfo = await this.db.getTreeInfo(id);
     return new AppendOnlyTreeSnapshot(Fr.fromBuffer(treeInfo.root), Number(treeInfo.size));
   }
@@ -233,8 +233,8 @@ export class CircuitBlockBuilder implements BlockBuilder {
   // Updates our roots trees with the new generated trees after the rollup updates
   protected async updateRootTrees() {
     for (const [newTree, rootTree] of [
-      [TreeId.DATA_TREE, TreeId.DATA_TREE_ROOTS_TREE],
-      [TreeId.CONTRACT_TREE, TreeId.CONTRACT_TREE_ROOTS_TREE],
+      [MerkleTreeId.DATA_TREE, MerkleTreeId.DATA_TREE_ROOTS_TREE],
+      [MerkleTreeId.CONTRACT_TREE, MerkleTreeId.CONTRACT_TREE_ROOTS_TREE],
     ] as const) {
       const newTreeInfo = await this.db.getTreeInfo(newTree);
       await this.db.appendLeaves(rootTree, [newTreeInfo.root]);
@@ -244,9 +244,9 @@ export class CircuitBlockBuilder implements BlockBuilder {
   // Validate that the new roots we calculated from manual insertions match the outputs of the simulation
   protected async validateTrees(rollupOutput: BaseOrMergeRollupPublicInputs | RootRollupPublicInputs) {
     await Promise.all([
-      this.validateTree(rollupOutput, TreeId.CONTRACT_TREE, 'Contract'),
-      this.validateTree(rollupOutput, TreeId.DATA_TREE, 'PrivateData'),
-      this.validateTree(rollupOutput, TreeId.NULLIFIER_TREE, 'Nullifier'),
+      this.validateTree(rollupOutput, MerkleTreeId.CONTRACT_TREE, 'Contract'),
+      this.validateTree(rollupOutput, MerkleTreeId.DATA_TREE, 'PrivateData'),
+      this.validateTree(rollupOutput, MerkleTreeId.NULLIFIER_TREE, 'Nullifier'),
     ]);
   }
 
@@ -254,15 +254,15 @@ export class CircuitBlockBuilder implements BlockBuilder {
   protected async validateRootOutput(rootOutput: RootRollupPublicInputs) {
     await Promise.all([
       this.validateTrees(rootOutput),
-      this.validateRootTree(rootOutput, TreeId.CONTRACT_TREE_ROOTS_TREE, 'Contract'),
-      this.validateRootTree(rootOutput, TreeId.DATA_TREE_ROOTS_TREE, 'PrivateData'),
+      this.validateRootTree(rootOutput, MerkleTreeId.CONTRACT_TREE_ROOTS_TREE, 'Contract'),
+      this.validateRootTree(rootOutput, MerkleTreeId.DATA_TREE_ROOTS_TREE, 'PrivateData'),
     ]);
   }
 
   // Helper for validating a roots tree against a circuit simulation output
   protected async validateRootTree(
     rootOutput: RootRollupPublicInputs,
-    treeId: TreeId,
+    treeId: MerkleTreeId,
     name: 'Contract' | 'PrivateData',
   ) {
     const localTree = await this.getTreeSnapshot(treeId);
@@ -273,7 +273,7 @@ export class CircuitBlockBuilder implements BlockBuilder {
   // Helper for validating a non-roots tree against a circuit simulation output
   protected async validateTree(
     output: BaseOrMergeRollupPublicInputs | RootRollupPublicInputs,
-    treeId: TreeId,
+    treeId: MerkleTreeId,
     name: 'PrivateData' | 'Contract' | 'Nullifier',
   ) {
     const localTree = await this.getTreeSnapshot(treeId);
@@ -313,7 +313,7 @@ export class CircuitBlockBuilder implements BlockBuilder {
       this.getPreviousRollupDataFromPublicInputs(rollupOutputRight, rollupProofRight, vk),
     ];
 
-    const getRootTreeSiblingPath = async (treeId: TreeId) => {
+    const getRootTreeSiblingPath = async (treeId: MerkleTreeId) => {
       // TODO: Synchronize these operations into the tree db to avoid race conditions
       const { size } = await this.db.getTreeInfo(treeId);
       // TODO: Check for off-by-one errors
@@ -321,8 +321,10 @@ export class CircuitBlockBuilder implements BlockBuilder {
       return path.data.map(b => Fr.fromBuffer(b));
     };
 
-    const newHistoricContractDataTreeRootSiblingPath = await getRootTreeSiblingPath(TreeId.CONTRACT_TREE_ROOTS_TREE);
-    const newHistoricPrivateDataTreeRootSiblingPath = await getRootTreeSiblingPath(TreeId.DATA_TREE_ROOTS_TREE);
+    const newHistoricContractDataTreeRootSiblingPath = await getRootTreeSiblingPath(
+      MerkleTreeId.CONTRACT_TREE_ROOTS_TREE,
+    );
+    const newHistoricPrivateDataTreeRootSiblingPath = await getRootTreeSiblingPath(MerkleTreeId.DATA_TREE_ROOTS_TREE);
 
     return RootRollupInputs.from({
       previousRollupData,
@@ -364,7 +366,7 @@ export class CircuitBlockBuilder implements BlockBuilder {
   // Scan a tree searching for a specific value and return a membership witness proof for it
   protected async getMembershipWitnessFor<N extends number>(
     value: Fr,
-    treeId: TreeId,
+    treeId: MerkleTreeId,
     height: N,
   ): Promise<MembershipWitness<N>> {
     // If this is an empty tx, then just return zeroes
@@ -386,7 +388,7 @@ export class CircuitBlockBuilder implements BlockBuilder {
   protected getContractMembershipWitnessFor(tx: Tx) {
     return this.getMembershipWitnessFor(
       tx.data.constants.oldTreeRoots.contractTreeRoot,
-      TreeId.CONTRACT_TREE_ROOTS_TREE,
+      MerkleTreeId.CONTRACT_TREE_ROOTS_TREE,
       CONTRACT_TREE_ROOTS_TREE_HEIGHT,
     );
   }
@@ -394,7 +396,7 @@ export class CircuitBlockBuilder implements BlockBuilder {
   protected getDataMembershipWitnessFor(tx: Tx) {
     return this.getMembershipWitnessFor(
       tx.data.constants.oldTreeRoots.privateDataTreeRoot,
-      TreeId.DATA_TREE_ROOTS_TREE,
+      MerkleTreeId.DATA_TREE_ROOTS_TREE,
       PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT,
     );
   }
@@ -405,8 +407,8 @@ export class CircuitBlockBuilder implements BlockBuilder {
       mergeRollupVkHash: DELETE_FR,
       privateKernelVkTreeRoot: FUTURE_FR,
       publicKernelVkTreeRoot: FUTURE_FR,
-      startTreeOfHistoricContractTreeRootsSnapshot: await this.getTreeSnapshot(TreeId.CONTRACT_TREE_ROOTS_TREE),
-      startTreeOfHistoricPrivateDataTreeRootsSnapshot: await this.getTreeSnapshot(TreeId.DATA_TREE_ROOTS_TREE),
+      startTreeOfHistoricContractTreeRootsSnapshot: await this.getTreeSnapshot(MerkleTreeId.CONTRACT_TREE_ROOTS_TREE),
+      startTreeOfHistoricPrivateDataTreeRootsSnapshot: await this.getTreeSnapshot(MerkleTreeId.DATA_TREE_ROOTS_TREE),
       treeOfHistoricL1ToL2MsgTreeRootsSnapshot: new AppendOnlyTreeSnapshot(DELETE_FR, DELETE_NUM),
     });
   }
@@ -421,7 +423,7 @@ export class CircuitBlockBuilder implements BlockBuilder {
       };
     }
 
-    const tree = TreeId.NULLIFIER_TREE;
+    const tree = MerkleTreeId.NULLIFIER_TREE;
     const prevValueIndex = await this.db.getPreviousValueIndex(tree, frToBigInt(nullifier));
     const prevValueInfo = await this.db.getLeafData(tree, prevValueIndex.index);
     if (!prevValueInfo) throw new Error(`Nullifier tree should have one initial leaf`);
@@ -442,7 +444,7 @@ export class CircuitBlockBuilder implements BlockBuilder {
     };
   }
 
-  protected async getSubtreeSiblingPath(treeId: TreeId, subtreeHeight: number): Promise<Fr[]> {
+  protected async getSubtreeSiblingPath(treeId: MerkleTreeId, subtreeHeight: number): Promise<Fr[]> {
     // Get sibling path to the last leaf we inserted
     const lastLeafIndex = (await this.db.getTreeInfo(treeId).then(t => t.size)) - 1n;
     const fullSiblingPath = await this.db.getSiblingPath(treeId, lastLeafIndex);
@@ -568,7 +570,7 @@ export class CircuitBlockBuilder implements BlockBuilder {
     const pendingInsertionSubtree: NullifierLeafPreimage[] = [];
 
     // Start info
-    const dbInfo = await this.db.getTreeInfo(TreeId.NULLIFIER_TREE);
+    const dbInfo = await this.db.getTreeInfo(MerkleTreeId.NULLIFIER_TREE);
     const startInsertionIndex: bigint = dbInfo.size;
 
     // Get insertion path for each leaf
@@ -582,7 +584,7 @@ export class CircuitBlockBuilder implements BlockBuilder {
         continue;
       }
 
-      const indexOfPrevious = await this.db.getPreviousValueIndex(TreeId.NULLIFIER_TREE, newValue);
+      const indexOfPrevious = await this.db.getPreviousValueIndex(MerkleTreeId.NULLIFIER_TREE, newValue);
 
       // If a touched node has a value that is less greater than the current value
       const prevNodes = touched.get(indexOfPrevious.index);
@@ -625,7 +627,7 @@ export class CircuitBlockBuilder implements BlockBuilder {
         }
 
         // get the low nullifier
-        const lowNullifier = await this.db.getLeafData(TreeId.NULLIFIER_TREE, indexOfPrevious.index);
+        const lowNullifier = await this.db.getLeafData(MerkleTreeId.NULLIFIER_TREE, indexOfPrevious.index);
         if (lowNullifier === undefined) {
           return undefined;
         }
@@ -635,7 +637,7 @@ export class CircuitBlockBuilder implements BlockBuilder {
           new Fr(lowNullifier.nextValue),
           Number(lowNullifier.nextIndex),
         );
-        const siblingPath = await this.db.getSiblingPath(TreeId.NULLIFIER_TREE, BigInt(indexOfPrevious.index));
+        const siblingPath = await this.db.getSiblingPath(MerkleTreeId.NULLIFIER_TREE, BigInt(indexOfPrevious.index));
 
         // Update the running paths
         const witness: LowNullifierWitnessData = {
@@ -657,7 +659,7 @@ export class CircuitBlockBuilder implements BlockBuilder {
         lowNullifier.nextValue = newValue;
         lowNullifier.nextIndex = startInsertionIndex + BigInt(i);
 
-        await this.db.updateLeaf(TreeId.NULLIFIER_TREE, lowNullifier, BigInt(indexOfPrevious.index));
+        await this.db.updateLeaf(MerkleTreeId.NULLIFIER_TREE, lowNullifier, BigInt(indexOfPrevious.index));
       }
     }
 
@@ -669,7 +671,7 @@ export class CircuitBlockBuilder implements BlockBuilder {
         nextIndex: BigInt(pendingInsertionSubtree[i].nextIndex),
       };
 
-      await this.db.updateLeaf(TreeId.NULLIFIER_TREE, asLeafData, startInsertionIndex + BigInt(i));
+      await this.db.updateLeaf(MerkleTreeId.NULLIFIER_TREE, asLeafData, startInsertionIndex + BigInt(i));
     }
 
     return lowNullifierWitnesses;
@@ -679,9 +681,9 @@ export class CircuitBlockBuilder implements BlockBuilder {
   protected async buildBaseRollupInput(tx1: Tx, tx2: Tx) {
     // Get trees info before any changes hit
     const constants = await this.getConstantBaseRollupData();
-    const startNullifierTreeSnapshot = await this.getTreeSnapshot(TreeId.NULLIFIER_TREE);
-    const startContractTreeSnapshot = await this.getTreeSnapshot(TreeId.CONTRACT_TREE);
-    const startPrivateDataTreeSnapshot = await this.getTreeSnapshot(TreeId.DATA_TREE);
+    const startNullifierTreeSnapshot = await this.getTreeSnapshot(MerkleTreeId.NULLIFIER_TREE);
+    const startContractTreeSnapshot = await this.getTreeSnapshot(MerkleTreeId.CONTRACT_TREE);
+    const startPrivateDataTreeSnapshot = await this.getTreeSnapshot(MerkleTreeId.DATA_TREE);
 
     // Update the contract and data trees with the new items being inserted to get the new roots
     // that will be used by the next iteration of the base rollup circuit, skipping the empty ones
@@ -689,11 +691,11 @@ export class CircuitBlockBuilder implements BlockBuilder {
     const newContracts = flatMap([tx1, tx2], tx => tx.data.end.newContracts.map(cd => computeContractLeaf(wasm, cd)));
     const newCommitments = flatMap([tx1, tx2], tx => tx.data.end.newCommitments.map(x => x.toBuffer()));
     await this.db.appendLeaves(
-      TreeId.CONTRACT_TREE,
+      MerkleTreeId.CONTRACT_TREE,
       newContracts.map(x => x.toBuffer()),
     );
 
-    await this.db.appendLeaves(TreeId.DATA_TREE, newCommitments);
+    await this.db.appendLeaves(MerkleTreeId.DATA_TREE, newCommitments);
 
     // Update the nullifier tree, capturing the low nullifier info for each individual operation
     const newNullifiers = [...tx1.data.end.newNullifiers, ...tx2.data.end.newNullifiers];
@@ -709,15 +711,15 @@ export class CircuitBlockBuilder implements BlockBuilder {
 
     // Get the subtree sibling paths for the circuit
     const newCommitmentsSubtreeSiblingPath = await this.getSubtreeSiblingPath(
-      TreeId.DATA_TREE,
+      MerkleTreeId.DATA_TREE,
       BaseRollupInputs.PRIVATE_DATA_SUBTREE_HEIGHT,
     );
     const newContractsSubtreeSiblingPath = await this.getSubtreeSiblingPath(
-      TreeId.CONTRACT_TREE,
+      MerkleTreeId.CONTRACT_TREE,
       BaseRollupInputs.CONTRACT_SUBTREE_HEIGHT,
     );
     const newNullifiersSubtreeSiblingPath = await this.getSubtreeSiblingPath(
-      TreeId.NULLIFIER_TREE,
+      MerkleTreeId.NULLIFIER_TREE,
       BaseRollupInputs.NULLIFIER_SUBTREE_HEIGHT,
     );
 
