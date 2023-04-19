@@ -49,7 +49,6 @@ describe('e2e_nested_contract', () => {
   });
 
   const deployContract = async (abi: ContractAbi) => {
-    // TODO: Remove explicit casts
     logger(`Deploying L2 contract ${abi.name}...`);
     const deployer = new ContractDeployer(abi, aztecRpcServer);
     const tx = deployer.deploy().send();
