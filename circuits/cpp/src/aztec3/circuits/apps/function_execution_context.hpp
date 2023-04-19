@@ -114,12 +114,12 @@ template <typename Composer> class FunctionExecutionContext {
     /**
      * @brief Get the call_stack_item representing `this` exec_ctx's function call.
      */
-    CallStackItem<NT, PrivateTypes<NT>> get_call_stack_item()
+    CallStackItem<NT, PrivateTypes> get_call_stack_item()
     {
         const NT::address& actual_contract_address = oracle.native_oracle.get_actual_contract_address();
         const FunctionData<NT>& function_data = oracle.native_oracle.get_function_data();
 
-        return CallStackItem<NT, PrivateTypes<NT>>{
+        return CallStackItem<NT, PrivateTypes>{
             .contract_address = actual_contract_address,
             .function_data = function_data,
             .public_inputs = get_final_private_circuit_public_inputs(),
@@ -129,9 +129,9 @@ template <typename Composer> class FunctionExecutionContext {
     /**
      * @brief Get the call_stack_items of any nested function calls made by this exec_ctx's function.
      */
-    std::array<CallStackItem<NT, PrivateTypes<NT>>, PRIVATE_CALL_STACK_LENGTH> get_private_call_stack_items()
+    std::array<CallStackItem<NT, PrivateTypes>, PRIVATE_CALL_STACK_LENGTH> get_private_call_stack_items()
     {
-        std::array<CallStackItem<NT, PrivateTypes<NT>>, PRIVATE_CALL_STACK_LENGTH> result;
+        std::array<CallStackItem<NT, PrivateTypes>, PRIVATE_CALL_STACK_LENGTH> result;
 
         for (size_t i = 0; i < result.size(); ++i) {
             auto& nested_exec_ctx = nested_private_call_exec_ctxs[i];
@@ -140,7 +140,7 @@ template <typename Composer> class FunctionExecutionContext {
                     nested_exec_ctx->oracle.native_oracle.get_actual_contract_address();
                 const FunctionData<NT>& function_data = nested_exec_ctx->oracle.native_oracle.get_function_data();
 
-                result[i] = CallStackItem<NT, PrivateTypes<NT>>{
+                result[i] = CallStackItem<NT, PrivateTypes>{
                     .contract_address = actual_contract_address,
                     .function_data = function_data,
                     .public_inputs = nested_exec_ctx->get_final_private_circuit_public_inputs(),
@@ -240,7 +240,7 @@ template <typename Composer> class FunctionExecutionContext {
             args[i].assert_equal(f_public_inputs_ct.args[i]);
         }
 
-        CallStackItem<CT, PrivateTypes<CT>> f_call_stack_item_ct{
+        CallStackItem<CT, PrivateTypes> f_call_stack_item_ct{
             .contract_address = f_contract_address,
             .function_data = f_function_data_ct,
             .public_inputs = f_public_inputs_ct,

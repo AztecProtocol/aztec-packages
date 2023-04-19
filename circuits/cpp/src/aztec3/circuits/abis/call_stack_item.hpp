@@ -16,7 +16,7 @@ using aztec3::utils::types::NativeTypes;
 using std::conditional;
 using std::is_same;
 
-template <typename NCT, typename PrivatePublic> struct CallStackItem {
+template <typename NCT, template <class> typename PrivatePublic> struct CallStackItem {
     typedef typename NCT::address address;
     typedef typename NCT::boolean boolean;
     typedef typename NCT::fr fr;
@@ -28,7 +28,7 @@ template <typename NCT, typename PrivatePublic> struct CallStackItem {
     // within a CallStackItem which varies depending on whether this is a call or delegatecall.
     address contract_address = 0;
     FunctionData<NCT> function_data{};
-    typename PrivatePublic::AppCircuitPublicInputs public_inputs{};
+    typename PrivatePublic<NCT>::AppCircuitPublicInputs public_inputs{};
 
     boolean operator==(CallContext<NCT> const& other) const
     {
@@ -67,7 +67,7 @@ template <typename NCT, typename PrivatePublic> struct CallStackItem {
     }
 }; // namespace aztec3::circuits::abis
 
-template <typename NCT, typename PrivatePublic>
+template <typename NCT, template <class> typename PrivatePublic>
 void read(uint8_t const*& it, CallStackItem<NCT, PrivatePublic>& call_stack_item)
 {
     using serialize::read;
@@ -77,7 +77,7 @@ void read(uint8_t const*& it, CallStackItem<NCT, PrivatePublic>& call_stack_item
     read(it, call_stack_item.public_inputs);
 };
 
-template <typename NCT, typename PrivatePublic>
+template <typename NCT, template <class> typename PrivatePublic>
 void write(std::vector<uint8_t>& buf, CallStackItem<NCT, PrivatePublic> const& call_stack_item)
 {
     using serialize::write;
@@ -87,7 +87,7 @@ void write(std::vector<uint8_t>& buf, CallStackItem<NCT, PrivatePublic> const& c
     write(buf, call_stack_item.public_inputs);
 };
 
-template <typename NCT, typename PrivatePublic>
+template <typename NCT, template <class> typename PrivatePublic>
 std::ostream& operator<<(std::ostream& os, CallStackItem<NCT, PrivatePublic> const& call_stack_item)
 {
     return os << "contract_address: " << call_stack_item.contract_address << "\n"

@@ -26,9 +26,9 @@ template <typename NCT> struct PrivateCallData {
     typedef typename NCT::boolean boolean;
     typedef typename NCT::VK VK;
 
-    CallStackItem<NCT, PrivateTypes<NCT>> call_stack_item{};
+    CallStackItem<NCT, PrivateTypes> call_stack_item{};
 
-    std::array<CallStackItem<NCT, PrivateTypes<NCT>>, PRIVATE_CALL_STACK_LENGTH> private_call_stack_preimages{};
+    std::array<CallStackItem<NCT, PrivateTypes>, PRIVATE_CALL_STACK_LENGTH> private_call_stack_preimages{};
 
     // std::array<CallStackItem<NCT, CallType::Public>, PUBLIC_CALL_STACK_LENGTH> public_call_stack_preimages;
 
@@ -63,24 +63,24 @@ template <typename NCT> struct PrivateCallData {
         auto to_circuit_type = [&](auto& e) { return e.to_circuit_type(composer); };
 
         PrivateCallData<CircuitTypes<Composer>> data = {
-            .call_stack_item = CallStackItem<NCT, PrivateTypes>
+            to_circuit_type(call_stack_item),
 
-                                   .private_call_stack_preimages = map(private_call_stack_preimages, to_circuit_type),
+            map(private_call_stack_preimages, to_circuit_type),
 
-            .proof = proof, // Notice: not converted! Stays as native. This is because of how the verify_proof function
-                            // currently works.
-            .vk = CT::VK::from_witness(&composer, vk),
+            proof, // Notice: not converted! Stays as native. This is because of how the verify_proof function
+                   // currently works.
+            CT::VK::from_witness(&composer, vk),
 
-            .function_leaf_membership_witness = to_circuit_type(function_leaf_membership_witness),
-            .contract_leaf_membership_witness = to_circuit_type(contract_leaf_membership_witness),
+            to_circuit_type(function_leaf_membership_witness),
+            to_circuit_type(contract_leaf_membership_witness),
 
-            .portal_contract_address = to_ct(portal_contract_address),
-            .acir_hash = to_ct(acir_hash),
+            to_ct(portal_contract_address),
+            to_ct(acir_hash),
         };
 
         return data;
     };
-};
+}; // namespace aztec3::circuits::abis::private_kernel
 
 template <typename NCT> void read(uint8_t const*& it, PrivateCallData<NCT>& obj)
 {

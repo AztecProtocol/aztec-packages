@@ -3,6 +3,7 @@
 #include "aztec3/constants.hpp"
 #include "aztec3/utils/array.hpp"
 #include "../call_stack_item.hpp"
+#include "../types.hpp"
 
 #include <barretenberg/common/map.hpp>
 #include <barretenberg/stdlib/primitives/witness/witness.hpp>
@@ -23,9 +24,9 @@ template <typename NCT> struct PublicCallData {
     typedef typename NCT::boolean boolean;
     typedef typename NCT::VK VK;
 
-    CallStackItem<NCT, CallType::Public> call_stack_item{};
+    CallStackItem<NCT, PublicTypes> call_stack_item{};
 
-    std::array<CallStackItem<NCT, CallType::Public>, PUBLIC_CALL_STACK_LENGTH> public_call_stack_preimages{};
+    std::array<CallStackItem<NCT, PublicTypes>, PUBLIC_CALL_STACK_LENGTH> public_call_stack_preimages{};
 
     NativeTypes::Proof proof{}; // TODO: how to express proof as native/circuit type when it gets used as a buffer?
 

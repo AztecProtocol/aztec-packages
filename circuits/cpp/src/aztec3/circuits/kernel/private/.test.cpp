@@ -325,7 +325,7 @@ PrivateInputs<NT> do_private_call_get_kernel_inputs(bool const is_constructor,
     // verify in the first round of recursion, OR, we have some fiddly conditional logic in the circuit to ignore
     // certain checks if we're handling the 'base case' of the recursion.
     // I've chosen the former, for now.
-    const CallStackItem<NT, PrivateTypes<NT>> call_stack_item{
+    const CallStackItem<NT, PrivateTypes> call_stack_item{
         .contract_address = tx_request.to,
         .function_data = tx_request.function_data,
         .public_inputs = private_circuit_public_inputs,

@@ -1,7 +1,7 @@
 #include "init.hpp"
 
 #include <aztec3/circuits/abis/public_kernel/public_kernel_inputs.hpp>
-#include <aztec3/circuits/abis/public_kernel/public_inputs.hpp>
+#include <aztec3/circuits/abis/kernel_circuit_public_inputs.hpp>
 
 #include <aztec3/utils/array.hpp>
 #include <aztec3/utils/dummy_composer.hpp>
@@ -12,13 +12,14 @@
 
 namespace aztec3::circuits::kernel::public_kernel {
 
-using aztec3::circuits::abis::public_kernel::PublicInputs;
+using aztec3::circuits::abis::KernelCircuitPublicInputs;
 using aztec3::circuits::abis::public_kernel::PublicKernelInputs;
 using aztec3::utils::array_length;
 
 using DummyComposer = aztec3::utils::DummyComposer;
 
-void initialise_end_values(PublicKernelInputs<NT> const& public_kernel_inputs, PublicInputs<NT>& public_inputs)
+void initialise_end_values(PublicKernelInputs<NT> const& public_kernel_inputs,
+                           KernelCircuitPublicInputs<NT>& public_inputs)
 {
     public_inputs.constants = public_kernel_inputs.previous_kernel.public_inputs.constants;
 
@@ -242,7 +243,7 @@ void validate_inputs(DummyComposer& composer, PublicKernelInputs<NT> const& publ
     // iterating 2^254 times isn't feasible.
 
     NT::fr start_public_call_stack_length = array_length(start.public_call_stack);
-    NT::fr start_state_transitions_length = array_length(start.state_transitions);
+    // NT::fr start_state_transitions_length = array_length(start.state_transitions);
 
     // Base Case
     if (is_base_case) {
@@ -251,7 +252,7 @@ void validate_inputs(DummyComposer& composer, PublicKernelInputs<NT> const& publ
 
         composer.do_assert(start_public_call_stack_length == 1, "Public call stack must be length 1");
 
-        composer.do_assert(start_state_transitions_length == 0, "State transition length must be 0");
+        // composer.do_assert(start_state_transitions_length == 0, "State transition length must be 0");
 
         composer.do_assert(this_call_stack_item.public_inputs.call_context.is_delegate_call == false,
                            "Users cannot make a delegatecall");
@@ -285,12 +286,12 @@ void validate_inputs(DummyComposer& composer, PublicKernelInputs<NT> const& publ
 // TODO: decide what to return.
 // TODO: is there a way to identify whether an input has not been used by ths circuit? This would help us more-safely
 // ensure we're constraining everything.
-PublicInputs<NT> native_public_kernel_circuit(DummyComposer& composer,
-                                              PublicKernelInputs<NT> const& public_kernel_inputs)
+KernelCircuitPublicInputs<NT> native_public_kernel_circuit(DummyComposer& composer,
+                                                           PublicKernelInputs<NT> const& public_kernel_inputs)
 {
     // We'll be pushing data to this during execution of this circuit.
     (void)composer;
-    PublicInputs<NT> public_inputs{};
+    KernelCircuitPublicInputs<NT> public_inputs{};
 
     // Do this before any functions can modify the inputs.
     initialise_end_values(public_kernel_inputs, public_inputs);

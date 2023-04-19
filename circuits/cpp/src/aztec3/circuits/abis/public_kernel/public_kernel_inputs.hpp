@@ -1,6 +1,6 @@
 #pragma once
 
-#include "previous_kernel_data.hpp"
+#include "../previous_kernel_data.hpp"
 #include "public_call_data.hpp"
 #include "../signed_tx_request.hpp"
 

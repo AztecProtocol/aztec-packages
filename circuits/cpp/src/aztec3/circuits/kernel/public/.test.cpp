@@ -1,7 +1,7 @@
 #include "init.hpp"
 #include "native_public_kernel_circuit.hpp"
 #include <aztec3/circuits/abis/public_kernel/public_kernel_inputs.hpp>
-#include <aztec3/circuits/abis/public_kernel/public_inputs.hpp>
+#include <aztec3/circuits/abis/kernel_circuit_public_inputs.hpp>
 #include <gtest/gtest.h>
 
 using DummyComposer = aztec3::utils::DummyComposer;
