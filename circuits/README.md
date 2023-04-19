@@ -6,6 +6,15 @@
 
 The [`aztec3-circpuits`](https://github.com/AztecProtocol/aztec3-packages) circuits folder contains circuits and related C++ code (`cpp/`) for Aztec3 along with Typescript wrappers (`ts/`).
 
+### Dependencies
+
+- cmake >= 3.24
+- Ninja (used by the presets as the default generator)
+- clang15
+- clang-format
+- wasm-opt (part of the [Binaryen](https://github.com/WebAssembly/binaryen) toolkit)
+- [wasmtime](https://docs.wasmtime.dev/cli-install.html) for running tests in a wasm environment
+
 ### Resources
 
 - [Circuits project board](https://github.com/orgs/AztecProtocol/projects/22/views/2)
@@ -48,6 +57,7 @@ Here is an example of rapidly rebuilding and running only the abis tests for `wa
 ./bootstrap.sh aztec3_circuits_abis_tests
 ./scripts/run_tests_local wasm aztec3_circuits_abis_tests
 ```
+> **Note:** to run wasm tests you must first follow the [instructions here](https://docs.wasmtime.dev/cli-install.html) to install `wasmtime`.
 
 You can choose which tests will run via a gtest filter. This one below runs only tests that _omit_ the string '.circuit':
 ```
