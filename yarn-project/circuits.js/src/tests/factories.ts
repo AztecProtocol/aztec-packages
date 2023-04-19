@@ -35,8 +35,10 @@ import {
   PRIVATE_DATA_TREE_HEIGHT,
   PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT,
   PUBLIC_CALL_STACK_LENGTH,
+  PUBLIC_DATA_TREE_HEIGHT,
   RETURN_VALUES_LENGTH,
   ROLLUP_VK_TREE_HEIGHT,
+  STATE_TRANSITIONS_LENGTH,
   VK_TREE_HEIGHT,
 } from '../structs/constants.js';
 import { FunctionData } from '../structs/function_data.js';
@@ -278,6 +280,8 @@ export function makeBaseRollupPublicInputs(seed = 0) {
     makeAppendOnlyTreeSnapshot(seed + 0x600),
     makeAppendOnlyTreeSnapshot(seed + 0x700),
     makeAppendOnlyTreeSnapshot(seed + 0x800),
+    makeAppendOnlyTreeSnapshot(seed + 0x900),
+    makeAppendOnlyTreeSnapshot(seed + 0x1000),
     [fr(seed + 0x901), fr(seed + 0x902)],
   );
 }
@@ -330,6 +334,7 @@ export function makeBaseRollupInputs(seed = 0) {
   const startPrivateDataTreeSnapshot = makeAppendOnlyTreeSnapshot(seed + 0x100);
   const startNullifierTreeSnapshot = makeAppendOnlyTreeSnapshot(seed + 0x200);
   const startContractTreeSnapshot = makeAppendOnlyTreeSnapshot(seed + 0x300);
+  const startPublicDataTreeSnapshot = makeAppendOnlyTreeSnapshot(seed + 0x400);
 
   const lowNullifierLeafPreimages = range(2 * KERNEL_NEW_NULLIFIERS_LENGTH, seed + 0x1000).map(
     x => new NullifierLeafPreimage(fr(x), fr(x + 0x100), x + 0x200),
@@ -354,6 +359,10 @@ export function makeBaseRollupInputs(seed = 0) {
     seed + 0x5000,
   ).map(x => fr(x));
 
+  const newStateTransitionsSiblingPath = range(2 * STATE_TRANSITIONS_LENGTH, seed + 0x6000).map(x =>
+    makeMembershipWitness(PUBLIC_DATA_TREE_HEIGHT, x),
+  );
+
   const historicPrivateDataTreeRootMembershipWitnesses: BaseRollupInputs['historicPrivateDataTreeRootMembershipWitnesses'] =
     [
       makeMembershipWitness(PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT, seed + 0x6000),
@@ -373,11 +382,13 @@ export function makeBaseRollupInputs(seed = 0) {
     startPrivateDataTreeSnapshot,
     startNullifierTreeSnapshot,
     startContractTreeSnapshot,
+    startPublicDataTreeSnapshot,
     lowNullifierLeafPreimages,
     lowNullifierMembershipWitness,
     newCommitmentsSubtreeSiblingPath,
     newNullifiersSubtreeSiblingPath,
     newContractsSubtreeSiblingPath,
+    newStateTransitionsSiblingPath,
     historicPrivateDataTreeRootMembershipWitnesses,
     historicContractsTreeRootMembershipWitnesses,
     constants,
