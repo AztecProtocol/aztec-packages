@@ -118,6 +118,7 @@ template <typename NCT> void read(uint8_t const*& it, PublicCircuitPublicInputs<
     using serialize::read;
 
     PublicCircuitPublicInputs<NCT>& pis = public_circuit_public_inputs;
+    read(it, pis.call_context);
     read(it, pis.args);
     read(it, pis.return_values);
     read(it, pis.emitted_events);
@@ -140,6 +141,7 @@ void write(std::vector<uint8_t>& buf, PublicCircuitPublicInputs<NCT> const& publ
 
     PublicCircuitPublicInputs<NCT> const& pis = public_circuit_public_inputs;
 
+    write(buf, pis.call_context);
     write(buf, pis.args);
     write(buf, pis.return_values);
     write(buf, pis.emitted_events);
@@ -160,7 +162,8 @@ std::ostream& operator<<(std::ostream& os, PublicCircuitPublicInputs<NCT> const&
 
 {
     PublicCircuitPublicInputs<NCT> const& pis = public_circuit_public_inputs;
-    return os << "args: " << pis.args << "\n"
+    return os << "call_context: " << pis.call_context << "\n"
+              << "args: " << pis.args << "\n"
               << "return_values: " << pis.return_values << "\n"
               << "emitted_events: " << pis.emitted_events << "\n"
 
