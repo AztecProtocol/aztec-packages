@@ -171,6 +171,7 @@ export function makeVerificationKey(): VerificationKey {
     range(5, 400),
   );
 }
+
 export function makePreviousKernelData(seed = 1): PreviousKernelData {
   return new PreviousKernelData(
     makeKernelPublicInputs(seed),
