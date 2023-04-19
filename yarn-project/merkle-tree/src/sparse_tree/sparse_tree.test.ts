@@ -16,11 +16,11 @@ const createDb = async (
   name: string,
   depth: number,
 ): Promise<UpdateOnlyTree> => {
-  return await SparseTree.new<SparseTree>(levelUp, hasher, name, depth);
+  return await SparseTree.new<SparseTree>(SparseTree, levelUp, hasher, name, depth);
 };
 
 const createFromName = async (levelUp: levelup.LevelUp, hasher: Hasher, name: string): Promise<UpdateOnlyTree> => {
-  return await SparseTree.fromName<SparseTree>(levelUp, hasher, name);
+  return await SparseTree.fromName<SparseTree>(SparseTree, levelUp, hasher, name);
 };
 
 treeTestSuite('SparseTree', createDb, createFromName);
