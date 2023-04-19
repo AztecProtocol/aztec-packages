@@ -1,10 +1,10 @@
 import { AppendOnlyTree } from '../interfaces/append_only_tree.js';
-import { TreeBaseStaticInitializable } from '../tree_base_static_initializable.js';
+import { TreeBase } from '../tree_base.js';
 
 /**
  * A Merkle tree implementation that uses a LevelDB database to store the tree.
  */
-export class StandardTree extends TreeBaseStaticInitializable implements AppendOnlyTree {
+export class StandardTree extends TreeBase implements AppendOnlyTree {
   /**
    * Appends the given leaves to the tree.
    * @param leaves - The leaves to append.

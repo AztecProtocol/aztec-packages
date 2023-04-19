@@ -1,10 +1,10 @@
 import { UpdateOnlyTree } from '../interfaces/update_only_tree.js';
-import { TreeBaseStaticInitializable } from '../tree_base_static_initializable.js';
+import { TreeBase } from '../tree_base.js';
 
 /**
  * A Merkle tree implementation that uses a LevelDB database to store the tree.
  */
-export class SparseTree extends TreeBaseStaticInitializable implements UpdateOnlyTree {
+export class SparseTree extends TreeBase implements UpdateOnlyTree {
   /**
    * Updates a leaf in the tree.
    * @param leaf - New contents of the leaf.
@@ -14,8 +14,9 @@ export class SparseTree extends TreeBaseStaticInitializable implements UpdateOnl
     if (index > this.maxIndex) {
       throw Error(`Index out of bounds. Index ${index}, max index: ${this.maxIndex}.`);
     }
-    const insertingZeroElement = leaf.equals(SparseTree.ZERO_ELEMENT);
-    const originallyZeroElement = (await this.getLeafValue(index, true))?.equals(SparseTree.ZERO_ELEMENT);
+
+    const insertingZeroElement = leaf.equals(this.getInitialLeaf());
+    const originallyZeroElement = (await this.getLeafValue(index, true))?.equals(this.getInitialLeaf());
     if (insertingZeroElement && originallyZeroElement) {
       return;
     }

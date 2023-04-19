@@ -1,8 +1,7 @@
 import { toBigIntBE, toBufferBE } from '@aztec/foundation';
-import { LevelUp } from 'levelup';
 import { Hasher } from '../hasher.js';
 import { IndexedTree, LeafData } from '../interfaces/indexed_tree.js';
-import { TreeBase, decodeMeta } from '../tree_base.js';
+import { TreeBase } from '../tree_base.js';
 
 const indexToKeyLeaf = (name: string, index: bigint) => {
   return `${name}:leaf:${index}`;
@@ -43,66 +42,6 @@ const initialLeaf: LeafData = {
 export class StandardIndexedTree extends TreeBase implements IndexedTree {
   private leaves: LeafData[] = [];
   private cachedLeaves: { [key: number]: LeafData } = {};
-
-  /**
-   * Creates an IndexedTree object.
-   * @param db - A database used to store the Merkle tree data.
-   * @param hasher - A hasher used to compute hash paths.
-   * @param name - A name of the tree.
-   * @param depth - A depth of the tree.
-   * @param prefilledSize - {optional} A number of leaves that are prefilled with values.
-   * @returns A promise with the new Merkle tree.
-   */
-  public static async new(
-    db: LevelUp,
-    hasher: Hasher,
-    name: string,
-    depth: number,
-    prefilledSize = 0,
-  ): Promise<IndexedTree> {
-    const tree = new StandardIndexedTree(
-      db,
-      hasher,
-      name,
-      depth,
-      0n,
-      undefined,
-      hashEncodedTreeValue(initialLeaf, hasher),
-    );
-    await tree.init(prefilledSize);
-    return tree;
-  }
-
-  /**
-   * Creates a new tree and sets its root, depth and size based on the meta data which are associated with the name.
-   * @param db - A database used to store the Merkle tree data.
-   * @param hasher - A hasher used to compute hash paths.
-   * @param name - Name of the tree.
-   * @returns The newly created tree.
-   */
-  static async fromName(db: LevelUp, hasher: Hasher, name: string): Promise<StandardIndexedTree> {
-    const meta: Buffer = await db.get(name);
-    const { root, depth, size } = decodeMeta(meta);
-    const tree = new StandardIndexedTree(
-      db,
-      hasher,
-      name,
-      depth,
-      size,
-      root,
-      hashEncodedTreeValue(initialLeaf, hasher),
-    );
-    await tree.initFromDb();
-    return tree;
-  }
-
-  /**
-   * Returns an empty leaf of the tree.
-   * @returns An empty leaf.
-   */
-  static initialLeaf(): LeafData {
-    return initialLeaf;
-  }
 
   /**
    * Appends the given leaves to the tree.
@@ -249,13 +188,15 @@ export class StandardIndexedTree extends TreeBase implements IndexedTree {
   }
 
   /**
-   * Saves the initial leaf to this object and saves it to a database.
+   * Initializes the tree.
+   * @param prefilledSize - A number of leaves that are prefilled with values.
+   * @returns Empty promise.
    */
-  private async init(initialSize = 1) {
+  protected async init(prefilledSize: number): Promise<void> {
     this.leaves.push(initialLeaf);
     await this._updateLeaf(hashEncodedTreeValue(initialLeaf, this.hasher), 0n);
 
-    for (let i = 1; i < initialSize; i++) {
+    for (let i = 1; i < prefilledSize; i++) {
       await this.appendLeaf(Buffer.from([i]));
     }
 
@@ -264,9 +205,9 @@ export class StandardIndexedTree extends TreeBase implements IndexedTree {
 
   /**
    * Loads Merkle tree data from a database and assigns them to this object.
-   * @param startingIndex - An index locating a first element of the tree.
    */
-  private async initFromDb(startingIndex = 0n): Promise<void> {
+  protected async initFromDb(): Promise<void> {
+    const startingIndex = 0n;
     const values: LeafData[] = [];
     const promise = new Promise<void>((resolve, reject) => {
       this.db
@@ -340,5 +281,13 @@ export class StandardIndexedTree extends TreeBase implements IndexedTree {
     this.cachedLeaves[Number(index)] = leaf;
     const encodedLeaf = hashEncodedTreeValue(leaf, this.hasher);
     await this._updateLeaf(encodedLeaf, index);
+  }
+
+  /**
+   * Returns the initial leaf of the tree.
+   * @returns The initial leaf of the tree.
+   */
+  public getInitialLeaf(): Buffer {
+    return hashEncodedTreeValue(initialLeaf, this.hasher);
   }
 }

@@ -58,7 +58,8 @@ export class MerkleTrees implements MerkleTreeDb {
       `${MerkleTreeId[MerkleTreeId.CONTRACT_TREE_ROOTS_TREE]}`,
       CONTRACT_TREE_ROOTS_TREE_HEIGHT,
     );
-    const nullifierTree = await StandardIndexedTree.new(
+    const nullifierTree = await StandardIndexedTree.new<StandardIndexedTree>(
+      StandardIndexedTree,
       this.db,
       hasher,
       `${MerkleTreeId[MerkleTreeId.NULLIFIER_TREE]}`,

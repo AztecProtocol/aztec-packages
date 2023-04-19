@@ -78,7 +78,7 @@ describe('SparseTreeSpecific', () => {
     expect(tree.getNumLeaves(true)).toEqual(1n);
 
     // Delete a leaf
-    await tree.updateLeaf(SparseTree.ZERO_ELEMENT, randomIndex);
+    await tree.updateLeaf(tree.getInitialLeaf(), randomIndex);
     expect(tree.getNumLeaves(true)).toEqual(0n);
   });
 
@@ -86,7 +86,7 @@ describe('SparseTreeSpecific', () => {
     const db = levelup(createMemDown());
     const tree = await createDb(db, pedersen, 'test', 3);
 
-    const zeroElement = SparseTree.ZERO_ELEMENT;
+    const zeroElement = tree.getInitialLeaf();
     const level2ZeroHash = pedersen.compress(zeroElement, zeroElement);
     const level1ZeroHash = pedersen.compress(level2ZeroHash, level2ZeroHash);
 

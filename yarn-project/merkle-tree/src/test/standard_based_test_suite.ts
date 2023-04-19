@@ -1,6 +1,6 @@
 import { BarretenbergWasm } from '@aztec/barretenberg.js/wasm';
 import { default as levelup } from 'levelup';
-import { Hasher, Pedersen, SiblingPath, StandardTree } from '../index.js';
+import { Hasher, Pedersen, SiblingPath } from '../index.js';
 import { appendLeaves } from './utils/append_leaves.js';
 import { createMemDown } from './utils/create_mem_down.js';
 import { randomBytes } from 'crypto';
@@ -51,7 +51,7 @@ export const standardBasedTreeTestSuite = (
       const db = levelup(createMemDown());
       const tree = await createDb(db, pedersen, 'test', 2);
 
-      const zeroTreeLeafHash = StandardTree.ZERO_ELEMENT;
+      const zeroTreeLeafHash = tree.getInitialLeaf();
       const level1ZeroHash = pedersen.compress(zeroTreeLeafHash, zeroTreeLeafHash);
       expect(tree.getNumLeaves(false)).toEqual(0n);
       expect(tree.getRoot(false)).toEqual(pedersen.compress(level1ZeroHash, level1ZeroHash));

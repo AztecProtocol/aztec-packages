@@ -7,11 +7,11 @@ import { BarretenbergWasm } from '@aztec/barretenberg.js/wasm';
 import { createMemDown } from '../test/utils/create_mem_down.js';
 
 const createDb = async (levelUp: levelup.LevelUp, hasher: Hasher, name: string, depth: number) => {
-  return await StandardIndexedTree.new(levelUp, hasher, name, depth);
+  return await StandardIndexedTree.new<StandardIndexedTree>(StandardIndexedTree, levelUp, hasher, name, depth);
 };
 
 const createFromName = async (levelUp: levelup.LevelUp, hasher: Hasher, name: string) => {
-  return await StandardIndexedTree.fromName(levelUp, hasher, name);
+  return await StandardIndexedTree.fromName<StandardIndexedTree>(StandardIndexedTree, levelUp, hasher, name);
 };
 
 const createIndexedTreeLeaf = (value: number, nextIndex: number, nextValue: number) => {

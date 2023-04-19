@@ -24,35 +24,32 @@ export const decodeMeta = (meta: Buffer) => {
   };
 };
 
+export const INITIAL_LEAF = Buffer.from('0000000000000000000000000000000000000000000000000000000000000000', 'hex');
+
 /**
  * A Merkle tree implementation that uses a LevelDB database to store the tree.
  */
 export abstract class TreeBase implements MerkleTree {
-  /**
-   * The value of an 'empty' leaf.
-   */
-  public static ZERO_ELEMENT = Buffer.from('0000000000000000000000000000000000000000000000000000000000000000', 'hex');
   protected readonly maxIndex: bigint;
   protected cachedSize?: bigint;
   private root!: Buffer;
   private zeroHashes: Buffer[] = [];
   private cache: { [key: string]: Buffer } = {};
 
-  constructor(
+  public constructor(
     protected db: LevelUp,
     protected hasher: Hasher,
     private name: string,
     private depth: number,
     protected size: bigint = 0n,
     root?: Buffer,
-    initialLeafValue = TreeBase.ZERO_ELEMENT,
   ) {
     if (!(depth >= 1 && depth <= MAX_DEPTH)) {
       throw Error('Bad depth');
     }
 
     // Compute the zero values at each layer.
-    let current = initialLeafValue;
+    let current = this.getInitialLeaf();
     for (let i = depth - 1; i >= 0; --i) {
       this.zeroHashes[i] = current;
       current = hasher.compress(current, current);
@@ -60,6 +57,50 @@ export abstract class TreeBase implements MerkleTree {
 
     this.root = root ? root : current;
     this.maxIndex = 2n ** BigInt(depth) - 1n;
+  }
+
+  /**
+   * Creates a new tree.
+   * @param c - The class of the tree to be instantiated.
+   * @param db - A database used to store the Merkle tree data.
+   * @param hasher - A hasher used to compute hash paths.
+   * @param name - Name of the tree.
+   * @param depth - Depth of the tree.
+   * @param prefilledSize - {optional} A number of leaves that are prefilled with values.
+   * @returns The newly created tree.
+   */
+  static async new<T extends TreeBase>(
+    c: new (...args: any[]) => T,
+    db: LevelUp,
+    hasher: Hasher,
+    name: string,
+    depth: number,
+    prefilledSize = 0,
+  ): Promise<T> {
+    const tree = new c(db, hasher, name, depth, 0n, undefined);
+    await tree.init(prefilledSize);
+    return tree;
+  }
+
+  /**
+   * Creates a new tree and sets its root, depth and size based on the meta data which are associated with the name.
+   * @param c - The class of the tree to be instantiated.
+   * @param db - A database used to store the Merkle tree data.
+   * @param hasher - A hasher used to compute hash paths.
+   * @param name - Name of the tree.
+   * @returns The newly created tree.
+   */
+  static async fromName<T extends TreeBase>(
+    c: new (...args: any[]) => T,
+    db: LevelUp,
+    hasher: Hasher,
+    name: string,
+  ): Promise<T> {
+    const meta: Buffer = await db.get(name);
+    const { root, depth, size } = decodeMeta(meta);
+    const tree = new c(db, hasher, name, depth, size, root);
+    await tree.initFromDb();
+    return tree;
   }
 
   /**
@@ -218,6 +259,20 @@ export abstract class TreeBase implements MerkleTree {
   }
 
   /**
+   * Initializes the tree.
+   * @param prefilledSize - {optional} A number of leaves that are prefilled with values.
+   * @returns Empty promise.
+   */
+  protected async init(prefilledSize: number): Promise<void> {
+    await this.writeMeta();
+  }
+
+  /**
+   * Initializes the tree from the database.
+   */
+  protected async initFromDb(): Promise<void> {}
+
+  /**
    * Writes meta data to the provided batch.
    * @param batch - The batch to which to write the meta data.
    */
@@ -228,5 +283,13 @@ export abstract class TreeBase implements MerkleTree {
     } else {
       await this.db.put(this.name, data);
     }
+  }
+
+  /**
+   * Returns the initial leaf of the tree.
+   * @returns The initial leaf of the tree.
+   */
+  public getInitialLeaf(): Buffer {
+    return INITIAL_LEAF;
   }
 }
