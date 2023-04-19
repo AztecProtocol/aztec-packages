@@ -321,9 +321,7 @@ export class CircuitBlockBuilder implements BlockBuilder {
       return path.data.map(b => Fr.fromBuffer(b));
     };
 
-    const newHistoricContractDataTreeRootSiblingPath = await getRootTreeSiblingPath(
-      TreeId.CONTRACT_TREE_ROOTS_TREE,
-    );
+    const newHistoricContractDataTreeRootSiblingPath = await getRootTreeSiblingPath(TreeId.CONTRACT_TREE_ROOTS_TREE);
     const newHistoricPrivateDataTreeRootSiblingPath = await getRootTreeSiblingPath(TreeId.DATA_TREE_ROOTS_TREE);
 
     return RootRollupInputs.from({

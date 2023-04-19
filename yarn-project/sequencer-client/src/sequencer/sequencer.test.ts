@@ -72,9 +72,7 @@ describe('sequencer', () => {
     // We make a nullifier from tx1 a part of the nullifier tree, so it gets rejected as double spend
     const doubleSpendNullifier = doubleSpendTx.data.end.newNullifiers[0].toBuffer();
     merkleTreeOps.findLeafIndex.mockImplementation((treeId: TreeId, value: Buffer) => {
-      return Promise.resolve(
-        treeId === TreeId.NULLIFIER_TREE && value.equals(doubleSpendNullifier) ? 1n : undefined,
-      );
+      return Promise.resolve(treeId === TreeId.NULLIFIER_TREE && value.equals(doubleSpendNullifier) ? 1n : undefined);
     });
 
     await sequencer.initialSync();

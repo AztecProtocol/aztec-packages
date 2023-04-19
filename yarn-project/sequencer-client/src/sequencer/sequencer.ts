@@ -189,8 +189,7 @@ export class Sequencer {
       if (nullifier.isZero()) continue;
       // TODO(AD): this is an exhaustive search currently
       if (
-        (await this.worldState.getLatest().findLeafIndex(TreeId.NULLIFIER_TREE, nullifier.toBuffer())) !==
-        undefined
+        (await this.worldState.getLatest().findLeafIndex(TreeId.NULLIFIER_TREE, nullifier.toBuffer())) !== undefined
       ) {
         // Our nullifier tree has this nullifier already - this transaction is a double spend / not well-formed
         return true;

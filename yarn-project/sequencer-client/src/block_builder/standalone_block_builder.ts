@@ -35,12 +35,8 @@ export class StandaloneBlockBuilder implements BlockBuilder {
     const startPrivateDataTreeSnapshot = await this.getTreeSnapshot(TreeId.DATA_TREE);
     const startNullifierTreeSnapshot = await this.getTreeSnapshot(TreeId.NULLIFIER_TREE);
     const startContractTreeSnapshot = await this.getTreeSnapshot(TreeId.CONTRACT_TREE);
-    const startTreeOfHistoricPrivateDataTreeRootsSnapshot = await this.getTreeSnapshot(
-      TreeId.DATA_TREE_ROOTS_TREE,
-    );
-    const startTreeOfHistoricContractTreeRootsSnapshot = await this.getTreeSnapshot(
-      TreeId.CONTRACT_TREE_ROOTS_TREE,
-    );
+    const startTreeOfHistoricPrivateDataTreeRootsSnapshot = await this.getTreeSnapshot(TreeId.DATA_TREE_ROOTS_TREE);
+    const startTreeOfHistoricContractTreeRootsSnapshot = await this.getTreeSnapshot(TreeId.CONTRACT_TREE_ROOTS_TREE);
 
     for (const tx of txs) {
       await this.updateTrees(tx);
@@ -52,9 +48,7 @@ export class StandaloneBlockBuilder implements BlockBuilder {
     const endNullifierTreeSnapshot = await this.getTreeSnapshot(TreeId.NULLIFIER_TREE);
     const endContractTreeSnapshot = await this.getTreeSnapshot(TreeId.CONTRACT_TREE);
     const endTreeOfHistoricPrivateDataTreeRootsSnapshot = await this.getTreeSnapshot(TreeId.DATA_TREE_ROOTS_TREE);
-    const endTreeOfHistoricContractTreeRootsSnapshot = await this.getTreeSnapshot(
-      TreeId.CONTRACT_TREE_ROOTS_TREE,
-    );
+    const endTreeOfHistoricContractTreeRootsSnapshot = await this.getTreeSnapshot(TreeId.CONTRACT_TREE_ROOTS_TREE);
 
     const l2Block = L2Block.fromFields({
       number: blockNumber,
