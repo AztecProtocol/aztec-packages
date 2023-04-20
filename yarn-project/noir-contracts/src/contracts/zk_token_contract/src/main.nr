@@ -78,7 +78,7 @@ contract PrivateToken {
         // Should eventually be hidden:
         let amount = inputs.args[0];
         let sender = Point::new(inputs.args[1], inputs.args[2]);
-        // let _recipient = Point::new(inputs.args[3], inputs.args[4]);
+        let recipient = Point::new(inputs.args[3], inputs.args[4]);
 
         let outputs1 = Outputs::new();
         //*********************************/
@@ -86,32 +86,25 @@ contract PrivateToken {
         let sender_balance = balances.at(sender.x);
         let (mut outputs, (note1, note2)) = sender_balance.get_2(inputs, outputs1);
 
-        let constrain_note = |note: Note, sender_forwarded: Point| {
-            if note.is_real {
-                constrain sender_forwarded.x == note.owner.x;
-                constrain sender_forwarded.y == note.owner.y;
-            } else {
-                constrain note.value == 0;
-            }
-        };
-
         // TODO: Removing this return breaks the circuit (???)
         outputs.return_values = outputs.return_values.push(note1.is_real as Field);
         outputs.return_values = outputs.return_values.push(note2.is_real as Field);
 
-        constrain_note(note1, sender);
-        constrain_note(note2, sender);
+        note1.validate(sender);
+        note2.validate(sender);
 
         let sum = note1.value + note2.value;
         constrain sum as u64 >= amount as u64;
         let change_value = sum - amount;
-        outputs.return_values = outputs.return_values.push(change_value);
 
         outputs = sender_balance.remove(inputs, outputs, note1);
         outputs = sender_balance.remove(inputs, outputs, note2);
 
-        // let recipient_note = Note::new(amount, recipient);
         // let change_note = Note::new(change_value, sender);
+        let recipient_note = Note::new(amount, recipient);
+
+        outputs.return_values = outputs.return_values.push(change_value);
+        outputs.return_values = outputs.return_values.push(recipient_note.value);
 
         // let recipient_balance = balances.at(recipient.x);
 

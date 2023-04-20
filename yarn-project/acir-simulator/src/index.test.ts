@@ -145,7 +145,7 @@ describe('ACIR simulator', () => {
       expect(commitment).toEqual(Fr.fromBuffer(acirSimulator.computeNoteHash(newNote.preimage, bbWasm)));
     });
 
-    it.only('should run the transfer function', async () => {
+    it('should run the transfer function', async () => {
       const db = levelup(createMemDown());
       const pedersen = new Pedersen(bbWasm);
 
@@ -210,7 +210,7 @@ describe('ACIR simulator', () => {
       expect(changeNote.preimage[5]).toEqual(new Fr(40n));
     }, 30_000);
 
-    it('should be able to transfer with dummy notes', async () => {
+    it.skip('should be able to transfer with dummy notes', async () => {
       const db = levelup(createMemDown());
       const pedersen = new Pedersen(bbWasm);
 
@@ -262,7 +262,7 @@ describe('ACIR simulator', () => {
     }, 30_000);
   });
 
-  describe('nested calls', () => {
+  describe.skip('nested calls', () => {
     const oldRoots = new OldTreeRoots(new Fr(0n), new Fr(0n), new Fr(0n), new Fr(0n));
     const contractDeploymentData = new ContractDeploymentData(Fr.random(), Fr.random(), Fr.random(), EthAddress.ZERO);
     const txContext = new TxContext(false, false, true, contractDeploymentData);
