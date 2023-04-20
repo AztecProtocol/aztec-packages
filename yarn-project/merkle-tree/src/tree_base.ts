@@ -60,50 +60,6 @@ export abstract class TreeBase implements MerkleTree {
   }
 
   /**
-   * Creates a new tree.
-   * @param c - The class of the tree to be instantiated.
-   * @param db - A database used to store the Merkle tree data.
-   * @param hasher - A hasher used to compute hash paths.
-   * @param name - Name of the tree.
-   * @param depth - Depth of the tree.
-   * @param prefilledSize - {optional} A number of leaves that are prefilled with values.
-   * @returns The newly created tree.
-   */
-  static async new<T extends TreeBase>(
-    c: new (...args: any[]) => T,
-    db: LevelUp,
-    hasher: Hasher,
-    name: string,
-    depth: number,
-    prefilledSize = 0,
-  ): Promise<T> {
-    const tree = new c(db, hasher, name, depth, 0n, undefined);
-    await tree.init(prefilledSize);
-    return tree;
-  }
-
-  /**
-   * Creates a new tree and sets its root, depth and size based on the meta data which are associated with the name.
-   * @param c - The class of the tree to be instantiated.
-   * @param db - A database used to store the Merkle tree data.
-   * @param hasher - A hasher used to compute hash paths.
-   * @param name - Name of the tree.
-   * @returns The newly created tree.
-   */
-  static async fromName<T extends TreeBase>(
-    c: new (...args: any[]) => T,
-    db: LevelUp,
-    hasher: Hasher,
-    name: string,
-  ): Promise<T> {
-    const meta: Buffer = await db.get(name);
-    const { root, depth, size } = decodeMeta(meta);
-    const tree = new c(db, hasher, name, depth, size, root);
-    await tree.initFromDb();
-    return tree;
-  }
-
-  /**
    * Returns the root of the tree.
    * @returns The root of the tree.
    */
@@ -249,7 +205,7 @@ export abstract class TreeBase implements MerkleTree {
    * @returns Empty promise.
    */
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  protected async init(prefilledSize: number): Promise<void> {
+  public async init(prefilledSize: number): Promise<void> {
     // prefilledSize is used only by Indexed Tree.
     await this.writeMeta();
   }
@@ -257,7 +213,7 @@ export abstract class TreeBase implements MerkleTree {
   /**
    * Initializes the tree from the database.
    */
-  protected async initFromDb(): Promise<void> {
+  public async initFromDb(): Promise<void> {
     // Implemented only by Inedexed Tree to populate the leaf cache.
   }
 

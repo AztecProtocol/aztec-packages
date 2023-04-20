@@ -5,13 +5,15 @@ import { treeTestSuite } from '../test/test_suite.js';
 import { toBufferBE } from '@aztec/foundation';
 import { BarretenbergWasm } from '@aztec/barretenberg.js/wasm';
 import { createMemDown } from '../test/utils/create_mem_down.js';
+import { newTree } from '../new_tree.js';
+import { loadTree } from '../load_tree.js';
 
 const createDb = async (levelUp: levelup.LevelUp, hasher: Hasher, name: string, depth: number) => {
-  return await StandardIndexedTree.new<StandardIndexedTree>(StandardIndexedTree, levelUp, hasher, name, depth);
+  return await newTree(StandardIndexedTree, levelUp, hasher, name, depth);
 };
 
 const createFromName = async (levelUp: levelup.LevelUp, hasher: Hasher, name: string) => {
-  return await StandardIndexedTree.fromName<StandardIndexedTree>(StandardIndexedTree, levelUp, hasher, name);
+  return await loadTree(StandardIndexedTree, levelUp, hasher, name);
 };
 
 const createIndexedTreeLeaf = (value: number, nextIndex: number, nextValue: number) => {

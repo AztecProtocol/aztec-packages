@@ -17,6 +17,7 @@ import {
   StandardTree,
   UpdateOnlyTree,
   IndexedTree,
+  newTree,
 } from '@aztec/merkle-tree';
 import { default as levelup } from 'levelup';
 import { MerkleTreeOperationsFacade } from '../merkle-tree/merkle_tree_operations_facade.js';
@@ -44,21 +45,21 @@ export class MerkleTrees implements MerkleTreeDb {
   public async init(optionalWasm?: WasmWrapper) {
     const wasm = optionalWasm ?? (await PrimitivesWasm.get());
     const hasher = new Pedersen(wasm);
-    const contractTree: AppendOnlyTree = await StandardTree.new<StandardTree>(
+    const contractTree: AppendOnlyTree = await newTree(
       StandardTree,
       this.db,
       hasher,
       `${MerkleTreeId[MerkleTreeId.CONTRACT_TREE]}`,
       CONTRACT_TREE_HEIGHT,
     );
-    const contractTreeRootsTree: AppendOnlyTree = await StandardTree.new<StandardTree>(
+    const contractTreeRootsTree: AppendOnlyTree = await newTree(
       StandardTree,
       this.db,
       hasher,
       `${MerkleTreeId[MerkleTreeId.CONTRACT_TREE_ROOTS_TREE]}`,
       CONTRACT_TREE_ROOTS_TREE_HEIGHT,
     );
-    const nullifierTree = await StandardIndexedTree.new<StandardIndexedTree>(
+    const nullifierTree = await newTree(
       StandardIndexedTree,
       this.db,
       hasher,
@@ -66,14 +67,14 @@ export class MerkleTrees implements MerkleTreeDb {
       NULLIFIER_TREE_HEIGHT,
       INITIAL_NULLIFIER_TREE_SIZE,
     );
-    const dataTree: AppendOnlyTree = await StandardTree.new<StandardTree>(
+    const dataTree: AppendOnlyTree = await newTree(
       StandardTree,
       this.db,
       hasher,
       `${MerkleTreeId[MerkleTreeId.DATA_TREE]}`,
       PRIVATE_DATA_TREE_HEIGHT,
     );
-    const dataTreeRootsTree: AppendOnlyTree = await StandardTree.new<StandardTree>(
+    const dataTreeRootsTree: AppendOnlyTree = await newTree(
       StandardTree,
       this.db,
       hasher,

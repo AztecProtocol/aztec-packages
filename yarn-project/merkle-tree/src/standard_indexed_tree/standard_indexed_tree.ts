@@ -192,7 +192,7 @@ export class StandardIndexedTree extends TreeBase implements IndexedTree {
    * @param prefilledSize - A number of leaves that are prefilled with values.
    * @returns Empty promise.
    */
-  protected async init(prefilledSize: number): Promise<void> {
+  public async init(prefilledSize: number): Promise<void> {
     this.leaves.push(initialLeaf);
     await this._updateLeaf(hashEncodedTreeValue(initialLeaf, this.hasher), 0n);
 
@@ -206,7 +206,7 @@ export class StandardIndexedTree extends TreeBase implements IndexedTree {
   /**
    * Loads Merkle tree data from a database and assigns them to this object.
    */
-  protected async initFromDb(): Promise<void> {
+  public async initFromDb(): Promise<void> {
     const startingIndex = 0n;
     const values: LeafData[] = [];
     const promise = new Promise<void>((resolve, reject) => {

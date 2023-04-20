@@ -9,6 +9,8 @@ import { Pedersen } from '../pedersen.js';
 import { randomBytes } from 'crypto';
 import { SiblingPath } from '../index.js';
 import { UpdateOnlyTree } from '../interfaces/update_only_tree.js';
+import { newTree } from '../new_tree.js';
+import { loadTree } from '../load_tree.js';
 
 const createDb = async (
   levelUp: levelup.LevelUp,
@@ -16,11 +18,11 @@ const createDb = async (
   name: string,
   depth: number,
 ): Promise<UpdateOnlyTree> => {
-  return await SparseTree.new<SparseTree>(SparseTree, levelUp, hasher, name, depth);
+  return await newTree(SparseTree, levelUp, hasher, name, depth);
 };
 
 const createFromName = async (levelUp: levelup.LevelUp, hasher: Hasher, name: string): Promise<UpdateOnlyTree> => {
-  return await SparseTree.fromName<SparseTree>(SparseTree, levelUp, hasher, name);
+  return await loadTree(SparseTree, levelUp, hasher, name);
 };
 
 treeTestSuite('SparseTree', createDb, createFromName);
