@@ -95,11 +95,7 @@ export async function computeFunctionLeaf(wasm: CircuitsWasm, fnLeaf: FunctionLe
 export async function computeFunctionTreeRoot(wasm: CircuitsWasm, fnLeafs: Fr[]) {
   const inputVector = serializeBufferArrayToVector(fnLeafs.map(fr => fr.toBuffer()));
   wasm.call('pedersen__init');
-  const result = await wasmAsyncCall(wasm,
-    'abis__compute_function_tree_root',
-    { toBuffer: () => inputVector },
-    32
-  );
+  const result = await wasmAsyncCall(wasm, 'abis__compute_function_tree_root', { toBuffer: () => inputVector }, 32);
   return Fr.fromBuffer(result);
 }
 
