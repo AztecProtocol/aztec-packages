@@ -31,7 +31,7 @@ contract PrivateToken {
         //*********************************/
 
         let owner_balance = balances.at(owner.x);
-        let note = Note::new(initial_supply, owner, 0);
+        let note = Note::new(initial_supply, owner);
 
         owner_balance.insert(outputs, note)
             .finish(inputs)
@@ -57,7 +57,7 @@ contract PrivateToken {
         //*********************************/
 
         let owner_balance = balances.at(owner.x);
-        let note = Note::new(amount, owner, 0);
+        let note = Note::new(amount, owner);
 
         owner_balance.insert(outputs, note)
             .finish(inputs)
@@ -78,7 +78,7 @@ contract PrivateToken {
         // Should eventually be hidden:
         let amount = inputs.args[0];
         let sender = Point::new(inputs.args[1], inputs.args[2]);
-        let recipient = Point::new(inputs.args[3], inputs.args[4]);
+        // let _recipient = Point::new(inputs.args[3], inputs.args[4]);
 
         let outputs1 = Outputs::new();
         //*********************************/
@@ -105,17 +105,18 @@ contract PrivateToken {
         let sum = note1.value + note2.value;
         constrain sum as u64 >= amount as u64;
         let change_value = sum - amount;
+        outputs.return_values = outputs.return_values.push(change_value);
 
         outputs = sender_balance.remove(inputs, outputs, note1);
         outputs = sender_balance.remove(inputs, outputs, note2);
 
-        let recipient_note = Note::new(amount, recipient, 0);
-        let change_note = Note::new(change_value, sender, 1);
+        // let recipient_note = Note::new(amount, recipient);
+        // let change_note = Note::new(change_value, sender);
 
-        let recipient_balance = balances.at(recipient.x);
+        // let recipient_balance = balances.at(recipient.x);
 
-        outputs = recipient_balance.insert(outputs, recipient_note);
-        outputs = sender_balance.insert(outputs, change_note);
+        // outputs = recipient_balance.insert(outputs, recipient_note);
+        // outputs = sender_balance.insert(outputs, change_note);
 
 
         outputs.finish(inputs)

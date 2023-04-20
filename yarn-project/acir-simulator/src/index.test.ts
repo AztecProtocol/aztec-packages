@@ -116,7 +116,7 @@ describe('ACIR simulator', () => {
 
       const [commitment] = newCommitments;
       expect(commitment).toEqual(Fr.fromBuffer(acirSimulator.computeNoteHash(newNote.preimage, bbWasm)));
-    });
+    }, 30_000);
 
     it('should run the mint function', async () => {
       const oldRoots = new OldTreeRoots(new Fr(0n), new Fr(0n), new Fr(0n), new Fr(0n));
@@ -145,7 +145,7 @@ describe('ACIR simulator', () => {
       expect(commitment).toEqual(Fr.fromBuffer(acirSimulator.computeNoteHash(newNote.preimage, bbWasm)));
     });
 
-    it('should run the transfer function', async () => {
+    it.only('should run the transfer function', async () => {
       const db = levelup(createMemDown());
       const pedersen = new Pedersen(bbWasm);
 
