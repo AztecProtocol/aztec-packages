@@ -7,10 +7,11 @@ function getFunction(params: any, fn: any) {
   if (!params) throw new Error(`ABI comment not found for function ${fn.name}`);
   return {
     name: fn.name,
-    functionType: fn.func_type,
+    functionType: fn.function_type,
     parameters: params,
     returnTypes: [],
-    bytecode: Buffer.from(fn.function.circuit).toString('hex'),
+    bytecode: Buffer.from(fn.bytecode).toString('hex'),
+    verificationKey: Buffer.from(fn.verification_key).toString('hex'),
   };
 }
 
@@ -20,13 +21,10 @@ function getFunctions(source: string, output: any) {
     params: JSON.parse(match[2]),
   }));
 
-  return Object.keys(output.functions).map((name: string) =>
-    getFunction(abis.find(abi => abi.name === name)?.params, { ...output.functions[name], name: name }),
-  );
-}
-
-function getVerificationKey(folder: string, contractName: string, functionName: string) {
-  return readFileSync(`${folder}/target/main-${contractName}-${functionName}.vk`).toString();
+  return output.functions.map((fn: any) => {
+    delete fn.proving_key;
+    return getFunction(abis.find(abi => abi.name === fn.name)?.params, fn);
+  });
 }
 
 function main() {
@@ -41,10 +39,7 @@ function main() {
 
   const abi = {
     name: build.name,
-    functions: getFunctions(source, build).map(fn => ({
-      ...fn,
-      verificationKey: getVerificationKey(folder, contractName, fn.name),
-    })),
+    functions: getFunctions(source, build),
   };
 
   const exampleFile = `${examples}/${snakeCase(name)}_contract.json`;

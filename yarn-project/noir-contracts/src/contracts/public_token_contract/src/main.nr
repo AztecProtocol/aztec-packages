@@ -1,7 +1,6 @@
 contract PublicToken {
     use dep::aztec3::abi::Inputs;
     use dep::aztec3::abi::Outputs;
-    use dep::aztec3::abi::FinalOutputs;
     use dep::aztec3::abi::CallContext;
     use dep::aztec3::types::point::Point;
     use dep::aztec3::state_vars::storage_map::StorageMap;
@@ -12,9 +11,8 @@ contract PublicToken {
     /// ABI constructor []
     fn constructor(
         inputs: pub Inputs,
-    ) -> pub FinalOutputs {
-        let outputs = Outputs::new();
-        outputs.finish(inputs)
+    ) -> pub [Field; dep::aztec3::abi::PUBLIC_INPUTS_LENGTH] {
+        Outputs::new().finish(inputs)
     }
 
     /// ABI mint [{"name":"amount","type":{"kind":"field"},"visibility":"public"},{"name":"recipient","type":{"kind":"struct","fields":[{"name":"x","type":{"kind":"field"}},{"name":"y","type":{"kind":"field"}}],"visibility":"public"}}]
@@ -38,12 +36,14 @@ contract PublicToken {
         
         let sender_balance = balances.at(sender);
         let recipient_balance = balances.at(recipient.x);
+
+        let current_sender_balance = sender_balance.read();
         let current_recipient_balance = recipient_balance.read();
 
         // TODO: Handle larger integer values ("long integers are not yet supported")
-        if (sender_balance.read() as u120) > (amount as u120) {
+        if (current_sender_balance as u120) > (amount as u120) {
             // TODO: Compiler complains if we don't assign the result of the write to anything
-            let _void1 = sender_balance.write(sender_balance.read() - amount);
+            let _void1 = sender_balance.write(current_sender_balance - amount);
             recipient_balance.write(current_recipient_balance + amount)
         } else {
             // TODO: Revert if there is not enough balance
