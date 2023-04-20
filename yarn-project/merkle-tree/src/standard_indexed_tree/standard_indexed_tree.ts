@@ -72,6 +72,12 @@ export class StandardIndexedTree extends TreeBase implements IndexedTree {
     this.clearCachedLeaves();
   }
 
+  /**
+   * Gets the value of the leaf at the given index.
+   * @param index - Index of the leaf of which to obtain the value.
+   * @param includeUncommitted include uncommitted leaves in the computation.
+   * @returns The value of the leaf at the given index or undefined if the leaf is empty.
+   */
   public getLeafValue(index: bigint, includeUncommitted: boolean): Promise<Buffer | undefined> {
     const leaf = this.getLatestLeafDataCopy(Number(index), includeUncommitted);
     if (!leaf) return Promise.resolve(undefined);
@@ -278,8 +284,13 @@ export class StandardIndexedTree extends TreeBase implements IndexedTree {
    */
   // TODO: remove once the batch insertion functionality is moved here from circuit_block_builder.ts
   public async updateLeaf(leaf: LeafData, index: bigint): Promise<void> {
+    let encodedLeaf;
+    if (leaf.value == 0n) {
+      encodedLeaf = toBufferBE(0n, 32);
+    } else {
+      encodedLeaf = hashEncodedTreeValue(leaf, this.hasher);
+    }
     this.cachedLeaves[Number(index)] = leaf;
-    const encodedLeaf = hashEncodedTreeValue(leaf, this.hasher);
     await this._updateLeaf(encodedLeaf, index);
   }
 
