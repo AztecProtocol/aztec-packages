@@ -158,7 +158,12 @@ describe('ACIR simulator', () => {
       // TODO for this we need that noir siloes the commitment the same way as the kernel does, to do merkle membership
       await tree.appendLeaves(preimages.map(preimage => acirSimulator.computeNoteHash(preimage, bbWasm)));
 
-      const historicRoots = new HistoricTreeRoots(Fr.fromBuffer(tree.getRoot()), new Fr(0n), new Fr(0n), new Fr(0n));
+      const historicRoots = new HistoricTreeRoots(
+        Fr.fromBuffer(tree.getRoot(false)),
+        new Fr(0n),
+        new Fr(0n),
+        new Fr(0n),
+      );
 
       oracle.getNotes.mockImplementation(() => {
         return Promise.all(
@@ -224,7 +229,12 @@ describe('ACIR simulator', () => {
       // TODO for this we need that noir siloes the commitment the same way as the kernel does, to do merkle membership
       await tree.appendLeaves(preimages.map(preimage => acirSimulator.computeNoteHash(preimage, bbWasm)));
 
-      const historicRoots = new HistoricTreeRoots(Fr.fromBuffer(tree.getRoot()), new Fr(0n), new Fr(0n), new Fr(0n));
+      const historicRoots = new HistoricTreeRoots(
+        Fr.fromBuffer(tree.getRoot(false)),
+        new Fr(0n),
+        new Fr(0n),
+        new Fr(0n),
+      );
 
       oracle.getNotes.mockImplementation(() => {
         return Promise.all(
