@@ -73,6 +73,12 @@ describe('abis wasm bindings', () => {
     const res = await hashConstructor(wasm, functionData, args, vkHash);
     expect(res).toMatchSnapshot();
   });
+  it('hash constructor throws on >8 args', async () => {
+    const functionData = new FunctionData(Buffer.alloc(4), true, true);
+    const args = [new Fr(0n), new Fr(1n), new Fr(2n), new Fr(3n), new Fr(4n), new Fr(5n), new Fr(6n), new Fr(7n), new Fr(8n)];
+    const vkHash = Buffer.alloc(32);
+    await expect(hashConstructor(wasm, functionData, args, vkHash)).rejects.toThrow();
+  });
 
   it('computes a contract address', async () => {
     const deployerAddr = makeAztecAddress(1);
