@@ -8,7 +8,7 @@ import {
   NewContractData,
   FunctionLeafPreimage,
 } from '../index.js';
-import { serializeToBuffer } from '../utils/serialize.js';
+import { serializeToBuffer, serializeBufferArrayToVector } from '../utils/serialize.js';
 import { AsyncWasmWrapper, WasmWrapper } from '@aztec/foundation/wasm';
 
 export function wasmSyncCall(
@@ -93,13 +93,14 @@ export async function computeFunctionLeaf(wasm: CircuitsWasm, fnLeaf: FunctionLe
 }
 
 export async function computeFunctionTreeRoot(wasm: CircuitsWasm, fnLeafs: Fr[]) {
-  const inputBuf = serializeToBuffer(fnLeafs);
+  const inputVector = serializeBufferArrayToVector(fnLeafs.map(fr => fr.toBuffer()));
   wasm.call('pedersen__init');
-  const outputBuf = wasm.call('bbmalloc', 32);
-  const inputBufPtr = wasm.call('bbmalloc', inputBuf.length);
-  wasm.writeMemory(inputBufPtr, inputBuf);
-  await wasm.asyncCall('abis__compute_function_tree_root', inputBufPtr, fnLeafs.length, outputBuf);
-  return Fr.fromBuffer(Buffer.from(wasm.getMemorySlice(outputBuf, outputBuf + 32)));
+  const result = await wasmAsyncCall(wasm,
+    'abis__compute_function_tree_root',
+    { toBuffer: () => inputVector },
+    32
+  );
+  return Fr.fromBuffer(result);
 }
 
 export async function hashConstructor(
