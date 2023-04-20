@@ -44,13 +44,13 @@ import {
   AccumulatedData,
   ConstantData,
   NewContractData,
-  OldTreeRoots,
+  HistoricTreeRoots,
   OptionallyRevealedData,
   PreviousKernelData,
   PrivateCallData,
   PrivateKernelInputs,
   PrivateKernelPublicInputs,
-} from '../structs/kernel.js';
+} from '../structs/private_kernel.js';
 import { PrivateCallStackItem } from '../structs/private_call_stack_item.js';
 import {
   AffineElement,
@@ -71,12 +71,12 @@ export function makeTxContext(seed: number): TxContext {
   return new TxContext(false, false, true, deploymentData);
 }
 
-export function makeOldTreeRoots(seed: number): OldTreeRoots {
-  return new OldTreeRoots(fr(seed), fr(seed + 1), fr(seed + 2), fr(seed + 3));
+export function makeHistoricTreeRoots(seed: number): HistoricTreeRoots {
+  return new HistoricTreeRoots(fr(seed), fr(seed + 1), fr(seed + 2), fr(seed + 3));
 }
 
 export function makeConstantData(seed = 1): ConstantData {
-  return new ConstantData(makeOldTreeRoots(seed), makeTxContext(seed + 4));
+  return new ConstantData(makeHistoricTreeRoots(seed), makeTxContext(seed + 4));
 }
 
 export function makeSelector(seed: number) {

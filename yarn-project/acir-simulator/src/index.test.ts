@@ -5,13 +5,13 @@ import {
   ContractDeploymentData,
   FunctionData,
   NEW_COMMITMENTS_LENGTH,
-  OldTreeRoots,
+  HistoricTreeRoots,
   PRIVATE_DATA_TREE_HEIGHT,
   TxContext,
   TxRequest,
 } from '@aztec/circuits.js';
 import { AztecAddress, EthAddress, Fr } from '@aztec/foundation';
-import { Pedersen, StandardMerkleTree } from '@aztec/merkle-tree';
+import { AppendOnlyTree, Pedersen, StandardTree, newTree } from '@aztec/merkle-tree';
 import { FunctionAbi } from '@aztec/noir-contracts';
 import { ChildAbi, ParentAbi, TestContractAbi, ZkTokenContractAbi } from '@aztec/noir-contracts/examples';
 import { mock } from 'jest-mock-extended';
@@ -39,7 +39,7 @@ describe('ACIR simulator', () => {
   });
 
   describe('empty constructor', () => {
-    const oldRoots = new OldTreeRoots(new Fr(0n), new Fr(0n), new Fr(0n), new Fr(0n));
+    const historicRoots = new HistoricTreeRoots(new Fr(0n), new Fr(0n), new Fr(0n), new Fr(0n));
     const contractDeploymentData = new ContractDeploymentData(Fr.random(), Fr.random(), Fr.random(), EthAddress.ZERO);
     const txContext = new TxContext(false, false, true, contractDeploymentData);
 
@@ -58,7 +58,7 @@ describe('ACIR simulator', () => {
         TestContractAbi.functions[0] as FunctionAbi,
         AztecAddress.ZERO,
         EthAddress.ZERO,
-        oldRoots,
+        historicRoots,
       );
 
       expect(result.callStackItem.publicInputs.newCommitments).toEqual(
@@ -92,7 +92,7 @@ describe('ACIR simulator', () => {
     });
 
     it('should a constructor with arguments that creates notes', async () => {
-      const oldRoots = new OldTreeRoots(new Fr(0n), new Fr(0n), new Fr(0n), new Fr(0n));
+      const historicRoots = new HistoricTreeRoots(new Fr(0n), new Fr(0n), new Fr(0n), new Fr(0n));
       const contractAddress = AztecAddress.random();
       const abi = ZkTokenContractAbi.functions.find(f => f.name === 'constructor') as unknown as FunctionAbi;
 
@@ -105,7 +105,7 @@ describe('ACIR simulator', () => {
         txContext,
         new Fr(0n),
       );
-      const result = await acirSimulator.run(txRequest, abi, contractAddress, EthAddress.ZERO, oldRoots);
+      const result = await acirSimulator.run(txRequest, abi, contractAddress, EthAddress.ZERO, historicRoots);
 
       expect(result.preimages.newNotes).toHaveLength(1);
       const newNote = result.preimages.newNotes[0];
@@ -119,7 +119,7 @@ describe('ACIR simulator', () => {
     });
 
     it('should run the mint function', async () => {
-      const oldRoots = new OldTreeRoots(new Fr(0n), new Fr(0n), new Fr(0n), new Fr(0n));
+      const historicRoots = new HistoricTreeRoots(new Fr(0n), new Fr(0n), new Fr(0n), new Fr(0n));
       const contractAddress = AztecAddress.random();
       const abi = ZkTokenContractAbi.functions.find(f => f.name === 'mint') as unknown as FunctionAbi;
 
@@ -132,7 +132,7 @@ describe('ACIR simulator', () => {
         txContext,
         new Fr(0n),
       );
-      const result = await acirSimulator.run(txRequest, abi, AztecAddress.ZERO, EthAddress.ZERO, oldRoots);
+      const result = await acirSimulator.run(txRequest, abi, AztecAddress.ZERO, EthAddress.ZERO, historicRoots);
 
       expect(result.preimages.newNotes).toHaveLength(1);
       const newNote = result.preimages.newNotes[0];
@@ -153,18 +153,23 @@ describe('ACIR simulator', () => {
       const amountToTransfer = 100n;
       const abi = ZkTokenContractAbi.functions.find(f => f.name === 'transfer') as unknown as FunctionAbi;
 
-      const tree = await StandardMerkleTree.new(db, pedersen, 'privateData', PRIVATE_DATA_TREE_HEIGHT);
+      const tree: AppendOnlyTree = await newTree(StandardTree, db, pedersen, 'privateData', PRIVATE_DATA_TREE_HEIGHT);
       const preimages = [buildNote(60n, owner), buildNote(80n, owner)];
       // TODO for this we need that noir siloes the commitment the same way as the kernel does, to do merkle membership
       await tree.appendLeaves(preimages.map(preimage => acirSimulator.computeNoteHash(preimage, bbWasm)));
 
-      const oldRoots = new OldTreeRoots(Fr.fromBuffer(tree.getRoot()), new Fr(0n), new Fr(0n), new Fr(0n));
+      const historicRoots = new HistoricTreeRoots(
+        Fr.fromBuffer(tree.getRoot(false)),
+        new Fr(0n),
+        new Fr(0n),
+        new Fr(0n),
+      );
 
       oracle.getNotes.mockImplementation(() => {
         return Promise.all(
           preimages.map(async (preimage, index) => ({
             preimage,
-            siblingPath: (await tree.getSiblingPath(BigInt(index))).data.map(buf => Fr.fromBuffer(buf)),
+            siblingPath: (await tree.getSiblingPath(BigInt(index), false)).data.map(buf => Fr.fromBuffer(buf)),
             index: BigInt(index),
           })),
         );
@@ -182,7 +187,7 @@ describe('ACIR simulator', () => {
         new Fr(0n),
       );
 
-      const result = await acirSimulator.run(txRequest, abi, AztecAddress.random(), EthAddress.ZERO, oldRoots);
+      const result = await acirSimulator.run(txRequest, abi, AztecAddress.random(), EthAddress.ZERO, historicRoots);
 
       // The two notes were nullified
       const newNullifiers = result.callStackItem.publicInputs.newNullifiers.filter(field => !field.equals(Fr.ZERO));
@@ -219,18 +224,23 @@ describe('ACIR simulator', () => {
       const balance = 160n;
       const abi = ZkTokenContractAbi.functions.find(f => f.name === 'transfer') as unknown as FunctionAbi;
 
-      const tree = await StandardMerkleTree.new(db, pedersen, 'privateData', PRIVATE_DATA_TREE_HEIGHT);
+      const tree: AppendOnlyTree = await newTree(StandardTree, db, pedersen, 'privateData', PRIVATE_DATA_TREE_HEIGHT);
       const preimages = [buildNote(balance, owner)];
       // TODO for this we need that noir siloes the commitment the same way as the kernel does, to do merkle membership
       await tree.appendLeaves(preimages.map(preimage => acirSimulator.computeNoteHash(preimage, bbWasm)));
 
-      const oldRoots = new OldTreeRoots(Fr.fromBuffer(tree.getRoot()), new Fr(0n), new Fr(0n), new Fr(0n));
+      const historicRoots = new HistoricTreeRoots(
+        Fr.fromBuffer(tree.getRoot(false)),
+        new Fr(0n),
+        new Fr(0n),
+        new Fr(0n),
+      );
 
       oracle.getNotes.mockImplementation(() => {
         return Promise.all(
           preimages.map(async (preimage, index) => ({
             preimage,
-            siblingPath: (await tree.getSiblingPath(BigInt(index))).data.map(buf => Fr.fromBuffer(buf)),
+            siblingPath: (await tree.getSiblingPath(BigInt(index), false)).data.map(buf => Fr.fromBuffer(buf)),
             index: BigInt(index),
           })),
         );
@@ -248,7 +258,7 @@ describe('ACIR simulator', () => {
         new Fr(0n),
       );
 
-      const result = await acirSimulator.run(txRequest, abi, AztecAddress.random(), EthAddress.ZERO, oldRoots);
+      const result = await acirSimulator.run(txRequest, abi, AztecAddress.random(), EthAddress.ZERO, historicRoots);
 
       const newNullifiers = result.callStackItem.publicInputs.newNullifiers.filter(field => !field.equals(Fr.ZERO));
       expect(newNullifiers).toHaveLength(2);
@@ -263,7 +273,7 @@ describe('ACIR simulator', () => {
   });
 
   describe('nested calls', () => {
-    const oldRoots = new OldTreeRoots(new Fr(0n), new Fr(0n), new Fr(0n), new Fr(0n));
+    const historicRoots = new HistoricTreeRoots(new Fr(0n), new Fr(0n), new Fr(0n), new Fr(0n));
     const contractDeploymentData = new ContractDeploymentData(Fr.random(), Fr.random(), Fr.random(), EthAddress.ZERO);
     const txContext = new TxContext(false, false, true, contractDeploymentData);
 
@@ -279,7 +289,7 @@ describe('ACIR simulator', () => {
         txContext,
         new Fr(0n),
       );
-      const result = await acirSimulator.run(txRequest, abi, AztecAddress.ZERO, EthAddress.ZERO, oldRoots);
+      const result = await acirSimulator.run(txRequest, abi, AztecAddress.ZERO, EthAddress.ZERO, historicRoots);
 
       expect(result.callStackItem.publicInputs.returnValues[0]).toEqual(new Fr(142n));
     });
@@ -302,7 +312,13 @@ describe('ACIR simulator', () => {
         txContext,
         new Fr(0n),
       );
-      const result = await acirSimulator.run(txRequest, parentAbi, AztecAddress.random(), EthAddress.ZERO, oldRoots);
+      const result = await acirSimulator.run(
+        txRequest,
+        parentAbi,
+        AztecAddress.random(),
+        EthAddress.ZERO,
+        historicRoots,
+      );
 
       expect(result.callStackItem.publicInputs.returnValues[0]).toEqual(new Fr(42n));
       expect(oracle.getFunctionABI.mock.calls[0]).toEqual([childAddress, childSelector]);
