@@ -100,17 +100,16 @@ contract PrivateToken {
         outputs = sender_balance.remove(inputs, outputs, note1);
         outputs = sender_balance.remove(inputs, outputs, note2);
 
-        // let change_note = Note::new(change_value, sender);
+        let change_note = Note::new(change_value, sender);
         let recipient_note = Note::new(amount, recipient);
 
-        outputs.return_values = outputs.return_values.push(change_value);
+        outputs.return_values = outputs.return_values.push(change_note.value);
         outputs.return_values = outputs.return_values.push(recipient_note.value);
 
-        // let recipient_balance = balances.at(recipient.x);
+        let recipient_balance = balances.at(recipient.x);
 
-        // outputs = recipient_balance.insert(outputs, recipient_note);
-        // outputs = sender_balance.insert(outputs, change_note);
-
+        outputs = recipient_balance.insert(outputs, recipient_note);
+        outputs = sender_balance.insert(outputs, change_note);
 
         outputs.finish(inputs)
     }

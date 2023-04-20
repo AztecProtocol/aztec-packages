@@ -12,13 +12,13 @@ fn notify_created_note_oracle(
     _storage_slot: Field,
     _owner: Point,
     _note: Note,
-) -> Field {}
+) -> [Field; 1] {}
 
 unconstrained fn notify_created_note(
     storage_slot: Field,
     owner: Point,
     note: Note,
-) -> Field {
+) -> [Field; 1] {
     notify_created_note_oracle(storage_slot, owner, note)
 }
 
@@ -27,13 +27,13 @@ fn notify_nullified_note_oracle(
     _storage_slot: Field,
     _nullifier: Field,
     _note: Note,
-) -> Field {}
+) -> [Field; 1] {}
 
 unconstrained fn notify_nullified_note(
     storage_slot: Field,
     nullifier: Field,
     note: Note,
-) -> Field {
+) -> [Field; 1] {
     notify_nullified_note_oracle(storage_slot, nullifier, note)
 }
 
@@ -71,7 +71,7 @@ impl Set {
 
         let note_hash = note.compute_note_hash();
 
-        constrain notify_created_note(storage_slot, note.owner, note) == 0;
+        constrain notify_created_note(storage_slot, note.owner, note)[0] == 0;
         outputs = outputs.push_new_note_hash(note_hash);
         outputs.push_new_note(note)
     }
@@ -142,7 +142,7 @@ impl Set {
         // TODO remove this when we can specify hash index
         nullifier = note.compute_nullifier(note_hash);
 
-        constrain notify_nullified_note(storage_slot, nullifier, note) == 0;
+        constrain notify_nullified_note(storage_slot, nullifier, note)[0] == 0;
         outputs = outputs.push_new_nullifier(nullifier);
         outputs.push_nullified_note(note)
     }

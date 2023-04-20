@@ -10,7 +10,7 @@ contract Parent {
         Outputs::new().finish(inputs)
     }
 
-    fn entryPoint(
+    fn transfer(
         inputs: pub Inputs,
     ) -> pub [Field; dep::aztec3::abi::PUBLIC_INPUTS_LENGTH] {
         let targetContract = inputs.args[0];

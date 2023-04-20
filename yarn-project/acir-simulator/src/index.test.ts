@@ -210,7 +210,7 @@ describe('ACIR simulator', () => {
       expect(changeNote.preimage[5]).toEqual(new Fr(40n));
     }, 30_000);
 
-    it.skip('should be able to transfer with dummy notes', async () => {
+    it('should be able to transfer with dummy notes', async () => {
       const db = levelup(createMemDown());
       const pedersen = new Pedersen(bbWasm);
 
@@ -262,7 +262,7 @@ describe('ACIR simulator', () => {
     }, 30_000);
   });
 
-  describe.skip('nested calls', () => {
+  describe('nested calls', () => {
     const oldRoots = new OldTreeRoots(new Fr(0n), new Fr(0n), new Fr(0n), new Fr(0n));
     const contractDeploymentData = new ContractDeploymentData(Fr.random(), Fr.random(), Fr.random(), EthAddress.ZERO);
     const txContext = new TxContext(false, false, true, contractDeploymentData);
