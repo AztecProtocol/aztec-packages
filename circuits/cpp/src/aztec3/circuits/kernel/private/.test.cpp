@@ -21,7 +21,7 @@
 #include <aztec3/circuits/abis/kernel_circuit_public_inputs.hpp>
 #include <aztec3/circuits/abis/combined_accumulated_data.hpp>
 #include <aztec3/circuits/abis/combined_constant_data.hpp>
-#include <aztec3/circuits/abis/private_old_tree_roots.hpp>
+#include <aztec3/circuits/abis/private_historic_tree_roots.hpp>
 #include <aztec3/circuits/abis/private_kernel/globals.hpp>
 #include <aztec3/circuits/abis/types.hpp>
 
@@ -51,10 +51,10 @@ using aztec3::circuits::abis::TxRequest;
 
 using aztec3::circuits::abis::CombinedAccumulatedData;
 using aztec3::circuits::abis::CombinedConstantData;
-using aztec3::circuits::abis::CombinedOldTreeRoots;
+using aztec3::circuits::abis::CombinedHistoricTreeRoots;
 using aztec3::circuits::abis::KernelCircuitPublicInputs;
 using aztec3::circuits::abis::PreviousKernelData;
-using aztec3::circuits::abis::PrivateOldTreeRoots;
+using aztec3::circuits::abis::PrivateHistoricTreeRoots;
 using aztec3::circuits::abis::private_kernel::PrivateCallData;
 using aztec3::circuits::abis::private_kernel::PrivateInputs;
 
@@ -339,9 +339,9 @@ PrivateInputs<NT> do_private_call_get_kernel_inputs(bool const is_constructor,
     mock_previous_kernel.public_inputs.end.private_call_stack = initial_kernel_private_call_stack;
     mock_previous_kernel.public_inputs.constants = CombinedConstantData<NT>{
         .historic_tree_roots =
-            CombinedOldTreeRoots<NT> {
+            CombinedHistoricTreeRoots<NT> {
                 .private_historic_tree_roots =
-                    PrivateOldTreeRoots<NT>{
+                    PrivateHistoricTreeRoots<NT>{
                         .private_data_tree_root = private_circuit_public_inputs.historic_private_data_tree_root,
                         .contract_tree_root = private_circuit_public_inputs.historic_contract_tree_root,
                     },

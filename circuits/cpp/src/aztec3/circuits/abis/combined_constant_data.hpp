@@ -1,6 +1,6 @@
 #pragma once
 
-#include "combined_old_tree_roots.hpp"
+#include "combined_historic_tree_roots.hpp"
 #include "tx_context.hpp"
 
 #include <barretenberg/stdlib/primitives/witness/witness.hpp>
@@ -19,7 +19,7 @@ template <typename NCT> struct CombinedConstantData {
     typedef typename NCT::fr fr;
     typedef typename NCT::boolean boolean;
 
-    CombinedOldTreeRoots<NCT> historic_tree_roots{};
+    CombinedHistoricTreeRoots<NCT> historic_tree_roots{};
     TxContext<NCT> tx_context{};
 
     boolean operator==(CombinedConstantData<NCT> const& other) const

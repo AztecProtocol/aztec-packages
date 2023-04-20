@@ -12,7 +12,7 @@ import {
 import { AztecAddress, EthAddress, Fr } from '@aztec/foundation';
 import {
   CallContext,
-  PrivateOldTreeRoots,
+  PrivateHistoricTreeRoots,
   TxRequest,
   PrivateCallStackItem,
   FunctionData,
@@ -58,7 +58,7 @@ export class Execution {
     // Global to the tx
     private db: DBOracle,
     private request: TxRequest,
-    private historicRoots: PrivateOldTreeRoots,
+    private historicRoots: PrivateHistoricTreeRoots,
     // Concrete to this execution
     private abi: FunctionAbi,
     private contractAddress: AztecAddress,

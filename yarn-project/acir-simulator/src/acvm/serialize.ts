@@ -4,7 +4,7 @@ import {
   CallContext,
   ContractDeploymentData,
   FunctionData,
-  PrivateOldTreeRoots,
+  PrivateHistoricTreeRoots,
   PrivateCallStackItem,
   PrivateCircuitPublicInputs,
   TxContext,
@@ -89,7 +89,7 @@ export function writeInputs(
   args: Fr[],
   callContext: CallContext,
   txContext: TxContext,
-  historicRoots: PrivateOldTreeRoots,
+  historicRoots: PrivateHistoricTreeRoots,
   witnessStartIndex = 1,
 ) {
   const fields = [

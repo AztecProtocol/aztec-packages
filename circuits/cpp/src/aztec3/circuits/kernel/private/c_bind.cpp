@@ -23,7 +23,7 @@ using NT = aztec3::utils::types::NativeTypes;
 using DummyComposer = aztec3::utils::DummyComposer;
 using aztec3::circuits::abis::CombinedAccumulatedData;
 using aztec3::circuits::abis::CombinedConstantData;
-using aztec3::circuits::abis::CombinedOldTreeRoots;
+using aztec3::circuits::abis::CombinedHistoricTreeRoots;
 using aztec3::circuits::abis::KernelCircuitPublicInputs;
 using aztec3::circuits::abis::PreviousKernelData;
 using aztec3::circuits::abis::SignedTxRequest;

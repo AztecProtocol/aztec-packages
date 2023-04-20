@@ -29,8 +29,8 @@
 #include <aztec3/circuits/abis/kernel_circuit_public_inputs.hpp>
 #include <aztec3/circuits/abis/combined_accumulated_data.hpp>
 #include <aztec3/circuits/abis/combined_constant_data.hpp>
-#include <aztec3/circuits/abis/combined_old_tree_roots.hpp>
-#include <aztec3/circuits/abis/private_old_tree_roots.hpp>
+#include <aztec3/circuits/abis/combined_historic_tree_roots.hpp>
+#include <aztec3/circuits/abis/private_historic_tree_roots.hpp>
 #include <aztec3/circuits/abis/private_kernel/globals.hpp>
 
 #include <aztec3/circuits/apps/function_execution_context.hpp>
@@ -68,7 +68,7 @@ using aztec3::circuits::abis::TxRequest;
 
 using aztec3::circuits::abis::CombinedAccumulatedData;
 using aztec3::circuits::abis::CombinedConstantData;
-using aztec3::circuits::abis::CombinedOldTreeRoots;
+using aztec3::circuits::abis::CombinedHistoricTreeRoots;
 using aztec3::circuits::abis::KernelCircuitPublicInputs;
 using aztec3::circuits::abis::PreviousKernelData;
 using aztec3::circuits::abis::private_kernel::Globals;

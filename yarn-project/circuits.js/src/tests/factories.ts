@@ -5,7 +5,7 @@ import {
   CallContext,
   CombinedAccumulatedData,
   CombinedConstantData,
-  CombinedOldTreeRoots,
+  CombinedHistoricTreeRoots,
   ConstantBaseRollupData,
   KernelCircuitPublicInputs,
   MergeRollupInputs,
@@ -17,7 +17,7 @@ import {
   PrivateCallData,
   PrivateCircuitPublicInputs,
   PrivateKernelInputs,
-  PrivateOldTreeRoots,
+  PrivateHistoricTreeRoots,
   RootRollupInputs,
   RootRollupPublicInputs,
   StateRead,
@@ -68,16 +68,16 @@ export function makeTxContext(seed: number): TxContext {
   return new TxContext(false, false, true, deploymentData);
 }
 
-export function makePrivateOldTreeRoots(seed: number): PrivateOldTreeRoots {
-  return new PrivateOldTreeRoots(fr(seed), fr(seed + 1), fr(seed + 2), fr(seed + 3));
+export function makePrivateHistoricTreeRoots(seed: number): PrivateHistoricTreeRoots {
+  return new PrivateHistoricTreeRoots(fr(seed), fr(seed + 1), fr(seed + 2), fr(seed + 3));
 }
 
-export function makeCombinedOldTreeRoots(seed: number): CombinedOldTreeRoots {
-  return new CombinedOldTreeRoots(makePrivateOldTreeRoots(seed), fr(seed + 4));
+export function makeCombinedHistoricTreeRoots(seed: number): CombinedHistoricTreeRoots {
+  return new CombinedHistoricTreeRoots(makePrivateHistoricTreeRoots(seed), fr(seed + 4));
 }
 
 export function makeConstantData(seed = 1): CombinedConstantData {
-  return new CombinedConstantData(makeCombinedOldTreeRoots(seed), makeTxContext(seed + 4));
+  return new CombinedConstantData(makeCombinedHistoricTreeRoots(seed), makeTxContext(seed + 4));
 }
 
 export function makeSelector(seed: number) {
