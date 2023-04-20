@@ -293,12 +293,4 @@ export class StandardIndexedTree extends TreeBase implements IndexedTree {
     this.cachedLeaves[Number(index)] = leaf;
     await this._updateLeaf(encodedLeaf, index);
   }
-
-  /**
-   * Returns the initial leaf of the tree.
-   * @returns The initial leaf of the tree.
-   */
-  public getInitialLeaf(): Buffer {
-    return hashEncodedTreeValue(initialLeaf, this.hasher);
-  }
 }

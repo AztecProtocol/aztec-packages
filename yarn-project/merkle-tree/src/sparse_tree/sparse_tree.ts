@@ -1,5 +1,5 @@
 import { UpdateOnlyTree } from '../interfaces/update_only_tree.js';
-import { TreeBase } from '../tree_base.js';
+import { INITIAL_LEAF, TreeBase } from '../tree_base.js';
 
 /**
  * A Merkle tree implementation that uses a LevelDB database to store the tree.
@@ -15,8 +15,8 @@ export class SparseTree extends TreeBase implements UpdateOnlyTree {
       throw Error(`Index out of bounds. Index ${index}, max index: ${this.maxIndex}.`);
     }
 
-    const insertingZeroElement = leaf.equals(this.getInitialLeaf());
-    const originallyZeroElement = (await this.getLeafValue(index, true))?.equals(this.getInitialLeaf());
+    const insertingZeroElement = leaf.equals(INITIAL_LEAF);
+    const originallyZeroElement = (await this.getLeafValue(index, true))?.equals(INITIAL_LEAF);
     if (insertingZeroElement && originallyZeroElement) {
       return;
     }

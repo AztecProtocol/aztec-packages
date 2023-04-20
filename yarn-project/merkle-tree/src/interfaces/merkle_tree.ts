@@ -49,10 +49,4 @@ export interface MerkleTree extends SiblingPathSource {
    * @param includeUncommitted - Set to true to include uncommitted updates in the data set
    */
   getLeafValue(index: bigint, includeUncommitted: boolean): Promise<Buffer | undefined>;
-
-  /**
-   * Returns the initial leaf of the tree.
-   * @returns The initial leaf of the tree.
-   */
-  getInitialLeaf(): Buffer;
 }

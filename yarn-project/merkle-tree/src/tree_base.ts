@@ -49,7 +49,7 @@ export abstract class TreeBase implements MerkleTree {
     }
 
     // Compute the zero values at each layer.
-    let current = this.getInitialLeaf();
+    let current = INITIAL_LEAF;
     for (let i = depth - 1; i >= 0; --i) {
       this.zeroHashes[i] = current;
       current = hasher.compress(current, current);
@@ -228,13 +228,5 @@ export abstract class TreeBase implements MerkleTree {
     } else {
       await this.db.put(this.name, data);
     }
-  }
-
-  /**
-   * Returns the initial leaf of the tree.
-   * @returns The initial leaf of the tree.
-   */
-  public getInitialLeaf(): Buffer {
-    return INITIAL_LEAF;
   }
 }

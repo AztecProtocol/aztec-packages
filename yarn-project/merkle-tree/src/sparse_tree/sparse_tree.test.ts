@@ -7,7 +7,7 @@ import { createMemDown } from '../test/utils/create_mem_down.js';
 import { BarretenbergWasm } from '@aztec/barretenberg.js/wasm';
 import { Pedersen } from '../pedersen.js';
 import { randomBytes } from 'crypto';
-import { SiblingPath } from '../index.js';
+import { INITIAL_LEAF, SiblingPath } from '../index.js';
 import { UpdateOnlyTree } from '../interfaces/update_only_tree.js';
 import { newTree } from '../new_tree.js';
 import { loadTree } from '../load_tree.js';
@@ -80,7 +80,7 @@ describe('SparseTreeSpecific', () => {
     expect(tree.getNumLeaves(true)).toEqual(1n);
 
     // Delete a leaf
-    await tree.updateLeaf(tree.getInitialLeaf(), randomIndex);
+    await tree.updateLeaf(INITIAL_LEAF, randomIndex);
     expect(tree.getNumLeaves(true)).toEqual(0n);
   });
 
@@ -88,8 +88,7 @@ describe('SparseTreeSpecific', () => {
     const db = levelup(createMemDown());
     const tree = await createDb(db, pedersen, 'test', 3);
 
-    const zeroElement = tree.getInitialLeaf();
-    const level2ZeroHash = pedersen.compress(zeroElement, zeroElement);
+    const level2ZeroHash = pedersen.compress(INITIAL_LEAF, INITIAL_LEAF);
     const level1ZeroHash = pedersen.compress(level2ZeroHash, level2ZeroHash);
 
     expect(tree.getNumLeaves(false)).toEqual(0n);
@@ -101,12 +100,12 @@ describe('SparseTreeSpecific', () => {
     {
       await tree.updateLeaf(leafAtIndex3, 3n);
       expect(tree.getNumLeaves(true)).toEqual(1n);
-      const level2Hash = pedersen.compress(zeroElement, leafAtIndex3);
+      const level2Hash = pedersen.compress(INITIAL_LEAF, leafAtIndex3);
       level1LeftHash = pedersen.compress(level2ZeroHash, level2Hash);
       const root = pedersen.compress(level1LeftHash, level1ZeroHash);
       expect(tree.getRoot(true)).toEqual(root);
       expect(await tree.getSiblingPath(3n, true)).toEqual(
-        new SiblingPath([zeroElement, level2ZeroHash, level1ZeroHash]),
+        new SiblingPath([INITIAL_LEAF, level2ZeroHash, level1ZeroHash]),
       );
     }
 
@@ -116,12 +115,12 @@ describe('SparseTreeSpecific', () => {
       const leafAtIndex6 = randomBytes(32);
       await tree.updateLeaf(leafAtIndex6, 6n);
       expect(tree.getNumLeaves(true)).toEqual(2n);
-      const level2Hash = pedersen.compress(leafAtIndex6, zeroElement);
+      const level2Hash = pedersen.compress(leafAtIndex6, INITIAL_LEAF);
       level1RightHash = pedersen.compress(level2ZeroHash, level2Hash);
       const root = pedersen.compress(level1LeftHash, level1RightHash);
       expect(tree.getRoot(true)).toEqual(root);
       expect(await tree.getSiblingPath(6n, true)).toEqual(
-        new SiblingPath([zeroElement, level2ZeroHash, level1LeftHash]),
+        new SiblingPath([INITIAL_LEAF, level2ZeroHash, level1LeftHash]),
       );
     }
 
