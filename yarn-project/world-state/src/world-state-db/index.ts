@@ -10,12 +10,13 @@ export enum MerkleTreeId {
   CONTRACT_TREE = 0,
   CONTRACT_TREE_ROOTS_TREE = 1,
   NULLIFIER_TREE = 2,
-  DATA_TREE = 3,
-  DATA_TREE_ROOTS_TREE = 4,
+  PRIVATE_DATA_TREE = 3,
+  PRIVATE_DATA_TREE_ROOTS_TREE = 4,
   PUBLIC_DATA_TREE = 5,
 }
 
 export type IndexedTreeId = MerkleTreeId.NULLIFIER_TREE;
+export type PublicTreeId = MerkleTreeId.PUBLIC_DATA_TREE;
 
 /**
  * The nullifier tree must be pre filled with the number of leaves that are added by one rollup.
@@ -104,7 +105,7 @@ export interface MerkleTreeOperations {
    * @param leaf - The updated leaf value
    * @param index - The index of the leaf to be updated
    */
-  updateLeaf(treeId: IndexedTreeId, leaf: LeafData, index: bigint): Promise<void>;
+  updateLeaf(treeId: IndexedTreeId | PublicTreeId, leaf: LeafData | Buffer, index: bigint): Promise<void>;
   /**
    * Returns the index containing a leaf value
    * @param treeId - The tree for which the index should be returned
