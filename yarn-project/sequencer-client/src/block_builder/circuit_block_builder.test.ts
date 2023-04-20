@@ -108,7 +108,7 @@ describe('sequencer/circuit_block_builder', () => {
     return new AppendOnlyTreeSnapshot(Fr.fromBuffer(treeInfo.root), Number(treeInfo.size));
   };
 
-  const setTxOldTreeRoots = async (tx: PrivateTx) => {
+  const setTxHistoricTreeRoots = async (tx: PrivateTx) => {
     for (const [name, id] of [
       ['privateDataTreeRoot', MerkleTreeId.DATA_TREE],
       ['contractTreeRoot', MerkleTreeId.CONTRACT_TREE],
@@ -130,7 +130,7 @@ describe('sequencer/circuit_block_builder', () => {
       const txsRight = [makeEmptyPrivateTx(), makeEmptyPrivateTx()];
 
       // Set tree roots to proper values in the tx
-      await setTxOldTreeRoots(tx);
+      await setTxHistoricTreeRoots(tx);
 
       // Calculate what would be the tree roots after the txs from the first base rollup land and update mock circuit output
       await updateExpectedTreesFromTxs(txsLeft);
@@ -195,7 +195,7 @@ describe('sequencer/circuit_block_builder', () => {
 
     const makeContractDeployTx = async (seed = 0x1) => {
       const tx = makeEmptyPrivateTx();
-      await setTxOldTreeRoots(tx);
+      await setTxHistoricTreeRoots(tx);
       tx.data.end.newContracts = [makeNewContractData(seed + 0x1000)];
       return tx;
     };

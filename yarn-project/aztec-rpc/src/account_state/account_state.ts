@@ -69,12 +69,12 @@ export class AccountState {
       txRequest.functionData.functionSelector,
     );
     const portalContract = await contractDataOracle.getPortalContractAddress(contractAddress);
-    const oldRoots = new PrivateOldTreeRoots(Fr.ZERO, Fr.ZERO, Fr.ZERO, Fr.ZERO); // TODO - get old roots from the database/node
+    const historicRoots = new PrivateOldTreeRoots(Fr.ZERO, Fr.ZERO, Fr.ZERO, Fr.ZERO); // TODO - get old roots from the database/node
 
     const simulatorOracle = new SimulatorOracle(contractDataOracle, this.db, this.keyPair, this.node);
     const simulator = new AcirSimulator(simulatorOracle);
     this.log('Executing simulator...');
-    const result = await simulator.run(txRequest, functionAbi, contractAddress, portalContract, oldRoots);
+    const result = await simulator.run(txRequest, functionAbi, contractAddress, portalContract, historicRoots);
     this.log('Simulation completed!');
 
     return result;

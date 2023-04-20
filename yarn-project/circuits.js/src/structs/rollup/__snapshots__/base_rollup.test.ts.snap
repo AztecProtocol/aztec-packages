@@ -116,7 +116,7 @@ current_value: 0xa04
  ]
 
 constants:
-old_tree_roots: private_old_tree_roots: private_data_tree_root: 0x200
+historic_tree_roots: private_historic_tree_roots: private_data_tree_root: 0x200
 nullifier_tree_root: 0x201
 contract_tree_root: 0x202
 private_kernel_vk_tree_root: 0x203
@@ -262,7 +262,7 @@ current_value: 0xb04
  ]
 
 constants:
-old_tree_roots: private_old_tree_roots: private_data_tree_root: 0x300
+historic_tree_roots: private_historic_tree_roots: private_data_tree_root: 0x300
 nullifier_tree_root: 0x301
 contract_tree_root: 0x302
 private_kernel_vk_tree_root: 0x303

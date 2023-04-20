@@ -16,12 +16,12 @@ template <typename NCT> struct CombinedOldTreeRoots {
     typedef typename NCT::fr fr;
     typedef typename NCT::boolean boolean;
 
-    PrivateOldTreeRoots<NCT> private_old_tree_roots;
+    PrivateOldTreeRoots<NCT> private_historic_tree_roots;
     fr public_data_tree_root = 0;
 
     boolean operator==(CombinedOldTreeRoots<NCT> const& other) const
     {
-        return private_old_tree_roots == other.private_old_tree_roots &&
+        return private_historic_tree_roots == other.private_historic_tree_roots &&
                public_data_tree_root == other.public_data_tree_root;
     };
 
@@ -34,7 +34,7 @@ template <typename NCT> struct CombinedOldTreeRoots {
         auto to_circuit_type = [&](auto& e) { return e.to_circuit_type(composer); };
 
         CombinedOldTreeRoots<CircuitTypes<Composer>> data = {
-            to_circuit_type(private_old_tree_roots),
+            to_circuit_type(private_historic_tree_roots),
             to_ct(public_data_tree_root),
         };
 
@@ -48,7 +48,7 @@ template <typename NCT> struct CombinedOldTreeRoots {
         auto to_native_type = [&]<typename T>(T& e) { return e.template to_native_type<Composer>(); };
 
         CombinedOldTreeRoots<NativeTypes> data = {
-            to_native_type(private_old_tree_roots),
+            to_native_type(private_historic_tree_roots),
             to_nt(public_data_tree_root),
         };
 
@@ -59,7 +59,7 @@ template <typename NCT> struct CombinedOldTreeRoots {
     {
         static_assert(!(std::is_same<NativeTypes, NCT>::value));
 
-        private_old_tree_roots.set_public();
+        private_historic_tree_roots.set_public();
         public_data_tree_root.set_public();
     }
 };
@@ -68,7 +68,7 @@ template <typename NCT> void read(uint8_t const*& it, CombinedOldTreeRoots<NCT>&
 {
     using serialize::read;
 
-    read(it, old_tree_roots.private_old_tree_roots);
+    read(it, old_tree_roots.private_historic_tree_roots);
     read(it, old_tree_roots.public_data_tree_root);
 };
 
@@ -76,13 +76,13 @@ template <typename NCT> void write(std::vector<uint8_t>& buf, CombinedOldTreeRoo
 {
     using serialize::write;
 
-    write(buf, old_tree_roots.private_old_tree_roots);
+    write(buf, old_tree_roots.private_historic_tree_roots);
     write(buf, old_tree_roots.public_data_tree_root);
 };
 
 template <typename NCT> std::ostream& operator<<(std::ostream& os, CombinedOldTreeRoots<NCT> const& old_tree_roots)
 {
-    return os << "private_old_tree_roots: " << old_tree_roots.private_old_tree_roots << "\n"
+    return os << "private_historic_tree_roots: " << old_tree_roots.private_historic_tree_roots << "\n"
               << "public_data_tree_root: " << old_tree_roots.public_data_tree_root << "\n";
 }
 
