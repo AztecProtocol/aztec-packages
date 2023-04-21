@@ -138,7 +138,7 @@ Running with the `CLEAR_COV` environment variable will delete any existing `lcov
 
 #### Viewing coverage reports
 
-Once a report has been generated, you can view them within the WHAT folder in html.
+Once a report has been generated, you can view them within the `build-coverage` folder in html format. If you ran coverage with any tests in mind, the report will exist in a folder prefixed with its name, otherwise they can be found in one labelled all_tests.
 
 #### Viewing coverage reports inside vscode
 
