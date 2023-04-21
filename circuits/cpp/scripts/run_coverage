@@ -7,59 +7,51 @@ set -e
 #
 # Run from circuits/cpp/
 # Example:
-# ./scripts/run_coverage glob -*.circuit*
+# ./scripts/run_coverage glob
 #
 # Note: Assumes ignition SRS transcripts have already been downloaded
 
-###############################################################################
-# ARGS
-###############################################################################
 # TESTS:
 # 1. names of test executables to run
 #   - (like "aztec3_circuits_kernel_tests aztec3_circuits_abis_tests")
 # 2. or "glob" (LOWERCASE) to run all built tests
 # 3. or a file containing a list of test
 TESTS=$1
-# GTEST_FILTER: optional pattern like "*native*" to filter gtests
-GTEST_FILTER=$2
-
-# Shift away the args
-shift
-if [ -n "$GTEST_FILTER" ]; then
-  shift
-fi
-# END ARGS
-###############################################################################
 
 # Set coverage build directory
-BUILD_DIR=build-coverage
+BUILD_DIR="build-coverage"
 
 # Perform coverage build
-cmake -Bbuild-coverage -DCMAKE_BUILD_TYPE=Debug -DUSE_TURBO --preset=coverage . 
-
+echo "Setting cmake to run with preset coverage"
+cmake -Bbuild-coverage -DCMAKE_BUILD_TYPE=Debug -DUSE_TURBO=true --preset=coverage .
 
 # if TESTS is GLOB or empty, run all built tests
 # if TESTS is a file, assume it contains a list of tests to run
 # otherwise assume TESTS itself is a list of tests to run
 if [ "$TESTS" == "glob" ] || [ -z "$TESTS" ]; then
-  echo "    No test file specified. Globbing $BUILD_DIR/bin for tests."
-  TESTS=$(cd $BUILD_DIR/bin && find -type f -executable | grep "test" | tr '\n' ' ')
+  echo "    No test file specified. Building all test files."
+  TESTS=$(cat ./scripts/a3-tests)
 elif [ -f "$TESTS" ]; then
   TESTS=$(cat $TESTS | tr '\n' ' ')
 fi
 
-// Then you run the tests
-cmake --build . --target test
-// Then you create the report
+cd $BUILD_DIR
+for BIN in $TESTS; do
+  echo "*** Building $BIN ***"
+  cmake --build . --target $BIN
+done
+
+echo "Testing $BIN"
+echo "*** Collecting Profiling Information ***"
+ctest || true
+
+echo "*** Generating Coverage Reports ***"
 cmake --build . --target create_full_coverage_report
 
-echo "*** Running tests${GTEST_FILTER:+ (with filter: $GTEST_FILTER)}: $TESTS ***"
-
-cd $BUILD_DIR;
+echo *** Generating VScode line coverage data ***
 for BIN in $TESTS; do
-  cmake --build . --target $BIN
-
-  echo
-
+  echo "Generating line coverage data for $BIN"
+  rm .lcov.info || true
+  llvm-cov-15 export ./bin/$BIN  --format=lcov -instr-profile="./merged_profdata/default.profdata" > lcov.info
 done
 
