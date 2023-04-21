@@ -78,7 +78,7 @@ using aztec3::circuits::apps::test_apps::escrow::deposit;
 using aztec3::circuits::kernel::private_kernel::utils::dummy_previous_kernel;
 using aztec3::circuits::mock::mock_kernel_circuit;
 using aztec3::circuits::rollup::merge::utils::previous_rollup_datas;
-using aztec3::circuits::rollup::test_utils::utils::dummy_base_rollup_inputs;
+using aztec3::circuits::rollup::test_utils::utils::empty_base_rollup_inputs;
 // using aztec3::circuits::mock::mock_kernel_inputs;
 
 using aztec3::circuits::abis::AppendOnlyTreeSnapshot;
@@ -241,7 +241,7 @@ TEST_F(root_rollup_tests, native_root_missing_nullifier_logic)
     MemoryTree historic_data_tree = MemoryTree(PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT);
     MemoryTree historic_contract_tree = MemoryTree(CONTRACT_TREE_ROOTS_TREE_HEIGHT);
 
-    std::array<BaseRollupInputs, 2> base_inputs = { dummy_base_rollup_inputs(), dummy_base_rollup_inputs() };
+    std::array<BaseRollupInputs, 2> base_inputs = { empty_base_rollup_inputs(), empty_base_rollup_inputs() };
     // Insert commitments into base rollups
     for (uint8_t rollup_i = 0; rollup_i < 2; rollup_i++) {
         for (uint8_t kernel_j = 0; kernel_j < 2; kernel_j++) {

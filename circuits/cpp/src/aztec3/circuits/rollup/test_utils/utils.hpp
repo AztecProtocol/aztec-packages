@@ -23,13 +23,15 @@ using NullifierLeafPreimage = aztec3::circuits::abis::NullifierLeafPreimage<NT>;
 using MerkleTree = stdlib::merkle_tree::MemoryTree;
 using NullifierTree = stdlib::merkle_tree::NullifierMemoryTree;
 using NullifierLeaf = stdlib::merkle_tree::nullifier_leaf;
+using KernelData = aztec3::circuits::abis::PreviousKernelData<NT>;
 
 using aztec3::circuits::abis::MembershipWitness;
 
 using nullifier_tree_testing_values = std::tuple<BaseRollupInputs, AppendOnlyTreeSnapshot, AppendOnlyTreeSnapshot>;
 } // namespace
 
-BaseRollupInputs dummy_base_rollup_inputs();
+BaseRollupInputs base_rollup_inputs_from_kernels(KernelData left, KernelData right);
+BaseRollupInputs empty_base_rollup_inputs();
 
 template <size_t N>
 std::array<fr, N> get_sibling_path(MerkleTree tree, size_t leafIndex, size_t const& subtree_depth_to_skip)
@@ -48,7 +50,6 @@ std::array<fr, N> get_sibling_path(MerkleTree tree, size_t leafIndex, size_t con
     return siblingPath;
 }
 
-NullifierMemoryTreeTestingHarness get_initial_nullifier_tree(size_t spacing);
 abis::AppendOnlyTreeSnapshot<NT> get_snapshot_of_tree_state(NullifierMemoryTreeTestingHarness nullifier_tree);
 
 nullifier_tree_testing_values generate_nullifier_tree_testing_values_explicit(

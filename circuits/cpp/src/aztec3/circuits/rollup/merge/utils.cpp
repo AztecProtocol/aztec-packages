@@ -17,7 +17,7 @@ namespace aztec3::circuits::rollup::merge {
 
 std::array<PreviousRollupData<NT>, 2> previous_rollup_datas(DummyComposer& composer)
 {
-    auto input1 = test_utils::utils::dummy_base_rollup_inputs();
+    auto input1 = test_utils::utils::empty_base_rollup_inputs();
     // Must handle the sibling paths
 
     BaseOrMergeRollupPublicInputs<NT> base_public_input1 =

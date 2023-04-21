@@ -390,6 +390,16 @@ AppendOnlySnapshot check_nullifier_tree_non_membership_and_insert_to_tree(DummyC
         }
     }
 
+    // Check that the new subtree is to be inserted at the next location, and is empty currently
+    auto leafIndexNullifierSubtreeDepth =
+        baseRollupInputs.start_nullifier_tree_snapshot.next_available_leaf_index >> NULLIFIER_SUBTREE_DEPTH;
+    components::check_membership(composer,
+                                 EMPTY_NULLIFIER_SUBTREE_ROOT,
+                                 leafIndexNullifierSubtreeDepth,
+                                 baseRollupInputs.new_nullifiers_subtree_sibling_path,
+                                 current_nullifier_tree_root,
+                                 "empty nullifier subtree membership check");
+
     // Create new nullifier subtree to insert into the whole nullifier tree
     auto nullifier_sibling_path = baseRollupInputs.new_nullifiers_subtree_sibling_path;
     auto nullifier_subtree_root = create_nullifier_subtree(nullifier_insertion_subtree);
@@ -442,15 +452,7 @@ BaseOrMergeRollupPublicInputs base_rollup_circuit(DummyComposer& composer, BaseR
                                                     CONTRACT_SUBTREE_DEPTH,
                                                     "empty contract subtree membership check");
 
-    // Update nullifier tree and insert new subtree
-    auto leafIndexNullifierSubtreeDepth =
-        baseRollupInputs.start_nullifier_tree_snapshot.next_available_leaf_index >> NULLIFIER_SUBTREE_DEPTH;
-    components::check_membership(composer,
-                                 EMPTY_NULLIFIER_SUBTREE_ROOT,
-                                 leafIndexNullifierSubtreeDepth,
-                                 baseRollupInputs.new_nullifiers_subtree_sibling_path,
-                                 baseRollupInputs.start_nullifier_tree_snapshot.root,
-                                 "empty nullifier subtree membership check");
+    // Insert nullifiers:
     AppendOnlySnapshot end_nullifier_tree_snapshot =
         check_nullifier_tree_non_membership_and_insert_to_tree(composer, baseRollupInputs);
 

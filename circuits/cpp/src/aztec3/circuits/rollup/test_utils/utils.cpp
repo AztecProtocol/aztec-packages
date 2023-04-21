@@ -18,6 +18,7 @@ using DummyComposer = aztec3::utils::DummyComposer;
 
 using Aggregator = aztec3::circuits::recursion::Aggregator;
 using AppendOnlyTreeSnapshot = aztec3::circuits::abis::AppendOnlyTreeSnapshot<NT>;
+using KernelData = aztec3::circuits::abis::PreviousKernelData<NT>;
 
 using NullifierLeafPreimage = aztec3::circuits::abis::NullifierLeafPreimage<NT>;
 
@@ -35,30 +36,28 @@ using aztec3::circuits::kernel::private_kernel::utils::dummy_previous_kernel;
 
 namespace aztec3::circuits::rollup::test_utils::utils {
 
-BaseRollupInputs dummy_base_rollup_inputs()
+BaseRollupInputs base_rollup_inputs_from_kernels(KernelData left, KernelData right)
 {
-    // TODO standardize function naming
-    // @note Possibly this should be in the initializer instead?
+    std::array<KernelData, 2> kernel_data = { left, right };
+
+    MerkleTree historic_private_data_tree = MerkleTree(PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT);
+    MerkleTree historic_contract_tree = MerkleTree(CONTRACT_TREE_ROOTS_TREE_HEIGHT);
+    MerkleTree historic_l1_to_l2_msg_tree = MerkleTree(L1_TO_L2_MSG_TREE_ROOTS_TREE_HEIGHT);
+
     ConstantRollupData constantRollupData = {
         .start_tree_of_historic_private_data_tree_roots_snapshot = {
-            .root = MerkleTree(PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT).root(),
+            .root = historic_private_data_tree.root(),
             .next_available_leaf_index = 0,
         },
         .start_tree_of_historic_contract_tree_roots_snapshot = {
-            .root = MerkleTree(CONTRACT_TREE_ROOTS_TREE_HEIGHT).root(),
+            .root = historic_contract_tree.root(),
             .next_available_leaf_index = 0,
         },
         .tree_of_historic_l1_to_l2_msg_tree_roots_snapshot = {
-            .root = MerkleTree(L1_TO_L2_MSG_TREE_ROOTS_TREE_HEIGHT).root(),
+            .root = historic_l1_to_l2_msg_tree.root(),
             .next_available_leaf_index = 0,
         },
     };
-
-    // Kernels
-    std::array<abis::PreviousKernelData<NT>, 2> kernel_data;
-    // grab mocked previous kernel (need a valid vk, proof, aggobj)
-    kernel_data[0] = dummy_previous_kernel();
-    kernel_data[1] = dummy_previous_kernel();
 
     MerkleTree private_data_tree = MerkleTree(PRIVATE_DATA_TREE_HEIGHT);
     MerkleTree contract_tree = MerkleTree(CONTRACT_TREE_HEIGHT);
@@ -74,16 +73,45 @@ BaseRollupInputs dummy_base_rollup_inputs()
                                               },
                                               .constants = constantRollupData };
 
-    generate_nullifier_tree_testing_values(baseRollupInputs, 0, 1);
+    // Initialise nullifier tree with 0..7 then insert 8 nullifiers with value 0.
+    std::vector<fr> initial_values = { 1, 2, 3, 4, 5, 6, 7 };
+
+    std::array<fr, KERNEL_NEW_NULLIFIERS_LENGTH * 2> nullifiers;
+    for (size_t i = 0; i < 2; i++) {
+        for (size_t j = 0; j < KERNEL_NEW_NULLIFIERS_LENGTH; j++) {
+            nullifiers[i * 4 + j] = kernel_data[i].public_inputs.end.new_nullifiers[j];
+        }
+    }
+
+    auto temp = generate_nullifier_tree_testing_values_explicit(baseRollupInputs, nullifiers, initial_values);
+    baseRollupInputs = std::get<0>(temp);
+
     baseRollupInputs.new_contracts_subtree_sibling_path =
         get_sibling_path<CONTRACT_SUBTREE_INCLUSION_CHECK_DEPTH>(contract_tree, 0, CONTRACT_SUBTREE_DEPTH);
-    // @todo Naming on new_commitments_subtree is weird with private data tree as well.
+
     baseRollupInputs.new_commitments_subtree_sibling_path =
         get_sibling_path<PRIVATE_DATA_SUBTREE_INCLUSION_CHECK_DEPTH>(private_data_tree, 0, PRIVATE_DATA_SUBTREE_DEPTH);
 
-    // The Historic membership probably?
+    baseRollupInputs.historic_private_data_tree_root_membership_witnesses[0] = {
+        .leaf_index = 0,
+        .sibling_path = get_sibling_path<PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT>(historic_private_data_tree, 0, 0),
+    };
+    baseRollupInputs.historic_private_data_tree_root_membership_witnesses[1] =
+        baseRollupInputs.historic_private_data_tree_root_membership_witnesses[0];
+
+    baseRollupInputs.historic_contract_tree_root_membership_witnesses[0] = {
+        .leaf_index = 0,
+        .sibling_path = get_sibling_path<CONTRACT_TREE_ROOTS_TREE_HEIGHT>(historic_contract_tree, 0, 0),
+    };
+    baseRollupInputs.historic_contract_tree_root_membership_witnesses[1] =
+        baseRollupInputs.historic_contract_tree_root_membership_witnesses[0];
 
     return baseRollupInputs;
+}
+
+BaseRollupInputs empty_base_rollup_inputs()
+{
+    return base_rollup_inputs_from_kernels(dummy_previous_kernel(), dummy_previous_kernel());
 }
 
 //////////////////////////
@@ -103,22 +131,6 @@ NullifierMemoryTreeTestingHarness get_initial_nullifier_tree(std::vector<fr> ini
         nullifier_tree.update_element(initial_values[i]);
     }
     return nullifier_tree;
-}
-
-/**
- * @brief An extension of `get_initial_nullifier_tree` that will populate with linearly spaced values
- *
- * @param spacing
- * @return NullifierMemoryTreeTestingHarness
- */
-NullifierMemoryTreeTestingHarness get_initial_nullifier_tree_lin_space(size_t spacing = 5, size_t start = 0)
-{
-    std::vector<fr> nullifiers;
-    for (size_t i = 1; i < 8; ++i) {
-        // insert 5, 10, 15, 20 ...
-        nullifiers.push_back(start + (i * spacing));
-    }
-    return get_initial_nullifier_tree(nullifiers);
 }
 
 nullifier_tree_testing_values generate_nullifier_tree_testing_values(BaseRollupInputs inputs,
@@ -228,7 +240,6 @@ nullifier_tree_testing_values generate_nullifier_tree_testing_values_explicit(
         .next_available_leaf_index = uint32_t(reference_tree.size()),
     };
 
-    // Get the sibling path, we should be able to use the same path to get to the end root
     std::vector<fr> sibling_path = reference_tree.get_sibling_path(start_tree_size);
     std::array<fr, NULLIFIER_SUBTREE_INCLUSION_CHECK_DEPTH> sibling_path_array;
 
