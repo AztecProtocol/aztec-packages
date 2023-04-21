@@ -78,14 +78,14 @@ export async function computeFunctionSelector(wasm: CircuitsWasm, funcSig: strin
   return await wasmAsyncCall(
     wasm,
     'abis__compute_function_selector',
-    { toBuffer: () => Buffer.from(funcSig) },
+    Buffer.from(funcSig),
     FUNCTION_SELECTOR_NUM_BYTES,
   );
 }
 
 export async function hashVK(wasm: CircuitsWasm, vkBuf: Buffer) {
   wasm.call('pedersen__init');
-  return await wasmAsyncCall(wasm, 'abis__hash_vk', { toBuffer: () => vkBuf }, 32);
+  return await wasmAsyncCall(wasm, 'abis__hash_vk', vkBuf, 32);
 }
 
 export async function computeFunctionLeaf(wasm: CircuitsWasm, fnLeaf: FunctionLeafPreimage) {
@@ -96,7 +96,7 @@ export async function computeFunctionLeaf(wasm: CircuitsWasm, fnLeaf: FunctionLe
 export async function computeFunctionTreeRoot(wasm: CircuitsWasm, fnLeafs: Fr[]) {
   const inputVector = serializeBufferArrayToVector(fnLeafs.map(fr => fr.toBuffer()));
   wasm.call('pedersen__init');
-  const result = await wasmAsyncCall(wasm, 'abis__compute_function_tree_root', { toBuffer: () => inputVector }, 32);
+  const result = await wasmAsyncCall(wasm, 'abis__compute_function_tree_root', inputVector, 32);
   return Fr.fromBuffer(result);
 }
 
@@ -143,6 +143,6 @@ export async function computeContractAddress(
 
 export function computeContractLeaf(wasm: WasmWrapper, cd: NewContractData) {
   wasm.call('pedersen__init');
-  const value = wasmSyncCall(wasm, 'abis__compute_contract_leaf', { toBuffer: () => cd.toBuffer() }, 32);
+  const value = wasmSyncCall(wasm, 'abis__compute_contract_leaf', cd, 32);
   return Fr.fromBuffer(value);
 }
