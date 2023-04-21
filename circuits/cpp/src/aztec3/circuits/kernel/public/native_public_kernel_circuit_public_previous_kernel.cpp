@@ -32,26 +32,28 @@ using aztec3::utils::push_array_to_array;
 
 using DummyComposer = aztec3::utils::DummyComposer;
 
-// NOTE: THIS IS A VERY UNFINISHED WORK IN PROGRESS.
-// TODO: decide what to return.
-// TODO: is there a way to identify whether an input has not been used by ths circuit? This would help us
-// more-safely ensure we're constraining everything.
 KernelCircuitPublicInputs<NT> native_public_kernel_circuit_public_previous_kernel(
     DummyComposer& composer, PublicKernelInputs<NT> const& public_kernel_inputs)
 {
     // construct the circuit outputs
     KernelCircuitPublicInputs<NT> public_inputs{};
 
+    // initialise the end state with our provided previous kernel state
     common_initialise_end_values(public_kernel_inputs, public_inputs);
 
+    // validate the inputs common to all invocation circumstances
     common_validate_inputs(composer, public_kernel_inputs);
 
+    // validate the inputs unique to having a previous public kernel
     validate_inputs(composer, public_kernel_inputs);
 
+    // validate the kernel execution commonn to all invocation circumstances
     common_validate_kernel_execution(composer, public_kernel_inputs);
 
+    // vallidate our public call hash
     validate_this_public_call_hash(composer, public_kernel_inputs);
 
+    // update the public end state of the circuit
     update_public_end_values(public_kernel_inputs, public_inputs);
 
     return public_inputs;
