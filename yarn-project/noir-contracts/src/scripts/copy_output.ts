@@ -24,14 +24,16 @@ function getFunctions(source: string, output: any) {
     interface: JSON.parse(match[3]),
   }));
 
-  return output.functions.map((fn: any) => {
-    delete fn.proving_key;
-    return getFunction(
-      abis.find(abi => abi.functionName === fn.name && abi.abiType === 'params')?.interface || [],
-      abis.find(abi => abi.functionName === fn.name && abi.abiType === 'return')?.interface || [],
-      fn,
-    );
-  });
+  return output.functions
+    .sort((fnA: any, fnB: any) => fnA.name.localeCompare(fnB.name))
+    .map((fn: any) => {
+      delete fn.proving_key;
+      return getFunction(
+        abis.find(abi => abi.functionName === fn.name && abi.abiType === 'params')?.interface || [],
+        abis.find(abi => abi.functionName === fn.name && abi.abiType === 'return')?.interface || [],
+        fn,
+      );
+    });
 }
 
 function main() {
