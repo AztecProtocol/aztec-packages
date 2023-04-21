@@ -1,10 +1,11 @@
 import { AztecAddress, EthAddress, Fr } from '@aztec/foundation';
 import { CallContext, PrivateHistoricTreeRoots, TxRequest } from '@aztec/circuits.js';
-import { FunctionAbi } from '@aztec/noir-contracts';
+import { FunctionAbi, FunctionType } from '@aztec/noir-contracts';
 import { DBOracle } from './db_oracle.js';
-import { Execution, ExecutionResult } from './execution.js';
+import { PrivateFunctionExecution, ExecutionResult } from './private_execution.js';
 import { BarretenbergWasm } from '@aztec/barretenberg.js/wasm';
 import { pedersenCompressInputs, pedersenCompressWithHashIndex } from '@aztec/barretenberg.js/crypto';
+import { UnconstrainedFunctionExecution } from './unconstrained_execution.js';
 
 export const NOTE_PEDERSEN_CONSTANT = new Fr(2n);
 export const MAPPING_SLOT_PEDERSEN_CONSTANT = new Fr(4n);
@@ -22,6 +23,10 @@ export class AcirSimulator {
     portalContractAddress: EthAddress,
     historicRoots: PrivateHistoricTreeRoots,
   ): Promise<ExecutionResult> {
+    if (entryPointABI.functionType !== FunctionType.SECRET) {
+      throw new Error(`Cannot run ${entryPointABI.functionType} function as secret`);
+    }
+
     const callContext = new CallContext(
       request.from,
       contractAddress,
@@ -31,7 +36,40 @@ export class AcirSimulator {
       request.functionData.isConstructor,
     );
 
-    const execution = new Execution(
+    const execution = new PrivateFunctionExecution(
+      this.db,
+      request,
+      historicRoots,
+      entryPointABI,
+      contractAddress,
+      request.functionData,
+      request.args,
+      callContext,
+    );
+
+    return execution.run();
+  }
+
+  public runUnconstrained(
+    request: TxRequest,
+    entryPointABI: FunctionAbi,
+    contractAddress: AztecAddress,
+    portalContractAddress: EthAddress,
+    historicRoots: PrivateHistoricTreeRoots,
+  ) {
+    if (entryPointABI.functionType !== FunctionType.UNCONSTRAINED) {
+      throw new Error(`Cannot run ${entryPointABI.functionType} function as constrained`);
+    }
+    const callContext = new CallContext(
+      request.from,
+      contractAddress,
+      portalContractAddress,
+      false,
+      false,
+      request.functionData.isConstructor,
+    );
+
+    const execution = new UnconstrainedFunctionExecution(
       this.db,
       request,
       historicRoots,

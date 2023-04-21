@@ -5,10 +5,8 @@ import {
   fromACVMField,
   ZERO_ACVM_FIELD,
   toAcvmCallPrivateStackItem,
-  toAcvmNoteLoadOracleInputs,
-  writeInputs,
-  createDummyNote,
-} from './acvm/index.js';
+  toACVMWitness,
+} from '../acvm/index.js';
 import { AztecAddress, EthAddress, Fr } from '@aztec/foundation';
 import {
   CallContext,
@@ -16,13 +14,13 @@ import {
   TxRequest,
   PrivateCallStackItem,
   FunctionData,
-  PRIVATE_DATA_TREE_HEIGHT,
 } from '@aztec/circuits.js';
 import { DBOracle } from './db_oracle.js';
-import { extractPublicInputs, frToAztecAddress, frToNumber, frToSelector } from './acvm/deserialize.js';
+import { extractPublicInputs, frToAztecAddress, frToNumber, frToSelector } from '../acvm/deserialize.js';
 import { FunctionAbi } from '@aztec/noir-contracts';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { decodeReturnValues } from './abi_coder/decoder.js';
+import { decodeReturnValues } from '../abi_coder/decoder.js';
+import { ClientExecution } from './client_execution.js';
 
 export interface NewNoteData {
   preimage: Fr[];
@@ -56,24 +54,26 @@ export interface ExecutionResult {
 }
 
 const notAvailable = () => {
-  return Promise.reject(new Error(`Storage access not available for private function execution`));
+  return Promise.reject(new Error(`Not available for private function execution`));
 };
 
-export class Execution {
+export class PrivateFunctionExecution extends ClientExecution<ExecutionResult> {
   constructor(
     // Global to the tx
-    private db: DBOracle,
-    private request: TxRequest,
-    private historicRoots: PrivateHistoricTreeRoots,
+    db: DBOracle,
+    request: TxRequest,
+    historicRoots: PrivateHistoricTreeRoots,
     // Concrete to this execution
-    private abi: FunctionAbi,
-    private contractAddress: AztecAddress,
-    private functionData: FunctionData,
-    private args: Fr[],
-    private callContext: CallContext,
+    abi: FunctionAbi,
+    contractAddress: AztecAddress,
+    functionData: FunctionData,
+    args: Fr[],
+    callContext: CallContext,
 
-    private log = createDebugLogger('aztec:simulator:execution'),
-  ) {}
+    private log = createDebugLogger('aztec:simulator:secret_execution'),
+  ) {
+    super(db, request, historicRoots, abi, contractAddress, functionData, args, callContext);
+  }
 
   public async run(): Promise<ExecutionResult> {
     this.log(
@@ -83,7 +83,7 @@ export class Execution {
     );
 
     const acir = Buffer.from(this.abi.bytecode, 'hex');
-    const initialWitness = writeInputs(this.args, this.callContext, this.request.txContext, this.historicRoots);
+    const initialWitness = this.writeInputs();
     const newNotePreimages: NewNoteData[] = [];
     const newNullifiers: NewNullifierData[] = [];
     const nestedExecutionContexts: ExecutionResult[] = [];
@@ -125,13 +125,7 @@ export class Execution {
 
         return toAcvmCallPrivateStackItem(childExecutionResult.callStackItem);
       },
-      viewNotesPage: ([acvmSlot, acvmLimit, acvmOffset]) =>
-        this.viewNotes(
-          this.contractAddress,
-          acvmSlot,
-          frToNumber(fromACVMField(acvmLimit)),
-          frToNumber(fromACVMField(acvmOffset)),
-        ),
+      viewNotesPage: notAvailable,
       storageRead: notAvailable,
       storageWrite: notAvailable,
     });
@@ -156,33 +150,30 @@ export class Execution {
     };
   }
 
-  private async getNotes(contractAddress: AztecAddress, storageSlot: ACVMField, limit: number) {
-    const { count, notes } = await this.fetchNotes(contractAddress, storageSlot, limit);
-    return [
-      toACVMField(count),
-      ...notes.flatMap(noteGetData => toAcvmNoteLoadOracleInputs(noteGetData, this.historicRoots.privateDataTreeRoot)),
+  // We still need this function until we can get user-defined ordering of structs for fn arguments
+  // TODO When that is sorted out on noir side, we can use instead the utilities in serialize.ts
+  private writeInputs() {
+    const fields = [
+      ...this.args,
+
+      this.callContext.isContractDeployment,
+      this.callContext.isDelegateCall,
+      this.callContext.isStaticCall,
+      this.callContext.msgSender,
+      this.callContext.portalContractAddress,
+      this.callContext.storageContractAddress,
+
+      this.request.txContext.contractDeploymentData.constructorVkHash,
+      this.request.txContext.contractDeploymentData.contractAddressSalt,
+      this.request.txContext.contractDeploymentData.functionTreeRoot,
+      this.request.txContext.contractDeploymentData.portalContractAddress,
+
+      this.historicRoots.contractTreeRoot,
+      this.historicRoots.nullifierTreeRoot,
+      this.historicRoots.privateDataTreeRoot,
     ];
-  }
 
-  private async viewNotes(contractAddress: AztecAddress, storageSlot: ACVMField, limit: number, offset = 0) {
-    const { count, notes } = await this.fetchNotes(contractAddress, storageSlot, limit, offset);
-
-    return [toACVMField(count), ...notes.flatMap(noteGetData => noteGetData.preimage.map(f => toACVMField(f)))];
-  }
-
-  private async fetchNotes(contractAddress: AztecAddress, storageSlot: ACVMField, limit: number, offset = 0) {
-    const { count, notes } = await this.db.getNotes(contractAddress, fromACVMField(storageSlot), limit, offset);
-
-    const dummyNotes = Array.from({ length: Math.max(0, limit - notes.length) }, () => ({
-      preimage: createDummyNote(),
-      siblingPath: new Array(PRIVATE_DATA_TREE_HEIGHT).fill(Fr.ZERO),
-      index: 0n,
-    }));
-
-    return {
-      count,
-      notes: notes.concat(dummyNotes),
-    };
+    return toACVMWitness(1, fields);
   }
 
   private async callPrivateFunction(
@@ -202,7 +193,7 @@ export class Execution {
       false,
     );
 
-    const nestedExecution = new Execution(
+    const nestedExecution = new PrivateFunctionExecution(
       this.db,
       this.request,
       this.historicRoots,
