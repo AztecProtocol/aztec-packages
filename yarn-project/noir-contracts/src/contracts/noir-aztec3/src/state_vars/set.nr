@@ -40,18 +40,18 @@ unconstrained fn notify_nullified_note(
 #[oracle(getNotes2)]
 fn get_notes_2_oracle(
     _storage_slot: Field,
-) -> [Field; 32] {}
+) -> [Field; 33] {}
 
 unconstrained fn get_notes_2_internal(
     storage_slot: Field,
-) -> [Field; 32] {
+) -> [Field; 33] {
     get_notes_2_oracle(storage_slot)
 }
 
 fn get_2_notes(storage_slot: Field) -> (NoteGetterData, NoteGetterData) {
     let fields = get_notes_2_internal(storage_slot);
-    let data1 = make_note_getter_data(fields, 0);
-    let data2 = make_note_getter_data(fields, note_getter_data_len());
+    let data1 = make_note_getter_data(fields, 1);
+    let data2 = make_note_getter_data(fields, 1 + note_getter_data_len());
     (data1, data2)
 }
 

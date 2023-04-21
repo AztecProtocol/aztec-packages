@@ -14,7 +14,7 @@ export interface DBOracle {
     storageSlot: Fr,
     limit: number,
     offset: number,
-  ): Promise<NoteLoadOracleInputs[]>;
+  ): Promise<{ count: number; notes: NoteLoadOracleInputs[] }>;
   getFunctionABI(contractAddress: AztecAddress, functionSelector: Buffer): Promise<FunctionAbi>;
   getPortalContractAddress(contractAddress: AztecAddress): Promise<EthAddress>;
 }

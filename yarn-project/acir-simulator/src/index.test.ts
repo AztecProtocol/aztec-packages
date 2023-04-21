@@ -165,14 +165,17 @@ describe('ACIR simulator', () => {
         new Fr(0n),
       );
 
-      oracle.getNotes.mockImplementation(() => {
-        return Promise.all(
-          preimages.map(async (preimage, index) => ({
-            preimage,
-            siblingPath: (await tree.getSiblingPath(BigInt(index), false)).data.map(buf => Fr.fromBuffer(buf)),
-            index: BigInt(index),
-          })),
-        );
+      oracle.getNotes.mockImplementation(async () => {
+        return {
+          count: preimages.length,
+          notes: await Promise.all(
+            preimages.map(async (preimage, index) => ({
+              preimage,
+              siblingPath: (await tree.getSiblingPath(BigInt(index), false)).data.map(buf => Fr.fromBuffer(buf)),
+              index: BigInt(index),
+            })),
+          ),
+        };
       });
 
       oracle.getSecretKey.mockReturnValue(Promise.resolve(ownerPk));
@@ -236,14 +239,17 @@ describe('ACIR simulator', () => {
         new Fr(0n),
       );
 
-      oracle.getNotes.mockImplementation(() => {
-        return Promise.all(
-          preimages.map(async (preimage, index) => ({
-            preimage,
-            siblingPath: (await tree.getSiblingPath(BigInt(index), false)).data.map(buf => Fr.fromBuffer(buf)),
-            index: BigInt(index),
-          })),
-        );
+      oracle.getNotes.mockImplementation(async () => {
+        return {
+          count: preimages.length,
+          notes: await Promise.all(
+            preimages.map(async (preimage, index) => ({
+              preimage,
+              siblingPath: (await tree.getSiblingPath(BigInt(index), false)).data.map(buf => Fr.fromBuffer(buf)),
+              index: BigInt(index),
+            })),
+          ),
+        };
       });
 
       oracle.getSecretKey.mockReturnValue(Promise.resolve(ownerPk));

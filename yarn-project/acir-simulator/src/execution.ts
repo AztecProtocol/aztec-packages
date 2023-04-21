@@ -124,7 +124,7 @@ export class Execution {
         return toAcvmCallPrivateStackItem(childExecutionResult.callStackItem);
       },
       viewNotesPage: ([acvmSlot, acvmLimit, acvmOffset]) =>
-        this.getNotes(
+        this.viewNotes(
           this.contractAddress,
           acvmSlot,
           frToNumber(fromACVMField(acvmLimit)),
@@ -151,18 +151,33 @@ export class Execution {
     };
   }
 
-  private async getNotes(contractAddress: AztecAddress, storageSlot: ACVMField, count: number, offset = 0) {
-    const notes = await this.db.getNotes(contractAddress, fromACVMField(storageSlot), count, offset);
-    const dummyCount = Math.max(0, count - notes.length);
-    const dummyNotes = Array.from({ length: dummyCount }, () => ({
+  private async getNotes(contractAddress: AztecAddress, storageSlot: ACVMField, limit: number) {
+    const { count, notes } = await this.fetchNotes(contractAddress, storageSlot, limit);
+    return [
+      toACVMField(count),
+      ...notes.flatMap(noteGetData => toAcvmNoteLoadOracleInputs(noteGetData, this.historicRoots.privateDataTreeRoot)),
+    ];
+  }
+
+  private async viewNotes(contractAddress: AztecAddress, storageSlot: ACVMField, limit: number, offset = 0) {
+    const { count, notes } = await this.fetchNotes(contractAddress, storageSlot, limit, offset);
+
+    return [toACVMField(count), ...notes.flatMap(noteGetData => noteGetData.preimage.map(f => toACVMField(f)))];
+  }
+
+  private async fetchNotes(contractAddress: AztecAddress, storageSlot: ACVMField, limit: number, offset = 0) {
+    const { count, notes } = await this.db.getNotes(contractAddress, fromACVMField(storageSlot), limit, offset);
+
+    const dummyNotes = Array.from({ length: Math.max(0, limit - notes.length) }, () => ({
       preimage: createDummyNote(),
       siblingPath: new Array(PRIVATE_DATA_TREE_HEIGHT).fill(Fr.ZERO),
       index: 0n,
     }));
 
-    return notes
-      .concat(dummyNotes)
-      .flatMap(noteGetData => toAcvmNoteLoadOracleInputs(noteGetData, this.historicRoots.privateDataTreeRoot));
+    return {
+      count,
+      notes: notes.concat(dummyNotes),
+    };
   }
 
   private async callPrivateFunction(
