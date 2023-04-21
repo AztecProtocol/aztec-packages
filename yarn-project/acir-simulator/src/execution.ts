@@ -87,9 +87,9 @@ export class Execution {
     const nestedExecutionContexts: ExecutionResult[] = [];
 
     const { partialWitness } = await acvm(acir, initialWitness, {
-      getSecretKey: ([address]: ACVMField[]) => {
-        return this.getSecretKey(this.contractAddress, address);
-      },
+      getSecretKey: async ([address]: ACVMField[]) => [
+        toACVMField(await this.db.getSecretKey(this.contractAddress, frToAztecAddress(fromACVMField(address)))),
+      ],
       getNotes2: ([storageSlot]: ACVMField[]) => this.getNotes(this.contractAddress, storageSlot, 2),
       getRandomField: () => Promise.resolve([toACVMField(Fr.random())]),
       notifyCreatedNote: ([storageSlot, ownerX, ownerY, ...acvmPreimage]: ACVMField[]) => {
@@ -163,15 +163,6 @@ export class Execution {
     return notes
       .concat(dummyNotes)
       .flatMap(noteGetData => toAcvmNoteLoadOracleInputs(noteGetData, this.historicRoots.privateDataTreeRoot));
-  }
-
-  private async getSecretKey(contractAddress: AztecAddress, address: ACVMField): Promise<[ACVMField]> {
-    // TODO remove this when we have brillig oracles that don't execute on false branches
-    if (address === ZERO_ACVM_FIELD) {
-      return [ZERO_ACVM_FIELD];
-    }
-    const key = await this.db.getSecretKey(contractAddress, frToAztecAddress(fromACVMField(address)));
-    return [toACVMField(key)];
   }
 
   private async callPrivateFunction(

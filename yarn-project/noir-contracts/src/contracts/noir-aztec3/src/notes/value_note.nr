@@ -72,12 +72,12 @@ impl Note {
     fn compute_nullifier(self, note_hash: Field) -> Field {
         let mut secret_key = 0;
 
-        // TODO issue with branching and unconstrained fn calls
-        // if(self.is_real){
-        secret_key = get_secret_key(self.owner);
-        // TODO derive public key here
-        let check_public_key = self.owner;
-        constrain (check_public_key.x == self.owner.x) & (check_public_key.y == self.owner.y);
+        if(self.is_real){
+            secret_key = get_secret_key(self.owner);
+            // TODO derive public key here
+            let check_public_key = self.owner;
+            constrain (check_public_key.x == self.owner.x) & (check_public_key.y == self.owner.y);
+        }
 
         dep::std::hash::pedersen([crate::Nullifier, note_hash, secret_key])[0]
     }
