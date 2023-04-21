@@ -4,11 +4,11 @@ use crate::types::point::Point;
 #[oracle(storageRead)]
 fn storage_read_oracle(
     _storage_slot: Field,
-) -> [Field; 1] {}
+) -> Field {}
 
 unconstrained fn storage_read(
     storage_slot: Field,
-) -> [Field; 1] {
+) -> Field {
     storage_read_oracle(storage_slot)
 }
 
@@ -17,12 +17,12 @@ unconstrained fn storage_read(
 fn storage_write_oracle(
     _storage_slot: Field,
     _value: Field,
-) -> [Field; 1] {}
+) -> Field {}
 
 unconstrained fn storage_write(
     storage_slot: Field,
     value: Field,
-) -> [Field; 1] {
+) -> Field {
     storage_write_oracle(storage_slot, value)
 }
 
@@ -36,10 +36,10 @@ impl StorageField {
     }
 
     unconstrained fn read(self) -> Field {
-        storage_read(self.storage_slot)[0]
+        storage_read(self.storage_slot)
     }
 
     unconstrained fn write(self, value: Field) -> Field {
-        storage_write(self.storage_slot, value)[0]
+        storage_write(self.storage_slot, value)
     }
 }

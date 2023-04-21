@@ -3,16 +3,16 @@
 use crate::types::point::Point;
 
 #[oracle(getRandomField)]
-fn rand_oracle() -> [Field; 1] {}
+fn rand_oracle() -> Field {}
 
-unconstrained fn rand() -> [Field; 1] {
+unconstrained fn rand() -> Field {
     rand_oracle()
 }
 
 #[oracle(getSecretKey)]
-fn get_secret_key_oracle(_owner: Point) -> [Field; 1] {}
+fn get_secret_key_oracle(_owner: Point) -> Field {}
 
-unconstrained fn get_secret_key(owner: Point) -> [Field; 1] {
+unconstrained fn get_secret_key(owner: Point) -> Field {
     get_secret_key_oracle(owner)
 }
 
@@ -44,7 +44,7 @@ impl Note {
         //     The application panicked (crashed).
         //     Message:  unexpected constant expression
         //     Location: crates/noirc_evaluator/src/ssa/acir_gen/operations/intrinsics.rs:280
-        let randomness = rand()[0];
+        let randomness = rand();
         // let randomness = 4; // Chosen by fair dice roll
         let nonce = 3;      // Guaranteed to be random
 
@@ -74,7 +74,7 @@ impl Note {
 
         // TODO issue with branching and unconstrained fn calls
         // if(self.is_real){
-        secret_key = get_secret_key(self.owner)[0];
+        secret_key = get_secret_key(self.owner);
         // TODO derive public key here
         let check_public_key = self.owner;
         constrain (check_public_key.x == self.owner.x) & (check_public_key.y == self.owner.y);
