@@ -136,6 +136,12 @@ export abstract class TreeBase implements MerkleTree {
     return Promise.resolve();
   }
 
+  /**
+   * Gets the value at the given index.
+   * @param index - The index of the leaf.
+   * @param includeUncommitted - Indicates whether to include uncommitted changes.
+   * @returns Leaf value at the given index or undefined.
+   */
   public getLeafValue(index: bigint, includeUncommitted: boolean): Promise<Buffer | undefined> {
     return this.getLatestValueAtIndex(this.depth, index, includeUncommitted);
   }
@@ -201,7 +207,7 @@ export abstract class TreeBase implements MerkleTree {
 
   /**
    * Initializes the tree.
-   * @param prefilledSize - {optional} A number of leaves that are prefilled with values.
+   * @param prefilledSize - A number of leaves that are prefilled with values.
    * @returns Empty promise.
    */
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
