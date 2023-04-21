@@ -1,8 +1,8 @@
 // TODO the verification keys in this contracts are mocked ATM
 import TestContractJson from './test_contract.json';
 import ZkTokenContractJson from './zk_token_contract.json';
-import ParentJson from './parent.json';
-import ChildJson from './child.json';
+import ParentJson from './parent_contract.json';
+import ChildJson from './child_contract.json';
 import PublicTokenContractJson from './public_token_contract.json';
 import { ContractAbi } from '../abi.js';
 
