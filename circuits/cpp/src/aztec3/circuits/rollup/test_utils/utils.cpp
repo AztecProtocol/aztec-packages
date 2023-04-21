@@ -38,16 +38,21 @@ namespace aztec3::circuits::rollup::test_utils::utils {
 BaseRollupInputs dummy_base_rollup_inputs()
 {
     // TODO standardize function naming
-    ConstantRollupData constantRollupData;
-    constantRollupData.start_tree_of_historic_private_data_tree_roots_snapshot = {
-        .root = MerkleTree(PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT).root(),
-        .next_available_leaf_index = 0,
+    // @note Possibly this should be in the initializer instead?
+    ConstantRollupData constantRollupData = {
+        .start_tree_of_historic_private_data_tree_roots_snapshot = {
+            .root = MerkleTree(PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT).root(),
+            .next_available_leaf_index = 0,
+        },
+        .start_tree_of_historic_contract_tree_roots_snapshot = {
+            .root = MerkleTree(CONTRACT_TREE_ROOTS_TREE_HEIGHT).root(),
+            .next_available_leaf_index = 0,
+        },
+        .tree_of_historic_l1_to_l2_msg_tree_roots_snapshot = {
+            .root = MerkleTree(L1_TO_L2_MSG_TREE_ROOTS_TREE_HEIGHT).root(),
+            .next_available_leaf_index = 0,
+        },
     };
-    constantRollupData.start_tree_of_historic_contract_tree_roots_snapshot = {
-        .root = MerkleTree(CONTRACT_TREE_ROOTS_TREE_HEIGHT).root(),
-        .next_available_leaf_index = 0,
-    };
-    // constantRollupData.tree_of_historic_l1_to_l2_msg_tree_roots_snapshot =
 
     // Kernels
     std::array<abis::PreviousKernelData<NT>, 2> kernel_data;
@@ -55,17 +60,28 @@ BaseRollupInputs dummy_base_rollup_inputs()
     kernel_data[0] = dummy_previous_kernel();
     kernel_data[1] = dummy_previous_kernel();
 
+    MerkleTree private_data_tree = MerkleTree(PRIVATE_DATA_TREE_HEIGHT);
+    MerkleTree contract_tree = MerkleTree(CONTRACT_TREE_HEIGHT);
+
     BaseRollupInputs baseRollupInputs = { .kernel_data = kernel_data,
                                               .start_private_data_tree_snapshot = {
-                                                  .root = MerkleTree(PRIVATE_DATA_TREE_HEIGHT).root(),
+                                                  .root = private_data_tree.root(),
                                                   .next_available_leaf_index = 0,
                                               },
-                                              //.start_nullifier_tree_snapshot =
                                               .start_contract_tree_snapshot = {
-                                                  .root = MerkleTree(CONTRACT_TREE_HEIGHT).root(),
+                                                  .root = contract_tree.root(),
                                                   .next_available_leaf_index = 0,
                                               },
                                               .constants = constantRollupData };
+
+    generate_nullifier_tree_testing_values(baseRollupInputs, 0, 1);
+    baseRollupInputs.new_contracts_subtree_sibling_path =
+        get_sibling_path<CONTRACT_SUBTREE_INCLUSION_CHECK_DEPTH>(contract_tree, 0, CONTRACT_SUBTREE_DEPTH);
+    // @todo Naming on new_commitments_subtree is weird with private data tree as well.
+    baseRollupInputs.new_commitments_subtree_sibling_path =
+        get_sibling_path<PRIVATE_DATA_SUBTREE_INCLUSION_CHECK_DEPTH>(private_data_tree, 0, PRIVATE_DATA_SUBTREE_DEPTH);
+
+    // The Historic membership probably?
 
     return baseRollupInputs;
 }

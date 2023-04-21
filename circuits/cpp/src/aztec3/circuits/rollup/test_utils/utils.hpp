@@ -31,6 +31,23 @@ using nullifier_tree_testing_values = std::tuple<BaseRollupInputs, AppendOnlyTre
 
 BaseRollupInputs dummy_base_rollup_inputs();
 
+template <size_t N>
+std::array<fr, N> get_sibling_path(MerkleTree tree, size_t leafIndex, size_t const& subtree_depth_to_skip)
+{
+    std::array<fr, N> siblingPath;
+    auto path = tree.get_hash_path(leafIndex);
+    // slice out the skip
+    leafIndex = leafIndex >> (subtree_depth_to_skip);
+    for (size_t i = 0; i < N; i++) {
+        if (leafIndex & (1 << i)) {
+            siblingPath[i] = path[subtree_depth_to_skip + i].first;
+        } else {
+            siblingPath[i] = path[subtree_depth_to_skip + i].second;
+        }
+    }
+    return siblingPath;
+}
+
 NullifierMemoryTreeTestingHarness get_initial_nullifier_tree(size_t spacing);
 abis::AppendOnlyTreeSnapshot<NT> get_snapshot_of_tree_state(NullifierMemoryTreeTestingHarness nullifier_tree);
 

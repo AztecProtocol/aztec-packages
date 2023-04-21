@@ -160,25 +160,6 @@ class base_rollup_tests : public ::testing::Test {
     }
 };
 
-template <size_t N>
-std::array<fr, N> get_sibling_path(stdlib::merkle_tree::MemoryTree tree,
-                                   size_t leafIndex,
-                                   size_t const& subtree_depth_to_skip)
-{
-    std::array<fr, N> siblingPath;
-    auto path = tree.get_hash_path(leafIndex);
-    // slice out the skip
-    leafIndex = leafIndex >> (subtree_depth_to_skip);
-    for (size_t i = 0; i < N; i++) {
-        if (leafIndex & (1 << i)) {
-            siblingPath[i] = path[subtree_depth_to_skip + i].first;
-        } else {
-            siblingPath[i] = path[subtree_depth_to_skip + i].second;
-        }
-    }
-    return siblingPath;
-}
-
 TEST_F(base_rollup_tests, native_no_new_contract_leafs)
 {
     DummyComposer composer = DummyComposer();
@@ -189,10 +170,9 @@ TEST_F(base_rollup_tests, native_no_new_contract_leafs)
 
     BaseRollupInputs emptyInputs = dummy_base_rollup_inputs();
     auto empty_contract_tree = native_base_rollup::MerkleTree(CONTRACT_TREE_HEIGHT);
-    auto sibling_path_of_0 =
-        get_sibling_path<CONTRACT_SUBTREE_INCLUSION_CHECK_DEPTH>(empty_contract_tree, 0, CONTRACT_SUBTREE_DEPTH);
-    // Set the new_contracts_subtree_sibling_path
-    emptyInputs.new_contracts_subtree_sibling_path = sibling_path_of_0;
+    emptyInputs.new_contracts_subtree_sibling_path =
+        test_utils::utils::get_sibling_path<CONTRACT_SUBTREE_INCLUSION_CHECK_DEPTH>(
+            empty_contract_tree, 0, CONTRACT_SUBTREE_DEPTH);
 
     BaseOrMergeRollupPublicInputs outputs =
         aztec3::circuits::rollup::native_base_rollup::base_rollup_circuit(composer, emptyInputs);
@@ -203,6 +183,7 @@ TEST_F(base_rollup_tests, native_no_new_contract_leafs)
     };
     ASSERT_EQ(outputs.start_contract_tree_snapshot, emptyInputs.start_contract_tree_snapshot);
     ASSERT_EQ(outputs.end_contract_tree_snapshot, expectedEndContractTreeSnapshot);
+    ASSERT_FALSE(composer.failed());
     run_cbind(emptyInputs, outputs);
 }
 
@@ -222,8 +203,8 @@ TEST_F(base_rollup_tests, native_contract_leaf_inserted)
     inputs.kernel_data[0].public_inputs.end.new_contracts[0] = new_contract;
 
     auto empty_contract_tree = native_base_rollup::MerkleTree(CONTRACT_TREE_HEIGHT);
-    auto sibling_path_of_0 =
-        get_sibling_path<CONTRACT_SUBTREE_INCLUSION_CHECK_DEPTH>(empty_contract_tree, 0, CONTRACT_SUBTREE_DEPTH);
+    auto sibling_path_of_0 = test_utils::utils::get_sibling_path<CONTRACT_SUBTREE_INCLUSION_CHECK_DEPTH>(
+        empty_contract_tree, 0, CONTRACT_SUBTREE_DEPTH);
     // Set the new_contracts_subtree_sibling_path
     inputs.new_contracts_subtree_sibling_path = sibling_path_of_0;
 
@@ -243,6 +224,7 @@ TEST_F(base_rollup_tests, native_contract_leaf_inserted)
 
     ASSERT_EQ(outputs.start_contract_tree_snapshot, inputs.start_contract_tree_snapshot);
     ASSERT_EQ(outputs.end_contract_tree_snapshot, expected_end_contracts_snapshot);
+    ASSERT_FALSE(composer.failed());
     run_cbind(inputs, outputs);
 }
 
@@ -272,7 +254,7 @@ TEST_F(base_rollup_tests, native_contract_leaf_inserted_in_non_empty_snapshot_tr
     };
 
     // Set the new_contracts_subtree_sibling_path
-    auto sibling_path = get_sibling_path<CONTRACT_SUBTREE_INCLUSION_CHECK_DEPTH>(
+    auto sibling_path = test_utils::utils::get_sibling_path<CONTRACT_SUBTREE_INCLUSION_CHECK_DEPTH>(
         start_contract_tree_snapshot, 12, CONTRACT_SUBTREE_DEPTH);
     inputs.new_contracts_subtree_sibling_path = sibling_path;
 
@@ -292,6 +274,7 @@ TEST_F(base_rollup_tests, native_contract_leaf_inserted_in_non_empty_snapshot_tr
 
     ASSERT_EQ(outputs.start_contract_tree_snapshot, inputs.start_contract_tree_snapshot);
     ASSERT_EQ(outputs.end_contract_tree_snapshot, expected_end_contracts_snapshot);
+    ASSERT_FALSE(composer.failed());
     run_cbind(inputs, outputs);
 }
 
@@ -310,8 +293,8 @@ TEST_F(base_rollup_tests, native_new_commitments_tree)
 
     // get sibling path
     auto start_tree = native_base_rollup::MerkleTree(PRIVATE_DATA_TREE_HEIGHT);
-    auto sibling_path =
-        get_sibling_path<PRIVATE_DATA_SUBTREE_INCLUSION_CHECK_DEPTH>(start_tree, 0, PRIVATE_DATA_SUBTREE_DEPTH);
+    auto sibling_path = test_utils::utils::get_sibling_path<PRIVATE_DATA_SUBTREE_INCLUSION_CHECK_DEPTH>(
+        start_tree, 0, PRIVATE_DATA_SUBTREE_DEPTH);
     inputs.new_commitments_subtree_sibling_path = sibling_path;
 
     // create expected commitments snapshot tree
@@ -332,6 +315,7 @@ TEST_F(base_rollup_tests, native_new_commitments_tree)
         aztec3::circuits::rollup::native_base_rollup::base_rollup_circuit(composer, inputs);
     ASSERT_EQ(outputs.start_private_data_tree_snapshot, inputs.start_private_data_tree_snapshot);
     ASSERT_EQ(outputs.end_private_data_tree_snapshot, expected_end_commitments_snapshot);
+    ASSERT_FALSE(composer.failed());
     run_cbind(inputs, outputs);
 }
 
@@ -753,6 +737,7 @@ TEST_F(base_rollup_tests, native_subtree_height_is_0)
 
 TEST_F(base_rollup_tests, native_cbind_0)
 {
+    // @todo Error handling?
     BaseRollupInputs inputs = dummy_base_rollup_inputs();
     BaseOrMergeRollupPublicInputs ignored_public_inputs;
     run_cbind(inputs, ignored_public_inputs, false);
