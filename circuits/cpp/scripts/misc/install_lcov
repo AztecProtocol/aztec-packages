@@ -1,0 +1,89 @@
+#!bin/bash
+set -e
+
+# The script will install lcov to your user. To install in environments where you do not have sudo access, you can
+# set the environment variable LCOV_INSTALL_DIR to the directory where you want lcov to be installed. By
+# default, it will be installed in $HOME/.lcov/bin
+
+####
+# Usage: ./scripts/misc/install_lcov.sh [LCOV_INSTALL_DIR]  
+####
+
+# Lcov has some perl dependencies
+# These perl packages include:
+#  - Capture::Tiny
+#  - DateTime
+#  - DateTime::Format::W3CDTF
+#  - Devel::Cover
+#  - Digest::MD5
+#  - File::Spec
+#  - at least one flavor of JSON module.
+#    In order of performance/preference:
+#       - JSON::XS
+#       - Cpanel::JSON::XS
+#       - JSON::PP
+#       - JSON
+# - Memory::Process
+# - Time::HiRes
+# On the mainframe you will only need to install the "Capture::Tiny" 
+
+# Check if already installed
+if command -v lcov &> /dev/null; then
+    echo "lcov is already installed. Exiting now..."
+    exit 0
+fi
+
+if ! command -v perl &> /dev/null; then
+    echo "perl could not be found. Please install perl and try again."
+    exit 1
+fi
+
+# Set install path
+LCOV_INSTALL_DIR=$1
+
+if [ -z "$LCOV_INSTALL_DIR" ]; then
+    LCOV_INSTALL_DIR=$HOME/.lcov
+fi
+
+echo "Installing lcov to $LCOV_INSTALL_DIR"
+# # Perform installation
+git clone "https://github.com/linux-test-project/lcov.git" > /dev/null
+(cd lcov && make PREFIX=$LCOV_INSTALL_DIR install > /dev/null && cd .. && rm -rf lcov)
+
+# Store the correct profile file (i.e. .profile for bash or .zshrc for ZSH).
+case $SHELL in
+*/zsh)
+    PROFILE=$HOME/.zshrc
+    ;;
+*/bash)
+    PROFILE=$HOME/.bashrc
+    ;;
+*/fish)
+    PROFILE=$HOME/.config/fish/config.fish
+    ;;
+*)
+    echo "huffup: could not detect shell, manually add ${$LCOV_INSTALL_DIT} to your PATH."
+    exit 1
+esac
+
+# Only add lcov to path if it isn't already in PATH.
+# if [[ ":$PATH:" != *":${LCOV_INSTALL_DIR}:"* ]]; then
+if echo "$PATH" | grep -q -E "(^|:)$LCOV_INSTALL_DIR($|:)" ; then
+    echo "$DIR is already in \$PATH not adding"
+else
+    # Add the lcov directory to the path and ensure the old PATH variables remain.
+    echo >> $PROFILE && echo "export PATH=\"\$PATH:$LCOV_INSTALL_DIR/bin\"" >> $PROFILE
+    echo "lcov has been installed to $LCOV_INSTALL_DIR and added to your path."
+fi
+
+# Check if perl packages are installed
+echo "lcov depends on some perl packages. Installing them now...", 
+if ! perl -MCapture::Tiny -e1 2>/dev/null; then
+    echo "Installing Capture::Tiny"
+    perl -MCPAN -e 'install "Capture::Tiny"'
+    echo "Capture::Tiny installed"
+    echo "You may need to check that `/lib/perl` has been added to your path, if not please make sure your perl dir includes it"
+else 
+    echo "Capture::Tiny already installed"
+fi
+exit 0
