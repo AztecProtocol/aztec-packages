@@ -21,6 +21,7 @@ template <typename NCT> struct CombinedConstantData {
     typedef typename NCT::boolean boolean;
 
     CombinedHistoricTreeRoots<NCT> historic_tree_roots{};
+    TxContext<NCT> tx_context{};
 
     boolean operator==(CombinedConstantData<NCT> const& other) const
     {

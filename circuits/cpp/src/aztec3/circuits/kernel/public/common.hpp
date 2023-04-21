@@ -7,12 +7,14 @@
 #include <aztec3/circuits/abis/kernel_circuit_public_inputs.hpp>
 #include <aztec3/circuits/abis/state_read.hpp>
 #include <aztec3/circuits/abis/state_transition.hpp>
+#include <aztec3/circuits/abis/public_data_write.hpp>
 #include <aztec3/utils/dummy_composer.hpp>
 #include <aztec3/utils/array.hpp>
 #include <aztec3/circuits/hash.hpp>
 
 using NT = aztec3::utils::types::NativeTypes;
 using aztec3::circuits::abis::KernelCircuitPublicInputs;
+using aztec3::circuits::abis::PublicDataWrite;
 using aztec3::circuits::abis::StateRead;
 using aztec3::circuits::abis::StateTransition;
 using aztec3::circuits::abis::public_kernel::PublicKernelInputs;
@@ -21,6 +23,7 @@ using DummyComposer = aztec3::utils::DummyComposer;
 using aztec3::circuits::root_from_sibling_path;
 using aztec3::utils::array_length;
 using aztec3::utils::array_pop;
+using aztec3::utils::array_push;
 using aztec3::utils::push_array_to_array;
 
 namespace aztec3::circuits::kernel::public_kernel {
@@ -39,8 +42,8 @@ void check_membership(DummyComposer& composer,
 NT::fr hash_public_data_tree_value(NT::fr const& value);
 NT::fr hash_public_data_tree_index(NT::fr const& contract_address, NT::fr const& storage_slot);
 
-template <typename NT, template <class> typename T>
-void validate_state_reads(DummyComposer& composer, T<NT> const& public_kernel_inputs)
+template <typename NT, template <class> typename KernelInput>
+void validate_state_reads(DummyComposer& composer, KernelInput<NT> const& public_kernel_inputs)
 {
     const auto& reads = public_kernel_inputs.public_call.public_call_data.call_stack_item.public_inputs.state_reads;
     const auto& contract_address = public_kernel_inputs.public_call.public_call_data.call_stack_item.contract_address;
@@ -55,8 +58,8 @@ void validate_state_reads(DummyComposer& composer, T<NT> const& public_kernel_in
     }
 };
 
-template <typename NT, template <class> typename T>
-void validate_state_transitions(DummyComposer& composer, T<NT> const& public_kernel_inputs)
+template <typename NT, template <class> typename KernelInput>
+void validate_state_transitions(DummyComposer& composer, KernelInput<NT> const& public_kernel_inputs)
 {
     const auto& transitions =
         public_kernel_inputs.public_call.public_call_data.call_stack_item.public_inputs.state_transitions;
@@ -92,12 +95,11 @@ void initialise_end_values(PublicKernelInputs<NT> const& public_kernel_inputs,
 
     end.optionally_revealed_data = start.optionally_revealed_data;
 
-    end.state_reads = start.state_reads;
     end.state_transitions = start.state_transitions;
 }
 
-template <typename NT, template <class> typename T>
-void validate_this_public_call_stack(DummyComposer& composer, T<NT> const& public_kernel_inputs)
+template <typename NT, template <class> typename KernelInput>
+void validate_this_public_call_stack(DummyComposer& composer, KernelInput<NT> const& public_kernel_inputs)
 {
     auto& stack = public_kernel_inputs.public_call.public_call_data.call_stack_item.public_inputs.public_call_stack;
     auto& preimages = public_kernel_inputs.public_call.public_call_data.public_call_stack_preimages;
@@ -113,8 +115,8 @@ void validate_this_public_call_stack(DummyComposer& composer, T<NT> const& publi
     }
 };
 
-template <typename NT, template <class> typename T>
-void validate_function_execution(DummyComposer& composer, T<NT> const& public_kernel_inputs)
+template <typename NT, template <class> typename KernelInput>
+void validate_function_execution(DummyComposer& composer, KernelInput<NT> const& public_kernel_inputs)
 {
     validate_state_reads(composer, public_kernel_inputs);
     validate_state_transitions(composer, public_kernel_inputs);
@@ -173,16 +175,26 @@ void update_public_end_values(KernelInput<NT> const& public_kernel_inputs,
                               KernelCircuitPublicInputs<NT>& circuit_outputs)
 {
     circuit_outputs.is_private = false;
-    circuit_outputs.constants.old_tree_roots.public_data_tree_root =
+    circuit_outputs.constants.historic_tree_roots.public_data_tree_root =
         public_kernel_inputs.public_call.public_call_data.call_stack_item.public_inputs.historic_public_data_tree_root;
-    const auto& reads = public_kernel_inputs.public_call.public_call_data.call_stack_item.public_inputs.state_reads;
     const auto& transitions =
         public_kernel_inputs.public_call.public_call_data.call_stack_item.public_inputs.state_transitions;
 
     const auto& stack =
         public_kernel_inputs.public_call.public_call_data.call_stack_item.public_inputs.public_call_stack;
     push_array_to_array(stack, circuit_outputs.end.public_call_stack);
-    push_array_to_array(reads, circuit_outputs.end.state_reads);
-    push_array_to_array(transitions, circuit_outputs.end.state_transitions);
+    for (size_t i = 0; i < STATE_TRANSITIONS_LENGTH; ++i) {
+        const auto& state_transition = transitions[i];
+        if (state_transition.is_empty()) {
+            break;
+        }
+        const auto new_write = PublicDataWrite<NT>{
+            .leaf_index = hash_public_data_tree_index(
+                public_kernel_inputs.public_call.public_call_data.call_stack_item.contract_address,
+                state_transition.storage_slot),
+            .new_value = hash_public_data_tree_value(state_transition.new_value),
+        };
+        array_push(circuit_outputs.end.state_transitions, new_write);
+    }
 }
 } // namespace aztec3::circuits::kernel::public_kernel

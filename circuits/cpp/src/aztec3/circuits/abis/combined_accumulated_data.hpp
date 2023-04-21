@@ -118,8 +118,13 @@ template <typename NCT> struct CombinedAccumulatedData {
             map(new_contracts, to_native_type),
             map(optionally_revealed_data, to_native_type),
             map(state_transitions, to_native_type),
+        };
+        return acc_data;
+    }
 
-            void set_public(){ static_assert(!(std::is_same<NativeTypes, NCT>::value));
+    void set_public()
+    {
+        static_assert(!(std::is_same<NativeTypes, NCT>::value));
 
         aggregation_object.add_proof_outputs_as_public_inputs();
 
@@ -162,10 +167,11 @@ template <typename NCT> struct CombinedAccumulatedData {
         }
     }
 
-    template <size_t SIZE> void set_array_public(std::array<StateTransition<NCT>, SIZE>& arr)
+    template <size_t SIZE> void set_array_public(std::array<PublicDataWrite<NCT>, SIZE>& arr)
     {
         static_assert(!(std::is_same<NativeTypes, NCT>::value));
         for (auto& e : arr) {
+            e.set_public();
         }
     }
 };
