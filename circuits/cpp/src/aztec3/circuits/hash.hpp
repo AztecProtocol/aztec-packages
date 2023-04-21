@@ -1,3 +1,5 @@
+#pragma once
+
 #include <array>
 #include <aztec3/circuits/abis/function_data.hpp>
 #include "aztec3/circuits/abis/function_leaf_preimage.hpp"
@@ -98,7 +100,7 @@ typename NCT::fr add_contract_address_to_nullifier(typename NCT::address contrac
  */
 template <typename NCT, size_t N>
 typename NCT::fr root_from_sibling_path(typename NCT::fr const& leaf,
-                                        typename NCT::uint256_t const& leafIndex,
+                                        typename NCT::uint32 const& leafIndex,
                                         std::array<typename NCT::fr, N> const& siblingPath)
 {
     auto node = leaf;
@@ -108,6 +110,41 @@ typename NCT::fr root_from_sibling_path(typename NCT::fr const& leaf,
         } else {
             node = NCT::merkle_hash(node, siblingPath[i]);
         }
+    }
+    return node; // root
+}
+
+/**
+ * @brief Calculate the Merkle tree root from the sibling path and leaf.
+ *
+ * @details The leaf is hashed with its sibling, and then the result is hashed
+ * with the next sibling etc in the path. The last hash is the root.
+ *
+ * @tparam NCT Operate on NativeTypes or CircuitTypes
+ * @tparam N The number of elements in the sibling path
+ * @param leaf The leaf element of the Merkle tree
+ * @param leafIndex The index of the leaf element in the Merkle tree
+ * @param siblingPath The nodes representing the merkle siblings of the leaf, its parent,
+ * the next parent, etc up to the sibling below the root
+ * @return The computed Merkle tree root.
+ *
+ * TODO need to use conditional assigns instead of `ifs` for circuit version.
+ *      see membership.hpp:check_subtree_membership (left/right/conditional_assign, etc)
+ */
+template <typename NCT, size_t N>
+typename NCT::fr root_from_sibling_path(typename NCT::fr const& leaf,
+                                        typename NCT::fr const& leafIndex,
+                                        std::array<typename NCT::fr, N> const& siblingPath)
+{
+    auto node = leaf;
+    uint256_t index = leafIndex;
+    for (size_t i = 0; i < N; i++) {
+        if (index & 1) {
+            node = NCT::merkle_hash(siblingPath[i], node);
+        } else {
+            node = NCT::merkle_hash(node, siblingPath[i]);
+        }
+        index >>= uint256_t(1);
     }
     return node; // root
 }

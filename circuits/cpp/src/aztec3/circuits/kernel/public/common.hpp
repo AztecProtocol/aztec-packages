@@ -20,6 +20,8 @@ using aztec3::circuits::abis::public_kernel::PublicKernelInputsNoPreviousKernel;
 using DummyComposer = aztec3::utils::DummyComposer;
 using aztec3::circuits::root_from_sibling_path;
 using aztec3::utils::array_length;
+using aztec3::utils::array_pop;
+using aztec3::utils::push_array_to_array;
 
 namespace aztec3::circuits::kernel::public_kernel {
 
@@ -30,9 +32,12 @@ void check_membership(DummyComposer& composer,
                       std::array<typename NT::fr, SIZE> const& sibling_path,
                       typename NT::fr const& root)
 {
-    const auto calculated_root = root_from_sibling_path(value, index, sibling_path);
+    const auto calculated_root = root_from_sibling_path<NT>(value, index, sibling_path);
     composer.do_assert(calculated_root == root, "Membership check failed");
 }
+
+NT::fr hash_public_data_tree_value(NT::fr const& value);
+NT::fr hash_public_data_tree_index(NT::fr const& contract_address, NT::fr const& storage_slot);
 
 template <typename NT, template <class> typename T>
 void validate_state_reads(DummyComposer& composer, T<NT> const& public_kernel_inputs)
@@ -43,11 +48,10 @@ void validate_state_reads(DummyComposer& composer, T<NT> const& public_kernel_in
     for (size_t i = 0; i < length; ++i) {
         const auto& state_read = reads[i];
         const auto& sibling_path = public_kernel_inputs.public_call.state_reads_sibling_paths[i].sibling_path;
-        const auto hash =
-            crypto::pedersen_commitment::compress_native({ state_read.current_value }, GeneratorIndex::STATE_READ);
-        const auto index = crypto::pedersen_commitment::compress_native({ contract_address, state_read.storage_slot },
-                                                                        GeneratorIndex::STATE_READ);
-        check_membership(composer, hash, index, sibling_path, public_kernel_inputs.public_call.public_data_tree_root);
+        const typename NT::fr leaf_value = hash_public_data_tree_value(state_read.current_value);
+        const typename NT::fr leaf_index = hash_public_data_tree_index(contract_address, state_read.storage_slot);
+        check_membership<NT>(
+            composer, leaf_value, leaf_index, sibling_path, public_kernel_inputs.public_call.public_data_tree_root);
     }
 };
 
@@ -61,11 +65,10 @@ void validate_state_transitions(DummyComposer& composer, T<NT> const& public_ker
     for (size_t i = 0; i < length; ++i) {
         const auto& state_transition = transitions[i];
         const auto& sibling_path = public_kernel_inputs.public_call.state_reads_sibling_paths[i].sibling_path;
-        const auto hash = crypto::pedersen_commitment::compress_native({ state_transition.old_value },
-                                                                       GeneratorIndex::STATE_TRANSITION);
-        const auto index = crypto::pedersen_commitment::compress_native(
-            { contract_address, state_transition.storage_slot }, GeneratorIndex::STATE_TRANSITION);
-        check_membership(composer, hash, index, sibling_path, public_kernel_inputs.public_call.public_data_tree_root);
+        const typename NT::fr leaf_value = hash_public_data_tree_value(state_transition.old_value);
+        const typename NT::fr leaf_index = hash_public_data_tree_index(contract_address, state_transition.storage_slot);
+        check_membership<NT>(
+            composer, leaf_value, leaf_index, sibling_path, public_kernel_inputs.public_call.public_data_tree_root);
     }
 };
 
@@ -124,7 +127,8 @@ void validate_this_public_call_hash(DummyComposer& composer, PublicKernelInputs<
     // TODO: this logic might need to change to accommodate the weird edge 3 initial txs (the 'main' tx, the 'fee' tx,
     // and the 'gas rebate' tx).
     const auto popped_public_call_hash = array_pop(start.public_call_stack);
-    const auto calculated_this_public_call_hash = public_kernel_inputs.public_call.call_stack_item.hash();
+    const auto calculated_this_public_call_hash =
+        public_kernel_inputs.public_call.public_call_data.call_stack_item.hash();
 
     composer.do_assert(
         popped_public_call_hash == calculated_this_public_call_hash,
@@ -135,8 +139,6 @@ template <typename NT, template <class> typename KernelInput>
 void common_validate_kernel_execution(DummyComposer& composer, KernelInput<NT> const& public_kernel_inputs)
 {
     validate_this_public_call_stack(composer, public_kernel_inputs);
-
-    validate_this_public_call_hash(composer, public_kernel_inputs);
 
     validate_function_execution(composer, public_kernel_inputs);
 }
@@ -164,29 +166,21 @@ void common_validate_inputs(DummyComposer& composer, KernelInput<NT> const& publ
                        "Bytecode hash must be valid");
     composer.do_assert(public_kernel_inputs.public_call.public_call_data.portal_contract_address != 0,
                        "Portal contract address must be valid");
-    composer.do_assert(array_length(this_call_stack_item.public_inputs.state_transitions) ==
-                           array_length(public_kernel_inputs.public_call.state_transitions_sibling_paths),
-                       "Inconsistent state transitions length");
-    composer.do_assert(array_length(this_call_stack_item.public_inputs.state_reads) ==
-                           array_length(public_kernel_inputs.public_call.state_reads_sibling_paths),
-                       "Inconsistent state reads length");
-    composer.do_assert(array_length(public_kernel_inputs.public_call.public_call_data.public_call_stack_preimages) ==
-                           array_length(this_call_stack_item.public_inputs.public_call_stack),
-                       "Inconsistent call length with call stack pre-images");
 }
 
 template <typename NT, template <class> typename KernelInput>
-void update_public_end_values(DummyComposer& composer,
-                              KernelInput<NT> const& public_kernel_inputs,
+void update_public_end_values(KernelInput<NT> const& public_kernel_inputs,
                               KernelCircuitPublicInputs<NT>& circuit_outputs)
 {
     circuit_outputs.is_private = false;
     circuit_outputs.constants.old_tree_roots.public_data_tree_root =
-        public_kernel_inputs.public_call.call_stack_item.public_inputs.historic_public_data_tree_root;
-    const auto& reads = public_kernel_inputs.public_call.call_stack_item.public_inputs.state_reads;
-    const auto& transitions = public_kernel_inputs.public_call.call_stack_item.public_inputs.state_transitions;
+        public_kernel_inputs.public_call.public_call_data.call_stack_item.public_inputs.historic_public_data_tree_root;
+    const auto& reads = public_kernel_inputs.public_call.public_call_data.call_stack_item.public_inputs.state_reads;
+    const auto& transitions =
+        public_kernel_inputs.public_call.public_call_data.call_stack_item.public_inputs.state_transitions;
 
-    const auto& stack = public_kernel_inputs.public_call.call_stack_item.public_inputs.public_call_stack;
+    const auto& stack =
+        public_kernel_inputs.public_call.public_call_data.call_stack_item.public_inputs.public_call_stack;
     push_array_to_array(stack, circuit_outputs.end.public_call_stack);
     push_array_to_array(reads, circuit_outputs.end.state_reads);
     push_array_to_array(transitions, circuit_outputs.end.state_transitions);

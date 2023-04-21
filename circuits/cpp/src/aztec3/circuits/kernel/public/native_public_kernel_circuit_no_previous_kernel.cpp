@@ -39,7 +39,7 @@ KernelCircuitPublicInputs<NT> native_public_kernel_circuit_no_previous_kernel(
 
     common_validate_kernel_execution(composer, public_kernel_inputs);
 
-    update_public_end_values(composer, public_kernel_inputs, public_inputs);
+    update_public_end_values(public_kernel_inputs, public_inputs);
     return public_inputs;
 };
 

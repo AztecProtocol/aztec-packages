@@ -20,11 +20,10 @@ using aztec3::utils::push_array_to_array;
 
 using DummyComposer = aztec3::utils::DummyComposer;
 
-void update_end_values(DummyComposer& composer,
-                       PublicKernelInputs<NT> const& public_kernel_inputs,
+void update_end_values(PublicKernelInputs<NT> const& public_kernel_inputs,
                        KernelCircuitPublicInputs<NT>& circuit_outputs)
 {
-    update_public_end_values(composer, public_kernel_inputs, circuit_outputs);
+    update_public_end_values(public_kernel_inputs, circuit_outputs);
 
     // Ensure the arrays are the same as previously, before we start pushing more data onto them in other functions
     // within this circuit:
@@ -39,11 +38,13 @@ void update_end_values(DummyComposer& composer,
     end.l1_msg_stack = start.l1_msg_stack;
 
     end.optionally_revealed_data = start.optionally_revealed_data;
+
+    circuit_outputs.constants = public_kernel_inputs.previous_kernel.public_inputs.constants;
 }
 
 void validate_inputs(DummyComposer& composer, PublicKernelInputs<NT> const& public_kernel_inputs)
 {
-    const auto& this_call_stack_item = public_kernel_inputs.public_call.call_stack_item;
+    const auto& this_call_stack_item = public_kernel_inputs.public_call.public_call_data.call_stack_item;
     composer.do_assert(array_length(this_call_stack_item.public_inputs.public_call_stack) > 0,
                        "Public call stack can't be empty");
     composer.do_assert(public_kernel_inputs.previous_kernel.public_inputs.end.private_call_count > 0,
@@ -72,9 +73,8 @@ KernelCircuitPublicInputs<NT> native_public_kernel_circuit_private_previous_kern
 
     common_validate_kernel_execution(composer, public_kernel_inputs);
 
-    update_end_values(composer, public_kernel_inputs, public_inputs);
+    update_end_values(public_kernel_inputs, public_inputs);
 
-    public_inputs.constants = public_kernel_inputs.previous_kernel.public_inputs.constants;
     return public_inputs;
 };
 
