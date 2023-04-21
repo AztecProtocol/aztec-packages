@@ -3,7 +3,7 @@
   "functions": [
     {
       "name": "constructor",
-      "functionType": "Secret",
+      "functionType": "secret",
       "parameters": [
         {
           "name": "value",
@@ -40,7 +40,7 @@
     },
     {
       "name": "mint",
-      "functionType": "Secret",
+      "functionType": "secret",
       "parameters": [
         {
           "name": "value",
@@ -77,7 +77,7 @@
     },
     {
       "name": "transfer",
-      "functionType": "Secret",
+      "functionType": "secret",
       "parameters": [
         {
           "name": "amount",
