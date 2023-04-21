@@ -2,6 +2,7 @@ import { readFileSync, writeFileSync } from 'fs';
 import camelCase from 'lodash.camelcase';
 import snakeCase from 'lodash.snakecase';
 import upperFirst from 'lodash.upperfirst';
+import mockedKeys from './mockedKeys.json' assert { type: 'json' };
 
 function getFunction(params: any, returns: any, fn: any) {
   if (!params) throw new Error(`ABI comment not found for function ${fn.name}`);
@@ -11,7 +12,8 @@ function getFunction(params: any, returns: any, fn: any) {
     parameters: params,
     returnTypes: returns,
     bytecode: Buffer.from(fn.bytecode).toString('hex'),
-    verificationKey: Buffer.from(fn.verification_key).toString('hex'),
+    // verificationKey: Buffer.from(fn.verification_key).toString('hex'),
+    verificationKey: mockedKeys.verificationKey,
   };
 }
 
