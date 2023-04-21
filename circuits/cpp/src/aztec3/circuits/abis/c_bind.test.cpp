@@ -1,4 +1,4 @@
-#include "c_bind.h"
+#include "c_bind.hpp"
 
 #include "tx_request.hpp"
 #include "function_leaf_preimage.hpp"
@@ -274,36 +274,39 @@ TEST(abi_tests, hash_constructor)
     EXPECT_EQ(got_hash, expected_hash);
 }
 
+void print_schema(auto schema_func)
+{
+    uint8_t* output = nullptr;
+    size_t output_len = 0;
+    schema_func(&output, &output_len);
+    msgpack::object object;
+    msgpack::decode(&object, output, output_len);
+    std::cout << object << std::endl;
+    aligned_free(output);
+}
+
 TEST(abi_tests, compute_contract_address)
 {
+    print_schema(abis__compute_contract_address__schema);
+}
+
+TEST(abi_tests, schema_test)
+{
     // Randomize required values
-    NT::fr deployer_address = NT::fr::random_element();
-    NT::fr contract_address_salt = NT::fr::random_element();
-    NT::fr function_tree_root = NT::fr::random_element();
-    NT::fr constructor_hash = NT::fr::random_element();
-
-    // Serialize values to buffers
-    std::array<uint8_t, sizeof(NT::fr)> deployer_address_buf = { 0 };
-    std::array<uint8_t, sizeof(NT::fr)> contract_address_salt_buf = { 0 };
-    std::array<uint8_t, sizeof(NT::fr)> function_tree_root_buf = { 0 };
-    std::array<uint8_t, sizeof(NT::fr)> constructor_hash_buf = { 0 };
-    NT::fr::serialize_to_buffer(deployer_address, deployer_address_buf.data());
-    NT::fr::serialize_to_buffer(contract_address_salt, contract_address_salt_buf.data());
-    NT::fr::serialize_to_buffer(function_tree_root, function_tree_root_buf.data());
-    NT::fr::serialize_to_buffer(constructor_hash, constructor_hash_buf.data());
-
-    // create an output buffer for cbind contract address results
-    std::array<uint8_t, sizeof(NT::fr)> output = { 0 };
-
-    // Make the c_bind call to compute the contract address
-    abis__compute_contract_address(deployer_address_buf.data(),
-                                   contract_address_salt_buf.data(),
-                                   function_tree_root_buf.data(),
-                                   constructor_hash_buf.data(),
-                                   output.data());
-
-    // Convert buffer to `fr` for comparison to in-test calculated contract address
-    NT::fr got_address = NT::fr::serialize_from_buffer(output.data());
+    auto deployer_address = NT::fr::random_element();
+    auto contract_address_salt = NT::fr::random_element();
+    auto function_tree_root = NT::fr::random_element();
+    auto constructor_hash = NT::fr::random_element();
+    auto [input, input_len] = msgpack::encode_buffer(
+        std::make_tuple(deployer_address, contract_address_salt, function_tree_root, constructor_hash));
+    NT::fr got_address = 0;
+    uint8_t* output = nullptr;
+    size_t output_len = 0;
+    msgpack::print(std::make_tuple(deployer_address, contract_address_salt, function_tree_root, constructor_hash));
+    abis__compute_contract_address(input, input_len, &output, &output_len);
+    msgpack::decode(&got_address, output, output_len);
+    aligned_free(input);
+    aligned_free(output);
 
     // Calculate the expected contract address in-test
     NT::fr expected_address =

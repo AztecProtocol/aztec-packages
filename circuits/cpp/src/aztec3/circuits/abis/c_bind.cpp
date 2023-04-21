@@ -1,29 +1,5 @@
-#include "c_bind.h"
-#include "barretenberg/srs/reference_string/mem_reference_string.hpp"
-#include "aztec3/circuits/abis/function_data.hpp"
-#include "aztec3/circuits/abis/function_leaf_preimage.hpp"
-#include "aztec3/circuits/abis/private_kernel/new_contract_data.hpp"
-#include "private_circuit_public_inputs.hpp"
-#include "tx_request.hpp"
-#include "tx_context.hpp"
-#include "function_data.hpp"
-#include "function_leaf_preimage.hpp"
-#include "rollup/base/base_rollup_inputs.hpp"
-#include "rollup/base/base_or_merge_rollup_public_inputs.hpp"
-#include "rollup/root/root_rollup_public_inputs.hpp"
-#include "rollup/root/root_rollup_inputs.hpp"
-#include "private_kernel/previous_kernel_data.hpp"
-#include "private_kernel/private_inputs.hpp"
-#include "private_kernel/public_inputs.hpp"
-
-#include <aztec3/circuits/hash.hpp>
-#include <aztec3/constants.hpp>
-
-#include <aztec3/utils/types/native_types.hpp>
-#include <aztec3/utils/array.hpp>
-#include <barretenberg/stdlib/merkle_tree/membership.hpp>
-#include <barretenberg/crypto/keccak/keccak.hpp>
-#include <barretenberg/common/serialize.hpp>
+#include "c_bind.hpp"
+#include <functional>
 
 namespace {
 
@@ -147,10 +123,8 @@ template <typename T> static const char* as_serialized_output(uint8_t const* inp
     return bbmalloc_copy_string((char*)stream.data(), *size);
 }
 
-#define WASM_EXPORT __attribute__((visibility("default")))
+#define WASM_EXPORT __attribute__((visibility("default"))) extern "C"
 // WASM Cbinds
-extern "C" {
-
 /**
  * @brief Hashes a TX request. This is a WASM-export that can be called from Typescript.
  *
@@ -320,28 +294,80 @@ WASM_EXPORT void abis__hash_constructor(uint8_t const* function_data_buf,
  * @param constructor_hash_buf bytes buffer representing a field that is a hash of constructor info
  * @param output buffer that will contain the output contract address.
  */
-WASM_EXPORT void abis__compute_contract_address(uint8_t const* deployer_address_buf,
-                                                uint8_t const* contract_address_salt_buf,
-                                                uint8_t const* function_tree_root_buf,
-                                                uint8_t const* constructor_hash_buf,
-                                                uint8_t* output)
+
+template <typename Func> struct func_traits;
+
+template <typename R, typename... Vs> struct func_traits<R (*)(Vs...)> {
+    typedef std::tuple<Vs...> Args;
+    Args args;
+    R ret;
+    void msgpack(auto ar) { ar(NVP(args), NVP(ret)); }
+};
+template <typename R, typename... Vs> struct func_traits<R (&)(Vs...)> {
+    typedef std::tuple<Vs...> Args;
+    Args args;
+    R ret;
+    void msgpack(auto ar) { ar(NVP(args), NVP(ret)); }
+};
+
+template <typename R, typename T, typename... Vs> struct func_traits<R (T::*)(Vs...) const> {
+    typedef std::tuple<Vs...> Args;
+    Args args;
+    R ret;
+    void msgpack(auto ar) { ar(NVP(args), NVP(ret)); }
+};
+#include <type_traits>
+
+template <typename T>
+concept Callable =
+    requires() { typename std::enable_if_t<std::is_member_function_pointer_v<decltype(&T::operator())>, void>; };
+
+template <Callable T> constexpr auto get_func_traits()
 {
-    NT::address deployer_address;
-    NT::fr contract_address_salt;
-    NT::fr function_tree_root;
-    NT::fr constructor_hash;
-
-    using serialize::read;
-    read(deployer_address_buf, deployer_address);
-    read(contract_address_salt_buf, contract_address_salt);
-    read(function_tree_root_buf, function_tree_root);
-    read(constructor_hash_buf, constructor_hash);
-
-    NT::address contract_address =
-        compute_contract_address<NT>(deployer_address, contract_address_salt, function_tree_root, constructor_hash);
-
-    NT::fr::serialize_to_buffer(contract_address, output);
+    return func_traits<decltype(&T::operator())>();
 }
+
+template <typename T> constexpr auto get_func_traits()
+{
+    return func_traits<T>();
+}
+
+template <typename T> constexpr auto param_tuple()
+{
+    return typename decltype(get_func_traits<T>())::Args{};
+}
+
+inline void cbind_impl(
+    auto func, const uint8_t* input_in, size_t input_len_in, uint8_t** output_out, size_t* output_len_out)
+{
+    auto params = param_tuple<decltype(func)>();
+    msgpack::decode(&params, input_in, input_len_in);
+    auto [output, output_len] = msgpack::encode_buffer(std::apply(func, params));
+    *output_out = output;
+    *output_len_out = output_len;
+}
+
+inline void cbind_schema_impl(auto func, uint8_t** output_out, size_t* output_len_out)
+{
+    (void)func; // unused except for type
+    auto [output, output_len] = msgpack::encode_buffer(get_func_traits<decltype(func)>());
+    msgpack::print_schema(get_func_traits<decltype(func)>());
+    *output_out = output;
+    *output_len_out = output_len;
+}
+
+#define CBIND(cname, func)                                                                                             \
+    WASM_EXPORT void cname(const uint8_t* input_in, size_t input_len_in, uint8_t** output_out, size_t* output_len_out) \
+    {                                                                                                                  \
+        cbind_impl(func, input_in, input_len_in, output_out, output_len_out);                                          \
+    }                                                                                                                  \
+    WASM_EXPORT void cname##__schema(uint8_t** output_out, size_t* output_len_out)                                     \
+    {                                                                                                                  \
+        cbind_schema_impl(func, output_out, output_len_out);                                                           \
+    }
+
+CBIND(abis__compute_contract_address, compute_contract_address<NT>);
+CBIND(abis__compute_contract_leaf2, [](int a) { return a; });
 
 /**
  * @brief Generates a function tree leaf from its preimage.
@@ -447,11 +473,8 @@ WASM_EXPORT const char* abis__test_roundtrip_serialize_private_kernel_public_inp
     return as_string_output<aztec3::circuits::abis::private_kernel::PublicInputs<NT>>(input, size);
 }
 
-
-WASM_EXPORT const char* abis__test_roundtrip_serialize_function_leaf_preimage(uint8_t const* function_leaf_preimage_buf, uint32_t* size)
+WASM_EXPORT const char* abis__test_roundtrip_serialize_function_leaf_preimage(uint8_t const* function_leaf_preimage_buf,
+                                                                              uint32_t* size)
 {
     return as_string_output<aztec3::circuits::abis::FunctionLeafPreimage<NT>>(function_leaf_preimage_buf, size);
 }
-
-
-} // extern "C"
