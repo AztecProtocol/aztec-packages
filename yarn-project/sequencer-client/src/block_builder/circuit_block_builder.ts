@@ -10,12 +10,14 @@ import {
   NULLIFIER_TREE_HEIGHT,
   NullifierLeafPreimage,
   PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT,
+  PUBLIC_DATA_TREE_HEIGHT,
   PreviousKernelData,
   PreviousRollupData,
   ROLLUP_VK_TREE_HEIGHT,
   RollupTypes,
   RootRollupInputs,
   RootRollupPublicInputs,
+  STATE_TRANSITIONS_LENGTH,
   UInt8Vector,
   VK_TREE_HEIGHT,
   VerificationKey,
@@ -91,10 +93,10 @@ export class CircuitBlockBuilder implements BlockBuilder {
       startTreeOfHistoricContractTreeRootsSnapshot,
     ] = await Promise.all(
       [
-        MerkleTreeId.DATA_TREE,
+        MerkleTreeId.PRIVATE_DATA_TREE,
         MerkleTreeId.NULLIFIER_TREE,
         MerkleTreeId.CONTRACT_TREE,
-        MerkleTreeId.DATA_TREE_ROOTS_TREE,
+        MerkleTreeId.PRIVATE_DATA_TREE_ROOTS_TREE,
         MerkleTreeId.CONTRACT_TREE_ROOTS_TREE,
       ].map(tree => this.getTreeSnapshot(tree)),
     );
@@ -235,7 +237,7 @@ export class CircuitBlockBuilder implements BlockBuilder {
   // Updates our roots trees with the new generated trees after the rollup updates
   protected async updateRootTrees() {
     for (const [newTree, rootTree] of [
-      [MerkleTreeId.DATA_TREE, MerkleTreeId.DATA_TREE_ROOTS_TREE],
+      [MerkleTreeId.PRIVATE_DATA_TREE, MerkleTreeId.PRIVATE_DATA_TREE_ROOTS_TREE],
       [MerkleTreeId.CONTRACT_TREE, MerkleTreeId.CONTRACT_TREE_ROOTS_TREE],
     ] as const) {
       const newTreeInfo = await this.db.getTreeInfo(newTree);
@@ -247,7 +249,7 @@ export class CircuitBlockBuilder implements BlockBuilder {
   protected async validateTrees(rollupOutput: BaseOrMergeRollupPublicInputs | RootRollupPublicInputs) {
     await Promise.all([
       this.validateTree(rollupOutput, MerkleTreeId.CONTRACT_TREE, 'Contract'),
-      this.validateTree(rollupOutput, MerkleTreeId.DATA_TREE, 'PrivateData'),
+      this.validateTree(rollupOutput, MerkleTreeId.PRIVATE_DATA_TREE, 'PrivateData'),
       this.validateTree(rollupOutput, MerkleTreeId.NULLIFIER_TREE, 'Nullifier'),
     ]);
   }
@@ -257,7 +259,7 @@ export class CircuitBlockBuilder implements BlockBuilder {
     await Promise.all([
       this.validateTrees(rootOutput),
       this.validateRootTree(rootOutput, MerkleTreeId.CONTRACT_TREE_ROOTS_TREE, 'Contract'),
-      this.validateRootTree(rootOutput, MerkleTreeId.DATA_TREE_ROOTS_TREE, 'PrivateData'),
+      this.validateRootTree(rootOutput, MerkleTreeId.PRIVATE_DATA_TREE_ROOTS_TREE, 'PrivateData'),
     ]);
   }
 
@@ -326,7 +328,9 @@ export class CircuitBlockBuilder implements BlockBuilder {
     const newHistoricContractDataTreeRootSiblingPath = await getRootTreeSiblingPath(
       MerkleTreeId.CONTRACT_TREE_ROOTS_TREE,
     );
-    const newHistoricPrivateDataTreeRootSiblingPath = await getRootTreeSiblingPath(MerkleTreeId.DATA_TREE_ROOTS_TREE);
+    const newHistoricPrivateDataTreeRootSiblingPath = await getRootTreeSiblingPath(
+      MerkleTreeId.PRIVATE_DATA_TREE_ROOTS_TREE,
+    );
 
     return RootRollupInputs.from({
       previousRollupData,
@@ -389,7 +393,7 @@ export class CircuitBlockBuilder implements BlockBuilder {
 
   protected getContractMembershipWitnessFor(tx: PrivateTx) {
     return this.getMembershipWitnessFor(
-      tx.data.constants.oldTreeRoots.contractTreeRoot,
+      tx.data.constants.historicTreeRoots.privateHistoricTreeRoots.contractTreeRoot,
       MerkleTreeId.CONTRACT_TREE_ROOTS_TREE,
       CONTRACT_TREE_ROOTS_TREE_HEIGHT,
     );
@@ -397,8 +401,8 @@ export class CircuitBlockBuilder implements BlockBuilder {
 
   protected getDataMembershipWitnessFor(tx: PrivateTx) {
     return this.getMembershipWitnessFor(
-      tx.data.constants.oldTreeRoots.privateDataTreeRoot,
-      MerkleTreeId.DATA_TREE_ROOTS_TREE,
+      tx.data.constants.historicTreeRoots.privateHistoricTreeRoots.privateDataTreeRoot,
+      MerkleTreeId.PRIVATE_DATA_TREE_ROOTS_TREE,
       PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT,
     );
   }
@@ -410,7 +414,9 @@ export class CircuitBlockBuilder implements BlockBuilder {
       privateKernelVkTreeRoot: FUTURE_FR,
       publicKernelVkTreeRoot: FUTURE_FR,
       startTreeOfHistoricContractTreeRootsSnapshot: await this.getTreeSnapshot(MerkleTreeId.CONTRACT_TREE_ROOTS_TREE),
-      startTreeOfHistoricPrivateDataTreeRootsSnapshot: await this.getTreeSnapshot(MerkleTreeId.DATA_TREE_ROOTS_TREE),
+      startTreeOfHistoricPrivateDataTreeRootsSnapshot: await this.getTreeSnapshot(
+        MerkleTreeId.PRIVATE_DATA_TREE_ROOTS_TREE,
+      ),
       treeOfHistoricL1ToL2MsgTreeRootsSnapshot: new AppendOnlyTreeSnapshot(DELETE_FR, DELETE_NUM),
     });
   }
@@ -685,7 +691,11 @@ export class CircuitBlockBuilder implements BlockBuilder {
     const constants = await this.getConstantBaseRollupData();
     const startNullifierTreeSnapshot = await this.getTreeSnapshot(MerkleTreeId.NULLIFIER_TREE);
     const startContractTreeSnapshot = await this.getTreeSnapshot(MerkleTreeId.CONTRACT_TREE);
-    const startPrivateDataTreeSnapshot = await this.getTreeSnapshot(MerkleTreeId.DATA_TREE);
+    const startPrivateDataTreeSnapshot = await this.getTreeSnapshot(MerkleTreeId.PRIVATE_DATA_TREE);
+
+    // TODO: Uncomment once the public data tree gets merged
+    // const startPublicDataTreeSnapshot = await this.getTreeSnapshot(MerkleTreeId.PUBLIC_DATA_TREE);
+    const startPublicDataTreeSnapshot = AppendOnlyTreeSnapshot.empty();
 
     // Update the contract and data trees with the new items being inserted to get the new roots
     // that will be used by the next iteration of the base rollup circuit, skipping the empty ones
@@ -697,7 +707,7 @@ export class CircuitBlockBuilder implements BlockBuilder {
       newContracts.map(x => x.toBuffer()),
     );
 
-    await this.db.appendLeaves(MerkleTreeId.DATA_TREE, newCommitments);
+    await this.db.appendLeaves(MerkleTreeId.PRIVATE_DATA_TREE, newCommitments);
 
     // Update the nullifier tree, capturing the low nullifier info for each individual operation
     const newNullifiers = [...tx1.data.end.newNullifiers, ...tx2.data.end.newNullifiers];
@@ -713,7 +723,7 @@ export class CircuitBlockBuilder implements BlockBuilder {
 
     // Get the subtree sibling paths for the circuit
     const newCommitmentsSubtreeSiblingPath = await this.getSubtreeSiblingPath(
-      MerkleTreeId.DATA_TREE,
+      MerkleTreeId.PRIVATE_DATA_TREE,
       BaseRollupInputs.PRIVATE_DATA_SUBTREE_HEIGHT,
     );
     const newContractsSubtreeSiblingPath = await this.getSubtreeSiblingPath(
@@ -725,14 +735,21 @@ export class CircuitBlockBuilder implements BlockBuilder {
       BaseRollupInputs.NULLIFIER_SUBTREE_HEIGHT,
     );
 
+    // TODO: Implement based on public tx data
+    const newStateTransitionsSiblingPath = times(2 * STATE_TRANSITIONS_LENGTH, () =>
+      MembershipWitness.empty(PUBLIC_DATA_TREE_HEIGHT, 0),
+    );
+
     return BaseRollupInputs.from({
       constants,
       startNullifierTreeSnapshot,
       startContractTreeSnapshot,
       startPrivateDataTreeSnapshot,
+      startPublicDataTreeSnapshot,
       newCommitmentsSubtreeSiblingPath,
       newContractsSubtreeSiblingPath,
       newNullifiersSubtreeSiblingPath,
+      newStateTransitionsSiblingPath,
       lowNullifierLeafPreimages: nullifierWitnesses.map((w: LowNullifierWitnessData) => w.preimage),
       lowNullifierMembershipWitness: lowNullifierMembershipWitnesses,
       kernelData: [this.getKernelDataFor(tx1), this.getKernelDataFor(tx2)],
@@ -744,7 +761,7 @@ export class CircuitBlockBuilder implements BlockBuilder {
         await this.getDataMembershipWitnessFor(tx1),
         await this.getDataMembershipWitnessFor(tx2),
       ],
-    } as BaseRollupInputs);
+    });
   }
 
   protected makeEmptyMembershipWitness<N extends number>(height: N) {
