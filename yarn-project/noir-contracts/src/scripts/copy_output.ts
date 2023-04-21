@@ -48,7 +48,7 @@ function main() {
   };
 
   const exampleFile = `${examples}/${snakeCase(name)}_contract.json`;
-  writeFileSync(exampleFile, JSON.stringify(abi, null, 2));
+  writeFileSync(exampleFile, JSON.stringify(abi, null, 2) + '\n');
   console.log(`Written ${exampleFile}`);
 }
 
