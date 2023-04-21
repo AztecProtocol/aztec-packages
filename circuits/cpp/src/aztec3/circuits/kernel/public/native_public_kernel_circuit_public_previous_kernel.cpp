@@ -42,7 +42,7 @@ KernelCircuitPublicInputs<NT> native_public_kernel_circuit_public_previous_kerne
     // construct the circuit outputs
     KernelCircuitPublicInputs<NT> public_inputs{};
 
-    initialise_end_values(public_kernel_inputs, public_inputs);
+    common_initialise_end_values(public_kernel_inputs, public_inputs);
 
     common_validate_inputs(composer, public_kernel_inputs);
 
@@ -54,7 +54,6 @@ KernelCircuitPublicInputs<NT> native_public_kernel_circuit_public_previous_kerne
 
     update_public_end_values(public_kernel_inputs, public_inputs);
 
-    public_inputs.constants = public_kernel_inputs.previous_kernel.public_inputs.constants;
     return public_inputs;
 };
 

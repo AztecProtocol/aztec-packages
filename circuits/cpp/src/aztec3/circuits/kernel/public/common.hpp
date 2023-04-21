@@ -45,6 +45,7 @@ NT::fr hash_public_data_tree_index(NT::fr const& contract_address, NT::fr const&
 template <typename NT, template <class> typename KernelInput>
 void validate_state_reads(DummyComposer& composer, KernelInput<NT> const& public_kernel_inputs)
 {
+    // Validates that state reads correspond to the provided membership witnesses
     const auto& reads = public_kernel_inputs.public_call.public_call_data.call_stack_item.public_inputs.state_reads;
     const auto& contract_address = public_kernel_inputs.public_call.public_call_data.call_stack_item.contract_address;
     for (size_t i = 0; i < STATE_READS_LENGTH; ++i) {
@@ -63,6 +64,7 @@ void validate_state_reads(DummyComposer& composer, KernelInput<NT> const& public
 template <typename NT, template <class> typename KernelInput>
 void validate_state_transitions(DummyComposer& composer, KernelInput<NT> const& public_kernel_inputs)
 {
+    // Validates that the old value of state transitions correspond to the provided membership witnesses
     const auto& transitions =
         public_kernel_inputs.public_call.public_call_data.call_stack_item.public_inputs.state_transitions;
     const auto& contract_address = public_kernel_inputs.public_call.public_call_data.call_stack_item.contract_address;
@@ -80,9 +82,10 @@ void validate_state_transitions(DummyComposer& composer, KernelInput<NT> const& 
 };
 
 template <typename NT>
-void initialise_end_values(PublicKernelInputs<NT> const& public_kernel_inputs,
-                           KernelCircuitPublicInputs<NT>& circuit_outputs)
+void common_initialise_end_values(PublicKernelInputs<NT> const& public_kernel_inputs,
+                                  KernelCircuitPublicInputs<NT>& circuit_outputs)
 {
+    // Initialises the circuit outputs with the end state of the previous iteration
     circuit_outputs.constants = public_kernel_inputs.previous_kernel.public_inputs.constants;
 
     // Ensure the arrays are the same as previously, before we start pushing more data onto them in other functions
@@ -105,6 +108,7 @@ void initialise_end_values(PublicKernelInputs<NT> const& public_kernel_inputs,
 template <typename NT, template <class> typename KernelInput>
 void validate_this_public_call_stack(DummyComposer& composer, KernelInput<NT> const& public_kernel_inputs)
 {
+    // Ensures that the stack of pre-images corresponds to the call stack
     auto& stack = public_kernel_inputs.public_call.public_call_data.call_stack_item.public_inputs.public_call_stack;
     auto& preimages = public_kernel_inputs.public_call.public_call_data.public_call_stack_preimages;
     for (size_t i = 0; i < stack.size(); ++i) {
@@ -122,6 +126,7 @@ void validate_this_public_call_stack(DummyComposer& composer, KernelInput<NT> co
 template <typename NT, template <class> typename KernelInput>
 void validate_function_execution(DummyComposer& composer, KernelInput<NT> const& public_kernel_inputs)
 {
+    // Validates state reads and transitions for all type of kernel inputs
     validate_state_reads(composer, public_kernel_inputs);
     validate_state_transitions(composer, public_kernel_inputs);
 }
@@ -129,6 +134,7 @@ void validate_function_execution(DummyComposer& composer, KernelInput<NT> const&
 template <typename NT>
 void validate_this_public_call_hash(DummyComposer& composer, PublicKernelInputs<NT> const& public_kernel_inputs)
 {
+    // Pops the current function execution from the stack and validates it against the call stack item
     const auto& start = public_kernel_inputs.previous_kernel.public_inputs.end;
     // TODO: this logic might need to change to accommodate the weird edge 3 initial txs (the 'main' tx, the 'fee' tx,
     // and the 'gas rebate' tx).
@@ -144,6 +150,7 @@ void validate_this_public_call_hash(DummyComposer& composer, PublicKernelInputs<
 template <typename NT, template <class> typename KernelInput>
 void common_validate_kernel_execution(DummyComposer& composer, KernelInput<NT> const& public_kernel_inputs)
 {
+    // Validates kernel execution for all type of kernel inputs
     validate_this_public_call_stack(composer, public_kernel_inputs);
 
     validate_function_execution(composer, public_kernel_inputs);
@@ -152,6 +159,7 @@ void common_validate_kernel_execution(DummyComposer& composer, KernelInput<NT> c
 template <typename NT, template <class> typename KernelInput>
 void common_validate_inputs(DummyComposer& composer, KernelInput<NT> const& public_kernel_inputs)
 {
+    // Validates commons inputs for all type of kernel inputs
     const auto& this_call_stack_item = public_kernel_inputs.public_call.public_call_data.call_stack_item;
     composer.do_assert(this_call_stack_item.public_inputs.call_context.is_delegate_call == false,
                        "Users cannot make a delegatecall");
@@ -178,6 +186,7 @@ template <typename NT, template <class> typename KernelInput>
 void update_public_end_values(KernelInput<NT> const& public_kernel_inputs,
                               KernelCircuitPublicInputs<NT>& circuit_outputs)
 {
+    // Updates the circuit outputs with new state changes, call stack etc
     circuit_outputs.is_private = false;
     circuit_outputs.constants.historic_tree_roots.public_data_tree_root =
         public_kernel_inputs.public_call.public_call_data.call_stack_item.public_inputs.historic_public_data_tree_root;

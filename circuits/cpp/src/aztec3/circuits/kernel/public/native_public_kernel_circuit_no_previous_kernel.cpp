@@ -10,6 +10,16 @@
 #include <aztec3/circuits/hash.hpp>
 #include "aztec3/constants.hpp"
 
+namespace {
+void initialise_end_values(PublicKernelInputsNoPreviousKernel<NT> const& public_kernel_inputs,
+                           KernelCircuitPublicInputs<NT>& circuit_outputs)
+{
+    circuit_outputs.constants.historic_tree_roots.public_data_tree_root =
+        public_kernel_inputs.public_call.public_data_tree_root;
+    circuit_outputs.constants.tx_context = public_kernel_inputs.signed_tx_request.tx_request.tx_context;
+}
+} // namespace
+
 namespace aztec3::circuits::kernel::public_kernel {
 
 using aztec3::circuits::abis::KernelCircuitPublicInputs;
@@ -34,6 +44,8 @@ KernelCircuitPublicInputs<NT> native_public_kernel_circuit_no_previous_kernel(
     // There is not circuit state carried over from previous iterations.
     // We are construcitng fresh state that will be added to during this circuit execution.
     KernelCircuitPublicInputs<NT> public_inputs{};
+
+    initialise_end_values(public_kernel_inputs, public_inputs);
 
     common_validate_inputs(composer, public_kernel_inputs);
 

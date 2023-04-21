@@ -35,28 +35,6 @@ using aztec3::utils::push_array_to_array;
 
 using DummyComposer = aztec3::utils::DummyComposer;
 
-void update_end_values(PublicKernelInputs<NT> const& public_kernel_inputs,
-                       KernelCircuitPublicInputs<NT>& circuit_outputs)
-{
-    update_public_end_values(public_kernel_inputs, circuit_outputs);
-
-    // Ensure the arrays are the same as previously, before we start pushing more data onto them in other functions
-    // within this circuit:
-    auto& end = circuit_outputs.end;
-    const auto& start = public_kernel_inputs.previous_kernel.public_inputs.end;
-
-    end.new_commitments = start.new_commitments;
-    end.new_nullifiers = start.new_nullifiers;
-
-    end.private_call_stack = start.private_call_stack;
-    end.public_call_stack = start.public_call_stack;
-    end.l1_msg_stack = start.l1_msg_stack;
-
-    end.optionally_revealed_data = start.optionally_revealed_data;
-
-    circuit_outputs.constants = public_kernel_inputs.previous_kernel.public_inputs.constants;
-}
-
 // NOTE: THIS IS A VERY UNFINISHED WORK IN PROGRESS.
 // TODO: decide what to return.
 // TODO: is there a way to identify whether an input has not been used by ths circuit? This would help us
@@ -67,7 +45,7 @@ KernelCircuitPublicInputs<NT> native_public_kernel_circuit_private_previous_kern
     // construct the circuit outputs
     KernelCircuitPublicInputs<NT> public_inputs{};
 
-    initialise_end_values(public_kernel_inputs, public_inputs);
+    common_initialise_end_values(public_kernel_inputs, public_inputs);
 
     common_validate_inputs(composer, public_kernel_inputs);
 
@@ -75,7 +53,7 @@ KernelCircuitPublicInputs<NT> native_public_kernel_circuit_private_previous_kern
 
     common_validate_kernel_execution(composer, public_kernel_inputs);
 
-    update_end_values(public_kernel_inputs, public_inputs);
+    update_public_end_values(public_kernel_inputs, public_inputs);
 
     return public_inputs;
 };
