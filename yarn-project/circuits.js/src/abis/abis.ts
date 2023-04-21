@@ -15,10 +15,10 @@ import { AsyncWasmWrapper, WasmWrapper } from '@aztec/foundation/wasm';
 export function wasmSyncCall(
   wasm: WasmWrapper,
   fnName: string,
-  input: { toBuffer: () => Buffer },
+  input: Buffer | { toBuffer: () => Buffer },
   expectedOutputLength: number,
 ): Buffer {
-  const inputData = input.toBuffer();
+  const inputData: Buffer = input instanceof Buffer ? input : input.toBuffer();
   const outputBuf = wasm.call('bbmalloc', expectedOutputLength);
   const inputBuf = wasm.call('bbmalloc', inputData.length);
   wasm.writeMemory(inputBuf, inputData);
@@ -32,10 +32,10 @@ export function wasmSyncCall(
 export async function wasmAsyncCall(
   wasm: AsyncWasmWrapper,
   fnName: string,
-  input: { toBuffer: () => Buffer },
+  input: Buffer | { toBuffer: () => Buffer },
   expectedOutputLength: number,
 ): Promise<Buffer> {
-  const inputData = input.toBuffer();
+  const inputData: Buffer = input instanceof Buffer ? input : input.toBuffer();
   const outputBuf = wasm.call('bbmalloc', expectedOutputLength);
   const inputBuf = wasm.call('bbmalloc', inputData.length);
   wasm.writeMemory(inputBuf, inputData);
