@@ -61,6 +61,7 @@ export abstract class TreeBase implements MerkleTree {
 
   /**
    * Returns the root of the tree.
+   * @param includeUncommitted - If true, root incorporating uncomitted changes is returned.
    * @returns The root of the tree.
    */
   public getRoot(includeUncommitted: boolean): Buffer {
@@ -69,6 +70,7 @@ export abstract class TreeBase implements MerkleTree {
 
   /**
    * Returns the number of leaves in the tree.
+   * @param includeUncommitted - If true, the returned number of leaves includes uncomitted changes.
    * @returns The number of leaves in the tree.
    */
   public getNumLeaves(includeUncommitted: boolean) {
@@ -94,6 +96,7 @@ export abstract class TreeBase implements MerkleTree {
   /**
    * Returns a sibling path for the element at the given index.
    * @param index - The index of the element.
+   * @param includeUncommitted - Indicates whether to get a sibling path incorporating uncomitted changes.
    * @returns A sibling path for the element at the given index.
    * Note: The sibling path is an array of sibling hashes, with the lowest hash (leaf hash) first, and the highest hash last.
    */
@@ -181,6 +184,7 @@ export abstract class TreeBase implements MerkleTree {
    * Returns the latest value at the given index.
    * @param level - The level of the tree.
    * @param index - The index of the element.
+   * @param includeUncommitted - Indicates, whether to get include uncomitted changes.
    * @returns The latest value at the given index.
    * Note: If the value is not in the cache, it will be fetched from the database.
    */

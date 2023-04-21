@@ -50,7 +50,7 @@ export class Pedersen implements Hasher {
    * Input:  [1][2][3][4]
    * Output: [1][2][3][4][compress(1,2)][compress(3,4)][compress(5,6)].
    *
-   * @param values - The 32 byte pedersen leaves.
+   * @param leaves - The 32 byte pedersen leaves.
    * @returns A tree represented by an array.
    */
   public hashToTree(leaves: Buffer[]): Promise<Buffer[]> {
