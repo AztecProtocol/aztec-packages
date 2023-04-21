@@ -86,7 +86,7 @@ export class Execution {
       getSecretKey: ([address]: ACVMField[]) => {
         return this.getSecretKey(this.contractAddress, address);
       },
-      getNotes2: async ([, storageSlot]: ACVMField[]) => {
+      getNotes2: async ([storageSlot]: ACVMField[]) => {
         return await this.getNotes(this.contractAddress, storageSlot, 2);
       },
       getRandomField: () => Promise.resolve([toACVMField(Fr.random())]),
