@@ -99,7 +99,47 @@ Fr {
 }
 `;
 
-exports[`abis wasm bindings hash constructor info 1`] = `
+exports[`abis wasm bindings hash constructor info (max args) 1`] = `
+{
+  "data": [
+    11,
+    83,
+    126,
+    59,
+    216,
+    223,
+    139,
+    197,
+    97,
+    118,
+    93,
+    86,
+    72,
+    166,
+    146,
+    183,
+    120,
+    217,
+    74,
+    66,
+    45,
+    248,
+    192,
+    209,
+    59,
+    200,
+    244,
+    214,
+    63,
+    239,
+    67,
+    177,
+  ],
+  "type": "Buffer",
+}
+`;
+
+exports[`abis wasm bindings hash constructor info 2 args 1`] = `
 {
   "data": [
     6,

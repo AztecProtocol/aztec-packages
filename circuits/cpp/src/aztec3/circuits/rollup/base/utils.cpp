@@ -6,7 +6,7 @@
 
 #include <aztec3/circuits/kernel/private/utils.hpp>
 #include <aztec3/circuits/mock/mock_kernel_circuit.hpp>
-#include "aztec3/circuits/abis/private_kernel/new_contract_data.hpp"
+#include "aztec3/circuits/abis/new_contract_data.hpp"
 
 namespace {
 using NT = aztec3::utils::types::NativeTypes;
@@ -38,7 +38,7 @@ BaseRollupInputs<NT> dummy_base_rollup_inputs()
     // constantRollupData.tree_of_historic_l1_to_l2_msg_tree_roots_snapshot =
 
     // Kernels
-    std::array<abis::private_kernel::PreviousKernelData<NT>, 2> kernel_data;
+    std::array<abis::PreviousKernelData<NT>, 2> kernel_data;
     // grab mocked previous kernel (need a valid vk, proof, aggobj)
     kernel_data[0] = dummy_previous_kernel();
     kernel_data[1] = dummy_previous_kernel();
@@ -68,7 +68,7 @@ NullifierMemoryTreeTestingHarness get_initial_nullifier_tree(std::vector<fr> ini
 {
     NullifierMemoryTreeTestingHarness nullifier_tree = NullifierMemoryTreeTestingHarness(NULLIFIER_TREE_HEIGHT);
     for (size_t i = 0; i < initial_values.size(); ++i) {
-        nullifier_tree.append_value(initial_values[i]);
+        nullifier_tree.update_element(initial_values[i]);
     }
     return nullifier_tree;
 }
@@ -158,7 +158,7 @@ generate_nullifier_tree_testing_values(BaseRollupInputs<NT> rollupInputs,
             new_nullifiers_kernel_2[i - KERNEL_NEW_NULLIFIERS_LENGTH] = insertion_val;
         }
         insertion_values.push_back(insertion_val);
-        reference_tree.append_value(insertion_val);
+        reference_tree.update_element(insertion_val);
     }
 
     // Get the hash paths etc from the insertion values
