@@ -43,17 +43,15 @@ contract PublicToken {
         let current_sender_balance = sender_balance.read();
         let current_recipient_balance = recipient_balance.read();
 
-        // TODO  Right now noir is having issues with branched oracle calls, so we are only implementing the happy path
-
         // TODO: Handle larger integer values ("long integers are not yet supported")
-        //if (current_sender_balance as u120) > (amount as u120) {
-        // TODO: Compiler complains if we don't assign the result of the write to anything
-        let _void1 = sender_balance.write(current_sender_balance - amount);
-        recipient_balance.write(current_recipient_balance + amount)
-        // } else {
-        // TODO: Revert if there is not enough balance
-        //     current_recipient_balance
-        // }
+        if (current_sender_balance as u120) > (amount as u120) {
+            // TODO: Compiler complains if we don't assign the result of the write to anything
+            let _void1 = sender_balance.write(current_sender_balance - amount);
+            recipient_balance.write(current_recipient_balance + amount)
+        } else {
+            // TODO: Revert if there is not enough balance
+            current_recipient_balance
+        }
     }
 
 }
