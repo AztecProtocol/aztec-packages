@@ -47,9 +47,11 @@ void validate_state_reads(DummyComposer& composer, KernelInput<NT> const& public
 {
     const auto& reads = public_kernel_inputs.public_call.public_call_data.call_stack_item.public_inputs.state_reads;
     const auto& contract_address = public_kernel_inputs.public_call.public_call_data.call_stack_item.contract_address;
-    const size_t length = array_length(reads);
-    for (size_t i = 0; i < length; ++i) {
+    for (size_t i = 0; i < STATE_READS_LENGTH; ++i) {
         const auto& state_read = reads[i];
+        if (state_read.is_empty()) {
+            continue;
+        }
         const auto& sibling_path = public_kernel_inputs.public_call.state_reads_sibling_paths[i].sibling_path;
         const typename NT::fr leaf_value = hash_public_data_tree_value(state_read.current_value);
         const typename NT::fr leaf_index = hash_public_data_tree_index(contract_address, state_read.storage_slot);
@@ -64,9 +66,11 @@ void validate_state_transitions(DummyComposer& composer, KernelInput<NT> const& 
     const auto& transitions =
         public_kernel_inputs.public_call.public_call_data.call_stack_item.public_inputs.state_transitions;
     const auto& contract_address = public_kernel_inputs.public_call.public_call_data.call_stack_item.contract_address;
-    const size_t length = array_length(transitions);
-    for (size_t i = 0; i < length; ++i) {
+    for (size_t i = 0; i < STATE_TRANSITIONS_LENGTH; ++i) {
         const auto& state_transition = transitions[i];
+        if (state_transition.is_empty()) {
+            continue;
+        }
         const auto& sibling_path = public_kernel_inputs.public_call.state_reads_sibling_paths[i].sibling_path;
         const typename NT::fr leaf_value = hash_public_data_tree_value(state_transition.old_value);
         const typename NT::fr leaf_index = hash_public_data_tree_index(contract_address, state_transition.storage_slot);
@@ -188,7 +192,7 @@ void update_public_end_values(KernelInput<NT> const& public_kernel_inputs,
     for (size_t i = 0; i < STATE_TRANSITIONS_LENGTH; ++i) {
         const auto& state_transition = transitions[i];
         if (state_transition.is_empty()) {
-            break;
+            continue;
         }
         const auto new_write = PublicDataWrite<NT>{
             .leaf_index = hash_public_data_tree_index(contract_address, state_transition.storage_slot),
