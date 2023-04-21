@@ -35,11 +35,11 @@ impl StorageField {
         StorageField { storage_slot }
     }
 
-    fn read(self) -> Field {
+    unconstrained fn read(self) -> Field {
         storage_read(self.storage_slot)[0]
     }
 
-    fn write(self, value: Field) -> Field {
+    unconstrained fn write(self, value: Field) -> Field {
         storage_write(self.storage_slot, value)[0]
     }
 }
