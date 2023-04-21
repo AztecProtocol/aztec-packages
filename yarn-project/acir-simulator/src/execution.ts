@@ -19,7 +19,7 @@ import {
   PRIVATE_DATA_TREE_HEIGHT,
 } from '@aztec/circuits.js';
 import { DBOracle } from './db_oracle.js';
-import { extractPublicInputs, frToAztecAddress, frToSelector } from './acvm/deserialize.js';
+import { extractPublicInputs, frToAztecAddress, frToNumber, frToSelector } from './acvm/deserialize.js';
 import { FunctionAbi } from '@aztec/noir-contracts';
 import { createDebugLogger } from '@aztec/foundation/log';
 
@@ -52,6 +52,10 @@ export interface ExecutionResult {
   // Nested executions
   nestedExecutions: this[];
 }
+
+const notAvailable = () => {
+  return Promise.reject(new Error(`Storage access not available for private function execution`));
+};
 
 export class Execution {
   constructor(
@@ -86,9 +90,7 @@ export class Execution {
       getSecretKey: ([address]: ACVMField[]) => {
         return this.getSecretKey(this.contractAddress, address);
       },
-      getNotes2: async ([storageSlot]: ACVMField[]) => {
-        return await this.getNotes(this.contractAddress, storageSlot, 2);
-      },
+      getNotes2: ([storageSlot]: ACVMField[]) => this.getNotes(this.contractAddress, storageSlot, 2),
       getRandomField: () => Promise.resolve([toACVMField(Fr.random())]),
       notifyCreatedNote: ([storageSlot, ownerX, ownerY, ...acvmPreimage]: ACVMField[]) => {
         newNotePreimages.push({
@@ -121,12 +123,15 @@ export class Execution {
 
         return toAcvmCallPrivateStackItem(childExecutionResult.callStackItem);
       },
-      storageRead: () => {
-        return Promise.reject(new Error(`Storage access not available for private function execution`));
-      },
-      storageWrite: () => {
-        return Promise.reject(new Error(`Storage access not available for private function execution`));
-      },
+      viewNotesPage: ([acvmSlot, acvmLimit, acvmOffset]) =>
+        this.getNotes(
+          this.contractAddress,
+          acvmSlot,
+          frToNumber(fromACVMField(acvmLimit)),
+          frToNumber(fromACVMField(acvmOffset)),
+        ),
+      storageRead: notAvailable,
+      storageWrite: notAvailable,
     });
 
     const publicInputs = extractPublicInputs(partialWitness, acir);
@@ -146,8 +151,8 @@ export class Execution {
     };
   }
 
-  private async getNotes(contractAddress: AztecAddress, storageSlot: ACVMField, count: number) {
-    const notes = await this.db.getNotes(contractAddress, fromACVMField(storageSlot), count);
+  private async getNotes(contractAddress: AztecAddress, storageSlot: ACVMField, count: number, offset = 0) {
+    const notes = await this.db.getNotes(contractAddress, fromACVMField(storageSlot), count, offset);
     const dummyCount = Math.max(0, count - notes.length);
     const dummyNotes = Array.from({ length: dummyCount }, () => ({
       preimage: createDummyNote(),
@@ -160,7 +165,7 @@ export class Execution {
       .flatMap(noteGetData => toAcvmNoteLoadOracleInputs(noteGetData, this.historicRoots.privateDataTreeRoot));
   }
 
-  private async getSecretKey(contractAddress: AztecAddress, address: ACVMField) {
+  private async getSecretKey(contractAddress: AztecAddress, address: ACVMField): Promise<[ACVMField]> {
     // TODO remove this when we have brillig oracles that don't execute on false branches
     if (address === ZERO_ACVM_FIELD) {
       return [ZERO_ACVM_FIELD];

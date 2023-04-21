@@ -21,10 +21,15 @@ export class SimulatorOracle implements DBOracle {
     return this.keyPair.getPrivateKey();
   }
 
-  async getNotes(contractAddress: AztecAddress, storageSlot: Fr, n: number): Promise<NoteLoadOracleInputs[]> {
+  async getNotes(
+    contractAddress: AztecAddress,
+    storageSlot: Fr,
+    limit: number,
+    offset: number,
+  ): Promise<NoteLoadOracleInputs[]> {
     const noteDaos = await this.db.getTxAuxData(contractAddress, storageSlot);
     return Promise.all(
-      noteDaos.slice(0, n).map(async noteDao => {
+      noteDaos.slice(offset, offset + limit).map(async noteDao => {
         const path = await this.node.getDataTreePath(noteDao.index);
         return {
           preimage: noteDao.notePreimage.items,
