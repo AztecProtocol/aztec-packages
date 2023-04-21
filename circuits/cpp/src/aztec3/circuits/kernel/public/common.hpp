@@ -177,21 +177,21 @@ void update_public_end_values(KernelInput<NT> const& public_kernel_inputs,
     circuit_outputs.is_private = false;
     circuit_outputs.constants.historic_tree_roots.public_data_tree_root =
         public_kernel_inputs.public_call.public_call_data.call_stack_item.public_inputs.historic_public_data_tree_root;
-    const auto& transitions =
-        public_kernel_inputs.public_call.public_call_data.call_stack_item.public_inputs.state_transitions;
 
     const auto& stack =
         public_kernel_inputs.public_call.public_call_data.call_stack_item.public_inputs.public_call_stack;
     push_array_to_array(stack, circuit_outputs.end.public_call_stack);
+
+    const auto& contract_address = public_kernel_inputs.public_call.public_call_data.call_stack_item.contract_address;
+    const auto& transitions =
+        public_kernel_inputs.public_call.public_call_data.call_stack_item.public_inputs.state_transitions;
     for (size_t i = 0; i < STATE_TRANSITIONS_LENGTH; ++i) {
         const auto& state_transition = transitions[i];
         if (state_transition.is_empty()) {
             break;
         }
         const auto new_write = PublicDataWrite<NT>{
-            .leaf_index = hash_public_data_tree_index(
-                public_kernel_inputs.public_call.public_call_data.call_stack_item.contract_address,
-                state_transition.storage_slot),
+            .leaf_index = hash_public_data_tree_index(contract_address, state_transition.storage_slot),
             .new_value = hash_public_data_tree_value(state_transition.new_value),
         };
         array_push(circuit_outputs.end.state_transitions, new_write);

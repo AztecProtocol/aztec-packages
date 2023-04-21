@@ -9,16 +9,7 @@
 #include <aztec3/utils/dummy_composer.hpp>
 #include "aztec3/constants.hpp"
 
-namespace aztec3::circuits::kernel::public_kernel {
-
-using aztec3::circuits::abis::KernelCircuitPublicInputs;
-using aztec3::circuits::abis::public_kernel::PublicKernelInputs;
-using aztec3::circuits::kernel::public_kernel::common_validate_inputs;
-using aztec3::circuits::kernel::public_kernel::common_validate_kernel_execution;
-using aztec3::utils::push_array_to_array;
-
-using DummyComposer = aztec3::utils::DummyComposer;
-
+namespace {
 void validate_inputs(DummyComposer& composer, PublicKernelInputs<NT> const& public_kernel_inputs)
 {
     const auto& this_call_stack_item = public_kernel_inputs.public_call.public_call_data.call_stack_item;
@@ -29,6 +20,17 @@ void validate_inputs(DummyComposer& composer, PublicKernelInputs<NT> const& publ
     composer.do_assert(public_kernel_inputs.previous_kernel.public_inputs.is_private == false,
                        "Previous kernel must be public");
 }
+} // namespace
+
+namespace aztec3::circuits::kernel::public_kernel {
+
+using aztec3::circuits::abis::KernelCircuitPublicInputs;
+using aztec3::circuits::abis::public_kernel::PublicKernelInputs;
+using aztec3::circuits::kernel::public_kernel::common_validate_inputs;
+using aztec3::circuits::kernel::public_kernel::common_validate_kernel_execution;
+using aztec3::utils::push_array_to_array;
+
+using DummyComposer = aztec3::utils::DummyComposer;
 
 // NOTE: THIS IS A VERY UNFINISHED WORK IN PROGRESS.
 // TODO: decide what to return.

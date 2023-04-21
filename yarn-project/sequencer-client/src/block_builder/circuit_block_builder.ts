@@ -353,7 +353,7 @@ export class CircuitBlockBuilder implements BlockBuilder {
 
       // MembershipWitness for a VK tree to be implemented in the future
       FUTURE_NUM,
-      new MembershipWitness(ROLLUP_VK_TREE_HEIGHT, FUTURE_NUM, Array(ROLLUP_VK_TREE_HEIGHT).fill(FUTURE_FR)),
+      new MembershipWitness(ROLLUP_VK_TREE_HEIGHT, BigInt(FUTURE_NUM), Array(ROLLUP_VK_TREE_HEIGHT).fill(FUTURE_FR)),
     );
   }
 
@@ -388,7 +388,7 @@ export class CircuitBlockBuilder implements BlockBuilder {
     // TODO: Check conversion from bigint to number
     return new MembershipWitness(
       height,
-      Number(index),
+      index,
       path.data.map(b => Fr.fromBuffer(b)),
     );
   }
@@ -448,7 +448,7 @@ export class CircuitBlockBuilder implements BlockBuilder {
       ),
       witness: new MembershipWitness(
         NULLIFIER_TREE_HEIGHT,
-        prevValueIndex.index,
+        BigInt(prevValueIndex.index),
         prevValueSiblingPath.data.map(b => Fr.fromBuffer(b)),
       ),
     };
@@ -711,12 +711,12 @@ export class CircuitBlockBuilder implements BlockBuilder {
 
     // Update the public data tree and get membership witnesses
     const stateTransitions = [...tx1.data.end.stateTransitions, ...tx2.data.end.stateTransitions];
-    const newStateTransitionsSiblingPaths: MembershipWitness<32>[] = [];
+    const newStateTransitionsSiblingPaths: MembershipWitness<typeof PUBLIC_DATA_TREE_HEIGHT>[] = [];
     for (const stateTransition of stateTransitions) {
       const index = stateTransition.leafIndex.value;
       const path = await this.db.getSiblingPath(MerkleTreeId.PUBLIC_DATA_TREE, index);
       await this.db.updateLeaf(MerkleTreeId.PUBLIC_DATA_TREE, stateTransition.newValue.toBuffer(), index);
-      const witness = new MembershipWitness(PUBLIC_DATA_TREE_HEIGHT, Number(index), path.data.map(Fr.fromBuffer));
+      const witness = new MembershipWitness(PUBLIC_DATA_TREE_HEIGHT, index, path.data.map(Fr.fromBuffer));
       newStateTransitionsSiblingPaths.push(witness);
     }
 
@@ -730,7 +730,7 @@ export class CircuitBlockBuilder implements BlockBuilder {
 
     // Extract witness objects from returned data
     const lowNullifierMembershipWitnesses = nullifierWitnesses.map(w =>
-      MembershipWitness.fromBufferArray(Number(w.index), w.siblingPath.data),
+      MembershipWitness.fromBufferArray(w.index, w.siblingPath.data),
     );
 
     // Get the subtree sibling paths for the circuit
@@ -748,9 +748,9 @@ export class CircuitBlockBuilder implements BlockBuilder {
     );
 
     // TODO: Implement based on public tx data
-    const newStateTransitionsSiblingPath = times(2 * STATE_TRANSITIONS_LENGTH, () =>
-      MembershipWitness.empty(PUBLIC_DATA_TREE_HEIGHT, 0),
-    );
+    // const emptyStateTransitionsSiblingPaths = times(2 * STATE_TRANSITIONS_LENGTH, () =>
+    //   MembershipWitness.empty(PUBLIC_DATA_TREE_HEIGHT, 0n),
+    // );
 
     return BaseRollupInputs.from({
       constants,
@@ -761,7 +761,7 @@ export class CircuitBlockBuilder implements BlockBuilder {
       newCommitmentsSubtreeSiblingPath,
       newContractsSubtreeSiblingPath,
       newNullifiersSubtreeSiblingPath,
-      newStateTransitionsSiblingPath,
+      newStateTransitionsSiblingPaths,
       lowNullifierLeafPreimages: nullifierWitnesses.map((w: LowNullifierWitnessData) => w.preimage),
       lowNullifierMembershipWitness: lowNullifierMembershipWitnesses,
       kernelData: [this.getKernelDataFor(tx1), this.getKernelDataFor(tx2)],
@@ -779,7 +779,7 @@ export class CircuitBlockBuilder implements BlockBuilder {
   protected makeEmptyMembershipWitness<N extends number>(height: N) {
     return new MembershipWitness(
       height,
-      0,
+      0n,
       times(height, () => new Fr(0n)),
     );
   }

@@ -9,6 +9,21 @@
 #include <aztec3/utils/dummy_composer.hpp>
 #include "aztec3/constants.hpp"
 
+namespace {
+void validate_inputs(DummyComposer& composer, PublicKernelInputs<NT> const& public_kernel_inputs)
+{
+    const auto& this_call_stack_item = public_kernel_inputs.public_call.public_call_data.call_stack_item;
+    composer.do_assert(array_length(this_call_stack_item.public_inputs.public_call_stack) > 0,
+                       "Public call stack can't be empty");
+    composer.do_assert(public_kernel_inputs.previous_kernel.public_inputs.end.private_call_count > 0,
+                       "Private call count can't be zero");
+    composer.do_assert(public_kernel_inputs.previous_kernel.public_inputs.end.public_call_count == 0,
+                       "Public call count must be zero");
+    composer.do_assert(public_kernel_inputs.previous_kernel.public_inputs.is_private == true,
+                       "Previous kernel must be public");
+}
+} // namespace
+
 namespace aztec3::circuits::kernel::public_kernel {
 
 using aztec3::circuits::abis::KernelCircuitPublicInputs;
@@ -40,19 +55,6 @@ void update_end_values(PublicKernelInputs<NT> const& public_kernel_inputs,
     end.optionally_revealed_data = start.optionally_revealed_data;
 
     circuit_outputs.constants = public_kernel_inputs.previous_kernel.public_inputs.constants;
-}
-
-void validate_inputs(DummyComposer& composer, PublicKernelInputs<NT> const& public_kernel_inputs)
-{
-    const auto& this_call_stack_item = public_kernel_inputs.public_call.public_call_data.call_stack_item;
-    composer.do_assert(array_length(this_call_stack_item.public_inputs.public_call_stack) > 0,
-                       "Public call stack can't be empty");
-    composer.do_assert(public_kernel_inputs.previous_kernel.public_inputs.end.private_call_count > 0,
-                       "Private call count can't be zero");
-    composer.do_assert(public_kernel_inputs.previous_kernel.public_inputs.end.public_call_count == 0,
-                       "Public call count must be zero");
-    composer.do_assert(public_kernel_inputs.previous_kernel.public_inputs.is_private == true,
-                       "Previous kernel must be public");
 }
 
 // NOTE: THIS IS A VERY UNFINISHED WORK IN PROGRESS.
