@@ -4,7 +4,7 @@
   "folders": [
     {
       "name": "aztec3-circuits",
-      "path": "./"
+      "path": "./cpp"
     }
   ],
   // List recommended extensions for the whole workspace.

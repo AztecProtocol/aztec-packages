@@ -382,6 +382,8 @@ TEST_F(base_rollup_tests, native_new_nullifier_tree_empty)
      * ASSERT
      */
     // Start state
+    info("Start nullifier tree snapshot: ", nullifier_tree_start_snapshot);
+    info("End nullifier tree snapshot: ", nullifier_tree_end_snapshot);
     ASSERT_EQ(outputs.start_nullifier_tree_snapshot, nullifier_tree_start_snapshot);
 
     // End state
