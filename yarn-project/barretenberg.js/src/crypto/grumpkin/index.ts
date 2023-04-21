@@ -67,7 +67,7 @@ export class Grumpkin {
   }
 
   /**
-   * Converts a 512 bytes long buffer to a field.
+   * Converts a 512 bits long buffer to a field.
    * @param uint512Buf - The buffer to convert.
    * @returns Buffer representation of the field element.
    */
