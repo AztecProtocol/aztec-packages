@@ -389,6 +389,7 @@ TEST_F(base_rollup_tests, native_new_nullifier_tree_empty)
     ASSERT_EQ(outputs.end_nullifier_tree_snapshot.root, outputs.start_nullifier_tree_snapshot.root);
     ASSERT_EQ(outputs.end_nullifier_tree_snapshot.next_available_leaf_index,
               outputs.start_nullifier_tree_snapshot.next_available_leaf_index + 8);
+    ASSERT_FALSE(composer.failed());
 }
 
 TEST_F(base_rollup_tests, native_new_nullifier_tree_all_larger)
@@ -421,6 +422,7 @@ TEST_F(base_rollup_tests, native_new_nullifier_tree_all_larger)
 
     // End state
     ASSERT_EQ(outputs.end_nullifier_tree_snapshot, nullifier_tree_end_snapshot);
+    ASSERT_FALSE(composer.failed());
 }
 
 TEST_F(base_rollup_tests, native_new_nullifier_tree_sparse)
@@ -454,6 +456,7 @@ TEST_F(base_rollup_tests, native_new_nullifier_tree_sparse)
 
     // End state
     ASSERT_EQ(outputs.end_nullifier_tree_snapshot, nullifier_tree_end_snapshot);
+    ASSERT_FALSE(composer.failed());
 }
 
 TEST_F(base_rollup_tests, native_nullifier_tree_regression)
@@ -500,6 +503,7 @@ TEST_F(base_rollup_tests, native_nullifier_tree_regression)
 
     // End state
     ASSERT_EQ(outputs.end_nullifier_tree_snapshot, nullifier_tree_end_snapshot);
+    ASSERT_FALSE(composer.failed());
 }
 
 void perform_standard_nullifier_test(std::array<fr, KERNEL_NEW_NULLIFIERS_LENGTH * 2> new_nullifiers)
@@ -535,6 +539,7 @@ void perform_standard_nullifier_test(std::array<fr, KERNEL_NEW_NULLIFIERS_LENGTH
 
     // End state
     ASSERT_EQ(outputs.end_nullifier_tree_snapshot, nullifier_tree_end_snapshot);
+    ASSERT_FALSE(composer.failed());
 }
 
 // Another regression test with values from a failing packages test
@@ -564,7 +569,6 @@ TEST_F(base_rollup_tests, nullifier_tree_regression_3)
 // Note leaving this test here as there are no negative tests, even though it no longer passes
 TEST_F(base_rollup_tests, native_new_nullifier_tree_sparse_attack)
 {
-    // @todo THIS SHOULD NOT BE PASSING. The circuit should fail with an assert as we are trying to double-spend.
     /**
      * DESCRIPTION
      */
@@ -581,7 +585,7 @@ TEST_F(base_rollup_tests, native_new_nullifier_tree_sparse_attack)
     BaseOrMergeRollupPublicInputs outputs =
         aztec3::circuits::rollup::native_base_rollup::base_rollup_circuit(composer, testing_inputs);
 
-    EXPECT_EQ(composer.has_failed(), true);
+    ASSERT_FALSE(composer.failed());
 }
 
 TEST_F(base_rollup_tests, native_empty_block_calldata_hash)
@@ -605,6 +609,7 @@ TEST_F(base_rollup_tests, native_empty_block_calldata_hash)
     }
 
     ASSERT_EQ(hash, calldata_hash);
+    ASSERT_FALSE(composer.failed());
 
     run_cbind(inputs, outputs);
 }
@@ -679,6 +684,7 @@ TEST_F(base_rollup_tests, native_calldata_hash)
     }
 
     ASSERT_EQ(hash, calldata_hash);
+    ASSERT_FALSE(composer.failed());
     run_cbind(inputs, outputs);
 }
 
@@ -709,6 +715,7 @@ TEST_F(base_rollup_tests, native_compute_membership_historic_private_data)
 
     BaseOrMergeRollupPublicInputs outputs =
         aztec3::circuits::rollup::native_base_rollup::base_rollup_circuit(composer, inputs);
+    ASSERT_FALSE(composer.failed());
 }
 
 TEST_F(base_rollup_tests, native_constants_dont_change)
@@ -718,6 +725,7 @@ TEST_F(base_rollup_tests, native_constants_dont_change)
     BaseOrMergeRollupPublicInputs outputs =
         aztec3::circuits::rollup::native_base_rollup::base_rollup_circuit(composer, inputs);
     ASSERT_EQ(inputs.constants, outputs.constants);
+    EXPECT_FALSE(composer.failed());
     run_cbind(inputs, outputs);
 }
 
@@ -730,6 +738,7 @@ TEST_F(base_rollup_tests, native_aggregate)
         aztec3::circuits::rollup::native_base_rollup::base_rollup_circuit(composer, inputs);
     ASSERT_EQ(inputs.kernel_data[0].public_inputs.end.aggregation_object.public_inputs,
               outputs.end_aggregation_object.public_inputs);
+    ASSERT_FALSE(composer.failed());
 }
 
 TEST_F(base_rollup_tests, native_subtree_height_is_0)
@@ -739,9 +748,8 @@ TEST_F(base_rollup_tests, native_subtree_height_is_0)
     BaseOrMergeRollupPublicInputs outputs =
         aztec3::circuits::rollup::native_base_rollup::base_rollup_circuit(composer, inputs);
     ASSERT_EQ(outputs.rollup_subtree_height, fr(0));
+    ASSERT_FALSE(composer.failed());
 }
-
-TEST_F(base_rollup_tests, native_proof_verification) {}
 
 TEST_F(base_rollup_tests, native_cbind_0)
 {

@@ -11,10 +11,11 @@ using aztec3::circuits::kernel::private_kernel::utils::dummy_previous_kernel;
 
 namespace aztec3::circuits::rollup::merge {
 
-std::array<PreviousRollupData, 2> previous_rollup_datas()
+std::array<PreviousRollupData<NT>, 2> previous_rollup_datas(DummyComposer& composer)
 {
-    DummyComposer composer = DummyComposer();
     auto input1 = base::utils::dummy_base_rollup_inputs();
+    // Must handle the sibling paths
+
     BaseOrMergeRollupPublicInputs base_public_input1 =
         aztec3::circuits::rollup::native_base_rollup::base_rollup_circuit(composer, input1);
 
@@ -47,9 +48,9 @@ std::array<PreviousRollupData, 2> previous_rollup_datas()
     return { previous_rollup1, previous_rollup2 };
 }
 
-MergeRollupInputs dummy_merge_rollup_inputs()
+MergeRollupInputs<NT> dummy_merge_rollup_inputs(DummyComposer& composer)
 {
-    MergeRollupInputs merge_rollup_inputs = { .previous_rollup_data = previous_rollup_datas() };
+    MergeRollupInputs<NT> merge_rollup_inputs = { .previous_rollup_data = previous_rollup_datas(composer) };
     return merge_rollup_inputs;
 }
 } // namespace aztec3::circuits::rollup::merge

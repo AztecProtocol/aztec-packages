@@ -175,7 +175,7 @@ class root_rollup_tests : public ::testing::Test {
         return siblingPath;
     }
 
-    RootRollupInputs getEmptyRootRollupInputs()
+    RootRollupInputs getEmptyRootRollupInputs(utils::DummyComposer& composer)
     {
         MemoryTree historic_data_tree = MemoryTree(PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT);
         MemoryTree historic_contract_tree = MemoryTree(CONTRACT_TREE_ROOTS_TREE_HEIGHT);
@@ -186,7 +186,7 @@ class root_rollup_tests : public ::testing::Test {
             get_subtree_sibling_path<CONTRACT_TREE_ROOTS_TREE_HEIGHT>(historic_contract_tree, 0, 0);
 
         RootRollupInputs rootRollupInputs = {
-            .previous_rollup_data = previous_rollup_datas(),
+            .previous_rollup_data = previous_rollup_datas(composer),
             .new_historic_private_data_tree_root_sibling_path = historic_data_sibling_path,
             .new_historic_contract_tree_root_sibling_path = historic_contract_sibling_path,
         };
@@ -210,7 +210,7 @@ TEST_F(root_rollup_tests, native_calldata_hash_empty_blocks)
 
     auto hash = sha256::sha256(calldata_hash_input_bytes_vec);
 
-    RootRollupInputs inputs = getEmptyRootRollupInputs();
+    RootRollupInputs inputs = getEmptyRootRollupInputs(composer);
     RootRollupPublicInputs outputs =
         aztec3::circuits::rollup::native_root_rollup::root_rollup_circuit(composer, inputs);
 
@@ -225,6 +225,7 @@ TEST_F(root_rollup_tests, native_calldata_hash_empty_blocks)
     }
 
     ASSERT_EQ(hash, calldata_hash);
+    EXPECT_FALSE(composer.failed());
 
     run_cbind(inputs, outputs, true);
 }
@@ -368,6 +369,8 @@ TEST_F(root_rollup_tests, native_root_missing_nullifier_logic)
     // Check historic contract trees
     ASSERT_EQ(outputs.start_tree_of_historic_contract_tree_roots_snapshot, start_historic_contract_tree_snapshot);
     ASSERT_EQ(outputs.end_tree_of_historic_contract_tree_roots_snapshot, end_historic_contract_tree_snapshot);
+
+    EXPECT_FALSE(composer.failed());
 }
 
 } // namespace aztec3::circuits::rollup::root::native_root_rollup_circuit
