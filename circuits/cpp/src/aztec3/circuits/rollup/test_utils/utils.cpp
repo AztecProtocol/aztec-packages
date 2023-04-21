@@ -1,7 +1,6 @@
-#include "aztec3/circuits/rollup/base/nullifier_tree_testing_harness.hpp"
-#include "aztec3/circuits/rollup/base/utils.hpp"
+#include "nullifier_tree_testing_harness.hpp"
+#include "utils.hpp"
 #include "aztec3/constants.hpp"
-#include "index.hpp"
 #include "init.hpp"
 
 #include <aztec3/circuits/kernel/private/utils.hpp>
@@ -10,29 +9,42 @@
 
 namespace {
 using NT = aztec3::utils::types::NativeTypes;
-using AggregationObject = aztec3::utils::types::NativeTypes::AggregationObject;
 
-using aztec3::circuits::abis::AppendOnlyTreeSnapshot;
-using aztec3::circuits::abis::BaseRollupInputs;
-using aztec3::circuits::abis::ConstantRollupData;
+// Types
+using ConstantRollupData = aztec3::circuits::abis::ConstantRollupData<NT>;
+using BaseRollupInputs = aztec3::circuits::abis::BaseRollupInputs<NT>;
+using BaseOrMergeRollupPublicInputs = aztec3::circuits::abis::BaseOrMergeRollupPublicInputs<NT>;
+using DummyComposer = aztec3::utils::DummyComposer;
+
+using Aggregator = aztec3::circuits::recursion::Aggregator;
+using AppendOnlyTreeSnapshot = aztec3::circuits::abis::AppendOnlyTreeSnapshot<NT>;
+
+using NullifierLeafPreimage = aztec3::circuits::abis::NullifierLeafPreimage<NT>;
+
+// Nullifier Tree Alias
+using MerkleTree = stdlib::merkle_tree::MemoryTree;
+using NullifierTree = stdlib::merkle_tree::NullifierMemoryTree;
+using NullifierLeaf = stdlib::merkle_tree::nullifier_leaf;
+
 using aztec3::circuits::abis::MembershipWitness;
-using aztec3::circuits::abis::NullifierLeafPreimage;
+
+using nullifier_tree_testing_values = std::tuple<BaseRollupInputs, AppendOnlyTreeSnapshot, AppendOnlyTreeSnapshot>;
 
 using aztec3::circuits::kernel::private_kernel::utils::dummy_previous_kernel;
 } // namespace
 
-namespace aztec3::circuits::rollup::base::utils {
+namespace aztec3::circuits::rollup::test_utils::utils {
 
-BaseRollupInputs<NT> dummy_base_rollup_inputs()
+BaseRollupInputs dummy_base_rollup_inputs()
 {
     // TODO standardize function naming
-    ConstantRollupData<NT> constantRollupData;
+    ConstantRollupData constantRollupData;
     constantRollupData.start_tree_of_historic_private_data_tree_roots_snapshot = {
-        .root = native_base_rollup::MerkleTree(PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT).root(),
+        .root = MerkleTree(PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT).root(),
         .next_available_leaf_index = 0,
     };
     constantRollupData.start_tree_of_historic_contract_tree_roots_snapshot = {
-        .root = native_base_rollup::MerkleTree(CONTRACT_TREE_ROOTS_TREE_HEIGHT).root(),
+        .root = MerkleTree(CONTRACT_TREE_ROOTS_TREE_HEIGHT).root(),
         .next_available_leaf_index = 0,
     };
     // constantRollupData.tree_of_historic_l1_to_l2_msg_tree_roots_snapshot =
@@ -43,20 +55,24 @@ BaseRollupInputs<NT> dummy_base_rollup_inputs()
     kernel_data[0] = dummy_previous_kernel();
     kernel_data[1] = dummy_previous_kernel();
 
-    BaseRollupInputs<NT> baseRollupInputs = { .kernel_data = kernel_data,
+    BaseRollupInputs baseRollupInputs = { .kernel_data = kernel_data,
                                               .start_private_data_tree_snapshot = {
-                                                  .root = native_base_rollup::MerkleTree(PRIVATE_DATA_TREE_HEIGHT).root(),
+                                                  .root = MerkleTree(PRIVATE_DATA_TREE_HEIGHT).root(),
                                                   .next_available_leaf_index = 0,
                                               },
                                               //.start_nullifier_tree_snapshot =
                                               .start_contract_tree_snapshot = {
-                                                  .root = native_base_rollup::MerkleTree(CONTRACT_TREE_HEIGHT).root(),
+                                                  .root = MerkleTree(CONTRACT_TREE_HEIGHT).root(),
                                                   .next_available_leaf_index = 0,
                                               },
                                               .constants = constantRollupData };
 
     return baseRollupInputs;
 }
+
+//////////////////////////
+// NULLIFIER TREE BELOW //
+//////////////////////////
 
 /**
  * @brief Get initial nullifier tree object
@@ -89,10 +105,9 @@ NullifierMemoryTreeTestingHarness get_initial_nullifier_tree_lin_space(size_t sp
     return get_initial_nullifier_tree(nullifiers);
 }
 
-std::tuple<BaseRollupInputs<NT>, AppendOnlyTreeSnapshot<NT>, AppendOnlyTreeSnapshot<NT>>
-generate_nullifier_tree_testing_values(BaseRollupInputs<NT> inputs,
-                                       size_t starting_insertion_value = 0,
-                                       size_t spacing = 5)
+nullifier_tree_testing_values generate_nullifier_tree_testing_values(BaseRollupInputs inputs,
+                                                                     size_t starting_insertion_value = 0,
+                                                                     size_t spacing = 5)
 {
     const size_t NUMBER_OF_NULLIFIERS = KERNEL_NEW_NULLIFIERS_LENGTH * 2;
     std::array<fr, NUMBER_OF_NULLIFIERS> nullifiers;
@@ -107,13 +122,11 @@ generate_nullifier_tree_testing_values(BaseRollupInputs<NT> inputs,
         initial_values.push_back(i * spacing);
     }
 
-    return generate_nullifier_tree_testing_values(inputs, nullifiers, initial_values);
+    return utils::generate_nullifier_tree_testing_values_explicit(inputs, nullifiers, initial_values);
 }
 
-std::tuple<BaseRollupInputs<NT>, AppendOnlyTreeSnapshot<NT>, AppendOnlyTreeSnapshot<NT>>
-generate_nullifier_tree_testing_values(BaseRollupInputs<NT> inputs,
-                                       std::array<fr, KERNEL_NEW_NULLIFIERS_LENGTH * 2> new_nullifiers,
-                                       size_t spacing = 5)
+nullifier_tree_testing_values generate_nullifier_tree_testing_values(
+    BaseRollupInputs inputs, std::array<fr, KERNEL_NEW_NULLIFIERS_LENGTH * 2> new_nullifiers, size_t spacing = 5)
 {
     // Generate initial values lin spaced
     std::vector<fr> initial_values;
@@ -121,26 +134,26 @@ generate_nullifier_tree_testing_values(BaseRollupInputs<NT> inputs,
         initial_values.push_back(i * spacing);
     }
 
-    return generate_nullifier_tree_testing_values(inputs, new_nullifiers, initial_values);
+    return utils::generate_nullifier_tree_testing_values_explicit(inputs, new_nullifiers, initial_values);
 }
 
-std::tuple<BaseRollupInputs<NT>, AppendOnlyTreeSnapshot<NT>, AppendOnlyTreeSnapshot<NT>>
-generate_nullifier_tree_testing_values(BaseRollupInputs<NT> rollupInputs,
-                                       std::array<fr, KERNEL_NEW_NULLIFIERS_LENGTH * 2> new_nullifiers,
-                                       std::vector<fr> initial_values)
+nullifier_tree_testing_values generate_nullifier_tree_testing_values_explicit(
+    BaseRollupInputs rollupInputs,
+    std::array<fr, KERNEL_NEW_NULLIFIERS_LENGTH * 2> new_nullifiers,
+    std::vector<fr> initial_values)
 {
     size_t start_tree_size = initial_values.size() + 1;
     // Generate nullifier tree testing values
     NullifierMemoryTreeTestingHarness nullifier_tree = get_initial_nullifier_tree(initial_values);
     NullifierMemoryTreeTestingHarness reference_tree = get_initial_nullifier_tree(initial_values);
 
-    AppendOnlyTreeSnapshot<NT> nullifier_tree_start_snapshot = {
+    AppendOnlyTreeSnapshot nullifier_tree_start_snapshot = {
         .root = nullifier_tree.root(),
         .next_available_leaf_index = uint32_t(start_tree_size),
     };
 
     const size_t NUMBER_OF_NULLIFIERS = KERNEL_NEW_NULLIFIERS_LENGTH * 2;
-    std::array<NullifierLeafPreimage<NT>, NUMBER_OF_NULLIFIERS> new_nullifier_leaves;
+    std::array<NullifierLeafPreimage, NUMBER_OF_NULLIFIERS> new_nullifier_leaves;
     std::array<MembershipWitness<NT, NULLIFIER_TREE_HEIGHT>, NUMBER_OF_NULLIFIERS>
         low_nullifier_leaves_preimages_witnesses;
 
@@ -184,7 +197,7 @@ generate_nullifier_tree_testing_values(BaseRollupInputs<NT> rollupInputs,
         new_membership_witnesses[i] = witness;
 
         // Create circuit compatible preimages - issue created to remove this step
-        NullifierLeafPreimage<NT> preimage = {
+        NullifierLeafPreimage preimage = {
             .leaf_value = new_nullifier_leaves_preimages[i].value,
             .next_index = NT::uint32(new_nullifier_leaves_preimages[i].nextIndex),
             .next_value = new_nullifier_leaves_preimages[i].nextValue,
@@ -194,7 +207,7 @@ generate_nullifier_tree_testing_values(BaseRollupInputs<NT> rollupInputs,
 
     // Get expected root with subtrees inserted correctly
     // Expected end state
-    AppendOnlyTreeSnapshot<NT> nullifier_tree_end_snapshot = {
+    AppendOnlyTreeSnapshot nullifier_tree_end_snapshot = {
         .root = reference_tree.root(),
         .next_available_leaf_index = uint32_t(reference_tree.size()),
     };
@@ -221,4 +234,4 @@ generate_nullifier_tree_testing_values(BaseRollupInputs<NT> rollupInputs,
     return std::make_tuple(rollupInputs, nullifier_tree_start_snapshot, nullifier_tree_end_snapshot);
 }
 
-} // namespace aztec3::circuits::rollup::base::utils
+} // namespace aztec3::circuits::rollup::test_utils::utils

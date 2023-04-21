@@ -5,7 +5,8 @@
 #include "aztec3/circuits/abis/rollup/merge/previous_rollup_data.hpp"
 #include "aztec3/circuits/abis/rollup/nullifier_leaf_preimage.hpp"
 #include "aztec3/circuits/rollup/base/init.hpp"
-#include "aztec3/circuits/rollup/base/utils.hpp"
+#include "aztec3/circuits/rollup/test_utils/utils.hpp"
+#include "aztec3/circuits/rollup/base/native_base_rollup_circuit.hpp"
 #include "aztec3/circuits/kernel/private/utils.hpp"
 #include "aztec3/circuits/rollup/merge/utils.hpp"
 #include "aztec3/constants.hpp"
@@ -76,8 +77,8 @@ using aztec3::circuits::apps::test_apps::escrow::deposit;
 // using aztec3::circuits::mock::mock_circuit;
 using aztec3::circuits::kernel::private_kernel::utils::dummy_previous_kernel;
 using aztec3::circuits::mock::mock_kernel_circuit;
-using aztec3::circuits::rollup::base::utils::dummy_base_rollup_inputs;
-using aztec3::circuits::rollup::merge::previous_rollup_datas;
+using aztec3::circuits::rollup::merge::utils::previous_rollup_datas;
+using aztec3::circuits::rollup::test_utils::utils::dummy_base_rollup_inputs;
 // using aztec3::circuits::mock::mock_kernel_inputs;
 
 using aztec3::circuits::abis::AppendOnlyTreeSnapshot;

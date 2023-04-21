@@ -9,7 +9,7 @@
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/stdlib/merkle_tree/memory_tree.hpp"
 
-#include "aztec3/circuits/rollup/base/utils.hpp"
+#include "aztec3/circuits/rollup/test_utils/utils.hpp"
 #include "index.hpp"
 #include "init.hpp"
 #include "c_bind.h"
@@ -46,10 +46,8 @@
 #include <tuple>
 #include <vector>
 
-#include "utils.hpp"
-
 // Nullifier tree building lib
-#include "./nullifier_tree_testing_harness.hpp"
+// #include "./nullifier_tree_testing_harness.hpp"
 // #include <aztec3/constants.hpp>
 // #include <barretenberg/crypto/pedersen/pedersen.hpp>
 // #include <barretenberg/stdlib/hash/pedersen/pedersen.hpp>
@@ -81,7 +79,7 @@ using aztec3::circuits::apps::test_apps::escrow::deposit;
 // using aztec3::circuits::mock::mock_circuit;
 using aztec3::circuits::kernel::private_kernel::utils::dummy_previous_kernel;
 using aztec3::circuits::mock::mock_kernel_circuit;
-using aztec3::circuits::rollup::base::utils::dummy_base_rollup_inputs;
+using aztec3::circuits::rollup::test_utils::utils::dummy_base_rollup_inputs;
 // using aztec3::circuits::mock::mock_kernel_inputs;
 
 using aztec3::circuits::abis::AppendOnlyTreeSnapshot;
@@ -364,7 +362,7 @@ TEST_F(base_rollup_tests, native_new_nullifier_tree_empty)
     BaseRollupInputs empty_inputs = dummy_base_rollup_inputs();
     std::array<fr, KERNEL_NEW_NULLIFIERS_LENGTH* 2> new_nullifiers = { 0, 0, 0, 0, 0, 0, 0, 0 };
     std::tuple<BaseRollupInputs, AppendOnlyTreeSnapshot<NT>, AppendOnlyTreeSnapshot<NT>> inputs_and_snapshots =
-        utils::generate_nullifier_tree_testing_values(empty_inputs, new_nullifiers, 1);
+        test_utils::utils::generate_nullifier_tree_testing_values(empty_inputs, new_nullifiers, 1);
 
     BaseRollupInputs testing_inputs = std::get<0>(inputs_and_snapshots);
     AppendOnlyTreeSnapshot<NT> nullifier_tree_start_snapshot = std::get<1>(inputs_and_snapshots);
@@ -400,7 +398,7 @@ TEST_F(base_rollup_tests, native_new_nullifier_tree_all_larger)
     DummyComposer composer = DummyComposer();
     BaseRollupInputs empty_inputs = dummy_base_rollup_inputs();
     std::tuple<BaseRollupInputs, AppendOnlyTreeSnapshot<NT>, AppendOnlyTreeSnapshot<NT>> inputs_and_snapshots =
-        utils::generate_nullifier_tree_testing_values(empty_inputs, 8, 1);
+        test_utils::utils::generate_nullifier_tree_testing_values(empty_inputs, 8, 1);
 
     BaseRollupInputs testing_inputs = std::get<0>(inputs_and_snapshots);
     AppendOnlyTreeSnapshot<NT> nullifier_tree_start_snapshot = std::get<1>(inputs_and_snapshots);
@@ -434,7 +432,7 @@ TEST_F(base_rollup_tests, native_new_nullifier_tree_sparse)
     DummyComposer composer = DummyComposer();
     BaseRollupInputs empty_inputs = dummy_base_rollup_inputs();
     std::tuple<BaseRollupInputs, AppendOnlyTreeSnapshot<NT>, AppendOnlyTreeSnapshot<NT>> inputs_and_snapshots =
-        utils::generate_nullifier_tree_testing_values(empty_inputs, 1, 5);
+        test_utils::utils::generate_nullifier_tree_testing_values(empty_inputs, 1, 5);
 
     BaseRollupInputs testing_inputs = std::get<0>(inputs_and_snapshots);
     AppendOnlyTreeSnapshot<NT> nullifier_tree_start_snapshot = std::get<1>(inputs_and_snapshots);
@@ -482,7 +480,8 @@ TEST_F(base_rollup_tests, native_nullifier_tree_regression)
     new_nullifiers[1] = uint256_t("26ab07ce103a55e29f11478eaa36cebd10c4834b143a7debcc7ef53bfdb547dd");
 
     std::tuple<BaseRollupInputs, AppendOnlyTreeSnapshot<NT>, AppendOnlyTreeSnapshot<NT>> inputs_and_snapshots =
-        utils::generate_nullifier_tree_testing_values(empty_inputs, new_nullifiers, initial_values);
+        test_utils::utils::generate_nullifier_tree_testing_values_explicit(
+            empty_inputs, new_nullifiers, initial_values);
     BaseRollupInputs testing_inputs = std::get<0>(inputs_and_snapshots);
     AppendOnlyTreeSnapshot<NT> nullifier_tree_start_snapshot = std::get<1>(inputs_and_snapshots);
     AppendOnlyTreeSnapshot<NT> nullifier_tree_end_snapshot = std::get<2>(inputs_and_snapshots);
@@ -518,7 +517,8 @@ void perform_standard_nullifier_test(std::array<fr, KERNEL_NEW_NULLIFIERS_LENGTH
     }
 
     std::tuple<BaseRollupInputs, AppendOnlyTreeSnapshot<NT>, AppendOnlyTreeSnapshot<NT>> inputs_and_snapshots =
-        utils::generate_nullifier_tree_testing_values(empty_inputs, new_nullifiers, initial_values);
+        test_utils::utils::generate_nullifier_tree_testing_values_explicit(
+            empty_inputs, new_nullifiers, initial_values);
     BaseRollupInputs testing_inputs = std::get<0>(inputs_and_snapshots);
     AppendOnlyTreeSnapshot<NT> nullifier_tree_start_snapshot = std::get<1>(inputs_and_snapshots);
     AppendOnlyTreeSnapshot<NT> nullifier_tree_end_snapshot = std::get<2>(inputs_and_snapshots);
@@ -578,7 +578,7 @@ TEST_F(base_rollup_tests, native_new_nullifier_tree_sparse_attack)
 
     std::array<fr, KERNEL_NEW_NULLIFIERS_LENGTH* 2> new_nullifiers = { 11, 0, 11, 0, 0, 0, 0, 0 };
     std::tuple<BaseRollupInputs, AppendOnlyTreeSnapshot<NT>, AppendOnlyTreeSnapshot<NT>> inputs_and_snapshots =
-        utils::generate_nullifier_tree_testing_values(empty_inputs, new_nullifiers, 1);
+        test_utils::utils::generate_nullifier_tree_testing_values(empty_inputs, new_nullifiers, 1);
     BaseRollupInputs testing_inputs = std::get<0>(inputs_and_snapshots);
 
     // Run the circuit (SHOULD FAIL WITH AN ASSERT INSTEAD OF THIS!)
@@ -645,7 +645,7 @@ TEST_F(base_rollup_tests, native_calldata_hash)
 
     // Get nullifier tree data
     std::tuple<BaseRollupInputs, AppendOnlyTreeSnapshot<NT>, AppendOnlyTreeSnapshot<NT>> inputs_and_snapshots =
-        utils::generate_nullifier_tree_testing_values(inputs, 8, 1);
+        test_utils::utils::generate_nullifier_tree_testing_values(inputs, 8, 1);
     inputs = std::get<0>(inputs_and_snapshots);
 
     // Add a contract deployment

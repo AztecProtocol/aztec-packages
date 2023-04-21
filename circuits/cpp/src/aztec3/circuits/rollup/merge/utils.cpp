@@ -2,7 +2,11 @@
 #include "barretenberg/plonk/proof_system/verification_key/verification_key.hpp"
 
 #include <aztec3/circuits/kernel/private/utils.hpp>
-#include "aztec3/circuits/rollup/base/utils.hpp"
+#include <aztec3/circuits/mock/mock_kernel_circuit.hpp>
+#include "aztec3/circuits/abis/new_contract_data.hpp"
+#include "aztec3/circuits/rollup/test_utils/utils.hpp"
+#include "aztec3/circuits/rollup/base/native_base_rollup_circuit.hpp"
+// #include "aztec3/circuits/abis/rollup/base/previous_rollup_data.hpp"
 
 namespace {
 using aztec3::circuits::abis::MembershipWitness;
@@ -13,10 +17,10 @@ namespace aztec3::circuits::rollup::merge {
 
 std::array<PreviousRollupData<NT>, 2> previous_rollup_datas(DummyComposer& composer)
 {
-    auto input1 = base::utils::dummy_base_rollup_inputs();
+    auto input1 = test_utils::utils::dummy_base_rollup_inputs();
     // Must handle the sibling paths
 
-    BaseOrMergeRollupPublicInputs base_public_input1 =
+    BaseOrMergeRollupPublicInputs<NT> base_public_input1 =
         aztec3::circuits::rollup::native_base_rollup::base_rollup_circuit(composer, input1);
 
     auto input2 = input1;
