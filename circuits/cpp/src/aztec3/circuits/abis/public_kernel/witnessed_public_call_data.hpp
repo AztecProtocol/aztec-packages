@@ -12,6 +12,7 @@
 
 namespace aztec3::circuits::abis::public_kernel {
 
+using aztec3::circuits::abis::public_kernel::PublicCallData;
 using aztec3::utils::types::CircuitTypes;
 using aztec3::utils::types::NativeTypes;
 using std::is_same;
@@ -20,7 +21,7 @@ template <typename NCT> struct WitnessedPublicCallData {
     typedef typename NCT::fr fr;
     typedef typename NCT::boolean boolean;
 
-    PublicCallData public_call_data;
+    PublicCallData<NCT> public_call_data;
     std::array<MembershipWitness<NCT, PUBLIC_DATA_TREE_HEIGHT>, STATE_TRANSITIONS_LENGTH>
         state_transitions_sibling_paths;
     std::array<MembershipWitness<NCT, PUBLIC_DATA_TREE_HEIGHT>, STATE_READS_LENGTH> state_reads_sibling_paths;
@@ -80,7 +81,7 @@ template <typename NCT> std::ostream& operator<<(std::ostream& os, WitnessedPubl
               << "state_reads_sibling_paths:\n"
               << witnessed_call_data.state_reads_sibling_paths << "\n"
               << "public_data_tree_root:\n"
-              << public_kernel_inputs.public_data_tree_root << "\n";
+              << witnessed_call_data.public_data_tree_root << "\n";
 }
 
 } // namespace aztec3::circuits::abis::public_kernel

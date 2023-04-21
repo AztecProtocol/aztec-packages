@@ -98,7 +98,7 @@ typename NCT::fr add_contract_address_to_nullifier(typename NCT::address contrac
  */
 template <typename NCT, size_t N>
 typename NCT::fr root_from_sibling_path(typename NCT::fr const& leaf,
-                                        typename NCT::uint32 const& leafIndex,
+                                        typename NCT::uint256_t const& leafIndex,
                                         std::array<typename NCT::fr, N> const& siblingPath)
 {
     auto node = leaf;

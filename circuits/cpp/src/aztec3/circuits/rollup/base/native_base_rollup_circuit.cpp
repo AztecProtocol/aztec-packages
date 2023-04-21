@@ -246,8 +246,8 @@ NT::fr create_nullifier_subtree(std::array<NullifierLeaf, KERNEL_NEW_NULLIFIERS_
         // check if the nullifier is zero, if so dont insert
         // if (nullifier_leaves[i].value != fr(0)) { // TODO: reinsert after 0 is accounted for
         nullifier_subtree.update_element(i, nullifier_leaves[i].hash());
-        // }
     }
+    // }
 
     return nullifier_subtree.root();
 }
