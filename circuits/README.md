@@ -47,20 +47,25 @@ cd cpp
 ```
 
 Here is an example of rapidly rebuilding and running all tests for `x86_64`:
+
 ```
 ./bootstrap.sh
 ./scripts/run_tests_local x86_64 glob
 ```
+
 > **WARNING:** the `x86_64` (and `wasm` used below) as well as the keyword `glob` **MUST BE LOWERCASE**!
 
 Here is an example of rapidly rebuilding and running only the abis tests for `wasm`:
+
 ```
 ./bootstrap.sh aztec3_circuits_abis_tests
 ./scripts/run_tests_local wasm aztec3_circuits_abis_tests
 ```
+
 > Note: to run wasm tests you must first follow the [instructions here](https://docs.wasmtime.dev/cli-install.html) to install `wasmtime`.
 
 You can choose which tests will run via a gtest filter. This one below runs only tests that _omit_ the string '.circuit':
+
 ```
 ./scripts/run_tests_local wasm aztec3_circuits_abis_tests -*.circuit*
 ```
@@ -68,20 +73,25 @@ You can choose which tests will run via a gtest filter. This one below runs only
 ---
 
 Here's a list of the tests currently available (conveniently combined with the command to build, then execute them on `x86_64`, for easy copy-pasta):
- - `aztec3_circuits_abis_tests`
-   - `./bootstrap.sh aztec3_circuits_abis_tests && ./scripts/run_tests_local x86_64 aztec3_circuits_abis_tests`
 
- - `aztec3_circuits_apps_tests`
-   - `./bootstrap.sh aztec3_circuits_apps_tests && ./scripts/run_tests_local x86_64 aztec3_circuits_apps_tests`
+- `aztec3_circuits_abis_tests`
 
- - `aztec3_circuits_kernel_tests`
-   - `./bootstrap.sh aztec3_circuits_kernel_tests && ./scripts/run_tests_local x86_64 aztec3_circuits_kernel_tests`
+  - `./bootstrap.sh aztec3_circuits_abis_tests && ./scripts/run_tests_local x86_64 aztec3_circuits_abis_tests`
 
- - `aztec3_circuits_recursion_tests`
-   - `./bootstrap.sh aztec3_circuits_recursion_tests && ./scripts/run_tests_local x86_64 aztec3_circuits_recursion_tests`
+- `aztec3_circuits_apps_tests`
 
- - `aztec3_circuits_rollup_tests`
-   - `./bootstrap.sh aztec3_circuits_rollup_tests && ./scripts/run_tests_local x86_64 aztec3_circuits_rollup_tests`
+  - `./bootstrap.sh aztec3_circuits_apps_tests && ./scripts/run_tests_local x86_64 aztec3_circuits_apps_tests`
+
+- `aztec3_circuits_kernel_tests`
+
+  - `./bootstrap.sh aztec3_circuits_kernel_tests && ./scripts/run_tests_local x86_64 aztec3_circuits_kernel_tests`
+
+- `aztec3_circuits_recursion_tests`
+
+  - `./bootstrap.sh aztec3_circuits_recursion_tests && ./scripts/run_tests_local x86_64 aztec3_circuits_recursion_tests`
+
+- `aztec3_circuits_rollup_tests`
+  - `./bootstrap.sh aztec3_circuits_rollup_tests && ./scripts/run_tests_local x86_64 aztec3_circuits_rollup_tests`
 
 ---
 
@@ -90,15 +100,49 @@ Here's a list of the tests currently available (conveniently combined with the c
 You can also run tests in docker. This is useful for replicating CI failures that you can't replicate with your standard local environment.
 
 To build and run all tests in an `x86_64` docker image:
+
 ```
 ./bootstrap.sh
 ./scripts/build_run_tests_docker_local 1 x86_64 glob
 ```
+
 You can choose `wasm` instead of `x86_64`. You can also specify individual test executables instead of `glob` and can use gtest filters exactly as described for `run_tests_local`.
 
 > At this time, it is common to run wasm tests with the filter `-*.circuit*` as there are circuit issues in wasm.
 
 > The `build_run_tests_docker_local` script builds the chosen docker image (`x86_64` or `wasm`) and then launches a container from that image to run the `run_tests_local` script (used above).
+
+#### Generating code coverage reports
+
+You can generate coverage reports for your tests.
+Note, this will require `lcov` to be installed, to do so run `scripts/misc/install_lcov.sh`.
+
+To build and run coverage on all tests:
+
+```
+./bootstrap.sh
+./scripts/run_coverage
+```
+
+Producing coverage reports is computationally intensive
+You can select a specific test suite to run coverage on by supplying it as an argument to the `run_coverage`. For example, to only compile and produce
+
+```
+./bootstrap.sh
+./scripts/run_coverage aztec3_circuits_abis_tests
+```
+
+**Toggles**
+Running with the `CLEAN` environment variable set will delete the existing `build-coverage` folder.
+Running with the `CLEAR_COV` environment variable will delete any existing `lcov.info` file.
+
+#### Viewing coverage reports
+
+Once a report has been generated, you can view them within the WHAT folder in html.
+
+#### Viewing coverage reports inside vscode
+
+It may be useful to view coverage information from within vscode. The `./scripts/run_coverage` will produce an `lcov.info` file that should automatically be picked up by the `coverage-gutters` vscode extension.
 
 ---
 

@@ -9,6 +9,11 @@ set -e
 # Example:
 # ./scripts/run_coverage glob
 #
+# Running with the CLEAN environment variable set will delete the build-coverage folder and start again.
+# Running with the CLEAR_COV environment variable set will clear existing vscode coverage data (lcov.info).
+#
+# This will create two outputs: lcov.info and an html coverage report in build-coverage/coverage_report
+#
 # Note: Assumes ignition SRS transcripts have already been downloaded
 
 # TESTS:
@@ -20,6 +25,12 @@ TESTS=$1
 
 # Set coverage build directory
 BUILD_DIR="build-coverage"
+
+# If the clean file is set, wipe all existing coverage data
+if [[ -n "$CLEAN" ]]; then
+  echo "The CLEAN environment variable is set. Clearing existing coverage data."
+  rm -rf ./$BUILD_DIR || true
+fi
 
 # Perform coverage build
 echo "Setting cmake to run with preset coverage"
@@ -36,6 +47,16 @@ elif [ -f "$TESTS" ]; then
 fi
 
 cd $BUILD_DIR
+
+# if just the CLEAR_COV env var is set then we will clear existing coveage report information
+if [[ -n "$CLEAR_COV" ]]; then
+  echo "The CLEAR_COV environment variable is set. Clearing existing coverage data."
+  rm ./lcov.info || true
+  rm ./merged_profdata/default.profdata || true
+  rm ./default.profraw || true
+  rm -rf ./bin/profdata || true
+fi
+
 for BIN in $TESTS; do
   echo "*** Building $BIN ***"
   cmake --build . --target $BIN
@@ -44,6 +65,7 @@ done
 echo "Testing $BIN"
 echo "*** Collecting Profiling Information ***"
 ctest || true
+echo "Completed profiling"
 
 echo "*** Generating Coverage Reports ***"
 cmake --build . --target create_full_coverage_report
@@ -51,7 +73,6 @@ cmake --build . --target create_full_coverage_report
 echo *** Generating VScode line coverage data ***
 for BIN in $TESTS; do
   echo "Generating line coverage data for $BIN"
-  rm .lcov.info || true
   llvm-cov-15 export ./bin/$BIN  --format=lcov -instr-profile="./merged_profdata/default.profdata" > lcov.info
 done
 

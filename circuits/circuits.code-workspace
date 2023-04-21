@@ -4,7 +4,7 @@
   "folders": [
     {
       "name": "aztec3-circuits",
-      "path": "./cpp"
+      "path": "./"
     }
   ],
   // List recommended extensions for the whole workspace.
@@ -38,7 +38,9 @@
       // prettier.
       "IBM.output-colorizer",
       "eamodio.gitlens",
-      "esbenp.prettier-vscode"
+      "esbenp.prettier-vscode",
+      // Displays code coverage report information within vscode
+      "ryanluker.vscode-coverage-gutters"
     ],
     "unwantedRecommendations": [
       // The following may have been installed
