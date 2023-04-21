@@ -113,7 +113,7 @@ export async function hashConstructor(
     throw new Error(`Expected constructor args to have length <= ${ARGS_LENGTH}! Was: ${args.length}`);
   }
   const numEmptyArgs = ARGS_LENGTH - args.length;
-  const emptyArgs = Array.from({ length: numEmptyArgs}, () => new Fr(0n));
+  const emptyArgs = Array.from({ length: numEmptyArgs }, () => new Fr(0n));
   const fullArgs = args.concat(emptyArgs);
   const inputVector = serializeToBuffer(fullArgs.map(fr => fr.toBuffer()));
   wasm.call('pedersen__init');

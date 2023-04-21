@@ -85,7 +85,7 @@ describe('abis wasm bindings', () => {
 
   it('hash constructor throws (>max args)', async () => {
     const functionData = new FunctionData(Buffer.alloc(4), true, true);
-    const args = Array.from({ length: ARGS_LENGTH+1 }, (v, i) => new Fr(BigInt(i)));
+    const args = Array.from({ length: ARGS_LENGTH + 1 }, (v, i) => new Fr(BigInt(i)));
     const vkHash = Buffer.alloc(32);
     await expect(hashConstructor(wasm, functionData, args, vkHash)).rejects.toThrow();
   });
