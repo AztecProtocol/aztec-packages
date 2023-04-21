@@ -2,7 +2,7 @@ import { BufferReader, Fr } from '@aztec/foundation';
 import { serializeToBuffer } from '../../utils/serialize.js';
 import { TxContext } from '../tx_context.js';
 
-export class PrivateOldTreeRoots {
+export class PrivateHistoricTreeRoots {
   constructor(
     public privateDataTreeRoot: Fr,
     public nullifierTreeRoot: Fr,
@@ -23,38 +23,41 @@ export class PrivateOldTreeRoots {
    * Deserializes from a buffer or reader, corresponding to a write in cpp.
    * @param buffer - Buffer to read from.
    */
-  static fromBuffer(buffer: Buffer | BufferReader): PrivateOldTreeRoots {
+  static fromBuffer(buffer: Buffer | BufferReader): PrivateHistoricTreeRoots {
     const reader = BufferReader.asReader(buffer);
-    return new PrivateOldTreeRoots(reader.readFr(), reader.readFr(), reader.readFr(), reader.readFr());
+    return new PrivateHistoricTreeRoots(reader.readFr(), reader.readFr(), reader.readFr(), reader.readFr());
   }
 
   static empty() {
-    return new PrivateOldTreeRoots(Fr.ZERO, Fr.ZERO, Fr.ZERO, Fr.ZERO);
+    return new PrivateHistoricTreeRoots(Fr.ZERO, Fr.ZERO, Fr.ZERO, Fr.ZERO);
   }
 }
 
-export class CombinedOldTreeRoots {
-  constructor(public readonly privateOldTreeRoots: PrivateOldTreeRoots, public readonly publicDataTreeRoot: Fr) {}
+export class CombinedHistoricTreeRoots {
+  constructor(
+    public readonly privateHistoricTreeRoots: PrivateHistoricTreeRoots,
+    public readonly publicDataTreeRoot: Fr,
+  ) {}
 
   toBuffer() {
-    return serializeToBuffer(this.privateOldTreeRoots, this.publicDataTreeRoot);
+    return serializeToBuffer(this.privateHistoricTreeRoots, this.publicDataTreeRoot);
   }
 
   static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
-    return new CombinedOldTreeRoots(reader.readObject(PrivateOldTreeRoots), reader.readFr());
+    return new CombinedHistoricTreeRoots(reader.readObject(PrivateHistoricTreeRoots), reader.readFr());
   }
 
   static empty() {
-    return new CombinedOldTreeRoots(PrivateOldTreeRoots.empty(), Fr.ZERO);
+    return new CombinedHistoricTreeRoots(PrivateHistoricTreeRoots.empty(), Fr.ZERO);
   }
 }
 
 export class CombinedConstantData {
-  constructor(public oldTreeRoots: CombinedOldTreeRoots, public txContext: TxContext) {}
+  constructor(public historicTreeRoots: CombinedHistoricTreeRoots, public txContext: TxContext) {}
 
   toBuffer() {
-    return serializeToBuffer(this.oldTreeRoots, this.txContext);
+    return serializeToBuffer(this.historicTreeRoots, this.txContext);
   }
 
   /**
@@ -63,10 +66,10 @@ export class CombinedConstantData {
    */
   static fromBuffer(buffer: Buffer | BufferReader): CombinedConstantData {
     const reader = BufferReader.asReader(buffer);
-    return new CombinedConstantData(reader.readObject(CombinedOldTreeRoots), reader.readObject(TxContext));
+    return new CombinedConstantData(reader.readObject(CombinedHistoricTreeRoots), reader.readObject(TxContext));
   }
 
   static empty() {
-    return new CombinedConstantData(CombinedOldTreeRoots.empty(), TxContext.empty());
+    return new CombinedConstantData(CombinedHistoricTreeRoots.empty(), TxContext.empty());
   }
 }

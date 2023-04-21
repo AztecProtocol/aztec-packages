@@ -5,7 +5,7 @@ import {
   CallContext,
   CombinedAccumulatedData,
   CombinedConstantData,
-  CombinedOldTreeRoots,
+  CombinedHistoricTreeRoots,
   ConstantBaseRollupData,
   KernelCircuitPublicInputs,
   MergeRollupInputs,
@@ -17,11 +17,13 @@ import {
   PrivateCallData,
   PrivateCircuitPublicInputs,
   PrivateKernelInputs,
-  PrivateOldTreeRoots,
+  PrivateHistoricTreeRoots,
   RootRollupInputs,
   RootRollupPublicInputs,
   StateRead,
   StateTransition,
+  PublicDataWrite,
+  PublicDataRead,
 } from '../index.js';
 import { AggregationObject } from '../structs/aggregation_object.js';
 import { PrivateCallStackItem } from '../structs/call_stack_item.js';
@@ -68,22 +70,30 @@ export function makeTxContext(seed: number): TxContext {
   return new TxContext(false, false, true, deploymentData);
 }
 
-export function makePrivateOldTreeRoots(seed: number): PrivateOldTreeRoots {
-  return new PrivateOldTreeRoots(fr(seed), fr(seed + 1), fr(seed + 2), fr(seed + 3));
+export function makePrivateHistoricTreeRoots(seed: number): PrivateHistoricTreeRoots {
+  return new PrivateHistoricTreeRoots(fr(seed), fr(seed + 1), fr(seed + 2), fr(seed + 3));
 }
 
-export function makeCombinedOldTreeRoots(seed: number): CombinedOldTreeRoots {
-  return new CombinedOldTreeRoots(makePrivateOldTreeRoots(seed), fr(seed + 4));
+export function makeCombinedHistoricTreeRoots(seed: number): CombinedHistoricTreeRoots {
+  return new CombinedHistoricTreeRoots(makePrivateHistoricTreeRoots(seed), fr(seed + 4));
 }
 
 export function makeConstantData(seed = 1): CombinedConstantData {
-  return new CombinedConstantData(makeCombinedOldTreeRoots(seed), makeTxContext(seed + 4));
+  return new CombinedConstantData(makeCombinedHistoricTreeRoots(seed), makeTxContext(seed + 4));
 }
 
 export function makeSelector(seed: number) {
   const buffer = Buffer.alloc(4);
   buffer.writeUInt32BE(seed, 0);
   return buffer;
+}
+
+export function makePublicDataWrite(seed = 1) {
+  return new PublicDataWrite(fr(seed), fr(seed + 1));
+}
+
+export function makePublicDataRead(seed = 1) {
+  return new PublicDataRead(fr(seed), fr(seed + 1));
 }
 
 export function makeStateTransition(seed = 1) {
@@ -106,8 +116,7 @@ export function makeAccumulatedData(seed = 1): CombinedAccumulatedData {
     range(KERNEL_L1_MSG_STACK_LENGTH, seed + 0x500).map(fr),
     range(KERNEL_NEW_CONTRACTS_LENGTH, seed + 0x600).map(makeNewContractData),
     range(KERNEL_OPTIONALLY_REVEALED_DATA_LENGTH, seed + 0x700).map(makeOptionallyRevealedData),
-    range(STATE_TRANSITIONS_LENGTH, seed + 0x800).map(makeStateTransition),
-    range(STATE_READS_LENGTH, seed + 0x900).map(makeStateRead),
+    range(STATE_TRANSITIONS_LENGTH, seed + 0x800).map(makePublicDataWrite),
   );
 }
 
@@ -399,7 +408,7 @@ export function makeBaseRollupInputs(seed = 0) {
     newCommitmentsSubtreeSiblingPath,
     newNullifiersSubtreeSiblingPath,
     newContractsSubtreeSiblingPath,
-    newStateTransitionsSiblingPath,
+    newStateTransitionsSiblingPaths: newStateTransitionsSiblingPath,
     historicPrivateDataTreeRootMembershipWitnesses,
     historicContractsTreeRootMembershipWitnesses,
     constants,
