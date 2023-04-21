@@ -21,9 +21,9 @@ import { DBOracle } from './db_oracle.js';
 import { AcirSimulator } from './simulator.js';
 import { NoirPoint, computeSlotForMapping, toPublicKey } from '../utils.js';
 
-export const createMemDown = () => (memdown as any)() as MemDown<any, any>;
+const createMemDown = () => (memdown as any)() as MemDown<any, any>;
 
-describe('ACIR simulator', () => {
+describe('Private Execution test suite', () => {
   let bbWasm: BarretenbergWasm;
   let oracle: ReturnType<typeof mock<DBOracle>>;
   let acirSimulator: AcirSimulator;
