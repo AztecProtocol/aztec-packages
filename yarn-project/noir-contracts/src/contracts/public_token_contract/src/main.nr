@@ -8,14 +8,16 @@ contract PublicToken {
 
     global balances = StorageMap { storage_slot: 1 };
 
-    /// ABI constructor []
+    /// ABI constructor params []
+    /// ABI constructor return []
     fn constructor(
         inputs: pub Inputs,
     ) -> pub [Field; dep::aztec3::abi::PUBLIC_INPUTS_LENGTH] {
         Outputs::new().finish(inputs)
     }
 
-    /// ABI mint [{"name":"amount","type":{"kind":"field"},"visibility":"public"},{"name":"recipient","type":{"kind":"struct","fields":[{"name":"x","type":{"kind":"field"}},{"name":"y","type":{"kind":"field"}}],"visibility":"public"}}]
+    /// ABI mint params [{"name":"amount","type":{"kind":"field"},"visibility":"public"},{"name":"recipient","type":{"kind":"struct","fields":[{"name":"x","type":{"kind":"field"}},{"name":"y","type":{"kind":"field"}}],"visibility":"public"}}]
+    /// ABI mint return [{"kind":"field"}]
     fn mint(
         _call_context: pub CallContext,
         amount: pub Field,
@@ -26,7 +28,8 @@ contract PublicToken {
     }
 
 
-    /// ABI transfer [{"name":"amount","type":{"kind":"field"},"visibility":"public"},{"name":"recipient","type":{"kind":"struct","fields":[{"name":"x","type":{"kind":"field"}},{"name":"y","type":{"kind":"field"}}],"visibility":"public"}}]
+    /// ABI transfer params [{"name":"amount","type":{"kind":"field"},"visibility":"public"},{"name":"recipient","type":{"kind":"struct","fields":[{"name":"x","type":{"kind":"field"}},{"name":"y","type":{"kind":"field"}}],"visibility":"public"}}]
+    /// ABI transfer return [{"kind":"field"}]
     fn transfer(
         call_context: pub CallContext,
         amount: pub Field,

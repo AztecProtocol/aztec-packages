@@ -3,27 +3,32 @@ import camelCase from 'lodash.camelcase';
 import snakeCase from 'lodash.snakecase';
 import upperFirst from 'lodash.upperfirst';
 
-function getFunction(params: any, fn: any) {
+function getFunction(params: any, returns: any, fn: any) {
   if (!params) throw new Error(`ABI comment not found for function ${fn.name}`);
   return {
     name: fn.name,
     functionType: fn.function_type,
     parameters: params,
-    returnTypes: [],
+    returnTypes: returns,
     bytecode: Buffer.from(fn.bytecode).toString('hex'),
     verificationKey: Buffer.from(fn.verification_key).toString('hex'),
   };
 }
 
 function getFunctions(source: string, output: any) {
-  const abis = Array.from(source.matchAll(/\/\/\/ ABI (\w+) (.+)/g)).map(match => ({
-    name: match[1],
-    params: JSON.parse(match[2]),
+  const abis = Array.from(source.matchAll(/\/\/\/ ABI (\w+) (params|return) (.+)/g)).map(match => ({
+    functionName: match[1],
+    abiType: match[2],
+    interface: JSON.parse(match[3]),
   }));
 
   return output.functions.map((fn: any) => {
     delete fn.proving_key;
-    return getFunction(abis.find(abi => abi.name === fn.name)?.params, fn);
+    return getFunction(
+      abis.find(abi => abi.functionName === fn.name && abi.abiType === 'params')?.interface || [],
+      abis.find(abi => abi.functionName === fn.name && abi.abiType === 'return')?.interface || [],
+      fn,
+    );
   });
 }
 
