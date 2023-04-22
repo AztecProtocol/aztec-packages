@@ -1,6 +1,7 @@
 #include <cstdint>
 #include <cstddef>
 #include "aztec3/msgpack/msgpack_cbind.h"
+#include <algorithm>
 
 WASM_EXPORT void abis__hash_tx_request(uint8_t const* tx_request_buf, uint8_t* output);
 

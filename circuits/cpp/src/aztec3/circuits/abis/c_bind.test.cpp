@@ -45,7 +45,8 @@ TEST(abi_tests, msgpack_auto)
 {
     // Running the end-to-end tests that msgpack bind creates
     // This should suffice in testing the binding interface, function tests can be separate
-    EXPECT_TRUE(abis__compute_contract_address__test());
+    auto [actual, expected] = abis__compute_contract_address__test();
+    EXPECT_EQ(actual, expected);
 }
 TEST(abi_tests, hash_tx_request)
 {

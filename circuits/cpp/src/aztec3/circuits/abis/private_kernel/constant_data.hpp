@@ -22,6 +22,9 @@ template <typename NCT> struct ConstantData {
     HistoricTreeRoots<NCT> historic_tree_roots{};
     TxContext<NCT> tx_context{};
 
+    // for serialization: update up with new fields
+    void msgpack(auto ar) { ar(NVP(historic_tree_roots, tx_context)); }
+    // TODO redundant with msgpack
     boolean operator==(ConstantData<NCT> const& other) const
     {
         return historic_tree_roots == other.historic_tree_roots && tx_context == other.tx_context;

@@ -24,6 +24,12 @@ template <typename NCT> struct TxContext {
 
     ContractDeploymentData<NCT> contract_deployment_data{};
 
+    // for serialization: update up with new fields
+    void msgpack(auto ar)
+    {
+        ar(NVP(is_fee_payment_tx, is_rebate_payment_tx, is_contract_deployment_tx, contract_deployment_data));
+    }
+    // TODO redundant with msgpack
     boolean operator==(TxContext<NCT> const& other) const
     {
         return is_fee_payment_tx == other.is_fee_payment_tx && is_rebate_payment_tx == other.is_rebate_payment_tx &&

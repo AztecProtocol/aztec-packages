@@ -26,6 +26,16 @@ template <typename T> inline void decode(T* value, const uint8_t* encoded_data, 
     msgpack::unpack((const char*)encoded_data, encoded_data_size).get().convert(*value);
 }
 
+std::string string_encode(const auto& obj)
+{
+    std::stringstream output;
+    msgpack::pack(output, obj);
+    std::string output_str = output.str();
+    msgpack::object_handle oh = msgpack::unpack(output_str.data(), output_str.size());
+    std::stringstream pretty_output;
+    pretty_output << oh.get() << std::endl;
+    return pretty_output.str();
+}
 void print(const auto& obj)
 {
     std::stringstream output;
@@ -108,7 +118,8 @@ inline auto cbind_test_impl(auto func)
         decltype(expected_ret) actual_ret;
         msgpack::decode(&actual_ret, output, output_len);
         aligned_free(output);
-        return actual_ret == expected_ret;
+        // TODO reinstate equality check when derived from msgpack
+        return std::make_pair(msgpack::string_encode(actual_ret), msgpack::string_encode(expected_ret));
     };
 }
 } // namespace msgpack
@@ -124,7 +135,7 @@ inline auto cbind_test_impl(auto func)
     {                                                                                                                  \
         msgpack::cbind_schema_impl(func, output_out, output_len_out);                                                  \
     }                                                                                                                  \
-    WASM_EXPORT bool cname##__test()                                                                                   \
+    std::pair<std::string, std::string> cname##__test()                                                                \
     {                                                                                                                  \
         return msgpack::cbind_test_impl(func) test_args;                                                               \
     }

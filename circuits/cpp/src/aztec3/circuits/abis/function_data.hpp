@@ -20,6 +20,8 @@ template <typename NCT> struct FunctionData {
     boolean is_private = false;
     boolean is_constructor = false;
 
+    void msgpack(auto ar) { ar(NVP(function_selector, is_private, is_constructor)); }
+    // TODO redundant with msgpack
     boolean operator==(FunctionData<NCT> const& other) const
     {
         return function_selector == other.function_selector && is_private == other.is_private &&

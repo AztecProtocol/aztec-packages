@@ -39,6 +39,11 @@ template <typename NCT> struct AccumulatedData {
 
     std::array<OptionallyRevealedData<NCT>, KERNEL_OPTIONALLY_REVEALED_DATA_LENGTH> optionally_revealed_data{};
 
+    // NOTE: for serialization, keep in sync with new fields
+    void msgpack(auto ar)
+    {
+        ar(NVP(aggregation_object, new_commitments, private_call_stack, l1_msg_stack, optionally_revealed_data));
+    }
     boolean operator==(AccumulatedData<NCT> const& other) const
     {
         return aggregation_object == other.aggregation_object && private_call_count == other.private_call_count &&

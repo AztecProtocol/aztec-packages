@@ -24,6 +24,12 @@ template <typename NCT> struct ContractDeploymentData {
     fr contract_address_salt = 0;
     address portal_contract_address = 0;
 
+    // for serialization: update up with new fields
+    void msgpack(auto ar)
+    {
+        ar(NVP(constructor_vk_hash, function_tree_root, contract_address_salt, portal_contract_address));
+    }
+    // TODO redundant with msgpack
     boolean operator==(ContractDeploymentData<NCT> const& other) const
     {
         return constructor_vk_hash == other.constructor_vk_hash && function_tree_root == other.function_tree_root &&
