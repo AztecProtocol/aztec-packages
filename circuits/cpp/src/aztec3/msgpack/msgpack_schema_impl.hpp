@@ -6,7 +6,7 @@
 
 namespace msgpack {
 /**
- * Creates a serialization schema based on compile-time information about a type bein serialized.
+ * Creates a serialization schema based on compile-time information about a type being serialized.
  * This is then consumed by typescript to make bindings.
  * @tparam Stream the underlying stream to write to
  */
@@ -91,7 +91,9 @@ template <typename Stream> struct SchemaPrinter : msgpack::packer<Stream> {
         msgpack::packer<Stream>::pack(schema_name<decltype(object)>());
         object.msgpack_flat([&](auto&... args) { (pack(args), ...); });
     }
-    template <typename T> void pack(const T& v)
+    template <typename T>
+        requires(!HasMsgPackFlat<T> && !HasMsgPack<T>)
+    void pack(const T& v)
     {
         (void)v; // unused except for schema
         msgpack::packer<Stream>::pack(schema_name<T>());

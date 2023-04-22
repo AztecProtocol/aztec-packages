@@ -6,6 +6,7 @@
 
 #include <gtest/gtest.h>
 
+// Sanity checking for msgpack
 // TODO eventually move to barretenberg
 struct GoodExample {
     fr a;
