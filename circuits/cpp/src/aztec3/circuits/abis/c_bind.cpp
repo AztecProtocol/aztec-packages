@@ -4,8 +4,8 @@
 #include "aztec3/circuits/abis/tx_request.hpp"
 #include "aztec3/circuits/hash.hpp"
 #include "barretenberg/stdlib/merkle_tree/hash.hpp"
-#include "aztec3/common/msgpack_cbind_impl.hpp"
-#include "aztec3/common/msgpack_schema_impl.hpp"
+#include "aztec3/msgpack/msgpack_cbind_impl.hpp"
+#include "aztec3/msgpack/msgpack_schema_impl.hpp"
 #include "call_context.hpp"
 #include "private_circuit_public_inputs.hpp"
 #include "aztec3/circuits/abis/rollup/base/base_rollup_inputs.hpp"
@@ -13,6 +13,7 @@
 #include "aztec3/circuits/abis/rollup/root/root_rollup_inputs.hpp"
 #include "aztec3/circuits/abis/rollup/root/root_rollup_public_inputs.hpp"
 #include "aztec3/circuits/abis/private_kernel/private_inputs.hpp"
+#include "aztec3/msgpack/msgpack_equality.hpp"
 
 namespace {
 
@@ -363,7 +364,7 @@ inline void cbind_schema_impl(auto func, uint8_t** output_out, size_t* output_le
 {
     (void)func; // unused except for type
     auto [output, output_len] = msgpack::encode_buffer(get_func_traits<decltype(func)>());
-    msgpack::print_schema(get_func_traits<decltype(func)>());
+    info(msgpack::schema_to_string(get_func_traits<decltype(func)>()));
     *output_out = output;
     *output_len_out = output_len;
 }
@@ -372,7 +373,7 @@ inline void cbind_test_impl(auto func, uint8_t** output_out, size_t* output_len_
 {
     (void)func; // unused except for type
     auto [output, output_len] = msgpack::encode_buffer(get_func_traits<decltype(func)>());
-    msgpack::print_schema(get_func_traits<decltype(func)>());
+    info(msgpack::schema_to_string(get_func_traits<decltype(func)>()));
     *output_out = output;
     *output_len_out = output_len;
 }

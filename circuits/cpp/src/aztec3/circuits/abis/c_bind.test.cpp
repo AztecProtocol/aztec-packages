@@ -3,10 +3,12 @@
 #include "tx_request.hpp"
 #include "function_leaf_preimage.hpp"
 #include "aztec3/circuits/abis/private_kernel/new_contract_data.hpp"
+#include "aztec3/msgpack/msgpack_schema_impl.hpp"
 
 #include <barretenberg/stdlib/merkle_tree/membership.hpp>
 #include <barretenberg/numeric/random/engine.hpp>
-#include <barretenberg/common/serialize.hpp>
+#include <barretenberg/msgpack/msgpack_nvp_macro.h>
+#include <aztec3/msgpack/msgpack_test.hpp>
 
 #include <gtest/gtest.h>
 
@@ -273,23 +275,67 @@ TEST(abi_tests, hash_constructor)
     // Confirm cbind output == expected hash
     EXPECT_EQ(got_hash, expected_hash);
 }
-//
-// void print_schema(auto schema_func)
-//{
-//    uint8_t* output = nullptr;
-//    size_t output_len = 0;
-//    schema_func(&output, &output_len);
-//    msgpack::object object;
-//    msgpack::decode(&object, output, output_len);
-//    std::cout << object << std::endl;
-//    aligned_free(output);
-//}
-//
-// TEST(abi_tests, compute_contract_address)
-//{
-//    print_schema(abis__compute_contract_address__schema);
-//}
 
+// TODO eventually move to barretenberg
+struct GoodExample {
+    fr a;
+    fr b;
+    void msgpack_flat(auto ar) { ar(a, b); }
+} good_example;
+
+struct BadExampleOverlap {
+    fr a;
+    fr b;
+    void msgpack_flat(auto ar) { ar(a, a); }
+} bad_example_overlap;
+
+struct BadExampleIncomplete {
+    fr a;
+    fr b;
+    void msgpack_flat(auto ar) { ar(a); }
+} bad_example_incomplete;
+
+struct BadExampleOutOfObject {
+    fr a;
+    fr b;
+    void msgpack_flat(auto ar)
+    {
+        BadExampleOutOfObject other_object;
+        ar(other_object.a, other_object.b);
+    }
+} bad_example_out_of_object;
+
+// TODO eventually move to barretenberg
+TEST(abi_tests, msgpack_sanity_sanity)
+{
+    good_example.msgpack_flat(
+        [&](auto&... args) { EXPECT_EQ(msgpack::check_memory_span(&good_example, &args...), ""); });
+    bad_example_overlap.msgpack_flat([&](auto&... args) {
+        EXPECT_EQ(msgpack::check_memory_span(&bad_example_overlap, &args...),
+                  "Overlap in BadExampleOverlap ar() params detected!");
+    });
+    bad_example_incomplete.msgpack_flat([&](auto&... args) {
+        EXPECT_EQ(msgpack::check_memory_span(&bad_example_incomplete, &args...),
+                  "Incomplete BadExampleIncomplete ar() params! Not all of object specified.");
+    });
+    bad_example_out_of_object.msgpack_flat([&](auto&... args) {
+        EXPECT_EQ(msgpack::check_memory_span(&bad_example_out_of_object, &args...),
+                  "Some BadExampleOutOfObject ar() params don't exist in object!");
+    });
+}
+
+struct ComplicatedSchema {
+    std::vector<std::array<fr, 20>> array;
+    std::optional<GoodExample> good_or_not;
+    fr bare;
+    std::variant<fr, GoodExample> huh;
+    void msgpack(auto ar) { ar(NVP(array, good_or_not, bare, huh)); }
+} complicated_schema;
+TEST(abi_tests, msgpack_schema_sanity)
+{
+    EXPECT_EQ(msgpack::schema_to_string(good_example), "[\"GoodExample\",\"field\",\"field\"]\n");
+    EXPECT_EQ(msgpack::schema_to_string(complicated_schema), "");
+}
 // TEST(abi_tests, schema_test)
 //{
 //     // Randomize required values

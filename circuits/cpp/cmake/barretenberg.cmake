@@ -42,7 +42,7 @@ include_directories(${BBERG_DIR}/src)
 
 # Add the imported barretenberg and env libraries, point to their library archives,
 # and add a dependency of these libraries on the imported project
-add_library(barretenberg STATIC IMPORTED)
+add_library(barretenberg STATIC IMPORTED ../barretenberg/cpp/src/barretenberg/msgpack/msgpack_concepts.hpp ../barretenberg/cpp/src/barretenberg/msgpack/msgpack_variant_impl.h ../barretenberg/cpp/src/barretenberg/common/msgpack_nvp_macro.h)
 set_target_properties(barretenberg PROPERTIES IMPORTED_LOCATION ${BBERG_BUILD_DIR}/lib/libbarretenberg.a)
 add_dependencies(barretenberg Barretenberg)
 
