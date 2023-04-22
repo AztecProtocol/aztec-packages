@@ -4,7 +4,6 @@
 #include "aztec3/circuits/abis/tx_request.hpp"
 #include "aztec3/circuits/hash.hpp"
 #include "barretenberg/stdlib/merkle_tree/hash.hpp"
-#include "aztec3/msgpack/msgpack_cbind_impl.hpp"
 #include "aztec3/msgpack/msgpack_schema_impl.hpp"
 #include "call_context.hpp"
 #include "private_circuit_public_inputs.hpp"
@@ -13,7 +12,7 @@
 #include "aztec3/circuits/abis/rollup/root/root_rollup_inputs.hpp"
 #include "aztec3/circuits/abis/rollup/root/root_rollup_public_inputs.hpp"
 #include "aztec3/circuits/abis/private_kernel/private_inputs.hpp"
-#include "aztec3/msgpack/msgpack_equality.hpp"
+#include "aztec3/msgpack/msgpack_cbind_impl.hpp"
 
 namespace {
 
@@ -308,94 +307,7 @@ WASM_EXPORT void abis__hash_constructor(uint8_t const* function_data_buf,
  * @param output buffer that will contain the output contract address.
  */
 
-template <typename Func> struct func_traits;
-
-template <typename R, typename... Vs> struct func_traits<R (*)(Vs...)> {
-    typedef std::tuple<Vs...> Args;
-    Args args;
-    R ret;
-    void msgpack(auto ar) { ar(NVP(args), NVP(ret)); }
-};
-template <typename R, typename... Vs> struct func_traits<R (&)(Vs...)> {
-    typedef std::tuple<Vs...> Args;
-    Args args;
-    R ret;
-    void msgpack(auto ar) { ar(NVP(args), NVP(ret)); }
-};
-
-template <typename R, typename T, typename... Vs> struct func_traits<R (T::*)(Vs...) const> {
-    typedef std::tuple<Vs...> Args;
-    Args args;
-    R ret;
-    void msgpack(auto ar) { ar(NVP(args), NVP(ret)); }
-};
-#include <type_traits>
-
-template <typename T>
-concept Callable =
-    requires() { typename std::enable_if_t<std::is_member_function_pointer_v<decltype(&T::operator())>, void>; };
-
-template <Callable T> constexpr auto get_func_traits()
-{
-    return func_traits<decltype(&T::operator())>();
-}
-
-template <typename T> constexpr auto get_func_traits()
-{
-    return func_traits<T>();
-}
-
-template <typename T> constexpr auto param_tuple()
-{
-    return typename decltype(get_func_traits<T>())::Args{};
-}
-
-inline void cbind_impl(
-    auto func, const uint8_t* input_in, size_t input_len_in, uint8_t** output_out, size_t* output_len_out)
-{
-    auto params = param_tuple<decltype(func)>();
-    msgpack::decode(&params, input_in, input_len_in);
-    auto [output, output_len] = msgpack::encode_buffer(std::apply(func, params));
-    *output_out = output;
-    *output_len_out = output_len;
-}
-
-inline void cbind_schema_impl(auto func, uint8_t** output_out, size_t* output_len_out)
-{
-    (void)func; // unused except for type
-    auto [output, output_len] = msgpack::encode_buffer(get_func_traits<decltype(func)>());
-    info(msgpack::schema_to_string(get_func_traits<decltype(func)>()));
-    *output_out = output;
-    *output_len_out = output_len;
-}
-
-inline void cbind_test_impl(auto func, uint8_t** output_out, size_t* output_len_out)
-{
-    (void)func; // unused except for type
-    auto [output, output_len] = msgpack::encode_buffer(get_func_traits<decltype(func)>());
-    info(msgpack::schema_to_string(get_func_traits<decltype(func)>()));
-    *output_out = output;
-    *output_len_out = output_len;
-}
-
-// TODO flag to not generate schema
-// TODO flag to not generate test helper
-#define CBIND(cname, func, test_args)                                                                                  \
-    WASM_EXPORT void cname(const uint8_t* input_in, size_t input_len_in, uint8_t** output_out, size_t* output_len_out) \
-    {                                                                                                                  \
-        cbind_impl(func, input_in, input_len_in, output_out, output_len_out);                                          \
-    }                                                                                                                  \
-    WASM_EXPORT void cname##__schema(uint8_t** output_out, size_t* output_len_out)                                     \
-    {                                                                                                                  \
-        cbind_schema_impl(func, output_out, output_len_out);                                                           \
-    }                                                                                                                  \
-    WASM_EXPORT void cname##__test()                                                                                   \
-    {                                                                                                                  \
-        cbind_test_impl(func, output_out, output_len_out);                                                             \
-    }
-
-// CBIND(abis__compute_contract_address, compute_contract_address<NT>);
-// CBIND(abis__compute_contract_leaf2, [](int a) { return a; });
+CBIND(abis__compute_contract_address, compute_contract_address<NT>, (NT::address(1), NT::fr(2), NT::fr(3), NT::fr(4)));
 
 /**
  * @brief Generates a function tree leaf from its preimage.

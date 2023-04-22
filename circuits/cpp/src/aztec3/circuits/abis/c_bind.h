@@ -1,10 +1,6 @@
 #include <cstdint>
-
-#define WASM_EXPORT extern "C" __attribute__((visibility("default")))
-
-#define CBIND_DECL(cname, func)                                                                                             \
-    WASM_EXPORT void cname(const uint8_t* input_in, size_t input_len_in, uint8_t** output_out, size_t* output_len_out);     \
-    WASM_EXPORT void cname##__schema(uint8_t** output_out, size_t* output_len_out)
+#include <cstddef>
+#include "aztec3/msgpack/msgpack_cbind.h"
 
 WASM_EXPORT void abis__hash_tx_request(uint8_t const* tx_request_buf, uint8_t* output);
 
@@ -27,10 +23,6 @@ WASM_EXPORT void abis__hash_constructor(uint8_t const* func_data_buf,
                                         uint8_t const* constructor_vk_hash_buf,
                                         uint8_t* output);
 
-WASM_EXPORT void abis__compute_contract_address(uint8_t const* deployer_address_buf,
-                                                uint8_t const* contract_address_salt_buf,
-                                                uint8_t const* function_tree_root_buf,
-                                                uint8_t const* constructor_hash_buf,
-                                                uint8_t* output);
+CBIND_DECL(abis__compute_contract_address);
 
 WASM_EXPORT void abis__compute_contract_leaf(uint8_t const* contract_leaf_preimage_buf, uint8_t* output);
