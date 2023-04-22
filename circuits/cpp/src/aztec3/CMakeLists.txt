@@ -15,7 +15,7 @@ if (WASM)
         $<TARGET_OBJECTS:aztec3_circuits_abis_objects>
         $<TARGET_OBJECTS:aztec3_circuits_kernel_objects>        
         $<TARGET_OBJECTS:aztec3_circuits_rollup_objects>
-    )
+            common/msgpack_test.hpp)
     target_link_libraries(aztec3-circuits.wasm barretenberg)
 
     # With binaryen installed, it seems its wasm backend optimiser gets invoked automatically.

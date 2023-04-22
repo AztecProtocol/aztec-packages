@@ -1,5 +1,18 @@
-#include "c_bind.hpp"
+#include "c_bind.h"
 #include <functional>
+#include "aztec3/circuits/abis/tx_context.hpp"
+#include "aztec3/circuits/abis/tx_request.hpp"
+#include "aztec3/circuits/hash.hpp"
+#include "barretenberg/stdlib/merkle_tree/hash.hpp"
+#include "aztec3/common/msgpack_cbind_impl.hpp"
+#include "aztec3/common/msgpack_schema_impl.hpp"
+#include "call_context.hpp"
+#include "private_circuit_public_inputs.hpp"
+#include "aztec3/circuits/abis/rollup/base/base_rollup_inputs.hpp"
+#include "aztec3/circuits/abis/rollup/base/base_or_merge_rollup_public_inputs.hpp"
+#include "aztec3/circuits/abis/rollup/root/root_rollup_inputs.hpp"
+#include "aztec3/circuits/abis/rollup/root/root_rollup_public_inputs.hpp"
+#include "aztec3/circuits/abis/private_kernel/private_inputs.hpp"
 
 namespace {
 
@@ -123,7 +136,6 @@ template <typename T> static const char* as_serialized_output(uint8_t const* inp
     return bbmalloc_copy_string((char*)stream.data(), *size);
 }
 
-#define WASM_EXPORT __attribute__((visibility("default"))) extern "C"
 // WASM Cbinds
 /**
  * @brief Hashes a TX request. This is a WASM-export that can be called from Typescript.
@@ -356,7 +368,18 @@ inline void cbind_schema_impl(auto func, uint8_t** output_out, size_t* output_le
     *output_len_out = output_len;
 }
 
-#define CBIND(cname, func)                                                                                             \
+inline void cbind_test_impl(auto func, uint8_t** output_out, size_t* output_len_out)
+{
+    (void)func; // unused except for type
+    auto [output, output_len] = msgpack::encode_buffer(get_func_traits<decltype(func)>());
+    msgpack::print_schema(get_func_traits<decltype(func)>());
+    *output_out = output;
+    *output_len_out = output_len;
+}
+
+// TODO flag to not generate schema
+// TODO flag to not generate test helper
+#define CBIND(cname, func, test_args)                                                                                  \
     WASM_EXPORT void cname(const uint8_t* input_in, size_t input_len_in, uint8_t** output_out, size_t* output_len_out) \
     {                                                                                                                  \
         cbind_impl(func, input_in, input_len_in, output_out, output_len_out);                                          \
@@ -364,10 +387,14 @@ inline void cbind_schema_impl(auto func, uint8_t** output_out, size_t* output_le
     WASM_EXPORT void cname##__schema(uint8_t** output_out, size_t* output_len_out)                                     \
     {                                                                                                                  \
         cbind_schema_impl(func, output_out, output_len_out);                                                           \
+    }                                                                                                                  \
+    WASM_EXPORT void cname##__test()                                                                                   \
+    {                                                                                                                  \
+        cbind_test_impl(func, output_out, output_len_out);                                                             \
     }
 
-CBIND(abis__compute_contract_address, compute_contract_address<NT>);
-CBIND(abis__compute_contract_leaf2, [](int a) { return a; });
+// CBIND(abis__compute_contract_address, compute_contract_address<NT>);
+// CBIND(abis__compute_contract_leaf2, [](int a) { return a; });
 
 /**
  * @brief Generates a function tree leaf from its preimage.

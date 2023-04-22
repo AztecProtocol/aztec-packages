@@ -1,8 +1,10 @@
 #include <cstdint>
 
-#define WASM_EXPORT __attribute__((visibility("default")))
+#define WASM_EXPORT extern "C" __attribute__((visibility("default")))
 
-extern "C" {
+#define CBIND_DECL(cname, func)                                                                                             \
+    WASM_EXPORT void cname(const uint8_t* input_in, size_t input_len_in, uint8_t** output_out, size_t* output_len_out);     \
+    WASM_EXPORT void cname##__schema(uint8_t** output_out, size_t* output_len_out)
 
 WASM_EXPORT void abis__hash_tx_request(uint8_t const* tx_request_buf, uint8_t* output);
 
@@ -32,4 +34,3 @@ WASM_EXPORT void abis__compute_contract_address(uint8_t const* deployer_address_
                                                 uint8_t* output);
 
 WASM_EXPORT void abis__compute_contract_leaf(uint8_t const* contract_leaf_preimage_buf, uint8_t* output);
-}

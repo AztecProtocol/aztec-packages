@@ -1,7 +1,7 @@
 #pragma once
 
 #define MSGPACK_NO_BOOST
-#include "msgpack-cbind.hpp"
+#include "msgpack_cbind_impl.hpp"
 #include <cxxabi.h>
 
 namespace msgpack {
