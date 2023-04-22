@@ -37,7 +37,7 @@ const initialLeaf: LeafData = {
 };
 
 /**
- * A Merkle tree that supports efficient lookup of leaves by value.
+ * Indexed merkle tree.
  */
 export class StandardIndexedTree extends TreeBase implements IndexedTree {
   private leaves: LeafData[] = [];

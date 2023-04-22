@@ -19,7 +19,7 @@ export interface LeafData {
 }
 
 /**
- * A Merkle tree that supports efficient lookup of leaves by value.
+ * Indexed merkle tree.
  */
 export interface IndexedTree extends AppendOnlyTree {
   /**
