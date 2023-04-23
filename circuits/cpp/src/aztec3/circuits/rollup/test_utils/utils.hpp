@@ -26,6 +26,7 @@ using NullifierLeaf = stdlib::merkle_tree::nullifier_leaf;
 using KernelData = aztec3::circuits::abis::PreviousKernelData<NT>;
 
 using aztec3::circuits::abis::MembershipWitness;
+using aztec3::circuits::abis::PreviousRollupData;
 
 using nullifier_tree_testing_values = std::tuple<BaseRollupInputs, AppendOnlyTreeSnapshot, AppendOnlyTreeSnapshot>;
 } // namespace
@@ -73,5 +74,10 @@ void set_kernel_commitments(std::array<KernelData, 2>& kernel_data,
 std::array<KernelData, 2> get_empty_kernels();
 
 NullifierMemoryTreeTestingHarness get_initial_nullifier_tree(std::vector<fr> initial_values);
+
+std::array<PreviousRollupData<NT>, 2> get_previous_rollup_data(DummyComposer& composer,
+                                                               std::array<KernelData, 4> kernel_data);
+
+KernelData get_empty_kernel();
 
 } // namespace aztec3::circuits::rollup::test_utils::utils

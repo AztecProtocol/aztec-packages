@@ -5,8 +5,27 @@
 #include "aztec3/circuits/rollup/merge/native_merge_rollup_circuit.hpp"
 #include "aztec3/utils/dummy_composer.hpp"
 #include "c_bind.h"
+#include "aztec3/circuits/rollup/test_utils/utils.hpp"
 
-namespace aztec3::circuits::rollup::merge {
+namespace {
+using aztec3::circuits::rollup::native_merge_rollup::BaseOrMergeRollupPublicInputs;
+using aztec3::circuits::rollup::native_merge_rollup::merge_rollup_circuit;
+using aztec3::circuits::rollup::native_merge_rollup::MergeRollupInputs;
+using aztec3::circuits::rollup::native_merge_rollup::NT;
+using DummyComposer = aztec3::utils::DummyComposer;
+
+using aztec3::circuits::rollup::test_utils::utils::base_rollup_inputs_from_kernels;
+using aztec3::circuits::rollup::test_utils::utils::get_empty_kernel;
+using aztec3::circuits::rollup::test_utils::utils::get_empty_kernels;
+using aztec3::circuits::rollup::test_utils::utils::get_initial_nullifier_tree;
+using aztec3::circuits::rollup::test_utils::utils::get_previous_rollup_data;
+using aztec3::circuits::rollup::test_utils::utils::set_kernel_commitments;
+using aztec3::circuits::rollup::test_utils::utils::set_kernel_nullifiers;
+
+using KernelData = aztec3::circuits::abis::PreviousKernelData<NT>;
+
+} // namespace
+namespace aztec3::circuits::rollup::merge::native_merge_rollup_circuit {
 
 class merge_rollup_tests : public ::testing::Test {
   protected:
@@ -51,7 +70,10 @@ class merge_rollup_tests : public ::testing::Test {
 TEST_F(merge_rollup_tests, native_different_rollup_type_fails)
 {
     DummyComposer composer = DummyComposer();
-    auto mergeInput = dummy_merge_rollup_inputs(composer);
+    std::array<KernelData, 4> kernels = {
+        get_empty_kernel(), get_empty_kernel(), get_empty_kernel(), get_empty_kernel()
+    };
+    MergeRollupInputs mergeInput = { .previous_rollup_data = get_previous_rollup_data(composer, kernels) };
     mergeInput.previous_rollup_data[0].base_or_merge_rollup_public_inputs.rollup_type = 0;
     mergeInput.previous_rollup_data[1].base_or_merge_rollup_public_inputs.rollup_type = 1;
     merge_rollup_circuit(composer, mergeInput);
@@ -62,7 +84,10 @@ TEST_F(merge_rollup_tests, native_different_rollup_type_fails)
 TEST_F(merge_rollup_tests, native_different_rollup_height_fails)
 {
     DummyComposer composer = DummyComposer();
-    auto mergeInput = dummy_merge_rollup_inputs(composer);
+    std::array<KernelData, 4> kernels = {
+        get_empty_kernel(), get_empty_kernel(), get_empty_kernel(), get_empty_kernel()
+    };
+    MergeRollupInputs mergeInput = { .previous_rollup_data = get_previous_rollup_data(composer, kernels) };
     mergeInput.previous_rollup_data[0].base_or_merge_rollup_public_inputs.rollup_subtree_height = 0;
     mergeInput.previous_rollup_data[1].base_or_merge_rollup_public_inputs.rollup_subtree_height = 1;
     merge_rollup_circuit(composer, mergeInput);
@@ -73,10 +98,12 @@ TEST_F(merge_rollup_tests, native_different_rollup_height_fails)
 TEST_F(merge_rollup_tests, native_constants_different_failure)
 {
     DummyComposer composer = DummyComposer();
-    MergeRollupInputs inputs = dummy_merge_rollup_inputs(composer);
+    std::array<KernelData, 4> kernels = {
+        get_empty_kernel(), get_empty_kernel(), get_empty_kernel(), get_empty_kernel()
+    };
+    MergeRollupInputs inputs = { .previous_rollup_data = get_previous_rollup_data(composer, kernels) };
     inputs.previous_rollup_data[0].base_or_merge_rollup_public_inputs.constants.public_kernel_vk_tree_root = fr(1);
     inputs.previous_rollup_data[1].base_or_merge_rollup_public_inputs.constants.public_kernel_vk_tree_root = fr(0);
-
     merge_rollup_circuit(composer, inputs);
     ASSERT_TRUE(composer.failed());
     ASSERT_EQ(composer.get_first_failure(), "input proofs have different constants");
@@ -85,8 +112,11 @@ TEST_F(merge_rollup_tests, native_constants_different_failure)
 TEST_F(merge_rollup_tests, native_fail_if_previous_rollups_dont_follow_on)
 {
     DummyComposer composerA = DummyComposer();
-    MergeRollupInputs dummyInputs = dummy_merge_rollup_inputs(composerA);
-    auto inputA = dummyInputs;
+    std::array<KernelData, 4> kernels = {
+        get_empty_kernel(), get_empty_kernel(), get_empty_kernel(), get_empty_kernel()
+    };
+    MergeRollupInputs inputs = { .previous_rollup_data = get_previous_rollup_data(composerA, kernels) };
+    auto inputA = inputs;
     inputA.previous_rollup_data[0].base_or_merge_rollup_public_inputs.end_private_data_tree_snapshot = {
         .root = fr(0), .next_available_leaf_index = 0
     };
@@ -100,7 +130,7 @@ TEST_F(merge_rollup_tests, native_fail_if_previous_rollups_dont_follow_on)
 
     // do the same for nullifier tree
     DummyComposer composerB = DummyComposer();
-    auto inputB = dummyInputs;
+    auto inputB = inputs;
 
     inputB.previous_rollup_data[0].base_or_merge_rollup_public_inputs.end_nullifier_tree_snapshot = {
         .root = fr(0), .next_available_leaf_index = 0
@@ -114,7 +144,7 @@ TEST_F(merge_rollup_tests, native_fail_if_previous_rollups_dont_follow_on)
 
     // do the same for contract tree
     DummyComposer composerC = DummyComposer();
-    auto inputC = dummyInputs;
+    auto inputC = inputs;
     inputC.previous_rollup_data[0].base_or_merge_rollup_public_inputs.end_contract_tree_snapshot = {
         .root = fr(0), .next_available_leaf_index = 0
     };
@@ -129,7 +159,10 @@ TEST_F(merge_rollup_tests, native_fail_if_previous_rollups_dont_follow_on)
 TEST_F(merge_rollup_tests, native_rollup_fields_are_set_correctly)
 {
     DummyComposer composer = DummyComposer();
-    MergeRollupInputs inputs = dummy_merge_rollup_inputs(composer);
+    std::array<KernelData, 4> kernels = {
+        get_empty_kernel(), get_empty_kernel(), get_empty_kernel(), get_empty_kernel()
+    };
+    MergeRollupInputs inputs = { .previous_rollup_data = get_previous_rollup_data(composer, kernels) };
     BaseOrMergeRollupPublicInputs outputs = merge_rollup_circuit(composer, inputs);
     // check that rollup type is set to merge
     ASSERT_EQ(outputs.rollup_type, 1);
@@ -153,7 +186,10 @@ TEST_F(merge_rollup_tests, native_rollup_fields_are_set_correctly)
 TEST_F(merge_rollup_tests, native_start_and_end_snapshots)
 {
     DummyComposer composer = DummyComposer();
-    MergeRollupInputs inputs = dummy_merge_rollup_inputs(composer);
+    std::array<KernelData, 4> kernels = {
+        get_empty_kernel(), get_empty_kernel(), get_empty_kernel(), get_empty_kernel()
+    };
+    MergeRollupInputs inputs = { .previous_rollup_data = get_previous_rollup_data(composer, kernels) };
     BaseOrMergeRollupPublicInputs outputs = merge_rollup_circuit(composer, inputs);
     // check that start and end snapshots are set correctly
     ASSERT_EQ(outputs.start_private_data_tree_snapshot,
@@ -189,7 +225,11 @@ TEST_F(merge_rollup_tests, native_calldata_hash)
 
     auto expected_calldata_hash = sha256::sha256(calldata_hash_input_bytes_vec);
 
-    MergeRollupInputs inputs = dummy_merge_rollup_inputs(composer);
+    std::array<KernelData, 4> kernels = {
+        get_empty_kernel(), get_empty_kernel(), get_empty_kernel(), get_empty_kernel()
+    };
+    MergeRollupInputs inputs = { .previous_rollup_data = get_previous_rollup_data(composer, kernels) };
+
     BaseOrMergeRollupPublicInputs outputs = merge_rollup_circuit(composer, inputs);
 
     std::array<fr, 2> actual_calldata_hash_fr = outputs.calldata_hash;
@@ -209,7 +249,11 @@ TEST_F(merge_rollup_tests, native_calldata_hash)
 TEST_F(merge_rollup_tests, native_constants_dont_change)
 {
     DummyComposer composer = DummyComposer();
-    MergeRollupInputs inputs = dummy_merge_rollup_inputs(composer);
+    std::array<KernelData, 4> kernels = {
+        get_empty_kernel(), get_empty_kernel(), get_empty_kernel(), get_empty_kernel()
+    };
+    MergeRollupInputs inputs = { .previous_rollup_data = get_previous_rollup_data(composer, kernels) };
+
     BaseOrMergeRollupPublicInputs outputs = merge_rollup_circuit(composer, inputs);
     ASSERT_EQ(inputs.previous_rollup_data[0].base_or_merge_rollup_public_inputs.constants, outputs.constants);
     ASSERT_EQ(inputs.previous_rollup_data[1].base_or_merge_rollup_public_inputs.constants, outputs.constants);
@@ -219,7 +263,11 @@ TEST_F(merge_rollup_tests, native_aggregate)
 {
     // TODO: Fix this when aggregation works
     DummyComposer composer = DummyComposer();
-    MergeRollupInputs inputs = dummy_merge_rollup_inputs(composer);
+    std::array<KernelData, 4> kernels = {
+        get_empty_kernel(), get_empty_kernel(), get_empty_kernel(), get_empty_kernel()
+    };
+    MergeRollupInputs inputs = { .previous_rollup_data = get_previous_rollup_data(composer, kernels) };
+
     BaseOrMergeRollupPublicInputs outputs = merge_rollup_circuit(composer, inputs);
     ASSERT_EQ(inputs.previous_rollup_data[0].base_or_merge_rollup_public_inputs.end_aggregation_object.public_inputs,
               outputs.end_aggregation_object.public_inputs);
@@ -229,7 +277,11 @@ TEST_F(merge_rollup_tests, native_aggregate)
 TEST_F(merge_rollup_tests, native_merge_cbind)
 {
     DummyComposer composer = DummyComposer();
-    MergeRollupInputs inputs = dummy_merge_rollup_inputs(composer);
+    std::array<KernelData, 4> kernels = {
+        get_empty_kernel(), get_empty_kernel(), get_empty_kernel(), get_empty_kernel()
+    };
+    MergeRollupInputs inputs = { .previous_rollup_data = get_previous_rollup_data(composer, kernels) };
+
     ASSERT_FALSE(composer.failed());
     BaseOrMergeRollupPublicInputs ignored_public_inputs;
     run_cbind(inputs, ignored_public_inputs, false);

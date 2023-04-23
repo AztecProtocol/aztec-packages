@@ -6,6 +6,7 @@
 #include <aztec3/circuits/kernel/private/utils.hpp>
 #include <aztec3/circuits/mock/mock_kernel_circuit.hpp>
 #include "aztec3/circuits/abis/new_contract_data.hpp"
+#include "aztec3/circuits/abis/rollup/merge/merge_rollup_inputs.hpp"
 
 namespace {
 using NT = aztec3::utils::types::NativeTypes;
@@ -13,7 +14,6 @@ using NT = aztec3::utils::types::NativeTypes;
 // Types
 using ConstantRollupData = aztec3::circuits::abis::ConstantRollupData<NT>;
 using BaseRollupInputs = aztec3::circuits::abis::BaseRollupInputs<NT>;
-using BaseOrMergeRollupPublicInputs = aztec3::circuits::abis::BaseOrMergeRollupPublicInputs<NT>;
 using DummyComposer = aztec3::utils::DummyComposer;
 
 using Aggregator = aztec3::circuits::recursion::Aggregator;
@@ -27,7 +27,10 @@ using MerkleTree = stdlib::merkle_tree::MemoryTree;
 using NullifierTree = stdlib::merkle_tree::NullifierMemoryTree;
 using NullifierLeaf = stdlib::merkle_tree::nullifier_leaf;
 
+using aztec3::circuits::abis::BaseOrMergeRollupPublicInputs;
 using aztec3::circuits::abis::MembershipWitness;
+using aztec3::circuits::abis::MergeRollupInputs;
+using aztec3::circuits::abis::PreviousRollupData;
 
 using nullifier_tree_testing_values = std::tuple<BaseRollupInputs, AppendOnlyTreeSnapshot, AppendOnlyTreeSnapshot>;
 
@@ -37,6 +40,11 @@ using aztec3::circuits::kernel::private_kernel::utils::dummy_previous_kernel;
 namespace aztec3::circuits::rollup::test_utils::utils {
 
 // Want some helper functions for generating kernels with some commitments, nullifiers and contracts
+
+KernelData get_empty_kernel()
+{
+    return dummy_previous_kernel();
+}
 
 std::array<KernelData, 2> get_empty_kernels()
 {
@@ -140,6 +148,68 @@ BaseRollupInputs base_rollup_inputs_from_kernels(std::array<KernelData, 2> kerne
 BaseRollupInputs empty_base_rollup_inputs()
 {
     return base_rollup_inputs_from_kernels({ dummy_previous_kernel(), dummy_previous_kernel() });
+}
+
+std::array<PreviousRollupData<NT>, 2> get_previous_rollup_data(DummyComposer& composer,
+                                                               std::array<KernelData, 4> kernel_data)
+{
+    // NOTE: Still assuming that this is first and second. Don't handle more rollups atm
+    auto base_rollup_input_1 = base_rollup_inputs_from_kernels({ kernel_data[0], kernel_data[1] });
+    auto base_public_input_1 =
+        aztec3::circuits::rollup::native_base_rollup::base_rollup_circuit(composer, base_rollup_input_1);
+
+    // Build the trees based on inputs in base_rollup_input_1.
+    MerkleTree private_data_tree = MerkleTree(PRIVATE_DATA_TREE_HEIGHT);
+    MerkleTree contract_tree = MerkleTree(CONTRACT_TREE_HEIGHT);
+    std::vector<fr> initial_values = { 1, 2, 3, 4, 5, 6, 7 };
+    std::array<fr, KERNEL_NEW_NULLIFIERS_LENGTH * 2> nullifiers;
+
+    for (size_t i = 0; i < 2; i++) {
+        for (size_t j = 0; j < KERNEL_NEW_COMMITMENTS_LENGTH; j++) {
+            private_data_tree.update_element(i * KERNEL_NEW_COMMITMENTS_LENGTH + j,
+                                             kernel_data[i].public_inputs.end.new_commitments[j]);
+        }
+        auto contract_data = kernel_data[i].public_inputs.end.new_contracts[0];
+        auto contract_leaf = crypto::pedersen_commitment::compress_native(
+            { contract_data.contract_address, contract_data.portal_contract_address, contract_data.function_tree_root },
+            GeneratorIndex::CONTRACT_LEAF);
+        contract_tree.update_element(i, contract_leaf);
+        for (size_t j = 0; j < KERNEL_NEW_NULLIFIERS_LENGTH; j++) {
+            initial_values.push_back(kernel_data[i].public_inputs.end.new_nullifiers[j]);
+            nullifiers[i * KERNEL_NEW_NULLIFIERS_LENGTH + j] = kernel_data[2 + i].public_inputs.end.new_nullifiers[j];
+        }
+    }
+
+    auto base_rollup_input_2 = base_rollup_inputs_from_kernels({ kernel_data[2], kernel_data[3] });
+    auto temp = generate_nullifier_tree_testing_values_explicit(base_rollup_input_2, nullifiers, initial_values);
+    base_rollup_input_2 = std::get<0>(temp);
+    base_rollup_input_2.new_contracts_subtree_sibling_path =
+        get_sibling_path<CONTRACT_SUBTREE_INCLUSION_CHECK_DEPTH>(contract_tree, 1, CONTRACT_SUBTREE_DEPTH);
+    base_rollup_input_2.new_commitments_subtree_sibling_path =
+        get_sibling_path<PRIVATE_DATA_SUBTREE_INCLUSION_CHECK_DEPTH>(private_data_tree, 1, PRIVATE_DATA_SUBTREE_DEPTH);
+    base_rollup_input_2.start_private_data_tree_snapshot = base_public_input_1.end_private_data_tree_snapshot;
+    base_rollup_input_2.start_nullifier_tree_snapshot = base_public_input_1.end_nullifier_tree_snapshot;
+    base_rollup_input_2.start_contract_tree_snapshot = base_public_input_1.end_contract_tree_snapshot;
+
+    auto base_public_input_2 =
+        aztec3::circuits::rollup::native_base_rollup::base_rollup_circuit(composer, base_rollup_input_2);
+
+    PreviousRollupData<NT> previous_rollup1 = {
+        .base_or_merge_rollup_public_inputs = base_public_input_1,
+        .proof = kernel_data[0].proof,
+        .vk = kernel_data[0].vk,
+        .vk_index = 0,
+        .vk_sibling_path = MembershipWitness<NT, ROLLUP_VK_TREE_HEIGHT>(),
+    };
+    PreviousRollupData<NT> previous_rollup2 = {
+        .base_or_merge_rollup_public_inputs = base_public_input_2,
+        .proof = kernel_data[2].proof,
+        .vk = kernel_data[2].vk,
+        .vk_index = 0,
+        .vk_sibling_path = MembershipWitness<NT, ROLLUP_VK_TREE_HEIGHT>(),
+    };
+
+    return { previous_rollup1, previous_rollup2 };
 }
 
 //////////////////////////

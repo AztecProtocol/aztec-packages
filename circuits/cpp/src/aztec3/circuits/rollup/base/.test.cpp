@@ -84,8 +84,6 @@ using aztec3::circuits::rollup::test_utils::utils::get_empty_kernels;
 using aztec3::circuits::rollup::test_utils::utils::get_initial_nullifier_tree;
 using aztec3::circuits::rollup::test_utils::utils::set_kernel_commitments;
 using aztec3::circuits::rollup::test_utils::utils::set_kernel_nullifiers;
-
-using aztec3::circuits::rollup::test_utils::utils::empty_base_rollup_inputs;
 // using aztec3::circuits::mock::mock_kernel_inputs;
 
 using aztec3::circuits::abis::AppendOnlyTreeSnapshot;
@@ -715,7 +713,7 @@ TEST_F(base_rollup_tests, native_compute_membership_historic_contract_tree_negat
 TEST_F(base_rollup_tests, native_constants_dont_change)
 {
     DummyComposer composer = DummyComposer();
-    BaseRollupInputs inputs = empty_base_rollup_inputs();
+    BaseRollupInputs inputs = base_rollup_inputs_from_kernels(get_empty_kernels());
     BaseOrMergeRollupPublicInputs outputs =
         aztec3::circuits::rollup::native_base_rollup::base_rollup_circuit(composer, inputs);
     ASSERT_EQ(inputs.constants, outputs.constants);
@@ -727,7 +725,7 @@ TEST_F(base_rollup_tests, native_aggregate)
 {
     // TODO: Fix this when aggregation works
     DummyComposer composer = DummyComposer();
-    BaseRollupInputs inputs = empty_base_rollup_inputs();
+    BaseRollupInputs inputs = base_rollup_inputs_from_kernels(get_empty_kernels());
     BaseOrMergeRollupPublicInputs outputs =
         aztec3::circuits::rollup::native_base_rollup::base_rollup_circuit(composer, inputs);
     ASSERT_EQ(inputs.kernel_data[0].public_inputs.end.aggregation_object.public_inputs,
@@ -738,7 +736,7 @@ TEST_F(base_rollup_tests, native_aggregate)
 TEST_F(base_rollup_tests, native_subtree_height_is_0)
 {
     DummyComposer composer = DummyComposer();
-    BaseRollupInputs inputs = empty_base_rollup_inputs();
+    BaseRollupInputs inputs = base_rollup_inputs_from_kernels(get_empty_kernels());
     BaseOrMergeRollupPublicInputs outputs =
         aztec3::circuits::rollup::native_base_rollup::base_rollup_circuit(composer, inputs);
     ASSERT_EQ(outputs.rollup_subtree_height, fr(0));
@@ -748,7 +746,7 @@ TEST_F(base_rollup_tests, native_subtree_height_is_0)
 TEST_F(base_rollup_tests, native_cbind_0)
 {
     // @todo Error handling?
-    BaseRollupInputs inputs = empty_base_rollup_inputs();
+    BaseRollupInputs inputs = base_rollup_inputs_from_kernels(get_empty_kernels());
     BaseOrMergeRollupPublicInputs ignored_public_inputs;
     run_cbind(inputs, ignored_public_inputs, false);
 }
