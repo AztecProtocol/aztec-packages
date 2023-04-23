@@ -3,7 +3,7 @@ import { Buffer } from 'buffer';
 import {
   Fr,
   FUNCTION_TREE_HEIGHT,
-  DeprecatedPreviousKernelData,
+  PreviousKernelData,
   PrivateCallData,
   PrivateKernelPublicInputs,
   SignedTxRequest,
@@ -41,7 +41,7 @@ export async function computeFunctionTree(wasm: CircuitsWasm, leaves: Fr[]): Pro
 export async function privateKernelProve(
   wasm: CircuitsWasm,
   signedTxRequest: SignedTxRequest,
-  previousKernel: DeprecatedPreviousKernelData,
+  previousKernel: PreviousKernelData,
   privateCallData: PrivateCallData,
   firstIteration: boolean,
 ) {
@@ -78,7 +78,7 @@ export async function privateKernelProve(
 export async function privateKernelSim(
   wasm: CircuitsWasm,
   signedTxRequest: SignedTxRequest,
-  previousKernel: DeprecatedPreviousKernelData,
+  previousKernel: PreviousKernelData,
   privateCallData: PrivateCallData,
   firstIteration: boolean,
 ) {

@@ -1,5 +1,5 @@
 import { AztecAddress, Fr } from '@aztec/foundation';
-import { DeprecatedPreviousKernelData as PreviousPrivateKernelData } from './private_kernel.js';
+import { PreviousKernelData as PreviousPrivateKernelData } from './private_kernel.js';
 import { MembershipWitness, UInt8Vector } from './shared.js';
 import { SignedTxRequest } from './tx.js';
 import { VerificationKey } from './verification_key.js';

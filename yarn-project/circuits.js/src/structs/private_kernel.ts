@@ -1,4 +1,4 @@
-import { PreviousKernelData, privateKernelDummyPreviousKernel } from '../cbind/circuits.gen.js';
+import { CbindPreviousKernelData, cbindPrivateKernelDummyPreviousKernel } from '../cbind/circuits.gen.js';
 import { CircuitsWasm } from '../index.js';
 import { assertLength, FieldsOf } from '../utils/jsUtils.js';
 import { serializeToBuffer } from '../utils/serialize.js';
@@ -220,7 +220,7 @@ export class PrivateKernelPublicInputs {
   }
 }
 
-export class DeprecatedPreviousKernelData {
+export class PreviousKernelData {
   constructor(
     public publicInputs: PrivateKernelPublicInputs,
     public proof: UInt8Vector,
@@ -231,7 +231,9 @@ export class DeprecatedPreviousKernelData {
     assertLength(this, 'vkSiblingPath', VK_TREE_HEIGHT);
   }
 
+  fromMsgpack() {}
   /**
+   * TODO deprecate in favour of msgpack
    * Serialize this as a buffer.
    * @returns The buffer.
    */
@@ -240,12 +242,13 @@ export class DeprecatedPreviousKernelData {
   }
 
   /**
+   * TODO deprecate in favour of msgpack
    * Deserializes from a buffer or reader, corresponding to a write in cpp.
    * @param buffer - Buffer to read from.
    */
-  static fromBuffer(buffer: Buffer | BufferReader): DeprecatedPreviousKernelData {
+  static fromBuffer(buffer: Buffer | BufferReader): PreviousKernelData {
     const reader = BufferReader.asReader(buffer);
-    return new DeprecatedPreviousKernelData(
+    return new PreviousKernelData(
       reader.readObject(PrivateKernelPublicInputs),
       reader.readObject(UInt8Vector),
       reader.readObject(VerificationKey),
@@ -258,7 +261,7 @@ export class DeprecatedPreviousKernelData {
    * Creates an empty instance, valid enough to be accepted by circuits
    */
   static makeEmpty() {
-    return new DeprecatedPreviousKernelData(
+    return new PreviousKernelData(
       PrivateKernelPublicInputs.makeEmpty(),
       makeEmptyProof(),
       VerificationKey.makeFake(),
@@ -271,11 +274,11 @@ export class DeprecatedPreviousKernelData {
 export class DummyPreviousKernelData {
   private static instance: PreviousKernelData;
 
-  private constructor(private data: DeprecatedPreviousKernelData) {}
+  private constructor(private data: PreviousKernelData) {}
 
   public static async getDummyPreviousKernelData(wasm: CircuitsWasm): Promise<PreviousKernelData> {
     if (!DummyPreviousKernelData.instance) {
-      const data = await privateKernelDummyPreviousKernel(wasm);
+      const data = await cbindPrivateKernelDummyPreviousKernel(wasm);
       DummyPreviousKernelData.instance = data;
     }
 
@@ -343,7 +346,7 @@ export class PrivateCallData {
 export class PrivateKernelInputs {
   constructor(
     public signedTxRequest: SignedTxRequest,
-    public previousKernel: DeprecatedPreviousKernelData,
+    public previousKernel: PreviousKernelData,
     public privateCall: PrivateCallData,
   ) {}
 

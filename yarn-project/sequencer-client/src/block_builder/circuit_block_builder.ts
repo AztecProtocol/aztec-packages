@@ -10,7 +10,7 @@ import {
   NULLIFIER_TREE_HEIGHT,
   NullifierLeafPreimage,
   PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT,
-  DeprecatedPreviousKernelData,
+  PreviousKernelData,
   PreviousRollupData,
   ROLLUP_VK_TREE_HEIGHT,
   RollupTypes,
@@ -354,7 +354,7 @@ export class CircuitBlockBuilder implements BlockBuilder {
   }
 
   protected getKernelDataFor(tx: PrivateTx) {
-    return new DeprecatedPreviousKernelData(
+    return new PreviousKernelData(
       tx.data,
       tx.proof,
 

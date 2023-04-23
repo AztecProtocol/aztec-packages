@@ -4,7 +4,7 @@ import {
   EcdsaSignature,
   MembershipWitness,
   PRIVATE_CALL_STACK_LENGTH,
-  DeprecatedPreviousKernelData,
+  PreviousKernelData,
   PrivateCallData,
   PrivateCallStackItem,
   PrivateKernelPublicInputs,
@@ -49,7 +49,7 @@ export class KernelProver {
       const previousVkMembershipWitness = firstIteration
         ? MembershipWitness.random(VK_TREE_HEIGHT)
         : await this.oracle.getVkMembershipWitness(previousVerificationKey);
-      const previousKernelData = new DeprecatedPreviousKernelData(
+      const previousKernelData = new PreviousKernelData(
         output.publicInputs,
         output.proof,
         previousVerificationKey,

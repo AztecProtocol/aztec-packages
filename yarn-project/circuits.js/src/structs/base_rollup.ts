@@ -11,7 +11,7 @@ import {
   PRIVATE_DATA_TREE_HEIGHT,
   PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT,
 } from './constants.js';
-import { DeprecatedPreviousKernelData } from './private_kernel.js';
+import { PreviousKernelData } from './private_kernel.js';
 import { AggregationObject, MembershipWitness, RollupTypes, UInt32 } from './shared.js';
 
 export class NullifierLeafPreimage {
@@ -96,7 +96,7 @@ export class BaseRollupInputs {
   public static NULLIFIER_SUBTREE_HEIGHT = Math.log2(KERNEL_NEW_NULLIFIERS_LENGTH * 2);
 
   constructor(
-    public kernelData: [DeprecatedPreviousKernelData, DeprecatedPreviousKernelData],
+    public kernelData: [PreviousKernelData, PreviousKernelData],
 
     public startPrivateDataTreeSnapshot: AppendOnlyTreeSnapshot,
     public startNullifierTreeSnapshot: AppendOnlyTreeSnapshot,

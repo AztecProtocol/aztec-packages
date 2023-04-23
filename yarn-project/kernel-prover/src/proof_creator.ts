@@ -2,7 +2,7 @@ import { pedersenCompressWithHashIndex } from '@aztec/barretenberg.js/crypto';
 import { BarretenbergWasm } from '@aztec/barretenberg.js/wasm';
 import {
   CircuitsWasm,
-  DeprecatedPreviousKernelData,
+  PreviousKernelData,
   PrivateCallData,
   PrivateCircuitPublicInputs,
   PrivateKernelPublicInputs,
@@ -23,7 +23,7 @@ export interface ProofCreator {
   getSiloedCommitments(publicInputs: PrivateCircuitPublicInputs): Promise<Fr[]>;
   createProof(
     signedTxRequest: SignedTxRequest,
-    previousKernelData: DeprecatedPreviousKernelData,
+    previousKernelData: PreviousKernelData,
     privateCallData: PrivateCallData,
     firstIteration: boolean,
   ): Promise<ProofOutput>;
@@ -46,7 +46,7 @@ export class KernelProofCreator {
 
   public async createProof(
     signedTxRequest: SignedTxRequest,
-    previousKernelData: DeprecatedPreviousKernelData,
+    previousKernelData: PreviousKernelData,
     privateCallData: PrivateCallData,
     firstIteration: boolean,
   ): Promise<ProofOutput> {
