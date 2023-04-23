@@ -9,7 +9,7 @@
 #include <type_traits>
 
 namespace msgpack {
-inline std::pair<uint8_t*, size_t> encode_buffer(auto obj)
+inline std::pair<uint8_t*, size_t> encode_buffer(auto&& obj)
 {
     // Create a buffer to store the encoded data
     msgpack::sbuffer buffer;
@@ -122,7 +122,7 @@ inline auto cbind_test_impl(auto func)
         cbind_impl(func, input, input_len, &output, &output_len);
         decltype(expected_ret) actual_ret;
         msgpack::decode(&actual_ret, output, output_len);
-        info(msgpack::schema_to_string(actual_ret));
+        msgpack::print(actual_ret);
         aligned_free(output);
         // TODO reinstate equality check when derived from msgpack
         return std::make_pair(msgpack::string_encode(actual_ret), msgpack::string_encode(expected_ret));

@@ -1,4 +1,4 @@
 barretenberg_module(
-        msgpack
+        aztec3_msgpack
         barretenberg
 )

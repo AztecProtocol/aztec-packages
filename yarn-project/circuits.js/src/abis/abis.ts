@@ -11,7 +11,6 @@ import {
 import { serializeToBuffer } from '../utils/serialize.js';
 import { AsyncWasmWrapper, WasmWrapper } from '@aztec/foundation/wasm';
 import { decode } from '@msgpack/msgpack';
-import { abisComputeContractAddress } from '../structs/msgpack_bind.gen.js';
 
 export function wasmSyncCall(
   wasm: WasmWrapper,
@@ -129,13 +128,13 @@ export async function computeContractAddress(
   constructorHash: Buffer,
 ) {
   wasm.call('pedersen__init');
-  return await abisComputeContractAddress(
+  return await (1 as any); /*await abisComputeContractAddress(
     wasm,
     deployerAddr,
     contractAddrSalt,
     fnTreeRoot,
     Fr.fromBuffer(constructorHash),
-  );
+  );*/
 }
 
 export function computeContractLeaf(wasm: WasmWrapper, cd: NewContractData) {

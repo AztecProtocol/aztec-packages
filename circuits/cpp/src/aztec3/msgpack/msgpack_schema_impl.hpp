@@ -46,7 +46,7 @@ template <typename Stream> struct SchemaPrinter : msgpack::packer<Stream> {
         this->pack_array(3);
         msgpack::packer<Stream>::pack("array");
         pack(K{});
-        pack(V);
+        msgpack::packer<Stream>::pack(V);
     }
     template <typename T> void pack(std::optional<T>& args)
     {
@@ -112,7 +112,8 @@ template <typename Stream> struct SchemaPrinter : msgpack::packer<Stream> {
         (void)v; // unused except for schema
         this->pack_array(2);
         msgpack::packer<Stream>::pack("shared_ptr");
-        pack(*v.get());
+        T object;
+        pack(object);
     }
     void pack(HasMsgPackPack auto& v)
     {

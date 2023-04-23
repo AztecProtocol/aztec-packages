@@ -10,7 +10,7 @@ import {
 } from '../index.js';
 import { boolToBuffer, serializeToBuffer, uint8ArrayToNum } from '../utils/serialize.js';
 import { CircuitsWasm } from '../wasm/index.js';
-import { privateKernelDummyPreviousKernel } from '../structs/msgpack_bind.gen.js';
+import { privateKernelDummyPreviousKernel } from '../cbind/circuits.gen.js';
 
 export async function getDummyPreviousKernelData(wasm: CircuitsWasm) {
   return await privateKernelDummyPreviousKernel(wasm);

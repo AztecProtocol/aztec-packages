@@ -48,6 +48,7 @@ export abstract class WasmWrapper {
           const str = wasm.getMemoryAsString(addr);
           const m = wasm.getMemory();
           const str2 = `${str} (mem: ${(m.length / (1024 * 1024)).toFixed(2)}MB)`;
+          console.log(str2);
           wasm.getLogger()(str2);
         },
         memory: module.getRawMemory(),

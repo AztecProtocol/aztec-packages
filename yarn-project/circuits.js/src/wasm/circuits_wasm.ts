@@ -55,4 +55,7 @@ export class CircuitsWasm extends AsyncWasmWrapper {
       }),
     };
   }
+  public exports(): any {
+    return this.wasm.exports();
+  }
 }
