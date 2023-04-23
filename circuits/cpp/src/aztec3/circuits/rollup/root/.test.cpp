@@ -77,7 +77,6 @@ using aztec3::circuits::apps::test_apps::escrow::deposit;
 // using aztec3::circuits::mock::mock_circuit;
 using aztec3::circuits::kernel::private_kernel::utils::dummy_previous_kernel;
 using aztec3::circuits::mock::mock_kernel_circuit;
-using aztec3::circuits::rollup::merge::utils::previous_rollup_datas;
 using aztec3::circuits::rollup::test_utils::utils::empty_base_rollup_inputs;
 using aztec3::circuits::rollup::test_utils::utils::get_empty_kernel;
 using aztec3::circuits::rollup::test_utils::utils::get_root_rollup_inputs;
