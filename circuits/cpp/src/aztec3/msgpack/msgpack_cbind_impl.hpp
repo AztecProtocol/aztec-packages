@@ -5,6 +5,7 @@
 // - bind the return value to an out buffer, where the caller must free the memory
 #include <barretenberg/msgpack/msgpack_impl.hpp>
 #include <aztec3/msgpack/msgpack_schema_impl.hpp>
+#include <cstring>
 #include <type_traits>
 
 namespace msgpack {
@@ -98,13 +99,17 @@ inline void cbind_impl(
     *output_len_out = output_len;
 }
 
+// returns a C-style string json of the schema
 inline void cbind_schema_impl(auto func, uint8_t** output_out, size_t* output_len_out)
 {
     (void)func; // unused except for type
-    auto [output, output_len] = msgpack::encode_buffer(get_func_traits<decltype(func)>());
-    info(msgpack::schema_to_string(get_func_traits<decltype(func)>()));
-    *output_out = output;
-    *output_len_out = output_len;
+    // Object representation of the cbind
+    auto cbind_obj = get_func_traits<decltype(func)>();
+    std::string schema = msgpack::schema_to_string(cbind_obj);
+    info(schema);
+    *output_out = (uint8_t*)aligned_alloc(64, schema.size() + 1);
+    memcpy(*output_out, schema.c_str(), schema.size() + 1);
+    *output_len_out = schema.size();
 }
 
 inline auto cbind_test_impl(auto func)
