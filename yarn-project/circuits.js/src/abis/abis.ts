@@ -11,7 +11,7 @@ import {
 import { serializeToBuffer } from '../utils/serialize.js';
 import { AsyncWasmWrapper, WasmWrapper } from '@aztec/foundation/wasm';
 import { decode } from '@msgpack/msgpack';
-import { abisComputeContractAddress, toAztecAddress, toField } from '../cbind/circuits.gen.js';
+import { abisComputeContractAddress, asAztecAddressBuf, asFieldBuf } from '../cbind/circuits.gen.js';
 
 export function wasmSyncCall(
   wasm: WasmWrapper,
@@ -127,14 +127,16 @@ export async function computeContractAddress(
   contractAddrSalt: Fr,
   fnTreeRoot: Fr,
   constructorHash: Buffer,
-) {
+): Promise<AztecAddress> {
   wasm.call('pedersen__init');
-  return await abisComputeContractAddress(
-    wasm,
-    toAztecAddress(deployerAddr.buffer),
-    toField(contractAddrSalt.toBuffer()),
-    toField(fnTreeRoot.toBuffer()),
-    toField(constructorHash),
+  return AztecAddress.fromBuffer(
+    await abisComputeContractAddress(
+      wasm,
+      asAztecAddressBuf(deployerAddr.buffer),
+      asFieldBuf(contractAddrSalt.toBuffer()),
+      asFieldBuf(fnTreeRoot.toBuffer()),
+      asFieldBuf(constructorHash),
+    ),
   );
 }
 
