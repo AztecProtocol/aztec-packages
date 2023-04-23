@@ -49,7 +49,7 @@ template <typename T, typename... Args> std::string check_memory_span(T* obj, Ar
         end = std::max(end, ptr + size);
     }
     size_t total_size = end - start;
-    total_size += sizeof(long) - (total_size % sizeof(long));
+    total_size += (sizeof(long) - (total_size % sizeof(long))) % sizeof(long);
 
     if (total_size != sizeof(T)) {
         return "Incomplete " + msgpack::schema_name<T>() + " ar() params! Not all of object specified.";
