@@ -1,6 +1,7 @@
 #pragma once
 
 #include <utility>
+#include <tuple>
 #include <barretenberg/msgpack/msgpack_concepts.hpp>
 
 namespace msgpack {
@@ -11,7 +12,7 @@ template <typename Tuple, std::size_t... Is> auto drop_keys_impl(Tuple&& tuple, 
     return std::tie(std::get<Is * 2 + 1>(std::forward<Tuple>(tuple))...);
 }
 
-template <typename... Args> auto drop_keys(std::tuple<Args...>& tuple)
+template <typename... Args> auto drop_keys(std::tuple<Args...>&& tuple)
 {
     static_assert(sizeof...(Args) % 2 == 0, "Tuple must contain an even number of elements");
     // Compile time sequence of integers from 0 to n/2

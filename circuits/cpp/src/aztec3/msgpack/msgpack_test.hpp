@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <cstdint>
 #include <cstddef>
+#include "barretenberg/common/throw_or_abort.hpp"
 #include "msgpack_schema_name.hpp"
 #include "msgpack_equality.hpp"
 
@@ -19,10 +20,18 @@ template <typename T, typename... Args> std::string check_memory_span(T* obj, Ar
     // Sort the vector based on the pointer values.
     std::sort(pointers.begin(), pointers.end(), [](const auto& a, const auto& b) { return a.first < b.first; });
 
-    // Check if any of the Args* pointers overlap.
     for (size_t i = 1; i < pointers.size(); ++i) {
+        // Check if any of the Args* pointers overlap.
         if (pointers[i - 1].first + pointers[i - 1].second > pointers[i].first) {
             return "Overlap in " + msgpack::schema_name<T>() + " ar() params detected!";
+        }
+        // Check if gap is too large.
+        auto last_end = pointers[i - 1].first + pointers[i - 1].second;
+        // Align gap for sizeof long e.g. if a char is before a long, C may pad
+        last_end += sizeof(long) - (last_end % sizeof(long));
+        if (pointers[i - 1].first + pointers[i - 1].second > pointers[i].first) {
+            return "Gap in " + msgpack::schema_name<T>() + " ar() params detected before member #" + std::to_string(i) +
+                   " !";
         }
     }
 
@@ -34,10 +43,13 @@ template <typename T, typename... Args> std::string check_memory_span(T* obj, Ar
     }
 
     // Check if all of T* memory is used by the Args* pointers.
-    size_t total_size = 0;
-    for (const auto& ptr : pointers) {
-        total_size += ptr.second;
+    size_t start = (size_t)obj;
+    size_t end = (size_t)obj;
+    for (auto [ptr, size] : pointers) {
+        end = std::max(end, ptr + size);
     }
+    size_t total_size = end - start;
+    total_size += sizeof(long) - (total_size % sizeof(long));
 
     if (total_size != sizeof(T)) {
         return "Incomplete " + msgpack::schema_name<T>() + " ar() params! Not all of object specified.";
@@ -58,5 +70,12 @@ template <HasMsgPackFlat T> std::string check_msgpack_method(T& object)
     std::string result;
     object.msgpack_flat([&](auto&... values) { result = check_memory_span(&object, &values...); });
     return result;
+}
+void check_msgpack_usage(auto object)
+{
+    std::string result = check_msgpack_method(object);
+    if (!result.empty()) {
+        throw_or_abort(result);
+    }
 }
 } // namespace msgpack

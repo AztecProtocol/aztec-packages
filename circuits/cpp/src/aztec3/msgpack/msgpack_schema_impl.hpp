@@ -5,6 +5,7 @@
 #include <string>
 #define MSGPACK_NO_BOOST
 #include <barretenberg/msgpack/msgpack_impl.hpp>
+#include "aztec3/msgpack/msgpack_test.hpp"
 #include "msgpack_schema_name.hpp"
 
 namespace msgpack {
@@ -79,6 +80,7 @@ template <typename Stream> struct SchemaPrinter : msgpack::packer<Stream> {
     // Serialize an object with a msgpack() method into a schema
     template <HasMsgPack T> void pack(const T& object)
     {
+        msgpack::check_msgpack_usage(object);
         std::string type = schema_name<decltype(object)>();
         if (emitted_types.find(type) != emitted_types.end()) {
             msgpack::packer<Stream>::pack(type);
@@ -95,6 +97,7 @@ template <typename Stream> struct SchemaPrinter : msgpack::packer<Stream> {
     // Serialize an object with a msgpack_flat() method into a schema
     void pack(HasMsgPackFlat auto object)
     {
+        msgpack::check_msgpack_usage(object);
         std::string type = schema_name<decltype(object)>();
         if (emitted_types.find(type) != emitted_types.end()) {
             msgpack::packer<Stream>::pack(type);

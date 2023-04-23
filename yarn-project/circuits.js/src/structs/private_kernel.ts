@@ -1,4 +1,5 @@
-import { CbindPreviousKernelData, cbindPrivateKernelDummyPreviousKernel } from '../cbind/circuits.gen.js';
+import { IAccumulatedData, IPreviousKernelData, IPublicInputs } from '../cbind/circuits.gen.js';
+import { fromMsgpack } from '../cbind/msgpack_reader.js';
 import { CircuitsWasm } from '../index.js';
 import { assertLength, FieldsOf } from '../utils/jsUtils.js';
 import { serializeToBuffer } from '../utils/serialize.js';
@@ -165,6 +166,13 @@ export class AccumulatedData {
     assertLength(this, 'optionallyRevealedData', KERNEL_OPTIONALLY_REVEALED_DATA_LENGTH);
   }
 
+  static fromMsgpack(o: IAccumulatedData) {
+    return new this(
+      AggregationObject.fromMsgPack(o.aggregationObject),
+      ConstantData.fromMsgPack(o.constants),
+      o.isPrivate,
+    );
+  }
   toBuffer() {
     return serializeToBuffer(
       this.aggregationObject,
@@ -200,10 +208,14 @@ export class AccumulatedData {
 }
 
 export class PrivateKernelPublicInputs {
-  constructor(public end: AccumulatedData, public constants: ConstantData, public isPrivateKernel: true) {}
+  constructor(public end: AccumulatedData, public constants: ConstantData, public isPrivate: boolean) {}
+
+  static fromMsgpack(o: IPublicInputs) {
+    return new this(AccumulatedData.fromMsgPack(o.end), ConstantData.fromMsgPack(o.constants), o.isPrivate);
+  }
 
   toBuffer() {
-    return serializeToBuffer(this.end, this.constants, this.isPrivateKernel);
+    return serializeToBuffer(this.end, this.constants, this.isPrivate);
   }
 
   /**
@@ -231,7 +243,19 @@ export class PreviousKernelData {
     assertLength(this, 'vkSiblingPath', VK_TREE_HEIGHT);
   }
 
-  fromMsgpack() {}
+  /**
+   * Deserialize from a msgpack-encoded object.
+   * @param msgpack The msgpack-encoded object.
+   */
+  static fromMsgpack({ publicInputs, proof, vk, vkIndex, vkPath }: IPreviousKernelData): PreviousKernelData {
+    return new PreviousKernelData(
+      fromMsgpack(PrivateKernelPublicInputs, publicInputs),
+      proof,
+      fromMsgpack(vk),
+      fromMsgpack(vkIndex),
+      fromMsgpack(vkPath),
+    );
+  }
   /**
    * TODO deprecate in favour of msgpack
    * Serialize this as a buffer.
@@ -279,7 +303,7 @@ export class DummyPreviousKernelData {
   public static async getDummyPreviousKernelData(wasm: CircuitsWasm): Promise<PreviousKernelData> {
     if (!DummyPreviousKernelData.instance) {
       const data = await cbindPrivateKernelDummyPreviousKernel(wasm);
-      DummyPreviousKernelData.instance = data;
+      DummyPreviousKernelData.instance = PreviousKernelData.fromMsgpack(data);
     }
 
     return DummyPreviousKernelData.instance;
