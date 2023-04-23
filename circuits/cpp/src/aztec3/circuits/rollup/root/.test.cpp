@@ -8,7 +8,6 @@
 #include "aztec3/circuits/rollup/test_utils/utils.hpp"
 #include "aztec3/circuits/rollup/base/native_base_rollup_circuit.hpp"
 #include "aztec3/circuits/kernel/private/utils.hpp"
-#include "aztec3/circuits/rollup/merge/utils.hpp"
 #include "aztec3/constants.hpp"
 #include "aztec3/utils/dummy_composer.hpp"
 #include "barretenberg/crypto/sha256/sha256.hpp"
@@ -165,20 +164,6 @@ class root_rollup_tests : public ::testing::Test {
         free((void*)vk_buf);
         // free((void*)proof_data);
         free((void*)public_inputs_buf);
-    }
-
-  protected:
-    template <size_t N>
-    std::array<fr, N> get_subtree_sibling_path(MemoryTree tree,
-                                               size_t const& leafIndex,
-                                               size_t const& subtree_depth_to_skip)
-    {
-        std::array<fr, N> siblingPath;
-        auto path = tree.get_sibling_path(leafIndex);
-        for (size_t i = 0; i < N; i++) {
-            siblingPath[i] = path[subtree_depth_to_skip + i];
-        }
-        return siblingPath;
     }
 };
 

@@ -1,11 +1,10 @@
 #include <gtest/gtest-death-test.h>
 #include <gtest/gtest.h>
 #include "aztec3/circuits/rollup/merge/init.hpp"
-#include "aztec3/circuits/rollup/merge/utils.hpp"
-#include "aztec3/circuits/rollup/merge/native_merge_rollup_circuit.hpp"
-#include "aztec3/utils/dummy_composer.hpp"
 #include "c_bind.h"
 #include "aztec3/circuits/rollup/test_utils/utils.hpp"
+#include "index.hpp"
+#include "init.hpp"
 
 namespace {
 using aztec3::circuits::rollup::native_merge_rollup::BaseOrMergeRollupPublicInputs;
