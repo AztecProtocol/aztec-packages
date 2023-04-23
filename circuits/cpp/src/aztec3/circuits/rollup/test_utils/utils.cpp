@@ -36,10 +36,38 @@ using aztec3::circuits::kernel::private_kernel::utils::dummy_previous_kernel;
 
 namespace aztec3::circuits::rollup::test_utils::utils {
 
-BaseRollupInputs base_rollup_inputs_from_kernels(KernelData left, KernelData right)
-{
-    std::array<KernelData, 2> kernel_data = { left, right };
+// Want some helper functions for generating kernels with some commitments, nullifiers and contracts
 
+std::array<KernelData, 2> get_empty_kernels()
+{
+    return { dummy_previous_kernel(), dummy_previous_kernel() };
+}
+
+void set_kernel_nullifiers(std::array<KernelData, 2>& kernel_data,
+                           std::array<fr, KERNEL_NEW_NULLIFIERS_LENGTH * 2> nullifiers)
+{
+    for (size_t i = 0; i < 2; i++) {
+        for (size_t j = 0; j < KERNEL_NEW_NULLIFIERS_LENGTH; j++) {
+            kernel_data[i].public_inputs.end.new_nullifiers[j] = nullifiers[i * KERNEL_NEW_NULLIFIERS_LENGTH + j];
+        }
+    }
+}
+
+void set_kernel_commitments(std::array<KernelData, 2>& kernel_data,
+                            std::array<fr, KERNEL_NEW_COMMITMENTS_LENGTH * 2> new_commitments)
+{
+    for (size_t i = 0; i < 2; i++) {
+        for (size_t j = 0; j < KERNEL_NEW_COMMITMENTS_LENGTH; j++) {
+            kernel_data[i].public_inputs.end.new_commitments[j] =
+                new_commitments[i * KERNEL_NEW_COMMITMENTS_LENGTH + j];
+        }
+    }
+}
+
+BaseRollupInputs base_rollup_inputs_from_kernels(std::array<KernelData, 2> kernel_data)
+{
+    // @todo Look at the starting points for all of these.
+    // By supporting as inputs we can make very generic tests, where it is trivial to try new setups.
     MerkleTree historic_private_data_tree = MerkleTree(PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT);
     MerkleTree historic_contract_tree = MerkleTree(CONTRACT_TREE_ROOTS_TREE_HEIGHT);
     MerkleTree historic_l1_to_l2_msg_tree = MerkleTree(L1_TO_L2_MSG_TREE_ROOTS_TREE_HEIGHT);
@@ -111,7 +139,7 @@ BaseRollupInputs base_rollup_inputs_from_kernels(KernelData left, KernelData rig
 
 BaseRollupInputs empty_base_rollup_inputs()
 {
-    return base_rollup_inputs_from_kernels(dummy_previous_kernel(), dummy_previous_kernel());
+    return base_rollup_inputs_from_kernels({ dummy_previous_kernel(), dummy_previous_kernel() });
 }
 
 //////////////////////////

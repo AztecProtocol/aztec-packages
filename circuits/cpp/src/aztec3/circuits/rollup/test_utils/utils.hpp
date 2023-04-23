@@ -30,7 +30,7 @@ using aztec3::circuits::abis::MembershipWitness;
 using nullifier_tree_testing_values = std::tuple<BaseRollupInputs, AppendOnlyTreeSnapshot, AppendOnlyTreeSnapshot>;
 } // namespace
 
-BaseRollupInputs base_rollup_inputs_from_kernels(KernelData left, KernelData right);
+BaseRollupInputs base_rollup_inputs_from_kernels(std::array<KernelData, 2> kernel_data);
 BaseRollupInputs empty_base_rollup_inputs();
 
 template <size_t N>
@@ -63,5 +63,15 @@ nullifier_tree_testing_values generate_nullifier_tree_testing_values(BaseRollupI
 
 nullifier_tree_testing_values generate_nullifier_tree_testing_values(
     BaseRollupInputs inputs, std::array<fr, KERNEL_NEW_NULLIFIERS_LENGTH * 2> new_nullifiers, size_t spacing);
+
+void set_kernel_nullifiers(std::array<KernelData, 2>& kernel_data,
+                           std::array<fr, KERNEL_NEW_NULLIFIERS_LENGTH * 2> nullifiers);
+
+void set_kernel_commitments(std::array<KernelData, 2>& kernel_data,
+                            std::array<fr, KERNEL_NEW_COMMITMENTS_LENGTH * 2> new_commitments);
+
+std::array<KernelData, 2> get_empty_kernels();
+
+NullifierMemoryTreeTestingHarness get_initial_nullifier_tree(std::vector<fr> initial_values);
 
 } // namespace aztec3::circuits::rollup::test_utils::utils
