@@ -70,6 +70,7 @@ template <typename R, typename T, typename... Vs> struct func_traits<R (T::*)(Vs
     void msgpack(auto ar) { ar(NVP(args), NVP(ret)); }
 };
 
+// Template metamagic for figuring out the parameters and return type of a function
 template <typename T>
 concept Callable =
     requires() { typename std::enable_if_t<std::is_member_function_pointer_v<decltype(&T::operator())>, void>; };
