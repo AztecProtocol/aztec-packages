@@ -2,8 +2,9 @@ import times from 'lodash.times';
 import { FUNCTION_TREE_HEIGHT } from '../index.js';
 import { fr } from '../tests/factories.js';
 import { CircuitsWasm } from '../wasm/circuits_wasm.js';
-import { computeFunctionTree, getDummyPreviousKernelData } from './kernel.js';
+import { computeFunctionTree } from './kernel.js';
 import { computeFunctionTreeRoot } from '../abis/abis.js';
+import { privateKernelDummyPreviousKernel } from '../cbind/circuits.gen.js';
 
 describe('abis wasm bindings', () => {
   let wasm: CircuitsWasm;
@@ -13,7 +14,7 @@ describe('abis wasm bindings', () => {
   });
 
   it('gets dummy kernel data', async () => {
-    await expect(getDummyPreviousKernelData(wasm)).resolves.toBeDefined();
+    await expect(privateKernelDummyPreviousKernel(wasm)).resolves.toBeDefined();
   });
 
   it('computes function tree', async () => {

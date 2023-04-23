@@ -46,7 +46,7 @@ import {
   NewContractData,
   HistoricTreeRoots,
   OptionallyRevealedData,
-  PreviousKernelData,
+  DeprecatedPreviousKernelData,
   PrivateCallData,
   PrivateKernelInputs,
   PrivateKernelPublicInputs,
@@ -150,8 +150,8 @@ export function makeVerificationKey(): VerificationKey {
     range(5, 400),
   );
 }
-export function makePreviousKernelData(seed = 1): PreviousKernelData {
-  return new PreviousKernelData(
+export function makePreviousKernelData(seed = 1): DeprecatedPreviousKernelData {
+  return new DeprecatedPreviousKernelData(
     makePrivateKernelPublicInputs(seed),
     makeDynamicSizeBuffer(16, seed + 0x80),
     makeVerificationKey(),
@@ -322,7 +322,7 @@ export function makeMergeRollupInputs(seed = 0) {
 }
 
 export function makeBaseRollupInputs(seed = 0) {
-  const kernelData: [PreviousKernelData, PreviousKernelData] = [
+  const kernelData: [DeprecatedPreviousKernelData, DeprecatedPreviousKernelData] = [
     makePreviousKernelData(seed + 0x100),
     makePreviousKernelData(seed + 0x200),
   ];

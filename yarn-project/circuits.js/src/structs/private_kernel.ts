@@ -1,4 +1,5 @@
-import { CircuitsWasm, getDummyPreviousKernelData } from '../index.js';
+import { PreviousKernelData, privateKernelDummyPreviousKernel } from '../cbind/circuits.gen.js';
+import { CircuitsWasm } from '../index.js';
 import { assertLength, FieldsOf } from '../utils/jsUtils.js';
 import { serializeToBuffer } from '../utils/serialize.js';
 import {
@@ -219,7 +220,7 @@ export class PrivateKernelPublicInputs {
   }
 }
 
-export class PreviousKernelData {
+export class DeprecatedPreviousKernelData {
   constructor(
     public publicInputs: PrivateKernelPublicInputs,
     public proof: UInt8Vector,
@@ -242,9 +243,9 @@ export class PreviousKernelData {
    * Deserializes from a buffer or reader, corresponding to a write in cpp.
    * @param buffer - Buffer to read from.
    */
-  static fromBuffer(buffer: Buffer | BufferReader): PreviousKernelData {
+  static fromBuffer(buffer: Buffer | BufferReader): DeprecatedPreviousKernelData {
     const reader = BufferReader.asReader(buffer);
-    return new PreviousKernelData(
+    return new DeprecatedPreviousKernelData(
       reader.readObject(PrivateKernelPublicInputs),
       reader.readObject(UInt8Vector),
       reader.readObject(VerificationKey),
@@ -257,7 +258,7 @@ export class PreviousKernelData {
    * Creates an empty instance, valid enough to be accepted by circuits
    */
   static makeEmpty() {
-    return new PreviousKernelData(
+    return new DeprecatedPreviousKernelData(
       PrivateKernelPublicInputs.makeEmpty(),
       makeEmptyProof(),
       VerificationKey.makeFake(),
@@ -268,17 +269,17 @@ export class PreviousKernelData {
 }
 
 export class DummyPreviousKernelData {
-  private static instance: DummyPreviousKernelData;
+  private static instance: PreviousKernelData;
 
-  private constructor(private data: PreviousKernelData) {}
+  private constructor(private data: DeprecatedPreviousKernelData) {}
 
-  public static async getDummyPreviousKernelData(wasm: CircuitsWasm) {
+  public static async getDummyPreviousKernelData(wasm: CircuitsWasm): Promise<PreviousKernelData> {
     if (!DummyPreviousKernelData.instance) {
-      const data = await getDummyPreviousKernelData(wasm);
-      DummyPreviousKernelData.instance = new DummyPreviousKernelData(data);
+      const data = await privateKernelDummyPreviousKernel(wasm);
+      DummyPreviousKernelData.instance = data;
     }
 
-    return DummyPreviousKernelData.instance.getData();
+    return DummyPreviousKernelData.instance;
   }
 
   public getData() {
@@ -342,7 +343,7 @@ export class PrivateCallData {
 export class PrivateKernelInputs {
   constructor(
     public signedTxRequest: SignedTxRequest,
-    public previousKernel: PreviousKernelData,
+    public previousKernel: DeprecatedPreviousKernelData,
     public privateCall: PrivateCallData,
   ) {}
 

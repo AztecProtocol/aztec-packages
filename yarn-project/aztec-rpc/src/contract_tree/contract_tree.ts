@@ -9,7 +9,6 @@ import {
   computeFunctionTree,
 } from '@aztec/circuits.js';
 import {
-  computeContractAddress,
   computeContractLeaf,
   computeFunctionLeaf,
   computeFunctionTreeRoot,
