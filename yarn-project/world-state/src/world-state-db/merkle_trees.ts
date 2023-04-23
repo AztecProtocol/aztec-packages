@@ -258,8 +258,8 @@ export class MerkleTrees implements MerkleTreeDb {
     return await this.synchronise(async () => {
       const tree = this.trees[treeId];
       for (let i = 0n; i < tree.getNumLeaves(includeUncommitted); i++) {
-        const value = await tree.getLeafValue(i, includeUncommitted);
-        if (value && value.equals(value)) {
+        const currentValue = await tree.getLeafValue(i, includeUncommitted);
+        if (currentValue && currentValue.equals(value)) {
           return i;
         }
       }
