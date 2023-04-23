@@ -55,39 +55,4 @@ export class CircuitsWasm extends AsyncWasmWrapper {
       }),
     };
   }
-
-  public getSchema(cbind: string): any {
-    const outputSizePtr = this.call('bbmalloc', 4);
-    const outputMsgpackPtr = this.call('bbmalloc', 4);
-    this.call(cbind + '__schema', outputMsgpackPtr, outputSizePtr);
-    const jsonSchema = this.wasm.getMemoryAsString(this.readPtr32(outputMsgpackPtr));
-    this.call('bbfree', outputSizePtr);
-    this.call('bbfree', outputMsgpackPtr);
-    return JSON.parse(jsonSchema);
-  }
-  // Standard call format
-  public async callCbind(cbind: string, input: any[]): Promise<any> {
-    const outputSizePtr = this.call('bbmalloc', 4);
-    const outputMsgpackPtr = this.call('bbmalloc', 4);
-    console.log({ input });
-    const inputBuffer = encode(input);
-    console.log({ inputBuffer });
-    const inputPtr = this.call('bbmalloc', inputBuffer.length);
-    this.wasm.writeMemory(inputPtr, inputBuffer);
-    await this.asyncCall(cbind, inputPtr, inputBuffer.length, outputMsgpackPtr, outputSizePtr);
-    const encodedResult = this.wasm.getMemorySlice(
-      this.readPtr32(outputMsgpackPtr),
-      this.readPtr32(outputMsgpackPtr) + this.readPtr32(outputSizePtr),
-    );
-    const result = decode(encodedResult);
-    this.call('bbfree', inputPtr);
-    this.call('bbfree', outputSizePtr);
-    this.call('bbfree', outputMsgpackPtr);
-    return result;
-  }
-  // Written in little-endian as WASM native
-  private readPtr32(ptr32: number) {
-    const dataView = new DataView(this.getMemorySlice(ptr32, ptr32 + 4).buffer);
-    return dataView.getUint32(0, /*little endian*/ true);
-  }
 }

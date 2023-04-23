@@ -1,5 +1,8 @@
 #pragma once
 
+#include "barretenberg/msgpack/msgpack_concepts.hpp"
+#include <memory>
+#include <string>
 #define MSGPACK_NO_BOOST
 #include <barretenberg/msgpack/msgpack_impl.hpp>
 #include "msgpack_schema_name.hpp"
@@ -11,6 +14,7 @@ namespace msgpack {
  * @tparam Stream the underlying stream to write to
  */
 template <typename Stream> struct SchemaPrinter : msgpack::packer<Stream> {
+    std::set<std::string> emitted_types;
     SchemaPrinter(Stream* stream)
         : msgpack::packer<Stream>(stream)
     {}
@@ -73,23 +77,55 @@ template <typename Stream> struct SchemaPrinter : msgpack::packer<Stream> {
         _pack_key_values(rest...);
     }
     // Serialize an object with a msgpack() method into a schema
-    void pack(HasMsgPack auto object)
+    template <HasMsgPack T> void pack(const T& object)
     {
+        std::string type = schema_name<decltype(object)>();
+        if (emitted_types.find(type) != emitted_types.end()) {
+            msgpack::packer<Stream>::pack(type);
+            return; // already emitted
+        }
+        emitted_types.insert(type);
         size_t keys_and_values = 0;
-        object.msgpack([&](auto&... args) { keys_and_values = sizeof...(args); });
+        const_cast<T&>(object).msgpack([&](auto&... args) { keys_and_values = sizeof...(args); });
         this->pack_map(uint32_t(1 + keys_and_values / 2));
         msgpack::packer<Stream>::pack("__typename");
-        msgpack::packer<Stream>::pack(schema_name<decltype(object)>());
-        object.msgpack([&](auto&... args) { _pack_key_values(args...); });
+        msgpack::packer<Stream>::pack(type);
+        const_cast<T&>(object).msgpack([&](auto&... args) { _pack_key_values(args...); });
     }
     // Serialize an object with a msgpack_flat() method into a schema
     void pack(HasMsgPackFlat auto object)
     {
+        std::string type = schema_name<decltype(object)>();
+        if (emitted_types.find(type) != emitted_types.end()) {
+            msgpack::packer<Stream>::pack(type);
+            return; // already emitted
+        }
+        emitted_types.insert(type);
         size_t values = 0;
         object.msgpack_flat([&](auto&... args) { values = sizeof...(args); });
         this->pack_array(uint32_t(1 + values));
-        msgpack::packer<Stream>::pack(schema_name<decltype(object)>());
+        msgpack::packer<Stream>::pack(type);
         object.msgpack_flat([&](auto&... args) { (pack(args), ...); });
+    }
+    template <typename T> void pack(const std::shared_ptr<T>& v)
+    {
+        (void)v; // unused except for schema
+        this->pack_array(2);
+        msgpack::packer<Stream>::pack("shared_ptr");
+        pack(*v.get());
+    }
+    void pack(HasMsgPackPack auto& v)
+    {
+        std::string type = schema_name<decltype(v)>();
+        if (emitted_types.find(type) != emitted_types.end()) {
+            msgpack::packer<Stream>::pack(type);
+            return; // already emitted
+        }
+        emitted_types.insert(type);
+        this->pack_array(3);
+        msgpack::packer<Stream>::pack("struct");
+        msgpack::packer<Stream>::pack(type);
+        v.msgpack_pack(*this);
     }
     template <typename T>
         requires(!HasMsgPackFlat<T> && !HasMsgPack<T>)
@@ -98,6 +134,8 @@ template <typename Stream> struct SchemaPrinter : msgpack::packer<Stream> {
         (void)v; // unused except for schema
         msgpack::packer<Stream>::pack(schema_name<T>());
     }
+    void pack_bin(size_t size) { msgpack::packer<Stream>::pack("bin" + std::to_string(size)); }
+    void pack_bin_body(const char*, size_t) {}
 };
 std::string schema_to_string(auto obj)
 {

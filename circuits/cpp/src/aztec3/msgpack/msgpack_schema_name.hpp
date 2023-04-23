@@ -12,6 +12,7 @@ template <typename T> std::string schema_name()
     if (result == "i") {
         return "int";
     }
+
     if (result.find('<') != size_t(-1)) {
         result = result.substr(0, result.find('<'));
     }

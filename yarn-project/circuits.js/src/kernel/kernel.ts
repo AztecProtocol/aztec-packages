@@ -10,15 +10,10 @@ import {
 } from '../index.js';
 import { boolToBuffer, serializeToBuffer, uint8ArrayToNum } from '../utils/serialize.js';
 import { CircuitsWasm } from '../wasm/index.js';
+import { privateKernelDummyPreviousKernel } from '../structs/msgpack_bind.gen.js';
 
 export async function getDummyPreviousKernelData(wasm: CircuitsWasm) {
-  wasm.call('pedersen__init');
-  const ptr = wasm.call('bbmalloc', 4);
-  const data = await wasm.asyncCall('private_kernel__dummy_previous_kernel', ptr);
-  const outputBufSize = uint8ArrayToNum(wasm.getMemorySlice(ptr, ptr + 4));
-  wasm.call('bbfree', ptr);
-  const result = Buffer.from(wasm.getMemorySlice(data, data + outputBufSize));
-  return PreviousKernelData.fromBuffer(result);
+  return await privateKernelDummyPreviousKernel(wasm);
 }
 
 export async function computeFunctionTree(wasm: CircuitsWasm, leaves: Fr[]): Promise<Fr[]> {
