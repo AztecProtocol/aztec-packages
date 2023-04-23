@@ -12,6 +12,7 @@ using NT = aztec3::utils::types::NativeTypes;
 using ConstantRollupData = aztec3::circuits::abis::ConstantRollupData<NT>;
 using BaseRollupInputs = aztec3::circuits::abis::BaseRollupInputs<NT>;
 using BaseOrMergeRollupPublicInputs = aztec3::circuits::abis::BaseOrMergeRollupPublicInputs<NT>;
+using RootRollupInputs = aztec3::circuits::abis::RootRollupInputs<NT>;
 using DummyComposer = aztec3::utils::DummyComposer;
 
 using Aggregator = aztec3::circuits::recursion::Aggregator;
@@ -79,5 +80,11 @@ std::array<PreviousRollupData<NT>, 2> get_previous_rollup_data(DummyComposer& co
                                                                std::array<KernelData, 4> kernel_data);
 
 KernelData get_empty_kernel();
+
+RootRollupInputs get_root_rollup_inputs(utils::DummyComposer& composer, std::array<KernelData, 4> kernel_data);
+
+void set_kernel_commitments(KernelData& kernel_data, std::array<fr, KERNEL_NEW_COMMITMENTS_LENGTH> new_commitments);
+
+void set_kernel_nullifiers(KernelData& kernel_data, std::array<fr, KERNEL_NEW_NULLIFIERS_LENGTH> new_nullifiers);
 
 } // namespace aztec3::circuits::rollup::test_utils::utils

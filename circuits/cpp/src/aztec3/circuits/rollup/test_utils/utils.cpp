@@ -7,13 +7,15 @@
 #include <aztec3/circuits/mock/mock_kernel_circuit.hpp>
 #include "aztec3/circuits/abis/new_contract_data.hpp"
 #include "aztec3/circuits/abis/rollup/merge/merge_rollup_inputs.hpp"
-
+#include "aztec3/circuits/abis/rollup/root/root_rollup_public_inputs.hpp"
 namespace {
 using NT = aztec3::utils::types::NativeTypes;
 
 // Types
 using ConstantRollupData = aztec3::circuits::abis::ConstantRollupData<NT>;
 using BaseRollupInputs = aztec3::circuits::abis::BaseRollupInputs<NT>;
+using RootRollupInputs = aztec3::circuits::abis::RootRollupInputs<NT>;
+using RootRollupPublicInputs = aztec3::circuits::abis::RootRollupPublicInputs<NT>;
 using DummyComposer = aztec3::utils::DummyComposer;
 
 using Aggregator = aztec3::circuits::recursion::Aggregator;
@@ -51,6 +53,13 @@ std::array<KernelData, 2> get_empty_kernels()
     return { dummy_previous_kernel(), dummy_previous_kernel() };
 }
 
+void set_kernel_nullifiers(KernelData& kernel_data, std::array<fr, KERNEL_NEW_NULLIFIERS_LENGTH> new_nullifiers)
+{
+    for (size_t i = 0; i < KERNEL_NEW_NULLIFIERS_LENGTH; i++) {
+        kernel_data.public_inputs.end.new_nullifiers[i] = new_nullifiers[i];
+    }
+}
+
 void set_kernel_nullifiers(std::array<KernelData, 2>& kernel_data,
                            std::array<fr, KERNEL_NEW_NULLIFIERS_LENGTH * 2> nullifiers)
 {
@@ -58,6 +67,13 @@ void set_kernel_nullifiers(std::array<KernelData, 2>& kernel_data,
         for (size_t j = 0; j < KERNEL_NEW_NULLIFIERS_LENGTH; j++) {
             kernel_data[i].public_inputs.end.new_nullifiers[j] = nullifiers[i * KERNEL_NEW_NULLIFIERS_LENGTH + j];
         }
+    }
+}
+
+void set_kernel_commitments(KernelData& kernel_data, std::array<fr, KERNEL_NEW_COMMITMENTS_LENGTH> new_commitments)
+{
+    for (size_t i = 0; i < KERNEL_NEW_COMMITMENTS_LENGTH; i++) {
+        kernel_data.public_inputs.end.new_commitments[i] = new_commitments[i];
     }
 }
 
@@ -118,6 +134,8 @@ BaseRollupInputs base_rollup_inputs_from_kernels(std::array<KernelData, 2> kerne
             nullifiers[i * 4 + j] = kernel_data[i].public_inputs.end.new_nullifiers[j];
         }
     }
+
+    // TODO: It is a bit hacky here that it is always the same location we are inserting it.
 
     auto temp = generate_nullifier_tree_testing_values_explicit(baseRollupInputs, nullifiers, initial_values);
     baseRollupInputs = std::get<0>(temp);
@@ -183,13 +201,17 @@ std::array<PreviousRollupData<NT>, 2> get_previous_rollup_data(DummyComposer& co
     auto base_rollup_input_2 = base_rollup_inputs_from_kernels({ kernel_data[2], kernel_data[3] });
     auto temp = generate_nullifier_tree_testing_values_explicit(base_rollup_input_2, nullifiers, initial_values);
     base_rollup_input_2 = std::get<0>(temp);
-    base_rollup_input_2.new_contracts_subtree_sibling_path =
-        get_sibling_path<CONTRACT_SUBTREE_INCLUSION_CHECK_DEPTH>(contract_tree, 1, CONTRACT_SUBTREE_DEPTH);
-    base_rollup_input_2.new_commitments_subtree_sibling_path =
-        get_sibling_path<PRIVATE_DATA_SUBTREE_INCLUSION_CHECK_DEPTH>(private_data_tree, 1, PRIVATE_DATA_SUBTREE_DEPTH);
+
     base_rollup_input_2.start_private_data_tree_snapshot = base_public_input_1.end_private_data_tree_snapshot;
     base_rollup_input_2.start_nullifier_tree_snapshot = base_public_input_1.end_nullifier_tree_snapshot;
     base_rollup_input_2.start_contract_tree_snapshot = base_public_input_1.end_contract_tree_snapshot;
+
+    // @todo Need an additional tests to check that these below are correct.
+    // Changing the index in private tree still pass tests etc (16).
+    base_rollup_input_2.new_contracts_subtree_sibling_path =
+        get_sibling_path<CONTRACT_SUBTREE_INCLUSION_CHECK_DEPTH>(contract_tree, 1, CONTRACT_SUBTREE_DEPTH);
+    base_rollup_input_2.new_commitments_subtree_sibling_path =
+        get_sibling_path<PRIVATE_DATA_SUBTREE_INCLUSION_CHECK_DEPTH>(private_data_tree, 8, PRIVATE_DATA_SUBTREE_DEPTH);
 
     auto base_public_input_2 =
         aztec3::circuits::rollup::native_base_rollup::base_rollup_circuit(composer, base_rollup_input_2);
@@ -210,6 +232,24 @@ std::array<PreviousRollupData<NT>, 2> get_previous_rollup_data(DummyComposer& co
     };
 
     return { previous_rollup1, previous_rollup2 };
+}
+
+RootRollupInputs get_root_rollup_inputs(utils::DummyComposer& composer, std::array<KernelData, 4> kernel_data)
+{
+
+    MerkleTree historic_data_tree = MerkleTree(PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT);
+    MerkleTree historic_contract_tree = MerkleTree(CONTRACT_TREE_ROOTS_TREE_HEIGHT);
+
+    auto historic_data_sibling_path = get_sibling_path<PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT>(historic_data_tree, 0, 0);
+    auto historic_contract_sibling_path =
+        get_sibling_path<CONTRACT_TREE_ROOTS_TREE_HEIGHT>(historic_contract_tree, 0, 0);
+
+    RootRollupInputs rootRollupInputs = {
+        .previous_rollup_data = get_previous_rollup_data(composer, kernel_data),
+        .new_historic_private_data_tree_root_sibling_path = historic_data_sibling_path,
+        .new_historic_contract_tree_root_sibling_path = historic_contract_sibling_path,
+    };
+    return rootRollupInputs;
 }
 
 //////////////////////////

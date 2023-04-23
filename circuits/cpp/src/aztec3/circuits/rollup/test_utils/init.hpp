@@ -21,6 +21,7 @@
 #include <aztec3/utils/types/convert.hpp>
 #include <aztec3/utils/types/circuit_types.hpp>
 #include <aztec3/utils/types/native_types.hpp>
+#include "aztec3/circuits/abis/rollup/root/root_rollup_inputs.hpp"
 
 namespace aztec3::circuits::rollup::test_utils {
 
