@@ -131,15 +131,8 @@ void common_validate_inputs(DummyComposer& composer, KernelInput const& public_k
 {
     // Validates commons inputs for all type of kernel inputs
     const auto& this_call_stack_item = public_kernel_inputs.public_call.public_call_data.call_stack_item;
-    composer.do_assert(this_call_stack_item.public_inputs.call_context.is_delegate_call == false,
-                       "Users cannot make a delegatecall");
-    composer.do_assert(this_call_stack_item.public_inputs.call_context.is_static_call == false,
-                       "Users cannot make a static call");
     composer.do_assert(this_call_stack_item.public_inputs.call_context.is_contract_deployment == false,
                        "Contract deployment can't be a public function");
-    composer.do_assert(this_call_stack_item.public_inputs.call_context.storage_contract_address ==
-                           this_call_stack_item.contract_address,
-                       "Storage contract address must be that of the called contract");
     composer.do_assert(this_call_stack_item.contract_address != 0, "Contract address must be valid");
     composer.do_assert(this_call_stack_item.function_data.function_selector != 0, "Function signature must be valid");
     composer.do_assert(this_call_stack_item.function_data.is_constructor == false,
@@ -148,8 +141,6 @@ void common_validate_inputs(DummyComposer& composer, KernelInput const& public_k
                        "Cannot execute a private function with the public kernel circuit");
     composer.do_assert(public_kernel_inputs.public_call.public_call_data.bytecode_hash != 0,
                        "Bytecode hash must be valid");
-    composer.do_assert(public_kernel_inputs.public_call.public_call_data.portal_contract_address != 0,
-                       "Portal contract address must be valid");
 }
 
 template <typename KernelInput>

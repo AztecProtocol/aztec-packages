@@ -18,6 +18,18 @@ void initialise_end_values(PublicKernelInputsNoPreviousKernel<NT> const& public_
         public_kernel_inputs.public_call.public_data_tree_root;
     circuit_outputs.constants.tx_context = public_kernel_inputs.signed_tx_request.tx_request.tx_context;
 }
+
+void validate_inputs(DummyComposer& composer, PublicKernelInputsNoPreviousKernel<NT> const& public_kernel_inputs)
+{
+    const auto& this_call_stack_item = public_kernel_inputs.public_call.public_call_data.call_stack_item;
+    composer.do_assert(this_call_stack_item.public_inputs.call_context.is_delegate_call == false,
+                       "Users cannot make a delegatecall");
+    composer.do_assert(this_call_stack_item.public_inputs.call_context.is_static_call == false,
+                       "Users cannot make a static call");
+    composer.do_assert(this_call_stack_item.public_inputs.call_context.storage_contract_address ==
+                           this_call_stack_item.contract_address,
+                       "Storage contract address must be that of the called contract");
+}
 } // namespace
 
 namespace aztec3::circuits::kernel::public_kernel {
@@ -47,11 +59,16 @@ KernelCircuitPublicInputs<NT> native_public_kernel_circuit_no_previous_kernel(
     // validate the inputs common to all invocation circumstances
     common_validate_inputs(composer, public_kernel_inputs);
 
+    // validate the inputs unique to there being no previous kernel
+    validate_inputs(composer, public_kernel_inputs);
+
     // validate the kernel execution commonn to all invocation circumstances
     common_validate_kernel_execution(composer, public_kernel_inputs);
 
     // update the public end state of the circuit
     update_public_end_values(public_kernel_inputs, public_inputs);
+
+    // TODO: check for the existence on the public function in the contract tree
     return public_inputs;
 };
 
