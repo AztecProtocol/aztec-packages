@@ -238,6 +238,36 @@ describe('sequencer/circuit_block_builder', () => {
       10000,
     );
 
+    function insertSpaces(str: string): string {
+      return str.replace(/(.{2})/g, '$1 ');
+    }
+
+    it.each([[4]] as const)(
+      'builds an L2 block with %i contract deploy txs and %i txs total',
+      async (totalCount: number) => {
+        const txs = [...(await Promise.all(times(totalCount, makeEmptyProcessedTx)))];
+
+        const [l2Block] = await builder.buildL2Block(blockNumber, txs);
+        expect(l2Block.number).toEqual(blockNumber);
+
+        console.log(l2Block);
+        console.log(
+          'l2Block.endTreeOfHistoricPrivateDataTreeRootsSnapshot',
+          l2Block.endTreeOfHistoricPrivateDataTreeRootsSnapshot.nextAvailableLeafIndex,
+          l2Block.endTreeOfHistoricPrivateDataTreeRootsSnapshot.root.toBuffer().toString('hex'),
+        );
+        console.log(
+          'l2Block.endTreeOfHistoricContractTreeRootsSnapshot',
+          l2Block.endTreeOfHistoricContractTreeRootsSnapshot.nextAvailableLeafIndex,
+          l2Block.endTreeOfHistoricContractTreeRootsSnapshot.root.toBuffer().toString('hex'),
+        );
+
+        console.log(insertSpaces(l2Block.encode().toString('hex')));
+        console.log(l2Block.encode().toString('hex'));
+      },
+      10000,
+    );
+
     // This test specifically tests nullifier values which previously caused e2e_zk_token test to fail
     it('e2e edge case - regression test', async () => {
       const simulator = await WasmCircuitSimulator.new();
