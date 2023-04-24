@@ -1,4 +1,5 @@
 contract ZkToken {
+    mod balance_utils;
     use dep::aztec3::abi::Inputs;
     use dep::aztec3::abi::Outputs;
     use dep::aztec3::notes::value_note::Note;
@@ -116,4 +117,12 @@ contract ZkToken {
         outputs.finish(inputs)
     }
 
+    /// ABI get_balance type "unconstrained"
+    fn get_balance(
+        owner: Point,
+    ) -> pub Field {
+        let owner_balance = balances.at(owner.x);
+        
+        balance_utils::get_balance(owner_balance.storage_slot)
+    }
 }

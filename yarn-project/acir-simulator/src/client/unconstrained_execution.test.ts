@@ -55,7 +55,7 @@ describe('Unconstrained Execution test suite', () => {
       const contractAddress = AztecAddress.random();
       const abi = ZkTokenContractAbi.functions.find(f => f.name === 'get_balance')!;
 
-      const preimages = [...Array(100).fill(buildNote(1n, owner)), ...Array(50).fill(buildNote(2n, owner))];
+      const preimages = [...Array(5).fill(buildNote(1n, owner)), ...Array(2).fill(buildNote(2n, owner))];
       // TODO for this we need that noir siloes the commitment the same way as the kernel does, to do merkle membership
 
       const historicRoots = new PrivateHistoricTreeRoots(new Fr(0n), new Fr(0n), new Fr(0n), new Fr(0n));
@@ -76,7 +76,7 @@ describe('Unconstrained Execution test suite', () => {
         AztecAddress.random(),
         contractAddress,
         new FunctionData(Buffer.alloc(4), true, true),
-        encodeArguments(abi, [owner]),
+        encodeArguments(abi, [owner], false),
         Fr.random(),
         txContext,
         new Fr(0n),
@@ -90,7 +90,7 @@ describe('Unconstrained Execution test suite', () => {
         historicRoots,
       );
 
-      expect(result).toEqual(150n);
+      expect(result).toEqual([9n]);
     }, 30_000);
   });
 });
