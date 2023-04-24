@@ -158,7 +158,7 @@ void check_membership(Composer& composer,
                       std::string const& msg)
 {
     const auto calculated_root = root_from_sibling_path<NCT>(value, index, sibling_path);
-    composer.do_assert(calculated_root == root, std::string("Membership check failed ") + msg);
+    composer.do_assert(calculated_root == root, std::string("Membership check failed: ") + msg);
 }
 
 /**
