@@ -73,7 +73,7 @@ void validate_state_transitions(DummyComposer& composer, KernelInput const& publ
         if (state_transition.is_empty()) {
             continue;
         }
-        const auto& sibling_path = public_kernel_inputs.public_call.state_reads_sibling_paths[i].sibling_path;
+        const auto& sibling_path = public_kernel_inputs.public_call.state_transitions_sibling_paths[i].sibling_path;
         const typename NT::fr leaf_value = compute_public_data_tree_value<NT>(state_transition.old_value);
         const typename NT::fr leaf_index =
             compute_public_data_tree_index<NT>(contract_address, state_transition.storage_slot);
