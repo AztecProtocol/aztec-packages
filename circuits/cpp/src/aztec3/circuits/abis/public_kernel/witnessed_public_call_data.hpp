@@ -25,7 +25,7 @@ template <typename NCT> struct WitnessedPublicCallData {
     std::array<MembershipWitness<NCT, PUBLIC_DATA_TREE_HEIGHT>, STATE_TRANSITIONS_LENGTH>
         state_transitions_sibling_paths;
     std::array<MembershipWitness<NCT, PUBLIC_DATA_TREE_HEIGHT>, STATE_READS_LENGTH> state_reads_sibling_paths;
-    fr public_data_tree_root;
+    fr public_data_tree_root = 0;
 
     boolean operator==(WitnessedPublicCallData<NCT> const& other) const
     {
