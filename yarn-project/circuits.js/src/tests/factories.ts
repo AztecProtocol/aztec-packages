@@ -16,17 +16,23 @@ import {
   PreviousRollupData,
   PrivateCallData,
   PrivateCircuitPublicInputs,
-  PrivateKernelInputs,
   PrivateHistoricTreeRoots,
+  PrivateKernelInputs,
+  PublicCallData,
+  PublicCircuitPublicInputs,
+  PublicDataRead,
+  PublicDataWrite,
+  PublicKernelInputsNoKernelInput,
+  PublicKernelInputsNonFirstIteration,
+  PublicKernelInputsPrivateKernelInput,
   RootRollupInputs,
   RootRollupPublicInputs,
   StateRead,
   StateTransition,
-  PublicDataWrite,
-  PublicDataRead,
+  WitnessedPublicCallData,
 } from '../index.js';
 import { AggregationObject } from '../structs/aggregation_object.js';
-import { PrivateCallStackItem } from '../structs/call_stack_item.js';
+import { PrivateCallStackItem, PublicCallStackItem } from '../structs/call_stack_item.js';
 import {
   ARGS_LENGTH,
   CONTRACT_TREE_HEIGHT,
@@ -147,6 +153,33 @@ export function makeAggregationObject(seed = 1): AggregationObject {
   );
 }
 
+export function makeCallContext(seed = 0): CallContext {
+  return new CallContext(
+    makeAztecAddress(seed),
+    makeAztecAddress(seed + 1),
+    makeEthAddress(seed + 2),
+    false,
+    false,
+    false,
+  );
+}
+
+export function makePublicCircuitPublicInputs(seed = 0): PublicCircuitPublicInputs {
+  const frArray = (num: number, seed: number) => range(num, seed).map(fr);
+  return new PublicCircuitPublicInputs(
+    makeCallContext(seed),
+    frArray(ARGS_LENGTH, seed + 0x100),
+    frArray(RETURN_VALUES_LENGTH, seed + 0x200),
+    frArray(EMITTED_EVENTS_LENGTH, seed + 0x300),
+    range(STATE_TRANSITIONS_LENGTH, seed + 0x400).map(makeStateTransition),
+    range(STATE_READS_LENGTH, seed + 0x500).map(makeStateRead),
+    frArray(PUBLIC_CALL_STACK_LENGTH, seed + 0x600),
+    frArray(L1_MSG_STACK_LENGTH, seed + 0x700),
+    fr(seed + 0x800),
+    makeAztecAddress(seed + 0x801),
+  );
+}
+
 export function makeKernelPublicInputs(seed = 1): KernelCircuitPublicInputs {
   return new KernelCircuitPublicInputs(makeAccumulatedData(seed), makeConstantData(seed + 0x100), true);
 }
@@ -156,7 +189,7 @@ export function makeDynamicSizeBuffer(size: number, fill: number) {
 }
 
 export function makeMembershipWitness<N extends number>(size: number, start: number): MembershipWitness<N> {
-  return new MembershipWitness(size, start, range(size, start).map(fr));
+  return new MembershipWitness(size, BigInt(start), range(size, start).map(fr));
 }
 
 export function makeVerificationKey(): VerificationKey {
@@ -175,11 +208,15 @@ export function makeVerificationKey(): VerificationKey {
 export function makePreviousKernelData(seed = 1): PreviousKernelData {
   return new PreviousKernelData(
     makeKernelPublicInputs(seed),
-    makeDynamicSizeBuffer(16, seed + 0x80),
+    makeProof(seed + 0x80),
     makeVerificationKey(),
     0x42,
     range(VK_TREE_HEIGHT, 0x1000).map(fr),
   );
+}
+
+export function makeProof(seed = 1) {
+  return makeDynamicSizeBuffer(16, seed);
 }
 
 export function makePrivateKernelInputs(seed = 1): PrivateKernelInputs {
@@ -187,6 +224,51 @@ export function makePrivateKernelInputs(seed = 1): PrivateKernelInputs {
     makeSignedTxRequest(seed),
     makePreviousKernelData(seed + 0x1000),
     makePrivateCallData(seed + 0x2000),
+  );
+}
+
+export function makePublicCallStackItem(seed = 1): PublicCallStackItem {
+  return new PublicCallStackItem(
+    makeAztecAddress(seed),
+    new FunctionData(makeSelector(seed + 0x1), true, true),
+    makePublicCircuitPublicInputs(seed + 0x10),
+  );
+}
+
+export function makePublicCallData(seed = 1) {
+  return new PublicCallData(
+    makePublicCallStackItem(seed),
+    range(PUBLIC_CALL_STACK_LENGTH, seed + 0x300).map(makePublicCallStackItem),
+    makeProof(seed + 0x1000),
+    fr(seed + 1),
+    fr(seed + 2),
+  );
+}
+
+export function makeWitnessedPublicCallData(seed = 1): WitnessedPublicCallData {
+  return new WitnessedPublicCallData(
+    makePublicCallData(seed),
+    range(STATE_TRANSITIONS_LENGTH, seed + 0x100).map(x => makeMembershipWitness(PUBLIC_DATA_TREE_HEIGHT, x)),
+    range(STATE_READS_LENGTH, seed + 0x200).map(x => makeMembershipWitness(PUBLIC_DATA_TREE_HEIGHT, x)),
+    fr(seed + 0x300),
+  );
+}
+
+export function makePublicKernelInputsNonFirstIteration(seed = 1): PublicKernelInputsNonFirstIteration {
+  return new PublicKernelInputsNonFirstIteration(
+    makePreviousKernelData(seed),
+    makeWitnessedPublicCallData(seed + 0x1000),
+  );
+}
+
+export function makePublicKernelInputsNoKernelInput(seed = 1) {
+  return new PublicKernelInputsNoKernelInput(makeSignedTxRequest(seed), makeWitnessedPublicCallData(seed + 0x100));
+}
+
+export function makePublicKernelInputsPrivateKernelInput(seed = 1) {
+  return new PublicKernelInputsPrivateKernelInput(
+    makePreviousKernelData(seed),
+    makeWitnessedPublicCallData(seed + 0x100),
   );
 }
 
@@ -208,8 +290,8 @@ export function makeTxRequest(seed = 1): TxRequest {
 
 export function makePrivateCallData(seed = 1): PrivateCallData {
   return PrivateCallData.from({
-    callStackItem: makeCallStackItem(seed),
-    privateCallStackPreimages: range(PRIVATE_CALL_STACK_LENGTH, seed + 0x10).map(makeCallStackItem),
+    callStackItem: makePrivateCallStackItem(seed),
+    privateCallStackPreimages: range(PRIVATE_CALL_STACK_LENGTH, seed + 0x10).map(makePrivateCallStackItem),
     proof: makeDynamicSizeBuffer(16, seed + 0x50),
     vk: makeVerificationKey(),
     functionLeafMembershipWitness: makeMembershipWitness(FUNCTION_TREE_HEIGHT, seed + 0x30),
@@ -219,7 +301,7 @@ export function makePrivateCallData(seed = 1): PrivateCallData {
   });
 }
 
-export function makeCallStackItem(seed = 1): PrivateCallStackItem {
+export function makePrivateCallStackItem(seed = 1): PrivateCallStackItem {
   return new PrivateCallStackItem(
     makeAztecAddress(seed),
     new FunctionData(makeSelector(seed + 0x1), true, true),

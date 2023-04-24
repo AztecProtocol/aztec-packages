@@ -5,26 +5,25 @@ import {
   ContractDeploymentData,
   FunctionData,
   NEW_COMMITMENTS_LENGTH,
-  PrivateHistoricTreeRoots,
   PRIVATE_DATA_TREE_HEIGHT,
+  PrivateHistoricTreeRoots,
   TxContext,
   TxRequest,
 } from '@aztec/circuits.js';
 import { AztecAddress, EthAddress, Fr } from '@aztec/foundation';
 import { AppendOnlyTree, Pedersen, StandardTree, newTree } from '@aztec/merkle-tree';
-import { FunctionAbi } from '@aztec/noir-contracts';
 import { ChildAbi, ParentAbi, TestContractAbi, ZkTokenContractAbi } from '@aztec/noir-contracts/examples';
 import { mock } from 'jest-mock-extended';
 import { default as levelup } from 'levelup';
 import { default as memdown, type MemDown } from 'memdown';
-import { encodeArguments } from './abi_coder/index.js';
+import { encodeArguments } from '../abi_coder/index.js';
 import { DBOracle } from './db_oracle.js';
 import { AcirSimulator } from './simulator.js';
-import { NoirPoint, computeSlotForMapping, toPublicKey } from './utils.js';
+import { NoirPoint, computeSlotForMapping, toPublicKey } from '../utils.js';
 
-export const createMemDown = () => (memdown as any)() as MemDown<any, any>;
+const createMemDown = () => (memdown as any)() as MemDown<any, any>;
 
-describe('ACIR simulator', () => {
+describe('Private Execution test suite', () => {
   let bbWasm: BarretenbergWasm;
   let oracle: ReturnType<typeof mock<DBOracle>>;
   let acirSimulator: AcirSimulator;

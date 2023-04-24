@@ -1,23 +1,23 @@
 import { CallContext, FunctionData, StateRead, StateTransition, TxRequest } from '@aztec/circuits.js';
 import { AztecAddress, EthAddress, Fr } from '@aztec/foundation';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { FunctionAbi } from '@aztec/noir-contracts';
+import { select_return_flattened as selectPublicWitnessFlattened } from '@noir-lang/noir_util_wasm';
 import { acvm, fromACVMField, toACVMField, toACVMWitness } from '../acvm/index.js';
 import { PublicDB } from './db.js';
-import { select_return_flattened as selectPublicWitnessFlattened } from '@noir-lang/noir_util_wasm';
 import { StateActionsCollector } from './state_actions.js';
 
+export interface PublicFunctionBytecode {
+  bytecode: Buffer;
+}
+
 export interface PublicExecutionResult {
-  acir: Buffer;
-  vk: Buffer;
   returnValues: Fr[];
   stateReads: StateRead[];
   stateTransitions: StateTransition[];
 }
 
 function getInitialWitness(args: Fr[], callContext: CallContext, witnessStartIndex = 1) {
-  return toACVMWitness(
-    witnessStartIndex,
+  return toACVMWitness(witnessStartIndex, [
     callContext.isContractDeployment,
     callContext.isDelegateCall,
     callContext.isStaticCall,
@@ -25,13 +25,13 @@ function getInitialWitness(args: Fr[], callContext: CallContext, witnessStartInd
     callContext.portalContractAddress,
     callContext.storageContractAddress,
     ...args,
-  );
+  ]);
 }
 
 export class PublicExecution {
   constructor(
     public readonly db: PublicDB,
-    public readonly abi: FunctionAbi,
+    public readonly publicFunction: PublicFunctionBytecode,
     public readonly contractAddress: AztecAddress,
     public readonly functionData: FunctionData,
     public readonly args: Fr[],
@@ -43,7 +43,7 @@ export class PublicExecution {
   static fromTransactionRequest(
     db: PublicDB,
     request: TxRequest,
-    entryPointABI: FunctionAbi,
+    bytecode: PublicFunctionBytecode,
     portalContractAddress: EthAddress,
   ) {
     const contractAddress = request.to;
@@ -55,14 +55,14 @@ export class PublicExecution {
       false,
       false,
     );
-    return new this(db, entryPointABI, contractAddress, request.functionData, request.args, callContext);
+    return new this(db, bytecode, contractAddress, request.functionData, request.args, callContext);
   }
 
   public async run(): Promise<PublicExecutionResult> {
     const selectorHex = this.functionData.functionSelector.toString('hex');
     this.log(`Executing public external function ${this.contractAddress.toShortString()}:${selectorHex}`);
 
-    const acir = Buffer.from(this.abi.bytecode, 'hex');
+    const acir = this.publicFunction.bytecode;
     const initialWitness = getInitialWitness(this.args, this.callContext);
     const stateActions = new StateActionsCollector(this.db, this.contractAddress);
 
@@ -92,12 +92,9 @@ export class PublicExecution {
     });
 
     const returnValues = selectPublicWitnessFlattened(acir, partialWitness).map(fromACVMField);
-    const vk = Buffer.from(this.abi.verificationKey!, 'hex');
     const [stateReads, stateTransitions] = stateActions.collect();
 
     return {
-      acir,
-      vk,
       stateReads,
       stateTransitions,
       returnValues,
