@@ -9,7 +9,7 @@ export class MembershipWitness<N extends number> {
   }
 
   toBuffer() {
-    return serializeToBuffer(toBufferBE(this.leafIndex, 4), ...this.siblingPath);
+    return serializeToBuffer(toBufferBE(this.leafIndex, 32), ...this.siblingPath);
   }
 
   static mock(size: number, start: number) {

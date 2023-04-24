@@ -149,6 +149,18 @@ typename NCT::fr root_from_sibling_path(typename NCT::fr const& leaf,
     return node; // root
 }
 
+template <typename NCT, typename Composer, size_t SIZE>
+void check_membership(Composer& composer,
+                      typename NCT::fr const& value,
+                      typename NCT::fr const& index,
+                      std::array<typename NCT::fr, SIZE> const& sibling_path,
+                      typename NCT::fr const& root,
+                      std::string const& msg)
+{
+    const auto calculated_root = root_from_sibling_path<NCT>(value, index, sibling_path);
+    composer.do_assert(calculated_root == root, std::string("Membership check failed ") + msg);
+}
+
 /**
  * @brief Calculate the function tree root from the sibling path and leaf preimage.
  *
@@ -167,7 +179,7 @@ typename NCT::fr function_tree_root_from_siblings(
     typename NCT::boolean const& is_private,
     typename NCT::fr const& vk_hash,
     typename NCT::fr const& acir_hash,
-    typename NCT::uint32 const& function_leaf_index,
+    typename NCT::fr const& function_leaf_index,
     std::array<typename NCT::fr, FUNCTION_TREE_HEIGHT> const& function_leaf_sibling_path)
 {
     const auto function_leaf_preimage = FunctionLeafPreimage<NCT>{
@@ -200,7 +212,7 @@ typename NCT::fr contract_tree_root_from_siblings(
     typename NCT::fr const& function_tree_root,
     typename NCT::address const& storage_contract_address,
     typename NCT::address const& portal_contract_address,
-    typename NCT::uint32 const& contract_leaf_index,
+    typename NCT::fr const& contract_leaf_index,
     std::array<typename NCT::fr, CONTRACT_TREE_HEIGHT> const& contract_leaf_sibling_path)
 {
     const ContractLeafPreimage<NCT> contract_leaf_preimage{ storage_contract_address,

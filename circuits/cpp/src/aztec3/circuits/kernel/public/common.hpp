@@ -20,6 +20,7 @@ using aztec3::circuits::abis::StateTransition;
 using aztec3::circuits::abis::public_kernel::PublicKernelInputs;
 using aztec3::circuits::abis::public_kernel::PublicKernelInputsNoPreviousKernel;
 using DummyComposer = aztec3::utils::DummyComposer;
+using aztec3::circuits::check_membership;
 using aztec3::circuits::compute_public_data_tree_index;
 using aztec3::circuits::compute_public_data_tree_value;
 using aztec3::circuits::root_from_sibling_path;
@@ -29,18 +30,6 @@ using aztec3::utils::array_push;
 using aztec3::utils::push_array_to_array;
 
 namespace aztec3::circuits::kernel::public_kernel {
-
-template <size_t SIZE>
-void check_membership(DummyComposer& composer,
-                      NT::fr const& value,
-                      NT::fr const& index,
-                      std::array<NT::fr, SIZE> const& sibling_path,
-                      NT::fr const& root,
-                      std::string const& msg)
-{
-    const auto calculated_root = root_from_sibling_path<NT>(value, index, sibling_path);
-    composer.do_assert(calculated_root == root, std::string("Membership check failed ") + msg);
-}
 
 template <typename KernelInput>
 void validate_state_reads(DummyComposer& composer, KernelInput const& public_kernel_inputs)
@@ -57,12 +46,12 @@ void validate_state_reads(DummyComposer& composer, KernelInput const& public_ker
         const NT::fr leaf_value = compute_public_data_tree_value<NT>(state_read.current_value);
         const NT::fr leaf_index = compute_public_data_tree_index<NT>(contract_address, state_read.storage_slot);
         const std::string msg = format("validate_state_reads, index ", i, " leaf value ", leaf_value);
-        check_membership(composer,
-                         leaf_value,
-                         leaf_index,
-                         sibling_path,
-                         public_kernel_inputs.public_call.public_data_tree_root,
-                         msg);
+        check_membership<NT>(composer,
+                             leaf_value,
+                             leaf_index,
+                             sibling_path,
+                             public_kernel_inputs.public_call.public_data_tree_root,
+                             msg);
     }
 };
 
@@ -82,12 +71,12 @@ void validate_state_transitions(DummyComposer& composer, KernelInput const& publ
         const NT::fr leaf_value = compute_public_data_tree_value<NT>(state_transition.old_value);
         const NT::fr leaf_index = compute_public_data_tree_index<NT>(contract_address, state_transition.storage_slot);
         const std::string msg = format("validate_state_transitions, index ", i, " leaf value ", leaf_value);
-        check_membership(composer,
-                         leaf_value,
-                         leaf_index,
-                         sibling_path,
-                         public_kernel_inputs.public_call.public_data_tree_root,
-                         msg);
+        check_membership<NT>(composer,
+                             leaf_value,
+                             leaf_index,
+                             sibling_path,
+                             public_kernel_inputs.public_call.public_data_tree_root,
+                             msg);
     }
 };
 
