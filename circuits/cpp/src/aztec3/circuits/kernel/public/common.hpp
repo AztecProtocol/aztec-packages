@@ -20,6 +20,8 @@ using aztec3::circuits::abis::StateTransition;
 using aztec3::circuits::abis::public_kernel::PublicKernelInputs;
 using aztec3::circuits::abis::public_kernel::PublicKernelInputsNoPreviousKernel;
 using DummyComposer = aztec3::utils::DummyComposer;
+using aztec3::circuits::compute_public_data_tree_index;
+using aztec3::circuits::compute_public_data_tree_value;
 using aztec3::circuits::root_from_sibling_path;
 using aztec3::utils::array_length;
 using aztec3::utils::array_pop;
@@ -28,22 +30,19 @@ using aztec3::utils::push_array_to_array;
 
 namespace aztec3::circuits::kernel::public_kernel {
 
-template <typename NT, size_t SIZE>
+template <size_t SIZE>
 void check_membership(DummyComposer& composer,
-                      typename NT::fr const& value,
-                      typename NT::fr const& index,
-                      std::array<typename NT::fr, SIZE> const& sibling_path,
-                      typename NT::fr const& root)
+                      NT::fr const& value,
+                      NT::fr const& index,
+                      std::array<NT::fr, SIZE> const& sibling_path,
+                      NT::fr const& root)
 {
     const auto calculated_root = root_from_sibling_path<NT>(value, index, sibling_path);
     composer.do_assert(calculated_root == root, "Membership check failed");
 }
 
-NT::fr hash_public_data_tree_value(NT::fr const& value);
-NT::fr hash_public_data_tree_index(NT::fr const& contract_address, NT::fr const& storage_slot);
-
-template <typename NT, template <class> typename KernelInput>
-void validate_state_reads(DummyComposer& composer, KernelInput<NT> const& public_kernel_inputs)
+template <typename KernelInput>
+void validate_state_reads(DummyComposer& composer, KernelInput const& public_kernel_inputs)
 {
     // Validates that state reads correspond to the provided membership witnesses
     const auto& reads = public_kernel_inputs.public_call.public_call_data.call_stack_item.public_inputs.state_reads;
@@ -54,15 +53,16 @@ void validate_state_reads(DummyComposer& composer, KernelInput<NT> const& public
             continue;
         }
         const auto& sibling_path = public_kernel_inputs.public_call.state_reads_sibling_paths[i].sibling_path;
-        const typename NT::fr leaf_value = hash_public_data_tree_value(state_read.current_value);
-        const typename NT::fr leaf_index = hash_public_data_tree_index(contract_address, state_read.storage_slot);
-        check_membership<NT>(
+        const typename NT::fr leaf_value = compute_public_data_tree_value<NT>(state_read.current_value);
+        const typename NT::fr leaf_index =
+            compute_public_data_tree_index<NT>(contract_address, state_read.storage_slot);
+        check_membership(
             composer, leaf_value, leaf_index, sibling_path, public_kernel_inputs.public_call.public_data_tree_root);
     }
 };
 
-template <typename NT, template <class> typename KernelInput>
-void validate_state_transitions(DummyComposer& composer, KernelInput<NT> const& public_kernel_inputs)
+template <typename KernelInput>
+void validate_state_transitions(DummyComposer& composer, KernelInput const& public_kernel_inputs)
 {
     // Validates that the old value of state transitions correspond to the provided membership witnesses
     const auto& transitions =
@@ -74,39 +74,16 @@ void validate_state_transitions(DummyComposer& composer, KernelInput<NT> const& 
             continue;
         }
         const auto& sibling_path = public_kernel_inputs.public_call.state_reads_sibling_paths[i].sibling_path;
-        const typename NT::fr leaf_value = hash_public_data_tree_value(state_transition.old_value);
-        const typename NT::fr leaf_index = hash_public_data_tree_index(contract_address, state_transition.storage_slot);
-        check_membership<NT>(
+        const typename NT::fr leaf_value = compute_public_data_tree_value<NT>(state_transition.old_value);
+        const typename NT::fr leaf_index =
+            compute_public_data_tree_index<NT>(contract_address, state_transition.storage_slot);
+        check_membership(
             composer, leaf_value, leaf_index, sibling_path, public_kernel_inputs.public_call.public_data_tree_root);
     }
 };
 
-template <typename NT>
-void common_initialise_end_values(PublicKernelInputs<NT> const& public_kernel_inputs,
-                                  KernelCircuitPublicInputs<NT>& circuit_outputs)
-{
-    // Initialises the circuit outputs with the end state of the previous iteration
-    circuit_outputs.constants = public_kernel_inputs.previous_kernel.public_inputs.constants;
-
-    // Ensure the arrays are the same as previously, before we start pushing more data onto them in other functions
-    // within this circuit:
-    auto& end = circuit_outputs.end;
-    const auto& start = public_kernel_inputs.previous_kernel.public_inputs.end;
-
-    end.new_commitments = start.new_commitments;
-    end.new_nullifiers = start.new_nullifiers;
-
-    end.private_call_stack = start.private_call_stack;
-    end.public_call_stack = start.public_call_stack;
-    end.l1_msg_stack = start.l1_msg_stack;
-
-    end.optionally_revealed_data = start.optionally_revealed_data;
-
-    end.state_transitions = start.state_transitions;
-}
-
-template <typename NT, template <class> typename KernelInput>
-void validate_this_public_call_stack(DummyComposer& composer, KernelInput<NT> const& public_kernel_inputs)
+template <typename KernelInput>
+void validate_this_public_call_stack(DummyComposer& composer, KernelInput const& public_kernel_inputs)
 {
     // Ensures that the stack of pre-images corresponds to the call stack
     auto& stack = public_kernel_inputs.public_call.public_call_data.call_stack_item.public_inputs.public_call_stack;
@@ -123,32 +100,16 @@ void validate_this_public_call_stack(DummyComposer& composer, KernelInput<NT> co
     }
 };
 
-template <typename NT, template <class> typename KernelInput>
-void validate_function_execution(DummyComposer& composer, KernelInput<NT> const& public_kernel_inputs)
+template <typename KernelInput>
+void validate_function_execution(DummyComposer& composer, KernelInput const& public_kernel_inputs)
 {
     // Validates state reads and transitions for all type of kernel inputs
     validate_state_reads(composer, public_kernel_inputs);
     validate_state_transitions(composer, public_kernel_inputs);
 }
 
-template <typename NT>
-void validate_this_public_call_hash(DummyComposer& composer, PublicKernelInputs<NT> const& public_kernel_inputs)
-{
-    // Pops the current function execution from the stack and validates it against the call stack item
-    const auto& start = public_kernel_inputs.previous_kernel.public_inputs.end;
-    // TODO: this logic might need to change to accommodate the weird edge 3 initial txs (the 'main' tx, the 'fee' tx,
-    // and the 'gas rebate' tx).
-    const auto popped_public_call_hash = array_pop(start.public_call_stack);
-    const auto calculated_this_public_call_hash =
-        public_kernel_inputs.public_call.public_call_data.call_stack_item.hash();
-
-    composer.do_assert(
-        popped_public_call_hash == calculated_this_public_call_hash,
-        "calculated public_call_hash does not match provided public_call_hash at the top of the call stack");
-};
-
-template <typename NT, template <class> typename KernelInput>
-void common_validate_kernel_execution(DummyComposer& composer, KernelInput<NT> const& public_kernel_inputs)
+template <typename KernelInput>
+void common_validate_kernel_execution(DummyComposer& composer, KernelInput const& public_kernel_inputs)
 {
     // Validates kernel execution for all type of kernel inputs
     validate_this_public_call_stack(composer, public_kernel_inputs);
@@ -156,8 +117,8 @@ void common_validate_kernel_execution(DummyComposer& composer, KernelInput<NT> c
     validate_function_execution(composer, public_kernel_inputs);
 }
 
-template <typename NT, template <class> typename KernelInput>
-void common_validate_inputs(DummyComposer& composer, KernelInput<NT> const& public_kernel_inputs)
+template <typename KernelInput>
+void common_validate_inputs(DummyComposer& composer, KernelInput const& public_kernel_inputs)
 {
     // Validates commons inputs for all type of kernel inputs
     const auto& this_call_stack_item = public_kernel_inputs.public_call.public_call_data.call_stack_item;
@@ -182,9 +143,8 @@ void common_validate_inputs(DummyComposer& composer, KernelInput<NT> const& publ
                        "Portal contract address must be valid");
 }
 
-template <typename NT, template <class> typename KernelInput>
-void update_public_end_values(KernelInput<NT> const& public_kernel_inputs,
-                              KernelCircuitPublicInputs<NT>& circuit_outputs)
+template <typename KernelInput>
+void update_public_end_values(KernelInput const& public_kernel_inputs, KernelCircuitPublicInputs<NT>& circuit_outputs)
 {
     // Updates the circuit outputs with new state changes, call stack etc
     circuit_outputs.is_private = false;
@@ -204,10 +164,15 @@ void update_public_end_values(KernelInput<NT> const& public_kernel_inputs,
             continue;
         }
         const auto new_write = PublicDataWrite<NT>{
-            .leaf_index = hash_public_data_tree_index(contract_address, state_transition.storage_slot),
-            .new_value = hash_public_data_tree_value(state_transition.new_value),
+            .leaf_index = compute_public_data_tree_index<NT>(contract_address, state_transition.storage_slot),
+            .new_value = compute_public_data_tree_value<NT>(state_transition.new_value),
         };
         array_push(circuit_outputs.end.state_transitions, new_write);
     }
 }
+
+void common_initialise_end_values(PublicKernelInputs<NT> const& public_kernel_inputs,
+                                  KernelCircuitPublicInputs<NT>& circuit_outputs);
+
+void validate_this_public_call_hash(DummyComposer& composer, PublicKernelInputs<NT> const& public_kernel_inputs);
 } // namespace aztec3::circuits::kernel::public_kernel

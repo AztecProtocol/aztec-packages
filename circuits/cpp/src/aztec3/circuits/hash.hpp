@@ -233,4 +233,29 @@ std::array<typename NCT::fr, TREE_HEIGHT> compute_empty_sibling_path(typename NC
     return sibling_path;
 }
 
+/**
+ * @brief Compute the value to be inserted into the public data tree
+ * @param value The value to be inserted into the public data tree
+ * @return The hash value required for insertion into the public data tree
+ */
+template <typename NCT> typename NCT::fr compute_public_data_tree_value(typename NCT::fr const& value)
+{
+    // as it's a public value, it doens't require hashing.
+    // leaving this function here in case we decide to change this.
+    return value;
+}
+
+/**
+ * @brief Compute the index for inserting a value into the public data tree
+ * @param contract_address The address of the contract to which the inserted element belongs
+ * @param storage_slot The storage slot to which the inserted element belongs
+ * @return The index for insertion into the public data tree
+ */
+template <typename NCT>
+typename NCT::fr compute_public_data_tree_index(typename NCT::fr const& contract_address,
+                                                typename NCT::fr const& storage_slot)
+{
+    return NCT::compress({ contract_address, storage_slot }, GeneratorIndex::PUBLIC_LEAF_INDEX);
+}
+
 } // namespace aztec3::circuits

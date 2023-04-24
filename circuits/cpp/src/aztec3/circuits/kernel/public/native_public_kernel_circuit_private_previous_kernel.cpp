@@ -28,6 +28,7 @@ namespace aztec3::circuits::kernel::public_kernel {
 
 using aztec3::circuits::abis::KernelCircuitPublicInputs;
 using aztec3::circuits::abis::public_kernel::PublicKernelInputs;
+using aztec3::circuits::kernel::public_kernel::common_initialise_end_values;
 using aztec3::circuits::kernel::public_kernel::common_validate_inputs;
 using aztec3::circuits::kernel::public_kernel::common_validate_kernel_execution;
 using aztec3::circuits::kernel::public_kernel::update_public_end_values;
