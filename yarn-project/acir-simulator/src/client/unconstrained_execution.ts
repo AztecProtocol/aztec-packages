@@ -1,35 +1,28 @@
 import { ACVMField, acvm, fromACVMField, toACVMField, toACVMWitness } from '../acvm/index.js';
 import { AztecAddress, Fr } from '@aztec/foundation';
-import { CallContext, PrivateHistoricTreeRoots, TxRequest, FunctionData } from '@aztec/circuits.js';
-import { DBOracle } from './db_oracle.js';
+import { CallContext, FunctionData } from '@aztec/circuits.js';
 import { frToAztecAddress, frToNumber } from '../acvm/deserialize.js';
 import { FunctionAbi } from '@aztec/noir-contracts';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { decodeReturnValues } from '../abi_coder/decoder.js';
-import { ClientExecution } from './client_execution.js';
+import { ClientTxExecutionContext } from './client_execution_context.js';
 import { select_return_flattened as selectReturnFlattened } from '@noir-lang/noir_util_wasm';
 
 const notAvailable = () => {
   return Promise.reject(new Error(`Not available for unconstrained function execution`));
 };
 
-export class UnconstrainedFunctionExecution extends ClientExecution<any[]> {
+export class UnconstrainedFunctionExecution {
   constructor(
-    // Global to the tx
-    db: DBOracle,
-    request: TxRequest,
-    historicRoots: PrivateHistoricTreeRoots,
-    // Concrete to this execution
-    abi: FunctionAbi,
-    contractAddress: AztecAddress,
-    functionData: FunctionData,
-    args: Fr[],
-    callContext: CallContext,
+    private context: ClientTxExecutionContext,
+    private abi: FunctionAbi,
+    private contractAddress: AztecAddress,
+    private functionData: FunctionData,
+    private args: Fr[],
+    _: CallContext, // not used ATM
 
     private log = createDebugLogger('aztec:simulator:unconstrained_execution'),
-  ) {
-    super(db, request, historicRoots, abi, contractAddress, functionData, args, callContext);
-  }
+  ) {}
 
   public async run(): Promise<any[]> {
     this.log(
@@ -43,12 +36,12 @@ export class UnconstrainedFunctionExecution extends ClientExecution<any[]> {
 
     const { partialWitness } = await acvm(acir, initialWitness, {
       getSecretKey: async ([address]: ACVMField[]) => [
-        toACVMField(await this.db.getSecretKey(this.contractAddress, frToAztecAddress(fromACVMField(address)))),
+        toACVMField(await this.context.db.getSecretKey(this.contractAddress, frToAztecAddress(fromACVMField(address)))),
       ],
-      getNotes2: ([storageSlot]: ACVMField[]) => this.getNotes(this.contractAddress, storageSlot, 2),
+      getNotes2: ([storageSlot]: ACVMField[]) => this.context.getNotes(this.contractAddress, storageSlot, 2),
       getRandomField: () => Promise.resolve([toACVMField(Fr.random())]),
       viewNotesPage: ([acvmSlot, acvmLimit, acvmOffset]) =>
-        this.viewNotes(
+        this.context.viewNotes(
           this.contractAddress,
           acvmSlot,
           frToNumber(fromACVMField(acvmLimit)),

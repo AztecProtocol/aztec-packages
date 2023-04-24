@@ -8,19 +8,12 @@ import {
   toACVMWitness,
 } from '../acvm/index.js';
 import { AztecAddress, EthAddress, Fr } from '@aztec/foundation';
-import {
-  CallContext,
-  PrivateHistoricTreeRoots,
-  TxRequest,
-  PrivateCallStackItem,
-  FunctionData,
-} from '@aztec/circuits.js';
-import { DBOracle } from './db_oracle.js';
+import { CallContext, PrivateCallStackItem, FunctionData } from '@aztec/circuits.js';
 import { extractPublicInputs, frToAztecAddress, frToSelector } from '../acvm/deserialize.js';
 import { FunctionAbi } from '@aztec/noir-contracts';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { decodeReturnValues } from '../abi_coder/decoder.js';
-import { ClientExecution } from './client_execution.js';
+import { ClientTxExecutionContext } from './client_execution_context.js';
 
 export interface NewNoteData {
   preimage: Fr[];
@@ -57,23 +50,17 @@ const notAvailable = () => {
   return Promise.reject(new Error(`Not available for private function execution`));
 };
 
-export class PrivateFunctionExecution extends ClientExecution<ExecutionResult> {
+export class PrivateFunctionExecution {
   constructor(
-    // Global to the tx
-    db: DBOracle,
-    request: TxRequest,
-    historicRoots: PrivateHistoricTreeRoots,
-    // Concrete to this execution
-    abi: FunctionAbi,
-    contractAddress: AztecAddress,
-    functionData: FunctionData,
-    args: Fr[],
-    callContext: CallContext,
+    private context: ClientTxExecutionContext,
+    private abi: FunctionAbi,
+    private contractAddress: AztecAddress,
+    private functionData: FunctionData,
+    private args: Fr[],
+    private callContext: CallContext,
 
     private log = createDebugLogger('aztec:simulator:secret_execution'),
-  ) {
-    super(db, request, historicRoots, abi, contractAddress, functionData, args, callContext);
-  }
+  ) {}
 
   public async run(): Promise<ExecutionResult> {
     this.log(
@@ -90,9 +77,9 @@ export class PrivateFunctionExecution extends ClientExecution<ExecutionResult> {
 
     const { partialWitness } = await acvm(acir, initialWitness, {
       getSecretKey: async ([address]: ACVMField[]) => [
-        toACVMField(await this.db.getSecretKey(this.contractAddress, frToAztecAddress(fromACVMField(address)))),
+        toACVMField(await this.context.db.getSecretKey(this.contractAddress, frToAztecAddress(fromACVMField(address)))),
       ],
-      getNotes2: ([storageSlot]: ACVMField[]) => this.getNotes(this.contractAddress, storageSlot, 2),
+      getNotes2: ([storageSlot]: ACVMField[]) => this.context.getNotes(this.contractAddress, storageSlot, 2),
       getRandomField: () => Promise.resolve([toACVMField(Fr.random())]),
       notifyCreatedNote: ([storageSlot, ownerX, ownerY, ...acvmPreimage]: ACVMField[]) => {
         newNotePreimages.push({
@@ -163,14 +150,14 @@ export class PrivateFunctionExecution extends ClientExecution<ExecutionResult> {
       this.callContext.portalContractAddress,
       this.callContext.storageContractAddress,
 
-      this.request.txContext.contractDeploymentData.constructorVkHash,
-      this.request.txContext.contractDeploymentData.contractAddressSalt,
-      this.request.txContext.contractDeploymentData.functionTreeRoot,
-      this.request.txContext.contractDeploymentData.portalContractAddress,
+      this.context.request.txContext.contractDeploymentData.constructorVkHash,
+      this.context.request.txContext.contractDeploymentData.contractAddressSalt,
+      this.context.request.txContext.contractDeploymentData.functionTreeRoot,
+      this.context.request.txContext.contractDeploymentData.portalContractAddress,
 
-      this.historicRoots.contractTreeRoot,
-      this.historicRoots.nullifierTreeRoot,
-      this.historicRoots.privateDataTreeRoot,
+      this.context.historicRoots.contractTreeRoot,
+      this.context.historicRoots.nullifierTreeRoot,
+      this.context.historicRoots.privateDataTreeRoot,
     ];
 
     return toACVMWitness(1, fields);
@@ -182,8 +169,8 @@ export class PrivateFunctionExecution extends ClientExecution<ExecutionResult> {
     targetArgs: Fr[],
     callerContext: CallContext,
   ) {
-    const targetAbi = await this.db.getFunctionABI(targetContractAddress, targetFunctionSelector);
-    const targetPortalContractAddress = await this.db.getPortalContractAddress(targetContractAddress);
+    const targetAbi = await this.context.db.getFunctionABI(targetContractAddress, targetFunctionSelector);
+    const targetPortalContractAddress = await this.context.db.getPortalContractAddress(targetContractAddress);
     const targetFunctionData = new FunctionData(targetFunctionSelector, true, false);
     const derivedCallContext = this.deriveCallContext(
       callerContext,
@@ -194,9 +181,7 @@ export class PrivateFunctionExecution extends ClientExecution<ExecutionResult> {
     );
 
     const nestedExecution = new PrivateFunctionExecution(
-      this.db,
-      this.request,
-      this.historicRoots,
+      this.context,
       targetAbi,
       targetContractAddress,
       targetFunctionData,

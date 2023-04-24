@@ -6,6 +6,7 @@ import { PrivateFunctionExecution, ExecutionResult } from './private_execution.j
 import { BarretenbergWasm } from '@aztec/barretenberg.js/wasm';
 import { pedersenCompressInputs, pedersenCompressWithHashIndex } from '@aztec/barretenberg.js/crypto';
 import { UnconstrainedFunctionExecution } from './unconstrained_execution.js';
+import { ClientTxExecutionContext } from './client_execution_context.js';
 
 export const NOTE_PEDERSEN_CONSTANT = new Fr(2n);
 export const MAPPING_SLOT_PEDERSEN_CONSTANT = new Fr(4n);
@@ -37,9 +38,7 @@ export class AcirSimulator {
     );
 
     const execution = new PrivateFunctionExecution(
-      this.db,
-      request,
-      historicRoots,
+      new ClientTxExecutionContext(this.db, request, historicRoots),
       entryPointABI,
       contractAddress,
       request.functionData,
@@ -70,9 +69,7 @@ export class AcirSimulator {
     );
 
     const execution = new UnconstrainedFunctionExecution(
-      this.db,
-      request,
-      historicRoots,
+      new ClientTxExecutionContext(this.db, request, historicRoots),
       entryPointABI,
       contractAddress,
       request.functionData,
