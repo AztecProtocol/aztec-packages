@@ -62,7 +62,7 @@ template <typename NCT> void read(uint8_t const*& it, WitnessedPublicCallData<NC
     read(it, witnessed_call_data.public_data_tree_root);
 };
 
-template <typename NCT> void write(std::vector<uint8_t>& buf, WitnessedPublicCallData<NCT>& witnessed_call_data)
+template <typename NCT> void write(std::vector<uint8_t>& buf, WitnessedPublicCallData<NCT> const& witnessed_call_data)
 {
     using serialize::write;
 
@@ -72,7 +72,8 @@ template <typename NCT> void write(std::vector<uint8_t>& buf, WitnessedPublicCal
     write(buf, witnessed_call_data.public_data_tree_root);
 };
 
-template <typename NCT> std::ostream& operator<<(std::ostream& os, WitnessedPublicCallData<NCT>& witnessed_call_data)
+template <typename NCT>
+std::ostream& operator<<(std::ostream& os, WitnessedPublicCallData<NCT> const& witnessed_call_data)
 {
     return os << "public_call_data:\n"
               << witnessed_call_data.public_call_data << "\n"
