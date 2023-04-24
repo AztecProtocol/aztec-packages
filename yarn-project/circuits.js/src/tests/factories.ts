@@ -397,18 +397,20 @@ export function makeRootRollupInputs(seed = 0) {
 
 export function makeRootRollupPublicInputs(seed = 0) {
   return RootRollupPublicInputs.from({
-    startContractTreeSnapshot: makeAppendOnlyTreeSnapshot(seed + 0x100),
-    startNullifierTreeSnapshot: makeAppendOnlyTreeSnapshot(seed + 0x200),
-    startPrivateDataTreeSnapshot: makeAppendOnlyTreeSnapshot(seed + 0x300),
-    startTreeOfHistoricContractTreeRootsSnapshot: makeAppendOnlyTreeSnapshot(seed + 0x400),
-    startTreeOfHistoricPrivateDataTreeRootsSnapshot: makeAppendOnlyTreeSnapshot(seed + 0x500),
-    endContractTreeSnapshot: makeAppendOnlyTreeSnapshot(seed + 0x600),
-    endNullifierTreeSnapshot: makeAppendOnlyTreeSnapshot(seed + 0x700),
-    endPrivateDataTreeSnapshot: makeAppendOnlyTreeSnapshot(seed + 0x800),
-    endTreeOfHistoricContractTreeRootsSnapshot: makeAppendOnlyTreeSnapshot(seed + 0x900),
-    endTreeOfHistoricPrivateDataTreeRootsSnapshot: makeAppendOnlyTreeSnapshot(seed + 0x1000),
-    endAggregationObject: makeAggregationObject(seed + 0x1100),
-    calldataHash: [new Fr(0n), new Fr(0n)],
+    endAggregationObject: makeAggregationObject(seed),
+    startPrivateDataTreeSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
+    endPrivateDataTreeSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
+    startNullifierTreeSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
+    endNullifierTreeSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
+    startContractTreeSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
+    endContractTreeSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
+    startPublicDataTreeSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
+    endPublicDataTreeSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
+    startTreeOfHistoricPrivateDataTreeRootsSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
+    endTreeOfHistoricPrivateDataTreeRootsSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
+    startTreeOfHistoricContractTreeRootsSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
+    endTreeOfHistoricContractTreeRootsSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
+    calldataHash: [new Fr(1n), new Fr(2n)],
   });
 }
 
