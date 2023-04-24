@@ -32,6 +32,7 @@ interface UnverifiedDataEmitterTxEventLogs {
 export interface UnverifiedDataEmitterTransactionReceipt extends ContractTxReceipt<UnverifiedDataEmitterTxEventLogs> {}
 interface UnverifiedDataEmitterMethods {
   emitContractDeployment(
+    _l2BlockNum: bigint,
     _aztecAddress: Bytes.Bytes32,
     _portalAddress: EthAddress,
     _acir: Bytes.Bytes,

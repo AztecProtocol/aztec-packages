@@ -35,6 +35,11 @@ export class ContractData {
      * The L1 address of the contract, (20 bytes).
      */
     public portalContractAddress: EthAddress,
+
+    /**
+     * The contract's ACIR code
+     */
+    public acir: Buffer,
   ) {}
 
   /**

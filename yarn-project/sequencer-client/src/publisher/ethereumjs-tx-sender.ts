@@ -4,6 +4,7 @@ import { Rollup, UnverifiedDataEmitter } from '@aztec/l1-contracts';
 import { TxSenderConfig } from './config.js';
 import { L1ProcessArgs as ProcessTxArgs, L1PublisherTxSender } from './l1-publisher.js';
 import { UnverifiedData } from '@aztec/types';
+import { NewContractData } from '@aztec/circuits.js';
 
 /**
  * Pushes transactions to the L1 rollup contract using the custom aztec/ethereum.js library.
@@ -59,5 +60,23 @@ export class EthereumjsTxSender implements L1PublisherTxSender {
       .send({ gas })
       .getTxHash()
       .then(hash => hash.toString());
+  }
+
+  async sendEmitNewContractDataTx(l2BlockNum: number, newContractData: NewContractData[]): Promise<string | undefined> {
+    for (let i = 0; i < newContractData.length; i++) {
+      const newContract = newContractData[i];
+      const methodCall = this.unverifiedDataEmitterContract.methods.emitContractDeployment(
+        BigInt(l2BlockNum),
+        newContract.contractAddress.toBuffer(),
+        newContract.portalContractAddress,
+        // TODO update with actual ACIR
+        Buffer.alloc(32),
+      );
+      const gas = await methodCall.estimateGas();
+      return methodCall
+        .send({ gas })
+        .getTxHash()
+        .then(hash => hash.toString());
+    }
   }
 }

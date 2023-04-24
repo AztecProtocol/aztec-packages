@@ -1,8 +1,9 @@
+import times from 'lodash.times';
 import { RunningPromise, createDebugLogger } from '@aztec/foundation';
 import { P2P } from '@aztec/p2p';
 import { PrivateTx, PublicTx, Tx, UnverifiedData, isPrivateTx, isPublicTx } from '@aztec/types';
 import { MerkleTreeId, WorldStateStatus, WorldStateSynchroniser } from '@aztec/world-state';
-import times from 'lodash.times';
+import { NewContractData } from '@aztec/circuits.js';
 import { BlockBuilder } from '../block_builder/index.js';
 import { makeEmptyPrivateTx } from '../index.js';
 import { L1Publisher } from '../publisher/l1-publisher.js';
@@ -127,14 +128,26 @@ export class Sequencer {
         this.log(`Failed to publish block`);
       }
 
-      // Publishes new unverified data for private txs to the network and awaits the tx to be mined
+      // Publishes new unverified data & contract data for private txs to the network and awaits the tx to be mined
       this.state = SequencerState.PUBLISHING_UNVERIFIED_DATA;
       const unverifiedData = UnverifiedData.join(validTxs.filter(isPrivateTx).map(tx => tx.unverifiedData));
+      const newContractData: NewContractData[] = validTxs
+        .map(tx => tx.data?.end.newContracts)
+        .filter(cd => cd !== undefined)
+        .flat() as NewContractData[]; // using `as` here since typescript doesn't automatically get .filter
+
       const publishedUnverifiedData = await this.publisher.processUnverifiedData(block.number, unverifiedData);
+      const publishedContractData = await this.publisher.processNewContractData(block.number, newContractData);
       if (publishedUnverifiedData) {
         this.log(`Successfully published unverifiedData for block ${block.number}`);
       } else {
         this.log(`Failed to publish unverifiedData for block ${block.number}`);
+      }
+
+      if (publishedContractData) {
+        this.log(`Successfully published new contract data for block ${block.number}`);
+      } else if (!publishedContractData && newContractData.length) {
+        this.log(`Failed to publish new contract data for block ${block.number}`);
       }
     } catch (err) {
       this.log(err, 'error');

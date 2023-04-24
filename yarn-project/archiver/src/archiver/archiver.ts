@@ -48,6 +48,11 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource, ContractDa
   private unverifiedData: UnverifiedData[] = [];
 
   /**
+   * A sparse array containing all the contract data that have been fetched so far.
+   */
+  private contractData: (ContractData[] | undefined)[] = [];
+
+  /**
    * Next L1 block number to fetch `L2BlockProcessed` logs from (i.e. `fromBlock` in eth_getLogs).
    */
   private nextL2BlockFromBlock = 0n;
@@ -56,6 +61,11 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource, ContractDa
    * Next L1 block number to fetch `UnverifiedData` logs from (i.e. `fromBlock` in eth_getLogs)
    */
   private nextUnverifiedDataFromBlock = 0n;
+
+  /**
+   * Next L1 block number to fetch `NewContractData` logs from (i.e. `fromBlock` in eth_getLogs)
+   */
+  private nextContractDataFromBlock = 0n;
 
   /**
    * Creates a new instance of the Archiver.
@@ -121,6 +131,7 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource, ContractDa
 
     await this.syncBlocks(blockUntilSynced, currentBlockNumber);
     await this.syncUnverifiedData(blockUntilSynced, currentBlockNumber);
+    await this.syncNewContractData(blockUntilSynced, currentBlockNumber);
   }
 
   private async syncBlocks(blockUntilSynced: boolean, currentBlockNumber: bigint) {
@@ -163,6 +174,21 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource, ContractDa
     } while (blockUntilSynced && this.nextUnverifiedDataFromBlock <= currentBlockNumber);
   }
 
+  private async syncNewContractData(blockUntilSynced: boolean, currentBlockNumber: bigint) {
+    do {
+      if (this.nextContractDataFromBlock > currentBlockNumber) {
+        break;
+      }
+
+      this.log(`Syncing ContractData logs from block ${this.nextUnverifiedDataFromBlock}`);
+      const contractDataLogs = await this.getContractDataLogs(this.nextContractDataFromBlock);
+
+      this.processContractDataLogs(contractDataLogs);
+      // this.nextContractDataFromBlock = unverifiedDataLogs[unverifiedDataLogs.length - 1].blockNumber + 1n;
+      this.nextContractDataFromBlock = (contractDataLogs.findLast(cd => !!cd)?.blockNumber || 0n) + 1n;
+    } while (blockUntilSynced && this.nextContractDataFromBlock <= currentBlockNumber);
+  }
+
   /**
    * Gets relevant `L2BlockProcessed` logs from chain.
    * @param fromBlock - First block to get logs from (inclusive).
@@ -194,6 +220,19 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource, ContractDa
       abi: UnverifiedDataEmitterAbi,
       name: 'UnverifiedData',
     });
+    return await this.publicClient.getLogs({
+      address: getAddress(this.unverifiedDataEmitterAddress.toString()),
+      event: abiItem,
+      fromBlock,
+    });
+  }
+
+  private async getContractDataLogs(fromBlock: bigint) {
+    const abiItem = getAbiItem({
+      abi: UnverifiedDataEmitterAbi,
+      name: 'ContractDeployment',
+    });
+
     return await this.publicClient.getLogs({
       address: getAddress(this.unverifiedDataEmitterAddress.toString()),
       event: abiItem,
@@ -247,6 +286,21 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource, ContractDa
       this.unverifiedData.push(unverifiedData);
     }
     this.log('Processed unverifiedData corresponding to ' + logs.length + ' blocks.');
+  }
+
+  private processContractDataLogs(
+    logs: Log<bigint, number, undefined, typeof UnverifiedDataEmitterAbi, 'ContractDeployment'>[],
+  ) {
+    for (const log of logs) {
+      const l2BlockNum = log.args.l2BlockNum;
+      const contractData = new ContractData(
+        AztecAddress.fromString(log.args.aztecAddress),
+        EthAddress.fromString(log.args.portalAddress),
+        Buffer.from(log.args.acir),
+      );
+      (this.contractData[Number(l2BlockNum)] || []).push(contractData);
+    }
+    this.log('Processed contractData corresponding to ' + logs.length + ' blocks.');
   }
 
   /**
@@ -307,17 +361,20 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource, ContractDa
    * Lookup the L2 contract data for this contract.
    * Contains information such as the ethereum portal address.
    * @param contractAddress - The contract data address.
-   * @returns The portal address (if we didn't throw an error).
+   * @returns The contract data.
    */
   public getL2ContractData(contractAddress: AztecAddress): Promise<ContractData | undefined> {
-    for (const block of this.l2Blocks) {
-      for (const contractData of block.newContractData) {
-        if (contractData.contractAddress.equals(contractAddress)) {
-          return Promise.resolve(contractData);
-        }
+    // TODO: perhaps store contract data by address as well? to make this more efficient
+    let result;
+    for (let i = 0; i < this.contractData.length; i++) {
+      const contracts = this.contractData[i];
+      const contract = contracts?.find(c => c.contractAddress.equals(contractAddress));
+      if (contract) {
+        result = contract;
+        break;
       }
     }
-    return Promise.resolve(undefined);
+    return Promise.resolve(result);
   }
 
   /**
@@ -329,8 +386,8 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource, ContractDa
     if (blockNum > this.l2Blocks.length) {
       return Promise.resolve([]);
     }
-    const block = this.l2Blocks[blockNum];
-    return Promise.resolve(block.newContractData);
+    const contractData = this.contractData[blockNum];
+    return Promise.resolve(contractData || []);
   }
 
   /**

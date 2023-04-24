@@ -38,11 +38,13 @@ contract UnverifiedDataEmitter {
    * @notice Links L1 and L2 contract addresses
    * @dev Emits a `ContractDeployment` event
    * @dev Unverified and can be emitted by anyone
+   * @param _l2BlockNum - The L2 block number that the contract deployment is related to
    * @param _aztecAddress - The address of the L2 counterparty
    * @param _portalAddress - The address of the L1 counterparty
    * @param _acir - The acir bytecode of the L2 contract
    */
   function emitContractDeployment(
+    uint256 _l2BlockNum,
     bytes32 _aztecAddress,
     address _portalAddress,
     bytes calldata _acir
