@@ -47,7 +47,7 @@ KernelCircuitPublicInputs<NT> native_public_kernel_circuit_public_previous_kerne
     // validate the inputs unique to having a previous public kernel
     validate_inputs(composer, public_kernel_inputs);
 
-    // validate the kernel execution commonn to all invocation circumstances
+    // validate the kernel execution common to all invocation circumstances
     common_validate_kernel_execution(composer, public_kernel_inputs);
 
     // vallidate our public call hash

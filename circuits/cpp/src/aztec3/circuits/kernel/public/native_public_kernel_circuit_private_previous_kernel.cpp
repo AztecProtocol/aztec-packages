@@ -20,7 +20,7 @@ void validate_inputs(DummyComposer& composer, PublicKernelInputs<NT> const& publ
     composer.do_assert(public_kernel_inputs.previous_kernel.public_inputs.end.public_call_count == 0,
                        "Public call count must be zero");
     composer.do_assert(public_kernel_inputs.previous_kernel.public_inputs.is_private == true,
-                       "Previous kernel must be public");
+                       "Previous kernel must be private");
 }
 } // namespace
 
@@ -48,10 +48,10 @@ KernelCircuitPublicInputs<NT> native_public_kernel_circuit_private_previous_kern
     // validate the inputs common to all invocation circumstances
     common_validate_inputs(composer, public_kernel_inputs);
 
-    // validate the inputs unique to having a previous public kernel
+    // validate the inputs unique to having a previous private kernel
     validate_inputs(composer, public_kernel_inputs);
 
-    // validate the kernel execution commonn to all invocation circumstances
+    // validate the kernel execution common to all invocation circumstances
     common_validate_kernel_execution(composer, public_kernel_inputs);
 
     // update the public end state of the circuit

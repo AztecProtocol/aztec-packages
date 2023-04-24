@@ -242,7 +242,6 @@ NT::fr create_nullifier_subtree(std::array<NullifierLeaf, KERNEL_NEW_NULLIFIERS_
             nullifier_subtree.update_element(i, nullifier_leaves[i].hash());
         }
     }
-    // }
 
     return nullifier_subtree.root();
 }
