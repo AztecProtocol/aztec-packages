@@ -7,10 +7,9 @@
 #include "init.hpp"
 
 namespace {
-using aztec3::circuits::rollup::native_merge_rollup::BaseOrMergeRollupPublicInputs;
-using aztec3::circuits::rollup::native_merge_rollup::merge_rollup_circuit;
-using aztec3::circuits::rollup::native_merge_rollup::MergeRollupInputs;
-using aztec3::circuits::rollup::native_merge_rollup::NT;
+using aztec3::circuits::abis::BaseOrMergeRollupPublicInputs;
+using aztec3::circuits::rollup::merge::merge_rollup_circuit;
+using aztec3::circuits::rollup::merge::MergeRollupInputs;
 using DummyComposer = aztec3::utils::DummyComposer;
 
 using aztec3::circuits::rollup::test_utils::utils::base_rollup_inputs_from_kernels;
@@ -20,6 +19,8 @@ using aztec3::circuits::rollup::test_utils::utils::get_initial_nullifier_tree;
 using aztec3::circuits::rollup::test_utils::utils::get_previous_rollup_data;
 using aztec3::circuits::rollup::test_utils::utils::set_kernel_commitments;
 using aztec3::circuits::rollup::test_utils::utils::set_kernel_nullifiers;
+
+using NT = aztec3::utils::types::NativeTypes;
 
 using KernelData = aztec3::circuits::abis::PreviousKernelData<NT>;
 
@@ -285,4 +286,4 @@ TEST_F(merge_rollup_tests, native_merge_cbind)
     BaseOrMergeRollupPublicInputs ignored_public_inputs;
     run_cbind(inputs, ignored_public_inputs, false);
 }
-} // namespace aztec3::circuits::rollup::merge
+} // namespace aztec3::circuits::rollup::merge::native_merge_rollup_circuit
