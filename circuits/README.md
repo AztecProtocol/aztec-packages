@@ -102,6 +102,37 @@ You can choose `wasm` instead of `x86_64`. You can also specify individual test 
 
 ---
 
+#### Using the VSCode debugger
+
+1. Make sure you have opened VSCode via the circuits workspace file
+    * `code circuits.code-workspace`
+2. Make sure you have the recommended plugins installed
+    * Open the command pallete (`Ctrl+Shift+P`)
+    * Type and select "Extensions: Show Recommended Extensions"
+    * Install any plugins shown not already installed
+3. Configure CMake for whichever preset you'd like to use
+    * Open the command pallete (`Ctrl+Shift+P`)
+    * Type and select "CMake: Select Configure Preset"
+    * Choose a debug preset such as:
+        * "Debugging build with Clang-15"
+        * "Debugging build for WASM"
+    * Repeat this step, choosing the same preset, for
+        * "CMake: Select Build Preset"
+        * "CMake: Select Test Preset"
+4. Go to the "Run and Debug" panel
+    * Button (usually on left) that looks like a play button with a bug
+    * Or `Ctrl+Shift+D`
+5. Select the proper launch option at the top of the "Run and Debug" panel
+    * "Launch native"
+    * "Launch in WASM"
+6. Check output for progress
+7. [OPTIONAL] change `gtest_filter` args to filter specific test cases
+    * In `circuits.code-workspace`'s `launch->configurations-><native or wasm>`
+    * Don't commit these changes
+7. [OPTIONAL] set breakpoints in C++ files
+
+---
+
 ### C++ Repository Layout
 
 This repository submodules [`barretenberg`](https://github.com/AztecProtocol/barretenberg) as a C++ library containing proving systems and utilities at `cpp/barretenberg/`.

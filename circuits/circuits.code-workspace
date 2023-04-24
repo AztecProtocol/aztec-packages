@@ -62,7 +62,7 @@
     // Configure LLDB
     "configurations": [
       {
-        "name": "(lldb) Launch in x86_64",
+        "name": "(lldb) Launch native",
         "type": "lldb",
         "request": "launch",
         "program": "${command:cmake.launchTargetPath}",
@@ -72,7 +72,7 @@
         "console": "internalConsole"
       },
       {
-        "name": "(lldb) Launch in wasm",
+        "name": "(lldb) Launch in WASM",
         "type": "lldb",
         "request": "launch",
         "program": "~/.wasmtime/bin/wasmtime",
