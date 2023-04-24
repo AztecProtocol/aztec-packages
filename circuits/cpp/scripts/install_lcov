@@ -1,9 +1,10 @@
 #!bin/bash
 set -e
 
-# The script will install lcov to your user. To install in environments where you do not have sudo access, you can
-# set the environment variable LCOV_INSTALL_DIR to the directory where you want lcov to be installed. By
+# The script will install lcov to your user. It's default is to install in environments where you do not have 
+# sudo access, you can set the 1st parameter LCOV_INSTALL_DIR to your perferred directory. By
 # default, it will be installed in $HOME/.lcov/bin
+# If you do have sudo access, you can use your system's package manager.
 
 ####
 # Usage: ./scripts/misc/install_lcov.sh [LCOV_INSTALL_DIR]  
@@ -46,7 +47,7 @@ if [ -z "$LCOV_INSTALL_DIR" ]; then
 fi
 
 echo "Installing lcov to $LCOV_INSTALL_DIR"
-# # Perform installation
+# Perform installation
 git clone "https://github.com/linux-test-project/lcov.git" > /dev/null
 (cd lcov && make PREFIX=$LCOV_INSTALL_DIR install > /dev/null && cd .. && rm -rf lcov)
 
@@ -62,12 +63,11 @@ case $SHELL in
     PROFILE=$HOME/.config/fish/config.fish
     ;;
 *)
-    echo "huffup: could not detect shell, manually add ${$LCOV_INSTALL_DIT} to your PATH."
+    echo "install_lcov: could not detect shell, manually add ${$LCOV_INSTALL_DIR} to your PATH."
     exit 1
 esac
 
 # Only add lcov to path if it isn't already in PATH.
-# if [[ ":$PATH:" != *":${LCOV_INSTALL_DIR}:"* ]]; then
 if echo "$PATH" | grep -q -E "(^|:)$LCOV_INSTALL_DIR($|:)" ; then
     echo "$DIR is already in \$PATH not adding"
 else

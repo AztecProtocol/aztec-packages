@@ -70,7 +70,7 @@ echo "Completed profiling"
 echo "*** Generating Coverage Reports ***"
 cmake --build . --target create_full_coverage_report
 
-echo *** Generating VScode line coverage data ***
+echo "*** Generating VScode line coverage data ***"
 for BIN in $TESTS; do
   echo "Generating line coverage data for $BIN"
   llvm-cov-15 export ./bin/$BIN  --format=lcov -instr-profile="./merged_profdata/default.profdata" > lcov.info
