@@ -35,10 +35,11 @@ void check_membership(DummyComposer& composer,
                       NT::fr const& value,
                       NT::fr const& index,
                       std::array<NT::fr, SIZE> const& sibling_path,
-                      NT::fr const& root)
+                      NT::fr const& root,
+                      std::string const& msg)
 {
     const auto calculated_root = root_from_sibling_path<NT>(value, index, sibling_path);
-    composer.do_assert(calculated_root == root, "Membership check failed");
+    composer.do_assert(calculated_root == root, std::string("Membership check failed ") + msg);
 }
 
 template <typename KernelInput>
@@ -53,11 +54,15 @@ void validate_state_reads(DummyComposer& composer, KernelInput const& public_ker
             continue;
         }
         const auto& sibling_path = public_kernel_inputs.public_call.state_reads_sibling_paths[i].sibling_path;
-        const typename NT::fr leaf_value = compute_public_data_tree_value<NT>(state_read.current_value);
-        const typename NT::fr leaf_index =
-            compute_public_data_tree_index<NT>(contract_address, state_read.storage_slot);
-        check_membership(
-            composer, leaf_value, leaf_index, sibling_path, public_kernel_inputs.public_call.public_data_tree_root);
+        const NT::fr leaf_value = compute_public_data_tree_value<NT>(state_read.current_value);
+        const NT::fr leaf_index = compute_public_data_tree_index<NT>(contract_address, state_read.storage_slot);
+        const std::string msg = std::format("validate_state_reads, index {}, leaf value {}", i, leaf_value);
+        check_membership(composer,
+                         leaf_value,
+                         leaf_index,
+                         sibling_path,
+                         public_kernel_inputs.public_call.public_data_tree_root,
+                         msg);
     }
 };
 
@@ -74,11 +79,15 @@ void validate_state_transitions(DummyComposer& composer, KernelInput const& publ
             continue;
         }
         const auto& sibling_path = public_kernel_inputs.public_call.state_transitions_sibling_paths[i].sibling_path;
-        const typename NT::fr leaf_value = compute_public_data_tree_value<NT>(state_transition.old_value);
-        const typename NT::fr leaf_index =
-            compute_public_data_tree_index<NT>(contract_address, state_transition.storage_slot);
-        check_membership(
-            composer, leaf_value, leaf_index, sibling_path, public_kernel_inputs.public_call.public_data_tree_root);
+        const NT::fr leaf_value = compute_public_data_tree_value<NT>(state_transition.old_value);
+        const NT::fr leaf_index = compute_public_data_tree_index<NT>(contract_address, state_transition.storage_slot);
+        const std::string msg = std::format("validate_state_transitions, index {}, leaf value {}", i, leaf_value);
+        check_membership(composer,
+                         leaf_value,
+                         leaf_index,
+                         sibling_path,
+                         public_kernel_inputs.public_call.public_data_tree_root,
+                         msg);
     }
 };
 
