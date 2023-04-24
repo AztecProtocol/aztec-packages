@@ -7,7 +7,7 @@ import {
   PreviousKernelData,
   PrivateCallData,
   PrivateCallStackItem,
-  PrivateKernelPublicInputs,
+  KernelCircuitPublicInputs,
   SignedTxRequest,
   TxRequest,
   VK_TREE_HEIGHT,
@@ -42,7 +42,7 @@ export class KernelProver {
     let firstIteration = true;
     let previousVerificationKey = VerificationKey.makeFake();
     let output: ProofOutput = {
-      publicInputs: PrivateKernelPublicInputs.makeEmpty(),
+      publicInputs: KernelCircuitPublicInputs.empty(),
       proof: makeEmptyProof(),
     };
     while (executionStack.length) {
@@ -59,7 +59,7 @@ export class KernelProver {
 
       const currentExecution = executionStack.pop()!;
       executionStack.push(...currentExecution.nestedExecutions);
-      const privateCallStackPreimages = executionStack.map(result => result.callStackItem);
+      const privateCallStackPreimages = currentExecution.nestedExecutions.map(result => result.callStackItem);
       if (privateCallStackPreimages.length > PRIVATE_CALL_STACK_LENGTH) {
         throw new Error(
           `Too many items in the call stack. Maximum amount is ${PRIVATE_CALL_STACK_LENGTH}. Got ${privateCallStackPreimages.length}.`,

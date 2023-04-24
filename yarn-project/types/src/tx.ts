@@ -1,19 +1,22 @@
-import { CircuitsWasm, PrivateKernelPublicInputs, SignedTxRequest, UInt8Vector } from '@aztec/circuits.js';
+import { CircuitsWasm, KernelCircuitPublicInputs, SignedTxRequest, UInt8Vector } from '@aztec/circuits.js';
 import { computeContractLeaf } from '@aztec/circuits.js/abis';
 import { createTxHash } from './create_tx_hash.js';
 import { TxHash } from './tx_hash.js';
 import { UnverifiedData } from './unverified_data.js';
 import { keccak } from '@aztec/foundation';
 
-export type PrivateTx = Required<Pick<Tx, 'data' | 'proof' | 'unverifiedData'>> & Tx;
-export type PublicTx = Required<Pick<Tx, 'txRequest'>> & Tx;
+type PrivateTxFields = 'data' | 'proof' | 'unverifiedData';
+type PublicTxFields = 'txRequest';
+
+export type PrivateTx = Required<Pick<Tx, PrivateTxFields>> & Tx;
+export type PublicTx = Required<Pick<Tx, PublicTxFields>> & Tx;
 
 export function isPublicTx(tx: Tx): tx is PublicTx {
-  return tx.isPublic();
+  return !!tx.txRequest;
 }
 
 export function isPrivateTx(tx: Tx): tx is PrivateTx {
-  return tx.isPrivate();
+  return !!tx.data && !!tx.proof && !!tx.unverifiedData;
 }
 
 /**
@@ -23,7 +26,7 @@ export class Tx {
   private hashPromise?: Promise<TxHash>;
 
   public static createPrivate(
-    data: PrivateKernelPublicInputs,
+    data: KernelCircuitPublicInputs,
     proof: UInt8Vector,
     unverifiedData: UnverifiedData,
   ): PrivateTx {
@@ -35,7 +38,7 @@ export class Tx {
   }
 
   public static createPrivatePublic(
-    data: PrivateKernelPublicInputs,
+    data: KernelCircuitPublicInputs,
     proof: UInt8Vector,
     unverifiedData: UnverifiedData,
     txRequest: SignedTxRequest,
@@ -44,24 +47,20 @@ export class Tx {
   }
 
   public static create(
-    data?: PrivateKernelPublicInputs,
+    data?: KernelCircuitPublicInputs,
     proof?: UInt8Vector,
     unverifiedData?: UnverifiedData,
     txRequest?: SignedTxRequest,
   ): Tx {
-    const tx = new this(data, proof, unverifiedData, txRequest);
-    if (!tx.isPrivate() && !tx.isPublic()) {
-      throw new Error(`Tx needs either public or private data`);
-    }
-    return tx;
+    return new this(data, proof, unverifiedData, txRequest);
   }
 
   public isPrivate(): this is PrivateTx {
-    return !!this.data && !!this.proof && !!this.unverifiedData;
+    return isPrivateTx(this);
   }
 
   public isPublic(): this is PublicTx {
-    return !!this.txRequest;
+    return isPublicTx(this);
   }
 
   /**
@@ -72,7 +71,7 @@ export class Tx {
    * @param txRequest - Signed public function call data.
    */
   protected constructor(
-    public readonly data?: PrivateKernelPublicInputs,
+    public readonly data?: KernelCircuitPublicInputs,
     public readonly proof?: UInt8Vector,
     public readonly unverifiedData?: UnverifiedData,
     public readonly txRequest?: SignedTxRequest,
@@ -116,7 +115,7 @@ export class Tx {
     // contract tree leaves, which then go into the L2 block, which are then used to regenerate
     // the tx hashes. This means we need the full circuits wasm, and cannot use the lighter primitives
     // wasm. Alternatively, we could stop using computeContractLeaf and manually use the same hash.
-    if (tx.isPrivate()) {
+    if (tx.data) {
       const wasm = await CircuitsWasm.get();
       hashes.push(
         createTxHash({
@@ -128,7 +127,7 @@ export class Tx {
 
     // We hash the full signed tx request object (this is, the tx request along with the signature),
     // just like Ethereum does.
-    if (tx.isPublic()) {
+    if (tx.txRequest) {
       hashes.push(new TxHash(keccak(tx.txRequest.toBuffer())));
     }
 

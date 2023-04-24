@@ -1,11 +1,18 @@
-import { EthereumRpc, TxHash, waitForTxReceipt } from '@aztec/ethereum.js/eth_rpc';
+import {
+  EthereumRpc,
+  TransactionRequest,
+  TxHash,
+  toRawTransactionRequest,
+  waitForTxReceipt,
+} from '@aztec/ethereum.js/eth_rpc';
 import { WalletProvider } from '@aztec/ethereum.js/provider';
 import { Rollup, UnverifiedDataEmitter } from '@aztec/l1-contracts';
-import { TxSenderConfig } from './config.js';
-import { L1ProcessArgs as ProcessTxArgs, L1PublisherTxSender } from './l1-publisher.js';
 import { UnverifiedData } from '@aztec/types';
 import { NewContractData } from '@aztec/circuits.js';
+import { createDebugLogger } from '@aztec/foundation';
 
+import { L1ProcessArgs as ProcessTxArgs, L1PublisherTxSender } from './l1-publisher.js';
+import { TxSenderConfig } from './config.js';
 /**
  * Pushes transactions to the L1 rollup contract using the custom aztec/ethereum.js library.
  */
@@ -14,6 +21,7 @@ export class EthereumjsTxSender implements L1PublisherTxSender {
   private rollupContract: Rollup;
   private unverifiedDataEmitterContract: UnverifiedDataEmitter;
   private confirmations: number;
+  private log = createDebugLogger('aztec:sequencer:tx-sender');
 
   constructor(config: TxSenderConfig) {
     const {
@@ -43,11 +51,19 @@ export class EthereumjsTxSender implements L1PublisherTxSender {
 
   async sendProcessTx(encodedData: ProcessTxArgs): Promise<string | undefined> {
     const methodCall = this.rollupContract.methods.process(encodedData.proof, encodedData.inputs);
-    const gas = await methodCall.estimateGas();
-    return methodCall
-      .send({ gas })
-      .getTxHash()
-      .then(hash => hash.toString());
+    let gas: number | undefined = undefined;
+
+    try {
+      gas = await methodCall.estimateGas();
+      return await methodCall
+        .send({ gas })
+        .getTxHash()
+        .then(hash => hash.toString());
+    } catch (err: unknown) {
+      const tx: TransactionRequest = (methodCall as any).getTxRequest({ gas });
+      this.log(`Error sending L2 block tx:`, err, JSON.stringify(toRawTransactionRequest(tx)));
+      throw err;
+    }
   }
 
   async sendEmitUnverifiedDataTx(l2BlockNum: number, unverifiedData: UnverifiedData): Promise<string | undefined> {
@@ -55,11 +71,20 @@ export class EthereumjsTxSender implements L1PublisherTxSender {
       BigInt(l2BlockNum),
       unverifiedData.toBuffer(),
     );
-    const gas = await methodCall.estimateGas();
-    return methodCall
-      .send({ gas })
-      .getTxHash()
-      .then(hash => hash.toString());
+
+    let gas: number | undefined = undefined;
+
+    try {
+      gas = await methodCall.estimateGas();
+      return await methodCall
+        .send({ gas })
+        .getTxHash()
+        .then(hash => hash.toString());
+    } catch (err) {
+      const tx: TransactionRequest = (methodCall as any).getTxRequest({ gas });
+      this.log(`Error sending unverified data tx`, err, JSON.stringify(toRawTransactionRequest(tx)));
+      throw err;
+    }
   }
 
   async sendEmitNewContractDataTx(l2BlockNum: number, newContractData: NewContractData[]): Promise<string | undefined> {

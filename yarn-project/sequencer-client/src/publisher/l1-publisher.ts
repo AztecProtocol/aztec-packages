@@ -168,7 +168,7 @@ export class L1Publisher implements L2BlockReceiver {
       try {
         return await this.txSender.sendProcessTx(encodedData);
       } catch (err) {
-        this.log(`Error sending tx to L1`, err);
+        this.log(`Error sending L2 block tx to L1`, err);
         await this.sleepOrInterrupted();
       }
     }
@@ -182,7 +182,7 @@ export class L1Publisher implements L2BlockReceiver {
       try {
         return await this.txSender.sendEmitUnverifiedDataTx(l2BlockNum, unverifiedData);
       } catch (err) {
-        this.log(`Error sending tx to L1`, err);
+        this.log(`Error sending unverified data tx to L1`, err);
         await this.sleepOrInterrupted();
       }
     }

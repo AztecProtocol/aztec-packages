@@ -1,19 +1,38 @@
 import { AztecAddress, EthAddress, Fq, Fr } from '@aztec/foundation';
 import {
+  BaseOrMergeRollupPublicInputs,
+  BaseRollupInputs,
   CallContext,
+  CombinedAccumulatedData,
+  CombinedConstantData,
+  CombinedHistoricTreeRoots,
+  ConstantBaseRollupData,
+  KernelCircuitPublicInputs,
   MergeRollupInputs,
+  NewContractData,
+  NullifierLeafPreimage,
+  OptionallyRevealedData,
+  PreviousKernelData,
   PreviousRollupData,
+  PrivateCallData,
   PrivateCircuitPublicInputs,
+  PrivateHistoricTreeRoots,
+  PrivateKernelInputs,
+  PublicCallData,
+  PublicCircuitPublicInputs,
+  PublicDataRead,
+  PublicDataWrite,
+  PublicKernelInputsNoKernelInput,
+  PublicKernelInputsNonFirstIteration,
+  PublicKernelInputsPrivateKernelInput,
   RootRollupInputs,
   RootRollupPublicInputs,
+  StateRead,
+  StateTransition,
+  WitnessedPublicCallData,
 } from '../index.js';
-import {
-  AppendOnlyTreeSnapshot,
-  BaseRollupInputs,
-  BaseOrMergeRollupPublicInputs,
-  ConstantBaseRollupData,
-  NullifierLeafPreimage,
-} from '../structs/base_rollup.js';
+import { AggregationObject } from '../structs/aggregation_object.js';
+import { PrivateCallStackItem, PublicCallStackItem } from '../structs/call_stack_item.js';
 import {
   ARGS_LENGTH,
   CONTRACT_TREE_HEIGHT,
@@ -35,33 +54,19 @@ import {
   PRIVATE_DATA_TREE_HEIGHT,
   PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT,
   PUBLIC_CALL_STACK_LENGTH,
+  PUBLIC_DATA_TREE_HEIGHT,
   RETURN_VALUES_LENGTH,
   ROLLUP_VK_TREE_HEIGHT,
+  STATE_READS_LENGTH,
+  STATE_TRANSITIONS_LENGTH,
   VK_TREE_HEIGHT,
 } from '../structs/constants.js';
 import { FunctionData } from '../structs/function_data.js';
-import {
-  AccumulatedData,
-  ConstantData,
-  NewContractData,
-  HistoricTreeRoots,
-  OptionallyRevealedData,
-  PreviousKernelData,
-  PrivateCallData,
-  PrivateKernelInputs,
-  PrivateKernelPublicInputs,
-} from '../structs/private_kernel.js';
-import { PrivateCallStackItem } from '../structs/private_call_stack_item.js';
-import {
-  AffineElement,
-  AggregationObject,
-  ComposerType,
-  EcdsaSignature,
-  MembershipWitness,
-  RollupTypes,
-  UInt8Vector,
-} from '../structs/shared.js';
-import { ContractDeploymentData, SignedTxRequest, TxContext, TxRequest } from '../structs/tx.js';
+import { MembershipWitness } from '../structs/membership_witness.js';
+import { AppendOnlyTreeSnapshot } from '../structs/rollup/append_only_tree_snapshot.js';
+import { AffineElement, ComposerType, EcdsaSignature, RollupTypes, UInt8Vector } from '../structs/shared.js';
+import { ContractDeploymentData, TxContext } from '../structs/tx_context.js';
+import { SignedTxRequest, TxRequest } from '../structs/tx_request.js';
 import { CommitmentMap, G1AffineElement, VerificationKey } from '../structs/verification_key.js';
 import { range } from '../utils/jsUtils.js';
 import { numToUInt32BE } from '../utils/serialize.js';
@@ -71,12 +76,16 @@ export function makeTxContext(seed: number): TxContext {
   return new TxContext(false, false, true, deploymentData);
 }
 
-export function makeHistoricTreeRoots(seed: number): HistoricTreeRoots {
-  return new HistoricTreeRoots(fr(seed), fr(seed + 1), fr(seed + 2), fr(seed + 3));
+export function makePrivateHistoricTreeRoots(seed: number): PrivateHistoricTreeRoots {
+  return new PrivateHistoricTreeRoots(fr(seed), fr(seed + 1), fr(seed + 2), fr(seed + 3));
 }
 
-export function makeConstantData(seed = 1): ConstantData {
-  return new ConstantData(makeHistoricTreeRoots(seed), makeTxContext(seed + 4));
+export function makeCombinedHistoricTreeRoots(seed: number): CombinedHistoricTreeRoots {
+  return new CombinedHistoricTreeRoots(makePrivateHistoricTreeRoots(seed), fr(seed + 4));
+}
+
+export function makeConstantData(seed = 1): CombinedConstantData {
+  return new CombinedConstantData(makeCombinedHistoricTreeRoots(seed), makeTxContext(seed + 4));
 }
 
 export function makeSelector(seed: number) {
@@ -85,10 +94,27 @@ export function makeSelector(seed: number) {
   return buffer;
 }
 
-export function makeAccumulatedData(seed = 1): AccumulatedData {
-  return new AccumulatedData(
+export function makePublicDataWrite(seed = 1) {
+  return new PublicDataWrite(fr(seed), fr(seed + 1));
+}
+
+export function makePublicDataRead(seed = 1) {
+  return new PublicDataRead(fr(seed), fr(seed + 1));
+}
+
+export function makeStateTransition(seed = 1) {
+  return new StateTransition(fr(seed), fr(seed + 1), fr(seed + 2));
+}
+
+export function makeStateRead(seed = 1) {
+  return new StateRead(fr(seed), fr(seed + 1));
+}
+
+export function makeAccumulatedData(seed = 1): CombinedAccumulatedData {
+  return new CombinedAccumulatedData(
     makeAggregationObject(seed),
     fr(seed + 12),
+    fr(seed + 13),
     range(KERNEL_NEW_COMMITMENTS_LENGTH, seed + 0x100).map(fr),
     range(KERNEL_NEW_NULLIFIERS_LENGTH, seed + 0x200).map(fr),
     range(KERNEL_PRIVATE_CALL_STACK_LENGTH, seed + 0x300).map(fr),
@@ -96,6 +122,7 @@ export function makeAccumulatedData(seed = 1): AccumulatedData {
     range(KERNEL_L1_MSG_STACK_LENGTH, seed + 0x500).map(fr),
     range(KERNEL_NEW_CONTRACTS_LENGTH, seed + 0x600).map(makeNewContractData),
     range(KERNEL_OPTIONALLY_REVEALED_DATA_LENGTH, seed + 0x700).map(makeOptionallyRevealedData),
+    range(STATE_TRANSITIONS_LENGTH, seed + 0x800).map(makePublicDataWrite),
   );
 }
 
@@ -126,8 +153,35 @@ export function makeAggregationObject(seed = 1): AggregationObject {
   );
 }
 
-export function makePrivateKernelPublicInputs(seed = 1): PrivateKernelPublicInputs {
-  return new PrivateKernelPublicInputs(makeAccumulatedData(seed), makeConstantData(seed + 0x100), true);
+export function makeCallContext(seed = 0): CallContext {
+  return new CallContext(
+    makeAztecAddress(seed),
+    makeAztecAddress(seed + 1),
+    makeEthAddress(seed + 2),
+    false,
+    false,
+    false,
+  );
+}
+
+export function makePublicCircuitPublicInputs(seed = 0): PublicCircuitPublicInputs {
+  const frArray = (num: number, seed: number) => range(num, seed).map(fr);
+  return new PublicCircuitPublicInputs(
+    makeCallContext(seed),
+    frArray(ARGS_LENGTH, seed + 0x100),
+    frArray(RETURN_VALUES_LENGTH, seed + 0x200),
+    frArray(EMITTED_EVENTS_LENGTH, seed + 0x300),
+    range(STATE_TRANSITIONS_LENGTH, seed + 0x400).map(makeStateTransition),
+    range(STATE_READS_LENGTH, seed + 0x500).map(makeStateRead),
+    frArray(PUBLIC_CALL_STACK_LENGTH, seed + 0x600),
+    frArray(L1_MSG_STACK_LENGTH, seed + 0x700),
+    fr(seed + 0x800),
+    makeAztecAddress(seed + 0x801),
+  );
+}
+
+export function makeKernelPublicInputs(seed = 1): KernelCircuitPublicInputs {
+  return new KernelCircuitPublicInputs(makeAccumulatedData(seed), makeConstantData(seed + 0x100), true);
 }
 
 export function makeDynamicSizeBuffer(size: number, fill: number) {
@@ -150,14 +204,19 @@ export function makeVerificationKey(): VerificationKey {
     range(5, 400),
   );
 }
+
 export function makePreviousKernelData(seed = 1): PreviousKernelData {
   return new PreviousKernelData(
-    makePrivateKernelPublicInputs(seed),
-    makeDynamicSizeBuffer(16, seed + 0x80),
+    makeKernelPublicInputs(seed),
+    makeProof(seed + 0x80),
     makeVerificationKey(),
     0x42,
     range(VK_TREE_HEIGHT, 0x1000).map(fr),
   );
+}
+
+export function makeProof(seed = 1) {
+  return makeDynamicSizeBuffer(16, seed);
 }
 
 export function makePrivateKernelInputs(seed = 1): PrivateKernelInputs {
@@ -165,6 +224,51 @@ export function makePrivateKernelInputs(seed = 1): PrivateKernelInputs {
     makeSignedTxRequest(seed),
     makePreviousKernelData(seed + 0x1000),
     makePrivateCallData(seed + 0x2000),
+  );
+}
+
+export function makePublicCallStackItem(seed = 1): PublicCallStackItem {
+  return new PublicCallStackItem(
+    makeAztecAddress(seed),
+    new FunctionData(makeSelector(seed + 0x1), true, true),
+    makePublicCircuitPublicInputs(seed + 0x10),
+  );
+}
+
+export function makePublicCallData(seed = 1) {
+  return new PublicCallData(
+    makePublicCallStackItem(seed),
+    range(PUBLIC_CALL_STACK_LENGTH, seed + 0x300).map(makePublicCallStackItem),
+    makeProof(seed + 0x1000),
+    fr(seed + 1),
+    fr(seed + 2),
+  );
+}
+
+export function makeWitnessedPublicCallData(seed = 1): WitnessedPublicCallData {
+  return new WitnessedPublicCallData(
+    makePublicCallData(seed),
+    range(STATE_TRANSITIONS_LENGTH, seed + 0x100).map(x => makeMembershipWitness(PUBLIC_DATA_TREE_HEIGHT, x)),
+    range(STATE_READS_LENGTH, seed + 0x200).map(x => makeMembershipWitness(PUBLIC_DATA_TREE_HEIGHT, x)),
+    fr(seed + 0x300),
+  );
+}
+
+export function makePublicKernelInputsNonFirstIteration(seed = 1): PublicKernelInputsNonFirstIteration {
+  return new PublicKernelInputsNonFirstIteration(
+    makePreviousKernelData(seed),
+    makeWitnessedPublicCallData(seed + 0x1000),
+  );
+}
+
+export function makePublicKernelInputsNoKernelInput(seed = 1) {
+  return new PublicKernelInputsNoKernelInput(makeSignedTxRequest(seed), makeWitnessedPublicCallData(seed + 0x100));
+}
+
+export function makePublicKernelInputsPrivateKernelInput(seed = 1) {
+  return new PublicKernelInputsPrivateKernelInput(
+    makePreviousKernelData(seed),
+    makeWitnessedPublicCallData(seed + 0x100),
   );
 }
 
@@ -186,8 +290,8 @@ export function makeTxRequest(seed = 1): TxRequest {
 
 export function makePrivateCallData(seed = 1): PrivateCallData {
   return PrivateCallData.from({
-    callStackItem: makeCallStackItem(seed),
-    privateCallStackPreimages: range(PRIVATE_CALL_STACK_LENGTH, seed + 0x10).map(makeCallStackItem),
+    callStackItem: makePrivateCallStackItem(seed),
+    privateCallStackPreimages: range(PRIVATE_CALL_STACK_LENGTH, seed + 0x10).map(makePrivateCallStackItem),
     proof: makeDynamicSizeBuffer(16, seed + 0x50),
     vk: makeVerificationKey(),
     functionLeafMembershipWitness: makeMembershipWitness(FUNCTION_TREE_HEIGHT, seed + 0x30),
@@ -197,7 +301,7 @@ export function makePrivateCallData(seed = 1): PrivateCallData {
   });
 }
 
-export function makeCallStackItem(seed = 1): PrivateCallStackItem {
+export function makePrivateCallStackItem(seed = 1): PrivateCallStackItem {
   return new PrivateCallStackItem(
     makeAztecAddress(seed),
     new FunctionData(makeSelector(seed + 0x1), true, true),
@@ -278,6 +382,8 @@ export function makeBaseRollupPublicInputs(seed = 0) {
     makeAppendOnlyTreeSnapshot(seed + 0x600),
     makeAppendOnlyTreeSnapshot(seed + 0x700),
     makeAppendOnlyTreeSnapshot(seed + 0x800),
+    makeAppendOnlyTreeSnapshot(seed + 0x900),
+    makeAppendOnlyTreeSnapshot(seed + 0x1000),
     [fr(seed + 0x901), fr(seed + 0x902)],
   );
 }
@@ -330,6 +436,7 @@ export function makeBaseRollupInputs(seed = 0) {
   const startPrivateDataTreeSnapshot = makeAppendOnlyTreeSnapshot(seed + 0x100);
   const startNullifierTreeSnapshot = makeAppendOnlyTreeSnapshot(seed + 0x200);
   const startContractTreeSnapshot = makeAppendOnlyTreeSnapshot(seed + 0x300);
+  const startPublicDataTreeSnapshot = makeAppendOnlyTreeSnapshot(seed + 0x400);
 
   const lowNullifierLeafPreimages = range(2 * KERNEL_NEW_NULLIFIERS_LENGTH, seed + 0x1000).map(
     x => new NullifierLeafPreimage(fr(x), fr(x + 0x100), x + 0x200),
@@ -354,6 +461,10 @@ export function makeBaseRollupInputs(seed = 0) {
     seed + 0x5000,
   ).map(x => fr(x));
 
+  const newStateTransitionsSiblingPath = range(2 * STATE_TRANSITIONS_LENGTH, seed + 0x6000).map(x =>
+    makeMembershipWitness(PUBLIC_DATA_TREE_HEIGHT, x),
+  );
+
   const historicPrivateDataTreeRootMembershipWitnesses: BaseRollupInputs['historicPrivateDataTreeRootMembershipWitnesses'] =
     [
       makeMembershipWitness(PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT, seed + 0x6000),
@@ -373,11 +484,13 @@ export function makeBaseRollupInputs(seed = 0) {
     startPrivateDataTreeSnapshot,
     startNullifierTreeSnapshot,
     startContractTreeSnapshot,
+    startPublicDataTreeSnapshot,
     lowNullifierLeafPreimages,
     lowNullifierMembershipWitness,
     newCommitmentsSubtreeSiblingPath,
     newNullifiersSubtreeSiblingPath,
     newContractsSubtreeSiblingPath,
+    newStateTransitionsSiblingPaths: newStateTransitionsSiblingPath,
     historicPrivateDataTreeRootMembershipWitnesses,
     historicContractsTreeRootMembershipWitnesses,
     constants,
