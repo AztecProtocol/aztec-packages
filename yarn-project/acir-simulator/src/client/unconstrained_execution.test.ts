@@ -50,9 +50,9 @@ describe('Unconstrained Execution test suite', () => {
       owner = toPublicKey(ownerPk, grumpkin);
     });
 
-    it('should run the get_balance function', async () => {
+    it('should run the getBalance function', async () => {
       const contractAddress = AztecAddress.random();
-      const abi = ZkTokenContractAbi.functions.find(f => f.name === 'get_balance')!;
+      const abi = ZkTokenContractAbi.functions.find(f => f.name === 'getBalance')!;
 
       const preimages = [...Array(5).fill(buildNote(1n, owner)), ...Array(2).fill(buildNote(2n, owner))];
       // TODO for this we need that noir siloes the commitment the same way as the kernel does, to do merkle membership
