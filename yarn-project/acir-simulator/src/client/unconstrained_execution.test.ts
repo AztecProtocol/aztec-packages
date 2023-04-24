@@ -11,7 +11,6 @@ import {
 import { AztecAddress, EthAddress, Fr } from '@aztec/foundation';
 import { ZkTokenContractAbi } from '@aztec/noir-contracts/examples';
 import { mock } from 'jest-mock-extended';
-import { default as memdown, type MemDown } from 'memdown';
 import { encodeArguments } from '../abi_coder/index.js';
 import { DBOracle } from './db_oracle.js';
 import { AcirSimulator } from './simulator.js';
@@ -60,16 +59,16 @@ describe('Unconstrained Execution test suite', () => {
 
       const historicRoots = new PrivateHistoricTreeRoots(new Fr(0n), new Fr(0n), new Fr(0n), new Fr(0n));
 
-      oracle.getNotes.mockImplementation(async (_, __, limit: number, offset: number) => {
+      oracle.getNotes.mockImplementation((_, __, limit: number, offset: number) => {
         const notes = preimages.slice(offset, offset + limit);
-        return {
+        return Promise.resolve({
           count: preimages.length,
           notes: notes.map((preimage, index) => ({
             preimage,
             siblingPath: Array(PRIVATE_DATA_TREE_HEIGHT).fill(Fr.ZERO),
             index: BigInt(index),
           })),
-        };
+        });
       });
 
       const txRequest = new TxRequest(

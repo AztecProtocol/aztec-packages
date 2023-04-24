@@ -16,7 +16,7 @@ import {
   FunctionData,
 } from '@aztec/circuits.js';
 import { DBOracle } from './db_oracle.js';
-import { extractPublicInputs, frToAztecAddress, frToNumber, frToSelector } from '../acvm/deserialize.js';
+import { extractPublicInputs, frToAztecAddress, frToSelector } from '../acvm/deserialize.js';
 import { FunctionAbi } from '@aztec/noir-contracts';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { decodeReturnValues } from '../abi_coder/decoder.js';

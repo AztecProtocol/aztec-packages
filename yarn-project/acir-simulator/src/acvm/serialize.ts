@@ -4,10 +4,8 @@ import {
   CallContext,
   ContractDeploymentData,
   FunctionData,
-  PrivateHistoricTreeRoots,
   PrivateCallStackItem,
   PrivateCircuitPublicInputs,
-  TxContext,
 } from '@aztec/circuits.js';
 import { NoteLoadOracleInputs } from '../client/db_oracle.js';
 
