@@ -5,8 +5,8 @@ import {
   ContractDeploymentData,
   FunctionData,
   NEW_COMMITMENTS_LENGTH,
-  PrivateHistoricTreeRoots,
   PRIVATE_DATA_TREE_HEIGHT,
+  PrivateHistoricTreeRoots,
   TxContext,
   TxRequest,
 } from '@aztec/circuits.js';
