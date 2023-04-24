@@ -6,12 +6,10 @@
 #include <aztec3/circuits/kernel/private/utils.hpp>
 #include <aztec3/circuits/mock/mock_kernel_circuit.hpp>
 #include "aztec3/circuits/abis/new_contract_data.hpp"
-#include "aztec3/circuits/abis/rollup/merge/merge_rollup_inputs.hpp"
 #include "aztec3/circuits/abis/rollup/root/root_rollup_public_inputs.hpp"
 namespace {
 using NT = aztec3::utils::types::NativeTypes;
 
-// Types
 using ConstantRollupData = aztec3::circuits::abis::ConstantRollupData<NT>;
 using BaseRollupInputs = aztec3::circuits::abis::BaseRollupInputs<NT>;
 using RootRollupInputs = aztec3::circuits::abis::RootRollupInputs<NT>;
@@ -24,14 +22,13 @@ using KernelData = aztec3::circuits::abis::PreviousKernelData<NT>;
 
 using NullifierLeafPreimage = aztec3::circuits::abis::NullifierLeafPreimage<NT>;
 
-// Nullifier Tree Alias
 using MerkleTree = stdlib::merkle_tree::MemoryTree;
 using NullifierTree = stdlib::merkle_tree::NullifierMemoryTree;
 using NullifierLeaf = stdlib::merkle_tree::nullifier_leaf;
 
 using aztec3::circuits::abis::BaseOrMergeRollupPublicInputs;
 using aztec3::circuits::abis::MembershipWitness;
-using aztec3::circuits::abis::MergeRollupInputs;
+using MergeRollupInputs = aztec3::circuits::abis::MergeRollupInputs<NT>;
 using aztec3::circuits::abis::PreviousRollupData;
 
 using nullifier_tree_testing_values = std::tuple<BaseRollupInputs, AppendOnlyTreeSnapshot, AppendOnlyTreeSnapshot>;
@@ -48,11 +45,6 @@ KernelData get_empty_kernel()
     return dummy_previous_kernel();
 }
 
-std::array<KernelData, 2> get_empty_kernels()
-{
-    return { dummy_previous_kernel(), dummy_previous_kernel() };
-}
-
 void set_kernel_nullifiers(KernelData& kernel_data, std::array<fr, KERNEL_NEW_NULLIFIERS_LENGTH> new_nullifiers)
 {
     for (size_t i = 0; i < KERNEL_NEW_NULLIFIERS_LENGTH; i++) {
@@ -60,31 +52,10 @@ void set_kernel_nullifiers(KernelData& kernel_data, std::array<fr, KERNEL_NEW_NU
     }
 }
 
-void set_kernel_nullifiers(std::array<KernelData, 2>& kernel_data,
-                           std::array<fr, KERNEL_NEW_NULLIFIERS_LENGTH * 2> nullifiers)
-{
-    for (size_t i = 0; i < 2; i++) {
-        for (size_t j = 0; j < KERNEL_NEW_NULLIFIERS_LENGTH; j++) {
-            kernel_data[i].public_inputs.end.new_nullifiers[j] = nullifiers[i * KERNEL_NEW_NULLIFIERS_LENGTH + j];
-        }
-    }
-}
-
 void set_kernel_commitments(KernelData& kernel_data, std::array<fr, KERNEL_NEW_COMMITMENTS_LENGTH> new_commitments)
 {
     for (size_t i = 0; i < KERNEL_NEW_COMMITMENTS_LENGTH; i++) {
         kernel_data.public_inputs.end.new_commitments[i] = new_commitments[i];
-    }
-}
-
-void set_kernel_commitments(std::array<KernelData, 2>& kernel_data,
-                            std::array<fr, KERNEL_NEW_COMMITMENTS_LENGTH * 2> new_commitments)
-{
-    for (size_t i = 0; i < 2; i++) {
-        for (size_t j = 0; j < KERNEL_NEW_COMMITMENTS_LENGTH; j++) {
-            kernel_data[i].public_inputs.end.new_commitments[j] =
-                new_commitments[i * KERNEL_NEW_COMMITMENTS_LENGTH + j];
-        }
     }
 }
 
@@ -163,11 +134,6 @@ BaseRollupInputs base_rollup_inputs_from_kernels(std::array<KernelData, 2> kerne
     return baseRollupInputs;
 }
 
-BaseRollupInputs empty_base_rollup_inputs()
-{
-    return base_rollup_inputs_from_kernels({ dummy_previous_kernel(), dummy_previous_kernel() });
-}
-
 std::array<PreviousRollupData<NT>, 2> get_previous_rollup_data(DummyComposer& composer,
                                                                std::array<KernelData, 4> kernel_data)
 {
@@ -232,6 +198,12 @@ std::array<PreviousRollupData<NT>, 2> get_previous_rollup_data(DummyComposer& co
     };
 
     return { previous_rollup1, previous_rollup2 };
+}
+
+MergeRollupInputs get_merge_rollup_inputs(utils::DummyComposer& composer, std::array<KernelData, 4> kernel_data)
+{
+    MergeRollupInputs inputs = { .previous_rollup_data = get_previous_rollup_data(composer, kernel_data) };
+    return inputs;
 }
 
 RootRollupInputs get_root_rollup_inputs(utils::DummyComposer& composer, std::array<KernelData, 4> kernel_data)

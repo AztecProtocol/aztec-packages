@@ -11,6 +11,7 @@ using NT = aztec3::utils::types::NativeTypes;
 // Types
 using ConstantRollupData = aztec3::circuits::abis::ConstantRollupData<NT>;
 using BaseRollupInputs = aztec3::circuits::abis::BaseRollupInputs<NT>;
+using MergeRollupInputs = aztec3::circuits::abis::MergeRollupInputs<NT>;
 using BaseOrMergeRollupPublicInputs = aztec3::circuits::abis::BaseOrMergeRollupPublicInputs<NT>;
 using RootRollupInputs = aztec3::circuits::abis::RootRollupInputs<NT>;
 using DummyComposer = aztec3::utils::DummyComposer;
@@ -33,7 +34,6 @@ using nullifier_tree_testing_values = std::tuple<BaseRollupInputs, AppendOnlyTre
 } // namespace
 
 BaseRollupInputs base_rollup_inputs_from_kernels(std::array<KernelData, 2> kernel_data);
-BaseRollupInputs empty_base_rollup_inputs();
 
 template <size_t N>
 std::array<fr, N> get_sibling_path(MerkleTree tree, size_t leafIndex, size_t const& subtree_depth_to_skip)
@@ -66,18 +66,7 @@ nullifier_tree_testing_values generate_nullifier_tree_testing_values(BaseRollupI
 nullifier_tree_testing_values generate_nullifier_tree_testing_values(
     BaseRollupInputs inputs, std::array<fr, KERNEL_NEW_NULLIFIERS_LENGTH * 2> new_nullifiers, size_t spacing);
 
-void set_kernel_nullifiers(std::array<KernelData, 2>& kernel_data,
-                           std::array<fr, KERNEL_NEW_NULLIFIERS_LENGTH * 2> nullifiers);
-
-void set_kernel_commitments(std::array<KernelData, 2>& kernel_data,
-                            std::array<fr, KERNEL_NEW_COMMITMENTS_LENGTH * 2> new_commitments);
-
-std::array<KernelData, 2> get_empty_kernels();
-
 NullifierMemoryTreeTestingHarness get_initial_nullifier_tree(std::vector<fr> initial_values);
-
-std::array<PreviousRollupData<NT>, 2> get_previous_rollup_data(DummyComposer& composer,
-                                                               std::array<KernelData, 4> kernel_data);
 
 KernelData get_empty_kernel();
 
@@ -86,5 +75,7 @@ RootRollupInputs get_root_rollup_inputs(utils::DummyComposer& composer, std::arr
 void set_kernel_commitments(KernelData& kernel_data, std::array<fr, KERNEL_NEW_COMMITMENTS_LENGTH> new_commitments);
 
 void set_kernel_nullifiers(KernelData& kernel_data, std::array<fr, KERNEL_NEW_NULLIFIERS_LENGTH> new_nullifiers);
+
+MergeRollupInputs get_merge_rollup_inputs(utils::DummyComposer& composer, std::array<KernelData, 4> kernel_data);
 
 } // namespace aztec3::circuits::rollup::test_utils::utils
