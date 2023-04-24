@@ -6,7 +6,7 @@ import { FunctionAbi } from '@aztec/noir-contracts';
 import { PublicTokenContractAbi } from '@aztec/noir-contracts/examples';
 import { MockProxy, mock } from 'jest-mock-extended';
 import { default as memdown, type MemDown } from 'memdown';
-import { encodeArguments } from '../arguments_encoder/index.js';
+import { encodeArguments } from '../abi_coder/encoder.js';
 import { NoirPoint, computeSlotForMapping, toPublicKey } from '../utils.js';
 import { PublicDB } from './db.js';
 import { PublicExecution } from './execution.js';
@@ -39,7 +39,7 @@ describe('ACIR public execution simulator', () => {
     describe('mint', () => {
       it('should run the mint function', async () => {
         const contractAddress = AztecAddress.random();
-        const abi = PublicTokenContractAbi.functions.find(f => f.name === 'mint') as FunctionAbi;
+        const abi = PublicTokenContractAbi.functions.find(f => f.name === 'mint')!;
         const functionData = new FunctionData(Buffer.alloc(4), false, false);
         const args = encodeArguments(abi, [140, recipient], false);
 
@@ -83,7 +83,7 @@ describe('ACIR public execution simulator', () => {
 
       beforeEach(() => {
         contractAddress = AztecAddress.random();
-        abi = PublicTokenContractAbi.functions.find(f => f.name === 'transfer') as FunctionAbi;
+        abi = PublicTokenContractAbi.functions.find(f => f.name === 'transfer')!;
         functionData = new FunctionData(Buffer.alloc(4), false, false);
         args = encodeArguments(abi, [140, recipient], false);
         sender = AztecAddress.random();
