@@ -9,6 +9,7 @@ pragma solidity >=0.8.18;
  * @dev there is currently no padding of the elements, so we are for now assuming nice trees as inputs.
  * Furthermore, if no contract etc are deployed, we expect there to be address(0) for input.
  *
+ // TODO: This table has been updated, but not all of the pointers below have been updated
  * -------------------
  * L2 Block Data specification
  * -------------------
