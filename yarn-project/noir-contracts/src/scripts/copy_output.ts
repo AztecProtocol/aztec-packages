@@ -5,6 +5,8 @@ import upperFirst from 'lodash.upperfirst';
 import mockedKeys from './mockedKeys.json' assert { type: 'json' };
 import { ABIParameter, ABIType, FunctionType } from '../abi.js';
 
+const STATEMENT_TYPES = ['type', 'params', 'return'] as const;
+
 function getFunction(type: FunctionType, params: ABIParameter[], returns: ABIType[], fn: any) {
   if (!params) throw new Error(`ABI comment not found for function ${fn.name}`);
   return {
@@ -29,11 +31,19 @@ function getFunctions(source: string, output: any) {
     .sort((fnA: any, fnB: any) => fnA.name.localeCompare(fnB.name))
     .map((fn: any) => {
       delete fn.proving_key;
-      const thisFunctionAbisComments = abiComments.filter(abi => abi.functionName === fn.name);
+      const thisFunctionAbisComments = abiComments
+        .filter(abi => abi.functionName === fn.name)
+        .reduce(
+          (acc, comment) => ({
+            ...acc,
+            [comment.statementType]: comment.value,
+          }),
+          {} as Record<(typeof STATEMENT_TYPES)[number], any>,
+        );
       return getFunction(
-        thisFunctionAbisComments.find(comment => comment.statementType === 'type')?.value || 'secret',
-        thisFunctionAbisComments.find(comment => comment.statementType === 'params')?.value || fn.abi.parameters,
-        thisFunctionAbisComments.find(comment => comment.statementType === 'return')?.value || [fn.abi.return_type],
+        thisFunctionAbisComments.type || 'secret',
+        thisFunctionAbisComments.params || fn.abi.parameters,
+        thisFunctionAbisComments.return || [fn.abi.return_type],
         fn,
       );
     });
