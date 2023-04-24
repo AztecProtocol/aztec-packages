@@ -25,6 +25,7 @@
 #include <aztec3/circuits/abis/private_kernel/globals.hpp>
 
 #include "aztec3/circuits/kernel/private/utils.hpp"
+#include "aztec3/msgpack/msgpack_schema_impl.hpp"
 #include <aztec3/circuits/mock/mock_kernel_circuit.hpp>
 
 #include <barretenberg/common/map.hpp>
@@ -575,4 +576,12 @@ TEST(private_kernel_tests, cbind_private_kernel__dummy_previous_kernel)
     EXPECT_EQ(actual, expected);
 }
 
+TEST(private_kernel_tests, print_previous_kernel_data_schema)
+{
+    size_t size = 0;
+    uint8_t* ptr = nullptr;
+    private_kernel__dummy_previous_kernel__schema(&ptr, &size);
+    info(ptr);
+    aligned_free(ptr);
+}
 } // namespace aztec3::circuits::kernel::private_kernel

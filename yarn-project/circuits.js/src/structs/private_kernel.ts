@@ -71,6 +71,9 @@ export class ConstantData {
 
 // Not to be confused with ContractDeploymentData (maybe think of better names)
 export class NewContractData {
+  static fromMsgpack(fromMsgpack: any): NewContractData[] {
+    throw new Error('Method not implemented.');
+  }
   constructor(
     public contractAddress: AztecAddress,
     public portalContractAddress: EthAddress,
@@ -92,6 +95,9 @@ export class NewContractData {
 }
 
 export class OptionallyRevealedData {
+  static fromMsgpack(fromMsgpack: any): OptionallyRevealedData[] {
+    throw new Error('Method not implemented.');
+  }
   constructor(
     public callStackItemHash: Fr,
     public functionData: FunctionData,
@@ -168,9 +174,15 @@ export class AccumulatedData {
 
   static fromMsgpack(o: IAccumulatedData) {
     return new this(
-      AggregationObject.fromMsgPack(o.aggregationObject),
-      ConstantData.fromMsgPack(o.constants),
-      o.isPrivate,
+      AggregationObject.fromMsgpack(o.aggregationObject),
+      Fr.fromBuffer(o.privateCallCount),
+      o.newCommitments.map(Fr.fromBuffer),
+      o.newNullifiers.map(Fr.fromBuffer),
+      o.privateCallStack.map(Fr.fromBuffer),
+      o.publicCallStack.map(Fr.fromBuffer),
+      o.l1MsgStack.map(Fr.fromBuffer),
+      o.newContracts.map(NewContractData.fromMsgpack),
+      o.optionallyRevealedData.map(OptionallyRevealedData.fromMsgpack),
     );
   }
   toBuffer() {
@@ -211,7 +223,7 @@ export class PrivateKernelPublicInputs {
   constructor(public end: AccumulatedData, public constants: ConstantData, public isPrivate: boolean) {}
 
   static fromMsgpack(o: IPublicInputs) {
-    return new this(AccumulatedData.fromMsgPack(o.end), ConstantData.fromMsgPack(o.constants), o.isPrivate);
+    return new this(AccumulatedData.fromMsgpack(o.end), ConstantData.fromMsgpack(o.constants), o.isPrivate);
   }
 
   toBuffer() {

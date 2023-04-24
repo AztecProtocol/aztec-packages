@@ -3,6 +3,7 @@ import { Fq, Fr } from '@aztec/foundation/fields';
 import { assertLength, range } from '../utils/jsUtils.js';
 import { Bufferable, serializeToBuffer } from '../utils/serialize.js';
 import times from 'lodash.times';
+import { INativeAggregationState } from '../cbind/circuits.gen.js';
 
 export class MembershipWitness<N extends number> {
   constructor(pathSize: N, public leafIndex: UInt32, public siblingPath: Fr[]) {
@@ -54,7 +55,7 @@ export class AggregationObject {
   constructor(
     public p0: AffineElement,
     public p1: AffineElement,
-    publicInputsData: Fr[],
+    publicInputs: Fr[],
     proofWitnessIndicesData: UInt32[],
     public hasData = false,
   ) {
@@ -62,6 +63,16 @@ export class AggregationObject {
     this.proofWitnessIndices = new Vector(proofWitnessIndicesData);
   }
 
+  static fromMsgpack(o: INativeAggregationState): AggregationObject {
+    return new this(
+      AffineElement.fromMsgpack(o.P0),
+      o.P1,
+      new Vector(o.publicInputs.map(Fr.fromBuffer)),
+      new Vector(o.proofWitnessIndices),
+      o.hasData,
+    );
+    throw new Error('Method not implemented.');
+  }
   toBuffer() {
     return serializeToBuffer(this.p0, this.p1, this.publicInputs, this.proofWitnessIndices, this.hasData);
   }
