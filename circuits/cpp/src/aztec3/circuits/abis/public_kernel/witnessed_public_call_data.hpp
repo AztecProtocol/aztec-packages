@@ -21,7 +21,7 @@ template <typename NCT> struct WitnessedPublicCallData {
     typedef typename NCT::fr fr;
     typedef typename NCT::boolean boolean;
 
-    PublicCallData<NCT> public_call_data;
+    PublicCallData<NCT> public_call_data{};
     std::array<MembershipWitness<NCT, PUBLIC_DATA_TREE_HEIGHT>, STATE_TRANSITIONS_LENGTH>
         state_transitions_sibling_paths;
     std::array<MembershipWitness<NCT, PUBLIC_DATA_TREE_HEIGHT>, STATE_READS_LENGTH> state_reads_sibling_paths;
