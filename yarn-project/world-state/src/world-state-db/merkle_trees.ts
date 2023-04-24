@@ -2,6 +2,7 @@ import { PrimitivesWasm } from '@aztec/barretenberg.js/wasm';
 import {
   CONTRACT_TREE_HEIGHT,
   CONTRACT_TREE_ROOTS_TREE_HEIGHT,
+  L2_MESSAGES_TREE_HEIGHT,
   NULLIFIER_TREE_HEIGHT,
   PRIVATE_DATA_TREE_HEIGHT,
   PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT,
@@ -92,6 +93,13 @@ export class MerkleTrees implements MerkleTreeDb {
       `${MerkleTreeId[MerkleTreeId.PUBLIC_DATA_TREE]}`,
       PUBLIC_DATA_TREE_HEIGHT,
     );
+    const l2MessagesDataTree: AppendOnlyTree = await newTree(
+      StandardTree,
+      this.db,
+      hasher,
+      `${MerkleTreeId[MerkleTreeId.L2_MESSAGES_DATA_TREE]}`,
+      L2_MESSAGES_TREE_HEIGHT,
+    );
     this.trees = [
       contractTree,
       contractTreeRootsTree,
@@ -99,6 +107,7 @@ export class MerkleTrees implements MerkleTreeDb {
       privateDataTree,
       privateDataTreeRootsTree,
       publicDataTree,
+      l2MessagesDataTree,
     ];
     this.jobQueue.start();
   }
