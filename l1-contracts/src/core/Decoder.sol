@@ -16,12 +16,12 @@ pragma solidity >=0.8.18;
  *  | byte start               | num bytes  | name
  *  | ---                      | ---        | ---
  *  | 0x00                     | 0x04       | L2 block number
- *  | 0x04                     | 0x20       | startPrivateDataTreeSnapshot
+ *  | 0x04                     | 0x20       | startPrivateDataTreeSnapshot.root
  *  | 0x24                     | 0x04       | startPrivateDataTreeSnapshot.nextAvailableLeafIndex
  *  | 0x28                     | 0x20       | startNullifierTreeSnapshot.root
  *  | 0x48                     | 0x04       | startNullifierTreeSnapshot.nextAvailableLeafIndex
  *  | 0x4c                     | 0x20       | startContractTreeSnapshot.root
- *  | 0x50                     | 0x04       | startContractTreeSnapshot.nextAvailableLeafIndex
+ *  | 0x6c                     | 0x04       | startContractTreeSnapshot.nextAvailableLeafIndex
  *  | 0x70                     | 0x20       | startTreeOfHistoricPrivateDataTreeRootsSnapshot.root
  *  | 0x74                     | 0x04       | startTreeOfHistoricPrivateDataTreeRootsSnapshot.nextAvailableLeafIndex
  *  | 0x94                     | 0x20       | startTreeOfHistoricContractTreeRootsSnapshot.root
