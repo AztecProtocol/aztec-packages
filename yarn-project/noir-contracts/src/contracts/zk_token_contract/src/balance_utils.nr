@@ -12,7 +12,7 @@ fn view_notes_page_oracle(
     _offset: Field,
 ) -> [Field; 61] {}
 
-// TODO noir is having issues with array params between unconstrained functions, 
+// TODO noir is having issues with loop handling in unconstrained functions, 
 // rewrite to unconstrained and integrate into noir-aztec3 when fixed
 
 unconstrained fn view_notes_page_internal(
