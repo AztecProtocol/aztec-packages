@@ -20,7 +20,7 @@ TEST(public_kernel_tests, no_previous_kernel)
     DummyComposer dc;
     PublicKernelInputsNoPreviousKernel<NT> inputs;
     auto public_inputs = native_public_kernel_circuit_no_previous_kernel(dc, inputs);
-    ASSERT_TRUE(dc.has_failed());
+    ASSERT_TRUE(dc.failed());
 }
 
 TEST(public_kernel_tests, public_previous_kernel)
@@ -28,7 +28,7 @@ TEST(public_kernel_tests, public_previous_kernel)
     DummyComposer dc;
     PublicKernelInputs<NT> inputs;
     auto public_inputs = native_public_kernel_circuit_public_previous_kernel(dc, inputs);
-    ASSERT_TRUE(dc.has_failed());
+    ASSERT_TRUE(dc.failed());
 }
 
 TEST(public_kernel_tests, private_previous_kernel)
@@ -36,6 +36,6 @@ TEST(public_kernel_tests, private_previous_kernel)
     DummyComposer dc;
     PublicKernelInputs<NT> inputs;
     auto public_inputs = native_public_kernel_circuit_private_previous_kernel(dc, inputs);
-    ASSERT_TRUE(dc.has_failed());
+    ASSERT_TRUE(dc.failed());
 }
 } // namespace aztec3::circuits::kernel::public_kernel
