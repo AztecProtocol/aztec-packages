@@ -2,7 +2,6 @@
 #include "aztec3/utils/dummy_composer.hpp"
 #include "index.hpp"
 #include "init.hpp"
-#include "aztec3/circuits/rollup/test_utils/utils.hpp"
 #include "c_bind.h"
 
 #include <aztec3/constants.hpp>

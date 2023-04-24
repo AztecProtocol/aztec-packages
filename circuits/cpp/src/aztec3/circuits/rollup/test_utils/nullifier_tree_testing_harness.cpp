@@ -3,7 +3,6 @@
 #include <barretenberg/stdlib/merkle_tree/nullifier_tree/nullifier_leaf.hpp>
 #include <cstdint>
 #include <tuple>
-#include "aztec3/circuits/abis/append_only_tree_snapshot.hpp"
 
 using NullifierMemoryTree = proof_system::plonk::stdlib::merkle_tree::NullifierMemoryTree;
 using nullifier_leaf = proof_system::plonk::stdlib::merkle_tree::nullifier_leaf;

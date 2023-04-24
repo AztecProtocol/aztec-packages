@@ -16,7 +16,6 @@
 #include "index.hpp"
 #include "init.hpp"
 #include "c_bind.h"
-#include "aztec3/circuits/rollup/test_utils/utils.hpp"
 
 #include <aztec3/circuits/apps/test_apps/escrow/deposit.hpp>
 #include <aztec3/circuits/apps/test_apps/basic_contract_deployment/basic_contract_deployment.hpp>
