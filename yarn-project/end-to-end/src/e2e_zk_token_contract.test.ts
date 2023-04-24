@@ -46,8 +46,8 @@ describe('e2e_zk_token_contract', () => {
   });
 
   afterEach(async () => {
-    await node.stop();
-    await aztecRpcServer.stop();
+    await node?.stop();
+    await aztecRpcServer?.stop();
   });
 
   const expectBalance = async (owner: AztecAddress, expectedBalance: bigint) => {
