@@ -15,6 +15,8 @@ void validate_inputs(DummyComposer& composer, PublicKernelInputs<NT> const& publ
     const auto& this_call_stack_item = public_kernel_inputs.public_call.public_call_data.call_stack_item;
     composer.do_assert(array_length(this_call_stack_item.public_inputs.public_call_stack) > 0,
                        "Public call stack can't be empty");
+    composer.do_assert(array_length(public_kernel_inputs.previous_kernel.public_inputs.end.private_call_stack) == 0,
+                       "Private call stack must be empty");
     composer.do_assert(public_kernel_inputs.previous_kernel.public_inputs.end.private_call_count > 0,
                        "Private call count can't be zero");
     composer.do_assert(public_kernel_inputs.previous_kernel.public_inputs.end.public_call_count == 0,
