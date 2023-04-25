@@ -63,6 +63,12 @@ export class RootRollupPublicInputs {
     public startTreeOfHistoricContractTreeRootsSnapshot: AppendOnlyTreeSnapshot,
     public endTreeOfHistoricContractTreeRootsSnapshot: AppendOnlyTreeSnapshot,
 
+    public startL1ToL2MessagesTreeSnapshot: AppendOnlyTreeSnapshot,
+    public endL1ToL2MessagesTreeSnapshot: AppendOnlyTreeSnapshot,
+
+    public startTreeOfHistoricL1ToL2MessagesSnapshot: AppendOnlyTreeSnapshot,
+    public endTreeOfHistoricL1ToL2MessagesSnapshot: AppendOnlyTreeSnapshot,
+
     public calldataHash: [Fr, Fr],
   ) {}
 
@@ -81,6 +87,10 @@ export class RootRollupPublicInputs {
       fields.endTreeOfHistoricPrivateDataTreeRootsSnapshot,
       fields.startTreeOfHistoricContractTreeRootsSnapshot,
       fields.endTreeOfHistoricContractTreeRootsSnapshot,
+      fields.startL1ToL2MessagesTreeSnapshot,
+      fields.endL1ToL2MessagesTreeSnapshot,
+      fields.startTreeOfHistoricL1ToL2MessagesSnapshot,
+      fields.endTreeOfHistoricL1ToL2MessagesSnapshot,
       fields.calldataHash,
     ] as const;
   }
@@ -105,6 +115,10 @@ export class RootRollupPublicInputs {
       reader.readObject(AppendOnlyTreeSnapshot),
       reader.readFr(),
       reader.readFr(),
+      reader.readObject(AppendOnlyTreeSnapshot),
+      reader.readObject(AppendOnlyTreeSnapshot),
+      reader.readObject(AppendOnlyTreeSnapshot),
+      reader.readObject(AppendOnlyTreeSnapshot),
       reader.readObject(AppendOnlyTreeSnapshot),
       reader.readObject(AppendOnlyTreeSnapshot),
       reader.readObject(AppendOnlyTreeSnapshot),
