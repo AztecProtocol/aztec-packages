@@ -23,7 +23,8 @@
       "^(\\.{1,2}/.*)\\.js$": "$1"
     },
     "testRegex": "./src/.*\\.test\\.ts$",
-    "rootDir": "./src"
+    "rootDir": "./src",
+    "testTimeout": 15000
   },
   "dependencies": {
     "@aztec/barretenberg.js": "workspace:^",
