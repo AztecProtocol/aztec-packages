@@ -23,19 +23,19 @@ pragma solidity >=0.8.18;
  *  | 0x4c                     | 0x20       | startContractTreeSnapshot.root
  *  | 0x6c                     | 0x04       | startContractTreeSnapshot.nextAvailableLeafIndex
  *  | 0x70                     | 0x20       | startTreeOfHistoricPrivateDataTreeRootsSnapshot.root
- *  | 0x74                     | 0x04       | startTreeOfHistoricPrivateDataTreeRootsSnapshot.nextAvailableLeafIndex
+ *  | 0x90                     | 0x04       | startTreeOfHistoricPrivateDataTreeRootsSnapshot.nextAvailableLeafIndex
  *  | 0x94                     | 0x20       | startTreeOfHistoricContractTreeRootsSnapshot.root
- *  | 0x98                     | 0x04       | startTreeOfHistoricContractTreeRootsSnapshot.nextAvailableLeafIndex
+ *  | 0xb4                     | 0x04       | startTreeOfHistoricContractTreeRootsSnapshot.nextAvailableLeafIndex
  *  | 0xb8                     | 0x20       | endPrivateDataTreeSnapshot.root
- *  | 0xbc                     | 0x04       | endPrivateDataTreeSnapshot.nextAvailableLeafIndex
- *  | 0xc0                     | 0x20       | endNullifierTreeSnapshot.root
- *  | 0xe0                     | 0x04       | endNullifierTreeSnapshot.nextAvailableLeafIndex
- *  | 0xe4                     | 0x20       | endContractTreeSnapshot.root
- *  | 0x104                    | 0x04       | endContractTreeSnapshot.nextAvailableLeafIndex
+ *  | 0xd8                     | 0x04       | endPrivateDataTreeSnapshot.nextAvailableLeafIndex
+ *  | 0xdc                     | 0x20       | endNullifierTreeSnapshot.root
+ *  | 0xfc                     | 0x04       | endNullifierTreeSnapshot.nextAvailableLeafIndex
+ *  | 0x100                    | 0x20       | endContractTreeSnapshot.root
+ *  | 0x120                    | 0x04       | endContractTreeSnapshot.nextAvailableLeafIndex
  *  | 0x124                    | 0x20       | endTreeOfHistoricPrivateDataTreeRootsSnapshot.root
- *  | 0x128                    | 0x04       | endTreeOfHistoricPrivateDataTreeRootsSnapshot.nextAvailableLeafIndex
+ *  | 0x144                    | 0x04       | endTreeOfHistoricPrivateDataTreeRootsSnapshot.nextAvailableLeafIndex
  *  | 0x148                    | 0x20       | endTreeOfHistoricContractTreeRootsSnapshot.root
- *  | 0x14c                    | 0x04       | endTreeOfHistoricContractTreeRootsSnapshot.nextAvailableLeafIndex
+ *  | 0x168                    | 0x04       | endTreeOfHistoricContractTreeRootsSnapshot.nextAvailableLeafIndex
  *  | 0x16c                    | 0x04       | len(newCommitments) denoted x
  *  | 0x170                    | x          | newCommits
  *  | 0x170 + x                | 0x04       | len(newNullifiers) denoted y
