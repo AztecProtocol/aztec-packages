@@ -16,11 +16,11 @@ import { PreviousKernelData } from './previous_kernel_data.js';
 export class PublicKernelInputs {
   constructor(
     public readonly previousKernel: PreviousKernelData,
-    public readonly witnessedPublicCall: WitnessedPublicCallData,
+    public readonly publicCallData: PublicCallData,
   ) {}
 
   toBuffer() {
-    return serializeToBuffer(this.previousKernel, this.witnessedPublicCall);
+    return serializeToBuffer(this.previousKernel, this.publicCallData);
   }
 }
 export class PublicKernelInputsNoPreviousKernel {
@@ -28,11 +28,11 @@ export class PublicKernelInputsNoPreviousKernel {
 
   constructor(
     public readonly signedTxRequest: SignedTxRequest,
-    public readonly witnessedPublicCall: WitnessedPublicCallData,
+    public readonly publicCallData: PublicCallData,
   ) {}
 
   toBuffer() {
-    return serializeToBuffer(this.signedTxRequest, this.witnessedPublicCall);
+    return serializeToBuffer(this.signedTxRequest, this.publicCallData);
   }
 }
 

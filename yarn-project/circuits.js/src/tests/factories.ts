@@ -80,7 +80,7 @@ export function makePrivateHistoricTreeRoots(seed: number): PrivateHistoricTreeR
 }
 
 export function makeCombinedHistoricTreeRoots(seed: number): CombinedHistoricTreeRoots {
-  return new CombinedHistoricTreeRoots(makePrivateHistoricTreeRoots(seed), fr(seed + 4));
+  return new CombinedHistoricTreeRoots(makePrivateHistoricTreeRoots(seed));
 }
 
 export function makeConstantData(seed = 1): CombinedConstantData {
@@ -255,11 +255,11 @@ export function makeWitnessedPublicCallData(seed = 1): WitnessedPublicCallData {
 }
 
 export function makePublicKernelInputs(seed = 1): PublicKernelInputs {
-  return new PublicKernelInputs(makePreviousKernelData(seed), makeWitnessedPublicCallData(seed + 0x1000));
+  return new PublicKernelInputs(makePreviousKernelData(seed), makePublicCallData(seed + 0x1000));
 }
 
 export function makePublicKernelInputsNoKernelInput(seed = 1) {
-  return new PublicKernelInputsNoPreviousKernel(makeSignedTxRequest(seed), makeWitnessedPublicCallData(seed + 0x100));
+  return new PublicKernelInputsNoPreviousKernel(makeSignedTxRequest(seed), makePublicCallData(seed + 0x100));
 }
 
 export function makeSignedTxRequest(seed = 1): SignedTxRequest {
