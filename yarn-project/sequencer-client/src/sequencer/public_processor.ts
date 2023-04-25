@@ -174,9 +174,3 @@ export class PublicProcessor {
     return new MembershipWitness(PUBLIC_DATA_TREE_HEIGHT, leafIndex, path.data.map(Fr.fromBuffer));
   }
 }
-
-export class MockPublicProcessor extends PublicProcessor {
-  protected processPublicTx(_tx: PublicTx): Promise<[PublicKernelPublicInputs, Proof]> {
-    throw new Error('Public tx not supported by mock public processor');
-  }
-}

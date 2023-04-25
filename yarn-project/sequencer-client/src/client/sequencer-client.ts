@@ -5,7 +5,7 @@ import { CircuitBlockBuilder } from '../block_builder/circuit_block_builder.js';
 import { SequencerClientConfig } from '../config.js';
 import { getL1Publisher, getVerificationKeys, Sequencer } from '../index.js';
 import { EmptyPublicProver, EmptyRollupProver } from '../prover/empty.js';
-import { MockContractDataSource, MockPublicProcessor } from '../sequencer/public_processor.js';
+import { MockContractDataSource, PublicProcessor } from '../sequencer/public_processor.js';
 import { FakePublicCircuitSimulator } from '../simulator/fake_public.js';
 import { MockPublicKernelCircuitSimulator } from '../simulator/mock_public_kernel.js';
 import { WasmCircuitSimulator } from '../simulator/wasm.js';
@@ -32,7 +32,7 @@ export class SequencerClient {
     );
 
     // TODO: Swap with actual processor once the integration is good to go
-    const publicProcessor = new MockPublicProcessor(
+    const publicProcessor = new PublicProcessor(
       merkleTreeDb,
       new FakePublicCircuitSimulator(merkleTreeDb),
       new MockPublicKernelCircuitSimulator(),
