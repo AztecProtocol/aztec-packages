@@ -3,7 +3,6 @@ import { AztecAddress, AztecRPCServer, Contract, ContractDeployer, TxStatus } fr
 import { EthereumRpc } from '@aztec/ethereum.js/eth_rpc';
 import { WalletProvider } from '@aztec/ethereum.js/provider';
 import { EthAddress, Fr, Point, createDebugLogger, toBigIntBE } from '@aztec/foundation';
-import { ContractAbi } from '@aztec/noir-contracts';
 import { PublicTokenContractAbi } from '@aztec/noir-contracts/examples';
 
 import { createAztecRpcServer } from './create_aztec_rpc_client.js';
@@ -26,19 +25,6 @@ describe('e2e_public_token_contract', () => {
   let accounts: AztecAddress[];
   let contract: Contract;
 
-  const deployContract = async () => {
-    // TODO: Remove explicit casts
-    logger(`Deploying L2 contract...`);
-    const deployer = new ContractDeployer(PublicTokenContractAbi as ContractAbi, aztecRpcServer);
-    const tx = deployer.deploy().send();
-    const receipt = await tx.getReceipt();
-    contract = new Contract(receipt.contractAddress!, PublicTokenContractAbi as ContractAbi, aztecRpcServer);
-    await tx.isMined(0, 0.1);
-    await tx.getReceipt();
-    logger('L2 contract deployed at ' + receipt.contractAddress!);
-    return contract;
-  };
-
   const pointToPublicKey = (point: Point) => {
     const x = point.buffer.subarray(0, 32);
     const y = point.buffer.subarray(32, 64);
@@ -46,6 +32,18 @@ describe('e2e_public_token_contract', () => {
       x: toBigIntBE(x),
       y: toBigIntBE(y),
     };
+  };
+
+  const deployContract = async (initialBalance = 0n, owner = { x: 0n, y: 0n }) => {
+    logger(`Deploying L2 contract...`);
+    const deployer = new ContractDeployer(PublicTokenContractAbi, aztecRpcServer);
+    const tx = deployer.deploy(initialBalance, owner).send();
+    const receipt = await tx.getReceipt();
+    contract = new Contract(receipt.contractAddress!, PublicTokenContractAbi, aztecRpcServer);
+    await tx.isMined(0, 0.1);
+    await tx.getReceipt();
+    logger('L2 contract deployed');
+    return contract;
   };
 
   const calculateStorageSlot = async (accountIdx: number): Promise<bigint> => {
