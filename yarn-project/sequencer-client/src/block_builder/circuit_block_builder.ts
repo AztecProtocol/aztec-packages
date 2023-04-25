@@ -90,6 +90,8 @@ export class CircuitBlockBuilder implements BlockBuilder {
       startPublicDataTreeSnapshot,
       startTreeOfHistoricPrivateDataTreeRootsSnapshot,
       startTreeOfHistoricContractTreeRootsSnapshot,
+      startL1ToL2MessageTreeSnapshot,
+      startTreeOfHistoricL1ToL2MessageTreeRootsSnapshot,
     ] = await Promise.all(
       [
         MerkleTreeId.PRIVATE_DATA_TREE,
@@ -98,6 +100,8 @@ export class CircuitBlockBuilder implements BlockBuilder {
         MerkleTreeId.PUBLIC_DATA_TREE,
         MerkleTreeId.PRIVATE_DATA_TREE_ROOTS_TREE,
         MerkleTreeId.CONTRACT_TREE_ROOTS_TREE,
+        MerkleTreeId.L1_TO_L2_MESSAGES_TREE,
+        MerkleTreeId.L1_TO_L2_MESSAGES_ROOTS_TREE,
       ].map(tree => this.getTreeSnapshot(tree)),
     );
 
@@ -111,6 +115,8 @@ export class CircuitBlockBuilder implements BlockBuilder {
       endPublicDataTreeRoot,
       endTreeOfHistoricPrivateDataTreeRootsSnapshot,
       endTreeOfHistoricContractTreeRootsSnapshot,
+      endL1ToL2MessageTreeSnapshot,
+      endTreeOfHistoricL1ToL2MessageTreeRootsSnapshot,
     } = circuitsOutput;
 
     // Collect all new nullifiers, commitments, and contracts from all txs in this block
@@ -132,6 +138,8 @@ export class CircuitBlockBuilder implements BlockBuilder {
       startNullifierTreeSnapshot,
       endNullifierTreeSnapshot,
       startContractTreeSnapshot,
+      startL1ToL2MessageTreeSnapshot,
+      startTreeOfHistoricL1ToL2MessageTreeRootsSnapshot,
       endContractTreeSnapshot,
       startPublicDataTreeRoot: startPublicDataTreeSnapshot.root,
       endPublicDataTreeRoot,
@@ -139,6 +147,8 @@ export class CircuitBlockBuilder implements BlockBuilder {
       endTreeOfHistoricPrivateDataTreeRootsSnapshot,
       startTreeOfHistoricContractTreeRootsSnapshot,
       endTreeOfHistoricContractTreeRootsSnapshot,
+      endL1ToL2MessageTreeSnapshot,
+      endTreeOfHistoricL1ToL2MessageTreeRootsSnapshot,
       newCommitments,
       newNullifiers,
       newContracts,

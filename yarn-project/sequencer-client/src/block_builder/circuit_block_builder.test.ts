@@ -170,6 +170,10 @@ describe('sequencer/circuit_block_builder', () => {
       rootRollupOutput.endTreeOfHistoricPrivateDataTreeRootsSnapshot = await getTreeSnapshot(
         MerkleTreeId.PRIVATE_DATA_TREE_ROOTS_TREE,
       );
+      rootRollupOutput.endL1ToL2MessageTreeSnapshot = await getTreeSnapshot(MerkleTreeId.L1_TO_L2_MESSAGES_TREE);
+      rootRollupOutput.endTreeOfHistoricL1ToL2MessageTreeRootsSnapshot = await getTreeSnapshot(
+        MerkleTreeId.L1_TO_L2_MESSAGES_ROOTS_TREE,
+      );
 
       // Actually build a block!
       const txs = [tx, await makeEmptyProcessedTx(), await makeEmptyProcessedTx(), await makeEmptyProcessedTx()];

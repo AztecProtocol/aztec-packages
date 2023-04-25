@@ -42,6 +42,8 @@ export class StandaloneBlockBuilder implements BlockBuilder {
     const startTreeOfHistoricContractTreeRootsSnapshot = await this.getTreeSnapshot(
       MerkleTreeId.CONTRACT_TREE_ROOTS_TREE,
     );
+    const startL1ToL2MessageTreeSnapshot = await this.getTreeSnapshot(MerkleTreeId.L1_TO_L2_MESSAGES_TREE);
+    const startTreeOfHistoricL1ToL2MessageTreeRootsSnapshot = await this.getTreeSnapshot(MerkleTreeId.L1_TO_L2_MESSAGES_ROOTS_TREE);
 
     for (const tx of txs) {
       await this.updateTrees(tx);
@@ -59,6 +61,8 @@ export class StandaloneBlockBuilder implements BlockBuilder {
     const endTreeOfHistoricContractTreeRootsSnapshot = await this.getTreeSnapshot(
       MerkleTreeId.CONTRACT_TREE_ROOTS_TREE,
     );
+    const endL1ToL2MessageTreeSnapshot = await this.getTreeSnapshot(MerkleTreeId.L1_TO_L2_MESSAGES_TREE);
+    const endTreeOfHistoricL1ToL2MessageTreeRootsSnapshot = await this.getTreeSnapshot(MerkleTreeId.L1_TO_L2_MESSAGES_ROOTS_TREE);
 
     const l2Block = L2Block.fromFields({
       number: blockNumber,
@@ -74,6 +78,10 @@ export class StandaloneBlockBuilder implements BlockBuilder {
       endTreeOfHistoricPrivateDataTreeRootsSnapshot,
       startTreeOfHistoricContractTreeRootsSnapshot,
       endTreeOfHistoricContractTreeRootsSnapshot,
+      startL1ToL2MessageTreeSnapshot,
+      endL1ToL2MessageTreeSnapshot,
+      startTreeOfHistoricL1ToL2MessageTreeRootsSnapshot,
+      endTreeOfHistoricL1ToL2MessageTreeRootsSnapshot,
       newCommitments: this.dataTreeLeaves.map(b => Fr.fromBuffer(b)),
       newNullifiers: this.nullifierTreeLeaves.map(b => Fr.fromBuffer(b)),
       newContracts: this.contractTreeLeaves.map(b => Fr.fromBuffer(b)),

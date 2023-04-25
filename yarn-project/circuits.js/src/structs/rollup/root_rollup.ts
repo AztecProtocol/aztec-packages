@@ -63,11 +63,11 @@ export class RootRollupPublicInputs {
     public startTreeOfHistoricContractTreeRootsSnapshot: AppendOnlyTreeSnapshot,
     public endTreeOfHistoricContractTreeRootsSnapshot: AppendOnlyTreeSnapshot,
 
-    public startL1ToL2MessagesTreeSnapshot: AppendOnlyTreeSnapshot,
-    public endL1ToL2MessagesTreeSnapshot: AppendOnlyTreeSnapshot,
+    public startL1ToL2MessageTreeSnapshot: AppendOnlyTreeSnapshot,
+    public endL1ToL2MessageTreeSnapshot: AppendOnlyTreeSnapshot,
 
-    public startTreeOfHistoricL1ToL2MessagesSnapshot: AppendOnlyTreeSnapshot,
-    public endTreeOfHistoricL1ToL2MessagesSnapshot: AppendOnlyTreeSnapshot,
+    public startTreeOfHistoricL1ToL2MessageTreeRootsSnapshot: AppendOnlyTreeSnapshot,
+    public endTreeOfHistoricL1ToL2MessageTreeRootsSnapshot: AppendOnlyTreeSnapshot,
 
     public calldataHash: [Fr, Fr],
   ) {}
@@ -87,10 +87,10 @@ export class RootRollupPublicInputs {
       fields.endTreeOfHistoricPrivateDataTreeRootsSnapshot,
       fields.startTreeOfHistoricContractTreeRootsSnapshot,
       fields.endTreeOfHistoricContractTreeRootsSnapshot,
-      fields.startL1ToL2MessagesTreeSnapshot,
-      fields.endL1ToL2MessagesTreeSnapshot,
-      fields.startTreeOfHistoricL1ToL2MessagesSnapshot,
-      fields.endTreeOfHistoricL1ToL2MessagesSnapshot,
+      fields.startL1ToL2MessageTreeSnapshot,
+      fields.endL1ToL2MessageTreeSnapshot,
+      fields.startTreeOfHistoricL1ToL2MessageTreeRootsSnapshot,
+      fields.endTreeOfHistoricL1ToL2MessageTreeRootsSnapshot,
       fields.calldataHash,
     ] as const;
   }
