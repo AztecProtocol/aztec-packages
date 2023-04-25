@@ -375,7 +375,7 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource, ContractDa
   public getL2ContractData(contractAddress: AztecAddress): Promise<ContractData | undefined> {
     // TODO: perhaps store contract data by address as well? to make this more efficient
     let result;
-    for (let i = 0; i < this.contractData.length; i++) {
+    for (let i = INITIAL_L2_BLOCK_NUM; i < this.contractData.length; i++) {
       const contracts = this.contractData[i];
       const contract = contracts?.find(c => c.contractAddress.equals(contractAddress));
       if (contract) {
