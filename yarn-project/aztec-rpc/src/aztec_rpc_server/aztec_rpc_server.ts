@@ -6,6 +6,7 @@ import {
   EcdsaSignature,
   EthAddress,
   FunctionData,
+  SignedTxRequest,
   TxContext,
   TxRequest,
 } from '@aztec/circuits.js';
@@ -180,6 +181,12 @@ export class AztecRPCServer implements AztecRPCClient {
     let toContract: AztecAddress | undefined;
     let newContract: AztecAddress | undefined;
     const accountState = this.ensureAccount(txRequest.from);
+
+    // Note: there is no simulation being performed client-side for public functions execution.
+    const tx = txRequest.functionData.isPrivate
+      ? await accountState.simulateAndProve(txRequest, signature)
+      : Tx.createPublic(new SignedTxRequest(txRequest, signature));
+
     const contractAddress = txRequest.to;
     let tx: PrivateTx;
     if (txRequest.functionData.isConstructor) {
