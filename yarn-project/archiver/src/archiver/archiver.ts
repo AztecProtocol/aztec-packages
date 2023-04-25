@@ -1,11 +1,4 @@
-import {
-  AztecAddress,
-  BufferReader,
-  EthAddress,
-  RunningPromise,
-  createDebugLogger,
-  deserializeArrayFromVector,
-} from '@aztec/foundation';
+import { AztecAddress, BufferReader, EthAddress, RunningPromise, createDebugLogger } from '@aztec/foundation';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/l1-contracts';
 import { RollupAbi, UnverifiedDataEmitterAbi } from '@aztec/l1-contracts/viem';
 import {
@@ -188,11 +181,10 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource, ContractDa
         break;
       }
 
-      this.log(`Syncing ContractData logs from block ${this.nextUnverifiedDataFromBlock}`);
+      this.log(`Syncing ContractData logs from block ${this.nextContractDataFromBlock}`);
       const contractDataLogs = await this.getContractDataLogs(this.nextContractDataFromBlock);
 
       this.processContractDataLogs(contractDataLogs);
-      // this.nextContractDataFromBlock = unverifiedDataLogs[unverifiedDataLogs.length - 1].blockNumber + 1n;
       this.nextContractDataFromBlock = (contractDataLogs.findLast(cd => !!cd)?.blockNumber || 0n) + 1n;
     } while (blockUntilSynced && this.nextContractDataFromBlock <= currentBlockNumber);
   }
@@ -240,7 +232,6 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource, ContractDa
       abi: UnverifiedDataEmitterAbi,
       name: 'ContractDeployment',
     });
-
     return await this.publicClient.getLogs({
       address: getAddress(this.unverifiedDataEmitterAddress.toString()),
       event: abiItem,
@@ -301,7 +292,7 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource, ContractDa
   ) {
     for (const log of logs) {
       const l2BlockNum = log.args.l2BlockNum;
-      const publicFnsReader = BufferReader.asReader(Buffer.from(log.args.acir, 'hex'));
+      const publicFnsReader = BufferReader.asReader(Buffer.from(log.args.acir.slice(2), 'hex'));
       const contractData = new ContractData(
         AztecAddress.fromString(log.args.aztecAddress),
         EthAddress.fromString(log.args.portalAddress),

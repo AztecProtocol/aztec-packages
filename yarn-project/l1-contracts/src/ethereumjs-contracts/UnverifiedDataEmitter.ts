@@ -6,6 +6,7 @@ import { Contract, ContractTxReceipt, EventLog, Options, TxCall, TxSend } from '
 import * as Bytes from '@aztec/ethereum.js/contract/bytes.js';
 import abi from './UnverifiedDataEmitterAbi.js';
 export type ContractDeploymentEvent = {
+  l2BlockNum: bigint;
   aztecAddress: Bytes.Bytes32;
   portalAddress: EthAddress;
   acir: Bytes.Bytes;

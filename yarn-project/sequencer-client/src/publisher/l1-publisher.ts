@@ -116,6 +116,7 @@ export class L1Publisher implements L2BlockReceiver {
    * @returns True once the tx has been confirmed and is successful, false on revert or interrupt, blocks otherwise.
    */
   public async processNewContractData(l2BlockNum: number, contractData: ContractData[]) {
+    console.log('in processNewContractData');
     while (!this.interrupted) {
       if (!(await this.checkFeeDistributorBalance())) {
         this.log(`Fee distributor ETH balance too low, awaiting top up...`);

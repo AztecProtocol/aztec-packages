@@ -41,7 +41,8 @@ export class EncodedContractFunction {
 
   static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
-    return new EncodedContractFunction(reader.readBytes(FUNCTION_SELECTOR_NUM_BYTES), reader.readBuffer());
+    const fnSelector = reader.readBytes(FUNCTION_SELECTOR_NUM_BYTES);
+    return new EncodedContractFunction(fnSelector, reader.readBuffer());
   }
 
   static random() {
@@ -84,9 +85,11 @@ export class ContractData {
    * @returns Encoded buffer.
    */
   public toBuffer(): Buffer {
-    return this.bytecode
-      ? serializeToBuffer(this.contractAddress, this.portalContractAddress.toBuffer(), this.bytecode)
-      : serializeToBuffer(this.contractAddress, this.portalContractAddress.toBuffer());
+    return serializeToBuffer(
+      this.contractAddress,
+      this.portalContractAddress.toBuffer(),
+      this.bytecode || Buffer.alloc(4, 0),
+    );
   }
 
   /**
@@ -96,11 +99,10 @@ export class ContractData {
    */
   static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
-    return new ContractData(
-      AztecAddress.fromBuffer(reader),
-      new EthAddress(reader.readBytes(EthAddress.SIZE_IN_BYTES)),
-      reader.readVector(EncodedContractFunction),
-    );
+    const aztecAddr = AztecAddress.fromBuffer(reader);
+    const ethAddr = new EthAddress(reader.readBytes(EthAddress.SIZE_IN_BYTES));
+    const publicFns = reader.readVector(EncodedContractFunction);
+    return new ContractData(aztecAddr, ethAddr, publicFns);
   }
 
   /**
