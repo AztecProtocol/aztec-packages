@@ -1,9 +1,7 @@
-import { PublicFunctionBytecode } from '@aztec/acir-simulator';
 import { BarretenbergWasm } from '@aztec/barretenberg.js/wasm';
 import {
   CircuitsWasm,
   Fr,
-  FunctionData,
   MembershipWitness,
   PUBLIC_CALL_STACK_LENGTH,
   PUBLIC_DATA_TREE_HEIGHT,
@@ -17,25 +15,23 @@ import {
   TxRequest,
   WitnessedPublicCallData,
 } from '@aztec/circuits.js';
-import { AztecAddress, EthAddress, createDebugLogger } from '@aztec/foundation';
-import { PublicTx, Tx } from '@aztec/types';
+import { AztecAddress, createDebugLogger } from '@aztec/foundation';
+import { ContractData, ContractDataSource, EncodedContractFunction, PublicTx, Tx } from '@aztec/types';
 import { MerkleTreeId, MerkleTreeOperations, computePublicDataTreeLeafIndex } from '@aztec/world-state';
+import { pedersenGetHash } from '@aztec/barretenberg.js/crypto';
 import times from 'lodash.times';
 import { Proof, PublicProver } from '../prover/index.js';
 import { PublicCircuitSimulator, PublicKernelCircuitSimulator } from '../simulator/index.js';
 import { ProcessedTx, makeEmptyProcessedTx, makeProcessedTx } from './processed_tx.js';
-import { pedersenGetHash } from '@aztec/barretenberg.js/crypto';
-
-export interface ContractDataSource {
-  getPortalContractAddress(address: AztecAddress): Promise<EthAddress | undefined>;
-  getPublicFunction(address: AztecAddress, selector: FunctionData): Promise<PublicFunctionBytecode | undefined>;
-}
 
 export class MockContractDataSource implements ContractDataSource {
-  getPortalContractAddress(_address: AztecAddress): Promise<EthAddress | undefined> {
+  getL2ContractDataInBlock(blockNum: number): Promise<ContractData[]> {
+    return Promise.resolve([]);
+  }
+  getL2ContractData(_address: AztecAddress): Promise<ContractData | undefined> {
     return Promise.resolve(undefined);
   }
-  getPublicFunction(_address: AztecAddress, _selector: FunctionData): Promise<PublicFunctionBytecode | undefined> {
+  getPublicFunction(_address: AztecAddress, _selector: Buffer): Promise<EncodedContractFunction | undefined> {
     return Promise.resolve(undefined);
   }
 }
@@ -89,15 +85,19 @@ export class PublicProcessor {
     const { txRequest } = tx.txRequest;
     const contractAddress = txRequest.to;
 
-    const functionBytecode = await this.contractDataSource.getPublicFunction(contractAddress, txRequest.functionData);
+    const fn = await this.contractDataSource.getPublicFunction(
+      contractAddress,
+      txRequest.functionData.functionSelector,
+    );
     const functionSelector = txRequest.functionData.functionSelector;
-    if (!functionBytecode) throw new Error(`Bytecode not found for ${functionSelector}@${contractAddress}`);
-    const portalAddress = await this.contractDataSource.getPortalContractAddress(contractAddress);
-    if (!portalAddress) throw new Error(`Portal contract address not found for contract ${contractAddress}`);
+    if (!fn) throw new Error(`Bytecode not found for ${functionSelector}@${contractAddress}`);
+    const contractData = await this.contractDataSource.getL2ContractData(contractAddress);
+    if (!contractData) throw new Error(`Portal contract address not found for contract ${contractAddress}`);
+    const { portalContractAddress } = contractData;
 
-    const circuitOutput = await this.publicCircuit.publicCircuit(txRequest, functionBytecode, portalAddress);
+    const circuitOutput = await this.publicCircuit.publicCircuit(txRequest, fn.bytecode, portalContractAddress);
     const circuitProof = await this.publicProver.getPublicCircuitProof(circuitOutput);
-    const publicCallData = await this.processPublicCallData(txRequest, functionBytecode, circuitOutput, circuitProof);
+    const publicCallData = await this.processPublicCallData(txRequest, fn.bytecode, circuitOutput, circuitProof);
 
     const publicKernelInput = new PublicKernelInputsNoKernelInput(tx.txRequest, publicCallData);
     const publicKernelOutput = await this.publicKernel.publicKernelCircuitNoInput(publicKernelInput);
@@ -108,7 +108,7 @@ export class PublicProcessor {
 
   protected async processPublicCallData(
     txRequest: TxRequest,
-    functionBytecode: PublicFunctionBytecode,
+    functionBytecode: Buffer,
     publicCircuitOutput: PublicCircuitPublicInputs,
     publicCircuitProof: Proof,
   ) {
@@ -118,7 +118,7 @@ export class PublicProcessor {
     const publicCallStackPreimages: PublicCallStackItem[] = times(PUBLIC_CALL_STACK_LENGTH, PublicCallStackItem.empty);
 
     // TODO: How to get the bytecode hash? Pedersen or SHA256? What generator to use?
-    const bytecodeHash = Fr.fromBuffer(pedersenGetHash(await CircuitsWasm.get(), functionBytecode.bytecode));
+    const bytecodeHash = Fr.fromBuffer(pedersenGetHash(await CircuitsWasm.get(), functionBytecode));
     const portalContractAddress = publicCircuitOutput.callContext.portalContractAddress.toField();
 
     const publicCallData = new PublicCallData(

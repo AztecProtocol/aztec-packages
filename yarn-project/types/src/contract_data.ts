@@ -21,10 +21,18 @@ export interface ContractDataSource {
    * @param blockNumber - The block number
    */
   getL2ContractDataInBlock(blockNumber: number): Promise<ContractData[]>;
+
+  /**
+   * Returns a contract's encoded public function, given its function selector.
+   * @param address - The contract aztec address.
+   * @param functionSelector - The function's selector
+   * @returns The function's data.
+   */
+  getPublicFunction(address: AztecAddress, functionSelector: Buffer): Promise<EncodedContractFunction | undefined>;
 }
 
 export class EncodedContractFunction {
-  constructor(private functionSelector: Buffer, private bytecode: Buffer) {}
+  constructor(public functionSelector: Buffer, public bytecode: Buffer) {}
 
   toBuffer() {
     const bytecodeBuf = Buffer.concat([numToInt32BE(this.bytecode.length), this.bytecode]);

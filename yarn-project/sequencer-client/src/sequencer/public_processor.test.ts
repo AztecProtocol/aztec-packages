@@ -1,15 +1,15 @@
 import { PUBLIC_DATA_TREE_HEIGHT, makeEmptyProof } from '@aztec/circuits.js';
-import { makeEthAddress, makeKernelPublicInputs, makePublicCircuitPublicInputs } from '@aztec/circuits.js/factories';
-import { EthAddress } from '@aztec/foundation';
+import { makeKernelPublicInputs, makePublicCircuitPublicInputs } from '@aztec/circuits.js/factories';
 import { SiblingPath } from '@aztec/merkle-tree';
 import { MerkleTreeOperations, TreeInfo } from '@aztec/world-state';
+import { ContractData, ContractDataSource, EncodedContractFunction } from '@aztec/types';
 import { MockProxy, mock } from 'jest-mock-extended';
 import pick from 'lodash.pick';
 import times from 'lodash.times';
 import { makePrivateTx, makePublicTx } from '../index.js';
 import { Proof, PublicProver } from '../prover/index.js';
 import { PublicCircuitSimulator, PublicKernelCircuitSimulator } from '../simulator/index.js';
-import { ContractDataSource, PublicProcessor } from './public_processor.js';
+import { PublicProcessor } from './public_processor.js';
 
 describe('public_processor', () => {
   let db: MockProxy<MerkleTreeOperations>;
@@ -17,11 +17,11 @@ describe('public_processor', () => {
   let publicKernel: MockProxy<PublicKernelCircuitSimulator>;
   let publicProver: MockProxy<PublicProver>;
   let contractDataSource: MockProxy<ContractDataSource>;
+  let contractData: MockProxy<ContractData>;
+  let publicFunction: MockProxy<EncodedContractFunction>;
 
   let proof: Proof;
   let root: Buffer;
-  let bytecode: Buffer;
-  let portalAddress: EthAddress;
 
   let processor: PublicProcessor;
 
@@ -31,17 +31,16 @@ describe('public_processor', () => {
     publicKernel = mock<PublicKernelCircuitSimulator>();
     publicProver = mock<PublicProver>();
     contractDataSource = mock<ContractDataSource>();
+    contractData = mock<ContractData>();
 
     proof = makeEmptyProof();
     root = Buffer.alloc(32, 5);
-    bytecode = Buffer.alloc(128, 10);
-    portalAddress = makeEthAddress();
 
     publicProver.getPublicCircuitProof.mockResolvedValue(proof);
     publicProver.getPublicKernelCircuitProof.mockResolvedValue(proof);
     db.getTreeInfo.mockResolvedValue({ root } as TreeInfo);
-    contractDataSource.getPortalContractAddress.mockResolvedValue(portalAddress);
-    contractDataSource.getPublicFunction.mockResolvedValue({ bytecode });
+    contractDataSource.getL2ContractData.mockResolvedValue(contractData);
+    contractDataSource.getPublicFunction.mockResolvedValue(publicFunction);
 
     processor = new PublicProcessor(db, publicCircuit, publicKernel, publicProver, contractDataSource);
   });

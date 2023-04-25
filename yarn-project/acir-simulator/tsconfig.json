@@ -20,7 +20,12 @@
     },
     {
       "path": "../noir-contracts"
+    },
+    {
+      "path": "../types"
     }
   ],
-  "include": ["src"]
+  "include": [
+    "src"
+  ]
 }

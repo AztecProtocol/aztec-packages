@@ -6,10 +6,6 @@ import { acvm, fromACVMField, toACVMField, toACVMWitness } from '../acvm/index.j
 import { PublicDB } from './db.js';
 import { StateActionsCollector } from './state_actions.js';
 
-export interface PublicFunctionBytecode {
-  bytecode: Buffer;
-}
-
 export interface PublicExecutionResult {
   returnValues: Fr[];
   stateReads: StateRead[];
@@ -32,7 +28,7 @@ function getInitialWitness(args: Fr[], callContext: CallContext, witnessStartInd
 export class PublicExecution {
   constructor(
     public readonly db: PublicDB,
-    public readonly publicFunction: PublicFunctionBytecode,
+    public readonly publicFunctionBytecode: Buffer,
     public readonly contractAddress: AztecAddress,
     public readonly functionData: FunctionData,
     public readonly args: Fr[],
@@ -41,12 +37,7 @@ export class PublicExecution {
     private log = createDebugLogger('aztec:simulator:public-execution'),
   ) {}
 
-  static fromTransactionRequest(
-    db: PublicDB,
-    request: TxRequest,
-    bytecode: PublicFunctionBytecode,
-    portalContractAddress: EthAddress,
-  ) {
+  static fromTransactionRequest(db: PublicDB, request: TxRequest, bytecode: Buffer, portalContractAddress: EthAddress) {
     const contractAddress = request.to;
     const callContext: CallContext = new CallContext(
       request.from,
@@ -63,7 +54,7 @@ export class PublicExecution {
     const selectorHex = this.functionData.functionSelector.toString('hex');
     this.log(`Executing public external function ${this.contractAddress.toShortString()}:${selectorHex}`);
 
-    const acir = this.publicFunction.bytecode;
+    const acir = this.publicFunctionBytecode;
     const initialWitness = getInitialWitness(this.args, this.callContext);
     const stateActions = new StateActionsCollector(this.db, this.contractAddress);
 

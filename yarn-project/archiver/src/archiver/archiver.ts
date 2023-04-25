@@ -386,6 +386,15 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource, ContractDa
     return Promise.resolve(result);
   }
 
+  public async getPublicFunction(
+    address: AztecAddress,
+    functionSelector: Buffer,
+  ): Promise<EncodedContractFunction | undefined> {
+    const contractData = await this.getL2ContractData(address);
+    const result = contractData?.publicFunctions?.find(fn => fn.functionSelector.equals(functionSelector));
+    return result;
+  }
+
   /**
    * Lookup all contract data in an L2 block.
    * @param blockNumber - The block number to get all contract data from.
