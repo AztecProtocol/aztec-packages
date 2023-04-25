@@ -24,11 +24,13 @@ export class L2Block {
    * @param startContractTreeSnapshot - The tree snapshot of the contract tree at the start of the rollup.
    * @param startTreeOfHistoricPrivateDataTreeRootsSnapshot - The tree snapshot of the historic private data tree roots at the start of the rollup.
    * @param startTreeOfHistoricContractTreeRootsSnapshot - The tree snapshot of the historic contract tree roots at the start of the rollup.
+   * @param startPublicDataTreeRoot - The tree root of the public data tree at the start of the rollup.
    * @param endPrivateDataTreeSnapshot - The tree snapshot of the private data tree at the end of the rollup.
    * @param endNullifierTreeSnapshot - The tree snapshot of the nullifier tree at the end of the rollup.
    * @param endContractTreeSnapshot - The tree snapshot of the contract tree at the end of the rollup.
    * @param endTreeOfHistoricPrivateDataTreeRootsSnapshot - The tree snapshot of the historic private data tree roots at the end of the rollup.
    * @param endTreeOfHistoricContractTreeRootsSnapshot - The tree snapshot of the historic contract tree roots at the end of the rollup.
+   * @param endPublicDataTreeRoot - The tree root of the public data tree at the end of the rollup.
    * @param newCommitments - The commitments to be inserted into the private data tree.
    * @param newNullifiers - The nullifiers to be inserted into the nullifier tree.
    * @param newContracts - The contracts leafs to be inserted into the contract tree.
@@ -41,11 +43,13 @@ export class L2Block {
     public startContractTreeSnapshot: AppendOnlyTreeSnapshot,
     public startTreeOfHistoricPrivateDataTreeRootsSnapshot: AppendOnlyTreeSnapshot,
     public startTreeOfHistoricContractTreeRootsSnapshot: AppendOnlyTreeSnapshot,
+    public startPublicDataTreeRoot: Fr,
     public endPrivateDataTreeSnapshot: AppendOnlyTreeSnapshot,
     public endNullifierTreeSnapshot: AppendOnlyTreeSnapshot,
     public endContractTreeSnapshot: AppendOnlyTreeSnapshot,
     public endTreeOfHistoricPrivateDataTreeRootsSnapshot: AppendOnlyTreeSnapshot,
     public endTreeOfHistoricContractTreeRootsSnapshot: AppendOnlyTreeSnapshot,
+    public endPublicDataTreeRoot: Fr,
     public newCommitments: Fr[],
     public newNullifiers: Fr[],
     public newContracts: Fr[],
@@ -73,11 +77,13 @@ export class L2Block {
       makeAppendOnlyTreeSnapshot(0),
       makeAppendOnlyTreeSnapshot(0),
       makeAppendOnlyTreeSnapshot(0),
+      Fr.random(), // startPublicDataTreeRoot
       makeAppendOnlyTreeSnapshot(newCommitments.length),
       makeAppendOnlyTreeSnapshot(newNullifiers.length),
       makeAppendOnlyTreeSnapshot(newContracts.length),
       makeAppendOnlyTreeSnapshot(1),
       makeAppendOnlyTreeSnapshot(1),
+      Fr.random(), // endPublicDataTreeRoot
       newCommitments,
       newNullifiers,
       newContracts,
@@ -97,11 +103,13 @@ export class L2Block {
     startContractTreeSnapshot: AppendOnlyTreeSnapshot;
     startTreeOfHistoricPrivateDataTreeRootsSnapshot: AppendOnlyTreeSnapshot;
     startTreeOfHistoricContractTreeRootsSnapshot: AppendOnlyTreeSnapshot;
+    startPublicDataTreeRoot: Fr;
     endPrivateDataTreeSnapshot: AppendOnlyTreeSnapshot;
     endNullifierTreeSnapshot: AppendOnlyTreeSnapshot;
     endContractTreeSnapshot: AppendOnlyTreeSnapshot;
     endTreeOfHistoricPrivateDataTreeRootsSnapshot: AppendOnlyTreeSnapshot;
     endTreeOfHistoricContractTreeRootsSnapshot: AppendOnlyTreeSnapshot;
+    endPublicDataTreeRoot: Fr;
     newCommitments: Fr[];
     newNullifiers: Fr[];
     newContracts: Fr[];
@@ -114,11 +122,13 @@ export class L2Block {
       fields.startContractTreeSnapshot,
       fields.startTreeOfHistoricPrivateDataTreeRootsSnapshot,
       fields.startTreeOfHistoricContractTreeRootsSnapshot,
+      fields.startPublicDataTreeRoot,
       fields.endPrivateDataTreeSnapshot,
       fields.endNullifierTreeSnapshot,
       fields.endContractTreeSnapshot,
       fields.endTreeOfHistoricPrivateDataTreeRootsSnapshot,
       fields.endTreeOfHistoricContractTreeRootsSnapshot,
+      fields.endPublicDataTreeRoot,
       fields.newCommitments,
       fields.newNullifiers,
       fields.newContracts,
@@ -174,11 +184,13 @@ export class L2Block {
     const startContractTreeSnapshot = reader.readObject(AppendOnlyTreeSnapshot);
     const startTreeOfHistoricPrivateDataTreeRootsSnapshot = reader.readObject(AppendOnlyTreeSnapshot);
     const startTreeOfHistoricContractTreeRootsSnapshot = reader.readObject(AppendOnlyTreeSnapshot);
+    const startPublicDataTreeRoot = reader.readObject(Fr);
     const endPrivateDataTreeSnapshot = reader.readObject(AppendOnlyTreeSnapshot);
     const endNullifierTreeSnapshot = reader.readObject(AppendOnlyTreeSnapshot);
     const endContractTreeSnapshot = reader.readObject(AppendOnlyTreeSnapshot);
     const endTreeOfHistoricPrivateDataTreeRootsSnapshot = reader.readObject(AppendOnlyTreeSnapshot);
     const endTreeOfHistoricContractTreeRootsSnapshot = reader.readObject(AppendOnlyTreeSnapshot);
+    const endPublicDataTreeRoot = reader.readObject(Fr);
     const newCommitments = reader.readVector(Fr);
     const newNullifiers = reader.readVector(Fr);
     const newContracts = reader.readVector(Fr);
@@ -191,11 +203,13 @@ export class L2Block {
       startContractTreeSnapshot,
       startTreeOfHistoricPrivateDataTreeRootsSnapshot,
       startTreeOfHistoricContractTreeRootsSnapshot,
+      startPublicDataTreeRoot,
       endPrivateDataTreeSnapshot,
       endNullifierTreeSnapshot,
       endContractTreeSnapshot,
       endTreeOfHistoricPrivateDataTreeRootsSnapshot,
       endTreeOfHistoricContractTreeRootsSnapshot,
+      endPublicDataTreeRoot,
       newCommitments,
       newNullifiers,
       newContracts,
@@ -267,6 +281,7 @@ export class L2Block {
       `startTreeOfHistoricContractTreeRootsSnapshot: ${inspectTreeSnapshot(
         this.startTreeOfHistoricContractTreeRootsSnapshot,
       )}`,
+      `startPublicDataTreeRoot: ${this.startPublicDataTreeRoot.toString()}`,
       `endPrivateDataTreeSnapshot: ${inspectTreeSnapshot(this.endPrivateDataTreeSnapshot)}`,
       `endNullifierTreeSnapshot: ${inspectTreeSnapshot(this.endNullifierTreeSnapshot)}`,
       `endContractTreeSnapshot: ${inspectTreeSnapshot(this.endContractTreeSnapshot)}`,
@@ -276,6 +291,7 @@ export class L2Block {
       `endTreeOfHistoricContractTreeRootsSnapshot: ${inspectTreeSnapshot(
         this.endTreeOfHistoricContractTreeRootsSnapshot,
       )}`,
+      `endPublicDataTreeRoot: ${this.endPublicDataTreeRoot.toString()}`,
       `newCommitments: ${inspectFrArray(this.newCommitments)}`,
       `newNullifiers: ${inspectFrArray(this.newNullifiers)}`,
       `newContracts: ${inspectFrArray(this.newContracts)}`,
