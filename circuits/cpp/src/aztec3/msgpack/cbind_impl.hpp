@@ -1,5 +1,5 @@
 #pragma once
-// Note: heavy header due to serialization logic, don't include if auto parameters will do
+// Note: heavy header due to serialization logic, don't include if msgpack.hpp will do
 // CBinding helpers that take a function or a lambda and
 // - bind the input as a coded msgpack array of all the arguments (using template metamagic)
 // - bind the return value to an out buffer, where the caller must free the memory
@@ -54,20 +54,20 @@ template <typename R, typename... Vs> struct func_traits<R (*)(Vs...)> {
     typedef std::tuple<Vs...> Args;
     Args args;
     R ret;
-    void msgpack(auto ar) { ar(NVP(args), NVP(ret)); }
+    MSGPACK(args, ret);
 };
 template <typename R, typename... Vs> struct func_traits<R (&)(Vs...)> {
     typedef std::tuple<Vs...> Args;
     Args args;
     R ret;
-    void msgpack(auto ar) { ar(NVP(args), NVP(ret)); }
+    MSGPACK(args, ret);
 };
 
 template <typename R, typename T, typename... Vs> struct func_traits<R (T::*)(Vs...) const> {
     typedef std::tuple<Vs...> Args;
     Args args;
     R ret;
-    void msgpack(auto ar) { ar(NVP(args), NVP(ret)); }
+    MSGPACK(args, ret);
 };
 
 // Template metamagic for figuring out the parameters and return type of a function

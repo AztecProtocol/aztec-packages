@@ -23,7 +23,7 @@ template <typename NCT> struct PublicInputs {
     boolean is_private = true; // TODO: might need to instantiate from witness!
 
     // for serialization, keep in sync with new fields
-    void msgpack(auto ar) { ar(NVP(end, constants, is_private)); }
+    MSGPACK(end, constants, is_private);
     boolean operator==(PublicInputs<NCT> const& other) const
     {
         return end == other.end && constants == other.constants && is_private == other.is_private;

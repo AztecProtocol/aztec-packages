@@ -65,7 +65,7 @@ function generateTypeScript(outputDecls: Record<string, string> = {}, schema: Sc
   return getType(schema);
 }
 
-export class TypeScriptCompiler {
+export class CBindCompiler {
   typeDecls: Record<string, string> = {
     '0': `
 /* eslint-disable */

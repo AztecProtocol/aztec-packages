@@ -1,4 +1,4 @@
-import { TypeScriptCompiler } from './typescript_compiler.js';
+import { CBindCompiler } from './cbind_compiler.js';
 import { getCbindSchema } from './cbind.js';
 import { writeFileSync } from 'fs';
 import { fileURLToPath } from 'url';
@@ -8,7 +8,7 @@ import { CircuitsWasm } from '../wasm/circuits_wasm.js';
 export async function main() {
   const __dirname = dirname(fileURLToPath(import.meta.url));
   const wasm = await CircuitsWasm.get();
-  const compiler = new TypeScriptCompiler();
+  const compiler = new CBindCompiler();
   for (const [key, value] of Object.entries(wasm.exports())) {
     if (typeof value === 'function' && key.endsWith('__schema')) {
       const cname = key.substring(0, key.length - '__schema'.length);

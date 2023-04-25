@@ -62,7 +62,7 @@ struct ComplicatedSchema {
     std::optional<GoodExample> good_or_not;
     fr bare;
     std::variant<fr, GoodExample> huh;
-    void msgpack(auto ar) { ar(NVP(array, good_or_not, bare, huh)); }
+    MSGPACK(array, good_or_not, bare, huh);
 } complicated_schema;
 
 TEST(abi_tests, msgpack_schema_sanity)
