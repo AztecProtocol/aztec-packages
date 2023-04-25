@@ -1,12 +1,11 @@
 #pragma once
 
-#include "barretenberg/msgpack/msgpack_concepts.hpp"
+#include "barretenberg/common/msgpack_impl.hpp"
 #include <memory>
 #include <string>
 #define MSGPACK_NO_BOOST
-#include <barretenberg/msgpack/msgpack_impl.hpp>
-#include "aztec3/msgpack/msgpack_test.hpp"
-#include "msgpack_schema_name.hpp"
+#include "aztec3/msgpack/check_memory_span.hpp"
+#include "schema_name.hpp"
 
 namespace msgpack {
 /**
@@ -94,22 +93,6 @@ template <typename Stream> struct SchemaPrinter : msgpack::packer<Stream> {
         msgpack::packer<Stream>::pack(type);
         const_cast<T&>(object).msgpack([&](auto&... args) { _pack_key_values(args...); });
     }
-    // Serialize an object with a msgpack_flat() method into a schema
-    void pack(HasMsgPackFlat auto object)
-    {
-        msgpack::check_msgpack_usage(object);
-        std::string type = schema_name<decltype(object)>();
-        if (emitted_types.find(type) != emitted_types.end()) {
-            msgpack::packer<Stream>::pack(type);
-            return; // already emitted
-        }
-        emitted_types.insert(type);
-        size_t values = 0;
-        object.msgpack_flat([&](auto&... args) { values = sizeof...(args); });
-        this->pack_array(uint32_t(1 + values));
-        msgpack::packer<Stream>::pack(type);
-        object.msgpack_flat([&](auto&... args) { (pack(args), ...); });
-    }
     template <typename T> void pack(const std::shared_ptr<T>& v)
     {
         (void)v; // unused except for schema
@@ -132,7 +115,7 @@ template <typename Stream> struct SchemaPrinter : msgpack::packer<Stream> {
         v.msgpack_pack(*this);
     }
     template <typename T>
-        requires(!HasMsgPackFlat<T> && !HasMsgPack<T>)
+        requires(!HasMsgPack<T>)
     void pack(const T& v)
     {
         (void)v; // unused except for schema

@@ -3,12 +3,12 @@
 #include "tx_request.hpp"
 #include "function_leaf_preimage.hpp"
 #include "aztec3/circuits/abis/private_kernel/new_contract_data.hpp"
-#include "aztec3/msgpack/msgpack_schema_impl.hpp"
+#include "aztec3/msgpack/schema_impl.hpp"
 
 #include <barretenberg/stdlib/merkle_tree/membership.hpp>
 #include <barretenberg/numeric/random/engine.hpp>
-#include <barretenberg/msgpack/msgpack_nvp_macro.h>
-#include <aztec3/msgpack/msgpack_test.hpp>
+#include <barretenberg/common/msgpack.hpp>
+#include <aztec3/msgpack/check_memory_span.hpp>
 
 #include <gtest/gtest.h>
 

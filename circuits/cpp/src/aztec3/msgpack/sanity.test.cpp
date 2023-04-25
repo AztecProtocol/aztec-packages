@@ -1,8 +1,8 @@
 #include <barretenberg/stdlib/merkle_tree/membership.hpp>
 #include <barretenberg/numeric/random/engine.hpp>
-#include <barretenberg/msgpack/msgpack_nvp_macro.h>
-#include "aztec3/msgpack/msgpack_test.hpp"
-#include "aztec3/msgpack/msgpack_schema_impl.hpp"
+#include <barretenberg/common/msgpack.hpp>
+#include "aztec3/msgpack/check_memory_span.hpp"
+#include "aztec3/msgpack/schema_impl.hpp"
 #include "aztec3/utils/types/native_types.hpp"
 #include "aztec3/circuits/abis/private_kernel/previous_kernel_data.hpp"
 
@@ -10,48 +10,48 @@
 
 // Sanity checking for msgpack
 // TODO eventually move to barretenberg
+
 struct GoodExample {
     fr a;
     fr b;
-    void msgpack_flat(auto ar) { ar(a, b); }
+    MSGPACK(a, b);
 } good_example;
 
 struct BadExampleOverlap {
     fr a;
     fr b;
-    void msgpack_flat(auto ar) { ar(a, a); }
+    MSGPACK(a, a);
 } bad_example_overlap;
 
 struct BadExampleIncomplete {
     fr a;
     fr b;
-    void msgpack_flat(auto ar) { ar(a); }
+    MSGPACK(a, b);
 } bad_example_incomplete;
 
 struct BadExampleOutOfObject {
     fr a;
     fr b;
-    void msgpack_flat(auto ar)
+    void msgpack(auto ar)
     {
         BadExampleOutOfObject other_object;
-        ar(other_object.a, other_object.b);
+        ar("a", other_object.a, "b", other_object.b);
     }
 } bad_example_out_of_object;
 
 // TODO eventually move to barretenberg
 TEST(abi_tests, msgpack_sanity_sanity)
 {
-    good_example.msgpack_flat(
-        [&](auto&... args) { EXPECT_EQ(msgpack::check_memory_span(&good_example, &args...), ""); });
-    bad_example_overlap.msgpack_flat([&](auto&... args) {
+    good_example.msgpack([&](auto&... args) { EXPECT_EQ(msgpack::check_memory_span(&good_example, &args...), ""); });
+    bad_example_overlap.msgpack([&](auto&... args) {
         EXPECT_EQ(msgpack::check_memory_span(&bad_example_overlap, &args...),
                   "Overlap in BadExampleOverlap ar() params detected!");
     });
-    bad_example_incomplete.msgpack_flat([&](auto&... args) {
+    bad_example_incomplete.msgpack([&](auto&... args) {
         EXPECT_EQ(msgpack::check_memory_span(&bad_example_incomplete, &args...),
                   "Incomplete BadExampleIncomplete ar() params! Not all of object specified.");
     });
-    bad_example_out_of_object.msgpack_flat([&](auto&... args) {
+    bad_example_out_of_object.msgpack([&](auto&... args) {
         EXPECT_EQ(msgpack::check_memory_span(&bad_example_out_of_object, &args...),
                   "Some BadExampleOutOfObject ar() params don't exist in object!");
     });

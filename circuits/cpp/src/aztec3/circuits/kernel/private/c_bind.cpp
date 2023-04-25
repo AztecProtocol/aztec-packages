@@ -2,7 +2,7 @@
 #include "init.hpp"
 #include "utils.hpp"
 #include "c_bind.h"
-#include "aztec3/msgpack/msgpack_cbind_impl.hpp"
+#include "aztec3/msgpack/cbind_impl.hpp"
 
 // TODO remove these? present in init/index?
 #include <aztec3/constants.hpp>

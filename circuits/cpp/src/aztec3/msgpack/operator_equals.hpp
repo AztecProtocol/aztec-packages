@@ -2,7 +2,7 @@
 
 #include <utility>
 #include <tuple>
-#include <barretenberg/msgpack/msgpack_concepts.hpp>
+#include <barretenberg/common/msgpack.hpp>
 
 namespace msgpack {
 template <typename Tuple, std::size_t... Is> auto drop_keys_impl(Tuple&& tuple, std::index_sequence<Is...>)
@@ -27,14 +27,6 @@ template <msgpack::HasMsgPack T> bool operator==(const T& t1, const T& t2)
     const_cast<T&>(t1).msgpack([&](auto&... args1) {
         const_cast<T&>(t2).msgpack(
             [&](auto&... args2) { are_equal = drop_keys(std::tie(args1...)) == drop_keys(std::tie(args2...)); });
-    });
-    return are_equal;
-}
-template <msgpack::HasMsgPackFlat T> bool operator==(const T& t1, const T& t2)
-{
-    bool are_equal = false;
-    const_cast<T&>(t1).msgpack_flat([&](auto&... args1) {
-        const_cast<T&>(t2).msgpack_flat([&](auto&... args2) { are_equal = std::tie(args1...) == std::tie(args2...); });
     });
     return are_equal;
 }

@@ -1,6 +1,6 @@
 #pragma once
 // Note: heavy header due to serialization logic, don't include outside of tests
-#include <barretenberg/msgpack/msgpack_impl.hpp>
+#include <barretenberg/common/msgpack_impl.hpp>
 
 #include <iostream>
 #include <vector>
@@ -8,8 +8,8 @@
 #include <cstdint>
 #include <cstddef>
 #include "barretenberg/common/throw_or_abort.hpp"
-#include "msgpack_schema_name.hpp"
-#include "msgpack_equality.hpp"
+#include "schema_name.hpp"
+#include "operator_equals.hpp"
 
 namespace msgpack {
 template <typename T, typename... Args> std::string check_memory_span(T* obj, Args*... args)
@@ -64,12 +64,6 @@ template <HasMsgPack T> std::string check_msgpack_method(T& object)
         std::apply([&](auto&... values) { result = check_memory_span(&object, &values...); },
                    drop_keys(std::tie(keys_and_values...)));
     });
-    return result;
-}
-template <HasMsgPackFlat T> std::string check_msgpack_method(T& object)
-{
-    std::string result;
-    object.msgpack_flat([&](auto&... values) { result = check_memory_span(&object, &values...); });
     return result;
 }
 void check_msgpack_usage(auto object)

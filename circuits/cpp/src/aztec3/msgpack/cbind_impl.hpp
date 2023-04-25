@@ -3,8 +3,8 @@
 // CBinding helpers that take a function or a lambda and
 // - bind the input as a coded msgpack array of all the arguments (using template metamagic)
 // - bind the return value to an out buffer, where the caller must free the memory
-#include <barretenberg/msgpack/msgpack_impl.hpp>
-#include <aztec3/msgpack/msgpack_schema_impl.hpp>
+#include <barretenberg/common/msgpack_impl.hpp>
+#include <aztec3/msgpack/schema_impl.hpp>
 #include <cstring>
 #include <type_traits>
 

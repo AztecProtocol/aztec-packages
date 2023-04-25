@@ -2,7 +2,7 @@
 #include <cstdint>
 #include <cstddef>
 
-#include "aztec3/msgpack/msgpack_cbind.h"
+#include "aztec3/msgpack/cbind.h"
 
 WASM_EXPORT size_t private_kernel__init_proving_key(uint8_t const** pk_buf);
 WASM_EXPORT size_t private_kernel__init_verification_key(uint8_t const* pk_buf, uint8_t const** vk_buf);
