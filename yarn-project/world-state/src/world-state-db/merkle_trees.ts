@@ -2,7 +2,8 @@ import { PrimitivesWasm } from '@aztec/barretenberg.js/wasm';
 import {
   CONTRACT_TREE_HEIGHT,
   CONTRACT_TREE_ROOTS_TREE_HEIGHT,
-  L2_MESSAGES_TREE_HEIGHT,
+  L1_TO_L2_MESSAGES_ROOTS_TREE_HEIGHT,
+  L1_TO_L2_MESSAGES_TREE_HEIGHT,
   NULLIFIER_TREE_HEIGHT,
   PRIVATE_DATA_TREE_HEIGHT,
   PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT,
@@ -93,12 +94,19 @@ export class MerkleTrees implements MerkleTreeDb {
       `${MerkleTreeId[MerkleTreeId.PUBLIC_DATA_TREE]}`,
       PUBLIC_DATA_TREE_HEIGHT,
     );
-    const l2MessagesDataTree: AppendOnlyTree = await newTree(
+    const l1Tol2MessagesTree: AppendOnlyTree = await newTree(
       StandardTree,
       this.db,
       hasher,
-      `${MerkleTreeId[MerkleTreeId.L2_MESSAGES_DATA_TREE]}`,
-      L2_MESSAGES_TREE_HEIGHT,
+      `${MerkleTreeId[MerkleTreeId.L1_TO_L2_MESSAGES_TREE]}`,
+      L1_TO_L2_MESSAGES_TREE_HEIGHT,
+    );
+    const l1Tol2MessagesRootsTree: AppendOnlyTree = await newTree(
+      StandardTree,
+      this.db,
+      hasher,
+      `${MerkleTreeId[MerkleTreeId.L1_TO_L2_MESSAGES_ROOTS_TREE]}`,
+      L1_TO_L2_MESSAGES_ROOTS_TREE_HEIGHT,
     );
     this.trees = [
       contractTree,
@@ -107,7 +115,8 @@ export class MerkleTrees implements MerkleTreeDb {
       privateDataTree,
       privateDataTreeRootsTree,
       publicDataTree,
-      l2MessagesDataTree,
+      l1Tol2MessagesTree,
+      l1Tol2MessagesRootsTree,
     ];
     this.jobQueue.start();
   }
