@@ -43,24 +43,52 @@ function generateTypeScript(outputDecls: Record<string, string> = {}, schema: Sc
         case 'address':
           return 'AztecAddressBuf';
         default:
-          return 'I' + capitalizeFirstLetter(toCamelCase(type));
+          return capitalizeFirstLetter(toCamelCase(type));
       }
     } else if (typeof type === 'object') {
-      const typeName = 'I' + capitalizeFirstLetter(toCamelCase(type.__typename));
+      const typeName = capitalizeFirstLetter(toCamelCase(type.__typename));
       generateInterface(typeName, type);
+      generateConversionMethod(typeName, type);
       return typeName;
     }
 
     throw new Error(`Unsupported type: ${type}`);
   }
-
   function generateInterface(name: string, properties: Schema) {
-    let result = `export interface ${name} {\n`;
+    let result = `export interface I${name} {\n`;
     for (const [key, value] of Object.entries(properties)) {
       if (key === '__typename') continue;
       result += `  ${toCamelCase(key)}: ${getType(value)};\n`;
     }
     outputDecls[name] = result + '}';
+  }
+  /**
+   * Generate a conversion method for a type.
+   * @param name The type name.
+   * @param properties It's properties.
+   */
+  function generateConversionMethod(name: string, properties: Schema) {
+    // For methods that list out an object to pass for conversion
+    function bodySyntax() {
+      const statements: string[] = [];
+      for (const [key, value] of Object.entries(properties)) {
+        if (key === '__typename') continue;
+        statements.push(`  ${toCamelCase(key)}: expect(${getType(value)}.${name}),`);
+      }
+      return statements.join('\n');
+    }
+    // from method, constructor, or fromBuffer?
+    function callSyntax() {
+      // if ((types as any)[name].from) {
+      return `${name}.from({\n${bodySyntax()}})`;
+      // }
+      // if ((types as any)[name].fromBuffer) {
+      //   return `${name}.fromBuffer(o)`;
+      // }
+      // return;
+    }
+    outputDecls[name] = `export to${name}(o: I${name}) {
+  return ${callSyntax}({\n${bodySyntax}\n  });`;
   }
   return getType(schema);
 }
@@ -77,9 +105,12 @@ import { CircuitsWasm } from '../wasm/index.js';
 // Utility types
 export type FixedArray<T, L extends number> = [T, ...T[]] & { length: L };
 
-// Aliases (TODO strong typing?)
-export type AztecAddressBuf = Buffer;
-export type FieldBuf = Buffer;
+// Utility methods
+function expect(obj: any) {
+  if (obj === undefined) {
+    throw new Error();
+  }
+}
 `,
   };
   funcDecls: Record<string, string> = {};
