@@ -39,9 +39,9 @@ function generateTypeScript(outputDecls: Record<string, string> = {}, schema: Sc
         case 'string':
           return type;
         case 'field':
-          return 'FieldBuf';
+          return 'Field';
         case 'address':
-          return 'AztecAddressBuf';
+          return 'AztecAddress';
         default:
           return capitalizeFirstLetter(toCamelCase(type));
       }
@@ -68,12 +68,23 @@ function generateTypeScript(outputDecls: Record<string, string> = {}, schema: Sc
    * @param properties It's properties.
    */
   function generateConversionMethod(name: string, properties: Schema) {
+    const typename = capitalizeFirstLetter(toCamelCase(properties.__typename));
+    function checkerSyntax() {
+      const statements: string[] = [];
+      for (const [key] of Object.entries(properties)) {
+        if (key === '__typename') continue;
+        statements.push(
+          `  if (o.${key} === undefined) { throw new Error("Expected ${key} in ${typename} deserialization"); }`,
+        );
+      }
+      return statements.join('\n');
+    }
     // For methods that list out an object to pass for conversion
     function bodySyntax() {
       const statements: string[] = [];
       for (const [key, value] of Object.entries(properties)) {
         if (key === '__typename') continue;
-        statements.push(`  ${toCamelCase(key)}: expect(${getType(value)}.${name}),`);
+        statements.push(`  ${toCamelCase(key)}: to${getType(value)}(o.${key}),`);
       }
       return statements.join('\n');
     }
@@ -87,8 +98,10 @@ function generateTypeScript(outputDecls: Record<string, string> = {}, schema: Sc
       // }
       // return;
     }
-    outputDecls[name] = `export to${name}(o: I${name}) {
-  return ${callSyntax}({\n${bodySyntax}\n  });`;
+    outputDecls[name] = `export function to${name}(o: any) {
+${checkerSyntax()};
+  return ${callSyntax()};
+  }`;
   }
   return getType(schema);
 }
@@ -104,13 +117,6 @@ import { CircuitsWasm } from '../wasm/index.js';
 
 // Utility types
 export type FixedArray<T, L extends number> = [T, ...T[]] & { length: L };
-
-// Utility methods
-function expect(obj: any) {
-  if (obj === undefined) {
-    throw new Error();
-  }
-}
 `,
   };
   funcDecls: Record<string, string> = {};
