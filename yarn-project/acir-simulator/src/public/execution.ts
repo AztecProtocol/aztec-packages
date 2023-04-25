@@ -13,8 +13,7 @@ export interface PublicExecutionResult {
 }
 
 function getInitialWitness(args: Fr[], callContext: CallContext, witnessStartIndex = 1) {
-  return toACVMWitness(
-    witnessStartIndex,
+  return toACVMWitness(witnessStartIndex, [
     callContext.isContractDeployment,
     callContext.isDelegateCall,
     callContext.isStaticCall,
@@ -22,7 +21,7 @@ function getInitialWitness(args: Fr[], callContext: CallContext, witnessStartInd
     callContext.portalContractAddress,
     callContext.storageContractAddress,
     ...args,
-  );
+  ]);
 }
 
 export class PublicExecution {
