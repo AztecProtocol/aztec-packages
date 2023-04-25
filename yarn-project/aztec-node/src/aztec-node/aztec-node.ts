@@ -1,6 +1,6 @@
 import { Archiver } from '@aztec/archiver';
 import { AztecAddress, Fr } from '@aztec/foundation';
-import { ContractData, L2Block, L2BlockSource } from '@aztec/types';
+import { ContractData, ContractDataSource, L2Block, L2BlockSource } from '@aztec/types';
 import { SiblingPath } from '@aztec/merkle-tree';
 import { P2P, P2PClient } from '@aztec/p2p';
 import { SequencerClient } from '@aztec/sequencer-client';
@@ -29,6 +29,7 @@ export class AztecNode {
     protected p2pClient: P2P,
     protected blockSource: L2BlockSource,
     protected unverifiedDataSource: UnverifiedDataSource,
+    protected contractDataSource: ContractDataSource,
     protected merkleTreeDB: MerkleTrees,
     protected worldStateSynchroniser: WorldStateSynchroniser,
     protected sequencer: SequencerClient,
@@ -55,7 +56,7 @@ export class AztecNode {
 
     // now create the sequencer
     const sequencer = await SequencerClient.new(config, p2pClient, worldStateSynchroniser);
-    return new AztecNode(p2pClient, archiver, archiver, merkleTreeDB, worldStateSynchroniser, sequencer);
+    return new AztecNode(p2pClient, archiver, archiver, archiver, merkleTreeDB, worldStateSynchroniser, sequencer);
   }
 
   /**
@@ -91,7 +92,7 @@ export class AztecNode {
    * @returns The portal address (if we didn't throw an error).
    */
   public async getContractData(contractAddress: AztecAddress): Promise<ContractData | undefined> {
-    return await this.blockSource.getL2ContractData(contractAddress);
+    return await this.contractDataSource.getL2ContractData(contractAddress);
   }
 
   /**

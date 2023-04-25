@@ -1,9 +1,17 @@
-import { AztecAddress, EthAddress, RunningPromise, createDebugLogger } from '@aztec/foundation';
+import {
+  AztecAddress,
+  BufferReader,
+  EthAddress,
+  RunningPromise,
+  createDebugLogger,
+  deserializeArrayFromVector,
+} from '@aztec/foundation';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/l1-contracts';
 import { RollupAbi, UnverifiedDataEmitterAbi } from '@aztec/l1-contracts/viem';
 import {
   ContractData,
   ContractDataSource,
+  EncodedContractFunction,
   L2Block,
   L2BlockSource,
   UnverifiedData,
@@ -293,10 +301,11 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource, ContractDa
   ) {
     for (const log of logs) {
       const l2BlockNum = log.args.l2BlockNum;
+      const publicFnsReader = BufferReader.asReader(Buffer.from(log.args.acir, 'hex'));
       const contractData = new ContractData(
         AztecAddress.fromString(log.args.aztecAddress),
         EthAddress.fromString(log.args.portalAddress),
-        Buffer.from(log.args.acir),
+        publicFnsReader.readVector(EncodedContractFunction),
       );
       (this.contractData[Number(l2BlockNum)] || []).push(contractData);
     }

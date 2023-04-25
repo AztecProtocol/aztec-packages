@@ -1,9 +1,8 @@
-import { L2Block } from '@aztec/types';
+import { ContractData, L2Block } from '@aztec/types';
 import { createDebugLogger, InterruptableSleep } from '@aztec/foundation';
 import { L2BlockReceiver } from '../receiver.js';
 import { PublisherConfig } from './config.js';
 import { UnverifiedData } from '@aztec/types';
-import { NewContractData } from '@aztec/circuits.js';
 
 /**
  * Component responsible of pushing the txs to the chain and waiting for completion.
@@ -11,7 +10,7 @@ import { NewContractData } from '@aztec/circuits.js';
 export interface L1PublisherTxSender {
   sendProcessTx(encodedData: L1ProcessArgs): Promise<string | undefined>;
   sendEmitUnverifiedDataTx(l2BlockNum: number, unverifiedData: UnverifiedData): Promise<string | undefined>;
-  sendEmitNewContractDataTx(l2BlockNum: number, newContractData: NewContractData[]): Promise<string | undefined>;
+  sendEmitNewContractDataTx(l2BlockNum: number, contractData: ContractData[]): Promise<string | undefined>;
   getTransactionReceipt(txHash: string): Promise<{ status: boolean; transactionHash: string } | undefined>;
 }
 
@@ -116,7 +115,7 @@ export class L1Publisher implements L2BlockReceiver {
    * @param newContractData The new contract data to publish.
    * @returns True once the tx has been confirmed and is successful, false on revert or interrupt, blocks otherwise.
    */
-  public async processNewContractData(l2BlockNum: number, newContractData: NewContractData[]) {
+  public async processNewContractData(l2BlockNum: number, contractData: ContractData[]) {
     while (!this.interrupted) {
       if (!(await this.checkFeeDistributorBalance())) {
         this.log(`Fee distributor ETH balance too low, awaiting top up...`);
@@ -124,7 +123,7 @@ export class L1Publisher implements L2BlockReceiver {
         continue;
       }
 
-      const txHash = await this.sendEmitNewContractDataTx(l2BlockNum, newContractData);
+      const txHash = await this.sendEmitNewContractDataTx(l2BlockNum, contractData);
       if (!txHash) break;
 
       const receipt = await this.getTransactionReceipt(txHash);
@@ -188,10 +187,10 @@ export class L1Publisher implements L2BlockReceiver {
     }
   }
 
-  private async sendEmitNewContractDataTx(l2BlockNum: number, newContractData: NewContractData[]) {
+  private async sendEmitNewContractDataTx(l2BlockNum: number, contractData: ContractData[]) {
     while (!this.interrupted) {
       try {
-        return await this.txSender.sendEmitNewContractDataTx(l2BlockNum, newContractData);
+        return await this.txSender.sendEmitNewContractDataTx(l2BlockNum, contractData);
       } catch (err) {
         this.log(`Error sending contract data to L1`, err);
         await this.sleepOrInterrupted();

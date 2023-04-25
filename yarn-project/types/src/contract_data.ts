@@ -1,5 +1,6 @@
-import { AztecAddress, EthAddress } from '@aztec/foundation';
+import { AztecAddress, EthAddress, numToInt32BE, randomBytes, serializeBufferArrayToVector } from '@aztec/foundation';
 import { BufferReader, serializeToBuffer } from '@aztec/circuits.js/utils';
+import { FUNCTION_SELECTOR_NUM_BYTES } from '@aztec/circuits.js';
 
 export { BufferReader } from '@aztec/circuits.js/utils';
 
@@ -22,10 +23,34 @@ export interface ContractDataSource {
   getL2ContractDataInBlock(blockNumber: number): Promise<ContractData[]>;
 }
 
+export class EncodedContractFunction {
+  constructor(private functionSelector: Buffer, private bytecode: Buffer) {}
+
+  toBuffer() {
+    const bytecodeBuf = Buffer.concat([numToInt32BE(this.bytecode.length), this.bytecode]);
+    return serializeToBuffer(this.functionSelector, bytecodeBuf);
+  }
+
+  static fromBuffer(buffer: Buffer | BufferReader) {
+    const reader = BufferReader.asReader(buffer);
+    return new EncodedContractFunction(reader.readBytes(FUNCTION_SELECTOR_NUM_BYTES), reader.readBuffer());
+  }
+
+  static random() {
+    return new EncodedContractFunction(randomBytes(4), randomBytes(64));
+  }
+}
+
+export type CompleteContractData = Required<ContractData>;
+
 /**
  * A contract data blob, containing L1 and L2 addresses.
  */
 export class ContractData {
+  /**
+   * The contract's encoded ACIR code. This should become Brilling code once implemented.
+   */
+  public bytecode?: Buffer;
   constructor(
     /**
      * The L2 address of the contract, as a field element (32 bytes).
@@ -37,17 +62,23 @@ export class ContractData {
     public portalContractAddress: EthAddress,
 
     /**
-     * The contract's ACIR code
+     * ABIs of public functions
      */
-    public acir: Buffer,
-  ) {}
+    public publicFunctions?: EncodedContractFunction[],
+  ) {
+    if (publicFunctions?.length) {
+      this.bytecode = serializeBufferArrayToVector(publicFunctions.map(fn => fn.toBuffer()));
+    }
+  }
 
   /**
    * Serializes this instance into a buffer, using 20 bytes for the eth address.
    * @returns Encoded buffer.
    */
   public toBuffer(): Buffer {
-    return serializeToBuffer(this.contractAddress, this.portalContractAddress.toBuffer());
+    return this.bytecode
+      ? serializeToBuffer(this.contractAddress, this.portalContractAddress.toBuffer(), this.bytecode)
+      : serializeToBuffer(this.contractAddress, this.portalContractAddress.toBuffer());
   }
 
   /**
@@ -60,6 +91,7 @@ export class ContractData {
     return new ContractData(
       AztecAddress.fromBuffer(reader),
       new EthAddress(reader.readBytes(EthAddress.SIZE_IN_BYTES)),
+      reader.readVector(EncodedContractFunction),
     );
   }
 
@@ -68,6 +100,9 @@ export class ContractData {
    * @returns ContractData.
    */
   static random() {
-    return new ContractData(AztecAddress.random(), EthAddress.random());
+    return new ContractData(AztecAddress.random(), EthAddress.random(), [
+      EncodedContractFunction.random(),
+      EncodedContractFunction.random(),
+    ]);
   }
 }

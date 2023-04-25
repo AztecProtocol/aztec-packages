@@ -11,7 +11,7 @@ import {
 } from '@aztec/circuits.js';
 import { Fr, Point, createDebugLogger } from '@aztec/foundation';
 import { ContractAbi, FunctionType } from '@aztec/noir-contracts';
-import { Tx, TxHash } from '@aztec/types';
+import { PrivateTx, Tx, TxHash } from '@aztec/types';
 import { AztecRPCClient, DeployedContract } from '../aztec_rpc_client/index.js';
 import { toContractDao } from '../contract_database/index.js';
 import { ContractTree } from '../contract_tree/index.js';
@@ -177,14 +177,19 @@ export class AztecRPCServer implements AztecRPCClient {
   }
 
   public async createTx(txRequest: TxRequest, signature: EcdsaSignature) {
+    let toContract: AztecAddress | undefined;
+    let newContract: AztecAddress | undefined;
     const accountState = this.ensureAccount(txRequest.from);
-
-    const tx = await accountState.simulateAndProve(txRequest, signature);
-
     const contractAddress = txRequest.to;
-    const [toContract, newContract] = txRequest.functionData.isConstructor
-      ? [undefined, contractAddress]
-      : [contractAddress, undefined];
+    let tx: PrivateTx;
+    if (txRequest.functionData.isConstructor) {
+      newContract = contractAddress;
+      tx = await accountState.simulateAndProve(txRequest, signature, contractAddress);
+    } else {
+      toContract = contractAddress;
+      tx = await accountState.simulateAndProve(txRequest, signature);
+    }
+
     const dao = new TxDao(await tx.getTxHash(), undefined, undefined, txRequest.from, toContract, newContract, '');
     await this.db.addTx(dao);
 

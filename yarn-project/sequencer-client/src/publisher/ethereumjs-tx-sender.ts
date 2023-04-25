@@ -7,8 +7,7 @@ import {
 } from '@aztec/ethereum.js/eth_rpc';
 import { WalletProvider } from '@aztec/ethereum.js/provider';
 import { Rollup, UnverifiedDataEmitter } from '@aztec/l1-contracts';
-import { UnverifiedData } from '@aztec/types';
-import { NewContractData } from '@aztec/circuits.js';
+import { CompleteContractData, UnverifiedData } from '@aztec/types';
 import { createDebugLogger } from '@aztec/foundation';
 
 import { L1ProcessArgs as ProcessTxArgs, L1PublisherTxSender } from './l1-publisher.js';
@@ -87,7 +86,10 @@ export class EthereumjsTxSender implements L1PublisherTxSender {
     }
   }
 
-  async sendEmitNewContractDataTx(l2BlockNum: number, newContractData: NewContractData[]): Promise<string | undefined> {
+  async sendEmitNewContractDataTx(
+    l2BlockNum: number,
+    newContractData: CompleteContractData[],
+  ): Promise<string | undefined> {
     for (let i = 0; i < newContractData.length; i++) {
       const newContract = newContractData[i];
       const methodCall = this.unverifiedDataEmitterContract.methods.emitContractDeployment(
@@ -95,7 +97,7 @@ export class EthereumjsTxSender implements L1PublisherTxSender {
         newContract.contractAddress.toBuffer(),
         newContract.portalContractAddress,
         // TODO update with actual ACIR
-        Buffer.alloc(32),
+        newContract.bytecode,
       );
       const gas = await methodCall.estimateGas();
       return methodCall

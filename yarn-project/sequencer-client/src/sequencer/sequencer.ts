@@ -1,9 +1,8 @@
 import times from 'lodash.times';
 import { RunningPromise, createDebugLogger } from '@aztec/foundation';
 import { P2P } from '@aztec/p2p';
-import { PrivateTx, PublicTx, Tx, UnverifiedData, isPrivateTx } from '@aztec/types';
+import { CompleteContractData, ContractData, PrivateTx, PublicTx, Tx, UnverifiedData, isPrivateTx } from '@aztec/types';
 import { MerkleTreeId, WorldStateStatus, WorldStateSynchroniser } from '@aztec/world-state';
-import { NewContractData } from '@aztec/circuits.js';
 import { BlockBuilder } from '../block_builder/index.js';
 import { L1Publisher } from '../publisher/l1-publisher.js';
 import { ceilPowerOfTwo } from '../utils.js';
@@ -130,10 +129,20 @@ export class Sequencer {
       // Publishes new unverified data & contract data for private txs to the network and awaits the tx to be mined
       this.state = SequencerState.PUBLISHING_UNVERIFIED_DATA;
       const unverifiedData = UnverifiedData.join(validTxs.filter(isPrivateTx).map(tx => tx.unverifiedData));
-      const newContractData: NewContractData[] = validTxs
-        .map(tx => tx.data?.end.newContracts)
-        .filter(cd => cd !== undefined)
-        .flat() as NewContractData[]; // using `as` here since typescript doesn't automatically get .filter
+      const newContractData: CompleteContractData[] = validTxs
+        .filter(isPrivateTx)
+        .map(tx => {
+          // Currently can only have 1 new contract per tx
+          const newContract = tx.data?.end.newContracts[0];
+          if (newContract && tx.newContractPublicFunctions?.length) {
+            return new ContractData(
+              newContract.contractAddress,
+              newContract.portalContractAddress,
+              tx.newContractPublicFunctions,
+            );
+          }
+        })
+        .filter(cd => cd !== undefined) as CompleteContractData[]; // using `as` here since typescript doesn't automatically get .filter
 
       const publishedUnverifiedData = await this.publisher.processUnverifiedData(block.number, unverifiedData);
       const publishedContractData = await this.publisher.processNewContractData(block.number, newContractData);

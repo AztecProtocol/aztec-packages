@@ -5,13 +5,17 @@ import { EcdsaSignature, KERNEL_NEW_COMMITMENTS_LENGTH, PrivateHistoricTreeRoots
 import { AztecAddress, Fr, Point, createDebugLogger } from '@aztec/foundation';
 import { KernelProver, OutputNoteData } from '@aztec/kernel-prover';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/l1-contracts';
-import { L2BlockContext, Tx, UnverifiedData } from '@aztec/types';
+import { EncodedContractFunction, L2BlockContext, Tx, UnverifiedData } from '@aztec/types';
 import { NotePreimage, TxAuxData } from '../aztec_rpc_server/tx_aux_data/index.js';
 import { ContractDataOracle } from '../contract_data_oracle/index.js';
 import { Database, TxAuxDataDao, TxDao } from '../database/index.js';
 import { ConstantKeyPair, KeyPair } from '../key_store/index.js';
 import { SimulatorOracle } from '../simulator_oracle/index.js';
 import { BarretenbergWasm } from '@aztec/barretenberg.js/wasm';
+import { ContractDao } from '../contract_database/contract_dao.js';
+import { FunctionType } from '@aztec/noir-contracts';
+import { serializeToBuffer } from '@aztec/circuits.js/utils';
+import { generateFunctionSelector } from '../index.js';
 
 export class AccountState {
   public syncedToBlock = 0;
@@ -80,7 +84,7 @@ export class AccountState {
     return result;
   }
 
-  public async simulateAndProve(txRequest: TxRequest, signature: EcdsaSignature) {
+  public async simulateAndProve(txRequest: TxRequest, signature: EcdsaSignature, newContractAddress?: AztecAddress) {
     // TODO - Pause syncing while simulating.
 
     const contractDataOracle = new ContractDataOracle(this.db, this.node);
@@ -92,6 +96,27 @@ export class AccountState {
     this.log('Proof completed!');
 
     const unverifiedData = this.createUnverifiedData(outputNotes);
+
+    if (newContractAddress) {
+      const newContract = await this.db.getContract(newContractAddress);
+      if (!newContract) {
+        throw new Error(`Invalid new contract address provided at ${newContractAddress}. Contract not found in DB.`);
+      }
+
+      const newContractPublicFunctions = newContract.functions.filter(c => c.functionType === FunctionType.OPEN);
+      return Tx.createPrivate(
+        publicInputs,
+        proof,
+        unverifiedData,
+        newContractPublicFunctions.map(
+          fn =>
+            new EncodedContractFunction(
+              generateFunctionSelector(fn.name, fn.parameters),
+              Buffer.from(fn.bytecode, 'hex'),
+            ),
+        ),
+      );
+    }
 
     return Tx.createPrivate(publicInputs, proof, unverifiedData);
   }
