@@ -10,7 +10,7 @@ import {
   PublicCircuitPublicInputs,
   PublicKernelInputsNoPreviousKernel,
   PublicKernelPublicInputs,
-  TxRequest
+  TxRequest,
 } from '@aztec/circuits.js';
 import { AztecAddress, EthAddress, createDebugLogger } from '@aztec/foundation';
 import { PublicTx, Tx } from '@aztec/types';

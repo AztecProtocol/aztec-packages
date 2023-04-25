@@ -723,7 +723,9 @@ export class CircuitBlockBuilder implements BlockBuilder {
 
     // Update the contract and private data trees with the new items being inserted to get the new roots
     // that will be used by the next iteration of the base rollup circuit, skipping the empty ones
-    const newContracts = flatMap([left, right], tx => tx.data.end.newContracts.map(cd => computeContractLeaf(wasm, cd)));
+    const newContracts = flatMap([left, right], tx =>
+      tx.data.end.newContracts.map(cd => computeContractLeaf(wasm, cd)),
+    );
     const newCommitments = flatMap([left, right], tx => tx.data.end.newCommitments.map(x => x.toBuffer()));
     await this.db.appendLeaves(
       MerkleTreeId.CONTRACT_TREE,
@@ -741,7 +743,7 @@ export class CircuitBlockBuilder implements BlockBuilder {
     const leftStateTransitionsSiblingPaths = await this.processPublicStateTransitions(left);
     const rightStateReadSiblingPaths = await this.getPublicStateReadsSiblingPaths(right);
     const rightStateTransitionsSiblingPaths = await this.processPublicStateTransitions(right);
-    
+
     const newStateReadsSiblingPaths = [...leftStateReadSiblingPaths, ...rightStateReadSiblingPaths];
     const newStateTransitionsSiblingPaths = [...leftStateTransitionsSiblingPaths, ...rightStateTransitionsSiblingPaths];
 

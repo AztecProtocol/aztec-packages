@@ -34,9 +34,7 @@ export class PrivateHistoricTreeRoots {
 }
 
 export class CombinedHistoricTreeRoots {
-  constructor(
-    public readonly privateHistoricTreeRoots: PrivateHistoricTreeRoots,
-  ) {}
+  constructor(public readonly privateHistoricTreeRoots: PrivateHistoricTreeRoots) {}
 
   toBuffer() {
     return serializeToBuffer(this.privateHistoricTreeRoots);
