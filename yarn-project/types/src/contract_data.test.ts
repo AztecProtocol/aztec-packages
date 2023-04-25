@@ -12,6 +12,16 @@ describe('ContractData', () => {
     ]);
     const buf = contractData.toBuffer();
     const serContractData = ContractData.fromBuffer(buf);
-    expect(contractData.bytecode?.equals(serContractData?.bytecode || Buffer.alloc(0))).toBeTruthy();
+    expect(contractData.contractAddress.equals(serContractData.contractAddress)).toBe(true);
+    expect(contractData.portalContractAddress.equals(serContractData.portalContractAddress)).toBe(true);
+    expect(contractData.bytecode?.equals(serContractData?.bytecode || Buffer.alloc(0))).toBe(true);
+  });
+
+  it('serializes / deserializes correctly without bytecode', () => {
+    const contractData = new ContractData(aztecAddress, portalAddress);
+    const buf = contractData.toBuffer();
+    const serContractData = ContractData.fromBuffer(buf);
+    expect(contractData.contractAddress.equals(serContractData.contractAddress)).toBe(true);
+    expect(contractData.portalContractAddress.equals(serContractData.portalContractAddress)).toBe(true);
   });
 });
