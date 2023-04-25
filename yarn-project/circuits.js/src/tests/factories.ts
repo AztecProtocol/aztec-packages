@@ -94,7 +94,7 @@ export function makeSelector(seed: number) {
 }
 
 export function makePublicDataWrite(seed = 1) {
-  return new PublicDataWrite(fr(seed), fr(seed + 1));
+  return new PublicDataWrite(fr(seed), fr(seed + 1), fr(seed + 2));
 }
 
 export function makePublicDataRead(seed = 1) {
@@ -122,6 +122,7 @@ export function makeAccumulatedData(seed = 1): CombinedAccumulatedData {
     range(KERNEL_NEW_CONTRACTS_LENGTH, seed + 0x600).map(makeNewContractData),
     range(KERNEL_OPTIONALLY_REVEALED_DATA_LENGTH, seed + 0x700).map(makeOptionallyRevealedData),
     range(STATE_TRANSITIONS_LENGTH, seed + 0x800).map(makePublicDataWrite),
+    range(STATE_READS_LENGTH, seed + 0x900).map(makePublicDataRead),
   );
 }
 
@@ -452,7 +453,11 @@ export function makeBaseRollupInputs(seed = 0) {
     seed + 0x5000,
   ).map(x => fr(x));
 
-  const newStateTransitionsSiblingPath = range(2 * STATE_TRANSITIONS_LENGTH, seed + 0x6000).map(x =>
+  const newStateTransitionsSiblingPaths = range(2 * STATE_TRANSITIONS_LENGTH, seed + 0x6000).map(x =>
+    makeMembershipWitness(PUBLIC_DATA_TREE_HEIGHT, x),
+  );
+
+  const newStateReadsSiblingPaths = range(2 * STATE_READS_LENGTH, seed + 0x6000).map(x =>
     makeMembershipWitness(PUBLIC_DATA_TREE_HEIGHT, x),
   );
 
@@ -481,7 +486,8 @@ export function makeBaseRollupInputs(seed = 0) {
     newCommitmentsSubtreeSiblingPath,
     newNullifiersSubtreeSiblingPath,
     newContractsSubtreeSiblingPath,
-    newStateTransitionsSiblingPaths: newStateTransitionsSiblingPath,
+    newStateTransitionsSiblingPaths,
+    newStateReadsSiblingPaths,
     historicPrivateDataTreeRootMembershipWitnesses,
     historicContractsTreeRootMembershipWitnesses,
     constants,

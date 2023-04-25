@@ -714,6 +714,7 @@ export class CircuitBlockBuilder implements BlockBuilder {
     const newStateTransitionsSiblingPaths: MembershipWitness<typeof PUBLIC_DATA_TREE_HEIGHT>[] = [];
     for (const stateTransition of stateTransitions) {
       const index = stateTransition.leafIndex.value;
+      // TODO: We're already updating the public data tree on the public_processor
       const path = await this.db.getSiblingPath(MerkleTreeId.PUBLIC_DATA_TREE, index);
       await this.db.updateLeaf(MerkleTreeId.PUBLIC_DATA_TREE, stateTransition.newValue.toBuffer(), index);
       const witness = new MembershipWitness(PUBLIC_DATA_TREE_HEIGHT, index, path.data.map(Fr.fromBuffer));
@@ -762,6 +763,7 @@ export class CircuitBlockBuilder implements BlockBuilder {
       newContractsSubtreeSiblingPath,
       newNullifiersSubtreeSiblingPath,
       newStateTransitionsSiblingPaths,
+      newStateReadsSiblingPaths: [], // TODO: Implement
       lowNullifierLeafPreimages: nullifierWitnesses.map((w: LowNullifierWitnessData) => w.preimage),
       lowNullifierMembershipWitness: lowNullifierMembershipWitnesses,
       kernelData: [this.getKernelDataFor(tx1), this.getKernelDataFor(tx2)],

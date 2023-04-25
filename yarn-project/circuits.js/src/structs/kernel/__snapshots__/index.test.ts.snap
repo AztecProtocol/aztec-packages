@@ -91,13 +91,27 @@ called_from_public_l2: 0
  ]
 state_transitions:
 [ leaf_index: 0x801
-new_value: 0x802
- leaf_index: 0x802
+old_value: 0x802
 new_value: 0x803
- leaf_index: 0x803
+ leaf_index: 0x802
+old_value: 0x803
 new_value: 0x804
- leaf_index: 0x804
+ leaf_index: 0x803
+old_value: 0x804
 new_value: 0x805
+ leaf_index: 0x804
+old_value: 0x805
+new_value: 0x806
+ ]
+state_reads:
+[ leaf_index: 0x901
+value: 0x902
+ leaf_index: 0x902
+value: 0x903
+ leaf_index: 0x903
+value: 0x904
+ leaf_index: 0x904
+value: 0x905
  ]
 
 constants:
@@ -251,13 +265,27 @@ called_from_public_l2: 0
  ]
 state_transitions:
 [ leaf_index: 0x1801
-new_value: 0x1802
- leaf_index: 0x1802
+old_value: 0x1802
 new_value: 0x1803
- leaf_index: 0x1803
+ leaf_index: 0x1802
+old_value: 0x1803
 new_value: 0x1804
- leaf_index: 0x1804
+ leaf_index: 0x1803
+old_value: 0x1804
 new_value: 0x1805
+ leaf_index: 0x1804
+old_value: 0x1805
+new_value: 0x1806
+ ]
+state_reads:
+[ leaf_index: 0x1901
+value: 0x1902
+ leaf_index: 0x1902
+value: 0x1903
+ leaf_index: 0x1903
+value: 0x1904
+ leaf_index: 0x1904
+value: 0x1905
  ]
 
 constants:
@@ -581,13 +609,27 @@ called_from_public_l2: 0
  ]
 state_transitions:
 [ leaf_index: 0x801
-new_value: 0x802
- leaf_index: 0x802
+old_value: 0x802
 new_value: 0x803
- leaf_index: 0x803
+ leaf_index: 0x802
+old_value: 0x803
 new_value: 0x804
- leaf_index: 0x804
+ leaf_index: 0x803
+old_value: 0x804
 new_value: 0x805
+ leaf_index: 0x804
+old_value: 0x805
+new_value: 0x806
+ ]
+state_reads:
+[ leaf_index: 0x901
+value: 0x902
+ leaf_index: 0x902
+value: 0x903
+ leaf_index: 0x903
+value: 0x904
+ leaf_index: 0x904
+value: 0x905
  ]
 
 constants:
@@ -704,13 +746,27 @@ called_from_public_l2: 0
  ]
 state_transitions:
 [ leaf_index: 0x801
-new_value: 0x802
- leaf_index: 0x802
+old_value: 0x802
 new_value: 0x803
- leaf_index: 0x803
+ leaf_index: 0x802
+old_value: 0x803
 new_value: 0x804
- leaf_index: 0x804
+ leaf_index: 0x803
+old_value: 0x804
 new_value: 0x805
+ leaf_index: 0x804
+old_value: 0x805
+new_value: 0x806
+ ]
+state_reads:
+[ leaf_index: 0x901
+value: 0x902
+ leaf_index: 0x902
+value: 0x903
+ leaf_index: 0x903
+value: 0x904
+ leaf_index: 0x904
+value: 0x905
  ]
 
 constants:
