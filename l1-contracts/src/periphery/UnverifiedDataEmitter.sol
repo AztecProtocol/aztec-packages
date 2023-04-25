@@ -13,7 +13,7 @@ contract UnverifiedDataEmitter {
    * @param portalAddress - The address of the L1 counterparty
    * @param acir - The acir bytecode of the L2 contract
    */
-  event ContractDeployment(bytes32 indexed aztecAddress, address indexed portalAddress, bytes acir);
+  event ContractDeployment(uint256 indexed l2BlockNum, bytes32 indexed aztecAddress, address indexed portalAddress, bytes acir);
 
   /**
    * @notice Used to share data which are not required to advance the state but are needed for other purposes
@@ -49,6 +49,6 @@ contract UnverifiedDataEmitter {
     address _portalAddress,
     bytes calldata _acir
   ) external {
-    emit ContractDeployment(_aztecAddress, _portalAddress, _acir);
+    emit ContractDeployment(_l2BlockNum, _aztecAddress, _portalAddress, _acir);
   }
 }
