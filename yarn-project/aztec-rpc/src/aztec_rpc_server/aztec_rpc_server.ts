@@ -12,7 +12,7 @@ import {
 } from '@aztec/circuits.js';
 import { Fr, Point, createDebugLogger } from '@aztec/foundation';
 import { ContractAbi, FunctionType } from '@aztec/noir-contracts';
-import { PrivateTx, Tx, TxHash } from '@aztec/types';
+import { Tx, TxHash } from '@aztec/types';
 import { AztecRPCClient, DeployedContract } from '../aztec_rpc_client/index.js';
 import { toContractDao } from '../contract_database/index.js';
 import { ContractTree } from '../contract_tree/index.js';
@@ -182,14 +182,12 @@ export class AztecRPCServer implements AztecRPCClient {
     let newContract: AztecAddress | undefined;
     const accountState = this.ensureAccount(txRequest.from);
 
-    // Note: there is no simulation being performed client-side for public functions execution.
-    const tx = txRequest.functionData.isPrivate
-      ? await accountState.simulateAndProve(txRequest, signature)
-      : Tx.createPublic(new SignedTxRequest(txRequest, signature));
-
     const contractAddress = txRequest.to;
-    let tx: PrivateTx;
-    if (txRequest.functionData.isConstructor) {
+    let tx: Tx;
+    if (!txRequest.functionData.isPrivate) {
+      // Note: there is no simulation being performed client-side for public functions execution.
+      tx = Tx.createPublic(new SignedTxRequest(txRequest, signature));
+    } else if (txRequest.functionData.isConstructor) {
       newContract = contractAddress;
       tx = await accountState.simulateAndProve(txRequest, signature, contractAddress);
     } else {
