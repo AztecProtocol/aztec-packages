@@ -40,6 +40,12 @@ template <typename NCT> struct RootRollupPublicInputs {
     AppendOnlyTreeSnapshot<NCT> start_tree_of_historic_contract_tree_roots_snapshot;
     AppendOnlyTreeSnapshot<NCT> end_tree_of_historic_contract_tree_roots_snapshot;
 
+    AppendOnlyTreeSnapshot<NCT> start_l1_to_l2_messages_tree_snapshot;
+    AppendOnlyTreeSnapshot<NCT> end_l1_tol2_messages_tree_snapshot;
+
+    AppendOnlyTreeSnapshot<NCT> start_tree_of_historic_l1_to_l2_messages_tree_roots_snapshot;
+    AppendOnlyTreeSnapshot<NCT> end_tree_of_historic_l1_tol2_messages_tree_roots_snapshot;
+
     std::array<fr, 2> calldata_hash;
 
     bool operator==(RootRollupPublicInputs<NCT> const&) const = default;
@@ -91,6 +97,10 @@ template <typename NCT> void read(uint8_t const*& it, RootRollupPublicInputs<NCT
     read(it, obj.end_tree_of_historic_private_data_tree_roots_snapshot);
     read(it, obj.start_tree_of_historic_contract_tree_roots_snapshot);
     read(it, obj.end_tree_of_historic_contract_tree_roots_snapshot);
+    read(it, obj.start_l1_to_l2_messages_tree_snapshot);
+    read(it, obj.end_l1_tol2_messages_tree_snapshot);
+    read(it, obj.start_tree_of_historic_l1_to_l2_messages_tree_roots_snapshot);
+    read(it, obj.end_tree_of_historic_l1_tol2_messages_tree_roots_snapshot);
     read(it, obj.calldata_hash);
 };
 
@@ -111,6 +121,10 @@ template <typename NCT> void write(std::vector<uint8_t>& buf, RootRollupPublicIn
     write(buf, obj.end_tree_of_historic_private_data_tree_roots_snapshot);
     write(buf, obj.start_tree_of_historic_contract_tree_roots_snapshot);
     write(buf, obj.end_tree_of_historic_contract_tree_roots_snapshot);
+    write(buf, obj.start_l1_to_l2_messages_tree_snapshot);
+    write(buf, obj.end_l1_tol2_messages_tree_snapshot);
+    write(buf, obj.start_tree_of_historic_l1_to_l2_messages_tree_roots_snapshot);
+    write(buf, obj.end_tree_of_historic_l1_tol2_messages_tree_roots_snapshot);
     write(buf, obj.calldata_hash);
 };
 
@@ -133,6 +147,12 @@ template <typename NCT> std::ostream& operator<<(std::ostream& os, RootRollupPub
               << obj.start_tree_of_historic_contract_tree_roots_snapshot << "\n"
               << "end_tree_of_historic_contract_tree_roots_snapshot: "
               << obj.end_tree_of_historic_contract_tree_roots_snapshot << "\n"
+              << "start_l1_to_l2_messages_tree_snapshot: " << obj.start_l1_to_l2_messages_tree_snapshot << "\n"
+              << "end_l1_tol2_messages_tree_snapshot: " << obj.end_l1_tol2_messages_tree_snapshot << "\n"
+              << "start_tree_of_historic_l1_to_l2_messages_tree_roots_snapshot: "
+              << obj.start_tree_of_historic_l1_to_l2_messages_tree_roots_snapshot << "\n"
+              << "end_tree_of_historic_l1_tol2_messages_tree_roots_snapshot: "
+              << obj.end_tree_of_historic_l1_tol2_messages_tree_roots_snapshot << "\n"
               << "calldata_hash: " << obj.calldata_hash << "\n";
 };
 

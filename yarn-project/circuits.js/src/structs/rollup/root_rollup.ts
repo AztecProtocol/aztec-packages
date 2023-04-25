@@ -2,7 +2,11 @@ import { BufferReader, Fr } from '@aztec/foundation';
 import { assertLength, FieldsOf } from '../../utils/jsUtils.js';
 import { serializeToBuffer } from '../../utils/serialize.js';
 import { AppendOnlyTreeSnapshot } from './append_only_tree_snapshot.js';
-import { CONTRACT_TREE_ROOTS_TREE_HEIGHT, PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT } from '../constants.js';
+import {
+  CONTRACT_TREE_ROOTS_TREE_HEIGHT,
+  NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
+  PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT,
+} from '../constants.js';
 import { PreviousRollupData } from './previous_rollup_data.js';
 import { AggregationObject } from '../aggregation_object.js';
 
@@ -12,9 +16,14 @@ export class RootRollupInputs {
 
     public newHistoricPrivateDataTreeRootSiblingPath: Fr[],
     public newHistoricContractDataTreeRootSiblingPath: Fr[],
+
+    // TODO: Work out when writing the circuits if i will need to include both the normal and historic paths here
+    public newHistoricL1ToL2MessageTreeRootSiblingPath: Fr[],
+    public newL1ToL2Messages: Fr[],
   ) {
     assertLength(this, 'newHistoricPrivateDataTreeRootSiblingPath', PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT);
     assertLength(this, 'newHistoricContractDataTreeRootSiblingPath', CONTRACT_TREE_ROOTS_TREE_HEIGHT);
+    assertLength(this, 'newL1ToL2Messages', NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
   }
 
   toBuffer() {
@@ -22,6 +31,7 @@ export class RootRollupInputs {
       this.previousRollupData,
       this.newHistoricPrivateDataTreeRootSiblingPath,
       this.newHistoricContractDataTreeRootSiblingPath,
+      this.newL1ToL2Messages,
     );
   }
 
@@ -34,6 +44,8 @@ export class RootRollupInputs {
       fields.previousRollupData,
       fields.newHistoricPrivateDataTreeRootSiblingPath,
       fields.newHistoricContractDataTreeRootSiblingPath,
+      fields.newHistoricContractDataTreeRootSiblingPath,
+      fields.newL1ToL2Messages,
     ] as const;
   }
 }
