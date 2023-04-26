@@ -5,6 +5,7 @@ import { createDebugLogger } from '@aztec/foundation';
 import {
   GetContractReturnType,
   Hex,
+  HttpTransport,
   PublicClient,
   WalletClient,
   createPublicClient,
@@ -27,6 +28,8 @@ export class ViemTxSender implements L1PublisherTxSender {
     PublicClient,
     WalletClient
   >;
+  private publicClient: PublicClient<HttpTransport, chains.Chain>;
+
   private confirmations: number;
   private log = createDebugLogger('aztec:sequencer:viem-tx-sender');
   private account: PrivateKeyAccount;
@@ -41,7 +44,7 @@ export class ViemTxSender implements L1PublisherTxSender {
       requiredConfirmations,
     } = config;
 
-    this.account = privateKeyToAccount('0x' + publisherPrivateKey.toString('hex') as Hex);
+    this.account = privateKeyToAccount(('0x' + publisherPrivateKey.toString('hex')) as Hex);
     this.rpcUrl = rpcUrl;
 
     // TODO: generalize for all networks
@@ -56,7 +59,7 @@ export class ViemTxSender implements L1PublisherTxSender {
       transport: http(rpcUrl),
     });
 
-    const publicClient = createPublicClient({
+    this.publicClient = createPublicClient({
       chain: anvil,
       transport: http(),
     });
@@ -64,13 +67,13 @@ export class ViemTxSender implements L1PublisherTxSender {
     this.rollupContract = getContract({
       address: getAddress(rollupContractAddress.toString()),
       abi: RollupAbi,
-      publicClient,
+      publicClient: this.publicClient,
       walletClient,
     });
     this.unverifiedDataEmitterContract = getContract({
       address: getAddress(unverifiedDataEmitterContractAddress.toString()),
       abi: UnverifiedDataEmitterAbi,
-      publicClient,
+      publicClient: this.publicClient,
       walletClient,
     });
 
@@ -78,6 +81,7 @@ export class ViemTxSender implements L1PublisherTxSender {
   }
 
   private async getChain(rpcUrl: string) {
+    // TODO: load based on chainId in config
     const publicClient = createPublicClient({
       chain: chains.mainnet,
       transport: http(rpcUrl),
@@ -94,31 +98,53 @@ export class ViemTxSender implements L1PublisherTxSender {
     throw new Error(`Chain with id ${targetId} not found`);
   }
 
-  getTransactionReceipt(txHash: string): Promise<{ status: boolean; transactionHash: string } | undefined> {
-    // TODO: we don't use this anywhere. Do we really need this?
-    throw new Error('Method not implemented.');
-    return new Promise(resolve => {});
+  async getTransactionReceipt(txHash: string): Promise<{ status: boolean; transactionHash: string } | undefined> {
+    const receipt = await this.publicClient.getTransactionReceipt({
+      hash: txHash as Hex,
+    });
+
+    // TODO: check for confirmations
+
+    if (receipt) {
+      return {
+        status: receipt.status === 'success',
+        transactionHash: txHash,
+      };
+    }
+
+    return undefined;
   }
 
   async sendProcessTx(encodedData: ProcessTxArgs): Promise<string | undefined> {
-    const proof = encodedData.proof.toString('hex') as Hex;
-    const input = encodedData.inputs.toString('hex') as Hex;
-    const args = [proof, input] as const;
+    const args = [
+      ('0x' + encodedData.proof.toString('hex')) as Hex,
+      ('0x' + encodedData.inputs.toString('hex')) as Hex,
+    ] as const;
+
+    const gas = await this.rollupContract.estimateGas.process(args, {
+      account: this.account,
+    });
+
     const hash = await this.rollupContract.write.process(args, {
       account: this.account,
       chain: await this.getChain(this.rpcUrl),
+      gas,
     });
-    console.log('hash processTx', hash);
     return hash;
   }
 
   async sendEmitUnverifiedDataTx(l2BlockNum: number, unverifiedData: UnverifiedData): Promise<string | undefined> {
-    const args = [BigInt(l2BlockNum), unverifiedData.toBuffer().toString('hex') as Hex] as const;
+    const args = [BigInt(l2BlockNum), ('0x' + unverifiedData.toBuffer().toString('hex')) as Hex] as const;
+
+    const gas = await this.unverifiedDataEmitterContract.estimateGas.emitUnverifiedData(args, {
+      account: this.account,
+    });
+
     const hash = await this.unverifiedDataEmitterContract.write.emitUnverifiedData(args, {
       account: this.account,
       chain: await this.getChain(this.rpcUrl),
+      gas,
     });
-    console.log('hash emitUnverifiedData', hash);
     return hash;
   }
 }

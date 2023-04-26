@@ -29,7 +29,7 @@ describe('e2e_block_building', () => {
     const { rollupAddress, unverifiedDataEmitterAddress } = await deployL1Contracts(config.rpcUrl, account);
     config.rollupContract = rollupAddress;
     config.unverifiedDataEmitterContract = unverifiedDataEmitterAddress;
-    logger('Deployed contracts...');
+    logger(`Deployed rollup contract at ${rollupAddress} and unverified data emitter at ${unverifiedDataEmitterAddress}`);
   });
 
   beforeEach(async () => {
