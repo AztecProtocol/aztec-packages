@@ -17,9 +17,9 @@ describe('public_processor', () => {
   let publicKernel: MockProxy<PublicKernelCircuitSimulator>;
   let publicProver: MockProxy<PublicProver>;
   let contractDataSource: MockProxy<ContractDataSource>;
-  let contractData: MockProxy<ContractData>;
-  let publicFunction: MockProxy<EncodedContractFunction>;
 
+  let publicFunction: EncodedContractFunction;
+  let contractData: ContractData;
   let proof: Proof;
   let root: Buffer;
 
@@ -31,8 +31,9 @@ describe('public_processor', () => {
     publicKernel = mock<PublicKernelCircuitSimulator>();
     publicProver = mock<PublicProver>();
     contractDataSource = mock<ContractDataSource>();
-    contractData = mock<ContractData>();
 
+    contractData = ContractData.random();
+    publicFunction = EncodedContractFunction.random();
     proof = makeEmptyProof();
     root = Buffer.alloc(32, 5);
 
