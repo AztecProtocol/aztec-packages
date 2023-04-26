@@ -240,7 +240,7 @@ void update_end_values(DummyComposer& composer,
 
     // {
     //     const auto& l1_msg_stack = private_call_public_inputs.l1_msg_stack;
-    //     std::array<CT::fr, L1_MSG_STACK_LENGTH> l1_call_stack;
+    //     std::array<CT::fr, NEW_L2_TO_L1_MSGS_LENGTH> l1_call_stack;
 
     //     for (size_t i = 0; i < l1_msg_stack.size(); ++i) {
     //         l1_call_stack[i] = CT::fr::conditional_assign(

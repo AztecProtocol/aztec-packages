@@ -5,7 +5,7 @@ import { serializeToBuffer } from '../../utils/serialize.js';
 import { AggregationObject } from '../aggregation_object.js';
 import {
   EMITTED_EVENTS_LENGTH,
-  KERNEL_L1_MSG_STACK_LENGTH,
+  KERNEL_NEW_L2_TO_L1_MSGS_LENGTH,
   KERNEL_NEW_COMMITMENTS_LENGTH,
   KERNEL_NEW_CONTRACTS_LENGTH,
   KERNEL_NEW_NULLIFIERS_LENGTH,
@@ -180,7 +180,7 @@ export class CombinedAccumulatedData {
     assertLength(this, 'newNullifiers', KERNEL_NEW_NULLIFIERS_LENGTH);
     assertLength(this, 'privateCallStack', KERNEL_PRIVATE_CALL_STACK_LENGTH);
     assertLength(this, 'publicCallStack', KERNEL_PUBLIC_CALL_STACK_LENGTH);
-    assertLength(this, 'l1MsgStack', KERNEL_L1_MSG_STACK_LENGTH);
+    assertLength(this, 'l1MsgStack', KERNEL_NEW_L2_TO_L1_MSGS_LENGTH);
     assertLength(this, 'newContracts', KERNEL_NEW_CONTRACTS_LENGTH);
     assertLength(this, 'optionallyRevealedData', KERNEL_OPTIONALLY_REVEALED_DATA_LENGTH);
     assertLength(this, 'stateTransitions', STATE_TRANSITIONS_LENGTH);
@@ -218,7 +218,7 @@ export class CombinedAccumulatedData {
       reader.readArray(KERNEL_NEW_NULLIFIERS_LENGTH, Fr),
       reader.readArray(KERNEL_PRIVATE_CALL_STACK_LENGTH, Fr),
       reader.readArray(KERNEL_PUBLIC_CALL_STACK_LENGTH, Fr),
-      reader.readArray(KERNEL_L1_MSG_STACK_LENGTH, Fr),
+      reader.readArray(KERNEL_NEW_L2_TO_L1_MSGS_LENGTH, Fr),
       reader.readArray(KERNEL_NEW_CONTRACTS_LENGTH, NewContractData),
       reader.readArray(KERNEL_OPTIONALLY_REVEALED_DATA_LENGTH, OptionallyRevealedData),
       reader.readArray(STATE_TRANSITIONS_LENGTH, PublicDataWrite),
@@ -235,7 +235,7 @@ export class CombinedAccumulatedData {
       times(KERNEL_NEW_NULLIFIERS_LENGTH, Fr.zero),
       times(KERNEL_PRIVATE_CALL_STACK_LENGTH, Fr.zero),
       times(KERNEL_PUBLIC_CALL_STACK_LENGTH, Fr.zero),
-      times(KERNEL_L1_MSG_STACK_LENGTH, Fr.zero),
+      times(KERNEL_NEW_L2_TO_L1_MSGS_LENGTH, Fr.zero),
       times(KERNEL_NEW_CONTRACTS_LENGTH, NewContractData.empty),
       times(KERNEL_OPTIONALLY_REVEALED_DATA_LENGTH, OptionallyRevealedData.empty),
       times(STATE_TRANSITIONS_LENGTH, PublicDataWrite.empty),

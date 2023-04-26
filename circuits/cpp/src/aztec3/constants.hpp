@@ -10,20 +10,20 @@ constexpr size_t EMITTED_EVENTS_LENGTH = 4;
 
 constexpr size_t NEW_COMMITMENTS_LENGTH = 4;
 constexpr size_t NEW_NULLIFIERS_LENGTH = 4;
+constexpr size_t NEW_L2_TO_L1_MSGS_LENGTH = 2;
 
 constexpr size_t STATE_TRANSITIONS_LENGTH = 4;
 constexpr size_t STATE_READS_LENGTH = 4;
 
 constexpr size_t PRIVATE_CALL_STACK_LENGTH = 4;
 constexpr size_t PUBLIC_CALL_STACK_LENGTH = 4;
-constexpr size_t L1_MSG_STACK_LENGTH = 2;
 
 constexpr size_t KERNEL_NEW_COMMITMENTS_LENGTH = 4;
 constexpr size_t KERNEL_NEW_NULLIFIERS_LENGTH = 4;
 constexpr size_t KERNEL_NEW_CONTRACTS_LENGTH = 1;
 constexpr size_t KERNEL_PRIVATE_CALL_STACK_LENGTH = 8;
 constexpr size_t KERNEL_PUBLIC_CALL_STACK_LENGTH = 8;
-constexpr size_t KERNEL_L1_MSG_STACK_LENGTH = 4;
+constexpr size_t KERNEL_NEW_L2_TO_L1_MSGS_LENGTH = 4;
 constexpr size_t KERNEL_OPTIONALLY_REVEALED_DATA_LENGTH = 4;
 
 constexpr size_t VK_TREE_HEIGHT = 3;

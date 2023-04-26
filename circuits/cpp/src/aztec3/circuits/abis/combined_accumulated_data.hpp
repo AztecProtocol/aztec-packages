@@ -36,7 +36,7 @@ template <typename NCT> struct CombinedAccumulatedData {
         zero_array<fr, KERNEL_PRIVATE_CALL_STACK_LENGTH>();
     std::array<fr, KERNEL_PUBLIC_CALL_STACK_LENGTH> public_call_stack =
         zero_array<fr, KERNEL_PUBLIC_CALL_STACK_LENGTH>();
-    std::array<fr, KERNEL_L1_MSG_STACK_LENGTH> l1_msg_stack = zero_array<fr, KERNEL_L1_MSG_STACK_LENGTH>();
+    std::array<fr, KERNEL_NEW_L2_TO_L1_MSGS_LENGTH> l1_msg_stack = zero_array<fr, KERNEL_NEW_L2_TO_L1_MSGS_LENGTH>();
 
     std::array<NewContractData<NCT>, KERNEL_NEW_CONTRACTS_LENGTH> new_contracts{};
 

@@ -36,7 +36,7 @@ template <typename NCT> class PrivateCircuitPublicInputs {
 
     std::array<fr, PRIVATE_CALL_STACK_LENGTH> private_call_stack = zero_array<fr, PRIVATE_CALL_STACK_LENGTH>();
     std::array<fr, PUBLIC_CALL_STACK_LENGTH> public_call_stack = zero_array<fr, PUBLIC_CALL_STACK_LENGTH>();
-    std::array<fr, L1_MSG_STACK_LENGTH> l1_msg_stack = zero_array<fr, L1_MSG_STACK_LENGTH>();
+    std::array<fr, NEW_L2_TO_L1_MSGS_LENGTH> l1_msg_stack = zero_array<fr, NEW_L2_TO_L1_MSGS_LENGTH>();
 
     fr historic_private_data_tree_root = 0;
     fr historic_nullifier_tree_root = 0;
@@ -241,7 +241,7 @@ template <typename NCT> class OptionalPrivateCircuitPublicInputs {
 
     std::array<opt_fr, PRIVATE_CALL_STACK_LENGTH> private_call_stack;
     std::array<opt_fr, PUBLIC_CALL_STACK_LENGTH> public_call_stack;
-    std::array<opt_fr, L1_MSG_STACK_LENGTH> l1_msg_stack;
+    std::array<opt_fr, NEW_L2_TO_L1_MSGS_LENGTH> l1_msg_stack;
 
     opt_fr historic_private_data_tree_root;
     opt_fr historic_nullifier_tree_root;
@@ -263,7 +263,7 @@ template <typename NCT> class OptionalPrivateCircuitPublicInputs {
 
                                             std::array<opt_fr, PRIVATE_CALL_STACK_LENGTH> const& private_call_stack,
                                             std::array<opt_fr, PUBLIC_CALL_STACK_LENGTH> const& public_call_stack,
-                                            std::array<opt_fr, L1_MSG_STACK_LENGTH> const& l1_msg_stack,
+                                            std::array<opt_fr, NEW_L2_TO_L1_MSGS_LENGTH> const& l1_msg_stack,
 
                                             opt_fr const& historic_private_data_tree_root,
                                             opt_fr const& historic_nullifier_tree_root,

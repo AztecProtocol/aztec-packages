@@ -33,7 +33,7 @@ template <typename NCT> struct PublicCircuitPublicInputs {
     std::array<StateRead<NCT>, STATE_READS_LENGTH> state_reads{};
 
     std::array<fr, PUBLIC_CALL_STACK_LENGTH> public_call_stack = zero_array<fr, PUBLIC_CALL_STACK_LENGTH>();
-    std::array<fr, L1_MSG_STACK_LENGTH> l1_msg_stack = zero_array<fr, L1_MSG_STACK_LENGTH>();
+    std::array<fr, NEW_L2_TO_L1_MSGS_LENGTH> l1_msg_stack = zero_array<fr, NEW_L2_TO_L1_MSGS_LENGTH>();
 
     fr historic_public_data_tree_root = 0;
 

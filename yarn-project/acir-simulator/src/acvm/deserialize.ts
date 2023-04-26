@@ -5,7 +5,7 @@ import {
   CallContext,
   ContractDeploymentData,
   EMITTED_EVENTS_LENGTH,
-  L1_MSG_STACK_LENGTH,
+  NEW_L2_TO_L1_MSGS_LENGTH,
   NEW_COMMITMENTS_LENGTH,
   NEW_NULLIFIERS_LENGTH,
   PrivateCircuitPublicInputs,
@@ -80,7 +80,7 @@ export function extractPublicInputs(partialWitness: ACVMWitness, acir: Buffer): 
   const newNullifiers = witnessReader.readFieldArray(NEW_NULLIFIERS_LENGTH);
   const privateCallStack = witnessReader.readFieldArray(PRIVATE_CALL_STACK_LENGTH);
   const publicCallStack = witnessReader.readFieldArray(PUBLIC_CALL_STACK_LENGTH);
-  const l1MsgStack = witnessReader.readFieldArray(L1_MSG_STACK_LENGTH);
+  const l1MsgStack = witnessReader.readFieldArray(NEW_L2_TO_L1_MSGS_LENGTH);
 
   const privateDataTreeRoot = witnessReader.readField();
   const nullifierTreeRoot = witnessReader.readField();

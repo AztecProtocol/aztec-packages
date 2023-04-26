@@ -5,7 +5,7 @@ import { CallContext } from './call_context.js';
 import {
   ARGS_LENGTH,
   EMITTED_EVENTS_LENGTH,
-  L1_MSG_STACK_LENGTH,
+  NEW_L2_TO_L1_MSGS_LENGTH,
   NEW_COMMITMENTS_LENGTH,
   NEW_NULLIFIERS_LENGTH,
   PRIVATE_CALL_STACK_LENGTH,
@@ -42,7 +42,7 @@ export class PrivateCircuitPublicInputs {
     assertLength(this, 'newNullifiers', NEW_NULLIFIERS_LENGTH);
     assertLength(this, 'privateCallStack', PRIVATE_CALL_STACK_LENGTH);
     assertLength(this, 'publicCallStack', PUBLIC_CALL_STACK_LENGTH);
-    assertLength(this, 'l1MsgStack', L1_MSG_STACK_LENGTH);
+    assertLength(this, 'l1MsgStack', NEW_L2_TO_L1_MSGS_LENGTH);
   }
   /**
    * Create PrivateCircuitPublicInputs from a fields dictionary.
@@ -67,7 +67,7 @@ export class PrivateCircuitPublicInputs {
       frArray(NEW_NULLIFIERS_LENGTH),
       frArray(PRIVATE_CALL_STACK_LENGTH),
       frArray(PUBLIC_CALL_STACK_LENGTH),
-      frArray(L1_MSG_STACK_LENGTH),
+      frArray(NEW_L2_TO_L1_MSGS_LENGTH),
       Fr.ZERO,
       Fr.ZERO,
       Fr.ZERO,
