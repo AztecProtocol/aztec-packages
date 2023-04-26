@@ -185,7 +185,8 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource, ContractDa
       const contractDataLogs = await this.getContractDataLogs(this.nextContractDataFromBlock);
 
       this.processContractDataLogs(contractDataLogs);
-      this.nextContractDataFromBlock = (contractDataLogs.findLast(cd => !!cd)?.blockNumber || currentBlockNumber) + 1n;
+      this.nextContractDataFromBlock =
+        (contractDataLogs.findLast(cd => !!cd)?.blockNumber || this.nextContractDataFromBlock) + 1n;
     } while (blockUntilSynced && this.nextContractDataFromBlock <= currentBlockNumber);
   }
 
