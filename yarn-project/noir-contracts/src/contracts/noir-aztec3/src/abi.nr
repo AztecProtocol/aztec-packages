@@ -73,7 +73,7 @@ struct PrivateCircuitPublicInputs {
     new_nullifiers: [Field; crate::abi::MAX_NEW_NULLIFIERS],
     private_call_stack: [Field; crate::abi::MAX_PRIVATE_CALL_STACK],
     public_call_stack: [Field; crate::abi::MAX_PUBLIC_CALL_STACK],
-    l2_to_l1_msgs: [Field; crate::abi::MAX_L1_MSG_STACK],
+    new_l2_to_l1_msgs: [Field; crate::abi::MAX_L1_MSG_STACK],
     historic_private_data_tree_root: Field,
     historic_private_nullifier_tree_root: Field,
     historic_contract_tree_root: Field,
@@ -96,7 +96,7 @@ impl PrivateCircuitPublicInputs {
         fields = fields.push_array(self.new_nullifiers);
         fields = fields.push_array(self.private_call_stack);
         fields = fields.push_array(self.public_call_stack);
-        fields = fields.push_array(self.l2_to_l1_msgs);
+        fields = fields.push_array(self.new_l2_to_l1_msgs);
         fields = fields.push(self.historic_private_data_tree_root);
         fields = fields.push(self.historic_private_nullifier_tree_root);
         fields = fields.push(self.historic_contract_tree_root);
@@ -172,7 +172,7 @@ impl Outputs {
             new_nullifiers: self.new_nullifiers.storage,
             private_call_stack: self.private_call_stack.storage,
             public_call_stack: self.public_call_stack.storage,
-            l2_to_l1_msgs: self.l1_message_stack.storage,
+            new_l2_to_l1_msgs: self.l1_message_stack.storage,
             historic_private_data_tree_root: inputs.old_private_data_tree_root,
             historic_private_nullifier_tree_root: inputs.old_nullifier_tree_root,
             historic_contract_tree_root: inputs.old_contract_tree_root,
