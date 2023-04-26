@@ -135,7 +135,7 @@ export class Sequencer {
           // Currently can only have 1 new contract per tx
           const newContract = tx.data?.end.newContracts[0];
           if (newContract && tx.newContractPublicFunctions?.length) {
-            return new ContractData(
+            return ContractData.createCompleteContractData(
               newContract.contractAddress,
               newContract.portalContractAddress,
               tx.newContractPublicFunctions,

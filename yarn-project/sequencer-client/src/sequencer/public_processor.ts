@@ -16,7 +16,14 @@ import {
   WitnessedPublicCallData,
 } from '@aztec/circuits.js';
 import { AztecAddress, createDebugLogger } from '@aztec/foundation';
-import { ContractData, ContractDataSource, EncodedContractFunction, PublicTx, Tx } from '@aztec/types';
+import {
+  CompleteContractData,
+  ContractData,
+  ContractDataSource,
+  EncodedContractFunction,
+  PublicTx,
+  Tx,
+} from '@aztec/types';
 import { MerkleTreeId, MerkleTreeOperations, computePublicDataTreeLeafIndex } from '@aztec/world-state';
 import { pedersenGetHash } from '@aztec/barretenberg.js/crypto';
 import times from 'lodash.times';
@@ -28,7 +35,10 @@ export class MockContractDataSource implements ContractDataSource {
   getL2ContractDataInBlock(blockNum: number): Promise<ContractData[]> {
     return Promise.resolve([]);
   }
-  getL2ContractData(_address: AztecAddress): Promise<ContractData | undefined> {
+  getL2ContractData(_address: AztecAddress): Promise<CompleteContractData | undefined> {
+    return Promise.resolve(undefined);
+  }
+  getL2ContractInfo(_address: AztecAddress): Promise<ContractData | undefined> {
     return Promise.resolve(undefined);
   }
   getPublicFunction(_address: AztecAddress, _selector: Buffer): Promise<EncodedContractFunction | undefined> {

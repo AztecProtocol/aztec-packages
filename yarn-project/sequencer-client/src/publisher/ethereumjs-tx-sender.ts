@@ -96,7 +96,6 @@ export class EthereumjsTxSender implements L1PublisherTxSender {
         BigInt(l2BlockNum),
         newContract.contractAddress.toBuffer(),
         newContract.portalContractAddress,
-        // TODO update with actual ACIR
         newContract.bytecode,
       );
       const gas = await methodCall.estimateGas();

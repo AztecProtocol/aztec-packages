@@ -2,7 +2,7 @@ import { PUBLIC_DATA_TREE_HEIGHT, makeEmptyProof } from '@aztec/circuits.js';
 import { makeKernelPublicInputs, makePublicCircuitPublicInputs } from '@aztec/circuits.js/factories';
 import { SiblingPath } from '@aztec/merkle-tree';
 import { MerkleTreeOperations, TreeInfo } from '@aztec/world-state';
-import { ContractData, ContractDataSource, EncodedContractFunction } from '@aztec/types';
+import { CompleteContractData, ContractData, ContractDataSource, EncodedContractFunction } from '@aztec/types';
 import { MockProxy, mock } from 'jest-mock-extended';
 import pick from 'lodash.pick';
 import times from 'lodash.times';
@@ -19,7 +19,7 @@ describe('public_processor', () => {
   let contractDataSource: MockProxy<ContractDataSource>;
 
   let publicFunction: EncodedContractFunction;
-  let contractData: ContractData;
+  let contractData: CompleteContractData;
   let proof: Proof;
   let root: Buffer;
 

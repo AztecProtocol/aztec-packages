@@ -11,10 +11,19 @@ export interface ContractDataSource {
   /**
    * Lookup the L2 contract data for this contract.
    * Contains information such as the ethereum portal address and bytecode.
+   * NOTE: This method works only for contracts that have public function bytecode.
    * @param contractAddress - The contract data address.
-   * @returns The portal address (if found).
+   * @returns The full contract information (if found).
    */
-  getL2ContractData(contractAddress: AztecAddress): Promise<ContractData | undefined>;
+  getL2ContractData(contractAddress: AztecAddress): Promise<CompleteContractData | undefined>;
+
+  /**
+   * Lookup the L2 contract base info for this contract.
+   * NOTE: This works for all Aztec contracts and will only return contractAddres / portalAddress.
+   * @param contractAddress - The contract data address.
+   * @returns The aztec & etehereum portal address (if found).
+   */
+  getL2ContractInfo(contractAddress: AztecAddress): Promise<ContractData | undefined>;
 
   /**
    * Lookup all contract data in an L2 block.
@@ -109,10 +118,18 @@ export class ContractData {
    * Generate ContractData with random addresses.
    * @returns ContractData.
    */
-  static random() {
+  static random(): CompleteContractData {
     return new ContractData(AztecAddress.random(), EthAddress.random(), [
       EncodedContractFunction.random(),
       EncodedContractFunction.random(),
-    ]);
+    ]) as CompleteContractData;
+  }
+
+  static createCompleteContractData(
+    contractAddres: AztecAddress,
+    portalContractAddress: EthAddress,
+    publicFunctions: EncodedContractFunction[],
+  ): CompleteContractData {
+    return new ContractData(contractAddres, portalContractAddress, publicFunctions) as CompleteContractData;
   }
 }
