@@ -4,6 +4,7 @@ import { serializeToBuffer } from '../../utils/serialize.js';
 import { AppendOnlyTreeSnapshot } from './append_only_tree_snapshot.js';
 import {
   CONTRACT_TREE_ROOTS_TREE_HEIGHT,
+  L1_TO_L2_MESSAGES_ROOTS_TREE_HEIGHT,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT,
 } from '../constants.js';
@@ -16,13 +17,15 @@ export class RootRollupInputs {
 
     public newHistoricPrivateDataTreeRootSiblingPath: Fr[],
     public newHistoricContractDataTreeRootSiblingPath: Fr[],
-
-    // TODO: Work out when writing the circuits if i will need to include both the normal and historic paths here
+    public newL1ToL2MessageTreeRootSiblingPath: Fr[],
     public newHistoricL1ToL2MessageTreeRootSiblingPath: Fr[],
     public newL1ToL2Messages: Fr[],
   ) {
     assertLength(this, 'newHistoricPrivateDataTreeRootSiblingPath', PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT);
     assertLength(this, 'newHistoricContractDataTreeRootSiblingPath', CONTRACT_TREE_ROOTS_TREE_HEIGHT);
+    // TODO: the height of this could be wrong
+    assertLength(this, 'newL1ToL2MessageTreeRootSiblingPath', L1_TO_L2_MESSAGES_ROOTS_TREE_HEIGHT);
+    assertLength(this, 'newHistoricL1ToL2MessageTreeRootSiblingPath', L1_TO_L2_MESSAGES_ROOTS_TREE_HEIGHT);
     assertLength(this, 'newL1ToL2Messages', NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
   }
 
@@ -31,6 +34,8 @@ export class RootRollupInputs {
       this.previousRollupData,
       this.newHistoricPrivateDataTreeRootSiblingPath,
       this.newHistoricContractDataTreeRootSiblingPath,
+      this.newL1ToL2MessageTreeRootSiblingPath,
+      this.newHistoricL1ToL2MessageTreeRootSiblingPath,
       this.newL1ToL2Messages,
     );
   }
@@ -44,7 +49,8 @@ export class RootRollupInputs {
       fields.previousRollupData,
       fields.newHistoricPrivateDataTreeRootSiblingPath,
       fields.newHistoricContractDataTreeRootSiblingPath,
-      fields.newHistoricContractDataTreeRootSiblingPath,
+      fields.newL1ToL2MessageTreeRootSiblingPath,
+      fields.newHistoricL1ToL2MessageTreeRootSiblingPath,
       fields.newL1ToL2Messages,
     ] as const;
   }
@@ -82,6 +88,7 @@ export class RootRollupPublicInputs {
     public endTreeOfHistoricL1ToL2MessageTreeRootsSnapshot: AppendOnlyTreeSnapshot,
 
     public calldataHash: [Fr, Fr],
+    public l1ToL2MessagesHash: [Fr, Fr],
   ) {}
 
   static getFields(fields: FieldsOf<RootRollupPublicInputs>) {
@@ -104,6 +111,7 @@ export class RootRollupPublicInputs {
       fields.startTreeOfHistoricL1ToL2MessageTreeRootsSnapshot,
       fields.endTreeOfHistoricL1ToL2MessageTreeRootsSnapshot,
       fields.calldataHash,
+      fields.l1ToL2MessagesHash,
     ] as const;
   }
 
@@ -135,6 +143,7 @@ export class RootRollupPublicInputs {
       reader.readObject(AppendOnlyTreeSnapshot),
       reader.readObject(AppendOnlyTreeSnapshot),
       reader.readObject(AppendOnlyTreeSnapshot),
+      [reader.readFr(), reader.readFr()],
       [reader.readFr(), reader.readFr()],
     );
   }

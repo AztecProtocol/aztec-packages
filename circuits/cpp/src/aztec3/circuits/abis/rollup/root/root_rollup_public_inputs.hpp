@@ -47,6 +47,7 @@ template <typename NCT> struct RootRollupPublicInputs {
     AppendOnlyTreeSnapshot<NCT> end_tree_of_historic_l1_tol2_messages_tree_roots_snapshot;
 
     std::array<fr, 2> calldata_hash;
+    std::array<fr, 2> l1_to_l2_messages_hash;
 
     bool operator==(RootRollupPublicInputs<NCT> const&) const = default;
 
@@ -102,6 +103,7 @@ template <typename NCT> void read(uint8_t const*& it, RootRollupPublicInputs<NCT
     read(it, obj.start_tree_of_historic_l1_to_l2_messages_tree_roots_snapshot);
     read(it, obj.end_tree_of_historic_l1_tol2_messages_tree_roots_snapshot);
     read(it, obj.calldata_hash);
+    read(it, obj.l1_to_l2_messages_hash);
 };
 
 template <typename NCT> void write(std::vector<uint8_t>& buf, RootRollupPublicInputs<NCT> const& obj)
@@ -126,6 +128,7 @@ template <typename NCT> void write(std::vector<uint8_t>& buf, RootRollupPublicIn
     write(buf, obj.start_tree_of_historic_l1_to_l2_messages_tree_roots_snapshot);
     write(buf, obj.end_tree_of_historic_l1_tol2_messages_tree_roots_snapshot);
     write(buf, obj.calldata_hash);
+    write(buf, obj.l1_to_l2_messages_hash);
 };
 
 template <typename NCT> std::ostream& operator<<(std::ostream& os, RootRollupPublicInputs<NCT> const& obj)
@@ -153,7 +156,9 @@ template <typename NCT> std::ostream& operator<<(std::ostream& os, RootRollupPub
               << obj.start_tree_of_historic_l1_to_l2_messages_tree_roots_snapshot << "\n"
               << "end_tree_of_historic_l1_tol2_messages_tree_roots_snapshot: "
               << obj.end_tree_of_historic_l1_tol2_messages_tree_roots_snapshot << "\n"
-              << "calldata_hash: " << obj.calldata_hash << "\n";
+              << "calldata_hash: " << obj.calldata_hash << "\n"
+              << "l1_to_l2_messages_hash: " << obj.l1_to_l2_messages_hash << "\n";
+    ;
 };
 
 }  // namespace aztec3::circuits::abis
