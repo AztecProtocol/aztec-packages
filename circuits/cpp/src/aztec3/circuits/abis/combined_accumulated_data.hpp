@@ -36,7 +36,7 @@ template <typename NCT> struct CombinedAccumulatedData {
         zero_array<fr, KERNEL_PRIVATE_CALL_STACK_LENGTH>();
     std::array<fr, KERNEL_PUBLIC_CALL_STACK_LENGTH> public_call_stack =
         zero_array<fr, KERNEL_PUBLIC_CALL_STACK_LENGTH>();
-    std::array<fr, KERNEL_NEW_L2_TO_L1_MSGS_LENGTH> l1_msg_stack = zero_array<fr, KERNEL_NEW_L2_TO_L1_MSGS_LENGTH>();
+    std::array<fr, KERNEL_NEW_L2_TO_L1_MSGS_LENGTH> l2_to_l1_msgs = zero_array<fr, KERNEL_NEW_L2_TO_L1_MSGS_LENGTH>();
 
     std::array<NewContractData<NCT>, KERNEL_NEW_CONTRACTS_LENGTH> new_contracts{};
 
@@ -50,7 +50,7 @@ template <typename NCT> struct CombinedAccumulatedData {
         return aggregation_object == other.aggregation_object && private_call_count == other.private_call_count &&
                public_call_count == other.public_call_count && new_commitments == other.new_commitments &&
                new_nullifiers == other.new_nullifiers && private_call_stack == other.private_call_stack &&
-               public_call_stack == other.public_call_stack && l1_msg_stack == other.l1_msg_stack &&
+               public_call_stack == other.public_call_stack && l2_to_l1_msgs == other.l2_to_l1_msgs &&
                new_contracts == other.new_contracts && optionally_revealed_data == other.optionally_revealed_data &&
                state_transitions == other.state_transitions && state_reads == other.state_reads;
     };
@@ -82,7 +82,7 @@ template <typename NCT> struct CombinedAccumulatedData {
 
             to_ct(private_call_stack),
             to_ct(public_call_stack),
-            to_ct(l1_msg_stack),
+            to_ct(l2_to_l1_msgs),
 
             map(new_contracts, to_circuit_type),
             map(optionally_revealed_data, to_circuit_type),
@@ -116,7 +116,7 @@ template <typename NCT> struct CombinedAccumulatedData {
 
             to_nt(private_call_stack),
             to_nt(public_call_stack),
-            to_nt(l1_msg_stack),
+            to_nt(l2_to_l1_msgs),
 
             map(new_contracts, to_native_type),
             map(optionally_revealed_data, to_native_type),
@@ -140,7 +140,7 @@ template <typename NCT> struct CombinedAccumulatedData {
 
         set_array_public(private_call_stack);
         set_array_public(public_call_stack);
-        set_array_public(l1_msg_stack);
+        set_array_public(l2_to_l1_msgs);
 
         set_array_public(new_contracts);
         set_array_public(optionally_revealed_data);
@@ -200,7 +200,7 @@ template <typename NCT> void read(uint8_t const*& it, CombinedAccumulatedData<NC
     read(it, accum_data.new_nullifiers);
     read(it, accum_data.private_call_stack);
     read(it, accum_data.public_call_stack);
-    read(it, accum_data.l1_msg_stack);
+    read(it, accum_data.l2_to_l1_msgs);
     read(it, accum_data.new_contracts);
     read(it, accum_data.optionally_revealed_data);
     read(it, accum_data.state_transitions);
@@ -218,7 +218,7 @@ template <typename NCT> void write(std::vector<uint8_t>& buf, CombinedAccumulate
     write(buf, accum_data.new_nullifiers);
     write(buf, accum_data.private_call_stack);
     write(buf, accum_data.public_call_stack);
-    write(buf, accum_data.l1_msg_stack);
+    write(buf, accum_data.l2_to_l1_msgs);
     write(buf, accum_data.new_contracts);
     write(buf, accum_data.optionally_revealed_data);
     write(buf, accum_data.state_transitions);
@@ -239,8 +239,8 @@ template <typename NCT> std::ostream& operator<<(std::ostream& os, CombinedAccum
               << accum_data.private_call_stack << "\n"
               << "public_call_stack:\n"
               << accum_data.public_call_stack << "\n"
-              << "l1_msg_stack:\n"
-              << accum_data.l1_msg_stack << "\n"
+              << "l2_to_l1_msgs:\n"
+              << accum_data.l2_to_l1_msgs << "\n"
               << "new_contracts:\n"
               << accum_data.new_contracts << "\n"
               << "optionally_revealed_data:\n"

@@ -68,7 +68,7 @@ void initialise_end_values(PrivateInputs<NT> const& private_inputs, KernelCircui
 
     end.private_call_stack = start.private_call_stack;
     end.public_call_stack = start.public_call_stack;
-    end.l1_msg_stack = start.l1_msg_stack;
+    end.l2_to_l1_msgs = start.l2_to_l1_msgs;
 
     end.optionally_revealed_data = start.optionally_revealed_data;
 }
@@ -239,14 +239,14 @@ void update_end_values(DummyComposer& composer,
     // const auto& portal_contract_address = private_inputs.private_call.portal_contract_address;
 
     // {
-    //     const auto& l1_msg_stack = private_call_public_inputs.l1_msg_stack;
+    //     const auto& l2_to_l1_msgs = private_call_public_inputs.l2_to_l1_msgs;
     //     std::array<CT::fr, NEW_L2_TO_L1_MSGS_LENGTH> l1_call_stack;
 
-    //     for (size_t i = 0; i < l1_msg_stack.size(); ++i) {
+    //     for (size_t i = 0; i < l2_to_l1_msgs.size(); ++i) {
     //         l1_call_stack[i] = CT::fr::conditional_assign(
-    //             l1_msg_stack[i] == 0,
+    //             l2_to_l1_msgs[i] == 0,
     //             0,
-    //             CT::compress({ portal_contract_address, l1_msg_stack[i] }, GeneratorIndex::L1_MSG_STACK_ITEM));
+    //             CT::compress({ portal_contract_address, l2_to_l1_msgs[i] }, GeneratorIndex::L1_MSG_STACK_ITEM));
     //     }
     // }
 }
@@ -299,7 +299,7 @@ void validate_inputs(DummyComposer& composer, PrivateInputs<NT> const& private_i
 
     NT::fr start_private_call_stack_length = array_length(start.private_call_stack);
     NT::fr start_public_call_stack_length = array_length(start.public_call_stack);
-    NT::fr start_l1_msg_stack_length = array_length(start.l1_msg_stack);
+    NT::fr start_l1_msg_stack_length = array_length(start.l2_to_l1_msgs);
 
     // Base Case
     if (is_base_case) {
