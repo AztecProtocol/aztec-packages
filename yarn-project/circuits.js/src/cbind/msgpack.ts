@@ -1,46 +1,21 @@
 import * as msgpack from '@msgpack/msgpack';
+import camelCase from 'lodash.camelcase';
+import snakeCase from 'lodash.snakecase';
 
 /**
  * Helper functions for transformation from underlying camel-case C++-defined format.
  * This helps make using the raw output more idiomatic.
  */
-
-// Global in-memory cache
-const snakeToCamelCache: Map<string, string> = new Map();
-const camelToSnakeCache: Map<string, string> = new Map();
-
-// Helper function to convert snake_case to camelCase
-function snakeToCamel(str: string): string {
-  if (snakeToCamelCache.has(str)) {
-    return snakeToCamelCache.get(str) as string;
-  }
-
-  const camelCase = str.replace(/(_\w)/g, matches => matches[1].toUpperCase());
-  snakeToCamelCache.set(str, camelCase);
-  return camelCase;
-}
-
-// Helper function to convert camelCase to snake_case
-function camelToSnake(str: string): string {
-  if (camelToSnakeCache.has(str)) {
-    return camelToSnakeCache.get(str) as string;
-  }
-
-  const snakeCase = str.replace(/([A-Z])/g, matches => `_${matches[0].toLowerCase()}`);
-  camelToSnakeCache.set(str, snakeCase);
-  return snakeCase;
-}
-
-function recursiveToCamelCase(data: any): any {
+function recursiveCamelCase(data: any): any {
   if (Array.isArray(data)) {
-    return data.map(recursiveToCamelCase);
+    return data.map(recursiveCamelCase);
   } else if (data instanceof Uint8Array) {
     return Buffer.from(data);
   } else if (data && typeof data === 'object') {
     const camelCaseData: any = {};
 
     for (const key in data) {
-      camelCaseData[snakeToCamel(key)] = recursiveToCamelCase(data[key]);
+      camelCaseData[camelCase(key)] = recursiveCamelCase(data[key]);
     }
 
     return camelCaseData;
@@ -49,16 +24,16 @@ function recursiveToCamelCase(data: any): any {
   }
 }
 
-function recursiveToSnakeCase(data: any): any {
+function recursiveSnakeCase(data: any): any {
   if (Array.isArray(data)) {
-    return data.map(recursiveToSnakeCase);
+    return data.map(recursiveSnakeCase);
   } else if (data instanceof Uint8Array) {
     return data;
   } else if (data && typeof data === 'object') {
     const snakeCaseData: any = {};
 
     for (const key in data) {
-      snakeCaseData[camelToSnake(key)] = recursiveToSnakeCase(data[key]);
+      snakeCaseData[snakeCase(key)] = recursiveSnakeCase(data[key]);
     }
 
     return snakeCaseData;
@@ -70,11 +45,11 @@ function recursiveToSnakeCase(data: any): any {
 // Function that wraps msgpack.decode and converts keys from snake_case to camelCase
 export function decode(data: Uint8Array): any {
   const decodedData = msgpack.decode(data);
-  return recursiveToCamelCase(decodedData);
+  return recursiveCamelCase(decodedData);
 }
 
 // Function that wraps msgpack.encode and converts keys from camelCase to snake_case
 export function encode(data: any): Uint8Array {
-  const snakeCaseData = recursiveToSnakeCase(data);
+  const snakeCaseData = recursiveSnakeCase(data);
   return msgpack.encode(snakeCaseData);
 }

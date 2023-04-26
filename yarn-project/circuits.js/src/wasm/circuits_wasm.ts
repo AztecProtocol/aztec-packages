@@ -1,6 +1,5 @@
 import { loadProverCrs, loadVerifierCrs } from '@aztec/barretenberg.js/wasm';
 import { AsyncWasmWrapper, WasmModule } from '@aztec/foundation/wasm';
-import { decode, encode } from '@msgpack/msgpack';
 
 import isNode from 'detect-node';
 import { dirname, join } from 'path';

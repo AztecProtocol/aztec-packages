@@ -2,9 +2,13 @@
 
 #include "barretenberg/common/msgpack/concepts.hpp"
 #include "barretenberg/common/msgpack_impl.hpp"
+#include "barretenberg/plonk/proof_system/verification_key/verification_key.hpp"
+#include "barretenberg/stdlib/primitives/address/address.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include <memory>
+#include <concepts>
 #include <string>
+#include <array>
 #define MSGPACK_NO_BOOST
 #include "aztec3/msgpack/check_memory_span.hpp"
 #include "schema_name.hpp"
@@ -24,24 +28,20 @@ struct SchemaPacker : packer<msgpack::sbuffer> {
     // Returns if already was emitted
     bool set_emitted(const std::string& type)
     {
-        if (emitted_types.find(type) != emitted_types.end()) {
+        if (emitted_types.find(type) == emitted_types.end()) {
+            emitted_types.insert(type);
             return false;
         }
         return true;
     }
 };
 
-// template <typename... Args>
-// inline SchemaPacker& operator<< (SchemaPacker& packer, SchemaContainer<Args...> const& container) {
-//     packer << std::make_tuple(SchemaKey {container.type_name}, Args{}...);
-//     return packer;
-// }
-
 // Helper for packing (key, value, key, value, ...) arguments
 inline void _schema_pack_map_content(SchemaPacker&)
 {
     // base case
 }
+// Helper for packing (key, value, key, value, ...) arguments
 template <typename Value, typename... Rest>
 inline void _schema_pack_map_content(SchemaPacker& packer, std::string key, Value value, Rest... rest)
 {
@@ -51,7 +51,52 @@ inline void _schema_pack_map_content(SchemaPacker& packer, std::string key, Valu
 }
 
 /**
- * @brief Encode a type that defines msgpack.
+ * Schema pack base case for types with no special msgpack method.
+ * @tparam T the type.
+ * @param packer the schema packer.
+ */
+template <typename T>
+    requires(!HasMsgPack<T> && !HasMsgPackPack<T>)
+inline void schema_pack(SchemaPacker& packer, T const&)
+{
+    packer.pack(schema_name<T>());
+}
+
+/**
+ * Pack a type indicating it is an alias of a certain msgpack type
+ * @param packer The packer.
+ * @param schema_name The CPP type.
+ * @param msgpack_name The msgpack type.
+ */
+inline void _schema_pack_alias(SchemaPacker& packer, const std::string& schema_name, const std::string& msgpack_name)
+{
+    packer.pack_array(2);
+    packer.pack("alias");
+    packer.pack_array(2);
+    packer.pack(schema_name);
+    packer.pack(msgpack_name);
+}
+
+// Object aliases
+inline void schema_pack(SchemaPacker& packer, barretenberg::fr const&)
+{
+    _schema_pack_alias(packer, "Fr", "bin32");
+}
+inline void schema_pack(SchemaPacker& packer, proof_system::plonk::proof const&)
+{
+    _schema_pack_alias(packer, "Proof", "bin32");
+}
+inline void schema_pack(SchemaPacker& packer, barretenberg::fq const&)
+{
+    _schema_pack_alias(packer, "Fq", "bin32");
+}
+inline void schema_pack(SchemaPacker& packer, proof_system::plonk::stdlib::address const&)
+{
+    _schema_pack_alias(packer, "Address", "bin32");
+}
+
+/**
+ * @brief Encode a type that defines msgpack based on its key value pairs.
  *
  * @tparam T the msgpack()'able type
  * @param packer Our special packer.
@@ -75,163 +120,82 @@ template <HasMsgPack T> inline void schema_pack(SchemaPacker& packer, T const& o
     });
 }
 
-// template <HasMsgPackPack T>
-// inline void operator<< (SchemaPacker& packer, T const& object) {
-//     std::string type = schema_name<T>();
-//     if (packer.set_emitted(type)) {
-//         packer << SchemaKey {type};
-//         return; // already emitted
-//     }
-//     packer.pack_array(3);
-//     packer << SchemaKey {"type"};
-//     packer << SchemaKey {type};
-//     // Get the amount of keys and values
-//     const_cast<T&>(object).msgpack([&](auto&... args) {
-//         packer << std::make_tuple(args...);
-//     });
-// }
-
-template <typename T>
-    requires(!HasMsgPack<T>)
-inline void schema_pack(SchemaPacker& packer, T const&)
+// Alias verification_key as verification_key_data
+inline void schema_pack(SchemaPacker& packer, proof_system::plonk::verification_key const&)
 {
-    packer.pack(schema_name<T>());
+    schema_pack(packer, proof_system::plonk::verification_key_data{});
 }
 
 // Recurse over any templated containers
-// Packs as e.g. ["map", [
-#define SCHEMA_CONTAINER(cpp_name, schema_name)                                                                        \
-    template <typename... Args> inline void schema_pack(SchemaPacker& packer, cpp_name<Args...> const&)                \
-    {                                                                                                                  \
-        packer.pack_array(2);                                                                                          \
-        packer.pack(schema_name);                                                                                      \
-        packer.pack_array(sizeof...(Args));                                                                            \
-        (schema_pack(packer, Args{}), ...); /* pack schemas of all template Args */                                    \
-    }
+// Outputs e.g. ['vector', ['sub-type']]
+template <typename... Args> inline void _schema_pack(SchemaPacker& packer, const std::string& schema_name)
+{
+    packer.pack_array(2);
+    packer.pack(schema_name);
+    packer.pack_array(sizeof...(Args));
+    (schema_pack(packer, Args{}), ...); /* pack schemas of all template Args */
+}
+template <typename... Args> inline void schema_pack(SchemaPacker& packer, std::tuple<Args...> const&)
+{
+    _schema_pack<Args...>(packer, "tuple");
+}
+template <typename K, typename V> inline void schema_pack(SchemaPacker& packer, std::map<K, V> const&)
+{
+    _schema_pack<K, V>(packer, "map");
+}
+template <typename T> inline void schema_pack(SchemaPacker& packer, std::optional<T> const&)
+{
+    _schema_pack<T>(packer, "optional");
+}
+template <typename T> inline void schema_pack(SchemaPacker& packer, std::vector<T> const&)
+{
+    _schema_pack<T>(packer, "vector");
+}
+template <typename... Args> inline void schema_pack(SchemaPacker& packer, std::variant<Args...> const&)
+{
+    _schema_pack<Args...>(packer, "variant");
+}
+template <typename T> inline void schema_pack(SchemaPacker& packer, std::shared_ptr<T> const&)
+{
+    _schema_pack<T>(packer, "shared_ptr");
+}
 
-SCHEMA_CONTAINER(std::tuple, "tuple");
-SCHEMA_CONTAINER(std::map, "map");
-SCHEMA_CONTAINER(std::optional, "optional");
-SCHEMA_CONTAINER(std::vector, "vector");
-SCHEMA_CONTAINER(std::variant, "variant");
-SCHEMA_CONTAINER(std::shared_ptr, "shared_ptr");
+// Outputs e.g. ['array', ['array-type', 'N']]
+template <typename T, std::size_t N> inline void schema_pack(SchemaPacker& packer, std::array<T, N> const&)
+{
+    packer.pack_array(2);
+    packer.pack("array");
+    packer.pack_array(2); /* param list format for consistency*/
+    schema_pack(packer, T{});
+    packer.pack(N);
+}
 
-// /**
-//  * Creates a serialization schema based on compile-time information about a type being serialized.
-//  * This is then consumed by typescript to make bindings.
-//  * @tparam Stream the underlying stream to write to
-//  */
-// template <typename Stream> struct SchemaPrinter : msgpack::packer<Stream> {
-//     std::set<std::string> emitted_types;
-//     SchemaPrinter(Stream* stream)
-//         : msgpack::packer<Stream>(stream)
-//     {}
-//     template <typename... T> void pack(std::tuple<T...>& args)
-//     {
-//         this->pack_array(sizeof...(T) + 1);
-//         msgpack::packer<Stream>::pack("tuple");
-//         std::apply([&](auto&... args) { (pack(args), ...); }, args);
-//     }
-//     template <typename T> void pack(std::vector<T>& args)
-//     {
-//         (void)args; // unused, just schema
-//         this->pack_array(2);
-//         msgpack::packer<Stream>::pack("vector");
-//         pack(T{});
-//     }
+// Any special distinctions that need to be made between otherwise same-schema-name fields
+// Also, can specify the underlying type
+// Outputs e.g. ['alias', ['schema-name', 'msgpack-name']]
+// inline void schema_pack(SchemaPacker& packer, std::string const&)
+// {
+//     _schema_pack_alias(packer, "string", "string");
+// }
+// inline void schema_pack(SchemaPacker& packer, double const&)
+// {
+//     _schema_pack_alias(packer, "float", "float");
+// }
+// inline void schema_pack(SchemaPacker& packer, bool const&)
+// {
+//     _schema_pack_alias(packer, "bool", "bool");
+// }
+// inline void schema_pack(SchemaPacker& packer, std::integral auto const&)
+// {
+//     _schema_pack_alias(packer, "int", "int");
+// }
 
-//     template <typename K, typename V> void pack(std::map<K, V>& args)
-//     {
-//         (void)args; // unused, just schema
-//         this->pack_array(3);
-//         msgpack::packer<Stream>::pack("map");
-//         pack(K{});
-//         pack(V{});
-//     }
-//     template <typename K, std::size_t V> void pack(std::array<K, V>& args)
-//     {
-//         (void)args; // unused, just schema
-//         this->pack_array(3);
-//         msgpack::packer<Stream>::pack("array");
-//         pack(K{});
-//         msgpack::packer<Stream>::pack(V);
-//     }
-//     template <typename T> void pack(std::optional<T>& args)
-//     {
-//         (void)args; // unused, just schema
-//         this->pack_array(2);
-//         msgpack::packer<Stream>::pack("optional");
-//         pack(T{});
-//     }
-//     template <typename... Args> void pack(std::variant<Args...>& args)
-//     {
-//         (void)args; // unused, just schema
-//         this->pack_array(1 + sizeof...(Args));
-//         msgpack::packer<Stream>::pack("variant");
-//         (pack(Args{}), ...);
-//     }
-
-//     // Helper for printing key, value, key, value arguments
-//     void _pack_key_values()
-//     {
-//         // base case
-//     }
-//     void _pack_key_values(std::string key, auto value, auto... rest)
-//     {
-//         // Raw print
-//         msgpack::packer<Stream>::pack(key);
-//         // Schema print
-//         pack(value);
-//         _pack_key_values(rest...);
-//     }
-//     // Serialize an object with a msgpack() method into a schema
-//     template <HasMsgPack T> void pack(const T& object)
-//     {
-//         msgpack::check_msgpack_usage(object);
-//         std::string type = schema_name<decltype(object)>();
-//         if (emitted_types.find(type) != emitted_types.end()) {
-//             msgpack::packer<Stream>::pack(type);
-//             return; // already emitted
-//         }
-//         emitted_types.insert(type);
-//         size_t keys_and_values = 0;
-//         const_cast<T&>(object).msgpack([&](auto&... args) { keys_and_values = sizeof...(args); });
-//         this->pack_map(uint32_t(1 + keys_and_values / 2));
-//         msgpack::packer<Stream>::pack("__typename");
-//         msgpack::packer<Stream>::pack(type);
-//         const_cast<T&>(object).msgpack([&](auto&... args) { _pack_key_values(args...); });
-//     }
-//     template <typename T> void pack(const std::shared_ptr<T>& v)
-//     {
-//         (void)v; // unused except for schema
-//         this->pack_array(2);
-//         msgpack::packer<Stream>::pack("shared_ptr");
-//         T object;
-//         pack(object);
-//     }
-//     void pack(HasMsgPackPack auto& v)
-//     {
-//         std::string type = schema_name<decltype(v)>();
-//         if (emitted_types.find(type) != emitted_types.end()) {
-//             msgpack::packer<Stream>::pack(type);
-//             return; // already emitted
-//         }
-//         emitted_types.insert(type);
-//         this->pack_array(3);
-//         msgpack::packer<Stream>::pack("struct");
-//         msgpack::packer<Stream>::pack(type);
-//         v.msgpack_pack(*this);
-//     }
-//     template <typename T>
-//         requires(!HasMsgPack<T>)
-//     void pack(const T& v)
-//     {
-//         (void)v; // unused except for schema
-//         msgpack::packer<Stream>::pack(schema_name<T>());
-//     }
-//     void pack_bin(size_t size) { msgpack::packer<Stream>::pack("bin" + std::to_string(size)); }
-//     void pack_bin_body(const char*, size_t) {}
-// };
+/**
+ * @brief Print's an object's derived msgpack schema as a string.
+ *
+ * @param obj The object to print schema of.
+ * @return std::string The schema as a string.
+ */
 std::string schema_to_string(auto obj)
 {
     msgpack::sbuffer output;
