@@ -129,7 +129,7 @@ export class Sequencer {
       // Publishes new unverified data & contract data for private txs to the network and awaits the tx to be mined
       this.state = SequencerState.PUBLISHING_UNVERIFIED_DATA;
       const unverifiedData = UnverifiedData.join(validTxs.filter(isPrivateTx).map(tx => tx.unverifiedData));
-      const newContractData: CompleteContractData[] = validTxs
+      const newContractData = validTxs
         .filter(isPrivateTx)
         .map(tx => {
           // Currently can only have 1 new contract per tx
@@ -142,7 +142,7 @@ export class Sequencer {
             );
           }
         })
-        .filter(cd => cd !== undefined) as CompleteContractData[]; // using `as` here since typescript doesn't automatically get .filter
+        .filter((cd): cd is Exclude<typeof cd, undefined> => cd !== undefined);
 
       const publishedUnverifiedData = await this.publisher.processUnverifiedData(block.number, unverifiedData);
       const publishedContractData = await this.publisher.processNewContractData(block.number, newContractData);
