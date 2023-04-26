@@ -75,7 +75,12 @@ export async function hashTxRequest(wasm: CircuitsWasm, txRequest: TxRequest) {
 }
 
 export async function computeFunctionSelector(wasm: CircuitsWasm, funcSig: string) {
-  return await wasmAsyncCall(wasm, 'abis__compute_function_selector', Buffer.from(funcSig), 4);
+  return await wasmAsyncCall(
+    wasm,
+    'abis__compute_function_selector',
+    Buffer.from(funcSig),
+    FUNCTION_SELECTOR_NUM_BYTES,
+  );
 }
 
 export async function hashVK(wasm: CircuitsWasm, vkBuf: Buffer) {
