@@ -31,7 +31,6 @@ using aztec3::circuits::abis::public_kernel::PublicKernelInputsNoPreviousKernel;
 using NT = aztec3::utils::types::NativeTypes;
 using aztec3::circuits::abis::CallContext;
 using aztec3::circuits::abis::CallStackItem;
-using aztec3::circuits::abis::OptionalPublicCircuitPublicInputs;
 using aztec3::circuits::abis::PublicCircuitPublicInputs;
 using aztec3::circuits::abis::PublicDataRead;
 using aztec3::circuits::abis::PublicTypes;
