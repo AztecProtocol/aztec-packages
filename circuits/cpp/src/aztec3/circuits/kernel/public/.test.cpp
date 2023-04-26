@@ -33,6 +33,7 @@ using aztec3::circuits::abis::CallContext;
 using aztec3::circuits::abis::CallStackItem;
 using aztec3::circuits::abis::OptionalPublicCircuitPublicInputs;
 using aztec3::circuits::abis::PublicCircuitPublicInputs;
+using aztec3::circuits::abis::PublicDataRead;
 using aztec3::circuits::abis::PublicTypes;
 using aztec3::circuits::abis::SignedTxRequest;
 using aztec3::circuits::abis::TxContext;
@@ -42,53 +43,6 @@ using aztec3::circuits::apps::FunctionExecutionContext;
 } // namespace
 
 namespace aztec3::circuits::kernel::public_kernel {
-
-/**
- * @brief Generate a verification key for a private circuit.
- *
- * @details Use some dummy inputs just to get the VK for a private circuit
- *
- * @param is_constructor Whether this private call is a constructor call
- * @param func The private circuit call to generate a VK for
- * @param num_args Number of args to that private circuit call
- * @return std::shared_ptr<NT::VK> - the generated VK
- */
-// std::shared_ptr<NT::VK> gen_func_vk(bool is_constructor, private_function const& func, size_t const num_args)
-// {
-//     // Some dummy inputs to get the circuit to compile and get a VK
-//     FunctionData<NT> dummy_function_data{
-//         .is_private = true,
-//         .is_constructor = is_constructor,
-//     };
-
-//     CallContext<NT> dummy_call_context{
-//         .is_contract_deployment = is_constructor,
-//     };
-
-//     // Dummmy invokation of private call circuit, in order to derive its vk
-//     Composer dummy_composer = Composer("../barretenberg/cpp/srs_db/ignition");
-//     {
-//         DB dummy_db;
-//         NativeOracle dummy_oracle = is_constructor
-//                                         ? NativeOracle(dummy_db, 0, dummy_function_data, dummy_call_context, {}, 0)
-//                                         : NativeOracle(dummy_db, 0, dummy_function_data, dummy_call_context, 0);
-
-//         OracleWrapper dummy_oracle_wrapper = OracleWrapper(dummy_composer, dummy_oracle);
-
-//         FunctionExecutionContext dummy_ctx(dummy_composer, dummy_oracle_wrapper);
-
-//         std::array<NT::fr, ARGS_LENGTH> dummy_args;
-//         // if args are value 0, deposit circuit errors when inserting utxo notes
-//         dummy_args.fill(1);
-//         // Make call to private call circuit itself to lay down constraints
-//         func(dummy_ctx, dummy_args);
-//         // FIXME remove arg
-//         (void)num_args;
-//     }
-
-//     // Now we can derive the vk:
-//     return dummy_composer.compute_verification_key();
-// }
 
 typedef CallStackItem<NT, PublicTypes> PublicCallStackItem;
 
@@ -128,7 +82,7 @@ std::array<StateRead<NT>, STATE_READS_LENGTH> generate_state_reads(NT::uint32& c
     return values;
 }
 
-PublicCallStackItem generate_call_stack_item(NT::address contract_address, NT::fr msg_sender, NT::uint32 seed = 0)
+PublicCallStackItem generate_call_stack_item(NT::fr contract_address, NT::fr msg_sender, NT::uint32 seed = 0)
 {
     NT::uint32 count = seed + 1;
     FunctionData<NT> function_data{
@@ -136,10 +90,9 @@ PublicCallStackItem generate_call_stack_item(NT::address contract_address, NT::f
         .is_private = false,
         .is_constructor = false,
     };
-
     CallContext<NT> call_context{
         .msg_sender = msg_sender,
-        .storage_contract_address = contract_address,
+        .storage_contract_address = msg_sender,
         .portal_contract_address = ++count,
         .is_delegate_call = false,
         .is_static_call = false,
@@ -183,19 +136,14 @@ PublicCallStackItem generate_call_stack_item(NT::address contract_address, NT::f
 PublicKernelInputsNoPreviousKernel<NT> do_public_call_get_kernel_inputs_no_previous_kernel(
     bool const is_constructor, std::vector<NT::fr> const& args_vec)
 {
-    //***************************************************************************
-    // Initialize some inputs to private call and kernel circuits
-    //***************************************************************************
-    // TODO randomize inputs
-    NT::address contract_address = is_constructor ? 0 : 12345; // updated later if in constructor
+    NT::address contract_address = is_constructor ? 0 : 12345;
     const NT::fr portal_contract_address = 23456;
 
-    const NT::address msg_sender =
-        NT::fr(uint256_t(0x01071e9a23e0f7edULL, 0x5d77b35d1830fa3eULL, 0xc6ba3660bb1f0c0bULL, 0x2ef9f7f09867fd6eULL));
+    const NT::address msg_sender = NT::fr(1);
     const NT::address tx_origin = msg_sender;
 
     FunctionData<NT> function_data{
-        .function_selector = 1, // TODO: deduce this from the contract, somehow.
+        .function_selector = 1,
         .is_private = false,
         .is_constructor = is_constructor,
     };
@@ -244,7 +192,7 @@ PublicKernelInputsNoPreviousKernel<NT> do_public_call_get_kernel_inputs_no_previ
     std::array<PublicCallStackItem, PUBLIC_CALL_STACK_LENGTH> child_call_stacks;
     NT::uint32 seed = 1000;
     NT::fr child_contract_address = 100000;
-    NT::fr child_msg_sender = msg_sender;
+    NT::fr child_msg_sender = contract_address;
     std::array<NT::fr, PUBLIC_CALL_STACK_LENGTH> call_stack_hashes;
     for (size_t i = 0; i < PUBLIC_CALL_STACK_LENGTH; i++) {
         child_call_stacks[i] = generate_call_stack_item(child_contract_address, child_msg_sender, seed);
@@ -286,7 +234,7 @@ PublicKernelInputsNoPreviousKernel<NT> do_public_call_get_kernel_inputs_no_previ
     };
 
     //***************************************************************************
-    // Now we can construct the full private inputs to the kernel circuit
+    // Now we can construct the full inputs to the kernel circuit
     //***************************************************************************
     PublicKernelInputsNoPreviousKernel<NT> public_kernel_inputs = {
         .signed_tx_request = signed_tx_request,
@@ -302,7 +250,6 @@ TEST(public_kernel_tests, no_previous_kernel_public_call_should_succeed)
     PublicKernelInputsNoPreviousKernel<NT> inputs =
         do_public_call_get_kernel_inputs_no_previous_kernel(false, std::vector<NT::fr>{ 1 });
     auto public_inputs = native_public_kernel_circuit_no_previous_kernel(dc, inputs);
-    info("Error ", dc.get_first_failure());
     ASSERT_FALSE(dc.failed());
 }
 
@@ -312,28 +259,127 @@ TEST(public_kernel_tests, circuit_outputs_should_be_correctly_populated)
     PublicKernelInputsNoPreviousKernel<NT> inputs =
         do_public_call_get_kernel_inputs_no_previous_kernel(false, std::vector<NT::fr>{ 1 });
     auto public_inputs = native_public_kernel_circuit_no_previous_kernel(dc, inputs);
-    info("Error ", dc.get_first_failure());
     ASSERT_FALSE(dc.failed());
 
     ASSERT_FALSE(public_inputs.is_private);
     ASSERT_EQ(public_inputs.constants.tx_context, inputs.signed_tx_request.tx_request.tx_context);
-    ASSERT_EQ(public_inputs.constants.historic_tree_roots.public_data_tree_root,
-              inputs.public_call.public_data_tree_root);
 
     for (size_t i = 0; i < PUBLIC_CALL_STACK_LENGTH; i++) {
         ASSERT_EQ(public_inputs.end.public_call_stack[i],
-                  inputs.public_call.public_call_data.call_stack_item.public_inputs.public_call_stack[i]);
+                  inputs.public_call.call_stack_item.public_inputs.public_call_stack[i]);
     }
 
-    const auto contract_address = inputs.public_call.public_call_data.call_stack_item.contract_address;
+    const auto contract_address = inputs.public_call.call_stack_item.contract_address;
     for (size_t i = 0; i < STATE_TRANSITIONS_LENGTH; i++) {
-        const auto& st = inputs.public_call.public_call_data.call_stack_item.public_inputs.state_transitions[i];
+        const auto& st = inputs.public_call.call_stack_item.public_inputs.state_transitions[i];
         const auto public_write = PublicDataWrite<NT>{
             .leaf_index = compute_public_data_tree_index<NT>(contract_address, st.storage_slot),
             .new_value = compute_public_data_tree_value<NT>(st.new_value),
         };
         ASSERT_EQ(public_inputs.end.state_transitions[i], public_write);
     }
+
+    for (size_t i = 0; i < STATE_READS_LENGTH; i++) {
+        const auto& st = inputs.public_call.call_stack_item.public_inputs.state_reads[i];
+        const auto public_read = PublicDataRead<NT>{
+            .leaf_index = compute_public_data_tree_index<NT>(contract_address, st.storage_slot),
+            .value = compute_public_data_tree_value<NT>(st.current_value),
+        };
+        ASSERT_EQ(public_inputs.end.state_reads[i], public_read);
+    }
+}
+
+TEST(public_kernel_tests, only_valid_state_reads_should_be_propagated)
+{
+    DummyComposer dc;
+    PublicKernelInputsNoPreviousKernel<NT> inputs =
+        do_public_call_get_kernel_inputs_no_previous_kernel(false, std::vector<NT::fr>{ 1 });
+
+    // modify the state reads so only 2 are valid and only those should be propagated
+    const auto first_valid = StateRead<NT>{
+        .storage_slot = 123456789,
+        .current_value = 76543,
+    };
+    const auto second_valid = StateRead<NT>{
+        .storage_slot = 123456789,
+        .current_value = 76543,
+    };
+    std::array<StateRead<NT>, STATE_TRANSITIONS_LENGTH> reads = std::array<StateRead<NT>, STATE_TRANSITIONS_LENGTH>();
+    reads[1] = first_valid;
+    reads[3] = second_valid;
+    inputs.public_call.call_stack_item.public_inputs.state_reads = reads;
+
+    auto public_inputs = native_public_kernel_circuit_no_previous_kernel(dc, inputs);
+    ASSERT_FALSE(dc.failed());
+
+    ASSERT_FALSE(public_inputs.is_private);
+    ASSERT_EQ(public_inputs.constants.tx_context, inputs.signed_tx_request.tx_request.tx_context);
+
+    for (size_t i = 0; i < PUBLIC_CALL_STACK_LENGTH; i++) {
+        ASSERT_EQ(public_inputs.end.public_call_stack[i],
+                  inputs.public_call.call_stack_item.public_inputs.public_call_stack[i]);
+    }
+
+    // only the 2 valid reads should have been propagated
+    const auto contract_address = inputs.public_call.call_stack_item.contract_address;
+    const auto public_read_1 = PublicDataRead<NT>{
+        .leaf_index = compute_public_data_tree_index<NT>(contract_address, first_valid.storage_slot),
+        .value = compute_public_data_tree_value<NT>(first_valid.current_value),
+    };
+    const auto public_read_2 = PublicDataRead<NT>{
+        .leaf_index = compute_public_data_tree_index<NT>(contract_address, second_valid.storage_slot),
+        .value = compute_public_data_tree_value<NT>(second_valid.current_value),
+    };
+    ASSERT_EQ(public_inputs.end.state_reads[0], public_read_1);
+    ASSERT_EQ(public_inputs.end.state_reads[1], public_read_2);
+}
+
+TEST(public_kernel_tests, only_valid_state_transitions_should_be_propagated)
+{
+    DummyComposer dc;
+    PublicKernelInputsNoPreviousKernel<NT> inputs =
+        do_public_call_get_kernel_inputs_no_previous_kernel(false, std::vector<NT::fr>{ 1 });
+
+    // modify the state transitions so only 2 are valid and only those should be propagated
+    const auto first_valid = StateTransition<NT>{
+        .storage_slot = 123456789,
+        .old_value = 76543,
+        .new_value = 76544,
+    };
+    const auto second_valid = StateTransition<NT>{
+        .storage_slot = 123456789,
+        .old_value = 76543,
+        .new_value = 76544,
+    };
+    std::array<StateTransition<NT>, STATE_TRANSITIONS_LENGTH> transitions =
+        std::array<StateTransition<NT>, STATE_TRANSITIONS_LENGTH>();
+    transitions[1] = first_valid;
+    transitions[3] = second_valid;
+    inputs.public_call.call_stack_item.public_inputs.state_transitions = transitions;
+
+    auto public_inputs = native_public_kernel_circuit_no_previous_kernel(dc, inputs);
+    ASSERT_FALSE(dc.failed());
+
+    ASSERT_FALSE(public_inputs.is_private);
+    ASSERT_EQ(public_inputs.constants.tx_context, inputs.signed_tx_request.tx_request.tx_context);
+
+    for (size_t i = 0; i < PUBLIC_CALL_STACK_LENGTH; i++) {
+        ASSERT_EQ(public_inputs.end.public_call_stack[i],
+                  inputs.public_call.call_stack_item.public_inputs.public_call_stack[i]);
+    }
+
+    // only the 2 valid transitions should have been propagated
+    const auto contract_address = inputs.public_call.call_stack_item.contract_address;
+    const auto public_write_1 = PublicDataWrite<NT>{
+        .leaf_index = compute_public_data_tree_index<NT>(contract_address, first_valid.storage_slot),
+        .new_value = compute_public_data_tree_value<NT>(first_valid.new_value),
+    };
+    const auto public_write_2 = PublicDataWrite<NT>{
+        .leaf_index = compute_public_data_tree_index<NT>(contract_address, second_valid.storage_slot),
+        .new_value = compute_public_data_tree_value<NT>(second_valid.new_value),
+    };
+    ASSERT_EQ(public_inputs.end.state_transitions[0], public_write_1);
+    ASSERT_EQ(public_inputs.end.state_transitions[1], public_write_2);
 }
 
 TEST(public_kernel_tests, constructor_should_fail)
@@ -342,9 +388,8 @@ TEST(public_kernel_tests, constructor_should_fail)
     PublicKernelInputsNoPreviousKernel<NT> inputs =
         do_public_call_get_kernel_inputs_no_previous_kernel(false, std::vector<NT::fr>{ 1 });
 
-    inputs.public_call.public_call_data.call_stack_item.function_data.is_constructor = true;
+    inputs.public_call.call_stack_item.function_data.is_constructor = true;
     auto public_inputs = native_public_kernel_circuit_no_previous_kernel(dc, inputs);
-    info("Error ", dc.get_first_failure());
     ASSERT_TRUE(dc.failed());
 }
 
@@ -354,9 +399,8 @@ TEST(public_kernel_tests, constructor_should_fail_2)
     PublicKernelInputsNoPreviousKernel<NT> inputs =
         do_public_call_get_kernel_inputs_no_previous_kernel(false, std::vector<NT::fr>{ 1 });
 
-    inputs.public_call.public_call_data.call_stack_item.public_inputs.call_context.is_contract_deployment = true;
+    inputs.public_call.call_stack_item.public_inputs.call_context.is_contract_deployment = true;
     auto public_inputs = native_public_kernel_circuit_no_previous_kernel(dc, inputs);
-    info("Error ", dc.get_first_failure());
     ASSERT_TRUE(dc.failed());
 }
 
@@ -366,9 +410,8 @@ TEST(public_kernel_tests, no_bytecode_hash_should_fail)
     PublicKernelInputsNoPreviousKernel<NT> inputs =
         do_public_call_get_kernel_inputs_no_previous_kernel(false, std::vector<NT::fr>{ 1 });
 
-    inputs.public_call.public_call_data.bytecode_hash = 0;
+    inputs.public_call.bytecode_hash = 0;
     auto public_inputs = native_public_kernel_circuit_no_previous_kernel(dc, inputs);
-    info("Error ", dc.get_first_failure());
     ASSERT_TRUE(dc.failed());
 }
 
@@ -378,9 +421,8 @@ TEST(public_kernel_tests, delegate_call_should_fail)
     PublicKernelInputsNoPreviousKernel<NT> inputs =
         do_public_call_get_kernel_inputs_no_previous_kernel(false, std::vector<NT::fr>{ 1 });
 
-    inputs.public_call.public_call_data.call_stack_item.public_inputs.call_context.is_delegate_call = true;
+    inputs.public_call.call_stack_item.public_inputs.call_context.is_delegate_call = true;
     auto public_inputs = native_public_kernel_circuit_no_previous_kernel(dc, inputs);
-    info("Error ", dc.get_first_failure());
     ASSERT_TRUE(dc.failed());
 }
 
@@ -390,9 +432,8 @@ TEST(public_kernel_tests, static_call_should_fail)
     PublicKernelInputsNoPreviousKernel<NT> inputs =
         do_public_call_get_kernel_inputs_no_previous_kernel(false, std::vector<NT::fr>{ 1 });
 
-    inputs.public_call.public_call_data.call_stack_item.public_inputs.call_context.is_static_call = true;
+    inputs.public_call.call_stack_item.public_inputs.call_context.is_static_call = true;
     auto public_inputs = native_public_kernel_circuit_no_previous_kernel(dc, inputs);
-    info("Error ", dc.get_first_failure());
     ASSERT_TRUE(dc.failed());
 }
 
@@ -402,11 +443,9 @@ TEST(public_kernel_tests, storage_contract_address_must_equal_contract_address)
     PublicKernelInputsNoPreviousKernel<NT> inputs =
         do_public_call_get_kernel_inputs_no_previous_kernel(false, std::vector<NT::fr>{ 1 });
 
-    const NT::fr contract_address = inputs.public_call.public_call_data.call_stack_item.contract_address;
-    inputs.public_call.public_call_data.call_stack_item.public_inputs.call_context.storage_contract_address =
-        contract_address + 1;
+    const NT::fr contract_address = inputs.public_call.call_stack_item.contract_address;
+    inputs.public_call.call_stack_item.public_inputs.call_context.storage_contract_address = contract_address + 1;
     auto public_inputs = native_public_kernel_circuit_no_previous_kernel(dc, inputs);
-    info("Error ", dc.get_first_failure());
     ASSERT_TRUE(dc.failed());
 }
 
@@ -416,9 +455,8 @@ TEST(public_kernel_tests, contract_address_must_be_valid)
     PublicKernelInputsNoPreviousKernel<NT> inputs =
         do_public_call_get_kernel_inputs_no_previous_kernel(false, std::vector<NT::fr>{ 1 });
 
-    inputs.public_call.public_call_data.call_stack_item.contract_address = 0;
+    inputs.public_call.call_stack_item.contract_address = 0;
     auto public_inputs = native_public_kernel_circuit_no_previous_kernel(dc, inputs);
-    info("Error ", dc.get_first_failure());
     ASSERT_TRUE(dc.failed());
 }
 
@@ -428,9 +466,8 @@ TEST(public_kernel_tests, function_selector_must_be_valid)
     PublicKernelInputsNoPreviousKernel<NT> inputs =
         do_public_call_get_kernel_inputs_no_previous_kernel(false, std::vector<NT::fr>{ 1 });
 
-    inputs.public_call.public_call_data.call_stack_item.function_data.function_selector = 0;
+    inputs.public_call.call_stack_item.function_data.function_selector = 0;
     auto public_inputs = native_public_kernel_circuit_no_previous_kernel(dc, inputs);
-    info("Error ", dc.get_first_failure());
     ASSERT_TRUE(dc.failed());
 }
 
@@ -440,9 +477,8 @@ TEST(public_kernel_tests, private_call_should_fail)
     PublicKernelInputsNoPreviousKernel<NT> inputs =
         do_public_call_get_kernel_inputs_no_previous_kernel(false, std::vector<NT::fr>{ 1 });
 
-    inputs.public_call.public_call_data.call_stack_item.function_data.is_private = true;
+    inputs.public_call.call_stack_item.function_data.is_private = true;
     auto public_inputs = native_public_kernel_circuit_no_previous_kernel(dc, inputs);
-    info("Error ", dc.get_first_failure());
     ASSERT_TRUE(dc.failed());
 }
 
@@ -454,9 +490,42 @@ TEST(public_kernel_tests, inconsistent_call_hash_should_fail)
             do_public_call_get_kernel_inputs_no_previous_kernel(false, std::vector<NT::fr>{ 1 });
 
         // change a value of something in the call stack pre-image
-        inputs.public_call.public_call_data.public_call_stack_preimages[i].public_inputs.args[0]++;
+        inputs.public_call.public_call_stack_preimages[i].public_inputs.args[0]++;
         auto public_inputs = native_public_kernel_circuit_no_previous_kernel(dc, inputs);
-        info("Error ", dc.get_first_failure());
+        ASSERT_TRUE(dc.failed());
+    }
+}
+
+TEST(public_kernel_tests, incorrect_storage_contract_address_fails_for_regular_calls)
+{
+    for (size_t i = 0; i < PUBLIC_CALL_STACK_LENGTH; i++) {
+        DummyComposer dc;
+        PublicKernelInputsNoPreviousKernel<NT> inputs =
+            do_public_call_get_kernel_inputs_no_previous_kernel(false, std::vector<NT::fr>{ 1 });
+
+        // change the storage contract address so it does not equal the contract address
+        const NT::fr new_contract_address =
+            NT::fr(inputs.public_call.public_call_stack_preimages[i].contract_address) + 1;
+        inputs.public_call.public_call_stack_preimages[i].public_inputs.call_context.storage_contract_address =
+            new_contract_address;
+        auto public_inputs = native_public_kernel_circuit_no_previous_kernel(dc, inputs);
+        ASSERT_TRUE(dc.failed());
+    }
+}
+
+TEST(public_kernel_tests, incorrect_msg_sender_fails_for_regular_calls)
+{
+    for (size_t i = 0; i < PUBLIC_CALL_STACK_LENGTH; i++) {
+        DummyComposer dc;
+        PublicKernelInputsNoPreviousKernel<NT> inputs =
+            do_public_call_get_kernel_inputs_no_previous_kernel(false, std::vector<NT::fr>{ 1 });
+        const auto msg_sender = i == 0 ? inputs.public_call.call_stack_item.public_inputs.call_context.msg_sender
+                                       : inputs.public_call.public_call_stack_preimages[i - 1].contract_address;
+        const NT::fr new_msg_sender = NT::fr(msg_sender) + 1;
+        // change the storage contract address so it does not equal the contract address
+        inputs.public_call.public_call_stack_preimages[i].public_inputs.call_context.storage_contract_address =
+            new_msg_sender;
+        auto public_inputs = native_public_kernel_circuit_no_previous_kernel(dc, inputs);
         ASSERT_TRUE(dc.failed());
     }
 }
