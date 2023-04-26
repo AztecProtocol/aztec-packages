@@ -4,6 +4,7 @@ import {
   KERNEL_NEW_CONTRACTS_LENGTH,
   KERNEL_NEW_NULLIFIERS_LENGTH,
   STATE_TRANSITIONS_LENGTH,
+  NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
 } from '@aztec/circuits.js';
 import { makeAppendOnlyTreeSnapshot } from '@aztec/circuits.js/factories';
 import { BufferReader, serializeToBuffer } from '@aztec/circuits.js/utils';
@@ -67,6 +68,7 @@ export class L2Block {
     public newPublicDataWrites: PublicDataWrite[],
     public newContracts: Fr[],
     public newContractData: ContractData[],
+    public newL1ToL2Messages: Fr[] = [],
   ) {}
 
   static random(l2BlockNum: number, txsPerBlock = 4) {
@@ -75,6 +77,7 @@ export class L2Block {
     const newContracts = times(KERNEL_NEW_CONTRACTS_LENGTH * txsPerBlock, Fr.random);
     const newContractData = times(KERNEL_NEW_CONTRACTS_LENGTH * txsPerBlock, ContractData.random);
     const newPublicDataWrites = times(STATE_TRANSITIONS_LENGTH * txsPerBlock, PublicDataWrite.random);
+    const newL1ToL2Messages = times(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, Fr.random);
 
     return L2Block.fromFields({
       number: l2BlockNum,
@@ -83,7 +86,7 @@ export class L2Block {
       startContractTreeSnapshot: makeAppendOnlyTreeSnapshot(0),
       startPublicDataTreeRoot: Fr.random(),
       startL1ToL2MessageTreeSnapshot: makeAppendOnlyTreeSnapshot(0),
-      startTreeOfHistoricL1ToL2MessageTreeSnapshot: makeAppendOnlyTreeSnapshot(0),
+      startTreeOfHistoricL1ToL2MessageTreeRootsSnapshot: makeAppendOnlyTreeSnapshot(0),
       startTreeOfHistoricPrivateDataTreeRootsSnapshot: makeAppendOnlyTreeSnapshot(0),
       startTreeOfHistoricContractTreeRootsSnapshot: makeAppendOnlyTreeSnapshot(0),
       endPrivateDataTreeSnapshot: makeAppendOnlyTreeSnapshot(newCommitments.length),
@@ -91,7 +94,7 @@ export class L2Block {
       endContractTreeSnapshot: makeAppendOnlyTreeSnapshot(newContracts.length),
       endPublicDataTreeRoot: Fr.random(),
       endL1ToL2MessageTreeSnapshot: makeAppendOnlyTreeSnapshot(1),
-      endTreeOfHistoricL1ToL2MessageTreeSnapshot: makeAppendOnlyTreeSnapshot(1),
+      endTreeOfHistoricL1ToL2MessageTreeRootsSnapshot: makeAppendOnlyTreeSnapshot(1),
       endTreeOfHistoricPrivateDataTreeRootsSnapshot: makeAppendOnlyTreeSnapshot(1),
       endTreeOfHistoricContractTreeRootsSnapshot: makeAppendOnlyTreeSnapshot(1),
       newCommitments,
@@ -99,6 +102,7 @@ export class L2Block {
       newContracts,
       newContractData,
       newPublicDataWrites,
+      newL1ToL2Messages,
     });
   }
 
@@ -130,6 +134,7 @@ export class L2Block {
     newPublicDataWrites: PublicDataWrite[];
     newContracts: Fr[];
     newContractData: ContractData[];
+    newL1ToL2Messages: Fr[];
   }) {
     return new this(
       fields.number,
@@ -154,6 +159,7 @@ export class L2Block {
       fields.newPublicDataWrites,
       fields.newContracts,
       fields.newContractData,
+      fields.newL1ToL2Messages,
     );
   }
 
@@ -189,6 +195,7 @@ export class L2Block {
       this.newContracts.length,
       this.newContracts,
       this.newContractData,
+      this.newL1ToL2Messages,
     );
   }
 
@@ -229,6 +236,8 @@ export class L2Block {
     const newPublicDataWrites = reader.readVector(PublicDataWrite);
     const newContracts = reader.readVector(Fr);
     const newContractData = reader.readArray(newContracts.length, ContractData);
+    // TODO(sean): could an optimisation of this be that it is encoded such that zeros are assumed
+    const newL1ToL2Messages = reader.readVector(Fr);
 
     return L2Block.fromFields({
       number,
@@ -253,6 +262,7 @@ export class L2Block {
       newPublicDataWrites,
       newContracts,
       newContractData,
+      newL1ToL2Messages,
     });
   }
 
@@ -275,6 +285,7 @@ export class L2Block {
       this.endTreeOfHistoricPrivateDataTreeRootsSnapshot,
       this.endTreeOfHistoricContractTreeRootsSnapshot,
       this.endPublicDataTreeRoot,
+      // TODO(sean rebase): make sure getMessagesHash is included in here too!
       this.getCalldataHash(),
     );
     const temp = toBigIntBE(sha256(buf));
@@ -472,6 +483,7 @@ export class L2Block {
       `newContracts: ${inspectFrArray(this.newContracts)}`,
       `newContractData: ${inspectContractDataArray(this.newContractData)}`,
       `newPublicDataWrite: ${inspectPublicDataWriteArray(this.newPublicDataWrites)}`,
+      `newL1ToL2Messages: ${inspectFrArray(this.newL1ToL2Messages)}`,
     ].join('\n');
   }
 }

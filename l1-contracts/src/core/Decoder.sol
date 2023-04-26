@@ -28,26 +28,35 @@ pragma solidity >=0.8.18;
  *  | 0x94                     | 0x20       | startTreeOfHistoricContractTreeRootsSnapshot.root
  *  | 0xb4                     | 0x04       | startTreeOfHistoricContractTreeRootsSnapshot.nextAvailableLeafIndex
  *  | 0xb8                     | 0x20       | startPublicDataTreeRoot
- *  | 0xd8                     | 0x20       | endPrivateDataTreeSnapshot.root
- *  | 0xf8                     | 0x04       | endPrivateDataTreeSnapshot.nextAvailableLeafIndex
- *  | 0xfc                     | 0x20       | endNullifierTreeSnapshot.root
- *  | 0x11c                    | 0x04       | endNullifierTreeSnapshot.nextAvailableLeafIndex
- *  | 0x120                    | 0x20       | endContractTreeSnapshot.root
- *  | 0x140                    | 0x04       | endContractTreeSnapshot.nextAvailableLeafIndex
- *  | 0x144                    | 0x20       | endTreeOfHistoricPrivateDataTreeRootsSnapshot.root
- *  | 0x164                    | 0x04       | endTreeOfHistoricPrivateDataTreeRootsSnapshot.nextAvailableLeafIndex
- *  | 0x168                    | 0x20       | endTreeOfHistoricContractTreeRootsSnapshot.root
- *  | 0x188                    | 0x04       | endTreeOfHistoricContractTreeRootsSnapshot.nextAvailableLeafIndex
- *  | 0x18c                    | 0x20       | endPublicDataTreeRoot
- *  | 0x1ac                    | 0x04       | len(newCommitments) denoted a
- *  | 0x1b0                    | a          | newCommitments (each element 32 bytes)
- *  | 0x1b0 + a                | 0x04       | len(newNullifiers) denoted b
- *  | 0x1b4 + a                | b          | newNullifiers (each element 32 bytes)
- *  | 0x1b4 + a + b            | 0x04       | len(newPublicDataWrites) denoted c
- *  | 0x1b8 + a + b            | c          | newPublicDataWrites (each element 64 bytes)
- *  | 0x1b8 + a + b + c        | 0x04       | len(newContracts) denoted d
- *  | 0x1bc + a + b + c        | v          | newContracts (each element 32 bytes)
- *  | 0x1bc + a + b + c + d    | v          | newContractData (each element 52 bytes)
+ *  | 0xd8                     | 0x20       | startL1ToL2MessagesTreeSnapshot.root
+ *  | 0xf8                     | 0x04       | startL1ToL2MessagesTreeSnapshot.nextAvailableLeafIndex
+ *  | 0xfc                     | 0x20       | startTreeOfHistoricL1ToL2MessagesTreeRootsSnapshot.root
+ *  | 0x11c                    | 0x04       | startTreeOfHistoricL1ToL2MessagesTreeRootsSnapshot.nextAvailableLeafIndex
+ *  | 0x120                    | 0x20       | endPrivateDataTreeSnapshot.root
+ *  | 0x140                    | 0x04       | endPrivateDataTreeSnapshot.nextAvailableLeafIndex
+ *  | 0x144                    | 0x20       | endNullifierTreeSnapshot.root
+ *  | 0x164                    | 0x04       | endNullifierTreeSnapshot.nextAvailableLeafIndex
+ *  | 0x168                    | 0x20       | endContractTreeSnapshot.root
+ *  | 0x188                    | 0x04       | endContractTreeSnapshot.nextAvailableLeafIndex
+ *  | 0x18c                    | 0x20       | endTreeOfHistoricPrivateDataTreeRootsSnapshot.root
+ *  | 0x1ac                    | 0x04       | endTreeOfHistoricPrivateDataTreeRootsSnapshot.nextAvailableLeafIndex
+ *  | 0x1b0                    | 0x20       | endTreeOfHistoricContractTreeRootsSnapshot.root
+ *  | 0x1d0                    | 0x04       | endTreeOfHistoricContractTreeRootsSnapshot.nextAvailableLeafIndex
+ *  | 0x1d4                    | 0x20       | endL1ToL2MessagesTreeSnapshot.root
+ *  | 0x1f4                    | 0x04       | endL1ToL2MessagesTreeSnapshot.nextAvailableLeafIndex
+ *  | 0x1f8                    | 0x20       | endTreeOfHistoricL1ToL2MessagesTreeRootsSnapshot.root
+ *  | 0x218                    | 0x04       | endTreeOfHistoricL1ToL2MessagesTreeRootsSnapshot.nextAvailableLeafIndex
+ *  | 0x21c                    | 0x04       | len(newCommitments) denoted x
+ *  | 0x220                    | x          | newCommits
+ *  | 0x220 + x                | 0x04       | len(newNullifiers) denoted y
+ *  | 0x224 + x                | y          | newNullifiers
+ *  | 0x224 + a + b            | 0x04       | len(newPublicDataWrites) denoted c
+ *  | 0x228 + a + b            | c          | newPublicDataWrites (each element 64 bytes)
+ *  | 0x228 + a + b + c        | 0x04       | len(newContracts) denoted d
+ *  | 0x22c + a + b + c        | v          | newContracts (each element 32 bytes)
+ *  | 0x22c + a + b + c + d    | v          | newContractData (each element 52 bytes)
+ *  | 0x22c + x + y + z        | 0x04       | len(l1ToL2Messages) denoted w
+ *  | 0x230 + x + y + z        | w          | l1ToL2Messages
  *  |---                       |---         | ---
  * TODO: a,b,c,d are number of elements and not bytes, need to be multiplied by the length of the elements.
  */
@@ -56,6 +65,7 @@ contract Decoder {
   uint256 internal constant NULLIFIERS_PER_KERNEL = 4;
   uint256 internal constant PUBLIC_DATA_WRITES_PER_KERNEL = 4;
   uint256 internal constant CONTRACTS_PER_KERNEL = 1;
+  uint256 internal constant L1_TO_L2_MESSAGES_PER_ROLLUP = 16;
 
   // Prime field order
   uint256 internal constant P =
@@ -69,6 +79,7 @@ contract Decoder {
    * @return endStateHash - The state hash expected after the execution.
    * @return publicInputHash - The hash of the public inputs
    */
+  // TODO: temporarily to get this going, the l1ToL2Messages are included here
   function _decode(bytes calldata _l2Block)
     internal
     pure
@@ -94,19 +105,30 @@ contract Decoder {
    */
   function _computePublicInputsHash(bytes calldata _l2Block) internal pure returns (bytes32) {
     // header size - block number size + one value for the diffRoot
+    // TODO: recalc size after rebase
     uint256 size = 0x1ac - 0x04 + 0x20;
+    // Compute the public inputs hash
+    // header size - block number + one value for the diffRoot
+    
+    // TODO: DOUBLE CHECK THIS VALUE AFTER REBASE
+    // block header
     bytes memory temp = new bytes(size);
     assembly {
       calldatacopy(add(temp, 0x20), add(_l2Block.offset, 0x04), size)
     }
 
-    bytes32 diffRoot = _computeDiffRoot(_l2Block);
+    // Diff root
+    (bytes32 diffRoot, bytes32 l1ToL2messagesHash) = _computeDiffRoot(_l2Block);
     assembly {
       mstore(add(temp, add(0x20, sub(0x1ac, 0x04))), diffRoot)
+
+      // TODO: reintroduce message hash after rebase
+      // mstore(add(temp, add(0x20, 0x1a4)), l1ToL2messagesHash)
     }
 
-    return bytes32(uint256(sha256(temp)) % P);
+    return sha256(temp);
   }
+
 
   /**
    * @notice Extract the L2 block number from the block
@@ -192,6 +214,8 @@ contract Decoder {
     uint256 srcContractOffset = srcDataOffset + 0x4 + vars.dataWritesCount * 0x40;
     uint256 srcContractDataOffset = srcContractOffset + vars.contractCount * 0x20;
 
+    uint256 srcL1ToL2MessagesDataOffset = srcContractDataOffset + vars.contractCount * 0x40;
+
     for (uint256 i = 0; i < baseLeafs.length; i++) {
       /**
        * Compute the leaf to insert.
@@ -275,7 +299,17 @@ contract Decoder {
       baseLeafs[i] = sha256(baseLeaf);
     }
 
-    return _computeRoot(baseLeafs);
+    _diffRoot = _computeRoot(baseLeafs);
+
+    // TODO: tidy this up
+    // TODO: calcualte the offset for the messages, might be easier to do in the compute diff root method as it gets all of that stuff
+    uint256 size = 0x20 * L1_TO_L2_MESSAGES_PER_ROLLUP;
+    bytes memory temp = new bytes(size);
+    assembly {
+      calldatacopy(add(temp, 0x20), add(srcL1ToL2MessagesDataOffset, 0x20), size)
+    }
+    _l1ToL2MessagesHash =  sha256(temp);
+
   }
 
   /**
