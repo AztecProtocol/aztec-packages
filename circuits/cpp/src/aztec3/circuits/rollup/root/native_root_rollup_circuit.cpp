@@ -28,8 +28,6 @@ namespace aztec3::circuits::rollup::native_root_rollup {
 
 // Access Native types through NT namespace
 
-const NT::fr EMPTY_L1_TO_L2_MESSAGES_SUBTREE_ROOT = MerkleTree(L1_TO_L2_MSG_SUBTREE_DEPTH).root();
-
 // TODO: turn this into generic function that can be used by other rollups
 NT::fr calculate_subtree(std::array<NT::fr, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP> leaves)
 {
@@ -44,9 +42,20 @@ NT::fr calculate_subtree(std::array<NT::fr, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP>
 }
 
 // TODO: move helper functions here to components
+// TODO: check more efficient implementation
 std::array<NT::fr, 2> compute_messages_hash(std::array<NT::fr, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP> leaves)
 {
-    std::vector<uint8_t> messages_hash_input_bytes_vec(leaves.begin(), leaves.end());
+    // convert vector of field elements into uint_8
+    std::array<uint8_t, 32 * NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP> messages_hash_input_bytes;
+    for (size_t i = 0; i < NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP; i++) {
+        auto bytes = leaves[i].to_buffer();
+        for (size_t j = 0; j < 32; j++) {
+            messages_hash_input_bytes[i * 32 + j] = bytes[j];
+        }
+    }
+
+    std::vector<uint8_t> messages_hash_input_bytes_vec(messages_hash_input_bytes.begin(),
+                                                       messages_hash_input_bytes.end());
     auto h = sha256::sha256(messages_hash_input_bytes_vec);
 
     std::array<uint8_t, 32> buf_1, buf_2;
@@ -102,23 +111,26 @@ RootRollupPublicInputs root_rollup_circuit(DummyComposer& composer, RootRollupIn
     // Compute subtree inserting l1 to l2 messages
     auto l1_to_l2_subtree_root = calculate_subtree(rootRollupInputs.l1_to_l2_messages);
 
-    // Insert subtree into the l1 to l2 data tree
-    auto new_root =
+    // // Insert subtree into the l1 to l2 data tree
+    NT::fr empty_l1_to_l2_subtree_root = components::calculate_empty_tree_root(L1_TO_L2_MSG_SUBTREE_DEPTH);
+    auto new_l1_to_l2_messages_tree_root =
         components::insert_subtree_to_snapshot_tree(composer,
                                                     rootRollupInputs.start_l1_to_l2_message_tree_snapshot,
                                                     rootRollupInputs.new_l1_to_l2_message_tree_root_sibling_path,
-                                                    EMPTY_L1_TO_L2_MESSAGES_SUBTREE_ROOT,
+                                                    empty_l1_to_l2_subtree_root,
                                                     l1_to_l2_subtree_root,
-                                                    L1_TO_L2_MSG_SUBTREE_INCLUSION_CHECK_DEPTH);
+                                                    L1_TO_L2_MSG_SUBTREE_INCLUSION_CHECK_DEPTH,
+                                                    "l1 to l2 message tree insertion");
 
-    // Update the historic l1 to l2 data tree
-    auto end_l1_to_l2_data_tree_snapshot = components::insert_subtree_to_snapshot_tree(
+    // // Update the historic l1 to l2 data tree
+    auto end_l1_to_l2_data_roots_tree_snapshot = components::insert_subtree_to_snapshot_tree(
         composer,
         rootRollupInputs.start_historic_tree_l1_to_l2_message_tree_roots_snapshot,
         rootRollupInputs.new_historic_private_data_tree_root_sibling_path,
         fr::zero(),
-        new_root.root,
-        0);
+        new_l1_to_l2_messages_tree_root.root,
+        0,
+        "historic l1 to l2 message tree roots insertion");
 
     RootRollupPublicInputs public_inputs = {
         .end_aggregation_object = aggregation_object,
@@ -136,6 +148,11 @@ RootRollupPublicInputs root_rollup_circuit(DummyComposer& composer, RootRollupIn
         .start_tree_of_historic_contract_tree_roots_snapshot =
             left.constants.start_tree_of_historic_contract_tree_roots_snapshot,
         .end_tree_of_historic_contract_tree_roots_snapshot = end_tree_of_historic_contract_tree_roots_snapshot,
+        .start_l1_to_l2_messages_tree_snapshot = rootRollupInputs.start_l1_to_l2_message_tree_snapshot,
+        .end_l1_to_l2_messages_tree_snapshot = new_l1_to_l2_messages_tree_root,
+        .start_tree_of_historic_l1_to_l2_messages_tree_roots_snapshot =
+            rootRollupInputs.start_historic_tree_l1_to_l2_message_tree_roots_snapshot,
+        .end_tree_of_historic_l1_to_l2_messages_tree_roots_snapshot = end_l1_to_l2_data_roots_tree_snapshot,
         .calldata_hash = components::compute_calldata_hash(rootRollupInputs.previous_rollup_data),
         .l1_to_l2_messages_hash = compute_messages_hash(rootRollupInputs.l1_to_l2_messages)
     };

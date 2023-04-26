@@ -55,6 +55,7 @@ using aztec3::circuits::abis::PreviousKernelData;
 
 // using aztec3::circuits::mock::mock_circuit;
 using aztec3::circuits::rollup::test_utils::utils::get_empty_kernel;
+using aztec3::circuits::rollup::test_utils::utils::get_empty_l1_to_l2_messages;
 using aztec3::circuits::rollup::test_utils::utils::get_root_rollup_inputs;
 using aztec3::circuits::rollup::test_utils::utils::set_kernel_commitments;
 // using aztec3::circuits::mock::mock_kernel_inputs;
@@ -71,7 +72,7 @@ using aztec3::circuits::rollup::native_root_rollup::RootRollupPublicInputs;
 
 using aztec3::circuits::abis::NewContractData;
 
-using MemoryTree = proof_system::plonk::stdlib::merkle_tree::MemoryTree;
+using MemoryTree = stdlib::merkle_tree::MemoryTree;
 using KernelData = aztec3::circuits::abis::PreviousKernelData<NT>;
 }  // namespace
 
@@ -138,7 +139,10 @@ class root_rollup_tests : public ::testing::Test {
 
 TEST_F(root_rollup_tests, native_calldata_hash_empty_blocks)
 {
-    std::vector<uint8_t> const zero_bytes_vec(704, 0);
+    MemoryTree data_tree = MemoryTree(PRIVATE_DATA_TREE_HEIGHT);
+
+    // calculate calldata hash
+    std::vector<uint8_t> zero_bytes_vec(704, 0);
     auto call_data_hash_inner = sha256::sha256(zero_bytes_vec);
 
     std::array<uint8_t, 64> hash_input;
@@ -151,11 +155,16 @@ TEST_F(root_rollup_tests, native_calldata_hash_empty_blocks)
 
     auto hash = sha256::sha256(calldata_hash_input_bytes_vec);
 
+    // calculate messages hash
+    std::array<fr, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP> l1_to_l2_messages = get_empty_l1_to_l2_messages();
+    // TODO: calc message hash same as above
+
     utils::DummyComposer composer = utils::DummyComposer();
     std::array<KernelData, 4> const kernels = {
         get_empty_kernel(), get_empty_kernel(), get_empty_kernel(), get_empty_kernel()
     };
-    RootRollupInputs inputs = get_root_rollup_inputs(composer, kernels);
+
+    RootRollupInputs inputs = get_root_rollup_inputs(composer, kernels, l1_to_l2_messages);
     RootRollupPublicInputs outputs =
         aztec3::circuits::rollup::native_root_rollup::root_rollup_circuit(composer, inputs);
 
@@ -179,6 +188,12 @@ TEST_F(root_rollup_tests, native_calldata_hash_empty_blocks)
     run_cbind(inputs, outputs, true);
 }
 
+// TEST_F(root_rollup_tests, native_l1_to_l2_messages_hash_checks)
+// {
+//     utils::DummyComposer composer = utils::DummyComposer();
+
+// }
+
 TEST_F(root_rollup_tests, native_root_missing_nullifier_logic)
 {
     utils::DummyComposer composer = utils::DummyComposer();
@@ -187,14 +202,18 @@ TEST_F(root_rollup_tests, native_root_missing_nullifier_logic)
     MemoryTree contract_tree = MemoryTree(CONTRACT_TREE_HEIGHT);
     MemoryTree historic_data_tree = MemoryTree(PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT);
     MemoryTree historic_contract_tree = MemoryTree(CONTRACT_TREE_ROOTS_TREE_HEIGHT);
+    MemoryTree l1_to_l2_messages_tree = MemoryTree(L1_TO_L2_MSG_TREE_HEIGHT);
+    MemoryTree historic_l1_to_l2_tree = MemoryTree(L1_TO_L2_MSG_TREE_ROOTS_TREE_HEIGHT);
 
     // Historic trees are initialised with an empty root at position 0.
     historic_data_tree.update_element(0, data_tree.root());
     historic_contract_tree.update_element(0, contract_tree.root());
+    historic_l1_to_l2_tree.update_element(0, l1_to_l2_messages_tree.root());
 
     std::array<KernelData, 4> kernels = {
         get_empty_kernel(), get_empty_kernel(), get_empty_kernel(), get_empty_kernel()
     };
+    std::array<fr, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP> l1_to_l2_messages = get_empty_l1_to_l2_messages();
 
     // Create commitments
     for (uint8_t kernel_j = 0; kernel_j < 4; kernel_j++) {
@@ -205,6 +224,11 @@ TEST_F(root_rollup_tests, native_root_missing_nullifier_logic)
             data_tree.update_element(kernel_j * KERNEL_NEW_COMMITMENTS_LENGTH + commitment_k, val);
         }
         set_kernel_commitments(kernels[kernel_j], new_commitments);
+    }
+
+    // Create 16 empty l1 to l2 messages, and update the l1_to_l2 messages tree
+    for (uint8_t i = 0; i < l1_to_l2_messages.size(); i++) {
+        l1_to_l2_messages_tree.update_element(i, l1_to_l2_messages[i]);
     }
 
     // TODO: Add nullifiers
@@ -228,23 +252,28 @@ TEST_F(root_rollup_tests, native_root_missing_nullifier_logic)
     kernels[2].public_inputs.end.new_contracts[0] = new_contract;
 
     // The start historic data snapshot
-    AppendOnlyTreeSnapshot<NT> const start_historic_data_tree_snapshot = { .root = historic_data_tree.root(),
-                                                                           .next_available_leaf_index = 1 };
-    AppendOnlyTreeSnapshot<NT> const start_historic_contract_tree_snapshot = { .root = historic_contract_tree.root(),
-                                                                               .next_available_leaf_index = 1 };
+    AppendOnlyTreeSnapshot<NT> start_historic_data_tree_snapshot = { .root = historic_data_tree.root(),
+                                                                     .next_available_leaf_index = 1 };
+    AppendOnlyTreeSnapshot<NT> start_historic_contract_tree_snapshot = { .root = historic_contract_tree.root(),
+                                                                         .next_available_leaf_index = 1 };
+    AppendOnlyTreeSnapshot<NT> start_historic_l1_to_l2_tree_snapshot = { .root = historic_l1_to_l2_tree.root(),
+                                                                         .next_available_leaf_index = 1 };
 
     // Insert the newest data root into the historic tree
     historic_data_tree.update_element(1, data_tree.root());
     historic_contract_tree.update_element(1, contract_tree.root());
+    historic_l1_to_l2_tree.update_element(1, l1_to_l2_messages_tree.root());
 
     // Compute the end snapshot
-    AppendOnlyTreeSnapshot<NT> const end_historic_data_tree_snapshot = { .root = historic_data_tree.root(),
-                                                                         .next_available_leaf_index = 2 };
-    AppendOnlyTreeSnapshot<NT> const end_historic_contract_tree_snapshot = { .root = historic_contract_tree.root(),
-                                                                             .next_available_leaf_index = 2 };
+    AppendOnlyTreeSnapshot<NT> end_historic_data_tree_snapshot = { .root = historic_data_tree.root(),
+                                                                   .next_available_leaf_index = 2 };
+    AppendOnlyTreeSnapshot<NT> end_historic_contract_tree_snapshot = { .root = historic_contract_tree.root(),
+                                                                       .next_available_leaf_index = 2 };
+    AppendOnlyTreeSnapshot<NT> end_historic_l1_to_l2_tree_snapshot = { .root = historic_l1_to_l2_tree.root(),
+                                                                       .next_available_leaf_index = 2 };
 
-    RootRollupInputs rootRollupInputs = get_root_rollup_inputs(composer, kernels);
-    RootRollupPublicInputs const outputs =
+    RootRollupInputs rootRollupInputs = get_root_rollup_inputs(composer, kernels, l1_to_l2_messages);
+    RootRollupPublicInputs outputs =
         aztec3::circuits::rollup::native_root_rollup::root_rollup_circuit(composer, rootRollupInputs);
 
     // Check private data trees
@@ -282,6 +311,11 @@ TEST_F(root_rollup_tests, native_root_missing_nullifier_logic)
     // Check historic contract trees
     ASSERT_EQ(outputs.start_tree_of_historic_contract_tree_roots_snapshot, start_historic_contract_tree_snapshot);
     ASSERT_EQ(outputs.end_tree_of_historic_contract_tree_roots_snapshot, end_historic_contract_tree_snapshot);
+
+    // Check historic l1 to l2 messages trees
+    ASSERT_EQ(outputs.start_tree_of_historic_l1_to_l2_messages_tree_roots_snapshot,
+              start_historic_l1_to_l2_tree_snapshot);
+    ASSERT_EQ(outputs.end_tree_of_historic_l1_to_l2_messages_tree_roots_snapshot, end_historic_l1_to_l2_tree_snapshot);
 
     EXPECT_FALSE(composer.failed());
 }

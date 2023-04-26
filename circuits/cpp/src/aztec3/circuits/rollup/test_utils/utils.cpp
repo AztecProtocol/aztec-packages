@@ -56,6 +56,13 @@ KernelData get_empty_kernel()
     return dummy_previous_kernel();
 }
 
+std::array<fr, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP> get_empty_l1_to_l2_messages()
+{
+    // TODO: fill with some meaningful values
+    std::array<fr, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP> l1_to_l2_messages = { 0 };
+    return l1_to_l2_messages;
+}
+
 void set_kernel_nullifiers(KernelData& kernel_data, std::array<fr, KERNEL_NEW_NULLIFIERS_LENGTH> new_nullifiers)
 {
     for (size_t i = 0; i < KERNEL_NEW_NULLIFIERS_LENGTH; i++) {
@@ -298,29 +305,52 @@ MergeRollupInputs get_merge_rollup_inputs(utils::DummyComposer& composer, std::a
     return inputs;
 }
 
-RootRollupInputs get_root_rollup_inputs(utils::DummyComposer& composer, std::array<KernelData, 4> kernel_data)
+RootRollupInputs get_root_rollup_inputs(utils::DummyComposer& composer,
+                                        std::array<KernelData, 4> kernel_data,
+                                        std::array<fr, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP> l1_to_l2_messages)
 {
     MerkleTree historic_private_data_tree = MerkleTree(PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT);
     MerkleTree historic_contract_tree = MerkleTree(CONTRACT_TREE_ROOTS_TREE_HEIGHT);
     MerkleTree historic_l1_to_l2_msg_tree = MerkleTree(L1_TO_L2_MSG_TREE_ROOTS_TREE_HEIGHT);
 
-    MerkleTree const private_data_tree = MerkleTree(PRIVATE_DATA_TREE_HEIGHT);
-    MerkleTree const contract_tree = MerkleTree(CONTRACT_TREE_HEIGHT);
+    MerkleTree private_data_tree = MerkleTree(PRIVATE_DATA_TREE_HEIGHT);
+    MerkleTree contract_tree = MerkleTree(CONTRACT_TREE_HEIGHT);
+    MerkleTree l1_to_l2_msg_tree = MerkleTree(L1_TO_L2_MSG_TREE_HEIGHT);
 
     // Historic trees are initialised with an empty root at position 0.
     historic_private_data_tree.update_element(0, private_data_tree.root());
     historic_contract_tree.update_element(0, contract_tree.root());
-    historic_l1_to_l2_msg_tree.update_element(0, MerkleTree(L1_TO_L2_MSG_TREE_HEIGHT).root());
+    historic_l1_to_l2_msg_tree.update_element(0, l1_to_l2_msg_tree.root());
 
     auto historic_data_sibling_path =
         get_sibling_path<PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT>(historic_private_data_tree, 1, 0);
     auto historic_contract_sibling_path =
         get_sibling_path<CONTRACT_TREE_ROOTS_TREE_HEIGHT>(historic_contract_tree, 1, 0);
+    auto historic_l1_to_l2_msg_sibling_path =
+        get_sibling_path<L1_TO_L2_MSG_TREE_ROOTS_TREE_HEIGHT>(historic_l1_to_l2_msg_tree, 1, 0);
+    auto l1_to_l2_tree_sibling_path =
+        get_sibling_path<L1_TO_L2_MSG_TREE_HEIGHT>(l1_to_l2_msg_tree, 0, L1_TO_L2_MSG_SUBTREE_INCLUSION_CHECK_DEPTH);
+
+    // l1_to_l2_message tree snapshots
+    AppendOnlyTreeSnapshot start_l1_to_l2_msg_tree_snapshot = {
+        .root = l1_to_l2_msg_tree.root(),
+        .next_available_leaf_index = 1,
+    };
+    AppendOnlyTreeSnapshot start_historic_tree_l1_to_l2_message_tree_roots_snapshot = {
+        .root = l1_to_l2_msg_tree.root(),
+        .next_available_leaf_index = 1,
+    };
 
     RootRollupInputs rootRollupInputs = {
         .previous_rollup_data = get_previous_rollup_data(composer, std::move(kernel_data)),
         .new_historic_private_data_tree_root_sibling_path = historic_data_sibling_path,
         .new_historic_contract_tree_root_sibling_path = historic_contract_sibling_path,
+        .l1_to_l2_messages = l1_to_l2_messages,
+        .new_l1_to_l2_message_tree_root_sibling_path = l1_to_l2_tree_sibling_path,
+        .new_historic_l1_to_l2_message_roots_tree_sibling_path = historic_l1_to_l2_msg_sibling_path,
+        .start_l1_to_l2_message_tree_snapshot = start_l1_to_l2_msg_tree_snapshot,
+        .start_historic_tree_l1_to_l2_message_tree_roots_snapshot =
+            start_historic_tree_l1_to_l2_message_tree_roots_snapshot,
     };
     return rootRollupInputs;
 }
