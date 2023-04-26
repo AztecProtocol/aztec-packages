@@ -81,7 +81,7 @@ void validate_state_transitions(DummyComposer& composer, KernelInput const& publ
 };
 
 template <typename KernelInput>
-void validate_this_public_call_stack(DummyComposer& composer, KernelInput const& public_kernel_inputs)
+void common_validate_this_public_call_stack(DummyComposer& composer, KernelInput const& public_kernel_inputs)
 {
     // Ensures that the stack of pre-images corresponds to the call stack
     auto& stack = public_kernel_inputs.public_call.public_call_data.call_stack_item.public_inputs.public_call_stack;
@@ -93,13 +93,13 @@ void validate_this_public_call_stack(DummyComposer& composer, KernelInput const&
         // Note: this assumes it's computationally infeasible to have `0` as a valid call_stack_item_hash.
         // Assumes `hash == 0` means "this stack item is empty".
         const auto calculated_hash = hash == 0 ? 0 : preimage.hash();
-        composer.do_assert(hash != calculated_hash,
+        composer.do_assert(hash == calculated_hash,
                            format("public_call_stack[", i, "] = ", hash, "; does not reconcile"));
     }
 };
 
 template <typename KernelInput>
-void validate_function_execution(DummyComposer& composer, KernelInput const& public_kernel_inputs)
+void common_validate_function_execution(DummyComposer& composer, KernelInput const& public_kernel_inputs)
 {
     // Validates state reads and transitions for all type of kernel inputs
     validate_state_reads(composer, public_kernel_inputs);
@@ -110,15 +110,15 @@ template <typename KernelInput>
 void common_validate_kernel_execution(DummyComposer& composer, KernelInput const& public_kernel_inputs)
 {
     // Validates kernel execution for all type of kernel inputs
-    validate_this_public_call_stack(composer, public_kernel_inputs);
+    common_validate_this_public_call_stack(composer, public_kernel_inputs);
 
-    validate_function_execution(composer, public_kernel_inputs);
+    common_validate_function_execution(composer, public_kernel_inputs);
 }
 
 template <typename KernelInput>
 void common_validate_inputs(DummyComposer& composer, KernelInput const& public_kernel_inputs)
 {
-    // Validates commons inputs for all type of kernel inputs
+    // Validates common inputs for all type of kernel inputs
     const auto& this_call_stack_item = public_kernel_inputs.public_call.public_call_data.call_stack_item;
     composer.do_assert(this_call_stack_item.public_inputs.call_context.is_contract_deployment == false,
                        "Contract deployment can't be a public function");
@@ -144,6 +144,8 @@ void update_public_end_values(KernelInput const& public_kernel_inputs, KernelCir
         public_kernel_inputs.public_call.public_call_data.call_stack_item.public_inputs.public_call_stack;
     push_array_to_array(stack, circuit_outputs.end.public_call_stack);
 
+    // This next section converts the state transition objects to 'public data write' objects
+    // Representing the updates required to the public data tree
     const auto& contract_address = public_kernel_inputs.public_call.public_call_data.call_stack_item.contract_address;
     const auto& transitions =
         public_kernel_inputs.public_call.public_call_data.call_stack_item.public_inputs.state_transitions;

@@ -38,10 +38,8 @@ using aztec3::circuits::abis::KernelCircuitPublicInputs;
 using aztec3::circuits::abis::public_kernel::PublicKernelInputsNoPreviousKernel;
 using aztec3::circuits::kernel::public_kernel::common_validate_inputs;
 using aztec3::circuits::kernel::public_kernel::common_validate_kernel_execution;
-using aztec3::circuits::kernel::public_kernel::validate_function_execution;
 using aztec3::circuits::kernel::public_kernel::validate_state_reads;
 using aztec3::circuits::kernel::public_kernel::validate_state_transitions;
-using aztec3::circuits::kernel::public_kernel::validate_this_public_call_stack;
 using aztec3::utils::push_array_to_array;
 
 using DummyComposer = aztec3::utils::DummyComposer;
