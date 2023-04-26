@@ -302,6 +302,18 @@ describe('sequencer/circuit_block_builder', () => {
       const [l2Block] = await builder.buildL2Block(blockNumber, txs);
       expect(l2Block.number).toEqual(blockNumber);
     });
+
+    it('Build empty l2 block with 4 txs', async () => {
+      const txs = [...(await Promise.all(times(4, makeEmptyProcessedTx)))];
+      const [l2Block] = await builder.buildL2Block(1, txs);
+
+      // @todo Fix this test
+
+      console.log(l2Block);
+      console.log(l2Block.encode().toString('hex'));
+      console.log(`call data hash   : ${l2Block.getCalldataHash().toString('hex')}`);
+      console.log(`public input hash: ${l2Block.getPublicInputsHash().toString()}`);
+    }, 10000);
   });
 });
 

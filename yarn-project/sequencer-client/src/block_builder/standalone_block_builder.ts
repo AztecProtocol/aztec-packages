@@ -42,9 +42,16 @@ export class StandaloneBlockBuilder implements BlockBuilder {
       MerkleTreeId.CONTRACT_TREE_ROOTS_TREE,
     );
 
+    // Note: The L2 -> L1 don't have a tree, so we can do it in the same manner there.
+    const l2ToL1TreeLeaves: Fr[] = [];
+
     for (const tx of txs) {
       await this.updateTrees(tx);
+      tx.data.end.newL2ToL1Msgs.forEach(n => {
+        l2ToL1TreeLeaves.push(n);
+      });
     }
+
 
     await this.updateRootTrees();
 
@@ -72,6 +79,7 @@ export class StandaloneBlockBuilder implements BlockBuilder {
       endTreeOfHistoricContractTreeRootsSnapshot,
       newCommitments: this.dataTreeLeaves.map(b => Fr.fromBuffer(b)),
       newNullifiers: this.nullifierTreeLeaves.map(b => Fr.fromBuffer(b)),
+      newL2ToL1Msgs: l2ToL1TreeLeaves,
       newContracts: this.contractTreeLeaves.map(b => Fr.fromBuffer(b)),
       newContractData: txs.flatMap(tx => tx.data.end.newContracts.map(mapContractData)),
     });

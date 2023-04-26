@@ -80,7 +80,7 @@ export function extractPublicInputs(partialWitness: ACVMWitness, acir: Buffer): 
   const newNullifiers = witnessReader.readFieldArray(NEW_NULLIFIERS_LENGTH);
   const privateCallStack = witnessReader.readFieldArray(PRIVATE_CALL_STACK_LENGTH);
   const publicCallStack = witnessReader.readFieldArray(PUBLIC_CALL_STACK_LENGTH);
-  const l1MsgStack = witnessReader.readFieldArray(NEW_L2_TO_L1_MSGS_LENGTH);
+  const newL2ToL1Msgs = witnessReader.readFieldArray(NEW_L2_TO_L1_MSGS_LENGTH);
 
   const privateDataTreeRoot = witnessReader.readField();
   const nullifierTreeRoot = witnessReader.readField();
@@ -102,7 +102,7 @@ export function extractPublicInputs(partialWitness: ACVMWitness, acir: Buffer): 
     newNullifiers,
     privateCallStack,
     publicCallStack,
-    l1MsgStack,
+    newL2ToL1Msgs,
     privateDataTreeRoot,
     nullifierTreeRoot,
     contractTreeRoot,

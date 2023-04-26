@@ -73,7 +73,7 @@ export class PublicCircuitPublicInputs {
     public stateTransitions: StateTransition[],
     public stateReads: StateRead[],
     public publicCallStack: Fr[],
-    public l1MsgStack: Fr[],
+    public newL2ToL1Msgs: Fr[],
     public historicPublicDataTreeRoot: Fr,
     public proverAddress: AztecAddress,
   ) {
@@ -81,7 +81,7 @@ export class PublicCircuitPublicInputs {
     assertLength(this, 'returnValues', RETURN_VALUES_LENGTH);
     assertLength(this, 'emittedEvents', EMITTED_EVENTS_LENGTH);
     assertLength(this, 'publicCallStack', PUBLIC_CALL_STACK_LENGTH);
-    assertLength(this, 'l1MsgStack', NEW_L2_TO_L1_MSGS_LENGTH);
+    assertLength(this, 'newL2ToL1Msgs', NEW_L2_TO_L1_MSGS_LENGTH);
     assertLength(this, 'stateTransitions', STATE_TRANSITIONS_LENGTH);
     assertLength(this, 'stateReads', STATE_READS_LENGTH);
   }
@@ -128,7 +128,7 @@ export class PublicCircuitPublicInputs {
       fields.stateTransitions,
       fields.stateReads,
       fields.publicCallStack,
-      fields.l1MsgStack,
+      fields.newL2ToL1Msgs,
       fields.historicPublicDataTreeRoot,
       fields.proverAddress,
     ] as const;

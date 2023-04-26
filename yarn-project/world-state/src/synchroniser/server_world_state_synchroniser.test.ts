@@ -48,6 +48,7 @@ const getMockBlock = (blockNumber: number, newContractsCommitments?: Buffer[]) =
     getMockTreeSnapshot(),
     [Fr.random()],
     [Fr.random()],
+    [Fr.random()],
     newContractsCommitments?.map(x => Fr.fromBuffer(x)) ?? [Fr.random()],
     [getMockContractData()],
   );

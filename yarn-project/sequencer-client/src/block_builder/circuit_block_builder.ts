@@ -114,6 +114,7 @@ export class CircuitBlockBuilder implements BlockBuilder {
     const wasm = await CircuitsWasm.get();
     const newNullifiers = flatMap(txs, tx => tx.data.end.newNullifiers);
     const newCommitments = flatMap(txs, tx => tx.data.end.newCommitments);
+    const newL2ToL1Msgs = flatMap(txs, tx => tx.data.end.newL2ToL1Msgs);
     const newContracts = flatMap(txs, tx => tx.data.end.newContracts).map(cd => computeContractLeaf(wasm, cd));
     const newContractData = flatMap(txs, tx => tx.data.end.newContracts).map(
       n => new ContractData(n.contractAddress, n.portalContractAddress),
@@ -133,6 +134,7 @@ export class CircuitBlockBuilder implements BlockBuilder {
       endTreeOfHistoricContractTreeRootsSnapshot,
       newCommitments,
       newNullifiers,
+      newL2ToL1Msgs,
       newContracts,
       newContractData,
     });

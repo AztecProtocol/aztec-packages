@@ -316,7 +316,7 @@ export function makePrivateCircuitPublicInputs(seed = 0): PrivateCircuitPublicIn
     newNullifiers: range(NEW_NULLIFIERS_LENGTH, seed + 0x500).map(fr),
     privateCallStack: range(PRIVATE_CALL_STACK_LENGTH, seed + 0x600).map(fr),
     publicCallStack: range(PUBLIC_CALL_STACK_LENGTH, seed + 0x700).map(fr),
-    l1MsgStack: range(NEW_L2_TO_L1_MSGS_LENGTH, seed + 0x800).map(fr),
+    newL2ToL1Msgs: range(NEW_L2_TO_L1_MSGS_LENGTH, seed + 0x800).map(fr),
     historicContractTreeRoot: fr(seed + 0x900), // TODO not in spec
     historicPrivateDataTreeRoot: fr(seed + 0x1000),
     historicPrivateNullifierTreeRoot: fr(seed + 0x1100), // TODO not in spec

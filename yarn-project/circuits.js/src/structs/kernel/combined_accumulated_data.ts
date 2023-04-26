@@ -167,7 +167,7 @@ export class CombinedAccumulatedData {
 
     public privateCallStack: Fr[],
     public publicCallStack: Fr[],
-    public l1MsgStack: Fr[],
+    public newL2ToL1Msgs: Fr[],
 
     public newContracts: NewContractData[],
 
@@ -180,7 +180,7 @@ export class CombinedAccumulatedData {
     assertLength(this, 'newNullifiers', KERNEL_NEW_NULLIFIERS_LENGTH);
     assertLength(this, 'privateCallStack', KERNEL_PRIVATE_CALL_STACK_LENGTH);
     assertLength(this, 'publicCallStack', KERNEL_PUBLIC_CALL_STACK_LENGTH);
-    assertLength(this, 'l1MsgStack', KERNEL_NEW_L2_TO_L1_MSGS_LENGTH);
+    assertLength(this, 'newL2ToL1Msgs', KERNEL_NEW_L2_TO_L1_MSGS_LENGTH);
     assertLength(this, 'newContracts', KERNEL_NEW_CONTRACTS_LENGTH);
     assertLength(this, 'optionallyRevealedData', KERNEL_OPTIONALLY_REVEALED_DATA_LENGTH);
     assertLength(this, 'stateTransitions', STATE_TRANSITIONS_LENGTH);
@@ -196,7 +196,7 @@ export class CombinedAccumulatedData {
       this.newNullifiers,
       this.privateCallStack,
       this.publicCallStack,
-      this.l1MsgStack,
+      this.newL2ToL1Msgs,
       this.newContracts,
       this.optionallyRevealedData,
       this.stateTransitions,

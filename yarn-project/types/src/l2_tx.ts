@@ -7,6 +7,7 @@ export class L2Tx {
   constructor(
     public newCommitments: Fr[],
     public newNullifiers: Fr[],
+    public newL2ToL1Msgs: Fr[],
     public newContracts: Fr[],
     public newContractData: ContractData[],
     private hash?: TxHash,
