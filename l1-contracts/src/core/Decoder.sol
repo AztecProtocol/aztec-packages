@@ -40,11 +40,14 @@ pragma solidity >=0.8.18;
  *  | 0x170                    | x          | newCommits
  *  | 0x170 + x                | 0x04       | len(newNullifiers) denoted y
  *  | 0x174 + x                | y          | newNullifiers
- *  | 0x174 + x + y            | 0x04       | len(newContracts) denoted z
- *  | 0x178 + x + y            | z          | newContracts
- *  | 0x178 + x + y + z        | z          | newContractData
+ *  | 0x174 + x + y            | 0x04       | len(newL2ToL2msgs) denoted z
+ *  | 0x178 + x + y            | z          | newL2ToL2msgs
+ *  | 0x178 + x + y + z        | 0x04       | len(newContracts) denoted v
+ *  | 0x17c + x + y + z        | v          | newContracts
+ *  | 0x17c + x + y + z + v    | v          | newContractData
  *  |---                       |---         | ---
- *
+ * TODO: Actually the byte start are not with x,y,z,v but multiplied by the size... of the types most are 32 bytes
+ * but newContractData is 64 bytes.
  */
 contract Decoder {
   uint256 internal constant COMMITMENTS_PER_KERNEL = 4;
@@ -142,6 +145,7 @@ contract Decoder {
 
   struct Vars {
     uint256 commitmentCount;
+    uint256 nullifierCount;
     uint256 kernelCount;
     uint256 contractCount;
   }
@@ -155,10 +159,17 @@ contract Decoder {
     Vars memory vars;
     {
       uint256 commitmentCount;
+      uint256 nullifierCount;
       assembly {
         commitmentCount := and(shr(224, calldataload(add(_l2Block.offset, 0x16c))), 0xffffffff)
+        nullifierCount :=
+          and(
+            shr(224, calldataload(add(_l2Block.offset, add(0x170, mul(commitmentCount, 0x20))))),
+            0xffffffff
+          )
       }
       vars.commitmentCount = commitmentCount;
+      vars.nullifierCount = nullifierCount;
       vars.kernelCount = commitmentCount / COMMITMENTS_PER_KERNEL;
       uint256 contractCountOffset =
         vars.kernelCount * (COMMITMENTS_PER_KERNEL + NULLIFIERS_PER_KERNEL) * 0x20;
@@ -179,9 +190,8 @@ contract Decoder {
     uint256 dstContractOffset = dstCommitmentOffset + NULLIFIERS_PER_KERNEL * 0x20 * 0x2;
 
     uint256 srcCommitmentOffset = 0x170;
-    uint256 srcNullifierOffset = 0x174 + vars.commitmentCount * 0x20;
-    uint256 srcContractOffset =
-      0x178 + (baseLeafs.length * 2 * (NULLIFIERS_PER_KERNEL + COMMITMENTS_PER_KERNEL) * 0x20);
+    uint256 srcNullifierOffset = srcCommitmentOffset + 0x4 + vars.commitmentCount * 0x20;
+    uint256 srcContractOffset = srcNullifierOffset + 0x4 + vars.nullifierCount * 0x20;
     uint256 srcContractDataOffset = srcContractOffset + vars.contractCount * 0x20;
 
     for (uint256 i = 0; i < baseLeafs.length; i++) {
