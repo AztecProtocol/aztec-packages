@@ -251,7 +251,6 @@ __metadata:
   dependencies:
     "@aztec/aztec-node": "workspace:^"
     "@aztec/aztec.js": "workspace:^"
-    "@aztec/ethereum.js": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/l1-contracts": "workspace:^"
     "@aztec/noir-contracts": "workspace:^"
@@ -540,6 +539,7 @@ __metadata:
     ts-node: ^10.9.1
     tslib: ^2.4.0
     typescript: ^5.0.4
+    viem: ^0.3.12
   languageName: unknown
   linkType: soft
 
@@ -7862,6 +7862,23 @@ __metadata:
     isomorphic-ws: 5.0.0
     ws: 8.12.0
   checksum: 513d5ce86abcec9fe7c1f899ab73b9b3cfececf29a751a8b9f4074bb1acebe5b718c236c855359300317be82901c7005d527142e63ce2524f444ca37ee9ba6d8
+  languageName: node
+  linkType: hard
+
+"viem@npm:^0.3.12":
+  version: 0.3.12
+  resolution: "viem@npm:0.3.12"
+  dependencies:
+    "@adraffy/ens-normalize": 1.9.0
+    "@noble/curves": 0.9.0
+    "@noble/hashes": 1.3.0
+    "@scure/bip32": 1.2.0
+    "@scure/bip39": 1.2.0
+    "@wagmi/chains": 0.2.16
+    abitype: 0.7.1
+    isomorphic-ws: 5.0.0
+    ws: 8.12.0
+  checksum: 5c2f6c7bb0e029066119be238f688679940af1977eddbd873f22596da279dad5c04ffd4119ca14083851720218d5917e99e8c589edc3fbbb162366a7cd17b652
   languageName: node
   linkType: hard
 

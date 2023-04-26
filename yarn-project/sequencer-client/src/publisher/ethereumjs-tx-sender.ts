@@ -20,7 +20,7 @@ export class EthereumjsTxSender implements L1PublisherTxSender {
   private rollupContract: Rollup;
   private unverifiedDataEmitterContract: UnverifiedDataEmitter;
   private confirmations: number;
-  private log = createDebugLogger('aztec:sequencer:tx-sender');
+  private log = createDebugLogger('aztec:sequencer:ethereum-js-tx-sender');
 
   constructor(config: TxSenderConfig) {
     const {
