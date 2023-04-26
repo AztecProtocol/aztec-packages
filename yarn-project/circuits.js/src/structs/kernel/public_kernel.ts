@@ -13,47 +13,20 @@ import { UInt8Vector } from '../shared.js';
 import { SignedTxRequest } from '../tx_request.js';
 import { PreviousKernelData } from './previous_kernel_data.js';
 
-export type PublicKernelInputs =
-  | PublicKernelInputsNonFirstIteration
-  | PublicKernelInputsPrivateKernelInput
-  | PublicKernelInputsNoKernelInput;
-
-export class PublicKernelInputsNonFirstIteration {
-  public kind = 'NonFirstIteration' as const;
-
-  constructor(
-    public readonly previousKernel: PreviousKernelData,
-    public readonly witnessedPublicCall: WitnessedPublicCallData,
-  ) {}
+export class PublicKernelInputs {
+  constructor(public readonly previousKernel: PreviousKernelData, public readonly publicCallData: PublicCallData) {}
 
   toBuffer() {
-    return serializeToBuffer(this.previousKernel, this.witnessedPublicCall);
+    return serializeToBuffer(this.previousKernel, this.publicCallData);
   }
 }
-
-export class PublicKernelInputsPrivateKernelInput {
-  public kind = 'PrivateKernelInput' as const;
-
-  constructor(
-    public readonly previousKernel: PreviousKernelData,
-    public readonly witnessedPublicCall: WitnessedPublicCallData,
-  ) {}
-
-  toBuffer() {
-    return serializeToBuffer(this.previousKernel, this.witnessedPublicCall);
-  }
-}
-
-export class PublicKernelInputsNoKernelInput {
+export class PublicKernelInputsNoPreviousKernel {
   public kind = 'NoKernelInput' as const;
 
-  constructor(
-    public readonly signedTxRequest: SignedTxRequest,
-    public readonly witnessedPublicCall: WitnessedPublicCallData,
-  ) {}
+  constructor(public readonly signedTxRequest: SignedTxRequest, public readonly publicCallData: PublicCallData) {}
 
   toBuffer() {
-    return serializeToBuffer(this.signedTxRequest, this.witnessedPublicCall);
+    return serializeToBuffer(this.signedTxRequest, this.publicCallData);
   }
 }
 
