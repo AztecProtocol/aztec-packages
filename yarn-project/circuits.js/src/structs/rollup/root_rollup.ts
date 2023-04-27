@@ -5,6 +5,7 @@ import { AppendOnlyTreeSnapshot } from './append_only_tree_snapshot.js';
 import {
   CONTRACT_TREE_ROOTS_TREE_HEIGHT,
   L1_TO_L2_MESSAGES_ROOTS_TREE_HEIGHT,
+  L1_TO_L2_MESSAGES_SUBTREE_INSERTION_HEIGHT,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT,
 } from '../constants.js';
@@ -17,27 +18,22 @@ export class RootRollupInputs {
 
     public newHistoricPrivateDataTreeRootSiblingPath: Fr[],
     public newHistoricContractDataTreeRootSiblingPath: Fr[],
+    public newL1ToL2Messages: Fr[],
     public newL1ToL2MessageTreeRootSiblingPath: Fr[],
     public newHistoricL1ToL2MessageTreeRootSiblingPath: Fr[],
-    public newL1ToL2Messages: Fr[],
+    public startL1ToL2MessageTreeSnapshot: AppendOnlyTreeSnapshot,
+    public startHistoricTreeL1ToL2MessageTreeRootsSnapshot: AppendOnlyTreeSnapshot,
   ) {
     assertLength(this, 'newHistoricPrivateDataTreeRootSiblingPath', PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT);
     assertLength(this, 'newHistoricContractDataTreeRootSiblingPath', CONTRACT_TREE_ROOTS_TREE_HEIGHT);
     // TODO: the height of this could be wrong
-    assertLength(this, 'newL1ToL2MessageTreeRootSiblingPath', L1_TO_L2_MESSAGES_ROOTS_TREE_HEIGHT);
+    assertLength(this, 'newL1ToL2MessageTreeRootSiblingPath', L1_TO_L2_MESSAGES_SUBTREE_INSERTION_HEIGHT);
     assertLength(this, 'newHistoricL1ToL2MessageTreeRootSiblingPath', L1_TO_L2_MESSAGES_ROOTS_TREE_HEIGHT);
     assertLength(this, 'newL1ToL2Messages', NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
   }
 
   toBuffer() {
-    return serializeToBuffer(
-      this.previousRollupData,
-      this.newHistoricPrivateDataTreeRootSiblingPath,
-      this.newHistoricContractDataTreeRootSiblingPath,
-      this.newL1ToL2MessageTreeRootSiblingPath,
-      this.newHistoricL1ToL2MessageTreeRootSiblingPath,
-      this.newL1ToL2Messages,
-    );
+    return serializeToBuffer(...RootRollupInputs.getFields(this));
   }
 
   static from(fields: FieldsOf<RootRollupInputs>): RootRollupInputs {
@@ -49,9 +45,11 @@ export class RootRollupInputs {
       fields.previousRollupData,
       fields.newHistoricPrivateDataTreeRootSiblingPath,
       fields.newHistoricContractDataTreeRootSiblingPath,
+      fields.newL1ToL2Messages,
       fields.newL1ToL2MessageTreeRootSiblingPath,
       fields.newHistoricL1ToL2MessageTreeRootSiblingPath,
-      fields.newL1ToL2Messages,
+      fields.startL1ToL2MessageTreeSnapshot,
+      fields.startHistoricTreeL1ToL2MessageTreeRootsSnapshot,
     ] as const;
   }
 }

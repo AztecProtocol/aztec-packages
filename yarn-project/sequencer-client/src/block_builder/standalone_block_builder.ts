@@ -50,6 +50,7 @@ export class StandaloneBlockBuilder implements BlockBuilder {
     for (const tx of txs) {
       await this.updateTrees(tx);
     }
+    await this.updateL1ToL2MessagesTree(newL1ToL2Messages);
 
     await this.updateRootTrees();
 
@@ -111,6 +112,7 @@ export class StandaloneBlockBuilder implements BlockBuilder {
       computeContractLeaf(wasm, x).toBuffer(),
     );
 
+    // TODO: why do these need a loop? come back to
     for (let i = 0; i < KERNEL_NEW_COMMITMENTS_LENGTH; i++) {
       await this.db.appendLeaves(MerkleTreeId.PRIVATE_DATA_TREE, [dataTreeLeaves[i]]);
     }
@@ -122,10 +124,17 @@ export class StandaloneBlockBuilder implements BlockBuilder {
     }
   }
 
+  private async updateL1ToL2MessagesTree(l1ToL2Messages: Fr[]) {
+    const leaves = l1ToL2Messages.map((x: Fr) => x.toBuffer());
+    await this.db.appendLeaves(MerkleTreeId.L1_TO_L2_MESSAGES_TREE, leaves);
+  }
+
   private async updateRootTrees() {
     const newDataTreeInfo = await this.getTreeSnapshot(MerkleTreeId.PRIVATE_DATA_TREE);
     const newContractsTreeInfo = await this.getTreeSnapshot(MerkleTreeId.CONTRACT_TREE);
+    const newL1ToL2MessagesTreeInfo = await this.getTreeSnapshot(MerkleTreeId.L1_TO_L2_MESSAGES_TREE);
     await this.db.appendLeaves(MerkleTreeId.CONTRACT_TREE_ROOTS_TREE, [newContractsTreeInfo.root.toBuffer()]);
     await this.db.appendLeaves(MerkleTreeId.PRIVATE_DATA_TREE_ROOTS_TREE, [newDataTreeInfo.root.toBuffer()]);
+    await this.db.appendLeaves(MerkleTreeId.L1_TO_L2_MESSAGES_ROOTS_TREE, [newL1ToL2MessagesTreeInfo.root.toBuffer()]);
   }
 }

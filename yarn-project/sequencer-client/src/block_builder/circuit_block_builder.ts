@@ -37,6 +37,17 @@ import { RollupSimulator } from '../simulator/index.js';
 import { ProcessedTx } from '../sequencer/processed_tx.js';
 import { BlockBuilder } from './index.js';
 
+// TODO: where to put this type
+type AllowedTreeNames<T extends BaseOrMergeRollupPublicInputs | RootRollupPublicInputs> =
+  T extends RootRollupPublicInputs
+    ? 'PrivateData' | 'Contract' | 'Nullifier' | 'L1ToL2Message'
+    : 'PrivateData' | 'Contract' | 'Nullifier';
+
+// TODO: triple check and clean this type casting
+type OutputWithTreeSnapshot<T extends BaseOrMergeRollupPublicInputs | RootRollupPublicInputs> = {
+  [K in `end${AllowedTreeNames<T>}TreeSnapshot`]: AppendOnlyTreeSnapshot;
+};
+
 const frToBigInt = (fr: Fr) => toBigIntBE(fr.toBuffer());
 const bigintToFr = (num: bigint) => new Fr(num);
 const bigintToNum = (num: bigint) => Number(num);
@@ -257,14 +268,30 @@ export class CircuitBlockBuilder implements BlockBuilder {
     this.debug(`Running root rollup circuit`);
     const rootInput = await this.getRootRollupInput(...left, ...right, newL1ToL2Messages);
 
+    // Update the local trees to include the new l1 to l2 messages
+    // TODO:
+    await this.db.appendLeaves(
+      MerkleTreeId.L1_TO_L2_MESSAGES_TREE,
+      newL1ToL2Messages.map(m => m.toBuffer()),
+    );
+
+    console.log('root rollup inputs');
+    console.log(rootInput);
+
     // Simulate and get proof for the root circuit
     const rootOutput = await this.simulator.rootRollupCircuit(rootInput);
+
+    console.log('root output');
+    console.log(rootOutput);
+
     const rootProof = await this.prover.getRootRollupProof(rootInput, rootOutput);
 
     // Update the root trees with the latest data and contract tree roots,
     // and validate them against the output of the root circuit simulation
     this.debug(`Updating and validating root trees`);
     await this.updateRootTrees();
+    console.log('root output in the sim');
+    console.log(rootOutput);
     await this.validateRootOutput(rootOutput);
 
     return [rootOutput, rootProof];
@@ -275,6 +302,7 @@ export class CircuitBlockBuilder implements BlockBuilder {
     for (const [newTree, rootTree] of [
       [MerkleTreeId.PRIVATE_DATA_TREE, MerkleTreeId.PRIVATE_DATA_TREE_ROOTS_TREE],
       [MerkleTreeId.CONTRACT_TREE, MerkleTreeId.CONTRACT_TREE_ROOTS_TREE],
+      [MerkleTreeId.L1_TO_L2_MESSAGES_TREE, MerkleTreeId.L1_TO_L2_MESSAGES_ROOTS_TREE],
     ] as const) {
       const newTreeInfo = await this.db.getTreeInfo(newTree);
       await this.db.appendLeaves(rootTree, [newTreeInfo.root]);
@@ -297,6 +325,8 @@ export class CircuitBlockBuilder implements BlockBuilder {
       this.validateTrees(rootOutput),
       this.validateRootTree(rootOutput, MerkleTreeId.CONTRACT_TREE_ROOTS_TREE, 'Contract'),
       this.validateRootTree(rootOutput, MerkleTreeId.PRIVATE_DATA_TREE_ROOTS_TREE, 'PrivateData'),
+      this.validateRootTree(rootOutput, MerkleTreeId.L1_TO_L2_MESSAGES_ROOTS_TREE, 'L1ToL2Message'),
+      this.validateTree(rootOutput, MerkleTreeId.L1_TO_L2_MESSAGES_TREE, 'L1ToL2Message'),
     ]);
   }
 
@@ -304,7 +334,7 @@ export class CircuitBlockBuilder implements BlockBuilder {
   protected async validateRootTree(
     rootOutput: RootRollupPublicInputs,
     treeId: MerkleTreeId,
-    name: 'Contract' | 'PrivateData',
+    name: 'Contract' | 'PrivateData' | 'L1ToL2Message',
   ) {
     const localTree = await this.getTreeSnapshot(treeId);
     const simulatedTree = rootOutput[`endTreeOfHistoric${name}TreeRootsSnapshot`];
@@ -327,13 +357,17 @@ export class CircuitBlockBuilder implements BlockBuilder {
   }
 
   // Helper for validating a non-roots tree against a circuit simulation output
-  protected async validateTreeSnapshot(
-    output: BaseOrMergeRollupPublicInputs | RootRollupPublicInputs,
+  protected async validateTree<T extends BaseOrMergeRollupPublicInputs | RootRollupPublicInputs>(
+    output: T,
     treeId: MerkleTreeId,
-    name: 'PrivateData' | 'Contract' | 'Nullifier',
+    name: AllowedTreeNames<T>,
   ) {
+    if ('endL1ToL2MessageTreeSnapshot' in output && !(output instanceof RootRollupPublicInputs)) {
+      throw new Error(`The name 'L1ToL2Message' can only be used when output is of type RootRollupPublicInputs`);
+    }
+
     const localTree = await this.getTreeSnapshot(treeId);
-    const simulatedTree = output[`end${name}TreeSnapshot`];
+    const simulatedTree = (output as OutputWithTreeSnapshot<T>)[`end${name}TreeSnapshot`];
     this.validateSimulatedTree(localTree, simulatedTree, name);
   }
 
@@ -345,6 +379,8 @@ export class CircuitBlockBuilder implements BlockBuilder {
     label?: string,
   ) {
     if (!simulatedTree.root.toBuffer().equals(localTree.root.toBuffer())) {
+      console.log('local: ', localTree);
+      console.log('sim: ', simulatedTree);
       throw new Error(`${label ?? name} tree root mismatch (local ${localTree.root}, simulated ${simulatedTree.root})`);
     }
     if (simulatedTree.nextAvailableLeafIndex !== localTree.nextAvailableLeafIndex) {
@@ -388,8 +424,20 @@ export class CircuitBlockBuilder implements BlockBuilder {
       MerkleTreeId.L1_TO_L2_MESSAGES_ROOTS_TREE,
     );
 
-    // TODO: not sure if this is the correct way to fetch this
-    const newL1ToL2MessageTreeRootSiblingPath = await getRootTreeSiblingPath(MerkleTreeId.L1_TO_L2_MESSAGES_TREE);
+    // TODO: UPDATE 4 to be a constant like in base rollups!
+    const newL1ToL2MessageTreeRootSiblingPath = await this.getSubtreeSiblingPath(
+      MerkleTreeId.L1_TO_L2_MESSAGES_TREE,
+      4,
+    );
+
+    // Get tree snapshots
+    const startL1ToL2MessageTreeSnapshot = await this.getTreeSnapshot(MerkleTreeId.L1_TO_L2_MESSAGES_TREE);
+
+    console.log('startL1ToL2MessageTreeSnapshot');
+    console.log(startL1ToL2MessageTreeSnapshot);
+    const startHistoricTreeL1ToL2MessageTreeRootsSnapshot = await this.getTreeSnapshot(
+      MerkleTreeId.L1_TO_L2_MESSAGES_ROOTS_TREE,
+    );
 
     return RootRollupInputs.from({
       previousRollupData,
@@ -398,6 +446,8 @@ export class CircuitBlockBuilder implements BlockBuilder {
       newL1ToL2Messages,
       newHistoricL1ToL2MessageTreeRootSiblingPath,
       newL1ToL2MessageTreeRootSiblingPath,
+      startL1ToL2MessageTreeSnapshot,
+      startHistoricTreeL1ToL2MessageTreeRootsSnapshot,
     });
   }
 

@@ -47,6 +47,7 @@ import {
   KERNEL_PUBLIC_CALL_STACK_LENGTH,
   L1_MSG_STACK_LENGTH,
   L1_TO_L2_MESSAGES_ROOTS_TREE_HEIGHT,
+  L1_TO_L2_MESSAGES_SUBTREE_INSERTION_HEIGHT,
   L1_TO_L2_MESSAGES_TREE_HEIGHT,
   NEW_COMMITMENTS_LENGTH,
   NEW_NULLIFIERS_LENGTH,
@@ -433,9 +434,11 @@ export function makeRootRollupInputs(seed = 0) {
     [makePreviousBaseRollupData(seed), makePreviousBaseRollupData(seed + 0x1000)],
     range(PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT, 0x2000).map(fr),
     range(CONTRACT_TREE_ROOTS_TREE_HEIGHT, 0x2100).map(fr),
-    range(L1_TO_L2_MESSAGES_TREE_HEIGHT, 0x2100).map(fr),
-    range(L1_TO_L2_MESSAGES_ROOTS_TREE_HEIGHT, 0x2100).map(fr),
     range(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, 0x2100).map(fr),
+    range(L1_TO_L2_MESSAGES_SUBTREE_INSERTION_HEIGHT, 0x2100).map(fr),
+    range(L1_TO_L2_MESSAGES_ROOTS_TREE_HEIGHT, 0x2100).map(fr),
+    makeAppendOnlyTreeSnapshot(seed + 0x2200),
+    makeAppendOnlyTreeSnapshot(seed + 0x2300),
   );
 }
 

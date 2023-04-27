@@ -70,7 +70,7 @@ describe('sequencer/circuit_block_builder', () => {
     prover = mock<RollupProver>();
     builder = new TestSubject(builderDb, vks, simulator, prover);
 
-    mockL1ToL2Messages = Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(0);
+    mockL1ToL2Messages = Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n));
 
     // Populate root trees with first roots from the empty trees
     // TODO: Should this be responsibility of the MerkleTreeDb init?
@@ -94,6 +94,7 @@ describe('sequencer/circuit_block_builder', () => {
     for (const [newTree, rootTree] of [
       [MerkleTreeId.PRIVATE_DATA_TREE, MerkleTreeId.PRIVATE_DATA_TREE_ROOTS_TREE],
       [MerkleTreeId.CONTRACT_TREE, MerkleTreeId.CONTRACT_TREE_ROOTS_TREE],
+      [MerkleTreeId.L1_TO_L2_MESSAGES_TREE, MerkleTreeId.L1_TO_L2_MESSAGES_ROOTS_TREE],
     ] as const) {
       const newTreeInfo = await expectsDb.getTreeInfo(newTree);
       await expectsDb.appendLeaves(rootTree, [newTreeInfo.root]);
@@ -113,6 +114,12 @@ describe('sequencer/circuit_block_builder', () => {
     for (const write of txs.flatMap(tx => tx.data.end.stateTransitions)) {
       await expectsDb.updateLeaf(MerkleTreeId.PUBLIC_DATA_TREE, write.newValue.toBuffer(), write.leafIndex.value);
     }
+  };
+
+  // TODO: could just inline this?
+  const updateL1ToL2MessagesTree = async (l1ToL2Messages: Fr[]) => {
+    const asBuffer = l1ToL2Messages.map(m => m.toBuffer());
+    await expectsDb.appendLeaves(MerkleTreeId.L1_TO_L2_MESSAGES_TREE, asBuffer);
   };
 
   const getTreeSnapshot = async (tree: MerkleTreeId) => {
@@ -162,7 +169,9 @@ describe('sequencer/circuit_block_builder', () => {
       baseRollupOutputRight.endPrivateDataTreeSnapshot = await getTreeSnapshot(MerkleTreeId.PRIVATE_DATA_TREE);
       baseRollupOutputRight.endPublicDataTreeRoot = (await getTreeSnapshot(MerkleTreeId.PUBLIC_DATA_TREE)).root;
 
+      // Update l1 to l2 data tree
       // And update the root trees now to create proper output to the root rollup circuit
+      await updateL1ToL2MessagesTree(mockL1ToL2Messages);
       await updateRootTrees();
       rootRollupOutput.endContractTreeSnapshot = await getTreeSnapshot(MerkleTreeId.CONTRACT_TREE);
       rootRollupOutput.endNullifierTreeSnapshot = await getTreeSnapshot(MerkleTreeId.NULLIFIER_TREE);
@@ -178,6 +187,10 @@ describe('sequencer/circuit_block_builder', () => {
       rootRollupOutput.endTreeOfHistoricL1ToL2MessageTreeRootsSnapshot = await getTreeSnapshot(
         MerkleTreeId.L1_TO_L2_MESSAGES_ROOTS_TREE,
       );
+
+      console.log('rro inside');
+      console.log(rootRollupOutput);
+      console.log(rootRollupOutput.endTreeOfHistoricL1ToL2MessageTreeRootsSnapshot.root.toBuffer().toString('hex'));
 
       // Actually build a block!
       const txs = [tx, await makeEmptyProcessedTx(), await makeEmptyProcessedTx(), await makeEmptyProcessedTx()];
@@ -306,7 +319,7 @@ describe('sequencer/circuit_block_builder', () => {
 
       const [l2Block] = await builder.buildL2Block(blockNumber, txs, mockL1ToL2Messages);
       expect(l2Block.number).toEqual(blockNumber);
-    });
+    }, 20000);
   });
 });
 
