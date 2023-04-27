@@ -30,7 +30,6 @@ export class ViemTxSender implements L1PublisherTxSender {
   >;
   private publicClient: PublicClient<HttpTransport, chains.Chain>;
 
-  private confirmations: number;
   private log = createDebugLogger('aztec:sequencer:viem-tx-sender');
   private account: PrivateKeyAccount;
   private chain: chains.Chain;
@@ -42,7 +41,6 @@ export class ViemTxSender implements L1PublisherTxSender {
       publisherPrivateKey,
       rollupContract: rollupContractAddress,
       unverifiedDataEmitterContract: unverifiedDataEmitterContractAddress,
-      requiredConfirmations,
     } = config;
 
     this.account = privateKeyToAccount(('0x' + publisherPrivateKey.toString('hex')) as Hex);
@@ -72,20 +70,6 @@ export class ViemTxSender implements L1PublisherTxSender {
       publicClient: this.publicClient,
       walletClient,
     });
-
-    this.confirmations = requiredConfirmations;
-  }
-
-  private getChain(chainId: number) {
-    for (const chain of Object.values(chains)) {
-      if ('id' in chain) {
-        if (chain.id === chainId) {
-          return chain;
-        }
-      }
-    }
-
-    throw new Error(`Chain with id ${chainId} not found`);
   }
 
   async getTransactionReceipt(txHash: string): Promise<{ status: boolean; transactionHash: string } | undefined> {
@@ -162,5 +146,22 @@ export class ViemTxSender implements L1PublisherTxSender {
       });
       return hash;
     }
+  }
+
+  /**
+   * Gets the chain object for the given chain id.
+   * @param chainId - Chain id of the target EVM chain.
+   * @returns Viem's chain object.
+   */
+  private getChain(chainId: number) {
+    for (const chain of Object.values(chains)) {
+      if ('id' in chain) {
+        if (chain.id === chainId) {
+          return chain;
+        }
+      }
+    }
+
+    throw new Error(`Chain with id ${chainId} not found`);
   }
 }
