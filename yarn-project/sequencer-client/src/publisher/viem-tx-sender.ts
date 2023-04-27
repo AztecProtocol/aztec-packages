@@ -1,6 +1,6 @@
 import { TxSenderConfig } from './config.js';
 import { L1ProcessArgs as ProcessTxArgs, L1PublisherTxSender } from './l1-publisher.js';
-import { UnverifiedData } from '@aztec/types';
+import { CompleteContractData, UnverifiedData } from '@aztec/types';
 import { createDebugLogger } from '@aztec/foundation';
 import {
   GetContractReturnType,
@@ -112,6 +112,7 @@ export class ViemTxSender implements L1PublisherTxSender {
       };
     }
 
+    this.log('Receipt not found for tx hash', txHash);
     return undefined;
   }
 
@@ -146,5 +147,30 @@ export class ViemTxSender implements L1PublisherTxSender {
       gas,
     });
     return hash;
+  }
+
+  async sendEmitNewContractDataTx(
+    l2BlockNum: number,
+    newContractData: CompleteContractData[],
+  ): Promise<string | undefined> {
+    for (const contractData of newContractData) {
+      const args = [
+        BigInt(l2BlockNum),
+        contractData.contractAddress.toString() as Hex,
+        contractData.portalContractAddress.toString() as Hex,
+        ('0x' + contractData.bytecode.toString('hex')) as Hex,
+      ] as const;
+
+      const gas = await this.unverifiedDataEmitterContract.estimateGas.emitContractDeployment(args, {
+        account: this.account,
+      });
+
+      const hash = await this.unverifiedDataEmitterContract.write.emitContractDeployment(args, {
+        account: this.account,
+        chain: await this.getChain(this.rpcUrl),
+        gas,
+      });
+      return hash;
+    }
   }
 }
