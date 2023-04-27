@@ -38,7 +38,7 @@ constexpr size_t CONTRACT_SUBTREE_DEPTH = 1;
 constexpr size_t CONTRACT_SUBTREE_INCLUSION_CHECK_DEPTH = CONTRACT_TREE_HEIGHT - CONTRACT_SUBTREE_DEPTH;
 
 constexpr size_t PRIVATE_DATA_SUBTREE_DEPTH = 3;
-constexpr size_t PRIVATE_DATA_SUBTREE_INCLUSION_CHECK_DEPTH = NULLIFIER_TREE_HEIGHT - PRIVATE_DATA_SUBTREE_DEPTH;
+constexpr size_t PRIVATE_DATA_SUBTREE_INCLUSION_CHECK_DEPTH = PRIVATE_DATA_TREE_HEIGHT - PRIVATE_DATA_SUBTREE_DEPTH;
 
 constexpr size_t NULLIFIER_SUBTREE_DEPTH = 3;
 constexpr size_t NULLIFIER_SUBTREE_INCLUSION_CHECK_DEPTH = NULLIFIER_TREE_HEIGHT - NULLIFIER_SUBTREE_DEPTH;
@@ -48,7 +48,7 @@ constexpr size_t CONTRACT_TREE_ROOTS_TREE_HEIGHT = 8;
 constexpr size_t L1_TO_L2_MSG_TREE_ROOTS_TREE_HEIGHT = 8;
 constexpr size_t ROLLUP_VK_TREE_HEIGHT = 8; // TODO: update
 
-constexpr size_t FUNCTION_SELECTOR_NUM_BYTES = 31; // must be <= 31
+constexpr size_t FUNCTION_SELECTOR_NUM_BYTES = 4; // must be <= 31
 
 // Enumerate the hash_indices which are used for pedersen hashing
 // Start from 1 to avoid the default generators.

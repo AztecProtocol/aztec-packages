@@ -6,7 +6,6 @@
 
 #include <aztec3/circuits/abis/public_kernel/public_kernel_inputs.hpp>
 
-#include <barretenberg/stdlib/types/types.hpp>
 #include <aztec3/utils/types/convert.hpp>
 #include <aztec3/utils/types/circuit_types.hpp>
 #include <aztec3/utils/types/native_types.hpp>
@@ -14,9 +13,7 @@
 
 namespace aztec3::circuits::kernel::public_kernel {
 
-// Turbo specific, at the moment:
-using Composer = plonk::stdlib::types::Composer;
-using plonk::stdlib::types::Prover;
+using Composer = plonk::UltraComposer;
 
 using Aggregator = aztec3::circuits::recursion::Aggregator;
 
@@ -24,6 +21,7 @@ using Aggregator = aztec3::circuits::recursion::Aggregator;
 using CT = aztec3::utils::types::CircuitTypes<Composer>;
 using NT = aztec3::utils::types::NativeTypes;
 using aztec3::utils::types::to_ct;
+using CircuitErrorCode = aztec3::utils::CircuitErrorCode;
 
 using DB = oracle::FakeDB;
 using oracle::NativeOracle;

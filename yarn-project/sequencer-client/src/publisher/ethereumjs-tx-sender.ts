@@ -7,11 +7,11 @@ import {
 } from '@aztec/ethereum.js/eth_rpc';
 import { WalletProvider } from '@aztec/ethereum.js/provider';
 import { Rollup, UnverifiedDataEmitter } from '@aztec/l1-contracts';
-import { TxSenderConfig } from './config.js';
-import { L1ProcessArgs as ProcessTxArgs, L1PublisherTxSender } from './l1-publisher.js';
-import { UnverifiedData } from '@aztec/types';
+import { CompleteContractData, UnverifiedData } from '@aztec/types';
 import { createDebugLogger } from '@aztec/foundation';
 
+import { L1ProcessArgs as ProcessTxArgs, L1PublisherTxSender } from './l1-publisher.js';
+import { TxSenderConfig } from './config.js';
 /**
  * Pushes transactions to the L1 rollup contract using the custom aztec/ethereum.js library.
  */
@@ -20,7 +20,7 @@ export class EthereumjsTxSender implements L1PublisherTxSender {
   private rollupContract: Rollup;
   private unverifiedDataEmitterContract: UnverifiedDataEmitter;
   private confirmations: number;
-  private log = createDebugLogger('aztec:sequencer:tx-sender');
+  private log = createDebugLogger('aztec:sequencer:ethereum-js-tx-sender');
 
   constructor(config: TxSenderConfig) {
     const {
@@ -83,6 +83,26 @@ export class EthereumjsTxSender implements L1PublisherTxSender {
       const tx: TransactionRequest = (methodCall as any).getTxRequest({ gas });
       this.log(`Error sending unverified data tx`, err, JSON.stringify(toRawTransactionRequest(tx)));
       throw err;
+    }
+  }
+
+  async sendEmitContractDeploymentTx(
+    l2BlockNum: number,
+    newContractData: CompleteContractData[],
+  ): Promise<string | undefined> {
+    for (let i = 0; i < newContractData.length; i++) {
+      const newContract = newContractData[i];
+      const methodCall = this.unverifiedDataEmitterContract.methods.emitContractDeployment(
+        BigInt(l2BlockNum),
+        newContract.contractAddress.toBuffer(),
+        newContract.portalContractAddress,
+        newContract.bytecode,
+      );
+      const gas = await methodCall.estimateGas();
+      return methodCall
+        .send({ gas })
+        .getTxHash()
+        .then(hash => hash.toString());
     }
   }
 }

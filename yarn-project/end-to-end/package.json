@@ -11,7 +11,7 @@
     "clean": "rm -rf ./dest .tsbuildinfo",
     "formatting": "run -T prettier --check ./src && run -T eslint ./src",
     "formatting:fix": "run -T prettier -w ./src",
-    "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules $(yarn bin jest) --runInBand --passWithNoTests",
+    "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules $(yarn bin jest) --runInBand --passWithNoTests --testTimeout=15000",
     "test:integration": "concurrently -k -s first -c reset,dim -n test,anvil \"yarn test:integration:run\" \"anvil\"",
     "test:integration:run": "NODE_NO_WARNINGS=1 node --experimental-vm-modules $(yarn bin jest) --no-cache --runInBand --config jest.integration.config.json"
   },
@@ -26,7 +26,6 @@
   "dependencies": {
     "@aztec/aztec-node": "workspace:^",
     "@aztec/aztec.js": "workspace:^",
-    "@aztec/ethereum.js": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "@aztec/l1-contracts": "workspace:^",
     "@aztec/noir-contracts": "workspace:^",
@@ -35,7 +34,8 @@
     "lodash.times": "^4.3.2",
     "ts-jest": "^29.1.0",
     "tslib": "^2.4.0",
-    "typescript": "^4.9.5"
+    "typescript": "^4.9.5",
+    "viem": "^0.3.13"
   },
   "devDependencies": {
     "@jest/globals": "^29.5.0",

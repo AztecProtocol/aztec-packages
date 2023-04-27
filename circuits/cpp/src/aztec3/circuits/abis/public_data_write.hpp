@@ -1,4 +1,5 @@
 #pragma once
+#include "aztec3/constants.hpp"
 #include <barretenberg/stdlib/primitives/witness/witness.hpp>
 #include <aztec3/utils/types/native_types.hpp>
 #include <aztec3/utils/types/convert.hpp>
@@ -6,15 +7,16 @@
 
 namespace aztec3::circuits::abis {
 
+using aztec3::GeneratorIndex;
 using aztec3::utils::types::CircuitTypes;
 using aztec3::utils::types::NativeTypes;
-using plonk::stdlib::witness_t;
 
 template <typename NCT> struct PublicDataWrite {
     typedef typename NCT::fr fr;
     typedef typename NCT::boolean boolean;
 
     fr leaf_index = 0;
+    fr old_value = 0;
     fr new_value = 0;
 
     bool operator==(PublicDataWrite<NCT> const&) const = default;
@@ -28,6 +30,7 @@ template <typename NCT> struct PublicDataWrite {
 
         PublicDataWrite<CircuitTypes<Composer>> state_transition = {
             to_ct(leaf_index),
+            to_ct(old_value),
             to_ct(new_value),
         };
 
@@ -42,6 +45,7 @@ template <typename NCT> struct PublicDataWrite {
 
         PublicDataWrite<NativeTypes> state_transition = {
             to_nt(leaf_index),
+            to_nt(old_value),
             to_nt(new_value),
         };
 
@@ -52,6 +56,7 @@ template <typename NCT> struct PublicDataWrite {
     {
         std::vector<fr> inputs = {
             leaf_index,
+            old_value,
             new_value,
         };
 
@@ -63,6 +68,7 @@ template <typename NCT> struct PublicDataWrite {
         static_assert(!(std::is_same<NativeTypes, NCT>::value));
 
         leaf_index.set_public();
+        old_value.set_public();
         new_value.set_public();
     }
 
@@ -74,6 +80,7 @@ template <typename NCT> void read(uint8_t const*& it, PublicDataWrite<NCT>& stat
     using serialize::read;
 
     read(it, state_transition.leaf_index);
+    read(it, state_transition.old_value);
     read(it, state_transition.new_value);
 };
 
@@ -82,12 +89,14 @@ template <typename NCT> void write(std::vector<uint8_t>& buf, PublicDataWrite<NC
     using serialize::write;
 
     write(buf, state_transition.leaf_index);
+    write(buf, state_transition.old_value);
     write(buf, state_transition.new_value);
 };
 
 template <typename NCT> std::ostream& operator<<(std::ostream& os, PublicDataWrite<NCT> const& state_transition)
 {
     return os << "leaf_index: " << state_transition.leaf_index << "\n"
+              << "old_value: " << state_transition.old_value << "\n"
               << "new_value: " << state_transition.new_value << "\n";
 }
 

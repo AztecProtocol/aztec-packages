@@ -1,44 +1,22 @@
-import { PublicFunctionBytecode } from '@aztec/acir-simulator';
-import { BarretenbergWasm } from '@aztec/barretenberg.js/wasm';
 import {
   CircuitsWasm,
   Fr,
-  FunctionData,
-  MembershipWitness,
   PUBLIC_CALL_STACK_LENGTH,
-  PUBLIC_DATA_TREE_HEIGHT,
   PublicCallData,
   PublicCallStackItem,
   PublicCircuitPublicInputs,
   PublicKernelInputsNoPreviousKernel,
   PublicKernelPublicInputs,
-  StateRead,
-  StateTransition,
   TxRequest,
-  WitnessedPublicCallData,
 } from '@aztec/circuits.js';
-import { AztecAddress, EthAddress, createDebugLogger } from '@aztec/foundation';
-import { PublicTx, Tx } from '@aztec/types';
-import { MerkleTreeId, MerkleTreeOperations, computePublicDataTreeLeafIndex } from '@aztec/world-state';
+import { ContractDataSource, PublicTx, Tx } from '@aztec/types';
+import { MerkleTreeOperations } from '@aztec/world-state';
+import { pedersenGetHash } from '@aztec/barretenberg.js/crypto';
+import { createDebugLogger } from '@aztec/foundation';
 import times from 'lodash.times';
 import { Proof, PublicProver } from '../prover/index.js';
 import { PublicCircuitSimulator, PublicKernelCircuitSimulator } from '../simulator/index.js';
 import { ProcessedTx, makeEmptyProcessedTx, makeProcessedTx } from './processed_tx.js';
-import { pedersenGetHash } from '@aztec/barretenberg.js/crypto';
-
-export interface ContractDataSource {
-  getPortalContractAddress(address: AztecAddress): Promise<EthAddress | undefined>;
-  getPublicFunction(address: AztecAddress, selector: FunctionData): Promise<PublicFunctionBytecode | undefined>;
-}
-
-export class MockContractDataSource implements ContractDataSource {
-  getPortalContractAddress(_address: AztecAddress): Promise<EthAddress | undefined> {
-    return Promise.resolve(undefined);
-  }
-  getPublicFunction(_address: AztecAddress, _selector: FunctionData): Promise<PublicFunctionBytecode | undefined> {
-    return Promise.resolve(undefined);
-  }
-}
 
 export class PublicProcessor {
   constructor(
@@ -89,15 +67,19 @@ export class PublicProcessor {
     const { txRequest } = tx.txRequest;
     const contractAddress = txRequest.to;
 
-    const functionBytecode = await this.contractDataSource.getPublicFunction(contractAddress, txRequest.functionData);
+    const fn = await this.contractDataSource.getPublicFunction(
+      contractAddress,
+      txRequest.functionData.functionSelector,
+    );
     const functionSelector = txRequest.functionData.functionSelector;
-    if (!functionBytecode) throw new Error(`Bytecode not found for ${functionSelector}@${contractAddress}`);
-    const portalAddress = await this.contractDataSource.getPortalContractAddress(contractAddress);
-    if (!portalAddress) throw new Error(`Portal contract address not found for contract ${contractAddress}`);
+    if (!fn) throw new Error(`Bytecode not found for ${functionSelector}@${contractAddress}`);
+    const contractData = await this.contractDataSource.getL2ContractData(contractAddress);
+    if (!contractData) throw new Error(`Portal contract address not found for contract ${contractAddress}`);
+    const { portalContractAddress } = contractData;
 
-    const circuitOutput = await this.publicCircuit.publicCircuit(txRequest, functionBytecode, portalAddress);
+    const circuitOutput = await this.publicCircuit.publicCircuit(txRequest, fn.bytecode, portalContractAddress);
     const circuitProof = await this.publicProver.getPublicCircuitProof(circuitOutput);
-    const publicCallData = await this.processPublicCallData(txRequest, functionBytecode, circuitOutput, circuitProof);
+    const publicCallData = await this.getPublicCallData(txRequest, fn.bytecode, circuitOutput, circuitProof);
 
     const publicKernelInput = new PublicKernelInputsNoPreviousKernel(tx.txRequest, publicCallData);
     const publicKernelOutput = await this.publicKernel.publicKernelCircuitNoInput(publicKernelInput);
@@ -106,9 +88,9 @@ export class PublicProcessor {
     return [publicKernelOutput, publicKernelProof];
   }
 
-  protected async processPublicCallData(
+  protected async getPublicCallData(
     txRequest: TxRequest,
-    functionBytecode: PublicFunctionBytecode,
+    functionBytecode: Buffer,
     publicCircuitOutput: PublicCircuitPublicInputs,
     publicCircuitProof: Proof,
   ) {
@@ -117,60 +99,17 @@ export class PublicProcessor {
     const callStackItem = new PublicCallStackItem(contractAddress, txRequest.functionData, publicCircuitOutput);
     const publicCallStackPreimages: PublicCallStackItem[] = times(PUBLIC_CALL_STACK_LENGTH, PublicCallStackItem.empty);
 
-    // TODO: How to get the bytecode hash? Pedersen or SHA256? What generator to use?
-    const bytecodeHash = Fr.fromBuffer(pedersenGetHash(await CircuitsWasm.get(), functionBytecode.bytecode));
+    // TODO: Determine how to calculate bytecode hash
+    // See https://github.com/AztecProtocol/aztec3-packages/issues/378
+    const bytecodeHash = Fr.fromBuffer(pedersenGetHash(await CircuitsWasm.get(), functionBytecode));
     const portalContractAddress = publicCircuitOutput.callContext.portalContractAddress.toField();
 
-    const publicCallData = new PublicCallData(
+    return new PublicCallData(
       callStackItem,
       publicCallStackPreimages,
       publicCircuitProof,
       portalContractAddress,
       bytecodeHash,
     );
-
-    // Get public data tree root before we make any changes
-    const treeRoot = await this.db.getTreeInfo(MerkleTreeId.PUBLIC_DATA_TREE).then(i => Fr.fromBuffer(i.root));
-
-    // Alter public data tree as we go through state transitions producing hash paths
-    const { stateReads, stateTransitions } = publicCircuitOutput;
-    const { transitionsHashPaths, readsHashPaths } = await this.processStateTransitions(
-      contractAddress,
-      stateReads,
-      stateTransitions,
-    );
-
-    return new WitnessedPublicCallData(publicCallData, transitionsHashPaths, readsHashPaths, treeRoot);
-  }
-
-  protected async processStateTransitions(
-    contract: AztecAddress,
-    stateReads: StateRead[],
-    stateTransitions: StateTransition[],
-  ) {
-    const transitionsHashPaths: MembershipWitness<typeof PUBLIC_DATA_TREE_HEIGHT>[] = [];
-    const readsHashPaths: MembershipWitness<typeof PUBLIC_DATA_TREE_HEIGHT>[] = [];
-
-    const wasm = await BarretenbergWasm.get();
-    const getLeafIndex = (slot: Fr) => computePublicDataTreeLeafIndex(contract, slot, wasm);
-
-    // We get all reads from the unmodified tree
-    for (const stateRead of stateReads) {
-      readsHashPaths.push(await this.getMembershipWitness(getLeafIndex(stateRead.storageSlot)));
-    }
-
-    // And then apply state transitions
-    for (const stateTransition of stateTransitions) {
-      const index = getLeafIndex(stateTransition.storageSlot);
-      transitionsHashPaths.push(await this.getMembershipWitness(index));
-      await this.db.updateLeaf(MerkleTreeId.PUBLIC_DATA_TREE, stateTransition.newValue.toBuffer(), index);
-    }
-
-    return { readsHashPaths, transitionsHashPaths };
-  }
-
-  protected async getMembershipWitness(leafIndex: bigint) {
-    const path = await this.db.getSiblingPath(MerkleTreeId.PUBLIC_DATA_TREE, leafIndex);
-    return new MembershipWitness(PUBLIC_DATA_TREE_HEIGHT, leafIndex, path.data.map(Fr.fromBuffer));
   }
 }

@@ -4,14 +4,18 @@ import {
   BaseRollupInputs,
   CircuitsWasm,
   Fr,
+  PublicDataRead,
+  PublicDataWrite,
   RootRollupPublicInputs,
   UInt8Vector,
 } from '@aztec/circuits.js';
 import { computeContractLeaf } from '@aztec/circuits.js/abis';
 import {
+  fr,
   makeBaseRollupPublicInputs,
   makeKernelPublicInputs,
   makeNewContractData,
+  makeProof,
   makeRootRollupPublicInputs,
 } from '@aztec/circuits.js/factories';
 import { toBufferBE } from '@aztec/foundation';
@@ -22,13 +26,13 @@ import { default as levelup } from 'levelup';
 import flatMap from 'lodash.flatmap';
 import times from 'lodash.times';
 import { default as memdown, type MemDown } from 'memdown';
-import { makeEmptyUnverifiedData } from '../mocks/tx.js';
+import { makeEmptyUnverifiedData, makePublicTx } from '../mocks/tx.js';
 import { VerificationKeys, getVerificationKeys } from '../mocks/verification_keys.js';
 import { EmptyRollupProver } from '../prover/empty.js';
 import { RollupProver } from '../prover/index.js';
 import { ProcessedTx, makeEmptyProcessedTx, makeProcessedTx } from '../sequencer/processed_tx.js';
 import { RollupSimulator } from '../simulator/index.js';
-import { WasmCircuitSimulator } from '../simulator/wasm.js';
+import { WasmRollupCircuitSimulator } from '../simulator/rollup.js';
 import { CircuitBlockBuilder } from './circuit_block_builder.js';
 
 export const createMemDown = () => (memdown as any)() as MemDown<any, any>;
@@ -102,6 +106,9 @@ describe('sequencer/circuit_block_builder', () => {
     ] as const) {
       await expectsDb.appendLeaves(tree, leaves);
     }
+    for (const write of txs.flatMap(tx => tx.data.end.stateTransitions)) {
+      await expectsDb.updateLeaf(MerkleTreeId.PUBLIC_DATA_TREE, write.newValue.toBuffer(), write.leafIndex.value);
+    }
   };
 
   const getTreeSnapshot = async (tree: MerkleTreeId) => {
@@ -142,18 +149,21 @@ describe('sequencer/circuit_block_builder', () => {
       baseRollupOutputLeft.endContractTreeSnapshot = await getTreeSnapshot(MerkleTreeId.CONTRACT_TREE);
       baseRollupOutputLeft.endNullifierTreeSnapshot = await getTreeSnapshot(MerkleTreeId.NULLIFIER_TREE);
       baseRollupOutputLeft.endPrivateDataTreeSnapshot = await getTreeSnapshot(MerkleTreeId.PRIVATE_DATA_TREE);
+      baseRollupOutputLeft.endPublicDataTreeSnapshot = await getTreeSnapshot(MerkleTreeId.PUBLIC_DATA_TREE);
 
       // Same for the two txs on the right
       await updateExpectedTreesFromTxs(txsRight);
       baseRollupOutputRight.endContractTreeSnapshot = await getTreeSnapshot(MerkleTreeId.CONTRACT_TREE);
       baseRollupOutputRight.endNullifierTreeSnapshot = await getTreeSnapshot(MerkleTreeId.NULLIFIER_TREE);
       baseRollupOutputRight.endPrivateDataTreeSnapshot = await getTreeSnapshot(MerkleTreeId.PRIVATE_DATA_TREE);
+      baseRollupOutputRight.endPublicDataTreeSnapshot = await getTreeSnapshot(MerkleTreeId.PUBLIC_DATA_TREE);
 
       // And update the root trees now to create proper output to the root rollup circuit
       await updateRootTrees();
       rootRollupOutput.endContractTreeSnapshot = await getTreeSnapshot(MerkleTreeId.CONTRACT_TREE);
       rootRollupOutput.endNullifierTreeSnapshot = await getTreeSnapshot(MerkleTreeId.NULLIFIER_TREE);
       rootRollupOutput.endPrivateDataTreeSnapshot = await getTreeSnapshot(MerkleTreeId.PRIVATE_DATA_TREE);
+      rootRollupOutput.endPublicDataTreeSnapshot = await getTreeSnapshot(MerkleTreeId.PUBLIC_DATA_TREE);
       rootRollupOutput.endTreeOfHistoricContractTreeRootsSnapshot = await getTreeSnapshot(
         MerkleTreeId.CONTRACT_TREE_ROOTS_TREE,
       );
@@ -175,7 +185,7 @@ describe('sequencer/circuit_block_builder', () => {
       [[13, 14, 15, 16, 0, 0, 0, 0]],
       [[1234, 98, 0, 0, 99999, 88, 54, 0]],
       [[97, 98, 10, 0, 99999, 88, 100001, 9000000]],
-    ] as const)('Preforms nullifier tree batch insertion correctly', async nullifiers => {
+    ] as const)('performs nullifier tree batch insertion correctly', async nullifiers => {
       const leaves = nullifiers.map(i => toBufferBE(BigInt(i), 32));
       await expectsDb.appendLeaves(MerkleTreeId.NULLIFIER_TREE, leaves);
 
@@ -183,25 +193,33 @@ describe('sequencer/circuit_block_builder', () => {
 
       await builder.performBaseRollupBatchInsertionProofs(leaves);
 
-      // assert snapshots
-      const expectsSnapshot = await expectsDb.getTreeInfo(MerkleTreeId.NULLIFIER_TREE);
-      const buildSnapshot = await builderDb.getTreeInfo(MerkleTreeId.NULLIFIER_TREE);
-      expect(buildSnapshot).toEqual(expectsSnapshot);
+      const expected = await expectsDb.getTreeInfo(MerkleTreeId.NULLIFIER_TREE);
+      const actual = await builderDb.getTreeInfo(MerkleTreeId.NULLIFIER_TREE);
+      expect(actual).toEqual(expected);
     });
   });
 
   describe('circuits simulator', () => {
     beforeEach(async () => {
-      const simulator = await WasmCircuitSimulator.new();
+      const simulator = await WasmRollupCircuitSimulator.new();
       const prover = new EmptyRollupProver();
       builder = new TestSubject(builderDb, vks, simulator, prover);
       await builder.updateRootTrees();
     });
 
-    const makeContractDeployTx = async (seed = 0x1) => {
+    const makeContractDeployProcessedTx = async (seed = 0x1) => {
       const tx = await makeEmptyProcessedTx();
       await setTxHistoricTreeRoots(tx);
       tx.data.end.newContracts = [makeNewContractData(seed + 0x1000)];
+      return tx;
+    };
+
+    const makePublicCallProcessedTx = async (seed = 0x1) => {
+      const publicTx = makePublicTx(seed);
+      const tx = await makeProcessedTx(publicTx, makeKernelPublicInputs(seed), makeProof());
+      await setTxHistoricTreeRoots(tx);
+      tx.data.end.stateReads[0] = new PublicDataRead(fr(1), fr(0));
+      tx.data.end.stateTransitions[0] = new PublicDataWrite(fr(2), fr(0), fr(12));
       return tx;
     };
 
@@ -217,7 +235,7 @@ describe('sequencer/circuit_block_builder', () => {
         const contractTreeBefore = await builderDb.getTreeInfo(MerkleTreeId.CONTRACT_TREE);
 
         const txs = [
-          ...(await Promise.all(times(deployCount, makeContractDeployTx))),
+          ...(await Promise.all(times(deployCount, makeContractDeployProcessedTx))),
           ...(await Promise.all(times(totalCount - deployCount, makeEmptyProcessedTx))),
         ];
 
@@ -238,9 +256,26 @@ describe('sequencer/circuit_block_builder', () => {
       10000,
     );
 
+    it('builds an L2 block with private and public txs', async () => {
+      const txs = await Promise.all([
+        makeContractDeployProcessedTx(),
+        makePublicCallProcessedTx(),
+        makeEmptyProcessedTx(),
+        makeEmptyProcessedTx(),
+      ]);
+
+      const [l2Block] = await builder.buildL2Block(blockNumber, txs);
+      expect(l2Block.number).toEqual(blockNumber);
+
+      // TODO: Check that l2 block got the new state transitions once we merge
+      // https://github.com/AztecProtocol/aztec3-packages/pull/360
+
+      await updateExpectedTreesFromTxs(txs);
+    });
+
     // This test specifically tests nullifier values which previously caused e2e_zk_token test to fail
-    it('e2e edge case - regression test', async () => {
-      const simulator = await WasmCircuitSimulator.new();
+    it('e2e_zk_token edge case regression test on nullifier values', async () => {
+      const simulator = await WasmRollupCircuitSimulator.new();
       const prover = new EmptyRollupProver();
       builder = new TestSubject(builderDb, vks, simulator, prover);
       // update the starting tree
