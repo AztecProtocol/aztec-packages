@@ -1,4 +1,4 @@
-import { makeEmptyProof } from '@aztec/circuits.js';
+import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, makeEmptyProof } from '@aztec/circuits.js';
 import { P2P, P2PClientState } from '@aztec/p2p';
 import { L2Block, PrivateTx, Tx, UnverifiedData } from '@aztec/types';
 import { MerkleTreeId, MerkleTreeOperations, WorldStateRunningState, WorldStateSynchroniser } from '@aztec/world-state';
@@ -64,6 +64,8 @@ describe('sequencer', () => {
     expect(blockBuilder.buildL2Block).toHaveBeenCalledWith(
       lastBlockNumber + 1,
       expectedTxHashes.map(hash => expect.objectContaining({ hash })),
+      // TODO: longer term solution to this
+      Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(0),
     );
     expect(publisher.processL2Block).toHaveBeenCalledWith(block);
     expect(publisher.processUnverifiedData).toHaveBeenCalledWith(lastBlockNumber + 1, expectedUnverifiedData);
@@ -100,6 +102,8 @@ describe('sequencer', () => {
     expect(blockBuilder.buildL2Block).toHaveBeenCalledWith(
       lastBlockNumber + 1,
       expectedTxHashes.map(hash => expect.objectContaining({ hash })),
+      // TODO: longer term solution to this
+      Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(0),
     );
     expect(publisher.processL2Block).toHaveBeenCalledWith(block);
     expect(publisher.processUnverifiedData).toHaveBeenCalledWith(lastBlockNumber + 1, expectedUnverifiedData);
