@@ -86,7 +86,7 @@ export class EthereumjsTxSender implements L1PublisherTxSender {
     }
   }
 
-  async sendEmitNewContractDataTx(
+  async sendEmitContractDeploymentTx(
     l2BlockNum: number,
     newContractData: CompleteContractData[],
   ): Promise<string | undefined> {

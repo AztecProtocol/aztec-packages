@@ -117,7 +117,7 @@ export class ViemTxSender implements L1PublisherTxSender {
     return hash;
   }
 
-  async sendEmitNewContractDataTx(
+  async sendEmitContractDeploymentTx(
     l2BlockNum: number,
     newContractData: CompleteContractData[],
   ): Promise<string | undefined> {
