@@ -6,6 +6,7 @@ import { EcdsaSignature } from './shared.js';
 import { TxContext } from './tx_context.js';
 import { Fr } from '@aztec/foundation/fields';
 import { ARGS_LENGTH } from './constants.js';
+import { EthPublicKey } from '@aztec/foundation/eth-public-key';
 
 /**
  * Signed transaction request.
@@ -42,6 +43,7 @@ export class TxRequest {
      * Sender.
      */
     public from: AztecAddress,
+    public fromPublicKey: EthPublicKey,
     /**
      * Target.
      */
@@ -73,6 +75,7 @@ export class TxRequest {
   static getFields(fields: FieldsOf<TxRequest>) {
     return [
       fields.from,
+      fields.fromPublicKey,
       fields.to,
       fields.functionData,
       fields.args,
