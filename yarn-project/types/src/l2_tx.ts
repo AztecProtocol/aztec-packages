@@ -2,6 +2,7 @@ import { Fr } from '@aztec/foundation';
 import { ContractData } from './contract_data.js';
 import { TxHash } from './tx_hash.js';
 import { createTxHash } from './create_tx_hash.js';
+import { PublicDataWrite } from './public_data_write.js';
 
 export class L2Tx {
   constructor(
@@ -9,6 +10,7 @@ export class L2Tx {
     public newNullifiers: Fr[],
     public newContracts: Fr[],
     public newContractData: ContractData[],
+    public newPublicDataWrites: PublicDataWrite[],
     private hash?: TxHash,
   ) {}
 
