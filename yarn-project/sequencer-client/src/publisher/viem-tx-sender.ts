@@ -22,17 +22,19 @@ import * as chains from 'viem/chains';
  * Pushes transactions to the L1 rollup contract using viem.
  */
 export class ViemTxSender implements L1PublisherTxSender {
-  private rollupContract: GetContractReturnType<typeof RollupAbi, PublicClient, WalletClient>;
+  private rollupContract: GetContractReturnType<
+    typeof RollupAbi,
+    PublicClient<HttpTransport, chains.Chain>,
+    WalletClient<HttpTransport, chains.Chain, PrivateKeyAccount>
+  >;
   private unverifiedDataEmitterContract: GetContractReturnType<
     typeof UnverifiedDataEmitterAbi,
-    PublicClient,
-    WalletClient
+    PublicClient<HttpTransport, chains.Chain>,
+    WalletClient<HttpTransport, chains.Chain, PrivateKeyAccount>
   >;
-  private publicClient: PublicClient<HttpTransport, chains.Chain>;
 
   private log = createDebugLogger('aztec:sequencer:viem-tx-sender');
-  private account: PrivateKeyAccount;
-  private chain: chains.Chain;
+  private publicClient: PublicClient<HttpTransport, chains.Chain>;
 
   constructor(config: TxSenderConfig) {
     const {
@@ -43,18 +45,16 @@ export class ViemTxSender implements L1PublisherTxSender {
       unverifiedDataEmitterContract: unverifiedDataEmitterContractAddress,
     } = config;
 
-    this.account = privateKeyToAccount(('0x' + publisherPrivateKey.toString('hex')) as Hex);
-
-    this.chain = this.getChain(chainId);
-
+    const account = privateKeyToAccount(('0x' + publisherPrivateKey.toString('hex')) as Hex);
+    const chain = this.getChain(chainId);
     const walletClient = createWalletClient({
-      account: this.account,
-      chain: this.chain,
+      account,
+      chain,
       transport: http(rpcUrl),
     });
 
     this.publicClient = createPublicClient({
-      chain: this.chain,
+      chain: chain,
       transport: http(),
     });
 
@@ -96,13 +96,8 @@ export class ViemTxSender implements L1PublisherTxSender {
       ('0x' + encodedData.inputs.toString('hex')) as Hex,
     ] as const;
 
-    const gas = await this.rollupContract.estimateGas.process(args, {
-      account: this.account,
-    });
-
+    const gas = await this.rollupContract.estimateGas.process(args);
     const hash = await this.rollupContract.write.process(args, {
-      account: this.account,
-      chain: this.chain,
       gas,
     });
     return hash;
@@ -111,13 +106,8 @@ export class ViemTxSender implements L1PublisherTxSender {
   async sendEmitUnverifiedDataTx(l2BlockNum: number, unverifiedData: UnverifiedData): Promise<string | undefined> {
     const args = [BigInt(l2BlockNum), ('0x' + unverifiedData.toBuffer().toString('hex')) as Hex] as const;
 
-    const gas = await this.unverifiedDataEmitterContract.estimateGas.emitUnverifiedData(args, {
-      account: this.account,
-    });
-
+    const gas = await this.unverifiedDataEmitterContract.estimateGas.emitUnverifiedData(args);
     const hash = await this.unverifiedDataEmitterContract.write.emitUnverifiedData(args, {
-      account: this.account,
-      chain: this.chain,
       gas,
     });
     return hash;
@@ -135,13 +125,8 @@ export class ViemTxSender implements L1PublisherTxSender {
         ('0x' + contractData.bytecode.toString('hex')) as Hex,
       ] as const;
 
-      const gas = await this.unverifiedDataEmitterContract.estimateGas.emitContractDeployment(args, {
-        account: this.account,
-      });
-
+      const gas = await this.unverifiedDataEmitterContract.estimateGas.emitContractDeployment(args);
       const hash = await this.unverifiedDataEmitterContract.write.emitContractDeployment(args, {
-        account: this.account,
-        chain: this.chain,
         gas,
       });
       return hash;
