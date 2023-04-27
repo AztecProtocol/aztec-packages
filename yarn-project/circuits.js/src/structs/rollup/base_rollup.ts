@@ -1,5 +1,6 @@
 import { BufferReader, Fr } from '@aztec/foundation';
-import { assertLength, FieldsOf } from '../../utils/jsUtils.js';
+import assert from 'assert';
+import { FieldsOf, assertLength } from '../../utils/jsUtils.js';
 import { serializeToBuffer } from '../../utils/serialize.js';
 import {
   CONTRACT_TREE_HEIGHT,
@@ -15,8 +16,9 @@ import {
   STATE_TRANSITIONS_LENGTH,
 } from '../constants.js';
 import { PreviousKernelData } from '../kernel/previous_kernel_data.js';
-import { UInt32 } from '../shared.js';
 import { MembershipWitness } from '../membership_witness.js';
+import { UInt32 } from '../shared.js';
+import { SiblingPath } from '../sibling_path.js';
 import { AppendOnlyTreeSnapshot } from './append_only_tree_snapshot.js';
 
 export class NullifierLeafPreimage {
@@ -79,14 +81,35 @@ export class ConstantBaseRollupData {
   }
 }
 
+export const PRIVATE_DATA_SUBTREE_HEIGHT = Math.log2(KERNEL_NEW_COMMITMENTS_LENGTH * 2);
+export const CONTRACT_SUBTREE_HEIGHT = Math.log2(KERNEL_NEW_CONTRACTS_LENGTH * 2);
+export const NULLIFIER_SUBTREE_HEIGHT = Math.log2(KERNEL_NEW_NULLIFIERS_LENGTH * 2);
+
+// Set these constants to a fixed number, so we can retrieve the constant value via typeof, and
+// use it for type checking the length of these sibling paths. We need constexprs in typescript!
+export const PRIVATE_DATA_SUBTREE_SIBLING_PATH_LENGTH = 5;
+export const NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH = 5;
+export const CONTRACT_SUBTREE_SIBLING_PATH_LENGTH = 3;
+
+assert(
+  PRIVATE_DATA_SUBTREE_SIBLING_PATH_LENGTH === PRIVATE_DATA_TREE_HEIGHT - PRIVATE_DATA_SUBTREE_HEIGHT,
+  'Invalid constant value for PRIVATE_DATA_SUBTREE_SIBLING_PATH_LENGTH',
+);
+
+assert(
+  NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH === NULLIFIER_TREE_HEIGHT - NULLIFIER_SUBTREE_HEIGHT,
+  'Invalid constant value for NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH',
+);
+
+assert(
+  CONTRACT_SUBTREE_SIBLING_PATH_LENGTH === CONTRACT_TREE_HEIGHT - CONTRACT_SUBTREE_HEIGHT,
+  'Invalid constant value for CONTRACT_SUBTREE_SIBLING_PATH_LENGTH',
+);
+
 /**
  * Inputs to the base rollup circuit
  */
 export class BaseRollupInputs {
-  public static PRIVATE_DATA_SUBTREE_HEIGHT = Math.log2(KERNEL_NEW_COMMITMENTS_LENGTH * 2);
-  public static CONTRACT_SUBTREE_HEIGHT = Math.log2(KERNEL_NEW_CONTRACTS_LENGTH * 2);
-  public static NULLIFIER_SUBTREE_HEIGHT = Math.log2(KERNEL_NEW_NULLIFIERS_LENGTH * 2);
-
   constructor(
     public kernelData: [PreviousKernelData, PreviousKernelData],
 
@@ -98,11 +121,11 @@ export class BaseRollupInputs {
     public lowNullifierLeafPreimages: NullifierLeafPreimage[],
     public lowNullifierMembershipWitness: MembershipWitness<typeof NULLIFIER_TREE_HEIGHT>[],
 
-    public newCommitmentsSubtreeSiblingPath: Fr[],
-    public newNullifiersSubtreeSiblingPath: Fr[],
-    public newContractsSubtreeSiblingPath: Fr[],
-    public newStateTransitionsSiblingPaths: MembershipWitness<typeof PUBLIC_DATA_TREE_HEIGHT>[],
-    public newStateReadsSiblingPaths: MembershipWitness<typeof PUBLIC_DATA_TREE_HEIGHT>[],
+    public newCommitmentsSubtreeSiblingPath: SiblingPath<typeof PRIVATE_DATA_SUBTREE_SIBLING_PATH_LENGTH>,
+    public newNullifiersSubtreeSiblingPath: SiblingPath<typeof NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH>,
+    public newContractsSubtreeSiblingPath: SiblingPath<typeof CONTRACT_SUBTREE_SIBLING_PATH_LENGTH>,
+    public newStateTransitionsSiblingPaths: SiblingPath<typeof PUBLIC_DATA_TREE_HEIGHT>[],
+    public newStateReadsSiblingPaths: SiblingPath<typeof PUBLIC_DATA_TREE_HEIGHT>[],
 
     public historicPrivateDataTreeRootMembershipWitnesses: [
       MembershipWitness<typeof PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT>,
@@ -117,21 +140,6 @@ export class BaseRollupInputs {
   ) {
     assertLength(this, 'lowNullifierLeafPreimages', 2 * KERNEL_NEW_NULLIFIERS_LENGTH);
     assertLength(this, 'lowNullifierMembershipWitness', 2 * KERNEL_NEW_NULLIFIERS_LENGTH);
-    assertLength(
-      this,
-      'newCommitmentsSubtreeSiblingPath',
-      PRIVATE_DATA_TREE_HEIGHT - BaseRollupInputs.PRIVATE_DATA_SUBTREE_HEIGHT,
-    );
-    assertLength(
-      this,
-      'newNullifiersSubtreeSiblingPath',
-      NULLIFIER_TREE_HEIGHT - BaseRollupInputs.NULLIFIER_SUBTREE_HEIGHT,
-    );
-    assertLength(
-      this,
-      'newContractsSubtreeSiblingPath',
-      CONTRACT_TREE_HEIGHT - BaseRollupInputs.CONTRACT_SUBTREE_HEIGHT,
-    );
     assertLength(this, 'newStateTransitionsSiblingPaths', 2 * STATE_TRANSITIONS_LENGTH);
     assertLength(this, 'newStateReadsSiblingPaths', 2 * STATE_READS_LENGTH);
   }

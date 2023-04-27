@@ -2,6 +2,7 @@ import { AztecAddress, EthAddress, Fq, Fr } from '@aztec/foundation';
 import {
   BaseOrMergeRollupPublicInputs,
   BaseRollupInputs,
+  CONTRACT_SUBTREE_SIBLING_PATH_LENGTH,
   CallContext,
   CombinedAccumulatedData,
   CombinedConstantData,
@@ -9,9 +10,11 @@ import {
   ConstantBaseRollupData,
   KernelCircuitPublicInputs,
   MergeRollupInputs,
+  NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH,
   NewContractData,
   NullifierLeafPreimage,
   OptionallyRevealedData,
+  PRIVATE_DATA_SUBTREE_SIBLING_PATH_LENGTH,
   PreviousKernelData,
   PreviousRollupData,
   PrivateCallData,
@@ -50,7 +53,6 @@ import {
   NEW_NULLIFIERS_LENGTH,
   NULLIFIER_TREE_HEIGHT,
   PRIVATE_CALL_STACK_LENGTH,
-  PRIVATE_DATA_TREE_HEIGHT,
   PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT,
   PUBLIC_CALL_STACK_LENGTH,
   PUBLIC_DATA_TREE_HEIGHT,
@@ -64,6 +66,7 @@ import { FunctionData } from '../structs/function_data.js';
 import { MembershipWitness } from '../structs/membership_witness.js';
 import { AppendOnlyTreeSnapshot } from '../structs/rollup/append_only_tree_snapshot.js';
 import { AffineElement, ComposerType, EcdsaSignature, RollupTypes, UInt8Vector } from '../structs/shared.js';
+import { SiblingPath } from '../structs/sibling_path.js';
 import { ContractDeploymentData, TxContext } from '../structs/tx_context.js';
 import { SignedTxRequest, TxRequest } from '../structs/tx_request.js';
 import { CommitmentMap, G1AffineElement, VerificationKey } from '../structs/verification_key.js';
@@ -419,6 +422,10 @@ export function makeMergeRollupInputs(seed = 0) {
   return new MergeRollupInputs([makePreviousBaseRollupData(seed), makePreviousBaseRollupData(seed + 0x1000)]);
 }
 
+export function makeSiblingPath<N extends number>(size: N, seed = 0) {
+  return new SiblingPath(size, range(size, seed).map(fr));
+}
+
 export function makeBaseRollupInputs(seed = 0) {
   const kernelData: [PreviousKernelData, PreviousKernelData] = [
     makePreviousKernelData(seed + 0x100),
@@ -438,27 +445,18 @@ export function makeBaseRollupInputs(seed = 0) {
     makeMembershipWitness(NULLIFIER_TREE_HEIGHT, x),
   );
 
-  const newCommitmentsSubtreeSiblingPath = range(
-    PRIVATE_DATA_TREE_HEIGHT - BaseRollupInputs.PRIVATE_DATA_SUBTREE_HEIGHT,
-    seed + 0x3000,
-  ).map(x => fr(x));
+  const newCommitmentsSubtreeSiblingPath = makeSiblingPath(PRIVATE_DATA_SUBTREE_SIBLING_PATH_LENGTH, seed + 0x3000);
 
-  const newNullifiersSubtreeSiblingPath = range(
-    NULLIFIER_TREE_HEIGHT - BaseRollupInputs.NULLIFIER_SUBTREE_HEIGHT,
-    seed + 0x4000,
-  ).map(x => fr(x));
+  const newNullifiersSubtreeSiblingPath = makeSiblingPath(NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH, seed + 0x4000);
 
-  const newContractsSubtreeSiblingPath = range(
-    CONTRACT_TREE_HEIGHT - BaseRollupInputs.CONTRACT_SUBTREE_HEIGHT,
-    seed + 0x5000,
-  ).map(x => fr(x));
+  const newContractsSubtreeSiblingPath = makeSiblingPath(CONTRACT_SUBTREE_SIBLING_PATH_LENGTH, seed + 0x5000);
 
   const newStateTransitionsSiblingPaths = range(2 * STATE_TRANSITIONS_LENGTH, seed + 0x6000).map(x =>
-    makeMembershipWitness(PUBLIC_DATA_TREE_HEIGHT, x),
+    makeSiblingPath(PUBLIC_DATA_TREE_HEIGHT, x),
   );
 
   const newStateReadsSiblingPaths = range(2 * STATE_READS_LENGTH, seed + 0x6000).map(x =>
-    makeMembershipWitness(PUBLIC_DATA_TREE_HEIGHT, x),
+    makeSiblingPath(PUBLIC_DATA_TREE_HEIGHT, x),
   );
 
   const historicPrivateDataTreeRootMembershipWitnesses: BaseRollupInputs['historicPrivateDataTreeRootMembershipWitnesses'] =

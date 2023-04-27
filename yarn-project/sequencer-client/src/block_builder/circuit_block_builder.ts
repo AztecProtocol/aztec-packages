@@ -20,6 +20,10 @@ import {
   UInt8Vector,
   VK_TREE_HEIGHT,
   VerificationKey,
+  SiblingPath as CircuitSiblingPath,
+  PRIVATE_DATA_SUBTREE_HEIGHT,
+  CONTRACT_SUBTREE_HEIGHT,
+  NULLIFIER_SUBTREE_HEIGHT,
 } from '@aztec/circuits.js';
 import { computeContractLeaf } from '@aztec/circuits.js/abis';
 import { Fr, createDebugLogger, toBigIntBE, toBufferBE } from '@aztec/foundation';
@@ -456,13 +460,19 @@ export class CircuitBlockBuilder implements BlockBuilder {
     };
   }
 
-  protected async getSubtreeSiblingPath(treeId: MerkleTreeId, subtreeHeight: number): Promise<Fr[]> {
+  protected async getSubtreeSiblingPath<N extends number>(
+    treeId: MerkleTreeId,
+    subtreeHeight: number,
+  ): Promise<CircuitSiblingPath<N>> {
     // Get sibling path to the last leaf we inserted
-    const lastLeafIndex = (await this.db.getTreeInfo(treeId).then(t => t.size)) - 1n;
+    const treeInfo = await this.db.getTreeInfo(treeId);
+    const lastLeafIndex = treeInfo.size - 1n;
     const fullSiblingPath = await this.db.getSiblingPath(treeId, lastLeafIndex);
 
     // Drop the first subtreeHeight items since we only care about the path to the subtree root
-    return fullSiblingPath.data.slice(subtreeHeight).map(b => Fr.fromBuffer(b));
+    const path = fullSiblingPath.data.slice(subtreeHeight).map(b => Fr.fromBuffer(b));
+    const size = treeInfo.depth - subtreeHeight;
+    return new CircuitSiblingPath(size, path);
   }
 
   /**
@@ -765,15 +775,15 @@ export class CircuitBlockBuilder implements BlockBuilder {
     // Get the subtree sibling paths for the circuit
     const newCommitmentsSubtreeSiblingPath = await this.getSubtreeSiblingPath(
       MerkleTreeId.PRIVATE_DATA_TREE,
-      BaseRollupInputs.PRIVATE_DATA_SUBTREE_HEIGHT,
+      PRIVATE_DATA_SUBTREE_HEIGHT,
     );
     const newContractsSubtreeSiblingPath = await this.getSubtreeSiblingPath(
       MerkleTreeId.CONTRACT_TREE,
-      BaseRollupInputs.CONTRACT_SUBTREE_HEIGHT,
+      CONTRACT_SUBTREE_HEIGHT,
     );
     const newNullifiersSubtreeSiblingPath = await this.getSubtreeSiblingPath(
       MerkleTreeId.NULLIFIER_TREE,
-      BaseRollupInputs.NULLIFIER_SUBTREE_HEIGHT,
+      NULLIFIER_SUBTREE_HEIGHT,
     );
 
     return BaseRollupInputs.from({

@@ -435,31 +435,26 @@ fr insert_state_transitions(
     DummyComposer& composer,
     fr tree_root,
     std::array<abis::PublicDataWrite<NT>, STATE_TRANSITIONS_LENGTH> const& state_transitions,
-    size_t witnesses_offset,
-    std::array<abis::MembershipWitness<NT, PUBLIC_DATA_TREE_HEIGHT>, 2 * STATE_TRANSITIONS_LENGTH> const& witnesses)
+    size_t sibling_paths_offset,
+    std::array<std::array<fr, PUBLIC_DATA_TREE_HEIGHT>, 2 * STATE_TRANSITIONS_LENGTH> const& sibling_paths)
 {
     auto root = tree_root;
 
     for (size_t i = 0; i < STATE_TRANSITIONS_LENGTH; ++i) {
         const auto& state_write = state_transitions[i];
-        const auto& witness = witnesses[i + witnesses_offset];
+        const auto& sibling_path = sibling_paths[i + sibling_paths_offset];
 
         if (state_write.is_empty())
             continue;
 
-        composer.do_assert(
-            witness.leaf_index == state_write.leaf_index,
-            format("mismatch state write ", state_write.leaf_index, " and witness leaf index ", witness.leaf_index),
-            CircuitErrorCode::BASE__INVALID_PUBLIC_READS);
-
         check_membership<NT>(composer,
                              state_write.old_value,
                              state_write.leaf_index,
-                             witness.sibling_path,
+                             sibling_path,
                              root,
                              format("validate_state_reads index ", i));
 
-        root = root_from_sibling_path<NT>(state_write.new_value, state_write.leaf_index, witness.sibling_path);
+        root = root_from_sibling_path<NT>(state_write.new_value, state_write.leaf_index, sibling_path);
     }
 
     return root;
@@ -469,27 +464,22 @@ void validate_state_reads(
     DummyComposer& composer,
     fr tree_root,
     std::array<abis::PublicDataRead<NT>, STATE_READS_LENGTH> const& state_reads,
-    size_t witnesses_offset,
-    std::array<abis::MembershipWitness<NT, PUBLIC_DATA_TREE_HEIGHT>, 2 * STATE_READS_LENGTH> const& witnesses)
+    size_t sibling_paths_offset,
+    std::array<std::array<fr, PUBLIC_DATA_TREE_HEIGHT>, 2 * STATE_READS_LENGTH> const& sibling_paths)
 {
     for (size_t i = 0; i < STATE_READS_LENGTH; ++i) {
         const auto& state_read = state_reads[i];
-        const auto& witness = witnesses[i + witnesses_offset];
+        const auto& sibling_path = sibling_paths[i + sibling_paths_offset];
 
         if (state_read.is_empty())
             continue;
 
-        composer.do_assert(
-            witness.leaf_index == state_read.leaf_index,
-            format("mismatch state read ", state_read.leaf_index, " and witness leaf index ", witness.leaf_index),
-            CircuitErrorCode::BASE__INVALID_PUBLIC_READS);
-
         check_membership<NT>(composer,
                              state_read.value,
                              state_read.leaf_index,
-                             witness.sibling_path,
+                             sibling_path,
                              tree_root,
-                             format("validate_state_reads index ", i + witnesses_offset));
+                             format("validate_state_reads index ", i + sibling_paths_offset));
     }
 };
 

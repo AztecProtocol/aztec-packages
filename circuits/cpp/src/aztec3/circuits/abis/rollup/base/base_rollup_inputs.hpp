@@ -33,9 +33,9 @@ template <typename NCT> struct BaseRollupInputs {
     std::array<fr, PRIVATE_DATA_SUBTREE_INCLUSION_CHECK_DEPTH> new_commitments_subtree_sibling_path;
     std::array<fr, NULLIFIER_SUBTREE_INCLUSION_CHECK_DEPTH> new_nullifiers_subtree_sibling_path;
     std::array<fr, CONTRACT_SUBTREE_INCLUSION_CHECK_DEPTH> new_contracts_subtree_sibling_path;
-    std::array<MembershipWitness<NCT, PUBLIC_DATA_TREE_HEIGHT>, 2 * STATE_TRANSITIONS_LENGTH>
+    std::array<std::array<fr, PUBLIC_DATA_TREE_HEIGHT>, 2 * STATE_TRANSITIONS_LENGTH>
         new_state_transitions_sibling_paths;
-    std::array<MembershipWitness<NCT, PUBLIC_DATA_TREE_HEIGHT>, 2 * STATE_READS_LENGTH> new_state_reads_sibling_paths;
+    std::array<std::array<fr, PUBLIC_DATA_TREE_HEIGHT>, 2 * STATE_READS_LENGTH> new_state_reads_sibling_paths;
 
     std::array<MembershipWitness<NCT, PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT>, 2>
         historic_private_data_tree_root_membership_witnesses;

@@ -174,10 +174,7 @@ BaseRollupInputs base_rollup_inputs_from_kernels(std::array<KernelData, 2> kerne
                 continue;
             auto leaf_index = uint256_t(state_read.leaf_index);
             baseRollupInputs.new_state_reads_sibling_paths[i * STATE_READS_LENGTH + j] =
-                MembershipWitness<NT, PUBLIC_DATA_TREE_HEIGHT>{
-                    .leaf_index = state_read.leaf_index,
-                    .sibling_path = get_sibling_path<PUBLIC_DATA_TREE_HEIGHT>(public_data_tree, leaf_index),
-                };
+                get_sibling_path<PUBLIC_DATA_TREE_HEIGHT>(public_data_tree, leaf_index);
         }
 
         for (size_t j = 0; j < STATE_TRANSITIONS_LENGTH; j++) {
@@ -187,10 +184,7 @@ BaseRollupInputs base_rollup_inputs_from_kernels(std::array<KernelData, 2> kerne
             auto leaf_index = uint256_t(state_write.leaf_index);
             public_data_tree.update_element(leaf_index, state_write.new_value);
             baseRollupInputs.new_state_transitions_sibling_paths[i * STATE_TRANSITIONS_LENGTH + j] =
-                MembershipWitness<NT, PUBLIC_DATA_TREE_HEIGHT>{
-                    .leaf_index = state_write.leaf_index,
-                    .sibling_path = get_sibling_path<PUBLIC_DATA_TREE_HEIGHT>(public_data_tree, leaf_index),
-                };
+                get_sibling_path<PUBLIC_DATA_TREE_HEIGHT>(public_data_tree, leaf_index);
         }
     }
 
