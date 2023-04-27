@@ -155,10 +155,8 @@ export class ViemTxSender implements L1PublisherTxSender {
    */
   private getChain(chainId: number) {
     for (const chain of Object.values(chains)) {
-      if ('id' in chain) {
-        if (chain.id === chainId) {
-          return chain;
-        }
+      if ('id' in chain && chain.id === chainId) {
+        return chain;
       }
     }
 
