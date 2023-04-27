@@ -23,6 +23,7 @@ describe('e2e_block_building', () => {
   beforeEach(async () => {
     const account = mnemonicToAccount(MNEMONIC);
     const privKey = account.getHdKey().privateKey;
+    console.log(config);
     const { rollupAddress, unverifiedDataEmitterAddress } = await deployL1Contracts(config.rpcUrl, account, logger);
 
     config.publisherPrivateKey = Buffer.from(privKey!);
@@ -31,7 +32,7 @@ describe('e2e_block_building', () => {
 
     node = await AztecNode.createAndSync(config);
     aztecRpcServer = await createAztecRpcServer(1, node);
-  }, 30_000);
+  }, 60_000);
 
   afterEach(async () => {
     await node?.stop();

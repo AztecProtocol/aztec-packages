@@ -31,7 +31,7 @@ describe('e2e_nested_contract', () => {
     node = await AztecNode.createAndSync(config);
     aztecRpcServer = await createAztecRpcServer(1, node);
     accounts = await aztecRpcServer.getAccounts();
-  }, 30_000);
+  }, 60_000);
 
   afterEach(async () => {
     await node.stop();

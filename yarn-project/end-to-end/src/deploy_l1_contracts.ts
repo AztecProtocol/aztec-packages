@@ -21,12 +21,12 @@ import { HDAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
 export const deployL1Contracts = async (rpcUrl: string, account: HDAccount, logger: DebugLogger) => {
-  logger('Deploying contracts...');
+  logger('Deploying contracts... (rpcURL: %s)', rpcUrl);
 
   const walletClient = createWalletClient({
     account,
     chain: foundry,
-    transport: http(rpcUrl),
+    transport: http(),
   });
   const publicClient = createPublicClient({
     chain: foundry,
@@ -34,14 +34,15 @@ export const deployL1Contracts = async (rpcUrl: string, account: HDAccount, logg
   });
 
   const rollupAddress = await deployL1Contract(walletClient, publicClient, RollupAbi, RollupBytecode);
+  logger(`Deployed rollup contract at ${rollupAddress}`);
+
   const unverifiedDataEmitterAddress = await deployL1Contract(
     walletClient,
     publicClient,
     UnverifiedDataEmitterAbi,
     UnverifiedDataEmitterBytecode,
   );
-
-  logger(`Deployed rollup contract at ${rollupAddress} and unverified data emitter at ${unverifiedDataEmitterAddress}`);
+  logger(`Deployed unverified data emitter at ${unverifiedDataEmitterAddress}`);
 
   return {
     rollupAddress,
