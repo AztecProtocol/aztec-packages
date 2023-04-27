@@ -33,11 +33,12 @@ export class ViemTxSender implements L1PublisherTxSender {
   private confirmations: number;
   private log = createDebugLogger('aztec:sequencer:viem-tx-sender');
   private account: PrivateKeyAccount;
-  private rpcUrl: string;
+  private chain: chains.Chain;
 
   constructor(config: TxSenderConfig) {
     const {
       rpcUrl,
+      chainId,
       publisherPrivateKey,
       rollupContract: rollupContractAddress,
       unverifiedDataEmitterContract: unverifiedDataEmitterContractAddress,
@@ -45,22 +46,17 @@ export class ViemTxSender implements L1PublisherTxSender {
     } = config;
 
     this.account = privateKeyToAccount(('0x' + publisherPrivateKey.toString('hex')) as Hex);
-    this.rpcUrl = rpcUrl;
 
-    // TODO: generalize for all networks
-    const anvil = {
-      ...chains.localhost,
-      id: 31337,
-    } as const;
+    this.chain = this.getChain(chainId);
 
     const walletClient = createWalletClient({
       account: this.account,
-      chain: anvil,
+      chain: this.chain,
       transport: http(rpcUrl),
     });
 
     this.publicClient = createPublicClient({
-      chain: anvil,
+      chain: this.chain,
       transport: http(),
     });
 
@@ -80,22 +76,16 @@ export class ViemTxSender implements L1PublisherTxSender {
     this.confirmations = requiredConfirmations;
   }
 
-  private async getChain(rpcUrl: string) {
-    // TODO: load based on chainId in config
-    const publicClient = createPublicClient({
-      chain: chains.mainnet,
-      transport: http(rpcUrl),
-    });
-    const targetId = await publicClient.getChainId();
+  private getChain(chainId: number) {
     for (const chain of Object.values(chains)) {
       if ('id' in chain) {
-        if (chain.id === targetId) {
+        if (chain.id === chainId) {
           return chain;
         }
       }
     }
 
-    throw new Error(`Chain with id ${targetId} not found`);
+    throw new Error(`Chain with id ${chainId} not found`);
   }
 
   async getTransactionReceipt(txHash: string): Promise<{ status: boolean; transactionHash: string } | undefined> {
@@ -128,7 +118,7 @@ export class ViemTxSender implements L1PublisherTxSender {
 
     const hash = await this.rollupContract.write.process(args, {
       account: this.account,
-      chain: await this.getChain(this.rpcUrl),
+      chain: this.chain,
       gas,
     });
     return hash;
@@ -143,7 +133,7 @@ export class ViemTxSender implements L1PublisherTxSender {
 
     const hash = await this.unverifiedDataEmitterContract.write.emitUnverifiedData(args, {
       account: this.account,
-      chain: await this.getChain(this.rpcUrl),
+      chain: this.chain,
       gas,
     });
     return hash;
@@ -167,7 +157,7 @@ export class ViemTxSender implements L1PublisherTxSender {
 
       const hash = await this.unverifiedDataEmitterContract.write.emitContractDeployment(args, {
         account: this.account,
-        chain: await this.getChain(this.rpcUrl),
+        chain: this.chain,
         gas,
       });
       return hash;
