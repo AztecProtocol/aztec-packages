@@ -16,7 +16,7 @@ export {
   AztecAddress as Address,
   ConstantData,
   VerificationKey as VerificationKeyData,
-  PublicKernelPublicInputs as PublicInputs,
+  PrivateKernelPublicInputs as PublicInputs,
   PreviousKernelData,
 } from '../structs/index.js';
 

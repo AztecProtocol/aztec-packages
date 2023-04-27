@@ -1,5 +1,11 @@
-import { IAccumulatedData, IPreviousKernelData, IPublicInputs } from '../cbind/circuits.gen.js';
+import {
+  IAccumulatedData,
+  IPreviousKernelData,
+  IPublicInputs,
+  privateKernelDummyPreviousKernel,
+} from '../cbind/circuits.gen.js';
 import { fromMsgpack } from '../cbind/msgpack_reader.js';
+import { FixedArray } from '../cbind/types.js';
 import { CircuitsWasm } from '../index.js';
 import { assertLength, FieldsOf } from '../utils/jsUtils.js';
 import { serializeToBuffer } from '../utils/serialize.js';
@@ -172,19 +178,6 @@ export class AccumulatedData {
     assertLength(this, 'optionallyRevealedData', KERNEL_OPTIONALLY_REVEALED_DATA_LENGTH);
   }
 
-  static fromMsgpack(o: IAccumulatedData) {
-    return new this(
-      AggregationObject.fromMsgpack(o.aggregationObject),
-      Fr.fromBuffer(o.privateCallCount),
-      o.newCommitments.map(Fr.fromBuffer),
-      o.newNullifiers.map(Fr.fromBuffer),
-      o.privateCallStack.map(Fr.fromBuffer),
-      o.publicCallStack.map(Fr.fromBuffer),
-      o.l1MsgStack.map(Fr.fromBuffer),
-      o.newContracts.map(NewContractData.fromMsgpack),
-      o.optionallyRevealedData.map(OptionallyRevealedData.fromMsgpack),
-    );
-  }
   toBuffer() {
     return serializeToBuffer(
       this.aggregationObject,
@@ -219,12 +212,8 @@ export class AccumulatedData {
   }
 }
 
-export class PrivateKernelPublicInputs {
+export class PrivateKernelPublicInputs implements IPublicInputs {
   constructor(public end: AccumulatedData, public constants: ConstantData, public isPrivate: boolean) {}
-
-  static fromMsgpack(o: IPublicInputs) {
-    return new this(AccumulatedData.fromMsgpack(o.end), ConstantData.fromMsgpack(o.constants), o.isPrivate);
-  }
 
   toBuffer() {
     return serializeToBuffer(this.end, this.constants, this.isPrivate);
@@ -244,37 +233,31 @@ export class PrivateKernelPublicInputs {
   }
 }
 
-export class PreviousKernelData {
+function toFixedArray<T, N extends number>(array: T[], n: N): FixedArray<Fr, N> {
+  if (array.length !== n) {
+    throw new Error("Wrong 'fixed array' size");
+  }
+  return array as any;
+}
+
+export class PreviousKernelData implements IPreviousKernelData {
   constructor(
     public publicInputs: PrivateKernelPublicInputs,
     public proof: UInt8Vector,
     public vk: VerificationKey,
     public vkIndex: UInt32, // the index of the kernel circuit's vk in a big tree of kernel circuit vks
-    public vkSiblingPath: Fr[],
+    public vkPath: FixedArray<Fr, typeof VK_TREE_HEIGHT>,
   ) {
-    assertLength(this, 'vkSiblingPath', VK_TREE_HEIGHT);
+    assertLength(this, 'vkPath', VK_TREE_HEIGHT);
   }
 
-  /**
-   * Deserialize from a msgpack-encoded object.
-   * @param msgpack The msgpack-encoded object.
-   */
-  static fromMsgpack({ publicInputs, proof, vk, vkIndex, vkPath }: IPreviousKernelData): PreviousKernelData {
-    return new PreviousKernelData(
-      fromMsgpack(PrivateKernelPublicInputs, publicInputs),
-      proof,
-      fromMsgpack(vk),
-      fromMsgpack(vkIndex),
-      fromMsgpack(vkPath),
-    );
-  }
   /**
    * TODO deprecate in favour of msgpack
    * Serialize this as a buffer.
    * @returns The buffer.
    */
   toBuffer() {
-    return serializeToBuffer(this.publicInputs, this.proof, this.vk, this.vkIndex, this.vkSiblingPath);
+    return serializeToBuffer(this.publicInputs, this.proof, this.vk, this.vkIndex, this.vkPath);
   }
 
   /**
@@ -289,7 +272,7 @@ export class PreviousKernelData {
       reader.readObject(UInt8Vector),
       reader.readObject(VerificationKey),
       reader.readNumber(),
-      reader.readArray(VK_TREE_HEIGHT, Fr),
+      toFixedArray(reader.readArray(VK_TREE_HEIGHT, Fr), VK_TREE_HEIGHT),
     );
   }
 
@@ -302,7 +285,7 @@ export class PreviousKernelData {
       makeEmptyProof(),
       VerificationKey.makeFake(),
       0,
-      Array(VK_TREE_HEIGHT).fill(frZero()),
+      toFixedArray(Array(VK_TREE_HEIGHT).fill(frZero()), VK_TREE_HEIGHT),
     );
   }
 }
@@ -314,8 +297,8 @@ export class DummyPreviousKernelData {
 
   public static async getDummyPreviousKernelData(wasm: CircuitsWasm): Promise<PreviousKernelData> {
     if (!DummyPreviousKernelData.instance) {
-      const data = await cbindPrivateKernelDummyPreviousKernel(wasm);
-      DummyPreviousKernelData.instance = PreviousKernelData.fromMsgpack(data);
+      const data = await privateKernelDummyPreviousKernel(wasm);
+      DummyPreviousKernelData.instance = data;
     }
 
     return DummyPreviousKernelData.instance;
