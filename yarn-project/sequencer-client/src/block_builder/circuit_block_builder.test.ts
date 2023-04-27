@@ -390,8 +390,8 @@ describe('sequencer/circuit_block_builder', () => {
         }
 
         // Printer useful for checking that output match contracts.
-        /*console.log(block);
-        console.log(block.encode().toString('hex'));
+        console.log(block);
+        /*console.log(block.encode().toString('hex'));
         console.log(`call data hash   : ${block.getCalldataHash().toString('hex')}`);
         console.log(`start state hash: ${block.getStartStateHash().toString('hex')}`);
         console.log(`end state hash  : ${block.getEndStateHash().toString('hex')}`);
