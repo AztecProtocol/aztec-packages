@@ -52,7 +52,6 @@ export class StandaloneBlockBuilder implements BlockBuilder {
       });
     }
 
-
     await this.updateRootTrees();
 
     const endPrivateDataTreeSnapshot = await this.getTreeSnapshot(MerkleTreeId.PRIVATE_DATA_TREE);
