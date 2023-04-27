@@ -484,14 +484,6 @@ void validate_state_reads(
             format("mismatch state read ", state_read.leaf_index, " and witness leaf index ", witness.leaf_index),
             CircuitErrorCode::BASE__INVALID_PUBLIC_READS);
 
-        info(" Checking membership for ",
-             state_read.value,
-             " at ",
-             state_read.leaf_index,
-             " vs ",
-             tree_root,
-             " using ",
-             witness.sibling_path);
         check_membership<NT>(composer,
                              state_read.value,
                              state_read.leaf_index,
@@ -579,7 +571,6 @@ BaseOrMergeRollupPublicInputs base_rollup_circuit(DummyComposer& composer, BaseR
 
     // Validate public state reads and transitions, and update public data tree
     fr end_public_data_tree_root = validate_and_process_public_state(composer, baseRollupInputs);
-    // fr end_public_data_tree_root = baseRollupInputs.start_public_data_tree_snapshot.root;
 
     AppendOnlySnapshot end_public_data_tree_snapshot = {
         .root = end_public_data_tree_root,
