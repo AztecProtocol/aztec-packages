@@ -1,4 +1,4 @@
-import { EthAddress } from '@aztec/foundation';
+import { DebugLogger, EthAddress } from '@aztec/foundation';
 import {
   RollupAbi,
   RollupBytecode,
@@ -20,7 +20,8 @@ import {
 import { HDAccount } from 'viem/accounts';
 import { localhost } from 'viem/chains';
 
-export const deployL1Contracts = async (rpcUrl: string, account: HDAccount) => {
+export const deployL1Contracts = async (rpcUrl: string, account: HDAccount, logger: DebugLogger) => {
+  logger('Deploying contracts...');
   const anvil = {
     ...localhost,
     id: 31337,
@@ -36,14 +37,19 @@ export const deployL1Contracts = async (rpcUrl: string, account: HDAccount) => {
     transport: http(),
   });
 
+  const rollupAddress = await deployL1Contract(walletClient, publicClient, RollupAbi, RollupBytecode);
+  const unverifiedDataEmitterAddress = await deployL1Contract(
+    walletClient,
+    publicClient,
+    UnverifiedDataEmitterAbi,
+    UnverifiedDataEmitterBytecode,
+  );
+
+  logger(`Deployed rollup contract at ${rollupAddress} and unverified data emitter at ${unverifiedDataEmitterAddress}`);
+
   return {
-    rollupAddress: await deployL1Contract(walletClient, publicClient, RollupAbi, RollupBytecode),
-    unverifiedDataEmitterAddress: await deployL1Contract(
-      walletClient,
-      publicClient,
-      UnverifiedDataEmitterAbi,
-      UnverifiedDataEmitterBytecode,
-    ),
+    rollupAddress,
+    unverifiedDataEmitterAddress,
   };
 };
 

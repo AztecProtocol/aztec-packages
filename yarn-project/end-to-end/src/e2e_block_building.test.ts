@@ -23,13 +23,11 @@ describe('e2e_block_building', () => {
   beforeEach(async () => {
     const account = mnemonicToAccount(MNEMONIC);
     const privKey = account.getHdKey().privateKey;
-    config.publisherPrivateKey = Buffer.from(privKey!);
+    const { rollupAddress, unverifiedDataEmitterAddress } = await deployL1Contracts(config.rpcUrl, account, logger);
 
-    logger('Deploying contracts...');
-    const { rollupAddress, unverifiedDataEmitterAddress } = await deployL1Contracts(config.rpcUrl, account);
+    config.publisherPrivateKey = Buffer.from(privKey!);
     config.rollupContract = rollupAddress;
     config.unverifiedDataEmitterContract = unverifiedDataEmitterAddress;
-    logger(`Deployed rollup contract at ${rollupAddress} and unverified data emitter at ${unverifiedDataEmitterAddress}`);
   });
 
   beforeEach(async () => {
