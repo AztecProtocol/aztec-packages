@@ -30,6 +30,7 @@ template <typename NCT> struct OptionallyRevealedData {
     MSGPACK(call_stack_item_hash,
             function_data,
             emitted_events,
+            vk_hash,
             portal_contract_address,
             pay_fee_from_l1,
             pay_fee_from_public_l2,

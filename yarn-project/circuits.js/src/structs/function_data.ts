@@ -1,16 +1,39 @@
 import { BufferReader } from '@aztec/foundation';
+import { Buffer } from 'buffer';
 import { serializeToBuffer } from '../utils/serialize.js';
+import { IFunctionData } from '../cbind/circuits.gen.js';
 
 /**
  * Function description for circuit.
  * @see abis/function_data.hpp
  */
 export class FunctionData {
-  constructor(public functionSelector: Buffer, public isPrivate = true, public isConstructor = true) {
-    if (functionSelector.byteLength !== 4) {
-      throw new Error(`Function selector must be 4 bytes long, got ${functionSelector.byteLength} bytes.`);
+  public functionSelectorBuffer: Buffer;
+  constructor(functionSelector: Buffer | number, public isPrivate = true, public isConstructor = true) {
+    if (functionSelector instanceof Buffer) {
+      if (functionSelector.byteLength !== 4) {
+        throw new Error(`Function selector must be 4 bytes long, got ${functionSelector.byteLength} bytes.`);
+      }
+      this.functionSelectorBuffer = functionSelector;
+    } else {
+      // create a new numeric buffer with 4 bytes
+      this.functionSelectorBuffer = Buffer.alloc(4);
+      this.functionSelectorBuffer.writeInt32BE(functionSelector);
     }
   }
+  // For serialization, return as number
+  get functionSelector(): number {
+    return this.functionSelectorBuffer.readInt32BE();
+  }
+
+  // /**
+  //  * Deserialize this from msgpack data.
+  //  * @param o The (partially auto-converted) msgpack data.
+  //  * @returns Deserialized object.
+  //  */
+  // static from(o: IFunctionData) {
+  //   return new this(serializeToBuffer(o.functionSelector), o.isPrivate, o.isConstructor);
+  // }
   /**
    * Serialize this as a buffer.
    * @returns The buffer.

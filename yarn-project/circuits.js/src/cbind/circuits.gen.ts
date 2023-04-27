@@ -3,8 +3,11 @@
 import { Buffer } from 'buffer';
 import { callCbind } from './cbind.js';
 import { CircuitsWasm } from '../wasm/index.js';
+type MsgpackAddress = Buffer;
+type MsgpackFr = Buffer;
+type MsgpackFq = Buffer;
+type MsgpackProof = Buffer;
 import {
-  FixedArray,
   Address,
   Fr,
   Fq,
@@ -23,25 +26,27 @@ import {
   VerificationKeyData,
   PreviousKernelData,
 } from './types.js';
+import { TupleOf, mapTuple, mapValues } from '../structs/types.js';
+export interface MsgpackAffineElement {
+  x: Buffer;
+  y: Buffer;
+}
 export interface IAffineElement {
   x: Fq;
   y: Fq;
 }
 
-export function toAffineElement(o: any): AffineElement {
+export function toAffineElement(o: MsgpackAffineElement): AffineElement {
   if (o.x === undefined) {
     throw new Error('Expected x in AffineElement deserialization');
   }
   if (o.y === undefined) {
     throw new Error('Expected y in AffineElement deserialization');
   }
-  return AffineElement.from({
-    x: Fq.fromBuffer(o.x),
-    y: Fq.fromBuffer(o.y),
-  });
+  return new AffineElement(Fq.fromBuffer(o.x), Fq.fromBuffer(o.y));
 }
 
-export function fromAffineElement(o: AffineElement): any {
+export function fromAffineElement(o: AffineElement): MsgpackAffineElement {
   if (o.x === undefined) {
     throw new Error('Expected x in AffineElement serialization');
   }
@@ -54,6 +59,13 @@ export function fromAffineElement(o: AffineElement): any {
   };
 }
 
+export interface MsgpackNativeAggregationState {
+  P0: MsgpackAffineElement;
+  P1: MsgpackAffineElement;
+  public_inputs: Buffer[];
+  proof_witness_indices: number[];
+  has_data: boolean;
+}
 export interface INativeAggregationState {
   p0: AffineElement;
   p1: AffineElement;
@@ -62,7 +74,7 @@ export interface INativeAggregationState {
   hasData: boolean;
 }
 
-export function toNativeAggregationState(o: any): NativeAggregationState {
+export function toNativeAggregationState(o: MsgpackNativeAggregationState): NativeAggregationState {
   if (o.P0 === undefined) {
     throw new Error('Expected P0 in NativeAggregationState deserialization');
   }
@@ -78,16 +90,16 @@ export function toNativeAggregationState(o: any): NativeAggregationState {
   if (o.has_data === undefined) {
     throw new Error('Expected has_data in NativeAggregationState deserialization');
   }
-  return NativeAggregationState.from({
-    p0: toAffineElement(o.P0),
-    p1: toAffineElement(o.P1),
-    publicInputs: o.public_inputs.map((v: any) => Fr.fromBuffer(v)),
-    proofWitnessIndices: o.proof_witness_indices.map((v: any) => v),
-    hasData: o.has_data,
-  });
+  return new NativeAggregationState(
+    toAffineElement(o.P0),
+    toAffineElement(o.P1),
+    o.public_inputs.map((v: Buffer) => Fr.fromBuffer(v)),
+    o.proof_witness_indices.map((v: number) => v),
+    o.has_data,
+  );
 }
 
-export function fromNativeAggregationState(o: NativeAggregationState): any {
+export function fromNativeAggregationState(o: NativeAggregationState): MsgpackNativeAggregationState {
   if (o.p0 === undefined) {
     throw new Error('Expected p0 in NativeAggregationState serialization');
   }
@@ -104,21 +116,26 @@ export function fromNativeAggregationState(o: NativeAggregationState): any {
     throw new Error('Expected hasData in NativeAggregationState serialization');
   }
   return {
-    P0: toAffineElement(o.p0),
-    P1: toAffineElement(o.p1),
-    public_inputs: o.publicInputs.map((v: any) => v.toBuffer()),
-    proof_witness_indices: o.proofWitnessIndices.map((v: any) => v),
+    P0: fromAffineElement(o.p0),
+    P1: fromAffineElement(o.p1),
+    public_inputs: o.publicInputs.map((v: Fr) => v.toBuffer()),
+    proof_witness_indices: o.proofWitnessIndices.map((v: number) => v),
     has_data: o.hasData,
   };
 }
 
+export interface MsgpackNewContractData {
+  contract_address: Buffer;
+  portal_contract_address: Buffer;
+  function_tree_root: Buffer;
+}
 export interface INewContractData {
   contractAddress: Address;
   portalContractAddress: Address;
   functionTreeRoot: Fr;
 }
 
-export function toNewContractData(o: any): NewContractData {
+export function toNewContractData(o: MsgpackNewContractData): NewContractData {
   if (o.contract_address === undefined) {
     throw new Error('Expected contract_address in NewContractData deserialization');
   }
@@ -128,14 +145,14 @@ export function toNewContractData(o: any): NewContractData {
   if (o.function_tree_root === undefined) {
     throw new Error('Expected function_tree_root in NewContractData deserialization');
   }
-  return NewContractData.from({
-    contractAddress: Address.fromBuffer(o.contract_address),
-    portalContractAddress: Address.fromBuffer(o.portal_contract_address),
-    functionTreeRoot: Fr.fromBuffer(o.function_tree_root),
-  });
+  return new NewContractData(
+    Address.fromBuffer(o.contract_address),
+    Address.fromBuffer(o.portal_contract_address),
+    Fr.fromBuffer(o.function_tree_root),
+  );
 }
 
-export function fromNewContractData(o: NewContractData): any {
+export function fromNewContractData(o: NewContractData): MsgpackNewContractData {
   if (o.contractAddress === undefined) {
     throw new Error('Expected contractAddress in NewContractData serialization');
   }
@@ -152,13 +169,18 @@ export function fromNewContractData(o: NewContractData): any {
   };
 }
 
+export interface MsgpackFunctionData {
+  function_selector: number;
+  is_private: boolean;
+  is_constructor: boolean;
+}
 export interface IFunctionData {
   functionSelector: number;
   isPrivate: boolean;
   isConstructor: boolean;
 }
 
-export function toFunctionData(o: any): FunctionData {
+export function toFunctionData(o: MsgpackFunctionData): FunctionData {
   if (o.function_selector === undefined) {
     throw new Error('Expected function_selector in FunctionData deserialization');
   }
@@ -168,14 +190,10 @@ export function toFunctionData(o: any): FunctionData {
   if (o.is_constructor === undefined) {
     throw new Error('Expected is_constructor in FunctionData deserialization');
   }
-  return FunctionData.from({
-    functionSelector: o.function_selector,
-    isPrivate: o.is_private,
-    isConstructor: o.is_constructor,
-  });
+  return new FunctionData(o.function_selector, o.is_private, o.is_constructor);
 }
 
-export function fromFunctionData(o: FunctionData): any {
+export function fromFunctionData(o: FunctionData): MsgpackFunctionData {
   if (o.functionSelector === undefined) {
     throw new Error('Expected functionSelector in FunctionData serialization');
   }
@@ -192,10 +210,22 @@ export function fromFunctionData(o: FunctionData): any {
   };
 }
 
+export interface MsgpackOptionallyRevealedData {
+  call_stack_item_hash: Buffer;
+  function_data: MsgpackFunctionData;
+  emitted_events: TupleOf<Buffer, 4>;
+  vk_hash: Buffer;
+  portal_contract_address: Buffer;
+  pay_fee_from_l1: boolean;
+  pay_fee_from_public_l2: boolean;
+  called_from_l1: boolean;
+  called_from_public_l2: boolean;
+}
 export interface IOptionallyRevealedData {
   callStackItemHash: Fr;
   functionData: FunctionData;
-  emittedEvents: FixedArray<Fr, 4>;
+  emittedEvents: TupleOf<Fr, 4>;
+  vkHash: Fr;
   portalContractAddress: Address;
   payFeeFromL1: boolean;
   payFeeFromPublicL2: boolean;
@@ -203,7 +233,7 @@ export interface IOptionallyRevealedData {
   calledFromPublicL2: boolean;
 }
 
-export function toOptionallyRevealedData(o: any): OptionallyRevealedData {
+export function toOptionallyRevealedData(o: MsgpackOptionallyRevealedData): OptionallyRevealedData {
   if (o.call_stack_item_hash === undefined) {
     throw new Error('Expected call_stack_item_hash in OptionallyRevealedData deserialization');
   }
@@ -212,6 +242,9 @@ export function toOptionallyRevealedData(o: any): OptionallyRevealedData {
   }
   if (o.emitted_events === undefined) {
     throw new Error('Expected emitted_events in OptionallyRevealedData deserialization');
+  }
+  if (o.vk_hash === undefined) {
+    throw new Error('Expected vk_hash in OptionallyRevealedData deserialization');
   }
   if (o.portal_contract_address === undefined) {
     throw new Error('Expected portal_contract_address in OptionallyRevealedData deserialization');
@@ -228,19 +261,20 @@ export function toOptionallyRevealedData(o: any): OptionallyRevealedData {
   if (o.called_from_public_l2 === undefined) {
     throw new Error('Expected called_from_public_l2 in OptionallyRevealedData deserialization');
   }
-  return OptionallyRevealedData.from({
-    callStackItemHash: Fr.fromBuffer(o.call_stack_item_hash),
-    functionData: toFunctionData(o.function_data),
-    emittedEvents: o.emitted_events.map((v: any) => Fr.fromBuffer(v)),
-    portalContractAddress: Address.fromBuffer(o.portal_contract_address),
-    payFeeFromL1: o.pay_fee_from_l1,
-    payFeeFromPublicL2: o.pay_fee_from_public_l2,
-    calledFromL1: o.called_from_l1,
-    calledFromPublicL2: o.called_from_public_l2,
-  });
+  return new OptionallyRevealedData(
+    Fr.fromBuffer(o.call_stack_item_hash),
+    toFunctionData(o.function_data),
+    mapTuple(o.emitted_events, (v: Buffer) => Fr.fromBuffer(v)),
+    Fr.fromBuffer(o.vk_hash),
+    Address.fromBuffer(o.portal_contract_address),
+    o.pay_fee_from_l1,
+    o.pay_fee_from_public_l2,
+    o.called_from_l1,
+    o.called_from_public_l2,
+  );
 }
 
-export function fromOptionallyRevealedData(o: OptionallyRevealedData): any {
+export function fromOptionallyRevealedData(o: OptionallyRevealedData): MsgpackOptionallyRevealedData {
   if (o.callStackItemHash === undefined) {
     throw new Error('Expected callStackItemHash in OptionallyRevealedData serialization');
   }
@@ -249,6 +283,9 @@ export function fromOptionallyRevealedData(o: OptionallyRevealedData): any {
   }
   if (o.emittedEvents === undefined) {
     throw new Error('Expected emittedEvents in OptionallyRevealedData serialization');
+  }
+  if (o.vkHash === undefined) {
+    throw new Error('Expected vkHash in OptionallyRevealedData serialization');
   }
   if (o.portalContractAddress === undefined) {
     throw new Error('Expected portalContractAddress in OptionallyRevealedData serialization');
@@ -267,8 +304,9 @@ export function fromOptionallyRevealedData(o: OptionallyRevealedData): any {
   }
   return {
     call_stack_item_hash: o.callStackItemHash.toBuffer(),
-    function_data: toFunctionData(o.functionData),
-    emitted_events: o.emittedEvents.map((v: any) => v.toBuffer()),
+    function_data: fromFunctionData(o.functionData),
+    emitted_events: mapTuple(o.emittedEvents, (v: Fr) => v.toBuffer()),
+    vk_hash: o.vkHash.toBuffer(),
     portal_contract_address: o.portalContractAddress.toBuffer(),
     pay_fee_from_l1: o.payFeeFromL1,
     pay_fee_from_public_l2: o.payFeeFromPublicL2,
@@ -277,19 +315,30 @@ export function fromOptionallyRevealedData(o: OptionallyRevealedData): any {
   };
 }
 
+export interface MsgpackAccumulatedData {
+  aggregation_object: MsgpackNativeAggregationState;
+  private_call_count: Buffer;
+  new_commitments: TupleOf<Buffer, 4>;
+  new_nullifiers: TupleOf<Buffer, 4>;
+  private_call_stack: TupleOf<Buffer, 8>;
+  public_call_stack: TupleOf<Buffer, 8>;
+  l1_msg_stack: TupleOf<Buffer, 4>;
+  new_contracts: TupleOf<MsgpackNewContractData, 1>;
+  optionally_revealed_data: TupleOf<MsgpackOptionallyRevealedData, 4>;
+}
 export interface IAccumulatedData {
   aggregationObject: NativeAggregationState;
   privateCallCount: Fr;
-  newCommitments: FixedArray<Fr, 4>;
-  newNullifiers: FixedArray<Fr, 4>;
-  privateCallStack: FixedArray<Fr, 8>;
-  publicCallStack: FixedArray<Fr, 8>;
-  l1MsgStack: FixedArray<Fr, 4>;
-  newContracts: FixedArray<NewContractData, 1>;
-  optionallyRevealedData: FixedArray<OptionallyRevealedData, 4>;
+  newCommitments: TupleOf<Fr, 4>;
+  newNullifiers: TupleOf<Fr, 4>;
+  privateCallStack: TupleOf<Fr, 8>;
+  publicCallStack: TupleOf<Fr, 8>;
+  l1MsgStack: TupleOf<Fr, 4>;
+  newContracts: TupleOf<NewContractData, 1>;
+  optionallyRevealedData: TupleOf<OptionallyRevealedData, 4>;
 }
 
-export function toAccumulatedData(o: any): AccumulatedData {
+export function toAccumulatedData(o: MsgpackAccumulatedData): AccumulatedData {
   if (o.aggregation_object === undefined) {
     throw new Error('Expected aggregation_object in AccumulatedData deserialization');
   }
@@ -317,20 +366,20 @@ export function toAccumulatedData(o: any): AccumulatedData {
   if (o.optionally_revealed_data === undefined) {
     throw new Error('Expected optionally_revealed_data in AccumulatedData deserialization');
   }
-  return AccumulatedData.from({
-    aggregationObject: toNativeAggregationState(o.aggregation_object),
-    privateCallCount: Fr.fromBuffer(o.private_call_count),
-    newCommitments: o.new_commitments.map((v: any) => Fr.fromBuffer(v)),
-    newNullifiers: o.new_nullifiers.map((v: any) => Fr.fromBuffer(v)),
-    privateCallStack: o.private_call_stack.map((v: any) => Fr.fromBuffer(v)),
-    publicCallStack: o.public_call_stack.map((v: any) => Fr.fromBuffer(v)),
-    l1MsgStack: o.l1_msg_stack.map((v: any) => Fr.fromBuffer(v)),
-    newContracts: o.new_contracts.map((v: any) => toNewContractData(v)),
-    optionallyRevealedData: o.optionally_revealed_data.map((v: any) => toOptionallyRevealedData(v)),
-  });
+  return new AccumulatedData(
+    toNativeAggregationState(o.aggregation_object),
+    Fr.fromBuffer(o.private_call_count),
+    mapTuple(o.new_commitments, (v: Buffer) => Fr.fromBuffer(v)),
+    mapTuple(o.new_nullifiers, (v: Buffer) => Fr.fromBuffer(v)),
+    mapTuple(o.private_call_stack, (v: Buffer) => Fr.fromBuffer(v)),
+    mapTuple(o.public_call_stack, (v: Buffer) => Fr.fromBuffer(v)),
+    mapTuple(o.l1_msg_stack, (v: Buffer) => Fr.fromBuffer(v)),
+    mapTuple(o.new_contracts, (v: MsgpackNewContractData) => toNewContractData(v)),
+    mapTuple(o.optionally_revealed_data, (v: MsgpackOptionallyRevealedData) => toOptionallyRevealedData(v)),
+  );
 }
 
-export function fromAccumulatedData(o: AccumulatedData): any {
+export function fromAccumulatedData(o: AccumulatedData): MsgpackAccumulatedData {
   if (o.aggregationObject === undefined) {
     throw new Error('Expected aggregationObject in AccumulatedData serialization');
   }
@@ -359,18 +408,26 @@ export function fromAccumulatedData(o: AccumulatedData): any {
     throw new Error('Expected optionallyRevealedData in AccumulatedData serialization');
   }
   return {
-    aggregation_object: toNativeAggregationState(o.aggregationObject),
+    aggregation_object: fromNativeAggregationState(o.aggregationObject),
     private_call_count: o.privateCallCount.toBuffer(),
-    new_commitments: o.newCommitments.map((v: any) => v.toBuffer()),
-    new_nullifiers: o.newNullifiers.map((v: any) => v.toBuffer()),
-    private_call_stack: o.privateCallStack.map((v: any) => v.toBuffer()),
-    public_call_stack: o.publicCallStack.map((v: any) => v.toBuffer()),
-    l1_msg_stack: o.l1MsgStack.map((v: any) => v.toBuffer()),
-    new_contracts: o.newContracts.map((v: any) => toNewContractData(v)),
-    optionally_revealed_data: o.optionallyRevealedData.map((v: any) => toOptionallyRevealedData(v)),
+    new_commitments: mapTuple(o.newCommitments, (v: Fr) => v.toBuffer()),
+    new_nullifiers: mapTuple(o.newNullifiers, (v: Fr) => v.toBuffer()),
+    private_call_stack: mapTuple(o.privateCallStack, (v: Fr) => v.toBuffer()),
+    public_call_stack: mapTuple(o.publicCallStack, (v: Fr) => v.toBuffer()),
+    l1_msg_stack: mapTuple(o.l1MsgStack, (v: Fr) => v.toBuffer()),
+    new_contracts: mapTuple(o.newContracts, (v: NewContractData) => fromNewContractData(v)),
+    optionally_revealed_data: mapTuple(o.optionallyRevealedData, (v: OptionallyRevealedData) =>
+      fromOptionallyRevealedData(v),
+    ),
   };
 }
 
+export interface MsgpackHistoricTreeRoots {
+  private_data_tree_root: Buffer;
+  nullifier_tree_root: Buffer;
+  contract_tree_root: Buffer;
+  private_kernel_vk_tree_root: Buffer;
+}
 export interface IHistoricTreeRoots {
   privateDataTreeRoot: Fr;
   nullifierTreeRoot: Fr;
@@ -378,7 +435,7 @@ export interface IHistoricTreeRoots {
   privateKernelVkTreeRoot: Fr;
 }
 
-export function toHistoricTreeRoots(o: any): HistoricTreeRoots {
+export function toHistoricTreeRoots(o: MsgpackHistoricTreeRoots): HistoricTreeRoots {
   if (o.private_data_tree_root === undefined) {
     throw new Error('Expected private_data_tree_root in HistoricTreeRoots deserialization');
   }
@@ -391,15 +448,15 @@ export function toHistoricTreeRoots(o: any): HistoricTreeRoots {
   if (o.private_kernel_vk_tree_root === undefined) {
     throw new Error('Expected private_kernel_vk_tree_root in HistoricTreeRoots deserialization');
   }
-  return HistoricTreeRoots.from({
-    privateDataTreeRoot: Fr.fromBuffer(o.private_data_tree_root),
-    nullifierTreeRoot: Fr.fromBuffer(o.nullifier_tree_root),
-    contractTreeRoot: Fr.fromBuffer(o.contract_tree_root),
-    privateKernelVkTreeRoot: Fr.fromBuffer(o.private_kernel_vk_tree_root),
-  });
+  return new HistoricTreeRoots(
+    Fr.fromBuffer(o.private_data_tree_root),
+    Fr.fromBuffer(o.nullifier_tree_root),
+    Fr.fromBuffer(o.contract_tree_root),
+    Fr.fromBuffer(o.private_kernel_vk_tree_root),
+  );
 }
 
-export function fromHistoricTreeRoots(o: HistoricTreeRoots): any {
+export function fromHistoricTreeRoots(o: HistoricTreeRoots): MsgpackHistoricTreeRoots {
   if (o.privateDataTreeRoot === undefined) {
     throw new Error('Expected privateDataTreeRoot in HistoricTreeRoots serialization');
   }
@@ -420,6 +477,12 @@ export function fromHistoricTreeRoots(o: HistoricTreeRoots): any {
   };
 }
 
+export interface MsgpackContractDeploymentData {
+  constructor_vk_hash: Buffer;
+  function_tree_root: Buffer;
+  contract_address_salt: Buffer;
+  portal_contract_address: Buffer;
+}
 export interface IContractDeploymentData {
   constructorVkHash: Fr;
   functionTreeRoot: Fr;
@@ -427,7 +490,7 @@ export interface IContractDeploymentData {
   portalContractAddress: Address;
 }
 
-export function toContractDeploymentData(o: any): ContractDeploymentData {
+export function toContractDeploymentData(o: MsgpackContractDeploymentData): ContractDeploymentData {
   if (o.constructor_vk_hash === undefined) {
     throw new Error('Expected constructor_vk_hash in ContractDeploymentData deserialization');
   }
@@ -440,15 +503,15 @@ export function toContractDeploymentData(o: any): ContractDeploymentData {
   if (o.portal_contract_address === undefined) {
     throw new Error('Expected portal_contract_address in ContractDeploymentData deserialization');
   }
-  return ContractDeploymentData.from({
-    constructorVkHash: Fr.fromBuffer(o.constructor_vk_hash),
-    functionTreeRoot: Fr.fromBuffer(o.function_tree_root),
-    contractAddressSalt: Fr.fromBuffer(o.contract_address_salt),
-    portalContractAddress: Address.fromBuffer(o.portal_contract_address),
-  });
+  return new ContractDeploymentData(
+    Fr.fromBuffer(o.constructor_vk_hash),
+    Fr.fromBuffer(o.function_tree_root),
+    Fr.fromBuffer(o.contract_address_salt),
+    Address.fromBuffer(o.portal_contract_address),
+  );
 }
 
-export function fromContractDeploymentData(o: ContractDeploymentData): any {
+export function fromContractDeploymentData(o: ContractDeploymentData): MsgpackContractDeploymentData {
   if (o.constructorVkHash === undefined) {
     throw new Error('Expected constructorVkHash in ContractDeploymentData serialization');
   }
@@ -469,6 +532,12 @@ export function fromContractDeploymentData(o: ContractDeploymentData): any {
   };
 }
 
+export interface MsgpackTxContext {
+  is_fee_payment_tx: boolean;
+  is_rebate_payment_tx: boolean;
+  is_contract_deployment_tx: boolean;
+  contract_deployment_data: MsgpackContractDeploymentData;
+}
 export interface ITxContext {
   isFeePaymentTx: boolean;
   isRebatePaymentTx: boolean;
@@ -476,7 +545,7 @@ export interface ITxContext {
   contractDeploymentData: ContractDeploymentData;
 }
 
-export function toTxContext(o: any): TxContext {
+export function toTxContext(o: MsgpackTxContext): TxContext {
   if (o.is_fee_payment_tx === undefined) {
     throw new Error('Expected is_fee_payment_tx in TxContext deserialization');
   }
@@ -489,15 +558,15 @@ export function toTxContext(o: any): TxContext {
   if (o.contract_deployment_data === undefined) {
     throw new Error('Expected contract_deployment_data in TxContext deserialization');
   }
-  return TxContext.from({
-    isFeePaymentTx: o.is_fee_payment_tx,
-    isRebatePaymentTx: o.is_rebate_payment_tx,
-    isContractDeploymentTx: o.is_contract_deployment_tx,
-    contractDeploymentData: toContractDeploymentData(o.contract_deployment_data),
-  });
+  return new TxContext(
+    o.is_fee_payment_tx,
+    o.is_rebate_payment_tx,
+    o.is_contract_deployment_tx,
+    toContractDeploymentData(o.contract_deployment_data),
+  );
 }
 
-export function fromTxContext(o: TxContext): any {
+export function fromTxContext(o: TxContext): MsgpackTxContext {
   if (o.isFeePaymentTx === undefined) {
     throw new Error('Expected isFeePaymentTx in TxContext serialization');
   }
@@ -514,29 +583,30 @@ export function fromTxContext(o: TxContext): any {
     is_fee_payment_tx: o.isFeePaymentTx,
     is_rebate_payment_tx: o.isRebatePaymentTx,
     is_contract_deployment_tx: o.isContractDeploymentTx,
-    contract_deployment_data: toContractDeploymentData(o.contractDeploymentData),
+    contract_deployment_data: fromContractDeploymentData(o.contractDeploymentData),
   };
 }
 
+export interface MsgpackConstantData {
+  historic_tree_roots: MsgpackHistoricTreeRoots;
+  tx_context: MsgpackTxContext;
+}
 export interface IConstantData {
   historicTreeRoots: HistoricTreeRoots;
   txContext: TxContext;
 }
 
-export function toConstantData(o: any): ConstantData {
+export function toConstantData(o: MsgpackConstantData): ConstantData {
   if (o.historic_tree_roots === undefined) {
     throw new Error('Expected historic_tree_roots in ConstantData deserialization');
   }
   if (o.tx_context === undefined) {
     throw new Error('Expected tx_context in ConstantData deserialization');
   }
-  return ConstantData.from({
-    historicTreeRoots: toHistoricTreeRoots(o.historic_tree_roots),
-    txContext: toTxContext(o.tx_context),
-  });
+  return new ConstantData(toHistoricTreeRoots(o.historic_tree_roots), toTxContext(o.tx_context));
 }
 
-export function fromConstantData(o: ConstantData): any {
+export function fromConstantData(o: ConstantData): MsgpackConstantData {
   if (o.historicTreeRoots === undefined) {
     throw new Error('Expected historicTreeRoots in ConstantData serialization');
   }
@@ -544,18 +614,23 @@ export function fromConstantData(o: ConstantData): any {
     throw new Error('Expected txContext in ConstantData serialization');
   }
   return {
-    historic_tree_roots: toHistoricTreeRoots(o.historicTreeRoots),
-    tx_context: toTxContext(o.txContext),
+    historic_tree_roots: fromHistoricTreeRoots(o.historicTreeRoots),
+    tx_context: fromTxContext(o.txContext),
   };
 }
 
+export interface MsgpackPublicInputs {
+  end: MsgpackAccumulatedData;
+  constants: MsgpackConstantData;
+  is_private: boolean;
+}
 export interface IPublicInputs {
   end: AccumulatedData;
   constants: ConstantData;
   isPrivate: boolean;
 }
 
-export function toPublicInputs(o: any): PublicInputs {
+export function toPublicInputs(o: MsgpackPublicInputs): PublicInputs {
   if (o.end === undefined) {
     throw new Error('Expected end in PublicInputs deserialization');
   }
@@ -565,14 +640,10 @@ export function toPublicInputs(o: any): PublicInputs {
   if (o.is_private === undefined) {
     throw new Error('Expected is_private in PublicInputs deserialization');
   }
-  return PublicInputs.from({
-    end: toAccumulatedData(o.end),
-    constants: toConstantData(o.constants),
-    isPrivate: o.is_private,
-  });
+  return new PublicInputs(toAccumulatedData(o.end), toConstantData(o.constants), o.is_private);
 }
 
-export function fromPublicInputs(o: PublicInputs): any {
+export function fromPublicInputs(o: PublicInputs): MsgpackPublicInputs {
   if (o.end === undefined) {
     throw new Error('Expected end in PublicInputs serialization');
   }
@@ -583,12 +654,20 @@ export function fromPublicInputs(o: PublicInputs): any {
     throw new Error('Expected isPrivate in PublicInputs serialization');
   }
   return {
-    end: toAccumulatedData(o.end),
-    constants: toConstantData(o.constants),
+    end: fromAccumulatedData(o.end),
+    constants: fromConstantData(o.constants),
     is_private: o.isPrivate,
   };
 }
 
+export interface MsgpackVerificationKeyData {
+  composer_type: number;
+  circuit_size: number;
+  num_public_inputs: number;
+  commitments: Record<string, MsgpackAffineElement>;
+  contains_recursive_proof: boolean;
+  recursive_proof_public_input_indices: number[];
+}
 export interface IVerificationKeyData {
   composerType: number;
   circuitSize: number;
@@ -598,7 +677,7 @@ export interface IVerificationKeyData {
   recursiveProofPublicInputIndices: number[];
 }
 
-export function toVerificationKeyData(o: any): VerificationKeyData {
+export function toVerificationKeyData(o: MsgpackVerificationKeyData): VerificationKeyData {
   if (o.composer_type === undefined) {
     throw new Error('Expected composer_type in VerificationKeyData deserialization');
   }
@@ -617,17 +696,17 @@ export function toVerificationKeyData(o: any): VerificationKeyData {
   if (o.recursive_proof_public_input_indices === undefined) {
     throw new Error('Expected recursive_proof_public_input_indices in VerificationKeyData deserialization');
   }
-  return VerificationKeyData.from({
-    composerType: o.composer_type,
-    circuitSize: o.circuit_size,
-    numPublicInputs: o.num_public_inputs,
-    commitments: o.commitments,
-    containsRecursiveProof: o.contains_recursive_proof,
-    recursiveProofPublicInputIndices: o.recursive_proof_public_input_indices.map((v: any) => v),
-  });
+  return new VerificationKeyData(
+    o.composer_type,
+    o.circuit_size,
+    o.num_public_inputs,
+    mapValues(o.commitments, (v: AffineElement) => toAffineElement(v)),
+    o.contains_recursive_proof,
+    o.recursive_proof_public_input_indices.map((v: number) => v),
+  );
 }
 
-export function fromVerificationKeyData(o: VerificationKeyData): any {
+export function fromVerificationKeyData(o: VerificationKeyData): MsgpackVerificationKeyData {
   if (o.composerType === undefined) {
     throw new Error('Expected composerType in VerificationKeyData serialization');
   }
@@ -650,21 +729,28 @@ export function fromVerificationKeyData(o: VerificationKeyData): any {
     composer_type: o.composerType,
     circuit_size: o.circuitSize,
     num_public_inputs: o.numPublicInputs,
-    commitments: o.commitments,
+    commitments: mapValues(o.commitments, (v: AffineElement) => fromAffineElement(v)),
     contains_recursive_proof: o.containsRecursiveProof,
-    recursive_proof_public_input_indices: o.recursiveProofPublicInputIndices.map((v: any) => v),
+    recursive_proof_public_input_indices: o.recursiveProofPublicInputIndices.map((v: number) => v),
   };
 }
 
+export interface MsgpackPreviousKernelData {
+  public_inputs: MsgpackPublicInputs;
+  proof: Buffer;
+  vk: MsgpackVerificationKeyData;
+  vk_index: number;
+  vk_path: TupleOf<Buffer, 3>;
+}
 export interface IPreviousKernelData {
   publicInputs: PublicInputs;
   proof: Proof;
   vk: VerificationKeyData;
   vkIndex: number;
-  vkPath: FixedArray<Fr, 3>;
+  vkPath: TupleOf<Fr, 3>;
 }
 
-export function toPreviousKernelData(o: any): PreviousKernelData {
+export function toPreviousKernelData(o: MsgpackPreviousKernelData): PreviousKernelData {
   if (o.public_inputs === undefined) {
     throw new Error('Expected public_inputs in PreviousKernelData deserialization');
   }
@@ -680,16 +766,16 @@ export function toPreviousKernelData(o: any): PreviousKernelData {
   if (o.vk_path === undefined) {
     throw new Error('Expected vk_path in PreviousKernelData deserialization');
   }
-  return PreviousKernelData.from({
-    publicInputs: toPublicInputs(o.public_inputs),
-    proof: Proof.fromBuffer(o.proof),
-    vk: toVerificationKeyData(o.vk),
-    vkIndex: o.vk_index,
-    vkPath: o.vk_path.map((v: any) => Fr.fromBuffer(v)),
-  });
+  return new PreviousKernelData(
+    toPublicInputs(o.public_inputs),
+    Proof.fromBuffer(o.proof),
+    toVerificationKeyData(o.vk),
+    o.vk_index,
+    mapTuple(o.vk_path, (v: Buffer) => Fr.fromBuffer(v)),
+  );
 }
 
-export function fromPreviousKernelData(o: PreviousKernelData): any {
+export function fromPreviousKernelData(o: PreviousKernelData): MsgpackPreviousKernelData {
   if (o.publicInputs === undefined) {
     throw new Error('Expected publicInputs in PreviousKernelData serialization');
   }
@@ -706,11 +792,11 @@ export function fromPreviousKernelData(o: PreviousKernelData): any {
     throw new Error('Expected vkPath in PreviousKernelData serialization');
   }
   return {
-    public_inputs: toPublicInputs(o.publicInputs),
+    public_inputs: fromPublicInputs(o.publicInputs),
     proof: o.proof.toBuffer(),
-    vk: toVerificationKeyData(o.vk),
+    vk: fromVerificationKeyData(o.vk),
     vk_index: o.vkIndex,
-    vk_path: o.vkPath.map((v: any) => v.toBuffer()),
+    vk_path: mapTuple(o.vkPath, (v: Fr) => v.toBuffer()),
   };
 }
 

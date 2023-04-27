@@ -1,11 +1,5 @@
-import {
-  IAccumulatedData,
-  IPreviousKernelData,
-  IPublicInputs,
-  privateKernelDummyPreviousKernel,
-} from '../cbind/circuits.gen.js';
-import { fromMsgpack } from '../cbind/msgpack_reader.js';
-import { FixedArray } from '../cbind/types.js';
+import { INewContractData, privateKernelDummyPreviousKernel } from '../cbind/circuits.gen.js';
+import { TupleOf, toTupleOf } from './types.js';
 import { CircuitsWasm } from '../index.js';
 import { assertLength, FieldsOf } from '../utils/jsUtils.js';
 import { serializeToBuffer } from '../utils/serialize.js';
@@ -77,14 +71,21 @@ export class ConstantData {
 
 // Not to be confused with ContractDeploymentData (maybe think of better names)
 export class NewContractData {
-  static fromMsgpack(fromMsgpack: any): NewContractData[] {
-    throw new Error('Method not implemented.');
-  }
+  public portalContractAddress: EthAddress;
   constructor(
     public contractAddress: AztecAddress,
-    public portalContractAddress: EthAddress,
+    // TODO(AD): refactor this later
+    // currently there is a kludge with circuits cpp as it emits an AztecAddress
+    portalContractAddress: EthAddress | AztecAddress,
     public functionTreeRoot: Fr,
-  ) {}
+  ) {
+    // Handle circuits emitting this as an AztecAddress
+    this.portalContractAddress = EthAddress.fromBuffer(portalContractAddress.toBuffer());
+  }
+
+  static from(o: INewContractData) {
+    return new this(o.contractAddress, EthAddress.fromBuffer(o.portalContractAddress.toBuffer()), o.functionTreeRoot);
+  }
 
   toBuffer() {
     return serializeToBuffer(this.contractAddress, this.portalContractAddress, this.functionTreeRoot);
@@ -101,20 +102,20 @@ export class NewContractData {
 }
 
 export class OptionallyRevealedData {
-  static fromMsgpack(fromMsgpack: any): OptionallyRevealedData[] {
-    throw new Error('Method not implemented.');
-  }
+  public portalContractAddress: EthAddress;
   constructor(
     public callStackItemHash: Fr,
     public functionData: FunctionData,
-    public emittedEvents: Fr[],
+    public emittedEvents: TupleOf<Fr, typeof EMITTED_EVENTS_LENGTH>,
     public vkHash: Fr,
-    public portalContractAddress: EthAddress,
+    // TODO(AD): kludge based on auto-generated cbind
+    portalContractAddress: EthAddress | AztecAddress,
     public payFeeFromL1: boolean,
     public payFeeFromPublicL2: boolean,
     public calledFromL1: boolean,
     public calledFromPublicL2: boolean,
   ) {
+    this.portalContractAddress = EthAddress.fromBuffer(portalContractAddress.toBuffer());
     assertLength(this, 'emittedEvents', EMITTED_EVENTS_LENGTH);
   }
 
@@ -138,10 +139,10 @@ export class OptionallyRevealedData {
    */
   static fromBuffer(buffer: Buffer | BufferReader): OptionallyRevealedData {
     const reader = BufferReader.asReader(buffer);
-    return new OptionallyRevealedData(
+    return new this(
       reader.readFr(),
       reader.readObject(FunctionData),
-      reader.readArray(EMITTED_EVENTS_LENGTH, Fr),
+      toTupleOf(reader.readArray(EMITTED_EVENTS_LENGTH, Fr), EMITTED_EVENTS_LENGTH),
       reader.readFr(),
       new EthAddress(reader.readBytes(32)),
       reader.readBoolean(),
@@ -155,19 +156,14 @@ export class OptionallyRevealedData {
 export class AccumulatedData {
   constructor(
     public aggregationObject: AggregationObject, // Contains the aggregated proof of all previous kernel iterations
-
     public privateCallCount: Fr,
-
-    public newCommitments: Fr[],
-    public newNullifiers: Fr[],
-
-    public privateCallStack: Fr[],
-    public publicCallStack: Fr[],
-    public l1MsgStack: Fr[],
-
-    public newContracts: NewContractData[],
-
-    public optionallyRevealedData: OptionallyRevealedData[],
+    public newCommitments: TupleOf<Fr, typeof KERNEL_NEW_COMMITMENTS_LENGTH>,
+    public newNullifiers: TupleOf<Fr, typeof KERNEL_NEW_NULLIFIERS_LENGTH>,
+    public privateCallStack: TupleOf<Fr, typeof KERNEL_PRIVATE_CALL_STACK_LENGTH>,
+    public publicCallStack: TupleOf<Fr, typeof KERNEL_PUBLIC_CALL_STACK_LENGTH>,
+    public l1MsgStack: TupleOf<Fr, typeof KERNEL_L1_MSG_STACK_LENGTH>,
+    public newContracts: TupleOf<NewContractData, typeof KERNEL_NEW_CONTRACTS_LENGTH>,
+    public optionallyRevealedData: TupleOf<OptionallyRevealedData, typeof KERNEL_OPTIONALLY_REVEALED_DATA_LENGTH>,
   ) {
     assertLength(this, 'newCommitments', KERNEL_NEW_COMMITMENTS_LENGTH);
     assertLength(this, 'newNullifiers', KERNEL_NEW_NULLIFIERS_LENGTH);
@@ -198,7 +194,7 @@ export class AccumulatedData {
    */
   static fromBuffer(buffer: Buffer | BufferReader): AccumulatedData {
     const reader = BufferReader.asReader(buffer);
-    return new AccumulatedData(
+    return new this(
       reader.readObject(AggregationObject),
       reader.readFr(),
       reader.readArray(KERNEL_NEW_COMMITMENTS_LENGTH, Fr),
@@ -212,7 +208,7 @@ export class AccumulatedData {
   }
 }
 
-export class PrivateKernelPublicInputs implements IPublicInputs {
+export class PrivateKernelPublicInputs {
   constructor(public end: AccumulatedData, public constants: ConstantData, public isPrivate: boolean) {}
 
   toBuffer() {
@@ -233,20 +229,13 @@ export class PrivateKernelPublicInputs implements IPublicInputs {
   }
 }
 
-function toFixedArray<T, N extends number>(array: T[], n: N): FixedArray<Fr, N> {
-  if (array.length !== n) {
-    throw new Error("Wrong 'fixed array' size");
-  }
-  return array as any;
-}
-
-export class PreviousKernelData implements IPreviousKernelData {
+export class PreviousKernelData {
   constructor(
     public publicInputs: PrivateKernelPublicInputs,
-    public proof: UInt8Vector,
+    public proof: Buffer,
     public vk: VerificationKey,
     public vkIndex: UInt32, // the index of the kernel circuit's vk in a big tree of kernel circuit vks
-    public vkPath: FixedArray<Fr, typeof VK_TREE_HEIGHT>,
+    public vkPath: TupleOf<Fr, typeof VK_TREE_HEIGHT>,
   ) {
     assertLength(this, 'vkPath', VK_TREE_HEIGHT);
   }
@@ -257,7 +246,7 @@ export class PreviousKernelData implements IPreviousKernelData {
    * @returns The buffer.
    */
   toBuffer() {
-    return serializeToBuffer(this.publicInputs, this.proof, this.vk, this.vkIndex, this.vkPath);
+    return serializeToBuffer(this.publicInputs, new UInt8Vector(this.proof), this.vk, this.vkIndex, this.vkPath);
   }
 
   /**
@@ -267,12 +256,12 @@ export class PreviousKernelData implements IPreviousKernelData {
    */
   static fromBuffer(buffer: Buffer | BufferReader): PreviousKernelData {
     const reader = BufferReader.asReader(buffer);
-    return new PreviousKernelData(
+    return new this(
       reader.readObject(PrivateKernelPublicInputs),
-      reader.readObject(UInt8Vector),
+      reader.readObject(UInt8Vector).toBuffer(),
       reader.readObject(VerificationKey),
       reader.readNumber(),
-      toFixedArray(reader.readArray(VK_TREE_HEIGHT, Fr), VK_TREE_HEIGHT),
+      toTupleOf(reader.readArray(VK_TREE_HEIGHT, Fr), VK_TREE_HEIGHT),
     );
   }
 
@@ -280,12 +269,12 @@ export class PreviousKernelData implements IPreviousKernelData {
    * Creates an empty instance, valid enough to be accepted by circuits
    */
   static makeEmpty() {
-    return new PreviousKernelData(
+    return new this(
       PrivateKernelPublicInputs.makeEmpty(),
       makeEmptyProof(),
       VerificationKey.makeFake(),
       0,
-      toFixedArray(Array(VK_TREE_HEIGHT).fill(frZero()), VK_TREE_HEIGHT),
+      toTupleOf(Array(VK_TREE_HEIGHT).fill(frZero()), VK_TREE_HEIGHT),
     );
   }
 }
@@ -435,5 +424,5 @@ function makeEmptyAccumulatedData(): AccumulatedData {
 }
 
 export function makeEmptyProof() {
-  return new UInt8Vector(Buffer.alloc(0));
+  return Buffer.alloc(0);
 }

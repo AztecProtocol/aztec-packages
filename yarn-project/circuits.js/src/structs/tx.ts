@@ -9,12 +9,16 @@ import { EcdsaSignature } from './shared.js';
  * cpp/src/aztec3/circuits/abis/contract_deployment_data.hpp
  */
 export class ContractDeploymentData {
+  public portalContractAddress: EthAddress;
   constructor(
     public constructorVkHash: Fr,
     public functionTreeRoot: Fr,
     public contractAddressSalt: Fr,
-    public portalContractAddress: EthAddress,
-  ) {}
+    // TODO(AD): kludge due to cbind compiler
+    portalContractAddress: EthAddress | AztecAddress,
+  ) {
+    this.portalContractAddress = EthAddress.fromBuffer(portalContractAddress.toBuffer());
+  }
 
   toBuffer() {
     return serializeToBuffer(
@@ -51,7 +55,7 @@ export class TxContext {
   constructor(
     public isFeePaymentTx: boolean,
     public isRebatePaymentTx: boolean,
-    public isContractDeployment: boolean,
+    public isContractDeploymentTx: boolean,
     public contractDeploymentData: ContractDeploymentData,
   ) {}
 
@@ -63,7 +67,7 @@ export class TxContext {
     return serializeToBuffer(
       this.isFeePaymentTx,
       this.isRebatePaymentTx,
-      this.isContractDeployment,
+      this.isContractDeploymentTx,
       this.contractDeploymentData,
     );
   }

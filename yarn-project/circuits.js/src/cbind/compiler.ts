@@ -19,10 +19,19 @@ type Schema =
   | ['alias', [string, string]];
 
 export interface TypeInfo {
+  /**
+   * High-level typescript type name.
+   */
   typeName: string;
+  /**
+   * Msgpack type name. The actual type returned by raw C-binds.
+   * Only given if different.
+   */
+  msgpackTypeName?: string;
   needsInterface?: boolean;
   isImport?: boolean;
-  aliasOf?: string;
+  isAlias?: boolean;
+  isTuple?: boolean;
   arraySubtype?: TypeInfo;
   mapSubtypes?: [TypeInfo, TypeInfo];
   declaration?: string;
@@ -51,12 +60,14 @@ export class CbindCompiler {
   private getTypeInfo(type: Schema): TypeInfo {
     if (Array.isArray(type)) {
       if (type[0] === 'array') {
-        // array case
+        // fixed-size array case
         const [_array, [subtype, size]] = type;
-        const subtypeName = this.getTypeName(subtype);
-        const typeName = `FixedArray<${subtypeName}, ${size}>`;
+        const typeName = `TupleOf<${this.getTypeName(subtype)}, ${size}>`;
+        const msgpackTypeName = `TupleOf<${this.getMsgpackTypename(subtype)}, ${size}>`;
         return {
           typeName,
+          msgpackTypeName,
+          isTuple: true,
           arraySubtype: this.getTypeInfo(subtype),
         };
       } else if (type[0] === 'vector') {
@@ -67,18 +78,22 @@ export class CbindCompiler {
           return { typeName: 'Buffer' };
         }
         const subtypeInfo = this.getTypeInfo(subtype);
-        const typeName = `${subtypeInfo.typeName}[]`;
         return {
-          typeName,
+          typeName: `${subtypeInfo.typeName}[]`,
+          msgpackTypeName: `${this.getMsgpackTypename(subtype)}[]`,
           arraySubtype: subtypeInfo,
         };
       } else if (type[0] === 'alias') {
         // alias case
         const [_alias, [typeName, msgpackName]] = type;
+        if (!msgpackName.startsWith('bin')) {
+          throw new Error('Only buffer aliases currently supported');
+        }
         this.typeInfos[typeName] = {
           typeName,
           isImport: true,
-          aliasOf: msgpackName,
+          isAlias: true,
+          msgpackTypeName: 'Buffer',
         };
         return this.typeInfos[typeName];
       } else if (type[0] === 'shared_ptr') {
@@ -90,6 +105,7 @@ export class CbindCompiler {
         const [_map, [keyType, valueType]] = type;
         return {
           typeName: `Record<${this.getTypeName(keyType)}, ${this.getTypeName(valueType)}>`,
+          msgpackTypeName: `Record<${this.getMsgpackTypename(keyType)}, ${this.getMsgpackTypename(valueType)}>`,
           mapSubtypes: [this.getTypeInfo(keyType), this.getTypeInfo(valueType)],
         };
       }
@@ -102,7 +118,7 @@ export class CbindCompiler {
         case 'string':
           return { typeName: 'string' };
         case 'bin32':
-          return { typeName: 'buffer' };
+          return { typeName: 'Buffer' };
       }
       const typeName = capitalize(camelCase(type));
       if (!this.typeInfos[typeName]) {
@@ -111,34 +127,46 @@ export class CbindCompiler {
       return this.typeInfos[typeName];
     } else if (typeof type === 'object') {
       const typeName = capitalize(camelCase(type.__typename as string));
-      this.typeInfos[typeName] = this.typeInfos[typeName] || {
+      // Set our typeInfos object to either what it already was, or, if not yet defined
+      // the resolved type info (which will generate interfaces and helper methods)
+      return (this.typeInfos[typeName] = this.typeInfos[typeName] || {
         typeName,
+        msgpackTypeName: 'Msgpack' + typeName,
         isImport: true,
-        declaration: this.generateInterface(typeName, type),
+        declaration: this.generateInterfaces(typeName, type),
         toClassMethod: this.generateMsgpackConverter(typeName, type),
         fromClassMethod: this.generateClassConverter(typeName, type),
-      };
-      return {
-        typeName,
-        isImport: true,
-      };
+      });
     }
 
     throw new Error(`Unsupported type: ${type}`);
   }
 
+  private getMsgpackTypename(schema: Schema): string {
+    const { msgpackTypeName, typeName } = this.getTypeInfo(schema);
+    return msgpackTypeName || typeName;
+  }
   /**
    * Generate an interface with the name 'name'.
    * @param name The interface name.
    * @param type The object schema with properties of the interface.
    */
-  private generateInterface(name: string, type: ObjectSchema) {
-    let result = `export interface I${name} {\n`;
+  private generateInterfaces(name: string, type: ObjectSchema) {
+    // Raw object, used as return value of fromType() generated functions.
+    let resultRaw = `export interface Msgpack${name} {\n`;
     for (const [key, value] of Object.entries(type)) {
       if (key === '__typename') continue;
-      result += `  ${camelCase(key)}: ${this.getTypeName(value)};\n`;
+      resultRaw += `  ${key}: ${this.getMsgpackTypename(value)};\n`;
     }
-    return result + '}';
+    resultRaw += '}';
+    // High level object, use in Type.from() methods
+    let resultHighLevel = `export interface I${name} {\n`;
+    for (const [key, value] of Object.entries(type)) {
+      if (key === '__typename') continue;
+      resultHighLevel += `  ${camelCase(key)}: ${this.getTypeName(value)};\n`;
+    }
+    resultHighLevel += '}';
+    return resultRaw + '\n' + resultHighLevel;
   }
 
   /**
@@ -160,32 +188,52 @@ export class CbindCompiler {
       return statements.join('\n');
     };
 
-    const bodySyntax = () => {
+    const msgpackConverterExpr = (typeInfo: TypeInfo, value: string): string => {
+      const { typeName } = typeInfo;
+      if (typeInfo.isAlias) {
+        return `${typeName}.fromBuffer(${value})`;
+      } else if (typeInfo.arraySubtype) {
+        const rawName = typeInfo.arraySubtype.msgpackTypeName || typeInfo.arraySubtype.typeName;
+        const convFn = `(v: ${rawName}) => ${msgpackConverterExpr(typeInfo.arraySubtype, 'v')}`;
+        if (typeInfo.isTuple) {
+          return `mapTuple(${value}, ${convFn})`;
+        } else {
+          return `${value}.map(${convFn})`;
+        }
+      } else if (typeInfo.mapSubtypes) {
+        const { typeName } = typeInfo.mapSubtypes[1];
+        const convFn = `(v: ${typeName}) => ${msgpackConverterExpr(typeInfo.mapSubtypes[1], 'v')}`;
+        return `mapValues(${value}, ${convFn})`;
+      } else if (typeInfo.isImport) {
+        return `to${typeName}(${value})`;
+      } else {
+        return value;
+      }
+    };
+    // TODO use this?
+    const objectBodySyntax = () => {
       const statements: string[] = [];
       for (const [key, value] of Object.entries(type)) {
         if (key === '__typename') continue;
-        const resolveFromExpr = (typeInfo: TypeInfo, value: string): string => {
-          const { typeName } = typeInfo;
-          if (typeInfo.aliasOf?.startsWith('bin')) {
-            return `${typeName}.fromBuffer(${value})`;
-          } else if (typeInfo.arraySubtype) {
-            return `${value}.map((v: any) => ${resolveFromExpr(typeInfo.arraySubtype, 'v')})`;
-          } else if (typeInfo.isImport) {
-            return `to${typeName}(${value})`;
-          } else {
-            return value;
-          }
-        };
-        statements.push(`  ${camelCase(key)}: ${resolveFromExpr(this.getTypeInfo(value), `o.${key}`)},`);
+        statements.push(`  ${camelCase(key)}: ${msgpackConverterExpr(this.getTypeInfo(value), `o.${key}`)},`);
+      }
+      return statements.join('\n');
+    };
+    const constructorBodySyntax = () => {
+      const statements: string[] = [];
+      for (const [key, value] of Object.entries(type)) {
+        if (key === '__typename') continue;
+        statements.push(`  ${msgpackConverterExpr(this.getTypeInfo(value), `o.${key}`)},`);
       }
       return statements.join('\n');
     };
 
     const callSyntax = () => {
-      return `${name}.from({\n${bodySyntax()}})`;
+      // return `${name}.from({\n${objectBodySyntax()}})`;
+      return `new ${name}(\n${constructorBodySyntax()})`;
     };
 
-    return `export function to${name}(o: any): ${name} {
+    return `export function to${name}(o: Msgpack${name}): ${name} {
 ${checkerSyntax()};
 return ${callSyntax.call(this)};
 }`;
@@ -212,23 +260,34 @@ return ${callSyntax.call(this)};
       return statements.join('\n');
     };
 
+    const classConverterExpr = (typeInfo: TypeInfo, value: string): string => {
+      const { typeName } = typeInfo;
+      if (typeInfo.isAlias) {
+        // TODO other aliases?
+        return `${value}.toBuffer()`;
+      } else if (typeInfo.arraySubtype) {
+        const { typeName } = typeInfo.arraySubtype;
+        const convFn = `(v: ${typeName}) => ${classConverterExpr(typeInfo.arraySubtype, 'v')}`;
+        if (typeInfo.isTuple) {
+          return `mapTuple(${value}, ${convFn})`;
+        } else {
+          return `${value}.map(${convFn})`;
+        }
+      } else if (typeInfo.mapSubtypes) {
+        const { typeName } = typeInfo.mapSubtypes[1];
+        const convFn = `(v: ${typeName}) => ${classConverterExpr(typeInfo.mapSubtypes[1], 'v')}`;
+        return `mapValues(${value}, ${convFn})`;
+      } else if (typeInfo.isImport) {
+        return `from${typeName}(${value})`;
+      } else {
+        return value;
+      }
+    };
     const bodySyntax = () => {
       const statements: string[] = [];
       for (const [key, value] of Object.entries(type)) {
         if (key === '__typename') continue;
-        const resolveToExpr = (typeInfo: TypeInfo, value: string): string => {
-          const { typeName } = typeInfo;
-          if (typeInfo.aliasOf?.startsWith('bin')) {
-            return `${value}.toBuffer()`;
-          } else if (typeInfo.arraySubtype) {
-            return `${value}.map((v: any) => ${resolveToExpr(typeInfo.arraySubtype, 'v')})`;
-          } else if (typeInfo.isImport) {
-            return `to${typeName}(${value})`;
-          } else {
-            return value;
-          }
-        };
-        statements.push(`  ${key}: ${resolveToExpr(this.getTypeInfo(value), `o.${camelCase(key)}`)},`);
+        statements.push(`  ${key}: ${classConverterExpr(this.getTypeInfo(value), `o.${camelCase(key)}`)},`);
       }
       return statements.join('\n');
     };
@@ -237,7 +296,7 @@ return ${callSyntax.call(this)};
       return `{\n${bodySyntax()}}`;
     };
 
-    return `export function from${name}(o: ${name}): any {
+    return `export function from${name}(o: ${name}): Msgpack${name} {
 ${checkerSyntax()};
 return ${callSyntax.call(this)};
 }`;
@@ -275,6 +334,9 @@ import { CircuitsWasm } from '../wasm/index.js';
       if (typeInfo.isImport) {
         imports.push(typeInfo.typeName);
       }
+      if (typeInfo.isAlias) {
+        outputs[0] += `type Msgpack${typeInfo.typeName} = Buffer;`;
+      }
       if (typeInfo.declaration) {
         outputs.push(typeInfo.declaration);
         outputs.push('\n');
@@ -288,7 +350,8 @@ import { CircuitsWasm } from '../wasm/index.js';
         outputs.push('\n');
       }
     }
-    outputs[0] += `import {FixedArray, ${imports.join(', ')}} from "./types.js";`;
+    outputs[0] += `import {${imports.join(', ')}} from "./types.js";`;
+    outputs[0] += `import {TupleOf, mapTuple, mapValues} from "../structs/types.js";`;
     for (const funcDecl of Object.values(this.funcDecls)) {
       outputs.push(funcDecl);
     }

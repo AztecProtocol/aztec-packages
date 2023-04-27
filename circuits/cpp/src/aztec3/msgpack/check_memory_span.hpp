@@ -14,10 +14,10 @@
 namespace msgpack {
 template <typename T, typename... Args> std::string check_memory_span(T* obj, Args*... args)
 {
-    constexpr size_t max_align = 64;
+    constexpr size_t max_align_padding = 63;
     // Convert the variadic template arguments to a vector of pairs.
     // Each pair contains a pointer (as uintptr_t) and its size.
-    std::vector<std::pair<uintptr_t, size_t>> pointers{ { reinterpret_cast<uintptr_t>(args), sizeof(Args) }... };
+    std::vector<std::pair<uintptr_t, size_t>> pointers{ { (uintptr_t)(args), sizeof(Args) }... };
     // Sort the vector based on the pointer values.
     std::sort(pointers.begin(), pointers.end(), [](const auto& a, const auto& b) { return a.first < b.first; });
 
@@ -29,7 +29,7 @@ template <typename T, typename... Args> std::string check_memory_span(T* obj, Ar
         }
         // Check if gap is too large.
         // Give some fuzzy room (2 long size) in case of weird alignment.
-        if (last_end + max_align < pointers[i].first) {
+        if (last_end + max_align_padding < pointers[i].first) {
             return "Gap in " + msgpack::schema_name<T>() + " ar() params detected after member #" + std::to_string(i) +
                    " !";
         }
@@ -52,7 +52,7 @@ template <typename T, typename... Args> std::string check_memory_span(T* obj, Ar
     //    // Align gap for sizeof long e.g. if a char is before a long, C may pad
     //    total_size += (sizeof(long) - (total_size % sizeof(long))) % sizeof(long);
 
-    if (total_size + max_align < sizeof(T)) {
+    if (total_size + max_align_padding < sizeof(T)) {
         return "Incomplete " + msgpack::schema_name<T>() + " ar() params! Not all of object specified.";
     }
     return {};

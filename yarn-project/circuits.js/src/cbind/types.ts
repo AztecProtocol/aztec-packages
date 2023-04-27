@@ -26,5 +26,3 @@ export class Proof {
     return buffer;
   }
 }
-// Utility types
-export type FixedArray<T, L extends number> = [T, ...T[]] & { length: L };
