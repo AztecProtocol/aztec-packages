@@ -48,6 +48,8 @@ export class NetCrs {
    * Download the G2 points data.
    */
   async downloadG2Data() {
+    // TODO(Suyash): Change download url to .../monomial/transcript00.dat (v. imp!)
+    // TODO(Suyash): Change to 5040001.
     const g2Start = 28 + 5040000 * 64;
     const g2End = g2Start + 128 - 1;
 
