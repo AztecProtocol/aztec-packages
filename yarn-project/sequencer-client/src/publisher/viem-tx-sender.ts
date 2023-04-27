@@ -56,7 +56,7 @@ export class ViemTxSender implements L1PublisherTxSender {
 
     this.publicClient = createPublicClient({
       chain: chain,
-      transport: http(),
+      transport: http(rpcUrl),
     });
 
     this.rollupContract = getContract({

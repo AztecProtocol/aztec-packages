@@ -26,11 +26,11 @@ export const deployL1Contracts = async (rpcUrl: string, account: HDAccount, logg
   const walletClient = createWalletClient({
     account,
     chain: foundry,
-    transport: http(),
+    transport: http(rpcUrl),
   });
   const publicClient = createPublicClient({
     chain: foundry,
-    transport: http(),
+    transport: http(rpcUrl),
   });
 
   const rollupAddress = await deployL1Contract(walletClient, publicClient, RollupAbi, RollupBytecode);
