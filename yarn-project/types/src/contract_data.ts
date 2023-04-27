@@ -117,7 +117,7 @@ export class ContractPublicData {
 
   /**
    * Generate ContractData with random addresses.
-   * @returns ContractData.
+   * @returns A random ContractPublicData object.
    */
   static random(): ContractPublicData {
     return new ContractPublicData(AztecAddress.random(), EthAddress.random(), [
@@ -139,7 +139,7 @@ export class ContractData {
     /**
      * The L1 address of the contract, (20 bytes).
      */
-    public portalContractAddress: EthAddress, // public publicFunctions?: EncodedContractFunction[],
+    public portalContractAddress: EthAddress,
   ) {}
 
   /**
