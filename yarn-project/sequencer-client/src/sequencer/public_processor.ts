@@ -73,7 +73,7 @@ export class PublicProcessor {
     );
     const functionSelector = txRequest.functionData.functionSelector;
     if (!fn) throw new Error(`Bytecode not found for ${functionSelector}@${contractAddress}`);
-    const contractData = await this.contractDataSource.getL2ContractData(contractAddress);
+    const contractData = await this.contractDataSource.getL2ContractPublicData(contractAddress);
     if (!contractData) throw new Error(`Portal contract address not found for contract ${contractAddress}`);
     const { portalContractAddress } = contractData;
 

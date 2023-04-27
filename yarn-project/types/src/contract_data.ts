@@ -15,7 +15,7 @@ export interface ContractDataSource {
    * @param contractAddress - The contract data address.
    * @returns The full contract information (if found).
    */
-  getL2ContractData(contractAddress: AztecAddress): Promise<CompleteContractData | undefined>;
+  getL2ContractPublicData(contractAddress: AztecAddress): Promise<ContractPublicData | undefined>;
 
   /**
    * Lookup the L2 contract base info for this contract.
@@ -29,7 +29,13 @@ export interface ContractDataSource {
    * Lookup all contract data in an L2 block.
    * @param blockNumber - The block number
    */
-  getL2ContractDataInBlock(blockNumber: number): Promise<ContractData[]>;
+  getL2ContractPublicDataInBlock(blockNumber: number): Promise<ContractPublicData[]>;
+
+  /**
+   * Lookup all contract data in an L2 block.
+   * @param blockNumber - The block number
+   */
+  getL2ContractInfoInBlock(blockNumber: number): Promise<ContractData[] | undefined>;
 
   /**
    * Returns a contract's encoded public function, given its function selector.
@@ -59,16 +65,14 @@ export class EncodedContractFunction {
   }
 }
 
-export type CompleteContractData = Required<ContractData>;
-
 /**
- * A contract data blob, containing L1 and L2 addresses.
+ * A contract data blob, containing L1 and L2 addresses, as well as public functions' bytecode.
  */
-export class ContractData {
+export class ContractPublicData {
   /**
    * The contract's encoded ACIR code. This should become Brilling code once implemented.
    */
-  public bytecode?: Buffer;
+  public bytecode: Buffer;
   constructor(
     /**
      * The L2 address of the contract, as a field element (32 bytes).
@@ -82,11 +86,12 @@ export class ContractData {
     /**
      * ABIs of public functions
      */
-    public publicFunctions?: EncodedContractFunction[],
+    public publicFunctions: EncodedContractFunction[],
   ) {
-    if (publicFunctions?.length) {
-      this.bytecode = serializeBufferArrayToVector(publicFunctions.map(fn => fn.toBuffer()));
+    if (!publicFunctions.length) {
+      throw Error('No public functions provided for ContractPublicData.');
     }
+    this.bytecode = serializeBufferArrayToVector(publicFunctions.map(fn => fn.toBuffer()));
   }
 
   /**
@@ -94,11 +99,7 @@ export class ContractData {
    * @returns Encoded buffer.
    */
   public toBuffer(): Buffer {
-    return serializeToBuffer(
-      this.contractAddress,
-      this.portalContractAddress.toBuffer(),
-      this.bytecode || Buffer.alloc(4, 0),
-    );
+    return serializeToBuffer(this.contractAddress, this.portalContractAddress.toBuffer(), this.bytecode);
   }
 
   /**
@@ -111,25 +112,61 @@ export class ContractData {
     const aztecAddr = AztecAddress.fromBuffer(reader);
     const ethAddr = new EthAddress(reader.readBytes(EthAddress.SIZE_IN_BYTES));
     const publicFns = reader.readVector(EncodedContractFunction);
-    return new ContractData(aztecAddr, ethAddr, publicFns);
+    return new ContractPublicData(aztecAddr, ethAddr, publicFns);
   }
 
   /**
    * Generate ContractData with random addresses.
    * @returns ContractData.
    */
-  static random(): CompleteContractData {
-    return new ContractData(AztecAddress.random(), EthAddress.random(), [
+  static random(): ContractPublicData {
+    return new ContractPublicData(AztecAddress.random(), EthAddress.random(), [
       EncodedContractFunction.random(),
       EncodedContractFunction.random(),
-    ]) as CompleteContractData;
+    ]);
+  }
+}
+
+/**
+ * A contract data blob, containing L1 and L2 addresses.
+ */
+export class ContractData {
+  constructor(
+    /**
+     * The L2 address of the contract, as a field element (32 bytes).
+     */
+    public contractAddress: AztecAddress,
+    /**
+     * The L1 address of the contract, (20 bytes).
+     */
+    public portalContractAddress: EthAddress, // public publicFunctions?: EncodedContractFunction[],
+  ) {}
+
+  /**
+   * Serializes this instance into a buffer, using 20 bytes for the eth address.
+   * @returns Encoded buffer.
+   */
+  public toBuffer(): Buffer {
+    return serializeToBuffer(this.contractAddress, this.portalContractAddress.toBuffer());
   }
 
-  static createCompleteContractData(
-    contractAddres: AztecAddress,
-    portalContractAddress: EthAddress,
-    publicFunctions: EncodedContractFunction[],
-  ): CompleteContractData {
-    return new ContractData(contractAddres, portalContractAddress, publicFunctions) as CompleteContractData;
+  /**
+   * Deserializes a contract data object from an encoded buffer, using 20 bytes for the eth address.
+   * @param buffer - Byte array resulting from calling toBuffer.
+   * @returns Deserialized instance.
+   */
+  static fromBuffer(buffer: Buffer | BufferReader) {
+    const reader = BufferReader.asReader(buffer);
+    const aztecAddr = AztecAddress.fromBuffer(reader);
+    const ethAddr = new EthAddress(reader.readBytes(EthAddress.SIZE_IN_BYTES));
+    return new ContractData(aztecAddr, ethAddr);
+  }
+
+  /**
+   * Generate ContractData with random addresses.
+   * @returns ContractData.
+   */
+  static random(): ContractData {
+    return new ContractData(AztecAddress.random(), EthAddress.random());
   }
 }

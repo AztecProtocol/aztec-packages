@@ -1,6 +1,6 @@
 import { TxSenderConfig } from './config.js';
 import { L1ProcessArgs as ProcessTxArgs, L1PublisherTxSender } from './l1-publisher.js';
-import { CompleteContractData, UnverifiedData } from '@aztec/types';
+import { ContractPublicData, UnverifiedData } from '@aztec/types';
 import { createDebugLogger } from '@aztec/foundation';
 import {
   GetContractReturnType,
@@ -119,7 +119,7 @@ export class ViemTxSender implements L1PublisherTxSender {
 
   async sendEmitContractDeploymentTx(
     l2BlockNum: number,
-    newContractData: CompleteContractData[],
+    newContractData: ContractPublicData[],
   ): Promise<string | undefined> {
     for (const contractData of newContractData) {
       const args = [
