@@ -18,22 +18,18 @@ import {
   http,
 } from 'viem';
 import { HDAccount } from 'viem/accounts';
-import { localhost } from 'viem/chains';
+import { foundry } from 'viem/chains';
 
 export const deployL1Contracts = async (rpcUrl: string, account: HDAccount, logger: DebugLogger) => {
   logger('Deploying contracts...');
-  const anvil = {
-    ...localhost,
-    id: 31337,
-  } as const;
 
   const walletClient = createWalletClient({
     account,
-    chain: anvil,
+    chain: foundry,
     transport: http(rpcUrl),
   });
   const publicClient = createPublicClient({
-    chain: anvil,
+    chain: foundry,
     transport: http(),
   });
 
