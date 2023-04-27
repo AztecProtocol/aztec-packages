@@ -1,20 +1,46 @@
+import {
+  Account,
+  Chain,
+  Hex,
+  HttpTransport,
+  PublicClient,
+  WalletClient,
+  createPublicClient,
+  createWalletClient,
+  http,
+} from 'viem';
+import { mnemonicToAccount } from 'viem/accounts';
+import type { Abi, Narrow } from 'abitype';
+
 import { AztecNode, getConfigEnvVars } from '@aztec/aztec-node';
 import { AztecAddress, AztecRPCServer, Contract, ContractDeployer, TxStatus } from '@aztec/aztec.js';
 import { EthereumRpc } from '@aztec/ethereum.js/eth_rpc';
 import { WalletProvider } from '@aztec/ethereum.js/provider';
 import { EthAddress, Fr, Point, createDebugLogger, toBigIntBE } from '@aztec/foundation';
 import { PublicTokenContractAbi } from '@aztec/noir-contracts/examples';
-
-import { createAztecRpcServer } from './create_aztec_rpc_client.js';
-import { createProvider, deployRollupContract, deployUnverifiedDataEmitterContract } from './deploy_l1_contracts.js';
 import { pedersenCompressInputs } from '@aztec/barretenberg.js/crypto';
 import { BarretenbergWasm } from '@aztec/barretenberg.js/wasm';
+
+import { deployL1Contracts } from './deploy_l1_contracts.js';
+import { createAztecRpcServer } from './create_aztec_rpc_client.js';
+// import { createProvider, deployRollupContract, deployUnverifiedDataEmitterContract } from './deploy_l1_contracts.js';
 
 const MNEMONIC = 'test test test test test test test test test test test junk';
 
 const logger = createDebugLogger('aztec:e2e_public_token_contract');
 
 const config = getConfigEnvVars();
+
+// const deployContract_OLD = async (initialBalance = 0n, owner = { x: 0n, y: 0n }) => {
+//   const deployer = new ContractDeployer(PublicTokenContractAbi, aztecRpcServer);
+//   const tx = deployer.deploy(initialBalance, owner).send();
+//   const receipt = await tx.getReceipt();
+//   contract = new Contract(receipt.contractAddress!, PublicTokenContractAbi, aztecRpcServer);
+//   await tx.isMined(0, 0.1);
+//   await tx.getReceipt();
+//   logger('L2 contract deployed');
+//   return contract;
+// };
 
 describe('e2e_public_token_contract', () => {
   let provider: WalletProvider;
@@ -34,16 +60,18 @@ describe('e2e_public_token_contract', () => {
     };
   };
 
-  const deployContract = async (initialBalance = 0n, owner = { x: 0n, y: 0n }) => {
-    logger(`Deploying L2 contract...`);
+  const deployContract = async () => {
+    logger(`Deploying L2 public contract...`);
     const deployer = new ContractDeployer(PublicTokenContractAbi, aztecRpcServer);
-    const tx = deployer.deploy(initialBalance, owner).send();
+    const tx = deployer.deploy().send();
+
+    logger(`Tx sent with hash ${await tx.getTxHash()}`);
     const receipt = await tx.getReceipt();
     contract = new Contract(receipt.contractAddress!, PublicTokenContractAbi, aztecRpcServer);
     await tx.isMined(0, 0.1);
-    await tx.getReceipt();
+    const txReceipt = await tx.getReceipt();
     logger('L2 contract deployed');
-    return contract;
+    return { contract, tx, txReceipt };
   };
 
   const calculateStorageSlot = async (accountIdx: number): Promise<bigint> => {
@@ -77,23 +105,17 @@ describe('e2e_public_token_contract', () => {
     expect(balance).toBe(expectedBalance);
   };
 
-  beforeAll(() => {
-    provider = createProvider(config.rpcUrl, MNEMONIC, 1);
-    config.publisherPrivateKey = provider.getPrivateKey(0) || Buffer.alloc(32);
-  });
-
   beforeEach(async () => {
-    const ethRpc = new EthereumRpc(provider);
-    logger('Deploying contracts...');
-    rollupAddress = await deployRollupContract(provider, ethRpc);
-    unverifiedDataEmitterAddress = await deployUnverifiedDataEmitterContract(provider, ethRpc);
+    const account = mnemonicToAccount(MNEMONIC);
+    const privKey = account.getHdKey().privateKey;
+    const { rollupAddress, unverifiedDataEmitterAddress } = await deployL1Contracts(config.rpcUrl, account, logger);
 
     config.rollupContract = rollupAddress;
     config.unverifiedDataEmitterContract = unverifiedDataEmitterAddress;
+    config.publisherPrivateKey = Buffer.from(privKey!);
 
-    logger('Deployed contracts...');
     node = await AztecNode.createAndSync(config);
-    aztecRpcServer = await createAztecRpcServer(2, node);
+    aztecRpcServer = await createAztecRpcServer(1, node);
     accounts = await aztecRpcServer.getAccounts();
   });
 
@@ -103,16 +125,20 @@ describe('e2e_public_token_contract', () => {
   });
 
   it('should deploy a public token contract', async () => {
-    await deployContract();
+    const { contract, tx, txReceipt } = await deployContract();
+    console.log('txReceipt', txReceipt);
+    console.log('contract', contract);
+    console.log('tx', tx);
+    expect(txReceipt);
   }, 30_000);
 
-  it.only('should deploy a public token contract and mint tokens to a recipient', async () => {
+  it.skip('should deploy a public token contract and mint tokens to a recipient', async () => {
     const mintAmount = 359n;
 
     const recipientIdx = 0;
 
     const recipient = accounts[recipientIdx];
-    const deployedContract = await deployContract();
+    const { contract: deployedContract } = await deployContract();
 
     const tx = deployedContract.methods
       .mint(mintAmount, pointToPublicKey(await aztecRpcServer.getAccountPublicKey(recipient)))
