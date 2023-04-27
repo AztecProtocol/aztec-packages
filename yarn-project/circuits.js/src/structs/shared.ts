@@ -48,7 +48,7 @@ export class MembershipWitness<N extends number> {
   }
 }
 
-export class AggregationObject {
+export class AggregationObject implements INativeAggregationState {
   public publicInputs: Vector<Fr>;
   public proofWitnessIndices: Vector<UInt32>;
 
@@ -59,20 +59,10 @@ export class AggregationObject {
     proofWitnessIndicesData: UInt32[],
     public hasData = false,
   ) {
-    this.publicInputs = new Vector(publicInputsData);
+    this.publicInputs = new Vector(publicInputs);
     this.proofWitnessIndices = new Vector(proofWitnessIndicesData);
   }
 
-  static fromMsgpack(o: INativeAggregationState): AggregationObject {
-    return new this(
-      AffineElement.fromMsgpack(o.P0),
-      o.P1,
-      new Vector(o.publicInputs.map(Fr.fromBuffer)),
-      new Vector(o.proofWitnessIndices),
-      o.hasData,
-    );
-    throw new Error('Method not implemented.');
-  }
   toBuffer() {
     return serializeToBuffer(this.p0, this.p1, this.publicInputs, this.proofWitnessIndices, this.hasData);
   }
