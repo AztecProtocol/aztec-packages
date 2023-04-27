@@ -35,6 +35,7 @@ export class ViemTxSender implements L1PublisherTxSender {
 
   private log = createDebugLogger('aztec:sequencer:viem-tx-sender');
   private publicClient: PublicClient<HttpTransport, chains.Chain>;
+  private account: PrivateKeyAccount;
 
   constructor(config: TxSenderConfig) {
     const {
@@ -45,10 +46,10 @@ export class ViemTxSender implements L1PublisherTxSender {
       unverifiedDataEmitterContract: unverifiedDataEmitterContractAddress,
     } = config;
 
-    const account = privateKeyToAccount(`0x${publisherPrivateKey.toString('hex')}`);
+    this.account = privateKeyToAccount(`0x${publisherPrivateKey.toString('hex')}`);
     const chain = this.getChain(chainId);
     const walletClient = createWalletClient({
-      account,
+      account: this.account,
       chain,
       transport: http(rpcUrl),
     });
@@ -93,9 +94,12 @@ export class ViemTxSender implements L1PublisherTxSender {
   async sendProcessTx(encodedData: ProcessTxArgs): Promise<string | undefined> {
     const args = [`0x${encodedData.proof.toString('hex')}`, `0x${encodedData.inputs.toString('hex')}`] as const;
 
-    const gas = await this.rollupContract.estimateGas.process(args);
+    const gas = await this.rollupContract.estimateGas.process(args, {
+      account: this.account,
+    });
     const hash = await this.rollupContract.write.process(args, {
       gas,
+      account: this.account,
     });
     return hash;
   }
@@ -103,8 +107,11 @@ export class ViemTxSender implements L1PublisherTxSender {
   async sendEmitUnverifiedDataTx(l2BlockNum: number, unverifiedData: UnverifiedData): Promise<string | undefined> {
     const args = [BigInt(l2BlockNum), `0x${unverifiedData.toBuffer().toString('hex')}`] as const;
 
-    const gas = await this.unverifiedDataEmitterContract.estimateGas.emitUnverifiedData(args);
+    const gas = await this.unverifiedDataEmitterContract.estimateGas.emitUnverifiedData(args, {
+      account: this.account,
+    });
     const hash = await this.unverifiedDataEmitterContract.write.emitUnverifiedData(args, {
+      account: this.account,
       gas,
     });
     return hash;
@@ -122,9 +129,12 @@ export class ViemTxSender implements L1PublisherTxSender {
         `0x${contractData.bytecode.toString('hex')}`,
       ] as const;
 
-      const gas = await this.unverifiedDataEmitterContract.estimateGas.emitContractDeployment(args);
+      const gas = await this.unverifiedDataEmitterContract.estimateGas.emitContractDeployment(args, {
+        account: this.account,
+      });
       const hash = await this.unverifiedDataEmitterContract.write.emitContractDeployment(args, {
         gas,
+        account: this.account,
       });
       return hash;
     }
