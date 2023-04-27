@@ -44,6 +44,7 @@ export class L2Block {
    * @param newPublicDataWrites - The public data writes to be inserted into the public data tree.
    * @param newContracts - The contracts leafs to be inserted into the contract tree.
    * @param newContractData - The aztec_address and eth_address for the deployed contract and its portal contract.
+   * @param newL1ToL2Messages - The L1 to L2 messages to be inserted into the L2 toL2 message tree.
    */
   constructor(
     public number: number,
@@ -195,6 +196,7 @@ export class L2Block {
       this.newContracts.length,
       this.newContracts,
       this.newContractData,
+      this.newL1ToL2Messages.length,
       this.newL1ToL2Messages,
     );
   }

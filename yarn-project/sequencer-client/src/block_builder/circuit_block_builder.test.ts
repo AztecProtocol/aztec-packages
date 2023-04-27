@@ -6,6 +6,7 @@ import {
   Fr,
   PublicDataRead,
   PublicDataTransition,
+  NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   RootRollupPublicInputs,
   UInt8Vector,
 } from '@aztec/circuits.js';
@@ -50,6 +51,7 @@ describe('sequencer/circuit_block_builder', () => {
   let baseRollupOutputLeft: BaseOrMergeRollupPublicInputs;
   let baseRollupOutputRight: BaseOrMergeRollupPublicInputs;
   let rootRollupOutput: RootRollupPublicInputs;
+  let mockL1ToL2Messages: Fr[];
 
   let wasm: CircuitsWasm;
 
@@ -67,6 +69,8 @@ describe('sequencer/circuit_block_builder', () => {
     simulator = mock<RollupSimulator>();
     prover = mock<RollupProver>();
     builder = new TestSubject(builderDb, vks, simulator, prover);
+
+    mockL1ToL2Messages = Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(0);
 
     // Populate root trees with first roots from the empty trees
     // TODO: Should this be responsibility of the MerkleTreeDb init?
@@ -177,7 +181,7 @@ describe('sequencer/circuit_block_builder', () => {
 
       // Actually build a block!
       const txs = [tx, await makeEmptyProcessedTx(), await makeEmptyProcessedTx(), await makeEmptyProcessedTx()];
-      const [l2Block, proof] = await builder.buildL2Block(blockNumber, txs);
+      const [l2Block, proof] = await builder.buildL2Block(blockNumber, txs, mockL1ToL2Messages);
 
       expect(l2Block.number).toEqual(blockNumber);
       expect(proof).toEqual(emptyProof);
@@ -243,7 +247,7 @@ describe('sequencer/circuit_block_builder', () => {
           ...(await Promise.all(times(totalCount - deployCount, makeEmptyProcessedTx))),
         ];
 
-        const [l2Block] = await builder.buildL2Block(blockNumber, txs);
+        const [l2Block] = await builder.buildL2Block(blockNumber, txs, mockL1ToL2Messages);
         expect(l2Block.number).toEqual(blockNumber);
 
         await updateExpectedTreesFromTxs(txs);
@@ -300,7 +304,7 @@ describe('sequencer/circuit_block_builder', () => {
       );
       const txs = [tx, await makeEmptyProcessedTx(), await makeEmptyProcessedTx(), await makeEmptyProcessedTx()];
 
-      const [l2Block] = await builder.buildL2Block(blockNumber, txs);
+      const [l2Block] = await builder.buildL2Block(blockNumber, txs, mockL1ToL2Messages);
       expect(l2Block.number).toEqual(blockNumber);
     });
   });

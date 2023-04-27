@@ -8,6 +8,7 @@ import {
   MembershipWitness,
   MergeRollupInputs,
   NULLIFIER_TREE_HEIGHT,
+  NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   NullifierLeafPreimage,
   PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT,
   PUBLIC_DATA_TREE_HEIGHT,
@@ -82,7 +83,11 @@ export class CircuitBlockBuilder implements BlockBuilder {
     protected debug = createDebugLogger('aztec:sequencer'),
   ) {}
 
-  public async buildL2Block(blockNumber: number, txs: ProcessedTx[]): Promise<[L2Block, UInt8Vector]> {
+  public async buildL2Block(
+    blockNumber: number,
+    txs: ProcessedTx[],
+    newL1ToL2Messages: Fr[],
+  ): Promise<[L2Block, UInt8Vector]> {
     const [
       startPrivateDataTreeSnapshot,
       startNullifierTreeSnapshot,
@@ -106,7 +111,7 @@ export class CircuitBlockBuilder implements BlockBuilder {
     );
 
     // We fill the tx batch with empty txs, we process only one tx at a time for now
-    const [circuitsOutput, proof] = await this.runCircuits(txs);
+    const [circuitsOutput, proof] = await this.runCircuits(txs, newL1ToL2Messages);
 
     const {
       endPrivateDataTreeSnapshot,
@@ -154,6 +159,7 @@ export class CircuitBlockBuilder implements BlockBuilder {
       newContracts,
       newContractData,
       newPublicDataWrites,
+      newL1ToL2Messages,
     });
 
     return [l2Block, proof];
@@ -164,11 +170,20 @@ export class CircuitBlockBuilder implements BlockBuilder {
     return new AppendOnlyTreeSnapshot(Fr.fromBuffer(treeInfo.root), Number(treeInfo.size));
   }
 
-  protected async runCircuits(txs: ProcessedTx[]): Promise<[RootRollupPublicInputs, Proof]> {
+  protected async runCircuits(txs: ProcessedTx[], newL1ToL2Messages: Fr[]): Promise<[RootRollupPublicInputs, Proof]> {
     // Check that the length of the array of txs is a power of two
     // See https://graphics.stanford.edu/~seander/bithacks.html#DetermineIfPowerOf2
     if (txs.length < 4 || (txs.length & (txs.length - 1)) !== 0) {
       throw new Error(`Length of txs for the block should be a power of two and at least four (got ${txs.length})`);
+    }
+
+    // Check that the number of new L1 to L2 messages is the same as the max
+    // TODO: optionally check that they are all inserted in order, i.e. filled values at the front and empty at the end
+    // TODO: negative test for this ase
+    if (newL1ToL2Messages.length !== NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP) {
+      throw new Error(
+        `Length of the l1 to l2 messages per block should be a constant ${NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP} (got ${newL1ToL2Messages.length})`,
+      );
     }
 
     // Run the base rollup circuits for the txs
@@ -192,7 +207,7 @@ export class CircuitBlockBuilder implements BlockBuilder {
 
     // Run the root rollup with the last two merge rollups (or base, if no merge layers)
     const [mergeOutputLeft, mergeOutputRight] = mergeRollupInputs;
-    return this.rootRollupCircuit(mergeOutputLeft, mergeOutputRight);
+    return this.rootRollupCircuit(mergeOutputLeft, mergeOutputRight, newL1ToL2Messages);
   }
 
   protected async baseRollupCircuit(
@@ -237,9 +252,10 @@ export class CircuitBlockBuilder implements BlockBuilder {
   protected async rootRollupCircuit(
     left: [BaseOrMergeRollupPublicInputs, Proof],
     right: [BaseOrMergeRollupPublicInputs, Proof],
+    newL1ToL2Messages: Fr[],
   ): Promise<[RootRollupPublicInputs, Proof]> {
     this.debug(`Running root rollup circuit`);
-    const rootInput = await this.getRootRollupInput(...left, ...right);
+    const rootInput = await this.getRootRollupInput(...left, ...right, newL1ToL2Messages);
 
     // Simulate and get proof for the root circuit
     const rootOutput = await this.simulator.rootRollupCircuit(rootInput);
@@ -346,6 +362,7 @@ export class CircuitBlockBuilder implements BlockBuilder {
     rollupProofLeft: Proof,
     rollupOutputRight: BaseOrMergeRollupPublicInputs,
     rollupProofRight: Proof,
+    newL1ToL2Messages: Fr[],
   ) {
     const vk = this.getVerificationKey(rollupOutputLeft.rollupType);
     const previousRollupData: RootRollupInputs['previousRollupData'] = [
@@ -367,11 +384,20 @@ export class CircuitBlockBuilder implements BlockBuilder {
     const newHistoricPrivateDataTreeRootSiblingPath = await getRootTreeSiblingPath(
       MerkleTreeId.PRIVATE_DATA_TREE_ROOTS_TREE,
     );
+    const newHistoricL1ToL2MessageTreeRootSiblingPath = await getRootTreeSiblingPath(
+      MerkleTreeId.L1_TO_L2_MESSAGES_ROOTS_TREE,
+    );
+
+    // TODO: not sure if this is the correct way to fetch this
+    const newL1ToL2MessageTreeRootSiblingPath = await getRootTreeSiblingPath(MerkleTreeId.L1_TO_L2_MESSAGES_TREE);
 
     return RootRollupInputs.from({
       previousRollupData,
       newHistoricContractDataTreeRootSiblingPath,
       newHistoricPrivateDataTreeRootSiblingPath,
+      newL1ToL2Messages,
+      newHistoricL1ToL2MessageTreeRootSiblingPath,
+      newL1ToL2MessageTreeRootSiblingPath,
     });
   }
 

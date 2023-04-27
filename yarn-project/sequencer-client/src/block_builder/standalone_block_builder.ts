@@ -31,7 +31,7 @@ export class StandaloneBlockBuilder implements BlockBuilder {
 
   constructor(private db: MerkleTreeOperations, private log = createDebugLogger('aztec:block_builder')) {}
 
-  async buildL2Block(blockNumber: number, txs: ProcessedTx[]): Promise<[L2Block, Proof]> {
+  async buildL2Block(blockNumber: number, txs: ProcessedTx[], newL1ToL2Messages: Fr[]): Promise<[L2Block, Proof]> {
     const startPrivateDataTreeSnapshot = await this.getTreeSnapshot(MerkleTreeId.PRIVATE_DATA_TREE);
     const startNullifierTreeSnapshot = await this.getTreeSnapshot(MerkleTreeId.NULLIFIER_TREE);
     const startContractTreeSnapshot = await this.getTreeSnapshot(MerkleTreeId.CONTRACT_TREE);
@@ -43,7 +43,9 @@ export class StandaloneBlockBuilder implements BlockBuilder {
       MerkleTreeId.CONTRACT_TREE_ROOTS_TREE,
     );
     const startL1ToL2MessageTreeSnapshot = await this.getTreeSnapshot(MerkleTreeId.L1_TO_L2_MESSAGES_TREE);
-    const startTreeOfHistoricL1ToL2MessageTreeRootsSnapshot = await this.getTreeSnapshot(MerkleTreeId.L1_TO_L2_MESSAGES_ROOTS_TREE);
+    const startTreeOfHistoricL1ToL2MessageTreeRootsSnapshot = await this.getTreeSnapshot(
+      MerkleTreeId.L1_TO_L2_MESSAGES_ROOTS_TREE,
+    );
 
     for (const tx of txs) {
       await this.updateTrees(tx);
@@ -62,7 +64,9 @@ export class StandaloneBlockBuilder implements BlockBuilder {
       MerkleTreeId.CONTRACT_TREE_ROOTS_TREE,
     );
     const endL1ToL2MessageTreeSnapshot = await this.getTreeSnapshot(MerkleTreeId.L1_TO_L2_MESSAGES_TREE);
-    const endTreeOfHistoricL1ToL2MessageTreeRootsSnapshot = await this.getTreeSnapshot(MerkleTreeId.L1_TO_L2_MESSAGES_ROOTS_TREE);
+    const endTreeOfHistoricL1ToL2MessageTreeRootsSnapshot = await this.getTreeSnapshot(
+      MerkleTreeId.L1_TO_L2_MESSAGES_ROOTS_TREE,
+    );
 
     const l2Block = L2Block.fromFields({
       number: blockNumber,
@@ -89,6 +93,7 @@ export class StandaloneBlockBuilder implements BlockBuilder {
       newPublicDataWrites: txs.flatMap(tx =>
         tx.data.end.stateTransitions.map(t => new PublicDataWrite(t.leafIndex, t.newValue)),
       ),
+      newL1ToL2Messages,
     });
     return [l2Block, makeEmptyProof()];
   }
