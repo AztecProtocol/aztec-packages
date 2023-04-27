@@ -58,6 +58,7 @@ pragma solidity >=0.8.18;
  *  | 0x22c + x + y + z        | 0x04       | len(l1ToL2Messages) denoted w
  *  | 0x230 + x + y + z        | w          | l1ToL2Messages
  *  |---                       |---         | ---
+ * TODO(rebase): update unknown values - they are not insync
  * TODO: a,b,c,d are number of elements and not bytes, need to be multiplied by the length of the elements.
  */
 contract Decoder {

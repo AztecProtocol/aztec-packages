@@ -281,14 +281,18 @@ export class L2Block {
       this.startTreeOfHistoricPrivateDataTreeRootsSnapshot,
       this.startTreeOfHistoricContractTreeRootsSnapshot,
       this.startPublicDataTreeRoot,
+      this.startL1ToL2MessageTreeSnapshot,
+      this.startTreeOfHistoricL1ToL2MessageTreeRootsSnapshot,
       this.endPrivateDataTreeSnapshot,
       this.endNullifierTreeSnapshot,
       this.endContractTreeSnapshot,
       this.endTreeOfHistoricPrivateDataTreeRootsSnapshot,
       this.endTreeOfHistoricContractTreeRootsSnapshot,
       this.endPublicDataTreeRoot,
-      // TODO(sean rebase): make sure getMessagesHash is included in here too!
+      this.endL1ToL2MessageTreeSnapshot,
+      this.endTreeOfHistoricL1ToL2MessageTreeRootsSnapshot,
       this.getCalldataHash(),
+      this.getL1ToL2MessagesHash(),
     );
     const temp = toBigIntBE(sha256(buf));
     // Prime order of BN254 curve
@@ -308,6 +312,8 @@ export class L2Block {
       this.startContractTreeSnapshot,
       this.startTreeOfHistoricPrivateDataTreeRootsSnapshot,
       this.startTreeOfHistoricContractTreeRootsSnapshot,
+      this.startL1ToL2MessageTreeSnapshot,
+      this.startTreeOfHistoricL1ToL2MessageTreeRootsSnapshot,
       this.startPublicDataTreeRoot,
     );
     return sha256(inputValue);
@@ -325,6 +331,8 @@ export class L2Block {
       this.endContractTreeSnapshot,
       this.endTreeOfHistoricPrivateDataTreeRootsSnapshot,
       this.endTreeOfHistoricContractTreeRootsSnapshot,
+      this.endL1ToL2MessageTreeSnapshot,
+      this.endTreeOfHistoricL1ToL2MessageTreeRootsSnapshot,
       this.endPublicDataTreeRoot,
     );
     return sha256(inputValue);
@@ -392,6 +400,17 @@ export class L2Block {
       leafs.push(sha256(inputValue));
     }
     return computeRoot(leafs);
+  }
+
+  /**
+   * Compute the hash of all of this blocks l1 to l2 messages,
+   * The hash is also calculated within the contract when the block is submitted
+   * @returns
+   */
+  getL1ToL2MessagesHash() {
+    // Create a long buffer of all of the l1 to l2 messages
+    const l1ToL2Messages = Buffer.concat(this.newL1ToL2Messages.map(message => message.toBuffer()));
+    return sha256(l1ToL2Messages);
   }
 
   /**
