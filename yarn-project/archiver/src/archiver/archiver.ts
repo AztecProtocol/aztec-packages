@@ -65,7 +65,7 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource, ContractDa
   private nextUnverifiedDataFromBlock = 0n;
 
   /**
-   * Next L1 block number to fetch `NewContractData` logs from (i.e. `fromBlock` in eth_getLogs)
+   * Next L1 block number to fetch `ContractPublicData` logs from (i.e. `fromBlock` in eth_getLogs)
    */
   private nextContractDataFromBlock = 0n;
 

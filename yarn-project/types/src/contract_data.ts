@@ -26,14 +26,16 @@ export interface ContractDataSource {
   getL2ContractInfo(contractAddress: AztecAddress): Promise<ContractData | undefined>;
 
   /**
-   * Lookup all contract data in an L2 block.
+   * Lookup all contract public data in an L2 block.
    * @param blockNumber - The block number
+   * @returns Public data of contracts deployed in L2 block, including public function bytecode.
    */
   getL2ContractPublicDataInBlock(blockNumber: number): Promise<ContractPublicData[]>;
 
   /**
-   * Lookup all contract data in an L2 block.
+   * Lookup contract info in an L2 block.
    * @param blockNumber - The block number
+   * @returns Portal contract address info of contracts deployed in L2 block.
    */
   getL2ContractInfoInBlock(blockNumber: number): Promise<ContractData[] | undefined>;
 
