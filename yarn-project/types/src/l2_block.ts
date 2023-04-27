@@ -239,6 +239,30 @@ export class L2Block {
     return Fr.fromBuffer(toBufferBE(temp % p, 32));
   }
 
+  getStartStateHash() {
+    const inputValue = serializeToBuffer(
+      this.number - 1,
+      this.startPrivateDataTreeSnapshot,
+      this.startNullifierTreeSnapshot,
+      this.startContractTreeSnapshot,
+      this.startTreeOfHistoricPrivateDataTreeRootsSnapshot,
+      this.startTreeOfHistoricContractTreeRootsSnapshot,
+    );
+    return sha256(inputValue);
+  }
+
+  getEndStateHash() {
+    const inputValue = serializeToBuffer(
+      this.number,
+      this.endPrivateDataTreeSnapshot,
+      this.endNullifierTreeSnapshot,
+      this.endContractTreeSnapshot,
+      this.endTreeOfHistoricPrivateDataTreeRootsSnapshot,
+      this.endTreeOfHistoricContractTreeRootsSnapshot,
+    );
+    return sha256(inputValue);
+  }
+
   /**
    * Computes the calldata hash for the L2 block
    * This calldata hash is also computed by the rollup contract when the block is submitted,

@@ -34,6 +34,7 @@ import { ProcessedTx, makeEmptyProcessedTx, makeProcessedTx } from '../sequencer
 import { RollupSimulator } from '../simulator/index.js';
 import { WasmRollupCircuitSimulator } from '../simulator/rollup.js';
 import { CircuitBlockBuilder } from './circuit_block_builder.js';
+import { makePrivateTx } from '../index.js';
 
 export const createMemDown = () => (memdown as any)() as MemDown<any, any>;
 
@@ -303,16 +304,99 @@ describe('sequencer/circuit_block_builder', () => {
       expect(l2Block.number).toEqual(blockNumber);
     });
 
-    it('Build empty l2 block with 4 txs', async () => {
+    it('Build blocks on top of blocks l2 block with 4 txs', async () => {
       const txs = [...(await Promise.all(times(4, makeEmptyProcessedTx)))];
-      const [l2Block] = await builder.buildL2Block(1, txs);
+      await builder.buildL2Block(1, txs);
+      const [block] = await builder.buildL2Block(2, txs);
 
-      // @todo Fix this test
+      expect(block.number).toEqual(2);
 
-      console.log(l2Block);
-      console.log(l2Block.encode().toString('hex'));
-      console.log(`call data hash   : ${l2Block.getCalldataHash().toString('hex')}`);
-      console.log(`public input hash: ${l2Block.getPublicInputsHash().toString()}`);
+      /*console.log(block);
+      console.log(block.encode().toString('hex'));
+      console.log(`call data hash   : ${block.getCalldataHash().toString('hex')}`);
+      console.log(`start state hash: ${block.getStartStateHash().toString('hex')}`);
+      console.log(`end state hash  : ${block.getEndStateHash().toString('hex')}`);
+      console.log(`public input hash: ${block.getPublicInputsHash().toString()}`);*/
+    }, 10000);
+
+    it('Build blocks on top of blocks l2 block with 4 txs', async () => {
+      for (let i = 0; i < 2; i++) {
+        const tx = await makeProcessedTx(
+          Tx.createPrivate(makeKernelPublicInputs(1 + i), emptyProof, makeEmptyUnverifiedData()),
+        );
+        const txsLeft = [tx, await makeEmptyProcessedTx()];
+        const txsRight = [await makeEmptyProcessedTx(), await makeEmptyProcessedTx()];
+
+        // Set tree roots to proper values in the tx
+        await setTxHistoricTreeRoots(tx);
+
+        // Calculate what would be the tree roots after the txs from the first base rollup land and update mock circuit output
+        await updateExpectedTreesFromTxs(txsLeft);
+        baseRollupOutputLeft.endContractTreeSnapshot = await getTreeSnapshot(MerkleTreeId.CONTRACT_TREE);
+        baseRollupOutputLeft.endNullifierTreeSnapshot = await getTreeSnapshot(MerkleTreeId.NULLIFIER_TREE);
+        baseRollupOutputLeft.endPrivateDataTreeSnapshot = await getTreeSnapshot(MerkleTreeId.PRIVATE_DATA_TREE);
+
+        // Same for the two txs on the right
+        await updateExpectedTreesFromTxs(txsRight);
+        baseRollupOutputRight.endContractTreeSnapshot = await getTreeSnapshot(MerkleTreeId.CONTRACT_TREE);
+        baseRollupOutputRight.endNullifierTreeSnapshot = await getTreeSnapshot(MerkleTreeId.NULLIFIER_TREE);
+        baseRollupOutputRight.endPrivateDataTreeSnapshot = await getTreeSnapshot(MerkleTreeId.PRIVATE_DATA_TREE);
+
+        // And update the root trees now to create proper output to the root rollup circuit
+        await updateRootTrees();
+        rootRollupOutput.endContractTreeSnapshot = await getTreeSnapshot(MerkleTreeId.CONTRACT_TREE);
+        rootRollupOutput.endNullifierTreeSnapshot = await getTreeSnapshot(MerkleTreeId.NULLIFIER_TREE);
+        rootRollupOutput.endPrivateDataTreeSnapshot = await getTreeSnapshot(MerkleTreeId.PRIVATE_DATA_TREE);
+        rootRollupOutput.endTreeOfHistoricContractTreeRootsSnapshot = await getTreeSnapshot(
+          MerkleTreeId.CONTRACT_TREE_ROOTS_TREE,
+        );
+        rootRollupOutput.endTreeOfHistoricPrivateDataTreeRootsSnapshot = await getTreeSnapshot(
+          MerkleTreeId.PRIVATE_DATA_TREE_ROOTS_TREE,
+        );
+
+        // Actually build a block!
+        const txs = [tx, await makeEmptyProcessedTx(), await makeEmptyProcessedTx(), await makeEmptyProcessedTx()];
+        const [block] = await builder.buildL2Block(1 + i, txs);
+
+        // These output values are the same as in Decoder.t.sol tests
+        if (i === 0) {
+          expect(block.number).toEqual(1);
+          expect(block.getCalldataHash()).toEqual(
+            Buffer.from('d6a5d2e14edcbd6cf55d88a7296ecd4c24734c5e188de827b815c66ec708ac95', 'hex'),
+          );
+          expect(block.getStartStateHash()).toEqual(
+            Buffer.from('997d827ef06622bb62d3a84c4c1f70bdd4d04bf46a51cb5347e472ae29451e12', 'hex'),
+          );
+          expect(block.getEndStateHash()).toEqual(
+            Buffer.from('bc4951931d71398752b7d0cdb88a4f04c4cebaf8eeef00b75cd913150ac17883', 'hex'),
+          );
+          expect(block.getPublicInputsHash().toBuffer()).toEqual(
+            Buffer.from('163323613ec38b4525decb91da4fe92b858f61b2eef1dd3c736fea35aa76b727', 'hex'),
+          );
+        } else {
+          expect(block.number).toEqual(2);
+          expect(block.getCalldataHash()).toEqual(
+            Buffer.from('ec22e817324a6c72e71e02d0c93b7efd82200b23d23fd491de1472ce7291ddf9', 'hex'),
+          );
+          expect(block.getStartStateHash()).toEqual(
+            Buffer.from('bc4951931d71398752b7d0cdb88a4f04c4cebaf8eeef00b75cd913150ac17883', 'hex'),
+          );
+          expect(block.getEndStateHash()).toEqual(
+            Buffer.from('587bd65c5653f227b0eb6b394656be7dee92319e27a4bbc52147f1ff57b7566c', 'hex'),
+          );
+          expect(block.getPublicInputsHash().toBuffer()).toEqual(
+            Buffer.from('221146539ac6e2bd6c13564b510a57e13219552337b38ac3d2ea646c238e046c', 'hex'),
+          );
+        }
+
+        // Printer useful for checking that output match contracts.
+        /*console.log(block);
+        console.log(block.encode().toString('hex'));
+        console.log(`call data hash   : ${block.getCalldataHash().toString('hex')}`);
+        console.log(`start state hash: ${block.getStartStateHash().toString('hex')}`);
+        console.log(`end state hash  : ${block.getEndStateHash().toString('hex')}`);
+        console.log(`public input hash: ${block.getPublicInputsHash().toString()}`);*/
+      }
     }, 10000);
   });
 });
