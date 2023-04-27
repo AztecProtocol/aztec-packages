@@ -31,7 +31,7 @@ describe('e2e_zk_token_contract', () => {
     node = await AztecNode.createAndSync(config);
     aztecRpcServer = await createAztecRpcServer(2, node);
     accounts = await aztecRpcServer.getAccounts();
-  }, 20_000);
+  }, 30_000);
 
   afterEach(async () => {
     await node?.stop();

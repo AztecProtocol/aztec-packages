@@ -28,12 +28,10 @@ describe('e2e_block_building', () => {
     config.publisherPrivateKey = Buffer.from(privKey!);
     config.rollupContract = rollupAddress;
     config.unverifiedDataEmitterContract = unverifiedDataEmitterAddress;
-  });
 
-  beforeEach(async () => {
     node = await AztecNode.createAndSync(config);
     aztecRpcServer = await createAztecRpcServer(1, node);
-  }, 10_000);
+  }, 30_000);
 
   afterEach(async () => {
     await node?.stop();
