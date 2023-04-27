@@ -29,7 +29,7 @@ template <typename NCT> struct RootRollupInputs {
 
     // TODO(sean): is this going to be here?
     std::array<fr, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP> l1_to_l2_messages;
-    std::array<fr, L1_TO_L2_MSG_TREE_HEIGHT> new_l1_to_l2_message_tree_root_sibling_path;
+    std::array<fr, L1_TO_L2_MSG_SUBTREE_INCLUSION_CHECK_DEPTH> new_l1_to_l2_message_tree_root_sibling_path;
     std::array<fr, L1_TO_L2_MSG_TREE_ROOTS_TREE_HEIGHT> new_historic_l1_to_l2_message_roots_tree_sibling_path;
 
     AppendOnlyTreeSnapshot<NCT> start_l1_to_l2_message_tree_snapshot;

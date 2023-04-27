@@ -226,11 +226,6 @@ TEST_F(root_rollup_tests, native_root_missing_nullifier_logic)
         set_kernel_commitments(kernels[kernel_j], new_commitments);
     }
 
-    // Create 16 empty l1 to l2 messages, and update the l1_to_l2 messages tree
-    for (uint8_t i = 0; i < l1_to_l2_messages.size(); i++) {
-        l1_to_l2_messages_tree.update_element(i, l1_to_l2_messages[i]);
-    }
-
     // TODO: Add nullifiers
 
     // Contract tree
@@ -258,6 +253,12 @@ TEST_F(root_rollup_tests, native_root_missing_nullifier_logic)
                                                                          .next_available_leaf_index = 1 };
     AppendOnlyTreeSnapshot<NT> start_historic_l1_to_l2_tree_snapshot = { .root = historic_l1_to_l2_tree.root(),
                                                                          .next_available_leaf_index = 1 };
+    AppendOnlyTreeSnapshot<NT> start_l1_to_l2_messages_tree_snapshot = { .root = l1_to_l2_messages_tree.root(),
+                                                                         .next_available_leaf_index = 0 };
+    // Create 16 empty l1 to l2 messages, and update the l1_to_l2 messages tree
+    for (uint8_t i = 0; i < l1_to_l2_messages.size(); i++) {
+        l1_to_l2_messages_tree.update_element(i, l1_to_l2_messages[i]);
+    }
 
     // Insert the newest data root into the historic tree
     historic_data_tree.update_element(1, data_tree.root());
@@ -271,6 +272,9 @@ TEST_F(root_rollup_tests, native_root_missing_nullifier_logic)
                                                                        .next_available_leaf_index = 2 };
     AppendOnlyTreeSnapshot<NT> end_historic_l1_to_l2_tree_snapshot = { .root = historic_l1_to_l2_tree.root(),
                                                                        .next_available_leaf_index = 2 };
+    AppendOnlyTreeSnapshot<NT> end_l1_to_l2_messages_tree_snapshot = { .root = l1_to_l2_messages_tree.root(),
+                                                                       .next_available_leaf_index =
+                                                                           NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP };
 
     RootRollupInputs rootRollupInputs = get_root_rollup_inputs(composer, kernels, l1_to_l2_messages);
     RootRollupPublicInputs outputs =
@@ -316,6 +320,10 @@ TEST_F(root_rollup_tests, native_root_missing_nullifier_logic)
     ASSERT_EQ(outputs.start_tree_of_historic_l1_to_l2_messages_tree_roots_snapshot,
               start_historic_l1_to_l2_tree_snapshot);
     ASSERT_EQ(outputs.end_tree_of_historic_l1_to_l2_messages_tree_roots_snapshot, end_historic_l1_to_l2_tree_snapshot);
+
+    // Check l1 to l2 messages trees
+    ASSERT_EQ(outputs.start_l1_to_l2_messages_tree_snapshot, start_l1_to_l2_messages_tree_snapshot);
+    ASSERT_EQ(outputs.end_l1_to_l2_messages_tree_snapshot, end_l1_to_l2_messages_tree_snapshot);
 
     EXPECT_FALSE(composer.failed());
 }

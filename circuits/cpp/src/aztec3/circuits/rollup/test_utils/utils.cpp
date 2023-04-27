@@ -328,16 +328,16 @@ RootRollupInputs get_root_rollup_inputs(utils::DummyComposer& composer,
         get_sibling_path<CONTRACT_TREE_ROOTS_TREE_HEIGHT>(historic_contract_tree, 1, 0);
     auto historic_l1_to_l2_msg_sibling_path =
         get_sibling_path<L1_TO_L2_MSG_TREE_ROOTS_TREE_HEIGHT>(historic_l1_to_l2_msg_tree, 1, 0);
-    auto l1_to_l2_tree_sibling_path =
-        get_sibling_path<L1_TO_L2_MSG_TREE_HEIGHT>(l1_to_l2_msg_tree, 0, L1_TO_L2_MSG_SUBTREE_INCLUSION_CHECK_DEPTH);
+    auto l1_to_l2_tree_sibling_path = get_sibling_path<L1_TO_L2_MSG_SUBTREE_INCLUSION_CHECK_DEPTH>(
+        l1_to_l2_msg_tree, 0, L1_TO_L2_MSG_SUBTREE_INCLUSION_CHECK_DEPTH);
 
     // l1_to_l2_message tree snapshots
     AppendOnlyTreeSnapshot start_l1_to_l2_msg_tree_snapshot = {
         .root = l1_to_l2_msg_tree.root(),
-        .next_available_leaf_index = 1,
+        .next_available_leaf_index = 0,
     };
     AppendOnlyTreeSnapshot start_historic_tree_l1_to_l2_message_tree_roots_snapshot = {
-        .root = l1_to_l2_msg_tree.root(),
+        .root = historic_l1_to_l2_msg_tree.root(),
         .next_available_leaf_index = 1,
     };
 
