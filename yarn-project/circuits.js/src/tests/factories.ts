@@ -1,6 +1,7 @@
 import { Fr } from '@aztec/foundation/fields';
 import { Fq } from '@aztec/foundation/fields';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { EthPublicKey } from '@aztec/foundation/eth-public-key';
 import { EthAddress } from '@aztec/foundation/eth-address';
 
 import {
@@ -343,6 +344,7 @@ export function makeSignedTxRequest(seed = 1): SignedTxRequest {
 export function makeTxRequest(seed = 1): TxRequest {
   return TxRequest.from({
     from: makeAztecAddress(seed),
+    fromPublicKey: makeEthPublicKey(seed + 0x20),
     to: makeAztecAddress(seed + 0x10),
     functionData: new FunctionData(makeSelector(seed + 0x100), true, true),
     args: range(ARGS_LENGTH, seed + 0x200).map(x => fr(x)),
@@ -430,8 +432,12 @@ export function makeAztecAddress(seed = 1): AztecAddress {
   return new AztecAddress(fr(seed).toBuffer());
 }
 
+export function makeEthPublicKey(seed = 1): EthPublicKey {
+  return new EthPublicKey(Buffer.alloc(64, seed));
+}
+
 export function makeEcdsaSignature(seed = 1): EcdsaSignature {
-  return new EcdsaSignature(Buffer.alloc(32, seed), Buffer.alloc(32, seed + 1), Buffer.alloc(1, seed + 2));
+  return new EcdsaSignature(Buffer.alloc(32, seed), Buffer.alloc(32, seed + 1), Buffer.alloc(1, 27));
 }
 
 export function makeBaseRollupPublicInputs(seed = 0) {

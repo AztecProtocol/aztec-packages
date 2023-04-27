@@ -8,7 +8,6 @@ import {
   TxContext,
   TxRequest,
 } from '@aztec/circuits.js';
-
 import { ZkTokenContractAbi } from '@aztec/noir-contracts/examples';
 import { mock } from 'jest-mock-extended';
 import { encodeArguments } from '../abi_coder/index.js';
@@ -17,6 +16,7 @@ import { AcirSimulator } from './simulator.js';
 import { NoirPoint, toPublicKey } from '../utils.js';
 import { Fr } from '@aztec/foundation/fields';
 import { EthAddress } from '@aztec/foundation/eth-address';
+import { EthPublicKey } from '@aztec/foundation/eth-public-key';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 
 describe('Unconstrained Execution test suite', () => {
@@ -76,6 +76,7 @@ describe('Unconstrained Execution test suite', () => {
 
       const txRequest = new TxRequest(
         AztecAddress.random(),
+        EthPublicKey.random(),
         contractAddress,
         new FunctionData(Buffer.alloc(4), true, true),
         encodeArguments(abi, [owner], false),

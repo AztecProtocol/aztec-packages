@@ -21,6 +21,7 @@ import { AcirSimulator } from './simulator.js';
 import { NoirPoint, computeSlotForMapping, toPublicKey } from '../utils.js';
 import { Fr } from '@aztec/foundation/fields';
 import { EthAddress } from '@aztec/foundation/eth-address';
+import { EthPublicKey } from '@aztec/foundation/eth-public-key';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 
 const createMemDown = () => (memdown as any)() as MemDown<any, any>;
@@ -47,6 +48,7 @@ describe('Private Execution test suite', () => {
     it('should run the empty constructor', async () => {
       const txRequest = new TxRequest(
         AztecAddress.random(),
+        EthPublicKey.random(),
         AztecAddress.ZERO,
         new FunctionData(Buffer.alloc(4), true, true),
         new Array(ARGS_LENGTH).fill(new Fr(0n)),
@@ -99,6 +101,7 @@ describe('Private Execution test suite', () => {
 
       const txRequest = new TxRequest(
         AztecAddress.random(),
+        EthPublicKey.random(),
         AztecAddress.ZERO,
         new FunctionData(Buffer.alloc(4), true, true),
         encodeArguments(abi, [140, owner]),
@@ -126,6 +129,7 @@ describe('Private Execution test suite', () => {
 
       const txRequest = new TxRequest(
         AztecAddress.random(),
+        EthPublicKey.random(),
         contractAddress,
         new FunctionData(Buffer.alloc(4), true, false),
         encodeArguments(abi, [140, owner]),
@@ -183,6 +187,7 @@ describe('Private Execution test suite', () => {
 
       const txRequest = new TxRequest(
         AztecAddress.random(),
+        EthPublicKey.random(),
         contractAddress,
         new FunctionData(Buffer.alloc(4), true, true),
         encodeArguments(abi, [amountToTransfer, owner, recipient]),
@@ -257,6 +262,7 @@ describe('Private Execution test suite', () => {
 
       const txRequest = new TxRequest(
         AztecAddress.random(),
+        EthPublicKey.random(),
         contractAddress,
         new FunctionData(Buffer.alloc(4), true, true),
         encodeArguments(abi, [amountToTransfer, owner, recipient]),
@@ -289,6 +295,7 @@ describe('Private Execution test suite', () => {
 
       const txRequest = new TxRequest(
         AztecAddress.random(),
+        EthPublicKey.random(),
         AztecAddress.ZERO,
         new FunctionData(Buffer.alloc(4), true, false),
         encodeArguments(abi, [100n]),
@@ -312,6 +319,7 @@ describe('Private Execution test suite', () => {
 
       const txRequest = new TxRequest(
         AztecAddress.random(),
+        EthPublicKey.random(),
         AztecAddress.ZERO,
         new FunctionData(Buffer.alloc(4), true, false),
         encodeArguments(parentAbi, [Fr.fromBuffer(childAddress.toBuffer()).value, Fr.fromBuffer(childSelector).value]),

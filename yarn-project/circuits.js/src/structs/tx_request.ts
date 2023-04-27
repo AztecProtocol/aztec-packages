@@ -5,6 +5,7 @@ import { FunctionData } from './function_data.js';
 import { EcdsaSignature } from './shared.js';
 import { TxContext } from './tx_context.js';
 import { Fr } from '@aztec/foundation/fields';
+import { EthPublicKey } from '@aztec/foundation/eth-public-key';
 
 /**
  * Signed transaction request.
@@ -29,6 +30,7 @@ export class SignedTxRequest {
 export class TxRequest {
   constructor(
     public from: AztecAddress,
+    public fromPublicKey: EthPublicKey,
     public to: AztecAddress,
     public functionData: FunctionData,
     public args: Fr[],
@@ -40,6 +42,7 @@ export class TxRequest {
   static getFields(fields: FieldsOf<TxRequest>) {
     return [
       fields.from,
+      fields.fromPublicKey,
       fields.to,
       fields.functionData,
       fields.args,
