@@ -172,7 +172,7 @@ BaseRollupInputs base_rollup_inputs_from_kernels(std::array<KernelData, 2> kerne
             auto state_read = kernel_data[i].public_inputs.end.state_reads[j];
             if (state_read.is_empty())
                 continue;
-            auto leaf_index = size_t(uint256_t(state_read.leaf_index));
+            auto leaf_index = uint256_t(state_read.leaf_index);
             baseRollupInputs.new_state_reads_sibling_paths[i * STATE_READS_LENGTH + j] =
                 MembershipWitness<NT, PUBLIC_DATA_TREE_HEIGHT>{
                     .leaf_index = state_read.leaf_index,
@@ -184,7 +184,7 @@ BaseRollupInputs base_rollup_inputs_from_kernels(std::array<KernelData, 2> kerne
             auto state_write = kernel_data[i].public_inputs.end.state_transitions[j];
             if (state_write.is_empty())
                 continue;
-            auto leaf_index = size_t(uint256_t(state_write.leaf_index));
+            auto leaf_index = uint256_t(state_write.leaf_index);
             public_data_tree.update_element(leaf_index, state_write.new_value);
             baseRollupInputs.new_state_transitions_sibling_paths[i * STATE_TRANSITIONS_LENGTH + j] =
                 MembershipWitness<NT, PUBLIC_DATA_TREE_HEIGHT>{
