@@ -45,7 +45,7 @@ export class ViemTxSender implements L1PublisherTxSender {
       unverifiedDataEmitterContract: unverifiedDataEmitterContractAddress,
     } = config;
 
-    const account = privateKeyToAccount(('0x' + publisherPrivateKey.toString('hex')) as Hex);
+    const account = privateKeyToAccount(`0x${publisherPrivateKey.toString('hex')}`);
     const chain = this.getChain(chainId);
     const walletClient = createWalletClient({
       account,
@@ -91,10 +91,7 @@ export class ViemTxSender implements L1PublisherTxSender {
   }
 
   async sendProcessTx(encodedData: ProcessTxArgs): Promise<string | undefined> {
-    const args = [
-      ('0x' + encodedData.proof.toString('hex')) as Hex,
-      ('0x' + encodedData.inputs.toString('hex')) as Hex,
-    ] as const;
+    const args = [`0x${encodedData.proof.toString('hex')}`, `0x${encodedData.inputs.toString('hex')}`] as const;
 
     const gas = await this.rollupContract.estimateGas.process(args);
     const hash = await this.rollupContract.write.process(args, {
@@ -104,7 +101,7 @@ export class ViemTxSender implements L1PublisherTxSender {
   }
 
   async sendEmitUnverifiedDataTx(l2BlockNum: number, unverifiedData: UnverifiedData): Promise<string | undefined> {
-    const args = [BigInt(l2BlockNum), ('0x' + unverifiedData.toBuffer().toString('hex')) as Hex] as const;
+    const args = [BigInt(l2BlockNum), `0x${unverifiedData.toBuffer().toString('hex')}`] as const;
 
     const gas = await this.unverifiedDataEmitterContract.estimateGas.emitUnverifiedData(args);
     const hash = await this.unverifiedDataEmitterContract.write.emitUnverifiedData(args, {
@@ -122,7 +119,7 @@ export class ViemTxSender implements L1PublisherTxSender {
         BigInt(l2BlockNum),
         contractData.contractAddress.toString() as Hex,
         contractData.portalContractAddress.toString() as Hex,
-        ('0x' + contractData.bytecode.toString('hex')) as Hex,
+        `0x${contractData.bytecode.toString('hex')}`,
       ] as const;
 
       const gas = await this.unverifiedDataEmitterContract.estimateGas.emitContractDeployment(args);
