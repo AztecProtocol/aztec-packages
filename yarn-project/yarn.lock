@@ -31,6 +31,7 @@ __metadata:
     "@aztec/foundation": "workspace:^"
     "@aztec/merkle-tree": "workspace:^"
     "@aztec/noir-contracts": "workspace:^"
+    "@aztec/types": "workspace:^"
     "@jest/globals": ^29.5.0
     "@noir-lang/aztec_backend_wasm": "github:joss-aztec/barretenberg_browser_stopgap_wasm_build#f2e10698dfa11cd46f7373cec1ed6184b0505f1e"
     "@noir-lang/noir_util_wasm": "github:joss-aztec/noir_util_wasm#7dc410f4b4c00b9cfa9e726ae7fca3a3a4a237c5"

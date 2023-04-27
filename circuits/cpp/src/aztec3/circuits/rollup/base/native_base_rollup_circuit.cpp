@@ -1,3 +1,4 @@
+#include "aztec3/circuits/hash.hpp"
 #include "aztec3/constants.hpp"
 #include "aztec3/utils/circuit_errors.hpp"
 #include "barretenberg/crypto/pedersen_hash/pedersen.hpp"
@@ -24,9 +25,11 @@ using aztec3::circuits::check_membership;
 
 namespace aztec3::circuits::rollup::native_base_rollup {
 
-const NT::fr EMPTY_COMMITMENTS_SUBTREE_ROOT = MerkleTree(PRIVATE_DATA_SUBTREE_DEPTH).root();
-const NT::fr EMPTY_CONTRACTS_SUBTREE_ROOT = MerkleTree(CONTRACT_SUBTREE_DEPTH).root();
-const NT::fr EMPTY_NULLIFIER_SUBTREE_ROOT = MerkleTree(NULLIFIER_SUBTREE_DEPTH).root();
+NT::fr calculate_empty_tree_root(const size_t depth)
+{
+    MerkleTree empty_tree = MerkleTree(depth);
+    return empty_tree.root();
+}
 
 // TODO: can we aggregate proofs if we do not have a working circuit impl
 
@@ -399,10 +402,11 @@ AppendOnlySnapshot check_nullifier_tree_non_membership_and_insert_to_tree(DummyC
     }
 
     // Check that the new subtree is to be inserted at the next location, and is empty currently
+    const auto empty_nullifier_subtree_root = calculate_empty_tree_root(NULLIFIER_SUBTREE_DEPTH);
     auto leafIndexNullifierSubtreeDepth =
         baseRollupInputs.start_nullifier_tree_snapshot.next_available_leaf_index >> NULLIFIER_SUBTREE_DEPTH;
     check_membership<NT>(composer,
-                         EMPTY_NULLIFIER_SUBTREE_ROOT,
+                         empty_nullifier_subtree_root,
                          leafIndexNullifierSubtreeDepth,
                          baseRollupInputs.new_nullifiers_subtree_sibling_path,
                          current_nullifier_tree_root,
@@ -424,6 +428,17 @@ AppendOnlySnapshot check_nullifier_tree_non_membership_and_insert_to_tree(DummyC
     };
 }
 
+AppendOnlySnapshot insert_state_transitions(BaseRollupInputs const& baseRollupInputs)
+{
+    // TODO: Implement me
+    auto root = baseRollupInputs.start_public_data_tree_snapshot.root;
+
+    return {
+        .root = root,
+        .next_available_leaf_index = 0,
+    };
+}
+
 BaseOrMergeRollupPublicInputs base_rollup_circuit(DummyComposer& composer, BaseRollupInputs const& baseRollupInputs)
 {
     // Verify the previous kernel proofs
@@ -442,21 +457,23 @@ BaseOrMergeRollupPublicInputs base_rollup_circuit(DummyComposer& composer, BaseR
     NT::fr commitments_tree_subroot = calculate_commitments_subtree(composer, baseRollupInputs);
 
     // Insert commitment subtrees:
+    const auto empty_commitments_subtree_root = calculate_empty_tree_root(PRIVATE_DATA_SUBTREE_DEPTH);
     auto end_private_data_tree_snapshot =
         components::insert_subtree_to_snapshot_tree(composer,
                                                     baseRollupInputs.start_private_data_tree_snapshot,
                                                     baseRollupInputs.new_commitments_subtree_sibling_path,
-                                                    EMPTY_COMMITMENTS_SUBTREE_ROOT,
+                                                    empty_commitments_subtree_root,
                                                     commitments_tree_subroot,
                                                     PRIVATE_DATA_SUBTREE_DEPTH,
                                                     "empty commitment subtree membership check");
 
     // Insert contract subtrees:
+    const auto empty_contracts_subtree_root = calculate_empty_tree_root(CONTRACT_SUBTREE_DEPTH);
     auto end_contract_tree_snapshot =
         components::insert_subtree_to_snapshot_tree(composer,
                                                     baseRollupInputs.start_contract_tree_snapshot,
                                                     baseRollupInputs.new_contracts_subtree_sibling_path,
-                                                    EMPTY_CONTRACTS_SUBTREE_ROOT,
+                                                    empty_contracts_subtree_root,
                                                     contracts_tree_subroot,
                                                     CONTRACT_SUBTREE_DEPTH,
                                                     "empty contract subtree membership check");
@@ -464,6 +481,9 @@ BaseOrMergeRollupPublicInputs base_rollup_circuit(DummyComposer& composer, BaseR
     // Insert nullifiers:
     AppendOnlySnapshot end_nullifier_tree_snapshot =
         check_nullifier_tree_non_membership_and_insert_to_tree(composer, baseRollupInputs);
+
+    // Insert state transitions
+    auto end_public_data_tree_snapshot = insert_state_transitions(baseRollupInputs);
 
     // Calculate the overall calldata hash
     std::array<NT::fr, 2> calldata_hash = calculate_calldata_hash(baseRollupInputs, contract_leaves);
@@ -485,6 +505,8 @@ BaseOrMergeRollupPublicInputs base_rollup_circuit(DummyComposer& composer, BaseR
         .end_nullifier_tree_snapshot = end_nullifier_tree_snapshot,
         .start_contract_tree_snapshot = baseRollupInputs.start_contract_tree_snapshot,
         .end_contract_tree_snapshot = end_contract_tree_snapshot,
+        .start_public_data_tree_snapshot = baseRollupInputs.start_public_data_tree_snapshot,
+        .end_public_data_tree_snapshot = end_public_data_tree_snapshot,
         .calldata_hash = calldata_hash,
     };
     return public_inputs;
