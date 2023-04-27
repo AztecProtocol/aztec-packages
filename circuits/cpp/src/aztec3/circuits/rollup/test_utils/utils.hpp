@@ -48,15 +48,11 @@ template <size_t N>
 std::array<fr, N> get_sibling_path(MerkleTree& tree, size_t leafIndex, size_t const& subtree_depth_to_skip)
 {
     std::array<fr, N> siblingPath;
-    auto path = tree.get_hash_path(leafIndex);
+    auto path = tree.get_sibling_path(leafIndex);
     // slice out the skip
     leafIndex = leafIndex >> (subtree_depth_to_skip);
     for (size_t i = 0; i < N; i++) {
-        if (leafIndex & (1 << i)) {
-            siblingPath[i] = path[subtree_depth_to_skip + i].first;
-        } else {
-            siblingPath[i] = path[subtree_depth_to_skip + i].second;
-        }
+        siblingPath[i] = path[subtree_depth_to_skip + i];
     }
     return siblingPath;
 }
@@ -98,6 +94,9 @@ RootRollupInputs get_root_rollup_inputs(utils::DummyComposer& composer, std::arr
 void set_kernel_commitments(KernelData& kernel_data, std::array<fr, KERNEL_NEW_COMMITMENTS_LENGTH> new_commitments);
 
 void set_kernel_nullifiers(KernelData& kernel_data, std::array<fr, KERNEL_NEW_NULLIFIERS_LENGTH> new_nullifiers);
+
+void set_kernel_l2_to_l1_msgs(KernelData& kernel_data,
+                              std::array<fr, KERNEL_NEW_L2_TO_L1_MSGS_LENGTH> new_l2_to_l1_msgs);
 
 MergeRollupInputs get_merge_rollup_inputs(utils::DummyComposer& composer, std::array<KernelData, 4> kernel_data);
 

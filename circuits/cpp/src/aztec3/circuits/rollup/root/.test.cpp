@@ -77,8 +77,10 @@ using aztec3::circuits::apps::test_apps::escrow::deposit;
 using aztec3::circuits::kernel::private_kernel::utils::dummy_previous_kernel;
 using aztec3::circuits::mock::mock_kernel_circuit;
 using aztec3::circuits::rollup::test_utils::utils::get_empty_kernel;
+using aztec3::circuits::rollup::test_utils::utils::get_initial_nullifier_tree;
 using aztec3::circuits::rollup::test_utils::utils::get_root_rollup_inputs;
 using aztec3::circuits::rollup::test_utils::utils::set_kernel_commitments;
+using aztec3::circuits::rollup::test_utils::utils::set_kernel_l2_to_l1_msgs;
 using aztec3::circuits::rollup::test_utils::utils::set_kernel_nullifiers;
 // using aztec3::circuits::mock::mock_kernel_inputs;
 
@@ -210,6 +212,7 @@ TEST_F(root_rollup_tests, native_calldata_hash_empty_blocks)
 
 TEST_F(root_rollup_tests, native_root_missing_nullifier_logic)
 {
+    // Creates the same block as we have for solidity tests and in typescript.
     utils::DummyComposer composer = utils::DummyComposer();
 
     MemoryTree data_tree = MemoryTree(PRIVATE_DATA_TREE_HEIGHT);
@@ -225,36 +228,48 @@ TEST_F(root_rollup_tests, native_root_missing_nullifier_logic)
         get_empty_kernel(), get_empty_kernel(), get_empty_kernel(), get_empty_kernel()
     };
 
-    // Create commitments
-    for (uint8_t kernel_j = 0; kernel_j < 4; kernel_j++) {
-        std::array<fr, KERNEL_NEW_COMMITMENTS_LENGTH> new_commitments;
-        for (uint8_t commitment_k = 0; commitment_k < KERNEL_NEW_COMMITMENTS_LENGTH; commitment_k++) {
-            auto val = fr(kernel_j * KERNEL_NEW_COMMITMENTS_LENGTH + commitment_k + 1);
-            new_commitments[commitment_k] = val;
-            data_tree.update_element(kernel_j * KERNEL_NEW_COMMITMENTS_LENGTH + commitment_k, val);
-        }
-        set_kernel_commitments(kernels[kernel_j], new_commitments);
+    set_kernel_commitments(kernels[0], { 257, 258, 259, 260 });
+    for (size_t i = 0; i < 4; i++) {
+        data_tree.update_element(i, 257 + i);
     }
 
-    // TODO: Add nullifiers
+    set_kernel_nullifiers(kernels[0], { 513, 514, 515, 516 });
+    auto nullifier_tree = get_initial_nullifier_tree({ 1, 2, 3, 4, 5, 6, 7 });
+    for (size_t i = 0; i < 4; i++) {
+        nullifier_tree.update_element(513 + i);
+    }
 
-    // Contract tree
+    set_kernel_l2_to_l1_msgs(kernels[0], { 1281, 1282 });
+
+    std::vector<uint8_t> buffer = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                                    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                                    0x00, 0x00, 0x06, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                                    0x00, 0x00, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02,
+                                    0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                                    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                                    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x06, 0x03 };
+
+    // Initialize a pointer to the start of the buffer
+    uint8_t const* it = buffer.data();
+    // Initialize a ContractData object
+    NewContractData<NT> new_contract_data;
+    // Read data from the buffer into the ContractData object
+    read(it, new_contract_data);
+    info(new_contract_data, " -> ", new_contract_data.hash());
+
     NewContractData<NT> new_contract = {
-        .contract_address = fr(1),
-        .portal_contract_address = fr(3),
-        .function_tree_root = fr(2),
+        .contract_address = fr(1537),
+        .portal_contract_address = uint256_t("0000000000000000000000000202020202020202020202020202020202020202"),
+        .function_tree_root = fr(1539),
     };
-    auto contract_leaf = crypto::pedersen_commitment::compress_native(
-        {
-            new_contract.contract_address,
-            new_contract.portal_contract_address,
-            new_contract.function_tree_root,
-        },
-        GeneratorIndex::CONTRACT_LEAF);
 
-    // Update contract tree
-    contract_tree.update_element(2, contract_leaf);
-    kernels[2].public_inputs.end.new_contracts[0] = new_contract;
+    // todo: Something is not right down here
+    // cpp       : 0x2fc69c406bc516727df30e377bd89568a72af49db5835698e81714de79b8d726
+    // typescript: 0x300293e2cd9b78453a37ad2a6282c5bb50f6212518ba22aad8cec3a4ebecc22a
+    info("contract: ", new_contract.hash());
+
+    contract_tree.update_element(0, new_contract.hash());
+    kernels[0].public_inputs.end.new_contracts[0] = new_contract;
 
     // The start historic data snapshot
     AppendOnlyTreeSnapshot<NT> start_historic_data_tree_snapshot = { .root = historic_data_tree.root(),
@@ -276,6 +291,10 @@ TEST_F(root_rollup_tests, native_root_missing_nullifier_logic)
     RootRollupPublicInputs outputs =
         aztec3::circuits::rollup::native_root_rollup::root_rollup_circuit(composer, rootRollupInputs);
 
+    // info(outputs);
+    info("public output hash: ", outputs.hash());
+    info("root: ", contract_tree.root());
+
     // Check data trees
     ASSERT_EQ(
         outputs.start_private_data_tree_snapshot,
@@ -286,6 +305,9 @@ TEST_F(root_rollup_tests, native_root_missing_nullifier_logic)
     AppendOnlyTreeSnapshot<NT> expected_data_tree_snapshot = { .root = data_tree.root(),
                                                                .next_available_leaf_index = 16 };
     ASSERT_EQ(outputs.end_private_data_tree_snapshot, expected_data_tree_snapshot);
+
+    // Something wrong with contract tree? 0xf0c1d03ac280b15abbdfa91faa6137b216b9c29d83d30c1c9ce925ad4379fa6
+    // Why are we getting things that is so different from typescript?
 
     // check contract trees
     ASSERT_EQ(outputs.start_contract_tree_snapshot,
@@ -305,6 +327,9 @@ TEST_F(root_rollup_tests, native_root_missing_nullifier_logic)
     // Check historic contract trees
     ASSERT_EQ(outputs.start_tree_of_historic_contract_tree_roots_snapshot, start_historic_contract_tree_snapshot);
     ASSERT_EQ(outputs.end_tree_of_historic_contract_tree_roots_snapshot, end_historic_contract_tree_snapshot);
+
+    fr expected = uint256_t("163323613ec38b4525decb91da4fe92b858f61b2eef1dd3c736fea35aa76b727");
+    ASSERT_EQ(outputs.hash(), expected);
 
     EXPECT_FALSE(composer.failed());
 }

@@ -67,6 +67,15 @@ void set_kernel_commitments(KernelData& kernel_data, std::array<fr, KERNEL_NEW_C
     }
 }
 
+void set_kernel_l2_to_l1_msgs(KernelData& kernel_data,
+                              std::array<fr, KERNEL_NEW_L2_TO_L1_MSGS_LENGTH> new_l2_to_l1_msgs)
+{
+    for (size_t i = 0; i < KERNEL_NEW_L2_TO_L1_MSGS_LENGTH; i++) {
+        kernel_data.public_inputs.end.new_l2_to_l1_msgs[i] = new_l2_to_l1_msgs[i];
+    }
+}
+
+
 BaseRollupInputs base_rollup_inputs_from_kernels(std::array<KernelData, 2> kernel_data,
                                                  MerkleTree& private_data_tree,
                                                  MerkleTree& contract_tree,
@@ -242,10 +251,9 @@ std::array<PreviousRollupData<NT>, 2> get_previous_rollup_data(DummyComposer& co
                                              kernel_data[i].public_inputs.end.new_commitments[j]);
         }
         auto contract_data = kernel_data[i].public_inputs.end.new_contracts[0];
-        auto contract_leaf = crypto::pedersen_commitment::compress_native(
-            { contract_data.contract_address, contract_data.portal_contract_address, contract_data.function_tree_root },
-            GeneratorIndex::CONTRACT_LEAF);
-        contract_tree.update_element(i, contract_leaf);
+        if (contract_data.contract_address != 0) {
+            contract_tree.update_element(i, contract_data.hash());
+        }
         for (size_t j = 0; j < KERNEL_NEW_NULLIFIERS_LENGTH; j++) {
             initial_values.push_back(kernel_data[i].public_inputs.end.new_nullifiers[j]);
             nullifiers[i * KERNEL_NEW_NULLIFIERS_LENGTH + j] = kernel_data[2 + i].public_inputs.end.new_nullifiers[j];
@@ -263,7 +271,7 @@ std::array<PreviousRollupData<NT>, 2> get_previous_rollup_data(DummyComposer& co
     // @todo Need an additional tests to check that these below are correct.
     // Changing the index in private tree still pass tests etc (16).
     base_rollup_input_2.new_contracts_subtree_sibling_path =
-        get_sibling_path<CONTRACT_SUBTREE_INCLUSION_CHECK_DEPTH>(contract_tree, 1, CONTRACT_SUBTREE_DEPTH);
+        get_sibling_path<CONTRACT_SUBTREE_INCLUSION_CHECK_DEPTH>(contract_tree, 2, CONTRACT_SUBTREE_DEPTH);
     base_rollup_input_2.new_commitments_subtree_sibling_path =
         get_sibling_path<PRIVATE_DATA_SUBTREE_INCLUSION_CHECK_DEPTH>(private_data_tree, 8, PRIVATE_DATA_SUBTREE_DEPTH);
 

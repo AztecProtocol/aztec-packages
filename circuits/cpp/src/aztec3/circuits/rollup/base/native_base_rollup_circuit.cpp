@@ -75,25 +75,13 @@ std::vector<NT::fr> calculate_contract_leaves(BaseRollupInputs const& baseRollup
 
     for (size_t i = 0; i < 2; i++) {
 
-        auto new_contacts = baseRollupInputs.kernel_data[i].public_inputs.end.new_contracts;
+        auto new_contracts = baseRollupInputs.kernel_data[i].public_inputs.end.new_contracts;
 
         // loop over the new contracts
         // TODO: NOTE: we are currently assuming that there is only going to be one
-        for (size_t j = 0; j < new_contacts.size(); j++) {
-
-            NT::address contract_address = new_contacts[j].contract_address;
-            NT::address portal_contract_address = new_contacts[j].portal_contract_address;
-            NT::fr function_tree_root = new_contacts[j].function_tree_root;
-
-            // Pedersen hash of the 3 fields (contract_address, portal_contract_address, function_tree_root)
-            auto contract_leaf = crypto::pedersen_commitment::compress_native(
-                { contract_address, portal_contract_address, function_tree_root }, GeneratorIndex::CONTRACT_LEAF);
-
-            // When there is no contract deployment, we should insert a zero leaf into the tree and ignore the
-            // member-ship check. This is to ensure that we don't hit "already deployed" errors when we are not
-            // deploying contracts. e.g., when we are only calling functions on existing contracts.
-            auto to_push = contract_address == NT::address(0) ? NT::fr(0) : contract_leaf;
-
+        for (size_t j = 0; j < new_contracts.size(); j++) {
+            auto leaf_preimage = new_contracts[j];
+            auto to_push = leaf_preimage.contract_address == NT::address(0) ? NT::fr(0) : leaf_preimage.hash();
             contract_leaves.push_back(to_push);
         }
     }

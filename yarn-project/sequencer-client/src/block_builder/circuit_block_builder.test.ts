@@ -319,7 +319,7 @@ describe('sequencer/circuit_block_builder', () => {
       console.log(`public input hash: ${block.getPublicInputsHash().toString()}`);*/
     }, 10000);
 
-    it('Build blocks on top of blocks l2 block with 4 txs', async () => {
+    it.only('Build blocks on top of blocks l2 block with 4 txs', async () => {
       for (let i = 0; i < 2; i++) {
         const tx = await makeProcessedTx(
           Tx.createPrivate(makeKernelPublicInputs(1 + i), emptyProof, makeEmptyUnverifiedData()),
@@ -390,8 +390,8 @@ describe('sequencer/circuit_block_builder', () => {
         }
 
         // Printer useful for checking that output match contracts.
-        console.log(block);
-        /*console.log(block.encode().toString('hex'));
+        /*console.log(block);
+        console.log(block.encode().toString('hex'));
         console.log(`call data hash   : ${block.getCalldataHash().toString('hex')}`);
         console.log(`start state hash: ${block.getStartStateHash().toString('hex')}`);
         console.log(`end state hash  : ${block.getEndStateHash().toString('hex')}`);
