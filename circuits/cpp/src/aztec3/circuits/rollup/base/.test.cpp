@@ -575,8 +575,8 @@ TEST_F(base_rollup_tests, native_new_nullifier_tree_double_spend)
 TEST_F(base_rollup_tests, native_empty_block_calldata_hash)
 {
     DummyComposer composer = DummyComposer();
-    // calldata_hash should be computed from leafs of 704 0 bytes. (0x00)
-    std::vector<uint8_t> zero_bytes_vec(704, 0);
+    // calldata_hash should be computed from leafs of 832 0 bytes. (0x00)
+    std::vector<uint8_t> zero_bytes_vec(832, 0);
     auto hash = sha256::sha256(zero_bytes_vec);
     BaseRollupInputs inputs = base_rollup_inputs_from_kernels({ get_empty_kernel(), get_empty_kernel() });
     BaseOrMergeRollupPublicInputs outputs =
@@ -603,48 +603,61 @@ TEST_F(base_rollup_tests, native_calldata_hash)
     // Execute the base rollup circuit with nullifiers, commitments and a contract deployment. Then check the calldata
     // hash against the expected value.
     std::array<PreviousKernelData<NT>, 2> kernel_data = { get_empty_kernel(), get_empty_kernel() };
-    std::vector<uint8_t> input_data(704, 0);
+    std::vector<uint8_t> input_data(832, 0);
 
-    // Kernel 1
-    // NOTE: nullifier insertions start from 8 as the generate_nullifier_tree_testing_values will populate the every
-    // nullifier leaf
-    for (uint8_t i = 0; i < 4; ++i) {
-        // nullifiers
-        input_data[i * 32 + 31] = i + 8; // 8
-        kernel_data[0].public_inputs.end.new_nullifiers[i] = fr(i + 8);
+    // @note Should we simply do this outside based on the kernels?
+    for (uint8_t kernel_i = 0; kernel_i < 2; kernel_i++) {
 
-        // commitments
-        input_data[8 * 32 + i * 32 + 31] = i + 1; // 1
-        kernel_data[0].public_inputs.end.new_commitments[i] = fr(i + 1);
-    }
-    // Kernel 2
-    for (uint8_t i = 0; i < 4; ++i) {
-        // nullifiers
-        input_data[(i + 4) * 32 + 31] = i + 12; // 1
-        kernel_data[1].public_inputs.end.new_nullifiers[i] = fr(i + 12);
+        uint32_t offset = 0;
+        // Nullifiers
+        for (uint8_t j = 0; j < KERNEL_NEW_NULLIFIERS_LENGTH; j++) {
+            uint8_t nullifier = (kernel_i * 4) + j + 16;
+            uint32_t dst = (kernel_i * 4 * 32) + (j * 32) + 31; // only inserting one byte
+            input_data[dst] = nullifier;
+            kernel_data[kernel_i].public_inputs.end.new_nullifiers[j] = nullifier;
+        }
+        offset += KERNEL_NEW_NULLIFIERS_LENGTH * 2 * 32;
 
-        // commitments
-        input_data[8 * 32 + (i + 4) * 32 + 31] = i + 4 + 1; // 1
-        kernel_data[1].public_inputs.end.new_commitments[i] = fr(i + 4 + 1);
-    }
+        // Commitments
+        for (uint8_t j = 0; j < KERNEL_NEW_COMMITMENTS_LENGTH; j++) {
+            uint8_t commitment = (kernel_i * 4) + j + 32;
+            uint32_t dst = offset + (kernel_i * 4 * 32) + (j * 32) + 31; // only inserting one byte
+            input_data[dst] = commitment;
+            kernel_data[kernel_i].public_inputs.end.new_commitments[j] = commitment;
+        }
+        offset += KERNEL_NEW_COMMITMENTS_LENGTH * 2 * 32;
 
-    // Add a contract deployment
-    NewContractData<NT> new_contract = {
-        .contract_address = fr(1),
-        .portal_contract_address = fr(3),
-        .function_tree_root = fr(2),
-    };
-    auto contract_leaf = crypto::pedersen_commitment::compress_native(
-        { new_contract.contract_address, new_contract.portal_contract_address, new_contract.function_tree_root },
-        GeneratorIndex::CONTRACT_LEAF);
-    kernel_data[0].public_inputs.end.new_contracts[0] = new_contract;
-    auto contract_leaf_buffer = contract_leaf.to_buffer();
-    auto contract_address_buffer = new_contract.contract_address.to_field().to_buffer();
-    auto portal_address_buffer = new_contract.portal_contract_address.to_field().to_buffer();
-    for (uint8_t i = 0; i < 32; ++i) {
-        input_data[16 * 32 + i] = contract_leaf_buffer[i];
-        input_data[18 * 32 + i] = contract_address_buffer[i];
-        input_data[20 * 32 + i] = portal_address_buffer[i];
+        // L2 to L1 Messages
+        for (uint8_t j = 0; j < KERNEL_NEW_L2_TO_L1_MSGS_LENGTH; j++) {
+            uint8_t l2_to_l1_message = (kernel_i * 2) + j + 48;
+            uint32_t dst = offset + (kernel_i * 2 * 32) + (j * 32) + 31; // only inserting one byte
+            input_data[dst] = l2_to_l1_message;
+            kernel_data[kernel_i].public_inputs.end.new_l2_to_l1_msgs[j] = l2_to_l1_message;
+        }
+        offset += KERNEL_NEW_L2_TO_L1_MSGS_LENGTH * 2 * 32;
+
+        // Contracts
+        if (kernel_i == 0) {
+            // Contracts
+            NewContractData<NT> new_contract = {
+                .contract_address = fr(1),
+                .portal_contract_address = fr(3),
+                .function_tree_root = fr(2),
+            };
+            auto contract_leaf = crypto::pedersen_commitment::compress_native({ new_contract.contract_address,
+                                                                                new_contract.portal_contract_address,
+                                                                                new_contract.function_tree_root },
+                                                                              GeneratorIndex::CONTRACT_LEAF);
+            auto contract_leaf_buffer = contract_leaf.to_buffer();
+            auto contract_address_buffer = new_contract.contract_address.to_field().to_buffer();
+            auto portal_address_buffer = new_contract.portal_contract_address.to_field().to_buffer();
+            for (uint8_t i = 0; i < 32; ++i) {
+                input_data[offset + kernel_i * 32 + i] = contract_leaf_buffer[i];
+                input_data[offset + kernel_i * 2 * 32 + 2 * 32 + i] = contract_address_buffer[i];
+                input_data[offset + kernel_i * 2 * 32 + 3 * 32 + i] = portal_address_buffer[i];
+            }
+            kernel_data[kernel_i].public_inputs.end.new_contracts[0] = new_contract;
+        }
     }
 
     auto hash = sha256::sha256(input_data);

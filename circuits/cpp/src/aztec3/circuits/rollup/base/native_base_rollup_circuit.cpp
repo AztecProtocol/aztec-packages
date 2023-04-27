@@ -142,35 +142,64 @@ NT::fr calculate_commitments_subtree(DummyComposer& composer, BaseRollupInputs c
 std::array<NT::fr, 2> calculate_calldata_hash(BaseRollupInputs const& baseRollupInputs,
                                               std::vector<NT::fr> const& contract_leaves)
 {
+
+    /**
+     * @brief Calculate the calldata hash for the base rollup (2 kernels)
+     * Note that the return value is two fields, as the sha256 is 32 bytes and we are using 254 bit field elements.
+     * Essentially, we are computing the hash of the following struct:
+     * Leaf_i = (
+     *    newNullifiersKernel1,
+     *    newNullifiersKernel2,
+     *    newCommitmentsKernel1,
+     *    newCommitmentsKernel2,
+     *    newL2ToL1MsgsKernel1,
+     *    newL2ToL1MsgsKernel2,
+     *    newContractLeafKernel1,
+     *    newContractLeafKernel2,
+     *    newContractDataKernel1.aztecAddress,
+     *    newContractDataKernel1.ethAddress (padded to 32 bytes)
+     *    newContractDataKernel2.aztecAddress,
+     *    newContractDataKernel2.ethAddress (padded to 32 bytes)
+     * );
+     */
     // Compute calldata hashes
-    // 22 = (4 + 4 + 1 + 2) * 2 (2 kernels, 4 nullifiers per kernel, 4 commitments per kernel, 1 contract
-    // deployments, 2 contracts data fields (size 2 for each) )
-    std::array<NT::fr, 22> calldata_hash_inputs;
+    // 26 = (4 + 4 + 2 + 1 + 2) * 2 (2 kernels, 4 nullifiers per kernel, 4 commitments per kernel, 2 l2 to l1_msgs per
+    // kernel, 1 contract deployments, 2 contracts data fields (size 2 for each) )
+    std::array<NT::fr, 26> calldata_hash_inputs;
 
     for (size_t i = 0; i < 2; i++) {
         // Nullifiers
         auto new_nullifiers = baseRollupInputs.kernel_data[i].public_inputs.end.new_nullifiers;
         auto new_commitments = baseRollupInputs.kernel_data[i].public_inputs.end.new_commitments;
-        for (size_t j = 0; j < KERNEL_NEW_COMMITMENTS_LENGTH; j++) {
-            calldata_hash_inputs[i * KERNEL_NEW_COMMITMENTS_LENGTH + j] = new_nullifiers[j];
-            calldata_hash_inputs[(KERNEL_NEW_NULLIFIERS_LENGTH * 2) + i * KERNEL_NEW_NULLIFIERS_LENGTH + j] =
-                new_commitments[j];
-        }
+        auto new_l2_to_l1_msgs = baseRollupInputs.kernel_data[i].public_inputs.end.new_l2_to_l1_msgs;
 
-        // yuck - TODO: is contract_leaves fixed size?
-        calldata_hash_inputs[16 + i] = contract_leaves[i];
+        size_t offset = 0;
+
+        for (size_t j = 0; j < KERNEL_NEW_NULLIFIERS_LENGTH; j++) {
+            calldata_hash_inputs[offset + i * KERNEL_NEW_COMMITMENTS_LENGTH + j] = new_nullifiers[j];
+        }
+        offset += KERNEL_NEW_NULLIFIERS_LENGTH * 2;
+
+        for (size_t j = 0; j < KERNEL_NEW_COMMITMENTS_LENGTH; j++) {
+            calldata_hash_inputs[offset + i * KERNEL_NEW_NULLIFIERS_LENGTH + j] = new_commitments[j];
+        }
+        offset += KERNEL_NEW_COMMITMENTS_LENGTH * 2;
+
+        for (size_t j = 0; j < KERNEL_NEW_L2_TO_L1_MSGS_LENGTH; j++) {
+            calldata_hash_inputs[offset + i * KERNEL_NEW_L2_TO_L1_MSGS_LENGTH + j] = new_l2_to_l1_msgs[j];
+        }
+        offset += KERNEL_NEW_L2_TO_L1_MSGS_LENGTH * 2;
+
+        calldata_hash_inputs[offset + i] = contract_leaves[i];
+        offset += KERNEL_NEW_CONTRACTS_LENGTH * 2;
 
         auto new_contracts = baseRollupInputs.kernel_data[i].public_inputs.end.new_contracts;
-
-        // TODO: this assumes that there is only one contract deployment
-        calldata_hash_inputs[18 + i] = new_contracts[0].contract_address;
-        calldata_hash_inputs[20 + i] = new_contracts[0].portal_contract_address;
+        calldata_hash_inputs[offset + i * 2] = new_contracts[0].contract_address;
+        calldata_hash_inputs[offset + i * 2 + 1] = new_contracts[0].portal_contract_address;
     }
 
-    // FIXME
-    // Calculate sha256 hash of calldata; TODO: work out typing here
-    // 22 * 32 = 22 fields, each 32 bytes
-    std::array<uint8_t, 22 * 32> calldata_hash_inputs_bytes;
+    // 26 * 32 = 26 fields, each 32 bytes
+    std::array<uint8_t, 26 * 32> calldata_hash_inputs_bytes;
     // Convert all into a buffer, then copy into the array, then hash
     for (size_t i = 0; i < calldata_hash_inputs.size(); i++) {
         auto as_bytes = calldata_hash_inputs[i].to_buffer();
@@ -178,7 +207,7 @@ std::array<NT::fr, 2> calculate_calldata_hash(BaseRollupInputs const& baseRollup
         auto offset = i * 32;
         std::copy(as_bytes.begin(), as_bytes.end(), calldata_hash_inputs_bytes.begin() + offset);
     }
-    // TODO: double check this gpt code
+
     std::vector<uint8_t> calldata_hash_inputs_bytes_vec(calldata_hash_inputs_bytes.begin(),
                                                         calldata_hash_inputs_bytes.end());
 
