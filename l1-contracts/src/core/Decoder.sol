@@ -47,7 +47,7 @@ pragma solidity >=0.8.18;
  *  | 0x17c + x + y + z + v    | v          | newContractData
  *  |---                       |---         | ---
  * TODO: Actually the byte start are not with x,y,z,v but multiplied by the size... of the types most are 32 bytes
- * but newContractData is 64 bytes.
+ * but newContractData is 52 bytes.
  */
 contract Decoder {
   uint256 internal constant COMMITMENTS_PER_KERNEL = 4;

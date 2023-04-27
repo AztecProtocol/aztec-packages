@@ -239,6 +239,10 @@ export class L2Block {
     return Fr.fromBuffer(toBufferBE(temp % p, 32));
   }
 
+  /**
+   * Computes the start state hash (should equal contract data before block)
+   * @returns The start state hash for the L2 block
+   */
   getStartStateHash() {
     const inputValue = serializeToBuffer(
       this.number - 1,
@@ -251,6 +255,10 @@ export class L2Block {
     return sha256(inputValue);
   }
 
+  /**
+   * Computes the end state hash (should equal contract data after block)
+   * @returns The end state hash for the L2 block
+   */
   getEndStateHash() {
     const inputValue = serializeToBuffer(
       this.number,
