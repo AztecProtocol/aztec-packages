@@ -54,6 +54,9 @@ using aztec3::circuits::abis::PreviousKernelData;
 
 
 // using aztec3::circuits::mock::mock_circuit;
+using aztec3::circuits::kernel::private_kernel::utils::dummy_previous_kernel;
+using aztec3::circuits::mock::mock_kernel_circuit;
+using aztec3::circuits::rollup::test_utils::utils::compare_field_hash_to_expected;
 using aztec3::circuits::rollup::test_utils::utils::get_empty_kernel;
 using aztec3::circuits::rollup::test_utils::utils::get_empty_l1_to_l2_messages;
 using aztec3::circuits::rollup::test_utils::utils::get_root_rollup_inputs;
@@ -153,11 +156,15 @@ TEST_F(root_rollup_tests, native_calldata_hash_empty_blocks)
 
     std::vector<uint8_t> const calldata_hash_input_bytes_vec(hash_input.begin(), hash_input.end());
 
-    auto hash = sha256::sha256(calldata_hash_input_bytes_vec);
+    auto calldata_hash = sha256::sha256(calldata_hash_input_bytes_vec);
 
-    // calculate messages hash
+    // get messages
     std::array<fr, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP> l1_to_l2_messages = get_empty_l1_to_l2_messages();
-    // TODO: calc message hash same as above
+
+    // TODO: make this depend on l1_to_l2 messages, currently it is just hashing zeros
+    std::vector<uint8_t> messages_hash_input_bytes_vec(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP * 32, 0);
+    auto messages_hash = sha256::sha256(messages_hash_input_bytes_vec);
+    info("unused: ", messages_hash);
 
     utils::DummyComposer composer = utils::DummyComposer();
     std::array<KernelData, 4> const kernels = {
@@ -168,21 +175,17 @@ TEST_F(root_rollup_tests, native_calldata_hash_empty_blocks)
     RootRollupPublicInputs outputs =
         aztec3::circuits::rollup::native_root_rollup::root_rollup_circuit(composer, inputs);
 
-    std::array<fr, 2> calldata_hash_fr = outputs.calldata_hash;
-    auto high_buffer = calldata_hash_fr[0].to_buffer();
-    auto low_buffer = calldata_hash_fr[1].to_buffer();
+    // check calldata hash
+    info("check calldata hash");
+    ASSERT_TRUE(compare_field_hash_to_expected(outputs.calldata_hash, calldata_hash));
+    // Check messages hash
+    info("check messages hash");
+    ASSERT_TRUE(compare_field_hash_to_expected(outputs.l1_to_l2_messages_hash, messages_hash));
 
-    std::array<uint8_t, 32> calldata_hash;
-    for (uint8_t i = 0; i < 16; ++i) {
-        calldata_hash[i] = high_buffer[16 + i];
-        calldata_hash[16 + i] = low_buffer[16 + i];
-    }
-
-    ASSERT_EQ(hash, calldata_hash);
     EXPECT_FALSE(composer.failed());
 
     // Expected hash of public inputs for an empty L2 block. Also used in the contract tests.
-    fr const expected_hash = uint256_t("0013b2202a3e48b039cda7eef0976060d86e610d77fc9bb8cd5b0f1b561df48c");
+    fr const expected_hash = uint256_t("11840efc30e9fcbdd0aae30da2a5b441132420b4f0cc4ffd6bdc41888845f775");
     ASSERT_EQ(outputs.hash(), expected_hash);
 
     run_cbind(inputs, outputs, true);
@@ -326,6 +329,8 @@ TEST_F(root_rollup_tests, native_root_missing_nullifier_logic)
     ASSERT_EQ(outputs.end_l1_to_l2_messages_tree_snapshot, end_l1_to_l2_messages_tree_snapshot);
 
     EXPECT_FALSE(composer.failed());
+
+    run_cbind(rootRollupInputs, outputs, true);
 }
 
 }  // namespace aztec3::circuits::rollup::root::native_root_rollup_circuit

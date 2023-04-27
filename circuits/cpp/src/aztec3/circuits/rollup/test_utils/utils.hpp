@@ -125,4 +125,6 @@ inline abis::PublicDataRead<NT> make_public_read(fr leaf_index, fr value)
     };
 }
 
+bool compare_field_hash_to_expected(std::array<fr, 2> field_hash, std::array<uint8_t, 32> expected_hash);
+
 }  // namespace aztec3::circuits::rollup::test_utils::utils

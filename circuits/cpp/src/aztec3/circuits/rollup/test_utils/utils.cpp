@@ -502,4 +502,27 @@ nullifier_tree_testing_values generate_nullifier_tree_testing_values_explicit(
     return std::make_tuple(rollupInputs, nullifier_tree_start_snapshot, nullifier_tree_end_snapshot);
 }
 
+/**
+ * @brief Compares a hash calculated within a circuit (made up of two field elements) against 
+ *        one generated natively, (32 bytes) and checks if they match
+ * 
+ * @param field_hash 
+ * @param expected_hash 
+ * @return true 
+ * @return false 
+ */
+bool compare_field_hash_to_expected(std::array<fr, 2> field_hash, std::array<uint8_t, 32> expected_hash)
+{
+    auto high_buffer = field_hash[0].to_buffer();
+    auto low_buffer = field_hash[1].to_buffer();
+
+    std::array<uint8_t, 32> field_expanded_hash;
+    for (uint8_t i = 0; i < 16; ++i) {
+        field_expanded_hash[i] = high_buffer[16 + i];
+        field_expanded_hash[16 + i] = low_buffer[16 + i];
+    }
+
+    return expected_hash == field_expanded_hash;
+}
+
 }  // namespace aztec3::circuits::rollup::test_utils::utils
