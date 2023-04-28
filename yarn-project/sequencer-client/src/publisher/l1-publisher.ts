@@ -85,13 +85,13 @@ export class L1Publisher implements L2BlockReceiver {
    * @returns True once the tx has been confirmed and is successful, false on revert or interrupt, blocks otherwise.
    */
   public async processUnverifiedData(l2BlockNum: number, unverifiedData: UnverifiedData): Promise<boolean> {
+    console.log('processing unverified data');
     while (!this.interrupted) {
       if (!(await this.checkFeeDistributorBalance())) {
         this.log(`Fee distributor ETH balance too low, awaiting top up...`);
         await this.sleepOrInterrupted();
         continue;
       }
-
       const txHash = await this.sendEmitUnverifiedDataTx(l2BlockNum, unverifiedData);
       if (!txHash) break;
 
@@ -122,12 +122,15 @@ export class L1Publisher implements L2BlockReceiver {
         await this.sleepOrInterrupted();
         continue;
       }
+      console.log('ncd', 1);
 
       const txHash = await this.sendEmitNewContractDataTx(l2BlockNum, contractData);
       if (!txHash) break;
+      console.log('ncd', 2);
 
       const receipt = await this.getTransactionReceipt(txHash);
       if (!receipt) break;
+      console.log('ncd', 3);
 
       // Tx was mined successfully
       if (receipt.status) return true;
@@ -190,6 +193,8 @@ export class L1Publisher implements L2BlockReceiver {
   private async sendEmitNewContractDataTx(l2BlockNum: number, contractData: CompleteContractData[]) {
     while (!this.interrupted) {
       try {
+        console.log('sending emit contract deployment tx');
+        console.log(l2BlockNum, contractData);
         return await this.txSender.sendEmitContractDeploymentTx(l2BlockNum, contractData);
       } catch (err) {
         this.log(`Error sending contract data to L1`, err);

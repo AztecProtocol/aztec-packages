@@ -10,11 +10,9 @@ import {
   http,
 } from 'viem';
 import { mnemonicToAccount } from 'viem/accounts';
-import type { Abi, Narrow } from 'abitype';
 
 import { AztecNode, getConfigEnvVars } from '@aztec/aztec-node';
 import { AztecAddress, AztecRPCServer, Contract, ContractDeployer, TxStatus } from '@aztec/aztec.js';
-import { EthereumRpc } from '@aztec/ethereum.js/eth_rpc';
 import { WalletProvider } from '@aztec/ethereum.js/provider';
 import { EthAddress, Fr, Point, createDebugLogger, toBigIntBE } from '@aztec/foundation';
 import { PublicTokenContractAbi } from '@aztec/noir-contracts/examples';
@@ -43,11 +41,8 @@ const config = getConfigEnvVars();
 // };
 
 describe('e2e_public_token_contract', () => {
-  let provider: WalletProvider;
   let node: AztecNode;
   let aztecRpcServer: AztecRPCServer;
-  let rollupAddress: EthAddress;
-  let unverifiedDataEmitterAddress: EthAddress;
   let accounts: AztecAddress[];
   let contract: Contract;
 
@@ -120,8 +115,11 @@ describe('e2e_public_token_contract', () => {
   });
 
   afterEach(async () => {
+    console.log('stop 1');
     await node.stop();
+    console.log('stop 2');
     await aztecRpcServer.stop();
+    console.log('stop 3');
   });
 
   it('should deploy a public token contract', async () => {
@@ -129,8 +127,8 @@ describe('e2e_public_token_contract', () => {
     console.log('txReceipt', txReceipt);
     console.log('contract', contract);
     console.log('tx', tx);
-    expect(txReceipt);
-  }, 30_000);
+    expect(txReceipt.status).toEqual(TxStatus.MINED);
+  });
 
   it.skip('should deploy a public token contract and mint tokens to a recipient', async () => {
     const mintAmount = 359n;

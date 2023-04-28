@@ -33,7 +33,7 @@ export class Sequencer {
     private blockBuilder: BlockBuilder,
     private publicProcessor: PublicProcessor,
     config?: SequencerConfig,
-    private log = createDebugLogger('aztec:sequencer'),
+    private log = console.log, //createDebugLogger('aztec:sequencer'),
   ) {
     this.pollingIntervalMs = config?.transactionPollingInterval ?? 1_000;
     if (config?.maxTxsPerBlock) {
@@ -51,9 +51,13 @@ export class Sequencer {
   }
 
   public async stop(): Promise<void> {
+    console.log(1);
     await this.runningPromise?.stop();
+    console.log(2);
     this.publisher.interrupt();
+    console.log(3);
     this.state = SequencerState.STOPPED;
+    console.log(4);
     this.log('Stopped sequencer');
   }
 
@@ -129,6 +133,7 @@ export class Sequencer {
       // Publishes new unverified data & contract data for private txs to the network and awaits the tx to be mined
       this.state = SequencerState.PUBLISHING_UNVERIFIED_DATA;
       const unverifiedData = UnverifiedData.join(validTxs.filter(isPrivateTx).map(tx => tx.unverifiedData));
+      console.log('unverifiedData', unverifiedData);
       const newContractData = validTxs
         .filter(isPrivateTx)
         .map(tx => {
@@ -143,15 +148,16 @@ export class Sequencer {
           }
         })
         .filter((cd): cd is Exclude<typeof cd, undefined> => cd !== undefined);
+      console.log('contractData', newContractData);
 
       const publishedUnverifiedData = await this.publisher.processUnverifiedData(block.number, unverifiedData);
-      const publishedContractData = await this.publisher.processNewContractData(block.number, newContractData);
       if (publishedUnverifiedData) {
         this.log(`Successfully published unverifiedData for block ${block.number}`);
       } else {
         this.log(`Failed to publish unverifiedData for block ${block.number}`);
       }
 
+      const publishedContractData = await this.publisher.processNewContractData(block.number, newContractData);
       if (publishedContractData) {
         this.log(`Successfully published new contract data for block ${block.number}`);
       } else if (!publishedContractData && newContractData.length) {

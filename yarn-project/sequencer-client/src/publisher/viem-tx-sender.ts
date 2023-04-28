@@ -121,6 +121,7 @@ export class ViemTxSender implements L1PublisherTxSender {
     l2BlockNum: number,
     newContractData: CompleteContractData[],
   ): Promise<string | undefined> {
+    console.log('tx sender', newContractData);
     for (const contractData of newContractData) {
       const args = [
         BigInt(l2BlockNum),
@@ -129,11 +130,17 @@ export class ViemTxSender implements L1PublisherTxSender {
         `0x${contractData.bytecode.toString('hex')}`,
       ] as const;
 
-      const gas = await this.unverifiedDataEmitterContract.estimateGas.emitContractDeployment(args, {
-        account: this.account,
-      });
+      let gas = 10n;
+      try {
+        gas = await this.unverifiedDataEmitterContract.estimateGas.emitContractDeployment(args, {
+          account: this.account,
+        });
+      } catch (err) {
+        console.log('ERROR getting gas: ', err);
+      }
+      console.log('gas', gas);
       const hash = await this.unverifiedDataEmitterContract.write.emitContractDeployment(args, {
-        gas,
+        gas: gas || 0n,
         account: this.account,
       });
       return hash;
