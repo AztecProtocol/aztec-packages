@@ -1,6 +1,7 @@
 import { DBOracle } from '@aztec/acir-simulator';
 import { AztecNode } from '@aztec/aztec-node';
 import { AztecAddress, EthAddress, Fr } from '@aztec/circuits.js';
+// TODO change to secp256k1
 import { KeyPair } from '@aztec/key-store';
 import { FunctionAbi } from '@aztec/foundation/abi';
 import { ContractDataOracle } from '../contract_data_oracle/index.js';
@@ -28,7 +29,7 @@ export class SimulatorOracle implements DBOracle {
    * @throws An Error if the input address does not match the public key address of the key pair.
    */
   getSecretKey(_: AztecAddress, address: AztecAddress): Promise<Buffer> {
-    if (!address.equals(this.keyPair.getPublicKey().toAddress())) {
+    if (!address.equals(this.keyPair.getPublicKey().toAztecAddress())) {
       throw new Error('Only allow access to the secret keys of the tx creator.');
     }
     return this.keyPair.getPrivateKey();

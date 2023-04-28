@@ -1,8 +1,9 @@
 import { AztecNode } from '@aztec/aztec-node';
-import { Grumpkin } from '@aztec/barretenberg.js/crypto';
+import { Ecdsa, Grumpkin, Secp256k1 } from '@aztec/barretenberg.js/crypto';
 import { BarretenbergWasm } from '@aztec/barretenberg.js/wasm';
 import { KERNEL_NEW_COMMITMENTS_LENGTH } from '@aztec/circuits.js';
 import { Point } from '@aztec/foundation/fields';
+// TODO: Change to secp256k1
 import { ConstantKeyPair, KeyPair } from '@aztec/key-store';
 import { L2Block, L2BlockContext, UnverifiedData } from '@aztec/types';
 import { jest } from '@jest/globals';
@@ -13,13 +14,15 @@ import { AccountState } from './account_state.js';
 
 describe('Account State', () => {
   let grumpkin: Grumpkin;
+  let secp256k1: Secp256k1;
+  let ecdsa: Ecdsa;
   let database: Database;
   let aztecNode: ReturnType<typeof mock<AztecNode>>;
   let addTxAuxDataBatchSpy: any;
   let accountState: AccountState;
   let owner: KeyPair;
 
-  const createUnverifiedDataAndOwnedTxAuxData = (ownedDataIndices: number[] = []) => {
+  const createUnverifiedDataAndOwnedTxAuxData = async (ownedDataIndices: number[] = []) => {
     ownedDataIndices.forEach(index => {
       if (index >= KERNEL_NEW_COMMITMENTS_LENGTH) {
         throw new Error(`Data index should be less than ${KERNEL_NEW_COMMITMENTS_LENGTH}.`);
@@ -31,7 +34,9 @@ describe('Account State', () => {
     for (let i = 0; i < KERNEL_NEW_COMMITMENTS_LENGTH; ++i) {
       const txAuxData = TxAuxData.random();
       const isOwner = ownedDataIndices.includes(i);
-      const publicKey = isOwner ? owner.getPublicKey() : Point.random();
+      const privKey = await owner.getPrivateKey();
+      const ownerGrumpkinPublicKey = Point.fromBuffer(grumpkin.mul(Grumpkin.generator, privKey));
+      const publicKey = isOwner ? ownerGrumpkinPublicKey : Point.random();
       dataChunks.push(txAuxData.toEncryptedBuffer(publicKey, grumpkin));
       if (isOwner) {
         ownedTxAuxData.push(txAuxData);
@@ -41,14 +46,14 @@ describe('Account State', () => {
     return { unverifiedData, ownedTxAuxData };
   };
 
-  const mockData = (firstBlockNum: number, ownedData: number[][]) => {
+  const mockData = async (firstBlockNum: number, ownedData: number[][]) => {
     const blockContexts: L2BlockContext[] = [];
     const unverifiedDatas: UnverifiedData[] = [];
     const ownedTxAuxDatas: TxAuxData[] = [];
     for (let i = 0; i < ownedData.length; ++i) {
       const randomBlockContext = new L2BlockContext(L2Block.random(firstBlockNum + i));
       blockContexts.push(randomBlockContext);
-      const { unverifiedData, ownedTxAuxData } = createUnverifiedDataAndOwnedTxAuxData(ownedData[i]);
+      const { unverifiedData, ownedTxAuxData } = await createUnverifiedDataAndOwnedTxAuxData(ownedData[i]);
       unverifiedDatas.push(unverifiedData);
       ownedTxAuxDatas.push(...ownedTxAuxData);
     }
@@ -58,7 +63,8 @@ describe('Account State', () => {
   beforeAll(async () => {
     const wasm = await BarretenbergWasm.get();
     grumpkin = new Grumpkin(wasm);
-    owner = ConstantKeyPair.random(grumpkin);
+    secp256k1 = new Secp256k1(wasm);
+    owner = ConstantKeyPair.random(secp256k1, ecdsa);
   });
 
   beforeEach(async () => {
@@ -67,7 +73,7 @@ describe('Account State', () => {
 
     const ownerPrivateKey = await owner.getPrivateKey();
     aztecNode = mock<AztecNode>();
-    accountState = new AccountState(ownerPrivateKey, database, aztecNode, grumpkin);
+    accountState = new AccountState(ownerPrivateKey, database, aztecNode, grumpkin, secp256k1, ecdsa);
   });
 
   afterEach(() => {
@@ -76,7 +82,7 @@ describe('Account State', () => {
 
   it('should store a tx that belong to us', async () => {
     const firstBlockNum = 1;
-    const { blockContexts, unverifiedDatas, ownedTxAuxDatas } = mockData(firstBlockNum, [[2]]);
+    const { blockContexts, unverifiedDatas, ownedTxAuxDatas } = await mockData(firstBlockNum, [[2]]);
     await accountState.process(blockContexts, unverifiedDatas);
 
     const txs = await accountState.getTxs();
@@ -97,7 +103,14 @@ describe('Account State', () => {
 
   it('should store multiple txs that belong to us', async () => {
     const firstBlockNum = 1;
-    const { blockContexts, unverifiedDatas, ownedTxAuxDatas } = mockData(firstBlockNum, [[], [1], [], [], [0, 2], []]);
+    const { blockContexts, unverifiedDatas, ownedTxAuxDatas } = await mockData(firstBlockNum, [
+      [],
+      [1],
+      [],
+      [],
+      [0, 2],
+      [],
+    ]);
     await accountState.process(blockContexts, unverifiedDatas);
 
     const txs = await accountState.getTxs();
@@ -130,7 +143,7 @@ describe('Account State', () => {
 
   it('should not store txs that do not belong to us', async () => {
     const firstBlockNum = 1;
-    const { blockContexts, unverifiedDatas } = mockData(firstBlockNum, [[], []]);
+    const { blockContexts, unverifiedDatas } = await mockData(firstBlockNum, [[], []]);
     await accountState.process(blockContexts, unverifiedDatas);
 
     const txs = await accountState.getTxs();
@@ -140,6 +153,6 @@ describe('Account State', () => {
 
   it('should throw an error if invalid privKey is passed on input', () => {
     const ownerPrivateKey = Buffer.alloc(0);
-    expect(() => new AccountState(ownerPrivateKey, database, aztecNode, grumpkin)).toThrowError();
+    expect(() => new AccountState(ownerPrivateKey, database, aztecNode, grumpkin, secp256k1, ecdsa)).toThrowError();
   });
 });

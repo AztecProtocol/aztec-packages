@@ -1,11 +1,15 @@
 import { AcirSimulator } from '@aztec/acir-simulator';
 import { AztecNode } from '@aztec/aztec-node';
+import { Ecdsa } from '@aztec/barretenberg.js/crypto';
 import { Grumpkin } from '@aztec/barretenberg.js/crypto';
+import { Secp256k1 } from '@aztec/barretenberg.js/crypto';
 import { BarretenbergWasm } from '@aztec/barretenberg.js/wasm';
 import { EcdsaSignature, KERNEL_NEW_COMMITMENTS_LENGTH, PrivateHistoricTreeRoots, TxRequest } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { EthPublicKey } from '@aztec/foundation/eth-public-key';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
+// TODO: Change to secp256k1 key pair
 import { ConstantKeyPair, KeyPair } from '@aztec/key-store';
 import { FunctionType } from '@aztec/foundation/abi';
 import {
@@ -54,6 +58,7 @@ export class AccountState {
    */
   public syncedToBlock = 0;
   private publicKey: Point;
+  private ethPublicKey: EthPublicKey;
   private address: AztecAddress;
   private keyPair: KeyPair;
 
@@ -62,15 +67,20 @@ export class AccountState {
     private db: Database,
     private node: AztecNode,
     private grumpkin: Grumpkin,
+    private secp256k1: Secp256k1,
+    private ecdsa: Ecdsa,
     private TXS_PER_BLOCK = 1,
     private log = createDebugLogger('aztec:aztec_rpc_account_state'),
   ) {
     if (privKey.length !== 32) {
       throw new Error(`Invalid private key length. Received ${privKey.length}, expected 32`);
     }
+    // TODO(Suyash): We're creating two public keys on different curves using the same private key.
+    // Caution: Don't use this in production, otherwise... ( ͡° ͜ʖ ͡°)
     this.publicKey = Point.fromBuffer(this.grumpkin.mul(Grumpkin.generator, this.privKey));
-    this.address = this.publicKey.toAddress();
-    this.keyPair = new ConstantKeyPair(this.publicKey, privKey);
+    this.ethPublicKey = EthPublicKey.fromBuffer(this.secp256k1.mul(Secp256k1.generator, this.privKey));
+    this.address = this.ethPublicKey.toAztecAddress();
+    this.keyPair = new ConstantKeyPair(ecdsa, this.ethPublicKey, privKey);
   }
 
   /**
@@ -106,12 +116,21 @@ export class AccountState {
   }
 
   /**
+   * Get the ethereum public key of the account associated with this AccountState instance.
+   *
+   * @returns An EthPublicKey instance representing the ethereum public key.
+   */
+  public getEthPublicKey() {
+    return this.ethPublicKey;
+  }
+
+  /**
    * Get the address of the account associated with this AccountState instance.
    *
    * @returns An AztecAddress instance representing the account's address.
    */
   public getAddress() {
-    return this.publicKey.toAddress();
+    return this.ethPublicKey.toAztecAddress();
   }
 
   /**

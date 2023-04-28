@@ -4,17 +4,17 @@ import { EthPublicKey } from '@aztec/foundation';
 import { randomBytes } from '../foundation.js';
 import { Ecdsa } from '@aztec/barretenberg.js/crypto';
 
-export interface Secp256k1KeyPair {
+export interface KeyPair {
   getPublicKey(): EthPublicKey;
   getPrivateKey(): Promise<Buffer>;
   signMessage(message: Buffer): Promise<EcdsaSignature>;
 }
 
-export class ConstantSecp256k1KeyPair implements Secp256k1KeyPair {
+export class ConstantKeyPair implements KeyPair {
   public static random(secp256k1: Secp256k1, ecdsa: Ecdsa) {
     const privateKey = randomBytes(32);
     const publicKey = EthPublicKey.fromBuffer(secp256k1.mul(Secp256k1.generator, privateKey));
-    return new ConstantSecp256k1KeyPair(ecdsa, publicKey, privateKey);
+    return new ConstantKeyPair(ecdsa, publicKey, privateKey);
   }
 
   constructor(private ecdsa: Ecdsa, private publicKey: EthPublicKey, private privateKey: Buffer) {}
