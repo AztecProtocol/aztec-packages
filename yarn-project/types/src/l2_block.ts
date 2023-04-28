@@ -36,6 +36,7 @@ export class L2Block {
    * @param endPublicDataTreeRoot - The tree root of the public data tree at the end of the rollup.
    * @param newCommitments - The commitments to be inserted into the private data tree.
    * @param newNullifiers - The nullifiers to be inserted into the nullifier tree.
+   * @param newPublicDataWrites - The public data writes to be inserted into the public data tree.
    * @param newContracts - The contracts leafs to be inserted into the contract tree.
    * @param newContractData - The aztec_address and eth_address for the deployed contract and its portal contract.
    */
@@ -46,19 +47,18 @@ export class L2Block {
     public startContractTreeSnapshot: AppendOnlyTreeSnapshot,
     public startTreeOfHistoricPrivateDataTreeRootsSnapshot: AppendOnlyTreeSnapshot,
     public startTreeOfHistoricContractTreeRootsSnapshot: AppendOnlyTreeSnapshot,
+    public startPublicDataTreeRoot: Fr,
     public endPrivateDataTreeSnapshot: AppendOnlyTreeSnapshot,
     public endNullifierTreeSnapshot: AppendOnlyTreeSnapshot,
     public endContractTreeSnapshot: AppendOnlyTreeSnapshot,
     public endTreeOfHistoricPrivateDataTreeRootsSnapshot: AppendOnlyTreeSnapshot,
     public endTreeOfHistoricContractTreeRootsSnapshot: AppendOnlyTreeSnapshot,
+    public endPublicDataTreeRoot: Fr,
     public newCommitments: Fr[],
     public newNullifiers: Fr[],
+    public newPublicDataWrites: PublicDataWrite[],
     public newContracts: Fr[],
     public newContractData: ContractData[],
-    // TODO: We set the public data entries at the end so we don't have to change the L1 decoder yet
-    public startPublicDataTreeRoot: Fr,
-    public endPublicDataTreeRoot: Fr,
-    public newPublicDataWrites: PublicDataWrite[],
   ) {}
 
   static random(l2BlockNum: number, txsPerBlock = 1) {
@@ -111,9 +111,9 @@ export class L2Block {
     endPublicDataTreeRoot: Fr;
     newCommitments: Fr[];
     newNullifiers: Fr[];
+    newPublicDataWrites: PublicDataWrite[];
     newContracts: Fr[];
     newContractData: ContractData[];
-    newPublicDataWrites: PublicDataWrite[];
   }) {
     return new this(
       fields.number,
@@ -122,18 +122,18 @@ export class L2Block {
       fields.startContractTreeSnapshot,
       fields.startTreeOfHistoricPrivateDataTreeRootsSnapshot,
       fields.startTreeOfHistoricContractTreeRootsSnapshot,
+      fields.startPublicDataTreeRoot,
       fields.endPrivateDataTreeSnapshot,
       fields.endNullifierTreeSnapshot,
       fields.endContractTreeSnapshot,
       fields.endTreeOfHistoricPrivateDataTreeRootsSnapshot,
       fields.endTreeOfHistoricContractTreeRootsSnapshot,
+      fields.endPublicDataTreeRoot,
       fields.newCommitments,
       fields.newNullifiers,
+      fields.newPublicDataWrites,
       fields.newContracts,
       fields.newContractData,
-      fields.startPublicDataTreeRoot,
-      fields.endPublicDataTreeRoot,
-      fields.newPublicDataWrites,
     );
   }
 
@@ -149,15 +149,19 @@ export class L2Block {
       this.startContractTreeSnapshot,
       this.startTreeOfHistoricPrivateDataTreeRootsSnapshot,
       this.startTreeOfHistoricContractTreeRootsSnapshot,
+      this.startPublicDataTreeRoot,
       this.endPrivateDataTreeSnapshot,
       this.endNullifierTreeSnapshot,
       this.endContractTreeSnapshot,
       this.endTreeOfHistoricPrivateDataTreeRootsSnapshot,
       this.endTreeOfHistoricContractTreeRootsSnapshot,
+      this.endPublicDataTreeRoot,
       this.newCommitments.length,
       this.newCommitments,
       this.newNullifiers.length,
       this.newNullifiers,
+      this.newPublicDataWrites.length,
+      this.newPublicDataWrites,
       this.newContracts.length,
       this.newContracts,
       this.newContractData,
@@ -190,19 +194,18 @@ export class L2Block {
     const startContractTreeSnapshot = reader.readObject(AppendOnlyTreeSnapshot);
     const startTreeOfHistoricPrivateDataTreeRootsSnapshot = reader.readObject(AppendOnlyTreeSnapshot);
     const startTreeOfHistoricContractTreeRootsSnapshot = reader.readObject(AppendOnlyTreeSnapshot);
+    const startPublicDataTreeRoot = reader.readObject(Fr);
     const endPrivateDataTreeSnapshot = reader.readObject(AppendOnlyTreeSnapshot);
     const endNullifierTreeSnapshot = reader.readObject(AppendOnlyTreeSnapshot);
     const endContractTreeSnapshot = reader.readObject(AppendOnlyTreeSnapshot);
     const endTreeOfHistoricPrivateDataTreeRootsSnapshot = reader.readObject(AppendOnlyTreeSnapshot);
     const endTreeOfHistoricContractTreeRootsSnapshot = reader.readObject(AppendOnlyTreeSnapshot);
+    const endPublicDataTreeRoot = reader.readObject(Fr);
     const newCommitments = reader.readVector(Fr);
     const newNullifiers = reader.readVector(Fr);
+    const newPublicDataWrites = reader.readVector(PublicDataWrite);
     const newContracts = reader.readVector(Fr);
     const newContractData = reader.readArray(newContracts.length, ContractData);
-    // TODO: We set the public data entries at the end so we don't have to change the L1 decoder yet
-    const startPublicDataTreeRoot = reader.readObject(Fr);
-    const endPublicDataTreeRoot = reader.readObject(Fr);
-    const newPublicDataWrites = reader.readVector(PublicDataWrite);
 
     return L2Block.fromFields({
       number,
@@ -220,9 +223,9 @@ export class L2Block {
       endPublicDataTreeRoot,
       newCommitments,
       newNullifiers,
+      newPublicDataWrites,
       newContracts,
       newContractData,
-      newPublicDataWrites,
     });
   }
 
@@ -245,6 +248,10 @@ export class L2Block {
       KERNEL_NEW_NULLIFIERS_LENGTH * txIndex,
       KERNEL_NEW_NULLIFIERS_LENGTH * (txIndex + 1),
     );
+    const newPublicDataWrites = this.newPublicDataWrites.slice(
+      STATE_TRANSITIONS_LENGTH * txIndex,
+      STATE_TRANSITIONS_LENGTH * (txIndex + 1),
+    );
     const newContracts = this.newContracts.slice(
       KERNEL_NEW_CONTRACTS_LENGTH * txIndex,
       KERNEL_NEW_CONTRACTS_LENGTH * (txIndex + 1),
@@ -253,12 +260,8 @@ export class L2Block {
       KERNEL_NEW_CONTRACTS_LENGTH * txIndex,
       KERNEL_NEW_CONTRACTS_LENGTH * (txIndex + 1),
     );
-    const newPublicDataWrites = this.newPublicDataWrites.slice(
-      STATE_TRANSITIONS_LENGTH * txIndex,
-      STATE_TRANSITIONS_LENGTH * (txIndex + 1),
-    );
 
-    return new L2Tx(newCommitments, newNullifiers, newContracts, newContractData, newPublicDataWrites);
+    return new L2Tx(newCommitments, newNullifiers, newPublicDataWrites, newContracts, newContractData);
   }
 
   /**
@@ -292,6 +295,7 @@ export class L2Block {
       `startTreeOfHistoricContractTreeRootsSnapshot: ${inspectTreeSnapshot(
         this.startTreeOfHistoricContractTreeRootsSnapshot,
       )}`,
+      `startPublicDataTreeRoot: ${this.startPublicDataTreeRoot.toString()}`,
       `endPrivateDataTreeSnapshot: ${inspectTreeSnapshot(this.endPrivateDataTreeSnapshot)}`,
       `endNullifierTreeSnapshot: ${inspectTreeSnapshot(this.endNullifierTreeSnapshot)}`,
       `endContractTreeSnapshot: ${inspectTreeSnapshot(this.endContractTreeSnapshot)}`,
@@ -302,8 +306,10 @@ export class L2Block {
       `endTreeOfHistoricContractTreeRootsSnapshot: ${inspectTreeSnapshot(
         this.endTreeOfHistoricContractTreeRootsSnapshot,
       )}`,
+      `endPublicDataTreeRoot: ${this.endPublicDataTreeRoot.toString()}`,
       `newCommitments: ${inspectFrArray(this.newCommitments)}`,
       `newNullifiers: ${inspectFrArray(this.newNullifiers)}`,
+      `newPublicDataWrite: ${inspectPublicDataWriteArray(this.newPublicDataWrites)}`,
       `newContracts: ${inspectFrArray(this.newContracts)}`,
       `newContractData: ${inspectContractDataArray(this.newContractData)}`,
       `newPublicDataWrite: ${inspectPublicDataWriteArray(this.newPublicDataWrites)}`,

@@ -8,9 +8,9 @@ export class L2Tx {
   constructor(
     public newCommitments: Fr[],
     public newNullifiers: Fr[],
+    public newPublicDataWrites: PublicDataWrite[],
     public newContracts: Fr[],
     public newContractData: ContractData[],
-    public newPublicDataWrites: PublicDataWrite[],
     private hash?: TxHash,
   ) {}
 
