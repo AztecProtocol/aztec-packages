@@ -81,7 +81,7 @@ export class EthPublicKey {
    */
   static fromBuffer(buffer: Buffer | BufferReader): EthPublicKey {
     const reader = BufferReader.asReader(buffer);
-    return new EthPublicKey(reader.readBuffer());
+    return new this(reader.readBytes(this.SIZE_IN_BYTES));
   }
 
   /**
@@ -172,7 +172,7 @@ export class EthPublicKey {
    */
   toAddress() {
     const publicKeyHex = this.buffer.toString('hex');
-    const publicKeyHash = keccak256String(publicKeyHex).slice(0, 20);
+    const publicKeyHash = keccak256String(publicKeyHex).slice(0, 40);
     return EthAddress.fromString(publicKeyHash);
   }
 
@@ -184,7 +184,9 @@ export class EthPublicKey {
    */
   toAztecAddress() {
     const publicKeyHex = this.buffer.toString('hex');
-    const publicKeyHash = keccak256String(publicKeyHex).slice(0, 20);
-    return AztecAddress.fromString(publicKeyHash);
+    const publicKeyHash = keccak256String(publicKeyHex);
+    const slicedPublicKeyHash = publicKeyHash.slice(0, 40);
+    const extendedPublicKeyHash = Buffer.concat([Buffer.alloc(12), Buffer.from(slicedPublicKeyHash)]);
+    return AztecAddress.fromBuffer(extendedPublicKeyHash);
   }
 }

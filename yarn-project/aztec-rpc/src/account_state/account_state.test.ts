@@ -89,7 +89,7 @@ describe('Account State', () => {
     expect(txs).toEqual([
       expect.objectContaining({
         blockNumber: 1,
-        from: owner.getPublicKey().toAddress(),
+        from: owner.getPublicKey().toAztecAddress(),
       }),
     ]);
     expect(addTxAuxDataBatchSpy).toHaveBeenCalledTimes(1);
@@ -117,11 +117,11 @@ describe('Account State', () => {
     expect(txs).toEqual([
       expect.objectContaining({
         blockNumber: 2,
-        from: owner.getPublicKey().toAddress(),
+        from: owner.getPublicKey().toAztecAddress(),
       }),
       expect.objectContaining({
         blockNumber: 5,
-        from: owner.getPublicKey().toAddress(),
+        from: owner.getPublicKey().toAztecAddress(),
       }),
     ]);
     expect(addTxAuxDataBatchSpy).toHaveBeenCalledTimes(1);
