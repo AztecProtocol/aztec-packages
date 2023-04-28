@@ -25,13 +25,13 @@ template <typename T, typename... Args> std::string check_memory_span(T* obj, Ar
         // Check if any of the Args* pointers overlap.
         auto last_end = pointers[i - 1].first + pointers[i - 1].second;
         if (last_end > pointers[i].first) {
-            return "Overlap in " + msgpack::schema_name(*obj) + " ar() params detected!";
+            return "Overlap in " + msgpack::schema_name(*obj) + " MSGPACK() params detected!";
         }
         // Check if gap is too large.
-        // Give some fuzzy room (2 long size) in case of weird alignment.
+        // Give some fuzzy room in case of 64 byte alignment restrictions.
         if (last_end + max_align_padding < pointers[i].first) {
-            return "Gap in " + msgpack::schema_name(*obj) + " ar() params detected after member #" + std::to_string(i) +
-                   " !";
+            return "Gap in " + msgpack::schema_name(*obj) + " MSGPACK() params detected before member #" +
+                   std::to_string(i) + " !";
         }
     }
 
@@ -39,7 +39,7 @@ template <typename T, typename... Args> std::string check_memory_span(T* obj, Ar
     uintptr_t t_start = reinterpret_cast<uintptr_t>(obj);
     uintptr_t t_end = t_start + sizeof(T);
     if (pointers.front().first < t_start || pointers.back().first + pointers.back().second > t_end) {
-        return "Some " + msgpack::schema_name(*obj) + " ar() params don't exist in object!";
+        return "Some " + msgpack::schema_name(*obj) + " MSGPACK() params don't exist in object!";
     }
 
     // Check if all of T* memory is used by the Args* pointers.
@@ -53,7 +53,7 @@ template <typename T, typename... Args> std::string check_memory_span(T* obj, Ar
     //    total_size += (sizeof(long) - (total_size % sizeof(long))) % sizeof(long);
 
     if (total_size + max_align_padding < sizeof(T)) {
-        return "Incomplete " + msgpack::schema_name(*obj) + " ar() params! Not all of object specified.";
+        return "Incomplete " + msgpack::schema_name(*obj) + " MSGPACK() params! Not all of object specified.";
     }
     return {};
 }

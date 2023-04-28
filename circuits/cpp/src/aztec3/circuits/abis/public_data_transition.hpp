@@ -1,6 +1,7 @@
 #pragma once
 #include "aztec3/constants.hpp"
 #include <barretenberg/stdlib/primitives/witness/witness.hpp>
+#include <barretenberg/common/msgpack.hpp>
 #include <aztec3/utils/types/native_types.hpp>
 #include <aztec3/utils/types/convert.hpp>
 #include <aztec3/utils/types/circuit_types.hpp>
@@ -19,6 +20,8 @@ template <typename NCT> struct PublicDataTransition {
     fr old_value = 0;
     fr new_value = 0;
 
+    // for serialization, keep in sync with new fields
+    MSGPACK(leaf_index, old_value, new_value);
     bool operator==(PublicDataTransition<NCT> const&) const = default;
 
     template <typename Composer> PublicDataTransition<CircuitTypes<Composer>> to_circuit_type(Composer& composer) const
