@@ -1,6 +1,7 @@
 import { AztecNode } from '@aztec/aztec-node';
-import { Grumpkin } from '@aztec/barretenberg.js/crypto';
+import { Ecdsa, Secp256k1 } from '@aztec/barretenberg.js/crypto';
 import { Fr } from '@aztec/circuits.js';
+// TODO: Change to secp256k1
 import { ConstantKeyPair } from '@aztec/key-store';
 import { L2Block, MerkleTreeId, UnverifiedData } from '@aztec/types';
 import { MockProxy, mock } from 'jest-mock-extended';
@@ -8,14 +9,16 @@ import { Database, MemoryDB } from '../database/index.js';
 import { Synchroniser } from './synchroniser.js';
 
 describe('Synchroniser', () => {
-  let grumpkin: Grumpkin;
+  let secp256k1: Secp256k1;
+  let ecdsa: Ecdsa;
   let aztecNode: MockProxy<AztecNode>;
   let database: Database;
   let synchroniser: TestSynchroniser;
   let roots: Record<MerkleTreeId, Fr>;
 
   beforeAll(async () => {
-    grumpkin = await Grumpkin.new();
+    secp256k1 = await Secp256k1.new();
+    ecdsa = await Ecdsa.new();
   });
 
   beforeEach(() => {
@@ -39,14 +42,14 @@ describe('Synchroniser', () => {
   });
 
   it('should create account state', async () => {
-    const account = ConstantKeyPair.random(grumpkin);
-    const address = account.getPublicKey().toAddress();
+    const account = ConstantKeyPair.random(secp256k1, ecdsa);
+    const address = account.getPublicKey().toAztecAddress();
 
     expect(synchroniser.getAccount(address)).toBeUndefined();
 
     await synchroniser.addAccount(await account.getPrivateKey());
 
-    expect(synchroniser.getAccount(address)!.getPublicKey()).toEqual(account.getPublicKey());
+    expect(synchroniser.getAccount(address)!.getEthPublicKey()).toEqual(account.getPublicKey());
   });
 
   it('sets tree roots from aztec node on initial sync', async () => {
