@@ -1,10 +1,28 @@
 import camelCase from 'lodash.camelcase';
 
+/**
+ * Capitalize the first character of a given string.
+ * This function takes a string input and returns a new string
+ * with the first character converted to uppercase, while keeping
+ * the rest of the characters unchanged.
+ *
+ * @param s - The input string to be capitalized.
+ * @returns A new string with the first character capitalized.
+ */
 function capitalize(s: string) {
   return s.charAt(0).toUpperCase() + s.substring(1);
 }
 
+/**
+ * Represents an object schema where keys are mapped to their corresponding type schemas, defining a structured data model.
+ */
 type ObjectSchema = { [key: string]: Schema };
+
+/**
+ * Represents the various data structures and types used to model schema definitions.
+ * The Schema type supports primitive types, object schemas, tuples, maps, optional values,
+ * fixed-size arrays, shared pointers, and custom type aliases (defined in schema_map_impl.hpp).
+ */
 type Schema =
   | string
   | ObjectSchema
@@ -17,6 +35,11 @@ type Schema =
   | ['array', [Schema, number]]
   | ['alias', [string, string]];
 
+/**
+ * Represents a detailed description of a schema's type information.
+ * Provides metadata and conversion methods related to the TypeScript and Msgpack type names,
+ * as well as any required dependencies or custom behavior for specific schemas.
+ */
 export interface TypeInfo {
   /**
    * High-level typescript type name.
@@ -27,18 +50,58 @@ export interface TypeInfo {
    * Only given if different.
    */
   msgpackTypeName?: string;
+  /**
+   * Indicates if the schema requires an interface.
+   */
   needsInterface?: boolean;
+  /**
+   * Indicates if the schema refers to an imported type.
+   */
   isImport?: boolean;
+  /**
+   * Indicates if the type is an alias of another type.
+   */
   isAlias?: boolean;
+  /**
+   * Indicates if the schema represents a tuple type.
+   */
   isTuple?: boolean;
+  /**
+   * Indicates if the schama represents an array.
+   * If so, stores the array's subtype elements.
+   */
   arraySubtype?: TypeInfo;
+  /**
+   * Key-value pair of types that represent the keys and values in a map schema.
+   */
   mapSubtypes?: [TypeInfo, TypeInfo];
+  /**
+   * Represents the TypeScript interface declaration for a specific schema type.
+   */
   declaration?: string;
+  /**
+   * Conversion method to transform Msgpack data into a class instance.
+   */
   toClassMethod?: string;
+  /**
+   * Converts a class instance to its Msgpack representation.
+   */
   fromClassMethod?: string;
+  /**
+   * Represents the conversion method from class to Msgpack format.
+   */
   toMsgpackMethod?: string;
 }
 
+/**
+ * Generate a JavaScript expression to convert a given value from its Msgpack type representation to its
+ * corresponding TypeScript type representation using the provided TypeInfo.
+ * This function handles various cases including alias types, arrays, tuples, maps, and imported types.
+ *
+ * @param typeInfo - Metadata and conversion methods related to the TypeScript and Msgpack type names.
+ * @param value - The value to be converted in the generated expression.
+ * @returns A JavaScript expression that converts the input value based on the provided TypeInfo.
+ */
 function msgpackConverterExpr(typeInfo: TypeInfo, value: string): string {
   const { typeName } = typeInfo;
   if (typeInfo.isAlias) {
@@ -62,6 +125,15 @@ function msgpackConverterExpr(typeInfo: TypeInfo, value: string): string {
   }
 }
 
+/**
+ * Generate a JavaScript expression to convert a given value from its TypeScript class representation to its
+ * corresponding Msgpack type representation using the provided TypeInfo.
+ * This function handles various cases including alias types, arrays, tuples, maps, and imported types.
+ *
+ * @param typeInfo - Metadata and conversion methods related to the TypeScript and Msgpack type names.
+ * @param value - The value to be converted in the generated expression.
+ * @returns A JavaScript expression that converts the input value based on the provided TypeInfo.
+ */
 function classConverterExpr(typeInfo: TypeInfo, value: string): string {
   const { typeName } = typeInfo;
   if (typeInfo.isAlias) {
@@ -86,7 +158,8 @@ function classConverterExpr(typeInfo: TypeInfo, value: string): string {
   }
 }
 /**
- * Converts a spec emitted from the WASM to typescript code.
+ * Converts a spec emitted from the WASM.
+ * Creates typescript code.
  */
 export class CbindCompiler {
   // Function and declaration output fragments
@@ -94,6 +167,14 @@ export class CbindCompiler {
   // cbind outputs, put at end
   private funcDecls: string[] = [];
 
+  /**
+   * Retrieve the TypeScript type name for a given schema.
+   * This function utilizes the TypeInfo cache to obtain the appropriate type name
+   * and handles any necessary type compilation along the way.
+   *
+   * @param type - The input schema for which to retrieve the TypeScript type name.
+   * @returns The corresponding TypeScript type name as a string.
+   */
   private getTypeName(type: Schema): string {
     return this.getTypeInfo(type).typeName;
   }
@@ -187,6 +268,15 @@ export class CbindCompiler {
     throw new Error(`Unsupported type: ${type}`);
   }
 
+  /**
+   * Retrieve the Msgpack type name for a given schema.
+   * This function returns the MsgpackTypeName if available, or the default TypeName otherwise.
+   * It is useful for handling cases where the Msgpack type representation differs from the TypeScript type,
+   * ensuring proper serialization and deserialization between the two formats.
+   *
+   * @param schema - The schema for which the Msgpack type name is required.
+   * @returns The Msgpack type name corresponding to the input schema.
+   */
   private getMsgpackTypename(schema: Schema): string {
     const { msgpackTypeName, typeName } = this.getTypeInfo(schema);
     return msgpackTypeName || typeName;
@@ -298,7 +388,19 @@ return ${callSyntax.call(this)};
    * @param cbind The cbind schema.
    * @returns The compiled schema.
    */
-  processCbind(name: string, cbind: { args: ['tuple', Schema[]]; ret: Schema }) {
+  processCbind(
+    name: string,
+    cbind: {
+      /**
+       * An array of Schema representing the argument types for a cbind function.
+       */
+      args: ['tuple', Schema[]];
+      /**
+       * The returned value's schema after processing the cbind.
+       */
+      ret: Schema;
+    },
+  ) {
     const [_tuple, args] = cbind.args;
     const typeInfos = args.map(arg => this.getTypeInfo(arg));
     const argStrings = typeInfos.map((typeInfo, i) => `arg${i}: ${typeInfo.typeName}`);
@@ -312,6 +414,14 @@ return ${msgpackConverterExpr(retType, innerCall)};
 }`);
   }
 
+  /**
+   * Compile the generated TypeScript code from processed cbind schemas into a single string.
+   * The output string consists of necessary imports, type declarations, and helper methods
+   * for serialization and deserialization between TypeScript classes and Msgpack format,
+   * as well as the compiled cbind function calls.
+   *
+   * @returns A string containing the complete compiled TypeScript code.
+   */
   compile(): string {
     const imports: string[] = [];
     const outputs: string[] = [
