@@ -165,7 +165,7 @@ export class Synchroniser {
    * @returns The AccountState instance associated with the provided AztecAddress or undefined if not found.
    */
   public getAccount(account: AztecAddress) {
-    return this.accountStates.find(as => as.getPublicKey().toAddress().equals(account));
+    return this.accountStates.find(as => as.getEthPublicKey().toAztecAddress().equals(account));
   }
 
   /**
