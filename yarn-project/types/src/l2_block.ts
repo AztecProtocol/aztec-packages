@@ -417,6 +417,7 @@ export class L2Block {
       `endPrivateDataTreeSnapshot: ${inspectTreeSnapshot(this.endPrivateDataTreeSnapshot)}`,
       `endNullifierTreeSnapshot: ${inspectTreeSnapshot(this.endNullifierTreeSnapshot)}`,
       `endContractTreeSnapshot: ${inspectTreeSnapshot(this.endContractTreeSnapshot)}`,
+      `endPublicDataTreeRoot: ${this.endPublicDataTreeRoot.toString()}`,
       `endTreeOfHistoricPrivateDataTreeRootsSnapshot: ${inspectTreeSnapshot(
         this.endTreeOfHistoricPrivateDataTreeRootsSnapshot,
       )}`,
@@ -429,6 +430,7 @@ export class L2Block {
       `newPublicDataWrite: ${inspectPublicDataWriteArray(this.newPublicDataWrites)}`,
       `newContracts: ${inspectFrArray(this.newContracts)}`,
       `newContractData: ${inspectContractDataArray(this.newContractData)}`,
+      `newPublicDataWrite: ${inspectPublicDataWriteArray(this.newPublicDataWrites)}`,
     ].join('\n');
   }
 }
