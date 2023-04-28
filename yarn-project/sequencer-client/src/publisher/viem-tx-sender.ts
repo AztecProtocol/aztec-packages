@@ -121,12 +121,12 @@ export class ViemTxSender implements L1PublisherTxSender {
     l2BlockNum: number,
     newContractData: ContractPublicData[],
   ): Promise<string | undefined> {
-    for (const contractData of newContractData) {
+    for (const contractPublicData of newContractData) {
       const args = [
         BigInt(l2BlockNum),
-        contractData.contractAddress.toString() as Hex,
-        contractData.portalContractAddress.toString() as Hex,
-        `0x${contractData.bytecode.toString('hex')}`,
+        contractPublicData.contractData.contractAddress.toString() as Hex,
+        contractPublicData.contractData.portalContractAddress.toString() as Hex,
+        `0x${contractPublicData.bytecode.toString('hex')}`,
       ] as const;
 
       const gas = await this.unverifiedDataEmitterContract.estimateGas.emitContractDeployment(args, {

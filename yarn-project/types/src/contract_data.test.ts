@@ -6,15 +6,19 @@ describe('ContractData', () => {
   const portalAddress = EthAddress.random();
 
   it('serializes / deserializes correctly', () => {
-    const contractData = new ContractPublicData(aztecAddress, portalAddress, [
+    const contractPublicData = new ContractPublicData(new ContractData(aztecAddress, portalAddress), [
       EncodedContractFunction.random(),
       EncodedContractFunction.random(),
     ]);
-    const buf = contractData.toBuffer();
+    const buf = contractPublicData.toBuffer();
     const serContractData = ContractPublicData.fromBuffer(buf);
-    expect(contractData.contractAddress.equals(serContractData.contractAddress)).toBe(true);
-    expect(contractData.portalContractAddress.equals(serContractData.portalContractAddress)).toBe(true);
-    expect(contractData.bytecode?.equals(serContractData?.bytecode || Buffer.alloc(0))).toBe(true);
+    expect(contractPublicData.contractData.contractAddress.equals(serContractData.contractData.contractAddress)).toBe(
+      true,
+    );
+    expect(
+      contractPublicData.contractData.portalContractAddress.equals(serContractData.contractData.portalContractAddress),
+    ).toBe(true);
+    expect(contractPublicData.bytecode?.equals(serContractData?.bytecode || Buffer.alloc(0))).toBe(true);
   });
 
   it('serializes / deserializes correctly without bytecode', () => {

@@ -296,8 +296,7 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource, ContractDa
       const l2BlockNum = log.args.l2BlockNum;
       const publicFnsReader = BufferReader.asReader(Buffer.from(log.args.acir.slice(2), 'hex'));
       const contractData = new ContractPublicData(
-        AztecAddress.fromString(log.args.aztecAddress),
-        EthAddress.fromString(log.args.portalAddress),
+        new ContractData(AztecAddress.fromString(log.args.aztecAddress), EthAddress.fromString(log.args.portalAddress)),
         publicFnsReader.readVector(EncodedContractFunction),
       );
       (this.contractPublicData[Number(l2BlockNum)] || []).push(contractData);
@@ -370,7 +369,7 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource, ContractDa
     let result;
     for (let i = INITIAL_L2_BLOCK_NUM; i < this.contractPublicData.length; i++) {
       const contracts = this.contractPublicData[i];
-      const contract = contracts?.find(c => c.contractAddress.equals(contractAddress));
+      const contract = contracts?.find(c => c.contractData.contractAddress.equals(contractAddress));
       if (contract) {
         result = contract;
         break;
@@ -416,6 +415,9 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource, ContractDa
    * @returns ContractData with the portal address (if we didn't throw an error).
    */
   public getL2ContractInfoInBlock(blockNum: number): Promise<ContractData[] | undefined> {
+    if (blockNum > this.l2Blocks.length) {
+      return Promise.resolve([]);
+    }
     const block = this.l2Blocks[blockNum];
     return Promise.resolve(block.newContractData);
   }

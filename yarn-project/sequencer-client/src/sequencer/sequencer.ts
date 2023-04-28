@@ -1,6 +1,6 @@
 import { RunningPromise, createDebugLogger } from '@aztec/foundation';
 import { P2P } from '@aztec/p2p';
-import { ContractPublicData, PrivateTx, PublicTx, Tx, UnverifiedData, isPrivateTx } from '@aztec/types';
+import { ContractData, ContractPublicData, PrivateTx, PublicTx, Tx, UnverifiedData, isPrivateTx } from '@aztec/types';
 import { MerkleTreeId, WorldStateStatus, WorldStateSynchroniser } from '@aztec/world-state';
 import times from 'lodash.times';
 import { BlockBuilder } from '../block_builder/index.js';
@@ -136,8 +136,7 @@ export class Sequencer {
           const newContract = tx.data?.end.newContracts[0];
           if (newContract && tx.newContractPublicFunctions?.length) {
             return new ContractPublicData(
-              newContract.contractAddress,
-              newContract.portalContractAddress,
+              new ContractData(newContract.contractAddress, newContract.portalContractAddress),
               tx.newContractPublicFunctions,
             );
           }

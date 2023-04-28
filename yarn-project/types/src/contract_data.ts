@@ -77,13 +77,9 @@ export class ContractPublicData {
   public bytecode: Buffer;
   constructor(
     /**
-     * The L2 address of the contract, as a field element (32 bytes).
+     * The base contract data: aztec & portal addresses.
      */
-    public contractAddress: AztecAddress,
-    /**
-     * The L1 address of the contract, (20 bytes).
-     */
-    public portalContractAddress: EthAddress,
+    public contractData: ContractData,
 
     /**
      * ABIs of public functions
@@ -101,7 +97,8 @@ export class ContractPublicData {
    * @returns Encoded buffer.
    */
   public toBuffer(): Buffer {
-    return serializeToBuffer(this.contractAddress, this.portalContractAddress.toBuffer(), this.bytecode);
+    const contractDataBuf = this.contractData.toBuffer();
+    return serializeToBuffer(contractDataBuf, this.bytecode);
   }
 
   /**
@@ -111,10 +108,11 @@ export class ContractPublicData {
    */
   static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
-    const aztecAddr = AztecAddress.fromBuffer(reader);
-    const ethAddr = new EthAddress(reader.readBytes(EthAddress.SIZE_IN_BYTES));
+    // const aztecAddr = AztecAddress.fromBuffer(reader);
+    // const ethAddr = new EthAddress(reader.readBytes(EthAddress.SIZE_IN_BYTES));
+    const contractData = reader.readObject(ContractData);
     const publicFns = reader.readVector(EncodedContractFunction);
-    return new ContractPublicData(aztecAddr, ethAddr, publicFns);
+    return new ContractPublicData(contractData, publicFns);
   }
 
   /**
@@ -122,7 +120,7 @@ export class ContractPublicData {
    * @returns A random ContractPublicData object.
    */
   static random(): ContractPublicData {
-    return new ContractPublicData(AztecAddress.random(), EthAddress.random(), [
+    return new ContractPublicData(ContractData.random(), [
       EncodedContractFunction.random(),
       EncodedContractFunction.random(),
     ]);

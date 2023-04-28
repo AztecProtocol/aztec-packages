@@ -94,8 +94,8 @@ export class EthereumjsTxSender implements L1PublisherTxSender {
       const newContract = newContractData[i];
       const methodCall = this.unverifiedDataEmitterContract.methods.emitContractDeployment(
         BigInt(l2BlockNum),
-        newContract.contractAddress.toBuffer(),
-        newContract.portalContractAddress,
+        newContract.contractData.contractAddress.toBuffer(),
+        newContract.contractData.portalContractAddress,
         newContract.bytecode,
       );
       const gas = await methodCall.estimateGas();
