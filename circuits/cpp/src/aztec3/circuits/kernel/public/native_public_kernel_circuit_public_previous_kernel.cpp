@@ -11,6 +11,7 @@
 
 namespace {
 using CircuitErrorCode = aztec3::utils::CircuitErrorCode;
+using aztec3::utils::array_pop;
 /**
  * @brief Validates the kernel circuit inputs specific to having a public previous kernel
  * @param composer The circuit composer
@@ -29,26 +30,6 @@ void validate_inputs(DummyComposer& composer, PublicKernelInputs<NT> const& publ
                        "Previous kernel must be public",
                        CircuitErrorCode::PUBLIC_KERNEL__PREVIOUS_KERNEL_NOT_PUBLIC);
 }
-
-/**
- * @brief Validates that the call stack item for this circuit iteration is at the top of the call stack
- * @param composer The circuit composer
- * @param public_kernel_inputs The inputs to this iteration of the kernel circuit
- */
-void validate_this_public_call_hash(DummyComposer& composer, PublicKernelInputs<NT> const& public_kernel_inputs)
-{
-    // Pops the current function execution from the stack and validates it against the call stack item
-    const auto& start = public_kernel_inputs.previous_kernel.public_inputs.end;
-    // TODO: this logic might need to change to accommodate the weird edge 3 initial txs (the 'main' tx, the 'fee' tx,
-    // and the 'gas rebate' tx).
-    const auto popped_public_call_hash = array_pop(start.public_call_stack);
-    const auto calculated_this_public_call_hash = public_kernel_inputs.public_call.call_stack_item.hash();
-
-    composer.do_assert(
-        popped_public_call_hash == calculated_this_public_call_hash,
-        "calculated public_call_hash does not match provided public_call_hash at the top of the call stack",
-        CircuitErrorCode::PUBLIC_KERNEL__CALCULATED_PRIVATE_CALL_HASH_AND_PROVIDED_PRIVATE_CALL_HASH_MISMATCH);
-};
 } // namespace
 
 namespace aztec3::circuits::kernel::public_kernel {

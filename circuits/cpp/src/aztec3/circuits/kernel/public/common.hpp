@@ -15,7 +15,7 @@
 using NT = aztec3::utils::types::NativeTypes;
 using aztec3::circuits::abis::KernelCircuitPublicInputs;
 using aztec3::circuits::abis::PublicDataRead;
-using aztec3::circuits::abis::PublicDataWrite;
+using aztec3::circuits::abis::PublicDataTransition;
 using aztec3::circuits::abis::StateRead;
 using aztec3::circuits::abis::StateTransition;
 using aztec3::circuits::abis::public_kernel::PublicKernelInputs;
@@ -81,7 +81,7 @@ void common_validate_call_stack(DummyComposer& composer, KernelInput const& publ
                                   " expected ",
                                   expected_msg_sender,
                                   "; does not reconcile"),
-                           CircuitErrorCode::PUBLIC_KERNEL__PUBLIC_CALL_STACK_MISMATCH);
+                           CircuitErrorCode::PUBLIC_KERNEL__PUBLIC_CALL_STACK_INVALID_MSG_SENDER);
 
         // here we validate the storage address for each call on the stack
         // we need to consider regular vs delegate calls
@@ -95,7 +95,7 @@ void common_validate_call_stack(DummyComposer& composer, KernelInput const& publ
                                   " expected ",
                                   expected_storage_address,
                                   "; does not reconcile"),
-                           CircuitErrorCode::PUBLIC_KERNEL__PUBLIC_CALL_STACK_MISMATCH);
+                           CircuitErrorCode::PUBLIC_KERNEL__PUBLIC_CALL_STACK_INVALID_STORAGE_ADDRESS);
 
         // if it is a delegate call then we check that the portal contract in the pre image is our portal contract
         const auto preimage_portal_address = preimage.public_inputs.call_context.portal_contract_address;
@@ -108,12 +108,12 @@ void common_validate_call_stack(DummyComposer& composer, KernelInput const& publ
                                   " expected ",
                                   expected_portal_address,
                                   "; does not reconcile"),
-                           CircuitErrorCode::PUBLIC_KERNEL__PUBLIC_CALL_STACK_MISMATCH);
+                           CircuitErrorCode::PUBLIC_KERNEL__PUBLIC_CALL_STACK_INVALID_PORTAL_ADDRESS);
 
         const auto num_state_transitions = array_length(preimage.public_inputs.state_transitions);
         composer.do_assert(!is_static_call || num_state_transitions == 0,
                            format("call_state_transitions[", i, "] should be empty"),
-                           CircuitErrorCode::PUBLIC_KERNEL__PUBLIC_CALL_STACK_MISMATCH);
+                           CircuitErrorCode::PUBLIC_KERNEL__PUBLIC_CALL_STACK_TRANSITIONS_PROHIBITED_FOR_STATIC_CALL);
     }
 };
 
@@ -135,11 +135,11 @@ void common_validate_call_context(DummyComposer& composer, KernelInput const& pu
 
     composer.do_assert(!is_delegate_call || contract_address != storage_contract_address,
                        std::string("call_context contract_address == storage_contract_address on delegate_call"),
-                       CircuitErrorCode::PUBLIC_KERNEL__CALL_CONTEXT_INVALID);
+                       CircuitErrorCode::PUBLIC_KERNEL__CALL_CONTEXT_INVALID_STORAGE_ADDRESS_FOR_DELEGATE_CALL);
 
     composer.do_assert(!is_static_call || state_transitions_length == 0,
                        std::string("call_context state transitions found on static call"),
-                       CircuitErrorCode::PUBLIC_KERNEL__CALL_CONTEXT_INVALID);
+                       CircuitErrorCode::PUBLIC_KERNEL__CALL_CONTEXT_TRANSITIONS_PROHIBITED_FOR_STATIC_CALL);
 };
 
 /**

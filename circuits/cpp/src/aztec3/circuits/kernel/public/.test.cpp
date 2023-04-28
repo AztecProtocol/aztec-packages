@@ -25,6 +25,7 @@
 #include <aztec3/circuits/apps/function_execution_context.hpp>
 #include <aztec3/circuits/abis/previous_kernel_data.hpp>
 #include <aztec3/utils/array.hpp>
+#include <aztec3/utils/circuit_errors.hpp>
 
 namespace {
 using DummyComposer = aztec3::utils::DummyComposer;
@@ -48,6 +49,7 @@ using aztec3::circuits::abis::TxContext;
 using aztec3::circuits::abis::TxRequest;
 using aztec3::circuits::abis::public_kernel::PublicCallData;
 using aztec3::circuits::apps::FunctionExecutionContext;
+using aztec3::utils::CircuitErrorCode;
 using aztec3::utils::source_arrays_are_in_target;
 using aztec3::utils::zero_array;
 } // namespace
@@ -283,10 +285,10 @@ PublicDataRead<NT> public_data_read_from_state_read(StateRead<NT> const& state_r
     };
 }
 
-PublicDataWrite<NT> public_data_write_from_state_transition(StateTransition<NT> const& state_transition,
-                                                            NT::fr const& contract_address)
+PublicDataTransition<NT> public_data_write_from_state_transition(StateTransition<NT> const& state_transition,
+                                                                 NT::fr const& contract_address)
 {
-    return PublicDataWrite<NT>{
+    return PublicDataTransition<NT>{
         .leaf_index = compute_public_data_tree_index<NT>(contract_address, state_transition.storage_slot),
         .old_value = compute_public_data_tree_value<NT>(state_transition.old_value),
         .new_value = compute_public_data_tree_value<NT>(state_transition.new_value),
@@ -307,10 +309,10 @@ std::array<PublicDataRead<NT>, STATE_READS_LENGTH> public_data_reads_from_state_
     return values;
 }
 
-std::array<PublicDataWrite<NT>, STATE_TRANSITIONS_LENGTH> public_data_writes_from_state_transitions(
+std::array<PublicDataTransition<NT>, STATE_TRANSITIONS_LENGTH> public_data_writes_from_state_transitions(
     std::array<StateTransition<NT>, STATE_TRANSITIONS_LENGTH> const& state_transitions, NT::fr const& contract_address)
 {
-    std::array<PublicDataWrite<NT>, STATE_TRANSITIONS_LENGTH> values;
+    std::array<PublicDataTransition<NT>, STATE_TRANSITIONS_LENGTH> values;
     for (size_t i = 0; i < STATE_TRANSITIONS_LENGTH; i++) {
         const auto& transition = state_transitions[i];
         if (transition.is_empty()) {
@@ -362,7 +364,7 @@ PublicKernelInputs<NT> get_kernel_inputs_with_previous_kernel(NT::boolean privat
         .l1_msg_stack = array_of_values<KERNEL_L1_MSG_STACK_LENGTH>(seed, 4),
         .new_contracts = std::array<NewContractData<NT>, KERNEL_NEW_CONTRACTS_LENGTH>(),
         .optionally_revealed_data = std::array<OptionallyRevealedData<NT>, KERNEL_OPTIONALLY_REVEALED_DATA_LENGTH>(),
-        .state_transitions = std::array<PublicDataWrite<NT>, STATE_TRANSITIONS_LENGTH>(),
+        .state_transitions = std::array<PublicDataTransition<NT>, STATE_TRANSITIONS_LENGTH>(),
         .state_reads = std::array<PublicDataRead<NT>, STATE_READS_LENGTH>()
     };
 
@@ -549,6 +551,7 @@ TEST(public_kernel_tests, constructor_should_fail)
     inputs.public_call.call_stack_item.function_data.is_constructor = true;
     auto public_inputs = native_public_kernel_circuit_no_previous_kernel(dc, inputs);
     ASSERT_TRUE(dc.failed());
+    ASSERT_EQ(dc.get_first_failure().code, CircuitErrorCode::PUBLIC_KERNEL__CONSTRUCTOR_NOT_ALLOWED);
 }
 
 TEST(public_kernel_tests, constructor_should_fail_2)
@@ -559,6 +562,7 @@ TEST(public_kernel_tests, constructor_should_fail_2)
     inputs.public_call.call_stack_item.public_inputs.call_context.is_contract_deployment = true;
     auto public_inputs = native_public_kernel_circuit_no_previous_kernel(dc, inputs);
     ASSERT_TRUE(dc.failed());
+    ASSERT_EQ(dc.get_first_failure().code, CircuitErrorCode::PUBLIC_KERNEL__CONTRACT_DEPLOYMENT_NOT_ALLOWED);
 }
 
 TEST(public_kernel_tests, no_bytecode_hash_should_fail)
@@ -569,6 +573,7 @@ TEST(public_kernel_tests, no_bytecode_hash_should_fail)
     inputs.public_call.bytecode_hash = 0;
     auto public_inputs = native_public_kernel_circuit_no_previous_kernel(dc, inputs);
     ASSERT_TRUE(dc.failed());
+    ASSERT_EQ(dc.get_first_failure().code, CircuitErrorCode::PUBLIC_KERNEL__BYTECODE_HASH_INVALID);
 }
 
 TEST(public_kernel_tests, delegate_call_should_fail)
@@ -579,6 +584,7 @@ TEST(public_kernel_tests, delegate_call_should_fail)
     inputs.public_call.call_stack_item.public_inputs.call_context.is_delegate_call = true;
     auto public_inputs = native_public_kernel_circuit_no_previous_kernel(dc, inputs);
     ASSERT_TRUE(dc.failed());
+    ASSERT_EQ(dc.get_first_failure().code, CircuitErrorCode::PUBLIC_KERNEL__DELEGATE_CALL_PROHIBITED_BY_USER);
 }
 
 TEST(public_kernel_tests, static_call_should_fail)
@@ -589,6 +595,7 @@ TEST(public_kernel_tests, static_call_should_fail)
     inputs.public_call.call_stack_item.public_inputs.call_context.is_static_call = true;
     auto public_inputs = native_public_kernel_circuit_no_previous_kernel(dc, inputs);
     ASSERT_TRUE(dc.failed());
+    ASSERT_EQ(dc.get_first_failure().code, CircuitErrorCode::PUBLIC_KERNEL__STATIC_CALL_PROHIBITED_BY_USER);
 }
 
 TEST(public_kernel_tests, storage_contract_address_must_equal_contract_address)
@@ -600,6 +607,7 @@ TEST(public_kernel_tests, storage_contract_address_must_equal_contract_address)
     inputs.public_call.call_stack_item.public_inputs.call_context.storage_contract_address = contract_address + 1;
     auto public_inputs = native_public_kernel_circuit_no_previous_kernel(dc, inputs);
     ASSERT_TRUE(dc.failed());
+    ASSERT_EQ(dc.get_first_failure().code, CircuitErrorCode::PUBLIC_KERNEL__CONTRACT_ADDRESS_MISMATCH);
 }
 
 TEST(public_kernel_tests, contract_address_must_be_valid)
@@ -610,6 +618,7 @@ TEST(public_kernel_tests, contract_address_must_be_valid)
     inputs.public_call.call_stack_item.contract_address = 0;
     auto public_inputs = native_public_kernel_circuit_no_previous_kernel(dc, inputs);
     ASSERT_TRUE(dc.failed());
+    ASSERT_EQ(dc.get_first_failure().code, CircuitErrorCode::PUBLIC_KERNEL__CONTRACT_ADDRESS_INVALID);
 }
 
 TEST(public_kernel_tests, function_selector_must_be_valid)
@@ -620,6 +629,7 @@ TEST(public_kernel_tests, function_selector_must_be_valid)
     inputs.public_call.call_stack_item.function_data.function_selector = 0;
     auto public_inputs = native_public_kernel_circuit_no_previous_kernel(dc, inputs);
     ASSERT_TRUE(dc.failed());
+    ASSERT_EQ(dc.get_first_failure().code, CircuitErrorCode::PUBLIC_KERNEL__FUNCTION_SIGNATURE_INVALID);
 }
 
 TEST(public_kernel_tests, private_call_should_fail)
@@ -630,6 +640,7 @@ TEST(public_kernel_tests, private_call_should_fail)
     inputs.public_call.call_stack_item.function_data.is_private = true;
     auto public_inputs = native_public_kernel_circuit_no_previous_kernel(dc, inputs);
     ASSERT_TRUE(dc.failed());
+    ASSERT_EQ(dc.get_first_failure().code, CircuitErrorCode::PUBLIC_KERNEL__PRIVATE_FUNCTION_NOT_ALLOWED);
 }
 
 TEST(public_kernel_tests, inconsistent_call_hash_should_fail)
@@ -642,6 +653,7 @@ TEST(public_kernel_tests, inconsistent_call_hash_should_fail)
         inputs.public_call.public_call_stack_preimages[i].public_inputs.args[0]++;
         auto public_inputs = native_public_kernel_circuit_no_previous_kernel(dc, inputs);
         ASSERT_TRUE(dc.failed());
+        ASSERT_EQ(dc.get_first_failure().code, CircuitErrorCode::PUBLIC_KERNEL__PUBLIC_CALL_STACK_MISMATCH);
     }
 }
 
@@ -658,6 +670,8 @@ TEST(public_kernel_tests, incorrect_storage_contract_address_fails_for_regular_c
             new_contract_address;
         auto public_inputs = native_public_kernel_circuit_no_previous_kernel(dc, inputs);
         ASSERT_TRUE(dc.failed());
+        ASSERT_EQ(dc.get_first_failure().code,
+                  CircuitErrorCode::PUBLIC_KERNEL__PUBLIC_CALL_STACK_INVALID_STORAGE_ADDRESS);
     }
 }
 
@@ -672,6 +686,7 @@ TEST(public_kernel_tests, incorrect_msg_sender_fails_for_regular_calls)
         inputs.public_call.public_call_stack_preimages[i].public_inputs.call_context.msg_sender = new_msg_sender;
         auto public_inputs = native_public_kernel_circuit_no_previous_kernel(dc, inputs);
         ASSERT_TRUE(dc.failed());
+        ASSERT_EQ(dc.get_first_failure().code, CircuitErrorCode::PUBLIC_KERNEL__PUBLIC_CALL_STACK_INVALID_MSG_SENDER);
     }
 }
 
@@ -739,6 +754,7 @@ TEST(public_kernel_tests, public_kernel_circuit_fails_on_incorrect_msg_sender_in
     inputs.public_call.public_call_stack_preimages = child_call_stacks;
     auto public_inputs = native_public_kernel_circuit_no_previous_kernel(dc, inputs);
     ASSERT_TRUE(dc.failed());
+    ASSERT_EQ(dc.get_first_failure().code, CircuitErrorCode::PUBLIC_KERNEL__PUBLIC_CALL_STACK_INVALID_MSG_SENDER);
 }
 
 TEST(public_kernel_tests, public_kernel_circuit_fails_on_incorrect_storage_contract_in_delegate_call)
@@ -767,6 +783,7 @@ TEST(public_kernel_tests, public_kernel_circuit_fails_on_incorrect_storage_contr
     inputs.public_call.public_call_stack_preimages = child_call_stacks;
     auto public_inputs = native_public_kernel_circuit_no_previous_kernel(dc, inputs);
     ASSERT_TRUE(dc.failed());
+    ASSERT_EQ(dc.get_first_failure().code, CircuitErrorCode::PUBLIC_KERNEL__PUBLIC_CALL_STACK_INVALID_STORAGE_ADDRESS);
 }
 
 TEST(public_kernel_tests, public_kernel_circuit_fails_on_incorrect_portal_contract_in_delegate_call)
@@ -796,31 +813,7 @@ TEST(public_kernel_tests, public_kernel_circuit_fails_on_incorrect_portal_contra
     inputs.public_call.public_call_stack_preimages = child_call_stacks;
     auto public_inputs = native_public_kernel_circuit_no_previous_kernel(dc, inputs);
     ASSERT_TRUE(dc.failed());
-}
-
-TEST(public_kernel_tests, public_kernel_circuit_fails_if_state_transitions_on_static_call)
-{
-    DummyComposer dc;
-    PublicKernelInputsNoPreviousKernel<NT> inputs = get_kernel_inputs_no_previous_kernel();
-
-    // the function call has state_transitions so setting it to static should fail
-    inputs.public_call.call_stack_item.public_inputs.call_context.is_static_call = true;
-
-    auto public_inputs = native_public_kernel_circuit_no_previous_kernel(dc, inputs);
-    ASSERT_TRUE(dc.failed());
-}
-
-TEST(public_kernel_tests, public_kernel_circuit_fails_if_incorrect_storage_contract_on_delegate_call)
-{
-    DummyComposer dc;
-    PublicKernelInputsNoPreviousKernel<NT> inputs = get_kernel_inputs_no_previous_kernel();
-
-    // the function call has the contract address and storage contract address equal and so it should fail for a
-    // delegate call
-    inputs.public_call.call_stack_item.public_inputs.call_context.is_delegate_call = true;
-
-    auto public_inputs = native_public_kernel_circuit_no_previous_kernel(dc, inputs);
-    ASSERT_TRUE(dc.failed());
+    ASSERT_EQ(dc.get_first_failure().code, CircuitErrorCode::PUBLIC_KERNEL__PUBLIC_CALL_STACK_INVALID_PORTAL_ADDRESS);
 }
 
 TEST(public_kernel_tests, public_kernel_circuit_with_private_previous_kernel_should_succeed)
@@ -851,6 +844,7 @@ TEST(public_kernel_tests, private_previous_kernel_non_empty_private_call_stack_s
     inputs.previous_kernel.public_inputs.end.private_call_stack[0] = 1;
     auto public_inputs = native_public_kernel_circuit_private_previous_kernel(dc, inputs);
     ASSERT_TRUE(dc.failed());
+    ASSERT_EQ(dc.get_first_failure().code, CircuitErrorCode::PUBLIC_KERNEL__NON_EMPTY_PRIVATE_CALL_STACK);
 }
 
 TEST(public_kernel_tests, private_previous_kernel_empty_public_call_stack_should_fail)
@@ -860,6 +854,7 @@ TEST(public_kernel_tests, private_previous_kernel_empty_public_call_stack_should
     inputs.public_call.call_stack_item.public_inputs.public_call_stack = zero_array<NT::fr, PUBLIC_CALL_STACK_LENGTH>();
     auto public_inputs = native_public_kernel_circuit_private_previous_kernel(dc, inputs);
     ASSERT_TRUE(dc.failed());
+    ASSERT_EQ(dc.get_first_failure().code, CircuitErrorCode::PUBLIC_KERNEL__EMPTY_PUBLIC_CALL_STACK);
 }
 
 TEST(public_kernel_tests, private_previous_kernel_zero_private_call_count_should_fail)
@@ -869,6 +864,7 @@ TEST(public_kernel_tests, private_previous_kernel_zero_private_call_count_should
     inputs.previous_kernel.public_inputs.end.private_call_count = 0;
     auto public_inputs = native_public_kernel_circuit_private_previous_kernel(dc, inputs);
     ASSERT_TRUE(dc.failed());
+    ASSERT_EQ(dc.get_first_failure().code, CircuitErrorCode::PUBLIC_KERNEL__ZERO_PRIVATE_CALL_COUNT);
 }
 
 TEST(public_kernel_tests, private_previous_kernel_non_zero_public_call_count_should_fail)
@@ -878,6 +874,7 @@ TEST(public_kernel_tests, private_previous_kernel_non_zero_public_call_count_sho
     inputs.previous_kernel.public_inputs.end.public_call_count = 1;
     auto public_inputs = native_public_kernel_circuit_private_previous_kernel(dc, inputs);
     ASSERT_TRUE(dc.failed());
+    ASSERT_EQ(dc.get_first_failure().code, CircuitErrorCode::PUBLIC_KERNEL__NON_ZERO_PUBLIC_CALL_COUNT);
 }
 
 TEST(public_kernel_tests, private_previous_kernel_non_private_previous_kernel_should_fail)
@@ -887,6 +884,36 @@ TEST(public_kernel_tests, private_previous_kernel_non_private_previous_kernel_sh
     inputs.previous_kernel.public_inputs.is_private = false;
     auto public_inputs = native_public_kernel_circuit_private_previous_kernel(dc, inputs);
     ASSERT_TRUE(dc.failed());
+    ASSERT_EQ(dc.get_first_failure().code, CircuitErrorCode::PUBLIC_KERNEL__PREVIOUS_KERNEL_NOT_PRIVATE);
+}
+
+TEST(public_kernel_tests, previous_private_kernel_fails_if_state_transitions_on_static_call)
+{
+    DummyComposer dc;
+    PublicKernelInputs<NT> inputs = get_kernel_inputs_with_previous_kernel(true);
+
+    // the function call has state_transitions so setting it to static should fail
+    inputs.public_call.call_stack_item.public_inputs.call_context.is_static_call = true;
+
+    auto public_inputs = native_public_kernel_circuit_private_previous_kernel(dc, inputs);
+    ASSERT_TRUE(dc.failed());
+    ASSERT_EQ(dc.get_first_failure().code,
+              CircuitErrorCode::PUBLIC_KERNEL__CALL_CONTEXT_TRANSITIONS_PROHIBITED_FOR_STATIC_CALL);
+}
+
+TEST(public_kernel_tests, previous_private_kernel_fails_if_incorrect_storage_contract_on_delegate_call)
+{
+    DummyComposer dc;
+    PublicKernelInputs<NT> inputs = get_kernel_inputs_with_previous_kernel(true);
+
+    // the function call has the contract address and storage contract address equal and so it should fail for a
+    // delegate call
+    inputs.public_call.call_stack_item.public_inputs.call_context.is_delegate_call = true;
+
+    auto public_inputs = native_public_kernel_circuit_private_previous_kernel(dc, inputs);
+    ASSERT_TRUE(dc.failed());
+    ASSERT_EQ(dc.get_first_failure().code,
+              CircuitErrorCode::PUBLIC_KERNEL__CALL_CONTEXT_INVALID_STORAGE_ADDRESS_FOR_DELEGATE_CALL);
 }
 
 TEST(public_kernel_tests, public_kernel_circuit_with_public_previous_kernel_should_succeed)
@@ -904,6 +931,7 @@ TEST(public_kernel_tests, public_previous_kernel_empty_public_call_stack_should_
     inputs.public_call.call_stack_item.public_inputs.public_call_stack = zero_array<NT::fr, PUBLIC_CALL_STACK_LENGTH>();
     auto public_inputs = native_public_kernel_circuit_public_previous_kernel(dc, inputs);
     ASSERT_TRUE(dc.failed());
+    ASSERT_EQ(dc.get_first_failure().code, CircuitErrorCode::PUBLIC_KERNEL__EMPTY_PUBLIC_CALL_STACK);
 }
 
 TEST(public_kernel_tests, public_previous_kernel_zero_public_call_count_should_fail)
@@ -913,6 +941,7 @@ TEST(public_kernel_tests, public_previous_kernel_zero_public_call_count_should_f
     inputs.previous_kernel.public_inputs.end.public_call_count = 0;
     auto public_inputs = native_public_kernel_circuit_public_previous_kernel(dc, inputs);
     ASSERT_TRUE(dc.failed());
+    ASSERT_EQ(dc.get_first_failure().code, CircuitErrorCode::PUBLIC_KERNEL__ZERO_PUBLIC_CALL_COUNT);
 }
 
 TEST(public_kernel_tests, public_previous_kernel_private_previous_kernel_should_fail)
@@ -922,6 +951,7 @@ TEST(public_kernel_tests, public_previous_kernel_private_previous_kernel_should_
     inputs.previous_kernel.public_inputs.is_private = true;
     auto public_inputs = native_public_kernel_circuit_public_previous_kernel(dc, inputs);
     ASSERT_TRUE(dc.failed());
+    ASSERT_EQ(dc.get_first_failure().code, CircuitErrorCode::PUBLIC_KERNEL__PREVIOUS_KERNEL_NOT_PUBLIC);
 }
 
 TEST(public_kernel_tests, circuit_outputs_should_be_correctly_populated_with_previous_public_kernel)
@@ -930,18 +960,18 @@ TEST(public_kernel_tests, circuit_outputs_should_be_correctly_populated_with_pre
     PublicKernelInputs<NT> inputs = get_kernel_inputs_with_previous_kernel(false);
 
     // setup 2 previous data writes on the public inputs
-    const auto first_write = PublicDataWrite<NT>{
+    const auto first_write = PublicDataTransition<NT>{
         .leaf_index = 123456789,
         .old_value = 76543,
         .new_value = 76544,
     };
-    const auto second_write = PublicDataWrite<NT>{
+    const auto second_write = PublicDataTransition<NT>{
         .leaf_index = 987654321,
         .old_value = 86543,
         .new_value = 86544,
     };
-    std::array<PublicDataWrite<NT>, STATE_TRANSITIONS_LENGTH> initial_writes =
-        std::array<PublicDataWrite<NT>, STATE_TRANSITIONS_LENGTH>();
+    std::array<PublicDataTransition<NT>, STATE_TRANSITIONS_LENGTH> initial_writes =
+        std::array<PublicDataTransition<NT>, STATE_TRANSITIONS_LENGTH>();
     initial_writes[0] = first_write;
     initial_writes[1] = second_write;
     inputs.previous_kernel.public_inputs.end.state_transitions = initial_writes;
@@ -981,7 +1011,7 @@ TEST(public_kernel_tests, circuit_outputs_should_be_correctly_populated_with_pre
                   array_length(inputs.public_call.call_stack_item.public_inputs.state_transitions));
 
     const auto contract_address = inputs.public_call.call_stack_item.contract_address;
-    std::array<PublicDataWrite<NT>, STATE_TRANSITIONS_LENGTH> expected_new_writes =
+    std::array<PublicDataTransition<NT>, STATE_TRANSITIONS_LENGTH> expected_new_writes =
         public_data_writes_from_state_transitions(inputs.public_call.call_stack_item.public_inputs.state_transitions,
                                                   contract_address);
 
@@ -996,5 +1026,34 @@ TEST(public_kernel_tests, circuit_outputs_should_be_correctly_populated_with_pre
         inputs.previous_kernel.public_inputs.end.state_reads, expected_new_reads, public_inputs.end.state_reads));
 
     ASSERT_FALSE(dc.failed());
+}
+
+TEST(public_kernel_tests, previous_public_kernel_fails_if_state_transitions_on_static_call)
+{
+    DummyComposer dc;
+    PublicKernelInputs<NT> inputs = get_kernel_inputs_with_previous_kernel(false);
+
+    // the function call has state_transitions so setting it to static should fail
+    inputs.public_call.call_stack_item.public_inputs.call_context.is_static_call = true;
+
+    auto public_inputs = native_public_kernel_circuit_public_previous_kernel(dc, inputs);
+    ASSERT_TRUE(dc.failed());
+    ASSERT_EQ(dc.get_first_failure().code,
+              CircuitErrorCode::PUBLIC_KERNEL__CALL_CONTEXT_TRANSITIONS_PROHIBITED_FOR_STATIC_CALL);
+}
+
+TEST(public_kernel_tests, previous_public_kernel_fails_if_incorrect_storage_contract_on_delegate_call)
+{
+    DummyComposer dc;
+    PublicKernelInputs<NT> inputs = get_kernel_inputs_with_previous_kernel(false);
+
+    // the function call has the contract address and storage contract address equal and so it should fail for a
+    // delegate call
+    inputs.public_call.call_stack_item.public_inputs.call_context.is_delegate_call = true;
+
+    auto public_inputs = native_public_kernel_circuit_public_previous_kernel(dc, inputs);
+    ASSERT_TRUE(dc.failed());
+    ASSERT_EQ(dc.get_first_failure().code,
+              CircuitErrorCode::PUBLIC_KERNEL__CALL_CONTEXT_INVALID_STORAGE_ADDRESS_FOR_DELEGATE_CALL);
 }
 } // namespace aztec3::circuits::kernel::public_kernel
