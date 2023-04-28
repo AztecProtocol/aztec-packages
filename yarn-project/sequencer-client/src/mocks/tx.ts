@@ -1,9 +1,9 @@
-import { PrivateKernelPublicInputs, UInt8Vector } from '@aztec/circuits.js';
+import { PrivateKernelPublicInputs, Proof } from '@aztec/circuits.js';
 import { makePrivateKernelPublicInputs } from '@aztec/circuits.js/factories';
 import { PrivateTx, Tx, UnverifiedData } from '@aztec/types';
 
 function makeEmptyProof() {
-  return new UInt8Vector(Buffer.alloc(0));
+  return new Proof(Buffer.alloc(0));
 }
 
 export function makeEmptyUnverifiedData(): UnverifiedData {

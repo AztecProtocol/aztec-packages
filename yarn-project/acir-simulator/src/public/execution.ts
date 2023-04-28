@@ -59,7 +59,7 @@ export class PublicExecution {
   }
 
   public async run(): Promise<PublicExecutionResult> {
-    const selectorHex = this.functionData.functionSelector.toString('hex');
+    const selectorHex = this.functionData.functionSelector.toString(16);
     this.log(`Executing public external function ${this.contractAddress.toShortString()}:${selectorHex}`);
 
     const acir = Buffer.from(this.abi.bytecode, 'hex');

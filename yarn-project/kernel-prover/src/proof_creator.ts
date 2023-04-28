@@ -6,8 +6,8 @@ import {
   PrivateCallData,
   PrivateCircuitPublicInputs,
   PrivateKernelPublicInputs,
+  Proof,
   SignedTxRequest,
-  UInt8Vector,
   makeEmptyProof,
   privateKernelSim,
 } from '@aztec/circuits.js';
@@ -16,7 +16,7 @@ import { createDebugLogger } from '@aztec/foundation/log';
 
 export interface ProofOutput {
   publicInputs: PrivateKernelPublicInputs;
-  proof: UInt8Vector;
+  proof: Proof;
 }
 
 export interface ProofCreator {

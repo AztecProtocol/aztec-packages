@@ -21,7 +21,7 @@ import {
   VerificationKey,
 } from '@aztec/circuits.js';
 import { computeContractLeaf } from '@aztec/circuits.js/abis';
-import { Fr, createDebugLogger, toBigIntBE, toBufferBE } from '@aztec/foundation';
+import { Fr, createDebugLogger, toBigIntBE, toBufferBE, toTupleOf } from '@aztec/foundation';
 import { LeafData, SiblingPath } from '@aztec/merkle-tree';
 import { ContractData, L2Block, PrivateTx, Tx, isPrivateTx } from '@aztec/types';
 import { MerkleTreeId, MerkleTreeOperations } from '@aztec/world-state';
@@ -363,7 +363,7 @@ export class CircuitBlockBuilder implements BlockBuilder {
 
       // MembershipWitness for a VK tree to be implemented in the future
       FUTURE_NUM,
-      Array(VK_TREE_HEIGHT).fill(FUTURE_FR),
+      toTupleOf(Array(VK_TREE_HEIGHT).fill(FUTURE_FR), VK_TREE_HEIGHT),
     );
   }
 

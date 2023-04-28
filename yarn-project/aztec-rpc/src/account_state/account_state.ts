@@ -66,7 +66,7 @@ export class AccountState {
     const contractAddress = txRequest.to;
     const functionAbi = await contractDataOracle.getFunctionAbi(
       contractAddress,
-      txRequest.functionData.functionSelector,
+      txRequest.functionData.functionSelectorBuffer,
     );
     const portalContract = await contractDataOracle.getPortalContractAddress(contractAddress);
     const historicRoots = new HistoricTreeRoots(Fr.ZERO, Fr.ZERO, Fr.ZERO, Fr.ZERO); // TODO - get old roots from the database/node

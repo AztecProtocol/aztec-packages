@@ -1,4 +1,4 @@
-import { CircuitsWasm, PrivateKernelPublicInputs, SignedTxRequest, UInt8Vector } from '@aztec/circuits.js';
+import { CircuitsWasm, PrivateKernelPublicInputs, Proof, SignedTxRequest } from '@aztec/circuits.js';
 import { computeContractLeaf } from '@aztec/circuits.js/abis';
 import { createTxHash } from './create_tx_hash.js';
 import { TxHash } from './tx_hash.js';
@@ -24,7 +24,7 @@ export class Tx {
 
   public static createPrivate(
     data: PrivateKernelPublicInputs,
-    proof: UInt8Vector,
+    proof: Proof,
     unverifiedData: UnverifiedData,
   ): PrivateTx {
     return new this(data, proof, unverifiedData, undefined) as PrivateTx;
@@ -36,7 +36,7 @@ export class Tx {
 
   public static createPrivatePublic(
     data: PrivateKernelPublicInputs,
-    proof: UInt8Vector,
+    proof: Proof,
     unverifiedData: UnverifiedData,
     txRequest: SignedTxRequest,
   ): PrivateTx & PublicTx {
@@ -45,7 +45,7 @@ export class Tx {
 
   public static create(
     data?: PrivateKernelPublicInputs,
-    proof?: UInt8Vector,
+    proof?: Proof,
     unverifiedData?: UnverifiedData,
     txRequest?: SignedTxRequest,
   ): Tx {
@@ -73,7 +73,7 @@ export class Tx {
    */
   protected constructor(
     public readonly data?: PrivateKernelPublicInputs,
-    public readonly proof?: UInt8Vector,
+    public readonly proof?: Proof,
     public readonly unverifiedData?: UnverifiedData,
     public readonly txRequest?: SignedTxRequest,
   ) {}

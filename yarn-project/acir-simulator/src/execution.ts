@@ -72,7 +72,7 @@ export class Execution {
   public async run(): Promise<ExecutionResult> {
     this.log(
       `Executing external function ${this.contractAddress.toShortString()}:${this.functionData.functionSelector.toString(
-        'hex',
+        16,
       )}`,
     );
 

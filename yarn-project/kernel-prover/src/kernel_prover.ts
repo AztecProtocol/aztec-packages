@@ -14,7 +14,7 @@ import {
   VerificationKey,
   makeEmptyProof,
 } from '@aztec/circuits.js';
-import { AztecAddress, Fr } from '@aztec/foundation';
+import { AztecAddress, Fr, toTupleOf } from '@aztec/foundation';
 import { KernelProofCreator, ProofCreator, ProofOutput } from './proof_creator.js';
 import { ProvingDataOracle } from './proving_data_oracle.js';
 
@@ -54,7 +54,7 @@ export class KernelProver {
         output.proof,
         previousVerificationKey,
         previousVkMembershipWitness.leafIndex,
-        previousVkMembershipWitness.siblingPath,
+        toTupleOf<Fr, typeof VK_TREE_HEIGHT>(previousVkMembershipWitness.siblingPath, VK_TREE_HEIGHT),
       );
 
       const currentExecution = executionStack.pop()!;
@@ -106,7 +106,7 @@ export class KernelProver {
 
     const functionLeafMembershipWitness = await this.oracle.getFunctionMembershipWitness(
       contractAddress,
-      functionData.functionSelector,
+      functionData.functionSelectorBuffer,
     );
 
     // TODO

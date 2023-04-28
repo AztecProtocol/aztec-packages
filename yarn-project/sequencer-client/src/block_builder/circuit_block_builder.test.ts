@@ -5,7 +5,7 @@ import {
   CircuitsWasm,
   Fr,
   RootRollupPublicInputs,
-  UInt8Vector,
+  Proof,
 } from '@aztec/circuits.js';
 import {
   makeBaseRollupPublicInputs,
@@ -48,7 +48,7 @@ describe('sequencer/circuit_block_builder', () => {
 
   let wasm: CircuitsWasm;
 
-  const emptyProof = new UInt8Vector(Buffer.alloc(32, 0));
+  const emptyProof = new Proof(Buffer.alloc(32, 0));
 
   beforeAll(async () => {
     wasm = await CircuitsWasm.get();
