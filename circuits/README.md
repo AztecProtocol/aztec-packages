@@ -70,6 +70,10 @@ You can choose which tests will run via a gtest filter. This one below runs only
 ./scripts/run_tests_local wasm aztec3_circuits_abis_tests -*.circuit*
 ```
 
+> _Note:_ To log wasm output from within TS that uses them, you can use before running your `yarn test`
+```
+export DEBUG='wasm'
+```
 ---
 
 Here's a list of the tests currently available (conveniently combined with the command to build, then execute them on `x86_64`, for easy copy-pasta):

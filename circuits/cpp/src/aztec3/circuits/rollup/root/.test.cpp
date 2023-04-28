@@ -204,7 +204,7 @@ TEST_F(root_rollup_tests, native_calldata_hash_empty_blocks)
 
     // Expected hash of public inputs for an empty L2 block. Also used in the contract tests.
     // Can be computed using the typescript l2_block's helper functions (see circuit_block_builder.test.ts)
-    fr expected_hash = uint256_t("000f71c3a1c4cd35b16d9f2f05338fa8cd2846493edf8be3d09b7912164460f2");
+    fr expected_hash = uint256_t("2b9b56549c50cad1f6329a594979cf9a1d71f87f24c2a1bf33fe7743faabaaeb");
     ASSERT_EQ(outputs.hash(), expected_hash);
 
     run_cbind(inputs, outputs, true);
@@ -241,21 +241,19 @@ TEST_F(root_rollup_tests, native_root_missing_nullifier_logic)
 
     set_kernel_l2_to_l1_msgs(kernels[0], { 1281, 1282 });
 
-    std::vector<uint8_t> buffer = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-                                    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-                                    0x00, 0x00, 0x06, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-                                    0x00, 0x00, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02,
-                                    0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    /*std::vector<uint8_t> buffer = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x06, 0x01,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02,
+    0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
                                     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
                                     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x06, 0x03 };
-
     // Initialize a pointer to the start of the buffer
     uint8_t const* it = buffer.data();
     // Initialize a ContractData object
     NewContractData<NT> new_contract_data;
     // Read data from the buffer into the ContractData object
     read(it, new_contract_data);
-    info(new_contract_data, " -> ", new_contract_data.hash());
+    info(new_contract_data, " -> ", new_contract_data.hash());*/
 
     NewContractData<NT> new_contract = {
         .contract_address = fr(1537),
@@ -263,9 +261,7 @@ TEST_F(root_rollup_tests, native_root_missing_nullifier_logic)
         .function_tree_root = fr(1539),
     };
 
-    // todo: Something is not right down here
-    // cpp       : 0x2fc69c406bc516727df30e377bd89568a72af49db5835698e81714de79b8d726
-    // typescript: 0x300293e2cd9b78453a37ad2a6282c5bb50f6212518ba22aad8cec3a4ebecc22a
+    // todo: Something is not right down here. I'm getting different hashes on same leaf preimage
     info("contract: ", new_contract.hash());
 
     contract_tree.update_element(0, new_contract.hash());
@@ -328,7 +324,7 @@ TEST_F(root_rollup_tests, native_root_missing_nullifier_logic)
     ASSERT_EQ(outputs.start_tree_of_historic_contract_tree_roots_snapshot, start_historic_contract_tree_snapshot);
     ASSERT_EQ(outputs.end_tree_of_historic_contract_tree_roots_snapshot, end_historic_contract_tree_snapshot);
 
-    fr expected = uint256_t("163323613ec38b4525decb91da4fe92b858f61b2eef1dd3c736fea35aa76b727");
+    fr expected = uint256_t("20638cd5e03d287dbd356af6e16fd852337f535b12d06f7266599c035696098d");
     ASSERT_EQ(outputs.hash(), expected);
 
     EXPECT_FALSE(composer.failed());

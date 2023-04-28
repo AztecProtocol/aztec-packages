@@ -101,7 +101,7 @@ PublicCallStackItem generate_call_stack_item(NT::fr contract_address, NT::fr msg
     std::array<NT::fr, RETURN_VALUES_LENGTH> return_values = array_of_values<RETURN_VALUES_LENGTH>(count);
     std::array<NT::fr, EMITTED_EVENTS_LENGTH> emitted_events = array_of_values<EMITTED_EVENTS_LENGTH>(count);
     std::array<NT::fr, PUBLIC_CALL_STACK_LENGTH> public_call_stack = array_of_values<PUBLIC_CALL_STACK_LENGTH>(count);
-    std::array<NT::fr, L1_MSG_STACK_LENGTH> l1_msg_stack = array_of_values<L1_MSG_STACK_LENGTH>(count);
+    std::array<NT::fr, NEW_L2_TO_L1_MSGS_LENGTH> new_l2_to_l1_msgs = array_of_values<NEW_L2_TO_L1_MSGS_LENGTH>(count);
     std::array<StateRead<NT>, STATE_READS_LENGTH> reads = generate_state_reads(count);
     std::array<StateTransition<NT>, STATE_TRANSITIONS_LENGTH> transitions = generate_state_transitions(count);
 
@@ -114,7 +114,7 @@ PublicCallStackItem generate_call_stack_item(NT::fr contract_address, NT::fr msg
         .state_transitions = transitions,
         .state_reads = reads,
         .public_call_stack = public_call_stack,
-        .l1_msg_stack = l1_msg_stack,
+        .new_l2_to_l1_msgs = new_l2_to_l1_msgs,
 
     };
     PublicCallStackItem call_stack_item = PublicCallStackItem{
@@ -204,7 +204,7 @@ PublicKernelInputsNoPreviousKernel<NT> do_public_call_get_kernel_inputs_no_previ
     std::array<fr, EMITTED_EVENTS_LENGTH> emitted_events = array_of_values<EMITTED_EVENTS_LENGTH>(seed);
     std::array<StateTransition<NT>, STATE_TRANSITIONS_LENGTH> state_transitions = generate_state_transitions(seed);
     std::array<StateRead<NT>, STATE_READS_LENGTH> state_reads = generate_state_reads(seed);
-    std::array<fr, L1_MSG_STACK_LENGTH> l1_msg_stack = array_of_values<L1_MSG_STACK_LENGTH>(seed);
+    std::array<fr, NEW_L2_TO_L1_MSGS_LENGTH> new_l2_to_l1_msgs = array_of_values<NEW_L2_TO_L1_MSGS_LENGTH>(seed);
     fr historic_public_data_tree_root = ++seed;
 
     // create the public circuit public inputs
@@ -216,7 +216,7 @@ PublicKernelInputsNoPreviousKernel<NT> do_public_call_get_kernel_inputs_no_previ
         .state_transitions = state_transitions,
         .state_reads = state_reads,
         .public_call_stack = call_stack_hashes,
-        .l1_msg_stack = l1_msg_stack,
+        .new_l2_to_l1_msgs = new_l2_to_l1_msgs,
         .historic_public_data_tree_root = historic_public_data_tree_root,
     };
 

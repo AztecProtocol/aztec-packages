@@ -185,7 +185,8 @@ contract Decoder {
       vars.nullifierCount = nullifierCount;
       vars.l2ToL1msgCount = l2ToL1msgCount;
       vars.kernelCount = commitmentCount / COMMITMENTS_PER_KERNEL;
-      uint256 contractCountOffset = (vars.commitmentCount + vars.nullifierCount + vars.l2ToL1msgCount) * 0x20;
+      uint256 contractCountOffset =
+        (vars.commitmentCount + vars.nullifierCount + vars.l2ToL1msgCount) * 0x20;
       uint256 newContractCount;
       assembly {
         newContractCount :=
@@ -261,10 +262,10 @@ contract Decoder {
           add(_l2Block.offset, srcContractDataOffset),
           0x20
         )
-        dstContractOffset := add(dstContractOffset, 0x20) 
+        dstContractOffset := add(dstContractOffset, 0x20)
 
         // Kernel1.contract.ethAddress padded to 32 bytes
-        dstContractOffset := add(dstContractOffset, 0xc) 
+        dstContractOffset := add(dstContractOffset, 0xc)
         calldatacopy(
           add(baseLeaf, add(0x20, dstContractOffset)),
           add(_l2Block.offset, add(srcContractDataOffset, 0x20)),

@@ -96,8 +96,7 @@ export class ContractData {
   public toBuffer(): Buffer {
     return serializeToBuffer(
       this.contractAddress,
-      this.portalContractAddress.toBuffer(),
-      this.bytecode || Buffer.alloc(4, 0),
+      this.portalContractAddress.toBuffer()
     );
   }
 
@@ -110,8 +109,7 @@ export class ContractData {
     const reader = BufferReader.asReader(buffer);
     const aztecAddr = AztecAddress.fromBuffer(reader);
     const ethAddr = new EthAddress(reader.readBytes(EthAddress.SIZE_IN_BYTES));
-    const publicFns = reader.readVector(EncodedContractFunction);
-    return new ContractData(aztecAddr, ethAddr, publicFns);
+    return new ContractData(aztecAddr, ethAddr);
   }
 
   /**

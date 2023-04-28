@@ -260,7 +260,7 @@ void validate_inputs(PrivateInputs<CT> const& private_inputs)
     // but we want to know "length" in terms of how many nonzero entries have been inserted
     CT::fr start_private_call_stack_length = array_length<Composer>(start.private_call_stack);
     CT::fr start_public_call_stack_length = array_length<Composer>(start.public_call_stack);
-    CT::fr start_l1_msg_stack_length = array_length<Composer>(start.new_l2_to_l1_msgs);
+    CT::fr start_new_l2_to_l1_msgs = array_length<Composer>(start.new_l2_to_l1_msgs);
 
     // Recall: we can't do traditional `if` statements in a circuit; all code paths are always executed. The below is
     // some syntactic sugar, which seeks readability similar to an `if` statement.
@@ -271,7 +271,7 @@ void validate_inputs(PrivateInputs<CT> const& private_inputs)
         // rebate can be paid.
         { start_private_call_stack_length == 1, "Private call stack must be length 1" },
         { start_public_call_stack_length == 0, "Public call stack must be empty" },
-        { start_l1_msg_stack_length == 0, "L1 msg stack must be empty" },
+        { start_new_l2_to_l1_msgs == 0, "L1 msg stack must be empty" },
 
         { this_call_stack_item.public_inputs.call_context.is_delegate_call == false,
           "Users cannot make a delegatecall" },

@@ -4,6 +4,7 @@ import {
   BaseRollupInputs,
   CircuitsWasm,
   Fr,
+  NewContractData,
   PublicDataRead,
   PublicDataWrite,
   RootRollupPublicInputs,
@@ -18,8 +19,8 @@ import {
   makeProof,
   makeRootRollupPublicInputs,
 } from '@aztec/circuits.js/factories';
-import { toBufferBE } from '@aztec/foundation';
-import { Tx } from '@aztec/types';
+import { AztecAddress, EthAddress, toBufferBE } from '@aztec/foundation';
+import { ContractData, Tx } from '@aztec/types';
 import { MerkleTreeId, MerkleTreeOperations, MerkleTrees } from '@aztec/world-state';
 import { MockProxy, mock } from 'jest-mock-extended';
 import { default as levelup } from 'levelup';
@@ -306,24 +307,39 @@ describe('sequencer/circuit_block_builder', () => {
 
     it('Build blocks on top of blocks l2 block with 4 txs', async () => {
       const txs = [...(await Promise.all(times(4, makeEmptyProcessedTx)))];
-      await builder.buildL2Block(1, txs);
-      const [block] = await builder.buildL2Block(2, txs);
+      const [block1] = await builder.buildL2Block(1, txs);
+      const [block2] = await builder.buildL2Block(2, txs);
 
-      expect(block.number).toEqual(2);
+      expect(block1.number).toEqual(1);
+      expect(block2.number).toEqual(2);
 
-      /*console.log(block);
-      console.log(block.encode().toString('hex'));
-      console.log(`call data hash   : ${block.getCalldataHash().toString('hex')}`);
-      console.log(`start state hash: ${block.getStartStateHash().toString('hex')}`);
-      console.log(`end state hash  : ${block.getEndStateHash().toString('hex')}`);
-      console.log(`public input hash: ${block.getPublicInputsHash().toString()}`);*/
+      /*const blocks = [block1, block2];
+      for (let i = 0; i < 2; i++) {
+        const block = blocks[i];
+        console.log(block.encode().toString('hex'));
+        console.log(`call data hash   : ${block.getCalldataHash().toString('hex')}`);
+        console.log(`start state hash: ${block.getStartStateHash().toString('hex')}`);
+        console.log(`end state hash  : ${block.getEndStateHash().toString('hex')}`);
+        console.log(`public input hash: ${block.getPublicInputsHash().toString()}`);
+      }*/
     }, 10000);
 
-    it.only('Build blocks on top of blocks l2 block with 4 txs', async () => {
+    it('Build blocks on top of blocks l2 block with 4 txs', async () => {
       for (let i = 0; i < 2; i++) {
         const tx = await makeProcessedTx(
           Tx.createPrivate(makeKernelPublicInputs(1 + i), emptyProof, makeEmptyUnverifiedData()),
         );
+        /*
+        const b = Buffer.alloc(20, 0);
+        b[19] = 2;
+        console.log(b);
+        tx.data.end.newContracts[0] = new NewContractData(
+          new AztecAddress(fr(1).toBuffer()),
+          new EthAddress(b),
+          fr(3),
+        );
+        console.log(tx.data.end.newContracts[0]);*/
+
         const txsLeft = [tx, await makeEmptyProcessedTx()];
         const txsRight = [await makeEmptyProcessedTx(), await makeEmptyProcessedTx()];
 
@@ -358,34 +374,36 @@ describe('sequencer/circuit_block_builder', () => {
         const txs = [tx, await makeEmptyProcessedTx(), await makeEmptyProcessedTx(), await makeEmptyProcessedTx()];
         const [block] = await builder.buildL2Block(1 + i, txs);
 
+        console.log(block);
+
         // These output values are the same as in Decoder.t.sol tests
         if (i === 0) {
           expect(block.number).toEqual(1);
           expect(block.getCalldataHash()).toEqual(
-            Buffer.from('d6a5d2e14edcbd6cf55d88a7296ecd4c24734c5e188de827b815c66ec708ac95', 'hex'),
+            Buffer.from('9f1a00d7220a2b51a9c2591c2f85e089f03d06b01138586ea5e3656435d5e749', 'hex'),
           );
           expect(block.getStartStateHash()).toEqual(
-            Buffer.from('997d827ef06622bb62d3a84c4c1f70bdd4d04bf46a51cb5347e472ae29451e12', 'hex'),
+            Buffer.from('d3f7645c4b49d31bca62aca09aa26740d7e47d264f3021e2de2db40562944745', 'hex'),
           );
           expect(block.getEndStateHash()).toEqual(
-            Buffer.from('bc4951931d71398752b7d0cdb88a4f04c4cebaf8eeef00b75cd913150ac17883', 'hex'),
+            Buffer.from('e3b20add23469bcbf25157ff75b81665564b089aa95083f8e095a3bb77062831', 'hex'),
           );
           expect(block.getPublicInputsHash().toBuffer()).toEqual(
-            Buffer.from('163323613ec38b4525decb91da4fe92b858f61b2eef1dd3c736fea35aa76b727', 'hex'),
+            Buffer.from('20638cd5e03d287dbd356af6e16fd852337f535b12d06f7266599c035696098d', 'hex'),
           );
         } else {
           expect(block.number).toEqual(2);
           expect(block.getCalldataHash()).toEqual(
-            Buffer.from('ec22e817324a6c72e71e02d0c93b7efd82200b23d23fd491de1472ce7291ddf9', 'hex'),
+            Buffer.from('50f2f2dc986fc4022b8fdde8f2d610c82ee36776b282ca3514c12726dd9081ef', 'hex'),
           );
           expect(block.getStartStateHash()).toEqual(
-            Buffer.from('bc4951931d71398752b7d0cdb88a4f04c4cebaf8eeef00b75cd913150ac17883', 'hex'),
+            Buffer.from('e3b20add23469bcbf25157ff75b81665564b089aa95083f8e095a3bb77062831', 'hex'),
           );
           expect(block.getEndStateHash()).toEqual(
-            Buffer.from('587bd65c5653f227b0eb6b394656be7dee92319e27a4bbc52147f1ff57b7566c', 'hex'),
+            Buffer.from('dc4f85374d479c6388a9bed0ddea9880422b515c88de0a76fd96b5c93c809b21', 'hex'),
           );
           expect(block.getPublicInputsHash().toBuffer()).toEqual(
-            Buffer.from('221146539ac6e2bd6c13564b510a57e13219552337b38ac3d2ea646c238e046c', 'hex'),
+            Buffer.from('12e84ea31aa75fab86269181c8c09dbb8486e518e5db9ce4dad204068fc0a925', 'hex'),
           );
         }
 
@@ -397,7 +415,7 @@ describe('sequencer/circuit_block_builder', () => {
         console.log(`end state hash  : ${block.getEndStateHash().toString('hex')}`);
         console.log(`public input hash: ${block.getPublicInputsHash().toString()}`);*/
       }
-    }, 10000);
+    }, 20000);
   });
 });
 

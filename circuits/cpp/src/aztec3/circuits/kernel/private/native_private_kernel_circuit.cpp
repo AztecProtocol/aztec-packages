@@ -299,7 +299,7 @@ void validate_inputs(DummyComposer& composer, PrivateInputs<NT> const& private_i
 
     NT::fr start_private_call_stack_length = array_length(start.private_call_stack);
     NT::fr start_public_call_stack_length = array_length(start.public_call_stack);
-    NT::fr start_l1_msg_stack_length = array_length(start.new_l2_to_l1_msgs);
+    NT::fr start_new_l2_to_l1_msgs = array_length(start.new_l2_to_l1_msgs);
 
     // Base Case
     if (is_base_case) {
@@ -313,7 +313,7 @@ void validate_inputs(DummyComposer& composer, PrivateInputs<NT> const& private_i
         composer.do_assert(start_public_call_stack_length == 0,
                            "Public call stack must be empty",
                            CircuitErrorCode::PRIVATE_KERNEL__UNSUPPORTED_OP);
-        composer.do_assert(start_l1_msg_stack_length == 0,
+        composer.do_assert(start_new_l2_to_l1_msgs == 0,
                            "L1 msg stack must be empty",
                            CircuitErrorCode::PRIVATE_KERNEL__UNSUPPORTED_OP);
 
