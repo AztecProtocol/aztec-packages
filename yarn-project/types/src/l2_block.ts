@@ -283,7 +283,6 @@ export class L2Block {
       `startPrivateDataTreeSnapshot: ${inspectTreeSnapshot(this.startPrivateDataTreeSnapshot)}`,
       `startNullifierTreeSnapshot: ${inspectTreeSnapshot(this.startNullifierTreeSnapshot)}`,
       `startContractTreeSnapshot: ${inspectTreeSnapshot(this.startContractTreeSnapshot)}`,
-      `startPublicDataTreeRoot: ${this.startPublicDataTreeRoot.toString()}`,
       `startTreeOfHistoricPrivateDataTreeRootsSnapshot: ${inspectTreeSnapshot(
         this.startTreeOfHistoricPrivateDataTreeRootsSnapshot,
       )}`,
