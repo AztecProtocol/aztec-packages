@@ -3,16 +3,21 @@ import { BarretenbergWasm } from '@aztec/barretenberg.js/wasm';
 import { Fr, toBigIntBE } from '@aztec/foundation';
 import { MAPPING_SLOT_PEDERSEN_CONSTANT } from './client/simulator.js';
 
+/**
+ * A point in the format that noir uses.
+ */
 export type NoirPoint = {
+  /** The x coordinate. */
   x: bigint;
+  /** The y coordinate. */
   y: bigint;
 };
 
 /**
  * Computes the resulting storage slot for an entry in a mapping.
- * @param mappingSlot - the slot of the mapping within state
- * @param owner - the key of the mapping
- * @param bbWasm - wasm module for computing
+ * @param mappingSlot - The slot of the mapping within state.
+ * @param owner - The key of the mapping.
+ * @param bbWasm - Wasm module for computing.
  * @returns The slot in the contract storage where the value is stored.
  */
 export function computeSlotForMapping(mappingSlot: Fr, owner: NoirPoint | Fr, bbWasm: BarretenbergWasm) {
@@ -27,6 +32,12 @@ export function computeSlotForMapping(mappingSlot: Fr, owner: NoirPoint | Fr, bb
   );
 }
 
+/**
+ * Computes the public key for a private key.
+ * @param privateKey - The private key.
+ * @param grumpkin - The grumpkin instance.
+ * @returns The public key.
+ */
 export function toPublicKey(privateKey: Buffer, grumpkin: Grumpkin): NoirPoint {
   const publicKey = grumpkin.mul(Grumpkin.generator, privateKey);
   return {

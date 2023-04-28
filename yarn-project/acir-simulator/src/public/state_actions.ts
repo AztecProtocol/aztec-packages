@@ -9,10 +9,13 @@ import { StateRead, StateTransition } from '@aztec/circuits.js';
  */
 export class StateActionsCollector {
   // Map from slot to first read value
-  private readonly stateReads: Map<bigint, { value: Fr }> = new Map();
+  private readonly stateReads: Map<bigint, { /** The value read. */ value: Fr }> = new Map();
 
   // Map from slot to first read value and latest updated value
-  private readonly stateTransitions: Map<bigint, { oldValue: Fr; newValue: Fr }> = new Map();
+  private readonly stateTransitions: Map<
+    bigint,
+    { /** The old value. */ oldValue: Fr; /** The updated value. */ newValue: Fr }
+  > = new Map();
 
   constructor(private db: PublicDB, private address: AztecAddress) {}
 
@@ -20,7 +23,7 @@ export class StateActionsCollector {
    * Returns the current value of a slot according to the latest transition for it,
    * falling back to the public db. Collects the operation in state reads,
    * as long as there is no existing state transition.
-   * @param storageSlot - slot to check
+   * @param storageSlot - Slot to check.
    * @returns The current value as affected by all state transitions so far.
    */
   public async read(storageSlot: Fr): Promise<Fr> {
@@ -37,8 +40,8 @@ export class StateActionsCollector {
   /**
    * Sets a new value for a slot in the internal state transitions cache,
    * clearing any previous state read or transition operation for the same slot.
-   * @param storageSlot - slot to write to
-   * @param newValue - value to write to it
+   * @param storageSlot - Slot to write to.
+   * @param newValue - Balue to write to it.
    */
   public async write(storageSlot: Fr, newValue: Fr): Promise<void> {
     const slot = storageSlot.value;
@@ -62,7 +65,7 @@ export class StateActionsCollector {
 
   /**
    * Returns all state read and transitions performed.
-   * @returns all state read and transitions
+   * @returns All state read and transitions.
    */
   public collect(): [StateRead[], StateTransition[]] {
     const reads = Array.from(this.stateReads.entries()).map(([slot, value]) =>
