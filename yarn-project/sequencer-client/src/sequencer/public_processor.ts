@@ -1,31 +1,22 @@
-import { computeSlot } from '@aztec/acir-simulator';
-import { BarretenbergWasm } from '@aztec/barretenberg.js/wasm';
 import {
+  CircuitsWasm,
   Fr,
-  MembershipWitness,
   PUBLIC_CALL_STACK_LENGTH,
-  PUBLIC_DATA_TREE_HEIGHT,
   PublicCallData,
   PublicCallStackItem,
   PublicCircuitPublicInputs,
-  PublicKernelInputsNoKernelInput,
+  PublicKernelInputsNoPreviousKernel,
   PublicKernelPublicInputs,
-  StateRead,
-  StateTransition,
   TxRequest,
-  WitnessedPublicCallData,
 } from '@aztec/circuits.js';
+import { ContractDataSource, PublicTx, Tx } from '@aztec/types';
+import { MerkleTreeOperations } from '@aztec/world-state';
+import { pedersenGetHash } from '@aztec/barretenberg.js/crypto';
 import { createDebugLogger } from '@aztec/foundation';
-import { PublicTx } from '@aztec/types';
-import { MerkleTreeId, MerkleTreeOperations } from '@aztec/world-state';
 import times from 'lodash.times';
 import { Proof, PublicProver } from '../prover/index.js';
 import { PublicCircuitSimulator, PublicKernelCircuitSimulator } from '../simulator/index.js';
-
-type ProcessedPublicTx = {
-  tx: PublicTx;
-  publicKernelOutput: PublicKernelPublicInputs;
-};
+import { ProcessedTx, makeEmptyProcessedTx, makeProcessedTx } from './processed_tx.js';
 
 export class PublicProcessor {
   constructor(
@@ -33,42 +24,73 @@ export class PublicProcessor {
     protected publicCircuit: PublicCircuitSimulator,
     protected publicKernel: PublicKernelCircuitSimulator,
     protected publicProver: PublicProver,
+    protected contractDataSource: ContractDataSource,
 
     private log = createDebugLogger('aztec:sequencer:public-processor'),
   ) {}
 
   /**
-   * Run each tx through the public circuit and the public kernel circuit.
-   * @param txs - public txs to process
+   * Run each tx through the public circuit and the public kernel circuit if needed.
+   * @param txs - txs to process
    * @returns the list of processed txs with their circuit simulation outputs.
    */
-  public async process(txs: PublicTx[]): Promise<[ProcessedPublicTx[], PublicTx[]]> {
-    const result: ProcessedPublicTx[] = [];
-    const failed: PublicTx[] = [];
+  public async process(txs: Tx[]): Promise<[ProcessedTx[], Tx[]]> {
+    const result: ProcessedTx[] = [];
+    const failed: Tx[] = [];
 
     for (const tx of txs) {
-      this.log(`Processing public tx ${await tx.getTxHash()}`);
+      this.log(`Processing tx ${await tx.getTxHash()}`);
       try {
-        result.push({ tx, publicKernelOutput: await this.processTx(tx) });
+        result.push(await this.processTx(tx));
       } catch (err) {
-        this.log(`Error processing public tx ${await tx.getTxHash()}: ${err}`);
+        this.log(`Error processing tx ${await tx.getTxHash()}: ${err}`);
         failed.push(tx);
       }
     }
     return [result, failed];
   }
 
-  protected async processTx(tx: PublicTx): Promise<PublicKernelPublicInputs> {
-    const publicCircuitOutput = await this.publicCircuit.publicCircuit(tx.txRequest.txRequest);
-    const proof = await this.publicProver.getPublicCircuitProof(publicCircuitOutput);
-    const publicCallData = await this.processPublicCallData(tx.txRequest.txRequest, publicCircuitOutput, proof);
-    const publicKernelInput = new PublicKernelInputsNoKernelInput(tx.txRequest, publicCallData);
-    const publicKernelOutput = await this.publicKernel.publicKernelCircuitNoInput(publicKernelInput);
-    return publicKernelOutput;
+  protected async processTx(tx: Tx): Promise<ProcessedTx> {
+    if (tx.isPublic()) {
+      const [publicKernelOutput, publicKernelProof] = await this.processPublicTx(tx);
+      return makeProcessedTx(tx, publicKernelOutput, publicKernelProof);
+    } else if (tx.isPrivate()) {
+      return makeProcessedTx(tx);
+    } else {
+      return makeEmptyProcessedTx();
+    }
   }
 
-  protected async processPublicCallData(
+  // TODO: This is just picking up the txRequest and executing one iteration of it. It disregards
+  // any existing private execution information, and any subsequent calls.
+  protected async processPublicTx(tx: PublicTx): Promise<[PublicKernelPublicInputs, Proof]> {
+    const { txRequest } = tx.txRequest;
+    const contractAddress = txRequest.to;
+
+    const fn = await this.contractDataSource.getPublicFunction(
+      contractAddress,
+      txRequest.functionData.functionSelector,
+    );
+    const functionSelector = txRequest.functionData.functionSelector;
+    if (!fn) throw new Error(`Bytecode not found for ${functionSelector}@${contractAddress}`);
+    const contractPublicData = await this.contractDataSource.getL2ContractPublicData(contractAddress);
+    if (!contractPublicData) throw new Error(`Portal contract address not found for contract ${contractAddress}`);
+    const { portalContractAddress } = contractPublicData.contractData;
+
+    const circuitOutput = await this.publicCircuit.publicCircuit(txRequest, fn.bytecode, portalContractAddress);
+    const circuitProof = await this.publicProver.getPublicCircuitProof(circuitOutput);
+    const publicCallData = await this.getPublicCallData(txRequest, fn.bytecode, circuitOutput, circuitProof);
+
+    const publicKernelInput = new PublicKernelInputsNoPreviousKernel(tx.txRequest, publicCallData);
+    const publicKernelOutput = await this.publicKernel.publicKernelCircuitNoInput(publicKernelInput);
+    const publicKernelProof = await this.publicProver.getPublicKernelCircuitProof(publicKernelOutput);
+
+    return [publicKernelOutput, publicKernelProof];
+  }
+
+  protected async getPublicCallData(
     txRequest: TxRequest,
+    functionBytecode: Buffer,
     publicCircuitOutput: PublicCircuitPublicInputs,
     publicCircuitProof: Proof,
   ) {
@@ -77,62 +99,23 @@ export class PublicProcessor {
     const callStackItem = new PublicCallStackItem(contractAddress, txRequest.functionData, publicCircuitOutput);
     const publicCallStackPreimages: PublicCallStackItem[] = times(PUBLIC_CALL_STACK_LENGTH, PublicCallStackItem.empty);
 
-    // TODO: Get these from the ContractDataSource once available
-    const portalContractAddress = Fr.random();
-    const bytecodeHash = Fr.random();
+    // TODO: Determine how to calculate bytecode hash
+    // See https://github.com/AztecProtocol/aztec3-packages/issues/378
+    const bytecodeHash = Fr.fromBuffer(pedersenGetHash(await CircuitsWasm.get(), functionBytecode));
+    const portalContractAddress = publicCircuitOutput.callContext.portalContractAddress.toField();
 
-    const publicCallData = new PublicCallData(
+    return new PublicCallData(
       callStackItem,
       publicCallStackPreimages,
       publicCircuitProof,
       portalContractAddress,
       bytecodeHash,
     );
-
-    // Get public data tree root before we make any changes
-    const treeRoot = await this.db.getTreeInfo(MerkleTreeId.PUBLIC_DATA_TREE).then(i => Fr.fromBuffer(i.root));
-
-    // Alter public data tree as we go through state transitions producing hash paths
-    const { stateReads, stateTransitions } = publicCircuitOutput;
-    const { transitionsHashPaths, readsHashPaths } = await this.processStateTransitions(
-      contractAddress.toField(),
-      stateReads,
-      stateTransitions,
-    );
-
-    return new WitnessedPublicCallData(publicCallData, transitionsHashPaths, readsHashPaths, treeRoot);
-  }
-
-  protected async processStateTransitions(contract: Fr, stateReads: StateRead[], stateTransitions: StateTransition[]) {
-    const transitionsHashPaths: MembershipWitness<typeof PUBLIC_DATA_TREE_HEIGHT>[] = [];
-    const readsHashPaths: MembershipWitness<typeof PUBLIC_DATA_TREE_HEIGHT>[] = [];
-
-    const wasm = await BarretenbergWasm.get();
-    const getLeafIndex = (slot: Fr) => computeSlot(slot, contract, wasm).value;
-
-    // We get all reads from the unmodified tree
-    for (const stateRead of stateReads) {
-      readsHashPaths.push(await this.getMembershipWitness(getLeafIndex(stateRead.storageSlot)));
-    }
-
-    // And then apply state transitions
-    for (const stateTransition of stateTransitions) {
-      const index = getLeafIndex(stateTransition.storageSlot);
-      transitionsHashPaths.push(await this.getMembershipWitness(index));
-      await this.db.updateLeaf(MerkleTreeId.PUBLIC_DATA_TREE, stateTransition.newValue.toBuffer(), index);
-    }
-
-    return { readsHashPaths, transitionsHashPaths };
-  }
-
-  protected async getMembershipWitness(leafIndex: bigint) {
-    const path = await this.db.getSiblingPath(MerkleTreeId.PUBLIC_DATA_TREE, leafIndex);
-    return new MembershipWitness(PUBLIC_DATA_TREE_HEIGHT, Number(leafIndex), path.data.map(Fr.fromBuffer));
   }
 }
 
 export class MockPublicProcessor extends PublicProcessor {
-  public process(_txs: PublicTx[]): Promise<[ProcessedPublicTx[], PublicTx[]]> {
-    return Promise.resolve([[], []]);
+  protected processPublicTx(_tx: PublicTx): Promise<[PublicKernelPublicInputs, Proof]> {
+    throw new Error('Public tx not supported by mock public processor');
   }
 }

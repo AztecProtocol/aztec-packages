@@ -1,12 +1,28 @@
 use crate::abi::CallContext;
 use crate::abi::ContractDeploymentData;
-use crate::abi::Outputs;
+use crate::context::PrivateFunctionContext;
 use crate::abi::PrivateCircuitPublicInputs;
 use crate::types::vec::BoundedVec;
 use crate::utils::arr_copy_slice;
 
-#[builtin(callPrivateFunction)]
-fn call_private_function_internal(_contract_address: Field, _function_selector: Field, _args: [Field; crate::abi::MAX_ARGS]) -> [Field; 51] {}
+#[oracle(callPrivateFunction)]
+fn call_private_function_oracle(
+    _contract_address: Field, 
+    _function_selector: Field, 
+    _args: [Field; crate::abi::MAX_ARGS]
+) -> [Field; 51] {}
+
+unconstrained fn call_private_function_internal(
+    contract_address: Field, 
+    function_selector: Field,
+    args: [Field; crate::abi::MAX_ARGS]
+) -> [Field; 51] {
+    call_private_function_oracle(
+        contract_address, 
+        function_selector, 
+        args,
+    )
+}
 
 struct FunctionData {
     function_selector: Field,
@@ -32,8 +48,12 @@ struct PrivateCallStackItem {
 }
 
 impl PrivateCallStackItem {
-    fn call(contract_address: Field, function_selector: Field, args: [Field; crate::abi::MAX_ARGS], mut outputs: Outputs) -> (Self, Outputs) {
-        let fields = call_private_function_internal(contract_address, function_selector, args);
+    fn call(contract_address: Field, function_selector: Field, args: [Field; crate::abi::MAX_ARGS], mut context: PrivateFunctionContext) -> (Self, PrivateFunctionContext) {
+        let fields = call_private_function_internal(
+            contract_address, 
+            function_selector, 
+            args
+        );
         let item = PrivateCallStackItem {
             contract_address: fields[0],
             function_data: FunctionData {
@@ -77,9 +97,9 @@ impl PrivateCallStackItem {
             constrain args[i] == item.public_inputs.args[i];
         }
 
-        outputs.private_call_stack = outputs.private_call_stack.push(item.hash());
+        context.private_call_stack = context.private_call_stack.push(item.hash());
 
-        (item, outputs)
+        (item, context)
     }
 
     fn hash(self) -> Field {

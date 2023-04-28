@@ -18,11 +18,12 @@
 #include <aztec3/circuits/abis/tx_request.hpp>
 #include <aztec3/circuits/abis/private_circuit_public_inputs.hpp>
 #include <aztec3/circuits/abis/private_kernel/private_inputs.hpp>
-#include <aztec3/circuits/abis/private_kernel/public_inputs.hpp>
-#include <aztec3/circuits/abis/private_kernel/accumulated_data.hpp>
-#include <aztec3/circuits/abis/private_kernel/constant_data.hpp>
-#include <aztec3/circuits/abis/private_kernel/historic_tree_roots.hpp>
+#include <aztec3/circuits/abis/kernel_circuit_public_inputs.hpp>
+#include <aztec3/circuits/abis/combined_accumulated_data.hpp>
+#include <aztec3/circuits/abis/combined_constant_data.hpp>
+#include <aztec3/circuits/abis/private_historic_tree_roots.hpp>
 #include <aztec3/circuits/abis/private_kernel/globals.hpp>
+#include <aztec3/circuits/abis/types.hpp>
 
 #include "aztec3/circuits/kernel/private/utils.hpp"
 #include "aztec3/msgpack/schema_impl.hpp"
@@ -38,24 +39,25 @@ namespace {
 using aztec3::circuits::compute_empty_sibling_path;
 using aztec3::circuits::abis::CallContext;
 using aztec3::circuits::abis::CallStackItem;
-using aztec3::circuits::abis::CallType;
 using aztec3::circuits::abis::ContractDeploymentData;
 using aztec3::circuits::abis::FunctionData;
 using aztec3::circuits::abis::FunctionLeafPreimage;
+using aztec3::circuits::abis::NewContractData;
 using aztec3::circuits::abis::OptionalPrivateCircuitPublicInputs;
 using aztec3::circuits::abis::PrivateCircuitPublicInputs;
+using aztec3::circuits::abis::PrivateTypes;
 using aztec3::circuits::abis::SignedTxRequest;
 using aztec3::circuits::abis::TxContext;
 using aztec3::circuits::abis::TxRequest;
-using aztec3::circuits::abis::private_kernel::NewContractData;
 
-using aztec3::circuits::abis::private_kernel::AccumulatedData;
-using aztec3::circuits::abis::private_kernel::ConstantData;
-using aztec3::circuits::abis::private_kernel::HistoricTreeRoots;
-using aztec3::circuits::abis::private_kernel::PreviousKernelData;
+using aztec3::circuits::abis::CombinedAccumulatedData;
+using aztec3::circuits::abis::CombinedConstantData;
+using aztec3::circuits::abis::CombinedHistoricTreeRoots;
+using aztec3::circuits::abis::KernelCircuitPublicInputs;
+using aztec3::circuits::abis::PreviousKernelData;
+using aztec3::circuits::abis::PrivateHistoricTreeRoots;
 using aztec3::circuits::abis::private_kernel::PrivateCallData;
 using aztec3::circuits::abis::private_kernel::PrivateInputs;
-using aztec3::circuits::abis::private_kernel::PublicInputs;
 
 using aztec3::circuits::apps::test_apps::basic_contract_deployment::constructor;
 using aztec3::circuits::apps::test_apps::escrow::deposit;
@@ -74,8 +76,24 @@ using private_function = std::function<OptionalPrivateCircuitPublicInputs<NT>(
 constexpr size_t MAX_FUNCTION_LEAVES = 2 << (aztec3::FUNCTION_TREE_HEIGHT - 1);
 const NT::fr EMPTY_FUNCTION_LEAF = FunctionLeafPreimage<NT>{}.hash(); // hash of empty/0 preimage
 const NT::fr EMPTY_CONTRACT_LEAF = NewContractData<NT>{}.hash();      // hash of empty/0 preimage
-const auto& EMPTY_FUNCTION_SIBLINGS = compute_empty_sibling_path<NT, aztec3::FUNCTION_TREE_HEIGHT>(EMPTY_FUNCTION_LEAF);
-const auto& EMPTY_CONTRACT_SIBLINGS = compute_empty_sibling_path<NT, aztec3::CONTRACT_TREE_HEIGHT>(EMPTY_CONTRACT_LEAF);
+
+const auto& get_empty_function_siblings()
+{
+    static auto EMPTY_FUNCTION_SIBLINGS = []() {
+        const auto result = compute_empty_sibling_path<NT, aztec3::FUNCTION_TREE_HEIGHT>(EMPTY_FUNCTION_LEAF);
+        return result;
+    }();
+    return EMPTY_FUNCTION_SIBLINGS;
+}
+
+const auto& get_empty_contract_siblings()
+{
+    static auto EMPTY_CONTRACT_SIBLINGS = []() {
+        const auto result = compute_empty_sibling_path<NT, aztec3::CONTRACT_TREE_HEIGHT>(EMPTY_CONTRACT_LEAF);
+        return result;
+    }();
+    return EMPTY_CONTRACT_SIBLINGS;
+}
 
 } // namespace
 
@@ -251,14 +269,14 @@ PrivateInputs<NT> do_private_call_get_kernel_inputs(bool const is_constructor,
                                                                                 private_circuit_vk_hash,
                                                                                 acir_hash,
                                                                                 function_leaf_index,
-                                                                                EMPTY_FUNCTION_SIBLINGS);
+                                                                                get_empty_function_siblings());
 
         // update contract_tree_root with real value
         contract_tree_root = contract_tree_root_from_siblings<NT>(function_tree_root,
                                                                   contract_address,
                                                                   portal_contract_address,
                                                                   contract_leaf_index,
-                                                                  EMPTY_CONTRACT_SIBLINGS);
+                                                                  get_empty_contract_siblings());
     }
 
     //***************************************************************************
@@ -284,7 +302,7 @@ PrivateInputs<NT> do_private_call_get_kernel_inputs(bool const is_constructor,
     // TODO this should likely be handled as part of the DB/Oracle/Context infrastructure
     private_circuit_public_inputs.historic_contract_tree_root = contract_tree_root;
 
-    Prover private_circuit_prover = private_circuit_composer.create_prover();
+    auto private_circuit_prover = private_circuit_composer.create_prover();
     NT::Proof private_circuit_proof = private_circuit_prover.construct_proof();
     // info("\nproof: ", private_circuit_proof.proof_data);
 
@@ -323,7 +341,7 @@ PrivateInputs<NT> do_private_call_get_kernel_inputs(bool const is_constructor,
     // verify in the first round of recursion, OR, we have some fiddly conditional logic in the circuit to ignore
     // certain checks if we're handling the 'base case' of the recursion.
     // I've chosen the former, for now.
-    const CallStackItem<NT, CallType::Private> call_stack_item{
+    const CallStackItem<NT, PrivateTypes> call_stack_item{
         .contract_address = tx_request.to,
         .function_data = tx_request.function_data,
         .public_inputs = private_circuit_public_inputs,
@@ -336,13 +354,14 @@ PrivateInputs<NT> do_private_call_get_kernel_inputs(bool const is_constructor,
     auto mock_previous_kernel = utils::dummy_previous_kernel(real_kernel_circuit);
     // Fill in some important fields in public inputs
     mock_previous_kernel.public_inputs.end.private_call_stack = initial_kernel_private_call_stack;
-    mock_previous_kernel.public_inputs.constants = ConstantData<NT>{
+    mock_previous_kernel.public_inputs.constants = CombinedConstantData<NT>{
         .historic_tree_roots =
-            HistoricTreeRoots<NT>{
-                .private_data_tree_root = private_circuit_public_inputs.historic_private_data_tree_root,
-                // .nullifier_tree_root =
-                .contract_tree_root = private_circuit_public_inputs.historic_contract_tree_root,
-                // .private_kernel_vk_tree_root =
+            CombinedHistoricTreeRoots<NT>{
+                .private_historic_tree_roots =
+                    PrivateHistoricTreeRoots<NT>{
+                        .private_data_tree_root = private_circuit_public_inputs.historic_private_data_tree_root,
+                        .contract_tree_root = private_circuit_public_inputs.historic_contract_tree_root,
+                    },
             },
         .tx_context = tx_request.tx_context,
     };
@@ -366,11 +385,11 @@ PrivateInputs<NT> do_private_call_get_kernel_inputs(bool const is_constructor,
 
                 .function_leaf_membership_witness = {
                     .leaf_index = function_leaf_index,
-                    .sibling_path = EMPTY_FUNCTION_SIBLINGS,
+                    .sibling_path = get_empty_function_siblings(),
                 },
                 .contract_leaf_membership_witness = {
                     .leaf_index = contract_leaf_index,
-                    .sibling_path = EMPTY_CONTRACT_SIBLINGS,
+                    .sibling_path = get_empty_contract_siblings(),
                 },
 
                 .portal_contract_address = portal_contract_address,
@@ -390,7 +409,8 @@ PrivateInputs<NT> do_private_call_get_kernel_inputs(bool const is_constructor,
  * @param private_inputs to be used in manual computation
  * @param public_inputs that contain the expected new contract address
  */
-void validate_deployed_contract_address(PrivateInputs<NT> const& private_inputs, PublicInputs<NT> const& public_inputs)
+void validate_deployed_contract_address(PrivateInputs<NT> const& private_inputs,
+                                        KernelCircuitPublicInputs<NT> const& public_inputs)
 {
 
     auto tx_request = private_inputs.signed_tx_request.tx_request;

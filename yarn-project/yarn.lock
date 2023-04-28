@@ -31,9 +31,10 @@ __metadata:
     "@aztec/foundation": "workspace:^"
     "@aztec/merkle-tree": "workspace:^"
     "@aztec/noir-contracts": "workspace:^"
+    "@aztec/types": "workspace:^"
     "@jest/globals": ^29.5.0
-    "@noir-lang/aztec_backend_wasm": "github:joss-aztec/barretenberg_browser_stopgap_wasm_build#f2007d1c309da9d41c3ad38cc8696613678e910c"
-    "@noir-lang/noir_util_wasm": "github:joss-aztec/noir_util_wasm#bb71df87c9415be387c998b67cb0de4298ab6b6a"
+    "@noir-lang/aztec_backend_wasm": "github:joss-aztec/barretenberg_browser_stopgap_wasm_build#f2e10698dfa11cd46f7373cec1ed6184b0505f1e"
+    "@noir-lang/noir_util_wasm": "github:joss-aztec/noir_util_wasm#7dc410f4b4c00b9cfa9e726ae7fca3a3a4a237c5"
     "@rushstack/eslint-patch": ^1.1.4
     "@types/jest": ^29.5.0
     "@types/node": ^18.7.23
@@ -72,7 +73,7 @@ __metadata:
     tsc-watch: ^6.0.0
     tslib: ^2.5.0
     typescript: ^5.0.4
-    viem: ^0.3.1
+    viem: ^0.3.13
     ws: ^8.13.0
   languageName: unknown
   linkType: soft
@@ -256,7 +257,6 @@ __metadata:
   dependencies:
     "@aztec/aztec-node": "workspace:^"
     "@aztec/aztec.js": "workspace:^"
-    "@aztec/ethereum.js": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/l1-contracts": "workspace:^"
     "@aztec/noir-contracts": "workspace:^"
@@ -272,6 +272,7 @@ __metadata:
     ts-node: ^10.9.1
     tslib: ^2.4.0
     typescript: ^5.0.4
+    viem: ^0.3.13
   languageName: unknown
   linkType: soft
 
@@ -528,6 +529,7 @@ __metadata:
     "@types/jest": ^29.5.0
     "@types/lodash.chunk": ^4.2.7
     "@types/lodash.flatmap": ^4.5.7
+    "@types/lodash.pick": ^4.4.7
     "@types/lodash.times": ^4.3.7
     "@types/node": ^18.7.23
     concurrently: ^7.6.0
@@ -536,12 +538,14 @@ __metadata:
     jest-mock-extended: ^3.0.3
     lodash.chunk: ^4.2.0
     lodash.flatmap: ^4.5.0
+    lodash.pick: ^4.4.0
     lodash.times: ^4.3.2
     prettier: ^2.8.7
     ts-jest: ^29.1.0
     ts-node: ^10.9.1
     tslib: ^2.4.0
     typescript: ^5.0.4
+    viem: ^0.3.13
   languageName: unknown
   linkType: soft
 
@@ -555,9 +559,11 @@ __metadata:
     "@jest/globals": ^29.5.0
     "@rushstack/eslint-patch": ^1.1.4
     "@types/jest": ^29.5.0
+    "@types/lodash.times": ^4.3.7
     "@types/node": ^18.7.23
     jest: ^29.5.0
     jest-mock-extended: ^3.0.3
+    lodash.times: ^4.3.2
     ts-jest: ^29.1.0
     ts-node: ^10.9.1
     tslib: ^2.5.0
@@ -1669,10 +1675,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@noir-lang/aztec_backend_wasm@github:joss-aztec/barretenberg_browser_stopgap_wasm_build#f2007d1c309da9d41c3ad38cc8696613678e910c":
-  version: 0.1.0-bd2335d
-  resolution: "@noir-lang/aztec_backend_wasm@https://github.com/joss-aztec/barretenberg_browser_stopgap_wasm_build.git#commit=f2007d1c309da9d41c3ad38cc8696613678e910c"
-  checksum: 82b5fef659da6911fd38ad534866ed61b2ea174df8fe75f323102562f979b390265da0d80a3ed7d4694a6ce0e2b35c5bad4d65a194d6ea933b1c2c40c3244638
+"@noir-lang/aztec_backend_wasm@github:joss-aztec/barretenberg_browser_stopgap_wasm_build#f2e10698dfa11cd46f7373cec1ed6184b0505f1e":
+  version: 0.1.0-06f13cf
+  resolution: "@noir-lang/aztec_backend_wasm@https://github.com/joss-aztec/barretenberg_browser_stopgap_wasm_build.git#commit=f2e10698dfa11cd46f7373cec1ed6184b0505f1e"
+  checksum: 570b43f4a222e04b580514c5a7536eeccd83154d69a6a452e7d9248b8e8deac1f8eea3edb6dba566480576d61aee19a12687c1b52ba639af372af2fbaebc5c3e
   languageName: node
   linkType: hard
 
@@ -1683,10 +1689,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@noir-lang/noir_util_wasm@github:joss-aztec/noir_util_wasm#bb71df87c9415be387c998b67cb0de4298ab6b6a":
-  version: 0.2.0-f4635b0
-  resolution: "@noir-lang/noir_util_wasm@https://github.com/joss-aztec/noir_util_wasm.git#commit=bb71df87c9415be387c998b67cb0de4298ab6b6a"
-  checksum: b939a3fed1237d64885c143fd890de82836ef82caaf6d69bc274afd3f3b6d3595bee2f324bd76d176dd00044b36dfc19f7cb9437d554c6f354510c6cfecc8b8e
+"@noir-lang/noir_util_wasm@github:joss-aztec/noir_util_wasm#7dc410f4b4c00b9cfa9e726ae7fca3a3a4a237c5":
+  version: 0.2.0-843b534
+  resolution: "@noir-lang/noir_util_wasm@https://github.com/joss-aztec/noir_util_wasm.git#commit=7dc410f4b4c00b9cfa9e726ae7fca3a3a4a237c5"
+  checksum: 8a1777d0a6257cda96d3f64f61441e1d5681a074e43ec2bf4b51749e8b0d452cbc8142c2d779663ad73f11a1957336fa871acc877dc07a6c1421f59ec2253980
   languageName: node
   linkType: hard
 
@@ -2186,6 +2192,15 @@ __metadata:
   dependencies:
     "@types/lodash": "*"
   checksum: 2bcccdd30bcb06a400b37a2b731f194f6b11ae49467a98828d86e25dbd10055f8b033c7741755a41de7bc50f49e387ecec952f9871863f77c79582e891945486
+  languageName: node
+  linkType: hard
+
+"@types/lodash.pick@npm:^4.4.7":
+  version: 4.4.7
+  resolution: "@types/lodash.pick@npm:4.4.7"
+  dependencies:
+    "@types/lodash": "*"
+  checksum: 78428a83b5d85e75bd13fb632030f9adb08dfc5bde3a9b6a302434fe7ac98e62919f87a7337e0ba674017d63bc57a8855ef863f5fcecd25e63b1d39eba2e4697
   languageName: node
   linkType: hard
 
@@ -5750,6 +5765,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"lodash.pick@npm:^4.4.0":
+  version: 4.4.0
+  resolution: "lodash.pick@npm:4.4.0"
+  checksum: 2c36cab7da6b999a20bd3373b40e31a3ef81fa264f34a6979c852c5bc8ac039379686b27380f0cb8e3781610844fafec6949c6fbbebc059c98f8fa8570e3675f
+  languageName: node
+  linkType: hard
+
 "lodash.snakecase@npm:^4.1.1":
   version: 4.1.1
   resolution: "lodash.snakecase@npm:4.1.1"
@@ -7840,9 +7862,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"viem@npm:^0.3.1":
-  version: 0.3.1
-  resolution: "viem@npm:0.3.1"
+"viem@npm:^0.3.13":
+  version: 0.3.13
+  resolution: "viem@npm:0.3.13"
   dependencies:
     "@adraffy/ens-normalize": 1.9.0
     "@noble/curves": 0.9.0
@@ -7853,7 +7875,7 @@ __metadata:
     abitype: 0.7.1
     isomorphic-ws: 5.0.0
     ws: 8.12.0
-  checksum: fb4a1aeb568221b8e12b912ea8a1dc7361ba87215054e0a903152e7de1f98bbfa5c0931e2f64d2dd140b6c092aeba074159ac8e95eefa77dccaf4d53f3ac442e
+  checksum: 4a1fd40c0b910cf3abdba796c31288b221a6de9f79a9b0417e71ea92d7c2fd1ceb5bdb66ba45c1c6c8bdfa5470dcdd598140ad867cc229eddeccecc822fc8f11
   languageName: node
   linkType: hard
 

@@ -4,21 +4,22 @@ import { CircuitsWasm } from '../wasm/index.js';
 import {
   FunctionData,
   FUNCTION_SELECTOR_NUM_BYTES,
+  ARGS_LENGTH,
   TxRequest,
   NewContractData,
   FunctionLeafPreimage,
 } from '../index.js';
-import { serializeToBuffer } from '../utils/serialize.js';
+import { serializeToBuffer, serializeBufferArrayToVector } from '../utils/serialize.js';
 import { AsyncWasmWrapper, WasmWrapper } from '@aztec/foundation/wasm';
 import { abisComputeContractAddress } from '../cbind/circuits.gen.js';
 
 export function wasmSyncCall(
   wasm: WasmWrapper,
   fnName: string,
-  input: { toBuffer: () => Buffer },
+  input: Buffer | { toBuffer: () => Buffer },
   expectedOutputLength: number,
 ): Buffer {
-  const inputData = input.toBuffer();
+  const inputData: Buffer = input instanceof Buffer ? input : input.toBuffer();
   const outputBuf = wasm.call('bbmalloc', expectedOutputLength);
   const inputBuf = wasm.call('bbmalloc', inputData.length);
   wasm.writeMemory(inputBuf, inputData);
@@ -32,10 +33,10 @@ export function wasmSyncCall(
 export async function wasmAsyncCall(
   wasm: AsyncWasmWrapper,
   fnName: string,
-  input: { toBuffer: () => Buffer },
+  input: Buffer | { toBuffer: () => Buffer },
   expectedOutputLength: number,
 ): Promise<Buffer> {
-  const inputData = input.toBuffer();
+  const inputData: Buffer = input instanceof Buffer ? input : input.toBuffer();
   const outputBuf = wasm.call('bbmalloc', expectedOutputLength);
   const inputBuf = wasm.call('bbmalloc', inputData.length);
   wasm.writeMemory(inputBuf, inputData);
@@ -78,14 +79,14 @@ export async function computeFunctionSelector(wasm: CircuitsWasm, funcSig: strin
   return await wasmAsyncCall(
     wasm,
     'abis__compute_function_selector',
-    { toBuffer: () => Buffer.from(funcSig) },
+    Buffer.from(funcSig),
     FUNCTION_SELECTOR_NUM_BYTES,
   );
 }
 
 export async function hashVK(wasm: CircuitsWasm, vkBuf: Buffer) {
   wasm.call('pedersen__init');
-  return await wasmAsyncCall(wasm, 'abis__hash_vk', { toBuffer: () => vkBuf }, 32);
+  return await wasmAsyncCall(wasm, 'abis__hash_vk', vkBuf, 32);
 }
 
 export async function computeFunctionLeaf(wasm: CircuitsWasm, fnLeaf: FunctionLeafPreimage) {
@@ -94,13 +95,10 @@ export async function computeFunctionLeaf(wasm: CircuitsWasm, fnLeaf: FunctionLe
 }
 
 export async function computeFunctionTreeRoot(wasm: CircuitsWasm, fnLeafs: Fr[]) {
-  const inputBuf = serializeToBuffer(fnLeafs);
+  const inputVector = serializeBufferArrayToVector(fnLeafs.map(fr => fr.toBuffer()));
   wasm.call('pedersen__init');
-  const outputBuf = wasm.call('bbmalloc', 32);
-  const inputBufPtr = wasm.call('bbmalloc', inputBuf.length);
-  wasm.writeMemory(inputBufPtr, inputBuf);
-  await wasm.asyncCall('abis__compute_function_tree_root', inputBufPtr, fnLeafs.length, outputBuf);
-  return Fr.fromBuffer(Buffer.from(wasm.getMemorySlice(outputBuf, outputBuf + 32)));
+  const result = await wasmAsyncCall(wasm, 'abis__compute_function_tree_root', inputVector, 32);
+  return Fr.fromBuffer(result);
 }
 
 export async function hashConstructor(
@@ -109,7 +107,13 @@ export async function hashConstructor(
   args: Fr[],
   constructorVKHash: Buffer,
 ) {
-  const inputVector = serializeToBuffer(args.map(fr => fr.toBuffer()));
+  if (args.length > ARGS_LENGTH) {
+    throw new Error(`Expected constructor args to have length <= ${ARGS_LENGTH}! Was: ${args.length}`);
+  }
+  const numEmptyArgs = ARGS_LENGTH - args.length;
+  const emptyArgs = Array.from({ length: numEmptyArgs }, () => new Fr(0n));
+  const fullArgs = args.concat(emptyArgs);
+  const inputVector = serializeToBuffer(fullArgs.map(fr => fr.toBuffer()));
   wasm.call('pedersen__init');
   const result = await inputBuffersToOutputBuffer(
     wasm,
@@ -139,6 +143,6 @@ export async function computeContractAddress(
 
 export function computeContractLeaf(wasm: WasmWrapper, cd: NewContractData) {
   wasm.call('pedersen__init');
-  const value = wasmSyncCall(wasm, 'abis__compute_contract_leaf', { toBuffer: () => cd.toBuffer() }, 32);
+  const value = wasmSyncCall(wasm, 'abis__compute_contract_leaf', cd, 32);
   return Fr.fromBuffer(value);
 }

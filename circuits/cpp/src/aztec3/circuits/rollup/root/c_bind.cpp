@@ -7,7 +7,7 @@
 #include "aztec3/circuits/abis/signed_tx_request.hpp"
 #include "aztec3/circuits/abis/private_kernel/private_call_data.hpp"
 #include <aztec3/circuits/abis/private_kernel/private_inputs.hpp>
-#include <aztec3/circuits/abis/private_kernel/public_inputs.hpp>
+#include <aztec3/circuits/abis/kernel_circuit_public_inputs.hpp>
 #include <aztec3/circuits/mock/mock_kernel_circuit.hpp>
 
 #include "barretenberg/srs/reference_string/env_reference_string.hpp"
@@ -16,14 +16,13 @@
 #include "barretenberg/plonk/composer/turbo_composer.hpp"
 
 namespace {
+using Composer = plonk::UltraComposer;
 using NT = aztec3::utils::types::NativeTypes;
 using DummyComposer = aztec3::utils::DummyComposer;
 using aztec3::circuits::rollup::native_root_rollup::root_rollup_circuit;
 using aztec3::circuits::rollup::native_root_rollup::RootRollupInputs;
 using aztec3::circuits::rollup::native_root_rollup::RootRollupPublicInputs;
 
-using plonk::TurboComposer;
-using namespace plonk::stdlib::types;
 } // namespace
 
 #define WASM_EXPORT __attribute__((visibility("default")))

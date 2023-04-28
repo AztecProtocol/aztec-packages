@@ -1,8 +1,11 @@
-contract EmptyConstructor {
+contract Test {
     use dep::aztec3::abi;
     use dep::aztec3::abi::Inputs;
-    use dep::aztec3::abi::Outputs;
+    use dep::aztec3::context::PrivateFunctionContext;
 
+    /// ABI constructor type "secret"
+    /// ABI constructor params []
+    /// ABI constructor return []
     fn constructor(
         inputs: pub Inputs,
     ) -> pub [Field; dep::aztec3::abi::PUBLIC_INPUTS_LENGTH] {
@@ -10,8 +13,8 @@ contract EmptyConstructor {
             constrain inputs.args[i] == 0;
         }
 
-        let mut outputs = Outputs::new();
+        let mut context = PrivateFunctionContext::new();
 
-        outputs.finish(inputs)
+        context.finish(inputs)
     }
 }

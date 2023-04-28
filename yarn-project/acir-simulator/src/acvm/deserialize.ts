@@ -22,6 +22,10 @@ export function frToAztecAddress(fr: Fr): AztecAddress {
   return new AztecAddress(fr.toBuffer());
 }
 
+export function frToNumber(fr: Fr): number {
+  return Number(fr.value);
+}
+
 export function frToEthAddress(fr: Fr): EthAddress {
   return new EthAddress(fr.toBuffer().slice(-EthAddress.SIZE_IN_BYTES));
 }
@@ -35,7 +39,7 @@ export function frToSelector(fr: Fr): Buffer {
   return fr.toBuffer().slice(-4);
 }
 
-export class WitnessReader {
+export class PublicInputsReader {
   private publicInputs: ACVMField[];
 
   constructor(witness: ACVMWitness, acir: Buffer) {
@@ -58,7 +62,7 @@ export class WitnessReader {
 }
 
 export function extractPublicInputs(partialWitness: ACVMWitness, acir: Buffer): PrivateCircuitPublicInputs {
-  const witnessReader = new WitnessReader(partialWitness, acir);
+  const witnessReader = new PublicInputsReader(partialWitness, acir);
 
   const callContext = new CallContext(
     frToAztecAddress(witnessReader.readField()),

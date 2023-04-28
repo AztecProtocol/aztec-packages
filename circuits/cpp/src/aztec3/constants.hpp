@@ -31,21 +31,24 @@ constexpr size_t FUNCTION_TREE_HEIGHT = 4;
 constexpr size_t CONTRACT_TREE_HEIGHT = 4;
 constexpr size_t PRIVATE_DATA_TREE_HEIGHT = 8;
 constexpr size_t NULLIFIER_TREE_HEIGHT = 8;
+constexpr size_t PUBLIC_DATA_TREE_HEIGHT = 254;
+constexpr size_t L1_TO_L2_MSG_TREE_HEIGHT = 8;
 
 constexpr size_t CONTRACT_SUBTREE_DEPTH = 1;
 constexpr size_t CONTRACT_SUBTREE_INCLUSION_CHECK_DEPTH = CONTRACT_TREE_HEIGHT - CONTRACT_SUBTREE_DEPTH;
 
 constexpr size_t PRIVATE_DATA_SUBTREE_DEPTH = 3;
-constexpr size_t PRIVATE_DATA_SUBTREE_INCLUSION_CHECK_DEPTH = NULLIFIER_TREE_HEIGHT - PRIVATE_DATA_SUBTREE_DEPTH;
+constexpr size_t PRIVATE_DATA_SUBTREE_INCLUSION_CHECK_DEPTH = PRIVATE_DATA_TREE_HEIGHT - PRIVATE_DATA_SUBTREE_DEPTH;
 
 constexpr size_t NULLIFIER_SUBTREE_DEPTH = 3;
 constexpr size_t NULLIFIER_SUBTREE_INCLUSION_CHECK_DEPTH = NULLIFIER_TREE_HEIGHT - NULLIFIER_SUBTREE_DEPTH;
 
 constexpr size_t PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT = 8;
 constexpr size_t CONTRACT_TREE_ROOTS_TREE_HEIGHT = 8;
+constexpr size_t L1_TO_L2_MSG_TREE_ROOTS_TREE_HEIGHT = 8;
 constexpr size_t ROLLUP_VK_TREE_HEIGHT = 8; // TODO: update
 
-constexpr size_t FUNCTION_SELECTOR_NUM_BYTES = 31; // must be <= 31
+constexpr size_t FUNCTION_SELECTOR_NUM_BYTES = 4; // must be <= 31
 
 // Enumerate the hash_indices which are used for pedersen hashing
 // Start from 1 to avoid the default generators.
@@ -75,6 +78,8 @@ enum GeneratorIndex {
     PUBLIC_CIRCUIT_PUBLIC_INPUTS,
     TX_CONTEXT,
     TX_REQUEST,
+    PUBLIC_LEAF_INDEX,
+    PUBLIC_DATA_LEAF,
 };
 
 enum StorageSlotGeneratorIndex {

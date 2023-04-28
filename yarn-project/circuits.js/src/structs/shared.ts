@@ -1,7 +1,8 @@
 import { BufferReader, randomBytes } from '@aztec/foundation';
-import { Fq, Fr } from '@aztec/foundation/fields';
-import { assertLength, range } from '../utils/jsUtils.js';
+import { Fq } from '@aztec/foundation/fields';
+import { assertLength } from '../utils/jsUtils.js';
 import { Bufferable, serializeToBuffer } from '../utils/serialize.js';
+<<<<<<< HEAD
 import times from 'lodash.times';
 
 export class MembershipWitness<N extends number> {
@@ -87,6 +88,8 @@ export class AggregationObject {
     );
   }
 }
+=======
+>>>>>>> origin/master
 
 export class Vector<T extends Bufferable> {
   constructor(public items: T[]) {}

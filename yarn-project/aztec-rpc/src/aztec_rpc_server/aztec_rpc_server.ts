@@ -6,6 +6,7 @@ import {
   EcdsaSignature,
   EthAddress,
   FunctionData,
+  SignedTxRequest,
   TxContext,
   TxRequest,
 } from '@aztec/circuits.js';
@@ -82,7 +83,7 @@ export class AztecRPCServer implements AztecRPCClient {
    * @returns Whether the contract was deployed.
    */
   public async isContractDeployed(contractAddress: AztecAddress): Promise<boolean> {
-    return !!(await this.node.getContractData(contractAddress));
+    return !!(await this.node.getContractInfo(contractAddress));
   }
 
   public async createDeploymentTxRequest(
@@ -145,7 +146,7 @@ export class AztecRPCServer implements AztecRPCClient {
       throw new Error('Unknown function.');
     }
 
-    const flatArgs = encodeArguments(functionDao, args);
+    const flatArgs = encodeArguments(functionDao, args, functionDao.functionType === FunctionType.SECRET);
 
     const functionData = new FunctionData(
       functionDao.selector,
@@ -177,14 +178,23 @@ export class AztecRPCServer implements AztecRPCClient {
   }
 
   public async createTx(txRequest: TxRequest, signature: EcdsaSignature) {
+    let toContract: AztecAddress | undefined;
+    let newContract: AztecAddress | undefined;
     const accountState = this.ensureAccount(txRequest.from);
 
-    const tx = await accountState.simulateAndProve(txRequest, signature);
-
     const contractAddress = txRequest.to;
-    const [toContract, newContract] = txRequest.functionData.isConstructor
-      ? [undefined, contractAddress]
-      : [contractAddress, undefined];
+    let tx: Tx;
+    if (!txRequest.functionData.isPrivate) {
+      // Note: there is no simulation being performed client-side for public functions execution.
+      tx = Tx.createPublic(new SignedTxRequest(txRequest, signature));
+    } else if (txRequest.functionData.isConstructor) {
+      newContract = contractAddress;
+      tx = await accountState.simulateAndProve(txRequest, signature, contractAddress);
+    } else {
+      toContract = contractAddress;
+      tx = await accountState.simulateAndProve(txRequest, signature);
+    }
+
     const dao = new TxDao(await tx.getTxHash(), undefined, undefined, txRequest.from, toContract, newContract, '');
     await this.db.addTx(dao);
 
@@ -204,10 +214,10 @@ export class AztecRPCServer implements AztecRPCClient {
   public async viewTx(functionName: string, args: any[], to: AztecAddress, from?: AztecAddress) {
     const txRequest = await this.createTxRequest(functionName, args, to, from);
     const accountState = this.ensureAccount(txRequest.from);
-    const executionResult = await accountState.simulate(txRequest);
+    const executionResult = await accountState.simulateUnconstrained(txRequest);
 
     // TODO - Return typed result based on the function abi.
-    return executionResult.preimages;
+    return executionResult;
   }
 
   /**

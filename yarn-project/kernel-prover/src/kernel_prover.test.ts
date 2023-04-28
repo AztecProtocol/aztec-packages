@@ -6,7 +6,7 @@ import {
   PRIVATE_CALL_STACK_LENGTH,
   PrivateCallStackItem,
   PrivateCircuitPublicInputs,
-  PrivateKernelPublicInputs,
+  KernelCircuitPublicInputs,
   TxRequest,
   VK_TREE_HEIGHT,
   VerificationKey,
@@ -48,16 +48,22 @@ describe('Kernel Prover', () => {
       nestedExecutions: (dependencies[fnName] || []).map(name => createExecutionResult(name)),
       vk: VerificationKey.makeFake().toBuffer(),
       preimages: { newNotes: newNoteIndices.map(idx => notes[idx]), nullifiedNotes: [] },
+      returnValues: [],
       acir: Buffer.alloc(0),
       partialWitness: new Map(),
     } as ExecutionResult;
   };
 
   const createProofOutput = (newNoteIndices: number[]) => {
+<<<<<<< HEAD
     const publicInputs = PrivateKernelPublicInputs.makeEmpty();
     const commitments = newNoteIndices.map(idx => generateFakeSiloedCommitment(notes[idx]));
     // TODO(AD) FIXME(AD) This cast is bad. Why is this not the correct length when this is called?
     publicInputs.end.newCommitments = commitments as TupleOf<Fr, typeof KERNEL_NEW_COMMITMENTS_LENGTH>;
+=======
+    const publicInputs = KernelCircuitPublicInputs.empty();
+    publicInputs.end.newCommitments = newNoteIndices.map(idx => generateFakeSiloedCommitment(notes[idx]));
+>>>>>>> origin/master
     return {
       publicInputs,
       proof: makeEmptyProof(),

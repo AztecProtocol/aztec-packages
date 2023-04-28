@@ -2,7 +2,6 @@
 #include "aztec3/utils/dummy_composer.hpp"
 #include "index.hpp"
 #include "init.hpp"
-#include "utils.hpp"
 #include "c_bind.h"
 
 #include <aztec3/constants.hpp>
@@ -10,7 +9,7 @@
 #include "aztec3/circuits/abis/signed_tx_request.hpp"
 #include "aztec3/circuits/abis/private_kernel/private_call_data.hpp"
 #include <aztec3/circuits/abis/private_kernel/private_inputs.hpp>
-#include <aztec3/circuits/abis/private_kernel/public_inputs.hpp>
+#include <aztec3/circuits/abis/kernel_circuit_public_inputs.hpp>
 #include <aztec3/circuits/mock/mock_kernel_circuit.hpp>
 
 #include "barretenberg/srs/reference_string/env_reference_string.hpp"
@@ -19,14 +18,13 @@
 #include "barretenberg/plonk/composer/turbo_composer.hpp"
 
 namespace {
+using Composer = plonk::UltraComposer;
 using NT = aztec3::utils::types::NativeTypes;
 using DummyComposer = aztec3::utils::DummyComposer;
 using aztec3::circuits::abis::BaseOrMergeRollupPublicInputs;
 using aztec3::circuits::abis::BaseRollupInputs;
 using aztec3::circuits::rollup::native_base_rollup::base_rollup_circuit;
 
-using plonk::TurboComposer;
-using namespace plonk::stdlib::types;
 } // namespace
 
 #define WASM_EXPORT __attribute__((visibility("default")))
@@ -74,7 +72,7 @@ WASM_EXPORT size_t base_rollup__sim(uint8_t const* base_rollup_inputs_buf,
     // TODO for circuit proof version of this function
     // NT::Proof base_rollup_proof;
     //    Composer composer = Composer(crs_factory);
-    //    plonk::stdlib::types::Prover prover = composer.create_prover();
+    //    auto prover = composer.create_prover();
     //    public_inputs = base_rollup_circuit(composer, base_rollup_inputs);
     //    base_rollup_proof = prover.construct_proof();
 
@@ -109,7 +107,7 @@ WASM_EXPORT size_t base_rollup__sim(uint8_t const* base_rollup_inputs_buf,
 //        base_rollup_proof = NT::Proof{ std::vector<uint8_t>(42, 0) };
 //    }// else {
 //    //    Composer composer = Composer(crs_factory);
-//    //    plonk::stdlib::types::Prover prover = composer.create_prover();
+//    //    auto prover = composer.create_prover();
 //    //    public_inputs = base_rollup_circuit(composer, base_rollup_inputs);
 //    //    base_rollup_proof = prover.construct_proof();
 //    //}

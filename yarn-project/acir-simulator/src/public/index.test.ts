@@ -6,8 +6,8 @@ import { FunctionAbi } from '@aztec/noir-contracts';
 import { PublicTokenContractAbi } from '@aztec/noir-contracts/examples';
 import { MockProxy, mock } from 'jest-mock-extended';
 import { default as memdown, type MemDown } from 'memdown';
-import { encodeArguments } from '../arguments_encoder/index.js';
-import { NoirPoint, computeSlot, toPublicKey } from '../utils.js';
+import { encodeArguments } from '../abi_coder/encoder.js';
+import { NoirPoint, computeSlotForMapping, toPublicKey } from '../utils.js';
 import { PublicDB } from './db.js';
 import { PublicExecution } from './execution.js';
 
@@ -39,7 +39,7 @@ describe('ACIR public execution simulator', () => {
     describe('mint', () => {
       it('should run the mint function', async () => {
         const contractAddress = AztecAddress.random();
-        const abi = PublicTokenContractAbi.functions.find(f => f.name === 'mint') as FunctionAbi;
+        const abi = PublicTokenContractAbi.functions.find(f => f.name === 'mint')!;
         const functionData = new FunctionData(Buffer.alloc(4), false, false);
         const args = encodeArguments(abi, [140, recipient], false);
 
@@ -56,13 +56,14 @@ describe('ACIR public execution simulator', () => {
         const previousBalance = new Fr(20n);
         oracle.storageRead.mockResolvedValue(previousBalance);
 
-        const execution = new PublicExecution(oracle, abi, contractAddress, functionData, args, callContext);
+        const bytecode = Buffer.from(abi.bytecode, 'hex');
+        const execution = new PublicExecution(oracle, bytecode, contractAddress, functionData, args, callContext);
         const result = await execution.run();
 
         const expectedBalance = new Fr(160n);
         expect(result.returnValues).toEqual([expectedBalance]);
 
-        const storageSlot = computeSlot(new Fr(1n), recipient, bbWasm);
+        const storageSlot = computeSlotForMapping(new Fr(1n), recipient, bbWasm);
         expect(result.stateTransitions).toEqual([
           { storageSlot, oldValue: previousBalance, newValue: expectedBalance },
         ]);
@@ -83,7 +84,7 @@ describe('ACIR public execution simulator', () => {
 
       beforeEach(() => {
         contractAddress = AztecAddress.random();
-        abi = PublicTokenContractAbi.functions.find(f => f.name === 'transfer') as FunctionAbi;
+        abi = PublicTokenContractAbi.functions.find(f => f.name === 'transfer')!;
         functionData = new FunctionData(Buffer.alloc(4), false, false);
         args = encodeArguments(abi, [140, recipient], false);
         sender = AztecAddress.random();
@@ -97,8 +98,8 @@ describe('ACIR public execution simulator', () => {
           isStaticCall: false,
         });
 
-        recipientStorageSlot = computeSlot(new Fr(1n), recipient, bbWasm);
-        senderStorageSlot = computeSlot(new Fr(1n), Fr.fromBuffer(sender.toBuffer()), bbWasm);
+        recipientStorageSlot = computeSlotForMapping(new Fr(1n), recipient, bbWasm);
+        senderStorageSlot = computeSlotForMapping(new Fr(1n), Fr.fromBuffer(sender.toBuffer()), bbWasm);
       });
 
       const mockStore = (senderBalance: Fr, recipientBalance: Fr) => {
@@ -119,7 +120,8 @@ describe('ACIR public execution simulator', () => {
         const recipientBalance = new Fr(20n);
         mockStore(senderBalance, recipientBalance);
 
-        const execution = new PublicExecution(oracle, abi, contractAddress, functionData, args, callContext);
+        const bytecode = Buffer.from(abi.bytecode, 'hex');
+        const execution = new PublicExecution(oracle, bytecode, contractAddress, functionData, args, callContext);
         const result = await execution.run();
 
         const expectedRecipientBalance = new Fr(160n);
@@ -143,7 +145,8 @@ describe('ACIR public execution simulator', () => {
         const recipientBalance = new Fr(20n);
         mockStore(senderBalance, recipientBalance);
 
-        const execution = new PublicExecution(oracle, abi, contractAddress, functionData, args, callContext);
+        const bytecode = Buffer.from(abi.bytecode, 'hex');
+        const execution = new PublicExecution(oracle, bytecode, contractAddress, functionData, args, callContext);
         const result = await execution.run();
 
         expect(result.returnValues).toEqual([recipientBalance]);

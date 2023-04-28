@@ -8,13 +8,17 @@ export abstract class AsyncWasmWrapper extends WasmWrapper {
   protected asyncCallState = new AsyncCallState();
 
   /**
-   * 20 pages by default. 20*2**16 \> 1mb stack size plus other overheads.
+   * 30 pages by default. 30*2**16 \> 1mb stack size plus other overheads.
    * 8192 maximum by default. 512mb.
    * @param initial - Initial memory pages.
    * @param maximum - Max memory pages.
+<<<<<<< HEAD
    * @returns Itself.
+=======
+   * @returns The wrapper.
+>>>>>>> origin/master
    */
-  public async init(initial = 20, maximum = 8192): Promise<this> {
+  public async init(initial = 30, maximum = 8192): Promise<this> {
     await super.init(initial, maximum);
     this.asyncCallState.init(this.wasm);
     return this;
@@ -23,7 +27,7 @@ export abstract class AsyncWasmWrapper extends WasmWrapper {
   /**
    * These are functions implementations for imports we've defined are needed.
    * The native C++ build defines these in a module called "env". We must implement TypeScript versions here.
-   * @param module - The wasm module.
+   * @param wasm - The wasm module.
    * @returns An object of functions called from cpp that need to be answered by ts.
    */
   protected getImportFns(wasm: WasmModule): any {
@@ -84,7 +88,13 @@ export abstract class AsyncWasmWrapper extends WasmWrapper {
   }
 }
 
-// REFACTOR: Copied from bb serialize, move to a set of serialization fns here in foundation
+/**
+ * Convert a number to a little-endian uint32 buffer.
+ * @param n - The number to convert.
+ * @param bufferSize - Size of the returned buffer.
+ * @returns Resulting buffer.
+ * TODO: REFACTOR: Copied from bb serialize, move to a set of serialization fns here in foundation.
+ */
 function numToUInt32LE(n: number, bufferSize = 4) {
   const buf = Buffer.alloc(bufferSize);
   buf.writeUInt32LE(n, bufferSize - 4);
