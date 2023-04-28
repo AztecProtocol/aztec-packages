@@ -97,8 +97,16 @@ export function makePublicDataTransition(seed = 1) {
   return new PublicDataTransition(fr(seed), fr(seed + 1), fr(seed + 2));
 }
 
+export function makeEmptyPublicDataTransition() {
+  return new PublicDataTransition(fr(0), fr(0), fr(0));
+}
+
 export function makePublicDataRead(seed = 1) {
   return new PublicDataRead(fr(seed), fr(seed + 1));
+}
+
+export function makeEmptyPublicDataRead() {
+  return new PublicDataRead(fr(0), fr(0));
 }
 
 export function makeStateTransition(seed = 1) {
@@ -121,8 +129,8 @@ export function makeAccumulatedData(seed = 1): CombinedAccumulatedData {
     range(KERNEL_L1_MSG_STACK_LENGTH, seed + 0x500).map(fr),
     range(KERNEL_NEW_CONTRACTS_LENGTH, seed + 0x600).map(makeNewContractData),
     range(KERNEL_OPTIONALLY_REVEALED_DATA_LENGTH, seed + 0x700).map(makeOptionallyRevealedData),
-    range(STATE_TRANSITIONS_LENGTH, seed + 0x800).map(makePublicDataTransition),
-    range(STATE_READS_LENGTH, seed + 0x900).map(makePublicDataRead),
+    range(STATE_TRANSITIONS_LENGTH, seed + 0x800).map(makeEmptyPublicDataTransition),
+    range(STATE_READS_LENGTH, seed + 0x900).map(makeEmptyPublicDataRead),
   );
 }
 
