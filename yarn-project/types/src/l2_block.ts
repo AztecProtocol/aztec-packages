@@ -165,11 +165,6 @@ export class L2Block {
       this.newContracts.length,
       this.newContracts,
       this.newContractData,
-      // TODO: We set the public data entries at the end so we don't have to change the L1 decoder yet
-      this.startPublicDataTreeRoot,
-      this.endPublicDataTreeRoot,
-      this.newPublicDataWrites.length,
-      this.newPublicDataWrites,
     );
   }
 
