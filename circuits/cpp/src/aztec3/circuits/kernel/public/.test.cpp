@@ -973,13 +973,13 @@ TEST(public_kernel_tests, circuit_outputs_should_be_correctly_populated_with_pre
     }
 
     // we should now see the public data reads and write from this iteration appended to the combined output
-    // ASSERT_GT(array_length(public_inputs.end.state_reads),
-    //           array_length(inputs.previous_kernel.public_inputs.end.state_reads));
-    ASSERT_GT(array_length(public_inputs.end.state_transitions),
-              array_length(inputs.previous_kernel.public_inputs.end.state_transitions));
+    ASSERT_EQ(array_length(public_inputs.end.state_reads),
+              array_length(inputs.previous_kernel.public_inputs.end.state_reads) +
+                  array_length(inputs.public_call.call_stack_item.public_inputs.state_reads));
+    ASSERT_EQ(array_length(public_inputs.end.state_transitions),
+              array_length(inputs.previous_kernel.public_inputs.end.state_transitions) +
+                  array_length(inputs.public_call.call_stack_item.public_inputs.state_transitions));
 
-    info("Num public data writes ", array_length(public_inputs.end.state_transitions));
-    info("Num public data reads ", array_length(public_inputs.end.state_reads));
     const auto contract_address = inputs.public_call.call_stack_item.contract_address;
     std::array<PublicDataWrite<NT>, STATE_TRANSITIONS_LENGTH> expected_new_writes =
         public_data_writes_from_state_transitions(inputs.public_call.call_stack_item.public_inputs.state_transitions,
@@ -989,11 +989,11 @@ TEST(public_kernel_tests, circuit_outputs_should_be_correctly_populated_with_pre
                                             expected_new_writes,
                                             public_inputs.end.state_transitions));
 
-    // std::array<PublicDataRead<NT>, STATE_READS_LENGTH> expected_new_reads = public_data_reads_from_state_reads(
-    //     inputs.public_call.call_stack_item.public_inputs.state_reads, contract_address);
+    std::array<PublicDataRead<NT>, STATE_READS_LENGTH> expected_new_reads = public_data_reads_from_state_reads(
+        inputs.public_call.call_stack_item.public_inputs.state_reads, contract_address);
 
-    // ASSERT_TRUE(source_arrays_are_in_target(
-    //     inputs.previous_kernel.public_inputs.end.state_reads, expected_new_reads, public_inputs.end.state_reads));
+    ASSERT_TRUE(source_arrays_are_in_target(
+        inputs.previous_kernel.public_inputs.end.state_reads, expected_new_reads, public_inputs.end.state_reads));
 
     ASSERT_FALSE(dc.failed());
 }

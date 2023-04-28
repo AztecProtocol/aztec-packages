@@ -24,6 +24,7 @@ void common_initialise_end_values(PublicKernelInputs<NT> const& public_kernel_in
     end.optionally_revealed_data = start.optionally_revealed_data;
 
     end.state_transitions = start.state_transitions;
+    end.state_reads = start.state_reads;
 }
 
 /**

@@ -206,6 +206,7 @@ void propagate_valid_state_transitions(KernelInput const& public_kernel_inputs,
         }
         const auto new_write = PublicDataWrite<NT>{
             .leaf_index = compute_public_data_tree_index<NT>(contract_address, state_transition.storage_slot),
+            .old_value = compute_public_data_tree_value<NT>(state_transition.old_value),
             .new_value = compute_public_data_tree_value<NT>(state_transition.new_value),
         };
         array_push(circuit_outputs.end.state_transitions, new_write);
