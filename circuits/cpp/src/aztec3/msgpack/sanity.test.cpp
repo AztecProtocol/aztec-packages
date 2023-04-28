@@ -24,7 +24,7 @@ struct BadExampleOverlap {
 struct BadExampleIncomplete {
     fr a;
     fr b;
-    MSGPACK(a, b);
+    MSGPACK(a);
 } bad_example_incomplete;
 
 struct BadExampleOutOfObject {
@@ -40,19 +40,13 @@ struct BadExampleOutOfObject {
 // TODO eventually move to barretenberg
 TEST(abi_tests, msgpack_sanity_sanity)
 {
-    good_example.msgpack([&](auto&... args) { EXPECT_EQ(msgpack::check_memory_span(&good_example, &args...), ""); });
-    bad_example_overlap.msgpack([&](auto&... args) {
-        EXPECT_EQ(msgpack::check_memory_span(&bad_example_overlap, &args...),
-                  "Overlap in BadExampleOverlap MSGPACK() params detected!");
-    });
-    bad_example_incomplete.msgpack([&](auto&... args) {
-        EXPECT_EQ(msgpack::check_memory_span(&bad_example_incomplete, &args...),
-                  "Incomplete BadExampleIncomplete MSGPACK() params! Not all of object specified.");
-    });
-    bad_example_out_of_object.msgpack([&](auto&... args) {
-        EXPECT_EQ(msgpack::check_memory_span(&bad_example_out_of_object, &args...),
-                  "Some BadExampleOutOfObject MSGPACK() params don't exist in object!");
-    });
+    EXPECT_EQ(msgpack::check_msgpack_method(good_example), "");
+    EXPECT_EQ(msgpack::check_msgpack_method(bad_example_overlap),
+              "Overlap in BadExampleOverlap MSGPACK() params detected!");
+    EXPECT_EQ(msgpack::check_msgpack_method(bad_example_incomplete),
+              "Incomplete BadExampleIncomplete MSGPACK() params! Not all of object specified.");
+    EXPECT_EQ(msgpack::check_msgpack_method(bad_example_out_of_object),
+              "Some BadExampleOutOfObject MSGPACK() params don't exist in object!");
 }
 
 struct ComplicatedSchema {
@@ -65,9 +59,12 @@ struct ComplicatedSchema {
 
 TEST(abi_tests, msgpack_schema_sanity)
 {
-    EXPECT_EQ(msgpack::schema_to_string(good_example), "[\"GoodExample\",\"field\",\"field\"]\n");
+    EXPECT_EQ(
+        msgpack::schema_to_string(good_example),
+        "{\"__typename\":\"GoodExample\",\"a\":[\"alias\",[\"Fr\",\"bin32\"]],\"b\":[\"alias\",[\"Fr\",\"bin32\"]]}\n");
     EXPECT_EQ(msgpack::schema_to_string(complicated_schema),
-              "{\"__typename\":\"ComplicatedSchema\",\"array\":[\"vector\",\"array\"],\"good_or_not\":[\"optional\",["
-              "\"GoodExample\",[\"struct\",\"field\",\"bin32\"],\"field\"]],\"bare\":\"field\",\"huh\":[\"variant\","
-              "\"field\",\"GoodExample\"]}\n");
+              "{\"__typename\":\"ComplicatedSchema\",\"array\":[\"vector\",[[\"array\",[[\"alias\",[\"Fr\",\"bin32\"]],"
+              "20]]]],\"good_or_not\":[\"optional\",[{\"__typename\":\"GoodExample\",\"a\":[\"alias\",[\"Fr\","
+              "\"bin32\"]],\"b\":[\"alias\",[\"Fr\",\"bin32\"]]}]],\"bare\":[\"alias\",[\"Fr\",\"bin32\"]],\"huh\":["
+              "\"variant\",[[\"alias\",[\"Fr\",\"bin32\"]],\"GoodExample\"]]}\n");
 }

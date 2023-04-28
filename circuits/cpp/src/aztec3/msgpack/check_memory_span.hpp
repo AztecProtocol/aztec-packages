@@ -12,9 +12,14 @@
 #include "operator_equals.hpp"
 
 namespace msgpack {
+template <typename T> uintptr_t __aligned_for(uintptr_t ptr)
+{
+    // Round to next alignment, (ptr % alignof(T)) == 0 after
+    return ptr + (alignof(T) - (ptr % alignof(T))) % alignof(T);
+}
 template <typename T, typename... Args> std::string check_memory_span(T* obj, Args*... args)
 {
-    constexpr size_t max_align_padding = 63;
+    // We need to handle alignment. Thankfully, we have a tool here.
     // Convert the variadic template arguments to a vector of pairs.
     // Each pair contains a pointer (as uintptr_t) and its size.
     std::vector<std::pair<uintptr_t, size_t>> pointers{ { (uintptr_t)(args), sizeof(Args) }... };
@@ -29,7 +34,7 @@ template <typename T, typename... Args> std::string check_memory_span(T* obj, Ar
         }
         // Check if gap is too large.
         // Give some fuzzy room in case of 64 byte alignment restrictions.
-        if (last_end + max_align_padding < pointers[i].first) {
+        if (__aligned_for<T>(last_end) < pointers[i].first) {
             return "Gap in " + msgpack::schema_name(*obj) + " MSGPACK() params detected before member #" +
                    std::to_string(i) + " !";
         }
@@ -49,10 +54,7 @@ template <typename T, typename... Args> std::string check_memory_span(T* obj, Ar
         end = std::max(end, ptr + size);
     }
     size_t total_size = end - start;
-    //    // Align gap for sizeof long e.g. if a char is before a long, C may pad
-    //    total_size += (sizeof(long) - (total_size % sizeof(long))) % sizeof(long);
-
-    if (total_size + max_align_padding < sizeof(T)) {
+    if (__aligned_for<T>(total_size) < sizeof(T)) {
         return "Incomplete " + msgpack::schema_name(*obj) + " MSGPACK() params! Not all of object specified.";
     }
     return {};
@@ -60,10 +62,8 @@ template <typename T, typename... Args> std::string check_memory_span(T* obj, Ar
 template <HasMsgPack T> std::string check_msgpack_method(T& object)
 {
     std::string result;
-    object.msgpack([&](auto&... keys_and_values) {
-        std::apply([&](auto&... values) { result = check_memory_span(&object, &values...); },
-                   drop_keys(std::tie(keys_and_values...)));
-    });
+    auto checker = [&](auto&... values) { result = check_memory_span(&object, &values...); };
+    object.msgpack([&](auto&... keys_and_values) { std::apply(checker, drop_keys(std::tie(keys_and_values...))); });
     return result;
 }
 void check_msgpack_usage(auto object)
