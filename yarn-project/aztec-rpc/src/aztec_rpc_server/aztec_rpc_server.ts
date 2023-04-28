@@ -22,6 +22,7 @@ import { ContractTree } from '../contract_tree/index.js';
 import { Database, TxDao } from '../database/index.js';
 import { Synchroniser } from '../synchroniser/index.js';
 import { TxReceipt, TxStatus } from '../tx/index.js';
+import { EthPublicKey } from '@aztec/foundation/eth-public-key';
 
 /**
  * A remote Aztec RPC Client implementation.
@@ -101,15 +102,17 @@ export class AztecRPCServer implements AztecRPCClient {
   }
 
   /**
-   * Retrieve the public key associated with an address.
+   * Retrieve the ethereum public key associated with an address.
    * Throws an error if the account is not found in the key store.
    *
    * @param address - The AztecAddress instance representing the account.
-   * @returns A Promise resolving to the Point instance representing the public key.
+   * @returns A Promise resolving to the EthPublicKey instance representing the Ethereum public key.
+   *
+   * TODO(Suyash): the AztecAddress actually contains the ethereum address for now.
    */
-  public getAccountPublicKey(address: AztecAddress): Promise<Point> {
+  public getAccountPublicKey(address: AztecAddress): Promise<EthPublicKey> {
     const account = this.ensureAccount(address);
-    return Promise.resolve(account.getPublicKey());
+    return Promise.resolve(account.getEthPublicKey());
   }
 
   /**

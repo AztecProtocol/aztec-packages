@@ -1,12 +1,12 @@
 import { AztecNode, getConfigEnvVars } from '@aztec/aztec-node';
-import { AztecAddress, AztecRPCServer, Contract, ContractDeployer, TxStatus } from '@aztec/aztec.js';
+import { AztecAddress, AztecRPCServer, Contract, ContractDeployer, TxStatus, EthAddress } from '@aztec/aztec.js';
 import { ZkTokenContractAbi } from '@aztec/noir-contracts/examples';
 
 import { mnemonicToAccount } from 'viem/accounts';
 import { createAztecRpcServer } from './create_aztec_rpc_client.js';
 import { deployL1Contracts } from './deploy_l1_contracts.js';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { Point } from '@aztec/foundation/fields';
+import { EthPublicKey } from '@aztec/foundation/eth-public-key';
 import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
 
 const MNEMONIC = 'test test test test test test test test test test test junk';
@@ -47,9 +47,9 @@ describe('e2e_zk_token_contract', () => {
     expect(balance).toBe(expectedBalance);
   };
 
-  const pointToPublicKey = (point: Point) => {
-    const x = point.buffer.subarray(0, 32);
-    const y = point.buffer.subarray(32, 64);
+  const pointToPublicKey = (ethPublicKey: EthPublicKey) => {
+    const x = ethPublicKey.buffer.subarray(0, 32);
+    const y = ethPublicKey.buffer.subarray(32, 64);
     return {
       x: toBigIntBE(x),
       y: toBigIntBE(y),
