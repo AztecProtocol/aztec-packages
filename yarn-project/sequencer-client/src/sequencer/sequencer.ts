@@ -1,8 +1,8 @@
-import times from 'lodash.times';
 import { RunningPromise, createDebugLogger } from '@aztec/foundation';
 import { P2P } from '@aztec/p2p';
-import { CompleteContractData, ContractData, PrivateTx, PublicTx, Tx, UnverifiedData, isPrivateTx } from '@aztec/types';
+import { ContractData, ContractPublicData, PrivateTx, PublicTx, Tx, UnverifiedData, isPrivateTx } from '@aztec/types';
 import { MerkleTreeId, WorldStateStatus, WorldStateSynchroniser } from '@aztec/world-state';
+import times from 'lodash.times';
 import { BlockBuilder } from '../block_builder/index.js';
 import { L1Publisher } from '../publisher/l1-publisher.js';
 import { ceilPowerOfTwo } from '../utils.js';
@@ -135,9 +135,8 @@ export class Sequencer {
           // Currently can only have 1 new contract per tx
           const newContract = tx.data?.end.newContracts[0];
           if (newContract && tx.newContractPublicFunctions?.length) {
-            return ContractData.createCompleteContractData(
-              newContract.contractAddress,
-              newContract.portalContractAddress,
+            return new ContractPublicData(
+              new ContractData(newContract.contractAddress, newContract.portalContractAddress),
               tx.newContractPublicFunctions,
             );
           }

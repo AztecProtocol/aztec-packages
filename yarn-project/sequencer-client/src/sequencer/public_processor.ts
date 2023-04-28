@@ -9,36 +9,14 @@ import {
   PublicKernelPublicInputs,
   TxRequest,
 } from '@aztec/circuits.js';
-import {
-  CompleteContractData,
-  ContractData,
-  ContractDataSource,
-  EncodedContractFunction,
-  PublicTx,
-  Tx,
-} from '@aztec/types';
+import { ContractDataSource, PublicTx, Tx } from '@aztec/types';
 import { MerkleTreeOperations } from '@aztec/world-state';
 import { pedersenGetHash } from '@aztec/barretenberg.js/crypto';
-import { AztecAddress, createDebugLogger } from '@aztec/foundation';
+import { createDebugLogger } from '@aztec/foundation';
 import times from 'lodash.times';
 import { Proof, PublicProver } from '../prover/index.js';
 import { PublicCircuitSimulator, PublicKernelCircuitSimulator } from '../simulator/index.js';
 import { ProcessedTx, makeEmptyProcessedTx, makeProcessedTx } from './processed_tx.js';
-
-export class MockContractDataSource implements ContractDataSource {
-  getL2ContractDataInBlock(blockNum: number): Promise<ContractData[]> {
-    return Promise.resolve([]);
-  }
-  getL2ContractData(_address: AztecAddress): Promise<CompleteContractData | undefined> {
-    return Promise.resolve(undefined);
-  }
-  getL2ContractInfo(_address: AztecAddress): Promise<ContractData | undefined> {
-    return Promise.resolve(undefined);
-  }
-  getPublicFunction(_address: AztecAddress, _selector: Buffer): Promise<EncodedContractFunction | undefined> {
-    return Promise.resolve(undefined);
-  }
-}
 
 export class PublicProcessor {
   constructor(
@@ -95,9 +73,9 @@ export class PublicProcessor {
     );
     const functionSelector = txRequest.functionData.functionSelector;
     if (!fn) throw new Error(`Bytecode not found for ${functionSelector}@${contractAddress}`);
-    const contractData = await this.contractDataSource.getL2ContractData(contractAddress);
-    if (!contractData) throw new Error(`Portal contract address not found for contract ${contractAddress}`);
-    const { portalContractAddress } = contractData;
+    const contractPublicData = await this.contractDataSource.getL2ContractPublicData(contractAddress);
+    if (!contractPublicData) throw new Error(`Portal contract address not found for contract ${contractAddress}`);
+    const { portalContractAddress } = contractPublicData.contractData;
 
     const circuitOutput = await this.publicCircuit.publicCircuit(txRequest, fn.bytecode, portalContractAddress);
     const circuitProof = await this.publicProver.getPublicCircuitProof(circuitOutput);

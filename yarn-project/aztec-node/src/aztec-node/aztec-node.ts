@@ -1,6 +1,6 @@
 import { Archiver } from '@aztec/archiver';
 import { AztecAddress, Fr } from '@aztec/foundation';
-import { CompleteContractData, ContractData, ContractDataSource, L2Block, L2BlockSource } from '@aztec/types';
+import { ContractPublicData, ContractData, ContractDataSource, L2Block, L2BlockSource } from '@aztec/types';
 import { SiblingPath } from '@aztec/merkle-tree';
 import { P2P, P2PClient } from '@aztec/p2p';
 import { SequencerClient } from '@aztec/sequencer-client';
@@ -55,7 +55,7 @@ export class AztecNode {
     await Promise.all([p2pClient.start(), worldStateSynchroniser.start()]);
 
     // now create the sequencer
-    const sequencer = await SequencerClient.new(config, p2pClient, worldStateSynchroniser);
+    const sequencer = await SequencerClient.new(config, p2pClient, worldStateSynchroniser, archiver);
     return new AztecNode(p2pClient, archiver, archiver, archiver, merkleTreeDB, worldStateSynchroniser, sequencer);
   }
 
@@ -91,8 +91,8 @@ export class AztecNode {
    * @param contractAddress - The contract data address.
    * @returns The complete contract data including portal address & bytecode (if we didn't throw an error).
    */
-  public async getContractData(contractAddress: AztecAddress): Promise<CompleteContractData | undefined> {
-    return await this.contractDataSource.getL2ContractData(contractAddress);
+  public async getContractData(contractAddress: AztecAddress): Promise<ContractPublicData | undefined> {
+    return await this.contractDataSource.getL2ContractPublicData(contractAddress);
   }
 
   /**

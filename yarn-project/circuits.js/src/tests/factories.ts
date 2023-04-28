@@ -21,7 +21,7 @@ import {
   PublicCallData,
   PublicCircuitPublicInputs,
   PublicDataRead,
-  PublicDataWrite,
+  PublicDataTransition,
   PublicKernelInputs,
   PublicKernelInputsNoPreviousKernel,
   RootRollupInputs,
@@ -93,8 +93,8 @@ export function makeSelector(seed: number) {
   return buffer;
 }
 
-export function makePublicDataWrite(seed = 1) {
-  return new PublicDataWrite(fr(seed), fr(seed + 1), fr(seed + 2));
+export function makePublicDataTransition(seed = 1) {
+  return new PublicDataTransition(fr(seed), fr(seed + 1), fr(seed + 2));
 }
 
 export function makePublicDataRead(seed = 1) {
@@ -121,7 +121,7 @@ export function makeAccumulatedData(seed = 1): CombinedAccumulatedData {
     range(KERNEL_L1_MSG_STACK_LENGTH, seed + 0x500).map(fr),
     range(KERNEL_NEW_CONTRACTS_LENGTH, seed + 0x600).map(makeNewContractData),
     range(KERNEL_OPTIONALLY_REVEALED_DATA_LENGTH, seed + 0x700).map(makeOptionallyRevealedData),
-    range(STATE_TRANSITIONS_LENGTH, seed + 0x800).map(makePublicDataWrite),
+    range(STATE_TRANSITIONS_LENGTH, seed + 0x800).map(makePublicDataTransition),
     range(STATE_READS_LENGTH, seed + 0x900).map(makePublicDataRead),
   );
 }
@@ -372,8 +372,8 @@ export function makeBaseRollupPublicInputs(seed = 0) {
     makeAppendOnlyTreeSnapshot(seed + 0x600),
     makeAppendOnlyTreeSnapshot(seed + 0x700),
     makeAppendOnlyTreeSnapshot(seed + 0x800),
-    makeAppendOnlyTreeSnapshot(seed + 0x900),
-    makeAppendOnlyTreeSnapshot(seed + 0x1000),
+    fr(seed + 0x900),
+    fr(seed + 0x1000),
     [fr(seed + 0x901), fr(seed + 0x902)],
   );
 }
@@ -405,8 +405,8 @@ export function makeRootRollupPublicInputs(seed = 0) {
     endNullifierTreeSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
     startContractTreeSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
     endContractTreeSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
-    startPublicDataTreeSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
-    endPublicDataTreeSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
+    startPublicDataTreeRoot: fr((seed += 0x100)),
+    endPublicDataTreeRoot: fr((seed += 0x100)),
     startTreeOfHistoricPrivateDataTreeRootsSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
     endTreeOfHistoricPrivateDataTreeRootsSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
     startTreeOfHistoricContractTreeRootsSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
@@ -428,7 +428,7 @@ export function makeBaseRollupInputs(seed = 0) {
   const startPrivateDataTreeSnapshot = makeAppendOnlyTreeSnapshot(seed + 0x100);
   const startNullifierTreeSnapshot = makeAppendOnlyTreeSnapshot(seed + 0x200);
   const startContractTreeSnapshot = makeAppendOnlyTreeSnapshot(seed + 0x300);
-  const startPublicDataTreeSnapshot = makeAppendOnlyTreeSnapshot(seed + 0x400);
+  const startPublicDataTreeRoot = fr(seed + 0x400);
 
   const lowNullifierLeafPreimages = range(2 * KERNEL_NEW_NULLIFIERS_LENGTH, seed + 0x1000).map(
     x => new NullifierLeafPreimage(fr(x), fr(x + 0x100), x + 0x200),
@@ -480,7 +480,7 @@ export function makeBaseRollupInputs(seed = 0) {
     startPrivateDataTreeSnapshot,
     startNullifierTreeSnapshot,
     startContractTreeSnapshot,
-    startPublicDataTreeSnapshot,
+    startPublicDataTreeRoot,
     lowNullifierLeafPreimages,
     lowNullifierMembershipWitness,
     newCommitmentsSubtreeSiblingPath,
