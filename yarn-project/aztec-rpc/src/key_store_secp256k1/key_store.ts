@@ -1,12 +1,11 @@
-import { EthAddress, EthPublicKey } from '@aztec/foundation';
+import { AztecAddress, EthPublicKey } from '@aztec/foundation';
 import { EcdsaSignature, TxRequest } from '@aztec/circuits.js';
-import { CircuitsWasm } from '@aztec/circuits.js';
 
 export interface KeyStore {
-  addAccount(): Promise<EthAddress>;
-  getAccounts(): Promise<EthAddress[]>;
-  getAccountPrivateKey(address: EthAddress): Promise<Buffer>;
-  getAccountPublicKey(address: EthAddress): Promise<EthPublicKey>;
+  addAccount(): Promise<AztecAddress>;
+  getAccounts(): Promise<AztecAddress[]>;
+  getAccountPrivateKey(address: AztecAddress): Promise<Buffer>;
+  getAccountPublicKey(address: AztecAddress): Promise<EthPublicKey>;
   getSigningPublicKeys(): Promise<EthPublicKey[]>;
-  signTxRequest(wasm: CircuitsWasm, txRequest: TxRequest): Promise<EcdsaSignature>;
+  signTxRequest(txRequest: TxRequest): Promise<EcdsaSignature>;
 }

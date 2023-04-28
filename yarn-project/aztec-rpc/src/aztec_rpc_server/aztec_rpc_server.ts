@@ -12,6 +12,7 @@ import {
 } from '@aztec/circuits.js';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
+// TODO: Change to secp256k1
 import { KeyStore } from '@aztec/key-store';
 import { ContractAbi, FunctionType } from '@aztec/foundation/abi';
 import { Tx, TxHash } from '@aztec/types';
@@ -153,7 +154,9 @@ export class AztecRPCServer implements AztecRPCClient {
     contractAddressSalt = Fr.random(),
     from?: AztecAddress,
   ) {
-    const fromAddress = this.ensureAccountOrDefault(from);
+    const fromAccountState = this.ensureAccountOrDefault(from);
+    const fromAddress = fromAccountState.getAddress();
+    const fromEthPublicKey = fromAccountState.getEthPublicKey();
 
     const constructorAbi = abi.functions.find(f => f.name === 'constructor');
     if (!constructorAbi) {
@@ -184,6 +187,7 @@ export class AztecRPCServer implements AztecRPCClient {
 
     return new TxRequest(
       fromAddress,
+      fromEthPublicKey,
       contract.address,
       functionData,
       flatArgs,
@@ -205,7 +209,9 @@ export class AztecRPCServer implements AztecRPCClient {
    * @returns A TxRequest instance representing the contract function call and its context.
    */
   public async createTxRequest(functionName: string, args: any[], to: AztecAddress, from?: AztecAddress) {
-    const fromAddress = this.ensureAccountOrDefault(from);
+    const fromAccountState = this.ensureAccountOrDefault(from);
+    const fromAddress = fromAccountState.getAddress();
+    const fromEthPublicKey = fromAccountState.getEthPublicKey();
 
     const contract = await this.db.getContract(to);
     if (!contract) {
@@ -234,6 +240,7 @@ export class AztecRPCServer implements AztecRPCClient {
 
     return new TxRequest(
       fromAddress,
+      fromEthPublicKey,
       to,
       functionData,
       flatArgs,
@@ -402,9 +409,9 @@ export class AztecRPCServer implements AztecRPCClient {
       throw new Error('No accounts available in the key store.');
     }
 
-    this.ensureAccount(address);
+    const accountState = this.ensureAccount(address);
 
-    return address;
+    return accountState;
   }
 
   /**

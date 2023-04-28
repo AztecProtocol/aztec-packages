@@ -1,6 +1,6 @@
 import { toBigIntBE, toBufferBE } from '../bigint-buffer/index.js';
 import { keccak256String } from '../crypto/index.js';
-import { BufferReader, EthAddress } from '../index.js';
+import { AztecAddress, BufferReader, EthAddress } from '../index.js';
 import { Secp256k1Fq } from './fq.js';
 
 /**
@@ -174,5 +174,17 @@ export class EthPublicKey {
     const publicKeyHex = this.buffer.toString('hex');
     const publicKeyHash = keccak256String(publicKeyHex).slice(0, 20);
     return EthAddress.fromString(publicKeyHash);
+  }
+
+  /**
+   * Converts an Ethereum public key to a 20-byte Aztec address.
+   * @returns A 20-byte Aztec address.
+   *
+   * Note: This is a temporary arrangement until we start using EthAddress everywhere.
+   */
+  toAztecAddress() {
+    const publicKeyHex = this.buffer.toString('hex');
+    const publicKeyHash = keccak256String(publicKeyHex).slice(0, 20);
+    return AztecAddress.fromString(publicKeyHash);
   }
 }

@@ -1,5 +1,7 @@
 import { AztecNode } from '@aztec/aztec-node';
+import { Ecdsa } from '@aztec/barretenberg.js/crypto';
 import { Grumpkin } from '@aztec/barretenberg.js/crypto';
+import { Secp256k1 } from '@aztec/barretenberg.js/crypto';
 import { L2BlockContext, TxHash } from '@aztec/types';
 import { AccountState } from '../account_state/index.js';
 import { Database, TxDao } from '../database/index.js';
@@ -143,7 +145,14 @@ export class Synchroniser {
    * @returns A promise that resolves once the account is added to the Synchroniser.
    */
   public async addAccount(privKey: Buffer) {
-    const accountState = new AccountState(privKey, this.db, this.node, await Grumpkin.new());
+    const accountState = new AccountState(
+      privKey,
+      this.db,
+      this.node,
+      await Grumpkin.new(),
+      await Secp256k1.new(),
+      await Ecdsa.new(),
+    );
     this.accountStates.push(accountState);
     await Promise.resolve();
   }
