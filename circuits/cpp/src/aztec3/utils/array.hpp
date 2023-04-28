@@ -42,6 +42,20 @@ template <typename T> bool is_empty(T const& value)
 }
 
 /**
+ * @brief Helper method to generate an 'empty' value of a given type
+ * @tparam The type of the value to return
+ * @return The empty value
+ */
+template <typename T> T empty_value()
+{
+    if constexpr (std::is_same<T, NT::fr>::value) {
+        return NT::fr(0);
+    } else {
+        return T();
+    }
+}
+
+/**
  * @brief Helper method to determine the number of non 'empty' items in an array
  * @tparam The type of the value stored in the array
  * @tparam The size of the array
@@ -67,12 +81,12 @@ template <typename T, size_t SIZE> size_t array_length(std::array<T, SIZE> const
  * @param The array from which we are to return a value
  * @return The returned item
  */
-template <size_t SIZE> NT::fr array_pop(std::array<NT::fr, SIZE>& arr)
+template <typename T, size_t SIZE> T array_pop(std::array<T, SIZE>& arr)
 {
     for (size_t i = arr.max_size() - 1; i != (size_t)-1; i--) {
         if (!is_empty(arr[i])) {
             const auto temp = arr[i];
-            arr[i] = NT::fr(0);
+            arr[i] = empty_value<T>();
             return temp;
         }
     }
