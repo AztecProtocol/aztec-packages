@@ -89,7 +89,7 @@ nullifier_tree_testing_values generate_nullifier_tree_testing_values(BaseRollupI
 nullifier_tree_testing_values generate_nullifier_tree_testing_values(
     BaseRollupInputs inputs, std::array<fr, KERNEL_NEW_NULLIFIERS_LENGTH * 2> new_nullifiers, size_t spacing);
 
-NullifierMemoryTreeTestingHarness get_initial_nullifier_tree(std::vector<fr> initial_values);
+NullifierMemoryTreeTestingHarness get_initial_nullifier_tree(const std::vector<fr> initial_values);
 
 KernelData get_empty_kernel();
 
