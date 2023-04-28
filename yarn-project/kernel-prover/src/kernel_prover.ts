@@ -53,13 +53,8 @@ export class KernelProver {
         output.publicInputs,
         output.proof,
         previousVerificationKey,
-<<<<<<< HEAD
         previousVkMembershipWitness.leafIndex,
         toTupleOf<Fr, typeof VK_TREE_HEIGHT>(previousVkMembershipWitness.siblingPath, VK_TREE_HEIGHT),
-=======
-        Number(previousVkMembershipWitness.leafIndex),
-        previousVkMembershipWitness.siblingPath,
->>>>>>> origin/master
       );
 
       const currentExecution = executionStack.pop()!;

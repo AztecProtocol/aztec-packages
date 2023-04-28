@@ -42,7 +42,6 @@ template <typename NCT> struct CombinedAccumulatedData {
 
     std::array<OptionallyRevealedData<NCT>, KERNEL_OPTIONALLY_REVEALED_DATA_LENGTH> optionally_revealed_data{};
 
-<<<<<<< HEAD:circuits/cpp/src/aztec3/circuits/abis/private_kernel/accumulated_data.hpp
     // for serialization, keep in sync with new fields
     MSGPACK(aggregation_object,
             private_call_count,
@@ -53,13 +52,11 @@ template <typename NCT> struct CombinedAccumulatedData {
             l1_msg_stack,
             new_contracts,
             optionally_revealed_data);
-    boolean operator==(AccumulatedData<NCT> const& other) const
-=======
+
     std::array<PublicDataTransition<NCT>, STATE_TRANSITIONS_LENGTH> state_transitions{};
     std::array<PublicDataRead<NCT>, STATE_READS_LENGTH> state_reads{};
 
     boolean operator==(CombinedAccumulatedData<NCT> const& other) const
->>>>>>> origin/master:circuits/cpp/src/aztec3/circuits/abis/combined_accumulated_data.hpp
     {
         return aggregation_object == other.aggregation_object && private_call_count == other.private_call_count &&
                public_call_count == other.public_call_count && new_commitments == other.new_commitments &&

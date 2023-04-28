@@ -1,14 +1,10 @@
 import times from 'lodash.times';
-import { FUNCTION_TREE_HEIGHT } from '../index.js';
 import { fr } from '../tests/factories.js';
 import { CircuitsWasm } from '../wasm/circuits_wasm.js';
-<<<<<<< HEAD:yarn-project/circuits.js/src/kernel/kernel.test.ts
-import { computeFunctionTree } from './kernel.js';
-=======
-import { computeFunctionTree, getDummyPreviousKernelData } from './private_kernel.js';
->>>>>>> origin/master:yarn-project/circuits.js/src/kernel/private_kernel.test.ts
 import { computeFunctionTreeRoot } from '../abis/abis.js';
 import { privateKernelDummyPreviousKernel } from '../cbind/circuits.gen.js';
+import { computeFunctionTree } from './private_kernel.js';
+import { FUNCTION_TREE_HEIGHT } from '../structs/index.js';
 
 describe('kernel/private_kernel', () => {
   let wasm: CircuitsWasm;

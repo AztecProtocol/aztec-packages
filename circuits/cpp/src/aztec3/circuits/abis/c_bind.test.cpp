@@ -2,12 +2,9 @@
 
 #include "tx_request.hpp"
 #include "function_leaf_preimage.hpp"
-<<<<<<< HEAD
-#include "aztec3/circuits/abis/private_kernel/new_contract_data.hpp"
-#include "aztec3/msgpack/schema_impl.hpp"
-    =======
 #include "aztec3/circuits/abis/new_contract_data.hpp"
-    >>>>>>> origin/master
+
+#include "aztec3/msgpack/schema_impl.hpp"
 
 #include <barretenberg/stdlib/merkle_tree/membership.hpp>
 #include <barretenberg/numeric/random/engine.hpp>
@@ -16,38 +13,37 @@
 
 #include <gtest/gtest.h>
 
-    namespace
+namespace {
+
+using NT = aztec3::utils::types::NativeTypes;
+using aztec3::circuits::abis::NewContractData;
+// num_leaves = 2**h = 2<<(h-1)
+// root layer does not count in height
+constexpr size_t FUNCTION_TREE_NUM_LEAVES = 2 << (aztec3::FUNCTION_TREE_HEIGHT - 1);
+// num_nodes = (2**(h+1))-1 = (2<<h)
+// root layer does not count in height
+// num nodes includes root
+constexpr size_t FUNCTION_TREE_NUM_NODES = (2 << aztec3::FUNCTION_TREE_HEIGHT) - 1;
+
+auto& engine = numeric::random::get_debug_engine();
+
+/**
+ * @brief Convert a bytes array to a hex string.
+ *
+ * @details convert each byte to two hex characters
+ *
+ * @tparam NUM_BYTES length of bytes array input
+ * @param bytes array of bytes to be converted to hex string
+ * @return a string containing the hex representation of the NUM_BYTES bytes of the input array
+ */
+template <size_t NUM_BYTES> std::string bytes_to_hex_str(std::array<uint8_t, NUM_BYTES> bytes)
 {
-
-    using NT = aztec3::utils::types::NativeTypes;
-    using aztec3::circuits::abis::NewContractData;
-    // num_leaves = 2**h = 2<<(h-1)
-    // root layer does not count in height
-    constexpr size_t FUNCTION_TREE_NUM_LEAVES = 2 << (aztec3::FUNCTION_TREE_HEIGHT - 1);
-    // num_nodes = (2**(h+1))-1 = (2<<h)
-    // root layer does not count in height
-    // num nodes includes root
-    constexpr size_t FUNCTION_TREE_NUM_NODES = (2 << aztec3::FUNCTION_TREE_HEIGHT) - 1;
-
-    auto& engine = numeric::random::get_debug_engine();
-
-    /**
-     * @brief Convert a bytes array to a hex string.
-     *
-     * @details convert each byte to two hex characters
-     *
-     * @tparam NUM_BYTES length of bytes array input
-     * @param bytes array of bytes to be converted to hex string
-     * @return a string containing the hex representation of the NUM_BYTES bytes of the input array
-     */
-    template <size_t NUM_BYTES> std::string bytes_to_hex_str(std::array<uint8_t, NUM_BYTES> bytes)
-    {
-        std::ostringstream stream;
-        for (const uint8_t& byte : bytes) {
-            stream << std::setw(2) << std::setfill('0') << std::hex << static_cast<int>(byte);
-        }
-        return stream.str();
+    std::ostringstream stream;
+    for (const uint8_t& byte : bytes) {
+        stream << std::setw(2) << std::setfill('0') << std::hex << static_cast<int>(byte);
     }
+    return stream.str();
+}
 
 } // namespace
 

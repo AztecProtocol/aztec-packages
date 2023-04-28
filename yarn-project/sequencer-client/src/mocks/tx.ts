@@ -1,12 +1,6 @@
-<<<<<<< HEAD
-import { PrivateKernelPublicInputs, Proof } from '@aztec/circuits.js';
-import { makePrivateKernelPublicInputs } from '@aztec/circuits.js/factories';
-import { PrivateTx, Tx, UnverifiedData } from '@aztec/types';
-=======
-import { KernelCircuitPublicInputs, UInt8Vector } from '@aztec/circuits.js';
+import { Proof, KernelCircuitPublicInputs } from '@aztec/circuits.js';
 import { makeKernelPublicInputs, makeSignedTxRequest } from '@aztec/circuits.js/factories';
-import { PrivateTx, PublicTx, Tx, UnverifiedData } from '@aztec/types';
->>>>>>> origin/master
+import { UnverifiedData, PrivateTx, Tx, PublicTx } from '@aztec/types';
 
 function makeEmptyProof() {
   return new Proof(Buffer.alloc(0));

@@ -1,4 +1,4 @@
-import { CallContext, FunctionData, StateRead, StateTransition, TxRequest } from '@aztec/circuits.js';
+import { CallContext, FunctionData, StateRead, StateTransition } from '@aztec/circuits.js';
 import { AztecAddress, EthAddress, Fr } from '@aztec/foundation';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { select_return_flattened as selectPublicWitnessFlattened } from '@noir-lang/noir_util_wasm';

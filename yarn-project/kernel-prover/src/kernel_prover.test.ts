@@ -55,15 +55,10 @@ describe('Kernel Prover', () => {
   };
 
   const createProofOutput = (newNoteIndices: number[]) => {
-<<<<<<< HEAD
-    const publicInputs = PrivateKernelPublicInputs.makeEmpty();
+    const publicInputs = KernelCircuitPublicInputs.empty();
     const commitments = newNoteIndices.map(idx => generateFakeSiloedCommitment(notes[idx]));
     // TODO(AD) FIXME(AD) This cast is bad. Why is this not the correct length when this is called?
     publicInputs.end.newCommitments = commitments as TupleOf<Fr, typeof KERNEL_NEW_COMMITMENTS_LENGTH>;
-=======
-    const publicInputs = KernelCircuitPublicInputs.empty();
-    publicInputs.end.newCommitments = newNoteIndices.map(idx => generateFakeSiloedCommitment(notes[idx]));
->>>>>>> origin/master
     return {
       publicInputs,
       proof: makeEmptyProof(),

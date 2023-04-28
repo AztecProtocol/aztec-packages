@@ -1,6 +1,6 @@
 #pragma once
 
-#include "combined_historic_tree_roots.hpp"
+#include "aztec3/circuits/abis/combined_historic_tree_roots.hpp"
 #include "tx_context.hpp"
 
 #include <barretenberg/stdlib/primitives/witness/witness.hpp>
@@ -23,13 +23,9 @@ template <typename NCT> struct CombinedConstantData {
     CombinedHistoricTreeRoots<NCT> historic_tree_roots{};
     TxContext<NCT> tx_context{};
 
-<<<<<<< HEAD:circuits/cpp/src/aztec3/circuits/abis/private_kernel/constant_data.hpp
     // for serialization: update up with new fields
     MSGPACK(historic_tree_roots, tx_context);
-    boolean operator==(ConstantData<NCT> const& other) const
-=======
     boolean operator==(CombinedConstantData<NCT> const& other) const
->>>>>>> origin/master:circuits/cpp/src/aztec3/circuits/abis/combined_constant_data.hpp
     {
         return historic_tree_roots == other.historic_tree_roots && tx_context == other.tx_context;
     }

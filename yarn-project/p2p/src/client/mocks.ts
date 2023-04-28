@@ -1,22 +1,9 @@
-<<<<<<< HEAD
-import { Proof, UInt8Vector } from '@aztec/circuits.js';
-import { makePrivateKernelPublicInputs } from '@aztec/circuits.js/factories';
-import { AztecAddress } from '@aztec/foundation';
-import { ContractData, L2Block, L2BlockSource } from '@aztec/types';
-=======
-import { UInt8Vector } from '@aztec/circuits.js';
+import { Proof } from '@aztec/circuits.js';
 import { makeKernelPublicInputs } from '@aztec/circuits.js/factories';
-import { L2Block, L2BlockSource } from '@aztec/types';
->>>>>>> origin/master
-import { Tx } from '@aztec/types';
-import { UnverifiedData } from '@aztec/types';
+import { Tx, UnverifiedData, L2BlockSource, L2Block } from '@aztec/types';
 
 export const MockTx = () => {
-<<<<<<< HEAD
-  return Tx.createPrivate(makePrivateKernelPublicInputs(), new Proof(Buffer.alloc(0)), UnverifiedData.random(8));
-=======
-  return Tx.createPrivate(makeKernelPublicInputs(), new UInt8Vector(Buffer.alloc(0)), UnverifiedData.random(8));
->>>>>>> origin/master
+  return Tx.createPrivate(makeKernelPublicInputs(), new Proof(Buffer.alloc(0)), UnverifiedData.random(8));
 };
 
 export class MockBlockSource implements L2BlockSource {

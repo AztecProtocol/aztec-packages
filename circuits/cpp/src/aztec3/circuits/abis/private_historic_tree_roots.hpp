@@ -20,14 +20,10 @@ template <typename NCT> struct PrivateHistoricTreeRoots {
     fr contract_tree_root = 0;
     fr private_kernel_vk_tree_root = 0; // TODO: future enhancement
 
-<<<<<<< HEAD:circuits/cpp/src/aztec3/circuits/abis/private_kernel/historic_tree_roots.hpp
     // for serialization: update up with new fields
     MSGPACK(private_data_tree_root, nullifier_tree_root, contract_tree_root, private_kernel_vk_tree_root);
 
-    boolean operator==(HistoricTreeRoots<NCT> const& other) const
-=======
     boolean operator==(PrivateHistoricTreeRoots<NCT> const& other) const
->>>>>>> origin/master:circuits/cpp/src/aztec3/circuits/abis/private_historic_tree_roots.hpp
     {
         return private_data_tree_root == other.private_data_tree_root &&
                nullifier_tree_root == other.nullifier_tree_root && contract_tree_root == other.contract_tree_root &&

@@ -23,13 +23,10 @@ template <typename NCT> struct KernelCircuitPublicInputs {
 
     boolean is_private = true; // TODO: might need to instantiate from witness!
 
-<<<<<<< HEAD:circuits/cpp/src/aztec3/circuits/abis/private_kernel/public_inputs.hpp
     // for serialization, keep in sync with new fields
     MSGPACK(end, constants, is_private);
-    boolean operator==(PublicInputs<NCT> const& other) const
-=======
+
     boolean operator==(KernelCircuitPublicInputs<NCT> const& other) const
->>>>>>> origin/master:circuits/cpp/src/aztec3/circuits/abis/kernel_circuit_public_inputs.hpp
     {
         return end == other.end && constants == other.constants && is_private == other.is_private;
     };

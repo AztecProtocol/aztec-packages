@@ -12,11 +12,7 @@ export abstract class AsyncWasmWrapper extends WasmWrapper {
    * 8192 maximum by default. 512mb.
    * @param initial - Initial memory pages.
    * @param maximum - Max memory pages.
-<<<<<<< HEAD
-   * @returns Itself.
-=======
    * @returns The wrapper.
->>>>>>> origin/master
    */
   public async init(initial = 30, maximum = 8192): Promise<this> {
     await super.init(initial, maximum);

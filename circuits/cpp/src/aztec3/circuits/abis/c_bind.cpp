@@ -1,21 +1,4 @@
 #include "c_bind.h"
-<<<<<<< HEAD
-#include <functional>
-#include "aztec3/circuits/abis/tx_context.hpp"
-#include "aztec3/circuits/abis/tx_request.hpp"
-#include "aztec3/circuits/hash.hpp"
-#include "barretenberg/stdlib/merkle_tree/hash.hpp"
-#include "aztec3/msgpack/schema_impl.hpp"
-#include "call_context.hpp"
-#include "msgpack/v3/sbuffer_decl.hpp"
-#include "private_circuit_public_inputs.hpp"
-#include "aztec3/circuits/abis/rollup/base/base_rollup_inputs.hpp"
-#include "aztec3/circuits/abis/rollup/base/base_or_merge_rollup_public_inputs.hpp"
-#include "aztec3/circuits/abis/rollup/root/root_rollup_inputs.hpp"
-#include "aztec3/circuits/abis/rollup/root/root_rollup_public_inputs.hpp"
-#include "aztec3/circuits/abis/private_kernel/private_inputs.hpp"
-#include "aztec3/msgpack/cbind_impl.hpp"
-    =======
 #include "barretenberg/srs/reference_string/mem_reference_string.hpp"
 #include "aztec3/circuits/abis/function_data.hpp"
 #include "aztec3/circuits/abis/function_leaf_preimage.hpp"
@@ -42,45 +25,44 @@
 #include <aztec3/utils/array.hpp>
 #include <barretenberg/stdlib/merkle_tree/membership.hpp>
 #include <barretenberg/crypto/keccak/keccak.hpp>
-    >>>>>>> origin/master
+#include "aztec3/msgpack/cbind_impl.hpp"
 
-    namespace
+namespace {
+
+using aztec3::circuits::compute_constructor_hash;
+using aztec3::circuits::compute_contract_address;
+using aztec3::circuits::abis::FunctionData;
+using aztec3::circuits::abis::FunctionLeafPreimage;
+using aztec3::circuits::abis::NewContractData;
+using aztec3::circuits::abis::TxContext;
+using aztec3::circuits::abis::TxRequest;
+using NT = aztec3::utils::types::NativeTypes;
+
+// Cbind helper functions
+
+/**
+ * @brief Fill in zero-leaves to get a full tree's bottom layer.
+ *
+ * @details Given the a vector of nonzero leaves starting at the left,
+ * append zeroleaves to that list until it represents a FULL set of leaves
+ * for a tree of the given height.
+ * **MODIFIES THE INPUT `leaves` REFERENCE!**
+ *
+ * @tparam TREE_HEIGHT height of the tree used to determine max leaves
+ * @param leaves the nonzero leaves of the tree starting at the left
+ * @param zero_leaf the leaf value to be used for any empty/unset leaves
+ */
+template <size_t TREE_HEIGHT> void rightfill_with_zeroleaves(std::vector<NT::fr>& leaves, NT::fr& zero_leaf)
 {
+    constexpr size_t max_leaves = 2 << (TREE_HEIGHT - 1);
+    // input cant exceed max leaves
+    // FIXME don't think asserts will show in wasm
+    ASSERT(leaves.size() <= max_leaves);
 
-    using aztec3::circuits::compute_constructor_hash;
-    using aztec3::circuits::compute_contract_address;
-    using aztec3::circuits::abis::FunctionData;
-    using aztec3::circuits::abis::FunctionLeafPreimage;
-    using aztec3::circuits::abis::NewContractData;
-    using aztec3::circuits::abis::TxContext;
-    using aztec3::circuits::abis::TxRequest;
-    using NT = aztec3::utils::types::NativeTypes;
-
-    // Cbind helper functions
-
-    /**
-     * @brief Fill in zero-leaves to get a full tree's bottom layer.
-     *
-     * @details Given the a vector of nonzero leaves starting at the left,
-     * append zeroleaves to that list until it represents a FULL set of leaves
-     * for a tree of the given height.
-     * **MODIFIES THE INPUT `leaves` REFERENCE!**
-     *
-     * @tparam TREE_HEIGHT height of the tree used to determine max leaves
-     * @param leaves the nonzero leaves of the tree starting at the left
-     * @param zero_leaf the leaf value to be used for any empty/unset leaves
-     */
-    template <size_t TREE_HEIGHT> void rightfill_with_zeroleaves(std::vector<NT::fr> & leaves, NT::fr & zero_leaf)
-    {
-        constexpr size_t max_leaves = 2 << (TREE_HEIGHT - 1);
-        // input cant exceed max leaves
-        // FIXME don't think asserts will show in wasm
-        ASSERT(leaves.size() <= max_leaves);
-
-        // fill in input vector with zero-leaves
-        // to get a full bottom layer of the tree
-        leaves.insert(leaves.end(), max_leaves - leaves.size(), zero_leaf);
-    }
+    // fill in input vector with zero-leaves
+    // to get a full bottom layer of the tree
+    leaves.insert(leaves.end(), max_leaves - leaves.size(), zero_leaf);
+}
 
 } // namespace
 
@@ -329,20 +311,7 @@ WASM_EXPORT void abis__hash_constructor(uint8_t const* function_data_buf,
  * @param output buffer that will contain the output contract address.
  */
 
-<<<<<<< HEAD
 CBIND(abis__compute_contract_address, compute_contract_address<NT>, (NT::address(1), NT::fr(2), NT::fr(3), NT::fr(4)));
-=======
-read(deployer_address_buf, deployer_address);
-read(contract_address_salt_buf, contract_address_salt);
-read(function_tree_root_buf, function_tree_root);
-read(constructor_hash_buf, constructor_hash);
-
-NT::address contract_address =
-    compute_contract_address<NT>(deployer_address, contract_address_salt, function_tree_root, constructor_hash);
-
-NT::fr::serialize_to_buffer(contract_address, output);
-}
->>>>>>> origin/master
 
 /**
  * @brief Generates a function tree leaf from its preimage.
@@ -453,8 +422,6 @@ WASM_EXPORT const char* abis__test_roundtrip_serialize_kernel_circuit_public_inp
     return as_string_output<aztec3::circuits::abis::KernelCircuitPublicInputs<NT>>(input, size);
 }
 
-<<<<<<< HEAD
-=======
 WASM_EXPORT const char* abis__test_roundtrip_serialize_public_kernel_inputs(uint8_t const* input, uint32_t* size)
 {
     return as_string_output<aztec3::circuits::abis::public_kernel::PublicKernelInputs<NT>>(input, size);
@@ -466,14 +433,8 @@ WASM_EXPORT const char* abis__test_roundtrip_serialize_public_kernel_inputs_no_p
     return as_string_output<aztec3::circuits::abis::public_kernel::PublicKernelInputsNoPreviousKernel<NT>>(input, size);
 }
 
->>>>>>> origin/master
 WASM_EXPORT const char* abis__test_roundtrip_serialize_function_leaf_preimage(uint8_t const* function_leaf_preimage_buf,
                                                                               uint32_t* size)
 {
     return as_string_output<aztec3::circuits::abis::FunctionLeafPreimage<NT>>(function_leaf_preimage_buf, size);
 }
-<<<<<<< HEAD
-=======
-
-} // extern "C"
->>>>>>> origin/master

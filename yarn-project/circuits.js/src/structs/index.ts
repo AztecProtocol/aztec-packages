@@ -18,17 +18,11 @@ export * from './public_circuit_public_inputs.js';
 export * from './circuit_error.js';
 export * from './call_stack_item.js';
 export * from './shared.js';
-<<<<<<< HEAD
 export * from './proof.js';
-export * from './tx.js';
-=======
 export * from './tx_request.js';
 export * from './tx_context.js';
->>>>>>> origin/master
 export * from './verification_key.js';
 export * from './call_stack_item.js';
 export * from './function_leaf_preimage.js';
-export * from './aggregation_object.js';
-export * from './membership_witness.js';
 export * from './generators.js';
 export { Fr, Fq, AztecAddress, EthAddress } from '@aztec/foundation';

@@ -9,33 +9,24 @@ import {
   ConstantBaseRollupData,
   KernelCircuitPublicInputs,
   MergeRollupInputs,
-  NewContractData,
   NullifierLeafPreimage,
-  OptionallyRevealedData,
-  PreviousKernelData,
   PreviousRollupData,
-  PrivateCallData,
   PrivateCircuitPublicInputs,
-<<<<<<< HEAD
   Proof,
-=======
   PrivateHistoricTreeRoots,
-  PrivateKernelInputs,
   PublicCallData,
   PublicCircuitPublicInputs,
   PublicDataRead,
   PublicDataTransition,
   PublicKernelInputs,
   PublicKernelInputsNoPreviousKernel,
->>>>>>> origin/master
   RootRollupInputs,
   RootRollupPublicInputs,
   StateRead,
   StateTransition,
   WitnessedPublicCallData,
 } from '../index.js';
-import { AggregationObject } from '../structs/aggregation_object.js';
-import { PrivateCallStackItem, PublicCallStackItem } from '../structs/call_stack_item.js';
+import { PublicCallStackItem } from '../structs/call_stack_item.js';
 import {
   ARGS_LENGTH,
   CONTRACT_TREE_HEIGHT,
@@ -65,7 +56,6 @@ import {
   VK_TREE_HEIGHT,
 } from '../structs/constants.js';
 import { FunctionData } from '../structs/function_data.js';
-<<<<<<< HEAD
 import {
   AccumulatedData,
   ConstantData,
@@ -77,29 +67,7 @@ import {
   PrivateKernelInputs,
   PrivateKernelPublicInputs,
 } from '../structs/private_kernel.js';
-import { PrivateCallStackItem } from '../structs/private_call_stack_item.js';
-import {
-  AffineElement,
-  AggregationObject,
-  ComposerType,
-  EcdsaSignature,
-  MembershipWitness,
-  RollupTypes,
-  UInt8Vector,
-} from '../structs/shared.js';
-import { ContractDeploymentData, SignedTxRequest, TxContext, TxRequest } from '../structs/tx.js';
-import { G1AffineElement, VerificationKey } from '../structs/verification_key.js';
-import { range, times } from '../utils/jsUtils.js';
-=======
-import { MembershipWitness } from '../structs/membership_witness.js';
-import { AppendOnlyTreeSnapshot } from '../structs/rollup/append_only_tree_snapshot.js';
-import { AffineElement, ComposerType, EcdsaSignature, RollupTypes, UInt8Vector } from '../structs/shared.js';
-import { ContractDeploymentData, TxContext } from '../structs/tx_context.js';
-import { SignedTxRequest, TxRequest } from '../structs/tx_request.js';
-import { CommitmentMap, G1AffineElement, VerificationKey } from '../structs/verification_key.js';
-import { range } from '../utils/jsUtils.js';
->>>>>>> origin/master
-import { numToUInt32BE } from '../utils/serialize.js';
+import { times } from '../utils/jsUtils.js';
 
 export function makeTxContext(seed: number): TxContext {
   const deploymentData = new ContractDeploymentData(fr(seed), fr(seed + 1), fr(seed + 2), makeEthAddress(seed + 3));
@@ -151,8 +119,7 @@ export function makeStateRead(seed = 1) {
 export function makeEmptyAccumulatedData(seed = 1): CombinedAccumulatedData {
   return new CombinedAccumulatedData(
     makeAggregationObject(seed),
-    fr(seed + 12),
-<<<<<<< HEAD
+    fr(seed + 13),
     times(KERNEL_NEW_COMMITMENTS_LENGTH, fr, seed + 0x100),
     times(KERNEL_NEW_NULLIFIERS_LENGTH, fr, seed + 0x200),
     times(KERNEL_PRIVATE_CALL_STACK_LENGTH, fr, seed + 0x300),
@@ -160,17 +127,8 @@ export function makeEmptyAccumulatedData(seed = 1): CombinedAccumulatedData {
     times(KERNEL_L1_MSG_STACK_LENGTH, fr, seed + 0x500),
     times(KERNEL_NEW_CONTRACTS_LENGTH, makeNewContractData, seed + 0x600),
     times(KERNEL_OPTIONALLY_REVEALED_DATA_LENGTH, makeOptionallyRevealedData, seed + 0x700),
-=======
-    fr(seed + 13),
-    range(KERNEL_NEW_COMMITMENTS_LENGTH, seed + 0x100).map(fr),
-    range(KERNEL_NEW_NULLIFIERS_LENGTH, seed + 0x200).map(fr),
-    range(KERNEL_PRIVATE_CALL_STACK_LENGTH, seed + 0x300).map(fr),
-    range(KERNEL_PUBLIC_CALL_STACK_LENGTH, seed + 0x400).map(fr),
-    range(KERNEL_L1_MSG_STACK_LENGTH, seed + 0x500).map(fr),
-    range(KERNEL_NEW_CONTRACTS_LENGTH, seed + 0x600).map(makeNewContractData),
-    range(KERNEL_OPTIONALLY_REVEALED_DATA_LENGTH, seed + 0x700).map(makeOptionallyRevealedData),
-    range(STATE_TRANSITIONS_LENGTH, seed + 0x800).map(makeEmptyPublicDataTransition),
-    range(STATE_READS_LENGTH, seed + 0x900).map(makeEmptyPublicDataRead),
+    times(STATE_TRANSITIONS_LENGTH, seed + 0x800).map(makeEmptyPublicDataTransition),
+    times(STATE_READS_LENGTH, seed + 0x900).map(makeEmptyPublicDataRead),
   );
 }
 
@@ -188,7 +146,6 @@ export function makeAccumulatedData(seed = 1): CombinedAccumulatedData {
     range(KERNEL_OPTIONALLY_REVEALED_DATA_LENGTH, seed + 0x700).map(makeOptionallyRevealedData),
     range(STATE_TRANSITIONS_LENGTH, seed + 0x800).map(makePublicDataTransition),
     range(STATE_READS_LENGTH, seed + 0x900).map(makePublicDataRead),
->>>>>>> origin/master
   );
 }
 
@@ -277,13 +234,8 @@ export function makeVerificationKey(): VerificationKey {
 
 export function makePreviousKernelData(seed = 1, kernelPublicInputs?: KernelCircuitPublicInputs): PreviousKernelData {
   return new PreviousKernelData(
-<<<<<<< HEAD
-    makePrivateKernelPublicInputs(seed),
-    new Proof(Buffer.alloc(16, seed + 0x80)),
-=======
     kernelPublicInputs ?? makeKernelPublicInputs(seed),
-    makeProof(seed + 0x80),
->>>>>>> origin/master
+    new Proof(Buffer.alloc(16, seed + 0x80)),
     makeVerificationKey(),
     0x42,
     times(VK_TREE_HEIGHT, fr, 0x1000),

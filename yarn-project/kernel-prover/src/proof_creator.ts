@@ -2,15 +2,11 @@ import { pedersenCompressWithHashIndex } from '@aztec/barretenberg.js/crypto';
 import { BarretenbergWasm } from '@aztec/barretenberg.js/wasm';
 import {
   CircuitsWasm,
+  KernelCircuitPublicInputs,
   PreviousKernelData,
   PrivateCallData,
   PrivateCircuitPublicInputs,
-<<<<<<< HEAD
-  PrivateKernelPublicInputs,
   Proof,
-=======
-  KernelCircuitPublicInputs,
->>>>>>> origin/master
   SignedTxRequest,
   makeEmptyProof,
   privateKernelSim,
@@ -19,13 +15,8 @@ import { Fr } from '@aztec/foundation';
 import { createDebugLogger } from '@aztec/foundation/log';
 
 export interface ProofOutput {
-<<<<<<< HEAD
-  publicInputs: PrivateKernelPublicInputs;
-  proof: Proof;
-=======
   publicInputs: KernelCircuitPublicInputs;
-  proof: UInt8Vector;
->>>>>>> origin/master
+  proof: Proof;
 }
 
 export interface ProofCreator {

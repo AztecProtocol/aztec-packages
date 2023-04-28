@@ -1,8 +1,3 @@
-<<<<<<< HEAD
-import { CircuitsWasm, PrivateKernelPublicInputs, Proof, SignedTxRequest } from '@aztec/circuits.js';
-=======
-import { CircuitsWasm, KernelCircuitPublicInputs, SignedTxRequest, UInt8Vector } from '@aztec/circuits.js';
->>>>>>> origin/master
 import { computeContractLeaf } from '@aztec/circuits.js/abis';
 import { keccak } from '@aztec/foundation';
 
@@ -10,6 +5,13 @@ import { createTxHash } from './create_tx_hash.js';
 import { TxHash } from './tx_hash.js';
 import { UnverifiedData } from './unverified_data.js';
 import { EncodedContractFunction } from './contract_data.js';
+import {
+  PrivateKernelPublicInputs,
+  Proof,
+  SignedTxRequest,
+  KernelCircuitPublicInputs,
+  CircuitsWasm,
+} from '@aztec/circuits.js';
 
 type PrivateTxFields = 'data' | 'proof' | 'unverifiedData';
 type PublicTxFields = 'txRequest';
@@ -32,13 +34,8 @@ export class Tx {
   private hashPromise?: Promise<TxHash>;
 
   public static createPrivate(
-<<<<<<< HEAD
-    data: PrivateKernelPublicInputs,
-    proof: Proof,
-=======
     data: KernelCircuitPublicInputs,
-    proof: UInt8Vector,
->>>>>>> origin/master
+    proof: Proof,
     unverifiedData: UnverifiedData,
     newContractPublicFunctions?: EncodedContractFunction[],
   ): PrivateTx {
@@ -50,13 +47,8 @@ export class Tx {
   }
 
   public static createPrivatePublic(
-<<<<<<< HEAD
-    data: PrivateKernelPublicInputs,
-    proof: Proof,
-=======
     data: KernelCircuitPublicInputs,
-    proof: UInt8Vector,
->>>>>>> origin/master
+    proof: Proof,
     unverifiedData: UnverifiedData,
     txRequest: SignedTxRequest,
   ): PrivateTx & PublicTx {
@@ -64,13 +56,8 @@ export class Tx {
   }
 
   public static create(
-<<<<<<< HEAD
-    data?: PrivateKernelPublicInputs,
-    proof?: Proof,
-=======
     data?: KernelCircuitPublicInputs,
-    proof?: UInt8Vector,
->>>>>>> origin/master
+    proof?: Proof,
     unverifiedData?: UnverifiedData,
     txRequest?: SignedTxRequest,
   ): Tx {
@@ -94,13 +81,8 @@ export class Tx {
    * @param contractsBytecode - Selector + Bytecode of contract functions that were deployed in the tx.
    */
   protected constructor(
-<<<<<<< HEAD
     public readonly data?: PrivateKernelPublicInputs,
     public readonly proof?: Proof,
-=======
-    public readonly data?: KernelCircuitPublicInputs,
-    public readonly proof?: UInt8Vector,
->>>>>>> origin/master
     public readonly unverifiedData?: UnverifiedData,
     public readonly txRequest?: SignedTxRequest,
     public readonly newContractPublicFunctions?: EncodedContractFunction[],
