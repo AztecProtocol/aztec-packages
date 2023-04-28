@@ -1,4 +1,4 @@
-import { AztecAddress, EthAddress, Fq, Fr } from '@aztec/foundation';
+import { AztecAddress, EthAddress, Fq, Fr, numToUInt32BE } from '@aztec/foundation';
 import {
   BaseOrMergeRollupPublicInputs,
   BaseRollupInputs,
@@ -25,8 +25,26 @@ import {
   StateRead,
   StateTransition,
   WitnessedPublicCallData,
+  VerificationKey,
+  AffineElement,
+  AppendOnlyTreeSnapshot,
+  ComposerType,
+  ContractDeploymentData,
+  EcdsaSignature,
+  G1AffineElement,
+  MembershipWitness,
+  NewContractData,
+  OptionallyRevealedData,
+  PreviousKernelData,
+  PrivateCallData,
+  PrivateKernelInputs,
+  RollupTypes,
+  SignedTxRequest,
+  TxContext,
+  TxRequest,
+  UInt8Vector,
 } from '../index.js';
-import { PublicCallStackItem } from '../structs/call_stack_item.js';
+import { PrivateCallStackItem, PublicCallStackItem } from '../structs/call_stack_item.js';
 import {
   ARGS_LENGTH,
   CONTRACT_TREE_HEIGHT,
@@ -56,18 +74,8 @@ import {
   VK_TREE_HEIGHT,
 } from '../structs/constants.js';
 import { FunctionData } from '../structs/function_data.js';
-import {
-  AccumulatedData,
-  ConstantData,
-  NewContractData,
-  HistoricTreeRoots,
-  OptionallyRevealedData,
-  PreviousKernelData,
-  PrivateCallData,
-  PrivateKernelInputs,
-  PrivateKernelPublicInputs,
-} from '../structs/private_kernel.js';
-import { times } from '../utils/jsUtils.js';
+
+import { range, times } from '../utils/jsUtils.js';
 
 export function makeTxContext(seed: number): TxContext {
   const deploymentData = new ContractDeploymentData(fr(seed), fr(seed + 1), fr(seed + 2), makeEthAddress(seed + 3));

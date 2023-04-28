@@ -1,4 +1,5 @@
 import camelCase from 'lodash.camelcase';
+import { USES_MSGPACK_BUFFER_METHODS } from './type_data.js';
 
 /**
  * Capitalize the first character of a given string.
@@ -105,6 +106,11 @@ export interface TypeInfo {
 function msgpackConverterExpr(typeInfo: TypeInfo, value: string): string {
   const { typeName } = typeInfo;
   if (typeInfo.isAlias) {
+    // TODO other aliases besides Buffer?
+    if (USES_MSGPACK_BUFFER_METHODS.includes(typeInfo.typeName)) {
+      // TODO(AD) Temporary hack while two serialization systems exist for these classes
+      return `${typeName}.fromMsgpackBuffer(${value})`;
+    }
     return `${typeName}.fromBuffer(${value})`;
   } else if (typeInfo.arraySubtype) {
     const { typeName, msgpackTypeName } = typeInfo.arraySubtype;
@@ -137,7 +143,11 @@ function msgpackConverterExpr(typeInfo: TypeInfo, value: string): string {
 function classConverterExpr(typeInfo: TypeInfo, value: string): string {
   const { typeName } = typeInfo;
   if (typeInfo.isAlias) {
-    // TODO other aliases?
+    // TODO other aliases besides Buffer?
+    if (USES_MSGPACK_BUFFER_METHODS.includes(typeInfo.typeName)) {
+      // TODO(AD) Temporary hack while two serialization systems exist for these classes
+      return `${value}.toMsgpackBuffer()`;
+    }
     return `${value}.toBuffer()`;
   } else if (typeInfo.arraySubtype) {
     const { typeName } = typeInfo.arraySubtype;

@@ -1,6 +1,5 @@
-import { AztecAddress, BufferReader, EthAddress, Fr } from '@aztec/foundation';
-import times from 'lodash.times';
-import { assertLength } from '../../utils/jsUtils.js';
+import { AztecAddress, BufferReader, EthAddress, Fr, TupleOf } from '@aztec/foundation';
+import { assertLength, times } from '../../utils/jsUtils.js';
 import { serializeToBuffer } from '../../utils/serialize.js';
 import { AggregationObject } from '../aggregation_object.js';
 import {
@@ -20,11 +19,17 @@ import { FunctionData } from '../function_data.js';
 // Not to be confused with ContractDeploymentData (maybe think of better names)
 
 export class NewContractData {
+  public portalContractAddress: EthAddress;
   constructor(
     public contractAddress: AztecAddress,
-    public portalContractAddress: EthAddress,
+    // TODO(AD): refactor this later
+    // currently there is a kludge with circuits cpp as it emits an AztecAddress
+    portalContractAddress: EthAddress | AztecAddress,
     public functionTreeRoot: Fr,
-  ) {}
+  ) {
+    // Handle circuits emitting this as an AztecAddress
+    this.portalContractAddress = new EthAddress(portalContractAddress.toBuffer());
+  }
 
   toBuffer() {
     return serializeToBuffer(this.contractAddress, this.portalContractAddress, this.functionTreeRoot);
@@ -45,18 +50,23 @@ export class NewContractData {
 }
 
 export class OptionallyRevealedData {
+  public portalContractAddress: EthAddress;
   constructor(
     public callStackItemHash: Fr,
     public functionData: FunctionData,
-    public emittedEvents: Fr[],
+    public emittedEvents: TupleOf<Fr, typeof EMITTED_EVENTS_LENGTH>,
     public vkHash: Fr,
-    public portalContractAddress: EthAddress,
+    // TODO(AD): refactor this later
+    // currently there is a kludge with circuits cpp as it emits an AztecAddress
+    portalContractAddress: EthAddress | AztecAddress,
     public payFeeFromL1: boolean,
     public payFeeFromPublicL2: boolean,
     public calledFromL1: boolean,
     public calledFromPublicL2: boolean,
   ) {
     assertLength(this, 'emittedEvents', EMITTED_EVENTS_LENGTH);
+    // Handle circuits emitting this as an AztecAddress
+    this.portalContractAddress = new EthAddress(portalContractAddress.toBuffer());
   }
 
   toBuffer() {
@@ -157,22 +167,16 @@ export class PublicDataTransition {
 
 export class CombinedAccumulatedData {
   constructor(
-    public aggregationObject: AggregationObject,
-
+    public aggregationObject: AggregationObject, // Contains the aggregated proof of all previous kernel iterations
     public privateCallCount: Fr,
     public publicCallCount: Fr,
-
-    public newCommitments: Fr[],
-    public newNullifiers: Fr[],
-
-    public privateCallStack: Fr[],
-    public publicCallStack: Fr[],
-    public l1MsgStack: Fr[],
-
-    public newContracts: NewContractData[],
-
-    public optionallyRevealedData: OptionallyRevealedData[],
-
+    public newCommitments: TupleOf<Fr, typeof KERNEL_NEW_COMMITMENTS_LENGTH>,
+    public newNullifiers: TupleOf<Fr, typeof KERNEL_NEW_NULLIFIERS_LENGTH>,
+    public privateCallStack: TupleOf<Fr, typeof KERNEL_PRIVATE_CALL_STACK_LENGTH>,
+    public publicCallStack: TupleOf<Fr, typeof KERNEL_PUBLIC_CALL_STACK_LENGTH>,
+    public l1MsgStack: TupleOf<Fr, typeof KERNEL_L1_MSG_STACK_LENGTH>,
+    public newContracts: TupleOf<NewContractData, typeof KERNEL_NEW_CONTRACTS_LENGTH>,
+    public optionallyRevealedData: TupleOf<OptionallyRevealedData, typeof KERNEL_OPTIONALLY_REVEALED_DATA_LENGTH>,
     public stateTransitions: PublicDataTransition[],
     public stateReads: PublicDataRead[],
   ) {

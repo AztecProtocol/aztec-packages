@@ -16,12 +16,15 @@ import {
   NewContractData,
   FunctionData,
   OptionallyRevealedData,
-  AccumulatedData,
-  HistoricTreeRoots,
+  PublicDataTransition,
+  PublicDataRead,
+  CombinedAccumulatedData,
+  PrivateHistoricTreeRoots,
+  CombinedHistoricTreeRoots,
   ContractDeploymentData,
   TxContext,
-  ConstantData,
-  PublicInputs,
+  CombinedConstantData,
+  KernelCircuitPublicInputs,
   Proof,
   VerificationKeyData,
   PreviousKernelData,
@@ -315,7 +318,80 @@ export function fromOptionallyRevealedData(o: OptionallyRevealedData): MsgpackOp
   };
 }
 
-export interface MsgpackAccumulatedData {
+export interface MsgpackPublicDataTransition {
+  leaf_index: Buffer;
+  old_value: Buffer;
+  new_value: Buffer;
+}
+export interface IPublicDataTransition {
+  leafIndex: Fr;
+  oldValue: Fr;
+  newValue: Fr;
+}
+
+export function toPublicDataTransition(o: MsgpackPublicDataTransition): PublicDataTransition {
+  if (o.leaf_index === undefined) {
+    throw new Error('Expected leaf_index in PublicDataTransition deserialization');
+  }
+  if (o.old_value === undefined) {
+    throw new Error('Expected old_value in PublicDataTransition deserialization');
+  }
+  if (o.new_value === undefined) {
+    throw new Error('Expected new_value in PublicDataTransition deserialization');
+  }
+  return new PublicDataTransition(Fr.fromBuffer(o.leaf_index), Fr.fromBuffer(o.old_value), Fr.fromBuffer(o.new_value));
+}
+
+export function fromPublicDataTransition(o: PublicDataTransition): MsgpackPublicDataTransition {
+  if (o.leafIndex === undefined) {
+    throw new Error('Expected leafIndex in PublicDataTransition serialization');
+  }
+  if (o.oldValue === undefined) {
+    throw new Error('Expected oldValue in PublicDataTransition serialization');
+  }
+  if (o.newValue === undefined) {
+    throw new Error('Expected newValue in PublicDataTransition serialization');
+  }
+  return {
+    leaf_index: o.leafIndex.toBuffer(),
+    old_value: o.oldValue.toBuffer(),
+    new_value: o.newValue.toBuffer(),
+  };
+}
+
+export interface MsgpackPublicDataRead {
+  leaf_index: Buffer;
+  value: Buffer;
+}
+export interface IPublicDataRead {
+  leafIndex: Fr;
+  value: Fr;
+}
+
+export function toPublicDataRead(o: MsgpackPublicDataRead): PublicDataRead {
+  if (o.leaf_index === undefined) {
+    throw new Error('Expected leaf_index in PublicDataRead deserialization');
+  }
+  if (o.value === undefined) {
+    throw new Error('Expected value in PublicDataRead deserialization');
+  }
+  return new PublicDataRead(Fr.fromBuffer(o.leaf_index), Fr.fromBuffer(o.value));
+}
+
+export function fromPublicDataRead(o: PublicDataRead): MsgpackPublicDataRead {
+  if (o.leafIndex === undefined) {
+    throw new Error('Expected leafIndex in PublicDataRead serialization');
+  }
+  if (o.value === undefined) {
+    throw new Error('Expected value in PublicDataRead serialization');
+  }
+  return {
+    leaf_index: o.leafIndex.toBuffer(),
+    value: o.value.toBuffer(),
+  };
+}
+
+export interface MsgpackCombinedAccumulatedData {
   aggregation_object: MsgpackNativeAggregationState;
   private_call_count: Buffer;
   new_commitments: TupleOf<Buffer, 4>;
@@ -325,8 +401,10 @@ export interface MsgpackAccumulatedData {
   l1_msg_stack: TupleOf<Buffer, 4>;
   new_contracts: TupleOf<MsgpackNewContractData, 1>;
   optionally_revealed_data: TupleOf<MsgpackOptionallyRevealedData, 4>;
+  state_transitions: TupleOf<MsgpackPublicDataTransition, 4>;
+  state_reads: TupleOf<MsgpackPublicDataRead, 4>;
 }
-export interface IAccumulatedData {
+export interface ICombinedAccumulatedData {
   aggregationObject: NativeAggregationState;
   privateCallCount: Fr;
   newCommitments: TupleOf<Fr, 4>;
@@ -336,37 +414,45 @@ export interface IAccumulatedData {
   l1MsgStack: TupleOf<Fr, 4>;
   newContracts: TupleOf<NewContractData, 1>;
   optionallyRevealedData: TupleOf<OptionallyRevealedData, 4>;
+  stateTransitions: TupleOf<PublicDataTransition, 4>;
+  stateReads: TupleOf<PublicDataRead, 4>;
 }
 
-export function toAccumulatedData(o: MsgpackAccumulatedData): AccumulatedData {
+export function toCombinedAccumulatedData(o: MsgpackCombinedAccumulatedData): CombinedAccumulatedData {
   if (o.aggregation_object === undefined) {
-    throw new Error('Expected aggregation_object in AccumulatedData deserialization');
+    throw new Error('Expected aggregation_object in CombinedAccumulatedData deserialization');
   }
   if (o.private_call_count === undefined) {
-    throw new Error('Expected private_call_count in AccumulatedData deserialization');
+    throw new Error('Expected private_call_count in CombinedAccumulatedData deserialization');
   }
   if (o.new_commitments === undefined) {
-    throw new Error('Expected new_commitments in AccumulatedData deserialization');
+    throw new Error('Expected new_commitments in CombinedAccumulatedData deserialization');
   }
   if (o.new_nullifiers === undefined) {
-    throw new Error('Expected new_nullifiers in AccumulatedData deserialization');
+    throw new Error('Expected new_nullifiers in CombinedAccumulatedData deserialization');
   }
   if (o.private_call_stack === undefined) {
-    throw new Error('Expected private_call_stack in AccumulatedData deserialization');
+    throw new Error('Expected private_call_stack in CombinedAccumulatedData deserialization');
   }
   if (o.public_call_stack === undefined) {
-    throw new Error('Expected public_call_stack in AccumulatedData deserialization');
+    throw new Error('Expected public_call_stack in CombinedAccumulatedData deserialization');
   }
   if (o.l1_msg_stack === undefined) {
-    throw new Error('Expected l1_msg_stack in AccumulatedData deserialization');
+    throw new Error('Expected l1_msg_stack in CombinedAccumulatedData deserialization');
   }
   if (o.new_contracts === undefined) {
-    throw new Error('Expected new_contracts in AccumulatedData deserialization');
+    throw new Error('Expected new_contracts in CombinedAccumulatedData deserialization');
   }
   if (o.optionally_revealed_data === undefined) {
-    throw new Error('Expected optionally_revealed_data in AccumulatedData deserialization');
+    throw new Error('Expected optionally_revealed_data in CombinedAccumulatedData deserialization');
   }
-  return new AccumulatedData(
+  if (o.state_transitions === undefined) {
+    throw new Error('Expected state_transitions in CombinedAccumulatedData deserialization');
+  }
+  if (o.state_reads === undefined) {
+    throw new Error('Expected state_reads in CombinedAccumulatedData deserialization');
+  }
+  return new CombinedAccumulatedData(
     toNativeAggregationState(o.aggregation_object),
     Fr.fromBuffer(o.private_call_count),
     mapTuple(o.new_commitments, (v: Buffer) => Fr.fromBuffer(v)),
@@ -376,36 +462,44 @@ export function toAccumulatedData(o: MsgpackAccumulatedData): AccumulatedData {
     mapTuple(o.l1_msg_stack, (v: Buffer) => Fr.fromBuffer(v)),
     mapTuple(o.new_contracts, (v: MsgpackNewContractData) => toNewContractData(v)),
     mapTuple(o.optionally_revealed_data, (v: MsgpackOptionallyRevealedData) => toOptionallyRevealedData(v)),
+    mapTuple(o.state_transitions, (v: MsgpackPublicDataTransition) => toPublicDataTransition(v)),
+    mapTuple(o.state_reads, (v: MsgpackPublicDataRead) => toPublicDataRead(v)),
   );
 }
 
-export function fromAccumulatedData(o: AccumulatedData): MsgpackAccumulatedData {
+export function fromCombinedAccumulatedData(o: CombinedAccumulatedData): MsgpackCombinedAccumulatedData {
   if (o.aggregationObject === undefined) {
-    throw new Error('Expected aggregationObject in AccumulatedData serialization');
+    throw new Error('Expected aggregationObject in CombinedAccumulatedData serialization');
   }
   if (o.privateCallCount === undefined) {
-    throw new Error('Expected privateCallCount in AccumulatedData serialization');
+    throw new Error('Expected privateCallCount in CombinedAccumulatedData serialization');
   }
   if (o.newCommitments === undefined) {
-    throw new Error('Expected newCommitments in AccumulatedData serialization');
+    throw new Error('Expected newCommitments in CombinedAccumulatedData serialization');
   }
   if (o.newNullifiers === undefined) {
-    throw new Error('Expected newNullifiers in AccumulatedData serialization');
+    throw new Error('Expected newNullifiers in CombinedAccumulatedData serialization');
   }
   if (o.privateCallStack === undefined) {
-    throw new Error('Expected privateCallStack in AccumulatedData serialization');
+    throw new Error('Expected privateCallStack in CombinedAccumulatedData serialization');
   }
   if (o.publicCallStack === undefined) {
-    throw new Error('Expected publicCallStack in AccumulatedData serialization');
+    throw new Error('Expected publicCallStack in CombinedAccumulatedData serialization');
   }
   if (o.l1MsgStack === undefined) {
-    throw new Error('Expected l1MsgStack in AccumulatedData serialization');
+    throw new Error('Expected l1MsgStack in CombinedAccumulatedData serialization');
   }
   if (o.newContracts === undefined) {
-    throw new Error('Expected newContracts in AccumulatedData serialization');
+    throw new Error('Expected newContracts in CombinedAccumulatedData serialization');
   }
   if (o.optionallyRevealedData === undefined) {
-    throw new Error('Expected optionallyRevealedData in AccumulatedData serialization');
+    throw new Error('Expected optionallyRevealedData in CombinedAccumulatedData serialization');
+  }
+  if (o.stateTransitions === undefined) {
+    throw new Error('Expected stateTransitions in CombinedAccumulatedData serialization');
+  }
+  if (o.stateReads === undefined) {
+    throw new Error('Expected stateReads in CombinedAccumulatedData serialization');
   }
   return {
     aggregation_object: fromNativeAggregationState(o.aggregationObject),
@@ -419,36 +513,38 @@ export function fromAccumulatedData(o: AccumulatedData): MsgpackAccumulatedData 
     optionally_revealed_data: mapTuple(o.optionallyRevealedData, (v: OptionallyRevealedData) =>
       fromOptionallyRevealedData(v),
     ),
+    state_transitions: mapTuple(o.stateTransitions, (v: PublicDataTransition) => fromPublicDataTransition(v)),
+    state_reads: mapTuple(o.stateReads, (v: PublicDataRead) => fromPublicDataRead(v)),
   };
 }
 
-export interface MsgpackHistoricTreeRoots {
+export interface MsgpackPrivateHistoricTreeRoots {
   private_data_tree_root: Buffer;
   nullifier_tree_root: Buffer;
   contract_tree_root: Buffer;
   private_kernel_vk_tree_root: Buffer;
 }
-export interface IHistoricTreeRoots {
+export interface IPrivateHistoricTreeRoots {
   privateDataTreeRoot: Fr;
   nullifierTreeRoot: Fr;
   contractTreeRoot: Fr;
   privateKernelVkTreeRoot: Fr;
 }
 
-export function toHistoricTreeRoots(o: MsgpackHistoricTreeRoots): HistoricTreeRoots {
+export function toPrivateHistoricTreeRoots(o: MsgpackPrivateHistoricTreeRoots): PrivateHistoricTreeRoots {
   if (o.private_data_tree_root === undefined) {
-    throw new Error('Expected private_data_tree_root in HistoricTreeRoots deserialization');
+    throw new Error('Expected private_data_tree_root in PrivateHistoricTreeRoots deserialization');
   }
   if (o.nullifier_tree_root === undefined) {
-    throw new Error('Expected nullifier_tree_root in HistoricTreeRoots deserialization');
+    throw new Error('Expected nullifier_tree_root in PrivateHistoricTreeRoots deserialization');
   }
   if (o.contract_tree_root === undefined) {
-    throw new Error('Expected contract_tree_root in HistoricTreeRoots deserialization');
+    throw new Error('Expected contract_tree_root in PrivateHistoricTreeRoots deserialization');
   }
   if (o.private_kernel_vk_tree_root === undefined) {
-    throw new Error('Expected private_kernel_vk_tree_root in HistoricTreeRoots deserialization');
+    throw new Error('Expected private_kernel_vk_tree_root in PrivateHistoricTreeRoots deserialization');
   }
-  return new HistoricTreeRoots(
+  return new PrivateHistoricTreeRoots(
     Fr.fromBuffer(o.private_data_tree_root),
     Fr.fromBuffer(o.nullifier_tree_root),
     Fr.fromBuffer(o.contract_tree_root),
@@ -456,24 +552,47 @@ export function toHistoricTreeRoots(o: MsgpackHistoricTreeRoots): HistoricTreeRo
   );
 }
 
-export function fromHistoricTreeRoots(o: HistoricTreeRoots): MsgpackHistoricTreeRoots {
+export function fromPrivateHistoricTreeRoots(o: PrivateHistoricTreeRoots): MsgpackPrivateHistoricTreeRoots {
   if (o.privateDataTreeRoot === undefined) {
-    throw new Error('Expected privateDataTreeRoot in HistoricTreeRoots serialization');
+    throw new Error('Expected privateDataTreeRoot in PrivateHistoricTreeRoots serialization');
   }
   if (o.nullifierTreeRoot === undefined) {
-    throw new Error('Expected nullifierTreeRoot in HistoricTreeRoots serialization');
+    throw new Error('Expected nullifierTreeRoot in PrivateHistoricTreeRoots serialization');
   }
   if (o.contractTreeRoot === undefined) {
-    throw new Error('Expected contractTreeRoot in HistoricTreeRoots serialization');
+    throw new Error('Expected contractTreeRoot in PrivateHistoricTreeRoots serialization');
   }
   if (o.privateKernelVkTreeRoot === undefined) {
-    throw new Error('Expected privateKernelVkTreeRoot in HistoricTreeRoots serialization');
+    throw new Error('Expected privateKernelVkTreeRoot in PrivateHistoricTreeRoots serialization');
   }
   return {
     private_data_tree_root: o.privateDataTreeRoot.toBuffer(),
     nullifier_tree_root: o.nullifierTreeRoot.toBuffer(),
     contract_tree_root: o.contractTreeRoot.toBuffer(),
     private_kernel_vk_tree_root: o.privateKernelVkTreeRoot.toBuffer(),
+  };
+}
+
+export interface MsgpackCombinedHistoricTreeRoots {
+  private_historic_tree_roots: MsgpackPrivateHistoricTreeRoots;
+}
+export interface ICombinedHistoricTreeRoots {
+  privateHistoricTreeRoots: PrivateHistoricTreeRoots;
+}
+
+export function toCombinedHistoricTreeRoots(o: MsgpackCombinedHistoricTreeRoots): CombinedHistoricTreeRoots {
+  if (o.private_historic_tree_roots === undefined) {
+    throw new Error('Expected private_historic_tree_roots in CombinedHistoricTreeRoots deserialization');
+  }
+  return new CombinedHistoricTreeRoots(toPrivateHistoricTreeRoots(o.private_historic_tree_roots));
+}
+
+export function fromCombinedHistoricTreeRoots(o: CombinedHistoricTreeRoots): MsgpackCombinedHistoricTreeRoots {
+  if (o.privateHistoricTreeRoots === undefined) {
+    throw new Error('Expected privateHistoricTreeRoots in CombinedHistoricTreeRoots serialization');
+  }
+  return {
+    private_historic_tree_roots: fromPrivateHistoricTreeRoots(o.privateHistoricTreeRoots),
   };
 }
 
@@ -587,75 +706,79 @@ export function fromTxContext(o: TxContext): MsgpackTxContext {
   };
 }
 
-export interface MsgpackConstantData {
-  historic_tree_roots: MsgpackHistoricTreeRoots;
+export interface MsgpackCombinedConstantData {
+  historic_tree_roots: MsgpackCombinedHistoricTreeRoots;
   tx_context: MsgpackTxContext;
 }
-export interface IConstantData {
-  historicTreeRoots: HistoricTreeRoots;
+export interface ICombinedConstantData {
+  historicTreeRoots: CombinedHistoricTreeRoots;
   txContext: TxContext;
 }
 
-export function toConstantData(o: MsgpackConstantData): ConstantData {
+export function toCombinedConstantData(o: MsgpackCombinedConstantData): CombinedConstantData {
   if (o.historic_tree_roots === undefined) {
-    throw new Error('Expected historic_tree_roots in ConstantData deserialization');
+    throw new Error('Expected historic_tree_roots in CombinedConstantData deserialization');
   }
   if (o.tx_context === undefined) {
-    throw new Error('Expected tx_context in ConstantData deserialization');
+    throw new Error('Expected tx_context in CombinedConstantData deserialization');
   }
-  return new ConstantData(toHistoricTreeRoots(o.historic_tree_roots), toTxContext(o.tx_context));
+  return new CombinedConstantData(toCombinedHistoricTreeRoots(o.historic_tree_roots), toTxContext(o.tx_context));
 }
 
-export function fromConstantData(o: ConstantData): MsgpackConstantData {
+export function fromCombinedConstantData(o: CombinedConstantData): MsgpackCombinedConstantData {
   if (o.historicTreeRoots === undefined) {
-    throw new Error('Expected historicTreeRoots in ConstantData serialization');
+    throw new Error('Expected historicTreeRoots in CombinedConstantData serialization');
   }
   if (o.txContext === undefined) {
-    throw new Error('Expected txContext in ConstantData serialization');
+    throw new Error('Expected txContext in CombinedConstantData serialization');
   }
   return {
-    historic_tree_roots: fromHistoricTreeRoots(o.historicTreeRoots),
+    historic_tree_roots: fromCombinedHistoricTreeRoots(o.historicTreeRoots),
     tx_context: fromTxContext(o.txContext),
   };
 }
 
-export interface MsgpackPublicInputs {
-  end: MsgpackAccumulatedData;
-  constants: MsgpackConstantData;
+export interface MsgpackKernelCircuitPublicInputs {
+  end: MsgpackCombinedAccumulatedData;
+  constants: MsgpackCombinedConstantData;
   is_private: boolean;
 }
-export interface IPublicInputs {
-  end: AccumulatedData;
-  constants: ConstantData;
+export interface IKernelCircuitPublicInputs {
+  end: CombinedAccumulatedData;
+  constants: CombinedConstantData;
   isPrivate: boolean;
 }
 
-export function toPublicInputs(o: MsgpackPublicInputs): PublicInputs {
+export function toKernelCircuitPublicInputs(o: MsgpackKernelCircuitPublicInputs): KernelCircuitPublicInputs {
   if (o.end === undefined) {
-    throw new Error('Expected end in PublicInputs deserialization');
+    throw new Error('Expected end in KernelCircuitPublicInputs deserialization');
   }
   if (o.constants === undefined) {
-    throw new Error('Expected constants in PublicInputs deserialization');
+    throw new Error('Expected constants in KernelCircuitPublicInputs deserialization');
   }
   if (o.is_private === undefined) {
-    throw new Error('Expected is_private in PublicInputs deserialization');
+    throw new Error('Expected is_private in KernelCircuitPublicInputs deserialization');
   }
-  return new PublicInputs(toAccumulatedData(o.end), toConstantData(o.constants), o.is_private);
+  return new KernelCircuitPublicInputs(
+    toCombinedAccumulatedData(o.end),
+    toCombinedConstantData(o.constants),
+    o.is_private,
+  );
 }
 
-export function fromPublicInputs(o: PublicInputs): MsgpackPublicInputs {
+export function fromKernelCircuitPublicInputs(o: KernelCircuitPublicInputs): MsgpackKernelCircuitPublicInputs {
   if (o.end === undefined) {
-    throw new Error('Expected end in PublicInputs serialization');
+    throw new Error('Expected end in KernelCircuitPublicInputs serialization');
   }
   if (o.constants === undefined) {
-    throw new Error('Expected constants in PublicInputs serialization');
+    throw new Error('Expected constants in KernelCircuitPublicInputs serialization');
   }
   if (o.isPrivate === undefined) {
-    throw new Error('Expected isPrivate in PublicInputs serialization');
+    throw new Error('Expected isPrivate in KernelCircuitPublicInputs serialization');
   }
   return {
-    end: fromAccumulatedData(o.end),
-    constants: fromConstantData(o.constants),
+    end: fromCombinedAccumulatedData(o.end),
+    constants: fromCombinedConstantData(o.constants),
     is_private: o.isPrivate,
   };
 }
@@ -736,14 +859,14 @@ export function fromVerificationKeyData(o: VerificationKeyData): MsgpackVerifica
 }
 
 export interface MsgpackPreviousKernelData {
-  public_inputs: MsgpackPublicInputs;
+  public_inputs: MsgpackKernelCircuitPublicInputs;
   proof: Buffer;
   vk: MsgpackVerificationKeyData;
   vk_index: number;
   vk_path: TupleOf<Buffer, 3>;
 }
 export interface IPreviousKernelData {
-  publicInputs: PublicInputs;
+  publicInputs: KernelCircuitPublicInputs;
   proof: Proof;
   vk: VerificationKeyData;
   vkIndex: number;
@@ -767,8 +890,8 @@ export function toPreviousKernelData(o: MsgpackPreviousKernelData): PreviousKern
     throw new Error('Expected vk_path in PreviousKernelData deserialization');
   }
   return new PreviousKernelData(
-    toPublicInputs(o.public_inputs),
-    Proof.fromBuffer(o.proof),
+    toKernelCircuitPublicInputs(o.public_inputs),
+    Proof.fromMsgpackBuffer(o.proof),
     toVerificationKeyData(o.vk),
     o.vk_index,
     mapTuple(o.vk_path, (v: Buffer) => Fr.fromBuffer(v)),
@@ -792,8 +915,8 @@ export function fromPreviousKernelData(o: PreviousKernelData): MsgpackPreviousKe
     throw new Error('Expected vkPath in PreviousKernelData serialization');
   }
   return {
-    public_inputs: fromPublicInputs(o.publicInputs),
-    proof: o.proof.toBuffer(),
+    public_inputs: fromKernelCircuitPublicInputs(o.publicInputs),
+    proof: o.proof.toMsgpackBuffer(),
     vk: fromVerificationKeyData(o.vk),
     vk_index: o.vkIndex,
     vk_path: mapTuple(o.vkPath, (v: Fr) => v.toBuffer()),

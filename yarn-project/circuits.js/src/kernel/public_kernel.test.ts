@@ -4,14 +4,14 @@ import { makePublicKernelInputsNoKernelInput, makePublicKernelInputsWithEmptyOut
 describe('kernel/public_kernel', () => {
   it('simulates public kernel circuit with previous public kernel', async function () {
     const input = makePublicKernelInputsWithEmptyOutput();
-    input.previousKernel.publicInputs.isPrivateKernel = false;
+    input.previousKernel.publicInputs.isPrivate = false;
     const result = await simulatePublicKernelCircuit(input);
     expect(result).toBeDefined();
   });
 
   it('simulates public kernel circuit with previous private kernel', async function () {
     const input = makePublicKernelInputsWithEmptyOutput();
-    input.previousKernel.publicInputs.isPrivateKernel = true;
+    input.previousKernel.publicInputs.isPrivate = true;
     const result = await simulatePublicKernelCircuit(input);
     expect(result).toBeDefined();
   });

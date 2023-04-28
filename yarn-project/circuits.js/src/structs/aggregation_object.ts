@@ -5,22 +5,22 @@ import times from 'lodash.times';
 import { Vector, UInt32, AffineElement } from './shared.js';
 
 export class AggregationObject {
-  public publicInputs: Vector<Fr>;
-  public proofWitnessIndices: Vector<UInt32>;
-
   constructor(
     public p0: AffineElement,
     public p1: AffineElement,
-    publicInputsData: Fr[],
-    proofWitnessIndicesData: UInt32[],
+    public publicInputs: Fr[],
+    public proofWitnessIndices: UInt32[],
     public hasData = false,
-  ) {
-    this.publicInputs = new Vector(publicInputsData);
-    this.proofWitnessIndices = new Vector(proofWitnessIndicesData);
-  }
+  ) {}
 
   toBuffer() {
-    return serializeToBuffer(this.p0, this.p1, this.publicInputs, this.proofWitnessIndices, this.hasData);
+    return serializeToBuffer(
+      this.p0,
+      this.p1,
+      new Vector(this.publicInputs),
+      new Vector(this.proofWitnessIndices),
+      this.hasData,
+    );
   }
 
   static fromBuffer(buffer: Buffer | BufferReader): AggregationObject {

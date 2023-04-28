@@ -16,6 +16,7 @@ export function range(n: number, offset = 0) {
 
 /**
  * Create an array over an integer range, filled with a function 'fn'.
+ * This is used over e.g. lodash because it resolved to a tuple type, needed for our fixed array type safety.
  * @param n - The number of integers.
  * @param fn - The generator function.
  * @returns The array of numbers.

@@ -9,14 +9,10 @@ import { CombinedConstantData } from './combined_constant_data.js';
  */
 
 export class KernelCircuitPublicInputs {
-  constructor(
-    public end: CombinedAccumulatedData,
-    public constants: CombinedConstantData,
-    public isPrivateKernel: boolean,
-  ) {}
+  constructor(public end: CombinedAccumulatedData, public constants: CombinedConstantData, public isPrivate: boolean) {}
 
   toBuffer() {
-    return serializeToBuffer(this.end, this.constants, this.isPrivateKernel);
+    return serializeToBuffer(this.end, this.constants, this.isPrivate);
   }
 
   /**

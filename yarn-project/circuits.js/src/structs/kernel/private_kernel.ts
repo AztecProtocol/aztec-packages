@@ -4,10 +4,10 @@ import { serializeToBuffer } from '../../utils/serialize.js';
 import { PrivateCallStackItem } from '../call_stack_item.js';
 import { CONTRACT_TREE_HEIGHT, FUNCTION_TREE_HEIGHT, PRIVATE_CALL_STACK_LENGTH } from '../constants.js';
 import { MembershipWitness } from '../membership_witness.js';
-import { UInt8Vector } from '../shared.js';
 import { SignedTxRequest } from '../tx_request.js';
 import { VerificationKey } from '../verification_key.js';
 import { PreviousKernelData } from './previous_kernel_data.js';
+import { Proof } from '../proof.js';
 
 /**
  * Private call data.
@@ -17,7 +17,7 @@ export class PrivateCallData {
   constructor(
     public callStackItem: PrivateCallStackItem,
     public privateCallStackPreimages: PrivateCallStackItem[],
-    public proof: UInt8Vector,
+    public proof: Proof,
     public vk: VerificationKey,
     public functionLeafMembershipWitness: MembershipWitness<typeof FUNCTION_TREE_HEIGHT>,
     public contractLeafMembershipWitness: MembershipWitness<typeof CONTRACT_TREE_HEIGHT>,
@@ -79,5 +79,5 @@ export class PrivateKernelInputs {
 }
 
 export function makeEmptyProof() {
-  return new UInt8Vector(Buffer.alloc(0));
+  return new Proof(Buffer.alloc(0));
 }

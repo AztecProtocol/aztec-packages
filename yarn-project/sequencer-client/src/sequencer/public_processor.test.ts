@@ -103,7 +103,7 @@ describe('public_processor', () => {
     const hash = await tx.getTxHash();
     const [processed, failed] = await processor.process([tx]);
 
-    expect(processed[0].data.isPrivateKernel).toBeFalsy();
+    expect(processed[0].data.isPrivate).toBeFalsy();
     expect(processed).toEqual([expect.objectContaining({ hash, proof, ...pick(tx, 'txRequest') })]);
     expect(failed).toEqual([]);
 

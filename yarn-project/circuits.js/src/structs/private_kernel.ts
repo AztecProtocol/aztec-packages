@@ -67,166 +67,6 @@ export class ConstantData {
   }
 }
 
-// Not to be confused with ContractDeploymentData (maybe think of better names)
-export class NewContractData {
-  public portalContractAddress: EthAddress;
-  constructor(
-    public contractAddress: AztecAddress,
-    // TODO(AD): refactor this later
-    // currently there is a kludge with circuits cpp as it emits an AztecAddress
-    portalContractAddress: EthAddress | AztecAddress,
-    public functionTreeRoot: Fr,
-  ) {
-    // Handle circuits emitting this as an AztecAddress
-    this.portalContractAddress = new EthAddress(portalContractAddress.toBuffer());
-  }
-
-  static from(o: INewContractData) {
-    return new this(o.contractAddress, new EthAddress(o.portalContractAddress.toBuffer()), o.functionTreeRoot);
-  }
-
-  toBuffer() {
-    return serializeToBuffer(this.contractAddress, this.portalContractAddress, this.functionTreeRoot);
-  }
-
-  /**
-   * Deserializes from a buffer or reader, corresponding to a write in cpp.
-   * @param buffer - Buffer to read from.
-   */
-  static fromBuffer(buffer: Buffer | BufferReader): NewContractData {
-    const reader = BufferReader.asReader(buffer);
-    return new NewContractData(reader.readObject(AztecAddress), new EthAddress(reader.readBytes(32)), reader.readFr());
-  }
-}
-
-export class OptionallyRevealedData {
-  public portalContractAddress: EthAddress;
-  constructor(
-    public callStackItemHash: Fr,
-    public functionData: FunctionData,
-    public emittedEvents: TupleOf<Fr, typeof EMITTED_EVENTS_LENGTH>,
-    public vkHash: Fr,
-    // TODO(AD): kludge based on auto-generated cbind
-    portalContractAddress: EthAddress | AztecAddress,
-    public payFeeFromL1: boolean,
-    public payFeeFromPublicL2: boolean,
-    public calledFromL1: boolean,
-    public calledFromPublicL2: boolean,
-  ) {
-    this.portalContractAddress = new EthAddress(portalContractAddress.toBuffer());
-    assertLength(this, 'emittedEvents', EMITTED_EVENTS_LENGTH);
-  }
-
-  toBuffer() {
-    return serializeToBuffer(
-      this.callStackItemHash,
-      this.functionData,
-      this.emittedEvents,
-      this.vkHash,
-      this.portalContractAddress,
-      this.payFeeFromL1,
-      this.payFeeFromPublicL2,
-      this.calledFromL1,
-      this.calledFromPublicL2,
-    );
-  }
-
-  /**
-   * Deserializes from a buffer or reader, corresponding to a write in cpp.
-   * @param buffer - Buffer to read from.
-   */
-  static fromBuffer(buffer: Buffer | BufferReader): OptionallyRevealedData {
-    const reader = BufferReader.asReader(buffer);
-    return new this(
-      reader.readFr(),
-      reader.readObject(FunctionData),
-      reader.readArray(EMITTED_EVENTS_LENGTH, Fr),
-      reader.readFr(),
-      new EthAddress(reader.readBytes(32)),
-      reader.readBoolean(),
-      reader.readBoolean(),
-      reader.readBoolean(),
-      reader.readBoolean(),
-    );
-  }
-}
-
-export class AccumulatedData {
-  constructor(
-    public aggregationObject: AggregationObject, // Contains the aggregated proof of all previous kernel iterations
-    public privateCallCount: Fr,
-    public newCommitments: TupleOf<Fr, typeof KERNEL_NEW_COMMITMENTS_LENGTH>,
-    public newNullifiers: TupleOf<Fr, typeof KERNEL_NEW_NULLIFIERS_LENGTH>,
-    public privateCallStack: TupleOf<Fr, typeof KERNEL_PRIVATE_CALL_STACK_LENGTH>,
-    public publicCallStack: TupleOf<Fr, typeof KERNEL_PUBLIC_CALL_STACK_LENGTH>,
-    public l1MsgStack: TupleOf<Fr, typeof KERNEL_L1_MSG_STACK_LENGTH>,
-    public newContracts: TupleOf<NewContractData, typeof KERNEL_NEW_CONTRACTS_LENGTH>,
-    public optionallyRevealedData: TupleOf<OptionallyRevealedData, typeof KERNEL_OPTIONALLY_REVEALED_DATA_LENGTH>,
-  ) {
-    assertLength(this, 'newCommitments', KERNEL_NEW_COMMITMENTS_LENGTH);
-    assertLength(this, 'newNullifiers', KERNEL_NEW_NULLIFIERS_LENGTH);
-    assertLength(this, 'privateCallStack', KERNEL_PRIVATE_CALL_STACK_LENGTH);
-    assertLength(this, 'publicCallStack', KERNEL_PUBLIC_CALL_STACK_LENGTH);
-    assertLength(this, 'l1MsgStack', KERNEL_L1_MSG_STACK_LENGTH);
-    assertLength(this, 'newContracts', KERNEL_NEW_CONTRACTS_LENGTH);
-    assertLength(this, 'optionallyRevealedData', KERNEL_OPTIONALLY_REVEALED_DATA_LENGTH);
-  }
-
-  toBuffer() {
-    return serializeToBuffer(
-      this.aggregationObject,
-      this.privateCallCount,
-      this.newCommitments,
-      this.newNullifiers,
-      this.privateCallStack,
-      this.publicCallStack,
-      this.l1MsgStack,
-      this.newContracts,
-      this.optionallyRevealedData,
-    );
-  }
-
-  /**
-   * Deserializes from a buffer or reader, corresponding to a write in cpp.
-   * @param buffer - Buffer to read from.
-   */
-  static fromBuffer(buffer: Buffer | BufferReader): AccumulatedData {
-    const reader = BufferReader.asReader(buffer);
-    return new this(
-      reader.readObject(AggregationObject),
-      reader.readFr(),
-      reader.readArray(KERNEL_NEW_COMMITMENTS_LENGTH, Fr),
-      reader.readArray(KERNEL_NEW_NULLIFIERS_LENGTH, Fr),
-      reader.readArray(KERNEL_PRIVATE_CALL_STACK_LENGTH, Fr),
-      reader.readArray(KERNEL_PUBLIC_CALL_STACK_LENGTH, Fr),
-      reader.readArray(KERNEL_L1_MSG_STACK_LENGTH, Fr),
-      reader.readArray(KERNEL_NEW_CONTRACTS_LENGTH, NewContractData),
-      reader.readArray(KERNEL_OPTIONALLY_REVEALED_DATA_LENGTH, OptionallyRevealedData),
-    );
-  }
-}
-
-export class PrivateKernelPublicInputs {
-  constructor(public end: AccumulatedData, public constants: ConstantData, public isPrivate: boolean) {}
-
-  toBuffer() {
-    return serializeToBuffer(this.end, this.constants, this.isPrivate);
-  }
-
-  /**
-   * Deserializes from a buffer or reader, corresponding to a write in cpp.
-   * @param buffer - Buffer to read from.
-   */
-  static fromBuffer(buffer: Buffer | BufferReader): PrivateKernelPublicInputs {
-    const reader = BufferReader.asReader(buffer);
-    return new PrivateKernelPublicInputs(reader.readObject(AccumulatedData), reader.readObject(ConstantData), true);
-  }
-
-  static makeEmpty() {
-    return new PrivateKernelPublicInputs(makeEmptyAccumulatedData(), makeEmptyConstantData(), true);
-  }
-}
-
 export class PreviousKernelData {
   constructor(
     public publicInputs: PrivateKernelPublicInputs,
@@ -239,7 +79,6 @@ export class PreviousKernelData {
   }
 
   /**
-   * TODO deprecate in favour of msgpack
    * Serialize this as a buffer.
    * @returns The buffer.
    */
@@ -254,7 +93,6 @@ export class PreviousKernelData {
   }
 
   /**
-   * TODO deprecate in favour of msgpack
    * Deserializes from a buffer or reader, corresponding to a write in cpp.
    * @param buffer - Buffer to read from.
    */
