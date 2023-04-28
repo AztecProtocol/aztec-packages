@@ -11,7 +11,7 @@ import {
   Address,
   Fr,
   Fq,
-  AffineElement,
+  G1AffineElement,
   NativeAggregationState,
   NewContractData,
   FunctionData,
@@ -26,32 +26,32 @@ import {
   VerificationKeyData,
   PreviousKernelData,
 } from './types.js';
-import { TupleOf, mapTuple, mapValues } from '../structs/types.js';
-export interface MsgpackAffineElement {
+import { TupleOf, mapTuple, mapValues } from '@aztec/foundation/serialize';
+export interface MsgpackG1AffineElement {
   x: Buffer;
   y: Buffer;
 }
-export interface IAffineElement {
+export interface IG1AffineElement {
   x: Fq;
   y: Fq;
 }
 
-export function toAffineElement(o: MsgpackAffineElement): AffineElement {
+export function toG1AffineElement(o: MsgpackG1AffineElement): G1AffineElement {
   if (o.x === undefined) {
-    throw new Error('Expected x in AffineElement deserialization');
+    throw new Error('Expected x in G1AffineElement deserialization');
   }
   if (o.y === undefined) {
-    throw new Error('Expected y in AffineElement deserialization');
+    throw new Error('Expected y in G1AffineElement deserialization');
   }
-  return new AffineElement(Fq.fromBuffer(o.x), Fq.fromBuffer(o.y));
+  return new G1AffineElement(Fq.fromBuffer(o.x), Fq.fromBuffer(o.y));
 }
 
-export function fromAffineElement(o: AffineElement): MsgpackAffineElement {
+export function fromG1AffineElement(o: G1AffineElement): MsgpackG1AffineElement {
   if (o.x === undefined) {
-    throw new Error('Expected x in AffineElement serialization');
+    throw new Error('Expected x in G1AffineElement serialization');
   }
   if (o.y === undefined) {
-    throw new Error('Expected y in AffineElement serialization');
+    throw new Error('Expected y in G1AffineElement serialization');
   }
   return {
     x: o.x.toBuffer(),
@@ -60,15 +60,15 @@ export function fromAffineElement(o: AffineElement): MsgpackAffineElement {
 }
 
 export interface MsgpackNativeAggregationState {
-  P0: MsgpackAffineElement;
-  P1: MsgpackAffineElement;
+  P0: MsgpackG1AffineElement;
+  P1: MsgpackG1AffineElement;
   public_inputs: Buffer[];
   proof_witness_indices: number[];
   has_data: boolean;
 }
 export interface INativeAggregationState {
-  p0: AffineElement;
-  p1: AffineElement;
+  p0: G1AffineElement;
+  p1: G1AffineElement;
   publicInputs: Fr[];
   proofWitnessIndices: number[];
   hasData: boolean;
@@ -91,8 +91,8 @@ export function toNativeAggregationState(o: MsgpackNativeAggregationState): Nati
     throw new Error('Expected has_data in NativeAggregationState deserialization');
   }
   return new NativeAggregationState(
-    toAffineElement(o.P0),
-    toAffineElement(o.P1),
+    toG1AffineElement(o.P0),
+    toG1AffineElement(o.P1),
     o.public_inputs.map((v: Buffer) => Fr.fromBuffer(v)),
     o.proof_witness_indices.map((v: number) => v),
     o.has_data,
@@ -116,8 +116,8 @@ export function fromNativeAggregationState(o: NativeAggregationState): MsgpackNa
     throw new Error('Expected hasData in NativeAggregationState serialization');
   }
   return {
-    P0: fromAffineElement(o.p0),
-    P1: fromAffineElement(o.p1),
+    P0: fromG1AffineElement(o.p0),
+    P1: fromG1AffineElement(o.p1),
     public_inputs: o.publicInputs.map((v: Fr) => v.toBuffer()),
     proof_witness_indices: o.proofWitnessIndices.map((v: number) => v),
     has_data: o.hasData,
@@ -664,7 +664,7 @@ export interface MsgpackVerificationKeyData {
   composer_type: number;
   circuit_size: number;
   num_public_inputs: number;
-  commitments: Record<string, MsgpackAffineElement>;
+  commitments: Record<string, MsgpackG1AffineElement>;
   contains_recursive_proof: boolean;
   recursive_proof_public_input_indices: number[];
 }
@@ -672,7 +672,7 @@ export interface IVerificationKeyData {
   composerType: number;
   circuitSize: number;
   numPublicInputs: number;
-  commitments: Record<string, AffineElement>;
+  commitments: Record<string, G1AffineElement>;
   containsRecursiveProof: boolean;
   recursiveProofPublicInputIndices: number[];
 }
@@ -700,7 +700,7 @@ export function toVerificationKeyData(o: MsgpackVerificationKeyData): Verificati
     o.composer_type,
     o.circuit_size,
     o.num_public_inputs,
-    mapValues(o.commitments, (v: AffineElement) => toAffineElement(v)),
+    mapValues(o.commitments, (v: MsgpackG1AffineElement) => toG1AffineElement(v)),
     o.contains_recursive_proof,
     o.recursive_proof_public_input_indices.map((v: number) => v),
   );
@@ -729,7 +729,7 @@ export function fromVerificationKeyData(o: VerificationKeyData): MsgpackVerifica
     composer_type: o.composerType,
     circuit_size: o.circuitSize,
     num_public_inputs: o.numPublicInputs,
-    commitments: mapValues(o.commitments, (v: AffineElement) => fromAffineElement(v)),
+    commitments: mapValues(o.commitments, (v: G1AffineElement) => fromG1AffineElement(v)),
     contains_recursive_proof: o.containsRecursiveProof,
     recursive_proof_public_input_indices: o.recursiveProofPublicInputIndices.map((v: number) => v),
   };
@@ -800,15 +800,22 @@ export function fromPreviousKernelData(o: PreviousKernelData): MsgpackPreviousKe
   };
 }
 
-export function abisComputeContractAddress(
+export async function abisComputeContractAddress(
   wasm: CircuitsWasm,
   arg0: Address,
   arg1: Fr,
   arg2: Fr,
   arg3: Fr,
 ): Promise<Address> {
-  return callCbind(wasm, 'abis__compute_contract_address', [arg0, arg1, arg2, arg3]);
+  return Address.fromBuffer(
+    await callCbind(wasm, 'abis__compute_contract_address', [
+      arg0.toBuffer(),
+      arg1.toBuffer(),
+      arg2.toBuffer(),
+      arg3.toBuffer(),
+    ]),
+  );
 }
-export function privateKernelDummyPreviousKernel(wasm: CircuitsWasm): Promise<PreviousKernelData> {
-  return callCbind(wasm, 'private_kernel__dummy_previous_kernel', []);
+export async function privateKernelDummyPreviousKernel(wasm: CircuitsWasm): Promise<PreviousKernelData> {
+  return toPreviousKernelData(await callCbind(wasm, 'private_kernel__dummy_previous_kernel', []));
 }

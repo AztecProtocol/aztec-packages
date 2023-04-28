@@ -1,7 +1,6 @@
 import { INewContractData, privateKernelDummyPreviousKernel } from '../cbind/circuits.gen.js';
-import { TupleOf, toTupleOf } from './types.js';
-import { CircuitsWasm } from '../index.js';
-import { assertLength, FieldsOf } from '../utils/jsUtils.js';
+import { CircuitsWasm, Proof } from '../index.js';
+import { assertLength, FieldsOf, times } from '../utils/jsUtils.js';
 import { serializeToBuffer } from '../utils/serialize.js';
 import {
   CONTRACT_TREE_HEIGHT,
@@ -22,8 +21,7 @@ import { PrivateCallStackItem } from './private_call_stack_item.js';
 import { AggregationObject, MembershipWitness, UInt32, UInt8Vector } from './shared.js';
 import { ContractDeploymentData, SignedTxRequest, TxContext } from './tx.js';
 import { VerificationKey } from './verification_key.js';
-import { AztecAddress, EthAddress, Fr, BufferReader } from '@aztec/foundation';
-import times from 'lodash.times';
+import { AztecAddress, EthAddress, Fr, BufferReader, TupleOf, toTupleOf } from '@aztec/foundation';
 
 export class HistoricTreeRoots {
   constructor(
@@ -80,11 +78,11 @@ export class NewContractData {
     public functionTreeRoot: Fr,
   ) {
     // Handle circuits emitting this as an AztecAddress
-    this.portalContractAddress = EthAddress.fromBuffer(portalContractAddress.toBuffer());
+    this.portalContractAddress = new EthAddress(portalContractAddress.toBuffer());
   }
 
   static from(o: INewContractData) {
-    return new this(o.contractAddress, EthAddress.fromBuffer(o.portalContractAddress.toBuffer()), o.functionTreeRoot);
+    return new this(o.contractAddress, new EthAddress(o.portalContractAddress.toBuffer()), o.functionTreeRoot);
   }
 
   toBuffer() {
@@ -115,7 +113,7 @@ export class OptionallyRevealedData {
     public calledFromL1: boolean,
     public calledFromPublicL2: boolean,
   ) {
-    this.portalContractAddress = EthAddress.fromBuffer(portalContractAddress.toBuffer());
+    this.portalContractAddress = new EthAddress(portalContractAddress.toBuffer());
     assertLength(this, 'emittedEvents', EMITTED_EVENTS_LENGTH);
   }
 
@@ -142,7 +140,7 @@ export class OptionallyRevealedData {
     return new this(
       reader.readFr(),
       reader.readObject(FunctionData),
-      toTupleOf(reader.readArray(EMITTED_EVENTS_LENGTH, Fr), EMITTED_EVENTS_LENGTH),
+      reader.readArray(EMITTED_EVENTS_LENGTH, Fr),
       reader.readFr(),
       new EthAddress(reader.readBytes(32)),
       reader.readBoolean(),
@@ -232,7 +230,7 @@ export class PrivateKernelPublicInputs {
 export class PreviousKernelData {
   constructor(
     public publicInputs: PrivateKernelPublicInputs,
-    public proof: Buffer,
+    public proof: Proof,
     public vk: VerificationKey,
     public vkIndex: UInt32, // the index of the kernel circuit's vk in a big tree of kernel circuit vks
     public vkPath: TupleOf<Fr, typeof VK_TREE_HEIGHT>,
@@ -246,7 +244,13 @@ export class PreviousKernelData {
    * @returns The buffer.
    */
   toBuffer() {
-    return serializeToBuffer(this.publicInputs, new UInt8Vector(this.proof), this.vk, this.vkIndex, this.vkPath);
+    return serializeToBuffer(
+      this.publicInputs,
+      new UInt8Vector(this.proof.toBuffer()),
+      this.vk,
+      this.vkIndex,
+      this.vkPath,
+    );
   }
 
   /**
@@ -258,10 +262,10 @@ export class PreviousKernelData {
     const reader = BufferReader.asReader(buffer);
     return new this(
       reader.readObject(PrivateKernelPublicInputs),
-      reader.readObject(UInt8Vector).toBuffer(),
+      new Proof(reader.readObject(UInt8Vector).buffer),
       reader.readObject(VerificationKey),
       reader.readNumber(),
-      toTupleOf(reader.readArray(VK_TREE_HEIGHT, Fr), VK_TREE_HEIGHT),
+      reader.readArray(VK_TREE_HEIGHT, Fr),
     );
   }
 
@@ -424,5 +428,5 @@ function makeEmptyAccumulatedData(): AccumulatedData {
 }
 
 export function makeEmptyProof() {
-  return Buffer.alloc(0);
+  return new Proof(Buffer.alloc(0));
 }

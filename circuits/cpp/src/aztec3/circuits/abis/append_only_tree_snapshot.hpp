@@ -1,6 +1,7 @@
 #pragma once
 
 #include "aztec3/utils/types/circuit_types.hpp"
+#include <barretenberg/common/msgpack.hpp>
 namespace aztec3::circuits::abis {
 
 using aztec3::utils::types::CircuitTypes;
@@ -14,6 +15,7 @@ template <typename NCT> struct AppendOnlyTreeSnapshot {
 
     fr root = 0;
     uint32 next_available_leaf_index;
+    MSGPACK(root, next_available_leaf_index);
 
     bool operator==(AppendOnlyTreeSnapshot<NCT> const&) const = default;
 };

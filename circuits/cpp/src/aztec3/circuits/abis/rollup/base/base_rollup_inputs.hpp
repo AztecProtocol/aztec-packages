@@ -5,6 +5,7 @@
 #include "../nullifier_leaf_preimage.hpp"
 #include "../constant_rollup_data.hpp"
 #include "aztec3/constants.hpp"
+#include <barretenberg/common/msgpack.hpp>
 #include <math.h>
 
 namespace aztec3::circuits::abis {
@@ -40,6 +41,18 @@ template <typename NCT> struct BaseRollupInputs {
 
     ConstantRollupData<NCT> constants;
 
+    MSGPACK(kernel_data,
+            start_private_data_tree_snapshot,
+            start_nullifier_tree_snapshot,
+            start_contract_tree_snapshot,
+            low_nullifier_leaf_preimages,
+            low_nullifier_membership_witness,
+            new_commitments_subtree_sibling_path,
+            new_nullifiers_subtree_sibling_path,
+            new_contracts_subtree_sibling_path,
+            historic_private_data_tree_root_membership_witnesses,
+            historic_contract_tree_root_membership_witnesses,
+            constants);
     bool operator==(BaseRollupInputs<NCT> const&) const = default;
 };
 

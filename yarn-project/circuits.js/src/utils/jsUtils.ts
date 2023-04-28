@@ -1,3 +1,5 @@
+import { TupleOf } from '@aztec/foundation';
+
 /**
  * Create an array over an integer range.
  * @param n - The number of integers.
@@ -10,6 +12,16 @@ export function range(n: number, offset = 0) {
     ret.push(offset + i);
   }
   return ret;
+}
+
+/**
+ * Create an array over an integer range, filled with a function 'fn'.
+ * @param n - The number of integers.
+ * @param fn - The generator function.
+ * @returns The array of numbers.
+ */
+export function times<T, N extends number>(length: N, fn: (i: number) => T, offset = 0) {
+  return Array.from({ length }, (v: any, i: number) => fn(i + offset)) as TupleOf<T, N>;
 }
 
 /**

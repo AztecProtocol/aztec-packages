@@ -3,7 +3,6 @@ import { Fq, Fr } from '@aztec/foundation/fields';
 import { assertLength, range } from '../utils/jsUtils.js';
 import { Bufferable, serializeToBuffer } from '../utils/serialize.js';
 import times from 'lodash.times';
-import { IAffineElement, INativeAggregationState } from '../cbind/circuits.gen.js';
 
 export class MembershipWitness<N extends number> {
   constructor(pathSize: N, public leafIndex: UInt32, public siblingPath: Fr[]) {
@@ -57,12 +56,14 @@ export class AggregationObject {
     public hasData = false,
   ) {}
 
-  static from(o: INativeAggregationState) {
-    return new AggregationObject(o.p0, o.p1, o.publicInputs, o.proofWitnessIndices, o.hasData);
-  }
-
   toBuffer() {
-    return serializeToBuffer(this.p0, this.p1, this.publicInputs, new Vector(this.proofWitnessIndices), this.hasData);
+    return serializeToBuffer(
+      this.p0,
+      this.p1,
+      new Vector(this.publicInputs),
+      new Vector(this.proofWitnessIndices),
+      this.hasData,
+    );
   }
 
   static fromBuffer(buffer: Buffer | BufferReader): AggregationObject {
@@ -124,10 +125,6 @@ export class AffineElement {
   constructor(x: Fq | bigint, y: Fq | bigint) {
     this.x = typeof x === 'bigint' ? new Fq(x) : x;
     this.y = typeof y === 'bigint' ? new Fq(y) : y;
-  }
-
-  static from(o: IAffineElement) {
-    return new this(o.x, o.y);
   }
 
   toBuffer() {

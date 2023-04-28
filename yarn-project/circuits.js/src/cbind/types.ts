@@ -3,12 +3,14 @@ export {
   PrivateKernelInputs,
   PrivateKernelPublicInputs,
   AffineElement,
+  G1AffineElement,
   AggregationObject as NativeAggregationState,
   NewContractData,
   FunctionData,
   OptionallyRevealedData,
   AccumulatedData,
   HistoricTreeRoots,
+  Proof,
   ContractDeploymentData,
   TxContext,
   Fq,
@@ -19,10 +21,3 @@ export {
   PrivateKernelPublicInputs as PublicInputs,
   PreviousKernelData,
 } from '../structs/index.js';
-
-// TODO better way of aliasing proof to buffer
-export class Proof {
-  static fromBuffer(buffer: Buffer): Buffer {
-    return buffer;
-  }
-}

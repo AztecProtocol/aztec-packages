@@ -1,5 +1,4 @@
 import camelCase from 'lodash.camelcase';
-import { type } from 'os';
 
 function capitalize(s: string) {
   return s.charAt(0).toUpperCase() + s.substring(1);
@@ -40,6 +39,52 @@ export interface TypeInfo {
   toMsgpackMethod?: string;
 }
 
+function msgpackConverterExpr(typeInfo: TypeInfo, value: string): string {
+  const { typeName } = typeInfo;
+  if (typeInfo.isAlias) {
+    return `${typeName}.fromBuffer(${value})`;
+  } else if (typeInfo.arraySubtype) {
+    const { typeName, msgpackTypeName } = typeInfo.arraySubtype;
+    const convFn = `(v: ${msgpackTypeName || typeName}) => ${msgpackConverterExpr(typeInfo.arraySubtype, 'v')}`;
+    if (typeInfo.isTuple) {
+      return `mapTuple(${value}, ${convFn})`;
+    } else {
+      return `${value}.map(${convFn})`;
+    }
+  } else if (typeInfo.mapSubtypes) {
+    const { typeName, msgpackTypeName } = typeInfo.mapSubtypes[1];
+    const convFn = `(v: ${msgpackTypeName || typeName}) => ${msgpackConverterExpr(typeInfo.mapSubtypes[1], 'v')}`;
+    return `mapValues(${value}, ${convFn})`;
+  } else if (typeInfo.isImport) {
+    return `to${typeName}(${value})`;
+  } else {
+    return value;
+  }
+}
+
+function classConverterExpr(typeInfo: TypeInfo, value: string): string {
+  const { typeName } = typeInfo;
+  if (typeInfo.isAlias) {
+    // TODO other aliases?
+    return `${value}.toBuffer()`;
+  } else if (typeInfo.arraySubtype) {
+    const { typeName } = typeInfo.arraySubtype;
+    const convFn = `(v: ${typeName}) => ${classConverterExpr(typeInfo.arraySubtype, 'v')}`;
+    if (typeInfo.isTuple) {
+      return `mapTuple(${value}, ${convFn})`;
+    } else {
+      return `${value}.map(${convFn})`;
+    }
+  } else if (typeInfo.mapSubtypes) {
+    const { typeName } = typeInfo.mapSubtypes[1];
+    const convFn = `(v: ${typeName}) => ${classConverterExpr(typeInfo.mapSubtypes[1], 'v')}`;
+    return `mapValues(${value}, ${convFn})`;
+  } else if (typeInfo.isImport) {
+    return `from${typeName}(${value})`;
+  } else {
+    return value;
+  }
+}
 /**
  * Converts a spec emitted from the WASM to typescript code.
  */
@@ -188,37 +233,7 @@ export class CbindCompiler {
       return statements.join('\n');
     };
 
-    const msgpackConverterExpr = (typeInfo: TypeInfo, value: string): string => {
-      const { typeName } = typeInfo;
-      if (typeInfo.isAlias) {
-        return `${typeName}.fromBuffer(${value})`;
-      } else if (typeInfo.arraySubtype) {
-        const rawName = typeInfo.arraySubtype.msgpackTypeName || typeInfo.arraySubtype.typeName;
-        const convFn = `(v: ${rawName}) => ${msgpackConverterExpr(typeInfo.arraySubtype, 'v')}`;
-        if (typeInfo.isTuple) {
-          return `mapTuple(${value}, ${convFn})`;
-        } else {
-          return `${value}.map(${convFn})`;
-        }
-      } else if (typeInfo.mapSubtypes) {
-        const { typeName } = typeInfo.mapSubtypes[1];
-        const convFn = `(v: ${typeName}) => ${msgpackConverterExpr(typeInfo.mapSubtypes[1], 'v')}`;
-        return `mapValues(${value}, ${convFn})`;
-      } else if (typeInfo.isImport) {
-        return `to${typeName}(${value})`;
-      } else {
-        return value;
-      }
-    };
-    // TODO use this?
-    const objectBodySyntax = () => {
-      const statements: string[] = [];
-      for (const [key, value] of Object.entries(type)) {
-        if (key === '__typename') continue;
-        statements.push(`  ${camelCase(key)}: ${msgpackConverterExpr(this.getTypeInfo(value), `o.${key}`)},`);
-      }
-      return statements.join('\n');
-    };
+    // TODO should we always just call constructor?
     const constructorBodySyntax = () => {
       const statements: string[] = [];
       for (const [key, value] of Object.entries(type)) {
@@ -259,30 +274,6 @@ return ${callSyntax.call(this)};
       }
       return statements.join('\n');
     };
-
-    const classConverterExpr = (typeInfo: TypeInfo, value: string): string => {
-      const { typeName } = typeInfo;
-      if (typeInfo.isAlias) {
-        // TODO other aliases?
-        return `${value}.toBuffer()`;
-      } else if (typeInfo.arraySubtype) {
-        const { typeName } = typeInfo.arraySubtype;
-        const convFn = `(v: ${typeName}) => ${classConverterExpr(typeInfo.arraySubtype, 'v')}`;
-        if (typeInfo.isTuple) {
-          return `mapTuple(${value}, ${convFn})`;
-        } else {
-          return `${value}.map(${convFn})`;
-        }
-      } else if (typeInfo.mapSubtypes) {
-        const { typeName } = typeInfo.mapSubtypes[1];
-        const convFn = `(v: ${typeName}) => ${classConverterExpr(typeInfo.mapSubtypes[1], 'v')}`;
-        return `mapValues(${value}, ${convFn})`;
-      } else if (typeInfo.isImport) {
-        return `from${typeName}(${value})`;
-      } else {
-        return value;
-      }
-    };
     const bodySyntax = () => {
       const statements: string[] = [];
       for (const [key, value] of Object.entries(type)) {
@@ -309,14 +300,16 @@ return ${callSyntax.call(this)};
    */
   processCbind(name: string, cbind: { args: ['tuple', Schema[]]; ret: Schema }) {
     const [_tuple, args] = cbind.args;
-    const compiled = { args: args.map(arg => this.getTypeName(arg)), ret: this.getTypeName(cbind.ret) };
-    const argStrings = args.map((arg, i) => `arg${i}: ${this.getTypeName(arg)}`);
-    this.funcDecls.push(`export function ${camelCase(name)}(wasm: CircuitsWasm, ${argStrings.join(
+    const typeInfos = args.map(arg => this.getTypeInfo(arg));
+    const argStrings = typeInfos.map((typeInfo, i) => `arg${i}: ${typeInfo.typeName}`);
+    const callStrings = typeInfos.map((typeInfo, i) => `${classConverterExpr(typeInfo, `arg${i}`)}`);
+    const innerCall = `await callCbind(wasm, '${name}', [${callStrings.join(', ')}])`;
+    const retType = this.getTypeInfo(cbind.ret);
+    this.funcDecls.push(`export async function ${camelCase(name)}(wasm: CircuitsWasm, ${argStrings.join(
       ', ',
-    )}): Promise<${this.getTypeName(cbind.ret)}> {
-return callCbind(wasm, '${name}', [${argStrings.map(s => s.split(':')[0]).join(', ')}]);
+    )}): Promise<${retType.typeName}> {
+return ${msgpackConverterExpr(retType, innerCall)};
 }`);
-    return compiled;
   }
 
   compile(): string {
@@ -351,7 +344,7 @@ import { CircuitsWasm } from '../wasm/index.js';
       }
     }
     outputs[0] += `import {${imports.join(', ')}} from "./types.js";`;
-    outputs[0] += `import {TupleOf, mapTuple, mapValues} from "../structs/types.js";`;
+    outputs[0] += `import {TupleOf, mapTuple, mapValues} from "@aztec/foundation/serialize";`;
     for (const funcDecl of Object.values(this.funcDecls)) {
       outputs.push(funcDecl);
     }

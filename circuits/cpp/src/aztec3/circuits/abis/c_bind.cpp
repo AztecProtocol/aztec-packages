@@ -6,6 +6,7 @@
 #include "barretenberg/stdlib/merkle_tree/hash.hpp"
 #include "aztec3/msgpack/schema_impl.hpp"
 #include "call_context.hpp"
+#include "msgpack/v3/sbuffer_decl.hpp"
 #include "private_circuit_public_inputs.hpp"
 #include "aztec3/circuits/abis/rollup/base/base_rollup_inputs.hpp"
 #include "aztec3/circuits/abis/rollup/base/base_or_merge_rollup_public_inputs.hpp"
@@ -122,6 +123,20 @@ template <typename T> static const char* as_string_output(uint8_t const* input_b
     std::string str = stream.str();
     *size = (uint32_t)str.size();
     return bbmalloc_copy_string(str.c_str(), *size);
+}
+
+/**
+ * For testing only. Take this object, write it to a buffer, then output it. */
+template <typename T> static const char* as_msgpack_output(uint8_t const* input_buf, uint32_t)
+{
+    T obj;
+    read(input_buf, obj);
+    msgpack::sbuffer output;
+    msgpack::pack(output, obj);
+    msgpack::object_handle oh = msgpack::unpack(output.data(), output.size());
+    std::ostringstream stream;
+    stream << oh.get();
+    return bbmalloc_copy_string(stream.str().c_str(), stream.str().size());
 }
 
 /**
@@ -364,6 +379,11 @@ WASM_EXPORT const char* abis__test_roundtrip_serialize_base_rollup_inputs(uint8_
                                                                           uint32_t* size)
 {
     return as_string_output<aztec3::circuits::abis::BaseRollupInputs<NT>>(rollup_inputs_buf, size);
+}
+
+WASM_EXPORT const char* abis__test_roundtrip_msgpack_base_rollup_inputs(uint8_t const* rollup_inputs_buf, uint32_t size)
+{
+    return as_msgpack_output<aztec3::circuits::abis::BaseRollupInputs<NT>>(rollup_inputs_buf, size);
 }
 
 WASM_EXPORT const char* abis__test_roundtrip_serialize_previous_kernel_data(uint8_t const* kernel_data_buf,

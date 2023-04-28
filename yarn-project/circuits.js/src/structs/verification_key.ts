@@ -1,4 +1,4 @@
-import { BufferReader, Fr } from '@aztec/foundation';
+import { BufferReader, Fq, Fr } from '@aztec/foundation';
 import { serializeToBuffer } from '../utils/serialize.js';
 import { ComposerType } from './shared.js';
 import times from 'lodash.times';
@@ -7,12 +7,12 @@ import times from 'lodash.times';
  * Curve data.
  */
 export class G1AffineElement {
-  public x: Fr;
-  public y: Fr;
+  public x: Fq;
+  public y: Fq;
 
-  constructor(x: Fr | bigint, y: Fr | bigint) {
-    this.x = typeof x === 'bigint' ? new Fr(x) : x;
-    this.y = typeof y === 'bigint' ? new Fr(y) : y;
+  constructor(x: Fq | bigint, y: Fq | bigint) {
+    this.x = typeof x === 'bigint' ? new Fq(x) : x;
+    this.y = typeof y === 'bigint' ? new Fq(y) : y;
   }
   /**
    * Serialize as a buffer.

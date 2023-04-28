@@ -59,7 +59,7 @@ template <typename T>
     requires(!HasMsgPack<T> && !HasMsgPackPack<T>)
 inline void schema_pack(SchemaPacker& packer, T const&)
 {
-    packer.pack(schema_name<T>());
+    packer.pack(schema_name(T{}));
 }
 
 /**
@@ -104,7 +104,7 @@ inline void schema_pack(SchemaPacker& packer, proof_system::plonk::stdlib::addre
  */
 template <HasMsgPack T> inline void schema_pack(SchemaPacker& packer, T const& object)
 {
-    std::string type = schema_name<T>();
+    std::string type = schema_name(object);
     if (packer.set_emitted(type)) {
         packer.pack(type);
         return; // already emitted
@@ -169,26 +169,6 @@ template <typename T, std::size_t N> inline void schema_pack(SchemaPacker& packe
     schema_pack(packer, T{});
     packer.pack(N);
 }
-
-// Any special distinctions that need to be made between otherwise same-schema-name fields
-// Also, can specify the underlying type
-// Outputs e.g. ['alias', ['schema-name', 'msgpack-name']]
-// inline void schema_pack(SchemaPacker& packer, std::string const&)
-// {
-//     _schema_pack_alias(packer, "string", "string");
-// }
-// inline void schema_pack(SchemaPacker& packer, double const&)
-// {
-//     _schema_pack_alias(packer, "float", "float");
-// }
-// inline void schema_pack(SchemaPacker& packer, bool const&)
-// {
-//     _schema_pack_alias(packer, "bool", "bool");
-// }
-// inline void schema_pack(SchemaPacker& packer, std::integral auto const&)
-// {
-//     _schema_pack_alias(packer, "int", "int");
-// }
 
 /**
  * @brief Print's an object's derived msgpack schema as a string.

@@ -17,7 +17,7 @@ export class ContractDeploymentData {
     // TODO(AD): kludge due to cbind compiler
     portalContractAddress: EthAddress | AztecAddress,
   ) {
-    this.portalContractAddress = EthAddress.fromBuffer(portalContractAddress.toBuffer());
+    this.portalContractAddress = new EthAddress(portalContractAddress.toBuffer());
   }
 
   toBuffer() {

@@ -19,6 +19,7 @@ template <typename NCT, unsigned int N> struct MembershipWitness {
     uint32 leaf_index;
     std::array<fr, N> sibling_path = zero_array<fr, N>();
 
+    MSGPACK(leaf_index, sibling_path);
     boolean operator==(MembershipWitness<NCT, N> const& other) const
     {
         return leaf_index == other.leaf_index && sibling_path == other.sibling_path;

@@ -1,5 +1,6 @@
 #pragma once
 #include "../append_only_tree_snapshot.hpp"
+#include <barretenberg/common/msgpack.hpp>
 
 namespace aztec3::circuits::abis {
 
@@ -21,6 +22,14 @@ template <typename NCT> struct ConstantRollupData {
     fr public_kernel_vk_tree_root = 0;
     fr base_rollup_vk_hash = 0;
     fr merge_rollup_vk_hash = 0;
+
+    MSGPACK(start_tree_of_historic_private_data_tree_roots_snapshot,
+            start_tree_of_historic_contract_tree_roots_snapshot,
+            tree_of_historic_l1_to_l2_msg_tree_roots_snapshot,
+            private_kernel_vk_tree_root,
+            public_kernel_vk_tree_root,
+            base_rollup_vk_hash,
+            merge_rollup_vk_hash);
 
     bool operator==(ConstantRollupData<NCT> const&) const = default;
 };

@@ -10,6 +10,7 @@ export * from './public_circuit_public_inputs.js';
 export * from './private_call_stack_item.js';
 export * from './root_rollup.js';
 export * from './shared.js';
+export * from './proof.js';
 export * from './tx.js';
 export * from './verification_key.js';
 export * from './private_call_stack_item.js';

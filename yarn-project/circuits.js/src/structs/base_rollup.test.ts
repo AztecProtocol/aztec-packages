@@ -1,3 +1,4 @@
+import { expectMsgpackToMatchSnapshot } from '../tests/expectMsgpack.js';
 import { expectReserializeToMatchObject, expectSerializeToMatchSnapshot } from '../tests/expectSerialize.js';
 import { makeBaseRollupInputs, makeBaseRollupPublicInputs } from '../tests/factories.js';
 import { BaseOrMergeRollupPublicInputs } from './base_rollup.js';
@@ -5,6 +6,8 @@ import { BaseOrMergeRollupPublicInputs } from './base_rollup.js';
 describe('structs/base_rollup', () => {
   it(`serializes and prints BaseRollupInputs`, async () => {
     const baseRollupInputs = makeBaseRollupInputs();
+
+    await expectMsgpackToMatchSnapshot(baseRollupInputs.toBuffer(), 'abis__test_roundtrip_msgpack_base_rollup_inputs');
     await expectSerializeToMatchSnapshot(
       baseRollupInputs.toBuffer(),
       'abis__test_roundtrip_serialize_base_rollup_inputs',

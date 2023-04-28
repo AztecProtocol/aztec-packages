@@ -4,6 +4,7 @@ import {
   MergeRollupInputs,
   PreviousRollupData,
   PrivateCircuitPublicInputs,
+  Proof,
   RootRollupInputs,
   RootRollupPublicInputs,
 } from '../index.js';
@@ -62,8 +63,8 @@ import {
   UInt8Vector,
 } from '../structs/shared.js';
 import { ContractDeploymentData, SignedTxRequest, TxContext, TxRequest } from '../structs/tx.js';
-import { CommitmentMap, G1AffineElement, VerificationKey } from '../structs/verification_key.js';
-import { range } from '../utils/jsUtils.js';
+import { G1AffineElement, VerificationKey } from '../structs/verification_key.js';
+import { range, times } from '../utils/jsUtils.js';
 import { numToUInt32BE } from '../utils/serialize.js';
 
 export function makeTxContext(seed: number): TxContext {
@@ -89,13 +90,13 @@ export function makeAccumulatedData(seed = 1): AccumulatedData {
   return new AccumulatedData(
     makeAggregationObject(seed),
     fr(seed + 12),
-    range(KERNEL_NEW_COMMITMENTS_LENGTH, seed + 0x100).map(fr),
-    range(KERNEL_NEW_NULLIFIERS_LENGTH, seed + 0x200).map(fr),
-    range(KERNEL_PRIVATE_CALL_STACK_LENGTH, seed + 0x300).map(fr),
-    range(KERNEL_PUBLIC_CALL_STACK_LENGTH, seed + 0x400).map(fr),
-    range(KERNEL_L1_MSG_STACK_LENGTH, seed + 0x500).map(fr),
-    range(KERNEL_NEW_CONTRACTS_LENGTH, seed + 0x600).map(makeNewContractData),
-    range(KERNEL_OPTIONALLY_REVEALED_DATA_LENGTH, seed + 0x700).map(makeOptionallyRevealedData),
+    times(KERNEL_NEW_COMMITMENTS_LENGTH, fr, seed + 0x100),
+    times(KERNEL_NEW_NULLIFIERS_LENGTH, fr, seed + 0x200),
+    times(KERNEL_PRIVATE_CALL_STACK_LENGTH, fr, seed + 0x300),
+    times(KERNEL_PUBLIC_CALL_STACK_LENGTH, fr, seed + 0x400),
+    times(KERNEL_L1_MSG_STACK_LENGTH, fr, seed + 0x500),
+    times(KERNEL_NEW_CONTRACTS_LENGTH, makeNewContractData, seed + 0x600),
+    times(KERNEL_OPTIONALLY_REVEALED_DATA_LENGTH, makeOptionallyRevealedData, seed + 0x700),
   );
 }
 
@@ -107,7 +108,7 @@ export function makeOptionallyRevealedData(seed = 1): OptionallyRevealedData {
   return new OptionallyRevealedData(
     fr(seed),
     new FunctionData(makeSelector(seed + 1), true, true),
-    range(EMITTED_EVENTS_LENGTH, seed + 0x100).map(x => fr(x)),
+    times(EMITTED_EVENTS_LENGTH, fr, seed + 0x100),
     fr(seed + 2),
     makeEthAddress(seed + 3),
     true,
@@ -143,9 +144,9 @@ export function makeVerificationKey(): VerificationKey {
     ComposerType.STANDARD,
     101, // arbitrary
     102, // arbitrary,
-    new CommitmentMap({
+    {
       A: new G1AffineElement(fr(0x200), fr(0x300)),
-    }),
+    },
     /* recursive proof */ true,
     range(5, 400),
   );
@@ -153,10 +154,10 @@ export function makeVerificationKey(): VerificationKey {
 export function makePreviousKernelData(seed = 1): PreviousKernelData {
   return new PreviousKernelData(
     makePrivateKernelPublicInputs(seed),
-    makeDynamicSizeBuffer(16, seed + 0x80),
+    new Proof(Buffer.alloc(16, seed + 0x80)),
     makeVerificationKey(),
     0x42,
-    range(VK_TREE_HEIGHT, 0x1000).map(fr),
+    times(VK_TREE_HEIGHT, fr, 0x1000),
   );
 }
 
