@@ -1,7 +1,6 @@
 import { AztecNode, getConfigEnvVars } from '@aztec/aztec-node';
 import { AztecAddress, AztecRPCServer, Contract, ContractDeployer, Fr, TxStatus } from '@aztec/aztec.js';
-import { createDebugLogger } from '@aztec/foundation';
-import { ContractAbi } from '@aztec/noir-contracts';
+import { createDebugLogger, ContractAbi } from '@aztec/foundation';
 import { ChildAbi, ParentAbi } from '@aztec/noir-contracts/examples';
 
 import { mnemonicToAccount } from 'viem/accounts';

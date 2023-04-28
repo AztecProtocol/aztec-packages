@@ -12,7 +12,7 @@ import { Database, TxAuxDataDao, TxDao } from '../database/index.js';
 import { ConstantKeyPair, KeyPair } from '../key_store/index.js';
 import { SimulatorOracle } from '../simulator_oracle/index.js';
 import { BarretenbergWasm } from '@aztec/barretenberg.js/wasm';
-import { FunctionType } from '@aztec/noir-contracts';
+import { FunctionType } from '@aztec/foundation';
 import { generateFunctionSelector } from '../index.js';
 
 export class AccountState {

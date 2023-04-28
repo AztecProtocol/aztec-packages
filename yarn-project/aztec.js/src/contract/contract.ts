@@ -1,6 +1,6 @@
 import { AztecAddress, EthAddress } from '@aztec/foundation';
 import { AztecRPCClient, DeployedContract, generateFunctionSelector } from '@aztec/aztec-rpc';
-import { ContractAbi, FunctionAbi } from '@aztec/noir-contracts';
+import { ContractAbi, FunctionAbi } from '@aztec/foundation';
 import { ContractFunctionInteraction } from './contract_function_interaction.js';
 
 type ContractMethod = ((...args: any[]) => ContractFunctionInteraction) & { readonly selector: Buffer };

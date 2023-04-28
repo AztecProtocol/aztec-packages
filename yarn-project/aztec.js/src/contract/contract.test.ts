@@ -9,7 +9,7 @@ import {
   TxRequest,
 } from '@aztec/aztec-rpc';
 import { randomBytes } from '@aztec/foundation';
-import { ABIParameterVisibility, ContractAbi, FunctionType } from '@aztec/noir-contracts';
+import { ABIParameterVisibility, ContractAbi, FunctionType } from '@aztec/foundation';
 import { mock } from 'jest-mock-extended';
 
 import { EcdsaSignature } from '@aztec/circuits.js';

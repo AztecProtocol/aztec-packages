@@ -3,7 +3,7 @@ import camelCase from 'lodash.camelcase';
 import snakeCase from 'lodash.snakecase';
 import upperFirst from 'lodash.upperfirst';
 import mockedKeys from './mockedKeys.json' assert { type: 'json' };
-import { ABIParameter, ABIType, FunctionType } from '../abi.js';
+import { ABIParameter, ABIType, FunctionType } from '@aztec/foundation';
 
 const STATEMENT_TYPES = ['type', 'params', 'return'] as const;
 

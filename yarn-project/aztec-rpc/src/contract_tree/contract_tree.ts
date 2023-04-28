@@ -18,7 +18,7 @@ import {
 } from '@aztec/circuits.js/abis';
 import { CircuitsWasm } from '@aztec/circuits.js/wasm';
 import { AztecAddress, EthAddress, Fr, keccak } from '@aztec/foundation';
-import { ContractAbi, FunctionType } from '@aztec/noir-contracts';
+import { ContractAbi, FunctionType } from '@aztec/foundation';
 import { generateFunctionSelector } from '../abi_coder/index.js';
 import { ContractDao, ContractFunctionDao } from '../contract_database/index.js';
 import { computeFunctionTreeData } from './function_tree_data.js';

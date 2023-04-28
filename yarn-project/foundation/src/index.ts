@@ -1,3 +1,4 @@
+export * from './abi/index.js';
 export * from './async-map/index.js';
 export * from './aztec-address/index.js';
 export * from './bigint-buffer/index.js';

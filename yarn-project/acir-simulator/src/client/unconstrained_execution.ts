@@ -2,7 +2,7 @@ import { ACVMField, acvm, fromACVMField, toACVMField, toACVMWitness } from '../a
 import { AztecAddress, Fr } from '@aztec/foundation';
 import { CallContext, FunctionData } from '@aztec/circuits.js';
 import { frToAztecAddress, frToNumber } from '../acvm/deserialize.js';
-import { FunctionAbi } from '@aztec/noir-contracts';
+import { FunctionAbi } from '@aztec/foundation';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { decodeReturnValues } from '../abi_coder/decoder.js';
 import { ClientTxExecutionContext } from './client_execution_context.js';

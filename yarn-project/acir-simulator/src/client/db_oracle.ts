@@ -1,5 +1,5 @@
 import { AztecAddress, EthAddress, Fr } from '@aztec/foundation';
-import { FunctionAbi } from '@aztec/noir-contracts';
+import { FunctionAbi } from '@aztec/foundation';
 
 export interface NoteLoadOracleInputs {
   preimage: Fr[];

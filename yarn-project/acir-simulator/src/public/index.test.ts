@@ -2,7 +2,7 @@ import { Grumpkin } from '@aztec/barretenberg.js/crypto';
 import { BarretenbergWasm } from '@aztec/barretenberg.js/wasm';
 import { CallContext, FunctionData } from '@aztec/circuits.js';
 import { AztecAddress, EthAddress, Fr } from '@aztec/foundation';
-import { FunctionAbi } from '@aztec/noir-contracts';
+import { FunctionAbi } from '@aztec/foundation';
 import { PublicTokenContractAbi } from '@aztec/noir-contracts/examples';
 import { MockProxy, mock } from 'jest-mock-extended';
 import { default as memdown, type MemDown } from 'memdown';

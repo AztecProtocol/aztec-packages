@@ -11,7 +11,7 @@ import {
   TxRequest,
 } from '@aztec/circuits.js';
 import { Fr, Point, createDebugLogger } from '@aztec/foundation';
-import { ContractAbi, FunctionType } from '@aztec/noir-contracts';
+import { ContractAbi, FunctionType } from '@aztec/foundation';
 import { Tx, TxHash } from '@aztec/types';
 import { AztecRPCClient, DeployedContract } from '../aztec_rpc_client/index.js';
 import { toContractDao } from '../contract_database/index.js';

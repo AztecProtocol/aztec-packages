@@ -1,6 +1,6 @@
 import { DBOracle } from '@aztec/acir-simulator';
 import { AztecAddress, EthAddress, Fr } from '@aztec/circuits.js';
-import { FunctionAbi } from '@aztec/noir-contracts';
+import { FunctionAbi } from '@aztec/foundation';
 import { ContractDataOracle } from '../contract_data_oracle/index.js';
 import { Database } from '../database/index.js';
 import { KeyPair } from '../key_store/index.js';
