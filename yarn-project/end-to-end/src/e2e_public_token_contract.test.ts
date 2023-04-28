@@ -1,28 +1,14 @@
-import {
-  Account,
-  Chain,
-  Hex,
-  HttpTransport,
-  PublicClient,
-  WalletClient,
-  createPublicClient,
-  createWalletClient,
-  http,
-} from 'viem';
 import { mnemonicToAccount } from 'viem/accounts';
-import type { Abi, Narrow } from 'abitype';
 
 import { AztecNode, getConfigEnvVars } from '@aztec/aztec-node';
 import { AztecAddress, AztecRPCServer, Contract, ContractDeployer, TxStatus } from '@aztec/aztec.js';
-import { EthereumRpc } from '@aztec/ethereum.js/eth_rpc';
-import { WalletProvider } from '@aztec/ethereum.js/provider';
-import { EthAddress, Fr, Point, createDebugLogger, toBigIntBE } from '@aztec/foundation';
-import { PublicTokenContractAbi } from '@aztec/noir-contracts/examples';
 import { pedersenCompressInputs } from '@aztec/barretenberg.js/crypto';
 import { BarretenbergWasm } from '@aztec/barretenberg.js/wasm';
+import { Fr, Point, createDebugLogger, toBigIntBE } from '@aztec/foundation';
+import { PublicTokenContractAbi } from '@aztec/noir-contracts/examples';
 
-import { deployL1Contracts } from './deploy_l1_contracts.js';
 import { createAztecRpcServer } from './create_aztec_rpc_client.js';
+import { deployL1Contracts } from './deploy_l1_contracts.js';
 // import { createProvider, deployRollupContract, deployUnverifiedDataEmitterContract } from './deploy_l1_contracts.js';
 
 const MNEMONIC = 'test test test test test test test test test test test junk';
@@ -43,11 +29,8 @@ const config = getConfigEnvVars();
 // };
 
 describe('e2e_public_token_contract', () => {
-  let provider: WalletProvider;
   let node: AztecNode;
   let aztecRpcServer: AztecRPCServer;
-  let rollupAddress: EthAddress;
-  let unverifiedDataEmitterAddress: EthAddress;
   let accounts: AztecAddress[];
   let contract: Contract;
 
@@ -117,7 +100,7 @@ describe('e2e_public_token_contract', () => {
     node = await AztecNode.createAndSync(config);
     aztecRpcServer = await createAztecRpcServer(1, node);
     accounts = await aztecRpcServer.getAccounts();
-  });
+  }, 30_000);
 
   afterEach(async () => {
     await node.stop();
@@ -129,7 +112,7 @@ describe('e2e_public_token_contract', () => {
     console.log('txReceipt', txReceipt);
     console.log('contract', contract);
     console.log('tx', tx);
-    expect(txReceipt);
+    expect(txReceipt.status).toEqual(TxStatus.MINED);
   }, 30_000);
 
   it.skip('should deploy a public token contract and mint tokens to a recipient', async () => {
