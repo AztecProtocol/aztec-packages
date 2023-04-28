@@ -1,5 +1,5 @@
 import { CircuitsWasm } from '../wasm/circuits_wasm.js';
-import { uint8ArrayToNum } from '../utils/serialize.js';
+import { simplifyHexValues } from './expectSerialize.js';
 
 /**
  * Test utility. Sends a serialized buffer to wasm and gets the result.
@@ -20,7 +20,7 @@ async function callWasm(inputBuf: Buffer, serializeMethod: string): Promise<stri
   const outputStr = wasm.getMemoryAsString(outputBufPtr);
 
   // Free memory
-  // wasm.call('bbfree', outputBufPtr);
+  wasm.call('bbfree', outputBufPtr);
 
   return outputStr;
 }
@@ -31,6 +31,6 @@ async function callWasm(inputBuf: Buffer, serializeMethod: string): Promise<stri
  * @param serializeMethod - Method to use buffer with.
  */
 export async function expectMsgpackToMatchSnapshot(inputBuf: Buffer, serializeMethod: string) {
-  const outputStr = await callWasm(inputBuf, serializeMethod);
+  const outputStr = simplifyHexValues(await callWasm(inputBuf, serializeMethod));
   expect(JSON.parse(outputStr)).toMatchSnapshot();
 }
