@@ -129,17 +129,11 @@ export class ViemTxSender implements L1PublisherTxSender {
         `0x${contractPublicData.bytecode.toString('hex')}`,
       ] as const;
 
-      let gas = 10n;
-      try {
-        gas = await this.unverifiedDataEmitterContract.estimateGas.emitContractDeployment(args, {
-          account: this.account,
-        });
-      } catch (err) {
-        console.log('ERROR getting gas: ', err);
-      }
-      console.log('gas', gas);
+      const gas = await this.unverifiedDataEmitterContract.estimateGas.emitContractDeployment(args, {
+        account: this.account,
+      });
       const hash = await this.unverifiedDataEmitterContract.write.emitContractDeployment(args, {
-        gas: gas || 0n,
+        gas,
         account: this.account,
       });
       return hash;
