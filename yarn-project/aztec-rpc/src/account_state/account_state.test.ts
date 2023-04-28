@@ -3,8 +3,7 @@ import { Ecdsa, Grumpkin, Secp256k1 } from '@aztec/barretenberg.js/crypto';
 import { BarretenbergWasm } from '@aztec/barretenberg.js/wasm';
 import { KERNEL_NEW_COMMITMENTS_LENGTH } from '@aztec/circuits.js';
 import { Point } from '@aztec/foundation/fields';
-// TODO: Change to secp256k1
-import { ConstantKeyPair, KeyPair } from '@aztec/key-store';
+import { ConstantKeyPair, KeyPair } from '@aztec/key-store/secp256k1';
 import { L2Block, L2BlockContext, UnverifiedData } from '@aztec/types';
 import { jest } from '@jest/globals';
 import { mock } from 'jest-mock-extended';

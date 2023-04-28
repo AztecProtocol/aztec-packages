@@ -10,6 +10,7 @@ import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
 
 import { createAztecRpcServer } from './create_aztec_rpc_client.js';
 import { deployL1Contracts } from './deploy_l1_contracts.js';
+import { EthPublicKey } from '@aztec/foundation/eth-public-key';
 
 const MNEMONIC = 'test test test test test test test test test test test junk';
 
@@ -23,7 +24,7 @@ describe('e2e_public_token_contract', () => {
   let accounts: AztecAddress[];
   let contract: Contract;
 
-  const pointToPublicKey = (point: Point) => {
+  const pointToPublicKey = (point: EthPublicKey) => {
     const x = point.buffer.subarray(0, 32);
     const y = point.buffer.subarray(32, 64);
     return {

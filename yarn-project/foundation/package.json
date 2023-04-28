@@ -15,6 +15,7 @@
     "./crypto": "./dest/crypto/index.js",
     "./error": "./dest/error/index.js",
     "./eth-address": "./dest/eth-address/index.js",
+    "./eth-public-key": "./dest/eth-public-key/index.js",
     "./fifo": "./dest/fifo/index.js",
     "./json-rpc": "./dest/json-rpc/index.js",
     "./log": "./dest/log/index.js",

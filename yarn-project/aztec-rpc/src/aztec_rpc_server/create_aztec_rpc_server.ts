@@ -1,7 +1,6 @@
 import { AztecNode } from '@aztec/aztec-node';
 import { Ecdsa, Secp256k1 } from '@aztec/barretenberg.js/crypto';
-// TODO Change to secp256k1
-import { KeyStore, TestKeyStore } from '@aztec/key-store';
+import { KeyStore, TestKeyStore } from '@aztec/key-store/secp256k1';
 import { Database, MemoryDB } from '../database/index.js';
 import { AztecRPCServer } from './aztec_rpc_server.js';
 

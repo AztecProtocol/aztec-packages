@@ -2,7 +2,10 @@
   "name": "@aztec/key-store",
   "version": "0.0.0",
   "type": "module",
-  "exports": "./dest/index.js",
+  "exports": {
+    "./grumpkin": "./dest/grumpkin/index.js",
+    "./secp256k1": "./dest/secp256k1/index.js"
+  },
   "typedoc": {
     "entryPoint": "./src/index.ts",
     "displayName": "KeyStore",

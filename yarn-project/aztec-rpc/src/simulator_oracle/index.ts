@@ -1,8 +1,7 @@
 import { DBOracle } from '@aztec/acir-simulator';
 import { AztecNode } from '@aztec/aztec-node';
 import { AztecAddress, EthAddress, Fr } from '@aztec/circuits.js';
-// TODO change to secp256k1
-import { KeyPair } from '@aztec/key-store';
+import { KeyPair } from '@aztec/key-store/secp256k1';
 import { FunctionAbi } from '@aztec/foundation/abi';
 import { ContractDataOracle } from '../contract_data_oracle/index.js';
 import { Database } from '../database/index.js';

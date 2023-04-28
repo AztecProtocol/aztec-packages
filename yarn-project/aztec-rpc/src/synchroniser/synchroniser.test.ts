@@ -1,8 +1,7 @@
 import { AztecNode } from '@aztec/aztec-node';
 import { Ecdsa, Secp256k1 } from '@aztec/barretenberg.js/crypto';
 import { Fr } from '@aztec/circuits.js';
-// TODO: Change to secp256k1
-import { ConstantKeyPair } from '@aztec/key-store';
+import { ConstantKeyPair } from '@aztec/key-store/secp256k1';
 import { L2Block, MerkleTreeId, UnverifiedData } from '@aztec/types';
 import { MockProxy, mock } from 'jest-mock-extended';
 import { Database, MemoryDB } from '../database/index.js';

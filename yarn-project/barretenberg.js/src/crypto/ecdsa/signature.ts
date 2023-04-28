@@ -1,4 +1,4 @@
-import { randomBytes } from '@aztec/foundation';
+import { randomBytes } from 'crypto';
 
 /**
  * ECDSA signature used for transactions.
