@@ -2,29 +2,40 @@
 
 ### Sticking to the Standard
 
-Read the standards and stick to them! There is some automation to help with this, but the automation is far from comprehensive.
+Read the standards and stick to them! There is some automation to help with this, but **the automation is far from comprehensive**.
 
 Here are the types of automation that should help stick to the standard:
 1. The VSCode workspace file `circuits.code-workspace` is configured to automatically format your code nicely when you save a C++ file.
     * It uses `cpp/.clang-format` for this
 2. These workspace settings are also configured to warn you (with yellow squiggles) when something does not follow some of the rules.
     * It uses `cpp/.clangd` for this
-3. To perform some auto-tidying of your code, run `./scripts/tidy.sh fix && ./format.sh` from `cpp/`
-    * This will run `clang-tidy` and `clang-format` on all C++ source files
-    * It uses `cpp/.clang-tidy` and `cpp/.clang-format`
-    * This will take a while
+3. A tidy check is run in CI
+    * Job fails if your code would be changed by `./scripts/tidy.sh fix`
+4. To perform some auto-tidying of your code, run `./scripts/tidy.sh fix` from `cpp/`
+    * **Commit your code first** since tidying will occasionally mess up your code!
+    * This will run `clang-tidy` on all C++ source files
+        * It uses `cpp/.clang-tidy` * and formats tidied code with `cpp/.clang-format`
+    * **Manually review any fixes to your code!**
+        * If you disagree with an auto-fix or if it is buggy, use `// NOLINT...` ([more here](https://clang.llvm.org/extra/clang-tidy/#suppressing-undesired-diagnostics))
+        * If you believe we should reject an entire class of tidy fixes, consider explicitly omitting from our checks or errors in `./clang-tidy`
+            * Discuss with others first
+    * _Note:_ tidying takes a while!
+    * **You may need to run this multiple times!**
+        * An error (with an auto-fix) in one round may prevent certain subsequent fixes
+        * A fix in the one round may introduce more potential for fixes
 
 ### The Standard
 
 1. **general**
-    * when something is not covered below, fall back to [Google's style guide](https://google.github.io/styleguide
-/cppguide.html)
+    *  when something is not covered below, fall back to [Google's style guide](https://google.github.io/styleguide/cppguide.html)
     *  all TODOs should mention a username, email or bug number
         ```
         // TODO(dbanks12)
         // TODO(david@aztecprotocol.com)
         // TODO(bug 12345)
         ```
+    *  if your editor warns you about a line of code fix it!
+        * consider doing so even if you didn't write that code
 1. **spacing**
     *  4 spaces except for access-specifiers (`public`/`protected`/`private`) which can use 2
     *  namespaces are not indented
