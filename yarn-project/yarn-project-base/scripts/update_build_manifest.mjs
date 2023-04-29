@@ -17,7 +17,6 @@ function updateBuildManifest(buildManifestFile, allDependencies, projectKey, opt
   // Read build_manifest.json
   const buildManifestData = JSON.parse(readFileSync(buildManifestFile, 'utf-8'));
 
-  // TODO(AD): Somehow take into account dependencies on circleci jobs like wasm build for circuits.js
   if (projectKey in buildManifestData) {
     // Filter package names from dependencies that start with "@aztec/"
     const aztecDependencies = Object.keys(allDependencies).filter(packageName => packageName.startsWith('@aztec/'));
