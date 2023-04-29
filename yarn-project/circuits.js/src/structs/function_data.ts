@@ -1,4 +1,4 @@
-import { BufferReader } from '@aztec/foundation';
+import { BufferReader, deserializeUInt32, numToUInt32BE } from '@aztec/foundation';
 import { Buffer } from 'buffer';
 import { serializeToBuffer } from '../utils/serialize.js';
 
@@ -16,13 +16,12 @@ export class FunctionData {
       this.functionSelectorBuffer = functionSelector;
     } else {
       // create a new numeric buffer with 4 bytes
-      this.functionSelectorBuffer = Buffer.alloc(4);
-      this.functionSelectorBuffer.writeInt32BE(functionSelector);
+      this.functionSelectorBuffer = numToUInt32BE(functionSelector);
     }
   }
   // For serialization, return as number
   get functionSelector(): number {
-    return this.functionSelectorBuffer.readInt32BE();
+    return deserializeUInt32(this.functionSelectorBuffer).elem;
   }
 
   /**
@@ -30,7 +29,7 @@ export class FunctionData {
    * @returns The buffer.
    */
   toBuffer(): Buffer {
-    return serializeToBuffer(this.functionSelector, this.isPrivate, this.isConstructor);
+    return serializeToBuffer(this.functionSelectorBuffer, this.isPrivate, this.isConstructor);
   }
 
   public static empty() {
