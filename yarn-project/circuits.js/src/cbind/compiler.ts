@@ -437,7 +437,7 @@ return ${msgpackConverterExpr(retType, innerCall)};
     const outputs: string[] = [
       `
 /* eslint-disable */
-// GENERATED FILE DO NOT EDIT
+// GENERATED FILE DO NOT EDIT, RUN yarn remake-bindings
 import { Buffer } from "buffer";
 import { callCbind } from './cbind.js';
 import { CircuitsWasm } from '../wasm/index.js';
