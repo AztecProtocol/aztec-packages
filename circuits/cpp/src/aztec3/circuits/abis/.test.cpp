@@ -1,6 +1,9 @@
 #include <gtest/gtest.h>
 #include <barretenberg/common/test.hpp>
 #include <barretenberg/common/serialize.hpp>
+#include "aztec3/circuits/abis/combined_accumulated_data.hpp"
+#include "aztec3/msgpack/cbind_impl.hpp"
+#include "aztec3/msgpack/schema_impl.hpp"
 #include "index.hpp"
 
 #include "previous_kernel_data.hpp"
@@ -18,6 +21,17 @@ using NT = aztec3::utils::types::NativeTypes;
 namespace aztec3::circuits::abis {
 
 class abi_tests : public ::testing::Test {};
+
+TEST(abi_tests, msgpack_schema_smoke_test)
+{
+    // Just exercise these to make sure they don't error
+    // They will test for any bad serialization methods
+    msgpack::schema_to_string(CombinedAccumulatedData<NT>{});
+    CombinedAccumulatedData<NT> obk;
+    auto x = alignof(CombinedAccumulatedData<NT>);
+    (void)x;
+    EXPECT_EQ(msgpack::check_msgpack_method(obk), "");
+}
 
 TEST(abi_tests, native_read_write_call_context)
 {

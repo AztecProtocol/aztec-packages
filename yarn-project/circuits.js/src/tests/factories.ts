@@ -75,7 +75,7 @@ import {
 } from '../structs/constants.js';
 import { FunctionData } from '../structs/function_data.js';
 
-import { range, times } from '../utils/jsUtils.js';
+import { range, tupleTimes } from '../utils/jsUtils.js';
 
 export function makeTxContext(seed: number): TxContext {
   const deploymentData = new ContractDeploymentData(fr(seed), fr(seed + 1), fr(seed + 2), makeEthAddress(seed + 3));
@@ -128,15 +128,15 @@ export function makeEmptyAccumulatedData(seed = 1): CombinedAccumulatedData {
   return new CombinedAccumulatedData(
     makeAggregationObject(seed),
     fr(seed + 13),
-    times(KERNEL_NEW_COMMITMENTS_LENGTH, fr, seed + 0x100),
-    times(KERNEL_NEW_NULLIFIERS_LENGTH, fr, seed + 0x200),
-    times(KERNEL_PRIVATE_CALL_STACK_LENGTH, fr, seed + 0x300),
-    times(KERNEL_PUBLIC_CALL_STACK_LENGTH, fr, seed + 0x400),
-    times(KERNEL_L1_MSG_STACK_LENGTH, fr, seed + 0x500),
-    times(KERNEL_NEW_CONTRACTS_LENGTH, makeNewContractData, seed + 0x600),
-    times(KERNEL_OPTIONALLY_REVEALED_DATA_LENGTH, makeOptionallyRevealedData, seed + 0x700),
-    times(STATE_TRANSITIONS_LENGTH, seed + 0x800).map(makeEmptyPublicDataTransition),
-    times(STATE_READS_LENGTH, seed + 0x900).map(makeEmptyPublicDataRead),
+    tupleTimes(KERNEL_NEW_COMMITMENTS_LENGTH, fr, seed + 0x100),
+    tupleTimes(KERNEL_NEW_NULLIFIERS_LENGTH, fr, seed + 0x200),
+    tupleTimes(KERNEL_PRIVATE_CALL_STACK_LENGTH, fr, seed + 0x300),
+    tupleTimes(KERNEL_PUBLIC_CALL_STACK_LENGTH, fr, seed + 0x400),
+    tupleTimes(KERNEL_L1_MSG_STACK_LENGTH, fr, seed + 0x500),
+    tupleTimes(KERNEL_NEW_CONTRACTS_LENGTH, makeNewContractData, seed + 0x600),
+    tupleTimes(KERNEL_OPTIONALLY_REVEALED_DATA_LENGTH, makeOptionallyRevealedData, seed + 0x700),
+    tupleTimes(STATE_TRANSITIONS_LENGTH, seed + 0x800).map(makeEmptyPublicDataTransition),
+    tupleTimes(STATE_READS_LENGTH, seed + 0x900).map(makeEmptyPublicDataRead),
   );
 }
 
@@ -165,7 +165,7 @@ export function makeOptionallyRevealedData(seed = 1): OptionallyRevealedData {
   return new OptionallyRevealedData(
     fr(seed),
     new FunctionData(makeSelector(seed + 1), true, true),
-    times(EMITTED_EVENTS_LENGTH, fr, seed + 0x100),
+    tupleTimes(EMITTED_EVENTS_LENGTH, fr, seed + 0x100),
     fr(seed + 2),
     makeEthAddress(seed + 3),
     true,
@@ -246,7 +246,7 @@ export function makePreviousKernelData(seed = 1, kernelPublicInputs?: KernelCirc
     new Proof(Buffer.alloc(16, seed + 0x80)),
     makeVerificationKey(),
     0x42,
-    times(VK_TREE_HEIGHT, fr, 0x1000),
+    tupleTimes(VK_TREE_HEIGHT, fr, 0x1000),
   );
 }
 
@@ -325,7 +325,7 @@ export function makePrivateCallData(seed = 1): PrivateCallData {
   return PrivateCallData.from({
     callStackItem: makePrivateCallStackItem(seed),
     privateCallStackPreimages: range(PRIVATE_CALL_STACK_LENGTH, seed + 0x10).map(makePrivateCallStackItem),
-    proof: makeDynamicSizeBuffer(16, seed + 0x50),
+    proof: new Proof(Buffer.fill(16, seed + 0x50)),
     vk: makeVerificationKey(),
     functionLeafMembershipWitness: makeMembershipWitness(FUNCTION_TREE_HEIGHT, seed + 0x30),
     contractLeafMembershipWitness: makeMembershipWitness(CONTRACT_TREE_HEIGHT, seed + 0x20),

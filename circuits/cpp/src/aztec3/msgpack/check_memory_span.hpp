@@ -59,6 +59,7 @@ template <typename T, typename... Args> std::string check_memory_span(T* obj, Ar
     }
     return {};
 }
+
 template <HasMsgPack T> std::string check_msgpack_method(T& object)
 {
     std::string result;

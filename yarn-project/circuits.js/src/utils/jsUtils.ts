@@ -21,7 +21,7 @@ export function range(n: number, offset = 0) {
  * @param fn - The generator function.
  * @returns The array of numbers.
  */
-export function times<T, N extends number>(length: N, fn: (i: number) => T, offset = 0) {
+export function tupleTimes<T, N extends number>(length: N, fn: (i: number) => T, offset = 0) {
   return Array.from({ length }, (v: any, i: number) => fn(i + offset)) as TupleOf<T, N>;
 }
 

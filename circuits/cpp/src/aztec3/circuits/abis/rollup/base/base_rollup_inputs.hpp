@@ -45,15 +45,19 @@ template <typename NCT> struct BaseRollupInputs {
 
     ConstantRollupData<NCT> constants;
 
+    // for serialization, update with new fields
     MSGPACK(kernel_data,
             start_private_data_tree_snapshot,
             start_nullifier_tree_snapshot,
             start_contract_tree_snapshot,
+            start_public_data_tree_root,
             low_nullifier_leaf_preimages,
             low_nullifier_membership_witness,
             new_commitments_subtree_sibling_path,
             new_nullifiers_subtree_sibling_path,
             new_contracts_subtree_sibling_path,
+            new_state_transitions_sibling_paths,
+            new_state_reads_sibling_paths,
             historic_private_data_tree_root_membership_witnesses,
             historic_contract_tree_root_membership_witnesses,
             constants);

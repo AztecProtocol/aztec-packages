@@ -25,7 +25,7 @@ struct BadExampleIncomplete {
     fr a;
     fr b;
     MSGPACK(a);
-} bad_example_incomplete;
+};
 
 struct BadExampleOutOfObject {
     fr a;
@@ -43,8 +43,13 @@ TEST(abi_tests, msgpack_sanity_sanity)
     EXPECT_EQ(msgpack::check_msgpack_method(good_example), "");
     EXPECT_EQ(msgpack::check_msgpack_method(bad_example_overlap),
               "Overlap in BadExampleOverlap MSGPACK() params detected!");
-    EXPECT_EQ(msgpack::check_msgpack_method(bad_example_incomplete),
-              "Incomplete BadExampleIncomplete MSGPACK() params! Not all of object specified.");
+    // If we actually try to msgpack BadExampleIncomplete we will statically error
+    // This is great, but we need to check the underlying facility *somehow*
+    std::string incomplete_msgpack_status = "error";
+    if constexpr (msgpack::MsgpackConstructible<BadExampleIncomplete>) {
+        incomplete_msgpack_status = "";
+    }
+    EXPECT_EQ(incomplete_msgpack_status, "error");
     EXPECT_EQ(msgpack::check_msgpack_method(bad_example_out_of_object),
               "Some BadExampleOutOfObject MSGPACK() params don't exist in object!");
 }

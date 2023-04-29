@@ -1,5 +1,5 @@
 import { AztecAddress, BufferReader, EthAddress, Fr, TupleOf } from '@aztec/foundation';
-import { assertLength, times } from '../../utils/jsUtils.js';
+import { assertLength, tupleTimes } from '../../utils/jsUtils.js';
 import { serializeToBuffer } from '../../utils/serialize.js';
 import { AggregationObject } from '../aggregation_object.js';
 import {
@@ -106,7 +106,7 @@ export class OptionallyRevealedData {
     return new OptionallyRevealedData(
       Fr.ZERO,
       FunctionData.empty(),
-      times(EMITTED_EVENTS_LENGTH, Fr.zero),
+      tupleTimes(EMITTED_EVENTS_LENGTH, Fr.zero),
       Fr.ZERO,
       EthAddress.ZERO,
       false,
@@ -235,15 +235,15 @@ export class CombinedAccumulatedData {
       AggregationObject.makeFake(),
       Fr.ZERO,
       Fr.ZERO,
-      times(KERNEL_NEW_COMMITMENTS_LENGTH, Fr.zero),
-      times(KERNEL_NEW_NULLIFIERS_LENGTH, Fr.zero),
-      times(KERNEL_PRIVATE_CALL_STACK_LENGTH, Fr.zero),
-      times(KERNEL_PUBLIC_CALL_STACK_LENGTH, Fr.zero),
-      times(KERNEL_L1_MSG_STACK_LENGTH, Fr.zero),
-      times(KERNEL_NEW_CONTRACTS_LENGTH, NewContractData.empty),
-      times(KERNEL_OPTIONALLY_REVEALED_DATA_LENGTH, OptionallyRevealedData.empty),
-      times(STATE_TRANSITIONS_LENGTH, PublicDataTransition.empty),
-      times(STATE_READS_LENGTH, PublicDataRead.empty),
+      tupleTimes(KERNEL_NEW_COMMITMENTS_LENGTH, Fr.zero),
+      tupleTimes(KERNEL_NEW_NULLIFIERS_LENGTH, Fr.zero),
+      tupleTimes(KERNEL_PRIVATE_CALL_STACK_LENGTH, Fr.zero),
+      tupleTimes(KERNEL_PUBLIC_CALL_STACK_LENGTH, Fr.zero),
+      tupleTimes(KERNEL_L1_MSG_STACK_LENGTH, Fr.zero),
+      tupleTimes(KERNEL_NEW_CONTRACTS_LENGTH, NewContractData.empty),
+      tupleTimes(KERNEL_OPTIONALLY_REVEALED_DATA_LENGTH, OptionallyRevealedData.empty),
+      tupleTimes(STATE_TRANSITIONS_LENGTH, PublicDataTransition.empty),
+      tupleTimes(STATE_READS_LENGTH, PublicDataRead.empty),
     );
   }
 }

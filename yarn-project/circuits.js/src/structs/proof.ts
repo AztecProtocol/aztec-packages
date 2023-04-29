@@ -6,6 +6,7 @@ export class Proof {
   readonly __proofBrand: any;
   constructor(public buffer: Buffer) {}
 
+  // Interpreted differently for proof than fromBuffer
   static fromMsgpackBuffer(buffer: Buffer) {
     return new Proof(buffer);
   }
@@ -15,7 +16,8 @@ export class Proof {
     const buf = reader.readBytes(size);
     return new Proof(buf);
   }
-  toMsgpackBuffer() {
+  // Interpreted differently for proof than toBuffer
+  public toMsgpackBuffer() {
     return this.buffer;
   }
   public toBuffer() {

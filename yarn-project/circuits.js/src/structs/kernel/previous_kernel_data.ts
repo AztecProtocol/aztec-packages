@@ -1,6 +1,6 @@
 import { BufferReader, Fr, TupleOf } from '@aztec/foundation';
 import { CircuitsWasm, Proof } from '../../index.js';
-import { assertLength, times } from '../../utils/jsUtils.js';
+import { assertLength, tupleTimes } from '../../utils/jsUtils.js';
 import { serializeToBuffer } from '../../utils/serialize.js';
 import { VK_TREE_HEIGHT } from '../constants.js';
 import { UInt32, UInt8Vector } from '../shared.js';
@@ -58,7 +58,7 @@ export class PreviousKernelData {
       makeEmptyProof(),
       VerificationKey.makeFake(),
       0,
-      times(VK_TREE_HEIGHT, Fr.zero),
+      tupleTimes(VK_TREE_HEIGHT, Fr.zero),
     );
   }
 }
