@@ -1,7 +1,6 @@
 import { BufferReader } from '@aztec/foundation';
 import { Buffer } from 'buffer';
 import { serializeToBuffer } from '../utils/serialize.js';
-import { IFunctionData } from '../cbind/circuits.gen.js';
 
 /**
  * Function description for circuit.
@@ -26,14 +25,6 @@ export class FunctionData {
     return this.functionSelectorBuffer.readInt32BE();
   }
 
-  // /**
-  //  * Deserialize this from msgpack data.
-  //  * @param o The (partially auto-converted) msgpack data.
-  //  * @returns Deserialized object.
-  //  */
-  // static from(o: IFunctionData) {
-  //   return new this(serializeToBuffer(o.functionSelector), o.isPrivate, o.isConstructor);
-  // }
   /**
    * Serialize this as a buffer.
    * @returns The buffer.

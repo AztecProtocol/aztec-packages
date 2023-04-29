@@ -1,4 +1,4 @@
-import { BufferReader, Fq, Fr } from '@aztec/foundation';
+import { BufferReader, Fq } from '@aztec/foundation';
 import { serializeToBuffer } from '../utils/serialize.js';
 import { ComposerType } from './shared.js';
 import times from 'lodash.times';
