@@ -221,8 +221,6 @@ __metadata:
     "@types/detect-node": ^2.0.0
     "@types/jest": ^29.5.0
     "@types/lodash.camelcase": ^4.3.7
-    "@types/lodash.capitalize": ^4.2.7
-    "@types/lodash.snakecase": ^4.1.7
     "@types/lodash.times": ^4.3.7
     "@types/node": ^18.7.23
     "@typescript-eslint/eslint-plugin": ^5.54.1
@@ -2165,15 +2163,6 @@ __metadata:
   dependencies:
     "@types/lodash": "*"
   checksum: ef068b921ab439f7b1a2c0ebbd890ba64ba437fc6aeb5e3ac18d34da30f9054fceaac5ccfdfa9e12b2fc403e10910439d3ebf92ba2f93de03c2f02261adfc000
-  languageName: node
-  linkType: hard
-
-"@types/lodash.capitalize@npm:^4.2.7":
-  version: 4.2.7
-  resolution: "@types/lodash.capitalize@npm:4.2.7"
-  dependencies:
-    "@types/lodash": "*"
-  checksum: dab8b781d7dcc56c18ba0c8286a6ccb61cc598d936a449265453a473e62b2b6d7c109c4447dfeb8ccacc4088769bc3bfd0d39bc8797f03e4e685d4f4b1bc7c01
   languageName: node
   linkType: hard
 
