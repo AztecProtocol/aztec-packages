@@ -154,8 +154,8 @@ export function makeAccumulatedData(seed = 1): CombinedAccumulatedData {
     tupleTimes(KERNEL_L1_MSG_STACK_LENGTH, fr, seed + 0x500),
     tupleTimes(KERNEL_NEW_CONTRACTS_LENGTH, makeNewContractData, seed + 0x600),
     tupleTimes(KERNEL_OPTIONALLY_REVEALED_DATA_LENGTH, makeOptionallyRevealedData, seed + 0x700),
-    tupleTimes(STATE_TRANSITIONS_LENGTH, makeEmptyPublicDataTransition, seed + 0x800),
-    tupleTimes(STATE_READS_LENGTH, makeEmptyPublicDataRead, seed + 0x900),
+    tupleTimes(STATE_TRANSITIONS_LENGTH, makePublicDataTransition, seed + 0x800),
+    tupleTimes(STATE_READS_LENGTH, makePublicDataRead, seed + 0x900),
   );
 }
 
