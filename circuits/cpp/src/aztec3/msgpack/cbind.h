@@ -1,4 +1,6 @@
 #pragma once
+#include <string>
+#include <utility>
 // CBIND forward declarations for msgback default bind format (encode as tuple of args and return value as msgpack string)
 #define WASM_EXPORT extern "C" __attribute__((visibility("default")))
 
