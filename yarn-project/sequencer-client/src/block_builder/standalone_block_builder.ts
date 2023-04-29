@@ -5,13 +5,13 @@ import {
   KERNEL_NEW_CONTRACTS_LENGTH,
   KERNEL_NEW_NULLIFIERS_LENGTH,
   NewContractData,
+  Proof,
   makeEmptyProof,
 } from '@aztec/circuits.js';
 import { computeContractLeaf } from '@aztec/circuits.js/abis';
 import { AztecAddress, Fr, createDebugLogger } from '@aztec/foundation';
 import { ContractData, L2Block, PublicDataWrite } from '@aztec/types';
 import { MerkleTreeId, MerkleTreeOperations } from '@aztec/world-state';
-import { Proof } from '../prover/index.js';
 import { ProcessedTx } from '../sequencer/processed_tx.js';
 import { BlockBuilder } from './index.js';
 

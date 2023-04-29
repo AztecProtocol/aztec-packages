@@ -13,11 +13,11 @@ import {
   PUBLIC_DATA_TREE_HEIGHT,
   PreviousKernelData,
   PreviousRollupData,
+  Proof,
   ROLLUP_VK_TREE_HEIGHT,
   RollupTypes,
   RootRollupInputs,
   RootRollupPublicInputs,
-  UInt8Vector,
   VK_TREE_HEIGHT,
   VerificationKey,
 } from '@aztec/circuits.js';
@@ -30,7 +30,7 @@ import chunk from 'lodash.chunk';
 import flatMap from 'lodash.flatmap';
 import times from 'lodash.times';
 import { VerificationKeys } from '../mocks/verification_keys.js';
-import { Proof, RollupProver } from '../prover/index.js';
+import { RollupProver } from '../prover/index.js';
 import { RollupSimulator } from '../simulator/index.js';
 
 import { ProcessedTx } from '../sequencer/processed_tx.js';
@@ -82,7 +82,7 @@ export class CircuitBlockBuilder implements BlockBuilder {
     protected debug = createDebugLogger('aztec:sequencer'),
   ) {}
 
-  public async buildL2Block(blockNumber: number, txs: ProcessedTx[]): Promise<[L2Block, UInt8Vector]> {
+  public async buildL2Block(blockNumber: number, txs: ProcessedTx[]): Promise<[L2Block, Proof]> {
     const [
       startPrivateDataTreeSnapshot,
       startNullifierTreeSnapshot,

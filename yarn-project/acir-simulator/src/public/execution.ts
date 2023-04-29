@@ -1,4 +1,4 @@
-import { CallContext, FunctionData, StateRead, StateTransition } from '@aztec/circuits.js';
+import { CallContext, FunctionData, StateRead, StateTransition, TxRequest } from '@aztec/circuits.js';
 import { AztecAddress, EthAddress, Fr } from '@aztec/foundation';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { select_return_flattened as selectPublicWitnessFlattened } from '@noir-lang/noir_util_wasm';
@@ -50,7 +50,7 @@ export class PublicExecution {
   }
 
   public async run(): Promise<PublicExecutionResult> {
-    const selectorHex = this.functionData.functionSelector.toString(16);
+    const selectorHex = this.functionData.functionSelectorBuffer.toString('hex');
     this.log(`Executing public external function ${this.contractAddress.toShortString()}:${selectorHex}`);
 
     const acir = this.publicFunctionBytecode;

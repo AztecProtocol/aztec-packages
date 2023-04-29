@@ -2,14 +2,13 @@ import {
   BaseOrMergeRollupPublicInputs,
   BaseRollupInputs,
   MergeRollupInputs,
+  Proof,
   PublicCircuitPublicInputs,
   PublicKernelPublicInputs,
   RootRollupInputs,
   RootRollupPublicInputs,
-  UInt8Vector,
 } from '@aztec/circuits.js';
 
-export type Proof = UInt8Vector;
 export interface RollupProver {
   getBaseRollupProof(input: BaseRollupInputs, publicInputs: BaseOrMergeRollupPublicInputs): Promise<Proof>;
   getMergeRollupProof(input: MergeRollupInputs, publicInputs: BaseOrMergeRollupPublicInputs): Promise<Proof>;

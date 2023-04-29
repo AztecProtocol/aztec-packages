@@ -2,7 +2,6 @@ import { ExecutionResult, NewNoteData } from '@aztec/acir-simulator';
 import {
   EcdsaSignature,
   KERNEL_NEW_COMMITMENTS_LENGTH,
-  MembershipWitness,
   PRIVATE_CALL_STACK_LENGTH,
   PrivateCallStackItem,
   PrivateCircuitPublicInputs,
@@ -11,6 +10,7 @@ import {
   VK_TREE_HEIGHT,
   VerificationKey,
   makeEmptyProof,
+  MembershipWitness,
 } from '@aztec/circuits.js';
 import { makeTxRequest } from '@aztec/circuits.js/factories';
 import { AztecAddress, Fr, TupleOf } from '@aztec/foundation';

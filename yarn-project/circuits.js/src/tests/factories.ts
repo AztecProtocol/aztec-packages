@@ -41,7 +41,6 @@ import {
   SignedTxRequest,
   TxContext,
   TxRequest,
-  UInt8Vector,
   AggregationObject,
 } from '../index.js';
 import { PrivateCallStackItem, PublicCallStackItem } from '../structs/call_stack_item.js';
@@ -221,8 +220,8 @@ export function makeKernelPublicInputs(seed = 1): KernelCircuitPublicInputs {
   return new KernelCircuitPublicInputs(makeAccumulatedData(seed), makeConstantData(seed + 0x100), true);
 }
 
-export function makeDynamicSizeBuffer(size: number, fill: number) {
-  return new UInt8Vector(Buffer.alloc(size, fill));
+export function makeProof(size: number, fill: number) {
+  return new Proof(Buffer.alloc(size, fill));
 }
 
 export function makeMembershipWitness<N extends number>(size: number, start: number): MembershipWitness<N> {
@@ -252,10 +251,6 @@ export function makePreviousKernelData(seed = 1, kernelPublicInputs?: KernelCirc
   );
 }
 
-export function makeProof(seed = 1): Proof {
-  return new Proof(makeDynamicSizeBuffer(16, seed).buffer);
-}
-
 export function makePrivateKernelInputs(seed = 1): PrivateKernelInputs {
   return new PrivateKernelInputs(
     makeSignedTxRequest(seed),
@@ -276,7 +271,7 @@ export function makePublicCallData(seed = 1) {
   return new PublicCallData(
     makePublicCallStackItem(seed),
     range(PUBLIC_CALL_STACK_LENGTH, seed + 0x300).map(makePublicCallStackItem),
-    makeProof(seed + 0x1000),
+    makeProof(16, seed + 0x1000),
     fr(seed + 1),
     fr(seed + 2),
   );
@@ -426,7 +421,7 @@ export function makeBaseRollupPublicInputs(seed = 0) {
 export function makePreviousBaseRollupData(seed = 0) {
   return new PreviousRollupData(
     makeBaseRollupPublicInputs(seed),
-    makeDynamicSizeBuffer(16, seed + 0x50),
+    makeProof(16, seed + 0x50),
     makeVerificationKey(),
     seed + 0x110,
     makeMembershipWitness(ROLLUP_VK_TREE_HEIGHT, seed + 0x120),

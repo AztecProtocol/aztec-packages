@@ -9,7 +9,6 @@ import {
   STATE_TRANSITIONS_LENGTH,
 } from '../constants.js';
 import { MembershipWitness } from '../membership_witness.js';
-import { UInt8Vector } from '../shared.js';
 import { SignedTxRequest } from '../tx_request.js';
 import { PreviousKernelData } from './previous_kernel_data.js';
 import { Proof } from '../proof.js';

@@ -1,4 +1,4 @@
-import { PUBLIC_DATA_TREE_HEIGHT, makeEmptyProof } from '@aztec/circuits.js';
+import { PUBLIC_DATA_TREE_HEIGHT, Proof, makeEmptyProof } from '@aztec/circuits.js';
 import { makeKernelPublicInputs, makePublicCircuitPublicInputs } from '@aztec/circuits.js/factories';
 import { SiblingPath } from '@aztec/merkle-tree';
 import { ContractPublicData, ContractDataSource, EncodedContractFunction } from '@aztec/types';
@@ -8,7 +8,7 @@ import { MockProxy, mock } from 'jest-mock-extended';
 import pick from 'lodash.pick';
 import times from 'lodash.times';
 import { makePrivateTx, makePublicTx } from '../index.js';
-import { Proof, PublicProver } from '../prover/index.js';
+import { PublicProver } from '../prover/index.js';
 import { PublicCircuitSimulator, PublicKernelCircuitSimulator } from '../simulator/index.js';
 import { WasmPublicKernelCircuitSimulator } from '../simulator/public_kernel.js';
 import { PublicProcessor } from './public_processor.js';

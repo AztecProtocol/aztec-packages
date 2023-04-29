@@ -11,6 +11,7 @@ export class Vector<T extends Bufferable> {
   }
 }
 
+// TODO is this still needed? used to implement Proof class
 export class UInt8Vector {
   constructor(public buffer: Buffer) {}
 

@@ -216,7 +216,7 @@ describe('sequencer/circuit_block_builder', () => {
 
     const makePublicCallProcessedTx = async (seed = 0x1) => {
       const publicTx = makePublicTx(seed);
-      const tx = await makeProcessedTx(publicTx, makeKernelPublicInputs(seed), makeProof());
+      const tx = await makeProcessedTx(publicTx, makeKernelPublicInputs(seed), makeProof(16, 1));
       await setTxHistoricTreeRoots(tx);
       tx.data.end.stateReads[0] = new PublicDataRead(fr(1), fr(0));
       tx.data.end.stateTransitions[0] = new PublicDataTransition(fr(2), fr(0), fr(12));

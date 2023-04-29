@@ -2,6 +2,7 @@ import {
   CircuitsWasm,
   Fr,
   PUBLIC_CALL_STACK_LENGTH,
+  Proof,
   PublicCallData,
   PublicCallStackItem,
   PublicCircuitPublicInputs,
@@ -14,7 +15,7 @@ import { MerkleTreeOperations } from '@aztec/world-state';
 import { pedersenGetHash } from '@aztec/barretenberg.js/crypto';
 import { createDebugLogger } from '@aztec/foundation';
 import times from 'lodash.times';
-import { Proof, PublicProver } from '../prover/index.js';
+import { PublicProver } from '../prover/index.js';
 import { PublicCircuitSimulator, PublicKernelCircuitSimulator } from '../simulator/index.js';
 import { ProcessedTx, makeEmptyProcessedTx, makeProcessedTx } from './processed_tx.js';
 
@@ -69,7 +70,7 @@ export class PublicProcessor {
 
     const fn = await this.contractDataSource.getPublicFunction(
       contractAddress,
-      txRequest.functionData.functionSelector,
+      txRequest.functionData.functionSelectorBuffer,
     );
     const functionSelector = txRequest.functionData.functionSelector;
     if (!fn) throw new Error(`Bytecode not found for ${functionSelector}@${contractAddress}`);

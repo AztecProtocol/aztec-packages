@@ -1,7 +1,6 @@
-import { KernelCircuitPublicInputs } from '@aztec/circuits.js';
+import { KernelCircuitPublicInputs, Proof } from '@aztec/circuits.js';
 import { PrivateTx, PublicTx, Tx, TxHash } from '@aztec/types';
 import { makeEmptyPrivateTx } from '../index.js';
-import { Proof } from '../prover/index.js';
 
 /**
  * Represents a tx that has been processed by the sequencer public processor,

@@ -64,8 +64,8 @@ export class PrivateFunctionExecution {
 
   public async run(): Promise<ExecutionResult> {
     this.log(
-      `Executing external function ${this.contractAddress.toShortString()}:${this.functionData.functionSelector.toString(
-        16,
+      `Executing external function ${this.contractAddress.toShortString()}:${this.functionData.functionSelectorBuffer.toString(
+        'hex',
       )}`,
     );
 
