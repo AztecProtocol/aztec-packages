@@ -128,7 +128,7 @@ WarningsAsErrors: '
 #                   if disabled, re-enable if fixed in newer clang version
 #
 # We should be able to fix:
-#    -google-global-names-in-headers, # using whole::namespace; is bad
+#    -google-build-using-namespace, # using whole::namespace; is bad
 #    -google-readability-todo,  # the auto-fix for this inputs current user's name for all
 #    -cppcoreguidelines-avoid-magic-numbers, # we shouldn't use magic numbers!
 #    -readability-magic-numbers,
