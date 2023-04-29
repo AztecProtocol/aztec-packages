@@ -20,7 +20,7 @@ template <typename NCT> struct PublicDataTransition {
     fr old_value = 0;
     fr new_value = 0;
 
-    // for serialization, keep in sync with new fields
+    // for serialization, update with new fields
     MSGPACK(leaf_index, old_value, new_value);
     bool operator==(PublicDataTransition<NCT> const&) const = default;
 

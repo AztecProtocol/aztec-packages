@@ -18,7 +18,7 @@ template <typename NCT> struct PublicDataRead {
     fr leaf_index = 0;
     fr value = 0;
 
-    // for serialization, keep in sync with new fields
+    // for serialization, update with new fields
     MSGPACK(leaf_index, value);
     bool operator==(PublicDataRead<NCT> const&) const = default;
 

@@ -282,33 +282,6 @@ TEST(abi_tests, hash_constructor)
     EXPECT_EQ(got_hash, expected_hash);
 }
 
-// TEST(abi_tests, schema_test)
-//{
-//     // Randomize required values
-//     auto deployer_address = NT::fr::random_element();
-//     auto contract_address_salt = NT::fr::random_element();
-//     auto function_tree_root = NT::fr::random_element();
-//     auto constructor_hash = NT::fr::random_element();
-//     auto [input, input_len] = msgpack::encode_buffer(
-//         std::make_tuple(deployer_address, contract_address_salt, function_tree_root, constructor_hash));
-//     NT::fr got_address = 0;
-//     uint8_t* output = nullptr;
-//     size_t output_len = 0;
-//     msgpack::print(std::make_tuple(deployer_address, contract_address_salt, function_tree_root, constructor_hash));
-//     abis__compute_contract_address(input, input_len, &output, &output_len);
-//     msgpack::decode(&got_address, output, output_len);
-//     aligned_free(input);
-//     aligned_free(output);
-//
-//     // Calculate the expected contract address in-test
-//     NT::fr expected_address =
-//         NT::compress({ deployer_address, contract_address_salt, function_tree_root, constructor_hash },
-//                      aztec3::GeneratorIndex::CONTRACT_ADDRESS);
-//
-//     // Confirm cbind output == expected
-//     EXPECT_EQ(got_address, expected_address);
-// }
-
 TEST(abi_tests, compute_contract_leaf)
 {
     // Construct ContractLeafPreimage with some randomized fields

@@ -45,7 +45,7 @@ template <typename NCT> struct CombinedAccumulatedData {
     std::array<PublicDataTransition<NCT>, STATE_TRANSITIONS_LENGTH> state_transitions{};
     std::array<PublicDataRead<NCT>, STATE_READS_LENGTH> state_reads{};
 
-    // for serialization, keep in sync with new fields
+    // for serialization, update with new fields
     MSGPACK(aggregation_object,
             private_call_count,
             public_call_count,
