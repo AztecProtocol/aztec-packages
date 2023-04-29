@@ -11,8 +11,6 @@ import {
   KERNEL_OPTIONALLY_REVEALED_DATA_LENGTH,
   KERNEL_PRIVATE_CALL_STACK_LENGTH,
   KERNEL_PUBLIC_CALL_STACK_LENGTH,
-  KERNEL_STATE_READ_LENGTH,
-  KERNEL_STATE_TRANSITION_LENGTH,
   STATE_READS_LENGTH,
   STATE_TRANSITIONS_LENGTH,
 } from '../constants.js';
@@ -179,8 +177,8 @@ export class CombinedAccumulatedData {
     public l1MsgStack: TupleOf<Fr, typeof KERNEL_L1_MSG_STACK_LENGTH>,
     public newContracts: TupleOf<NewContractData, typeof KERNEL_NEW_CONTRACTS_LENGTH>,
     public optionallyRevealedData: TupleOf<OptionallyRevealedData, typeof KERNEL_OPTIONALLY_REVEALED_DATA_LENGTH>,
-    public stateTransitions: TupleOf<PublicDataTransition, typeof KERNEL_STATE_TRANSITION_LENGTH>,
-    public stateReads: TupleOf<PublicDataRead, typeof KERNEL_STATE_READ_LENGTH>,
+    public stateTransitions: TupleOf<PublicDataTransition, typeof STATE_TRANSITIONS_LENGTH>,
+    public stateReads: TupleOf<PublicDataRead, typeof STATE_READS_LENGTH>,
   ) {
     assertLength(this, 'newCommitments', KERNEL_NEW_COMMITMENTS_LENGTH);
     assertLength(this, 'newNullifiers', KERNEL_NEW_NULLIFIERS_LENGTH);

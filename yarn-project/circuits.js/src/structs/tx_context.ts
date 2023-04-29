@@ -1,4 +1,4 @@
-import { BufferReader, EthAddress, Fr } from '@aztec/foundation';
+import { AztecAddress, BufferReader, EthAddress, Fr } from '@aztec/foundation';
 import { serializeToBuffer } from '../utils/serialize.js';
 
 /**
