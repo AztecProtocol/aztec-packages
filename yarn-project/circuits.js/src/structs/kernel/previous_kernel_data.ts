@@ -25,13 +25,7 @@ export class PreviousKernelData {
    * @returns The buffer.
    */
   toBuffer() {
-    return serializeToBuffer(
-      this.publicInputs,
-      new UInt8Vector(this.proof.toBuffer()),
-      this.vk,
-      this.vkIndex,
-      this.vkPath,
-    );
+    return serializeToBuffer(this.publicInputs, this.proof, this.vk, this.vkIndex, this.vkPath);
   }
 
   /**

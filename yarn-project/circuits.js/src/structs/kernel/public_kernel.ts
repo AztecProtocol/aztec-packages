@@ -12,6 +12,7 @@ import { MembershipWitness } from '../membership_witness.js';
 import { UInt8Vector } from '../shared.js';
 import { SignedTxRequest } from '../tx_request.js';
 import { PreviousKernelData } from './previous_kernel_data.js';
+import { Proof } from '../proof.js';
 
 export class PublicKernelInputs {
   constructor(public readonly previousKernel: PreviousKernelData, public readonly publicCallData: PublicCallData) {}
@@ -50,7 +51,7 @@ export class PublicCallData {
   constructor(
     public readonly callStackItem: PublicCallStackItem,
     public readonly publicCallStackPreimages: PublicCallStackItem[],
-    public readonly proof: UInt8Vector,
+    public readonly proof: Proof,
     public readonly portalContractAddress: Fr,
     public readonly bytecodeHash: Fr,
   ) {

@@ -252,8 +252,8 @@ export function makePreviousKernelData(seed = 1, kernelPublicInputs?: KernelCirc
   );
 }
 
-export function makeProof(seed = 1) {
-  return makeDynamicSizeBuffer(16, seed);
+export function makeProof(seed = 1): Proof {
+  return new Proof(makeDynamicSizeBuffer(16, seed).buffer);
 }
 
 export function makePrivateKernelInputs(seed = 1): PrivateKernelInputs {

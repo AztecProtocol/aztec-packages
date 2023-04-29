@@ -91,28 +91,28 @@ called_from_l1: 1
 called_from_public_l2: 0
  ]
 state_transitions:
-[ leaf_index: 0x900
-old_value: 0x901
-new_value: 0x902
- leaf_index: 0x901
-old_value: 0x902
-new_value: 0x903
- leaf_index: 0x902
-old_value: 0x903
-new_value: 0x904
- leaf_index: 0x903
-old_value: 0x904
-new_value: 0x905
+[ leaf_index: 0x0
+old_value: 0x0
+new_value: 0x0
+ leaf_index: 0x0
+old_value: 0x0
+new_value: 0x0
+ leaf_index: 0x0
+old_value: 0x0
+new_value: 0x0
+ leaf_index: 0x0
+old_value: 0x0
+new_value: 0x0
  ]
 state_reads:
-[ leaf_index: 0xa00
-value: 0xa01
- leaf_index: 0xa01
-value: 0xa02
- leaf_index: 0xa02
-value: 0xa03
- leaf_index: 0xa03
-value: 0xa04
+[ leaf_index: 0x0
+value: 0x0
+ leaf_index: 0x0
+value: 0x0
+ leaf_index: 0x0
+value: 0x0
+ leaf_index: 0x0
+value: 0x0
  ]
 
 constants:
@@ -134,7 +134,7 @@ portal_contract_address: 0x707070707070707070707070707070707070707
 
 is_private: 1
 
-proof: [ 80 80 80 80 80 80 80 80 80 80 80 80 80 80 80 80 ]
+proof: [ 00 00 00 10 80 80 80 80 80 80 80 80 80 80 80 80 80 80 80 80 ]
 vk:
 key.composer_type: 0
 key.circuit_size: 65
@@ -236,28 +236,28 @@ called_from_l1: 1
 called_from_public_l2: 0
  ]
 state_transitions:
-[ leaf_index: 0xa00
-old_value: 0xa01
-new_value: 0xa02
- leaf_index: 0xa01
-old_value: 0xa02
-new_value: 0xa03
- leaf_index: 0xa02
-old_value: 0xa03
-new_value: 0xa04
- leaf_index: 0xa03
-old_value: 0xa04
-new_value: 0xa05
+[ leaf_index: 0x0
+old_value: 0x0
+new_value: 0x0
+ leaf_index: 0x0
+old_value: 0x0
+new_value: 0x0
+ leaf_index: 0x0
+old_value: 0x0
+new_value: 0x0
+ leaf_index: 0x0
+old_value: 0x0
+new_value: 0x0
  ]
 state_reads:
-[ leaf_index: 0xb00
-value: 0xb01
- leaf_index: 0xb01
-value: 0xb02
- leaf_index: 0xb02
-value: 0xb03
- leaf_index: 0xb03
-value: 0xb04
+[ leaf_index: 0x0
+value: 0x0
+ leaf_index: 0x0
+value: 0x0
+ leaf_index: 0x0
+value: 0x0
+ leaf_index: 0x0
+value: 0x0
  ]
 
 constants:
@@ -279,7 +279,7 @@ portal_contract_address: 0x707070707070707070707070707070707070707
 
 is_private: 1
 
-proof: [ 80 80 80 80 80 80 80 80 80 80 80 80 80 80 80 80 ]
+proof: [ 00 00 00 10 80 80 80 80 80 80 80 80 80 80 80 80 80 80 80 80 ]
 vk:
 key.composer_type: 0
 key.circuit_size: 65
