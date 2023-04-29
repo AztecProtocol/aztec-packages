@@ -218,6 +218,7 @@ PublicKernelInputsNoPreviousKernel<NT> get_kernel_inputs_no_previous_kernel()
     NT::fr child_portal_contract_address = 200000;
     std::array<NT::fr, PUBLIC_CALL_STACK_LENGTH> call_stack_hashes;
     for (size_t i = 0; i < PUBLIC_CALL_STACK_LENGTH; i++) {
+        // NOLINTNEXTLINE(readability-suspicious-call-argument)
         child_call_stacks[i] = generate_call_stack_item(child_contract_address,
                                                         contract_address,
                                                         child_contract_address,
@@ -709,6 +710,7 @@ TEST(public_kernel_tests, public_kernel_circuit_succeeds_for_mixture_of_regular_
     std::array<NT::fr, PUBLIC_CALL_STACK_LENGTH> call_stack_hashes;
     for (size_t i = 0; i < PUBLIC_CALL_STACK_LENGTH; i++) {
         child_call_stacks[i] =
+            // NOLINTNEXTLINE(readability-suspicious-call-argument)
             generate_call_stack_item(child_contract_address,
                                      is_delegate_call ? origin_msg_sender : contract_address,
                                      is_delegate_call ? contract_address : child_contract_address,
@@ -743,6 +745,7 @@ TEST(public_kernel_tests, public_kernel_circuit_fails_on_incorrect_msg_sender_in
     NT::fr child_contract_address = 100000;
     std::array<NT::fr, PUBLIC_CALL_STACK_LENGTH> call_stack_hashes;
     child_call_stacks[0] =
+        // NOLINTNEXTLINE(readability-suspicious-call-argument)
         generate_call_stack_item(child_contract_address,
                                  contract_address,  // this should be the origin_msg_sender, not the contract address
                                  contract_address,
@@ -802,6 +805,7 @@ TEST(public_kernel_tests, public_kernel_circuit_fails_on_incorrect_portal_contra
     NT::fr child_contract_address = 100000;
     NT::fr child_portal_contract = 200000;
     std::array<NT::fr, PUBLIC_CALL_STACK_LENGTH> call_stack_hashes;
+    // NOLINTNEXTLINE(readability-suspicious-call-argument)
     child_call_stacks[0] = generate_call_stack_item(child_contract_address,
                                                     origin_msg_sender,
                                                     contract_address,
