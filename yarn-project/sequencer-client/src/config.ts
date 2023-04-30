@@ -27,7 +27,7 @@ export function getConfigEnvVars(): SequencerClientConfig {
     unverifiedDataEmitterContract: UNVERIFIED_DATA_EMITTER_ADDRESS
       ? EthAddress.fromString(UNVERIFIED_DATA_EMITTER_ADDRESS)
       : EthAddress.ZERO,
-    publisherPrivateKey: Buffer.from(SEQ_PUBLISHER_PRIVATE_KEY || ''),
+    publisherPrivateKey: Buffer.from(SEQ_PUBLISHER_PRIVATE_KEY || '', 'hex'),
     maxTxsPerBlock: SEQ_MAX_TX_PER_BLOCK ? +SEQ_MAX_TX_PER_BLOCK : 32,
   };
 }

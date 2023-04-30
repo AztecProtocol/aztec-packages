@@ -38,6 +38,7 @@ COPY barretenberg.js/package.json barretenberg.js/package.json
 COPY circuits.js/package.json circuits.js/package.json
 COPY p2p/package.json p2p/package.json
 COPY prover-client/package.json prover-client/package.json
+COPY rollup-provider/package.json rollup-provider/package.json
 COPY sequencer-client/package.json sequencer-client/package.json
 COPY types/package.json types/package.json
 COPY world-state/package.json world-state/package.json

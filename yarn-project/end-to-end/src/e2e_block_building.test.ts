@@ -1,4 +1,4 @@
-import { AztecNode, getConfigEnvVars } from '@aztec/aztec-node';
+import { AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
 import { AztecRPCServer, ContractDeployer, Fr, TxStatus } from '@aztec/aztec.js';
 import { createDebugLogger } from '@aztec/foundation';
 import { mnemonicToAccount } from 'viem/accounts';
@@ -15,7 +15,7 @@ const logger = createDebugLogger('aztec:e2e_block_building');
 const config = getConfigEnvVars();
 
 describe('e2e_block_building', () => {
-  let node: AztecNode;
+  let node: AztecNodeService;
   let aztecRpcServer: AztecRPCServer;
 
   const abi = TestContractAbi as ContractAbi;
@@ -30,7 +30,7 @@ describe('e2e_block_building', () => {
     config.rollupContract = rollupAddress;
     config.unverifiedDataEmitterContract = unverifiedDataEmitterAddress;
 
-    node = await AztecNode.createAndSync(config);
+    node = await AztecNodeService.createAndSync(config);
     aztecRpcServer = await createAztecRpcServer(1, node);
   }, 60_000);
 

@@ -34,6 +34,7 @@
     "l1-contracts",
     "p2p",
     "prover-client",
+    "rollup-provider",
     "aztec-node",
     "sequencer-client",
     "types",

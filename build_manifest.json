@@ -280,6 +280,17 @@
       "foundation"
     ]
   },
+  "rollup-provider": {
+    "buildDir": "yarn-project",
+    "projectDir": "yarn-project/rollup-provider",
+    "dockerfile": "rollup-provider/Dockerfile",
+    "rebuildPatterns": [
+      "^yarn-project/rollup-provider/"
+    ],
+    "dependencies": [
+      "aztec-node"
+    ]
+  },
   "aztec-node": {
     "buildDir": "yarn-project",
     "projectDir": "yarn-project/aztec-node",

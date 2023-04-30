@@ -66,6 +66,11 @@ export class EcdsaSignature {
     return serializeToBuffer(this.r, this.s);
   }
 
+  static fromBuffer(buffer: Buffer | BufferReader): EcdsaSignature {
+    const reader = BufferReader.asReader(buffer);
+    return new EcdsaSignature(reader.readBytes(32), reader.readBytes(32));
+  }
+
   public static random() {
     return new EcdsaSignature(randomBytes(32), randomBytes(32));
   }

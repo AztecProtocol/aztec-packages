@@ -109,8 +109,10 @@ export class AztecRPCServer implements AztecRPCClient {
       fromAddress,
       this.node,
     );
+    this.log('contract tree created');
     const { functionData, vkHash } = contractTree.newContractConstructor!;
     const functionTreeRoot = await contractTree.getFunctionTreeRoot();
+    this.log('function tree root created');
     const contractDeploymentData = new ContractDeploymentData(
       Fr.fromBuffer(vkHash),
       functionTreeRoot,
@@ -189,6 +191,7 @@ export class AztecRPCServer implements AztecRPCClient {
       tx = Tx.createPublic(new SignedTxRequest(txRequest, signature));
     } else if (txRequest.functionData.isConstructor) {
       newContract = contractAddress;
+      
       tx = await accountState.simulateAndProve(txRequest, signature, contractAddress);
     } else {
       toContract = contractAddress;

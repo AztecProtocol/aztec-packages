@@ -1,4 +1,4 @@
-import { AztecAddress, Fr } from '@aztec/foundation';
+import { AztecAddress, BufferReader, Fr } from '@aztec/foundation';
 import { FieldsOf } from '../utils/jsUtils.js';
 import { serializeToBuffer } from '../utils/serialize.js';
 import { FunctionData } from './function_data.js';
@@ -18,6 +18,15 @@ export class SignedTxRequest {
    */
   toBuffer() {
     return serializeToBuffer(this.txRequest, this.signature);
+  }
+
+  /**
+   * Deserialises from a buffer.
+   * @returns The new object.
+   */
+  static fromBuffer(buffer: Buffer | BufferReader): SignedTxRequest {
+    const reader = BufferReader.asReader(buffer);
+    return new SignedTxRequest(reader.readObject(TxRequest), reader.readObject(EcdsaSignature));
   }
 }
 
@@ -57,6 +66,26 @@ export class TxRequest {
    * @returns The buffer.
    */
   toBuffer() {
-    return serializeToBuffer(...TxRequest.getFields(this));
+    const fields = TxRequest.getFields(this);
+    const argsLength = this.args.length;
+    return serializeToBuffer([argsLength, ...fields]);
+  }
+
+  /**
+   * Deserializes from a buffer or reader, corresponding to a write in cpp.
+   * @param buffer - Buffer to read from.
+   */
+  static fromBuffer(buffer: Buffer | BufferReader): TxRequest {
+    const reader = BufferReader.asReader(buffer);
+    const argsLength = reader.readNumber();
+    return new TxRequest(
+      reader.readObject(AztecAddress),
+      reader.readObject(AztecAddress),
+      reader.readObject(FunctionData),
+      reader.readArray<Fr>(argsLength, Fr),
+      reader.readFr(),
+      reader.readObject(TxContext),
+      reader.readFr(),
+    );
   }
 }
