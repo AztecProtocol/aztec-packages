@@ -1,5 +1,5 @@
 import { randomBytes } from '../crypto/index.js';
-import { Fr } from '../index.js';
+import { Fr } from '../fields/fields.js';
 import {
   serializeBufferToVector,
   deserializeBufferFromVector,
