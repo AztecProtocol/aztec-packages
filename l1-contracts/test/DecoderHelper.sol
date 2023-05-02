@@ -13,7 +13,8 @@ contract DecoderHelper is Decoder {
     return _decode(_l2Block);
   }
 
-  function computeDiffRoot(bytes calldata _l2Block) external pure returns (bytes32) {
-    return _computeDiffRoot(_l2Block);
+  function computeDiffRootAndMessagesHash(bytes calldata _l2Block) external pure returns (bytes32, bytes32) {
+    (bytes32 diffRoot, bytes32 l1ToL2MessagesHash) = _computeDiffRoot(_l2Block);
+    return (diffRoot, l1ToL2MessagesHash);
   }
 }
