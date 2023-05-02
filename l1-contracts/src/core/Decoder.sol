@@ -114,7 +114,7 @@ contract Decoder {
     }
 
     // Diff root
-    (bytes32 diffRoot,bytes32 l1ToL2messagesHash ) = _computeDiffRoot(_l2Block);
+    (bytes32 diffRoot,bytes32 l1ToL2messagesHash ) = _computeDiffRootAndMessagesHash(_l2Block);
     assembly {
       let endOfTreesData := sub(0x23c, 0x04)
       mstore(add(temp, add(0x20, endOfTreesData)), diffRoot)
@@ -184,7 +184,7 @@ contract Decoder {
    * @notice Creates a "diff" tree and compute its root
    * @param _l2Block - The L2 block calldata.
    */
-  function _computeDiffRoot(bytes calldata _l2Block) internal pure returns (bytes32,  bytes32) {
+  function _computeDiffRootAndMessagesHash(bytes calldata _l2Block) internal pure returns (bytes32,  bytes32) {
     // Find the lengths of the different inputs
   // TOOD: Naming / getting the messages root within this function is a bit weird
     ArrayLengths memory lengths;

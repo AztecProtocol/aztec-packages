@@ -275,14 +275,8 @@ export class CircuitBlockBuilder implements BlockBuilder {
       newL1ToL2Messages.map(m => m.toBuffer()),
     );
 
-    console.log('root rollup inputs');
-    console.log(rootInput);
-
     // Simulate and get proof for the root circuit
     const rootOutput = await this.simulator.rootRollupCircuit(rootInput);
-
-    console.log('root output');
-    console.log(rootOutput);
 
     const rootProof = await this.prover.getRootRollupProof(rootInput, rootOutput);
 
@@ -290,8 +284,6 @@ export class CircuitBlockBuilder implements BlockBuilder {
     // and validate them against the output of the root circuit simulation
     this.debug(`Updating and validating root trees`);
     await this.updateRootTrees();
-    console.log('root output in the sim');
-    console.log(rootOutput);
     await this.validateRootOutput(rootOutput);
 
     return [rootOutput, rootProof];
@@ -375,12 +367,10 @@ export class CircuitBlockBuilder implements BlockBuilder {
   protected validateSimulatedTree(
     localTree: AppendOnlyTreeSnapshot,
     simulatedTree: AppendOnlyTreeSnapshot,
-    name: 'PrivateData' | 'Contract' | 'Nullifier' | "L1ToL2Message",
+    name: 'PrivateData' | 'Contract' | 'Nullifier' | 'L1ToL2Message',
     label?: string,
   ) {
     if (!simulatedTree.root.toBuffer().equals(localTree.root.toBuffer())) {
-      console.log('local: ', localTree);
-      console.log('sim: ', simulatedTree);
       throw new Error(`${label ?? name} tree root mismatch (local ${localTree.root}, simulated ${simulatedTree.root})`);
     }
     if (simulatedTree.nextAvailableLeafIndex !== localTree.nextAvailableLeafIndex) {
@@ -432,9 +422,6 @@ export class CircuitBlockBuilder implements BlockBuilder {
 
     // Get tree snapshots
     const startL1ToL2MessageTreeSnapshot = await this.getTreeSnapshot(MerkleTreeId.L1_TO_L2_MESSAGES_TREE);
-
-    console.log('startL1ToL2MessageTreeSnapshot');
-    console.log(startL1ToL2MessageTreeSnapshot);
     const startHistoricTreeL1ToL2MessageTreeRootsSnapshot = await this.getTreeSnapshot(
       MerkleTreeId.L1_TO_L2_MESSAGES_ROOTS_TREE,
     );
