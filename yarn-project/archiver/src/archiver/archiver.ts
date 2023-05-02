@@ -1,4 +1,5 @@
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createDebugLogger, DebugLogger } from '@aztec/foundation/log';
+
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { BufferReader } from '@aztec/foundation/serialize';
