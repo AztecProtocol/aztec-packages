@@ -149,7 +149,7 @@ export class Sequencer {
       } else {
         this.log(`Failed to publish unverifiedData for block ${block.number}`);
       }
-      
+
       const publishedContractData = await this.publisher.processNewContractData(block.number, newContractData);
       if (publishedContractData) {
         this.log(`Successfully published new contract data for block ${block.number}`);

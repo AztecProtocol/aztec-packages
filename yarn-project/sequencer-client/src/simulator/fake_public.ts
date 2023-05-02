@@ -1,6 +1,21 @@
 import { PublicDB, PublicExecution } from '@aztec/acir-simulator';
 import { BarretenbergWasm } from '@aztec/barretenberg.js/wasm';
-import { AztecAddress, EthAddress, Fr, PublicCircuitPublicInputs, TxRequest } from '@aztec/circuits.js';
+import {
+  ARGS_LENGTH,
+  AztecAddress,
+  EMITTED_EVENTS_LENGTH,
+  EthAddress,
+  Fr,
+  L1_MSG_STACK_LENGTH,
+  PUBLIC_CALL_STACK_LENGTH,
+  PublicCircuitPublicInputs,
+  RETURN_VALUES_LENGTH,
+  STATE_READS_LENGTH,
+  STATE_TRANSITIONS_LENGTH,
+  StateRead,
+  StateTransition,
+  TxRequest,
+} from '@aztec/circuits.js';
 import { MerkleTreeId, MerkleTreeOperations, computePublicDataTreeLeafIndex } from '@aztec/world-state';
 import { PublicCircuitSimulator } from './index.js';
 
@@ -20,17 +35,31 @@ export class FakePublicCircuitSimulator implements PublicCircuitSimulator {
     const historicPublicDataTreeRoot = Fr.fromBuffer(publicDataTreeInfo.root);
 
     const execution = PublicExecution.fromTransactionRequest(this.db, tx, functionBytecode, portalAddress);
+
+    // Pad args array to reach ARGS_LENGTH
     const result = await execution.run();
+    const args = tx.args;
+    args.push(...new Array<Fr>(ARGS_LENGTH - tx.args.length).fill(Fr.ZERO));
+
+    const { stateReads, stateTransitions, returnValues } = result;
+    returnValues.push(...new Array<Fr>(RETURN_VALUES_LENGTH - result.returnValues.length).fill(Fr.ZERO));
+    stateReads.push(...new Array<StateRead>(STATE_READS_LENGTH - result.stateReads.length).fill(StateRead.empty()));
+    stateTransitions.push(
+      ...new Array<StateTransition>(STATE_TRANSITIONS_LENGTH - result.stateTransitions.length).fill(
+        StateTransition.empty(),
+      ),
+    );
+
     return PublicCircuitPublicInputs.from({
-      args: tx.args,
+      args,
       callContext: execution.callContext,
-      emittedEvents: [],
-      l1MsgStack: [],
+      emittedEvents: new Array<Fr>(EMITTED_EVENTS_LENGTH).fill(Fr.ZERO),
+      l1MsgStack: new Array<Fr>(L1_MSG_STACK_LENGTH).fill(Fr.ZERO),
       proverAddress: AztecAddress.random(),
-      publicCallStack: [],
-      returnValues: result.returnValues,
-      stateReads: result.stateReads,
-      stateTransitions: result.stateTransitions,
+      publicCallStack: new Array<Fr>(PUBLIC_CALL_STACK_LENGTH).fill(Fr.ZERO),
+      returnValues,
+      stateReads,
+      stateTransitions,
       historicPublicDataTreeRoot,
     });
   }

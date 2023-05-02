@@ -184,7 +184,7 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource, ContractDa
 
       this.log(`Syncing ContractData logs from block ${this.nextContractDataFromBlock}`);
       const contractDataLogs = await this.getContractDataLogs(this.nextContractDataFromBlock);
-
+      // this.log(`found contract data logs:`, contractDataLogs?[0].args.aztecAddress);
       this.processContractDataLogs(contractDataLogs);
       this.nextContractDataFromBlock =
         (contractDataLogs.findLast(cd => !!cd)?.blockNumber || this.nextContractDataFromBlock) + 1n;
@@ -299,7 +299,11 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource, ContractDa
         new ContractData(AztecAddress.fromString(log.args.aztecAddress), EthAddress.fromString(log.args.portalAddress)),
         publicFnsReader.readVector(EncodedContractFunction),
       );
-      (this.contractPublicData[Number(l2BlockNum)] || []).push(contractData);
+      if (this.contractPublicData[Number(l2BlockNum)]) {
+        this.contractPublicData[Number(l2BlockNum)]?.push(contractData);
+      } else {
+        this.contractPublicData[Number(l2BlockNum)] = [contractData];
+      }
     }
     this.log('Processed contractData corresponding to ' + logs.length + ' blocks.');
   }

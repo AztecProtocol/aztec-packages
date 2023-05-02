@@ -108,14 +108,11 @@ describe('e2e_public_token_contract', () => {
   });
 
   it('should deploy a public token contract', async () => {
-    const { contract, tx, txReceipt } = await deployContract();
-    console.log('txReceipt', txReceipt);
-    console.log('contract', contract);
-    console.log('tx', tx);
+    const { txReceipt } = await deployContract();
     expect(txReceipt.status).toEqual(TxStatus.MINED);
   }, 30_000);
 
-  it.skip('should deploy a public token contract and mint tokens to a recipient', async () => {
+  it.only('should deploy a public token contract and mint tokens to a recipient', async () => {
     const mintAmount = 359n;
 
     const recipientIdx = 0;
@@ -123,9 +120,9 @@ describe('e2e_public_token_contract', () => {
     const recipient = accounts[recipientIdx];
     const { contract: deployedContract } = await deployContract();
 
-    const tx = deployedContract.methods
-      .mint(mintAmount, pointToPublicKey(await aztecRpcServer.getAccountPublicKey(recipient)))
-      .send({ from: recipient });
+    const PK = await aztecRpcServer.getAccountPublicKey(recipient);
+
+    const tx = deployedContract.methods.mint(mintAmount, pointToPublicKey(PK)).send({ from: recipient });
 
     await tx.isMined(0, 0.1);
     const receipt = await tx.getReceipt();

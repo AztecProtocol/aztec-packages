@@ -66,7 +66,7 @@ export class PublicProcessor {
   protected async processPublicTx(tx: PublicTx): Promise<[PublicKernelPublicInputs, Proof]> {
     const { txRequest } = tx.txRequest;
     const contractAddress = txRequest.to;
-
+    const publicContractData = await this.contractDataSource.getL2ContractPublicData(contractAddress);
     const fn = await this.contractDataSource.getPublicFunction(
       contractAddress,
       txRequest.functionData.functionSelector,
