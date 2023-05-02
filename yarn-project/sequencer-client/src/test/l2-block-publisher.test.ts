@@ -1,36 +1,40 @@
-import { EthereumRpc } from '@aztec/ethereum.js/eth_rpc';
-import { WalletProvider } from '@aztec/ethereum.js/provider';
-import { DecoderHelper, Rollup, UnverifiedDataEmitter } from '@aztec/l1-contracts';
-import { beforeAll, describe, expect, it } from '@jest/globals';
-import { EthereumjsTxSender } from '../publisher/ethereumjs-tx-sender.js';
-import { L1Publisher } from '../publisher/l1-publisher.js';
-import { hexStringToBuffer } from '../utils.js';
-import { Tx } from '@aztec/types';
-import { ProcessedTx, makeEmptyProcessedTx, makeProcessedTx } from '../sequencer/processed_tx.js';
-import {
-  makeBaseRollupPublicInputs,
-  makeKernelPublicInputs,
-  makeRootRollupPublicInputs,
-} from '@aztec/circuits.js/factories';
 import {
   AppendOnlyTreeSnapshot,
   BaseOrMergeRollupPublicInputs,
-  BaseRollupInputs,
   CircuitsWasm,
   Fr,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   RootRollupPublicInputs,
   UInt8Vector,
 } from '@aztec/circuits.js';
-import { getVerificationKeys, makeEmptyUnverifiedData } from '../index.js';
-import { MerkleTreeId, MerkleTreeOperations, MerkleTrees } from '@aztec/world-state';
-import { createMemDown } from '../block_builder/circuit_block_builder.test.js';
-import { default as levelup } from 'levelup';
-import { CircuitBlockBuilder } from '../block_builder/circuit_block_builder.js';
 import { computeContractLeaf } from '@aztec/circuits.js/abis';
+import {
+  makeBaseRollupPublicInputs,
+  makeKernelPublicInputs,
+  makeRootRollupPublicInputs,
+} from '@aztec/circuits.js/factories';
+import { EthereumRpc } from '@aztec/ethereum.js/eth_rpc';
+import { WalletProvider } from '@aztec/ethereum.js/provider';
+import { DecoderHelper, Rollup, UnverifiedDataEmitter } from '@aztec/l1-contracts';
+import { Tx } from '@aztec/types';
+import { MerkleTreeId, MerkleTreeOperations, MerkleTrees } from '@aztec/world-state';
+import { beforeAll, describe, expect, it } from '@jest/globals';
+import { default as levelup } from 'levelup';
 import flatMap from 'lodash.flatmap';
+import { CircuitBlockBuilder } from '../block_builder/circuit_block_builder.js';
+import { createMemDown } from '../block_builder/circuit_block_builder.test.js';
+import { getVerificationKeys, makeEmptyUnverifiedData } from '../index.js';
 import { EmptyRollupProver } from '../prover/empty.js';
+import { EthereumjsTxSender } from '../publisher/ethereumjs-tx-sender.js';
+import { L1Publisher } from '../publisher/l1-publisher.js';
+import {
+  ProcessedTx,
+  makeEmptyProcessedTx as makeEmptyProcessedTxFromHistoricTreeRoots,
+  makeProcessedTx,
+} from '../sequencer/processed_tx.js';
+import { getCombinedHistoricTreeRoots } from '../sequencer/utils.js';
 import { WasmRollupCircuitSimulator } from '../simulator/rollup.js';
+import { hexStringToBuffer } from '../utils.js';
 
 // Accounts 4 and 5 of Anvil default startup with mnemonic: 'test test test test test test test test test test test junk'
 const sequencerPK = '0x47e179ec197488593b187f80a00eb0da91f1b9d0b13f8733639f19c30a34926a';
@@ -50,7 +54,7 @@ describe('L1Publisher integration', () => {
   let baseRollupOutputLeft: BaseOrMergeRollupPublicInputs;
   let baseRollupOutputRight: BaseOrMergeRollupPublicInputs;
   let rootRollupOutput: RootRollupPublicInputs;
-  let builder: TestSubject;
+  let builder: CircuitBlockBuilder;
   let builderDb: MerkleTreeOperations;
   let expectsDb: MerkleTreeOperations;
   let wasm: CircuitsWasm;
@@ -64,9 +68,9 @@ describe('L1Publisher integration', () => {
     const vks = getVerificationKeys();
     const simulator = await WasmRollupCircuitSimulator.new();
     const prover = new EmptyRollupProver();
-    builder = new TestSubject(builderDb, vks, simulator, prover);
-    await updateRootTrees();
-    await builder.updateRootTrees();
+    builder = new CircuitBlockBuilder(builderDb, vks, simulator, prover);
+    await expectsDb.updateRootsTrees();
+    await builderDb.updateRootsTrees();
 
     baseRollupOutputLeft = makeBaseRollupPublicInputs();
     baseRollupOutputRight = makeBaseRollupPublicInputs();
@@ -87,6 +91,11 @@ describe('L1Publisher integration', () => {
       },
     );
   }, 60_000);
+
+  const makeEmptyProcessedTx = async () => {
+    const historicTreeRoots = await getCombinedHistoricTreeRoots(builderDb);
+    return makeEmptyProcessedTxFromHistoricTreeRoots(historicTreeRoots);
+  };
 
   it('Build 2 blocks of 4 txs building on each other', async () => {
     const newL1ToL2Messages = new Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n));
@@ -118,7 +127,7 @@ describe('L1Publisher integration', () => {
       baseRollupOutputRight.endPrivateDataTreeSnapshot = await getTreeSnapshot(MerkleTreeId.PRIVATE_DATA_TREE);
 
       // And update the root trees now to create proper output to the root rollup circuit
-      await updateRootTrees();
+      await expectsDb.updateRootsTrees();
       rootRollupOutput.endContractTreeSnapshot = await getTreeSnapshot(MerkleTreeId.CONTRACT_TREE);
       rootRollupOutput.endNullifierTreeSnapshot = await getTreeSnapshot(MerkleTreeId.NULLIFIER_TREE);
       rootRollupOutput.endPrivateDataTreeSnapshot = await getTreeSnapshot(MerkleTreeId.PRIVATE_DATA_TREE);
@@ -160,16 +169,6 @@ describe('L1Publisher integration', () => {
   }, 60_000);
 
   // BELOW IS FUNCTIONS STOLEN FROM `circuit_block_builder.test.ts`.
-
-  const updateRootTrees = async () => {
-    for (const [newTree, rootTree] of [
-      [MerkleTreeId.PRIVATE_DATA_TREE, MerkleTreeId.PRIVATE_DATA_TREE_ROOTS_TREE],
-      [MerkleTreeId.CONTRACT_TREE, MerkleTreeId.CONTRACT_TREE_ROOTS_TREE],
-    ] as const) {
-      const newTreeInfo = await expectsDb.getTreeInfo(newTree);
-      await expectsDb.appendLeaves(rootTree, [newTreeInfo.root]);
-    }
-  };
 
   // Updates the expectedDb trees based on the new commitments, contracts, and nullifiers from these txs
   const updateExpectedTreesFromTxs = async (txs: ProcessedTx[]) => {
@@ -229,15 +228,4 @@ async function deployRollup() {
   });
 
   return { decoderHelper, rollup, deployer, unverifiedDataEmitter, sequencer, ethRpc };
-}
-
-// Test subject class that exposes internal functions for testing
-class TestSubject extends CircuitBlockBuilder {
-  public buildBaseRollupInput(tx1: ProcessedTx, tx2: ProcessedTx): Promise<BaseRollupInputs> {
-    return super.buildBaseRollupInput(tx1, tx2);
-  }
-
-  public updateRootTrees(): Promise<void> {
-    return super.updateRootTrees();
-  }
 }
