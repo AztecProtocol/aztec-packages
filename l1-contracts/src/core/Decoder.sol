@@ -234,7 +234,7 @@ contract Decoder {
         )
         dstOffset := add(dstOffset, mul(2, 0x20))
 
-        // Kernel1.contract.aztecaddress
+        // Kernel1.contract.aztecAddress
         calldatacopy(add(baseLeaf, dstOffset), add(_l2Block.offset, srcContractDataOffset), 0x20)
         dstOffset := add(dstOffset, 0x20)
 
@@ -245,7 +245,7 @@ contract Decoder {
         )
         dstOffset := add(dstOffset, 0x20)
 
-        // Kernel2.contract.aztecaddress
+        // Kernel2.contract.aztecAddress
         calldatacopy(
           add(baseLeaf, dstOffset), add(_l2Block.offset, add(srcContractDataOffset, 0x34)), 0x20
         )

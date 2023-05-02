@@ -246,6 +246,7 @@ export class L2Block {
       this.getCalldataHash(),
     );
     const temp = toBigIntBE(sha256(buf));
+    // Prime order of BN254 curve
     const p = BigInt('21888242871839275222246405745257275088548364400416034343698204186575808495617');
     return Fr.fromBuffer(toBufferBE(temp % p, 32));
   }

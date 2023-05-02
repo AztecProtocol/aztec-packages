@@ -38,7 +38,7 @@ const anvilHost = process.env.ANVIL_HOST ?? 'http://127.0.0.1:8545';
 const chainId = 31337;
 
 describe.skip('L1Publisher integration', () => {
-  let decodeHelper: DecoderHelper;
+  let decoderHelper: DecoderHelper;
   let rollup: Rollup;
   let unverifiedDataEmitter: UnverifiedDataEmitter;
   let ethRpc: EthereumRpc;
@@ -55,7 +55,7 @@ describe.skip('L1Publisher integration', () => {
   let wasm: CircuitsWasm;
 
   beforeAll(async () => {
-    ({ ethRpc, decodeHelper, rollup, unverifiedDataEmitter } = await deployRollup());
+    ({ ethRpc, decoderHelper, rollup, unverifiedDataEmitter } = await deployRollup());
 
     builderDb = await MerkleTrees.new(levelup(createMemDown())).then(t => t.asLatest());
     expectsDb = await MerkleTrees.new(levelup(createMemDown())).then(t => t.asLatest());
@@ -142,8 +142,8 @@ describe.skip('L1Publisher integration', () => {
       const expectedData = rollup.methods.process(l2Proof, block.encode()).encodeABI();
       expect(ethTx.input).toEqual(expectedData);
 
-      const decodedCalldataHash = await decodeHelper.methods.computeDiffRoot(block.encode()).call();
-      const decodedRes = await decodeHelper.methods.decode(block.encode()).call();
+      const decodedCalldataHash = await decoderHelper.methods.computeDiffRoot(block.encode()).call();
+      const decodedRes = await decoderHelper.methods.decode(block.encode()).call();
       const stateInRollup = await rollup.methods.rollupStateHash().call();
 
       // @note There seems to be something wrong here. The Bytes32 returned are actually strings :(
@@ -209,9 +209,9 @@ async function deployRollup() {
   const [sequencer, deployer] = provider.getAccounts();
   const ethRpc = new EthereumRpc(provider);
 
-  // Deploy Rollup and unverifiedDataEmitter contracts
-  const decodeHelper = new DecoderHelper(ethRpc, undefined, { from: deployer, gas: 1e6 });
-  await decodeHelper.deploy().send().getReceipt();
+  // Deploy DecodeHelper, Rollup and unverifiedDataEmitter contracts
+  const decoderHelper = new DecoderHelper(ethRpc, undefined, { from: deployer, gas: 1e6 });
+  await decoderHelper.deploy().send().getReceipt();
 
   const deployedRollup = new Rollup(ethRpc, undefined, { from: deployer, gas: 1e6 });
   await deployedRollup.deploy().send().getReceipt();
@@ -225,7 +225,7 @@ async function deployRollup() {
     from: sequencer,
   });
 
-  return { decodeHelper, rollup, deployer, unverifiedDataEmitter, sequencer, ethRpc };
+  return { decoderHelper, rollup, deployer, unverifiedDataEmitter, sequencer, ethRpc };
 }
 
 // Test subject class that exposes internal functions for testing
