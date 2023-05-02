@@ -28,7 +28,11 @@ namespace aztec3::circuits::rollup::native_root_rollup {
 
 // Access Native types through NT namespace
 
-// TODO: turn this into generic function that can be used by other rollups
+/**
+ * @brief Calculates the messages subtree from the leaves array
+ * @param leaves
+ * @return root
+ */
 NT::fr calculate_subtree(std::array<NT::fr, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP> leaves)
 {
     MerkleTree merkle_tree = MerkleTree(L1_TO_L2_MSG_SUBTREE_DEPTH);
@@ -39,8 +43,11 @@ NT::fr calculate_subtree(std::array<NT::fr, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP>
     return merkle_tree.root();
 }
 
-// TODO: move helper functions here to components
-// TODO: check more efficient implementation
+/**
+ * @brief Computes the messages hash from the leaves array
+ * @param leaves
+ * @param return - hash split into two field elements
+ */
 std::array<NT::fr, 2> compute_messages_hash(std::array<NT::fr, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP> leaves)
 {
     // convert vector of field elements into uint_8
@@ -106,7 +113,6 @@ RootRollupPublicInputs root_rollup_circuit(DummyComposer& composer, RootRollupIn
                                                     "historic contract tree roots insertion");
 
     // Check correct l1 to l2 tree given
-
     // Compute subtree inserting l1 to l2 messages
     auto l1_to_l2_subtree_root = calculate_subtree(rootRollupInputs.l1_to_l2_messages);
 

@@ -5,6 +5,7 @@ import {
   CONTRACT_TREE_ROOTS_TREE_HEIGHT,
   CircuitsWasm,
   ConstantBaseRollupData,
+  L1_TO_L2_MESSAGES_SUBTREE_INSERTION_HEIGHT,
   MembershipWitness,
   MergeRollupInputs,
   NULLIFIER_TREE_HEIGHT,
@@ -44,7 +45,6 @@ type AllowedTreeNames<T extends BaseOrMergeRollupPublicInputs | RootRollupPublic
     ? 'PrivateData' | 'Contract' | 'Nullifier' | 'L1ToL2Message'
     : 'PrivateData' | 'Contract' | 'Nullifier';
 
-// TODO: triple check and clean this type casting
 type OutputWithTreeSnapshot<T extends BaseOrMergeRollupPublicInputs | RootRollupPublicInputs> = {
   [K in `end${AllowedTreeNames<T>}TreeSnapshot`]: AppendOnlyTreeSnapshot;
 };
@@ -415,11 +415,9 @@ export class CircuitBlockBuilder implements BlockBuilder {
     const newHistoricL1ToL2MessageTreeRootSiblingPath = await getRootTreeSiblingPath(
       MerkleTreeId.L1_TO_L2_MESSAGES_ROOTS_TREE,
     );
-
-    // TODO: UPDATE 4 to be a constant like in base rollups!
     const newL1ToL2MessageTreeRootSiblingPath = await this.getSubtreeSiblingPath(
       MerkleTreeId.L1_TO_L2_MESSAGES_TREE,
-      4,
+      L1_TO_L2_MESSAGES_SUBTREE_INSERTION_HEIGHT,
     );
 
     // Get tree snapshots

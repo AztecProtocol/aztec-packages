@@ -162,7 +162,7 @@ TEST_F(root_rollup_tests, native_calldata_hash_empty_blocks)
     // get messages
     std::array<fr, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP> const l1_to_l2_messages = get_empty_l1_to_l2_messages();
 
-    // TODO: make this depend on l1_to_l2 messages, currently it is just hashing zeros
+    // hash messages
     std::vector<uint8_t> const messages_hash_input_bytes_vec(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP * 32, 0);
     auto messages_hash = sha256::sha256(messages_hash_input_bytes_vec);
 
@@ -188,12 +188,6 @@ TEST_F(root_rollup_tests, native_calldata_hash_empty_blocks)
 
     run_cbind(inputs, outputs, true);
 }
-
-// TEST_F(root_rollup_tests, native_l1_to_l2_messages_hash_checks)
-// {
-//     utils::DummyComposer composer = utils::DummyComposer();
-
-// }
 
 TEST_F(root_rollup_tests, native_root_missing_nullifier_logic)
 {

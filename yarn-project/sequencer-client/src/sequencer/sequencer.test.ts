@@ -65,7 +65,6 @@ describe('sequencer', () => {
     expect(blockBuilder.buildL2Block).toHaveBeenCalledWith(
       lastBlockNumber + 1,
       expectedTxHashes.map(hash => expect.objectContaining({ hash })),
-      // TODO: longer term solution to this
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
     expect(publisher.processL2Block).toHaveBeenCalledWith(block);
@@ -103,7 +102,6 @@ describe('sequencer', () => {
     expect(blockBuilder.buildL2Block).toHaveBeenCalledWith(
       lastBlockNumber + 1,
       expectedTxHashes.map(hash => expect.objectContaining({ hash })),
-      // TODO: longer term solution to this
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
     expect(publisher.processL2Block).toHaveBeenCalledWith(block);

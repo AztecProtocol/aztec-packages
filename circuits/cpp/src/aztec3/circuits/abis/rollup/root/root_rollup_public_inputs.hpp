@@ -15,6 +15,7 @@ namespace aztec3::circuits::abis {
 using aztec3::utils::types::CircuitTypes;
 using aztec3::utils::types::NativeTypes;
 
+
 template <typename NCT> struct RootRollupPublicInputs {
     using fr = typename NCT::fr;
     using AggregationObject = typename NCT::AggregationObject;
@@ -70,7 +71,6 @@ template <typename NCT> struct RootRollupPublicInputs {
         write(buf, end_l1_to_l2_messages_tree_snapshot);
         write(buf, end_tree_of_historic_l1_to_l2_messages_tree_roots_snapshot);
 
-        // TODO: make both of these a function?
         // Stitching calldata hash together
         auto high_buffer = calldata_hash[0].to_buffer();
         auto low_buffer = calldata_hash[1].to_buffer();

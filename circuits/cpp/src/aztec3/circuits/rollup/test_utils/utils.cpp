@@ -58,7 +58,6 @@ KernelData get_empty_kernel()
 
 std::array<fr, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP> get_empty_l1_to_l2_messages()
 {
-    // TODO: fill with some meaningful values
     std::array<fr, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP> l1_to_l2_messages = { 0 };
     return l1_to_l2_messages;
 }

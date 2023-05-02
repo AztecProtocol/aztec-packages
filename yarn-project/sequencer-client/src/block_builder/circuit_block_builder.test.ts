@@ -109,7 +109,6 @@ describe('sequencer/circuit_block_builder', () => {
     }
   };
 
-  // TODO: could just inline this?
   const updateL1ToL2MessagesTree = async (l1ToL2Messages: Fr[]) => {
     const asBuffer = l1ToL2Messages.map(m => m.toBuffer());
     await expectsDb.appendLeaves(MerkleTreeId.L1_TO_L2_MESSAGES_TREE, asBuffer);
