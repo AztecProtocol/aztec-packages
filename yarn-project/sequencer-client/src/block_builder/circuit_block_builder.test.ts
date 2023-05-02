@@ -75,6 +75,9 @@ describe('sequencer/circuit_block_builder', () => {
     prover = mock<RollupProver>();
     builder = new CircuitBlockBuilder(builderDb, vks, simulator, prover);
 
+    // Create mock l1 to L2 messages
+    mockL1ToL2Messages = new Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n));
+
     // Create mock outputs for simualator
     baseRollupOutputLeft = makeBaseRollupPublicInputs();
     baseRollupOutputRight = makeBaseRollupPublicInputs();
