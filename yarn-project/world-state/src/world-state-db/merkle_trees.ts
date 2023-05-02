@@ -7,7 +7,7 @@ import {
   PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT,
   PUBLIC_DATA_TREE_HEIGHT,
 } from '@aztec/circuits.js';
-import { SerialQueue } from '@aztec/foundation';
+
 import { WasmWrapper } from '@aztec/foundation/wasm';
 import {
   AppendOnlyTree,
@@ -32,6 +32,7 @@ import {
   PublicTreeId,
   TreeInfo,
 } from './index.js';
+import { SerialQueue } from '@aztec/foundation/fifo';
 
 /**
  * A convenience class for managing multiple merkle trees.
