@@ -89,7 +89,7 @@ contract Decoder {
   /**
    * Computes a hash of the public inputs from the calldata
    * @param _l2Block - The L2 block calldata.
-   * @return sha256(header[0x4:0x16c], diffRoot)
+   * @return sha256(header[0x4: 0x1ac], diffRoot)
    */
   function _computePublicInputsHash(bytes calldata _l2Block) internal pure returns (bytes32) {
     // header size - block number size + one value for the diffRoot
@@ -121,7 +121,7 @@ contract Decoder {
   /**
    * @notice Computes a state hash
    * @param _l2BlockNumber - The L2 block number
-   * @param _offset - The offset into the data, 0x04 for old, 0xb8 for next
+   * @param _offset - The offset into the data, 0x04 for start, 0xd8 for end
    * @param _l2Block - The L2 block calldata.
    * @return The state hash
    */
@@ -139,6 +139,7 @@ contract Decoder {
       mstore8(add(temp, 0x23), _l2BlockNumber)
     }
     assembly {
+      // Copy header elements (not including block number) for start or end (size 0xd4)
       calldatacopy(add(temp, 0x24), add(_l2Block.offset, _offset), 0xd4)
     }
 
@@ -179,8 +180,11 @@ contract Decoder {
       }
     }
 
-    bytes32[] memory baseLeafs = new bytes32[](vars.commitmentCount / (COMMITMENTS_PER_KERNEL * 2));
+    bytes32[] memory baseLeafs = new bytes32[](
+            vars.commitmentCount / (COMMITMENTS_PER_KERNEL * 2)
+        );
 
+    // Data starts after header. Look at L2 Block Data specification at the top of this file.
     uint256 srcCommitmentOffset = 0x1b0;
     uint256 srcNullifierOffset = srcCommitmentOffset + 0x4 + vars.commitmentCount * 0x20;
     uint256 srcDataOffset = srcNullifierOffset + 0x4 + vars.nullifierCount * 0x20;
@@ -207,8 +211,9 @@ contract Decoder {
        * Note that we always read data, the l2Block (atm) must therefore include dummy or zero-notes for
        * Zero values.
        */
+      // Create the leaf to contain commitments (8 * 0x20) + nullifiers (8 * 0x20)
+      // + new public data writes (8 * 0x40) + contract deployments (2 * 0x60)
       bytes memory baseLeaf = new bytes(0x4c0);
-      // @todo I am messing something up here, at least the second time running something, it is getting fucked
 
       assembly {
         let dstOffset := 0x20
@@ -239,6 +244,7 @@ contract Decoder {
         dstOffset := add(dstOffset, 0x20)
 
         // Kernel1.contract.ethAddress padded to 32 bytes
+        // Add 12 (0xc) bytes of padding to the ethAddress
         dstOffset := add(dstOffset, 0xc)
         calldatacopy(
           add(baseLeaf, dstOffset), add(_l2Block.offset, add(srcContractDataOffset, 0x20)), 0x14
@@ -252,6 +258,7 @@ contract Decoder {
         dstOffset := add(dstOffset, 0x20)
 
         // Kernel2.contract.ethAddress padded to 32 bytes
+        // Add 12 (0xc) bytes of padding to the ethAddress
         dstOffset := add(dstOffset, 0xc)
         calldatacopy(
           add(baseLeaf, dstOffset), add(_l2Block.offset, add(srcContractDataOffset, 0x54)), 0x14
