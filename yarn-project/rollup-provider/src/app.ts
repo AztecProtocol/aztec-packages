@@ -1,16 +1,26 @@
 import { AztecNode } from '@aztec/aztec-node';
-import { KernelCircuitPublicInputs, SignedTxRequest } from '@aztec/circuits.js';
+import { KernelCircuitPublicInputs, SignedTxRequest, UInt8Vector } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation';
 import { Tx, TxHash, UnverifiedData } from '@aztec/types';
 import Koa, { Context, DefaultState } from 'koa';
 import Router from 'koa-router';
 import { PromiseReadable } from 'promise-readable';
 
+function txToJson(tx: Tx) {
+  return {
+    data: tx?.data?.toBuffer().toString('hex'),
+    unverified: tx?.unverifiedData?.toBuffer().toString('hex'),
+    txRequest: tx?.txRequest?.toBuffer().toString('hex'),
+    proof: tx?.proof?.toBuffer().toString('hex'),
+  };
+}
+
 function txFromJson(json: any) {
-  const publicInputs = KernelCircuitPublicInputs.fromBuffer(Buffer.from(json.tx.data, 'hex'));
-  const unverified = UnverifiedData.fromBuffer(Buffer.from(json.unverified, 'hex'));
-  const txRequest = SignedTxRequest.fromBuffer(Buffer.from(json.txRequest, 'hex'));
-  return Tx.create(publicInputs, undefined, unverified, txRequest);
+  const publicInputs = json.data ? KernelCircuitPublicInputs.fromBuffer(Buffer.from(json.data, 'hex')) : undefined;
+  const unverified = json.unverified ? UnverifiedData.fromBuffer(Buffer.from(json.unverified, 'hex')) : undefined;
+  const txRequest = json.txRequest ? SignedTxRequest.fromBuffer(Buffer.from(json.txRequest, 'hex')) : undefined;
+  const proof = json.proof ? Buffer.from(json.proof, 'hex') : undefined;
+  return Tx.create(publicInputs, proof == undefined ? undefined : new UInt8Vector(proof), unverified, txRequest);
 }
 
 export function appFactory(node: AztecNode, prefix: string) {
@@ -36,7 +46,6 @@ export function appFactory(node: AztecNode, prefix: string) {
   };
 
   router.get('/', async (ctx: Koa.Context) => {
-    console.log('root');
     ctx.body = {
       serviceName: 'aztec rollup',
       isReady: await node.isReady(),
@@ -46,7 +55,6 @@ export function appFactory(node: AztecNode, prefix: string) {
   });
 
   router.get('/get-blocks', async (ctx: Koa.Context) => {
-    console.log('get-blocks');
     const from = +ctx.query.from!;
     const take = +ctx.query.take!;
     const blocks = await node.getBlocks(from, take);
@@ -59,7 +67,6 @@ export function appFactory(node: AztecNode, prefix: string) {
   });
 
   router.get('/get-block-height', async (ctx: Koa.Context) => {
-    console.log('get-block-height');
     ctx.set('content-type', 'application/json');
     ctx.body = {
       blockHeight: await node.getBlockHeight(),
@@ -68,7 +75,6 @@ export function appFactory(node: AztecNode, prefix: string) {
   });
 
   router.get('/contract-data', async (ctx: Koa.Context) => {
-    console.log('get-contract-data');
     const address = ctx.query.address;
     ctx.set('content-type', 'application/json');
     ctx.body = {
@@ -78,7 +84,6 @@ export function appFactory(node: AztecNode, prefix: string) {
   });
 
   router.get('/contract-info', async (ctx: Koa.Context) => {
-    console.log('get-contract-info');
     const address = ctx.query.address;
     ctx.set('content-type', 'application/json');
     ctx.body = {
@@ -88,7 +93,6 @@ export function appFactory(node: AztecNode, prefix: string) {
   });
 
   router.get('/get-unverified', async (ctx: Koa.Context) => {
-    console.log('get-unverified');
     const from = +ctx.query.from!;
     const take = +ctx.query.take!;
     const blocks = await node.getUnverifiedData(from, take);
@@ -102,22 +106,16 @@ export function appFactory(node: AztecNode, prefix: string) {
 
   router.get('/get-pending-tx', async (ctx: Koa.Context) => {
     const hash = ctx.query.hash!;
-    console.log('get-pending-tx');
     const txHash = new TxHash(Buffer.from(hash as string, 'hex'));
     const tx = await node.getPendingTxByHash(txHash);
     ctx.set('content-type', 'application/json');
     ctx.body = {
-      tx: {
-        data: tx?.data?.toBuffer().toString('hex'),
-        unverified: tx?.unverifiedData?.toBuffer().toString('hex'),
-        txRequest: tx?.txRequest?.toBuffer().toString('hex'),
-      },
+      tx: tx == undefined ? undefined : txToJson(tx),
     };
     ctx.status = 200;
   });
 
   router.get('/contract-index', async (ctx: Koa.Context) => {
-    console.log('contract-index');
     const leaf = ctx.query.leaf!;
     const index = await node.findContractIndex(Buffer.from(leaf as string, 'hex'));
     ctx.set('content-type', 'application/json');
@@ -128,7 +126,6 @@ export function appFactory(node: AztecNode, prefix: string) {
   });
 
   router.get('/contract-path', async (ctx: Koa.Context) => {
-    console.log('contract-path');
     const leaf = ctx.query.leaf!;
     const path = await node.getContractPath(BigInt(leaf as string));
     ctx.set('content-type', 'application/json');
@@ -139,12 +136,13 @@ export function appFactory(node: AztecNode, prefix: string) {
   });
 
   router.get('/data-path', async (ctx: Koa.Context) => {
-    console.log('data-path');
     const leaf = ctx.query.leaf!;
-    const path = await node.getDataTreePath(BigInt(leaf as string));
+    const index = BigInt(leaf as string);
+    const path = await node.getDataTreePath(index);
     ctx.set('content-type', 'application/json');
+    const pathAsString = path.toString();
     ctx.body = {
-      path: path.toString(),
+      path: pathAsString,
     };
     ctx.status = 200;
   });
@@ -162,11 +160,9 @@ export function appFactory(node: AztecNode, prefix: string) {
   });
 
   router.post('/tx', checkReady, async (ctx: Koa.Context) => {
-    console.log('Received Tx');
     const stream = new PromiseReadable(ctx.req);
     const postData = JSON.parse((await stream.readAll()) as string);
-    const tx = postData.map(txFromJson);
-    console.log(`Tx `, tx);
+    const tx = txFromJson(postData);
     await node.sendTx(tx);
     ctx.status = 200;
   });

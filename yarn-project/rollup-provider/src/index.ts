@@ -1,6 +1,9 @@
 import { AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
 import { appFactory } from './app.js';
 import http from 'http';
+import { createDebugLogger } from '@aztec/foundation';
+
+const logger = createDebugLogger('aztec:rollup_provider');
 
 const { PORT = 9000 } = process.env;
 
@@ -20,7 +23,7 @@ async function main() {
 
   const httpServer = http.createServer(app.callback());
   httpServer.listen(PORT);
-  console.log(`Server listening on port ${PORT}.`);
+  logger(`Server listening on port ${PORT}.`);
 }
 
 main().catch(err => {

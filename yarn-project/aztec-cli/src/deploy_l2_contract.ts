@@ -1,7 +1,7 @@
-import { AztecNode, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
+import { AztecNode } from '@aztec/aztec-node';
 import { HttpNode } from './http-node.js';
-import { Contract, ContractDeployer, createAztecRPCServer } from '@aztec/aztec.js';
-import { DebugLogger, toBigIntBE, Point, EthAddress } from '@aztec/foundation';
+import { Contract, ContractDeployer, createAztecRPCServer, TxStatus, TxHash } from '@aztec/aztec.js';
+import { DebugLogger, toBigIntBE, Point, sleep } from '@aztec/foundation';
 import { ContractAbi } from '@aztec/noir-contracts';
 
 const contractAbi = {
@@ -203,9 +203,38 @@ const pointToPublicKey = (point: Point) => {
   };
 };
 
-export async function deployL2Contract(url: string, logger: DebugLogger) {
-  const config = getConfigEnvVars();
-  const node: AztecNode = await AztecNodeService.createAndSync(config);
+export async function deployL2Contract(url: string, logger: DebugLogger, loop: boolean, interval: number) {
+  const node: AztecNode = new HttpNode(url);
+  const aztecRpcServer = await createAztecRpc(2, node);
+  const accounts = await aztecRpcServer.getAccounts();
+  const outstandingTxs: TxHash[] = [];
+
+  do {
+    logger(`Deploying L2 contract...`);
+    const initialBalance = 1_000_000_000n;
+    const zkContract = contractAbi as ContractAbi;
+    const deployer = new ContractDeployer(zkContract, aztecRpcServer);
+    const owner = await aztecRpcServer.getAccountPublicKey(accounts[0]);
+    const d = deployer.deploy(initialBalance, pointToPublicKey(owner));
+    await d.create();
+    const tx = d.send();
+    const txHash = await tx.getTxHash();
+    outstandingTxs.push(txHash);
+    logger('L2 contract deployed');
+    await sleep(loop ? interval : 1);
+    for (let i = 0; i < outstandingTxs.length; i++) {
+      const hash = outstandingTxs[i];
+      const receipt = await aztecRpcServer.getTxReceipt(hash);
+      if (receipt.status == TxStatus.MINED) {
+        logger(`Tx ${hash.toString()} settled`);
+        outstandingTxs.splice(i, 1);
+      }
+    }
+  } while (loop);
+}
+
+export async function deployL2ContractAndMakeTransfers(url: string, logger: DebugLogger) {
+  const node: AztecNode = new HttpNode(url);
   const aztecRpcServer = await createAztecRpc(2, node);
   const accounts = await aztecRpcServer.getAccounts();
 
@@ -213,36 +242,27 @@ export async function deployL2Contract(url: string, logger: DebugLogger) {
   const initialBalance = 1_000_000_000n;
   const zkContract = contractAbi as ContractAbi;
   const deployer = new ContractDeployer(zkContract, aztecRpcServer);
-  logger(`Getting account public key...`);
   const owner = await aztecRpcServer.getAccountPublicKey(accounts[0]);
-  logger(`Retrieved account key`);
+  const receiver = await aztecRpcServer.getAccountPublicKey(accounts[1]);
   const d = deployer.deploy(initialBalance, pointToPublicKey(owner));
-  logger(`deploy method called`);
-  const t = await d.create();
-
-  logger('create called');
+  await d.create();
   const tx = d.send();
-  logger('send called');
   const receipt = await tx.getReceipt();
   const contract = new Contract(receipt.contractAddress!, zkContract, aztecRpcServer);
-  await tx.isMined(0, 0.1);
+  await tx.isMined(0, 1);
   await tx.getReceipt();
   logger('L2 contract deployed');
-  return contract;
+
+  while (true) {
+    await sleep(10000);
+    logger(`Making transfer...`);
+    const transferAmount = 1n;
+    const transferTx = contract.methods
+      .transfer(transferAmount, pointToPublicKey(owner), pointToPublicKey(receiver))
+      .send({ from: accounts[0] });
+    logger(`Transfer sent`);
+    await transferTx.isMined(0, 1);
+    logger(`Transfer mined`);
+    await transferTx.getReceipt();
+  }
 }
-
-// const expectBalance = async (owner: AztecAddress, expectedBalance: bigint) => {
-//   const ownerPublicKey = await aztecRpcServer.getAccountPublicKey(owner);
-//   const [balance] = await contract.methods.getBalance(pointToPublicKey(ownerPublicKey)).view({ from: owner });
-//   logger(`Account ${owner} balance: ${balance}`);
-//   expect(balance).toBe(expectedBalance);
-// };
-
-// const pointToPublicKey = (point: Point) => {
-//   const x = point.buffer.subarray(0, 32);
-//   const y = point.buffer.subarray(32, 64);
-//   return {
-//     x: toBigIntBE(x),
-//     y: toBigIntBE(y),
-//   };
-// };

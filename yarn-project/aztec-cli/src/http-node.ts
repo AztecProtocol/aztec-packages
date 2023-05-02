@@ -1,5 +1,5 @@
 import { AztecNode } from '@aztec/aztec-node';
-import { KernelCircuitPublicInputs, SignedTxRequest } from '@aztec/circuits.js';
+import { KernelCircuitPublicInputs, SignedTxRequest, UInt8Vector } from '@aztec/circuits.js';
 import { AztecAddress, createDebugLogger } from '@aztec/foundation';
 import { SiblingPath } from '@aztec/merkle-tree';
 import { ContractData, ContractPublicData, L2Block, Tx, TxHash, UnverifiedData } from '@aztec/types';
@@ -11,14 +11,16 @@ function txToJson(tx: Tx) {
     data: tx?.data?.toBuffer().toString('hex'),
     unverified: tx?.unverifiedData?.toBuffer().toString('hex'),
     txRequest: tx?.txRequest?.toBuffer().toString('hex'),
+    proof: tx?.proof?.toBuffer().toString('hex'),
   };
 }
 
 function txFromJson(json: any) {
-  const publicInputs = KernelCircuitPublicInputs.fromBuffer(Buffer.from(json.tx.data, 'hex'));
-  const unverified = UnverifiedData.fromBuffer(Buffer.from(json.unverified, 'hex'));
-  const txRequest = SignedTxRequest.fromBuffer(Buffer.from(json.txRequest, 'hex'));
-  return Tx.create(publicInputs, undefined, unverified, txRequest);
+  const publicInputs = json.data ? KernelCircuitPublicInputs.fromBuffer(Buffer.from(json.data, 'hex')) : undefined;
+  const unverified = json.unverified ? UnverifiedData.fromBuffer(Buffer.from(json.unverified, 'hex')) : undefined;
+  const txRequest = json.txRequest ? SignedTxRequest.fromBuffer(Buffer.from(json.txRequest, 'hex')) : undefined;
+  const proof = json.proof ? Buffer.from(json.proof, 'hex') : undefined;
+  return Tx.create(publicInputs, proof == undefined ? undefined : new UInt8Vector(proof), unverified, txRequest);
 }
 
 export class HttpNode implements AztecNode {
@@ -31,7 +33,6 @@ export class HttpNode implements AztecNode {
    * @returns - Flag indicating the readiness for tx submission.
    */
   public async isReady(): Promise<boolean> {
-    console.log('isReady');
     const url = new URL(this.baseUrl);
     const response = await fetch(url.toString());
     const respJson = await response.json();
@@ -45,7 +46,6 @@ export class HttpNode implements AztecNode {
    * @returns The blocks requested.
    */
   async getBlocks(from: number, take: number): Promise<L2Block[]> {
-    console.log('get-blocks');
     const url = new URL(`${this.baseUrl}/get-blocks`);
     url.searchParams.append('from', from.toString());
     if (take !== undefined) {
@@ -64,7 +64,6 @@ export class HttpNode implements AztecNode {
    * @returns The block height as a number.
    */
   async getBlockHeight(): Promise<number> {
-    logger('get-block-height');
     const url = new URL(`${this.baseUrl}/get-block-height`);
     const response = await fetch(url.toString());
     const respJson = await response.json();
@@ -79,7 +78,6 @@ export class HttpNode implements AztecNode {
    */
   async getContractData(contractAddress: AztecAddress): Promise<ContractPublicData | undefined> {
     try {
-      console.log('get-contract-data');
       const url = new URL(`${this.baseUrl}/contract-data`);
       url.searchParams.append('address', contractAddress.toString());
       const response = await (await fetch(url.toString())).json();
@@ -98,7 +96,6 @@ export class HttpNode implements AztecNode {
    */
   async getContractInfo(contractAddress: AztecAddress): Promise<ContractData | undefined> {
     try {
-      console.log('get-contract-info');
       const url = new URL(`${this.baseUrl}/contract-info`);
       url.searchParams.append('address', contractAddress.toString());
       const response = await (await fetch(url.toString())).json();
@@ -122,11 +119,12 @@ export class HttpNode implements AztecNode {
       url.searchParams.append('take', take.toString());
     }
     const response = await (await fetch(url.toString())).json();
-    const blocks = response.blocks as string[];
-    if (!blocks) {
+    const unverified = response.unverified as string[];
+
+    if (!unverified) {
       return Promise.resolve([]);
     }
-    return Promise.resolve(blocks.map(x => UnverifiedData.fromBuffer(Buffer.from(x, 'hex'))));
+    return Promise.resolve(unverified.map(x => UnverifiedData.fromBuffer(Buffer.from(x, 'hex'))));
   }
 
   /**
@@ -134,7 +132,6 @@ export class HttpNode implements AztecNode {
    * @param tx - The transaction to be submitted.
    */
   async sendTx(tx: Tx): Promise<void> {
-    logger('send-tx');
     const url = new URL(`${this.baseUrl}/tx`);
     const json = txToJson(tx);
     const init: RequestInit = {};
@@ -157,19 +154,14 @@ export class HttpNode implements AztecNode {
    * @returns - The pending tx if it exists
    */
   async getPendingTxByHash(txHash: TxHash): Promise<Tx | undefined> {
-    logger('get-pending-tx');
     const url = new URL(`${this.baseUrl}/get-pending-tx`);
     url.searchParams.append('hash', txHash.toString());
     const response = await (await fetch(url.toString())).json();
-    const publicInputs = KernelCircuitPublicInputs.fromBuffer(Buffer.from(response.tx.data, 'hex'));
-    const unverified = UnverifiedData.fromBuffer(Buffer.from(response.unverified, 'hex'));
-    const txRequest = SignedTxRequest.fromBuffer(Buffer.from(response.txRequest, 'hex'));
-    return Tx.create(publicInputs, undefined, unverified, txRequest);
+    return Promise.resolve(txFromJson(response));
   }
 
   async findContractIndex(leafValue: Buffer): Promise<bigint | undefined> {
     try {
-      console.log('contract-index');
       const url = new URL(`${this.baseUrl}/contract-index`);
       url.searchParams.append('leaf', leafValue.toString('hex'));
       const response = await (await fetch(url.toString())).json();
@@ -182,7 +174,6 @@ export class HttpNode implements AztecNode {
 
   async getContractPath(leafIndex: bigint): Promise<SiblingPath> {
     try {
-      console.log('contract-path');
       const url = new URL(`${this.baseUrl}/contract-path`);
       url.searchParams.append('leaf', leafIndex.toString());
       const response = await (await fetch(url.toString())).json();
@@ -196,12 +187,12 @@ export class HttpNode implements AztecNode {
 
   async getDataTreePath(leafIndex: bigint): Promise<SiblingPath> {
     try {
-      console.log('data-path');
       const url = new URL(`${this.baseUrl}/data-path`);
       url.searchParams.append('leaf', leafIndex.toString());
       const response = await (await fetch(url.toString())).json();
       const path = response.path as string;
-      return Promise.resolve(SiblingPath.fromString(path));
+      const sibling = SiblingPath.fromString(path);
+      return Promise.resolve(sibling);
     } catch (err) {
       console.log(err);
       throw err;
@@ -217,7 +208,6 @@ export class HttpNode implements AztecNode {
    */
   async getStorageAt(contract: AztecAddress, slot: bigint): Promise<Buffer | undefined> {
     try {
-      console.log('get-storage-at');
       const url = new URL(`${this.baseUrl}/storage-at`);
       url.searchParams.append('address', contract.toString());
       url.searchParams.append('slot', slot.toString());

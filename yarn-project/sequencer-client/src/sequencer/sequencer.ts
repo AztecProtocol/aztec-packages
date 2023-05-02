@@ -1,6 +1,15 @@
 import { RunningPromise, createDebugLogger } from '@aztec/foundation';
 import { P2P } from '@aztec/p2p';
-import { ContractData, ContractPublicData, PrivateTx, PublicTx, Tx, UnverifiedData, isPrivateTx } from '@aztec/types';
+import {
+  ContractData,
+  ContractPublicData,
+  L2BlockSource,
+  PrivateTx,
+  PublicTx,
+  Tx,
+  UnverifiedData,
+  isPrivateTx,
+} from '@aztec/types';
 import { MerkleTreeId, WorldStateStatus, WorldStateSynchroniser } from '@aztec/world-state';
 import times from 'lodash.times';
 import { BlockBuilder } from '../block_builder/index.js';
@@ -23,7 +32,7 @@ export class Sequencer {
   private runningPromise?: RunningPromise;
   private pollingIntervalMs: number;
   private maxTxsPerBlock = 32;
-  private lastBlockNumber = -1;
+  private lastPublishedBlock = 0;
   private state = SequencerState.STOPPED;
 
   constructor(
@@ -32,6 +41,7 @@ export class Sequencer {
     private worldState: WorldStateSynchroniser,
     private blockBuilder: BlockBuilder,
     private publicProcessor: PublicProcessor,
+    private l2BlockSource: L2BlockSource,
     config?: SequencerConfig,
     private log = createDebugLogger('aztec:sequencer'),
   ) {
@@ -69,7 +79,7 @@ export class Sequencer {
 
   protected async initialSync() {
     // TODO: Should we wait for worldstate to be ready, or is the caller expected to run await start?
-    this.lastBlockNumber = await this.worldState.status().then((s: WorldStateStatus) => s.syncedToL2Block);
+    this.lastPublishedBlock = await this.worldState.status().then((s: WorldStateStatus) => s.syncedToL2Block);
   }
 
   /**
@@ -91,17 +101,15 @@ export class Sequencer {
 
       // Get txs to build the new block
       const pendingTxs = await this.p2pClient.getTxs();
-      if (pendingTxs.length === 0) return;
-      this.log(`Processing ${pendingTxs.length} txs from P2P pool`);
+      if (pendingTxs.length < this.maxTxsPerBlock) return;
 
       // Filter out invalid txs
       const validTxs = await this.takeValidTxs(pendingTxs);
-      if (validTxs.length === 0) {
-        this.log(`No valid txs left after processing`);
+      if (validTxs.length !== this.maxTxsPerBlock) {
         return;
       }
 
-      this.log(`Processing txs ${(await Tx.getHashes(validTxs)).join(', ')}`);
+      this.log(`Processing ${validTxs.length} txs...`);
       this.state = SequencerState.CREATING_BLOCK;
 
       // Process public txs and drop the ones that fail processing
@@ -121,7 +129,7 @@ export class Sequencer {
       const publishedL2Block = await this.publisher.processL2Block(block);
       if (publishedL2Block) {
         this.log(`Successfully published block ${block.number}`);
-        this.lastBlockNumber++;
+        this.lastPublishedBlock = block.number;
       } else {
         this.log(`Failed to publish block`);
       }
@@ -203,17 +211,21 @@ export class Sequencer {
    * @returns Boolean indicating if our dependencies are synced to the latest block.
    */
   protected async isBlockSynced() {
-    return (
-      (await this.worldState.status().then((s: WorldStateStatus) => s.syncedToL2Block)) >= this.lastBlockNumber &&
-      (await this.p2pClient.getStatus().then(s => s.syncedToL2Block)) >= this.lastBlockNumber
-    );
+    const syncedBlocks = await Promise.all([
+      this.worldState.status().then((s: WorldStateStatus) => s.syncedToL2Block),
+      this.p2pClient.getStatus().then(s => s.syncedToL2Block),
+    ]);
+    const max = Math.max(...syncedBlocks);
+    return max >= this.lastPublishedBlock;
   }
 
   protected async buildBlock(txs: ProcessedTx[]) {
     // Pad the txs array with empty txs to be a power of two, at least 4
     const txsTargetSize = Math.max(ceilPowerOfTwo(txs.length), 4);
     const allTxs = [...txs, ...(await Promise.all(times(txsTargetSize - txs.length, makeEmptyProcessedTx)))];
-    const [block] = await this.blockBuilder.buildL2Block(this.lastBlockNumber + 1, allTxs);
+    const blockNumber = await this.l2BlockSource.getBlockHeight();
+    this.log(`Building block ${blockNumber + 1}`);
+    const [block] = await this.blockBuilder.buildL2Block(blockNumber + 1, allTxs);
     return block;
   }
 

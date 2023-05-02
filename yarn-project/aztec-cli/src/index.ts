@@ -4,7 +4,7 @@ import { deployL1Contracts } from './deploy_l1_contracts.js';
 import { mnemonicToAccount } from 'viem/accounts';
 import { createDebugLogger } from '@aztec/foundation';
 import { HttpNode } from './http-node.js';
-import { deployL2Contract } from './deploy_l2_contract.js';
+import { deployL2Contract, deployL2ContractAndMakeTransfers } from './deploy_l2_contract.js';
 
 const logger = createDebugLogger('aztec:cli');
 
@@ -47,9 +47,22 @@ async function main() {
   program
     .command('deploy')
     .argument('[rpcUrl]', 'url of the rollup provider', 'http://localhost:9000')
+    .argument('[interval]', 'interval between contract deployments', 0)
+    .action(async (rpcUrl: string, intervalArg: string) => {
+      try {
+        const interval = Number(intervalArg);
+        await deployL2Contract(rpcUrl, logger, interval != 0, interval);
+      } catch (err) {
+        logger(`Error`, err);
+      }
+    });
+
+  program
+    .command('transfer')
+    .argument('[rpcUrl]', 'url of the rollup provider', 'http://localhost:9000')
     .action(async (rpcUrl: string) => {
       try {
-        await deployL2Contract(rpcUrl, logger);
+        await deployL2ContractAndMakeTransfers(rpcUrl, logger);
       } catch (err) {
         logger(`Error`, err);
       }

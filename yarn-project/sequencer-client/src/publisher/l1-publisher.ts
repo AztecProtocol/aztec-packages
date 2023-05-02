@@ -58,6 +58,8 @@ export class L1Publisher implements L2BlockReceiver {
       const txHash = await this.sendProcessTx(txData);
       if (!txHash) break;
 
+      await this.sleepOrInterrupted();
+
       const receipt = await this.getTransactionReceipt(txHash);
       if (!receipt) break;
 

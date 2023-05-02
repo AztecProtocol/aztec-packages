@@ -1,0 +1,13 @@
+#! /bin/bash
+set -eu
+
+cd ..
+export ETHEREUM_HOST=http://localhost:8545
+export ROLLUP_CONTRACT_ADDRESS=0xdc11f7e700a4c898ae5caddb1082cffa76512add
+export UNVERIFIED_DATA_EMITTER_ADDRESS=0x51a1ceb83b83f1985a81c295d1ff28afef186e02
+export SEQ_PUBLISHER_PRIVATE_KEY=ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
+export DEBUG='aztec:*'
+export ARCHIVER_POLLING_INTERVAL=10000
+export SEQ_RETRY_INTERVAL=10000
+export SEQ_MAX_TX_PER_BLOCK=4
+yarn start

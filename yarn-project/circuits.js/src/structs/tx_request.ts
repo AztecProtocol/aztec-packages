@@ -4,6 +4,7 @@ import { serializeToBuffer } from '../utils/serialize.js';
 import { FunctionData } from './function_data.js';
 import { EcdsaSignature } from './shared.js';
 import { TxContext } from './tx_context.js';
+import { ARGS_LENGTH } from './constants.js';
 
 /**
  * Signed transaction request.
@@ -67,8 +68,7 @@ export class TxRequest {
    */
   toBuffer() {
     const fields = TxRequest.getFields(this);
-    const argsLength = this.args.length;
-    return serializeToBuffer([argsLength, ...fields]);
+    return serializeToBuffer([...fields]);
   }
 
   /**
@@ -77,12 +77,11 @@ export class TxRequest {
    */
   static fromBuffer(buffer: Buffer | BufferReader): TxRequest {
     const reader = BufferReader.asReader(buffer);
-    const argsLength = reader.readNumber();
     return new TxRequest(
       reader.readObject(AztecAddress),
       reader.readObject(AztecAddress),
       reader.readObject(FunctionData),
-      reader.readArray<Fr>(argsLength, Fr),
+      reader.readArray<Fr>(ARGS_LENGTH, Fr),
       reader.readFr(),
       reader.readObject(TxContext),
       reader.readFr(),

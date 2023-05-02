@@ -130,7 +130,6 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource, ContractDa
    */
   private async sync(blockUntilSynced: boolean) {
     const currentBlockNumber = await this.publicClient.getBlockNumber();
-
     await this.syncBlocks(blockUntilSynced, currentBlockNumber);
     await this.syncUnverifiedData(blockUntilSynced, currentBlockNumber);
     await this.syncNewContractData(blockUntilSynced, currentBlockNumber);
@@ -142,7 +141,6 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource, ContractDa
         break;
       }
 
-      this.log(`Synching L2BlockProcessed logs from block ${this.nextL2BlockFromBlock}`);
       const l2BlockProcessedLogs = await this.getL2BlockProcessedLogs(this.nextL2BlockFromBlock);
 
       if (l2BlockProcessedLogs.length === 0) {
@@ -163,7 +161,6 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource, ContractDa
         break;
       }
 
-      this.log(`Synching UnverifiedData logs from block ${this.nextUnverifiedDataFromBlock}`);
       const unverifiedDataLogs = await this.getUnverifiedDataLogs(this.nextUnverifiedDataFromBlock);
 
       if (unverifiedDataLogs.length === 0) {
@@ -182,7 +179,6 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource, ContractDa
         break;
       }
 
-      this.log(`Syncing ContractData logs from block ${this.nextContractDataFromBlock}`);
       const contractDataLogs = await this.getContractDataLogs(this.nextContractDataFromBlock);
 
       this.processContractDataLogs(contractDataLogs);
@@ -301,7 +297,6 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource, ContractDa
       );
       (this.contractPublicData[Number(l2BlockNum)] || []).push(contractData);
     }
-    this.log('Processed contractData corresponding to ' + logs.length + ' blocks.');
   }
 
   /**

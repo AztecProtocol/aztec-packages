@@ -1,6 +1,6 @@
 import { makeEmptyProof } from '@aztec/circuits.js';
 import { P2P, P2PClientState } from '@aztec/p2p';
-import { L2Block, PrivateTx, Tx, UnverifiedData } from '@aztec/types';
+import { L2Block, L2BlockSource, PrivateTx, Tx, UnverifiedData } from '@aztec/types';
 import { MerkleTreeId, MerkleTreeOperations, WorldStateRunningState, WorldStateSynchroniser } from '@aztec/world-state';
 import { MockProxy, mock } from 'jest-mock-extended';
 import times from 'lodash.times';
@@ -17,6 +17,7 @@ describe('sequencer', () => {
   let blockBuilder: MockProxy<BlockBuilder>;
   let merkleTreeOps: MockProxy<MerkleTreeOperations>;
   let publicProcessor: MockProxy<PublicProcessor>;
+  let l2BlockSource: MockProxy<L2BlockSource>;
 
   let lastBlockNumber: number;
 
@@ -42,7 +43,11 @@ describe('sequencer', () => {
       process: async txs => [await Promise.all(txs.map(tx => makeProcessedTx(tx as PrivateTx))), []],
     });
 
-    sequencer = new TestSubject(publisher, p2p, worldState, blockBuilder, publicProcessor);
+    l2BlockSource = mock<L2BlockSource>({
+      getBlockHeight: () => Promise.resolve(lastBlockNumber),
+    });
+
+    sequencer = new TestSubject(publisher, p2p, worldState, blockBuilder, publicProcessor, l2BlockSource);
   });
 
   it('builds a block out of a single tx', async () => {

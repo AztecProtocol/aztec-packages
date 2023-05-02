@@ -32,14 +32,12 @@ export class Synchroniser {
             await this.interruptableSleep.sleep(retryInterval);
             continue;
           }
-
           // Note: If less than `take` unverified data is returned, then I fetch only that number of blocks.
           const blocks = await this.node.getBlocks(from, unverifiedData.length);
           if (!blocks.length) {
             await this.interruptableSleep.sleep(retryInterval);
             continue;
           }
-
           if (blocks.length !== unverifiedData.length) {
             // "Trim" the unverified data to match the number of blocks.
             unverifiedData = unverifiedData.slice(0, blocks.length);
