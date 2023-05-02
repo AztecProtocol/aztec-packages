@@ -331,6 +331,17 @@ jobs:
           name: "Build"
           command: build end-to-end
 
+  rollup-provider:
+    machine:
+      image: ubuntu-2004:202010-01
+    resource_class: large
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Build"
+          command: build rollup-provider
+
   e2e-deploy-contract:
     docker:
       - image: aztecprotocol/alpine-build-image
@@ -446,6 +457,7 @@ workflows:
       - sequencer-client: *yarn_project
       - types: *yarn_project
       - circuits-js: *yarn_project
+      - rollup-provider: *yarn_project
 
       - e2e-join:
           requires:
