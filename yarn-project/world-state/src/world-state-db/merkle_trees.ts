@@ -13,15 +13,15 @@ import {
 import { WasmWrapper } from '@aztec/foundation/wasm';
 import {
   AppendOnlyTree,
-  StandardIndexedTree,
+  IndexedTree,
   LeafData,
   Pedersen,
   SiblingPath,
+  SparseTree,
+  StandardIndexedTree,
   StandardTree,
   UpdateOnlyTree,
-  IndexedTree,
   newTree,
-  SparseTree,
 } from '@aztec/merkle-tree';
 import { default as levelup } from 'levelup';
 import { MerkleTreeOperationsFacade } from '../merkle-tree/merkle_tree_operations_facade.js';
@@ -122,7 +122,10 @@ export class MerkleTrees implements MerkleTreeDb {
 
     this.jobQueue.start();
 
+    // The roots trees must contain the empty roots of their data trees
     await this.updateHistoricRootsTrees(true);
+    await contractTreeRootsTree.commit();
+    await privateDataTreeRootsTree.commit();
   }
 
   /**
