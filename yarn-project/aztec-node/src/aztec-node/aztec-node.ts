@@ -1,5 +1,4 @@
 import { Archiver } from '@aztec/archiver';
-import { AztecAddress, Fr } from '@aztec/foundation';
 import { ContractPublicData, ContractData, ContractDataSource, L2Block, L2BlockSource } from '@aztec/types';
 import { SiblingPath } from '@aztec/merkle-tree';
 import { P2P, P2PClient } from '@aztec/p2p';
@@ -18,6 +17,8 @@ import { default as memdown, MemDown } from 'memdown';
 import { AztecNodeConfig } from './config.js';
 import { CircuitsWasm } from '@aztec/circuits.js';
 import { PrimitivesWasm } from '@aztec/barretenberg.js/wasm';
+import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { Fr } from '@aztec/foundation/fields';
 
 export const createMemDown = () => (memdown as any)() as MemDown<any, any>;
 
