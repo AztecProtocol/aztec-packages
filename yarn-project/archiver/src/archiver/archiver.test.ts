@@ -7,7 +7,7 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { sleep } from '@aztec/foundation/sleep';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { randomBytes } from '@aztec/foundation/crypto';
-import { toBufferBE } from '@aztec/foundation';
+import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 
 describe('Archiver', () => {
   const rollupAddress = '0x0000000000000000000000000000000000000000';
