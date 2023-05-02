@@ -1,6 +1,6 @@
 import { SequencerConfig } from './sequencer/config.js';
 import { PublisherConfig, TxSenderConfig } from './publisher/config.js';
-import { EthAddress } from '@aztec/foundation';
+import { EthAddress } from '@aztec/foundation/eth-address';
 
 export type SequencerClientConfig = PublisherConfig & TxSenderConfig & SequencerConfig;
 
