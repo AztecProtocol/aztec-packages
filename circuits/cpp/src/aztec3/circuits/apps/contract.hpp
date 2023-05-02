@@ -1,7 +1,6 @@
 #pragma once
 
 #include "function_declaration.hpp"
-#include "l1_function_interface.hpp"
 
 #include <aztec3/circuits/abis/function_data.hpp>
 
@@ -18,8 +17,8 @@ using NT = aztec3::utils::types::NativeTypes;
 // template <typename Composer> class FunctionExecutionContext;
 
 template <typename NCT> class Contract {
-    typedef typename NCT::fr fr;
-    typedef typename NCT::uint32 uint32;
+    using fr = typename NCT::fr;
+    using uint32 = typename NCT::uint32;
 
   public:
     const std::string contract_name;
@@ -32,19 +31,16 @@ template <typename NCT> class Contract {
 
     std::map<std::string, FunctionData<NCT>> function_datas;
 
-    std::map<std::string, L1FunctionInterface<NCT>> l1_functions;
-
     std::map<std::string, Contract<NCT>> imported_contracts;
 
-    Contract<NCT>(std::string const& contract_name)
-        : contract_name(contract_name)
+    explicit Contract<NCT>(std::string const& contract_name) : contract_name(contract_name)
     {
         // exec_ctx.register_contract(this);
     }
 
     void set_functions(std::vector<FunctionDeclaration<NCT>> const& functions);
 
-    void import_contracts(std::vector<std::pair<std::string, Contract<NCT>>> const import_declarations);
+    void import_contracts(std::vector<std::pair<std::string, Contract<NCT>>> import_declarations);
 
     Contract<NCT>& get_imported_contract(std::string const& name)
     {
@@ -58,10 +54,6 @@ template <typename NCT> class Contract {
     // FunctionData<CT> get_function(std::string name) { return function_data[name]; }
 
     FunctionData<NCT> get_function_data_by_name(std::string const& name);
-
-    void import_l1_function(L1FunctionInterfaceStruct<NCT> const& l1_function_struct);
-
-    L1FunctionInterface<NCT>& get_l1_function(std::string const& name);
 
     // TODO: maybe also declare a type at this stage, so the correct type can be checked-for when the StateVar type is
     // created within the function.
@@ -101,7 +93,7 @@ template <typename NCT> class Contract {
     }
 };
 
-} // namespace aztec3::circuits::apps
+}  // namespace aztec3::circuits::apps
 
 // Importing in this way (rather than explicit instantiation of a template class at the bottom of a .cpp file) preserves
 // the following:

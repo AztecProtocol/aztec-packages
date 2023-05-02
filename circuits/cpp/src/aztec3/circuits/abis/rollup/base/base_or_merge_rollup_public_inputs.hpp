@@ -1,11 +1,12 @@
 #pragma once
-#include <barretenberg/stdlib/recursion/aggregation_state/aggregation_state.hpp>
-#include <aztec3/utils/types/native_types.hpp>
-#include <aztec3/utils/types/circuit_types.hpp>
-#include <aztec3/utils/types/convert.hpp>
-#include "../../append_only_tree_snapshot.hpp"
 #include "../../append_only_tree_snapshot.hpp"
 #include "../constant_rollup_data.hpp"
+
+#include <aztec3/utils/types/circuit_types.hpp>
+#include <aztec3/utils/types/convert.hpp>
+#include <aztec3/utils/types/native_types.hpp>
+
+#include <barretenberg/stdlib/recursion/aggregation_state/aggregation_state.hpp>
 
 namespace aztec3::circuits::abis {
 
@@ -17,8 +18,8 @@ const uint32_t BASE_ROLLUP_TYPE = 0;
 const uint32_t MERGE_ROLLUP_TYPE = 1;
 
 template <typename NCT> struct BaseOrMergeRollupPublicInputs {
-    typedef typename NCT::fr fr;
-    typedef typename NCT::AggregationObject AggregationObject;
+    using fr = typename NCT::fr;
+    using AggregationObject = typename NCT::AggregationObject;
 
     uint32_t rollup_type;
     // subtree  height is always 0 for base.
@@ -37,8 +38,8 @@ template <typename NCT> struct BaseOrMergeRollupPublicInputs {
     AppendOnlyTreeSnapshot<NCT> start_contract_tree_snapshot;
     AppendOnlyTreeSnapshot<NCT> end_contract_tree_snapshot;
 
-    AppendOnlyTreeSnapshot<NCT> start_public_data_tree_snapshot;
-    AppendOnlyTreeSnapshot<NCT> end_public_data_tree_snapshot;
+    fr start_public_data_tree_root;
+    fr end_public_data_tree_root;
 
     // Hashes (probably sha256) to make public inputs constant-sized (to then be unpacked on-chain)
     // Needs to be two fields to accomodate all 256-bits of the hash
@@ -61,8 +62,8 @@ template <typename NCT> void read(uint8_t const*& it, BaseOrMergeRollupPublicInp
     read(it, obj.end_nullifier_tree_snapshot);
     read(it, obj.start_contract_tree_snapshot);
     read(it, obj.end_contract_tree_snapshot);
-    read(it, obj.start_public_data_tree_snapshot);
-    read(it, obj.end_public_data_tree_snapshot);
+    read(it, obj.start_public_data_tree_root);
+    read(it, obj.end_public_data_tree_root);
     read(it, obj.calldata_hash);
 };
 
@@ -80,8 +81,8 @@ template <typename NCT> void write(std::vector<uint8_t>& buf, BaseOrMergeRollupP
     write(buf, obj.end_nullifier_tree_snapshot);
     write(buf, obj.start_contract_tree_snapshot);
     write(buf, obj.end_contract_tree_snapshot);
-    write(buf, obj.start_public_data_tree_snapshot);
-    write(buf, obj.end_public_data_tree_snapshot);
+    write(buf, obj.start_public_data_tree_root);
+    write(buf, obj.end_public_data_tree_root);
     write(buf, obj.calldata_hash);
 };
 
@@ -115,14 +116,14 @@ template <typename NCT> std::ostream& operator<<(std::ostream& os, BaseOrMergeRo
                  "end_contract_tree_snapshot:\n"
               << obj.end_contract_tree_snapshot
               << "\n"
-                 "start_public_data_tree_snapshot:\n"
-              << obj.start_public_data_tree_snapshot
+                 "start_public_data_tree_root:\n"
+              << obj.start_public_data_tree_root
               << "\n"
-                 "end_public_data_tree_snapshot:\n"
-              << obj.end_public_data_tree_snapshot
+                 "end_public_data_tree_root:\n"
+              << obj.end_public_data_tree_root
               << "\n"
                  "calldata_hash: "
               << obj.calldata_hash << "\n";
 }
 
-} // namespace aztec3::circuits::abis
+}  // namespace aztec3::circuits::abis

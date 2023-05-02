@@ -35,6 +35,7 @@ import { RollupSimulator } from '../simulator/index.js';
 
 import { ProcessedTx } from '../sequencer/processed_tx.js';
 import { BlockBuilder } from './index.js';
+import { toFriendlyJSON } from '@aztec/circuits.js/utils';
 
 const frToBigInt = (fr: Fr) => toBigIntBE(fr.toBuffer());
 const bigintToFr = (num: bigint) => new Fr(num);
@@ -101,6 +102,9 @@ export class CircuitBlockBuilder implements BlockBuilder {
       ].map(tree => this.getTreeSnapshot(tree)),
     );
 
+    // Check txs are good for processing
+    this.validateTxs(txs);
+
     // We fill the tx batch with empty txs, we process only one tx at a time for now
     const [circuitsOutput, proof] = await this.runCircuits(txs);
 
@@ -108,7 +112,7 @@ export class CircuitBlockBuilder implements BlockBuilder {
       endPrivateDataTreeSnapshot,
       endNullifierTreeSnapshot,
       endContractTreeSnapshot,
-      endPublicDataTreeSnapshot,
+      endPublicDataTreeRoot,
       endTreeOfHistoricPrivateDataTreeRootsSnapshot,
       endTreeOfHistoricContractTreeRootsSnapshot,
     } = circuitsOutput;
@@ -134,7 +138,7 @@ export class CircuitBlockBuilder implements BlockBuilder {
       startContractTreeSnapshot,
       endContractTreeSnapshot,
       startPublicDataTreeRoot: startPublicDataTreeSnapshot.root,
-      endPublicDataTreeRoot: endPublicDataTreeSnapshot.root,
+      endPublicDataTreeRoot,
       startTreeOfHistoricPrivateDataTreeRootsSnapshot,
       endTreeOfHistoricPrivateDataTreeRootsSnapshot,
       startTreeOfHistoricContractTreeRootsSnapshot,
@@ -147,6 +151,16 @@ export class CircuitBlockBuilder implements BlockBuilder {
     });
 
     return [l2Block, proof];
+  }
+
+  protected validateTxs(txs: ProcessedTx[]) {
+    for (const tx of txs) {
+      for (const historicTreeRoot of ['privateDataTreeRoot', 'contractTreeRoot', 'nullifierTreeRoot'] as const) {
+        if (tx.data.constants.historicTreeRoots.privateHistoricTreeRoots[historicTreeRoot].isZero()) {
+          throw new Error(`Empty ${historicTreeRoot} for tx: ${toFriendlyJSON(tx)}`);
+        }
+      }
+    }
   }
 
   protected async getTreeSnapshot(id: MerkleTreeId): Promise<AppendOnlyTreeSnapshot> {
@@ -238,30 +252,19 @@ export class CircuitBlockBuilder implements BlockBuilder {
     // Update the root trees with the latest data and contract tree roots,
     // and validate them against the output of the root circuit simulation
     this.debug(`Updating and validating root trees`);
-    await this.updateRootTrees();
+    await this.db.updateRootsTrees();
     await this.validateRootOutput(rootOutput);
 
     return [rootOutput, rootProof];
   }
 
-  // Updates our roots trees with the new generated trees after the rollup updates
-  protected async updateRootTrees() {
-    for (const [newTree, rootTree] of [
-      [MerkleTreeId.PRIVATE_DATA_TREE, MerkleTreeId.PRIVATE_DATA_TREE_ROOTS_TREE],
-      [MerkleTreeId.CONTRACT_TREE, MerkleTreeId.CONTRACT_TREE_ROOTS_TREE],
-    ] as const) {
-      const newTreeInfo = await this.db.getTreeInfo(newTree);
-      await this.db.appendLeaves(rootTree, [newTreeInfo.root]);
-    }
-  }
-
   // Validate that the new roots we calculated from manual insertions match the outputs of the simulation
   protected async validateTrees(rollupOutput: BaseOrMergeRollupPublicInputs | RootRollupPublicInputs) {
     await Promise.all([
-      this.validateTree(rollupOutput, MerkleTreeId.CONTRACT_TREE, 'Contract'),
-      this.validateTree(rollupOutput, MerkleTreeId.PRIVATE_DATA_TREE, 'PrivateData'),
-      this.validateTree(rollupOutput, MerkleTreeId.NULLIFIER_TREE, 'Nullifier'),
-      this.validateTree(rollupOutput, MerkleTreeId.PUBLIC_DATA_TREE, 'PublicData'),
+      this.validateTreeSnapshot(rollupOutput, MerkleTreeId.CONTRACT_TREE, 'Contract'),
+      this.validateTreeSnapshot(rollupOutput, MerkleTreeId.PRIVATE_DATA_TREE, 'PrivateData'),
+      this.validateTreeSnapshot(rollupOutput, MerkleTreeId.NULLIFIER_TREE, 'Nullifier'),
+      this.validatePublicDataTreeRoot(rollupOutput),
     ]);
   }
 
@@ -285,11 +288,26 @@ export class CircuitBlockBuilder implements BlockBuilder {
     this.validateSimulatedTree(localTree, simulatedTree, name, `Roots ${name}`);
   }
 
+  /**
+   * Validates that the root of the public data tree matches the output of the circuit simulation.
+   * @param output The output of the circuit simulation.
+   * Note: Public data tree is sparse, so the "next available leaf index" doesn't make sense there.
+   *       For this reason we only validate root.
+   */
+  protected async validatePublicDataTreeRoot(output: BaseOrMergeRollupPublicInputs | RootRollupPublicInputs) {
+    const localTree = await this.getTreeSnapshot(MerkleTreeId.PUBLIC_DATA_TREE);
+    const simulatedTreeRoot = output[`endPublicDataTreeRoot`];
+
+    if (!simulatedTreeRoot.toBuffer().equals(localTree.root.toBuffer())) {
+      throw new Error(`PublicData tree root mismatch (local ${localTree.root}, simulated ${simulatedTreeRoot})`);
+    }
+  }
+
   // Helper for validating a non-roots tree against a circuit simulation output
-  protected async validateTree(
+  protected async validateTreeSnapshot(
     output: BaseOrMergeRollupPublicInputs | RootRollupPublicInputs,
     treeId: MerkleTreeId,
-    name: 'PrivateData' | 'Contract' | 'Nullifier' | 'PublicData',
+    name: 'PrivateData' | 'Contract' | 'Nullifier',
   ) {
     const localTree = await this.getTreeSnapshot(treeId);
     const simulatedTree = output[`end${name}TreeSnapshot`];
@@ -300,15 +318,13 @@ export class CircuitBlockBuilder implements BlockBuilder {
   protected validateSimulatedTree(
     localTree: AppendOnlyTreeSnapshot,
     simulatedTree: AppendOnlyTreeSnapshot,
-    name: 'PrivateData' | 'Contract' | 'Nullifier' | 'PublicData',
+    name: 'PrivateData' | 'Contract' | 'Nullifier',
     label?: string,
   ) {
     if (!simulatedTree.root.toBuffer().equals(localTree.root.toBuffer())) {
       throw new Error(`${label ?? name} tree root mismatch (local ${localTree.root}, simulated ${simulatedTree.root})`);
     }
-    // Public data tree is sparse, so the "next available leaf index" doesn't make sense there
-    // We'll eventually drop it, see https://github.com/AztecProtocol/aztec3-packages/issues/379
-    if (name !== 'PublicData' && simulatedTree.nextAvailableLeafIndex !== localTree.nextAvailableLeafIndex) {
+    if (simulatedTree.nextAvailableLeafIndex !== localTree.nextAvailableLeafIndex) {
       throw new Error(
         `${label ?? name} tree next available leaf index mismatch (local ${
           localTree.nextAvailableLeafIndex
@@ -790,7 +806,7 @@ export class CircuitBlockBuilder implements BlockBuilder {
       startNullifierTreeSnapshot,
       startContractTreeSnapshot,
       startPrivateDataTreeSnapshot,
-      startPublicDataTreeSnapshot,
+      startPublicDataTreeRoot: startPublicDataTreeSnapshot.root,
       newCommitmentsSubtreeSiblingPath,
       newContractsSubtreeSiblingPath,
       newNullifiersSubtreeSiblingPath,

@@ -1,12 +1,13 @@
 
 #pragma once
 
-#include "barretenberg/crypto/sha256/sha256.hpp"
-
 #include "aztec3/circuits/abis/append_only_tree_snapshot.hpp"
-#include <aztec3/utils/types/native_types.hpp>
 #include <aztec3/utils/types/circuit_types.hpp>
 #include <aztec3/utils/types/convert.hpp>
+#include <aztec3/utils/types/native_types.hpp>
+
+#include "barretenberg/crypto/sha256/sha256.hpp"
+
 #include <ostream>
 
 namespace aztec3::circuits::abis {
@@ -15,8 +16,8 @@ using aztec3::utils::types::CircuitTypes;
 using aztec3::utils::types::NativeTypes;
 
 template <typename NCT> struct RootRollupPublicInputs {
-    typedef typename NCT::fr fr;
-    typedef typename NCT::AggregationObject AggregationObject;
+    using fr = typename NCT::fr;
+    using AggregationObject = typename NCT::AggregationObject;
 
     // All below are shared between the base and merge rollups
     AggregationObject end_aggregation_object;
@@ -30,8 +31,8 @@ template <typename NCT> struct RootRollupPublicInputs {
     AppendOnlyTreeSnapshot<NCT> start_contract_tree_snapshot;
     AppendOnlyTreeSnapshot<NCT> end_contract_tree_snapshot;
 
-    AppendOnlyTreeSnapshot<NCT> start_public_data_tree_snapshot;
-    AppendOnlyTreeSnapshot<NCT> end_public_data_tree_snapshot;
+    fr start_public_data_tree_root;
+    fr end_public_data_tree_root;
 
     AppendOnlyTreeSnapshot<NCT> start_tree_of_historic_private_data_tree_roots_snapshot;
     AppendOnlyTreeSnapshot<NCT> end_tree_of_historic_private_data_tree_roots_snapshot;
@@ -84,8 +85,8 @@ template <typename NCT> void read(uint8_t const*& it, RootRollupPublicInputs<NCT
     read(it, obj.end_nullifier_tree_snapshot);
     read(it, obj.start_contract_tree_snapshot);
     read(it, obj.end_contract_tree_snapshot);
-    read(it, obj.start_public_data_tree_snapshot);
-    read(it, obj.end_public_data_tree_snapshot);
+    read(it, obj.start_public_data_tree_root);
+    read(it, obj.end_public_data_tree_root);
     read(it, obj.start_tree_of_historic_private_data_tree_roots_snapshot);
     read(it, obj.end_tree_of_historic_private_data_tree_roots_snapshot);
     read(it, obj.start_tree_of_historic_contract_tree_roots_snapshot);
@@ -104,8 +105,8 @@ template <typename NCT> void write(std::vector<uint8_t>& buf, RootRollupPublicIn
     write(buf, obj.end_nullifier_tree_snapshot);
     write(buf, obj.start_contract_tree_snapshot);
     write(buf, obj.end_contract_tree_snapshot);
-    write(buf, obj.start_public_data_tree_snapshot);
-    write(buf, obj.end_public_data_tree_snapshot);
+    write(buf, obj.start_public_data_tree_root);
+    write(buf, obj.end_public_data_tree_root);
     write(buf, obj.start_tree_of_historic_private_data_tree_roots_snapshot);
     write(buf, obj.end_tree_of_historic_private_data_tree_roots_snapshot);
     write(buf, obj.start_tree_of_historic_contract_tree_roots_snapshot);
@@ -122,8 +123,8 @@ template <typename NCT> std::ostream& operator<<(std::ostream& os, RootRollupPub
               << "end_nullifier_tree_snapshot: " << obj.end_nullifier_tree_snapshot << "\n"
               << "start_contract_tree_snapshot: " << obj.start_contract_tree_snapshot << "\n"
               << "end_contract_tree_snapshot: " << obj.end_contract_tree_snapshot << "\n"
-              << "start_public_data_tree_snapshot: " << obj.start_public_data_tree_snapshot << "\n"
-              << "end_public_data_tree_snapshot: " << obj.end_public_data_tree_snapshot << "\n"
+              << "start_public_data_tree_root: " << obj.start_public_data_tree_root << "\n"
+              << "end_public_data_tree_root: " << obj.end_public_data_tree_root << "\n"
               << "start_tree_of_historic_private_data_tree_roots_snapshot: "
               << obj.start_tree_of_historic_private_data_tree_roots_snapshot << "\n"
               << "end_tree_of_historic_private_data_tree_roots_snapshot: "
@@ -135,4 +136,4 @@ template <typename NCT> std::ostream& operator<<(std::ostream& os, RootRollupPub
               << "calldata_hash: " << obj.calldata_hash << "\n";
 };
 
-} // namespace aztec3::circuits::abis
+}  // namespace aztec3::circuits::abis

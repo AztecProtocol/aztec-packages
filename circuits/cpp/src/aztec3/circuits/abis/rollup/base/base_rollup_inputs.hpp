@@ -1,10 +1,12 @@
 #pragma once
 #include "../../append_only_tree_snapshot.hpp"
-#include "../../previous_kernel_data.hpp"
 #include "../../membership_witness.hpp"
-#include "../nullifier_leaf_preimage.hpp"
+#include "../../previous_kernel_data.hpp"
 #include "../constant_rollup_data.hpp"
+#include "../nullifier_leaf_preimage.hpp"
+
 #include "aztec3/constants.hpp"
+
 #include <math.h>
 
 namespace aztec3::circuits::abis {
@@ -14,15 +16,14 @@ using aztec3::utils::types::NativeTypes;
 using std::is_same;
 
 template <typename NCT> struct BaseRollupInputs {
-
-    typedef typename NCT::fr fr;
+    using fr = typename NCT::fr;
 
     std::array<PreviousKernelData<NCT>, 2> kernel_data;
 
     AppendOnlyTreeSnapshot<NCT> start_private_data_tree_snapshot;
     AppendOnlyTreeSnapshot<NCT> start_nullifier_tree_snapshot;
     AppendOnlyTreeSnapshot<NCT> start_contract_tree_snapshot;
-    AppendOnlyTreeSnapshot<NCT> start_public_data_tree_snapshot;
+    fr start_public_data_tree_root;
 
     std::array<NullifierLeafPreimage<NCT>, 2 * KERNEL_NEW_NULLIFIERS_LENGTH> low_nullifier_leaf_preimages;
     std::array<MembershipWitness<NCT, NULLIFIER_TREE_HEIGHT>, 2 * KERNEL_NEW_NULLIFIERS_LENGTH>
@@ -55,7 +56,7 @@ template <typename NCT> void read(uint8_t const*& it, BaseRollupInputs<NCT>& obj
     read(it, obj.start_private_data_tree_snapshot);
     read(it, obj.start_nullifier_tree_snapshot);
     read(it, obj.start_contract_tree_snapshot);
-    read(it, obj.start_public_data_tree_snapshot);
+    read(it, obj.start_public_data_tree_root);
     read(it, obj.low_nullifier_leaf_preimages);
     read(it, obj.low_nullifier_membership_witness);
     read(it, obj.new_commitments_subtree_sibling_path);
@@ -76,7 +77,7 @@ template <typename NCT> void write(std::vector<uint8_t>& buf, BaseRollupInputs<N
     write(buf, obj.start_private_data_tree_snapshot);
     write(buf, obj.start_nullifier_tree_snapshot);
     write(buf, obj.start_contract_tree_snapshot);
-    write(buf, obj.start_public_data_tree_snapshot);
+    write(buf, obj.start_public_data_tree_root);
     write(buf, obj.low_nullifier_leaf_preimages);
     write(buf, obj.low_nullifier_membership_witness);
     write(buf, obj.new_commitments_subtree_sibling_path);
@@ -99,8 +100,8 @@ template <typename NCT> std::ostream& operator<<(std::ostream& os, BaseRollupInp
               << obj.start_nullifier_tree_snapshot << "\n"
               << "start_contract_tree_snapshot:\n"
               << obj.start_contract_tree_snapshot << "\n"
-              << "start_public_data_tree_snapshot:\n"
-              << obj.start_public_data_tree_snapshot << "\n"
+              << "start_public_data_tree_root:\n"
+              << obj.start_public_data_tree_root << "\n"
               << "low_nullifier_leaf_preimages:\n"
               << obj.low_nullifier_leaf_preimages << "\n"
               << "low_nullifier_membership_witness:\n"
@@ -123,4 +124,4 @@ template <typename NCT> std::ostream& operator<<(std::ostream& os, BaseRollupInp
               << obj.constants << "\n";
 }
 
-} // namespace aztec3::circuits::abis
+}  // namespace aztec3::circuits::abis

@@ -1,13 +1,12 @@
-#include "aztec3/constants.hpp"
 #include "init.hpp"
 
-#include <barretenberg/stdlib/primitives/field/array.hpp>
-
-#include <aztec3/circuits/abis/private_kernel/private_inputs.hpp>
+#include "aztec3/constants.hpp"
 #include <aztec3/circuits/abis/kernel_circuit_public_inputs.hpp>
 #include <aztec3/circuits/abis/new_contract_data.hpp>
-
+#include <aztec3/circuits/abis/private_kernel/private_inputs.hpp>
 #include <aztec3/circuits/hash.hpp>
+
+#include <barretenberg/stdlib/primitives/field/array.hpp>
 
 namespace aztec3::circuits::kernel::private_kernel {
 
@@ -77,7 +76,7 @@ void initialise_end_values(PrivateInputs<CT> const& private_inputs, KernelCircui
 
     end.private_call_stack = start.private_call_stack;
     end.public_call_stack = start.public_call_stack;
-    end.l1_msg_stack = start.l1_msg_stack;
+    end.new_l2_to_l1_msgs = start.new_l2_to_l1_msgs;
 
     // TODO
     end.new_contracts = start.new_contracts;
@@ -111,7 +110,7 @@ void update_end_values(PrivateInputs<CT> const& private_inputs, KernelCircuitPub
     const auto& contract_deployment_data =
         private_inputs.signed_tx_request.tx_request.tx_context.contract_deployment_data;
 
-    { // contract deployment
+    {  // contract deployment
         // input storage contract address must be 0 if its a constructor call and non-zero otherwise
         auto is_contract_deployment = public_inputs.constants.tx_context.is_contract_deployment_tx;
 
@@ -144,12 +143,12 @@ void update_end_values(PrivateInputs<CT> const& private_inputs, KernelCircuitPub
         auto contract_address_nullifier = CT::fr(CT::blake3s(blake_input));
 
         // push the contract address nullifier to nullifier vector
-        CT::fr conditional_contract_address_nullifier =
+        CT::fr const conditional_contract_address_nullifier =
             CT::fr::conditional_assign(is_contract_deployment, contract_address_nullifier, CT::fr(0));
         array_push<Composer>(public_inputs.end.new_nullifiers, conditional_contract_address_nullifier);
 
         // Add new contract data if its a contract deployment function
-        NewContractData<CT> new_contract_data = NewContractData<CT>{
+        auto const new_contract_data = NewContractData<CT>{
             .contract_address = contract_address,
             .portal_contract_address = portal_contract_address,
             .function_tree_root = contract_deployment_data.function_tree_root,
@@ -159,7 +158,7 @@ void update_end_values(PrivateInputs<CT> const& private_inputs, KernelCircuitPub
                                                                                new_contract_data);
     }
 
-    { // commitments, nullifiers, and contracts
+    {  // commitments, nullifiers, and contracts
         std::array<CT::fr, NEW_COMMITMENTS_LENGTH> siloed_new_commitments;
         for (size_t i = 0; i < new_commitments.size(); ++i) {
             siloed_new_commitments[i] = CT::fr::conditional_assign(
@@ -180,21 +179,21 @@ void update_end_values(PrivateInputs<CT> const& private_inputs, KernelCircuitPub
         push_array_to_array<Composer>(siloed_new_nullifiers, public_inputs.end.new_nullifiers);
     }
 
-    { // call stacks
+    {  // call stacks
         // copy the private function circuit's callstack into the AggregatedData
-        auto& this_private_call_stack = private_call_public_inputs.private_call_stack;
+        const auto& this_private_call_stack = private_call_public_inputs.private_call_stack;
         push_array_to_array<Composer>(this_private_call_stack, public_inputs.end.private_call_stack);
     }
 
     // {
-    //     const auto& l1_msg_stack = private_call_public_inputs.l1_msg_stack;
-    //     std::array<CT::fr, L1_MSG_STACK_LENGTH> l1_call_stack;
+    //     const auto& new_l2_to_l1_msgs = private_call_public_inputs.new_l2_to_l1_msgs;
+    //     std::array<CT::fr, NEW_L2_TO_L1_MSGS_LENGTH> l1_call_stack;
 
-    //     for (size_t i = 0; i < l1_msg_stack.size(); ++i) {
+    //     for (size_t i = 0; i < new_l2_to_l1_msgs.size(); ++i) {
     //         l1_call_stack[i] = CT::fr::conditional_assign(
-    //             l1_msg_stack[i] == 0,
+    //             new_l2_to_l1_msgs[i] == 0,
     //             0,
-    //             CT::compress({ portal_contract_address, l1_msg_stack[i] }, GeneratorIndex::L1_MSG_STACK_ITEM));
+    //             CT::compress({ portal_contract_address, new_l2_to_l1_msgs[i] }, GeneratorIndex::L2_TO_L1_MSG));
     //     }
     // }
 }
@@ -224,8 +223,8 @@ void validate_this_private_call_hash(PrivateInputs<CT> const& private_inputs)
  */
 void validate_this_private_call_stack(PrivateInputs<CT> const& private_inputs)
 {
-    auto& stack = private_inputs.private_call.call_stack_item.public_inputs.private_call_stack;
-    auto& preimages = private_inputs.private_call.private_call_stack_preimages;
+    const auto& stack = private_inputs.private_call.call_stack_item.public_inputs.private_call_stack;
+    const auto& preimages = private_inputs.private_call.private_call_stack_preimages;
     for (size_t i = 0; i < stack.size(); ++i) {
         const auto& hash = stack[i];
         const auto& preimage = preimages[i];
@@ -258,20 +257,20 @@ void validate_inputs(PrivateInputs<CT> const& private_inputs)
     // These lengths are calculated by counting entries until a non-zero one is encountered
     // True array length is constant which is a property we need for circuit inputs,
     // but we want to know "length" in terms of how many nonzero entries have been inserted
-    CT::fr start_private_call_stack_length = array_length<Composer>(start.private_call_stack);
-    CT::fr start_public_call_stack_length = array_length<Composer>(start.public_call_stack);
-    CT::fr start_l1_msg_stack_length = array_length<Composer>(start.l1_msg_stack);
+    CT::fr const start_private_call_stack_length = array_length<Composer>(start.private_call_stack);
+    CT::fr const start_public_call_stack_length = array_length<Composer>(start.public_call_stack);
+    CT::fr const start_new_l2_to_l1_msgs_length = array_length<Composer>(start.new_l2_to_l1_msgs);
 
     // Recall: we can't do traditional `if` statements in a circuit; all code paths are always executed. The below is
     // some syntactic sugar, which seeks readability similar to an `if` statement.
 
     // Base Case
-    std::vector<std::pair<CT::boolean, std::string>> base_case_conditions{
+    std::vector<std::pair<CT::boolean, std::string>> const base_case_conditions{
         // TODO: change to allow 3 initial calls on the private call stack, so a fee can be paid and a gas
         // rebate can be paid.
         { start_private_call_stack_length == 1, "Private call stack must be length 1" },
         { start_public_call_stack_length == 0, "Public call stack must be empty" },
-        { start_l1_msg_stack_length == 0, "L1 msg stack must be empty" },
+        { start_new_l2_to_l1_msgs_length == 0, "L2 to L1 msgs must be empty" },
 
         { this_call_stack_item.public_inputs.call_context.is_delegate_call == false,
           "Users cannot make a delegatecall" },
@@ -297,7 +296,7 @@ void validate_inputs(PrivateInputs<CT> const& private_inputs)
     is_base_case.must_imply(base_case_conditions);
 
     // Recursive Case
-    std::vector<std::pair<CT::boolean, std::string>> recursive_case_conditions{
+    std::vector<std::pair<CT::boolean, std::string>> const recursive_case_conditions{
         { private_inputs.previous_kernel.public_inputs.is_private == true,
           "Cannot verify a non-private kernel snark in the private kernel circuit" },
         { this_call_stack_item.function_data.is_constructor == false,
@@ -355,4 +354,4 @@ KernelCircuitPublicInputs<NT> private_kernel_circuit(Composer& composer, Private
     return public_inputs.to_native_type<Composer>();
 };
 
-} // namespace aztec3::circuits::kernel::private_kernel
+}  // namespace aztec3::circuits::kernel::private_kernel

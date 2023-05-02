@@ -63,9 +63,9 @@ type WithIncludeUncommitted<F> = F extends (...args: [...infer Rest]) => infer R
   : F;
 
 /**
- * Defines the names of the setters on an append only set of Merkle Trees.
+ * Defines the names of the setters on Merkle Trees.
  */
-type MerkleTreeSetters = 'appendLeaves';
+type MerkleTreeSetters = 'appendLeaves' | 'updateLeaf';
 
 /**
  * Defines the interface for operations on a set of Merkle Trees configuring whether to return committed or uncommitted data.
@@ -147,6 +147,12 @@ export interface MerkleTreeOperations {
    * @param index - The index of the leaf.
    */
   getLeafValue(treeId: MerkleTreeId, index: bigint): Promise<Buffer | undefined>;
+
+  /**
+   * Inserts into the roots trees (CONTRACT_TREE_ROOTS_TREE, PRIVATE_DATA_TREE_ROOTS_TREE)
+   * the current roots of the corresponding trees (CONTRACT_TREE, PRIVATE_DATA_TREE).
+   */
+  updateRootsTrees(): Promise<void>;
 }
 
 /**

@@ -68,7 +68,7 @@ export class MerkleTreeOperationsFacade implements MerkleTreeOperations {
    * @returns Empty promise.
    */
   updateLeaf(treeId: MerkleTreeId.NULLIFIER_TREE, leaf: LeafData, index: bigint): Promise<void> {
-    return this.trees.updateLeaf(treeId, leaf, index, this.includeUncommitted);
+    return this.trees.updateLeaf(treeId, leaf, index);
   }
 
   /**
@@ -100,5 +100,14 @@ export class MerkleTreeOperationsFacade implements MerkleTreeOperations {
    */
   getLeafValue(treeId: MerkleTreeId, index: bigint): Promise<Buffer | undefined> {
     return this.trees.getLeafValue(treeId, index, this.includeUncommitted);
+  }
+
+  /**
+   * Inserts into the roots trees (CONTRACT_TREE_ROOTS_TREE, PRIVATE_DATA_TREE_ROOTS_TREE)
+   * the current roots of the corresponding trees (CONTRACT_TREE, PRIVATE_DATA_TREE).
+   * @returns Empty promise.
+   */
+  public updateRootsTrees(): Promise<void> {
+    return this.trees.updateRootsTrees(this.includeUncommitted);
   }
 }
