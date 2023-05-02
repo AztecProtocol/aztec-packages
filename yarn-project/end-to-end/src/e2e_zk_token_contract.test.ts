@@ -8,7 +8,7 @@ import { createAztecRpcServer } from './create_aztec_rpc_client.js';
 import { deployL1Contracts } from './deploy_l1_contracts.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { Point } from '@aztec/foundation/fields';
-import { toBigIntBE } from '@aztec/foundation';
+import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
 
 const MNEMONIC = 'test test test test test test test test test test test junk';
 

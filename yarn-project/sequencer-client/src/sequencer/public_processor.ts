@@ -12,11 +12,12 @@ import {
 import { ContractDataSource, PublicTx, Tx } from '@aztec/types';
 import { MerkleTreeOperations } from '@aztec/world-state';
 import { pedersenGetHash } from '@aztec/barretenberg.js/crypto';
-import { createDebugLogger } from '@aztec/foundation';
+
 import times from 'lodash.times';
 import { Proof, PublicProver } from '../prover/index.js';
 import { PublicCircuitSimulator, PublicKernelCircuitSimulator } from '../simulator/index.js';
 import { ProcessedTx, makeEmptyProcessedTx, makeProcessedTx } from './processed_tx.js';
+import { createDebugLogger } from '@aztec/foundation/log';
 
 export class PublicProcessor {
   constructor(

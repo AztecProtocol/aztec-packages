@@ -22,7 +22,7 @@ import {
   VerificationKey,
 } from '@aztec/circuits.js';
 import { computeContractLeaf } from '@aztec/circuits.js/abis';
-import { toBigIntBE, toBufferBE } from '@aztec/foundation';
+
 import { LeafData, SiblingPath } from '@aztec/merkle-tree';
 import { ContractData, L2Block, PublicDataWrite } from '@aztec/types';
 import { MerkleTreeId, MerkleTreeOperations } from '@aztec/world-state';
@@ -37,6 +37,7 @@ import { ProcessedTx } from '../sequencer/processed_tx.js';
 import { BlockBuilder } from './index.js';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
+import { toBigIntBE, toBufferBE } from '@aztec/foundation/bigint-buffer';
 
 const frToBigInt = (fr: Fr) => toBigIntBE(fr.toBuffer());
 const bigintToFr = (num: bigint) => new Fr(num);
