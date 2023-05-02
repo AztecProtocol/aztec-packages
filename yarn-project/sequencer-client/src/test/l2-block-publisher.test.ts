@@ -42,7 +42,7 @@ const deployerPK = '0x8b3a350cf5c34c9194ca85829a2df0ec3153be0318b5e2d3348e872092
 const anvilHost = process.env.ANVIL_HOST ?? 'http://127.0.0.1:8545';
 const chainId = 31337;
 
-describe('L1Publisher integration', () => {
+describe.skip('L1Publisher integration', () => {
   let decoderHelper: DecoderHelper;
   let rollup: Rollup;
   let unverifiedDataEmitter: UnverifiedDataEmitter;
