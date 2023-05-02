@@ -312,9 +312,9 @@ export class CircuitBlockBuilder implements BlockBuilder {
   // Validate that the new roots we calculated from manual insertions match the outputs of the simulation
   protected async validateTrees(rollupOutput: BaseOrMergeRollupPublicInputs | RootRollupPublicInputs) {
     await Promise.all([
-      this.validateTreeSnapshot(rollupOutput, MerkleTreeId.CONTRACT_TREE, 'Contract'),
-      this.validateTreeSnapshot(rollupOutput, MerkleTreeId.PRIVATE_DATA_TREE, 'PrivateData'),
-      this.validateTreeSnapshot(rollupOutput, MerkleTreeId.NULLIFIER_TREE, 'Nullifier'),
+      this.validateTree(rollupOutput, MerkleTreeId.CONTRACT_TREE, 'Contract'),
+      this.validateTree(rollupOutput, MerkleTreeId.PRIVATE_DATA_TREE, 'PrivateData'),
+      this.validateTree(rollupOutput, MerkleTreeId.NULLIFIER_TREE, 'Nullifier'),
       this.validatePublicDataTreeRoot(rollupOutput),
     ]);
   }
@@ -375,7 +375,7 @@ export class CircuitBlockBuilder implements BlockBuilder {
   protected validateSimulatedTree(
     localTree: AppendOnlyTreeSnapshot,
     simulatedTree: AppendOnlyTreeSnapshot,
-    name: 'PrivateData' | 'Contract' | 'Nullifier',
+    name: 'PrivateData' | 'Contract' | 'Nullifier' | "L1ToL2Message",
     label?: string,
   ) {
     if (!simulatedTree.root.toBuffer().equals(localTree.root.toBuffer())) {

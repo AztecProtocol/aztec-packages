@@ -294,6 +294,7 @@ export class L2Block {
       this.getCalldataHash(),
       this.getL1ToL2MessagesHash(),
     );
+
     const temp = toBigIntBE(sha256(buf));
     // Prime order of BN254 curve
     const p = BigInt('21888242871839275222246405745257275088548364400416034343698204186575808495617');
@@ -312,9 +313,9 @@ export class L2Block {
       this.startContractTreeSnapshot,
       this.startTreeOfHistoricPrivateDataTreeRootsSnapshot,
       this.startTreeOfHistoricContractTreeRootsSnapshot,
+      this.startPublicDataTreeRoot,
       this.startL1ToL2MessageTreeSnapshot,
       this.startTreeOfHistoricL1ToL2MessageTreeRootsSnapshot,
-      this.startPublicDataTreeRoot,
     );
     return sha256(inputValue);
   }
@@ -331,9 +332,9 @@ export class L2Block {
       this.endContractTreeSnapshot,
       this.endTreeOfHistoricPrivateDataTreeRootsSnapshot,
       this.endTreeOfHistoricContractTreeRootsSnapshot,
+      this.endPublicDataTreeRoot,
       this.endL1ToL2MessageTreeSnapshot,
       this.endTreeOfHistoricL1ToL2MessageTreeRootsSnapshot,
-      this.endPublicDataTreeRoot,
     );
     return sha256(inputValue);
   }

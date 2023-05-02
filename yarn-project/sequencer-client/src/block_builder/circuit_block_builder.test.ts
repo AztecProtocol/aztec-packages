@@ -285,7 +285,7 @@ describe('sequencer/circuit_block_builder', () => {
         makeEmptyProcessedTx(),
       ]);
 
-      const [l2Block] = await builder.buildL2Block(blockNumber, txs);
+      const [l2Block] = await builder.buildL2Block(blockNumber, txs, mockL1ToL2Messages);
       expect(l2Block.number).toEqual(blockNumber);
       expect(l2Block.newPublicDataWrites[0]).toEqual(new PublicDataWrite(fr(2), fr(12)));
       await updateExpectedTreesFromTxs(txs);
