@@ -224,7 +224,7 @@ export class Sequencer {
       ...txs,
       ...(await Promise.all(times(emptyTxCount, () => this.publicProcessor.makeEmptyProcessedTx()))),
     ];
-    const [block] = await this.blockBuilder.buildL2Block(this.lastBlockNumber + 1, allTxs,  newL1ToL2Messages);
+    const [block] = await this.blockBuilder.buildL2Block(this.lastBlockNumber + 1, allTxs, newL1ToL2Messages);
     return block;
   }
 
