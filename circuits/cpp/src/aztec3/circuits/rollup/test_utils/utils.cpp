@@ -313,8 +313,8 @@ RootRollupInputs get_root_rollup_inputs(utils::DummyComposer& composer,
     MerkleTree historic_contract_tree = MerkleTree(CONTRACT_TREE_ROOTS_TREE_HEIGHT);
     MerkleTree historic_l1_to_l2_msg_tree = MerkleTree(L1_TO_L2_MSG_TREE_ROOTS_TREE_HEIGHT);
 
-    MerkleTree private_data_tree = MerkleTree(PRIVATE_DATA_TREE_HEIGHT);
-    MerkleTree contract_tree = MerkleTree(CONTRACT_TREE_HEIGHT);
+    MerkleTree const private_data_tree = MerkleTree(PRIVATE_DATA_TREE_HEIGHT);
+    MerkleTree const contract_tree = MerkleTree(CONTRACT_TREE_HEIGHT);
     MerkleTree l1_to_l2_msg_tree = MerkleTree(L1_TO_L2_MSG_TREE_HEIGHT);
 
     // Historic trees are initialised with an empty root at position 0.
@@ -332,11 +332,11 @@ RootRollupInputs get_root_rollup_inputs(utils::DummyComposer& composer,
         l1_to_l2_msg_tree, 0, L1_TO_L2_MSG_SUBTREE_INCLUSION_CHECK_DEPTH);
 
     // l1_to_l2_message tree snapshots
-    AppendOnlyTreeSnapshot start_l1_to_l2_msg_tree_snapshot = {
+    AppendOnlyTreeSnapshot const start_l1_to_l2_msg_tree_snapshot = {
         .root = l1_to_l2_msg_tree.root(),
         .next_available_leaf_index = 0,
     };
-    AppendOnlyTreeSnapshot start_historic_tree_l1_to_l2_message_tree_roots_snapshot = {
+    AppendOnlyTreeSnapshot const start_historic_tree_l1_to_l2_message_tree_roots_snapshot = {
         .root = historic_l1_to_l2_msg_tree.root(),
         .next_available_leaf_index = 1,
     };
@@ -503,13 +503,13 @@ nullifier_tree_testing_values generate_nullifier_tree_testing_values_explicit(
 }
 
 /**
- * @brief Compares a hash calculated within a circuit (made up of two field elements) against 
+ * @brief Compares a hash calculated within a circuit (made up of two field elements) against
  *        one generated natively, (32 bytes) and checks if they match
- * 
- * @param field_hash 
- * @param expected_hash 
- * @return true 
- * @return false 
+ *
+ * @param field_hash
+ * @param expected_hash
+ * @return true
+ * @return false
  */
 bool compare_field_hash_to_expected(std::array<fr, 2> field_hash, std::array<uint8_t, 32> expected_hash)
 {

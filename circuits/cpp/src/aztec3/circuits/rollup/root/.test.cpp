@@ -54,8 +54,6 @@ using aztec3::circuits::abis::PreviousKernelData;
 
 
 // using aztec3::circuits::mock::mock_circuit;
-using aztec3::circuits::kernel::private_kernel::utils::dummy_previous_kernel;
-using aztec3::circuits::mock::mock_kernel_circuit;
 using aztec3::circuits::rollup::test_utils::utils::compare_field_hash_to_expected;
 using aztec3::circuits::rollup::test_utils::utils::get_empty_kernel;
 using aztec3::circuits::rollup::test_utils::utils::get_empty_l1_to_l2_messages;
@@ -145,10 +143,10 @@ class root_rollup_tests : public ::testing::Test {
 
 TEST_F(root_rollup_tests, native_calldata_hash_empty_blocks)
 {
-    MemoryTree data_tree = MemoryTree(PRIVATE_DATA_TREE_HEIGHT);
+    MemoryTree const data_tree = MemoryTree(PRIVATE_DATA_TREE_HEIGHT);
 
     // calculate calldata hash
-    std::vector<uint8_t> zero_bytes_vec(704, 0);
+    std::vector<uint8_t> const zero_bytes_vec(704, 0);
     auto call_data_hash_inner = sha256::sha256(zero_bytes_vec);
 
     std::array<uint8_t, 64> hash_input;
@@ -162,10 +160,10 @@ TEST_F(root_rollup_tests, native_calldata_hash_empty_blocks)
     auto calldata_hash = sha256::sha256(calldata_hash_input_bytes_vec);
 
     // get messages
-    std::array<fr, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP> l1_to_l2_messages = get_empty_l1_to_l2_messages();
+    std::array<fr, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP> const l1_to_l2_messages = get_empty_l1_to_l2_messages();
 
     // TODO: make this depend on l1_to_l2 messages, currently it is just hashing zeros
-    std::vector<uint8_t> messages_hash_input_bytes_vec(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP * 32, 0);
+    std::vector<uint8_t> const messages_hash_input_bytes_vec(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP * 32, 0);
     auto messages_hash = sha256::sha256(messages_hash_input_bytes_vec);
 
     utils::DummyComposer composer = utils::DummyComposer();
@@ -250,14 +248,14 @@ TEST_F(root_rollup_tests, native_root_missing_nullifier_logic)
     kernels[2].public_inputs.end.new_contracts[0] = new_contract;
 
     // The start historic data snapshot
-    AppendOnlyTreeSnapshot<NT> start_historic_data_tree_snapshot = { .root = historic_data_tree.root(),
-                                                                     .next_available_leaf_index = 1 };
-    AppendOnlyTreeSnapshot<NT> start_historic_contract_tree_snapshot = { .root = historic_contract_tree.root(),
-                                                                         .next_available_leaf_index = 1 };
-    AppendOnlyTreeSnapshot<NT> start_historic_l1_to_l2_tree_snapshot = { .root = historic_l1_to_l2_tree.root(),
-                                                                         .next_available_leaf_index = 1 };
-    AppendOnlyTreeSnapshot<NT> start_l1_to_l2_messages_tree_snapshot = { .root = l1_to_l2_messages_tree.root(),
-                                                                         .next_available_leaf_index = 0 };
+    AppendOnlyTreeSnapshot<NT> const start_historic_data_tree_snapshot = { .root = historic_data_tree.root(),
+                                                                           .next_available_leaf_index = 1 };
+    AppendOnlyTreeSnapshot<NT> const start_historic_contract_tree_snapshot = { .root = historic_contract_tree.root(),
+                                                                               .next_available_leaf_index = 1 };
+    AppendOnlyTreeSnapshot<NT> const start_historic_l1_to_l2_tree_snapshot = { .root = historic_l1_to_l2_tree.root(),
+                                                                               .next_available_leaf_index = 1 };
+    AppendOnlyTreeSnapshot<NT> const start_l1_to_l2_messages_tree_snapshot = { .root = l1_to_l2_messages_tree.root(),
+                                                                               .next_available_leaf_index = 0 };
     // Create 16 empty l1 to l2 messages, and update the l1_to_l2 messages tree
     for (uint8_t i = 0; i < l1_to_l2_messages.size(); i++) {
         l1_to_l2_messages_tree.update_element(i, l1_to_l2_messages[i]);
@@ -269,15 +267,15 @@ TEST_F(root_rollup_tests, native_root_missing_nullifier_logic)
     historic_l1_to_l2_tree.update_element(1, l1_to_l2_messages_tree.root());
 
     // Compute the end snapshot
-    AppendOnlyTreeSnapshot<NT> end_historic_data_tree_snapshot = { .root = historic_data_tree.root(),
-                                                                   .next_available_leaf_index = 2 };
-    AppendOnlyTreeSnapshot<NT> end_historic_contract_tree_snapshot = { .root = historic_contract_tree.root(),
-                                                                       .next_available_leaf_index = 2 };
-    AppendOnlyTreeSnapshot<NT> end_historic_l1_to_l2_tree_snapshot = { .root = historic_l1_to_l2_tree.root(),
-                                                                       .next_available_leaf_index = 2 };
-    AppendOnlyTreeSnapshot<NT> end_l1_to_l2_messages_tree_snapshot = { .root = l1_to_l2_messages_tree.root(),
-                                                                       .next_available_leaf_index =
-                                                                           NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP };
+    AppendOnlyTreeSnapshot<NT> const end_historic_data_tree_snapshot = { .root = historic_data_tree.root(),
+                                                                         .next_available_leaf_index = 2 };
+    AppendOnlyTreeSnapshot<NT> const end_historic_contract_tree_snapshot = { .root = historic_contract_tree.root(),
+                                                                             .next_available_leaf_index = 2 };
+    AppendOnlyTreeSnapshot<NT> const end_historic_l1_to_l2_tree_snapshot = { .root = historic_l1_to_l2_tree.root(),
+                                                                             .next_available_leaf_index = 2 };
+    AppendOnlyTreeSnapshot<NT> const end_l1_to_l2_messages_tree_snapshot = { .root = l1_to_l2_messages_tree.root(),
+                                                                             .next_available_leaf_index =
+                                                                                 NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP };
 
     RootRollupInputs rootRollupInputs = get_root_rollup_inputs(composer, kernels, l1_to_l2_messages);
     RootRollupPublicInputs outputs =

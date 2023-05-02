@@ -52,11 +52,12 @@ std::array<NT::fr, 2> compute_messages_hash(std::array<NT::fr, NUMBER_OF_L1_L2_M
         }
     }
 
-    std::vector<uint8_t> messages_hash_input_bytes_vec(messages_hash_input_bytes.begin(),
-                                                       messages_hash_input_bytes.end());
+    std::vector<uint8_t> const messages_hash_input_bytes_vec(messages_hash_input_bytes.begin(),
+                                                             messages_hash_input_bytes.end());
     auto h = sha256::sha256(messages_hash_input_bytes_vec);
 
-    std::array<uint8_t, 32> buf_1, buf_2;
+    std::array<uint8_t, 32> buf_1;
+    std::array<uint8_t, 32> buf_2;
     for (uint8_t i = 0; i < 16; i++) {
         buf_1[i] = 0;
         buf_1[16 + i] = h[i];
