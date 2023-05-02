@@ -100,7 +100,10 @@
       "^yarn-project/aztec-cli/"
     ],
     "dependencies": [
-      "foundation"
+      "aztec-node",
+      "aztec.js",
+      "foundation",
+      "noir-contracts"
     ]
   },
   "aztec-rpc": {

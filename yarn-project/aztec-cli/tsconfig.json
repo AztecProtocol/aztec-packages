@@ -16,9 +16,6 @@
       "path": "../foundation"
     },
     {
-      "path": "../l1-contracts"
-    },
-    {
       "path": "../noir-contracts"
     }
   ],
