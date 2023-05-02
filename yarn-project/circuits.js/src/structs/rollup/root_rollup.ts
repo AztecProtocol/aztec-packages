@@ -2,7 +2,11 @@ import { BufferReader, Fr } from '@aztec/foundation';
 import { assertLength, FieldsOf } from '../../utils/jsUtils.js';
 import { serializeToBuffer } from '../../utils/serialize.js';
 import { AppendOnlyTreeSnapshot } from './append_only_tree_snapshot.js';
-import { CONTRACT_TREE_ROOTS_TREE_HEIGHT, PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT } from '../constants.js';
+import {
+  CONTRACT_TREE_ROOTS_TREE_HEIGHT,
+  PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT,
+  PUBLIC_DATA_TREE_ROOTS_TREE_HEIGHT,
+} from '../constants.js';
 import { PreviousRollupData } from './previous_rollup_data.js';
 import { AggregationObject } from '../aggregation_object.js';
 
@@ -12,9 +16,11 @@ export class RootRollupInputs {
 
     public newHistoricPrivateDataTreeRootSiblingPath: Fr[],
     public newHistoricContractDataTreeRootSiblingPath: Fr[],
+    public newHistoricPublicDataTreeRootSiblingPath: Fr[],
   ) {
     assertLength(this, 'newHistoricPrivateDataTreeRootSiblingPath', PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT);
     assertLength(this, 'newHistoricContractDataTreeRootSiblingPath', CONTRACT_TREE_ROOTS_TREE_HEIGHT);
+    assertLength(this, 'newHistoricPublicDataTreeRootSiblingPath', PUBLIC_DATA_TREE_ROOTS_TREE_HEIGHT);
   }
 
   toBuffer() {
@@ -34,6 +40,7 @@ export class RootRollupInputs {
       fields.previousRollupData,
       fields.newHistoricPrivateDataTreeRootSiblingPath,
       fields.newHistoricContractDataTreeRootSiblingPath,
+      fields.newHistoricPublicDataTreeRootSiblingPath,
     ] as const;
   }
 }
@@ -63,6 +70,9 @@ export class RootRollupPublicInputs {
     public startTreeOfHistoricContractTreeRootsSnapshot: AppendOnlyTreeSnapshot,
     public endTreeOfHistoricContractTreeRootsSnapshot: AppendOnlyTreeSnapshot,
 
+    public startTreeOfHistoricPublicDataTreeRootsSnapshot: AppendOnlyTreeSnapshot,
+    public endTreeOfHistoricPublicDataTreeRootsSnapshot: AppendOnlyTreeSnapshot,
+
     public calldataHash: [Fr, Fr],
   ) {}
 
@@ -81,6 +91,8 @@ export class RootRollupPublicInputs {
       fields.endTreeOfHistoricPrivateDataTreeRootsSnapshot,
       fields.startTreeOfHistoricContractTreeRootsSnapshot,
       fields.endTreeOfHistoricContractTreeRootsSnapshot,
+      fields.startTreeOfHistoricPublicDataTreeRootsSnapshot,
+      fields.endTreeOfHistoricPublicDataTreeRootsSnapshot,
       fields.calldataHash,
     ] as const;
   }
@@ -105,6 +117,8 @@ export class RootRollupPublicInputs {
       reader.readObject(AppendOnlyTreeSnapshot),
       reader.readFr(),
       reader.readFr(),
+      reader.readObject(AppendOnlyTreeSnapshot),
+      reader.readObject(AppendOnlyTreeSnapshot),
       reader.readObject(AppendOnlyTreeSnapshot),
       reader.readObject(AppendOnlyTreeSnapshot),
       reader.readObject(AppendOnlyTreeSnapshot),

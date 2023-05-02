@@ -6,6 +6,7 @@ import {
   PRIVATE_DATA_TREE_HEIGHT,
   PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT,
   PUBLIC_DATA_TREE_HEIGHT,
+  PUBLIC_DATA_TREE_ROOTS_TREE_HEIGHT,
 } from '@aztec/circuits.js';
 import { SerialQueue } from '@aztec/foundation';
 import { WasmWrapper } from '@aztec/foundation/wasm';
@@ -92,6 +93,13 @@ export class MerkleTrees implements MerkleTreeDb {
       `${MerkleTreeId[MerkleTreeId.PUBLIC_DATA_TREE]}`,
       PUBLIC_DATA_TREE_HEIGHT,
     );
+    const publicDataTreeRootsTree: AppendOnlyTree = await newTree(
+      StandardTree,
+      this.db,
+      hasher,
+      `${MerkleTreeId[MerkleTreeId.PUBLIC_DATA_TREE_ROOTS_TREE]}`,
+      PUBLIC_DATA_TREE_ROOTS_TREE_HEIGHT,
+    );
     this.trees = [
       contractTree,
       contractTreeRootsTree,
@@ -99,6 +107,7 @@ export class MerkleTrees implements MerkleTreeDb {
       privateDataTree,
       privateDataTreeRootsTree,
       publicDataTree,
+      publicDataTreeRootsTree,
     ];
     this.jobQueue.start();
   }

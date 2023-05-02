@@ -54,6 +54,7 @@ import {
   PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT,
   PUBLIC_CALL_STACK_LENGTH,
   PUBLIC_DATA_TREE_HEIGHT,
+  PUBLIC_DATA_TREE_ROOTS_TREE_HEIGHT,
   RETURN_VALUES_LENGTH,
   ROLLUP_VK_TREE_HEIGHT,
   STATE_READS_LENGTH,
@@ -430,6 +431,7 @@ export function makeRootRollupInputs(seed = 0) {
     [makePreviousBaseRollupData(seed), makePreviousBaseRollupData(seed + 0x1000)],
     range(PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT, 0x2000).map(fr),
     range(CONTRACT_TREE_ROOTS_TREE_HEIGHT, 0x2100).map(fr),
+    range(PUBLIC_DATA_TREE_ROOTS_TREE_HEIGHT, 0x2200).map(fr),
   );
 }
 
@@ -448,6 +450,8 @@ export function makeRootRollupPublicInputs(seed = 0) {
     endTreeOfHistoricPrivateDataTreeRootsSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
     startTreeOfHistoricContractTreeRootsSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
     endTreeOfHistoricContractTreeRootsSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
+    startTreeOfHistoricPublicDataTreeRootsSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
+    endTreeOfHistoricPublicDataTreeRootsSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
     calldataHash: [new Fr(1n), new Fr(2n)],
   });
 }

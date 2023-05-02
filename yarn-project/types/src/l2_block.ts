@@ -28,12 +28,14 @@ export class L2Block {
    * @param startTreeOfHistoricPrivateDataTreeRootsSnapshot - The tree snapshot of the historic private data tree roots at the start of the rollup.
    * @param startTreeOfHistoricContractTreeRootsSnapshot - The tree snapshot of the historic contract tree roots at the start of the rollup.
    * @param startPublicDataTreeRoot - The tree root of the public data tree at the start of the rollup.
+   * @param startTreeOfHistoricPublicDataTreeRootsSnapshot - The tree snapshot of the historic public data tree roots at the start of the rollup.
    * @param endPrivateDataTreeSnapshot - The tree snapshot of the private data tree at the end of the rollup.
    * @param endNullifierTreeSnapshot - The tree snapshot of the nullifier tree at the end of the rollup.
    * @param endContractTreeSnapshot - The tree snapshot of the contract tree at the end of the rollup.
    * @param endTreeOfHistoricPrivateDataTreeRootsSnapshot - The tree snapshot of the historic private data tree roots at the end of the rollup.
    * @param endTreeOfHistoricContractTreeRootsSnapshot - The tree snapshot of the historic contract tree roots at the end of the rollup.
    * @param endPublicDataTreeRoot - The tree root of the public data tree at the end of the rollup.
+   * @param endTreeOfHistoricPublicDataTreeRootsSnapshot - The tree snapshot of the historic public data tree roots at the end of the rollup.
    * @param newCommitments - The commitments to be inserted into the private data tree.
    * @param newNullifiers - The nullifiers to be inserted into the nullifier tree.
    * @param newPublicDataWrites - The public data writes to be inserted into the public data tree.
@@ -48,12 +50,14 @@ export class L2Block {
     public startTreeOfHistoricPrivateDataTreeRootsSnapshot: AppendOnlyTreeSnapshot,
     public startTreeOfHistoricContractTreeRootsSnapshot: AppendOnlyTreeSnapshot,
     public startPublicDataTreeRoot: Fr,
+    public startTreeOfHistoricPublicDataTreeRootsSnapshot: AppendOnlyTreeSnapshot,
     public endPrivateDataTreeSnapshot: AppendOnlyTreeSnapshot,
     public endNullifierTreeSnapshot: AppendOnlyTreeSnapshot,
     public endContractTreeSnapshot: AppendOnlyTreeSnapshot,
     public endTreeOfHistoricPrivateDataTreeRootsSnapshot: AppendOnlyTreeSnapshot,
     public endTreeOfHistoricContractTreeRootsSnapshot: AppendOnlyTreeSnapshot,
     public endPublicDataTreeRoot: Fr,
+    public endTreeOfHistoricPublicDataTreeRootsSnapshot: AppendOnlyTreeSnapshot,
     public newCommitments: Fr[],
     public newNullifiers: Fr[],
     public newPublicDataWrites: PublicDataWrite[],
@@ -76,12 +80,14 @@ export class L2Block {
       startPublicDataTreeRoot: Fr.random(),
       startTreeOfHistoricPrivateDataTreeRootsSnapshot: makeAppendOnlyTreeSnapshot(0),
       startTreeOfHistoricContractTreeRootsSnapshot: makeAppendOnlyTreeSnapshot(0),
+      startTreeOfHistoricPublicDataTreeRootsSnapshot: makeAppendOnlyTreeSnapshot(0),
       endPrivateDataTreeSnapshot: makeAppendOnlyTreeSnapshot(newCommitments.length),
       endNullifierTreeSnapshot: makeAppendOnlyTreeSnapshot(newNullifiers.length),
       endContractTreeSnapshot: makeAppendOnlyTreeSnapshot(newContracts.length),
       endPublicDataTreeRoot: Fr.random(),
       endTreeOfHistoricPrivateDataTreeRootsSnapshot: makeAppendOnlyTreeSnapshot(1),
       endTreeOfHistoricContractTreeRootsSnapshot: makeAppendOnlyTreeSnapshot(1),
+      endTreeOfHistoricPublicDataTreeRootsSnapshot: makeAppendOnlyTreeSnapshot(1),
       newCommitments,
       newNullifiers,
       newContracts,
@@ -103,12 +109,14 @@ export class L2Block {
     startTreeOfHistoricPrivateDataTreeRootsSnapshot: AppendOnlyTreeSnapshot;
     startTreeOfHistoricContractTreeRootsSnapshot: AppendOnlyTreeSnapshot;
     startPublicDataTreeRoot: Fr;
+    startTreeOfHistoricPublicDataTreeRootsSnapshot: AppendOnlyTreeSnapshot;
     endPrivateDataTreeSnapshot: AppendOnlyTreeSnapshot;
     endNullifierTreeSnapshot: AppendOnlyTreeSnapshot;
     endContractTreeSnapshot: AppendOnlyTreeSnapshot;
     endTreeOfHistoricPrivateDataTreeRootsSnapshot: AppendOnlyTreeSnapshot;
     endTreeOfHistoricContractTreeRootsSnapshot: AppendOnlyTreeSnapshot;
     endPublicDataTreeRoot: Fr;
+    endTreeOfHistoricPublicDataTreeRootsSnapshot: AppendOnlyTreeSnapshot;
     newCommitments: Fr[];
     newNullifiers: Fr[];
     newPublicDataWrites: PublicDataWrite[];
@@ -123,12 +131,14 @@ export class L2Block {
       fields.startTreeOfHistoricPrivateDataTreeRootsSnapshot,
       fields.startTreeOfHistoricContractTreeRootsSnapshot,
       fields.startPublicDataTreeRoot,
+      fields.startTreeOfHistoricPublicDataTreeRootsSnapshot,
       fields.endPrivateDataTreeSnapshot,
       fields.endNullifierTreeSnapshot,
       fields.endContractTreeSnapshot,
       fields.endTreeOfHistoricPrivateDataTreeRootsSnapshot,
       fields.endTreeOfHistoricContractTreeRootsSnapshot,
       fields.endPublicDataTreeRoot,
+      fields.endTreeOfHistoricPublicDataTreeRootsSnapshot,
       fields.newCommitments,
       fields.newNullifiers,
       fields.newPublicDataWrites,
@@ -190,12 +200,14 @@ export class L2Block {
     const startTreeOfHistoricPrivateDataTreeRootsSnapshot = reader.readObject(AppendOnlyTreeSnapshot);
     const startTreeOfHistoricContractTreeRootsSnapshot = reader.readObject(AppendOnlyTreeSnapshot);
     const startPublicDataTreeRoot = reader.readObject(Fr);
+    const startTreeOfHistoricPublicDataTreeRootsSnapshot = reader.readObject(AppendOnlyTreeSnapshot);
     const endPrivateDataTreeSnapshot = reader.readObject(AppendOnlyTreeSnapshot);
     const endNullifierTreeSnapshot = reader.readObject(AppendOnlyTreeSnapshot);
     const endContractTreeSnapshot = reader.readObject(AppendOnlyTreeSnapshot);
     const endTreeOfHistoricPrivateDataTreeRootsSnapshot = reader.readObject(AppendOnlyTreeSnapshot);
     const endTreeOfHistoricContractTreeRootsSnapshot = reader.readObject(AppendOnlyTreeSnapshot);
     const endPublicDataTreeRoot = reader.readObject(Fr);
+    const endTreeOfHistoricPublicDataTreeRootsSnapshot = reader.readObject(AppendOnlyTreeSnapshot);
     const newCommitments = reader.readVector(Fr);
     const newNullifiers = reader.readVector(Fr);
     const newPublicDataWrites = reader.readVector(PublicDataWrite);
@@ -210,12 +222,14 @@ export class L2Block {
       startTreeOfHistoricPrivateDataTreeRootsSnapshot,
       startTreeOfHistoricContractTreeRootsSnapshot,
       startPublicDataTreeRoot,
+      startTreeOfHistoricPublicDataTreeRootsSnapshot,
       endPrivateDataTreeSnapshot,
       endNullifierTreeSnapshot,
       endContractTreeSnapshot,
       endTreeOfHistoricPrivateDataTreeRootsSnapshot,
       endTreeOfHistoricContractTreeRootsSnapshot,
       endPublicDataTreeRoot,
+      endTreeOfHistoricPublicDataTreeRootsSnapshot,
       newCommitments,
       newNullifiers,
       newPublicDataWrites,

@@ -13,6 +13,7 @@ export enum MerkleTreeId {
   PRIVATE_DATA_TREE = 3,
   PRIVATE_DATA_TREE_ROOTS_TREE = 4,
   PUBLIC_DATA_TREE = 5,
+  PUBLIC_DATA_TREE_ROOTS_TREE = 6,
 }
 
 /**

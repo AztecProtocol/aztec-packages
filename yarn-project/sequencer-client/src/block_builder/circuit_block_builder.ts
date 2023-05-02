@@ -90,6 +90,7 @@ export class CircuitBlockBuilder implements BlockBuilder {
       startPublicDataTreeSnapshot,
       startTreeOfHistoricPrivateDataTreeRootsSnapshot,
       startTreeOfHistoricContractTreeRootsSnapshot,
+      startTreeOfHistoricPublicDataTreeRootsSnapshot,
     ] = await Promise.all(
       [
         MerkleTreeId.PRIVATE_DATA_TREE,
@@ -98,6 +99,7 @@ export class CircuitBlockBuilder implements BlockBuilder {
         MerkleTreeId.PUBLIC_DATA_TREE,
         MerkleTreeId.PRIVATE_DATA_TREE_ROOTS_TREE,
         MerkleTreeId.CONTRACT_TREE_ROOTS_TREE,
+        MerkleTreeId.PUBLIC_DATA_TREE_ROOTS_TREE,
       ].map(tree => this.getTreeSnapshot(tree)),
     );
 
@@ -111,6 +113,7 @@ export class CircuitBlockBuilder implements BlockBuilder {
       endPublicDataTreeRoot,
       endTreeOfHistoricPrivateDataTreeRootsSnapshot,
       endTreeOfHistoricContractTreeRootsSnapshot,
+      endTreeOfHistoricPublicDataTreeRootsSnapshot,
     } = circuitsOutput;
 
     // Collect all new nullifiers, commitments, and contracts from all txs in this block
@@ -139,6 +142,8 @@ export class CircuitBlockBuilder implements BlockBuilder {
       endTreeOfHistoricPrivateDataTreeRootsSnapshot,
       startTreeOfHistoricContractTreeRootsSnapshot,
       endTreeOfHistoricContractTreeRootsSnapshot,
+      startTreeOfHistoricPublicDataTreeRootsSnapshot,
+      endTreeOfHistoricPublicDataTreeRootsSnapshot,
       newCommitments,
       newNullifiers,
       newContracts,
@@ -357,11 +362,15 @@ export class CircuitBlockBuilder implements BlockBuilder {
     const newHistoricPrivateDataTreeRootSiblingPath = await getRootTreeSiblingPath(
       MerkleTreeId.PRIVATE_DATA_TREE_ROOTS_TREE,
     );
+    const newHistoricPublicDataTreeRootSiblingPath = await getRootTreeSiblingPath(
+      MerkleTreeId.PUBLIC_DATA_TREE_ROOTS_TREE,
+    );
 
     return RootRollupInputs.from({
       previousRollupData,
       newHistoricContractDataTreeRootSiblingPath,
       newHistoricPrivateDataTreeRootSiblingPath,
+      newHistoricPublicDataTreeRootSiblingPath,
     });
   }
 
