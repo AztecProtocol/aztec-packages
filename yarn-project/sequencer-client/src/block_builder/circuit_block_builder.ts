@@ -103,7 +103,7 @@ export class CircuitBlockBuilder implements BlockBuilder {
     blockNumber: number,
     txs: ProcessedTx[],
     newL1ToL2Messages: Fr[],
-  ): Promise<[L2Block, UInt8Vector]> {
+  ): Promise<[L2Block, UInt8Vector, RootRollupPublicInputs]> {
     const [
       startPrivateDataTreeSnapshot,
       startNullifierTreeSnapshot,
@@ -181,7 +181,7 @@ export class CircuitBlockBuilder implements BlockBuilder {
       newL1ToL2Messages,
     });
 
-    return [l2Block, proof];
+    return [l2Block, proof, circuitsOutput];
   }
 
   protected validateTxs(txs: ProcessedTx[]) {

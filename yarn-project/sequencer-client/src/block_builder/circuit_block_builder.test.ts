@@ -302,8 +302,10 @@ describe('sequencer/circuit_block_builder', () => {
       );
       const txs = [tx, await makeEmptyProcessedTx(), await makeEmptyProcessedTx(), await makeEmptyProcessedTx()];
 
-      const [l2Block] = await builder.buildL2Block(blockNumber, txs, mockL1ToL2Messages);
+      const [l2Block, , rootRollupPublicInputs] = await builder.buildL2Block(blockNumber, txs, mockL1ToL2Messages);
+      
       expect(l2Block.number).toEqual(blockNumber);
+      expect(l2Block.getCalldataHash()).toEqual(rootRollupPublicInputs.sha256CalldataHash());
     }, 10000);
   });
 

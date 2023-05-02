@@ -554,8 +554,8 @@ TEST_F(base_rollup_tests, native_new_nullifier_tree_double_spend)
 TEST_F(base_rollup_tests, native_empty_block_calldata_hash)
 {
     DummyComposer composer = DummyComposer();
-    // calldata_hash should be computed from leafs of 704 0 bytes. (0x00)
-    std::vector<uint8_t> const zero_bytes_vec(704, 0);
+    // calldata_hash should be computed from leafs of 1216 0 bytes. (0x00)
+    std::vector<uint8_t> const zero_bytes_vec(1216, 0);
     auto hash = sha256::sha256(zero_bytes_vec);
     BaseRollupInputs inputs = base_rollup_inputs_from_kernels({ get_empty_kernel(), get_empty_kernel() });
     BaseOrMergeRollupPublicInputs outputs =
@@ -582,29 +582,27 @@ TEST_F(base_rollup_tests, native_calldata_hash)
     // Execute the base rollup circuit with nullifiers, commitments and a contract deployment. Then check the calldata
     // hash against the expected value.
     std::array<PreviousKernelData<NT>, 2> kernel_data = { get_empty_kernel(), get_empty_kernel() };
-    std::vector<uint8_t> input_data(704, 0);
+    std::vector<uint8_t> input_data(1216, 0);
 
     // Kernel 1
     // NOTE: nullifier insertions start from 8 as the generate_nullifier_tree_testing_values will populate the every
     // nullifier leaf
     for (uint8_t i = 0; i < 4; ++i) {
-        // nullifiers
-        input_data[i * 32 + 31] = i + 8;  // 8
-        kernel_data[0].public_inputs.end.new_nullifiers[i] = fr(i + 8);
-
         // commitments
-        input_data[8 * 32 + i * 32 + 31] = i + 1;  // 1
+        input_data[i * 32 + 31] = i + 1;  // 1
         kernel_data[0].public_inputs.end.new_commitments[i] = fr(i + 1);
+        // nullifiers
+        input_data[8 * 32 + i * 32 + 31] = i + 8;  // 8
+        kernel_data[0].public_inputs.end.new_nullifiers[i] = fr(i + 8);
     }
     // Kernel 2
     for (uint8_t i = 0; i < 4; ++i) {
-        // nullifiers
-        input_data[(i + 4) * 32 + 31] = i + 12;  // 1
-        kernel_data[1].public_inputs.end.new_nullifiers[i] = fr(i + 12);
-
         // commitments
-        input_data[8 * 32 + (i + 4) * 32 + 31] = i + 4 + 1;  // 1
+        input_data[(i + 4) * 32 + 31] = i + 4 + 1;  // 1
         kernel_data[1].public_inputs.end.new_commitments[i] = fr(i + 4 + 1);
+        // nullifiers
+        input_data[8 * 32 + (i + 4) * 32 + 31] = i + 12;  // 1
+        kernel_data[1].public_inputs.end.new_nullifiers[i] = fr(i + 12);
     }
 
     // Add a contract deployment
@@ -621,9 +619,9 @@ TEST_F(base_rollup_tests, native_calldata_hash)
     auto contract_address_buffer = new_contract.contract_address.to_field().to_buffer();
     auto portal_address_buffer = new_contract.portal_contract_address.to_field().to_buffer();
     for (uint8_t i = 0; i < 32; ++i) {
-        input_data[16 * 32 + i] = contract_leaf_buffer[i];
-        input_data[18 * 32 + i] = contract_address_buffer[i];
-        input_data[20 * 32 + i] = portal_address_buffer[i];
+        input_data[32 * 32 + i] = contract_leaf_buffer[i];
+        input_data[34 * 32 + i] = contract_address_buffer[i];
+        input_data[35 * 32 + i] = portal_address_buffer[i];
     }
 
     auto hash = sha256::sha256(input_data);

@@ -140,7 +140,7 @@ describe.skip('L1Publisher integration', () => {
 
       // Actually build a block!
       const txs = [tx, await makeEmptyProcessedTx(), await makeEmptyProcessedTx(), await makeEmptyProcessedTx()];
-      const [block] = await builder.buildL2Block(1 + i, txs, newL1ToL2Messages);
+      const [block, , publicInputs]  = await builder.buildL2Block(1 + i, txs, newL1ToL2Messages);
 
       // Now we can use the block we built!
       const blockNumber = await ethRpc.blockNumber();
@@ -165,6 +165,7 @@ describe.skip('L1Publisher integration', () => {
       expect(block.getPublicInputsHash().toBuffer()).toEqual(hexStringToBuffer(decodedRes[3].toString()));
       expect(block.getCalldataHash()).toEqual(hexStringToBuffer(decodedHashes[0].toString()));
       expect(block.getL1ToL2MessagesHash()).toEqual(hexStringToBuffer(decodedHashes[1].toString()));
+      expect(block.getCalldataHash()).toEqual(publicInputs.sha256CalldataHash());
     }
   }, 60_000);
 

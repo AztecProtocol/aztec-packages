@@ -143,10 +143,7 @@ class root_rollup_tests : public ::testing::Test {
 
 TEST_F(root_rollup_tests, native_check_block_hashes_empty_blocks)
 {
-    MemoryTree const data_tree = MemoryTree(PRIVATE_DATA_TREE_HEIGHT);
-
-    // calculate calldata hash
-    std::vector<uint8_t> const zero_bytes_vec(704, 0);
+    std::vector<uint8_t> const zero_bytes_vec(1216, 0);
     auto call_data_hash_inner = sha256::sha256(zero_bytes_vec);
 
     std::array<uint8_t, 64> hash_input;
