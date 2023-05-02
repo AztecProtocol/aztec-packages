@@ -77,7 +77,6 @@ export class AccountState {
       privateKernelVkTreeRoot: Fr.ZERO,
     });
 
-
     return {
       contractAddress,
       functionAbi,
