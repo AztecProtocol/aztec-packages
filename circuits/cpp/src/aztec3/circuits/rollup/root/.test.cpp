@@ -164,7 +164,6 @@ TEST_F(root_rollup_tests, native_calldata_hash_empty_blocks)
     // TODO: make this depend on l1_to_l2 messages, currently it is just hashing zeros
     std::vector<uint8_t> messages_hash_input_bytes_vec(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP * 32, 0);
     auto messages_hash = sha256::sha256(messages_hash_input_bytes_vec);
-    info("unused: ", messages_hash);
 
     utils::DummyComposer composer = utils::DummyComposer();
     std::array<KernelData, 4> const kernels = {
@@ -176,10 +175,8 @@ TEST_F(root_rollup_tests, native_calldata_hash_empty_blocks)
         aztec3::circuits::rollup::native_root_rollup::root_rollup_circuit(composer, inputs);
 
     // check calldata hash
-    info("check calldata hash");
     ASSERT_TRUE(compare_field_hash_to_expected(outputs.calldata_hash, calldata_hash));
     // Check messages hash
-    info("check messages hash");
     ASSERT_TRUE(compare_field_hash_to_expected(outputs.l1_to_l2_messages_hash, messages_hash));
 
     EXPECT_FALSE(composer.failed());
