@@ -700,6 +700,35 @@ TEST_F(base_rollup_tests, native_compute_membership_historic_contract_tree_negat
     ASSERT_EQ(composer.get_first_failure().message, "Membership check failed: historic contract data tree roots 0");
 }
 
+TEST_F(base_rollup_tests, native_compute_membership_historic_public_data_negative)
+{
+    // WRITE a negative test that will fail the inclusion proof
+
+    // Test membership works for empty trees
+    DummyComposer composer = DummyComposer();
+    std::array<PreviousKernelData<NT>, 2> const kernel_data = { get_empty_kernel(), get_empty_kernel() };
+    BaseRollupInputs inputs = base_rollup_inputs_from_kernels(kernel_data);
+
+    auto public_data_tree = native_base_rollup::MerkleTree(PUBLIC_DATA_TREE_ROOTS_TREE_HEIGHT);
+
+    // Create an INCORRECT sibling path for the private data tree root in the historic tree roots.
+    auto hash_path = public_data_tree.get_sibling_path(0);
+    std::array<NT::fr, PUBLIC_DATA_TREE_ROOTS_TREE_HEIGHT> sibling_path;
+    for (size_t i = 0; i < PUBLIC_DATA_TREE_ROOTS_TREE_HEIGHT; ++i) {
+        sibling_path[i] = hash_path[i] + 1;
+    }
+    inputs.historic_public_data_tree_root_membership_witnesses[0] = {
+        .leaf_index = 0,
+        .sibling_path = sibling_path,
+    };
+
+    BaseOrMergeRollupPublicInputs const outputs =
+        aztec3::circuits::rollup::native_base_rollup::base_rollup_circuit(composer, inputs);
+
+    ASSERT_TRUE(composer.failed());
+    ASSERT_EQ(composer.get_first_failure().message, "Membership check failed: historic public data tree roots 0");
+}
+
 TEST_F(base_rollup_tests, native_constants_dont_change)
 {
     DummyComposer composer = DummyComposer();

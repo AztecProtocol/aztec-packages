@@ -26,6 +26,7 @@ template <typename NCT> struct RootRollupInputs {
 
     std::array<fr, PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT> new_historic_private_data_tree_root_sibling_path;
     std::array<fr, CONTRACT_TREE_ROOTS_TREE_HEIGHT> new_historic_contract_tree_root_sibling_path;
+    std::array<fr, PUBLIC_DATA_TREE_ROOTS_TREE_HEIGHT> new_historic_public_data_tree_root_sibling_path;
 
     bool operator==(RootRollupInputs<NCT> const&) const = default;
 };
@@ -37,6 +38,7 @@ template <typename NCT> void read(uint8_t const*& it, RootRollupInputs<NCT>& obj
     read(it, obj.previous_rollup_data);
     read(it, obj.new_historic_private_data_tree_root_sibling_path);
     read(it, obj.new_historic_contract_tree_root_sibling_path);
+    read(it, obj.new_historic_public_data_tree_root_sibling_path);
 };
 
 template <typename NCT> void write(std::vector<uint8_t>& buf, RootRollupInputs<NCT> const& obj)
@@ -46,6 +48,7 @@ template <typename NCT> void write(std::vector<uint8_t>& buf, RootRollupInputs<N
     write(buf, obj.previous_rollup_data);
     write(buf, obj.new_historic_private_data_tree_root_sibling_path);
     write(buf, obj.new_historic_contract_tree_root_sibling_path);
+    write(buf, obj.new_historic_public_data_tree_root_sibling_path);
 };
 
 template <typename NCT> std::ostream& operator<<(std::ostream& os, RootRollupInputs<NCT> const& obj)
@@ -53,7 +56,8 @@ template <typename NCT> std::ostream& operator<<(std::ostream& os, RootRollupInp
     return os << "previous_rollup_data: " << obj.previous_rollup_data << "\n"
               << "new_historic_private_data_tree_roots: " << obj.new_historic_private_data_tree_root_sibling_path
               << "\n"
-              << "new_historic_contract_tree_roots: " << obj.new_historic_contract_tree_root_sibling_path << "\n";
+              << "new_historic_contract_tree_roots: " << obj.new_historic_contract_tree_root_sibling_path << "\n"
+              << "new_historic_public_data_tree_roots: " << obj.new_historic_public_data_tree_root_sibling_path << "\n";
 }
 
 }  // namespace aztec3::circuits::abis

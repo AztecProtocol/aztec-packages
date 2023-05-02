@@ -355,6 +355,7 @@ PrivateInputs<NT> do_private_call_get_kernel_inputs(bool const is_constructor,
                     PrivateHistoricTreeRoots<NT>{
                         .private_data_tree_root = private_circuit_public_inputs.historic_private_data_tree_root,
                         .contract_tree_root = private_circuit_public_inputs.historic_contract_tree_root,
+                        .public_data_tree_root = private_circuit_public_inputs.historic_public_data_tree_root,
                     },
             },
         .tx_context = tx_request.tx_context,

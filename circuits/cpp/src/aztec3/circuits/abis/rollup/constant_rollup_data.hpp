@@ -13,6 +13,7 @@ template <typename NCT> struct ConstantRollupData {
     // The very latest roots as at the very beginning of the entire rollup:
     AppendOnlyTreeSnapshot<NCT> start_tree_of_historic_private_data_tree_roots_snapshot{};
     AppendOnlyTreeSnapshot<NCT> start_tree_of_historic_contract_tree_roots_snapshot{};
+    AppendOnlyTreeSnapshot<NCT> start_tree_of_historic_public_data_tree_roots_snapshot{};
     AppendOnlyTreeSnapshot<NCT> tree_of_historic_l1_to_l2_msg_tree_roots_snapshot{};
 
     // Some members of this struct tbd:
@@ -30,7 +31,8 @@ template <typename NCT> void read(uint8_t const*& it, ConstantRollupData<NCT>& o
 
     read(it, obj.start_tree_of_historic_private_data_tree_roots_snapshot);
     read(it, obj.start_tree_of_historic_contract_tree_roots_snapshot);
-    read(it, obj.tree_of_historic_l1_to_l2_msg_tree_roots_snapshot);
+    read(it, obj.start_tree_of_historic_public_data_tree_roots_snapshot)
+        read(it, obj.tree_of_historic_l1_to_l2_msg_tree_roots_snapshot);
     read(it, obj.private_kernel_vk_tree_root);
     read(it, obj.public_kernel_vk_tree_root);
     read(it, obj.base_rollup_vk_hash);
@@ -43,6 +45,7 @@ template <typename NCT> void write(std::vector<uint8_t>& buf, ConstantRollupData
 
     write(buf, obj.start_tree_of_historic_private_data_tree_roots_snapshot);
     write(buf, obj.start_tree_of_historic_contract_tree_roots_snapshot);
+    write(buf, obj.start_tree_of_historic_public_data_tree_roots_snapshot);
     write(buf, obj.tree_of_historic_l1_to_l2_msg_tree_roots_snapshot);
     write(buf, obj.private_kernel_vk_tree_root);
     write(buf, obj.public_kernel_vk_tree_root);
@@ -56,6 +59,8 @@ template <typename NCT> std::ostream& operator<<(std::ostream& os, ConstantRollu
               << obj.start_tree_of_historic_private_data_tree_roots_snapshot << "\n"
               << "start_tree_of_historic_contract_tree_roots_snapshot:\n"
               << obj.start_tree_of_historic_contract_tree_roots_snapshot << "\n"
+              << "start_tree_of_historic_public_data_tree_roots_snapshot:\n"
+              << obj.start_tree_of_historic_public_data_tree_roots_snapshot << "\n"
               << "tree_of_historic_l1_to_l2_msg_tree_roots_snapshot:\n"
               << obj.tree_of_historic_l1_to_l2_msg_tree_roots_snapshot << "\n"
               << "private_kernel_vk_tree_root: " << obj.private_kernel_vk_tree_root << "\n"

@@ -42,6 +42,8 @@ template <typename NCT> struct BaseRollupInputs {
         historic_private_data_tree_root_membership_witnesses;
     std::array<MembershipWitness<NCT, CONTRACT_TREE_ROOTS_TREE_HEIGHT>, 2>
         historic_contract_tree_root_membership_witnesses;
+    std::array<MembershipWitness<NCT, PUBLIC_DATA_TREE_ROOTS_TREE_HEIGHT>, 2>
+        historic_public_data_tree_root_membership_witnesses;
 
     ConstantRollupData<NCT> constants;
 
