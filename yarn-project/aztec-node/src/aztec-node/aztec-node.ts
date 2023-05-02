@@ -1,10 +1,20 @@
 import { Archiver } from '@aztec/archiver';
-import { ContractPublicData, ContractData, ContractDataSource, L2Block, L2BlockSource } from '@aztec/types';
+import { PrimitivesWasm } from '@aztec/barretenberg.js/wasm';
+import { CircuitsWasm } from '@aztec/circuits.js';
 import { SiblingPath } from '@aztec/merkle-tree';
 import { P2P, P2PClient } from '@aztec/p2p';
-import { SequencerClient } from '@aztec/sequencer-client';
-import { Tx, TxHash } from '@aztec/types';
-import { UnverifiedData, UnverifiedDataSource } from '@aztec/types';
+import { SequencerClient, getCombinedHistoricTreeRoots } from '@aztec/sequencer-client';
+import {
+  ContractData,
+  ContractDataSource,
+  ContractPublicData,
+  L2Block,
+  L2BlockSource,
+  Tx,
+  TxHash,
+  UnverifiedData,
+  UnverifiedDataSource,
+} from '@aztec/types';
 import {
   MerkleTreeId,
   MerkleTrees,
@@ -13,10 +23,8 @@ import {
   computePublicDataTreeLeafIndex,
 } from '@aztec/world-state';
 import { default as levelup } from 'levelup';
-import { default as memdown, MemDown } from 'memdown';
+import { MemDown, default as memdown } from 'memdown';
 import { AztecNodeConfig } from './config.js';
-import { CircuitsWasm } from '@aztec/circuits.js';
-import { PrimitivesWasm } from '@aztec/barretenberg.js/wasm';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 
@@ -50,6 +58,7 @@ export class AztecNode {
 
     // now create the merkle trees and the world state syncher
     const merkleTreeDB = await MerkleTrees.new(levelup(createMemDown()), await CircuitsWasm.get());
+
     const worldStateSynchroniser = new ServerWorldStateSynchroniser(merkleTreeDB, archiver);
 
     // start both and wait for them to sync from the block source
@@ -121,6 +130,11 @@ export class AztecNode {
    * @param tx - The transaction to be submitted.
    */
   public async sendTx(tx: Tx) {
+    // TODO: Patch tx to inject historic tree roots until the private kernel circuit supplies this value
+    if (tx.isPrivate() && tx.data.constants.historicTreeRoots.privateHistoricTreeRoots.isEmpty()) {
+      tx.data.constants.historicTreeRoots = await getCombinedHistoricTreeRoots(this.merkleTreeDB.asLatest());
+    }
+
     await this.p2pClient!.sendTx(tx);
   }
 

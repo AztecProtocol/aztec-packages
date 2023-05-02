@@ -93,6 +93,7 @@ export class MerkleTrees implements MerkleTreeDb {
       `${MerkleTreeId[MerkleTreeId.PUBLIC_DATA_TREE]}`,
       PUBLIC_DATA_TREE_HEIGHT,
     );
+
     this.trees = [
       contractTree,
       contractTreeRootsTree,
@@ -101,7 +102,10 @@ export class MerkleTrees implements MerkleTreeDb {
       privateDataTreeRootsTree,
       publicDataTree,
     ];
+
     this.jobQueue.start();
+
+    await this.updateRootsTrees(true);
   }
 
   /**
@@ -137,6 +141,21 @@ export class MerkleTrees implements MerkleTreeDb {
    */
   public asCommitted(): MerkleTreeOperations {
     return new MerkleTreeOperationsFacade(this, false);
+  }
+
+  /**
+   * Inserts into the roots trees (CONTRACT_TREE_ROOTS_TREE, PRIVATE_DATA_TREE_ROOTS_TREE)
+   * the current roots of the corresponding trees (CONTRACT_TREE, PRIVATE_DATA_TREE).
+   * @param includeUncommitted - Indicates whether to include uncommitted data.
+   */
+  public async updateRootsTrees(includeUncommitted: boolean) {
+    for (const [newTree, rootTree] of [
+      [MerkleTreeId.PRIVATE_DATA_TREE, MerkleTreeId.PRIVATE_DATA_TREE_ROOTS_TREE],
+      [MerkleTreeId.CONTRACT_TREE, MerkleTreeId.CONTRACT_TREE_ROOTS_TREE],
+    ] as const) {
+      const newTreeInfo = await this.getTreeInfo(newTree, includeUncommitted);
+      await this.appendLeaves(rootTree, [newTreeInfo.root]);
+    }
   }
 
   /**

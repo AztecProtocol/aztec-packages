@@ -16,14 +16,14 @@ constexpr size_t STATE_READS_LENGTH = 4;
 
 constexpr size_t PRIVATE_CALL_STACK_LENGTH = 4;
 constexpr size_t PUBLIC_CALL_STACK_LENGTH = 4;
-constexpr size_t L1_MSG_STACK_LENGTH = 2;
+constexpr size_t NEW_L2_TO_L1_MSGS_LENGTH = 2;
 
 constexpr size_t KERNEL_NEW_COMMITMENTS_LENGTH = 4;
 constexpr size_t KERNEL_NEW_NULLIFIERS_LENGTH = 4;
 constexpr size_t KERNEL_NEW_CONTRACTS_LENGTH = 1;
 constexpr size_t KERNEL_PRIVATE_CALL_STACK_LENGTH = 8;
 constexpr size_t KERNEL_PUBLIC_CALL_STACK_LENGTH = 8;
-constexpr size_t KERNEL_L1_MSG_STACK_LENGTH = 4;
+constexpr size_t KERNEL_NEW_L2_TO_L1_MSGS_LENGTH = 4;
 constexpr size_t KERNEL_OPTIONALLY_REVEALED_DATA_LENGTH = 4;
 
 constexpr size_t VK_TREE_HEIGHT = 3;
@@ -46,15 +46,15 @@ constexpr size_t NULLIFIER_SUBTREE_INCLUSION_CHECK_DEPTH = NULLIFIER_TREE_HEIGHT
 constexpr size_t PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT = 8;
 constexpr size_t CONTRACT_TREE_ROOTS_TREE_HEIGHT = 8;
 constexpr size_t L1_TO_L2_MSG_TREE_ROOTS_TREE_HEIGHT = 8;
-constexpr size_t ROLLUP_VK_TREE_HEIGHT = 8; // TODO: update
+constexpr size_t ROLLUP_VK_TREE_HEIGHT = 8;  // TODO: update
 
-constexpr size_t FUNCTION_SELECTOR_NUM_BYTES = 4; // must be <= 31
+constexpr size_t FUNCTION_SELECTOR_NUM_BYTES = 4;  // must be <= 31
 
 // Enumerate the hash_indices which are used for pedersen hashing
 // Start from 1 to avoid the default generators.
 enum GeneratorIndex {
     COMMITMENT = 1,
-    COMMITMENT_PLACEHOLDER, // for omitting some elements of the commitment when partially committing.
+    COMMITMENT_PLACEHOLDER,  // for omitting some elements of the commitment when partially committing.
     OUTER_COMMITMENT,
     NULLIFIER_HASHED_PRIVATE_KEY,
     NULLIFIER,
@@ -72,8 +72,8 @@ enum GeneratorIndex {
     CONTRACT_LEAF,
     CALL_CONTEXT,
     CALL_STACK_ITEM,
-    CALL_STACK_ITEM_2, // see function where it's used for explanation
-    L1_MSG_STACK_ITEM,
+    CALL_STACK_ITEM_2,  // see function where it's used for explanation
+    L2_TO_L1_MSG,
     PRIVATE_CIRCUIT_PUBLIC_INPUTS,
     PUBLIC_CIRCUIT_PUBLIC_INPUTS,
     TX_CONTEXT,
@@ -102,4 +102,4 @@ enum PrivateStateNoteGeneratorIndex {
 
 enum PrivateStateType { PARTITIONED = 1, WHOLE };
 
-} // namespace aztec3
+}  // namespace aztec3

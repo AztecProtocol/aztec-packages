@@ -1,5 +1,6 @@
-#include "init.hpp"
 #include "common.hpp"
+
+#include "init.hpp"
 
 namespace aztec3::circuits::kernel::public_kernel {
 
@@ -19,7 +20,7 @@ void common_initialise_end_values(PublicKernelInputs<NT> const& public_kernel_in
 
     end.private_call_stack = start.private_call_stack;
     end.public_call_stack = start.public_call_stack;
-    end.l1_msg_stack = start.l1_msg_stack;
+    end.new_l2_to_l1_msgs = start.new_l2_to_l1_msgs;
 
     end.optionally_revealed_data = start.optionally_revealed_data;
 
@@ -48,4 +49,4 @@ void validate_this_public_call_hash(DummyComposer& composer,
         "calculated public_call_hash does not match provided public_call_hash at the top of the call stack",
         CircuitErrorCode::PUBLIC_KERNEL__CALCULATED_PRIVATE_CALL_HASH_AND_PROVIDED_PRIVATE_CALL_HASH_MISMATCH);
 };
-} // namespace aztec3::circuits::kernel::public_kernel
+}  // namespace aztec3::circuits::kernel::public_kernel
