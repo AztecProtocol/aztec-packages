@@ -257,7 +257,7 @@ TEST_F(root_rollup_tests, native_root_missing_nullifier_logic)
     AppendOnlyTreeSnapshot<NT> const start_l1_to_l2_messages_tree_snapshot = { .root = l1_to_l2_messages_tree.root(),
                                                                                .next_available_leaf_index = 0 };
     // Create 16 empty l1 to l2 messages, and update the l1_to_l2 messages tree
-    for (uint8_t i = 0; i < l1_to_l2_messages.size(); i++) {
+    for (size_t i = 0; i < l1_to_l2_messages.size(); i++) {
         l1_to_l2_messages_tree.update_element(i, l1_to_l2_messages[i]);
     }
 
