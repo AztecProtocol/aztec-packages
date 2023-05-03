@@ -60,12 +60,11 @@ template <size_t SIZE>
 std::array<NT::fr, SIZE> array_of_values(NT::uint32& count, NT::uint32 num_values_required = SIZE)
 {
     std::array<NT::fr, SIZE> values;
-    size_t ind = 0;
-    for (; ind < num_values_required; ind++) {
-        values[ind] = ++count;
+    for (size_t i = 0; i < num_values_required; i++) {
+        values[i] = ++count;
     }
-    for (; ind < SIZE; ind++) {
-        values[ind] = 0;
+    for (size_t i = num_values_required; i < SIZE; i++) {
+        values[i] = 0;
     }
     return values;
 }
