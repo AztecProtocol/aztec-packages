@@ -124,8 +124,8 @@ export class MerkleTrees implements MerkleTreeDb {
 
     // The roots trees must contain the empty roots of their data trees
     await this.updateHistoricRootsTrees(true);
-    await contractTreeRootsTree.commit();
-    await privateDataTreeRootsTree.commit();
+    const historicRootsTrees = [contractTreeRootsTree, privateDataTreeRootsTree, l1Tol2MessagesRootsTree];
+    await Promise.all(historicRootsTrees.map(tree => tree.commit()));
   }
 
   /**
