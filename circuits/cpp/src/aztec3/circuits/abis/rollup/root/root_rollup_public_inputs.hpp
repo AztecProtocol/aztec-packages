@@ -61,17 +61,17 @@ template <typename NCT> struct RootRollupPublicInputs {
         write(buf, start_contract_tree_snapshot);
         write(buf, start_tree_of_historic_private_data_tree_roots_snapshot);
         write(buf, start_tree_of_historic_contract_tree_roots_snapshot);
+        write(buf, start_public_data_tree_root);
         write(buf, start_l1_to_l2_messages_tree_snapshot);
         write(buf, start_tree_of_historic_l1_to_l2_messages_tree_roots_snapshot);
-        write(buf, start_public_data_tree_root);
         write(buf, end_private_data_tree_snapshot);
         write(buf, end_nullifier_tree_snapshot);
         write(buf, end_contract_tree_snapshot);
         write(buf, end_tree_of_historic_private_data_tree_roots_snapshot);
         write(buf, end_tree_of_historic_contract_tree_roots_snapshot);
+        write(buf, end_public_data_tree_root);
         write(buf, end_l1_to_l2_messages_tree_snapshot);
         write(buf, end_tree_of_historic_l1_to_l2_messages_tree_roots_snapshot);
-        write(buf, end_public_data_tree_root);
 
         // Stitching calldata hash together
         auto high_buffer = calldata_hash[0].to_buffer();

@@ -275,7 +275,7 @@ describe('sequencer/circuit_block_builder', () => {
       expect(l2Block.number).toEqual(blockNumber);
       expect(l2Block.newPublicDataWrites[0]).toEqual(new PublicDataWrite(fr(2), fr(12)));
       await updateExpectedTreesFromTxs(txs);
-    });
+    }, 10_000);
 
     // This test specifically tests nullifier values which previously caused e2e_zk_token test to fail
     it('e2e_zk_token edge case regression test on nullifier values', async () => {

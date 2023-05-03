@@ -180,8 +180,7 @@ TEST_F(root_rollup_tests, native_check_block_hashes_empty_blocks)
     EXPECT_FALSE(composer.failed());
 
     // Expected hash of public inputs for an empty L2 block. Also used in the contract tests.
-    // @todo Needs to be updated!
-    fr const expected_hash = uint256_t("11840efc30e9fcbdd0aae30da2a5b441132420b4f0cc4ffd6bdc41888845f775");
+    fr const expected_hash = uint256_t("23f698e487c4e1b7383889f8864bc19591773d136c364c01d980bd13d0786ba1");
     ASSERT_EQ(outputs.hash(), expected_hash);
 
     run_cbind(inputs, outputs, true);

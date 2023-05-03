@@ -136,6 +136,11 @@ export class RootRollupPublicInputs {
       AppendOnlyTreeSnapshot.empty(),
       AppendOnlyTreeSnapshot.empty(),
       AppendOnlyTreeSnapshot.empty(),
+      AppendOnlyTreeSnapshot.empty(),
+      AppendOnlyTreeSnapshot.empty(),
+      AppendOnlyTreeSnapshot.empty(),
+      AppendOnlyTreeSnapshot.empty(),
+      [Fr.zero(), Fr.zero()],
       [Fr.zero(), Fr.zero()],
     );
   }
