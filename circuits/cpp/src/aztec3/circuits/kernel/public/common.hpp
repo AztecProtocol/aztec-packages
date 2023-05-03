@@ -41,12 +41,9 @@ namespace aztec3::circuits::kernel::public_kernel {
 template <typename KernelInput>
 void common_validate_call_stack(DummyComposer& composer, KernelInput const& public_kernel_inputs)
 {
-    info(31);
     // Ensures that the stack of pre-images corresponds to the call stack
     auto& stack = public_kernel_inputs.public_call.call_stack_item.public_inputs.public_call_stack;
-    info(32);
     auto& preimages = public_kernel_inputs.public_call.public_call_stack_preimages;
-    info(33);
 
     // grab our contract address, our storage contract address and our portal contract address to verify
     // child executions in the case of delegate call types
@@ -57,7 +54,6 @@ void common_validate_call_stack(DummyComposer& composer, KernelInput const& publ
     auto our_portal_contract_address =
         public_kernel_inputs.public_call.call_stack_item.public_inputs.call_context.portal_contract_address;
 
-    info(34);
     for (size_t i = 0; i < stack.size(); ++i) {
         const auto& hash = stack[i];
         const auto& preimage = preimages[i];
@@ -73,7 +69,6 @@ void common_validate_call_stack(DummyComposer& composer, KernelInput const& publ
                            format("public_call_stack[", i, "] = ", hash, "; does not reconcile"),
                            CircuitErrorCode::PUBLIC_KERNEL__PUBLIC_CALL_STACK_MISMATCH);
 
-        info(35);
         // here we validate the msg sender for each call on the stack
         // we need to consider regular vs delegate calls
         const auto preimage_msg_sender = preimage.public_inputs.call_context.msg_sender;
@@ -88,7 +83,6 @@ void common_validate_call_stack(DummyComposer& composer, KernelInput const& publ
                                   "; does not reconcile"),
                            CircuitErrorCode::PUBLIC_KERNEL__PUBLIC_CALL_STACK_INVALID_MSG_SENDER);
 
-        info(36);
         // here we validate the storage address for each call on the stack
         // we need to consider regular vs delegate calls
         const auto preimage_storage_address = preimage.public_inputs.call_context.storage_contract_address;
@@ -103,7 +97,6 @@ void common_validate_call_stack(DummyComposer& composer, KernelInput const& publ
                                   "; does not reconcile"),
                            CircuitErrorCode::PUBLIC_KERNEL__PUBLIC_CALL_STACK_INVALID_STORAGE_ADDRESS);
 
-        info(37);
         // if it is a delegate call then we check that the portal contract in the pre image is our portal contract
         const auto preimage_portal_address = preimage.public_inputs.call_context.portal_contract_address;
         const auto expected_portal_address = our_portal_contract_address;
@@ -117,7 +110,6 @@ void common_validate_call_stack(DummyComposer& composer, KernelInput const& publ
                                   "; does not reconcile"),
                            CircuitErrorCode::PUBLIC_KERNEL__PUBLIC_CALL_STACK_INVALID_PORTAL_ADDRESS);
 
-        info(38);
         const auto num_state_transitions = array_length(preimage.public_inputs.state_transitions);
         composer.do_assert(!is_static_call || num_state_transitions == 0,
                            format("call_state_transitions[", i, "] should be empty"),
@@ -134,29 +126,20 @@ void common_validate_call_stack(DummyComposer& composer, KernelInput const& publ
 template <typename KernelInput>
 void common_validate_call_context(DummyComposer& composer, KernelInput const& public_kernel_inputs)
 {
-    info(11);
     const auto& call_stack_item = public_kernel_inputs.public_call.call_stack_item;
-    info(12);
     const auto is_delegate_call = call_stack_item.public_inputs.call_context.is_delegate_call;
-    info(13);
     const auto is_static_call = call_stack_item.public_inputs.call_context.is_static_call;
-    info(14);
     const auto contract_address = call_stack_item.contract_address;
-    info(15);
     const auto storage_contract_address = call_stack_item.public_inputs.call_context.storage_contract_address;
-    info(16);
     const auto state_transitions_length = array_length(call_stack_item.public_inputs.state_transitions);
-    info(17);
 
     composer.do_assert(!is_delegate_call || contract_address != storage_contract_address,
                        std::string("call_context contract_address == storage_contract_address on delegate_call"),
                        CircuitErrorCode::PUBLIC_KERNEL__CALL_CONTEXT_INVALID_STORAGE_ADDRESS_FOR_DELEGATE_CALL);
-    info(18);
 
     composer.do_assert(!is_static_call || state_transitions_length == 0,
                        std::string("call_context state transitions found on static call"),
                        CircuitErrorCode::PUBLIC_KERNEL__CALL_CONTEXT_TRANSITIONS_PROHIBITED_FOR_STATIC_CALL);
-    info(19);
 };
 
 /**

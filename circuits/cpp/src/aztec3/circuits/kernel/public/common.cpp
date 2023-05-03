@@ -39,18 +39,14 @@ void validate_this_public_call_hash(DummyComposer& composer,
 {
     // Pops the current function execution from the stack and validates it against the call stack item
 
-    info(21);
     // TODO: this logic might need to change to accommodate the weird edge 3 initial txs (the 'main' tx, the 'fee' tx,
     // and the 'gas rebate' tx).
     const auto popped_public_call_hash = array_pop(public_inputs.end.public_call_stack);
-    info(22);
     const auto calculated_this_public_call_hash = public_kernel_inputs.public_call.call_stack_item.hash();
 
-    info(23);
     composer.do_assert(
         popped_public_call_hash == calculated_this_public_call_hash,
         "calculated public_call_hash does not match provided public_call_hash at the top of the call stack",
         CircuitErrorCode::PUBLIC_KERNEL__CALCULATED_PRIVATE_CALL_HASH_AND_PROVIDED_PRIVATE_CALL_HASH_MISMATCH);
-    info(24);
 };
 }  // namespace aztec3::circuits::kernel::public_kernel
