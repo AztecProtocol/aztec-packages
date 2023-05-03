@@ -69,8 +69,8 @@ describe.skip('L1Publisher integration', () => {
     const simulator = await WasmRollupCircuitSimulator.new();
     const prover = new EmptyRollupProver();
     builder = new CircuitBlockBuilder(builderDb, vks, simulator, prover);
-    await expectsDb.updateRootsTrees();
-    await builderDb.updateRootsTrees();
+    await expectsDb.updateHistoricRootsTrees();
+    await builderDb.updateHistoricRootsTrees();
 
     baseRollupOutputLeft = makeBaseRollupPublicInputs();
     baseRollupOutputRight = makeBaseRollupPublicInputs();
@@ -127,7 +127,7 @@ describe.skip('L1Publisher integration', () => {
       baseRollupOutputRight.endPrivateDataTreeSnapshot = await getTreeSnapshot(MerkleTreeId.PRIVATE_DATA_TREE);
 
       // And update the root trees now to create proper output to the root rollup circuit
-      await expectsDb.updateRootsTrees();
+      await expectsDb.updateHistoricRootsTrees();
       rootRollupOutput.endContractTreeSnapshot = await getTreeSnapshot(MerkleTreeId.CONTRACT_TREE);
       rootRollupOutput.endNullifierTreeSnapshot = await getTreeSnapshot(MerkleTreeId.NULLIFIER_TREE);
       rootRollupOutput.endPrivateDataTreeSnapshot = await getTreeSnapshot(MerkleTreeId.PRIVATE_DATA_TREE);

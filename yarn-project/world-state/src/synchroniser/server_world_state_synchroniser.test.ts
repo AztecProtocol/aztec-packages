@@ -240,7 +240,7 @@ describe('server_world_state_synchroniser', () => {
 
   it('updates the contract tree', async () => {
     merkleTreeDb.appendLeaves.mockReset();
-    merkleTreeDb.updateRootsTrees.mockReset();
+    merkleTreeDb.updateHistoricRootsTrees.mockReset();
     const server = createSynchroniser(merkleTreeDb, rollupSource);
     const totalBlocks = LATEST_BLOCK_NUMBER + 1;
     nextBlocks = Array(totalBlocks)
@@ -251,7 +251,7 @@ describe('server_world_state_synchroniser', () => {
     // there are 3 data trees updated
     expect(merkleTreeDb.appendLeaves).toHaveBeenCalledTimes(totalBlocks * 3);
     // and 2 root trees
-    expect(merkleTreeDb.updateRootsTrees).toHaveBeenCalledTimes(totalBlocks);
+    expect(merkleTreeDb.updateHistoricRootsTrees).toHaveBeenCalledTimes(totalBlocks);
     // there should be a call to append to the contract tree for each block
     for (let i = 0; i < totalBlocks; i++) {
       expect(

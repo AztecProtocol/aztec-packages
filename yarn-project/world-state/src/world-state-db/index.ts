@@ -154,7 +154,7 @@ export interface MerkleTreeOperations {
    * Inserts into the roots trees (CONTRACT_TREE_ROOTS_TREE, PRIVATE_DATA_TREE_ROOTS_TREE)
    * the current roots of the corresponding trees (CONTRACT_TREE, PRIVATE_DATA_TREE).
    */
-  updateRootsTrees(): Promise<void>;
+  updateHistoricRootsTrees(): Promise<void>;
 }
 
 /**

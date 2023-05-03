@@ -121,7 +121,7 @@ export class MerkleTrees implements MerkleTreeDb {
 
     this.jobQueue.start();
 
-    await this.updateRootsTrees(true);
+    await this.updateHistoricRootsTrees(true);
   }
 
   /**
@@ -164,7 +164,7 @@ export class MerkleTrees implements MerkleTreeDb {
    * the current roots of the corresponding trees (CONTRACT_TREE, PRIVATE_DATA_TREE).
    * @param includeUncommitted - Indicates whether to include uncommitted data.
    */
-  public async updateRootsTrees(includeUncommitted: boolean) {
+  public async updateHistoricRootsTrees(includeUncommitted: boolean) {
     for (const [newTree, rootTree] of [
       [MerkleTreeId.PRIVATE_DATA_TREE, MerkleTreeId.PRIVATE_DATA_TREE_ROOTS_TREE],
       [MerkleTreeId.CONTRACT_TREE, MerkleTreeId.CONTRACT_TREE_ROOTS_TREE],

@@ -285,7 +285,7 @@ export class CircuitBlockBuilder implements BlockBuilder {
     // Update the root trees with the latest data and contract tree roots,
     // and validate them against the output of the root circuit simulation
     this.debug(`Updating and validating root trees`);
-    await this.db.updateRootsTrees();
+    await this.db.updateHistoricRootsTrees();
     await this.validateRootOutput(rootOutput);
 
     return [rootOutput, rootProof];
