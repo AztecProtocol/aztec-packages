@@ -105,7 +105,7 @@ contract Decoder {
   function _computePublicInputsHash(bytes calldata _l2Block) internal pure returns (bytes32) {
     // header size - block number size + one value for the diffRoot + one value for l1ToL2MessagesHash
     uint256 size = 0x23c - 0x04 + 0x20 + 0x20;
-    
+
     // Compute the public inputs hash
     bytes memory temp = new bytes(size);
     assembly {
@@ -113,7 +113,7 @@ contract Decoder {
     }
 
     // Diff root
-    (bytes32 diffRoot,bytes32 l1ToL2messagesHash ) = _computeDiffRootAndMessagesHash(_l2Block);
+    (bytes32 diffRoot, bytes32 l1ToL2messagesHash) = _computeDiffRootAndMessagesHash(_l2Block);
     assembly {
       let endOfTreesData := sub(0x23c, 0x04)
       mstore(add(temp, add(0x20, endOfTreesData)), diffRoot)
@@ -122,7 +122,6 @@ contract Decoder {
 
     return bytes32(uint256(sha256(temp)) % P);
   }
-
 
   /**
    * @notice Extract the L2 block number from the block
@@ -170,6 +169,7 @@ contract Decoder {
     uint256 contractCount;
     uint256 l1Tol2MessagesCount;
   }
+
   struct ArrayOffsets {
     uint256 commitmentOffset;
     uint256 nullifierOffset;
@@ -183,9 +183,13 @@ contract Decoder {
    * @notice Creates a "diff" tree and compute its root
    * @param _l2Block - The L2 block calldata.
    */
-  function _computeDiffRootAndMessagesHash(bytes calldata _l2Block) internal pure returns (bytes32,  bytes32) {
+  function _computeDiffRootAndMessagesHash(bytes calldata _l2Block)
+    internal
+    pure
+    returns (bytes32, bytes32)
+  {
     // Find the lengths of the different inputs
-  // TOOD: Naming / getting the messages root within this function is a bit weird
+    // TOOD: Naming / getting the messages root within this function is a bit weird
     ArrayLengths memory lengths;
     ArrayOffsets memory offsets;
     {
@@ -214,10 +218,8 @@ contract Decoder {
             lengths.commitmentCount / (COMMITMENTS_PER_KERNEL * 2)
         );
 
-
     // Data starts after header. Look at L2 Block Data specification at the top of this file.
     {
-
       offsets.commitmentOffset = 0x240;
       offsets.nullifierOffset = offsets.commitmentOffset + 0x4 + lengths.commitmentCount * 0x20;
       offsets.publicDataOffset = offsets.nullifierOffset + 0x4 + lengths.nullifierCount * 0x20;
@@ -259,12 +261,18 @@ contract Decoder {
 
           // Adding new nullifiers
           calldatacopy(
-            add(baseLeaf, dstOffset), add(_l2Block.offset, mload(add(offsets, 0x20))), mul(0x08, 0x20)
+            add(baseLeaf, dstOffset),
+            add(_l2Block.offset, mload(add(offsets, 0x20))),
+            mul(0x08, 0x20)
           )
           dstOffset := add(dstOffset, mul(0x08, 0x20))
 
           // Adding new public data writes
-          calldatacopy(add(baseLeaf, dstOffset), add(_l2Block.offset, mload(add(offsets, 0x40))), mul(0x08, 0x40))
+          calldatacopy(
+            add(baseLeaf, dstOffset),
+            add(_l2Block.offset, mload(add(offsets, 0x40))),
+            mul(0x08, 0x40)
+          )
           dstOffset := add(dstOffset, mul(0x08, 0x40))
 
           // Adding Contract Leafs
@@ -317,7 +325,11 @@ contract Decoder {
       uint256 messagesHashPreimageSize = 0x20 * L1_TO_L2_MESSAGES_PER_ROLLUP;
       bytes memory messagesHashPreimage = new bytes(messagesHashPreimageSize);
       assembly {
-        calldatacopy(add(messagesHashPreimage, 0x20), add(mload(add(offsets, 0xa0)), 20), messagesHashPreimageSize)
+        calldatacopy(
+          add(messagesHashPreimage, 0x20),
+          add(mload(add(offsets, 0xa0)), 20),
+          messagesHashPreimageSize
+        )
       }
 
       messagesHash = sha256(messagesHashPreimage);
@@ -325,7 +337,6 @@ contract Decoder {
 
     return (diffRoot, messagesHash);
   }
-
 
   /**
    * @notice Computes the root for a binary Merkle-tree given the leafs.
