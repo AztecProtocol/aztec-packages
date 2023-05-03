@@ -1,4 +1,4 @@
-import { toBigInt } from '@aztec/foundation';
+import { toBigInt } from '@aztec/foundation/serialize';
 
 export class TxHash {
   public static SIZE = 32;

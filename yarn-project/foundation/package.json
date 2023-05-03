@@ -25,7 +25,7 @@
     "./timer": "./dest/timer/index.js",
     "./transport": "./dest/transport/index.js",
     "./wasm": "./dest/wasm/index.js",
-    "./bigint-buffer":"./dest/bigint-buffer/index.js"
+    "./bigint-buffer": "./dest/bigint-buffer/index.js"
   },
   "scripts": {
     "prepare": "node ../yarn-project-base/scripts/update_build_manifest.mjs package.json",
