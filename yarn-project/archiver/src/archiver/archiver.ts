@@ -198,9 +198,9 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource, ContractDa
       }
 
       this.log(`Syncing ContractData logs from block ${this.nextContractDataFromBlock}`);
-      const contractDataLogs = await this.getContractDataLogs(this.nextContractDataFromBlock);
+      const contractDataLogs = await this.getContractDeploymentLogs(this.nextContractDataFromBlock);
 
-      this.processContractDataLogs(contractDataLogs);
+      this.processContractDeploymentLogs(contractDataLogs);
       this.nextContractDataFromBlock =
         (contractDataLogs.findLast(cd => !!cd)?.blockNumber || this.nextContractDataFromBlock) + 1n;
     } while (blockUntilSynced && this.nextContractDataFromBlock <= currentBlockNumber);
@@ -249,7 +249,7 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource, ContractDa
    * @param fromBlock - First block to get logs from (inclusive).
    * @returns An array of `ContractDeployment` logs.
    */
-  private async getContractDataLogs(fromBlock: bigint): Promise<any[]> {
+  private async getContractDeploymentLogs(fromBlock: bigint): Promise<any[]> {
     const abiItem = getAbiItem({
       abi: UnverifiedDataEmitterAbi,
       name: 'ContractDeployment',
@@ -313,7 +313,7 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource, ContractDa
    * Processes newly received UnverifiedData logs.
    * @param logs - ContractDeployment logs.
    */
-  private processContractDataLogs(
+  private processContractDeploymentLogs(
     logs: Log<bigint, number, undefined, typeof UnverifiedDataEmitterAbi, 'ContractDeployment'>[],
   ) {
     for (const log of logs) {
