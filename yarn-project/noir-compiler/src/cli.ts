@@ -6,9 +6,9 @@ import { ContractCompiler } from './compile.js';
 
 const program = new Command();
 
-const fileExists = async (path: string) => !!(await fs.stat(path).catch(e => false));
+const fileExists = async (path: string) => !!(await fs.stat(path).catch(() => false));
 
-async function main() {
+const main = async () => {
   program
     .command('compile')
     .argument('[path]', 'Path to the contract project', '.')
@@ -30,7 +30,7 @@ async function main() {
     });
 
   await program.parseAsync(process.argv);
-}
+};
 
 main().catch(err => {
   console.log(`Error thrown: ${err}`);

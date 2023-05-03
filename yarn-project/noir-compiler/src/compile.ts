@@ -22,15 +22,27 @@ export interface Dependency {
   git?: string;
 }
 
+/**
+ * A class that compiles noir contracts and outputs the Aztec ABI.
+ */
 export class ContractCompiler {
   constructor(private projectPath: string) {}
 
+  /**
+   * Compiles the contracts in projectPath and returns the Aztec ABI.
+   * @returns Aztec ABI of the compiled contracts.
+   */
   public async compile(): Promise<ContractAbi[]> {
     const noirContracts = await this.compileNoir();
     const abis: ContractAbi[] = noirContracts.map(this.convertToAztecABI);
     return abis;
   }
 
+  /**
+   * Converts a compiled noir contract to Aztec ABI.
+   * @param contract - A compiled noir contract.
+   * @returns Aztec ABI of the contract.
+   */
   private convertToAztecABI(contract: NoirCompiledContract): ContractAbi {
     return {
       ...contract,
@@ -45,6 +57,11 @@ export class ContractCompiler {
     };
   }
 
+  /**
+   * Reads the dependencies of a noir crate.
+   * @param cratePath - Path to the noir crate.
+   * @returns A map of dependencies.
+   */
   private async readDependencies(cratePath: string) {
     const { dependencies } = toml.parse(
       await fs.readFile(nodePath.join(cratePath, 'Nargo.toml'), { encoding: 'utf8' }),
@@ -52,6 +69,10 @@ export class ContractCompiler {
     return (dependencies || {}) as Record<string, Dependency>;
   }
 
+  /**
+   * Executes the noir compiler.
+   * @returns A list of compiled noir contracts.
+   */
   private async compileNoir(): Promise<NoirCompiledContract[]> {
     const dependenciesMap = await this.readDependencies(this.projectPath);
 
