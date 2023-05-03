@@ -5,9 +5,11 @@ import {
   CONTRACT_TREE_ROOTS_TREE_HEIGHT,
   CircuitsWasm,
   ConstantBaseRollupData,
+  L1_TO_L2_MESSAGES_SUBTREE_INSERTION_HEIGHT,
   MembershipWitness,
   MergeRollupInputs,
   NULLIFIER_TREE_HEIGHT,
+  NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   NullifierLeafPreimage,
   PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT,
   PUBLIC_DATA_TREE_HEIGHT,
@@ -35,6 +37,8 @@ import { RollupSimulator } from '../simulator/index.js';
 
 import { ProcessedTx } from '../sequencer/processed_tx.js';
 import { BlockBuilder } from './index.js';
+import { toFriendlyJSON } from '@aztec/circuits.js/utils';
+import { AllowedTreeNames, OutputWithTreeSnapshot } from './types.js';
 
 const frToBigInt = (fr: Fr) => toBigIntBE(fr.toBuffer());
 const bigintToFr = (num: bigint) => new Fr(num);
@@ -82,7 +86,11 @@ export class CircuitBlockBuilder implements BlockBuilder {
     protected debug = createDebugLogger('aztec:sequencer'),
   ) {}
 
-  public async buildL2Block(blockNumber: number, txs: ProcessedTx[]): Promise<[L2Block, UInt8Vector]> {
+  public async buildL2Block(
+    blockNumber: number,
+    txs: ProcessedTx[],
+    newL1ToL2Messages: Fr[],
+  ): Promise<[L2Block, UInt8Vector]> {
     const [
       startPrivateDataTreeSnapshot,
       startNullifierTreeSnapshot,
@@ -90,6 +98,8 @@ export class CircuitBlockBuilder implements BlockBuilder {
       startPublicDataTreeSnapshot,
       startTreeOfHistoricPrivateDataTreeRootsSnapshot,
       startTreeOfHistoricContractTreeRootsSnapshot,
+      startL1ToL2MessageTreeSnapshot,
+      startTreeOfHistoricL1ToL2MessageTreeRootsSnapshot,
     ] = await Promise.all(
       [
         MerkleTreeId.PRIVATE_DATA_TREE,
@@ -98,19 +108,26 @@ export class CircuitBlockBuilder implements BlockBuilder {
         MerkleTreeId.PUBLIC_DATA_TREE,
         MerkleTreeId.PRIVATE_DATA_TREE_ROOTS_TREE,
         MerkleTreeId.CONTRACT_TREE_ROOTS_TREE,
+        MerkleTreeId.L1_TO_L2_MESSAGES_TREE,
+        MerkleTreeId.L1_TO_L2_MESSAGES_ROOTS_TREE,
       ].map(tree => this.getTreeSnapshot(tree)),
     );
 
+    // Check txs are good for processing
+    this.validateTxs(txs);
+
     // We fill the tx batch with empty txs, we process only one tx at a time for now
-    const [circuitsOutput, proof] = await this.runCircuits(txs);
+    const [circuitsOutput, proof] = await this.runCircuits(txs, newL1ToL2Messages);
 
     const {
       endPrivateDataTreeSnapshot,
       endNullifierTreeSnapshot,
       endContractTreeSnapshot,
-      endPublicDataTreeSnapshot,
+      endPublicDataTreeRoot,
       endTreeOfHistoricPrivateDataTreeRootsSnapshot,
       endTreeOfHistoricContractTreeRootsSnapshot,
+      endL1ToL2MessageTreeSnapshot,
+      endTreeOfHistoricL1ToL2MessageTreeRootsSnapshot,
     } = circuitsOutput;
 
     // Collect all new nullifiers, commitments, and contracts from all txs in this block
@@ -134,19 +151,34 @@ export class CircuitBlockBuilder implements BlockBuilder {
       startContractTreeSnapshot,
       endContractTreeSnapshot,
       startPublicDataTreeRoot: startPublicDataTreeSnapshot.root,
-      endPublicDataTreeRoot: endPublicDataTreeSnapshot.root,
+      endPublicDataTreeRoot,
       startTreeOfHistoricPrivateDataTreeRootsSnapshot,
       endTreeOfHistoricPrivateDataTreeRootsSnapshot,
       startTreeOfHistoricContractTreeRootsSnapshot,
       endTreeOfHistoricContractTreeRootsSnapshot,
+      startL1ToL2MessageTreeSnapshot,
+      endL1ToL2MessageTreeSnapshot,
+      startTreeOfHistoricL1ToL2MessageTreeRootsSnapshot,
+      endTreeOfHistoricL1ToL2MessageTreeRootsSnapshot,
       newCommitments,
       newNullifiers,
       newContracts,
       newContractData,
       newPublicDataWrites,
+      newL1ToL2Messages,
     });
 
     return [l2Block, proof];
+  }
+
+  protected validateTxs(txs: ProcessedTx[]) {
+    for (const tx of txs) {
+      for (const historicTreeRoot of ['privateDataTreeRoot', 'contractTreeRoot', 'nullifierTreeRoot'] as const) {
+        if (tx.data.constants.historicTreeRoots.privateHistoricTreeRoots[historicTreeRoot].isZero()) {
+          throw new Error(`Empty ${historicTreeRoot} for tx: ${toFriendlyJSON(tx)}`);
+        }
+      }
+    }
   }
 
   protected async getTreeSnapshot(id: MerkleTreeId): Promise<AppendOnlyTreeSnapshot> {
@@ -154,11 +186,18 @@ export class CircuitBlockBuilder implements BlockBuilder {
     return new AppendOnlyTreeSnapshot(Fr.fromBuffer(treeInfo.root), Number(treeInfo.size));
   }
 
-  protected async runCircuits(txs: ProcessedTx[]): Promise<[RootRollupPublicInputs, Proof]> {
+  protected async runCircuits(txs: ProcessedTx[], newL1ToL2Messages: Fr[]): Promise<[RootRollupPublicInputs, Proof]> {
     // Check that the length of the array of txs is a power of two
     // See https://graphics.stanford.edu/~seander/bithacks.html#DetermineIfPowerOf2
     if (txs.length < 4 || (txs.length & (txs.length - 1)) !== 0) {
       throw new Error(`Length of txs for the block should be a power of two and at least four (got ${txs.length})`);
+    }
+
+    // Check that the number of new L1 to L2 messages is the same as the max
+    if (newL1ToL2Messages.length !== NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP) {
+      throw new Error(
+        `Length of the l1 to l2 messages per block should be a constant ${NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP} (got ${newL1ToL2Messages.length})`,
+      );
     }
 
     // Run the base rollup circuits for the txs
@@ -182,7 +221,7 @@ export class CircuitBlockBuilder implements BlockBuilder {
 
     // Run the root rollup with the last two merge rollups (or base, if no merge layers)
     const [mergeOutputLeft, mergeOutputRight] = mergeRollupInputs;
-    return this.rootRollupCircuit(mergeOutputLeft, mergeOutputRight);
+    return this.rootRollupCircuit(mergeOutputLeft, mergeOutputRight, newL1ToL2Messages);
   }
 
   protected async baseRollupCircuit(
@@ -227,32 +266,29 @@ export class CircuitBlockBuilder implements BlockBuilder {
   protected async rootRollupCircuit(
     left: [BaseOrMergeRollupPublicInputs, Proof],
     right: [BaseOrMergeRollupPublicInputs, Proof],
+    newL1ToL2Messages: Fr[],
   ): Promise<[RootRollupPublicInputs, Proof]> {
     this.debug(`Running root rollup circuit`);
-    const rootInput = await this.getRootRollupInput(...left, ...right);
+    const rootInput = await this.getRootRollupInput(...left, ...right, newL1ToL2Messages);
+
+    // Update the local trees to include the new l1 to l2 messages
+    await this.db.appendLeaves(
+      MerkleTreeId.L1_TO_L2_MESSAGES_TREE,
+      newL1ToL2Messages.map(m => m.toBuffer()),
+    );
 
     // Simulate and get proof for the root circuit
     const rootOutput = await this.simulator.rootRollupCircuit(rootInput);
+
     const rootProof = await this.prover.getRootRollupProof(rootInput, rootOutput);
 
     // Update the root trees with the latest data and contract tree roots,
     // and validate them against the output of the root circuit simulation
     this.debug(`Updating and validating root trees`);
-    await this.updateRootTrees();
+    await this.db.updateHistoricRootsTrees();
     await this.validateRootOutput(rootOutput);
 
     return [rootOutput, rootProof];
-  }
-
-  // Updates our roots trees with the new generated trees after the rollup updates
-  protected async updateRootTrees() {
-    for (const [newTree, rootTree] of [
-      [MerkleTreeId.PRIVATE_DATA_TREE, MerkleTreeId.PRIVATE_DATA_TREE_ROOTS_TREE],
-      [MerkleTreeId.CONTRACT_TREE, MerkleTreeId.CONTRACT_TREE_ROOTS_TREE],
-    ] as const) {
-      const newTreeInfo = await this.db.getTreeInfo(newTree);
-      await this.db.appendLeaves(rootTree, [newTreeInfo.root]);
-    }
   }
 
   // Validate that the new roots we calculated from manual insertions match the outputs of the simulation
@@ -261,7 +297,7 @@ export class CircuitBlockBuilder implements BlockBuilder {
       this.validateTree(rollupOutput, MerkleTreeId.CONTRACT_TREE, 'Contract'),
       this.validateTree(rollupOutput, MerkleTreeId.PRIVATE_DATA_TREE, 'PrivateData'),
       this.validateTree(rollupOutput, MerkleTreeId.NULLIFIER_TREE, 'Nullifier'),
-      this.validateTree(rollupOutput, MerkleTreeId.PUBLIC_DATA_TREE, 'PublicData'),
+      this.validatePublicDataTreeRoot(rollupOutput),
     ]);
   }
 
@@ -271,6 +307,8 @@ export class CircuitBlockBuilder implements BlockBuilder {
       this.validateTrees(rootOutput),
       this.validateRootTree(rootOutput, MerkleTreeId.CONTRACT_TREE_ROOTS_TREE, 'Contract'),
       this.validateRootTree(rootOutput, MerkleTreeId.PRIVATE_DATA_TREE_ROOTS_TREE, 'PrivateData'),
+      this.validateRootTree(rootOutput, MerkleTreeId.L1_TO_L2_MESSAGES_ROOTS_TREE, 'L1ToL2Message'),
+      this.validateTree(rootOutput, MerkleTreeId.L1_TO_L2_MESSAGES_TREE, 'L1ToL2Message'),
     ]);
   }
 
@@ -278,21 +316,40 @@ export class CircuitBlockBuilder implements BlockBuilder {
   protected async validateRootTree(
     rootOutput: RootRollupPublicInputs,
     treeId: MerkleTreeId,
-    name: 'Contract' | 'PrivateData',
+    name: 'Contract' | 'PrivateData' | 'L1ToL2Message',
   ) {
     const localTree = await this.getTreeSnapshot(treeId);
     const simulatedTree = rootOutput[`endTreeOfHistoric${name}TreeRootsSnapshot`];
     this.validateSimulatedTree(localTree, simulatedTree, name, `Roots ${name}`);
   }
 
+  /**
+   * Validates that the root of the public data tree matches the output of the circuit simulation.
+   * @param output The output of the circuit simulation.
+   * Note: Public data tree is sparse, so the "next available leaf index" doesn't make sense there.
+   *       For this reason we only validate root.
+   */
+  protected async validatePublicDataTreeRoot(output: BaseOrMergeRollupPublicInputs | RootRollupPublicInputs) {
+    const localTree = await this.getTreeSnapshot(MerkleTreeId.PUBLIC_DATA_TREE);
+    const simulatedTreeRoot = output[`endPublicDataTreeRoot`];
+
+    if (!simulatedTreeRoot.toBuffer().equals(localTree.root.toBuffer())) {
+      throw new Error(`PublicData tree root mismatch (local ${localTree.root}, simulated ${simulatedTreeRoot})`);
+    }
+  }
+
   // Helper for validating a non-roots tree against a circuit simulation output
-  protected async validateTree(
-    output: BaseOrMergeRollupPublicInputs | RootRollupPublicInputs,
+  protected async validateTree<T extends BaseOrMergeRollupPublicInputs | RootRollupPublicInputs>(
+    output: T,
     treeId: MerkleTreeId,
-    name: 'PrivateData' | 'Contract' | 'Nullifier' | 'PublicData',
+    name: AllowedTreeNames<T>,
   ) {
+    if ('endL1ToL2MessageTreeSnapshot' in output && !(output instanceof RootRollupPublicInputs)) {
+      throw new Error(`The name 'L1ToL2Message' can only be used when output is of type RootRollupPublicInputs`);
+    }
+
     const localTree = await this.getTreeSnapshot(treeId);
-    const simulatedTree = output[`end${name}TreeSnapshot`];
+    const simulatedTree = (output as OutputWithTreeSnapshot<T>)[`end${name}TreeSnapshot`];
     this.validateSimulatedTree(localTree, simulatedTree, name);
   }
 
@@ -300,15 +357,13 @@ export class CircuitBlockBuilder implements BlockBuilder {
   protected validateSimulatedTree(
     localTree: AppendOnlyTreeSnapshot,
     simulatedTree: AppendOnlyTreeSnapshot,
-    name: 'PrivateData' | 'Contract' | 'Nullifier' | 'PublicData',
+    name: 'PrivateData' | 'Contract' | 'Nullifier' | 'L1ToL2Message',
     label?: string,
   ) {
     if (!simulatedTree.root.toBuffer().equals(localTree.root.toBuffer())) {
       throw new Error(`${label ?? name} tree root mismatch (local ${localTree.root}, simulated ${simulatedTree.root})`);
     }
-    // Public data tree is sparse, so the "next available leaf index" doesn't make sense there
-    // We'll eventually drop it, see https://github.com/AztecProtocol/aztec3-packages/issues/379
-    if (name !== 'PublicData' && simulatedTree.nextAvailableLeafIndex !== localTree.nextAvailableLeafIndex) {
+    if (simulatedTree.nextAvailableLeafIndex !== localTree.nextAvailableLeafIndex) {
       throw new Error(
         `${label ?? name} tree next available leaf index mismatch (local ${
           localTree.nextAvailableLeafIndex
@@ -323,6 +378,7 @@ export class CircuitBlockBuilder implements BlockBuilder {
     rollupProofLeft: Proof,
     rollupOutputRight: BaseOrMergeRollupPublicInputs,
     rollupProofRight: Proof,
+    newL1ToL2Messages: Fr[],
   ) {
     const vk = this.getVerificationKey(rollupOutputLeft.rollupType);
     const previousRollupData: RootRollupInputs['previousRollupData'] = [
@@ -344,11 +400,29 @@ export class CircuitBlockBuilder implements BlockBuilder {
     const newHistoricPrivateDataTreeRootSiblingPath = await getRootTreeSiblingPath(
       MerkleTreeId.PRIVATE_DATA_TREE_ROOTS_TREE,
     );
+    const newHistoricL1ToL2MessageTreeRootSiblingPath = await getRootTreeSiblingPath(
+      MerkleTreeId.L1_TO_L2_MESSAGES_ROOTS_TREE,
+    );
+    const newL1ToL2MessageTreeRootSiblingPath = await this.getSubtreeSiblingPath(
+      MerkleTreeId.L1_TO_L2_MESSAGES_TREE,
+      L1_TO_L2_MESSAGES_SUBTREE_INSERTION_HEIGHT,
+    );
+
+    // Get tree snapshots
+    const startL1ToL2MessageTreeSnapshot = await this.getTreeSnapshot(MerkleTreeId.L1_TO_L2_MESSAGES_TREE);
+    const startHistoricTreeL1ToL2MessageTreeRootsSnapshot = await this.getTreeSnapshot(
+      MerkleTreeId.L1_TO_L2_MESSAGES_ROOTS_TREE,
+    );
 
     return RootRollupInputs.from({
       previousRollupData,
       newHistoricContractDataTreeRootSiblingPath,
       newHistoricPrivateDataTreeRootSiblingPath,
+      newL1ToL2Messages,
+      newHistoricL1ToL2MessageTreeRootSiblingPath,
+      newL1ToL2MessageTreeRootSiblingPath,
+      startL1ToL2MessageTreeSnapshot,
+      startHistoricTreeL1ToL2MessageTreeRootsSnapshot,
     });
   }
 
@@ -790,7 +864,7 @@ export class CircuitBlockBuilder implements BlockBuilder {
       startNullifierTreeSnapshot,
       startContractTreeSnapshot,
       startPrivateDataTreeSnapshot,
-      startPublicDataTreeSnapshot,
+      startPublicDataTreeRoot: startPublicDataTreeSnapshot.root,
       newCommitmentsSubtreeSiblingPath,
       newContractsSubtreeSiblingPath,
       newNullifiersSubtreeSiblingPath,

@@ -1,12 +1,14 @@
 #pragma once
 
-#include "aztec3/utils/circuit_errors.hpp"
 #include "init.hpp"
+
+#include "aztec3/utils/circuit_errors.hpp"
 
 using aztec3::circuits::check_membership;
 using aztec3::circuits::root_from_sibling_path;
 
 namespace aztec3::circuits::rollup::components {
+NT::fr calculate_empty_tree_root(size_t depth);
 std::array<fr, 2> compute_calldata_hash(std::array<abis::PreviousRollupData<NT>, 2> previous_rollup_data);
 void assert_prev_rollups_follow_on_from_each_other(DummyComposer& composer,
                                                    BaseOrMergeRollupPublicInputs const& left,
@@ -24,14 +26,13 @@ void assert_equal_constants(DummyComposer& composer,
 AggregationObject aggregate_proofs(BaseOrMergeRollupPublicInputs const& left,
                                    BaseOrMergeRollupPublicInputs const& right);
 
-template <size_t N>
-AppendOnlySnapshot insert_subtree_to_snapshot_tree(DummyComposer& composer,
-                                                   AppendOnlySnapshot snapshot,
-                                                   std::array<NT::fr, N> siblingPath,
-                                                   NT::fr emptySubtreeRoot,
-                                                   NT::fr subtreeRootToInsert,
-                                                   uint8_t subtreeDepth,
-                                                   std::string const& message)
+template <size_t N> AppendOnlySnapshot insert_subtree_to_snapshot_tree(DummyComposer& composer,
+                                                                       AppendOnlySnapshot snapshot,
+                                                                       std::array<NT::fr, N> siblingPath,
+                                                                       NT::fr emptySubtreeRoot,
+                                                                       NT::fr subtreeRootToInsert,
+                                                                       uint8_t subtreeDepth,
+                                                                       std::string const& message)
 {
     // TODO: Sanity check len of siblingPath > height of subtree
     // TODO: Ensure height of subtree is correct (eg 3 for commitments, 1 for contracts)
@@ -44,10 +45,10 @@ AppendOnlySnapshot insert_subtree_to_snapshot_tree(DummyComposer& composer,
     auto new_root = root_from_sibling_path<NT>(subtreeRootToInsert, leafIndexAtDepth, siblingPath);
 
     // 2^subtreeDepth is the number of leaves added. 2^x = 1 << x
-    auto new_next_available_leaf_index = snapshot.next_available_leaf_index + (uint8_t(1) << subtreeDepth);
+    auto new_next_available_leaf_index = snapshot.next_available_leaf_index + (static_cast<uint8_t>(1) << subtreeDepth);
 
     AppendOnlySnapshot newTreeSnapshot = { .root = new_root,
                                            .next_available_leaf_index = new_next_available_leaf_index };
     return newTreeSnapshot;
 }
-} // namespace aztec3::circuits::rollup::components
+}  // namespace aztec3::circuits::rollup::components

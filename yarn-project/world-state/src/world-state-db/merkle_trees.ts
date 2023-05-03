@@ -2,6 +2,8 @@ import { PrimitivesWasm } from '@aztec/barretenberg.js/wasm';
 import {
   CONTRACT_TREE_HEIGHT,
   CONTRACT_TREE_ROOTS_TREE_HEIGHT,
+  L1_TO_L2_MESSAGES_ROOTS_TREE_HEIGHT,
+  L1_TO_L2_MESSAGES_TREE_HEIGHT,
   NULLIFIER_TREE_HEIGHT,
   PRIVATE_DATA_TREE_HEIGHT,
   PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT,
@@ -92,6 +94,20 @@ export class MerkleTrees implements MerkleTreeDb {
       `${MerkleTreeId[MerkleTreeId.PUBLIC_DATA_TREE]}`,
       PUBLIC_DATA_TREE_HEIGHT,
     );
+    const l1Tol2MessagesTree: AppendOnlyTree = await newTree(
+      StandardTree,
+      this.db,
+      hasher,
+      `${MerkleTreeId[MerkleTreeId.L1_TO_L2_MESSAGES_TREE]}`,
+      L1_TO_L2_MESSAGES_TREE_HEIGHT,
+    );
+    const l1Tol2MessagesRootsTree: AppendOnlyTree = await newTree(
+      StandardTree,
+      this.db,
+      hasher,
+      `${MerkleTreeId[MerkleTreeId.L1_TO_L2_MESSAGES_ROOTS_TREE]}`,
+      L1_TO_L2_MESSAGES_ROOTS_TREE_HEIGHT,
+    );
     this.trees = [
       contractTree,
       contractTreeRootsTree,
@@ -99,8 +115,13 @@ export class MerkleTrees implements MerkleTreeDb {
       privateDataTree,
       privateDataTreeRootsTree,
       publicDataTree,
+      l1Tol2MessagesTree,
+      l1Tol2MessagesRootsTree,
     ];
+
     this.jobQueue.start();
+
+    await this.updateHistoricRootsTrees(true);
   }
 
   /**
@@ -136,6 +157,22 @@ export class MerkleTrees implements MerkleTreeDb {
    */
   public asCommitted(): MerkleTreeOperations {
     return new MerkleTreeOperationsFacade(this, false);
+  }
+
+  /**
+   * Inserts into the roots trees (CONTRACT_TREE_ROOTS_TREE, PRIVATE_DATA_TREE_ROOTS_TREE)
+   * the current roots of the corresponding trees (CONTRACT_TREE, PRIVATE_DATA_TREE).
+   * @param includeUncommitted - Indicates whether to include uncommitted data.
+   */
+  public async updateHistoricRootsTrees(includeUncommitted: boolean) {
+    for (const [newTree, rootTree] of [
+      [MerkleTreeId.PRIVATE_DATA_TREE, MerkleTreeId.PRIVATE_DATA_TREE_ROOTS_TREE],
+      [MerkleTreeId.CONTRACT_TREE, MerkleTreeId.CONTRACT_TREE_ROOTS_TREE],
+      [MerkleTreeId.L1_TO_L2_MESSAGES_TREE, MerkleTreeId.L1_TO_L2_MESSAGES_ROOTS_TREE],
+    ] as const) {
+      const newTreeInfo = await this.getTreeInfo(newTree, includeUncommitted);
+      await this.appendLeaves(rootTree, [newTreeInfo.root]);
+    }
   }
 
   /**
