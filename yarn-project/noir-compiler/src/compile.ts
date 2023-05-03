@@ -4,13 +4,45 @@ import fsSync from 'fs';
 import fs from 'fs/promises';
 import noirResolver from '@noir-lang/noir-source-resolver';
 import toml from 'toml';
-import { Dependency } from './compiled_circuit.js';
+import { NoirCompiledContract } from './noir_artifact.js';
+import { ContractAbi, FunctionType } from '@aztec/foundation/abi';
+import { mockVerificationKey } from './mockedKeys.js';
+
+/**
+ * A dependency entry of Nargo.toml.
+ */
+export interface Dependency {
+  /**
+   * Path to the dependency.
+   */
+  path?: string;
+  /**
+   * Git repository of the dependency.
+   */
+  git?: string;
+}
 
 export class ContractCompiler {
   constructor(private projectPath: string) {}
 
-  public async compile() {
-    console.log(await this.compileNoir());
+  public async compile(): Promise<ContractAbi[]> {
+    const noirContracts = await this.compileNoir();
+    const abis: ContractAbi[] = noirContracts.map(this.convertToAztecBI);
+    return abis;
+  }
+
+  private convertToAztecBI(contract: NoirCompiledContract): ContractAbi {
+    return {
+      ...contract,
+      functions: contract.functions.map(noirFn => ({
+        name: noirFn.name,
+        functionType: noirFn.function_type.toLowerCase() as FunctionType,
+        parameters: noirFn.abi.parameters,
+        returnTypes: [noirFn.abi.return_type],
+        bytecode: Buffer.from(noirFn.bytecode).toString('hex'),
+        verificationKey: mockVerificationKey,
+      })),
+    };
   }
 
   private async readDependencies(cratePath: string) {
@@ -20,12 +52,10 @@ export class ContractCompiler {
     return (dependencies || {}) as Record<string, Dependency>;
   }
 
-  private async compileNoir() {
+  private async compileNoir(): Promise<NoirCompiledContract[]> {
     const dependenciesMap = await this.readDependencies(this.projectPath);
-    console.log('Dependencies', dependenciesMap);
 
     noirResolver.initialiseResolver((id: string) => {
-      console.log('Resolver request', id);
       const idParts = id.split('/');
 
       let path;
@@ -40,9 +70,7 @@ export class ContractCompiler {
         path = nodePath.join(this.projectPath, 'src', idParts.join('/'));
       }
 
-      console.log('Resolved path', path);
-
-      // AFAIK the resolver does not support async resolution
+      // The resolver does not support async resolution
       // and holding the whole project in memory is not reasonable
       const result = fsSync.readFileSync(path, { encoding: 'utf8' });
       return result;
