@@ -4,8 +4,6 @@
 
 The primary functions of the world state package are to maintain the collection of Merkle Trees comprising the global state of the system and to offer an interface with which the trees can be queried.
 
-The following components enable the package to perform it's role.
-
 ### The Merkle Tree DB, a collection of Merkle Trees of varying types.
 
 As of the time of writing the collection consisted of the following trees.
