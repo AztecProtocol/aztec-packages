@@ -141,7 +141,7 @@ class root_rollup_tests : public ::testing::Test {
     }
 };
 
-TEST_F(root_rollup_tests, native_calldata_hash_empty_blocks)
+TEST_F(root_rollup_tests, native_check_block_hashes_empty_blocks)
 {
     MemoryTree const data_tree = MemoryTree(PRIVATE_DATA_TREE_HEIGHT);
 
@@ -241,15 +241,18 @@ TEST_F(root_rollup_tests, native_root_missing_nullifier_logic)
     contract_tree.update_element(2, contract_leaf);
     kernels[2].public_inputs.end.new_contracts[0] = new_contract;
 
-    // The start historic data snapshot
+    // l1 to l2 messages snapshot
+    AppendOnlyTreeSnapshot<NT> const start_l1_to_l2_messages_tree_snapshot = { .root = l1_to_l2_messages_tree.root(),
+                                                                               .next_available_leaf_index = 0 };
+
+    // The start historic data snapshots
     AppendOnlyTreeSnapshot<NT> const start_historic_data_tree_snapshot = { .root = historic_data_tree.root(),
                                                                            .next_available_leaf_index = 1 };
     AppendOnlyTreeSnapshot<NT> const start_historic_contract_tree_snapshot = { .root = historic_contract_tree.root(),
                                                                                .next_available_leaf_index = 1 };
     AppendOnlyTreeSnapshot<NT> const start_historic_l1_to_l2_tree_snapshot = { .root = historic_l1_to_l2_tree.root(),
                                                                                .next_available_leaf_index = 1 };
-    AppendOnlyTreeSnapshot<NT> const start_l1_to_l2_messages_tree_snapshot = { .root = l1_to_l2_messages_tree.root(),
-                                                                               .next_available_leaf_index = 0 };
+
     // Create 16 empty l1 to l2 messages, and update the l1_to_l2 messages tree
     for (size_t i = 0; i < l1_to_l2_messages.size(); i++) {
         l1_to_l2_messages_tree.update_element(i, l1_to_l2_messages[i]);

@@ -118,7 +118,7 @@ RootRollupPublicInputs root_rollup_circuit(DummyComposer& composer, RootRollupIn
 
     // // Insert subtree into the l1 to l2 data tree
     const auto empty_l1_to_l2_subtree_root = components::calculate_empty_tree_root(L1_TO_L2_MSG_SUBTREE_DEPTH);
-    auto new_l1_to_l2_messages_tree_root =
+    auto new_l1_to_l2_messages_tree_snapshot =
         components::insert_subtree_to_snapshot_tree(composer,
                                                     rootRollupInputs.start_l1_to_l2_message_tree_snapshot,
                                                     rootRollupInputs.new_l1_to_l2_message_tree_root_sibling_path,
@@ -133,7 +133,7 @@ RootRollupPublicInputs root_rollup_circuit(DummyComposer& composer, RootRollupIn
         rootRollupInputs.start_historic_tree_l1_to_l2_message_tree_roots_snapshot,
         rootRollupInputs.new_historic_l1_to_l2_message_roots_tree_sibling_path,
         fr::zero(),
-        new_l1_to_l2_messages_tree_root.root,
+        new_l1_to_l2_messages_tree_snapshot.root,
         0,
         "historic l1 to l2 message tree roots insertion");
 
@@ -154,7 +154,7 @@ RootRollupPublicInputs root_rollup_circuit(DummyComposer& composer, RootRollupIn
             left.constants.start_tree_of_historic_contract_tree_roots_snapshot,
         .end_tree_of_historic_contract_tree_roots_snapshot = end_tree_of_historic_contract_tree_roots_snapshot,
         .start_l1_to_l2_messages_tree_snapshot = rootRollupInputs.start_l1_to_l2_message_tree_snapshot,
-        .end_l1_to_l2_messages_tree_snapshot = new_l1_to_l2_messages_tree_root,
+        .end_l1_to_l2_messages_tree_snapshot = new_l1_to_l2_messages_tree_snapshot,
         .start_tree_of_historic_l1_to_l2_messages_tree_roots_snapshot =
             rootRollupInputs.start_historic_tree_l1_to_l2_message_tree_roots_snapshot,
         .end_tree_of_historic_l1_to_l2_messages_tree_roots_snapshot = end_l1_to_l2_data_roots_tree_snapshot,
