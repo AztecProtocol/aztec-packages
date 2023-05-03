@@ -1,13 +1,15 @@
-#include <gtest/gtest.h>
-#include <barretenberg/common/test.hpp>
-#include <barretenberg/common/serialize.hpp>
+#include "index.hpp"
+#include "previous_kernel_data.hpp"
+#include "private_kernel/private_inputs.hpp"
+
 #include "aztec3/circuits/abis/combined_accumulated_data.hpp"
 #include "aztec3/msgpack/cbind_impl.hpp"
 #include "aztec3/msgpack/schema_impl.hpp"
-#include "index.hpp"
 
-#include "previous_kernel_data.hpp"
-#include "private_kernel/private_inputs.hpp"
+#include <barretenberg/common/serialize.hpp>
+#include <barretenberg/common/test.hpp>
+
+#include <gtest/gtest.h>
 
 namespace {
 // Composer
@@ -16,7 +18,7 @@ using Composer = plonk::UltraComposer;
 // Types
 using CT = aztec3::utils::types::CircuitTypes<Composer>;
 using NT = aztec3::utils::types::NativeTypes;
-} // namespace
+}  // namespace
 
 namespace aztec3::circuits::abis {
 
@@ -66,23 +68,6 @@ TEST(abi_tests, native_read_write_function_data)
     EXPECT_EQ(function_data, function_data_2);
 }
 
-// TEST(abi_tests, native_read_write_previous_kernel_data)
-// {
-//     private_kernel::PreviousKernelData<NT> previous_kernel_data = {
-//         .public_inputs = private_kernel::PublicInputs<NT>(),
-//         .proof = NT::Proof(),
-//         .vk = std::make_shared<NT::VK>(), // This won't work - you need to construct a vk from something, and we
-//         don't have that "something" in this test. .vk_index = 0, .vk_path = { 0 },
-//     };
-
-//     info("previous_kernel_data: ", previous_kernel_data);
-
-//     auto buffer = to_buffer(previous_kernel_data);
-//     auto previous_kernel_data_2 = from_buffer<private_kernel::PreviousKernelData<NT>>(buffer.data());
-
-//     EXPECT_EQ(previous_kernel_data, previous_kernel_data_2);
-// }
-
 TEST(abi_tests, native_to_circuit_function_data)
 {
     FunctionData<NT> native_function_data = {
@@ -130,4 +115,4 @@ TEST(abi_tests, native_to_circuit_call_context)
     info("call context: ", circuit_call_context);
 }
 
-} // namespace aztec3::circuits::abis
+}  // namespace aztec3::circuits::abis
