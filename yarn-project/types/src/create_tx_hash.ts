@@ -2,9 +2,21 @@ import { Fr } from '@aztec/foundation/fields';
 import { TxHash } from './tx_hash.js';
 import { keccak } from '@aztec/foundation/crypto';
 
+/**
+ * Defines transaction data.
+ */
 interface TxData {
+  /**
+   * Commitments to be inserted into a private data tree that are created in the transaction.
+   */
   newCommitments: Fr[];
+  /**
+   * Nullifiers to be inserted into a nullifier tree that are created in the transaction.
+   */
   newNullifiers: Fr[];
+  /**
+   * Contractc leaves to be inserted into a contract tree that are created in the transaction.
+   */
   newContracts: Fr[];
 }
 
