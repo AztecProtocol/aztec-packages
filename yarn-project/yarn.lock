@@ -461,7 +461,7 @@ __metadata:
     tslib: ^2.4.0
     typescript: ^5.0.4
   bin:
-    aztec_noir_compiler: cli.js
+    aztec_noir_compiler: dest/cli.js
   languageName: unknown
   linkType: soft
 

@@ -9,7 +9,7 @@
     "tsconfig": "./tsconfig.json"
   },
   "bin": {
-    "aztec_noir_compiler": "cli.js"
+    "aztec_noir_compiler": "dest/cli.js"
   },
   "scripts": {
     "prepare": "node ../yarn-project-base/scripts/update_build_manifest.mjs package.json",

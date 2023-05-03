@@ -10,6 +10,7 @@ const fileExists = async (path: string) => !!(await fs.stat(path).catch(() => fa
 
 const main = async () => {
   program
+    .name('aztec_noir_compiler')
     .command('compile')
     .argument('[path]', 'Path to the contract project', '.')
     .action(async (path: string) => {
