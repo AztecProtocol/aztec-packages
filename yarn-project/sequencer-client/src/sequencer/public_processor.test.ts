@@ -1,4 +1,4 @@
-import { PUBLIC_DATA_TREE_HEIGHT, makeEmptyProof } from '@aztec/circuits.js';
+import { Fr, PUBLIC_CALL_STACK_LENGTH, PUBLIC_DATA_TREE_HEIGHT, makeEmptyProof } from '@aztec/circuits.js';
 import { makeKernelPublicInputs, makePublicCircuitPublicInputs } from '@aztec/circuits.js/factories';
 import { SiblingPath } from '@aztec/merkle-tree';
 import { ContractPublicData, ContractDataSource, EncodedContractFunction } from '@aztec/types';
@@ -93,13 +93,18 @@ describe('public_processor', () => {
     const publicKernelSpy = jest.spyOn(publicKernel, 'publicKernelCircuitNoInput');
     processor = new PublicProcessor(db, publicCircuit, publicKernel, publicProver, contractDataSource);
 
-    const publicCircuitOutput = makePublicCircuitPublicInputs();
-    publicCircuit.publicCircuit.mockResolvedValue(publicCircuitOutput);
-
     const path = times(PUBLIC_DATA_TREE_HEIGHT, i => Buffer.alloc(32, i));
     db.getSiblingPath.mockResolvedValue(new SiblingPath(path));
 
     const tx = makePublicTx();
+    // mock Public Circuit output
+    const publicCircuitOutput = makePublicCircuitPublicInputs();
+    publicCircuitOutput.publicCallStack = new Array(PUBLIC_CALL_STACK_LENGTH).fill(Fr.ZERO);
+    // set storageContractAddress to txRequest.to
+    publicCircuitOutput.callContext.storageContractAddress = tx.txRequest.txRequest.to;
+
+    publicCircuit.publicCircuit.mockResolvedValue(publicCircuitOutput);
+
     const hash = await tx.getTxHash();
     const [processed, failed] = await processor.process([tx]);
 
