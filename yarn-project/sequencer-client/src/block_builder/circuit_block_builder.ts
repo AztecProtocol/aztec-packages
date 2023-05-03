@@ -194,8 +194,6 @@ export class CircuitBlockBuilder implements BlockBuilder {
     }
 
     // Check that the number of new L1 to L2 messages is the same as the max
-    // TODO: optionally check that they are all inserted in order, i.e. filled values at the front and empty at the end
-    // TODO: negative test for this ase
     if (newL1ToL2Messages.length !== NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP) {
       throw new Error(
         `Length of the l1 to l2 messages per block should be a constant ${NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP} (got ${newL1ToL2Messages.length})`,
@@ -274,7 +272,6 @@ export class CircuitBlockBuilder implements BlockBuilder {
     const rootInput = await this.getRootRollupInput(...left, ...right, newL1ToL2Messages);
 
     // Update the local trees to include the new l1 to l2 messages
-    // TODO:
     await this.db.appendLeaves(
       MerkleTreeId.L1_TO_L2_MESSAGES_TREE,
       newL1ToL2Messages.map(m => m.toBuffer()),

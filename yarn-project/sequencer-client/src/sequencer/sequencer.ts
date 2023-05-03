@@ -234,8 +234,6 @@ export class Sequencer {
    * next rollup block
    */
   protected takeL1ToL2MessagesFromContract(): Fr[] {
-    // TODO: use protective typing for the l1 to l2 messages array. - remove Fr import
-    // TODO: dont make all zeros
     return new Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n));
   }
 

@@ -112,16 +112,9 @@ export class StandaloneBlockBuilder implements BlockBuilder {
       computeContractLeaf(wasm, x).toBuffer(),
     );
 
-    // TODO: why do these need a loop? come back to
-    for (let i = 0; i < KERNEL_NEW_COMMITMENTS_LENGTH; i++) {
-      await this.db.appendLeaves(MerkleTreeId.PRIVATE_DATA_TREE, [dataTreeLeaves[i]]);
-    }
-    for (let i = 0; i < KERNEL_NEW_NULLIFIERS_LENGTH; i++) {
-      await this.db.appendLeaves(MerkleTreeId.NULLIFIER_TREE, [nullifierTreeLeaves[i]]);
-    }
-    for (let i = 0; i < KERNEL_NEW_CONTRACTS_LENGTH; i++) {
-      await this.db.appendLeaves(MerkleTreeId.CONTRACT_TREE, [contractTreeLeaves[i]]);
-    }
+    await this.db.appendLeaves(MerkleTreeId.PRIVATE_DATA_TREE, dataTreeLeaves);
+    await this.db.appendLeaves(MerkleTreeId.NULLIFIER_TREE, nullifierTreeLeaves);
+    await this.db.appendLeaves(MerkleTreeId.CONTRACT_TREE, contractTreeLeaves);
   }
 
   private async updateL1ToL2MessagesTree(l1ToL2Messages: Fr[]) {
