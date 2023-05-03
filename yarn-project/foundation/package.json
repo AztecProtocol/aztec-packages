@@ -5,6 +5,7 @@
   "private": true,
   "type": "module",
   "exports": {
+    ".": "./dest/index.js",
     "./eslint": "./.eslintrc.cjs",
     "./eslint-legacy": "./.eslintrc.legacy.cjs",
     "./prettier": "./.prettierrc.json",
