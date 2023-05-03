@@ -1,7 +1,7 @@
+import { toBufferBE, toBigIntBE } from '@aztec/foundation/bigint-buffer';
+import { bufferToHex, hexToBuffer } from '../../../../hex_string/index.js';
 import * as errors from './errors.js';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { toBigIntBE, toBufferBE } from '../../../../bigint_buffer/index.js';
-import { bufferToHex, hexToBuffer } from '../../../../hex_string/index.js';
 
 const NegativeOne = BigInt(-1);
 const Zero = BigInt(0);
