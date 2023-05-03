@@ -100,7 +100,7 @@ contract Decoder {
   /**
    * Computes a hash of the public inputs from the calldata
    * @param _l2Block - The L2 block calldata.
-   * @return sha256(header[0x4: 0x1ac], diffRoot)
+   * @return sha256(header[0x4: 0x23c], diffRoot, l1Tol2MessagesHash)
    */
   function _computePublicInputsHash(bytes calldata _l2Block) internal pure returns (bytes32) {
     // header size - block number size + one value for the diffRoot + one value for l1ToL2MessagesHash
