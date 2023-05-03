@@ -192,7 +192,7 @@ export class AztecNode {
   public async getTreeRoots(): Promise<Record<MerkleTreeId, Fr>> {
     const getTreeRoot = async (id: MerkleTreeId) =>
       Fr.fromBuffer((await this.merkleTreeDB.getTreeInfo(id, false)).root);
-    console.log(`NULL TREE`, await getTreeRoot(MerkleTreeId.NULLIFIER_TREE));
+
     return {
       [MerkleTreeId.CONTRACT_TREE]: await getTreeRoot(MerkleTreeId.CONTRACT_TREE),
       [MerkleTreeId.PRIVATE_DATA_TREE]: await getTreeRoot(MerkleTreeId.PRIVATE_DATA_TREE),
