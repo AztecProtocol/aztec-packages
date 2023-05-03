@@ -38,16 +38,7 @@ import { RollupSimulator } from '../simulator/index.js';
 import { ProcessedTx } from '../sequencer/processed_tx.js';
 import { BlockBuilder } from './index.js';
 import { toFriendlyJSON } from '@aztec/circuits.js/utils';
-
-// TODO: where to put this type
-type AllowedTreeNames<T extends BaseOrMergeRollupPublicInputs | RootRollupPublicInputs> =
-  T extends RootRollupPublicInputs
-    ? 'PrivateData' | 'Contract' | 'Nullifier' | 'L1ToL2Message'
-    : 'PrivateData' | 'Contract' | 'Nullifier';
-
-type OutputWithTreeSnapshot<T extends BaseOrMergeRollupPublicInputs | RootRollupPublicInputs> = {
-  [K in `end${AllowedTreeNames<T>}TreeSnapshot`]: AppendOnlyTreeSnapshot;
-};
+import { AllowedTreeNames, OutputWithTreeSnapshot } from './types.js';
 
 const frToBigInt = (fr: Fr) => toBigIntBE(fr.toBuffer());
 const bigintToFr = (num: bigint) => new Fr(num);
