@@ -162,9 +162,7 @@ export class AztecNode {
    * @returns - The pending tx if it exists
    */
   public async getPendingTxByHash(txHash: TxHash) {
-    // const allTxs = await this.p2pClient.getTxs();
-    const result = await this.p2pClient!.getTxByhash(txHash);
-    return result;
+    return await this.p2pClient!.getTxByhash(txHash);
   }
 
   public findContractIndex(leafValue: Buffer): Promise<bigint | undefined> {
