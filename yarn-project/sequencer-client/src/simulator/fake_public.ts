@@ -19,6 +19,12 @@ import {
 import { MerkleTreeId, MerkleTreeOperations, computePublicDataTreeLeafIndex } from '@aztec/world-state';
 import { PublicCircuitSimulator } from './index.js';
 
+function padArray<T>(array: T[], element: T, requiredLength: number): T[] {
+  const initialLength = array.length;
+  array.push(...new Array<T>(requiredLength - initialLength).fill(element));
+  return array;
+}
+
 export class FakePublicCircuitSimulator implements PublicCircuitSimulator {
   public readonly db: WorldStatePublicDB;
 
@@ -39,27 +45,18 @@ export class FakePublicCircuitSimulator implements PublicCircuitSimulator {
     // Pad arrays to reach required length
     const result = await execution.run();
     const args = tx.args;
-    args.push(...new Array<Fr>(ARGS_LENGTH - tx.args.length).fill(Fr.ZERO));
-
     const { stateReads, stateTransitions, returnValues } = result;
-    returnValues.push(...new Array<Fr>(RETURN_VALUES_LENGTH - result.returnValues.length).fill(Fr.ZERO));
-    stateReads.push(...new Array<StateRead>(STATE_READS_LENGTH - result.stateReads.length).fill(StateRead.empty()));
-    stateTransitions.push(
-      ...new Array<StateTransition>(STATE_TRANSITIONS_LENGTH - result.stateTransitions.length).fill(
-        StateTransition.empty(),
-      ),
-    );
 
     return PublicCircuitPublicInputs.from({
-      args,
+      args: padArray<Fr>(args, Fr.ZERO, ARGS_LENGTH),
       callContext: execution.callContext,
-      emittedEvents: new Array<Fr>(EMITTED_EVENTS_LENGTH).fill(Fr.ZERO),
-      newL2ToL1Msgs: new Array<Fr>(NEW_L2_TO_L1_MSGS_LENGTH).fill(Fr.ZERO),
+      emittedEvents: padArray([], Fr.ZERO, EMITTED_EVENTS_LENGTH),
+      newL2ToL1Msgs: padArray([], Fr.ZERO, NEW_L2_TO_L1_MSGS_LENGTH),
       proverAddress: AztecAddress.random(),
-      publicCallStack: new Array<Fr>(PUBLIC_CALL_STACK_LENGTH).fill(Fr.ZERO),
-      returnValues,
-      stateReads,
-      stateTransitions,
+      publicCallStack: padArray([], Fr.ZERO, PUBLIC_CALL_STACK_LENGTH),
+      returnValues: padArray<Fr>(returnValues, Fr.ZERO, RETURN_VALUES_LENGTH),
+      stateReads: padArray<StateRead>(stateReads, StateRead.empty(), STATE_READS_LENGTH),
+      stateTransitions: padArray<StateTransition>(stateTransitions, StateTransition.empty(), STATE_TRANSITIONS_LENGTH),
       historicPublicDataTreeRoot,
     });
   }

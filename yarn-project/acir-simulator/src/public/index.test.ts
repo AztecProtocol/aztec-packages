@@ -37,7 +37,7 @@ describe('ACIR public execution simulator', () => {
     });
 
     describe('mint', () => {
-      it.only('should run the mint function', async () => {
+      it('should run the mint function', async () => {
         const contractAddress = AztecAddress.random();
         const mintAbi = PublicTokenContractAbi.functions.find(f => f.name === 'mint')!;
         const functionData = new FunctionData(Buffer.alloc(4), false, false);
