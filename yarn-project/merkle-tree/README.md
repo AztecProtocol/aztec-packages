@@ -5,7 +5,7 @@
 The Merkle Trees package contains typescript implementations of the various Merkle Trees required by the system.
 
 - Append only 'Standard' merkle trees. New values are inserted into the next available leaf index. Values are never updated.
-- Indexed trees are also append only from an external perspective but prior values can be updated internally. The reason for this is that the Indexed Tree leaves not only store the value but the index of the next highest leaf. New insertions can require prior leaves to be updated.
+- Indexed trees are also append only in nature but retain the ability to update leaves. The reason for this is that the Indexed Tree leaves not only store the value but the index of the next highest leaf. New insertions can require prior leaves to be updated.
 - Sparse trees that can be updated at any index. The 'size' of the tree is defined by the number of non-empty leaves, not by the highest populated leaf index as is the case with a Standard Tree.
 
 ## Implementations
@@ -26,7 +26,7 @@ The primary operations available on the various implementations are:
 - Create a new, empty tree
 - Restore a tree from the provided DB
 - Append new leaves (Standard and Indexed trees only)
-- Update a leaf (Sparse tree only)
+- Update a leaf (Sparse tree and Indexed trees only)
 - Retrieve the number of leaves. This is the number of non empty leaves for a Sparse tree and the highest populated index for Standard and Indexed trees.
 - Commit modifications
 - Rollback modifications
