@@ -36,7 +36,7 @@ export class FakePublicCircuitSimulator implements PublicCircuitSimulator {
 
     const execution = PublicExecution.fromTransactionRequest(this.db, tx, functionBytecode, portalAddress);
 
-    // Pad args array to reach ARGS_LENGTH
+    // Pad arrays to reach required length
     const result = await execution.run();
     const args = tx.args;
     args.push(...new Array<Fr>(ARGS_LENGTH - tx.args.length).fill(Fr.ZERO));

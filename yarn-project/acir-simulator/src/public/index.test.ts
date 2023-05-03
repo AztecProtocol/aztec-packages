@@ -37,11 +37,11 @@ describe('ACIR public execution simulator', () => {
     });
 
     describe('mint', () => {
-      it('should run the mint function', async () => {
+      it.only('should run the mint function', async () => {
         const contractAddress = AztecAddress.random();
-        const abi = PublicTokenContractAbi.functions.find(f => f.name === 'mint')!;
+        const mintAbi = PublicTokenContractAbi.functions.find(f => f.name === 'mint')!;
         const functionData = new FunctionData(Buffer.alloc(4), false, false);
-        const args = encodeArguments(abi, [140, recipient], false);
+        const args = encodeArguments(mintAbi, [140, recipient], false);
 
         const callContext = CallContext.from({
           msgSender: AztecAddress.random(),
@@ -56,7 +56,7 @@ describe('ACIR public execution simulator', () => {
         const previousBalance = new Fr(20n);
         oracle.storageRead.mockResolvedValue(previousBalance);
 
-        const bytecode = Buffer.from(abi.bytecode, 'hex');
+        const bytecode = Buffer.from(mintAbi.bytecode, 'hex');
         const execution = new PublicExecution(oracle, bytecode, contractAddress, functionData, args, callContext);
         const result = await execution.run();
 

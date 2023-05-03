@@ -12,7 +12,7 @@ import {
 } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation';
 import { ContractDataSource, PublicTx, Tx } from '@aztec/types';
-import { MerkleTreeOperations } from '@aztec/world-state';
+import { MerkleTreeId, MerkleTreeOperations } from '@aztec/world-state';
 import times from 'lodash.times';
 import { Proof, PublicProver } from '../prover/index.js';
 import { PublicCircuitSimulator, PublicKernelCircuitSimulator } from '../simulator/index.js';
@@ -72,7 +72,6 @@ export class PublicProcessor {
   protected async processPublicTx(tx: PublicTx): Promise<[PublicKernelPublicInputs, Proof]> {
     const { txRequest } = tx.txRequest;
     const contractAddress = txRequest.to;
-    const publicContractData = await this.contractDataSource.getL2ContractPublicData(contractAddress);
     const fn = await this.contractDataSource.getPublicFunction(
       contractAddress,
       txRequest.functionData.functionSelector,
@@ -90,6 +89,20 @@ export class PublicProcessor {
     const publicKernelInput = new PublicKernelInputsNoPreviousKernel(tx.txRequest, publicCallData);
     const publicKernelOutput = await this.publicKernel.publicKernelCircuitNoInput(publicKernelInput);
     const publicKernelProof = await this.publicProver.getPublicKernelCircuitProof(publicKernelOutput);
+
+    const contractTreeInfo = await this.db.getTreeInfo(MerkleTreeId.CONTRACT_TREE);
+    const privateDataTreeInfo = await this.db.getTreeInfo(MerkleTreeId.PRIVATE_DATA_TREE);
+    const nullifierTreeInfo = await this.db.getTreeInfo(MerkleTreeId.NULLIFIER_TREE);
+
+    publicKernelOutput.constants.historicTreeRoots.privateHistoricTreeRoots.nullifierTreeRoot = Fr.fromBuffer(
+      nullifierTreeInfo.root,
+    );
+    publicKernelOutput.constants.historicTreeRoots.privateHistoricTreeRoots.contractTreeRoot = Fr.fromBuffer(
+      contractTreeInfo.root,
+    );
+    publicKernelOutput.constants.historicTreeRoots.privateHistoricTreeRoots.privateDataTreeRoot = Fr.fromBuffer(
+      privateDataTreeInfo.root,
+    );
 
     return [publicKernelOutput, publicKernelProof];
   }

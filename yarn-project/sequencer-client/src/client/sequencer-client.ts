@@ -61,4 +61,8 @@ export class SequencerClient {
   public restart() {
     this.sequencer.restart();
   }
+
+  public getStateTransitions() {
+    return this.sequencer.getStateTransitions();
+  }
 }
