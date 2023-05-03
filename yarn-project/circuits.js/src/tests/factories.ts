@@ -720,7 +720,7 @@ export function makeAztecAddress(seed = 1): AztecAddress {
  * @returns An ecdsa signature.
  */
 export function makeEcdsaSignature(seed = 1): EcdsaSignature {
-  return new EcdsaSignature(Buffer.alloc(32, seed), Buffer.alloc(32, seed + 1), Buffer.alloc(1, seed + 2));
+  return new EcdsaSignature(Buffer.alloc(32, seed), Buffer.alloc(32, seed + 1), Buffer.alloc(1, 27));
 }
 
 /**
