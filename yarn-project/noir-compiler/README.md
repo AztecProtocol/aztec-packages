@@ -1,1 +1,1 @@
-# Aztec3 Noir compiler
+# Aztec Noir compiler

@@ -27,11 +27,11 @@ export class ContractCompiler {
 
   public async compile(): Promise<ContractAbi[]> {
     const noirContracts = await this.compileNoir();
-    const abis: ContractAbi[] = noirContracts.map(this.convertToAztecBI);
+    const abis: ContractAbi[] = noirContracts.map(this.convertToAztecABI);
     return abis;
   }
 
-  private convertToAztecBI(contract: NoirCompiledContract): ContractAbi {
+  private convertToAztecABI(contract: NoirCompiledContract): ContractAbi {
     return {
       ...contract,
       functions: contract.functions.map(noirFn => ({
