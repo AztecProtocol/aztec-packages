@@ -71,9 +71,7 @@ describe('e2e_public_token_contract', () => {
     // Retry fetching from the storage slot until it's non-zero
     const fn = async () => {
       const storageSlot = await calculateStorageSlot(accountIdx);
-      console.log('storage slot', storageSlot.toString());
       const res = await node.getStorageAt(contract.address!, storageSlot.value);
-      console.log('fn res', res);
 
       if (res && Buffer.alloc(32).equals(res)) {
         throw Error('empty storage value');
@@ -82,10 +80,6 @@ describe('e2e_public_token_contract', () => {
     };
 
     const storageValue = await retry(fn, 'geting storage slot value');
-    if (storageValue === undefined) {
-      throw new Error(`Storage slot ${storageSlot} not found`);
-    }
-
     if (storageValue === undefined) {
       throw new Error(`Storage slot ${storageSlot} not found`);
     }
