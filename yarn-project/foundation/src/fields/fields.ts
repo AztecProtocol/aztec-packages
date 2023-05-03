@@ -92,8 +92,8 @@ export class Fr {
    *
    * @returns A hex-encoded string representing the value of the class instance.
    */
-  toString() {
-    return '0x' + this.value.toString(16);
+  toString(): `0x${string}` {
+    return `0x${this.value.toString(16)}`;
   }
 
   /**
