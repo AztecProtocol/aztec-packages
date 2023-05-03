@@ -9,9 +9,9 @@ Alternatively you can use docker instead, it will handle installations and run t
 
 ## Structure
 The `src` folder contain contracts that is to be used by the local developer testnet. It is grouped into 3 catagories:
-- `core` containing the required contracts, the bare minimum
-- `mock` things that are faking it, for now a verifier that says yes to anything but follows the correct interface.
-- `periphery` stuff that is nice to have, convenience contracts and functions belongs in here.
+- `core` contains the required contracts, the bare minimum
+- `mock` contains stubs, for now an always true verifier.
+- `periphery` stuff that is nice to have, convenience contracts and functions belong in here.
 
 ## Running tests
 The tests are located in the `test` folder, and execute two consecutive L2Blocks. The blocks and the values they are checked against is generated using the block builder tests (there also is a typescript test in `l2-block-publisher.test.ts` that tests E2E). The tests are currently limited in functionality as it is mainly decoding happening, but will expand over time to include L1 <-> L2 communication and cross chain applications.
@@ -27,12 +27,14 @@ We use `forge fmt` to format. But follow a few general guidelines beyond the sta
 
 ## Contracts:
 
-The contracts are in a very early stage, and don't bother with gas costs right now. Instead they prioritize velocity of development.
+The contracts are in a very early stage, and don't worry about gas costs right now. Instead they prioritise development velocity.
 
 ### Decoder
 Job: Extract values from `L2Block` 
 
-The decoder is a contract that is part of the Rollup, which takes the `L2Block` bytes and computes/extracts values that is required to keep track of the state and passed into the verifier.
+The decoder is a core rollup contract which takes the `L2Block` bytes and computes/extracts values required to:
+1. keep track of the state
+1. perform proof verification
 
 If the structure of the `L2Block` changes, so should the decoder!
 
