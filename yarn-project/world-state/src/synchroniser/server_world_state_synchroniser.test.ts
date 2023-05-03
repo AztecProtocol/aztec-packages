@@ -90,7 +90,7 @@ describe('server_world_state_synchroniser', () => {
         SiblingPath.ZERO(32, INITIAL_LEAF, pedersen);
       }; //Promise.resolve();
     }),
-    updateRootsTrees: jest.fn().mockImplementation(() => Promise.resolve()),
+    updateHistoricRootsTrees: jest.fn().mockImplementation(() => Promise.resolve()),
     commit: jest.fn().mockImplementation(() => Promise.resolve()),
     rollback: jest.fn().mockImplementation(() => Promise.resolve()),
   } as any;
