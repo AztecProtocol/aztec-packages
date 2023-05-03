@@ -57,9 +57,6 @@ void common_validate_call_stack(DummyComposer& composer, KernelInput const& publ
     auto our_portal_contract_address =
         public_kernel_inputs.public_call.call_stack_item.public_inputs.call_context.portal_contract_address;
 
-    composer.do_assert(hash == calculated_hash,
-                       format("public_call_stack[", i, "] = ", hash, "; does not reconcile"),
-                       CircuitErrorCode::PUBLIC_KERNEL__PUBLIC_CALL_STACK_MISMATCH);
     info(34);
     for (size_t i = 0; i < stack.size(); ++i) {
         const auto& hash = stack[i];
