@@ -1,6 +1,6 @@
 export * from './tx.js';
 export * from './tx_hash.js';
-export * from './initial_l2_block_num.js';
+export * from './constants.js';
 export * from './l2_block_downloader/index.js';
 export * from './contract_data.js';
 export * from './l1_addresses.js';
