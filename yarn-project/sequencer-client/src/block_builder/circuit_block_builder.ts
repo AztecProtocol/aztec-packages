@@ -35,6 +35,7 @@ import { RollupSimulator } from '../simulator/index.js';
 
 import { ProcessedTx } from '../sequencer/processed_tx.js';
 import { BlockBuilder } from './index.js';
+import { toFriendlyJSON } from '@aztec/circuits.js/utils';
 
 const frToBigInt = (fr: Fr) => toBigIntBE(fr.toBuffer());
 const bigintToFr = (num: bigint) => new Fr(num);
@@ -101,6 +102,9 @@ export class CircuitBlockBuilder implements BlockBuilder {
       ].map(tree => this.getTreeSnapshot(tree)),
     );
 
+    // Check txs are good for processing
+    this.validateTxs(txs);
+
     // We fill the tx batch with empty txs, we process only one tx at a time for now
     const [circuitsOutput, proof] = await this.runCircuits(txs);
 
@@ -147,6 +151,16 @@ export class CircuitBlockBuilder implements BlockBuilder {
     });
 
     return [l2Block, proof];
+  }
+
+  protected validateTxs(txs: ProcessedTx[]) {
+    for (const tx of txs) {
+      for (const historicTreeRoot of ['privateDataTreeRoot', 'contractTreeRoot', 'nullifierTreeRoot'] as const) {
+        if (tx.data.constants.historicTreeRoots.privateHistoricTreeRoots[historicTreeRoot].isZero()) {
+          throw new Error(`Empty ${historicTreeRoot} for tx: ${toFriendlyJSON(tx)}`);
+        }
+      }
+    }
   }
 
   protected async getTreeSnapshot(id: MerkleTreeId): Promise<AppendOnlyTreeSnapshot> {
@@ -238,21 +252,10 @@ export class CircuitBlockBuilder implements BlockBuilder {
     // Update the root trees with the latest data and contract tree roots,
     // and validate them against the output of the root circuit simulation
     this.debug(`Updating and validating root trees`);
-    await this.updateRootTrees();
+    await this.db.updateRootsTrees();
     await this.validateRootOutput(rootOutput);
 
     return [rootOutput, rootProof];
-  }
-
-  // Updates our roots trees with the new generated trees after the rollup updates
-  protected async updateRootTrees() {
-    for (const [newTree, rootTree] of [
-      [MerkleTreeId.PRIVATE_DATA_TREE, MerkleTreeId.PRIVATE_DATA_TREE_ROOTS_TREE],
-      [MerkleTreeId.CONTRACT_TREE, MerkleTreeId.CONTRACT_TREE_ROOTS_TREE],
-    ] as const) {
-      const newTreeInfo = await this.db.getTreeInfo(newTree);
-      await this.db.appendLeaves(rootTree, [newTreeInfo.root]);
-    }
   }
 
   // Validate that the new roots we calculated from manual insertions match the outputs of the simulation

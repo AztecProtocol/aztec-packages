@@ -38,14 +38,14 @@ import {
   CONTRACT_TREE_ROOTS_TREE_HEIGHT,
   EMITTED_EVENTS_LENGTH,
   FUNCTION_TREE_HEIGHT,
-  KERNEL_L1_MSG_STACK_LENGTH,
+  KERNEL_NEW_L2_TO_L1_MSGS_LENGTH,
   KERNEL_NEW_COMMITMENTS_LENGTH,
   KERNEL_NEW_CONTRACTS_LENGTH,
   KERNEL_NEW_NULLIFIERS_LENGTH,
   KERNEL_OPTIONALLY_REVEALED_DATA_LENGTH,
   KERNEL_PRIVATE_CALL_STACK_LENGTH,
   KERNEL_PUBLIC_CALL_STACK_LENGTH,
-  L1_MSG_STACK_LENGTH,
+  NEW_L2_TO_L1_MSGS_LENGTH,
   NEW_COMMITMENTS_LENGTH,
   NEW_NULLIFIERS_LENGTH,
   NULLIFIER_TREE_HEIGHT,
@@ -97,8 +97,16 @@ export function makePublicDataTransition(seed = 1) {
   return new PublicDataTransition(fr(seed), fr(seed + 1), fr(seed + 2));
 }
 
+export function makeEmptyPublicDataTransition() {
+  return new PublicDataTransition(fr(0), fr(0), fr(0));
+}
+
 export function makePublicDataRead(seed = 1) {
   return new PublicDataRead(fr(seed), fr(seed + 1));
+}
+
+export function makeEmptyPublicDataRead() {
+  return new PublicDataRead(fr(0), fr(0));
 }
 
 export function makeStateTransition(seed = 1) {
@@ -107,6 +115,23 @@ export function makeStateTransition(seed = 1) {
 
 export function makeStateRead(seed = 1) {
   return new StateRead(fr(seed), fr(seed + 1));
+}
+
+export function makeEmptyAccumulatedData(seed = 1): CombinedAccumulatedData {
+  return new CombinedAccumulatedData(
+    makeAggregationObject(seed),
+    fr(seed + 12),
+    fr(seed + 13),
+    range(KERNEL_NEW_COMMITMENTS_LENGTH, seed + 0x100).map(fr),
+    range(KERNEL_NEW_NULLIFIERS_LENGTH, seed + 0x200).map(fr),
+    range(KERNEL_PRIVATE_CALL_STACK_LENGTH, seed + 0x300).map(fr),
+    range(KERNEL_PUBLIC_CALL_STACK_LENGTH, seed + 0x400).map(fr),
+    range(KERNEL_NEW_L2_TO_L1_MSGS_LENGTH, seed + 0x500).map(fr),
+    range(KERNEL_NEW_CONTRACTS_LENGTH, seed + 0x600).map(makeNewContractData),
+    range(KERNEL_OPTIONALLY_REVEALED_DATA_LENGTH, seed + 0x700).map(makeOptionallyRevealedData),
+    range(STATE_TRANSITIONS_LENGTH, seed + 0x800).map(makeEmptyPublicDataTransition),
+    range(STATE_READS_LENGTH, seed + 0x900).map(makeEmptyPublicDataRead),
+  );
 }
 
 export function makeAccumulatedData(seed = 1): CombinedAccumulatedData {
@@ -118,7 +143,7 @@ export function makeAccumulatedData(seed = 1): CombinedAccumulatedData {
     range(KERNEL_NEW_NULLIFIERS_LENGTH, seed + 0x200).map(fr),
     range(KERNEL_PRIVATE_CALL_STACK_LENGTH, seed + 0x300).map(fr),
     range(KERNEL_PUBLIC_CALL_STACK_LENGTH, seed + 0x400).map(fr),
-    range(KERNEL_L1_MSG_STACK_LENGTH, seed + 0x500).map(fr),
+    range(KERNEL_NEW_L2_TO_L1_MSGS_LENGTH, seed + 0x500).map(fr),
     range(KERNEL_NEW_CONTRACTS_LENGTH, seed + 0x600).map(makeNewContractData),
     range(KERNEL_OPTIONALLY_REVEALED_DATA_LENGTH, seed + 0x700).map(makeOptionallyRevealedData),
     range(STATE_TRANSITIONS_LENGTH, seed + 0x800).map(makePublicDataTransition),
@@ -174,10 +199,14 @@ export function makePublicCircuitPublicInputs(seed = 0): PublicCircuitPublicInpu
     range(STATE_TRANSITIONS_LENGTH, seed + 0x400).map(makeStateTransition),
     range(STATE_READS_LENGTH, seed + 0x500).map(makeStateRead),
     frArray(PUBLIC_CALL_STACK_LENGTH, seed + 0x600),
-    frArray(L1_MSG_STACK_LENGTH, seed + 0x700),
+    frArray(NEW_L2_TO_L1_MSGS_LENGTH, seed + 0x700),
     fr(seed + 0x800),
     makeAztecAddress(seed + 0x801),
   );
+}
+
+export function makeEmptyKernelPublicInputs(seed = 1): KernelCircuitPublicInputs {
+  return new KernelCircuitPublicInputs(makeEmptyAccumulatedData(seed), makeConstantData(seed + 0x100), true);
 }
 
 export function makeKernelPublicInputs(seed = 1): KernelCircuitPublicInputs {
@@ -205,9 +234,9 @@ export function makeVerificationKey(): VerificationKey {
   );
 }
 
-export function makePreviousKernelData(seed = 1): PreviousKernelData {
+export function makePreviousKernelData(seed = 1, kernelPublicInputs?: KernelCircuitPublicInputs): PreviousKernelData {
   return new PreviousKernelData(
-    makeKernelPublicInputs(seed),
+    kernelPublicInputs ?? makeKernelPublicInputs(seed),
     makeProof(seed + 0x80),
     makeVerificationKey(),
     0x42,
@@ -256,6 +285,14 @@ export function makeWitnessedPublicCallData(seed = 1): WitnessedPublicCallData {
 
 export function makePublicKernelInputs(seed = 1): PublicKernelInputs {
   return new PublicKernelInputs(makePreviousKernelData(seed), makePublicCallData(seed + 0x1000));
+}
+
+export function makePublicKernelInputsWithEmptyOutput(seed = 1): PublicKernelInputs {
+  const kernelCircuitPublicInputs = makeEmptyKernelPublicInputs(seed);
+  return new PublicKernelInputs(
+    makePreviousKernelData(seed, kernelCircuitPublicInputs),
+    makePublicCallData(seed + 0x1000),
+  );
 }
 
 export function makePublicKernelInputsNoKernelInput(seed = 1) {
@@ -316,7 +353,7 @@ export function makePrivateCircuitPublicInputs(seed = 0): PrivateCircuitPublicIn
     newNullifiers: range(NEW_NULLIFIERS_LENGTH, seed + 0x500).map(fr),
     privateCallStack: range(PRIVATE_CALL_STACK_LENGTH, seed + 0x600).map(fr),
     publicCallStack: range(PUBLIC_CALL_STACK_LENGTH, seed + 0x700).map(fr),
-    l1MsgStack: range(L1_MSG_STACK_LENGTH, seed + 0x800).map(fr),
+    newL2ToL1Msgs: range(NEW_L2_TO_L1_MSGS_LENGTH, seed + 0x800).map(fr),
     historicContractTreeRoot: fr(seed + 0x900), // TODO not in spec
     historicPrivateDataTreeRoot: fr(seed + 0x1000),
     historicPrivateNullifierTreeRoot: fr(seed + 0x1100), // TODO not in spec
