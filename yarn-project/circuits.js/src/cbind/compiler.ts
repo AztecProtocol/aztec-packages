@@ -269,7 +269,7 @@ export class CbindCompiler {
         typeName,
         msgpackTypeName: 'Msgpack' + typeName,
         isImport: true,
-        declaration: this.generateInterfaces(typeName, type),
+        declaration: this.generateInterface(typeName, type),
         toClassMethod: this.generateMsgpackConverter(typeName, type),
         fromClassMethod: this.generateClassConverter(typeName, type),
       });
@@ -296,22 +296,23 @@ export class CbindCompiler {
    * @param name The interface name.
    * @param type The object schema with properties of the interface.
    */
-  private generateInterfaces(name: string, type: ObjectSchema) {
+  private generateInterface(name: string, type: ObjectSchema) {
     // Raw object, used as return value of fromType() generated functions.
-    let resultRaw = `export interface Msgpack${name} {\n`;
+    let result = `export interface Msgpack${name} {\n`;
     for (const [key, value] of Object.entries(type)) {
       if (key === '__typename') continue;
-      resultRaw += `  ${key}: ${this.getMsgpackTypename(value)};\n`;
+      result += `  ${key}: ${this.getMsgpackTypename(value)};\n`;
     }
-    resultRaw += '}';
-    // High level object, use in Type.from() methods
-    let resultHighLevel = `export interface I${name} {\n`;
-    for (const [key, value] of Object.entries(type)) {
-      if (key === '__typename') continue;
-      resultHighLevel += `  ${camelCase(key)}: ${this.getTypeName(value)};\n`;
-    }
-    resultHighLevel += '}';
-    return resultRaw + '\n' + resultHighLevel;
+    result += '}';
+    return result;
+    // // High level object, use in Type.from() methods
+    // let resultHighLevel = `export interface I${name} {\n`;
+    // for (const [key, value] of Object.entries(type)) {
+    //   if (key === '__typename') continue;
+    //   resultHighLevel += `  ${camelCase(key)}: ${this.getTypeName(value)};\n`;
+    // }
+    // resultHighLevel += '}';
+    // return resultRaw + '\n' + resultHighLevel;
   }
 
   /**
@@ -446,9 +447,6 @@ import { CircuitsWasm } from '../wasm/index.js';
     for (const typeInfo of Object.values(this.typeInfos)) {
       if (typeInfo.isImport) {
         imports.push(typeInfo.typeName);
-      }
-      if (typeInfo.isAlias) {
-        outputs[0] += `type Msgpack${typeInfo.typeName} = Buffer;`;
       }
       if (typeInfo.declaration) {
         outputs.push(typeInfo.declaration);

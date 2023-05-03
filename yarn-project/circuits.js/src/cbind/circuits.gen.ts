@@ -3,10 +3,6 @@
 import { Buffer } from 'buffer';
 import { callCbind } from './cbind.js';
 import { CircuitsWasm } from '../wasm/index.js';
-type MsgpackAddress = Buffer;
-type MsgpackFr = Buffer;
-type MsgpackFq = Buffer;
-type MsgpackProof = Buffer;
 import {
   Address,
   Fr,
@@ -33,10 +29,6 @@ import { TupleOf, mapTuple, mapValues } from '@aztec/foundation/serialize';
 export interface MsgpackG1AffineElement {
   x: Buffer;
   y: Buffer;
-}
-export interface IG1AffineElement {
-  x: Fq;
-  y: Fq;
 }
 
 export function toG1AffineElement(o: MsgpackG1AffineElement): G1AffineElement {
@@ -68,13 +60,6 @@ export interface MsgpackNativeAggregationState {
   public_inputs: Buffer[];
   proof_witness_indices: number[];
   has_data: boolean;
-}
-export interface INativeAggregationState {
-  p0: G1AffineElement;
-  p1: G1AffineElement;
-  publicInputs: Fr[];
-  proofWitnessIndices: number[];
-  hasData: boolean;
 }
 
 export function toNativeAggregationState(o: MsgpackNativeAggregationState): NativeAggregationState {
@@ -132,11 +117,6 @@ export interface MsgpackNewContractData {
   portal_contract_address: Buffer;
   function_tree_root: Buffer;
 }
-export interface INewContractData {
-  contractAddress: Address;
-  portalContractAddress: Address;
-  functionTreeRoot: Fr;
-}
 
 export function toNewContractData(o: MsgpackNewContractData): NewContractData {
   if (o.contract_address === undefined) {
@@ -176,11 +156,6 @@ export interface MsgpackFunctionData {
   function_selector: number;
   is_private: boolean;
   is_constructor: boolean;
-}
-export interface IFunctionData {
-  functionSelector: number;
-  isPrivate: boolean;
-  isConstructor: boolean;
 }
 
 export function toFunctionData(o: MsgpackFunctionData): FunctionData {
@@ -223,17 +198,6 @@ export interface MsgpackOptionallyRevealedData {
   pay_fee_from_public_l2: boolean;
   called_from_l1: boolean;
   called_from_public_l2: boolean;
-}
-export interface IOptionallyRevealedData {
-  callStackItemHash: Fr;
-  functionData: FunctionData;
-  emittedEvents: TupleOf<Fr, 4>;
-  vkHash: Fr;
-  portalContractAddress: Address;
-  payFeeFromL1: boolean;
-  payFeeFromPublicL2: boolean;
-  calledFromL1: boolean;
-  calledFromPublicL2: boolean;
 }
 
 export function toOptionallyRevealedData(o: MsgpackOptionallyRevealedData): OptionallyRevealedData {
@@ -323,11 +287,6 @@ export interface MsgpackPublicDataTransition {
   old_value: Buffer;
   new_value: Buffer;
 }
-export interface IPublicDataTransition {
-  leafIndex: Fr;
-  oldValue: Fr;
-  newValue: Fr;
-}
 
 export function toPublicDataTransition(o: MsgpackPublicDataTransition): PublicDataTransition {
   if (o.leaf_index === undefined) {
@@ -362,10 +321,6 @@ export function fromPublicDataTransition(o: PublicDataTransition): MsgpackPublic
 export interface MsgpackPublicDataRead {
   leaf_index: Buffer;
   value: Buffer;
-}
-export interface IPublicDataRead {
-  leafIndex: Fr;
-  value: Fr;
 }
 
 export function toPublicDataRead(o: MsgpackPublicDataRead): PublicDataRead {
@@ -404,20 +359,6 @@ export interface MsgpackCombinedAccumulatedData {
   optionally_revealed_data: TupleOf<MsgpackOptionallyRevealedData, 4>;
   state_transitions: TupleOf<MsgpackPublicDataTransition, 4>;
   state_reads: TupleOf<MsgpackPublicDataRead, 4>;
-}
-export interface ICombinedAccumulatedData {
-  aggregationObject: NativeAggregationState;
-  privateCallCount: Fr;
-  publicCallCount: Fr;
-  newCommitments: TupleOf<Fr, 4>;
-  newNullifiers: TupleOf<Fr, 4>;
-  privateCallStack: TupleOf<Fr, 8>;
-  publicCallStack: TupleOf<Fr, 8>;
-  l1MsgStack: TupleOf<Fr, 4>;
-  newContracts: TupleOf<NewContractData, 1>;
-  optionallyRevealedData: TupleOf<OptionallyRevealedData, 4>;
-  stateTransitions: TupleOf<PublicDataTransition, 4>;
-  stateReads: TupleOf<PublicDataRead, 4>;
 }
 
 export function toCombinedAccumulatedData(o: MsgpackCombinedAccumulatedData): CombinedAccumulatedData {
@@ -534,12 +475,6 @@ export interface MsgpackPrivateHistoricTreeRoots {
   contract_tree_root: Buffer;
   private_kernel_vk_tree_root: Buffer;
 }
-export interface IPrivateHistoricTreeRoots {
-  privateDataTreeRoot: Fr;
-  nullifierTreeRoot: Fr;
-  contractTreeRoot: Fr;
-  privateKernelVkTreeRoot: Fr;
-}
 
 export function toPrivateHistoricTreeRoots(o: MsgpackPrivateHistoricTreeRoots): PrivateHistoricTreeRoots {
   if (o.private_data_tree_root === undefined) {
@@ -586,9 +521,6 @@ export function fromPrivateHistoricTreeRoots(o: PrivateHistoricTreeRoots): Msgpa
 export interface MsgpackCombinedHistoricTreeRoots {
   private_historic_tree_roots: MsgpackPrivateHistoricTreeRoots;
 }
-export interface ICombinedHistoricTreeRoots {
-  privateHistoricTreeRoots: PrivateHistoricTreeRoots;
-}
 
 export function toCombinedHistoricTreeRoots(o: MsgpackCombinedHistoricTreeRoots): CombinedHistoricTreeRoots {
   if (o.private_historic_tree_roots === undefined) {
@@ -611,12 +543,6 @@ export interface MsgpackContractDeploymentData {
   function_tree_root: Buffer;
   contract_address_salt: Buffer;
   portal_contract_address: Buffer;
-}
-export interface IContractDeploymentData {
-  constructorVkHash: Fr;
-  functionTreeRoot: Fr;
-  contractAddressSalt: Fr;
-  portalContractAddress: Address;
 }
 
 export function toContractDeploymentData(o: MsgpackContractDeploymentData): ContractDeploymentData {
@@ -667,12 +593,6 @@ export interface MsgpackTxContext {
   is_contract_deployment_tx: boolean;
   contract_deployment_data: MsgpackContractDeploymentData;
 }
-export interface ITxContext {
-  isFeePaymentTx: boolean;
-  isRebatePaymentTx: boolean;
-  isContractDeploymentTx: boolean;
-  contractDeploymentData: ContractDeploymentData;
-}
 
 export function toTxContext(o: MsgpackTxContext): TxContext {
   if (o.is_fee_payment_tx === undefined) {
@@ -720,10 +640,6 @@ export interface MsgpackCombinedConstantData {
   historic_tree_roots: MsgpackCombinedHistoricTreeRoots;
   tx_context: MsgpackTxContext;
 }
-export interface ICombinedConstantData {
-  historicTreeRoots: CombinedHistoricTreeRoots;
-  txContext: TxContext;
-}
 
 export function toCombinedConstantData(o: MsgpackCombinedConstantData): CombinedConstantData {
   if (o.historic_tree_roots === undefined) {
@@ -752,11 +668,6 @@ export interface MsgpackKernelCircuitPublicInputs {
   end: MsgpackCombinedAccumulatedData;
   constants: MsgpackCombinedConstantData;
   is_private: boolean;
-}
-export interface IKernelCircuitPublicInputs {
-  end: CombinedAccumulatedData;
-  constants: CombinedConstantData;
-  isPrivate: boolean;
 }
 
 export function toKernelCircuitPublicInputs(o: MsgpackKernelCircuitPublicInputs): KernelCircuitPublicInputs {
@@ -800,14 +711,6 @@ export interface MsgpackVerificationKeyData {
   commitments: Record<string, MsgpackG1AffineElement>;
   contains_recursive_proof: boolean;
   recursive_proof_public_input_indices: number[];
-}
-export interface IVerificationKeyData {
-  composerType: number;
-  circuitSize: number;
-  numPublicInputs: number;
-  commitments: Record<string, G1AffineElement>;
-  containsRecursiveProof: boolean;
-  recursiveProofPublicInputIndices: number[];
 }
 
 export function toVerificationKeyData(o: MsgpackVerificationKeyData): VerificationKeyData {
@@ -874,13 +777,6 @@ export interface MsgpackPreviousKernelData {
   vk: MsgpackVerificationKeyData;
   vk_index: number;
   vk_path: TupleOf<Buffer, 3>;
-}
-export interface IPreviousKernelData {
-  publicInputs: KernelCircuitPublicInputs;
-  proof: Proof;
-  vk: VerificationKeyData;
-  vkIndex: number;
-  vkPath: TupleOf<Fr, 3>;
 }
 
 export function toPreviousKernelData(o: MsgpackPreviousKernelData): PreviousKernelData {
