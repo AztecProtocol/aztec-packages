@@ -121,7 +121,7 @@ export class RootRollupPublicInputs {
     return new RootRollupPublicInputs(...RootRollupPublicInputs.getFields(fields));
   }
 
-  public sha256CalldataHash() {
+  public sha256CalldataHash(): Buffer {
     const high = this.calldataHash[0].toBuffer();
     const low = this.calldataHash[1].toBuffer();
 
