@@ -852,7 +852,6 @@ TEST(public_kernel_tests, public_kernel_circuit_only_checks_non_empty_call_stack
         call_stack_hashes[i] = 0;
     }
     auto public_inputs = native_public_kernel_circuit_no_previous_kernel(dc, inputs);
-    dc.log_failures_if_any("test");
     ASSERT_FALSE(dc.failed());
 }
 
