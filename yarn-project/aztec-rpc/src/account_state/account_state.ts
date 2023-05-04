@@ -11,7 +11,7 @@ import { Database, TxAuxDataDao, TxDao } from '../database/index.js';
 import { ConstantKeyPair, KeyPair } from '../key_store/index.js';
 import { SimulatorOracle } from '../simulator_oracle/index.js';
 import { BarretenbergWasm } from '@aztec/barretenberg.js/wasm';
-import { FunctionType } from '@aztec/foundation';
+import { FunctionType } from '@aztec/foundation/abi';
 import { generateFunctionSelector } from '../index.js';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { AztecAddress } from '@aztec/foundation/aztec-address';

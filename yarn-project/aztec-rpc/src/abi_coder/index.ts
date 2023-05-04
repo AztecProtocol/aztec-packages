@@ -1,4 +1,4 @@
-import { ABIParameter } from '@aztec/foundation';
+import { ABIParameter } from '@aztec/foundation/abi';
 import { keccak256 } from '../foundation.js';
 
 export function generateFunctionSignature(name: string, parameters: ABIParameter[]) {
