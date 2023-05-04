@@ -265,6 +265,7 @@ __metadata:
     jest: ^29.5.0
     levelup: ^5.1.1
     lodash.times: ^4.3.2
+    memdown: ^6.1.1
     ts-jest: ^29.1.0
     ts-node: ^10.9.1
     tslib: ^2.4.0

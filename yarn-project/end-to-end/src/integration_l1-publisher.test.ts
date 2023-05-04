@@ -1,7 +1,7 @@
 import { createMemDown, getConfigEnvVars } from '@aztec/aztec-node';
+import { EthAddress } from '@aztec/foundation/eth-address';
+import { Fr } from '@aztec/foundation/fields';
 import {
-  EthAddress,
-  Fr,
   KERNEL_NEW_COMMITMENTS_LENGTH,
   KERNEL_NEW_NULLIFIERS_LENGTH,
   KernelCircuitPublicInputs,
