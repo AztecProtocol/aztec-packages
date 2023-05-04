@@ -97,11 +97,13 @@ describe('public_processor', () => {
     db.getSiblingPath.mockResolvedValue(new SiblingPath(path));
 
     const tx = makePublicTx();
-    // mock Public Circuit output
-    const publicCircuitOutput = makePublicCircuitPublicInputs();
+    // public transactions shouldn't be constructors or private:
+    tx.txRequest.txRequest.functionData.isConstructor = false;
+    tx.txRequest.txRequest.functionData.isPrivate = false;
+
+    // mock Public Circuit output (also set storageContractAddress to txRequest.to)
+    const publicCircuitOutput = makePublicCircuitPublicInputs(0, tx.txRequest.txRequest.to);
     publicCircuitOutput.publicCallStack = new Array(PUBLIC_CALL_STACK_LENGTH).fill(Fr.ZERO);
-    // set storageContractAddress to txRequest.to
-    publicCircuitOutput.callContext.storageContractAddress = tx.txRequest.txRequest.to;
 
     publicCircuit.publicCircuit.mockResolvedValue(publicCircuitOutput);
 

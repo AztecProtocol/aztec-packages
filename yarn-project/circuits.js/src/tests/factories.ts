@@ -78,7 +78,6 @@ import { CommitmentMap, G1AffineElement, VerificationKey } from '../structs/veri
 import { range } from '../utils/jsUtils.js';
 import { numToUInt32BE } from '../utils/serialize.js';
 import { computeCallStackItemHash } from '../abis/abis.js';
-import { WasmWrapper } from '@aztec/foundation/wasm';
 
 export function makeTxContext(seed: number): TxContext {
   const deploymentData = new ContractDeploymentData(fr(seed), fr(seed + 1), fr(seed + 2), makeEthAddress(seed + 3));
@@ -188,21 +187,17 @@ export function makeAggregationObject(seed = 1): AggregationObject {
   );
 }
 
-export function makeCallContext(seed = 0): CallContext {
-  return new CallContext(
-    makeAztecAddress(seed),
-    makeAztecAddress(seed + 1),
-    makeEthAddress(seed + 2),
-    false,
-    false,
-    false,
-  );
+export function makeCallContext(seed = 0, storageContractAddress = makeAztecAddress(seed + 1)): CallContext {
+  return new CallContext(makeAztecAddress(seed), storageContractAddress, makeEthAddress(seed + 2), false, false, false);
 }
 
-export function makePublicCircuitPublicInputs(seed = 0): PublicCircuitPublicInputs {
+export function makePublicCircuitPublicInputs(
+  seed = 0,
+  storageContractAddress?: AztecAddress,
+): PublicCircuitPublicInputs {
   const frArray = (num: number, seed: number) => range(num, seed).map(fr);
   return new PublicCircuitPublicInputs(
-    makeCallContext(seed),
+    makeCallContext(seed, storageContractAddress),
     frArray(ARGS_LENGTH, seed + 0x100),
     frArray(RETURN_VALUES_LENGTH, seed + 0x200),
     frArray(EMITTED_EVENTS_LENGTH, seed + 0x300),
@@ -277,7 +272,7 @@ export function makePublicCallStackItem(seed = 1): PublicCallStackItem {
   return callStackItem;
 }
 
-export async function makePublicCallData(seed = 1, wasm?: WasmWrapper) {
+export async function makePublicCallData(seed = 1) {
   const publicCallData = new PublicCallData(
     makePublicCallStackItem(seed),
     range(PUBLIC_CALL_STACK_LENGTH, seed + 0x300).map(makePublicCallStackItem),
@@ -286,9 +281,7 @@ export async function makePublicCallData(seed = 1, wasm?: WasmWrapper) {
     fr(seed + 2),
   );
   // publicCallStack should be a hash of the preimages:
-  if (!wasm) {
-    wasm = await CircuitsWasm.get();
-  }
+  const wasm = await CircuitsWasm.get();
   publicCallData.callStackItem.publicInputs.publicCallStack = [];
   publicCallData.publicCallStackPreimages.forEach(preimage => {
     publicCallData.callStackItem.publicInputs.publicCallStack.push(computeCallStackItemHash(wasm!, preimage));
@@ -327,13 +320,13 @@ export async function makePublicKernelInputs(seed = 1): Promise<PublicKernelInpu
 }
 
 export async function makePublicKernelInputsWithEmptyOutput(seed = 1): Promise<PublicKernelInputs> {
-  const wasm = await CircuitsWasm.get();
   const kernelCircuitPublicInputs = makeEmptyKernelPublicInputs(seed);
   const publicKernelInputs = new PublicKernelInputs(
     makePreviousKernelData(seed, kernelCircuitPublicInputs),
-    await makePublicCallData(seed + 0x1000, wasm),
+    await makePublicCallData(seed + 0x1000),
   );
   //Set the call stack item for this circuit iteration at the top of the call stack
+  const wasm = await CircuitsWasm.get();
   publicKernelInputs.previousKernel.publicInputs.end.publicCallStack[KERNEL_PUBLIC_CALL_STACK_LENGTH - 1] =
     computeCallStackItemHash(wasm, publicKernelInputs.publicCallData.callStackItem);
   return publicKernelInputs;

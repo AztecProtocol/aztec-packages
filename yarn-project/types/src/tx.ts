@@ -70,9 +70,6 @@ export class Tx {
    * @returns New public tx instance.
    */
   public static createPublic(txRequest: SignedTxRequest): PublicTx {
-    // public transactions can't be constructors or private:
-    txRequest.txRequest.functionData.isConstructor = false;
-    txRequest.txRequest.functionData.isPrivate = false;
     return new this(undefined, undefined, undefined, txRequest) as PublicTx;
   }
 
