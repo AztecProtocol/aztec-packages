@@ -67,8 +67,6 @@ template <typename NCT, template <class> typename PrivatePublic> struct CallStac
 
         return call_stack_item_hash;
     }
-
-    boolean is_empty() const { return contract_address == 0; }
 };  // namespace aztec3::circuits::abis
 
 template <typename NCT, template <class> typename PrivatePublic>

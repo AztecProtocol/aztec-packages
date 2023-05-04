@@ -828,18 +828,25 @@ TEST(public_kernel_tests, public_kernel_circuit_only_checks_non_empty_call_stack
     PublicKernelInputsNoPreviousKernel<NT> inputs = get_kernel_inputs_no_previous_kernel();
 
     const auto contract_address = NT::fr(inputs.signed_tx_request.tx_request.to);
+    const auto origin_msg_sender = NT::fr(inputs.signed_tx_request.tx_request.from);
+    // const auto contract_portal_address = NT::fr(inputs.public_call.portal_contract_address);
 
-    // set all but the first call stack item to have a zero contract address denoting the call stack item being 'empty'
+    // set all but the first call stack item to have a zero call stack hash
+    // these call stack items will have an contract portal address but will be ignored as the call stack will be ignored
     std::array<PublicCallStackItem, PUBLIC_CALL_STACK_LENGTH> child_call_stacks;
+    NT::uint32 const seed = 1000;
+    NT::fr const child_contract_address = 100000;
+    NT::fr const child_portal_contract = 200000;
     std::array<NT::fr, PUBLIC_CALL_STACK_LENGTH> call_stack_hashes;
-    NT::fr const child_contract_address = 0;  // contract address of 0 denoting an 'empty' contract
-    // set the call stack pre-images to values that would otherwise fail and set the hash to zero
-    const auto origin_msg_sender = 333333333;
-    NT::fr const child_portal_contract = 666666666;
     for (size_t i = 1; i < PUBLIC_CALL_STACK_LENGTH; i++) {
         // NOLINTNEXTLINE(readability-suspicious-call-argument)
-        child_call_stacks[i] = generate_call_stack_item(
-            child_contract_address, origin_msg_sender, contract_address, child_portal_contract, false, 0);
+        child_call_stacks[i] = generate_call_stack_item(child_contract_address,
+                                                        origin_msg_sender,
+                                                        contract_address,
+                                                        child_portal_contract,  // shuold be contract_portal_address
+                                                        false,
+                                                        seed);
+        // setting this to zero makes the call stack item be ignored so it won't fail
         call_stack_hashes[i] = 0;
     }
 

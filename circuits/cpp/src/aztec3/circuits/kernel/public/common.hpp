@@ -58,7 +58,9 @@ void common_validate_call_stack(DummyComposer& composer, KernelInput const& publ
         const auto& hash = stack[i];
         const auto& preimage = preimages[i];
 
-        if (preimage.is_empty()) {
+        // Note: this assumes it's computationally infeasible to have `0` as a valid call_stack_item_hash.
+        // Assumes `hash == 0` means "this stack item is empty".
+        if (hash == 0) {
             continue;
         }
 
@@ -66,8 +68,6 @@ void common_validate_call_stack(DummyComposer& composer, KernelInput const& publ
         const auto is_static_call = preimage.public_inputs.call_context.is_static_call;
         const auto contract_being_called = preimage.contract_address;
 
-        // Note: this assumes it's computationally infeasible to have `0` as a valid call_stack_item_hash.
-        // Assumes `hash == 0` means "this stack item is empty".
         const auto calculated_hash = hash == 0 ? 0 : preimage.hash();
         composer.do_assert(hash == calculated_hash,
                            format("public_call_stack[", i, "] = ", hash, "; does not reconcile"),
