@@ -188,7 +188,8 @@
       "aztec.js",
       "foundation",
       "l1-artifacts",
-      "noir-contracts"
+      "noir-contracts",
+      "sequencer-client"
     ]
   },
   "foundation": {
