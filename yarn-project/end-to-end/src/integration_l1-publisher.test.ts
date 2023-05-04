@@ -1,4 +1,4 @@
-import { createMemDown } from '@aztec/aztec-node';
+import { createMemDown, getConfigEnvVars } from '@aztec/aztec-node';
 import {
   EthAddress,
   Fr,
@@ -34,26 +34,24 @@ import {
   GetContractReturnType,
   HttpTransport,
   PublicClient,
-  WalletClient,
   createPublicClient,
-  createWalletClient,
   encodeFunctionData,
   getAbiItem,
   getAddress,
   getContract,
-  http
+  http,
 } from 'viem';
-import { PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts';
+import { privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 import { deployL1Contracts } from './deploy_l1_contracts.js';
 
 // Accounts 4 and 5 of Anvil default startup with mnemonic: 'test test test test test test test test test test test junk'
 const sequencerPK = '0x47e179ec197488593b187f80a00eb0da91f1b9d0b13f8733639f19c30a34926a';
 const deployerPK = '0x8b3a350cf5c34c9194ca85829a2df0ec3153be0318b5e2d3348e872092edffba';
-const anvilHost = process.env.ANVIL_HOST ?? 'http://127.0.0.1:8545';
-const chainId = 31337;
 
 const logger = createDebugLogger('aztec:integration_l1_publisher');
+
+const config = getConfigEnvVars();
 
 describe('L1Publisher integration', () => {
   let publicClient: PublicClient<HttpTransport, Chain>;
@@ -62,16 +60,8 @@ describe('L1Publisher integration', () => {
   let unverifiedDataEmitterAddress: Address;
   let decoderHelperAddress: Address;
 
-  let rollup: GetContractReturnType<
-    typeof RollupAbi,
-    PublicClient<HttpTransport, Chain>,
-    WalletClient<HttpTransport, Chain, PrivateKeyAccount>
-  >;
-  let decoderHelper: GetContractReturnType<
-    typeof DecoderHelperAbi,
-    PublicClient<HttpTransport, Chain>,
-    WalletClient<HttpTransport, Chain, PrivateKeyAccount>
-  >;
+  let rollup: GetContractReturnType<typeof RollupAbi, PublicClient<HttpTransport, Chain>>;
+  let decoderHelper: GetContractReturnType<typeof DecoderHelperAbi, PublicClient<HttpTransport, Chain>>;
 
   let publisher: L1Publisher;
   let l2Proof: Buffer;
@@ -85,21 +75,15 @@ describe('L1Publisher integration', () => {
       rollupAddress: rollupAddress_,
       unverifiedDataEmitterAddress: unverifiedDataEmitterAddress_,
       decoderHelperAddress: decoderHelperAddress_,
-    } = await deployL1Contracts(anvilHost, deployerAccount, logger, true);
+    } = await deployL1Contracts(config.rpcUrl, deployerAccount, logger, true);
 
     rollupAddress = getAddress(rollupAddress_.toString());
     unverifiedDataEmitterAddress = getAddress(unverifiedDataEmitterAddress_.toString());
     decoderHelperAddress = getAddress(decoderHelperAddress_!.toString());
 
-    const walletClient = createWalletClient({
-      account: deployerAccount,
-      chain: foundry,
-      transport: http(anvilHost),
-    });
-
     publicClient = createPublicClient({
       chain: foundry,
-      transport: http(anvilHost),
+      transport: http(config.rpcUrl),
     });
 
     // Set up contract instances
@@ -107,13 +91,11 @@ describe('L1Publisher integration', () => {
       address: rollupAddress,
       abi: RollupAbi,
       publicClient,
-      walletClient,
     });
     decoderHelper = getContract({
       address: decoderHelperAddress!,
       abi: DecoderHelperAbi,
       publicClient,
-      walletClient,
     });
 
     builderDb = await MerkleTrees.new(levelup(createMemDown())).then(t => t.asLatest());
@@ -125,8 +107,8 @@ describe('L1Publisher integration', () => {
     l2Proof = Buffer.alloc(0);
 
     publisher = getL1Publisher({
-      rpcUrl: anvilHost,
-      chainId,
+      rpcUrl: config.rpcUrl,
+      chainId: config.chainId,
       requiredConfirmations: 1,
       rollupContract: EthAddress.fromString(rollupAddress),
       unverifiedDataEmitterContract: EthAddress.fromString(unverifiedDataEmitterAddress),
