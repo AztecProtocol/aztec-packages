@@ -22,9 +22,6 @@
       "path": "../foundation"
     },
     {
-      "path": "../kernel-prover"
-    },
-    {
       "path": "../noir-contracts"
     },
     {

@@ -1,20 +1,20 @@
 import { AcirSimulator } from '@aztec/acir-simulator';
 import { AztecNode } from '@aztec/aztec-node';
 import { Grumpkin } from '@aztec/barretenberg.js/crypto';
+import { BarretenbergWasm } from '@aztec/barretenberg.js/wasm';
 import { EcdsaSignature, KERNEL_NEW_COMMITMENTS_LENGTH, PrivateHistoricTreeRoots, TxRequest } from '@aztec/circuits.js';
-import { KernelProver, OutputNoteData } from '@aztec/kernel-prover';
+import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { Fr, Point } from '@aztec/foundation/fields';
+import { createDebugLogger } from '@aztec/foundation/log';
+import { FunctionType } from '@aztec/noir-contracts';
 import { EncodedContractFunction, INITIAL_L2_BLOCK_NUM, L2BlockContext, Tx, UnverifiedData } from '@aztec/types';
 import { NotePreimage, TxAuxData } from '../aztec_rpc_server/tx_aux_data/index.js';
 import { ContractDataOracle } from '../contract_data_oracle/index.js';
 import { Database, TxAuxDataDao, TxDao } from '../database/index.js';
+import { generateFunctionSelector } from '../index.js';
+import { KernelProver, OutputNoteData } from '../kernel_prover/index.js';
 import { ConstantKeyPair, KeyPair } from '../key_store/index.js';
 import { SimulatorOracle } from '../simulator_oracle/index.js';
-import { BarretenbergWasm } from '@aztec/barretenberg.js/wasm';
-import { FunctionType } from '@aztec/noir-contracts';
-import { generateFunctionSelector } from '../index.js';
-import { Fr, Point } from '@aztec/foundation/fields';
-import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { createDebugLogger } from '@aztec/foundation/log';
 
 export class AccountState {
   public syncedToBlock = 0;
