@@ -174,6 +174,7 @@ describe('sequencer/solo_block_builder', () => {
     const newPublicDataWrites = flatMap(txs, tx =>
       tx.data.end.stateTransitions.map(t => new PublicDataWrite(t.leafIndex, t.newValue)),
     );
+    const newL2ToL1Msgs = flatMap(txs, tx => tx.data.end.newL2ToL1Msgs);
 
     const l2Block = L2Block.fromFields({
       number: blockNumber,
@@ -200,6 +201,7 @@ describe('sequencer/solo_block_builder', () => {
       newContractData,
       newPublicDataWrites,
       newL1ToL2Messages: mockL1ToL2Messages,
+      newL2ToL1Msgs,
     });
 
     const callDataHash = l2Block.getCalldataHash();
