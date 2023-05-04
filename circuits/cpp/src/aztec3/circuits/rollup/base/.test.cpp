@@ -554,7 +554,7 @@ TEST_F(base_rollup_tests, native_new_nullifier_tree_double_spend)
 TEST_F(base_rollup_tests, native_empty_block_calldata_hash)
 {
     DummyComposer composer = DummyComposer();
-    std::vector<uint8_t> zero_bytes_vec = test_utils::utils::get_empty_calldata_leaf();
+    std::vector<uint8_t> const zero_bytes_vec = test_utils::utils::get_empty_calldata_leaf();
     auto hash = sha256::sha256(zero_bytes_vec);
     BaseRollupInputs inputs = base_rollup_inputs_from_kernels({ get_empty_kernel(), get_empty_kernel() });
     BaseOrMergeRollupPublicInputs outputs =
@@ -592,10 +592,10 @@ TEST_F(base_rollup_tests, native_calldata_hash)
     for (size_t i = 0; i < 2; ++i) {
         auto kernel_offset = i * 4 * 32;
         for (size_t j = 0; j < 4; j++) {
-            size_t offset = static_cast<size_t>(kernel_offset + j * 32 + 31);
+            auto const offset = static_cast<size_t>(kernel_offset + j * 32 + 31);
             input_data[offset] = static_cast<uint8_t>(i * 4 + j + 1);
             kernel_data[i].public_inputs.end.new_commitments[j] = fr(i * 4 + j + 1);
-            input_data[8 * 32 + offset] = static_cast<uint8_t>(i * 4 + j + 8);
+            input_data[static_cast<unsigned long>(8 *) 32 + offset] = static_cast<uint8_t>(i * 4 + j + 8);
             kernel_data[i].public_inputs.end.new_nullifiers[j] = fr(i * 4 + j + 8);
         }
     }

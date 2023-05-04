@@ -143,7 +143,7 @@ class root_rollup_tests : public ::testing::Test {
 
 TEST_F(root_rollup_tests, native_check_block_hashes_empty_blocks)
 {
-    std::vector<uint8_t> zero_bytes_vec = test_utils::utils::get_empty_calldata_leaf();
+    std::vector<uint8_t> const zero_bytes_vec = test_utils::utils::get_empty_calldata_leaf();
     auto call_data_hash_inner = sha256::sha256(zero_bytes_vec);
 
     std::array<uint8_t, 64> hash_input;
