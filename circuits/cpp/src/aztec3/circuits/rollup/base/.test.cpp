@@ -592,14 +592,14 @@ TEST_F(base_rollup_tests, native_calldata_hash)
     }
 
     // Add a contract deployment
-    NewContractData<NT> new_contract = {
+    NewContractData<NT> const new_contract = {
         .contract_address = fr(1),
         .portal_contract_address = fr(3),
         .function_tree_root = fr(2),
     };
     kernel_data[0].public_inputs.end.new_contracts[0] = new_contract;
 
-    std::array<fr, 2> expected_hash = components::compute_calldata_hash_kernels(kernel_data);
+    std::array<fr, 2> const expected_hash = components::compute_calldata_hash_kernels(kernel_data);
 
     DummyComposer composer = DummyComposer();
     BaseRollupInputs inputs = base_rollup_inputs_from_kernels(kernel_data);
@@ -607,7 +607,7 @@ TEST_F(base_rollup_tests, native_calldata_hash)
         aztec3::circuits::rollup::native_base_rollup::base_rollup_circuit(composer, inputs);
 
     // Take the two fields and stich them together to get the calldata hash.
-    std::array<fr, 2> calldata_hash_fr = outputs.calldata_hash;
+    std::array<fr, 2> const calldata_hash_fr = outputs.calldata_hash;
 
     ASSERT_EQ(expected_hash, calldata_hash_fr);
 
