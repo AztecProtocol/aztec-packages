@@ -1,10 +1,14 @@
 import { AztecAddress, CallContext, EthAddress, Fr, FunctionData, TxRequest } from '@aztec/circuits.js';
+import { padArrayEnd } from '@aztec/foundation/collection';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { select_return_flattened as selectPublicWitnessFlattened } from '@noir-lang/noir_util_wasm';
 import { acvm, frToAztecAddress, frToSelector, fromACVMField, toACVMField, toACVMWitness } from '../acvm/index.js';
 import { PublicContractsDB, PublicStateDB } from './db.js';
 import { PublicExecution, PublicExecutionResult, isPublicExecution } from './execution.js';
 import { StateActionsCollector } from './state_actions.js';
+
+// Copied from crate::abi at noir-contracts/src/contracts/noir-aztec3/src/abi.nr
+const NOIR_MAX_RETURN_VALUES = 4;
 
 export class PublicExecutor {
   constructor(
@@ -62,7 +66,8 @@ export class PublicExecutor {
         );
 
         nestedExecutions.push(childExecutionResult);
-        return childExecutionResult.returnValues.map(fr => fr.toString());
+        this.log(`Returning from nested call: ret=${childExecutionResult.returnValues.join(', ')}`);
+        return padArrayEnd(childExecutionResult.returnValues, Fr.ZERO, NOIR_MAX_RETURN_VALUES).map(fr => fr.toString());
       },
     });
 
