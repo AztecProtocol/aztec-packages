@@ -69,7 +69,7 @@ export class AccountState {
     );
     const portalContract = await contractDataOracle.getPortalContractAddress(contractAddress);
 
-    const currentRoots = await this.node.getTreeRoots();
+    const currentRoots = await this.db.getTreeRoots();
     const historicRoots = PrivateHistoricTreeRoots.from({
       contractTreeRoot: currentRoots[MerkleTreeId.CONTRACT_TREE],
       nullifierTreeRoot: currentRoots[MerkleTreeId.NULLIFIER_TREE],
