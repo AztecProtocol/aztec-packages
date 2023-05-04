@@ -1,4 +1,4 @@
-import { Fr } from '@aztec/foundation';
+import { Fr } from '@aztec/foundation/fields';
 import { ABIType, FunctionAbi } from '@aztec/noir-contracts';
 
 /**
