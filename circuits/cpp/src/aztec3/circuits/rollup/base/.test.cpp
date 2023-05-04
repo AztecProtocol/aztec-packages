@@ -583,12 +583,12 @@ TEST_F(base_rollup_tests, native_calldata_hash)
     std::array<PreviousKernelData<NT>, 2> kernel_data = { get_empty_kernel(), get_empty_kernel() };
     std::vector<uint8_t> input_data = test_utils::utils::get_empty_calldata_leaf();
 
-    // Update commitment and nullifiers in kernels and testing byte array.
+    // Update commitment and nullifierss in kernels and testing byte array.
     // Commitments and nullifiers are 32 bytes long, so we can update them in the byte array by offsetting by 32 bytes
-    // for every insertion As there are two kernels in every leaf, nullifiers are offset by 8 elements (8*32) To insert
-    // correctly, the insertions of values from the second kernel must be offset by 4*32 bytes (kernel_offset) Further
-    // offset by 32 per prior insertion (j*32), and then only update the last byte (31) with the new value. Commitments
-    // inserted are [1,2,3,4,5,6,7,8]. Nullifiers inserted are [8,9,10,11,12,13,14,15]
+    // for every insertion. As there are two kernels in every leaf, nullifiers are offset by 8 elements (8*32). To
+    // insert correctly, the insertions of values from the second kernel must be offset by 4*32 bytes (kernel_offset).
+    // Further offset by 32 per prior insertion (j*32), and then only update the last byte (31) with the new value.
+    // Commitments inserted are [1,2,3,4,5,6,7,8]. Nullifiers inserted are [8,9,10,11,12,13,14,15]
     for (size_t i = 0; i < 2; ++i) {
         auto kernel_offset = i * 4 * 32;
         for (size_t j = 0; j < 4; j++) {
