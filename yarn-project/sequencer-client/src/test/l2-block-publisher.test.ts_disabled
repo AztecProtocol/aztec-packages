@@ -15,7 +15,7 @@ import {
 } from '@aztec/circuits.js/factories';
 import { EthereumRpc } from '@aztec/ethereum.js/eth_rpc';
 import { WalletProvider } from '@aztec/ethereum.js/provider';
-import { DecoderHelper, Rollup, UnverifiedDataEmitter } from '@aztec/l1-contracts';
+import { DecoderHelper, Rollup, UnverifiedDataEmitter } from '@aztec/l1-artifacts';
 import { Tx } from '@aztec/types';
 import { MerkleTreeId, MerkleTreeOperations, MerkleTrees } from '@aztec/world-state';
 import { beforeAll, describe, expect, it } from '@jest/globals';
