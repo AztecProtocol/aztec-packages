@@ -101,7 +101,7 @@ void assert_equal_constants(DummyComposer& composer,
  * @param kernel_data - 2 kernels
  * @return std::array<fr, 2>
  */
-std::array<fr, 2> compute_calldata_hash_kernels(std::array<abis::PreviousKernelData<NT>, 2> kernel_data)
+std::array<fr, 2> compute_kernels_calldata_hash(std::array<abis::PreviousKernelData<NT>, 2> kernel_data)
 {
     // Compute calldata hashes
     // Consist of 2 kernels

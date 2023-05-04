@@ -599,7 +599,7 @@ TEST_F(base_rollup_tests, native_calldata_hash)
     };
     kernel_data[0].public_inputs.end.new_contracts[0] = new_contract;
 
-    std::array<fr, 2> const expected_hash = components::compute_calldata_hash_kernels(kernel_data);
+    std::array<fr, 2> const expected_hash = components::compute_kernels_calldata_hash(kernel_data);
 
     DummyComposer composer = DummyComposer();
     BaseRollupInputs inputs = base_rollup_inputs_from_kernels(kernel_data);
