@@ -135,7 +135,10 @@ std::array<NT::fr, 2> calculate_calldata_hash(BaseRollupInputs const& baseRollup
     // 8 nullifiers (4 per kernel) -> 8 fields
     // 8 public state transitions (4 per kernel) -> 16 fields
     // 2 contract deployments (1 per kernel) -> 6 fields
-    std::array<NT::fr, 38> calldata_hash_inputs;
+    auto const number_of_inputs = (KERNEL_NEW_COMMITMENTS_LENGTH + KERNEL_NEW_NULLIFIERS_LENGTH +
+                                   STATE_TRANSITIONS_LENGTH * 2 + KERNEL_NEW_CONTRACTS_LENGTH * 3) *
+                                  2;
+    std::array<NT::fr, number_of_inputs> calldata_hash_inputs;
 
     for (size_t i = 0; i < 2; i++) {
         auto new_commitments = baseRollupInputs.kernel_data[i].public_inputs.end.new_commitments;

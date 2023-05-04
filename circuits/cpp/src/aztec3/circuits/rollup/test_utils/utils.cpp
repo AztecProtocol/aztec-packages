@@ -51,6 +51,16 @@ namespace aztec3::circuits::rollup::test_utils::utils {
 
 // Want some helper functions for generating kernels with some commitments, nullifiers and contracts
 
+std::vector<uint8_t> get_empty_calldata_leaf()
+{
+    auto const number_of_inputs = (KERNEL_NEW_COMMITMENTS_LENGTH + KERNEL_NEW_NULLIFIERS_LENGTH +
+                                   STATE_TRANSITIONS_LENGTH * 2 + KERNEL_NEW_CONTRACTS_LENGTH * 3) *
+                                  2;
+    auto const size = number_of_inputs * 32;
+    std::vector<uint8_t> input_data(size, 0);
+    return input_data;
+}
+
 KernelData get_empty_kernel()
 {
     return dummy_previous_kernel();
