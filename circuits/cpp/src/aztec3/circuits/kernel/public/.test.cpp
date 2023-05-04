@@ -833,11 +833,13 @@ TEST(public_kernel_tests, public_kernel_circuit_only_checks_non_empty_call_stack
 
     // set all but the first call stack item to have a zero call stack hash
     // these call stack items will have an contract portal address but will be ignored as the call stack will be ignored
-    std::array<PublicCallStackItem, PUBLIC_CALL_STACK_LENGTH> child_call_stacks;
+    std::array<PublicCallStackItem, PUBLIC_CALL_STACK_LENGTH>& child_call_stacks =
+        inputs.public_call.public_call_stack_preimages;
+    std::array<NT::fr, PUBLIC_CALL_STACK_LENGTH>& call_stack_hashes =
+        inputs.public_call.call_stack_item.public_inputs.public_call_stack;
     NT::uint32 const seed = 1000;
     NT::fr const child_contract_address = 100000;
     NT::fr const child_portal_contract = 200000;
-    std::array<NT::fr, PUBLIC_CALL_STACK_LENGTH> call_stack_hashes;
     for (size_t i = 1; i < PUBLIC_CALL_STACK_LENGTH; i++) {
         // NOLINTNEXTLINE(readability-suspicious-call-argument)
         child_call_stacks[i] = generate_call_stack_item(child_contract_address,
@@ -849,10 +851,8 @@ TEST(public_kernel_tests, public_kernel_circuit_only_checks_non_empty_call_stack
         // setting this to zero makes the call stack item be ignored so it won't fail
         call_stack_hashes[i] = 0;
     }
-
-    inputs.public_call.call_stack_item.public_inputs.public_call_stack = call_stack_hashes;
-    inputs.public_call.public_call_stack_preimages = child_call_stacks;
     auto public_inputs = native_public_kernel_circuit_no_previous_kernel(dc, inputs);
+    dc.log_failures_if_any("test");
     ASSERT_FALSE(dc.failed());
 }
 
