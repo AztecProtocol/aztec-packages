@@ -74,7 +74,6 @@ export class PrivateFunctionExecution {
 
     const acir = Buffer.from(this.abi.bytecode, 'hex');
     const initialWitness = this.writeInputs();
-    console.log(initialWitness);
 
     const newNotePreimages: NewNoteData[] = [];
     const newNullifiers: NewNullifierData[] = [];
