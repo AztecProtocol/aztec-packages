@@ -4,7 +4,7 @@ import { TxAuxDataDao } from './tx_aux_data_dao.js';
 import { TxDao } from './tx_dao.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr, Point } from '@aztec/foundation/fields';
-import { MerkleTreeId } from '@aztec/world-state';
+import { MerkleTreeId } from '@aztec/types';
 
 export interface Database extends ContractDatabase {
   getTx(txHash: TxHash): Promise<TxDao | undefined>;

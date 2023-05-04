@@ -1,6 +1,8 @@
 import { Archiver } from '@aztec/archiver';
 import { PrimitivesWasm } from '@aztec/barretenberg.js/wasm';
 import { CircuitsWasm } from '@aztec/circuits.js';
+import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { Fr } from '@aztec/foundation/fields';
 import { SiblingPath } from '@aztec/merkle-tree';
 import { P2P, P2PClient } from '@aztec/p2p';
 import { SequencerClient } from '@aztec/sequencer-client';
@@ -10,13 +12,13 @@ import {
   ContractPublicData,
   L2Block,
   L2BlockSource,
+  MerkleTreeId,
   Tx,
   TxHash,
   UnverifiedData,
   UnverifiedDataSource,
 } from '@aztec/types';
 import {
-  MerkleTreeId,
   MerkleTrees,
   ServerWorldStateSynchroniser,
   WorldStateSynchroniser,
@@ -25,8 +27,6 @@ import {
 import { default as levelup } from 'levelup';
 import { MemDown, default as memdown } from 'memdown';
 import { AztecNodeConfig } from './config.js';
-import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { Fr } from '@aztec/foundation/fields';
 
 export const createMemDown = () => (memdown as any)() as MemDown<any, any>;
 

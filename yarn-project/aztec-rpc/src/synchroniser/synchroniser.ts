@@ -6,7 +6,7 @@ import { Database, TxDao } from '../database/index.js';
 import { InterruptableSleep } from '@aztec/foundation/sleep';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { MerkleTreeId } from '@aztec/world-state';
+import { MerkleTreeId } from '@aztec/types';
 import { Fr } from '@aztec/circuits.js';
 
 export class Synchroniser {

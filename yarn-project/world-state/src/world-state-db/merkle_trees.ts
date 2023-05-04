@@ -29,11 +29,11 @@ import {
   INITIAL_NULLIFIER_TREE_SIZE,
   IndexedTreeId,
   MerkleTreeDb,
-  MerkleTreeId,
   MerkleTreeOperations,
   PublicTreeId,
   TreeInfo,
 } from './index.js';
+import { MerkleTreeId } from '@aztec/types';
 import { SerialQueue } from '@aztec/foundation/fifo';
 
 /**

@@ -10,7 +10,7 @@ import { KernelProver, OutputNoteData } from '@aztec/kernel-prover';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/types';
 import { FunctionType } from '@aztec/noir-contracts';
 import { EncodedContractFunction, L2BlockContext, Tx, UnverifiedData } from '@aztec/types';
-import { MerkleTreeId } from '@aztec/world-state';
+import { MerkleTreeId } from '@aztec/types';
 import { NotePreimage, TxAuxData } from '../aztec_rpc_server/tx_aux_data/index.js';
 import { ContractDataOracle } from '../contract_data_oracle/index.js';
 import { Database, TxAuxDataDao, TxDao } from '../database/index.js';

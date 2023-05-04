@@ -5,7 +5,7 @@ import { Database, MemoryDB } from '../database/index.js';
 import { ConstantKeyPair } from '../key_store/index.js';
 import { Synchroniser } from './synchroniser.js';
 import { L2Block, UnverifiedData } from '@aztec/types';
-import { MerkleTreeId } from '@aztec/world-state';
+import { MerkleTreeId } from '@aztec/types';
 import { Fr } from '@aztec/circuits.js';
 
 describe('Synchroniser', () => {
