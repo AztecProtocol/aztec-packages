@@ -1,5 +1,6 @@
 import { createMemDown } from '@aztec/aztec-node';
 import {
+  EthAddress,
   Fr,
   KERNEL_NEW_COMMITMENTS_LENGTH,
   KERNEL_NEW_NULLIFIERS_LENGTH,
@@ -11,6 +12,7 @@ import {
 } from '@aztec/circuits.js';
 import { fr, makeNewContractData, makeProof } from '@aztec/circuits.js/factories';
 import { createDebugLogger } from '@aztec/foundation/log';
+import { DecoderHelperAbi, RollupAbi } from '@aztec/l1-artifacts';
 import {
   EmptyRollupProver,
   L1Publisher,
@@ -26,9 +28,8 @@ import {
 import { MerkleTreeOperations, MerkleTrees } from '@aztec/world-state';
 import { beforeAll, describe, expect, it } from '@jest/globals';
 import { default as levelup } from 'levelup';
-import { PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts';
-import { deployL1Contracts } from './deploy_l1_contracts.js';
 import {
+  Address,
   Chain,
   GetContractReturnType,
   HttpTransport,
@@ -36,12 +37,15 @@ import {
   WalletClient,
   createPublicClient,
   createWalletClient,
+  encodeFunctionData,
+  getAbiItem,
   getAddress,
   getContract,
-  http,
+  http
 } from 'viem';
-import { DecoderHelperAbi, RollupAbi, UnverifiedDataEmitterAbi } from '@aztec/l1-artifacts';
+import { PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
+import { deployL1Contracts } from './deploy_l1_contracts.js';
 
 // Accounts 4 and 5 of Anvil default startup with mnemonic: 'test test test test test test test test test test test junk'
 const sequencerPK = '0x47e179ec197488593b187f80a00eb0da91f1b9d0b13f8733639f19c30a34926a';
@@ -54,13 +58,12 @@ const logger = createDebugLogger('aztec:integration_l1_publisher');
 describe('L1Publisher integration', () => {
   let publicClient: PublicClient<HttpTransport, Chain>;
 
+  let rollupAddress: Address;
+  let unverifiedDataEmitterAddress: Address;
+  let decoderHelperAddress: Address;
+
   let rollup: GetContractReturnType<
     typeof RollupAbi,
-    PublicClient<HttpTransport, Chain>,
-    WalletClient<HttpTransport, Chain, PrivateKeyAccount>
-  >;
-  let unverifiedDataEmitter: GetContractReturnType<
-    typeof UnverifiedDataEmitterAbi,
     PublicClient<HttpTransport, Chain>,
     WalletClient<HttpTransport, Chain, PrivateKeyAccount>
   >;
@@ -78,12 +81,15 @@ describe('L1Publisher integration', () => {
 
   beforeAll(async () => {
     const deployerAccount = privateKeyToAccount(deployerPK);
-    const { rollupAddress, unverifiedDataEmitterAddress, decoderHelperAddress } = await deployL1Contracts(
-      anvilHost,
-      deployerAccount,
-      logger,
-      true,
-    );
+    const {
+      rollupAddress: rollupAddress_,
+      unverifiedDataEmitterAddress: unverifiedDataEmitterAddress_,
+      decoderHelperAddress: decoderHelperAddress_,
+    } = await deployL1Contracts(anvilHost, deployerAccount, logger, true);
+
+    rollupAddress = getAddress(rollupAddress_.toString());
+    unverifiedDataEmitterAddress = getAddress(unverifiedDataEmitterAddress_.toString());
+    decoderHelperAddress = getAddress(decoderHelperAddress_!.toString());
 
     const walletClient = createWalletClient({
       account: deployerAccount,
@@ -98,19 +104,13 @@ describe('L1Publisher integration', () => {
 
     // Set up contract instances
     rollup = getContract({
-      address: getAddress(rollupAddress.toString()),
+      address: rollupAddress,
       abi: RollupAbi,
       publicClient,
       walletClient,
     });
-    unverifiedDataEmitter = getContract({
-      address: getAddress(unverifiedDataEmitterAddress.toString()),
-      abi: UnverifiedDataEmitterAbi,
-      publicClient,
-      walletClient,
-    });
     decoderHelper = getContract({
-      address: getAddress(decoderHelperAddress!.toString()),
+      address: decoderHelperAddress!,
       abi: DecoderHelperAbi,
       publicClient,
       walletClient,
@@ -128,8 +128,8 @@ describe('L1Publisher integration', () => {
       rpcUrl: anvilHost,
       chainId,
       requiredConfirmations: 1,
-      rollupContract: rollupAddress,
-      unverifiedDataEmitterContract: unverifiedDataEmitterAddress,
+      rollupContract: EthAddress.fromString(rollupAddress),
+      unverifiedDataEmitterContract: EthAddress.fromString(unverifiedDataEmitterAddress),
       publisherPrivateKey: hexStringToBuffer(sequencerPK),
       retryIntervalMs: 100,
     });
@@ -182,22 +182,31 @@ describe('L1Publisher integration', () => {
       const blockNumber = await publicClient.getBlockNumber();
       await publisher.processL2Block(block);
 
-      const abiItem = getAbiItem({
-        abi: RollupAbi,
-        name: 'L2BlockProcessed',
+      const logs = await publicClient.getLogs({
+        address: rollupAddress,
+        event: getAbiItem({
+          abi: RollupAbi,
+          name: 'L2BlockProcessed',
+        }),
+        fromBlock: blockNumber + 1n,
       });
-      const logs = rollup.getLogs(abiItem, { fromBlock: blockNumber + 1 });
-
-      const logs = await rollup.getLogs('L2BlockProcessed', { fromBlock: blockNumber + 1 });
       expect(logs).toHaveLength(1);
       expect(logs[0].args.blockNum).toEqual(BigInt(i + 1));
 
-      const ethTx = await ethRpc.getTransactionByHash(logs[0].transactionHash!);
-      const expectedData = rollup.methods.process(l2Proof, block.encode()).encodeABI();
+      const ethTx = await publicClient.getTransaction({
+        hash: logs[0].transactionHash!,
+      });
+
+      const expectedData = encodeFunctionData({
+        abi: RollupAbi,
+        functionName: 'process',
+        args: [`0x${l2Proof.toString('hex')}`, `0x${block.encode().toString('hex')}`],
+      });
       expect(ethTx.input).toEqual(expectedData);
 
-      const decodedHashes = await decoderHelper.read.computeDiffRootAndMessagesHash(block.encode());
-      const decodedRes = await decoderHelper.read.decode(block.encode());
+      const decoderArgs = [`0x${block.encode().toString('hex')}`] as const;
+      const decodedHashes = await decoderHelper.read.computeDiffRootAndMessagesHash(decoderArgs);
+      const decodedRes = await decoderHelper.read.decode(decoderArgs);
       const stateInRollup = await rollup.read.rollupStateHash();
 
       // @note There seems to be something wrong here. The Bytes32 returned are actually strings :(
