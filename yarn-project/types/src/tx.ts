@@ -1,5 +1,5 @@
 import { CircuitsWasm, KernelCircuitPublicInputs, SignedTxRequest, UInt8Vector } from '@aztec/circuits.js';
-import { computeContractLeaf } from '@aztec/circuits.js/abis';
+import { computeContractLeaf, computeTxHash } from '@aztec/circuits.js/abis';
 
 import { createTxHash } from './create_tx_hash.js';
 import { TxHash } from './tx_hash.js';
@@ -184,8 +184,8 @@ export class Tx {
     // contract tree leaves, which then go into the L2 block, which are then used to regenerate
     // the tx hashes. This means we need the full circuits wasm, and cannot use the lighter primitives
     // wasm. Alternatively, we could stop using computeContractLeaf and manually use the same hash.
+    const wasm = await CircuitsWasm.get();
     if (tx.data) {
-      const wasm = await CircuitsWasm.get();
       hashes.push(
         createTxHash({
           ...tx.data.end,
@@ -197,7 +197,7 @@ export class Tx {
     // We hash the full signed tx request object (this is, the tx request along with the signature),
     // just like Ethereum does.
     if (tx.txRequest) {
-      hashes.push(new TxHash(keccak(tx.txRequest.toBuffer())));
+      hashes.push(new TxHash(computeTxHash(wasm, tx.txRequest).toBuffer()));
     }
 
     // Return a tx hash if we have only one, or hash them again if we have both

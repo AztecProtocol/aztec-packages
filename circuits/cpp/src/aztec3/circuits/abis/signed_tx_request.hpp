@@ -16,6 +16,7 @@ using aztec3::utils::types::NativeTypes;
 template <typename NCT> struct SignedTxRequest {
     using boolean = typename NCT::boolean;
     using Signature = typename NCT::ecdsa_signature;
+    using fr = typename NCT::fr;
 
     TxRequest<NCT> tx_request{};
     Signature signature{};
@@ -56,6 +57,15 @@ template <typename NCT> struct SignedTxRequest {
 
         return signed_tx_request;
     };
+
+    fr hash() const
+    {
+        // TODO: This is probably not the right thing to do here!!
+        fr sfr = fr::serialize_from_buffer(signature.s.cbegin());
+        fr rfr = fr::serialize_from_buffer(signature.r.cbegin());
+        std::vector<fr> const inputs = { tx_request.hash(), rfr, sfr };
+        return NCT::compress(inputs, GeneratorIndex::SIGNED_TX_REQUEST);
+    }
 };
 
 template <typename NCT> void read(uint8_t const*& it, SignedTxRequest<NCT>& signed_tx_request)

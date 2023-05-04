@@ -5,6 +5,7 @@ import {
   CONTRACT_TREE_ROOTS_TREE_HEIGHT,
   CircuitsWasm,
   ConstantBaseRollupData,
+  KERNEL_NEW_NULLIFIERS_LENGTH,
   L1_TO_L2_MESSAGES_SUBTREE_INSERTION_HEIGHT,
   MembershipWitness,
   MergeRollupInputs,
@@ -127,6 +128,14 @@ export class SoloBlockBuilder implements BlockBuilder {
 
     // Check txs are good for processing
     this.validateTxs(txs);
+
+    for (const tx of txs) {
+      tx.data.end.newNullifiers = [
+        Fr.fromBuffer(tx.hash.buffer),
+        ...tx.data.end.newNullifiers.slice(0, KERNEL_NEW_NULLIFIERS_LENGTH - 1),
+      ];
+      this.debug(`Added nullifier ${tx.hash.toString()}`);
+    }
 
     // We fill the tx batch with empty txs, we process only one tx at a time for now
     const [circuitsOutput, proof] = await this.runCircuits(txs, newL1ToL2Messages);
@@ -860,6 +869,9 @@ export class SoloBlockBuilder implements BlockBuilder {
 
     // Update the nullifier tree, capturing the low nullifier info for each individual operation
     const newNullifiers = [...left.data.end.newNullifiers, ...right.data.end.newNullifiers];
+    for (const nullifier of newNullifiers) {
+      this.debug(`Inserting ${nullifier.toString()}`);
+    }
 
     const nullifierWitnesses = await this.performBaseRollupBatchInsertionProofs(newNullifiers.map(fr => fr.toBuffer()));
     if (nullifierWitnesses === undefined) {
