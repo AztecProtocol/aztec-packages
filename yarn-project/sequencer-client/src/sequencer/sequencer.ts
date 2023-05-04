@@ -1,4 +1,3 @@
-import { RunningPromise, createDebugLogger } from '@aztec/foundation';
 import { P2P } from '@aztec/p2p';
 import { ContractData, ContractPublicData, PrivateTx, PublicTx, Tx, UnverifiedData, isPrivateTx } from '@aztec/types';
 import { MerkleTreeId, WorldStateStatus, WorldStateSynchroniser } from '@aztec/world-state';
@@ -9,6 +8,10 @@ import { ceilPowerOfTwo } from '../utils.js';
 import { SequencerConfig } from './config.js';
 import { ProcessedTx } from './processed_tx.js';
 import { PublicProcessor } from './public_processor.js';
+import { RunningPromise } from '@aztec/foundation/running-promise';
+import { createDebugLogger } from '@aztec/foundation/log';
+import { Fr } from '@aztec/foundation/fields';
+import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/circuits.js';
 
 /**
  * Sequencer client
@@ -41,6 +44,9 @@ export class Sequencer {
     }
   }
 
+  /**
+   * Starts the sequencer and moves to IDLE state. Blocks until the initial sync is complete.
+   */
   public async start() {
     await this.initialSync();
 
@@ -50,6 +56,9 @@ export class Sequencer {
     this.log('Sequencer started');
   }
 
+  /**
+   * Stops the sequencer from processing txs and moves to STOPPED state.
+   */
   public async stop(): Promise<void> {
     await this.runningPromise?.stop();
     this.publisher.interrupt();
@@ -57,12 +66,19 @@ export class Sequencer {
     this.log('Stopped sequencer');
   }
 
+  /**
+   * Starts a previously stopped sequencer.
+   */
   public restart() {
     this.log('Restarting sequencer');
     this.runningPromise!.start();
     this.state = SequencerState.IDLE;
   }
 
+  /**
+   * Returns the current state of the sequencer.
+   * @returns An object with a state entry with one of SequencerState.
+   */
   public status() {
     return { state: this.state };
   }
@@ -111,9 +127,14 @@ export class Sequencer {
         await this.p2pClient.deleteTxs(await Tx.getHashes(failedTxs));
       }
 
+      // Get l1 to l2 messages from the contract
+      this.log('Requesting L1 to L2 messages from contract');
+      const l1ToL2Messages = this.takeL1ToL2MessagesFromContract();
+      this.log('Successfully retrieved L1 to L2 messages from contract');
+
       // Build the new block by running the rollup circuits
       this.log(`Assembling block with txs ${processedTxs.map(tx => tx.hash).join(', ')}`);
-      const block = await this.buildBlock(processedTxs);
+      const block = await this.buildBlock(processedTxs, l1ToL2Messages);
       this.log(`Assembled block ${block.number}`);
 
       // Publishes new block to the network and awaits the tx to be mined
@@ -209,7 +230,13 @@ export class Sequencer {
     );
   }
 
-  protected async buildBlock(txs: ProcessedTx[]) {
+  /**
+   * Pads the set of txs to a power of two and assembles a block by calling the block builder.
+   * @param txs - Processed txs to include in the next block.
+   * @param newL1ToL2Messages - L1 to L2 messages to be part of the block.
+   * @returns The new block.
+   */
+  protected async buildBlock(txs: ProcessedTx[], newL1ToL2Messages: Fr[]) {
     // Pad the txs array with empty txs to be a power of two, at least 4
     const txsTargetSize = Math.max(ceilPowerOfTwo(txs.length), 4);
     const emptyTxCount = txsTargetSize - txs.length;
@@ -218,8 +245,17 @@ export class Sequencer {
       ...txs,
       ...(await Promise.all(times(emptyTxCount, () => this.publicProcessor.makeEmptyProcessedTx()))),
     ];
-    const [block] = await this.blockBuilder.buildL2Block(this.lastBlockNumber + 1, allTxs);
+    const [block] = await this.blockBuilder.buildL2Block(this.lastBlockNumber + 1, allTxs, newL1ToL2Messages);
     return block;
+  }
+
+  /**
+   * Checks on chain messages inbox and selects messages to inlcude within the next rollup block.
+   * TODO: This is a stubbed method.
+   * @returns An array of L1 to L2 messages.
+   */
+  protected takeL1ToL2MessagesFromContract(): Fr[] {
+    return new Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n));
   }
 
   /**
@@ -251,11 +287,32 @@ export class Sequencer {
   }
 }
 
+/**
+ * State of the sequencer.
+ */
 export enum SequencerState {
+  /**
+   * Will move to WAITING_FOR_TXS after a configured amount of time.
+   */
   IDLE,
+  /**
+   * Polling the P2P module for txs to include in a block. Will move to CREATING_BLOCK if there are valid txs to include, or back to IDLE otherwise.
+   */
   WAITING_FOR_TXS,
+  /**
+   * Creating a new L2 block. Includes processing public function calls and running rollup circuits. Will move to PUBLISHING_BLOCK.
+   */
   CREATING_BLOCK,
+  /**
+   * Sending the tx to L1 with the L2 block data and awaiting it to be mined. Will move to PUBLISHING_UNVERIFIED_DATA.
+   */
   PUBLISHING_BLOCK,
+  /**
+   * Sending the tx to L1 with unverified data and awaiting it to be mined. Will move back to IDLE once finished.
+   */
   PUBLISHING_UNVERIFIED_DATA,
+  /**
+   * Sequencer is stopped and not processing any txs from the pool.
+   */
   STOPPED,
 }
