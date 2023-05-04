@@ -58,6 +58,10 @@ void common_validate_call_stack(DummyComposer& composer, KernelInput const& publ
         const auto& hash = stack[i];
         const auto& preimage = preimages[i];
 
+        if (preimage.is_empty()) {
+            continue;
+        }
+
         const auto is_delegate_call = preimage.public_inputs.call_context.is_delegate_call;
         const auto is_static_call = preimage.public_inputs.call_context.is_static_call;
         const auto contract_being_called = preimage.contract_address;

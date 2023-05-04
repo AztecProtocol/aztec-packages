@@ -822,6 +822,33 @@ TEST(public_kernel_tests, public_kernel_circuit_fails_on_incorrect_portal_contra
     ASSERT_EQ(dc.get_first_failure().code, CircuitErrorCode::PUBLIC_KERNEL__PUBLIC_CALL_STACK_INVALID_PORTAL_ADDRESS);
 }
 
+TEST(public_kernel_tests, public_kernel_circuit_only_checks_non_empty_call_stacks)
+{
+    DummyComposer dc;
+    PublicKernelInputsNoPreviousKernel<NT> inputs = get_kernel_inputs_no_previous_kernel();
+
+    const auto contract_address = NT::fr(inputs.signed_tx_request.tx_request.to);
+
+    // set all but the first call stack item to have a zero contract address denoting the call stack item being 'empty'
+    std::array<PublicCallStackItem, PUBLIC_CALL_STACK_LENGTH> child_call_stacks;
+    std::array<NT::fr, PUBLIC_CALL_STACK_LENGTH> call_stack_hashes;
+    NT::fr const child_contract_address = 0;  // contract address of 0 denoting an 'empty' contract
+    // set the call stack pre-images to values that would otherwise fail and set the hash to zero
+    const auto origin_msg_sender = 333333333;
+    NT::fr const child_portal_contract = 666666666;
+    for (size_t i = 1; i < PUBLIC_CALL_STACK_LENGTH; i++) {
+        // NOLINTNEXTLINE(readability-suspicious-call-argument)
+        child_call_stacks[i] = generate_call_stack_item(
+            child_contract_address, origin_msg_sender, contract_address, child_portal_contract, false, 0);
+        call_stack_hashes[i] = 0;
+    }
+
+    inputs.public_call.call_stack_item.public_inputs.public_call_stack = call_stack_hashes;
+    inputs.public_call.public_call_stack_preimages = child_call_stacks;
+    auto public_inputs = native_public_kernel_circuit_no_previous_kernel(dc, inputs);
+    ASSERT_FALSE(dc.failed());
+}
+
 TEST(public_kernel_tests, public_kernel_circuit_with_private_previous_kernel_should_succeed)
 {
     DummyComposer dc;
