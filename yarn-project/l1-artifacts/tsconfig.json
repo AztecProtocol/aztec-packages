@@ -6,9 +6,5 @@
     "tsBuildInfoFile": ".tsbuildinfo"
   },
   "include": ["generated"],
-  "references": [
-    {
-      "path": "../foundation"
-    }
-  ]
+  "references": []
 }
