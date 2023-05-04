@@ -5,7 +5,7 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { FunctionAbi } from '@aztec/noir-contracts';
-import { PublicTokenContractAbi } from '@aztec/noir-contracts/examples';
+import { ChildAbi, ParentAbi, PublicTokenContractAbi } from '@aztec/noir-contracts/examples';
 import { MockProxy, mock } from 'jest-mock-extended';
 import { default as memdown, type MemDown } from 'memdown';
 import { encodeArguments } from '../abi_coder/encoder.js';
@@ -13,6 +13,8 @@ import { NoirPoint, computeSlotForMapping, toPublicKey } from '../utils.js';
 import { PublicContractsDB, PublicStateDB } from './db.js';
 import { PublicExecution } from './execution.js';
 import { PublicExecutor } from './executor.js';
+import { toBigInt } from '@aztec/foundation/serialize';
+import { keccak } from '@aztec/foundation/crypto';
 
 export const createMemDown = () => (memdown as any)() as MemDown<any, any>;
 
@@ -168,6 +170,52 @@ describe('ACIR public execution simulator', () => {
 
         expect(result.stateTransitions).toEqual([]);
       });
+    });
+  });
+
+  describe('Parent/Child contracts', () => {
+    it('calls the public entry point in the parent', async () => {
+      const parentContractAddress = AztecAddress.random();
+      const parentEntryPointFn = ParentAbi.functions.find(f => f.name === 'pubEntryPoint')!;
+      const parentEntryPointFnSelector = keccak(Buffer.from(parentEntryPointFn.name)).subarray(0, 4);
+
+      const childContractAddress = AztecAddress.random();
+      const childValueFn = ChildAbi.functions.find(f => f.name === 'pubValue')!;
+      const childValueFnSelector = keccak(Buffer.from(childValueFn.name)).subarray(0, 4);
+
+      const initialValue = 3n;
+
+      const functionData = new FunctionData(parentEntryPointFnSelector, false, false);
+      const args = encodeArguments(
+        parentEntryPointFn,
+        [childContractAddress.toField().value, toBigInt(childValueFnSelector), initialValue],
+        false,
+      );
+
+      const callContext = CallContext.from({
+        msgSender: AztecAddress.random(),
+        storageContractAddress: parentContractAddress,
+        portalContractAddress: EthAddress.random(),
+        isContractDeployment: false,
+        isDelegateCall: false,
+        isStaticCall: false,
+      });
+
+      // eslint-disable-next-line require-await
+      publicContracts.getBytecode.mockImplementation(async (addr: AztecAddress, selector: Buffer) => {
+        if (addr.equals(parentContractAddress) && selector.equals(parentEntryPointFnSelector)) {
+          return Buffer.from(parentEntryPointFn.bytecode, 'hex');
+        } else if (addr.equals(childContractAddress) && selector.equals(childValueFnSelector)) {
+          return Buffer.from(childValueFn.bytecode, 'hex');
+        } else {
+          return undefined;
+        }
+      });
+
+      const execution: PublicExecution = { contractAddress: parentContractAddress, functionData, args, callContext };
+      const result = await executor.execute(execution);
+
+      expect(result.returnValues).toEqual([new Fr(42n + initialValue)]);
     });
   });
 });

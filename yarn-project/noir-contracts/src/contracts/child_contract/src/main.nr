@@ -1,8 +1,9 @@
 contract Child {
     use dep::aztec3::abi;
     use dep::aztec3::abi::Inputs;
+    use dep::aztec3::abi::CallContext;
     use dep::aztec3::context::PrivateFunctionContext;
-
+    
     fn constructor(
         inputs: pub Inputs,
     ) -> pub [Field; dep::aztec3::abi::PUBLIC_INPUTS_LENGTH] {
@@ -19,5 +20,9 @@ contract Child {
         context.return_values = context.return_values.push(input + 42);
 
         context.finish(inputs)
+    }
+
+    open fn pubValue(_call_context: CallContext, args: [Field; dep::aztec3::abi::MAX_ARGS]) -> pub Field {
+        args[0] + 42
     }
 }
