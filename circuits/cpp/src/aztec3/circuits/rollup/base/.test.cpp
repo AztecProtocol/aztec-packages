@@ -595,7 +595,7 @@ TEST_F(base_rollup_tests, native_calldata_hash)
             auto const offset = static_cast<size_t>(kernel_offset + j * 32 + 31);
             input_data[offset] = static_cast<uint8_t>(i * 4 + j + 1);
             kernel_data[i].public_inputs.end.new_commitments[j] = fr(i * 4 + j + 1);
-            input_data[static_cast<unsigned long>(8 *) 32 + offset] = static_cast<uint8_t>(i * 4 + j + 8);
+            input_data[static_cast<unsigned long>(8 * 32 + offset)] = static_cast<uint8_t>(i * 4 + j + 8);
             kernel_data[i].public_inputs.end.new_nullifiers[j] = fr(i * 4 + j + 8);
         }
     }
