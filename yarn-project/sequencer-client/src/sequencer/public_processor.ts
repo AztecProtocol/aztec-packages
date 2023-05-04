@@ -79,9 +79,9 @@ export class PublicProcessor {
   protected async processPublicTx(tx: PublicTx): Promise<[PublicKernelPublicInputs, Proof]> {
     const { txRequest } = tx.txRequest;
 
-    // TODO: Determine how to calculate bytecode hash
+    // TODO: Determine how to calculate bytecode hash. Circuits just check it isn't zero for now.
     // See https://github.com/AztecProtocol/aztec3-packages/issues/378
-    const bytecodeHash = Fr.ZERO;
+    const bytecodeHash = new Fr(1n);
 
     const circuitOutput = await this.publicCircuit.publicCircuit(txRequest);
     const circuitProof = await this.publicProver.getPublicCircuitProof(circuitOutput);
