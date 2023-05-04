@@ -1,8 +1,6 @@
 import { Grumpkin } from '@aztec/barretenberg.js/crypto';
 import { BarretenbergWasm } from '@aztec/barretenberg.js/wasm';
 import { CallContext, FunctionData } from '@aztec/circuits.js';
-import { AztecAddress, EthAddress, Fr } from '@aztec/foundation';
-import { FunctionAbi } from '@aztec/foundation';
 import { PublicTokenContractAbi } from '@aztec/noir-contracts/examples';
 import { MockProxy, mock } from 'jest-mock-extended';
 import { default as memdown, type MemDown } from 'memdown';
@@ -10,6 +8,10 @@ import { encodeArguments } from '../abi_coder/encoder.js';
 import { NoirPoint, computeSlotForMapping, toPublicKey } from '../utils.js';
 import { PublicDB } from './db.js';
 import { PublicExecution } from './execution.js';
+import { FunctionAbi } from '@aztec/foundation/abi';
+import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { EthAddress } from '@aztec/foundation/eth-address';
+import { Fr } from '@aztec/foundation/fields';
 
 export const createMemDown = () => (memdown as any)() as MemDown<any, any>;
 

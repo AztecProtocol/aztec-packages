@@ -1,11 +1,12 @@
 import { AztecNode, getConfigEnvVars } from '@aztec/aztec-node';
 import { AztecRPCServer, ContractDeployer, Fr, TxStatus } from '@aztec/aztec.js';
-import { createDebugLogger } from '@aztec/foundation';
+
 import { mnemonicToAccount } from 'viem/accounts';
 import { createAztecRpcServer } from './create_aztec_rpc_client.js';
 import { deployL1Contracts } from './deploy_l1_contracts.js';
 import { TestContractAbi } from '@aztec/noir-contracts/examples';
 import times from 'lodash.times';
+import { createDebugLogger } from '@aztec/foundation/log';
 
 const MNEMONIC = 'test test test test test test test test test test test junk';
 

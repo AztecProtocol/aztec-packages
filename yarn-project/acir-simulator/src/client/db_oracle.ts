@@ -1,5 +1,7 @@
-import { AztecAddress, EthAddress, Fr } from '@aztec/foundation';
-import { FunctionAbi } from '@aztec/foundation';
+import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { EthAddress } from '@aztec/foundation/eth-address';
+import { Fr } from '@aztec/foundation/fields';
+import { FunctionAbi } from '@aztec/foundation/abi';
 
 export interface NoteLoadOracleInputs {
   preimage: Fr[];

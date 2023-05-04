@@ -1,5 +1,5 @@
-import { Fr } from '@aztec/foundation';
-import { ABIType, FunctionAbi } from '@aztec/foundation';
+import { Fr } from '@aztec/foundation/fields';
+import { ABIType, FunctionAbi } from '@aztec/foundation/abi';
 
 // Simple decoder. It's missing support for integer and string
 class ReturnValuesDecoder {
