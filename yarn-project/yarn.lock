@@ -356,7 +356,6 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/l1-artifacts@workspace:l1-artifacts"
   dependencies:
-    "@aztec/foundation": "workspace:^"
     "@types/node": ^18.7.23
     ts-node: ^10.9.1
     tslib: ^2.4.0
