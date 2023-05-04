@@ -68,7 +68,7 @@ void common_validate_call_stack(DummyComposer& composer, KernelInput const& publ
         const auto is_static_call = preimage.public_inputs.call_context.is_static_call;
         const auto contract_being_called = preimage.contract_address;
 
-        const auto calculated_hash = hash == 0 ? 0 : preimage.hash();
+        const auto calculated_hash = preimage.hash();
         composer.do_assert(hash == calculated_hash,
                            format("public_call_stack[", i, "] = ", hash, "; does not reconcile"),
                            CircuitErrorCode::PUBLIC_KERNEL__PUBLIC_CALL_STACK_MISMATCH);
