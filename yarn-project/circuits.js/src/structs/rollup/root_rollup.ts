@@ -121,30 +121,6 @@ export class RootRollupPublicInputs {
     return new RootRollupPublicInputs(...RootRollupPublicInputs.getFields(fields));
   }
 
-  static makeFake() {
-    return new RootRollupPublicInputs(
-      AggregationObject.makeFake(),
-      AppendOnlyTreeSnapshot.empty(),
-      AppendOnlyTreeSnapshot.empty(),
-      AppendOnlyTreeSnapshot.empty(),
-      AppendOnlyTreeSnapshot.empty(),
-      AppendOnlyTreeSnapshot.empty(),
-      AppendOnlyTreeSnapshot.empty(),
-      Fr.zero(),
-      Fr.zero(),
-      AppendOnlyTreeSnapshot.empty(),
-      AppendOnlyTreeSnapshot.empty(),
-      AppendOnlyTreeSnapshot.empty(),
-      AppendOnlyTreeSnapshot.empty(),
-      AppendOnlyTreeSnapshot.empty(),
-      AppendOnlyTreeSnapshot.empty(),
-      AppendOnlyTreeSnapshot.empty(),
-      AppendOnlyTreeSnapshot.empty(),
-      [Fr.zero(), Fr.zero()],
-      [Fr.zero(), Fr.zero()],
-    );
-  }
-
   public sha256CalldataHash() {
     const high = this.calldataHash[0].toBuffer();
     const low = this.calldataHash[1].toBuffer();

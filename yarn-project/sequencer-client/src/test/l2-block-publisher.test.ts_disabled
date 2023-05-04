@@ -1,7 +1,4 @@
 import {
-  AppendOnlyTreeSnapshot,
-  BaseOrMergeRollupPublicInputs,
-  CircuitsWasm,
   Fr,
   KERNEL_NEW_COMMITMENTS_LENGTH,
   KERNEL_NEW_NULLIFIERS_LENGTH,
@@ -9,34 +6,22 @@ import {
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   PublicDataRead,
   PublicDataTransition,
-  RootRollupPublicInputs,
-  UInt8Vector,
   range,
 } from '@aztec/circuits.js';
-import { computeContractLeaf } from '@aztec/circuits.js/abis';
-import {
-  fr,
-  makeBaseRollupPublicInputs,
-  makeNewContractData,
-  makeProof,
-  makeRootRollupPublicInputs,
-} from '@aztec/circuits.js/factories';
+import { fr, makeNewContractData, makeProof } from '@aztec/circuits.js/factories';
 import { EthereumRpc } from '@aztec/ethereum.js/eth_rpc';
 import { WalletProvider } from '@aztec/ethereum.js/provider';
-import { DecoderHelper, Rollup, UnverifiedDataEmitter } from '@aztec/l1-artifacts';
-import { Tx } from '@aztec/types';
-import { MerkleTreeId, MerkleTreeOperations, MerkleTrees } from '@aztec/world-state';
+import { DecoderHelper, Rollup, UnverifiedDataEmitter } from '@aztec/l1-contracts';
+import { MerkleTreeOperations, MerkleTrees } from '@aztec/world-state';
 import { beforeAll, describe, expect, it } from '@jest/globals';
 import { default as levelup } from 'levelup';
-import flatMap from 'lodash.flatmap';
-import { CircuitBlockBuilder } from '../block_builder/circuit_block_builder.js';
-import { createMemDown } from '../block_builder/circuit_block_builder.test.js';
+import { SoloBlockBuilder } from '../block_builder/solo_block_builder.js';
+import { createMemDown } from '../block_builder/solo_block_builder.test.js';
 import { getVerificationKeys, makePublicTx } from '../index.js';
 import { EmptyRollupProver } from '../prover/empty.js';
 import { EthereumjsTxSender } from '../publisher/ethereumjs-tx-sender.js';
 import { L1Publisher } from '../publisher/l1-publisher.js';
 import {
-  ProcessedTx,
   makeEmptyProcessedTx as makeEmptyProcessedTxFromHistoricTreeRoots,
   makeProcessedTx,
 } from '../sequencer/processed_tx.js';
@@ -58,28 +43,18 @@ describe.skip('L1Publisher integration', () => {
   let publisher: L1Publisher;
   let l2Proof: Buffer;
 
-  let baseRollupOutputLeft: BaseOrMergeRollupPublicInputs;
-  let baseRollupOutputRight: BaseOrMergeRollupPublicInputs;
-  let rootRollupOutput: RootRollupPublicInputs;
-  let builder: CircuitBlockBuilder;
+  let builder: SoloBlockBuilder;
   let builderDb: MerkleTreeOperations;
-  let expectsDb: MerkleTreeOperations;
-  let wasm: CircuitsWasm;
 
   beforeAll(async () => {
     ({ ethRpc, decoderHelper, rollup, unverifiedDataEmitter } = await deployRollup());
 
     builderDb = await MerkleTrees.new(levelup(createMemDown())).then(t => t.asLatest());
-    expectsDb = await MerkleTrees.new(levelup(createMemDown())).then(t => t.asLatest());
-    wasm = await CircuitsWasm.get();
     const vks = getVerificationKeys();
     const simulator = await WasmRollupCircuitSimulator.new();
     const prover = new EmptyRollupProver();
-    builder = new CircuitBlockBuilder(builderDb, vks, simulator, prover);
+    builder = new SoloBlockBuilder(builderDb, vks, simulator, prover);
 
-    baseRollupOutputLeft = makeBaseRollupPublicInputs();
-    baseRollupOutputRight = makeBaseRollupPublicInputs();
-    rootRollupOutput = makeRootRollupPublicInputs();
     l2Proof = Buffer.alloc(0);
 
     publisher = new L1Publisher(
@@ -136,42 +111,9 @@ describe.skip('L1Publisher integration', () => {
       const txsRight = [await makeContractDeployProcessedTx(i + 1), await makeEmptyProcessedTx()];
       const l1ToL2Messages = new Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n));
 
-      // Calculate what would be the tree roots after the txs from the first base rollup land and update mock circuit output
-      await updateExpectedTreesFromTxs(txsLeft);
-      baseRollupOutputLeft.endContractTreeSnapshot = await getTreeSnapshot(MerkleTreeId.CONTRACT_TREE);
-      baseRollupOutputLeft.endNullifierTreeSnapshot = await getTreeSnapshot(MerkleTreeId.NULLIFIER_TREE);
-      baseRollupOutputLeft.endPrivateDataTreeSnapshot = await getTreeSnapshot(MerkleTreeId.PRIVATE_DATA_TREE);
-      baseRollupOutputLeft.endPublicDataTreeRoot = (await getTreeSnapshot(MerkleTreeId.PUBLIC_DATA_TREE)).root;
-
-      // Same for the two txs on the right
-      await updateExpectedTreesFromTxs(txsRight);
-      baseRollupOutputRight.endContractTreeSnapshot = await getTreeSnapshot(MerkleTreeId.CONTRACT_TREE);
-      baseRollupOutputRight.endNullifierTreeSnapshot = await getTreeSnapshot(MerkleTreeId.NULLIFIER_TREE);
-      baseRollupOutputRight.endPrivateDataTreeSnapshot = await getTreeSnapshot(MerkleTreeId.PRIVATE_DATA_TREE);
-      baseRollupOutputRight.endPublicDataTreeRoot = (await getTreeSnapshot(MerkleTreeId.PUBLIC_DATA_TREE)).root;
-
-      // Update l1 to l2 data tree
-      // And update the root trees now to create proper output to the root rollup circuit
-      await updateL1ToL2MessagesTree(l1ToL2Messages);
-      await expectsDb.updateHistoricRootsTrees();
-      rootRollupOutput.endContractTreeSnapshot = await getTreeSnapshot(MerkleTreeId.CONTRACT_TREE);
-      rootRollupOutput.endNullifierTreeSnapshot = await getTreeSnapshot(MerkleTreeId.NULLIFIER_TREE);
-      rootRollupOutput.endPrivateDataTreeSnapshot = await getTreeSnapshot(MerkleTreeId.PRIVATE_DATA_TREE);
-      rootRollupOutput.endPublicDataTreeRoot = (await getTreeSnapshot(MerkleTreeId.PUBLIC_DATA_TREE)).root;
-      rootRollupOutput.endTreeOfHistoricContractTreeRootsSnapshot = await getTreeSnapshot(
-        MerkleTreeId.CONTRACT_TREE_ROOTS_TREE,
-      );
-      rootRollupOutput.endTreeOfHistoricPrivateDataTreeRootsSnapshot = await getTreeSnapshot(
-        MerkleTreeId.PRIVATE_DATA_TREE_ROOTS_TREE,
-      );
-      rootRollupOutput.endL1ToL2MessageTreeSnapshot = await getTreeSnapshot(MerkleTreeId.L1_TO_L2_MESSAGES_TREE);
-      rootRollupOutput.endTreeOfHistoricL1ToL2MessageTreeRootsSnapshot = await getTreeSnapshot(
-        MerkleTreeId.L1_TO_L2_MESSAGES_ROOTS_TREE,
-      );
-
       // Actually build a block!
       const txs = [...txsLeft, ...txsRight];
-      const [block, , publicInputs] = await builder.buildL2Block(1 + i, txs, l1ToL2Messages);
+      const [block] = await builder.buildL2Block(1 + i, txs, l1ToL2Messages);
 
       // Now we can use the block we built!
       const blockNumber = await ethRpc.blockNumber();
@@ -196,39 +138,11 @@ describe.skip('L1Publisher integration', () => {
       expect(block.getPublicInputsHash().toBuffer()).toEqual(hexStringToBuffer(decodedRes[3].toString()));
       expect(block.getCalldataHash()).toEqual(hexStringToBuffer(decodedHashes[0].toString()));
       expect(block.getL1ToL2MessagesHash()).toEqual(hexStringToBuffer(decodedHashes[1].toString()));
-      expect(block.getCalldataHash()).toEqual(publicInputs.sha256CalldataHash());
 
       // @todo Broken if making two blocks in a row...
       return;
     }
   }, 60_000);
-
-  // BELOW IS FUNCTIONS STOLEN FROM `circuit_block_builder.test.ts`.
-
-  // Updates the expectedDb trees based on the new commitments, contracts, and nullifiers from these txs
-  const updateExpectedTreesFromTxs = async (txs: ProcessedTx[]) => {
-    const newContracts = flatMap(txs, tx => tx.data.end.newContracts.map(n => computeContractLeaf(wasm, n)));
-    for (const [tree, leaves] of [
-      [MerkleTreeId.PRIVATE_DATA_TREE, flatMap(txs, tx => tx.data.end.newCommitments.map(l => l.toBuffer()))],
-      [MerkleTreeId.CONTRACT_TREE, newContracts.map(x => x.toBuffer())],
-      [MerkleTreeId.NULLIFIER_TREE, flatMap(txs, tx => tx.data.end.newNullifiers.map(l => l.toBuffer()))],
-    ] as const) {
-      await expectsDb.appendLeaves(tree, leaves);
-    }
-    for (const write of txs.flatMap(tx => tx.data.end.stateTransitions)) {
-      await expectsDb.updateLeaf(MerkleTreeId.PUBLIC_DATA_TREE, write.newValue.toBuffer(), write.leafIndex.value);
-    }
-  };
-
-  const updateL1ToL2MessagesTree = async (l1ToL2Messages: Fr[]) => {
-    const asBuffer = l1ToL2Messages.map(m => m.toBuffer());
-    await expectsDb.appendLeaves(MerkleTreeId.L1_TO_L2_MESSAGES_TREE, asBuffer);
-  };
-
-  const getTreeSnapshot = async (tree: MerkleTreeId) => {
-    const treeInfo = await expectsDb.getTreeInfo(tree);
-    return new AppendOnlyTreeSnapshot(Fr.fromBuffer(treeInfo.root), Number(treeInfo.size));
-  };
 });
 
 async function deployRollup() {

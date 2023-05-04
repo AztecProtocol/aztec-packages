@@ -1,4 +1,4 @@
-import { CombinedHistoricTreeRoots, Fr, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, RootRollupPublicInputs, makeEmptyProof } from '@aztec/circuits.js';
+import { CombinedHistoricTreeRoots, Fr, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, makeEmptyProof } from '@aztec/circuits.js';
 import { P2P, P2PClientState } from '@aztec/p2p';
 import { L2Block, PrivateTx, Tx, UnverifiedData } from '@aztec/types';
 import { MerkleTreeId, MerkleTreeOperations, WorldStateRunningState, WorldStateSynchroniser } from '@aztec/world-state';
@@ -52,7 +52,7 @@ describe('sequencer', () => {
     const proof = makeEmptyProof();
 
     p2p.getTxs.mockResolvedValueOnce([tx]);
-    blockBuilder.buildL2Block.mockResolvedValueOnce([block, proof, RootRollupPublicInputs.makeFake()]);
+    blockBuilder.buildL2Block.mockResolvedValueOnce([block, proof]);
     publisher.processL2Block.mockResolvedValueOnce(true);
     publisher.processUnverifiedData.mockResolvedValueOnce(true);
 
@@ -78,7 +78,7 @@ describe('sequencer', () => {
     const proof = makeEmptyProof();
 
     p2p.getTxs.mockResolvedValueOnce(txs);
-    blockBuilder.buildL2Block.mockResolvedValueOnce([block, proof, RootRollupPublicInputs.makeFake()]);
+    blockBuilder.buildL2Block.mockResolvedValueOnce([block, proof]);
     publisher.processL2Block.mockResolvedValueOnce(true);
     publisher.processUnverifiedData.mockResolvedValueOnce(true);
 
