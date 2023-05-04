@@ -1,5 +1,5 @@
 import { ACVMField, toACVMField } from './acvm.js';
-import { Fr } from '@aztec/foundation';
+
 import {
   CallContext,
   ContractDeploymentData,
@@ -8,6 +8,7 @@ import {
   PrivateCircuitPublicInputs,
 } from '@aztec/circuits.js';
 import { NoteLoadOracleInputs } from '../client/db_oracle.js';
+import { Fr } from '@aztec/foundation/fields';
 
 // Utilities to write TS classes to ACVM Field arrays
 // In the order that the ACVM expects them
@@ -51,7 +52,7 @@ export function toACVMPublicInputs(publicInputs: PrivateCircuitPublicInputs): AC
     ...publicInputs.newNullifiers.map(toACVMField),
     ...publicInputs.privateCallStack.map(toACVMField),
     ...publicInputs.publicCallStack.map(toACVMField),
-    ...publicInputs.l1MsgStack.map(toACVMField),
+    ...publicInputs.newL2ToL1Msgs.map(toACVMField),
 
     toACVMField(publicInputs.historicPrivateDataTreeRoot),
     toACVMField(publicInputs.historicPrivateNullifierTreeRoot),

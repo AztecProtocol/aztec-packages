@@ -92,6 +92,17 @@ jobs:
           name: "Build"
           command: cond_spot_run_build circuits-wasm-linux-clang-assert 64
 
+  circuits-x86_64-linux-clang-tidy:
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Build"
+          command: cond_spot_run_build circuits-x86_64-linux-clang-tidy 64
+
   circuits-x86_64-linux-clang:
     docker:
       - image: aztecprotocol/alpine-build-image
@@ -146,7 +157,7 @@ jobs:
       - *checkout
       - *setup_env
       - run:
-          name: "Build"
+          name: "Build and test"
           command: build l1-contracts
 
   yarn-project-base:
@@ -165,17 +176,6 @@ jobs:
       - run:
           name: "Build"
           command: build yarn-project-base
-
-  ethereum-js:
-    machine:
-      image: ubuntu-2004:202010-01
-    resource_class: large
-    steps:
-      - *checkout
-      - *setup_env
-      - run:
-          name: "Build and test"
-          command: build ethereum.js
 
   foundation:
     machine:
@@ -420,6 +420,7 @@ workflows:
     jobs:
       - circuits-wasm-linux-clang: *defaults
       - circuits-wasm-linux-clang-assert: *defaults
+      - circuits-x86_64-linux-clang-tidy: *defaults
       - circuits-x86_64-linux-clang: *defaults
       - circuits-x86_64-linux-clang-assert: *defaults
       - circuits-wasm-tests:
@@ -429,9 +430,10 @@ workflows:
       - yarn-project-base:
           requires:
             - circuits-wasm-linux-clang
+            - l1-contracts
           <<: *defaults
+      - l1-contracts: *defaults
 
-      - ethereum-js: *yarn_project
       - aztec-js: *yarn_project
       - end-to-end: *yarn_project
       - foundation: *yarn_project
@@ -449,7 +451,6 @@ workflows:
 
       - e2e-join:
           requires:
-            - ethereum-js
             - aztec-js
             - end-to-end
             - noir-contracts

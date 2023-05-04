@@ -1,6 +1,5 @@
-import { KernelCircuitPublicInputs } from '@aztec/circuits.js';
+import { CombinedHistoricTreeRoots, KernelCircuitPublicInputs, makeEmptyProof } from '@aztec/circuits.js';
 import { PrivateTx, PublicTx, Tx, TxHash } from '@aztec/types';
-import { makeEmptyPrivateTx } from '../index.js';
 import { Proof } from '../prover/index.js';
 
 /**
@@ -17,15 +16,15 @@ export type ProcessedTx = Pick<Tx, 'txRequest' | 'unverifiedData'> &
 
 /**
  * Makes a processed tx out of a private only tx that has its proof already set.
- * @param tx - source tx that doesn't need further processing
+ * @param tx - Source tx that doesn't need further processing.
  */
 export async function makeProcessedTx(tx: PrivateTx): Promise<ProcessedTx>;
 
 /**
  * Makes a processed tx out of a tx with a public component that needs processing.
- * @param tx - source tx
- * @param kernelOutput - output of the public kernel circuit simulation for this tx
- * @param proof - proof of the public kernel circuit for this tx
+ * @param tx - Source tx.
+ * @param kernelOutput - Output of the public kernel circuit simulation for this tx.
+ * @param proof - Proof of the public kernel circuit for this tx.
  */
 export async function makeProcessedTx(
   tx: PublicTx,
@@ -33,6 +32,12 @@ export async function makeProcessedTx(
   proof: Proof,
 ): Promise<ProcessedTx>;
 
+/**
+ * Makes a processed tx out of a private or public tx.
+ * @param tx - Source tx.
+ * @param kernelOutput - Output of the public kernel circuit simulation for this tx if private.
+ * @param proof - Proof of the public kernel circuit for this tx if private.
+ */
 export async function makeProcessedTx(
   tx: Tx,
   kernelOutput?: KernelCircuitPublicInputs,
@@ -51,9 +56,14 @@ export async function makeProcessedTx(
  * Makes an empty tx from an empty kernel circuit public inputs.
  * @returns A processed empty tx.
  */
-export async function makeEmptyProcessedTx(): Promise<ProcessedTx> {
-  const emptyTx = makeEmptyPrivateTx();
+export async function makeEmptyProcessedTx(historicTreeRoots: CombinedHistoricTreeRoots): Promise<ProcessedTx> {
+  const emptyKernelOutput = KernelCircuitPublicInputs.empty();
+  emptyKernelOutput.constants.historicTreeRoots = historicTreeRoots;
+  const emptyProof = makeEmptyProof();
+
+  // TODO: What should be the hash of an empty tx?
+  const emptyTx = Tx.create(emptyKernelOutput, undefined, undefined, undefined);
   const hash = await emptyTx.getTxHash();
 
-  return { hash, data: emptyTx.data, proof: emptyTx.proof };
+  return { hash, data: emptyKernelOutput, proof: emptyProof };
 }

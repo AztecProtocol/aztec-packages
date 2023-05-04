@@ -1,5 +1,4 @@
 import { Buffer } from 'buffer';
-import { AztecAddress, Fr } from '@aztec/foundation';
 import { CircuitsWasm } from '../wasm/index.js';
 import {
   FunctionData,
@@ -8,9 +7,12 @@ import {
   TxRequest,
   NewContractData,
   FunctionLeafPreimage,
+  PublicCallStackItem,
 } from '../index.js';
 import { serializeToBuffer, serializeBufferArrayToVector } from '../utils/serialize.js';
 import { AsyncWasmWrapper, WasmWrapper } from '@aztec/foundation/wasm';
+import { Fr } from '@aztec/foundation/fields';
+import { AztecAddress } from '@aztec/foundation/aztec-address';
 
 export function wasmSyncCall(
   wasm: WasmWrapper,
@@ -144,5 +146,11 @@ export async function computeContractAddress(
 export function computeContractLeaf(wasm: WasmWrapper, cd: NewContractData) {
   wasm.call('pedersen__init');
   const value = wasmSyncCall(wasm, 'abis__compute_contract_leaf', cd, 32);
+  return Fr.fromBuffer(value);
+}
+
+export function computeCallStackItemHash(wasm: WasmWrapper, callStackItem: PublicCallStackItem) {
+  wasm.call('pedersen__init');
+  const value = wasmSyncCall(wasm, 'abis__compute_call_stack_item_hash', callStackItem, 32);
   return Fr.fromBuffer(value);
 }

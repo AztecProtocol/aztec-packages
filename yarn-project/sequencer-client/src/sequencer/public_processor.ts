@@ -1,3 +1,4 @@
+import { pedersenGetHash } from '@aztec/barretenberg.js/crypto';
 import {
   CircuitsWasm,
   Fr,
@@ -11,13 +12,18 @@ import {
 } from '@aztec/circuits.js';
 import { ContractDataSource, PublicTx, Tx } from '@aztec/types';
 import { MerkleTreeOperations } from '@aztec/world-state';
-import { pedersenGetHash } from '@aztec/barretenberg.js/crypto';
-import { createDebugLogger } from '@aztec/foundation';
+
 import times from 'lodash.times';
 import { Proof, PublicProver } from '../prover/index.js';
 import { PublicCircuitSimulator, PublicKernelCircuitSimulator } from '../simulator/index.js';
 import { ProcessedTx, makeEmptyProcessedTx, makeProcessedTx } from './processed_tx.js';
+import { createDebugLogger } from '@aztec/foundation/log';
+import { getCombinedHistoricTreeRoots } from './utils.js';
 
+/**
+ * Converts Txs lifted from the P2P module into ProcessedTx objects by executing
+ * any public function calls in them. Txs with private calls only are unaffected.
+ */
 export class PublicProcessor {
   constructor(
     protected db: MerkleTreeOperations,
@@ -31,8 +37,8 @@ export class PublicProcessor {
 
   /**
    * Run each tx through the public circuit and the public kernel circuit if needed.
-   * @param txs - txs to process
-   * @returns the list of processed txs with their circuit simulation outputs.
+   * @param txs - Txs to process.
+   * @returns The list of processed txs with their circuit simulation outputs.
    */
   public async process(txs: Tx[]): Promise<[ProcessedTx[], Tx[]]> {
     const result: ProcessedTx[] = [];
@@ -50,6 +56,15 @@ export class PublicProcessor {
     return [result, failed];
   }
 
+  /**
+   * Makes an empty processed tx. Useful for padding a block to a power of two number of txs.
+   * @returns A processed tx with empty data.
+   */
+  public async makeEmptyProcessedTx() {
+    const historicTreeRoots = await getCombinedHistoricTreeRoots(this.db);
+    return makeEmptyProcessedTx(historicTreeRoots);
+  }
+
   protected async processTx(tx: Tx): Promise<ProcessedTx> {
     if (tx.isPublic()) {
       const [publicKernelOutput, publicKernelProof] = await this.processPublicTx(tx);
@@ -57,7 +72,7 @@ export class PublicProcessor {
     } else if (tx.isPrivate()) {
       return makeProcessedTx(tx);
     } else {
-      return makeEmptyProcessedTx();
+      return this.makeEmptyProcessedTx();
     }
   }
 
@@ -99,6 +114,13 @@ export class PublicProcessor {
     const callStackItem = new PublicCallStackItem(contractAddress, txRequest.functionData, publicCircuitOutput);
     const publicCallStackPreimages: PublicCallStackItem[] = times(PUBLIC_CALL_STACK_LENGTH, PublicCallStackItem.empty);
 
+    // set the msgSender for each call in the call stack
+    for (let i = 0; i < publicCallStackPreimages.length; i++) {
+      const isDelegateCall = publicCallStackPreimages[i].publicInputs.callContext.isDelegateCall;
+      publicCallStackPreimages[i].publicInputs.callContext.msgSender = isDelegateCall
+        ? callStackItem.publicInputs.callContext.msgSender
+        : callStackItem.contractAddress;
+    }
     // TODO: Determine how to calculate bytecode hash
     // See https://github.com/AztecProtocol/aztec3-packages/issues/378
     const bytecodeHash = Fr.fromBuffer(pedersenGetHash(await CircuitsWasm.get(), functionBytecode));
@@ -111,11 +133,5 @@ export class PublicProcessor {
       portalContractAddress,
       bytecodeHash,
     );
-  }
-}
-
-export class MockPublicProcessor extends PublicProcessor {
-  protected processPublicTx(_tx: PublicTx): Promise<[PublicKernelPublicInputs, Proof]> {
-    throw new Error('Public tx not supported by mock public processor');
   }
 }

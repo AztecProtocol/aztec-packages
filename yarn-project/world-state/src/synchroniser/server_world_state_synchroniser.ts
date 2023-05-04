@@ -1,9 +1,10 @@
-import { Fr, createDebugLogger } from '@aztec/foundation';
-import { L2Block, L2BlockDownloader, L2BlockSource } from '@aztec/types';
-import { MerkleTreeDb, MerkleTreeId, MerkleTreeOperations } from '../index.js';
+import { L2Block, L2BlockDownloader, L2BlockSource, MerkleTreeId } from '@aztec/types';
+import { MerkleTreeDb, MerkleTreeOperations } from '../index.js';
 import { MerkleTreeOperationsFacade } from '../merkle-tree/merkle_tree_operations_facade.js';
 import { WorldStateRunningState, WorldStateStatus, WorldStateSynchroniser } from './world_state_synchroniser.js';
 import { getConfigEnvVars } from './config.js';
+import { createDebugLogger } from '@aztec/foundation/log';
+import { Fr } from '@aztec/foundation/fields';
 
 /**
  * Synchronises the world state with the L2 blocks from a L2BlockSource.
@@ -167,14 +168,7 @@ export class ServerWorldStateSynchroniser implements WorldStateSynchroniser {
         await this.merkleTreeDb.updateLeaf(MerkleTreeId.PUBLIC_DATA_TREE, newValue.toBuffer(), leafIndex.value);
       }
 
-      for (const [newTree, rootTree] of [
-        [MerkleTreeId.PRIVATE_DATA_TREE, MerkleTreeId.PRIVATE_DATA_TREE_ROOTS_TREE],
-        [MerkleTreeId.CONTRACT_TREE, MerkleTreeId.CONTRACT_TREE_ROOTS_TREE],
-      ] as const) {
-        const newTreeInfo = await this.merkleTreeDb.getTreeInfo(newTree, true);
-        await this.merkleTreeDb.appendLeaves(rootTree, [newTreeInfo.root]);
-      }
-
+      await this.merkleTreeDb.updateHistoricRootsTrees(true);
       await this.merkleTreeDb.commit();
     }
     this.currentL2BlockNum = l2Block.number;

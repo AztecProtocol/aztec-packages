@@ -37,7 +37,6 @@ fi
 # END ARGS
 ###############################################################################
 
-# uppercase $ARCH and compare to WASM
 if [ "$ARCH" != "wasm" ]; then
   # x86_64 / anything other than wasm
   BUILD_DIR=build
@@ -59,6 +58,7 @@ echo "*** Running $ARCH tests${GTEST_FILTER:+ (with filter: $GTEST_FILTER)}: $TE
 
 cd $BUILD_DIR;
 for BIN in $TESTS; do
+  echo "Running tests from executable '$BIN'"
   if [ "$ARCH" != "wasm" ]; then
     # run test executables directly
     # if gtest filter is non-empty, use it

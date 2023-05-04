@@ -127,7 +127,8 @@
   // C++/Circuits settings
   ///////////////////////////////////////
   "[cpp]": {
-     "editor.defaultFormatter": "llvm-vs-code-extensions.vscode-clangd"
+     "editor.defaultFormatter": "llvm-vs-code-extensions.vscode-clangd",
+      "editor.formatOnSave": true,
   },
   //
   // Clangd. Note that this setting may be overridden by user settings

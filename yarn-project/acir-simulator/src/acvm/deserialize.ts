@@ -1,11 +1,11 @@
 import { ACVMField, ACVMWitness, fromACVMField } from './acvm.js';
-import { AztecAddress, Fr, EthAddress } from '@aztec/foundation';
+
 import {
   ARGS_LENGTH,
   CallContext,
   ContractDeploymentData,
   EMITTED_EVENTS_LENGTH,
-  L1_MSG_STACK_LENGTH,
+  NEW_L2_TO_L1_MSGS_LENGTH,
   NEW_COMMITMENTS_LENGTH,
   NEW_NULLIFIERS_LENGTH,
   PrivateCircuitPublicInputs,
@@ -13,6 +13,9 @@ import {
   PUBLIC_CALL_STACK_LENGTH,
   RETURN_VALUES_LENGTH,
 } from '@aztec/circuits.js';
+import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { EthAddress } from '@aztec/foundation/eth-address';
+import { Fr } from '@aztec/foundation/fields';
 import { select_return_flattened as selectPublicWitnessFlattened } from '@noir-lang/noir_util_wasm';
 
 // Utilities to read TS classes from ACVM Field arrays
@@ -80,7 +83,7 @@ export function extractPublicInputs(partialWitness: ACVMWitness, acir: Buffer): 
   const newNullifiers = witnessReader.readFieldArray(NEW_NULLIFIERS_LENGTH);
   const privateCallStack = witnessReader.readFieldArray(PRIVATE_CALL_STACK_LENGTH);
   const publicCallStack = witnessReader.readFieldArray(PUBLIC_CALL_STACK_LENGTH);
-  const l1MsgStack = witnessReader.readFieldArray(L1_MSG_STACK_LENGTH);
+  const newL2ToL1Msgs = witnessReader.readFieldArray(NEW_L2_TO_L1_MSGS_LENGTH);
 
   const privateDataTreeRoot = witnessReader.readField();
   const nullifierTreeRoot = witnessReader.readField();
@@ -102,7 +105,7 @@ export function extractPublicInputs(partialWitness: ACVMWitness, acir: Buffer): 
     newNullifiers,
     privateCallStack,
     publicCallStack,
-    l1MsgStack,
+    newL2ToL1Msgs,
     privateDataTreeRoot,
     nullifierTreeRoot,
     contractTreeRoot,

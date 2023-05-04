@@ -1,11 +1,10 @@
-import { AztecAddress, BufferReader, EthAddress, Fr } from '@aztec/foundation';
 import times from 'lodash.times';
 import { assertLength } from '../../utils/jsUtils.js';
 import { serializeToBuffer } from '../../utils/serialize.js';
 import { AggregationObject } from '../aggregation_object.js';
 import {
   EMITTED_EVENTS_LENGTH,
-  KERNEL_L1_MSG_STACK_LENGTH,
+  KERNEL_NEW_L2_TO_L1_MSGS_LENGTH,
   KERNEL_NEW_COMMITMENTS_LENGTH,
   KERNEL_NEW_CONTRACTS_LENGTH,
   KERNEL_NEW_NULLIFIERS_LENGTH,
@@ -16,6 +15,10 @@ import {
   STATE_TRANSITIONS_LENGTH,
 } from '../constants.js';
 import { FunctionData } from '../function_data.js';
+import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { EthAddress } from '@aztec/foundation/eth-address';
+import { Fr } from '@aztec/foundation/fields';
+import { BufferReader } from '@aztec/foundation/serialize';
 
 // Not to be confused with ContractDeploymentData (maybe think of better names)
 
@@ -167,7 +170,7 @@ export class CombinedAccumulatedData {
 
     public privateCallStack: Fr[],
     public publicCallStack: Fr[],
-    public l1MsgStack: Fr[],
+    public newL2ToL1Msgs: Fr[],
 
     public newContracts: NewContractData[],
 
@@ -180,7 +183,7 @@ export class CombinedAccumulatedData {
     assertLength(this, 'newNullifiers', KERNEL_NEW_NULLIFIERS_LENGTH);
     assertLength(this, 'privateCallStack', KERNEL_PRIVATE_CALL_STACK_LENGTH);
     assertLength(this, 'publicCallStack', KERNEL_PUBLIC_CALL_STACK_LENGTH);
-    assertLength(this, 'l1MsgStack', KERNEL_L1_MSG_STACK_LENGTH);
+    assertLength(this, 'newL2ToL1Msgs', KERNEL_NEW_L2_TO_L1_MSGS_LENGTH);
     assertLength(this, 'newContracts', KERNEL_NEW_CONTRACTS_LENGTH);
     assertLength(this, 'optionallyRevealedData', KERNEL_OPTIONALLY_REVEALED_DATA_LENGTH);
     assertLength(this, 'stateTransitions', STATE_TRANSITIONS_LENGTH);
@@ -196,7 +199,7 @@ export class CombinedAccumulatedData {
       this.newNullifiers,
       this.privateCallStack,
       this.publicCallStack,
-      this.l1MsgStack,
+      this.newL2ToL1Msgs,
       this.newContracts,
       this.optionallyRevealedData,
       this.stateTransitions,
@@ -218,7 +221,7 @@ export class CombinedAccumulatedData {
       reader.readArray(KERNEL_NEW_NULLIFIERS_LENGTH, Fr),
       reader.readArray(KERNEL_PRIVATE_CALL_STACK_LENGTH, Fr),
       reader.readArray(KERNEL_PUBLIC_CALL_STACK_LENGTH, Fr),
-      reader.readArray(KERNEL_L1_MSG_STACK_LENGTH, Fr),
+      reader.readArray(KERNEL_NEW_L2_TO_L1_MSGS_LENGTH, Fr),
       reader.readArray(KERNEL_NEW_CONTRACTS_LENGTH, NewContractData),
       reader.readArray(KERNEL_OPTIONALLY_REVEALED_DATA_LENGTH, OptionallyRevealedData),
       reader.readArray(STATE_TRANSITIONS_LENGTH, PublicDataTransition),
@@ -235,7 +238,7 @@ export class CombinedAccumulatedData {
       times(KERNEL_NEW_NULLIFIERS_LENGTH, Fr.zero),
       times(KERNEL_PRIVATE_CALL_STACK_LENGTH, Fr.zero),
       times(KERNEL_PUBLIC_CALL_STACK_LENGTH, Fr.zero),
-      times(KERNEL_L1_MSG_STACK_LENGTH, Fr.zero),
+      times(KERNEL_NEW_L2_TO_L1_MSGS_LENGTH, Fr.zero),
       times(KERNEL_NEW_CONTRACTS_LENGTH, NewContractData.empty),
       times(KERNEL_OPTIONALLY_REVEALED_DATA_LENGTH, OptionallyRevealedData.empty),
       times(STATE_TRANSITIONS_LENGTH, PublicDataTransition.empty),

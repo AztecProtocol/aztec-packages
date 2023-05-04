@@ -1,8 +1,13 @@
-import { AztecAddress, EthAddress, Fq, Fr } from '@aztec/foundation';
+import { Fr } from '@aztec/foundation/fields';
+import { Fq } from '@aztec/foundation/fields';
+import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { EthAddress } from '@aztec/foundation/eth-address';
+
 import {
   BaseOrMergeRollupPublicInputs,
   BaseRollupInputs,
   CallContext,
+  CircuitsWasm,
   CombinedAccumulatedData,
   CombinedConstantData,
   CombinedHistoricTreeRoots,
@@ -38,17 +43,20 @@ import {
   CONTRACT_TREE_ROOTS_TREE_HEIGHT,
   EMITTED_EVENTS_LENGTH,
   FUNCTION_TREE_HEIGHT,
-  KERNEL_L1_MSG_STACK_LENGTH,
+  KERNEL_NEW_L2_TO_L1_MSGS_LENGTH,
   KERNEL_NEW_COMMITMENTS_LENGTH,
   KERNEL_NEW_CONTRACTS_LENGTH,
   KERNEL_NEW_NULLIFIERS_LENGTH,
   KERNEL_OPTIONALLY_REVEALED_DATA_LENGTH,
   KERNEL_PRIVATE_CALL_STACK_LENGTH,
   KERNEL_PUBLIC_CALL_STACK_LENGTH,
-  L1_MSG_STACK_LENGTH,
+  L1_TO_L2_MESSAGES_ROOTS_TREE_HEIGHT,
+  L1_TO_L2_MESSAGES_SUBTREE_INSERTION_HEIGHT,
+  NEW_L2_TO_L1_MSGS_LENGTH,
   NEW_COMMITMENTS_LENGTH,
   NEW_NULLIFIERS_LENGTH,
   NULLIFIER_TREE_HEIGHT,
+  NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   PRIVATE_CALL_STACK_LENGTH,
   PRIVATE_DATA_TREE_HEIGHT,
   PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT,
@@ -69,6 +77,7 @@ import { SignedTxRequest, TxRequest } from '../structs/tx_request.js';
 import { CommitmentMap, G1AffineElement, VerificationKey } from '../structs/verification_key.js';
 import { range } from '../utils/jsUtils.js';
 import { numToUInt32BE } from '../utils/serialize.js';
+import { computeCallStackItemHash } from '../abis/abis.js';
 
 export function makeTxContext(seed: number): TxContext {
   const deploymentData = new ContractDeploymentData(fr(seed), fr(seed + 1), fr(seed + 2), makeEthAddress(seed + 3));
@@ -124,9 +133,9 @@ export function makeEmptyAccumulatedData(seed = 1): CombinedAccumulatedData {
     fr(seed + 13),
     range(KERNEL_NEW_COMMITMENTS_LENGTH, seed + 0x100).map(fr),
     range(KERNEL_NEW_NULLIFIERS_LENGTH, seed + 0x200).map(fr),
-    range(KERNEL_PRIVATE_CALL_STACK_LENGTH, seed + 0x300).map(fr),
+    new Array(KERNEL_PRIVATE_CALL_STACK_LENGTH).fill(Fr.ZERO), // private call stack must be empty
     range(KERNEL_PUBLIC_CALL_STACK_LENGTH, seed + 0x400).map(fr),
-    range(KERNEL_L1_MSG_STACK_LENGTH, seed + 0x500).map(fr),
+    range(KERNEL_NEW_L2_TO_L1_MSGS_LENGTH, seed + 0x500).map(fr),
     range(KERNEL_NEW_CONTRACTS_LENGTH, seed + 0x600).map(makeNewContractData),
     range(KERNEL_OPTIONALLY_REVEALED_DATA_LENGTH, seed + 0x700).map(makeOptionallyRevealedData),
     range(STATE_TRANSITIONS_LENGTH, seed + 0x800).map(makeEmptyPublicDataTransition),
@@ -143,7 +152,7 @@ export function makeAccumulatedData(seed = 1): CombinedAccumulatedData {
     range(KERNEL_NEW_NULLIFIERS_LENGTH, seed + 0x200).map(fr),
     range(KERNEL_PRIVATE_CALL_STACK_LENGTH, seed + 0x300).map(fr),
     range(KERNEL_PUBLIC_CALL_STACK_LENGTH, seed + 0x400).map(fr),
-    range(KERNEL_L1_MSG_STACK_LENGTH, seed + 0x500).map(fr),
+    range(KERNEL_NEW_L2_TO_L1_MSGS_LENGTH, seed + 0x500).map(fr),
     range(KERNEL_NEW_CONTRACTS_LENGTH, seed + 0x600).map(makeNewContractData),
     range(KERNEL_OPTIONALLY_REVEALED_DATA_LENGTH, seed + 0x700).map(makeOptionallyRevealedData),
     range(STATE_TRANSITIONS_LENGTH, seed + 0x800).map(makePublicDataTransition),
@@ -178,28 +187,24 @@ export function makeAggregationObject(seed = 1): AggregationObject {
   );
 }
 
-export function makeCallContext(seed = 0): CallContext {
-  return new CallContext(
-    makeAztecAddress(seed),
-    makeAztecAddress(seed + 1),
-    makeEthAddress(seed + 2),
-    false,
-    false,
-    false,
-  );
+export function makeCallContext(seed = 0, storageContractAddress = makeAztecAddress(seed + 1)): CallContext {
+  return new CallContext(makeAztecAddress(seed), storageContractAddress, makeEthAddress(seed + 2), false, false, false);
 }
 
-export function makePublicCircuitPublicInputs(seed = 0): PublicCircuitPublicInputs {
+export function makePublicCircuitPublicInputs(
+  seed = 0,
+  storageContractAddress?: AztecAddress,
+): PublicCircuitPublicInputs {
   const frArray = (num: number, seed: number) => range(num, seed).map(fr);
   return new PublicCircuitPublicInputs(
-    makeCallContext(seed),
+    makeCallContext(seed, storageContractAddress),
     frArray(ARGS_LENGTH, seed + 0x100),
     frArray(RETURN_VALUES_LENGTH, seed + 0x200),
     frArray(EMITTED_EVENTS_LENGTH, seed + 0x300),
     range(STATE_TRANSITIONS_LENGTH, seed + 0x400).map(makeStateTransition),
     range(STATE_READS_LENGTH, seed + 0x500).map(makeStateRead),
     frArray(PUBLIC_CALL_STACK_LENGTH, seed + 0x600),
-    frArray(L1_MSG_STACK_LENGTH, seed + 0x700),
+    frArray(NEW_L2_TO_L1_MSGS_LENGTH, seed + 0x700),
     fr(seed + 0x800),
     makeAztecAddress(seed + 0x801),
   );
@@ -257,46 +262,78 @@ export function makePrivateKernelInputs(seed = 1): PrivateKernelInputs {
 }
 
 export function makePublicCallStackItem(seed = 1): PublicCallStackItem {
-  return new PublicCallStackItem(
+  const callStackItem = new PublicCallStackItem(
     makeAztecAddress(seed),
-    new FunctionData(makeSelector(seed + 0x1), true, true),
+    // in the public kernel, function can't be a constructor or private
+    new FunctionData(makeSelector(seed + 0x1), false, false),
     makePublicCircuitPublicInputs(seed + 0x10),
   );
+  callStackItem.publicInputs.callContext.storageContractAddress = callStackItem.contractAddress;
+  return callStackItem;
 }
 
-export function makePublicCallData(seed = 1) {
-  return new PublicCallData(
+export async function makePublicCallData(seed = 1) {
+  const publicCallData = new PublicCallData(
     makePublicCallStackItem(seed),
     range(PUBLIC_CALL_STACK_LENGTH, seed + 0x300).map(makePublicCallStackItem),
     makeProof(seed + 0x1000),
     fr(seed + 1),
     fr(seed + 2),
   );
+  // publicCallStack should be a hash of the preimages:
+  const wasm = await CircuitsWasm.get();
+  publicCallData.callStackItem.publicInputs.publicCallStack = [];
+  publicCallData.publicCallStackPreimages.forEach(preimage => {
+    publicCallData.callStackItem.publicInputs.publicCallStack.push(computeCallStackItemHash(wasm!, preimage));
+  });
+
+  // one kernel circuit call can have several methods in call stack. But all of them should have the same msg.sender - set these correctly in the preimages!
+  for (let i = 0; i < publicCallData.publicCallStackPreimages.length; i++) {
+    const isDelegateCall = publicCallData.publicCallStackPreimages[i].publicInputs.callContext.isDelegateCall;
+    publicCallData.publicCallStackPreimages[i].publicInputs.callContext.msgSender = isDelegateCall
+      ? publicCallData.callStackItem.publicInputs.callContext.msgSender
+      : publicCallData.callStackItem.contractAddress;
+  }
+
+  // set the storage address for each call on the stack (handle delegatecall case)
+  for (let i = 0; i < publicCallData.publicCallStackPreimages.length; i++) {
+    const isDelegateCall = publicCallData.publicCallStackPreimages[i].publicInputs.callContext.isDelegateCall;
+    publicCallData.publicCallStackPreimages[i].publicInputs.callContext.storageContractAddress = isDelegateCall
+      ? publicCallData.callStackItem.publicInputs.callContext.storageContractAddress
+      : publicCallData.publicCallStackPreimages[i].contractAddress;
+  }
+
+  return publicCallData;
 }
 
-export function makeWitnessedPublicCallData(seed = 1): WitnessedPublicCallData {
+export async function makeWitnessedPublicCallData(seed = 1): Promise<WitnessedPublicCallData> {
   return new WitnessedPublicCallData(
-    makePublicCallData(seed),
+    await makePublicCallData(seed),
     range(STATE_TRANSITIONS_LENGTH, seed + 0x100).map(x => makeMembershipWitness(PUBLIC_DATA_TREE_HEIGHT, x)),
     range(STATE_READS_LENGTH, seed + 0x200).map(x => makeMembershipWitness(PUBLIC_DATA_TREE_HEIGHT, x)),
     fr(seed + 0x300),
   );
 }
 
-export function makePublicKernelInputs(seed = 1): PublicKernelInputs {
-  return new PublicKernelInputs(makePreviousKernelData(seed), makePublicCallData(seed + 0x1000));
+export async function makePublicKernelInputs(seed = 1): Promise<PublicKernelInputs> {
+  return new PublicKernelInputs(makePreviousKernelData(seed), await makePublicCallData(seed + 0x1000));
 }
 
-export function makePublicKernelInputsWithEmptyOutput(seed = 1): PublicKernelInputs {
+export async function makePublicKernelInputsWithEmptyOutput(seed = 1): Promise<PublicKernelInputs> {
   const kernelCircuitPublicInputs = makeEmptyKernelPublicInputs(seed);
-  return new PublicKernelInputs(
+  const publicKernelInputs = new PublicKernelInputs(
     makePreviousKernelData(seed, kernelCircuitPublicInputs),
-    makePublicCallData(seed + 0x1000),
+    await makePublicCallData(seed + 0x1000),
   );
+  //Set the call stack item for this circuit iteration at the top of the call stack
+  const wasm = await CircuitsWasm.get();
+  publicKernelInputs.previousKernel.publicInputs.end.publicCallStack[KERNEL_PUBLIC_CALL_STACK_LENGTH - 1] =
+    computeCallStackItemHash(wasm, publicKernelInputs.publicCallData.callStackItem);
+  return publicKernelInputs;
 }
 
-export function makePublicKernelInputsNoKernelInput(seed = 1) {
-  return new PublicKernelInputsNoPreviousKernel(makeSignedTxRequest(seed), makePublicCallData(seed + 0x100));
+export async function makePublicKernelInputsNoKernelInput(seed = 1) {
+  return new PublicKernelInputsNoPreviousKernel(makeSignedTxRequest(seed), await makePublicCallData(seed + 0x100));
 }
 
 export function makeSignedTxRequest(seed = 1): SignedTxRequest {
@@ -353,7 +390,7 @@ export function makePrivateCircuitPublicInputs(seed = 0): PrivateCircuitPublicIn
     newNullifiers: range(NEW_NULLIFIERS_LENGTH, seed + 0x500).map(fr),
     privateCallStack: range(PRIVATE_CALL_STACK_LENGTH, seed + 0x600).map(fr),
     publicCallStack: range(PUBLIC_CALL_STACK_LENGTH, seed + 0x700).map(fr),
-    l1MsgStack: range(L1_MSG_STACK_LENGTH, seed + 0x800).map(fr),
+    newL2ToL1Msgs: range(NEW_L2_TO_L1_MSGS_LENGTH, seed + 0x800).map(fr),
     historicContractTreeRoot: fr(seed + 0x900), // TODO not in spec
     historicPrivateDataTreeRoot: fr(seed + 0x1000),
     historicPrivateNullifierTreeRoot: fr(seed + 0x1100), // TODO not in spec
@@ -394,7 +431,7 @@ export function makeAztecAddress(seed = 1): AztecAddress {
 }
 
 export function makeEcdsaSignature(seed = 1): EcdsaSignature {
-  return new EcdsaSignature(Buffer.alloc(32, seed), Buffer.alloc(32, seed + 1));
+  return new EcdsaSignature(Buffer.alloc(32, seed), Buffer.alloc(32, seed + 1), Buffer.alloc(1, seed + 2));
 }
 
 export function makeBaseRollupPublicInputs(seed = 0) {
@@ -430,6 +467,11 @@ export function makeRootRollupInputs(seed = 0) {
     [makePreviousBaseRollupData(seed), makePreviousBaseRollupData(seed + 0x1000)],
     range(PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT, 0x2000).map(fr),
     range(CONTRACT_TREE_ROOTS_TREE_HEIGHT, 0x2100).map(fr),
+    range(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, 0x2100).map(fr),
+    range(L1_TO_L2_MESSAGES_SUBTREE_INSERTION_HEIGHT, 0x2100).map(fr),
+    range(L1_TO_L2_MESSAGES_ROOTS_TREE_HEIGHT, 0x2100).map(fr),
+    makeAppendOnlyTreeSnapshot(seed + 0x2200),
+    makeAppendOnlyTreeSnapshot(seed + 0x2300),
   );
 }
 
@@ -448,7 +490,12 @@ export function makeRootRollupPublicInputs(seed = 0) {
     endTreeOfHistoricPrivateDataTreeRootsSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
     startTreeOfHistoricContractTreeRootsSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
     endTreeOfHistoricContractTreeRootsSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
+    startL1ToL2MessageTreeSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
+    endL1ToL2MessageTreeSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
+    startTreeOfHistoricL1ToL2MessageTreeRootsSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
+    endTreeOfHistoricL1ToL2MessageTreeRootsSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
     calldataHash: [new Fr(1n), new Fr(2n)],
+    l1ToL2MessagesHash: [new Fr(3n), new Fr(4n)],
   });
 }
 

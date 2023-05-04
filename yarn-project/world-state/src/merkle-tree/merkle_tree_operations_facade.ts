@@ -1,5 +1,6 @@
 import { SiblingPath } from '@aztec/merkle-tree';
-import { LeafData, MerkleTreeDbOperations, MerkleTreeId, MerkleTreeOperations, TreeInfo } from '../index.js';
+import { LeafData, MerkleTreeDbOperations, MerkleTreeOperations, TreeInfo } from '../index.js';
+import { MerkleTreeId } from '@aztec/types';
 
 /**
  * Wraps a MerkleTreeDbOperations to call all functions with a preset includeUncommitted flag.
@@ -100,5 +101,14 @@ export class MerkleTreeOperationsFacade implements MerkleTreeOperations {
    */
   getLeafValue(treeId: MerkleTreeId, index: bigint): Promise<Buffer | undefined> {
     return this.trees.getLeafValue(treeId, index, this.includeUncommitted);
+  }
+
+  /**
+   * Inserts into the roots trees (CONTRACT_TREE_ROOTS_TREE, PRIVATE_DATA_TREE_ROOTS_TREE)
+   * the current roots of the corresponding trees (CONTRACT_TREE, PRIVATE_DATA_TREE).
+   * @returns Empty promise.
+   */
+  public updateHistoricRootsTrees(): Promise<void> {
+    return this.trees.updateHistoricRootsTrees(this.includeUncommitted);
   }
 }
