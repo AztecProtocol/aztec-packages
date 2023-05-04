@@ -36,7 +36,7 @@ _What circuits does the sequencer depend on._
 
 ## Development
 
-Start by running `bootstrap` in the project root.
+Start by running `bootstrap.sh` in the project root.
 
 To build the package, run `yarn build` in the root.
 
