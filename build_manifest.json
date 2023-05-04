@@ -56,20 +56,21 @@
     "dependencies": []
   },
   "l1-artifacts": {
-    "buildDir": "l1-artifacts",
-    "dockerfile": "Dockerfile",
+    "buildDir": "yarn-project",
+    "projectDir": "yarn-project/l1-artifacts",
+    "dockerfile": "l1-artifacts/Dockerfile",
     "rebuildPatterns": [
-      "^l1-artifacts/"
+      "^l1-contracts/",
+      "^yarn-project/l1-artifacts/"
     ],
-    "dependencies": [
-      "foundation"
-    ]
+    "dependencies": []
   },
   "yarn-project-base": {
     "buildDir": "yarn-project",
     "dockerfile": "yarn-project-base/Dockerfile",
     "rebuildPatterns": [
       "^circuits/",
+      "^l1-contracts/",
       "^yarn-project/yarn-project-base/",
       "^yarn-project/yarn.lock"
     ],

@@ -20,7 +20,6 @@
     "generate": "bash scripts/generate-artifacts.sh && yarn formatting:fix"
   },
   "dependencies": {
-    "@aztec/foundation": "workspace:^",
     "tslib": "^2.4.0"
   },
   "devDependencies": {
