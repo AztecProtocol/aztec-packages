@@ -526,7 +526,7 @@ export class SoloBlockBuilder implements BlockBuilder {
       startTreeOfHistoricPrivateDataTreeRootsSnapshot: await this.getTreeSnapshot(
         MerkleTreeId.PRIVATE_DATA_TREE_ROOTS_TREE,
       ),
-      treeOfHistoricL1ToL2MsgTreeRootsSnapshot: new AppendOnlyTreeSnapshot(DELETE_FR, DELETE_NUM),
+      treeOfHistoricL1ToL2MsgTreeRootsSnapshot: await this.getTreeSnapshot(MerkleTreeId.L1_TO_L2_MESSAGES_ROOTS_TREE),
     });
   }
 
