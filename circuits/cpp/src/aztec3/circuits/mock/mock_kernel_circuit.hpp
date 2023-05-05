@@ -4,15 +4,9 @@
 #include <aztec3/utils/types/native_types.hpp>
 
 #include <barretenberg/common/map.hpp>
-#include <barretenberg/numeric/random/engine.hpp>
 #include <barretenberg/stdlib/commitment/pedersen/pedersen.hpp>
 #include <barretenberg/stdlib/primitives/field/field.hpp>
 #include <barretenberg/stdlib/primitives/witness/witness.hpp>
-// #include <aztec3/circuits/abis/private_circuit_public_inputs.hpp>
-
-namespace {
-auto& engine = numeric::random::get_debug_engine();
-}
 
 namespace aztec3::circuits::mock {
 
@@ -27,15 +21,15 @@ KernelCircuitPublicInputs<NT> mock_kernel_circuit(Composer& composer,
                                                   KernelCircuitPublicInputs<NT> const& _public_inputs)
 {
     typedef CircuitTypes<Composer> CT;
-    typedef typename CT::fr fr;
 
     auto public_inputs = _public_inputs.to_circuit_type(composer);
 
     {
         std::vector<uint32_t> dummy_witness_indices;
         // 16 is the number of values added to `proof_witness_indices` at the end of `verify_proof`.
-        for (size_t i = 0; i < 16; ++i) {
-            fr const witness = fr(witness_t(&composer, i));
+        constexpr size_t num_witness_indices = 16;
+        for (size_t i = 0; i < num_witness_indices; ++i) {
+            auto const witness = CT::fr(witness_t(&composer, i));
             uint32_t const witness_index = witness.get_witness_index();
             dummy_witness_indices.push_back(witness_index);
         }
@@ -50,7 +44,8 @@ KernelCircuitPublicInputs<NT> mock_kernel_circuit(Composer& composer,
     // contains_recursive_proof to be false.
     composer.contains_recursive_proof = false;
 
-    plonk::stdlib::pedersen_commitment<Composer>::compress(fr(witness_t(&composer, 1)), fr(witness_t(&composer, 1)));
+    plonk::stdlib::pedersen_commitment<Composer>::compress(CT::fr(witness_t(&composer, 1)),
+                                                           CT::fr(witness_t(&composer, 1)));
     return public_inputs.template to_native_type<Composer>();
 }
 

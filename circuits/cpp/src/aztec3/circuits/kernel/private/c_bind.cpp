@@ -66,10 +66,17 @@ WASM_EXPORT size_t private_kernel__init_verification_key(uint8_t const* pk_buf, 
     return vk_vec.size();
 }
 
-WASM_EXPORT size_t private_kernel__dummy_previous_kernel(uint8_t const** previous_kernel_buf,
-                                                         bool real_vk_proof = false)
+/**
+ * @brief Get a dummy previous kernel
+ *
+ * @details Only usable for native kernel. Will not be usable with real circuit until we have an
+ * option to pass `real_vk_proof=true` to `dummy_previous_kernel`.
+ * @param previous_kernel_buf output buffer for serialized previous kernel
+ * @return size in bytes of output
+ */
+WASM_EXPORT size_t private_kernel__dummy_previous_kernel(uint8_t const** previous_kernel_buf)
 {
-    PreviousKernelData<NT> const previous_kernel = dummy_previous_kernel(real_vk_proof);
+    PreviousKernelData<NT> const previous_kernel = dummy_previous_kernel(false /* fake vk and proof */);
 
     std::vector<uint8_t> previous_kernel_vec;
     write(previous_kernel_vec, previous_kernel);

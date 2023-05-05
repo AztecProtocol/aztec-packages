@@ -1,8 +1,9 @@
 #include "index.hpp"
 #include "init.hpp"
 
-#include "aztec3/circuits/abis/new_contract_data.hpp"
 #include <aztec3/circuits/mock/mock_kernel_circuit.hpp>
+#include <aztec3/circuits/mock/native_mock_kernel_circuit.hpp>
+#include <aztec3/utils/dummy_composer.hpp>
 
 #include "barretenberg/proof_system/types/composer_type.hpp"
 
@@ -11,6 +12,8 @@ using NT = aztec3::utils::types::NativeTypes;
 using AggregationObject = aztec3::utils::types::NativeTypes::AggregationObject;
 using aztec3::circuits::abis::PreviousKernelData;
 using aztec3::circuits::mock::mock_kernel_circuit;
+using aztec3::circuits::mock::native_mock_kernel_circuit;
+using DummyComposer = aztec3::utils::DummyComposer;
 
 }  // namespace
 
@@ -49,24 +52,28 @@ PreviousKernelData<NT> dummy_previous_kernel(bool real_vk_proof = false)
 {
     PreviousKernelData<NT> const init_previous_kernel{};
 
-    auto crs_factory = std::make_shared<EnvReferenceStringFactory>();
-    Composer mock_kernel_composer = Composer(crs_factory);
-    auto mock_kernel_public_inputs = mock_kernel_circuit(mock_kernel_composer, init_previous_kernel.public_inputs);
+    PreviousKernelData<NT> previous_kernel{};
+    if (real_vk_proof) {
+        auto crs_factory = std::make_shared<EnvReferenceStringFactory>();
+        auto mock_kernel_composer = Composer(crs_factory);
 
-    auto mock_kernel_prover = mock_kernel_composer.create_prover();
-    NT::Proof const mock_kernel_proof =
-        real_vk_proof ? mock_kernel_prover.construct_proof() : NT::Proof{ .proof_data = std::vector<uint8_t>(64, 0) };
+        previous_kernel.public_inputs = mock_kernel_circuit(mock_kernel_composer, init_previous_kernel.public_inputs);
 
-    std::shared_ptr<NT::VK> const mock_kernel_vk =
-        real_vk_proof ? mock_kernel_composer.compute_verification_key() : fake_vk();
+        auto mock_kernel_prover = mock_kernel_composer.create_prover();
+        previous_kernel.proof = mock_kernel_prover.construct_proof();
 
-    PreviousKernelData<NT> previous_kernel = {
-        .public_inputs = mock_kernel_public_inputs,
-        .proof = mock_kernel_proof,
-        .vk = mock_kernel_vk,
-    };
+        previous_kernel.vk = mock_kernel_composer.compute_verification_key();
 
-    assert(!mock_kernel_composer.failed());
+        assert(!mock_kernel_composer.failed());
+    } else {
+        auto dummy_composer = DummyComposer();
+
+        previous_kernel.public_inputs = native_mock_kernel_circuit(dummy_composer, init_previous_kernel.public_inputs);
+        previous_kernel.proof = NT::Proof{ .proof_data = std::vector<uint8_t>(64, 0) };
+        previous_kernel.vk = fake_vk();
+
+        dummy_composer.log_failures_if_any("dummy_previous_kernel");
+    }
 
     return previous_kernel;
 }

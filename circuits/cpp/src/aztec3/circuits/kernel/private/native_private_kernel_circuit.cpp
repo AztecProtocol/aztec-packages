@@ -1,6 +1,5 @@
 #include "init.hpp"
 
-#include "aztec3/circuits/abis/function_leaf_preimage.hpp"
 #include "aztec3/constants.hpp"
 #include <aztec3/circuits/abis/kernel_circuit_public_inputs.hpp>
 #include <aztec3/circuits/abis/new_contract_data.hpp>
