@@ -59,8 +59,6 @@ using aztec3::circuits::rollup::test_utils::utils::compare_field_hash_to_expecte
 using aztec3::circuits::rollup::test_utils::utils::get_empty_kernel;
 using aztec3::circuits::rollup::test_utils::utils::get_empty_l1_to_l2_messages;
 using aztec3::circuits::rollup::test_utils::utils::get_root_rollup_inputs;
-using aztec3::circuits::rollup::test_utils::utils::set_kernel_commitments;
-using aztec3::circuits::rollup::test_utils::utils::set_kernel_l2_to_l1_msgs;
 // using aztec3::circuits::mock::mock_kernel_inputs;
 
 using aztec3::circuits::abis::AppendOnlyTreeSnapshot;
@@ -212,14 +210,14 @@ TEST_F(root_rollup_tests, native_root_missing_nullifier_logic)
             new_commitments[commitment_k] = val;
             data_tree.update_element(kernel_j * KERNEL_NEW_COMMITMENTS_LENGTH + commitment_k, val);
         }
-        set_kernel_commitments(kernels[kernel_j], new_commitments);
+        kernels[kernel_j].public_inputs.end.new_commitments = new_commitments;
 
         std::array<fr, KERNEL_NEW_L2_TO_L1_MSGS_LENGTH> new_l2_to_l1_messages;
         for (uint8_t i = 0; i < KERNEL_NEW_L2_TO_L1_MSGS_LENGTH; i++) {
             auto val = fr(kernel_j * KERNEL_NEW_L2_TO_L1_MSGS_LENGTH + i + 1);
             new_l2_to_l1_messages[i] = val;
         }
-        set_kernel_l2_to_l1_msgs(kernels[kernel_j], new_l2_to_l1_messages);
+        kernels[kernel_j].public_inputs.end.new_l2_to_l1_msgs = new_l2_to_l1_messages;
     }
 
     // @todo @LHerskind: Add nullifiers

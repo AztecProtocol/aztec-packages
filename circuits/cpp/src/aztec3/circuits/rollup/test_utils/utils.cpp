@@ -73,27 +73,6 @@ std::array<fr, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP> get_empty_l1_to_l2_messages(
     return l1_to_l2_messages;
 }
 
-void set_kernel_l2_to_l1_msgs(KernelData& kernel_data, std::array<fr, KERNEL_NEW_L2_TO_L1_MSGS_LENGTH> l2_to_l1_msgs)
-{
-    for (size_t i = 0; i < KERNEL_NEW_L2_TO_L1_MSGS_LENGTH; i++) {
-        kernel_data.public_inputs.end.new_l2_to_l1_msgs[i] = l2_to_l1_msgs[i];
-    }
-}
-
-void set_kernel_nullifiers(KernelData& kernel_data, std::array<fr, KERNEL_NEW_NULLIFIERS_LENGTH> new_nullifiers)
-{
-    for (size_t i = 0; i < KERNEL_NEW_NULLIFIERS_LENGTH; i++) {
-        kernel_data.public_inputs.end.new_nullifiers[i] = new_nullifiers[i];
-    }
-}
-
-void set_kernel_commitments(KernelData& kernel_data, std::array<fr, KERNEL_NEW_COMMITMENTS_LENGTH> new_commitments)
-{
-    for (size_t i = 0; i < KERNEL_NEW_COMMITMENTS_LENGTH; i++) {
-        kernel_data.public_inputs.end.new_commitments[i] = new_commitments[i];
-    }
-}
-
 BaseRollupInputs base_rollup_inputs_from_kernels(std::array<KernelData, 2> kernel_data,
                                                  MerkleTree& private_data_tree,
                                                  MerkleTree& contract_tree,
