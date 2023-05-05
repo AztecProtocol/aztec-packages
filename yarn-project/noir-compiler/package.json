@@ -35,7 +35,7 @@
   "dependencies": {
     "@aztec/foundation": "workspace:^",
     "@noir-lang/noir-source-resolver": "1.1.1",
-    "@noir-lang/noir_wasm": "^0.5.1-7f6dede",
+    "@noir-lang/noir_wasm": "0.5.1-9740f54",
     "commander": "^9.0.0",
     "toml": "^3.0.0",
     "tslib": "^2.4.0"
