@@ -66,7 +66,7 @@ describe('e2e_deploy_contract', () => {
   }, 30_000);
 
   /**
-   * Verify that we can produce multiple rollups/
+   * Verify that we can produce multiple rollups.
    */
   it('should deploy one contract after another in consecutive rollups', async () => {
     const deployer = new ContractDeployer(TestContractAbi, aztecRpcServer);
