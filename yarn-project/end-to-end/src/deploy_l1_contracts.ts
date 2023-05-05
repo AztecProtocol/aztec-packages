@@ -25,7 +25,7 @@ import { foundry } from 'viem/chains';
 
 /**
  * Deploys the aztec L1 contracts; Rollup, Unverified Data Emitter & (optionally) Decoder Helper.
- * @param rpcUrl - URL of the ETH RPC to use for dpeloyment.
+ * @param rpcUrl - URL of the ETH RPC to use for deployment.
  * @param account - Private Key or HD Account that will deploy the contracts.
  * @param logger - A logger object.
  * @param deployDecoderHelper - Boolean, whether to deploy the decoder helper or not.
