@@ -1,4 +1,4 @@
-import { ABIType } from '@aztec/noir-contracts';
+import { ABIType } from '@aztec/foundation/abi';
 
 export * from './encoder.js';
 export * from './decoder.js';
