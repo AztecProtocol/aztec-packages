@@ -16,9 +16,7 @@ export function generateFunctionSignature(name: string, parameters: ABIParameter
 
 /**
  * Generate a function selector for a given function name and parameters.
- * The function selector is a 4-byte identifier used to encode the function
- * being called in an Ethereum transaction. It is derived by taking the first
- * 4 bytes of the Keccak-256 hash of the function signature.
+ * It is derived by taking the first 4 bytes of the Keccak-256 hash of the function signature.
  *
  * @param name - The name of the function.
  * @param parameters - An array of ABIParameter objects, each containing the type information of a function parameter.
