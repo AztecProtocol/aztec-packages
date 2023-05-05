@@ -5,6 +5,7 @@ import { TxAuxDataDao } from './tx_aux_data_dao.js';
 import { TxDao } from './tx_dao.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr, Point } from '@aztec/foundation/fields';
+import { MerkleTreeId } from '@aztec/types';
 
 /**
  * The MemoryDB class provides an in-memory implementation of a database to manage transactions and auxiliary data.
@@ -15,6 +16,7 @@ import { Fr, Point } from '@aztec/foundation/fields';
 export class MemoryDB extends MemoryContractDatabase implements Database {
   private txTable: TxDao[] = [];
   private txAuxDataTable: TxAuxDataDao[] = [];
+  private treeRoots: Record<MerkleTreeId, Fr> | undefined;
 
   /**
    * Retrieve a transaction from the MemoryDB using its transaction hash.
@@ -138,5 +140,33 @@ export class MemoryDB extends MemoryContractDatabase implements Database {
     this.txAuxDataTable = remaining;
 
     return Promise.resolve(removed);
+  }
+
+  /**
+   * Retrieve the stored Merkle tree roots from the database.
+   * The function returns a Promise that resolves to an object containing the MerkleTreeId as keys
+   * and their corresponding Fr values as roots. Throws an error if the tree roots are not set in the
+   * memory database.
+   *
+   * @returns A Promise that resolves to an object containing the Merkle tree roots for each merkle tree id.
+   */
+  public getTreeRoots(): Promise<Record<MerkleTreeId, Fr>> {
+    const roots = this.treeRoots;
+    if (!roots) throw new Error(`Tree roots not set in memory database`);
+    return Promise.resolve(roots);
+  }
+
+  /**
+   * Set the tree roots for the Merkle trees in the database.
+   * This function updates the 'treeRoots' property of the instance
+   * with the provided 'roots' object containing MerkleTreeId and Fr pairs.
+   * Note that this will overwrite any existing tree roots in the database.
+   *
+   * @param roots - A Record object mapping MerkleTreeIds to their corresponding Fr root values.
+   * @returns A Promise that resolves when the tree roots have been successfully updated in the database.
+   */
+  public setTreeRoots(roots: Record<MerkleTreeId, Fr>) {
+    this.treeRoots = roots;
+    return Promise.resolve();
   }
 }

@@ -7,7 +7,14 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { FunctionType } from '@aztec/noir-contracts';
-import { EncodedContractFunction, INITIAL_L2_BLOCK_NUM, L2BlockContext, Tx, UnverifiedData } from '@aztec/types';
+import {
+  EncodedContractFunction,
+  INITIAL_L2_BLOCK_NUM,
+  L2BlockContext,
+  MerkleTreeId,
+  Tx,
+  UnverifiedData,
+} from '@aztec/types';
 import { NotePreimage, TxAuxData } from '../aztec_rpc_server/tx_aux_data/index.js';
 import { ContractDataOracle } from '../contract_data_oracle/index.js';
 import { Database, TxAuxDataDao, TxDao } from '../database/index.js';
@@ -134,7 +141,14 @@ export class AccountState {
       txRequest.functionData.functionSelector,
     );
     const portalContract = await contractDataOracle.getPortalContractAddress(contractAddress);
-    const historicRoots = new PrivateHistoricTreeRoots(Fr.ZERO, Fr.ZERO, Fr.ZERO, Fr.ZERO); // TODO - get old roots from the database/node
+
+    const currentRoots = await this.db.getTreeRoots();
+    const historicRoots = PrivateHistoricTreeRoots.from({
+      contractTreeRoot: currentRoots[MerkleTreeId.CONTRACT_TREE],
+      nullifierTreeRoot: currentRoots[MerkleTreeId.NULLIFIER_TREE],
+      privateDataTreeRoot: currentRoots[MerkleTreeId.PRIVATE_DATA_TREE],
+      privateKernelVkTreeRoot: Fr.ZERO,
+    });
 
     return {
       contractAddress,
