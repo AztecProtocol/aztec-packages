@@ -1,12 +1,11 @@
 #!/usr/bin/env node
 import nodePath from 'path';
 import fs from 'fs/promises';
+import fsExtra from 'fs-extra';
 import { Command } from 'commander';
 import { ContractCompiler } from './compile.js';
 
 const program = new Command();
-
-const fileExists = async (path: string) => !!(await fs.stat(path).catch(() => false));
 
 const main = async () => {
   program
@@ -20,9 +19,8 @@ const main = async () => {
       const contracts = await compiler.compile();
 
       const buildFolderPath = nodePath.join(projectPath, 'target');
-      if (!(await fileExists(buildFolderPath))) {
-        await fs.mkdir(buildFolderPath);
-      }
+
+      await fsExtra.mkdirp(buildFolderPath);
 
       for (const contract of contracts) {
         const contractPath = nodePath.join(buildFolderPath, `aztec-${contract.name}.json`);

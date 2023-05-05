@@ -76,17 +76,22 @@ export class ContractCompiler {
   private async compileNoir(): Promise<NoirCompiledContract[]> {
     const dependenciesMap = await this.readDependencies(this.projectPath);
 
+    /**
+     * The resolver receives a relative path, and the first part of the path can be a dependency name.
+     * If the dependency is found in the map, the rest of the path inside that dependency src folder.
+     * Otherwise, resolve the full relative path requested inside the project path.
+     */
     noirResolver.initialiseResolver((id: string) => {
       const idParts = id.split('/');
 
       let path;
       if (dependenciesMap[idParts[0]]) {
         const [dependencyName, ...dependencySubpathParts] = idParts;
-        const dependency = dependenciesMap[idParts[0]];
+        const dependency = dependenciesMap[dependencyName];
         if (!dependency.path) {
           throw new Error(`Don't know how to resolve dependency ${dependencyName}`);
         }
-        path = nodePath.join(this.projectPath, dependency.path, 'src', dependencySubpathParts.join('/'));
+        path = nodePath.resolve(this.projectPath, dependency.path, 'src', dependencySubpathParts.join('/'));
       } else {
         path = nodePath.join(this.projectPath, 'src', idParts.join('/'));
       }
