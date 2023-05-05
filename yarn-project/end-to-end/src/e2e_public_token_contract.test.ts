@@ -67,21 +67,7 @@ describe('e2e_public_token_contract', () => {
 
   const expectStorageSlot = async (accountIdx: number, expectedBalance: bigint) => {
     const storageSlot = await calculateStorageSlot(accountIdx);
-    // const storageValue = await node.getStorageAt(contract.address!, storageSlot);
-
-    // Temporary solution because tx receipt for public functions currently not working properly.
-    // Retry fetching from the storage slot until it's non-zero
-    const fn = async () => {
-      const storageSlot = await calculateStorageSlot(accountIdx);
-      const res = await node.getStorageAt(contract.address!, storageSlot.value);
-
-      if (res && Buffer.alloc(32).equals(res)) {
-        throw Error('empty storage value');
-      }
-      return res;
-    };
-
-    const storageValue = await retry(fn, 'geting storage slot value');
+    const storageValue = await node.getStorageAt(contract.address!, storageSlot.value);
     if (storageValue === undefined) {
       throw new Error(`Storage slot ${storageSlot} not found`);
     }
@@ -128,10 +114,10 @@ describe('e2e_public_token_contract', () => {
 
     const tx = deployedContract.methods.mint(mintAmount, pointToPublicKey(PK)).send({ from: recipient });
 
-    // await tx.isMined(0, 0.1);
-    // const receipt = await tx.getReceipt();
+    await tx.isMined(0, 0.1);
+    const receipt = await tx.getReceipt();
 
-    // expect(receipt.status).toBe(TxStatus.MINED);
+    expect(receipt.status).toBe(TxStatus.MINED);
     await expectStorageSlot(recipientIdx, mintAmount);
   }, 45_000);
 });
