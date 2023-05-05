@@ -77,16 +77,6 @@ export class PublicProcessor {
   // any existing private execution information, and any subsequent calls.
   protected async processPublicTx(tx: PublicTx): Promise<[PublicKernelPublicInputs, Proof]> {
     const { txRequest } = tx.txRequest;
-    const contractAddress = txRequest.to;
-    const fn = await this.contractDataSource.getPublicFunction(
-      contractAddress,
-      txRequest.functionData.functionSelector,
-    );
-    const functionSelector = txRequest.functionData.functionSelector;
-    if (!fn) throw new Error(`Bytecode not found for ${functionSelector}@${contractAddress}`);
-    const contractPublicData = await this.contractDataSource.getL2ContractPublicData(contractAddress);
-    if (!contractPublicData) throw new Error(`Portal contract address not found for contract ${contractAddress}`);
-
     // TODO: Determine how to calculate bytecode hash. Circuits just check it isn't zero for now.
     // See https://github.com/AztecProtocol/aztec3-packages/issues/378
     const bytecodeHash = new Fr(1n);
