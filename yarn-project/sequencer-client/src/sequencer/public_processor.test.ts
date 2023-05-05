@@ -1,7 +1,8 @@
-import { Fr, PUBLIC_CALL_STACK_LENGTH, PUBLIC_DATA_TREE_HEIGHT, makeEmptyProof } from '@aztec/circuits.js';
-import { makeKernelPublicInputs, makePublicCircuitPublicInputs } from '@aztec/circuits.js/factories';
+import { PublicExecution, PublicExecutionResult, PublicExecutor } from '@aztec/acir-simulator';
+import { CallContext, EthAddress, PUBLIC_DATA_TREE_HEIGHT, TxRequest, makeEmptyProof } from '@aztec/circuits.js';
+import { makeKernelPublicInputs } from '@aztec/circuits.js/factories';
 import { SiblingPath } from '@aztec/merkle-tree';
-import { ContractPublicData, ContractDataSource, EncodedContractFunction } from '@aztec/types';
+import { ContractDataSource, ContractPublicData, EncodedContractFunction } from '@aztec/types';
 import { MerkleTreeOperations, TreeInfo } from '@aztec/world-state';
 import { jest } from '@jest/globals';
 import { MockProxy, mock } from 'jest-mock-extended';
@@ -9,13 +10,13 @@ import pick from 'lodash.pick';
 import times from 'lodash.times';
 import { makePrivateTx, makePublicTx } from '../index.js';
 import { Proof, PublicProver } from '../prover/index.js';
-import { PublicCircuitSimulator, PublicKernelCircuitSimulator } from '../simulator/index.js';
+import { PublicKernelCircuitSimulator } from '../simulator/index.js';
 import { WasmPublicKernelCircuitSimulator } from '../simulator/public_kernel.js';
 import { PublicProcessor } from './public_processor.js';
 
 describe('public_processor', () => {
   let db: MockProxy<MerkleTreeOperations>;
-  let publicCircuit: MockProxy<PublicCircuitSimulator>;
+  let publicExecutor: MockProxy<PublicExecutor>;
   let publicKernel: MockProxy<PublicKernelCircuitSimulator>;
   let publicProver: MockProxy<PublicProver>;
   let contractDataSource: MockProxy<ContractDataSource>;
@@ -29,7 +30,7 @@ describe('public_processor', () => {
 
   beforeEach(() => {
     db = mock<MerkleTreeOperations>();
-    publicCircuit = mock<PublicCircuitSimulator>();
+    publicExecutor = mock<PublicExecutor>();
     publicKernel = mock<PublicKernelCircuitSimulator>();
     publicProver = mock<PublicProver>();
     contractDataSource = mock<ContractDataSource>();
@@ -45,7 +46,7 @@ describe('public_processor', () => {
     contractDataSource.getL2ContractPublicData.mockResolvedValue(contractData);
     contractDataSource.getPublicFunction.mockResolvedValue(publicFunction);
 
-    processor = new PublicProcessor(db, publicCircuit, publicKernel, publicProver, contractDataSource);
+    processor = new PublicProcessor(db, publicExecutor, publicKernel, publicProver, contractDataSource);
   });
 
   it('skips non-public txs', async function () {
@@ -58,7 +59,7 @@ describe('public_processor', () => {
   });
 
   it('returns failed txs without aborting entire operation', async function () {
-    publicCircuit.publicCircuit.mockRejectedValue(new Error(`Failed`));
+    publicExecutor.execute.mockRejectedValue(new Error(`Failed`));
 
     const tx = makePublicTx();
     const [processed, failed] = await processor.process([tx]);
@@ -68,8 +69,11 @@ describe('public_processor', () => {
   });
 
   it('runs a public tx through mock circuits', async function () {
-    const publicCircuitOutput = makePublicCircuitPublicInputs();
-    publicCircuit.publicCircuit.mockResolvedValue(publicCircuitOutput);
+    const tx = makePublicTx();
+    const hash = await tx.getTxHash();
+
+    const publicExecutionResult = makePublicExecutionResult(tx.txRequest.txRequest);
+    publicExecutor.execute.mockResolvedValue(publicExecutionResult);
 
     const path = times(PUBLIC_DATA_TREE_HEIGHT, i => Buffer.alloc(32, i));
     db.getSiblingPath.mockResolvedValue(new SiblingPath(path));
@@ -77,44 +81,64 @@ describe('public_processor', () => {
     const output = makeKernelPublicInputs();
     publicKernel.publicKernelCircuitNoInput.mockResolvedValue(output);
 
-    const tx = makePublicTx();
-    const hash = await tx.getTxHash();
     const [processed, failed] = await processor.process([tx]);
 
+    expect(processed).toHaveLength(1);
     expect(processed).toEqual([{ isEmpty: false, hash, data: output, proof, ...pick(tx, 'txRequest') }]);
     expect(failed).toEqual([]);
 
-    expect(publicCircuit.publicCircuit).toHaveBeenCalled();
+    expect(publicExecutor.execute).toHaveBeenCalled();
     expect(publicKernel.publicKernelCircuitNoInput).toHaveBeenCalled();
   });
 
   it('runs a public tx through the actual public kernel circuit', async function () {
     const publicKernel = new WasmPublicKernelCircuitSimulator();
     const publicKernelSpy = jest.spyOn(publicKernel, 'publicKernelCircuitNoInput');
-    processor = new PublicProcessor(db, publicCircuit, publicKernel, publicProver, contractDataSource);
+    processor = new PublicProcessor(db, publicExecutor, publicKernel, publicProver, contractDataSource);
 
     const path = times(PUBLIC_DATA_TREE_HEIGHT, i => Buffer.alloc(32, i));
     db.getSiblingPath.mockResolvedValue(new SiblingPath(path));
 
     const tx = makePublicTx();
-    // public transactions shouldn't be constructors or private:
     tx.txRequest.txRequest.functionData.isConstructor = false;
     tx.txRequest.txRequest.functionData.isPrivate = false;
 
-    // mock Public Circuit output (also set storageContractAddress to txRequest.to)
-    const publicCircuitOutput = makePublicCircuitPublicInputs(0, tx.txRequest.txRequest.to);
-    publicCircuitOutput.publicCallStack = new Array(PUBLIC_CALL_STACK_LENGTH).fill(Fr.ZERO);
-
-    publicCircuit.publicCircuit.mockResolvedValue(publicCircuitOutput);
+    const publicExecutionResult = makePublicExecutionResult(tx.txRequest.txRequest);
+    publicExecutor.execute.mockResolvedValue(publicExecutionResult);
 
     const hash = await tx.getTxHash();
     const [processed, failed] = await processor.process([tx]);
 
-    expect(processed[0].data.isPrivateKernel).toBeFalsy();
-    expect(processed).toEqual([expect.objectContaining({ isEmpty: false, hash, proof, ...pick(tx, 'txRequest') })]);
+    expect(processed).toHaveLength(1);
+    expect(processed).toEqual([
+      expect.objectContaining({
+        hash,
+        proof,
+        txRequest: tx.txRequest,
+        isEmpty: false,
+        data: expect.objectContaining({ isPrivateKernel: false }),
+      }),
+    ]);
     expect(failed).toEqual([]);
 
-    expect(publicCircuit.publicCircuit).toHaveBeenCalled();
+    expect(publicExecutor.execute).toHaveBeenCalled();
     expect(publicKernelSpy).toHaveBeenCalled();
   });
 });
+
+function makePublicExecutionResult(tx: TxRequest): PublicExecutionResult {
+  const callContext = new CallContext(tx.from, tx.to, EthAddress.ZERO, false, false, false);
+  const execution: PublicExecution = {
+    callContext,
+    contractAddress: tx.to,
+    functionData: tx.functionData,
+    args: tx.args,
+  };
+  return {
+    execution,
+    nestedExecutions: [],
+    returnValues: [],
+    stateReads: [],
+    stateTransitions: [],
+  };
+}
