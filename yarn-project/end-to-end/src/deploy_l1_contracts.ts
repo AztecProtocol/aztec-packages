@@ -76,7 +76,7 @@ export const deployL1Contracts = async (
 /**
  * Helper function to deploy ETH contracts.
  * @param walletClient - A viem WalletClient.
- * @param publicClient - A viem Public client.
+ * @param publicClient - A viem PublicClient.
  * @param abi - The ETH contract's ABI (as abitype's Abi).
  * @param bytecode  - The ETH contract's bytecode.
  * @returns The ETH address the contract was deployed to.
