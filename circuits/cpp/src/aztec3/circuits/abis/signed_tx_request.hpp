@@ -63,7 +63,8 @@ template <typename NCT> struct SignedTxRequest {
         // TODO: This is probably not the right thing to do here!!
         fr sfr = fr::serialize_from_buffer(signature.s.cbegin());
         fr rfr = fr::serialize_from_buffer(signature.r.cbegin());
-        std::vector<fr> const inputs = { tx_request.hash(), rfr, sfr };
+        fr vfr = signature.v;
+        std::vector<fr> const inputs = { tx_request.hash(), rfr, sfr, vfr };
         return NCT::compress(inputs, GeneratorIndex::SIGNED_TX_REQUEST);
     }
 };
