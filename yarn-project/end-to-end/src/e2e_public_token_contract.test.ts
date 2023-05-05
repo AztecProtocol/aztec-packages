@@ -116,7 +116,7 @@ describe('e2e_public_token_contract', () => {
     expect(txReceipt.status).toEqual(TxStatus.MINED);
   }, 30_000);
 
-  it.skip('should deploy a public token contract and mint tokens to a recipient', async () => {
+  it('should deploy a public token contract and mint tokens to a recipient', async () => {
     const mintAmount = 359n;
 
     const recipientIdx = 0;
@@ -133,5 +133,5 @@ describe('e2e_public_token_contract', () => {
 
     // expect(receipt.status).toBe(TxStatus.MINED);
     await expectStorageSlot(recipientIdx, mintAmount);
-  }, 30_000);
+  }, 45_000);
 });
