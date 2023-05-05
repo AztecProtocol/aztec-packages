@@ -1,10 +1,13 @@
-import { DebugLogger, EthAddress } from '@aztec/foundation';
+import { EthAddress } from '@aztec/foundation/eth-address';
+import { DebugLogger } from '@aztec/foundation/log';
 import {
+  DecoderHelperAbi,
+  DecoderHelperBytecode,
   RollupAbi,
   RollupBytecode,
   UnverifiedDataEmitterAbi,
   UnverifiedDataEmitterBytecode,
-} from '@aztec/l1-contracts/viem';
+} from '@aztec/l1-artifacts';
 import type { Abi, Narrow } from 'abitype';
 import {
   Account,
@@ -17,11 +20,16 @@ import {
   createWalletClient,
   http,
 } from 'viem';
-import { HDAccount } from 'viem/accounts';
+import { HDAccount, PrivateKeyAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
-export const deployL1Contracts = async (rpcUrl: string, account: HDAccount, logger: DebugLogger) => {
-  logger('Deploying contracts... (rpcURL: %s)', rpcUrl);
+export const deployL1Contracts = async (
+  rpcUrl: string,
+  account: HDAccount | PrivateKeyAccount,
+  logger: DebugLogger,
+  deployDecoderHelper = false,
+) => {
+  logger('Deploying contracts...');
 
   const walletClient = createWalletClient({
     account,
@@ -34,7 +42,7 @@ export const deployL1Contracts = async (rpcUrl: string, account: HDAccount, logg
   });
 
   const rollupAddress = await deployL1Contract(walletClient, publicClient, RollupAbi, RollupBytecode);
-  logger(`Deployed rollup contract at ${rollupAddress}`);
+  logger(`Deployed Rollup at ${rollupAddress}`);
 
   const unverifiedDataEmitterAddress = await deployL1Contract(
     walletClient,
@@ -44,9 +52,16 @@ export const deployL1Contracts = async (rpcUrl: string, account: HDAccount, logg
   );
   logger(`Deployed unverified data emitter at ${unverifiedDataEmitterAddress}`);
 
+  let decoderHelperAddress: EthAddress | undefined;
+  if (deployDecoderHelper) {
+    decoderHelperAddress = await deployL1Contract(walletClient, publicClient, DecoderHelperAbi, DecoderHelperBytecode);
+    logger(`Deployed DecoderHelper at ${decoderHelperAddress}`);
+  }
+
   return {
     rollupAddress,
     unverifiedDataEmitterAddress,
+    decoderHelperAddress,
   };
 };
 
@@ -55,7 +70,7 @@ async function deployL1Contract(
   publicClient: PublicClient<HttpTransport, Chain>,
   abi: Narrow<Abi | readonly unknown[]>,
   bytecode: Hex,
-) {
+): Promise<EthAddress> {
   const hash = await walletClient.deployContract({
     abi,
     bytecode,

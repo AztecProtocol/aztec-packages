@@ -1,9 +1,10 @@
-import { Fr, createDebugLogger } from '@aztec/foundation';
-import { L2Block, L2BlockDownloader, L2BlockSource } from '@aztec/types';
-import { MerkleTreeDb, MerkleTreeId, MerkleTreeOperations } from '../index.js';
+import { L2Block, L2BlockDownloader, L2BlockSource, MerkleTreeId } from '@aztec/types';
+import { MerkleTreeDb, MerkleTreeOperations } from '../index.js';
 import { MerkleTreeOperationsFacade } from '../merkle-tree/merkle_tree_operations_facade.js';
 import { WorldStateRunningState, WorldStateStatus, WorldStateSynchroniser } from './world_state_synchroniser.js';
 import { getConfigEnvVars } from './config.js';
+import { createDebugLogger } from '@aztec/foundation/log';
+import { Fr } from '@aztec/foundation/fields';
 
 /**
  * Synchronises the world state with the L2 blocks from a L2BlockSource.
@@ -141,6 +142,11 @@ export class ServerWorldStateSynchroniser implements WorldStateSynchroniser {
         l2Block.endTreeOfHistoricPrivateDataTreeRootsSnapshot.root,
         MerkleTreeId.PRIVATE_DATA_TREE_ROOTS_TREE,
       ),
+      compareRoot(l2Block.endL1ToL2MessageTreeSnapshot.root, MerkleTreeId.L1_TO_L2_MESSAGES_TREE),
+      compareRoot(
+        l2Block.endTreeOfHistoricL1ToL2MessageTreeRootsSnapshot.root,
+        MerkleTreeId.L1_TO_L2_MESSAGES_ROOTS_TREE,
+      ),
     ]);
     const ourBlock = rootChecks.every(x => x);
     if (ourBlock) {
@@ -154,6 +160,7 @@ export class ServerWorldStateSynchroniser implements WorldStateSynchroniser {
         [MerkleTreeId.CONTRACT_TREE, l2Block.newContracts],
         [MerkleTreeId.NULLIFIER_TREE, l2Block.newNullifiers],
         [MerkleTreeId.PRIVATE_DATA_TREE, l2Block.newCommitments],
+        [MerkleTreeId.L1_TO_L2_MESSAGES_TREE, l2Block.newL1ToL2Messages],
       ] as const) {
         await this.merkleTreeDb.appendLeaves(
           tree,

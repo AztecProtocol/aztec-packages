@@ -1,6 +1,10 @@
 import { CombinedHistoricTreeRoots, Fr, PrivateHistoricTreeRoots } from '@aztec/circuits.js';
-import { MerkleTreeId, MerkleTreeOperations } from '@aztec/world-state';
+import { MerkleTreeId } from '@aztec/types';
+import { MerkleTreeOperations } from '@aztec/world-state';
 
+/**
+ * Fetches the private, nullifier, and contract tree roots from a given db and assembles a CombinedHistoricTreeRoots object.
+ */
 export async function getCombinedHistoricTreeRoots(db: MerkleTreeOperations) {
   return new CombinedHistoricTreeRoots(
     new PrivateHistoricTreeRoots(

@@ -1,16 +1,17 @@
-import { BufferReader, Fr } from '@aztec/foundation';
 import { assertLength, FieldsOf } from '../../utils/jsUtils.js';
 import { serializeToBuffer } from '../../utils/serialize.js';
 import { AppendOnlyTreeSnapshot } from './append_only_tree_snapshot.js';
 import {
   CONTRACT_TREE_ROOTS_TREE_HEIGHT,
   L1_TO_L2_MESSAGES_ROOTS_TREE_HEIGHT,
-  L1_TO_L2_MESSAGES_SUBTREE_INSERTION_HEIGHT,
+  L1_TO_L2_MESSAGES_SIBLING_PATH_LENGTH,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT,
 } from '../constants.js';
 import { PreviousRollupData } from './previous_rollup_data.js';
 import { AggregationObject } from '../aggregation_object.js';
+import { Fr } from '@aztec/foundation/fields';
+import { BufferReader } from '@aztec/foundation/serialize';
 
 export class RootRollupInputs {
   constructor(
@@ -26,7 +27,7 @@ export class RootRollupInputs {
   ) {
     assertLength(this, 'newHistoricPrivateDataTreeRootSiblingPath', PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT);
     assertLength(this, 'newHistoricContractDataTreeRootSiblingPath', CONTRACT_TREE_ROOTS_TREE_HEIGHT);
-    assertLength(this, 'newL1ToL2MessageTreeRootSiblingPath', L1_TO_L2_MESSAGES_SUBTREE_INSERTION_HEIGHT);
+    assertLength(this, 'newL1ToL2MessageTreeRootSiblingPath', L1_TO_L2_MESSAGES_SIBLING_PATH_LENGTH);
     assertLength(this, 'newHistoricL1ToL2MessageTreeRootSiblingPath', L1_TO_L2_MESSAGES_ROOTS_TREE_HEIGHT);
     assertLength(this, 'newL1ToL2Messages', NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
   }
@@ -118,6 +119,19 @@ export class RootRollupPublicInputs {
 
   static from(fields: FieldsOf<RootRollupPublicInputs>): RootRollupPublicInputs {
     return new RootRollupPublicInputs(...RootRollupPublicInputs.getFields(fields));
+  }
+
+  public sha256CalldataHash(): Buffer {
+    const high = this.calldataHash[0].toBuffer();
+    const low = this.calldataHash[1].toBuffer();
+
+    const hash = Buffer.alloc(32);
+    for (let i = 0; i < 16; i++) {
+      hash[i] = high[i + 16];
+      hash[i + 16] = low[i + 16];
+    }
+
+    return hash;
   }
 
   static fromBuffer(buffer: Buffer | BufferReader): RootRollupPublicInputs {

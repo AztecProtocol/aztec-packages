@@ -1,5 +1,5 @@
 import { ACVMField, ACVMWitness, fromACVMField } from './acvm.js';
-import { AztecAddress, Fr, EthAddress } from '@aztec/foundation';
+
 import {
   ARGS_LENGTH,
   CallContext,
@@ -13,32 +13,63 @@ import {
   PUBLIC_CALL_STACK_LENGTH,
   RETURN_VALUES_LENGTH,
 } from '@aztec/circuits.js';
+import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { EthAddress } from '@aztec/foundation/eth-address';
+import { Fr } from '@aztec/foundation/fields';
 import { select_return_flattened as selectPublicWitnessFlattened } from '@noir-lang/noir_util_wasm';
 
 // Utilities to read TS classes from ACVM Field arrays
 // In the order that the ACVM provides them
 
+/**
+ * Converts a field to an Aztec address.
+ * @param fr - The field to convert.
+ * @returns The Aztec address.
+ */
 export function frToAztecAddress(fr: Fr): AztecAddress {
   return new AztecAddress(fr.toBuffer());
 }
 
+/**
+ * Converts a field to a number.
+ * @param fr - The field to convert.
+ * @returns The number.
+ */
 export function frToNumber(fr: Fr): number {
   return Number(fr.value);
 }
 
+/**
+ * Converts a field to a eth address.
+ * @param fr - The field to convert.
+ * @returns The eth address.
+ */
 export function frToEthAddress(fr: Fr): EthAddress {
   return new EthAddress(fr.toBuffer().slice(-EthAddress.SIZE_IN_BYTES));
 }
 
+/**
+ * Converts a field to a boolean.
+ * @param fr - The field to convert.
+ * @returns The boolean.
+ */
 export function frToBoolean(fr: Fr): boolean {
   const buf = fr.toBuffer();
   return buf[buf.length - 1] !== 0;
 }
 
+/**
+ * Converts a field to a function selector.
+ * @param fr - The field to convert.
+ * @returns The function selector.
+ */
 export function frToSelector(fr: Fr): Buffer {
   return fr.toBuffer().slice(-4);
 }
 
+/**
+ * A utility reader for the public inputs of the ACVM generated partial witness.
+ */
 export class PublicInputsReader {
   private publicInputs: ACVMField[];
 
@@ -46,12 +77,21 @@ export class PublicInputsReader {
     this.publicInputs = selectPublicWitnessFlattened(acir, witness);
   }
 
+  /**
+   * Reads a field from the public inputs.
+   * @returns The field.
+   */
   public readField(): Fr {
     const acvmField = this.publicInputs.shift();
     if (!acvmField) throw new Error('Not enough public inputs');
     return fromACVMField(acvmField);
   }
 
+  /**
+   * Reads an array of fields from the public inputs.
+   * @param length - The length of the array.
+   * @returns The array of fields.
+   */
   public readFieldArray(length: number): Fr[] {
     const array: Fr[] = [];
     for (let i = 0; i < length; i++) {
@@ -61,6 +101,12 @@ export class PublicInputsReader {
   }
 }
 
+/**
+ * Extracts the public inputs from the ACVM generated partial witness.
+ * @param partialWitness - The partial witness.
+ * @param acir - The ACIR bytecode.
+ * @returns The public inputs.
+ */
 export function extractPublicInputs(partialWitness: ACVMWitness, acir: Buffer): PrivateCircuitPublicInputs {
   const witnessReader = new PublicInputsReader(partialWitness, acir);
 
