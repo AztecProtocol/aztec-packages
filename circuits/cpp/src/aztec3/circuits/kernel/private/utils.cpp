@@ -50,10 +50,10 @@ std::shared_ptr<NT::VK> fake_vk()
  */
 PreviousKernelData<NT> dummy_previous_kernel(bool real_vk_proof = false)
 {
-    PreviousKernelData<NT> const init_previous_kernel{};
-
     PreviousKernelData<NT> previous_kernel{};
     if (real_vk_proof) {
+        // prev kernel can be const since it is immediately converted to circuit type
+        PreviousKernelData<NT> const init_previous_kernel{};
         auto crs_factory = std::make_shared<EnvReferenceStringFactory>();
         auto mock_kernel_composer = Composer(crs_factory);
 
@@ -66,6 +66,8 @@ PreviousKernelData<NT> dummy_previous_kernel(bool real_vk_proof = false)
 
         assert(!mock_kernel_composer.failed());
     } else {
+        // prev kernel cannot be const as its members are modified in native circuit
+        PreviousKernelData<NT> init_previous_kernel{};  //
         auto dummy_composer = DummyComposer();
 
         previous_kernel.public_inputs = native_mock_kernel_circuit(dummy_composer, init_previous_kernel.public_inputs);
