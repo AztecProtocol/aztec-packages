@@ -6,6 +6,7 @@ import {
   CircuitsWasm,
   ConstantBaseRollupData,
   KERNEL_NEW_NULLIFIERS_LENGTH,
+  L1_TO_L2_MESSAGES_ROOTS_TREE_HEIGHT,
   L1_TO_L2_MESSAGES_SUBTREE_HEIGHT,
   MembershipWitness,
   MergeRollupInputs,
@@ -529,6 +530,14 @@ export class SoloBlockBuilder implements BlockBuilder {
     );
   }
 
+  protected getL1ToL2MessageMembershipWitnessFor(tx: ProcessedTx) {
+    return this.getMembershipWitnessFor(
+      tx.data.constants.historicTreeRoots.privateHistoricTreeRoots.l1ToL2MessagesTreeRoot,
+      MerkleTreeId.L1_TO_L2_MESSAGES_ROOTS_TREE,
+      L1_TO_L2_MESSAGES_ROOTS_TREE_HEIGHT,
+    );
+  }
+
   protected async getConstantBaseRollupData(): Promise<ConstantBaseRollupData> {
     return ConstantBaseRollupData.from({
       baseRollupVkHash: DELETE_FR,
@@ -928,6 +937,10 @@ export class SoloBlockBuilder implements BlockBuilder {
       historicPrivateDataTreeRootMembershipWitnesses: [
         await this.getDataMembershipWitnessFor(left),
         await this.getDataMembershipWitnessFor(right),
+      ],
+      historicL1ToL2MsgTreeRootMembershipWitnesses: [
+        await this.getL1ToL2MessageMembershipWitnessFor(left),
+        await this.getL1ToL2MessageMembershipWitnessFor(right),
       ],
     });
   }

@@ -60,7 +60,7 @@ describe('Unconstrained Execution test suite', () => {
       const preimages = [...Array(5).fill(buildNote(1n, owner)), ...Array(2).fill(buildNote(2n, owner))];
       // TODO for this we need that noir siloes the commitment the same way as the kernel does, to do merkle membership
 
-      const historicRoots = new PrivateHistoricTreeRoots(new Fr(0n), new Fr(0n), new Fr(0n), new Fr(0n));
+      const historicRoots = new PrivateHistoricTreeRoots(Fr.ZERO, Fr.ZERO, Fr.ZERO, Fr.ZERO, Fr.ZERO);
 
       oracle.getNotes.mockImplementation((_, __, limit: number, offset: number) => {
         const notes = preimages.slice(offset, offset + limit);
@@ -81,7 +81,7 @@ describe('Unconstrained Execution test suite', () => {
         encodeArguments(abi, [owner], false),
         Fr.random(),
         txContext,
-        new Fr(0n),
+        Fr.ZERO,
       );
 
       const result = await acirSimulator.runUnconstrained(
