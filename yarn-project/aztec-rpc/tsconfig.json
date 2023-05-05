@@ -22,6 +22,9 @@
       "path": "../foundation"
     },
     {
+      "path": "../key-store"
+    },
+    {
       "path": "../noir-contracts"
     },
     {

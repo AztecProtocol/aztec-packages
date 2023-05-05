@@ -98,6 +98,7 @@
       "barretenberg.js",
       "circuits.js",
       "foundation",
+      "key-store",
       "noir-contracts",
       "types"
     ]
@@ -151,7 +152,7 @@
     "projectDir": "yarn-project/key-store",
     "dockerfile": "key-store/Dockerfile",
     "rebuildPatterns": ["^yarn-project/key-store/"],
-    "dependencies": ["foundation"]
+    "dependencies": ["barretenberg.js", "circuits.js", "foundation"]
   },
   "merkle-tree": {
     "buildDir": "yarn-project",

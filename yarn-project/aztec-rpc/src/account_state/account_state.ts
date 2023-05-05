@@ -6,6 +6,7 @@ import { EcdsaSignature, KERNEL_NEW_COMMITMENTS_LENGTH, PrivateHistoricTreeRoots
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
+import { ConstantKeyPair, KeyPair } from '@aztec/key-store';
 import { FunctionType } from '@aztec/noir-contracts';
 import {
   EncodedContractFunction,
@@ -20,7 +21,6 @@ import { ContractDataOracle } from '../contract_data_oracle/index.js';
 import { Database, TxAuxDataDao, TxDao } from '../database/index.js';
 import { generateFunctionSelector } from '../index.js';
 import { KernelProver, OutputNoteData } from '../kernel_prover/index.js';
-import { ConstantKeyPair, KeyPair } from '../key_store/index.js';
 import { SimulatorOracle } from '../simulator_oracle/index.js';
 
 /**

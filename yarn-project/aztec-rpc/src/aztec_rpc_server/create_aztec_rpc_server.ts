@@ -1,7 +1,7 @@
 import { AztecNode } from '@aztec/aztec-node';
 import { Grumpkin } from '@aztec/barretenberg.js/crypto';
+import { KeyStore, TestKeyStore } from '@aztec/key-store';
 import { Database, MemoryDB } from '../database/index.js';
-import { KeyStore, TestKeyStore } from '../key_store/index.js';
 import { AztecRPCServer } from './aztec_rpc_server.js';
 
 /**

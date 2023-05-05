@@ -1,10 +1,10 @@
 import { DBOracle } from '@aztec/acir-simulator';
+import { AztecNode } from '@aztec/aztec-node';
 import { AztecAddress, EthAddress, Fr } from '@aztec/circuits.js';
+import { KeyPair } from '@aztec/key-store';
 import { FunctionAbi } from '@aztec/noir-contracts';
 import { ContractDataOracle } from '../contract_data_oracle/index.js';
 import { Database } from '../database/index.js';
-import { KeyPair } from '../key_store/index.js';
-import { AztecNode } from '@aztec/aztec-node';
 
 /**
  * A data oracle that provides information needed for simulating a transaction.
