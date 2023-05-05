@@ -9,8 +9,7 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthPublicKey } from '@aztec/foundation/eth-public-key';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
-// TODO: Change to secp256k1 key pair
-import { ConstantKeyPair, KeyPair } from '@aztec/key-store';
+import { ConstantKeyPair, KeyPair } from '@aztec/key-store/secp256k1';
 import { FunctionType } from '@aztec/foundation/abi';
 import {
   EncodedContractFunction,

@@ -18,7 +18,6 @@ template <typename NCT> struct SignedTxRequest {
     using fr = typename NCT::fr;
     using boolean = typename NCT::boolean;
     using Signature = typename NCT::ecdsa_signature;
-    using fr = typename NCT::fr;
 
     TxRequest<NCT> tx_request{};
     Signature signature{};

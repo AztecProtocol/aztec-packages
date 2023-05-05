@@ -12,8 +12,7 @@ import {
 } from '@aztec/circuits.js';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
-// TODO: Change to secp256k1
-import { KeyStore } from '@aztec/key-store';
+import { KeyStore } from '@aztec/key-store/secp256k1';
 import { ContractAbi, FunctionType } from '@aztec/foundation/abi';
 import { Tx, TxHash } from '@aztec/types';
 import { AztecRPCClient, DeployedContract } from '../aztec_rpc_client/index.js';
