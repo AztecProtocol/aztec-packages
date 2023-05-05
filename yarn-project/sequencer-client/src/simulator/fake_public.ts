@@ -66,7 +66,7 @@ export class FakePublicCircuitSimulator implements PublicCircuitSimulator {
     const { stateReads, stateTransitions, returnValues } = result;
 
     return PublicCircuitPublicInputs.from({
-      args: padArray<Fr>(args, Fr.ZERO, ARGS_LENGTH),
+      args: padArray<Fr>(tx.args, Fr.ZERO, ARGS_LENGTH),
       callContext: execution.callContext,
       emittedEvents: padArray([], Fr.ZERO, EMITTED_EVENTS_LENGTH),
       newL2ToL1Msgs: padArray([], Fr.ZERO, NEW_L2_TO_L1_MSGS_LENGTH),
