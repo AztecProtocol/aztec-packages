@@ -13,6 +13,7 @@ if (WASM)
         aztec3-circuits.wasm
         $<TARGET_OBJECTS:aztec3_circuits_apps_objects>
         $<TARGET_OBJECTS:aztec3_circuits_abis_objects>
+        $<TARGET_OBJECTS:aztec3_circuits_mock_objects>
         $<TARGET_OBJECTS:aztec3_circuits_kernel_objects>        
         $<TARGET_OBJECTS:aztec3_circuits_rollup_objects>
     )

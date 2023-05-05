@@ -1,4 +1,3 @@
-#pragma once
 #include "native_mock_kernel_circuit.hpp"
 
 #include "aztec3/circuits/abis/kernel_circuit_public_inputs.hpp"
@@ -21,7 +20,6 @@ KernelCircuitPublicInputs<NT> native_mock_kernel_circuit(DummyComposer& /* dummy
             public_inputs.end.aggregation_object.proof_witness_indices.push_back(i);
         }
     }
-    public_inputs.set_public();
 
     return public_inputs;
 }

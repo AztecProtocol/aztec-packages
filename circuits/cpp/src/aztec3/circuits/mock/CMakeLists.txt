@@ -1,8 +1,4 @@
 barretenberg_module(
-    aztec3_circuits_kernel
-
-    aztec3_circuits_apps
     aztec3_circuits_mock
-
     barretenberg
 )
