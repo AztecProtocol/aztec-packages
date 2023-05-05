@@ -7,7 +7,10 @@ import {Decoder} from "@aztec3/core/Decoder.sol";
 import {Rollup} from "@aztec3/core/Rollup.sol";
 import {DecoderHelper} from "./DecoderHelper.sol";
 
-// Blocks are generated using the `solo_block_builder.test.ts` tests: "builds an empty L2 block" and "builds a mixed L2 block"
+/**
+ * Blocks are generated using the `integration_l1_publisher.test.ts` tests.
+ * Main use of these test is shorter cycles when updating the decoder contract.
+ */
 contract DecoderTest is Test {
   Rollup internal rollup;
   DecoderHelper internal helper;

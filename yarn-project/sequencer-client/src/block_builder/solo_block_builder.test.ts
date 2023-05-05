@@ -344,15 +344,6 @@ describe('sequencer/solo_block_builder', () => {
 
       const [l2Block] = await builder.buildL2Block(1, txs, mockL1ToL2Messages);
       expect(l2Block.number).toEqual(1);
-      /*
-      Useful for sol generation
-      const encoded = l2Block.encode();
-      console.log(`Size (${encoded.length}): ${encoded.toString('hex')}`);
-      console.log(`calldata hash: 0x${l2Block.getCalldataHash().toString('hex')}`);
-      console.log(`l1 to l2 message hash: 0x${l2Block.getL1ToL2MessagesHash().toString('hex')}`);
-      console.log(`start state hash: 0x${l2Block.getStartStateHash().toString('hex')}`);
-      console.log(`end state hash: 0x${l2Block.getEndStateHash().toString('hex')}`);
-      console.log(`public data hash: 0x${l2Block.getPublicInputsHash().toBuffer().toString('hex')}`);*/
     }, 10_000);
 
     it('builds a mixed L2 block', async () => {
@@ -367,15 +358,6 @@ describe('sequencer/solo_block_builder', () => {
 
       const [l2Block] = await builder.buildL2Block(1, txs, l1ToL2Messages);
       expect(l2Block.number).toEqual(1);
-      /*
-      Useful for sol generation
-      const encoded = l2Block.encode();
-      console.log(`Size (${encoded.length}): ${encoded.toString('hex')}`);
-      console.log(`calldata hash: 0x${l2Block.getCalldataHash().toString('hex')}`);
-      console.log(`l1 to l2 message hash: 0x${l2Block.getL1ToL2MessagesHash().toString('hex')}`);
-      console.log(`start state hash: 0x${l2Block.getStartStateHash().toString('hex')}`);
-      console.log(`end state hash: 0x${l2Block.getEndStateHash().toString('hex')}`);
-      console.log(`public data hash: 0x${l2Block.getPublicInputsHash().toBuffer().toString('hex')}`);*/
     }, 20_000);
 
     it('builds an L2 block with private and public txs', async () => {
