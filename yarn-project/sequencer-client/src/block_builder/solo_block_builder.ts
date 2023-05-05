@@ -893,11 +893,6 @@ export class SoloBlockBuilder implements BlockBuilder {
     const lowNullifierMembershipWitnesses = nullifierWitnesses.map(w =>
       MembershipWitness.fromBufferArray(w.index, w.siblingPath.data),
     );
-    /*
-    const newNullifiersSubtreeSiblingPath = await this.getSubtreeSiblingPath(
-      MerkleTreeId.NULLIFIER_TREE,
-      BaseRollupInputs.NULLIFIER_SUBTREE_HEIGHT,
-    );*/
 
     return BaseRollupInputs.from({
       constants,
