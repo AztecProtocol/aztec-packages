@@ -1,5 +1,6 @@
 import {
   AztecAddress,
+  CircuitsWasm,
   EMITTED_EVENTS_LENGTH,
   Fr,
   KernelCircuitPublicInputs,
@@ -25,7 +26,8 @@ import { ContractDataSource, MerkleTreeId, PublicTx, Tx } from '@aztec/types';
 import { MerkleTreeOperations } from '@aztec/world-state';
 
 import { PublicExecutionResult, PublicExecutor } from '@aztec/acir-simulator';
-import { padArrayEnd } from '@aztec/foundation/collection';
+import { computeCallStackItemHash } from '@aztec/circuits.js/abis';
+import { padArrayEnd, padArrayStart } from '@aztec/foundation/collection';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { getVerificationKeys } from '../index.js';
 import { Proof, PublicProver } from '../prover/index.js';
@@ -145,6 +147,8 @@ export class PublicProcessor {
       const vkSiblingPath = MembershipWitness.random(VK_TREE_HEIGHT).siblingPath;
       const previousKernel = new PreviousKernelData(previousOutput, previousProof, vk, vkIndex, vkSiblingPath);
       const inputs = new PublicKernelInputs(previousKernel, callData);
+      // TODO: This should be set by the public kernel circuit
+      inputs.previousKernel.publicInputs.end.publicCallCount = new Fr(1n);
       return this.publicKernel.publicKernelCircuitNonFirstIteration(inputs);
     } else {
       const inputs = new PublicKernelInputsNoPreviousKernel(txRequest, callData);
@@ -155,6 +159,9 @@ export class PublicProcessor {
   protected async getPublicCircuitPublicInputs(result: PublicExecutionResult) {
     const publicDataTreeInfo = await this.db.getTreeInfo(MerkleTreeId.PUBLIC_DATA_TREE);
     const historicPublicDataTreeRoot = Fr.fromBuffer(publicDataTreeInfo.root);
+    const callStackPreimages = await this.getPublicCallStackPreimages(result);
+    const wasm = await CircuitsWasm.get();
+    const publicCallStack = callStackPreimages.map(item => computeCallStackItemHash(wasm, item));
 
     return PublicCircuitPublicInputs.from({
       args: result.execution.args,
@@ -162,10 +169,10 @@ export class PublicProcessor {
       proverAddress: AztecAddress.random(),
       emittedEvents: padArrayEnd([], Fr.ZERO, EMITTED_EVENTS_LENGTH),
       newL2ToL1Msgs: padArrayEnd([], Fr.ZERO, NEW_L2_TO_L1_MSGS_LENGTH),
-      publicCallStack: padArrayEnd([], Fr.ZERO, PUBLIC_CALL_STACK_LENGTH), // TODO: Set call stack!
       returnValues: padArrayEnd(result.returnValues, Fr.ZERO, RETURN_VALUES_LENGTH),
       stateReads: padArrayEnd(result.stateReads, StateRead.empty(), STATE_READS_LENGTH),
       stateTransitions: padArrayEnd(result.stateTransitions, StateTransition.empty(), STATE_TRANSITIONS_LENGTH),
+      publicCallStack,
       historicPublicDataTreeRoot,
     });
   }
@@ -178,16 +185,18 @@ export class PublicProcessor {
     );
   }
 
-  protected async getPublicCallStackPreimages(nested: PublicExecutionResult[], msgSender: AztecAddress) {
+  protected async getPublicCallStackPreimages(result: PublicExecutionResult) {
+    const nested = result.nestedExecutions;
     const preimages: PublicCallStackItem[] = await Promise.all(nested.map(n => this.getPublicCallStackItem(n)));
     if (preimages.length > PUBLIC_CALL_STACK_LENGTH) {
       throw new Error(`Public call stack size exceeded (max ${PUBLIC_CALL_STACK_LENGTH}, got ${preimages.length})`);
     }
 
-    // TODO: Remove the msgSender set once circuits dont validate empty call stack items
     const emptyPreimage = PublicCallStackItem.empty();
-    emptyPreimage.publicInputs.callContext.msgSender = msgSender;
-    return padArrayEnd(preimages, emptyPreimage, PUBLIC_CALL_STACK_LENGTH);
+    // TODO: Remove the msgSender set once circuits dont validate empty call stack items
+    emptyPreimage.publicInputs.callContext.msgSender = result.execution.contractAddress;
+    // Top of the stack is at the end of the array, so we padStart
+    return padArrayStart(preimages, emptyPreimage, PUBLIC_CALL_STACK_LENGTH);
   }
 
   protected getBytecodeHash(_result: PublicExecutionResult) {
@@ -206,8 +215,7 @@ export class PublicProcessor {
   protected async getPublicCallData(result: PublicExecutionResult) {
     const bytecodeHash = await this.getBytecodeHash(result);
     const callStackItem = await this.getPublicCallStackItem(result);
-    const msgSender = result.execution.callContext.msgSender;
-    const preimages = await this.getPublicCallStackPreimages(result.nestedExecutions, msgSender);
+    const preimages = await this.getPublicCallStackPreimages(result);
     const portalContractAddress = result.execution.callContext.portalContractAddress.toField();
     const proof = await this.publicProver.getPublicCircuitProof(callStackItem.publicInputs);
     return new PublicCallData(callStackItem, preimages, proof, portalContractAddress, bytecodeHash);
