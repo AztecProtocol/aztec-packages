@@ -1,5 +1,5 @@
 import { randomBytes } from 'crypto';
-import { toBigIntBE, toBufferBE } from '../index.js';
+import { toBigIntBE, toBufferBE } from '../bigint-buffer/index.js';
 import { BufferReader } from '../serialize/buffer_reader.js';
 
 /**

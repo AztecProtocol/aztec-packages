@@ -6,8 +6,8 @@
 #include <aztec3/utils/types/convert.hpp>
 #include <aztec3/utils/types/native_types.hpp>
 
-#include <barretenberg/stdlib/primitives/witness/witness.hpp>
 #include <barretenberg/crypto/hashers/hashers.hpp>
+#include <barretenberg/stdlib/primitives/witness/witness.hpp>
 
 namespace aztec3::circuits::abis {
 
@@ -15,7 +15,7 @@ using aztec3::utils::types::CircuitTypes;
 using aztec3::utils::types::NativeTypes;
 
 template <typename NCT> struct SignedTxRequest {
-    using fr = NCT::fr;
+    using fr = typename NCT::fr;
     using boolean = typename NCT::boolean;
     using Signature = typename NCT::ecdsa_signature;
     using fr = typename NCT::fr;

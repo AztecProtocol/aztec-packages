@@ -1,6 +1,8 @@
 import { toBigIntBE, toBufferBE } from '../bigint-buffer/index.js';
 import { keccak256String } from '../crypto/index.js';
-import { AztecAddress, BufferReader, EthAddress } from '../index.js';
+import { AztecAddress } from '../aztec-address/index.js';
+import { EthAddress } from '../eth-address/index.js';
+import { BufferReader } from '../serialize/buffer_reader.js';
 import { Secp256k1Fq } from './fq.js';
 
 /**

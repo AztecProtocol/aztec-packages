@@ -1,6 +1,6 @@
 import { Secp256k1 } from '@aztec/barretenberg.js/crypto';
 import { EcdsaSignature } from '@aztec/circuits.js';
-import { EthPublicKey, Secp256k1Fr } from '@aztec/foundation';
+import { EthPublicKey, Secp256k1Fr } from '@aztec/foundation/eth-public-key';
 import { Ecdsa } from '@aztec/barretenberg.js/crypto';
 
 export interface KeyPair {
