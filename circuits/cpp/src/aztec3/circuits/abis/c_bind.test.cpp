@@ -361,7 +361,7 @@ TEST(abi_tests, compute_transaction_hash)
         0xef, 0x97, 0xb2, 0x18, 0xe9, 0x6f, 0x17, 0x5a, 0x3c, 0xcd, 0xda, 0x2a, 0xcc, 0x05, 0x89, 0x03,
     };
 
-    NT::ecdsa_signature sig{ r, s };
+    NT::ecdsa_signature sig{ r, s, 27 };
 
     // Construct SignedTxRequest with some randomized fields
     SignedTxRequest<NT> const preimage = SignedTxRequest<NT>{

@@ -25,7 +25,7 @@ import {
 } from '@aztec/circuits.js';
 import { computeContractLeaf } from '@aztec/circuits.js/abis';
 import { LeafData, SiblingPath } from '@aztec/merkle-tree';
-import { MerkleTreeId, ContractData, L2Block, PublicDataWrite } from '@aztec/types';
+import { MerkleTreeId, ContractData, L2Block, PublicDataWrite, Tx } from '@aztec/types';
 import { MerkleTreeOperations } from '@aztec/world-state';
 import chunk from 'lodash.chunk';
 import flatMap from 'lodash.flatmap';
@@ -129,12 +129,16 @@ export class SoloBlockBuilder implements BlockBuilder {
     // Check txs are good for processing
     this.validateTxs(txs);
 
+    const emptyTxHash = await Tx.emptyTxHash();
+
     for (const tx of txs) {
+      if (tx.hash.equals(emptyTxHash)) {
+        continue;
+      }
       tx.data.end.newNullifiers = [
         Fr.fromBuffer(tx.hash.buffer),
         ...tx.data.end.newNullifiers.slice(0, KERNEL_NEW_NULLIFIERS_LENGTH - 1),
       ];
-      this.debug(`Added nullifier ${tx.hash.toString()}`);
     }
 
     // We fill the tx batch with empty txs, we process only one tx at a time for now
@@ -896,6 +900,17 @@ export class SoloBlockBuilder implements BlockBuilder {
       MerkleTreeId.NULLIFIER_TREE,
       BaseRollupInputs.NULLIFIER_SUBTREE_HEIGHT,
     );
+
+    const kernelLeft = this.getKernelDataFor(left);
+    const kernelRight = this.getKernelDataFor(right);
+
+    for (const left of kernelLeft.publicInputs.end.newNullifiers) {
+      this.debug(`Kernel nullifier `, left.toString());
+    }
+
+    for (const right of kernelRight.publicInputs.end.newNullifiers) {
+      this.debug(`Kernel nullifier `, right.toString());
+    }
 
     return BaseRollupInputs.from({
       constants,

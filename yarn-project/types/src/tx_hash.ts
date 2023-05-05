@@ -9,12 +9,19 @@ export class TxHash {
    */
   public static SIZE = 32;
 
+  /**
+   * The underlying hash data.
+   */
+  public readonly buffer: Buffer;
+
   constructor(
     /**
      * The buffer containing the hash.
      */
-    public readonly buffer: Buffer,
-  ) {}
+    private input: Buffer,
+  ) {
+    this.buffer = Buffer.concat([Buffer.alloc(TxHash.SIZE - input.length), input]);
+  }
 
   /**
    * Checks if this hash and another hash are equal.

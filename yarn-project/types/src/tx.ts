@@ -1,11 +1,11 @@
 import { CircuitsWasm, KernelCircuitPublicInputs, SignedTxRequest, UInt8Vector } from '@aztec/circuits.js';
 import { computeContractLeaf, computeTxHash } from '@aztec/circuits.js/abis';
 
-import { createTxHash } from './create_tx_hash.js';
+import { createEmptyTxHash, createTxHash } from './create_tx_hash.js';
 import { TxHash } from './tx_hash.js';
 import { UnverifiedData } from './unverified_data.js';
 import { EncodedContractFunction } from './contract_data.js';
-import { keccak } from '@aztec/foundation/crypto';
+import { keccak224 } from '@aztec/foundation/crypto';
 
 /**
  * Defines valid fields for a private transaction.
@@ -202,6 +202,14 @@ export class Tx {
 
     // Return a tx hash if we have only one, or hash them again if we have both
     if (hashes.length === 1) return hashes[0];
-    else return new TxHash(keccak(Buffer.concat(hashes.map(h => h.buffer))));
+    else return new TxHash(keccak224(Buffer.concat(hashes.map(h => h.buffer))));
+  }
+
+  /**
+   * Utility function to generate an 'empty' tx hash.
+   * @returns The hash of an 'empty' tx.
+   */
+  static async emptyTxHash() {
+    return createEmptyTxHash(await CircuitsWasm.get());
   }
 }

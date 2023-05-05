@@ -1,6 +1,8 @@
 import { Fr } from '@aztec/foundation/fields';
 import { TxHash } from './tx_hash.js';
-import { keccak } from '@aztec/foundation/crypto';
+import { keccak224 } from '@aztec/foundation/crypto';
+import { CircuitsWasm, CombinedAccumulatedData } from '@aztec/circuits.js';
+import { computeContractLeaf } from '@aztec/circuits.js/abis';
 
 /**
  * Defines transaction data.
@@ -35,5 +37,17 @@ export function createTxHash({ newCommitments, newNullifiers, newContracts }: Tx
       newContracts.map(x => x.toBuffer()),
     ].flat(),
   );
-  return new TxHash(keccak(data));
+  return new TxHash(keccak224(data));
+}
+
+/**
+ * Utility function to generate the hash of an 'empty' tx
+ * @returns A hash of the 'empty' tx data
+ */
+export function createEmptyTxHash(wasm: CircuitsWasm) {
+  const accumulatedData = CombinedAccumulatedData.empty();
+  return createTxHash({
+    ...accumulatedData,
+    newContracts: accumulatedData.newContracts.map(cd => computeContractLeaf(wasm, cd)),
+  });
 }

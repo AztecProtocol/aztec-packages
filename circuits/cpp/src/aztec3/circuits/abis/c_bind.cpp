@@ -365,7 +365,6 @@ WASM_EXPORT void abis__compute_transaction_hash(uint8_t const* signed_tx_request
 {
     SignedTxRequest<NT> signed_tx_request_preimage;
     read(signed_tx_request_buf, signed_tx_request_preimage);
-    // as per the circuit implementation, if contract address == zero then return a zero leaf
     auto to_write = signed_tx_request_preimage.hash();
     NT::fr::serialize_to_buffer(to_write, output);
 }
