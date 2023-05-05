@@ -133,6 +133,9 @@ export class SoloBlockBuilder implements BlockBuilder {
       if (tx.isEmpty) {
         continue;
       }
+      if (!tx.data.end.newNullifiers[tx.data.end.newNullifiers.length - 1].isZero()) {
+        throw new Error(`Unable to insert tx hash as first nullifier`);
+      }
       tx.data.end.newNullifiers = [
         Fr.fromBuffer(tx.hash.buffer),
         ...tx.data.end.newNullifiers.slice(0, KERNEL_NEW_NULLIFIERS_LENGTH - 1),
