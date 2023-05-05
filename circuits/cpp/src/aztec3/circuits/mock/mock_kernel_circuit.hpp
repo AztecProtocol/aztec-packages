@@ -20,7 +20,7 @@ template <typename Composer>
 KernelCircuitPublicInputs<NT> mock_kernel_circuit(Composer& composer,
                                                   KernelCircuitPublicInputs<NT> const& _public_inputs)
 {
-    typedef CircuitTypes<Composer> CT;
+    using CT = CircuitTypes<Composer>;
 
     auto public_inputs = _public_inputs.to_circuit_type(composer);
 
