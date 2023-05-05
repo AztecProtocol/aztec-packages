@@ -64,6 +64,7 @@ const getMockBlock = (blockNumber: number, newContractsCommitments?: Buffer[]) =
     newContractData: [getMockContractData()],
     newPublicDataWrites: [PublicDataWrite.random()],
     newL1ToL2Messages: getMockL1ToL2MessagesData(),
+    newL2ToL1Msgs: [Fr.random()],
   });
   return block;
 };
@@ -250,8 +251,8 @@ describe('server_world_state_synchroniser', () => {
       .map((_, index) => getMockBlock(index, [Buffer.alloc(32, index)]));
     // sync the server
     await server.start();
-    // there are 3 data trees updated
-    expect(merkleTreeDb.appendLeaves).toHaveBeenCalledTimes(totalBlocks * 3);
+    // there are 4 data trees updated
+    expect(merkleTreeDb.appendLeaves).toHaveBeenCalledTimes(totalBlocks * 4);
     // and 2 root trees
     expect(merkleTreeDb.updateHistoricRootsTrees).toHaveBeenCalledTimes(totalBlocks);
     // there should be a call to append to the contract tree for each block

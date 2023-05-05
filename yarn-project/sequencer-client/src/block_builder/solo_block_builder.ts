@@ -5,7 +5,7 @@ import {
   CONTRACT_TREE_ROOTS_TREE_HEIGHT,
   CircuitsWasm,
   ConstantBaseRollupData,
-  L1_TO_L2_MESSAGES_SUBTREE_INSERTION_HEIGHT,
+  L1_TO_L2_MESSAGES_SUBTREE_HEIGHT,
   MembershipWitness,
   MergeRollupInputs,
   NULLIFIER_TREE_HEIGHT,
@@ -153,6 +153,7 @@ export class SoloBlockBuilder implements BlockBuilder {
     const newPublicDataWrites = flatMap(txs, tx =>
       tx.data.end.stateTransitions.map(t => new PublicDataWrite(t.leafIndex, t.newValue)),
     );
+    const newL2ToL1Msgs = flatMap(txs, tx => tx.data.end.newL2ToL1Msgs);
 
     const l2Block = L2Block.fromFields({
       number: blockNumber,
@@ -174,6 +175,7 @@ export class SoloBlockBuilder implements BlockBuilder {
       endTreeOfHistoricL1ToL2MessageTreeRootsSnapshot,
       newCommitments,
       newNullifiers,
+      newL2ToL1Msgs,
       newContracts,
       newContractData,
       newPublicDataWrites,
@@ -425,7 +427,7 @@ export class SoloBlockBuilder implements BlockBuilder {
     );
     const newL1ToL2MessageTreeRootSiblingPath = await this.getSubtreeSiblingPath(
       MerkleTreeId.L1_TO_L2_MESSAGES_TREE,
-      L1_TO_L2_MESSAGES_SUBTREE_INSERTION_HEIGHT,
+      L1_TO_L2_MESSAGES_SUBTREE_HEIGHT,
     );
 
     // Get tree snapshots
@@ -524,7 +526,7 @@ export class SoloBlockBuilder implements BlockBuilder {
       startTreeOfHistoricPrivateDataTreeRootsSnapshot: await this.getTreeSnapshot(
         MerkleTreeId.PRIVATE_DATA_TREE_ROOTS_TREE,
       ),
-      treeOfHistoricL1ToL2MsgTreeRootsSnapshot: new AppendOnlyTreeSnapshot(DELETE_FR, DELETE_NUM),
+      treeOfHistoricL1ToL2MsgTreeRootsSnapshot: await this.getTreeSnapshot(MerkleTreeId.L1_TO_L2_MESSAGES_ROOTS_TREE),
     });
   }
 
