@@ -66,9 +66,10 @@ WASM_EXPORT size_t private_kernel__init_verification_key(uint8_t const* pk_buf, 
     return vk_vec.size();
 }
 
-WASM_EXPORT size_t private_kernel__dummy_previous_kernel(uint8_t const** previous_kernel_buf)
+WASM_EXPORT size_t private_kernel__dummy_previous_kernel(uint8_t const** previous_kernel_buf,
+                                                         bool real_vk_proof = false)
 {
-    PreviousKernelData<NT> const previous_kernel = dummy_previous_kernel();
+    PreviousKernelData<NT> const previous_kernel = dummy_previous_kernel(real_vk_proof);
 
     std::vector<uint8_t> previous_kernel_vec;
     write(previous_kernel_vec, previous_kernel);
