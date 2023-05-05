@@ -16,7 +16,8 @@ import {
   StateTransition,
   TxRequest,
 } from '@aztec/circuits.js';
-import { MerkleTreeId, MerkleTreeOperations, computePublicDataTreeLeafIndex } from '@aztec/world-state';
+import { MerkleTreeOperations, computePublicDataTreeLeafIndex } from '@aztec/world-state';
+import { MerkleTreeId } from '@aztec/types';
 import { PublicCircuitSimulator } from './index.js';
 
 function padArray<T>(array: T[], element: T, requiredLength: number): T[] {

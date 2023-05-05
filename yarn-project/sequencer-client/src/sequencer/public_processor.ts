@@ -10,8 +10,8 @@ import {
   PublicKernelPublicInputs,
   TxRequest,
 } from '@aztec/circuits.js';
-import { ContractDataSource, PublicTx, Tx } from '@aztec/types';
-import { MerkleTreeId, MerkleTreeOperations } from '@aztec/world-state';
+import { ContractDataSource, PublicTx, Tx, MerkleTreeId } from '@aztec/types';
+import { MerkleTreeOperations } from '@aztec/world-state';
 import times from 'lodash.times';
 import { Proof, PublicProver } from '../prover/index.js';
 import { PublicCircuitSimulator, PublicKernelCircuitSimulator } from '../simulator/index.js';

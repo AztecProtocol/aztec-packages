@@ -1,11 +1,13 @@
 import { mnemonicToAccount } from 'viem/accounts';
 
 import { AztecNode, getConfigEnvVars } from '@aztec/aztec-node';
-import { AztecAddress, AztecRPCServer, Contract, ContractDeployer, TxStatus } from '@aztec/aztec.js';
+import { AztecAddress, AztecRPCServer, Contract, ContractDeployer, Fr, Point, TxStatus } from '@aztec/aztec.js';
 import { pedersenCompressInputs } from '@aztec/barretenberg.js/crypto';
 import { BarretenbergWasm } from '@aztec/barretenberg.js/wasm';
-import { Fr, Point, createDebugLogger, retry, toBigIntBE } from '@aztec/foundation';
 import { PublicTokenContractAbi } from '@aztec/noir-contracts/examples';
+import { createDebugLogger } from '@aztec/foundation/log';
+import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
+import { retry } from '@aztec/foundation/retry';
 
 import { createAztecRpcServer } from './create_aztec_rpc_client.js';
 import { deployL1Contracts } from './deploy_l1_contracts.js';
