@@ -30,7 +30,7 @@ KernelCircuitPublicInputs<NT> mock_kernel_circuit(Composer& composer,
         // 16 is the number of values added to `proof_witness_indices` at the end of `verify_proof`.
         constexpr size_t num_witness_indices = 16;
         for (size_t i = 0; i < num_witness_indices; ++i) {
-            auto const witness = typename CT::fr(witness_t(&composer, i));
+            auto const witness = fr(witness_t(&composer, i));
             uint32_t const witness_index = witness.get_witness_index();
             dummy_witness_indices.push_back(witness_index);
         }
@@ -45,8 +45,7 @@ KernelCircuitPublicInputs<NT> mock_kernel_circuit(Composer& composer,
     // contains_recursive_proof to be false.
     composer.contains_recursive_proof = false;
 
-    plonk::stdlib::pedersen_commitment<Composer>::compress(CT::fr(witness_t(&composer, 1)),
-                                                           CT::fr(witness_t(&composer, 1)));
+    plonk::stdlib::pedersen_commitment<Composer>::compress(fr(witness_t(&composer, 1)), fr(witness_t(&composer, 1)));
     return public_inputs.template to_native_type<Composer>();
 }
 
