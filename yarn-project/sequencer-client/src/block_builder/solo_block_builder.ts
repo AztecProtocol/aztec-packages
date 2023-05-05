@@ -873,9 +873,6 @@ export class SoloBlockBuilder implements BlockBuilder {
 
     // Update the nullifier tree, capturing the low nullifier info for each individual operation
     const newNullifiers = [...left.data.end.newNullifiers, ...right.data.end.newNullifiers];
-    for (const nullifier of newNullifiers) {
-      this.debug(`Inserting ${nullifier.toString()}`);
-    }
 
     const nullifierWitnesses = await this.performBaseRollupBatchInsertionProofs(newNullifiers.map(fr => fr.toBuffer()));
     if (nullifierWitnesses === undefined) {
@@ -900,17 +897,6 @@ export class SoloBlockBuilder implements BlockBuilder {
       MerkleTreeId.NULLIFIER_TREE,
       BaseRollupInputs.NULLIFIER_SUBTREE_HEIGHT,
     );
-
-    const kernelLeft = this.getKernelDataFor(left);
-    const kernelRight = this.getKernelDataFor(right);
-
-    for (const left of kernelLeft.publicInputs.end.newNullifiers) {
-      this.debug(`Kernel nullifier `, left.toString());
-    }
-
-    for (const right of kernelRight.publicInputs.end.newNullifiers) {
-      this.debug(`Kernel nullifier `, right.toString());
-    }
 
     return BaseRollupInputs.from({
       constants,
