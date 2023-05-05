@@ -1,5 +1,5 @@
 import { AztecNode } from '@aztec/aztec-node';
-import { AztecAddress, CircuitsWasm, MembershipWitness, VK_TREE_HEIGHT, VerificationKey } from '@aztec/circuits.js';
+import { AztecAddress, CircuitsWasm, MembershipWitness, VK_TREE_HEIGHT } from '@aztec/circuits.js';
 import { ContractDatabase } from '../contract_database/index.js';
 import { ContractTree } from '../contract_tree/index.js';
 
@@ -33,7 +33,7 @@ export class ContractDataOracle {
     return tree.getFunctionMembershipWitness(functionSelector);
   }
 
-  public async getVkMembershipWitness(vk: VerificationKey) {
+  public async getVkMembershipWitness(/** vk: VerificationKey */) {
     // TODO
     return await Promise.resolve(MembershipWitness.random(VK_TREE_HEIGHT));
   }
