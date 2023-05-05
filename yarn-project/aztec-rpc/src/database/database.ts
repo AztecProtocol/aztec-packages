@@ -5,6 +5,10 @@ import { TxDao } from './tx_dao.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr, Point } from '@aztec/foundation/fields';
 
+/**
+ * A database interface that provides methods for retrieving, adding, and removing transactional data related to Aztec
+ * addresses, storage slots, and nullifiers.
+ */
 export interface Database extends ContractDatabase {
   getTx(txHash: TxHash): Promise<TxDao | undefined>;
   getTxsByAddress(from: AztecAddress): Promise<TxDao[]>;
