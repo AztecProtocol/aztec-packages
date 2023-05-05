@@ -77,20 +77,11 @@ std::vector<NT::fr> calculate_contract_leaves(BaseRollupInputs const& baseRollup
 
         // loop over the new contracts
         // TODO: NOTE: we are currently assuming that there is only going to be one
-        for (auto& new_contact : new_contacts) {
-            NT::address contract_address = new_contact.contract_address;
-            NT::address portal_contract_address = new_contact.portal_contract_address;
-            NT::fr const function_tree_root = new_contact.function_tree_root;
-
-            // Pedersen hash of the 3 fields (contract_address, portal_contract_address, function_tree_root)
-            auto contract_leaf = crypto::pedersen_commitment::compress_native(
-                { contract_address, portal_contract_address, function_tree_root }, GeneratorIndex::CONTRACT_LEAF);
-
+        for (auto& leaf_preimage : new_contacts) {
             // When there is no contract deployment, we should insert a zero leaf into the tree and ignore the
             // member-ship check. This is to ensure that we don't hit "already deployed" errors when we are not
             // deploying contracts. e.g., when we are only calling functions on existing contracts.
-            auto to_push = contract_address == NT::address(0) ? NT::fr(0) : contract_leaf;
-
+            auto to_push = leaf_preimage.contract_address == NT::address(0) ? NT::fr(0) : leaf_preimage.hash();
             contract_leaves.push_back(to_push);
         }
     }
@@ -133,67 +124,6 @@ NT::fr calculate_commitments_subtree(DummyComposer& composer, BaseRollupInputs c
 
     // Commitments subtree
     return commitments_tree.root();
-}
-
-std::array<NT::fr, 2> calculate_calldata_hash(BaseRollupInputs const& baseRollupInputs,
-                                              std::vector<NT::fr> const& contract_leaves)
-{
-    // Compute calldata hashes
-    // 22 = (4 + 4 + 1 + 2) * 2 (2 kernels, 4 nullifiers per kernel, 4 commitments per kernel, 1 contract
-    // deployments, 2 contracts data fields (size 2 for each) )
-    std::array<NT::fr, 22> calldata_hash_inputs;
-
-    for (size_t i = 0; i < 2; i++) {
-        // Nullifiers
-        auto new_nullifiers = baseRollupInputs.kernel_data[i].public_inputs.end.new_nullifiers;
-        auto new_commitments = baseRollupInputs.kernel_data[i].public_inputs.end.new_commitments;
-        for (size_t j = 0; j < KERNEL_NEW_COMMITMENTS_LENGTH; j++) {
-            calldata_hash_inputs[i * KERNEL_NEW_COMMITMENTS_LENGTH + j] = new_nullifiers[j];
-            calldata_hash_inputs[(KERNEL_NEW_NULLIFIERS_LENGTH * 2) + i * KERNEL_NEW_NULLIFIERS_LENGTH + j] =
-                new_commitments[j];
-        }
-
-        // yuck - TODO: is contract_leaves fixed size?
-        calldata_hash_inputs[16 + i] = contract_leaves[i];
-
-        auto new_contracts = baseRollupInputs.kernel_data[i].public_inputs.end.new_contracts;
-
-        // TODO: this assumes that there is only one contract deployment
-        calldata_hash_inputs[18 + i] = new_contracts[0].contract_address;
-        calldata_hash_inputs[20 + i] = new_contracts[0].portal_contract_address;
-    }
-
-    // FIXME
-    // Calculate sha256 hash of calldata; TODO: work out typing here
-    // 22 * 32 = 22 fields, each 32 bytes
-    constexpr auto num_bytes = 22 * 32;
-    std::array<uint8_t, num_bytes> calldata_hash_inputs_bytes;
-    // Convert all into a buffer, then copy into the array, then hash
-    for (size_t i = 0; i < calldata_hash_inputs.size(); i++) {
-        auto as_bytes = calldata_hash_inputs[i].to_buffer();
-
-        auto offset = i * 32;
-        std::copy(as_bytes.begin(), as_bytes.end(), calldata_hash_inputs_bytes.begin() + offset);
-    }
-    // TODO: double check this gpt code
-    std::vector<uint8_t> const calldata_hash_inputs_bytes_vec(calldata_hash_inputs_bytes.begin(),
-                                                              calldata_hash_inputs_bytes.end());
-
-    auto h = sha256::sha256(calldata_hash_inputs_bytes_vec);
-
-    // Split the hash into two fields, a high and a low
-    std::array<uint8_t, 32> buf_1;
-    std::array<uint8_t, 32> buf_2;
-    for (uint8_t i = 0; i < 16; i++) {
-        buf_1[i] = 0;
-        buf_1[16 + i] = h[i];
-        buf_2[i] = 0;
-        buf_2[16 + i] = h[i + 16];
-    }
-    auto high = fr::serialize_from_buffer(buf_1.data());
-    auto low = fr::serialize_from_buffer(buf_2.data());
-
-    return std::array<NT::fr, 2>{ high, low };
 }
 
 /**
@@ -570,7 +500,7 @@ BaseOrMergeRollupPublicInputs base_rollup_circuit(DummyComposer& composer, BaseR
     fr const end_public_data_tree_root = validate_and_process_public_state(composer, baseRollupInputs);
 
     // Calculate the overall calldata hash
-    std::array<NT::fr, 2> const calldata_hash = calculate_calldata_hash(baseRollupInputs, contract_leaves);
+    std::array<NT::fr, 2> const calldata_hash = components::compute_kernels_calldata_hash(baseRollupInputs.kernel_data);
 
     // Perform membership checks that the notes provided exist within the historic trees data
     perform_historical_private_data_tree_membership_checks(composer, baseRollupInputs);
