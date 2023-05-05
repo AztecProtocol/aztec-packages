@@ -1,31 +1,32 @@
 #include "c_bind.h"
-#include "barretenberg/srs/reference_string/mem_reference_string.hpp"
+
+#include "function_data.hpp"
+#include "function_leaf_preimage.hpp"
+#include "kernel_circuit_public_inputs.hpp"
+#include "previous_kernel_data.hpp"
+#include "private_circuit_public_inputs.hpp"
+#include "tx_context.hpp"
+#include "tx_request.hpp"
+#include "private_kernel/private_inputs.hpp"
+#include "public_kernel/public_kernel_inputs.hpp"
+#include "public_kernel/public_kernel_inputs_no_previous_kernel.hpp"
+#include "rollup/base/base_or_merge_rollup_public_inputs.hpp"
+#include "rollup/base/base_rollup_inputs.hpp"
+#include "rollup/root/root_rollup_inputs.hpp"
+#include "rollup/root/root_rollup_public_inputs.hpp"
+
 #include "aztec3/circuits/abis/function_data.hpp"
 #include "aztec3/circuits/abis/function_leaf_preimage.hpp"
 #include "aztec3/circuits/abis/new_contract_data.hpp"
-#include "private_circuit_public_inputs.hpp"
-#include "tx_request.hpp"
-#include "tx_context.hpp"
-#include "function_data.hpp"
-#include "function_leaf_preimage.hpp"
-#include "rollup/base/base_rollup_inputs.hpp"
-#include "rollup/base/base_or_merge_rollup_public_inputs.hpp"
-#include "rollup/root/root_rollup_public_inputs.hpp"
-#include "rollup/root/root_rollup_inputs.hpp"
-#include "previous_kernel_data.hpp"
-#include "private_kernel/private_inputs.hpp"
-#include "kernel_circuit_public_inputs.hpp"
-#include "public_kernel/public_kernel_inputs.hpp"
-#include "public_kernel/public_kernel_inputs_no_previous_kernel.hpp"
-
+#include "aztec3/msgpack/cbind_impl.hpp"
 #include <aztec3/circuits/hash.hpp>
 #include <aztec3/constants.hpp>
-
-#include <aztec3/utils/types/native_types.hpp>
 #include <aztec3/utils/array.hpp>
-#include <barretenberg/stdlib/merkle_tree/membership.hpp>
+#include <aztec3/utils/types/native_types.hpp>
+
+#include "barretenberg/srs/reference_string/mem_reference_string.hpp"
 #include <barretenberg/crypto/keccak/keccak.hpp>
-#include "aztec3/msgpack/cbind_impl.hpp"
+#include <barretenberg/stdlib/merkle_tree/membership.hpp>
 
 namespace {
 
@@ -64,7 +65,7 @@ template <size_t TREE_HEIGHT> void rightfill_with_zeroleaves(std::vector<NT::fr>
     leaves.insert(leaves.end(), max_leaves - leaves.size(), zero_leaf);
 }
 
-} // namespace
+}  // namespace
 
 // Note: We don't have a simple way of calling the barretenberg c-bind.
 // Mimick bbmalloc behaviour.
@@ -226,7 +227,7 @@ WASM_EXPORT void abis__compute_function_tree_root(uint8_t const* function_leaves
     // fill in nonzero leaves to start
     read(function_leaves_in, leaves);
     // fill in zero leaves to complete tree
-    NT::fr zero_leaf = FunctionLeafPreimage<NT>().hash(); // hash of empty/0 preimage
+    NT::fr zero_leaf = FunctionLeafPreimage<NT>().hash();  // hash of empty/0 preimage
     rightfill_with_zeroleaves<aztec3::FUNCTION_TREE_HEIGHT>(leaves, zero_leaf);
 
     // compute the root of this complete tree, return
@@ -255,7 +256,7 @@ WASM_EXPORT void abis__compute_function_tree(uint8_t const* function_leaves_in, 
     // fill in nonzero leaves to start
     read(function_leaves_in, leaves);
     // fill in zero leaves to complete tree
-    NT::fr zero_leaf = FunctionLeafPreimage<NT>().hash(); // hash of empty/0 preimage
+    NT::fr zero_leaf = FunctionLeafPreimage<NT>().hash();  // hash of empty/0 preimage
     rightfill_with_zeroleaves<aztec3::FUNCTION_TREE_HEIGHT>(leaves, zero_leaf);
 
     std::vector<NT::fr> tree = plonk::stdlib::merkle_tree::compute_tree_native(leaves);
@@ -437,4 +438,49 @@ WASM_EXPORT const char* abis__test_roundtrip_serialize_function_leaf_preimage(ui
                                                                               uint32_t* size)
 {
     return as_string_output<aztec3::circuits::abis::FunctionLeafPreimage<NT>>(function_leaf_preimage_buf, size);
+}
+
+// TODO: Is this really the correct place? Where to put the struct?
+struct ComputeLeafIndexArgs {
+    typename NT::address contract_address;
+    typename NT::fr slot;
+    MSGPACK_DEFINE(contract_address, slot);
+};
+
+/**
+ * @brief Computes a leaf index of a contract's slot in the public data tree.
+ * This is a WASM-export that can be called from Typescript.
+ *
+ * @details given a `uint8_t const*` buffer representing arguments of the compute_leaf_index function
+ * (`contract_address` and `slot`) computes a leaf index of the public data tree.
+ *
+ * @param input msgpack serialized arguments of the compute_leaf_index function (`ComputeLeafIndexArgs`
+ * struct on the TS side).
+ * @param output buffer that will contain the output. Leaf index.
+ */
+WASM_EXPORT void abis__compute_public_data_tree_leaf_index(uint8_t const* input, uint8_t* output)
+{
+    // Deserialize the input buffer using msgpack-c
+    msgpack::object_handle object_handler =
+        msgpack::unpack(static_cast<const char*>(static_cast<const void*>(input)), sizeof(ComputeLeafIndexArgs));
+
+    // Extract the contract_address and slot fields from the deserialized object
+    msgpack::object obj = object_handler.get();
+    ComputeLeafIndexArgs args;
+    obj.convert(args);
+
+    auto addr = args.contract_address.to_field();
+    auto slot = args.slot;
+
+    std::vector<grumpkin::fq> to_compress;
+
+    to_compress.emplace_back(addr);
+    to_compress.emplace_back(slot);
+
+
+    grumpkin::fq result =
+        crypto::pedersen_commitment::compress_native(to_compress, aztec3::GeneratorIndex::PUBLIC_LEAF_INDEX);
+
+    // write the result to the output buffer
+    memcpy(output, result.to_buffer().data(), sizeof(grumpkin::fq));
 }

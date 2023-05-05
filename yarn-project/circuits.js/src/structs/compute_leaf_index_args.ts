@@ -21,7 +21,8 @@ export class ComputeLeafIndexArgs {
    * Serializes the contract and slot to a msgpack buffer.
    * @returns Msgpack encoded buffer of the contract and slot.
    */
-  public toMsgpackBuffer(): Uint8Array {
-    return encode([this.contract, this.slot]);
+  public toMsgpackBuffer(): Buffer {
+    const buf = encode([this.contract, this.slot]);
+    return Buffer.from(buf);
   }
 }

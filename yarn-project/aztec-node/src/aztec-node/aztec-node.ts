@@ -6,18 +6,12 @@ import { P2P, P2PClient } from '@aztec/p2p';
 import { SequencerClient } from '@aztec/sequencer-client';
 import { Tx, TxHash } from '@aztec/types';
 import { UnverifiedData, UnverifiedDataSource } from '@aztec/types';
-import {
-  MerkleTreeId,
-  MerkleTrees,
-  ServerWorldStateSynchroniser,
-  WorldStateSynchroniser,
-  computePublicDataTreeLeafIndex,
-} from '@aztec/world-state';
+import { MerkleTreeId, MerkleTrees, ServerWorldStateSynchroniser, WorldStateSynchroniser } from '@aztec/world-state';
 import { default as levelup } from 'levelup';
 import { default as memdown, MemDown } from 'memdown';
 import { AztecNodeConfig } from './config.js';
 import { CircuitsWasm } from '@aztec/circuits.js';
-import { PrimitivesWasm } from '@aztec/barretenberg.js/wasm';
+import { computePublicDataTreeLeafIndex } from '@aztec/circuits.js/abis';
 
 export const createMemDown = () => (memdown as any)() as MemDown<any, any>;
 
@@ -171,7 +165,7 @@ export class AztecNode {
    * Note: Aztec's version of `eth_getStorageAt`
    */
   public async getStorageAt(contract: AztecAddress, slot: bigint): Promise<Buffer | undefined> {
-    const leafIndex = computePublicDataTreeLeafIndex(contract, new Fr(slot), await PrimitivesWasm.get());
+    const leafIndex = computePublicDataTreeLeafIndex(await CircuitsWasm.get(), contract, new Fr(slot));
     return this.merkleTreeDB.getLeafValue(MerkleTreeId.PUBLIC_DATA_TREE, leafIndex, false);
   }
 }

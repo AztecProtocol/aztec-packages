@@ -1,8 +1,8 @@
 import { PublicDB, PublicExecution } from '@aztec/acir-simulator';
-import { BarretenbergWasm } from '@aztec/barretenberg.js/wasm';
-import { AztecAddress, EthAddress, Fr, PublicCircuitPublicInputs, TxRequest } from '@aztec/circuits.js';
-import { MerkleTreeId, MerkleTreeOperations, computePublicDataTreeLeafIndex } from '@aztec/world-state';
+import { AztecAddress, CircuitsWasm, EthAddress, Fr, PublicCircuitPublicInputs, TxRequest } from '@aztec/circuits.js';
+import { MerkleTreeId, MerkleTreeOperations } from '@aztec/world-state';
 import { PublicCircuitSimulator } from './index.js';
+import { computePublicDataTreeLeafIndex } from '@aztec/circuits.js/abis';
 
 export class FakePublicCircuitSimulator implements PublicCircuitSimulator {
   public readonly db: WorldStatePublicDB;
@@ -40,8 +40,8 @@ class WorldStatePublicDB implements PublicDB {
   constructor(private db: MerkleTreeOperations) {}
 
   public async storageRead(contract: AztecAddress, slot: Fr): Promise<Fr> {
-    const index = computePublicDataTreeLeafIndex(contract, slot, await BarretenbergWasm.get());
-    const value = await this.db.getLeafValue(MerkleTreeId.PUBLIC_DATA_TREE, index);
+    const leafIndex = computePublicDataTreeLeafIndex(await CircuitsWasm.get(), contract, slot);
+    const value = await this.db.getLeafValue(MerkleTreeId.PUBLIC_DATA_TREE, leafIndex);
     return value ? Fr.fromBuffer(value) : Fr.ZERO;
   }
 }
