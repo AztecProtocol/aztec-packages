@@ -4,24 +4,29 @@ import { createDebugLogger } from '@aztec/foundation/log';
 import { select_return_flattened as selectPublicWitnessFlattened } from '@noir-lang/noir_util_wasm';
 import { acvm, frToAztecAddress, frToSelector, fromACVMField, toACVMField, toACVMWitness } from '../acvm/index.js';
 import { PublicContractsDB, PublicStateDB } from './db.js';
-import { PublicExecution, PublicExecutionResult, isPublicExecution } from './execution.js';
+import { PublicExecution, PublicExecutionResult } from './execution.js';
 import { StateActionsCollector } from './state_actions.js';
 
 // Copied from crate::abi at noir-contracts/src/contracts/noir-aztec3/src/abi.nr
 const NOIR_MAX_RETURN_VALUES = 4;
 
+/**
+ * Handles execution of public functions.
+ */
 export class PublicExecutor {
   constructor(
-    public readonly stateDb: PublicStateDB,
-    public readonly contractsDb: PublicContractsDB,
+    private readonly stateDb: PublicStateDB,
+    private readonly contractsDb: PublicContractsDB,
 
     private log = createDebugLogger('aztec:simulator:public-executor'),
   ) {}
 
-  public async execute(request: TxRequest): Promise<PublicExecutionResult>;
-  public async execute(execution: PublicExecution): Promise<PublicExecutionResult>;
-  public async execute(input: PublicExecution | TxRequest): Promise<PublicExecutionResult> {
-    const execution = await this.getPublicExecution(input);
+  /**
+   * Executes a public execution request.
+   * @param execution - The execution to run.
+   * @returns The result of the run plus all nested runs.
+   */
+  public async execute(execution: PublicExecution): Promise<PublicExecutionResult> {
     const selectorHex = execution.functionData.functionSelector.toString('hex');
     this.log(`Executing public external function ${execution.contractAddress.toShortString()}:${selectorHex}`);
 
@@ -82,9 +87,12 @@ export class PublicExecutor {
     };
   }
 
-  public async getPublicExecution(input: PublicExecution | TxRequest): Promise<PublicExecution> {
-    if (isPublicExecution(input)) return input;
-
+  /**
+   * Creates a PublicExecution out of a TxRequest to a public function.
+   * @param input - The TxRequest calling a public function.
+   * @returns A PublicExecution object that can be run via execute.
+   */
+  public async getPublicExecution(input: TxRequest): Promise<PublicExecution> {
     const contractAddress = input.to;
     const portalContractAddress = (await this.contractsDb.getPortalContractAddress(contractAddress)) ?? EthAddress.ZERO;
     const callContext: CallContext = new CallContext(input.from, input.to, portalContractAddress, false, false, false);
