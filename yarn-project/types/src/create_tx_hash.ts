@@ -37,17 +37,5 @@ export function createTxHash({ newCommitments, newNullifiers, newContracts }: Tx
       newContracts.map(x => x.toBuffer()),
     ].flat(),
   );
-  return new TxHash(keccak224(data));
-}
-
-/**
- * Utility function to generate the hash of an 'empty' tx
- * @returns A hash of the 'empty' tx data
- */
-export function createEmptyTxHash(wasm: CircuitsWasm) {
-  const accumulatedData = CombinedAccumulatedData.empty();
-  return createTxHash({
-    ...accumulatedData,
-    newContracts: accumulatedData.newContracts.map(cd => computeContractLeaf(wasm, cd)),
-  });
+  return TxHash.fromBuffer28(keccak224(data));
 }

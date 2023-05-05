@@ -25,7 +25,7 @@ import {
 } from '@aztec/circuits.js';
 import { computeContractLeaf } from '@aztec/circuits.js/abis';
 import { LeafData, SiblingPath } from '@aztec/merkle-tree';
-import { MerkleTreeId, ContractData, L2Block, PublicDataWrite, Tx } from '@aztec/types';
+import { MerkleTreeId, ContractData, L2Block, PublicDataWrite } from '@aztec/types';
 import { MerkleTreeOperations } from '@aztec/world-state';
 import chunk from 'lodash.chunk';
 import flatMap from 'lodash.flatmap';
@@ -129,10 +129,8 @@ export class SoloBlockBuilder implements BlockBuilder {
     // Check txs are good for processing
     this.validateTxs(txs);
 
-    const emptyTxHash = await Tx.emptyTxHash();
-
     for (const tx of txs) {
-      if (tx.hash.equals(emptyTxHash)) {
+      if (tx.isEmpty) {
         continue;
       }
       tx.data.end.newNullifiers = [

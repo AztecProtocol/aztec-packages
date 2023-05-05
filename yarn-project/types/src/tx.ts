@@ -1,7 +1,7 @@
 import { CircuitsWasm, KernelCircuitPublicInputs, SignedTxRequest, UInt8Vector } from '@aztec/circuits.js';
 import { computeContractLeaf, computeTxHash } from '@aztec/circuits.js/abis';
 
-import { createEmptyTxHash, createTxHash } from './create_tx_hash.js';
+import { createTxHash } from './create_tx_hash.js';
 import { TxHash } from './tx_hash.js';
 import { UnverifiedData } from './unverified_data.js';
 import { EncodedContractFunction } from './contract_data.js';
@@ -178,7 +178,6 @@ export class Tx {
     // we hash it and return it. And if it has both, we compute both hashes
     // and hash them together. We'll probably want to change this later!
     // See https://github.com/AztecProtocol/aztec3-packages/issues/271
-    const hashes = [];
 
     // NOTE: We are using computeContractLeaf here to ensure consistency with how circuits compute
     // contract tree leaves, which then go into the L2 block, which are then used to regenerate
@@ -186,30 +185,18 @@ export class Tx {
     // wasm. Alternatively, we could stop using computeContractLeaf and manually use the same hash.
     const wasm = await CircuitsWasm.get();
     if (tx.data) {
-      hashes.push(
-        createTxHash({
-          ...tx.data.end,
-          newContracts: tx.data.end.newContracts.map(cd => computeContractLeaf(wasm, cd)),
-        }),
-      );
+      return createTxHash({
+        ...tx.data.end,
+        newContracts: tx.data.end.newContracts.map(cd => computeContractLeaf(wasm, cd)),
+      });
     }
 
     // We hash the full signed tx request object (this is, the tx request along with the signature),
     // just like Ethereum does.
     if (tx.txRequest) {
-      hashes.push(new TxHash(computeTxHash(wasm, tx.txRequest).toBuffer()));
+      return new TxHash(computeTxHash(wasm, tx.txRequest).toBuffer());
     }
 
-    // Return a tx hash if we have only one, or hash them again if we have both
-    if (hashes.length === 1) return hashes[0];
-    else return new TxHash(keccak224(Buffer.concat(hashes.map(h => h.buffer))));
-  }
-
-  /**
-   * Utility function to generate an 'empty' tx hash.
-   * @returns The hash of an 'empty' tx.
-   */
-  static async emptyTxHash() {
-    return createEmptyTxHash(await CircuitsWasm.get());
+    throw new Error(`Unable to create Tx Hash`);
   }
 }
