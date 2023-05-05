@@ -8,6 +8,7 @@ import {
   NewContractData,
   FunctionLeafPreimage,
   SignedTxRequest,
+  PublicCallStackItem,
 } from '../index.js';
 import { serializeToBuffer, serializeBufferArrayToVector } from '../utils/serialize.js';
 import { AsyncWasmWrapper, WasmWrapper } from '@aztec/foundation/wasm';
@@ -152,5 +153,11 @@ export function computeContractLeaf(wasm: WasmWrapper, cd: NewContractData) {
 export function computeTxHash(wasm: WasmWrapper, txRequest: SignedTxRequest) {
   wasm.call('pedersen__init');
   const value = wasmSyncCall(wasm, 'abis__compute_transaction_hash', txRequest, 32);
+  return Fr.fromBuffer(value);
+}
+
+export function computeCallStackItemHash(wasm: WasmWrapper, callStackItem: PublicCallStackItem) {
+  wasm.call('pedersen__init');
+  const value = wasmSyncCall(wasm, 'abis__compute_call_stack_item_hash', callStackItem, 32);
   return Fr.fromBuffer(value);
 }

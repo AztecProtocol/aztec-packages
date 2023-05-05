@@ -6,7 +6,7 @@ import {
   CircuitsWasm,
   ConstantBaseRollupData,
   KERNEL_NEW_NULLIFIERS_LENGTH,
-  L1_TO_L2_MESSAGES_SUBTREE_INSERTION_HEIGHT,
+  L1_TO_L2_MESSAGES_SUBTREE_HEIGHT,
   MembershipWitness,
   MergeRollupInputs,
   NULLIFIER_TREE_HEIGHT,
@@ -25,8 +25,8 @@ import {
 } from '@aztec/circuits.js';
 import { computeContractLeaf } from '@aztec/circuits.js/abis';
 import { LeafData, SiblingPath } from '@aztec/merkle-tree';
-import { ContractData, L2Block, PublicDataWrite } from '@aztec/types';
-import { MerkleTreeId, MerkleTreeOperations } from '@aztec/world-state';
+import { MerkleTreeId, ContractData, L2Block, PublicDataWrite } from '@aztec/types';
+import { MerkleTreeOperations } from '@aztec/world-state';
 import chunk from 'lodash.chunk';
 import flatMap from 'lodash.flatmap';
 import times from 'lodash.times';
@@ -434,7 +434,7 @@ export class SoloBlockBuilder implements BlockBuilder {
     );
     const newL1ToL2MessageTreeRootSiblingPath = await this.getSubtreeSiblingPath(
       MerkleTreeId.L1_TO_L2_MESSAGES_TREE,
-      L1_TO_L2_MESSAGES_SUBTREE_INSERTION_HEIGHT,
+      L1_TO_L2_MESSAGES_SUBTREE_HEIGHT,
     );
 
     // Get tree snapshots

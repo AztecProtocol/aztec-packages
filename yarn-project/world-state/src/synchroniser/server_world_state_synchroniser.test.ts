@@ -3,9 +3,9 @@ import { AppendOnlyTreeSnapshot, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@az
 import { fr } from '@aztec/circuits.js/factories';
 
 import { INITIAL_LEAF, Pedersen, SiblingPath } from '@aztec/merkle-tree';
-import { ContractData, L2Block, L2BlockSource, PublicDataWrite } from '@aztec/types';
+import { ContractData, L2Block, L2BlockSource, MerkleTreeId, PublicDataWrite } from '@aztec/types';
 import { jest } from '@jest/globals';
-import { MerkleTreeDb, MerkleTreeId } from '../index.js';
+import { MerkleTreeDb } from '../index.js';
 import { ServerWorldStateSynchroniser } from './server_world_state_synchroniser.js';
 import { WorldStateRunningState } from './world_state_synchroniser.js';
 import { Fr } from '@aztec/foundation/fields';
@@ -250,8 +250,8 @@ describe('server_world_state_synchroniser', () => {
       .map((_, index) => getMockBlock(index, [Buffer.alloc(32, index)]));
     // sync the server
     await server.start();
-    // there are 3 data trees updated
-    expect(merkleTreeDb.appendLeaves).toHaveBeenCalledTimes(totalBlocks * 3);
+    // there are 4 data trees updated
+    expect(merkleTreeDb.appendLeaves).toHaveBeenCalledTimes(totalBlocks * 4);
     // and 2 root trees
     expect(merkleTreeDb.updateHistoricRootsTrees).toHaveBeenCalledTimes(totalBlocks);
     // there should be a call to append to the contract tree for each block
