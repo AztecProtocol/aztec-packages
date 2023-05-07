@@ -116,7 +116,9 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource, ContractDa
     // Read all data from chain and then write to our stores at the end
 
     const nextExpectedRollupId = BigInt(this.l2Blocks.length + INITIAL_L2_BLOCK_NUM);
-    this.log(`Retrieving chain state from eth block ${this.nextL2BlockFromBlock}`);
+    this.log(
+      `Retrieving chain state from eth block: ${this.nextL2BlockFromBlock}, next expected rollup id: ${nextExpectedRollupId}`,
+    );
     const retrievedBlocks = await retrieveBlocks(
       this.publicClient,
       this.rollupAddress,
@@ -145,7 +147,7 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource, ContractDa
       return;
     }
 
-    this.log(`Retrieved ${retrievedBlocks.retrievedData.length} blocks from chain`);
+    this.log(`Retrieved ${retrievedBlocks.retrievedData.length} block(s) from chain`);
 
     // store retrieved rollup blocks
     this.l2Blocks.push(...retrievedBlocks.retrievedData);
@@ -156,6 +158,7 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource, ContractDa
     const lastKnownRollupId = BigInt(this.l2Blocks.length + INITIAL_L2_BLOCK_NUM - 1);
     retrievedContracts.retrievedData.forEach((contracts, index) => {
       if (index <= lastKnownRollupId) {
+        this.log(`Retrieved contract public data for rollup id: ${index}`);
         this.contractPublicData[index] = contracts;
       }
     });
