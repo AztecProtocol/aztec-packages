@@ -21,7 +21,7 @@ import {
 } from '@aztec/circuits.js/factories';
 import { toBufferBE } from '@aztec/foundation';
 import { PublicDataWrite, Tx } from '@aztec/types';
-import { MerkleTreeId, MerkleTreeOperations, MerkleTrees } from '@aztec/world-state';
+import { MerkleTreeDb, MerkleTreeId, MerkleTreeOperations, MerkleTrees } from '@aztec/world-state';
 import { MockProxy, mock } from 'jest-mock-extended';
 import { default as levelup } from 'levelup';
 import flatMap from 'lodash.flatmap';

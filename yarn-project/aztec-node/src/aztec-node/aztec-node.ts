@@ -59,11 +59,6 @@ export interface AztecNode {
   sendTx(tx: Tx): Promise<void>;
 
   /**
-   * Method to stop the aztec node.
-   */
-  stop(): Promise<void>;
-
-  /**
    * Method to retrieve pending txs.
    * @returns - The pending txs.
    */

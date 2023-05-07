@@ -9,7 +9,7 @@ import {
   PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT,
   PUBLIC_DATA_TREE_HEIGHT,
 } from '@aztec/circuits.js';
-import { SerialQueue } from '@aztec/foundation';
+import { Fr, SerialQueue, createDebugLogger } from '@aztec/foundation';
 import { WasmWrapper } from '@aztec/foundation/wasm';
 import {
   AppendOnlyTree,
@@ -24,7 +24,6 @@ import {
   SparseTree,
 } from '@aztec/merkle-tree';
 import { default as levelup } from 'levelup';
-import { MerkleTreeOperationsFacade } from '../merkle-tree/merkle_tree_operations_facade.js';
 import {
   INITIAL_NULLIFIER_TREE_SIZE,
   IndexedTreeId,
@@ -34,6 +33,8 @@ import {
   PublicTreeId,
   TreeInfo,
 } from './index.js';
+import { MerkleTreeOperationsFacade } from '../merkle-tree/merkle_tree_operations_facade.js';
+import { L2Block } from '@aztec/types';
 
 /**
  * A convenience class for managing multiple merkle trees.
@@ -42,7 +43,7 @@ export class MerkleTrees implements MerkleTreeDb {
   private trees: (AppendOnlyTree | UpdateOnlyTree)[] = [];
   private jobQueue = new SerialQueue();
 
-  constructor(private db: levelup.LevelUp) {}
+  constructor(private db: levelup.LevelUp, private log = createDebugLogger('aztec:merkle_trees')) {}
 
   /**
    * Initialises the collection of Merkle Trees.
@@ -312,11 +313,15 @@ export class MerkleTrees implements MerkleTreeDb {
    * @returns Empty promise.
    */
   public async updateLeaf(treeId: IndexedTreeId | PublicTreeId, leaf: LeafData | Buffer, index: bigint): Promise<void> {
-    const tree = this.trees[treeId];
-    if (!('updateLeaf' in tree)) {
-      throw new Error('Tree does not support `updateLeaf` method');
-    }
-    return await this.synchronise(() => tree.updateLeaf(leaf, index));
+    return await this.synchronise(() => this._updateLeaf(treeId, leaf, index));
+  }
+
+  /**
+   * Handles a single L2 block (i.e. Inserts the new commitments into the merkle tree).
+   * @param block - The L2 block to handle.
+   */
+  public async handleL2Block(block: L2Block): Promise<void> {
+    await this.synchronise(() => this._handleL2Block(block));
   }
 
   /**
@@ -378,6 +383,18 @@ export class MerkleTrees implements MerkleTreeDb {
     return await tree.appendLeaves(leaves);
   }
 
+  private async _updateLeaf(
+    treeId: IndexedTreeId | PublicTreeId,
+    leaf: LeafData | Buffer,
+    index: bigint,
+  ): Promise<void> {
+    const tree = this.trees[treeId];
+    if (!('updateLeaf' in tree)) {
+      throw new Error('Tree does not support `updateLeaf` method');
+    }
+    return await tree.updateLeaf(leaf, index);
+  }
+
   /**
    * Commits all pending updates.
    * @returns Empty promise.
@@ -395,6 +412,67 @@ export class MerkleTrees implements MerkleTreeDb {
   private async _rollback(): Promise<void> {
     for (const tree of this.trees) {
       await tree.rollback();
+    }
+  }
+
+  /**
+   * Handles a single L2 block (i.e. Inserts the new commitments into the merkle tree).
+   * @param l2Block - The L2 block to handle.
+   */
+  private async _handleL2Block(l2Block: L2Block) {
+    const compareRoot = (root: Fr, treeId: MerkleTreeId) => {
+      const treeRoot = this.trees[treeId].getRoot(true);
+      return treeRoot.equals(root.toBuffer());
+    };
+    const rootChecks = [
+      compareRoot(l2Block.endContractTreeSnapshot.root, MerkleTreeId.CONTRACT_TREE),
+      compareRoot(l2Block.endNullifierTreeSnapshot.root, MerkleTreeId.NULLIFIER_TREE),
+      compareRoot(l2Block.endPrivateDataTreeSnapshot.root, MerkleTreeId.PRIVATE_DATA_TREE),
+      compareRoot(l2Block.endPublicDataTreeRoot, MerkleTreeId.PUBLIC_DATA_TREE),
+      compareRoot(l2Block.endTreeOfHistoricContractTreeRootsSnapshot.root, MerkleTreeId.CONTRACT_TREE_ROOTS_TREE),
+      compareRoot(
+        l2Block.endTreeOfHistoricPrivateDataTreeRootsSnapshot.root,
+        MerkleTreeId.PRIVATE_DATA_TREE_ROOTS_TREE,
+      ),
+    ];
+    const ourBlock = rootChecks.every(x => x);
+    if (ourBlock) {
+      this.log(`Block ${l2Block.number} is ours, committing world state..`);
+      await this._commit();
+    } else {
+      this.log(`Block ${l2Block.number} is not ours, rolling back world state and committing state from chain..`);
+      await this._rollback();
+
+      for (const [tree, leaves] of [
+        [MerkleTreeId.CONTRACT_TREE, l2Block.newContracts],
+        [MerkleTreeId.NULLIFIER_TREE, l2Block.newNullifiers],
+        [MerkleTreeId.PRIVATE_DATA_TREE, l2Block.newCommitments],
+      ] as const) {
+        await this._appendLeaves(
+          tree,
+          leaves.map(fr => fr.toBuffer()),
+        );
+      }
+
+      for (const dataWrite of l2Block.newPublicDataWrites) {
+        if (dataWrite.isEmpty()) continue;
+        const { newValue, leafIndex } = dataWrite;
+        await this._updateLeaf(MerkleTreeId.PUBLIC_DATA_TREE, newValue.toBuffer(), leafIndex.value);
+      }
+
+      for (const [newTree, rootTree] of [
+        [MerkleTreeId.PRIVATE_DATA_TREE, MerkleTreeId.PRIVATE_DATA_TREE_ROOTS_TREE],
+        [MerkleTreeId.CONTRACT_TREE, MerkleTreeId.CONTRACT_TREE_ROOTS_TREE],
+        [MerkleTreeId.L1_TO_L2_MESSAGES_TREE, MerkleTreeId.L1_TO_L2_MESSAGES_ROOTS_TREE],
+      ] as const) {
+        const newTreeRoot = this.trees[newTree].getRoot(true);
+        await this._appendLeaves(rootTree, [newTreeRoot]);
+      }
+      await this._commit();
+
+      for (const treeId in MerkleTreeId) {
+        const tree = this.trees[MerkleTreeId[treeId]];
+      }
     }
   }
 }

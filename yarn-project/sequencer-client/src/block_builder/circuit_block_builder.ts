@@ -6,6 +6,7 @@ import {
   CircuitsWasm,
   ConstantBaseRollupData,
   L1_TO_L2_MESSAGES_SUBTREE_INSERTION_HEIGHT,
+  L1_TO_L2_MESSAGES_TREE_HEIGHT,
   MembershipWitness,
   MergeRollupInputs,
   NULLIFIER_TREE_HEIGHT,
@@ -405,7 +406,7 @@ export class CircuitBlockBuilder implements BlockBuilder {
     );
     const newL1ToL2MessageTreeRootSiblingPath = await this.getSubtreeSiblingPath(
       MerkleTreeId.L1_TO_L2_MESSAGES_TREE,
-      L1_TO_L2_MESSAGES_SUBTREE_INSERTION_HEIGHT,
+      L1_TO_L2_MESSAGES_TREE_HEIGHT - L1_TO_L2_MESSAGES_SUBTREE_INSERTION_HEIGHT,
     );
 
     // Get tree snapshots

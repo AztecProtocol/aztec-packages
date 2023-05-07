@@ -1,4 +1,4 @@
-import { Fr, RunningPromise, createDebugLogger } from '@aztec/foundation';
+import { Fr, RunningPromise, createDebugLogger, sleep } from '@aztec/foundation';
 import { P2P } from '@aztec/p2p';
 import {
   ContractData,
@@ -137,7 +137,7 @@ export class Sequencer {
         this.log(`Successfully published block ${block.number}`);
         this.lastPublishedBlock = block.number;
       } else {
-        this.log(`Failed to publish block`);
+        throw new Error(`Rollup Failed`);
       }
 
       // Publishes new unverified data & contract data for private txs to the network and awaits the tx to be mined
@@ -170,9 +170,11 @@ export class Sequencer {
       } else if (!publishedContractData && newContractData.length) {
         this.log(`Failed to publish new contract data for block ${block.number}`);
       }
+      await sleep(10000);
     } catch (err) {
-      this.log(err, 'error');
-      // TODO: Rollback changes to DB
+      this.log(err);
+      this.log(`Rolling back world state DB`);
+      await this.worldState.getLatest().rollback();
     }
   }
 

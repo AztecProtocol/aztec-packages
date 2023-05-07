@@ -77,15 +77,11 @@ export class HttpNode implements AztecNode {
    * @returns The complete contract data including portal address & bytecode (if we didn't throw an error).
    */
   async getContractData(contractAddress: AztecAddress): Promise<ContractPublicData | undefined> {
-    try {
-      const url = new URL(`${this.baseUrl}/contract-data`);
-      url.searchParams.append('address', contractAddress.toString());
-      const response = await (await fetch(url.toString())).json();
-      const contract = response.contractData as string;
-      return Promise.resolve(ContractPublicData.fromBuffer(Buffer.from(contract, 'hex')));
-    } catch (err) {
-      console.log(err);
-    }
+    const url = new URL(`${this.baseUrl}/contract-data`);
+    url.searchParams.append('address', contractAddress.toString());
+    const response = await (await fetch(url.toString())).json();
+    const contract = response.contractData as string;
+    return Promise.resolve(ContractPublicData.fromBuffer(Buffer.from(contract, 'hex')));
   }
 
   /**
@@ -95,15 +91,11 @@ export class HttpNode implements AztecNode {
    * @returns The contract's address & portal address.
    */
   async getContractInfo(contractAddress: AztecAddress): Promise<ContractData | undefined> {
-    try {
-      const url = new URL(`${this.baseUrl}/contract-info`);
-      url.searchParams.append('address', contractAddress.toString());
-      const response = await (await fetch(url.toString())).json();
-      const contract = response.contractInfo as string;
-      return Promise.resolve(ContractData.fromBuffer(Buffer.from(contract, 'hex')));
-    } catch (err) {
-      console.log(err);
-    }
+    const url = new URL(`${this.baseUrl}/contract-info`);
+    url.searchParams.append('address', contractAddress.toString());
+    const response = await (await fetch(url.toString())).json();
+    const contract = response.contractInfo as string;
+    return Promise.resolve(ContractData.fromBuffer(Buffer.from(contract, 'hex')));
   }
 
   /**
@@ -161,42 +153,28 @@ export class HttpNode implements AztecNode {
   }
 
   async findContractIndex(leafValue: Buffer): Promise<bigint | undefined> {
-    try {
-      const url = new URL(`${this.baseUrl}/contract-index`);
-      url.searchParams.append('leaf', leafValue.toString('hex'));
-      const response = await (await fetch(url.toString())).json();
-      const index = response.index as string;
-      return Promise.resolve(BigInt(index));
-    } catch (err) {
-      console.log(err);
-    }
+    const url = new URL(`${this.baseUrl}/contract-index`);
+    url.searchParams.append('leaf', leafValue.toString('hex'));
+    const response = await (await fetch(url.toString())).json();
+    const index = response.index as string;
+    return Promise.resolve(BigInt(index));
   }
 
   async getContractPath(leafIndex: bigint): Promise<SiblingPath> {
-    try {
-      const url = new URL(`${this.baseUrl}/contract-path`);
-      url.searchParams.append('leaf', leafIndex.toString());
-      const response = await (await fetch(url.toString())).json();
-      const path = response.path as string;
-      return Promise.resolve(SiblingPath.fromString(path));
-    } catch (err) {
-      console.log(err);
-      throw err;
-    }
+    const url = new URL(`${this.baseUrl}/contract-path`);
+    url.searchParams.append('leaf', leafIndex.toString());
+    const response = await (await fetch(url.toString())).json();
+    const path = response.path as string;
+    return Promise.resolve(SiblingPath.fromString(path));
   }
 
   async getDataTreePath(leafIndex: bigint): Promise<SiblingPath> {
-    try {
-      const url = new URL(`${this.baseUrl}/data-path`);
-      url.searchParams.append('leaf', leafIndex.toString());
-      const response = await (await fetch(url.toString())).json();
-      const path = response.path as string;
-      const sibling = SiblingPath.fromString(path);
-      return Promise.resolve(sibling);
-    } catch (err) {
-      console.log(err);
-      throw err;
-    }
+    const url = new URL(`${this.baseUrl}/data-path`);
+    url.searchParams.append('leaf', leafIndex.toString());
+    const response = await (await fetch(url.toString())).json();
+    const path = response.path as string;
+    const sibling = SiblingPath.fromString(path);
+    return Promise.resolve(sibling);
   }
 
   /**
@@ -207,15 +185,11 @@ export class HttpNode implements AztecNode {
    * Note: Aztec's version of `eth_getStorageAt`
    */
   async getStorageAt(contract: AztecAddress, slot: bigint): Promise<Buffer | undefined> {
-    try {
-      const url = new URL(`${this.baseUrl}/storage-at`);
-      url.searchParams.append('address', contract.toString());
-      url.searchParams.append('slot', slot.toString());
-      const response = await (await fetch(url.toString())).json();
-      const value = response.value as string;
-      return Promise.resolve(Buffer.from(value, 'hex'));
-    } catch (err) {
-      console.log(err);
-    }
+    const url = new URL(`${this.baseUrl}/storage-at`);
+    url.searchParams.append('address', contract.toString());
+    url.searchParams.append('slot', slot.toString());
+    const response = await (await fetch(url.toString())).json();
+    const value = response.value as string;
+    return Promise.resolve(Buffer.from(value, 'hex'));
   }
 }

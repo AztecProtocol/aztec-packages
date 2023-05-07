@@ -58,8 +58,6 @@ export class L1Publisher implements L2BlockReceiver {
       const txHash = await this.sendProcessTx(txData);
       if (!txHash) break;
 
-      await this.sleepOrInterrupted();
-
       const receipt = await this.getTransactionReceipt(txHash);
       if (!receipt) break;
 
@@ -75,8 +73,6 @@ export class L1Publisher implements L2BlockReceiver {
       this.log(`Transaction status failed: ${receipt.transactionHash}`);
       await this.sleepOrInterrupted();
     }
-
-    this.log('L2 block interrupted interrupted.');
     return false;
   }
 
@@ -169,8 +165,8 @@ export class L1Publisher implements L2BlockReceiver {
       try {
         return await this.txSender.sendProcessTx(encodedData);
       } catch (err) {
-        this.log(`Error sending L2 block tx to L1`, err);
-        await this.sleepOrInterrupted();
+        this.log(`ROLLUP PUBLISH FAILED`, err);
+        return undefined;
       }
     }
   }
@@ -207,7 +203,7 @@ export class L1Publisher implements L2BlockReceiver {
       try {
         return await this.txSender.getTransactionReceipt(txHash);
       } catch (err) {
-        this.log(`Error getting tx receipt`, err);
+        //this.log(`Error getting tx receipt`, err);
         await this.sleepOrInterrupted();
       }
     }

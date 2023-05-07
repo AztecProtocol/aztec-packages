@@ -1,11 +1,12 @@
 import { SiblingPath } from '@aztec/merkle-tree';
-import { LeafData, MerkleTreeDbOperations, MerkleTreeId, MerkleTreeOperations, TreeInfo } from '../index.js';
+import { LeafData, MerkleTreeId, MerkleTreeDb, TreeInfo, MerkleTreeOperations } from '../index.js';
+import { L2Block } from '@aztec/types';
 
 /**
  * Wraps a MerkleTreeDbOperations to call all functions with a preset includeUncommitted flag.
  */
 export class MerkleTreeOperationsFacade implements MerkleTreeOperations {
-  constructor(private trees: MerkleTreeDbOperations, private includeUncommitted: boolean) {}
+  constructor(private trees: MerkleTreeDb, private includeUncommitted: boolean) {}
 
   /**
    * Returns the tree info for the specified tree id.
@@ -109,5 +110,30 @@ export class MerkleTreeOperationsFacade implements MerkleTreeOperations {
    */
   public updateHistoricRootsTrees(): Promise<void> {
     return this.trees.updateHistoricRootsTrees(this.includeUncommitted);
+  }
+
+  /**
+   * Handles a single L2 block (i.e. Inserts the new commitments into the merkle tree).
+   * @param block - The L2 block to handle.
+   * @returns Empty promise.
+   */
+  public handleL2Block(block: L2Block): Promise<void> {
+    return this.trees.handleL2Block(block);
+  }
+
+  /**
+   * Commits all pending updates.
+   * @returns Empty promise.
+   */
+  public async commit(): Promise<void> {
+    return await this.trees.commit();
+  }
+
+  /**
+   * Rolls back all pending updates.
+   * @returns Empty promise.
+   */
+  public async rollback(): Promise<void> {
+    return await this.trees.rollback();
   }
 }

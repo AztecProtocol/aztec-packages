@@ -28,11 +28,11 @@ constexpr size_t KERNEL_OPTIONALLY_REVEALED_DATA_LENGTH = 4;
 
 constexpr size_t VK_TREE_HEIGHT = 3;
 constexpr size_t FUNCTION_TREE_HEIGHT = 4;
-constexpr size_t CONTRACT_TREE_HEIGHT = 16;
+constexpr size_t CONTRACT_TREE_HEIGHT = 20;
 constexpr size_t PRIVATE_DATA_TREE_HEIGHT = 20;
 constexpr size_t NULLIFIER_TREE_HEIGHT = 20;
 constexpr size_t PUBLIC_DATA_TREE_HEIGHT = 254;
-constexpr size_t L1_TO_L2_MSG_TREE_HEIGHT = 8;
+constexpr size_t L1_TO_L2_MSG_TREE_HEIGHT = 20;
 
 constexpr size_t CONTRACT_SUBTREE_DEPTH = 1;
 constexpr size_t CONTRACT_SUBTREE_INCLUSION_CHECK_DEPTH = CONTRACT_TREE_HEIGHT - CONTRACT_SUBTREE_DEPTH;
