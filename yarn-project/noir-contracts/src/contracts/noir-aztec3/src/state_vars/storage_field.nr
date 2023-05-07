@@ -1,4 +1,4 @@
-use crate::notes::value_note::Note;
+use crate::notes::value_note::ValueNote;
 use crate::types::point::Point;
 
 #[oracle(storageRead)]

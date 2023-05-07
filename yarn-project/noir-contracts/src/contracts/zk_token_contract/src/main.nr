@@ -2,7 +2,7 @@ contract ZkToken {
     mod balance_utils;
     use dep::aztec3::abi::Inputs;
     use dep::aztec3::context::PrivateFunctionContext;
-    use dep::aztec3::notes::value_note::Note;
+    use dep::aztec3::notes::value_note::ValueNote;
     use dep::aztec3::types::point::Point;
     use dep::aztec3::state_vars::map::Map;
     use dep::aztec3::state_vars::set::Set;
@@ -10,7 +10,7 @@ contract ZkToken {
     //*********************************/
     global balances = Map { storage_slot: 1 };
     // Should eventually be replaced by:
-    // `balances: Mapping<Field, Set<Note>>;`
+    // `balances: Mapping<Field, Set<ValueNote>>;`
     //*********************************/
 
     fn constructor(
@@ -25,7 +25,7 @@ contract ZkToken {
         context.args = context.args.push_array([initial_supply, owner.x, owner.y]);
 
         let owner_balance = balances.at(owner.x);
-        let note = Note::new(initial_supply, owner);
+        let note = ValueNote::new(initial_supply, owner);
 
         owner_balance.insert(context, note)
             .finish(inputs)
@@ -43,7 +43,7 @@ contract ZkToken {
         context.args = context.args.push_array([amount, owner.x, owner.y]);
 
         let owner_balance = balances.at(owner.x);
-        let note = Note::new(amount, owner);
+        let note = ValueNote::new(amount, owner);
 
         owner_balance.insert(context, note)
             .finish(inputs)
@@ -78,8 +78,8 @@ contract ZkToken {
         context = sender_balance.remove(inputs, context, note1);
         context = sender_balance.remove(inputs, context, note2);
 
-        let change_note = Note::new(change_value, sender);
-        let recipient_note = Note::new(amount, recipient);
+        let change_note = ValueNote::new(change_value, sender);
+        let recipient_note = ValueNote::new(amount, recipient);
 
         let recipient_balance = balances.at(recipient.x);
 

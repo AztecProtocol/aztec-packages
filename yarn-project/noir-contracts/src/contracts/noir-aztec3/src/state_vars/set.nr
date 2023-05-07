@@ -1,7 +1,7 @@
 use dep::std;
 use crate::abi::Inputs;
 use crate::context::PrivateFunctionContext;
-use crate::notes::value_note::Note;
+use crate::notes::value_note::ValueNote;
 use crate::types::point::Point;
 use crate::state_vars::note_getter_data::NoteGetterData;
 use crate::state_vars::note_getter_data::make_note_getter_data;
@@ -11,13 +11,13 @@ use crate::state_vars::note_getter_data::note_getter_data_len;
 fn notify_created_note_oracle(
     _storage_slot: Field,
     _owner: Point,
-    _note: Note,
+    _note: ValueNote,
 ) -> Field {}
 
 unconstrained fn notify_created_note(
     storage_slot: Field,
     owner: Point,
-    note: Note,
+    note: ValueNote,
 ) -> Field {
     notify_created_note_oracle(storage_slot, owner, note)
 }
@@ -26,13 +26,13 @@ unconstrained fn notify_created_note(
 fn notify_nullified_note_oracle(
     _storage_slot: Field,
     _nullifier: Field,
-    _note: Note,
+    _note: ValueNote,
 ) -> Field {}
 
 unconstrained fn notify_nullified_note(
     storage_slot: Field,
     nullifier: Field,
-    note: Note,
+    note: ValueNote,
 ) -> Field {
     notify_nullified_note_oracle(storage_slot, nullifier, note)
 }
@@ -64,7 +64,7 @@ impl Set {
         Set { storage_slot }
     }
 
-    fn insert(self, mut context: PrivateFunctionContext, note: Note) -> PrivateFunctionContext {
+    fn insert(self, mut context: PrivateFunctionContext, note: ValueNote) -> PrivateFunctionContext {
         let storage_slot = self.storage_slot;
 
         let note_hash = note.compute_note_hash();
@@ -74,13 +74,13 @@ impl Set {
     }
 
     // The `2` in the name is the number of notes returned
-    fn get_2(self, inputs: Inputs, mut context: PrivateFunctionContext) -> (PrivateFunctionContext, (Note, Note)) {
+    fn get_2(self, inputs: Inputs, mut context: PrivateFunctionContext) -> (PrivateFunctionContext, (ValueNote, ValueNote)) {
         let storage_slot = self.storage_slot;
 
         // let note_getter_data: [NoteGetterData; 2] = ORACLE::get_2_notes(contract_address, storage_slot);
         // let note_getter_data = (
-        //     NoteGetterData { note: Note::dummy(), leaf_index: 0, sibling_path: [1, 2, 3, 4, 5], root: 1 },
-        //     NoteGetterData { note: Note::dummy(), leaf_index: 1, sibling_path: [1, 2, 3, 4, 5], root: 1 },
+        //     NoteGetterData { note: ValueNote::dummy(), leaf_index: 0, sibling_path: [1, 2, 3, 4, 5], root: 1 },
+        //     NoteGetterData { note: ValueNote::dummy(), leaf_index: 1, sibling_path: [1, 2, 3, 4, 5], root: 1 },
         // );
         let note_getter_data = get_2_notes(storage_slot);
 
@@ -122,7 +122,7 @@ impl Set {
     }
 
 
-    fn remove(self, inputs: Inputs, mut context: PrivateFunctionContext, note: Note) -> PrivateFunctionContext {
+    fn remove(self, inputs: Inputs, mut context: PrivateFunctionContext, note: ValueNote) -> PrivateFunctionContext {
         let contract_address = inputs.call_context.storage_contract_address;
         let storage_slot = self.storage_slot;
 

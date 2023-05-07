@@ -1,4 +1,4 @@
-use dep::aztec3::notes::value_note::Note;
+use dep::aztec3::notes::value_note::ValueNote;
 use dep::aztec3::notes::value_note::NOTE_LEN;
 use dep::aztec3::types::point::Point;
 use dep::aztec3::utils::arr_copy_slice;
@@ -22,13 +22,13 @@ unconstrained fn view_notes_page_internal(
 fn view_notes_page(
     storage_slot: Field,
     offset: Field,
-) -> (Field, [Note; NOTES_PER_PAGE]){
+) -> (Field, [ValueNote; NOTES_PER_PAGE]){
     let fields = view_notes_page_internal(storage_slot, offset);
     let total_notes = fields[0];
-    let mut notes = [Note::dummy(); NOTES_PER_PAGE];
+    let mut notes = [ValueNote::dummy(); NOTES_PER_PAGE];
     for i in 0..NOTES_PER_PAGE {
         let read_offset: comptime Field = 1 + i*NOTE_LEN;
-        let note = Note::deserialize(arr_copy_slice(fields, [0; NOTE_LEN], read_offset));
+        let note = ValueNote::deserialize(arr_copy_slice(fields, [0; NOTE_LEN], read_offset));
         notes[i] = note;
     };
     (total_notes, notes)
