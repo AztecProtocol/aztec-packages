@@ -91,7 +91,7 @@ impl Set {
 
         //     let note_hash = note.compute_note_hash();
         //     let siloed_note_hash = dep::std::hash::pedersen([
-        //         crate::NoteStorageSlot,
+        //         crate::NOTE_STORAGE_SLOT_GENERATOR,
         //         note_hash, 
         //         storage_slot_forwarded, 
         //         contract_address_forwarded           ])[0];
@@ -128,7 +128,7 @@ impl Set {
 
         let note_hash = note.compute_note_hash();
         let siloed_note_hash = dep::std::hash::pedersen([
-            crate::NoteStorageSlot,
+            crate::NOTE_STORAGE_SLOT_GENERATOR,
             note_hash,
             storage_slot,
             contract_address,

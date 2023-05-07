@@ -11,7 +11,7 @@ impl Map {
 
     fn at(self, key: Field) -> Set {
         let derived_storage_slot = dep::std::hash::pedersen([
-            crate::MappingStorageSlot, 
+            crate::MAPPING_STORAGE_SLOT_GENERATOR, 
             self.storage_slot, 
             key
         ])[0];
