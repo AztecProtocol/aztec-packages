@@ -23,7 +23,7 @@ export interface AztecNode {
   getBlocks(from: number, take: number): Promise<L2Block[]>;
 
   /**
-   * Method to fetch the current block height
+   * Method to fetch the current block height.
    * @returns The block height as a number.
    */
   getBlockHeight(): Promise<number>;
@@ -60,14 +60,14 @@ export interface AztecNode {
 
   /**
    * Method to retrieve pending txs.
-   * @returns - The pending txs.
+   * @returns The pending txs.
    */
   getPendingTxs(): Promise<Tx[]>;
 
   /**
-   * Method to retrieve a single pending tx
+   * Method to retrieve a single pending tx.
    * @param txHash - The transaction hash to return.
-   * @returns - The pending tx if it exists
+   * @returns The pending tx if it exists.
    */
   getPendingTxByHash(txHash: TxHash): Promise<Tx | undefined>;
 
@@ -78,11 +78,10 @@ export interface AztecNode {
   getDataTreePath(leafIndex: bigint): Promise<SiblingPath>;
 
   /**
-   * Gets the storage value at the given contract slot.
-   * @param contract - Address of the contract to query
-   * @param slot - Slot to query
+   * Gets the storage value at the given contract slot. Our version of eth_getStorageAt.
+   * @param contract - Address of the contract to query.
+   * @param slot - Slot to query.
    * @returns Storage value at the given contract slot (or undefined if not found).
-   * Note: Aztec's version of `eth_getStorageAt`
    */
   getStorageAt(contract: AztecAddress, slot: bigint): Promise<Buffer | undefined>;
 }

@@ -102,10 +102,6 @@ RootRollupInputs get_root_rollup_inputs(utils::DummyComposer& composer,
                                         std::array<KernelData, 4> kernel_data,
                                         std::array<fr, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP> l1_to_l2_messages);
 
-void set_kernel_commitments(KernelData& kernel_data, std::array<fr, KERNEL_NEW_COMMITMENTS_LENGTH> new_commitments);
-
-void set_kernel_nullifiers(KernelData& kernel_data, std::array<fr, KERNEL_NEW_NULLIFIERS_LENGTH> new_nullifiers);
-
 MergeRollupInputs get_merge_rollup_inputs(utils::DummyComposer& composer, std::array<KernelData, 4> kernel_data);
 
 inline abis::PublicDataTransition<NT> make_public_write(fr leaf_index, fr old_value, fr new_value)
@@ -126,5 +122,7 @@ inline abis::PublicDataRead<NT> make_public_read(fr leaf_index, fr value)
 }
 
 bool compare_field_hash_to_expected(std::array<fr, 2> field_hash, std::array<uint8_t, 32> expected_hash);
+
+std::vector<uint8_t> get_empty_calldata_leaf();
 
 }  // namespace aztec3::circuits::rollup::test_utils::utils

@@ -1,23 +1,26 @@
-import { Fr, RunningPromise, createDebugLogger, sleep } from '@aztec/foundation';
 import { P2P } from '@aztec/p2p';
 import {
+  MerkleTreeId,
   ContractData,
   ContractPublicData,
-  L2BlockSource,
   PrivateTx,
   PublicTx,
   Tx,
   UnverifiedData,
   isPrivateTx,
+  L2Block,
+  L2BlockSource,
 } from '@aztec/types';
-import { MerkleTreeId, WorldStateStatus, WorldStateSynchroniser } from '@aztec/world-state';
+import { WorldStateStatus, WorldStateSynchroniser } from '@aztec/world-state';
 import times from 'lodash.times';
 import { BlockBuilder } from '../block_builder/index.js';
 import { L1Publisher } from '../publisher/l1-publisher.js';
-import { ceilPowerOfTwo } from '../utils.js';
 import { SequencerConfig } from './config.js';
 import { ProcessedTx } from './processed_tx.js';
 import { PublicProcessor } from './public_processor.js';
+import { RunningPromise } from '@aztec/foundation/running-promise';
+import { createDebugLogger } from '@aztec/foundation/log';
+import { Fr } from '@aztec/foundation/fields';
 import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/circuits.js';
 
 /**
@@ -52,6 +55,9 @@ export class Sequencer {
     }
   }
 
+  /**
+   * Starts the sequencer and moves to IDLE state. Blocks until the initial sync is complete.
+   */
   public async start() {
     await this.initialSync();
 
@@ -61,6 +67,9 @@ export class Sequencer {
     this.log('Sequencer started');
   }
 
+  /**
+   * Stops the sequencer from processing txs and moves to STOPPED state.
+   */
   public async stop(): Promise<void> {
     await this.runningPromise?.stop();
     this.publisher.interrupt();
@@ -68,12 +77,19 @@ export class Sequencer {
     this.log('Stopped sequencer');
   }
 
+  /**
+   * Starts a previously stopped sequencer.
+   */
   public restart() {
     this.log('Restarting sequencer');
     this.runningPromise!.start();
     this.state = SequencerState.IDLE;
   }
 
+  /**
+   * Returns the current state of the sequencer.
+   * @returns An object with a state entry with one of SequencerState.
+   */
   public status() {
     return { state: this.state };
   }
@@ -120,6 +136,11 @@ export class Sequencer {
         await this.p2pClient.deleteTxs(await Tx.getHashes(failedTxs));
       }
 
+      if (processedTxs.length === 0) {
+        this.log('No txs processed correctly to build block. Exiting');
+        return;
+      }
+
       // Get l1 to l2 messages from the contract
       this.log('Requesting L1 to L2 messages from contract');
       const l1ToL2Messages = this.takeL1ToL2MessagesFromContract();
@@ -130,51 +151,66 @@ export class Sequencer {
       const block = await this.buildBlock(processedTxs, l1ToL2Messages);
       this.log(`Assembled block ${block.number}`);
 
-      // Publishes new block to the network and awaits the tx to be mined
-      this.state = SequencerState.PUBLISHING_BLOCK;
-      const publishedL2Block = await this.publisher.processL2Block(block);
-      if (publishedL2Block) {
-        this.log(`Successfully published block ${block.number}`);
-        this.lastPublishedBlock = block.number;
-      } else {
-        throw new Error(`Rollup Failed`);
-      }
+      await this.publishUnverifiedData(validTxs, block);
 
-      // Publishes new unverified data & contract data for private txs to the network and awaits the tx to be mined
-      this.state = SequencerState.PUBLISHING_UNVERIFIED_DATA;
-      const unverifiedData = UnverifiedData.join(validTxs.filter(isPrivateTx).map(tx => tx.unverifiedData));
-      const newContractData = validTxs
-        .filter(isPrivateTx)
-        .map(tx => {
-          // Currently can only have 1 new contract per tx
-          const newContract = tx.data?.end.newContracts[0];
-          if (newContract && tx.newContractPublicFunctions?.length) {
-            return new ContractPublicData(
-              new ContractData(newContract.contractAddress, newContract.portalContractAddress),
-              tx.newContractPublicFunctions,
-            );
-          }
-        })
-        .filter((cd): cd is Exclude<typeof cd, undefined> => cd !== undefined);
-
-      const publishedUnverifiedData = await this.publisher.processUnverifiedData(block.number, unverifiedData);
-      const publishedContractData = await this.publisher.processNewContractData(block.number, newContractData);
-      if (publishedUnverifiedData) {
-        this.log(`Successfully published unverifiedData for block ${block.number}`);
-      } else {
-        this.log(`Failed to publish unverifiedData for block ${block.number}`);
-      }
-
-      if (publishedContractData) {
-        this.log(`Successfully published new contract data for block ${block.number}`);
-      } else if (!publishedContractData && newContractData.length) {
-        this.log(`Failed to publish new contract data for block ${block.number}`);
-      }
-      await sleep(10000);
+      await this.publishL2Block(block);
     } catch (err) {
       this.log(err);
       this.log(`Rolling back world state DB`);
       await this.worldState.getLatest().rollback();
+    }
+  }
+
+  /**
+   * Creates the unverified data from the txs and l2Block and publishes it on chain.
+   * @param validTxs - The set of real transactions being published as part of the block.
+   * @param block - The L2Block to be published.
+   */
+  protected async publishUnverifiedData(validTxs: Tx[], block: L2Block) {
+    // Publishes new unverified data & contract data for private txs to the network and awaits the tx to be mined
+    this.state = SequencerState.PUBLISHING_UNVERIFIED_DATA;
+    const unverifiedData = UnverifiedData.join(validTxs.filter(isPrivateTx).map(tx => tx.unverifiedData));
+    const newContractData = validTxs
+      .filter(isPrivateTx)
+      .map(tx => {
+        // Currently can only have 1 new contract per tx
+        const newContract = tx.data?.end.newContracts[0];
+        if (newContract && tx.newContractPublicFunctions?.length) {
+          return new ContractPublicData(
+            new ContractData(newContract.contractAddress, newContract.portalContractAddress),
+            tx.newContractPublicFunctions,
+          );
+        }
+      })
+      .filter((cd): cd is Exclude<typeof cd, undefined> => cd !== undefined);
+
+    const publishedUnverifiedData = await this.publisher.processUnverifiedData(block.number, unverifiedData);
+    if (publishedUnverifiedData) {
+      this.log(`Successfully published unverifiedData for block ${block.number}`);
+    } else {
+      this.log(`Failed to publish unverifiedData for block ${block.number}`);
+    }
+
+    const publishedContractData = await this.publisher.processNewContractData(block.number, newContractData);
+    if (publishedContractData) {
+      this.log(`Successfully published new contract data for block ${block.number}`);
+    } else if (!publishedContractData && newContractData.length) {
+      this.log(`Failed to publish new contract data for block ${block.number}`);
+    }
+  }
+
+  /**
+   * Publishes the L2Block to the rollup contract.
+   * @param block - The L2Block to be published.
+   */
+  protected async publishL2Block(block: L2Block) {
+    // Publishes new block to the network and awaits the tx to be mined
+    this.state = SequencerState.PUBLISHING_BLOCK;
+    const publishedL2Block = await this.publisher.processL2Block(block);
+    if (publishedL2Block) {
+      this.log(`Successfully published block ${block.number}`);
+    } else {
+      this.log(`Failed to publish block`);
     }
   }
 
@@ -227,6 +263,12 @@ export class Sequencer {
     return max >= this.lastPublishedBlock;
   }
 
+  /**
+   * Pads the set of txs to a power of two and assembles a block by calling the block builder.
+   * @param txs - Processed txs to include in the next block.
+   * @param newL1ToL2Messages - L1 to L2 messages to be part of the block.
+   * @returns The new block.
+   */
   protected async buildBlock(txs: ProcessedTx[], newL1ToL2Messages: Fr[]) {
     // Pad the txs array with empty txs to be a power of two, at least 4
     const emptyTxCount = this.maxTxsPerBlock - txs.length;
@@ -241,10 +283,10 @@ export class Sequencer {
     return block;
   }
 
-  // TODO: this is a stubbed method
   /**
-   * Checks on chain messages inbox and selects messages to inlcude within the
-   * next rollup block
+   * Checks on chain messages inbox and selects messages to inlcude within the next rollup block.
+   * TODO: This is a stubbed method.
+   * @returns An array of L1 to L2 messages.
    */
   protected takeL1ToL2MessagesFromContract(): Fr[] {
     return new Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n));
@@ -279,11 +321,32 @@ export class Sequencer {
   }
 }
 
+/**
+ * State of the sequencer.
+ */
 export enum SequencerState {
+  /**
+   * Will move to WAITING_FOR_TXS after a configured amount of time.
+   */
   IDLE,
+  /**
+   * Polling the P2P module for txs to include in a block. Will move to CREATING_BLOCK if there are valid txs to include, or back to IDLE otherwise.
+   */
   WAITING_FOR_TXS,
+  /**
+   * Creating a new L2 block. Includes processing public function calls and running rollup circuits. Will move to PUBLISHING_UNVERIFIED_DATA.
+   */
   CREATING_BLOCK,
-  PUBLISHING_BLOCK,
+  /**
+   * Sending the tx to L1 with unverified data and awaiting it to be mined. Will move back to PUBLISHING_BLOCK once finished.
+   */
   PUBLISHING_UNVERIFIED_DATA,
+  /**
+   * Sending the tx to L1 with the L2 block data and awaiting it to be mined. Will move to IDLE.
+   */
+  PUBLISHING_BLOCK,
+  /**
+   * Sequencer is stopped and not processing any txs from the pool.
+   */
   STOPPED,
 }

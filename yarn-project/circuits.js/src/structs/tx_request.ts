@@ -1,9 +1,11 @@
-import { AztecAddress, BufferReader, Fr } from '@aztec/foundation';
+import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { FieldsOf } from '../utils/jsUtils.js';
 import { serializeToBuffer } from '../utils/serialize.js';
 import { FunctionData } from './function_data.js';
 import { EcdsaSignature } from './shared.js';
 import { TxContext } from './tx_context.js';
+import { Fr } from '@aztec/foundation/fields';
+import { BufferReader } from '@aztec/foundation/serialize';
 import { ARGS_LENGTH } from './constants.js';
 
 /**

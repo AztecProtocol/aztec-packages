@@ -5,7 +5,7 @@ import { NotePreimage } from './note_preimage.js';
 import { serializeToBuffer } from '@aztec/circuits.js/utils';
 import { decryptBuffer, encryptBuffer } from './encrypt_buffer.js';
 import { Grumpkin } from '@aztec/barretenberg.js/crypto';
-import { randomBytes } from '@aztec/foundation';
+import { randomBytes } from '@aztec/foundation/crypto';
 
 /**
  * A class which wraps the data required to compute a nullifier. Along with that this class contains the necessary
@@ -13,15 +13,20 @@ import { randomBytes } from '@aztec/foundation';
  * Note: This data is passed around through UnverifiedData.
  */
 export class TxAuxData {
-  /**
-   *
-   * @param notePreimage - Preimage which can be used along with private key to compute nullifier.
-   * @param contractAddress - Address of the contract this tx is interacting with.
-   * @param storageSlot - Storage slot of the contract this tx is interacting with.
-   * Note: The contract address and storage slot are used to identify which COMPUTE_NULLIFIER function will be used.
-   *       The nullifier can then be computed with COMPUTE_NULLIFIER(notePreimage, privKey).
-   */
-  constructor(public notePreimage: NotePreimage, public contractAddress: AztecAddress, public storageSlot: Fr) {}
+  constructor(
+    /**
+     * Preimage which can be used along with private key to compute nullifier.
+     */
+    public notePreimage: NotePreimage,
+    /**
+     * Address of the contract this tx is interacting with.
+     */
+    public contractAddress: AztecAddress,
+    /**
+     * Storage slot of the contract this tx is interacting with.
+     */
+    public storageSlot: Fr,
+  ) {}
 
   /**
    * Deserializes the TxAuxData object from a Buffer.

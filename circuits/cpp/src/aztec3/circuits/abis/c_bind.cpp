@@ -1,5 +1,6 @@
 #include "c_bind.h"
 
+#include "call_stack_item.hpp"
 #include "function_data.hpp"
 #include "function_leaf_preimage.hpp"
 #include "kernel_circuit_public_inputs.hpp"
@@ -15,14 +16,18 @@
 #include "rollup/root/root_rollup_inputs.hpp"
 #include "rollup/root/root_rollup_public_inputs.hpp"
 
+#include "aztec3/circuits/abis/combined_accumulated_data.hpp"
 #include "aztec3/circuits/abis/function_data.hpp"
 #include "aztec3/circuits/abis/function_leaf_preimage.hpp"
 #include "aztec3/circuits/abis/new_contract_data.hpp"
+#include "aztec3/circuits/abis/signed_tx_request.hpp"
+#include "aztec3/circuits/abis/types.hpp"
 #include <aztec3/circuits/hash.hpp>
 #include <aztec3/constants.hpp>
 #include <aztec3/utils/array.hpp>
 #include <aztec3/utils/types/native_types.hpp>
 
+#include "barretenberg/crypto/ecdsa/ecdsa.hpp"
 #include "barretenberg/srs/reference_string/mem_reference_string.hpp"
 #include <barretenberg/crypto/keccak/keccak.hpp>
 #include <barretenberg/stdlib/merkle_tree/membership.hpp>
@@ -31,12 +36,15 @@ namespace {
 
 using aztec3::circuits::compute_constructor_hash;
 using aztec3::circuits::compute_contract_address;
+using aztec3::circuits::abis::CallStackItem;
 using aztec3::circuits::abis::FunctionData;
 using aztec3::circuits::abis::FunctionLeafPreimage;
 using aztec3::circuits::abis::NewContractData;
+using aztec3::circuits::abis::SignedTxRequest;
 using aztec3::circuits::abis::TxContext;
 using aztec3::circuits::abis::TxRequest;
 using NT = aztec3::utils::types::NativeTypes;
+using aztec3::circuits::abis::PublicTypes;
 
 // Cbind helper functions
 
@@ -125,7 +133,7 @@ WASM_EXPORT void abis__hash_tx_request(uint8_t const* tx_request_buf, uint8_t* o
 {
     TxRequest<NT> tx_request;
     read(tx_request_buf, tx_request);
-    // TODO consider using write() and read() instead of
+    // TODO(dbanks12) consider using write() and read() instead of
     // serialize to/from everywhere here and in test
     NT::fr::serialize_to_buffer(tx_request.hash(), output);
 }
@@ -342,6 +350,32 @@ WASM_EXPORT void abis__compute_contract_leaf(uint8_t const* contract_leaf_preima
     NT::fr::serialize_to_buffer(to_write, output);
 }
 
+/**
+ * @brief Generates a signed tx request hash from it's pre-image
+ * This is a WASM-export that can be called from Typescript.
+ *
+ * @details given a `uint8_t const*` buffer representing a signed tx request's pre-image,
+ * construct a SignedTxRequest instance, hash, and return the serialized results
+ * in the `output` buffer.
+ *
+ * @param signed_tx_request_buf a buffer of bytes representing the signed tx request
+ * @param output buffer that will contain the output. The hashed and serialized signed tx request.
+ */
+WASM_EXPORT void abis__compute_transaction_hash(uint8_t const* signed_tx_request_buf, uint8_t* output)
+{
+    SignedTxRequest<NT> signed_tx_request_preimage;
+    read(signed_tx_request_buf, signed_tx_request_preimage);
+    auto to_write = signed_tx_request_preimage.hash();
+    NT::fr::serialize_to_buffer(to_write, output);
+}
+
+WASM_EXPORT void abis__compute_call_stack_item_hash(uint8_t const* call_stack_item_buf, uint8_t* output)
+{
+    CallStackItem<NT, PublicTypes> call_stack_item;
+    read(call_stack_item_buf, call_stack_item);
+    NT::fr::serialize_to_buffer(call_stack_item.hash(), output);
+}
+
 /* Typescript test helpers that call as_string_output() to stress serialization.
  * Each of these take an object buffer, and a string size pointer.
  * They return a string pointer (to be bbfree'd) and write to the string size pointer. */
@@ -412,6 +446,21 @@ WASM_EXPORT const char* abis__test_roundtrip_reserialize_root_rollup_public_inpu
                                                                                    uint32_t* size)
 {
     return as_serialized_output<aztec3::circuits::abis::RootRollupPublicInputs<NT>>(rollup_inputs_buf, size);
+}
+
+WASM_EXPORT const char* abis__test_roundtrip_serialize_combined_accumulated_data(uint8_t const* input, uint32_t* size)
+{
+    return as_string_output<aztec3::circuits::abis::CombinedAccumulatedData<NT>>(input, size);
+}
+
+WASM_EXPORT const char* abis__test_roundtrip_serialize_signature(uint8_t const* input, uint32_t* size)
+{
+    return as_string_output<NT::ecdsa_signature>(input, size);
+}
+
+WASM_EXPORT const char* abis__test_roundtrip_serialize_signed_tx_request(uint8_t const* input, uint32_t* size)
+{
+    return as_string_output<aztec3::circuits::abis::SignedTxRequest<NT>>(input, size);
 }
 
 WASM_EXPORT const char* abis__test_roundtrip_serialize_private_kernel_inputs(uint8_t const* input, uint32_t* size)

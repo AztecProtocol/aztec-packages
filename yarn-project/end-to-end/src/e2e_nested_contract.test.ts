@@ -1,7 +1,7 @@
 import { AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
 import { AztecAddress, AztecRPCServer, Contract, ContractDeployer, Fr, TxStatus } from '@aztec/aztec.js';
-import { createDebugLogger } from '@aztec/foundation';
-import { ContractAbi } from '@aztec/noir-contracts';
+import { createDebugLogger } from '@aztec/foundation/log';
+import { ContractAbi } from '@aztec/foundation/abi';
 import { ChildAbi, ParentAbi } from '@aztec/noir-contracts/examples';
 
 import { mnemonicToAccount } from 'viem/accounts';
@@ -56,7 +56,7 @@ describe('e2e_nested_contract', () => {
   };
 
   /**
-   * Milestone 3
+   * Milestone 3.
    */
   it.only('should mine transactions that perform nested calls', async () => {
     const parentContract = await deployContract(ParentAbi);

@@ -5,12 +5,13 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./dest/index.js",
     "./eslint": "./.eslintrc.cjs",
     "./eslint-legacy": "./.eslintrc.legacy.cjs",
     "./prettier": "./.prettierrc.json",
+    "./abi": "./dest/abi/index.js",
     "./async-map": "./dest/async-map/index.js",
     "./aztec-address": "./dest/aztec-address/index.js",
+    "./collection": "./dest/collection/index.js",
     "./crypto": "./dest/crypto/index.js",
     "./error": "./dest/error/index.js",
     "./eth-address": "./dest/eth-address/index.js",
@@ -25,7 +26,8 @@
     "./sleep": "./dest/sleep/index.js",
     "./timer": "./dest/timer/index.js",
     "./transport": "./dest/transport/index.js",
-    "./wasm": "./dest/wasm/index.js"
+    "./wasm": "./dest/wasm/index.js",
+    "./bigint-buffer": "./dest/bigint-buffer/index.js"
   },
   "scripts": {
     "prepare": "node ../yarn-project-base/scripts/update_build_manifest.mjs package.json",
@@ -35,7 +37,7 @@
     "clean": "rm -rf ./dest .tsbuildinfo",
     "formatting": "run -T prettier --check ./src && run -T eslint ./src",
     "formatting:fix": "run -T prettier -w ./src",
-    "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules $(yarn bin jest) --passWithNoTests"
+    "test": "DEBUG=wasm NODE_NO_WARNINGS=1 node --experimental-vm-modules $(yarn bin jest) --passWithNoTests"
   },
   "inherits": [
     "../package.common.json"
@@ -52,6 +54,7 @@
     "@koa/cors": "^4.0.0",
     "debug": "^4.3.4",
     "detect-node": "^2.1.0",
+    "hash.js": "^1.1.7",
     "koa": "^2.14.1",
     "koa-bodyparser": "^4.4.0",
     "koa-compress": "^5.1.0",

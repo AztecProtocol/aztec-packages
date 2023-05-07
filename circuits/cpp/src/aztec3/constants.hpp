@@ -23,7 +23,7 @@ constexpr size_t KERNEL_NEW_NULLIFIERS_LENGTH = 4;
 constexpr size_t KERNEL_NEW_CONTRACTS_LENGTH = 1;
 constexpr size_t KERNEL_PRIVATE_CALL_STACK_LENGTH = 8;
 constexpr size_t KERNEL_PUBLIC_CALL_STACK_LENGTH = 8;
-constexpr size_t KERNEL_NEW_L2_TO_L1_MSGS_LENGTH = 4;
+constexpr size_t KERNEL_NEW_L2_TO_L1_MSGS_LENGTH = 2;
 constexpr size_t KERNEL_OPTIONALLY_REVEALED_DATA_LENGTH = 4;
 
 constexpr size_t VK_TREE_HEIGHT = 3;
@@ -86,6 +86,7 @@ enum GeneratorIndex {
     TX_REQUEST,
     PUBLIC_LEAF_INDEX,
     PUBLIC_DATA_LEAF,
+    SIGNED_TX_REQUEST,
 };
 
 enum StorageSlotGeneratorIndex {

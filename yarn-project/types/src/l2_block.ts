@@ -5,80 +5,135 @@ import {
   KERNEL_NEW_NULLIFIERS_LENGTH,
   STATE_TRANSITIONS_LENGTH,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
+  KERNEL_NEW_L2_TO_L1_MSGS_LENGTH,
 } from '@aztec/circuits.js';
 import { makeAppendOnlyTreeSnapshot } from '@aztec/circuits.js/factories';
 import { BufferReader, serializeToBuffer } from '@aztec/circuits.js/utils';
-import { Fr, sha256, toBigIntBE, toBufferBE } from '@aztec/foundation';
+import { Fr } from '@aztec/foundation/fields';
 import times from 'lodash.times';
 import { ContractData } from './contract_data.js';
 import { L2Tx } from './l2_tx.js';
 import { PublicDataWrite } from './public_data_write.js';
-
+import { toBigIntBE, toBufferBE } from '@aztec/foundation/bigint-buffer';
+import { sha256 } from '@aztec/foundation/crypto';
 /**
  * The data that makes up the rollup proof, with encoder decoder functions.
  * TODO: Reuse data types and serialization functions from circuits package.
  */
 export class L2Block {
-  /**
-   * Construct a new L2Block object.
-   * The data that goes into the rollup, BUT without the proof.
-   * @param number - The number of the L2 block.
-   * @param startPrivateDataTreeSnapshot - The tree snapshot of the private data tree at the start of the rollup.
-   * @param startNullifierTreeSnapshot - The tree snapshot of the nullifier tree at the start of the rollup.
-   * @param startContractTreeSnapshot - The tree snapshot of the contract tree at the start of the rollup.
-   * @param startTreeOfHistoricPrivateDataTreeRootsSnapshot - The tree snapshot of the historic private data tree roots at the start of the rollup.
-   * @param startTreeOfHistoricContractTreeRootsSnapshot - The tree snapshot of the historic contract tree roots at the start of the rollup.
-   * @param startPublicDataTreeRoot - The tree root of the public data tree at the start of the rollup.
-   * @param startL1ToL2MessageTreeSnapshot - The tree snapshot of the L2 message tree at the start of the rollup.
-   * @param startTreeOfHistoricL1ToL2MessageTreeRootsSnapshot - The tree snapshot of the historic L2 message tree roots at the start of the rollup.
-   * @param endPrivateDataTreeSnapshot - The tree snapshot of the private data tree at the end of the rollup.
-   * @param endNullifierTreeSnapshot - The tree snapshot of the nullifier tree at the end of the rollup.
-   * @param endContractTreeSnapshot - The tree snapshot of the contract tree at the end of the rollup.
-   * @param endTreeOfHistoricPrivateDataTreeRootsSnapshot - The tree snapshot of the historic private data tree roots at the end of the rollup.
-   * @param endTreeOfHistoricContractTreeRootsSnapshot - The tree snapshot of the historic contract tree roots at the end of the rollup.
-   * @param endPublicDataTreeRoot - The tree root of the public data tree at the end of the rollup.
-   * @param endL1ToL2MessageTreeSnapshot - The tree snapshot of the L2 message tree at the end of the rollup.
-   * @param endTreeOfHistoricL1ToL2MessageTreeRootsSnapshot - The tree snapshot of the historic L2 message tree roots at the end of the rollup.
-   * @param newCommitments - The commitments to be inserted into the private data tree.
-   * @param newNullifiers - The nullifiers to be inserted into the nullifier tree.
-   * @param newPublicDataWrites - The public data writes to be inserted into the public data tree.
-   * @param newContracts - The contracts leafs to be inserted into the contract tree.
-   * @param newContractData - The aztec_address and eth_address for the deployed contract and its portal contract.
-   * @param newL1ToL2Messages - The L1 to L2 messages to be inserted into the L2 toL2 message tree.
-   */
   constructor(
+    /**
+     * The number of the L2 block.
+     */
     public number: number,
+    /**
+     * The tree snapshot of the private data tree at the start of the rollup.
+     */
     public startPrivateDataTreeSnapshot: AppendOnlyTreeSnapshot,
+    /**
+     * The tree snapshot of the nullifier tree at the start of the rollup.
+     */
     public startNullifierTreeSnapshot: AppendOnlyTreeSnapshot,
+    /**
+     * The tree snapshot of the contract tree at the start of the rollup.
+     */
     public startContractTreeSnapshot: AppendOnlyTreeSnapshot,
+    /**
+     * The tree snapshot of the historic private data tree roots at the start of the rollup.
+     */
     public startTreeOfHistoricPrivateDataTreeRootsSnapshot: AppendOnlyTreeSnapshot,
+    /**
+     * The tree snapshot of the historic contract tree roots at the start of the rollup.
+     */
     public startTreeOfHistoricContractTreeRootsSnapshot: AppendOnlyTreeSnapshot,
+    /**
+     * The tree root of the public data tree at the start of the rollup.
+     */
     public startPublicDataTreeRoot: Fr,
+    /**
+     * The tree snapshot of the L2 message tree at the start of the rollup.
+     */
     public startL1ToL2MessageTreeSnapshot: AppendOnlyTreeSnapshot,
+    /**
+     * The tree snapshot of the historic L2 message tree roots at the start of the rollup.
+     */
     public startTreeOfHistoricL1ToL2MessageTreeRootsSnapshot: AppendOnlyTreeSnapshot,
+    /**
+     * The tree snapshot of the private data tree at the end of the rollup.
+     */
     public endPrivateDataTreeSnapshot: AppendOnlyTreeSnapshot,
+    /**
+     * The tree snapshot of the nullifier tree at the end of the rollup.
+     */
     public endNullifierTreeSnapshot: AppendOnlyTreeSnapshot,
+    /**
+     * The tree snapshot of the contract tree at the end of the rollup.
+     */
     public endContractTreeSnapshot: AppendOnlyTreeSnapshot,
+    /**
+     * The tree snapshot of the historic private data tree roots at the end of the rollup.
+     */
     public endTreeOfHistoricPrivateDataTreeRootsSnapshot: AppendOnlyTreeSnapshot,
+    /**
+     * The tree snapshot of the historic contract tree roots at the end of the rollup.
+     */
     public endTreeOfHistoricContractTreeRootsSnapshot: AppendOnlyTreeSnapshot,
+    /**
+     * The tree root of the public data tree at the end of the rollup.
+     */
     public endPublicDataTreeRoot: Fr,
+    /**
+     * The tree snapshot of the L2 message tree at the end of the rollup.
+     */
     public endL1ToL2MessageTreeSnapshot: AppendOnlyTreeSnapshot,
+    /**
+     * The tree snapshot of the historic L2 message tree roots at the end of the rollup.
+     */
     public endTreeOfHistoricL1ToL2MessageTreeRootsSnapshot: AppendOnlyTreeSnapshot,
+    /**
+     * The commitments to be inserted into the private data tree.
+     */
     public newCommitments: Fr[],
+    /**
+     * The nullifiers to be inserted into the nullifier tree.
+     */
     public newNullifiers: Fr[],
+    /**
+     * The public data writes to be inserted into the public data tree.
+     */
     public newPublicDataWrites: PublicDataWrite[],
+    /**
+     * The L2 to L1 messages to be inserted into the messagebox on L1.
+     */
+    public newL2ToL1Msgs: Fr[],
+    /**
+     * The contracts leafs to be inserted into the contract tree.
+     */
     public newContracts: Fr[],
+    /**
+     * The aztec address and ethereum address for the deployed contract and its portal contract.
+     */
     public newContractData: ContractData[],
+    /**
+     * The L1 to L2 messages to be inserted into the L2 toL2 message tree.
+     */
     public newL1ToL2Messages: Fr[] = [],
   ) {}
 
-  static random(l2BlockNum: number, txsPerBlock = 4) {
+  /**
+   * Creates an L2 block containing random data.
+   * @param l2BlockNum - The number of the L2 block.
+   * @param txsPerBlock - The number of transactions to include in the block.
+   * @returns The L2 block.
+   */
+  static random(l2BlockNum: number, txsPerBlock = 4): L2Block {
     const newNullifiers = times(KERNEL_NEW_NULLIFIERS_LENGTH * txsPerBlock, Fr.random);
     const newCommitments = times(KERNEL_NEW_COMMITMENTS_LENGTH * txsPerBlock, Fr.random);
     const newContracts = times(KERNEL_NEW_CONTRACTS_LENGTH * txsPerBlock, Fr.random);
     const newContractData = times(KERNEL_NEW_CONTRACTS_LENGTH * txsPerBlock, ContractData.random);
     const newPublicDataWrites = times(STATE_TRANSITIONS_LENGTH * txsPerBlock, PublicDataWrite.random);
     const newL1ToL2Messages = times(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, Fr.random);
+    const newL2ToL1Msgs = times(KERNEL_NEW_L2_TO_L1_MSGS_LENGTH, Fr.random);
 
     return L2Block.fromFields({
       number: l2BlockNum,
@@ -104,6 +159,7 @@ export class L2Block {
       newContractData,
       newPublicDataWrites,
       newL1ToL2Messages,
+      newL2ToL1Msgs,
     });
   }
 
@@ -113,28 +169,101 @@ export class L2Block {
    * @returns A new instance.
    */
   static fromFields(fields: {
+    /**
+     * The number of the L2 block.
+     */
     number: number;
+    /**
+     * The tree snapshot of the private data tree at the start of the rollup.
+     */
     startPrivateDataTreeSnapshot: AppendOnlyTreeSnapshot;
+    /**
+     * The tree snapshot of the nullifier tree at the start of the rollup.
+     */
     startNullifierTreeSnapshot: AppendOnlyTreeSnapshot;
+    /**
+     * The tree snapshot of the contract tree at the start of the rollup.
+     */
     startContractTreeSnapshot: AppendOnlyTreeSnapshot;
+    /**
+     * The tree snapshot of the historic private data tree roots at the start of the rollup.
+     */
     startTreeOfHistoricPrivateDataTreeRootsSnapshot: AppendOnlyTreeSnapshot;
+    /**
+     * The tree snapshot of the historic contract tree roots at the start of the rollup.
+     */
     startTreeOfHistoricContractTreeRootsSnapshot: AppendOnlyTreeSnapshot;
+    /**
+     * The tree root of the public data tree at the start of the rollup.
+     */
     startPublicDataTreeRoot: Fr;
+    /**
+     * The tree snapshot of the L2 message tree at the start of the rollup.
+     */
     startL1ToL2MessageTreeSnapshot: AppendOnlyTreeSnapshot;
+    /**
+     * The tree snapshot of the historic L2 message tree roots at the start of the rollup.
+     */
     startTreeOfHistoricL1ToL2MessageTreeRootsSnapshot: AppendOnlyTreeSnapshot;
+    /**
+     * The tree snapshot of the private data tree at the end of the rollup.
+     */
     endPrivateDataTreeSnapshot: AppendOnlyTreeSnapshot;
+    /**
+     * The tree snapshot of the nullifier tree at the end of the rollup.
+     */
     endNullifierTreeSnapshot: AppendOnlyTreeSnapshot;
+    /**
+     * The tree snapshot of the contract tree at the end of the rollup.
+     */
     endContractTreeSnapshot: AppendOnlyTreeSnapshot;
+    /**
+     * The tree snapshot of the historic private data tree roots at the end of the rollup.
+     */
     endTreeOfHistoricPrivateDataTreeRootsSnapshot: AppendOnlyTreeSnapshot;
+    /**
+     * The tree snapshot of the historic contract tree roots at the end of the rollup.
+     */
     endTreeOfHistoricContractTreeRootsSnapshot: AppendOnlyTreeSnapshot;
+    /**
+     * The tree root of the public data tree at the end of the rollup.
+     */
     endPublicDataTreeRoot: Fr;
+    /**
+     * The tree snapshot of the L2 message tree at the end of the rollup.
+     */
     endL1ToL2MessageTreeSnapshot: AppendOnlyTreeSnapshot;
+    /**
+     * The tree snapshot of the historic L2 message tree roots at the end of the rollup.
+     */
     endTreeOfHistoricL1ToL2MessageTreeRootsSnapshot: AppendOnlyTreeSnapshot;
+    /**
+     * The commitments to be inserted into the private data tree.
+     */
     newCommitments: Fr[];
+    /**
+     * The nullifiers to be inserted into the nullifier tree.
+     */
     newNullifiers: Fr[];
+    /**
+     * The public data writes to be inserted into the public data tree.
+     */
     newPublicDataWrites: PublicDataWrite[];
+    /**
+     * The L2 to L1 messages to be inserted into the messagebox on L1.
+     */
+    newL2ToL1Msgs: Fr[];
+    /**
+     * The contracts leafs to be inserted into the contract tree.
+     */
     newContracts: Fr[];
+    /**
+     * The aztec address and ethereum address for the deployed contract and its portal contract.
+     */
     newContractData: ContractData[];
+    /**
+     * The L1 to L2 messages to be inserted into the L2 toL2 message tree.
+     */
     newL1ToL2Messages: Fr[];
   }) {
     return new this(
@@ -158,6 +287,7 @@ export class L2Block {
       fields.newCommitments,
       fields.newNullifiers,
       fields.newPublicDataWrites,
+      fields.newL2ToL1Msgs,
       fields.newContracts,
       fields.newContractData,
       fields.newL1ToL2Messages,
@@ -193,6 +323,8 @@ export class L2Block {
       this.newNullifiers,
       this.newPublicDataWrites.length,
       this.newPublicDataWrites,
+      this.newL2ToL1Msgs.length,
+      this.newL2ToL1Msgs,
       this.newContracts.length,
       this.newContracts,
       this.newContractData,
@@ -236,6 +368,7 @@ export class L2Block {
     const newCommitments = reader.readVector(Fr);
     const newNullifiers = reader.readVector(Fr);
     const newPublicDataWrites = reader.readVector(PublicDataWrite);
+    const newL2ToL1Msgs = reader.readVector(Fr);
     const newContracts = reader.readVector(Fr);
     const newContractData = reader.readArray(newContracts.length, ContractData);
     // TODO(sean): could an optimisation of this be that it is encoded such that zeros are assumed
@@ -262,6 +395,7 @@ export class L2Block {
       newCommitments,
       newNullifiers,
       newPublicDataWrites,
+      newL2ToL1Msgs,
       newContracts,
       newContractData,
       newL1ToL2Messages,
@@ -270,10 +404,10 @@ export class L2Block {
 
   /**
    * Computes the public inputs hash for the L2 block.
-   * The same output as the hash of RootRollupPublicInputs
-   * @return The public input hash for the L2 block as a field element
+   * The same output as the hash of RootRollupPublicInputs.
+   * @returns The public input hash for the L2 block as a field element.
    */
-  getPublicInputsHash() {
+  getPublicInputsHash(): Fr {
     const buf = serializeToBuffer(
       this.startPrivateDataTreeSnapshot,
       this.startNullifierTreeSnapshot,
@@ -302,8 +436,8 @@ export class L2Block {
   }
 
   /**
-   * Computes the start state hash (should equal contract data before block)
-   * @returns The start state hash for the L2 block
+   * Computes the start state hash (should equal contract data before block).
+   * @returns The start state hash for the L2 block.
    */
   getStartStateHash() {
     const inputValue = serializeToBuffer(
@@ -321,8 +455,8 @@ export class L2Block {
   }
 
   /**
-   * Computes the end state hash (should equal contract data after block)
-   * @returns The end state hash for the L2 block
+   * Computes the end state hash (should equal contract data after block).
+   * @returns The end state hash for the L2 block.
    */
   getEndStateHash() {
     const inputValue = serializeToBuffer(
@@ -375,6 +509,7 @@ export class L2Block {
       const commitmentPerBase = KERNEL_NEW_COMMITMENTS_LENGTH * 2;
       const nullifierPerBase = KERNEL_NEW_NULLIFIERS_LENGTH * 2;
       const publicDataWritesPerBase = STATE_TRANSITIONS_LENGTH * 2; // @note why is this constant named differently?
+      const l2ToL1MsgsPerBase = KERNEL_NEW_L2_TO_L1_MSGS_LENGTH * 2;
       const commitmentBuffer = Buffer.concat(
         this.newCommitments.slice(i * commitmentPerBase, (i + 1) * commitmentPerBase).map(x => x.toBuffer()),
       );
@@ -386,11 +521,15 @@ export class L2Block {
           .slice(i * publicDataWritesPerBase, (i + 1) * publicDataWritesPerBase)
           .map(x => x.toBuffer()),
       );
+      const newL2ToL1MsgsBuffer = Buffer.concat(
+        this.newL2ToL1Msgs.slice(i * l2ToL1MsgsPerBase, (i + 1) * l2ToL1MsgsPerBase).map(x => x.toBuffer()),
+      );
 
       const inputValue = Buffer.concat([
         commitmentBuffer,
         nullifierBuffer,
         dataWritesBuffer,
+        newL2ToL1MsgsBuffer,
         this.newContracts[i * 2].toBuffer(),
         this.newContracts[i * 2 + 1].toBuffer(),
         this.newContractData[i * 2].contractAddress.toBuffer(),
@@ -405,10 +544,10 @@ export class L2Block {
 
   /**
    * Compute the hash of all of this blocks l1 to l2 messages,
-   * The hash is also calculated within the contract when the block is submitted
-   * @returns
+   * The hash is also calculated within the contract when the block is submitted.
+   * @returns The hash of all of the l1 to l2 messages.
    */
-  getL1ToL2MessagesHash() {
+  getL1ToL2MessagesHash(): Buffer {
     // Create a long buffer of all of the l1 to l2 messages
     const l1ToL2Messages = Buffer.concat(this.newL1ToL2Messages.map(message => message.toBuffer()));
     return sha256(l1ToL2Messages);
@@ -437,6 +576,10 @@ export class L2Block {
       STATE_TRANSITIONS_LENGTH * txIndex,
       STATE_TRANSITIONS_LENGTH * (txIndex + 1),
     );
+    const newL2ToL1Msgs = this.newL2ToL1Msgs.slice(
+      KERNEL_NEW_L2_TO_L1_MSGS_LENGTH * txIndex,
+      KERNEL_NEW_L2_TO_L1_MSGS_LENGTH * (txIndex + 1),
+    );
     const newContracts = this.newContracts.slice(
       KERNEL_NEW_CONTRACTS_LENGTH * txIndex,
       KERNEL_NEW_CONTRACTS_LENGTH * (txIndex + 1),
@@ -446,7 +589,7 @@ export class L2Block {
       KERNEL_NEW_CONTRACTS_LENGTH * (txIndex + 1),
     );
 
-    return new L2Tx(newCommitments, newNullifiers, newPublicDataWrites, newContracts, newContractData);
+    return new L2Tx(newCommitments, newNullifiers, newPublicDataWrites, newL2ToL1Msgs, newContracts, newContractData);
   }
 
   /**
@@ -455,8 +598,12 @@ export class L2Block {
    * @returns A human-friendly string representation of the l2Block.
    */
   inspect(maxBufferSize = 4): string {
-    const inspectHex = (fr: { toBuffer: () => Buffer }): string =>
-      `0x${fr.toBuffer().subarray(0, maxBufferSize).toString('hex')}`;
+    const inspectHex = (fr: {
+      /**
+       * A function used to serialize the field element to a buffer.
+       */
+      toBuffer: () => Buffer;
+    }): string => `0x${fr.toBuffer().subarray(0, maxBufferSize).toString('hex')}`;
     const inspectArray = <T>(arr: T[], inspector: (t: T) => string) => '[' + arr.map(inspector).join(', ') + ']';
 
     const inspectTreeSnapshot = (s: AppendOnlyTreeSnapshot): string =>
@@ -502,6 +649,7 @@ export class L2Block {
       `newCommitments: ${inspectFrArray(this.newCommitments)}`,
       `newNullifiers: ${inspectFrArray(this.newNullifiers)}`,
       `newPublicDataWrite: ${inspectPublicDataWriteArray(this.newPublicDataWrites)}`,
+      `newL2ToL1Msgs: ${inspectFrArray(this.newL2ToL1Msgs)}`,
       `newContracts: ${inspectFrArray(this.newContracts)}`,
       `newContractData: ${inspectContractDataArray(this.newContractData)}`,
       `newPublicDataWrite: ${inspectPublicDataWriteArray(this.newPublicDataWrites)}`,

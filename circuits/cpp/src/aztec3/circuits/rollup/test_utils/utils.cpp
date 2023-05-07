@@ -51,6 +51,17 @@ namespace aztec3::circuits::rollup::test_utils::utils {
 
 // Want some helper functions for generating kernels with some commitments, nullifiers and contracts
 
+std::vector<uint8_t> get_empty_calldata_leaf()
+{
+    auto const number_of_inputs =
+        (KERNEL_NEW_COMMITMENTS_LENGTH + KERNEL_NEW_NULLIFIERS_LENGTH + STATE_TRANSITIONS_LENGTH * 2 +
+         KERNEL_NEW_L2_TO_L1_MSGS_LENGTH + KERNEL_NEW_CONTRACTS_LENGTH * 3) *
+        2;
+    auto const size = number_of_inputs * 32;
+    std::vector<uint8_t> input_data(size, 0);
+    return input_data;
+}
+
 KernelData get_empty_kernel()
 {
     return dummy_previous_kernel();
@@ -60,20 +71,6 @@ std::array<fr, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP> get_empty_l1_to_l2_messages(
 {
     std::array<fr, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP> l1_to_l2_messages = { 0 };
     return l1_to_l2_messages;
-}
-
-void set_kernel_nullifiers(KernelData& kernel_data, std::array<fr, KERNEL_NEW_NULLIFIERS_LENGTH> new_nullifiers)
-{
-    for (size_t i = 0; i < KERNEL_NEW_NULLIFIERS_LENGTH; i++) {
-        kernel_data.public_inputs.end.new_nullifiers[i] = new_nullifiers[i];
-    }
-}
-
-void set_kernel_commitments(KernelData& kernel_data, std::array<fr, KERNEL_NEW_COMMITMENTS_LENGTH> new_commitments)
-{
-    for (size_t i = 0; i < KERNEL_NEW_COMMITMENTS_LENGTH; i++) {
-        kernel_data.public_inputs.end.new_commitments[i] = new_commitments[i];
-    }
 }
 
 BaseRollupInputs base_rollup_inputs_from_kernels(std::array<KernelData, 2> kernel_data,
@@ -255,7 +252,9 @@ std::array<PreviousRollupData<NT>, 2> get_previous_rollup_data(DummyComposer& co
         auto contract_leaf = crypto::pedersen_commitment::compress_native(
             { contract_data.contract_address, contract_data.portal_contract_address, contract_data.function_tree_root },
             GeneratorIndex::CONTRACT_LEAF);
-        contract_tree.update_element(i, contract_leaf);
+        if (contract_data.contract_address != 0) {
+            contract_tree.update_element(i, contract_leaf);
+        }
         for (size_t j = 0; j < KERNEL_NEW_NULLIFIERS_LENGTH; j++) {
             initial_values.push_back(kernel_data[i].public_inputs.end.new_nullifiers[j]);
             nullifiers[i * KERNEL_NEW_NULLIFIERS_LENGTH + j] = kernel_data[2 + i].public_inputs.end.new_nullifiers[j];
@@ -270,10 +269,8 @@ std::array<PreviousRollupData<NT>, 2> get_previous_rollup_data(DummyComposer& co
     base_rollup_input_2.start_nullifier_tree_snapshot = base_public_input_1.end_nullifier_tree_snapshot;
     base_rollup_input_2.start_contract_tree_snapshot = base_public_input_1.end_contract_tree_snapshot;
 
-    // @todo Need an additional tests to check that these below are correct.
-    // Changing the index in private tree still pass tests etc (16).
     base_rollup_input_2.new_contracts_subtree_sibling_path =
-        get_sibling_path<CONTRACT_SUBTREE_INCLUSION_CHECK_DEPTH>(contract_tree, 1, CONTRACT_SUBTREE_DEPTH);
+        get_sibling_path<CONTRACT_SUBTREE_INCLUSION_CHECK_DEPTH>(contract_tree, 2, CONTRACT_SUBTREE_DEPTH);
     base_rollup_input_2.new_commitments_subtree_sibling_path =
         get_sibling_path<PRIVATE_DATA_SUBTREE_INCLUSION_CHECK_DEPTH>(private_data_tree, 8, PRIVATE_DATA_SUBTREE_DEPTH);
 

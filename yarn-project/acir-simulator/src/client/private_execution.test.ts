@@ -10,7 +10,6 @@ import {
   TxContext,
   TxRequest,
 } from '@aztec/circuits.js';
-import { AztecAddress, EthAddress, Fr } from '@aztec/foundation';
 import { AppendOnlyTree, Pedersen, StandardTree, newTree } from '@aztec/merkle-tree';
 import { ChildAbi, ParentAbi, TestContractAbi, ZkTokenContractAbi } from '@aztec/noir-contracts/examples';
 import { mock } from 'jest-mock-extended';
@@ -20,6 +19,9 @@ import { encodeArguments } from '../abi_coder/index.js';
 import { DBOracle } from './db_oracle.js';
 import { AcirSimulator } from './simulator.js';
 import { NoirPoint, computeSlotForMapping, toPublicKey } from '../utils.js';
+import { Fr } from '@aztec/foundation/fields';
+import { EthAddress } from '@aztec/foundation/eth-address';
+import { AztecAddress } from '@aztec/foundation/aztec-address';
 
 const createMemDown = () => (memdown as any)() as MemDown<any, any>;
 
@@ -77,9 +79,9 @@ describe('Private Execution test suite', () => {
     let recipientPk: Buffer;
     let recipient: NoirPoint;
 
-    function buildNote(amount: bigint, owner: NoirPoint) {
+    const buildNote = (amount: bigint, owner: NoirPoint) => {
       return [new Fr(1n), new Fr(currentNonce++), new Fr(owner.x), new Fr(owner.y), Fr.random(), new Fr(amount)];
-    }
+    };
 
     beforeAll(() => {
       ownerPk = Buffer.from('5e30a2f886b4b6a11aea03bf4910fbd5b24e61aa27ea4d05c393b3ab592a8d33', 'hex');
@@ -296,7 +298,7 @@ describe('Private Execution test suite', () => {
       );
       const result = await acirSimulator.run(txRequest, abi, AztecAddress.ZERO, EthAddress.ZERO, historicRoots);
 
-      expect(result.returnValues[0]).toEqual(142n);
+      expect(result.callStackItem.publicInputs.returnValues[0]).toEqual(new Fr(142n));
     });
 
     it('parent should call child', async () => {
@@ -325,11 +327,11 @@ describe('Private Execution test suite', () => {
         historicRoots,
       );
 
-      expect(result.returnValues[0]).toEqual(42n);
+      expect(result.callStackItem.publicInputs.returnValues[0]).toEqual(new Fr(42n));
       expect(oracle.getFunctionABI.mock.calls[0]).toEqual([childAddress, childSelector]);
       expect(oracle.getPortalContractAddress.mock.calls[0]).toEqual([childAddress]);
       expect(result.nestedExecutions).toHaveLength(1);
-      expect(result.nestedExecutions[0].returnValues[0]).toEqual(42n);
+      expect(result.nestedExecutions[0].callStackItem.publicInputs.returnValues[0]).toEqual(new Fr(42n));
     });
   });
 });

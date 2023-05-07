@@ -13,28 +13,27 @@ import { Fr, SerialQueue, createDebugLogger } from '@aztec/foundation';
 import { WasmWrapper } from '@aztec/foundation/wasm';
 import {
   AppendOnlyTree,
-  StandardIndexedTree,
+  IndexedTree,
   LeafData,
   Pedersen,
   SiblingPath,
+  SparseTree,
+  StandardIndexedTree,
   StandardTree,
   UpdateOnlyTree,
-  IndexedTree,
   newTree,
-  SparseTree,
 } from '@aztec/merkle-tree';
 import { default as levelup } from 'levelup';
 import {
   INITIAL_NULLIFIER_TREE_SIZE,
   IndexedTreeId,
   MerkleTreeDb,
-  MerkleTreeId,
   MerkleTreeOperations,
   PublicTreeId,
   TreeInfo,
 } from './index.js';
 import { MerkleTreeOperationsFacade } from '../merkle-tree/merkle_tree_operations_facade.js';
-import { L2Block } from '@aztec/types';
+import { L2Block, MerkleTreeId } from '@aztec/types';
 
 /**
  * A convenience class for managing multiple merkle trees.
@@ -122,7 +121,10 @@ export class MerkleTrees implements MerkleTreeDb {
 
     this.jobQueue.start();
 
+    // The roots trees must contain the empty roots of their data trees
     await this.updateHistoricRootsTrees(true);
+    const historicRootsTrees = [contractTreeRootsTree, privateDataTreeRootsTree, l1Tol2MessagesRootsTree];
+    await Promise.all(historicRootsTrees.map(tree => tree.commit()));
   }
 
   /**
@@ -469,10 +471,6 @@ export class MerkleTrees implements MerkleTreeDb {
         await this._appendLeaves(rootTree, [newTreeRoot]);
       }
       await this._commit();
-
-      for (const treeId in MerkleTreeId) {
-        const tree = this.trees[MerkleTreeId[treeId]];
-      }
     }
   }
 }
