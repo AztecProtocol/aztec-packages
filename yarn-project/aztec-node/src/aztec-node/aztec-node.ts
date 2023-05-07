@@ -1,8 +1,9 @@
-import { AztecAddress } from '@aztec/foundation';
-import { ContractPublicData, ContractData, L2Block } from '@aztec/types';
+import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { ContractPublicData, ContractData, L2Block, MerkleTreeId } from '@aztec/types';
 import { SiblingPath } from '@aztec/merkle-tree';
 import { Tx, TxHash } from '@aztec/types';
 import { UnverifiedData } from '@aztec/types';
+import { Fr } from '@aztec/foundation/fields';
 
 /**
  * The aztec node.
@@ -84,4 +85,10 @@ export interface AztecNode {
    * @returns Storage value at the given contract slot (or undefined if not found).
    */
   getStorageAt(contract: AztecAddress, slot: bigint): Promise<Buffer | undefined>;
+
+  /**
+   * Returns the current committed roots for the data trees.
+   * @returns The current committed roots for the data trees.
+   */
+  getTreeRoots(): Promise<Record<MerkleTreeId, Fr>>;
 }

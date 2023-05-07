@@ -1,13 +1,19 @@
 import { Archiver } from '@aztec/archiver';
-import { AztecAddress, Fr } from '@aztec/foundation';
-import { ContractPublicData, ContractData, ContractDataSource, L2Block, L2BlockSource } from '@aztec/types';
+import { AztecAddress } from '@aztec/foundation/aztec-address';
+import {
+  ContractPublicData,
+  ContractData,
+  ContractDataSource,
+  L2Block,
+  L2BlockSource,
+  MerkleTreeId,
+} from '@aztec/types';
 import { SiblingPath } from '@aztec/merkle-tree';
 import { P2P, P2PClient } from '@aztec/p2p';
 import { SequencerClient, getCombinedHistoricTreeRoots } from '@aztec/sequencer-client';
 import { Tx, TxHash } from '@aztec/types';
 import { UnverifiedData, UnverifiedDataSource } from '@aztec/types';
 import {
-  MerkleTreeId,
   MerkleTrees,
   ServerWorldStateSynchroniser,
   WorldStateSynchroniser,
@@ -16,7 +22,7 @@ import {
 import { default as levelup } from 'levelup';
 import { default as memdown, MemDown } from 'memdown';
 import { AztecNodeConfig } from './config.js';
-import { CircuitsWasm } from '@aztec/circuits.js';
+import { CircuitsWasm, Fr } from '@aztec/circuits.js';
 import { PrimitivesWasm } from '@aztec/barretenberg.js/wasm';
 import { AztecNode } from './aztec-node.js';
 
@@ -87,7 +93,7 @@ export class AztecNodeService implements AztecNode {
   }
 
   /**
-   * Method to fetch the current block height
+   * Method to fetch the current block height.
    * @returns The block height as a number.
    */
   public async getBlockHeight(): Promise<number> {
@@ -157,9 +163,9 @@ export class AztecNodeService implements AztecNode {
   }
 
   /**
-   * Method to retrieve a single pending tx
+   * Method to retrieve a single pending tx.
    * @param txHash - The transaction hash to return.
-   * @returns - The pending tx if it exists
+   * @returns - The pending tx if it exists.
    */
   public async getPendingTxByHash(txHash: TxHash) {
     return await this.p2pClient!.getTxByhash(txHash);
@@ -179,13 +185,33 @@ export class AztecNodeService implements AztecNode {
 
   /**
    * Gets the storage value at the given contract slot.
-   * @param contract - Address of the contract to query
-   * @param slot - Slot to query
+   * @param contract - Address of the contract to query.
+   * @param slot - Slot to query.
    * @returns Storage value at the given contract slot (or undefined if not found).
-   * Note: Aztec's version of `eth_getStorageAt`
+   * Note: Aztec's version of `eth_getStorageAt`.
    */
   public async getStorageAt(contract: AztecAddress, slot: bigint): Promise<Buffer | undefined> {
     const leafIndex = computePublicDataTreeLeafIndex(contract, new Fr(slot), await PrimitivesWasm.get());
     return this.merkleTreeDB.getLeafValue(MerkleTreeId.PUBLIC_DATA_TREE, leafIndex, false);
+  }
+
+  /**
+   * Returns the current committed roots for the data trees.
+   * @returns The current committed roots for the data trees.
+   */
+  public async getTreeRoots(): Promise<Record<MerkleTreeId, Fr>> {
+    const getTreeRoot = async (id: MerkleTreeId) =>
+      Fr.fromBuffer((await this.merkleTreeDB.getTreeInfo(id, false)).root);
+
+    return {
+      [MerkleTreeId.CONTRACT_TREE]: await getTreeRoot(MerkleTreeId.CONTRACT_TREE),
+      [MerkleTreeId.PRIVATE_DATA_TREE]: await getTreeRoot(MerkleTreeId.PRIVATE_DATA_TREE),
+      [MerkleTreeId.NULLIFIER_TREE]: await getTreeRoot(MerkleTreeId.NULLIFIER_TREE),
+      [MerkleTreeId.PUBLIC_DATA_TREE]: await getTreeRoot(MerkleTreeId.PUBLIC_DATA_TREE),
+      [MerkleTreeId.L1_TO_L2_MESSAGES_TREE]: await getTreeRoot(MerkleTreeId.L1_TO_L2_MESSAGES_TREE),
+      [MerkleTreeId.L1_TO_L2_MESSAGES_ROOTS_TREE]: await getTreeRoot(MerkleTreeId.L1_TO_L2_MESSAGES_ROOTS_TREE),
+      [MerkleTreeId.CONTRACT_TREE_ROOTS_TREE]: await getTreeRoot(MerkleTreeId.CONTRACT_TREE_ROOTS_TREE),
+      [MerkleTreeId.PRIVATE_DATA_TREE_ROOTS_TREE]: await getTreeRoot(MerkleTreeId.PRIVATE_DATA_TREE_ROOTS_TREE),
+    };
   }
 }

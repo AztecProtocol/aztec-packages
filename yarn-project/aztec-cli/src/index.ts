@@ -2,7 +2,7 @@
 import { Command } from 'commander';
 import { deployL1Contracts } from './deploy_l1_contracts.js';
 import { mnemonicToAccount } from 'viem/accounts';
-import { createDebugLogger } from '@aztec/foundation';
+import { createDebugLogger } from '@aztec/foundation/log';
 import { HttpNode } from './http-node.js';
 import { deployL2Contract, deployL2ContractAndMakeTransfers } from './deploy_l2_contract.js';
 

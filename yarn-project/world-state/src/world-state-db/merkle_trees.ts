@@ -2,6 +2,7 @@ import { PrimitivesWasm } from '@aztec/barretenberg.js/wasm';
 import {
   CONTRACT_TREE_HEIGHT,
   CONTRACT_TREE_ROOTS_TREE_HEIGHT,
+  Fr,
   L1_TO_L2_MESSAGES_ROOTS_TREE_HEIGHT,
   L1_TO_L2_MESSAGES_TREE_HEIGHT,
   NULLIFIER_TREE_HEIGHT,
@@ -9,7 +10,6 @@ import {
   PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT,
   PUBLIC_DATA_TREE_HEIGHT,
 } from '@aztec/circuits.js';
-import { Fr, SerialQueue, createDebugLogger } from '@aztec/foundation';
 import { WasmWrapper } from '@aztec/foundation/wasm';
 import {
   AppendOnlyTree,
@@ -34,6 +34,8 @@ import {
 } from './index.js';
 import { MerkleTreeOperationsFacade } from '../merkle-tree/merkle_tree_operations_facade.js';
 import { L2Block, MerkleTreeId } from '@aztec/types';
+import { SerialQueue } from '@aztec/foundation/fifo';
+import { createDebugLogger } from '@aztec/foundation/log';
 
 /**
  * A convenience class for managing multiple merkle trees.
@@ -436,6 +438,11 @@ export class MerkleTrees implements MerkleTreeDb {
         l2Block.endTreeOfHistoricPrivateDataTreeRootsSnapshot.root,
         MerkleTreeId.PRIVATE_DATA_TREE_ROOTS_TREE,
       ),
+      compareRoot(l2Block.endL1ToL2MessageTreeSnapshot.root, MerkleTreeId.L1_TO_L2_MESSAGES_TREE),
+      compareRoot(
+        l2Block.endTreeOfHistoricL1ToL2MessageTreeRootsSnapshot.root,
+        MerkleTreeId.L1_TO_L2_MESSAGES_ROOTS_TREE,
+      ),
     ];
     const ourBlock = rootChecks.every(x => x);
     if (ourBlock) {
@@ -449,6 +456,7 @@ export class MerkleTrees implements MerkleTreeDb {
         [MerkleTreeId.CONTRACT_TREE, l2Block.newContracts],
         [MerkleTreeId.NULLIFIER_TREE, l2Block.newNullifiers],
         [MerkleTreeId.PRIVATE_DATA_TREE, l2Block.newCommitments],
+        [MerkleTreeId.L1_TO_L2_MESSAGES_TREE, l2Block.newL1ToL2Messages],
       ] as const) {
         await this._appendLeaves(
           tree,

@@ -1,7 +1,7 @@
 import { AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
 import { appFactory } from './app.js';
 import http from 'http';
-import { createDebugLogger } from '@aztec/foundation';
+import { createDebugLogger } from '@aztec/foundation/log';
 
 const logger = createDebugLogger('aztec:rollup_provider');
 

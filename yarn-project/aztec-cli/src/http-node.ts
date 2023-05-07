@@ -1,10 +1,7 @@
 import { AztecNode } from '@aztec/aztec-node';
-import { KernelCircuitPublicInputs, SignedTxRequest, UInt8Vector } from '@aztec/circuits.js';
-import { AztecAddress, createDebugLogger } from '@aztec/foundation';
+import { AztecAddress, Fr, KernelCircuitPublicInputs, SignedTxRequest, UInt8Vector } from '@aztec/circuits.js';
 import { SiblingPath } from '@aztec/merkle-tree';
-import { ContractData, ContractPublicData, L2Block, Tx, TxHash, UnverifiedData } from '@aztec/types';
-
-const logger = createDebugLogger('aztec:http_node');
+import { ContractData, ContractPublicData, L2Block, MerkleTreeId, Tx, TxHash, UnverifiedData } from '@aztec/types';
 
 function txToJson(tx: Tx) {
   return {
@@ -191,5 +188,39 @@ export class HttpNode implements AztecNode {
     const response = await (await fetch(url.toString())).json();
     const value = response.value as string;
     return Promise.resolve(Buffer.from(value, 'hex'));
+  }
+
+  /**
+   * Returns the current committed roots for the data trees.
+   * @returns The current committed roots for the data trees.
+   */
+  async getTreeRoots(): Promise<Record<MerkleTreeId, Fr>> {
+    const url = new URL(`${this.baseUrl}/tree-roots`);
+    const response = await (await fetch(url.toString())).json();
+
+    return {
+      [MerkleTreeId.CONTRACT_TREE]: Fr.fromBuffer(Buffer.from(response.roots[`${MerkleTreeId.CONTRACT_TREE}`], 'hex')),
+      [MerkleTreeId.PRIVATE_DATA_TREE]: Fr.fromBuffer(
+        Buffer.from(response.roots[`${MerkleTreeId.CONTRACT_TREE}`], 'hex'),
+      ),
+      [MerkleTreeId.NULLIFIER_TREE]: Fr.fromBuffer(
+        Buffer.from(response.roots[`${MerkleTreeId.NULLIFIER_TREE}`], 'hex'),
+      ),
+      [MerkleTreeId.PUBLIC_DATA_TREE]: Fr.fromBuffer(
+        Buffer.from(response.roots[`${MerkleTreeId.PUBLIC_DATA_TREE}`], 'hex'),
+      ),
+      [MerkleTreeId.L1_TO_L2_MESSAGES_TREE]: Fr.fromBuffer(
+        Buffer.from(response.roots[`${MerkleTreeId.L1_TO_L2_MESSAGES_TREE}`], 'hex'),
+      ),
+      [MerkleTreeId.L1_TO_L2_MESSAGES_ROOTS_TREE]: Fr.fromBuffer(
+        Buffer.from(response.roots[`${MerkleTreeId.L1_TO_L2_MESSAGES_ROOTS_TREE}`], 'hex'),
+      ),
+      [MerkleTreeId.CONTRACT_TREE_ROOTS_TREE]: Fr.fromBuffer(
+        Buffer.from(response.roots[`${MerkleTreeId.CONTRACT_TREE_ROOTS_TREE}`], 'hex'),
+      ),
+      [MerkleTreeId.PRIVATE_DATA_TREE_ROOTS_TREE]: Fr.fromBuffer(
+        Buffer.from(response.roots[`${MerkleTreeId.PRIVATE_DATA_TREE_ROOTS_TREE}`], 'hex'),
+      ),
+    };
   }
 }

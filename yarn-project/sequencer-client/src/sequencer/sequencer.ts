@@ -209,6 +209,7 @@ export class Sequencer {
     const publishedL2Block = await this.publisher.processL2Block(block);
     if (publishedL2Block) {
       this.log(`Successfully published block ${block.number}`);
+      this.lastPublishedBlock = block.number;
     } else {
       this.log(`Failed to publish block`);
     }

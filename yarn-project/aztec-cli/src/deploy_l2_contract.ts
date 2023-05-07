@@ -1,8 +1,10 @@
 import { AztecNode } from '@aztec/aztec-node';
 import { HttpNode } from './http-node.js';
-import { Contract, ContractDeployer, createAztecRPCServer, TxStatus, TxHash } from '@aztec/aztec.js';
-import { DebugLogger, toBigIntBE, Point, sleep } from '@aztec/foundation';
-import { ContractAbi } from '@aztec/noir-contracts';
+import { Contract, ContractDeployer, createAztecRPCServer, TxStatus, TxHash, Point } from '@aztec/aztec.js';
+import { DebugLogger } from '@aztec/foundation/log';
+import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
+import { ContractAbi } from '@aztec/foundation/abi';
+import { sleep } from '@aztec/foundation/sleep';
 
 const contractAbi = {
   name: 'ZkToken',

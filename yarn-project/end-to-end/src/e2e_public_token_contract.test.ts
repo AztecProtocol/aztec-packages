@@ -1,6 +1,6 @@
 import { mnemonicToAccount } from 'viem/accounts';
 
-import { AztecNode, getConfigEnvVars } from '@aztec/aztec-node';
+import { AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
 import { AztecAddress, AztecRPCServer, Contract, ContractDeployer, Fr, Point, TxStatus } from '@aztec/aztec.js';
 import { pedersenCompressInputs } from '@aztec/barretenberg.js/crypto';
 import { BarretenbergWasm } from '@aztec/barretenberg.js/wasm';
@@ -18,7 +18,7 @@ const logger = createDebugLogger('aztec:e2e_public_token_contract');
 const config = getConfigEnvVars();
 
 describe('e2e_public_token_contract', () => {
-  let node: AztecNode;
+  let node: AztecNodeService;
   let aztecRpcServer: AztecRPCServer;
   let accounts: AztecAddress[];
   let contract: Contract;
@@ -87,7 +87,7 @@ describe('e2e_public_token_contract', () => {
     config.unverifiedDataEmitterContract = unverifiedDataEmitterAddress;
     config.publisherPrivateKey = Buffer.from(privKey!);
 
-    node = await AztecNode.createAndSync(config);
+    node = await AztecNodeService.createAndSync(config);
     aztecRpcServer = await createAztecRpcServer(1, node);
     accounts = await aztecRpcServer.getAccounts();
   }, 30_000);

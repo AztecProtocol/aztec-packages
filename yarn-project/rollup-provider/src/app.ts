@@ -1,7 +1,7 @@
 import { AztecNode } from '@aztec/aztec-node';
-import { KernelCircuitPublicInputs, SignedTxRequest, UInt8Vector } from '@aztec/circuits.js';
-import { AztecAddress } from '@aztec/foundation';
-import { Tx, TxHash, UnverifiedData } from '@aztec/types';
+import { Fr, KernelCircuitPublicInputs, SignedTxRequest, UInt8Vector } from '@aztec/circuits.js';
+import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { MerkleTreeId, Tx, TxHash, UnverifiedData } from '@aztec/types';
 import Koa, { Context, DefaultState } from 'koa';
 import Router from 'koa-router';
 import { PromiseReadable } from 'promise-readable';
@@ -88,6 +88,18 @@ export function appFactory(node: AztecNode, prefix: string) {
     ctx.set('content-type', 'application/json');
     ctx.body = {
       contractInfo: await node.getContractData(AztecAddress.fromString(address as string)),
+    };
+    ctx.status = 200;
+  });
+
+  router.get('/tree-roots', async (ctx: Koa.Context) => {
+    const roots: Record<MerkleTreeId, Fr> = await node.getTreeRoots();
+    const output: { [key: string]: string } = {};
+    for (const [key, value] of Object.entries(roots)) {
+      output[key] = value.toString();
+    }
+    ctx.body = {
+      roots: output,
     };
     ctx.status = 200;
   });

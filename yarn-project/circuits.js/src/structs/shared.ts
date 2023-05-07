@@ -70,7 +70,7 @@ export class EcdsaSignature {
 
   static fromBuffer(buffer: Buffer | BufferReader): EcdsaSignature {
     const reader = BufferReader.asReader(buffer);
-    return new EcdsaSignature(reader.readBytes(32), reader.readBytes(32));
+    return new EcdsaSignature(reader.readBytes(32), reader.readBytes(32), reader.readBytes(1));
   }
 
   public static random() {
