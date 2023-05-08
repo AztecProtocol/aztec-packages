@@ -27,8 +27,9 @@
 
 #include <barretenberg/common/map.hpp>
 #include <barretenberg/common/test.hpp>
-#include <barretenberg/stdlib/merkle_tree/membership.hpp>
 #include <barretenberg/stdlib/hash/keccak/keccak.hpp>
+#include <barretenberg/stdlib/merkle_tree/membership.hpp>
+
 #include <gtest/gtest.h>
 
 namespace {
@@ -189,7 +190,7 @@ PrivateInputs<NT> do_private_call_get_kernel_inputs(bool const is_constructor,
     const NT::secp256k1_fr msg_sender_private_key = NT::secp256k1_fr::random_element();
     const NT::secp256k1_point msg_sender_public_key = NT::secp256k1_group::one * msg_sender_private_key;
     const NT::address msg_sender = compute_ethereum_address_from_public_key(msg_sender_public_key);
-    const NT::address tx_origin = msg_sender;
+    const NT::address& tx_origin = msg_sender;
 
     FunctionData<NT> const function_data{
         .function_selector = 1,  // TODO: deduce this from the contract, somehow.
@@ -331,7 +332,7 @@ PrivateInputs<NT> do_private_call_get_kernel_inputs(bool const is_constructor,
         .chain_id = 1,
     };
 
-    SignedTxRequest<NT> signed_tx_request = SignedTxRequest<NT>{ .tx_request = tx_request };
+    auto signed_tx_request = SignedTxRequest<NT>{ .tx_request = tx_request };
     signed_tx_request.compute_signature(msg_sender_private_key);
 
     //***************************************************************************

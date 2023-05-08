@@ -9,9 +9,9 @@
 #include <aztec3/utils/array.hpp>
 #include <aztec3/utils/dummy_composer.hpp>
 
-#include <barretenberg/stdlib/merkle_tree/membership.hpp>
-#include <barretenberg/stdlib/hash/keccak/keccak.hpp>
 #include <barretenberg/crypto/ecdsa/ecdsa.hpp>
+#include <barretenberg/stdlib/hash/keccak/keccak.hpp>
+#include <barretenberg/stdlib/merkle_tree/membership.hpp>
 
 namespace aztec3::circuits::kernel::private_kernel {
 
@@ -305,10 +305,10 @@ void validate_inputs(DummyComposer& composer, PrivateInputs<NT> const& private_i
         // Verify public key hash matches ethereum address of the sender
         // TODO(Suyash): Do we want to perform this check only for base case?
         // TODO(Suyash): I think its okay to check this for each kernel iteration.
-        NT::address sender_address = private_inputs.signed_tx_request.tx_request.from;
-        NT::secp256k1_point sender_public_key = private_inputs.signed_tx_request.tx_request.from_public_key;
+        const NT::address sender_address = private_inputs.signed_tx_request.tx_request.from;
+        const NT::secp256k1_point sender_public_key = private_inputs.signed_tx_request.tx_request.from_public_key;
 
-        NT::byte_array sender_public_key_bytes = sender_public_key.to_buffer();
+        const NT::byte_array sender_public_key_bytes = sender_public_key.to_buffer();
         NT::byte_array sender_public_key_hash = stdlib::keccak<UltraComposer>::hash_native(sender_public_key_bytes);
         NT::byte_array sender_address_bytes = sender_address.to_field().to_buffer();
 
@@ -330,8 +330,8 @@ void validate_inputs(DummyComposer& composer, PrivateInputs<NT> const& private_i
     // Verify signature against the first function being called (subsequent function calls do not
     // need to be signed over by the sender, the sender only signs the inputs to the very first function)
     NT::byte_array message_bytes = private_inputs.signed_tx_request.compute_signing_message().to_buffer();
-    std::string message(message_bytes.begin(), message_bytes.end());
-    bool sig_verification_result =
+    const std::string message(message_bytes.begin(), message_bytes.end());
+    const bool sig_verification_result =
         crypto::ecdsa::verify_signature<Sha256Hasher, secp256k1::fq, secp256k1::fr, secp256k1::g1>(
             message,
             private_inputs.signed_tx_request.tx_request.from_public_key,

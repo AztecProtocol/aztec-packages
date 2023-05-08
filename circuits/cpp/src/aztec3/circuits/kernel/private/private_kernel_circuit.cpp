@@ -6,9 +6,9 @@
 #include <aztec3/circuits/abis/private_kernel/private_inputs.hpp>
 #include <aztec3/circuits/hash.hpp>
 
-#include <barretenberg/stdlib/primitives/field/array.hpp>
 #include <barretenberg/stdlib/encryption/ecdsa/ecdsa.hpp>
 #include <barretenberg/stdlib/hash/keccak/keccak.hpp>
+#include <barretenberg/stdlib/primitives/field/array.hpp>
 
 namespace aztec3::circuits::kernel::private_kernel {
 
@@ -267,12 +267,12 @@ void validate_inputs(PrivateInputs<CT> const& private_inputs)
         // Verify public key hash matches ethereum address of the sender
         // TODO(Suyash): Do we want to perform this check only for base case?
         // TODO(Suyash): I think its okay to check this for each kernel iteration.
-        CT::address sender_address = private_inputs.signed_tx_request.tx_request.from;
-        CT::secp256k1_point sender_public_key = private_inputs.signed_tx_request.tx_request.from_public_key;
+        const CT::address sender_address = private_inputs.signed_tx_request.tx_request.from;
+        const CT::secp256k1_point sender_public_key = private_inputs.signed_tx_request.tx_request.from_public_key;
 
-        CT::byte_array sender_public_key_bytes = sender_public_key.to_byte_array();
-        CT::byte_array sender_public_key_hash = stdlib::keccak<Composer>::hash(sender_public_key_bytes);
-        CT::byte_array sender_address_bytes = CT::byte_array(sender_address.to_field());
+        const CT::byte_array sender_public_key_bytes = sender_public_key.to_byte_array();
+        const CT::byte_array sender_public_key_hash = stdlib::keccak<Composer>::hash(sender_public_key_bytes);
+        const CT::byte_array sender_address_bytes = CT::byte_array(sender_address.to_field());
 
         // Check if the sender address matches the keccak hash of the public key
         // Specifically, first 12 bytes must be 0, remaining 20 bytes must match.
@@ -287,7 +287,7 @@ void validate_inputs(PrivateInputs<CT> const& private_inputs)
 
     // Verify signature against the first function being called (subsequent function calls do not
     // need to be signed over by the sender, the sender only signs the inputs to the very first function)
-    CT::byte_array message = private_inputs.signed_tx_request.compute_signing_message();
+    const CT::byte_array message = private_inputs.signed_tx_request.compute_signing_message();
     auto sig_verification_result = stdlib::ecdsa::verify_signature<Composer,
                                                                    stdlib::secp256k1<Composer>,
                                                                    stdlib::secp256k1<Composer>::fq_ct,

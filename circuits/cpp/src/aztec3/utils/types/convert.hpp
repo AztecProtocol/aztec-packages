@@ -210,7 +210,7 @@ template <typename Composer> typename NT::ecdsa_signature to_nt(typename CT<Comp
 {
     std::vector<uint8_t> r_bytes = e.r.get_value();
     std::vector<uint8_t> s_bytes = e.s.get_value();
-    uint8_t v_value = static_cast<uint8_t>(e.v.get_value());
+    auto v_value = static_cast<uint8_t>(e.v.get_value());
 
     std::array<uint8_t, 32> r_array;
     std::array<uint8_t, 32> s_array;
