@@ -367,7 +367,9 @@ KernelCircuitPublicInputs<NT> native_private_kernel_circuit(DummyComposer& compo
 
     validate_this_private_call_hash(composer, private_inputs, public_inputs);
 
-    validate_this_private_call_stack(composer, private_inputs);
+    // TODO(rahul) FIXME - https://github.com/AztecProtocol/aztec-packages/issues/499
+    // Noir doesn't have hash index so it can't hash private call stack item correctly
+    // validate_this_private_call_stack(composer, private_inputs);
 
     update_end_values(composer, private_inputs, public_inputs);
 
@@ -379,7 +381,7 @@ KernelCircuitPublicInputs<NT> native_private_kernel_circuit(DummyComposer& compo
     //                                         _private_inputs.private_call.vk->num_public_inputs,
     //                                         _private_inputs.previous_kernel.vk->num_public_inputs);
 
-    // TODO: kernel vk membership check!
+    // TODO(dbanks12): kernel vk membership check!
 
     // Note: given that we skipped the verify_proof function, the aggregation object we get at the end will just be the
     // same as we had at the start. public_inputs.end.aggregation_object = aggregation_object;
