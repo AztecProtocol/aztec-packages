@@ -271,7 +271,7 @@ void validate_inputs(PrivateInputs<CT> const& private_inputs)
         const CT::secp256k1_point sender_public_key = private_inputs.signed_tx_request.tx_request.from_public_key;
 
         CT::byte_array sender_public_key_bytes = sender_public_key.to_byte_array();
-        CT::byte_array sender_public_key_hash = stdlib::keccak<Composer>::hash(sender_public_key_bytes);
+        const CT::byte_array sender_public_key_hash = stdlib::keccak<Composer>::hash(sender_public_key_bytes);
         const CT::byte_array sender_address_bytes = CT::byte_array(sender_address.to_field());
 
         // Check if the sender address matches the keccak hash of the public key
