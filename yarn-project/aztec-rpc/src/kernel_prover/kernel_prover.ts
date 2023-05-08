@@ -112,6 +112,9 @@ export class KernelProver {
           .map(() => PrivateCallStackItem.empty()),
       );
 
+      console.log('privateCallStackPreimages: ', privateCallStackPreimages[0].publicInputs);
+      console.log('callstackitem: ', executionResult.callStackItem.publicInputs.privateCallStack[0]);
+
       const privateCallData = await this.createPrivateCallData(currentExecution, privateCallStackPreimages);
 
       output = await this.proofCreator.createProof(
