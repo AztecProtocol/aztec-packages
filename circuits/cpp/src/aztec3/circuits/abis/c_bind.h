@@ -25,3 +25,5 @@ WASM_EXPORT void abis__hash_constructor(uint8_t const* func_data_buf,
 CBIND_DECL(abis__compute_contract_address);
 
 WASM_EXPORT void abis__compute_contract_leaf(uint8_t const* contract_leaf_preimage_buf, uint8_t* output);
+
+WASM_EXPORT void abis__compute_public_data_tree_leaf_index(uint8_t const* input, uint8_t* output);

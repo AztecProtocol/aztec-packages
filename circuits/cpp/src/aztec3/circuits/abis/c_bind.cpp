@@ -15,6 +15,7 @@
 #include "rollup/root/root_rollup_inputs.hpp"
 #include "rollup/root/root_rollup_public_inputs.hpp"
 
+#include "aztec3/circuits/abis/compute_leaf_index_args.hpp"
 #include "aztec3/circuits/abis/function_data.hpp"
 #include "aztec3/circuits/abis/function_leaf_preimage.hpp"
 #include "aztec3/circuits/abis/new_contract_data.hpp"
@@ -32,6 +33,7 @@ namespace {
 
 using aztec3::circuits::compute_constructor_hash;
 using aztec3::circuits::compute_contract_address;
+using aztec3::circuits::abis::ComputeLeafIndexArgs;
 using aztec3::circuits::abis::FunctionData;
 using aztec3::circuits::abis::FunctionLeafPreimage;
 using aztec3::circuits::abis::NewContractData;
@@ -439,13 +441,6 @@ WASM_EXPORT const char* abis__test_roundtrip_serialize_function_leaf_preimage(ui
 {
     return as_string_output<aztec3::circuits::abis::FunctionLeafPreimage<NT>>(function_leaf_preimage_buf, size);
 }
-
-// TODO: Is this really the correct place? Where to put the struct?
-struct ComputeLeafIndexArgs {
-    typename NT::address contract_address;
-    typename NT::fr slot;
-    MSGPACK_DEFINE(contract_address, slot);
-};
 
 /**
  * @brief Computes a leaf index of a contract's slot in the public data tree.
