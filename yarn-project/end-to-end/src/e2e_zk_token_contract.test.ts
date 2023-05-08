@@ -7,6 +7,7 @@ import { createAztecRpcServer } from './create_aztec_rpc_client.js';
 import { deployL1Contracts } from './deploy_l1_contracts.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { EthPublicKey } from '@aztec/foundation/eth-public-key';
+import { Point } from '@aztec/aztec.js';
 import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
 
 const MNEMONIC = 'test test test test test test test test test test test junk';
@@ -41,15 +42,15 @@ describe('e2e_zk_token_contract', () => {
   });
 
   const expectBalance = async (owner: AztecAddress, expectedBalance: bigint) => {
-    const ownerPublicKey = await aztecRpcServer.getAccountPublicKey(owner);
+    const ownerPublicKey = await aztecRpcServer.getAztecPublicKey(owner);
     const [balance] = await contract.methods.getBalance(pointToPublicKey(ownerPublicKey)).view({ from: owner });
     logger(`Account ${owner} balance: ${balance}`);
     expect(balance).toBe(expectedBalance);
   };
 
-  const pointToPublicKey = (ethPublicKey: EthPublicKey) => {
-    const x = ethPublicKey.buffer.subarray(0, 32);
-    const y = ethPublicKey.buffer.subarray(32, 64);
+  const pointToPublicKey = (point: Point) => {
+    const x = point.buffer.subarray(0, 32);
+    const y = point.buffer.subarray(32, 64);
     return {
       x: toBigIntBE(x),
       y: toBigIntBE(y),
@@ -74,7 +75,7 @@ describe('e2e_zk_token_contract', () => {
    */
   it('1.3 should deploy zk token contract with initial token minted to the account', async () => {
     const initialBalance = 987n;
-    const owner = await aztecRpcServer.getAccountPublicKey(accounts[0]);
+    const owner = await aztecRpcServer.getAztecPublicKey(accounts[0]);
     await deployContract(initialBalance, pointToPublicKey(owner));
     await expectBalance(accounts[0], initialBalance);
     await expectBalance(accounts[1], 0n);
@@ -88,15 +89,12 @@ describe('e2e_zk_token_contract', () => {
 
     const [owner, receiver] = accounts;
 
-    const deployedContract = await deployContract(
-      0n,
-      pointToPublicKey(await aztecRpcServer.getAccountPublicKey(owner)),
-    );
+    const deployedContract = await deployContract(0n, pointToPublicKey(await aztecRpcServer.getAztecPublicKey(owner)));
     await expectBalance(owner, 0n);
     await expectBalance(receiver, 0n);
 
     const tx = deployedContract.methods
-      .mint(mintAmount, pointToPublicKey(await aztecRpcServer.getAccountPublicKey(receiver)))
+      .mint(mintAmount, pointToPublicKey(await aztecRpcServer.getAztecPublicKey(receiver)))
       .send({ from: receiver });
 
     await tx.isMined(0, 0.1);
@@ -114,7 +112,7 @@ describe('e2e_zk_token_contract', () => {
     const transferAmount = 654n;
     const [owner, receiver] = accounts;
 
-    await deployContract(initialBalance, pointToPublicKey(await aztecRpcServer.getAccountPublicKey(owner)));
+    await deployContract(initialBalance, pointToPublicKey(await aztecRpcServer.getAztecPublicKey(owner)));
 
     await expectBalance(owner, initialBalance);
     await expectBalance(receiver, 0n);
@@ -122,8 +120,8 @@ describe('e2e_zk_token_contract', () => {
     const tx = contract.methods
       .transfer(
         transferAmount,
-        pointToPublicKey(await aztecRpcServer.getAccountPublicKey(owner)),
-        pointToPublicKey(await aztecRpcServer.getAccountPublicKey(receiver)),
+        pointToPublicKey(await aztecRpcServer.getAztecPublicKey(owner)),
+        pointToPublicKey(await aztecRpcServer.getAztecPublicKey(receiver)),
       )
       .send({ from: accounts[0] });
 
