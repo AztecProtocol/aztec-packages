@@ -115,6 +115,20 @@ export class AztecRPCServer implements AztecRPCClient {
   }
 
   /**
+   * Retrieve the Aztec (Grumpkin) public key associated with an address.
+   * Throws an error if the account is not found in the key store.
+   *
+   * @param address - The AztecAddress instance representing the account.
+   * @returns A Promise resolving to the Point instance representing the Aztec public key.
+   *
+   * TODO(Suyash): the AztecAddress actually contains the ethereum address for now.
+   */
+  public getAztecPublicKey(address: AztecAddress): Promise<Point> {
+    const account = this.ensureAccount(address);
+    return Promise.resolve(account.getPublicKey());
+  }
+
+  /**
    * Retrieves the storage data at a specified contract address and storage slot.
    * The returned data is an array of note preimage items, with each item containing its value.
    *
