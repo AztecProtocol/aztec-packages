@@ -81,7 +81,7 @@ template <typename NCT> struct SignedTxRequest {
     {
         static_assert((std::is_same<NativeTypes, NCT>::value));
         auto signing_message = compute_signing_message().to_buffer();
-        std::string signing_message_str(signing_message.begin(), signing_message.end());
+        const std::string signing_message_str(signing_message.begin(), signing_message.end());
         crypto::ecdsa::key_pair<NativeTypes::secp256k1_fr, NativeTypes::secp256k1_group> account;
         account.private_key = private_key;
         account.public_key = tx_request.from_public_key;

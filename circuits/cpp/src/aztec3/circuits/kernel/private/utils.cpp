@@ -5,7 +5,6 @@
 #include <aztec3/circuits/mock/mock_kernel_circuit.hpp>
 
 #include "barretenberg/proof_system/types/composer_type.hpp"
-
 #include <barretenberg/stdlib/hash/keccak/keccak.hpp>
 
 namespace {
@@ -82,7 +81,7 @@ NT::address compute_ethereum_address_from_public_key(const NT::secp256k1_point& 
     for (size_t i = 12; i < 32; i++) {
         chopped_public_key_hash[i] = public_key_hash[i];
     }
-    return NT::fr::serialize_from_buffer(&chopped_public_key_hash[0]);
+    return NT::fr::serialize_from_buffer(chopped_public_key_hash.data());
 }
 
-} // namespace aztec3::circuits::kernel::private_kernel::utils
+}  // namespace aztec3::circuits::kernel::private_kernel::utils
