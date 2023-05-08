@@ -9,7 +9,8 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthPublicKey } from '@aztec/foundation/eth-public-key';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { ConstantKeyPair, KeyPair } from '@aztec/key-store/secp256k1';
+import { ConstantKeyPair, KeyPair } from '@aztec/key-store/grumpkin';
+import { ConstantSecp256k1KeyPair, Secp256k1KeyPair } from '@aztec/key-store/secp256k1';
 import { FunctionType } from '@aztec/foundation/abi';
 import {
   EncodedContractFunction,
@@ -60,6 +61,7 @@ export class AccountState {
   private ethPublicKey: EthPublicKey;
   private address: AztecAddress;
   private keyPair: KeyPair;
+  private ethKeyPair: Secp256k1KeyPair;
 
   constructor(
     private readonly privKey: Buffer,
@@ -79,7 +81,8 @@ export class AccountState {
     this.publicKey = Point.fromBuffer(this.grumpkin.mul(Grumpkin.generator, this.privKey));
     this.ethPublicKey = EthPublicKey.fromBuffer(this.secp256k1.mul(Secp256k1.generator, this.privKey));
     this.address = this.ethPublicKey.toAztecAddress();
-    this.keyPair = new ConstantKeyPair(ecdsa, this.ethPublicKey, privKey);
+    this.ethKeyPair = new ConstantSecp256k1KeyPair(ecdsa, this.ethPublicKey, privKey);
+    this.keyPair = new ConstantKeyPair(this.publicKey, privKey);
   }
 
   /**

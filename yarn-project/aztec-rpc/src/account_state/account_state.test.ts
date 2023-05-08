@@ -3,7 +3,8 @@ import { Ecdsa, Grumpkin, Secp256k1 } from '@aztec/barretenberg.js/crypto';
 import { BarretenbergWasm } from '@aztec/barretenberg.js/wasm';
 import { KERNEL_NEW_COMMITMENTS_LENGTH } from '@aztec/circuits.js';
 import { Point } from '@aztec/foundation/fields';
-import { ConstantKeyPair, KeyPair } from '@aztec/key-store/secp256k1';
+import { ConstantKeyPair, KeyPair } from '@aztec/key-store/grumpkin';
+import { ConstantSecp256k1KeyPair, Secp256k1KeyPair } from '@aztec/key-store/secp256k1';
 import { L2Block, L2BlockContext, UnverifiedData } from '@aztec/types';
 import { jest } from '@jest/globals';
 import { mock } from 'jest-mock-extended';
@@ -20,6 +21,7 @@ describe('Account State', () => {
   let addTxAuxDataBatchSpy: any;
   let accountState: AccountState;
   let owner: KeyPair;
+  let ethOwner: Secp256k1KeyPair;
 
   const createUnverifiedDataAndOwnedTxAuxData = async (ownedDataIndices: number[] = []) => {
     ownedDataIndices.forEach(index => {
@@ -33,7 +35,7 @@ describe('Account State', () => {
     for (let i = 0; i < KERNEL_NEW_COMMITMENTS_LENGTH; ++i) {
       const txAuxData = TxAuxData.random();
       const isOwner = ownedDataIndices.includes(i);
-      const privKey = await owner.getPrivateKey();
+      const privKey = await ethOwner.getPrivateKey();
       const ownerGrumpkinPublicKey = Point.fromBuffer(grumpkin.mul(Grumpkin.generator, privKey));
       const publicKey = isOwner ? ownerGrumpkinPublicKey : Point.random();
       dataChunks.push(txAuxData.toEncryptedBuffer(publicKey, grumpkin));
@@ -63,14 +65,15 @@ describe('Account State', () => {
     const wasm = await BarretenbergWasm.get();
     grumpkin = new Grumpkin(wasm);
     secp256k1 = new Secp256k1(wasm);
-    owner = ConstantKeyPair.random(secp256k1, ecdsa);
+    owner = ConstantKeyPair.random(grumpkin);
+    ethOwner = ConstantSecp256k1KeyPair.random(secp256k1, ecdsa);
   });
 
   beforeEach(async () => {
     database = new MemoryDB();
     addTxAuxDataBatchSpy = jest.spyOn(database, 'addTxAuxDataBatch');
 
-    const ownerPrivateKey = await owner.getPrivateKey();
+    const ownerPrivateKey = await ethOwner.getPrivateKey();
     aztecNode = mock<AztecNode>();
     accountState = new AccountState(ownerPrivateKey, database, aztecNode, grumpkin, secp256k1, ecdsa);
   });
@@ -88,7 +91,7 @@ describe('Account State', () => {
     expect(txs).toEqual([
       expect.objectContaining({
         blockNumber: 1,
-        from: owner.getPublicKey().toAztecAddress(),
+        from: ethOwner.getPublicKey().toAztecAddress(),
       }),
     ]);
     expect(addTxAuxDataBatchSpy).toHaveBeenCalledTimes(1);
@@ -116,11 +119,11 @@ describe('Account State', () => {
     expect(txs).toEqual([
       expect.objectContaining({
         blockNumber: 2,
-        from: owner.getPublicKey().toAztecAddress(),
+        from: ethOwner.getPublicKey().toAztecAddress(),
       }),
       expect.objectContaining({
         blockNumber: 5,
-        from: owner.getPublicKey().toAztecAddress(),
+        from: ethOwner.getPublicKey().toAztecAddress(),
       }),
     ]);
     expect(addTxAuxDataBatchSpy).toHaveBeenCalledTimes(1);

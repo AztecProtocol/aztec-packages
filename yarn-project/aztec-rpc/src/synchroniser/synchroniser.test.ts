@@ -1,7 +1,7 @@
 import { AztecNode } from '@aztec/aztec-node';
 import { Ecdsa, Secp256k1 } from '@aztec/barretenberg.js/crypto';
 import { Fr } from '@aztec/circuits.js';
-import { ConstantKeyPair } from '@aztec/key-store/secp256k1';
+import { ConstantSecp256k1KeyPair } from '@aztec/key-store/secp256k1';
 import { L2Block, MerkleTreeId, UnverifiedData } from '@aztec/types';
 import { MockProxy, mock } from 'jest-mock-extended';
 import { Database, MemoryDB } from '../database/index.js';
@@ -41,7 +41,7 @@ describe('Synchroniser', () => {
   });
 
   it('should create account state', async () => {
-    const account = ConstantKeyPair.random(secp256k1, ecdsa);
+    const account = ConstantSecp256k1KeyPair.random(secp256k1, ecdsa);
     const address = account.getPublicKey().toAztecAddress();
 
     expect(synchroniser.getAccount(address)).toBeUndefined();

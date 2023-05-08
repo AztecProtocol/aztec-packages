@@ -12,7 +12,7 @@ import {
 } from '@aztec/circuits.js';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { KeyStore } from '@aztec/key-store/secp256k1';
+import { Secp256k1KeyStore } from '@aztec/key-store/secp256k1';
 import { ContractAbi, FunctionType } from '@aztec/foundation/abi';
 import { Tx, TxHash } from '@aztec/types';
 import { AztecRPCClient, DeployedContract } from '../aztec_rpc_client/index.js';
@@ -30,7 +30,7 @@ export class AztecRPCServer implements AztecRPCClient {
   private synchroniser: Synchroniser;
 
   constructor(
-    private keyStore: KeyStore,
+    private keyStore: Secp256k1KeyStore,
     private node: AztecNode,
     private db: Database,
     private log = createDebugLogger('aztec:rpc_server'),
