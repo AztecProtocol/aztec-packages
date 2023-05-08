@@ -1,6 +1,6 @@
 import { AztecNode } from '@aztec/aztec-node';
 import { Ecdsa, Secp256k1 } from '@aztec/barretenberg.js/crypto';
-import { KeyStore, TestKeyStore } from '@aztec/key-store/secp256k1';
+import { Secp256k1KeyStore, TestSecp256k1KeyStore } from '@aztec/key-store/secp256k1';
 import { Database, MemoryDB } from '../database/index.js';
 import { AztecRPCServer } from './aztec_rpc_server.js';
 
@@ -11,7 +11,7 @@ interface CreateAztecRPCServerOptions {
   /**
    * A secure storage for cryptographic keys.
    */
-  keyStore?: KeyStore;
+  keyStore?: Secp256k1KeyStore;
   /**
    * Storage for the RPC server.
    */
@@ -20,7 +20,7 @@ interface CreateAztecRPCServerOptions {
 
 /**
  * Create and start an AztecRPCServer instance with the given AztecNode.
- * If no keyStore or database is provided, it will use TestKeyStore and MemoryDB as default values.
+ * If no keyStore or database is provided, it will use TestSecp256k1KeyStore and MemoryDB as default values.
  * Returns a Promise that resolves to the started AztecRPCServer instance.
  *
  * @param aztecNode - The AztecNode instance to be used by the server.
@@ -28,7 +28,7 @@ interface CreateAztecRPCServerOptions {
  * @returns A Promise that resolves to the started AztecRPCServer instance.
  */
 export async function createAztecRPCServer(aztecNode: AztecNode, { keyStore, db }: CreateAztecRPCServerOptions = {}) {
-  keyStore = keyStore || new TestKeyStore(await Secp256k1.new(), await Ecdsa.new());
+  keyStore = keyStore || new TestSecp256k1KeyStore(await Secp256k1.new(), await Ecdsa.new());
   db = db || new MemoryDB();
 
   const server = new AztecRPCServer(keyStore, aztecNode, db);
