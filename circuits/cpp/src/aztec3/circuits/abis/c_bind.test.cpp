@@ -1,21 +1,22 @@
 #include "c_bind.h"
-
-#include "tx_request.hpp"
 #include "function_leaf_preimage.hpp"
+#include "tx_request.hpp"
+
+#include "aztec3/circuits/abis/compute_leaf_index_args.hpp"
 #include "aztec3/circuits/abis/new_contract_data.hpp"
-
 #include "aztec3/msgpack/schema_impl.hpp"
-
-#include <barretenberg/stdlib/merkle_tree/membership.hpp>
-#include <barretenberg/numeric/random/engine.hpp>
-#include <barretenberg/common/msgpack.hpp>
 #include <aztec3/msgpack/check_memory_span.hpp>
+
+#include <barretenberg/common/msgpack.hpp>
+#include <barretenberg/numeric/random/engine.hpp>
+#include <barretenberg/stdlib/merkle_tree/membership.hpp>
 
 #include <gtest/gtest.h>
 
 namespace {
 
 using NT = aztec3::utils::types::NativeTypes;
+using aztec3::circuits::abis::ComputeLeafIndexArgs;
 using aztec3::circuits::abis::NewContractData;
 // num_leaves = 2**h = 2<<(h-1)
 // root layer does not count in height
@@ -45,7 +46,7 @@ template <size_t NUM_BYTES> std::string bytes_to_hex_str(std::array<uint8_t, NUM
     return stream.str();
 }
 
-} // namespace
+}  // namespace
 
 namespace aztec3::circuits::abis {
 
@@ -127,7 +128,7 @@ TEST(abi_tests, hash_vk)
     // Initialize some random VK data
     NT::VKData vk_data;
     vk_data.composer_type = engine.get_random_uint32();
-    vk_data.circuit_size = uint32_t(1) << (engine.get_random_uint8() >> 3); // must be a power of two
+    vk_data.circuit_size = uint32_t(1) << (engine.get_random_uint8() >> 3);  // must be a power of two
     vk_data.num_public_inputs = engine.get_random_uint32();
     vk_data.commitments["test1"] = g1::element::random_element();
     vk_data.commitments["test2"] = g1::element::random_element();
@@ -196,7 +197,7 @@ TEST(abi_tests, compute_function_tree_root)
     // compare cbind results with direct computation
 
     // add the zero leaves to the vector of fields and pass to barretenberg helper
-    NT::fr zero_leaf = FunctionLeafPreimage<NT>().hash(); // hash of empty/0 preimage
+    NT::fr zero_leaf = FunctionLeafPreimage<NT>().hash();  // hash of empty/0 preimage
     for (size_t l = num_nonzero_leaves; l < FUNCTION_TREE_NUM_LEAVES; l++) {
         leaves_frs.push_back(zero_leaf);
     }
@@ -234,7 +235,7 @@ TEST(abi_tests, compute_function_tree)
     // compare cbind results with direct computation
 
     // add the zero leaves to the vector of fields and pass to barretenberg helper
-    NT::fr zero_leaf = FunctionLeafPreimage<NT>().hash(); // hash of empty/0 preimage
+    NT::fr zero_leaf = FunctionLeafPreimage<NT>().hash();  // hash of empty/0 preimage
     for (size_t l = num_nonzero_leaves; l < FUNCTION_TREE_NUM_LEAVES; l++) {
         leaves_frs.push_back(zero_leaf);
     }
@@ -302,4 +303,30 @@ TEST(abi_tests, compute_contract_leaf)
     EXPECT_EQ(got_leaf, preimage.hash());
 }
 
-} // namespace aztec3::circuits::abis
+TEST(abi_tests, compute_public_data_tree_leaf_index)
+{
+    // Construct ComputeLeafIndexArgs with some randomized fields
+    ComputeLeafIndexArgs args = ComputeLeafIndexArgs{
+        .contract_address = NT::fr::random_element(),
+        .slot = NT::fr::random_element(),
+    };
+
+    // Write args to a buffer
+    std::vector<uint8_t> args_buf;
+    msgpack::pack(args_buf, args);
+
+    // print out args_buf
+    std::cout << "args_buf: " << args_buf << std::endl;
+
+    // Allocate output buffer
+    std::array<uint8_t, sizeof(NT::fr)> output = { 0 };
+    abis__compute_public_data_tree_leaf_index(args_buf.data(), output.data());
+
+    NT::fr leaf_index = NT::fr::serialize_from_buffer(output.data());
+    EXPECT_GT(leaf_index, 0);
+
+    // print out leaf index
+    std::cout << "leaf index: " << leaf_index << std::endl;
+}
+
+}  // namespace aztec3::circuits::abis
