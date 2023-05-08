@@ -37,6 +37,10 @@ export class ContractStorageRead {
   static empty() {
     return new ContractStorageRead(Fr.ZERO, Fr.ZERO);
   }
+
+  toFriendlyJSON() {
+    return `Slot=${this.storageSlot.toFriendlyJSON()}: ${this.value.toFriendlyJSON()}`;
+  }
 }
 
 /**
@@ -60,6 +64,10 @@ export class ContractStorageUpdateRequest {
 
   static empty() {
     return new ContractStorageUpdateRequest(Fr.ZERO, Fr.ZERO, Fr.ZERO);
+  }
+
+  toFriendlyJSON() {
+    return `Slot=${this.storageSlot.toFriendlyJSON()}: ${this.oldValue.toFriendlyJSON()} => ${this.newValue.toFriendlyJSON()}`;
   }
 }
 
