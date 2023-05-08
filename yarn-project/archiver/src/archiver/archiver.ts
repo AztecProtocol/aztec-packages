@@ -127,6 +127,13 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource, ContractDa
       this.nextL2BlockFromBlock,
       nextExpectedRollupId,
     );
+
+    // create the block number -> block hash mapping to ensure we retrieve the appropriate events
+    const blockHashMapping: { [key: string]: Buffer } = {};
+    retrievedBlocks.retrievedData.forEach((block: L2Block) => {
+      blockHashMapping[block.number] = block.getCalldataHash();
+    });
+
     const retrievedUnverifiedData = await retrieveUnverifiedData(
       this.publicClient,
       this.unverifiedDataEmitterAddress,
@@ -134,6 +141,7 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource, ContractDa
       currentBlockNumber,
       this.nextL2BlockFromBlock,
       nextExpectedRollupId,
+      blockHashMapping,
     );
     const retrievedContracts = await retrieveNewContractData(
       this.publicClient,
@@ -141,6 +149,7 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource, ContractDa
       blockUntilSynced,
       currentBlockNumber,
       this.nextL2BlockFromBlock,
+      blockHashMapping,
     );
 
     if (retrievedBlocks.retrievedData.length === 0) {

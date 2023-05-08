@@ -184,14 +184,17 @@ export class Sequencer {
       })
       .filter((cd): cd is Exclude<typeof cd, undefined> => cd !== undefined);
 
-    const publishedUnverifiedData = await this.publisher.processUnverifiedData(block.number, unverifiedData);
+    const blockHash = block.getCalldataHash();
+    this.log(`Publishing data with block hash ${blockHash.toString('hex')}`);
+
+    const publishedUnverifiedData = await this.publisher.processUnverifiedData(block.number, blockHash, unverifiedData);
     if (publishedUnverifiedData) {
       this.log(`Successfully published unverifiedData for block ${block.number}`);
     } else {
       this.log(`Failed to publish unverifiedData for block ${block.number}`);
     }
 
-    const publishedContractData = await this.publisher.processNewContractData(block.number, newContractData);
+    const publishedContractData = await this.publisher.processNewContractData(block.number, blockHash, newContractData);
     if (publishedContractData) {
       this.log(`Successfully published new contract data for block ${block.number}`);
     } else if (!publishedContractData && newContractData.length) {
@@ -211,7 +214,7 @@ export class Sequencer {
       this.log(`Successfully published block ${block.number}`);
       this.lastPublishedBlock = block.number;
     } else {
-      this.log(`Failed to publish block`);
+      throw new Error(`Failed to publish block`);
     }
   }
 

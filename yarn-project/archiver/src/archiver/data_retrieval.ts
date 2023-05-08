@@ -55,6 +55,7 @@ export async function retrieveBlocks(
  * @param currentBlockNumber - Latest available block number in the ETH node.
  * @param searchStartBlock - The block number to use for starting the search.
  * @param expectedNextRollupNumber - The next rollup id that we expect to find.
+ * @param blockHashMapping - A mapping from block number to relevant block hash.
  */
 export async function retrieveUnverifiedData(
   publicClient: PublicClient,
@@ -63,6 +64,7 @@ export async function retrieveUnverifiedData(
   currentBlockNumber: bigint,
   searchStartBlock: bigint,
   expectedNextRollupNumber: bigint,
+  blockHashMapping: { [key: number]: Buffer },
 ) {
   const newUnverifiedDataChunks: UnverifiedData[] = [];
   do {
@@ -80,7 +82,7 @@ export async function retrieveUnverifiedData(
       break;
     }
 
-    const newChunks = processUnverifiedDataLogs(expectedNextRollupNumber, unverifiedDataLogs);
+    const newChunks = processUnverifiedDataLogs(expectedNextRollupNumber, blockHashMapping, unverifiedDataLogs);
     newUnverifiedDataChunks.push(...newChunks);
     searchStartBlock = unverifiedDataLogs[unverifiedDataLogs.length - 1].blockNumber + 1n;
     expectedNextRollupNumber += BigInt(newChunks.length);
@@ -95,6 +97,7 @@ export async function retrieveUnverifiedData(
  * @param blockUntilSynced - If true, blocks until the archiver has fully synced.
  * @param currentBlockNumber - Latest available block number in the ETH node.
  * @param searchStartBlock - The block number to use for starting the search.
+ * @param blockHashMapping - A mapping from block number to relevant block hash.
  */
 export async function retrieveNewContractData(
   publicClient: PublicClient,
@@ -102,6 +105,7 @@ export async function retrieveNewContractData(
   blockUntilSynced: boolean,
   currentBlockNumber: bigint,
   searchStartBlock: bigint,
+  blockHashMapping: { [key: number]: Buffer },
 ) {
   let retrievedNewContracts: (ContractPublicData[] | undefined)[] = [];
   do {
@@ -114,7 +118,7 @@ export async function retrieveNewContractData(
       unverifiedDataEmitterAddress,
       searchStartBlock,
     );
-    const newContracts = processContractDeploymentLogs(contractDataLogs);
+    const newContracts = processContractDeploymentLogs(blockHashMapping, contractDataLogs);
     retrievedNewContracts = retrievedNewContracts.concat(newContracts);
 
     searchStartBlock = (contractDataLogs.findLast(cd => !!cd)?.blockNumber || searchStartBlock) + 1n;

@@ -58,6 +58,6 @@ export class InMemoryTxPool implements TxPool {
    * @returns Array of tx objects in the order they were added to the pool.
    */
   public getAllTxs(): Tx[] {
-    return Array.from(this.txs.values());
+    return Array.from(this.txs.values()).map(x => Tx.clone(x));
   }
 }

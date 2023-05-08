@@ -5,7 +5,6 @@ import { createTxHash } from './create_tx_hash.js';
 import { TxHash } from './tx_hash.js';
 import { UnverifiedData } from './unverified_data.js';
 import { EncodedContractFunction } from './contract_data.js';
-import { keccak224 } from '@aztec/foundation/crypto';
 
 /**
  * Defines valid fields for a private transaction.
@@ -164,6 +163,27 @@ export class Tx {
    */
   static async getHashes(txs: Tx[]): Promise<TxHash[]> {
     return await Promise.all(txs.map(tx => tx.getTxHash()));
+  }
+
+  /**
+   * Clones a tx, making a deep copy of all fields.
+   * @param tx - The transaction to be cloned.
+   * @returns The cloned transaction.
+   */
+  static clone(tx: Tx): Tx {
+    const publicInputs = tx.data === undefined ? undefined : KernelCircuitPublicInputs.fromBuffer(tx.data.toBuffer());
+    const proof = tx.proof === undefined ? undefined : new UInt8Vector(tx.proof.toBuffer());
+    const unverified =
+      tx.unverifiedData === undefined ? undefined : UnverifiedData.fromBuffer(tx.unverifiedData.toBuffer());
+    const signedTxRequest =
+      tx.txRequest === undefined ? undefined : SignedTxRequest.fromBuffer(tx.txRequest.toBuffer());
+    const publicFunctions =
+      tx.newContractPublicFunctions === undefined
+        ? undefined
+        : tx.newContractPublicFunctions.map(x => {
+            return EncodedContractFunction.fromBuffer(x.toBuffer());
+          });
+    return new Tx(publicInputs, proof, unverified, signedTxRequest, publicFunctions);
   }
 
   /**
