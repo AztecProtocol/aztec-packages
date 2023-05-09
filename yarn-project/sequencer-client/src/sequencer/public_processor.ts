@@ -35,7 +35,6 @@ import { Proof, PublicProver } from '../prover/index.js';
 import { PublicKernelCircuitSimulator } from '../simulator/index.js';
 import { ProcessedTx, makeEmptyProcessedTx, makeProcessedTx } from './processed_tx.js';
 import { getCombinedHistoricTreeRoots } from './utils.js';
-import { toFriendlyJSON } from '@aztec/circuits.js/utils';
 
 /**
  * Converts Txs lifted from the P2P module into ProcessedTx objects by executing
@@ -94,6 +93,7 @@ export class PublicProcessor {
   }
 
   protected async processPublicTx(tx: PublicTx): Promise<[PublicKernelPublicInputs, Proof]> {
+    this.log(`Executing public tx request ${await tx.getTxHash()}`);
     const firstExecution = await this.publicExecutor.getPublicExecution(tx.txRequest.txRequest);
     const firstResult: PublicExecutionResult = await this.publicExecutor.execute(firstExecution);
     const executionStack = [firstResult];
@@ -103,6 +103,8 @@ export class PublicProcessor {
 
     while (executionStack.length) {
       const result = executionStack.pop()!;
+      const functionSelector = result.execution.functionData.functionSelector.toString('hex');
+      this.log(`Running public kernel circuit for ${functionSelector}@${result.execution.contractAddress.toString()}`);
       executionStack.push(...result.nestedExecutions);
       const callData = await this.getPublicCallData(result);
       [kernelOutput, kernelProof] = await this.runKernelCircuit(tx.txRequest, callData, kernelOutput, kernelProof);
@@ -168,7 +170,9 @@ export class PublicProcessor {
     const historicPublicDataTreeRoot = Fr.fromBuffer(publicDataTreeInfo.root);
     const callStackPreimages = await this.getPublicCallStackPreimages(result);
     const wasm = await CircuitsWasm.get();
-    const publicCallStack = callStackPreimages.map(item => computeCallStackItemHash(wasm, item));
+    const publicCallStack = callStackPreimages.map(item =>
+      item.isEmpty() ? Fr.zero() : computeCallStackItemHash(wasm, item),
+    );
 
     return PublicCircuitPublicInputs.from({
       callContext: result.execution.callContext,
@@ -199,11 +203,8 @@ export class PublicProcessor {
       throw new Error(`Public call stack size exceeded (max ${PUBLIC_CALL_STACK_LENGTH}, got ${preimages.length})`);
     }
 
-    const emptyPreimage = PublicCallStackItem.empty();
-    // TODO: Remove the msgSender set once circuits dont validate empty call stack items
-    emptyPreimage.publicInputs.callContext.msgSender = result.execution.contractAddress;
     // Top of the stack is at the end of the array, so we padStart
-    return padArrayStart(preimages, emptyPreimage, PUBLIC_CALL_STACK_LENGTH);
+    return padArrayStart(preimages, PublicCallStackItem.empty(), PUBLIC_CALL_STACK_LENGTH);
   }
 
   protected getBytecodeHash(_result: PublicExecutionResult) {

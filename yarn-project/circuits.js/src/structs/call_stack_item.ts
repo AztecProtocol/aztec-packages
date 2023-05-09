@@ -50,4 +50,8 @@ export class PublicCallStackItem {
       PublicCircuitPublicInputs.empty(),
     );
   }
+
+  isEmpty() {
+    return this.contractAddress.isZero() && this.functionData.isEmpty() && this.publicInputs.isEmpty();
+  }
 }

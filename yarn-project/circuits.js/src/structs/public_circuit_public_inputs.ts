@@ -14,6 +14,7 @@ import { serializeToBuffer } from '../utils/serialize.js';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader } from '@aztec/foundation/serialize';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { isArrayEmpty } from '@aztec/foundation/collection';
 
 /**
  * Public state read operation on a specific contract.
@@ -36,6 +37,10 @@ export class StateRead {
 
   static empty() {
     return new StateRead(Fr.ZERO, Fr.ZERO);
+  }
+
+  isEmpty() {
+    return this.storageSlot.isZero() && this.value.isZero();
   }
 
   toFriendlyJSON() {
@@ -64,6 +69,10 @@ export class StateTransition {
 
   static empty() {
     return new StateTransition(Fr.ZERO, Fr.ZERO, Fr.ZERO);
+  }
+
+  isEmpty() {
+    return this.storageSlot.isZero() && this.oldValue.isZero() && this.newValue.isZero();
   }
 
   toFriendlyJSON() {
@@ -124,6 +133,23 @@ export class PublicCircuitPublicInputs {
       AztecAddress.ZERO,
     );
   }
+
+  isEmpty() {
+    const isFrArrayEmpty = (arr: Fr[]) => isArrayEmpty(arr, item => item.isZero());
+    return (
+      this.callContext.isEmpty() &&
+      isFrArrayEmpty(this.args) &&
+      isFrArrayEmpty(this.returnValues) &&
+      isFrArrayEmpty(this.emittedEvents) &&
+      isArrayEmpty(this.stateTransitions, item => item.isEmpty()) &&
+      isArrayEmpty(this.stateReads, item => item.isEmpty()) &&
+      isFrArrayEmpty(this.publicCallStack) &&
+      isFrArrayEmpty(this.newL2ToL1Msgs) &&
+      this.historicPublicDataTreeRoot.isZero() &&
+      this.proverAddress.isZero()
+    );
+  }
+
   /**
    * Serialize into a field array. Low-level utility.
    * @param fields - Object with fields.

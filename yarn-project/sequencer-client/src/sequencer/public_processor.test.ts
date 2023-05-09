@@ -170,13 +170,6 @@ describe('public_processor', () => {
       const publicCallStack = processed[0].data.end.publicCallStack;
       expect(publicCallStack).toEqual(times(KERNEL_PUBLIC_CALL_STACK_LENGTH, () => expect.any(Fr)));
 
-      const callStackTop = publicCallStack[publicCallStack.length - 1];
-      const callStackNext = publicCallStack[publicCallStack.length - 2];
-      expect(callStackTop).not.toEqual(callStackNext);
-      expect(publicCallStack.slice(0, KERNEL_PUBLIC_CALL_STACK_LENGTH - 1)).toEqual(
-        times(KERNEL_PUBLIC_CALL_STACK_LENGTH - 1, () => callStackNext),
-      );
-
       expect(failed).toEqual([]);
       expect(publicExecutor.execute).toHaveBeenCalled();
     });
