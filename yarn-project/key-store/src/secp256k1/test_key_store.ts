@@ -1,5 +1,5 @@
 import { Secp256k1 } from '@aztec/barretenberg.js/crypto';
-import { TxRequest } from '@aztec/circuits.js';
+import { TxRequest, EcdsaSignature } from '@aztec/circuits.js';
 import { ConstantSecp256k1KeyPair, Secp256k1KeyPair } from './key_pair.js';
 import { Secp256k1KeyStore } from './key_store.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
@@ -92,6 +92,21 @@ export class TestSecp256k1KeyStore implements Secp256k1KeyStore {
     const account = this.getAccount(txRequest.from);
     const message = await hashTxRequest(await CircuitsWasm.get(), txRequest);
     return account.signMessage(message);
+  }
+
+  /**
+   * Recover the signing public key of the tx creator from the ECDSA signature.
+   * The 'signMessage' method of the account private key is called internally to generate the signature.
+   * Throws an error if the sender account is not found in the TestSecp256k1KeyStore.
+   *
+   * @param txRequest - The transaction request to be signed. It includes the sender, receiver, and other details.
+   * @param signature - The ECDSA signature created by signing `txRequest`.
+   * @returns A Promise which resolves to the generated EthPublicKey as a Buffer.
+   */
+  public async recoverSigningPublicKey(txRequest: TxRequest, signature: EcdsaSignature) {
+    const account = this.getAccount(txRequest.from);
+    const message = await hashTxRequest(await CircuitsWasm.get(), txRequest);
+    return account.recoverSigningKey(message, signature);
   }
 
   /**

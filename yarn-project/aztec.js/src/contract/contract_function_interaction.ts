@@ -1,5 +1,5 @@
 import { AztecRPCClient, Tx, TxHash, TxRequest } from '@aztec/aztec-rpc';
-import { AztecAddress, EcdsaSignature, Fr } from '@aztec/circuits.js';
+import { AztecAddress, EcdsaSignature, Fr, SignedTxRequest } from '@aztec/circuits.js';
 import { FunctionType } from '@aztec/foundation/abi';
 import { SentTx } from './sent_tx.js';
 
@@ -104,7 +104,10 @@ export class ContractFunctionInteraction {
       await this.sign(options);
     }
 
-    this.tx = await this.arc.createTx(this.txRequest!, this.signature!);
+    const signingKey = await this.arc.recoverSigningKey(this.txRequest!, this.signature!);
+    const signedTxRequest = new SignedTxRequest(this.txRequest!, signingKey, this.signature!);
+
+    this.tx = await this.arc.createTx(signedTxRequest);
     return this.tx;
   }
 

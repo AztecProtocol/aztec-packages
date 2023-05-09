@@ -14,4 +14,5 @@ export interface Secp256k1KeyStore {
   getAccountPublicKey(address: AztecAddress): Promise<EthPublicKey>;
   getSigningPublicKeys(): Promise<EthPublicKey[]>;
   signTxRequest(txRequest: TxRequest): Promise<EcdsaSignature>;
+  recoverSigningPublicKey(txRequest: TxRequest, signature: EcdsaSignature): Promise<EthPublicKey>;
 }

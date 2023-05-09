@@ -76,7 +76,6 @@ describe('Unconstrained Execution test suite', () => {
 
       const txRequest = new TxRequest(
         AztecAddress.random(),
-        EthPublicKey.random(),
         contractAddress,
         new FunctionData(Buffer.alloc(4), true, true),
         encodeArguments(abi, [owner], false),

@@ -10,6 +10,7 @@ import {
   VK_TREE_HEIGHT,
   VerificationKey,
   makeEmptyProof,
+  SignedTxRequest,
 } from '@aztec/circuits.js';
 import { makeTxRequest } from '@aztec/circuits.js/factories';
 import { mock } from 'jest-mock-extended';
@@ -18,9 +19,11 @@ import { ProofCreator } from './proof_creator.js';
 import { ProvingDataOracle } from './proving_data_oracle.js';
 import { Fr } from '@aztec/foundation/fields';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { EthPublicKey } from '@aztec/foundation/eth-public-key';
 
 describe('Kernel Prover', () => {
   let txRequest: TxRequest;
+  let signingKey: EthPublicKey;
   let txSignature: EcdsaSignature;
   let oracle: ReturnType<typeof mock<ProvingDataOracle>>;
   let proofCreator: ReturnType<typeof mock<ProofCreator>>;
@@ -76,10 +79,12 @@ describe('Kernel Prover', () => {
     });
   };
 
-  const prove = (executionResult: ExecutionResult) => prover.prove(txRequest, txSignature, executionResult);
+  const prove = (executionResult: ExecutionResult) =>
+    prover.prove(new SignedTxRequest(txRequest, signingKey, txSignature), executionResult);
 
   beforeEach(() => {
     txRequest = makeTxRequest();
+    signingKey = EthPublicKey.random();
     txSignature = EcdsaSignature.random();
 
     oracle = mock<ProvingDataOracle>();

@@ -172,7 +172,6 @@ export class AztecRPCServer implements AztecRPCClient {
   ) {
     const fromAccountState = this.ensureAccountOrDefault(from);
     const fromAddress = fromAccountState.getAddress();
-    const fromEthPublicKey = fromAccountState.getEthPublicKey();
 
     const constructorAbi = abi.functions.find(f => f.name === 'constructor');
     if (!constructorAbi) {
@@ -203,7 +202,6 @@ export class AztecRPCServer implements AztecRPCClient {
 
     return new TxRequest(
       fromAddress,
-      fromEthPublicKey,
       contract.address,
       functionData,
       flatArgs,
@@ -227,7 +225,6 @@ export class AztecRPCServer implements AztecRPCClient {
   public async createTxRequest(functionName: string, args: any[], to: AztecAddress, from?: AztecAddress) {
     const fromAccountState = this.ensureAccountOrDefault(from);
     const fromAddress = fromAccountState.getAddress();
-    const fromEthPublicKey = fromAccountState.getEthPublicKey();
 
     const contract = await this.db.getContract(to);
     if (!contract) {
@@ -256,7 +253,6 @@ export class AztecRPCServer implements AztecRPCClient {
 
     return new TxRequest(
       fromAddress,
-      fromEthPublicKey,
       to,
       functionData,
       flatArgs,
@@ -280,34 +276,57 @@ export class AztecRPCServer implements AztecRPCClient {
   }
 
   /**
+   * Recover the signing public key with which txRequest was signed by the creator.
+   * This function retrieves the public key of the account specified in the TxRequest 'from' field
+   * by using the `ecrecover` method from ECDSA. This will be useful if our key store doesn't allow
+   * direct access to private and public keys but only Ethereum address.
+   *
+   * @param txRequest - The TxRequest instance containing necessary information for signing.
+   * @param signature - The ECDSA signature created by signing `txRequest`.
+   * @returns The signing public key that was used to sign the transaction.
+   */
+  public recoverSigningKey(txRequest: TxRequest, signature: EcdsaSignature) {
+    this.ensureAccount(txRequest.from);
+    return this.keyStore.recoverSigningPublicKey(txRequest, signature);
+  }
+
+  /**
    * Creates a new transaction object from a given signed transaction request.
    * If the transaction is private, it simulates and proves the transaction request using accountState.
    * If it is public, it creates a public transaction without the need for simulation.
    * The resulting transaction object can then be sent to the network for execution using sendTx method.
    *
-   * @param txRequest - The signed transaction request containing all necessary details for executing the transaction.
-   * @param signature - The ECDSA signature of the transaction request.
+   * @param signedTxRequest - The signed transaction request containing (txRequest, signingKey, signature)
+   * all necessary details for executing the transaction. Note that the signature is an ECDSA signature signed over txRequest.
    * @returns A transaction object that can be sent to the network.
    */
-  public async createTx(txRequest: TxRequest, signature: EcdsaSignature) {
+  public async createTx(signedTxRequest: SignedTxRequest) {
     let toContract: AztecAddress | undefined;
     let newContract: AztecAddress | undefined;
-    const accountState = this.ensureAccount(txRequest.from);
+    const accountState = this.ensureAccount(signedTxRequest.txRequest.from);
 
-    const contractAddress = txRequest.to;
+    const contractAddress = signedTxRequest.txRequest.to;
     let tx: Tx;
-    if (!txRequest.functionData.isPrivate) {
+    if (!signedTxRequest.txRequest.functionData.isPrivate) {
       // Note: there is no simulation being performed client-side for public functions execution.
-      tx = Tx.createPublic(new SignedTxRequest(txRequest, signature));
-    } else if (txRequest.functionData.isConstructor) {
+      tx = Tx.createPublic(signedTxRequest);
+    } else if (signedTxRequest.txRequest.functionData.isConstructor) {
       newContract = contractAddress;
-      tx = await accountState.simulateAndProve(txRequest, signature, contractAddress);
+      tx = await accountState.simulateAndProve(signedTxRequest, contractAddress);
     } else {
       toContract = contractAddress;
-      tx = await accountState.simulateAndProve(txRequest, signature);
+      tx = await accountState.simulateAndProve(signedTxRequest);
     }
 
-    const dao = new TxDao(await tx.getTxHash(), undefined, undefined, txRequest.from, toContract, newContract, '');
+    const dao = new TxDao(
+      await tx.getTxHash(),
+      undefined,
+      undefined,
+      signedTxRequest.txRequest.from,
+      toContract,
+      newContract,
+      '',
+    );
     await this.db.addTx(dao);
 
     return tx;

@@ -1,7 +1,6 @@
 import { ExecutionResult, NewNoteData } from '@aztec/acir-simulator';
 import {
   CONTRACT_TREE_HEIGHT,
-  EcdsaSignature,
   MembershipWitness,
   PRIVATE_CALL_STACK_LENGTH,
   PreviousKernelData,
@@ -9,7 +8,6 @@ import {
   PrivateCallStackItem,
   KernelCircuitPublicInputs,
   SignedTxRequest,
-  TxRequest,
   VK_TREE_HEIGHT,
   VerificationKey,
   makeEmptyProof,
@@ -66,17 +64,13 @@ export class KernelProver {
    * and generates a proof using the provided ProofCreator instance. It also maintains an index of new notes
    * created during the execution and returns them as a part of the KernelProverOutput.
    *
-   * @param txRequest - The transaction request object.
-   * @param txSignature - The ECDSA signature of the transaction.
+   * @param signedTxRequest - The signed transaction request to be simulated and proved. This contains:
+   * (`txRequest`, `signingKey`, `signature`) where signature is the ECDSA signature over the transaction request
+   * signed using the Ethereum public key `signingKey`.
    * @param executionResult - The execution result object containing nested executions and preimages.
    * @returns A Promise that resolves to a KernelProverOutput object containing proof, public inputs, and output notes.
    */
-  async prove(
-    txRequest: TxRequest,
-    txSignature: EcdsaSignature,
-    executionResult: ExecutionResult,
-  ): Promise<KernelProverOutput> {
-    const signedTxRequest = new SignedTxRequest(txRequest, txSignature);
+  async prove(signedTxRequest: SignedTxRequest, executionResult: ExecutionResult): Promise<KernelProverOutput> {
     const executionStack = [executionResult];
     const newNotes: { [commitmentStr: string]: OutputNoteData } = {};
     let firstIteration = true;

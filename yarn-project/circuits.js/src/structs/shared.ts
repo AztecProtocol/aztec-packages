@@ -69,7 +69,7 @@ export class EcdsaSignature {
   }
 
   public static random() {
-    return new EcdsaSignature(randomBytes(32), randomBytes(32), randomBytes(1));
+    return new EcdsaSignature(randomBytes(32), randomBytes(32), Buffer.from([27]));
   }
 }
 

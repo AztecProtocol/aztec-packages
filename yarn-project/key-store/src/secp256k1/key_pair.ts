@@ -11,6 +11,7 @@ export interface Secp256k1KeyPair {
   getPublicKey(): EthPublicKey;
   getPrivateKey(): Promise<Buffer>;
   signMessage(message: Buffer): Promise<EcdsaSignature>;
+  recoverSigningKey(message: Buffer, signature: EcdsaSignature): Promise<EthPublicKey>;
 }
 
 /**
@@ -73,5 +74,22 @@ export class ConstantSecp256k1KeyPair implements Secp256k1KeyPair {
     }
 
     return Promise.resolve(this.ecdsa.constructSignature(message, this.privateKey));
+  }
+
+  /**
+   * Recover the signing public key from an ECDSA signature.
+   * The input 'message' should be a non-empty Buffer containing the data to be signed.
+   * Throws an error if the input message is empty.
+   *
+   * @param message - The Buffer containing the data to be signed.
+   * @param signature - The ECDSA signature created by signing `message`.
+   * @returns A Promise that resolves to an EcdsaSignature instance representing the signature.
+   */
+  public recoverSigningKey(message: Buffer, signature: EcdsaSignature) {
+    if (!message.length) {
+      throw new Error('Cannot recover signing key from an empty message.');
+    }
+
+    return Promise.resolve(EthPublicKey.fromBuffer(this.ecdsa.recoverPublicKey(message, signature)));
   }
 }

@@ -12,14 +12,14 @@ import { EthPublicKey } from '@aztec/foundation/eth-public-key';
  * @see cpp/src/aztec3/circuits/abis/signed_tx_request.hpp.
  */
 export class SignedTxRequest {
-  constructor(public txRequest: TxRequest, public signature: EcdsaSignature) {}
+  constructor(public txRequest: TxRequest, public signingKey: EthPublicKey, public signature: EcdsaSignature) {}
 
   /**
    * Serialize as a buffer.
    * @returns The buffer.
    */
   toBuffer() {
-    return serializeToBuffer(this.txRequest, this.signature);
+    return serializeToBuffer(this.txRequest, this.signingKey, this.signature);
   }
 }
 
@@ -30,7 +30,6 @@ export class SignedTxRequest {
 export class TxRequest {
   constructor(
     public from: AztecAddress,
-    public fromPublicKey: EthPublicKey,
     public to: AztecAddress,
     public functionData: FunctionData,
     public args: Fr[],
@@ -42,7 +41,6 @@ export class TxRequest {
   static getFields(fields: FieldsOf<TxRequest>) {
     return [
       fields.from,
-      fields.fromPublicKey,
       fields.to,
       fields.functionData,
       fields.args,

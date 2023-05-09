@@ -4,7 +4,12 @@ import { Ecdsa } from '@aztec/barretenberg.js/crypto';
 import { Grumpkin } from '@aztec/barretenberg.js/crypto';
 import { Secp256k1 } from '@aztec/barretenberg.js/crypto';
 import { BarretenbergWasm } from '@aztec/barretenberg.js/wasm';
-import { EcdsaSignature, KERNEL_NEW_COMMITMENTS_LENGTH, PrivateHistoricTreeRoots, TxRequest } from '@aztec/circuits.js';
+import {
+  KERNEL_NEW_COMMITMENTS_LENGTH,
+  PrivateHistoricTreeRoots,
+  SignedTxRequest,
+  TxRequest,
+} from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthPublicKey } from '@aztec/foundation/eth-public-key';
 import { Fr, Point } from '@aztec/foundation/fields';
@@ -249,20 +254,21 @@ export class AccountState {
    * transaction object with the generated proof and public inputs. If a new contract address is provided,
    * the function will also include the new contract's public functions in the transaction object.
    *
-   * @param txRequest - The transaction request to be simulated and proved.
-   * @param signature - The ECDSA signature for the transaction request.
+   * @param signedTxRequest - The signed transaction request to be simulated and proved. This contains:
+   * (`txRequest`, `signingKey`, `signature`) where signature is the ECDSA signature over the transaction request
+   * signed using the Ethereum public key `signingKey`.
    * @param newContractAddress - Optional. The address of a new contract to be included in the transaction object.
    * @returns A private transaction object containing the proof, public inputs, and unverified data.
    */
-  public async simulateAndProve(txRequest: TxRequest, signature: EcdsaSignature, newContractAddress?: AztecAddress) {
+  public async simulateAndProve(signedTxRequest: SignedTxRequest, newContractAddress?: AztecAddress) {
     // TODO - Pause syncing while simulating.
 
     const contractDataOracle = new ContractDataOracle(this.db, this.node);
-    const executionResult = await this.simulate(txRequest, contractDataOracle);
+    const executionResult = await this.simulate(signedTxRequest.txRequest, contractDataOracle);
 
     const kernelProver = new KernelProver(contractDataOracle);
     this.log('Executing Prover...');
-    const { proof, publicInputs, outputNotes } = await kernelProver.prove(txRequest, signature, executionResult);
+    const { proof, publicInputs, outputNotes } = await kernelProver.prove(signedTxRequest, executionResult);
     this.log('Proof completed!');
 
     const unverifiedData = this.createUnverifiedData(outputNotes);
