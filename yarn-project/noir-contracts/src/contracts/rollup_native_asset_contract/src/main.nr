@@ -1,4 +1,4 @@
-contract ZkToken {
+contract RollupNativeAsset {
     mod balance_utils;
     use dep::aztec3::abi::Inputs;
     use dep::aztec3::context::PrivateFunctionContext;
@@ -128,7 +128,7 @@ contract ZkToken {
             recipient
         ])[0];
 
-        context.new_l2_to_l1_msgs = context.new_l2_to_l1_msgs.push_array([content]); 
+        context.new_l2_to_l1_msgs = context.new_l2_to_l1_msgs.push_array([content]);
 
         context.finish(inputs)
     }
@@ -138,7 +138,7 @@ contract ZkToken {
         owner: Point,
     ) -> pub Field {
         let owner_balance = balances.at(owner.x);
-        
+
         balance_utils::get_balance(owner_balance.storage_slot)
     }
 }

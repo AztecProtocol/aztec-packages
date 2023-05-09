@@ -25,6 +25,7 @@
     "noir:build:parent": "(cd src/contracts/parent_contract && nargo compile main --contracts) && ts-node --esm src/scripts/copy_output.ts parent",
     "noir:build:child": "(cd src/contracts/child_contract && nargo compile main --contracts) && ts-node --esm src/scripts/copy_output.ts child",
     "noir:build:zk_token": "(cd src/contracts/zk_token_contract && nargo compile main --contracts) && ts-node --esm src/scripts/copy_output.ts zk_token",
+    "noir:build:rollup_native_token": "(cd src/contracts/rollup_native_asset_contract && nargo compile main --contracts) && ts-node --esm src/scripts/copy_output.ts rollup_native_asset",
     "noir:build:pub_token": "(cd src/contracts/public_token_contract && nargo compile main --contracts) && ts-node --esm src/scripts/copy_output.ts public_token"
   },
   "inherits": [
