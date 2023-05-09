@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2023 Aztec.
+// Copyright 2023 Aztec Labs.
 pragma solidity >=0.8.18;
 
 /**
  * @title Mock verifier
- * @author Aztec
+ * @author Aztec Labs
  * @notice Will assume that everything is valid proofs
  */
 contract MockVerifier {

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2023 Aztec.
+// Copyright 2023 Aztec Labs.
 pragma solidity >=0.8.18;
 
 import {MockVerifier} from "@aztec3/mock/MockVerifier.sol";
@@ -7,7 +7,7 @@ import {Decoder} from "./Decoder.sol";
 
 /**
  * @title Rollup
- * @author Aztec
+ * @author Aztec Labs
  * @notice Rollup contract that are concerned about readability and velocity of development
  * not giving a damn about gas costs.
  *
