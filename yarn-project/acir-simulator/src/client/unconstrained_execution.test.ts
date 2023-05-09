@@ -36,7 +36,7 @@ describe('Unconstrained Execution test suite', () => {
   describe('zk token contract', () => {
     let currentNonce = 0n;
 
-    const contractDeploymentData = new ContractDeploymentData(Fr.ZERO, Fr.ZERO, Fr.ZERO, EthAddress.ZERO);
+    const contractDeploymentData = ContractDeploymentData.empty();
     const txContext = new TxContext(false, false, false, contractDeploymentData);
 
     let ownerPk: Buffer;
@@ -60,7 +60,7 @@ describe('Unconstrained Execution test suite', () => {
       const preimages = [...Array(5).fill(buildNote(1n, owner)), ...Array(2).fill(buildNote(2n, owner))];
       // TODO for this we need that noir siloes the commitment the same way as the kernel does, to do merkle membership
 
-      const historicRoots = new PrivateHistoricTreeRoots(Fr.ZERO, Fr.ZERO, Fr.ZERO, Fr.ZERO, Fr.ZERO);
+      const historicRoots = PrivateHistoricTreeRoots.empty();
 
       oracle.getNotes.mockImplementation((_, __, limit: number, offset: number) => {
         const notes = preimages.slice(offset, offset + limit);

@@ -25,9 +25,8 @@ template <typename NCT> struct PrivateHistoricTreeRoots {
     boolean operator==(PrivateHistoricTreeRoots<NCT> const& other) const
     {
         return private_data_tree_root == other.private_data_tree_root &&
-               nullifier_tree_root == other.nullifier_tree_root &&
+               nullifier_tree_root == other.nullifier_tree_root && contract_tree_root == other.contract_tree_root &&
                l1_to_l2_messages_tree_root == other.l1_to_l2_messages_tree_root &&
-               contract_tree_root == other.contract_tree_root &&
                private_kernel_vk_tree_root == other.private_kernel_vk_tree_root;
     };
 
