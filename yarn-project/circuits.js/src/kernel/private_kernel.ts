@@ -117,5 +117,18 @@ export async function privateKernelSim(
     outputBufSizePtr,
     outputBufPtrPtr,
   );
-  return handleCircuitFailure(wasm, outputBufSizePtr, outputBufPtrPtr, circuitFailureBufPtr, KernelCircuitPublicInputs);
+  try {
+    return handleCircuitFailure(
+      wasm,
+      outputBufSizePtr,
+      outputBufPtrPtr,
+      circuitFailureBufPtr,
+      KernelCircuitPublicInputs,
+    );
+  } finally {
+    // Free memory
+    wasm.call('bbfree', outputBufSizePtr);
+    wasm.call('bbfree', outputBufPtrPtr);
+    wasm.call('bbfree', circuitFailureBufPtr);
+  }
 }
