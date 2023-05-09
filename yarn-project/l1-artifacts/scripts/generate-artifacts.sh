@@ -31,7 +31,7 @@ for E in "${CONTRACTS[@]}"; do
     jq -j '.bytecode.object' ../../$ROOT/out/$CONTRACT_NAME.sol/$CONTRACT_NAME.json >> "$target_dir/${CONTRACT_NAME}Bytecode.ts";
     echo "\";" >> "$target_dir/${CONTRACT_NAME}Bytecode.ts";
 
-    echo -ne "export * from './${CONTRACT_NAME}Abi.js';\nexport * from './${CONTRACT_NAME}Bytecode.js';\n" > "$target_dir/index.ts";
+    echo -ne "export * from './${CONTRACT_NAME}Abi.js';\nexport * from './${CONTRACT_NAME}Bytecode.js';\n" >> "$target_dir/index.ts";
 done;
 
 echo "Successfully generated TS artifacts!";
