@@ -19,6 +19,8 @@ CONTRACTS=(
 # create target dir if it doesn't exist
 mkdir -p "$target_dir";
 
+echo -ne "// Auto generated module\n" > "$target_dir/index.ts";
+
 for E in "${CONTRACTS[@]}"; do
     ARR=(${E//:/ })
     ROOT="${ARR[0]}";

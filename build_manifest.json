@@ -54,7 +54,7 @@
     "rebuildPatterns": [
       "^circuits/",
       "^l1-contracts/",
-      "^yarn-project/l1-contracts/",
+      "^yarn-project/l1-artifacts/",
       "^yarn-project/yarn-project-base/",
       "^yarn-project/yarn.lock"
     ],
