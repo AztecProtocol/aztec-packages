@@ -11,8 +11,7 @@ import {
 } from '../index.js';
 import { serializeToBuffer, serializeBufferArrayToVector } from '../utils/serialize.js';
 import { AsyncWasmWrapper, WasmWrapper } from '@aztec/foundation/wasm';
-import { abisComputeContractAddress } from '../cbind/circuits.gen.js';
-import { ComputeLeafIndexArgs } from '../structs/compute_leaf_index_args.js';
+import { abisComputeContractAddress, abisComputePublicDataTreeLeafIndex } from '../cbind/circuits.gen.js';
 
 export function wasmSyncCall(
   wasm: WasmWrapper,
@@ -149,14 +148,11 @@ export function computeContractLeaf(wasm: WasmWrapper, cd: NewContractData) {
 }
 
 // TODO: Do we really want the function to be in abis.ts?
-export function computePublicDataTreeLeafIndex(wasm: CircuitsWasm, contract: AztecAddress, slot: Fr): bigint {
-  const args = new ComputeLeafIndexArgs(contract, slot);
+export async function computePublicDataTreeLeafIndex(
+  wasm: CircuitsWasm,
+  contract: AztecAddress,
+  slot: Fr,
+): Promise<Fr> {
   wasm.call('pedersen__init');
-  const index = wasmSyncCall(
-    wasm,
-    'abis__compute_public_data_tree_leaf_index',
-    args.toMsgpackBuffer(),
-    Fr.SIZE_IN_BYTES,
-  );
-  return Fr.fromBuffer(index).value;
+  return await abisComputePublicDataTreeLeafIndex(wasm, contract, slot);
 }

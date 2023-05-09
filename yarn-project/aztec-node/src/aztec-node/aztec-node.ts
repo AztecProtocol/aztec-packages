@@ -165,7 +165,7 @@ export class AztecNode {
    * Note: Aztec's version of `eth_getStorageAt`
    */
   public async getStorageAt(contract: AztecAddress, slot: bigint): Promise<Buffer | undefined> {
-    const leafIndex = computePublicDataTreeLeafIndex(await CircuitsWasm.get(), contract, new Fr(slot));
-    return this.merkleTreeDB.getLeafValue(MerkleTreeId.PUBLIC_DATA_TREE, leafIndex, false);
+    const leafIndex = await computePublicDataTreeLeafIndex(await CircuitsWasm.get(), contract, new Fr(slot));
+    return this.merkleTreeDB.getLeafValue(MerkleTreeId.PUBLIC_DATA_TREE, leafIndex.value, false);
   }
 }

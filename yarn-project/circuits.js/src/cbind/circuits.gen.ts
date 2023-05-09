@@ -26,6 +26,7 @@ import {
   PreviousKernelData,
 } from './types.js';
 import { TupleOf, mapTuple, mapValues } from '@aztec/foundation/serialize';
+import { AztecAddress } from '@aztec/foundation';
 export interface MsgpackG1AffineElement {
   x: Buffer;
   y: Buffer;
@@ -847,4 +848,14 @@ export async function abisComputeContractAddress(
 }
 export async function privateKernelDummyPreviousKernel(wasm: CircuitsWasm): Promise<PreviousKernelData> {
   return toPreviousKernelData(await callCbind(wasm, 'private_kernel__dummy_previous_kernel', []));
+}
+
+export async function abisComputePublicDataTreeLeafIndex(
+  wasm: CircuitsWasm,
+  contract: AztecAddress,
+  slot: Fr,
+): Promise<Fr> {
+  return Fr.fromBuffer(
+    await callCbind(wasm, 'abis__compute_public_data_tree_leaf_index', [contract.toBuffer(), slot.toBuffer()]),
+  );
 }

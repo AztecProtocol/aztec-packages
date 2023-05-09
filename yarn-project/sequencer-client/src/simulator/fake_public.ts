@@ -40,8 +40,8 @@ class WorldStatePublicDB implements PublicDB {
   constructor(private db: MerkleTreeOperations) {}
 
   public async storageRead(contract: AztecAddress, slot: Fr): Promise<Fr> {
-    const leafIndex = computePublicDataTreeLeafIndex(await CircuitsWasm.get(), contract, slot);
-    const value = await this.db.getLeafValue(MerkleTreeId.PUBLIC_DATA_TREE, leafIndex);
+    const leafIndex = await computePublicDataTreeLeafIndex(await CircuitsWasm.get(), contract, slot);
+    const value = await this.db.getLeafValue(MerkleTreeId.PUBLIC_DATA_TREE, leafIndex.value);
     return value ? Fr.fromBuffer(value) : Fr.ZERO;
   }
 }
