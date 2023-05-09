@@ -265,8 +265,7 @@ void validate_inputs(PrivateInputs<CT> const& private_inputs)
 
     {
         // Verify public key hash matches ethereum address of the sender
-        // TODO(Suyash): Do we want to perform this check only for base case?
-        // TODO(Suyash): I think its okay to check this for each kernel iteration.
+        // TODO(Suyash): We want to perform this only for the base case, so move to "initial" PKC.
         const CT::address sender_address = private_inputs.signed_tx_request.tx_request.from;
         const CT::secp256k1_point sender_public_key = private_inputs.signed_tx_request.tx_request.from_public_key;
 
