@@ -13,5 +13,6 @@ global NoteHash = 2;
 global NoteStorageSlot = 3;
 global MappingStorageSlot = 4;
 global Nullifier = 5;
+global L2ToL1Hash = 6;
 
 global PRIVATE_DATA_TREE_HEIGHT: comptime Field = 8;
