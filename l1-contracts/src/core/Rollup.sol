@@ -2,8 +2,11 @@
 // Copyright 2023 Aztec Labs.
 pragma solidity >=0.8.18;
 
-import {MockVerifier} from "@aztec3/mock/MockVerifier.sol";
+import {MockVerifier} from "@aztec/mock/MockVerifier.sol";
 import {Decoder} from "./Decoder.sol";
+
+import {IInbox} from "@aztec/interfaces/IInbox.sol";
+import {MockInbox} from "@aztec/mock/MockInbox.sol";
 
 /**
  * @title Rollup
@@ -20,10 +23,12 @@ contract Rollup is Decoder {
   event L2BlockProcessed(uint256 indexed blockNum);
 
   MockVerifier public immutable VERIFIER;
+  IInbox public immutable INBOX;
   bytes32 public rollupStateHash;
 
   constructor() {
     VERIFIER = new MockVerifier();
+    INBOX = new MockInbox(); 
   }
 
   /**

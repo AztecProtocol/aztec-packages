@@ -10,11 +10,11 @@ import { Point } from '@aztec/foundation/fields';
 import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
 import { MNEMONIC } from './fixtures.js';
 
-const logger = createDebugLogger('aztec:e2e_zk_token_contract');
+const logger = createDebugLogger('aztec:e2e_l1_to_l2_msg');
 
 const config = getConfigEnvVars();
 
-describe('e2e_zk_token_contract', () => {
+describe('e2e_l1_to_l2_msg', () => {
   let node: AztecNode;
   let aztecRpcServer: AztecRPCServer;
   let accounts: AztecAddress[];
@@ -66,72 +66,4 @@ describe('e2e_zk_token_contract', () => {
     logger('L2 contract deployed');
     return contract;
   };
-
-  /**
-   * Milestone 1.3.
-   * https://hackmd.io/AG5rb9DyTRu3y7mBptWauA
-   */
-  it('1.3 should deploy zk token contract with initial token minted to the account', async () => {
-    const initialBalance = 987n;
-    const owner = await aztecRpcServer.getAccountPublicKey(accounts[0]);
-    await deployContract(initialBalance, pointToPublicKey(owner));
-    await expectBalance(accounts[0], initialBalance);
-    await expectBalance(accounts[1], 0n);
-  }, 30_000);
-
-  /**
-   * Milestone 1.4.
-   */
-  it('1.4 should call mint and increase balance', async () => {
-    const mintAmount = 65n;
-
-    const [owner, receiver] = accounts;
-
-    const deployedContract = await deployContract(
-      0n,
-      pointToPublicKey(await aztecRpcServer.getAccountPublicKey(owner)),
-    );
-    await expectBalance(owner, 0n);
-    await expectBalance(receiver, 0n);
-
-    const tx = deployedContract.methods
-      .mint(mintAmount, pointToPublicKey(await aztecRpcServer.getAccountPublicKey(receiver)))
-      .send({ from: receiver });
-
-    await tx.isMined(0, 0.1);
-    const receipt = await tx.getReceipt();
-
-    expect(receipt.status).toBe(TxStatus.MINED);
-    await expectBalance(receiver, mintAmount);
-  }, 60_000);
-
-  /**
-   * Milestone 1.5.
-   */
-  it('1.5 should call transfer and increase balance of another account', async () => {
-    const initialBalance = 987n;
-    const transferAmount = 654n;
-    const [owner, receiver] = accounts;
-
-    await deployContract(initialBalance, pointToPublicKey(await aztecRpcServer.getAccountPublicKey(owner)));
-
-    await expectBalance(owner, initialBalance);
-    await expectBalance(receiver, 0n);
-
-    const tx = contract.methods
-      .transfer(
-        transferAmount,
-        pointToPublicKey(await aztecRpcServer.getAccountPublicKey(owner)),
-        pointToPublicKey(await aztecRpcServer.getAccountPublicKey(receiver)),
-      )
-      .send({ from: accounts[0] });
-
-    await tx.isMined(0, 0.1);
-    const receipt = await tx.getReceipt();
-
-    expect(receipt.status).toBe(TxStatus.MINED);
-
-    await expectBalance(owner, initialBalance - transferAmount);
-    await expectBalance(receiver, transferAmount);
-  }, 60_000);
 });
