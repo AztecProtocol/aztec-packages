@@ -267,7 +267,7 @@ void validate_inputs(PrivateInputs<CT> const& private_inputs)
         // Verify public key hash matches ethereum address of the sender
         // TODO(Suyash): We want to perform this only for the base case, so move to "initial" PKC.
         const CT::address sender_address = private_inputs.signed_tx_request.tx_request.from;
-        const CT::secp256k1_point sender_public_key = private_inputs.signed_tx_request.tx_request.from_public_key;
+        const CT::secp256k1_point sender_public_key = private_inputs.signed_tx_request.signing_key;
 
         CT::byte_array sender_public_key_bytes = sender_public_key.to_byte_array();
         const CT::byte_array sender_public_key_hash = stdlib::keccak<Composer>::hash(sender_public_key_bytes);
@@ -292,9 +292,7 @@ void validate_inputs(PrivateInputs<CT> const& private_inputs)
                                                                    stdlib::secp256k1<Composer>::fq_ct,
                                                                    stdlib::secp256k1<Composer>::bigfr_ct,
                                                                    stdlib::secp256k1<Composer>::g1_bigfr_ct>(
-        message,
-        private_inputs.signed_tx_request.tx_request.from_public_key,
-        private_inputs.signed_tx_request.signature);
+        message, private_inputs.signed_tx_request.signing_key, private_inputs.signed_tx_request.signature);
 
     // Recall: we can't do traditional `if` statements in a circuit; all code paths are always executed. The below is
     // some syntactic sugar, which seeks readability similar to an `if` statement.

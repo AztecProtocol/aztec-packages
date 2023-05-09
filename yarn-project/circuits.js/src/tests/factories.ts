@@ -508,7 +508,12 @@ export async function makePublicKernelInputsNoKernelInput(seed = 1): Promise<Pub
  * @returns A signed tx request.
  */
 export function makeSignedTxRequest(seed = 1): SignedTxRequest {
-  return new SignedTxRequest(makeTxRequest(seed), makeEcdsaSignature(seed + 0x200));
+  const signedTxRequest = new SignedTxRequest(
+    makeTxRequest(seed),
+    makeEthPublicKey(seed + 0x20),
+    makeEcdsaSignature(seed + 0x200),
+  );
+  return signedTxRequest;
 }
 
 /**
@@ -519,7 +524,6 @@ export function makeSignedTxRequest(seed = 1): SignedTxRequest {
 export function makeTxRequest(seed = 1): TxRequest {
   return TxRequest.from({
     from: makeAztecAddress(seed),
-    fromPublicKey: makeEthPublicKey(seed + 0x20),
     to: makeAztecAddress(seed + 0x10),
     functionData: new FunctionData(makeSelector(seed + 0x100), true, true),
     args: range(ARGS_LENGTH, seed + 0x200).map(x => fr(x)),

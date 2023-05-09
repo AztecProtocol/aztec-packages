@@ -317,7 +317,6 @@ PrivateInputs<NT> do_private_call_get_kernel_inputs(bool const is_constructor,
     //***************************************************************************
     auto const tx_request = TxRequest<NT>{
         .from = tx_origin,
-        .from_public_key = msg_sender_public_key,
         .to = contract_address,
         .function_data = function_data,
         .args = private_circuit_public_inputs.args,
@@ -332,7 +331,7 @@ PrivateInputs<NT> do_private_call_get_kernel_inputs(bool const is_constructor,
         .chain_id = 1,
     };
 
-    auto signed_tx_request = SignedTxRequest<NT>{ .tx_request = tx_request };
+    auto signed_tx_request = SignedTxRequest<NT>{ .tx_request = tx_request, .signing_key = msg_sender_public_key };
     signed_tx_request.compute_signature(msg_sender_private_key);
 
     //***************************************************************************

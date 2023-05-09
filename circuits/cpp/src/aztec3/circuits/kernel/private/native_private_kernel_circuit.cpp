@@ -306,7 +306,7 @@ void validate_inputs(DummyComposer& composer, PrivateInputs<NT> const& private_i
         // TODO(Suyash): Do we want to perform this check only for base case?
         // TODO(Suyash): I think its okay to check this for each kernel iteration.
         const NT::address sender_address = private_inputs.signed_tx_request.tx_request.from;
-        const NT::secp256k1_point sender_public_key = private_inputs.signed_tx_request.tx_request.from_public_key;
+        const NT::secp256k1_point sender_public_key = private_inputs.signed_tx_request.signing_key;
 
         const NT::byte_array sender_public_key_bytes = sender_public_key.to_buffer();
         NT::byte_array sender_public_key_hash = stdlib::keccak<UltraComposer>::hash_native(sender_public_key_bytes);
@@ -333,9 +333,7 @@ void validate_inputs(DummyComposer& composer, PrivateInputs<NT> const& private_i
     const std::string message(message_bytes.begin(), message_bytes.end());
     const bool sig_verification_result =
         crypto::ecdsa::verify_signature<Sha256Hasher, secp256k1::fq, secp256k1::fr, secp256k1::g1>(
-            message,
-            private_inputs.signed_tx_request.tx_request.from_public_key,
-            private_inputs.signed_tx_request.signature);
+            message, private_inputs.signed_tx_request.signing_key, private_inputs.signed_tx_request.signature);
 
     // Base Case
     if (is_base_case) {

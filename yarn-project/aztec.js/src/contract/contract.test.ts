@@ -9,8 +9,9 @@ import {
   TxRequest,
 } from '@aztec/aztec-rpc';
 import { mock } from 'jest-mock-extended';
+import { jest } from '@jest/globals';
 
-import { EcdsaSignature } from '@aztec/circuits.js';
+import { EcdsaSignature, SignedTxRequest } from '@aztec/circuits.js';
 import { Contract } from './contract.js';
 import { ABIParameterVisibility, ContractAbi, FunctionType } from '@aztec/foundation/abi';
 import { randomBytes } from '@aztec/foundation/crypto';
@@ -23,6 +24,7 @@ describe('Contract Class', () => {
 
   const mockTxRequest = { type: 'TxRequest' } as any as TxRequest;
   const mockSignature = { type: 'EcdsaSignature' } as any as EcdsaSignature;
+  const mockSignedTxRequest = { type: 'SignedTxRequest' } as any as SignedTxRequest;
   const mockTx = { type: 'Tx' } as any as Tx;
   const mockTxHash = { type: 'TxHash' } as any as TxHash;
   const mockTxReceipt = { type: 'TxReceipt' } as any as TxReceipt;
@@ -104,6 +106,7 @@ describe('Contract Class', () => {
     arc.sendTx.mockResolvedValue(mockTxHash);
     arc.viewTx.mockResolvedValue(mockViewResultValue);
     arc.getTxReceipt.mockResolvedValue(mockTxReceipt);
+    SignedTxRequest.new = jest.fn<typeof SignedTxRequest.new>().mockReturnValue(Promise.resolve(mockSignedTxRequest));
   });
 
   it('should request, sign, craete and send a contract method tx', async () => {
@@ -124,7 +127,7 @@ describe('Contract Class', () => {
     expect(arc.signTxRequest).toHaveBeenCalledTimes(1);
     expect(arc.signTxRequest).toHaveBeenCalledWith(mockTxRequest);
     expect(arc.createTx).toHaveBeenCalledTimes(1);
-    expect(arc.createTx).toHaveBeenCalledWith(mockTxRequest, mockSignature);
+    expect(arc.createTx).toHaveBeenCalledWith(mockSignedTxRequest);
     expect(arc.sendTx).toHaveBeenCalledTimes(1);
     expect(arc.sendTx).toHaveBeenCalledWith(mockTx);
   });

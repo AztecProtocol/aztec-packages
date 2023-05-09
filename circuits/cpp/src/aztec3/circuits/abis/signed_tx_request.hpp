@@ -18,13 +18,15 @@ template <typename NCT> struct SignedTxRequest {
     using fr = typename NCT::fr;
     using boolean = typename NCT::boolean;
     using Signature = typename NCT::ecdsa_signature;
+    using secp256k1_point = typename NCT::secp256k1_point;
 
     TxRequest<NCT> tx_request{};
+    secp256k1_point signing_key;
     Signature signature{};
 
     boolean operator==(SignedTxRequest<NCT> const& other) const
     {
-        return tx_request == other.tx_request && signature == other.signature;
+        return tx_request == other.tx_request && signing_key == other.signing_key && signature == other.signature;
     };
 
     template <typename Composer> SignedTxRequest<CircuitTypes<Composer>> to_circuit_type(Composer& composer) const
@@ -35,7 +37,9 @@ template <typename NCT> struct SignedTxRequest {
         auto to_ct = [&](auto& e) { return aztec3::utils::types::to_ct(composer, e); };
         auto to_circuit_type = [&](auto& e) { return e.to_circuit_type(composer); };
 
-        SignedTxRequest<CircuitTypes<Composer>> signed_tx_request = { to_circuit_type(tx_request), to_ct(signature) };
+        SignedTxRequest<CircuitTypes<Composer>> signed_tx_request = { to_circuit_type(tx_request),
+                                                                      to_ct(signing_key),
+                                                                      to_ct(signature) };
         return signed_tx_request;
     };
 
@@ -47,6 +51,7 @@ template <typename NCT> struct SignedTxRequest {
 
         SignedTxRequest<NativeTypes> signed_tx_request = {
             to_native_type(tx_request),
+            to_native_type(signing_key),
             to_native_type(signature),
         };
 
@@ -84,7 +89,7 @@ template <typename NCT> struct SignedTxRequest {
         const std::string signing_message_str(signing_message.begin(), signing_message.end());
         crypto::ecdsa::key_pair<NativeTypes::secp256k1_fr, NativeTypes::secp256k1_group> account;
         account.private_key = private_key;
-        account.public_key = tx_request.from_public_key;
+        account.public_key = this->signing_key;
 
         signature = crypto::ecdsa::construct_signature<Sha256Hasher,
                                                        NativeTypes::secp256k1_group::Fq,
@@ -98,6 +103,7 @@ template <typename NCT> void read(uint8_t const*& it, SignedTxRequest<NCT>& sign
     using serialize::read;
 
     read(it, signed_tx_request.tx_request);
+    read(it, signed_tx_request.signing_key);
     read(it, signed_tx_request.signature);
 };
 
@@ -106,6 +112,7 @@ template <typename NCT> void write(std::vector<uint8_t>& buf, SignedTxRequest<NC
     using serialize::write;
 
     write(buf, signed_tx_request.tx_request);
+    write(buf, signed_tx_request.signing_key);
     write(buf, signed_tx_request.signature);
 };
 
@@ -113,6 +120,7 @@ template <typename NCT> std::ostream& operator<<(std::ostream& os, SignedTxReque
 {
     return os << "tx_request:\n"
               << signed_tx_request.tx_request << "\n"
+              << "signing_key: " << signed_tx_request.signing_key << "\n"
               << "signature: " << signed_tx_request.signature << "\n";
 }
 

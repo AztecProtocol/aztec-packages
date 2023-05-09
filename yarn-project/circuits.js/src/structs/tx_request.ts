@@ -7,6 +7,9 @@ import { TxContext } from './tx_context.js';
 import { Fr } from '@aztec/foundation/fields';
 import { ARGS_LENGTH } from './constants.js';
 import { EthPublicKey } from '@aztec/foundation/eth-public-key';
+import { hashTxRequest } from '../abis/abis.js';
+import { CircuitsWasm } from '../index.js';
+import { Ecdsa } from '@aztec/barretenberg.js/crypto';
 
 /**
  * Signed transaction request.
@@ -19,17 +22,41 @@ export class SignedTxRequest {
      */
     public txRequest: TxRequest,
     /**
+     * Ethereum public used to sign the transaction.
+     */
+    public signingKey: EthPublicKey,
+    /**
      * Signature.
      */
     public signature: EcdsaSignature,
   ) {}
 
   /**
+   * Creates a new SignedTxRequest from txRequest and EcdsaSignature. Recovers the signing key
+   * from the signature using the ecrecover algorithm.
+   * @param txRequest - The transaction request.
+   * @param signature - The signature created by signing over `txRequest`.
+   *
+   * @returns A SignedTxRequest instance with a recovered SigningKey.
+   */
+  public static async new(txRequest: TxRequest, signature: EcdsaSignature) {
+    // Recover signing key from the signature.
+    const wasm = await CircuitsWasm.get();
+    const message = await hashTxRequest(wasm, txRequest);
+    const ecdsa = new Ecdsa(wasm);
+    const signingKeyBuffer: Buffer = ecdsa.recoverPublicKey(message, signature);
+    const signingKey = EthPublicKey.fromBuffer(signingKeyBuffer);
+
+    // Create a new instance of SignedTxRequest.
+    return new SignedTxRequest(txRequest, signingKey, signature);
+  }
+
+  /**
    * Serialize as a buffer.
    * @returns The buffer.
    */
   toBuffer() {
-    return serializeToBuffer(this.txRequest, this.signature);
+    return serializeToBuffer(this.txRequest, this.signingKey, this.signature);
   }
 }
 
@@ -43,7 +70,6 @@ export class TxRequest {
      * Sender.
      */
     public from: AztecAddress,
-    public fromPublicKey: EthPublicKey,
     /**
      * Target.
      */
@@ -75,7 +101,6 @@ export class TxRequest {
   static getFields(fields: FieldsOf<TxRequest>) {
     return [
       fields.from,
-      fields.fromPublicKey,
       fields.to,
       fields.functionData,
       fields.args,

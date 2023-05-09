@@ -1,9 +1,10 @@
 import { AztecRPCClient, Tx, TxHash, TxReceipt, TxRequest } from '@aztec/aztec-rpc';
-import { AztecAddress, EcdsaSignature, EthAddress, Fr } from '@aztec/circuits.js';
+import { AztecAddress, EcdsaSignature, EthAddress, Fr, SignedTxRequest } from '@aztec/circuits.js';
 import { ContractAbi, FunctionType } from '@aztec/foundation/abi';
 import { randomBytes } from 'crypto';
 import { mock } from 'jest-mock-extended';
 import { ContractDeployer } from './contract_deployer.js';
+import { jest } from '@jest/globals';
 
 describe('Contract Deployer', () => {
   let arc: ReturnType<typeof mock<AztecRPCClient>>;
@@ -31,6 +32,7 @@ describe('Contract Deployer', () => {
   const mockTx = { type: 'Tx' } as any as Tx;
   const mockTxHash = { type: 'TxHash' } as any as TxHash;
   const mockTxReceipt = { type: 'TxReceipt' } as any as TxReceipt;
+  const mockSignedTxRequest = { type: 'SignedTxRequest' } as any as SignedTxRequest;
 
   beforeEach(() => {
     arc = mock<AztecRPCClient>();
@@ -40,6 +42,7 @@ describe('Contract Deployer', () => {
     arc.createTx.mockResolvedValue(mockTx);
     arc.sendTx.mockResolvedValue(mockTxHash);
     arc.getTxReceipt.mockResolvedValue(mockTxReceipt);
+    SignedTxRequest.new = jest.fn<typeof SignedTxRequest.new>().mockReturnValue(Promise.resolve(mockSignedTxRequest));
   });
 
   it('should request, sign, craete and send a contract deployment tx', async () => {
@@ -60,7 +63,7 @@ describe('Contract Deployer', () => {
     expect(arc.signTxRequest).toHaveBeenCalledTimes(1);
     expect(arc.signTxRequest).toHaveBeenCalledWith(mockTxRequest);
     expect(arc.createTx).toHaveBeenCalledTimes(1);
-    expect(arc.createTx).toHaveBeenCalledWith(mockTxRequest, mockSignature);
+    expect(arc.createTx).toHaveBeenCalledWith(mockSignedTxRequest);
     expect(arc.sendTx).toHaveBeenCalledTimes(1);
     expect(arc.sendTx).toHaveBeenCalledWith(mockTx);
   });
