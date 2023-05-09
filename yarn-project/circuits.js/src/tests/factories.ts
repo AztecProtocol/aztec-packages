@@ -407,7 +407,7 @@ export function makeConstantBaseRollupData(seed = 1): ConstantBaseRollupData {
   return ConstantBaseRollupData.from({
     startTreeOfHistoricPrivateDataTreeRootsSnapshot: makeAppendOnlyTreeSnapshot(seed),
     startTreeOfHistoricContractTreeRootsSnapshot: makeAppendOnlyTreeSnapshot(seed + 0x100),
-    treeOfHistoricL1ToL2MsgTreeRootsSnapshot: makeAppendOnlyTreeSnapshot(seed + 0x200),
+    startTreeOfHistoricL1ToL2MsgTreeRootsSnapshot: makeAppendOnlyTreeSnapshot(seed + 0x200),
     privateKernelVkTreeRoot: fr(seed + 0x301),
     publicKernelVkTreeRoot: fr(seed + 0x302),
     baseRollupVkHash: fr(seed + 0x303),

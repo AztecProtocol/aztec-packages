@@ -38,7 +38,7 @@ export class ConstantBaseRollupData {
     // The very latest roots as at the very beginning of the entire rollup:
     public startTreeOfHistoricPrivateDataTreeRootsSnapshot: AppendOnlyTreeSnapshot,
     public startTreeOfHistoricContractTreeRootsSnapshot: AppendOnlyTreeSnapshot,
-    public treeOfHistoricL1ToL2MsgTreeRootsSnapshot: AppendOnlyTreeSnapshot,
+    public startTreeOfHistoricL1ToL2MsgTreeRootsSnapshot: AppendOnlyTreeSnapshot,
 
     // Some members of this struct tbd:
     public privateKernelVkTreeRoot: Fr,
@@ -68,7 +68,7 @@ export class ConstantBaseRollupData {
     return [
       fields.startTreeOfHistoricPrivateDataTreeRootsSnapshot,
       fields.startTreeOfHistoricContractTreeRootsSnapshot,
-      fields.treeOfHistoricL1ToL2MsgTreeRootsSnapshot,
+      fields.startTreeOfHistoricL1ToL2MsgTreeRootsSnapshot,
       fields.privateKernelVkTreeRoot,
       fields.publicKernelVkTreeRoot,
       fields.baseRollupVkHash,

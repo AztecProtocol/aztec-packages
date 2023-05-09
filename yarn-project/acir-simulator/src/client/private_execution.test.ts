@@ -280,7 +280,7 @@ describe('Private Execution test suite', () => {
   });
 
   describe('nested calls', () => {
-    const historicRoots = new PrivateHistoricTreeRoots(Fr.ZERO, Fr.ZERO, Fr.ZERO, Fr.ZERO, Fr.ZERO);
+    const historicRoots = PrivateHistoricTreeRoots.empty();
     const contractDeploymentData = new ContractDeploymentData(Fr.random(), Fr.random(), Fr.random(), EthAddress.ZERO);
     const txContext = new TxContext(false, false, true, contractDeploymentData);
 

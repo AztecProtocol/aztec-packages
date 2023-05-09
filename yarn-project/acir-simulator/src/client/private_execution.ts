@@ -161,8 +161,6 @@ export class PrivateFunctionExecution {
     });
 
     const publicInputs = extractPublicInputs(partialWitness, acir);
-    console.log('public inputs:');
-    console.log(publicInputs);
 
     const callStackItem = new PrivateCallStackItem(this.contractAddress, this.functionData, publicInputs);
 
@@ -190,12 +188,6 @@ export class PrivateFunctionExecution {
    */
   private writeInputs() {
     const argsSize = this.abi.parameters.reduce((acc, param) => acc + sizeOfType(param.type), 0);
-
-    console.log('call context: ', this.callContext);
-    console.log('histoic roots: ', this.context.historicRoots);
-    console.log('deployment data : ', this.context.request.txContext.contractDeploymentData);
-    console.log(argsSize);
-    console.log('args: ', this.args);
 
     const fields = [
       this.callContext.isContractDeployment,

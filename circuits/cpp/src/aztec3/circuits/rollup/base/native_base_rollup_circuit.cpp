@@ -193,7 +193,7 @@ void perform_historical_l1_to_l2_message_tree_membership_checks(DummyComposer& c
                              historic_root_witness.leaf_index,
                              historic_root_witness.sibling_path,
                              historic_root,
-                             format("historic contract data tree roots ", i));
+                             format("historic l1 to l2 data tree roots ", i));
     }
 }
 
