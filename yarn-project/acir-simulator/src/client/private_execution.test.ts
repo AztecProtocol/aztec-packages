@@ -40,8 +40,8 @@ describe('Private Execution test suite', () => {
   });
 
   describe('empty constructor', () => {
-    const historicRoots = new PrivateHistoricTreeRoots(Fr.ZERO, Fr.ZERO, Fr.ZERO, Fr.ZERO, Fr.ZERO);
-    const contractDeploymentData = new ContractDeploymentData(Fr.random(), Fr.random(), Fr.random(), EthAddress.ZERO);
+    const historicRoots = PrivateHistoricTreeRoots.empty();
+    const contractDeploymentData = ContractDeploymentData.empty();
     const txContext = new TxContext(false, false, true, contractDeploymentData);
 
     it('should run the empty constructor', async () => {
@@ -69,7 +69,7 @@ describe('Private Execution test suite', () => {
   describe('zk token contract', () => {
     let currentNonce = 0n;
 
-    const contractDeploymentData = new ContractDeploymentData(Fr.ZERO, Fr.ZERO, Fr.ZERO, EthAddress.ZERO);
+    const contractDeploymentData = ContractDeploymentData.empty();
     const txContext = new TxContext(false, false, false, contractDeploymentData);
 
     let ownerPk: Buffer;
@@ -91,7 +91,7 @@ describe('Private Execution test suite', () => {
     });
 
     it('should a constructor with arguments that creates notes', async () => {
-      const historicRoots = new PrivateHistoricTreeRoots(Fr.ZERO, Fr.ZERO, Fr.ZERO, Fr.ZERO, Fr.ZERO);
+      const historicRoots = PrivateHistoricTreeRoots.empty();
       const contractAddress = AztecAddress.random();
       const abi = ZkTokenContractAbi.functions.find(f => f.name === 'constructor')!;
 
@@ -118,7 +118,7 @@ describe('Private Execution test suite', () => {
     }, 30_000);
 
     it('should run the mint function', async () => {
-      const historicRoots = new PrivateHistoricTreeRoots(Fr.ZERO, Fr.ZERO, Fr.ZERO, Fr.ZERO, Fr.ZERO);
+      const historicRoots = PrivateHistoricTreeRoots.empty();
       const contractAddress = AztecAddress.random();
       const abi = ZkTokenContractAbi.functions.find(f => f.name === 'mint')!;
 
