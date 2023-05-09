@@ -263,8 +263,8 @@ template <typename NCT> typename NCT::fr compute_public_data_tree_value(typename
  * @param storage_slot The storage slot to which the inserted element belongs
  * @return The index for insertion into the public data tree
  */
-template <typename NCT> typename NCT::fr compute_public_data_tree_index(typename NCT::address const& contract_address,
-                                                                        typename NCT::fr const& storage_slot)
+template <typename NCT>
+typename NCT::fr compute_public_data_tree_index(typename NCT::address contract_address, typename NCT::fr storage_slot)
 {
     return NCT::compress({ contract_address.to_field(), storage_slot }, GeneratorIndex::PUBLIC_LEAF_INDEX);
 }
