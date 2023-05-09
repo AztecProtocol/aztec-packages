@@ -856,6 +856,6 @@ export async function abisComputePublicDataTreeLeafIndex(
   slot: Fr,
 ): Promise<Fr> {
   return Fr.fromBuffer(
-    await callCbind(wasm, 'abis__compute_public_data_tree_leaf_index', [contract.toBuffer(), slot.toBuffer()]),
+    await callCbind(wasm, 'abis__compute_public_data_tree_index', [contract.toBuffer(), slot.toBuffer()]),
   );
 }

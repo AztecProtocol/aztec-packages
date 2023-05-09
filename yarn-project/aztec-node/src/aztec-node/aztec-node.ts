@@ -11,7 +11,7 @@ import { default as levelup } from 'levelup';
 import { default as memdown, MemDown } from 'memdown';
 import { AztecNodeConfig } from './config.js';
 import { CircuitsWasm } from '@aztec/circuits.js';
-import { computePublicDataTreeLeafIndex } from '@aztec/circuits.js/abis';
+import { computePublicDataTreeIndex } from '@aztec/circuits.js/abis';
 
 export const createMemDown = () => (memdown as any)() as MemDown<any, any>;
 
@@ -165,7 +165,7 @@ export class AztecNode {
    * Note: Aztec's version of `eth_getStorageAt`
    */
   public async getStorageAt(contract: AztecAddress, slot: bigint): Promise<Buffer | undefined> {
-    const leafIndex = await computePublicDataTreeLeafIndex(await CircuitsWasm.get(), contract, new Fr(slot));
+    const leafIndex = await computePublicDataTreeIndex(await CircuitsWasm.get(), contract, new Fr(slot));
     return this.merkleTreeDB.getLeafValue(MerkleTreeId.PUBLIC_DATA_TREE, leafIndex.value, false);
   }
 }

@@ -1,11 +1,12 @@
 #pragma once
 
-#include <array>
-#include <aztec3/circuits/abis/function_data.hpp>
 #include "aztec3/circuits/abis/function_leaf_preimage.hpp"
+#include <aztec3/circuits/abis/function_data.hpp>
 #include <aztec3/circuits/abis/new_contract_data.hpp>
 #include <aztec3/constants.hpp>
 #include <aztec3/utils/circuit_errors.hpp>
+
+#include <array>
 
 namespace aztec3::circuits {
 
@@ -18,10 +19,9 @@ template <typename NCT> typename NCT::fr compute_args_hash(std::array<typename N
     return NCT::compress(args, CONSTRUCTOR_ARGS);
 }
 
-template <typename NCT>
-typename NCT::fr compute_constructor_hash(FunctionData<NCT> function_data,
-                                          std::array<typename NCT::fr, ARGS_LENGTH> args,
-                                          typename NCT::fr constructor_vk_hash)
+template <typename NCT> typename NCT::fr compute_constructor_hash(FunctionData<NCT> function_data,
+                                                                  std::array<typename NCT::fr, ARGS_LENGTH> args,
+                                                                  typename NCT::fr constructor_vk_hash)
 {
     using fr = typename NCT::fr;
 
@@ -37,11 +37,10 @@ typename NCT::fr compute_constructor_hash(FunctionData<NCT> function_data,
     return NCT::compress(inputs, aztec3::GeneratorIndex::CONSTRUCTOR);
 }
 
-template <typename NCT>
-typename NCT::address compute_contract_address(typename NCT::address deployer_address,
-                                               typename NCT::fr contract_address_salt,
-                                               typename NCT::fr function_tree_root,
-                                               typename NCT::fr constructor_hash)
+template <typename NCT> typename NCT::address compute_contract_address(typename NCT::address deployer_address,
+                                                                       typename NCT::fr contract_address_salt,
+                                                                       typename NCT::fr function_tree_root,
+                                                                       typename NCT::fr constructor_hash)
 {
     using fr = typename NCT::fr;
     using address = typename NCT::address;
@@ -112,7 +111,7 @@ typename NCT::fr root_from_sibling_path(typename NCT::fr const& leaf,
             node = NCT::merkle_hash(node, siblingPath[i]);
         }
     }
-    return node; // root
+    return node;  // root
 }
 
 /**
@@ -147,7 +146,7 @@ typename NCT::fr root_from_sibling_path(typename NCT::fr const& leaf,
         }
         index >>= uint256_t(1);
     }
-    return node; // root
+    return node;  // root
 }
 
 template <typename NCT, typename Composer, size_t SIZE>
@@ -176,8 +175,7 @@ void check_membership(Composer& composer,
  * @param function_leaf_sibling_path
  * @return NCT::fr
  */
-template <typename NCT>
-typename NCT::fr function_tree_root_from_siblings(
+template <typename NCT> typename NCT::fr function_tree_root_from_siblings(
     typename NCT::uint32 const& function_selector,
     typename NCT::boolean const& is_private,
     typename NCT::fr const& vk_hash,
@@ -210,8 +208,7 @@ typename NCT::fr function_tree_root_from_siblings(
  * @param contract_leaf_sibling_path
  * @return NCT::fr
  */
-template <typename NCT>
-typename NCT::fr contract_tree_root_from_siblings(
+template <typename NCT> typename NCT::fr contract_tree_root_from_siblings(
     typename NCT::fr const& function_tree_root,
     typename NCT::address const& storage_contract_address,
     typename NCT::address const& portal_contract_address,
@@ -266,11 +263,10 @@ template <typename NCT> typename NCT::fr compute_public_data_tree_value(typename
  * @param storage_slot The storage slot to which the inserted element belongs
  * @return The index for insertion into the public data tree
  */
-template <typename NCT>
-typename NCT::fr compute_public_data_tree_index(typename NCT::fr const& contract_address,
-                                                typename NCT::fr const& storage_slot)
+template <typename NCT> typename NCT::fr compute_public_data_tree_index(typename NCT::address const& contract_address,
+                                                                        typename NCT::fr const& storage_slot)
 {
-    return NCT::compress({ contract_address, storage_slot }, GeneratorIndex::PUBLIC_LEAF_INDEX);
+    return NCT::compress({ contract_address.to_field(), storage_slot }, GeneratorIndex::PUBLIC_LEAF_INDEX);
 }
 
-} // namespace aztec3::circuits
+}  // namespace aztec3::circuits

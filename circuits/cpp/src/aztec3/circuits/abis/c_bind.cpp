@@ -15,7 +15,6 @@
 #include "rollup/root/root_rollup_inputs.hpp"
 #include "rollup/root/root_rollup_public_inputs.hpp"
 
-#include "aztec3/circuits/abis/compute_leaf_index_args.hpp"
 #include "aztec3/circuits/abis/function_data.hpp"
 #include "aztec3/circuits/abis/function_leaf_preimage.hpp"
 #include "aztec3/circuits/abis/new_contract_data.hpp"
@@ -33,7 +32,7 @@ namespace {
 
 using aztec3::circuits::compute_constructor_hash;
 using aztec3::circuits::compute_contract_address;
-using aztec3::circuits::abis::ComputeLeafIndexArgs;
+using aztec3::circuits::compute_public_data_tree_index;
 using aztec3::circuits::abis::FunctionData;
 using aztec3::circuits::abis::FunctionLeafPreimage;
 using aztec3::circuits::abis::NewContractData;
@@ -446,36 +445,11 @@ WASM_EXPORT const char* abis__test_roundtrip_serialize_function_leaf_preimage(ui
  * @brief Computes a leaf index of a contract's slot in the public data tree.
  * This is a WASM-export that can be called from Typescript.
  *
- * @details given a `uint8_t const*` buffer representing arguments of the compute_leaf_index function
- * (`contract_address` and `slot`) computes a leaf index of the public data tree.
+ * @details hash contract address and storage slot using Pedersen hash with the public leaf index generator to get the
+ * leaf index.
  *
- * @param input msgpack serialized arguments of the compute_leaf_index function (`ComputeLeafIndexArgs`
- * struct on the TS side).
- * @param output buffer that will contain the output. Leaf index.
+ * @param contract_address contract address
+ * @param storage_slot storage slot
+ * @param output buffer that will contain the leaf index.
  */
-WASM_EXPORT void abis__compute_public_data_tree_leaf_index(uint8_t const* input, uint8_t* output)
-{
-    // Deserialize the input buffer using msgpack-c
-    msgpack::object_handle object_handler =
-        msgpack::unpack(static_cast<const char*>(static_cast<const void*>(input)), sizeof(ComputeLeafIndexArgs));
-
-    // Extract the contract_address and slot fields from the deserialized object
-    msgpack::object obj = object_handler.get();
-    ComputeLeafIndexArgs args;
-    obj.convert(args);
-
-    auto addr = args.contract_address.to_field();
-    auto slot = args.slot;
-
-    std::vector<grumpkin::fq> to_compress;
-
-    to_compress.emplace_back(addr);
-    to_compress.emplace_back(slot);
-
-
-    grumpkin::fq result =
-        crypto::pedersen_commitment::compress_native(to_compress, aztec3::GeneratorIndex::PUBLIC_LEAF_INDEX);
-
-    // write the result to the output buffer
-    memcpy(output, result.to_buffer().data(), sizeof(grumpkin::fq));
-}
+CBIND(abis__compute_public_data_tree_index, compute_public_data_tree_index<NT>, (NT::address(1), NT::fr(2)));

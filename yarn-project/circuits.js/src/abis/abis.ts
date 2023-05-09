@@ -148,11 +148,7 @@ export function computeContractLeaf(wasm: WasmWrapper, cd: NewContractData) {
 }
 
 // TODO: Do we really want the function to be in abis.ts?
-export async function computePublicDataTreeLeafIndex(
-  wasm: CircuitsWasm,
-  contract: AztecAddress,
-  slot: Fr,
-): Promise<Fr> {
+export async function computePublicDataTreeIndex(wasm: CircuitsWasm, contract: AztecAddress, slot: Fr): Promise<Fr> {
   wasm.call('pedersen__init');
   return await abisComputePublicDataTreeLeafIndex(wasm, contract, slot);
 }

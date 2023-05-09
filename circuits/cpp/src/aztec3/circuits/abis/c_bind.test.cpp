@@ -2,7 +2,6 @@
 #include "function_leaf_preimage.hpp"
 #include "tx_request.hpp"
 
-#include "aztec3/circuits/abis/compute_leaf_index_args.hpp"
 #include "aztec3/circuits/abis/new_contract_data.hpp"
 #include "aztec3/msgpack/schema_impl.hpp"
 #include <aztec3/msgpack/check_memory_span.hpp>
@@ -16,7 +15,6 @@
 namespace {
 
 using NT = aztec3::utils::types::NativeTypes;
-using aztec3::circuits::abis::ComputeLeafIndexArgs;
 using aztec3::circuits::abis::NewContractData;
 // num_leaves = 2**h = 2<<(h-1)
 // root layer does not count in height
@@ -50,7 +48,7 @@ template <size_t NUM_BYTES> std::string bytes_to_hex_str(std::array<uint8_t, NUM
 
 namespace aztec3::circuits::abis {
 
-TEST(abi_tests, msgpack_auto)
+TEST(abi_tests, msgpack_auto_compute_contract_address)
 {
     // Running the end-to-end tests that msgpack bind creates
     // This should suffice in testing the binding interface, function tests can be separate
@@ -303,30 +301,12 @@ TEST(abi_tests, compute_contract_leaf)
     EXPECT_EQ(got_leaf, preimage.hash());
 }
 
-TEST(abi_tests, compute_public_data_tree_leaf_index)
+TEST(abi_tests, msgpack_auto_compute_public_data_tree_index)
 {
-    // Construct ComputeLeafIndexArgs with some randomized fields
-    ComputeLeafIndexArgs args = ComputeLeafIndexArgs{
-        .contract_address = NT::fr::random_element(),
-        .slot = NT::fr::random_element(),
-    };
-
-    // Write args to a buffer
-    std::vector<uint8_t> args_buf;
-    msgpack::pack(args_buf, args);
-
-    // print out args_buf
-    std::cout << "args_buf: " << args_buf << std::endl;
-
-    // Allocate output buffer
-    std::array<uint8_t, sizeof(NT::fr)> output = { 0 };
-    abis__compute_public_data_tree_leaf_index(args_buf.data(), output.data());
-
-    NT::fr leaf_index = NT::fr::serialize_from_buffer(output.data());
-    EXPECT_GT(leaf_index, 0);
-
-    // print out leaf index
-    std::cout << "leaf index: " << leaf_index << std::endl;
+    // Running the end-to-end tests that msgpack bind creates
+    // This should suffice in testing the binding interface, function tests can be separate
+    auto [actual, expected] = abis__compute_public_data_tree_index__test();
+    EXPECT_EQ(actual, expected);
 }
 
 }  // namespace aztec3::circuits::abis
