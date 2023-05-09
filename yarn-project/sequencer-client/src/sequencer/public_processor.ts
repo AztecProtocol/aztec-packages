@@ -1,4 +1,5 @@
 import {
+  ARGS_LENGTH,
   AztecAddress,
   CircuitsWasm,
   EMITTED_EVENTS_LENGTH,
@@ -34,6 +35,7 @@ import { Proof, PublicProver } from '../prover/index.js';
 import { PublicKernelCircuitSimulator } from '../simulator/index.js';
 import { ProcessedTx, makeEmptyProcessedTx, makeProcessedTx } from './processed_tx.js';
 import { getCombinedHistoricTreeRoots } from './utils.js';
+import { toFriendlyJSON } from '@aztec/circuits.js/utils';
 
 /**
  * Converts Txs lifted from the P2P module into ProcessedTx objects by executing
@@ -150,7 +152,9 @@ export class PublicProcessor {
       const vkSiblingPath = MembershipWitness.random(VK_TREE_HEIGHT).siblingPath;
       const previousKernel = new PreviousKernelData(previousOutput, previousProof, vk, vkIndex, vkSiblingPath);
       const inputs = new PublicKernelInputs(previousKernel, callData);
+
       // TODO: This should be set by the public kernel circuit
+      // See https://github.com/AztecProtocol/aztec-packages/issues/487
       inputs.previousKernel.publicInputs.end.publicCallCount = new Fr(1n);
       return this.publicKernel.publicKernelCircuitNonFirstIteration(inputs);
     } else {
@@ -167,9 +171,9 @@ export class PublicProcessor {
     const publicCallStack = callStackPreimages.map(item => computeCallStackItemHash(wasm, item));
 
     return PublicCircuitPublicInputs.from({
-      args: result.execution.args,
       callContext: result.execution.callContext,
       proverAddress: AztecAddress.random(),
+      args: padArrayEnd(result.execution.args, Fr.ZERO, ARGS_LENGTH),
       emittedEvents: padArrayEnd([], Fr.ZERO, EMITTED_EVENTS_LENGTH),
       newL2ToL1Msgs: padArrayEnd([], Fr.ZERO, NEW_L2_TO_L1_MSGS_LENGTH),
       returnValues: padArrayEnd(result.returnValues, Fr.ZERO, RETURN_VALUES_LENGTH),

@@ -6,7 +6,7 @@ import { serializeToBuffer } from '../utils/serialize.js';
  * @see abis/function_data.hpp
  */
 export class FunctionData {
-  constructor(public functionSelector: Buffer, public isPrivate = true, public isConstructor = true) {
+  constructor(public functionSelector: Buffer, public isPrivate = true, public isConstructor = false) {
     if (functionSelector.byteLength !== 4) {
       throw new Error(`Function selector must be 4 bytes long, got ${functionSelector.byteLength} bytes.`);
     }
@@ -19,9 +19,10 @@ export class FunctionData {
     return serializeToBuffer(this.functionSelector, this.isPrivate, this.isConstructor);
   }
 
-  public static empty() {
-    return new FunctionData(Buffer.alloc(4, 0));
+  public static empty(args?: { isPrivate?: boolean; isConstructor?: boolean }) {
+    return new FunctionData(Buffer.alloc(4, 0), args?.isPrivate, args?.isConstructor);
   }
+
   /**
    * Deserializes from a buffer or reader, corresponding to a write in cpp.
    * @param buffer - Buffer to read from.
