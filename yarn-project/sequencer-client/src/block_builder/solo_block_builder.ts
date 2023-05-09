@@ -209,7 +209,12 @@ export class SoloBlockBuilder implements BlockBuilder {
 
   protected validateTxs(txs: ProcessedTx[]) {
     for (const tx of txs) {
-      for (const historicTreeRoot of ['privateDataTreeRoot', 'contractTreeRoot', 'nullifierTreeRoot', "l1ToL2MessagesTreeRoot"] as const) {
+      for (const historicTreeRoot of [
+        'privateDataTreeRoot',
+        'contractTreeRoot',
+        'nullifierTreeRoot',
+        'l1ToL2MessagesTreeRoot',
+      ] as const) {
         if (tx.data.constants.historicTreeRoots.privateHistoricTreeRoots[historicTreeRoot].isZero()) {
           throw new Error(`Empty ${historicTreeRoot} for tx: ${toFriendlyJSON(tx)}`);
         }
