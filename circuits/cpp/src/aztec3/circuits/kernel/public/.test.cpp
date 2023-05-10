@@ -318,16 +318,16 @@ std::array<PublicDataRead<NT>, KERNEL_PUBLIC_DATA_READS_LENGTH> public_data_read
 
 std::array<PublicDataUpdateRequest<NT>, KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH>
 public_data_update_requests_from_contract_storage_update_requests(
-    std::array<ContractStorageUpdateRequest<NT>, KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH> const& state_transitions,
+    std::array<ContractStorageUpdateRequest<NT>, KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH> const& update_requests,
     NT::fr const& contract_address)
 {
     std::array<PublicDataUpdateRequest<NT>, KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH> values;
     for (size_t i = 0; i < KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH; i++) {
-        const auto& transition = state_transitions[i];
-        if (transition.is_empty()) {
+        const auto& update_request = update_requests[i];
+        if (update_request.is_empty()) {
             continue;
         }
-        values[i] = public_data_update_request_from_contract_storage_update_request(transition, contract_address);
+        values[i] = public_data_update_request_from_contract_storage_update_request(update_request, contract_address);
     }
     return values;
 }
@@ -482,7 +482,7 @@ TEST(public_kernel_tests, only_valid_public_data_reads_should_be_propagated)
     DummyComposer dummyComposer;
     PublicKernelInputsNoPreviousKernel<NT> inputs = get_kernel_inputs_no_previous_kernel();
 
-    // modify the state reads so only 2 are valid and only those should be propagated
+    // modify the contract storage reads so only 2 are valid and only those should be propagated
     const auto first_valid = ContractStorageRead<NT>{
         .storage_slot = 123456789,
         .current_value = 76543,
@@ -516,12 +516,12 @@ TEST(public_kernel_tests, only_valid_public_data_reads_should_be_propagated)
     ASSERT_EQ(public_inputs.end.public_data_reads[1], public_read_2);
 }
 
-TEST(public_kernel_tests, only_valid_state_transitions_should_be_propagated)
+TEST(public_kernel_tests, only_valid_update_requests_should_be_propagated)
 {
     DummyComposer dummyComposer;
     PublicKernelInputsNoPreviousKernel<NT> inputs = get_kernel_inputs_no_previous_kernel();
 
-    // modify the state transitions so only 2 are valid and only those should be propagated
+    // modify the contract storage update requests so only 2 are valid and only those should be propagated
     const auto first_valid = ContractStorageUpdateRequest<NT>{
         .storage_slot = 123456789,
         .old_value = 76543,
@@ -532,11 +532,11 @@ TEST(public_kernel_tests, only_valid_state_transitions_should_be_propagated)
         .old_value = 86543,
         .new_value = 86544,
     };
-    std::array<ContractStorageUpdateRequest<NT>, KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH> transitions =
+    std::array<ContractStorageUpdateRequest<NT>, KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH> update_requests =
         std::array<ContractStorageUpdateRequest<NT>, KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH>();
-    transitions[1] = first_valid;
-    transitions[3] = second_valid;
-    inputs.public_call.call_stack_item.public_inputs.contract_storage_update_requests = transitions;
+    update_requests[1] = first_valid;
+    update_requests[3] = second_valid;
+    inputs.public_call.call_stack_item.public_inputs.contract_storage_update_requests = update_requests;
 
     auto public_inputs = native_public_kernel_circuit_no_previous_kernel(dummyComposer, inputs);
     ASSERT_FALSE(dummyComposer.failed());
@@ -549,7 +549,7 @@ TEST(public_kernel_tests, only_valid_state_transitions_should_be_propagated)
                   inputs.public_call.call_stack_item.public_inputs.public_call_stack[i]);
     }
 
-    // only the 2 valid transitions should have been propagated
+    // only the 2 valid update requests should have been propagated
     const auto contract_address = inputs.public_call.call_stack_item.contract_address;
     const auto public_write_1 =
         public_data_update_request_from_contract_storage_update_request(first_valid, contract_address);
@@ -944,18 +944,19 @@ TEST(public_kernel_tests, private_previous_kernel_non_private_previous_kernel_sh
     ASSERT_EQ(dummyComposer.get_first_failure().code, CircuitErrorCode::PUBLIC_KERNEL__PREVIOUS_KERNEL_NOT_PRIVATE);
 }
 
-TEST(public_kernel_tests, previous_private_kernel_fails_if_state_transitions_on_static_call)
+TEST(public_kernel_tests, previous_private_kernel_fails_if_contract_storage_update_requests_on_static_call)
 {
     DummyComposer dummyComposer;
     PublicKernelInputs<NT> inputs = get_kernel_inputs_with_previous_kernel(true);
 
-    // the function call has state_transitions so setting it to static should fail
+    // the function call has contract storage update requests so setting it to static should fail
     inputs.public_call.call_stack_item.public_inputs.call_context.is_static_call = true;
 
     auto public_inputs = native_public_kernel_circuit_private_previous_kernel(dummyComposer, inputs);
     ASSERT_TRUE(dummyComposer.failed());
-    ASSERT_EQ(dummyComposer.get_first_failure().code,
-              CircuitErrorCode::PUBLIC_KERNEL__CALL_CONTEXT_TRANSITIONS_PROHIBITED_FOR_STATIC_CALL);
+    ASSERT_EQ(
+        dummyComposer.get_first_failure().code,
+        CircuitErrorCode::PUBLIC_KERNEL__CALL_CONTEXT_CONTRACT_STORAGE_UPDATE_REQUESTS_PROHIBITED_FOR_STATIC_CALL);
 }
 
 TEST(public_kernel_tests, previous_private_kernel_fails_if_incorrect_storage_contract_on_delegate_call)
@@ -1087,18 +1088,19 @@ TEST(public_kernel_tests, circuit_outputs_should_be_correctly_populated_with_pre
     ASSERT_FALSE(dummyComposer.failed());
 }
 
-TEST(public_kernel_tests, previous_public_kernel_fails_if_state_transitions_on_static_call)
+TEST(public_kernel_tests, previous_public_kernel_fails_if_contract_storage_update_requests_on_static_call)
 {
     DummyComposer dummyComposer;
     PublicKernelInputs<NT> inputs = get_kernel_inputs_with_previous_kernel(false);
 
-    // the function call has state_transitions so setting it to static should fail
+    // the function call has contract storage update requests so setting it to static should fail
     inputs.public_call.call_stack_item.public_inputs.call_context.is_static_call = true;
 
     auto public_inputs = native_public_kernel_circuit_public_previous_kernel(dummyComposer, inputs);
     ASSERT_TRUE(dummyComposer.failed());
-    ASSERT_EQ(dummyComposer.get_first_failure().code,
-              CircuitErrorCode::PUBLIC_KERNEL__CALL_CONTEXT_TRANSITIONS_PROHIBITED_FOR_STATIC_CALL);
+    ASSERT_EQ(
+        dummyComposer.get_first_failure().code,
+        CircuitErrorCode::PUBLIC_KERNEL__CALL_CONTEXT_CONTRACT_STORAGE_UPDATE_REQUESTS_PROHIBITED_FOR_STATIC_CALL);
 }
 
 TEST(public_kernel_tests, previous_public_kernel_fails_if_incorrect_storage_contract_on_delegate_call)

@@ -149,8 +149,9 @@ BaseRollupInputs base_rollup_inputs_from_kernels(std::array<KernelData, 2> kerne
 
 
     // Update public data tree to generate sibling paths: we first set the initial public data tree to the result of all
-    // state reads and old_values from state transitions. Note that, if the right tx reads or writes an index that was
-    // already processed by the left one, we don't want to reflect that as part of the initial state, so we skip those.
+    // public data reads and old_values from public data update requests. Note that, if the right tx reads or writes an
+    // index that was already processed by the left one, we don't want to reflect that as part of the initial state, so
+    // we skip those.
     std::set<uint256_t> visited_indices;
     for (size_t i = 0; i < 2; i++) {
         for (auto public_data_read : kernel_data[i].public_inputs.end.public_data_reads) {
@@ -174,7 +175,7 @@ BaseRollupInputs base_rollup_inputs_from_kernels(std::array<KernelData, 2> kerne
 
     baseRollupInputs.start_public_data_tree_root = public_data_tree.root();
 
-    // Then we collect all sibling paths for the reads in the left tx, and then apply the state transitions while
+    // Then we collect all sibling paths for the reads in the left tx, and then apply the update requests while
     // collecting their paths. And then repeat for the right tx.
     for (size_t i = 0; i < 2; i++) {
         for (size_t j = 0; j < KERNEL_PUBLIC_DATA_READS_LENGTH; j++) {

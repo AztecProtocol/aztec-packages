@@ -30,13 +30,13 @@ template <typename NCT> struct PublicDataUpdateRequest {
         // Capture the composer:
         auto to_ct = [&](auto& e) { return aztec3::utils::types::to_ct(composer, e); };
 
-        PublicDataUpdateRequest<CircuitTypes<Composer>> state_transition = {
+        PublicDataUpdateRequest<CircuitTypes<Composer>> update_request = {
             to_ct(leaf_index),
             to_ct(old_value),
             to_ct(new_value),
         };
 
-        return state_transition;
+        return update_request;
     };
 
     template <typename Composer> PublicDataUpdateRequest<NativeTypes> to_native_type() const
@@ -45,13 +45,13 @@ template <typename NCT> struct PublicDataUpdateRequest {
 
         auto to_nt = [&](auto& e) { return aztec3::utils::types::to_nt<Composer>(e); };
 
-        PublicDataUpdateRequest<NativeTypes> state_transition = {
+        PublicDataUpdateRequest<NativeTypes> update_request = {
             to_nt(leaf_index),
             to_nt(old_value),
             to_nt(new_value),
         };
 
-        return state_transition;
+        return update_request;
     };
 
     fr hash() const
@@ -77,29 +77,29 @@ template <typename NCT> struct PublicDataUpdateRequest {
     boolean is_empty() const { return leaf_index == 0; }
 };
 
-template <typename NCT> void read(uint8_t const*& it, PublicDataUpdateRequest<NCT>& state_transition)
+template <typename NCT> void read(uint8_t const*& it, PublicDataUpdateRequest<NCT>& update_request)
 {
     using serialize::read;
 
-    read(it, state_transition.leaf_index);
-    read(it, state_transition.old_value);
-    read(it, state_transition.new_value);
+    read(it, update_request.leaf_index);
+    read(it, update_request.old_value);
+    read(it, update_request.new_value);
 };
 
-template <typename NCT> void write(std::vector<uint8_t>& buf, PublicDataUpdateRequest<NCT> const& state_transition)
+template <typename NCT> void write(std::vector<uint8_t>& buf, PublicDataUpdateRequest<NCT> const& update_request)
 {
     using serialize::write;
 
-    write(buf, state_transition.leaf_index);
-    write(buf, state_transition.old_value);
-    write(buf, state_transition.new_value);
+    write(buf, update_request.leaf_index);
+    write(buf, update_request.old_value);
+    write(buf, update_request.new_value);
 };
 
-template <typename NCT> std::ostream& operator<<(std::ostream& os, PublicDataUpdateRequest<NCT> const& state_transition)
+template <typename NCT> std::ostream& operator<<(std::ostream& os, PublicDataUpdateRequest<NCT> const& update_request)
 {
-    return os << "leaf_index: " << state_transition.leaf_index << "\n"
-              << "old_value: " << state_transition.old_value << "\n"
-              << "new_value: " << state_transition.new_value << "\n";
+    return os << "leaf_index: " << update_request.leaf_index << "\n"
+              << "old_value: " << update_request.old_value << "\n"
+              << "new_value: " << update_request.new_value << "\n";
 }
 
 }  // namespace aztec3::circuits::abis

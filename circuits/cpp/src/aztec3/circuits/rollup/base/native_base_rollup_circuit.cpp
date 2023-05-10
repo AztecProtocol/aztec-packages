@@ -398,7 +398,7 @@ fr insert_public_data_update_requests(
         composer.do_assert(
             witness.leaf_index == state_write.leaf_index,
             format("mismatch state write ", state_write.leaf_index, " and witness leaf index ", witness.leaf_index),
-            CircuitErrorCode::BASE__INVALID_PUBLIC_TRANSITIONS);
+            CircuitErrorCode::BASE__INVALID_PUBLIC_DATA_UPDATE_REQUESTS);
 
         check_membership<NT>(composer,
                              state_write.old_value,
@@ -429,10 +429,12 @@ void validate_public_data_reads(
             continue;
         }
 
-        composer.do_assert(
-            witness.leaf_index == public_data_read.leaf_index,
-            format("mismatch state read ", public_data_read.leaf_index, " and witness leaf index ", witness.leaf_index),
-            CircuitErrorCode::BASE__INVALID_PUBLIC_READS);
+        composer.do_assert(witness.leaf_index == public_data_read.leaf_index,
+                           format("mismatch public data read ",
+                                  public_data_read.leaf_index,
+                                  " and witness leaf index ",
+                                  witness.leaf_index),
+                           CircuitErrorCode::BASE__INVALID_PUBLIC_DATA_READS);
 
         check_membership<NT>(composer,
                              public_data_read.value,
@@ -445,7 +447,7 @@ void validate_public_data_reads(
 
 fr validate_and_process_public_state(DummyComposer& composer, BaseRollupInputs const& baseRollupInputs)
 {
-    // Process state reads and transitions for left input
+    // Process public data reads and public data update requests for left input
     validate_public_data_reads(composer,
                                baseRollupInputs.start_public_data_tree_root,
                                baseRollupInputs.kernel_data[0].public_inputs.end.public_data_reads,
@@ -459,7 +461,8 @@ fr validate_and_process_public_state(DummyComposer& composer, BaseRollupInputs c
         0,
         baseRollupInputs.new_public_data_update_requests_sibling_paths);
 
-    // Process state reads and transitions for right input using the resulting tree root from the left one
+    // Process public data reads and public data update requests for right input using the resulting tree root from the
+    // left one
     validate_public_data_reads(composer,
                                mid_public_data_tree_root,
                                baseRollupInputs.kernel_data[1].public_inputs.end.public_data_reads,
@@ -519,7 +522,7 @@ BaseOrMergeRollupPublicInputs base_rollup_circuit(DummyComposer& composer, BaseR
     AppendOnlySnapshot const end_nullifier_tree_snapshot =
         check_nullifier_tree_non_membership_and_insert_to_tree(composer, baseRollupInputs);
 
-    // Validate public state reads and transitions, and update public data tree
+    // Validate public public data reads and public data update requests, and update public data tree
     fr const end_public_data_tree_root = validate_and_process_public_state(composer, baseRollupInputs);
 
     // Calculate the overall calldata hash

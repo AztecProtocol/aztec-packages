@@ -118,9 +118,10 @@ void common_validate_call_stack(DummyComposer& composer, KernelInput const& publ
 
         const auto num_contract_storage_update_requests =
             array_length(preimage.public_inputs.contract_storage_update_requests);
-        composer.do_assert(!is_static_call || num_contract_storage_update_requests == 0,
-                           format("call_state_transitions[", i, "] should be empty"),
-                           CircuitErrorCode::PUBLIC_KERNEL__PUBLIC_CALL_STACK_TRANSITIONS_PROHIBITED_FOR_STATIC_CALL);
+        composer.do_assert(
+            !is_static_call || num_contract_storage_update_requests == 0,
+            format("contract_storage_update_requests[", i, "] should be empty"),
+            CircuitErrorCode::PUBLIC_KERNEL__PUBLIC_CALL_STACK_CONTRACT_STORAGE_UPDATES_PROHIBITED_FOR_STATIC_CALL);
     }
 };
 
@@ -145,9 +146,10 @@ void common_validate_call_context(DummyComposer& composer, KernelInput const& pu
                        std::string("call_context contract_address == storage_contract_address on delegate_call"),
                        CircuitErrorCode::PUBLIC_KERNEL__CALL_CONTEXT_INVALID_STORAGE_ADDRESS_FOR_DELEGATE_CALL);
 
-    composer.do_assert(!is_static_call || contract_storage_update_requests_length == 0,
-                       std::string("call_context update requests found on static call"),
-                       CircuitErrorCode::PUBLIC_KERNEL__CALL_CONTEXT_TRANSITIONS_PROHIBITED_FOR_STATIC_CALL);
+    composer.do_assert(
+        !is_static_call || contract_storage_update_requests_length == 0,
+        std::string("call_context contract storage update requests found on static call"),
+        CircuitErrorCode::PUBLIC_KERNEL__CALL_CONTEXT_CONTRACT_STORAGE_UPDATE_REQUESTS_PROHIBITED_FOR_STATIC_CALL);
 };
 
 /**
@@ -247,7 +249,7 @@ template <typename KernelInput> void propagate_valid_public_data_reads(KernelInp
 }
 
 /**
- * @brief Proagates valid (i.e. non-empty) state reads from this iteration to the circuit output
+ * @brief Propagates valid (i.e. non-empty) public data reads from this iteration to the circuit output
  * @tparam The type of kernel input
  * @param public_kernel_inputs The inputs to this iteration of the kernel circuit
  * @param circuit_outputs The circuit outputs to be populated

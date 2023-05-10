@@ -117,7 +117,7 @@ template <typename NCT> std::ostream& operator<<(std::ostream& os, BaseRollupInp
               << obj.new_nullifiers_subtree_sibling_path << "\n"
               << "new_contracts_subtree_sibling_path:\n"
               << obj.new_contracts_subtree_sibling_path << "\n"
-              << "new_state_transitions_sibling_paths:\n"
+              << "new_public_data_update_requests_sibling_paths:\n"
               << obj.new_public_data_update_requests_sibling_paths << "\n"
               << "new_state_reads_sibling_paths:\n"
               << obj.new_public_data_reads_sibling_paths << "\n"
