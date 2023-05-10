@@ -124,7 +124,7 @@ describe('public_processor', () => {
         proof,
         txRequest: tx.txRequest,
         isEmpty: false,
-        data: expect.objectContaining({ isPrivateKernel: false }),
+        data: expect.objectContaining({ isPrivate: false }),
       });
 
     it('runs a public tx', async function () {
