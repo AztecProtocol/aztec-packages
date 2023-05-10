@@ -32,9 +32,9 @@ interface ProcessedData {
    */
   blockContext: L2BlockContext;
   /**
-   * Indices of transactions in the block that pertain to the user.
+   * Indices of private transactions in the block that pertain to the user.
    */
-  userPertainingTxIndices: number[];
+  userPertainingPrivateTxIndices: number[];
   /**
    * A collection of data access objects for transaction auxiliary data.
    */
@@ -320,7 +320,7 @@ export class AccountState {
 
       blocksAndTxAuxData.push({
         blockContext: l2BlockContexts[i],
-        userPertainingTxIndices: [...privateTxIndices],
+        userPertainingPrivateTxIndices: [...privateTxIndices],
         txAuxDataDaos,
       });
       dataStartIndex += dataChunks.length;
@@ -395,13 +395,13 @@ export class AccountState {
     let newNullifiers: Fr[] = [];
 
     for (let i = 0; i < blocksAndTxAuxData.length; ++i) {
-      const { blockContext, userPertainingTxIndices, txAuxDataDaos } = blocksAndTxAuxData[i];
+      const { blockContext, userPertainingPrivateTxIndices, txAuxDataDaos } = blocksAndTxAuxData[i];
 
-      // Process all the user pertaining txs.
-      userPertainingTxIndices.map((userPertainingTxIndex, j) => {
-        const txHash = blockContext.getTxHash(userPertainingTxIndex);
+      // Process all the user pertaining private txs.
+      userPertainingPrivateTxIndices.map((txIndex, j) => {
+        const txHash = blockContext.getTxHash(txIndex);
         this.log(`Processing tx ${txHash!.toString()} from block ${blockContext.block.number}`);
-        const { newContractData } = blockContext.block.getTx(userPertainingTxIndex);
+        const { newContractData } = blockContext.block.getTx(txIndex);
         const isContractDeployment = !newContractData[0].contractAddress.isZero();
         const txAuxData = txAuxDataDaos[j];
         const [to, contractAddress] = isContractDeployment
