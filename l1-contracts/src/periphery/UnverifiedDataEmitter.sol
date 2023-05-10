@@ -31,7 +31,9 @@ contract UnverifiedDataEmitter {
    * @param data - The information represented as raw bytes
    * @dev Typically contains `TxAuxData` (preimage, contract address and contract slot)
    */
-  event UnverifiedData(uint256 indexed l2BlockNum, address indexed sender, bytes32 indexed l2BlockHash, bytes data);
+  event UnverifiedData(
+    uint256 indexed l2BlockNum, address indexed sender, bytes32 indexed l2BlockHash, bytes data
+  );
 
   /**
    * @notice Logs data on chain
@@ -40,7 +42,9 @@ contract UnverifiedDataEmitter {
    * @param _l2BlockHash - The hash of the L2 block that this is related to
    * @param _data - Raw data to share
    */
-  function emitUnverifiedData(uint256 _l2BlockNum, bytes32 _l2BlockHash, bytes calldata _data) external {
+  function emitUnverifiedData(uint256 _l2BlockNum, bytes32 _l2BlockHash, bytes calldata _data)
+    external
+  {
     emit UnverifiedData(_l2BlockNum, msg.sender, _l2BlockHash, _data);
   }
 
