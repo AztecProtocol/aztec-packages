@@ -31,22 +31,6 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource, ContractDa
   private runningPromise?: RunningPromise;
 
   /**
-   * An array containing all the L2 blocks that have been fetched so far.
-   */
-  private l2Blocks: L2Block[] = [];
-
-  /**
-   * An array containing all the `unverifiedData` that have been fetched so far.
-   * Note: Index in the "outer" array equals to (corresponding L2 block's number - INITIAL_L2_BLOCK_NUM).
-   */
-  private unverifiedData: UnverifiedData[] = [];
-
-  /**
-   * A sparse array containing all the contract data that have been fetched so far.
-   */
-  private contractPublicData: (ContractPublicData[] | undefined)[] = [];
-
-  /**
    * Next L1 block number to fetch `L2BlockProcessed` logs from (i.e. `fromBlock` in eth_getLogs).
    */
   private nextL2BlockFromBlock = 0n;
@@ -64,8 +48,8 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource, ContractDa
     private readonly publicClient: PublicClient<HttpTransport, Chain>,
     private readonly rollupAddress: EthAddress,
     private readonly unverifiedDataEmitterAddress: EthAddress,
-    private readonly pollingIntervalMs = 10_000,
     private readonly store: ArchiverDataStore,
+    private readonly pollingIntervalMs = 10_000,
     private readonly log: DebugLogger = createDebugLogger('aztec:archiver'),
   ) {}
 
@@ -85,8 +69,8 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource, ContractDa
       publicClient,
       config.rollupContract,
       config.unverifiedDataEmitterContract,
-      config.archiverPollingInterval,
       archiverStore,
+      config.archiverPollingInterval,
     );
     await archiver.start(blockUntilSynced);
     return archiver;
@@ -119,8 +103,7 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource, ContractDa
 
     // The sequencer publishes unverified data first
     // Read all data from chain and then write to our stores at the end
-
-    const nextExpectedRollupId = BigInt(this.l2Blocks.length + INITIAL_L2_BLOCK_NUM);
+    const nextExpectedRollupId = BigInt(this.store.getBlocksLength() + INITIAL_L2_BLOCK_NUM);
     this.log(
       `Retrieving chain state from eth block: ${this.nextL2BlockFromBlock}, next expected rollup id: ${nextExpectedRollupId}`,
     );
@@ -165,7 +148,7 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource, ContractDa
     );
 
     // store contracts for which we have retrieved rollups
-    const lastKnownRollupId = BigInt(this.l2Blocks.length + INITIAL_L2_BLOCK_NUM - 1);
+    const lastKnownRollupId = BigInt(this.store.getBlocksLength() + INITIAL_L2_BLOCK_NUM - 1);
     retrievedContracts.retrievedData.forEach(async (contracts, index) => {
       if (index <= lastKnownRollupId && contracts?.length) {
         this.log(`Retrieved contract public data for rollup id: ${index}`);
@@ -197,14 +180,7 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource, ContractDa
    * @returns The requested L2 blocks.
    */
   public getL2Blocks(from: number, take: number): Promise<L2Block[]> {
-    if (from < INITIAL_L2_BLOCK_NUM) {
-      throw new Error(`Invalid block range ${from}`);
-    }
-    if (from > this.l2Blocks.length) {
-      return Promise.resolve([]);
-    }
-    const startIndex = from - INITIAL_L2_BLOCK_NUM;
-    return this.store.getL2Blocks(startIndex, take);
+    return this.store.getL2Blocks(from, take);
   }
 
   /**
@@ -268,14 +244,7 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource, ContractDa
    * @returns The requested `unverifiedData`.
    */
   public getUnverifiedData(from: number, take: number): Promise<UnverifiedData[]> {
-    if (from < INITIAL_L2_BLOCK_NUM) {
-      throw new Error(`Invalid block range ${from}`);
-    }
-    if (from > this.unverifiedData.length) {
-      return Promise.resolve([]);
-    }
-    const startIndex = from - INITIAL_L2_BLOCK_NUM;
-    return this.store.getUnverifiedData(startIndex, take);
+    return this.store.getUnverifiedData(from, take);
   }
 
   /**

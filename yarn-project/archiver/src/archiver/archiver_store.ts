@@ -16,6 +16,7 @@ export interface ArchiverDataStore {
   getL2ContractInfo(contractAddress: AztecAddress): Promise<ContractData | undefined>;
   getL2ContractInfoInBlock(l2BlockNum: number): Promise<ContractData[] | undefined>;
   getBlockHeight(): Promise<number>;
+  getBlocksLength(): number;
   getLatestUnverifiedDataBlockNum(): Promise<number>;
 }
 
@@ -79,8 +80,15 @@ export class MemoryArchiverStore implements ArchiverDataStore {
    * @returns The requested L2 blocks.
    */
   public getL2Blocks(from: number, take: number): Promise<L2Block[]> {
+    if (from < INITIAL_L2_BLOCK_NUM) {
+      throw new Error(`Invalid block range ${from}`);
+    }
+    if (from > this.l2Blocks.length) {
+      return Promise.resolve([]);
+    }
+    const startIndex = from - INITIAL_L2_BLOCK_NUM;
     const endIndex = from + take;
-    return Promise.resolve(this.l2Blocks.slice(from, endIndex));
+    return Promise.resolve(this.l2Blocks.slice(startIndex, endIndex));
   }
 
   /**
@@ -90,8 +98,15 @@ export class MemoryArchiverStore implements ArchiverDataStore {
    * @returns The requested `unverifiedData`.
    */
   public getUnverifiedData(from: number, take: number): Promise<UnverifiedData[]> {
+    if (from < INITIAL_L2_BLOCK_NUM) {
+      throw new Error(`Invalid block range ${from}`);
+    }
+    if (from > this.unverifiedData.length) {
+      return Promise.resolve([]);
+    }
+    const startIndex = from - INITIAL_L2_BLOCK_NUM;
     const endIndex = from + take;
-    return Promise.resolve(this.unverifiedData.slice(from, endIndex));
+    return Promise.resolve(this.unverifiedData.slice(startIndex, endIndex));
   }
 
   /**
@@ -171,5 +186,13 @@ export class MemoryArchiverStore implements ArchiverDataStore {
   public getLatestUnverifiedDataBlockNum(): Promise<number> {
     if (this.unverifiedData.length === 0) return Promise.resolve(INITIAL_L2_BLOCK_NUM - 1);
     return Promise.resolve(this.unverifiedData.length + INITIAL_L2_BLOCK_NUM - 1);
+  }
+
+  /**
+   * Gets the length of L2 blocks in store.
+   * @returns The length of L2 Blocks array.
+   */
+  public getBlocksLength(): number {
+    return this.l2Blocks.length;
   }
 }

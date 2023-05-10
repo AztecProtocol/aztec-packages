@@ -26,8 +26,8 @@ describe('Archiver', () => {
       publicClient,
       EthAddress.fromString(rollupAddress),
       EthAddress.fromString(unverifiedDataEmitterAddress),
-      1000,
       archiverStore,
+      1000,
     );
 
     let latestBlockNum = await archiver.getBlockHeight();
