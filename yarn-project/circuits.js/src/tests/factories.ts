@@ -102,11 +102,11 @@ export function makeSelector(seed: number) {
   return buffer;
 }
 
-export function makePublicDataTransition(seed = 1) {
+export function makePublicDataUpdateRequest(seed = 1) {
   return new PublicDataUpdateRequest(fr(seed), fr(seed + 1), fr(seed + 2));
 }
 
-export function makeEmptyPublicDataTransition() {
+export function makeEmptyPublicDataUpdateRequest() {
   return new PublicDataUpdateRequest(fr(0), fr(0), fr(0));
 }
 
@@ -138,7 +138,7 @@ export function makeEmptyAccumulatedData(seed = 1): CombinedAccumulatedData {
     range(KERNEL_NEW_L2_TO_L1_MSGS_LENGTH, seed + 0x500).map(fr),
     range(KERNEL_NEW_CONTRACTS_LENGTH, seed + 0x600).map(makeNewContractData),
     range(KERNEL_OPTIONALLY_REVEALED_DATA_LENGTH, seed + 0x700).map(makeOptionallyRevealedData),
-    range(KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH, seed + 0x800).map(makeEmptyPublicDataTransition),
+    range(KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH, seed + 0x800).map(makeEmptyPublicDataUpdateRequest),
     range(KERNEL_PUBLIC_DATA_READS_LENGTH, seed + 0x900).map(makeEmptyPublicDataRead),
   );
 }
@@ -155,7 +155,7 @@ export function makeAccumulatedData(seed = 1): CombinedAccumulatedData {
     range(KERNEL_NEW_L2_TO_L1_MSGS_LENGTH, seed + 0x500).map(fr),
     range(KERNEL_NEW_CONTRACTS_LENGTH, seed + 0x600).map(makeNewContractData),
     range(KERNEL_OPTIONALLY_REVEALED_DATA_LENGTH, seed + 0x700).map(makeOptionallyRevealedData),
-    range(KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH, seed + 0x800).map(makePublicDataTransition),
+    range(KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH, seed + 0x800).map(makePublicDataUpdateRequest),
     range(KERNEL_PUBLIC_DATA_READS_LENGTH, seed + 0x900).map(makePublicDataRead),
   );
 }

@@ -151,7 +151,7 @@ describe('ACIR public execution simulator', () => {
         expect(result.contractStorageReads).toEqual([]);
       });
 
-      // State reads and writes are implemented as built-ins, which at the moment Noir does not
+      // Contract storage reads and update requests are implemented as built-ins, which at the moment Noir does not
       // now whether they have side-effects or not, so they get run even when their code path
       // is not picked by a conditional. Once that's fixed, we should re-enable this test.
       it.skip('should run the transfer function without enough sender balance', async () => {

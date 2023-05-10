@@ -33,16 +33,16 @@ export class PublicKernelInputsNoPreviousKernel {
 export class WitnessedPublicCallData {
   constructor(
     public readonly publicCall: PublicCallData,
-    public readonly transitionsHashPaths: MembershipWitness<typeof PUBLIC_DATA_TREE_HEIGHT>[],
+    public readonly updateRequestsHashPaths: MembershipWitness<typeof PUBLIC_DATA_TREE_HEIGHT>[],
     public readonly readsHashPaths: MembershipWitness<typeof PUBLIC_DATA_TREE_HEIGHT>[],
     public readonly publicDataTreeRoot: Fr,
   ) {
-    assertLength(this, 'transitionsHashPaths', KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH);
+    assertLength(this, 'updateRequestsHashPaths', KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH);
     assertLength(this, 'readsHashPaths', KERNEL_PUBLIC_DATA_READS_LENGTH);
   }
 
   toBuffer() {
-    return serializeToBuffer(this.publicCall, this.transitionsHashPaths, this.readsHashPaths, this.publicDataTreeRoot);
+    return serializeToBuffer(this.publicCall, this.updateRequestsHashPaths, this.readsHashPaths, this.publicDataTreeRoot);
   }
 }
 
