@@ -27,7 +27,7 @@ export class InMemoryTxPool implements TxPool {
    */
   public getTxByHash(txHash: TxHash): Tx | undefined {
     const result = this.txs.get(txHash.toBigInt());
-    return result;
+    return result === undefined ? undefined : Tx.clone(result);
   }
 
   /**

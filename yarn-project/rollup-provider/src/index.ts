@@ -9,7 +9,7 @@ const { PORT = 9000 } = process.env;
 
 async function main() {
   const aztecNodeConfig: AztecNodeConfig = getConfigEnvVars();
-  const node = await AztecNodeService.createAndSync(aztecNodeConfig);
+  const node = await AztecNodeService.createAndSyncP2P(aztecNodeConfig);
 
   const shutdown = async () => {
     await node.stop();

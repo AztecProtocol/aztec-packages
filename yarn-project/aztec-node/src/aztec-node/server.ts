@@ -9,7 +9,7 @@ import {
   MerkleTreeId,
 } from '@aztec/types';
 import { SiblingPath } from '@aztec/merkle-tree';
-import { P2P, P2PClient } from '@aztec/p2p';
+import { InMemoryTxPool, LibP2PService, P2P, P2PClient } from '@aztec/p2p';
 import { SequencerClient, getCombinedHistoricTreeRoots } from '@aztec/sequencer-client';
 import { Tx, TxHash } from '@aztec/types';
 import { UnverifiedData, UnverifiedDataSource } from '@aztec/types';
@@ -53,6 +53,41 @@ export class AztecNodeService implements AztecNode {
 
     // give the block source to the P2P network
     const p2pClient = new P2PClient(archiver);
+
+    // now create the merkle trees and the world state syncher
+    const merkleTreeDB = await MerkleTrees.new(levelup(createMemDown()), await CircuitsWasm.get());
+    const worldStateSynchroniser = new ServerWorldStateSynchroniser(merkleTreeDB, archiver);
+
+    // start both and wait for them to sync from the block source
+    await Promise.all([p2pClient.start(), worldStateSynchroniser.start()]);
+
+    // now create the sequencer
+    const sequencer = await SequencerClient.new(config, p2pClient, worldStateSynchroniser, archiver, archiver);
+    return new AztecNodeService(
+      p2pClient,
+      archiver,
+      archiver,
+      archiver,
+      merkleTreeDB,
+      worldStateSynchroniser,
+      sequencer,
+    );
+  }
+
+  /**
+   * Initialises the Aztec Node, wait for component to sync.
+   * @param config - The configuration to be used by the aztec node.
+   * @returns - A fully synced Aztec Node for use in development/testing.
+   */
+  public static async createAndSyncP2P(config: AztecNodeConfig) {
+    // first create and sync the archiver
+    const archiver = await Archiver.createAndSync(config);
+
+    // create the P2P network service
+    const p2pNetwork = await LibP2PService.new(config);
+
+    // give the block source to the P2P network
+    const p2pClient = new P2PClient(archiver, new InMemoryTxPool(), p2pNetwork);
 
     // now create the merkle trees and the world state syncher
     const merkleTreeDB = await MerkleTrees.new(levelup(createMemDown()), await CircuitsWasm.get());

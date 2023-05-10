@@ -3,8 +3,10 @@ import { Tx, TxHash } from '@aztec/types';
 
 import { TxPool } from '../tx_pool/index.js';
 import { InMemoryTxPool } from '../tx_pool/memory_tx_pool.js';
-import { getConfigEnvVars } from '../config.js';
+import { getP2PConfigEnvVars } from '../config.js';
 import { createDebugLogger } from '@aztec/foundation/log';
+import { P2PService } from '../service/service.js';
+import { DummyP2PService } from '../service/dummy_service.js';
 
 /**
  * Enum defining the possible states of the p2p client.
@@ -114,14 +116,16 @@ export class P2PClient implements P2P {
    * In-memory P2P client constructor.
    * @param l2BlockSource - P2P client's source for fetching existing block data.
    * @param txPool - The client's instance of a transaction pool. Defaults to in-memory implementation.
+   * @param p2pService - The concrete instance of p2p networking to use.
    * @param log - A logger.
    */
   constructor(
     private l2BlockSource: L2BlockSource,
     private txPool: TxPool = new InMemoryTxPool(),
+    private p2pService: P2PService = new DummyP2PService(),
     private log = createDebugLogger('aztec:p2p'),
   ) {
-    const { checkInterval, l2QueueSize } = getConfigEnvVars();
+    const { checkInterval, l2QueueSize } = getP2PConfigEnvVars();
     this.blockDownloader = new L2BlockDownloader(l2BlockSource, l2QueueSize, checkInterval);
   }
 

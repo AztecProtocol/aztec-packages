@@ -10,5 +10,6 @@ export DEBUG='aztec:*'
 export ARCHIVER_POLLING_INTERVAL=10000
 export SEQ_RETRY_INTERVAL=10000
 export SEQ_MAX_TX_PER_BLOCK=4
+export BOOTSTRAP_NODES='/ip4/10.1.0.15/tcp/41643/p2p/12D3KooWGBpbC6qQFkaCYphjNeY6sV99o4SnEWyTeBigoVriDn4D'
 yarn build
 yarn start

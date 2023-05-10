@@ -18,7 +18,8 @@
     "formatting:fix": "run -T prettier -w ./src",
     "test": "DEBUG=wasm NODE_NO_WARNINGS=1 node --experimental-vm-modules $(yarn bin jest) --passWithNoTests",
     "start": "node ./dest",
-    "start:dev": "tsc-watch -p tsconfig.json --onSuccess 'yarn start'"
+    "start:dev": "tsc-watch -p tsconfig.json --onSuccess 'yarn start'",
+    "start:bootstrap": "DEBUG='libp2p:*' node ./dest/bootstrap/bootstrap.js"
   },
   "inherits": [
     "../package.common.json"
@@ -35,6 +36,14 @@
     "@aztec/circuits.js": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "@aztec/types": "workspace:^",
+    "@chainsafe/libp2p-noise": "^11.0.4",
+    "@libp2p/bootstrap": "^6.0.3",
+    "@libp2p/kad-dht": "^8.0.12",
+    "@libp2p/mplex": "^8.0.1",
+    "@libp2p/peer-id": "^2.0.3",
+    "@libp2p/tcp": "^7.0.0",
+    "libp2p": "^0.44.0",
+    "multiaddr": "^10.0.1",
     "sha3": "^2.1.4",
     "tslib": "^2.4.0"
   },
