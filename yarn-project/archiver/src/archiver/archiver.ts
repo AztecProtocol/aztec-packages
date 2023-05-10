@@ -17,7 +17,7 @@ import { Chain, HttpTransport, PublicClient, createPublicClient, http } from 'vi
 import { localhost } from 'viem/chains';
 import { ArchiverConfig } from './config.js';
 import { retrieveBlocks, retrieveNewContractData, retrieveUnverifiedData } from './data_retrieval.js';
-import { ArchiverDataStore, InMemoryArchiverStore as MemoryArchiverStore } from './archiver_store.js';
+import { ArchiverDataStore, MemoryArchiverStore } from './archiver_store.js';
 
 /**
  * Pulls L2 blocks in a non-blocking manner and provides interface for their retrieval.
