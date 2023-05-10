@@ -1,7 +1,8 @@
-import { BufferReader, randomBytes } from '@aztec/foundation';
 import { Fq } from '@aztec/foundation/fields';
 import { assertLength } from '../utils/jsUtils.js';
 import { Bufferable, serializeToBuffer } from '../utils/serialize.js';
+import { BufferReader } from '@aztec/foundation/serialize';
+import { randomBytes } from '@aztec/foundation/crypto';
 
 export class Vector<T extends Bufferable> {
   constructor(public items: T[]) {}
@@ -58,17 +59,18 @@ export class AffineElement {
  * @see cpp/barretenberg/cpp/src/barretenberg/crypto/ecdsa/ecdsa.hpp
  */
 export class EcdsaSignature {
-  constructor(public r: Buffer, public s: Buffer) {
+  constructor(public r: Buffer, public s: Buffer, public v: Buffer) {
     assertLength(this, 'r', 32);
     assertLength(this, 's', 32);
+    assertLength(this, 'v', 1);
   }
 
   toBuffer() {
-    return serializeToBuffer(this.r, this.s);
+    return serializeToBuffer(this.r, this.s, this.v);
   }
 
   public static random() {
-    return new EcdsaSignature(randomBytes(32), randomBytes(32));
+    return new EcdsaSignature(randomBytes(32), randomBytes(32), randomBytes(1));
   }
 }
 

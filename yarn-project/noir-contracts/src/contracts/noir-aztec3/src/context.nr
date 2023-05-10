@@ -3,6 +3,7 @@ use crate::abi;
 
 // When finished, one can call .finish() to convert back to the abi
 struct PrivateFunctionContext {
+    args : BoundedVec<Field, abi::MAX_ARGS>,
     return_values : BoundedVec<Field, abi::MAX_RETURN_VALUES>,
     logs : BoundedVec<Field, abi::MAX_LOGS>,
 
@@ -17,6 +18,7 @@ struct PrivateFunctionContext {
 impl PrivateFunctionContext {
     fn new() -> PrivateFunctionContext {
         PrivateFunctionContext {
+            args: BoundedVec::new(0),
             return_values: BoundedVec::new(0),
             logs: BoundedVec::new(0),
 
@@ -33,17 +35,18 @@ impl PrivateFunctionContext {
     fn finish(self, inputs: abi::Inputs) -> [Field; abi::PUBLIC_INPUTS_LENGTH] {
         let priv_circuit_pub_inputs = abi::PrivateCircuitPublicInputs {
             call_context: inputs.call_context,
-            args: inputs.args,
+            args: self.args.storage,
             return_values: self.return_values.storage,
             emitted_events: self.logs.storage,
             new_commitments: self.new_commitments.storage,
             new_nullifiers: self.new_nullifiers.storage,
             private_call_stack: self.private_call_stack.storage,
             public_call_stack: self.public_call_stack.storage,
-            l1_msg_stack: self.l1_message_stack.storage,
+            new_l2_to_l1_msgs: self.l1_message_stack.storage,
             historic_private_data_tree_root: inputs.old_private_data_tree_root,
             historic_private_nullifier_tree_root: inputs.old_nullifier_tree_root,
             historic_contract_tree_root: inputs.old_contract_tree_root,
+            historic_l1_to_l2_messages_tree_root: inputs.old_l1_to_l2_messages_tree_root,
             contract_deployment_data: inputs.contract_deployment_data,
         };
         priv_circuit_pub_inputs.serialize()

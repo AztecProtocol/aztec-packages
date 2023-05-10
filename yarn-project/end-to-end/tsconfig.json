@@ -13,13 +13,22 @@
       "path": "../aztec.js"
     },
     {
+      "path": "../circuits.js"
+    },
+    {
       "path": "../foundation"
     },
     {
-      "path": "../l1-contracts"
+      "path": "../l1-artifacts"
     },
     {
       "path": "../noir-contracts"
+    },
+    {
+      "path": "../sequencer-client"
+    },
+    {
+      "path": "../world-state"
     }
   ],
   "include": ["src"]

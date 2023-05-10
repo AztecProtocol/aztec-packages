@@ -1,14 +1,13 @@
 #include "init.hpp"
 
 #include "aztec3/circuits/abis/function_leaf_preimage.hpp"
-#include <aztec3/circuits/abis/private_kernel/private_inputs.hpp>
+#include "aztec3/constants.hpp"
 #include <aztec3/circuits/abis/kernel_circuit_public_inputs.hpp>
 #include <aztec3/circuits/abis/new_contract_data.hpp>
-
+#include <aztec3/circuits/abis/private_kernel/private_inputs.hpp>
+#include <aztec3/circuits/hash.hpp>
 #include <aztec3/utils/array.hpp>
 #include <aztec3/utils/dummy_composer.hpp>
-#include <aztec3/circuits/hash.hpp>
-#include "aztec3/constants.hpp"
 
 #include <barretenberg/stdlib/merkle_tree/membership.hpp>
 
@@ -68,7 +67,7 @@ void initialise_end_values(PrivateInputs<NT> const& private_inputs, KernelCircui
 
     end.private_call_stack = start.private_call_stack;
     end.public_call_stack = start.public_call_stack;
-    end.l1_msg_stack = start.l1_msg_stack;
+    end.new_l2_to_l1_msgs = start.new_l2_to_l1_msgs;
 
     end.optionally_revealed_data = start.optionally_revealed_data;
 }
@@ -129,9 +128,9 @@ void contract_logic(DummyComposer& composer,
     }
 
     // Add new contract data if its a contract deployment function
-    NewContractData<NT> native_new_contract_data{ new_contract_address,
-                                                  portal_contract_address,
-                                                  contract_deployment_data.function_tree_root };
+    NewContractData<NT> const native_new_contract_data{ new_contract_address,
+                                                        portal_contract_address,
+                                                        contract_deployment_data.function_tree_root };
 
     array_push<NewContractData<NT>, KERNEL_NEW_CONTRACTS_LENGTH>(public_inputs.end.new_contracts,
                                                                  native_new_contract_data);
@@ -159,7 +158,7 @@ void contract_logic(DummyComposer& composer,
     if (!is_contract_deployment) {
         auto const& computed_function_tree_root = function_tree_root_from_siblings<NT>(
             private_inputs.private_call.call_stack_item.function_data.function_selector,
-            true, // is_private
+            true,  // is_private
             private_call_vk_hash,
             private_inputs.private_call.acir_hash,
             private_inputs.private_call.function_leaf_membership_witness.leaf_index,
@@ -210,43 +209,41 @@ void update_end_values(DummyComposer& composer,
         array_push(public_inputs.end.new_nullifiers, private_inputs.signed_tx_request.tx_request.nonce);
     }
 
-    { // commitments & nullifiers
+    {  // commitments & nullifiers
         std::array<NT::fr, NEW_COMMITMENTS_LENGTH> siloed_new_commitments;
         for (size_t i = 0; i < new_commitments.size(); ++i) {
-            siloed_new_commitments[i] =
-                new_commitments[i] == 0
-                    ? 0
-                    : add_contract_address_to_commitment<NT>(storage_contract_address, new_commitments[i]);
+            siloed_new_commitments[i] = new_commitments[i] == 0 ? 0
+                                                                : add_contract_address_to_commitment<NT>(
+                                                                      storage_contract_address, new_commitments[i]);
         }
 
         std::array<NT::fr, NEW_NULLIFIERS_LENGTH> siloed_new_nullifiers;
         for (size_t i = 0; i < new_nullifiers.size(); ++i) {
-            siloed_new_nullifiers[i] =
-                new_nullifiers[i] == 0
-                    ? 0
-                    : add_contract_address_to_nullifier<NT>(storage_contract_address, new_nullifiers[i]);
+            siloed_new_nullifiers[i] = new_nullifiers[i] == 0 ? 0
+                                                              : add_contract_address_to_nullifier<NT>(
+                                                                    storage_contract_address, new_nullifiers[i]);
         }
 
         push_array_to_array(siloed_new_commitments, public_inputs.end.new_commitments);
         push_array_to_array(siloed_new_nullifiers, public_inputs.end.new_nullifiers);
     }
 
-    { // call stacks
-        auto& this_private_call_stack = private_call_public_inputs.private_call_stack;
+    {  // call stacks
+        const auto& this_private_call_stack = private_call_public_inputs.private_call_stack;
         push_array_to_array(this_private_call_stack, public_inputs.end.private_call_stack);
     }
 
     // const auto& portal_contract_address = private_inputs.private_call.portal_contract_address;
 
     // {
-    //     const auto& l1_msg_stack = private_call_public_inputs.l1_msg_stack;
-    //     std::array<CT::fr, L1_MSG_STACK_LENGTH> l1_call_stack;
+    //     const auto& new_l2_to_l1_msgs = private_call_public_inputs.new_l2_to_l1_msgs;
+    //     std::array<CT::fr, NEW_L2_TO_L1_MSGS_LENGTH> l1_call_stack;
 
-    //     for (size_t i = 0; i < l1_msg_stack.size(); ++i) {
+    //     for (size_t i = 0; i < new_l2_to_l1_msgs.size(); ++i) {
     //         l1_call_stack[i] = CT::fr::conditional_assign(
-    //             l1_msg_stack[i] == 0,
+    //             new_l2_to_l1_msgs[i] == 0,
     //             0,
-    //             CT::compress({ portal_contract_address, l1_msg_stack[i] }, GeneratorIndex::L1_MSG_STACK_ITEM));
+    //             CT::compress({ portal_contract_address, new_l2_to_l1_msgs[i] }, GeneratorIndex::L2_TO_L1_MSG));
     //     }
     // }
 }
@@ -255,7 +252,6 @@ void validate_this_private_call_hash(DummyComposer& composer,
                                      PrivateInputs<NT> const& private_inputs,
                                      KernelCircuitPublicInputs<NT>& public_inputs)
 {
-
     // TODO: this logic might need to change to accommodate the weird edge 3 initial txs (the 'main' tx, the 'fee' tx,
     // and the 'gas rebate' tx).
     const auto popped_private_call_hash = array_pop(public_inputs.end.private_call_stack);
@@ -269,8 +265,8 @@ void validate_this_private_call_hash(DummyComposer& composer,
 
 void validate_this_private_call_stack(DummyComposer& composer, PrivateInputs<NT> const& private_inputs)
 {
-    auto& stack = private_inputs.private_call.call_stack_item.public_inputs.private_call_stack;
-    auto& preimages = private_inputs.private_call.private_call_stack_preimages;
+    const auto& stack = private_inputs.private_call.call_stack_item.public_inputs.private_call_stack;
+    const auto& preimages = private_inputs.private_call.private_call_stack_preimages;
     for (size_t i = 0; i < stack.size(); ++i) {
         const auto& hash = stack[i];
         const auto& preimage = preimages[i];
@@ -278,7 +274,7 @@ void validate_this_private_call_stack(DummyComposer& composer, PrivateInputs<NT>
         // Note: this assumes it's computationally infeasible to have `0` as a valid call_stack_item_hash.
         // Assumes `hash == 0` means "this stack item is empty".
         const auto calculated_hash = hash == 0 ? 0 : preimage.hash();
-        composer.do_assert(hash != calculated_hash,
+        composer.do_assert(hash == calculated_hash,
                            format("private_call_stack[", i, "] = ", hash, "; does not reconcile"),
                            CircuitErrorCode::PRIVATE_KERNEL__PRIVATE_CALL_STACK_ITEM_HASH_MISMATCH);
     }
@@ -299,9 +295,9 @@ void validate_inputs(DummyComposer& composer, PrivateInputs<NT> const& private_i
     // TODO: we might want to range-constrain the call_count to prevent some kind of overflow errors. Having said that,
     // iterating 2^254 times isn't feasible.
 
-    NT::fr start_private_call_stack_length = array_length(start.private_call_stack);
-    NT::fr start_public_call_stack_length = array_length(start.public_call_stack);
-    NT::fr start_l1_msg_stack_length = array_length(start.l1_msg_stack);
+    NT::fr const start_private_call_stack_length = array_length(start.private_call_stack);
+    NT::fr const start_public_call_stack_length = array_length(start.public_call_stack);
+    NT::fr const start_new_l2_to_l1_msgs_length = array_length(start.new_l2_to_l1_msgs);
 
     // Base Case
     if (is_base_case) {
@@ -315,8 +311,8 @@ void validate_inputs(DummyComposer& composer, PrivateInputs<NT> const& private_i
         composer.do_assert(start_public_call_stack_length == 0,
                            "Public call stack must be empty",
                            CircuitErrorCode::PRIVATE_KERNEL__UNSUPPORTED_OP);
-        composer.do_assert(start_l1_msg_stack_length == 0,
-                           "L1 msg stack must be empty",
+        composer.do_assert(start_new_l2_to_l1_msgs_length == 0,
+                           "L2 to L1 msgs must be empty",
                            CircuitErrorCode::PRIVATE_KERNEL__UNSUPPORTED_OP);
 
         composer.do_assert(this_call_stack_item.public_inputs.call_context.is_delegate_call == false,
@@ -371,7 +367,9 @@ KernelCircuitPublicInputs<NT> native_private_kernel_circuit(DummyComposer& compo
 
     validate_this_private_call_hash(composer, private_inputs, public_inputs);
 
-    validate_this_private_call_stack(composer, private_inputs);
+    // TODO(rahul) FIXME - https://github.com/AztecProtocol/aztec-packages/issues/499
+    // Noir doesn't have hash index so it can't hash private call stack item correctly
+    // validate_this_private_call_stack(composer, private_inputs);
 
     update_end_values(composer, private_inputs, public_inputs);
 
@@ -383,7 +381,7 @@ KernelCircuitPublicInputs<NT> native_private_kernel_circuit(DummyComposer& compo
     //                                         _private_inputs.private_call.vk->num_public_inputs,
     //                                         _private_inputs.previous_kernel.vk->num_public_inputs);
 
-    // TODO: kernel vk membership check!
+    // TODO(dbanks12): kernel vk membership check!
 
     // Note: given that we skipped the verify_proof function, the aggregation object we get at the end will just be the
     // same as we had at the start. public_inputs.end.aggregation_object = aggregation_object;
@@ -392,4 +390,4 @@ KernelCircuitPublicInputs<NT> native_private_kernel_circuit(DummyComposer& compo
     return public_inputs;
 };
 
-} // namespace aztec3::circuits::kernel::private_kernel
+}  // namespace aztec3::circuits::kernel::private_kernel

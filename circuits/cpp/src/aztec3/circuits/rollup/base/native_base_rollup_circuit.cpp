@@ -1,9 +1,16 @@
+#include "init.hpp"
+
 #include "aztec3/circuits/abis/membership_witness.hpp"
 #include "aztec3/circuits/abis/public_data_read.hpp"
-#include "aztec3/circuits/abis/public_data_transition.hpp"
+#include "aztec3/circuits/abis/public_data_update_request.hpp"
 #include "aztec3/circuits/hash.hpp"
+#include "aztec3/circuits/rollup/components/components.hpp"
 #include "aztec3/constants.hpp"
 #include "aztec3/utils/circuit_errors.hpp"
+#include <aztec3/circuits/abis/rollup/base/base_or_merge_rollup_public_inputs.hpp>
+#include <aztec3/circuits/abis/rollup/base/base_rollup_inputs.hpp>
+#include <aztec3/circuits/abis/rollup/nullifier_leaf_preimage.hpp>
+
 #include "barretenberg/crypto/pedersen_hash/pedersen.hpp"
 #include "barretenberg/crypto/sha256/sha256.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
@@ -11,26 +18,20 @@
 #include "barretenberg/stdlib/merkle_tree/membership.hpp"
 #include "barretenberg/stdlib/merkle_tree/memory_tree.hpp"
 #include "barretenberg/stdlib/merkle_tree/merkle_tree.hpp"
-#include "init.hpp"
-#include "aztec3/circuits/rollup/components/components.hpp"
 
 #include <algorithm>
 #include <array>
-#include <aztec3/circuits/abis/rollup/base/base_rollup_inputs.hpp>
-#include <aztec3/circuits/abis/rollup/base/base_or_merge_rollup_public_inputs.hpp>
-#include <aztec3/circuits/abis/rollup/nullifier_leaf_preimage.hpp>
 #include <cstdint>
 #include <iostream>
 #include <tuple>
 #include <vector>
 
-using aztec3::circuits::check_membership;
 
 namespace aztec3::circuits::rollup::native_base_rollup {
 
 NT::fr calculate_empty_tree_root(const size_t depth)
 {
-    MerkleTree empty_tree = MerkleTree(depth);
+    MerkleTree const empty_tree = MerkleTree(depth);
     return empty_tree.root();
 }
 
@@ -53,7 +54,6 @@ bool verify_kernel_proof(NT::Proof const& kernel_proof)
  */
 AggregationObject aggregate_proofs(BaseRollupInputs const& baseRollupInputs)
 {
-
     // TODO: NOTE: for now we simply return the aggregation object from the first proof
     return baseRollupInputs.kernel_data[0].public_inputs.end.aggregation_object;
 }
@@ -70,30 +70,18 @@ NT::fr get_prover_contribution_hash()
 
 std::vector<NT::fr> calculate_contract_leaves(BaseRollupInputs const& baseRollupInputs)
 {
-
     std::vector<NT::fr> contract_leaves;
 
     for (size_t i = 0; i < 2; i++) {
-
         auto new_contacts = baseRollupInputs.kernel_data[i].public_inputs.end.new_contracts;
 
         // loop over the new contracts
         // TODO: NOTE: we are currently assuming that there is only going to be one
-        for (size_t j = 0; j < new_contacts.size(); j++) {
-
-            NT::address contract_address = new_contacts[j].contract_address;
-            NT::address portal_contract_address = new_contacts[j].portal_contract_address;
-            NT::fr function_tree_root = new_contacts[j].function_tree_root;
-
-            // Pedersen hash of the 3 fields (contract_address, portal_contract_address, function_tree_root)
-            auto contract_leaf = crypto::pedersen_commitment::compress_native(
-                { contract_address, portal_contract_address, function_tree_root }, GeneratorIndex::CONTRACT_LEAF);
-
+        for (auto& leaf_preimage : new_contacts) {
             // When there is no contract deployment, we should insert a zero leaf into the tree and ignore the
             // member-ship check. This is to ensure that we don't hit "already deployed" errors when we are not
             // deploying contracts. e.g., when we are only calling functions on existing contracts.
-            auto to_push = contract_address == NT::address(0) ? NT::fr(0) : contract_leaf;
-
+            auto to_push = leaf_preimage.contract_address == NT::address(0) ? NT::fr(0) : leaf_preimage.hash();
             contract_leaves.push_back(to_push);
         }
     }
@@ -116,12 +104,11 @@ NT::fr calculate_contract_subtree(std::vector<NT::fr> contract_leaves)
 NT::fr calculate_commitments_subtree(DummyComposer& composer, BaseRollupInputs const& baseRollupInputs)
 {
     // Leaves that will be added to the new trees
-    std::array<NT::fr, KERNEL_NEW_COMMITMENTS_LENGTH * 2> commitment_leaves;
+    std::array<NT::fr, KERNEL_NEW_COMMITMENTS_LENGTH * 2> const commitment_leaves;
 
     MerkleTree commitments_tree = MerkleTree(PRIVATE_DATA_SUBTREE_DEPTH);
 
     for (size_t i = 0; i < 2; i++) {
-
         auto new_commitments = baseRollupInputs.kernel_data[i].public_inputs.end.new_commitments;
 
         // Our commitments size MUST be 4 to calculate our subtrees correctly
@@ -139,66 +126,6 @@ NT::fr calculate_commitments_subtree(DummyComposer& composer, BaseRollupInputs c
     return commitments_tree.root();
 }
 
-std::array<NT::fr, 2> calculate_calldata_hash(BaseRollupInputs const& baseRollupInputs,
-                                              std::vector<NT::fr> const& contract_leaves)
-{
-    // Compute calldata hashes
-    // 22 = (4 + 4 + 1 + 2) * 2 (2 kernels, 4 nullifiers per kernel, 4 commitments per kernel, 1 contract
-    // deployments, 2 contracts data fields (size 2 for each) )
-    std::array<NT::fr, 22> calldata_hash_inputs;
-
-    for (size_t i = 0; i < 2; i++) {
-        // Nullifiers
-        auto new_nullifiers = baseRollupInputs.kernel_data[i].public_inputs.end.new_nullifiers;
-        auto new_commitments = baseRollupInputs.kernel_data[i].public_inputs.end.new_commitments;
-        for (size_t j = 0; j < KERNEL_NEW_COMMITMENTS_LENGTH; j++) {
-            calldata_hash_inputs[i * KERNEL_NEW_COMMITMENTS_LENGTH + j] = new_nullifiers[j];
-            calldata_hash_inputs[(KERNEL_NEW_NULLIFIERS_LENGTH * 2) + i * KERNEL_NEW_NULLIFIERS_LENGTH + j] =
-                new_commitments[j];
-        }
-
-        // yuck - TODO: is contract_leaves fixed size?
-        calldata_hash_inputs[16 + i] = contract_leaves[i];
-
-        auto new_contracts = baseRollupInputs.kernel_data[i].public_inputs.end.new_contracts;
-
-        // TODO: this assumes that there is only one contract deployment
-        calldata_hash_inputs[18 + i] = new_contracts[0].contract_address;
-        calldata_hash_inputs[20 + i] = new_contracts[0].portal_contract_address;
-    }
-
-    // FIXME
-    // Calculate sha256 hash of calldata; TODO: work out typing here
-    // 22 * 32 = 22 fields, each 32 bytes
-    constexpr auto num_bytes = 22 * 32;
-    std::array<uint8_t, num_bytes> calldata_hash_inputs_bytes;
-    // Convert all into a buffer, then copy into the array, then hash
-    for (size_t i = 0; i < calldata_hash_inputs.size(); i++) {
-        auto as_bytes = calldata_hash_inputs[i].to_buffer();
-
-        auto offset = i * 32;
-        std::copy(as_bytes.begin(), as_bytes.end(), calldata_hash_inputs_bytes.begin() + offset);
-    }
-    // TODO: double check this gpt code
-    std::vector<uint8_t> calldata_hash_inputs_bytes_vec(calldata_hash_inputs_bytes.begin(),
-                                                        calldata_hash_inputs_bytes.end());
-
-    auto h = sha256::sha256(calldata_hash_inputs_bytes_vec);
-
-    // Split the hash into two fields, a high and a low
-    std::array<uint8_t, 32> buf_1, buf_2;
-    for (uint8_t i = 0; i < 16; i++) {
-        buf_1[i] = 0;
-        buf_1[16 + i] = h[i];
-        buf_2[i] = 0;
-        buf_2[16 + i] = h[i + 16];
-    }
-    auto high = fr::serialize_from_buffer(buf_1.data());
-    auto low = fr::serialize_from_buffer(buf_2.data());
-
-    return std::array<NT::fr, 2>{ high, low };
-}
-
 /**
  * @brief Check all of the provided commitments against the historical tree roots
  *
@@ -213,10 +140,10 @@ void perform_historical_private_data_tree_membership_checks(DummyComposer& compo
     auto historic_root = baseRollupInputs.constants.start_tree_of_historic_private_data_tree_roots_snapshot.root;
 
     for (size_t i = 0; i < 2; i++) {
-        NT::fr leaf =
+        NT::fr const leaf =
             baseRollupInputs.kernel_data[i]
                 .public_inputs.constants.historic_tree_roots.private_historic_tree_roots.private_data_tree_root;
-        abis::MembershipWitness<NT, PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT> historic_root_witness =
+        abis::MembershipWitness<NT, PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT> const historic_root_witness =
             baseRollupInputs.historic_private_data_tree_root_membership_witnesses[i];
 
         check_membership<NT>(composer,
@@ -234,9 +161,10 @@ void perform_historical_contract_data_tree_membership_checks(DummyComposer& comp
     auto historic_root = baseRollupInputs.constants.start_tree_of_historic_contract_tree_roots_snapshot.root;
 
     for (size_t i = 0; i < 2; i++) {
-        NT::fr leaf = baseRollupInputs.kernel_data[i]
-                          .public_inputs.constants.historic_tree_roots.private_historic_tree_roots.contract_tree_root;
-        abis::MembershipWitness<NT, PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT> historic_root_witness =
+        NT::fr const leaf =
+            baseRollupInputs.kernel_data[i]
+                .public_inputs.constants.historic_tree_roots.private_historic_tree_roots.contract_tree_root;
+        abis::MembershipWitness<NT, PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT> const historic_root_witness =
             baseRollupInputs.historic_contract_tree_root_membership_witnesses[i];
 
         check_membership<NT>(composer,
@@ -245,6 +173,27 @@ void perform_historical_contract_data_tree_membership_checks(DummyComposer& comp
                              historic_root_witness.sibling_path,
                              historic_root,
                              format("historic contract data tree roots ", i));
+    }
+}
+
+void perform_historical_l1_to_l2_message_tree_membership_checks(DummyComposer& composer,
+                                                                BaseRollupInputs const& baseRollupInputs)
+{
+    auto historic_root = baseRollupInputs.constants.start_tree_of_historic_l1_to_l2_msg_tree_roots_snapshot.root;
+
+    for (size_t i = 0; i < 2; i++) {
+        NT::fr const leaf =
+            baseRollupInputs.kernel_data[i]
+                .public_inputs.constants.historic_tree_roots.private_historic_tree_roots.l1_to_l2_messages_tree_root;
+        abis::MembershipWitness<NT, PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT> const historic_root_witness =
+            baseRollupInputs.historic_l1_to_l2_msg_tree_root_membership_witnesses[i];
+
+        check_membership<NT>(composer,
+                             leaf,
+                             historic_root_witness.leaf_index,
+                             historic_root_witness.sibling_path,
+                             historic_root,
+                             format("historic l1 to l2 data tree roots ", i));
     }
 }
 
@@ -298,11 +247,9 @@ AppendOnlySnapshot check_nullifier_tree_non_membership_and_insert_to_tree(DummyC
 
     // For each kernel circuit
     for (size_t i = 0; i < 2; i++) {
-
         auto new_nullifiers = baseRollupInputs.kernel_data[i].public_inputs.end.new_nullifiers;
         // For each of our nullifiers
         for (size_t j = 0; j < KERNEL_NEW_NULLIFIERS_LENGTH; j++) {
-
             // Witness containing index and path
             auto nullifier_index = 4 * i + j;
 
@@ -312,9 +259,8 @@ AppendOnlySnapshot check_nullifier_tree_non_membership_and_insert_to_tree(DummyC
             // Newly created nullifier
             auto nullifier = new_nullifiers[j];
 
-            // TODO: reason about this more strongly, can this cause issues?
+            // TODO(maddiaa): reason about this more strongly, can this cause issues?
             if (nullifier != 0) {
-
                 // Create the nullifier leaf of the new nullifier to be inserted
                 NullifierLeaf new_nullifier_leaf = {
                     .value = nullifier,
@@ -325,7 +271,6 @@ AppendOnlySnapshot check_nullifier_tree_non_membership_and_insert_to_tree(DummyC
                 // Assuming populated premier subtree
                 if (low_nullifier_preimage.leaf_value == 0 && low_nullifier_preimage.next_value == 0) {
                     // check previous nullifier leaves
-                    // TODO: this is a hack, and insecure, we need to fix this
                     bool matched = false;
 
                     for (size_t k = 0; k < nullifier_index && !matched; k++) {
@@ -336,7 +281,6 @@ AppendOnlySnapshot check_nullifier_tree_non_membership_and_insert_to_tree(DummyC
                         if ((uint256_t(nullifier_insertion_subtree[k].value) < uint256_t(nullifier)) &&
                             (uint256_t(nullifier_insertion_subtree[k].nextValue) > uint256_t(nullifier) ||
                              nullifier_insertion_subtree[k].nextValue == 0)) {
-
                             matched = true;
                             // Update pointers
                             new_nullifier_leaf.nextIndex = nullifier_insertion_subtree[k].nextIndex;
@@ -365,7 +309,7 @@ AppendOnlySnapshot check_nullifier_tree_non_membership_and_insert_to_tree(DummyC
                     }
 
                     // Recreate the original low nullifier from the preimage
-                    NullifierLeaf original_low_nullifier = NullifierLeaf{
+                    auto const original_low_nullifier = NullifierLeaf{
                         .value = low_nullifier_preimage.leaf_value,
                         .nextIndex = low_nullifier_preimage.next_index,
                         .nextValue = low_nullifier_preimage.next_value,
@@ -380,9 +324,9 @@ AppendOnlySnapshot check_nullifier_tree_non_membership_and_insert_to_tree(DummyC
                                                                                "low nullifier membership check");
 
                     // Calculate the new value of the low_nullifier_leaf
-                    NullifierLeaf updated_low_nullifier = NullifierLeaf{ .value = low_nullifier_preimage.leaf_value,
-                                                                         .nextIndex = new_index,
-                                                                         .nextValue = nullifier };
+                    auto const updated_low_nullifier = NullifierLeaf{ .value = low_nullifier_preimage.leaf_value,
+                                                                      .nextIndex = new_index,
+                                                                      .nextValue = nullifier };
 
                     // We need another set of witness values for this
                     current_nullifier_tree_root = root_from_sibling_path<NT>(
@@ -392,7 +336,7 @@ AppendOnlySnapshot check_nullifier_tree_non_membership_and_insert_to_tree(DummyC
                 nullifier_insertion_subtree[nullifier_index] = new_nullifier_leaf;
             } else {
                 // 0 case
-                NullifierLeaf new_nullifier_leaf = {
+                NullifierLeaf const new_nullifier_leaf = {
                     .value = 0,
                     .nextIndex = 0,
                     .nextValue = 0,
@@ -406,7 +350,7 @@ AppendOnlySnapshot check_nullifier_tree_non_membership_and_insert_to_tree(DummyC
     }
 
     // Check that the new subtree is to be inserted at the next location, and is empty currently
-    const auto empty_nullifier_subtree_root = calculate_empty_tree_root(NULLIFIER_SUBTREE_DEPTH);
+    const auto empty_nullifier_subtree_root = components::calculate_empty_tree_root(NULLIFIER_SUBTREE_DEPTH);
     auto leafIndexNullifierSubtreeDepth =
         baseRollupInputs.start_nullifier_tree_snapshot.next_available_leaf_index >> NULLIFIER_SUBTREE_DEPTH;
     check_membership<NT>(composer,
@@ -432,33 +376,36 @@ AppendOnlySnapshot check_nullifier_tree_non_membership_and_insert_to_tree(DummyC
     };
 }
 
-fr insert_state_transitions(
+fr insert_public_data_update_requests(
     DummyComposer& composer,
     fr tree_root,
-    std::array<abis::PublicDataTransition<NT>, STATE_TRANSITIONS_LENGTH> const& state_transitions,
+    std::array<abis::PublicDataUpdateRequest<NT>, KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH> const&
+        public_data_update_requests,
     size_t witnesses_offset,
-    std::array<abis::MembershipWitness<NT, PUBLIC_DATA_TREE_HEIGHT>, 2 * STATE_TRANSITIONS_LENGTH> const& witnesses)
+    std::array<abis::MembershipWitness<NT, PUBLIC_DATA_TREE_HEIGHT>,
+               2 * KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH> const& witnesses)
 {
     auto root = tree_root;
 
-    for (size_t i = 0; i < STATE_TRANSITIONS_LENGTH; ++i) {
-        const auto& state_write = state_transitions[i];
+    for (size_t i = 0; i < KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH; ++i) {
+        const auto& state_write = public_data_update_requests[i];
         const auto& witness = witnesses[i + witnesses_offset];
 
-        if (state_write.is_empty())
+        if (state_write.is_empty()) {
             continue;
+        }
 
         composer.do_assert(
             witness.leaf_index == state_write.leaf_index,
             format("mismatch state write ", state_write.leaf_index, " and witness leaf index ", witness.leaf_index),
-            CircuitErrorCode::BASE__INVALID_PUBLIC_READS);
+            CircuitErrorCode::BASE__INVALID_PUBLIC_DATA_UPDATE_REQUESTS);
 
         check_membership<NT>(composer,
                              state_write.old_value,
                              state_write.leaf_index,
                              witness.sibling_path,
                              root,
-                             format("validate_state_reads index ", i));
+                             format("validate_public_data_update_requests index ", i));
 
         root = root_from_sibling_path<NT>(state_write.new_value, state_write.leaf_index, witness.sibling_path);
     }
@@ -466,63 +413,68 @@ fr insert_state_transitions(
     return root;
 }
 
-void validate_state_reads(
+void validate_public_data_reads(
     DummyComposer& composer,
     fr tree_root,
-    std::array<abis::PublicDataRead<NT>, STATE_READS_LENGTH> const& state_reads,
+    std::array<abis::PublicDataRead<NT>, KERNEL_PUBLIC_DATA_READS_LENGTH> const& public_data_reads,
     size_t witnesses_offset,
-    std::array<abis::MembershipWitness<NT, PUBLIC_DATA_TREE_HEIGHT>, 2 * STATE_READS_LENGTH> const& witnesses)
+    std::array<abis::MembershipWitness<NT, PUBLIC_DATA_TREE_HEIGHT>, 2 * KERNEL_PUBLIC_DATA_READS_LENGTH> const&
+        witnesses)
 {
-    for (size_t i = 0; i < STATE_READS_LENGTH; ++i) {
-        const auto& state_read = state_reads[i];
+    for (size_t i = 0; i < KERNEL_PUBLIC_DATA_READS_LENGTH; ++i) {
+        const auto& public_data_read = public_data_reads[i];
         const auto& witness = witnesses[i + witnesses_offset];
 
-        if (state_read.is_empty())
+        if (public_data_read.is_empty()) {
             continue;
+        }
 
-        composer.do_assert(
-            witness.leaf_index == state_read.leaf_index,
-            format("mismatch state read ", state_read.leaf_index, " and witness leaf index ", witness.leaf_index),
-            CircuitErrorCode::BASE__INVALID_PUBLIC_READS);
+        composer.do_assert(witness.leaf_index == public_data_read.leaf_index,
+                           format("mismatch public data read ",
+                                  public_data_read.leaf_index,
+                                  " and witness leaf index ",
+                                  witness.leaf_index),
+                           CircuitErrorCode::BASE__INVALID_PUBLIC_DATA_READS);
 
         check_membership<NT>(composer,
-                             state_read.value,
-                             state_read.leaf_index,
+                             public_data_read.value,
+                             public_data_read.leaf_index,
                              witness.sibling_path,
                              tree_root,
-                             format("validate_state_reads index ", i + witnesses_offset));
+                             format("validate_public_data_reads index ", i + witnesses_offset));
     }
 };
 
 fr validate_and_process_public_state(DummyComposer& composer, BaseRollupInputs const& baseRollupInputs)
 {
-    // Process state reads and transitions for left input
-    validate_state_reads(composer,
-                         baseRollupInputs.start_public_data_tree_root,
-                         baseRollupInputs.kernel_data[0].public_inputs.end.state_reads,
-                         0,
-                         baseRollupInputs.new_state_reads_sibling_paths);
+    // Process public data reads and public data update requests for left input
+    validate_public_data_reads(composer,
+                               baseRollupInputs.start_public_data_tree_root,
+                               baseRollupInputs.kernel_data[0].public_inputs.end.public_data_reads,
+                               0,
+                               baseRollupInputs.new_public_data_reads_sibling_paths);
 
-    auto mid_public_data_tree_root =
-        insert_state_transitions(composer,
-                                 baseRollupInputs.start_public_data_tree_root,
-                                 baseRollupInputs.kernel_data[0].public_inputs.end.state_transitions,
-                                 0,
-                                 baseRollupInputs.new_state_transitions_sibling_paths);
+    auto mid_public_data_tree_root = insert_public_data_update_requests(
+        composer,
+        baseRollupInputs.start_public_data_tree_root,
+        baseRollupInputs.kernel_data[0].public_inputs.end.public_data_update_requests,
+        0,
+        baseRollupInputs.new_public_data_update_requests_sibling_paths);
 
-    // Process state reads and transitions for right input using the resulting tree root from the left one
-    validate_state_reads(composer,
-                         mid_public_data_tree_root,
-                         baseRollupInputs.kernel_data[1].public_inputs.end.state_reads,
-                         STATE_READS_LENGTH,
-                         baseRollupInputs.new_state_reads_sibling_paths);
+    // Process public data reads and public data update requests for right input using the resulting tree root from the
+    // left one
+    validate_public_data_reads(composer,
+                               mid_public_data_tree_root,
+                               baseRollupInputs.kernel_data[1].public_inputs.end.public_data_reads,
+                               KERNEL_PUBLIC_DATA_READS_LENGTH,
+                               baseRollupInputs.new_public_data_reads_sibling_paths);
 
-    auto end_public_data_tree_root =
-        insert_state_transitions(composer,
-                                 mid_public_data_tree_root,
-                                 baseRollupInputs.kernel_data[1].public_inputs.end.state_transitions,
-                                 STATE_TRANSITIONS_LENGTH,
-                                 baseRollupInputs.new_state_transitions_sibling_paths);
+    auto end_public_data_tree_root = insert_public_data_update_requests(
+        composer,
+        mid_public_data_tree_root,
+        baseRollupInputs.kernel_data[1].public_inputs.end.public_data_update_requests,
+        KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH,
+        baseRollupInputs.new_public_data_update_requests_sibling_paths);
 
     return end_public_data_tree_root;
 }
@@ -531,21 +483,21 @@ BaseOrMergeRollupPublicInputs base_rollup_circuit(DummyComposer& composer, BaseR
 {
     // Verify the previous kernel proofs
     for (size_t i = 0; i < 2; i++) {
-        NT::Proof proof = baseRollupInputs.kernel_data[i].proof;
+        NT::Proof const proof = baseRollupInputs.kernel_data[i].proof;
         composer.do_assert(verify_kernel_proof(proof),
                            "kernel proof verification failed",
                            CircuitErrorCode::BASE__KERNEL_PROOF_VERIFICATION_FAILED);
     }
 
     // First we compute the contract tree leaves
-    std::vector<NT::fr> contract_leaves = calculate_contract_leaves(baseRollupInputs);
+    std::vector<NT::fr> const contract_leaves = calculate_contract_leaves(baseRollupInputs);
 
     // Check contracts and commitments subtrees
-    NT::fr contracts_tree_subroot = calculate_contract_subtree(contract_leaves);
-    NT::fr commitments_tree_subroot = calculate_commitments_subtree(composer, baseRollupInputs);
+    NT::fr const contracts_tree_subroot = calculate_contract_subtree(contract_leaves);
+    NT::fr const commitments_tree_subroot = calculate_commitments_subtree(composer, baseRollupInputs);
 
     // Insert commitment subtrees:
-    const auto empty_commitments_subtree_root = calculate_empty_tree_root(PRIVATE_DATA_SUBTREE_DEPTH);
+    const auto empty_commitments_subtree_root = components::calculate_empty_tree_root(PRIVATE_DATA_SUBTREE_DEPTH);
     auto end_private_data_tree_snapshot =
         components::insert_subtree_to_snapshot_tree(composer,
                                                     baseRollupInputs.start_private_data_tree_snapshot,
@@ -556,7 +508,7 @@ BaseOrMergeRollupPublicInputs base_rollup_circuit(DummyComposer& composer, BaseR
                                                     "empty commitment subtree membership check");
 
     // Insert contract subtrees:
-    const auto empty_contracts_subtree_root = calculate_empty_tree_root(CONTRACT_SUBTREE_DEPTH);
+    const auto empty_contracts_subtree_root = components::calculate_empty_tree_root(CONTRACT_SUBTREE_DEPTH);
     auto end_contract_tree_snapshot =
         components::insert_subtree_to_snapshot_tree(composer,
                                                     baseRollupInputs.start_contract_tree_snapshot,
@@ -567,20 +519,21 @@ BaseOrMergeRollupPublicInputs base_rollup_circuit(DummyComposer& composer, BaseR
                                                     "empty contract subtree membership check");
 
     // Insert nullifiers:
-    AppendOnlySnapshot end_nullifier_tree_snapshot =
+    AppendOnlySnapshot const end_nullifier_tree_snapshot =
         check_nullifier_tree_non_membership_and_insert_to_tree(composer, baseRollupInputs);
 
-    // Validate public state reads and transitions, and update public data tree
-    fr end_public_data_tree_root = validate_and_process_public_state(composer, baseRollupInputs);
+    // Validate public public data reads and public data update requests, and update public data tree
+    fr const end_public_data_tree_root = validate_and_process_public_state(composer, baseRollupInputs);
 
     // Calculate the overall calldata hash
-    std::array<NT::fr, 2> calldata_hash = calculate_calldata_hash(baseRollupInputs, contract_leaves);
+    std::array<NT::fr, 2> const calldata_hash = components::compute_kernels_calldata_hash(baseRollupInputs.kernel_data);
 
     // Perform membership checks that the notes provided exist within the historic trees data
     perform_historical_private_data_tree_membership_checks(composer, baseRollupInputs);
     perform_historical_contract_data_tree_membership_checks(composer, baseRollupInputs);
+    perform_historical_l1_to_l2_message_tree_membership_checks(composer, baseRollupInputs);
 
-    AggregationObject aggregation_object = aggregate_proofs(baseRollupInputs);
+    AggregationObject const aggregation_object = aggregate_proofs(baseRollupInputs);
 
     BaseOrMergeRollupPublicInputs public_inputs = {
         .rollup_type = abis::BASE_ROLLUP_TYPE,
@@ -600,4 +553,4 @@ BaseOrMergeRollupPublicInputs base_rollup_circuit(DummyComposer& composer, BaseR
     return public_inputs;
 }
 
-} // namespace aztec3::circuits::rollup::native_base_rollup
+}  // namespace aztec3::circuits::rollup::native_base_rollup

@@ -1,20 +1,23 @@
-import { AztecAddress, BufferReader, EthAddress, Fr, TupleOf } from '@aztec/foundation';
-import { assertLength, tupleTimes } from '../../utils/jsUtils.js';
 import { serializeToBuffer } from '../../utils/serialize.js';
 import { AggregationObject } from '../aggregation_object.js';
 import {
   EMITTED_EVENTS_LENGTH,
-  KERNEL_L1_MSG_STACK_LENGTH,
+  KERNEL_NEW_L2_TO_L1_MSGS_LENGTH,
   KERNEL_NEW_COMMITMENTS_LENGTH,
   KERNEL_NEW_CONTRACTS_LENGTH,
   KERNEL_NEW_NULLIFIERS_LENGTH,
   KERNEL_OPTIONALLY_REVEALED_DATA_LENGTH,
   KERNEL_PRIVATE_CALL_STACK_LENGTH,
   KERNEL_PUBLIC_CALL_STACK_LENGTH,
-  STATE_READS_LENGTH,
-  STATE_TRANSITIONS_LENGTH,
+  KERNEL_PUBLIC_DATA_READS_LENGTH,
+  KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH,
+  NEW_L2_TO_L1_MSGS_LENGTH,
 } from '../constants.js';
 import { FunctionData } from '../function_data.js';
+import { Fr, PublicDataTransition } from '../../cbind/types.js';
+import { BufferReader, TupleOf } from '@aztec/foundation/serialize';
+import { assertLength, tupleTimes } from '../../index.js';
+import { EthAddress, AztecAddress } from '../index.js';
 
 // Not to be confused with ContractDeploymentData (maybe think of better names)
 
@@ -144,11 +147,11 @@ export class PublicDataRead {
 /**
  * Write operations on the public state tree including the previous value.
  */
-export class PublicDataTransition {
+export class PublicDataUpdateRequest {
   constructor(public readonly leafIndex: Fr, public readonly oldValue: Fr, public readonly newValue: Fr) {}
 
   static from(args: { leafIndex: Fr; oldValue: Fr; newValue: Fr }) {
-    return new PublicDataTransition(args.leafIndex, args.oldValue, args.newValue);
+    return new PublicDataUpdateRequest(args.leafIndex, args.oldValue, args.newValue);
   }
 
   toBuffer() {
@@ -157,11 +160,11 @@ export class PublicDataTransition {
 
   static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
-    return new PublicDataTransition(reader.readFr(), reader.readFr(), reader.readFr());
+    return new PublicDataUpdateRequest(reader.readFr(), reader.readFr(), reader.readFr());
   }
 
   static empty() {
-    return new PublicDataTransition(Fr.ZERO, Fr.ZERO, Fr.ZERO);
+    return new PublicDataUpdateRequest(Fr.ZERO, Fr.ZERO, Fr.ZERO);
   }
 }
 
@@ -174,21 +177,21 @@ export class CombinedAccumulatedData {
     public newNullifiers: TupleOf<Fr, typeof KERNEL_NEW_NULLIFIERS_LENGTH>,
     public privateCallStack: TupleOf<Fr, typeof KERNEL_PRIVATE_CALL_STACK_LENGTH>,
     public publicCallStack: TupleOf<Fr, typeof KERNEL_PUBLIC_CALL_STACK_LENGTH>,
-    public l1MsgStack: TupleOf<Fr, typeof KERNEL_L1_MSG_STACK_LENGTH>,
+    public newL2ToL1Msgs: TupleOf<Fr, typeof NEW_L2_TO_L1_MSGS_LENGTH>,
     public newContracts: TupleOf<NewContractData, typeof KERNEL_NEW_CONTRACTS_LENGTH>,
     public optionallyRevealedData: TupleOf<OptionallyRevealedData, typeof KERNEL_OPTIONALLY_REVEALED_DATA_LENGTH>,
-    public stateTransitions: TupleOf<PublicDataTransition, typeof STATE_TRANSITIONS_LENGTH>,
-    public stateReads: TupleOf<PublicDataRead, typeof STATE_READS_LENGTH>,
+    public publicDataUpdateRequests: TupleOf<PublicDataUpdateRequest, typeof KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH>,
+    public publicDataReads: TupleOf<PublicDataRead, typeof KERNEL_PUBLIC_DATA_READS_LENGTH>,
   ) {
     assertLength(this, 'newCommitments', KERNEL_NEW_COMMITMENTS_LENGTH);
     assertLength(this, 'newNullifiers', KERNEL_NEW_NULLIFIERS_LENGTH);
     assertLength(this, 'privateCallStack', KERNEL_PRIVATE_CALL_STACK_LENGTH);
     assertLength(this, 'publicCallStack', KERNEL_PUBLIC_CALL_STACK_LENGTH);
-    assertLength(this, 'l1MsgStack', KERNEL_L1_MSG_STACK_LENGTH);
+    assertLength(this, 'newL2ToL1Msgs', KERNEL_NEW_L2_TO_L1_MSGS_LENGTH);
     assertLength(this, 'newContracts', KERNEL_NEW_CONTRACTS_LENGTH);
     assertLength(this, 'optionallyRevealedData', KERNEL_OPTIONALLY_REVEALED_DATA_LENGTH);
-    assertLength(this, 'stateTransitions', STATE_TRANSITIONS_LENGTH);
-    assertLength(this, 'stateReads', STATE_READS_LENGTH);
+    assertLength(this, 'publicDataUpdateRequests', KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH);
+    assertLength(this, 'publicDataReads', KERNEL_PUBLIC_DATA_READS_LENGTH);
   }
 
   toBuffer() {
@@ -200,11 +203,11 @@ export class CombinedAccumulatedData {
       this.newNullifiers,
       this.privateCallStack,
       this.publicCallStack,
-      this.l1MsgStack,
+      this.newL2ToL1Msgs,
       this.newContracts,
       this.optionallyRevealedData,
-      this.stateTransitions,
-      this.stateReads,
+      this.publicDataUpdateRequests,
+      this.publicDataReads,
     );
   }
 
@@ -222,11 +225,11 @@ export class CombinedAccumulatedData {
       reader.readArray(KERNEL_NEW_NULLIFIERS_LENGTH, Fr),
       reader.readArray(KERNEL_PRIVATE_CALL_STACK_LENGTH, Fr),
       reader.readArray(KERNEL_PUBLIC_CALL_STACK_LENGTH, Fr),
-      reader.readArray(KERNEL_L1_MSG_STACK_LENGTH, Fr),
+      reader.readArray(KERNEL_NEW_L2_TO_L1_MSGS_LENGTH, Fr),
       reader.readArray(KERNEL_NEW_CONTRACTS_LENGTH, NewContractData),
       reader.readArray(KERNEL_OPTIONALLY_REVEALED_DATA_LENGTH, OptionallyRevealedData),
-      reader.readArray(STATE_TRANSITIONS_LENGTH, PublicDataTransition),
-      reader.readArray(STATE_READS_LENGTH, PublicDataRead),
+      reader.readArray(KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH, PublicDataUpdateRequest),
+      reader.readArray(KERNEL_PUBLIC_DATA_READS_LENGTH, PublicDataRead),
     );
   }
 
@@ -239,11 +242,11 @@ export class CombinedAccumulatedData {
       tupleTimes(KERNEL_NEW_NULLIFIERS_LENGTH, Fr.zero),
       tupleTimes(KERNEL_PRIVATE_CALL_STACK_LENGTH, Fr.zero),
       tupleTimes(KERNEL_PUBLIC_CALL_STACK_LENGTH, Fr.zero),
-      tupleTimes(KERNEL_L1_MSG_STACK_LENGTH, Fr.zero),
+      tupleTimes(KERNEL_NEW_L2_TO_L1_MSGS_LENGTH, Fr.zero),
       tupleTimes(KERNEL_NEW_CONTRACTS_LENGTH, NewContractData.empty),
       tupleTimes(KERNEL_OPTIONALLY_REVEALED_DATA_LENGTH, OptionallyRevealedData.empty),
-      tupleTimes(STATE_TRANSITIONS_LENGTH, PublicDataTransition.empty),
-      tupleTimes(STATE_READS_LENGTH, PublicDataRead.empty),
+      tupleTimes(KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH, PublicDataTransition.empty),
+      tupleTimes(KERNEL_PUBLIC_DATA_READS_LENGTH, PublicDataRead.empty),
     );
   }
 }

@@ -1,19 +1,26 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2023 Aztec Labs.
 pragma solidity >=0.8.18;
 
 /**
  * @title UnverifiedDataEmitter
- * @author LHerskind
+ * @author Aztec Labs
  * @notice Used to log data on chain which are not required to advance the state but are needed for other purposes
  */
 contract UnverifiedDataEmitter {
   /**
    * @notice Links L1 and L2 addresses and stores the acir bytecode of the L2 contract
+   * @param l2BlockNum - The L2 block number that the information is related to
    * @param aztecAddress - The address of the L2 counterparty
    * @param portalAddress - The address of the L1 counterparty
    * @param acir - The acir bytecode of the L2 contract
    */
-  event ContractDeployment(uint256 indexed l2BlockNum, bytes32 indexed aztecAddress, address indexed portalAddress, bytes acir);
+  event ContractDeployment(
+    uint256 indexed l2BlockNum,
+    bytes32 indexed aztecAddress,
+    address indexed portalAddress,
+    bytes acir
+  );
 
   /**
    * @notice Used to share data which are not required to advance the state but are needed for other purposes

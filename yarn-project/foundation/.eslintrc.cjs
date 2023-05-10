@@ -1,8 +1,8 @@
 const fs = require('fs');
 
 const contexts = [
-  'TSMethodDefinition',
-  'MethodDefinition',
+  'TSMethodDefinition[accessibility=public]',
+  'MethodDefinition[accessibility=public]',
   'TSParameterProperty[accessibility=public]',
   'TSPropertySignature',
   'PropertySignature',
@@ -53,6 +53,12 @@ module.exports = {
           __dirname + '/../tsconfig.eslint.json',
           './tsconfig.json',
         ]),
+      },
+    },
+    {
+      files: '*.test.ts',
+      rules: {
+        'jsdoc/require-jsdoc': 'off',
       },
     },
   ],

@@ -1,11 +1,14 @@
+#include "init.hpp"
+
 #include "aztec3/circuits/abis/rollup/base/base_or_merge_rollup_public_inputs.hpp"
 #include "aztec3/constants.hpp"
 #include "aztec3/utils/circuit_errors.hpp"
+
 #include "barretenberg/crypto/pedersen_hash/pedersen.hpp"
 #include "barretenberg/crypto/sha256/sha256.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/stdlib/hash/pedersen/pedersen.hpp"
-#include "init.hpp"
+#include "barretenberg/stdlib/merkle_tree/memory_tree.hpp"
 
 #include <algorithm>
 #include <array>
@@ -15,6 +18,18 @@
 #include <vector>
 
 namespace aztec3::circuits::rollup::components {
+
+/**
+ * @brief Get the root of an empty tree of a given depth
+ *
+ * @param depth
+ * @return NT::fr
+ */
+NT::fr calculate_empty_tree_root(const size_t depth)
+{
+    stdlib::merkle_tree::MemoryTree const empty_tree = stdlib::merkle_tree::MemoryTree(depth);
+    return empty_tree.root();
+}
 
 /**
  * @brief Create an aggregation object for the proofs that are provided
@@ -80,32 +95,124 @@ void assert_equal_constants(DummyComposer& composer,
                        utils::CircuitErrorCode::CONSTANTS_MISMATCH);
 }
 
-// Generates a 512 bit input from right and left 256 bit hashes. Then computes the sha256, and splits the hash into two
-// field elements, a high and a low that is returned.
-std::array<fr, 2> compute_calldata_hash(std::array<abis::PreviousRollupData<NT>, 2> previous_rollup_data)
+/**
+ * @brief Computes the calldata hash for a base rollup
+ *
+ * @param kernel_data - 2 kernels
+ * @return std::array<fr, 2>
+ */
+std::array<fr, 2> compute_kernels_calldata_hash(std::array<abis::PreviousKernelData<NT>, 2> kernel_data)
+{
+    // Compute calldata hashes
+    // Consist of 2 kernels
+    // 8 commitments (4 per kernel) -> 8 fields
+    // 8 nullifiers (4 per kernel) -> 8 fields
+    // 8 public data update requests (4 per kernel) -> 16 fields
+    // 4 l2 -> l1 messages (2 per kernel) -> 4 fields
+    // 2 contract deployments (1 per kernel) -> 6 fields
+    auto const number_of_inputs =
+        (KERNEL_NEW_COMMITMENTS_LENGTH + KERNEL_NEW_NULLIFIERS_LENGTH + KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH * 2 +
+         KERNEL_NEW_L2_TO_L1_MSGS_LENGTH + KERNEL_NEW_CONTRACTS_LENGTH * 3) *
+        2;
+    std::array<NT::fr, number_of_inputs> calldata_hash_inputs;
+
+    for (size_t i = 0; i < 2; i++) {
+        auto new_commitments = kernel_data[i].public_inputs.end.new_commitments;
+        auto new_nullifiers = kernel_data[i].public_inputs.end.new_nullifiers;
+        auto public_data_update_requests = kernel_data[i].public_inputs.end.public_data_update_requests;
+        auto newL2ToL1msgs = kernel_data[i].public_inputs.end.new_l2_to_l1_msgs;
+
+        size_t offset = 0;
+
+        for (size_t j = 0; j < KERNEL_NEW_COMMITMENTS_LENGTH; j++) {
+            calldata_hash_inputs[offset + i * KERNEL_NEW_COMMITMENTS_LENGTH + j] = new_commitments[j];
+        }
+        offset += KERNEL_NEW_COMMITMENTS_LENGTH * 2;
+
+        for (size_t j = 0; j < KERNEL_NEW_NULLIFIERS_LENGTH; j++) {
+            calldata_hash_inputs[offset + i * KERNEL_NEW_NULLIFIERS_LENGTH + j] = new_nullifiers[j];
+        }
+        offset += KERNEL_NEW_NULLIFIERS_LENGTH * 2;
+
+        for (size_t j = 0; j < KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH; j++) {
+            calldata_hash_inputs[offset + i * KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH * 2 + j * 2] =
+                public_data_update_requests[j].leaf_index;
+            calldata_hash_inputs[offset + i * KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH * 2 + j * 2 + 1] =
+                public_data_update_requests[j].new_value;
+        }
+        offset += KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH * 2 * 2;
+
+        for (size_t j = 0; j < KERNEL_NEW_L2_TO_L1_MSGS_LENGTH; j++) {
+            calldata_hash_inputs[offset + i * KERNEL_NEW_L2_TO_L1_MSGS_LENGTH + j] = newL2ToL1msgs[j];
+        }
+        offset += KERNEL_NEW_L2_TO_L1_MSGS_LENGTH * 2;
+
+        auto const contract_leaf = kernel_data[i].public_inputs.end.new_contracts[0];
+        calldata_hash_inputs[offset + i] = contract_leaf.is_empty() ? NT::fr::zero() : contract_leaf.hash();
+
+        offset += KERNEL_NEW_CONTRACTS_LENGTH * 2;
+
+        auto new_contracts = kernel_data[i].public_inputs.end.new_contracts;
+        calldata_hash_inputs[offset + i * 2] = new_contracts[0].contract_address;
+        calldata_hash_inputs[offset + i * 2 + 1] = new_contracts[0].portal_contract_address;
+    }
+
+    constexpr auto num_bytes = calldata_hash_inputs.size() * 32;
+    std::array<uint8_t, num_bytes> calldata_hash_inputs_bytes;
+    // Convert all into a buffer, then copy into the array, then hash
+    for (size_t i = 0; i < calldata_hash_inputs.size(); i++) {
+        auto as_bytes = calldata_hash_inputs[i].to_buffer();
+
+        auto offset = i * 32;
+        std::copy(as_bytes.begin(), as_bytes.end(), calldata_hash_inputs_bytes.begin() + offset);
+    }
+
+    std::vector<uint8_t> const calldata_hash_inputs_bytes_vec(calldata_hash_inputs_bytes.begin(),
+                                                              calldata_hash_inputs_bytes.end());
+
+    auto h = sha256::sha256(calldata_hash_inputs_bytes_vec);
+
+    // Split the hash into two fields, a high and a low
+    std::array<uint8_t, 32> buf_1;
+    std::array<uint8_t, 32> buf_2;
+    for (uint8_t i = 0; i < 16; i++) {
+        buf_1[i] = 0;
+        buf_1[16 + i] = h[i];
+        buf_2[i] = 0;
+        buf_2[16 + i] = h[i + 16];
+    }
+    auto high = fr::serialize_from_buffer(buf_1.data());
+    auto low = fr::serialize_from_buffer(buf_2.data());
+
+    return std::array<NT::fr, 2>{ high, low };
+}
+
+/**
+ * @brief From two calldata hashes, compute a single calldata hash
+ *
+ * @param calldata_hashes takes the 4 elements of 2 calldata hashes [high, low, high, low]
+ * @return std::array<fr, 2>
+ */
+std::array<fr, 2> compute_calldata_hash(std::array<fr, 4> calldata_hashes)
 {
     // Generate a 512 bit input from right and left 256 bit hashes
     constexpr auto num_bytes = 2 * 32;
     std::array<uint8_t, num_bytes> calldata_hash_input_bytes;
-    for (uint8_t i = 0; i < 2; i++) {
-        std::array<fr, 2> calldata_hash_fr = previous_rollup_data[i].base_or_merge_rollup_public_inputs.calldata_hash;
-
-        auto high_buffer = calldata_hash_fr[0].to_buffer();
-        auto low_buffer = calldata_hash_fr[1].to_buffer();
-
-        for (uint8_t j = 0; j < 16; ++j) {
-            calldata_hash_input_bytes[i * 32 + j] = high_buffer[16 + j];
-            calldata_hash_input_bytes[i * 32 + 16 + j] = low_buffer[16 + j];
+    for (uint8_t i = 0; i < 4; i++) {
+        auto half = calldata_hashes[i].to_buffer();
+        for (uint8_t j = 0; j < 16; j++) {
+            calldata_hash_input_bytes[i * 16 + j] = half[16 + j];
         }
     }
 
     // Compute the sha256
-    std::vector<uint8_t> calldata_hash_input_bytes_vec(calldata_hash_input_bytes.begin(),
-                                                       calldata_hash_input_bytes.end());
+    std::vector<uint8_t> const calldata_hash_input_bytes_vec(calldata_hash_input_bytes.begin(),
+                                                             calldata_hash_input_bytes.end());
     auto h = sha256::sha256(calldata_hash_input_bytes_vec);
 
     // Split the hash into two fields, a high and a low
-    std::array<uint8_t, 32> buf_1, buf_2;
+    std::array<uint8_t, 32> buf_1;
+    std::array<uint8_t, 32> buf_2;
     for (uint8_t i = 0; i < 16; i++) {
         buf_1[i] = 0;
         buf_1[16 + i] = h[i];
@@ -116,6 +223,20 @@ std::array<fr, 2> compute_calldata_hash(std::array<abis::PreviousRollupData<NT>,
     auto low = fr::serialize_from_buffer(buf_2.data());
 
     return { high, low };
+}
+
+/**
+ * @brief From two previous rollup data, compute a single calldata hash
+ *
+ * @param previous_rollup_data
+ * @return std::array<fr, 2>
+ */
+std::array<fr, 2> compute_calldata_hash(std::array<abis::PreviousRollupData<NT>, 2> previous_rollup_data)
+{
+    return compute_calldata_hash({ previous_rollup_data[0].base_or_merge_rollup_public_inputs.calldata_hash[0],
+                                   previous_rollup_data[0].base_or_merge_rollup_public_inputs.calldata_hash[1],
+                                   previous_rollup_data[1].base_or_merge_rollup_public_inputs.calldata_hash[0],
+                                   previous_rollup_data[1].base_or_merge_rollup_public_inputs.calldata_hash[1] });
 }
 
 // asserts that the end snapshot of previous_rollup 0 equals the start snapshot of previous_rollup 1 (i.e. ensure they
@@ -138,4 +259,4 @@ void assert_prev_rollups_follow_on_from_each_other(DummyComposer& composer,
                        utils::CircuitErrorCode::CONTRACT_TREE_SNAPSHOT_MISMATCH);
 }
 
-} // namespace aztec3::circuits::rollup::components
+}  // namespace aztec3::circuits::rollup::components

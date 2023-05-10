@@ -1,94 +1,49 @@
-import { CallContext, FunctionData, StateRead, StateTransition, TxRequest } from '@aztec/circuits.js';
-import { AztecAddress, EthAddress, Fr } from '@aztec/foundation';
-import { createDebugLogger } from '@aztec/foundation/log';
-import { select_return_flattened as selectPublicWitnessFlattened } from '@noir-lang/noir_util_wasm';
-import { acvm, fromACVMField, toACVMField, toACVMWitness } from '../acvm/index.js';
-import { PublicDB } from './db.js';
-import { StateActionsCollector } from './state_actions.js';
+import {
+  AztecAddress,
+  CallContext,
+  Fr,
+  FunctionData,
+  ContractStorageRead,
+  ContractStorageUpdateRequest,
+  TxRequest,
+} from '@aztec/circuits.js';
 
+/**
+ * The public function execution result.
+ */
 export interface PublicExecutionResult {
+  /** The execution that triggered this result. */
+  execution: PublicExecution;
+  /** The return values of the function. */
   returnValues: Fr[];
-  stateReads: StateRead[];
-  stateTransitions: StateTransition[];
+  /** The contract storage reads performed by the function. */
+  contractStorageReads: ContractStorageRead[];
+  /** The contract storage update requests performed by the function. */
+  contractStorageUpdateRequests: ContractStorageUpdateRequest[];
+  /** The results of nested calls. */
+  nestedExecutions: this[];
 }
 
-function getInitialWitness(args: Fr[], callContext: CallContext, witnessStartIndex = 1) {
-  return toACVMWitness(witnessStartIndex, [
-    callContext.isContractDeployment,
-    callContext.isDelegateCall,
-    callContext.isStaticCall,
-    callContext.msgSender,
-    callContext.portalContractAddress,
-    callContext.storageContractAddress,
-    ...args,
-  ]);
+/**
+ * The execution of a public function.
+ */
+export interface PublicExecution {
+  /** Address of the contract being executed. */
+  contractAddress: AztecAddress;
+  /** Function of the contract being called. */
+  functionData: FunctionData;
+  /** Arguments for the call. */
+  args: Fr[];
+  /** Context of the call. */
+  callContext: CallContext;
 }
 
-export class PublicExecution {
-  constructor(
-    public readonly db: PublicDB,
-    public readonly publicFunctionBytecode: Buffer,
-    public readonly contractAddress: AztecAddress,
-    public readonly functionData: FunctionData,
-    public readonly args: Fr[],
-    public readonly callContext: CallContext,
-
-    private log = createDebugLogger('aztec:simulator:public-execution'),
-  ) {}
-
-  static fromTransactionRequest(db: PublicDB, request: TxRequest, bytecode: Buffer, portalContractAddress: EthAddress) {
-    const contractAddress = request.to;
-    const callContext: CallContext = new CallContext(
-      request.from,
-      request.to,
-      portalContractAddress,
-      false,
-      false,
-      false,
-    );
-    return new this(db, bytecode, contractAddress, request.functionData, request.args, callContext);
-  }
-
-  public async run(): Promise<PublicExecutionResult> {
-    const selectorHex = this.functionData.functionSelectorBuffer.toString('hex');
-    this.log(`Executing public external function ${this.contractAddress.toShortString()}:${selectorHex}`);
-
-    const acir = this.publicFunctionBytecode;
-    const initialWitness = getInitialWitness(this.args, this.callContext);
-    const stateActions = new StateActionsCollector(this.db, this.contractAddress);
-
-    const notAvailable = () => Promise.reject(`Built-in not available for public execution simulation`);
-
-    const { partialWitness } = await acvm(acir, initialWitness, {
-      getSecretKey: notAvailable,
-      getNotes2: notAvailable,
-      getRandomField: notAvailable,
-      notifyCreatedNote: notAvailable,
-      notifyNullifiedNote: notAvailable,
-      callPrivateFunction: notAvailable,
-      viewNotesPage: notAvailable,
-      storageRead: async ([slot]) => {
-        const storageSlot = fromACVMField(slot);
-        const value = await stateActions.read(storageSlot);
-        this.log(`Oracle storage read: slot=${storageSlot.toShortString()} value=${value.toString()}`);
-        return [toACVMField(value)];
-      },
-      storageWrite: async ([slot, value]) => {
-        const storageSlot = fromACVMField(slot);
-        const newValue = fromACVMField(value);
-        await stateActions.write(storageSlot, newValue);
-        this.log(`Oracle storage write: slot=${storageSlot.toShortString()} value=${value.toString()}`);
-        return [toACVMField(newValue)];
-      },
-    });
-
-    const returnValues = selectPublicWitnessFlattened(acir, partialWitness).map(fromACVMField);
-    const [stateReads, stateTransitions] = stateActions.collect();
-
-    return {
-      stateReads,
-      stateTransitions,
-      returnValues,
-    };
-  }
+/**
+ * Returns whether the input is a public execution.
+ * @param input - Input to check.
+ * @returns Whether it's a public execution.
+ */
+export function isPublicExecution(input: PublicExecution | TxRequest): input is PublicExecution {
+  const execution = input as PublicExecution;
+  return !!execution.callContext && !!execution.args && !!execution.contractAddress && !!execution.functionData;
 }

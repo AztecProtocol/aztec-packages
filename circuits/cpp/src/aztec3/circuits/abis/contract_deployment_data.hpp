@@ -1,11 +1,12 @@
 #pragma once
+#include <aztec3/constants.hpp>
+#include <aztec3/utils/types/circuit_types.hpp>
+#include <aztec3/utils/types/convert.hpp>
+#include <aztec3/utils/types/native_types.hpp>
+
 #include <barretenberg/crypto/generators/generator_data.hpp>
 #include <barretenberg/stdlib/hash/pedersen/pedersen.hpp>
 #include <barretenberg/stdlib/primitives/witness/witness.hpp>
-#include <aztec3/utils/types/circuit_types.hpp>
-#include <aztec3/utils/types/convert.hpp>
-#include <aztec3/constants.hpp>
-#include <aztec3/utils/types/native_types.hpp>
 
 namespace aztec3::circuits::abis {
 
@@ -15,9 +16,9 @@ using plonk::stdlib::witness_t;
 using std::is_same;
 
 template <typename NCT> struct ContractDeploymentData {
-    typedef typename NCT::address address;
-    typedef typename NCT::fr fr;
-    typedef typename NCT::boolean boolean;
+    using address = typename NCT::address;
+    using fr = typename NCT::fr;
+    using boolean = typename NCT::boolean;
 
     fr constructor_vk_hash = 0;
     fr function_tree_root = 0;
@@ -89,7 +90,7 @@ template <typename NCT> struct ContractDeploymentData {
 
     fr hash() const
     {
-        std::vector<fr> inputs = {
+        std::vector<fr> const inputs = {
             constructor_vk_hash,
             function_tree_root,
             contract_address_salt,
@@ -128,4 +129,4 @@ template <typename NCT> std::ostream& operator<<(std::ostream& os, ContractDeplo
               << "portal_contract_address: " << data.portal_contract_address << "\n";
 }
 
-} // namespace aztec3::circuits::abis
+}  // namespace aztec3::circuits::abis

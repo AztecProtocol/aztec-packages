@@ -1,8 +1,7 @@
 // Jest Snapshot v1, https://goo.gl/fbAQLP
 
-exports[`structs/kernel serializes and prints previous_kernel_data 1`] = `
-"public_inputs: end:
-aggregation_object:
+exports[`structs/kernel serializes and prints CombinedAccumulatedData 1`] = `
+"aggregation_object:
 P0: { 0x1, 0x2 }
 P1: { 0x101, 0x102 }
 public_inputs: [
@@ -24,8 +23,8 @@ private_call_stack:
 [ 0x301 0x302 0x303 0x304 0x305 0x306 0x307 0x308 ]
 public_call_stack:
 [ 0x401 0x402 0x403 0x404 0x405 0x406 0x407 0x408 ]
-l1_msg_stack:
-[ 0x501 0x502 0x503 0x504 ]
+new_l2_to_l1_msgs:
+[ 0x501 0x502 ]
 new_contracts:
 [ contract_address: 0x601
 portal_contract_address: 0x202020202020202020202020202020202020202
@@ -89,7 +88,7 @@ pay_fee_from_public_l2: 0
 called_from_l1: 1
 called_from_public_l2: 0
  ]
-state_transitions:
+public_data_update_requests:
 [ leaf_index: 0x801
 old_value: 0x802
 new_value: 0x803
@@ -103,7 +102,150 @@ new_value: 0x805
 old_value: 0x805
 new_value: 0x806
  ]
-state_reads:
+public_data_reads:
+[ leaf_index: 0x901
+value: 0x902
+ leaf_index: 0x902
+value: 0x903
+ leaf_index: 0x903
+value: 0x904
+ leaf_index: 0x904
+value: 0x905
+ ]
+"
+`;
+
+exports[`structs/kernel serializes and prints EcdsaSignature 1`] = `"{ 0101010101010101010101010101010101010101010101010101010101010101, 0202020202020202020202020202020202020202020202020202020202020202, 3 }"`;
+
+exports[`structs/kernel serializes and prints SignedTxRequest 1`] = `
+"tx_request:
+from: 0x1
+to: 0x11
+function_data: function_selector: 257
+is_private: 1
+is_constructor: 1
+
+args: [ 0x201 0x202 0x203 0x204 0x205 0x206 0x207 0x208 ]
+nonce: 0x301
+tx_context: is_fee_payment_tx: 0
+is_rebate_payment_tx: 0
+is_contract_deployment_tx: 1
+contract_deployment_data: 
+constructor_vk_hash: 0x401
+function_tree_root: 0x402
+contract_address_salt: 0x403
+portal_contract_address: 0x404040404040404040404040404040404040404
+
+chain_id: 0x501
+
+signature: { 0101010101010101010101010101010101010101010101010101010101010101, 0202020202020202020202020202020202020202020202020202020202020202, 3 }
+"
+`;
+
+exports[`structs/kernel serializes and prints previous_kernel_data 1`] = `
+"public_inputs: end:
+aggregation_object:
+P0: { 0x1, 0x2 }
+P1: { 0x101, 0x102 }
+public_inputs: [
+ 0x3
+ 0x4
+ 0x5
+ 0x6
+]
+proof_witness_indices: [ 7 8 9 10 11 12 ]
+has_data: 0
+
+private_call_count: 0xd
+public_call_count: 0xe
+new_commitments:
+[ 0x101 0x102 0x103 0x104 ]
+new_nullifiers:
+[ 0x201 0x202 0x203 0x204 ]
+private_call_stack:
+[ 0x301 0x302 0x303 0x304 0x305 0x306 0x307 0x308 ]
+public_call_stack:
+[ 0x401 0x402 0x403 0x404 0x405 0x406 0x407 0x408 ]
+new_l2_to_l1_msgs:
+[ 0x501 0x502 ]
+new_contracts:
+[ contract_address: 0x601
+portal_contract_address: 0x202020202020202020202020202020202020202
+function_tree_root: 0x603
+ ]
+optionally_revealed_data:
+[ call_stack_item_hash: 0x701
+function_data:
+function_selector: 702
+is_private: 1
+is_constructor: 1
+
+emitted_events:
+[ 0x801 0x802 0x803 0x804 ]
+vk_hash: 0x703
+portal_contract_address: 0x404040404040404040404040404040404040404
+pay_fee_from_l1: 1
+pay_fee_from_public_l2: 0
+called_from_l1: 1
+called_from_public_l2: 0
+ call_stack_item_hash: 0x702
+function_data:
+function_selector: 703
+is_private: 1
+is_constructor: 1
+
+emitted_events:
+[ 0x802 0x803 0x804 0x805 ]
+vk_hash: 0x704
+portal_contract_address: 0x505050505050505050505050505050505050505
+pay_fee_from_l1: 1
+pay_fee_from_public_l2: 0
+called_from_l1: 1
+called_from_public_l2: 0
+ call_stack_item_hash: 0x703
+function_data:
+function_selector: 704
+is_private: 1
+is_constructor: 1
+
+emitted_events:
+[ 0x803 0x804 0x805 0x806 ]
+vk_hash: 0x705
+portal_contract_address: 0x606060606060606060606060606060606060606
+pay_fee_from_l1: 1
+pay_fee_from_public_l2: 0
+called_from_l1: 1
+called_from_public_l2: 0
+ call_stack_item_hash: 0x704
+function_data:
+function_selector: 705
+is_private: 1
+is_constructor: 1
+
+emitted_events:
+[ 0x804 0x805 0x806 0x807 ]
+vk_hash: 0x706
+portal_contract_address: 0x707070707070707070707070707070707070707
+pay_fee_from_l1: 1
+pay_fee_from_public_l2: 0
+called_from_l1: 1
+called_from_public_l2: 0
+ ]
+public_data_update_requests:
+[ leaf_index: 0x801
+old_value: 0x802
+new_value: 0x803
+ leaf_index: 0x802
+old_value: 0x803
+new_value: 0x804
+ leaf_index: 0x803
+old_value: 0x804
+new_value: 0x805
+ leaf_index: 0x804
+old_value: 0x805
+new_value: 0x806
+ ]
+public_data_reads:
 [ leaf_index: 0x901
 value: 0x902
  leaf_index: 0x902
@@ -118,7 +260,8 @@ constants:
 historic_tree_roots: private_historic_tree_roots: private_data_tree_root: 0x101
 nullifier_tree_root: 0x102
 contract_tree_root: 0x103
-private_kernel_vk_tree_root: 0x104
+l1_to_l2_messages_tree_root: 0x104
+private_kernel_vk_tree_root: 0x105
 
 
 tx_context: is_fee_payment_tx: 0
@@ -171,7 +314,7 @@ portal_contract_address: 0x404040404040404040404040404040404040404
 
 chain_id: 0x501
 
-signature: { 0101010101010101010101010101010101010101010101010101010101010101, 0202020202020202020202020202020202020202020202020202020202020202 }
+signature: { 0101010101010101010101010101010101010101010101010101010101010101, 0202020202020202020202020202020202020202020202020202020202020202, 3 }
 
 previous_kernel:
 public_inputs: end:
@@ -197,8 +340,8 @@ private_call_stack:
 [ 0x1301 0x1302 0x1303 0x1304 0x1305 0x1306 0x1307 0x1308 ]
 public_call_stack:
 [ 0x1401 0x1402 0x1403 0x1404 0x1405 0x1406 0x1407 0x1408 ]
-l1_msg_stack:
-[ 0x1501 0x1502 0x1503 0x1504 ]
+new_l2_to_l1_msgs:
+[ 0x1501 0x1502 ]
 new_contracts:
 [ contract_address: 0x1601
 portal_contract_address: 0x202020202020202020202020202020202020202
@@ -262,7 +405,7 @@ pay_fee_from_public_l2: 0
 called_from_l1: 1
 called_from_public_l2: 0
  ]
-state_transitions:
+public_data_update_requests:
 [ leaf_index: 0x1801
 old_value: 0x1802
 new_value: 0x1803
@@ -276,7 +419,7 @@ new_value: 0x1805
 old_value: 0x1805
 new_value: 0x1806
  ]
-state_reads:
+public_data_reads:
 [ leaf_index: 0x1901
 value: 0x1902
  leaf_index: 0x1902
@@ -291,7 +434,8 @@ constants:
 historic_tree_roots: private_historic_tree_roots: private_data_tree_root: 0x1101
 nullifier_tree_root: 0x1102
 contract_tree_root: 0x1103
-private_kernel_vk_tree_root: 0x1104
+l1_to_l2_messages_tree_root: 0x1104
+private_kernel_vk_tree_root: 0x1105
 
 
 tx_context: is_fee_payment_tx: 0
@@ -341,14 +485,11 @@ new_commitments: [ 0x2411 0x2412 0x2413 0x2414 ]
 new_nullifiers: [ 0x2511 0x2512 0x2513 0x2514 ]
 private_call_stack: [ 0x2611 0x2612 0x2613 0x2614 ]
 public_call_stack: [ 0x2711 0x2712 0x2713 0x2714 ]
-l1_msg_stack: [ 0x2811 0x2812 ]
+new_l2_to_l1_msgs: [ 0x2811 0x2812 ]
 historic_private_data_tree_root: 0x3011
 historic_nullifier_tree_root: 0x3111
-contract_deployment_data: constructor_vk_hash: 0x1
-function_tree_root: 0x2
-contract_address_salt: 0x3
-portal_contract_address: 0x4
-
+historic_contract_tree_root: 0x2911
+historic_l1_to_l2_messages_tree_root: 0x3211
 contract_deployment_data: constructor_vk_hash: 0x1
 function_tree_root: 0x2
 contract_address_salt: 0x3
@@ -376,14 +517,11 @@ new_commitments: [ 0x2421 0x2422 0x2423 0x2424 ]
 new_nullifiers: [ 0x2521 0x2522 0x2523 0x2524 ]
 private_call_stack: [ 0x2621 0x2622 0x2623 0x2624 ]
 public_call_stack: [ 0x2721 0x2722 0x2723 0x2724 ]
-l1_msg_stack: [ 0x2821 0x2822 ]
+new_l2_to_l1_msgs: [ 0x2821 0x2822 ]
 historic_private_data_tree_root: 0x3021
 historic_nullifier_tree_root: 0x3121
-contract_deployment_data: constructor_vk_hash: 0x1
-function_tree_root: 0x2
-contract_address_salt: 0x3
-portal_contract_address: 0x4
-
+historic_contract_tree_root: 0x2921
+historic_l1_to_l2_messages_tree_root: 0x3221
 contract_deployment_data: constructor_vk_hash: 0x1
 function_tree_root: 0x2
 contract_address_salt: 0x3
@@ -409,14 +547,11 @@ new_commitments: [ 0x2422 0x2423 0x2424 0x2425 ]
 new_nullifiers: [ 0x2522 0x2523 0x2524 0x2525 ]
 private_call_stack: [ 0x2622 0x2623 0x2624 0x2625 ]
 public_call_stack: [ 0x2722 0x2723 0x2724 0x2725 ]
-l1_msg_stack: [ 0x2822 0x2823 ]
+new_l2_to_l1_msgs: [ 0x2822 0x2823 ]
 historic_private_data_tree_root: 0x3022
 historic_nullifier_tree_root: 0x3122
-contract_deployment_data: constructor_vk_hash: 0x1
-function_tree_root: 0x2
-contract_address_salt: 0x3
-portal_contract_address: 0x4
-
+historic_contract_tree_root: 0x2922
+historic_l1_to_l2_messages_tree_root: 0x3222
 contract_deployment_data: constructor_vk_hash: 0x1
 function_tree_root: 0x2
 contract_address_salt: 0x3
@@ -442,14 +577,11 @@ new_commitments: [ 0x2423 0x2424 0x2425 0x2426 ]
 new_nullifiers: [ 0x2523 0x2524 0x2525 0x2526 ]
 private_call_stack: [ 0x2623 0x2624 0x2625 0x2626 ]
 public_call_stack: [ 0x2723 0x2724 0x2725 0x2726 ]
-l1_msg_stack: [ 0x2823 0x2824 ]
+new_l2_to_l1_msgs: [ 0x2823 0x2824 ]
 historic_private_data_tree_root: 0x3023
 historic_nullifier_tree_root: 0x3123
-contract_deployment_data: constructor_vk_hash: 0x1
-function_tree_root: 0x2
-contract_address_salt: 0x3
-portal_contract_address: 0x4
-
+historic_contract_tree_root: 0x2923
+historic_l1_to_l2_messages_tree_root: 0x3223
 contract_deployment_data: constructor_vk_hash: 0x1
 function_tree_root: 0x2
 contract_address_salt: 0x3
@@ -475,14 +607,11 @@ new_commitments: [ 0x2424 0x2425 0x2426 0x2427 ]
 new_nullifiers: [ 0x2524 0x2525 0x2526 0x2527 ]
 private_call_stack: [ 0x2624 0x2625 0x2626 0x2627 ]
 public_call_stack: [ 0x2724 0x2725 0x2726 0x2727 ]
-l1_msg_stack: [ 0x2824 0x2825 ]
+new_l2_to_l1_msgs: [ 0x2824 0x2825 ]
 historic_private_data_tree_root: 0x3024
 historic_nullifier_tree_root: 0x3124
-contract_deployment_data: constructor_vk_hash: 0x1
-function_tree_root: 0x2
-contract_address_salt: 0x3
-portal_contract_address: 0x4
-
+historic_contract_tree_root: 0x2924
+historic_l1_to_l2_messages_tree_root: 0x3224
 contract_deployment_data: constructor_vk_hash: 0x1
 function_tree_root: 0x2
 contract_address_salt: 0x3
@@ -540,8 +669,8 @@ private_call_stack:
 [ 0x301 0x302 0x303 0x304 0x305 0x306 0x307 0x308 ]
 public_call_stack:
 [ 0x401 0x402 0x403 0x404 0x405 0x406 0x407 0x408 ]
-l1_msg_stack:
-[ 0x501 0x502 0x503 0x504 ]
+new_l2_to_l1_msgs:
+[ 0x501 0x502 ]
 new_contracts:
 [ contract_address: 0x601
 portal_contract_address: 0x202020202020202020202020202020202020202
@@ -605,7 +734,7 @@ pay_fee_from_public_l2: 0
 called_from_l1: 1
 called_from_public_l2: 0
  ]
-state_transitions:
+public_data_update_requests:
 [ leaf_index: 0x801
 old_value: 0x802
 new_value: 0x803
@@ -619,7 +748,7 @@ new_value: 0x805
 old_value: 0x805
 new_value: 0x806
  ]
-state_reads:
+public_data_reads:
 [ leaf_index: 0x901
 value: 0x902
  leaf_index: 0x902
@@ -634,7 +763,8 @@ constants:
 historic_tree_roots: private_historic_tree_roots: private_data_tree_root: 0x101
 nullifier_tree_root: 0x102
 contract_tree_root: 0x103
-private_kernel_vk_tree_root: 0x104
+l1_to_l2_messages_tree_root: 0x104
+private_kernel_vk_tree_root: 0x105
 
 
 tx_context: is_fee_payment_tx: 0
@@ -676,8 +806,8 @@ private_call_stack:
 [ 0x301 0x302 0x303 0x304 0x305 0x306 0x307 0x308 ]
 public_call_stack:
 [ 0x401 0x402 0x403 0x404 0x405 0x406 0x407 0x408 ]
-l1_msg_stack:
-[ 0x501 0x502 0x503 0x504 ]
+new_l2_to_l1_msgs:
+[ 0x501 0x502 ]
 new_contracts:
 [ contract_address: 0x601
 portal_contract_address: 0x202020202020202020202020202020202020202
@@ -741,7 +871,7 @@ pay_fee_from_public_l2: 0
 called_from_l1: 1
 called_from_public_l2: 0
  ]
-state_transitions:
+public_data_update_requests:
 [ leaf_index: 0x801
 old_value: 0x802
 new_value: 0x803
@@ -755,7 +885,7 @@ new_value: 0x805
 old_value: 0x805
 new_value: 0x806
  ]
-state_reads:
+public_data_reads:
 [ leaf_index: 0x901
 value: 0x902
  leaf_index: 0x902
@@ -770,7 +900,8 @@ constants:
 historic_tree_roots: private_historic_tree_roots: private_data_tree_root: 0x101
 nullifier_tree_root: 0x102
 contract_tree_root: 0x103
-private_kernel_vk_tree_root: 0x104
+l1_to_l2_messages_tree_root: 0x104
+private_kernel_vk_tree_root: 0x105
 
 
 tx_context: is_fee_payment_tx: 0
@@ -803,11 +934,11 @@ public_call:
 call_stack_item:
 contract_address: 0x1001
 function_data: function_selector: 4098
-is_private: 1
-is_constructor: 1
+is_private: 0
+is_constructor: 0
 
 public_inputs: call_context: msg_sender: 0x1011
-storage_contract_address: 0x1012
+storage_contract_address: 0x1001
 portal_contract_address: 0x1313131313131313131313131313131313131313
 is_delegate_call: 0
 is_static_call: 0
@@ -816,7 +947,7 @@ is_contract_deployment: 0
 args: [ 0x1111 0x1112 0x1113 0x1114 0x1115 0x1116 0x1117 0x1118 ]
 return_values: [ 0x1211 0x1212 0x1213 0x1214 ]
 emitted_events: [ 0x1311 0x1312 0x1313 0x1314 ]
-state_transitions: [ storage_slot: 0x1411
+contract_storage_update_requests: [ storage_slot: 0x1411
 old_value: 0x1412
 new_value: 0x1413
  storage_slot: 0x1412
@@ -829,7 +960,7 @@ new_value: 0x1415
 old_value: 0x1415
 new_value: 0x1416
  ]
-state_reads: [ storage_slot: 0x1511
+contract_storage_reads: [ storage_slot: 0x1511
 current_value: 0x1512
  storage_slot: 0x1512
 current_value: 0x1513
@@ -838,8 +969,8 @@ current_value: 0x1514
  storage_slot: 0x1514
 current_value: 0x1515
  ]
-public_call_stack: [ 0x1611 0x1612 0x1613 0x1614 ]
-l1_msg_stack: [ 0x1711 0x1712 ]
+public_call_stack: [ 0x1f7ec2163f0e78b25257ca693b8606d5e6c940c36e2e77cd0aa1afbbf167e95a 0xbfa6e6e8892f68b806bca1fd20cf704dd5c449440b54ef2957a3d267342bda6 0x29618099103194faea4e2c1c2a77bbb165bfe89961c16369b797cfd38671a2ba 0x1403602a993517c978fd5ea6ea17c02280692bb4b84e38e1a92f8c6d1d7b858b ]
+new_l2_to_l1_msgs: [ 0x1711 0x1712 ]
 historic_public_data_tree_root: 0x1811
 prover_address: 0x1812
 
@@ -847,11 +978,11 @@ prover_address: 0x1812
 public_call_stack_preimages:
 [ contract_address: 0x1301
 function_data: function_selector: 1302
-is_private: 1
-is_constructor: 1
+is_private: 0
+is_constructor: 0
 
-public_inputs: call_context: msg_sender: 0x1311
-storage_contract_address: 0x1312
+public_inputs: call_context: msg_sender: 0x1001
+storage_contract_address: 0x1301
 portal_contract_address: 0x1313131313131313131313131313131313131313
 is_delegate_call: 0
 is_static_call: 0
@@ -860,7 +991,7 @@ is_contract_deployment: 0
 args: [ 0x1411 0x1412 0x1413 0x1414 0x1415 0x1416 0x1417 0x1418 ]
 return_values: [ 0x1511 0x1512 0x1513 0x1514 ]
 emitted_events: [ 0x1611 0x1612 0x1613 0x1614 ]
-state_transitions: [ storage_slot: 0x1711
+contract_storage_update_requests: [ storage_slot: 0x1711
 old_value: 0x1712
 new_value: 0x1713
  storage_slot: 0x1712
@@ -873,7 +1004,7 @@ new_value: 0x1715
 old_value: 0x1715
 new_value: 0x1716
  ]
-state_reads: [ storage_slot: 0x1811
+contract_storage_reads: [ storage_slot: 0x1811
 current_value: 0x1812
  storage_slot: 0x1812
 current_value: 0x1813
@@ -883,17 +1014,17 @@ current_value: 0x1814
 current_value: 0x1815
  ]
 public_call_stack: [ 0x1911 0x1912 0x1913 0x1914 ]
-l1_msg_stack: [ 0x1a11 0x1a12 ]
+new_l2_to_l1_msgs: [ 0x1a11 0x1a12 ]
 historic_public_data_tree_root: 0x1b11
 prover_address: 0x1b12
 
  contract_address: 0x1302
 function_data: function_selector: 1303
-is_private: 1
-is_constructor: 1
+is_private: 0
+is_constructor: 0
 
-public_inputs: call_context: msg_sender: 0x1312
-storage_contract_address: 0x1313
+public_inputs: call_context: msg_sender: 0x1001
+storage_contract_address: 0x1302
 portal_contract_address: 0x1414141414141414141414141414141414141414
 is_delegate_call: 0
 is_static_call: 0
@@ -902,7 +1033,7 @@ is_contract_deployment: 0
 args: [ 0x1412 0x1413 0x1414 0x1415 0x1416 0x1417 0x1418 0x1419 ]
 return_values: [ 0x1512 0x1513 0x1514 0x1515 ]
 emitted_events: [ 0x1612 0x1613 0x1614 0x1615 ]
-state_transitions: [ storage_slot: 0x1712
+contract_storage_update_requests: [ storage_slot: 0x1712
 old_value: 0x1713
 new_value: 0x1714
  storage_slot: 0x1713
@@ -915,7 +1046,7 @@ new_value: 0x1716
 old_value: 0x1716
 new_value: 0x1717
  ]
-state_reads: [ storage_slot: 0x1812
+contract_storage_reads: [ storage_slot: 0x1812
 current_value: 0x1813
  storage_slot: 0x1813
 current_value: 0x1814
@@ -925,17 +1056,17 @@ current_value: 0x1815
 current_value: 0x1816
  ]
 public_call_stack: [ 0x1912 0x1913 0x1914 0x1915 ]
-l1_msg_stack: [ 0x1a12 0x1a13 ]
+new_l2_to_l1_msgs: [ 0x1a12 0x1a13 ]
 historic_public_data_tree_root: 0x1b12
 prover_address: 0x1b13
 
  contract_address: 0x1303
 function_data: function_selector: 1304
-is_private: 1
-is_constructor: 1
+is_private: 0
+is_constructor: 0
 
-public_inputs: call_context: msg_sender: 0x1313
-storage_contract_address: 0x1314
+public_inputs: call_context: msg_sender: 0x1001
+storage_contract_address: 0x1303
 portal_contract_address: 0x1515151515151515151515151515151515151515
 is_delegate_call: 0
 is_static_call: 0
@@ -944,7 +1075,7 @@ is_contract_deployment: 0
 args: [ 0x1413 0x1414 0x1415 0x1416 0x1417 0x1418 0x1419 0x141a ]
 return_values: [ 0x1513 0x1514 0x1515 0x1516 ]
 emitted_events: [ 0x1613 0x1614 0x1615 0x1616 ]
-state_transitions: [ storage_slot: 0x1713
+contract_storage_update_requests: [ storage_slot: 0x1713
 old_value: 0x1714
 new_value: 0x1715
  storage_slot: 0x1714
@@ -957,7 +1088,7 @@ new_value: 0x1717
 old_value: 0x1717
 new_value: 0x1718
  ]
-state_reads: [ storage_slot: 0x1813
+contract_storage_reads: [ storage_slot: 0x1813
 current_value: 0x1814
  storage_slot: 0x1814
 current_value: 0x1815
@@ -967,17 +1098,17 @@ current_value: 0x1816
 current_value: 0x1817
  ]
 public_call_stack: [ 0x1913 0x1914 0x1915 0x1916 ]
-l1_msg_stack: [ 0x1a13 0x1a14 ]
+new_l2_to_l1_msgs: [ 0x1a13 0x1a14 ]
 historic_public_data_tree_root: 0x1b13
 prover_address: 0x1b14
 
  contract_address: 0x1304
 function_data: function_selector: 1305
-is_private: 1
-is_constructor: 1
+is_private: 0
+is_constructor: 0
 
-public_inputs: call_context: msg_sender: 0x1314
-storage_contract_address: 0x1315
+public_inputs: call_context: msg_sender: 0x1001
+storage_contract_address: 0x1304
 portal_contract_address: 0x1616161616161616161616161616161616161616
 is_delegate_call: 0
 is_static_call: 0
@@ -986,7 +1117,7 @@ is_contract_deployment: 0
 args: [ 0x1414 0x1415 0x1416 0x1417 0x1418 0x1419 0x141a 0x141b ]
 return_values: [ 0x1514 0x1515 0x1516 0x1517 ]
 emitted_events: [ 0x1614 0x1615 0x1616 0x1617 ]
-state_transitions: [ storage_slot: 0x1714
+contract_storage_update_requests: [ storage_slot: 0x1714
 old_value: 0x1715
 new_value: 0x1716
  storage_slot: 0x1715
@@ -999,7 +1130,7 @@ new_value: 0x1718
 old_value: 0x1718
 new_value: 0x1719
  ]
-state_reads: [ storage_slot: 0x1814
+contract_storage_reads: [ storage_slot: 0x1814
 current_value: 0x1815
  storage_slot: 0x1815
 current_value: 0x1816
@@ -1009,7 +1140,7 @@ current_value: 0x1817
 current_value: 0x1818
  ]
 public_call_stack: [ 0x1914 0x1915 0x1916 0x1917 ]
-l1_msg_stack: [ 0x1a14 0x1a15 ]
+new_l2_to_l1_msgs: [ 0x1a14 0x1a15 ]
 historic_public_data_tree_root: 0x1b14
 prover_address: 0x1b15
 
@@ -1044,17 +1175,17 @@ portal_contract_address: 0x404040404040404040404040404040404040404
 
 chain_id: 0x501
 
-signature: { 0101010101010101010101010101010101010101010101010101010101010101, 0202020202020202020202020202020202020202020202020202020202020202 }
+signature: { 0101010101010101010101010101010101010101010101010101010101010101, 0202020202020202020202020202020202020202020202020202020202020202, 3 }
 
 public_call:
 call_stack_item:
 contract_address: 0x101
 function_data: function_selector: 258
-is_private: 1
-is_constructor: 1
+is_private: 0
+is_constructor: 0
 
 public_inputs: call_context: msg_sender: 0x111
-storage_contract_address: 0x112
+storage_contract_address: 0x101
 portal_contract_address: 0x1313131313131313131313131313131313131313
 is_delegate_call: 0
 is_static_call: 0
@@ -1063,7 +1194,7 @@ is_contract_deployment: 0
 args: [ 0x211 0x212 0x213 0x214 0x215 0x216 0x217 0x218 ]
 return_values: [ 0x311 0x312 0x313 0x314 ]
 emitted_events: [ 0x411 0x412 0x413 0x414 ]
-state_transitions: [ storage_slot: 0x511
+contract_storage_update_requests: [ storage_slot: 0x511
 old_value: 0x512
 new_value: 0x513
  storage_slot: 0x512
@@ -1076,7 +1207,7 @@ new_value: 0x515
 old_value: 0x515
 new_value: 0x516
  ]
-state_reads: [ storage_slot: 0x611
+contract_storage_reads: [ storage_slot: 0x611
 current_value: 0x612
  storage_slot: 0x612
 current_value: 0x613
@@ -1085,8 +1216,8 @@ current_value: 0x614
  storage_slot: 0x614
 current_value: 0x615
  ]
-public_call_stack: [ 0x711 0x712 0x713 0x714 ]
-l1_msg_stack: [ 0x811 0x812 ]
+public_call_stack: [ 0x2d514733a86bef4a33e2d599e01f3a73cbb7c17c316dfc5009838ce546587685 0x80562236b9b336749abfe2e71c4d2688ef96a2e2c09accce5e34fbb61c5416a 0x2569d412538dd4259fd18e60c166f3adbd0ab124dca7175a8448a7afdc1e7c40 0x1acab4b3623e71d9b08ecc27a170d06e38d1fca67ee03b3efe92365ebfb250f4 ]
+new_l2_to_l1_msgs: [ 0x811 0x812 ]
 historic_public_data_tree_root: 0x911
 prover_address: 0x912
 
@@ -1094,11 +1225,11 @@ prover_address: 0x912
 public_call_stack_preimages:
 [ contract_address: 0x401
 function_data: function_selector: 402
-is_private: 1
-is_constructor: 1
+is_private: 0
+is_constructor: 0
 
-public_inputs: call_context: msg_sender: 0x411
-storage_contract_address: 0x412
+public_inputs: call_context: msg_sender: 0x101
+storage_contract_address: 0x401
 portal_contract_address: 0x1313131313131313131313131313131313131313
 is_delegate_call: 0
 is_static_call: 0
@@ -1107,7 +1238,7 @@ is_contract_deployment: 0
 args: [ 0x511 0x512 0x513 0x514 0x515 0x516 0x517 0x518 ]
 return_values: [ 0x611 0x612 0x613 0x614 ]
 emitted_events: [ 0x711 0x712 0x713 0x714 ]
-state_transitions: [ storage_slot: 0x811
+contract_storage_update_requests: [ storage_slot: 0x811
 old_value: 0x812
 new_value: 0x813
  storage_slot: 0x812
@@ -1120,7 +1251,7 @@ new_value: 0x815
 old_value: 0x815
 new_value: 0x816
  ]
-state_reads: [ storage_slot: 0x911
+contract_storage_reads: [ storage_slot: 0x911
 current_value: 0x912
  storage_slot: 0x912
 current_value: 0x913
@@ -1130,17 +1261,17 @@ current_value: 0x914
 current_value: 0x915
  ]
 public_call_stack: [ 0xa11 0xa12 0xa13 0xa14 ]
-l1_msg_stack: [ 0xb11 0xb12 ]
+new_l2_to_l1_msgs: [ 0xb11 0xb12 ]
 historic_public_data_tree_root: 0xc11
 prover_address: 0xc12
 
  contract_address: 0x402
 function_data: function_selector: 403
-is_private: 1
-is_constructor: 1
+is_private: 0
+is_constructor: 0
 
-public_inputs: call_context: msg_sender: 0x412
-storage_contract_address: 0x413
+public_inputs: call_context: msg_sender: 0x101
+storage_contract_address: 0x402
 portal_contract_address: 0x1414141414141414141414141414141414141414
 is_delegate_call: 0
 is_static_call: 0
@@ -1149,7 +1280,7 @@ is_contract_deployment: 0
 args: [ 0x512 0x513 0x514 0x515 0x516 0x517 0x518 0x519 ]
 return_values: [ 0x612 0x613 0x614 0x615 ]
 emitted_events: [ 0x712 0x713 0x714 0x715 ]
-state_transitions: [ storage_slot: 0x812
+contract_storage_update_requests: [ storage_slot: 0x812
 old_value: 0x813
 new_value: 0x814
  storage_slot: 0x813
@@ -1162,7 +1293,7 @@ new_value: 0x816
 old_value: 0x816
 new_value: 0x817
  ]
-state_reads: [ storage_slot: 0x912
+contract_storage_reads: [ storage_slot: 0x912
 current_value: 0x913
  storage_slot: 0x913
 current_value: 0x914
@@ -1172,17 +1303,17 @@ current_value: 0x915
 current_value: 0x916
  ]
 public_call_stack: [ 0xa12 0xa13 0xa14 0xa15 ]
-l1_msg_stack: [ 0xb12 0xb13 ]
+new_l2_to_l1_msgs: [ 0xb12 0xb13 ]
 historic_public_data_tree_root: 0xc12
 prover_address: 0xc13
 
  contract_address: 0x403
 function_data: function_selector: 404
-is_private: 1
-is_constructor: 1
+is_private: 0
+is_constructor: 0
 
-public_inputs: call_context: msg_sender: 0x413
-storage_contract_address: 0x414
+public_inputs: call_context: msg_sender: 0x101
+storage_contract_address: 0x403
 portal_contract_address: 0x1515151515151515151515151515151515151515
 is_delegate_call: 0
 is_static_call: 0
@@ -1191,7 +1322,7 @@ is_contract_deployment: 0
 args: [ 0x513 0x514 0x515 0x516 0x517 0x518 0x519 0x51a ]
 return_values: [ 0x613 0x614 0x615 0x616 ]
 emitted_events: [ 0x713 0x714 0x715 0x716 ]
-state_transitions: [ storage_slot: 0x813
+contract_storage_update_requests: [ storage_slot: 0x813
 old_value: 0x814
 new_value: 0x815
  storage_slot: 0x814
@@ -1204,7 +1335,7 @@ new_value: 0x817
 old_value: 0x817
 new_value: 0x818
  ]
-state_reads: [ storage_slot: 0x913
+contract_storage_reads: [ storage_slot: 0x913
 current_value: 0x914
  storage_slot: 0x914
 current_value: 0x915
@@ -1214,17 +1345,17 @@ current_value: 0x916
 current_value: 0x917
  ]
 public_call_stack: [ 0xa13 0xa14 0xa15 0xa16 ]
-l1_msg_stack: [ 0xb13 0xb14 ]
+new_l2_to_l1_msgs: [ 0xb13 0xb14 ]
 historic_public_data_tree_root: 0xc13
 prover_address: 0xc14
 
  contract_address: 0x404
 function_data: function_selector: 405
-is_private: 1
-is_constructor: 1
+is_private: 0
+is_constructor: 0
 
-public_inputs: call_context: msg_sender: 0x414
-storage_contract_address: 0x415
+public_inputs: call_context: msg_sender: 0x101
+storage_contract_address: 0x404
 portal_contract_address: 0x1616161616161616161616161616161616161616
 is_delegate_call: 0
 is_static_call: 0
@@ -1233,7 +1364,7 @@ is_contract_deployment: 0
 args: [ 0x514 0x515 0x516 0x517 0x518 0x519 0x51a 0x51b ]
 return_values: [ 0x614 0x615 0x616 0x617 ]
 emitted_events: [ 0x714 0x715 0x716 0x717 ]
-state_transitions: [ storage_slot: 0x814
+contract_storage_update_requests: [ storage_slot: 0x814
 old_value: 0x815
 new_value: 0x816
  storage_slot: 0x815
@@ -1246,7 +1377,7 @@ new_value: 0x818
 old_value: 0x818
 new_value: 0x819
  ]
-state_reads: [ storage_slot: 0x914
+contract_storage_reads: [ storage_slot: 0x914
 current_value: 0x915
  storage_slot: 0x915
 current_value: 0x916
@@ -1256,7 +1387,7 @@ current_value: 0x917
 current_value: 0x918
  ]
 public_call_stack: [ 0xa14 0xa15 0xa16 0xa17 ]
-l1_msg_stack: [ 0xb14 0xb15 ]
+new_l2_to_l1_msgs: [ 0xb14 0xb15 ]
 historic_public_data_tree_root: 0xc14
 prover_address: 0xc15
 

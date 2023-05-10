@@ -8,13 +8,16 @@ import {
   TxContext,
   TxRequest,
 } from '@aztec/circuits.js';
-import { AztecAddress, EthAddress, Fr } from '@aztec/foundation';
+
 import { ZkTokenContractAbi } from '@aztec/noir-contracts/examples';
 import { mock } from 'jest-mock-extended';
 import { encodeArguments } from '../abi_coder/index.js';
 import { DBOracle } from './db_oracle.js';
 import { AcirSimulator } from './simulator.js';
 import { NoirPoint, toPublicKey } from '../utils.js';
+import { Fr } from '@aztec/foundation/fields';
+import { EthAddress } from '@aztec/foundation/eth-address';
+import { AztecAddress } from '@aztec/foundation/aztec-address';
 
 describe('Unconstrained Execution test suite', () => {
   let bbWasm: BarretenbergWasm;
@@ -33,15 +36,15 @@ describe('Unconstrained Execution test suite', () => {
   describe('zk token contract', () => {
     let currentNonce = 0n;
 
-    const contractDeploymentData = new ContractDeploymentData(Fr.ZERO, Fr.ZERO, Fr.ZERO, EthAddress.ZERO);
+    const contractDeploymentData = ContractDeploymentData.empty();
     const txContext = new TxContext(false, false, false, contractDeploymentData);
 
     let ownerPk: Buffer;
     let owner: NoirPoint;
 
-    function buildNote(amount: bigint, owner: NoirPoint) {
+    const buildNote = (amount: bigint, owner: NoirPoint) => {
       return [new Fr(1n), new Fr(currentNonce++), new Fr(owner.x), new Fr(owner.y), Fr.random(), new Fr(amount)];
-    }
+    };
 
     beforeAll(() => {
       ownerPk = Buffer.from('5e30a2f886b4b6a11aea03bf4910fbd5b24e61aa27ea4d05c393b3ab592a8d33', 'hex');
@@ -57,7 +60,7 @@ describe('Unconstrained Execution test suite', () => {
       const preimages = [...Array(5).fill(buildNote(1n, owner)), ...Array(2).fill(buildNote(2n, owner))];
       // TODO for this we need that noir siloes the commitment the same way as the kernel does, to do merkle membership
 
-      const historicRoots = new PrivateHistoricTreeRoots(new Fr(0n), new Fr(0n), new Fr(0n), new Fr(0n));
+      const historicRoots = PrivateHistoricTreeRoots.empty();
 
       oracle.getNotes.mockImplementation((_, __, limit: number, offset: number) => {
         const notes = preimages.slice(offset, offset + limit);
@@ -78,7 +81,7 @@ describe('Unconstrained Execution test suite', () => {
         encodeArguments(abi, [owner], false),
         Fr.random(),
         txContext,
-        new Fr(0n),
+        Fr.ZERO,
       );
 
       const result = await acirSimulator.runUnconstrained(

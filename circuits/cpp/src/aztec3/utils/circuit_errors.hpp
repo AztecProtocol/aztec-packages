@@ -49,16 +49,17 @@ enum CircuitErrorCode : uint16_t {
     PUBLIC_KERNEL__PUBLIC_CALL_STACK_INVALID_MSG_SENDER = 3020,
     PUBLIC_KERNEL__PUBLIC_CALL_STACK_INVALID_STORAGE_ADDRESS = 3021,
     PUBLIC_KERNEL__PUBLIC_CALL_STACK_INVALID_PORTAL_ADDRESS = 3022,
-    PUBLIC_KERNEL__PUBLIC_CALL_STACK_TRANSITIONS_PROHIBITED_FOR_STATIC_CALL = 3022,
+    PUBLIC_KERNEL__PUBLIC_CALL_STACK_CONTRACT_STORAGE_UPDATES_PROHIBITED_FOR_STATIC_CALL = 3022,
     PUBLIC_KERNEL__CALL_CONTEXT_INVALID_STORAGE_ADDRESS_FOR_DELEGATE_CALL = 3023,
-    PUBLIC_KERNEL__CALL_CONTEXT_TRANSITIONS_PROHIBITED_FOR_STATIC_CALL = 3024,
+    PUBLIC_KERNEL__CALL_CONTEXT_CONTRACT_STORAGE_UPDATE_REQUESTS_PROHIBITED_FOR_STATIC_CALL = 3024,
 
     BASE_FAILED = 4000,
     BASE__KERNEL_PROOF_VERIFICATION_FAILED = 4001,
     BASE__INCORRECT_NUM_OF_NEW_COMMITMENTS = 4002,
     BASE__INVALID_NULLIFIER_SUBTREE = 4003,
     BASE__INVALID_NULLIFIER_RANGE = 4004,
-    BASE__INVALID_PUBLIC_READS = 4005,
+    BASE__INVALID_PUBLIC_DATA_READS = 4005,
+    BASE__INVALID_PUBLIC_DATA_UPDATE_REQUESTS = 4006,
 
     MERGE_CIRCUIT_FAILED = 6000,
 
@@ -77,7 +78,7 @@ enum CircuitErrorCode : uint16_t {
 
 struct CircuitError {
     CircuitErrorCode code = CircuitErrorCode::NO_ERROR;
-    std::string message = "";
+    std::string message;
 
     static CircuitError no_error() { return { CircuitErrorCode::NO_ERROR, "" }; }
 };
@@ -107,4 +108,4 @@ inline std::ostream& operator<<(std::ostream& os, CircuitError const& obj)
     return os << "code: " << as_uint16_t(obj.code) << "\n"
               << "message: " << obj.message << "\n";
 }
-} // namespace aztec3::utils
+}  // namespace aztec3::utils

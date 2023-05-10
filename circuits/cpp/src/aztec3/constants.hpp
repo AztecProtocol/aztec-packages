@@ -11,20 +11,19 @@ constexpr size_t EMITTED_EVENTS_LENGTH = 4;
 constexpr size_t NEW_COMMITMENTS_LENGTH = 4;
 constexpr size_t NEW_NULLIFIERS_LENGTH = 4;
 
-constexpr size_t STATE_TRANSITIONS_LENGTH = 4;
-constexpr size_t STATE_READS_LENGTH = 4;
-
 constexpr size_t PRIVATE_CALL_STACK_LENGTH = 4;
 constexpr size_t PUBLIC_CALL_STACK_LENGTH = 4;
-constexpr size_t L1_MSG_STACK_LENGTH = 2;
+constexpr size_t NEW_L2_TO_L1_MSGS_LENGTH = 2;
 
 constexpr size_t KERNEL_NEW_COMMITMENTS_LENGTH = 4;
 constexpr size_t KERNEL_NEW_NULLIFIERS_LENGTH = 4;
 constexpr size_t KERNEL_NEW_CONTRACTS_LENGTH = 1;
 constexpr size_t KERNEL_PRIVATE_CALL_STACK_LENGTH = 8;
 constexpr size_t KERNEL_PUBLIC_CALL_STACK_LENGTH = 8;
-constexpr size_t KERNEL_L1_MSG_STACK_LENGTH = 4;
+constexpr size_t KERNEL_NEW_L2_TO_L1_MSGS_LENGTH = 2;
 constexpr size_t KERNEL_OPTIONALLY_REVEALED_DATA_LENGTH = 4;
+constexpr size_t KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH = 4;
+constexpr size_t KERNEL_PUBLIC_DATA_READS_LENGTH = 4;
 
 constexpr size_t VK_TREE_HEIGHT = 3;
 constexpr size_t FUNCTION_TREE_HEIGHT = 4;
@@ -43,25 +42,31 @@ constexpr size_t PRIVATE_DATA_SUBTREE_INCLUSION_CHECK_DEPTH = PRIVATE_DATA_TREE_
 constexpr size_t NULLIFIER_SUBTREE_DEPTH = 3;
 constexpr size_t NULLIFIER_SUBTREE_INCLUSION_CHECK_DEPTH = NULLIFIER_TREE_HEIGHT - NULLIFIER_SUBTREE_DEPTH;
 
+// NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP must equal 2^L1_TO_L2_MSG_SUBTREE_DEPTH for subtree insertions.
+constexpr size_t L1_TO_L2_MSG_SUBTREE_DEPTH = 4;
+constexpr size_t NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP = 16;
+constexpr size_t L1_TO_L2_MSG_SUBTREE_INCLUSION_CHECK_DEPTH = L1_TO_L2_MSG_TREE_HEIGHT - L1_TO_L2_MSG_SUBTREE_DEPTH;
+
 constexpr size_t PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT = 8;
 constexpr size_t CONTRACT_TREE_ROOTS_TREE_HEIGHT = 8;
 constexpr size_t L1_TO_L2_MSG_TREE_ROOTS_TREE_HEIGHT = 8;
-constexpr size_t ROLLUP_VK_TREE_HEIGHT = 8; // TODO: update
+constexpr size_t ROLLUP_VK_TREE_HEIGHT = 8;  // TODO: update
 
-constexpr size_t FUNCTION_SELECTOR_NUM_BYTES = 4; // must be <= 31
+constexpr size_t FUNCTION_SELECTOR_NUM_BYTES = 4;  // must be <= 31
+
 
 // Enumerate the hash_indices which are used for pedersen hashing
 // Start from 1 to avoid the default generators.
 enum GeneratorIndex {
     COMMITMENT = 1,
-    COMMITMENT_PLACEHOLDER, // for omitting some elements of the commitment when partially committing.
+    COMMITMENT_PLACEHOLDER,  // for omitting some elements of the commitment when partially committing.
     OUTER_COMMITMENT,
     NULLIFIER_HASHED_PRIVATE_KEY,
     NULLIFIER,
     INITIALISATION_NULLIFIER,
     OUTER_NULLIFIER,
-    STATE_READ,
-    STATE_TRANSITION,
+    PUBLIC_DATA_READ,
+    PUBLIC_DATA_UPDATE_REQUEST,
     VK,
     FUNCTION_DATA,
     FUNCTION_LEAF,
@@ -72,14 +77,15 @@ enum GeneratorIndex {
     CONTRACT_LEAF,
     CALL_CONTEXT,
     CALL_STACK_ITEM,
-    CALL_STACK_ITEM_2, // see function where it's used for explanation
-    L1_MSG_STACK_ITEM,
+    CALL_STACK_ITEM_2,  // see function where it's used for explanation
+    L2_TO_L1_MSG,
     PRIVATE_CIRCUIT_PUBLIC_INPUTS,
     PUBLIC_CIRCUIT_PUBLIC_INPUTS,
     TX_CONTEXT,
     TX_REQUEST,
     PUBLIC_LEAF_INDEX,
     PUBLIC_DATA_LEAF,
+    SIGNED_TX_REQUEST,
 };
 
 enum StorageSlotGeneratorIndex {
@@ -102,4 +108,4 @@ enum PrivateStateNoteGeneratorIndex {
 
 enum PrivateStateType { PARTITIONED = 1, WHOLE };
 
-} // namespace aztec3
+}  // namespace aztec3

@@ -1,19 +1,8 @@
 import { LeafData, SiblingPath } from '@aztec/merkle-tree';
+import { MerkleTreeId } from '@aztec/types';
 
 export * from './merkle_trees.js';
 export { LeafData } from '@aztec/merkle-tree';
-
-/**
- * Defines the possible Merkle tree IDs.
- */
-export enum MerkleTreeId {
-  CONTRACT_TREE = 0,
-  CONTRACT_TREE_ROOTS_TREE = 1,
-  NULLIFIER_TREE = 2,
-  PRIVATE_DATA_TREE = 3,
-  PRIVATE_DATA_TREE_ROOTS_TREE = 4,
-  PUBLIC_DATA_TREE = 5,
-}
 
 /**
  * Type alias for the nullifier tree ID.
@@ -147,6 +136,12 @@ export interface MerkleTreeOperations {
    * @param index - The index of the leaf.
    */
   getLeafValue(treeId: MerkleTreeId, index: bigint): Promise<Buffer | undefined>;
+
+  /**
+   * Inserts into the roots trees (CONTRACT_TREE_ROOTS_TREE, PRIVATE_DATA_TREE_ROOTS_TREE, L1_TO_L2_MESSAGES_TREE_ROOTS_TREE)
+   * the current roots of the corresponding trees (CONTRACT_TREE, PRIVATE_DATA_TREE, L1_TO_L2_MESSAGES_TREE).
+   */
+  updateHistoricRootsTrees(): Promise<void>;
 }
 
 /**

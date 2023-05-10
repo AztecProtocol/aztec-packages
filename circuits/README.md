@@ -2,6 +2,10 @@
 
 ###### tags: `aztec-3, circuits`
 
+## Contributing
+
+See [CODING_STANDARD.md](./CODING_STANDARD.md)\*\* before contributing!
+
 ## Repository Overview
 
 The [`aztec3-circpuits`](https://github.com/AztecProtocol/aztec3-packages) circuits folder contains circuits and related C++ code (`cpp/`) for Aztec3 along with Typescript wrappers (`ts/`).
@@ -148,35 +152,33 @@ It may be useful to view coverage information from within vscode. The `./scripts
 
 > **WARNING:** to debug in WASM (to use the `-g` option to `wasmtime`) you will unfortunately need to revert to `wasmtime` version `1.0.0` until [this bug](https://github.com/bytecodealliance/wasmtime/issues/3999) is fixed. To install that version, remove the `~/.wasmtime` directory and run `curl https://wasmtime.dev/install.sh -sSf | bash /dev/stdin --version v1.0.0`
 
-1. Make sure you have opened VSCode via the circuits workspace file
-   - `code circuits.code-workspace`
-2. Make sure you have the recommended plugins installed
+1. Make sure you have the recommended plugins installed
    - Open the command pallete (`Ctrl+Shift+P`)
      - `Cmd+Shift+P` on Macs
    - Type and select "Extensions: Show Recommended Extensions"
    - Install any plugins shown not already installed
-3. Configure CMake for whichever preset you'd like to use
+1. Configure CMake for whichever preset you'd like to use
    - Open the command pallete (`Ctrl+Shift+P`)
    - Type and select "CMake: Select Configure Preset"
    - Choose a debug preset such as:
      - "Debugging build with Clang-15"
      - "Debugging build for WASM"
    - Redo this step later to switch between Clang-15/native and wasm
-4. Go to the "Run and Debug" panel
+1. Go to the "Run and Debug" panel
    - Button (usually on left) that looks like a play button with a bug
    - Or `Ctrl+Shift+D`
-5. Select the proper launch option at the top of the "Run and Debug" panel
+1. Select the proper launch option at the top of the "Run and Debug" panel
    - "Launch native"
    - "Launch in WASM"
-6. Select the test executable to debug
+1. Select the test executable to debug
    - Open the command pallete (`Ctrl+Shift+P`)
    - Type and select "CMake: Set Debug Target"
    - Select executable to debug like `aztec3_circuits_abis_tests`
-7. Check output for progress
-8. [OPTIONAL] change `gtest_filter` args to filter specific test cases
+1. Check output for progress
+1. [OPTIONAL] change `gtest_filter` args to filter specific test cases
    - In `circuits.code-workspace`'s `launch->configurations-><native or wasm>`
    - Don't commit these changes
-9. [OPTIONAL] set breakpoints in C++ files
+1. [OPTIONAL] set breakpoints in C++ files
 
 > _Note:_ redo steps 3-5 to switch between debugging Clang-15/native test executables and WASM test executables
 
@@ -210,6 +212,12 @@ The private kernel circuit validates that a particular private function was corr
 The private kernel circuit in Aztec 3 is implemented in [`circuit/kernel/private`](https://github.com/AztecProtocol/aztec3-packages/tree/master/circuits/cpp/src/aztec3/circuits/kernel/private) directory. The input and output interface of the private kernel circuit is written in [`circuits/abis/private_kernel`](https://github.com/AztecProtocol/aztec3-packages/tree/master/circuits/cpp/src/aztec3/circuits/abis/private_kernel).
 
 See pseudocode in [this diagram](https://miro.com/app/board/uXjVPlafJWM=/) and the slides [here](https://drive.google.com/file/d/1BaspihHDUgny6MHAKMtTkWKvfah7PYtv/view?usp=share_link) for a deeper dive into the private kernel circuit.
+
+## Public Kernel Circuit
+
+The public kernel circuit performs many of the functions of the private kernel circuit but for public functions. Public functions differ from public functions in that they they are exeucted by the sequencer and can modify the public state tree. Like private functions, public functions can include calls to other public functions and these calls are validated within the circuit.
+
+The public kernel circuit in Aztec 3 is implemented in [`circuit/kernel/public`](https://github.com/AztecProtocol/aztec3-packages/tree/master/circuits/cpp/src/aztec3/circuits/kernel/publlic) directory. The input and output interface of the private kernel circuit is written in [`circuits/abis/public_kernel`](https://github.com/AztecProtocol/aztec3-packages/tree/master/circuits/cpp/src/aztec3/circuits/abis/public_kernel).
 
 ## Circuit Overviews
 

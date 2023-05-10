@@ -1,5 +1,4 @@
 import {
-  CircuitsWasm,
   Fr,
   PUBLIC_CALL_STACK_LENGTH,
   Proof,
@@ -10,15 +9,19 @@ import {
   PublicKernelPublicInputs,
   TxRequest,
 } from '@aztec/circuits.js';
-import { ContractDataSource, PublicTx, Tx } from '@aztec/types';
+import { ContractDataSource, PublicTx, Tx, MerkleTreeId } from '@aztec/types';
 import { MerkleTreeOperations } from '@aztec/world-state';
-import { pedersenGetHash } from '@aztec/barretenberg.js/crypto';
-import { createDebugLogger } from '@aztec/foundation';
 import times from 'lodash.times';
 import { PublicProver } from '../prover/index.js';
 import { PublicCircuitSimulator, PublicKernelCircuitSimulator } from '../simulator/index.js';
 import { ProcessedTx, makeEmptyProcessedTx, makeProcessedTx } from './processed_tx.js';
+import { createDebugLogger } from '@aztec/foundation/log';
+import { getCombinedHistoricTreeRoots } from './utils.js';
 
+/**
+ * Converts Txs lifted from the P2P module into ProcessedTx objects by executing
+ * any public function calls in them. Txs with private calls only are unaffected.
+ */
 export class PublicProcessor {
   constructor(
     protected db: MerkleTreeOperations,
@@ -32,8 +35,8 @@ export class PublicProcessor {
 
   /**
    * Run each tx through the public circuit and the public kernel circuit if needed.
-   * @param txs - txs to process
-   * @returns the list of processed txs with their circuit simulation outputs.
+   * @param txs - Txs to process.
+   * @returns The list of processed txs with their circuit simulation outputs.
    */
   public async process(txs: Tx[]): Promise<[ProcessedTx[], Tx[]]> {
     const result: ProcessedTx[] = [];
@@ -51,6 +54,15 @@ export class PublicProcessor {
     return [result, failed];
   }
 
+  /**
+   * Makes an empty processed tx. Useful for padding a block to a power of two number of txs.
+   * @returns A processed tx with empty data.
+   */
+  public async makeEmptyProcessedTx() {
+    const historicTreeRoots = await getCombinedHistoricTreeRoots(this.db);
+    return makeEmptyProcessedTx(historicTreeRoots);
+  }
+
   protected async processTx(tx: Tx): Promise<ProcessedTx> {
     if (tx.isPublic()) {
       const [publicKernelOutput, publicKernelProof] = await this.processPublicTx(tx);
@@ -58,7 +70,7 @@ export class PublicProcessor {
     } else if (tx.isPrivate()) {
       return makeProcessedTx(tx);
     } else {
-      return makeEmptyProcessedTx();
+      return this.makeEmptyProcessedTx();
     }
   }
 
@@ -66,32 +78,42 @@ export class PublicProcessor {
   // any existing private execution information, and any subsequent calls.
   protected async processPublicTx(tx: PublicTx): Promise<[PublicKernelPublicInputs, Proof]> {
     const { txRequest } = tx.txRequest;
-    const contractAddress = txRequest.to;
+    // TODO: Determine how to calculate bytecode hash. Circuits just check it isn't zero for now.
+    // See https://github.com/AztecProtocol/aztec3-packages/issues/378
+    const bytecodeHash = new Fr(1n);
 
-    const fn = await this.contractDataSource.getPublicFunction(
-      contractAddress,
-      txRequest.functionData.functionSelectorBuffer,
-    );
-    const functionSelector = txRequest.functionData.functionSelector;
-    if (!fn) throw new Error(`Bytecode not found for ${functionSelector}@${contractAddress}`);
-    const contractPublicData = await this.contractDataSource.getL2ContractPublicData(contractAddress);
-    if (!contractPublicData) throw new Error(`Portal contract address not found for contract ${contractAddress}`);
-    const { portalContractAddress } = contractPublicData.contractData;
-
-    const circuitOutput = await this.publicCircuit.publicCircuit(txRequest, fn.bytecode, portalContractAddress);
+    const circuitOutput = await this.publicCircuit.publicCircuit(txRequest);
     const circuitProof = await this.publicProver.getPublicCircuitProof(circuitOutput);
-    const publicCallData = await this.getPublicCallData(txRequest, fn.bytecode, circuitOutput, circuitProof);
+    const publicCallData = this.getPublicCallData(txRequest, bytecodeHash, circuitOutput, circuitProof);
 
     const publicKernelInput = new PublicKernelInputsNoPreviousKernel(tx.txRequest, publicCallData);
     const publicKernelOutput = await this.publicKernel.publicKernelCircuitNoInput(publicKernelInput);
     const publicKernelProof = await this.publicProver.getPublicKernelCircuitProof(publicKernelOutput);
 
+    const contractTreeInfo = await this.db.getTreeInfo(MerkleTreeId.CONTRACT_TREE);
+    const privateDataTreeInfo = await this.db.getTreeInfo(MerkleTreeId.PRIVATE_DATA_TREE);
+    const nullifierTreeInfo = await this.db.getTreeInfo(MerkleTreeId.NULLIFIER_TREE);
+    const l1ToL2MessagesTreeInfo = await this.db.getTreeInfo(MerkleTreeId.L1_TO_L2_MESSAGES_TREE);
+
+    publicKernelOutput.constants.historicTreeRoots.privateHistoricTreeRoots.nullifierTreeRoot = Fr.fromBuffer(
+      nullifierTreeInfo.root,
+    );
+    publicKernelOutput.constants.historicTreeRoots.privateHistoricTreeRoots.contractTreeRoot = Fr.fromBuffer(
+      contractTreeInfo.root,
+    );
+    publicKernelOutput.constants.historicTreeRoots.privateHistoricTreeRoots.privateDataTreeRoot = Fr.fromBuffer(
+      privateDataTreeInfo.root,
+    );
+    publicKernelOutput.constants.historicTreeRoots.privateHistoricTreeRoots.l1ToL2MessagesTreeRoot = Fr.fromBuffer(
+      l1ToL2MessagesTreeInfo.root,
+    );
+
     return [publicKernelOutput, publicKernelProof];
   }
 
-  protected async getPublicCallData(
+  protected getPublicCallData(
     txRequest: TxRequest,
-    functionBytecode: Buffer,
+    bytecodeHash: Fr,
     publicCircuitOutput: PublicCircuitPublicInputs,
     publicCircuitProof: Proof,
   ) {
@@ -99,11 +121,15 @@ export class PublicProcessor {
     const contractAddress = txRequest.to;
     const callStackItem = new PublicCallStackItem(contractAddress, txRequest.functionData, publicCircuitOutput);
     const publicCallStackPreimages: PublicCallStackItem[] = times(PUBLIC_CALL_STACK_LENGTH, PublicCallStackItem.empty);
-
-    // TODO: Determine how to calculate bytecode hash
-    // See https://github.com/AztecProtocol/aztec3-packages/issues/378
-    const bytecodeHash = Fr.fromBuffer(pedersenGetHash(await CircuitsWasm.get(), functionBytecode));
     const portalContractAddress = publicCircuitOutput.callContext.portalContractAddress.toField();
+
+    // set the msgSender for each call in the call stack
+    for (let i = 0; i < publicCallStackPreimages.length; i++) {
+      const isDelegateCall = publicCallStackPreimages[i].publicInputs.callContext.isDelegateCall;
+      publicCallStackPreimages[i].publicInputs.callContext.msgSender = isDelegateCall
+        ? callStackItem.publicInputs.callContext.msgSender
+        : callStackItem.contractAddress;
+    }
 
     return new PublicCallData(
       callStackItem,
@@ -112,11 +138,5 @@ export class PublicProcessor {
       portalContractAddress,
       bytecodeHash,
     );
-  }
-}
-
-export class MockPublicProcessor extends PublicProcessor {
-  protected processPublicTx(_tx: PublicTx): Promise<[PublicKernelPublicInputs, Proof]> {
-    throw new Error('Public tx not supported by mock public processor');
   }
 }

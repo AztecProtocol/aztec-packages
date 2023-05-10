@@ -6,7 +6,7 @@ global MAX_NEW_NULLIFIERS: comptime Field = 4;
 global MAX_PRIVATE_CALL_STACK : comptime Field = 4;
 global MAX_PUBLIC_CALL_STACK: comptime Field = 4;
 global MAX_L1_MSG_STACK : comptime Field = 2;
-global PUBLIC_INPUTS_LENGTH : comptime Field = 47;
+global PUBLIC_INPUTS_LENGTH : comptime Field = 48;
 
 use crate::types::vec::BoundedVec;
 
@@ -17,9 +17,9 @@ struct Inputs {
     old_private_data_tree_root : Field,
     old_nullifier_tree_root : Field,
     old_contract_tree_root : Field,
+    old_l1_to_l2_messages_tree_root : Field,
 
     contract_deployment_data: ContractDeploymentData,
-    args: [Field; MAX_ARGS],
 }
 
 struct CallContext {
@@ -72,10 +72,11 @@ struct PrivateCircuitPublicInputs {
     new_nullifiers: [Field; crate::abi::MAX_NEW_NULLIFIERS],
     private_call_stack: [Field; crate::abi::MAX_PRIVATE_CALL_STACK],
     public_call_stack: [Field; crate::abi::MAX_PUBLIC_CALL_STACK],
-    l1_msg_stack: [Field; crate::abi::MAX_L1_MSG_STACK],
+    new_l2_to_l1_msgs: [Field; crate::abi::MAX_L1_MSG_STACK],
     historic_private_data_tree_root: Field,
     historic_private_nullifier_tree_root: Field,
     historic_contract_tree_root: Field,
+    historic_l1_to_l2_messages_tree_root: Field,
     contract_deployment_data: ContractDeploymentData,
 }
 
@@ -95,10 +96,11 @@ impl PrivateCircuitPublicInputs {
         fields = fields.push_array(self.new_nullifiers);
         fields = fields.push_array(self.private_call_stack);
         fields = fields.push_array(self.public_call_stack);
-        fields = fields.push_array(self.l1_msg_stack);
+        fields = fields.push_array(self.new_l2_to_l1_msgs);
         fields = fields.push(self.historic_private_data_tree_root);
         fields = fields.push(self.historic_private_nullifier_tree_root);
         fields = fields.push(self.historic_contract_tree_root);
+        fields = fields.push(self.historic_l1_to_l2_messages_tree_root);
         fields = fields.push_array(self.contract_deployment_data.serialize());
         fields.storage
     }

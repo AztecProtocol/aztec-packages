@@ -1,6 +1,6 @@
 import { randomBytes } from 'crypto';
 import { BufferReader } from '../serialize/buffer_reader.js';
-import { toBigIntBE, toBufferBE } from '../bigint-buffer/index.js';
+import { toBigIntBE, toBufferBE, toHex } from '../bigint-buffer/index.js';
 
 /**
  * Fr represents a field of integers modulo the prime number MODULUS.
@@ -91,8 +91,8 @@ export class Fr {
    *
    * @returns A hex-encoded string representing the value of the class instance.
    */
-  toString() {
-    return '0x' + this.value.toString(16);
+  toString(): `0x${string}` {
+    return toHex(this.value);
   }
 
   /**
@@ -209,7 +209,7 @@ export class Fq {
    * @returns A hexadecimal string representing the Fq value.
    */
   toString() {
-    return '0x' + this.value.toString(16);
+    return toHex(this.value);
   }
 
   /**

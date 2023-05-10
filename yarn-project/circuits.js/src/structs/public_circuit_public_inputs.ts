@@ -1,26 +1,28 @@
-import { AztecAddress, BufferReader, Fr } from '@aztec/foundation';
 import times from 'lodash.times';
 import { FieldsOf, assertLength } from '../utils/jsUtils.js';
 import { CallContext } from './call_context.js';
 import {
   ARGS_LENGTH,
   EMITTED_EVENTS_LENGTH,
-  L1_MSG_STACK_LENGTH,
+  NEW_L2_TO_L1_MSGS_LENGTH,
   PUBLIC_CALL_STACK_LENGTH,
   RETURN_VALUES_LENGTH,
-  STATE_READS_LENGTH,
-  STATE_TRANSITIONS_LENGTH,
+  KERNEL_PUBLIC_DATA_READS_LENGTH,
+  KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH,
 } from './constants.js';
 import { serializeToBuffer } from '../utils/serialize.js';
+import { Fr } from '@aztec/foundation/fields';
+import { BufferReader } from '@aztec/foundation/serialize';
+import { AztecAddress } from '@aztec/foundation/aztec-address';
 
 /**
- * Public state read operation on a specific contract.
+ * Contract storage read operation on a specific contract.
  */
-export class StateRead {
+export class ContractStorageRead {
   constructor(public readonly storageSlot: Fr, public readonly value: Fr) {}
 
   static from(args: { storageSlot: Fr; value: Fr }) {
-    return new StateRead(args.storageSlot, args.value);
+    return new ContractStorageRead(args.storageSlot, args.value);
   }
 
   toBuffer() {
@@ -29,22 +31,22 @@ export class StateRead {
 
   static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
-    return new StateRead(reader.readFr(), reader.readFr());
+    return new ContractStorageRead(reader.readFr(), reader.readFr());
   }
 
   static empty() {
-    return new StateRead(Fr.ZERO, Fr.ZERO);
+    return new ContractStorageRead(Fr.ZERO, Fr.ZERO);
   }
 }
 
 /**
- * Public state transition for a slot on a specific contract.
+ * Contract storage update request for a slot on a specific contract.
  */
-export class StateTransition {
+export class ContractStorageUpdateRequest {
   constructor(public readonly storageSlot: Fr, public readonly oldValue: Fr, public readonly newValue: Fr) {}
 
   static from(args: { storageSlot: Fr; oldValue: Fr; newValue: Fr }) {
-    return new StateTransition(args.storageSlot, args.oldValue, args.newValue);
+    return new ContractStorageUpdateRequest(args.storageSlot, args.oldValue, args.newValue);
   }
 
   toBuffer() {
@@ -53,11 +55,11 @@ export class StateTransition {
 
   static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
-    return new StateTransition(reader.readFr(), reader.readFr(), reader.readFr());
+    return new ContractStorageUpdateRequest(reader.readFr(), reader.readFr(), reader.readFr());
   }
 
   static empty() {
-    return new StateTransition(Fr.ZERO, Fr.ZERO, Fr.ZERO);
+    return new ContractStorageUpdateRequest(Fr.ZERO, Fr.ZERO, Fr.ZERO);
   }
 }
 
@@ -70,10 +72,10 @@ export class PublicCircuitPublicInputs {
     public args: Fr[],
     public returnValues: Fr[],
     public emittedEvents: Fr[],
-    public stateTransitions: StateTransition[],
-    public stateReads: StateRead[],
+    public contractStorageUpdateRequests: ContractStorageUpdateRequest[],
+    public contractStorageRead: ContractStorageRead[],
     public publicCallStack: Fr[],
-    public l1MsgStack: Fr[],
+    public newL2ToL1Msgs: Fr[],
     public historicPublicDataTreeRoot: Fr,
     public proverAddress: AztecAddress,
   ) {
@@ -81,9 +83,9 @@ export class PublicCircuitPublicInputs {
     assertLength(this, 'returnValues', RETURN_VALUES_LENGTH);
     assertLength(this, 'emittedEvents', EMITTED_EVENTS_LENGTH);
     assertLength(this, 'publicCallStack', PUBLIC_CALL_STACK_LENGTH);
-    assertLength(this, 'l1MsgStack', L1_MSG_STACK_LENGTH);
-    assertLength(this, 'stateTransitions', STATE_TRANSITIONS_LENGTH);
-    assertLength(this, 'stateReads', STATE_READS_LENGTH);
+    assertLength(this, 'newL2ToL1Msgs', NEW_L2_TO_L1_MSGS_LENGTH);
+    assertLength(this, 'contractStorageUpdateRequests', KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH);
+    assertLength(this, 'contractStorageRead', KERNEL_PUBLIC_DATA_READS_LENGTH);
   }
 
   /**
@@ -106,10 +108,10 @@ export class PublicCircuitPublicInputs {
       frArray(ARGS_LENGTH),
       frArray(RETURN_VALUES_LENGTH),
       frArray(EMITTED_EVENTS_LENGTH),
-      times(STATE_TRANSITIONS_LENGTH, StateTransition.empty),
-      times(STATE_READS_LENGTH, StateRead.empty),
+      times(KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH, ContractStorageUpdateRequest.empty),
+      times(KERNEL_PUBLIC_DATA_READS_LENGTH, ContractStorageRead.empty),
       frArray(PUBLIC_CALL_STACK_LENGTH),
-      frArray(L1_MSG_STACK_LENGTH),
+      frArray(NEW_L2_TO_L1_MSGS_LENGTH),
       Fr.ZERO,
       AztecAddress.ZERO,
     );
@@ -125,10 +127,10 @@ export class PublicCircuitPublicInputs {
       fields.args,
       fields.returnValues,
       fields.emittedEvents,
-      fields.stateTransitions,
-      fields.stateReads,
+      fields.contractStorageUpdateRequests,
+      fields.contractStorageRead,
       fields.publicCallStack,
-      fields.l1MsgStack,
+      fields.newL2ToL1Msgs,
       fields.historicPublicDataTreeRoot,
       fields.proverAddress,
     ] as const;

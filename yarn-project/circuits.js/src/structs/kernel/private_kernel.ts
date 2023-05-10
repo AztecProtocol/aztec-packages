@@ -1,4 +1,4 @@
-import { EthAddress, Fr } from '@aztec/foundation';
+import { EthAddress } from '@aztec/foundation/eth-address';
 import { FieldsOf, assertLength } from '../../utils/jsUtils.js';
 import { serializeToBuffer } from '../../utils/serialize.js';
 import { PrivateCallStackItem } from '../call_stack_item.js';
@@ -7,6 +7,7 @@ import { MembershipWitness } from '../membership_witness.js';
 import { SignedTxRequest } from '../tx_request.js';
 import { VerificationKey } from '../verification_key.js';
 import { PreviousKernelData } from './previous_kernel_data.js';
+import { Fr } from '../index.js';
 import { Proof } from '../proof.js';
 
 /**

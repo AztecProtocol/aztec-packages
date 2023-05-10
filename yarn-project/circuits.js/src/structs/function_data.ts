@@ -1,5 +1,4 @@
-import { BufferReader, deserializeUInt32, numToUInt32BE } from '@aztec/foundation';
-import { Buffer } from 'buffer';
+import { numToUInt32BE, deserializeUInt32, BufferReader } from '@aztec/foundation/serialize';
 import { serializeToBuffer } from '../utils/serialize.js';
 
 /**

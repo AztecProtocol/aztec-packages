@@ -1,12 +1,12 @@
-import { makeEmptyProof } from '@aztec/circuits.js';
+import { CombinedHistoricTreeRoots, Fr, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, makeEmptyProof } from '@aztec/circuits.js';
 import { P2P, P2PClientState } from '@aztec/p2p';
-import { L2Block, PrivateTx, Tx, UnverifiedData } from '@aztec/types';
-import { MerkleTreeId, MerkleTreeOperations, WorldStateRunningState, WorldStateSynchroniser } from '@aztec/world-state';
+import { L2Block, MerkleTreeId, PrivateTx, Tx, UnverifiedData } from '@aztec/types';
+import { MerkleTreeOperations, WorldStateRunningState, WorldStateSynchroniser } from '@aztec/world-state';
 import { MockProxy, mock } from 'jest-mock-extended';
 import times from 'lodash.times';
 import { BlockBuilder } from '../block_builder/index.js';
 import { L1Publisher, makeEmptyPrivateTx, makePrivateTx } from '../index.js';
-import { makeProcessedTx } from './processed_tx.js';
+import { makeEmptyProcessedTx, makeProcessedTx } from './processed_tx.js';
 import { PublicProcessor } from './public_processor.js';
 import { Sequencer } from './sequencer.js';
 
@@ -40,6 +40,7 @@ describe('sequencer', () => {
 
     publicProcessor = mock<PublicProcessor>({
       process: async txs => [await Promise.all(txs.map(tx => makeProcessedTx(tx as PrivateTx))), []],
+      makeEmptyProcessedTx: () => makeEmptyProcessedTx(CombinedHistoricTreeRoots.empty()),
     });
 
     sequencer = new TestSubject(publisher, p2p, worldState, blockBuilder, publicProcessor);
@@ -64,6 +65,7 @@ describe('sequencer', () => {
     expect(blockBuilder.buildL2Block).toHaveBeenCalledWith(
       lastBlockNumber + 1,
       expectedTxHashes.map(hash => expect.objectContaining({ hash })),
+      Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
     expect(publisher.processL2Block).toHaveBeenCalledWith(block);
     expect(publisher.processUnverifiedData).toHaveBeenCalledWith(lastBlockNumber + 1, expectedUnverifiedData);
@@ -100,6 +102,7 @@ describe('sequencer', () => {
     expect(blockBuilder.buildL2Block).toHaveBeenCalledWith(
       lastBlockNumber + 1,
       expectedTxHashes.map(hash => expect.objectContaining({ hash })),
+      Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
     expect(publisher.processL2Block).toHaveBeenCalledWith(block);
     expect(publisher.processUnverifiedData).toHaveBeenCalledWith(lastBlockNumber + 1, expectedUnverifiedData);

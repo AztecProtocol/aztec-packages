@@ -1,13 +1,14 @@
-import { BufferReader, Fr, TupleOf } from '@aztec/foundation';
-import { CircuitsWasm, Proof } from '../../index.js';
-import { assertLength, tupleTimes } from '../../utils/jsUtils.js';
+import { TupleOf, BufferReader } from '@aztec/foundation/serialize';
+import { privateKernelDummyPreviousKernel } from '../../cbind/circuits.gen.js';
+import { assertLength, tupleTimes, CircuitsWasm } from '../../index.js';
 import { serializeToBuffer } from '../../utils/serialize.js';
 import { VK_TREE_HEIGHT } from '../constants.js';
+import { Fr } from '../index.js';
+import { Proof } from '../proof.js';
 import { UInt32, UInt8Vector } from '../shared.js';
 import { VerificationKey } from '../verification_key.js';
-import { KernelCircuitPublicInputs } from './public_inputs.js';
 import { makeEmptyProof } from './private_kernel.js';
-import { privateKernelDummyPreviousKernel } from '../../cbind/circuits.gen.js';
+import { KernelCircuitPublicInputs } from './public_inputs.js';
 
 export class PreviousKernelData {
   constructor(

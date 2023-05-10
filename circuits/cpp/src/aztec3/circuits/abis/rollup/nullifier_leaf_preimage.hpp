@@ -1,8 +1,9 @@
 #pragma once
 
 #include "aztec3/utils/types/circuit_types.hpp"
-#include "barretenberg/stdlib/merkle_tree/hash.hpp"
+
 #include "barretenberg/common/msgpack.hpp"
+#include "barretenberg/stdlib/merkle_tree/hash.hpp"
 #include "barretenberg/stdlib/merkle_tree/nullifier_tree/nullifier_leaf.hpp"
 namespace aztec3::circuits::abis {
 
@@ -11,9 +12,8 @@ using aztec3::utils::types::NativeTypes;
 using std::is_same;
 
 template <typename NCT> struct NullifierLeafPreimage {
-
-    typedef typename NCT::fr fr;
-    typedef typename NCT::uint32 uint32;
+    using fr = typename NCT::fr;
+    using uint32 = typename NCT::uint32;
 
     fr leaf_value = 0;
     uint32 next_index;
@@ -50,4 +50,4 @@ template <typename NCT> std::ostream& operator<<(std::ostream& os, NullifierLeaf
               << "next_index: " << obj.next_index << "\n";
 }
 
-} // namespace aztec3::circuits::abis
+}  // namespace aztec3::circuits::abis

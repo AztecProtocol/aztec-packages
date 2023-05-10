@@ -1,10 +1,10 @@
-import { createDebugLogger } from '@aztec/foundation';
 import { L2Block, L2BlockContext, L2BlockDownloader, L2BlockSource } from '@aztec/types';
 import { Tx, TxHash } from '@aztec/types';
 
 import { TxPool } from '../tx_pool/index.js';
 import { InMemoryTxPool } from '../tx_pool/memory_tx_pool.js';
 import { getConfigEnvVars } from '../config.js';
+import { createDebugLogger } from '@aztec/foundation/log';
 
 /**
  * Enum defining the possible states of the p2p client.
@@ -190,7 +190,8 @@ export class P2PClient implements P2P {
   }
 
   /**
-   * Returns a transaction in the transaction pool by its hash
+   * Returns a transaction in the transaction pool by its hash.
+   * @param txHash - Hash of the transaction to look for in the pool.
    * @returns A single tx or undefined
    */
   getTxByhash(txHash: TxHash): Promise<Tx | undefined> {
@@ -213,7 +214,7 @@ export class P2PClient implements P2P {
   /**
    * Deletes the 'txs' from the pool.
    * NOT used if we use sendTx as reconcileTxPool will handle this.
-   * @param txs - The transactions to delete.
+   * @param txHashes - Hashes of the transactions to delete.
    * @returns Empty promise.
    **/
   public async deleteTxs(txHashes: TxHash[]): Promise<void> {

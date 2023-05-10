@@ -10,13 +10,13 @@ fn call_private_function_oracle(
     _contract_address: Field, 
     _function_selector: Field, 
     _args: [Field; crate::abi::MAX_ARGS]
-) -> [Field; 51] {}
+) -> [Field; 52] {}
 
 unconstrained fn call_private_function_internal(
     contract_address: Field, 
     function_selector: Field,
     args: [Field; crate::abi::MAX_ARGS]
-) -> [Field; 51] {
+) -> [Field; 52] {
     call_private_function_oracle(
         contract_address, 
         function_selector, 
@@ -79,15 +79,16 @@ impl PrivateCallStackItem {
                 new_nullifiers: arr_copy_slice(fields, [0; crate::abi::MAX_NEW_NULLIFIERS], 30),
                 private_call_stack: arr_copy_slice(fields, [0; crate::abi::MAX_PRIVATE_CALL_STACK], 34),
                 public_call_stack: arr_copy_slice(fields, [0; crate::abi::MAX_PUBLIC_CALL_STACK], 38),
-                l1_msg_stack:arr_copy_slice(fields, [0; crate::abi::MAX_L1_MSG_STACK], 42),
+                new_l2_to_l1_msgs:arr_copy_slice(fields, [0; crate::abi::MAX_L1_MSG_STACK], 42),
                 historic_private_data_tree_root: fields[44],
                 historic_private_nullifier_tree_root: fields[45],
                 historic_contract_tree_root: fields[46],
+                historic_l1_to_l2_messages_tree_root: fields[47],
                 contract_deployment_data: ContractDeploymentData {
-                    constructor_vk_hash : fields[47],
-                    function_tree_root : fields[48],
-                    contract_address_salt : fields[49],
-                    portal_contract_address : fields[50],
+                    constructor_vk_hash : fields[48],
+                    function_tree_root : fields[49],
+                    contract_address_salt : fields[50],
+                    portal_contract_address : fields[51],
                 },
             },
         };
@@ -105,6 +106,7 @@ impl PrivateCallStackItem {
     fn hash(self) -> Field {
         dep::std::hash::pedersen([
             // TODO hash_index
+            // FIXME - https://github.com/AztecProtocol/aztec-packages/issues/499
             self.contract_address,
             self.function_data.hash(),
             self.public_inputs.hash(),
