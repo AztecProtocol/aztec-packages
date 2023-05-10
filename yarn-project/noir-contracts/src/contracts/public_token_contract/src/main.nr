@@ -18,7 +18,7 @@ contract PublicToken {
         _call_context: CallContext,
         amount: Field,
         recipient: Point,
-        _padding: [Field; dep::aztec3::abi::MAX_ARGS - 2]
+        _padding: [Field; dep::aztec3::abi::MAX_ARGS - 3]
     ) -> pub Field {
         let recipient_balance = balances.at(recipient.x);
         recipient_balance.write(recipient_balance.read() + amount)
@@ -28,7 +28,7 @@ contract PublicToken {
         call_context: CallContext,
         amount: Field,
         recipient: Point,
-        _padding: [Field; dep::aztec3::abi::MAX_ARGS - 2]
+        _padding: [Field; dep::aztec3::abi::MAX_ARGS - 3]
     ) -> pub Field {
         let sender = call_context.msg_sender;
         
