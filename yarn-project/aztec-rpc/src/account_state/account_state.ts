@@ -300,14 +300,15 @@ export class AccountState {
       const dataChunks = unverifiedDatas[i].dataChunks;
 
       // Try decrypting the unverified data.
-      const txIndices: Set<number> = new Set();
+      // Note: Public txs don't generate commitments and UnverifiedData and for this reason we can ignore them here.
+      const privateTxIndices: Set<number> = new Set();
       const txAuxDataDaos: TxAuxDataDao[] = [];
       for (let j = 0; j < dataChunks.length; ++j) {
         const txAuxData = TxAuxData.fromEncryptedBuffer(dataChunks[j], this.privKey, this.grumpkin);
         if (txAuxData) {
           // We have successfully decrypted the data.
-          const txIndex = Math.floor(j / KERNEL_NEW_COMMITMENTS_LENGTH);
-          txIndices.add(txIndex);
+          const privateTxIndex = Math.floor(j / KERNEL_NEW_COMMITMENTS_LENGTH);
+          privateTxIndices.add(privateTxIndex);
           txAuxDataDaos.push({
             ...txAuxData,
             nullifier: await this.computeNullifier(txAuxData),
@@ -319,7 +320,7 @@ export class AccountState {
 
       blocksAndTxAuxData.push({
         blockContext: l2BlockContexts[i],
-        userPertainingTxIndices: [...txIndices],
+        userPertainingTxIndices: [...privateTxIndices],
         txAuxDataDaos,
       });
       dataStartIndex += dataChunks.length;
