@@ -90,7 +90,7 @@ pay_fee_from_public_l2: 0
 called_from_l1: 1
 called_from_public_l2: 0
  ]
-state_transitions:
+public_data_update_requests:
 [ leaf_index: 0x900
 old_value: 0x901
 new_value: 0x902
@@ -104,7 +104,7 @@ new_value: 0x904
 old_value: 0x904
 new_value: 0x905
  ]
-state_reads:
+public_data_reads:
 [ leaf_index: 0xa00
 value: 0xa01
  leaf_index: 0xa01
@@ -236,7 +236,7 @@ pay_fee_from_public_l2: 0
 called_from_l1: 1
 called_from_public_l2: 0
  ]
-state_transitions:
+public_data_update_requests:
 [ leaf_index: 0xa00
 old_value: 0xa01
 new_value: 0xa02
@@ -250,7 +250,7 @@ new_value: 0xa04
 old_value: 0xa04
 new_value: 0xa05
  ]
-state_reads:
+public_data_reads:
 [ leaf_index: 0xb00
 value: 0xb01
  leaf_index: 0xb01
