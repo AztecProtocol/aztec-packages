@@ -1,4 +1,4 @@
-import { TupleOf } from '@aztec/foundation';
+import { TupleOf } from '@aztec/foundation/serialize';
 
 /**
  * Create an array over an integer range.

@@ -3,8 +3,10 @@
 // CBinding helpers that take a function or a lambda and
 // - bind the input as a coded msgpack array of all the arguments (using template metamagic)
 // - bind the return value to an out buffer, where the caller must free the memory
-#include <barretenberg/common/msgpack_impl.hpp>
 #include <aztec3/msgpack/schema_impl.hpp>
+
+#include <barretenberg/common/msgpack_impl.hpp>
+
 #include <cstring>
 #include <type_traits>
 
@@ -103,7 +105,7 @@ inline void cbind_impl(
 // returns a C-style string json of the schema
 inline void cbind_schema_impl(auto func, uint8_t** output_out, size_t* output_len_out)
 {
-    (void)func; // unused except for type
+    (void)func;  // unused except for type
     // Object representation of the cbind
     auto cbind_obj = get_func_traits<decltype(func)>();
     std::string schema = msgpack::schema_to_string(cbind_obj);
@@ -129,7 +131,7 @@ inline auto cbind_test_impl(auto func)
         return std::make_pair(msgpack::string_encode(actual_ret), msgpack::string_encode(expected_ret));
     };
 }
-} // namespace msgpack
+}  // namespace msgpack
 
 // TODO flag to not generate schema
 // TODO flag to not generate test helper
