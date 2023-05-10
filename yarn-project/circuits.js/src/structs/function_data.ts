@@ -1,6 +1,8 @@
 import { numToUInt32BE, deserializeUInt32, BufferReader } from '@aztec/foundation/serialize';
 import { serializeToBuffer } from '../utils/serialize.js';
 
+const FUNCTION_SELECTOR_LENGTH = 4;
+
 /**
  * Function description for circuit.
  * @see abis/function_data.hpp
@@ -19,6 +21,7 @@ export class FunctionData {
     }
   }
   // For serialization, return as number
+  // TODO(AD) somehow remove this cruft, probably by using a buffer selector in C++
   get functionSelector(): number {
     return deserializeUInt32(this.functionSelectorBuffer).elem;
   }
@@ -31,15 +34,24 @@ export class FunctionData {
     return serializeToBuffer(this.functionSelectorBuffer, this.isPrivate, this.isConstructor);
   }
 
-  public static empty() {
-    return new FunctionData(Buffer.alloc(4, 0));
+  /**
+   * Returns whether this instance is empty.
+   * @returns True if the function selector is zero.
+   */
+  isEmpty() {
+    return this.functionSelectorBuffer.equals(Buffer.alloc(FUNCTION_SELECTOR_LENGTH, 0));
   }
+
+  public static empty(args?: { isPrivate?: boolean; isConstructor?: boolean }) {
+    return new FunctionData(Buffer.alloc(FUNCTION_SELECTOR_LENGTH, 0), args?.isPrivate, args?.isConstructor);
+  }
+
   /**
    * Deserializes from a buffer or reader, corresponding to a write in cpp.
    * @param buffer - Buffer to read from.
    */
   static fromBuffer(buffer: Buffer | BufferReader): FunctionData {
     const reader = BufferReader.asReader(buffer);
-    return new FunctionData(reader.readBytes(4), reader.readBoolean(), reader.readBoolean());
+    return new FunctionData(reader.readBytes(FUNCTION_SELECTOR_LENGTH), reader.readBoolean(), reader.readBoolean());
   }
 }
