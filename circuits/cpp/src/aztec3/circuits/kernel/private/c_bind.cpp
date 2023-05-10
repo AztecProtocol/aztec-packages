@@ -180,8 +180,3 @@ WASM_EXPORT size_t private_kernel__verify_proof(uint8_t const* vk_buf, uint8_t c
     (void)length;  // unused
     return 1U;
 }
-<<<<<<< HEAD
-=======
-
-}  // extern "C"
->>>>>>> origin/master

@@ -283,49 +283,6 @@ TEST(abi_tests, hash_constructor)
     EXPECT_EQ(got_hash, expected_hash);
 }
 
-<<<<<<< HEAD
-=======
-TEST(abi_tests, compute_contract_address)
-{
-    // Randomize required values
-    NT::fr const deployer_address = NT::fr::random_element();
-    NT::fr const contract_address_salt = NT::fr::random_element();
-    NT::fr const function_tree_root = NT::fr::random_element();
-    NT::fr const constructor_hash = NT::fr::random_element();
-
-    // Serialize values to buffers
-    std::array<uint8_t, sizeof(NT::fr)> deployer_address_buf = { 0 };
-    std::array<uint8_t, sizeof(NT::fr)> contract_address_salt_buf = { 0 };
-    std::array<uint8_t, sizeof(NT::fr)> function_tree_root_buf = { 0 };
-    std::array<uint8_t, sizeof(NT::fr)> constructor_hash_buf = { 0 };
-    NT::fr::serialize_to_buffer(deployer_address, deployer_address_buf.data());
-    NT::fr::serialize_to_buffer(contract_address_salt, contract_address_salt_buf.data());
-    NT::fr::serialize_to_buffer(function_tree_root, function_tree_root_buf.data());
-    NT::fr::serialize_to_buffer(constructor_hash, constructor_hash_buf.data());
-
-    // create an output buffer for cbind contract address results
-    std::array<uint8_t, sizeof(NT::fr)> output = { 0 };
-
-    // Make the c_bind call to compute the contract address
-    abis__compute_contract_address(deployer_address_buf.data(),
-                                   contract_address_salt_buf.data(),
-                                   function_tree_root_buf.data(),
-                                   constructor_hash_buf.data(),
-                                   output.data());
-
-    // Convert buffer to `fr` for comparison to in-test calculated contract address
-    NT::fr const got_address = NT::fr::serialize_from_buffer(output.data());
-
-    // Calculate the expected contract address in-test
-    NT::fr const expected_address =
-        NT::compress({ deployer_address, contract_address_salt, function_tree_root, constructor_hash },
-                     aztec3::GeneratorIndex::CONTRACT_ADDRESS);
-
-    // Confirm cbind output == expected
-    EXPECT_EQ(got_address, expected_address);
-}
-
->>>>>>> origin/master
 TEST(abi_tests, compute_contract_leaf)
 {
     // Construct ContractLeafPreimage with some randomized fields

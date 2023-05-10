@@ -56,11 +56,11 @@ template <typename NCT> struct CombinedAccumulatedData {
             new_nullifiers,
             private_call_stack,
             public_call_stack,
-            l1_msg_stack,
+            new_l2_to_l1_msgs,
             new_contracts,
             optionally_revealed_data,
-            state_transitions,
-            state_reads);
+            public_data_update_requests,
+            public_data_reads);
     boolean operator==(CombinedAccumulatedData<NCT> const& other) const
     {
         return aggregation_object == other.aggregation_object && private_call_count == other.private_call_count &&

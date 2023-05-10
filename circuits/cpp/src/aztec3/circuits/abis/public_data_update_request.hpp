@@ -21,13 +21,9 @@ template <typename NCT> struct PublicDataUpdateRequest {
     fr old_value = 0;
     fr new_value = 0;
 
-<<<<<<< HEAD:circuits/cpp/src/aztec3/circuits/abis/public_data_transition.hpp
     // for serialization, update with new fields
     MSGPACK(leaf_index, old_value, new_value);
-    bool operator==(PublicDataTransition<NCT> const&) const = default;
-=======
     bool operator==(PublicDataUpdateRequest<NCT> const&) const = default;
->>>>>>> origin/master:circuits/cpp/src/aztec3/circuits/abis/public_data_update_request.hpp
 
     template <typename Composer>
     PublicDataUpdateRequest<CircuitTypes<Composer>> to_circuit_type(Composer& composer) const

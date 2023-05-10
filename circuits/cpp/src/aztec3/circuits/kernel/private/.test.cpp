@@ -589,7 +589,6 @@ TEST(private_kernel_tests, circuit_create_proof_cbinds)
  */
 TEST(private_kernel_tests, cbind_private_kernel__dummy_previous_kernel)
 {
-<<<<<<< HEAD
     auto [actual, expected] = private_kernel__dummy_previous_kernel__test();
     EXPECT_EQ(actual, expected);
 }
@@ -603,26 +602,3 @@ TEST(private_kernel_tests, print_previous_kernel_data_schema)
     aligned_free(ptr);
 }
 }  // namespace aztec3::circuits::kernel::private_kernel
-=======
-    uint8_t const* cbind_previous_kernel_buf = nullptr;
-    size_t const cbind_buf_size = private_kernel__dummy_previous_kernel(&cbind_previous_kernel_buf);
-
-    auto const& previous_kernel = utils::dummy_previous_kernel();
-    std::vector<uint8_t> expected_vec;
-    write(expected_vec, previous_kernel);
-
-    // Just compare the first 10 bytes of the serialized public outputs
-    // TODO this is not a good test as it only checks a few bytes
-    // would be best if we could just check struct equality or check
-    // equality of an entire memory region (same as other similar TODOs
-    // in other test files)
-    // TODO better equality check
-    // for (size_t i = 0; i < cbind_buf_size; i++) {
-    for (size_t i = 0; i < 10; i++) {
-        ASSERT_EQ(cbind_previous_kernel_buf[i], expected_vec[i]);
-    }
-    (void)cbind_buf_size;
-}
-
-}  // namespace aztec3::circuits::kernel::private_kernel
->>>>>>> origin/master

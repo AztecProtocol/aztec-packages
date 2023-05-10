@@ -488,8 +488,3 @@ WASM_EXPORT const char* abis__test_roundtrip_serialize_function_leaf_preimage(ui
 {
     return as_string_output<aztec3::circuits::abis::FunctionLeafPreimage<NT>>(function_leaf_preimage_buf, size);
 }
-<<<<<<< HEAD
-=======
-
-}  // extern "C"
->>>>>>> origin/master

@@ -62,10 +62,11 @@ template <typename NCT> struct BaseRollupInputs {
             new_commitments_subtree_sibling_path,
             new_nullifiers_subtree_sibling_path,
             new_contracts_subtree_sibling_path,
-            new_state_transitions_sibling_paths,
-            new_state_reads_sibling_paths,
+            new_public_data_update_requests_sibling_paths,
+            new_public_data_reads_sibling_paths,
             historic_private_data_tree_root_membership_witnesses,
             historic_contract_tree_root_membership_witnesses,
+            historic_l1_to_l2_msg_tree_root_membership_witnesses,
             constants);
     bool operator==(BaseRollupInputs<NCT> const&) const = default;
 };
