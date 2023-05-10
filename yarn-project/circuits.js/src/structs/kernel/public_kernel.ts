@@ -42,7 +42,12 @@ export class WitnessedPublicCallData {
   }
 
   toBuffer() {
-    return serializeToBuffer(this.publicCall, this.updateRequestsHashPaths, this.readsHashPaths, this.publicDataTreeRoot);
+    return serializeToBuffer(
+      this.publicCall,
+      this.updateRequestsHashPaths,
+      this.readsHashPaths,
+      this.publicDataTreeRoot,
+    );
   }
 }
 
