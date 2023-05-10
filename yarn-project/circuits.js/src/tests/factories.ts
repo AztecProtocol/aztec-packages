@@ -134,16 +134,17 @@ export function makeContractStorageRead(seed = 1) {
 export function makeEmptyAccumulatedData(seed = 1): CombinedAccumulatedData {
   return new CombinedAccumulatedData(
     makeAggregationObject(seed),
+    fr(seed + 12),
     fr(seed + 13),
-    fr(seed + 14),
     tupleTimes(KERNEL_NEW_COMMITMENTS_LENGTH, fr, seed + 0x100),
     tupleTimes(KERNEL_NEW_NULLIFIERS_LENGTH, fr, seed + 0x200),
-    tupleTimes(KERNEL_PRIVATE_CALL_STACK_LENGTH, fr, seed + 0x300),
+    // call stacks must be empty:
+    tupleTimes(KERNEL_PRIVATE_CALL_STACK_LENGTH, Fr.zero), // private call stack must be empty
     tupleTimes(KERNEL_PUBLIC_CALL_STACK_LENGTH, fr, seed + 0x400),
     tupleTimes(KERNEL_NEW_L2_TO_L1_MSGS_LENGTH, fr, seed + 0x500),
     tupleTimes(KERNEL_NEW_CONTRACTS_LENGTH, makeNewContractData, seed + 0x600),
     tupleTimes(KERNEL_OPTIONALLY_REVEALED_DATA_LENGTH, makeOptionallyRevealedData, seed + 0x700),
-    tupleTimes(KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH, makePublicDataUpdateRequest, seed + 0x800),
+    tupleTimes(KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH, makeEmptyPublicDataUpdateRequest, seed + 0x800),
     tupleTimes(KERNEL_PUBLIC_DATA_READS_LENGTH, makeEmptyPublicDataRead, seed + 0x900),
   );
 }
@@ -160,7 +161,7 @@ export function makeAccumulatedData(seed = 1): CombinedAccumulatedData {
     tupleTimes(KERNEL_NEW_L2_TO_L1_MSGS_LENGTH, fr, seed + 0x500),
     tupleTimes(KERNEL_NEW_CONTRACTS_LENGTH, makeNewContractData, seed + 0x600),
     tupleTimes(KERNEL_OPTIONALLY_REVEALED_DATA_LENGTH, makeOptionallyRevealedData, seed + 0x700),
-    tupleTimes(KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH, makePublicDataUpdateRequest, seed + 0x800),
+    tupleTimes(KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH, makeEmptyPublicDataUpdateRequest, seed + 0x800),
     tupleTimes(KERNEL_PUBLIC_DATA_READS_LENGTH, makePublicDataRead, seed + 0x900),
   );
 }
