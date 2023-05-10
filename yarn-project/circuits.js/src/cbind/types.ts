@@ -10,7 +10,6 @@ export {
   NewContractData,
   FunctionData,
   OptionallyRevealedData,
-  PublicDataTransition,
   PublicDataRead,
   CombinedAccumulatedData,
   PrivateHistoricTreeRoots,
