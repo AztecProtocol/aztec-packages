@@ -23,7 +23,11 @@ template <typename NCT> struct PrivateHistoricTreeRoots {
     fr private_kernel_vk_tree_root = 0;  // TODO: future enhancement
 
     // for serialization: update up with new fields
-    MSGPACK(private_data_tree_root, nullifier_tree_root, contract_tree_root, private_kernel_vk_tree_root);
+    MSGPACK(private_data_tree_root,
+            nullifier_tree_root,
+            contract_tree_root,
+            l1_to_l2_messages_tree_root,
+            private_kernel_vk_tree_root);
 
     boolean operator==(PrivateHistoricTreeRoots<NCT> const& other) const
     {

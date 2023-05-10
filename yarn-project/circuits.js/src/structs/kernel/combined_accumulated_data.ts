@@ -14,10 +14,9 @@ import {
   NEW_L2_TO_L1_MSGS_LENGTH,
 } from '../constants.js';
 import { FunctionData } from '../function_data.js';
-import { Fr, PublicDataTransition } from '../../cbind/types.js';
 import { BufferReader, TupleOf } from '@aztec/foundation/serialize';
 import { assertLength, tupleTimes } from '../../index.js';
-import { EthAddress, AztecAddress } from '../index.js';
+import { EthAddress, AztecAddress, Fr } from '../index.js';
 
 // Not to be confused with ContractDeploymentData (maybe think of better names)
 
@@ -245,7 +244,7 @@ export class CombinedAccumulatedData {
       tupleTimes(KERNEL_NEW_L2_TO_L1_MSGS_LENGTH, Fr.zero),
       tupleTimes(KERNEL_NEW_CONTRACTS_LENGTH, NewContractData.empty),
       tupleTimes(KERNEL_OPTIONALLY_REVEALED_DATA_LENGTH, OptionallyRevealedData.empty),
-      tupleTimes(KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH, PublicDataTransition.empty),
+      tupleTimes(KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH, PublicDataUpdateRequest.empty),
       tupleTimes(KERNEL_PUBLIC_DATA_READS_LENGTH, PublicDataRead.empty),
     );
   }

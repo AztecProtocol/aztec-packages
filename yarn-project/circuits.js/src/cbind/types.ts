@@ -1,4 +1,6 @@
-// Type mappings for working with cbind naming differences
+// Type mappings for cbinds
+// Can either export things directly or handle
+// naming differences with the 'as' syntax
 export {
   AggregationObject as NativeAggregationState,
   AztecAddress as Address,
@@ -11,6 +13,7 @@ export {
   FunctionData,
   OptionallyRevealedData,
   PublicDataRead,
+  PublicDataUpdateRequest,
   CombinedAccumulatedData,
   PrivateHistoricTreeRoots,
   CombinedHistoricTreeRoots,

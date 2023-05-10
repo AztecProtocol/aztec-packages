@@ -109,7 +109,6 @@ inline void cbind_schema_impl(auto func, uint8_t** output_out, size_t* output_le
     // Object representation of the cbind
     auto cbind_obj = get_func_traits<decltype(func)>();
     std::string schema = msgpack::schema_to_string(cbind_obj);
-    info(schema);
     *output_out = (uint8_t*)aligned_alloc(64, schema.size() + 1);
     memcpy(*output_out, schema.c_str(), schema.size() + 1);
     *output_len_out = schema.size();
@@ -125,7 +124,6 @@ inline auto cbind_test_impl(auto func)
         cbind_impl(func, input, input_len, &output, &output_len);
         decltype(expected_ret) actual_ret;
         msgpack::decode(&actual_ret, output, output_len);
-        msgpack::print(actual_ret);
         aligned_free(output);
         // TODO reinstate equality check when derived from msgpack
         return std::make_pair(msgpack::string_encode(actual_ret), msgpack::string_encode(expected_ret));
