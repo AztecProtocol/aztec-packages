@@ -22,7 +22,6 @@ import {
   FunctionData,
   EMITTED_EVENTS_LENGTH,
   AggregationObject,
-  AffineElement,
   Fq,
   range,
   CallContext,
@@ -186,8 +185,8 @@ export function makeOptionallyRevealedData(seed = 1): OptionallyRevealedData {
 
 export function makeAggregationObject(seed = 1): AggregationObject {
   return new AggregationObject(
-    new AffineElement(new Fq(BigInt(seed)), new Fq(BigInt(seed + 1))),
-    new AffineElement(new Fq(BigInt(seed + 0x100)), new Fq(BigInt(seed + 0x101))),
+    new G1AffineElement(new Fq(BigInt(seed)), new Fq(BigInt(seed + 1))),
+    new G1AffineElement(new Fq(BigInt(seed + 0x100)), new Fq(BigInt(seed + 0x101))),
     range(4, seed + 2).map(fr),
     range(6, seed + 6),
   );
@@ -224,12 +223,12 @@ export function makeKernelPublicInputs(seed = 1): KernelCircuitPublicInputs {
   return new KernelCircuitPublicInputs(makeAccumulatedData(seed), makeConstantData(seed + 0x100), true);
 }
 
-export function makeProof(size: number, fill: number) {
+export function makeProof(size = 16, fill = 1) {
   return new Proof(Buffer.alloc(size, fill));
 }
 
-export function makeMembershipWitness<N extends number>(size: number, start: number): MembershipWitness<N> {
-  return new MembershipWitness(size, BigInt(start), range(size, start).map(fr));
+export function makeMembershipWitness<N extends number>(size: N, start: number): MembershipWitness<N> {
+  return new MembershipWitness(size, BigInt(start), tupleTimes(size, fr, start));
 }
 
 export function makeVerificationKey(): VerificationKey {
@@ -278,7 +277,7 @@ export async function makePublicCallData(seed = 1) {
   const publicCallData = new PublicCallData(
     makePublicCallStackItem(seed),
     range(PUBLIC_CALL_STACK_LENGTH, seed + 0x300).map(makePublicCallStackItem),
-    makeProof(16, seed + 0x1000),
+    makeProof(),
     fr(seed + 1),
     fr(seed + 2),
   );

@@ -2,9 +2,10 @@ import { Fr } from '@aztec/foundation/fields';
 import { assertLength, range } from '../utils/jsUtils.js';
 import { serializeToBuffer } from '../utils/serialize.js';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
+import { TupleOf } from '@aztec/foundation/serialize';
 
 export class MembershipWitness<N extends number> {
-  constructor(pathSize: N, public leafIndex: bigint, public siblingPath: Fr[]) {
+  constructor(pathSize: N, public leafIndex: bigint, public siblingPath: TupleOf<Fr, N>) {
     assertLength(this, 'siblingPath', pathSize);
   }
 
@@ -26,14 +27,14 @@ export class MembershipWitness<N extends number> {
       0n,
       Array(pathSize)
         .fill(0)
-        .map(() => Fr.random()),
+        .map(() => Fr.random()) as TupleOf<Fr, N>,
     );
   }
 
   public static empty<N extends number>(pathSize: N, leafIndex: bigint) {
     const arr = Array(pathSize)
       .fill(0)
-      .map(() => Fr.ZERO);
+      .map(() => Fr.ZERO) as TupleOf<Fr, N>;
     return new MembershipWitness<N>(pathSize, leafIndex, arr);
   }
 

@@ -20,7 +20,7 @@ export class FunctionData {
       this.functionSelectorBuffer = numToUInt32BE(functionSelector);
     }
   }
-  // For serialization, return as number
+  // For serialization, must match function_selector name in C++ and return as number
   // TODO(AD) somehow remove this cruft, probably by using a buffer selector in C++
   get functionSelector(): number {
     return deserializeUInt32(this.functionSelectorBuffer).elem;

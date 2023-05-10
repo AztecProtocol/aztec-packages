@@ -1,13 +1,14 @@
 import { Fq, Fr } from '@aztec/foundation/fields';
 import { serializeToBuffer } from '../utils/serialize.js';
 import times from 'lodash.times';
-import { Vector, UInt32, AffineElement } from './shared.js';
+import { Vector, UInt32 } from './shared.js';
 import { BufferReader } from '@aztec/foundation/serialize';
+import { G1AffineElement } from './verification_key.js';
 
 export class AggregationObject {
   constructor(
-    public p0: AffineElement,
-    public p1: AffineElement,
+    public p0: G1AffineElement,
+    public p1: G1AffineElement,
     public publicInputs: Fr[],
     public proofWitnessIndices: UInt32[],
     public hasData = false,
@@ -26,8 +27,8 @@ export class AggregationObject {
   static fromBuffer(buffer: Buffer | BufferReader): AggregationObject {
     const reader = BufferReader.asReader(buffer);
     return new AggregationObject(
-      reader.readObject(AffineElement),
-      reader.readObject(AffineElement),
+      reader.readObject(G1AffineElement),
+      reader.readObject(G1AffineElement),
       reader.readVector(Fr),
       reader.readNumberVector(),
       reader.readBoolean(),
@@ -36,8 +37,8 @@ export class AggregationObject {
 
   static makeFake() {
     return new AggregationObject(
-      new AffineElement(new Fq(1n), new Fq(2n)),
-      new AffineElement(new Fq(1n), new Fq(2n)),
+      new G1AffineElement(new Fq(1n), new Fq(2n)),
+      new G1AffineElement(new Fq(1n), new Fq(2n)),
       [],
       times(16, i => 3027 + i),
       false,

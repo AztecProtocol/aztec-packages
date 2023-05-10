@@ -1,3 +1,17 @@
+import { PublicExecution, PublicExecutionResult, PublicExecutor } from '@aztec/acir-simulator';
+import {
+  ARGS_LENGTH,
+  CallContext,
+  EthAddress,
+  Fr,
+  FunctionData,
+  KERNEL_PUBLIC_CALL_STACK_LENGTH,
+  PUBLIC_DATA_TREE_HEIGHT,
+  Proof,
+  TxRequest,
+  makeEmptyProof,
+} from '@aztec/circuits.js';
+import { makeAztecAddress, makeKernelPublicInputs, makeSelector } from '@aztec/circuits.js/factories';
 import { SiblingPath } from '@aztec/merkle-tree';
 import { ContractDataSource, ContractPublicData, EncodedContractFunction, Tx } from '@aztec/types';
 import { MerkleTreeOperations, TreeInfo } from '@aztec/world-state';
@@ -6,24 +20,10 @@ import { MockProxy, mock } from 'jest-mock-extended';
 import pick from 'lodash.pick';
 import times from 'lodash.times';
 import { makePrivateTx, makePublicTx } from '../index.js';
+import { PublicKernelCircuitSimulator } from '../simulator/index.js';
 import { WasmPublicKernelCircuitSimulator } from '../simulator/public_kernel.js';
 import { PublicProcessor } from './public_processor.js';
-import { PublicExecutor, PublicExecutionResult, PublicExecution } from '@aztec/acir-simulator';
-import {
-  Proof,
-  makeEmptyProof,
-  PUBLIC_DATA_TREE_HEIGHT,
-  FunctionData,
-  ARGS_LENGTH,
-  Fr,
-  KERNEL_PUBLIC_CALL_STACK_LENGTH,
-  TxRequest,
-  CallContext,
-  EthAddress,
-} from '@aztec/circuits.js';
-import { makeKernelPublicInputs, makeAztecAddress, makeSelector } from '@aztec/circuits.js/factories';
 import { PublicProver } from '../prover/index.js';
-import { PublicKernelCircuitSimulator } from '../simulator/index.js';
 
 describe('public_processor', () => {
   let db: MockProxy<MerkleTreeOperations>;
@@ -167,8 +167,6 @@ describe('public_processor', () => {
 
       expect(processed).toHaveLength(1);
       expect(processed).toEqual([await expectedProcessedTx(tx)]);
-      expect(processed[0].data.isPrivate).toBeFalsy();
-      expect(processed).toEqual([expect.objectContaining({ hash, proof, ...pick(tx, 'txRequest') })]);
 
       const publicCallStack = processed[0].data.end.publicCallStack;
       expect(publicCallStack).toEqual(times(KERNEL_PUBLIC_CALL_STACK_LENGTH, () => expect.any(Fr)));

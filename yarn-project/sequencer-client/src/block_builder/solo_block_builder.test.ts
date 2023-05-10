@@ -8,12 +8,13 @@ import {
   PublicDataUpdateRequest,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   RootRollupPublicInputs,
-  UInt8Vector,
   KERNEL_NEW_COMMITMENTS_LENGTH,
   range,
   KERNEL_NEW_NULLIFIERS_LENGTH,
   KERNEL_NEW_L2_TO_L1_MSGS_LENGTH,
   KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH,
+  tupleTimes,
+  Proof,
 } from '@aztec/circuits.js';
 import { computeContractLeaf } from '@aztec/circuits.js/abis';
 import {
@@ -45,6 +46,7 @@ import { getCombinedHistoricTreeRoots } from '../sequencer/utils.js';
 import { RollupSimulator } from '../simulator/index.js';
 import { WasmRollupCircuitSimulator } from '../simulator/rollup.js';
 import { SoloBlockBuilder } from './solo_block_builder.js';
+import { toTupleOf } from '@aztec/foundation/serialize';
 
 export const createMemDown = () => (memdown as any)() as MemDown<any, any>;
 
@@ -65,7 +67,7 @@ describe('sequencer/solo_block_builder', () => {
 
   let wasm: CircuitsWasm;
 
-  const emptyProof = new UInt8Vector(Buffer.alloc(32, 0));
+  const emptyProof = new Proof(Buffer.alloc(32, 0));
 
   beforeAll(async () => {
     wasm = await CircuitsWasm.get();
@@ -181,10 +183,13 @@ describe('sequencer/solo_block_builder', () => {
     const txs = [...txsLeft, ...txsRight];
 
     const originalNullifiers = txs[0].data.end.newNullifiers;
-    txs[0].data.end.newNullifiers = [
-      Fr.fromBuffer(txs[0].hash.buffer),
-      ...txs[0].data.end.newNullifiers.slice(0, txs[0].data.end.newNullifiers.length - 1),
-    ];
+    txs[0].data.end.newNullifiers = toTupleOf(
+      [
+        Fr.fromBuffer(txs[0].hash.buffer),
+        ...txs[0].data.end.newNullifiers.slice(0, txs[0].data.end.newNullifiers.length - 1),
+      ],
+      KERNEL_NEW_NULLIFIERS_LENGTH,
+    );
 
     const newNullifiers = flatMap(txs, tx => tx.data.end.newNullifiers);
     const newCommitments = flatMap(txs, tx => tx.data.end.newCommitments);
@@ -298,23 +303,25 @@ describe('sequencer/solo_block_builder', () => {
       kernelOutput.end.publicDataReads[0] = new PublicDataRead(fr(1), fr(0));
       kernelOutput.end.publicDataUpdateRequests[0] = new PublicDataUpdateRequest(fr(2), fr(0), fr(12));
       kernelOutput.constants.historicTreeRoots = await getCombinedHistoricTreeRoots(builderDb);
-      return await makeProcessedTx(publicTx, kernelOutput, makeProof());
+      return await makeProcessedTx(publicTx, kernelOutput, makeProof(0, 0));
     };
 
     const makeBloatedProcessedTx = async (seed = 0x1) => {
       const publicTx = makePublicTx(seed);
       const kernelOutput = KernelCircuitPublicInputs.empty();
       kernelOutput.constants.historicTreeRoots = await getCombinedHistoricTreeRoots(builderDb);
-      kernelOutput.end.publicDataUpdateRequests = range(KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH, seed + 0x500).map(
+      kernelOutput.end.publicDataUpdateRequests = tupleTimes(
+        KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH,
         i => new PublicDataUpdateRequest(fr(i), fr(0), fr(i + 10)),
+        seed + 0x500,
       );
 
-      const tx = await makeProcessedTx(publicTx, kernelOutput, makeProof());
+      const tx = await makeProcessedTx(publicTx, kernelOutput, makeProof(0, 0));
 
-      tx.data.end.newCommitments = range(KERNEL_NEW_COMMITMENTS_LENGTH, seed + 0x100).map(fr);
-      tx.data.end.newNullifiers = range(KERNEL_NEW_NULLIFIERS_LENGTH, seed + 0x200).map(fr);
+      tx.data.end.newCommitments = tupleTimes(KERNEL_NEW_COMMITMENTS_LENGTH, fr, seed + 0x100);
+      tx.data.end.newNullifiers = tupleTimes(KERNEL_NEW_NULLIFIERS_LENGTH, fr, seed + 0x200);
       tx.data.end.newNullifiers[tx.data.end.newNullifiers.length - 1] = Fr.ZERO;
-      tx.data.end.newL2ToL1Msgs = range(KERNEL_NEW_L2_TO_L1_MSGS_LENGTH, seed + 0x300).map(fr);
+      tx.data.end.newL2ToL1Msgs = tupleTimes(KERNEL_NEW_L2_TO_L1_MSGS_LENGTH, fr, seed + 0x300);
       tx.data.end.newContracts = [makeNewContractData(seed + 0x1000)];
 
       return tx;

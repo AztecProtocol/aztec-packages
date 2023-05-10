@@ -25,6 +25,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { keccak } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { toTupleOf } from '@aztec/foundation/serialize';
 
 /**
  * Computes the hash of a hex-encoded string representation of a verification key (vk).
@@ -263,7 +264,10 @@ export class ContractTree {
       this.contractMembershipWitness = new MembershipWitness<typeof CONTRACT_TREE_HEIGHT>(
         CONTRACT_TREE_HEIGHT,
         index,
-        siblingPath.data.map(x => Fr.fromBuffer(x)),
+        toTupleOf(
+          siblingPath.data.map(x => Fr.fromBuffer(x)),
+          CONTRACT_TREE_HEIGHT,
+        ),
       );
     }
     return this.contractMembershipWitness;
@@ -308,7 +312,7 @@ export class ContractTree {
     return new MembershipWitness<typeof FUNCTION_TREE_HEIGHT>(
       FUNCTION_TREE_HEIGHT,
       BigInt(functionIndex),
-      functionTreeData.siblingPath,
+      toTupleOf(functionTreeData.siblingPath, FUNCTION_TREE_HEIGHT),
     );
   }
 

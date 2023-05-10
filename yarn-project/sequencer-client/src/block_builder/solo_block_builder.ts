@@ -24,6 +24,7 @@ import {
   RootRollupPublicInputs,
   VK_TREE_HEIGHT,
   VerificationKey,
+  tupleTimes,
 } from '@aztec/circuits.js';
 import { computeContractLeaf } from '@aztec/circuits.js/abis';
 import { LeafData, SiblingPath } from '@aztec/merkle-tree';
@@ -31,7 +32,6 @@ import { MerkleTreeId, ContractData, L2Block, PublicDataWrite } from '@aztec/typ
 import { MerkleTreeOperations } from '@aztec/world-state';
 import chunk from 'lodash.chunk';
 import flatMap from 'lodash.flatmap';
-import times from 'lodash.times';
 import { VerificationKeys } from '../mocks/verification_keys.js';
 import { RollupProver } from '../prover/index.js';
 import { RollupSimulator } from '../simulator/index.js';
@@ -481,7 +481,11 @@ export class SoloBlockBuilder implements BlockBuilder {
 
       // MembershipWitness for a VK tree to be implemented in the future
       FUTURE_NUM,
-      new MembershipWitness(ROLLUP_VK_TREE_HEIGHT, BigInt(FUTURE_NUM), Array(ROLLUP_VK_TREE_HEIGHT).fill(FUTURE_FR)),
+      new MembershipWitness(
+        ROLLUP_VK_TREE_HEIGHT,
+        BigInt(FUTURE_NUM),
+        tupleTimes(ROLLUP_VK_TREE_HEIGHT, () => FUTURE_FR),
+      ),
     );
   }
 
@@ -517,7 +521,10 @@ export class SoloBlockBuilder implements BlockBuilder {
     return new MembershipWitness(
       height,
       index,
-      path.data.map(b => Fr.fromBuffer(b)),
+      toTupleOf(
+        path.data.map(b => Fr.fromBuffer(b)),
+        height,
+      ),
     );
   }
 
@@ -587,7 +594,10 @@ export class SoloBlockBuilder implements BlockBuilder {
       witness: new MembershipWitness(
         NULLIFIER_TREE_HEIGHT,
         BigInt(prevValueIndex.index),
-        prevValueSiblingPath.data.map(b => Fr.fromBuffer(b)),
+        toTupleOf(
+          prevValueSiblingPath.data.map(b => Fr.fromBuffer(b)),
+          NULLIFIER_TREE_HEIGHT,
+        ),
       ),
     };
   }
@@ -846,7 +856,11 @@ export class SoloBlockBuilder implements BlockBuilder {
       const index = publicDataUpdateRequest.leafIndex.value;
       const path = await this.db.getSiblingPath(MerkleTreeId.PUBLIC_DATA_TREE, index);
       await this.db.updateLeaf(MerkleTreeId.PUBLIC_DATA_TREE, publicDataUpdateRequest.newValue.toBuffer(), index);
-      const witness = new MembershipWitness(PUBLIC_DATA_TREE_HEIGHT, index, path.data.map(Fr.fromBuffer));
+      const witness = new MembershipWitness(
+        PUBLIC_DATA_TREE_HEIGHT,
+        index,
+        toTupleOf(path.data.map(Fr.fromBuffer), PUBLIC_DATA_TREE_HEIGHT),
+      );
       newPublicDataUpdateRequestsSiblingPaths.push(witness);
     }
     return newPublicDataUpdateRequestsSiblingPaths;
@@ -857,7 +871,11 @@ export class SoloBlockBuilder implements BlockBuilder {
     for (const publicDataRead of tx.data.end.publicDataReads) {
       const index = publicDataRead.leafIndex.value;
       const path = await this.db.getSiblingPath(MerkleTreeId.PUBLIC_DATA_TREE, index);
-      const witness = new MembershipWitness(PUBLIC_DATA_TREE_HEIGHT, index, path.data.map(Fr.fromBuffer));
+      const witness = new MembershipWitness(
+        PUBLIC_DATA_TREE_HEIGHT,
+        index,
+        toTupleOf(path.data.map(Fr.fromBuffer), PUBLIC_DATA_TREE_HEIGHT),
+      );
       newPublicDataReadsSiblingPaths.push(witness);
     }
     return newPublicDataReadsSiblingPaths;
@@ -924,8 +942,12 @@ export class SoloBlockBuilder implements BlockBuilder {
     }
 
     // Extract witness objects from returned data
-    const lowNullifierMembershipWitnesses = nullifierWitnesses.map(w =>
-      MembershipWitness.fromBufferArray(w.index, w.siblingPath.data),
+    const lowNullifierMembershipWitnesses = nullifierWitnesses.map(
+      // TODO(AD) length-aware construction wouldn't need this cast
+      w =>
+        MembershipWitness.fromBufferArray(w.index, w.siblingPath.data) as MembershipWitness<
+          typeof NULLIFIER_TREE_HEIGHT
+        >,
     );
 
     return BaseRollupInputs.from({
@@ -940,7 +962,7 @@ export class SoloBlockBuilder implements BlockBuilder {
       newPublicDataUpdateRequestsSiblingPaths,
       newPublicDataReadsSiblingPaths,
       lowNullifierLeafPreimages: nullifierWitnesses.map((w: LowNullifierWitnessData) => w.preimage),
-      lowNullifierMembershipWitness: lowNullifierMembershipWitnesses,
+      lowNullifierMembershipWitness: toTupleOf(lowNullifierMembershipWitnesses, NULLIFIER_TREE_HEIGHT),
       kernelData: [this.getKernelDataFor(left), this.getKernelDataFor(right)],
       historicContractsTreeRootMembershipWitnesses: [
         await this.getContractMembershipWitnessFor(left),
@@ -961,7 +983,7 @@ export class SoloBlockBuilder implements BlockBuilder {
     return new MembershipWitness(
       height,
       0n,
-      times(height, () => new Fr(0n)),
+      tupleTimes(height, () => new Fr(0n)),
     );
   }
 }

@@ -5,7 +5,7 @@ import { serializeToBuffer } from '../../utils/serialize.js';
 import { VK_TREE_HEIGHT } from '../constants.js';
 import { Fr } from '../index.js';
 import { Proof } from '../proof.js';
-import { UInt32, UInt8Vector } from '../shared.js';
+import { UInt32 } from '../shared.js';
 import { VerificationKey } from '../verification_key.js';
 import { makeEmptyProof } from './private_kernel.js';
 import { KernelCircuitPublicInputs } from './public_inputs.js';
@@ -37,7 +37,7 @@ export class PreviousKernelData {
     const reader = BufferReader.asReader(buffer);
     return new this(
       reader.readObject(KernelCircuitPublicInputs),
-      new Proof(reader.readObject(UInt8Vector).buffer),
+      reader.readObject(Proof),
       reader.readObject(VerificationKey),
       reader.readNumber(),
       reader.readArray(VK_TREE_HEIGHT, Fr),

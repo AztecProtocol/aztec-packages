@@ -16,51 +16,35 @@ export class Vector<T extends Bufferable> {
   }
 }
 
-// TODO is this still needed? used to implement Proof class
-export class UInt8Vector {
-  constructor(public buffer: Buffer) {}
-
-  toBuffer() {
-    return serializeToBuffer(this.buffer.length, this.buffer);
-  }
-
-  static fromBuffer(buffer: Buffer | BufferReader): UInt8Vector {
-    const reader = BufferReader.asReader(buffer);
-    const size = reader.readNumber();
-    const buf = reader.readBytes(size);
-    return new UInt8Vector(buf);
-  }
-}
-
 export type UInt32 = number;
 
-/**
- * Affine element of a group, composed of two elements in Fq.
- * cpp/barretenberg/cpp/src/aztec/ecc/groups/affine_element.hpp
- * cpp/barretenberg/cpp/src/aztec/ecc/curves/bn254/g1.hpp
- */
-export class AffineElement {
-  public x: Fq;
-  public y: Fq;
+// /**
+//  * Affine element of a group, composed of two elements in Fq.
+//  * cpp/barretenberg/cpp/src/aztec/ecc/groups/affine_element.hpp
+//  * cpp/barretenberg/cpp/src/aztec/ecc/curves/bn254/g1.hpp
+//  */
+// export class AffineElement {
+//   public x: Fq;
+//   public y: Fq;
 
-  constructor(x: Fq | bigint, y: Fq | bigint) {
-    this.x = typeof x === 'bigint' ? new Fq(x) : x;
-    this.y = typeof y === 'bigint' ? new Fq(y) : y;
-  }
+//   constructor(x: Fq | bigint, y: Fq | bigint) {
+//     this.x = typeof x === 'bigint' ? new Fq(x) : x;
+//     this.y = typeof y === 'bigint' ? new Fq(y) : y;
+//   }
 
-  toBuffer() {
-    return serializeToBuffer(this.x, this.y);
-  }
+//   toBuffer() {
+//     return serializeToBuffer(this.x, this.y);
+//   }
 
-  static fromBuffer(buffer: Buffer | BufferReader): AffineElement {
-    const reader = BufferReader.asReader(buffer);
-    return new AffineElement(reader.readFq(), reader.readFq());
-  }
+//   static fromBuffer(buffer: Buffer | BufferReader): AffineElement {
+//     const reader = BufferReader.asReader(buffer);
+//     return new AffineElement(reader.readFq(), reader.readFq());
+//   }
 
-  toFriendlyJSON() {
-    return `(${this.x.toString()}, ${this.y.toString()})`;
-  }
-}
+//   toFriendlyJSON() {
+//     return `(${this.x.toString()}, ${this.y.toString()})`;
+//   }
+// }
 
 /**
  * ECDSA signature used for transactions.
