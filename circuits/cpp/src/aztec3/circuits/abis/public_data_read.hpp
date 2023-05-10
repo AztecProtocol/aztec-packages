@@ -57,7 +57,7 @@ template <typename NCT> struct PublicDataRead {
             value,
         };
 
-        return NCT::compress(inputs, GeneratorIndex::STATE_READ);
+        return NCT::compress(inputs, GeneratorIndex::PUBLIC_DATA_READ);
     }
 
     void set_public()

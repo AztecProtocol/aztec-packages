@@ -5,8 +5,8 @@ import { PublicCallStackItem } from '../call_stack_item.js';
 import {
   PUBLIC_CALL_STACK_LENGTH,
   PUBLIC_DATA_TREE_HEIGHT,
-  STATE_READS_LENGTH,
-  STATE_TRANSITIONS_LENGTH,
+  KERNEL_PUBLIC_DATA_READS_LENGTH,
+  KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH,
 } from '../constants.js';
 import { MembershipWitness } from '../membership_witness.js';
 import { UInt8Vector } from '../shared.js';
@@ -37,8 +37,8 @@ export class WitnessedPublicCallData {
     public readonly readsHashPaths: MembershipWitness<typeof PUBLIC_DATA_TREE_HEIGHT>[],
     public readonly publicDataTreeRoot: Fr,
   ) {
-    assertLength(this, 'transitionsHashPaths', STATE_TRANSITIONS_LENGTH);
-    assertLength(this, 'readsHashPaths', STATE_READS_LENGTH);
+    assertLength(this, 'transitionsHashPaths', KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH);
+    assertLength(this, 'readsHashPaths', KERNEL_PUBLIC_DATA_READS_LENGTH);
   }
 
   toBuffer() {
