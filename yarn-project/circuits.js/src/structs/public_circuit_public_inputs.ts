@@ -141,8 +141,8 @@ export class PublicCircuitPublicInputs {
       isFrArrayEmpty(this.args) &&
       isFrArrayEmpty(this.returnValues) &&
       isFrArrayEmpty(this.emittedEvents) &&
-      isArrayEmpty(this.stateTransitions, item => item.isEmpty()) &&
-      isArrayEmpty(this.stateReads, item => item.isEmpty()) &&
+      isArrayEmpty(this.contractStorageUpdateRequests, item => item.isEmpty()) &&
+      isArrayEmpty(this.contractStorageRead, item => item.isEmpty()) &&
       isFrArrayEmpty(this.publicCallStack) &&
       isFrArrayEmpty(this.newL2ToL1Msgs) &&
       this.historicPublicDataTreeRoot.isZero() &&

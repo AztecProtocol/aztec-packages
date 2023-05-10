@@ -2,8 +2,12 @@ import {
   ARGS_LENGTH,
   AztecAddress,
   CircuitsWasm,
+  ContractStorageRead,
+  ContractStorageUpdateRequest,
   EMITTED_EVENTS_LENGTH,
   Fr,
+  KERNEL_PUBLIC_DATA_READS_LENGTH,
+  KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH,
   KernelCircuitPublicInputs,
   MembershipWitness,
   NEW_L2_TO_L1_MSGS_LENGTH,
@@ -16,11 +20,7 @@ import {
   PublicKernelInputsNoPreviousKernel,
   PublicKernelPublicInputs,
   RETURN_VALUES_LENGTH,
-  STATE_READS_LENGTH,
-  STATE_TRANSITIONS_LENGTH,
   SignedTxRequest,
-  StateRead,
-  StateTransition,
   VK_TREE_HEIGHT,
 } from '@aztec/circuits.js';
 import { ContractDataSource, MerkleTreeId, PublicTx, Tx } from '@aztec/types';
@@ -181,8 +181,16 @@ export class PublicProcessor {
       emittedEvents: padArrayEnd([], Fr.ZERO, EMITTED_EVENTS_LENGTH),
       newL2ToL1Msgs: padArrayEnd([], Fr.ZERO, NEW_L2_TO_L1_MSGS_LENGTH),
       returnValues: padArrayEnd(result.returnValues, Fr.ZERO, RETURN_VALUES_LENGTH),
-      stateReads: padArrayEnd(result.stateReads, StateRead.empty(), STATE_READS_LENGTH),
-      stateTransitions: padArrayEnd(result.stateTransitions, StateTransition.empty(), STATE_TRANSITIONS_LENGTH),
+      contractStorageRead: padArrayEnd(
+        result.contractStorageReads,
+        ContractStorageRead.empty(),
+        KERNEL_PUBLIC_DATA_READS_LENGTH,
+      ),
+      contractStorageUpdateRequests: padArrayEnd(
+        result.contractStorageUpdateRequests,
+        ContractStorageUpdateRequest.empty(),
+        KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH,
+      ),
       publicCallStack,
       historicPublicDataTreeRoot,
     });

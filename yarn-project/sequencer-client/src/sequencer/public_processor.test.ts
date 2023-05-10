@@ -226,7 +226,7 @@ function makePublicExecutionResult(
     execution,
     nestedExecutions,
     returnValues: [],
-    stateReads: [],
-    stateTransitions: [],
+    contractStorageReads: [],
+    contractStorageUpdateRequests: [],
   };
 }
