@@ -6,13 +6,32 @@ import { EcdsaSignature } from './shared.js';
 import { TxContext } from './tx_context.js';
 import { Fr } from '@aztec/foundation/fields';
 import { EthPublicKey } from '@aztec/foundation/eth-public-key';
+import { hashTxRequest } from '../abis/abis.js';
+import { CircuitsWasm } from '../index.js';
+import { Ecdsa } from '@aztec/barretenberg.js/crypto';
 
 /**
  * Signed transaction request.
  * @see cpp/src/aztec3/circuits/abis/signed_tx_request.hpp.
  */
 export class SignedTxRequest {
-  constructor(public txRequest: TxRequest, public signingKey: EthPublicKey, public signature: EcdsaSignature) {}
+  public signingKey!: EthPublicKey;
+
+  public constructor(public txRequest: TxRequest, public signature: EcdsaSignature) {}
+
+  public static async new(txRequest: TxRequest, signature: EcdsaSignature) {
+    // Recover signing key from the signature.
+    const wasm = await CircuitsWasm.get();
+    const message = await hashTxRequest(wasm, txRequest);
+    const ecdsa = new Ecdsa(wasm);
+    const signingKeyBuffer: Buffer = ecdsa.recoverPublicKey(message, signature);
+    const signingKey = EthPublicKey.fromBuffer(signingKeyBuffer);
+
+    // Create a new instance of SignedTxRequest.
+    const instance = new SignedTxRequest(txRequest, signature);
+    instance.signingKey = signingKey;
+    return instance;
+  }
 
   /**
    * Serialize as a buffer.

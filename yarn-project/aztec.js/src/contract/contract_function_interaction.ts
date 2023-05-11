@@ -104,8 +104,7 @@ export class ContractFunctionInteraction {
       await this.sign(options);
     }
 
-    const signingKey = await this.arc.recoverSigningKey(this.txRequest!, this.signature!);
-    const signedTxRequest = new SignedTxRequest(this.txRequest!, signingKey, this.signature!);
+    const signedTxRequest = await SignedTxRequest.new(this.txRequest!, this.signature!);
 
     this.tx = await this.arc.createTx(signedTxRequest);
     return this.tx;

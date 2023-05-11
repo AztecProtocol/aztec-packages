@@ -11,6 +11,7 @@ import {
   VerificationKey,
   makeEmptyProof,
   SignedTxRequest,
+  CircuitsWasm,
 } from '@aztec/circuits.js';
 import { makeTxRequest } from '@aztec/circuits.js/factories';
 import { mock } from 'jest-mock-extended';
@@ -19,11 +20,12 @@ import { ProofCreator } from './proof_creator.js';
 import { ProvingDataOracle } from './proving_data_oracle.js';
 import { Fr } from '@aztec/foundation/fields';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { EthPublicKey } from '@aztec/foundation/eth-public-key';
+import { hashTxRequest } from '@aztec/circuits.js/abis';
+import { Ecdsa } from '@aztec/barretenberg.js/crypto';
+import { randomBytes } from 'crypto';
 
 describe('Kernel Prover', () => {
   let txRequest: TxRequest;
-  let signingKey: EthPublicKey;
   let txSignature: EcdsaSignature;
   let oracle: ReturnType<typeof mock<ProvingDataOracle>>;
   let proofCreator: ReturnType<typeof mock<ProofCreator>>;
@@ -79,13 +81,19 @@ describe('Kernel Prover', () => {
     });
   };
 
-  const prove = (executionResult: ExecutionResult) =>
-    prover.prove(new SignedTxRequest(txRequest, signingKey, txSignature), executionResult);
+  const prove = async (executionResult: ExecutionResult) =>
+    prover.prove(await SignedTxRequest.new(txRequest, txSignature), executionResult);
 
-  beforeEach(() => {
+  beforeEach(async () => {
     txRequest = makeTxRequest();
-    signingKey = EthPublicKey.random();
-    txSignature = EcdsaSignature.random();
+
+    // Sign the transaction
+    const privateKey = Buffer.from(randomBytes(32));
+    const wasm = await CircuitsWasm.get();
+    const message = await hashTxRequest(wasm, txRequest);
+    const ecdsa = new Ecdsa(wasm);
+    const signature: EcdsaSignature = ecdsa.constructSignature(message, privateKey);
+    txSignature = signature;
 
     oracle = mock<ProvingDataOracle>();
     oracle.getVkMembershipWitness.mockResolvedValue(MembershipWitness.random(VK_TREE_HEIGHT));

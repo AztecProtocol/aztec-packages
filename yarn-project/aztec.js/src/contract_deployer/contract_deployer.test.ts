@@ -1,5 +1,5 @@
 import { AztecRPCClient, Tx, TxHash, TxReceipt, TxRequest } from '@aztec/aztec-rpc';
-import { AztecAddress, EcdsaSignature, EthAddress, Fr } from '@aztec/circuits.js';
+import { AztecAddress, EcdsaSignature, EthAddress, Fr, SignedTxRequest } from '@aztec/circuits.js';
 import { ContractAbi, FunctionType } from '@aztec/foundation/abi';
 import { randomBytes } from 'crypto';
 import { mock } from 'jest-mock-extended';
@@ -7,6 +7,7 @@ import { ContractDeployer } from './contract_deployer.js';
 
 describe('Contract Deployer', () => {
   let arc: ReturnType<typeof mock<AztecRPCClient>>;
+  let mockSignedTxRequest: SignedTxRequest;
 
   const abi: ContractAbi = {
     name: 'MyContract',
@@ -20,6 +21,10 @@ describe('Contract Deployer', () => {
       },
     ],
   };
+
+  beforeEach(async () => {
+    mockSignedTxRequest = await SignedTxRequest.new(mockTxRequest, mockSignature);
+  });
 
   const portalContract = new EthAddress(randomBytes(EthAddress.SIZE_IN_BYTES));
   const contractAddressSalt = Fr.random();
@@ -60,7 +65,7 @@ describe('Contract Deployer', () => {
     expect(arc.signTxRequest).toHaveBeenCalledTimes(1);
     expect(arc.signTxRequest).toHaveBeenCalledWith(mockTxRequest);
     expect(arc.createTx).toHaveBeenCalledTimes(1);
-    expect(arc.createTx).toHaveBeenCalledWith(mockTxRequest, mockSignature);
+    expect(arc.createTx).toHaveBeenCalledWith(mockSignedTxRequest);
     expect(arc.sendTx).toHaveBeenCalledTimes(1);
     expect(arc.sendTx).toHaveBeenCalledWith(mockTx);
   });
