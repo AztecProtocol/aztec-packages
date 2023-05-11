@@ -6,6 +6,7 @@ import {
   CircuitsWasm,
   ConstantBaseRollupData,
   KERNEL_NEW_NULLIFIERS_LENGTH,
+  L1_TO_L2_MESSAGES_ROOTS_TREE_HEIGHT,
   L1_TO_L2_MESSAGES_SUBTREE_HEIGHT,
   MembershipWitness,
   MergeRollupInputs,
@@ -164,7 +165,7 @@ export class SoloBlockBuilder implements BlockBuilder {
       n => new ContractData(n.contractAddress, n.portalContractAddress),
     );
     const newPublicDataWrites = flatMap(txs, tx =>
-      tx.data.end.stateTransitions.map(t => new PublicDataWrite(t.leafIndex, t.newValue)),
+      tx.data.end.publicDataUpdateRequests.map(t => new PublicDataWrite(t.leafIndex, t.newValue)),
     );
     const newL2ToL1Msgs = flatMap(txs, tx => tx.data.end.newL2ToL1Msgs);
 
@@ -208,7 +209,12 @@ export class SoloBlockBuilder implements BlockBuilder {
 
   protected validateTxs(txs: ProcessedTx[]) {
     for (const tx of txs) {
-      for (const historicTreeRoot of ['privateDataTreeRoot', 'contractTreeRoot', 'nullifierTreeRoot'] as const) {
+      for (const historicTreeRoot of [
+        'privateDataTreeRoot',
+        'contractTreeRoot',
+        'nullifierTreeRoot',
+        'l1ToL2MessagesTreeRoot',
+      ] as const) {
         if (tx.data.constants.historicTreeRoots.privateHistoricTreeRoots[historicTreeRoot].isZero()) {
           throw new Error(`Empty ${historicTreeRoot} for tx: ${toFriendlyJSON(tx)}`);
         }
@@ -529,6 +535,14 @@ export class SoloBlockBuilder implements BlockBuilder {
     );
   }
 
+  protected getL1ToL2MessageMembershipWitnessFor(tx: ProcessedTx) {
+    return this.getMembershipWitnessFor(
+      tx.data.constants.historicTreeRoots.privateHistoricTreeRoots.l1ToL2MessagesTreeRoot,
+      MerkleTreeId.L1_TO_L2_MESSAGES_ROOTS_TREE,
+      L1_TO_L2_MESSAGES_ROOTS_TREE_HEIGHT,
+    );
+  }
+
   protected async getConstantBaseRollupData(): Promise<ConstantBaseRollupData> {
     return ConstantBaseRollupData.from({
       baseRollupVkHash: DELETE_FR,
@@ -539,7 +553,9 @@ export class SoloBlockBuilder implements BlockBuilder {
       startTreeOfHistoricPrivateDataTreeRootsSnapshot: await this.getTreeSnapshot(
         MerkleTreeId.PRIVATE_DATA_TREE_ROOTS_TREE,
       ),
-      treeOfHistoricL1ToL2MsgTreeRootsSnapshot: await this.getTreeSnapshot(MerkleTreeId.L1_TO_L2_MESSAGES_ROOTS_TREE),
+      startTreeOfHistoricL1ToL2MsgTreeRootsSnapshot: await this.getTreeSnapshot(
+        MerkleTreeId.L1_TO_L2_MESSAGES_ROOTS_TREE,
+      ),
     });
   }
 
@@ -548,7 +564,7 @@ export class SoloBlockBuilder implements BlockBuilder {
     if (nullifier.value === 0n) {
       return {
         index: 0,
-        leafPreimage: new NullifierLeafPreimage(new Fr(0n), new Fr(0n), 0),
+        leafPreimage: NullifierLeafPreimage.empty(),
         witness: this.makeEmptyMembershipWitness(NULLIFIER_TREE_HEIGHT),
       };
     }
@@ -822,27 +838,27 @@ export class SoloBlockBuilder implements BlockBuilder {
     return [lowNullifierWitnesses, newNullifiersSubtreeSiblingPath];
   }
 
-  protected async processPublicStateTransitions(tx: ProcessedTx) {
-    const newStateTransitionsSiblingPaths: MembershipWitness<typeof PUBLIC_DATA_TREE_HEIGHT>[] = [];
-    for (const stateTransition of tx.data.end.stateTransitions) {
-      const index = stateTransition.leafIndex.value;
+  protected async processPublicDataUpdateRequests(tx: ProcessedTx) {
+    const newPublicDataUpdateRequestsSiblingPaths: MembershipWitness<typeof PUBLIC_DATA_TREE_HEIGHT>[] = [];
+    for (const publicDataUpdateRequest of tx.data.end.publicDataUpdateRequests) {
+      const index = publicDataUpdateRequest.leafIndex.value;
       const path = await this.db.getSiblingPath(MerkleTreeId.PUBLIC_DATA_TREE, index);
-      await this.db.updateLeaf(MerkleTreeId.PUBLIC_DATA_TREE, stateTransition.newValue.toBuffer(), index);
+      await this.db.updateLeaf(MerkleTreeId.PUBLIC_DATA_TREE, publicDataUpdateRequest.newValue.toBuffer(), index);
       const witness = new MembershipWitness(PUBLIC_DATA_TREE_HEIGHT, index, path.data.map(Fr.fromBuffer));
-      newStateTransitionsSiblingPaths.push(witness);
+      newPublicDataUpdateRequestsSiblingPaths.push(witness);
     }
-    return newStateTransitionsSiblingPaths;
+    return newPublicDataUpdateRequestsSiblingPaths;
   }
 
-  protected async getPublicStateReadsSiblingPaths(tx: ProcessedTx) {
-    const newStateReadsSiblingPaths: MembershipWitness<typeof PUBLIC_DATA_TREE_HEIGHT>[] = [];
-    for (const stateRead of tx.data.end.stateReads) {
-      const index = stateRead.leafIndex.value;
+  protected async getPublicDataReadsSiblingPaths(tx: ProcessedTx) {
+    const newPublicDataReadsSiblingPaths: MembershipWitness<typeof PUBLIC_DATA_TREE_HEIGHT>[] = [];
+    for (const publicDataRead of tx.data.end.publicDataReads) {
+      const index = publicDataRead.leafIndex.value;
       const path = await this.db.getSiblingPath(MerkleTreeId.PUBLIC_DATA_TREE, index);
       const witness = new MembershipWitness(PUBLIC_DATA_TREE_HEIGHT, index, path.data.map(Fr.fromBuffer));
-      newStateReadsSiblingPaths.push(witness);
+      newPublicDataReadsSiblingPaths.push(witness);
     }
-    return newStateReadsSiblingPaths;
+    return newPublicDataReadsSiblingPaths;
   }
 
   // Builds the base rollup inputs, updating the contract, nullifier, and data trees in the process
@@ -880,17 +896,20 @@ export class SoloBlockBuilder implements BlockBuilder {
     await this.db.appendLeaves(MerkleTreeId.PRIVATE_DATA_TREE, newCommitments);
 
     // Update the public data tree and get membership witnesses.
-    // All state reads are checked against the unmodified data root when the corresponding tx started,
-    // so it's the unmodified tree for tx1, and the one after applying tx1 transitions for tx2.
-    // State transitions are checked against the tree as it is iteratively updated.
+    // All public data reads are checked against the unmodified data root when the corresponding tx started,
+    // so it's the unmodified tree for tx1, and the one after applying tx1 update request for tx2.
+    // Update requests are checked against the tree as it is iteratively updated.
     // See https://github.com/AztecProtocol/aztec3-packages/issues/270#issuecomment-1522258200
-    const leftStateReadSiblingPaths = await this.getPublicStateReadsSiblingPaths(left);
-    const leftStateTransitionsSiblingPaths = await this.processPublicStateTransitions(left);
-    const rightStateReadSiblingPaths = await this.getPublicStateReadsSiblingPaths(right);
-    const rightStateTransitionsSiblingPaths = await this.processPublicStateTransitions(right);
+    const leftPublicDataReadSiblingPaths = await this.getPublicDataReadsSiblingPaths(left);
+    const leftPublicDataUpdateRequestsSiblingPaths = await this.processPublicDataUpdateRequests(left);
+    const rightPublicDataReadSiblingPaths = await this.getPublicDataReadsSiblingPaths(right);
+    const rightPublicDataUpdateRequestsSiblingPaths = await this.processPublicDataUpdateRequests(right);
 
-    const newStateReadsSiblingPaths = [...leftStateReadSiblingPaths, ...rightStateReadSiblingPaths];
-    const newStateTransitionsSiblingPaths = [...leftStateTransitionsSiblingPaths, ...rightStateTransitionsSiblingPaths];
+    const newPublicDataReadsSiblingPaths = [...leftPublicDataReadSiblingPaths, ...rightPublicDataReadSiblingPaths];
+    const newPublicDataUpdateRequestsSiblingPaths = [
+      ...leftPublicDataUpdateRequestsSiblingPaths,
+      ...rightPublicDataUpdateRequestsSiblingPaths,
+    ];
 
     // Update the nullifier tree, capturing the low nullifier info for each individual operation
     const newNullifiers = [...left.data.end.newNullifiers, ...right.data.end.newNullifiers];
@@ -916,8 +935,8 @@ export class SoloBlockBuilder implements BlockBuilder {
       newCommitmentsSubtreeSiblingPath,
       newContractsSubtreeSiblingPath,
       newNullifiersSubtreeSiblingPath,
-      newStateTransitionsSiblingPaths,
-      newStateReadsSiblingPaths,
+      newPublicDataUpdateRequestsSiblingPaths,
+      newPublicDataReadsSiblingPaths,
       lowNullifierLeafPreimages: nullifierWitnesses.map((w: LowNullifierWitnessData) => w.preimage),
       lowNullifierMembershipWitness: lowNullifierMembershipWitnesses,
       kernelData: [this.getKernelDataFor(left), this.getKernelDataFor(right)],
@@ -928,6 +947,10 @@ export class SoloBlockBuilder implements BlockBuilder {
       historicPrivateDataTreeRootMembershipWitnesses: [
         await this.getDataMembershipWitnessFor(left),
         await this.getDataMembershipWitnessFor(right),
+      ],
+      historicL1ToL2MsgTreeRootMembershipWitnesses: [
+        await this.getL1ToL2MessageMembershipWitnessFor(left),
+        await this.getL1ToL2MessageMembershipWitnessFor(right),
       ],
     });
   }

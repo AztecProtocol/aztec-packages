@@ -21,3 +21,15 @@ export function padArrayStart<T>(arr: T[], elem: T, length: number): T[] {
   if (arr.length > length) throw new Error(`Array size exceeds target length`);
   return [...Array(length - arr.length).fill(elem), ...arr];
 }
+
+/**
+ * Returns if an array is composed of empty items.
+ * @param arr - Array to check.
+ * @returns True if every item in the array isEmpty.
+ */
+export function isArrayEmpty<T>(arr: T[], isEmpty: (item: T) => boolean): boolean {
+  for (const item of arr) {
+    if (!isEmpty(item)) return false;
+  }
+  return true;
+}

@@ -2,7 +2,7 @@
 #include "init.hpp"
 #include "nullifier_tree_testing_harness.hpp"
 
-#include "aztec3/circuits/abis/public_data_transition.hpp"
+#include "aztec3/circuits/abis/public_data_update_request.hpp"
 #include "aztec3/constants.hpp"
 
 #include "barretenberg/numeric/uint256/uint256.hpp"
@@ -45,7 +45,8 @@ BaseRollupInputs base_rollup_inputs_from_kernels(std::array<KernelData, 2> kerne
 BaseRollupInputs base_rollup_inputs_from_kernels(std::array<KernelData, 2> kernel_data,
                                                  MerkleTree& private_data_tree,
                                                  MerkleTree& contract_tree,
-                                                 SparseTree& public_data_tree);
+                                                 SparseTree& public_data_tree,
+                                                 MerkleTree& l1_to_l2_msg_tree);
 
 template <size_t N>
 std::array<fr, N> get_sibling_path(MerkleTree& tree, size_t leafIndex, size_t const& subtree_depth_to_skip)
@@ -104,9 +105,9 @@ RootRollupInputs get_root_rollup_inputs(utils::DummyComposer& composer,
 
 MergeRollupInputs get_merge_rollup_inputs(utils::DummyComposer& composer, std::array<KernelData, 4> kernel_data);
 
-inline abis::PublicDataTransition<NT> make_public_write(fr leaf_index, fr old_value, fr new_value)
+inline abis::PublicDataUpdateRequest<NT> make_public_data_update_request(fr leaf_index, fr old_value, fr new_value)
 {
-    return abis::PublicDataTransition<NT>{
+    return abis::PublicDataUpdateRequest<NT>{
         .leaf_index = leaf_index,
         .old_value = old_value,
         .new_value = new_value,

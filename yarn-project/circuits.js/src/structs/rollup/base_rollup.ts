@@ -6,12 +6,13 @@ import {
   KERNEL_NEW_COMMITMENTS_LENGTH,
   KERNEL_NEW_CONTRACTS_LENGTH,
   KERNEL_NEW_NULLIFIERS_LENGTH,
+  L1_TO_L2_MESSAGES_ROOTS_TREE_HEIGHT,
   NULLIFIER_TREE_HEIGHT,
   PRIVATE_DATA_TREE_HEIGHT,
   PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT,
   PUBLIC_DATA_TREE_HEIGHT,
-  STATE_READS_LENGTH,
-  STATE_TRANSITIONS_LENGTH,
+  KERNEL_PUBLIC_DATA_READS_LENGTH,
+  KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH,
 } from '../constants.js';
 import { PreviousKernelData } from '../kernel/previous_kernel_data.js';
 import { UInt32 } from '../shared.js';
@@ -37,7 +38,7 @@ export class ConstantBaseRollupData {
     // The very latest roots as at the very beginning of the entire rollup:
     public startTreeOfHistoricPrivateDataTreeRootsSnapshot: AppendOnlyTreeSnapshot,
     public startTreeOfHistoricContractTreeRootsSnapshot: AppendOnlyTreeSnapshot,
-    public treeOfHistoricL1ToL2MsgTreeRootsSnapshot: AppendOnlyTreeSnapshot,
+    public startTreeOfHistoricL1ToL2MsgTreeRootsSnapshot: AppendOnlyTreeSnapshot,
 
     // Some members of this struct tbd:
     public privateKernelVkTreeRoot: Fr,
@@ -67,7 +68,7 @@ export class ConstantBaseRollupData {
     return [
       fields.startTreeOfHistoricPrivateDataTreeRootsSnapshot,
       fields.startTreeOfHistoricContractTreeRootsSnapshot,
-      fields.treeOfHistoricL1ToL2MsgTreeRootsSnapshot,
+      fields.startTreeOfHistoricL1ToL2MsgTreeRootsSnapshot,
       fields.privateKernelVkTreeRoot,
       fields.publicKernelVkTreeRoot,
       fields.baseRollupVkHash,
@@ -102,8 +103,8 @@ export class BaseRollupInputs {
     public newCommitmentsSubtreeSiblingPath: Fr[],
     public newNullifiersSubtreeSiblingPath: Fr[],
     public newContractsSubtreeSiblingPath: Fr[],
-    public newStateTransitionsSiblingPaths: MembershipWitness<typeof PUBLIC_DATA_TREE_HEIGHT>[],
-    public newStateReadsSiblingPaths: MembershipWitness<typeof PUBLIC_DATA_TREE_HEIGHT>[],
+    public newPublicDataUpdateRequestsSiblingPaths: MembershipWitness<typeof PUBLIC_DATA_TREE_HEIGHT>[],
+    public newPublicDataReadsSiblingPaths: MembershipWitness<typeof PUBLIC_DATA_TREE_HEIGHT>[],
 
     public historicPrivateDataTreeRootMembershipWitnesses: [
       MembershipWitness<typeof PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT>,
@@ -112,6 +113,10 @@ export class BaseRollupInputs {
     public historicContractsTreeRootMembershipWitnesses: [
       MembershipWitness<typeof CONTRACT_TREE_ROOTS_TREE_HEIGHT>,
       MembershipWitness<typeof CONTRACT_TREE_ROOTS_TREE_HEIGHT>,
+    ],
+    public historicL1ToL2MsgTreeRootMembershipWitnesses: [
+      MembershipWitness<typeof L1_TO_L2_MESSAGES_ROOTS_TREE_HEIGHT>,
+      MembershipWitness<typeof L1_TO_L2_MESSAGES_ROOTS_TREE_HEIGHT>,
     ],
 
     public constants: ConstantBaseRollupData,
@@ -133,8 +138,8 @@ export class BaseRollupInputs {
       'newContractsSubtreeSiblingPath',
       CONTRACT_TREE_HEIGHT - BaseRollupInputs.CONTRACT_SUBTREE_HEIGHT,
     );
-    assertLength(this, 'newStateTransitionsSiblingPaths', 2 * STATE_TRANSITIONS_LENGTH);
-    assertLength(this, 'newStateReadsSiblingPaths', 2 * STATE_READS_LENGTH);
+    assertLength(this, 'newPublicDataUpdateRequestsSiblingPaths', 2 * KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH);
+    assertLength(this, 'newPublicDataReadsSiblingPaths', 2 * KERNEL_PUBLIC_DATA_READS_LENGTH);
   }
 
   static from(fields: FieldsOf<BaseRollupInputs>): BaseRollupInputs {
@@ -153,10 +158,11 @@ export class BaseRollupInputs {
       fields.newCommitmentsSubtreeSiblingPath,
       fields.newNullifiersSubtreeSiblingPath,
       fields.newContractsSubtreeSiblingPath,
-      fields.newStateTransitionsSiblingPaths,
-      fields.newStateReadsSiblingPaths,
+      fields.newPublicDataUpdateRequestsSiblingPaths,
+      fields.newPublicDataReadsSiblingPaths,
       fields.historicPrivateDataTreeRootMembershipWitnesses,
       fields.historicContractsTreeRootMembershipWitnesses,
+      fields.historicL1ToL2MsgTreeRootMembershipWitnesses,
       fields.constants,
     ] as const;
   }

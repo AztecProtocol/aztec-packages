@@ -1,8 +1,13 @@
 import {
+  ARGS_LENGTH,
   AztecAddress,
   CircuitsWasm,
+  ContractStorageRead,
+  ContractStorageUpdateRequest,
   EMITTED_EVENTS_LENGTH,
   Fr,
+  KERNEL_PUBLIC_DATA_READS_LENGTH,
+  KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH,
   KernelCircuitPublicInputs,
   MembershipWitness,
   NEW_L2_TO_L1_MSGS_LENGTH,
@@ -15,11 +20,7 @@ import {
   PublicKernelInputsNoPreviousKernel,
   PublicKernelPublicInputs,
   RETURN_VALUES_LENGTH,
-  STATE_READS_LENGTH,
-  STATE_TRANSITIONS_LENGTH,
   SignedTxRequest,
-  StateRead,
-  StateTransition,
   VK_TREE_HEIGHT,
 } from '@aztec/circuits.js';
 import { ContractDataSource, MerkleTreeId, PublicTx, Tx } from '@aztec/types';
@@ -92,6 +93,7 @@ export class PublicProcessor {
   }
 
   protected async processPublicTx(tx: PublicTx): Promise<[PublicKernelPublicInputs, Proof]> {
+    this.log(`Executing public tx request ${await tx.getTxHash()}`);
     const firstExecution = await this.publicExecutor.getPublicExecution(tx.txRequest.txRequest);
     const firstResult: PublicExecutionResult = await this.publicExecutor.execute(firstExecution);
     const executionStack = [firstResult];
@@ -101,6 +103,8 @@ export class PublicProcessor {
 
     while (executionStack.length) {
       const result = executionStack.pop()!;
+      const functionSelector = result.execution.functionData.functionSelector.toString('hex');
+      this.log(`Running public kernel circuit for ${functionSelector}@${result.execution.contractAddress.toString()}`);
       executionStack.push(...result.nestedExecutions);
       const callData = await this.getPublicCallData(result);
       [kernelOutput, kernelProof] = await this.runKernelCircuit(tx.txRequest, callData, kernelOutput, kernelProof);
@@ -122,10 +126,13 @@ export class PublicProcessor {
     const contractTreeInfo = await this.db.getTreeInfo(MerkleTreeId.CONTRACT_TREE);
     const privateDataTreeInfo = await this.db.getTreeInfo(MerkleTreeId.PRIVATE_DATA_TREE);
     const nullifierTreeInfo = await this.db.getTreeInfo(MerkleTreeId.NULLIFIER_TREE);
+    const l1ToL2MessagesTreeInfo = await this.db.getTreeInfo(MerkleTreeId.L1_TO_L2_MESSAGES_TREE);
+
     const outputRoots = output.constants.historicTreeRoots.privateHistoricTreeRoots;
     outputRoots.nullifierTreeRoot = Fr.fromBuffer(nullifierTreeInfo.root);
     outputRoots.contractTreeRoot = Fr.fromBuffer(contractTreeInfo.root);
     outputRoots.privateDataTreeRoot = Fr.fromBuffer(privateDataTreeInfo.root);
+    outputRoots.l1ToL2MessagesTreeRoot = Fr.fromBuffer(l1ToL2MessagesTreeInfo.root);
 
     const proof = await this.publicProver.getPublicKernelCircuitProof(output);
     return [output, proof];
@@ -147,7 +154,9 @@ export class PublicProcessor {
       const vkSiblingPath = MembershipWitness.random(VK_TREE_HEIGHT).siblingPath;
       const previousKernel = new PreviousKernelData(previousOutput, previousProof, vk, vkIndex, vkSiblingPath);
       const inputs = new PublicKernelInputs(previousKernel, callData);
+
       // TODO: This should be set by the public kernel circuit
+      // See https://github.com/AztecProtocol/aztec-packages/issues/487
       inputs.previousKernel.publicInputs.end.publicCallCount = new Fr(1n);
       return this.publicKernel.publicKernelCircuitNonFirstIteration(inputs);
     } else {
@@ -161,17 +170,27 @@ export class PublicProcessor {
     const historicPublicDataTreeRoot = Fr.fromBuffer(publicDataTreeInfo.root);
     const callStackPreimages = await this.getPublicCallStackPreimages(result);
     const wasm = await CircuitsWasm.get();
-    const publicCallStack = callStackPreimages.map(item => computeCallStackItemHash(wasm, item));
+    const publicCallStack = callStackPreimages.map(item =>
+      item.isEmpty() ? Fr.zero() : computeCallStackItemHash(wasm, item),
+    );
 
     return PublicCircuitPublicInputs.from({
-      args: result.execution.args,
       callContext: result.execution.callContext,
       proverAddress: AztecAddress.random(),
+      args: padArrayEnd(result.execution.args, Fr.ZERO, ARGS_LENGTH),
       emittedEvents: padArrayEnd([], Fr.ZERO, EMITTED_EVENTS_LENGTH),
       newL2ToL1Msgs: padArrayEnd([], Fr.ZERO, NEW_L2_TO_L1_MSGS_LENGTH),
       returnValues: padArrayEnd(result.returnValues, Fr.ZERO, RETURN_VALUES_LENGTH),
-      stateReads: padArrayEnd(result.stateReads, StateRead.empty(), STATE_READS_LENGTH),
-      stateTransitions: padArrayEnd(result.stateTransitions, StateTransition.empty(), STATE_TRANSITIONS_LENGTH),
+      contractStorageRead: padArrayEnd(
+        result.contractStorageReads,
+        ContractStorageRead.empty(),
+        KERNEL_PUBLIC_DATA_READS_LENGTH,
+      ),
+      contractStorageUpdateRequests: padArrayEnd(
+        result.contractStorageUpdateRequests,
+        ContractStorageUpdateRequest.empty(),
+        KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH,
+      ),
       publicCallStack,
       historicPublicDataTreeRoot,
     });
@@ -192,11 +211,8 @@ export class PublicProcessor {
       throw new Error(`Public call stack size exceeded (max ${PUBLIC_CALL_STACK_LENGTH}, got ${preimages.length})`);
     }
 
-    const emptyPreimage = PublicCallStackItem.empty();
-    // TODO: Remove the msgSender set once circuits dont validate empty call stack items
-    emptyPreimage.publicInputs.callContext.msgSender = result.execution.contractAddress;
     // Top of the stack is at the end of the array, so we padStart
-    return padArrayStart(preimages, emptyPreimage, PUBLIC_CALL_STACK_LENGTH);
+    return padArrayStart(preimages, PublicCallStackItem.empty(), PUBLIC_CALL_STACK_LENGTH);
   }
 
   protected getBytecodeHash(_result: PublicExecutionResult) {
