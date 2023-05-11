@@ -38,3 +38,14 @@ export interface PublicExecution {
   /** Context of the call. */
   callContext: CallContext;
 }
+
+/**
+ * Returns if the input is a public execution result and not just a public execution.
+ * @param input - Public execution or public execution result.
+ * @returns Whether the input is a public execution result and not just a public execution.
+ */
+export function isPublicExecutionResult(
+  input: PublicExecution | PublicExecutionResult,
+): input is PublicExecutionResult {
+  return !!(input as PublicExecutionResult).execution;
+}
