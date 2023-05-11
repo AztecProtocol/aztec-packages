@@ -4,8 +4,16 @@ import { Bufferable, serializeToBuffer } from '../utils/serialize.js';
 import { BufferReader } from '@aztec/foundation/serialize';
 import { randomBytes } from '@aztec/foundation/crypto';
 
+/**
+ * Implementation of a vector.
+ */
 export class Vector<T extends Bufferable> {
-  constructor(public items: T[]) {}
+  constructor(
+    /**
+     * Items in the vector.
+     */
+    public items: T[],
+  ) {}
 
   toBuffer() {
     return serializeToBuffer(this.items.length, this.items);
@@ -16,8 +24,16 @@ export class Vector<T extends Bufferable> {
   }
 }
 
+/**
+ * Implementation of a uint8 vector.
+ */
 export class UInt8Vector {
-  constructor(public buffer: Buffer) {}
+  constructor(
+    /**
+     * Buffer containing the vector.
+     */
+    public buffer: Buffer,
+  ) {}
 
   toBuffer() {
     return serializeToBuffer(this.buffer.length, this.buffer);
@@ -31,15 +47,24 @@ export class UInt8Vector {
   }
 }
 
+/**
+ * A type alias for a 32-bit unsigned integer.
+ */
 export type UInt32 = number;
 
 /**
  * Affine element of a group, composed of two elements in Fq.
- * cpp/barretenberg/cpp/src/aztec/ecc/groups/affine_element.hpp
- * cpp/barretenberg/cpp/src/aztec/ecc/curves/bn254/g1.hpp
+ * Cpp/barretenberg/cpp/src/aztec/ecc/groups/affine_element.hpp
+ * cpp/barretenberg/cpp/src/aztec/ecc/curves/bn254/g1.hpp.
  */
 export class AffineElement {
+  /**
+   * Element's x coordinate.
+   */
   public x: Fq;
+  /**
+   * Element's y coordinate.
+   */
   public y: Fq;
 
   constructor(x: Fq | bigint, y: Fq | bigint) {
@@ -66,7 +91,20 @@ export class AffineElement {
  * @see cpp/barretenberg/cpp/src/barretenberg/crypto/ecdsa/ecdsa.hpp
  */
 export class EcdsaSignature {
-  constructor(public r: Buffer, public s: Buffer, public v: Buffer) {
+  constructor(
+    /**
+     * Value `r` of the signature.
+     */
+    public r: Buffer,
+    /**
+     * Value `s` of the signature.
+     */
+    public s: Buffer,
+    /**
+     * Value `v` of the signature.
+     */
+    public v: Buffer,
+  ) {
     assertLength(this, 'r', 32);
     assertLength(this, 's', 32);
     assertLength(this, 'v', 1);
@@ -76,7 +114,11 @@ export class EcdsaSignature {
     return serializeToBuffer(this.r, this.s, this.v);
   }
 
-  public static random() {
+  /**
+   * Returns a random/placeholder ECDSA signature.
+   * @returns A random placeholder ECDSA signature.
+   */
+  public static random(): EcdsaSignature {
     return new EcdsaSignature(randomBytes(32), randomBytes(32), randomBytes(1));
   }
 }
