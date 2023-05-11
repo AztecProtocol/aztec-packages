@@ -36,6 +36,7 @@ struct PublicCallStackItem {
     contract_address: Field,
     function_data: FunctionData,
     public_inputs: PublicCircuitPublicInputs,
+    is_execution_request: bool,
 }
 
 impl PublicCallStackItem {
@@ -72,6 +73,7 @@ impl PublicCallStackItem {
                 historic_public_data_tree_root: 0,
                 prover_address: 0,
             },
+            is_execution_request: false,
         };
         constrain contract_address == item.contract_address;
         constrain function_selector == item.function_data.function_selector;
@@ -89,11 +91,15 @@ impl PublicCallStackItem {
     }
 
     fn hash(self) -> Field {
-        dep::std::hash::pedersen([
-            // TODO hash_index
-            self.contract_address,
-            self.function_data.hash(),
-            self.public_inputs.hash(),
-        ])[0]
+        let mut hash_inputs = [0; 11];
+        hash_inputs[0] = self.contract_address;
+        hash_inputs[1] = self.function_data.hash();
+        hash_inputs[2] = self.public_inputs.call_context.hash();
+        for i in 0..crate::abi::MAX_ARGS {
+            hash_inputs[2 + i] = self.public_inputs.args[i];
+        }
+        
+        // TODO hash_index
+        dep::std::hash::pedersen(hash_inputs)[0]
     }
 }

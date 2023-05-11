@@ -55,4 +55,29 @@ contract Parent {
 
         context.finish(inputs)
     }
+
+    // Enqueues two calls to the pubEntryPoint function of this contract, using the target* arguments provided.
+    fn enqueueCallsToPubEntryPoint(
+        inputs: pub Inputs,
+        targetContract: pub Field,
+        targetSelector: pub Field,
+        targetValue: pub Field,
+    ) -> pub [Field; dep::aztec3::abi::PUBLIC_INPUTS_LENGTH] {
+        let mut initialContext = PrivateFunctionContext::new();
+        initialContext.args = initialContext.args.push_array([targetContract, targetSelector, targetValue]);
+
+        let pubEntryPointSelector = 3221316504;
+        let thisAddress = inputs.call_context.storage_contract_address;
+        let mut args = [0; dep::aztec3::abi::MAX_ARGS];
+        args[0] = targetContract;
+        args[1] = targetSelector;
+        
+        args[2] = targetValue;
+        let (_callStackItem1, context1) = PublicCallStackItem::call(thisAddress, pubEntryPointSelector, args, initialContext);
+
+        args[2] = args[2] + 1;
+        let (_callStackItem2, context2) = PublicCallStackItem::call(thisAddress, pubEntryPointSelector, args, context1);
+
+        context2.finish(inputs)
+    }
 }
