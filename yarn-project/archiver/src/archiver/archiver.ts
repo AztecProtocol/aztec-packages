@@ -138,11 +138,9 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource, ContractDa
     this.log(`Retrieved ${retrievedBlocks.retrievedData.length} block(s) from chain`);
 
     // store retrieved rollup blocks
-    // this.l2Blocks.push(...retrievedBlocks.retrievedData);
     await this.store.addL2Blocks(retrievedBlocks.retrievedData);
 
     // store unverified chunks for which we have retrieved rollups
-    // this.unverifiedData.push(...retrievedUnverifiedData.retrievedData.slice(0, retrievedBlocks.retrievedData.length));
     await this.store.addUnverifiedData(
       retrievedUnverifiedData.retrievedData.slice(0, retrievedBlocks.retrievedData.length),
     );
@@ -153,7 +151,6 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource, ContractDa
       if (index <= lastKnownRollupId && contracts?.length) {
         this.log(`Retrieved contract public data for rollup id: ${index}`);
         await this.store.addL2ContractPublicData(contracts, index);
-        // this.contractPublicData[index] = contracts;
       }
     });
 
