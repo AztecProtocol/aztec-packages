@@ -31,7 +31,7 @@ export async function makeProcessedTx(tx: PrivateTx): Promise<ProcessedTx>;
  * @param proof - Proof of the public kernel circuit for this tx.
  */
 export async function makeProcessedTx(
-  tx: PublicTx,
+  tx: Tx,
   kernelOutput: KernelCircuitPublicInputs,
   proof: Proof,
 ): Promise<ProcessedTx>;
