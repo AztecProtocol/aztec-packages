@@ -52,7 +52,7 @@ using aztec3::circuits::abis::CombinedHistoricTreeRoots;
 using aztec3::circuits::abis::KernelCircuitPublicInputs;
 using aztec3::circuits::abis::PrivateHistoricTreeRoots;
 using aztec3::circuits::abis::private_kernel::PrivateCallData;
-using aztec3::circuits::abis::private_kernel::PrivateInputs;
+using aztec3::circuits::abis::private_kernel::PrivateKernelInputsInner;
 
 using aztec3::circuits::apps::test_apps::basic_contract_deployment::constructor;
 using aztec3::circuits::apps::test_apps::escrow::deposit;
@@ -168,10 +168,10 @@ std::shared_ptr<NT::VK> gen_func_vk(bool is_constructor, private_function const&
  * @param args_vec the private call's args
  * @return PrivateInputs<NT> - the inputs to the private call circuit
  */
-PrivateInputs<NT> do_private_call_get_kernel_inputs(bool const is_constructor,
-                                                    private_function const& func,
-                                                    std::vector<NT::fr> const& args_vec,
-                                                    bool real_kernel_circuit = false)
+PrivateKernelInputsInner<NT> do_private_call_get_kernel_inputs(bool const is_constructor,
+                                                               private_function const& func,
+                                                               std::vector<NT::fr> const& args_vec,
+                                                               bool real_kernel_circuit = false)
 {
     //***************************************************************************
     // Initialize some inputs to private call and kernel circuits
@@ -364,7 +364,7 @@ PrivateInputs<NT> do_private_call_get_kernel_inputs(bool const is_constructor,
     //***************************************************************************
     // Now we can construct the full private inputs to the kernel circuit
     //***************************************************************************
-    PrivateInputs<NT> kernel_private_inputs = PrivateInputs<NT>{
+    PrivateKernelInputsInner<NT> kernel_private_inputs = PrivateInputs<NT>{
         .signed_tx_request = signed_tx_request,
 
         .previous_kernel = mock_previous_kernel,
@@ -403,7 +403,7 @@ PrivateInputs<NT> do_private_call_get_kernel_inputs(bool const is_constructor,
  * @param private_inputs to be used in manual computation
  * @param public_inputs that contain the expected new contract address
  */
-void validate_deployed_contract_address(PrivateInputs<NT> const& private_inputs,
+void validate_deployed_contract_address(PrivateKernelInputsInner<NT> const& private_inputs,
                                         KernelCircuitPublicInputs<NT> const& public_inputs)
 {
     auto tx_request = private_inputs.signed_tx_request.tx_request;
@@ -412,7 +412,7 @@ void validate_deployed_contract_address(PrivateInputs<NT> const& private_inputs,
     auto private_circuit_vk_hash = stdlib::recursion::verification_key<CT::bn254>::compress_native(
         private_inputs.private_call.vk, GeneratorIndex::VK);
     auto expected_constructor_hash = NT::compress({ private_inputs.private_call.call_stack_item.function_data.hash(),
-                                                    NT::compress<ARGS_LENGTH>(tx_request.args, CONSTRUCTOR_ARGS),
+                                                    NT::compress<ARGS_LENGTH>(tx_request.args, FUNCTION_ARGS),
                                                     private_circuit_vk_hash },
                                                   CONSTRUCTOR);
     NT::fr const expected_contract_address =

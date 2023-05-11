@@ -1,5 +1,4 @@
 #pragma once
-#include <aztec3/circuits/abis/private_kernel/private_inputs.hpp>
 #include <aztec3/circuits/apps/function_execution_context.hpp>
 #include <aztec3/circuits/apps/oracle_wrapper.hpp>
 #include <aztec3/circuits/recursion/aggregator.hpp>

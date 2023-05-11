@@ -26,7 +26,7 @@ using aztec3::circuits::abis::KernelCircuitPublicInputs;
 using aztec3::circuits::abis::PreviousKernelData;
 using aztec3::circuits::abis::SignedTxRequest;
 using aztec3::circuits::abis::private_kernel::PrivateCallData;
-using aztec3::circuits::abis::private_kernel::PrivateInputs;
+using aztec3::circuits::abis::private_kernel::PrivateKernelInputsInner;
 using aztec3::circuits::kernel::private_kernel::native_private_kernel_circuit;
 using aztec3::circuits::kernel::private_kernel::private_kernel_circuit;
 using aztec3::circuits::kernel::private_kernel::utils::dummy_previous_kernel;
@@ -114,7 +114,7 @@ WASM_EXPORT size_t private_kernel__sim(uint8_t const* signed_tx_request_buf,
         read(previous_kernel_buf, previous_kernel);
     }
 
-    PrivateInputs<NT> const private_inputs = PrivateInputs<NT>{
+    PrivateKernelInputsInner<NT> const private_inputs = PrivateKernelInputsInner<NT>{
         .signed_tx_request = signed_tx_request,
         .previous_kernel = previous_kernel,
         .private_call = private_call_data,
@@ -166,7 +166,7 @@ WASM_EXPORT size_t private_kernel__prove(uint8_t const* signed_tx_request_buf,
     } else {
         read(previous_kernel_buf, previous_kernel);
     }
-    PrivateInputs<NT> const private_inputs = PrivateInputs<NT>{
+    PrivateKernelInputsInner<NT> const private_inputs = PrivateKernelInputsInner<NT>{
         .signed_tx_request = signed_tx_request,
         .previous_kernel = previous_kernel,
         .private_call = private_call_data,

@@ -465,7 +465,7 @@ WASM_EXPORT const char* abis__test_roundtrip_serialize_signed_tx_request(uint8_t
 
 WASM_EXPORT const char* abis__test_roundtrip_serialize_private_kernel_inputs(uint8_t const* input, uint32_t* size)
 {
-    return as_string_output<aztec3::circuits::abis::private_kernel::PrivateInputs<NT>>(input, size);
+    return as_string_output<aztec3::circuits::abis::private_kernel::PrivateKernelInputsInner<NT>>(input, size);
 }
 
 WASM_EXPORT const char* abis__test_roundtrip_serialize_kernel_circuit_public_inputs(uint8_t const* input,

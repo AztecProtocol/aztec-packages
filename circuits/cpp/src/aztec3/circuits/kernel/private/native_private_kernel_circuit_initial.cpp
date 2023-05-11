@@ -1,42 +1,17 @@
-#include "init.hpp"
+#include "common.hpp"
 
-#include "aztec3/circuits/abis/function_leaf_preimage.hpp"
-#include "aztec3/constants.hpp"
-#include <aztec3/circuits/abis/kernel_circuit_public_inputs.hpp>
-#include <aztec3/circuits/abis/new_contract_data.hpp>
-#include <aztec3/circuits/abis/private_kernel/private_inputs.hpp>
-#include <aztec3/circuits/hash.hpp>
-#include <aztec3/utils/array.hpp>
-#include <aztec3/utils/dummy_composer.hpp>
+#include "aztec3/circuits/abis/private_kernel/private_kernel_inputs_init.hpp"
 
-#include <barretenberg/stdlib/merkle_tree/membership.hpp>
+using aztec3::circuits::abis::private_kernel::PrivateKernelInputsInit;
 
 namespace aztec3::circuits::kernel::private_kernel {
-
-using aztec3::circuits::abis::ContractLeafPreimage;
-using aztec3::circuits::abis::KernelCircuitPublicInputs;
-using aztec3::circuits::abis::NewContractData;
-using aztec3::circuits::abis::private_kernel::PrivateKernelInputsInner;
-
-using aztec3::utils::array_length;
-using aztec3::utils::array_pop;
-using aztec3::utils::array_push;
-using aztec3::utils::is_array_empty;
-using aztec3::utils::push_array_to_array;
-using DummyComposer = aztec3::utils::DummyComposer;
-using CircuitErrorCode = aztec3::utils::CircuitErrorCode;
-
-using aztec3::circuits::compute_constructor_hash;
-using aztec3::circuits::compute_contract_address;
-using aztec3::circuits::contract_tree_root_from_siblings;
-using aztec3::circuits::function_tree_root_from_siblings;
 
 // using plonk::stdlib::merkle_tree::
 
 // // TODO: NEED TO RECONCILE THE `proof`'s public inputs (which are uint8's) with the
 // // private_call.call_stack_item.public_inputs!
 // CT::AggregationObject verify_proofs(Composer& composer,
-//                                     PrivateInputs<CT> const& private_inputs,
+//                                     PrivateKernelInputsInit<CT> const& private_inputs,
 //                                     size_t const& num_private_call_public_inputs,
 //                                     size_t const& num_private_kernel_public_inputs)
 // {
@@ -53,28 +28,18 @@ using aztec3::circuits::function_tree_root_from_siblings;
 //     return aggregation_object;
 // }
 
-void initialise_end_values(PrivateKernelInputsInner<NT> const& private_inputs,
+void initialise_end_values(PrivateKernelInputsInit<NT> const& private_inputs,
                            KernelCircuitPublicInputs<NT>& public_inputs)
 {
-    public_inputs.constants = private_inputs.previous_kernel.public_inputs.constants;
-
-    // Ensure the arrays are the same as previously, before we start pushing more data onto them in other functions
-    // within this circuit:
-    auto& end = public_inputs.end;
-    const auto& start = private_inputs.previous_kernel.public_inputs.end;
-
-    end.new_commitments = start.new_commitments;
-    end.new_nullifiers = start.new_nullifiers;
-
-    end.private_call_stack = start.private_call_stack;
-    end.public_call_stack = start.public_call_stack;
-    end.new_l2_to_l1_msgs = start.new_l2_to_l1_msgs;
-
-    end.optionally_revealed_data = start.optionally_revealed_data;
+    // TODO(dbanks12): where do constants come from
+    // might need to add these constants to PrivateKernelInputsInit
+    // public_inputs.constants = private_inputs.previous_kernel.public_inputs.constants;
+    (void)private_inputs;
+    (void)public_inputs;
 }
 
 void contract_logic(DummyComposer& composer,
-                    PrivateKernelInputsInner<NT> const& private_inputs,
+                    PrivateKernelInputsInit<NT> const& private_inputs,
                     KernelCircuitPublicInputs<NT>& public_inputs)
 {
     const auto private_call_public_inputs = private_inputs.private_call.call_stack_item.public_inputs;
@@ -179,22 +144,108 @@ void contract_logic(DummyComposer& composer,
     }
 }
 
-void validate_this_private_call_hash(DummyComposer& composer,
-                                     PrivateKernelInputsInner<NT> const& private_inputs,
-                                     KernelCircuitPublicInputs<NT>& public_inputs)
+void update_end_values(DummyComposer& composer,
+                       PrivateKernelInputsInit<NT> const& private_inputs,
+                       KernelCircuitPublicInputs<NT>& public_inputs)
+{
+    const auto private_call_public_inputs = private_inputs.private_call.call_stack_item.public_inputs;
+
+    const auto& new_commitments = private_call_public_inputs.new_commitments;
+    const auto& new_nullifiers = private_call_public_inputs.new_nullifiers;
+
+    const auto& is_static_call = private_call_public_inputs.call_context.is_static_call;
+
+    if (is_static_call) {
+        // No state changes are allowed for static calls:
+        composer.do_assert(is_array_empty(new_commitments) == true,
+                           "new_commitments must be empty for static calls",
+                           CircuitErrorCode::PRIVATE_KERNEL__NEW_COMMITMENTS_NOT_EMPTY_FOR_STATIC_CALL);
+        composer.do_assert(is_array_empty(new_nullifiers) == true,
+                           "new_nullifiers must be empty for static calls",
+                           CircuitErrorCode::PRIVATE_KERNEL__NEW_NULLIFIERS_NOT_EMPTY_FOR_STATIC_CALL);
+    }
+
+    const auto& storage_contract_address = private_call_public_inputs.call_context.storage_contract_address;
+
+    {
+        // Nonce nullifier
+        // DANGER: This is terrible. This should not be part of the protocol. This is an intentional bodge to reach a
+        // milestone. This must not be the way we derive nonce nullifiers in production. It can be front-run by other
+        // users. It is not domain separated. Naughty.
+        array_push(public_inputs.end.new_nullifiers, private_inputs.signed_tx_request.tx_request.nonce);
+    }
+
+    {  // commitments & nullifiers
+        std::array<NT::fr, NEW_COMMITMENTS_LENGTH> siloed_new_commitments;
+        for (size_t i = 0; i < new_commitments.size(); ++i) {
+            siloed_new_commitments[i] = new_commitments[i] == 0 ? 0
+                                                                : add_contract_address_to_commitment<NT>(
+                                                                      storage_contract_address, new_commitments[i]);
+        }
+
+        std::array<NT::fr, NEW_NULLIFIERS_LENGTH> siloed_new_nullifiers;
+        for (size_t i = 0; i < new_nullifiers.size(); ++i) {
+            siloed_new_nullifiers[i] = new_nullifiers[i] == 0 ? 0
+                                                              : add_contract_address_to_nullifier<NT>(
+                                                                    storage_contract_address, new_nullifiers[i]);
+        }
+
+        push_array_to_array(siloed_new_commitments, public_inputs.end.new_commitments);
+        push_array_to_array(siloed_new_nullifiers, public_inputs.end.new_nullifiers);
+    }
+
+    {  // call stacks
+        const auto& this_private_call_stack = private_call_public_inputs.private_call_stack;
+        push_array_to_array(this_private_call_stack, public_inputs.end.private_call_stack);
+    }
+
+    // const auto& portal_contract_address = private_inputs.private_call.portal_contract_address;
+
+    // {
+    //     const auto& new_l2_to_l1_msgs = private_call_public_inputs.new_l2_to_l1_msgs;
+    //     std::array<CT::fr, NEW_L2_TO_L1_MSGS_LENGTH> l1_call_stack;
+
+    //     for (size_t i = 0; i < new_l2_to_l1_msgs.size(); ++i) {
+    //         l1_call_stack[i] = CT::fr::conditional_assign(
+    //             new_l2_to_l1_msgs[i] == 0,
+    //             0,
+    //             CT::compress({ portal_contract_address, new_l2_to_l1_msgs[i] }, GeneratorIndex::L2_TO_L1_MSG));
+    //     }
+    // }
+}
+
+void validate_this_private_call_against_tx_request(DummyComposer& composer,
+                                                   PrivateKernelInputsInit<NT> const& private_inputs,
+                                                   KernelCircuitPublicInputs<NT>& public_inputs)
 {
     // TODO: this logic might need to change to accommodate the weird edge 3 initial txs (the 'main' tx, the 'fee' tx,
     // and the 'gas rebate' tx).
     const auto popped_private_call_hash = array_pop(public_inputs.end.private_call_stack);
     const auto calculated_this_private_call_hash = private_inputs.private_call.call_stack_item.hash();
+    // Confirm that the SignedTxRequest (user's intent) matches the private call being executed
+    const auto& tx_request = private_inputs.signed_tx_request.tx_request;
+    const auto& call_stack_item = private_inputs.private_call.call_stack_item;
+
+    const auto tx_request_args_hash = NT::compress<ARGS_LENGTH>(tx_request.args, FUNCTION_ARGS);
+    const auto call_args_hash = NT::compress<ARGS_LENGTH>(call_stack_item.public_inputs.args, FUNCTION_ARGS);
 
     composer.do_assert(
-        popped_private_call_hash == calculated_this_private_call_hash,
-        "calculated private_call_hash does not match provided private_call_hash at the top of the call stack",
-        CircuitErrorCode::PRIVATE_KERNEL__CALCULATED_PRIVATE_CALL_HASH_AND_PROVIDED_PRIVATE_CALL_HASH_MISMATCH);
+        tx_request.to == call_stack_item.contract_address,
+        "user's intent does not match initial private call (tx_request.to must match call_stack_item.contract_address)",
+        CircuitErrorCode::PRIVATE_KERNEL__USER_INTENT_MISMATCH_BETWEEN_TX_REQUEST_AND_CALL_STACK_ITEM);
+
+    composer.do_assert(tx_request.function_data.hash() == call_stack_item.function_data.hash(),
+                       "user's intent does not match initial private call (tx_request.function_data must match "
+                       "call_stack_item.function_data)",
+                       CircuitErrorCode::PRIVATE_KERNEL__USER_INTENT_MISMATCH_BETWEEN_TX_REQUEST_AND_CALL_STACK_ITEM);
+
+    composer.do_assert(tx_request_args_hash == call_args_hash,
+                       "user's intent does not match initial private call (tx_request.args must match "
+                       "call_stack_item.public_inputs.args)",
+                       CircuitErrorCode::PRIVATE_KERNEL__USER_INTENT_MISMATCH_BETWEEN_TX_REQUEST_AND_CALL_STACK_ITEM);
 };
 
-void validate_this_private_call_stack(DummyComposer& composer, PrivateKernelInputsInner<NT> const& private_inputs)
+void validate_this_private_call_stack(DummyComposer& composer, PrivateKernelInputsInit<NT> const& private_inputs)
 {
     const auto& stack = private_inputs.private_call.call_stack_item.public_inputs.private_call_stack;
     const auto& preimages = private_inputs.private_call.private_call_stack_preimages;
@@ -211,7 +262,7 @@ void validate_this_private_call_stack(DummyComposer& composer, PrivateKernelInpu
     }
 };
 
-void validate_inputs(DummyComposer& composer, PrivateKernelInputsInner<NT> const& private_inputs)
+void validate_inputs(DummyComposer& composer, PrivateKernelInputsInit<NT> const& private_inputs)
 {
     const auto& this_call_stack_item = private_inputs.private_call.call_stack_item;
 
@@ -219,26 +270,30 @@ void validate_inputs(DummyComposer& composer, PrivateKernelInputsInner<NT> const
                        "Cannot execute a non-private function with the private kernel circuit",
                        CircuitErrorCode::PRIVATE_KERNEL__NON_PRIVATE_FUNCTION_EXECUTED_WITH_PRIVATE_KERNEL);
 
-    const auto& start = private_inputs.previous_kernel.public_inputs.end;
+    // TODO: change to allow 3 initial calls on the private call stack, so a fee can be paid and a gas
+    // rebate can be paid.
 
-    // TODO: we might want to range-constrain the call_count to prevent some kind of overflow errors. Having said that,
-    // iterating 2^254 times isn't feasible.
+    /* If we are going to have 3 initial calls on the private call stack,
+     * then do we still need the `private_call_stack`
+     * despite no longer needing a full `previous_kernel`
+     */
 
-    NT::fr const start_private_call_stack_length = array_length(start.private_call_stack);
-    NT::fr const start_public_call_stack_length = array_length(start.public_call_stack);
-    NT::fr const start_new_l2_to_l1_msgs_length = array_length(start.new_l2_to_l1_msgs);
+    composer.do_assert(this_call_stack_item.public_inputs.call_context.is_delegate_call == false,
+                       "Users cannot make a delegatecall",
+                       CircuitErrorCode::PRIVATE_KERNEL__UNSUPPORTED_OP);
+    composer.do_assert(this_call_stack_item.public_inputs.call_context.is_static_call == false,
+                       "Users cannot make a static call",
+                       CircuitErrorCode::PRIVATE_KERNEL__UNSUPPORTED_OP);
 
-    // is_recursive_case
+    // The below also prevents delegatecall/staticcall in the base case
+    composer.do_assert(this_call_stack_item.public_inputs.call_context.storage_contract_address ==
+                           this_call_stack_item.contract_address,
+                       "Storage contract address must be that of the called contract",
+                       CircuitErrorCode::PRIVATE_KERNEL__CONTRACT_ADDRESS_MISMATCH);
 
-    composer.do_assert(private_inputs.previous_kernel.public_inputs.is_private == true,
-                       "Cannot verify a non-private kernel snark in the private kernel circuit",
-                       CircuitErrorCode::PRIVATE_KERNEL__NON_PRIVATE_KERNEL_VERIFIED_WITH_PRIVATE_KERNEL);
-    composer.do_assert(this_call_stack_item.function_data.is_constructor == false,
-                       "A constructor must be executed as the first tx in the recursion",
-                       CircuitErrorCode::PRIVATE_KERNEL__CONSTRUCTOR_EXECUTED_IN_RECURSION);
-    composer.do_assert(start_private_call_stack_length != 0,
-                       "Cannot execute private kernel circuit with an empty private call stack",
-                       CircuitErrorCode::PRIVATE_KERNEL__PRIVATE_CALL_STACK_EMPTY);
+    // TODO: Assert that the previous kernel data is empty. (Or rather, the verify_proof() function needs a valid
+    // dummy proof and vk to complete execution, so actually what we want is for that mockvk to be
+    // hard-coded into the circuit and assert that that is the one which has been used in the base case).
 }
 
 // NOTE: THIS IS A VERY UNFINISHED WORK IN PROGRESS.
@@ -246,7 +301,7 @@ void validate_inputs(DummyComposer& composer, PrivateKernelInputsInner<NT> const
 // TODO: is there a way to identify whether an input has not been used by ths circuit? This would help us more-safely
 // ensure we're constraining everything.
 KernelCircuitPublicInputs<NT> native_private_kernel_circuit(DummyComposer& composer,
-                                                            PrivateKernelInputsInner<NT> const& private_inputs)
+                                                            PrivateKernelInputsInit<NT> const& private_inputs)
 {
     // We'll be pushing data to this during execution of this circuit.
     KernelCircuitPublicInputs<NT> public_inputs{};
@@ -256,11 +311,11 @@ KernelCircuitPublicInputs<NT> native_private_kernel_circuit(DummyComposer& compo
 
     validate_inputs(composer, private_inputs);
 
-    validate_this_private_call_hash(composer, private_inputs, public_inputs);
+    validate_this_private_call_against_tx_request(composer, private_inputs, public_inputs);
 
-    common_validate_call_stack(composer, private_inputs);
+    common_validate_call_stack<PrivateKernelInputsInit<NT>>(composer, private_inputs);
 
-    common_update_end_values(composer, private_inputs, public_inputs);
+    common_update_end_values<PrivateKernelInputsInit<NT>>(composer, private_inputs, public_inputs);
 
     contract_logic(composer, private_inputs, public_inputs);
 

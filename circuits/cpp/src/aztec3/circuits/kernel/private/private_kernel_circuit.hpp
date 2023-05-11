@@ -8,9 +8,9 @@
 namespace aztec3::circuits::kernel::private_kernel {
 
 using aztec3::circuits::abis::KernelCircuitPublicInputs;
-using aztec3::circuits::abis::private_kernel::PrivateInputs;
+using aztec3::circuits::abis::private_kernel::PrivateKernelInputsInner;
 
-KernelCircuitPublicInputs<NT> private_kernel_circuit(Composer& composer, PrivateInputs<NT> const& _private_inputs);
-KernelCircuitPublicInputs<NT> private_kernel_native(PrivateInputs<NT> const& private_inputs);
+KernelCircuitPublicInputs<NT> private_kernel_circuit(Composer& composer,
+                                                     PrivateKernelInputsInner<NT> const& _private_inputs);
 
 }  // namespace aztec3::circuits::kernel::private_kernel

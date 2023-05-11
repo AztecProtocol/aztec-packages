@@ -265,7 +265,7 @@ TEST(abi_tests, hash_constructor)
 
     // Calculate the expected hash in-test
     NT::fr const expected_hash = NT::compress(
-        { func_data.hash(), NT::compress(args, aztec3::GeneratorIndex::CONSTRUCTOR_ARGS), constructor_vk_hash },
+        { func_data.hash(), NT::compress(args, aztec3::GeneratorIndex::FUNCTION_ARGS), constructor_vk_hash },
         aztec3::GeneratorIndex::CONSTRUCTOR);
 
     // Confirm cbind output == expected hash
