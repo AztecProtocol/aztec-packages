@@ -107,4 +107,21 @@ describe('e2e_nested_contract', () => {
     const childValue = await node.getStorageAt(childContract.address, 1n);
     expect(toBigInt(childValue!)).toEqual(42n);
   }, 100_000);
+
+  it.skip('should mine transactions that enqueue public calls with nested public calls', async () => {
+    const tx = parentContract.methods
+      .enqueueCallsToPubEntryPoint(
+        addressToField(childContract.address),
+        Fr.fromBuffer(childContract.methods.pubStoreValue.selector).value,
+        42n,
+      )
+      .send({ from: accounts[0] });
+
+    await tx.isMined(0, 0.1);
+    const receipt = await tx.getReceipt();
+    expect(receipt.status).toBe(TxStatus.MINED);
+
+    const childValue = await node.getStorageAt(childContract.address, 1n);
+    expect(toBigInt(childValue!)).toEqual(84n);
+  }, 100_000);
 });

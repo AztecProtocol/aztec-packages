@@ -35,7 +35,8 @@ contract Child {
     // Same as above, we need the padding argument for open functions.
     open fn pubStoreValue(_call_context: CallContext, new_value: Field, _padding: [Field; dep::aztec3::abi::MAX_ARGS - 1]) -> pub Field {
         // Compiler complains if we don't assign the result to anything
-        let _void1 = current_value.write(new_value);
+        let old_value = current_value.read();
+        let _void1 = current_value.write(old_value + new_value);
         // Compiler fails with "we do not allow private ABI inputs to be returned as public outputs" if we try to
         // return new_value as-is, but then it also complains if we add `pub` to `new_value` in the args, so we
         // just assign it to another variable and tweak it so it's not the same value, and the compiler is happy.
