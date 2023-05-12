@@ -13,15 +13,13 @@ abstract contract MessageBox {
   error MessageBox__NothingToConsume(bytes32 entryKey);
   error MessageBox__OversizedContent();
 
-  uint256 public constant MESSAGE_SIZE = 32;
-
-  /// @dev Message sender on L1. ChainID if multiple L1s tap into the same Aztec instance.
+  /// @dev Actor on L1. ChainID if multiple L1s tap into the same Aztec instance.
   struct L1Actor {
     address actor;
     uint256 chainId;
   }
 
-  /// @dev Message receiver on L2.
+  /// @dev Actor on L2. `version` specifies which Aztec instance the actor is on (useful for upgrades)
   struct L2Actor {
     bytes32 actor;
     uint256 version;
@@ -30,16 +28,21 @@ abstract contract MessageBox {
   /**
    * @dev Entry struct - Done as struct to easily support extensions if needed
    * @param count - The occurrence of the entry in the dataset
+   * @param fee - The fee provided to sequencer for including in the inbox. 0 if Oubox (as not applicable).
    */
   struct Entry {
-    uint256 count;
+    uint64 count;
+    uint64 fee;
+    uint32 deadline;
   }
 
   address rollup;
 
-  mapping(bytes32 entryKey => Entry entry) internal entries;
+  // Prime field order
+  uint256 internal constant P =
+    21888242871839275222246405745257275088548364400416034343698204186575808495617;
 
-  event RollupUpdated(address indexed newRollup, address indexed oldRollup);
+  mapping(bytes32 entryKey => Entry entry) internal entries;
 
   modifier onlyRollup() {
     if (msg.sender != rollup) revert MessageBox__Unauthorized();
@@ -50,17 +53,24 @@ abstract contract MessageBox {
     rollup = msg.sender;
   }
 
-  function updateRollup(address _newRollup) external onlyRollup {
-    emit RollupUpdated(_newRollup, rollup);
-    rollup = _newRollup;
-  }
-
   /**
    * @notice Inserts an entry into the multi-set
    * @param _entryKey - The key to insert
+   * @param _fee - The fee provided to sequencer for including in the inbox. 0 if Oubox (as not applicable).
+   * @param _deadline - The deadline to consume a message. Only after it, can a message be cancalled.
    */
-  function _insert(bytes32 _entryKey) internal {
+  function _insert(bytes32 _entryKey, uint64 _fee, uint32 _deadline) internal {
     entries[_entryKey].count++;
+    entries[_entryKey].fee = _fee;
+    entries[_entryKey].deadline = _deadline;
+  }
+
+  /**
+   * @notice Inserts an entry into the multi-set with default values for fee and deadline (0 each)
+   * @param _entryKey - The key to insert
+   */
+  function _insertWithDefaultValues(bytes32 _entryKey) internal {
+    _insert(_entryKey, 0, 0);
   }
 
   /**

@@ -28,9 +28,11 @@ contract Inbox is MessageBox {
     L2Actor recipient;
     bytes32 content;
     bytes32 secretHash;
-    uint256 deadline;
-    uint256 fee;
+    uint32 deadline;
+    uint64 fee;
   }
+
+  mapping(address account => uint256 balance) public feesAccrued;
 
   event MessageAdded(
     bytes32 indexed entryKey,
@@ -38,24 +40,28 @@ contract Inbox is MessageBox {
     bytes32 indexed recipient,
     uint256 senderChainId,
     uint256 recipientVersion,
-    uint256 deadline,
-    uint256 fee,
+    uint32 deadline,
+    uint64 fee,
     bytes32 content
   );
 
-  mapping(address account => uint256 balance) public feesAccrued;
+  event L1ToL2MessageCancelled(bytes32 indexed entryKey);
 
   /// @notice Given a message, computes an entry key for the Inbox
   function computeMessageKey(L1ToL2Msg memory message) public pure returns (bytes32) {
-    return keccak256(
-      abi.encode(
-        message.sender,
-        message.recipient,
-        message.content,
-        message.secretHash,
-        message.deadline,
-        message.fee
-      )
+    return bytes32(
+      uint256(
+        keccak256(
+          abi.encode(
+            message.sender,
+            message.recipient,
+            message.content,
+            message.secretHash,
+            message.deadline,
+            message.fee
+          )
+        )
+      ) % P // FIXME: Replace mod P later on when we have a better idea of how to handle Fields.
     );
   }
 
@@ -71,21 +77,22 @@ contract Inbox is MessageBox {
    */
   function sendL2Message(
     L2Actor memory _recipient,
-    uint256 _deadline,
+    uint32 _deadline,
     bytes32 _content,
     bytes32 _secretHash
   ) external payable returns (bytes32) {
+    uint64 fee = uint64(msg.value);
     L1ToL2Msg memory message = L1ToL2Msg({
       sender: L1Actor(msg.sender, block.chainid),
       recipient: _recipient,
       content: _content,
       secretHash: _secretHash,
       deadline: _deadline,
-      fee: msg.value
+      fee: fee
     });
 
     bytes32 key = computeMessageKey(message);
-    _insert(key);
+    _insert(key, fee, _deadline);
 
     emit MessageAdded(
       key,
@@ -108,41 +115,44 @@ contract Inbox is MessageBox {
    * @dev Must be called by portal that inserted the entry
    * @param _message - The content of the entry (application specific)
    * @param _feeCollector - The address to receive the "fee"
-   * @return The key of the entry removed
+   * @return entryKey - The key of the entry removed
    */
   function cancelL2Message(L1ToL2Msg memory _message, address _feeCollector)
     external
-    returns (bytes32)
+    returns (bytes32 entryKey)
   {
     if (msg.sender != _message.sender.actor) revert Inbox__Unauthorized();
     if (_message.deadline <= block.timestamp) revert Inbox__NotPastDeadline();
-    return _consumeInboxMessage(_message, _feeCollector);
-  }
-
-  /**
-   * @notice Consumes an entry from the Inbox
-   * @dev Only callable by the rollup contract
-   * @dev Will revert if the message is already past deadline
-   * @param _message - The content of the entry (application specific)
-   * @param _feeCollector - The address to receive the "fee"
-   * @return The key of the entry removed
-   */
-  function consume(L1ToL2Msg memory _message, address _feeCollector)
-    external
-    onlyRollup
-    returns (bytes32)
-  {
-    if (_message.deadline > block.timestamp) revert Inbox__PastDeadline();
-
-    return _consumeInboxMessage(_message, _feeCollector);
-  }
-
-  function _consumeInboxMessage(L1ToL2Msg memory _message, address _feeCollector)
-    internal
-    returns (bytes32 entryKey)
-  {
     entryKey = computeMessageKey(_message);
     _consume(entryKey);
     feesAccrued[_feeCollector] += _message.fee;
+    emit L1ToL2MessageCancelled(entryKey);
+  }
+
+  /**
+   * @notice Batch consumes entries from the Inbox
+   * @dev Only callable by the rollup contract
+   * @dev Will revert if the message is already past deadline
+   * @param entryKeys - Array of entry keys (hash of the messages)
+   * @param _feeCollector - The address to receive the "fee"
+   */
+  function batchConsume(bytes32[] memory entryKeys, address _feeCollector) external onlyRollup {
+    uint256 totalFee = 0;
+    for (uint256 i = 0; i < entryKeys.length; i++) {
+      // TODO: Combine these to optimise for gas.
+      Entry memory entry = get(entryKeys[i]);
+      if (entry.deadline > block.timestamp) revert Inbox__PastDeadline();
+      _consume(entryKeys[i]);
+      totalFee += entry.fee;
+    }
+    feesAccrued[_feeCollector] += totalFee;
+  }
+
+  /**
+   * @notice Withdraws fees accrued by the sequencer
+   * @param _amount - The amount to withdraw
+   */
+  function withdrawFees(uint256 _amount) external {
+    // TODO: reentrancy attack, safe eth fees withdrawal.
   }
 }
