@@ -71,7 +71,7 @@ void initialise_end_values(PrivateInputs<NT> const& private_inputs,
         // Since it's the first iteration, we need to push the the tx hash nullifier into the `new_nullifiers` array
 
         // If the nullifiers array is not empty a change was made and we need to rework this
-        if (is_array_empty(end.new_nullifiers)) {
+        if (!is_array_empty(end.new_nullifiers)) {
             throw_or_abort("new_nullifiers array must be empty");
         }
 
