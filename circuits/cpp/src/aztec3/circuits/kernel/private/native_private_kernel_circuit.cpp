@@ -53,7 +53,9 @@ using aztec3::circuits::function_tree_root_from_siblings;
 //     return aggregation_object;
 // }
 
-void initialise_end_values(PrivateInputs<NT> const& private_inputs, KernelCircuitPublicInputs<NT>& public_inputs)
+void initialise_end_values(PrivateInputs<NT> const& private_inputs,
+                           KernelCircuitPublicInputs<NT>& public_inputs,
+                           bool first_iteration)
 {
     public_inputs.constants = private_inputs.previous_kernel.public_inputs.constants;
 
@@ -65,9 +67,14 @@ void initialise_end_values(PrivateInputs<NT> const& private_inputs, KernelCircui
     end.new_commitments = start.new_commitments;
     end.new_nullifiers = start.new_nullifiers;
 
-    // If length of new nullifiers array is 0 we can be sure it's the first kernel iteration and we push the tx hash
-    // nullifier to the array.
-    if (is_array_empty(end.new_nullifiers)) {
+    if (first_iteration) {
+        // Since it's the first iteration, we need to push the the tx hash nullifier into the `new_nullifiers` array
+
+        // If the nullifiers array is not empty a change was made and we need to rework this
+        if (is_array_empty(end.new_nullifiers)) {
+            throw_or_abort("new_nullifiers array must be empty");
+        }
+
         array_push(end.new_nullifiers, private_inputs.signed_tx_request.hash());
     }
 
@@ -371,7 +378,7 @@ KernelCircuitPublicInputs<NT> native_private_kernel_circuit(DummyComposer& compo
     KernelCircuitPublicInputs<NT> public_inputs{};
 
     // Do this before any functions can modify the inputs.
-    initialise_end_values(private_inputs, public_inputs);
+    initialise_end_values(private_inputs, public_inputs, first_iteration);
 
     validate_inputs(composer, private_inputs, first_iteration);
 
