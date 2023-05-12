@@ -73,7 +73,7 @@ impl PublicCallStackItem {
                 historic_public_data_tree_root: 0,
                 prover_address: 0,
             },
-            is_execution_request: false,
+            is_execution_request: true,
         };
         constrain contract_address == item.contract_address;
         constrain function_selector == item.function_data.function_selector;
