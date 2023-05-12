@@ -28,8 +28,8 @@ contract Child {
     // Nested public functions always get called with MAX_ARGS, since we don't have the ABI available
     // during execution time to know how many args are expected, hence the _padding argument. We should
     // be able to remove it when we migrate to brillig.
-    open fn pubValue(_call_context: CallContext, value: Field, _padding: [Field; dep::aztec3::abi::MAX_ARGS - 1]) -> pub Field {
-        value + 42
+    open fn pubValue(_call_context: CallContext, base_value: Field, _padding: [Field; dep::aztec3::abi::MAX_ARGS - 1]) -> pub Field {
+        base_value + 42
     }
 
     // Same as above, we need the padding argument for open functions.

@@ -34,7 +34,7 @@
       "functionType": "open",
       "parameters": [
         {
-          "name": "value",
+          "name": "base_value",
           "type": {
             "kind": "field"
           },
