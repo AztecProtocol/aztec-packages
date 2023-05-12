@@ -48,7 +48,7 @@ export function wasmSyncCall(
 }
 
 /**
- * Asynchronously calls a wasm function.
+ * Asynchronously calls a wasm function. Required if the wasm call has a callback into an async js function.
  * @param wasm - The wasm wrapper.
  * @param fnName - The name of the function to call.
  * @param input - The input buffer or object serializable to a buffer.
