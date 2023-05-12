@@ -65,6 +65,12 @@ void initialise_end_values(PrivateInputs<NT> const& private_inputs, KernelCircui
     end.new_commitments = start.new_commitments;
     end.new_nullifiers = start.new_nullifiers;
 
+    // If length of new nullifiers array is 0 we can be sure it's the first kernel iteration and we push the tx hash
+    // nullifier to the array.
+    if (is_array_empty(end.new_nullifiers)) {
+        array_push(end.new_nullifiers, private_inputs.signed_tx_request.hash());
+    }
+
     end.private_call_stack = start.private_call_stack;
     end.public_call_stack = start.public_call_stack;
     end.new_l2_to_l1_msgs = start.new_l2_to_l1_msgs;
