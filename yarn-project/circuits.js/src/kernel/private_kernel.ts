@@ -13,7 +13,7 @@ import { BufferReader } from '@aztec/foundation/serialize';
 import { handleCircuitOutput } from '../utils/call_wasm.js';
 
 /**
- * Computes previous kernel data which is used as on input of the first kernle in the chain of kernels.
+ * Computes mostly empty previous kernel data which is used as the input to the first kernel in the chain of private kernels.
  * @param wasm - The circuits wasm instance.
  * @returns The previous kernel data.
  */
