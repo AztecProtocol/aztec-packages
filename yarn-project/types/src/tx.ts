@@ -150,7 +150,7 @@ export class Tx {
   ) {
     const kernelPublicCallStackSize =
       data?.end.publicCallStack && arrayNonEmptyLength(data.end.publicCallStack, item => item.isZero());
-    if (kernelPublicCallStackSize !== undefined && kernelPublicCallStackSize !== enqueuedPublicFunctionCalls?.length) {
+    if (kernelPublicCallStackSize && kernelPublicCallStackSize > (enqueuedPublicFunctionCalls?.length ?? 0)) {
       throw new Error(
         `Missing preimages for enqueued public function calls in kernel circuit public inputs (expected ${kernelPublicCallStackSize}, got ${enqueuedPublicFunctionCalls?.length})`,
       );
