@@ -74,6 +74,7 @@ export class TxContext {
     /**
      * Indicates whether this a gas rebate payment tx.
      *
+     * NOTE: The following is a WIP and it is likely to change in the future.
      * Explanation: Each tx is actually 3 txs in one: a fee-paying tx, the actual tx you want to execute, and a rebate
      * tx. The fee-paying tx pays some `max_fee = gas_price * gas_limit`. Then the actual tx will cost an amount of gas
      * to execute (actual_fee = gas_price * gas_used). Then the rebate tx returns `max_fee - actual_fee` back to

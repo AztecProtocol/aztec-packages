@@ -52,10 +52,12 @@ export class UInt8Vector {
  */
 export type UInt32 = number;
 
+/* eslint-disable jsdoc/require-description-complete-sentence */
+
 /**
  * Affine element of a group, composed of two elements in Fq.
- * Cpp/barretenberg/cpp/src/aztec/ecc/groups/affine_element.hpp
- * cpp/barretenberg/cpp/src/aztec/ecc/curves/bn254/g1.hpp.
+ * cpp/barretenberg/cpp/src/aztec/ecc/groups/affine_element.hpp
+ * cpp/barretenberg/cpp/src/aztec/ecc/curves/bn254/g1.hpp
  */
 export class AffineElement {
   /**
