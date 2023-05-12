@@ -8,7 +8,7 @@
 #include "private_circuit_public_inputs.hpp"
 #include "tx_context.hpp"
 #include "tx_request.hpp"
-#include "private_kernel/private_inputs.hpp"
+#include "private_kernel/private_kernel_inputs_inner.hpp"
 #include "public_kernel/public_kernel_inputs.hpp"
 #include "public_kernel/public_kernel_inputs_no_previous_kernel.hpp"
 #include "rollup/base/base_or_merge_rollup_public_inputs.hpp"

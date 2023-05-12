@@ -15,20 +15,12 @@ using DummyComposer = aztec3::utils::DummyComposer;
 
 using aztec3::circuits::abis::ContractLeafPreimage;
 using aztec3::circuits::abis::KernelCircuitPublicInputs;
-using aztec3::circuits::abis::NewContractData;
 
-using aztec3::utils::array_length;
-using aztec3::utils::array_pop;
 using aztec3::utils::array_push;
 using aztec3::utils::is_array_empty;
 using aztec3::utils::push_array_to_array;
 using DummyComposer = aztec3::utils::DummyComposer;
 using CircuitErrorCode = aztec3::utils::CircuitErrorCode;
-
-using aztec3::circuits::compute_constructor_hash;
-using aztec3::circuits::compute_contract_address;
-using aztec3::circuits::contract_tree_root_from_siblings;
-using aztec3::circuits::function_tree_root_from_siblings;
 
 
 namespace aztec3::circuits::kernel::private_kernel {
@@ -64,9 +56,9 @@ void common_validate_kernel_execution(DummyComposer& composer, KernelInput const
     common_validate_call_stack(composer, private_inputs);
 };
 
-template <typename KernelPrivateInput> void update_end_values(DummyComposer& composer,
-                                                              KernelPrivateInput const& private_inputs,
-                                                              KernelCircuitPublicInputs<NT>& public_inputs)
+template <typename KernelPrivateInput> void common_update_end_values(DummyComposer& composer,
+                                                                     KernelPrivateInput const& private_inputs,
+                                                                     KernelCircuitPublicInputs<NT>& public_inputs)
 {
     const auto private_call_public_inputs = private_inputs.private_call.call_stack_item.public_inputs;
 

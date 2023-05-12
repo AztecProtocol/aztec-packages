@@ -1,6 +1,5 @@
 #include "index.hpp"
 #include "previous_kernel_data.hpp"
-#include "private_kernel/private_inputs.hpp"
 
 #include <barretenberg/common/serialize.hpp>
 #include <barretenberg/common/test.hpp>

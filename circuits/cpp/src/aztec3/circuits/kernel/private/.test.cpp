@@ -14,7 +14,7 @@
 #include <aztec3/circuits/abis/private_circuit_public_inputs.hpp>
 #include <aztec3/circuits/abis/private_historic_tree_roots.hpp>
 #include <aztec3/circuits/abis/private_kernel/globals.hpp>
-#include <aztec3/circuits/abis/private_kernel/private_inputs.hpp>
+#include <aztec3/circuits/abis/private_kernel/private_kernel_inputs_inner.hpp>
 #include <aztec3/circuits/abis/signed_tx_request.hpp>
 #include <aztec3/circuits/abis/tx_context.hpp>
 #include <aztec3/circuits/abis/tx_request.hpp>
@@ -364,7 +364,7 @@ PrivateKernelInputsInner<NT> do_private_call_get_kernel_inputs(bool const is_con
     //***************************************************************************
     // Now we can construct the full private inputs to the kernel circuit
     //***************************************************************************
-    PrivateKernelInputsInner<NT> kernel_private_inputs = PrivateInputs<NT>{
+    PrivateKernelInputsInner<NT> kernel_private_inputs = PrivateKernelInputsInner<NT>{
         .signed_tx_request = signed_tx_request,
 
         .previous_kernel = mock_previous_kernel,

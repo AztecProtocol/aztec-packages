@@ -1,8 +1,11 @@
 #include "common.hpp"
 
+#include "aztec3/circuits/abis/new_contract_data.hpp"
 #include "aztec3/circuits/abis/private_kernel/private_kernel_inputs_init.hpp"
 
+using aztec3::circuits::abis::NewContractData;
 using aztec3::circuits::abis::private_kernel::PrivateKernelInputsInit;
+using aztec3::utils::array_pop;
 
 namespace aztec3::circuits::kernel::private_kernel {
 
@@ -109,17 +112,6 @@ void contract_logic(DummyComposer& composer,
      * - Hash the contract_leaf with the contract_leaf's sibling_path to get the contract_tree_root
      */
 
-    // ensure that historic/purported contract tree root matches the one in previous kernel
-    auto const& purported_contract_tree_root =
-        private_inputs.private_call.call_stack_item.public_inputs.historic_contract_tree_root;
-    auto const& previous_kernel_contract_tree_root =
-        private_inputs.previous_kernel.public_inputs.constants.historic_tree_roots.private_historic_tree_roots
-            .contract_tree_root;
-    composer.do_assert(
-        purported_contract_tree_root == previous_kernel_contract_tree_root,
-        "purported_contract_tree_root doesn't match previous_kernel_contract_tree_root",
-        CircuitErrorCode::PRIVATE_KERNEL__PURPORTED_CONTRACT_TREE_ROOT_AND_PREVIOUS_KERNEL_CONTRACT_TREE_ROOT_MISMATCH);
-
     // The logic below ensures that the contract exists in the contracts tree
     if (!is_contract_deployment) {
         auto const& computed_function_tree_root = function_tree_root_from_siblings<NT>(
@@ -137,6 +129,9 @@ void contract_logic(DummyComposer& composer,
             private_inputs.private_call.contract_leaf_membership_witness.leaf_index,
             private_inputs.private_call.contract_leaf_membership_witness.sibling_path);
 
+        auto const& purported_contract_tree_root =
+            private_inputs.private_call.call_stack_item.public_inputs.historic_contract_tree_root;
+
         composer.do_assert(
             computed_contract_tree_root == purported_contract_tree_root,
             "computed_contract_tree_root doesn't match purported_contract_tree_root",
@@ -144,84 +139,12 @@ void contract_logic(DummyComposer& composer,
     }
 }
 
-void update_end_values(DummyComposer& composer,
-                       PrivateKernelInputsInit<NT> const& private_inputs,
-                       KernelCircuitPublicInputs<NT>& public_inputs)
-{
-    const auto private_call_public_inputs = private_inputs.private_call.call_stack_item.public_inputs;
-
-    const auto& new_commitments = private_call_public_inputs.new_commitments;
-    const auto& new_nullifiers = private_call_public_inputs.new_nullifiers;
-
-    const auto& is_static_call = private_call_public_inputs.call_context.is_static_call;
-
-    if (is_static_call) {
-        // No state changes are allowed for static calls:
-        composer.do_assert(is_array_empty(new_commitments) == true,
-                           "new_commitments must be empty for static calls",
-                           CircuitErrorCode::PRIVATE_KERNEL__NEW_COMMITMENTS_NOT_EMPTY_FOR_STATIC_CALL);
-        composer.do_assert(is_array_empty(new_nullifiers) == true,
-                           "new_nullifiers must be empty for static calls",
-                           CircuitErrorCode::PRIVATE_KERNEL__NEW_NULLIFIERS_NOT_EMPTY_FOR_STATIC_CALL);
-    }
-
-    const auto& storage_contract_address = private_call_public_inputs.call_context.storage_contract_address;
-
-    {
-        // Nonce nullifier
-        // DANGER: This is terrible. This should not be part of the protocol. This is an intentional bodge to reach a
-        // milestone. This must not be the way we derive nonce nullifiers in production. It can be front-run by other
-        // users. It is not domain separated. Naughty.
-        array_push(public_inputs.end.new_nullifiers, private_inputs.signed_tx_request.tx_request.nonce);
-    }
-
-    {  // commitments & nullifiers
-        std::array<NT::fr, NEW_COMMITMENTS_LENGTH> siloed_new_commitments;
-        for (size_t i = 0; i < new_commitments.size(); ++i) {
-            siloed_new_commitments[i] = new_commitments[i] == 0 ? 0
-                                                                : add_contract_address_to_commitment<NT>(
-                                                                      storage_contract_address, new_commitments[i]);
-        }
-
-        std::array<NT::fr, NEW_NULLIFIERS_LENGTH> siloed_new_nullifiers;
-        for (size_t i = 0; i < new_nullifiers.size(); ++i) {
-            siloed_new_nullifiers[i] = new_nullifiers[i] == 0 ? 0
-                                                              : add_contract_address_to_nullifier<NT>(
-                                                                    storage_contract_address, new_nullifiers[i]);
-        }
-
-        push_array_to_array(siloed_new_commitments, public_inputs.end.new_commitments);
-        push_array_to_array(siloed_new_nullifiers, public_inputs.end.new_nullifiers);
-    }
-
-    {  // call stacks
-        const auto& this_private_call_stack = private_call_public_inputs.private_call_stack;
-        push_array_to_array(this_private_call_stack, public_inputs.end.private_call_stack);
-    }
-
-    // const auto& portal_contract_address = private_inputs.private_call.portal_contract_address;
-
-    // {
-    //     const auto& new_l2_to_l1_msgs = private_call_public_inputs.new_l2_to_l1_msgs;
-    //     std::array<CT::fr, NEW_L2_TO_L1_MSGS_LENGTH> l1_call_stack;
-
-    //     for (size_t i = 0; i < new_l2_to_l1_msgs.size(); ++i) {
-    //         l1_call_stack[i] = CT::fr::conditional_assign(
-    //             new_l2_to_l1_msgs[i] == 0,
-    //             0,
-    //             CT::compress({ portal_contract_address, new_l2_to_l1_msgs[i] }, GeneratorIndex::L2_TO_L1_MSG));
-    //     }
-    // }
-}
-
 void validate_this_private_call_against_tx_request(DummyComposer& composer,
-                                                   PrivateKernelInputsInit<NT> const& private_inputs,
-                                                   KernelCircuitPublicInputs<NT>& public_inputs)
+                                                   PrivateKernelInputsInit<NT> const& private_inputs)
 {
     // TODO: this logic might need to change to accommodate the weird edge 3 initial txs (the 'main' tx, the 'fee' tx,
     // and the 'gas rebate' tx).
-    const auto popped_private_call_hash = array_pop(public_inputs.end.private_call_stack);
-    const auto calculated_this_private_call_hash = private_inputs.private_call.call_stack_item.hash();
+
     // Confirm that the SignedTxRequest (user's intent) matches the private call being executed
     const auto& tx_request = private_inputs.signed_tx_request.tx_request;
     const auto& call_stack_item = private_inputs.private_call.call_stack_item;
@@ -311,7 +234,7 @@ KernelCircuitPublicInputs<NT> native_private_kernel_circuit(DummyComposer& compo
 
     validate_inputs(composer, private_inputs);
 
-    validate_this_private_call_against_tx_request(composer, private_inputs, public_inputs);
+    validate_this_private_call_against_tx_request(composer, private_inputs);
 
     common_validate_call_stack<PrivateKernelInputsInit<NT>>(composer, private_inputs);
 

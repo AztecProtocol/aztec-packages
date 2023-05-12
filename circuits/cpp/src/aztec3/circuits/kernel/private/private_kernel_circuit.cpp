@@ -3,7 +3,7 @@
 #include "aztec3/constants.hpp"
 #include <aztec3/circuits/abis/kernel_circuit_public_inputs.hpp>
 #include <aztec3/circuits/abis/new_contract_data.hpp>
-#include <aztec3/circuits/abis/private_kernel/private_inputs.hpp>
+#include <aztec3/circuits/abis/private_kernel/private_kernel_inputs_inner.hpp>
 #include <aztec3/circuits/hash.hpp>
 
 #include <barretenberg/stdlib/primitives/field/array.hpp>
