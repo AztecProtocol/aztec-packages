@@ -1,9 +1,4 @@
-import {
-  KERNEL_PUBLIC_CALL_STACK_LENGTH,
-  KernelCircuitPublicInputs,
-  PublicCallRequest,
-  UInt8Vector,
-} from '@aztec/circuits.js';
+import { KERNEL_PUBLIC_CALL_STACK_LENGTH, KernelCircuitPublicInputs, UInt8Vector } from '@aztec/circuits.js';
 import { makeKernelPublicInputs, makePublicCallRequest, makeSignedTxRequest } from '@aztec/circuits.js/factories';
 import { PrivateTx, PublicTx, Tx, UnverifiedData } from '@aztec/types';
 import times from 'lodash.times';

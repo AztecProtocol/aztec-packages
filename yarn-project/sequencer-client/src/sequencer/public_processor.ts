@@ -254,6 +254,8 @@ export class PublicProcessor {
    * Calculates the PublicCircuitOutput for this execution result along with its proof,
    * and assembles a PublicCallData object from it.
    * @param result - The execution result.
+   * @param preimages - The preimages of the callstack items.
+   * @param isExecutionRequest - Whether the current callstack item should be considered a public fn execution request.
    * @returns A corresponding PublicCallData object.
    */
   protected async getPublicCallData(

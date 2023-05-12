@@ -7,11 +7,11 @@ import {
 } from '@aztec/circuits.js';
 import { computeContractLeaf, computeTxHash } from '@aztec/circuits.js/abis';
 
+import { arrayNonEmptyLength } from '@aztec/foundation/collection';
 import { EncodedContractFunction } from './contract_data.js';
 import { createTxHash } from './create_tx_hash.js';
 import { TxHash } from './tx_hash.js';
 import { UnverifiedData } from './unverified_data.js';
-import { arrayNonEmptyLength } from '@aztec/foundation/collection';
 
 /**
  * Defines valid fields for a private transaction.
@@ -59,6 +59,7 @@ export class Tx {
    * @param proof - Proof from the private kernel circuit.
    * @param unverifiedData - Unverified data created by this tx.
    * @param newContractPublicFunctions - Public functions made available by this tx.
+   * @param enqueuedPublicFunctionCalls - Preimages of the public call stack of the kernel output.
    * @returns A new private tx instance.
    */
   public static createPrivate(

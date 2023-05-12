@@ -6,8 +6,6 @@ import {
   Fr,
   FunctionData,
 } from '@aztec/circuits.js';
-import { serializeToBuffer } from '@aztec/circuits.js/utils';
-import { keccak } from '@aztec/foundation/crypto';
 
 /**
  * The public function execution result.
