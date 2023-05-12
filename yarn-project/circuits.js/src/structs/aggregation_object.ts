@@ -5,8 +5,8 @@ import { Vector, UInt32, AffineElement } from './shared.js';
 import { BufferReader } from '@aztec/foundation/serialize';
 
 /**
- * Native aggregation state.
- * 
+ * Contains the aggregated proof of all the previous kernel iterations.
+ *
  * See circuits/cpp/barretenberg/cpp/src/barretenberg/stdlib/recursion/aggregation_state/native_aggregation_state.hpp
  * for more context.
  */

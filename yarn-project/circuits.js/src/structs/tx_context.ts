@@ -6,6 +6,8 @@ import { BufferReader } from '@aztec/foundation/serialize';
 /**
  * Contract deployment data in a TxContext
  * cpp/src/aztec3/circuits/abis/contract_deployment_data.hpp.
+ *
+ * Not to be confused with NewContractData.
  */
 export class ContractDeploymentData {
   constructor(

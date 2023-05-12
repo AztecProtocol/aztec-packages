@@ -60,7 +60,7 @@ export class PublicKernelInputsNoPreviousKernel {
 
 /**
  // eslint-disable-next-line tsdoc/syntax
- * TODO: POSSIBLY OBSOLETE --> DELETE OR DOCUMENT.
+ * TODO: POSSIBLY OBSOLETE --\> DELETE OR DOCUMENT.
  */
 export class WitnessedPublicCallData {
   constructor(
