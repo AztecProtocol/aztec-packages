@@ -14,7 +14,9 @@ export class CallContext {
      */
     public msgSender: AztecAddress,
     /**
-     * Address of the contract on which this call was invoked.
+     * The contract address against which all state changes will be stored. Not called `contractAddress` because during
+     * delegate call the contract whose code is being executed may be different from the contract whose state is being
+     * modified.
      */
     public storageContractAddress: AztecAddress,
     /**
