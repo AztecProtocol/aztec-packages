@@ -16,7 +16,7 @@ export async function simulatePublicKernelCircuit(input: PublicKernelInputs): Pr
 }
 
 /**
- * Computes the public inputs of the kernel circuit when there is no previous kernel.
+ * Computes the public inputs of the kernel circuit when there is no previous kernel. Used for direct calls to public functions in a transaction.
  * @param input - The kernel circuit inputs.
  * @returns The public inputs.
  */

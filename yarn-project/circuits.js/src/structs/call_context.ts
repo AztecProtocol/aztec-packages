@@ -40,7 +40,6 @@ export class CallContext {
   /**
    * Returns a new instance of CallContext with zero msg sender, storage contract address and portal contract address.
    * @returns A new instance of CallContext with zero msg sender, storage contract address and portal contract address.
-   * Note: Used for testing.
    */
   public static empty(): CallContext {
     return new CallContext(AztecAddress.ZERO, AztecAddress.ZERO, EthAddress.ZERO, false, false, false);

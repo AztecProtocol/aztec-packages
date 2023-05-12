@@ -33,7 +33,7 @@ export class PrivateCallData {
      */
     public vk: VerificationKey,
     /**
-     * The membership witness for the function leaf corresponding to the funciton being invoked.
+     * The membership witness for the function leaf corresponding to the function being invoked.
      */
     public functionLeafMembershipWitness: MembershipWitness<typeof FUNCTION_TREE_HEIGHT>,
     /**

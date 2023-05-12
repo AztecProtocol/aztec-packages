@@ -61,7 +61,7 @@ export async function computeFunctionTree(wasm: CircuitsWasm, leaves: Fr[]): Pro
 }
 
 /**
- *  Computes proof of the private kernel.
+ * Computes proof of the private kernel.
  * @param wasm - The circuits wasm instance.
  * @param signedTxRequest - The signed transaction request.
  * @param previousKernel - The previous kernel data (dummy if this is the first kernel in the chain).
