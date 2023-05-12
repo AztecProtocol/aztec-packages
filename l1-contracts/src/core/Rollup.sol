@@ -31,7 +31,7 @@ contract Rollup is Decoder {
    * @param _proof - The proof of correct execution
    * @param _l2Block - The L2Block data, formatted as outlined in `Decoder.sol`
    */
-  function process(bytes memory _proof, bytes calldata _l2Block) external {
+  function process(bytes memory _proof, Block calldata _l2Block) external {
     (uint256 l2BlockNumber, bytes32 oldStateHash, bytes32 newStateHash, bytes32 publicInputHash) =
       _decode(_l2Block);
 

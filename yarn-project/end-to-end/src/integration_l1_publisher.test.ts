@@ -45,6 +45,7 @@ import {
 import { privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 import { deployL1Contracts } from './deploy_l1_contracts.js';
+import { serializeToBuffer } from '@aztec/circuits.js/utils';
 
 // Accounts 4 and 5 of Anvil default startup with mnemonic: 'test test test test test test test test test test test junk'
 const sequencerPK = '0x47e179ec197488593b187f80a00eb0da91f1b9d0b13f8733639f19c30a34926a';
@@ -160,14 +161,18 @@ describe('L1Publisher integration', () => {
       ];
       const [block] = await builder.buildL2Block(1 + i, txs, l1ToL2Messages);
 
-      /*// Useful for sol tests block generation
+      // Useful for sol tests block generation
       const encoded = block.encode();
+
       console.log(`Size (${encoded.length}): ${encoded.toString('hex')}`);
       console.log(`calldata hash: 0x${block.getCalldataHash().toString('hex')}`);
       console.log(`l1 to l2 message hash: 0x${block.getL1ToL2MessagesHash().toString('hex')}`);
       console.log(`start state hash: 0x${block.getStartStateHash().toString('hex')}`);
       console.log(`end state hash: 0x${block.getEndStateHash().toString('hex')}`);
-      console.log(`public data hash: 0x${block.getPublicInputsHash().toBuffer().toString('hex')}`);*/
+      console.log(`public data hash: 0x${block.getPublicInputsHash().toBuffer().toString('hex')}`);
+
+      console.log('for solidity test inputs');
+      console.log(block.printStructsForSolidity());
 
       await publisher.processL2Block(block);
 
@@ -189,11 +194,11 @@ describe('L1Publisher integration', () => {
       const expectedData = encodeFunctionData({
         abi: RollupAbi,
         functionName: 'process',
-        args: [`0x${l2Proof.toString('hex')}`, `0x${block.encode().toString('hex')}`],
+        args: [`0x${l2Proof.toString('hex')}`, block.toSolidityTypes()],
       });
       expect(ethTx.input).toEqual(expectedData);
 
-      const decoderArgs = [`0x${block.encode().toString('hex')}`] as const;
+      const decoderArgs = [block.toSolidityTypes()] as const;
       const decodedHashes = await decoderHelper.read.computeDiffRootAndMessagesHash(decoderArgs);
       const decodedRes = await decoderHelper.read.decode(decoderArgs);
       const stateInRollup = await rollup.read.rollupStateHash();
@@ -202,7 +207,11 @@ describe('L1Publisher integration', () => {
       expect(block.getStartStateHash()).toEqual(hexStringToBuffer(decodedRes[1].toString()));
       expect(block.getEndStateHash()).toEqual(hexStringToBuffer(decodedRes[2].toString()));
       expect(block.getEndStateHash()).toEqual(hexStringToBuffer(stateInRollup.toString()));
+      console.log('ts: ', block.getPublicInputsHash().toBuffer().toString('hex'));
+      console.log('sol: ', decodedRes[3].toString());
+
       expect(block.getPublicInputsHash().toBuffer()).toEqual(hexStringToBuffer(decodedRes[3].toString()));
+
       expect(block.getCalldataHash()).toEqual(hexStringToBuffer(decodedHashes[0].toString()));
       expect(block.getL1ToL2MessagesHash()).toEqual(hexStringToBuffer(decodedHashes[1].toString()));
     }
@@ -244,11 +253,11 @@ describe('L1Publisher integration', () => {
       const expectedData = encodeFunctionData({
         abi: RollupAbi,
         functionName: 'process',
-        args: [`0x${l2Proof.toString('hex')}`, `0x${block.encode().toString('hex')}`],
+        args: [`0x${l2Proof.toString('hex')}`, block.toSolidityTypes()],
       });
       expect(ethTx.input).toEqual(expectedData);
 
-      const decoderArgs = [`0x${block.encode().toString('hex')}`] as const;
+      const decoderArgs = [block.toSolidityTypes()] as const;
       const decodedHashes = await decoderHelper.read.computeDiffRootAndMessagesHash(decoderArgs);
       const decodedRes = await decoderHelper.read.decode(decoderArgs);
       const stateInRollup = await rollup.read.rollupStateHash();

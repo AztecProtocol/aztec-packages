@@ -16,6 +16,10 @@ import { L2Tx } from './l2_tx.js';
 import { PublicDataWrite } from './public_data_write.js';
 import { toBigIntBE, toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { sha256 } from '@aztec/foundation/crypto';
+import { encodeAbiParameters, parseAbiParameters } from 'viem';
+import { RollupAbi } from '@aztec/l1-artifacts';
+import { DecoderHelperAbi } from '@aztec/l1-artifacts';
+
 /**
  * The data that makes up the rollup proof, with encoder decoder functions.
  * TODO: Reuse data types and serialization functions from circuits package.
@@ -294,42 +298,190 @@ export class L2Block {
     );
   }
 
+  toSolidityTypes() {
+    return {
+      blockNumber: BigInt(this.number),
+
+      // Start trees
+      startPrivateDataTreeSnapshot: this.startPrivateDataTreeSnapshot.toSolidityAbi(),
+      startNullifierTreeSnapshot: this.startNullifierTreeSnapshot.toSolidityAbi(),
+      startContractTreeSnapshot: this.startContractTreeSnapshot.toSolidityAbi(),
+      startTreeOfHistoricPrivateDataTreeRootsSnapshot:
+        this.startTreeOfHistoricPrivateDataTreeRootsSnapshot.toSolidityAbi(),
+      startTreeOfHistoricContractTreeRootsSnapshot: this.startTreeOfHistoricContractTreeRootsSnapshot.toSolidityAbi(),
+      startPublicDataTreeRoot: this.startPublicDataTreeRoot.value,
+      startL1ToL2MessagesTreeSnapshot: this.startL1ToL2MessageTreeSnapshot.toSolidityAbi(),
+      startTreeOfHistoricL1ToL2MessagesTreeRootsSnapshot:
+        this.startTreeOfHistoricL1ToL2MessageTreeRootsSnapshot.toSolidityAbi(),
+
+      // End Trees
+      endPrivateDataTreeSnapshot: this.endPrivateDataTreeSnapshot.toSolidityAbi(),
+      endNullifierTreeSnapshot: this.endNullifierTreeSnapshot.toSolidityAbi(),
+      endContractTreeSnapshot: this.endContractTreeSnapshot.toSolidityAbi(),
+      endTreeOfHistoricPrivateDataTreeRootsSnapshot: this.endTreeOfHistoricPrivateDataTreeRootsSnapshot.toSolidityAbi(),
+      endTreeOfHistoricContractTreeRootsSnapshot: this.endTreeOfHistoricContractTreeRootsSnapshot.toSolidityAbi(),
+      endPublicDataTreeRoot: this.endPublicDataTreeRoot.value,
+      endL1ToL2MessagesTreeSnapshot: this.endL1ToL2MessageTreeSnapshot.toSolidityAbi(),
+      endTreeOfHistoricL1ToL2MessagesTreeRootsSnapshot:
+        this.endTreeOfHistoricL1ToL2MessageTreeRootsSnapshot.toSolidityAbi(),
+
+      newCommitments: this.newCommitments.map(f => f.value),
+      newNullifiers: this.newNullifiers.map(f => f.value),
+      newPublicDataWrites: this.newPublicDataWrites.map(f => {
+        return {
+          leafIndex: f.leafIndex.value,
+          newValue: f.newValue.value,
+        };
+      }),
+      newL2ToL1msgs: this.newL2ToL1Msgs.map(f => f.value),
+      newContract: this.newContracts.map(f => f.value),
+      newContractData: this.newContractData.map(f => {
+        const ad = f.portalContractAddress.toBuffer().toString('hex');
+        return {
+          aztecAddress: f.contractAddress.toField().value,
+          portalAddress: `0x${ad}`,
+        };
+      }) as { aztecAddress: bigint; portalAddress: `0x${string}` }[],
+      newl1ToL2Messages: this.newL1ToL2Messages.map(f => f.value),
+    };
+  }
+
   /**
    * Encode the L2 block data into a buffer that can be pushed to the rollup contract.
    * @returns The encoded L2 block data.
    */
   encode(): Buffer {
-    return serializeToBuffer(
-      this.number,
-      this.startPrivateDataTreeSnapshot,
-      this.startNullifierTreeSnapshot,
-      this.startContractTreeSnapshot,
-      this.startTreeOfHistoricPrivateDataTreeRootsSnapshot,
-      this.startTreeOfHistoricContractTreeRootsSnapshot,
-      this.startPublicDataTreeRoot,
-      this.startL1ToL2MessageTreeSnapshot,
-      this.startTreeOfHistoricL1ToL2MessageTreeRootsSnapshot,
-      this.endPrivateDataTreeSnapshot,
-      this.endNullifierTreeSnapshot,
-      this.endContractTreeSnapshot,
-      this.endTreeOfHistoricPrivateDataTreeRootsSnapshot,
-      this.endTreeOfHistoricContractTreeRootsSnapshot,
-      this.endPublicDataTreeRoot,
-      this.endL1ToL2MessageTreeSnapshot,
-      this.endTreeOfHistoricL1ToL2MessageTreeRootsSnapshot,
-      this.newCommitments.length,
-      this.newCommitments,
-      this.newNullifiers.length,
-      this.newNullifiers,
-      this.newPublicDataWrites.length,
-      this.newPublicDataWrites,
-      this.newL2ToL1Msgs.length,
-      this.newL2ToL1Msgs,
-      this.newContracts.length,
-      this.newContracts,
-      this.newContractData,
-      this.newL1ToL2Messages.length,
-      this.newL1ToL2Messages,
+    const encodedData = encodeAbiParameters(
+      // parseAbiParameters(
+      //   'uint256,(uint256,uint32),(uint256,uint32),(uint256,uint32),(uint256,uint32),(uint256,uint32),uint256,(uint256,uint32),(uint256,uint32),(uint256,uint32),(uint256,uint32),(uint256,uint32),(uint256,uint32),(uint256,uint32),uint256,(uint256,uint32),(uint256,uint32),uint256[],uint256[],(uint256,uint256)[],uint256[],(uint256,uint256,address)[],uint256[]))',
+      // ),
+      DecoderHelperAbi[0].inputs,
+      [this.toSolidityTypes()],
+    );
+
+    return Buffer.from(encodedData, 'hex');
+
+    // return serializeToBuffer(
+    //   this.number,
+    //   this.startPrivateDataTreeSnapshot,
+    //   this.startNullifierTreeSnapshot,
+    //   this.startContractTreeSnapshot,
+    //   this.startTreeOfHistoricPrivateDataTreeRootsSnapshot,
+    //   this.startTreeOfHistoricContractTreeRootsSnapshot,
+    //   this.startPublicDataTreeRoot,
+    //   this.startL1ToL2MessageTreeSnapshot,
+    //   this.startTreeOfHistoricL1ToL2MessageTreeRootsSnapshot,
+    //   this.endPrivateDataTreeSnapshot,
+    //   this.endNullifierTreeSnapshot,
+    //   this.endContractTreeSnapshot,
+    //   this.endTreeOfHistoricPrivateDataTreeRootsSnapshot,
+    //   this.endTreeOfHistoricContractTreeRootsSnapshot,
+    //   this.endPublicDataTreeRoot,
+    //   this.endL1ToL2MessageTreeSnapshot,
+    //   this.endTreeOfHistoricL1ToL2MessageTreeRootsSnapshot,
+    //   this.newCommitments.length,
+    //   this.newCommitments,
+    //   this.newNullifiers.length,
+    //   this.newNullifiers,
+    //   this.newPublicDataWrites.length,
+    //   this.newPublicDataWrites,
+    //   this.newL2ToL1Msgs.length,
+    //   this.newL2ToL1Msgs,
+    //   this.newContracts.length,
+    //   this.newContracts,
+    //   this.newContractData,
+    //   this.newL1ToL2Messages.length,
+    //   this.newL1ToL2Messages,
+    // );
+  }
+
+  printStructsForSolidity() {
+    // Prints the data required to build the solidity tests
+    function printSnapshotForSolidity(snapshot: AppendOnlyTreeSnapshot) {
+      return `Decoder.TreeSnapshot(${snapshot.root}, ${snapshot.nextAvailableLeafIndex}),`;
+    }
+
+    function printUint(value: Fr) {
+      return `0x${value.toBuffer().toString('hex')}`;
+    }
+
+    function printUint256Array(name: string, values: Fr[]) {
+      let returnString = '';
+      for (let i = 0; i < values.length; i++) {
+        returnString += `${name}[${i}] = uint256(0x${values[i].toBuffer().toString('hex')});\n`;
+      }
+      return returnString;
+    }
+
+    function printPublicDataWriteForArray(value: PublicDataWrite) {
+      return `Decoder.PublicDataWrite(${value.leafIndex}, ${value.newValue})`;
+    }
+
+    function printDataWritesArray(name: string, values: PublicDataWrite[]) {
+      let returnString = '';
+      for (let i = 0; i < values.length; i++) {
+        returnString += `${name}[${i}] = ${printPublicDataWriteForArray(values[i])};\n`;
+      }
+      return returnString;
+    }
+
+    function printContractData(newContractData: ContractData) {
+      return `Decoder.ContractData(${newContractData.contractAddress}, ${newContractData.portalContractAddress})`;
+    }
+
+    function printContractDataArray(name: string, contractDatas: ContractData[]) {
+      let returnString = '';
+      for (let i = 0; i < contractDatas.length; i++) {
+        returnString += `${name}[${i}] = ${printContractData(contractDatas[i])};\n`;
+      }
+      return returnString;
+    }
+
+    console.log(
+      ``,
+      // Build arrays
+      `uint256[] memory newCommitments = new uint256[](${this.newCommitments.length});\n`,
+      printUint256Array('newCommitments', this.newCommitments),
+      `uint256[] memory newNullifiers = new uint256[](${this.newNullifiers.length});\n`,
+      printUint256Array('newNullifiers', this.newNullifiers),
+      `Decoder.PublicDataWrite[] memory newPublicDataWrites = new Decoder.PublicDataWrite[](${this.newPublicDataWrites.length});\n`,
+      printDataWritesArray('newPublicDataWrites', this.newPublicDataWrites),
+      `uint256[] memory newL2ToL1Msgs = new uint256[](uint256(${this.newL2ToL1Msgs.length}));\n`,
+      printUint256Array('newL2ToL1Msgs', this.newL2ToL1Msgs),
+      `uint256[] memory newContracts = new uint256[](${this.newContracts.length});\n`,
+      printUint256Array('newContracts', this.newContracts),
+      `Decoder.ContractData[] memory contactData = new Decoder.ContractData[](${this.newContracts.length});\n`,
+      printContractDataArray('contactData', this.newContractData),
+      `uint256[] memory newL1ToL2Msgs = new uint256[](${this.newL1ToL2Messages.length});\n`,
+      printUint256Array('newL1ToL2Msgs', this.newL1ToL2Messages),
+
+      // Build entire block object
+      `Decoder.Block memory block = Decoder.Block(\n`,
+      `  ${this.number},\n`,
+      `  ${printSnapshotForSolidity(this.startPrivateDataTreeSnapshot)}\n`,
+      `  ${printSnapshotForSolidity(this.startNullifierTreeSnapshot)}\n`,
+      `  ${printSnapshotForSolidity(this.startContractTreeSnapshot)}\n`,
+      `  ${printSnapshotForSolidity(this.startTreeOfHistoricPrivateDataTreeRootsSnapshot)}\n`,
+      `  ${printSnapshotForSolidity(this.startTreeOfHistoricContractTreeRootsSnapshot)}\n`,
+      `  ${printUint(this.startPublicDataTreeRoot)},\n`,
+      `  ${printSnapshotForSolidity(this.startL1ToL2MessageTreeSnapshot)}\n`,
+      `  ${printSnapshotForSolidity(this.startTreeOfHistoricL1ToL2MessageTreeRootsSnapshot)}\n`,
+      `  ${printSnapshotForSolidity(this.endPrivateDataTreeSnapshot)}\n`,
+      `  ${printSnapshotForSolidity(this.endNullifierTreeSnapshot)}\n`,
+      `  ${printSnapshotForSolidity(this.endContractTreeSnapshot)}\n`,
+      `  ${printSnapshotForSolidity(this.endTreeOfHistoricPrivateDataTreeRootsSnapshot)}\n`,
+      `  ${printSnapshotForSolidity(this.endTreeOfHistoricContractTreeRootsSnapshot)}\n`,
+      `  ${printUint(this.endPublicDataTreeRoot)},\n`,
+      `  ${printSnapshotForSolidity(this.endL1ToL2MessageTreeSnapshot)}\n`,
+      `  ${printSnapshotForSolidity(this.endTreeOfHistoricL1ToL2MessageTreeRootsSnapshot)}\n`,
+      `  newCommitments,\n`,
+      `  newNullifiers,\n`,
+      `  newPublicDataWrites,\n`,
+      `  newL2ToL1Msgs,\n`,
+      `  newContracts,\n`,
+      `  contactData,\n`,
+      `  newL1ToL2Msgs\n`,
+      `);\n`,
     );
   }
 
@@ -408,26 +560,48 @@ export class L2Block {
    * @returns The public input hash for the L2 block as a field element.
    */
   getPublicInputsHash(): Fr {
-    const buf = serializeToBuffer(
-      this.startPrivateDataTreeSnapshot,
-      this.startNullifierTreeSnapshot,
-      this.startContractTreeSnapshot,
-      this.startTreeOfHistoricPrivateDataTreeRootsSnapshot,
-      this.startTreeOfHistoricContractTreeRootsSnapshot,
-      this.startPublicDataTreeRoot,
-      this.startL1ToL2MessageTreeSnapshot,
-      this.startTreeOfHistoricL1ToL2MessageTreeRootsSnapshot,
-      this.endPrivateDataTreeSnapshot,
-      this.endNullifierTreeSnapshot,
-      this.endContractTreeSnapshot,
-      this.endTreeOfHistoricPrivateDataTreeRootsSnapshot,
-      this.endTreeOfHistoricContractTreeRootsSnapshot,
-      this.endPublicDataTreeRoot,
-      this.endL1ToL2MessageTreeSnapshot,
-      this.endTreeOfHistoricL1ToL2MessageTreeRootsSnapshot,
-      this.getCalldataHash(),
-      this.getL1ToL2MessagesHash(),
-    );
+    const buf = Buffer.alloc(0x400);
+
+    let counter = 0;
+    this.startPrivateDataTreeSnapshot.toSolidityEncoding().copy(buf, counter);
+    this.startNullifierTreeSnapshot.toSolidityEncoding().copy(buf, (counter += 0x40));
+    this.startContractTreeSnapshot.toSolidityEncoding().copy(buf, (counter += 0x40));
+    this.startTreeOfHistoricPrivateDataTreeRootsSnapshot.toSolidityEncoding().copy(buf, (counter += 0x40));
+    this.startTreeOfHistoricContractTreeRootsSnapshot.toSolidityEncoding().copy(buf, (counter += 0x40));
+    this.startPublicDataTreeRoot.toBuffer().copy(buf, (counter += 0x40));
+    this.startL1ToL2MessageTreeSnapshot.toSolidityEncoding().copy(buf, (counter += 0x20));
+    this.startTreeOfHistoricL1ToL2MessageTreeRootsSnapshot.toSolidityEncoding().copy(buf, (counter += 0x40));
+    this.endPrivateDataTreeSnapshot.toSolidityEncoding().copy(buf, (counter += 0x40));
+    this.endNullifierTreeSnapshot.toSolidityEncoding().copy(buf, (counter += 0x40));
+    this.endContractTreeSnapshot.toSolidityEncoding().copy(buf, (counter += 0x40));
+    this.endTreeOfHistoricPrivateDataTreeRootsSnapshot.toSolidityEncoding().copy(buf, (counter += 0x40));
+    this.endTreeOfHistoricContractTreeRootsSnapshot.toSolidityEncoding().copy(buf, (counter += 0x40));
+    this.endPublicDataTreeRoot.toBuffer().copy(buf, (counter += 0x40));
+    this.endL1ToL2MessageTreeSnapshot.toSolidityEncoding().copy(buf, (counter += 0x20));
+    this.endTreeOfHistoricL1ToL2MessageTreeRootsSnapshot.toSolidityEncoding().copy(buf, (counter += 0x40));
+    this.getCalldataHash().copy(buf, (counter += 0x40));
+    this.getL1ToL2MessagesHash().copy(buf, (counter += 0x20));
+
+    // const buf = serializeToBuffer(
+    //   this.startPrivateDataTreeSnapshot,
+    //   this.startNullifierTreeSnapshot,
+    //   this.startContractTreeSnapshot,
+    //   this.startTreeOfHistoricPrivateDataTreeRootsSnapshot,
+    //   this.startTreeOfHistoricContractTreeRootsSnapshot,
+    //   this.startPublicDataTreeRoot,
+    //   this.startL1ToL2MessageTreeSnapshot,
+    //   this.startTreeOfHistoricL1ToL2MessageTreeRootsSnapshot,
+    //   this.endPrivateDataTreeSnapshot,
+    //   this.endNullifierTreeSnapshot,
+    //   this.endContractTreeSnapshot,
+    //   this.endTreeOfHistoricPrivateDataTreeRootsSnapshot,
+    //   this.endTreeOfHistoricContractTreeRootsSnapshot,
+    //   this.endPublicDataTreeRoot,
+    //   this.endL1ToL2MessageTreeSnapshot,
+    //   this.endTreeOfHistoricL1ToL2MessageTreeRootsSnapshot,
+    //   this.getCalldataHash(),
+    //   this.getL1ToL2MessagesHash(),
+    // );
 
     const temp = toBigIntBE(sha256(buf));
     // Prime order of BN254 curve
@@ -440,18 +614,32 @@ export class L2Block {
    * @returns The start state hash for the L2 block.
    */
   getStartStateHash() {
-    const inputValue = serializeToBuffer(
-      this.number - 1,
-      this.startPrivateDataTreeSnapshot,
-      this.startNullifierTreeSnapshot,
-      this.startContractTreeSnapshot,
-      this.startTreeOfHistoricPrivateDataTreeRootsSnapshot,
-      this.startTreeOfHistoricContractTreeRootsSnapshot,
-      this.startPublicDataTreeRoot,
-      this.startL1ToL2MessageTreeSnapshot,
-      this.startTreeOfHistoricL1ToL2MessageTreeRootsSnapshot,
-    );
-    return sha256(inputValue);
+    const buf = Buffer.alloc(0x200);
+
+    // TODO: cleanup, copy into our buffer
+    let counter = 0x1c;
+    serializeToBuffer(this.number - 1).copy(buf, counter);
+    this.startPrivateDataTreeSnapshot.toSolidityEncoding().copy(buf, (counter += 0x4));
+    this.startNullifierTreeSnapshot.toSolidityEncoding().copy(buf, (counter += 0x40));
+    this.startContractTreeSnapshot.toSolidityEncoding().copy(buf, (counter += 0x40));
+    this.startTreeOfHistoricPrivateDataTreeRootsSnapshot.toSolidityEncoding().copy(buf, (counter += 0x40));
+    this.startTreeOfHistoricContractTreeRootsSnapshot.toSolidityEncoding().copy(buf, (counter += 0x40));
+    this.startPublicDataTreeRoot.toBuffer().copy(buf, (counter += 0x40));
+    this.startL1ToL2MessageTreeSnapshot.toSolidityEncoding().copy(buf, (counter += 0x20));
+    this.startTreeOfHistoricL1ToL2MessageTreeRootsSnapshot.toSolidityEncoding().copy(buf, (counter += 0x40));
+
+    // const inputValue = serializeToBuffer(
+    //   this.number - 1,
+    //   this.startPrivateDataTreeSnapshot,
+    //   this.startNullifierTreeSnapshot,
+    //   this.startContractTreeSnapshot,
+    //   this.startTreeOfHistoricPrivateDataTreeRootsSnapshot,
+    //   this.startTreeOfHistoricContractTreeRootsSnapshot,
+    //   this.startPublicDataTreeRoot,
+    //   this.startL1ToL2MessageTreeSnapshot,
+    //   this.startTreeOfHistoricL1ToL2MessageTreeRootsSnapshot,
+    // );
+    return sha256(buf);
   }
 
   /**
@@ -459,18 +647,32 @@ export class L2Block {
    * @returns The end state hash for the L2 block.
    */
   getEndStateHash() {
-    const inputValue = serializeToBuffer(
-      this.number,
-      this.endPrivateDataTreeSnapshot,
-      this.endNullifierTreeSnapshot,
-      this.endContractTreeSnapshot,
-      this.endTreeOfHistoricPrivateDataTreeRootsSnapshot,
-      this.endTreeOfHistoricContractTreeRootsSnapshot,
-      this.endPublicDataTreeRoot,
-      this.endL1ToL2MessageTreeSnapshot,
-      this.endTreeOfHistoricL1ToL2MessageTreeRootsSnapshot,
-    );
-    return sha256(inputValue);
+    const buf = Buffer.alloc(0x200);
+
+    // TODO: cleanup, copy into our buffer
+    let counter = 0x1c;
+    serializeToBuffer(this.number).copy(buf, counter);
+    this.endPrivateDataTreeSnapshot.toSolidityEncoding().copy(buf, (counter += 0x4));
+    this.endNullifierTreeSnapshot.toSolidityEncoding().copy(buf, (counter += 0x40));
+    this.endContractTreeSnapshot.toSolidityEncoding().copy(buf, (counter += 0x40));
+    this.endTreeOfHistoricPrivateDataTreeRootsSnapshot.toSolidityEncoding().copy(buf, (counter += 0x40));
+    this.endTreeOfHistoricContractTreeRootsSnapshot.toSolidityEncoding().copy(buf, (counter += 0x40));
+    this.endPublicDataTreeRoot.toBuffer().copy(buf, (counter += 0x40));
+    this.endL1ToL2MessageTreeSnapshot.toSolidityEncoding().copy(buf, (counter += 0x20));
+    this.endTreeOfHistoricL1ToL2MessageTreeRootsSnapshot.toSolidityEncoding().copy(buf, (counter += 0x40));
+
+    // const inputValue = serializeToBuffer(
+    //   this.number,
+    //   this.endPrivateDataTreeSnapshot,
+    //   this.endNullifierTreeSnapshot,
+    //   this.endContractTreeSnapshot,
+    //   this.endTreeOfHistoricPrivateDataTreeRootsSnapshot,
+    //   this.endTreeOfHistoricContractTreeRootsSnapshot,
+    //   this.endPublicDataTreeRoot,
+    //   this.endL1ToL2MessageTreeSnapshot,
+    //   this.endTreeOfHistoricL1ToL2MessageTreeRootsSnapshot,
+    // );
+    return sha256(buf);
   }
 
   /**
@@ -537,8 +739,10 @@ export class L2Block {
         this.newContractData[i * 2 + 1].contractAddress.toBuffer(),
         this.newContractData[i * 2 + 1].portalContractAddress.toBuffer32(),
       ]);
+
       leafs.push(sha256(inputValue));
     }
+
     return computeRoot(leafs);
   }
 

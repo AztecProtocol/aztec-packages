@@ -2,6 +2,8 @@
 // Copyright 2023 Aztec Labs.
 pragma solidity >=0.8.18;
 
+import "forge-std/console.sol";
+
 /**
  * @title Decoder
  * @author Aztec Labs
@@ -74,6 +76,48 @@ contract Decoder {
   uint256 internal constant P =
     21888242871839275222246405745257275088548364400416034343698204186575808495617;
 
+  struct TreeSnapshot {
+    uint256 root;
+    uint32 nextAvailableLeafIndex;
+  }
+
+  struct ContractData {
+    uint256 aztecAddress;
+    address portalAddress;
+  }
+
+  struct PublicDataWrite {
+    uint256 leafIndex;
+    uint256 newValue;
+  }
+
+  struct Block {
+    uint256 blockNumber;
+    TreeSnapshot startPrivateDataTreeSnapshot;
+    TreeSnapshot startNullifierTreeSnapshot;
+    TreeSnapshot startContractTreeSnapshot;
+    TreeSnapshot startTreeOfHistoricPrivateDataTreeRootsSnapshot;
+    TreeSnapshot startTreeOfHistoricContractTreeRootsSnapshot;
+    uint256 startPublicDataTreeRoot;
+    TreeSnapshot startL1ToL2MessagesTreeSnapshot;
+    TreeSnapshot startTreeOfHistoricL1ToL2MessagesTreeRootsSnapshot;
+    TreeSnapshot endPrivateDataTreeSnapshot;
+    TreeSnapshot endNullifierTreeSnapshot;
+    TreeSnapshot endContractTreeSnapshot;
+    TreeSnapshot endTreeOfHistoricPrivateDataTreeRootsSnapshot;
+    TreeSnapshot endTreeOfHistoricContractTreeRootsSnapshot;
+    uint256 endPublicDataTreeRoot;
+    TreeSnapshot endL1ToL2MessagesTreeSnapshot;
+    TreeSnapshot endTreeOfHistoricL1ToL2MessagesTreeRootsSnapshot;
+    uint256[] newCommitments;
+    uint256[] newNullifiers;
+    PublicDataWrite[] newPublicDataWrites;
+    uint256[] newL2ToL1msgs;
+    uint256[] newContract;
+    ContractData[] newContractData;
+    uint256[] newl1ToL2Messages;
+  }
+
   /**
    * @notice Decodes the inputs and computes values to check state against
    * @param _l2Block - The L2 block calldata.
@@ -82,9 +126,9 @@ contract Decoder {
    * @return endStateHash - The state hash expected after the execution.
    * @return publicInputHash - The hash of the public inputs
    */
-  function _decode(bytes calldata _l2Block)
+  function _decode(Block calldata _l2Block)
     internal
-    pure
+    view
     returns (
       uint256 l2BlockNumber,
       bytes32 startStateHash,
@@ -95,8 +139,8 @@ contract Decoder {
     l2BlockNumber = _getL2BlockNumber(_l2Block);
     // Note, for startStateHash to match the storage, the l2 block number must be new - 1.
     // Only jumping 1 block at a time.
-    startStateHash = _computeStateHash(l2BlockNumber - 1, 0x4, _l2Block);
-    endStateHash = _computeStateHash(l2BlockNumber, 0x120, _l2Block);
+    startStateHash = _computeStateHash(l2BlockNumber - 1, 0x20, _l2Block);
+    endStateHash = _computeStateHash(l2BlockNumber, 0x200, _l2Block);
     publicInputHash = _computePublicInputsHash(_l2Block);
   }
 
@@ -105,20 +149,20 @@ contract Decoder {
    * @param _l2Block - The L2 block calldata.
    * @return sha256(header[0x4: 0x23c], diffRoot, l1Tol2MessagesHash)
    */
-  function _computePublicInputsHash(bytes calldata _l2Block) internal pure returns (bytes32) {
+  function _computePublicInputsHash(Block calldata _l2Block) internal view returns (bytes32) {
     // header size - block number size + one value for the diffRoot + one value for l1ToL2MessagesHash
-    uint256 size = 0x23c - 0x04 + 0x20 + 0x20;
+    uint256 size = 0x3c0 + 0x20 + 0x20;
 
     // Compute the public inputs hash
     bytes memory temp = new bytes(size);
+    // perform a memcpy into the temp variable
     assembly {
-      calldatacopy(add(temp, 0x20), add(_l2Block.offset, 0x04), size)
+      calldatacopy(add(temp, 0x20), add(_l2Block, 0x20), size)
     }
 
-    // Diff root
     (bytes32 diffRoot, bytes32 l1ToL2messagesHash) = _computeDiffRootAndMessagesHash(_l2Block);
     assembly {
-      let endOfTreesData := sub(0x23c, 0x04)
+      let endOfTreesData := 0x3c0
       mstore(add(temp, add(0x20, endOfTreesData)), diffRoot)
       mstore(add(temp, add(0x40, endOfTreesData)), l1ToL2messagesHash)
     }
@@ -131,10 +175,11 @@ contract Decoder {
    * @param _l2Block - The L2 block calldata
    * @return l2BlockNumber - The L2 block number
    */
-  function _getL2BlockNumber(bytes calldata _l2Block) internal pure returns (uint256 l2BlockNumber) {
-    assembly {
-      l2BlockNumber := and(shr(224, calldataload(_l2Block.offset)), 0xffffffff)
-    }
+  function _getL2BlockNumber(Block calldata _l2Block) internal pure returns (uint256 l2BlockNumber) {
+    // assembly {
+    //   l2BlockNumber := and(shr(224, calldataload(_l2Block)), 0xffffffff)
+    // }
+    l2BlockNumber = _l2Block.blockNumber;
   }
 
   /**
@@ -144,34 +189,20 @@ contract Decoder {
    * @param _l2Block - The L2 block calldata.
    * @return The state hash
    */
-  function _computeStateHash(uint256 _l2BlockNumber, uint256 _offset, bytes calldata _l2Block)
+  function _computeStateHash(uint256 _l2BlockNumber, uint256 _offset, Block calldata _l2Block)
     internal
-    pure
+    view
     returns (bytes32)
   {
-    bytes memory temp = new bytes(0x120);
+    bytes memory temp = new bytes(0x200);
 
     assembly {
-      mstore8(add(temp, 0x20), shr(24, _l2BlockNumber))
-      mstore8(add(temp, 0x21), shr(16, _l2BlockNumber))
-      mstore8(add(temp, 0x22), shr(8, _l2BlockNumber))
-      mstore8(add(temp, 0x23), _l2BlockNumber)
-    }
-    assembly {
+      mstore(add(0x20, temp), _l2BlockNumber)
       // Copy header elements (not including block number) for start or end (size 0xd4)
-      calldatacopy(add(temp, 0x24), add(_l2Block.offset, _offset), 0x11c)
+      calldatacopy(add(temp, 0x40), add(_l2Block, _offset), 0x1e0)
     }
 
     return sha256(temp);
-  }
-
-  struct ArrayLengths {
-    uint256 commitmentCount;
-    uint256 nullifierCount;
-    uint256 dataWritesCount;
-    uint256 l2ToL1MessagesCount;
-    uint256 contractCount;
-    uint256 l1Tol2MessagesCount;
   }
 
   struct ArrayOffsets {
@@ -188,53 +219,34 @@ contract Decoder {
    * @notice Creates a "diff" tree and compute its root
    * @param _l2Block - The L2 block calldata.
    */
-  function _computeDiffRootAndMessagesHash(bytes calldata _l2Block)
+  function _computeDiffRootAndMessagesHash(Block calldata _l2Block)
     internal
-    pure
+    view
     returns (bytes32, bytes32)
   {
     // Find the lengths of the different inputs
     // TOOD: Naming / getting the messages root within this function is a bit weird
-    ArrayLengths memory lengths;
     ArrayOffsets memory offsets;
-    {
-      assembly {
-        let offset := add(_l2Block.offset, 0x23c)
-        let commitmentCount := and(shr(224, calldataload(offset)), 0xffffffff)
-        offset := add(add(offset, 0x4), mul(commitmentCount, 0x20))
-        let nullifierCount := and(shr(224, calldataload(offset)), 0xffffffff)
-        offset := add(add(offset, 0x4), mul(nullifierCount, 0x20))
-        let dataWritesCount := and(shr(224, calldataload(offset)), 0xffffffff)
-        offset := add(add(offset, 0x4), mul(nullifierCount, 0x40))
-        let l2ToL1Count := and(shr(224, calldataload(offset)), 0xffffffff)
-        offset := add(add(offset, 0x4), mul(l2ToL1Count, 0x20))
-        let contractCount := and(shr(224, calldataload(offset)), 0xffffffff)
-        offset := add(add(offset, 0x4), mul(contractCount, 0x54))
-        let l1Tol2MessagesCount := and(shr(224, calldataload(offset)), 0xffffffff)
-
-        // Store it in lengths
-        mstore(lengths, commitmentCount)
-        mstore(add(lengths, 0x20), nullifierCount)
-        mstore(add(lengths, 0x40), dataWritesCount)
-        mstore(add(lengths, 0x60), l2ToL1Count)
-        mstore(add(lengths, 0x80), contractCount)
-        mstore(add(lengths, 0xa0), l1Tol2MessagesCount) // currently included to allow optimisation where empty messages are not included in calldata
-      }
-    }
 
     bytes32[] memory baseLeafs = new bytes32[](
-            lengths.commitmentCount / (COMMITMENTS_PER_KERNEL * 2)
+            _l2Block.newCommitments.length / (COMMITMENTS_PER_KERNEL * 2)
         );
 
     // Data starts after header. Look at L2 Block Data specification at the top of this file.
     {
-      offsets.commitmentOffset = 0x240;
-      offsets.nullifierOffset = offsets.commitmentOffset + 0x4 + lengths.commitmentCount * 0x20;
-      offsets.publicDataOffset = offsets.nullifierOffset + 0x4 + lengths.nullifierCount * 0x20;
-      offsets.l2ToL1MsgsOffset = offsets.publicDataOffset + 0x4 + lengths.dataWritesCount * 0x40;
-      offsets.contractOffset = offsets.l2ToL1MsgsOffset + 0x4 + lengths.l2ToL1MessagesCount * 0x20;
-      offsets.contractDataOffset = offsets.contractOffset + lengths.contractCount * 0x20;
-      offsets.l1ToL2MessagesOffset = offsets.contractDataOffset + 0x4 + lengths.contractCount * 0x34;
+      offsets.commitmentOffset = 0x4e0;
+      offsets.nullifierOffset =
+        offsets.commitmentOffset + 0x20 + _l2Block.newCommitments.length * 0x20;
+      offsets.publicDataOffset =
+        offsets.nullifierOffset + 0x20 + _l2Block.newNullifiers.length * 0x20;
+      offsets.l2ToL1MsgsOffset =
+        offsets.publicDataOffset + 0x20 + _l2Block.newPublicDataWrites.length * 0x40;
+      offsets.contractOffset =
+        offsets.l2ToL1MsgsOffset + 0x20 + _l2Block.newL2ToL1msgs.length * 0x20;
+      offsets.contractDataOffset =
+        offsets.contractOffset + 0x20 + _l2Block.newContract.length * 0x20;
+      offsets.l1ToL2MessagesOffset =
+        offsets.contractDataOffset + 0x20 + _l2Block.newContractData.length * 0x40;
 
       for (uint256 i = 0; i < baseLeafs.length; i++) {
         /**
@@ -265,68 +277,48 @@ contract Decoder {
         assembly {
           let dstOffset := 0x20
           // Adding new commitments
-          calldatacopy(
-            add(baseLeaf, dstOffset), add(_l2Block.offset, mload(offsets)), mul(0x08, 0x20)
-          )
+          calldatacopy(add(baseLeaf, dstOffset), add(_l2Block, mload(offsets)), mul(0x08, 0x20))
           dstOffset := add(dstOffset, mul(0x08, 0x20))
 
           // Adding new nullifiers
           calldatacopy(
-            add(baseLeaf, dstOffset),
-            add(_l2Block.offset, mload(add(offsets, 0x20))),
-            mul(0x08, 0x20)
+            add(baseLeaf, dstOffset), add(_l2Block, mload(add(offsets, 0x20))), mul(0x08, 0x20)
           )
           dstOffset := add(dstOffset, mul(0x08, 0x20))
 
           // Adding new public data writes
           calldatacopy(
-            add(baseLeaf, dstOffset),
-            add(_l2Block.offset, mload(add(offsets, 0x40))),
-            mul(0x08, 0x40)
+            add(baseLeaf, dstOffset), add(_l2Block, mload(add(offsets, 0x40))), mul(0x08, 0x40)
           )
           dstOffset := add(dstOffset, mul(0x08, 0x40))
 
           // Adding new l2 to l1 msgs
           calldatacopy(
-            add(baseLeaf, dstOffset),
-            add(_l2Block.offset, mload(add(offsets, 0x60))),
-            mul(0x04, 0x20)
+            add(baseLeaf, dstOffset), add(_l2Block, mload(add(offsets, 0x60))), mul(0x04, 0x20)
           )
           dstOffset := add(dstOffset, mul(0x04, 0x20))
 
           // Adding Contract Leafs
           calldatacopy(
-            add(baseLeaf, dstOffset),
-            add(_l2Block.offset, mload(add(offsets, 0x80))),
-            mul(0x2, 0x20)
+            add(baseLeaf, dstOffset), add(_l2Block, mload(add(offsets, 0x80))), mul(0x2, 0x20)
           )
           dstOffset := add(dstOffset, mul(2, 0x20))
 
           // Kernel1.contract.aztecAddress
           let contractDataOffset := mload(add(offsets, 0xa0))
-          calldatacopy(add(baseLeaf, dstOffset), add(_l2Block.offset, contractDataOffset), 0x20)
+          calldatacopy(add(baseLeaf, dstOffset), add(_l2Block, contractDataOffset), 0x20)
           dstOffset := add(dstOffset, 0x20)
 
           // Kernel1.contract.ethAddress padded to 32 bytes
-          // Add 12 (0xc) bytes of padding to the ethAddress
-          dstOffset := add(dstOffset, 0xc)
-          calldatacopy(
-            add(baseLeaf, dstOffset), add(_l2Block.offset, add(contractDataOffset, 0x20)), 0x14
-          )
-          dstOffset := add(dstOffset, 0x14)
+          calldatacopy(add(baseLeaf, dstOffset), add(_l2Block, add(contractDataOffset, 0x20)), 0x20)
+          dstOffset := add(dstOffset, 0x20)
 
           // Kernel2.contract.aztecAddress
-          calldatacopy(
-            add(baseLeaf, dstOffset), add(_l2Block.offset, add(contractDataOffset, 0x34)), 0x20
-          )
+          calldatacopy(add(baseLeaf, dstOffset), add(_l2Block, add(contractDataOffset, 0x40)), 0x20)
           dstOffset := add(dstOffset, 0x20)
 
           // Kernel2.contract.ethAddress padded to 32 bytes
-          // Add 12 (0xc) bytes of padding to the ethAddress
-          dstOffset := add(dstOffset, 0xc)
-          calldatacopy(
-            add(baseLeaf, dstOffset), add(_l2Block.offset, add(contractDataOffset, 0x54)), 0x14
-          )
+          calldatacopy(add(baseLeaf, dstOffset), add(_l2Block, add(contractDataOffset, 0x60)), 0x20)
         }
 
         offsets.commitmentOffset += 2 * COMMITMENTS_PER_KERNEL * 0x20;
@@ -334,7 +326,7 @@ contract Decoder {
         offsets.publicDataOffset += 2 * PUBLIC_DATA_WRITES_PER_KERNEL * 0x40;
         offsets.l2ToL1MsgsOffset += 2 * L2_TO_L1_MSGS_PER_KERNEL * 0x20;
         offsets.contractOffset += 2 * 0x20;
-        offsets.contractDataOffset += 2 * 0x34;
+        offsets.contractDataOffset += 2 * 0x40;
 
         baseLeafs[i] = sha256(baseLeaf);
       }
@@ -351,7 +343,7 @@ contract Decoder {
       assembly {
         calldatacopy(
           add(messagesHashPreimage, 0x20),
-          add(_l2Block.offset, mload(add(offsets, 0xc0))),
+          add(_l2Block, mload(add(offsets, 0xc0))),
           messagesHashPreimageSize
         )
       }

@@ -2,6 +2,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { serializeToBuffer } from '../../utils/serialize.js';
 import { UInt32 } from '../shared.js';
 import { BufferReader } from '@aztec/foundation/serialize';
+import { buffer } from 'stream/consumers';
 
 export class AppendOnlyTreeSnapshot {
   /**
@@ -27,5 +28,19 @@ export class AppendOnlyTreeSnapshot {
 
   static empty() {
     return new AppendOnlyTreeSnapshot(Fr.ZERO, 0);
+  }
+
+  toSolidityAbi() {
+    return {
+      root: this.root.value,
+      nextAvailableLeafIndex: this.nextAvailableLeafIndex,
+    };
+  }
+
+  toSolidityEncoding() {
+    const buff = Buffer.alloc(64);
+    this.root.toBuffer().copy(buff, 0);
+    serializeToBuffer(this.nextAvailableLeafIndex).copy(buff, 64 - 4);
+    return buff;
   }
 }

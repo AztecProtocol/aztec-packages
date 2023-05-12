@@ -132,7 +132,7 @@ function makeContractDeployedEvent(l1BlockNum: bigint, l2BlockNum: bigint) {
  */
 function makeRollupTx(blockNum: number) {
   const proof = `0x`;
-  const block = toHex(L2Block.random(blockNum).encode());
+  const block = L2Block.random(blockNum).toSolidityTypes();
   const input = encodeFunctionData({ abi: RollupAbi, functionName: 'process', args: [proof, block] });
   return { input } as Transaction<bigint, number>;
 }

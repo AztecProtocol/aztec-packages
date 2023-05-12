@@ -105,7 +105,7 @@ async function getBlockFromCallData(
     data,
   });
   if (functionName !== 'process') throw new Error(`Unexpected method called ${functionName}`);
-  const [, l2BlockHex] = args! as [Hex, Hex];
+  const [, l2BlockHex] = args! as [Hex, any]; // TODO: second any here is a hack around strict viem typing
   const block = L2Block.decode(Buffer.from(hexToBytes(l2BlockHex)));
   if (BigInt(block.number) !== l2BlockNum) {
     throw new Error(`Block number mismatch: expected ${l2BlockNum} but got ${block.number}`);
