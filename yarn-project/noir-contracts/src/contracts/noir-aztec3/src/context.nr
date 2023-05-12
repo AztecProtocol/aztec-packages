@@ -61,4 +61,9 @@ impl PrivateFunctionContext {
         self.new_nullifiers = self.new_nullifiers.push(nullifier);
         self
     }
+
+    fn message_portal(mut self: Self, msg: Field) -> Self {
+        self.new_l2_to_l1_msgs = self.new_l2_to_l1_msgs.push(msg);
+        self
+    }
 }
