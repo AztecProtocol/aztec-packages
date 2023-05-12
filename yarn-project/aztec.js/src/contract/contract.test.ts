@@ -9,6 +9,7 @@ import {
   TxRequest,
 } from '@aztec/aztec-rpc';
 import { mock } from 'jest-mock-extended';
+import { jest } from '@jest/globals';
 
 import { EcdsaSignature, SignedTxRequest } from '@aztec/circuits.js';
 import { Contract } from './contract.js';
@@ -105,6 +106,7 @@ describe('Contract Class', () => {
     arc.sendTx.mockResolvedValue(mockTxHash);
     arc.viewTx.mockResolvedValue(mockViewResultValue);
     arc.getTxReceipt.mockResolvedValue(mockTxReceipt);
+    SignedTxRequest.new = jest.fn<typeof SignedTxRequest.new>().mockReturnValue(Promise.resolve(mockSignedTxRequest));
   });
 
   it('should request, sign, craete and send a contract method tx', async () => {

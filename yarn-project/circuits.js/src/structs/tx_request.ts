@@ -15,9 +15,7 @@ import { Ecdsa } from '@aztec/barretenberg.js/crypto';
  * @see cpp/src/aztec3/circuits/abis/signed_tx_request.hpp.
  */
 export class SignedTxRequest {
-  public signingKey!: EthPublicKey;
-
-  public constructor(public txRequest: TxRequest, public signature: EcdsaSignature) {}
+  public constructor(public txRequest: TxRequest, public signature: EcdsaSignature, public signingKey: EthPublicKey) {}
 
   public static async new(txRequest: TxRequest, signature: EcdsaSignature) {
     // Recover signing key from the signature.
@@ -28,9 +26,7 @@ export class SignedTxRequest {
     const signingKey = EthPublicKey.fromBuffer(signingKeyBuffer);
 
     // Create a new instance of SignedTxRequest.
-    const instance = new SignedTxRequest(txRequest, signature);
-    instance.signingKey = signingKey;
-    return instance;
+    return new SignedTxRequest(txRequest, signature, signingKey);
   }
 
   /**

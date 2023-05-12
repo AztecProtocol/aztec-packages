@@ -338,8 +338,11 @@ export async function makePublicKernelInputsNoKernelInput(seed = 1) {
 }
 
 export function makeSignedTxRequest(seed = 1): SignedTxRequest {
-  const signedTxRequest = new SignedTxRequest(makeTxRequest(seed), makeEcdsaSignature(seed + 0x200));
-  signedTxRequest.signingKey = makeEthPublicKey(seed + 0x20);
+  const signedTxRequest = new SignedTxRequest(
+    makeTxRequest(seed),
+    makeEcdsaSignature(seed + 0x200),
+    makeEthPublicKey(seed + 0x20),
+  );
   return signedTxRequest;
 }
 
