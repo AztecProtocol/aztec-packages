@@ -4,7 +4,7 @@ import { UInt32 } from '../shared.js';
 import { BufferReader } from '@aztec/foundation/serialize';
 
 /**
- * Snapshot of the append only tree.
+ * Snapshot of an append only tree.
  *
  * Used in circuits to verify that tree insertions are performed correctly.
  */

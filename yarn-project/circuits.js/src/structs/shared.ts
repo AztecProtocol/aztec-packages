@@ -5,7 +5,7 @@ import { BufferReader } from '@aztec/foundation/serialize';
 import { randomBytes } from '@aztec/foundation/crypto';
 
 /**
- * Implementation of a vector.
+ * Implementation of a vector. Matches how we are serializing and deserializing vectors in cpp (length in the first position, followed by the items).
  */
 export class Vector<T extends Bufferable> {
   constructor(

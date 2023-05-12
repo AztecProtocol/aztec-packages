@@ -52,8 +52,8 @@ export class MembershipWitness<N extends number> {
   }
 
   /**
-   * Creates a membership witness whose sibling path is full of zero fields. Used for testing purposes.
-   * @param pathSize - Number of fields in the siblin path.
+   * Creates a membership witness whose sibling path is full of zero fields.
+   * @param pathSize - Number of fields in the sibling path.
    * @param leafIndex - Index of the leaf in the Merkle tree.
    * @returns Membership witness with zero sibling path.
    */

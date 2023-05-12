@@ -10,7 +10,7 @@ import { TxContext } from '../tx_context.js';
 export class PrivateHistoricTreeRoots {
   constructor(
     /**
-     * Root of hte private data tree at the time of when this information was assembled.
+     * Root of the private data tree at the time of when this information was assembled.
      */
     public privateDataTreeRoot: Fr,
     /**

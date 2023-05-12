@@ -7,7 +7,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { BufferReader } from '@aztec/foundation/serialize';
 
 /**
- * Output of the base rollup circuit.
+ * Output of the base and merge rollup circuits.
  */
 export class BaseOrMergeRollupPublicInputs {
   constructor(
@@ -49,7 +49,7 @@ export class BaseOrMergeRollupPublicInputs {
     public endNullifierTreeSnapshot: AppendOnlyTreeSnapshot,
 
     /**
-     * Snapshot of the L1-to-L2 message tree at the start of the rollup circuit.
+     * Snapshot of the contract tree at the start of the rollup circuit.
      */
     public startContractTreeSnapshot: AppendOnlyTreeSnapshot,
     /**

@@ -23,7 +23,7 @@ export function assertLength<
   T extends {
     [f in F]: {
       /**
-       * A property which each member of the object T has to have.
+       * A property which the tested member of the object T has to have.
        */
       length: number;
     };
