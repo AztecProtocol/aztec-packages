@@ -108,15 +108,14 @@ void update_end_values(PrivateKernelInputsInner<CT> const& private_inputs, Kerne
     const auto& storage_contract_address = private_call_public_inputs.call_context.storage_contract_address;
     const auto& portal_contract_address = private_inputs.private_call.portal_contract_address;
     const auto& deployer_address = private_call_public_inputs.call_context.msg_sender;
-    const auto& contract_deployment_data =
-        private_inputs.signed_tx_request.tx_request.tx_context.contract_deployment_data;
+    const auto& contract_deployment_data = private_call_public_inputs.contract_deployment_data;
 
     {  // contract deployment
         // input storage contract address must be 0 if its a constructor call and non-zero otherwise
         auto is_contract_deployment = public_inputs.constants.tx_context.is_contract_deployment_tx;
 
         auto private_call_vk_hash = private_inputs.private_call.vk->compress(GeneratorIndex::VK);
-        auto constructor_hash = compute_constructor_hash<CT>(private_inputs.signed_tx_request.tx_request.function_data,
+        auto constructor_hash = compute_constructor_hash<CT>(private_inputs.private_call.call_stack_item.function_data,
                                                              private_call_public_inputs.args,
                                                              private_call_vk_hash);
 

@@ -252,6 +252,8 @@ KernelCircuitPublicInputs<NT> native_private_kernel_circuit(DummyComposer& compo
 
     // Note: given that we skipped the verify_proof function, the aggregation object we get at the end will just be the
     // same as we had at the start. public_inputs.end.aggregation_object = aggregation_object;
+
+    // TODO (jeanmon): Let us clarify with Suyash on how to init the aggregation object
     public_inputs.end.aggregation_object = private_inputs.previous_kernel.public_inputs.end.aggregation_object;
 
     return public_inputs;

@@ -81,10 +81,11 @@ void contract_logic(DummyComposer& composer,
     const auto& storage_contract_address = private_call_public_inputs.call_context.storage_contract_address;
     const auto& portal_contract_address = private_inputs.private_call.portal_contract_address;
     const auto& deployer_address = private_call_public_inputs.call_context.msg_sender;
-    const auto& contract_deployment_data =
-        private_inputs.signed_tx_request.tx_request.tx_context.contract_deployment_data;
+    const auto& contract_deployment_data = private_call_public_inputs.contract_deployment_data;
 
     // contract deployment
+
+    // In general and long term, we probably need to support contract deployment in the inner kernel calls.
 
     // input storage contract address must be 0 if its a constructor call and non-zero otherwise
     auto is_contract_deployment = public_inputs.constants.tx_context.is_contract_deployment_tx;
@@ -92,7 +93,7 @@ void contract_logic(DummyComposer& composer,
     auto private_call_vk_hash = stdlib::recursion::verification_key<CT::bn254>::compress_native(
         private_inputs.private_call.vk, GeneratorIndex::VK);
 
-    auto constructor_hash = compute_constructor_hash(private_inputs.signed_tx_request.tx_request.function_data,
+    auto constructor_hash = compute_constructor_hash(private_inputs.private_call.call_stack_item.function_data,
                                                      private_call_public_inputs.args,
                                                      private_call_vk_hash);
 
