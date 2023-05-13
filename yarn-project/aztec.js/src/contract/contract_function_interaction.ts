@@ -1,5 +1,6 @@
 import { AztecRPCClient, Tx, TxHash, TxRequest } from '@aztec/aztec-rpc';
-import { AztecAddress, EcdsaSignature, Fr, SignedTxRequest } from '@aztec/circuits.js';
+import { AztecAddress, Fr, SignedTxRequest } from '@aztec/circuits.js';
+import { EcdsaSignature } from '@aztec/barretenberg.js/crypto';
 import { FunctionType } from '@aztec/foundation/abi';
 import { SentTx } from './sent_tx.js';
 

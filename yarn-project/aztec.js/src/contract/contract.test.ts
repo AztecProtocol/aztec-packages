@@ -11,7 +11,8 @@ import {
 import { mock } from 'jest-mock-extended';
 import { jest } from '@jest/globals';
 
-import { EcdsaSignature, SignedTxRequest } from '@aztec/circuits.js';
+import { SignedTxRequest } from '@aztec/circuits.js';
+import { EcdsaSignature } from '@aztec/barretenberg.js/crypto';
 import { Contract } from './contract.js';
 import { ABIParameterVisibility, ContractAbi, FunctionType } from '@aztec/foundation/abi';
 import { randomBytes } from '@aztec/foundation/crypto';

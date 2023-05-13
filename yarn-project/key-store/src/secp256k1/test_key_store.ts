@@ -1,5 +1,6 @@
 import { Secp256k1 } from '@aztec/barretenberg.js/crypto';
-import { TxRequest, EcdsaSignature } from '@aztec/circuits.js';
+import { EcdsaSignature } from '@aztec/barretenberg.js/crypto';
+import { TxRequest } from '@aztec/circuits.js';
 import { ConstantSecp256k1KeyPair, Secp256k1KeyPair } from './key_pair.js';
 import { Secp256k1KeyStore } from './key_store.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';

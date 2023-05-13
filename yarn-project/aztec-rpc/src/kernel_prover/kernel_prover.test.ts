@@ -1,6 +1,5 @@
 import { ExecutionResult, NewNoteData } from '@aztec/acir-simulator';
 import {
-  EcdsaSignature,
   MembershipWitness,
   PRIVATE_CALL_STACK_LENGTH,
   PrivateCallStackItem,
@@ -13,6 +12,7 @@ import {
   SignedTxRequest,
   CircuitsWasm,
 } from '@aztec/circuits.js';
+import { EcdsaSignature } from '@aztec/barretenberg.js/crypto';
 import { makeTxRequest } from '@aztec/circuits.js/factories';
 import { mock } from 'jest-mock-extended';
 import { KernelProver, OutputNoteData } from './kernel_prover.js';

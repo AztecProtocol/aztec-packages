@@ -1,6 +1,7 @@
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthPublicKey } from '@aztec/foundation/eth-public-key';
-import { EcdsaSignature, TxRequest } from '@aztec/circuits.js';
+import { TxRequest } from '@aztec/circuits.js';
+import { EcdsaSignature } from '@aztec/barretenberg.js/crypto';
 
 /**
  * Represents a secure storage for managing keys on the secp256k1 curve.

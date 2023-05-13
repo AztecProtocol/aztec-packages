@@ -1,4 +1,5 @@
-import { EcdsaSignature, TxRequest } from '@aztec/circuits.js';
+import { TxRequest } from '@aztec/circuits.js';
+import { EcdsaSignature } from '@aztec/barretenberg.js/crypto';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Point } from '@aztec/foundation/fields';
 

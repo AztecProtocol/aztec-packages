@@ -2,7 +2,7 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { FieldsOf, assertLength } from '@aztec/foundation/utils';
 import { serializeToBuffer } from '../utils/serialize.js';
 import { FunctionData } from './function_data.js';
-import { EcdsaSignature } from './shared.js';
+import { EcdsaSignature } from '@aztec/barretenberg.js/crypto';
 import { TxContext } from './tx_context.js';
 import { Fr } from '@aztec/foundation/fields';
 import { ARGS_LENGTH } from './constants.js';

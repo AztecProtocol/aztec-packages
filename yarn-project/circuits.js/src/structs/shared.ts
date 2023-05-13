@@ -89,43 +89,6 @@ export class AffineElement {
 }
 
 /**
- * ECDSA signature used for transactions.
- * @see cpp/barretenberg/cpp/src/barretenberg/crypto/ecdsa/ecdsa.hpp
- */
-export class EcdsaSignature {
-  constructor(
-    /**
-     * Value `r` of the signature.
-     */
-    public r: Buffer,
-    /**
-     * Value `s` of the signature.
-     */
-    public s: Buffer,
-    /**
-     * Value `v` of the signature.
-     */
-    public v: Buffer,
-  ) {
-    assertLength(this, 'r', 32);
-    assertLength(this, 's', 32);
-    assertLength(this, 'v', 1);
-  }
-
-  toBuffer() {
-    return serializeToBuffer(this.r, this.s, this.v);
-  }
-
-  /**
-   * Returns a random/placeholder ECDSA signature.
-   * @returns A random placeholder ECDSA signature.
-   */
-  public static random(): EcdsaSignature {
-    return new EcdsaSignature(randomBytes(32), randomBytes(32), Buffer.from([27]));
-  }
-}
-
-/**
  * Composer prover type.
  */
 export enum ComposerType {

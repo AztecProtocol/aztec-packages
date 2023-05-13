@@ -72,7 +72,8 @@ import {
 import { FunctionData } from '../structs/function_data.js';
 import { MembershipWitness } from '../structs/membership_witness.js';
 import { AppendOnlyTreeSnapshot } from '../structs/rollup/append_only_tree_snapshot.js';
-import { AffineElement, ComposerType, EcdsaSignature, RollupTypes, UInt8Vector } from '../structs/shared.js';
+import { AffineElement, ComposerType, RollupTypes, UInt8Vector } from '../structs/shared.js';
+import { EcdsaSignature } from '@aztec/barretenberg.js/crypto';
 import { ContractDeploymentData, TxContext } from '../structs/tx_context.js';
 import { SignedTxRequest, TxRequest } from '../structs/tx_request.js';
 import { CommitmentMap, G1AffineElement, VerificationKey } from '../structs/verification_key.js';

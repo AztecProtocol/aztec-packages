@@ -3,13 +3,13 @@ import { AztecNode } from '@aztec/aztec-node';
 import {
   AztecAddress,
   ContractDeploymentData,
-  EcdsaSignature,
   EthAddress,
   FunctionData,
   SignedTxRequest,
   TxContext,
   TxRequest,
 } from '@aztec/circuits.js';
+import { EcdsaSignature } from '@aztec/barretenberg.js/crypto';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { Secp256k1KeyStore } from '@aztec/key-store/secp256k1';
