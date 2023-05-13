@@ -1,8 +1,6 @@
 import { Fq } from '@aztec/foundation/fields';
 import { Bufferable, serializeToBuffer } from '../utils/serialize.js';
 import { BufferReader } from '@aztec/foundation/serialize';
-import { randomBytes } from '@aztec/foundation/crypto';
-import { assertLength } from '@aztec/foundation/utils';
 
 /**
  * Implementation of a vector. Matches how we are serializing and deserializing vectors in cpp (length in the first position, followed by the items).
