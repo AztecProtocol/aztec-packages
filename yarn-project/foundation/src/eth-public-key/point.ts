@@ -1,9 +1,10 @@
 import { toBigIntBE, toBufferBE } from '../bigint-buffer/index.js';
-import { keccak256String } from '../crypto/index.js';
+import { keccak } from '../crypto/index.js';
 import { AztecAddress } from '../aztec-address/index.js';
 import { EthAddress } from '../eth-address/index.js';
 import { BufferReader } from '../serialize/buffer_reader.js';
 import { Secp256k1Fq } from './fq.js';
+import { removeLeading0x } from '../utils/index.js';
 
 /**
  * Represents an Ethereum public key (a point on the secp256k1 curve) as a 32-byte buffer
@@ -173,9 +174,12 @@ export class EthPublicKey {
    * @returns A 20-byte ethereum address.
    */
   toAddress() {
-    const publicKeyHex = this.buffer.toString('hex');
-    const publicKeyHash = keccak256String(publicKeyHex).slice(0, 40);
-    return EthAddress.fromString(publicKeyHash);
+    const xBytes = removeLeading0x(this.xToString());
+    const yBytes = removeLeading0x(this.yToString());
+    const publicKeyHex = yBytes.concat(xBytes);
+    const publicKeyHash = keccak(Buffer.from(publicKeyHex, 'hex'));
+    const slicedPublicKeyHash = publicKeyHash.slice(0, 20);
+    return EthAddress.fromBuffer(slicedPublicKeyHash);
   }
 
   /**
@@ -185,10 +189,12 @@ export class EthPublicKey {
    * Note: This is a temporary arrangement until we start using EthAddress everywhere.
    */
   toAztecAddress() {
-    const publicKeyHex = this.buffer.toString('hex');
-    const publicKeyHash = keccak256String(publicKeyHex);
-    const slicedPublicKeyHash = publicKeyHash.slice(0, 40);
-    const extendedPublicKeyHash = Buffer.concat([Buffer.alloc(12), Buffer.from(slicedPublicKeyHash, 'hex')]);
+    const xBytes = removeLeading0x(this.xToString());
+    const yBytes = removeLeading0x(this.yToString());
+    const publicKeyHex = yBytes.concat(xBytes);
+    const publicKeyHash = keccak(Buffer.from(publicKeyHex, 'hex'));
+    const slicedPublicKeyHash = publicKeyHash.slice(0, 20);
+    const extendedPublicKeyHash = Buffer.concat([Buffer.alloc(12), slicedPublicKeyHash]);
     return AztecAddress.fromBuffer(extendedPublicKeyHash);
   }
 }
