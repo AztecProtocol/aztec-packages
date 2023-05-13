@@ -280,7 +280,8 @@ void validate_inputs(PrivateInputs<CT> const& private_inputs)
         }
         for (size_t i = 12; i < 32; i++) {
             sender_address_bytes[i].assert_equal(
-                sender_public_key_hash[i], format("hash of public key does not match the sender address at index ", i));
+                sender_public_key_hash[i - 12],
+                format("hash of public key does not match the sender address at index ", i));
         }
     }
 

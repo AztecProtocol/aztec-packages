@@ -79,7 +79,7 @@ NT::address compute_ethereum_address_from_public_key(const NT::secp256k1_point& 
     std::vector<uint8_t> public_key_hash = stdlib::keccak<UltraComposer>::hash_native(public_key.to_buffer());
     std::vector<uint8_t> chopped_public_key_hash(public_key_hash.size(), 0);
     for (size_t i = 12; i < 32; i++) {
-        chopped_public_key_hash[i] = public_key_hash[i];
+        chopped_public_key_hash[i] = public_key_hash[i - 12];
     }
     return NT::fr::serialize_from_buffer(chopped_public_key_hash.data());
 }

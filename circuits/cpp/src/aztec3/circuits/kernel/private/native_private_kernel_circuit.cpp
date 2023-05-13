@@ -321,7 +321,7 @@ void validate_inputs(DummyComposer& composer, PrivateInputs<NT> const& private_i
                                CircuitErrorCode::PRIVATE_KERNEL__INVALID_SENDER_ADDRESS_BYTE_SIZE);
         }
         for (size_t i = 12; i < 32; i++) {
-            composer.do_assert(sender_address_bytes[i] == sender_public_key_hash[i],
+            composer.do_assert(sender_address_bytes[i] == sender_public_key_hash[i - 12],
                                format("hash of public key does not match the sender address at index ", i),
                                CircuitErrorCode::PRIVATE_KERNEL__SENDER_ADDRESS_SENDER_PUBLIC_KEY_MISMATCH);
         }
