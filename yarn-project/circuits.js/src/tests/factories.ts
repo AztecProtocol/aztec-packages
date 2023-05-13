@@ -76,7 +76,7 @@ import { AffineElement, ComposerType, EcdsaSignature, RollupTypes, UInt8Vector }
 import { ContractDeploymentData, TxContext } from '../structs/tx_context.js';
 import { SignedTxRequest, TxRequest } from '../structs/tx_request.js';
 import { CommitmentMap, G1AffineElement, VerificationKey } from '../structs/verification_key.js';
-import { range } from '../utils/jsUtils.js';
+import { range } from '@aztec/foundation/utils';
 import { numToUInt32BE } from '../utils/serialize.js';
 import { computeCallStackItemHash } from '../abis/abis.js';
 

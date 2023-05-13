@@ -1,5 +1,5 @@
 import { Fr } from '@aztec/foundation/fields';
-import { assertLength, range } from '../utils/jsUtils.js';
+import { assertLength, range } from '@aztec/foundation/utils';
 import { serializeToBuffer } from '../utils/serialize.js';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 

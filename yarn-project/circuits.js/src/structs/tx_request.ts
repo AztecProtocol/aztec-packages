@@ -1,5 +1,5 @@
 import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { FieldsOf, assertLength } from '../utils/jsUtils.js';
+import { FieldsOf, assertLength } from '@aztec/foundation/utils';
 import { serializeToBuffer } from '../utils/serialize.js';
 import { FunctionData } from './function_data.js';
 import { EcdsaSignature } from './shared.js';

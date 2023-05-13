@@ -1,7 +1,7 @@
 import { serializeToBuffer } from '../utils/serialize.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { FieldsOf } from '../utils/jsUtils.js';
+import { FieldsOf } from '@aztec/foundation/utils';
 
 /**
  * Call context.

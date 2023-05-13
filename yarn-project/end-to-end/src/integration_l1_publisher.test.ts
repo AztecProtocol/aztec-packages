@@ -1,6 +1,7 @@
 import { createMemDown, getConfigEnvVars } from '@aztec/aztec-node';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
+import { range } from '@aztec/foundation/utils';
 import {
   KERNEL_NEW_COMMITMENTS_LENGTH,
   KERNEL_NEW_L2_TO_L1_MSGS_LENGTH,
@@ -9,7 +10,6 @@ import {
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   PublicDataUpdateRequest,
   KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH,
-  range,
 } from '@aztec/circuits.js';
 import { fr, makeNewContractData, makeProof } from '@aztec/circuits.js/factories';
 import { createDebugLogger } from '@aztec/foundation/log';

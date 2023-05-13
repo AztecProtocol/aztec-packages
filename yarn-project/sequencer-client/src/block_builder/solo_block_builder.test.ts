@@ -10,11 +10,11 @@ import {
   RootRollupPublicInputs,
   UInt8Vector,
   KERNEL_NEW_COMMITMENTS_LENGTH,
-  range,
   KERNEL_NEW_NULLIFIERS_LENGTH,
   KERNEL_NEW_L2_TO_L1_MSGS_LENGTH,
   KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH,
 } from '@aztec/circuits.js';
+import { range } from '@aztec/foundation/utils';
 import { computeContractLeaf } from '@aztec/circuits.js/abis';
 import {
   fr,

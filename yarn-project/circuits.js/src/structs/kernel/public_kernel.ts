@@ -1,5 +1,4 @@
 import { Fr } from '@aztec/foundation/fields';
-import { assertLength } from '../../utils/jsUtils.js';
 import { serializeToBuffer } from '../../utils/serialize.js';
 import { PublicCallStackItem } from '../call_stack_item.js';
 import {
@@ -12,6 +11,7 @@ import { MembershipWitness } from '../membership_witness.js';
 import { UInt8Vector } from '../shared.js';
 import { SignedTxRequest } from '../tx_request.js';
 import { PreviousKernelData } from './previous_kernel_data.js';
+import { assertLength } from '@aztec/foundation/utils';
 
 /**
  * Inputs to the public kernel circuit.

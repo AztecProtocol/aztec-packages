@@ -1,5 +1,5 @@
 import times from 'lodash.times';
-import { FieldsOf, assertLength } from '../utils/jsUtils.js';
+import { FieldsOf, assertLength } from '@aztec/foundation/utils';
 import { CallContext } from './call_context.js';
 import {
   ARGS_LENGTH,

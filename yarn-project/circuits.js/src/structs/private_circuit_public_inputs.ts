@@ -1,5 +1,5 @@
 import { Fr } from '@aztec/foundation/fields';
-import { assertLength, FieldsOf } from '../utils/jsUtils.js';
+import { assertLength, FieldsOf } from '@aztec/foundation/utils';
 import { serializeToBuffer } from '../utils/serialize.js';
 import { CallContext } from './call_context.js';
 import {

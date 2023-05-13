@@ -1,6 +1,6 @@
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader } from '@aztec/foundation/serialize';
-import { FieldsOf } from '../../utils/jsUtils.js';
+import { FieldsOf } from '@aztec/foundation/utils';
 import { serializeToBuffer } from '../../utils/serialize.js';
 import { TxContext } from '../tx_context.js';
 

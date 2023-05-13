@@ -1,3 +1,4 @@
+import { assertLength } from '@aztec/foundation/utils';
 import { randomBytes } from 'crypto';
 
 /**
@@ -19,10 +20,9 @@ export class EcdsaSignature {
      */
     public v: Buffer,
   ) {
-    // TODO: add these assertions, somehow!
-    // assertLength(this, 'r', 32);
-    // assertLength(this, 's', 32);
-    // assertLength(this, 'v', 1);
+    assertLength(this, 'r', 32);
+    assertLength(this, 's', 32);
+    assertLength(this, 'v', 1);
   }
 
   /**

@@ -1,4 +1,4 @@
-import { assertLength } from '@aztec/circuits.js';
+import { assertLength } from '@aztec/foundation/utils';
 import { toBigInt } from '@aztec/foundation/serialize';
 
 /**

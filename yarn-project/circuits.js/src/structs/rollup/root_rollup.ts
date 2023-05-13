@@ -1,4 +1,4 @@
-import { assertLength, FieldsOf } from '../../utils/jsUtils.js';
+import { assertLength, FieldsOf } from '@aztec/foundation/utils';
 import { serializeToBuffer } from '../../utils/serialize.js';
 import { AppendOnlyTreeSnapshot } from './append_only_tree_snapshot.js';
 import {

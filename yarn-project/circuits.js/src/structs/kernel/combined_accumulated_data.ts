@@ -1,5 +1,4 @@
 import times from 'lodash.times';
-import { assertLength } from '../../utils/jsUtils.js';
 import { serializeToBuffer } from '../../utils/serialize.js';
 import { AggregationObject } from '../aggregation_object.js';
 import {
@@ -15,6 +14,7 @@ import {
   KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH,
 } from '../constants.js';
 import { FunctionData } from '../function_data.js';
+import { assertLength } from '@aztec/foundation/utils';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
