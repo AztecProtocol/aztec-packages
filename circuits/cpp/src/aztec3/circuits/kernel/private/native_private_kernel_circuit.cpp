@@ -329,7 +329,7 @@ void validate_inputs(DummyComposer& composer, PrivateInputs<NT> const& private_i
 
     // Verify signature against the first function being called (subsequent function calls do not
     // need to be signed over by the sender, the sender only signs the inputs to the very first function)
-    NT::byte_array message_bytes = private_inputs.signed_tx_request.compute_signing_message().to_buffer();
+    NT::byte_array message_bytes = private_inputs.signed_tx_request.tx_request.hash().to_buffer();
     const std::string message(message_bytes.begin(), message_bytes.end());
     const bool sig_verification_result =
         crypto::ecdsa::verify_signature<Sha256Hasher, secp256k1::fq, secp256k1::fr, secp256k1::g1>(

@@ -286,7 +286,7 @@ void validate_inputs(PrivateInputs<CT> const& private_inputs)
 
     // Verify signature against the first function being called (subsequent function calls do not
     // need to be signed over by the sender, the sender only signs the inputs to the very first function)
-    const CT::byte_array message = private_inputs.signed_tx_request.compute_signing_message();
+    const CT::byte_array message = private_inputs.signed_tx_request.tx_request.hash();
     auto sig_verification_result = stdlib::ecdsa::verify_signature<Composer,
                                                                    stdlib::secp256k1<Composer>,
                                                                    stdlib::secp256k1<Composer>::fq_ct,

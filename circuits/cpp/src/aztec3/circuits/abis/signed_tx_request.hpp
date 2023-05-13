@@ -68,24 +68,20 @@ template <typename NCT> struct SignedTxRequest {
         return NCT::compress(inputs, GeneratorIndex::SIGNED_TX_REQUEST);
     }
 
-    fr compute_signing_message() const
-    {
-        std::vector<fr> messages;
-        messages.push_back(tx_request.from.to_field());
-        messages.push_back(tx_request.to.to_field());
-        messages.push_back(tx_request.function_data.hash());
-        messages.push_back(NCT::compress(tx_request.args, aztec3::CONSTRUCTOR_ARGS));
-        messages.push_back(tx_request.nonce);
-        messages.push_back(tx_request.tx_context.hash());
-        messages.push_back(tx_request.chain_id);
-
-        return NCT::compress(messages, aztec3::SIGNED_TX_REQUEST_MESSAGE);
-    }
-
+    /**
+     * @brief Signs a transaction request given a private key.
+     *
+     * @param private_key The private key corresponding to the secp256k1 signing public key.
+     *
+     * Note: We do not expose this method to TS and only use it in test to sign a transaction request.
+     * This is because TS signs a transaction request by first hashing the tx_request and then signing
+     * using the key pair. So it already has access to relevant WASM methods and doesn't need a standalone
+     * signature construction c_bind.
+     */
     void compute_signature(const NativeTypes::secp256k1_fr& private_key)
     {
         static_assert((std::is_same<NativeTypes, NCT>::value));
-        auto signing_message = compute_signing_message().to_buffer();
+        auto signing_message = tx_request.hash().to_buffer();
         const std::string signing_message_str(signing_message.begin(), signing_message.end());
         crypto::ecdsa::key_pair<NativeTypes::secp256k1_fr, NativeTypes::secp256k1_group> account;
         account.private_key = private_key;

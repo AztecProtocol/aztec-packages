@@ -54,8 +54,8 @@ template <typename NCT> struct TxRequest {
     fr hash() const
     {
         std::vector<fr> inputs;
-        inputs.push_back(fr(from));
-        inputs.push_back(fr(to));
+        inputs.push_back(from.to_field());
+        inputs.push_back(to.to_field());
         inputs.push_back(function_data.hash());
         spread_arr_into_vec(args, inputs);
         inputs.push_back(nonce);
