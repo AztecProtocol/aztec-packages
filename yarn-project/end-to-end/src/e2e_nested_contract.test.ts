@@ -62,6 +62,9 @@ describe('e2e_nested_contract', () => {
     return Fr.fromBuffer(address.toBuffer()).value;
   };
 
+  const getChildStoredValue = (child: { address: AztecAddress }) =>
+    node.getStorageAt(child.address, 1n).then(x => toBigInt(x!));
+
   /**
    * Milestone 3.
    */
@@ -104,11 +107,26 @@ describe('e2e_nested_contract', () => {
     const receipt = await tx.getReceipt();
     expect(receipt.status).toBe(TxStatus.MINED);
 
-    const childValue = await node.getStorageAt(childContract.address, 1n);
-    expect(toBigInt(childValue!)).toEqual(42n);
+    expect(await getChildStoredValue(childContract)).toEqual(42n);
   }, 100_000);
 
-  it.skip('should mine transactions that enqueue public calls with nested public calls', async () => {
+  it('should mine transactions that enqueue a public call with nested public calls', async () => {
+    const tx = parentContract.methods
+      .enqueueCallToPubEntryPoint(
+        addressToField(childContract.address),
+        Fr.fromBuffer(childContract.methods.pubStoreValue.selector).value,
+        42n,
+      )
+      .send({ from: accounts[0] });
+
+    await tx.isMined(0, 0.1);
+    const receipt = await tx.getReceipt();
+    expect(receipt.status).toBe(TxStatus.MINED);
+
+    expect(await getChildStoredValue(childContract)).toEqual(42n);
+  }, 100_000);
+
+  it.skip('should mine transactions that enqueue multiple public calls with nested public calls', async () => {
     const tx = parentContract.methods
       .enqueueCallsToPubEntryPoint(
         addressToField(childContract.address),
@@ -121,7 +139,6 @@ describe('e2e_nested_contract', () => {
     const receipt = await tx.getReceipt();
     expect(receipt.status).toBe(TxStatus.MINED);
 
-    const childValue = await node.getStorageAt(childContract.address, 1n);
-    expect(toBigInt(childValue!)).toEqual(84n);
+    expect(await getChildStoredValue(childContract)).toEqual(84);
   }, 100_000);
 });
