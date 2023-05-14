@@ -191,9 +191,9 @@ export class EthPublicKey {
   toAztecAddress() {
     const xBytes = removeLeading0x(this.xToString());
     const yBytes = removeLeading0x(this.yToString());
-    const publicKeyHex = yBytes.concat(xBytes);
+    const publicKeyHex = xBytes.concat(yBytes);
     const publicKeyHash = keccak(Buffer.from(publicKeyHex, 'hex'));
-    const slicedPublicKeyHash = publicKeyHash.slice(0, 20);
+    const slicedPublicKeyHash = publicKeyHash.slice(12, 32);
     const extendedPublicKeyHash = Buffer.concat([Buffer.alloc(12), slicedPublicKeyHash]);
     return AztecAddress.fromBuffer(extendedPublicKeyHash);
   }

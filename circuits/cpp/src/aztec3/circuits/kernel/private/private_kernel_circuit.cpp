@@ -269,7 +269,11 @@ void validate_inputs(PrivateInputs<CT> const& private_inputs)
         const CT::address sender_address = private_inputs.signed_tx_request.tx_request.from;
         const CT::secp256k1_point sender_public_key = private_inputs.signed_tx_request.signing_key;
 
-        CT::byte_array sender_public_key_bytes = sender_public_key.to_byte_array();
+        // If the sender public key is P = (x, y), Ethereum address is computed as:
+        // E = keccak([x || y]).slice(12, 32)
+        CT::byte_array sender_public_key_bytes(sender_public_key.get_context());
+        sender_public_key_bytes.write(sender_public_key.x.to_byte_array());
+        sender_public_key_bytes.write(sender_public_key.y.to_byte_array());
         const CT::byte_array sender_public_key_hash = stdlib::keccak<Composer>::hash(sender_public_key_bytes);
         const CT::byte_array sender_address_bytes = CT::byte_array(sender_address.to_field());
 
@@ -280,8 +284,7 @@ void validate_inputs(PrivateInputs<CT> const& private_inputs)
         }
         for (size_t i = 12; i < 32; i++) {
             sender_address_bytes[i].assert_equal(
-                sender_public_key_hash[i - 12],
-                format("hash of public key does not match the sender address at index ", i));
+                sender_public_key_hash[i], format("hash of public key does not match the sender address at index ", i));
         }
     }
 

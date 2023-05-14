@@ -303,12 +303,17 @@ void validate_inputs(DummyComposer& composer, PrivateInputs<NT> const& private_i
 
     {
         // Verify public key hash matches ethereum address of the sender
-        // TODO(Suyash): Do we want to perform this check only for base case?
-        // TODO(Suyash): I think its okay to check this for each kernel iteration.
+        // TODO(Suyash): We want to perform this only for the base case, so move to "initial" PKC.
         const NT::address sender_address = private_inputs.signed_tx_request.tx_request.from;
         const NT::secp256k1_point sender_public_key = private_inputs.signed_tx_request.signing_key;
 
-        const NT::byte_array sender_public_key_bytes = sender_public_key.to_buffer();
+        // If the sender public key is P = (x, y), Ethereum address is computed as:
+        // E = keccak([x || y]).slice(12, 32)
+        const NT::byte_array x_bytes = sender_public_key.x.to_buffer();
+        const NT::byte_array y_bytes = sender_public_key.y.to_buffer();
+        NT::byte_array sender_public_key_bytes;
+        sender_public_key_bytes.insert(sender_public_key_bytes.end(), x_bytes.begin(), x_bytes.end());
+        sender_public_key_bytes.insert(sender_public_key_bytes.end(), y_bytes.begin(), y_bytes.end());
         NT::byte_array sender_public_key_hash = stdlib::keccak<UltraComposer>::hash_native(sender_public_key_bytes);
         NT::byte_array sender_address_bytes = sender_address.to_field().to_buffer();
 
@@ -321,7 +326,7 @@ void validate_inputs(DummyComposer& composer, PrivateInputs<NT> const& private_i
                                CircuitErrorCode::PRIVATE_KERNEL__INVALID_SENDER_ADDRESS_BYTE_SIZE);
         }
         for (size_t i = 12; i < 32; i++) {
-            composer.do_assert(sender_address_bytes[i] == sender_public_key_hash[i - 12],
+            composer.do_assert(sender_address_bytes[i] == sender_public_key_hash[i],
                                format("hash of public key does not match the sender address at index ", i),
                                CircuitErrorCode::PRIVATE_KERNEL__SENDER_ADDRESS_SENDER_PUBLIC_KEY_MISMATCH);
         }
