@@ -58,7 +58,7 @@ impl L1Message {
 
     fn validate_message_secret(self, secret: Field) -> bool {
         // TODO: update generator
-        let recomputed_hash = dep::std::hash::pedersen([crate::Nullifier, secret])[0];
+        let recomputed_hash = dep::std::hash::pedersen([crate::L1ToL2MessageSecret, secret])[0];
         self.secret_hash == recomputed_hash
     }
 
