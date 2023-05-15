@@ -37,8 +37,9 @@ export class InMemoryTxPool implements TxPool {
    */
   public async addTxs(txs: Tx[]): Promise<void> {
     for (const tx of txs) {
-      this.log(`Adding tx with id ${tx.getTxHash().toString()}`);
-      this.txs.set((await tx.getTxHash()).toBigInt(), tx);
+      const txHash = await tx.getTxHash();
+      this.log(`Adding tx with id ${txHash.toString()}`);
+      this.txs.set(txHash.toBigInt(), tx);
     }
   }
 
