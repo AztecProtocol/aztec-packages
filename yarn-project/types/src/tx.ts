@@ -161,15 +161,8 @@ export class Tx {
     }
 
     if (this.isPublic()) {
-      // TODO: remove
-      if (this.data) {
-        throw new Error('Tx data already set.');
-      }
       if (!this.txHash) {
-        const wasm = await CircuitsWasm.get();
-        // We hash the full signed tx request object (this is, the tx request along with the signature),
-        // just like Ethereum does.
-        this.txHash = new TxHash(computeTxHash(wasm, this.txRequest).toBuffer());
+        this.txHash = new TxHash(computeTxHash(await CircuitsWasm.get(), this.txRequest).toBuffer());
       }
       return this.txHash;
     }
