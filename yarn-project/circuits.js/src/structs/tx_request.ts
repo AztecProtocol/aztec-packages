@@ -1,17 +1,27 @@
 import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { FieldsOf } from '../utils/jsUtils.js';
+import { FieldsOf, assertLength } from '../utils/jsUtils.js';
 import { serializeToBuffer } from '../utils/serialize.js';
 import { FunctionData } from './function_data.js';
 import { EcdsaSignature } from './shared.js';
 import { TxContext } from './tx_context.js';
 import { Fr } from '@aztec/foundation/fields';
+import { ARGS_LENGTH } from './constants.js';
 
 /**
  * Signed transaction request.
  * @see cpp/src/aztec3/circuits/abis/signed_tx_request.hpp.
  */
 export class SignedTxRequest {
-  constructor(public txRequest: TxRequest, public signature: EcdsaSignature) {}
+  constructor(
+    /**
+     * Transaction request.
+     */
+    public txRequest: TxRequest,
+    /**
+     * Signature.
+     */
+    public signature: EcdsaSignature,
+  ) {}
 
   /**
    * Serialize as a buffer.
@@ -28,14 +38,37 @@ export class SignedTxRequest {
  */
 export class TxRequest {
   constructor(
+    /**
+     * Sender.
+     */
     public from: AztecAddress,
+    /**
+     * Target.
+     */
     public to: AztecAddress,
+    /**
+     * Function data representing the function to call.
+     */
     public functionData: FunctionData,
+    /**
+     * Function arguments.
+     */
     public args: Fr[],
+    /**
+     * Tx nonce.
+     */
     public nonce: Fr,
+    /**
+     * Transaction context.
+     */
     public txContext: TxContext,
+    /**
+     * Chain ID of the transaction. Here for replay protection.
+     */
     public chainId: Fr,
-  ) {}
+  ) {
+    assertLength(this, 'args', ARGS_LENGTH);
+  }
 
   static getFields(fields: FieldsOf<TxRequest>) {
     return [
