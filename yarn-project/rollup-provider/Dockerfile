@@ -10,6 +10,6 @@ RUN yarn cache clean
 RUN yarn workspaces focus --production > /dev/null
 
 FROM node:18-alpine
-COPY --from=builder /usr/src/ /usr/src/
+COPY --from=builder /usr/src/yarn-project/rollup-provider /usr/src/yarn-project/rollup-provider
 WORKDIR /usr/src/yarn-project/rollup-provider
 ENTRYPOINT ["yarn"]
