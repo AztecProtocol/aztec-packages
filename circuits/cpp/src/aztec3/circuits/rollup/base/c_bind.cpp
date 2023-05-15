@@ -59,7 +59,7 @@ WASM_EXPORT uint8_t* base_rollup__sim(uint8_t const* base_rollup_inputs_buf,
                                       size_t* base_rollup_public_inputs_size_out,
                                       uint8_t const** base_or_merge_rollup_public_inputs_buf)
 {
-    DummyComposer composer = DummyComposer();
+    DummyComposer composer = DummyComposer("base_rollup__sim");
     // TODO accept proving key and use that to initialize composers
     // this info is just to prevent error for unused pk_buf
     // TODO do we want to accept it or just get it from our factory?
@@ -85,8 +85,7 @@ WASM_EXPORT uint8_t* base_rollup__sim(uint8_t const* base_rollup_inputs_buf,
     memcpy(raw_public_inputs_buf, (void*)public_inputs_vec.data(), public_inputs_vec.size());
     *base_or_merge_rollup_public_inputs_buf = raw_public_inputs_buf;
     *base_rollup_public_inputs_size_out = public_inputs_vec.size();
-    composer.log_failures_if_any("base_rollup__sim");
-    return composer.alloc_and_serialize_first_failure();
+    return composer.log_and_alloc_and_serialize_first_failure();
 }
 
 // WASM_EXPORT size_t base_rollup__sim(uint8_t const* base_rollup_inputs_buf,
