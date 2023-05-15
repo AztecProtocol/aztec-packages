@@ -158,6 +158,8 @@ export class PrivateFunctionExecution {
       storageRead: notAvailable,
       storageWrite: notAvailable,
       callPublicFunction: notAvailable,
+      // TODO:
+      consumeL1ToL2Message: notAvailable,
     });
 
     const publicInputs = extractPublicInputs(partialWitness, acir);

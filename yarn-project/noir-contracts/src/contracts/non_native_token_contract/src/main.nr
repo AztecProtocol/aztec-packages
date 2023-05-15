@@ -4,7 +4,7 @@ contract NonNativeToken {
     use dep::aztec3::context::PrivateFunctionContext;
     use dep::aztec3::notes::value_note::Note;
     use dep::aztec3::messaging::l1_message::L1Message;
-    use dep::aztec3::messaging::l1_message::get_l1_message;
+    use dep::aztec3::messaging::l1_message::get_l1_to_l2_message;
     use dep::aztec3::types::point::Point;
     use dep::aztec3::state_vars::map::Map;
     use dep::aztec3::state_vars::set::Set;
@@ -15,6 +15,7 @@ contract NonNativeToken {
     // `balances: Mapping<Field, Set<Note>>;`
     //*********************************/
 
+    // TODO: update this 
     fn constructor(
         //*********************************/
         // Should eventually be hidden:
@@ -48,10 +49,10 @@ contract NonNativeToken {
         secret: pub Field,
     ) -> pub [Field; dep::aztec3::abi::PUBLIC_INPUTS_LENGTH] {
         let mut context = PrivateFunctionContext::new();
-        context.args = context.args.push_array([amount, owner.x, owner.y]);
+        context.args = context.args.push_array([amount, owner.x, owner.y, msg_key, secret]);
 
         // Get the l1 message from an oracle call
-        let msg = get_l1_message(msg_key);
+        let msg = get_l1_to_l2_message(msg_key);
 
         // Ensure that the hash secret lines up with the secret hash
         // TODO: change the pedersen seperator
@@ -112,6 +113,7 @@ contract NonNativeToken {
     /// ABI getBalance type "unconstrained"
     fn getBalance(
         owner: Point,
+        _padding: [Field; dep::aztec3::abi::MAX_ARGS - 2]
     ) -> pub Field {
         let owner_balance = balances.at(owner.x);
         

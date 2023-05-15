@@ -13,6 +13,8 @@ CONTRACTS=(
   "l1-contracts:DecoderHelper"
   "l1-contracts:Rollup"
   "l1-contracts:UnverifiedDataEmitter"
+  "l1-contracts:TokenPortal"
+  "l1-contracts:PortalERC20"
 )
 
 

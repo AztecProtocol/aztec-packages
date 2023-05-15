@@ -18,10 +18,20 @@ import {
   WalletClient,
   createPublicClient,
   createWalletClient,
+  getContract,
   http,
 } from 'viem';
 import { HDAccount, PrivateKeyAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
+
+type DeployL1Contracts = {
+  walletClient: WalletClient<HttpTransport, Chain, Account>;
+  publicClient: PublicClient<HttpTransport, Chain>;
+  rollupAddress: EthAddress;
+  registryAddress: EthAddress;
+  unverifiedDataEmitterAddress: EthAddress;
+  decoderHelperAddress?: EthAddress;
+};
 
 /**
  * Deploys the aztec L1 contracts; Rollup, Unverified Data Emitter & (optionally) Decoder Helper.
@@ -36,7 +46,7 @@ export const deployL1Contracts = async (
   account: HDAccount | PrivateKeyAccount,
   logger: DebugLogger,
   deployDecoderHelper = false,
-) => {
+): Promise<DeployL1Contracts> => {
   logger('Deploying contracts...');
 
   const walletClient = createWalletClient({
@@ -51,6 +61,9 @@ export const deployL1Contracts = async (
 
   const rollupAddress = await deployL1Contract(walletClient, publicClient, RollupAbi, RollupBytecode);
   logger(`Deployed Rollup at ${rollupAddress}`);
+
+  const rollupContract = getContract({ address: rollupAddress.toString(), publicClient, abi: RollupAbi });
+  const registryAddress = EthAddress.fromString(await rollupContract.read.REGISTRY());
 
   const unverifiedDataEmitterAddress = await deployL1Contract(
     walletClient,
@@ -67,7 +80,10 @@ export const deployL1Contracts = async (
   }
 
   return {
+    walletClient,
+    publicClient,
     rollupAddress,
+    registryAddress,
     unverifiedDataEmitterAddress,
     decoderHelperAddress,
   };
@@ -79,17 +95,20 @@ export const deployL1Contracts = async (
  * @param publicClient - A viem PublicClient.
  * @param abi - The ETH contract's ABI (as abitype's Abi).
  * @param bytecode  - The ETH contract's bytecode.
+ * @param args - Constructor arguments for the contract.
  * @returns The ETH address the contract was deployed to.
  */
-async function deployL1Contract(
+export async function deployL1Contract(
   walletClient: WalletClient<HttpTransport, Chain, Account>,
   publicClient: PublicClient<HttpTransport, Chain>,
   abi: Narrow<Abi | readonly unknown[]>,
   bytecode: Hex,
+  args: readonly unknown[] = [],
 ): Promise<EthAddress> {
   const hash = await walletClient.deployContract({
     abi,
     bytecode,
+    args,
   });
 
   const receipt = await publicClient.waitForTransactionReceipt({ hash });

@@ -6,11 +6,11 @@ use crate::types::point::Point;
 global L1_MESSAGE_LEN = 7;
 
 // Checks is a msg is within the l1Msg tree
-#[oracle(consumeL1Message)]
-fn get_l1_msg_oracle(_msg_key: Field) -> [Field; L1_MESSAGE_LEN] {}
+#[oracle(consumeL1ToL2Message)]
+fn get_l1_to_l2_msg_oracle(_msg_key: Field) -> [Field; L1_MESSAGE_LEN] {}
 
-unconstrained fn get_l1_message(msg_key: Field) -> L1Message {
-    let returned_message = get_l1_msg_oracle(msg_key);
+unconstrained fn get_l1_to_l2_message(msg_key: Field) -> L1Message {
+    let returned_message = get_l1_to_l2_msg_oracle(msg_key);
     L1Message::deserialize(returned_message)
 }
 

@@ -29,6 +29,7 @@
 
 #include "barretenberg/crypto/ecdsa/ecdsa.hpp"
 #include "barretenberg/srs/reference_string/mem_reference_string.hpp"
+#include "barretenberg/stdlib/commitment/pedersen/pedersen_plookup.hpp"
 #include <barretenberg/crypto/keccak/keccak.hpp>
 #include <barretenberg/stdlib/merkle_tree/membership.hpp>
 
@@ -374,6 +375,21 @@ WASM_EXPORT void abis__compute_call_stack_item_hash(uint8_t const* call_stack_it
     CallStackItem<NT, PublicTypes> call_stack_item;
     read(call_stack_item_buf, call_stack_item);
     NT::fr::serialize_to_buffer(call_stack_item.hash(), output);
+}
+
+/**
+ * @brief Computes the hash of a message secret for use in l1 -> l2 messaging
+ *
+ * @param secret
+ * @param output
+ */
+WASM_EXPORT void abis__compute_message_secret_hash(uint8_t const* secret, uint8_t* output)
+{
+    NT::fr message_secret;
+    read(secret, message_secret);
+    auto secret_hash = crypto::pedersen_commitment::compress_native({ message_secret },
+                                                                    aztec3::GeneratorIndex::L1_TO_L2_MESSAGE_SECRET);
+    NT::fr::serialize_to_buffer(secret_hash, output);
 }
 
 /* Typescript test helpers that call as_string_output() to stress serialization.
