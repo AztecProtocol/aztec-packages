@@ -1,5 +1,6 @@
 mod abi;
 mod context;
+mod messaging;
 mod notes;
 mod state_vars;
 mod types;
