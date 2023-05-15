@@ -4,7 +4,7 @@
 #include <aztec3/utils/types/convert.hpp>
 #include <aztec3/utils/types/native_types.hpp>
 
-#include <barretenberg/common/msgpack.hpp>
+#include <barretenberg/serialize/msgpack.hpp>
 #include <barretenberg/stdlib/primitives/witness/witness.hpp>
 
 namespace aztec3::circuits::abis {
@@ -22,7 +22,7 @@ template <typename NCT> struct PublicDataUpdateRequest {
     fr new_value = 0;
 
     // for serialization, update with new fields
-    MSGPACK(leaf_index, old_value, new_value);
+    MSGPACK_FIELDS(leaf_index, old_value, new_value);
     bool operator==(PublicDataUpdateRequest<NCT> const&) const = default;
 
     template <typename Composer>

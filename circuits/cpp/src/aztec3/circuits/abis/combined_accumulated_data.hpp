@@ -49,18 +49,18 @@ template <typename NCT> struct CombinedAccumulatedData {
     std::array<PublicDataRead<NCT>, KERNEL_PUBLIC_DATA_READS_LENGTH> public_data_reads{};
 
     // for serialization, update with new fields
-    MSGPACK(aggregation_object,
-            private_call_count,
-            public_call_count,
-            new_commitments,
-            new_nullifiers,
-            private_call_stack,
-            public_call_stack,
-            new_l2_to_l1_msgs,
-            new_contracts,
-            optionally_revealed_data,
-            public_data_update_requests,
-            public_data_reads);
+    MSGPACK_FIELDS(aggregation_object,
+                   private_call_count,
+                   public_call_count,
+                   new_commitments,
+                   new_nullifiers,
+                   private_call_stack,
+                   public_call_stack,
+                   new_l2_to_l1_msgs,
+                   new_contracts,
+                   optionally_revealed_data,
+                   public_data_update_requests,
+                   public_data_reads);
     boolean operator==(CombinedAccumulatedData<NCT> const& other) const
     {
         return aggregation_object == other.aggregation_object && private_call_count == other.private_call_count &&

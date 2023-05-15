@@ -26,7 +26,7 @@ template <typename NCT> struct ContractDeploymentData {
     address portal_contract_address = 0;
 
     // for serialization: update up with new fields
-    MSGPACK(constructor_vk_hash, function_tree_root, contract_address_salt, portal_contract_address);
+    MSGPACK_FIELDS(constructor_vk_hash, function_tree_root, contract_address_salt, portal_contract_address);
 
     boolean operator==(ContractDeploymentData<NCT> const& other) const
     {

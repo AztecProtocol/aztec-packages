@@ -21,7 +21,7 @@ template <typename NCT> struct CombinedHistoricTreeRoots {
 
     PrivateHistoricTreeRoots<NCT> private_historic_tree_roots{};
     // for serialization, update with new fields
-    MSGPACK(private_historic_tree_roots);
+    MSGPACK_FIELDS(private_historic_tree_roots);
 
     boolean operator==(CombinedHistoricTreeRoots<NCT> const& other) const
     {

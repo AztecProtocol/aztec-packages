@@ -1,5 +1,5 @@
 #pragma once
-#include "aztec3/msgpack/cbind.h"
+#include <barretenberg/serialize/cbind_fwd.hpp>
 
 #include <cstddef>
 #include <cstdint>

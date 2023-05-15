@@ -5,12 +5,11 @@
 
 #include "aztec3/circuits/abis/new_contract_data.hpp"
 #include "aztec3/circuits/abis/signed_tx_request.hpp"
-#include "aztec3/msgpack/schema_impl.hpp"
-#include <aztec3/msgpack/check_memory_span.hpp>
+#include "aztec3/circuits/hash.hpp"
 
-#include <barretenberg/common/msgpack.hpp>
 #include <barretenberg/common/serialize.hpp>
 #include <barretenberg/numeric/random/engine.hpp>
+#include <barretenberg/serialize/test_helper.hpp>
 #include <barretenberg/stdlib/merkle_tree/membership.hpp>
 
 #include <gtest/gtest.h>
@@ -51,11 +50,11 @@ template <size_t NUM_BYTES> std::string bytes_to_hex_str(std::array<uint8_t, NUM
 
 namespace aztec3::circuits::abis {
 
-TEST(abi_tests, msgpack_auto)
+TEST(abi_tests, compute_contract_address)
 {
-    // Running the end-to-end tests that msgpack bind creates
-    // This should suffice in testing the binding interface, function tests can be separate
-    auto [actual, expected] = abis__compute_contract_address__test();
+    auto func = aztec3::circuits::compute_contract_address<NT>;
+    auto [actual, expected] =
+        call_func_and_wrapper(func, abis__compute_contract_address, NT::address(1), NT::fr(2), NT::fr(3), NT::fr(4));
     EXPECT_EQ(actual, expected);
 }
 TEST(abi_tests, hash_tx_request)

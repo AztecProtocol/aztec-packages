@@ -2,7 +2,7 @@
 
 #include "aztec3/utils/types/circuit_types.hpp"
 
-#include "barretenberg/common/msgpack.hpp"
+#include "barretenberg/serialize/msgpack.hpp"
 #include "barretenberg/stdlib/merkle_tree/hash.hpp"
 #include "barretenberg/stdlib/merkle_tree/nullifier_tree/nullifier_leaf.hpp"
 namespace aztec3::circuits::abis {
@@ -19,7 +19,7 @@ template <typename NCT> struct NullifierLeafPreimage {
     uint32 next_index;
     fr next_value = 0;
 
-    MSGPACK(leaf_value, next_index, next_value);
+    MSGPACK_FIELDS(leaf_value, next_index, next_value);
     bool operator==(NullifierLeafPreimage<NCT> const&) const = default;
 
     fr hash() const { return stdlib::merkle_tree::hash_multiple_native({ leaf_value, next_index, next_value }); }

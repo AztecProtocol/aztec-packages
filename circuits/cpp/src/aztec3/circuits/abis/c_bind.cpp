@@ -22,15 +22,15 @@
 #include "aztec3/circuits/abis/new_contract_data.hpp"
 #include "aztec3/circuits/abis/signed_tx_request.hpp"
 #include "aztec3/circuits/abis/types.hpp"
-#include "aztec3/msgpack/cbind_impl.hpp"
 #include <aztec3/circuits/hash.hpp>
 #include <aztec3/constants.hpp>
 #include <aztec3/utils/array.hpp>
 #include <aztec3/utils/types/native_types.hpp>
 
-#include "barretenberg/crypto/ecdsa/ecdsa.hpp"
-#include "barretenberg/srs/reference_string/mem_reference_string.hpp"
+#include <barretenberg/crypto/ecdsa/ecdsa.hpp>
 #include <barretenberg/crypto/keccak/keccak.hpp>
+#include <barretenberg/serialize/cbind.hpp>
+#include <barretenberg/srs/reference_string/mem_reference_string.hpp>
 #include <barretenberg/stdlib/merkle_tree/membership.hpp>
 
 namespace {
@@ -320,7 +320,7 @@ WASM_EXPORT void abis__hash_constructor(uint8_t const* function_data_buf,
  * @param output buffer that will contain the output contract address.
  */
 
-CBIND(abis__compute_contract_address, compute_contract_address<NT>, (NT::address(1), NT::fr(2), NT::fr(3), NT::fr(4)));
+CBIND(abis__compute_contract_address, compute_contract_address<NT>);
 
 /**
  * @brief Generates a function tree leaf from its preimage.

@@ -25,7 +25,7 @@ template <typename NCT> struct CombinedConstantData {
     TxContext<NCT> tx_context{};
 
     // for serialization: update up with new fields
-    MSGPACK(historic_tree_roots, tx_context);
+    MSGPACK_FIELDS(historic_tree_roots, tx_context);
     boolean operator==(CombinedConstantData<NCT> const& other) const
     {
         return historic_tree_roots == other.historic_tree_roots && tx_context == other.tx_context;

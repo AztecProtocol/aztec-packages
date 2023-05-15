@@ -3,11 +3,9 @@
 #include "private_kernel/private_inputs.hpp"
 
 #include "aztec3/circuits/abis/combined_accumulated_data.hpp"
-#include "aztec3/msgpack/cbind_impl.hpp"
-#include "aztec3/msgpack/schema_impl.hpp"
 
 #include <barretenberg/common/serialize.hpp>
-#include <barretenberg/common/test.hpp>
+#include <barretenberg/serialize/cbind.hpp>
 
 #include <gtest/gtest.h>
 
@@ -28,7 +26,7 @@ TEST(abi_tests, msgpack_schema_smoke_test)
 {
     // Just exercise these to make sure they don't error
     // They will test for any bad serialization methods
-    msgpack::schema_to_string(CombinedAccumulatedData<NT>{});
+    msgpack_schema_to_string(CombinedAccumulatedData<NT>{});
     CombinedAccumulatedData<NT> cad;
     EXPECT_EQ(msgpack::check_msgpack_method(cad), "");
 }

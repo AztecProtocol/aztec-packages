@@ -21,7 +21,7 @@ template <typename NCT> struct NewContractData {
     address portal_contract_address = 0;
     fr function_tree_root = 0;
     // for serialization, update with new fields
-    MSGPACK(contract_address, portal_contract_address, function_tree_root);
+    MSGPACK_FIELDS(contract_address, portal_contract_address, function_tree_root);
 
     boolean operator==(NewContractData<NCT> const& other) const
     {

@@ -3,9 +3,8 @@
 #include "index.hpp"
 #include "utils.hpp"
 
-#include "aztec3/msgpack/cbind_impl.hpp"
-
 #include "barretenberg/srs/reference_string/env_reference_string.hpp"
+#include <barretenberg/serialize/cbind.hpp>
 
 namespace {
 using Composer = plonk::UltraComposer;
@@ -53,8 +52,7 @@ WASM_EXPORT size_t private_kernel__init_verification_key(uint8_t const* pk_buf, 
     return vk_vec.size();
 }
 
-CBIND(
-    private_kernel__dummy_previous_kernel, []() { return dummy_previous_kernel(); }, ());
+CBIND(private_kernel__dummy_previous_kernel, []() { return dummy_previous_kernel(); });
 
 // TODO(dbanks12): comment about how public_inputs is a confusing name
 // returns size of public inputs

@@ -4,7 +4,6 @@
 
 #include "aztec3/circuits/kernel/private/utils.hpp"
 #include "aztec3/constants.hpp"
-#include "aztec3/msgpack/schema_impl.hpp"
 #include <aztec3/circuits/abis/call_context.hpp>
 #include <aztec3/circuits/abis/call_stack_item.hpp>
 #include <aztec3/circuits/abis/combined_accumulated_data.hpp>
@@ -28,6 +27,7 @@
 
 #include <barretenberg/common/map.hpp>
 #include <barretenberg/common/test.hpp>
+#include <barretenberg/serialize/test_helper.hpp>
 #include <barretenberg/stdlib/merkle_tree/membership.hpp>
 
 #include <gtest/gtest.h>
@@ -589,7 +589,8 @@ TEST(private_kernel_tests, circuit_create_proof_cbinds)
  */
 TEST(private_kernel_tests, cbind_private_kernel__dummy_previous_kernel)
 {
-    auto [actual, expected] = private_kernel__dummy_previous_kernel__test();
+    auto func = [] { return aztec3::circuits::kernel::private_kernel::utils::dummy_previous_kernel(); };
+    auto [actual, expected] = call_func_and_wrapper(func, private_kernel__dummy_previous_kernel);
     EXPECT_EQ(actual, expected);
 }
 

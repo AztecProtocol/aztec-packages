@@ -26,7 +26,7 @@ template <typename NCT> struct KernelCircuitPublicInputs {
     boolean is_private = true;  // TODO: might need to instantiate from witness!
 
     // for serialization, update with new fields
-    MSGPACK(end, constants, is_private);
+    MSGPACK_FIELDS(end, constants, is_private);
 
     boolean operator==(KernelCircuitPublicInputs<NCT> const& other) const
     {
