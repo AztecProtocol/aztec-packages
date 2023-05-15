@@ -301,36 +301,20 @@ void validate_inputs(DummyComposer& composer, PrivateInputs<NT> const& private_i
     NT::fr const start_public_call_stack_length = array_length(start.public_call_stack);
     NT::fr const start_new_l2_to_l1_msgs_length = array_length(start.new_l2_to_l1_msgs);
 
-    {
-        // Verify public key hash matches ethereum address of the sender
-        // TODO(Suyash): We want to perform this only for the base case, so move to "initial" PKC.
-        const NT::address sender_address = private_inputs.signed_tx_request.tx_request.from;
-        const NT::secp256k1_point sender_public_key = private_inputs.signed_tx_request.signing_key;
-
-        // If the sender public key is P = (x, y), Ethereum address is computed as:
-        // E = keccak([x || y]).slice(12, 32)
-        const NT::byte_array x_bytes = sender_public_key.x.to_buffer();
-        const NT::byte_array y_bytes = sender_public_key.y.to_buffer();
-        NT::byte_array sender_public_key_bytes;
-        sender_public_key_bytes.insert(sender_public_key_bytes.end(), x_bytes.begin(), x_bytes.end());
-        sender_public_key_bytes.insert(sender_public_key_bytes.end(), y_bytes.begin(), y_bytes.end());
-        NT::byte_array sender_public_key_hash = stdlib::keccak<UltraComposer>::hash_native(sender_public_key_bytes);
-        NT::byte_array sender_address_bytes = sender_address.to_field().to_buffer();
-
-        // Check if the sender address matches the keccak hash of the public key
-        // Specifically, first 12 bytes must be 0, remaining 20 bytes must match.
-        for (size_t i = 0; i < 12; i++) {
-            ASSERT(sender_address_bytes[i] == 0);
-            composer.do_assert(sender_address_bytes[i] == 0,
-                               format("sender address at index ", i, " is non-zero"),
-                               CircuitErrorCode::PRIVATE_KERNEL__INVALID_SENDER_ADDRESS_BYTE_SIZE);
-        }
-        for (size_t i = 12; i < 32; i++) {
-            composer.do_assert(sender_address_bytes[i] == sender_public_key_hash[i],
-                               format("hash of public key does not match the sender address at index ", i),
-                               CircuitErrorCode::PRIVATE_KERNEL__SENDER_ADDRESS_SENDER_PUBLIC_KEY_MISMATCH);
-        }
-    }
+    // We need to verify if the public key hash matches ethereum address of the sender
+    // If the sender public key is P = (x, y), Ethereum address is computed as:
+    // E = keccak([xB || yB]).slice(12, 32)
+    // where xB and yB are byte-representations (size 32) of the x and y coordinates and || is concat operation.
+    // Note this check needs to happen only for the base case
+    const NT::address sender_address = private_inputs.signed_tx_request.tx_request.from;
+    const NT::secp256k1_point sender_public_key = private_inputs.signed_tx_request.signing_key;
+    const NT::byte_array x_bytes = sender_public_key.x.to_buffer();
+    const NT::byte_array y_bytes = sender_public_key.y.to_buffer();
+    NT::byte_array sender_public_key_bytes;
+    sender_public_key_bytes.insert(sender_public_key_bytes.end(), x_bytes.begin(), x_bytes.end());
+    sender_public_key_bytes.insert(sender_public_key_bytes.end(), y_bytes.begin(), y_bytes.end());
+    NT::byte_array sender_public_key_hash = stdlib::keccak<UltraComposer>::hash_native(sender_public_key_bytes);
+    NT::byte_array sender_address_bytes = sender_address.to_field().to_buffer();
 
     // Verify signature against the first function being called (subsequent function calls do not
     // need to be signed over by the sender, the sender only signs the inputs to the very first function)
@@ -381,6 +365,19 @@ void validate_inputs(DummyComposer& composer, PrivateInputs<NT> const& private_i
         composer.do_assert(sig_verification_result == true,
                            "Signature verification failed",
                            CircuitErrorCode::PRIVATE_KERNEL__ECDSA_SIGNATURE_VERIFICATION_FAILED);
+
+        // Check if the sender address matches the keccak hash of the public key
+        // Specifically, first 12 bytes must be 0, remaining 20 bytes must match.
+        for (size_t i = 0; i < 12; i++) {
+            composer.do_assert(sender_address_bytes[i] == 0,
+                               format("sender address at index ", i, " is non-zero"),
+                               CircuitErrorCode::PRIVATE_KERNEL__INVALID_SENDER_ADDRESS_BYTE_SIZE);
+        }
+        for (size_t i = 12; i < 32; i++) {
+            composer.do_assert(sender_address_bytes[i] == sender_public_key_hash[i],
+                               format("hash of public key does not match the sender address at index ", i),
+                               CircuitErrorCode::PRIVATE_KERNEL__SENDER_ADDRESS_SENDER_PUBLIC_KEY_MISMATCH);
+        }
     } else {
         // is_recursive_case
 

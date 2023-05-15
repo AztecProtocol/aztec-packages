@@ -10,6 +10,8 @@
 #include <barretenberg/stdlib/hash/keccak/keccak.hpp>
 #include <barretenberg/stdlib/primitives/field/array.hpp>
 
+#include <utility>
+
 namespace aztec3::circuits::kernel::private_kernel {
 
 using aztec3::circuits::abis::KernelCircuitPublicInputs;
@@ -263,30 +265,18 @@ void validate_inputs(PrivateInputs<CT> const& private_inputs)
     CT::fr const start_public_call_stack_length = array_length<Composer>(start.public_call_stack);
     CT::fr const start_new_l2_to_l1_msgs_length = array_length<Composer>(start.new_l2_to_l1_msgs);
 
-    {
-        // Verify public key hash matches ethereum address of the sender
-        // TODO(Suyash): We want to perform this only for the base case, so move to "initial" PKC.
-        const CT::address sender_address = private_inputs.signed_tx_request.tx_request.from;
-        const CT::secp256k1_point sender_public_key = private_inputs.signed_tx_request.signing_key;
-
-        // If the sender public key is P = (x, y), Ethereum address is computed as:
-        // E = keccak([x || y]).slice(12, 32)
-        CT::byte_array sender_public_key_bytes(sender_public_key.get_context());
-        sender_public_key_bytes.write(sender_public_key.x.to_byte_array());
-        sender_public_key_bytes.write(sender_public_key.y.to_byte_array());
-        const CT::byte_array sender_public_key_hash = stdlib::keccak<Composer>::hash(sender_public_key_bytes);
-        const CT::byte_array sender_address_bytes = CT::byte_array(sender_address.to_field());
-
-        // Check if the sender address matches the keccak hash of the public key
-        // Specifically, first 12 bytes must be 0, remaining 20 bytes must match.
-        for (size_t i = 0; i < 12; i++) {
-            sender_address_bytes[i].assert_is_zero(format("sender address at index ", i, " is non-zero"));
-        }
-        for (size_t i = 12; i < 32; i++) {
-            sender_address_bytes[i].assert_equal(
-                sender_public_key_hash[i], format("hash of public key does not match the sender address at index ", i));
-        }
-    }
+    // Verify public key hash matches ethereum address of the sender
+    // If the sender public key is P = (x, y), Ethereum address is computed as:
+    // E = keccak([xB || yB]).slice(12, 32)
+    // where xB and yB are byte-representations (size 32) of the x and y coordinates and || is concat operation.
+    // Note this check needs to happen only for the base case
+    const CT::address sender_address = private_inputs.signed_tx_request.tx_request.from;
+    const CT::secp256k1_point sender_public_key = private_inputs.signed_tx_request.signing_key;
+    CT::byte_array sender_public_key_bytes(sender_public_key.get_context());
+    sender_public_key_bytes.write(sender_public_key.x.to_byte_array());
+    sender_public_key_bytes.write(sender_public_key.y.to_byte_array());
+    const CT::byte_array sender_public_key_hash = stdlib::keccak<Composer>::hash(sender_public_key_bytes);
+    const CT::byte_array sender_address_bytes = CT::byte_array(sender_address.to_field());
 
     // Verify signature against the first function being called (subsequent function calls do not
     // need to be signed over by the sender, the sender only signs the inputs to the very first function)
@@ -302,7 +292,7 @@ void validate_inputs(PrivateInputs<CT> const& private_inputs)
     // some syntactic sugar, which seeks readability similar to an `if` statement.
 
     // Base Case
-    std::vector<std::pair<CT::boolean, std::string>> const base_case_conditions{
+    std::vector<std::pair<CT::boolean, std::string>> base_case_conditions{
         // TODO: change to allow 3 initial calls on the private call stack, so a fee can be paid and a gas
         // rebate can be paid.
         { start_private_call_stack_length == 1, "Private call stack must be length 1" },
@@ -331,6 +321,19 @@ void validate_inputs(PrivateInputs<CT> const& private_inputs)
         // Verify signed tx request against current function being called
         { sig_verification_result == true, "Signature verification failed for the entry function" }
     };
+
+    // Add the following checks to the base case:
+    // Check if the sender address matches the keccak hash of the public key
+    // Specifically, first 12 bytes must be 0, remaining 20 bytes must match.
+    for (size_t i = 0; i < 12; i++) {
+        base_case_conditions.emplace_back(sender_address_bytes[i] == 0,
+                                          format("sender address at index ", i, " is non-zero"));
+    }
+    for (size_t i = 12; i < 32; i++) {
+        base_case_conditions.emplace_back(sender_address_bytes[i] == sender_public_key_hash[i],
+                                          format("hash of public key does not match the sender address at index ", i));
+    }
+
     is_base_case.must_imply(base_case_conditions);
 
     // Recursive Case
