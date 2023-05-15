@@ -41,13 +41,3 @@ export type FieldsOf<T> = {
   // eslint-disable-next-line @typescript-eslint/ban-types
   [P in keyof T as T[P] extends Function ? never : P]: T[P];
 };
-
-/**
- * Removed leading 0x from a given string only if the string starts with 0x.
- */
-export function removeLeading0x(input: string): string {
-  if (input.startsWith('0x')) {
-    return input.substr(2);
-  }
-  return input;
-}

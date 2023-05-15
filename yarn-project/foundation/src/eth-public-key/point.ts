@@ -4,7 +4,6 @@ import { AztecAddress } from '../aztec-address/index.js';
 import { EthAddress } from '../eth-address/index.js';
 import { BufferReader } from '../serialize/buffer_reader.js';
 import { Secp256k1Fq } from './fq.js';
-import { removeLeading0x } from '../utils/index.js';
 
 /**
  * Represents an Ethereum public key (a point on the secp256k1 curve) as a 32-byte buffer
@@ -150,7 +149,7 @@ export class EthPublicKey {
    * @returns A hex-encoded string representation of x-coordinate of the public key.
    */
   xToString() {
-    return this.x().toString();
+    return this.buffer.slice(0, 32).toString('hex');
   }
 
   /**
@@ -166,7 +165,7 @@ export class EthPublicKey {
    * @returns A hex-encoded string representation of y-coordinate of the public key.
    */
   yToString() {
-    return this.y().toString();
+    return this.buffer.slice(32, 64).toString('hex');
   }
 
   /**
@@ -174,8 +173,8 @@ export class EthPublicKey {
    * @returns A 20-byte ethereum address.
    */
   toAddress() {
-    const xBytes = removeLeading0x(this.xToString());
-    const yBytes = removeLeading0x(this.yToString());
+    const xBytes = this.xToString().replace(/^0x/i, '');
+    const yBytes = this.yToString().replace(/^0x/i, '');
     const publicKeyHex = yBytes.concat(xBytes);
     const publicKeyHash = keccak(Buffer.from(publicKeyHex, 'hex'));
     const slicedPublicKeyHash = publicKeyHash.slice(0, 20);
@@ -189,8 +188,8 @@ export class EthPublicKey {
    * Note: This is a temporary arrangement until we start using EthAddress everywhere.
    */
   toAztecAddress() {
-    const xBytes = removeLeading0x(this.xToString());
-    const yBytes = removeLeading0x(this.yToString());
+    const xBytes = this.xToString().replace(/^0x/i, '');
+    const yBytes = this.yToString().replace(/^0x/i, '');
     const publicKeyHex = xBytes.concat(yBytes);
     const publicKeyHash = keccak(Buffer.from(publicKeyHex, 'hex'));
     const slicedPublicKeyHash = publicKeyHash.slice(12, 32);
