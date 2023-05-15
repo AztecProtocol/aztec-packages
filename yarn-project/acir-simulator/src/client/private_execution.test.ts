@@ -45,7 +45,7 @@ describe('Private Execution test suite', () => {
   describe('empty constructor', () => {
     const historicRoots = PrivateHistoricTreeRoots.empty();
     const contractDeploymentData = ContractDeploymentData.empty();
-    const txContext = new TxContext(false, false, true, contractDeploymentData);
+    const txContext = new TxContext(false, false, false, contractDeploymentData);
 
     it('should run the empty constructor', async () => {
       const txRequest = new TxRequest(

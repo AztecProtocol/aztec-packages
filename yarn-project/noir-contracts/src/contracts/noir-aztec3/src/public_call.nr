@@ -1,5 +1,3 @@
-use crate::context::PrivateFunctionContext;
-
 #[oracle(callPublicFunction)]
 fn call_public_function_oracle(
     _contract_address: Field, 
