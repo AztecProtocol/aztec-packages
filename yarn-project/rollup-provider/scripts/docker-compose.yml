@@ -1,15 +1,22 @@
 version: '3'
 services:
   rollup-provider:
-    image: aztecprotocol/rollup-provider:latest
+    image: philwindle/pelargonium:latest
     environment:
       DEBUG: 'aztec:*'
-      ETHEREUM_HOST: http://localhost:8545
-      CHAIN_ID: 31337
-      # ARCHIVER_POLLING_INTERVAL: 500
-      # P2P_CHECK_INTERVAL: 50
-      # SEQ_TX_POLLING_INTERVAL: 50
-      # WS_CHECK_INTERVAL: 50
-      SEQ_PUBLISHER_PRIVATE_KEY: 'ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80'
-      UNVERIFIED_DATA_EMITTER_ADDRESS: '0xcf7ed3acca5a467e9e704c703e8d87f634fb0fc9'
-      ROLLUP_CONTRACT_ADDRESS: '0x9fe46736679d2d9a65f0992f2272de9f3c7fa6e0'
+      ETHEREUM_HOST: testnet
+      ARCHIVER_POLLING_INTERVAL: 10000
+      SEQ_RETRY_INTERVAL: 10000
+      SEQ_MAX_TX_PER_BLOCK: 32
+      SEQ_PUBLISHER_PRIVATE_KEY: 'caaff87b825d9fa6f7842a8da5caa48465fbe591f66d8ebf6e898c4d7d04fd64'
+      UNVERIFIED_DATA_EMITTER_ADDRESS: '0x2a5170ab772146bdc3e824bbedfa05739ca62e90'
+      ROLLUP_CONTRACT_ADDRESS: '0x7718eeae3ba19e52ad9bca1d8a272792b10d67a9'
+      API_KEY: 6cc8f5cd170abccfc090c6cf51d50ec7
+      SEARCH_START_BLOCK: 15918000
+      P2P_TCP_LISTEN_PORT: 40401
+      BOOTSTRAP_NODES: '/ip4/44.201.46.75/tcp/40400/p2p/12D3KooWGBpbC6qQFkaCYphjNeY6sV99o4SnEWyTeBigoVriDn4D'
+      PORT: 9000
+    ports:
+      - '40401:40401'
+      - '9000:9000'
+    command: start

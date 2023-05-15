@@ -1,4 +1,4 @@
-import { createLibp2p } from 'libp2p';
+import { Libp2p, createLibp2p } from 'libp2p';
 import { tcp } from '@libp2p/tcp';
 import { noise } from '@chainsafe/libp2p-noise';
 import { mplex } from '@libp2p/mplex';
@@ -6,66 +6,72 @@ import { kadDHT } from '@libp2p/kad-dht';
 import { createEd25519PeerId, createFromProtobuf } from '@libp2p/peer-id-factory';
 import { createDebugLogger } from '@aztec/foundation/log';
 
-const logger = createDebugLogger('aztec:bootstrap_node');
+/**
+ * Encapsulates a 'Bootstrap' node, used for the purpose of assisting new joiners in acquiring peers.
+ */
+export class BootstrapNode {
+  private node?: Libp2p = undefined;
 
-const { TCP_LISTEN_PORT, PEER_ID } = process.env;
+  constructor(private logger = createDebugLogger('aztec:p2p_bootstrap')) {}
 
-async function main() {
-  const peerId = PEER_ID ? await createFromProtobuf(Buffer.from(PEER_ID, 'hex')) : await createEd25519PeerId();
-  //const proto = exportToProtobuf(peerId);
-  const node = await createLibp2p({
-    peerId,
-    nat: {
-      enabled: false,
-    },
-    addresses: {
-      listen: [`/ip4/0.0.0.0/tcp/${TCP_LISTEN_PORT ?? 0}`],
-    },
-    transports: [tcp()],
-    connectionEncryption: [noise()],
-    connectionManager: {
-      minConnections: 2,
-      maxConnections: 100,
-    },
-    streamMuxers: [mplex()],
-    peerDiscovery: [
-      kadDHT({
+  /**
+   * Starts the bootstrap node.
+   * @param tcpListenPort - The tcp port on which the bootstrap node should listen for connections.
+   * @param peerIdPrivateKey - The private key to be used for generating the bootstrap nodes peer id.
+   * @returns An empty promise.
+   */
+  public async start(tcpListenPort: number, peerIdPrivateKey: string) {
+    const peerId = peerIdPrivateKey
+      ? await createFromProtobuf(Buffer.from(peerIdPrivateKey, 'hex'))
+      : await createEd25519PeerId();
+    const node = await createLibp2p({
+      peerId,
+      dht: kadDHT({
         protocolPrefix: 'aztec',
       }),
-    ],
-  });
-  await node.start();
-  logger(`lib p2p has started`);
+      nat: {
+        enabled: false,
+      },
+      addresses: {
+        listen: [`/ip4/0.0.0.0/tcp/${tcpListenPort ?? 0}`],
+      },
+      transports: [tcp()],
+      connectionEncryption: [noise()],
+      connectionManager: {
+        minConnections: 100,
+        maxConnections: 200,
+      },
+      streamMuxers: [mplex()],
+    });
+    await node.start();
+    this.logger(`lib p2p has started`);
 
-  // print out listening addresses
-  logger('listening on addresses:');
-  node.getMultiaddrs().forEach(addr => {
-    logger(addr.toString());
-  });
+    // print out listening addresses
+    this.logger('listening on addresses:');
+    node.getMultiaddrs().forEach(addr => {
+      this.logger(addr.toString());
+    });
 
-  const stop = async () => {
+    node.addEventListener('peer:discovery', evt => {
+      this.logger('Discovered %s', evt.detail.id.toString()); // Log discovered peer
+    });
+
+    node.addEventListener('peer:connect', evt => {
+      this.logger('Connected to %s', evt.detail.remotePeer.toString()); // Log connected peer
+    });
+
+    node.addEventListener('peer:disconnect', evt => {
+      this.logger('Disconnected from %s', evt.detail.remotePeer.toString()); // Log connected peer
+    });
+  }
+
+  /**
+   * Stops the bootstrap node.
+   * @returns And empty promise.
+   */
+  public async stop() {
     // stop libp2p
-    await node.stop();
-    logger('libp2p has stopped');
-    process.exitCode = 0;
-  };
-
-  node.addEventListener('peer:discovery', evt => {
-    logger('Discovered %s', evt.detail.id.toString()); // Log discovered peer
-  });
-
-  node.addEventListener('peer:connect', evt => {
-    logger('Connected to %s', evt.detail.remotePeer.toString()); // Log connected peer
-  });
-
-  node.addEventListener('peer:disconnect', evt => {
-    logger('Disconnected from %s', evt.detail.remotePeer.toString()); // Log connected peer
-  });
-
-  process.on('SIGTERM', stop);
-  process.on('SIGINT', stop);
+    await this.node?.stop();
+    this.logger('libp2p has stopped');
+  }
 }
-
-main().catch(err => {
-  logger(err);
-});

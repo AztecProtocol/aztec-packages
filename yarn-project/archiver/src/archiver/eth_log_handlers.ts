@@ -26,11 +26,6 @@ export function processContractDeploymentLogs(
     const l2BlockNum = log.args.l2BlockNum;
     const blockHash = Buffer.from(hexToBytes(log.args.l2BlockHash));
     const expectedBlockHash = blockHashMapping[Number(l2BlockNum)];
-    console.log(
-      `Received block number ${l2BlockNum}, block hash ${blockHash.toString(
-        'hex',
-      )}, expected block hash ${expectedBlockHash?.toString('hex')}`,
-    );
     if (expectedBlockHash === undefined || !blockHash.equals(expectedBlockHash)) {
       continue;
     }
@@ -64,11 +59,6 @@ export function processUnverifiedDataLogs(
     const l2BlockNum = log.args.l2BlockNum;
     const blockHash = Buffer.from(hexToBytes(log.args.l2BlockHash));
     const expectedBlockHash = blockHashMapping[Number(l2BlockNum)];
-    console.log(
-      `Received block number ${l2BlockNum}, block hash ${blockHash.toString(
-        'hex',
-      )}, expected block hash ${expectedBlockHash?.toString('hex')}`,
-    );
     if (
       l2BlockNum !== expectedRollupNumber ||
       expectedBlockHash === undefined ||

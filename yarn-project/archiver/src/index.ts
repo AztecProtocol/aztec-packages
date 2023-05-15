@@ -18,7 +18,7 @@ async function main() {
     transport: http(rpcUrl),
   });
 
-  const archiver = new Archiver(publicClient, rollupContract, unverifiedDataEmitterContract);
+  const archiver = new Archiver(publicClient, rollupContract, unverifiedDataEmitterContract, 0);
 
   const shutdown = async () => {
     await archiver.stop();

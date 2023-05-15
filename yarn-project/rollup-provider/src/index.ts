@@ -8,6 +8,7 @@ const logger = createDebugLogger('aztec:rollup_provider');
 const { PORT = 9000 } = process.env;
 
 async function main() {
+  logger('Server started...');
   const aztecNodeConfig: AztecNodeConfig = getConfigEnvVars();
   const node = await AztecNodeService.createAndSyncP2P(aztecNodeConfig);
 

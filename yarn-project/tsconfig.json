@@ -35,6 +35,7 @@
     { "path": "noir-compiler/tsconfig.json" },
     { "path": "p2p/tsconfig.json" },
     { "path": "prover-client/tsconfig.json" },
+    { "path": "rollup-provider/tsconfig.json" },
     { "path": "sequencer-client/tsconfig.json" },
     { "path": "types/tsconfig.json" },
     { "path": "world-state/tsconfig.json" }

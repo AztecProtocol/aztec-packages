@@ -474,6 +474,7 @@ __metadata:
     "@aztec/foundation": "workspace:^"
     "@aztec/types": "workspace:^"
     "@chainsafe/libp2p-noise": ^11.0.4
+    "@chainsafe/libp2p-yamux": ^4.0.1
     "@jest/globals": ^29.5.0
     "@libp2p/bootstrap": ^6.0.3
     "@libp2p/kad-dht": ^8.0.12
@@ -1048,6 +1049,23 @@ __metadata:
     uint8arraylist: ^2.3.2
     uint8arrays: ^4.0.2
   checksum: e77b88b1b380c8f6deb8048d3cf8c147af2986520c05fc0f1d40e9e3a875542e01dd5646f1e2be81ae6159be67324639ef1f7a49cae35231625ae6ab59ed9750
+  languageName: node
+  linkType: hard
+
+"@chainsafe/libp2p-yamux@npm:^4.0.1":
+  version: 4.0.1
+  resolution: "@chainsafe/libp2p-yamux@npm:4.0.1"
+  dependencies:
+    "@libp2p/interface-connection": ^5.0.0
+    "@libp2p/interface-stream-muxer": ^4.0.0
+    "@libp2p/interfaces": ^3.2.0
+    "@libp2p/logger": ^2.0.1
+    abortable-iterator: ^4.0.2
+    any-signal: ^4.1.1
+    it-pipe: ^3.0.1
+    it-pushable: ^3.1.3
+    uint8arraylist: ^2.3.2
+  checksum: b7ba9a6b551b1f9c845fdc414b5f6542d05dbd77bd407216f118f9213c20dca3f6b010f9f447f1e91a8556146352a45d8eb285342ac3f25076beca3449e189f9
   languageName: node
   linkType: hard
 

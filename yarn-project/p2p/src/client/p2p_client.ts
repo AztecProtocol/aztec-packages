@@ -54,8 +54,8 @@ export interface P2P {
   getTxs(): Promise<Tx[]>;
 
   /**
-   * Returns a transaction in the transaction pool by its hash
-   * @returns A single tx or undefined
+   * Returns a transaction in the transaction pool by its hash.
+   * @returns A single tx or undefined.
    */
   getTxByhash(txHash: TxHash): Promise<Tx | undefined>;
 
@@ -196,7 +196,7 @@ export class P2PClient implements P2P {
   /**
    * Returns a transaction in the transaction pool by its hash.
    * @param txHash - Hash of the transaction to look for in the pool.
-   * @returns A single tx or undefined
+   * @returns A single tx or undefined.
    */
   getTxByhash(txHash: TxHash): Promise<Tx | undefined> {
     return Promise.resolve(this.txPool.getTxByHash(txHash));
@@ -208,6 +208,20 @@ export class P2PClient implements P2P {
    * @returns Empty promise.
    **/
   public async sendTx(tx: Tx): Promise<void> {
+    const ready = await this.isReady();
+    if (!ready) {
+      throw new Error('P2P client not ready');
+    }
+    await this.txPool.addTxs([tx]);
+    this.p2pService.propagateTx(tx);
+  }
+
+  /**
+   * Verifies the 'tx' and, if valid, adds it to local tx pool. Does not forward to peers.
+   * @param tx - The tx to accept.
+   * @returns Empty promise.
+   **/
+  public async acceptTx(tx: Tx): Promise<void> {
     const ready = await this.isReady();
     if (!ready) {
       throw new Error('P2P client not ready');
@@ -265,9 +279,6 @@ export class P2PClient implements P2P {
     for (let i = 0; i < blocks.length; i++) {
       const blockContext = new L2BlockContext(blocks[i]);
       const txHashes = blockContext.getTxHashes();
-      for (const txHash of txHashes) {
-        this.log(`Deleting tx hash ${txHash.toString()} from tx pool`);
-      }
       this.txPool.deleteTxs(txHashes);
     }
     return Promise.resolve();
@@ -289,6 +300,7 @@ export class P2PClient implements P2P {
       this.setCurrentState(P2PClientState.RUNNING);
       if (this.syncResolve !== undefined) {
         this.syncResolve();
+        this.p2pService.onNewTx((tx: Tx) => this.acceptTx(tx));
       }
     }
   }

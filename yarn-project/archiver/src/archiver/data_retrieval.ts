@@ -32,9 +32,7 @@ export async function retrieveBlocks(
     if (searchStartBlock > currentBlockNumber) {
       break;
     }
-
     const l2BlockProcessedLogs = await getL2BlockProcessedLogs(publicClient, rollupAddress, searchStartBlock);
-
     if (l2BlockProcessedLogs.length === 0) {
       break;
     }
@@ -112,15 +110,16 @@ export async function retrieveNewContractData(
     if (searchStartBlock > currentBlockNumber) {
       break;
     }
-
     const contractDataLogs = await getContractDeploymentLogs(
       publicClient,
       unverifiedDataEmitterAddress,
       searchStartBlock,
     );
+    if (contractDataLogs.length === 0) {
+      break;
+    }
     const newContracts = processContractDeploymentLogs(blockHashMapping, contractDataLogs);
     retrievedNewContracts = retrievedNewContracts.concat(newContracts);
-
     searchStartBlock = (contractDataLogs.findLast(cd => !!cd)?.blockNumber || searchStartBlock) + 1n;
   } while (blockUntilSynced && searchStartBlock <= currentBlockNumber);
   return { nextEthBlockNumber: searchStartBlock, retrievedData: retrievedNewContracts };

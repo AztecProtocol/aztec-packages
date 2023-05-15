@@ -1,10 +1,12 @@
-import { CircuitsWasm, KernelCircuitPublicInputs, SignedTxRequest, UInt8Vector } from '@aztec/circuits.js';
+import { CircuitsWasm, KernelCircuitPublicInputs, SignedTxRequest, TxRequest, UInt8Vector } from '@aztec/circuits.js';
 import { computeContractLeaf, computeTxHash } from '@aztec/circuits.js/abis';
 
 import { createTxHash } from './create_tx_hash.js';
 import { TxHash } from './tx_hash.js';
 import { UnverifiedData } from './unverified_data.js';
 import { EncodedContractFunction } from './contract_data.js';
+import { numToInt32BE } from '@aztec/foundation/serialize';
+import { numToUInt32BE } from '@aztec/circuits.js/utils';
 
 /**
  * Defines valid fields for a private transaction.
@@ -184,6 +186,88 @@ export class Tx {
             return EncodedContractFunction.fromBuffer(x.toBuffer());
           });
     return new Tx(publicInputs, proof, unverified, signedTxRequest, publicFunctions);
+  }
+
+  /**
+   * Creates a 'message' from this tx.
+   * @param tx - The transaction to convert to a message.
+   * @returns - The message.
+   */
+  static toMessage(tx: Tx): Buffer {
+    const createMessageComponent = (obj?: { toBuffer: () => Buffer }) => {
+      if (!obj) {
+        // specify a length of 0 bytes
+        return numToUInt32BE(0);
+      }
+      const buffer = obj.toBuffer();
+      return Buffer.concat([numToUInt32BE(buffer.length), buffer]);
+    };
+    const createMessageComponents = (obj?: { toBuffer: () => Buffer }[]) => {
+      if (!obj || !obj.length) {
+        // specify a length of 0 bytes
+        return [numToUInt32BE(0)];
+      }
+      return obj.map(createMessageComponent);
+    };
+    const messageBuffer = Buffer.concat([
+      createMessageComponent(tx.data),
+      createMessageComponent(tx.proof),
+      createMessageComponent(tx.txRequest),
+      createMessageComponent(tx.unverifiedData),
+      ...createMessageComponents(tx.newContractPublicFunctions),
+    ]);
+    const messageLength = numToUInt32BE(messageBuffer.length);
+    return Buffer.concat([messageLength, messageBuffer]);
+  }
+
+  /**
+   * Creates a 'message' from this tx.
+   * @param buffer - The message buffer to convert to a tx.
+   * @returns - The message.
+   */
+  static fromMessage(buffer: Buffer): Tx {
+    let publicInputs: KernelCircuitPublicInputs | undefined = undefined;
+    let proof: UInt8Vector | undefined = undefined;
+    let txRequest: SignedTxRequest | undefined = undefined;
+    let unverifiedData: UnverifiedData | undefined = undefined;
+    const functions: EncodedContractFunction[] = [];
+    // this is the opposite of the 'toMessage' function
+    // so the first 4 bytes is the complete length, skip it
+    let offset = 4;
+    let size = buffer.readUint32BE(offset);
+    offset += 4;
+    if (size > 0) {
+      publicInputs = KernelCircuitPublicInputs.fromBuffer(buffer.subarray(offset, offset + size));
+      offset += size;
+    }
+    size = buffer.readUint32BE(offset);
+    offset += 4;
+    if (size > 0) {
+      proof = new UInt8Vector(buffer.subarray(offset, size + offset));
+      offset += size;
+    }
+    size = buffer.readUint32BE(offset);
+    offset += 4;
+    if (size > 0) {
+      txRequest = SignedTxRequest.fromBuffer(buffer.subarray(offset, offset + size));
+      offset += size;
+    }
+    size = buffer.readUint32BE(offset);
+    offset += 4;
+    if (size > 0) {
+      unverifiedData = UnverifiedData.fromBuffer(buffer.subarray(offset));
+      offset += size;
+    }
+    while (offset < buffer.length) {
+      size = buffer.readUint32BE(offset);
+      offset += 4;
+      if (size > 0) {
+        const func = EncodedContractFunction.fromBuffer(buffer.subarray(offset));
+        offset += size;
+        functions.push(func);
+      }
+    }
+    return new Tx(publicInputs, proof, unverifiedData, txRequest, functions.length ? functions : undefined);
   }
 
   /**

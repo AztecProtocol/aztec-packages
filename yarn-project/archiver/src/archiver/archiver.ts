@@ -17,6 +17,7 @@ import { Chain, HttpTransport, PublicClient, createPublicClient, http } from 'vi
 import { localhost } from 'viem/chains';
 import { ArchiverConfig } from './config.js';
 import { retrieveBlocks, retrieveNewContractData, retrieveUnverifiedData } from './data_retrieval.js';
+import { createTestnetChain } from './testnet.js';
 
 /**
  * Pulls L2 blocks in a non-blocking manner and provides interface for their retrieval.
@@ -55,6 +56,7 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource, ContractDa
    * @param publicClient - A client for interacting with the Ethereum node.
    * @param rollupAddress - Ethereum address of the rollup contract.
    * @param unverifiedDataEmitterAddress - Ethereum address of the unverifiedDataEmitter contract.
+   * @param searchStartBlock - The eth block from which to start searching
    * @param pollingIntervalMs - The interval for polling for rollup logs (in milliseconds).
    * @param log - A logger.
    */
@@ -62,9 +64,12 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource, ContractDa
     private readonly publicClient: PublicClient<HttpTransport, Chain>,
     private readonly rollupAddress: EthAddress,
     private readonly unverifiedDataEmitterAddress: EthAddress,
+    readonly searchStartBlock: number,
     private readonly pollingIntervalMs = 10_000,
     private readonly log: DebugLogger = createDebugLogger('aztec:archiver'),
-  ) {}
+  ) {
+    this.nextL2BlockFromBlock = BigInt(searchStartBlock);
+  }
 
   /**
    * Creates a new instance of the Archiver and blocks until it syncs from chain.
@@ -73,14 +78,17 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource, ContractDa
    * @returns - An instance of the archiver.
    */
   public static async createAndSync(config: ArchiverConfig, blockUntilSynced = true): Promise<Archiver> {
+    const chain = config.rpcUrl === 'testnet' ? createTestnetChain(config.apiKey) : localhost;
+    const rpcUrl = config.rpcUrl === 'testnet' ? chain.rpcUrls.default.http[0] : config.rpcUrl;
     const publicClient = createPublicClient({
-      chain: localhost,
-      transport: http(config.rpcUrl),
+      chain: chain,
+      transport: http(rpcUrl),
     });
     const archiver = new Archiver(
       publicClient,
       config.rollupContract,
       config.unverifiedDataEmitterContract,
+      config.searchStartBlock,
       config.archiverPollingInterval,
     );
     await archiver.start(blockUntilSynced);
@@ -97,6 +105,7 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource, ContractDa
     }
 
     if (blockUntilSynced) {
+      this.log(`Performing initial chain sync...`);
       await this.sync(blockUntilSynced);
     }
 
@@ -116,9 +125,6 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource, ContractDa
     // Read all data from chain and then write to our stores at the end
 
     const nextExpectedRollupId = BigInt(this.l2Blocks.length + INITIAL_L2_BLOCK_NUM);
-    this.log(
-      `Retrieving chain state from eth block: ${this.nextL2BlockFromBlock}, next expected rollup id: ${nextExpectedRollupId}`,
-    );
     const retrievedBlocks = await retrieveBlocks(
       this.publicClient,
       this.rollupAddress,
@@ -133,7 +139,6 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource, ContractDa
     retrievedBlocks.retrievedData.forEach((block: L2Block) => {
       blockHashMapping[block.number] = block.getCalldataHash();
     });
-
     const retrievedUnverifiedData = await retrieveUnverifiedData(
       this.publicClient,
       this.unverifiedDataEmitterAddress,

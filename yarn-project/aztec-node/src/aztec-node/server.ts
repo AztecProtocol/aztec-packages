@@ -83,6 +83,10 @@ export class AztecNodeService implements AztecNode {
     // first create and sync the archiver
     const archiver = await Archiver.createAndSync(config);
 
+    // we idenfity the P2P transaction protocol by using the rollup contract address.
+    // this may well change in future
+    config.transactionProtocol = `/aztec/tx/${config.rollupContract.toString()}`;
+
     // create the P2P network service
     const p2pNetwork = await LibP2PService.new(config);
 

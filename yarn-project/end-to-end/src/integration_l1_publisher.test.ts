@@ -111,6 +111,7 @@ describe('L1Publisher integration', () => {
 
     publisher = getL1Publisher({
       rpcUrl: config.rpcUrl,
+      apiKey: '',
       chainId: config.chainId,
       requiredConfirmations: 1,
       rollupContract: EthAddress.fromString(rollupAddress),

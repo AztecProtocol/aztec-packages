@@ -1,6 +1,6 @@
 import { AztecNode } from '@aztec/aztec-node';
 import { HttpNode } from './http-node.js';
-import { Contract, ContractDeployer, createAztecRPCServer, TxStatus, TxHash, Point } from '@aztec/aztec.js';
+import { ContractDeployer, createAztecRPCServer, TxStatus, TxHash, Point } from '@aztec/aztec.js';
 import { DebugLogger } from '@aztec/foundation/log';
 import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
 import { ContractAbi } from '@aztec/foundation/abi';
@@ -26,8 +26,16 @@ const pointToPublicKey = (point: Point) => {
   };
 };
 
-export async function deployL2Contract(url: string, logger: DebugLogger, loop: boolean, interval: number) {
+export async function waitUntilReady(aztecNode: AztecNode, logger: DebugLogger) {
+  while ((await aztecNode.isReady()) === false) {
+    logger(`Aztec node not ready, will wait 10 seconds and check again...`);
+    await sleep(10000);
+  }
+}
+
+export async function deployL2Contract(url: string, interval: number, logger: DebugLogger) {
   const node: AztecNode = new HttpNode(url);
+  await waitUntilReady(node, logger);
   const aztecRpcServer = await createAztecRpc(2, node);
   const accounts = await aztecRpcServer.getAccounts();
   const outstandingTxs: TxHash[] = [];
@@ -44,7 +52,7 @@ export async function deployL2Contract(url: string, logger: DebugLogger, loop: b
     const txHash = await tx.getTxHash();
     outstandingTxs.push(txHash);
     logger('L2 contract deployed');
-    await sleep(loop ? interval : 1);
+    await sleep(interval > 0 ? interval : 1);
     for (let i = 0; i < outstandingTxs.length; i++) {
       const hash = outstandingTxs[i];
       const receipt = await aztecRpcServer.getTxReceipt(hash);
@@ -53,39 +61,5 @@ export async function deployL2Contract(url: string, logger: DebugLogger, loop: b
         outstandingTxs.splice(i, 1);
       }
     }
-  } while (loop);
-}
-
-export async function deployL2ContractAndMakeTransfers(url: string, logger: DebugLogger) {
-  const node: AztecNode = new HttpNode(url);
-  const aztecRpcServer = await createAztecRpc(2, node);
-  const accounts = await aztecRpcServer.getAccounts();
-
-  logger(`Deploying L2 contract...`);
-  const initialBalance = 1_000_000_000n;
-  const zkContract = ZkTokenContractAbi as ContractAbi;
-  const deployer = new ContractDeployer(zkContract, aztecRpcServer);
-  const owner = await aztecRpcServer.getAccountPublicKey(accounts[0]);
-  const receiver = await aztecRpcServer.getAccountPublicKey(accounts[1]);
-  const d = deployer.deploy(initialBalance, pointToPublicKey(owner));
-  await d.create();
-  const tx = d.send();
-  const receipt = await tx.getReceipt();
-  const contract = new Contract(receipt.contractAddress!, zkContract, aztecRpcServer);
-  await tx.isMined(0, 1);
-  await tx.getReceipt();
-  logger('L2 contract deployed');
-
-  while (true) {
-    await sleep(10000);
-    logger(`Making transfer...`);
-    const transferAmount = 1n;
-    const transferTx = contract.methods
-      .transfer(transferAmount, pointToPublicKey(owner), pointToPublicKey(receiver))
-      .send({ from: accounts[0] });
-    logger(`Transfer sent`);
-    await transferTx.isMined(0, 1);
-    logger(`Transfer mined`);
-    await transferTx.getReceipt();
-  }
+  } while (interval != 0);
 }
