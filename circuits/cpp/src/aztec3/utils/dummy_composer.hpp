@@ -36,13 +36,14 @@ class DummyComposer {
         return CircuitError::no_error();
     }
 
-    uint8_t* log_and_alloc_and_serialize_first_failure()
+    uint8_t* alloc_and_serialize_first_failure()
     {
-        log_failures_if_any();
         CircuitError const failure = get_first_failure();
         if (failure.code == CircuitErrorCode::NO_ERROR) {
             return nullptr;
         }
+        info(this->method_name, ": composer.get_first_failure() = ", failure_msgs[0]);
+
 
         // serialize circuit failure to bytes vec
         std::vector<uint8_t> circuit_failure_vec;
@@ -52,13 +53,6 @@ class DummyComposer {
         auto* raw_failure_buf = static_cast<uint8_t*>(malloc(circuit_failure_vec.size()));
         memcpy(raw_failure_buf, (void*)circuit_failure_vec.data(), circuit_failure_vec.size());
         return raw_failure_buf;
-    }
-
-    void log_failures_if_any()
-    {
-        if (failed()) {
-            info(this->method_name, ": composer.get_first_failure() = ", get_first_failure());
-        }
     }
 };
 

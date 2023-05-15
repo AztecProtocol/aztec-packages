@@ -85,7 +85,7 @@ WASM_EXPORT uint8_t* base_rollup__sim(uint8_t const* base_rollup_inputs_buf,
     memcpy(raw_public_inputs_buf, (void*)public_inputs_vec.data(), public_inputs_vec.size());
     *base_or_merge_rollup_public_inputs_buf = raw_public_inputs_buf;
     *base_rollup_public_inputs_size_out = public_inputs_vec.size();
-    return composer.log_and_alloc_and_serialize_first_failure();
+    return composer.alloc_and_serialize_first_failure();
 }
 
 // WASM_EXPORT size_t base_rollup__sim(uint8_t const* base_rollup_inputs_buf,
