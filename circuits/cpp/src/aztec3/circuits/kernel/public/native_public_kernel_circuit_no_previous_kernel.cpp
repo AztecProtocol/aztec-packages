@@ -13,16 +13,28 @@
 
 namespace {
 
+using aztec3::utils::is_array_empty;
+using CircuitErrorCode = aztec3::utils::CircuitErrorCode;
+
 /**
  * @brief Initialises the circuit output end state from provided inputs
+ * @param composer The circuit composer
  * @param public_kernel_inputs The inputs to this iteration of the kernel circuit
  * @param circuit_outputs The circuit outputs to be initialised
  */
-void initialise_end_values(PublicKernelInputsNoPreviousKernel<NT> const& public_kernel_inputs,
+void initialise_end_values(DummyComposer& composer,
+                           PublicKernelInputsNoPreviousKernel<NT> const& public_kernel_inputs,
                            KernelCircuitPublicInputs<NT>& circuit_outputs)
 {
     circuit_outputs.constants.tx_context = public_kernel_inputs.signed_tx_request.tx_request.tx_context;
     circuit_outputs.constants.historic_tree_roots = public_kernel_inputs.historic_tree_roots;
+
+    // If the nullifiers array is not empty a change was made and we need to rework this
+    composer.do_assert(is_array_empty(circuit_outputs.end.new_nullifiers),
+                       "new_nullifiers array must be empty",
+                       CircuitErrorCode::PUBLIC_KERNEL__NEW_NULLIFIERS_NOT_EMPTY_IN_FIRST_ITERATION);
+
+    array_push(circuit_outputs.end.new_nullifiers, public_kernel_inputs.signed_tx_request.hash());
 }
 
 /**
@@ -68,7 +80,7 @@ KernelCircuitPublicInputs<NT> native_public_kernel_circuit_no_previous_kernel(
     KernelCircuitPublicInputs<NT> public_inputs{};
 
     // initialise the circuit end state with defaults and constants from the provided input
-    initialise_end_values(public_kernel_inputs, public_inputs);
+    initialise_end_values(composer, public_kernel_inputs, public_inputs);
 
     // validate the inputs common to all invocation circumstances
     common_validate_inputs(composer, public_kernel_inputs);
