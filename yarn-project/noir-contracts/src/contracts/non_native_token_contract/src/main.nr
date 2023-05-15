@@ -1,4 +1,4 @@
-contract L1NativeZkToken {
+contract NonNativeToken {
     mod balance_utils;
     use dep::aztec3::abi::Inputs;
     use dep::aztec3::context::PrivateFunctionContext;
