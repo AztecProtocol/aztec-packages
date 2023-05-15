@@ -62,9 +62,13 @@ abstract contract MessageBox {
    * @param _deadline - The deadline to consume a message. Only after it, can a message be cancalled.
    */
   function _insert(bytes32 _entryKey, uint64 _fee, uint32 _deadline) internal {
-    entries[_entryKey].count++;
-    entries[_entryKey].fee = _fee;
-    entries[_entryKey].deadline = _deadline;
+    // since entryKey is a hash of the message, _fee and `deadline` should always be the same
+    // as such, there is no need to update these vars. Yet adding an if statement breaks
+    // the slot packing and increases gas. So we leave it as it is.
+    Entry storage entry = entries[_entryKey];
+    entry.count += 1;
+    entry.fee = _fee;
+    entry.deadline = _deadline;
   }
 
   /**

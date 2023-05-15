@@ -53,7 +53,7 @@ contract Inbox is MessageBox {
   function computeMessageKey(L1ToL2Msg memory message) public pure returns (bytes32) {
     return bytes32(
       uint256(
-        keccak256(
+        sha256(
           abi.encode(
             message.sender,
             message.recipient,

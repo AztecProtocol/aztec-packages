@@ -41,7 +41,7 @@ contract Outbox is MessageBox {
   function computeEntryKey(L2ToL1Msg memory _message) public pure returns (bytes32) {
     // FIXME: Replace mod P later on when we have a better idea of how to handle Fields.
     return bytes32(
-      uint256(keccak256(abi.encode(_message.sender, _message.recipient, _message.content))) % P
+      uint256(sha256(abi.encode(_message.sender, _message.recipient, _message.content))) % P
     );
   }
 
