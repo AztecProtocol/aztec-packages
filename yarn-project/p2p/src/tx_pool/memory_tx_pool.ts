@@ -33,11 +33,12 @@ export class InMemoryTxPool implements TxPool {
   /**
    * Adds a list of transactions to the pool. Duplicates are ignored.
    * @param txs - An array of txs to be added to the pool.
+   * @returns Empty promise.
    */
   public async addTxs(txs: Tx[]): Promise<void> {
     for (const tx of txs) {
-      this.log(`Adding tx with id ${await tx.getTxHash().then(t => t.toString())}`);
-      this.txs.set(await tx.getTxHash().then(t => t.toBigInt()), tx);
+      this.log(`Adding tx with id ${tx.getTxHash().toString()}`);
+      this.txs.set((await tx.getTxHash()).toBigInt(), tx);
     }
   }
 

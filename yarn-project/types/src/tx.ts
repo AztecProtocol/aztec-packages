@@ -1,17 +1,9 @@
-import {
-  CircuitsWasm,
-  KernelCircuitPublicInputs,
-  PublicCallRequest,
-  SignedTxRequest,
-  UInt8Vector,
-} from '@aztec/circuits.js';
-import { computeContractLeaf, computeTxHash } from '@aztec/circuits.js/abis';
+import { CircuitsWasm, KernelCircuitPublicInputs, SignedTxRequest, UInt8Vector } from '@aztec/circuits.js';
+import { computeTxHash } from '@aztec/circuits.js/abis';
 
-import { arrayNonEmptyLength } from '@aztec/foundation/collection';
-import { EncodedContractFunction } from './contract_data.js';
-import { createTxHash } from './create_tx_hash.js';
 import { TxHash } from './tx_hash.js';
 import { UnverifiedData } from './unverified_data.js';
+import { EncodedContractFunction } from './contract_data.js';
 
 /**
  * Defines valid fields for a private transaction.
@@ -51,7 +43,7 @@ export function isPrivateTx(tx: Tx): tx is PrivateTx {
  * The interface of an L2 transaction.
  */
 export class Tx {
-  private hashPromise?: Promise<TxHash>;
+  private txHash?: TxHash;
 
   /**
    * Creates a new private transaction.
@@ -89,20 +81,20 @@ export class Tx {
   }
 
   /**
-   * Creates a new transaction from the given tx request.
+   * Creates a new transaction containing both private and public calls.
    * @param data - Public inputs of the private kernel circuit.
    * @param proof - Proof from the private kernel circuit.
    * @param unverifiedData - Unverified data created by this tx.
    * @param txRequest - The tx request defining the public call.
    * @returns A new tx instance.
    */
-  public static create(
-    data?: KernelCircuitPublicInputs,
-    proof?: UInt8Vector,
-    unverifiedData?: UnverifiedData,
-    txRequest?: SignedTxRequest,
-  ): Tx {
-    return new this(data, proof, unverifiedData, txRequest);
+  public static createPrivatePublic(
+    data: KernelCircuitPublicInputs,
+    proof: UInt8Vector,
+    unverifiedData: UnverifiedData,
+    txRequest: SignedTxRequest,
+  ): PrivateTx & PublicTx {
+    return new this(data, proof, unverifiedData, txRequest) as PrivateTx & PublicTx;
   }
 
   /**
@@ -161,11 +153,28 @@ export class Tx {
    * Construct & return transaction hash.
    * @returns The transaction's hash.
    */
-  getTxHash(): Promise<TxHash> {
-    if (!this.hashPromise) {
-      this.hashPromise = Tx.createTxHash(this);
+  async getTxHash(): Promise<TxHash> {
+    if (this.isPrivate()) {
+      // Private kernel functions are executed client side and for this reason tx hash is already set as first nullifier
+      const txHash = new TxHash(this.data?.end.newNullifiers[0]!.toBuffer());
+      return Promise.resolve(txHash);
     }
-    return this.hashPromise;
+
+    if (this.isPublic()) {
+      // TODO: remove
+      if (this.data) {
+        throw new Error('Tx data already set.');
+      }
+      if (!this.txHash) {
+        const wasm = await CircuitsWasm.get();
+        // We hash the full signed tx request object (this is, the tx request along with the signature),
+        // just like Ethereum does.
+        this.txHash = new TxHash(computeTxHash(wasm, this.txRequest).toBuffer());
+      }
+      return this.txHash;
+    }
+
+    throw new Error('Tx data incorrectly set.');
   }
 
   /**
@@ -175,39 +184,5 @@ export class Tx {
    */
   static async getHashes(txs: Tx[]): Promise<TxHash[]> {
     return await Promise.all(txs.map(tx => tx.getTxHash()));
-  }
-
-  /**
-   * Utility function to generate tx hash.
-   * @param tx - The transaction from which to generate the hash.
-   * @returns A hash of the tx data that identifies the tx.
-   */
-  static async createTxHash(tx: Tx): Promise<TxHash> {
-    // TODO: Until we define how txs will be represented on the L2 block, we won't know how to
-    // recreate their hash from the L2 block info. So for now we take the easy way out. If the
-    // tx has only private data, we keep the same hash as before. If it has public data,
-    // we hash it and return it. And if it has both, we compute both hashes
-    // and hash them together. We'll probably want to change this later!
-    // See https://github.com/AztecProtocol/aztec3-packages/issues/271
-
-    // NOTE: We are using computeContractLeaf here to ensure consistency with how circuits compute
-    // contract tree leaves, which then go into the L2 block, which are then used to regenerate
-    // the tx hashes. This means we need the full circuits wasm, and cannot use the lighter primitives
-    // wasm. Alternatively, we could stop using computeContractLeaf and manually use the same hash.
-    const wasm = await CircuitsWasm.get();
-    if (tx.data) {
-      return createTxHash({
-        ...tx.data.end,
-        newContracts: tx.data.end.newContracts.map(cd => computeContractLeaf(wasm, cd)),
-      });
-    }
-
-    // We hash the full signed tx request object (this is, the tx request along with the signature),
-    // just like Ethereum does.
-    if (tx.txRequest) {
-      return new TxHash(computeTxHash(wasm, tx.txRequest).toBuffer());
-    }
-
-    throw new Error(`Unable to create Tx Hash`);
   }
 }
