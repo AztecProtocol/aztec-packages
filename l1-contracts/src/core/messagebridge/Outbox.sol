@@ -31,6 +31,8 @@ contract Outbox is MessageBox {
 
   event MessageConsumed(bytes32 indexed entryKey, address indexed recipient);
 
+  constructor(address _registry) MessageBox(_registry) {}
+
   /**
    * @notice Computes an entry key for the Outbox
    * @param _message - The L2 to L1 message

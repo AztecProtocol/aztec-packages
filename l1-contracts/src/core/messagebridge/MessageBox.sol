@@ -2,6 +2,8 @@
 // Copyright 2023 Aztec Labs.
 pragma solidity >=0.8.18;
 
+import {IRegistryReader} from "./IRegistryReader.sol";
+
 /**
  * @title MessageBox
  * @author Aztec Labs
@@ -36,7 +38,7 @@ abstract contract MessageBox {
     uint32 deadline;
   }
 
-  address rollup;
+  IRegistryReader registry;
 
   // Prime field order
   uint256 internal constant P =
@@ -45,12 +47,12 @@ abstract contract MessageBox {
   mapping(bytes32 entryKey => Entry entry) internal entries;
 
   modifier onlyRollup() {
-    if (msg.sender != rollup) revert MessageBox__Unauthorized();
+    if (msg.sender != registry.getL1L2Addresses().rollup) revert MessageBox__Unauthorized();
     _;
   }
 
-  constructor() {
-    rollup = msg.sender;
+  constructor(address _registry) {
+    registry = IRegistryReader(_registry);
   }
 
   /**

@@ -47,6 +47,8 @@ contract Inbox is MessageBox {
 
   event L1ToL2MessageCancelled(bytes32 indexed entryKey);
 
+  constructor(address _registry) MessageBox(_registry) {}
+
   /// @notice Given a message, computes an entry key for the Inbox
   function computeMessageKey(L1ToL2Msg memory message) public pure returns (bytes32) {
     return bytes32(
