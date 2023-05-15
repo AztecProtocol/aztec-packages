@@ -105,30 +105,29 @@ std::ostream& operator<<(std::ostream& os, CallStackItem<NCT, PrivatePublic> con
               << "is_execution_request: " << call_stack_item.is_execution_request << "\n";
 }
 
-template <size_t SIZE> void spread_arr_into_vec(std::array<fr, SIZE> const& arr, std::vector<fr>& vec)
+// Returns a copy of this call stack item where all result-related fields are zeroed out.
+inline CallStackItem<NativeTypes, PublicTypes> as_execution_request(
+    CallStackItem<NativeTypes, PublicTypes> const& call_stack_item)
 {
-    const auto arr_size = sizeof(arr) / sizeof(fr);
-    vec.insert(vec.end(), arr.data(), arr.data() + arr_size);
-}
+    return {
+        .contract_address = call_stack_item.contract_address,
+        .function_data = call_stack_item.function_data,
+        .public_inputs = {
+            .call_context = call_stack_item.public_inputs.call_context,
+            .args = call_stack_item.public_inputs.args,
+        },
+        .is_execution_request = call_stack_item.is_execution_request,
+    };
+};
 
 // Returns the hash of a call stack item, or if the call stack item represents an execution request,
-// the hash of the inputs of the call stack item (contract, function data, call context, args).
-// Implemented only for native types for now.
+// zeroes out all fields but those related to the request (contract, function data, call context, args)
+// and then hashes the item. Implemented only for native types for now.
 inline fr get_call_stack_item_hash(abis::CallStackItem<NativeTypes, PublicTypes> const& call_stack_item)
 {
-    if (!call_stack_item.is_execution_request) {
-        return call_stack_item.hash();
-    }
-
-    std::vector<fr> inputs = {
-        call_stack_item.contract_address.to_field(),
-        call_stack_item.function_data.hash(),
-        call_stack_item.public_inputs.call_context.hash(),
-    };
-    spread_arr_into_vec(call_stack_item.public_inputs.args, inputs);
-
-    // NOLINTNEXTLINE(misc-const-correctness)
-    return NativeTypes::compress(inputs, GeneratorIndex::CALL_STACK_ITEM);
+    auto const& preimage =
+        call_stack_item.is_execution_request ? as_execution_request(call_stack_item) : call_stack_item;
+    return preimage.hash();
 }
 
 }  // namespace aztec3::circuits::abis

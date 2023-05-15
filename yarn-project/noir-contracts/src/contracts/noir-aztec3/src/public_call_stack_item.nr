@@ -91,15 +91,12 @@ impl PublicCallStackItem {
     }
 
     fn hash(self) -> Field {
-        let mut hash_inputs = [0; 11];
-        hash_inputs[0] = self.contract_address;
-        hash_inputs[1] = self.function_data.hash();
-        hash_inputs[2] = self.public_inputs.call_context.hash();
-        for i in 0..crate::abi::MAX_ARGS {
-            hash_inputs[2 + i] = self.public_inputs.args[i];
-        }
-        
-        // TODO hash_index
-        dep::std::hash::pedersen(hash_inputs)[0]
+        dep::std::hash::pedersen([
+            // TODO hash_index
+            // FIXME - https://github.com/AztecProtocol/aztec-packages/issues/499
+            self.contract_address,
+            self.function_data.hash(),
+            self.public_inputs.hash(),
+        ])[0]
     }
 }
