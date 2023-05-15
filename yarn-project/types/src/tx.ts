@@ -43,7 +43,7 @@ export function isPrivateTx(tx: Tx): tx is PrivateTx {
  * The interface of an L2 transaction.
  */
 export class Tx {
-  private txHash?: TxHash;
+  private txHash?: Promise<TxHash>;
 
   /**
    * Creates a new private transaction.
@@ -156,14 +156,12 @@ export class Tx {
   async getTxHash(): Promise<TxHash> {
     if (this.isPrivate()) {
       // Private kernel functions are executed client side and for this reason tx hash is already set as first nullifier
-      const txHash = new TxHash(this.data?.end.newNullifiers[0]!.toBuffer());
-      return Promise.resolve(txHash);
+      const firstNullifier = this.data?.end.newNullifiers[0];
+      return new TxHash(firstNullifier.toBuffer());
     }
 
     if (this.isPublic()) {
-      if (!this.txHash) {
-        this.txHash = new TxHash(computeTxHash(await CircuitsWasm.get(), this.txRequest).toBuffer());
-      }
+      if (!this.txHash) this.txHash = getTxHashFromRequest(this.txRequest);
       return this.txHash;
     }
 
@@ -178,4 +176,8 @@ export class Tx {
   static async getHashes(txs: Tx[]): Promise<TxHash[]> {
     return await Promise.all(txs.map(tx => tx.getTxHash()));
   }
+}
+
+async function getTxHashFromRequest(txRequest: SignedTxRequest) {
+  return new TxHash(computeTxHash(await CircuitsWasm.get(), txRequest).toBuffer());
 }
