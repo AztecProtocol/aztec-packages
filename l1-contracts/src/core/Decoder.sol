@@ -72,6 +72,14 @@ contract Decoder {
   uint256 internal constant CONTRACTS_PER_KERNEL = 1;
   uint256 internal constant L1_TO_L2_MESSAGES_PER_ROLLUP = 16;
 
+  uint256 internal constant BASES = 2;
+  uint256 internal constant KERNELS = 2;
+  uint256 internal constant COMMITMENTS_PER_BASE = KERNELS * COMMITMENTS_PER_KERNEL;
+  uint256 internal constant NULLIFIERS_PER_BASE = KERNELS * NULLIFIERS_PER_KERNEL;
+  uint256 internal constant L2_TO_L1_MSGS_PER_BASE = KERNELS * L2_TO_L1_MSGS_PER_KERNEL;
+  uint256 internal constant PUBLIC_DATA_WRITES_PER_BASE = KERNELS * PUBLIC_DATA_WRITES_PER_KERNEL;
+  uint256 internal constant CONTRACTS_PER_BASE = KERNELS * CONTRACTS_PER_KERNEL;
+
   // Prime field order
   uint256 internal constant P =
     21888242871839275222246405745257275088548364400416034343698204186575808495617;
@@ -272,63 +280,44 @@ contract Decoder {
          */
         // Create the leaf to contain commitments (8 * 0x20) + nullifiers (8 * 0x20)
         // + new public data writes (8 * 0x40) + contract deployments (2 * 0x60)
-        bytes memory baseLeaf = new bytes(0x540);
 
-        assembly {
-          let dstOffset := 0x20
-          // Adding new commitments
-          calldatacopy(add(baseLeaf, dstOffset), add(_l2Block, mload(offsets)), mul(0x08, 0x20))
-          dstOffset := add(dstOffset, mul(0x08, 0x20))
+        bytes32[] memory baseLeaf = new bytes32[](42);
 
-          // Adding new nullifiers
-          calldatacopy(
-            add(baseLeaf, dstOffset), add(_l2Block, mload(add(offsets, 0x20))), mul(0x08, 0x20)
-          )
-          dstOffset := add(dstOffset, mul(0x08, 0x20))
+        for (uint256 j = 0; j < BASES; j++ ) {
+          uint256 offset = 0;
+          for (uint256 k = 0; k < COMMITMENTS_PER_KERNEL; k++) {
+            baseLeaf[j * COMMITMENTS_PER_KERNEL + k] = bytes32(_l2Block.newCommitments[i * COMMITMENTS_PER_BASE +  j * COMMITMENTS_PER_KERNEL + k]);
+          }
 
-          // Adding new public data writes
-          calldatacopy(
-            add(baseLeaf, dstOffset), add(_l2Block, mload(add(offsets, 0x40))), mul(0x08, 0x40)
-          )
-          dstOffset := add(dstOffset, mul(0x08, 0x40))
+          offset += KERNELS * COMMITMENTS_PER_KERNEL; // 8
+          for (uint256 k = 0; k < NULLIFIERS_PER_KERNEL; k++) {
+            baseLeaf[offset + j * NULLIFIERS_PER_KERNEL + k] = bytes32(_l2Block.newNullifiers[i * NULLIFIERS_PER_BASE + j * NULLIFIERS_PER_KERNEL + k]);
+          }
 
-          // Adding new l2 to l1 msgs
-          calldatacopy(
-            add(baseLeaf, dstOffset), add(_l2Block, mload(add(offsets, 0x60))), mul(0x04, 0x20)
-          )
-          dstOffset := add(dstOffset, mul(0x04, 0x20))
+          offset += KERNELS * NULLIFIERS_PER_KERNEL; // 16
+          for (uint256 k = 0; k < PUBLIC_DATA_WRITES_PER_KERNEL; k++) {
+            PublicDataWrite memory write = _l2Block.newPublicDataWrites[i * PUBLIC_DATA_WRITES_PER_BASE + j * PUBLIC_DATA_WRITES_PER_KERNEL + k];
 
-          // Adding Contract Leafs
-          calldatacopy(
-            add(baseLeaf, dstOffset), add(_l2Block, mload(add(offsets, 0x80))), mul(0x2, 0x20)
-          )
-          dstOffset := add(dstOffset, mul(2, 0x20))
+            baseLeaf[offset + j * 2 * PUBLIC_DATA_WRITES_PER_KERNEL + k * 2] = bytes32(write.leafIndex);
+            baseLeaf[offset + j * 2 * PUBLIC_DATA_WRITES_PER_KERNEL + k * 2 + 1] = bytes32(write.newValue);
+          }
 
-          // Kernel1.contract.aztecAddress
-          let contractDataOffset := mload(add(offsets, 0xa0))
-          calldatacopy(add(baseLeaf, dstOffset), add(_l2Block, contractDataOffset), 0x20)
-          dstOffset := add(dstOffset, 0x20)
+          offset += KERNELS * 2 * PUBLIC_DATA_WRITES_PER_KERNEL; // 32
+          for (uint256 k = 0; k < L2_TO_L1_MSGS_PER_KERNEL; k++) {
+            baseLeaf[offset + j * L2_TO_L1_MSGS_PER_KERNEL + k] = bytes32(_l2Block.newL2ToL1msgs[ i *  L2_TO_L1_MSGS_PER_BASE + j * L2_TO_L1_MSGS_PER_KERNEL + k]);
+          }
+          
+          offset += KERNELS * L2_TO_L1_MSGS_PER_KERNEL; // 36
+          for (uint256 k = 0; k < CONTRACTS_PER_KERNEL; k++) {
+            baseLeaf[offset + j * CONTRACTS_PER_KERNEL + k] = bytes32(_l2Block.newContract[i * CONTRACTS_PER_BASE + j * CONTRACTS_PER_KERNEL + k]);
 
-          // Kernel1.contract.ethAddress padded to 32 bytes
-          calldatacopy(add(baseLeaf, dstOffset), add(_l2Block, add(contractDataOffset, 0x20)), 0x20)
-          dstOffset := add(dstOffset, 0x20)
-
-          // Kernel2.contract.aztecAddress
-          calldatacopy(add(baseLeaf, dstOffset), add(_l2Block, add(contractDataOffset, 0x40)), 0x20)
-          dstOffset := add(dstOffset, 0x20)
-
-          // Kernel2.contract.ethAddress padded to 32 bytes
-          calldatacopy(add(baseLeaf, dstOffset), add(_l2Block, add(contractDataOffset, 0x60)), 0x20)
+            ContractData memory contractData = _l2Block.newContractData[i * CONTRACTS_PER_BASE + j * CONTRACTS_PER_KERNEL + k];
+            baseLeaf[offset + 2 * CONTRACTS_PER_KERNEL + j * 2 * CONTRACTS_PER_KERNEL + k * 2] = bytes32(contractData.aztecAddress);
+            baseLeaf[offset + 2 * CONTRACTS_PER_KERNEL + j * 2 * CONTRACTS_PER_KERNEL + k * 2 + 1] = bytes32(uint256(uint160(contractData.portalAddress)));
+          }
         }
-
-        offsets.commitmentOffset += 2 * COMMITMENTS_PER_KERNEL * 0x20;
-        offsets.nullifierOffset += 2 * NULLIFIERS_PER_KERNEL * 0x20;
-        offsets.publicDataOffset += 2 * PUBLIC_DATA_WRITES_PER_KERNEL * 0x40;
-        offsets.l2ToL1MsgsOffset += 2 * L2_TO_L1_MSGS_PER_KERNEL * 0x20;
-        offsets.contractOffset += 2 * 0x20;
-        offsets.contractDataOffset += 2 * 0x40;
-
-        baseLeafs[i] = sha256(baseLeaf);
+        
+        baseLeafs[i] = sha256(abi.encodePacked(baseLeaf));
       }
     }
 
