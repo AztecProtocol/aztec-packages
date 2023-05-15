@@ -5,8 +5,11 @@ pragma solidity >=0.8.18;
 import {MockVerifier} from "@aztec/mock/MockVerifier.sol";
 import {Decoder} from "./Decoder.sol";
 
-import {IInbox} from "@aztec/interfaces/IInbox.sol";
-import {MockInbox} from "@aztec/mock/MockInbox.sol";
+import {IInbox} from "@aztec/interfaces/message_bridge/IInbox.sol";
+// Messaging
+import {Inbox} from "@aztec/core/messagebridge/Inbox.sol";
+import {Registry} from "@aztec/core/messagebridge/Registry.sol";
+import {Outbox} from "@aztec/core/messagebridge/Outbox.sol";
 
 /**
  * @title Rollup
@@ -23,12 +26,21 @@ contract Rollup is Decoder {
   event L2BlockProcessed(uint256 indexed blockNum);
 
   MockVerifier public immutable VERIFIER;
-  IInbox public immutable INBOX;
+  Registry public immutable REGISTRY;
+  Inbox public immutable INBOX;
+  Outbox public immutable OUTBOX;
+
   bytes32 public rollupStateHash;
 
   constructor() {
     VERIFIER = new MockVerifier();
-    INBOX = new MockInbox(); 
+
+    // TODO(maddiaa): refector deploying each of these, this is just quick n easy
+    REGISTRY = new Registry();
+    INBOX = new Inbox(address(REGISTRY));
+    OUTBOX = new Outbox(address(REGISTRY));
+
+    REGISTRY.setAddresses(address(this), address(INBOX), address(OUTBOX));
   }
 
   /**

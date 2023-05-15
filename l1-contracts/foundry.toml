@@ -10,8 +10,8 @@ remappings = [
   "@aztec/periphery/=src/periphery/",
   "@aztec/mock/=src/mock/",
   "@aztec/interfaces/=src/interfaces/",
-  "@aztec/verifier/=lib/aztec-verifier-contracts/src/"
-  "@aztec/mocks/=/src/mock/",
+  "@aztec/verifier/=lib/aztec-verifier-contracts/src/",
+  "@aztec/mocks/=/src/mock/"
 ]
 
 # See more config options https://github.com/foundry-rs/foundry/tree/master/config

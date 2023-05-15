@@ -2,7 +2,8 @@
 // Copyright 2023 Aztec Labs.
 pragma solidity >=0.8.18;
 
-import {IRegistryReader} from "./IRegistryReader.sol";
+import {IRegistryReader} from "@aztec/interfaces/message_bridge/IRegistryReader.sol";
+import {IMessageBox} from "@aztec/interfaces/message_bridge/IMessageBox.sol";
 
 /**
  * @title MessageBox

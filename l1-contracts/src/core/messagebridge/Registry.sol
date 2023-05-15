@@ -2,7 +2,11 @@
 // Copyright 2023 Aztec Labs.
 pragma solidity >=0.8.18;
 
-import {IRegistryReader} from "./IRegistryReader.sol";
+import {IRegistryReader} from "@aztec/interfaces/message_bridge/IRegistryReader.sol";
+
+import {IRollup} from "@aztec/interfaces/IRollup.sol";
+import {IInbox} from "@aztec/interfaces/message_bridge/IInbox.sol";
+import {IOutbox} from "@aztec/interfaces/message_bridge/IOutbox.sol";
 
 /**
  * @title Registry
@@ -23,5 +27,17 @@ contract Registry is IRegistryReader {
   // get the addresses in a getter function:
   function getL1L2Addresses() external view override returns (L1L2Addresses memory) {
     return addresses;
+  }
+
+  function getRollupAddress() external view override returns (IRollup) {
+    return IRollup(addresses.rollup);
+  }
+
+  function getInboxAddress() external view override returns (IInbox) {
+    return IInbox(addresses.inbox);
+  }
+
+  function getOutboxAddress() external view override returns (IOutbox) {
+    return IOutbox(addresses.outbox);
   }
 }
