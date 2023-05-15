@@ -153,11 +153,11 @@ export class Tx {
    * Construct & return transaction hash.
    * @returns The transaction's hash.
    */
-  async getTxHash(): Promise<TxHash> {
+  getTxHash(): Promise<TxHash> {
     if (this.isPrivate()) {
       // Private kernel functions are executed client side and for this reason tx hash is already set as first nullifier
       const firstNullifier = this.data?.end.newNullifiers[0];
-      return new TxHash(firstNullifier.toBuffer());
+      return Promise.resolve(new TxHash(firstNullifier.toBuffer()));
     }
 
     if (this.isPublic()) {
@@ -178,6 +178,11 @@ export class Tx {
   }
 }
 
+/**
+ * Calculates the hash based on a SignedTxRequest.
+ * @param txRequest - The SignedTxRequest.
+ * @returns The tx hash.
+ */
 async function getTxHashFromRequest(txRequest: SignedTxRequest) {
   return new TxHash(computeTxHash(await CircuitsWasm.get(), txRequest).toBuffer());
 }
