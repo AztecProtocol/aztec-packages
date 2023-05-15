@@ -41,12 +41,12 @@ interface IMessageBox {
    * @param _entryKey - The key to lookup
    * @return The entry matching the provided key
    */
-  function get(bytes32 _entryKey) external view returns (Entry memory); 
+  function get(bytes32 _entryKey) external view returns (Entry memory);
 
   /**
    * @notice Check if entry exists
    * @param _entryKey - The key to lookup
    * @return True if entry exists, false otherwise
    */
-  function contains(bytes32 _entryKey) external view returns (bool); 
+  function contains(bytes32 _entryKey) external view returns (bool);
 }

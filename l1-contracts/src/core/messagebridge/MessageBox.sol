@@ -48,7 +48,7 @@ abstract contract MessageBox {
   mapping(bytes32 entryKey => Entry entry) internal entries;
 
   modifier onlyRollup() {
-    if (msg.sender != registry.getL1L2Addresses().rollup) revert MessageBox__Unauthorized();
+    if (msg.sender != address(registry.getRollupAddress())) revert MessageBox__Unauthorized();
     _;
   }
 

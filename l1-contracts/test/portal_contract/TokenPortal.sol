@@ -8,7 +8,6 @@ import {IRegistryReader} from "@aztec/interfaces/message_bridge/IRegistryReader.
 import {IInbox} from "@aztec/interfaces/message_bridge/IInbox.sol";
 import {IMessageBox} from "@aztec/interfaces/message_bridge/IMessageBox.sol";
 
-
 contract TokenPortal {
   using SafeERC20 for IERC20;
 
@@ -21,20 +20,17 @@ contract TokenPortal {
   }
 
   // TODO: Portal contract mapping !
-  function depositToAztec(
-    bytes32 _to,
-    uint256 _amount,
-    uint32 _deadline,
-    bytes32 _secretHash
-  ) external payable returns (bytes32) {
+  function depositToAztec(bytes32 _to, uint256 _amount, uint32 _deadline, bytes32 _secretHash)
+    external
+    payable
+    returns (bytes32)
+  {
     IInbox inbox = REGISTRY.getInboxAddress();
 
     // TODO: return the version from the registry
     IMessageBox.L2Actor memory actor = IMessageBox.L2Actor(_to, 1);
-    
-    bytes memory content = abi.encode(
-      _to, _amount
-    );
+
+    bytes memory content = abi.encode(_to, _amount);
     bytes32 contentHash = sha256(content);
     UNDERLYING.safeTransferFrom(msg.sender, address(this), _amount);
     // Value is the eth fee of the transfer (do we want this to be in a native asset)?

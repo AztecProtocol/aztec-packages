@@ -36,14 +36,14 @@ interface IOutbox is IMessageBox {
    * @param _message - The L2 to L1 message
    * @return The key of the entry in the set
    */
-  function computeEntryKey(L2ToL1Msg memory _message) external returns (bytes32); 
+  function computeEntryKey(L2ToL1Msg memory _message) external returns (bytes32);
 
   /**
    * @notice Inserts an array of entries into the Outbox
    * @dev Only callable by the rollup contract
    * @param _entryKey - Array of entry keys (hash of the message) - computed by the L2 counterpart and sent to L1 via rollup block
    */
-  function sendL1Messages(bytes32[] memory _entryKey) external; 
+  function sendL1Messages(bytes32[] memory _entryKey) external;
 
   /**
    * @notice Consumes an entry from the Outbox
@@ -52,5 +52,5 @@ interface IOutbox is IMessageBox {
    * @param _message - The L2 to L1 message
    * @return entryKey - The key of the entry removed
    */
-  function consume(L2ToL1Msg memory _message) external returns (bytes32 entryKey); 
+  function consume(L2ToL1Msg memory _message) external returns (bytes32 entryKey);
 }
