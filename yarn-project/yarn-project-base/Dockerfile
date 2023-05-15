@@ -35,6 +35,7 @@ COPY l1-artifacts/package.json l1-artifacts/package.json
 COPY barretenberg.js/package.json barretenberg.js/package.json
 COPY circuits.js/package.json circuits.js/package.json
 COPY p2p/package.json p2p/package.json
+COPY p2p-bootstrap/package.json p2p-bootstrap/package.json
 COPY prover-client/package.json prover-client/package.json
 COPY rollup-provider/package.json rollup-provider/package.json
 COPY sequencer-client/package.json sequencer-client/package.json
