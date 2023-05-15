@@ -1,5 +1,7 @@
 import { LeafData, SiblingPath } from '@aztec/merkle-tree';
 import { MerkleTreeId } from '@aztec/types';
+import { LowNullifierWitnessData } from './merkle_trees.js';
+import { Fr } from '@aztec/circuits.js';
 
 export * from './merkle_trees.js';
 export { LeafData } from '@aztec/merkle-tree';
@@ -142,6 +144,24 @@ export interface MerkleTreeOperations {
    * the current roots of the corresponding trees (CONTRACT_TREE, PRIVATE_DATA_TREE, L1_TO_L2_MESSAGES_TREE).
    */
   updateHistoricRootsTrees(): Promise<void>;
+
+  /**
+   * Batch inserts leaves into the nullifier tree.
+   * @param leaves - Values to insert into the tree.
+   * @returns The witness data for the leaves to be updated when inserting the new ones.
+   */
+  performBaseRollupBatchInsertionProofs(
+    leaves: Buffer[],
+  ): Promise<[LowNullifierWitnessData[], Fr[]] | [undefined, Fr[]]>;
+
+  /**
+   * Helper function to find the sibling path of a subtree.
+   * @param treeId - Tree ID to perform the search on.
+   * @param subtreeHeight - Height of the subtree we're getting.
+   * @param includeUncommitted - Indicates whether to include uncommitted data.
+   * @returns The Path to the sibling subtree root.
+   */
+  getSubtreeSiblingPath(treeId: MerkleTreeId, subtreeHeight: number): Promise<Fr[]>;
 }
 
 /**

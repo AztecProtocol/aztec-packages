@@ -1,6 +1,7 @@
 import { SiblingPath } from '@aztec/merkle-tree';
-import { LeafData, MerkleTreeDbOperations, MerkleTreeOperations, TreeInfo } from '../index.js';
+import { LeafData, LowNullifierWitnessData, MerkleTreeDbOperations, MerkleTreeOperations, TreeInfo } from '../index.js';
 import { MerkleTreeId } from '@aztec/types';
+import { Fr } from '@aztec/circuits.js';
 
 /**
  * Wraps a MerkleTreeDbOperations to call all functions with a preset includeUncommitted flag.
@@ -108,7 +109,29 @@ export class MerkleTreeOperationsFacade implements MerkleTreeOperations {
    * the current roots of the corresponding trees (CONTRACT_TREE, PRIVATE_DATA_TREE).
    * @returns Empty promise.
    */
-  public updateHistoricRootsTrees(): Promise<void> {
+  updateHistoricRootsTrees(): Promise<void> {
     return this.trees.updateHistoricRootsTrees(this.includeUncommitted);
+  }
+
+  /**
+   * Batch inserts leaves into the nullifier tree.
+   * @param leaves - Values to insert into the tree.
+   * @returns The witness data for the leaves to be updated when inserting the new ones.
+   */
+  performBaseRollupBatchInsertionProofs(
+    leaves: Buffer[],
+  ): Promise<[LowNullifierWitnessData[], Fr[]] | [undefined, Fr[]]> {
+    return this.trees.performBaseRollupBatchInsertionProofs(leaves, this.includeUncommitted);
+  }
+
+  /**
+   * Helper function to find the sibling path of a subtree.
+   * @param treeId - Tree ID to perform the search on.
+   * @param subtreeHeight - Height of the subtree we're getting.
+   * @param includeUncommitted - Indicates whether to include uncommitted data.
+   * @returns The Path to the sibling subtree root.
+   */
+  getSubtreeSiblingPath(treeId: MerkleTreeId, subtreeHeight: number): Promise<Fr[]> {
+    return this.trees.getSubtreeSiblingPath(treeId, subtreeHeight, this.includeUncommitted);
   }
 }
