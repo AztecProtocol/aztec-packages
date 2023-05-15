@@ -10,14 +10,14 @@ contract Child {
     fn constructor(
         inputs: pub Inputs,
     ) -> pub [Field; dep::aztec3::abi::PUBLIC_INPUTS_LENGTH] {
-        PrivateFunctionContext::new().finish(inputs)
+        PrivateFunctionContext::new(inputs.call_context).finish(inputs)
     }
 
     fn value(
         inputs: pub Inputs,
         input: pub Field,
     ) -> pub [Field; dep::aztec3::abi::PUBLIC_INPUTS_LENGTH] {
-        let mut context = PrivateFunctionContext::new();
+        let mut context = PrivateFunctionContext::new(inputs.call_context);
         context.args = context.args.push(input);
 
         context.return_values = context.return_values.push(input + 42);

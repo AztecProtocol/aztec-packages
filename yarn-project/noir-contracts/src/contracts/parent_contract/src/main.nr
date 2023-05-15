@@ -10,7 +10,7 @@ contract Parent {
     fn constructor(
         inputs: pub Inputs,
     ) -> pub [Field; dep::aztec3::abi::PUBLIC_INPUTS_LENGTH] {
-        PrivateFunctionContext::new().finish(inputs)
+        PrivateFunctionContext::new(inputs.call_context).finish(inputs)
     }
 
     fn entryPoint(
@@ -18,7 +18,7 @@ contract Parent {
         targetContract: pub Field,
         targetSelector: pub Field,
     ) -> pub [Field; dep::aztec3::abi::PUBLIC_INPUTS_LENGTH] {
-        let mut initialContext = PrivateFunctionContext::new();
+        let mut initialContext = PrivateFunctionContext::new(inputs.call_context);
         initialContext.args = initialContext.args.push_array([targetContract, targetSelector]);
 
         let (callStackItem, mut context) = PrivateCallStackItem::call(targetContract, targetSelector, [0; dep::aztec3::abi::MAX_ARGS], initialContext);
@@ -46,7 +46,7 @@ contract Parent {
         targetSelector: pub Field,
         targetValue: pub Field,
     ) -> pub [Field; dep::aztec3::abi::PUBLIC_INPUTS_LENGTH] {
-        let mut initialContext = PrivateFunctionContext::new();
+        let mut initialContext = PrivateFunctionContext::new(inputs.call_context);
         initialContext.args = initialContext.args.push_array([targetContract, targetSelector, targetValue]);
 
         let mut args = [0; dep::aztec3::abi::MAX_ARGS];

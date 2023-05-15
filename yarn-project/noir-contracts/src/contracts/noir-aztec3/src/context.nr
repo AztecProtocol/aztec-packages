@@ -1,8 +1,10 @@
 use crate::types::vec::BoundedVec;
 use crate::abi;
+use crate::abi::CallContext;
 
 // When finished, one can call .finish() to convert back to the abi
 struct PrivateFunctionContext {
+    call_context: CallContext,
     args : BoundedVec<Field, abi::MAX_ARGS>,
     return_values : BoundedVec<Field, abi::MAX_RETURN_VALUES>,
     logs : BoundedVec<Field, abi::MAX_LOGS>,
@@ -16,8 +18,10 @@ struct PrivateFunctionContext {
 }
 
 impl PrivateFunctionContext {
-    fn new() -> PrivateFunctionContext {
+    fn new(call_context: CallContext) -> PrivateFunctionContext {
         PrivateFunctionContext {
+            call_context: call_context,
+
             args: BoundedVec::new(0),
             return_values: BoundedVec::new(0),
             logs: BoundedVec::new(0),
@@ -34,7 +38,7 @@ impl PrivateFunctionContext {
     // When noir uses user-defined serialization of fields, we can return public inputs instead
     fn finish(self, inputs: abi::Inputs) -> [Field; abi::PUBLIC_INPUTS_LENGTH] {
         let priv_circuit_pub_inputs = abi::PrivateCircuitPublicInputs {
-            call_context: inputs.call_context,
+            call_context: self.call_context,
             args: self.args.storage,
             return_values: self.return_values.storage,
             emitted_events: self.logs.storage,

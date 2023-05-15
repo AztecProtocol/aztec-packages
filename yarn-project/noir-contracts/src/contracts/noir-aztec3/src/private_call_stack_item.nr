@@ -68,8 +68,8 @@ impl PrivateCallStackItem {
                     is_static_call : fields[6] as bool,
 
                     msg_sender : fields[7],
-                    storage_contract_address : fields[8],
-                    portal_contract_address : fields[9],
+                    portal_contract_address : fields[8],
+                    storage_contract_address : fields[9],
                 },
                 // TODO handle the offsets as a variable incremented during extraction?
                 args: arr_copy_slice(fields, [0; crate::abi::MAX_ARGS], 10),
@@ -101,6 +101,11 @@ impl PrivateCallStackItem {
         constrain item.public_inputs.call_context.is_delegate_call == false;
         constrain item.public_inputs.call_context.is_static_call == false;
         constrain item.public_inputs.call_context.is_contract_deployment == false;
+
+        // These two should be checked by the kernel as well, so they may not be necessary; we add them as an extra safety check
+        // See discussion in https://github.com/AztecProtocol/aztec-packages/pull/546#discussion_r1193931252
+        constrain item.public_inputs.call_context.msg_sender == context.call_context.storage_contract_address;
+        constrain item.public_inputs.call_context.storage_contract_address == contract_address;
 
         context.private_call_stack = context.private_call_stack.push(item.hash());
 
