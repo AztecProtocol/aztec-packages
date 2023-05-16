@@ -22,7 +22,7 @@ contract TokenPortalTest is Test {
     rollup = new Rollup();
 
     portalERC20 = new PortalERC20();
-    tokenPortal = new TokenPortal(rollup.REGISTRY(), portalERC20);
+    tokenPortal = new TokenPortal(IRegistryReader(address(rollup.REGISTRY())), portalERC20);
 
     vm.deal(address(this), 100 ether);
   }
@@ -35,7 +35,8 @@ contract TokenPortalTest is Test {
 
     IMessageBox.L2Actor memory recipient = IMessageBox.L2Actor({actor: 0, version: uint256(0x1)});
 
-    bytes32 entryKey = IInbox(inbox).sendL2Message{value: 1 ether}(recipient, 0, 0, 0);
+    uint32 deadline = uint32(block.timestamp + 1 days);
+    bytes32 entryKey = IInbox(inbox).sendL2Message{value: 1 ether}(recipient, deadline, 0, 0);
 
     // Check that the message is in the inbox
     IMessageBox.Entry memory entry = IInbox(inbox).get(entryKey);
