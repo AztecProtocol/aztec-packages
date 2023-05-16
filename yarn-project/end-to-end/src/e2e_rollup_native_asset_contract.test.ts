@@ -18,6 +18,13 @@ const logger = createDebugLogger('aztec:e2e_rollup_native_asset_contract');
 
 const config = getConfigEnvVars();
 
+const sha256ToField = (buf: Buffer): Fr => {
+  // Prime order of BN254 curve
+  const p = BigInt('21888242871839275222246405745257275088548364400416034343698204186575808495617');
+  const tempContent = toBigIntBE(sha256(buf));
+  return Fr.fromBuffer(toBufferBE(tempContent % p, 32));
+};
+
 describe('e2e_rollup_native_asset_contract', () => {
   let node: AztecNode;
   let aztecRpcServer: AztecRPCServer;
@@ -90,7 +97,6 @@ describe('e2e_rollup_native_asset_contract', () => {
     const [owner] = accounts;
 
     await deployContract(initialBalance, pointToPublicKey(await aztecRpcServer.getAccountPublicKey(owner)));
-
     await expectBalance(owner, initialBalance);
 
     const ethOutAddress = EthAddress.random();
@@ -105,40 +111,32 @@ describe('e2e_rollup_native_asset_contract', () => {
 
     await tx.isMined(0, 0.1);
     const receipt = await tx.getReceipt();
-
     expect(receipt.status).toBe(TxStatus.MINED);
-
     await expectBalance(owner, initialBalance - withdrawAmount);
+
+    // 0x00f714ce, selector for "withdraw(uint256,address)"
+    const content = sha256ToField(
+      Buffer.concat([
+        Buffer.from([0x00, 0xf7, 0x14, 0xce]),
+        toBufferBE(withdrawAmount, 32),
+        ethOutAddress.toBuffer32(),
+      ]),
+    );
+    const contractInfo = await node.getContractInfo(contract.address);
+    // Compute the expected hash and see if it is what we saw in the block.
+    const entryKey = sha256ToField(
+      Buffer.concat([
+        contract.address.toBuffer(),
+        fr(1).toBuffer(), // aztec version
+        contractInfo?.portalContractAddress.toBuffer32() ?? Buffer.alloc(32, 0),
+        fr(1).toBuffer(), // chain id
+        content.toBuffer(),
+      ]),
+    );
 
     const blockNumber = await node.getBlockHeight();
     const blocks = await node.getBlocks(blockNumber, 1);
-    const contractInfo = await node.getContractInfo(contract.address);
-
-    // Prime order of BN254 curve
-    const p = BigInt('21888242871839275222246405745257275088548364400416034343698204186575808495617');
-
-    // 0x00f714ce, selector for "withdraw(uint256,address)"
-    const content_buffer = Buffer.concat([
-      Buffer.from([0x00, 0xf7, 0x14, 0xce]),
-      toBufferBE(withdrawAmount, 32),
-      ethOutAddress.toBuffer32(),
-    ]);
-    const temp_content = toBigIntBE(sha256(content_buffer));
-    const content = Fr.fromBuffer(toBufferBE(temp_content % p, 32));
-
-    // Compute the expected hash and see if it is what we saw in the block.
-    const message_buf = Buffer.concat([
-      contract.address.toBuffer(),
-      fr(1).toBuffer(), // aztec version
-      contractInfo?.portalContractAddress.toBuffer32() ?? Buffer.alloc(32, 0),
-      fr(1).toBuffer(), // chain id
-      content.toBuffer(),
-    ]);
-
-    const temp = toBigIntBE(sha256(message_buf));
-    const hash = Fr.fromBuffer(toBufferBE(temp % p, 32));
-
-    expect(blocks[0].newL2ToL1Msgs[0]).toEqual(hash);
+    expect(blocks[0].newL2ToL1Msgs[0]).toEqual(entryKey);
 
     // @todo @LHerskind Check that the message was inserted into the message box
     // @todo @LHerskind Call function on L1 contract to consume the message
