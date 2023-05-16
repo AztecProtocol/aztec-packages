@@ -1,9 +1,16 @@
-import { CircuitsWasm, KernelCircuitPublicInputs, SignedTxRequest, UInt8Vector } from '@aztec/circuits.js';
+import {
+  CircuitsWasm,
+  KernelCircuitPublicInputs,
+  PublicCallRequest,
+  SignedTxRequest,
+  UInt8Vector,
+} from '@aztec/circuits.js';
 import { computeTxHash } from '@aztec/circuits.js/abis';
 
 import { TxHash } from './tx_hash.js';
 import { UnverifiedData } from './unverified_data.js';
 import { EncodedContractFunction } from './contract_data.js';
+import { arrayNonEmptyLength } from '@aztec/foundation/collection';
 
 /**
  * Defines valid fields for a private transaction.
@@ -58,7 +65,7 @@ export class Tx {
     data: KernelCircuitPublicInputs,
     proof: UInt8Vector,
     unverifiedData: UnverifiedData,
-    newContractPublicFunctions: EncodedContractFunction[] | undefined,
+    newContractPublicFunctions: EncodedContractFunction[],
     enqueuedPublicFunctionCalls: PublicCallRequest[],
   ): PrivateTx {
     return new this(

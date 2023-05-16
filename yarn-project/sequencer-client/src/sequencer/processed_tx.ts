@@ -67,7 +67,7 @@ export async function makeEmptyProcessedTx(historicTreeRoots: CombinedHistoricTr
   const emptyProof = makeEmptyProof();
 
   // TODO: What should be the hash of an empty tx?
-  const emptyTx = Tx.createPrivate(emptyKernelOutput, emptyProof, new UnverifiedData([]), undefined);
+  const emptyTx = Tx.createPrivate(emptyKernelOutput, emptyProof, new UnverifiedData([]), [], []);
   const hash = await emptyTx.getTxHash();
 
   return { hash, data: emptyKernelOutput, proof: emptyProof, isEmpty: true };
