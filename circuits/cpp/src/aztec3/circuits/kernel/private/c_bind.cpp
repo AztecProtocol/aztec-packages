@@ -110,7 +110,6 @@ WASM_EXPORT uint8_t* private_kernel__sim(uint8_t const* signed_tx_request_buf,
     }
 
     PrivateKernelInputsInner<NT> const private_inputs = PrivateKernelInputsInner<NT>{
-        .signed_tx_request = signed_tx_request,
         .previous_kernel = previous_kernel,
         .private_call = private_call_data,
     };
@@ -129,6 +128,7 @@ WASM_EXPORT uint8_t* private_kernel__sim(uint8_t const* signed_tx_request_buf,
     return composer.alloc_and_serialize_first_failure();
 }
 
+// jeanmon: only support inner variant
 // returns size of proof data
 WASM_EXPORT size_t private_kernel__prove(uint8_t const* signed_tx_request_buf,
                                          uint8_t const* previous_kernel_buf,
@@ -166,7 +166,6 @@ WASM_EXPORT size_t private_kernel__prove(uint8_t const* signed_tx_request_buf,
         read(previous_kernel_buf, previous_kernel);
     }
     PrivateKernelInputsInner<NT> const private_inputs = PrivateKernelInputsInner<NT>{
-        .signed_tx_request = signed_tx_request,
         .previous_kernel = previous_kernel,
         .private_call = private_call_data,
     };

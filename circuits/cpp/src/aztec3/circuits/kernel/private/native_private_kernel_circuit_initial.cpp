@@ -2,6 +2,7 @@
 
 #include "aztec3/circuits/abis/new_contract_data.hpp"
 #include "aztec3/circuits/abis/private_kernel/private_kernel_inputs_init.hpp"
+#include "aztec3/circuits/kernel/private/init.hpp"
 
 using aztec3::circuits::abis::NewContractData;
 using aztec3::circuits::abis::private_kernel::PrivateKernelInputsInit;
@@ -238,6 +239,12 @@ KernelCircuitPublicInputs<NT> native_private_kernel_circuit(DummyComposer& compo
 
     common_validate_call_stack<PrivateKernelInputsInit<NT>>(composer, private_inputs);
 
+    // Nonce nullifier
+    // DANGER: This is terrible. This should not be part of the protocol. This is an intentional bodge to reach a
+    // milestone. This must not be the way we derive nonce nullifiers in production. It can be front-run by other
+    // users. It is not domain separated. Naughty.
+    array_push(public_inputs.end.new_nullifiers, private_inputs.signed_tx_request.tx_request.nonce);
+
     common_update_end_values<PrivateKernelInputsInit<NT>>(composer, private_inputs, public_inputs);
 
     contract_logic(composer, private_inputs, public_inputs);
@@ -250,11 +257,10 @@ KernelCircuitPublicInputs<NT> native_private_kernel_circuit(DummyComposer& compo
 
     // TODO: kernel vk membership check!
 
-    // Note: given that we skipped the verify_proof function, the aggregation object we get at the end will just be the
-    // same as we had at the start. public_inputs.end.aggregation_object = aggregation_object;
-
-    // TODO (jeanmon): Let us clarify with Suyash on how to init the aggregation object
-    public_inputs.end.aggregation_object = private_inputs.previous_kernel.public_inputs.end.aggregation_object;
+    // In the native version, as there is no verify_proofs call, we can initialize aggregation object with the default
+    // constructor.
+    NT::AggregationObject empty_aggregation_object{};
+    public_inputs.end.aggregation_object = empty_aggregation_object;
 
     return public_inputs;
 };

@@ -79,14 +79,7 @@ template <typename KernelPrivateInput> void common_update_end_values(DummyCompos
 
     const auto& storage_contract_address = private_call_public_inputs.call_context.storage_contract_address;
 
-    {
-        // Nonce nullifier
-        // DANGER: This is terrible. This should not be part of the protocol. This is an intentional bodge to reach a
-        // milestone. This must not be the way we derive nonce nullifiers in production. It can be front-run by other
-        // users. It is not domain separated. Naughty.
-        array_push(public_inputs.end.new_nullifiers, private_inputs.signed_tx_request.tx_request.nonce);
-    }
-
+    // Enhance commitments and nullifiers with domain separation whereby domain is the contract.
     {  // commitments & nullifiers
         std::array<NT::fr, NEW_COMMITMENTS_LENGTH> siloed_new_commitments;
         for (size_t i = 0; i < new_commitments.size(); ++i) {

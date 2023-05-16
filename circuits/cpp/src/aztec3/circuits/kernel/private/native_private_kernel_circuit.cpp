@@ -226,8 +226,6 @@ void validate_inputs(DummyComposer& composer, PrivateKernelInputsInner<NT> const
     // iterating 2^254 times isn't feasible.
 
     NT::fr const start_private_call_stack_length = array_length(start.private_call_stack);
-    NT::fr const start_public_call_stack_length = array_length(start.public_call_stack);
-    NT::fr const start_new_l2_to_l1_msgs_length = array_length(start.new_l2_to_l1_msgs);
 
     // is_recursive_case
 

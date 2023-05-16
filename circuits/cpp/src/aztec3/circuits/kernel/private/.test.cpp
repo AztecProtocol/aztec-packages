@@ -160,6 +160,14 @@ std::shared_ptr<NT::VK> gen_func_vk(bool is_constructor, private_function const&
     return dummy_composer.compute_verification_key();
 }
 
+// JEAMON: Most of the current tests should call this variant (init case)
+PrivateKernelInputsInner<NT> do_private_call_get_kernel_inputs_init(bool const is_constructor,
+                                                                    private_function const& func,
+                                                                    std::vector<NT::fr> const& args_vec,
+                                                                    bool real_kernel_circuit = false)
+{}
+
+
 /**
  * @brief Perform a private circuit call and generate the inputs to private kernel
  *
@@ -168,10 +176,10 @@ std::shared_ptr<NT::VK> gen_func_vk(bool is_constructor, private_function const&
  * @param args_vec the private call's args
  * @return PrivateInputs<NT> - the inputs to the private call circuit
  */
-PrivateKernelInputsInner<NT> do_private_call_get_kernel_inputs(bool const is_constructor,
-                                                               private_function const& func,
-                                                               std::vector<NT::fr> const& args_vec,
-                                                               bool real_kernel_circuit = false)
+PrivateKernelInputsInner<NT> do_private_call_get_kernel_inputs_inner(bool const is_constructor,
+                                                                     private_function const& func,
+                                                                     std::vector<NT::fr> const& args_vec,
+                                                                     bool real_kernel_circuit = false)
 {
     //***************************************************************************
     // Initialize some inputs to private call and kernel circuits
