@@ -279,9 +279,10 @@ contract RollupNativeAsset {
     /// ABI getBalance type "unconstrained"
     fn getBalance(
         owner: Point,
+        _padding: [Field; dep::aztec3::abi::MAX_ARGS - 2]
     ) -> pub Field {
         let owner_balance = balances.at(owner.x);
-
+        
         balance_utils::get_balance(owner_balance.storage_slot)
     }
 }
