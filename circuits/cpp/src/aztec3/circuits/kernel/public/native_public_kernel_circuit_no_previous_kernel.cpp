@@ -63,7 +63,7 @@ void update_public_end_values(DummyComposer& composer,
     // Note: If the nullifiers array is not empty and `first_iteration` flag is correctly set a change was made and
     // we need to rework this
     composer.do_assert(is_array_empty(circuit_outputs.end.new_nullifiers),
-                       "new_nullifiers array must be empty",
+                       "new_nullifiers array must be empty in a first iteration of public kernel",
                        CircuitErrorCode::PUBLIC_KERNEL__NEW_NULLIFIERS_NOT_EMPTY_IN_FIRST_ITERATION);
 
     array_push(circuit_outputs.end.new_nullifiers, public_kernel_inputs.signed_tx_request.hash());

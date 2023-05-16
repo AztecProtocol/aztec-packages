@@ -207,7 +207,7 @@ void update_end_values(DummyComposer& composer,
 
         // If the nullifiers array is not empty a change was made and we need to rework this
         composer.do_assert(is_array_empty(new_nullifiers),
-                           "new_nullifiers array must be empty",
+                           "new_nullifiers array must be empty in a first iteration of private kernel",
                            CircuitErrorCode::PRIVATE_KERNEL__NEW_NULLIFIERS_NOT_EMPTY_IN_FIRST_ITERATION);
 
         array_push(public_inputs.end.new_nullifiers, private_inputs.signed_tx_request.hash());
