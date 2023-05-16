@@ -629,7 +629,7 @@ TEST(private_kernel_tests, native_registers_error_when_no_space_for_nullifier)
     auto private_inputs = do_private_call_get_kernel_inputs(false, deposit, { amount, asset_id, memo });
     array_push(private_inputs.previous_kernel.public_inputs.end.new_nullifiers, NT::fr::random_element());
 
-    DummyComposer composer;
+    DummyComposer composer = DummyComposer("private_kernel_tests__native_registers_error_when_no_space_for_nullifier");
     native_private_kernel_circuit(composer, private_inputs, true);
 
     ASSERT_EQ(composer.get_first_failure().code,
