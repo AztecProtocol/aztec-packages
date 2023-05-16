@@ -5,6 +5,7 @@ import { mplex } from '@libp2p/mplex';
 import { kadDHT } from '@libp2p/kad-dht';
 import { createEd25519PeerId, createFromProtobuf } from '@libp2p/peer-id-factory';
 import { createDebugLogger } from '@aztec/foundation/log';
+import { circuitRelayServer } from 'libp2p/circuit-relay';
 
 /**
  * Encapsulates a 'Bootstrap' node, used for the purpose of assisting new joiners in acquiring peers.
@@ -24,6 +25,11 @@ export class BootstrapNode {
     const peerId = peerIdPrivateKey
       ? await createFromProtobuf(Buffer.from(peerIdPrivateKey, 'hex'))
       : await createEd25519PeerId();
+    const relay = circuitRelayServer({
+      advertise: true,
+      maxInboundHopStreams: 100,
+      maxOutboundHopStreams: 100,
+    });
     const node = await createLibp2p({
       peerId,
       dht: kadDHT({
@@ -42,6 +48,7 @@ export class BootstrapNode {
         maxConnections: 200,
       },
       streamMuxers: [mplex()],
+      relay,
     });
     await node.start();
     this.logger(`lib p2p has started`);

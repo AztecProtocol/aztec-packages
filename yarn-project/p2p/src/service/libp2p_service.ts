@@ -15,6 +15,7 @@ import { P2PConfig } from '../config.js';
 import { Tx } from '@aztec/types';
 import { pipe } from 'it-pipe';
 import { Messages, createTransactionsMessage, decodeTransactionsMessage } from './messages.js';
+import { circuitRelayTransport } from 'libp2p/circuit-relay';
 
 const INITIAL_PEER_REFRESH_INTERVAL = 60000;
 
@@ -101,6 +102,9 @@ export class LibP2PService implements P2PService {
     const peerId = config.peerId
       ? await createFromProtobuf(Buffer.from(config.peerId, 'hex'))
       : await createEd25519PeerId();
+    const relayTransport = circuitRelayTransport({
+      discoverRelays: 5,
+    });
     const node = await createLibp2p({
       peerId,
       nat: {
@@ -112,7 +116,7 @@ export class LibP2PService implements P2PService {
       addresses: {
         listen: [`/ip4/${config.hostname ?? '0.0.0.0'}/tcp/${config.tcpListenPort}`],
       },
-      transports: [tcp()],
+      transports: [tcp(), relayTransport],
       connectionEncryption: [noise()],
       connectionManager: {
         minConnections: 10,
