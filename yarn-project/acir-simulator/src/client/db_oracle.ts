@@ -2,6 +2,7 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { FunctionAbi } from '@aztec/foundation/abi';
+import { L1ToL2Message } from '@aztec/types';
 
 /**
  * The format that noir contracts use to get notes.
@@ -18,6 +19,12 @@ export interface NoteLoadOracleInputs {
   /**
    * The index of the note in the merkle tree.
    */
+  index: bigint;
+}
+
+export interface MessageLoadOracleInputs {
+  message: Fr[];
+  siblingPath: Fr[];
   index: bigint;
 }
 
@@ -39,4 +46,5 @@ export interface DBOracle {
   }>;
   getFunctionABI(contractAddress: AztecAddress, functionSelector: Buffer): Promise<FunctionAbi>;
   getPortalContractAddress(contractAddress: AztecAddress): Promise<EthAddress>;
+  getL1ToL2Message(msgKey: Buffer): Promise<MessageLoadOracleInputs>;
 }

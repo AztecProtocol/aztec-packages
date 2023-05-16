@@ -49,7 +49,7 @@ export class PublicExecutor {
       callPrivateFunction: notAvailable,
       viewNotesPage: notAvailable,
       // TODO:
-      consumeL1ToL2Message: notAvailable,
+      getL1ToL2Message: notAvailable,
       storageRead: async ([slot]) => {
         const storageSlot = fromACVMField(slot);
         const value = await storageActions.read(storageSlot);

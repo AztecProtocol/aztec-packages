@@ -1,17 +1,30 @@
 
+use crate::abi::Inputs;
 use crate::types::point::Point;
+use crate::messaging::messaging_getter_data::L1ToL2MessageGetterData;
+use crate::messaging::messaging_getter_data::make_l1_to_l2_message_getter_data;
 
 // TODO: Still need to check that the secret hash -> note hash
 // this should be another pedersen generator ?
-global L1_MESSAGE_LEN = 7;
+global L1_MESSAGE_LEN = 8;
+
+global L1_MESSAGE_ORACLE_CALL_LENGTH = 18;
 
 // Checks is a msg is within the l1Msg tree
-#[oracle(consumeL1ToL2Message)]
-fn get_l1_to_l2_msg_oracle(_msg_key: Field) -> [Field; L1_MESSAGE_LEN] {}
+#[oracle(getL1ToL2Message)]
+fn get_l1_to_l2_msg_oracle(_msg_key: Field) -> [Field; L1_MESSAGE_ORACLE_CALL_LENGTH] {}
 
-unconstrained fn get_l1_to_l2_message(msg_key: Field) -> L1Message {
-    let returned_message = get_l1_to_l2_msg_oracle(msg_key);
-    L1Message::deserialize(returned_message)
+unconstrained fn get_l1_to_l2_message_call(msg_key: Field) -> [Field; L1_MESSAGE_ORACLE_CALL_LENGTH] {
+    get_l1_to_l2_msg_oracle(msg_key)
+}
+
+fn get_l1_to_l2_message(inputs: Inputs, msg_key: Field) -> L1ToL2MessageGetterData {
+    let returned_message = get_l1_to_l2_message_call(msg_key);
+    let msg = make_l1_to_l2_message_getter_data(returned_message, 0);
+
+    // Check tree roots against the inputs 
+    constrain msg.root == inputs.old_l1_to_l2_messages_tree_root;
+    msg
 }
 
 struct L1Message {

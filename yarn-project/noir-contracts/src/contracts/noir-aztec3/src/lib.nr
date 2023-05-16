@@ -16,3 +16,4 @@ global Nullifier = 5;
 global L1ToL2MessageSecret = 29;
 
 global PRIVATE_DATA_TREE_HEIGHT: comptime Field = 8;
+global L1_TO_L2_MESSAGES_TREE_HEIGHT: comptime Field = 8;

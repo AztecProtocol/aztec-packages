@@ -154,12 +154,12 @@ export class PrivateFunctionExecution {
 
         return toAcvmCallPrivateStackItem(childExecutionResult.callStackItem);
       },
+      // TODO: tidy up
+      getL1ToL2Message: ([msgKey]: ACVMField[]) => this.context.getL1ToL2Message(fromACVMField(msgKey).toBuffer()),
       viewNotesPage: notAvailable,
       storageRead: notAvailable,
       storageWrite: notAvailable,
       callPublicFunction: notAvailable,
-      // TODO:
-      consumeL1ToL2Message: notAvailable,
     });
 
     const publicInputs = extractPublicInputs(partialWitness, acir);

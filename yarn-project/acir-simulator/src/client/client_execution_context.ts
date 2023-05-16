@@ -70,4 +70,14 @@ export class ClientTxExecutionContext {
       notes: notes.concat(dummyNotes),
     };
   }
+
+  /**
+   * Fetches the a message from the db, given its key.
+   * @param msgKey - A buffer representing the message key.
+   * @returns The message data
+   */
+  public async getL1ToL2Message(msgKey: Buffer) {
+    const { message, siblingPath, index } = await this.db.getL1ToL2Message(msgKey);
+    return [...message.map(f => toACVMField(f)), ...siblingPath.map(f => toACVMField(f)), toACVMField(index)];
+  }
 }

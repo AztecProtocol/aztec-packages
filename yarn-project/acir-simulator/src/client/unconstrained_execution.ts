@@ -55,13 +55,13 @@ export class UnconstrainedFunctionExecution {
           frToNumber(fromACVMField(acvmLimit)),
           frToNumber(fromACVMField(acvmOffset)),
         ),
+      getL1ToL2Message: ([msgKey]: ACVMField[]) => this.context.getL1ToL2Message(fromACVMField(msgKey).toBuffer()),
       notifyCreatedNote: notAvailable,
       notifyNullifiedNote: notAvailable,
       callPrivateFunction: notAvailable,
       callPublicFunction: notAvailable,
       storageRead: notAvailable,
       storageWrite: notAvailable,
-      consumeL1ToL2Message: notAvailable,
     });
 
     const returnValues: ACVMField[] = selectReturnFlattened(acir, partialWitness);

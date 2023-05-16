@@ -52,16 +52,19 @@ contract NonNativeToken {
         context.args = context.args.push_array([amount, owner.x, owner.y, msg_key, secret]);
 
         // Get the l1 message from an oracle call
-        let msg = get_l1_to_l2_message(msg_key);
+        let msg = get_l1_to_l2_message(inputs, msg_key);
 
+        // TODO: maybe move these checks into the getter
         // Ensure that the hash secret lines up with the secret hash
         // TODO: change the pedersen seperator
-        let valid_secret_hash = msg.validate_message_secret(secret);
+        let valid_secret_hash = msg.message.validate_message_secret(secret);
         constrain valid_secret_hash == true;
 
         // TODO: hash the message content to ensure it is correct
-        let content_hash = 0;
-        constrain content_hash == msg.content_hash;
+        // TODO: check the content hash with sha
+        // let content_hash = 0;
+        // constrain content_hash == msg.message.content_hash;
+
         
         let owner_balance = balances.at(owner.x);
         let note = Note::new(amount, owner);
