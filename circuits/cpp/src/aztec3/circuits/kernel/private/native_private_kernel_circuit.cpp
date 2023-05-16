@@ -53,10 +53,7 @@ using aztec3::circuits::function_tree_root_from_siblings;
 //     return aggregation_object;
 // }
 
-void initialise_end_values(DummyComposer& composer,
-                           PrivateInputs<NT> const& private_inputs,
-                           KernelCircuitPublicInputs<NT>& public_inputs,
-                           bool first_iteration)
+void initialise_end_values(PrivateInputs<NT> const& private_inputs, KernelCircuitPublicInputs<NT>& public_inputs)
 {
     public_inputs.constants = private_inputs.previous_kernel.public_inputs.constants;
 
@@ -67,17 +64,6 @@ void initialise_end_values(DummyComposer& composer,
 
     end.new_commitments = start.new_commitments;
     end.new_nullifiers = start.new_nullifiers;
-
-    if (first_iteration) {
-        // Since it's the first iteration, we need to push the the tx hash nullifier into the `new_nullifiers` array
-
-        // If the nullifiers array is not empty a change was made and we need to rework this
-        composer.do_assert(is_array_empty(end.new_nullifiers),
-                           "new_nullifiers array must be empty",
-                           CircuitErrorCode::PRIVATE_KERNEL__NEW_NULLIFIERS_NOT_EMPTY_IN_FIRST_ITERATION);
-
-        array_push(end.new_nullifiers, private_inputs.signed_tx_request.hash());
-    }
 
     end.private_call_stack = start.private_call_stack;
     end.public_call_stack = start.public_call_stack;
@@ -194,7 +180,8 @@ void contract_logic(DummyComposer& composer,
 
 void update_end_values(DummyComposer& composer,
                        PrivateInputs<NT> const& private_inputs,
-                       KernelCircuitPublicInputs<NT>& public_inputs)
+                       KernelCircuitPublicInputs<NT>& public_inputs,
+                       bool first_iteration)
 {
     const auto private_call_public_inputs = private_inputs.private_call.call_stack_item.public_inputs;
 
@@ -214,6 +201,17 @@ void update_end_values(DummyComposer& composer,
     }
 
     const auto& storage_contract_address = private_call_public_inputs.call_context.storage_contract_address;
+
+    if (first_iteration) {
+        // Since it's the first iteration, we need to push the the tx hash nullifier into the `new_nullifiers` array
+
+        // If the nullifiers array is not empty a change was made and we need to rework this
+        composer.do_assert(is_array_empty(new_nullifiers),
+                           "new_nullifiers array must be empty",
+                           CircuitErrorCode::PRIVATE_KERNEL__NEW_NULLIFIERS_NOT_EMPTY_IN_FIRST_ITERATION);
+
+        array_push(public_inputs.end.new_nullifiers, private_inputs.signed_tx_request.hash());
+    }
 
     {
         // Nonce nullifier
@@ -379,7 +377,7 @@ KernelCircuitPublicInputs<NT> native_private_kernel_circuit(DummyComposer& compo
     KernelCircuitPublicInputs<NT> public_inputs{};
 
     // Do this before any functions can modify the inputs.
-    initialise_end_values(composer, private_inputs, public_inputs, first_iteration);
+    initialise_end_values(private_inputs, public_inputs);
 
     validate_inputs(composer, private_inputs, first_iteration);
 
@@ -389,7 +387,7 @@ KernelCircuitPublicInputs<NT> native_private_kernel_circuit(DummyComposer& compo
     // Noir doesn't have hash index so it can't hash private call stack item correctly
     // validate_this_private_call_stack(composer, private_inputs);
 
-    update_end_values(composer, private_inputs, public_inputs);
+    update_end_values(composer, private_inputs, public_inputs, first_iteration);
 
     contract_logic(composer, private_inputs, public_inputs);
 
