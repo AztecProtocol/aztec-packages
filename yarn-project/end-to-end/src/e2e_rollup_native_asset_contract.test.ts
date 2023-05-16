@@ -10,7 +10,6 @@ import { Fr, Point } from '@aztec/foundation/fields';
 import { toBigIntBE, toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { fr } from '@aztec/circuits.js/factories';
 import { sha256 } from '@aztec/foundation/crypto';
-import { sleep } from '@aztec/foundation/sleep';
 
 const MNEMONIC = 'test test test test test test test test test test test junk';
 
@@ -30,7 +29,8 @@ describe('e2e_rollup_native_asset_contract', () => {
   let aztecRpcServer: AztecRPCServer;
   let accounts: AztecAddress[];
   let contract: Contract;
-  let portalAddress: EthAddress;
+  // @todo @LHerskind While not deploying for real in here, use 0xbeef as portal
+  const portalAddress = EthAddress.fromString("0x000000000000000000000000000000000000beef");
 
   // @todo @LHerskind need to deploy an L1 contract as well to test this properly
   // the hacky way should let me check the block at least and see that something meaningful was inserted there.
@@ -47,8 +47,6 @@ describe('e2e_rollup_native_asset_contract', () => {
     node = await AztecNode.createAndSync(config);
     aztecRpcServer = await createAztecRpcServer(2, node);
     accounts = await aztecRpcServer.getAccounts();
-
-    portalAddress = EthAddress.random();
   }, 60_000);
 
   afterEach(async () => {
@@ -99,7 +97,7 @@ describe('e2e_rollup_native_asset_contract', () => {
     await deployContract(initialBalance, pointToPublicKey(await aztecRpcServer.getAccountPublicKey(owner)));
     await expectBalance(owner, initialBalance);
 
-    const ethOutAddress = EthAddress.random();
+    const ethOutAddress = EthAddress.fromString("0x000000000000000000000000000000000000dead");
 
     const tx = contract.methods
       .withdraw(
