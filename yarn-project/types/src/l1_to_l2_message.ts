@@ -4,6 +4,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { serializeToBuffer } from '@aztec/circuits.js/utils';
 import { sha256 } from '@aztec/foundation/crypto';
 import { toBigIntBE, toBufferBE } from '@aztec/foundation/bigint-buffer';
+import { assertLength } from '@aztec/circuits.js';
 
 // TODO: double check to buffer array calculations
 export class L1ToL2Message {
@@ -20,7 +21,9 @@ export class L1ToL2Message {
     public readonly deadline: number,
     /// The fee for the message.
     public readonly fee: number,
-  ) {}
+  ) {
+    assertLength(this, 'contentHash', 32);
+  }
 
   // TODO: sha256 hash of the message packed the same as solidity
   hash(): Fr {
@@ -46,6 +49,10 @@ export class L1ToL2Message {
   toBuffer(): Buffer {
     return serializeToBuffer(this.sender, this.recipient, this.contentHash, this.secretHash, this.deadline, this.fee);
   }
+
+  static empty(): L1ToL2Message {
+    return new L1ToL2Message(L1Actor.empty(), L2Actor.empty(), Buffer.alloc(32), Fr.ZERO, 0, 0);
+  }
 }
 
 export class L1Actor {
@@ -56,8 +63,8 @@ export class L1Actor {
     public readonly chainId: number,
   ) {}
 
-  static random() {
-    return new L1Actor(EthAddress.random(), Math.floor(Math.random() * 1000000));
+  static empty() {
+    return new L1Actor(EthAddress.ZERO, 0);
   }
 
   toFieldArray(): Fr[] {
@@ -77,8 +84,8 @@ export class L2Actor {
     public readonly version: number,
   ) {}
 
-  static random() {
-    return new L1Actor(EthAddress.random(), Math.floor(Math.random() * 1000000));
+  static empty() {
+    return new L2Actor(AztecAddress.ZERO, 0);
   }
 
   toFieldArray(): Fr[] {

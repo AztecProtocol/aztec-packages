@@ -137,12 +137,6 @@ export function toAcvmMessageLoadOracleInputs(
   messageLoadOracleInputs: MessageLoadOracleInputs,
   l1ToL2MessagesTreeRoot: Fr,
 ): ACVMField[] {
-  console.log('INSIDE THE ACVM: ', [
-    ...messageLoadOracleInputs.message.map(f => toACVMField(f)),
-    toACVMField(messageLoadOracleInputs.index),
-    ...messageLoadOracleInputs.siblingPath.map(f => toACVMField(f)),
-    toACVMField(l1ToL2MessagesTreeRoot),
-  ]);
   return [
     ...messageLoadOracleInputs.message.map(f => toACVMField(f)),
     toACVMField(messageLoadOracleInputs.index),
