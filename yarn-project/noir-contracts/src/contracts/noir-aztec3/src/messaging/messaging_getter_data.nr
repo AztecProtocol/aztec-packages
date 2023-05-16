@@ -13,11 +13,11 @@ fn l1_to_l2_message_getter_len() -> comptime Field {
     L1_MESSAGE_LEN + 1 + crate::L1_TO_L2_MESSAGES_TREE_HEIGHT + 1
 }
 
-fn make_l1_to_l2_message_getter_data(fields: [Field], start: comptime Field) -> L1ToL2MessageGetterData {
+fn make_l1_to_l2_message_getter_data(fields: [Field], start: comptime Field, secret: Field) -> L1ToL2MessageGetterData {
     L1ToL2MessageGetterData {
-        message: L1Message::deserialize(arr_copy_slice(fields, [0; L1_MESSAGE_LEN], start)),
-        sibling_path: arr_copy_slice(fields, [0; crate::L1_TO_L2_MESSAGES_TREE_HEIGHT], L1_MESSAGE_LEN),
-        leaf_index: fields[start + L1_MESSAGE_LEN + crate::L1_TO_L2_MESSAGES_TREE_HEIGHT],
-        root: fields[start + L1_MESSAGE_LEN + 1 + crate::L1_TO_L2_MESSAGES_TREE_HEIGHT],
+        message: L1Message::deserialize(arr_copy_slice(fields, [0; L1_MESSAGE_LEN], start), secret, fields[start + L1_MESSAGE_LEN]),
+        leaf_index: fields[start + L1_MESSAGE_LEN],
+        sibling_path: arr_copy_slice(fields, [0; crate::L1_TO_L2_MESSAGES_TREE_HEIGHT], L1_MESSAGE_LEN + 1),
+        root: fields[start + L1_MESSAGE_LEN + crate::L1_TO_L2_MESSAGES_TREE_HEIGHT + 1],
     }
 }

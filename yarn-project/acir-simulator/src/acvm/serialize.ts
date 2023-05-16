@@ -7,7 +7,7 @@ import {
   PrivateCallStackItem,
   PrivateCircuitPublicInputs,
 } from '@aztec/circuits.js';
-import { NoteLoadOracleInputs } from '../client/db_oracle.js';
+import { MessageLoadOracleInputs, NoteLoadOracleInputs } from '../client/db_oracle.js';
 import { Fr } from '@aztec/foundation/fields';
 
 // Utilities to write TS classes to ACVM Field arrays
@@ -111,6 +111,24 @@ export function toAcvmNoteLoadOracleInputs(
     toACVMField(noteLoadOracleInputs.index),
     ...noteLoadOracleInputs.siblingPath.map(f => toACVMField(f)),
     toACVMField(privateDataTreeRoot),
+  ];
+}
+
+export function toAcvmMessageLoadOracleInputs(
+  messageLoadOracleInputs: MessageLoadOracleInputs,
+  l1ToL2MessagesTreeRoot: Fr,
+): ACVMField[] {
+  console.log('INSIDE THE ACVM: ', [
+    ...messageLoadOracleInputs.message.map(f => toACVMField(f)),
+    toACVMField(messageLoadOracleInputs.index),
+    ...messageLoadOracleInputs.siblingPath.map(f => toACVMField(f)),
+    toACVMField(l1ToL2MessagesTreeRoot),
+  ]);
+  return [
+    ...messageLoadOracleInputs.message.map(f => toACVMField(f)),
+    toACVMField(messageLoadOracleInputs.index),
+    ...messageLoadOracleInputs.siblingPath.map(f => toACVMField(f)),
+    toACVMField(l1ToL2MessagesTreeRoot),
   ];
 }
 

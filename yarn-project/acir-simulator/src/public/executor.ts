@@ -48,6 +48,7 @@ export class PublicExecutor {
       notifyNullifiedNote: notAvailable,
       callPrivateFunction: notAvailable,
       viewNotesPage: notAvailable,
+      emitData: notAvailable,
       // TODO:
       getL1ToL2Message: notAvailable,
       storageRead: async ([slot]) => {
@@ -76,6 +77,8 @@ export class PublicExecutor {
         this.log(`Returning from nested call: ret=${childExecutionResult.returnValues.join(', ')}`);
         return padArrayEnd(childExecutionResult.returnValues, Fr.ZERO, NOIR_MAX_RETURN_VALUES).map(fr => fr.toString());
       },
+
+
     });
 
     const returnValues = selectPublicWitnessFlattened(acir, partialWitness).map(fromACVMField);
