@@ -11,7 +11,6 @@ import {DataStructures} from "../../libraries/DataStructures.sol";
  * Implements a multi-set storing the multiplicity (count for easy reading) at the entry.
  */
 interface IMessageBox {
-
   /**
    * @notice Fetch an entry
    * @param _entryKey - The key to lookup

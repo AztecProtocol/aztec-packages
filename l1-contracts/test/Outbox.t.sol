@@ -24,7 +24,11 @@ contract OutboxTest is Test {
     registry.setAddresses(rollup, address(0x0), address(outbox));
   }
 
-  function _helper_computeEntryKey(DataStructures.L2ToL1Msg memory message) internal pure returns (bytes32) {
+  function _helper_computeEntryKey(DataStructures.L2ToL1Msg memory message)
+    internal
+    pure
+    returns (bytes32)
+  {
     return bytes32(
       uint256(sha256(abi.encode(message.sender, message.recipient, message.content)))
         % 21888242871839275222246405745257275088548364400416034343698204186575808495617

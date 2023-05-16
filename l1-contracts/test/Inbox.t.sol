@@ -33,7 +33,11 @@ contract InboxTest is Test {
     registry.setAddresses(rollup, address(inbox), address(0x0));
   }
 
-  function _helper_computeEntryKey(DataStructures.L1ToL2Msg memory message) internal pure returns (bytes32) {
+  function _helper_computeEntryKey(DataStructures.L1ToL2Msg memory message)
+    internal
+    pure
+    returns (bytes32)
+  {
     return bytes32(
       uint256(
         sha256(
