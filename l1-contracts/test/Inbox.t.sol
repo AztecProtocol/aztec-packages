@@ -3,11 +3,13 @@
 pragma solidity >=0.8.18;
 
 import {Test} from "forge-std/Test.sol";
-import {IInbox} from "@aztec/interfaces/messagebridge/IInbox.sol";
+import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
 import {Inbox} from "@aztec/core/messagebridge/Inbox.sol";
-import {IMessageBox} from "@aztec/interfaces/messagebridge/IMessageBox.sol";
+import {IMessageBox} from "@aztec/core/interfaces/messagebridge/IMessageBox.sol";
 import {MessageBox} from "@aztec/core/messagebridge/MessageBox.sol";
 import {Registry} from "@aztec/core/messagebridge/Registry.sol";
+
+import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 
 contract InboxTest is Test {
   Inbox inbox;
@@ -31,7 +33,7 @@ contract InboxTest is Test {
     registry.setAddresses(rollup, address(inbox), address(0x0));
   }
 
-  function _helper_computeEntryKey(Inbox.L1ToL2Msg memory message) internal pure returns (bytes32) {
+  function _helper_computeEntryKey(DataStructures.L1ToL2Msg memory message) internal pure returns (bytes32) {
     return bytes32(
       uint256(
         sha256(
@@ -48,10 +50,10 @@ contract InboxTest is Test {
     );
   }
 
-  function _fakeMessage() internal view returns (Inbox.L1ToL2Msg memory) {
-    return IInbox.L1ToL2Msg({
-      sender: IMessageBox.L1Actor({actor: address(this), chainId: block.chainid}),
-      recipient: IMessageBox.L2Actor({
+  function _fakeMessage() internal view returns (DataStructures.L1ToL2Msg memory) {
+    return DataStructures.L1ToL2Msg({
+      sender: DataStructures.L1Actor({actor: address(this), chainId: block.chainid}),
+      recipient: DataStructures.L2Actor({
         actor: 0x2000000000000000000000000000000000000000000000000000000000000000,
         version: 1
       }),
@@ -62,9 +64,9 @@ contract InboxTest is Test {
     });
   }
 
-  function testFuzzSendL2Msg(Inbox.L1ToL2Msg memory message) public {
+  function testFuzzSendL2Msg(DataStructures.L1ToL2Msg memory message) public {
     // fix message.sender and deadline:
-    message.sender = IMessageBox.L1Actor({actor: address(this), chainId: block.chainid});
+    message.sender = DataStructures.L1Actor({actor: address(this), chainId: block.chainid});
     if (message.deadline <= block.timestamp) {
       message.deadline = uint32(block.timestamp + 100);
     }
@@ -92,7 +94,7 @@ contract InboxTest is Test {
   }
 
   function testSendMultipleSameL2Messages() public {
-    Inbox.L1ToL2Msg memory message = _fakeMessage();
+    DataStructures.L1ToL2Msg memory message = _fakeMessage();
     bytes32 entryKey1 = inbox.sendL2Message{value: message.fee}(
       message.recipient, message.deadline, message.content, message.secretHash
     );
@@ -111,7 +113,7 @@ contract InboxTest is Test {
   }
 
   function testRevertIfCancellingMessageFromDifferentAddress() public {
-    Inbox.L1ToL2Msg memory message = _fakeMessage();
+    DataStructures.L1ToL2Msg memory message = _fakeMessage();
     inbox.sendL2Message{value: message.fee}(
       message.recipient, message.deadline, message.content, message.secretHash
     );
@@ -121,7 +123,7 @@ contract InboxTest is Test {
   }
 
   function testRevertIfCancellingMessageWhenDeadlineHasntPassed() public {
-    Inbox.L1ToL2Msg memory message = _fakeMessage();
+    DataStructures.L1ToL2Msg memory message = _fakeMessage();
     inbox.sendL2Message{value: message.fee}(
       message.recipient, message.deadline, message.content, message.secretHash
     );
@@ -131,7 +133,7 @@ contract InboxTest is Test {
   }
 
   function testRevertIfCancellingNonExistentMessage() public {
-    Inbox.L1ToL2Msg memory message = _fakeMessage();
+    DataStructures.L1ToL2Msg memory message = _fakeMessage();
     bytes32 entryKey = _helper_computeEntryKey(message);
     vm.expectRevert(
       abi.encodeWithSelector(MessageBox.MessageBox__NothingToConsume.selector, entryKey)
@@ -140,7 +142,7 @@ contract InboxTest is Test {
   }
 
   function testCancelMessage() public {
-    Inbox.L1ToL2Msg memory message = _fakeMessage();
+    DataStructures.L1ToL2Msg memory message = _fakeMessage();
     address feeCollector = address(0x1);
     bytes32 expectedEntryKey = inbox.sendL2Message{value: message.fee}(
       message.recipient, message.deadline, message.content, message.secretHash
@@ -171,7 +173,7 @@ contract InboxTest is Test {
   }
 
   function testRevertIfOneKeyIsPastDeadlineWhenBatchConsuming() public {
-    Inbox.L1ToL2Msg memory message = _fakeMessage();
+    DataStructures.L1ToL2Msg memory message = _fakeMessage();
     bytes32 entryKey1 = inbox.sendL2Message{value: message.fee}(
       message.recipient, uint32(block.timestamp + 100), message.content, message.secretHash
     );
@@ -202,7 +204,7 @@ contract InboxTest is Test {
     inbox.batchConsume(entryKeys, address(0x1));
   }
 
-  function testBatchConsume(Inbox.L1ToL2Msg[] memory messages) public {
+  function testBatchConsume(DataStructures.L1ToL2Msg[] memory messages) public {
     bytes32[] memory entryKeys = new bytes32[](messages.length);
     uint256 expectedTotalFee = 0;
     address feeCollector = address(0x1);
@@ -210,9 +212,9 @@ contract InboxTest is Test {
 
     // insert messages:
     for (uint256 i = 0; i < messages.length; i++) {
-      Inbox.L1ToL2Msg memory message = messages[i];
+      DataStructures.L1ToL2Msg memory message = messages[i];
       // fix message.sender and deadline:
-      message.sender = IMessageBox.L1Actor({actor: address(this), chainId: block.chainid});
+      message.sender = DataStructures.L1Actor({actor: address(this), chainId: block.chainid});
       if (message.deadline <= block.timestamp) {
         message.deadline = uint32(block.timestamp + 100);
       }

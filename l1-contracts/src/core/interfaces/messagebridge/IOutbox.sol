@@ -2,7 +2,7 @@
 // Copyright 2023 Aztec Labs.
 pragma solidity >=0.8.18;
 
-import {IMessageBox} from "./IMessageBox.sol";
+import {DataStructures} from "../../libraries/DataStructures.sol";
 
 /**
  * @title IOutbox
@@ -10,19 +10,7 @@ import {IMessageBox} from "./IMessageBox.sol";
  * @notice Lives on L1 and is used to consume L2 -> L1 messages. Messages are inserted by the rollup contract
  * and will be consumed by the portal contracts.
  */
-interface IOutbox is IMessageBox {
-  /**
-   * @dev  struct for sending messages from L2 to L1
-   * @param sender - The sender of the message
-   * @param recipient - The recipient of the message
-   * @param content - The content of the message (application specific) padded to bytes32 or hashed if larger.
-   */
-  struct L2ToL1Msg {
-    L2Actor sender;
-    L1Actor recipient;
-    bytes32 content;
-  }
-
+interface IOutbox {
   // to make it easier for portal to know when to consume the message.
   event MessageAdded(bytes32 indexed entryKey);
 
@@ -33,7 +21,7 @@ interface IOutbox is IMessageBox {
    * @param _message - The L2 to L1 message
    * @return The key of the entry in the set
    */
-  function computeEntryKey(L2ToL1Msg memory _message) external returns (bytes32);
+  function computeEntryKey(DataStructures.L2ToL1Msg memory _message) external returns (bytes32);
 
   /**
    * @notice Inserts an array of entries into the Outbox
@@ -49,5 +37,5 @@ interface IOutbox is IMessageBox {
    * @param _message - The L2 to L1 message
    * @return entryKey - The key of the entry removed
    */
-  function consume(L2ToL1Msg memory _message) external returns (bytes32 entryKey);
+  function consume(DataStructures.L2ToL1Msg memory _message) external returns (bytes32 entryKey);
 }
