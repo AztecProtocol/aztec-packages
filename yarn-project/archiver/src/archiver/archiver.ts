@@ -137,22 +137,22 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource, ContractDa
 
     this.log(`Retrieved ${retrievedBlocks.retrievedData.length} block(s) from chain`);
 
-    // store retrieved rollup blocks
-    await this.store.addL2Blocks(retrievedBlocks.retrievedData);
-
     // store unverified chunks for which we have retrieved rollups
     await this.store.addUnverifiedData(
       retrievedUnverifiedData.retrievedData.slice(0, retrievedBlocks.retrievedData.length),
     );
 
     // store contracts for which we have retrieved rollups
-    const lastKnownRollupId = BigInt(this.store.getBlocksLength() + INITIAL_L2_BLOCK_NUM - 1);
-    retrievedContracts.retrievedData.forEach(async (contracts, index) => {
-      if (index <= lastKnownRollupId && contracts?.length) {
-        this.log(`Retrieved contract public data for rollup id: ${index}`);
-        await this.store.addL2ContractPublicData(contracts, index);
+    const lastKnownRollupId = retrievedBlocks.retrievedData[retrievedBlocks.retrievedData.length - 1].number;
+    retrievedContracts.retrievedData.forEach(async ([contracts, l2BlockNum], index) => {
+      this.log(`Retrieved contract public data for rollup id: ${index}`);
+      if (l2BlockNum <= lastKnownRollupId) {
+        await this.store.addL2ContractPublicData(contracts, l2BlockNum);
       }
     });
+
+    // store retrieved rollup blocks
+    await this.store.addL2Blocks(retrievedBlocks.retrievedData);
 
     // set the eth block for the next search
     this.nextL2BlockFromBlock = retrievedBlocks.nextEthBlockNumber;
