@@ -32,7 +32,7 @@ abstract contract MessageBox is IMessageBox {
   mapping(bytes32 entryKey => Entry entry) internal entries;
 
   modifier onlyRollup() {
-    if (msg.sender != REGISTRY.getL1L2Addresses().rollup) revert MessageBox__Unauthorized();
+    if (msg.sender != address(REGISTRY.getRollupAddress())) revert MessageBox__Unauthorized();
     _;
   }
 
