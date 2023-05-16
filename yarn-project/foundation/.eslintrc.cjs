@@ -69,6 +69,7 @@ module.exports = {
     '@typescript-eslint/no-floating-promises': 2,
     '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
     'require-await': 2,
+    'no-console': 'error',
     'no-constant-condition': 'off',
     camelcase: 2,
     'no-restricted-imports': [
