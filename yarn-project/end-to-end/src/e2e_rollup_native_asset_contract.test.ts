@@ -30,7 +30,7 @@ describe('e2e_rollup_native_asset_contract', () => {
   let accounts: AztecAddress[];
   let contract: Contract;
   // @todo @LHerskind While not deploying for real in here, use 0xbeef as portal
-  const portalAddress = EthAddress.fromString("0x000000000000000000000000000000000000beef");
+  const portalAddress = EthAddress.fromString('0x000000000000000000000000000000000000beef');
 
   // @todo @LHerskind need to deploy an L1 contract as well to test this properly
   // the hacky way should let me check the block at least and see that something meaningful was inserted there.
@@ -97,7 +97,7 @@ describe('e2e_rollup_native_asset_contract', () => {
     await deployContract(initialBalance, pointToPublicKey(await aztecRpcServer.getAccountPublicKey(owner)));
     await expectBalance(owner, initialBalance);
 
-    const ethOutAddress = EthAddress.fromString("0x000000000000000000000000000000000000dead");
+    const ethOutAddress = EthAddress.fromString('0x000000000000000000000000000000000000dead');
 
     const tx = contract.methods
       .withdraw(
