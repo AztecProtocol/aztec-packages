@@ -1,8 +1,8 @@
-import { Fr } from '@aztec/foundation/fields';
-import { Fq } from '@aztec/foundation/fields';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
+import { Fq, Fr } from '@aztec/foundation/fields';
 
+import { computeCallStackItemHash } from '../abis/abis.js';
 import {
   BaseOrMergeRollupPublicInputs,
   BaseRollupInputs,
@@ -12,6 +12,8 @@ import {
   CombinedConstantData,
   CombinedHistoricTreeRoots,
   ConstantBaseRollupData,
+  ContractStorageRead,
+  ContractStorageUpdateRequest,
   KernelCircuitPublicInputs,
   MergeRollupInputs,
   NewContractData,
@@ -31,9 +33,8 @@ import {
   PublicKernelInputsNoPreviousKernel,
   RootRollupInputs,
   RootRollupPublicInputs,
-  ContractStorageRead,
-  ContractStorageUpdateRequest,
   WitnessedPublicCallData,
+  PublicCallRequest,
 } from '../index.js';
 import { AggregationObject } from '../structs/aggregation_object.js';
 import { PrivateCallStackItem, PublicCallStackItem } from '../structs/call_stack_item.js';
@@ -43,16 +44,19 @@ import {
   CONTRACT_TREE_ROOTS_TREE_HEIGHT,
   EMITTED_EVENTS_LENGTH,
   FUNCTION_TREE_HEIGHT,
-  KERNEL_NEW_L2_TO_L1_MSGS_LENGTH,
   KERNEL_NEW_COMMITMENTS_LENGTH,
   KERNEL_NEW_CONTRACTS_LENGTH,
+  KERNEL_NEW_L2_TO_L1_MSGS_LENGTH,
   KERNEL_NEW_NULLIFIERS_LENGTH,
   KERNEL_OPTIONALLY_REVEALED_DATA_LENGTH,
   KERNEL_PRIVATE_CALL_STACK_LENGTH,
   KERNEL_PUBLIC_CALL_STACK_LENGTH,
+  KERNEL_PUBLIC_DATA_READS_LENGTH,
+  KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH,
   L1_TO_L2_MESSAGES_ROOTS_TREE_HEIGHT,
-  NEW_L2_TO_L1_MSGS_LENGTH,
+  L1_TO_L2_MESSAGES_SIBLING_PATH_LENGTH,
   NEW_COMMITMENTS_LENGTH,
+  NEW_L2_TO_L1_MSGS_LENGTH,
   NEW_NULLIFIERS_LENGTH,
   NULLIFIER_TREE_HEIGHT,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
@@ -63,10 +67,7 @@ import {
   PUBLIC_DATA_TREE_HEIGHT,
   RETURN_VALUES_LENGTH,
   ROLLUP_VK_TREE_HEIGHT,
-  KERNEL_PUBLIC_DATA_READS_LENGTH,
-  KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH,
   VK_TREE_HEIGHT,
-  L1_TO_L2_MESSAGES_SIBLING_PATH_LENGTH,
 } from '../structs/constants.js';
 import { FunctionData } from '../structs/function_data.js';
 import { MembershipWitness } from '../structs/membership_witness.js';
@@ -77,7 +78,6 @@ import { SignedTxRequest, TxRequest } from '../structs/tx_request.js';
 import { CommitmentMap, G1AffineElement, VerificationKey } from '../structs/verification_key.js';
 import { range } from '../utils/jsUtils.js';
 import { numToUInt32BE } from '../utils/serialize.js';
-import { computeCallStackItemHash } from '../abis/abis.js';
 
 /**
  * Creates an arbitrary tx context with the given seed.
@@ -188,8 +188,6 @@ export function makeContractStorageRead(seed = 1): ContractStorageRead {
 export function makeEmptyAccumulatedData(seed = 1): CombinedAccumulatedData {
   return new CombinedAccumulatedData(
     makeAggregationObject(seed),
-    fr(seed + 12),
-    fr(seed + 13),
     range(KERNEL_NEW_COMMITMENTS_LENGTH, seed + 0x100).map(fr),
     range(KERNEL_NEW_NULLIFIERS_LENGTH, seed + 0x200).map(fr),
     new Array(KERNEL_PRIVATE_CALL_STACK_LENGTH).fill(Fr.ZERO), // private call stack must be empty
@@ -210,8 +208,6 @@ export function makeEmptyAccumulatedData(seed = 1): CombinedAccumulatedData {
 export function makeAccumulatedData(seed = 1): CombinedAccumulatedData {
   return new CombinedAccumulatedData(
     makeAggregationObject(seed),
-    fr(seed + 12),
-    fr(seed + 13),
     range(KERNEL_NEW_COMMITMENTS_LENGTH, seed + 0x100).map(fr),
     range(KERNEL_NEW_NULLIFIERS_LENGTH, seed + 0x200).map(fr),
     range(KERNEL_PRIVATE_CALL_STACK_LENGTH, seed + 0x300).map(fr),
@@ -320,12 +316,26 @@ export function makeKernelPublicInputs(seed = 1): KernelCircuitPublicInputs {
 }
 
 /**
+ * Creates a public call request for testing.
+ * @param seed - The seed.
+ * @returns Public call request.
+ */
+export function makePublicCallRequest(seed = 1): PublicCallRequest {
+  return new PublicCallRequest(
+    makeAztecAddress(seed),
+    new FunctionData(makeSelector(seed + 0x1), false, false),
+    makeCallContext(seed + 0x2),
+    range(ARGS_LENGTH, seed + 0x10).map(fr),
+  );
+}
+
+/**
  * Creates a uint8 vector of a given size filled with a given value.
  * @param size - The size of the vector.
  * @param fill - The value to fill the vector with.
  * @returns A uint8 vector.
  */
-export function makeDynamicSizeBuffer(size: number, fill: number): UInt8Vector {
+export function makeDynamicSizeBuffer(size: number, fill: number) {
   return new UInt8Vector(Buffer.alloc(size, fill));
 }
 
@@ -405,6 +415,7 @@ export function makePublicCallStackItem(seed = 1): PublicCallStackItem {
     // in the public kernel, function can't be a constructor or private
     new FunctionData(makeSelector(seed + 0x1), false, false),
     makePublicCircuitPublicInputs(seed + 0x10),
+    false,
   );
   callStackItem.publicInputs.callContext.storageContractAddress = callStackItem.contractAddress;
   return callStackItem;
@@ -498,7 +509,11 @@ export async function makePublicKernelInputsWithEmptyOutput(seed = 1): Promise<P
  * @returns Public kernel inputs.
  */
 export async function makePublicKernelInputsNoKernelInput(seed = 1): Promise<PublicKernelInputsNoPreviousKernel> {
-  return new PublicKernelInputsNoPreviousKernel(makeSignedTxRequest(seed), await makePublicCallData(seed + 0x100));
+  return new PublicKernelInputsNoPreviousKernel(
+    makeSignedTxRequest(seed),
+    await makePublicCallData(seed + 0x100),
+    makeCombinedHistoricTreeRoots(seed + 0x200),
+  );
 }
 
 /**

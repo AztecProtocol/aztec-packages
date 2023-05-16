@@ -77,7 +77,7 @@ WASM_EXPORT uint8_t* private_kernel__sim(uint8_t const* signed_tx_request_buf,
                                          size_t* private_kernel_public_inputs_size_out,
                                          uint8_t const** private_kernel_public_inputs_buf)
 {
-    DummyComposer composer = DummyComposer();
+    DummyComposer composer = DummyComposer("private_kernel__sim");
     SignedTxRequest<NT> signed_tx_request;
     read(signed_tx_request_buf, signed_tx_request);
 
@@ -111,7 +111,8 @@ WASM_EXPORT uint8_t* private_kernel__sim(uint8_t const* signed_tx_request_buf,
         .private_call = private_call_data,
     };
 
-    KernelCircuitPublicInputs<NT> const public_inputs = native_private_kernel_circuit(composer, private_inputs);
+    KernelCircuitPublicInputs<NT> const public_inputs =
+        native_private_kernel_circuit(composer, private_inputs, first_iteration);
 
     // serialize public inputs to bytes vec
     std::vector<uint8_t> public_inputs_vec;
@@ -121,7 +122,6 @@ WASM_EXPORT uint8_t* private_kernel__sim(uint8_t const* signed_tx_request_buf,
     memcpy(raw_public_inputs_buf, (void*)public_inputs_vec.data(), public_inputs_vec.size());
     *private_kernel_public_inputs_buf = raw_public_inputs_buf;
     *private_kernel_public_inputs_size_out = public_inputs_vec.size();
-    composer.log_failures_if_any("private_kernel__sim");
     return composer.alloc_and_serialize_first_failure();
 }
 
@@ -171,7 +171,7 @@ WASM_EXPORT size_t private_kernel__prove(uint8_t const* signed_tx_request_buf,
     auto private_kernel_prover = private_kernel_composer.create_prover();
 
     KernelCircuitPublicInputs<NT> public_inputs;
-    public_inputs = private_kernel_circuit(private_kernel_composer, private_inputs);
+    public_inputs = private_kernel_circuit(private_kernel_composer, private_inputs, first_iteration);
     NT::Proof private_kernel_proof;
     private_kernel_proof = private_kernel_prover.construct_proof();
 

@@ -2,8 +2,9 @@
 // Copyright 2023 Aztec Labs.
 pragma solidity >=0.8.18;
 
+import {IOutbox} from "@aztec/core/interfaces/messagebridge/IOutbox.sol";
+import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {MessageBox} from "./MessageBox.sol";
-import {IOutbox} from "@aztec/interfaces/message_bridge/IOutbox.sol";
 
 /**
  * @title Outbox
@@ -11,26 +12,9 @@ import {IOutbox} from "@aztec/interfaces/message_bridge/IOutbox.sol";
  * @notice Lives on L1 and is used to consume L2 -> L1 messages. Messages are inserted by the rollup contract
  * and will be consumed by the portal contracts.
  */
-contract Outbox is MessageBox {
+contract Outbox is MessageBox, IOutbox {
   error Outbox__Unauthorized();
   error Outbox__WrongChainId();
-
-  /**
-   * @dev  struct for sending messages from L2 to L1
-   * @param sender - The sender of the message
-   * @param recipient - The recipient of the message
-   * @param content - The content of the message (application specific) padded to bytes32 or hashed if larger.
-   */
-  struct L2ToL1Msg {
-    L2Actor sender;
-    L1Actor recipient;
-    bytes32 content;
-  }
-
-  // to make it easier for portal to know when to consume the message.
-  event MessageAdded(bytes32 indexed entryKey);
-
-  event MessageConsumed(bytes32 indexed entryKey, address indexed recipient);
 
   constructor(address _registry) MessageBox(_registry) {}
 
@@ -39,8 +23,8 @@ contract Outbox is MessageBox {
    * @param _message - The L2 to L1 message
    * @return The key of the entry in the set
    */
-  function computeEntryKey(L2ToL1Msg memory _message) public pure returns (bytes32) {
-    // FIXME: Replace mod P later on when we have a better idea of how to handle Fields.
+  function computeEntryKey(DataStructures.L2ToL1Msg memory _message) public pure returns (bytes32) {
+    // TODO: Replace mod P later on when we have a better idea of how to handle Fields.
     return bytes32(
       uint256(sha256(abi.encode(_message.sender, _message.recipient, _message.content))) % P
     );
@@ -49,12 +33,12 @@ contract Outbox is MessageBox {
   /**
    * @notice Inserts an array of entries into the Outbox
    * @dev Only callable by the rollup contract
-   * @param _entryKey - Array of entry keys (hash of the message) - computed by the L2 counterpart and sent to L1 via rollup block
+   * @param _entryKeys - Array of entry keys (hash of the message) - computed by the L2 counterpart and sent to L1 via rollup block
    */
-  function sendL1Messages(bytes32[] memory _entryKey) external onlyRollup {
-    for (uint256 i = 0; i < _entryKey.length; i++) {
-      _insertWithDefaultValues(_entryKey[i]);
-      emit MessageAdded(_entryKey[i]);
+  function sendL1Messages(bytes32[] memory _entryKeys) external onlyRollup {
+    for (uint256 i = 0; i < _entryKeys.length; i++) {
+      _insert(_entryKeys[i], 0, 0);
+      emit MessageAdded(_entryKeys[i]);
     }
   }
 
@@ -65,12 +49,12 @@ contract Outbox is MessageBox {
    * @param _message - The L2 to L1 message
    * @return entryKey - The key of the entry removed
    */
-  function consume(L2ToL1Msg memory _message) external returns (bytes32 entryKey) {
+  function consume(DataStructures.L2ToL1Msg memory _message) external returns (bytes32 entryKey) {
     if (msg.sender != _message.recipient.actor) revert Outbox__Unauthorized();
     if (block.chainid != _message.recipient.chainId) revert Outbox__WrongChainId();
 
     entryKey = computeEntryKey(_message);
     _consume(entryKey);
-    emit MessageConsumed(entryKey, _message.recipient.actor);
+    emit MessageConsumed(entryKey, msg.sender);
   }
 }

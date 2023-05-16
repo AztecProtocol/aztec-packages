@@ -8,6 +8,7 @@ import { mnemonicToAccount } from 'viem/accounts';
 import { createAztecRpcServer } from './create_aztec_rpc_client.js';
 import { deployL1Contracts } from './deploy_l1_contracts.js';
 import { MNEMONIC } from './fixtures.js';
+import { toBigInt } from '@aztec/foundation/serialize';
 
 const logger = createDebugLogger('aztec:e2e_nested_contract');
 
@@ -17,6 +18,9 @@ describe('e2e_nested_contract', () => {
   let node: AztecNode;
   let aztecRpcServer: AztecRPCServer;
   let accounts: AztecAddress[];
+
+  let parentContract: Contract;
+  let childContract: Contract;
 
   beforeEach(async () => {
     const account = mnemonicToAccount(MNEMONIC);
@@ -30,6 +34,9 @@ describe('e2e_nested_contract', () => {
     node = await AztecNode.createAndSync(config);
     aztecRpcServer = await createAztecRpcServer(1, node);
     accounts = await aztecRpcServer.getAccounts();
+
+    parentContract = await deployContract(ParentAbi);
+    childContract = await deployContract(ChildAbi);
   }, 60_000);
 
   afterEach(async () => {
@@ -46,7 +53,7 @@ describe('e2e_nested_contract', () => {
 
     const receipt = await tx.getReceipt();
     const contract = new Contract(receipt.contractAddress!, abi, aztecRpcServer);
-    logger('L2 contract deployed');
+    logger(`L2 contract ${abi.name} deployed at ${contract.address}`);
     return contract;
   };
 
@@ -54,15 +61,13 @@ describe('e2e_nested_contract', () => {
     return Fr.fromBuffer(address.toBuffer()).value;
   };
 
+  const getChildStoredValue = (child: { address: AztecAddress }) =>
+    node.getStorageAt(child.address, 1n).then(x => toBigInt(x!));
+
   /**
    * Milestone 3.
    */
   it('should mine transactions that perform nested calls', async () => {
-    const parentContract = await deployContract(ParentAbi);
-    const childContract = await deployContract(ChildAbi);
-
-    logger('Parent & Child contracts deployed');
-
     const tx = parentContract.methods
       .entryPoint(addressToField(childContract.address), Fr.fromBuffer(childContract.methods.value.selector).value)
       .send({ from: accounts[0] });
@@ -74,11 +79,6 @@ describe('e2e_nested_contract', () => {
   }, 100_000);
 
   it('should mine transactions that perform public nested calls', async () => {
-    const parentContract = await deployContract(ParentAbi);
-    const childContract = await deployContract(ChildAbi);
-
-    logger('Parent & Child contracts deployed');
-
     const tx = parentContract.methods
       .pubEntryPoint(
         addressToField(childContract.address),
@@ -91,5 +91,53 @@ describe('e2e_nested_contract', () => {
     const receipt = await tx.getReceipt();
 
     expect(receipt.status).toBe(TxStatus.MINED);
+  }, 100_000);
+
+  it('should mine transactions that enqueue public calls', async () => {
+    const tx = parentContract.methods
+      .enqueueCallToChild(
+        addressToField(childContract.address),
+        Fr.fromBuffer(childContract.methods.pubStoreValue.selector).value,
+        42n,
+      )
+      .send({ from: accounts[0] });
+
+    await tx.isMined(0, 0.1);
+    const receipt = await tx.getReceipt();
+    expect(receipt.status).toBe(TxStatus.MINED);
+
+    expect(await getChildStoredValue(childContract)).toEqual(42n);
+  }, 100_000);
+
+  it('should mine transactions that enqueue a public call with nested public calls', async () => {
+    const tx = parentContract.methods
+      .enqueueCallToPubEntryPoint(
+        addressToField(childContract.address),
+        Fr.fromBuffer(childContract.methods.pubStoreValue.selector).value,
+        42n,
+      )
+      .send({ from: accounts[0] });
+
+    await tx.isMined(0, 0.1);
+    const receipt = await tx.getReceipt();
+    expect(receipt.status).toBe(TxStatus.MINED);
+
+    expect(await getChildStoredValue(childContract)).toEqual(42n);
+  }, 100_000);
+
+  it.skip('should mine transactions that enqueue multiple public calls with nested public calls', async () => {
+    const tx = parentContract.methods
+      .enqueueCallsToPubEntryPoint(
+        addressToField(childContract.address),
+        Fr.fromBuffer(childContract.methods.pubStoreValue.selector).value,
+        42n,
+      )
+      .send({ from: accounts[0] });
+
+    await tx.isMined(0, 0.1);
+    const receipt = await tx.getReceipt();
+    expect(receipt.status).toBe(TxStatus.MINED);
+
+    expect(await getChildStoredValue(childContract)).toEqual(84);
   }, 100_000);
 });

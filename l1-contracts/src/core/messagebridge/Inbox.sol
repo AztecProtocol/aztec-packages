@@ -2,56 +2,32 @@
 // Copyright 2023 Aztec Labs.
 pragma solidity >=0.8.18;
 
+import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
+import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {MessageBox} from "./MessageBox.sol";
-import {IInbox} from "@aztec/interfaces/message_bridge/IInbox.sol";
 
 /**
  * @title Inbox
  * @author Aztec Labs
  * @notice Lives on L1 and is used to pass messages into the rollup, e.g., L1 -> L2 messages.
  */
-contract Inbox is MessageBox {
+contract Inbox is MessageBox, IInbox {
+  error Inbox__DeadlineBeforeNow();
   error Inbox__NotPastDeadline();
   error Inbox__PastDeadline();
   error Inbox__Unauthorized();
-
-  /**
-   * @dev  struct for sending messages from L1 to L2
-   * @param sender - The sender of the message
-   * @param recipient - The recipient of the message
-   * @param content - The content of the message (application specific) padded to bytes32 or hashed if larger.
-   * @param secretHash - The secret hash of the message (make it possible to hide when a specific message is consumed on L2)
-   * @param deadline - The deadline to consume a message. Only after it, can a message be cancalled.
-   * @param fee - The fee provided to sequencer for including the entry
-   */
-  struct L1ToL2Msg {
-    L1Actor sender;
-    L2Actor recipient;
-    bytes32 content;
-    bytes32 secretHash;
-    uint32 deadline;
-    uint64 fee;
-  }
+  error Inbox__FailedToWithdrawFees();
 
   mapping(address account => uint256 balance) public feesAccrued;
 
-  event MessageAdded(
-    bytes32 indexed entryKey,
-    address indexed sender,
-    bytes32 indexed recipient,
-    uint256 senderChainId,
-    uint256 recipientVersion,
-    uint32 deadline,
-    uint64 fee,
-    bytes32 content
-  );
-
-  event L1ToL2MessageCancelled(bytes32 indexed entryKey);
-
   constructor(address _registry) MessageBox(_registry) {}
 
-  /// @notice Given a message, computes an entry key for the Inbox
-  function computeMessageKey(L1ToL2Msg memory message) public pure returns (bytes32) {
+  /**
+   * @notice Given a message, computes an entry key for the Inbox
+   * @param message - The L1 to L2 message
+   * @return The hash of the message (used as the key of the entry in the set)
+   */
+  function computeMessageKey(DataStructures.L1ToL2Msg memory message) public pure returns (bytes32) {
     return bytes32(
       uint256(
         sha256(
@@ -64,7 +40,7 @@ contract Inbox is MessageBox {
             message.fee
           )
         )
-      ) % P // FIXME: Replace mod P later on when we have a better idea of how to handle Fields.
+      ) % P // TODO: Replace mod P later on when we have a better idea of how to handle Fields.
     );
   }
 
@@ -79,14 +55,15 @@ contract Inbox is MessageBox {
    * @return The key of the entry in the set
    */
   function sendL2Message(
-    L2Actor memory _recipient,
+    DataStructures.L2Actor memory _recipient,
     uint32 _deadline,
     bytes32 _content,
     bytes32 _secretHash
   ) external payable returns (bytes32) {
+    if (_deadline <= block.timestamp) revert Inbox__DeadlineBeforeNow();
     uint64 fee = uint64(msg.value);
-    L1ToL2Msg memory message = L1ToL2Msg({
-      sender: L1Actor(msg.sender, block.chainid),
+    DataStructures.L1ToL2Msg memory message = DataStructures.L1ToL2Msg({
+      sender: DataStructures.L1Actor(msg.sender, block.chainid),
       recipient: _recipient,
       content: _content,
       secretHash: _secretHash,
@@ -120,7 +97,7 @@ contract Inbox is MessageBox {
    * @param _feeCollector - The address to receive the "fee"
    * @return entryKey - The key of the entry removed
    */
-  function cancelL2Message(L1ToL2Msg memory _message, address _feeCollector)
+  function cancelL2Message(DataStructures.L1ToL2Msg memory _message, address _feeCollector)
     external
     returns (bytes32 entryKey)
   {
@@ -143,7 +120,7 @@ contract Inbox is MessageBox {
     uint256 totalFee = 0;
     for (uint256 i = 0; i < entryKeys.length; i++) {
       // TODO: Combine these to optimise for gas.
-      Entry memory entry = get(entryKeys[i]);
+      DataStructures.Entry memory entry = get(entryKeys[i]);
       if (entry.deadline > block.timestamp) revert Inbox__PastDeadline();
       _consume(entryKeys[i]);
       totalFee += entry.fee;
@@ -153,9 +130,11 @@ contract Inbox is MessageBox {
 
   /**
    * @notice Withdraws fees accrued by the sequencer
-   * @param _amount - The amount to withdraw
    */
-  function withdrawFees(uint256 _amount) external {
-    // TODO: reentrancy attack, safe eth fees withdrawal.
+  function withdrawFees() external {
+    uint256 balance = feesAccrued[msg.sender];
+    feesAccrued[msg.sender] = 0;
+    (bool success,) = msg.sender.call{value: balance}("");
+    if (!success) revert Inbox__FailedToWithdrawFees();
   }
 }
