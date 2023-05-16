@@ -206,7 +206,7 @@ void update_end_values(DummyComposer& composer,
         // Since it's the first iteration, we need to push the the tx hash nullifier into the `new_nullifiers` array
 
         // If the nullifiers array is not empty a change was made and we need to rework this
-        composer.do_assert(is_array_empty(new_nullifiers),
+        composer.do_assert(is_array_empty(public_inputs.end.new_nullifiers),
                            "new_nullifiers array must be empty in a first iteration of private kernel",
                            CircuitErrorCode::PRIVATE_KERNEL__NEW_NULLIFIERS_NOT_EMPTY_IN_FIRST_ITERATION);
 
