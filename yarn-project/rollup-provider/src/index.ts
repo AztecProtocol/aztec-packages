@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
 import { appFactory } from './app.js';
 import http from 'http';
