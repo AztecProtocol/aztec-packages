@@ -2,6 +2,7 @@
 #include "index.hpp"
 #include "init.hpp"
 
+#include "aztec3/circuits/abis/private_kernel/private_call_data.hpp"
 #include "aztec3/circuits/kernel/private/utils.hpp"
 #include "aztec3/constants.hpp"
 #include <aztec3/circuits/abis/call_context.hpp>
@@ -14,6 +15,7 @@
 #include <aztec3/circuits/abis/private_circuit_public_inputs.hpp>
 #include <aztec3/circuits/abis/private_historic_tree_roots.hpp>
 #include <aztec3/circuits/abis/private_kernel/globals.hpp>
+#include <aztec3/circuits/abis/private_kernel/private_kernel_inputs_init.hpp>
 #include <aztec3/circuits/abis/private_kernel/private_kernel_inputs_inner.hpp>
 #include <aztec3/circuits/abis/signed_tx_request.hpp>
 #include <aztec3/circuits/abis/tx_context.hpp>
@@ -160,26 +162,11 @@ std::shared_ptr<NT::VK> gen_func_vk(bool is_constructor, private_function const&
     return dummy_composer.compute_verification_key();
 }
 
-// JEAMON: Most of the current tests should call this variant (init case)
-PrivateKernelInputsInner<NT> do_private_call_get_kernel_inputs_init(bool const is_constructor,
-                                                                    private_function const& func,
-                                                                    std::vector<NT::fr> const& args_vec,
-                                                                    bool real_kernel_circuit = false)
-{}
-
-
-/**
- * @brief Perform a private circuit call and generate the inputs to private kernel
- *
- * @param is_constructor whether this private circuit call is a constructor
- * @param func the private circuit call being validated by this kernel iteration
- * @param args_vec the private call's args
- * @return PrivateInputs<NT> - the inputs to the private call circuit
- */
-PrivateKernelInputsInner<NT> do_private_call_get_kernel_inputs_inner(bool const is_constructor,
-                                                                     private_function const& func,
-                                                                     std::vector<NT::fr> const& args_vec,
-                                                                     bool real_kernel_circuit = false)
+std::pair<PrivateCallData<NT>, ContractDeploymentData<NT>> create_private_call_deploy_data(
+    bool const is_constructor,
+    private_function const& func,
+    std::vector<NT::fr> const& args_vec,
+    NT::address const& msg_sender)
 {
     //***************************************************************************
     // Initialize some inputs to private call and kernel circuits
@@ -193,9 +180,6 @@ PrivateKernelInputsInner<NT> do_private_call_get_kernel_inputs_inner(bool const 
     const NT::fr acir_hash = 12341234;
 
     const NT::fr msg_sender_private_key = 123456789;
-    const NT::address msg_sender =
-        NT::fr(uint256_t(0x01071e9a23e0f7edULL, 0x5d77b35d1830fa3eULL, 0xc6ba3660bb1f0c0bULL, 0x2ef9f7f09867fd6eULL));
-    const NT::address& tx_origin = msg_sender;
 
     FunctionData<NT> const function_data{
         .function_selector = 1,  // TODO: deduce this from the contract, somehow.
@@ -308,31 +292,6 @@ PrivateKernelInputsInner<NT> do_private_call_get_kernel_inputs_inner(bool const 
     NT::Proof const private_circuit_proof = private_circuit_prover.construct_proof();
     // info("\nproof: ", private_circuit_proof.proof_data);
 
-    //***************************************************************************
-    // We can create a TxRequest from some of the above data. Users must sign a TxRequest in order to give permission
-    // for a tx to take place - creating a SignedTxRequest.
-    //***************************************************************************
-    auto const tx_request = TxRequest<NT>{
-        .from = tx_origin,
-        .to = contract_address,
-        .function_data = function_data,
-        .args = private_circuit_public_inputs.args,
-        .nonce = 0,
-        .tx_context =
-            TxContext<NT>{
-                .is_fee_payment_tx = false,
-                .is_rebate_payment_tx = false,
-                .is_contract_deployment_tx = is_constructor,
-                .contract_deployment_data = contract_deployment_data,
-            },
-        .chain_id = 1,
-    };
-
-    auto const signed_tx_request = SignedTxRequest<NT>{
-        .tx_request = tx_request,
-
-        //.signature = TODO: need a method for signing a TxRequest.
-    };
 
     //***************************************************************************
     // We mock a kernel circuit proof for the base case of kernel recursion (because even the first iteration of the
@@ -344,14 +303,142 @@ PrivateKernelInputsInner<NT> do_private_call_get_kernel_inputs_inner(bool const 
     // certain checks if we're handling the 'base case' of the recursion.
     // I've chosen the former, for now.
     const CallStackItem<NT, PrivateTypes> call_stack_item{
-        .contract_address = tx_request.to,
-        .function_data = tx_request.function_data,
+        .contract_address = contract_address,
+        .function_data = function_data,
         .public_inputs = private_circuit_public_inputs,
     };
 
-    std::array<NT::fr, KERNEL_PRIVATE_CALL_STACK_LENGTH> initial_kernel_private_call_stack{};
-    initial_kernel_private_call_stack[0] = call_stack_item.hash();
+    //***************************************************************************
+    // Now we can construct the full private inputs to the kernel circuit
+    //***************************************************************************
 
+    return std::pair<PrivateCallData<NT>, ContractDeploymentData<NT>>(
+    PrivateCallData<NT>{
+        .call_stack_item = call_stack_item,
+        .private_call_stack_preimages = ctx.get_private_call_stack_items(),
+
+        .proof = private_circuit_proof,
+        .vk = private_circuit_vk,
+
+        .function_leaf_membership_witness = {
+            .leaf_index = function_leaf_index,
+            .sibling_path = get_empty_function_siblings(),
+        },
+
+        .contract_leaf_membership_witness = {
+            .leaf_index = contract_leaf_index,
+            .sibling_path = get_empty_contract_siblings(),
+        },
+
+        .portal_contract_address = portal_contract_address,
+
+        .acir_hash = acir_hash
+    },
+    contract_deployment_data);
+}
+
+// JEAMON: Most of the current tests should call this variant (init case)
+PrivateKernelInputsInit<NT> do_private_call_get_kernel_inputs_init(bool const is_constructor,
+                                                                   private_function const& func,
+                                                                   std::vector<NT::fr> const& args_vec)
+{
+    //***************************************************************************
+    // Initialize some inputs to private call and kernel circuits
+    //***************************************************************************
+    // TODO randomize inputs
+
+    const NT::address msg_sender =
+        NT::fr(uint256_t(0x01071e9a23e0f7edULL, 0x5d77b35d1830fa3eULL, 0xc6ba3660bb1f0c0bULL, 0x2ef9f7f09867fd6eULL));
+    const NT::address& tx_origin = msg_sender;
+
+    auto const& private_call_deploy = create_private_call_deploy_data(is_constructor, func, args_vec, msg_sender);
+
+    auto const& private_call_data = private_call_deploy.first;
+
+    //***************************************************************************
+    // We can create a TxRequest from some of the above data. Users must sign a TxRequest in order to give permission
+    // for a tx to take place - creating a SignedTxRequest.
+    //***************************************************************************
+    auto const tx_request = TxRequest<NT>{
+        .from = tx_origin,
+        .to = private_call_data.call_stack_item.contract_address,
+        .function_data = private_call_data.call_stack_item.function_data,
+        .args = private_call_data.call_stack_item.public_inputs.args,
+        .nonce = 0,
+        .tx_context =
+            TxContext<NT>{
+                .is_fee_payment_tx = false,
+                .is_rebate_payment_tx = false,
+                .is_contract_deployment_tx = is_constructor,
+                .contract_deployment_data = private_call_deploy.second,
+            },
+        .chain_id = 1,
+    };
+
+    auto const signed_tx_request = SignedTxRequest<NT>{
+        .tx_request = tx_request,
+
+        //.signature = TODO: need a method for signing a TxRequest.
+    };
+
+    //***************************************************************************
+    // Now we can construct the full private inputs to the kernel circuit
+    //***************************************************************************
+    PrivateKernelInputsInit<NT> kernel_private_inputs = PrivateKernelInputsInit<NT>{
+        .signed_tx_request = signed_tx_request,
+
+        .private_call = private_call_data,
+    };
+
+    return kernel_private_inputs;
+}
+
+
+/**
+ * @brief Perform a private circuit call and generate the inputs to private kernel
+ *
+ * @param is_constructor whether this private circuit call is a constructor
+ * @param func the private circuit call being validated by this kernel iteration
+ * @param args_vec the private call's args
+ * @return PrivateInputs<NT> - the inputs to the private call circuit
+ */
+PrivateKernelInputsInner<NT> do_private_call_get_kernel_inputs_inner(bool const is_constructor,
+                                                                     private_function const& func,
+                                                                     std::vector<NT::fr> const& args_vec,
+                                                                     bool real_kernel_circuit = false)
+{
+    //***************************************************************************
+    // Initialize some inputs to private call and kernel circuits
+    //***************************************************************************
+    // TODO randomize inputs
+
+    const NT::address msg_sender =
+        NT::fr(uint256_t(0x01071e9a23e0f7edULL, 0x5d77b35d1830fa3eULL, 0xc6ba3660bb1f0c0bULL, 0x2ef9f7f09867fd6eULL));
+
+    auto const& private_call_deploy = create_private_call_deploy_data(is_constructor, func, args_vec, msg_sender);
+
+    auto const& private_call_data = private_call_deploy.first;
+    const TxContext<NT> tx_context = TxContext<NT>{
+        .is_fee_payment_tx = false,
+        .is_rebate_payment_tx = false,
+        .is_contract_deployment_tx = is_constructor,
+        .contract_deployment_data = private_call_deploy.second,
+    };
+
+    //***************************************************************************
+    // We mock a kernel circuit proof for the base case of kernel recursion (because even the first iteration of the
+    // kernel circuit expects to verify some previous kernel circuit).
+    //***************************************************************************
+    // TODO: we have a choice to make:
+    // Either the `end` state of the mock kernel's public inputs can be set equal to the public call we _want_ to
+    // verify in the first round of recursion, OR, we have some fiddly conditional logic in the circuit to ignore
+    // certain checks if we're handling the 'base case' of the recursion.
+    // I've chosen the former, for now.
+
+    std::array<NT::fr, KERNEL_PRIVATE_CALL_STACK_LENGTH> initial_kernel_private_call_stack{};
+    initial_kernel_private_call_stack[0] = private_call_data.call_stack_item.hash();
+
+    auto const& private_circuit_public_inputs = private_call_data.call_stack_item.public_inputs;
     // Get dummy previous kernel
     auto mock_previous_kernel = utils::dummy_previous_kernel(real_kernel_circuit);
     // Fill in some important fields in public inputs
@@ -365,7 +452,7 @@ PrivateKernelInputsInner<NT> do_private_call_get_kernel_inputs_inner(bool const 
                         .contract_tree_root = private_circuit_public_inputs.historic_contract_tree_root,
                     },
             },
-        .tx_context = tx_request.tx_context,
+        .tx_context = tx_context,
     };
     mock_previous_kernel.public_inputs.is_private = true;
 
@@ -373,31 +460,9 @@ PrivateKernelInputsInner<NT> do_private_call_get_kernel_inputs_inner(bool const 
     // Now we can construct the full private inputs to the kernel circuit
     //***************************************************************************
     PrivateKernelInputsInner<NT> kernel_private_inputs = PrivateKernelInputsInner<NT>{
-        .signed_tx_request = signed_tx_request,
-
         .previous_kernel = mock_previous_kernel,
 
-        .private_call =
-            PrivateCallData<NT>{
-                .call_stack_item = call_stack_item,
-                .private_call_stack_preimages = ctx.get_private_call_stack_items(),
-
-                .proof = private_circuit_proof,
-                .vk = private_circuit_vk,
-
-                .function_leaf_membership_witness = {
-                    .leaf_index = function_leaf_index,
-                    .sibling_path = get_empty_function_siblings(),
-                },
-                .contract_leaf_membership_witness = {
-                    .leaf_index = contract_leaf_index,
-                    .sibling_path = get_empty_contract_siblings(),
-                },
-
-                .portal_contract_address = portal_contract_address,
-
-                .acir_hash = acir_hash,
-            },
+        .private_call = private_call_data,
     };
 
     return kernel_private_inputs;
@@ -411,7 +476,7 @@ PrivateKernelInputsInner<NT> do_private_call_get_kernel_inputs_inner(bool const 
  * @param private_inputs to be used in manual computation
  * @param public_inputs that contain the expected new contract address
  */
-void validate_deployed_contract_address(PrivateKernelInputsInner<NT> const& private_inputs,
+void validate_deployed_contract_address(PrivateKernelInputsInit<NT> const& private_inputs,
                                         KernelCircuitPublicInputs<NT> const& public_inputs)
 {
     auto tx_request = private_inputs.signed_tx_request.tx_request;
