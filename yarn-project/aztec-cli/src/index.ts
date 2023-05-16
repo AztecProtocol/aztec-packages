@@ -52,7 +52,7 @@ async function main() {
     .action(async (rpcUrl: string, intervalArg: string) => {
       try {
         const interval = Number(intervalArg);
-        await deployL2Contract(rpcUrl, interval, logger);
+        await deployL2Contract(rpcUrl, interval * 1000, logger);
       } catch (err) {
         logger(`Error`, err);
       }

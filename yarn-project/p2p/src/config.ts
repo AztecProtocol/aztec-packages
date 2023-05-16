@@ -33,8 +33,9 @@ export interface P2PConfig {
   transactionProtocol: string;
 
   /**
-   * Peer refresh interval.
+   * Optional hostname/ip address to on which to listen for new connections.
    */
+  hostname?: string;
 }
 
 /**
@@ -42,7 +43,8 @@ export interface P2PConfig {
  * @returns The config values for p2p client.
  */
 export function getP2PConfigEnvVars(): P2PConfig {
-  const { P2P_CHECK_INTERVAL, P2P_L2_BLOCK_QUEUE_SIZE, P2P_TCP_LISTEN_PORT, PEER_ID, BOOTSTRAP_NODES } = process.env;
+  const { P2P_CHECK_INTERVAL, P2P_L2_BLOCK_QUEUE_SIZE, P2P_TCP_LISTEN_PORT, PEER_ID, BOOTSTRAP_NODES, P2P_HOSTNAME } =
+    process.env;
   const envVars: P2PConfig = {
     checkInterval: P2P_CHECK_INTERVAL ? +P2P_CHECK_INTERVAL : 100,
     l2QueueSize: P2P_L2_BLOCK_QUEUE_SIZE ? +P2P_L2_BLOCK_QUEUE_SIZE : 1000,
@@ -50,6 +52,7 @@ export function getP2PConfigEnvVars(): P2PConfig {
     peerId: PEER_ID,
     bootstrapNodes: BOOTSTRAP_NODES ? BOOTSTRAP_NODES.split(',') : [],
     transactionProtocol: '',
+    hostname: P2P_HOSTNAME,
   };
   return envVars;
 }

@@ -20,12 +20,13 @@ async function main() {
   const bootstrapNode = new BootstrapNode(logger);
   logger(`Starting bootstrap node on port ${tcpListenPort}`);
   await bootstrapNode.start(tcpListenPort, privateKey);
-  logger('Node stated');
+  logger('Node started');
 
   const stop = async () => {
     logger('Stopping bootstrap node...');
     await bootstrapNode.stop();
     logger('Node stopped');
+    process.exit(0);
   };
   process.on('SIGTERM', stop);
   process.on('SIGINT', stop);

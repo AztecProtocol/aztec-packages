@@ -17,7 +17,7 @@
     "formatting": "run -T prettier --check ./src && run -T eslint ./src",
     "formatting:fix": "run -T prettier -w ./src",
     "start:dev": "tsc-watch -p tsconfig.json --onSuccess 'yarn start'",
-    "start": "DEBUG='libp2p:*' node ./dest/index.js",
+    "start": "DEBUG='aztec:*' node ./dest/index.js",
     "test": "DEBUG=wasm NODE_NO_WARNINGS=1 node --experimental-vm-modules $(yarn bin jest) --passWithNoTests"
   },
   "inherits": [

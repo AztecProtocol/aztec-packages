@@ -12,6 +12,6 @@ RUN yarn cache clean
 RUN yarn workspaces focus --production > /dev/null
 
 FROM node:18-alpine
-COPY --from=builder /usr/src/yarn-project/p2p-bootstrap /usr/src/yarn-project/p2p-bootstrap
+COPY --from=builder /usr/src/ /usr/src/
 WORKDIR /usr/src/yarn-project/p2p-bootstrap
 ENTRYPOINT ["yarn"]

@@ -226,48 +226,31 @@ export class Tx {
    * @returns - The message.
    */
   static fromMessage(buffer: Buffer): Tx {
-    let publicInputs: KernelCircuitPublicInputs | undefined = undefined;
-    let proof: UInt8Vector | undefined = undefined;
-    let txRequest: SignedTxRequest | undefined = undefined;
-    let unverifiedData: UnverifiedData | undefined = undefined;
     const functions: EncodedContractFunction[] = [];
+
+    // eslint-disable-next-line jsdoc/require-jsdoc
+    const toObject = <T>(objectBuffer: Buffer, factory: { fromBuffer: (b: Buffer) => T }) => {
+      const objectSize = objectBuffer.readUint32BE(0);
+      return {
+        remainingData: objectBuffer.subarray(objectSize + 4),
+        obj: objectSize === 0 ? undefined : factory.fromBuffer(objectBuffer.subarray(4, objectSize + 4)),
+      };
+    };
     // this is the opposite of the 'toMessage' function
     // so the first 4 bytes is the complete length, skip it
-    let offset = 4;
-    let size = buffer.readUint32BE(offset);
-    offset += 4;
-    if (size > 0) {
-      publicInputs = KernelCircuitPublicInputs.fromBuffer(buffer.subarray(offset, offset + size));
-      offset += size;
-    }
-    size = buffer.readUint32BE(offset);
-    offset += 4;
-    if (size > 0) {
-      proof = new UInt8Vector(buffer.subarray(offset, size + offset));
-      offset += size;
-    }
-    size = buffer.readUint32BE(offset);
-    offset += 4;
-    if (size > 0) {
-      txRequest = SignedTxRequest.fromBuffer(buffer.subarray(offset, offset + size));
-      offset += size;
-    }
-    size = buffer.readUint32BE(offset);
-    offset += 4;
-    if (size > 0) {
-      unverifiedData = UnverifiedData.fromBuffer(buffer.subarray(offset));
-      offset += size;
-    }
-    while (offset < buffer.length) {
-      size = buffer.readUint32BE(offset);
-      offset += 4;
-      if (size > 0) {
-        const func = EncodedContractFunction.fromBuffer(buffer.subarray(offset));
-        offset += size;
-        functions.push(func);
+    const publicInputs = toObject(buffer.subarray(4), KernelCircuitPublicInputs);
+    const proof = toObject(publicInputs.remainingData, { fromBuffer: (b: Buffer) => new UInt8Vector(b) });
+    const txRequest = toObject(proof.remainingData, SignedTxRequest);
+    const unverified = toObject(txRequest.remainingData, UnverifiedData);
+    let workingBuffer = unverified.remainingData;
+    while (workingBuffer.length > 0) {
+      const func = toObject(workingBuffer, EncodedContractFunction);
+      workingBuffer = func.remainingData;
+      if (func.obj !== undefined) {
+        functions.push(func.obj);
       }
     }
-    return new Tx(publicInputs, proof, unverifiedData, txRequest, functions.length ? functions : undefined);
+    return new Tx(publicInputs.obj, proof.obj, unverified.obj, txRequest.obj, functions.length ? functions : undefined);
   }
 
   /**

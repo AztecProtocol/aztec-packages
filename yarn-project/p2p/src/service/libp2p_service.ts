@@ -5,7 +5,7 @@ import { yamux } from '@chainsafe/libp2p-yamux';
 import { mplex } from '@libp2p/mplex';
 import { bootstrap } from '@libp2p/bootstrap';
 import { kadDHT } from '@libp2p/kad-dht';
-import { createEd25519PeerId, createFromProtobuf } from '@libp2p/peer-id-factory';
+import { createEd25519PeerId, createFromProtobuf, exportToProtobuf } from '@libp2p/peer-id-factory';
 import { PeerId } from '@libp2p/interface-peer-id';
 import { IncomingStreamData } from '@libp2p/interface-registrar';
 import { P2PService } from './service.js';
@@ -33,6 +33,8 @@ export class LibP2PService implements P2PService {
     private logger = createDebugLogger('aztec:libp2p_service'),
   ) {
     this.protocol = `/aztec/tx/${protocolId}`;
+    const exportedPeerId = exportToProtobuf(node.peerId);
+    this.logger(`Peer ID ${Buffer.from(exportedPeerId).toString('hex')}`);
   }
 
   /**
@@ -103,9 +105,12 @@ export class LibP2PService implements P2PService {
       peerId,
       nat: {
         enabled: true,
+        description: 'Aztec P2P',
+        ttl: 86400,
+        keepAlive: true,
       },
       addresses: {
-        listen: [`/ip4/0.0.0.0/tcp/${config.tcpListenPort}`],
+        listen: [`/ip4/${config.hostname ?? '0.0.0.0'}/tcp/${config.tcpListenPort}`],
       },
       transports: [tcp()],
       connectionEncryption: [noise()],
