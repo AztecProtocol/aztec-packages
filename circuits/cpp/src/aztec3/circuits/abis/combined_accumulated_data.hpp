@@ -70,8 +70,8 @@ template <typename NCT> struct CombinedAccumulatedData {
                 to_ct(aggregation_object.P0),
                 to_ct(aggregation_object.P1),
                 to_ct(aggregation_object.public_inputs),
-                aggregation_object.proof_witness_indices,
                 aggregation_object.has_data,
+                aggregation_object.proof_witness_indices,
             },
 
             to_ct(new_commitments),
@@ -101,8 +101,8 @@ template <typename NCT> struct CombinedAccumulatedData {
                 to_nt(aggregation_object.P0),
                 to_nt(aggregation_object.P1),
                 to_nt(aggregation_object.public_inputs),
-                aggregation_object.proof_witness_indices,
                 aggregation_object.has_data,
+                aggregation_object.proof_witness_indices,
             },
 
             to_nt(new_commitments),
