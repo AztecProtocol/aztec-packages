@@ -1,3 +1,4 @@
+import { createDebugLogger, createLogger } from '@aztec/foundation/log';
 import { LeafData, SiblingPath } from '@aztec/merkle-tree';
 import { MerkleTreeId } from '@aztec/types';
 
@@ -170,5 +171,5 @@ export async function inspectTree(db: MerkleTreeOperations, treeId: MerkleTreeId
       ` Leaf ${i}: ${await db.getLeafValue(treeId, BigInt(i)).then(x => x?.toString('hex') ?? '[undefined]')}`,
     );
   }
-  console.log(output.join('\n'));
+  createDebugLogger('aztec:inspect-tree')(output.join('\n'));
 }
