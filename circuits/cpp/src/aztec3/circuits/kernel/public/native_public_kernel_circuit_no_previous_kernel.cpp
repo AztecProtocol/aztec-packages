@@ -3,7 +3,6 @@
 #include "common.hpp"
 #include "init.hpp"
 
-#include "aztec3/constants.hpp"
 #include "aztec3/utils/circuit_errors.hpp"
 #include <aztec3/circuits/abis/kernel_circuit_public_inputs.hpp>
 #include <aztec3/circuits/abis/public_kernel/public_kernel_inputs_no_previous_kernel.hpp>
@@ -13,28 +12,19 @@
 
 namespace {
 
+using aztec3::circuits::kernel::public_kernel::common_update_public_end_values;
 using aztec3::utils::is_array_empty;
 using CircuitErrorCode = aztec3::utils::CircuitErrorCode;
 
 /**
  * @brief Initialises the circuit output end state from provided inputs
- * @param composer The circuit composer
  * @param public_kernel_inputs The inputs to this iteration of the kernel circuit
  * @param circuit_outputs The circuit outputs to be initialised
  */
-void initialise_end_values(DummyComposer& composer,
-                           PublicKernelInputsNoPreviousKernel<NT> const& public_kernel_inputs,
+void initialise_end_values(PublicKernelInputsNoPreviousKernel<NT> const& public_kernel_inputs,
                            KernelCircuitPublicInputs<NT>& circuit_outputs)
 {
     circuit_outputs.constants.tx_context = public_kernel_inputs.signed_tx_request.tx_request.tx_context;
-    circuit_outputs.constants.historic_tree_roots = public_kernel_inputs.historic_tree_roots;
-
-    // If the nullifiers array is not empty a change was made and we need to rework this
-    composer.do_assert(is_array_empty(circuit_outputs.end.new_nullifiers),
-                       "new_nullifiers array must be empty",
-                       CircuitErrorCode::PUBLIC_KERNEL__NEW_NULLIFIERS_NOT_EMPTY_IN_FIRST_ITERATION);
-
-    array_push(circuit_outputs.end.new_nullifiers, public_kernel_inputs.signed_tx_request.hash());
 }
 
 /**
@@ -55,6 +45,29 @@ void validate_inputs(DummyComposer& composer, PublicKernelInputsNoPreviousKernel
                            this_call_stack_item.contract_address,
                        "Storage contract address must be that of the called contract",
                        aztec3::utils::CircuitErrorCode::PUBLIC_KERNEL__CONTRACT_ADDRESS_MISMATCH);
+}
+
+/**
+ * @brief Propagates valid (i.e. non-empty) public data reads from this iteration to the circuit output
+ * @tparam The type of kernel input
+ * @param composer The circuit composer
+ * @param public_kernel_inputs The inputs to this iteration of the kernel circuit
+ * @param circuit_outputs The circuit outputs to be populated
+ */
+void update_public_end_values(DummyComposer& composer,
+                              PublicKernelInputsNoPreviousKernel<NT> const& public_kernel_inputs,
+                              KernelCircuitPublicInputs<NT>& circuit_outputs)
+{
+    // Since it's the first iteration we need to inject the tx hash nullifier
+    // Note: If the nullifiers array is not empty and `first_iteration` flag is correctly set a change was made and
+    // we need to rework this
+    composer.do_assert(is_array_empty(circuit_outputs.end.new_nullifiers),
+                       "new_nullifiers array must be empty",
+                       CircuitErrorCode::PUBLIC_KERNEL__NEW_NULLIFIERS_NOT_EMPTY_IN_FIRST_ITERATION);
+
+    array_push(circuit_outputs.end.new_nullifiers, public_kernel_inputs.signed_tx_request.hash());
+
+    common_update_public_end_values(public_kernel_inputs, circuit_outputs);
 }
 }  // namespace
 
@@ -80,7 +93,7 @@ KernelCircuitPublicInputs<NT> native_public_kernel_circuit_no_previous_kernel(
     KernelCircuitPublicInputs<NT> public_inputs{};
 
     // initialise the circuit end state with defaults and constants from the provided input
-    initialise_end_values(composer, public_kernel_inputs, public_inputs);
+    initialise_end_values(public_kernel_inputs, public_inputs);
 
     // validate the inputs common to all invocation circumstances
     common_validate_inputs(composer, public_kernel_inputs);
@@ -92,7 +105,7 @@ KernelCircuitPublicInputs<NT> native_public_kernel_circuit_no_previous_kernel(
     common_validate_kernel_execution(composer, public_kernel_inputs);
 
     // update the public end state of the circuit
-    update_public_end_values(public_kernel_inputs, public_inputs);
+    update_public_end_values(composer, public_kernel_inputs, public_inputs);
 
     // TODO: check for the existence on the public function in the contract tree
     return public_inputs;
