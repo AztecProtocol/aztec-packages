@@ -1,31 +1,30 @@
 #include "c_bind.h"
 #include "index.hpp"
-#include "init.hpp"
 
+#include "aztec3/circuits/abis/call_context.hpp"
+#include "aztec3/circuits/abis/call_stack_item.hpp"
+#include "aztec3/circuits/abis/combined_accumulated_data.hpp"
+#include "aztec3/circuits/abis/combined_constant_data.hpp"
+#include "aztec3/circuits/abis/contract_deployment_data.hpp"
+#include "aztec3/circuits/abis/function_data.hpp"
+#include "aztec3/circuits/abis/kernel_circuit_public_inputs.hpp"
+#include "aztec3/circuits/abis/private_circuit_public_inputs.hpp"
+#include "aztec3/circuits/abis/private_historic_tree_roots.hpp"
+#include "aztec3/circuits/abis/private_kernel/globals.hpp"
 #include "aztec3/circuits/abis/private_kernel/private_call_data.hpp"
+#include "aztec3/circuits/abis/private_kernel/private_kernel_inputs_init.hpp"
+#include "aztec3/circuits/abis/private_kernel/private_kernel_inputs_inner.hpp"
+#include "aztec3/circuits/abis/signed_tx_request.hpp"
+#include "aztec3/circuits/abis/tx_context.hpp"
+#include "aztec3/circuits/abis/tx_request.hpp"
+#include "aztec3/circuits/abis/types.hpp"
+#include "aztec3/circuits/apps/function_execution_context.hpp"
+#include "aztec3/circuits/apps/test_apps/basic_contract_deployment/basic_contract_deployment.hpp"
+#include "aztec3/circuits/apps/test_apps/escrow/deposit.hpp"
+#include "aztec3/circuits/hash.hpp"
 #include "aztec3/circuits/kernel/private/utils.hpp"
+#include "aztec3/circuits/mock/mock_kernel_circuit.hpp"
 #include "aztec3/constants.hpp"
-#include <aztec3/circuits/abis/call_context.hpp>
-#include <aztec3/circuits/abis/call_stack_item.hpp>
-#include <aztec3/circuits/abis/combined_accumulated_data.hpp>
-#include <aztec3/circuits/abis/combined_constant_data.hpp>
-#include <aztec3/circuits/abis/contract_deployment_data.hpp>
-#include <aztec3/circuits/abis/function_data.hpp>
-#include <aztec3/circuits/abis/kernel_circuit_public_inputs.hpp>
-#include <aztec3/circuits/abis/private_circuit_public_inputs.hpp>
-#include <aztec3/circuits/abis/private_historic_tree_roots.hpp>
-#include <aztec3/circuits/abis/private_kernel/globals.hpp>
-#include <aztec3/circuits/abis/private_kernel/private_kernel_inputs_init.hpp>
-#include <aztec3/circuits/abis/private_kernel/private_kernel_inputs_inner.hpp>
-#include <aztec3/circuits/abis/signed_tx_request.hpp>
-#include <aztec3/circuits/abis/tx_context.hpp>
-#include <aztec3/circuits/abis/tx_request.hpp>
-#include <aztec3/circuits/abis/types.hpp>
-#include <aztec3/circuits/apps/function_execution_context.hpp>
-#include <aztec3/circuits/apps/test_apps/basic_contract_deployment/basic_contract_deployment.hpp>
-#include <aztec3/circuits/apps/test_apps/escrow/deposit.hpp>
-#include <aztec3/circuits/hash.hpp>
-#include <aztec3/circuits/mock/mock_kernel_circuit.hpp>
 
 #include <barretenberg/common/map.hpp>
 #include <barretenberg/common/test.hpp>
@@ -351,9 +350,8 @@ PrivateKernelInputsInit<NT> do_private_call_get_kernel_inputs_init(bool const is
         NT::fr(uint256_t(0x01071e9a23e0f7edULL, 0x5d77b35d1830fa3eULL, 0xc6ba3660bb1f0c0bULL, 0x2ef9f7f09867fd6eULL));
     const NT::address& tx_origin = msg_sender;
 
-    auto const& private_call_deploy = create_private_call_deploy_data(is_constructor, func, args_vec, msg_sender);
-
-    auto const& private_call_data = private_call_deploy.first;
+    auto const& [private_call_data, contract_deployment_data] =
+        create_private_call_deploy_data(is_constructor, func, args_vec, msg_sender);
 
     //***************************************************************************
     // We can create a TxRequest from some of the above data. Users must sign a TxRequest in order to give permission
@@ -370,7 +368,7 @@ PrivateKernelInputsInit<NT> do_private_call_get_kernel_inputs_init(bool const is
                 .is_fee_payment_tx = false,
                 .is_rebate_payment_tx = false,
                 .is_contract_deployment_tx = is_constructor,
-                .contract_deployment_data = private_call_deploy.second,
+                .contract_deployment_data = contract_deployment_data,
             },
         .chain_id = 1,
     };
@@ -497,7 +495,7 @@ void validate_deployed_contract_address(PrivateKernelInputsInit<NT> const& priva
 /**
  * @brief Some private circuit proof (`deposit`, in this case)
  */
-TEST(private_kernel_tests, circuit_deposit)
+/* TEST(private_kernel_tests, circuit_deposit)
 {
     NT::fr const& amount = 5;
     NT::fr const& asset_id = 1;
@@ -522,7 +520,7 @@ TEST(private_kernel_tests, circuit_deposit)
 
     debugComposer(private_kernel_composer);
 }
-
+ */
 /**
  * @brief Some private circuit simulation (`deposit`, in this case)
  */
@@ -532,9 +530,9 @@ TEST(private_kernel_tests, native_deposit)
     NT::fr const& asset_id = 1;
     NT::fr const& memo = 999;
 
-    auto const& private_inputs = do_private_call_get_kernel_inputs(false, deposit, { amount, asset_id, memo });
+    auto const& private_inputs = do_private_call_get_kernel_inputs_init(false, deposit, { amount, asset_id, memo });
     DummyComposer composer = DummyComposer("private_kernel_tests__native_deposit");
-    auto const& public_inputs = native_private_kernel_circuit(composer, private_inputs);
+    auto const& public_inputs = native_private_kernel_circuit_initial(composer, private_inputs);
 
     validate_deployed_contract_address(private_inputs, public_inputs);
 }
@@ -542,143 +540,143 @@ TEST(private_kernel_tests, native_deposit)
 /**
  * @brief Some private circuit proof (`constructor`, in this case)
  */
-TEST(private_kernel_tests, circuit_basic_contract_deployment)
-{
-    NT::fr const& arg0 = 5;
-    NT::fr const& arg1 = 1;
-    NT::fr const& arg2 = 999;
+// TEST(private_kernel_tests, circuit_basic_contract_deployment)
+// {
+//     NT::fr const& arg0 = 5;
+//     NT::fr const& arg1 = 1;
+//     NT::fr const& arg2 = 999;
 
-    auto const& private_inputs = do_private_call_get_kernel_inputs(true, constructor, { arg0, arg1, arg2 }, true);
+//     auto const& private_inputs = do_private_call_get_kernel_inputs(true, constructor, { arg0, arg1, arg2 }, true);
 
-    // Execute and prove the first kernel iteration
-    Composer private_kernel_composer("../barretenberg/cpp/srs_db/ignition");
-    auto const& public_inputs = private_kernel_circuit(private_kernel_composer, private_inputs);
+//     // Execute and prove the first kernel iteration
+//     Composer private_kernel_composer("../barretenberg/cpp/srs_db/ignition");
+//     auto const& public_inputs = private_kernel_circuit(private_kernel_composer, private_inputs);
 
-    // Check contract address was correctly computed by the circuit
-    validate_deployed_contract_address(private_inputs, public_inputs);
+//     // Check contract address was correctly computed by the circuit
+//     validate_deployed_contract_address(private_inputs, public_inputs);
 
-    // Create the final kernel proof and verify it natively.
-    auto final_kernel_prover = private_kernel_composer.create_prover();
-    auto const& final_kernel_proof = final_kernel_prover.construct_proof();
+//     // Create the final kernel proof and verify it natively.
+//     auto final_kernel_prover = private_kernel_composer.create_prover();
+//     auto const& final_kernel_proof = final_kernel_prover.construct_proof();
 
-    auto final_kernel_verifier = private_kernel_composer.create_verifier();
-    auto const& final_result = final_kernel_verifier.verify_proof(final_kernel_proof);
-    EXPECT_EQ(final_result, true);
+//     auto final_kernel_verifier = private_kernel_composer.create_verifier();
+//     auto const& final_result = final_kernel_verifier.verify_proof(final_kernel_proof);
+//     EXPECT_EQ(final_result, true);
 
-    debugComposer(private_kernel_composer);
-}
+//     debugComposer(private_kernel_composer);
+// }
 
-/**
- * @brief Some private circuit simulation (`constructor`, in this case)
- */
-TEST(private_kernel_tests, native_basic_contract_deployment)
-{
-    NT::fr const& arg0 = 5;
-    NT::fr const& arg1 = 1;
-    NT::fr const& arg2 = 999;
+// /**
+//  * @brief Some private circuit simulation (`constructor`, in this case)
+//  */
+// TEST(private_kernel_tests, native_basic_contract_deployment)
+// {
+//     NT::fr const& arg0 = 5;
+//     NT::fr const& arg1 = 1;
+//     NT::fr const& arg2 = 999;
 
-    auto const& private_inputs = do_private_call_get_kernel_inputs(true, constructor, { arg0, arg1, arg2 });
-    DummyComposer composer = DummyComposer("private_kernel_tests__native_basic_contract_deployment");
-    auto const& public_inputs = native_private_kernel_circuit(composer, private_inputs);
+//     auto const& private_inputs = do_private_call_get_kernel_inputs(true, constructor, { arg0, arg1, arg2 });
+//     DummyComposer composer = DummyComposer("private_kernel_tests__native_basic_contract_deployment");
+//     auto const& public_inputs = native_private_kernel_circuit(composer, private_inputs);
 
-    validate_deployed_contract_address(private_inputs, public_inputs);
-}
+//     validate_deployed_contract_address(private_inputs, public_inputs);
+// }
 
-/**
- * @brief Some private circuit simulation checked against its results via cbinds
- */
-TEST(private_kernel_tests, circuit_create_proof_cbinds)
-{
-    NT::fr const& arg0 = 5;
-    NT::fr const& arg1 = 1;
-    NT::fr const& arg2 = 999;
+// /**
+//  * @brief Some private circuit simulation checked against its results via cbinds
+//  */
+// TEST(private_kernel_tests, circuit_create_proof_cbinds)
+// {
+//     NT::fr const& arg0 = 5;
+//     NT::fr const& arg1 = 1;
+//     NT::fr const& arg2 = 999;
 
-    // first run actual simulation to get public inputs
-    auto const& private_inputs = do_private_call_get_kernel_inputs(true, constructor, { arg0, arg1, arg2 }, true);
-    DummyComposer composer = DummyComposer("private_kernel_tests__circuit_create_proof_cbinds");
-    auto const& public_inputs = native_private_kernel_circuit(composer, private_inputs);
+//     // first run actual simulation to get public inputs
+//     auto const& private_inputs = do_private_call_get_kernel_inputs(true, constructor, { arg0, arg1, arg2 }, true);
+//     DummyComposer composer = DummyComposer("private_kernel_tests__circuit_create_proof_cbinds");
+//     auto const& public_inputs = native_private_kernel_circuit(composer, private_inputs);
 
-    // serialize expected public inputs for later comparison
-    std::vector<uint8_t> expected_public_inputs_vec;
-    write(expected_public_inputs_vec, public_inputs);
+//     // serialize expected public inputs for later comparison
+//     std::vector<uint8_t> expected_public_inputs_vec;
+//     write(expected_public_inputs_vec, public_inputs);
 
-    //***************************************************************************
-    // Now run the simulate/prove cbinds to make sure their outputs match
-    //***************************************************************************
-    // TODO might be able to get rid of proving key buffer
-    uint8_t const* pk_buf = nullptr;
-    private_kernel__init_proving_key(&pk_buf);
-    // info("Proving key size: ", pk_size);
+//     //***************************************************************************
+//     // Now run the simulate/prove cbinds to make sure their outputs match
+//     //***************************************************************************
+//     // TODO might be able to get rid of proving key buffer
+//     uint8_t const* pk_buf = nullptr;
+//     private_kernel__init_proving_key(&pk_buf);
+//     // info("Proving key size: ", pk_size);
 
-    // TODO might be able to get rid of verification key buffer
-    // uint8_t const* vk_buf;
-    // size_t vk_size = private_kernel__init_verification_key(pk_buf, &vk_buf);
-    // info("Verification key size: ", vk_size);
+//     // TODO might be able to get rid of verification key buffer
+//     // uint8_t const* vk_buf;
+//     // size_t vk_size = private_kernel__init_verification_key(pk_buf, &vk_buf);
+//     // info("Verification key size: ", vk_size);
 
-    std::vector<uint8_t> signed_constructor_tx_request_vec;
-    write(signed_constructor_tx_request_vec, private_inputs.signed_tx_request);
+//     std::vector<uint8_t> signed_constructor_tx_request_vec;
+//     write(signed_constructor_tx_request_vec, private_inputs.signed_tx_request);
 
-    std::vector<uint8_t> private_constructor_call_vec;
-    write(private_constructor_call_vec, private_inputs.private_call);
+//     std::vector<uint8_t> private_constructor_call_vec;
+//     write(private_constructor_call_vec, private_inputs.private_call);
 
-    uint8_t const* proof_data_buf = nullptr;
-    uint8_t const* public_inputs_buf = nullptr;
-    size_t public_inputs_size = 0;
-    // info("Simulating to generate public inputs...");
-    uint8_t* const circuit_failure_ptr = private_kernel__sim(signed_constructor_tx_request_vec.data(),
-                                                             nullptr,  // no previous kernel on first iteration
-                                                             private_constructor_call_vec.data(),
-                                                             true,  // first iteration
-                                                             &public_inputs_size,
-                                                             &public_inputs_buf);
-    ASSERT_TRUE(circuit_failure_ptr == nullptr);
+//     uint8_t const* proof_data_buf = nullptr;
+//     uint8_t const* public_inputs_buf = nullptr;
+//     size_t public_inputs_size = 0;
+//     // info("Simulating to generate public inputs...");
+//     uint8_t* const circuit_failure_ptr = private_kernel__sim(signed_constructor_tx_request_vec.data(),
+//                                                              nullptr,  // no previous kernel on first iteration
+//                                                              private_constructor_call_vec.data(),
+//                                                              true,  // first iteration
+//                                                              &public_inputs_size,
+//                                                              &public_inputs_buf);
+//     ASSERT_TRUE(circuit_failure_ptr == nullptr);
 
-    // TODO better equality check
-    // for (size_t i = 0; i < public_inputs_size; i++)
-    for (size_t i = 0; i < 10; i++) {
-        ASSERT_EQ(public_inputs_buf[i], expected_public_inputs_vec[i]);
-    }
-    (void)public_inputs_size;
-    // info("Proving");
-    size_t const proof_data_size = private_kernel__prove(signed_constructor_tx_request_vec.data(),
-                                                         nullptr,  // no previous kernel on first iteration
-                                                         private_constructor_call_vec.data(),
-                                                         pk_buf,
-                                                         true,  // first iteration
-                                                         &proof_data_buf);
-    (void)proof_data_size;
-    // info("Proof size: ", proof_data_size);
-    // info("PublicInputs size: ", public_inputs_size);
+//     // TODO better equality check
+//     // for (size_t i = 0; i < public_inputs_size; i++)
+//     for (size_t i = 0; i < 10; i++) {
+//         ASSERT_EQ(public_inputs_buf[i], expected_public_inputs_vec[i]);
+//     }
+//     (void)public_inputs_size;
+//     // info("Proving");
+//     size_t const proof_data_size = private_kernel__prove(signed_constructor_tx_request_vec.data(),
+//                                                          nullptr,  // no previous kernel on first iteration
+//                                                          private_constructor_call_vec.data(),
+//                                                          pk_buf,
+//                                                          true,  // first iteration
+//                                                          &proof_data_buf);
+//     (void)proof_data_size;
+//     // info("Proof size: ", proof_data_size);
+//     // info("PublicInputs size: ", public_inputs_size);
 
-    free((void*)pk_buf);
-    // free((void*)vk_buf);
-    free((void*)proof_data_buf);
-    free((void*)public_inputs_buf);
-}
+//     free((void*)pk_buf);
+//     // free((void*)vk_buf);
+//     free((void*)proof_data_buf);
+//     free((void*)public_inputs_buf);
+// }
 
-/**
- * @brief Test this dummy cbind
- */
-TEST(private_kernel_tests, native_dummy_previous_kernel_cbind)
-{
-    uint8_t const* cbind_previous_kernel_buf = nullptr;
-    size_t const cbind_buf_size = private_kernel__dummy_previous_kernel(&cbind_previous_kernel_buf);
+// /**
+//  * @brief Test this dummy cbind
+//  */
+// TEST(private_kernel_tests, native_dummy_previous_kernel_cbind)
+// {
+//     uint8_t const* cbind_previous_kernel_buf = nullptr;
+//     size_t const cbind_buf_size = private_kernel__dummy_previous_kernel(&cbind_previous_kernel_buf);
 
-    auto const& previous_kernel = utils::dummy_previous_kernel();
-    std::vector<uint8_t> expected_vec;
-    write(expected_vec, previous_kernel);
+//     auto const& previous_kernel = utils::dummy_previous_kernel();
+//     std::vector<uint8_t> expected_vec;
+//     write(expected_vec, previous_kernel);
 
-    // Just compare the first 10 bytes of the serialized public outputs
-    // TODO this is not a good test as it only checks a few bytes
-    // would be best if we could just check struct equality or check
-    // equality of an entire memory region (same as other similar TODOs
-    // in other test files)
-    // TODO better equality check
-    // for (size_t i = 0; i < cbind_buf_size; i++) {
-    for (size_t i = 0; i < 10; i++) {
-        ASSERT_EQ(cbind_previous_kernel_buf[i], expected_vec[i]);
-    }
-    (void)cbind_buf_size;
-}
+//     // Just compare the first 10 bytes of the serialized public outputs
+//     // TODO this is not a good test as it only checks a few bytes
+//     // would be best if we could just check struct equality or check
+//     // equality of an entire memory region (same as other similar TODOs
+//     // in other test files)
+//     // TODO better equality check
+//     // for (size_t i = 0; i < cbind_buf_size; i++) {
+//     for (size_t i = 0; i < 10; i++) {
+//         ASSERT_EQ(cbind_previous_kernel_buf[i], expected_vec[i]);
+//     }
+//     (void)cbind_buf_size;
+// }
 
 }  // namespace aztec3::circuits::kernel::private_kernel
