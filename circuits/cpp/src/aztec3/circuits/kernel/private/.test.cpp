@@ -495,20 +495,27 @@ void validate_deployed_contract_address(PrivateKernelInputsInit<NT> const& priva
 /**
  * @brief Some private circuit proof (`deposit`, in this case)
  */
-/* TEST(private_kernel_tests, circuit_deposit)
+TEST(private_kernel_tests, circuit_deposit)
 {
     NT::fr const& amount = 5;
     NT::fr const& asset_id = 1;
     NT::fr const& memo = 999;
 
-    auto const& private_inputs = do_private_call_get_kernel_inputs(false, deposit, { amount, asset_id, memo }, true);
+    auto const& private_inputs =
+        do_private_call_get_kernel_inputs_inner(false, deposit, { amount, asset_id, memo }, true);
 
     // Execute and prove the first kernel iteration
     Composer private_kernel_composer("../barretenberg/cpp/srs_db/ignition");
     auto const& public_inputs = private_kernel_circuit(private_kernel_composer, private_inputs);
 
+    // TODO(jeanmon): this is a temporary hack until we have private_kernel_circuit init and inner
+    // variant. Once this is supported, we will be able to generate public_inputs with
+    // a call to private_kernel_circuit_init(private_inputs_init, ...)
+    auto const& private_inputs_init =
+        do_private_call_get_kernel_inputs_init(false, deposit, { amount, asset_id, memo });
+
     // Check contract address was correctly computed by the circuit
-    validate_deployed_contract_address(private_inputs, public_inputs);
+    validate_deployed_contract_address(private_inputs_init, public_inputs);
 
     // Create the final kernel proof and verify it natively.
     auto final_kernel_prover = private_kernel_composer.create_prover();
@@ -520,7 +527,7 @@ void validate_deployed_contract_address(PrivateKernelInputsInit<NT> const& priva
 
     debugComposer(private_kernel_composer);
 }
- */
+
 /**
  * @brief Some private circuit simulation (`deposit`, in this case)
  */
@@ -540,143 +547,148 @@ TEST(private_kernel_tests, native_deposit)
 /**
  * @brief Some private circuit proof (`constructor`, in this case)
  */
-// TEST(private_kernel_tests, circuit_basic_contract_deployment)
-// {
-//     NT::fr const& arg0 = 5;
-//     NT::fr const& arg1 = 1;
-//     NT::fr const& arg2 = 999;
+TEST(private_kernel_tests, circuit_basic_contract_deployment)
+{
+    NT::fr const& arg0 = 5;
+    NT::fr const& arg1 = 1;
+    NT::fr const& arg2 = 999;
 
-//     auto const& private_inputs = do_private_call_get_kernel_inputs(true, constructor, { arg0, arg1, arg2 }, true);
+    auto const& private_inputs = do_private_call_get_kernel_inputs_inner(true, constructor, { arg0, arg1, arg2 }, true);
 
-//     // Execute and prove the first kernel iteration
-//     Composer private_kernel_composer("../barretenberg/cpp/srs_db/ignition");
-//     auto const& public_inputs = private_kernel_circuit(private_kernel_composer, private_inputs);
+    // Execute and prove the first kernel iteration
+    Composer private_kernel_composer("../barretenberg/cpp/srs_db/ignition");
+    auto const& public_inputs = private_kernel_circuit(private_kernel_composer, private_inputs);
 
-//     // Check contract address was correctly computed by the circuit
-//     validate_deployed_contract_address(private_inputs, public_inputs);
+    // TODO(jeanmon): this is a temporary hack until we have private_kernel_circuit init and inner
+    // variant. Once this is supported, we will be able to generate public_inputs with
+    // a call to private_kernel_circuit_init(private_inputs_init, ...)
+    auto const& private_inputs_init = do_private_call_get_kernel_inputs_init(true, constructor, { arg0, arg1, arg2 });
 
-//     // Create the final kernel proof and verify it natively.
-//     auto final_kernel_prover = private_kernel_composer.create_prover();
-//     auto const& final_kernel_proof = final_kernel_prover.construct_proof();
+    // Check contract address was correctly computed by the circuit
+    validate_deployed_contract_address(private_inputs_init, public_inputs);
 
-//     auto final_kernel_verifier = private_kernel_composer.create_verifier();
-//     auto const& final_result = final_kernel_verifier.verify_proof(final_kernel_proof);
-//     EXPECT_EQ(final_result, true);
+    // Create the final kernel proof and verify it natively.
+    auto final_kernel_prover = private_kernel_composer.create_prover();
+    auto const& final_kernel_proof = final_kernel_prover.construct_proof();
 
-//     debugComposer(private_kernel_composer);
-// }
+    auto final_kernel_verifier = private_kernel_composer.create_verifier();
+    auto const& final_result = final_kernel_verifier.verify_proof(final_kernel_proof);
+    EXPECT_EQ(final_result, true);
 
-// /**
-//  * @brief Some private circuit simulation (`constructor`, in this case)
-//  */
-// TEST(private_kernel_tests, native_basic_contract_deployment)
-// {
-//     NT::fr const& arg0 = 5;
-//     NT::fr const& arg1 = 1;
-//     NT::fr const& arg2 = 999;
+    debugComposer(private_kernel_composer);
+}
 
-//     auto const& private_inputs = do_private_call_get_kernel_inputs(true, constructor, { arg0, arg1, arg2 });
-//     DummyComposer composer = DummyComposer("private_kernel_tests__native_basic_contract_deployment");
-//     auto const& public_inputs = native_private_kernel_circuit(composer, private_inputs);
+/**
+ * @brief Some private circuit simulation (`constructor`, in this case)
+ */
+TEST(private_kernel_tests, native_basic_contract_deployment)
+{
+    NT::fr const& arg0 = 5;
+    NT::fr const& arg1 = 1;
+    NT::fr const& arg2 = 999;
 
-//     validate_deployed_contract_address(private_inputs, public_inputs);
-// }
+    auto const& private_inputs = do_private_call_get_kernel_inputs_init(true, constructor, { arg0, arg1, arg2 });
+    DummyComposer composer = DummyComposer("private_kernel_tests__native_basic_contract_deployment");
+    auto const& public_inputs = native_private_kernel_circuit_initial(composer, private_inputs);
 
-// /**
-//  * @brief Some private circuit simulation checked against its results via cbinds
-//  */
-// TEST(private_kernel_tests, circuit_create_proof_cbinds)
-// {
-//     NT::fr const& arg0 = 5;
-//     NT::fr const& arg1 = 1;
-//     NT::fr const& arg2 = 999;
+    validate_deployed_contract_address(private_inputs, public_inputs);
+}
 
-//     // first run actual simulation to get public inputs
-//     auto const& private_inputs = do_private_call_get_kernel_inputs(true, constructor, { arg0, arg1, arg2 }, true);
-//     DummyComposer composer = DummyComposer("private_kernel_tests__circuit_create_proof_cbinds");
-//     auto const& public_inputs = native_private_kernel_circuit(composer, private_inputs);
+/**
+ * @brief Some private circuit simulation checked against its results via cbinds
+ */
+TEST(private_kernel_tests, circuit_create_proof_cbinds)
+{
+    NT::fr const& arg0 = 5;
+    NT::fr const& arg1 = 1;
+    NT::fr const& arg2 = 999;
 
-//     // serialize expected public inputs for later comparison
-//     std::vector<uint8_t> expected_public_inputs_vec;
-//     write(expected_public_inputs_vec, public_inputs);
+    // first run actual simulation to get public inputs
+    auto const& private_inputs = do_private_call_get_kernel_inputs_init(true, constructor, { arg0, arg1, arg2 });
+    DummyComposer composer = DummyComposer("private_kernel_tests__circuit_create_proof_cbinds");
+    auto const& public_inputs = native_private_kernel_circuit_initial(composer, private_inputs);
 
-//     //***************************************************************************
-//     // Now run the simulate/prove cbinds to make sure their outputs match
-//     //***************************************************************************
-//     // TODO might be able to get rid of proving key buffer
-//     uint8_t const* pk_buf = nullptr;
-//     private_kernel__init_proving_key(&pk_buf);
-//     // info("Proving key size: ", pk_size);
+    // serialize expected public inputs for later comparison
+    std::vector<uint8_t> expected_public_inputs_vec;
+    write(expected_public_inputs_vec, public_inputs);
 
-//     // TODO might be able to get rid of verification key buffer
-//     // uint8_t const* vk_buf;
-//     // size_t vk_size = private_kernel__init_verification_key(pk_buf, &vk_buf);
-//     // info("Verification key size: ", vk_size);
+    //***************************************************************************
+    // Now run the simulate/prove cbinds to make sure their outputs match
+    //***************************************************************************
+    // TODO might be able to get rid of proving key buffer
+    uint8_t const* pk_buf = nullptr;
+    private_kernel__init_proving_key(&pk_buf);
+    // info("Proving key size: ", pk_size);
 
-//     std::vector<uint8_t> signed_constructor_tx_request_vec;
-//     write(signed_constructor_tx_request_vec, private_inputs.signed_tx_request);
+    // TODO might be able to get rid of verification key buffer
+    // uint8_t const* vk_buf;
+    // size_t vk_size = private_kernel__init_verification_key(pk_buf, &vk_buf);
+    // info("Verification key size: ", vk_size);
 
-//     std::vector<uint8_t> private_constructor_call_vec;
-//     write(private_constructor_call_vec, private_inputs.private_call);
+    std::vector<uint8_t> signed_constructor_tx_request_vec;
+    write(signed_constructor_tx_request_vec, private_inputs.signed_tx_request);
 
-//     uint8_t const* proof_data_buf = nullptr;
-//     uint8_t const* public_inputs_buf = nullptr;
-//     size_t public_inputs_size = 0;
-//     // info("Simulating to generate public inputs...");
-//     uint8_t* const circuit_failure_ptr = private_kernel__sim(signed_constructor_tx_request_vec.data(),
-//                                                              nullptr,  // no previous kernel on first iteration
-//                                                              private_constructor_call_vec.data(),
-//                                                              true,  // first iteration
-//                                                              &public_inputs_size,
-//                                                              &public_inputs_buf);
-//     ASSERT_TRUE(circuit_failure_ptr == nullptr);
+    std::vector<uint8_t> private_constructor_call_vec;
+    write(private_constructor_call_vec, private_inputs.private_call);
 
-//     // TODO better equality check
-//     // for (size_t i = 0; i < public_inputs_size; i++)
-//     for (size_t i = 0; i < 10; i++) {
-//         ASSERT_EQ(public_inputs_buf[i], expected_public_inputs_vec[i]);
-//     }
-//     (void)public_inputs_size;
-//     // info("Proving");
-//     size_t const proof_data_size = private_kernel__prove(signed_constructor_tx_request_vec.data(),
-//                                                          nullptr,  // no previous kernel on first iteration
-//                                                          private_constructor_call_vec.data(),
-//                                                          pk_buf,
-//                                                          true,  // first iteration
-//                                                          &proof_data_buf);
-//     (void)proof_data_size;
-//     // info("Proof size: ", proof_data_size);
-//     // info("PublicInputs size: ", public_inputs_size);
+    uint8_t const* proof_data_buf = nullptr;
+    uint8_t const* public_inputs_buf = nullptr;
+    size_t public_inputs_size = 0;
+    // info("Simulating to generate public inputs...");
+    uint8_t* const circuit_failure_ptr = private_kernel__sim(signed_constructor_tx_request_vec.data(),
+                                                             nullptr,  // no previous kernel on first iteration
+                                                             private_constructor_call_vec.data(),
+                                                             true,  // first iteration
+                                                             &public_inputs_size,
+                                                             &public_inputs_buf);
+    ASSERT_TRUE(circuit_failure_ptr == nullptr);
 
-//     free((void*)pk_buf);
-//     // free((void*)vk_buf);
-//     free((void*)proof_data_buf);
-//     free((void*)public_inputs_buf);
-// }
+    // TODO better equality check
+    // for (size_t i = 0; i < public_inputs_size; i++)
+    for (size_t i = 0; i < 10; i++) {
+        ASSERT_EQ(public_inputs_buf[i], expected_public_inputs_vec[i]);
+    }
+    (void)public_inputs_size;
+    // info("Proving");
+    size_t const proof_data_size = private_kernel__prove(signed_constructor_tx_request_vec.data(),
+                                                         nullptr,  // no previous kernel on first iteration
+                                                         private_constructor_call_vec.data(),
+                                                         pk_buf,
+                                                         true,  // first iteration
+                                                         &proof_data_buf);
+    (void)proof_data_size;
+    // info("Proof size: ", proof_data_size);
+    // info("PublicInputs size: ", public_inputs_size);
 
-// /**
-//  * @brief Test this dummy cbind
-//  */
-// TEST(private_kernel_tests, native_dummy_previous_kernel_cbind)
-// {
-//     uint8_t const* cbind_previous_kernel_buf = nullptr;
-//     size_t const cbind_buf_size = private_kernel__dummy_previous_kernel(&cbind_previous_kernel_buf);
+    free((void*)pk_buf);
+    // free((void*)vk_buf);
+    free((void*)proof_data_buf);
+    free((void*)public_inputs_buf);
+}
 
-//     auto const& previous_kernel = utils::dummy_previous_kernel();
-//     std::vector<uint8_t> expected_vec;
-//     write(expected_vec, previous_kernel);
+/**
+ * @brief Test this dummy cbind
+ */
+TEST(private_kernel_tests, native_dummy_previous_kernel_cbind)
+{
+    uint8_t const* cbind_previous_kernel_buf = nullptr;
+    size_t const cbind_buf_size = private_kernel__dummy_previous_kernel(&cbind_previous_kernel_buf);
 
-//     // Just compare the first 10 bytes of the serialized public outputs
-//     // TODO this is not a good test as it only checks a few bytes
-//     // would be best if we could just check struct equality or check
-//     // equality of an entire memory region (same as other similar TODOs
-//     // in other test files)
-//     // TODO better equality check
-//     // for (size_t i = 0; i < cbind_buf_size; i++) {
-//     for (size_t i = 0; i < 10; i++) {
-//         ASSERT_EQ(cbind_previous_kernel_buf[i], expected_vec[i]);
-//     }
-//     (void)cbind_buf_size;
-// }
+    auto const& previous_kernel = utils::dummy_previous_kernel();
+    std::vector<uint8_t> expected_vec;
+    write(expected_vec, previous_kernel);
+
+    // Just compare the first 10 bytes of the serialized public outputs
+    // TODO this is not a good test as it only checks a few bytes
+    // would be best if we could just check struct equality or check
+    // equality of an entire memory region (same as other similar TODOs
+    // in other test files)
+    // TODO better equality check
+    // for (size_t i = 0; i < cbind_buf_size; i++) {
+    for (size_t i = 0; i < 10; i++) {
+        ASSERT_EQ(cbind_previous_kernel_buf[i], expected_vec[i]);
+    }
+    (void)cbind_buf_size;
+}
 
 }  // namespace aztec3::circuits::kernel::private_kernel
