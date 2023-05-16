@@ -20,7 +20,6 @@ export function processContractDeploymentLogs(
   logs: Log<bigint, number, undefined, typeof UnverifiedDataEmitterAbi, 'ContractDeployment'>[],
 ): [ContractPublicData[], number][] {
   const contractPublicData: [ContractPublicData[], number][] = [];
-  // for (const log of logs) {
   for (let i = 0; i < logs.length; i++) {
     const log = logs[i];
     const l2BlockNum = Number(log.args.l2BlockNum);
