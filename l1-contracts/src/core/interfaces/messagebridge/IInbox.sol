@@ -2,32 +2,14 @@
 // Copyright 2023 Aztec Labs.
 pragma solidity >=0.8.18;
 
-import {IMessageBox} from "./IMessageBox.sol";
+import {DataStructures} from "../../libraries/DataStructures.sol";
 
 /**
  * @title Inbox
  * @author Aztec Labs
  * @notice Lives on L1 and is used to pass messages into the rollup, e.g., L1 -> L2 messages.
  */
-interface IInbox is IMessageBox {
-  /**
-   * @dev  struct for sending messages from L1 to L2
-   * @param sender - The sender of the message
-   * @param recipient - The recipient of the message
-   * @param content - The content of the message (application specific) padded to bytes32 or hashed if larger.
-   * @param secretHash - The secret hash of the message (make it possible to hide when a specific message is consumed on L2)
-   * @param deadline - The deadline to consume a message. Only after it, can a message be cancalled.
-   * @param fee - The fee provided to sequencer for including the entry
-   */
-  struct L1ToL2Msg {
-    L1Actor sender;
-    L2Actor recipient;
-    bytes32 content;
-    bytes32 secretHash;
-    uint32 deadline;
-    uint64 fee;
-  }
-
+interface IInbox {
   event MessageAdded(
     bytes32 indexed entryKey,
     address indexed sender,
@@ -42,7 +24,10 @@ interface IInbox is IMessageBox {
   event L1ToL2MessageCancelled(bytes32 indexed entryKey);
 
   /// @notice Given a message, computes an entry key for the Inbox
-  function computeMessageKey(L1ToL2Msg memory message) external pure returns (bytes32);
+  function computeMessageKey(DataStructures.L1ToL2Msg memory message)
+    external
+    pure
+    returns (bytes32);
 
   /**
    * @notice Inserts an entry into the Inbox
@@ -55,7 +40,7 @@ interface IInbox is IMessageBox {
    * @return The key of the entry in the set
    */
   function sendL2Message(
-    L2Actor memory _recipient,
+    DataStructures.L2Actor memory _recipient,
     uint32 _deadline,
     bytes32 _content,
     bytes32 _secretHash
@@ -70,7 +55,7 @@ interface IInbox is IMessageBox {
    * @param _feeCollector - The address to receive the "fee"
    * @return entryKey - The key of the entry removed
    */
-  function cancelL2Message(L1ToL2Msg memory _message, address _feeCollector)
+  function cancelL2Message(DataStructures.L1ToL2Msg memory _message, address _feeCollector)
     external
     returns (bytes32 entryKey);
 

@@ -2,8 +2,9 @@
 // Copyright 2023 Aztec Labs.
 pragma solidity >=0.8.18;
 
-import {IRegistryReader} from "@aztec/interfaces/messagebridge/IRegistryReader.sol";
-import {IMessageBox} from "@aztec/interfaces/messagebridge/IMessageBox.sol";
+import {IRegistry} from "@aztec/core/interfaces/messagebridge/IRegistry.sol";
+import {IMessageBox} from "@aztec/core/interfaces/messagebridge/IMessageBox.sol";
+import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 
 /**
  * @title MessageBox
@@ -27,30 +28,30 @@ abstract contract MessageBox is IMessageBox {
   uint256 internal constant P =
     21888242871839275222246405745257275088548364400416034343698204186575808495617;
 
-  IRegistryReader immutable REGISTRY;
+  IRegistry immutable REGISTRY;
 
-  mapping(bytes32 entryKey => Entry entry) internal entries;
+  mapping(bytes32 entryKey => DataStructures.Entry entry) internal entries;
 
   modifier onlyRollup() {
-    if (msg.sender != address(REGISTRY.getRollupAddress())) revert MessageBox__Unauthorized();
+    if (msg.sender != address(REGISTRY.getRollup())) revert MessageBox__Unauthorized();
     _;
   }
 
   constructor(address _registry) {
-    REGISTRY = IRegistryReader(_registry);
+    REGISTRY = IRegistry(_registry);
   }
 
   /**
    * @notice Inserts an entry into the multi-set
    * @param _entryKey - The key to insert
    * @param _fee - The fee provided to sequencer for including in the inbox. 0 if Oubox (as not applicable).
-   * @param _deadline - The deadline to consume a message. Only after it, can a message be cancalled.
+   * @param _deadline - The deadline to consume a message. Only after it, can a message be cancelled.
    */
   function _insert(bytes32 _entryKey, uint64 _fee, uint32 _deadline) internal {
     // since entryKey is a hash of the message, _fee and `deadline` should always be the same
     // as such, there is no need to update these vars. Yet adding an if statement breaks
     // the slot packing and increases gas. So we leave it as it is.
-    Entry memory entry = entries[_entryKey];
+    DataStructures.Entry memory entry = entries[_entryKey];
     if (
       (entry.fee != 0 && entry.fee != _fee) || (entry.deadline != 0 && entry.deadline != _deadline)
     ) {
@@ -72,7 +73,7 @@ abstract contract MessageBox is IMessageBox {
    * @param _entryKey - The key to consume
    */
   function _consume(bytes32 _entryKey) internal {
-    Entry storage entry = entries[_entryKey];
+    DataStructures.Entry storage entry = entries[_entryKey];
     if (entry.count == 0) revert MessageBox__NothingToConsume(_entryKey);
     entry.count--;
   }
@@ -82,8 +83,8 @@ abstract contract MessageBox is IMessageBox {
    * @param _entryKey - The key to lookup
    * @return The entry matching the provided key
    */
-  function get(bytes32 _entryKey) public view returns (Entry memory) {
-    Entry memory entry = entries[_entryKey];
+  function get(bytes32 _entryKey) public view returns (DataStructures.Entry memory) {
+    DataStructures.Entry memory entry = entries[_entryKey];
     if (entry.count == 0) revert MessageBox__NothingToConsume(_entryKey);
     return entry;
   }

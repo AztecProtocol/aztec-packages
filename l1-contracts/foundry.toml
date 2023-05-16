@@ -7,7 +7,6 @@ solc = "0.8.18"
 remappings = [
   "@oz/=lib/openzeppelin-contracts/contracts/",
   "@aztec/core/=src/core/",
-  "@aztec/interfaces/=src/core/interfaces/",
   "@aztec/periphery/=src/periphery/",
   "@aztec/mock/=src/mock/",
   "@aztec/verifier/=lib/aztec-verifier-contracts/src/"

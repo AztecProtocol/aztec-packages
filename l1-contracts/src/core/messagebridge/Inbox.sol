@@ -2,7 +2,8 @@
 // Copyright 2023 Aztec Labs.
 pragma solidity >=0.8.18;
 
-import {IInbox} from "@aztec/interfaces/messagebridge/IInbox.sol";
+import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
+import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {MessageBox} from "./MessageBox.sol";
 
 /**
@@ -26,7 +27,7 @@ contract Inbox is MessageBox, IInbox {
    * @param message - The L1 to L2 message
    * @return The hash of the message (used as the key of the entry in the set)
    */
-  function computeMessageKey(L1ToL2Msg memory message) public pure returns (bytes32) {
+  function computeMessageKey(DataStructures.L1ToL2Msg memory message) public pure returns (bytes32) {
     return bytes32(
       uint256(
         sha256(
@@ -54,15 +55,15 @@ contract Inbox is MessageBox, IInbox {
    * @return The key of the entry in the set
    */
   function sendL2Message(
-    L2Actor memory _recipient,
+    DataStructures.L2Actor memory _recipient,
     uint32 _deadline,
     bytes32 _content,
     bytes32 _secretHash
   ) external payable returns (bytes32) {
     if (_deadline <= block.timestamp) revert Inbox__DeadlineBeforeNow();
     uint64 fee = uint64(msg.value);
-    L1ToL2Msg memory message = L1ToL2Msg({
-      sender: L1Actor(msg.sender, block.chainid),
+    DataStructures.L1ToL2Msg memory message = DataStructures.L1ToL2Msg({
+      sender: DataStructures.L1Actor(msg.sender, block.chainid),
       recipient: _recipient,
       content: _content,
       secretHash: _secretHash,
@@ -96,7 +97,7 @@ contract Inbox is MessageBox, IInbox {
    * @param _feeCollector - The address to receive the "fee"
    * @return entryKey - The key of the entry removed
    */
-  function cancelL2Message(L1ToL2Msg memory _message, address _feeCollector)
+  function cancelL2Message(DataStructures.L1ToL2Msg memory _message, address _feeCollector)
     external
     returns (bytes32 entryKey)
   {
@@ -119,7 +120,7 @@ contract Inbox is MessageBox, IInbox {
     uint256 totalFee = 0;
     for (uint256 i = 0; i < entryKeys.length; i++) {
       // TODO: Combine these to optimise for gas.
-      Entry memory entry = get(entryKeys[i]);
+      DataStructures.Entry memory entry = get(entryKeys[i]);
       if (entry.deadline > block.timestamp) revert Inbox__PastDeadline();
       _consume(entryKeys[i]);
       totalFee += entry.fee;

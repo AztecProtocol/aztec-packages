@@ -2,8 +2,9 @@
 // Copyright 2023 Aztec Labs.
 pragma solidity >=0.8.18;
 
+import {IOutbox} from "@aztec/core/interfaces/messagebridge/IOutbox.sol";
+import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {MessageBox} from "./MessageBox.sol";
-import {IOutbox} from "@aztec/interfaces/messagebridge/IOutbox.sol";
 
 /**
  * @title Outbox
@@ -22,7 +23,7 @@ contract Outbox is MessageBox, IOutbox {
    * @param _message - The L2 to L1 message
    * @return The key of the entry in the set
    */
-  function computeEntryKey(L2ToL1Msg memory _message) public pure returns (bytes32) {
+  function computeEntryKey(DataStructures.L2ToL1Msg memory _message) public pure returns (bytes32) {
     // TODO: Replace mod P later on when we have a better idea of how to handle Fields.
     return bytes32(
       uint256(sha256(abi.encode(_message.sender, _message.recipient, _message.content))) % P
@@ -48,7 +49,7 @@ contract Outbox is MessageBox, IOutbox {
    * @param _message - The L2 to L1 message
    * @return entryKey - The key of the entry removed
    */
-  function consume(L2ToL1Msg memory _message) external returns (bytes32 entryKey) {
+  function consume(DataStructures.L2ToL1Msg memory _message) external returns (bytes32 entryKey) {
     if (msg.sender != _message.recipient.actor) revert Outbox__Unauthorized();
     if (block.chainid != _message.recipient.chainId) revert Outbox__WrongChainId();
 
