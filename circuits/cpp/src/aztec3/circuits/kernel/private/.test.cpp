@@ -57,7 +57,6 @@ using aztec3::circuits::apps::test_apps::escrow::deposit;
 
 using DummyComposer = aztec3::utils::DummyComposer;
 
-using aztec3::utils::array_push;
 using CircuitErrorCode = aztec3::utils::CircuitErrorCode;
 
 // A type representing any private circuit function
