@@ -637,6 +637,7 @@ export class SoloBlockBuilder implements BlockBuilder {
     const [nullifierWitnessLeaves, newNullifiersSubtreeSiblingPath] = await this.db.batchInsert(
       MerkleTreeId.NULLIFIER_TREE,
       newNullifiers.map(fr => fr.toBuffer()),
+      NULLIFIER_TREE_HEIGHT,
       BaseRollupInputs.NULLIFIER_SUBTREE_HEIGHT,
     );
     if (nullifierWitnessLeaves === undefined) {
