@@ -4,22 +4,35 @@ import { Fr } from '@aztec/foundation/fields';
 import { serializeToBuffer } from '@aztec/circuits.js/utils';
 import { sha256 } from '@aztec/foundation/crypto';
 import { toBigIntBE, toBufferBE } from '@aztec/foundation/bigint-buffer';
-import { assertLength } from '@aztec/circuits.js';
 
-// TODO: double check to buffer array calculations
+/**
+ * The format of an L1 to L2 Message.
+ */
 export class L1ToL2Message {
   constructor(
-    /// The sender of the message on L1.
+    /**
+     * The sender of the message on L1.
+     */
     public readonly sender: L1Actor,
-    /// The recipient of the message on L2.
+    /**
+     * The recipient of the message on L2.
+     */
     public readonly recipient: L2Actor,
-    /// The hash of the message content.
+    /**
+     * The hash of the message content.
+     */
     public readonly contentHash: Fr,
-    /// The hash of the spending secret.
+    /**
+     * The hash of the spending secret.
+     */
     public readonly secretHash: Fr,
-    /// The deadline for the message.
+    /**
+     * The deadline for the message.
+     */
     public readonly deadline: number,
-    /// The fee for the message.
+    /**
+     * The fee for the message.
+     */
     public readonly fee: number,
   ) {}
 
@@ -53,11 +66,18 @@ export class L1ToL2Message {
   }
 }
 
+/**
+ * The sender of an L1 to L2 message.
+ */
 export class L1Actor {
   constructor(
-    /// The sender of the message.
+    /**
+     * The sender of the message.
+     */
     public readonly sender: EthAddress,
-    /// The chain id on which the message was sent.
+    /**
+     * The chain id on which the message was sent.
+     */
     public readonly chainId: number,
   ) {}
 
@@ -74,11 +94,18 @@ export class L1Actor {
   }
 }
 
+/**
+ * The recipient of an L2 message.
+ */
 export class L2Actor {
   constructor(
-    /// The recipient of the message.
+    /**
+     * The recipient of the message.
+     */
     public readonly recipient: AztecAddress,
-    /// The version of the protocol
+    /**
+     * The version of the protocol.
+     */
     public readonly version: number,
   ) {}
 
