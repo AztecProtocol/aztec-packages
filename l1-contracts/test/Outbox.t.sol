@@ -24,13 +24,13 @@ contract OutboxTest is Test {
     registry.setAddresses(rollup, address(0x0), address(outbox));
   }
 
-  function _helper_computeEntryKey(DataStructures.L2ToL1Msg memory message)
+  function _helper_computeEntryKey(DataStructures.L2ToL1Msg memory _message)
     internal
     pure
     returns (bytes32)
   {
     return bytes32(
-      uint256(sha256(abi.encode(message.sender, message.recipient, message.content)))
+      uint256(sha256(abi.encode(_message.sender, _message.recipient, _message.content)))
         % 21888242871839275222246405745257275088548364400416034343698204186575808495617
     );
   }
@@ -55,16 +55,16 @@ contract OutboxTest is Test {
   }
 
   // fuzz batch insert -> check inserted. event emitted
-  function testFuzzBatchInsert(bytes32[] memory entryKeys) public {
+  function testFuzzBatchInsert(bytes32[] memory _entryKeys) public {
     // expected events
-    for (uint256 i = 0; i < entryKeys.length; i++) {
+    for (uint256 i = 0; i < _entryKeys.length; i++) {
       vm.expectEmit(true, false, false, false);
-      emit MessageAdded(entryKeys[i]);
+      emit MessageAdded(_entryKeys[i]);
     }
 
-    outbox.sendL1Messages(entryKeys);
-    for (uint256 i = 0; i < entryKeys.length; i++) {
-      bytes32 key = entryKeys[i];
+    outbox.sendL1Messages(_entryKeys);
+    for (uint256 i = 0; i < _entryKeys.length; i++) {
+      bytes32 key = _entryKeys[i];
       DataStructures.Entry memory entry = outbox.get(key);
       assertGt(entry.count, 0);
       assertEq(entry.fee, 0);
@@ -95,24 +95,24 @@ contract OutboxTest is Test {
     outbox.consume(message);
   }
 
-  function testFuzzConsume(DataStructures.L2ToL1Msg memory message) public {
+  function testFuzzConsume(DataStructures.L2ToL1Msg memory _message) public {
     // correctly set message.recipient to this address
-    message.recipient = DataStructures.L1Actor({actor: address(this), chainId: block.chainid});
+    _message.recipient = DataStructures.L1Actor({actor: address(this), chainId: block.chainid});
 
-    bytes32 expectedEntryKey = _helper_computeEntryKey(message);
+    bytes32 expectedEntryKey = _helper_computeEntryKey(_message);
     bytes32[] memory entryKeys = new bytes32[](1);
     entryKeys[0] = expectedEntryKey;
     outbox.sendL1Messages(entryKeys);
 
-    vm.prank(message.recipient.actor);
+    vm.prank(_message.recipient.actor);
     vm.expectEmit(true, true, false, false);
-    emit MessageConsumed(expectedEntryKey, message.recipient.actor);
-    outbox.consume(message);
+    emit MessageConsumed(expectedEntryKey, _message.recipient.actor);
+    outbox.consume(_message);
 
     // ensure no such message to consume:
     vm.expectRevert(
       abi.encodeWithSelector(MessageBox.MessageBox__NothingToConsume.selector, expectedEntryKey)
     );
-    outbox.consume(message);
+    outbox.consume(_message);
   }
 }

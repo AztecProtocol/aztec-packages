@@ -25,20 +25,20 @@ contract Inbox is MessageBox, IInbox {
 
   /**
    * @notice Given a message, computes an entry key for the Inbox
-   * @param message - The L1 to L2 message
+   * @param _message - The L1 to L2 message
    * @return The hash of the message (used as the key of the entry in the set)
    */
-  function computeMessageKey(DataStructures.L1ToL2Msg memory message) public pure returns (bytes32) {
+  function computeEntryKey(DataStructures.L1ToL2Msg memory _message) public pure returns (bytes32) {
     return bytes32(
       uint256(
         sha256(
           abi.encode(
-            message.sender,
-            message.recipient,
-            message.content,
-            message.secretHash,
-            message.deadline,
-            message.fee
+            _message.sender,
+            _message.recipient,
+            _message.content,
+            _message.secretHash,
+            _message.deadline,
+            _message.fee
           )
         )
       ) % P // TODO: Replace mod P later on when we have a better idea of how to handle Fields.
@@ -76,7 +76,7 @@ contract Inbox is MessageBox, IInbox {
       fee: fee
     });
 
-    bytes32 key = computeMessageKey(message);
+    bytes32 key = computeEntryKey(message);
     _insert(key, fee, _deadline);
 
     emit MessageAdded(
@@ -108,7 +108,7 @@ contract Inbox is MessageBox, IInbox {
   {
     if (msg.sender != _message.sender.actor) revert Inbox__Unauthorized();
     if (block.timestamp <= _message.deadline) revert Inbox__NotPastDeadline();
-    entryKey = computeMessageKey(_message);
+    entryKey = computeEntryKey(_message);
     _consume(entryKey);
     feesAccrued[_feeCollector] += _message.fee;
     emit L1ToL2MessageCancelled(entryKey);
@@ -118,17 +118,16 @@ contract Inbox is MessageBox, IInbox {
    * @notice Batch consumes entries from the Inbox
    * @dev Only callable by the rollup contract
    * @dev Will revert if the message is already past deadline
-   * @param entryKeys - Array of entry keys (hash of the messages)
+   * @param _entryKeys - Array of entry keys (hash of the messages)
    * @param _feeCollector - The address to receive the "fee"
    */
-  function batchConsume(bytes32[] memory entryKeys, address _feeCollector) external onlyRollup {
+  function batchConsume(bytes32[] memory _entryKeys, address _feeCollector) external onlyRollup {
     uint256 totalFee = 0;
-    for (uint256 i = 0; i < entryKeys.length; i++) {
-      // TODO: Combine these to optimise for gas.
-      DataStructures.Entry memory entry = get(entryKeys[i]);
-      // now < deadline for it to work => revert if now > deadline
+    for (uint256 i = 0; i < _entryKeys.length; i++) {
+      DataStructures.Entry memory entry = get(_entryKeys[i]);
+      // cant consume if we are already past deadline.
       if (block.timestamp > entry.deadline) revert Inbox__PastDeadline();
-      _consume(entryKeys[i]);
+      _consume(_entryKeys[i]);
       totalFee += entry.fee;
     }
     feesAccrued[_feeCollector] += totalFee;

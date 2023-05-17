@@ -33,7 +33,7 @@ contract InboxTest is Test {
     registry.setAddresses(rollup, address(inbox), address(0x0));
   }
 
-  function _helper_computeEntryKey(DataStructures.L1ToL2Msg memory message)
+  function _helper_computeEntryKey(DataStructures.L1ToL2Msg memory _message)
     internal
     pure
     returns (bytes32)
@@ -42,12 +42,12 @@ contract InboxTest is Test {
       uint256(
         sha256(
           abi.encode(
-            message.sender,
-            message.recipient,
-            message.content,
-            message.secretHash,
-            message.deadline,
-            message.fee
+            _message.sender,
+            _message.recipient,
+            _message.content,
+            _message.secretHash,
+            _message.deadline,
+            _message.fee
           )
         )
       ) % 21888242871839275222246405745257275088548364400416034343698204186575808495617
@@ -68,34 +68,34 @@ contract InboxTest is Test {
     });
   }
 
-  function testFuzzSendL2Msg(DataStructures.L1ToL2Msg memory message) public {
+  function testFuzzSendL2Msg(DataStructures.L1ToL2Msg memory _message) public {
     // fix message.sender and deadline:
-    message.sender = DataStructures.L1Actor({actor: address(this), chainId: block.chainid});
-    if (message.deadline <= block.timestamp) {
-      message.deadline = uint32(block.timestamp + 100);
+    _message.sender = DataStructures.L1Actor({actor: address(this), chainId: block.chainid});
+    if (_message.deadline <= block.timestamp) {
+      _message.deadline = uint32(block.timestamp + 100);
     }
-    bytes32 expectedEntryKey = _helper_computeEntryKey(message);
+    bytes32 expectedEntryKey = _helper_computeEntryKey(_message);
     vm.expectEmit(true, true, true, true);
     // event we expect
     emit MessageAdded(
       expectedEntryKey,
-      message.sender.actor,
-      message.recipient.actor,
-      message.sender.chainId,
-      message.recipient.version,
-      message.deadline,
-      message.fee,
-      message.content
+      _message.sender.actor,
+      _message.recipient.actor,
+      _message.sender.chainId,
+      _message.recipient.version,
+      _message.deadline,
+      _message.fee,
+      _message.content
     );
     // event we will get
-    bytes32 entryKey = inbox.sendL2Message{value: message.fee}(
-      message.recipient, message.deadline, message.content, message.secretHash
+    bytes32 entryKey = inbox.sendL2Message{value: _message.fee}(
+      _message.recipient, _message.deadline, _message.content, _message.secretHash
     );
     assertEq(entryKey, expectedEntryKey);
     DataStructures.Entry memory entry = inbox.get(entryKey);
     assertEq(entry.count, 1);
-    assertEq(entry.fee, message.fee);
-    assertEq(entry.deadline, message.deadline);
+    assertEq(entry.fee, _message.fee);
+    assertEq(entry.deadline, _message.deadline);
   }
 
   function testSendMultipleSameL2Messages() public {
@@ -202,15 +202,15 @@ contract InboxTest is Test {
     inbox.batchConsume(entryKeys, address(0x1));
   }
 
-  function testFuzzRevertIfConsumingAMessageThatDoesntExist(bytes32[] memory entryKeys) public {
-    if (entryKeys.length == 0) {
-      entryKeys = new bytes32[](1);
-      entryKeys[0] = bytes32("random");
+  function testFuzzRevertIfConsumingAMessageThatDoesntExist(bytes32[] memory _entryKeys) public {
+    if (_entryKeys.length == 0) {
+      _entryKeys = new bytes32[](1);
+      _entryKeys[0] = bytes32("random");
     }
     vm.expectRevert(
-      abi.encodeWithSelector(MessageBox.MessageBox__NothingToConsume.selector, entryKeys[0])
+      abi.encodeWithSelector(MessageBox.MessageBox__NothingToConsume.selector, _entryKeys[0])
     );
-    inbox.batchConsume(entryKeys, address(0x1));
+    inbox.batchConsume(_entryKeys, address(0x1));
   }
 
   function testRevertIfConsumingTheSameMessageMoreThanTheCountOfEntries() public {
@@ -232,14 +232,14 @@ contract InboxTest is Test {
     inbox.batchConsume(entryKeys, feeCollector);
   }
 
-  function testFuzzBatchConsume(DataStructures.L1ToL2Msg[] memory messages) public {
-    bytes32[] memory entryKeys = new bytes32[](messages.length);
+  function testFuzzBatchConsume(DataStructures.L1ToL2Msg[] memory _messages) public {
+    bytes32[] memory entryKeys = new bytes32[](_messages.length);
     uint256 expectedTotalFee = 0;
     address feeCollector = address(0x1);
 
     // insert messages:
-    for (uint256 i = 0; i < messages.length; i++) {
-      DataStructures.L1ToL2Msg memory message = messages[i];
+    for (uint256 i = 0; i < _messages.length; i++) {
+      DataStructures.L1ToL2Msg memory message = _messages[i];
       // fix message.sender and deadline to be more than current time:
       message.sender = DataStructures.L1Actor({actor: address(this), chainId: block.chainid});
       if (message.deadline <= block.timestamp) {
