@@ -249,7 +249,7 @@ KernelCircuitPublicInputs<NT> native_private_kernel_circuit(DummyComposer& compo
     // Do this before any functions can modify the inputs.
     initialise_end_values(private_inputs, public_inputs);
 
-    validate_inputs(composer, private_inputs, first_iteration);
+    validate_inputs(composer, private_inputs);
 
     validate_this_private_call_hash(composer, private_inputs, public_inputs);
 

@@ -220,17 +220,13 @@ void validate_inputs(DummyComposer& composer, PrivateKernelInputsInit<NT> const&
     // hard-coded into the circuit and assert that that is the one which has been used in the base case).
 }
 
-void update_end_values(DummyComposer& composer,
-                       PrivateKernelInputsInit<NT> const& private_inputs,
-                       KernelCircuitPublicInputs<NT>& public_inputs)
+void update_end_values(PrivateKernelInputsInit<NT> const& private_inputs, KernelCircuitPublicInputs<NT>& public_inputs)
 {
+    // We only initialzed constants member of public_inputs so far. Therefore, there must not be any
+    // new nullifiers as part of public_inputs.
+    ASSERT(is_array_empty(public_inputs.end.new_nullifiers));
+
     // Since it's the first iteration, we need to push the the tx hash nullifier into the `new_nullifiers` array
-
-    // If the nullifiers array is not empty a change was made and we need to rework this
-    composer.do_assert(is_array_empty(public_inputs.end.new_nullifiers),
-                       "new_nullifiers array must be empty in a first iteration of private kernel",
-                       CircuitErrorCode::PRIVATE_KERNEL__NEW_NULLIFIERS_NOT_EMPTY_IN_FIRST_ITERATION);
-
     array_push(public_inputs.end.new_nullifiers, private_inputs.signed_tx_request.hash());
 
     // Nonce nullifier
@@ -260,7 +256,7 @@ KernelCircuitPublicInputs<NT> native_private_kernel_circuit_initial(DummyCompose
 
     common_validate_call_stack<PrivateKernelInputsInit<NT>>(composer, private_inputs);
 
-    update_end_values(composer, private_inputs, public_inputs);
+    update_end_values(private_inputs, public_inputs);
 
     common_update_end_values<PrivateKernelInputsInit<NT>>(composer, private_inputs, public_inputs);
 

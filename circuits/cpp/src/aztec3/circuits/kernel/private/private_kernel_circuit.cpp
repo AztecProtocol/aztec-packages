@@ -234,7 +234,7 @@ void validate_this_private_call_stack(PrivateKernelInputsInner<CT> const& privat
     }
 };
 
-void validate_inputs(PrivateKernelInputsInner<CT> const& private_inputs)
+void validate_inputs(PrivateKernelInputsInner<CT> const& private_inputs, bool first_iteration)
 {
     // this callstack represents the function currently being processed
     const auto& this_call_stack_item = private_inputs.private_call.call_stack_item;
@@ -318,7 +318,8 @@ void validate_inputs(PrivateKernelInputsInner<CT> const& private_inputs)
 // TODO: is there a way to identify whether an input has not been used by ths circuit? This would help us more-safely
 // ensure we're constraining everything.
 KernelCircuitPublicInputs<NT> private_kernel_circuit(Composer& composer,
-                                                     PrivateKernelInputsInner<NT> const& _private_inputs)
+                                                     PrivateKernelInputsInner<NT> const& _private_inputs,
+                                                     bool first_iteration)
 {
     const PrivateKernelInputsInner<CT> private_inputs = _private_inputs.to_circuit_type(composer);
 

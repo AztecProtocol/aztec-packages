@@ -505,13 +505,7 @@ TEST(private_kernel_tests, circuit_deposit)
 
     // Execute and prove the first kernel iteration
     Composer private_kernel_composer("../barretenberg/cpp/srs_db/ignition");
-    auto const& public_inputs = private_kernel_circuit(private_kernel_composer, private_inputs);
-
-    // TODO(jeanmon): this is a temporary hack until we have private_kernel_circuit init and inner
-    // variant. Once this is supported, we will be able to generate public_inputs with
-    // a call to private_kernel_circuit_init(private_inputs_init, ...)
-    auto const& private_inputs_init =
-        do_private_call_get_kernel_inputs_init(false, deposit, { amount, asset_id, memo });
+    auto const& public_inputs = private_kernel_circuit(private_kernel_composer, private_inputs, true);
 
     // TODO(jeanmon): this is a temporary hack until we have private_kernel_circuit init and inner
     // variant. Once this is supported, we will be able to generate public_inputs with
@@ -565,12 +559,7 @@ TEST(private_kernel_tests, circuit_basic_contract_deployment)
 
     // Execute and prove the first kernel iteration
     Composer private_kernel_composer("../barretenberg/cpp/srs_db/ignition");
-    auto const& public_inputs = private_kernel_circuit(private_kernel_composer, private_inputs);
-
-    // TODO(jeanmon): this is a temporary hack until we have private_kernel_circuit init and inner
-    // variant. Once this is supported, we will be able to generate public_inputs with
-    // a call to private_kernel_circuit_init(private_inputs_init, ...)
-    auto const& private_inputs_init = do_private_call_get_kernel_inputs_init(true, constructor, { arg0, arg1, arg2 });
+    auto const& public_inputs = private_kernel_circuit(private_kernel_composer, private_inputs, true);
 
     // TODO(jeanmon): this is a temporary hack until we have private_kernel_circuit init and inner
     // variant. Once this is supported, we will be able to generate public_inputs with
@@ -602,7 +591,7 @@ TEST(private_kernel_tests, native_basic_contract_deployment)
 
     auto const& private_inputs = do_private_call_get_kernel_inputs_init(true, constructor, { arg0, arg1, arg2 });
     DummyComposer composer = DummyComposer("private_kernel_tests__native_basic_contract_deployment");
-    auto const& public_inputs = native_private_kernel_circuit(composer, private_inputs);
+    auto const& public_inputs = native_private_kernel_circuit_initial(composer, private_inputs);
 
     validate_deployed_contract_address(private_inputs, public_inputs);
 
@@ -622,7 +611,7 @@ TEST(private_kernel_tests, circuit_create_proof_cbinds)
     // first run actual simulation to get public inputs
     auto const& private_inputs = do_private_call_get_kernel_inputs_init(true, constructor, { arg0, arg1, arg2 });
     DummyComposer composer = DummyComposer("private_kernel_tests__circuit_create_proof_cbinds");
-    auto const& public_inputs = native_private_kernel_circuit(composer, private_inputs);
+    auto const& public_inputs = native_private_kernel_circuit_initial(composer, private_inputs);
 
     // serialize expected public inputs for later comparison
     std::vector<uint8_t> expected_public_inputs_vec;
@@ -705,25 +694,6 @@ TEST(private_kernel_tests, native_dummy_previous_kernel_cbind)
         ASSERT_EQ(cbind_previous_kernel_buf[i], expected_vec[i]);
     }
     (void)cbind_buf_size;
-}
-
-/**
- * @brief Test error is registered when `new_nullifiers` are not empty in first iteration
- */
-TEST(private_kernel_tests, native_registers_error_when_no_space_for_nullifier)
-{
-    NT::fr const& amount = 5;
-    NT::fr const& asset_id = 1;
-    NT::fr const& memo = 999;
-
-    auto private_inputs = do_private_call_get_kernel_inputs_init(false, deposit, { amount, asset_id, memo });
-    array_push(private_inputs.previous_kernel.public_inputs.end.new_nullifiers, NT::fr::random_element());
-
-    DummyComposer composer = DummyComposer("private_kernel_tests__native_registers_error_when_no_space_for_nullifier");
-    native_private_kernel_circuit_initial(composer, private_inputs, true);
-
-    ASSERT_EQ(composer.get_first_failure().code,
-              CircuitErrorCode::PRIVATE_KERNEL__NEW_NULLIFIERS_NOT_EMPTY_IN_FIRST_ITERATION);
 }
 
 }  // namespace aztec3::circuits::kernel::private_kernel
