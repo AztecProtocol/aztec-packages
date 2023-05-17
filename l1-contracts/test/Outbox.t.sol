@@ -95,9 +95,10 @@ contract OutboxTest is Test {
     outbox.consume(message);
   }
 
-  function testConsume() public {
-    // with fuzzing it takes way too long :()
-    DataStructures.L2ToL1Msg memory message = _fakeMessage();
+  function testFuzzConsume(DataStructures.L2ToL1Msg memory message) public {
+    // correctly set message.recipient to this address
+    message.recipient = DataStructures.L1Actor({actor: address(this), chainId: block.chainid});
+
     bytes32 expectedEntryKey = _helper_computeEntryKey(message);
     bytes32[] memory entryKeys = new bytes32[](1);
     entryKeys[0] = expectedEntryKey;
@@ -112,6 +113,6 @@ contract OutboxTest is Test {
     vm.expectRevert(
       abi.encodeWithSelector(MessageBox.MessageBox__NothingToConsume.selector, expectedEntryKey)
     );
-    outbox.get(expectedEntryKey);
+    outbox.consume(message);
   }
 }

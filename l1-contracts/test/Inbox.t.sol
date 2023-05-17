@@ -92,9 +92,10 @@ contract InboxTest is Test {
       message.recipient, message.deadline, message.content, message.secretHash
     );
     assertEq(entryKey, expectedEntryKey);
-    assertEq(inbox.get(entryKey).count, 1);
-    assertEq(inbox.get(entryKey).fee, message.fee);
-    assertEq(inbox.get(entryKey).deadline, message.deadline);
+    DataStructures.Entry memory entry = inbox.get(entryKey);
+    assertEq(entry.count, 1);
+    assertEq(entry.fee, message.fee);
+    assertEq(entry.deadline, message.deadline);
   }
 
   function testSendMultipleSameL2Messages() public {
@@ -128,10 +129,11 @@ contract InboxTest is Test {
 
   function testRevertIfCancellingMessageWhenDeadlineHasntPassed() public {
     DataStructures.L1ToL2Msg memory message = _fakeMessage();
+    message.deadline = uint32(block.timestamp + 1000);
     inbox.sendL2Message{value: message.fee}(
       message.recipient, message.deadline, message.content, message.secretHash
     );
-    skip(1000); // block.timestamp now +1000 ms.
+    skip(500); // deadline = 1000. block.timestamp = 500. Not cancellable:
     vm.expectRevert(Inbox.Inbox__NotPastDeadline.selector);
     inbox.cancelL2Message(message, address(0x1));
   }
@@ -139,6 +141,7 @@ contract InboxTest is Test {
   function testRevertIfCancellingNonExistentMessage() public {
     DataStructures.L1ToL2Msg memory message = _fakeMessage();
     bytes32 entryKey = _helper_computeEntryKey(message);
+    skip(500); // make message cancellable.
     vm.expectRevert(
       abi.encodeWithSelector(MessageBox.MessageBox__NothingToConsume.selector, entryKey)
     );
@@ -151,21 +154,23 @@ contract InboxTest is Test {
     bytes32 expectedEntryKey = inbox.sendL2Message{value: message.fee}(
       message.recipient, message.deadline, message.content, message.secretHash
     );
+    skip(500); // make message cancellable.
 
     vm.expectEmit(true, false, false, false);
     // event we expect
     emit L1ToL2MessageCancelled(expectedEntryKey);
     // event we will get
     inbox.cancelL2Message(message, feeCollector);
+    // fees accrued as expected:
+    assertEq(inbox.feesAccrued(feeCollector), message.fee);
 
     // no such message to consume:
+    bytes32[] memory entryKeys = new bytes32[](1);
+    entryKeys[0] = expectedEntryKey;
     vm.expectRevert(
       abi.encodeWithSelector(MessageBox.MessageBox__NothingToConsume.selector, expectedEntryKey)
     );
-    inbox.get(expectedEntryKey);
-
-    // fees accrued as expected:
-    assertEq(inbox.feesAccrued(feeCollector), message.fee);
+    inbox.batchConsume(entryKeys, feeCollector);
   }
 
   function testRevertIfNotConsumingFromRollup() public {
@@ -179,10 +184,10 @@ contract InboxTest is Test {
   function testRevertIfOneKeyIsPastDeadlineWhenBatchConsuming() public {
     DataStructures.L1ToL2Msg memory message = _fakeMessage();
     bytes32 entryKey1 = inbox.sendL2Message{value: message.fee}(
-      message.recipient, uint32(block.timestamp + 100), message.content, message.secretHash
+      message.recipient, uint32(block.timestamp + 200), message.content, message.secretHash
     );
     bytes32 entryKey2 = inbox.sendL2Message{value: message.fee}(
-      message.recipient, uint32(block.timestamp + 200), message.content, message.secretHash
+      message.recipient, uint32(block.timestamp + 100), message.content, message.secretHash
     );
     bytes32 entryKey3 = inbox.sendL2Message{value: message.fee}(
       message.recipient, uint32(block.timestamp + 300), message.content, message.secretHash
@@ -192,12 +197,12 @@ contract InboxTest is Test {
     entryKeys[1] = entryKey2;
     entryKeys[2] = entryKey3;
 
-    skip(150); // block.timestamp now +150 ms. entryKey2 and entryKey3 is past deadline
+    skip(150); // block.timestamp now +150 ms. entryKey2 is past deadline
     vm.expectRevert(Inbox.Inbox__PastDeadline.selector);
     inbox.batchConsume(entryKeys, address(0x1));
   }
 
-  function testRevertIfConsumingAMessageThatDoesntExist(bytes32[] memory entryKeys) public {
+  function testFuzzRevertIfConsumingAMessageThatDoesntExist(bytes32[] memory entryKeys) public {
     if (entryKeys.length == 0) {
       entryKeys = new bytes32[](1);
       entryKeys[0] = bytes32("random");
@@ -208,22 +213,37 @@ contract InboxTest is Test {
     inbox.batchConsume(entryKeys, address(0x1));
   }
 
-  function testBatchConsume(DataStructures.L1ToL2Msg[] memory messages) public {
+  function testRevertIfConsumingTheSameMessageMoreThanTheCountOfEntries() public {
+    DataStructures.L1ToL2Msg memory message = _fakeMessage();
+    address feeCollector = address(0x1);
+    bytes32 entryKey = inbox.sendL2Message{value: message.fee}(
+      message.recipient, message.deadline, message.content, message.secretHash
+    );
+    bytes32[] memory entryKeys = new bytes32[](1);
+    entryKeys[0] = entryKey;
+
+    inbox.batchConsume(entryKeys, feeCollector);
+    assertEq(inbox.feesAccrued(feeCollector), message.fee);
+
+    // consuming this again should fail:
+    vm.expectRevert(
+      abi.encodeWithSelector(MessageBox.MessageBox__NothingToConsume.selector, entryKeys[0])
+    );
+    inbox.batchConsume(entryKeys, feeCollector);
+  }
+
+  function testFuzzBatchConsume(DataStructures.L1ToL2Msg[] memory messages) public {
     bytes32[] memory entryKeys = new bytes32[](messages.length);
     uint256 expectedTotalFee = 0;
     address feeCollector = address(0x1);
-    uint256 maxDeadline = 0; // for skipping time (to avoid past deadline revert)
 
     // insert messages:
     for (uint256 i = 0; i < messages.length; i++) {
       DataStructures.L1ToL2Msg memory message = messages[i];
-      // fix message.sender and deadline:
+      // fix message.sender and deadline to be more than current time:
       message.sender = DataStructures.L1Actor({actor: address(this), chainId: block.chainid});
       if (message.deadline <= block.timestamp) {
         message.deadline = uint32(block.timestamp + 100);
-      }
-      if (message.deadline > maxDeadline) {
-        maxDeadline = message.deadline;
       }
       expectedTotalFee += message.fee;
       entryKeys[i] = inbox.sendL2Message{value: message.fee}(
@@ -231,7 +251,6 @@ contract InboxTest is Test {
       );
     }
 
-    skip(maxDeadline + 100);
     // batch consume:
     inbox.batchConsume(entryKeys, feeCollector);
 
