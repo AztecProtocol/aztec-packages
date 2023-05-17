@@ -1,4 +1,4 @@
-import { LeafData, SiblingPath } from '@aztec/merkle-tree';
+import { LeafData, LowLeafWitnessData, SiblingPath } from '@aztec/merkle-tree';
 import { MerkleTreeId } from '@aztec/types';
 
 export * from './merkle_trees.js';
@@ -142,6 +142,19 @@ export interface MerkleTreeOperations {
    * the current roots of the corresponding trees (CONTRACT_TREE, PRIVATE_DATA_TREE, L1_TO_L2_MESSAGES_TREE).
    */
   updateHistoricRootsTrees(): Promise<void>;
+
+  /**
+   * Batch insert multiple leaves into the tree.
+   * @param leaves - Leaves to insert into the tree.
+   * @param subtreeHeight - Height of the subtree.
+   * @param includeUncommitted - If true, the uncommitted changes are included in the search.
+   * @returns The witness data for the leaves to be updated when inserting the new ones.
+   */
+  batchInsert(
+    treeId: MerkleTreeId,
+    leaves: Buffer[],
+    subtreeHeight: number,
+  ): Promise<[LowLeafWitnessData[], Buffer[]] | [undefined, Buffer[]]>;
 }
 
 /**
