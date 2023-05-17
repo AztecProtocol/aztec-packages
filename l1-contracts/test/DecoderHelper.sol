@@ -19,7 +19,7 @@ contract DecoderHelper is Decoder {
     pure
     returns (bytes32, bytes32)
   {
-    (bytes32 diffRoot,,, bytes32 l1ToL2MessagesHash) = _computeConsumables(_l2Block);
+    (bytes32 diffRoot, bytes32 l1ToL2MessagesHash,,) = _computeConsumables(_l2Block);
     return (diffRoot, l1ToL2MessagesHash);
   }
 }
