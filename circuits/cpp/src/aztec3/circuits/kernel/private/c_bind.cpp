@@ -3,6 +3,9 @@
 #include "index.hpp"
 #include "utils.hpp"
 
+#include "aztec3/circuits/abis/combined_constant_data.hpp"
+#include "aztec3/circuits/abis/kernel_circuit_public_inputs.hpp"
+
 #include "barretenberg/srs/reference_string/env_reference_string.hpp"
 
 namespace {
@@ -13,8 +16,10 @@ using aztec3::circuits::abis::KernelCircuitPublicInputs;
 using aztec3::circuits::abis::PreviousKernelData;
 using aztec3::circuits::abis::SignedTxRequest;
 using aztec3::circuits::abis::private_kernel::PrivateCallData;
+using aztec3::circuits::abis::private_kernel::PrivateKernelInputsInit;
 using aztec3::circuits::abis::private_kernel::PrivateKernelInputsInner;
 using aztec3::circuits::kernel::private_kernel::native_private_kernel_circuit;
+using aztec3::circuits::kernel::private_kernel::native_private_kernel_circuit_initial;
 using aztec3::circuits::kernel::private_kernel::private_kernel_circuit;
 using aztec3::circuits::kernel::private_kernel::utils::dummy_previous_kernel;
 
@@ -82,39 +87,35 @@ WASM_EXPORT uint8_t* private_kernel__sim(uint8_t const* signed_tx_request_buf,
                                          uint8_t const** private_kernel_public_inputs_buf)
 {
     DummyComposer composer = DummyComposer("private_kernel__sim");
-    SignedTxRequest<NT> signed_tx_request;
-    read(signed_tx_request_buf, signed_tx_request);
-
     PrivateCallData<NT> private_call_data;
     read(private_call_buf, private_call_data);
 
-    PreviousKernelData<NT> previous_kernel;
+    KernelCircuitPublicInputs<NT> public_inputs = KernelCircuitPublicInputs<NT>{};
+
     if (first_iteration) {
-        previous_kernel = dummy_previous_kernel();
+        SignedTxRequest<NT> signed_tx_request;
+        read(signed_tx_request_buf, signed_tx_request);
 
-        previous_kernel.public_inputs.end.private_call_stack[0] = private_call_data.call_stack_item.hash();
-        previous_kernel.public_inputs.constants.historic_tree_roots.private_historic_tree_roots.private_data_tree_root =
-            private_call_data.call_stack_item.public_inputs.historic_private_data_tree_root;
-        previous_kernel.public_inputs.constants.historic_tree_roots.private_historic_tree_roots.nullifier_tree_root =
-            private_call_data.call_stack_item.public_inputs.historic_nullifier_tree_root;
-        previous_kernel.public_inputs.constants.historic_tree_roots.private_historic_tree_roots.contract_tree_root =
-            private_call_data.call_stack_item.public_inputs.historic_contract_tree_root;
-        previous_kernel.public_inputs.constants.historic_tree_roots.private_historic_tree_roots
-            .l1_to_l2_messages_tree_root =
-            private_call_data.call_stack_item.public_inputs.historic_l1_to_l2_messages_tree_root;
-        // previous_kernel.public_inputs.constants.historic_tree_roots.private_kernel_vk_tree_root =
-        previous_kernel.public_inputs.constants.tx_context = signed_tx_request.tx_request.tx_context;
-        previous_kernel.public_inputs.is_private = true;
+        // Assert that previous_kernel_buf is empty (i.e. nullptr)
+        ASSERT(previous_kernel_buf == nullptr);
+
+        PrivateKernelInputsInit<NT> const private_inputs = PrivateKernelInputsInit<NT>{
+            .signed_tx_request = signed_tx_request,
+            .private_call = private_call_data,
+        };
+
+        public_inputs = native_private_kernel_circuit_initial(composer, private_inputs);
     } else {
+        PreviousKernelData<NT> previous_kernel;
         read(previous_kernel_buf, previous_kernel);
+
+        PrivateKernelInputsInner<NT> const private_inputs = PrivateKernelInputsInner<NT>{
+            .previous_kernel = previous_kernel,
+            .private_call = private_call_data,
+        };
+
+        public_inputs = native_private_kernel_circuit(composer, private_inputs);
     }
-
-    PrivateKernelInputsInner<NT> const private_inputs = PrivateKernelInputsInner<NT>{
-        .previous_kernel = previous_kernel,
-        .private_call = private_call_data,
-    };
-
-    KernelCircuitPublicInputs<NT> const public_inputs = native_private_kernel_circuit(composer, private_inputs);
 
     // serialize public inputs to bytes vec
     std::vector<uint8_t> public_inputs_vec;

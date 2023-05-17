@@ -6,8 +6,6 @@
 #include "aztec3/utils/types/circuit_types.hpp"
 #include "aztec3/utils/types/native_types.hpp"
 
-#include <barretenberg/stdlib/primitives/witness/witness.hpp>
-
 namespace aztec3::circuits::abis::private_kernel {
 
 using aztec3::utils::types::CircuitTypes;

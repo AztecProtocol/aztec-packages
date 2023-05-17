@@ -9,14 +9,11 @@
 #include "aztec3/utils/array.hpp"
 #include "aztec3/utils/dummy_composer.hpp"
 
-#include <barretenberg/stdlib/merkle_tree/membership.hpp>
-
 using DummyComposer = aztec3::utils::DummyComposer;
 
 using aztec3::circuits::abis::ContractLeafPreimage;
 using aztec3::circuits::abis::KernelCircuitPublicInputs;
 
-using aztec3::utils::array_push;
 using aztec3::utils::is_array_empty;
 using aztec3::utils::push_array_to_array;
 using DummyComposer = aztec3::utils::DummyComposer;
@@ -37,7 +34,7 @@ void common_validate_call_stack(DummyComposer& composer, KernelPrivateInput cons
         // Note: this assumes it's computationally infeasible to have `0` as a valid call_stack_item_hash.
         // Assumes `hash == 0` means "this stack item is empty".
         const auto calculated_hash = hash == 0 ? 0 : preimage.hash();
-        composer.do_assert(hash != calculated_hash,
+        composer.do_assert(hash == calculated_hash,
                            format("private_call_stack[", i, "] = ", hash, "; does not reconcile"),
                            CircuitErrorCode::PRIVATE_KERNEL__PRIVATE_CALL_STACK_ITEM_HASH_MISMATCH);
     }

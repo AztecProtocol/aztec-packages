@@ -9,8 +9,6 @@
 #include "aztec3/utils/array.hpp"
 #include "aztec3/utils/dummy_composer.hpp"
 
-#include "barretenberg/stdlib/merkle_tree/membership.hpp"
-
 namespace aztec3::circuits::kernel::private_kernel {
 
 using aztec3::circuits::abis::ContractLeafPreimage;

@@ -1,10 +1,16 @@
 #include "common.hpp"
 
+#include "aztec3/circuits/abis/combined_constant_data.hpp"
+#include "aztec3/circuits/abis/combined_historic_tree_roots.hpp"
 #include "aztec3/circuits/abis/new_contract_data.hpp"
+#include "aztec3/circuits/abis/private_historic_tree_roots.hpp"
 #include "aztec3/circuits/abis/private_kernel/private_kernel_inputs_init.hpp"
 #include "aztec3/circuits/kernel/private/init.hpp"
 
+using aztec3::circuits::abis::CombinedConstantData;
+using aztec3::circuits::abis::CombinedHistoricTreeRoots;
 using aztec3::circuits::abis::NewContractData;
+using aztec3::circuits::abis::PrivateHistoricTreeRoots;
 using aztec3::circuits::abis::private_kernel::PrivateKernelInputsInit;
 using aztec3::utils::array_push;
 
@@ -35,11 +41,22 @@ namespace aztec3::circuits::kernel::private_kernel {
 void initialise_end_values(PrivateKernelInputsInit<NT> const& private_inputs,
                            KernelCircuitPublicInputs<NT>& public_inputs)
 {
-    // TODO(dbanks12): where do constants come from
-    // might need to add these constants to PrivateKernelInputsInit
-    // public_inputs.constants = private_inputs.previous_kernel.public_inputs.constants;
-    (void)private_inputs;
-    (void)public_inputs;
+    // Define the constants data.
+    auto const& private_call_public_inputs = private_inputs.private_call.call_stack_item.public_inputs;
+    auto const constants = CombinedConstantData<NT>{
+        .historic_tree_roots =
+            CombinedHistoricTreeRoots<NT>{
+                .private_historic_tree_roots =
+                    PrivateHistoricTreeRoots<NT>{
+                        .private_data_tree_root = private_call_public_inputs.historic_private_data_tree_root,
+                        .contract_tree_root = private_call_public_inputs.historic_contract_tree_root,
+                    },
+            },
+        .tx_context = private_inputs.signed_tx_request.tx_request.tx_context,
+    };
+
+    // Set the constants in public_inputs.
+    public_inputs.constants = constants;
 }
 
 void contract_logic(DummyComposer& composer,

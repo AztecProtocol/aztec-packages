@@ -10,7 +10,6 @@
 #include "aztec3/circuits/abis/kernel_circuit_public_inputs.hpp"
 #include "aztec3/circuits/abis/private_circuit_public_inputs.hpp"
 #include "aztec3/circuits/abis/private_historic_tree_roots.hpp"
-#include "aztec3/circuits/abis/private_kernel/globals.hpp"
 #include "aztec3/circuits/abis/private_kernel/private_call_data.hpp"
 #include "aztec3/circuits/abis/private_kernel/private_kernel_inputs_init.hpp"
 #include "aztec3/circuits/abis/private_kernel/private_kernel_inputs_inner.hpp"
@@ -23,12 +22,9 @@
 #include "aztec3/circuits/apps/test_apps/escrow/deposit.hpp"
 #include "aztec3/circuits/hash.hpp"
 #include "aztec3/circuits/kernel/private/utils.hpp"
-#include "aztec3/circuits/mock/mock_kernel_circuit.hpp"
 #include "aztec3/constants.hpp"
 
-#include <barretenberg/common/map.hpp>
-#include <barretenberg/common/test.hpp>
-#include <barretenberg/stdlib/merkle_tree/membership.hpp>
+#include "barretenberg/stdlib/merkle_tree/hash.hpp"
 
 #include <gtest/gtest.h>
 
