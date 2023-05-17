@@ -62,11 +62,13 @@ export interface IndexedTree extends AppendOnlyTree {
   /**
    * Batch insert multiple leaves into the tree.
    * @param leaves - Leaves to insert into the tree.
+   * @param treeHeight - Height of the tree.
    * @param subtreeHeight - Height of the subtree.
    * @param includeUncommitted - If true, the uncommitted changes are included in the search.
    */
   batchInsert(
     leaves: Buffer[],
+    treeHeight: number,
     subtreeHeight: number,
     includeUncommitted: boolean,
   ): Promise<[LowLeafWitnessData[], Buffer[]] | [undefined, Buffer[]]>;

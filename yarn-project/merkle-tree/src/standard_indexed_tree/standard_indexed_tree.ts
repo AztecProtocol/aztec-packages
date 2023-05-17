@@ -37,14 +37,14 @@ export interface LowLeafWitnessData {
 
 /**
  * Pre-compute empty witness.
- * @param subtreeHeight - Height of subtree for sibling path.
+ * @param subtreeHeight - Height of tree for sibling path.
  * @returns An empty witness.
  */
-function getEmptyLowLeafWitness(subtreeHeight: number): LowLeafWitnessData {
+function getEmptyLowLeafWitness(treeHeight: number): LowLeafWitnessData {
   return {
     leafData: zeroLeaf,
     index: 0n,
-    siblingPath: new SiblingPath(Array(subtreeHeight).fill(toBufferBE(0n, 32))),
+    siblingPath: new SiblingPath(Array(treeHeight).fill(toBufferBE(0n, 32))),
   };
 }
 
@@ -454,12 +454,14 @@ export class StandardIndexedTree extends TreeBase implements IndexedTree {
    *
    * TODO: this implementation will change once the zero value is changed from h(0,0,0). Changes incoming over the next sprint
    * @param leaves - Values to insert into the tree.
+   * @param treeHeight - Height of the tree.
    * @param subtreeHeight - Height of the subtree.
    * @param includeUncommitted - If true, the uncommitted changes are included in the search.
    * @returns The data for the leaves to be updated when inserting the new ones.
    */
   public async batchInsert(
     leaves: Buffer[],
+    treeHeight: number,
     subtreeHeight: number,
     includeUncommitted: boolean,
   ): Promise<[LowLeafWitnessData[], Buffer[]] | [undefined, Buffer[]]> {
@@ -467,7 +469,6 @@ export class StandardIndexedTree extends TreeBase implements IndexedTree {
     const touched = new Map<number, bigint[]>();
 
     const emptyLowLeafWitness = getEmptyLowLeafWitness(subtreeHeight);
-
     // Accumulators
     const lowLeavesWitnesses: LowLeafWitnessData[] = [];
     const pendingInsertionSubtree: LeafData[] = [];
@@ -535,14 +536,14 @@ export class StandardIndexedTree extends TreeBase implements IndexedTree {
         }
         const siblingPath = await this.getSiblingPath(BigInt(indexOfPrevious.index), includeUncommitted);
 
-        const lowLeafWitness: LowLeafWitnessData = {
+        const witness: LowLeafWitnessData = {
           leafData: lowLeaf,
           index: BigInt(indexOfPrevious.index),
           siblingPath,
         };
 
         // Update the running paths
-        lowLeavesWitnesses.push(lowLeafWitness);
+        lowLeavesWitnesses.push(witness);
 
         const currentLowLeaf: LeafData = {
           value: newValue,

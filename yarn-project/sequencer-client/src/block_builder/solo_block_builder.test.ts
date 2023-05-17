@@ -256,8 +256,6 @@ describe('sequencer/solo_block_builder', () => {
       const leaves = nullifiers.map(i => toBufferBE(BigInt(i), 32));
       await expectsDb.appendLeaves(MerkleTreeId.NULLIFIER_TREE, leaves);
 
-      // await builder.performBaseRollupBatchInsertionProofs(leaves);
-
       const expected = await expectsDb.getTreeInfo(MerkleTreeId.NULLIFIER_TREE);
       const actual = await builderDb.getTreeInfo(MerkleTreeId.NULLIFIER_TREE);
       expect(actual).toEqual(expected);

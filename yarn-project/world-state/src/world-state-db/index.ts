@@ -147,13 +147,15 @@ export interface MerkleTreeOperations {
   /**
    * Batch insert multiple leaves into the tree.
    * @param leaves - Leaves to insert into the tree.
+   * @param treeId - The tree on which to insert.
+   * @param treeHeight - Height of the tree.
    * @param subtreeHeight - Height of the subtree.
-   * @param includeUncommitted - If true, the uncommitted changes are included in the search.
    * @returns The witness data for the leaves to be updated when inserting the new ones.
    */
   batchInsert(
     treeId: MerkleTreeId,
     leaves: Buffer[],
+    treeHeight: number,
     subtreeHeight: number,
   ): Promise<[LowLeafWitnessData[], Buffer[]] | [undefined, Buffer[]]>;
 }
