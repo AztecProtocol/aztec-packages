@@ -37,7 +37,7 @@ export interface LowLeafWitnessData {
 
 /**
  * Pre-compute empty witness.
- * @param subtreeHeight - Height of tree for sibling path.
+ * @param treeHeight - Height of tree for sibling path.
  * @returns An empty witness.
  */
 function getEmptyLowLeafWitness(treeHeight: number): LowLeafWitnessData {
@@ -468,7 +468,7 @@ export class StandardIndexedTree extends TreeBase implements IndexedTree {
     // Keep track of touched low leaves
     const touched = new Map<number, bigint[]>();
 
-    const emptyLowLeafWitness = getEmptyLowLeafWitness(subtreeHeight);
+    const emptyLowLeafWitness = getEmptyLowLeafWitness(treeHeight);
     // Accumulators
     const lowLeavesWitnesses: LowLeafWitnessData[] = [];
     const pendingInsertionSubtree: LeafData[] = [];
