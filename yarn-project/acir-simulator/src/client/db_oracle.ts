@@ -46,5 +46,5 @@ export interface DBOracle {
   }>;
   getFunctionABI(contractAddress: AztecAddress, functionSelector: Buffer): Promise<FunctionAbi>;
   getPortalContractAddress(contractAddress: AztecAddress): Promise<EthAddress>;
-  getL1ToL2Message(msgKey: Buffer): Promise<MessageLoadOracleInputs>;
+  getL1ToL2Message(msgKey: Fr): Promise<MessageLoadOracleInputs>;
 }

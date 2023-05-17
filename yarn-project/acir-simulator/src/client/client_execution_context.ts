@@ -83,7 +83,7 @@ export class ClientTxExecutionContext {
    * @param msgKey - A buffer representing the message key.
    * @returns The message data
    */
-  public async getL1ToL2Message(msgKey: Buffer) {
+  public async getL1ToL2Message(msgKey: Fr) {
     const messageInputs = await this.db.getL1ToL2Message(msgKey);
     return toAcvmMessageLoadOracleInputs(messageInputs, this.historicRoots.l1ToL2MessagesTreeRoot);
   }

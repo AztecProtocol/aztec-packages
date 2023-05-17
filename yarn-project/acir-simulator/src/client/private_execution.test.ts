@@ -359,13 +359,12 @@ describe('Private Execution test suite', () => {
     let recipientPk: Buffer;
     let recipient: NoirPoint;
 
-    const buildMessage = async (content: Fr[], targetContract: AztecAddress, secret: Fr) => {
+    const buildL1ToL2Message = async (content: Fr[], targetContract: AztecAddress, secret: Fr) => {
       const wasm = await CircuitsWasm.get();
 
       const contentBuf = Buffer.concat(content.map(field => field.toBuffer()));
       const temp = toBigIntBE(sha256(contentBuf));
       const contentHash = Fr.fromBuffer(toBufferBE(temp % Fr.MODULUS, 32));
-      console.log('content hash: ', contentHash.toBuffer().toString('hex'));
 
       const secretHash = computeSecretMessageHash(wasm, secret);
 
@@ -394,12 +393,10 @@ describe('Private Execution test suite', () => {
 
       const contractAddress = AztecAddress.random();
       const bridgedAmount = 100n;
-      const initialBalance = 0n;
       const abi = NonNativeTokenContractAbi.functions.find(f => f.name === 'mint')!;
 
       const secret = new Fr(1n);
-      // TODO: is just using the x coord for recipient ok?
-      const preimage = await buildMessage([new Fr(bridgedAmount), new Fr(recipient.x)], contractAddress, secret);
+      const preimage = await buildL1ToL2Message([new Fr(bridgedAmount), new Fr(recipient.x)], contractAddress, secret);
 
       const messageKey = preimage.hash();
 
