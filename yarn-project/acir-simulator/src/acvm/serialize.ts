@@ -133,6 +133,12 @@ export function toAcvmNoteLoadOracleInputs(
   ];
 }
 
+/**
+ * Converts the result of loading messages to ACVM fields.
+ * @param messageLoadOracleInputs - The result of loading messages to convert.
+ * @param l1ToL2MessagesTreeRoot - The L1 to L2 messages tree root
+ * @returns The Message Oracle Fields.
+ */
 export function toAcvmMessageLoadOracleInputs(
   messageLoadOracleInputs: MessageLoadOracleInputs,
   l1ToL2MessagesTreeRoot: Fr,

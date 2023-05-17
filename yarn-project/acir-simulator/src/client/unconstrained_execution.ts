@@ -56,6 +56,7 @@ export class UnconstrainedFunctionExecution {
           frToNumber(fromACVMField(acvmOffset)),
         ),
       emitData: ([data]: ACVMField[]) => {
+        // eslint-disable-next-line
         console.log(data);
         return Promise.resolve([ZERO_ACVM_FIELD]);
       },

@@ -354,8 +354,6 @@ describe('Private Execution test suite', () => {
     const contractDeploymentData = ContractDeploymentData.empty();
     const txContext = new TxContext(false, false, false, contractDeploymentData);
 
-    let ownerPk: Buffer;
-    let owner: NoirPoint;
     let recipientPk: Buffer;
     let recipient: NoirPoint;
 
@@ -379,11 +377,9 @@ describe('Private Execution test suite', () => {
     };
 
     beforeAll(() => {
-      ownerPk = Buffer.from('5e30a2f886b4b6a11aea03bf4910fbd5b24e61aa27ea4d05c393b3ab592a8d33', 'hex');
       recipientPk = Buffer.from('0c9ed344548e8f9ba8aa3c9f8651eaa2853130f6c1e9c050ccf198f7ea18a7ec', 'hex');
 
       const grumpkin = new Grumpkin(bbWasm);
-      owner = toPublicKey(ownerPk, grumpkin);
       recipient = toPublicKey(recipientPk, grumpkin);
     });
 

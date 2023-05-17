@@ -96,6 +96,7 @@ export class SimulatorOracle implements DBOracle {
    *          index of the message in the the l1ToL2MessagesTree
    */
   async getL1ToL2Message(msgKey: Fr): Promise<MessageLoadOracleInputs> {
+    void msgKey; // this line can be removed its to appease the linter on this stub
     const message = L1ToL2Message.empty().toFieldArray();
     // TODO: note index will be requested from the database, stubbed as 0 for the meantime
     const index = 0n;
