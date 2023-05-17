@@ -39,11 +39,8 @@ export class L1ToL2Message {
   // TODO: sha256 hash of the message packed the same as solidity
   hash(): Fr {
     const buf = this.toBuffer();
-    // TODO: cleanup ripped from l2 block
     const temp = toBigIntBE(sha256(buf));
-    // Prime order of BN254 curve
-    const p = BigInt('21888242871839275222246405745257275088548364400416034343698204186575808495617');
-    return Fr.fromBuffer(toBufferBE(temp % p, 32));
+    return Fr.fromBuffer(toBufferBE(temp % Fr.MODULUS, 32));
   }
 
   toFieldArray(): Fr[] {
