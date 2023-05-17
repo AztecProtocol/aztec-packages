@@ -1,15 +1,15 @@
 #include "common.hpp"
 #include "init.hpp"
 
+#include "aztec3/circuits/abis/kernel_circuit_public_inputs.hpp"
+#include "aztec3/circuits/abis/new_contract_data.hpp"
+#include "aztec3/circuits/abis/private_kernel/private_kernel_inputs_inner.hpp"
+#include "aztec3/circuits/hash.hpp"
 #include "aztec3/constants.hpp"
-#include <aztec3/circuits/abis/kernel_circuit_public_inputs.hpp>
-#include <aztec3/circuits/abis/new_contract_data.hpp>
-#include <aztec3/circuits/abis/private_kernel/private_kernel_inputs_inner.hpp>
-#include <aztec3/circuits/hash.hpp>
-#include <aztec3/utils/array.hpp>
-#include <aztec3/utils/dummy_composer.hpp>
+#include "aztec3/utils/array.hpp"
+#include "aztec3/utils/dummy_composer.hpp"
 
-#include <barretenberg/stdlib/merkle_tree/membership.hpp>
+#include "barretenberg/stdlib/merkle_tree/membership.hpp"
 
 namespace aztec3::circuits::kernel::private_kernel {
 
@@ -21,8 +21,6 @@ using aztec3::circuits::abis::private_kernel::PrivateKernelInputsInner;
 using aztec3::utils::array_length;
 using aztec3::utils::array_pop;
 using aztec3::utils::array_push;
-using aztec3::utils::is_array_empty;
-using aztec3::utils::push_array_to_array;
 using DummyComposer = aztec3::utils::DummyComposer;
 using CircuitErrorCode = aztec3::utils::CircuitErrorCode;
 

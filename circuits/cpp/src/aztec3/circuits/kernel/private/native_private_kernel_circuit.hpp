@@ -2,9 +2,9 @@
 
 #include "init.hpp"
 
-#include <aztec3/circuits/abis/kernel_circuit_public_inputs.hpp>
-#include <aztec3/circuits/abis/private_kernel/private_kernel_inputs_inner.hpp>
-#include <aztec3/utils/dummy_composer.hpp>
+#include "aztec3/circuits/abis/kernel_circuit_public_inputs.hpp"
+#include "aztec3/circuits/abis/private_kernel/private_kernel_inputs_inner.hpp"
+#include "aztec3/utils/dummy_composer.hpp"
 
 namespace aztec3::circuits::kernel::private_kernel {
 
