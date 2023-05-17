@@ -17,7 +17,7 @@ import { pipe } from 'it-pipe';
 import { Messages, createTransactionsMessage, decodeTransactionsMessage } from './messages.js';
 import { KnownTxLookup } from './known_txs.js';
 
-const INITIAL_PEER_REFRESH_INTERVAL = 60000;
+const INITIAL_PEER_REFRESH_INTERVAL = 20000;
 
 /**
  * Lib P2P implementation of the P2PService interface.
@@ -29,7 +29,7 @@ export class LibP2PService implements P2PService {
   private timeout: NodeJS.Timer | undefined = undefined;
   private knownTxLookup: KnownTxLookup = new KnownTxLookup();
   constructor(
-    private bootstrapNodes: string[],
+    private config: P2PConfig,
     private node: Libp2p,
     protocolId: string,
     private logger = createDebugLogger('aztec:libp2p_service'),
@@ -44,6 +44,11 @@ export class LibP2PService implements P2PService {
    * @returns An empty promise.
    */
   public async start() {
+    const { enableNat, tcpListenIp, tcpListenPort, announceHostname, announcePort } = this.config;
+    this.logger(`Starting P2P node on ${tcpListenIp}:${tcpListenPort}`);
+    if (announceHostname) this.logger(`Announcing at ${announceHostname}:${announcePort ?? tcpListenPort}`);
+    if (enableNat) this.logger(`Enabling NAT in libp2p module`);
+
     this.node.addEventListener('peer:discovery', evt => {
       const peerId = evt.detail.id;
       if (this.isBootstrapPeer(peerId)) {
@@ -100,19 +105,21 @@ export class LibP2PService implements P2PService {
    * @returns The new service.
    */
   public static async new(config: P2PConfig) {
-    const peerId = config.peerId
-      ? await createFromProtobuf(Buffer.from(config.peerId, 'hex'))
+    const { enableNat, tcpListenIp, tcpListenPort, announceHostname, announcePort, serverMode } = config;
+    const peerId = config.peerIdPrivateKey
+      ? await createFromProtobuf(Buffer.from(config.peerIdPrivateKey, 'hex'))
       : await createEd25519PeerId();
     const node = await createLibp2p({
       peerId,
       nat: {
-        enabled: true,
+        enabled: enableNat,
         description: 'Aztec P2P',
         ttl: 86400,
         keepAlive: true,
       },
       addresses: {
-        listen: [`/ip4/${config.hostname ?? '0.0.0.0'}/tcp/${config.tcpListenPort}`],
+        listen: [`/ip4/${tcpListenIp}/tcp/${tcpListenPort}`],
+        announce: announceHostname ? [`/ip4/${announceHostname}/tcp/${announcePort ?? tcpListenPort}`] : [],
       },
       transports: [tcp()],
       connectionEncryption: [noise()],
@@ -122,7 +129,7 @@ export class LibP2PService implements P2PService {
       },
       dht: kadDHT({
         protocolPrefix: 'aztec',
-        clientMode: !config.server,
+        clientMode: !serverMode,
       }),
       streamMuxers: [yamux(), mplex()],
       peerDiscovery: [
@@ -132,7 +139,7 @@ export class LibP2PService implements P2PService {
       ],
     });
     const protocolId = config.transactionProtocol;
-    const service = new LibP2PService(config.bootstrapNodes, node, protocolId);
+    const service = new LibP2PService(config, node, protocolId);
     await service.start();
     return service;
   }
@@ -227,6 +234,6 @@ export class LibP2PService implements P2PService {
   }
 
   private isBootstrapPeer(peer: PeerId) {
-    return this.bootstrapNodes.findIndex(bootstrap => bootstrap.includes(peer.toString())) != -1;
+    return this.config.bootstrapNodes.findIndex(bootstrap => bootstrap.includes(peer.toString())) != -1;
   }
 }

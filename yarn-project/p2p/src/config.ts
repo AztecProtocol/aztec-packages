@@ -18,9 +18,14 @@ export interface P2PConfig {
   tcpListenPort: number;
 
   /**
-   * An optional peer id. If blank, will generate a randdom key.
+   * The tcp IP on which the P2P service should listen for connections.
    */
-  peerId?: string;
+  tcpListenIp: string;
+
+  /**
+   * An optional peer id private key. If blank, will generate a random key.
+   */
+  peerIdPrivateKey?: string;
 
   /**
    * A list of bootstrap peers to connect to.
@@ -33,14 +38,24 @@ export interface P2PConfig {
   transactionProtocol: string;
 
   /**
-   * Optional hostname/ip address to on which to listen for new connections.
+   * Hostname to announce.
    */
-  hostname?: string;
+  announceHostname?: string;
+
+  /**
+   * Port to announce.
+   */
+  announcePort?: number;
 
   /**
    * Optional specification to run as a server node.
    */
-  server?: boolean;
+  serverMode: boolean;
+
+  /**
+   * Whether to enable NAT from libp2p (ignored for bootstrap node).
+   */
+  enableNat?: boolean;
 }
 
 /**
@@ -52,20 +67,26 @@ export function getP2PConfigEnvVars(): P2PConfig {
     P2P_CHECK_INTERVAL,
     P2P_L2_BLOCK_QUEUE_SIZE,
     P2P_TCP_LISTEN_PORT,
+    P2P_TCP_LISTEN_IP,
     PEER_ID,
     BOOTSTRAP_NODES,
-    P2P_HOSTNAME,
+    P2P_ANNOUNCE_HOSTNAME,
+    P2P_ANNOUNCE_PORT,
     P2P_SERVER,
+    P2P_NAT_ENABLED,
   } = process.env;
   const envVars: P2PConfig = {
     checkInterval: P2P_CHECK_INTERVAL ? +P2P_CHECK_INTERVAL : 100,
     l2QueueSize: P2P_L2_BLOCK_QUEUE_SIZE ? +P2P_L2_BLOCK_QUEUE_SIZE : 1000,
     tcpListenPort: P2P_TCP_LISTEN_PORT ? +P2P_TCP_LISTEN_PORT : 0,
-    peerId: PEER_ID,
+    tcpListenIp: P2P_TCP_LISTEN_IP ? P2P_TCP_LISTEN_IP : '0.0.0.0',
+    peerIdPrivateKey: PEER_ID,
     bootstrapNodes: BOOTSTRAP_NODES ? BOOTSTRAP_NODES.split(',') : [],
     transactionProtocol: '',
-    hostname: P2P_HOSTNAME,
-    server: P2P_SERVER ? P2P_SERVER === 'true' : false,
+    announceHostname: P2P_ANNOUNCE_HOSTNAME,
+    announcePort: P2P_ANNOUNCE_PORT ? +P2P_ANNOUNCE_PORT : undefined,
+    serverMode: P2P_SERVER === 'true',
+    enableNat: P2P_NAT_ENABLED === 'true',
   };
   return envVars;
 }

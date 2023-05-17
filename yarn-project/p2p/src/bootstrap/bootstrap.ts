@@ -5,6 +5,7 @@ import { mplex } from '@libp2p/mplex';
 import { kadDHT } from '@libp2p/kad-dht';
 import { createEd25519PeerId, createFromProtobuf } from '@libp2p/peer-id-factory';
 import { createDebugLogger } from '@aztec/foundation/log';
+import { P2PConfig } from '../config.js';
 
 /**
  * Encapsulates a 'Bootstrap' node, used for the purpose of assisting new joiners in acquiring peers.
@@ -20,20 +21,26 @@ export class BootstrapNode {
    * @param peerIdPrivateKey - The private key to be used for generating the bootstrap nodes peer id.
    * @returns An empty promise.
    */
-  public async start(tcpListenPort: number, peerIdPrivateKey: string) {
+  public async start(config: P2PConfig) {
+    const { peerIdPrivateKey, tcpListenIp, tcpListenPort, announceHostname, announcePort } = config;
     const peerId = peerIdPrivateKey
       ? await createFromProtobuf(Buffer.from(peerIdPrivateKey, 'hex'))
       : await createEd25519PeerId();
+    this.logger(
+      `Starting bootstrap node ${peerId} on ${tcpListenIp}:${tcpListenPort} announced at ${announceHostname}:${announcePort}`,
+    );
     const node = await createLibp2p({
       peerId,
       dht: kadDHT({
         protocolPrefix: 'aztec',
+        clientMode: false,
       }),
       nat: {
         enabled: false,
       },
       addresses: {
-        listen: [`/ip4/0.0.0.0/tcp/${tcpListenPort ?? 0}`],
+        listen: [`/ip4/${tcpListenIp}/tcp/${tcpListenPort}`],
+        announce: [`/ip4/${announceHostname}/tcp/${announcePort ?? tcpListenPort}`],
       },
       transports: [tcp()],
       connectionEncryption: [noise()],
