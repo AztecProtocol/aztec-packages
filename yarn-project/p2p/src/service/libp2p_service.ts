@@ -34,7 +34,7 @@ export class LibP2PService implements P2PService {
     protocolId: string,
     private logger = createDebugLogger('aztec:libp2p_service'),
   ) {
-    this.protocol = `/aztec/tx/${protocolId}`;
+    this.protocol = protocolId;
     const exportedPeerId = exportToProtobuf(node.peerId);
     this.logger(`Peer ID ${Buffer.from(exportedPeerId).toString('hex')}`);
   }
@@ -75,7 +75,7 @@ export class LibP2PService implements P2PService {
     await this.node.handle(this.protocol, (incoming: IncomingStreamData) =>
       this.jobQueue.put(() => Promise.resolve(this.handleProtocolDial(incoming))),
     );
-    this.logger(`Started P2P client with Peer ID ${this.node.peerId.toString()}`);
+    this.logger(`Started P2P client as ${await this.node.dht.getMode()} with Peer ID ${this.node.peerId.toString()}`);
     setTimeout(async () => {
       this.logger(`Refreshing routing table...`);
       await this.node.dht.refreshRoutingTable();
@@ -122,6 +122,7 @@ export class LibP2PService implements P2PService {
       },
       dht: kadDHT({
         protocolPrefix: 'aztec',
+        clientMode: !config.server,
       }),
       streamMuxers: [yamux(), mplex()],
       peerDiscovery: [
@@ -206,10 +207,10 @@ export class LibP2PService implements P2PService {
     for (const peer of peers) {
       try {
         if (this.knownTxLookup.hasPeerSeenTx(peer, txHashString)) {
-          this.logger(`Not sending tx ${txHashString} to peer as they have already seen it`);
+          this.logger(`Not sending tx ${txHashString} to peer ${peer.toString()} as they have already seen it`);
           continue;
         }
-        this.logger(`Sending tx ${txHashString} to peer`);
+        this.logger(`Sending tx ${txHashString} to peer ${peer.toString()}`);
         const stream = await this.node.dialProtocol(peer, this.protocol);
         await pipe([payload], stream);
         stream.close();
