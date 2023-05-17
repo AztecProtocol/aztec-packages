@@ -1,4 +1,5 @@
-import { LeafData, LowLeafWitnessData, SiblingPath } from '@aztec/merkle-tree';
+import { createDebugLogger } from '@aztec/foundation/log';
+import { LeafData, SiblingPath, LowLeafWitnessData } from '@aztec/merkle-tree';
 import { MerkleTreeId } from '@aztec/types';
 
 export * from './merkle_trees.js';
@@ -173,9 +174,13 @@ export interface MerkleTreeDb extends MerkleTreeDbOperations {
 }
 
 /**
- * Outputs a tree leaves to console.log for debugging purposes.
+ * Outputs a tree leaves using for debugging purposes.
  */
-export async function inspectTree(db: MerkleTreeOperations, treeId: MerkleTreeId) {
+export async function inspectTree(
+  db: MerkleTreeOperations,
+  treeId: MerkleTreeId,
+  log = createDebugLogger('aztec:inspect-tree'),
+) {
   const info = await db.getTreeInfo(treeId);
   const output = [`Tree id=${treeId} size=${info.size} root=0x${info.root.toString('hex')}`];
   for (let i = 0; i < info.size; i++) {
@@ -183,5 +188,5 @@ export async function inspectTree(db: MerkleTreeOperations, treeId: MerkleTreeId
       ` Leaf ${i}: ${await db.getLeafValue(treeId, BigInt(i)).then(x => x?.toString('hex') ?? '[undefined]')}`,
     );
   }
-  console.log(output.join('\n'));
+  log(output.join('\n'));
 }
