@@ -1,4 +1,4 @@
-import { createDebugLogger } from '../../log/debug.js';
+import { createDebugLogger } from '../../../log/debug.js';
 
 /**
  * Represents a message object for dispatching function calls.
