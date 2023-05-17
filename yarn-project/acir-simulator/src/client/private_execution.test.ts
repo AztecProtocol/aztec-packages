@@ -365,7 +365,7 @@ describe('Private Execution test suite', () => {
       const contentBuf = Buffer.concat(content.map(field => field.toBuffer()));
       const temp = toBigIntBE(sha256(contentBuf));
       const contentHash = Fr.fromBuffer(toBufferBE(temp % Fr.MODULUS, 32));
-      console.log("content hash: ", contentHash.toBuffer().toString("hex"));
+      console.log('content hash: ', contentHash.toBuffer().toString('hex'));
 
       const secretHash = computeSecretMessageHash(wasm, secret);
 
