@@ -1,4 +1,4 @@
-import { Tx } from '@aztec/types';
+import { Tx, TxHash } from '@aztec/types';
 
 /**
  * The interface for a P2P service implementation.
@@ -9,6 +9,8 @@ export interface P2PService {
   stop(): Promise<void>;
 
   propagateTx(tx: Tx): void;
+
+  settledTxs(txHashes: TxHash[]): void;
 
   onNewTx(handler: (tx: Tx) => Promise<void>): void;
 }

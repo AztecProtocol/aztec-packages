@@ -12,10 +12,10 @@ import { P2PService } from './service.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { SerialQueue } from '@aztec/foundation/fifo';
 import { P2PConfig } from '../config.js';
-import { Tx } from '@aztec/types';
+import { Tx, TxHash } from '@aztec/types';
 import { pipe } from 'it-pipe';
 import { Messages, createTransactionsMessage, decodeTransactionsMessage } from './messages.js';
-import { circuitRelayTransport } from 'libp2p/circuit-relay';
+import { KnownTxLookup } from './known_txs.js';
 
 const INITIAL_PEER_REFRESH_INTERVAL = 60000;
 
@@ -27,6 +27,7 @@ export class LibP2PService implements P2PService {
   private protocol: string;
   private callbacks: Array<(tx: Tx) => Promise<void>> = [];
   private timeout: NodeJS.Timer | undefined = undefined;
+  private knownTxLookup: KnownTxLookup = new KnownTxLookup();
   constructor(
     private bootstrapNodes: string[],
     private node: Libp2p,
@@ -102,9 +103,6 @@ export class LibP2PService implements P2PService {
     const peerId = config.peerId
       ? await createFromProtobuf(Buffer.from(config.peerId, 'hex'))
       : await createEd25519PeerId();
-    const relayTransport = circuitRelayTransport({
-      discoverRelays: 5,
-    });
     const node = await createLibp2p({
       peerId,
       nat: {
@@ -116,7 +114,7 @@ export class LibP2PService implements P2PService {
       addresses: {
         listen: [`/ip4/${config.hostname ?? '0.0.0.0'}/tcp/${config.tcpListenPort}`],
       },
-      transports: [tcp(), relayTransport],
+      transports: [tcp()],
       connectionEncryption: [noise()],
       connectionManager: {
         minConnections: 10,
@@ -154,6 +152,14 @@ export class LibP2PService implements P2PService {
     this.callbacks.push(handler);
   }
 
+  /**
+   * Handles the settling of a new batch of transactions.
+   * @param txHashes - The hashes of the newly settled transactions.
+   */
+  public settledTxs(txHashes: TxHash[]): void {
+    this.knownTxLookup.handleSettledTxs(txHashes.map(x => x.toString()));
+  }
+
   private async handleProtocolDial(incomingStreamData: IncomingStreamData) {
     await pipe(incomingStreamData.stream, async source => {
       for await (const msg of source) {
@@ -182,7 +188,10 @@ export class LibP2PService implements P2PService {
   }
 
   private async processTxFromPeer(tx: Tx, peerId: PeerId): Promise<void> {
-    this.logger(`Received tx ${(await tx.getTxHash()).toString()} from peer ${peerId.toString()}`);
+    const txHash = await tx.getTxHash();
+    const txHashString = txHash.toString();
+    this.knownTxLookup.addPeerForTx(peerId, txHashString);
+    this.logger(`Received tx ${txHashString} from peer ${peerId.toString()}`);
     for (const callback of this.callbacks) {
       await callback(tx);
     }
@@ -192,11 +201,19 @@ export class LibP2PService implements P2PService {
     const txs = createTransactionsMessage([tx]);
     const payload = new Uint8Array(txs);
     const peers = this.getTxPeers();
+    const txHash = await tx.getTxHash();
+    const txHashString = txHash.toString();
     for (const peer of peers) {
       try {
+        if (this.knownTxLookup.hasPeerSeenTx(peer, txHashString)) {
+          this.logger(`Not sending tx ${txHashString} to peer as they have already seen it`);
+          continue;
+        }
+        this.logger(`Sending tx ${txHashString} to peer`);
         const stream = await this.node.dialProtocol(peer, this.protocol);
         await pipe([payload], stream);
         stream.close();
+        this.knownTxLookup.addPeerForTx(peer, txHashString);
       } catch (err) {
         this.logger(`Failed to send to peer `, err);
         continue;

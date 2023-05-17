@@ -157,6 +157,7 @@ export class P2PClient implements P2P {
       // if no blocks to be retrieved, go straight to running
       this.setCurrentState(P2PClientState.RUNNING);
       this.syncPromise = Promise.resolve();
+      this.p2pService.onNewTx((tx: Tx) => this.sendTx(tx));
       this.log(`Next block ${blockToDownloadFrom} already beyond latest block at ${this.latestBlockNumberAtStart}`);
     }
 
@@ -217,19 +218,6 @@ export class P2PClient implements P2P {
   }
 
   /**
-   * Verifies the 'tx' and, if valid, adds it to local tx pool. Does not forward to peers.
-   * @param tx - The tx to accept.
-   * @returns Empty promise.
-   **/
-  public async acceptTx(tx: Tx): Promise<void> {
-    const ready = await this.isReady();
-    if (!ready) {
-      throw new Error('P2P client not ready');
-    }
-    await this.txPool.addTxs([tx]);
-  }
-
-  /**
    * Deletes the 'txs' from the pool.
    * NOT used if we use sendTx as reconcileTxPool will handle this.
    * @param txHashes - Hashes of the transactions to delete.
@@ -280,6 +268,7 @@ export class P2PClient implements P2P {
       const blockContext = new L2BlockContext(blocks[i]);
       const txHashes = blockContext.getTxHashes();
       this.txPool.deleteTxs(txHashes);
+      this.p2pService.settledTxs(txHashes);
     }
     return Promise.resolve();
   }
@@ -300,7 +289,7 @@ export class P2PClient implements P2P {
       this.setCurrentState(P2PClientState.RUNNING);
       if (this.syncResolve !== undefined) {
         this.syncResolve();
-        this.p2pService.onNewTx((tx: Tx) => this.acceptTx(tx));
+        this.p2pService.onNewTx((tx: Tx) => this.sendTx(tx));
       }
     }
   }

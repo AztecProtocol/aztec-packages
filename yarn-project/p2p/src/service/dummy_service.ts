@@ -1,4 +1,4 @@
-import { Tx } from '@aztec/types';
+import { Tx, TxHash } from '@aztec/types';
 import { P2PService } from './service.js';
 
 /**
@@ -20,6 +20,8 @@ export class DummyP2PService implements P2PService {
   public stop() {
     return Promise.resolve();
   }
+
+  settledTxs(txHashes: TxHash[]): void {}
 
   propagateTx(tx: Tx): void {}
   onNewTx(handler: (tx: Tx) => Promise<void>): void {}
