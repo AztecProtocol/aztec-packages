@@ -24,17 +24,6 @@ contract OutboxTest is Test {
     registry.setAddresses(rollup, address(0x0), address(outbox));
   }
 
-  function _helper_computeEntryKey(DataStructures.L2ToL1Msg memory _message)
-    internal
-    pure
-    returns (bytes32)
-  {
-    return bytes32(
-      uint256(sha256(abi.encode(_message.sender, _message.recipient, _message.content)))
-        % 21888242871839275222246405745257275088548364400416034343698204186575808495617
-    );
-  }
-
   function _fakeMessage() internal view returns (DataStructures.L2ToL1Msg memory) {
     return DataStructures.L2ToL1Msg({
       sender: DataStructures.L2Actor({
@@ -88,7 +77,7 @@ contract OutboxTest is Test {
 
   function testRevertIfConsumingMessageThatDoesntExist() public {
     DataStructures.L2ToL1Msg memory message = _fakeMessage();
-    bytes32 entryKey = _helper_computeEntryKey(message);
+    bytes32 entryKey = outbox.computeEntryKey(message);
     vm.expectRevert(
       abi.encodeWithSelector(MessageBox.MessageBox__NothingToConsume.selector, entryKey)
     );
@@ -99,7 +88,7 @@ contract OutboxTest is Test {
     // correctly set message.recipient to this address
     _message.recipient = DataStructures.L1Actor({actor: address(this), chainId: block.chainid});
 
-    bytes32 expectedEntryKey = _helper_computeEntryKey(_message);
+    bytes32 expectedEntryKey = outbox.computeEntryKey(_message);
     bytes32[] memory entryKeys = new bytes32[](1);
     entryKeys[0] = expectedEntryKey;
     outbox.sendL1Messages(entryKeys);

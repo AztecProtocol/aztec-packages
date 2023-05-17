@@ -33,27 +33,6 @@ contract InboxTest is Test {
     registry.setAddresses(rollup, address(inbox), address(0x0));
   }
 
-  function _helper_computeEntryKey(DataStructures.L1ToL2Msg memory _message)
-    internal
-    pure
-    returns (bytes32)
-  {
-    return bytes32(
-      uint256(
-        sha256(
-          abi.encode(
-            _message.sender,
-            _message.recipient,
-            _message.content,
-            _message.secretHash,
-            _message.deadline,
-            _message.fee
-          )
-        )
-      ) % 21888242871839275222246405745257275088548364400416034343698204186575808495617
-    );
-  }
-
   function _fakeMessage() internal view returns (DataStructures.L1ToL2Msg memory) {
     return DataStructures.L1ToL2Msg({
       sender: DataStructures.L1Actor({actor: address(this), chainId: block.chainid}),
@@ -74,7 +53,7 @@ contract InboxTest is Test {
     if (_message.deadline <= block.timestamp) {
       _message.deadline = uint32(block.timestamp + 100);
     }
-    bytes32 expectedEntryKey = _helper_computeEntryKey(_message);
+    bytes32 expectedEntryKey = inbox.computeEntryKey(_message);
     vm.expectEmit(true, true, true, true);
     // event we expect
     emit MessageAdded(
@@ -140,7 +119,7 @@ contract InboxTest is Test {
 
   function testRevertIfCancellingNonExistentMessage() public {
     DataStructures.L1ToL2Msg memory message = _fakeMessage();
-    bytes32 entryKey = _helper_computeEntryKey(message);
+    bytes32 entryKey = inbox.computeEntryKey(message);
     skip(500); // make message cancellable.
     vm.expectRevert(
       abi.encodeWithSelector(MessageBox.MessageBox__NothingToConsume.selector, entryKey)
