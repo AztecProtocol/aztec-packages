@@ -22,9 +22,21 @@ export interface NoteLoadOracleInputs {
   index: bigint;
 }
 
+/**
+ * The format that noir uses to get L1 to L2 Messages.
+ */
 export interface MessageLoadOracleInputs {
+  /**
+   * An array of fields containing all of the l1 to l2 message components.
+   */
   message: Fr[];
+  /**
+   * The path in the merkle tree to the message.
+   */
   siblingPath: Fr[];
+  /**
+   * The index of the message commitment in the merkle tree.
+   */
   index: bigint;
 }
 

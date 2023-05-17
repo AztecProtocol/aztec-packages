@@ -14,6 +14,17 @@ import {TokenPortal} from "./TokenPortal.sol";
 import {PortalERC20} from "./PortalERC20.sol";
 
 contract TokenPortalTest is Test {
+  event MessageAdded(
+    bytes32 indexed entryKey,
+    address indexed sender,
+    bytes32 indexed recipient,
+    uint256 senderChainId,
+    uint256 recipientVersion,
+    uint32 deadline,
+    uint64 fee,
+    bytes32 content
+  );
+
   Rollup rollup;
 
   TokenPortal tokenPortal;
@@ -35,13 +46,40 @@ contract TokenPortalTest is Test {
     portalERC20.mint(address(this), 1 ether);
     portalERC20.approve(address(tokenPortal), 1 ether);
 
+    // input params
     uint32 deadline = uint32(block.timestamp + 1 days);
-    bytes32 messageHash =
-      bytes32(0x2d749407d8c364537cdeb799c1574929cb22ff1ece2b96d2a1c6fa287a0e0171);
+    bytes32 to = bytes32(0x2d749407d8c364537cdeb799c1574929cb22ff1ece2b96d2a1c6fa287a0e0171);
     uint256 amount = 100;
     bytes32 secretHash = 0x147e4fec49805c924e28150fc4b36824679bc17ecb1d7d9f6a9effb7fde6b6a0;
-    bytes32 entryKey =
-      tokenPortal.depositToAztec{value: 1 ether}(messageHash, amount, deadline, secretHash);
+    uint64 bid = 1 ether;
+
+    // Check for the expected message
+    DataStructures.L1ToL2Msg memory expectedMessage = DataStructures.L1ToL2Msg({
+      sender: DataStructures.L1Actor(address(tokenPortal), 1),
+      recipient: DataStructures.L2Actor(to, 1),
+      content: bytes32(uint256(sha256(abi.encode(amount, to))) % DataStructures.P),
+      secretHash: secretHash,
+      deadline: deadline,
+      fee: bid
+    });
+    bytes32 expectedEntryKey = IInbox(rollup.INBOX()).computeMessageKey(expectedMessage);
+
+    // Check the even was emitted
+    vm.expectEmit(true, true, true, true);
+    // event we expect
+    emit MessageAdded(
+      expectedEntryKey,
+      expectedMessage.sender.actor,
+      expectedMessage.recipient.actor,
+      expectedMessage.sender.chainId,
+      expectedMessage.recipient.version,
+      expectedMessage.deadline,
+      expectedMessage.fee,
+      expectedMessage.content
+    );
+
+    // Perform op
+    bytes32 entryKey = tokenPortal.depositToAztec{value: bid}(to, amount, deadline, secretHash);
 
     // Check that the message is in the inbox
     DataStructures.Entry memory entry = IInbox(inbox).get(entryKey);
