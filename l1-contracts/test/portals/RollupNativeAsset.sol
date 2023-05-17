@@ -27,7 +27,7 @@ contract RollupNativeAsset is ERC20 {
 
     DataStructures.L2ToL1Msg memory message = DataStructures.L2ToL1Msg({
       sender: DataStructures.L2Actor(aztecAddress, 1),
-      recipient: DataStructures.L1Actor(address(this), 1),
+      recipient: DataStructures.L1Actor(address(this), block.chainid),
       content: content
     });
 

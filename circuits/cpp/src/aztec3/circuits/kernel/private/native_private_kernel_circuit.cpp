@@ -266,10 +266,12 @@ void update_end_values(DummyComposer& composer,
                 new_l2_to_l1_msgs_to_insert[i] = 0;
             } else {
                 // @todo @LHerskind chain-ids and rollup version id should be added here. Right now, just hard coded.
+                // @todo @LHerskind chain-id is hardcoded for foundry
+                const auto chain_id = fr(31337);
                 new_l2_to_l1_msgs_to_insert[i] = compute_l2_to_l1_hash<NT>(storage_contract_address,
                                                                            fr(1),  // rollup version id
                                                                            portal_contract_address,
-                                                                           fr(1),  // chain-id
+                                                                           chain_id,
                                                                            new_l2_to_l1_msgs[i]);
             }
         }

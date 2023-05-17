@@ -280,7 +280,7 @@ template <typename NCT> typename NCT::fr compute_l2_to_l1_hash(typename NCT::add
     using fr = typename NCT::fr;
 
     std::vector<fr> const inputs = {
-        contract_address.to_field(), chain_id, portal_contract_address, rollup_version_id, content,
+        contract_address.to_field(), rollup_version_id, portal_contract_address, chain_id, content,
     };
 
     constexpr auto const num_bytes = 5 * 32;
