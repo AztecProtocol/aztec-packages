@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { BootstrapNode } from '@aztec/p2p';
 
