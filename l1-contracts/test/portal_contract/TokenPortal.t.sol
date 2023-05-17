@@ -39,14 +39,15 @@ contract TokenPortalTest is Test {
   PortalERC20 portalERC20;
 
   function setUp() public {
-
     registry = new Registry();
     inbox = new Inbox(address(registry));
     outbox = new Outbox(address(registry));
     rollup = new Rollup(registry);
 
+    registry.setAddresses(address(rollup), address(inbox), address(outbox));
+
     portalERC20 = new PortalERC20();
-    tokenPortal = new TokenPortal(IRegistry(address(rollup.REGISTRY())), portalERC20);
+    tokenPortal = new TokenPortal(IRegistry(registry), portalERC20);
 
     vm.deal(address(this), 100 ether);
   }
