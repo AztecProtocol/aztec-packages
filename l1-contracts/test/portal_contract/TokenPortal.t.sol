@@ -4,10 +4,15 @@ import "forge-std/Test.sol";
 
 // Rollup Proccessor
 import {Rollup} from "@aztec/core/Rollup.sol";
-import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
+import {Inbox} from "@aztec/core/messagebridge/Inbox.sol";
 import {IMessageBox} from "@aztec/core/interfaces/messagebridge/IMessageBox.sol";
-import {IRegistry} from "@aztec/core/interfaces/messagebridge/IRegistry.sol";
+import {Registry} from "@aztec/core/messagebridge/Registry.sol";
+import {Outbox} from "@aztec/core/messagebridge/Outbox.sol";
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
+
+// Interfaces
+import {IRegistry} from "@aztec/core/interfaces/messagebridge/IRegistry.sol";
+import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
 
 // Portal tokens
 import {TokenPortal} from "./TokenPortal.sol";
@@ -25,13 +30,20 @@ contract TokenPortalTest is Test {
     bytes32 content
   );
 
-  Rollup rollup;
+  Registry internal registry;
+  Inbox internal inbox;
+  Outbox internal outbox;
+  Rollup internal rollup;
 
   TokenPortal tokenPortal;
   PortalERC20 portalERC20;
 
   function setUp() public {
-    rollup = new Rollup();
+
+    registry = new Registry();
+    inbox = new Inbox(address(registry));
+    outbox = new Outbox(address(registry));
+    rollup = new Rollup(registry);
 
     portalERC20 = new PortalERC20();
     tokenPortal = new TokenPortal(IRegistry(address(rollup.REGISTRY())), portalERC20);
@@ -40,8 +52,6 @@ contract TokenPortalTest is Test {
   }
 
   function testDeposit() public {
-    IInbox inbox = IInbox(address(rollup.INBOX()));
-
     // mint token and approve to the portal
     portalERC20.mint(address(this), 1 ether);
     portalERC20.approve(address(tokenPortal), 1 ether);
@@ -62,7 +72,7 @@ contract TokenPortalTest is Test {
       deadline: deadline,
       fee: bid
     });
-    bytes32 expectedEntryKey = IInbox(rollup.INBOX()).computeMessageKey(expectedMessage);
+    bytes32 expectedEntryKey = inbox.computeEntryKey(expectedMessage);
 
     // Check the even was emitted
     vm.expectEmit(true, true, true, true);
@@ -82,7 +92,7 @@ contract TokenPortalTest is Test {
     bytes32 entryKey = tokenPortal.depositToAztec{value: bid}(to, amount, deadline, secretHash);
 
     // Check that the message is in the inbox
-    DataStructures.Entry memory entry = IInbox(inbox).get(entryKey);
+    DataStructures.Entry memory entry = inbox.get(entryKey);
     assertEq(entry.count, 1);
   }
 }

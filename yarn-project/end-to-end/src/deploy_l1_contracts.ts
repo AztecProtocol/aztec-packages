@@ -3,6 +3,12 @@ import { DebugLogger } from '@aztec/foundation/log';
 import {
   DecoderHelperAbi,
   DecoderHelperBytecode,
+  InboxAbi,
+  InboxBytecode,
+  OutboxAbi,
+  OutboxBytecode,
+  RegistryAbi,
+  RegistryBytecode,
   RollupAbi,
   RollupBytecode,
   UnverifiedDataEmitterAbi,
@@ -18,6 +24,7 @@ import {
   WalletClient,
   createPublicClient,
   createWalletClient,
+  getAddress,
   getContract,
   http,
 } from 'viem';
@@ -28,11 +35,37 @@ import { foundry } from 'viem/chains';
  * Return type of the deployL1Contract function.
  */
 type DeployL1Contracts = {
+  /**
+   * Wallet Client Type.
+   */
   walletClient: WalletClient<HttpTransport, Chain, Account>;
+  /**
+   * Public Client Type.
+   */
   publicClient: PublicClient<HttpTransport, Chain>;
+  /**
+   * Rollup Address.
+   */
   rollupAddress: EthAddress;
+  /**
+   * Registry Address.
+   */
   registryAddress: EthAddress;
+  /**
+   * Inbox Address.
+   */
+  inboxAddress: EthAddress;
+  /**
+   * Outbox Address.
+   */
+  outboxAddress: EthAddress;
+  /**
+   * Data Emitter Address.
+   */
   unverifiedDataEmitterAddress: EthAddress;
+  /**
+   * Decoder Helper Address.
+   */
   decoderHelperAddress?: EthAddress;
 };
 
@@ -62,11 +95,35 @@ export const deployL1Contracts = async (
     transport: http(rpcUrl),
   });
 
-  const rollupAddress = await deployL1Contract(walletClient, publicClient, RollupAbi, RollupBytecode);
+  const registryAddress = await deployL1Contract(walletClient, publicClient, RegistryAbi, RegistryBytecode);
+  logger(`Deployed Registry at ${registryAddress}`);
+
+  const inboxAddress = await deployL1Contract(walletClient, publicClient, InboxAbi, InboxBytecode, [
+    getAddress(registryAddress.toString()),
+  ]);
+  logger(`Deployed Inbox at ${inboxAddress}`);
+
+  const outboxAddress = await deployL1Contract(walletClient, publicClient, OutboxAbi, OutboxBytecode, [
+    getAddress(registryAddress.toString()),
+  ]);
+  logger(`Deployed Outbox at ${outboxAddress}`);
+
+  const rollupAddress = await deployL1Contract(walletClient, publicClient, RollupAbi, RollupBytecode, [
+    getAddress(registryAddress.toString()),
+  ]);
   logger(`Deployed Rollup at ${rollupAddress}`);
 
-  const rollupContract = getContract({ address: rollupAddress.toString(), publicClient, abi: RollupAbi });
-  const registryAddress = EthAddress.fromString(await rollupContract.read.REGISTRY());
+  // We need to call a function on the registry to set the various contract addresses.
+  const registryContract = getContract({
+    address: getAddress(registryAddress.toString()),
+    abi: RegistryAbi,
+    publicClient,
+    walletClient,
+  });
+  await registryContract.write.setAddresses(
+    [getAddress(rollupAddress.toString()), getAddress(inboxAddress.toString()), getAddress(outboxAddress.toString())],
+    { account },
+  );
 
   const unverifiedDataEmitterAddress = await deployL1Contract(
     walletClient,
@@ -87,6 +144,8 @@ export const deployL1Contracts = async (
     publicClient,
     rollupAddress,
     registryAddress,
+    inboxAddress,
+    outboxAddress,
     unverifiedDataEmitterAddress,
     decoderHelperAddress,
   };
