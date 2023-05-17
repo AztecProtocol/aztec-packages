@@ -33,9 +33,10 @@ import { encodeArguments } from '../abi_coder/index.js';
 import { NoirPoint, computeSlotForMapping, toPublicKey } from '../utils.js';
 import { DBOracle } from './db_oracle.js';
 import { AcirSimulator } from './simulator.js';
-import sha256 from 'sha256';
+import { sha256 } from '@aztec/foundation/crypto';
 import { computeSecretMessageHash } from '@aztec/circuits.js/abis';
 import { L1Actor, L1ToL2Message, L2Actor } from '@aztec/types';
+import { toBigIntBE, toBufferBE } from '@aztec/foundation/bigint-buffer';
 
 const createMemDown = () => (memdown as any)() as MemDown<any, any>;
 
@@ -360,7 +361,12 @@ describe('Private Execution test suite', () => {
 
     const buildMessage = async (content: Fr[], targetContract: AztecAddress, secret: Fr) => {
       const wasm = await CircuitsWasm.get();
-      const contentHash = Buffer.from(sha256(Buffer.concat(content.map(field => field.toBuffer()))), 'hex');
+
+      const contentBuf = Buffer.concat(content.map(field => field.toBuffer()));
+      const temp = toBigIntBE(sha256(contentBuf));
+      const contentHash = Fr.fromBuffer(toBufferBE(temp % Fr.MODULUS, 32));
+      console.log("content hash: ", contentHash.toBuffer().toString("hex"));
+
       const secretHash = computeSecretMessageHash(wasm, secret);
 
       return new L1ToL2Message(
@@ -393,7 +399,7 @@ describe('Private Execution test suite', () => {
 
       const secret = new Fr(1n);
       // TODO: is just using the x coord for recipient ok?
-      const preimage = await buildMessage([new Fr(recipient.x), new Fr(bridgedAmount)], contractAddress, secret);
+      const preimage = await buildMessage([new Fr(bridgedAmount), new Fr(recipient.x)], contractAddress, secret);
 
       const messageKey = preimage.hash();
 
@@ -405,7 +411,7 @@ describe('Private Execution test suite', () => {
         L1_TO_L2_MESSAGES_TREE_HEIGHT,
       );
 
-      tree.appendLeaves([messageKey.toBuffer()]);
+      await tree.appendLeaves([messageKey.toBuffer()]);
 
       const l1ToL2Root = Fr.fromBuffer(tree.getRoot(false));
       const historicRoots = new PrivateHistoricTreeRoots(Fr.ZERO, Fr.ZERO, Fr.ZERO, l1ToL2Root, Fr.ZERO);

@@ -10,6 +10,13 @@ pragma solidity >=0.8.18;
  */
 interface IMessageBox {
   error MessageBox__Unauthorized();
+  error MessageBox__IncompatibleEntryArguments(
+    bytes32 entryKey,
+    uint64 storedFee,
+    uint64 feePassed,
+    uint32 storedDeadline,
+    uint32 deadlinePassed
+  );
   error MessageBox__NothingToConsume(bytes32 entryKey);
   error MessageBox__OversizedContent();
 

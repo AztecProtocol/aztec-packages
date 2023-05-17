@@ -27,16 +27,18 @@ contract TokenPortalTest is Test {
     vm.deal(address(this), 100 ether);
   }
 
-  function testArrivesInMessageBox() public {
-    // Send a message to the inbox
-
-    // TODO: interface stuff for inbox
+  function testDeposit() public {
     IInbox inbox = IInbox(address(rollup.INBOX()));
 
-    IMessageBox.L2Actor memory recipient = IMessageBox.L2Actor({actor: 0, version: uint256(0x1)});
+    // mint token and approve to the portal
+    portalERC20.mint(address(this), 1 ether);
+    portalERC20.approve(address(tokenPortal), 1 ether);
 
     uint32 deadline = uint32(block.timestamp + 1 days);
-    bytes32 entryKey = IInbox(inbox).sendL2Message{value: 1 ether}(recipient, deadline, 0, 0);
+    bytes32 messageHash = bytes32(0x2d749407d8c364537cdeb799c1574929cb22ff1ece2b96d2a1c6fa287a0e0171);
+    uint256 amount = 100;
+    bytes32 secretHash = 0x147e4fec49805c924e28150fc4b36824679bc17ecb1d7d9f6a9effb7fde6b6a0;
+    bytes32 entryKey = tokenPortal.depositToAztec{value: 1 ether}(messageHash, amount, deadline, secretHash);
 
     // Check that the message is in the inbox
     IMessageBox.Entry memory entry = IInbox(inbox).get(entryKey);

@@ -24,6 +24,9 @@ import {
 import { HDAccount, PrivateKeyAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
+/**
+ * Return type of the deployL1Contract function.
+ */
 type DeployL1Contracts = {
   walletClient: WalletClient<HttpTransport, Chain, Account>;
   publicClient: PublicClient<HttpTransport, Chain>;

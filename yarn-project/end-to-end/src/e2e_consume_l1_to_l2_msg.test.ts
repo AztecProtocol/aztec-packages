@@ -3,7 +3,7 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { AztecAddress, AztecRPCServer, Contract, ContractDeployer, TxStatus } from '@aztec/aztec.js';
 import { NonNativeTokenContractAbi } from '@aztec/noir-contracts/examples';
 
-import { mnemonicToAccount } from 'viem/accounts';
+import { Account, mnemonicToAccount } from 'viem/accounts';
 import { createAztecRpcServer } from './create_aztec_rpc_client.js';
 import { deployL1Contract, deployL1Contracts } from './deploy_l1_contracts.js';
 import { createDebugLogger } from '@aztec/foundation/log';
@@ -11,14 +11,7 @@ import { Fr, Point } from '@aztec/foundation/fields';
 import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
 import { MNEMONIC } from './fixtures.js';
 import { PortalERC20Abi, PortalERC20Bytecode, TokenPortalAbi, TokenPortalBytecode } from '@aztec/l1-artifacts';
-import {
-  GetContractReturnType,
-  HttpTransport,
-  PublicClient,
-  WalletClient,
-  WalletClientConfig,
-  getContract,
-} from 'viem';
+import { Chain, GetContractReturnType, HttpTransport, PublicClient, WalletClient, getContract } from 'viem';
 import { computeSecretMessageHash } from '@aztec/circuits.js/abis';
 import { CircuitsWasm } from '@aztec/circuits.js';
 
@@ -36,8 +29,16 @@ describe('e2e_l1_to_l2_msg', () => {
 
   let tokenPortalAddress: EthAddress;
   let underlyingERC20Address: EthAddress;
-  let tokenPortal: GetContractReturnType<typeof TokenPortalAbi, unknown, WalletClient>;
-  let underlyingERC20: GetContractReturnType<typeof PortalERC20Abi, unknown, WalletClient>;
+  let tokenPortal: GetContractReturnType<
+    typeof TokenPortalAbi,
+    PublicClient<HttpTransport, Chain>,
+    WalletClient<HttpTransport, Chain, Account>
+  >;
+  let underlyingERC20: GetContractReturnType<
+    typeof PortalERC20Abi,
+    PublicClient<HttpTransport, Chain>,
+    WalletClient<HttpTransport, Chain, Account>
+  >;
 
   beforeEach(async () => {
     const account = mnemonicToAccount(MNEMONIC);
@@ -58,8 +59,18 @@ describe('e2e_l1_to_l2_msg', () => {
       registryAddress.toString(),
       underlyingERC20Address.toString(),
     ]);
-    tokenPortal = getContract({ address: tokenPortalAddress.toString(), abi: TokenPortalAbi, walletClient });
-    underlyingERC20 = getContract({ address: tokenPortalAddress.toString(), abi: PortalERC20Abi, walletClient });
+    underlyingERC20 = getContract({
+      address: underlyingERC20Address.toString(),
+      abi: PortalERC20Abi,
+      walletClient,
+      publicClient,
+    });
+    tokenPortal = getContract({
+      address: tokenPortalAddress.toString(),
+      abi: TokenPortalAbi,
+      walletClient,
+      publicClient,
+    });
 
     node = await AztecNode.createAndSync(config);
     aztecRpcServer = await createAztecRpcServer(2, node);
@@ -101,8 +112,8 @@ describe('e2e_l1_to_l2_msg', () => {
 
   it('Should be able to consume an L1 Message and mint a non native token on L2', async () => {
     const initialBalance = 1n;
-    // TODO: do we need owneer
-    const owner = await aztecRpcServer.getAccountPublicKey(accounts[0]);
+    const ownerAddress = accounts[0];
+    const owner = await aztecRpcServer.getAccountPublicKey(ownerAddress);
     const deployedContract = await deployContract(initialBalance, pointToPublicKey(owner));
     await expectBalance(accounts[0], initialBalance);
 
@@ -111,23 +122,40 @@ describe('e2e_l1_to_l2_msg', () => {
     logger("Generating a claim secret using pedersen's hash function");
     const wasm = await CircuitsWasm.get();
     const secret = Fr.random();
-    const claimSecret = computeSecretMessageHash(wasm, secret);
-    logger('Generated claim secret: ', claimSecret);
+    const claimSecretHash = computeSecretMessageHash(wasm, secret);
+    logger('Generated claim secret: ', claimSecretHash);
 
     // Mint some PortalERC20 token on l1
-    await underlyingERC20.write.mint([ethAccount.toString(), 100n], {} as any);
-    await underlyingERC20.write.approve([tokenPortalAddress.toString(), 100n], {} as any);
+    await underlyingERC20.write.mint([ethAccount.toString(), 1000000n], {} as any);
+    await underlyingERC20.write.approve([tokenPortalAddress.toString(), 1000n], {} as any);
 
     // Deposit tokens to the TokenPortal
-    const contractString = `0x${deployedContract.address.toString()}}` as `0x${string}`;
-    // TODO: fill in deadline
-    await tokenPortal.write.depositToAztec(
-      [contractString, 100n, 0, `0x${claimSecret.toBuffer().toString('hex')}`],
+    const contractString = deployedContract.address.toString() as `0x${string}`;
+    const secretString = `0x${claimSecretHash.toBuffer().toString('hex')}` as `0x${string}`;
+    const deadline = 4_294_967_295 - 1; // max uint - 1
+    const returnedMessageKey = await tokenPortal.write.depositToAztec(
+      [contractString, 100n, deadline, secretString],
       {} as any,
     );
 
-    // Wait for the rollup to process the message - force consumption?
+    const messageKeyFr = Fr.fromBuffer(Buffer.from(returnedMessageKey, 'hex'));
+
+    // Wait for the rollup to process the message
+    // not implemented
+
+    // Force the node to consume the message
+    // not implemented
 
     // Call the mint tokens function on the noir contract
+    const mintAmount = 100n;
+    const tx = deployedContract.methods
+      .mint(mintAmount, pointToPublicKey(owner), messageKeyFr, secret)
+      .send({ from: ownerAddress });
+
+    await tx.isMined(0, 0.1);
+    const receipt = await tx.getReceipt();
+
+    expect(receipt.status).toBe(TxStatus.MINED);
+    await expectBalance(ownerAddress, mintAmount);
   });
 });

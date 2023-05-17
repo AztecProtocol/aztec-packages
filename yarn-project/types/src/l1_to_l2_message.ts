@@ -14,16 +14,14 @@ export class L1ToL2Message {
     /// The recipient of the message on L2.
     public readonly recipient: L2Actor,
     /// The hash of the message content.
-    public readonly contentHash: Buffer,
+    public readonly contentHash: Fr,
     /// The hash of the spending secret.
     public readonly secretHash: Fr,
     /// The deadline for the message.
     public readonly deadline: number,
     /// The fee for the message.
     public readonly fee: number,
-  ) {
-    assertLength(this, 'contentHash', 32);
-  }
+  ) {}
 
   // TODO: sha256 hash of the message packed the same as solidity
   hash(): Fr {
@@ -39,7 +37,7 @@ export class L1ToL2Message {
     return [
       ...this.sender.toFieldArray(),
       ...this.recipient.toFieldArray(),
-      Fr.fromBuffer(this.contentHash),
+      this.contentHash,
       this.secretHash,
       new Fr(BigInt(this.deadline)),
       new Fr(BigInt(this.fee)),
@@ -51,7 +49,7 @@ export class L1ToL2Message {
   }
 
   static empty(): L1ToL2Message {
-    return new L1ToL2Message(L1Actor.empty(), L2Actor.empty(), Buffer.alloc(32), Fr.ZERO, 0, 0);
+    return new L1ToL2Message(L1Actor.empty(), L2Actor.empty(), Fr.ZERO, Fr.ZERO, 0, 0);
   }
 }
 

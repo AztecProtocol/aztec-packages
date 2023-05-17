@@ -36,16 +36,6 @@ fn get_l1_to_l2_message(inputs: Inputs, msg_key: Field, secret: Field) -> L1ToL2
     l1_to_l2_message_data
 }
 
-
-// Notify note so data can be logged
-#[oracle(emitData)]
-fn emit_data_oracle(_msg_key: Field) -> Field {}
-
-unconstrained fn emit_data(msg_key: Field) -> Field {
-    emit_data_oracle(msg_key)
-}
-
-
 struct L1Message {
     sender: Field,
     chainId: Field,

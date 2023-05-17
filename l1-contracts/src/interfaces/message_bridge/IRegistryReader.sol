@@ -16,9 +16,9 @@ interface IRegistryReader {
 
   function getL1L2Addresses() external view returns (L1L2Addresses memory);
 
-  function getRollupAddress() external view returns (IRollup);
+  function getRollup() external view returns (IRollup);
 
-  function getInboxAddress() external view returns (IInbox);
+  function getInbox() external view returns (IInbox);
 
-  function getOutboxAddress() external view returns (IOutbox);
+  function getOutbox() external view returns (IOutbox);
 }
