@@ -39,7 +39,7 @@ contract TokenPortal {
     // Hash the message content to be reconstructed in the receiving contract
     bytes memory content = abi.encode(_amount, _to);
     bytes32 contentHash = sha256(content);
-    
+
     // Hold the tokens in the portal
     UNDERLYING.safeTransferFrom(msg.sender, address(this), _amount);
 

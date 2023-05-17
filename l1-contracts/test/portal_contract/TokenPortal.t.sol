@@ -35,10 +35,12 @@ contract TokenPortalTest is Test {
     portalERC20.approve(address(tokenPortal), 1 ether);
 
     uint32 deadline = uint32(block.timestamp + 1 days);
-    bytes32 messageHash = bytes32(0x2d749407d8c364537cdeb799c1574929cb22ff1ece2b96d2a1c6fa287a0e0171);
+    bytes32 messageHash =
+      bytes32(0x2d749407d8c364537cdeb799c1574929cb22ff1ece2b96d2a1c6fa287a0e0171);
     uint256 amount = 100;
     bytes32 secretHash = 0x147e4fec49805c924e28150fc4b36824679bc17ecb1d7d9f6a9effb7fde6b6a0;
-    bytes32 entryKey = tokenPortal.depositToAztec{value: 1 ether}(messageHash, amount, deadline, secretHash);
+    bytes32 entryKey =
+      tokenPortal.depositToAztec{value: 1 ether}(messageHash, amount, deadline, secretHash);
 
     // Check that the message is in the inbox
     IMessageBox.Entry memory entry = IInbox(inbox).get(entryKey);
