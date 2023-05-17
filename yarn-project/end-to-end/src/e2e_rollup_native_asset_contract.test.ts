@@ -78,7 +78,7 @@ describe('e2e_rollup_native_asset_contract', () => {
     });
     const receipt = await tx.getReceipt();
     contract = new Contract(receipt.contractAddress!, RollupNativeAssetContractAbi, aztecRpcServer);
-    contract.attach(portalAddress);
+    await contract.attach(portalAddress);
 
     await tx.isMined(0, 0.1);
     await tx.getReceipt();
