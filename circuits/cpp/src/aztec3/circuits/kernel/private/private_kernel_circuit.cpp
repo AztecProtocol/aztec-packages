@@ -69,9 +69,6 @@ void initialise_end_values(PrivateKernelInputsInner<CT> const& private_inputs,
     // TODO
     // end.aggregation_object = start.aggregation_object;
 
-    // TODO
-    // end.private_call_count = start.private_call_count;
-
     end.new_commitments = start.new_commitments;
     end.new_nullifiers = start.new_nullifiers;
 
@@ -248,7 +245,7 @@ void validate_inputs(PrivateKernelInputsInner<CT> const& private_inputs)
     const auto& start = private_inputs.previous_kernel.public_inputs.end;
 
     // base case: have not processed any functions yet
-    const CT::boolean is_base_case = start.private_call_count == 0;
+    const CT::boolean is_base_case(first_iteration);
 
     // TODO: we might want to range-constrain the call_count to prevent some kind of overflow errors
     const CT::boolean is_recursive_case = !is_base_case;
@@ -331,7 +328,7 @@ KernelCircuitPublicInputs<NT> private_kernel_circuit(Composer& composer,
     // Do this before any functions can modify the inputs.
     initialise_end_values(private_inputs, public_inputs);
 
-    validate_inputs(private_inputs);
+    validate_inputs(private_inputs, first_iteration);
 
     validate_this_private_call_hash(private_inputs);
 

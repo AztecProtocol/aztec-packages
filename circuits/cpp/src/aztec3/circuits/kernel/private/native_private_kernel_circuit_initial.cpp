@@ -220,6 +220,27 @@ void validate_inputs(DummyComposer& composer, PrivateKernelInputsInit<NT> const&
     // hard-coded into the circuit and assert that that is the one which has been used in the base case).
 }
 
+void update_end_values(DummyComposer& composer,
+                       PrivateKernelInputsInit<NT> const& private_inputs,
+                       KernelCircuitPublicInputs<NT>& public_inputs)
+{
+    // Since it's the first iteration, we need to push the the tx hash nullifier into the `new_nullifiers` array
+
+    // If the nullifiers array is not empty a change was made and we need to rework this
+    composer.do_assert(is_array_empty(public_inputs.end.new_nullifiers),
+                       "new_nullifiers array must be empty in a first iteration of private kernel",
+                       CircuitErrorCode::PRIVATE_KERNEL__NEW_NULLIFIERS_NOT_EMPTY_IN_FIRST_ITERATION);
+
+    array_push(public_inputs.end.new_nullifiers, private_inputs.signed_tx_request.hash());
+
+    // Nonce nullifier
+    // DANGER: This is terrible. This should not be part of the protocol. This is an intentional bodge to reach a
+    // milestone. This must not be the way we derive nonce nullifiers in production. It can be front-run by other
+    // users. It is not domain separated. Naughty.
+    array_push(public_inputs.end.new_nullifiers, private_inputs.signed_tx_request.tx_request.nonce);
+}
+
+
 // NOTE: THIS IS A VERY UNFINISHED WORK IN PROGRESS.
 // TODO: decide what to return.
 // TODO: is there a way to identify whether an input has not been used by ths circuit? This would help us more-safely
@@ -239,11 +260,7 @@ KernelCircuitPublicInputs<NT> native_private_kernel_circuit_initial(DummyCompose
 
     common_validate_call_stack<PrivateKernelInputsInit<NT>>(composer, private_inputs);
 
-    // Nonce nullifier
-    // DANGER: This is terrible. This should not be part of the protocol. This is an intentional bodge to reach a
-    // milestone. This must not be the way we derive nonce nullifiers in production. It can be front-run by other
-    // users. It is not domain separated. Naughty.
-    array_push(public_inputs.end.new_nullifiers, private_inputs.signed_tx_request.tx_request.nonce);
+    update_end_values(composer, private_inputs, public_inputs);
 
     common_update_end_values<PrivateKernelInputsInit<NT>>(composer, private_inputs, public_inputs);
 

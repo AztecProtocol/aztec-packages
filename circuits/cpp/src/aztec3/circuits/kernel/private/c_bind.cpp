@@ -174,7 +174,7 @@ WASM_EXPORT size_t private_kernel__prove(uint8_t const* signed_tx_request_buf,
     auto private_kernel_prover = private_kernel_composer.create_prover();
 
     KernelCircuitPublicInputs<NT> public_inputs;
-    public_inputs = private_kernel_circuit(private_kernel_composer, private_inputs);
+    public_inputs = private_kernel_circuit(private_kernel_composer, private_inputs, first_iteration);
     NT::Proof private_kernel_proof;
     private_kernel_proof = private_kernel_prover.construct_proof();
 

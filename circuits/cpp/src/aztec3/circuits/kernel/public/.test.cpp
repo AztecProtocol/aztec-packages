@@ -3,6 +3,7 @@
 #include "native_public_kernel_circuit_private_previous_kernel.hpp"
 #include "native_public_kernel_circuit_public_previous_kernel.hpp"
 
+#include "aztec3/circuits/abis/combined_historic_tree_roots.hpp"
 #include <aztec3/circuits/abis/call_context.hpp>
 #include <aztec3/circuits/abis/call_stack_item.hpp>
 #include <aztec3/circuits/abis/combined_accumulated_data.hpp>
@@ -269,12 +270,20 @@ PublicKernelInputsNoPreviousKernel<NT> get_kernel_inputs_no_previous_kernel()
         .bytecode_hash = 1234567,
     };
 
+    CombinedHistoricTreeRoots<NT> const historic_tree_roots = { .private_historic_tree_roots = {
+                                                                    .private_data_tree_root = 1000,
+                                                                    .contract_tree_root = 2000,
+                                                                    .l1_to_l2_messages_tree_root = 3000,
+                                                                    .private_kernel_vk_tree_root = 4000,
+                                                                } };
+
     //***************************************************************************
     // Now we can construct the full inputs to the kernel circuit
     //***************************************************************************
     PublicKernelInputsNoPreviousKernel<NT> public_kernel_inputs = {
         .signed_tx_request = signed_tx_request,
         .public_call = { public_call_data },
+        .historic_tree_roots = historic_tree_roots,
     };
 
     return public_kernel_inputs;
@@ -362,11 +371,13 @@ PublicKernelInputs<NT> get_kernel_inputs_with_previous_kernel(NT::boolean privat
         zero_array<NT::fr, KERNEL_PUBLIC_CALL_STACK_LENGTH>();
     public_call_stack[0] = kernel_inputs_no_previous.public_call.call_stack_item.hash();
 
+    // It is expected that the previous kernel set first nullifier as a tx hash
+    auto new_nullifiers = array_of_values<KERNEL_NEW_NULLIFIERS_LENGTH>(seed, private_previous ? 3 : 1);
+    new_nullifiers[0] = kernel_inputs_no_previous.signed_tx_request.hash();
+
     CombinedAccumulatedData<NT> const end_accumulated_data = {
-        .private_call_count = private_previous ? 1 : 0,
-        .public_call_count = private_previous ? 0 : 1,
         .new_commitments = array_of_values<KERNEL_NEW_COMMITMENTS_LENGTH>(seed, private_previous ? 2 : 0),
-        .new_nullifiers = array_of_values<KERNEL_NEW_NULLIFIERS_LENGTH>(seed, private_previous ? 3 : 0),
+        .new_nullifiers = new_nullifiers,
         .private_call_stack = array_of_values<KERNEL_PRIVATE_CALL_STACK_LENGTH>(seed, 0),
         .public_call_stack = public_call_stack,
         .new_l2_to_l1_msgs = array_of_values<KERNEL_NEW_L2_TO_L1_MSGS_LENGTH>(seed, 4),
@@ -472,8 +483,12 @@ TEST(public_kernel_tests, circuit_outputs_should_be_correctly_populated)
 
     ASSERT_FALSE(public_inputs.is_private);
     ASSERT_EQ(public_inputs.constants.tx_context, inputs.signed_tx_request.tx_request.tx_context);
+    ASSERT_EQ(public_inputs.constants.historic_tree_roots, inputs.historic_tree_roots);
 
     validate_public_kernel_outputs_correctly_propagated(inputs, public_inputs);
+
+    // Check the first nullifier is hash of the signed tx request
+    ASSERT_EQ(public_inputs.end.new_nullifiers[0], inputs.signed_tx_request.hash());
 }
 
 TEST(public_kernel_tests, only_valid_public_data_reads_should_be_propagated)
@@ -921,32 +936,10 @@ TEST(public_kernel_tests, private_previous_kernel_empty_public_call_stack_should
     DummyComposer dummyComposer =
         DummyComposer("public_kernel_tests__private_previous_kernel_empty_public_call_stack_should_fail");
     PublicKernelInputs<NT> inputs = get_kernel_inputs_with_previous_kernel(true);
-    inputs.public_call.call_stack_item.public_inputs.public_call_stack = zero_array<NT::fr, PUBLIC_CALL_STACK_LENGTH>();
+    inputs.previous_kernel.public_inputs.end.public_call_stack = zero_array<NT::fr, KERNEL_PUBLIC_CALL_STACK_LENGTH>();
     auto public_inputs = native_public_kernel_circuit_private_previous_kernel(dummyComposer, inputs);
     ASSERT_TRUE(dummyComposer.failed());
     ASSERT_EQ(dummyComposer.get_first_failure().code, CircuitErrorCode::PUBLIC_KERNEL__EMPTY_PUBLIC_CALL_STACK);
-}
-
-TEST(public_kernel_tests, private_previous_kernel_zero_private_call_count_should_fail)
-{
-    DummyComposer dummyComposer =
-        DummyComposer("public_kernel_tests__private_previous_kernel_zero_private_call_count_should_fail");
-    PublicKernelInputs<NT> inputs = get_kernel_inputs_with_previous_kernel(true);
-    inputs.previous_kernel.public_inputs.end.private_call_count = 0;
-    auto public_inputs = native_public_kernel_circuit_private_previous_kernel(dummyComposer, inputs);
-    ASSERT_TRUE(dummyComposer.failed());
-    ASSERT_EQ(dummyComposer.get_first_failure().code, CircuitErrorCode::PUBLIC_KERNEL__ZERO_PRIVATE_CALL_COUNT);
-}
-
-TEST(public_kernel_tests, private_previous_kernel_non_zero_public_call_count_should_fail)
-{
-    DummyComposer dummyComposer =
-        DummyComposer("public_kernel_tests__private_previous_kernel_non_zero_public_call_count_should_fail");
-    PublicKernelInputs<NT> inputs = get_kernel_inputs_with_previous_kernel(true);
-    inputs.previous_kernel.public_inputs.end.public_call_count = 1;
-    auto public_inputs = native_public_kernel_circuit_private_previous_kernel(dummyComposer, inputs);
-    ASSERT_TRUE(dummyComposer.failed());
-    ASSERT_EQ(dummyComposer.get_first_failure().code, CircuitErrorCode::PUBLIC_KERNEL__NON_ZERO_PUBLIC_CALL_COUNT);
 }
 
 TEST(public_kernel_tests, private_previous_kernel_non_private_previous_kernel_should_fail)
@@ -1010,17 +1003,6 @@ TEST(public_kernel_tests, public_previous_kernel_empty_public_call_stack_should_
     auto public_inputs = native_public_kernel_circuit_public_previous_kernel(dummyComposer, inputs);
     ASSERT_TRUE(dummyComposer.failed());
     ASSERT_EQ(dummyComposer.get_first_failure().code, CircuitErrorCode::PUBLIC_KERNEL__EMPTY_PUBLIC_CALL_STACK);
-}
-
-TEST(public_kernel_tests, public_previous_kernel_zero_public_call_count_should_fail)
-{
-    DummyComposer dummyComposer =
-        DummyComposer("public_kernel_tests__public_previous_kernel_zero_public_call_count_should_fail");
-    PublicKernelInputs<NT> inputs = get_kernel_inputs_with_previous_kernel(false);
-    inputs.previous_kernel.public_inputs.end.public_call_count = 0;
-    auto public_inputs = native_public_kernel_circuit_public_previous_kernel(dummyComposer, inputs);
-    ASSERT_TRUE(dummyComposer.failed());
-    ASSERT_EQ(dummyComposer.get_first_failure().code, CircuitErrorCode::PUBLIC_KERNEL__ZERO_PUBLIC_CALL_COUNT);
 }
 
 TEST(public_kernel_tests, public_previous_kernel_private_previous_kernel_should_fail)

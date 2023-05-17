@@ -3,17 +3,18 @@ import {
   BaseOrMergeRollupPublicInputs,
   CircuitsWasm,
   Fr,
+  KERNEL_NEW_COMMITMENTS_LENGTH,
+  KERNEL_NEW_L2_TO_L1_MSGS_LENGTH,
+  KERNEL_NEW_NULLIFIERS_LENGTH,
+  KERNEL_PUBLIC_CALL_STACK_LENGTH,
+  KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH,
   KernelCircuitPublicInputs,
+  NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   PublicDataRead,
   PublicDataUpdateRequest,
-  NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   RootRollupPublicInputs,
   UInt8Vector,
-  KERNEL_NEW_COMMITMENTS_LENGTH,
   range,
-  KERNEL_NEW_NULLIFIERS_LENGTH,
-  KERNEL_NEW_L2_TO_L1_MSGS_LENGTH,
-  KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH,
 } from '@aztec/circuits.js';
 import { computeContractLeaf } from '@aztec/circuits.js/abis';
 import {
@@ -22,10 +23,11 @@ import {
   makeKernelPublicInputs,
   makeNewContractData,
   makeProof,
+  makePublicCallRequest,
   makeRootRollupPublicInputs,
 } from '@aztec/circuits.js/factories';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
-import { MerkleTreeId, ContractData, L2Block, PublicDataWrite, Tx } from '@aztec/types';
+import { ContractData, L2Block, MerkleTreeId, PublicDataWrite, Tx } from '@aztec/types';
 import { MerkleTreeOperations, MerkleTrees } from '@aztec/world-state';
 import { MockProxy, mock } from 'jest-mock-extended';
 import { default as levelup } from 'levelup';
@@ -105,19 +107,10 @@ describe('sequencer/solo_block_builder', () => {
   // Updates the expectedDb trees based on the new commitments, contracts, and nullifiers from these txs
   const updateExpectedTreesFromTxs = async (txs: ProcessedTx[]) => {
     const newContracts = flatMap(txs, tx => tx.data.end.newContracts.map(n => computeContractLeaf(wasm, n)));
-    const nullifiersFromTx = (tx: ProcessedTx) => {
-      if (tx.isEmpty) {
-        return tx.data.end.newNullifiers.map(l => l.toBuffer());
-      }
-      return [
-        tx.hash.buffer,
-        ...tx.data.end.newNullifiers.slice(0, tx.data.end.newNullifiers.length - 1).map(x => x.toBuffer()),
-      ];
-    };
     for (const [tree, leaves] of [
       [MerkleTreeId.PRIVATE_DATA_TREE, flatMap(txs, tx => tx.data.end.newCommitments.map(l => l.toBuffer()))],
       [MerkleTreeId.CONTRACT_TREE, newContracts.map(x => x.toBuffer())],
-      [MerkleTreeId.NULLIFIER_TREE, flatMap(txs, nullifiersFromTx)],
+      [MerkleTreeId.NULLIFIER_TREE, flatMap(txs, tx => tx.data.end.newNullifiers.map(x => x.toBuffer()))],
     ] as const) {
       await expectsDb.appendLeaves(tree, leaves);
     }
@@ -138,9 +131,17 @@ describe('sequencer/solo_block_builder', () => {
 
   const buildMockSimulatorInputs = async () => {
     const kernelOutput = makeKernelPublicInputs();
-    kernelOutput.end.newNullifiers[kernelOutput.end.newNullifiers.length - 1] = Fr.ZERO;
     kernelOutput.constants.historicTreeRoots = await getCombinedHistoricTreeRoots(expectsDb);
-    const tx = await makeProcessedTx(Tx.createPrivate(kernelOutput, emptyProof, makeEmptyUnverifiedData()));
+
+    const tx = await makeProcessedTx(
+      Tx.createPrivate(
+        kernelOutput,
+        emptyProof,
+        makeEmptyUnverifiedData(),
+        [],
+        times(KERNEL_PUBLIC_CALL_STACK_LENGTH, makePublicCallRequest),
+      ),
+    );
 
     const txsLeft = [tx, await makeEmptyProcessedTx()];
     const txsRight = [await makeEmptyProcessedTx(), await makeEmptyProcessedTx()];
@@ -179,12 +180,6 @@ describe('sequencer/solo_block_builder', () => {
     );
 
     const txs = [...txsLeft, ...txsRight];
-
-    const originalNullifiers = txs[0].data.end.newNullifiers;
-    txs[0].data.end.newNullifiers = [
-      Fr.fromBuffer(txs[0].hash.buffer),
-      ...txs[0].data.end.newNullifiers.slice(0, txs[0].data.end.newNullifiers.length - 1),
-    ];
 
     const newNullifiers = flatMap(txs, tx => tx.data.end.newNullifiers);
     const newCommitments = flatMap(txs, tx => tx.data.end.newCommitments);
@@ -231,8 +226,6 @@ describe('sequencer/solo_block_builder', () => {
 
     rootRollupOutput.calldataHash = [high, low];
 
-    txs[0].data.end.newNullifiers = originalNullifiers;
-
     return txs;
   };
 
@@ -270,7 +263,7 @@ describe('sequencer/solo_block_builder', () => {
       expect(actual).toEqual(expected);
     });
 
-    it('Rejects if too many l1 to l2 messages are provided', async () => {
+    it('rejects if too many l1 to l2 messages are provided', async () => {
       // Assemble a fake transaction
       const txs = await buildMockSimulatorInputs();
       const l1ToL2Messages = new Array(100).fill(new Fr(0n));
