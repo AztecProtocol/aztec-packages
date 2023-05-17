@@ -52,9 +52,6 @@ describe('e2e_rollup_native_asset_contract', () => {
   let outbox: GetContractReturnType<typeof OutboxAbi, PublicClient<HttpTransport, Chain>>;
   let registryAddress: Address;
 
-  // @todo @LHerskind need to deploy an L1 contract as well to test this properly
-  // the hacky way should let me check the block at least and see that something meaningful was inserted there.
-
   beforeEach(async () => {
     account = mnemonicToAccount(MNEMONIC);
     const privKey = account.getHdKey().privateKey;
@@ -141,7 +138,7 @@ describe('e2e_rollup_native_asset_contract', () => {
   };
 
   /**
-   * Milestone 2 - L2 -> L1
+   * Milestone 2 - L2 to L1
    */
   it('Milestone 2.3: Exit funds from L2 to L1', async () => {
     const initialBalance = 987n;
