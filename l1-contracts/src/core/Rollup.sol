@@ -5,7 +5,6 @@ pragma solidity >=0.8.18;
 import {MockVerifier} from "@aztec/mock/MockVerifier.sol";
 import {Decoder} from "./Decoder.sol";
 
-import {IInbox} from "@aztec/interfaces/message_bridge/IInbox.sol";
 // Messaging
 import {Inbox} from "@aztec/core/messagebridge/Inbox.sol";
 import {Registry} from "@aztec/core/messagebridge/Registry.sol";

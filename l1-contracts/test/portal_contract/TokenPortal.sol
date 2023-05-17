@@ -4,17 +4,18 @@ import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
 
 // Messaging
-import {IRegistryReader} from "@aztec/interfaces/message_bridge/IRegistryReader.sol";
-import {IInbox} from "@aztec/interfaces/message_bridge/IInbox.sol";
-import {IMessageBox} from "@aztec/interfaces/message_bridge/IMessageBox.sol";
+import {IRegistry} from "@aztec/core/interfaces/messagebridge/IRegistry.sol";
+import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
+import {IMessageBox} from "@aztec/core/interfaces/messagebridge/IMessageBox.sol";
+import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 
 contract TokenPortal {
   using SafeERC20 for IERC20;
 
-  IRegistryReader public immutable REGISTRY;
+  IRegistry public immutable REGISTRY;
   IERC20 public immutable UNDERLYING;
 
-  constructor(IRegistryReader _rollupRegistry, IERC20 _underlying) {
+  constructor(IRegistry _rollupRegistry, IERC20 _underlying) {
     REGISTRY = _rollupRegistry;
     UNDERLYING = _underlying;
   }
@@ -34,7 +35,7 @@ contract TokenPortal {
   {
     // Preamble
     IInbox inbox = REGISTRY.getInbox();
-    IMessageBox.L2Actor memory actor = IMessageBox.L2Actor(_to, 1);
+    DataStructures.L2Actor memory actor = DataStructures.L2Actor(_to, 1);
 
     // Hash the message content to be reconstructed in the receiving contract
     bytes memory content = abi.encode(_amount, _to);

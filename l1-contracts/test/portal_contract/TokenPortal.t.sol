@@ -4,9 +4,10 @@ import "forge-std/Test.sol";
 
 // Rollup Proccessor
 import {Rollup} from "@aztec/core/Rollup.sol";
-import {IInbox} from "@aztec/interfaces/message_bridge/IInbox.sol";
-import {IMessageBox} from "@aztec/interfaces/message_bridge/IMessageBox.sol";
-import {IRegistryReader} from "@aztec/interfaces/message_bridge/IRegistryReader.sol";
+import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
+import {IMessageBox} from "@aztec/core/interfaces/messagebridge/IMessageBox.sol";
+import {IRegistry} from "@aztec/core/interfaces/messagebridge/IRegistry.sol";
+import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 
 // Portal tokens
 import {TokenPortal} from "./TokenPortal.sol";
@@ -22,7 +23,7 @@ contract TokenPortalTest is Test {
     rollup = new Rollup();
 
     portalERC20 = new PortalERC20();
-    tokenPortal = new TokenPortal(IRegistryReader(address(rollup.REGISTRY())), portalERC20);
+    tokenPortal = new TokenPortal(IRegistry(address(rollup.REGISTRY())), portalERC20);
 
     vm.deal(address(this), 100 ether);
   }
@@ -43,7 +44,7 @@ contract TokenPortalTest is Test {
       tokenPortal.depositToAztec{value: 1 ether}(messageHash, amount, deadline, secretHash);
 
     // Check that the message is in the inbox
-    IMessageBox.Entry memory entry = IInbox(inbox).get(entryKey);
+    DataStructures.Entry memory entry = IInbox(inbox).get(entryKey);
     assertEq(entry.count, 1);
   }
 }
