@@ -259,7 +259,7 @@ KernelCircuitPublicInputs<NT> native_private_kernel_circuit_initial(DummyCompose
 
     // In the native version, as there is no verify_proofs call, we can initialize aggregation object with the default
     // constructor.
-    NT::AggregationObject empty_aggregation_object{};
+    NT::AggregationObject const empty_aggregation_object{};
     public_inputs.end.aggregation_object = empty_aggregation_object;
 
     return public_inputs;
