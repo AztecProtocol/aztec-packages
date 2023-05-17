@@ -98,7 +98,6 @@ module.exports = {
       },
     ],
     'jsdoc/require-description': ['error', { contexts }],
-    'jsdoc/require-description-complete-sentence': ['error'],
     'jsdoc/require-hyphen-before-param-description': ['error'],
     'jsdoc/require-param': ['error', { contexts, checkDestructured: false }],
     'jsdoc/require-param-description': ['error', { contexts }],
