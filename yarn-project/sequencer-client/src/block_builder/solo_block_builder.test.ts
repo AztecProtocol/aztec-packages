@@ -1,6 +1,7 @@
 import {
   AppendOnlyTreeSnapshot,
   BaseOrMergeRollupPublicInputs,
+  BaseRollupInputs,
   CircuitsWasm,
   Fr,
   KERNEL_NEW_COMMITMENTS_LENGTH,
@@ -9,6 +10,7 @@ import {
   KERNEL_PUBLIC_CALL_STACK_LENGTH,
   KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH,
   KernelCircuitPublicInputs,
+  NULLIFIER_TREE_HEIGHT,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   PublicDataRead,
   PublicDataUpdateRequest,
@@ -255,6 +257,13 @@ describe('sequencer/solo_block_builder', () => {
     ] as const)('performs nullifier tree batch insertion correctly', async nullifiers => {
       const leaves = nullifiers.map(i => toBufferBE(BigInt(i), 32));
       await expectsDb.appendLeaves(MerkleTreeId.NULLIFIER_TREE, leaves);
+
+      await builderDb.batchInsert(
+        MerkleTreeId.NULLIFIER_TREE,
+        leaves,
+        NULLIFIER_TREE_HEIGHT,
+        BaseRollupInputs.NULLIFIER_SUBTREE_HEIGHT,
+      );
 
       const expected = await expectsDb.getTreeInfo(MerkleTreeId.NULLIFIER_TREE);
       const actual = await builderDb.getTreeInfo(MerkleTreeId.NULLIFIER_TREE);
