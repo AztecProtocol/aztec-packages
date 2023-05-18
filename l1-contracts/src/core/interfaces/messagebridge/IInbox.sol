@@ -70,4 +70,18 @@ interface IInbox is IMessageBox {
    * @notice Withdraws fees accrued by the sequencer
    */
   function withdrawFees() external;
+
+  /**
+   * @notice Fetch an entry
+   * @param _entryKey - The key to lookup
+   * @return The entry matching the provided key
+   */
+  function get(bytes32 _entryKey) external view returns (DataStructures.Entry memory);
+
+  /**
+   * @notice Check if entry exists
+   * @param _entryKey - The key to lookup
+   * @return True if entry exists, false otherwise
+   */
+  function contains(bytes32 _entryKey) external view returns (bool);
 }

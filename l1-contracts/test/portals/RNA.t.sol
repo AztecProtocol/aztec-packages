@@ -61,7 +61,7 @@ contract RNATest is Test {
     assertEq(rna.balanceOf(address(0xdead)), 654);
 
     // Should not be able to withdraw again
-    vm.expectRevert(abi.encodeWithSignature("MessageBox__NothingToConsume(bytes32)", entryKey));
+    vm.expectRevert(abi.encodeWithSignature("NothingToConsume(bytes32)", entryKey));
     rna.withdraw(654, address(0xdead));
   }
 }

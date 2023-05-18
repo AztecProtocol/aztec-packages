@@ -3,8 +3,10 @@
 pragma solidity >=0.8.18;
 
 import {IOutbox} from "@aztec/core/interfaces/messagebridge/IOutbox.sol";
+import {Constants} from "@aztec/core/libraries/Constants.sol";
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
-import {MessageBox} from "./MessageBox.sol";
+import {MessageBox} from "@aztec/core/libraries/MessageBox.sol";
+import {IRegistry} from "@aztec/core/interfaces/messagebridge/IRegistry.sol";
 
 /**
  * @title Outbox
@@ -12,11 +14,24 @@ import {MessageBox} from "./MessageBox.sol";
  * @notice Lives on L1 and is used to consume L2 -> L1 messages. Messages are inserted by the rollup contract
  * and will be consumed by the portal contracts.
  */
-contract Outbox is MessageBox, IOutbox {
+contract Outbox is IOutbox {
+  using MessageBox for mapping(bytes32 entryKey => DataStructures.Entry entry);
+
   error Outbox__Unauthorized();
   error Outbox__WrongChainId();
 
-  constructor(address _registry) MessageBox(_registry) {}
+  IRegistry immutable REGISTRY;
+
+  mapping(bytes32 entryKey => DataStructures.Entry entry) internal entries;
+
+  modifier onlyRollup() {
+    if (msg.sender != address(REGISTRY.getRollup())) revert Outbox__Unauthorized();
+    _;
+  }
+
+  constructor(address _registry) {
+    REGISTRY = IRegistry(_registry);
+  }
 
   /**
    * @notice Computes an entry key for the Outbox
@@ -26,7 +41,8 @@ contract Outbox is MessageBox, IOutbox {
   function computeEntryKey(DataStructures.L2ToL1Msg memory _message) public pure returns (bytes32) {
     // TODO: Replace mod P later on when we have a better idea of how to handle Fields.
     return bytes32(
-      uint256(sha256(abi.encode(_message.sender, _message.recipient, _message.content))) % P
+      uint256(sha256(abi.encode(_message.sender, _message.recipient, _message.content)))
+        % Constants.P
     );
   }
 
@@ -38,7 +54,7 @@ contract Outbox is MessageBox, IOutbox {
   function sendL1Messages(bytes32[] memory _entryKeys) external onlyRollup {
     for (uint256 i = 0; i < _entryKeys.length; i++) {
       if (_entryKeys[i] == bytes32(0)) continue;
-      _insert(_entryKeys[i], 0, 0);
+      entries.insert(_entryKeys[i], 0, 0);
       emit MessageAdded(_entryKeys[i]);
     }
   }
@@ -55,7 +71,25 @@ contract Outbox is MessageBox, IOutbox {
     if (block.chainid != _message.recipient.chainId) revert Outbox__WrongChainId();
 
     entryKey = computeEntryKey(_message);
-    _consume(entryKey);
+    entries.consume(entryKey);
     emit MessageConsumed(entryKey, msg.sender);
+  }
+
+  /**
+   * @notice Fetch an entry
+   * @param _entryKey - The key to lookup
+   * @return The entry matching the provided key
+   */
+  function get(bytes32 _entryKey) public view returns (DataStructures.Entry memory) {
+    return entries.get(_entryKey);
+  }
+
+  /**
+   * @notice Check if entry exists
+   * @param _entryKey - The key to lookup
+   * @return True if entry exists, false otherwise
+   */
+  function contains(bytes32 _entryKey) public view returns (bool) {
+    return entries.contains(_entryKey);
   }
 }

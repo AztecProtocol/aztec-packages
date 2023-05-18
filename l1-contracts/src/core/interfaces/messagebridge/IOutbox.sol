@@ -39,4 +39,18 @@ interface IOutbox is IMessageBox {
    * @return entryKey - The key of the entry removed
    */
   function consume(DataStructures.L2ToL1Msg memory _message) external returns (bytes32 entryKey);
+
+  /**
+   * @notice Fetch an entry
+   * @param _entryKey - The key to lookup
+   * @return The entry matching the provided key
+   */
+  function get(bytes32 _entryKey) external view returns (DataStructures.Entry memory);
+
+  /**
+   * @notice Check if entry exists
+   * @param _entryKey - The key to lookup
+   * @return True if entry exists, false otherwise
+   */
+  function contains(bytes32 _entryKey) external view returns (bool);
 }
