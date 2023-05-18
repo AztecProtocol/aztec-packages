@@ -665,9 +665,10 @@ export class SoloBlockBuilder implements BlockBuilder {
     }
 
     // Extract witness objects from returned data
-    const lowNullifierMembershipWitnesses = nullifierWitnessLeaves.map(l =>
-      MembershipWitness.fromBufferArray(l.index, l.siblingPath.data),
-    );
+    const lowNullifierMembershipWitnesses: MembershipWitness<typeof NULLIFIER_TREE_HEIGHT>[] =
+      nullifierWitnessLeaves.map(l =>
+        MembershipWitness.fromBufferArray(l.index, toTupleOf(l.siblingPath.data, NULLIFIER_TREE_HEIGHT)),
+      );
 
     return BaseRollupInputs.from({
       constants,

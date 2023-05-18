@@ -65,11 +65,11 @@ export class MembershipWitness<N extends number> {
     return new MembershipWitness<N>(pathSize, leafIndex, arr);
   }
 
-  static fromBufferArray(leafIndex: bigint, siblingPath: Buffer[]) {
-    return new MembershipWitness(
-      siblingPath.length,
+  static fromBufferArray<N extends number>(leafIndex: bigint, siblingPath: TupleOf<Buffer, N>): MembershipWitness<N> {
+    return new MembershipWitness<N>(
+      siblingPath.length as N,
       leafIndex,
-      siblingPath.map(x => Fr.fromBuffer(x)),
+      siblingPath.map(x => Fr.fromBuffer(x)) as TupleOf<Fr, N>,
     );
   }
 }
