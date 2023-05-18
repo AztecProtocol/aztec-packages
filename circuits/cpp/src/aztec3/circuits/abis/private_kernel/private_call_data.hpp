@@ -79,7 +79,8 @@ template <typename NCT> struct PrivateCallData {
             to_circuit_type(function_leaf_membership_witness),
             to_circuit_type(contract_leaf_membership_witness),
 
-            to_ct(read_request_membership_witnesses),
+            aztec3::utils::types::to_ct<Composer, MembershipWitness<CT, PRIVATE_DATA_TREE_HEIGHT>>(
+                composer, read_request_membership_witnesses),
 
             to_ct(portal_contract_address),
             to_ct(acir_hash),
