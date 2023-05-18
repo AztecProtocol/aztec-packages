@@ -7,8 +7,8 @@ import { CbindCompiler } from './compiler.js';
 
 /**
  * Generate TypeScript bindings for functions in CircuitsWasm.
- * This processes the schema for each export and compiles the TypeScript bindings
- * to the 'circuits.gen.ts'.
+ * This processes the schema for each export and compiles the TypeScript functions
+ * to a 'circuits.gen.ts'.
  *
  * @returns -
  */
