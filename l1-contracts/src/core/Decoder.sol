@@ -409,29 +409,72 @@ contract Decoder {
 
   /**
    * @notice Computes the hash of logs in a kernel.
+   * @param _offset - The offset of kernel's logs in calldata.
    * @param _l2Block - The L2 block calldata.
-   * @param _offset - The offset of the logs in the calldata.
    * @return The hash of the logs.
    * @dev We need to compute the logs hash the same way as it is computed in all the iterations of the kernel.
    *      This is an example of how the data is encoded for a kernel with 3 iterations:
    *
    *        || K_LOGS_LEN | I1_LOGS_LEN | I1_LOGS | I2_LOGS_LEN | I2_LOGS | I3_LOGS_LEN | I3_LOGS ||
+   *           4 bytes      4 bytes       i bytes   4 bytes       j bytes     4 bytes     k bytes
    *
    *        K_LOGS_LEN is the total length of the logs in the kernel.
-   *        I1_LOGS_LEN is the length of the logs in the first iteration.
+   *        I1_LOGS_LEN (i) is the length of the logs in the first iteration.
    *        I1_LOGS are all the logs emitted in the first iteration.
-   *        I2_LOGS_LEN ...
+   *        I2_LOGS_LEN (j) ...
    *
    *      In each iteration, the kernel computes a hash of the previous iteration's logs hash and the current
    *      iteration's logs. E.g. for the kernel logs portrayed above the resulting hash would be:
    *
    *        logsHash = sha256(sha256(sha256(I1_LOGS), I2_LOGS), I3_LOGS)
    */
-  function _computeKernelLogsHash(bytes calldata _l2Block, uint256 _offset)
+  function _computeKernelLogsHash(int256 _offset, bytes calldata _l2Block)
     internal
     pure
     returns (bytes32)
-  {}
+  {
+    uint256 remainingLogsLength;
+    uint256 offset;
+    assembly {
+      // Set the remaining logs length to the total logs length
+      remainingLogsLength := and(shr(224, calldataload(_offset)), 0xffffffff)
+      offset := add(_offset, 0x4)
+    }
+
+    bytes32 logsHash;
+    uint256 iterationLogsLength;
+    uint256 tempLength;
+
+    // Iterate until all the logs were processed
+    while (remainingLogsLength > 0) {
+      assembly {
+        // Load this iteration's logs length
+        iterationLogsLength := and(shr(224, calldataload(offset)), 0xffffffff)
+        offset := add(offset, 0x4)
+        tempLength := add(0x20, iterationLogsLength) // len(logsHash) + iterationLogsLength
+      }
+
+      // TODO: Allocating memory in each iteration is expensive. Should we set max logs length and allocate 1 chunk
+      //       of memory before this loop?
+      bytes memory temp = new bytes(tempLength);
+      assembly {
+        // Copy logsHash to temp
+        mstore(add(temp, 0x20), mload(logsHash))
+
+        // Load this iteration's logs to memory
+        calldatacopy(add(temp, 0x40), offset, iterationLogsLength)
+        offset := add(offset, iterationLogsLength)
+
+        // Compute current iteration's logs hash
+        logsHash := keccak256(add(temp, 0x20), tempLength)
+
+        // Decrease remaining logs length by this iteration's logs length
+        remainingLogsLength := sub(remainingLogsLength, iterationLogsLength)
+      }
+    }
+
+    return logsHash;
+  }
 
   /**
    * @notice Computes the root for a binary Merkle-tree given the leafs.
