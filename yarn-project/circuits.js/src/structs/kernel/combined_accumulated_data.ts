@@ -34,7 +34,7 @@ export class NewContractData {
     // currently there is a kludge with circuits cpp as it emits an AztecAddress
     /**
      * Ethereum address of the portal contract on L1.
-     */    
+     */
     portalContractAddress: EthAddress | AztecAddress,
     /**
      * Function tree root of the contract.
@@ -89,7 +89,7 @@ export class OptionallyRevealedData {
     public vkHash: Fr,
     /**
      * Address of the portal contract corresponding to the L2 contract on which the function above was invoked.
-     * 
+     *
      * TODO(AD): refactor this later
      * currently there is a kludge with circuits cpp as it emits an AztecAddress
      */
@@ -270,63 +270,46 @@ export class PublicDataUpdateRequest {
  */
 export class CombinedAccumulatedData {
   constructor(
-<<<<<<< HEAD
-    public aggregationObject: AggregationObject, // Contains the aggregated proof of all previous kernel iterations
-    public privateCallCount: Fr,
-    public publicCallCount: Fr,
-    public newCommitments: TupleOf<Fr, typeof KERNEL_NEW_COMMITMENTS_LENGTH>,
-    public newNullifiers: TupleOf<Fr, typeof KERNEL_NEW_NULLIFIERS_LENGTH>,
-    public privateCallStack: TupleOf<Fr, typeof KERNEL_PRIVATE_CALL_STACK_LENGTH>,
-    public publicCallStack: TupleOf<Fr, typeof KERNEL_PUBLIC_CALL_STACK_LENGTH>,
-    public newL2ToL1Msgs: TupleOf<Fr, typeof NEW_L2_TO_L1_MSGS_LENGTH>,
-    public newContracts: TupleOf<NewContractData, typeof KERNEL_NEW_CONTRACTS_LENGTH>,
-    public optionallyRevealedData: TupleOf<OptionallyRevealedData, typeof KERNEL_OPTIONALLY_REVEALED_DATA_LENGTH>,
-    public publicDataUpdateRequests: TupleOf<PublicDataUpdateRequest, typeof KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH>,
-    public publicDataReads: TupleOf<PublicDataRead, typeof KERNEL_PUBLIC_DATA_READS_LENGTH>,
-=======
     /**
      * Aggregated proof of all the previous kernel iterations.
      */
-    public aggregationObject: AggregationObject,
+    public aggregationObject: AggregationObject, // Contains the aggregated proof of all previous kernel iterations
     /**
      * The number of new commitments made in this transaction.
      */
-    public newCommitments: Fr[],
+    public newCommitments: TupleOf<Fr, typeof KERNEL_NEW_COMMITMENTS_LENGTH>,
     /**
      * The number of new nullifiers made in this transaction.
      */
-    public newNullifiers: Fr[],
+    public newNullifiers: TupleOf<Fr, typeof KERNEL_NEW_NULLIFIERS_LENGTH>,
     /**
      * Current private call stack.
      */
-    public privateCallStack: Fr[],
+    public privateCallStack: TupleOf<Fr, typeof KERNEL_PRIVATE_CALL_STACK_LENGTH>,
     /**
      * Current public call stack.
      */
-    public publicCallStack: Fr[],
+    public publicCallStack: TupleOf<Fr, typeof KERNEL_PUBLIC_CALL_STACK_LENGTH>,
     /**
      * All the new L2 to L1 messages created in this transaction.
      */
-    public newL2ToL1Msgs: Fr[],
+    public newL2ToL1Msgs: TupleOf<Fr, typeof NEW_L2_TO_L1_MSGS_LENGTH>,
     /**
      * All the new contracts deployed in this transaction.
      */
-    public newContracts: NewContractData[],
-
+    public newContracts: TupleOf<NewContractData, typeof KERNEL_NEW_CONTRACTS_LENGTH>,
     /**
      * All the optionally revealed data in this transaction.
      */
-    public optionallyRevealedData: OptionallyRevealedData[],
-
+    public optionallyRevealedData: TupleOf<OptionallyRevealedData, typeof KERNEL_OPTIONALLY_REVEALED_DATA_LENGTH>,
     /**
      * All the public data update requests made in this transaction.
      */
-    public publicDataUpdateRequests: PublicDataUpdateRequest[],
+    public publicDataUpdateRequests: TupleOf<PublicDataUpdateRequest, typeof KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH>,
     /**
      * All the public data reads made in this transaction.
      */
-    public publicDataReads: PublicDataRead[],
->>>>>>> origin/master
+    public publicDataReads: TupleOf<PublicDataRead, typeof KERNEL_PUBLIC_DATA_READS_LENGTH>,
   ) {
     assertLength(this, 'newCommitments', KERNEL_NEW_COMMITMENTS_LENGTH);
     assertLength(this, 'newNullifiers', KERNEL_NEW_NULLIFIERS_LENGTH);
@@ -378,19 +361,8 @@ export class CombinedAccumulatedData {
   static empty() {
     return new CombinedAccumulatedData(
       AggregationObject.makeFake(),
-<<<<<<< HEAD
       Fr.ZERO,
       Fr.ZERO,
-      tupleTimes(KERNEL_NEW_COMMITMENTS_LENGTH, Fr.zero),
-      tupleTimes(KERNEL_NEW_NULLIFIERS_LENGTH, Fr.zero),
-      tupleTimes(KERNEL_PRIVATE_CALL_STACK_LENGTH, Fr.zero),
-      tupleTimes(KERNEL_PUBLIC_CALL_STACK_LENGTH, Fr.zero),
-      tupleTimes(KERNEL_NEW_L2_TO_L1_MSGS_LENGTH, Fr.zero),
-      tupleTimes(KERNEL_NEW_CONTRACTS_LENGTH, NewContractData.empty),
-      tupleTimes(KERNEL_OPTIONALLY_REVEALED_DATA_LENGTH, OptionallyRevealedData.empty),
-      tupleTimes(KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH, PublicDataUpdateRequest.empty),
-      tupleTimes(KERNEL_PUBLIC_DATA_READS_LENGTH, PublicDataRead.empty),
-=======
       times(KERNEL_NEW_COMMITMENTS_LENGTH, Fr.zero),
       times(KERNEL_NEW_NULLIFIERS_LENGTH, Fr.zero),
       times(KERNEL_PRIVATE_CALL_STACK_LENGTH, Fr.zero),
@@ -400,7 +372,6 @@ export class CombinedAccumulatedData {
       times(KERNEL_OPTIONALLY_REVEALED_DATA_LENGTH, OptionallyRevealedData.empty),
       times(KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH, PublicDataUpdateRequest.empty),
       times(KERNEL_PUBLIC_DATA_READS_LENGTH, PublicDataRead.empty),
->>>>>>> origin/master
     );
   }
 }

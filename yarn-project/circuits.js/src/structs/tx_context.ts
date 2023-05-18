@@ -9,6 +9,9 @@ import { EthAddress, Fr, AztecAddress } from './index.js';
  * Not to be confused with NewContractData.
  */
 export class ContractDeploymentData {
+  /**
+   * Ethereum address of the portal contract on L1.
+   */
   public portalContractAddress: EthAddress;
   constructor(
     /**
@@ -28,9 +31,9 @@ export class ContractDeploymentData {
      * TODO(AD): union type kludge due to cbind compiler having special needs
      */
     portalContractAddress: EthAddress | AztecAddress,
-    ) {
-      this.portalContractAddress = new EthAddress(portalContractAddress.toBuffer());
-    }
+  ) {
+    this.portalContractAddress = new EthAddress(portalContractAddress.toBuffer());
+  }
 
   toBuffer() {
     return serializeToBuffer(
@@ -84,9 +87,6 @@ export class TxContext {
      * the user.
      */
     public isRebatePaymentTx: boolean,
-<<<<<<< HEAD
-    public isContractDeploymentTx: boolean,
-=======
     /**
      * Whether this is a contract deployment tx.
      */
@@ -94,7 +94,6 @@ export class TxContext {
     /**
      * Contract deployment data.
      */
->>>>>>> origin/master
     public contractDeploymentData: ContractDeploymentData,
   ) {}
 
@@ -106,7 +105,7 @@ export class TxContext {
     return serializeToBuffer(
       this.isFeePaymentTx,
       this.isRebatePaymentTx,
-      this.isContractDeploymentTx,
+      this.isContractDeployment,
       this.contractDeploymentData,
     );
   }
