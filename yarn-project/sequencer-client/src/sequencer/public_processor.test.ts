@@ -13,7 +13,7 @@ import {
   PublicCallRequest,
   TxRequest,
   makeEmptyProof,
-  tupleTimes,
+  makeTuple,
 } from '@aztec/circuits.js';
 import {
   makeAztecAddress,
@@ -77,7 +77,7 @@ describe('public_processor', () => {
 
     it('skips non-public txs without public execution requests', async function () {
       const tx = makePrivateTx();
-      tx.data.end.publicCallStack = tupleTimes(KERNEL_PUBLIC_CALL_STACK_LENGTH, Fr.zero);
+      tx.data.end.publicCallStack = makeTuple(KERNEL_PUBLIC_CALL_STACK_LENGTH, Fr.zero);
       const hash = await tx.getTxHash();
       const [processed, failed] = await processor.process([tx]);
 

@@ -15,7 +15,7 @@ import {
 } from '../constants.js';
 import { FunctionData } from '../function_data.js';
 import { BufferReader, Tuple } from '@aztec/foundation/serialize';
-import { assertLength, tupleTimes } from '../../index.js';
+import { assertLength, makeTuple } from '../../index.js';
 import { EthAddress, AztecAddress, Fr } from '../index.js';
 
 /**
@@ -163,7 +163,7 @@ export class OptionallyRevealedData {
     return new OptionallyRevealedData(
       Fr.ZERO,
       FunctionData.empty(),
-      tupleTimes(EMITTED_EVENTS_LENGTH, Fr.zero),
+      makeTuple(EMITTED_EVENTS_LENGTH, Fr.zero),
       Fr.ZERO,
       EthAddress.ZERO,
       false,
@@ -370,15 +370,15 @@ export class CombinedAccumulatedData {
   static empty() {
     return new CombinedAccumulatedData(
       AggregationObject.makeFake(),
-      tupleTimes(KERNEL_NEW_COMMITMENTS_LENGTH, Fr.zero),
-      tupleTimes(KERNEL_NEW_NULLIFIERS_LENGTH, Fr.zero),
-      tupleTimes(KERNEL_PRIVATE_CALL_STACK_LENGTH, Fr.zero),
-      tupleTimes(KERNEL_PUBLIC_CALL_STACK_LENGTH, Fr.zero),
-      tupleTimes(KERNEL_NEW_L2_TO_L1_MSGS_LENGTH, Fr.zero),
-      tupleTimes(KERNEL_NEW_CONTRACTS_LENGTH, NewContractData.empty),
-      tupleTimes(KERNEL_OPTIONALLY_REVEALED_DATA_LENGTH, OptionallyRevealedData.empty),
-      tupleTimes(KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH, PublicDataUpdateRequest.empty),
-      tupleTimes(KERNEL_PUBLIC_DATA_READS_LENGTH, PublicDataRead.empty),
+      makeTuple(KERNEL_NEW_COMMITMENTS_LENGTH, Fr.zero),
+      makeTuple(KERNEL_NEW_NULLIFIERS_LENGTH, Fr.zero),
+      makeTuple(KERNEL_PRIVATE_CALL_STACK_LENGTH, Fr.zero),
+      makeTuple(KERNEL_PUBLIC_CALL_STACK_LENGTH, Fr.zero),
+      makeTuple(KERNEL_NEW_L2_TO_L1_MSGS_LENGTH, Fr.zero),
+      makeTuple(KERNEL_NEW_CONTRACTS_LENGTH, NewContractData.empty),
+      makeTuple(KERNEL_OPTIONALLY_REVEALED_DATA_LENGTH, OptionallyRevealedData.empty),
+      makeTuple(KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH, PublicDataUpdateRequest.empty),
+      makeTuple(KERNEL_PUBLIC_DATA_READS_LENGTH, PublicDataRead.empty),
     );
   }
 }

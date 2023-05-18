@@ -17,7 +17,7 @@ import {
   PublicDataUpdateRequest,
   RootRollupPublicInputs,
   range,
-  tupleTimes,
+  makeTuple,
 } from '@aztec/circuits.js';
 import { computeContractLeaf } from '@aztec/circuits.js/abis';
 import {
@@ -306,7 +306,7 @@ describe('sequencer/solo_block_builder', () => {
       const publicTx = makePublicTx(seed);
       const kernelOutput = KernelCircuitPublicInputs.empty();
       kernelOutput.constants.historicTreeRoots = await getCombinedHistoricTreeRoots(builderDb);
-      kernelOutput.end.publicDataUpdateRequests = tupleTimes(
+      kernelOutput.end.publicDataUpdateRequests = makeTuple(
         KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH,
         i => new PublicDataUpdateRequest(fr(i), fr(0), fr(i + 10)),
         seed + 0x500,
@@ -314,10 +314,10 @@ describe('sequencer/solo_block_builder', () => {
 
       const tx = await makeProcessedTx(publicTx, kernelOutput, makeProof());
 
-      tx.data.end.newCommitments = tupleTimes(KERNEL_NEW_COMMITMENTS_LENGTH, fr, seed + 0x100);
-      tx.data.end.newNullifiers = tupleTimes(KERNEL_NEW_NULLIFIERS_LENGTH, fr, seed + 0x200);
+      tx.data.end.newCommitments = makeTuple(KERNEL_NEW_COMMITMENTS_LENGTH, fr, seed + 0x100);
+      tx.data.end.newNullifiers = makeTuple(KERNEL_NEW_NULLIFIERS_LENGTH, fr, seed + 0x200);
       tx.data.end.newNullifiers[tx.data.end.newNullifiers.length - 1] = Fr.ZERO;
-      tx.data.end.newL2ToL1Msgs = tupleTimes(KERNEL_NEW_L2_TO_L1_MSGS_LENGTH, fr, seed + 0x300);
+      tx.data.end.newL2ToL1Msgs = makeTuple(KERNEL_NEW_L2_TO_L1_MSGS_LENGTH, fr, seed + 0x300);
       tx.data.end.newContracts = [makeNewContractData(seed + 0x1000)];
 
       return tx;

@@ -23,7 +23,7 @@ import {
   RootRollupPublicInputs,
   VK_TREE_HEIGHT,
   VerificationKey,
-  tupleTimes,
+  makeTuple,
 } from '@aztec/circuits.js';
 import { computeContractLeaf } from '@aztec/circuits.js/abis';
 import { MerkleTreeId, ContractData, L2Block, PublicDataWrite } from '@aztec/types';
@@ -444,7 +444,7 @@ export class SoloBlockBuilder implements BlockBuilder {
       new MembershipWitness(
         ROLLUP_VK_TREE_HEIGHT,
         BigInt(FUTURE_NUM),
-        tupleTimes(ROLLUP_VK_TREE_HEIGHT, () => FUTURE_FR),
+        makeTuple(ROLLUP_VK_TREE_HEIGHT, () => FUTURE_FR),
       ),
     );
   }
@@ -706,7 +706,7 @@ export class SoloBlockBuilder implements BlockBuilder {
     return new MembershipWitness(
       height,
       0n,
-      tupleTimes(height, () => new Fr(0n)),
+      makeTuple(height, () => new Fr(0n)),
     );
   }
 }

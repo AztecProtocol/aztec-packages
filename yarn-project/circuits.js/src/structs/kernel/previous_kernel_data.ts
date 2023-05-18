@@ -7,7 +7,7 @@ import { Proof, makeEmptyProof } from '../proof.js';
 import { UInt32 } from '../shared.js';
 import { VerificationKey } from '../verification_key.js';
 import { KernelCircuitPublicInputs } from './public_inputs.js';
-import { CircuitsWasm, assertLength, tupleTimes } from '../../index.js';
+import { CircuitsWasm, assertLength, makeTuple } from '../../index.js';
 
 /**
  * Data of the previous kernel iteration in the chain of kernels.
@@ -72,7 +72,7 @@ export class PreviousKernelData {
       makeEmptyProof(),
       VerificationKey.makeFake(),
       0,
-      tupleTimes(VK_TREE_HEIGHT, Fr.zero),
+      makeTuple(VK_TREE_HEIGHT, Fr.zero),
     );
   }
 }
