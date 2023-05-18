@@ -1,4 +1,4 @@
-import { TupleOf } from '@aztec/foundation/serialize';
+import { Tuple } from '@aztec/foundation/serialize';
 
 /**
  * Create an array over an integer range.
@@ -22,7 +22,7 @@ export function range(n: number, offset = 0) {
  * @returns The array of numbers.
  */
 export function tupleTimes<T, N extends number>(length: N, fn: (i: number) => T, offset = 0) {
-  return Array.from({ length }, (v: any, i: number) => fn(i + offset)) as TupleOf<T, N>;
+  return Array.from({ length }, (v: any, i: number) => fn(i + offset)) as Tuple<T, N>;
 }
 
 /**

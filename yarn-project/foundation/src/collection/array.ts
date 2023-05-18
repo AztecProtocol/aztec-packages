@@ -1,4 +1,4 @@
-import { TupleOf } from '../serialize/types.js';
+import { Tuple } from '../serialize/types.js';
 
 /**
  * Pads an array to the target length by appending an element to its end. Throws if target length exceeds the input array length. Does not modify the input array.
@@ -7,10 +7,10 @@ import { TupleOf } from '../serialize/types.js';
  * @param length - Target length.
  * @returns A new padded array.
  */
-export function padArrayEnd<T, N extends number>(arr: T[], elem: T, length: N): TupleOf<T, N> {
+export function padArrayEnd<T, N extends number>(arr: T[], elem: T, length: N): Tuple<T, N> {
   if (arr.length > length) throw new Error(`Array size exceeds target length`);
   // Since typescript cannot always deduce that something is a tuple, we cast
-  return [...arr, ...Array(length - arr.length).fill(elem)] as TupleOf<T, N>;
+  return [...arr, ...Array(length - arr.length).fill(elem)] as Tuple<T, N>;
 }
 
 /**
@@ -20,10 +20,10 @@ export function padArrayEnd<T, N extends number>(arr: T[], elem: T, length: N): 
  * @param length - Target length.
  * @returns A new padded array.
  */
-export function padArrayStart<T, N extends number>(arr: T[], elem: T, length: N): TupleOf<T, N> {
+export function padArrayStart<T, N extends number>(arr: T[], elem: T, length: N): Tuple<T, N> {
   if (arr.length > length) throw new Error(`Array size exceeds target length`);
   // Since typescript cannot always deduce that something is a tuple, we cast
-  return [...Array(length - arr.length).fill(elem), ...arr] as TupleOf<T, N>;
+  return [...Array(length - arr.length).fill(elem), ...arr] as Tuple<T, N>;
 }
 
 /**

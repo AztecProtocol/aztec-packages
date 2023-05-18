@@ -1,5 +1,5 @@
 import { Fr, Fq } from '../fields/fields.js';
-import { TupleOf } from './types.js';
+import { Tuple } from './types.js';
 
 /**
  * The BufferReader class provides a utility for reading various data types from a buffer.
@@ -157,9 +157,9 @@ export class BufferReader {
        */
       fromBuffer: (reader: BufferReader) => T;
     },
-  ): TupleOf<T, N> {
+  ): Tuple<T, N> {
     const result = Array.from({ length: size }, () => itemDeserializer.fromBuffer(this));
-    return result as TupleOf<T, N>;
+    return result as Tuple<T, N>;
   }
 
   /**

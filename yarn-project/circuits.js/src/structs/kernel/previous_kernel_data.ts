@@ -1,4 +1,4 @@
-import { TupleOf, BufferReader } from '@aztec/foundation/serialize';
+import { Tuple, BufferReader } from '@aztec/foundation/serialize';
 import { privateKernelDummyPreviousKernel } from '../../cbind/circuits.gen.js';
 import { serializeToBuffer } from '../../utils/serialize.js';
 import { VK_TREE_HEIGHT } from '../constants.js';
@@ -33,7 +33,7 @@ export class PreviousKernelData {
     /**
      * Sibling path of the previous kernel's vk in a tree of vks.
      */
-    public vkPath: TupleOf<Fr, typeof VK_TREE_HEIGHT>,
+    public vkPath: Tuple<Fr, typeof VK_TREE_HEIGHT>,
   ) {
     assertLength(this, 'vkPath', VK_TREE_HEIGHT);
   }

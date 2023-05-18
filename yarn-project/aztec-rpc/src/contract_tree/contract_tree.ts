@@ -21,7 +21,7 @@ import {
   hashVK,
 } from '@aztec/circuits.js/abis';
 import { FunctionType, ContractAbi } from '@aztec/foundation/abi';
-import { toTupleOf } from '@aztec/foundation/serialize';
+import { assertTuple } from '@aztec/foundation/serialize';
 import { ContractFunctionDao, ContractDao } from '../contract_database/contract_dao.js';
 import { generateFunctionSelector } from '../index.js';
 import { computeFunctionTreeData } from './function_tree_data.js';
@@ -263,7 +263,7 @@ export class ContractTree {
       this.contractMembershipWitness = new MembershipWitness<typeof CONTRACT_TREE_HEIGHT>(
         CONTRACT_TREE_HEIGHT,
         index,
-        toTupleOf(
+        assertTuple(
           siblingPath.data.map(x => Fr.fromBuffer(x)),
           CONTRACT_TREE_HEIGHT,
         ),
@@ -311,7 +311,7 @@ export class ContractTree {
     return new MembershipWitness<typeof FUNCTION_TREE_HEIGHT>(
       FUNCTION_TREE_HEIGHT,
       BigInt(functionIndex),
-      toTupleOf(functionTreeData.siblingPath, FUNCTION_TREE_HEIGHT),
+      assertTuple(functionTreeData.siblingPath, FUNCTION_TREE_HEIGHT),
     );
   }
 

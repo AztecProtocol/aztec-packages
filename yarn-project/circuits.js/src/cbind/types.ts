@@ -24,3 +24,13 @@ export {
   Proof,
   PreviousKernelData,
 } from '../structs/index.js';
+
+/**
+ * A pointer to a Prover object in WebAssembly memory.
+ */
+export type ProverBasePtr = number & {
+  /**
+   * A unique brand for distinguishing ProverBasePtr type objects.
+   */
+  __proverBasePtrBrand: any;
+};

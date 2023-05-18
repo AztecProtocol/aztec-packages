@@ -97,7 +97,6 @@ export interface TypeInfo {
 /**
  * Generate a JavaScript expression to convert a given value from its Msgpack type representation to its
  * corresponding TypeScript type representation using the provided TypeInfo.
- * This function handles various cases including alias types, arrays, tuples, maps, and imported types.
  *
  * @param typeInfo - Metadata and conversion methods related to the TypeScript and Msgpack type names.
  * @param value - The value to be converted in the generated expression.
@@ -106,10 +105,12 @@ export interface TypeInfo {
 function msgpackConverterExpr(typeInfo: TypeInfo, value: string): string {
   const { typeName } = typeInfo;
   if (typeInfo.isAlias) {
-    // TODO other aliases besides Buffer?
     if (USES_MSGPACK_BUFFER_METHODS.includes(typeInfo.typeName)) {
       // TODO(AD) Temporary hack while two serialization systems exist for these classes
       return `${typeName}.fromMsgpackBuffer(${value})`;
+    }
+    if (typeInfo.msgpackTypeName === 'number') {
+      return `${value} as ${typeName}`;
     }
     return `${typeName}.fromBuffer(${value})`;
   } else if (typeInfo.arraySubtype) {
@@ -134,7 +135,6 @@ function msgpackConverterExpr(typeInfo: TypeInfo, value: string): string {
 /**
  * Generate a JavaScript expression to convert a given value from its TypeScript class representation to its
  * corresponding Msgpack type representation using the provided TypeInfo.
- * This function handles various cases including alias types, arrays, tuples, maps, and imported types.
  *
  * @param typeInfo - Metadata and conversion methods related to the TypeScript and Msgpack type names.
  * @param value - The value to be converted in the generated expression.
@@ -147,6 +147,9 @@ function classConverterExpr(typeInfo: TypeInfo, value: string): string {
     if (USES_MSGPACK_BUFFER_METHODS.includes(typeInfo.typeName)) {
       // TODO(AD) Temporary hack while two serialization systems exist for these classes
       return `${value}.toMsgpackBuffer()`;
+    }
+    if (typeInfo.msgpackTypeName === 'number') {
+      return `${value}`; // Should be a branded number alias
     }
     return `${value}.toBuffer()`;
   } else if (typeInfo.arraySubtype) {
@@ -190,7 +193,7 @@ export class CbindCompiler {
   }
   /**
    * Derive the TypeScript type name of a schema, compiling anything needed along the way.
-   * @param type A schema.
+   * @param type - A schema.
    * @returns The type name.
    */
   private getTypeInfo(type: Schema): TypeInfo {
@@ -198,8 +201,8 @@ export class CbindCompiler {
       if (type[0] === 'array') {
         // fixed-size array case
         const [_array, [subtype, size]] = type;
-        const typeName = `TupleOf<${this.getTypeName(subtype)}, ${size}>`;
-        const msgpackTypeName = `TupleOf<${this.getMsgpackTypename(subtype)}, ${size}>`;
+        const typeName = `Tuple<${this.getTypeName(subtype)}, ${size}>`;
+        const msgpackTypeName = `Tuple<${this.getMsgpackTypename(subtype)}, ${size}>`;
         return {
           typeName,
           msgpackTypeName,
@@ -222,14 +225,19 @@ export class CbindCompiler {
       } else if (type[0] === 'alias') {
         // alias case
         const [_alias, [typeName, msgpackName]] = type;
-        if (!msgpackName.startsWith('bin')) {
-          throw new Error('Only buffer aliases currently supported');
+        let msgpackTypeName: string;
+        if (msgpackName.startsWith('bin')) {
+          msgpackTypeName = 'Buffer';
+        } else if (msgpackName === 'int' || msgpackName === 'unsigned int') {
+          msgpackTypeName = 'number';
+        } else {
+          throw new Error('Unsupported alias type ' + msgpackName);
         }
         this.typeInfos[typeName] = {
           typeName,
           isImport: true,
           isAlias: true,
-          msgpackTypeName: 'Buffer',
+          msgpackTypeName,
         };
         return this.typeInfos[typeName];
       } else if (type[0] === 'shared_ptr') {
@@ -249,6 +257,7 @@ export class CbindCompiler {
       switch (type) {
         case 'bool':
           return { typeName: 'boolean' };
+        case 'int':
         case 'unsigned int':
           return { typeName: 'number' };
         case 'string':
@@ -293,8 +302,9 @@ export class CbindCompiler {
   }
   /**
    * Generate an interface with the name 'name'.
-   * @param name The interface name.
-   * @param type The object schema with properties of the interface.
+   * @param name - The interface name.
+   * @param type - The object schema with properties of the interface.
+   * @returns the interface body.
    */
   private generateInterface(name: string, type: ObjectSchema) {
     // Raw object, used as return value of fromType() generated functions.
@@ -305,20 +315,13 @@ export class CbindCompiler {
     }
     result += '}';
     return result;
-    // // High level object, use in Type.from() methods
-    // let resultHighLevel = `export interface I${name} {\n`;
-    // for (const [key, value] of Object.entries(type)) {
-    //   if (key === '__typename') continue;
-    //   resultHighLevel += `  ${camelCase(key)}: ${this.getTypeName(value)};\n`;
-    // }
-    // resultHighLevel += '}';
-    // return resultRaw + '\n' + resultHighLevel;
   }
 
   /**
-   * Generate conversion method 'to{name}' for a specific type 'name'.
-   * @param name The class name.
-   * @param type The object schema with properties of the interface.
+   * Generate conversion method 'toName' for a specific type 'name'.
+   * @param name - The class name.
+   * @param type - The object schema with properties of the interface.
+   * @returns The toName method.
    */
   private generateMsgpackConverter(name: string, type: ObjectSchema): string {
     const typename = capitalize(camelCase(type.__typename as string));
@@ -356,9 +359,10 @@ return ${callSyntax.call(this)};
   }
 
   /**
-   * Generate conversion method 'from{name}' for a specific type 'name'.
-   * @param name The class name.
-   * @param type The object schema with properties of the interface.
+   * Generate conversion method 'fromName' for a specific type 'name'.
+   * @param name - The class name.
+   * @param type - The object schema with properties of the interface.
+   * @returns the fromName method string.
    */
   private generateClassConverter(name: string, type: ObjectSchema): string {
     const typename = capitalize(camelCase(type.__typename as string));
@@ -395,8 +399,8 @@ return ${callSyntax.call(this)};
   }
   /**
    * Process a cbind schema.
-   * @param name The cbind name.
-   * @param cbind The cbind schema.
+   * @param name - The cbind name.
+   * @param cbind - The cbind schema.
    * @returns The compiled schema.
    */
   processCbind(
@@ -462,7 +466,7 @@ import { CircuitsWasm } from '../wasm/index.js';
       }
     }
     outputs[0] += `import {${imports.join(', ')}} from "./types.js";`;
-    outputs[0] += `import {TupleOf, mapTuple, mapValues} from "@aztec/foundation/serialize";`;
+    outputs[0] += `import {Tuple, mapTuple, mapValues} from "@aztec/foundation/serialize";`;
     for (const funcDecl of Object.values(this.funcDecls)) {
       outputs.push(funcDecl);
     }

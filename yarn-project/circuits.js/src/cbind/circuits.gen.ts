@@ -24,8 +24,9 @@ import {
   Proof,
   VerificationKeyData,
   PreviousKernelData,
+  ProverBasePtr,
 } from './types.js';
-import { TupleOf, mapTuple, mapValues } from '@aztec/foundation/serialize';
+import { Tuple, mapTuple, mapValues } from '@aztec/foundation/serialize';
 export interface MsgpackG1AffineElement {
   x: Buffer;
   y: Buffer;
@@ -191,7 +192,7 @@ export function fromFunctionData(o: FunctionData): MsgpackFunctionData {
 export interface MsgpackOptionallyRevealedData {
   call_stack_item_hash: Buffer;
   function_data: MsgpackFunctionData;
-  emitted_events: TupleOf<Buffer, 4>;
+  emitted_events: Tuple<Buffer, 4>;
   vk_hash: Buffer;
   portal_contract_address: Buffer;
   pay_fee_from_l1: boolean;
@@ -352,15 +353,15 @@ export function fromPublicDataRead(o: PublicDataRead): MsgpackPublicDataRead {
 
 export interface MsgpackCombinedAccumulatedData {
   aggregation_object: MsgpackNativeAggregationState;
-  new_commitments: TupleOf<Buffer, 4>;
-  new_nullifiers: TupleOf<Buffer, 4>;
-  private_call_stack: TupleOf<Buffer, 8>;
-  public_call_stack: TupleOf<Buffer, 8>;
-  new_l2_to_l1_msgs: TupleOf<Buffer, 2>;
-  new_contracts: TupleOf<MsgpackNewContractData, 1>;
-  optionally_revealed_data: TupleOf<MsgpackOptionallyRevealedData, 4>;
-  public_data_update_requests: TupleOf<MsgpackPublicDataUpdateRequest, 4>;
-  public_data_reads: TupleOf<MsgpackPublicDataRead, 4>;
+  new_commitments: Tuple<Buffer, 4>;
+  new_nullifiers: Tuple<Buffer, 4>;
+  private_call_stack: Tuple<Buffer, 8>;
+  public_call_stack: Tuple<Buffer, 8>;
+  new_l2_to_l1_msgs: Tuple<Buffer, 2>;
+  new_contracts: Tuple<MsgpackNewContractData, 1>;
+  optionally_revealed_data: Tuple<MsgpackOptionallyRevealedData, 4>;
+  public_data_update_requests: Tuple<MsgpackPublicDataUpdateRequest, 4>;
+  public_data_reads: Tuple<MsgpackPublicDataRead, 4>;
 }
 
 export function toCombinedAccumulatedData(o: MsgpackCombinedAccumulatedData): CombinedAccumulatedData {
@@ -773,7 +774,7 @@ export interface MsgpackPreviousKernelData {
   proof: Buffer;
   vk: MsgpackVerificationKeyData;
   vk_index: number;
-  vk_path: TupleOf<Buffer, 3>;
+  vk_path: Tuple<Buffer, 3>;
 }
 
 export function toPreviousKernelData(o: MsgpackPreviousKernelData): PreviousKernelData {
@@ -844,4 +845,7 @@ export async function abisComputeContractAddress(
 }
 export async function privateKernelDummyPreviousKernel(wasm: CircuitsWasm): Promise<PreviousKernelData> {
   return toPreviousKernelData(await callCbind(wasm, 'private_kernel__dummy_previous_kernel', []));
+}
+export async function proverProcessQueue2(wasm: CircuitsWasm, arg0: ProverBasePtr): Promise<number> {
+  return await callCbind(wasm, 'prover_process_queue2', [arg0]);
 }

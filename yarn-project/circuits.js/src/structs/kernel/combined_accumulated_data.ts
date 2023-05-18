@@ -14,7 +14,7 @@ import {
   NEW_L2_TO_L1_MSGS_LENGTH,
 } from '../constants.js';
 import { FunctionData } from '../function_data.js';
-import { BufferReader, TupleOf } from '@aztec/foundation/serialize';
+import { BufferReader, Tuple } from '@aztec/foundation/serialize';
 import { assertLength, tupleTimes } from '../../index.js';
 import { EthAddress, AztecAddress, Fr } from '../index.js';
 
@@ -91,7 +91,7 @@ export class OptionallyRevealedData {
     /**
      * Events emitted by the function call from which this info originates.
      */
-    public emittedEvents: TupleOf<Fr, typeof EMITTED_EVENTS_LENGTH>,
+    public emittedEvents: Tuple<Fr, typeof EMITTED_EVENTS_LENGTH>,
     /**
      * Verification key hash of the function call from which this info originates.
      */
@@ -286,39 +286,39 @@ export class CombinedAccumulatedData {
     /**
      * The number of new commitments made in this transaction.
      */
-    public newCommitments: TupleOf<Fr, typeof KERNEL_NEW_COMMITMENTS_LENGTH>,
+    public newCommitments: Tuple<Fr, typeof KERNEL_NEW_COMMITMENTS_LENGTH>,
     /**
      * The number of new nullifiers made in this transaction.
      */
-    public newNullifiers: TupleOf<Fr, typeof KERNEL_NEW_NULLIFIERS_LENGTH>,
+    public newNullifiers: Tuple<Fr, typeof KERNEL_NEW_NULLIFIERS_LENGTH>,
     /**
      * Current private call stack.
      */
-    public privateCallStack: TupleOf<Fr, typeof KERNEL_PRIVATE_CALL_STACK_LENGTH>,
+    public privateCallStack: Tuple<Fr, typeof KERNEL_PRIVATE_CALL_STACK_LENGTH>,
     /**
      * Current public call stack.
      */
-    public publicCallStack: TupleOf<Fr, typeof KERNEL_PUBLIC_CALL_STACK_LENGTH>,
+    public publicCallStack: Tuple<Fr, typeof KERNEL_PUBLIC_CALL_STACK_LENGTH>,
     /**
      * All the new L2 to L1 messages created in this transaction.
      */
-    public newL2ToL1Msgs: TupleOf<Fr, typeof NEW_L2_TO_L1_MSGS_LENGTH>,
+    public newL2ToL1Msgs: Tuple<Fr, typeof NEW_L2_TO_L1_MSGS_LENGTH>,
     /**
      * All the new contracts deployed in this transaction.
      */
-    public newContracts: TupleOf<NewContractData, typeof KERNEL_NEW_CONTRACTS_LENGTH>,
+    public newContracts: Tuple<NewContractData, typeof KERNEL_NEW_CONTRACTS_LENGTH>,
     /**
      * All the optionally revealed data in this transaction.
      */
-    public optionallyRevealedData: TupleOf<OptionallyRevealedData, typeof KERNEL_OPTIONALLY_REVEALED_DATA_LENGTH>,
+    public optionallyRevealedData: Tuple<OptionallyRevealedData, typeof KERNEL_OPTIONALLY_REVEALED_DATA_LENGTH>,
     /**
      * All the public data update requests made in this transaction.
      */
-    public publicDataUpdateRequests: TupleOf<PublicDataUpdateRequest, typeof KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH>,
+    public publicDataUpdateRequests: Tuple<PublicDataUpdateRequest, typeof KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH>,
     /**
      * All the public data reads made in this transaction.
      */
-    public publicDataReads: TupleOf<PublicDataRead, typeof KERNEL_PUBLIC_DATA_READS_LENGTH>,
+    public publicDataReads: Tuple<PublicDataRead, typeof KERNEL_PUBLIC_DATA_READS_LENGTH>,
   ) {
     assertLength(this, 'newCommitments', KERNEL_NEW_COMMITMENTS_LENGTH);
     assertLength(this, 'newNullifiers', KERNEL_NEW_NULLIFIERS_LENGTH);

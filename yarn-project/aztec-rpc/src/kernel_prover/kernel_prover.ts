@@ -16,7 +16,7 @@ import {
   AztecAddress,
   Fr,
 } from '@aztec/circuits.js';
-import { toTupleOf } from '@aztec/foundation/serialize';
+import { assertTuple } from '@aztec/foundation/serialize';
 import { ProofOutput, ProofCreator, KernelProofCreator } from './proof_creator.js';
 import { ProvingDataOracle } from './proving_data_oracle.js';
 
@@ -95,7 +95,7 @@ export class KernelProver {
         output.proof,
         previousVerificationKey,
         Number(previousVkMembershipWitness.leafIndex),
-        toTupleOf<Fr, typeof VK_TREE_HEIGHT>(previousVkMembershipWitness.siblingPath, VK_TREE_HEIGHT),
+        assertTuple<Fr, typeof VK_TREE_HEIGHT>(previousVkMembershipWitness.siblingPath, VK_TREE_HEIGHT),
       );
 
       const currentExecution = executionStack.pop()!;

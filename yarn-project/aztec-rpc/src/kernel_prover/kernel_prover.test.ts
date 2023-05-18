@@ -19,7 +19,7 @@ import { ProofCreator } from './proof_creator.js';
 import { ProvingDataOracle } from './proving_data_oracle.js';
 import { Fr } from '@aztec/foundation/fields';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { TupleOf } from '@aztec/foundation/serialize';
+import { Tuple } from '@aztec/foundation/serialize';
 
 describe('Kernel Prover', () => {
   let txRequest: TxRequest;
@@ -61,7 +61,7 @@ describe('Kernel Prover', () => {
     const publicInputs = KernelCircuitPublicInputs.empty();
     const commitments = newNoteIndices.map(idx => generateFakeSiloedCommitment(notes[idx]));
     // TODO(AD) FIXME(AD) This cast is bad. Why is this not the correct length when this is called?
-    publicInputs.end.newCommitments = commitments as TupleOf<Fr, typeof KERNEL_NEW_COMMITMENTS_LENGTH>;
+    publicInputs.end.newCommitments = commitments as Tuple<Fr, typeof KERNEL_NEW_COMMITMENTS_LENGTH>;
     return {
       publicInputs,
       proof: makeEmptyProof(),
