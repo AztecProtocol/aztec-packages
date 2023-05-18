@@ -9,6 +9,7 @@ import {IMessageBox} from "@aztec/core/interfaces/messagebridge/IMessageBox.sol"
 import {Registry} from "@aztec/core/messagebridge/Registry.sol";
 import {Outbox} from "@aztec/core/messagebridge/Outbox.sol";
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
+import {Constants} from "@aztec/core/libraries/Constants.sol";
 
 // Interfaces
 import {IRegistry} from "@aztec/core/interfaces/messagebridge/IRegistry.sol";
@@ -71,7 +72,7 @@ contract TokenPortalTest is Test {
     DataStructures.L1ToL2Msg memory expectedMessage = DataStructures.L1ToL2Msg({
       sender: DataStructures.L1Actor(address(tokenPortal), 1),
       recipient: DataStructures.L2Actor(l2TokenAddress, 1),
-      content: bytes32(uint256(sha256(abi.encode(amount, to))) % DataStructures.P),
+      content: bytes32(uint256(sha256(abi.encode(amount, to))) % Constants.P),
       secretHash: secretHash,
       deadline: deadline,
       fee: bid

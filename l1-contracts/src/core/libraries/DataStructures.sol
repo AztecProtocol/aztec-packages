@@ -3,8 +3,6 @@
 pragma solidity >=0.8.18;
 
 library DataStructures {
-  // Prime field modulus
-  uint256 constant P = 21888242871839275222246405745257275088696311157297823662689037894645226208583;
 
   /**
    * @notice Entry struct - Done as struct to easily support extensions if needed

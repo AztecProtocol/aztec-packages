@@ -8,6 +8,7 @@ import {IRegistry} from "@aztec/core/interfaces/messagebridge/IRegistry.sol";
 import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
 import {IMessageBox} from "@aztec/core/interfaces/messagebridge/IMessageBox.sol";
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
+import {Constants} from "@aztec/core/libraries/Constants.sol";
 
 contract TokenPortal {
   using SafeERC20 for IERC20;
@@ -41,7 +42,7 @@ contract TokenPortal {
 
     // Hash the message content to be reconstructed in the receiving contract
     bytes memory content = abi.encode(_amount, _to);
-    bytes32 contentHash = bytes32(uint256(sha256(content)) % DataStructures.P);
+    bytes32 contentHash = bytes32(uint256(sha256(content)) % Constants.P);
 
     // Hold the tokens in the portal
     underlying.safeTransferFrom(msg.sender, address(this), _amount);
