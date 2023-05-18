@@ -58,8 +58,6 @@ export class LibP2PService implements P2PService {
       const peerId = evt.detail.id;
       if (this.isBootstrapPeer(peerId)) {
         this.logger(`Discovered bootstrap peer ${peerId.toString()}`);
-      } else {
-        this.logger(`Discovered transaction peer ${peerId.toString()}`);
       }
     });
 
@@ -249,7 +247,6 @@ export class LibP2PService implements P2PService {
 
   private async processReceivedTxs(encodedMessage: Buffer, peerId: PeerId) {
     try {
-      this.logger(`Received txs messages from ${peerId.toString()}`);
       const txs = decodeTransactionsMessage(encodedMessage);
       for (const tx of txs) {
         await this.processTxFromPeer(tx, peerId);

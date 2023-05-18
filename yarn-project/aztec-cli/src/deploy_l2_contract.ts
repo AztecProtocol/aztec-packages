@@ -27,9 +27,17 @@ const pointToPublicKey = (point: Point) => {
 };
 
 export async function waitUntilReady(aztecNode: AztecNode, logger: DebugLogger) {
-  while ((await aztecNode.isReady()) === false) {
-    logger(`Aztec node not ready, will wait 10 seconds and check again...`);
-    await sleep(10000);
+  while (true) {
+    try {
+      const isReady = await aztecNode.isReady();
+      if (!isReady) {
+        throw new Error('Not ready');
+      }
+      break;
+    } catch (err) {
+      logger(`Aztec node not ready, will wait 10 seconds and check again...`);
+      await sleep(10000);
+    }
   }
 }
 
