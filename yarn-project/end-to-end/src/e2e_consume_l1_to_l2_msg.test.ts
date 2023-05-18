@@ -29,6 +29,7 @@ describe('e2e_l1_to_l2_msg', () => {
 
   let tokenPortalAddress: EthAddress;
   let underlyingERC20Address: EthAddress;
+  let rollupRegistryAddress: EthAddress;
   let tokenPortal: GetContractReturnType<
     typeof TokenPortalAbi,
     PublicClient<HttpTransport, Chain>,
@@ -46,8 +47,15 @@ describe('e2e_l1_to_l2_msg', () => {
     ethAccount = EthAddress.fromString(account.address);
 
     const privKey = account.getHdKey().privateKey;
-    const { rollupAddress, registryAddress, unverifiedDataEmitterAddress, walletClient, publicClient } =
-      await deployL1Contracts(config.rpcUrl, account, logger);
+    const {
+      rollupAddress,
+      registryAddress: registryAddress_,
+      unverifiedDataEmitterAddress,
+      walletClient,
+      publicClient,
+    } = await deployL1Contracts(config.rpcUrl, account, logger);
+
+    rollupRegistryAddress = registryAddress_;
 
     config.publisherPrivateKey = Buffer.from(privKey!);
     config.rollupContract = rollupAddress;
@@ -55,10 +63,7 @@ describe('e2e_l1_to_l2_msg', () => {
 
     // Deploy portal contracts
     underlyingERC20Address = await deployL1Contract(walletClient, publicClient, PortalERC20Abi, PortalERC20Bytecode);
-    tokenPortalAddress = await deployL1Contract(walletClient, publicClient, TokenPortalAbi, TokenPortalBytecode, [
-      registryAddress.toString(),
-      underlyingERC20Address.toString(),
-    ]);
+    tokenPortalAddress = await deployL1Contract(walletClient, publicClient, TokenPortalAbi, TokenPortalBytecode);
     underlyingERC20 = getContract({
       address: underlyingERC20Address.toString(),
       abi: PortalERC20Abi,
@@ -101,9 +106,13 @@ describe('e2e_l1_to_l2_msg', () => {
   const deployContract = async (initialBalance = 0n, owner = { x: 0n, y: 0n }) => {
     logger(`Deploying L2 Token contract...`);
     const deployer = new ContractDeployer(NonNativeTokenContractAbi, aztecRpcServer);
-    const tx = deployer.deploy(initialBalance, owner).send();
+    const tx = deployer.deploy(initialBalance, owner, {
+      portalContract: tokenPortalAddress
+    }).send();
     const receipt = await tx.getReceipt();
     contract = new Contract(receipt.contractAddress!, NonNativeTokenContractAbi, aztecRpcServer);
+    await contract.attach(tokenPortalAddress);
+
     await tx.isMined(0, 0.1);
     await tx.getReceipt();
     logger('L2 contract deployed');
@@ -117,6 +126,15 @@ describe('e2e_l1_to_l2_msg', () => {
     const deployedContract = await deployContract(initialBalance, pointToPublicKey(owner));
     await expectBalance(accounts[0], initialBalance);
 
+    const l2TokenAddress = deployedContract.address.toString() as `0x${string}`;
+
+    logger('Initializing the TokenPortal contract');
+    await tokenPortal.write.initialize(
+      [rollupRegistryAddress.toString(), underlyingERC20Address.toString(), l2TokenAddress],
+      {} as any,
+    );
+    logger('Successfully initialized the TokenPortal contract');
+
     // Generate a claim secret using pedersen
     // TODO: make this into an aztec.js utility function
     logger("Generating a claim secret using pedersen's hash function");
@@ -125,16 +143,18 @@ describe('e2e_l1_to_l2_msg', () => {
     const claimSecretHash = computeSecretMessageHash(wasm, secret);
     logger('Generated claim secret: ', claimSecretHash);
 
-    // Mint some PortalERC20 token on l1
+    // Mint some PortalERCjh20 token on l1
+    logger('Minting tokens on L2');
     await underlyingERC20.write.mint([ethAccount.toString(), 1000000n], {} as any);
     await underlyingERC20.write.approve([tokenPortalAddress.toString(), 1000n], {} as any);
 
     // Deposit tokens to the TokenPortal
-    const contractString = deployedContract.address.toString() as `0x${string}`;
     const secretString = `0x${claimSecretHash.toBuffer().toString('hex')}` as `0x${string}`;
     const deadline = 4_294_967_295 - 1; // max uint - 1
+
+    logger('Sending messages to L1 portal');
     const returnedMessageKey = await tokenPortal.write.depositToAztec(
-      [contractString, 100n, deadline, secretString],
+      [l2TokenAddress, 100n, deadline, secretString],
       {} as any,
     );
 
@@ -148,6 +168,8 @@ describe('e2e_l1_to_l2_msg', () => {
 
     // Call the mint tokens function on the noir contract
     const mintAmount = 100n;
+
+    logger('Consuming messages on L2');
     const tx = deployedContract.methods
       .mint(mintAmount, pointToPublicKey(owner), messageKeyFr, secret)
       .send({ from: ownerAddress });

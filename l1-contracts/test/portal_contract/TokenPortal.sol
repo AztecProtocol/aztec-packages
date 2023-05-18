@@ -12,12 +12,14 @@ import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 contract TokenPortal {
   using SafeERC20 for IERC20;
 
-  IRegistry public immutable REGISTRY;
-  IERC20 public immutable UNDERLYING;
+  IRegistry public registry;
+  IERC20 public underlying;
+  bytes32 public l2TokenAddress;
 
-  constructor(IRegistry _rollupRegistry, IERC20 _underlying) {
-    REGISTRY = _rollupRegistry;
-    UNDERLYING = _underlying;
+  function initialize(address _registry, address _underlying, bytes32 _l2TokenAddress) external {
+    registry = IRegistry(_registry);
+    underlying = IERC20(_underlying);
+    l2TokenAddress = _l2TokenAddress;
   }
 
   /**
@@ -34,15 +36,15 @@ contract TokenPortal {
     returns (bytes32)
   {
     // Preamble
-    IInbox inbox = REGISTRY.getInbox();
-    DataStructures.L2Actor memory actor = DataStructures.L2Actor(_to, 1);
+    IInbox inbox = registry.getInbox();
+    DataStructures.L2Actor memory actor = DataStructures.L2Actor(l2TokenAddress, 1);
 
     // Hash the message content to be reconstructed in the receiving contract
     bytes memory content = abi.encode(_amount, _to);
     bytes32 contentHash = bytes32(uint256(sha256(content)) % DataStructures.P);
 
     // Hold the tokens in the portal
-    UNDERLYING.safeTransferFrom(msg.sender, address(this), _amount);
+    underlying.safeTransferFrom(msg.sender, address(this), _amount);
 
     // Send message to rollup
     return inbox.sendL2Message{value: msg.value}(actor, _deadline, contentHash, _secretHash);

@@ -26,7 +26,7 @@
     "noir:build:child": "(cd src/contracts/child_contract && nargo compile main --contracts) && ts-node --esm src/scripts/copy_output.ts child",
     "noir:build:zk_token": "(cd src/contracts/zk_token_contract && nargo compile main --contracts) && ts-node --esm src/scripts/copy_output.ts zk_token",
     "noir:build:pub_token": "(cd src/contracts/public_token_contract && nargo compile main --contracts) && ts-node --esm src/scripts/copy_output.ts public_token",
-    "noir:build:l1_token": "(cd src/contracts/non_native_token_contract && nargo compile main --contracts) && ts-node --esm src/scripts/copy_output.ts non_native_token"
+    "noir:build:l1_token": "(cd src/contracts/non_native_token_contract && nargo compile main --contracts && jq -c '.functions[] |= del(.proving_key, .verification_key)' target/main-NonNativeToken.json > temp.json && mv temp.json target/main-NonNativeToken.json ) && ts-node --esm src/scripts/copy_output.ts non_native_token"
   },
   "inherits": [
     "../package.common.json"

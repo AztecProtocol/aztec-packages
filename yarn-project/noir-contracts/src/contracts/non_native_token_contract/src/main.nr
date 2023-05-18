@@ -15,7 +15,6 @@ contract NonNativeToken {
     // `balances: Mapping<Field, Set<Note>>;`
     //*********************************/
 
-    // TODO: update this 
     fn constructor(
         //*********************************/
         // Should eventually be hidden:
@@ -58,6 +57,7 @@ contract NonNativeToken {
         let amount_bytes = amount.to_be_bytes(32);
         let recipient_bytes = owner.x.to_be_bytes(32);
         
+        // Once loops are performant this will be moved into l1 message
         // Unroll loops because otherwise takes forever to compile
         // for i in range(32):
         //     print('hash_bytes[{0}] = amount_bytes[{1}];'.format(i, i))
@@ -191,7 +191,7 @@ contract NonNativeToken {
         v = v * 256;
 
         // Abuse that a % p + b % p = (a + b) % p and that low < p
-        let content_hash = low + high * v;        
+        let content_hash = low + high * v;
         constrain content_hash == msg.message.content_hash;
 
         context = msg.message.consume(context);

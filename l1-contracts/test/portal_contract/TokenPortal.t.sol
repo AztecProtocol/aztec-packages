@@ -34,6 +34,7 @@ contract TokenPortalTest is Test {
   Inbox internal inbox;
   Outbox internal outbox;
   Rollup internal rollup;
+  bytes32 internal l2TokenAddress = bytes32(uint256(0x42));
 
   TokenPortal tokenPortal;
   PortalERC20 portalERC20;
@@ -47,7 +48,9 @@ contract TokenPortalTest is Test {
     registry.setAddresses(address(rollup), address(inbox), address(outbox));
 
     portalERC20 = new PortalERC20();
-    tokenPortal = new TokenPortal(IRegistry(registry), portalERC20);
+    tokenPortal = new TokenPortal();
+
+    tokenPortal.initialize(address(registry), address(portalERC20), l2TokenAddress);
 
     vm.deal(address(this), 100 ether);
   }
@@ -67,7 +70,7 @@ contract TokenPortalTest is Test {
     // Check for the expected message
     DataStructures.L1ToL2Msg memory expectedMessage = DataStructures.L1ToL2Msg({
       sender: DataStructures.L1Actor(address(tokenPortal), 1),
-      recipient: DataStructures.L2Actor(to, 1),
+      recipient: DataStructures.L2Actor(l2TokenAddress, 1),
       content: bytes32(uint256(sha256(abi.encode(amount, to))) % DataStructures.P),
       secretHash: secretHash,
       deadline: deadline,
