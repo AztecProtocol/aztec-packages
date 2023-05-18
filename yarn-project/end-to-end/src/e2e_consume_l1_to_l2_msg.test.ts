@@ -19,7 +19,8 @@ const logger = createDebugLogger('aztec:e2e_l1_to_l2_msg');
 
 const config = getConfigEnvVars();
 
-describe('e2e_l1_to_l2_msg', () => {
+// NOTE: this tests is just a scaffold, it is awaiting functionality to come from the aztec-node around indexing messages in the contract
+describe.skip('e2e_l1_to_l2_msg', () => {
   let node: AztecNode;
   let aztecRpcServer: AztecRPCServer;
   let accounts: AztecAddress[];
