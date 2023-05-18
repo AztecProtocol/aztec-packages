@@ -3,7 +3,6 @@
 pragma solidity >=0.8.18;
 
 library DataStructures {
-
   /**
    * @notice Entry struct - Done as struct to easily support extensions if needed
    * @param count - The occurrence of the entry in the dataset
