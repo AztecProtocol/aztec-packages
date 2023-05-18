@@ -35,7 +35,6 @@ import { PublicProcessor } from './public_processor.js';
 import { PublicProver } from '../prover/index.js';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { computeCallStackItemHash } from '@aztec/circuits.js/abis';
-import { assertTuple } from '@aztec/foundation/serialize';
 
 describe('public_processor', () => {
   let db: MockProxy<MerkleTreeOperations>;
