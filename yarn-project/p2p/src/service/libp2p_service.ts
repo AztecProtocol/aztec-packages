@@ -168,8 +168,15 @@ export class LibP2PService implements P2PService {
   }
 
   private async handleProtocolDial(incomingStreamData: IncomingStreamData) {
-    const { message, peer } = await this.consumeInboundStream(incomingStreamData);
-    await this.processMessage(message, peer);
+    try {
+      const { message, peer } = await this.consumeInboundStream(incomingStreamData);
+      await this.processMessage(message, peer);
+    } catch (err) {
+      this.logger(
+        `Failed to handle received message from peer ${incomingStreamData.connection.remotePeer.toString()}`,
+        err,
+      );
+    }
   }
 
   private async consumeInboundStream(incomingStreamData: IncomingStreamData) {
