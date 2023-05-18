@@ -256,9 +256,7 @@ void update_end_values(DummyComposer& composer,
         const auto& new_l2_to_l1_msgs = private_call_public_inputs.new_l2_to_l1_msgs;
         std::array<NT::fr, NEW_L2_TO_L1_MSGS_LENGTH> new_l2_to_l1_msgs_to_insert;
         for (size_t i = 0; i < new_l2_to_l1_msgs.size(); ++i) {
-            if (new_l2_to_l1_msgs[i] == 0) {
-                new_l2_to_l1_msgs_to_insert[i] = 0;
-            } else {
+            if (!new_l2_to_l1_msgs[i].is_zero()) {
                 // @todo @LHerskind chain-ids and rollup version id should be added here. Right now, just hard coded.
                 // @todo @LHerskind chain-id is hardcoded for foundry
                 const auto chain_id = fr(31337);
