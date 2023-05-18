@@ -90,7 +90,7 @@ export class TxContext {
     /**
      * Whether this is a contract deployment tx.
      */
-    public isContractDeployment: boolean,
+    public isContractDeploymentTx: boolean,
     /**
      * Contract deployment data.
      */
@@ -105,7 +105,7 @@ export class TxContext {
     return serializeToBuffer(
       this.isFeePaymentTx,
       this.isRebatePaymentTx,
-      this.isContractDeployment,
+      this.isContractDeploymentTx,
       this.contractDeploymentData,
     );
   }

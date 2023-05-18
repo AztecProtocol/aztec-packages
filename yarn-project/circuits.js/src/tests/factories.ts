@@ -351,7 +351,7 @@ export function makeDynamicSizeBuffer(size: number, fill: number) {
  * @param start - The start of the membership witness.
  * @returns A membership witness.
  */
-export function makeMembershipWitness<N extends number>(size: number, start: number): MembershipWitness<N> {
+export function makeMembershipWitness<N extends number>(size: N, start: number): MembershipWitness<N> {
   return new MembershipWitness(size, BigInt(start), tupleTimes(size, fr, start));
 }
 
@@ -845,12 +845,12 @@ export function makeBaseRollupInputs(seed = 0): BaseRollupInputs {
 
   return BaseRollupInputs.from({
     kernelData,
+    lowNullifierMembershipWitness,
     startPrivateDataTreeSnapshot,
     startNullifierTreeSnapshot,
     startContractTreeSnapshot,
     startPublicDataTreeRoot,
     lowNullifierLeafPreimages,
-    lowNullifierMembershipWitness,
     newCommitmentsSubtreeSiblingPath,
     newNullifiersSubtreeSiblingPath,
     newContractsSubtreeSiblingPath,

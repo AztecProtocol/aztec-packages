@@ -1,16 +1,7 @@
-import { Proof, KernelCircuitPublicInputs, KERNEL_PUBLIC_CALL_STACK_LENGTH } from '@aztec/circuits.js';
-import { makeKernelPublicInputs, makeSignedTxRequest } from '@aztec/circuits.js/factories';
+import { KernelCircuitPublicInputs, KERNEL_PUBLIC_CALL_STACK_LENGTH, makeEmptyProof } from '@aztec/circuits.js';
+import { makeKernelPublicInputs, makePublicCallRequest, makeSignedTxRequest } from '@aztec/circuits.js/factories';
 import { UnverifiedData, PrivateTx, Tx, PublicTx } from '@aztec/types';
 import times from 'lodash.times';
-
-/**
- * Makes an empty proof.
- * Note: Used for local devnet milestone where we are not proving anything yet.
- * @returns The empty "proof".
- */
-export function makeEmptyProof() {
-  return new Proof(Buffer.alloc(0));
-}
 
 /**
  * Testing utility to create empty unverified data composed by a single empty chunk.

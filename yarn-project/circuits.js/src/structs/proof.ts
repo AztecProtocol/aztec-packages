@@ -62,3 +62,12 @@ export class Proof {
     return serializeToBuffer(this.buffer.length, this.buffer);
   }
 }
+
+/**
+ * Makes an empty proof.
+ * Note: Used for local devnet milestone where we are not proving anything yet.
+ * @returns The empty "proof".
+ */
+export function makeEmptyProof() {
+  return new Proof(Buffer.alloc(0));
+}

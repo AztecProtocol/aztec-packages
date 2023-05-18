@@ -1,5 +1,5 @@
 import { KERNEL_PUBLIC_CALL_STACK_LENGTH, Proof } from '@aztec/circuits.js';
-import { makeKernelPublicInputs } from '@aztec/circuits.js/factories';
+import { makeKernelPublicInputs, makePublicCallRequest } from '@aztec/circuits.js/factories';
 import { Tx, UnverifiedData, L2BlockSource, L2Block } from '@aztec/types';
 import times from 'lodash.times';
 

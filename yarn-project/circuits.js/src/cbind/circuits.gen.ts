@@ -352,8 +352,6 @@ export function fromPublicDataRead(o: PublicDataRead): MsgpackPublicDataRead {
 
 export interface MsgpackCombinedAccumulatedData {
   aggregation_object: MsgpackNativeAggregationState;
-  private_call_count: Buffer;
-  public_call_count: Buffer;
   new_commitments: TupleOf<Buffer, 4>;
   new_nullifiers: TupleOf<Buffer, 4>;
   private_call_stack: TupleOf<Buffer, 8>;
@@ -368,12 +366,6 @@ export interface MsgpackCombinedAccumulatedData {
 export function toCombinedAccumulatedData(o: MsgpackCombinedAccumulatedData): CombinedAccumulatedData {
   if (o.aggregation_object === undefined) {
     throw new Error('Expected aggregation_object in CombinedAccumulatedData deserialization');
-  }
-  if (o.private_call_count === undefined) {
-    throw new Error('Expected private_call_count in CombinedAccumulatedData deserialization');
-  }
-  if (o.public_call_count === undefined) {
-    throw new Error('Expected public_call_count in CombinedAccumulatedData deserialization');
   }
   if (o.new_commitments === undefined) {
     throw new Error('Expected new_commitments in CombinedAccumulatedData deserialization');
@@ -404,8 +396,6 @@ export function toCombinedAccumulatedData(o: MsgpackCombinedAccumulatedData): Co
   }
   return new CombinedAccumulatedData(
     toNativeAggregationState(o.aggregation_object),
-    Fr.fromBuffer(o.private_call_count),
-    Fr.fromBuffer(o.public_call_count),
     mapTuple(o.new_commitments, (v: Buffer) => Fr.fromBuffer(v)),
     mapTuple(o.new_nullifiers, (v: Buffer) => Fr.fromBuffer(v)),
     mapTuple(o.private_call_stack, (v: Buffer) => Fr.fromBuffer(v)),
@@ -421,12 +411,6 @@ export function toCombinedAccumulatedData(o: MsgpackCombinedAccumulatedData): Co
 export function fromCombinedAccumulatedData(o: CombinedAccumulatedData): MsgpackCombinedAccumulatedData {
   if (o.aggregationObject === undefined) {
     throw new Error('Expected aggregationObject in CombinedAccumulatedData serialization');
-  }
-  if (o.privateCallCount === undefined) {
-    throw new Error('Expected privateCallCount in CombinedAccumulatedData serialization');
-  }
-  if (o.publicCallCount === undefined) {
-    throw new Error('Expected publicCallCount in CombinedAccumulatedData serialization');
   }
   if (o.newCommitments === undefined) {
     throw new Error('Expected newCommitments in CombinedAccumulatedData serialization');
@@ -457,8 +441,6 @@ export function fromCombinedAccumulatedData(o: CombinedAccumulatedData): Msgpack
   }
   return {
     aggregation_object: fromNativeAggregationState(o.aggregationObject),
-    private_call_count: o.privateCallCount.toBuffer(),
-    public_call_count: o.publicCallCount.toBuffer(),
     new_commitments: mapTuple(o.newCommitments, (v: Fr) => v.toBuffer()),
     new_nullifiers: mapTuple(o.newNullifiers, (v: Fr) => v.toBuffer()),
     private_call_stack: mapTuple(o.privateCallStack, (v: Fr) => v.toBuffer()),

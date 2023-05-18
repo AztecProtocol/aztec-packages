@@ -15,7 +15,12 @@ import {
   makeEmptyProof,
   tupleTimes,
 } from '@aztec/circuits.js';
-import { makeAztecAddress, makeKernelPublicInputs, makeSelector } from '@aztec/circuits.js/factories';
+import {
+  makeAztecAddress,
+  makeKernelPublicInputs,
+  makePublicCallRequest,
+  makeSelector,
+} from '@aztec/circuits.js/factories';
 import { SiblingPath } from '@aztec/merkle-tree';
 import { ContractDataSource, ContractPublicData, EncodedContractFunction, Tx, UnverifiedData } from '@aztec/types';
 import { MerkleTreeOperations, TreeInfo } from '@aztec/world-state';
@@ -30,6 +35,7 @@ import { PublicProcessor } from './public_processor.js';
 import { PublicProver } from '../prover/index.js';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { computeCallStackItemHash } from '@aztec/circuits.js/abis';
+import { toTupleOf } from '@aztec/foundation/serialize';
 
 describe('public_processor', () => {
   let db: MockProxy<MerkleTreeOperations>;
@@ -234,6 +240,7 @@ describe('public_processor', () => {
       const kernelOutput = makeKernelPublicInputs(0x10);
       kernelOutput.end.publicCallStack = padArrayEnd(callStackHashes, Fr.ZERO, KERNEL_PUBLIC_CALL_STACK_LENGTH);
       kernelOutput.end.privateCallStack = padArrayEnd([], Fr.ZERO, KERNEL_PRIVATE_CALL_STACK_LENGTH);
+
       const tx = Tx.createPrivate(kernelOutput, proof, UnverifiedData.random(2), [], callRequests);
 
       publicExecutor.execute.mockImplementation(execution => {

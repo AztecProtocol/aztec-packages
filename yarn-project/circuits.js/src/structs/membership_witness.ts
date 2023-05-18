@@ -20,7 +20,7 @@ export class MembershipWitness<N extends number> {
     /**
      * Sibling path of the leaf in the Merkle tree.
      */
-    public siblingPath: Fr[],
+    public siblingPath: TupleOf<Fr, N>,
   ) {
     assertLength(this, 'siblingPath', pathSize);
   }
