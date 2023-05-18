@@ -43,6 +43,10 @@ export class L1ToL2Message {
     return Fr.fromBuffer(toBufferBE(temp % Fr.MODULUS, 32));
   }
 
+  /**
+   * Returns each element within its own field so that it can be consumed by an acvm oracle call.
+   * @returns The message as an array of fields (in order).
+   */
   toFieldArray(): Fr[] {
     return [
       ...this.sender.toFieldArray(),

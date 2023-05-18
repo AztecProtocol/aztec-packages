@@ -366,6 +366,8 @@ describe('Private Execution test suite', () => {
 
       const secretHash = computeSecretMessageHash(wasm, secret);
 
+      // Eventually the kernel will need to prove the kernel portal pair exists within the contract tree,
+      // EthAddress.random() will need to be replaced when this happens
       return new L1ToL2Message(
         new L1Actor(EthAddress.random(), 1),
         new L2Actor(targetContract, 1),
@@ -421,7 +423,7 @@ describe('Private Execution test suite', () => {
         AztecAddress.random(),
         contractAddress,
         new FunctionData(Buffer.alloc(4), true, true),
-        // BUG: placing a fr in args will result in a fr wrapped in an fr
+        // BUG: placing a fr in args will result in a fr wrapped in an fr:  https://github.com/AztecProtocol/aztec-packages/issues/611
         encodeArguments(abi, [bridgedAmount, recipient, messageKey.value, secret.value]),
         Fr.random(),
         txContext,

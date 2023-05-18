@@ -9,11 +9,6 @@ import {IOutbox} from "@aztec/core/interfaces/messagebridge/IOutbox.sol";
 import {MockVerifier} from "@aztec/mock/MockVerifier.sol";
 import {Decoder} from "./Decoder.sol";
 
-// Messaging
-import {Inbox} from "@aztec/core/messagebridge/Inbox.sol";
-import {Registry} from "@aztec/core/messagebridge/Registry.sol";
-import {Outbox} from "@aztec/core/messagebridge/Outbox.sol";
-
 /**
  * @title Rollup
  * @author Aztec Labs

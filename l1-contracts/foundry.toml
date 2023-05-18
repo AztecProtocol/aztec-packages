@@ -9,7 +9,6 @@ remappings = [
   "@aztec/core/=src/core/",
   "@aztec/periphery/=src/periphery/",
   "@aztec/mock/=src/mock/",
-  "@aztec/interfaces/=src/interfaces/",
   "@aztec/verifier/=lib/aztec-verifier-contracts/src/",
   "@aztec/mocks/=/src/mock/"
 ]

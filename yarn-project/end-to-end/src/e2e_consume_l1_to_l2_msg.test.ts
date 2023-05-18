@@ -152,7 +152,7 @@ describe('e2e_l1_to_l2_msg', () => {
 
     // Deposit tokens to the TokenPortal
     const secretString = `0x${claimSecretHash.toBuffer().toString('hex')}` as `0x${string}`;
-    const deadline = 2 ** 32 - 1; // max uint - 1
+    const deadline = 2 ** 32 - 1; // max uint32 - 1
 
     logger('Sending messages to L1 portal');
     const returnedMessageKey = await tokenPortal.write.depositToAztec(
