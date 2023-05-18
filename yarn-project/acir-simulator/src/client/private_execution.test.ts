@@ -360,7 +360,11 @@ describe('Private Execution test suite', () => {
     const buildL1ToL2Message = async (content: Fr[], targetContract: AztecAddress, secret: Fr) => {
       const wasm = await CircuitsWasm.get();
 
-      const contentBuf = Buffer.concat(content.map(field => field.toBuffer()));
+      // Function selector: 0x1801fbe5 keccak256('mint(uint256,bytes32)')
+      const contentBuf = Buffer.concat([
+        Buffer.from([0x18, 0x01, 0xfb, 0xe5]),
+        ...content.map(field => field.toBuffer()),
+      ]);
       const temp = toBigIntBE(sha256(contentBuf));
       const contentHash = Fr.fromBuffer(toBufferBE(temp % Fr.MODULUS, 32));
 

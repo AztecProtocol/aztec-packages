@@ -41,7 +41,7 @@ contract TokenPortal {
     DataStructures.L2Actor memory actor = DataStructures.L2Actor(l2TokenAddress, 1);
 
     // Hash the message content to be reconstructed in the receiving contract
-    bytes memory content = abi.encode(_amount, _to);
+    bytes memory content = abi.encodeWithSignature("mint(uint256,bytes32)", _amount, _to);
     bytes32 contentHash = bytes32(uint256(sha256(content)) % Constants.P);
 
     // Hold the tokens in the portal

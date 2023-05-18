@@ -5,14 +5,14 @@ use crate::messaging::messaging_getter_data::L1ToL2MessageGetterData;
 use crate::messaging::messaging_getter_data::make_l1_to_l2_message_getter_data;
 use crate::context::PrivateFunctionContext;
 
-global L1_MESSAGE_LEN = 8; 
-global L1_MESSAGE_ORACLE_CALL_LENGTH = 18; // 8 fields + 8 deep hash path + 1 root + 1 index
+global L1_TO_L2_MESSAGE_LEN = 8; 
+global L1_TO_L2_MESSAGE_ORACLE_CALL_LENGTH = 18; // 8 fields + 8 deep hash path + 1 root + 1 index
 
 // Checks is a msg is within the l1Msg tree
 #[oracle(getL1ToL2Message)]
-fn get_l1_to_l2_msg_oracle(_msg_key: Field) -> [Field; L1_MESSAGE_ORACLE_CALL_LENGTH] {}
+fn get_l1_to_l2_msg_oracle(_msg_key: Field) -> [Field; L1_TO_L2_MESSAGE_ORACLE_CALL_LENGTH] {}
 
-unconstrained fn get_l1_to_l2_message_call(msg_key: Field) -> [Field; L1_MESSAGE_ORACLE_CALL_LENGTH] {
+unconstrained fn get_l1_to_l2_message_call(msg_key: Field) -> [Field; L1_TO_L2_MESSAGE_ORACLE_CALL_LENGTH] {
     get_l1_to_l2_msg_oracle(msg_key)
 }
 
@@ -33,7 +33,7 @@ fn get_l1_to_l2_message(inputs: Inputs, msg_key: Field, secret: Field) -> L1ToL2
     l1_to_l2_message_data
 }
 
-struct L1Message {
+struct L1ToL2Message {
     sender: Field,
     chainId: Field,
     recipient: Field,
@@ -46,9 +46,9 @@ struct L1Message {
     tree_index: Field
 }
 
-impl L1Message {
-    fn dummy() -> L1Message {
-        L1Message {
+impl L1ToL2Message {
+    fn dummy() -> L1ToL2Message {
+        L1ToL2Message {
             sender: 0,
             chainId: 0,
             recipient: 0,
@@ -63,12 +63,12 @@ impl L1Message {
     }
 
     fn deserialize(
-        fields: [Field; L1_MESSAGE_LEN],
+        fields: [Field; L1_TO_L2_MESSAGE_LEN],
         secret: Field,
         tree_index: Field
-    ) -> L1Message {
+    ) -> L1ToL2Message {
 
-        L1Message {
+        L1ToL2Message {
             sender: fields[0],
             chainId: fields[1],
             recipient: fields[2],

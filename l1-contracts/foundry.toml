@@ -9,8 +9,7 @@ remappings = [
   "@aztec/core/=src/core/",
   "@aztec/periphery/=src/periphery/",
   "@aztec/mock/=src/mock/",
-  "@aztec/verifier/=lib/aztec-verifier-contracts/src/",
-  "@aztec/mocks/=/src/mock/"
+  "@aztec/verifier/=lib/aztec-verifier-contracts/src/"
 ]
 
 # See more config options https://github.com/foundry-rs/foundry/tree/master/config
