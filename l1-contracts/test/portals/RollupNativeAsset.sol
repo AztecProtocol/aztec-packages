@@ -4,12 +4,10 @@ pragma solidity >=0.8.18;
 
 import {ERC20} from "@oz/token/ERC20/ERC20.sol";
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
+import {Constants} from "@aztec/core/libraries/Constants.sol";
 import {Registry} from "@aztec/core/messagebridge/Registry.sol";
 
 contract RollupNativeAsset is ERC20 {
-  uint256 public constant P =
-    21888242871839275222246405745257275088548364400416034343698204186575808495617;
-
   Registry public registry;
   bytes32 public aztecAddress;
 
@@ -23,7 +21,7 @@ contract RollupNativeAsset is ERC20 {
   function withdraw(uint256 _amount, address _recipient) external returns (bytes32) {
     bytes memory contentBytes =
       abi.encodeWithSignature("withdraw(uint256,address)", _amount, _recipient);
-    bytes32 content = bytes32(uint256(sha256(contentBytes)) % P);
+    bytes32 content = bytes32(uint256(sha256(contentBytes)) % Constants.P);
 
     DataStructures.L2ToL1Msg memory message = DataStructures.L2ToL1Msg({
       sender: DataStructures.L2Actor(aztecAddress, 1),

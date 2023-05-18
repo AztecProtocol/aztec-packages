@@ -32,10 +32,8 @@ const logger = createDebugLogger('aztec:e2e_rollup_native_asset_contract');
 const config = getConfigEnvVars();
 
 const sha256ToField = (buf: Buffer): Fr => {
-  // Prime order of BN254 curve
-  const p = BigInt('21888242871839275222246405745257275088548364400416034343698204186575808495617');
   const tempContent = toBigIntBE(sha256(buf));
-  return Fr.fromBuffer(toBufferBE(tempContent % p, 32));
+  return Fr.fromBuffer(toBufferBE(tempContent % Fr.MODULUS, 32));
 };
 
 describe('e2e_rollup_native_asset_contract', () => {
@@ -45,7 +43,7 @@ describe('e2e_rollup_native_asset_contract', () => {
   let accounts: AztecAddress[];
   let contract: Contract;
   let portalAddress: EthAddress;
-  let portalContract: any; //<typeof RollupNativeAssetAbi, PublicClient<HttpTransport, Chain>>;
+  let portalContract: any;
 
   let publicClient: PublicClient<HttpTransport, Chain>;
   let walletClient: any;

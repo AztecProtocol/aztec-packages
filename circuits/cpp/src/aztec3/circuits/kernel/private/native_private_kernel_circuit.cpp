@@ -251,13 +251,7 @@ void update_end_values(DummyComposer& composer,
         push_array_to_array(this_public_call_stack, public_inputs.end.public_call_stack);
     }
 
-    // const auto& portal_contract_address = private_inputs.private_call.portal_contract_address;
-
-    // {
-    //     const auto& new_l2_to_l1_msgs = private_call_public_inputs.new_l2_to_l1_msgs;
-    //     std::array<CT::fr, NEW_L2_TO_L1_MSGS_LENGTH> l1_call_stack;
-
-    {
+    {  // new l2 to l1 messages
         const auto& portal_contract_address = private_inputs.private_call.portal_contract_address;
         const auto& new_l2_to_l1_msgs = private_call_public_inputs.new_l2_to_l1_msgs;
         std::array<NT::fr, NEW_L2_TO_L1_MSGS_LENGTH> new_l2_to_l1_msgs_to_insert;
