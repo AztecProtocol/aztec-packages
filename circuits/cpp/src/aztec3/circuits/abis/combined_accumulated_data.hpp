@@ -46,8 +46,6 @@ template <typename NCT> struct CombinedAccumulatedData {
 
     // for serialization, update with new fields
     MSGPACK_FIELDS(aggregation_object,
-                   private_call_count,
-                   public_call_count,
                    new_commitments,
                    new_nullifiers,
                    private_call_stack,
