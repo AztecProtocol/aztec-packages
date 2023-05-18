@@ -6,6 +6,7 @@ import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
 import {Constants} from "@aztec/core/libraries/Constants.sol";
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {MessageBox} from "@aztec/core/libraries/MessageBox.sol";
+import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {IRegistry} from "@aztec/core/interfaces/messagebridge/IRegistry.sol";
 
 /**
@@ -16,20 +17,13 @@ import {IRegistry} from "@aztec/core/interfaces/messagebridge/IRegistry.sol";
 contract Inbox is IInbox {
   using MessageBox for mapping(bytes32 entryKey => DataStructures.Entry entry);
 
-  error Inbox__DeadlineBeforeNow();
-  error Inbox__FeeTooHigh();
-  error Inbox__NotPastDeadline();
-  error Inbox__PastDeadline();
-  error Inbox__Unauthorized();
-  error Inbox__FailedToWithdrawFees();
-
   IRegistry immutable REGISTRY;
 
   mapping(bytes32 entryKey => DataStructures.Entry entry) internal entries;
   mapping(address account => uint256 balance) public feesAccrued;
 
   modifier onlyRollup() {
-    if (msg.sender != address(REGISTRY.getRollup())) revert Inbox__Unauthorized();
+    if (msg.sender != address(REGISTRY.getRollup())) revert Errors.Unauthorized();
     _;
   }
 
@@ -76,10 +70,10 @@ contract Inbox is IInbox {
     bytes32 _content,
     bytes32 _secretHash
   ) external payable returns (bytes32) {
-    if (_deadline <= block.timestamp) revert Inbox__DeadlineBeforeNow();
+    if (_deadline <= block.timestamp) revert Errors.DeadlineBeforeNow();
     // `fee` is uint64 for slot packing of the Entry struct. uint64 caps at ~18.4 ETH which should be enough.
     // we revert here to safely cast msg.value into uint64.
-    if (msg.value > type(uint64).max) revert Inbox__FeeTooHigh();
+    if (msg.value > type(uint64).max) revert Errors.FeeTooHigh();
     uint64 fee = uint64(msg.value);
     DataStructures.L1ToL2Msg memory message = DataStructures.L1ToL2Msg({
       sender: DataStructures.L1Actor(msg.sender, block.chainid),
@@ -120,8 +114,8 @@ contract Inbox is IInbox {
     external
     returns (bytes32 entryKey)
   {
-    if (msg.sender != _message.sender.actor) revert Inbox__Unauthorized();
-    if (block.timestamp <= _message.deadline) revert Inbox__NotPastDeadline();
+    if (msg.sender != _message.sender.actor) revert Errors.Unauthorized();
+    if (block.timestamp <= _message.deadline) revert Errors.NotPastDeadline();
     entryKey = computeEntryKey(_message);
     entries.consume(entryKey);
     feesAccrued[_feeCollector] += _message.fee;
@@ -141,7 +135,7 @@ contract Inbox is IInbox {
       if (_entryKeys[i] == bytes32(0)) continue;
       DataStructures.Entry memory entry = get(_entryKeys[i]);
       // cant consume if we are already past deadline.
-      if (block.timestamp > entry.deadline) revert Inbox__PastDeadline();
+      if (block.timestamp > entry.deadline) revert Errors.PastDeadline();
       entries.consume(_entryKeys[i]);
       totalFee += entry.fee;
     }
@@ -157,7 +151,7 @@ contract Inbox is IInbox {
     uint256 balance = feesAccrued[msg.sender];
     feesAccrued[msg.sender] = 0;
     (bool success,) = msg.sender.call{value: balance}("");
-    if (!success) revert Inbox__FailedToWithdrawFees();
+    if (!success) revert Errors.FailedToWithdrawFees();
   }
 
   /**

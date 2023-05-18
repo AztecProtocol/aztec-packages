@@ -5,6 +5,7 @@ pragma solidity >=0.8.18;
 import {IOutbox} from "@aztec/core/interfaces/messagebridge/IOutbox.sol";
 import {Constants} from "@aztec/core/libraries/Constants.sol";
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
+import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {MessageBox} from "@aztec/core/libraries/MessageBox.sol";
 import {IRegistry} from "@aztec/core/interfaces/messagebridge/IRegistry.sol";
 
@@ -17,15 +18,12 @@ import {IRegistry} from "@aztec/core/interfaces/messagebridge/IRegistry.sol";
 contract Outbox is IOutbox {
   using MessageBox for mapping(bytes32 entryKey => DataStructures.Entry entry);
 
-  error Outbox__Unauthorized();
-  error Outbox__WrongChainId();
-
   IRegistry immutable REGISTRY;
 
   mapping(bytes32 entryKey => DataStructures.Entry entry) internal entries;
 
   modifier onlyRollup() {
-    if (msg.sender != address(REGISTRY.getRollup())) revert Outbox__Unauthorized();
+    if (msg.sender != address(REGISTRY.getRollup())) revert Errors.Unauthorized();
     _;
   }
 
@@ -67,8 +65,8 @@ contract Outbox is IOutbox {
    * @return entryKey - The key of the entry removed
    */
   function consume(DataStructures.L2ToL1Msg memory _message) external returns (bytes32 entryKey) {
-    if (msg.sender != _message.recipient.actor) revert Outbox__Unauthorized();
-    if (block.chainid != _message.recipient.chainId) revert Outbox__WrongChainId();
+    if (msg.sender != _message.recipient.actor) revert Errors.Unauthorized();
+    if (block.chainid != _message.recipient.chainId) revert Errors.InvalidChainId();
 
     entryKey = computeEntryKey(_message);
     entries.consume(entryKey);

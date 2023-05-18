@@ -6,7 +6,7 @@ import {Test} from "forge-std/Test.sol";
 import {IOutbox} from "@aztec/core/interfaces/messagebridge/IOutbox.sol";
 import {Outbox} from "@aztec/core/messagebridge/Outbox.sol";
 import {Registry} from "@aztec/core/messagebridge/Registry.sol";
-
+import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {MessageBox} from "@aztec/core/libraries/MessageBox.sol";
 
@@ -38,7 +38,7 @@ contract OutboxTest is Test {
     vm.prank(address(0x1));
     bytes32[] memory entryKeys = new bytes32[](1);
     entryKeys[0] = bytes32("random");
-    vm.expectRevert(Outbox.Outbox__Unauthorized.selector);
+    vm.expectRevert(Errors.Unauthorized.selector);
     outbox.sendL1Messages(entryKeys);
   }
 
@@ -65,21 +65,21 @@ contract OutboxTest is Test {
   function testRevertIfConsumingFromWrongRecipient() public {
     DataStructures.L2ToL1Msg memory message = _fakeMessage();
     message.recipient.actor = address(0x1);
-    vm.expectRevert(Outbox.Outbox__Unauthorized.selector);
+    vm.expectRevert(Errors.Unauthorized.selector);
     outbox.consume(message);
   }
 
   function testRevertIfConsumingForWrongChain() public {
     DataStructures.L2ToL1Msg memory message = _fakeMessage();
     message.recipient.chainId = 2;
-    vm.expectRevert(Outbox.Outbox__WrongChainId.selector);
+    vm.expectRevert(Errors.InvalidChainId.selector);
     outbox.consume(message);
   }
 
   function testRevertIfConsumingMessageThatDoesntExist() public {
     DataStructures.L2ToL1Msg memory message = _fakeMessage();
     bytes32 entryKey = outbox.computeEntryKey(message);
-    vm.expectRevert(abi.encodeWithSelector(MessageBox.NothingToConsume.selector, entryKey));
+    vm.expectRevert(abi.encodeWithSelector(Errors.NothingToConsume.selector, entryKey));
     outbox.consume(message);
   }
 
@@ -98,7 +98,7 @@ contract OutboxTest is Test {
     outbox.consume(_message);
 
     // ensure no such message to consume:
-    vm.expectRevert(abi.encodeWithSelector(MessageBox.NothingToConsume.selector, expectedEntryKey));
+    vm.expectRevert(abi.encodeWithSelector(Errors.NothingToConsume.selector, expectedEntryKey));
     outbox.consume(_message);
   }
 }
