@@ -408,6 +408,32 @@ contract Decoder {
   }
 
   /**
+   * @notice Computes the hash of logs in a kernel.
+   * @param _l2Block - The L2 block calldata.
+   * @param _offset - The offset of the logs in the calldata.
+   * @return The hash of the logs.
+   * @dev We need to compute the logs hash the same way as it is computed in all the iterations of the kernel.
+   *      This is an example of how the data is encoded for a kernel with 3 iterations:
+   *
+   *        || K_LOGS_LEN | I1_LOGS_LEN | I1_LOGS | I2_LOGS_LEN | I2_LOGS | I3_LOGS_LEN | I3_LOGS ||
+   *
+   *        K_LOGS_LEN is the total length of the logs in the kernel.
+   *        I1_LOGS_LEN is the length of the logs in the first iteration.
+   *        I1_LOGS are all the logs emitted in the first iteration.
+   *        I2_LOGS_LEN ...
+   *
+   *      In each iteration, the kernel computes a hash of the previous iteration's logs hash and the current
+   *      iteration's logs. E.g. for the kernel logs portrayed above the resulting hash would be:
+   *
+   *        logsHash = sha256(sha256(sha256(I1_LOGS), I2_LOGS), I3_LOGS)
+   */
+  function _computeKernelLogsHash(bytes calldata _l2Block, uint256 _offset)
+    internal
+    pure
+    returns (bytes32)
+  {}
+
+  /**
    * @notice Computes the root for a binary Merkle-tree given the leafs.
    * @dev Uses sha256.
    * @param _leafs - The 32 bytes leafs to build the tree of.
