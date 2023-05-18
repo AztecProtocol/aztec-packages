@@ -11,6 +11,4 @@ export interface P2PService {
   propagateTx(tx: Tx): void;
 
   settledTxs(txHashes: TxHash[]): void;
-
-  onNewTx(handler: (tx: Tx) => Promise<void>): void;
 }

@@ -33,7 +33,6 @@ const INITIAL_PEER_REFRESH_INTERVAL = 20000;
  */
 export class LibP2PService implements P2PService {
   private jobQueue: SerialQueue = new SerialQueue();
-  private callbacks: Array<(tx: Tx) => Promise<void>> = [];
   private timeout: NodeJS.Timer | undefined = undefined;
   private knownTxLookup: KnownTxLookup = new KnownTxLookup();
   constructor(
@@ -152,14 +151,6 @@ export class LibP2PService implements P2PService {
   }
 
   /**
-   * Registers a callback for the receipt of transactions from other peers.
-   * @param handler - The handler to be called on new transactions.
-   */
-  public onNewTx(handler: (tx: Tx) => Promise<void>): void {
-    this.callbacks.push(handler);
-  }
-
-  /**
    * Handles the settling of a new batch of transactions.
    * @param txHashes - The hashes of the newly settled transactions.
    */
@@ -170,6 +161,9 @@ export class LibP2PService implements P2PService {
   private async handleProtocolDial(incomingStreamData: IncomingStreamData) {
     try {
       const { message, peer } = await this.consumeInboundStream(incomingStreamData);
+      if (!message.length) {
+        this.logger(`Ignoring 0 byte message from peer${peer.toString()}`);
+      }
       await this.processMessage(message, peer);
     } catch (err) {
       this.logger(
@@ -267,9 +261,7 @@ export class LibP2PService implements P2PService {
     const txHashString = txHash.toString();
     this.knownTxLookup.addPeerForTx(peerId, txHashString);
     this.logger(`Received tx ${txHashString} from peer ${peerId.toString()}`);
-    for (const callback of this.callbacks) {
-      await callback(tx);
-    }
+    await this.txPool.addTxs([tx]);
   }
 
   private async sendTxToPeers(tx: Tx) {
