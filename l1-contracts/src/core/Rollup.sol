@@ -48,14 +48,14 @@ contract Rollup is Decoder {
 
     // @todo @LHerskind Proper genesis state. If the state is empty, we allow anything for now.
     if (rollupStateHash != bytes32(0) && rollupStateHash != oldStateHash) {
-      revert Errors.InvalidStateHash(rollupStateHash, oldStateHash);
+      revert Errors.Rollup__InvalidStateHash(rollupStateHash, oldStateHash);
     }
 
     bytes32[] memory publicInputs = new bytes32[](1);
     publicInputs[0] = publicInputHash;
 
     if (!VERIFIER.verify(_proof, publicInputs)) {
-      revert Errors.InvalidProof();
+      revert Errors.Rollup__InvalidProof();
     }
 
     rollupStateHash = newStateHash;

@@ -15,7 +15,14 @@ library MessageBox {
     mapping(bytes32 entryKey => DataStructures.Entry entry) storage self,
     bytes32 _entryKey,
     uint64 _fee,
-    uint32 _deadline
+    uint32 _deadline,
+    function(
+    bytes32,
+    uint64,
+    uint64,
+    uint32,
+    uint32 
+    ) pure _err
   ) internal {
     DataStructures.Entry memory entry = self[_entryKey];
     if (
@@ -23,9 +30,7 @@ library MessageBox {
     ) {
       // this should never happen as it is trying to overwrite `fee` and `deadline` with different values
       // even though the entryKey (a hash) is the same! Pass all arguments to the error message for debugging.
-      revert Errors.IncompatibleEntryArguments(
-        _entryKey, entry.fee, _fee, entry.deadline, _deadline
-      );
+      _err(_entryKey, entry.fee, _fee, entry.deadline, _deadline);
     }
     entry.count += 1;
     entry.fee = _fee;
@@ -47,10 +52,11 @@ library MessageBox {
 
   function get(
     mapping(bytes32 entryKey => DataStructures.Entry entry) storage self,
-    bytes32 _entryKey
+    bytes32 _entryKey,
+    function(bytes32) view _err
   ) internal view returns (DataStructures.Entry memory) {
     DataStructures.Entry memory entry = self[_entryKey];
-    if (entry.count == 0) revert Errors.NothingToConsume(_entryKey);
+    if (entry.count == 0) _err(_entryKey);
     return entry;
   }
 
@@ -58,13 +64,15 @@ library MessageBox {
    * @notice Consumed an entry if possible, reverts if nothing to consume
    * For multiplicity > 1, will consume one element
    * @param _entryKey - The key to consume
+   * @param _err - A function taking _entryKey as param that should contain a revert
    */
   function consume(
     mapping(bytes32 entryKey => DataStructures.Entry entry) storage self,
-    bytes32 _entryKey
+    bytes32 _entryKey,
+    function(bytes32) view _err
   ) internal {
     DataStructures.Entry storage entry = self[_entryKey];
-    if (entry.count == 0) revert Errors.NothingToConsume(_entryKey);
+    if (entry.count == 0) _err(_entryKey);
     entry.count--;
   }
 }

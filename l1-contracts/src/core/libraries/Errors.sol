@@ -3,9 +3,15 @@
 pragma solidity >=0.8.18;
 
 library Errors {
-  // MessageBox
-  error NothingToConsume(bytes32 entryKey);
-  error IncompatibleEntryArguments(
+  // Inbox
+  error Inbox__DeadlineBeforeNow();
+  error Inbox__NotPastDeadline();
+  error Inbox__PastDeadline();
+  error Inbox__FeeTooHigh();
+  error Inbox__FailedToWithdrawFees();
+  error Inbox__Unauthorized();
+  error Inbox__NothingToConsume(bytes32 entryKey);
+  error Inbox__IncompatibleEntryArguments(
     bytes32 entryKey,
     uint64 storedFee,
     uint64 feePassed,
@@ -13,20 +19,19 @@ library Errors {
     uint32 deadlinePassed
   );
 
-  // Inbox
-  error DeadlineBeforeNow();
-  error NotPastDeadline();
-  error PastDeadline();
-  error FeeTooHigh();
-  error FailedToWithdrawFees();
-
-  // Generic errors
-
-  // Access control
-  error Unauthorized();
-  error InvalidChainId();
+  // Outbox
+  error Outbox__Unauthorized();
+  error Outbox__InvalidChainId();
+  error Outbox__NothingToConsume(bytes32 entryKey);
+  error Outbox__IncompatibleEntryArguments(
+    bytes32 entryKey,
+    uint64 storedFee,
+    uint64 feePassed,
+    uint32 storedDeadline,
+    uint32 deadlinePassed
+  );
 
   // Rollup
-  error InvalidStateHash(bytes32 expected, bytes32 actual);
-  error InvalidProof();
+  error Rollup__InvalidStateHash(bytes32 expected, bytes32 actual);
+  error Rollup__InvalidProof();
 }

@@ -38,7 +38,7 @@ contract OutboxTest is Test {
     vm.prank(address(0x1));
     bytes32[] memory entryKeys = new bytes32[](1);
     entryKeys[0] = bytes32("random");
-    vm.expectRevert(Errors.Unauthorized.selector);
+    vm.expectRevert(Errors.Outbox__Unauthorized.selector);
     outbox.sendL1Messages(entryKeys);
   }
 
@@ -65,21 +65,21 @@ contract OutboxTest is Test {
   function testRevertIfConsumingFromWrongRecipient() public {
     DataStructures.L2ToL1Msg memory message = _fakeMessage();
     message.recipient.actor = address(0x1);
-    vm.expectRevert(Errors.Unauthorized.selector);
+    vm.expectRevert(Errors.Outbox__Unauthorized.selector);
     outbox.consume(message);
   }
 
   function testRevertIfConsumingForWrongChain() public {
     DataStructures.L2ToL1Msg memory message = _fakeMessage();
     message.recipient.chainId = 2;
-    vm.expectRevert(Errors.InvalidChainId.selector);
+    vm.expectRevert(Errors.Outbox__InvalidChainId.selector);
     outbox.consume(message);
   }
 
   function testRevertIfConsumingMessageThatDoesntExist() public {
     DataStructures.L2ToL1Msg memory message = _fakeMessage();
     bytes32 entryKey = outbox.computeEntryKey(message);
-    vm.expectRevert(abi.encodeWithSelector(Errors.NothingToConsume.selector, entryKey));
+    vm.expectRevert(abi.encodeWithSelector(Errors.Outbox__NothingToConsume.selector, entryKey));
     outbox.consume(message);
   }
 
@@ -98,7 +98,9 @@ contract OutboxTest is Test {
     outbox.consume(_message);
 
     // ensure no such message to consume:
-    vm.expectRevert(abi.encodeWithSelector(Errors.NothingToConsume.selector, expectedEntryKey));
+    vm.expectRevert(
+      abi.encodeWithSelector(Errors.Outbox__NothingToConsume.selector, expectedEntryKey)
+    );
     outbox.consume(_message);
   }
 }

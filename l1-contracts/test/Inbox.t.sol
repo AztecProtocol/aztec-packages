@@ -103,7 +103,7 @@ contract InboxTest is Test {
       message.recipient, message.deadline, message.content, message.secretHash
     );
     vm.prank(address(0x1));
-    vm.expectRevert(Errors.Unauthorized.selector);
+    vm.expectRevert(Errors.Inbox__Unauthorized.selector);
     inbox.cancelL2Message(message, address(0x1));
   }
 
@@ -114,7 +114,7 @@ contract InboxTest is Test {
       message.recipient, message.deadline, message.content, message.secretHash
     );
     skip(500); // deadline = 1000. block.timestamp = 500. Not cancellable:
-    vm.expectRevert(Errors.NotPastDeadline.selector);
+    vm.expectRevert(Errors.Inbox__NotPastDeadline.selector);
     inbox.cancelL2Message(message, address(0x1));
   }
 
@@ -122,7 +122,7 @@ contract InboxTest is Test {
     DataStructures.L1ToL2Msg memory message = _fakeMessage();
     bytes32 entryKey = inbox.computeEntryKey(message);
     skip(500); // make message cancellable.
-    vm.expectRevert(abi.encodeWithSelector(Errors.NothingToConsume.selector, entryKey));
+    vm.expectRevert(abi.encodeWithSelector(Errors.Inbox__NothingToConsume.selector, entryKey));
     inbox.cancelL2Message(message, address(0x1));
   }
 
@@ -145,7 +145,9 @@ contract InboxTest is Test {
     // no such message to consume:
     bytes32[] memory entryKeys = new bytes32[](1);
     entryKeys[0] = expectedEntryKey;
-    vm.expectRevert(abi.encodeWithSelector(Errors.NothingToConsume.selector, expectedEntryKey));
+    vm.expectRevert(
+      abi.encodeWithSelector(Errors.Inbox__NothingToConsume.selector, expectedEntryKey)
+    );
     inbox.batchConsume(entryKeys, feeCollector);
   }
 
@@ -153,7 +155,7 @@ contract InboxTest is Test {
     vm.prank(address(0x1));
     bytes32[] memory entryKeys = new bytes32[](1);
     entryKeys[0] = bytes32("random");
-    vm.expectRevert(Errors.Unauthorized.selector);
+    vm.expectRevert(Errors.Inbox__Unauthorized.selector);
     inbox.batchConsume(entryKeys, address(0x1));
   }
 
@@ -174,7 +176,7 @@ contract InboxTest is Test {
     entryKeys[2] = entryKey3;
 
     skip(150); // block.timestamp now +150 ms. entryKey2 is past deadline
-    vm.expectRevert(Errors.PastDeadline.selector);
+    vm.expectRevert(Errors.Inbox__PastDeadline.selector);
     inbox.batchConsume(entryKeys, address(0x1));
   }
 
@@ -185,7 +187,7 @@ contract InboxTest is Test {
     } else {
       entryKeys[0] = _entryKey;
     }
-    vm.expectRevert(abi.encodeWithSelector(Errors.NothingToConsume.selector, entryKeys[0]));
+    vm.expectRevert(abi.encodeWithSelector(Errors.Inbox__NothingToConsume.selector, entryKeys[0]));
     inbox.batchConsume(entryKeys, address(0x1));
   }
 
@@ -202,7 +204,7 @@ contract InboxTest is Test {
     assertEq(inbox.feesAccrued(feeCollector), message.fee);
 
     // consuming this again should fail:
-    vm.expectRevert(abi.encodeWithSelector(Errors.NothingToConsume.selector, entryKeys[0]));
+    vm.expectRevert(abi.encodeWithSelector(Errors.Inbox__NothingToConsume.selector, entryKeys[0]));
     inbox.batchConsume(entryKeys, feeCollector);
   }
 

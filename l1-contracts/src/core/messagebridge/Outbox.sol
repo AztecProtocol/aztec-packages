@@ -23,7 +23,7 @@ contract Outbox is IOutbox {
   mapping(bytes32 entryKey => DataStructures.Entry entry) internal entries;
 
   modifier onlyRollup() {
-    if (msg.sender != address(REGISTRY.getRollup())) revert Errors.Unauthorized();
+    if (msg.sender != address(REGISTRY.getRollup())) revert Errors.Outbox__Unauthorized();
     _;
   }
 
@@ -52,7 +52,7 @@ contract Outbox is IOutbox {
   function sendL1Messages(bytes32[] memory _entryKeys) external onlyRollup {
     for (uint256 i = 0; i < _entryKeys.length; i++) {
       if (_entryKeys[i] == bytes32(0)) continue;
-      entries.insert(_entryKeys[i], 0, 0);
+      entries.insert(_entryKeys[i], 0, 0, _errIncompatibleEntryArguments);
       emit MessageAdded(_entryKeys[i]);
     }
   }
@@ -65,11 +65,11 @@ contract Outbox is IOutbox {
    * @return entryKey - The key of the entry removed
    */
   function consume(DataStructures.L2ToL1Msg memory _message) external returns (bytes32 entryKey) {
-    if (msg.sender != _message.recipient.actor) revert Errors.Unauthorized();
-    if (block.chainid != _message.recipient.chainId) revert Errors.InvalidChainId();
+    if (msg.sender != _message.recipient.actor) revert Errors.Outbox__Unauthorized();
+    if (block.chainid != _message.recipient.chainId) revert Errors.Outbox__InvalidChainId();
 
     entryKey = computeEntryKey(_message);
-    entries.consume(entryKey);
+    entries.consume(entryKey, _errNothingToConsume);
     emit MessageConsumed(entryKey, msg.sender);
   }
 
@@ -79,7 +79,7 @@ contract Outbox is IOutbox {
    * @return The entry matching the provided key
    */
   function get(bytes32 _entryKey) public view returns (DataStructures.Entry memory) {
-    return entries.get(_entryKey);
+    return entries.get(_entryKey, _errNothingToConsume);
   }
 
   /**
@@ -89,5 +89,35 @@ contract Outbox is IOutbox {
    */
   function contains(bytes32 _entryKey) public view returns (bool) {
     return entries.contains(_entryKey);
+  }
+
+  /**
+   * @notice Error function passed in cases where there might be nothing to consume
+   * @dev Used to have message box library throw `Outbox__` prefixed errors
+   * @param _entryKey - The key to lookup
+   */
+  function _errNothingToConsume(bytes32 _entryKey) internal pure {
+    revert Errors.Outbox__NothingToConsume(_entryKey);
+  }
+
+  /**
+   * @notice Error function passed in cases where insertions can fail
+   * @dev Used to have message box library throw `Outbox__` prefixed errors
+   * @param _entryKey - The key to lookup
+   * @param _storedFee - The fee stored in the entry
+   * @param _feePassed - The fee passed into the insertion
+   * @param _storedDeadline - The deadline stored in the entry
+   * @param _deadlinePassed - The deadline passed into the insertion
+   */
+  function _errIncompatibleEntryArguments(
+    bytes32 _entryKey,
+    uint64 _storedFee,
+    uint64 _feePassed,
+    uint32 _storedDeadline,
+    uint32 _deadlinePassed
+  ) internal pure {
+    revert Errors.Outbox__IncompatibleEntryArguments(
+      _entryKey, _storedFee, _feePassed, _storedDeadline, _deadlinePassed
+    );
   }
 }
