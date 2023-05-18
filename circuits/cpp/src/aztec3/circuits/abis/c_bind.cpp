@@ -17,8 +17,6 @@
 #include "rollup/root/root_rollup_public_inputs.hpp"
 
 #include "aztec3/circuits/abis/combined_accumulated_data.hpp"
-#include "aztec3/circuits/abis/function_data.hpp"
-#include "aztec3/circuits/abis/function_leaf_preimage.hpp"
 #include "aztec3/circuits/abis/new_contract_data.hpp"
 #include "aztec3/circuits/abis/signed_tx_request.hpp"
 #include "aztec3/circuits/abis/types.hpp"
@@ -32,7 +30,6 @@
 #include "barretenberg/stdlib/commitment/pedersen/pedersen_plookup.hpp"
 #include <barretenberg/crypto/keccak/keccak.hpp>
 #include <barretenberg/serialize/cbind.hpp>
-#include <barretenberg/srs/reference_string/mem_reference_string.hpp>
 #include <barretenberg/stdlib/merkle_tree/membership.hpp>
 
 namespace {
@@ -104,20 +101,6 @@ template <typename T> static const char* as_string_output(uint8_t const* input_b
     std::string const str = stream.str();
     *size = static_cast<uint32_t>(str.size());
     return bbmalloc_copy_string(str.c_str(), *size);
-}
-
-/**
- * For testing only. Take this object, write it to a buffer, then output it. */
-template <typename T> static const char* as_msgpack_output(uint8_t const* input_buf, uint32_t)
-{
-    T obj;
-    read(input_buf, obj);
-    msgpack::sbuffer output;
-    msgpack::pack(output, obj);
-    msgpack::object_handle oh = msgpack::unpack(output.data(), output.size());
-    std::ostringstream stream;
-    stream << oh.get();
-    return bbmalloc_copy_string(stream.str().c_str(), stream.str().size());
 }
 
 /**
@@ -421,11 +404,6 @@ WASM_EXPORT const char* abis__test_roundtrip_serialize_base_rollup_inputs(uint8_
                                                                           uint32_t* size)
 {
     return as_string_output<aztec3::circuits::abis::BaseRollupInputs<NT>>(rollup_inputs_buf, size);
-}
-
-WASM_EXPORT const char* abis__test_roundtrip_msgpack_base_rollup_inputs(uint8_t const* rollup_inputs_buf, uint32_t size)
-{
-    return as_msgpack_output<aztec3::circuits::abis::BaseRollupInputs<NT>>(rollup_inputs_buf, size);
 }
 
 WASM_EXPORT const char* abis__test_roundtrip_serialize_previous_kernel_data(uint8_t const* kernel_data_buf,
