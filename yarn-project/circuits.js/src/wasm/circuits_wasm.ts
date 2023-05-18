@@ -40,6 +40,12 @@ export class CircuitsWasm extends AsyncWasmWrapper {
     super(loggerName);
   }
 
+  /**
+   * Retrieve the import functions for the WASM module.
+   *
+   * @param wasm - A WasmModule to use when calling import functions.
+   * @returns An object containing the imported functions for the WASM module.
+   */
   protected getImportFns(wasm: WasmModule) {
     return {
       ...super.getImportFns(wasm),
@@ -54,6 +60,11 @@ export class CircuitsWasm extends AsyncWasmWrapper {
       }),
     };
   }
+  /**
+   * Retrieve the exports object of the CircuitsWasm module.
+   *
+   * @returns An object containing exported functions and properties.
+   */
   public exports(): any {
     return this.wasm.exports();
   }
