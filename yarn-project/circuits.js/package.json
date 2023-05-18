@@ -46,6 +46,7 @@
     "detect-node": "^2.1.0",
     "eslint": "^8.35.0",
     "lodash.capitalize": "^4.2.1",
+    "lodash.mapvalues": "^4.6.0",
     "lodash.snakecase": "^4.1.1",
     "lodash.times": "^4.3.2",
     "tslib": "^2.4.0"
@@ -55,6 +56,7 @@
     "@jest/globals": "^29.5.0",
     "@types/detect-node": "^2.0.0",
     "@types/jest": "^29.5.0",
+    "@types/lodash.mapvalues": "^4.6.7",
     "@types/node": "^18.7.23",
     "@typescript-eslint/eslint-plugin": "^5.54.1",
     "@typescript-eslint/parser": "^5.54.1",

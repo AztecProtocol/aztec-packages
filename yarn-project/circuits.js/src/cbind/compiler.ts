@@ -465,8 +465,9 @@ import { CircuitsWasm } from '../wasm/index.js';
         outputs.push('\n');
       }
     }
-    outputs[0] += `import {${imports.join(', ')}} from "./types.js";`;
-    outputs[0] += `import {Tuple, mapTuple, mapValues} from "@aztec/foundation/serialize";`;
+    outputs[0] += `import {${imports.join(', ')}} from './types.js';`;
+    outputs[0] += `import {Tuple, mapTuple} from '@aztec/foundation/serialize';`;
+    outputs[0] += `import mapValues from 'lodash.mapvalues';`;
     for (const funcDecl of Object.values(this.funcDecls)) {
       outputs.push(funcDecl);
     }

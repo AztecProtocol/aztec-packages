@@ -26,7 +26,8 @@ import {
   PreviousKernelData,
   ProverBasePtr,
 } from './types.js';
-import { Tuple, mapTuple, mapValues } from '@aztec/foundation/serialize';
+import { Tuple, mapTuple } from '@aztec/foundation/serialize';
+import mapValues from 'lodash.mapvalues';
 export interface MsgpackG1AffineElement {
   x: Buffer;
   y: Buffer;
