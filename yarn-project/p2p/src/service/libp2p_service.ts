@@ -262,6 +262,7 @@ export class LibP2PService implements P2PService {
     this.knownTxLookup.addPeerForTx(peerId, txHashString);
     this.logger(`Received tx ${txHashString} from peer ${peerId.toString()}`);
     await this.txPool.addTxs([tx]);
+    this.propagateTx(tx);
   }
 
   private async sendTxToPeers(tx: Tx) {
