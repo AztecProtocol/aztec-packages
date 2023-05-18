@@ -157,7 +157,7 @@ export class P2PClient implements P2P {
       // if no blocks to be retrieved, go straight to running
       this.setCurrentState(P2PClientState.RUNNING);
       this.syncPromise = Promise.resolve();
-      this.p2pService.onNewTx((tx: Tx) => this.sendTx(tx));
+      await this.p2pService.start();
       this.log(`Next block ${blockToDownloadFrom} already beyond latest block at ${this.latestBlockNumberAtStart}`);
     }
 
@@ -289,7 +289,7 @@ export class P2PClient implements P2P {
       this.setCurrentState(P2PClientState.RUNNING);
       if (this.syncResolve !== undefined) {
         this.syncResolve();
-        this.p2pService.onNewTx((tx: Tx) => this.sendTx(tx));
+        await this.p2pService.start();
       }
     }
   }

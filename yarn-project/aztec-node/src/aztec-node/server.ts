@@ -87,11 +87,14 @@ export class AztecNodeService implements AztecNode {
     // this may well change in future
     config.transactionProtocol = `/aztec/tx/${config.rollupContract.toString()}`;
 
+    // create the tx pool
+    const txPool = new InMemoryTxPool();
+
     // create the P2P network service
-    const p2pNetwork = await LibP2PService.new(config);
+    const p2pNetwork = await LibP2PService.new(config, txPool);
 
     // give the block source to the P2P network
-    const p2pClient = new P2PClient(archiver, new InMemoryTxPool(), p2pNetwork);
+    const p2pClient = new P2PClient(archiver, txPool, p2pNetwork);
 
     // now create the merkle trees and the world state syncher
     const merkleTreeDB = await MerkleTrees.new(levelup(createMemDown()), await CircuitsWasm.get());

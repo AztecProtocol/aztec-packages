@@ -23,6 +23,8 @@ describe('In-Memory P2P Client', () => {
       getTxByHash: jest.fn().mockReturnValue(undefined),
       deleteTxs: jest.fn(),
       getAllTxs: jest.fn().mockReturnValue([]),
+      getAllTxHashes: jest.fn().mockReturnValue([]),
+      hasTx: jest.fn().mockReturnValue(false),
     };
 
     blockSource = new MockBlockSource();

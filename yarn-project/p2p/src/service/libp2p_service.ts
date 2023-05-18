@@ -14,8 +14,17 @@ import { SerialQueue } from '@aztec/foundation/fifo';
 import { P2PConfig } from '../config.js';
 import { Tx, TxHash } from '@aztec/types';
 import { pipe } from 'it-pipe';
-import { Messages, createTransactionsMessage, decodeTransactionsMessage } from './messages.js';
+import {
+  Messages,
+  createGetTransactionsRequestMessage,
+  createTransactionHashesMessage,
+  createTransactionsMessage,
+  decodeGetTransactionsRequestMessage,
+  decodeTransactionHashesMessage,
+  decodeTransactionsMessage,
+} from './messages.js';
 import { KnownTxLookup } from './known_txs.js';
+import { TxPool } from '../index.js';
 
 const INITIAL_PEER_REFRESH_INTERVAL = 20000;
 
@@ -24,20 +33,16 @@ const INITIAL_PEER_REFRESH_INTERVAL = 20000;
  */
 export class LibP2PService implements P2PService {
   private jobQueue: SerialQueue = new SerialQueue();
-  private protocol: string;
   private callbacks: Array<(tx: Tx) => Promise<void>> = [];
   private timeout: NodeJS.Timer | undefined = undefined;
   private knownTxLookup: KnownTxLookup = new KnownTxLookup();
   constructor(
     private config: P2PConfig,
     private node: Libp2p,
-    protocolId: string,
+    private protocolId: string,
+    private txPool: TxPool,
     private logger = createDebugLogger('aztec:libp2p_service'),
-  ) {
-    this.protocol = protocolId;
-    const exportedPeerId = exportToProtobuf(node.peerId);
-    this.logger(`Peer ID ${Buffer.from(exportedPeerId).toString('hex')}`);
-  }
+  ) {}
 
   /**
    * Starts the LibP2P service.
@@ -60,11 +65,7 @@ export class LibP2PService implements P2PService {
 
     this.node.addEventListener('peer:connect', evt => {
       const peerId = evt.detail.remotePeer;
-      if (this.isBootstrapPeer(peerId)) {
-        this.logger(`Connected to bootstrap peer ${peerId.toString()}`);
-      } else {
-        this.logger(`Connected to transaction peer ${peerId.toString()}`);
-      }
+      this.handleNewConnection(peerId);
     });
 
     this.node.addEventListener('peer:disconnect', evt => {
@@ -75,9 +76,10 @@ export class LibP2PService implements P2PService {
         this.logger(`Disconnected from transaction peer ${peerId.toString()}`);
       }
     });
+
     this.jobQueue.start();
     await this.node.start();
-    await this.node.handle(this.protocol, (incoming: IncomingStreamData) =>
+    await this.node.handle(this.protocolId, (incoming: IncomingStreamData) =>
       this.jobQueue.put(() => Promise.resolve(this.handleProtocolDial(incoming))),
     );
     this.logger(`Started P2P client as ${await this.node.dht.getMode()} with Peer ID ${this.node.peerId.toString()}`);
@@ -102,9 +104,10 @@ export class LibP2PService implements P2PService {
   /**
    * Creates an instance of the LibP2P service.
    * @param config - The configuration to use when creating the service.
+   * @param txPool - The transaction pool to be accessed by the service.
    * @returns The new service.
    */
-  public static async new(config: P2PConfig) {
+  public static async new(config: P2PConfig, txPool: TxPool) {
     const { enableNat, tcpListenIp, tcpListenPort, announceHostname, announcePort, serverMode } = config;
     const peerId = config.peerIdPrivateKey
       ? await createFromProtobuf(Buffer.from(config.peerIdPrivateKey, 'hex'))
@@ -139,9 +142,7 @@ export class LibP2PService implements P2PService {
       ],
     });
     const protocolId = config.transactionProtocol;
-    const service = new LibP2PService(config, node, protocolId);
-    await service.start();
-    return service;
+    return new LibP2PService(config, node, protocolId, txPool);
   }
 
   /**
@@ -169,29 +170,92 @@ export class LibP2PService implements P2PService {
   }
 
   private async handleProtocolDial(incomingStreamData: IncomingStreamData) {
+    const { message, peer } = await this.consumeInboundStream(incomingStreamData);
+    await this.processMessage(message, peer);
+  }
+
+  private async consumeInboundStream(incomingStreamData: IncomingStreamData) {
+    let buffer = Buffer.alloc(0);
     await pipe(incomingStreamData.stream, async source => {
       for await (const msg of source) {
         const payload = msg.subarray();
-        const encodedMessage = Buffer.from(payload);
-        await this.processMessage(encodedMessage, incomingStreamData.connection.remotePeer);
+        buffer = Buffer.concat([buffer, Buffer.from(payload)]);
       }
     });
     incomingStreamData.stream.close();
+    return { message: buffer, peer: incomingStreamData.connection.remotePeer };
+  }
+
+  private handleNewConnection(peerId: PeerId) {
+    if (this.isBootstrapPeer(peerId)) {
+      this.logger(`Connected to bootstrap peer ${peerId.toString()}`);
+    } else {
+      this.logger(`Connected to transaction peer ${peerId.toString()}`);
+    }
+
+    // send the peer our current pooled transaction hashes
+    void this.jobQueue.put(async () => {
+      await this.sendTxHashesMessageToPeer(peerId);
+    });
   }
 
   private async processMessage(message: Buffer, peerId: PeerId) {
     const type = message.readInt32BE(0);
+    const encodedMessage = message.subarray(4);
     switch (type) {
-      case Messages.TRANSACTIONS:
-        await this.processReceivedTxs(decodeTransactionsMessage(message.subarray(4)), peerId);
+      case Messages.POOLED_TRANSACTIONS:
+        await this.processReceivedTxs(encodedMessage, peerId);
+        return;
+      case Messages.POOLED_TRANSACTION_HASHES:
+        await this.processReceivedTxHashes(encodedMessage, peerId);
+        return;
+      case Messages.GET_TRANSACTIONS:
+        await this.processReceivedGetTransactionsRequest(encodedMessage, peerId);
         return;
     }
     throw new Error(`Unknown message type ${type}`);
   }
 
-  private async processReceivedTxs(txs: Tx[], peerId: PeerId) {
-    for (const tx of txs) {
-      await this.processTxFromPeer(tx, peerId);
+  private async processReceivedTxHashes(encodedMessage: Buffer, peerId: PeerId) {
+    try {
+      const txHashes = decodeTransactionHashesMessage(encodedMessage);
+      this.logger(`Received tx hash messages from ${peerId.toString()}`);
+      // we send a message requesting the transactions that we don't have from the set of received hashes
+      const requiredHashes = txHashes.filter(hash => !this.txPool.hasTx(hash));
+      if (!requiredHashes.length) {
+        return;
+      }
+      await this.sendGetTransactionsMessageToPeer(txHashes, peerId);
+    } catch (err) {
+      this.logger(`Failed to process received tx hashes`, err);
+    }
+  }
+
+  private async processReceivedGetTransactionsRequest(encodedMessage: Buffer, peerId: PeerId) {
+    try {
+      this.logger(`Received get txs messages from ${peerId.toString()}`);
+      // get the transactions in the list that we have and return them
+      const removeUndefined = <S>(value: S | undefined): value is S => value != undefined;
+      const txHashes = decodeGetTransactionsRequestMessage(encodedMessage);
+      const txs = txHashes.map(x => this.txPool.getTxByHash(x)).filter(removeUndefined);
+      if (!txs.length) {
+        return;
+      }
+      await this.sendTransactionsMessageToPeer(txs, peerId);
+    } catch (err) {
+      this.logger(`Failed to process get txs request`, err);
+    }
+  }
+
+  private async processReceivedTxs(encodedMessage: Buffer, peerId: PeerId) {
+    try {
+      this.logger(`Received txs messages from ${peerId.toString()}`);
+      const txs = decodeTransactionsMessage(encodedMessage);
+      for (const tx of txs) {
+        await this.processTxFromPeer(tx, peerId);
+      }
+    } catch (err) {
+      this.logger(`Failed to process pooled transactions message`, err);
     }
   }
 
@@ -218,15 +282,52 @@ export class LibP2PService implements P2PService {
           continue;
         }
         this.logger(`Sending tx ${txHashString} to peer ${peer.toString()}`);
-        const stream = await this.node.dialProtocol(peer, this.protocol);
-        await pipe([payload], stream);
-        stream.close();
+        await this.sendRawMessageToPeer(payload, peer);
         this.knownTxLookup.addPeerForTx(peer, txHashString);
       } catch (err) {
-        this.logger(`Failed to send to peer `, err);
+        this.logger(`Failed to send txs to peer ${peer.toString()}`, err);
         continue;
       }
     }
+  }
+
+  private async sendTxHashesMessageToPeer(peer: PeerId) {
+    try {
+      const hashes = this.txPool.getAllTxHashes();
+      if (!hashes.length) {
+        return;
+      }
+      const message = createTransactionHashesMessage(hashes);
+      await this.sendRawMessageToPeer(new Uint8Array(message), peer);
+    } catch (err) {
+      this.logger(`Failed to send tx hashes to peer ${peer.toString()}`, err);
+    }
+  }
+
+  private async sendGetTransactionsMessageToPeer(hashes: TxHash[], peer: PeerId) {
+    try {
+      const message = createGetTransactionsRequestMessage(hashes);
+      await this.sendRawMessageToPeer(new Uint8Array(message), peer);
+    } catch (err) {
+      this.logger(`Failed to send tx request to peer ${peer.toString()}`, err);
+    }
+  }
+
+  private async sendTransactionsMessageToPeer(txs: Tx[], peer: PeerId) {
+    // don't filter out any transactions based on what we think the peer has seen,
+    // we have been explicitly asked for these transactions
+    const message = createTransactionsMessage(txs);
+    await this.sendRawMessageToPeer(message, peer);
+    for (const tx of txs) {
+      const hash = await tx.getTxHash();
+      this.knownTxLookup.addPeerForTx(peer, hash.toString());
+    }
+  }
+
+  private async sendRawMessageToPeer(message: Uint8Array, peer: PeerId) {
+    const stream = await this.node.dialProtocol(peer, this.protocolId);
+    await pipe([message], stream);
+    stream.close();
   }
 
   private getTxPeers() {
