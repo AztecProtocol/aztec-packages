@@ -106,9 +106,11 @@ describe('e2e_l1_to_l2_msg', () => {
   const deployContract = async (initialBalance = 0n, owner = { x: 0n, y: 0n }) => {
     logger(`Deploying L2 Token contract...`);
     const deployer = new ContractDeployer(NonNativeTokenContractAbi, aztecRpcServer);
-    const tx = deployer.deploy(initialBalance, owner, {
-      portalContract: tokenPortalAddress
-    }).send();
+    const tx = deployer
+      .deploy(initialBalance, owner, {
+        portalContract: tokenPortalAddress,
+      })
+      .send();
     const receipt = await tx.getReceipt();
     contract = new Contract(receipt.contractAddress!, NonNativeTokenContractAbi, aztecRpcServer);
     await contract.attach(tokenPortalAddress);
@@ -150,7 +152,7 @@ describe('e2e_l1_to_l2_msg', () => {
 
     // Deposit tokens to the TokenPortal
     const secretString = `0x${claimSecretHash.toBuffer().toString('hex')}` as `0x${string}`;
-    const deadline = 4_294_967_295 - 1; // max uint - 1
+    const deadline = 2 ** 32 - 1; // max uint - 1
 
     logger('Sending messages to L1 portal');
     const returnedMessageKey = await tokenPortal.write.depositToAztec(
@@ -161,10 +163,10 @@ describe('e2e_l1_to_l2_msg', () => {
     const messageKeyFr = Fr.fromBuffer(Buffer.from(returnedMessageKey, 'hex'));
 
     // Wait for the rollup to process the message
-    // not implemented
+    // TODO: not implemented
 
     // Force the node to consume the message
-    // not implemented
+    // TODO: not implemented
 
     // Call the mint tokens function on the noir contract
     const mintAmount = 100n;

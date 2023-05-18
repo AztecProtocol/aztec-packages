@@ -34,7 +34,7 @@ export interface ACIRCallback {
   /**
    * Logging utility for logging data.
    */
-  emitData: (params: ACVMField[]) => Promise<ACVMField[]>;
+  debugLog: (params: ACVMField[]) => Promise<ACVMField[]>;
 }
 
 /**

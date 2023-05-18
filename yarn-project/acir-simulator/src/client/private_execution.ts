@@ -165,7 +165,7 @@ export class PrivateFunctionExecution {
       },
       getL1ToL2Message: ([msgKey]: ACVMField[]) => this.context.getL1ToL2Message(fromACVMField(msgKey)),
 
-      emitData: ([data]: ACVMField[]) => {
+      debugLog: ([data]: ACVMField[]) => {
         // eslint-disable-next-line
         console.log(data);
         return Promise.resolve([ZERO_ACVM_FIELD]);

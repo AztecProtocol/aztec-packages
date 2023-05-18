@@ -8,7 +8,7 @@ mod utils;
 mod private_call_stack_item;
 mod public_call_stack_item;
 mod public_call;
-mod emit_data;
+mod debug_log;
 
 global Nonce = 1;
 global NoteHash = 2;
