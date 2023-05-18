@@ -48,7 +48,7 @@ pragma solidity >=0.8.18;
  *  | 0x218                                                | 0x20       | endTreeOfHistoricL1ToL2MessagesTreeRootsSnapshot.root
  *  | 0x238                                                | 0x04       | endTreeOfHistoricL1ToL2MessagesTreeRootsSnapshot.nextAvailableLeafIndex
  *  | 0x23c                                                | 0x04       | len(newCommitments) denoted a
- *  | 0x240                                                | a * 0x20   | newCommits (each element 32 bytes)
+ *  | 0x240                                                | a * 0x20   | newCommitments (each element 32 bytes)
  *  | 0x240 + a * 0x20                                     | 0x04       | len(newNullifiers) denoted b
  *  | 0x244 + a * 0x20                                     | b * 0x20   | newNullifiers (each element 32 bytes)
  *  | 0x244 + (a + b) * 0x20                               | 0x04       | len(newPublicDataWrites) denoted c
@@ -168,6 +168,9 @@ contract Decoder {
    * @param _offset - The offset into the data, 0x04 for start, 0xd8 for end
    * @param _l2Block - The L2 block calldata.
    * @return The state hash
+   * @dev The state hash is sha256 hash of block's header elements. For each block the header elements are
+   *      the block number, snapshots of all the trees and the root of the public data tree. This function
+   *      copies all of these to memory and then hashes them.
    */
   function _computeStateHash(uint256 _l2BlockNumber, uint256 _offset, bytes calldata _l2Block)
     internal
@@ -177,6 +180,7 @@ contract Decoder {
     bytes memory temp = new bytes(0x120);
 
     assembly {
+      // Copy the L2 block number byte by byte to memory
       mstore8(add(temp, 0x20), shr(24, _l2BlockNumber))
       mstore8(add(temp, 0x21), shr(16, _l2BlockNumber))
       mstore8(add(temp, 0x22), shr(8, _l2BlockNumber))
