@@ -12,6 +12,8 @@ import {Registry} from "@aztec/core/messagebridge/Registry.sol";
 import {RollupNativeAsset} from "./RollupNativeAsset.sol";
 
 contract RNATest is Test {
+  event MessageConsumed(bytes32 indexed entryKey, address indexed recipient);
+
   Rollup internal rollup;
   RollupNativeAsset internal rna;
 
@@ -35,6 +37,7 @@ contract RNATest is Test {
     registry.setAddresses(address(rollup), address(inbox), address(outbox));
 
     rna = new RollupNativeAsset();
+    // Essentially deploying the rna contract on the 0xbeef address to make matching entry easy.
     vm.etch(address(0xbeef), address(rna).code);
     rna = RollupNativeAsset(address(0xbeef));
 
@@ -50,6 +53,9 @@ contract RNATest is Test {
     outbox.sendL1Messages(entryKeys);
 
     assertEq(rna.balanceOf(address(0xdead)), 0);
+
+    vm.expectEmit(true, true, true, true);
+    emit MessageConsumed(ENTRY_KEY, address(rna));
     bytes32 entryKey = rna.withdraw(654, address(0xdead));
     // Should have received 654 RNA tokens
     assertEq(rna.balanceOf(address(0xdead)), 654);
