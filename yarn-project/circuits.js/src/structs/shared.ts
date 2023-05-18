@@ -27,42 +27,6 @@ export class Vector<T extends Bufferable> {
  */
 export type UInt32 = number;
 
-/* eslint-disable jsdoc/require-description-complete-sentence */
-
-/**
- * Affine element of a group, composed of two elements in Fq.
- * cpp/barretenberg/cpp/src/aztec/ecc/groups/affine_element.hpp
- * cpp/barretenberg/cpp/src/aztec/ecc/curves/bn254/g1.hpp
- */
-// export class AffineElement {
-//   /**
-//    * Element's x coordinate.
-//    */
-//   public x: Fq;
-//   /**
-//    * Element's y coordinate.
-//    */
-//   public y: Fq;
-
-//   constructor(x: Fq | bigint, y: Fq | bigint) {
-//     this.x = typeof x === 'bigint' ? new Fq(x) : x;
-//     this.y = typeof y === 'bigint' ? new Fq(y) : y;
-//   }
-
-//   toBuffer() {
-//     return serializeToBuffer(this.x, this.y);
-//   }
-
-//   static fromBuffer(buffer: Buffer | BufferReader): AffineElement {
-//     const reader = BufferReader.asReader(buffer);
-//     return new AffineElement(reader.readFq(), reader.readFq());
-//   }
-
-//   toFriendlyJSON() {
-//     return `(${this.x.toString()}, ${this.y.toString()})`;
-//   }
-// }
-
 /**
  * ECDSA signature used for transactions.
  * @see cpp/barretenberg/cpp/src/barretenberg/crypto/ecdsa/ecdsa.hpp
