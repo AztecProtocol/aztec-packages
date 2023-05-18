@@ -537,7 +537,7 @@ export class StandardIndexedTree extends TreeBase implements IndexedTree {
         const siblingPath = await this.getSiblingPath(BigInt(indexOfPrevious.index), includeUncommitted);
 
         const witness: LowLeafWitnessData = {
-          leafData: lowLeaf,
+          leafData: { ...lowLeaf },
           index: BigInt(indexOfPrevious.index),
           siblingPath,
         };
