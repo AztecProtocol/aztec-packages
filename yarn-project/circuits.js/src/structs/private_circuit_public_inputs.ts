@@ -5,6 +5,7 @@ import { CallContext } from './call_context.js';
 import {
   ARGS_LENGTH,
   EMITTED_EVENTS_LENGTH,
+  READ_REQUESTS_LENGTH,
   NEW_L2_TO_L1_MSGS_LENGTH,
   NEW_COMMITMENTS_LENGTH,
   NEW_NULLIFIERS_LENGTH,
@@ -37,6 +38,10 @@ export class PrivateCircuitPublicInputs {
      * Events emitted by the corresponding function call.
      */
     public emittedEvents: Fr[],
+    /**
+     * Read requests created by the corresponding function call.
+     */
+    public readRequests: Fr[],
     /**
      * New commitments created by the corresponding function call.
      */
@@ -81,6 +86,7 @@ export class PrivateCircuitPublicInputs {
     assertLength(this, 'args', ARGS_LENGTH);
     assertLength(this, 'returnValues', RETURN_VALUES_LENGTH);
     assertLength(this, 'emittedEvents', EMITTED_EVENTS_LENGTH);
+    assertLength(this, 'readRequests', READ_REQUESTS_LENGTH);
     assertLength(this, 'newCommitments', NEW_COMMITMENTS_LENGTH);
     assertLength(this, 'newNullifiers', NEW_NULLIFIERS_LENGTH);
     assertLength(this, 'privateCallStack', PRIVATE_CALL_STACK_LENGTH);
@@ -110,6 +116,7 @@ export class PrivateCircuitPublicInputs {
       frArray(ARGS_LENGTH),
       frArray(RETURN_VALUES_LENGTH),
       frArray(EMITTED_EVENTS_LENGTH),
+      frArray(READ_REQUESTS_LENGTH),
       frArray(NEW_COMMITMENTS_LENGTH),
       frArray(NEW_NULLIFIERS_LENGTH),
       frArray(PRIVATE_CALL_STACK_LENGTH),
@@ -134,6 +141,7 @@ export class PrivateCircuitPublicInputs {
       fields.args,
       fields.returnValues,
       fields.emittedEvents,
+      fields.readRequests,
       fields.newCommitments,
       fields.newNullifiers,
       fields.privateCallStack,

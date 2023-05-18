@@ -32,6 +32,8 @@ template <typename NCT> class PrivateCircuitPublicInputs {
 
     std::array<fr, EMITTED_EVENTS_LENGTH> emitted_events = zero_array<fr, EMITTED_EVENTS_LENGTH>();
 
+    std::array<fr, READ_REQUESTS_LENGTH> read_requests = zero_array<fr, READ_REQUESTS_LENGTH>();
+
     std::array<fr, NEW_COMMITMENTS_LENGTH> new_commitments = zero_array<fr, NEW_COMMITMENTS_LENGTH>();
     std::array<fr, NEW_NULLIFIERS_LENGTH> new_nullifiers = zero_array<fr, NEW_NULLIFIERS_LENGTH>();
 
@@ -49,9 +51,10 @@ template <typename NCT> class PrivateCircuitPublicInputs {
     boolean operator==(PrivateCircuitPublicInputs<NCT> const& other) const
     {
         return call_context == other.call_context && args == other.args && return_values == other.return_values &&
-               emitted_events == other.emitted_events && new_commitments == other.new_commitments &&
-               new_nullifiers == other.new_nullifiers && private_call_stack == other.private_call_stack &&
-               public_call_stack == other.public_call_stack && new_l2_to_l1_msgs == other.new_l2_to_l1_msgs &&
+               emitted_events == other.emitted_events && read_requests == other.read_requests &&
+               new_commitments == other.new_commitments && new_nullifiers == other.new_nullifiers &&
+               private_call_stack == other.private_call_stack && public_call_stack == other.public_call_stack &&
+               new_l2_to_l1_msgs == other.new_l2_to_l1_msgs &&
                historic_private_data_tree_root == other.historic_private_data_tree_root &&
                historic_nullifier_tree_root == other.historic_nullifier_tree_root &&
                historic_contract_tree_root == other.historic_contract_tree_root &&
@@ -75,6 +78,8 @@ template <typename NCT> class PrivateCircuitPublicInputs {
             to_ct(return_values),
 
             to_ct(emitted_events),
+
+            to_ct(read_requests),
 
             to_ct(new_commitments),
             to_ct(new_nullifiers),
@@ -108,6 +113,8 @@ template <typename NCT> class PrivateCircuitPublicInputs {
 
             to_nt(emitted_events),
 
+            to_nt(read_requests),
+
             to_nt(new_commitments),
             to_nt(new_nullifiers),
 
@@ -138,6 +145,8 @@ template <typename NCT> class PrivateCircuitPublicInputs {
         spread_arr_into_vec(return_values, inputs);
 
         spread_arr_into_vec(emitted_events, inputs);
+
+        spread_arr_into_vec(read_requests, inputs);
 
         spread_arr_into_vec(new_commitments, inputs);
         spread_arr_into_vec(new_nullifiers, inputs);
