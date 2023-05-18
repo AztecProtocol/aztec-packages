@@ -9,16 +9,16 @@ import { decode, encode } from '@msgpack/msgpack';
  * @param data - The input data structure that may contain Uint8Arrays.
  * @returns A new data structure with all instances of Uint8Array replaced by Buffer.
  */
-function recursiveFixDecoded(data: any): any {
+function recursiveUint8ArrayToBuffer(data: any): any {
   if (Array.isArray(data)) {
-    return data.map(recursiveFixDecoded);
+    return data.map(recursiveUint8ArrayToBuffer);
   } else if (data instanceof Uint8Array) {
     return Buffer.from(data);
   } else if (data && typeof data === 'object') {
     const fixed: any = {};
 
     for (const key in data) {
-      fixed[key] = recursiveFixDecoded(data[key]);
+      fixed[key] = recursiveUint8ArrayToBuffer(data[key]);
     }
 
     return fixed;
@@ -29,12 +29,10 @@ function recursiveFixDecoded(data: any): any {
 
 /**
  * Read a 32-bit pointer value from the WebAssembly memory space.
- * The function reads 4 bytes at the specified 'ptr32' address in little-endian order
- * and returns the corresponding unsigned 32-bit integer value.
  *
- * @param wasm - The CircuitsWasm instance containing the WebAssembly module and its memory.
- * @param ptr32 - The address in the WebAssembly memory where the 32-bit pointer value is located.
- * @returns The unsigned 32-bit integer value read from the WebAssembly memory at the given address.
+ * @param wasm - The CircuitsWasm.
+ * @param ptr32 - The address in WebAssembly memory.
+ * @returns The read unsigned 32-bit integer.
  */
 function readPtr32(wasm: CircuitsWasm, ptr32: number) {
   // Written in little-endian as WASM native
@@ -44,12 +42,10 @@ function readPtr32(wasm: CircuitsWasm, ptr32: number) {
 
 /**
  * Retrieves the JSON schema of a given C binding function from the WebAssembly module.
- * The function calls the '__schema' method corresponding to the provided 'cbind' name
- * and returns the parsed JSON schema obtained from the WebAssembly memory.
  *
- * @param wasm - The CircuitsWasm instance containing the WebAssembly module and its memory.
- * @param cbind - The name of the C binding function for which the schema is requested.
- * @returns A JSON object representing the schema of the specified C binding function.
+ * @param wasm - The CircuitsWasm.
+ * @param cbind - The name of the function.
+ * @returns A JSON object representing the schema.
  */
 export function getCbindSchema(wasm: CircuitsWasm, cbind: string): any {
   const outputSizePtr = wasm.call('bbmalloc', 4);
@@ -63,14 +59,11 @@ export function getCbindSchema(wasm: CircuitsWasm, cbind: string): any {
 
 /**
  * Calls a C binding function in the WebAssembly module with the provided input arguments.
- * The function encodes the input arguments using MessagePack, writes them to the
- * WebAssembly memory, and calls the specified 'cbind' function. Once the call is completed,
- * the result is read from the WebAssembly memory, decoded using MessagePack, and returned.
  *
- * @param wasm - The CircuitsWasm instance containing the WebAssembly module and its memory.
- * @param cbind - The name of the C binding function to be called in the WebAssembly module.
- * @param input - An array of input arguments that will be passed to the C binding function.
- * @returns A promise that resolves to the decoded result of the C binding function call.
+ * @param wasm - The CircuitsWasm.
+ * @param cbind - The name of function.
+ * @param input - An array of input arguments to wrap with msgpack.
+ * @returns The msgpack-decoded result.
  */
 export async function callCbind(wasm: CircuitsWasm, cbind: string, input: any[]): Promise<any> {
   const outputSizePtr = wasm.call('bbmalloc', 4);
@@ -83,7 +76,7 @@ export async function callCbind(wasm: CircuitsWasm, cbind: string, input: any[])
     readPtr32(wasm, outputMsgpackPtr),
     readPtr32(wasm, outputMsgpackPtr) + readPtr32(wasm, outputSizePtr),
   );
-  const result = recursiveFixDecoded(decode(encodedResult));
+  const result = recursiveUint8ArrayToBuffer(decode(encodedResult));
   wasm.call('bbfree', inputPtr);
   wasm.call('bbfree', outputSizePtr);
   wasm.call('bbfree', outputMsgpackPtr);
