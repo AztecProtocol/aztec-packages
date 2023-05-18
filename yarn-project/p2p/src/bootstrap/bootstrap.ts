@@ -17,8 +17,7 @@ export class BootstrapNode {
 
   /**
    * Starts the bootstrap node.
-   * @param tcpListenPort - The tcp port on which the bootstrap node should listen for connections.
-   * @param peerIdPrivateKey - The private key to be used for generating the bootstrap nodes peer id.
+   * @param config - The P2P configuration.
    * @returns An empty promise.
    */
   public async start(config: P2PConfig) {

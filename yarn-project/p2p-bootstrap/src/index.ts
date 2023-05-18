@@ -4,8 +4,6 @@ import { BootstrapNode, getP2PConfigEnvVars } from '@aztec/p2p';
 
 const logger = createDebugLogger('aztec:bootstrap_node');
 
-const { P2P_TCP_LISTEN_PORT, PEER_ID } = process.env;
-
 /**
  * The application entry point.
  */

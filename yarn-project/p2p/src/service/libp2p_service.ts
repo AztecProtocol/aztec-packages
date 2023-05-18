@@ -189,12 +189,11 @@ export class LibP2PService implements P2PService {
       this.logger(`Connected to bootstrap peer ${peerId.toString()}`);
     } else {
       this.logger(`Connected to transaction peer ${peerId.toString()}`);
+      // send the peer our current pooled transaction hashes
+      void this.jobQueue.put(async () => {
+        await this.sendTxHashesMessageToPeer(peerId);
+      });
     }
-
-    // send the peer our current pooled transaction hashes
-    void this.jobQueue.put(async () => {
-      await this.sendTxHashesMessageToPeer(peerId);
-    });
   }
 
   private async processMessage(message: Buffer, peerId: PeerId) {
