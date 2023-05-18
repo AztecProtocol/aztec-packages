@@ -60,9 +60,9 @@ pragma solidity >=0.8.18;
  *  | 0x250 + (a + b + d) * 0x20 + c * 0x40 + e * 0x20     | e * 0x34   | newContractData (each element 52 bytes)
  *  | 0x250 + (a + b + d) * 0x20 + c * 0x40 + e * 0x54     | 0x04       | len(l1ToL2Messages) denoted f
  *  | K := 0x254 + (a + b + d) * 0x20 + c * 0x40 + e * 0x54| f * 0x20   | l1ToL2Messages (each element 32 bytes)
- *  | K + f * 0x20                                         | 0x04       | byte_len(newEncryptedLogs) denoted g
+ *  | K + f * 0x20                                         | 0x04       | byteLen(newEncryptedLogs) denoted g
  *  | K + f * 0x20 + 0x04                                  | g          | newEncryptedLogs
- *  | K + f * 0x20 + 0x04 + g                              | 0x04       | byte_len(newUnencryptedLogs) denoted h
+ *  | K + f * 0x20 + 0x04 + g                              | 0x04       | byteLen(newUnencryptedLogs) denoted h
  *  | K + f * 0x20 + 0x04 + g + 0x04                       | h          | newUnencryptedLogs
  *  |---                                                   |---         | ---
  */
@@ -74,6 +74,8 @@ contract Decoder {
     uint256 l2ToL1MsgsCount;
     uint256 contractCount;
     uint256 l1Tol2MsgsCount;
+    uint256 encryptedLogsLength; // in bytes
+    uint256 unencryptedLogsLength; // in bytes
   }
 
   struct ArrayOffsets {
@@ -84,6 +86,8 @@ contract Decoder {
     uint256 contractOffset;
     uint256 contractDataOffset;
     uint256 l1ToL2MsgsOffset;
+    uint256 encryptedLogsOffset;
+    uint256 unencryptedLogsOffset;
   }
 
   uint256 internal constant COMMITMENTS_PER_KERNEL = 4;
@@ -229,6 +233,10 @@ contract Decoder {
         let contractCount := and(shr(224, calldataload(offset)), 0xffffffff)
         offset := add(add(offset, 0x4), mul(contractCount, 0x54))
         let l1Tol2MsgsCount := and(shr(224, calldataload(offset)), 0xffffffff)
+        offset := add(add(offset, 0x4), mul(l1Tol2MsgsCount, 0x20))
+        let encryptedLogsLength := and(shr(224, calldataload(offset)), 0xffffffff)
+        offset := add(add(offset, 0x4), encryptedLogsLength)
+        let unencryptedLogsLength := and(shr(224, calldataload(offset)), 0xffffffff)
 
         // Store it in lengths
         mstore(lengths, commitmentCount)
@@ -237,6 +245,8 @@ contract Decoder {
         mstore(add(lengths, 0x60), l2ToL1MsgsCount)
         mstore(add(lengths, 0x80), contractCount)
         mstore(add(lengths, 0xa0), l1Tol2MsgsCount) // currently included to allow optimisation where empty messages are not included in calldata
+        mstore(add(lengths, 0xc0), encryptedLogsLength)
+        mstore(add(lengths, 0xe0), unencryptedLogsLength)
       }
     }
 
@@ -256,6 +266,9 @@ contract Decoder {
       offsets.contractOffset = offsets.l2ToL1MsgsOffset + 0x4 + lengths.l2ToL1MsgsCount * 0x20;
       offsets.contractDataOffset = offsets.contractOffset + lengths.contractCount * 0x20;
       offsets.l1ToL2MsgsOffset = offsets.contractDataOffset + 0x4 + lengths.contractCount * 0x34;
+      offsets.encryptedLogsOffset = offsets.l1ToL2MsgsOffset + 0x4 + lengths.l1Tol2MsgsCount * 0x20;
+      offsets.unencryptedLogsOffset =
+        offsets.encryptedLogsOffset + 0x4 + lengths.encryptedLogsLength;
 
       // load the l2 to l1 msgs (done here as offset will be altered in loop)
       assembly {
