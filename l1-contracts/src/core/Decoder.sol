@@ -59,7 +59,11 @@ pragma solidity >=0.8.18;
  *  | 0x250 + (a + b + d) * 0x20 + c * 0x40                | e * 0x20   | newContracts (each element 32 bytes)
  *  | 0x250 + (a + b + d) * 0x20 + c * 0x40 + e * 0x20     | e * 0x34   | newContractData (each element 52 bytes)
  *  | 0x250 + (a + b + d) * 0x20 + c * 0x40 + e * 0x54     | 0x04       | len(l1ToL2Messages) denoted f
- *  | 0x254 + (a + b + d) * 0x20 + c * 0x40 + e * 0x54     | f * 0x20   | l1ToL2Messages (each element 32 bytes)
+ *  | K := 0x254 + (a + b + d) * 0x20 + c * 0x40 + e * 0x54| f * 0x20   | l1ToL2Messages (each element 32 bytes)
+ *  | K + f * 0x20                                         | 0x04       | byte_len(newEncryptedLogs) denoted g
+ *  | K + f * 0x20 + 0x04                                  | g          | newEncryptedLogs
+ *  | K + f * 0x20 + 0x04 + g                              | 0x04       | byte_len(newUnencryptedLogs) denoted h
+ *  | K + f * 0x20 + 0x04 + g + 0x04                       | h          | newUnencryptedLogs
  *  |---                                                   |---         | ---
  */
 contract Decoder {
@@ -277,9 +281,13 @@ contract Decoder {
          *    newContractLeafKernel1,
          *    newContractLeafKernel2,
          *    newContractDataKernel1.aztecAddress,
-         *    newContractDataKernel1.ethAddress (padded to 32 bytes)
+         *    newContractDataKernel1.ethAddress (padded to 32 bytes),
          *    newContractDataKernel2.aztecAddress,
-         *    newContractDataKernel2.ethAddress (padded to 32 bytes)
+         *    newContractDataKernel2.ethAddress (padded to 32 bytes),
+         *    encrypedLogHashKernel1,
+         *    encrypedLogHashKernel2,
+         *    unencryptedLogHashKernel1,
+         *    unencryptedLogHashKernel2
          * );
          * Note that we always read data, the l2Block (atm) must therefore include dummy or zero-notes for
          * Zero values.
