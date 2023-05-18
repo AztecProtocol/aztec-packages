@@ -1,9 +1,16 @@
-import { Proof } from '@aztec/circuits.js';
+import { KERNEL_PUBLIC_CALL_STACK_LENGTH, Proof } from '@aztec/circuits.js';
 import { makeKernelPublicInputs } from '@aztec/circuits.js/factories';
 import { Tx, UnverifiedData, L2BlockSource, L2Block } from '@aztec/types';
+import times from 'lodash.times';
 
 export const MockTx = () => {
-  return Tx.createPrivate(makeKernelPublicInputs(), new Proof(Buffer.alloc(0)), UnverifiedData.random(8));
+  return Tx.createPrivate(
+    makeKernelPublicInputs(),
+    new Proof(Buffer.alloc(0)),
+    UnverifiedData.random(8),
+    [],
+    times(KERNEL_PUBLIC_CALL_STACK_LENGTH, makePublicCallRequest),
+  );
 };
 
 /**

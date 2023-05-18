@@ -4,19 +4,33 @@ import { EthAddress, Fr, AztecAddress } from './index.js';
 
 /**
  * Contract deployment data in a TxContext
- * cpp/src/aztec3/circuits/abis/contract_deployment_data.hpp
+ * cpp/src/aztec3/circuits/abis/contract_deployment_data.hpp.
+ *
+ * Not to be confused with NewContractData.
  */
 export class ContractDeploymentData {
   public portalContractAddress: EthAddress;
   constructor(
+    /**
+     * Hash of the constuctor verification key.
+     */
     public constructorVkHash: Fr,
+    /**
+     * Function tree root.
+     */
     public functionTreeRoot: Fr,
+    /**
+     * Contract address salt (used when deriving a contract address).
+     */
     public contractAddressSalt: Fr,
-    // TODO(AD): kludge due to cbind compiler
+    /**
+     * Ethereum address of the portal contract on L1.
+     * TODO(AD): union type kludge due to cbind compiler having special needs
+     */
     portalContractAddress: EthAddress | AztecAddress,
-  ) {
-    this.portalContractAddress = new EthAddress(portalContractAddress.toBuffer());
-  }
+    ) {
+      this.portalContractAddress = new EthAddress(portalContractAddress.toBuffer());
+    }
 
   toBuffer() {
     return serializeToBuffer(
@@ -27,12 +41,17 @@ export class ContractDeploymentData {
     );
   }
 
-  public static empty() {
+  /**
+   * Returns an empty ContractDeploymentData.
+   * @returns The empty ContractDeploymentData.
+   */
+  public static empty(): ContractDeploymentData {
     return new ContractDeploymentData(Fr.ZERO, Fr.ZERO, Fr.ZERO, EthAddress.ZERO);
   }
   /**
-   * Deserializes from a buffer or reader, corresponding to a write in cpp.
+   * Deserializes contract deployment data rom a buffer or reader.
    * @param buffer - Buffer to read from.
+   * @returns The deserialized ContractDeploymentData.
    */
   static fromBuffer(buffer: Buffer | BufferReader): ContractDeploymentData {
     const reader = BufferReader.asReader(buffer);
@@ -51,9 +70,31 @@ export class ContractDeploymentData {
  */
 export class TxContext {
   constructor(
+    /**
+     * Whether this is a fee paying tx. If not other tx in a bundle will pay the fee.
+     */
     public isFeePaymentTx: boolean,
+    /**
+     * Indicates whether this a gas rebate payment tx.
+     *
+     * NOTE: The following is a WIP and it is likely to change in the future.
+     * Explanation: Each tx is actually 3 txs in one: a fee-paying tx, the actual tx you want to execute, and a rebate
+     * tx. The fee-paying tx pays some `max_fee = gas_price * gas_limit`. Then the actual tx will cost an amount of gas
+     * to execute (actual_fee = gas_price * gas_used). Then the rebate tx returns `max_fee - actual_fee` back to
+     * the user.
+     */
     public isRebatePaymentTx: boolean,
+<<<<<<< HEAD
     public isContractDeploymentTx: boolean,
+=======
+    /**
+     * Whether this is a contract deployment tx.
+     */
+    public isContractDeployment: boolean,
+    /**
+     * Contract deployment data.
+     */
+>>>>>>> origin/master
     public contractDeploymentData: ContractDeploymentData,
   ) {}
 
@@ -71,8 +112,9 @@ export class TxContext {
   }
 
   /**
-   * Deserializes from a buffer or reader, corresponding to a write in cpp.
+   * Deserializes TxContext from a buffer or reader.
    * @param buffer - Buffer to read from.
+   * @returns The TxContext.
    */
   static fromBuffer(buffer: Buffer | BufferReader): TxContext {
     const reader = BufferReader.asReader(buffer);

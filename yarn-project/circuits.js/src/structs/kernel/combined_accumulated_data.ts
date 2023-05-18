@@ -15,18 +15,30 @@ import {
 } from '../constants.js';
 import { FunctionData } from '../function_data.js';
 import { BufferReader, TupleOf } from '@aztec/foundation/serialize';
-import { assertLength, tupleTimes } from '../../index.js';
+import { assertLength } from '../../index.js';
 import { EthAddress, AztecAddress, Fr } from '../index.js';
 
-// Not to be confused with ContractDeploymentData (maybe think of better names)
-
+/**
+ * The information assembled after the contract deployment was processed by the private kernel circuit.
+ *
+ * Note: Not to be confused with `ContractDeploymentData`.
+ */
 export class NewContractData {
   public portalContractAddress: EthAddress;
   constructor(
+    /**
+     * Aztec address of the contract.
+     */
     public contractAddress: AztecAddress,
     // TODO(AD): refactor this later
     // currently there is a kludge with circuits cpp as it emits an AztecAddress
+    /**
+     * Ethereum address of the portal contract on L1.
+     */    
     portalContractAddress: EthAddress | AztecAddress,
+    /**
+     * Function tree root of the contract.
+     */
     public functionTreeRoot: Fr,
   ) {
     // Handle circuits emitting this as an AztecAddress
@@ -39,7 +51,8 @@ export class NewContractData {
 
   /**
    * Deserializes from a buffer or reader, corresponding to a write in cpp.
-   * @param buffer - Buffer to read from.
+   * @param buffer - Buffer or reader to read from.
+   * @returns The deserialized `NewContractData`.
    */
   static fromBuffer(buffer: Buffer | BufferReader): NewContractData {
     const reader = BufferReader.asReader(buffer);
@@ -51,19 +64,51 @@ export class NewContractData {
   }
 }
 
+/**
+ * Info which a user might want to reveal to the world.
+ * Note: Currently not used (2023-05-12).
+ */
 export class OptionallyRevealedData {
   public portalContractAddress: EthAddress;
   constructor(
+    /**
+     * Hash of the call stack item from which this info was originates.
+     */
     public callStackItemHash: Fr,
+    /**
+     * Function data of a function call from which this info originates.
+     */
     public functionData: FunctionData,
-    public emittedEvents: TupleOf<Fr, typeof EMITTED_EVENTS_LENGTH>,
+    /**
+     * Events emitted by the function call from which this info originates.
+     */
+    public emittedEvents: Fr[],
+    /**
+     * Verification key hash of the function call from which this info originates.
+     */
     public vkHash: Fr,
-    // TODO(AD): refactor this later
-    // currently there is a kludge with circuits cpp as it emits an AztecAddress
+    /**
+     * Address of the portal contract corresponding to the L2 contract on which the function above was invoked.
+     * 
+     * TODO(AD): refactor this later
+     * currently there is a kludge with circuits cpp as it emits an AztecAddress
+     */
     portalContractAddress: EthAddress | AztecAddress,
+    /**
+     * Whether the fee was paid from the L1 account of the user.
+     */
     public payFeeFromL1: boolean,
+    /**
+     * Whether the fee was paid from a public account on L2.
+     */
     public payFeeFromPublicL2: boolean,
+    /**
+     * Whether the function call was invoked from L1.
+     */
     public calledFromL1: boolean,
+    /**
+     * Whether the function call was invoked from the public L2 account of the user.
+     */
     public calledFromPublicL2: boolean,
   ) {
     assertLength(this, 'emittedEvents', EMITTED_EVENTS_LENGTH);
@@ -87,7 +132,8 @@ export class OptionallyRevealedData {
 
   /**
    * Deserializes from a buffer or reader, corresponding to a write in cpp.
-   * @param buffer - Buffer to read from.
+   * @param buffer - Buffer or reader to read from.
+   * @returns The deserialized OptionallyRevealedData.
    */
   static fromBuffer(buffer: Buffer | BufferReader): OptionallyRevealedData {
     const reader = BufferReader.asReader(buffer);
@@ -123,9 +169,27 @@ export class OptionallyRevealedData {
  * Read operations from the public state tree.
  */
 export class PublicDataRead {
-  constructor(public readonly leafIndex: Fr, public readonly value: Fr) {}
+  constructor(
+    /**
+     * Index of the leaf in the public data tree.
+     */
+    public readonly leafIndex: Fr,
+    /**
+     * Returned value from the public data tree.
+     */
+    public readonly value: Fr,
+  ) {}
 
-  static from(args: { leafIndex: Fr; value: Fr }) {
+  static from(args: {
+    /**
+     * Index of the leaf in the public data tree.
+     */
+    leafIndex: Fr;
+    /**
+     * Returned value from the public data tree.
+     */
+    value: Fr;
+  }) {
     return new PublicDataRead(args.leafIndex, args.value);
   }
 
@@ -148,12 +212,38 @@ export class PublicDataRead {
 }
 
 /**
- * Write operations on the public state tree including the previous value.
+ * Write operations on the public data tree including the previous value.
  */
 export class PublicDataUpdateRequest {
-  constructor(public readonly leafIndex: Fr, public readonly oldValue: Fr, public readonly newValue: Fr) {}
+  constructor(
+    /**
+     * Index of the leaf in the public data tree which is to be updated.
+     */
+    public readonly leafIndex: Fr,
+    /**
+     * Old value of the leaf.
+     */
+    public readonly oldValue: Fr,
+    /**
+     * New value of the leaf.
+     */
+    public readonly newValue: Fr,
+  ) {}
 
-  static from(args: { leafIndex: Fr; oldValue: Fr; newValue: Fr }) {
+  static from(args: {
+    /**
+     * Index of the leaf in the public data tree which is to be updated.
+     */
+    leafIndex: Fr;
+    /**
+     * Old value of the leaf.
+     */
+    oldValue: Fr;
+    /**
+     * New value of the leaf.
+     */
+    newValue: Fr;
+  }) {
     return new PublicDataUpdateRequest(args.leafIndex, args.oldValue, args.newValue);
   }
 
@@ -175,8 +265,12 @@ export class PublicDataUpdateRequest {
   }
 }
 
+/**
+ * Data that is accumulated during the execution of the transaction.
+ */
 export class CombinedAccumulatedData {
   constructor(
+<<<<<<< HEAD
     public aggregationObject: AggregationObject, // Contains the aggregated proof of all previous kernel iterations
     public privateCallCount: Fr,
     public publicCallCount: Fr,
@@ -189,6 +283,50 @@ export class CombinedAccumulatedData {
     public optionallyRevealedData: TupleOf<OptionallyRevealedData, typeof KERNEL_OPTIONALLY_REVEALED_DATA_LENGTH>,
     public publicDataUpdateRequests: TupleOf<PublicDataUpdateRequest, typeof KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH>,
     public publicDataReads: TupleOf<PublicDataRead, typeof KERNEL_PUBLIC_DATA_READS_LENGTH>,
+=======
+    /**
+     * Aggregated proof of all the previous kernel iterations.
+     */
+    public aggregationObject: AggregationObject,
+    /**
+     * The number of new commitments made in this transaction.
+     */
+    public newCommitments: Fr[],
+    /**
+     * The number of new nullifiers made in this transaction.
+     */
+    public newNullifiers: Fr[],
+    /**
+     * Current private call stack.
+     */
+    public privateCallStack: Fr[],
+    /**
+     * Current public call stack.
+     */
+    public publicCallStack: Fr[],
+    /**
+     * All the new L2 to L1 messages created in this transaction.
+     */
+    public newL2ToL1Msgs: Fr[],
+    /**
+     * All the new contracts deployed in this transaction.
+     */
+    public newContracts: NewContractData[],
+
+    /**
+     * All the optionally revealed data in this transaction.
+     */
+    public optionallyRevealedData: OptionallyRevealedData[],
+
+    /**
+     * All the public data update requests made in this transaction.
+     */
+    public publicDataUpdateRequests: PublicDataUpdateRequest[],
+    /**
+     * All the public data reads made in this transaction.
+     */
+    public publicDataReads: PublicDataRead[],
+>>>>>>> origin/master
   ) {
     assertLength(this, 'newCommitments', KERNEL_NEW_COMMITMENTS_LENGTH);
     assertLength(this, 'newNullifiers', KERNEL_NEW_NULLIFIERS_LENGTH);
@@ -204,8 +342,6 @@ export class CombinedAccumulatedData {
   toBuffer() {
     return serializeToBuffer(
       this.aggregationObject,
-      this.privateCallCount,
-      this.publicCallCount,
       this.newCommitments,
       this.newNullifiers,
       this.privateCallStack,
@@ -220,14 +356,13 @@ export class CombinedAccumulatedData {
 
   /**
    * Deserializes from a buffer or reader, corresponding to a write in cpp.
-   * @param buffer - Buffer to read from.
+   * @param buffer - Buffer or reader to read from.
+   * @returns Deserialized object.
    */
   static fromBuffer(buffer: Buffer | BufferReader): CombinedAccumulatedData {
     const reader = BufferReader.asReader(buffer);
     return new CombinedAccumulatedData(
       reader.readObject(AggregationObject),
-      reader.readFr(),
-      reader.readFr(),
       reader.readArray(KERNEL_NEW_COMMITMENTS_LENGTH, Fr),
       reader.readArray(KERNEL_NEW_NULLIFIERS_LENGTH, Fr),
       reader.readArray(KERNEL_PRIVATE_CALL_STACK_LENGTH, Fr),
@@ -243,6 +378,7 @@ export class CombinedAccumulatedData {
   static empty() {
     return new CombinedAccumulatedData(
       AggregationObject.makeFake(),
+<<<<<<< HEAD
       Fr.ZERO,
       Fr.ZERO,
       tupleTimes(KERNEL_NEW_COMMITMENTS_LENGTH, Fr.zero),
@@ -254,6 +390,17 @@ export class CombinedAccumulatedData {
       tupleTimes(KERNEL_OPTIONALLY_REVEALED_DATA_LENGTH, OptionallyRevealedData.empty),
       tupleTimes(KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH, PublicDataUpdateRequest.empty),
       tupleTimes(KERNEL_PUBLIC_DATA_READS_LENGTH, PublicDataRead.empty),
+=======
+      times(KERNEL_NEW_COMMITMENTS_LENGTH, Fr.zero),
+      times(KERNEL_NEW_NULLIFIERS_LENGTH, Fr.zero),
+      times(KERNEL_PRIVATE_CALL_STACK_LENGTH, Fr.zero),
+      times(KERNEL_PUBLIC_CALL_STACK_LENGTH, Fr.zero),
+      times(KERNEL_NEW_L2_TO_L1_MSGS_LENGTH, Fr.zero),
+      times(KERNEL_NEW_CONTRACTS_LENGTH, NewContractData.empty),
+      times(KERNEL_OPTIONALLY_REVEALED_DATA_LENGTH, OptionallyRevealedData.empty),
+      times(KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH, PublicDataUpdateRequest.empty),
+      times(KERNEL_PUBLIC_DATA_READS_LENGTH, PublicDataRead.empty),
+>>>>>>> origin/master
     );
   }
 }

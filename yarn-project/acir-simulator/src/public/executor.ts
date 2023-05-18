@@ -47,6 +47,7 @@ export class PublicExecutor {
       notifyCreatedNote: notAvailable,
       notifyNullifiedNote: notAvailable,
       callPrivateFunction: notAvailable,
+      enqueuePublicFunctionCall: notAvailable,
       viewNotesPage: notAvailable,
       storageRead: async ([slot]) => {
         const storageSlot = fromACVMField(slot);
@@ -72,7 +73,7 @@ export class PublicExecutor {
 
         nestedExecutions.push(childExecutionResult);
         this.log(`Returning from nested call: ret=${childExecutionResult.returnValues.join(', ')}`);
-        return padArrayEnd(childExecutionResult.returnValues, Fr.ZERO, NOIR_MAX_RETURN_VALUES).map(fr => fr.toString());
+        return padArrayEnd(childExecutionResult.returnValues, Fr.ZERO, NOIR_MAX_RETURN_VALUES).map(toACVMField);
       },
     });
 

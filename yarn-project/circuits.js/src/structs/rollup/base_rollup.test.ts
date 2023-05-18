@@ -1,5 +1,5 @@
 import { expectSerializeToMatchSnapshot, expectReserializeToMatchObject } from '../../tests/expectSerialize.js';
-import { makeBaseRollupInputs, makeBaseRollupPublicInputs } from '../../tests/factories.js';
+import { makeBaseRollupInputs, makeBaseOrMergeRollupPublicInputs } from '../../tests/factories.js';
 import { BaseOrMergeRollupPublicInputs } from './base_or_merge_rollup_public_inputs.js';
 
 describe('structs/base_rollup', () => {
@@ -13,7 +13,7 @@ describe('structs/base_rollup', () => {
   });
 
   it(`serializes and prints BaseRollupPublicInputs`, async () => {
-    const baseRollupPublicInputs = makeBaseRollupPublicInputs();
+    const baseRollupPublicInputs = makeBaseOrMergeRollupPublicInputs();
 
     await expectSerializeToMatchSnapshot(
       baseRollupPublicInputs.toBuffer(),
@@ -22,7 +22,7 @@ describe('structs/base_rollup', () => {
   });
 
   it(`serializes and deserializes BaseRollupPublicInputs`, async () => {
-    const baseRollupPublicInputs = makeBaseRollupPublicInputs();
+    const baseRollupPublicInputs = makeBaseOrMergeRollupPublicInputs();
 
     await expectReserializeToMatchObject(
       baseRollupPublicInputs,

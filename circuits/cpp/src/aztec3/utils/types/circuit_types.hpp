@@ -5,6 +5,7 @@
 #include <barretenberg/stdlib/encryption/ecdsa/ecdsa.hpp>
 #include <barretenberg/stdlib/encryption/schnorr/schnorr.hpp>
 #include <barretenberg/stdlib/hash/blake2s/blake2s.hpp>
+#include <barretenberg/stdlib/hash/blake3s/blake3s.hpp>
 #include <barretenberg/stdlib/hash/pedersen/pedersen.hpp>
 #include <barretenberg/stdlib/primitives/address/address.hpp>
 #include <barretenberg/stdlib/primitives/bigfield/bigfield.hpp>
@@ -17,6 +18,7 @@
 #include <barretenberg/stdlib/primitives/packed_byte_array/packed_byte_array.hpp>
 #include <barretenberg/stdlib/primitives/point/point.hpp>
 #include <barretenberg/stdlib/primitives/uint/uint.hpp>
+#include <barretenberg/stdlib/recursion/aggregation_state/aggregation_state.hpp>
 #include <barretenberg/stdlib/recursion/verification_key/verification_key.hpp>
 #include <barretenberg/stdlib/recursion/verifier/program_settings.hpp>
 #include <barretenberg/stdlib/recursion/verifier/verifier.hpp>

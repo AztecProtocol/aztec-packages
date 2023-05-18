@@ -1,64 +1,59 @@
+import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { EthAddress } from '@aztec/foundation/eth-address';
+import { Fq, Fr } from '@aztec/foundation/fields';
+
 import { computeCallStackItemHash } from '../abis/abis.js';
 import {
-  TxContext,
-  ContractDeploymentData,
+  BaseOrMergeRollupPublicInputs,
+  BaseRollupInputs,
+  CallContext,
+  CircuitsWasm,
+  CombinedAccumulatedData,
+  CombinedConstantData,
+  CombinedHistoricTreeRoots,
+  ConstantBaseRollupData,
+  ContractStorageRead,
+  ContractStorageUpdateRequest,
+  KernelCircuitPublicInputs,
+  MergeRollupInputs,
+  NewContractData,
+  NullifierLeafPreimage,
+  OptionallyRevealedData,
+  PreviousKernelData,
+  PreviousRollupData,
+  PrivateCallData,
+  PrivateCircuitPublicInputs,
   PrivateHistoricTreeRoots,
   CombinedHistoricTreeRoots,
   CombinedConstantData,
   PublicDataUpdateRequest,
-  PublicDataRead,
-  ContractStorageUpdateRequest,
-  ContractStorageRead,
-  CombinedAccumulatedData,
-  tupleTimes,
+  PublicKernelInputs,
+  PublicKernelInputsNoPreviousKernel,
+  RootRollupInputs,
+  RootRollupPublicInputs,
+  WitnessedPublicCallData,
+  PublicCallRequest,
+} from '../index.js';
+import { AggregationObject } from '../structs/aggregation_object.js';
+import { PrivateCallStackItem, PublicCallStackItem } from '../structs/call_stack_item.js';
+import {
+  ARGS_LENGTH,
+  CONTRACT_TREE_HEIGHT,
+  CONTRACT_TREE_ROOTS_TREE_HEIGHT,
+  EMITTED_EVENTS_LENGTH,
+  FUNCTION_TREE_HEIGHT,
   KERNEL_NEW_COMMITMENTS_LENGTH,
+  KERNEL_NEW_CONTRACTS_LENGTH,
+  KERNEL_NEW_L2_TO_L1_MSGS_LENGTH,
   KERNEL_NEW_NULLIFIERS_LENGTH,
   KERNEL_PRIVATE_CALL_STACK_LENGTH,
   KERNEL_PUBLIC_CALL_STACK_LENGTH,
-  KERNEL_NEW_CONTRACTS_LENGTH,
-  KERNEL_OPTIONALLY_REVEALED_DATA_LENGTH,
-  NewContractData,
-  OptionallyRevealedData,
-  FunctionData,
-  EMITTED_EVENTS_LENGTH,
-  AggregationObject,
-  Fq,
-  range,
-  CallContext,
-  AztecAddress,
-  PublicCircuitPublicInputs,
-  ARGS_LENGTH,
-  RETURN_VALUES_LENGTH,
-  KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH,
   KERNEL_PUBLIC_DATA_READS_LENGTH,
-  PUBLIC_CALL_STACK_LENGTH,
-  NEW_L2_TO_L1_MSGS_LENGTH,
-  KernelCircuitPublicInputs,
-  Proof,
-  MembershipWitness,
-  VerificationKey,
-  ComposerType,
-  G1AffineElement,
-  PreviousKernelData,
-  VK_TREE_HEIGHT,
-  PrivateKernelInputs,
-  PublicCallStackItem,
-  PublicCallData,
-  CircuitsWasm,
-  WitnessedPublicCallData,
-  PUBLIC_DATA_TREE_HEIGHT,
-  PublicKernelInputs,
-  PublicKernelInputsNoPreviousKernel,
-  SignedTxRequest,
-  TxRequest,
-  PrivateCallData,
-  PRIVATE_CALL_STACK_LENGTH,
-  FUNCTION_TREE_HEIGHT,
-  CONTRACT_TREE_HEIGHT,
-  PrivateCallStackItem,
-  PrivateCircuitPublicInputs,
-  EthAddress,
+  KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH,
+  L1_TO_L2_MESSAGES_ROOTS_TREE_HEIGHT,
+  L1_TO_L2_MESSAGES_SIBLING_PATH_LENGTH,
   NEW_COMMITMENTS_LENGTH,
+  NEW_L2_TO_L1_MSGS_LENGTH,
   NEW_NULLIFIERS_LENGTH,
   ConstantBaseRollupData,
   AppendOnlyTreeSnapshot,
@@ -81,95 +76,164 @@ import {
   PRIVATE_DATA_TREE_HEIGHT,
   BaseRollupInputs,
   KERNEL_NEW_L2_TO_L1_MSGS_LENGTH,
+  PublicCallRequest,
 } from '../index.js';
-import { numToUInt32BE } from '../utils/serialize.js';
 
+/**
+ * Creates an arbitrary tx context with the given seed.
+ * @param seed - The seed to use for generating the tx context.
+ * @returns A tx context.
+ */
 export function makeTxContext(seed: number): TxContext {
   const deploymentData = new ContractDeploymentData(fr(seed), fr(seed + 1), fr(seed + 2), makeEthAddress(seed + 3));
   return new TxContext(false, false, true, deploymentData);
 }
 
+/**
+ * Creates an arbitrary private historic tree roots object with the given seed.
+ * @param seed - The seed to use for generating the private historic tree roots.
+ * @returns A private historic tree roots object.
+ */
 export function makePrivateHistoricTreeRoots(seed: number): PrivateHistoricTreeRoots {
   return new PrivateHistoricTreeRoots(fr(seed), fr(seed + 1), fr(seed + 2), fr(seed + 3), fr(seed + 4));
 }
 
+/**
+ * Creates an arbitrary combined historic tree roots object from the given seed.
+ * Note: "Combined" indicates that it's the combined output of both private and public circuit flows.
+ * @param seed - The seed to use for generating the combined historic tree roots.
+ * @returns A combined historic tree roots object.
+ */
 export function makeCombinedHistoricTreeRoots(seed: number): CombinedHistoricTreeRoots {
   return new CombinedHistoricTreeRoots(makePrivateHistoricTreeRoots(seed));
 }
 
+/**
+ * Creates arbitrary constant data with the given seed.
+ * @param seed - The seed to use for generating the constant data.
+ * @returns A constant data object.
+ */
 export function makeConstantData(seed = 1): CombinedConstantData {
   return new CombinedConstantData(makeCombinedHistoricTreeRoots(seed), makeTxContext(seed + 4));
 }
 
-export function makeSelector(seed: number) {
+/**
+ * Creates arbitrary selector from the given seed.
+ * @param seed - The seed to use for generating the selector.
+ * @returns A selector.
+ */
+export function makeSelector(seed: number): Buffer {
   const buffer = Buffer.alloc(4);
   buffer.writeUInt32BE(seed, 0);
   return buffer;
 }
 
-export function makePublicDataUpdateRequest(seed = 1) {
+/**
+ * Creates arbitrary public data update request.
+ * @param seed - The seed to use for generating the public data update request.
+ * @returns A public data update request.
+ */
+export function makePublicDataUpdateRequest(seed = 1): PublicDataUpdateRequest {
   return new PublicDataUpdateRequest(fr(seed), fr(seed + 1), fr(seed + 2));
 }
 
-export function makeEmptyPublicDataUpdateRequest() {
+/**
+ * Creates empty public data update request.
+ * @returns An empty public data update request.
+ */
+export function makeEmptyPublicDataUpdateRequest(): PublicDataUpdateRequest {
   return new PublicDataUpdateRequest(fr(0), fr(0), fr(0));
 }
 
-export function makePublicDataRead(seed = 1) {
+/**
+ * Creates arbitrary public data read.
+ * @param seed - The seed to use for generating the public data read.
+ * @returns A public data read.
+ */
+export function makePublicDataRead(seed = 1): PublicDataRead {
   return new PublicDataRead(fr(seed), fr(seed + 1));
 }
 
-export function makeEmptyPublicDataRead() {
+/**
+ * Creates empty public data read.
+ * @returns An empty public data read.
+ */
+export function makeEmptyPublicDataRead(): PublicDataRead {
   return new PublicDataRead(fr(0), fr(0));
 }
 
-export function makeContractStorageUpdateRequest(seed = 1) {
+/**
+ * Creates arbitrary contract storage update request.
+ * @param seed - The seed to use for generating the contract storage update request.
+ * @returns A contract storage update request.
+ */
+export function makeContractStorageUpdateRequest(seed = 1): ContractStorageUpdateRequest {
   return new ContractStorageUpdateRequest(fr(seed), fr(seed + 1), fr(seed + 2));
 }
 
-export function makeContractStorageRead(seed = 1) {
+/**
+ * Creates arbitrary contract storage read.
+ * @param seed - The seed to use for generating the contract storage read.
+ * @returns A contract storage read.
+ */
+export function makeContractStorageRead(seed = 1): ContractStorageRead {
   return new ContractStorageRead(fr(seed), fr(seed + 1));
 }
 
+/**
+ * Creates empty accumulated data.
+ * @param seed - The seed to use for generating the accumulated data.
+ * @returns An empty accumulated data.
+ */
 export function makeEmptyAccumulatedData(seed = 1): CombinedAccumulatedData {
   return new CombinedAccumulatedData(
     makeAggregationObject(seed),
-    fr(seed + 12),
-    fr(seed + 13),
-    tupleTimes(KERNEL_NEW_COMMITMENTS_LENGTH, fr, seed + 0x100),
-    tupleTimes(KERNEL_NEW_NULLIFIERS_LENGTH, fr, seed + 0x200),
-    // call stacks must be empty:
-    tupleTimes(KERNEL_PRIVATE_CALL_STACK_LENGTH, Fr.zero), // private call stack must be empty
-    tupleTimes(KERNEL_PUBLIC_CALL_STACK_LENGTH, fr, seed + 0x400),
-    tupleTimes(KERNEL_NEW_L2_TO_L1_MSGS_LENGTH, fr, seed + 0x500),
-    tupleTimes(KERNEL_NEW_CONTRACTS_LENGTH, makeNewContractData, seed + 0x600),
-    tupleTimes(KERNEL_OPTIONALLY_REVEALED_DATA_LENGTH, makeOptionallyRevealedData, seed + 0x700),
-    tupleTimes(KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH, makeEmptyPublicDataUpdateRequest, seed + 0x800),
-    tupleTimes(KERNEL_PUBLIC_DATA_READS_LENGTH, makeEmptyPublicDataRead, seed + 0x900),
+    range(KERNEL_NEW_COMMITMENTS_LENGTH, seed + 0x100).map(fr),
+    range(KERNEL_NEW_NULLIFIERS_LENGTH, seed + 0x200).map(fr),
+    new Array(KERNEL_PRIVATE_CALL_STACK_LENGTH).fill(Fr.ZERO), // private call stack must be empty
+    range(KERNEL_PUBLIC_CALL_STACK_LENGTH, seed + 0x400).map(fr),
+    range(KERNEL_NEW_L2_TO_L1_MSGS_LENGTH, seed + 0x500).map(fr),
+    range(KERNEL_NEW_CONTRACTS_LENGTH, seed + 0x600).map(makeNewContractData),
+    range(KERNEL_OPTIONALLY_REVEALED_DATA_LENGTH, seed + 0x700).map(makeOptionallyRevealedData),
+    range(KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH, seed + 0x800).map(makeEmptyPublicDataUpdateRequest),
+    range(KERNEL_PUBLIC_DATA_READS_LENGTH, seed + 0x900).map(makeEmptyPublicDataRead),
   );
 }
 
+/**
+ * Creates arbitrary accumulated data.
+ * @param seed - The seed to use for generating the accumulated data.
+ * @returns An accumulated data.
+ */
 export function makeAccumulatedData(seed = 1): CombinedAccumulatedData {
   return new CombinedAccumulatedData(
     makeAggregationObject(seed),
-    fr(seed + 12),
-    fr(seed + 13),
-    tupleTimes(KERNEL_NEW_COMMITMENTS_LENGTH, fr, seed + 0x100),
-    tupleTimes(KERNEL_NEW_NULLIFIERS_LENGTH, fr, seed + 0x200),
-    tupleTimes(KERNEL_PRIVATE_CALL_STACK_LENGTH, fr, seed + 0x300),
-    tupleTimes(KERNEL_PUBLIC_CALL_STACK_LENGTH, fr, seed + 0x400),
-    tupleTimes(KERNEL_NEW_L2_TO_L1_MSGS_LENGTH, fr, seed + 0x500),
-    tupleTimes(KERNEL_NEW_CONTRACTS_LENGTH, makeNewContractData, seed + 0x600),
-    tupleTimes(KERNEL_OPTIONALLY_REVEALED_DATA_LENGTH, makeOptionallyRevealedData, seed + 0x700),
-    tupleTimes(KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH, makeEmptyPublicDataUpdateRequest, seed + 0x800),
-    tupleTimes(KERNEL_PUBLIC_DATA_READS_LENGTH, makePublicDataRead, seed + 0x900),
+    range(KERNEL_NEW_COMMITMENTS_LENGTH, seed + 0x100).map(fr),
+    range(KERNEL_NEW_NULLIFIERS_LENGTH, seed + 0x200).map(fr),
+    range(KERNEL_PRIVATE_CALL_STACK_LENGTH, seed + 0x300).map(fr),
+    range(KERNEL_PUBLIC_CALL_STACK_LENGTH, seed + 0x400).map(fr),
+    range(KERNEL_NEW_L2_TO_L1_MSGS_LENGTH, seed + 0x500).map(fr),
+    range(KERNEL_NEW_CONTRACTS_LENGTH, seed + 0x600).map(makeNewContractData),
+    range(KERNEL_OPTIONALLY_REVEALED_DATA_LENGTH, seed + 0x700).map(makeOptionallyRevealedData),
+    range(KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH, seed + 0x800).map(makePublicDataUpdateRequest),
+    range(KERNEL_PUBLIC_DATA_READS_LENGTH, seed + 0x900).map(makePublicDataRead),
   );
 }
 
+/**
+ * Creates arbitrary contract data.
+ * @param seed - The seed to use for generating the contract data.
+ * @returns A contract data.
+ */
 export function makeNewContractData(seed = 1): NewContractData {
   return new NewContractData(makeAztecAddress(seed), makeEthAddress(seed + 1), fr(seed + 2));
 }
 
+/**
+ * Creates arbitrary optionally revealed data.
+ * @param seed - The seed to use for generating the optionally revealed data.
+ * @returns An optionally revealed data.
+ */
 export function makeOptionallyRevealedData(seed = 1): OptionallyRevealedData {
   return new OptionallyRevealedData(
     fr(seed),
@@ -184,6 +248,11 @@ export function makeOptionallyRevealedData(seed = 1): OptionallyRevealedData {
   );
 }
 
+/**
+ * Creates arbitrary aggregation object.
+ * @param seed - The seed to use for generating the aggregation object.
+ * @returns An aggregation object.
+ */
 export function makeAggregationObject(seed = 1): AggregationObject {
   return new AggregationObject(
     new G1AffineElement(new Fq(BigInt(seed)), new Fq(BigInt(seed + 1))),
@@ -193,10 +262,22 @@ export function makeAggregationObject(seed = 1): AggregationObject {
   );
 }
 
+/**
+ * Creates arbitrary call context.
+ * @param seed - The seed to use for generating the call context.
+ * @param storageContractAddress - The storage contract address set on the call context.
+ * @returns A call context.
+ */
 export function makeCallContext(seed = 0, storageContractAddress = makeAztecAddress(seed + 1)): CallContext {
   return new CallContext(makeAztecAddress(seed), storageContractAddress, makeEthAddress(seed + 2), false, false, false);
 }
 
+/**
+ * Creates arbitrary public circuit public inputs.
+ * @param seed - The seed to use for generating the public circuit public inputs.
+ * @param storageContractAddress - The storage contract address set on the call context.
+ * @returns Public circuit public inputs.
+ */
 export function makePublicCircuitPublicInputs(
   seed = 0,
   storageContractAddress?: AztecAddress,
@@ -216,22 +297,62 @@ export function makePublicCircuitPublicInputs(
   );
 }
 
+/**
+ * Creates empty kernel circuit public inputs.
+ * @param seed - The seed to use for generating the kernel circuit public inputs.
+ * @returns Empty kernel circuit public inputs.
+ */
 export function makeEmptyKernelPublicInputs(seed = 1): KernelCircuitPublicInputs {
   return new KernelCircuitPublicInputs(makeEmptyAccumulatedData(seed), makeConstantData(seed + 0x100), true);
 }
 
+/**
+ * Creates arbitrary kernel circuit public inputs.
+ * @param seed - The seed to use for generating the kernel circuit public inputs.
+ * @returns Kernel circuit public inputs.
+ */
 export function makeKernelPublicInputs(seed = 1): KernelCircuitPublicInputs {
   return new KernelCircuitPublicInputs(makeAccumulatedData(seed), makeConstantData(seed + 0x100), true);
 }
 
-export function makeProof(size = 16, fill = 1) {
-  return new Proof(Buffer.alloc(size, fill));
+/**
+ * Creates a public call request for testing.
+ * @param seed - The seed.
+ * @returns Public call request.
+ */
+export function makePublicCallRequest(seed = 1): PublicCallRequest {
+  return new PublicCallRequest(
+    makeAztecAddress(seed),
+    new FunctionData(makeSelector(seed + 0x1), false, false),
+    makeCallContext(seed + 0x2),
+    range(ARGS_LENGTH, seed + 0x10).map(fr),
+  );
 }
 
-export function makeMembershipWitness<N extends number>(size: N, start: number): MembershipWitness<N> {
-  return new MembershipWitness(size, BigInt(start), tupleTimes(size, fr, start));
+/**
+ * Creates a uint8 vector of a given size filled with a given value.
+ * @param size - The size of the vector.
+ * @param fill - The value to fill the vector with.
+ * @returns A uint8 vector.
+ */
+export function makeDynamicSizeBuffer(size: number, fill: number) {
+  return new UInt8Vector(Buffer.alloc(size, fill));
 }
 
+/**
+ * Creates arbitrary/mocked membership witness where the sibling paths is an array of fields in an ascending order starting from `start`.
+ * @param size - The size of the membership witness.
+ * @param start - The start of the membership witness.
+ * @returns A membership witness.
+ */
+export function makeMembershipWitness<N extends number>(size: number, start: number): MembershipWitness<N> {
+  return new MembershipWitness(size, BigInt(start), range(size, start).map(fr));
+}
+
+/**
+ * Creates arbitrary/mocked verification key.
+ * @returns A verification key.
+ */
 export function makeVerificationKey(): VerificationKey {
   return new VerificationKey(
     ComposerType.STANDARD,
@@ -245,6 +366,12 @@ export function makeVerificationKey(): VerificationKey {
   );
 }
 
+/**
+ * Makes arbitrary previous kernel data.
+ * @param seed - The seed to use for generating the previous kernel data.
+ * @param kernelPublicInputs - The kernel public inputs to use for generating the previous kernel data.
+ * @returns A previous kernel data.
+ */
 export function makePreviousKernelData(seed = 1, kernelPublicInputs?: KernelCircuitPublicInputs): PreviousKernelData {
   return new PreviousKernelData(
     kernelPublicInputs ?? makeKernelPublicInputs(seed),
@@ -255,6 +382,20 @@ export function makePreviousKernelData(seed = 1, kernelPublicInputs?: KernelCirc
   );
 }
 
+/**
+ * Makes arbitrary proof.
+ * @param seed - The seed to use for generating/mocking the proof.
+ * @returns A proof.
+ */
+export function makeProof(seed = 1) {
+  return makeDynamicSizeBuffer(16, seed);
+}
+
+/**
+ * Makes arbitrary private kernel inputs.
+ * @param seed - The seed to use for generating the private kernel inputs.
+ * @returns Private kernel inputs.
+ */
 export function makePrivateKernelInputs(seed = 1): PrivateKernelInputs {
   return new PrivateKernelInputs(
     makeSignedTxRequest(seed),
@@ -263,18 +404,29 @@ export function makePrivateKernelInputs(seed = 1): PrivateKernelInputs {
   );
 }
 
+/**
+ * Makes arbitrary public call stack item.
+ * @param seed - The seed to use for generating the public call stack item.
+ * @returns A public call stack item.
+ */
 export function makePublicCallStackItem(seed = 1): PublicCallStackItem {
   const callStackItem = new PublicCallStackItem(
     makeAztecAddress(seed),
     // in the public kernel, function can't be a constructor or private
     new FunctionData(makeSelector(seed + 0x1), false, false),
     makePublicCircuitPublicInputs(seed + 0x10),
+    false,
   );
   callStackItem.publicInputs.callContext.storageContractAddress = callStackItem.contractAddress;
   return callStackItem;
 }
 
-export async function makePublicCallData(seed = 1) {
+/**
+ * Makes arbitrary public call data.
+ * @param seed - The seed to use for generating the public call data.
+ * @returns A public call data.
+ */
+export async function makePublicCallData(seed = 1): Promise<PublicCallData> {
   const publicCallData = new PublicCallData(
     makePublicCallStackItem(seed),
     range(PUBLIC_CALL_STACK_LENGTH, seed + 0x300).map(makePublicCallStackItem),
@@ -308,6 +460,11 @@ export async function makePublicCallData(seed = 1) {
   return publicCallData;
 }
 
+/**
+ * Makes arbitrary witnessed public call data.
+ * @param seed - The seed to use for generating the witnessed public call data.
+ * @returns A witnessed public call data.
+ */
 export async function makeWitnessedPublicCallData(seed = 1): Promise<WitnessedPublicCallData> {
   return new WitnessedPublicCallData(
     await makePublicCallData(seed),
@@ -319,10 +476,20 @@ export async function makeWitnessedPublicCallData(seed = 1): Promise<WitnessedPu
   );
 }
 
+/**
+ * Makes arbitrary public kernel inputs.
+ * @param seed - The seed to use for generating the public kernel inputs.
+ * @returns Public kernel inputs.
+ */
 export async function makePublicKernelInputs(seed = 1): Promise<PublicKernelInputs> {
   return new PublicKernelInputs(makePreviousKernelData(seed), await makePublicCallData(seed + 0x1000));
 }
 
+/**
+ * Makes arbitrary public kernel inputs with empty output.
+ * @param seed - The seed to use for generating the public kernel inputs.
+ * @returns Public kernel inputs.
+ */
 export async function makePublicKernelInputsWithEmptyOutput(seed = 1): Promise<PublicKernelInputs> {
   const kernelCircuitPublicInputs = makeEmptyKernelPublicInputs(seed);
   const publicKernelInputs = new PublicKernelInputs(
@@ -336,14 +503,33 @@ export async function makePublicKernelInputsWithEmptyOutput(seed = 1): Promise<P
   return publicKernelInputs;
 }
 
-export async function makePublicKernelInputsNoKernelInput(seed = 1) {
-  return new PublicKernelInputsNoPreviousKernel(makeSignedTxRequest(seed), await makePublicCallData(seed + 0x100));
+/**
+ * Makes arbitrary public kernel inputs with no previous kernel data.
+ * @param seed - The seed to use for generating the public kernel inputs.
+ * @returns Public kernel inputs.
+ */
+export async function makePublicKernelInputsNoKernelInput(seed = 1): Promise<PublicKernelInputsNoPreviousKernel> {
+  return new PublicKernelInputsNoPreviousKernel(
+    makeSignedTxRequest(seed),
+    await makePublicCallData(seed + 0x100),
+    makeCombinedHistoricTreeRoots(seed + 0x200),
+  );
 }
 
+/**
+ * Makes arbitrary signed tx request.
+ * @param seed - The seed to use for generating the signed tx request.
+ * @returns A signed tx request.
+ */
 export function makeSignedTxRequest(seed = 1): SignedTxRequest {
   return new SignedTxRequest(makeTxRequest(seed), makeEcdsaSignature(seed + 0x200));
 }
 
+/**
+ * Makes arbitrary tx request.
+ * @param seed - The seed to use for generating the tx request.
+ * @returns A tx request.
+ */
 export function makeTxRequest(seed = 1): TxRequest {
   return TxRequest.from({
     from: makeAztecAddress(seed),
@@ -356,6 +542,11 @@ export function makeTxRequest(seed = 1): TxRequest {
   });
 }
 
+/**
+ * Makes arbitrary private call data.
+ * @param seed - The seed to use for generating the private call data.
+ * @returns A private call data.
+ */
 export function makePrivateCallData(seed = 1): PrivateCallData {
   return PrivateCallData.from({
     callStackItem: makePrivateCallStackItem(seed),
@@ -369,6 +560,11 @@ export function makePrivateCallData(seed = 1): PrivateCallData {
   });
 }
 
+/**
+ * Makes arbitrary private call stack item.
+ * @param seed - The seed to use for generating the private call stack item.
+ * @returns A private call stack item.
+ */
 export function makePrivateCallStackItem(seed = 1): PrivateCallStackItem {
   return new PrivateCallStackItem(
     makeAztecAddress(seed),
@@ -377,6 +573,11 @@ export function makePrivateCallStackItem(seed = 1): PrivateCallStackItem {
   );
 }
 
+/**
+ * Makes arbitrary private circuit public inputs.
+ * @param seed - The seed to use for generating the private circuit public inputs.
+ * @returns A private circuit public inputs.
+ */
 export function makePrivateCircuitPublicInputs(seed = 0): PrivateCircuitPublicInputs {
   return PrivateCircuitPublicInputs.from({
     callContext: new CallContext(
@@ -403,10 +604,20 @@ export function makePrivateCircuitPublicInputs(seed = 0): PrivateCircuitPublicIn
   });
 }
 
+/**
+ * Makes arbitrary contract deployment data.
+ * @param seed - The seed to use for generating the contract deployment data.
+ * @returns A contract deployment data.
+ */
 export function makeContractDeploymentData(seed = 1) {
   return new ContractDeploymentData(fr(seed), fr(seed + 1), fr(seed + 2), new EthAddress(numToUInt32BE(seed + 3, 20)));
 }
 
+/**
+ * Makes constant base rollup data.
+ * @param seed - The seed to use for generating the constant base rollup data.
+ * @returns A constant base rollup data.
+ */
 export function makeConstantBaseRollupData(seed = 1): ConstantBaseRollupData {
   return ConstantBaseRollupData.from({
     startTreeOfHistoricPrivateDataTreeRootsSnapshot: makeAppendOnlyTreeSnapshot(seed),
@@ -419,27 +630,58 @@ export function makeConstantBaseRollupData(seed = 1): ConstantBaseRollupData {
   });
 }
 
+/**
+ * Makes arbitrary append only tree snapshot.
+ * @param seed - The seed to use for generating the append only tree snapshot.
+ * @returns An append only tree snapshot.
+ */
 export function makeAppendOnlyTreeSnapshot(seed = 1): AppendOnlyTreeSnapshot {
   return new AppendOnlyTreeSnapshot(fr(seed), seed);
 }
 
+/**
+ * Makes arbitrary eth address.
+ * @param seed - The seed to use for generating the eth address.
+ * @returns An eth address.
+ */
 export function makeEthAddress(seed = 1): EthAddress {
   return new EthAddress(Buffer.alloc(20, seed));
 }
 
-export function makeBytes(size = 32, seed = 1): Buffer {
-  return Buffer.alloc(size, seed);
+/**
+ * Creates a buffer of a given size filled with a given value.
+ * @param size - The size of the buffer to create.
+ * @param fill - The value to fill the buffer with.
+ * @returns A buffer of a given size filled with a given value.
+ */
+export function makeBytes(size = 32, fill = 1): Buffer {
+  return Buffer.alloc(size, fill);
 }
 
+/**
+ * Makes arbitrary aztec address.
+ * @param seed - The seed to use for generating the aztec address.
+ * @returns An aztec address.
+ */
 export function makeAztecAddress(seed = 1): AztecAddress {
   return new AztecAddress(fr(seed).toBuffer());
 }
 
+/**
+ * Makes arbitrary ecdsa signature.
+ * @param seed - The seed to use for generating the ecdsa signature.
+ * @returns An ecdsa signature.
+ */
 export function makeEcdsaSignature(seed = 1): EcdsaSignature {
   return new EcdsaSignature(Buffer.alloc(32, seed), Buffer.alloc(32, seed + 1), Buffer.alloc(1, seed + 2));
 }
 
-export function makeBaseRollupPublicInputs(seed = 0) {
+/**
+ * Makes arbitrary base or merge rollup circuit public inputs.
+ * @param seed - The seed to use for generating the base rollup circuit public inputs.
+ * @returns A base or merge rollup circuit public inputs.
+ */
+export function makeBaseOrMergeRollupPublicInputs(seed = 0): BaseOrMergeRollupPublicInputs {
   return new BaseOrMergeRollupPublicInputs(
     RollupTypes.Base,
     new Fr(0n),
@@ -457,19 +699,29 @@ export function makeBaseRollupPublicInputs(seed = 0) {
   );
 }
 
-export function makePreviousBaseRollupData(seed = 0) {
+/**
+ * Makes arbitrary previous rollup data.
+ * @param seed - The seed to use for generating the previous rollup data.
+ * @returns A previous rollup data.
+ */
+export function makePreviousRollupData(seed = 0): PreviousRollupData {
   return new PreviousRollupData(
-    makeBaseRollupPublicInputs(seed),
-    makeProof(16, seed + 0x50),
+    makeBaseOrMergeRollupPublicInputs(seed),
+    makeDynamicSizeBuffer(16, seed + 0x50),
     makeVerificationKey(),
     seed + 0x110,
     makeMembershipWitness(ROLLUP_VK_TREE_HEIGHT, seed + 0x120),
   );
 }
 
-export function makeRootRollupInputs(seed = 0) {
+/**
+ * Makes root rollup inputs.
+ * @param seed - The seed to use for generating the root rollup inputs.
+ * @returns A root rollup inputs.
+ */
+export function makeRootRollupInputs(seed = 0): RootRollupInputs {
   return new RootRollupInputs(
-    [makePreviousBaseRollupData(seed), makePreviousBaseRollupData(seed + 0x1000)],
+    [makePreviousRollupData(seed), makePreviousRollupData(seed + 0x1000)],
     range(PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT, 0x2000).map(fr),
     range(CONTRACT_TREE_ROOTS_TREE_HEIGHT, 0x2100).map(fr),
     range(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, 0x2100).map(fr),
@@ -480,7 +732,12 @@ export function makeRootRollupInputs(seed = 0) {
   );
 }
 
-export function makeRootRollupPublicInputs(seed = 0) {
+/**
+ * Makes root rollup public inputs.
+ * @param seed - The seed to use for generating the root rollup public inputs.
+ * @returns A root rollup public inputs.
+ */
+export function makeRootRollupPublicInputs(seed = 0): RootRollupPublicInputs {
   return RootRollupPublicInputs.from({
     endAggregationObject: makeAggregationObject(seed),
     startPrivateDataTreeSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
@@ -504,11 +761,21 @@ export function makeRootRollupPublicInputs(seed = 0) {
   });
 }
 
-export function makeMergeRollupInputs(seed = 0) {
-  return new MergeRollupInputs([makePreviousBaseRollupData(seed), makePreviousBaseRollupData(seed + 0x1000)]);
+/**
+ * Makes arbitrary merge rollup inputs.
+ * @param seed - The seed to use for generating the merge rollup inputs.
+ * @returns A merge rollup inputs.
+ */
+export function makeMergeRollupInputs(seed = 0): MergeRollupInputs {
+  return new MergeRollupInputs([makePreviousRollupData(seed), makePreviousRollupData(seed + 0x1000)]);
 }
 
-export function makeBaseRollupInputs(seed = 0) {
+/**
+ * Makes arbitrary base rollup inputs.
+ * @param seed - The seed to use for generating the base rollup inputs.
+ * @returns A base rollup inputs.
+ */
+export function makeBaseRollupInputs(seed = 0): BaseRollupInputs {
   const kernelData: [PreviousKernelData, PreviousKernelData] = [
     makePreviousKernelData(seed + 0x100),
     makePreviousKernelData(seed + 0x200),
@@ -591,11 +858,11 @@ export function makeBaseRollupInputs(seed = 0) {
 }
 
 /**
+ * TODO: Since the max value check is currently disabled this function is pointless. Should it be removed?
  * Test only. Easy to identify big endian field serialize.
- * @param num - The number.
- * @param bufferSize - The buffer size.
- * @returns The buffer.
+ * @param n - The number.
+ * @returns The field.
  */
-export function fr(n: number) {
+export function fr(n: number): Fr {
   return new Fr(BigInt(n));
 }

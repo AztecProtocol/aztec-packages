@@ -1,7 +1,11 @@
 import { AztecNode } from '@aztec/aztec-node';
 import {
+  AztecAddress,
   CONTRACT_TREE_HEIGHT,
+  CircuitsWasm,
+  EthAddress,
   FUNCTION_TREE_HEIGHT,
+  Fr,
   FunctionData,
   FunctionLeafPreimage,
   MembershipWitness,
@@ -16,16 +20,11 @@ import {
   hashConstructor,
   hashVK,
 } from '@aztec/circuits.js/abis';
-import { CircuitsWasm } from '@aztec/circuits.js/wasm';
-import { generateFunctionSelector } from '../abi_coder/index.js';
-import { ContractDao, ContractFunctionDao } from '../contract_database/index.js';
-import { computeFunctionTreeData } from './function_tree_data.js';
-import { ContractAbi, FunctionType } from '@aztec/foundation/abi';
-import { Fr } from '@aztec/foundation/fields';
-import { keccak } from '@aztec/foundation/crypto';
-import { EthAddress } from '@aztec/foundation/eth-address';
-import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { FunctionType, ContractAbi } from '@aztec/foundation/abi';
 import { toTupleOf } from '@aztec/foundation/serialize';
+import { ContractFunctionDao, ContractDao } from '../contract_database/contract_dao.js';
+import { generateFunctionSelector } from '../index.js';
+import { computeFunctionTreeData } from './function_tree_data.js';
 
 /**
  * Computes the hash of a hex-encoded string representation of a verification key (vk).
