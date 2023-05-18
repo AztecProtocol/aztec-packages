@@ -600,7 +600,11 @@ TEST(private_kernel_tests, cbind_private_kernel__dummy_previous_kernel)
 {
     auto func = [] { return aztec3::circuits::kernel::private_kernel::utils::dummy_previous_kernel(); };
     auto [actual, expected] = call_func_and_wrapper(func, private_kernel__dummy_previous_kernel);
-    EXPECT_EQ(actual, expected);
+    // TODO(AD): investigate why direct operator== didn't work
+    std::stringstream actual_ss, expected_ss;
+    actual_ss << actual;
+    expected_ss << expected;
+    EXPECT_EQ(actual_ss.str(), expected_ss.str());
 }
 
 /**
