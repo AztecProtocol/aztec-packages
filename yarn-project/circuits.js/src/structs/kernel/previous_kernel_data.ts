@@ -7,6 +7,7 @@ import { Proof } from '../proof.js';
 import { UInt32 } from '../shared.js';
 import { VerificationKey } from '../verification_key.js';
 import { KernelCircuitPublicInputs } from './public_inputs.js';
+import { CircuitsWasm, assertLength, tupleTimes } from '../../index.js';
 
 /**
  * Data of the previous kernel iteration in the chain of kernels.

@@ -8,7 +8,7 @@ import times from 'lodash.times';
  * Note: Used for local devnet milestone where we are not proving anything yet.
  * @returns The empty "proof".
  */
-function makeEmptyProof() {
+export function makeEmptyProof() {
   return new Proof(Buffer.alloc(0));
 }
 

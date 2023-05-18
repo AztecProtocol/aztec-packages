@@ -15,7 +15,7 @@ import {
 } from '../constants.js';
 import { FunctionData } from '../function_data.js';
 import { BufferReader, TupleOf } from '@aztec/foundation/serialize';
-import { assertLength } from '../../index.js';
+import { assertLength, tupleTimes } from '../../index.js';
 import { EthAddress, AztecAddress, Fr } from '../index.js';
 
 /**
@@ -24,16 +24,19 @@ import { EthAddress, AztecAddress, Fr } from '../index.js';
  * Note: Not to be confused with `ContractDeploymentData`.
  */
 export class NewContractData {
+  /**
+   * Ethereum address of the portal contract on L1.
+   */
   public portalContractAddress: EthAddress;
   constructor(
     /**
      * Aztec address of the contract.
      */
     public contractAddress: AztecAddress,
-    // TODO(AD): refactor this later
-    // currently there is a kludge with circuits cpp as it emits an AztecAddress
     /**
      * Ethereum address of the portal contract on L1.
+     * TODO(AD): refactor this later
+     * currently there is a kludge with circuits cpp as it emits an AztecAddress
      */
     portalContractAddress: EthAddress | AztecAddress,
     /**
@@ -69,6 +72,12 @@ export class NewContractData {
  * Note: Currently not used (2023-05-12).
  */
 export class OptionallyRevealedData {
+  /**
+   * Address of the portal contract corresponding to the L2 contract on which the function above was invoked.
+   *
+   * TODO(AD): refactor this later
+   * currently there is a kludge with circuits cpp as it emits an AztecAddress
+   */
   public portalContractAddress: EthAddress;
   constructor(
     /**
@@ -82,7 +91,7 @@ export class OptionallyRevealedData {
     /**
      * Events emitted by the function call from which this info originates.
      */
-    public emittedEvents: Fr[],
+    public emittedEvents: TupleOf<Fr, typeof EMITTED_EVENTS_LENGTH>,
     /**
      * Verification key hash of the function call from which this info originates.
      */
@@ -361,17 +370,15 @@ export class CombinedAccumulatedData {
   static empty() {
     return new CombinedAccumulatedData(
       AggregationObject.makeFake(),
-      Fr.ZERO,
-      Fr.ZERO,
-      times(KERNEL_NEW_COMMITMENTS_LENGTH, Fr.zero),
-      times(KERNEL_NEW_NULLIFIERS_LENGTH, Fr.zero),
-      times(KERNEL_PRIVATE_CALL_STACK_LENGTH, Fr.zero),
-      times(KERNEL_PUBLIC_CALL_STACK_LENGTH, Fr.zero),
-      times(KERNEL_NEW_L2_TO_L1_MSGS_LENGTH, Fr.zero),
-      times(KERNEL_NEW_CONTRACTS_LENGTH, NewContractData.empty),
-      times(KERNEL_OPTIONALLY_REVEALED_DATA_LENGTH, OptionallyRevealedData.empty),
-      times(KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH, PublicDataUpdateRequest.empty),
-      times(KERNEL_PUBLIC_DATA_READS_LENGTH, PublicDataRead.empty),
+      tupleTimes(KERNEL_NEW_COMMITMENTS_LENGTH, Fr.zero),
+      tupleTimes(KERNEL_NEW_NULLIFIERS_LENGTH, Fr.zero),
+      tupleTimes(KERNEL_PRIVATE_CALL_STACK_LENGTH, Fr.zero),
+      tupleTimes(KERNEL_PUBLIC_CALL_STACK_LENGTH, Fr.zero),
+      tupleTimes(KERNEL_NEW_L2_TO_L1_MSGS_LENGTH, Fr.zero),
+      tupleTimes(KERNEL_NEW_CONTRACTS_LENGTH, NewContractData.empty),
+      tupleTimes(KERNEL_OPTIONALLY_REVEALED_DATA_LENGTH, OptionallyRevealedData.empty),
+      tupleTimes(KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH, PublicDataUpdateRequest.empty),
+      tupleTimes(KERNEL_PUBLIC_DATA_READS_LENGTH, PublicDataRead.empty),
     );
   }
 }
