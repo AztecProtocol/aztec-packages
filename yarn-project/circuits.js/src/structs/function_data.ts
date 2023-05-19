@@ -24,8 +24,10 @@ export class FunctionData {
     public isConstructor = false,
   ) {
     if (functionSelector instanceof Buffer) {
-      if (functionSelector.byteLength !== 4) {
-        throw new Error(`Function selector must be 4 bytes long, got ${functionSelector.byteLength} bytes.`);
+      if (functionSelector.byteLength !== FUNCTION_SELECTOR_LENGTH) {
+        throw new Error(
+          `Function selector must be ${FUNCTION_SELECTOR_LENGTH} bytes long, got ${functionSelector.byteLength} bytes.`,
+        );
       }
       this.functionSelectorBuffer = functionSelector;
     } else {
