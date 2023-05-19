@@ -143,8 +143,27 @@ contract DecoderTest is Test {
 
     // Note: First 32 bytes are 0 because those correspond to the hash of previous iteration and there was no previous
     //       iteration.
+    // keccak256(hex"0000000000000000000000000000000000000000000000000000000000000000aafdc7aa93e78a70");
+    bytes32 referenceLogsHash = 0x9a60e4b675115fcedf18aa62d374d0616192a1147bd81716f1c482f48363fc74;
+
+    assertEq(bytesAdvanced, emptyKernelData.length, "Advanced by an incorrect number of bytes");
+    assertEq(logsHash, referenceLogsHash, "Logs hash should be 0 when there are no logs");
+  }
+
+  function testComputeKernelLogs2Iterations() public {
+    // || K_LOGS_LEN | I1_LOGS_LEN | I1_LOGS | I2_LOGS_LEN | I2_LOGS ||
+    // K_LOGS_LEN = 4 + 8 + 4 + 20 = 36 (hex"00000024")
+    // I1_LOGS_LEN = 8 (hex"00000008")
+    // I1_LOGS = 8 random bytes (hex"aafdc7aa93e78a70")
+    // I2_LOGS_LEN = 20 (hex"00000014")
+    // I2_LOGS = 20 random bytes (hex"97aee30906a86173c86c6d3f108eefc36e7fb014")
+    bytes memory emptyKernelData =
+      hex"0000002400000008aafdc7aa93e78a700000001497aee30906a86173c86c6d3f108eefc36e7fb014";
+    (bytes32 logsHash, uint256 bytesAdvanced) = helper.computeKernelLogsHash(emptyKernelData);
+
+    // Note: First 32 bytes occupied by logs hash of previous iteration, the rest occupied by I2_LOGS
     bytes32 referenceLogsHash = keccak256(
-      hex"0000000000000000000000000000000000000000000000000000000000000000aafdc7aa93e78a70"
+      hex"9a60e4b675115fcedf18aa62d374d0616192a1147bd81716f1c482f48363fc7497aee30906a86173c86c6d3f108eefc36e7fb014"
     );
 
     assertEq(bytesAdvanced, emptyKernelData.length, "Advanced by an incorrect number of bytes");
