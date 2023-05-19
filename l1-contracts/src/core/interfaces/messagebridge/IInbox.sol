@@ -3,14 +3,13 @@
 pragma solidity >=0.8.18;
 
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
-import {IMessageBox} from "@aztec/core/interfaces/messagebridge/IMessageBox.sol";
 
 /**
  * @title Inbox
  * @author Aztec Labs
  * @notice Lives on L1 and is used to pass messages into the rollup, e.g., L1 -> L2 messages.
  */
-interface IInbox is IMessageBox {
+interface IInbox  {
   event MessageAdded(
     bytes32 indexed entryKey,
     address indexed sender,
