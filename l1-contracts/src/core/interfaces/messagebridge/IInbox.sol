@@ -9,7 +9,7 @@ import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
  * @author Aztec Labs
  * @notice Lives on L1 and is used to pass messages into the rollup, e.g., L1 -> L2 messages.
  */
-interface IInbox  {
+interface IInbox {
   event MessageAdded(
     bytes32 indexed entryKey,
     address indexed sender,
