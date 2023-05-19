@@ -7,6 +7,9 @@
   },
   "references": [
     {
+      "path": "../environment"
+    },
+    {
       "path": "../foundation"
     },
     {

@@ -14,8 +14,7 @@
     "declarationMap": true,
     "importHelpers": true,
     "resolveJsonModule": true,
-    "composite": true,
-    "skipLibCheck": true
+    "composite": true
   },
   "references": [
     { "path": "acir-simulator/tsconfig.json" },

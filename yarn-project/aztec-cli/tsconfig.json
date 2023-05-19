@@ -13,6 +13,9 @@
       "path": "../aztec.js"
     },
     {
+      "path": "../environment"
+    },
+    {
       "path": "../foundation"
     },
     {
@@ -20,9 +23,6 @@
     },
     {
       "path": "../noir-contracts"
-    },
-    {
-      "path": "../environment"
     }
   ],
   "include": ["src"],
