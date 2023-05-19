@@ -680,7 +680,7 @@ export interface MsgpackKernelCircuitPublicInputs {
 
 export function toKernelCircuitPublicInputs(o: MsgpackKernelCircuitPublicInputs): KernelCircuitPublicInputs {
   if (o.end === undefined) {
-    throw new Error('Expected end in KernelCircuitPublicInputs deserialization' + JSON.stringify(o));
+    throw new Error('Expected end in KernelCircuitPublicInputs deserialization');
   }
   if (o.constants === undefined) {
     throw new Error('Expected constants in KernelCircuitPublicInputs deserialization');
@@ -1263,13 +1263,13 @@ export async function abisComputeContractAddress(
 export async function privateKernelDummyPreviousKernel(wasm: CircuitsWasm): Promise<PreviousKernelData> {
   return toPreviousKernelData(await callCbind(wasm, 'private_kernel__dummy_previous_kernel', []));
 }
-export async function publicKernelSim2(
+export async function publicKernelSim(
   wasm: CircuitsWasm,
   arg0: PublicKernelInputs,
 ): Promise<CircuitError | KernelCircuitPublicInputs> {
   return ((v: MsgpackCircuitError | MsgpackKernelCircuitPublicInputs) =>
     isCircuitError(v) ? toCircuitError(v) : toKernelCircuitPublicInputs(v))(
-    await callCbind(wasm, 'public_kernel__sim2', [fromPublicKernelInputs(arg0)]),
+    await callCbind(wasm, 'public_kernel__sim', [fromPublicKernelInputs(arg0)]),
   );
 }
 export async function proverProcessQueue2(wasm: CircuitsWasm, arg0: ProverBasePtr): Promise<number> {
