@@ -35,6 +35,7 @@ import { PublicProver } from '../prover/index.js';
 import { PublicKernelCircuitSimulator } from '../simulator/index.js';
 import { ProcessedTx, makeEmptyProcessedTx, makeProcessedTx } from './processed_tx.js';
 import { getCombinedHistoricTreeRoots } from './utils.js';
+import { Tuple, mapTuple } from '@aztec/foundation/serialize';
 
 /**
  * Converts Txs lifted from the P2P module into ProcessedTx objects by executing
@@ -184,7 +185,7 @@ export class PublicProcessor {
     const historicPublicDataTreeRoot = Fr.fromBuffer(publicDataTreeInfo.root);
     const callStackPreimages = await this.getPublicCallStackPreimages(result);
     const wasm = await CircuitsWasm.get();
-    const publicCallStack = callStackPreimages.map(item =>
+    const publicCallStack = mapTuple(callStackPreimages, item =>
       item.isEmpty() ? Fr.zero() : computeCallStackItemHash(wasm, item),
     );
 
@@ -247,7 +248,7 @@ export class PublicProcessor {
    */
   protected async getPublicCallData(
     result: PublicExecutionResult,
-    preimages: PublicCallStackItem[],
+    preimages: Tuple<PublicCallStackItem, typeof PUBLIC_CALL_STACK_LENGTH>,
     isExecutionRequest = false,
   ) {
     const bytecodeHash = await this.getBytecodeHash(result);

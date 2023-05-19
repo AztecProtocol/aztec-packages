@@ -78,6 +78,13 @@ export interface TypeInfo {
    */
   variantSubtypes?: TypeInfo[];
   /**
+   * Was this used in a variant type?
+   * Typically a variant in C++ will have an easy to distinguish type as
+   * one of two structs e.g. [Error, T]. In that case, a isError method would be imported. Only if a third type was
+   * added would we need to distinguish T as well.
+   */
+  usedInDiscriminatedVariant?: boolean;
+  /**
    * Key-value pair of types that represent the keys and values in a map schema.
    */
   mapSubtypes?: [TypeInfo, TypeInfo];
@@ -127,14 +134,17 @@ function msgpackConverterExpr(typeInfo: TypeInfo, value: string): string {
       return `${value}.map(${convFn})`;
     }
   } else if (typeInfo.variantSubtypes) {
-    // const { typeName, msgpackTypeName } = typeInfo.variantSubtypes;
-    // const convFn = `(v: ${msgpackTypeName || typeName}) => ${msgpackConverterExpr(typeInfo.arraySubtype, 'v')}`;
-    // if (typeInfo.isTuple) {
-    //   return `mapTuple(${value}, ${convFn})`;
-    // } else {
-    //   return `${value}.map(${convFn})`;
-    // }
-    return value;
+    const { variantSubtypes } = typeInfo;
+    // Handle the last variant type: just assume it is this type...
+    let expr = msgpackConverterExpr(variantSubtypes[variantSubtypes.length - 1], 'v');
+    // ... because we check every other type:
+    for (let i = 0; i < variantSubtypes.length - 1; i++) {
+      // mark this as needing an import
+      variantSubtypes[i].usedInDiscriminatedVariant = true;
+      // make the expr a compound expression with a discriminator
+      expr = `(is${variantSubtypes[i].typeName}(v) ? ${msgpackConverterExpr(variantSubtypes[i], 'v')} : ${expr})`;
+    }
+    return `((v: ${typeInfo.msgpackTypeName}) => ${expr})(${value})`;
   } else if (typeInfo.mapSubtypes) {
     const { typeName, msgpackTypeName } = typeInfo.mapSubtypes[1];
     const convFn = `(v: ${msgpackTypeName || typeName}) => ${msgpackConverterExpr(typeInfo.mapSubtypes[1], 'v')}`;
@@ -175,14 +185,7 @@ function classConverterExpr(typeInfo: TypeInfo, value: string): string {
       return `${value}.map(${convFn})`;
     }
   } else if (typeInfo.variantSubtypes) {
-    // const { typeName, msgpackTypeName } = typeInfo.variantSubtypes;
-    // const convFn = `(v: ${msgpackTypeName || typeName}) => ${msgpackConverterExpr(typeInfo.arraySubtype, 'v')}`;
-    // if (typeInfo.isTuple) {
-    //   return `mapTuple(${value}, ${convFn})`;
-    // } else {
-    //   return `${value}.map(${convFn})`;
-    // }
-    return value;
+    throw new Error('TODO - variant parameters to C++ not yet supported');
   } else if (typeInfo.mapSubtypes) {
     const { typeName } = typeInfo.mapSubtypes[1];
     const convFn = `(v: ${typeName}) => ${classConverterExpr(typeInfo.mapSubtypes[1], 'v')}`;
@@ -351,6 +354,41 @@ export class CbindCompiler {
     return result;
   }
 
+  //   private generateVariantConverter(msgpackName: string, variantSubtypes: TypeInfo[]): string {
+  //     const subtypeNames = variantSubtypes.map(type => type.typeName).join('');
+
+  //     const checkerSyntax = () => {
+  //       const statements: string[] = [];
+  //       for (const [key] of Object.entries(type)) {
+  //         if (key === '__typename') continue;
+  //         statements.push(
+  //           `  if (o.${key} === undefined) { throw new Error("Expected ${key} in ${typename} deserialization"); }`,
+  //         );
+  //       }
+  //       return statements.join('\n');
+  //     };
+
+  //     // TODO should we always just call constructor?
+  //     const constructorBodySyntax = () => {
+  //       const statements: string[] = [];
+  //       for (const [key, value] of Object.entries(type)) {
+  //         if (key === '__typename') continue;
+  //         statements.push(`  ${msgpackConverterExpr(this.getTypeInfo(value), `o.${key}`)},`);
+  //       }
+  //       return statements.join('\n');
+  //     };
+
+  //     const callSyntax = () => {
+  //       // return `${name}.from({\n${objectBodySyntax()}})`;
+  //       return `new ${name}(\n${constructorBodySyntax()})`;
+  //     };
+
+  //     return `export function toVariantOf${subtypeNames}(o: ${msgpackName}): ${name} {
+  // ${checkerSyntax()};
+  // return ${callSyntax.call(this)};
+  // }`;
+  //   }
+
   /**
    * Generate conversion method 'toName' for a specific type 'name'.
    * @param name - The class name.
@@ -485,6 +523,9 @@ import { CircuitsWasm } from '../wasm/index.js';
     for (const typeInfo of Object.values(this.typeInfos)) {
       if (typeInfo.isImport) {
         imports.push(typeInfo.typeName);
+      }
+      if (typeInfo.usedInDiscriminatedVariant) {
+        imports.push(`is${typeInfo.typeName}`);
       }
       if (typeInfo.declaration) {
         outputs.push(typeInfo.declaration);

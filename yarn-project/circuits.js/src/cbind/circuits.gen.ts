@@ -32,6 +32,7 @@ import {
   PublicCallData,
   PublicKernelInputs,
   CircuitError,
+  isCircuitError,
   ProverBasePtr,
 } from './types.js';
 import { Tuple, mapTuple } from '@aztec/foundation/serialize';
@@ -1078,25 +1079,25 @@ export function fromPublicCircuitPublicInputs(o: PublicCircuitPublicInputs): Msg
   };
 }
 
-export interface MsgpackPublicCallStack {
+export interface MsgpackPublicCallStackItem {
   contract_address: Buffer;
   function_data: MsgpackFunctionData;
   public_inputs: MsgpackPublicCircuitPublicInputs;
   is_execution_request: boolean;
 }
 
-export function toPublicCallStack(o: MsgpackPublicCallStack): PublicCallStackItem {
+export function toPublicCallStackItem(o: MsgpackPublicCallStackItem): PublicCallStackItem {
   if (o.contract_address === undefined) {
-    throw new Error('Expected contract_address in PublicCallStack deserialization');
+    throw new Error('Expected contract_address in PublicCallStackItem deserialization');
   }
   if (o.function_data === undefined) {
-    throw new Error('Expected function_data in PublicCallStack deserialization');
+    throw new Error('Expected function_data in PublicCallStackItem deserialization');
   }
   if (o.public_inputs === undefined) {
-    throw new Error('Expected public_inputs in PublicCallStack deserialization');
+    throw new Error('Expected public_inputs in PublicCallStackItem deserialization');
   }
   if (o.is_execution_request === undefined) {
-    throw new Error('Expected is_execution_request in PublicCallStack deserialization');
+    throw new Error('Expected is_execution_request in PublicCallStackItem deserialization');
   }
   return new PublicCallStackItem(
     Address.fromBuffer(o.contract_address),
@@ -1106,18 +1107,18 @@ export function toPublicCallStack(o: MsgpackPublicCallStack): PublicCallStackIte
   );
 }
 
-export function fromPublicCallStack(o: PublicCallStackItem): MsgpackPublicCallStack {
+export function fromPublicCallStackItem(o: PublicCallStackItem): MsgpackPublicCallStackItem {
   if (o.contractAddress === undefined) {
-    throw new Error('Expected contractAddress in PublicCallStack serialization');
+    throw new Error('Expected contractAddress in PublicCallStackItem serialization');
   }
   if (o.functionData === undefined) {
-    throw new Error('Expected functionData in PublicCallStack serialization');
+    throw new Error('Expected functionData in PublicCallStackItem serialization');
   }
   if (o.publicInputs === undefined) {
-    throw new Error('Expected publicInputs in PublicCallStack serialization');
+    throw new Error('Expected publicInputs in PublicCallStackItem serialization');
   }
   if (o.isExecutionRequest === undefined) {
-    throw new Error('Expected isExecutionRequest in PublicCallStack serialization');
+    throw new Error('Expected isExecutionRequest in PublicCallStackItem serialization');
   }
   return {
     contract_address: o.contractAddress.toBuffer(),
@@ -1128,8 +1129,8 @@ export function fromPublicCallStack(o: PublicCallStackItem): MsgpackPublicCallSt
 }
 
 export interface MsgpackPublicCallData {
-  call_stack_item: MsgpackPublicCallStack;
-  public_call_stack_preimages: Tuple<MsgpackPublicCallStack, 4>;
+  call_stack_item: MsgpackPublicCallStackItem;
+  public_call_stack_preimages: Tuple<MsgpackPublicCallStackItem, 4>;
   proof: Buffer;
   portal_contract_address: Buffer;
   bytecode_hash: Buffer;
@@ -1152,8 +1153,8 @@ export function toPublicCallData(o: MsgpackPublicCallData): PublicCallData {
     throw new Error('Expected bytecode_hash in PublicCallData deserialization');
   }
   return new PublicCallData(
-    toPublicCallStack(o.call_stack_item),
-    mapTuple(o.public_call_stack_preimages, (v: MsgpackPublicCallStack) => toPublicCallStack(v)),
+    toPublicCallStackItem(o.call_stack_item),
+    mapTuple(o.public_call_stack_preimages, (v: MsgpackPublicCallStackItem) => toPublicCallStackItem(v)),
     Proof.fromMsgpackBuffer(o.proof),
     Fr.fromBuffer(o.portal_contract_address),
     Fr.fromBuffer(o.bytecode_hash),
@@ -1177,9 +1178,9 @@ export function fromPublicCallData(o: PublicCallData): MsgpackPublicCallData {
     throw new Error('Expected bytecodeHash in PublicCallData serialization');
   }
   return {
-    call_stack_item: fromPublicCallStack(o.callStackItem),
+    call_stack_item: fromPublicCallStackItem(o.callStackItem),
     public_call_stack_preimages: mapTuple(o.publicCallStackPreimages, (v: PublicCallStackItem) =>
-      fromPublicCallStack(v),
+      fromPublicCallStackItem(v),
     ),
     proof: o.proof.toMsgpackBuffer(),
     portal_contract_address: o.portalContractAddress.toBuffer(),
@@ -1243,107 +1244,6 @@ export function fromCircuitError(o: CircuitError): MsgpackCircuitError {
   };
 }
 
-export async function abisHashTxRequest2(
-  wasm: CircuitsWasm,
-  arg0: Address,
-  arg1: Fr,
-  arg2: Fr,
-  arg3: Fr,
-): Promise<Address> {
-  return Address.fromBuffer(
-    await callCbind(wasm, 'abis__hash_tx_request2', [
-      arg0.toBuffer(),
-      arg1.toBuffer(),
-      arg2.toBuffer(),
-      arg3.toBuffer(),
-    ]),
-  );
-}
-export async function abisComputeFunctionSelector2(
-  wasm: CircuitsWasm,
-  arg0: Address,
-  arg1: Fr,
-  arg2: Fr,
-  arg3: Fr,
-): Promise<Address> {
-  return Address.fromBuffer(
-    await callCbind(wasm, 'abis__compute_function_selector2', [
-      arg0.toBuffer(),
-      arg1.toBuffer(),
-      arg2.toBuffer(),
-      arg3.toBuffer(),
-    ]),
-  );
-}
-export async function abisHashVk2(wasm: CircuitsWasm, arg0: Address, arg1: Fr, arg2: Fr, arg3: Fr): Promise<Address> {
-  return Address.fromBuffer(
-    await callCbind(wasm, 'abis__hash_vk2', [arg0.toBuffer(), arg1.toBuffer(), arg2.toBuffer(), arg3.toBuffer()]),
-  );
-}
-export async function abisComputeFunctionLeaf2(
-  wasm: CircuitsWasm,
-  arg0: Address,
-  arg1: Fr,
-  arg2: Fr,
-  arg3: Fr,
-): Promise<Address> {
-  return Address.fromBuffer(
-    await callCbind(wasm, 'abis__compute_function_leaf2', [
-      arg0.toBuffer(),
-      arg1.toBuffer(),
-      arg2.toBuffer(),
-      arg3.toBuffer(),
-    ]),
-  );
-}
-export async function abisComputeFunctionTreeRoot2(
-  wasm: CircuitsWasm,
-  arg0: Address,
-  arg1: Fr,
-  arg2: Fr,
-  arg3: Fr,
-): Promise<Address> {
-  return Address.fromBuffer(
-    await callCbind(wasm, 'abis__compute_function_tree_root2', [
-      arg0.toBuffer(),
-      arg1.toBuffer(),
-      arg2.toBuffer(),
-      arg3.toBuffer(),
-    ]),
-  );
-}
-export async function abisComputeFunctionTree2(
-  wasm: CircuitsWasm,
-  arg0: Address,
-  arg1: Fr,
-  arg2: Fr,
-  arg3: Fr,
-): Promise<Address> {
-  return Address.fromBuffer(
-    await callCbind(wasm, 'abis__compute_function_tree2', [
-      arg0.toBuffer(),
-      arg1.toBuffer(),
-      arg2.toBuffer(),
-      arg3.toBuffer(),
-    ]),
-  );
-}
-export async function abisHashConstructor2(
-  wasm: CircuitsWasm,
-  arg0: Address,
-  arg1: Fr,
-  arg2: Fr,
-  arg3: Fr,
-): Promise<Address> {
-  return Address.fromBuffer(
-    await callCbind(wasm, 'abis__hash_constructor2', [
-      arg0.toBuffer(),
-      arg1.toBuffer(),
-      arg2.toBuffer(),
-      arg3.toBuffer(),
-    ]),
-  );
-}
 export async function abisComputeContractAddress(
   wasm: CircuitsWasm,
   arg0: Address,
@@ -1360,78 +1260,17 @@ export async function abisComputeContractAddress(
     ]),
   );
 }
-export async function abisComputeContractLeaf2(
-  wasm: CircuitsWasm,
-  arg0: Address,
-  arg1: Fr,
-  arg2: Fr,
-  arg3: Fr,
-): Promise<Address> {
-  return Address.fromBuffer(
-    await callCbind(wasm, 'abis__compute_contract_leaf2', [
-      arg0.toBuffer(),
-      arg1.toBuffer(),
-      arg2.toBuffer(),
-      arg3.toBuffer(),
-    ]),
-  );
-}
-export async function abisComputeTransactionHash2(
-  wasm: CircuitsWasm,
-  arg0: Address,
-  arg1: Fr,
-  arg2: Fr,
-  arg3: Fr,
-): Promise<Address> {
-  return Address.fromBuffer(
-    await callCbind(wasm, 'abis__compute_transaction_hash2', [
-      arg0.toBuffer(),
-      arg1.toBuffer(),
-      arg2.toBuffer(),
-      arg3.toBuffer(),
-    ]),
-  );
-}
-export async function abisComputeCallStackItemHash2(
-  wasm: CircuitsWasm,
-  arg0: Address,
-  arg1: Fr,
-  arg2: Fr,
-  arg3: Fr,
-): Promise<Address> {
-  return Address.fromBuffer(
-    await callCbind(wasm, 'abis__compute_call_stack_item_hash2', [
-      arg0.toBuffer(),
-      arg1.toBuffer(),
-      arg2.toBuffer(),
-      arg3.toBuffer(),
-    ]),
-  );
-}
-export async function abisComputeMessageSecretHash2(
-  wasm: CircuitsWasm,
-  arg0: Address,
-  arg1: Fr,
-  arg2: Fr,
-  arg3: Fr,
-): Promise<Address> {
-  return Address.fromBuffer(
-    await callCbind(wasm, 'abis__compute_message_secret_hash2', [
-      arg0.toBuffer(),
-      arg1.toBuffer(),
-      arg2.toBuffer(),
-      arg3.toBuffer(),
-    ]),
-  );
-}
 export async function privateKernelDummyPreviousKernel(wasm: CircuitsWasm): Promise<PreviousKernelData> {
   return toPreviousKernelData(await callCbind(wasm, 'private_kernel__dummy_previous_kernel', []));
 }
 export async function publicKernelSim2(
   wasm: CircuitsWasm,
   arg0: PublicKernelInputs,
-): Promise<KernelCircuitPublicInputs | CircuitError> {
-  return await callCbind(wasm, 'public_kernel__sim2', [fromPublicKernelInputs(arg0)]);
+): Promise<CircuitError | KernelCircuitPublicInputs> {
+  return ((v: MsgpackCircuitError | MsgpackKernelCircuitPublicInputs) =>
+    isCircuitError(v) ? toCircuitError(v) : toKernelCircuitPublicInputs(v))(
+    await callCbind(wasm, 'public_kernel__sim2', [fromPublicKernelInputs(arg0)]),
+  );
 }
 export async function proverProcessQueue2(wasm: CircuitsWasm, arg0: ProverBasePtr): Promise<number> {
   return await callCbind(wasm, 'prover_process_queue2', [arg0]);

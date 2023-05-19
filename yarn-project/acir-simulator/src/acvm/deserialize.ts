@@ -128,7 +128,7 @@ export function extractPublicInputs(partialWitness: ACVMWitness, acir: Buffer): 
     witnessReader.readField(),
     witnessReader.readField(),
     witnessReader.readField(),
-    frToEthAddress(witnessReader.readField()),
+    EthAddress.fromField(witnessReader.readField()),
   );
 
   return new PrivateCircuitPublicInputs(

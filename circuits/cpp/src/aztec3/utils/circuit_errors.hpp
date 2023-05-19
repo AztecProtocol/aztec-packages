@@ -96,7 +96,7 @@ template <typename T> struct CircuitResult {
     CircuitResult() : result(CircuitError{ UNINITIALIZED_RESULT, "" }) {}
     CircuitResult(const T& value) : result(value) {}
     CircuitResult(const CircuitError& value) : result(value) {}
-    std::variant<T, CircuitError> result;
+    std::variant<CircuitError, T> result;
 
     // for serialization: delegate to msgpack std::variant support
     void msgpack_pack(auto& packer) const { packer.pack(result); }
@@ -104,7 +104,7 @@ template <typename T> struct CircuitResult {
 };
 
 // help our msgpack schema compiler with this struct
-// Alias CircuitResult as std::variant<T, CircuitError>
+// Alias CircuitResult as std::variant<CircuitError, T>
 template <typename T> inline void msgpack_schema_pack(auto& packer, CircuitResult<T> const& result)
 {
     msgpack_schema_pack(packer, result.result);
