@@ -354,41 +354,6 @@ export class CbindCompiler {
     return result;
   }
 
-  //   private generateVariantConverter(msgpackName: string, variantSubtypes: TypeInfo[]): string {
-  //     const subtypeNames = variantSubtypes.map(type => type.typeName).join('');
-
-  //     const checkerSyntax = () => {
-  //       const statements: string[] = [];
-  //       for (const [key] of Object.entries(type)) {
-  //         if (key === '__typename') continue;
-  //         statements.push(
-  //           `  if (o.${key} === undefined) { throw new Error("Expected ${key} in ${typename} deserialization"); }`,
-  //         );
-  //       }
-  //       return statements.join('\n');
-  //     };
-
-  //     // TODO should we always just call constructor?
-  //     const constructorBodySyntax = () => {
-  //       const statements: string[] = [];
-  //       for (const [key, value] of Object.entries(type)) {
-  //         if (key === '__typename') continue;
-  //         statements.push(`  ${msgpackConverterExpr(this.getTypeInfo(value), `o.${key}`)},`);
-  //       }
-  //       return statements.join('\n');
-  //     };
-
-  //     const callSyntax = () => {
-  //       // return `${name}.from({\n${objectBodySyntax()}})`;
-  //       return `new ${name}(\n${constructorBodySyntax()})`;
-  //     };
-
-  //     return `export function toVariantOf${subtypeNames}(o: ${msgpackName}): ${name} {
-  // ${checkerSyntax()};
-  // return ${callSyntax.call(this)};
-  // }`;
-  //   }
-
   /**
    * Generate conversion method 'toName' for a specific type 'name'.
    * @param name - The class name.
