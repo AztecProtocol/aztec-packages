@@ -15,7 +15,7 @@ import {
 } from '../constants.js';
 import { FunctionData } from '../function_data.js';
 import { BufferReader, Tuple } from '@aztec/foundation/serialize';
-import { assertLength, makeTuple } from '../../index.js';
+import { assertMemberLength, makeTuple } from '../../index.js';
 import { EthAddress, AztecAddress, Fr } from '../index.js';
 
 /**
@@ -120,7 +120,7 @@ export class OptionallyRevealedData {
      */
     public calledFromPublicL2: boolean,
   ) {
-    assertLength(this, 'emittedEvents', EMITTED_EVENTS_LENGTH);
+    assertMemberLength(this, 'emittedEvents', EMITTED_EVENTS_LENGTH);
     // Handle circuits emitting this as an AztecAddress
     this.portalContractAddress = new EthAddress(portalContractAddress.toBuffer());
   }
@@ -320,15 +320,15 @@ export class CombinedAccumulatedData {
      */
     public publicDataReads: Tuple<PublicDataRead, typeof KERNEL_PUBLIC_DATA_READS_LENGTH>,
   ) {
-    assertLength(this, 'newCommitments', KERNEL_NEW_COMMITMENTS_LENGTH);
-    assertLength(this, 'newNullifiers', KERNEL_NEW_NULLIFIERS_LENGTH);
-    assertLength(this, 'privateCallStack', KERNEL_PRIVATE_CALL_STACK_LENGTH);
-    assertLength(this, 'publicCallStack', KERNEL_PUBLIC_CALL_STACK_LENGTH);
-    assertLength(this, 'newL2ToL1Msgs', KERNEL_NEW_L2_TO_L1_MSGS_LENGTH);
-    assertLength(this, 'newContracts', KERNEL_NEW_CONTRACTS_LENGTH);
-    assertLength(this, 'optionallyRevealedData', KERNEL_OPTIONALLY_REVEALED_DATA_LENGTH);
-    assertLength(this, 'publicDataUpdateRequests', KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH);
-    assertLength(this, 'publicDataReads', KERNEL_PUBLIC_DATA_READS_LENGTH);
+    assertMemberLength(this, 'newCommitments', KERNEL_NEW_COMMITMENTS_LENGTH);
+    assertMemberLength(this, 'newNullifiers', KERNEL_NEW_NULLIFIERS_LENGTH);
+    assertMemberLength(this, 'privateCallStack', KERNEL_PRIVATE_CALL_STACK_LENGTH);
+    assertMemberLength(this, 'publicCallStack', KERNEL_PUBLIC_CALL_STACK_LENGTH);
+    assertMemberLength(this, 'newL2ToL1Msgs', KERNEL_NEW_L2_TO_L1_MSGS_LENGTH);
+    assertMemberLength(this, 'newContracts', KERNEL_NEW_CONTRACTS_LENGTH);
+    assertMemberLength(this, 'optionallyRevealedData', KERNEL_OPTIONALLY_REVEALED_DATA_LENGTH);
+    assertMemberLength(this, 'publicDataUpdateRequests', KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH);
+    assertMemberLength(this, 'publicDataReads', KERNEL_PUBLIC_DATA_READS_LENGTH);
   }
 
   toBuffer() {

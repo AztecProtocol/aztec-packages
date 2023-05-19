@@ -1,5 +1,5 @@
 import { Fr } from '@aztec/foundation/fields';
-import { assertLength, range } from '../utils/jsUtils.js';
+import { assertMemberLength, range } from '../utils/jsUtils.js';
 import { serializeToBuffer } from '../utils/serialize.js';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { Tuple } from '@aztec/foundation/serialize';
@@ -22,7 +22,7 @@ export class MembershipWitness<N extends number> {
      */
     public siblingPath: Tuple<Fr, N>,
   ) {
-    assertLength(this, 'siblingPath', pathSize);
+    assertMemberLength(this, 'siblingPath', pathSize);
   }
 
   toBuffer() {

@@ -31,7 +31,7 @@ export function makeTuple<T, N extends number>(length: N, fn: (i: number) => T, 
  * @param member - A member string.
  * @param length - The length.
  */
-export function assertLength<
+export function assertMemberLength<
   F extends string,
   T extends {
     [f in F]: {

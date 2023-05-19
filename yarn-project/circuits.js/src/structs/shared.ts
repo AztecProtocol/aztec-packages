@@ -1,4 +1,4 @@
-import { assertLength } from '../utils/jsUtils.js';
+import { assertMemberLength } from '../utils/jsUtils.js';
 import { Bufferable, serializeToBuffer } from '../utils/serialize.js';
 import { randomBytes } from '@aztec/foundation/crypto';
 
@@ -46,9 +46,9 @@ export class EcdsaSignature {
      */
     public v: Buffer,
   ) {
-    assertLength(this, 'r', 32);
-    assertLength(this, 's', 32);
-    assertLength(this, 'v', 1);
+    assertMemberLength(this, 'r', 32);
+    assertMemberLength(this, 's', 32);
+    assertMemberLength(this, 'v', 1);
   }
 
   toBuffer() {

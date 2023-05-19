@@ -41,7 +41,7 @@ import { createDebugLogger } from '@aztec/foundation/log';
 import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
 import { toFriendlyJSON } from '@aztec/circuits.js/utils';
 import { AllowedTreeNames, OutputWithTreeSnapshot } from './types.js';
-import { assertTuple } from '@aztec/foundation/serialize';
+import { assertLength } from '@aztec/foundation/serialize';
 
 const frToBigInt = (fr: Fr) => toBigIntBE(fr.toBuffer());
 const bigintToFr = (num: bigint) => new Fr(num);
@@ -459,7 +459,7 @@ export class SoloBlockBuilder implements BlockBuilder {
 
       // MembershipWitness for a VK tree to be implemented in the future
       FUTURE_NUM,
-      assertTuple(Array(VK_TREE_HEIGHT).fill(FUTURE_FR), VK_TREE_HEIGHT),
+      assertLength(Array(VK_TREE_HEIGHT).fill(FUTURE_FR), VK_TREE_HEIGHT),
     );
   }
 
@@ -481,7 +481,7 @@ export class SoloBlockBuilder implements BlockBuilder {
     return new MembershipWitness(
       height,
       index,
-      assertTuple(
+      assertLength(
         path.data.map(b => Fr.fromBuffer(b)),
         height,
       ),
@@ -554,7 +554,7 @@ export class SoloBlockBuilder implements BlockBuilder {
       witness: new MembershipWitness(
         NULLIFIER_TREE_HEIGHT,
         BigInt(prevValueIndex.index),
-        assertTuple(
+        assertLength(
           prevValueSiblingPath.data.map(b => Fr.fromBuffer(b)),
           NULLIFIER_TREE_HEIGHT,
         ),
@@ -579,7 +579,7 @@ export class SoloBlockBuilder implements BlockBuilder {
       const witness = new MembershipWitness(
         PUBLIC_DATA_TREE_HEIGHT,
         index,
-        assertTuple(path.data.map(Fr.fromBuffer), PUBLIC_DATA_TREE_HEIGHT),
+        assertLength(path.data.map(Fr.fromBuffer), PUBLIC_DATA_TREE_HEIGHT),
       );
       newPublicDataUpdateRequestsSiblingPaths.push(witness);
     }
@@ -594,7 +594,7 @@ export class SoloBlockBuilder implements BlockBuilder {
       const witness = new MembershipWitness(
         PUBLIC_DATA_TREE_HEIGHT,
         index,
-        assertTuple(path.data.map(Fr.fromBuffer), PUBLIC_DATA_TREE_HEIGHT),
+        assertLength(path.data.map(Fr.fromBuffer), PUBLIC_DATA_TREE_HEIGHT),
       );
       newPublicDataReadsSiblingPaths.push(witness);
     }
@@ -667,7 +667,7 @@ export class SoloBlockBuilder implements BlockBuilder {
     // Extract witness objects from returned data
     const lowNullifierMembershipWitnesses: MembershipWitness<typeof NULLIFIER_TREE_HEIGHT>[] =
       nullifierWitnessLeaves.map(l =>
-        MembershipWitness.fromBufferArray(l.index, assertTuple(l.siblingPath.data, NULLIFIER_TREE_HEIGHT)),
+        MembershipWitness.fromBufferArray(l.index, assertLength(l.siblingPath.data, NULLIFIER_TREE_HEIGHT)),
       );
 
     return BaseRollupInputs.from({

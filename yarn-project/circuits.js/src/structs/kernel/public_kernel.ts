@@ -1,5 +1,5 @@
 import { Fr } from '@aztec/foundation/fields';
-import { assertLength } from '../../utils/jsUtils.js';
+import { assertMemberLength } from '../../utils/jsUtils.js';
 import { serializeToBuffer } from '../../utils/serialize.js';
 import { PublicCallStackItem } from '../call_stack_item.js';
 import {
@@ -86,8 +86,8 @@ export class WitnessedPublicCallData {
      */
     public readonly publicDataTreeRoot: Fr,
   ) {
-    assertLength(this, 'updateRequestsHashPaths', KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH);
-    assertLength(this, 'readsHashPaths', KERNEL_PUBLIC_DATA_READS_LENGTH);
+    assertMemberLength(this, 'updateRequestsHashPaths', KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH);
+    assertMemberLength(this, 'readsHashPaths', KERNEL_PUBLIC_DATA_READS_LENGTH);
   }
 
   toBuffer() {
@@ -126,7 +126,7 @@ export class PublicCallData {
      */
     public readonly bytecodeHash: Fr,
   ) {
-    assertLength(this, 'publicCallStackPreimages', PUBLIC_CALL_STACK_LENGTH);
+    assertMemberLength(this, 'publicCallStackPreimages', PUBLIC_CALL_STACK_LENGTH);
   }
 
   toBuffer() {
