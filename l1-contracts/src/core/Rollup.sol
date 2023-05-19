@@ -61,10 +61,12 @@ contract Rollup is Decoder {
     rollupStateHash = newStateHash;
 
     // @todo (issue #605) handle fee collector
-    IInbox inbox = REGISTRY.getInbox();
+    // @todo: (issue #624) handle different versions
+    IInbox inbox = REGISTRY.getLatestInbox();
     inbox.batchConsume(l1ToL2Msgs, msg.sender);
 
-    IOutbox outbox = REGISTRY.getOutbox();
+    // @todo: (issue #624) handle different versions
+    IOutbox outbox = REGISTRY.getLatestOutbox();
     outbox.sendL1Messages(l2ToL1Msgs);
 
     emit L2BlockProcessed(l2BlockNumber);

@@ -14,28 +14,24 @@ import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
  * @notice Keeps track of important information for L1<>L2 communication.
  */
 contract Registry is IRegistry {
-  // TODO(rahul) - https://github.com/AztecProtocol/aztec-packages/issues/526
-  // Need to create a snashot of addresses per version!
+  uint256 public latestVersionNumber;
+  mapping(uint256 version => DataStructures.Snapshot snapshot) public snapshots;
 
-  DataStructures.L1L2Addresses public addresses;
-
-  function setAddresses(address _rollup, address _inbox, address _outbox) public {
-    addresses = DataStructures.L1L2Addresses(_rollup, _inbox, _outbox);
+  // todo: this function has to be permissioned.
+  function upgrade(address _rollup, address _inbox, address _outbox) public {
+    latestVersionNumber++;
+    snapshots[latestVersionNumber] = DataStructures.Snapshot(_rollup, _inbox, _outbox, block.number);
   }
 
-  function getL1L2Addresses() external view override returns (DataStructures.L1L2Addresses memory) {
-    return addresses;
+  function getLatestRollup() external view override returns (IRollup) {
+    return IRollup(snapshots[latestVersionNumber].rollup);
   }
 
-  function getRollup() external view override returns (IRollup) {
-    return IRollup(addresses.rollup);
+  function getLatestInbox() external view override returns (IInbox) {
+    return IInbox(snapshots[latestVersionNumber].inbox);
   }
 
-  function getInbox() external view override returns (IInbox) {
-    return IInbox(addresses.inbox);
-  }
-
-  function getOutbox() external view override returns (IOutbox) {
-    return IOutbox(addresses.outbox);
+  function getLatestOutbox() external view override returns (IOutbox) {
+    return IOutbox(snapshots[latestVersionNumber].outbox);
   }
 }

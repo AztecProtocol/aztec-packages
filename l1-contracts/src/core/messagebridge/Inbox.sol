@@ -24,7 +24,7 @@ contract Inbox is IInbox {
   mapping(address account => uint256 balance) public feesAccrued;
 
   modifier onlyRollup() {
-    if (msg.sender != address(REGISTRY.getRollup())) revert Errors.Inbox__Unauthorized();
+    if (msg.sender != address(REGISTRY.getLatestRollup())) revert Errors.Inbox__Unauthorized();
     _;
   }
 

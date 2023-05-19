@@ -24,7 +24,7 @@ contract Outbox is IOutbox {
   mapping(bytes32 entryKey => DataStructures.Entry entry) internal entries;
 
   modifier onlyRollup() {
-    if (msg.sender != address(REGISTRY.getRollup())) revert Errors.Outbox__Unauthorized();
+    if (msg.sender != address(REGISTRY.getLatestRollup())) revert Errors.Outbox__Unauthorized();
     _;
   }
 
