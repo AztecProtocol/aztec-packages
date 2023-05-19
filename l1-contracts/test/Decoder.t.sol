@@ -132,4 +132,22 @@ contract DecoderTest is Test {
     assertEq(bytesAdvanced, emptyKernelData.length, "Advanced by an incorrect number of bytes");
     assertEq(logsHash, bytes32(0), "Logs hash should be 0 when there are no logs");
   }
+
+  function testComputeKernelLogs1Iteration() public {
+    // || K_LOGS_LEN | I1_LOGS_LEN | I1_LOGS ||
+    // K_LOGS_LEN = 4 + 8 = 12 (hex"0000000c")
+    // I1_LOGS_LEN = 8 (hex"00000008")
+    // I1_LOGS = 8 random bytes (hex"aafdc7aa93e78a70")
+    bytes memory emptyKernelData = hex"0000000c00000008aafdc7aa93e78a70";
+    (bytes32 logsHash, uint256 bytesAdvanced) = helper.computeKernelLogsHash(emptyKernelData);
+
+    // Note: First 32 bytes are 0 because those correspond to the hash of previous iteration and there was no previous
+    //       iteration.
+    bytes32 referenceLogsHash = keccak256(
+      hex"0000000000000000000000000000000000000000000000000000000000000000aafdc7aa93e78a70"
+    );
+
+    assertEq(bytesAdvanced, emptyKernelData.length, "Advanced by an incorrect number of bytes");
+    assertEq(logsHash, referenceLogsHash, "Logs hash should be 0 when there are no logs");
+  }
 }
