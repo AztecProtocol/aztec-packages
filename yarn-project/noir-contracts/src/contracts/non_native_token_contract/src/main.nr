@@ -48,9 +48,6 @@ contract NonNativeToken {
         let mut context = PrivateFunctionContext::new();
         context.args = context.args.push_array([amount, owner.x, owner.y, msg_key, secret]);
 
-        // Get the l1 message from an oracle call
-        let (updated_context, msg) = context.consume_l1_to_l2_message(inputs, msg_key, secret);
-        context = updated_context;
 
         let mut hash_bytes: [u8; 68] = [0; 68];
         let amount_bytes = amount.to_be_bytes(32);
@@ -198,7 +195,10 @@ contract NonNativeToken {
 
         // Abuse that a % p + b % p = (a + b) % p and that low < p
         let content_hash = low + high * v;
-        constrain content_hash == msg.message.content_hash;
+
+        // Get the l1 message from an oracle call
+        let updated_context = context.consume_l1_to_l2_message(inputs, msg_key, content_hash, secret);
+        context = updated_context;
 
         let owner_balance = balances.at(owner.x);
         let note = Note::new(amount, owner);
