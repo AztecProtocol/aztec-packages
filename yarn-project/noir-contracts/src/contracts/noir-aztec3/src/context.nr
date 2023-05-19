@@ -10,7 +10,7 @@ use crate::messaging::l1_to_l2_message_getter_data::make_l1_to_l2_message_getter
 
 // When finished, one can call .finish() to convert back to the abi
 struct PrivateFunctionContext {
-    inputs: abi::Inputs,
+    // inputs: abi::Inputs,
     args : BoundedVec<Field, abi::MAX_ARGS>,
     return_values : BoundedVec<Field, abi::MAX_RETURN_VALUES>,
     logs : BoundedVec<Field, abi::MAX_LOGS>,
@@ -24,9 +24,10 @@ struct PrivateFunctionContext {
 }
 
 impl PrivateFunctionContext {
-    fn new(inputs: abi::Inputs) -> PrivateFunctionContext {
+    // fn new(inputs: abi::Inputs) -> PrivateFunctionContext {
+    fn new() -> PrivateFunctionContext {
         PrivateFunctionContext {
-            inputs: inputs,
+            // inputs: inputs,
             args: BoundedVec::new(0),
             return_values: BoundedVec::new(0),
             logs: BoundedVec::new(0),
@@ -41,9 +42,9 @@ impl PrivateFunctionContext {
     }
 
     // When noir uses user-defined serialization of fields, we can return public inputs instead
-    fn finish(self) -> [Field; abi::PUBLIC_INPUTS_LENGTH] {
+    fn finish(self, inputs: abi::Inputs) -> [Field; abi::PUBLIC_INPUTS_LENGTH] {
         let priv_circuit_pub_inputs = abi::PrivateCircuitPublicInputs {
-            call_context: self.inputs.call_context,
+            call_context: inputs.call_context,
             args: self.args.storage,
             return_values: self.return_values.storage,
             emitted_events: self.logs.storage,
@@ -52,11 +53,11 @@ impl PrivateFunctionContext {
             private_call_stack: self.private_call_stack.storage,
             public_call_stack: self.public_call_stack.storage,
             new_l2_to_l1_msgs: self.new_l2_to_l1_msgs.storage,
-            historic_private_data_tree_root: self.inputs.old_private_data_tree_root,
-            historic_private_nullifier_tree_root: self.inputs.old_nullifier_tree_root,
-            historic_contract_tree_root: self.inputs.old_contract_tree_root,
-            historic_l1_to_l2_messages_tree_root: self.inputs.old_l1_to_l2_messages_tree_root,
-            contract_deployment_data: self.inputs.contract_deployment_data,
+            historic_private_data_tree_root: inputs.old_private_data_tree_root,
+            historic_private_nullifier_tree_root: inputs.old_nullifier_tree_root,
+            historic_contract_tree_root: inputs.old_contract_tree_root,
+            historic_l1_to_l2_messages_tree_root: inputs.old_l1_to_l2_messages_tree_root,
+            contract_deployment_data: inputs.contract_deployment_data,
         };
         priv_circuit_pub_inputs.serialize()
     }
@@ -76,19 +77,20 @@ impl PrivateFunctionContext {
         self
     }
 
-    fn get_l1_to_l2_message(self: Self, msg_key: Field, secret: Field) -> L1ToL2MessageGetterData {
+    // Inputs must be temporarily passed in to prevent too many unknowns
+    fn get_l1_to_l2_message(_self: Self, inputs: abi::Inputs, msg_key: Field, secret: Field) -> L1ToL2MessageGetterData {
         let returned_message = get_l1_to_l2_message_call(msg_key);
         let l1_to_l2_message_data = make_l1_to_l2_message_getter_data(returned_message, 0, secret);
 
         // Check tree roots against the inputs 
-        constrain l1_to_l2_message_data.root == self.inputs.old_l1_to_l2_messages_tree_root;
+        constrain l1_to_l2_message_data.root == inputs.old_l1_to_l2_messages_tree_root;
 
         // Validate the message secret is correct
         l1_to_l2_message_data.message.validate_message_secret();
 
         // Validate this is the target contract
         // TODO: this doesnt seem right in the delegate call context
-        constrain l1_to_l2_message_data.message.recipient == self.inputs.call_context.storage_contract_address;
+        constrain l1_to_l2_message_data.message.recipient == inputs.call_context.storage_contract_address;
 
         l1_to_l2_message_data
     }

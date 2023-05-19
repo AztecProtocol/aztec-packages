@@ -21,14 +21,14 @@ contract RollupNativeAsset {
         initial_supply: pub Field, 
         owner: pub Point,
     ) -> pub [Field; dep::aztec3::abi::PUBLIC_INPUTS_LENGTH] {
-        let mut context = PrivateFunctionContext::new(inputs);
+        let mut context = PrivateFunctionContext::new();
         context.args = context.args.push_array([initial_supply, owner.x, owner.y]);
 
         let owner_balance = balances.at(owner.x);
         let note = Note::new(initial_supply, owner);
 
         owner_balance.insert(context, note)
-            .finish()
+            .finish(inputs)
     }
 
     fn mint(
@@ -39,14 +39,14 @@ contract RollupNativeAsset {
         amount: pub Field, 
         owner: pub Point,
     ) -> pub [Field; dep::aztec3::abi::PUBLIC_INPUTS_LENGTH] {
-        let mut context = PrivateFunctionContext::new(inputs);
+        let mut context = PrivateFunctionContext::new();
         context.args = context.args.push_array([amount, owner.x, owner.y]);
 
         let owner_balance = balances.at(owner.x);
         let note = Note::new(amount, owner);
 
         owner_balance.insert(context, note)
-            .finish()
+            .finish(inputs)
     }
 
     fn transfer(
@@ -58,7 +58,7 @@ contract RollupNativeAsset {
         sender: pub Point, 
         recipient: pub Point,
     ) -> pub [Field; dep::aztec3::abi::PUBLIC_INPUTS_LENGTH] {
-        let mut initialContext = PrivateFunctionContext::new(inputs);
+        let mut initialContext = PrivateFunctionContext::new();
         initialContext.args = initialContext.args.push_array([amount, sender.x, sender.y, recipient.x, recipient.y]);
 
         let sender_balance = balances.at(sender.x);
@@ -86,7 +86,7 @@ contract RollupNativeAsset {
         context = recipient_balance.insert(context, recipient_note);
         context = sender_balance.insert(context, change_note);
 
-        context.finish()
+        context.finish(inputs)
     }
 
     fn withdraw(
@@ -98,7 +98,7 @@ contract RollupNativeAsset {
         sender: pub Point, 
         recipient: pub Field, // ethereum address in the field
     ) -> pub [Field; dep::aztec3::abi::PUBLIC_INPUTS_LENGTH] {
-        let mut initialContext = PrivateFunctionContext::new(inputs);
+        let mut initialContext = PrivateFunctionContext::new();
         initialContext.args = initialContext.args.push_array([amount, sender.x, sender.y, recipient]);
 
         let sender_balance = balances.at(sender.x);
@@ -273,7 +273,7 @@ contract RollupNativeAsset {
 
         context = context.message_portal(content);
 
-        context.finish()
+        context.finish(inputs)
     }
 
     /// ABI getBalance type "unconstrained"

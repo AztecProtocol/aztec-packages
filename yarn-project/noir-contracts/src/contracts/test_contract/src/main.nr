@@ -6,6 +6,6 @@ contract Test {
     fn constructor(
         inputs: pub Inputs,
     ) -> pub [Field; dep::aztec3::abi::PUBLIC_INPUTS_LENGTH] {
-        PrivateFunctionContext::new(inputs).finish()
+        PrivateFunctionContext::new().finish(inputs)
     }
 }

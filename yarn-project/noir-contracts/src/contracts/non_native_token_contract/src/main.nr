@@ -21,14 +21,14 @@ contract NonNativeToken {
         initial_supply: pub Field, 
         owner: pub Point,
     ) -> pub [Field; dep::aztec3::abi::PUBLIC_INPUTS_LENGTH] {
-        let mut context = PrivateFunctionContext::new(inputs);
+        let mut context = PrivateFunctionContext::new();
         context.args = context.args.push_array([initial_supply, owner.x, owner.y]);
 
         let owner_balance = balances.at(owner.x);
         let note = Note::new(initial_supply, owner);
 
         owner_balance.insert(context, note)
-            .finish()
+            .finish(inputs)
     }
 
     // Mint
@@ -45,11 +45,11 @@ contract NonNativeToken {
         msg_key: pub Field,
         secret: pub Field,
     ) -> pub [Field; dep::aztec3::abi::PUBLIC_INPUTS_LENGTH] {
-        let mut context = PrivateFunctionContext::new(inputs);
+        let mut context = PrivateFunctionContext::new();
         context.args = context.args.push_array([amount, owner.x, owner.y, msg_key, secret]);
 
         // Get the l1 message from an oracle call
-        let msg = context.get_l1_to_l2_message(msg_key, secret);
+        let msg = context.get_l1_to_l2_message(inputs, msg_key, secret);
 
         let mut hash_bytes: [u8; 68] = [0; 68];
         let amount_bytes = amount.to_be_bytes(32);
@@ -205,7 +205,7 @@ contract NonNativeToken {
         let note = Note::new(amount, owner);
 
         owner_balance.insert(context, note)
-            .finish()
+            .finish(inputs)
     }
 
     fn transfer(
@@ -217,7 +217,7 @@ contract NonNativeToken {
         sender: pub Point, 
         recipient: pub Point,
     ) -> pub [Field; dep::aztec3::abi::PUBLIC_INPUTS_LENGTH] {
-        let mut initialContext = PrivateFunctionContext::new(inputs);
+        let mut initialContext = PrivateFunctionContext::new();
         initialContext.args = initialContext.args.push_array([amount, sender.x, sender.y, recipient.x, recipient.y]);
 
         let sender_balance = balances.at(sender.x);
@@ -245,7 +245,7 @@ contract NonNativeToken {
         context = recipient_balance.insert(context, recipient_note);
         context = sender_balance.insert(context, change_note);
 
-        context.finish()
+        context.finish(inputs)
     } 
 
     /// ABI getBalance type "unconstrained"
