@@ -505,7 +505,7 @@ export async function makePublicKernelInputsWithEmptyOutput(seed = 1): Promise<P
   //Set the call stack item for this circuit iteration at the top of the call stack
   const wasm = await CircuitsWasm.get();
   publicKernelInputs.previousKernel.publicInputs.end.publicCallStack[KERNEL_PUBLIC_CALL_STACK_LENGTH - 1] =
-    computeCallStackItemHash(wasm, publicKernelInputs.publicCallData.callStackItem);
+    computeCallStackItemHash(wasm, publicKernelInputs.publicCall.callStackItem);
   return publicKernelInputs;
 }
 

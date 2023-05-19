@@ -126,7 +126,6 @@ template <typename T> static const char* as_serialized_output(uint8_t const* inp
  * @param tx_request_buf buffer of bytes containing all data needed to construct a TX request via `read()`
  * @param output buffer that will contain the output which will be the hashed `TxRequest`
  */
-CBIND(abis__hash_tx_request2, compute_contract_address<NT>);
 WASM_EXPORT void abis__hash_tx_request(uint8_t const* tx_request_buf, uint8_t* output)
 {
     TxRequest<NT> tx_request;
@@ -155,7 +154,6 @@ WASM_EXPORT void abis__hash_tx_request(uint8_t const* tx_request_buf, uint8_t* o
  * @param func_sig_cstr c-string representing the function signature string like "transfer(uint256,address)"
  * @param output buffer that will contain the output which will be 4-byte function selector
  */
-CBIND(abis__compute_function_selector2, compute_contract_address<NT>);
 WASM_EXPORT void abis__compute_function_selector(char const* func_sig_cstr, uint8_t* output)
 {
     // hash the function signature using keccak256
@@ -176,7 +174,6 @@ WASM_EXPORT void abis__compute_function_selector(char const* func_sig_cstr, uint
  * @param vk_data_buf buffer of bytes representing serialized verification_key_data
  * @param output buffer that will contain the output. The serialized vk_hash.
  */
-CBIND(abis__hash_vk2, compute_contract_address<NT>);
 WASM_EXPORT void abis__hash_vk(uint8_t const* vk_data_buf, uint8_t* output)
 {
     NT::VKData vk_data;
@@ -197,7 +194,6 @@ WASM_EXPORT void abis__hash_vk(uint8_t const* vk_data_buf, uint8_t* output)
  * contents (`function_selector`, `is_private`, `vk_hash`, and `acir_hash`)
  * @param output buffer that will contain the output. The hashed and serialized function leaf.
  */
-CBIND(abis__compute_function_leaf2, compute_contract_address<NT>);
 WASM_EXPORT void abis__compute_function_leaf(uint8_t const* function_leaf_preimage_buf, uint8_t* output)
 {
     FunctionLeafPreimage<NT> leaf_preimage;
@@ -218,7 +214,6 @@ WASM_EXPORT void abis__compute_function_leaf(uint8_t const* function_leaf_preima
  * nonzero function leaves where each leaf is an `fr` starting at the left of the tree
  * @param root_out buffer that will contain the serialized function tree root `fr`.
  */
-CBIND(abis__compute_function_tree_root2, compute_contract_address<NT>);
 WASM_EXPORT void abis__compute_function_tree_root(uint8_t const* function_leaves_in, uint8_t* root_out)
 {
     std::vector<NT::fr> leaves;
@@ -248,7 +243,6 @@ WASM_EXPORT void abis__compute_function_tree_root(uint8_t const* function_leaves
  * @param tree_nodes_out buffer that will contain the serialized function tree.
  * The 0th node is the bottom leftmost leaf. The last entry is the root.
  */
-CBIND(abis__compute_function_tree2, compute_contract_address<NT>);
 WASM_EXPORT void abis__compute_function_tree(uint8_t const* function_leaves_in, uint8_t* tree_nodes_out)
 {
     std::vector<NT::fr> leaves;
@@ -277,7 +271,6 @@ WASM_EXPORT void abis__compute_function_tree(uint8_t const* function_leaves_in, 
  * @param constructor_vk_hash_buf constructor vk hashed to a field but as a buffer of bytes
  * @param output buffer that will contain the output. The serialized constructor_vk_hash.
  */
-CBIND(abis__hash_constructor2, compute_contract_address<NT>);
 WASM_EXPORT void abis__hash_constructor(uint8_t const* function_data_buf,
                                         uint8_t const* args_buf,
                                         uint8_t const* constructor_vk_hash_buf,
@@ -310,7 +303,6 @@ CBIND(abis__compute_contract_address, compute_contract_address<NT>);
  * contents (`contract_address`, `portal_contract_address`, `function_tree_root`)
  * @param output buffer that will contain the output. The hashed and serialized contract leaf.
  */
-CBIND(abis__compute_contract_leaf2, compute_contract_address<NT>);
 WASM_EXPORT void abis__compute_contract_leaf(uint8_t const* contract_leaf_preimage_buf, uint8_t* output)
 {
     NewContractData<NT> leaf_preimage;
@@ -331,7 +323,6 @@ WASM_EXPORT void abis__compute_contract_leaf(uint8_t const* contract_leaf_preima
  * @param signed_tx_request_buf a buffer of bytes representing the signed tx request
  * @param output buffer that will contain the output. The hashed and serialized signed tx request.
  */
-CBIND(abis__compute_transaction_hash2, compute_contract_address<NT>);
 WASM_EXPORT void abis__compute_transaction_hash(uint8_t const* signed_tx_request_buf, uint8_t* output)
 {
     SignedTxRequest<NT> signed_tx_request_preimage;
@@ -340,7 +331,6 @@ WASM_EXPORT void abis__compute_transaction_hash(uint8_t const* signed_tx_request
     NT::fr::serialize_to_buffer(to_write, output);
 }
 
-CBIND(abis__compute_call_stack_item_hash2, compute_contract_address<NT>);
 WASM_EXPORT void abis__compute_call_stack_item_hash(uint8_t const* call_stack_item_buf, uint8_t* output)
 {
     CallStackItem<NT, PublicTypes> call_stack_item;
@@ -354,7 +344,6 @@ WASM_EXPORT void abis__compute_call_stack_item_hash(uint8_t const* call_stack_it
  * @param secret
  * @param output
  */
-CBIND(abis__compute_message_secret_hash2, compute_contract_address<NT>);
 WASM_EXPORT void abis__compute_message_secret_hash(uint8_t const* secret, uint8_t* output)
 {
     NT::fr message_secret;

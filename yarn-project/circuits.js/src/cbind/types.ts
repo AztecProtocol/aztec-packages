@@ -23,6 +23,14 @@ export {
   KernelCircuitPublicInputs,
   Proof,
   PreviousKernelData,
+  CallContext,
+  ContractStorageUpdateRequest,
+  ContractStorageRead,
+  PublicCircuitPublicInputs,
+  PublicCallStackItem,
+  PublicCallData,
+  PublicKernelInputs,
+  CircuitError,
 } from '../structs/index.js';
 
 /**
