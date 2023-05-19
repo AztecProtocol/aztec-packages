@@ -32,6 +32,7 @@
     "rootDir": "./src"
   },
   "dependencies": {
+    "@aztec/environment": "workspace:^",
     "@aztec/acir-simulator": "workspace:^",
     "@aztec/circuits.js": "workspace:^",
     "@aztec/foundation": "workspace:^",

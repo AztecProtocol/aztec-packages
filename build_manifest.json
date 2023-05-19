@@ -146,6 +146,13 @@
       "world-state"
     ]
   },
+  "environment": {
+    "buildDir": "yarn-project",
+    "projectDir": "yarn-project/environment",
+    "dockerfile": "environment/Dockerfile",
+    "rebuildPatterns": ["^yarn-project/environment/"],
+    "dependencies": []
+  },
   "foundation": {
     "buildDir": "yarn-project",
     "projectDir": "yarn-project/foundation",

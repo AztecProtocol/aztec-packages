@@ -1,4 +1,5 @@
 import { Chain } from 'viem';
+import { AztecChain } from './aztec_chain.js';
 
 export const createTestnetChain = (apiKey: string) => {
   const chain: Chain = {
@@ -19,5 +20,8 @@ export const createTestnetChain = (apiKey: string) => {
       },
     },
   };
-  return chain;
+  return {
+    chainInfo: chain,
+    rpcUrl: chain.rpcUrls.default.http[0],
+  } as AztecChain;
 };

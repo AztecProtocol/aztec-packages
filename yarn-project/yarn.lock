@@ -121,6 +121,7 @@ __metadata:
   dependencies:
     "@aztec/aztec-node": "workspace:^"
     "@aztec/aztec.js": "workspace:^"
+    "@aztec/environment": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/l1-artifacts": "workspace:^"
     "@aztec/noir-contracts": "workspace:^"
@@ -309,6 +310,20 @@ __metadata:
     levelup: ^5.1.1
     lodash.times: ^4.3.2
     ts-jest: ^29.1.0
+    ts-node: ^10.9.1
+    tslib: ^2.4.0
+    typescript: ^5.0.4
+    viem: ^0.3.13
+  languageName: unknown
+  linkType: soft
+
+"@aztec/environment@workspace:^, @aztec/environment@workspace:environment":
+  version: 0.0.0-use.local
+  resolution: "@aztec/environment@workspace:environment"
+  dependencies:
+    "@rushstack/eslint-patch": ^1.1.4
+    "@types/node": ^18.14.6
+    dotenv: ^16.0.3
     ts-node: ^10.9.1
     tslib: ^2.4.0
     typescript: ^5.0.4

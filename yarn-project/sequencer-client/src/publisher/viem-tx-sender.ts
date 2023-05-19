@@ -18,28 +18,7 @@ import { RollupAbi, UnverifiedDataEmitterAbi } from '@aztec/l1-artifacts';
 import { PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts';
 import * as chains from 'viem/chains';
 import { createDebugLogger } from '@aztec/foundation/log';
-
-export const createTestnetChain = (apiKey: string) => {
-  const chain: chains.Chain = {
-    id: 677868,
-    name: 'testnet',
-    network: 'aztec',
-    nativeCurrency: {
-      name: 'Ether',
-      symbol: 'ETH',
-      decimals: 18,
-    },
-    rpcUrls: {
-      default: {
-        http: [`https://aztec-connect-testnet-eth-host.aztec.network:8545/${apiKey}`],
-      },
-      public: {
-        http: [`https://aztec-connect-testnet-eth-host.aztec.network:8545/${apiKey}`],
-      },
-    },
-  };
-  return chain;
-};
+import { createAztecChain } from '@aztec/environment';
 
 /**
  * Pushes transactions to the L1 rollup contract using viem.
@@ -62,24 +41,24 @@ export class ViemTxSender implements L1PublisherTxSender {
 
   constructor(config: TxSenderConfig) {
     const {
-      rpcUrl: configRpcUrl,
+      rpcUrl,
+      apiKey,
       publisherPrivateKey,
       rollupContract: rollupContractAddress,
       unverifiedDataEmitterContract: unverifiedDataEmitterContractAddress,
     } = config;
-    const chain = configRpcUrl === 'testnet' ? createTestnetChain(config.apiKey) : chains.localhost;
-    const rpcUrl = configRpcUrl === 'testnet' ? chain.rpcUrls.default.http[0] : config.rpcUrl;
+    const chain = createAztecChain(rpcUrl, apiKey);
     this.account = privateKeyToAccount(`0x${publisherPrivateKey.toString('hex')}`);
     //const chain = this.getChain(chainId);
     const walletClient = createWalletClient({
       account: this.account,
-      chain,
-      transport: http(rpcUrl),
+      chain: chain.chainInfo,
+      transport: http(chain.rpcUrl),
     });
 
     this.publicClient = createPublicClient({
-      chain: chain,
-      transport: http(rpcUrl),
+      chain: chain.chainInfo,
+      transport: http(chain.rpcUrl),
     });
 
     this.rollupContract = getContract({

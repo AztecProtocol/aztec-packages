@@ -20,6 +20,9 @@
     },
     {
       "path": "../noir-contracts"
+    },
+    {
+      "path": "../environment"
     }
   ],
   "include": ["src"],

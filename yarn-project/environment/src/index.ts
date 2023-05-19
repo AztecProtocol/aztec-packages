@@ -1,0 +1,23 @@
+import { foundry } from 'viem/chains';
+import { AztecChain } from './aztec_chain.js';
+import { createTestnetChain } from './testnet.js';
+
+export * from './testnet.js';
+
+/**
+ * Helper function to create an instance of Aztec Chain from an rpc url and api key.
+ * @param rpcUrl - The rpc url of the chain or a chain identifer (e.g. 'testnet')
+ * @param apiKey - An optional apikey for the chain client.
+ */
+export function createAztecChain(rpcUrl: string, apiKey?: string) {
+  if (rpcUrl === 'testnet') {
+    if (apiKey === undefined || apiKey === '') {
+      throw new Error('API Key must be provided for aztec testnet');
+    }
+    return createTestnetChain(apiKey!);
+  }
+  return {
+    chainInfo: foundry,
+    rpcUrl,
+  } as AztecChain;
+}

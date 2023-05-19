@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 import { Command } from 'commander';
-import { createTestnetChain, deployL1Contracts } from './deploy_l1_contracts.js';
+import { deployL1Contracts } from './deploy_l1_contracts.js';
 import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 import { createDebugLogger } from '@aztec/foundation/log';
+import { createAztecChain } from '@aztec/environment';
 import { deployL2Contract } from './deploy_l2_contract.js';
-import { Chain, foundry } from 'viem/chains';
 
 const logger = createDebugLogger('aztec:cli');
 
@@ -12,8 +12,8 @@ const program = new Command();
 
 async function deployRollupContracts(rpcUrl: string, apiKey: string, privateKey: string, mnemonic: string) {
   const account = privateKey ? privateKeyToAccount(`0x${privateKey}`) : mnemonicToAccount(mnemonic!);
-  const chain = rpcUrl === 'testnet' ? createTestnetChain(apiKey) : (foundry as Chain);
-  await deployL1Contracts(rpcUrl === 'testnet' ? chain.rpcUrls.public.http[0] : rpcUrl, account, chain, logger);
+  const chain = createAztecChain(rpcUrl, apiKey);
+  await deployL1Contracts(chain.rpcUrl, account, chain.chainInfo, logger);
 }
 
 /**

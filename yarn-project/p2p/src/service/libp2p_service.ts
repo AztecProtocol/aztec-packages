@@ -35,6 +35,7 @@ export class LibP2PService implements P2PService {
   private jobQueue: SerialQueue = new SerialQueue();
   private timeout: NodeJS.Timer | undefined = undefined;
   private knownTxLookup: KnownTxLookup = new KnownTxLookup();
+  private started = false;
   constructor(
     private config: P2PConfig,
     private node: Libp2p,
@@ -48,6 +49,9 @@ export class LibP2PService implements P2PService {
    * @returns An empty promise.
    */
   public async start() {
+    if (this.started) {
+      throw new Error('P2P service already started');
+    }
     const { enableNat, tcpListenIp, tcpListenPort, announceHostname, announcePort } = this.config;
     this.logger(`Starting P2P node on ${tcpListenIp}:${tcpListenPort}`);
     if (announceHostname) this.logger(`Announcing at ${announceHostname}:${announcePort ?? tcpListenPort}`);
@@ -80,6 +84,7 @@ export class LibP2PService implements P2PService {
       this.jobQueue.put(() => Promise.resolve(this.handleProtocolDial(incoming))),
     );
     this.logger(`Started P2P client as ${await this.node.dht.getMode()} with Peer ID ${this.node.peerId.toString()}`);
+    this.started = true;
     setTimeout(async () => {
       this.logger(`Refreshing routing table...`);
       await this.node.dht.refreshRoutingTable();
@@ -248,6 +253,8 @@ export class LibP2PService implements P2PService {
   private async processReceivedTxs(encodedMessage: Buffer, peerId: PeerId) {
     try {
       const txs = decodeTransactionsMessage(encodedMessage);
+      // Could optimise here and process all txs at once
+      // Propagation would need to filter and send custom tx set per peer
       for (const tx of txs) {
         await this.processTxFromPeer(tx, peerId);
       }

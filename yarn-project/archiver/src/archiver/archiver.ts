@@ -14,10 +14,9 @@ import {
   UnverifiedDataSource,
 } from '@aztec/types';
 import { Chain, HttpTransport, PublicClient, createPublicClient, http } from 'viem';
-import { localhost } from 'viem/chains';
 import { ArchiverConfig } from './config.js';
 import { retrieveBlocks, retrieveNewContractData, retrieveUnverifiedData } from './data_retrieval.js';
-import { createTestnetChain } from './testnet.js';
+import { createAztecChain } from '@aztec/environment';
 
 /**
  * Pulls L2 blocks in a non-blocking manner and provides interface for their retrieval.
@@ -78,11 +77,10 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource, ContractDa
    * @returns - An instance of the archiver.
    */
   public static async createAndSync(config: ArchiverConfig, blockUntilSynced = true): Promise<Archiver> {
-    const chain = config.rpcUrl === 'testnet' ? createTestnetChain(config.apiKey) : localhost;
-    const rpcUrl = config.rpcUrl === 'testnet' ? chain.rpcUrls.default.http[0] : config.rpcUrl;
+    const chain = createAztecChain(config.rpcUrl, config.apiKey);
     const publicClient = createPublicClient({
-      chain: chain,
-      transport: http(rpcUrl),
+      chain: chain.chainInfo,
+      transport: http(chain.rpcUrl),
     });
     const archiver = new Archiver(
       publicClient,
