@@ -3,7 +3,6 @@ contract NonNativeToken {
     use dep::aztec3::abi::Inputs;
     use dep::aztec3::context::PrivateFunctionContext;
     use dep::aztec3::notes::value_note::Note;
-    use dep::aztec3::messaging::l1_message::get_l1_to_l2_message;
     use dep::aztec3::types::point::Point;
     use dep::aztec3::state_vars::map::Map;
     use dep::aztec3::state_vars::set::Set;
@@ -22,14 +21,14 @@ contract NonNativeToken {
         initial_supply: pub Field, 
         owner: pub Point,
     ) -> pub [Field; dep::aztec3::abi::PUBLIC_INPUTS_LENGTH] {
-        let mut context = PrivateFunctionContext::new();
+        let mut context = PrivateFunctionContext::new(inputs);
         context.args = context.args.push_array([initial_supply, owner.x, owner.y]);
 
         let owner_balance = balances.at(owner.x);
         let note = Note::new(initial_supply, owner);
 
         owner_balance.insert(context, note)
-            .finish(inputs)
+            .finish()
     }
 
     // Mint
@@ -46,18 +45,16 @@ contract NonNativeToken {
         msg_key: pub Field,
         secret: pub Field,
     ) -> pub [Field; dep::aztec3::abi::PUBLIC_INPUTS_LENGTH] {
-        let mut context = PrivateFunctionContext::new();
+        let mut context = PrivateFunctionContext::new(inputs);
         context.args = context.args.push_array([amount, owner.x, owner.y, msg_key, secret]);
 
         // Get the l1 message from an oracle call
-        let msg = get_l1_to_l2_message(inputs, msg_key, secret);
+        let msg = context.get_l1_to_l2_message(msg_key, secret);
 
         let mut hash_bytes: [u8; 68] = [0; 68];
         let amount_bytes = amount.to_be_bytes(32);
         let recipient_bytes = owner.x.to_be_bytes(32);
 
-        
-        
         // Once loops are performant this will be moved into l1 message
         // Unroll loops because otherwise takes forever to compile
         // for i in range(32):
@@ -208,7 +205,7 @@ contract NonNativeToken {
         let note = Note::new(amount, owner);
 
         owner_balance.insert(context, note)
-            .finish(inputs)
+            .finish()
     }
 
     fn transfer(
@@ -220,7 +217,7 @@ contract NonNativeToken {
         sender: pub Point, 
         recipient: pub Point,
     ) -> pub [Field; dep::aztec3::abi::PUBLIC_INPUTS_LENGTH] {
-        let mut initialContext = PrivateFunctionContext::new();
+        let mut initialContext = PrivateFunctionContext::new(inputs);
         initialContext.args = initialContext.args.push_array([amount, sender.x, sender.y, recipient.x, recipient.y]);
 
         let sender_balance = balances.at(sender.x);
@@ -248,7 +245,7 @@ contract NonNativeToken {
         context = recipient_balance.insert(context, recipient_note);
         context = sender_balance.insert(context, change_note);
 
-        context.finish(inputs)
+        context.finish()
     } 
 
     /// ABI getBalance type "unconstrained"

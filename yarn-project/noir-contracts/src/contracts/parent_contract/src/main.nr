@@ -3,14 +3,14 @@ contract Parent {
     use dep::aztec3::abi::Inputs;
     use dep::aztec3::abi::CallContext;
     use dep::aztec3::context::PrivateFunctionContext;
-    use dep::aztec3::public_call;
+    use dep::aztec3::oracle::public_call;
     use dep::aztec3::private_call_stack_item::PrivateCallStackItem;
     use dep::aztec3::public_call_stack_item::PublicCallStackItem;
     
     fn constructor(
         inputs: pub Inputs,
     ) -> pub [Field; dep::aztec3::abi::PUBLIC_INPUTS_LENGTH] {
-        PrivateFunctionContext::new().finish(inputs)
+        PrivateFunctionContext::new(inputs).finish()
     }
 
     // Private function to call another private function in the targetContract using the provided selector
@@ -19,7 +19,7 @@ contract Parent {
         targetContract: pub Field,
         targetSelector: pub Field,
     ) -> pub [Field; dep::aztec3::abi::PUBLIC_INPUTS_LENGTH] {
-        let mut initialContext = PrivateFunctionContext::new();
+        let mut initialContext = PrivateFunctionContext::new(inputs);
         initialContext.args = initialContext.args.push_array([targetContract, targetSelector]);
 
         let (callStackItem, mut context) = PrivateCallStackItem::call(targetContract, targetSelector, [0; dep::aztec3::abi::MAX_ARGS], initialContext);
@@ -28,7 +28,7 @@ contract Parent {
 
         context.return_values = context.return_values.push(result);
 
-        context.finish(inputs)
+        context.finish()
     }
 
     // Public function to directly call another public function to the targetContract using the selector and value provided
@@ -49,14 +49,14 @@ contract Parent {
         targetSelector: pub Field,
         targetValue: pub Field,
     ) -> pub [Field; dep::aztec3::abi::PUBLIC_INPUTS_LENGTH] {
-        let mut initialContext = PrivateFunctionContext::new();
+        let mut initialContext = PrivateFunctionContext::new(inputs);
         initialContext.args = initialContext.args.push_array([targetContract, targetSelector, targetValue]);
 
         let mut args = [0; dep::aztec3::abi::MAX_ARGS];
         args[0] = targetValue;
         let (_callStackItem, mut context) = PublicCallStackItem::call(targetContract, targetSelector, args, initialContext);
 
-        context.finish(inputs)
+        context.finish()
     }
 
     // Private function to enqueue a call to the pubEntryPoint function of this same contract, passing the target arguments provided
@@ -66,7 +66,7 @@ contract Parent {
         targetSelector: pub Field,
         targetValue: pub Field,
     ) -> pub [Field; dep::aztec3::abi::PUBLIC_INPUTS_LENGTH] {
-        let mut initialContext = PrivateFunctionContext::new();
+        let mut initialContext = PrivateFunctionContext::new(inputs);
         initialContext.args = initialContext.args.push_array([targetContract, targetSelector, targetValue]);
 
         let pubEntryPointSelector = 3221316504;
@@ -78,7 +78,7 @@ contract Parent {
         args[2] = targetValue;
         let (_callStackItem1, mut context1) = PublicCallStackItem::call(thisAddress, pubEntryPointSelector, args, initialContext);
 
-        context1.finish(inputs)
+        context1.finish()
     }
 
     // Private function to enqueue two calls to the pubEntryPoint function of this same contract, passing the target arguments provided
@@ -88,7 +88,7 @@ contract Parent {
         targetSelector: pub Field,
         targetValue: pub Field,
     ) -> pub [Field; dep::aztec3::abi::PUBLIC_INPUTS_LENGTH] {
-        let mut initialContext = PrivateFunctionContext::new();
+        let mut initialContext = PrivateFunctionContext::new(inputs);
         initialContext.args = initialContext.args.push_array([targetContract, targetSelector, targetValue]);
 
         let pubEntryPointSelector = 3221316504;
@@ -103,6 +103,6 @@ contract Parent {
         args[2] = args[2] + 1;
         let (_callStackItem2, mut context2) = PublicCallStackItem::call(thisAddress, pubEntryPointSelector, args, context1);
 
-        context2.finish(inputs)
+        context2.finish()
     }
 }

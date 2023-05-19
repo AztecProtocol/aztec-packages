@@ -10,19 +10,19 @@ contract Child {
     fn constructor(
         inputs: pub Inputs,
     ) -> pub [Field; dep::aztec3::abi::PUBLIC_INPUTS_LENGTH] {
-        PrivateFunctionContext::new().finish(inputs)
+        PrivateFunctionContext::new(inputs).finish()
     }
 
     fn value(
         inputs: pub Inputs,
         input: pub Field,
     ) -> pub [Field; dep::aztec3::abi::PUBLIC_INPUTS_LENGTH] {
-        let mut context = PrivateFunctionContext::new();
+        let mut context = PrivateFunctionContext::new(inputs);
         context.args = context.args.push(input);
 
         context.return_values = context.return_values.push(input + 42);
 
-        context.finish(inputs)
+        context.finish()
     }
 
     // Nested public functions always get called with MAX_ARGS, since we don't have the ABI available
