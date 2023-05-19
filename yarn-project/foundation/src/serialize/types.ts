@@ -18,7 +18,7 @@ export function assertTuple<T, N extends number>(array: T[], n: N): Tuple<T, N> 
   if (array.length !== n) {
     throw new Error("Wrong 'fixed array' size");
   }
-  return array as any;
+  return array as Tuple<T, N>;
 }
 /**
  * Annoying, mapping a tuple does not preserve length.
