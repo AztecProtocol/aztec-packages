@@ -1,4 +1,4 @@
-#set -euo pipefail;
+set -euo pipefail;
 
 target_dir=./generated
 

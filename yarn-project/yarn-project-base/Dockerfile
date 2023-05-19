@@ -1,6 +1,6 @@
 # FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/circuits-x86_64-linux-clang
 FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/circuits-wasm-linux-clang
-FROM l1-contracts
+FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/l1-contracts
 
 FROM node:18-alpine
 RUN apk update && apk add --no-cache build-base git python3 curl bash jq
@@ -90,6 +90,7 @@ COPY l1-artifacts/tsconfig.json l1-artifacts/tsconfig.json
 COPY barretenberg.js/tsconfig.json barretenberg.js/tsconfig.json
 COPY circuits.js/tsconfig.json circuits.js/tsconfig.json
 COPY p2p/tsconfig.json p2p/tsconfig.json
+COPY p2p-bootstrap/tsconfig.json p2p-bootstrap/tsconfig.json
 COPY prover-client/tsconfig.json prover-client/tsconfig.json
 COPY sequencer-client/tsconfig.json sequencer-client/tsconfig.json
 COPY rollup-provider/tsconfig.json rollup-provider/tsconfig.json

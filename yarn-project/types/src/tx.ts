@@ -1,11 +1,10 @@
-import { CircuitsWasm, KernelCircuitPublicInputs, SignedTxRequest, TxRequest, UInt8Vector } from '@aztec/circuits.js';
+import { CircuitsWasm, KernelCircuitPublicInputs, SignedTxRequest, UInt8Vector } from '@aztec/circuits.js';
 import { computeContractLeaf, computeTxHash } from '@aztec/circuits.js/abis';
 
 import { createTxHash } from './create_tx_hash.js';
 import { TxHash } from './tx_hash.js';
 import { UnverifiedData } from './unverified_data.js';
 import { EncodedContractFunction } from './contract_data.js';
-import { numToInt32BE } from '@aztec/foundation/serialize';
 import { numToUInt32BE } from '@aztec/circuits.js/utils';
 
 /**
@@ -194,6 +193,7 @@ export class Tx {
    * @returns - The message.
    */
   static toMessage(tx: Tx): Buffer {
+    // eslint-disable-next-line jsdoc/require-jsdoc
     const createMessageComponent = (obj?: { toBuffer: () => Buffer }) => {
       if (!obj) {
         // specify a length of 0 bytes
@@ -202,6 +202,7 @@ export class Tx {
       const buffer = obj.toBuffer();
       return Buffer.concat([numToUInt32BE(buffer.length), buffer]);
     };
+    // eslint-disable-next-line jsdoc/require-jsdoc
     const createMessageComponents = (obj?: { toBuffer: () => Buffer }[]) => {
       if (!obj || !obj.length) {
         // specify a length of 0 bytes

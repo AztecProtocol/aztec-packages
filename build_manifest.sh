@@ -17,6 +17,4 @@ PROJECTS=(
   yarn-project-base:yarn-project
   # barretenberg.js:yarn-project
   end-to-end:yarn-project
-  p2p-bootstrap:yarn-project
-  rollup-provider:yarn-project
 )

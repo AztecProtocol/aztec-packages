@@ -56,7 +56,7 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource, ContractDa
    * @param publicClient - A client for interacting with the Ethereum node.
    * @param rollupAddress - Ethereum address of the rollup contract.
    * @param unverifiedDataEmitterAddress - Ethereum address of the unverifiedDataEmitter contract.
-   * @param searchStartBlock - The eth block from which to start searching
+   * @param searchStartBlock - The eth block from which to start searching for new blocks.
    * @param pollingIntervalMs - The interval for polling for rollup logs (in milliseconds).
    * @param log - A logger.
    */

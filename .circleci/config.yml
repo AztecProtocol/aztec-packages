@@ -276,6 +276,17 @@ jobs:
           name: "Build and test"
           command: build p2p
 
+  p2p-bootstrap:
+    machine:
+      image: ubuntu-2004:202010-01
+    resource_class: large
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Build and test"
+          command: build p2p-bootstrap
+
   acir-simulator:
     machine:
       image: ubuntu-2004:202010-01
@@ -488,6 +499,7 @@ workflows:
       - barretenberg-js: *yarn_project
       - merkle-tree: *yarn_project
       - p2p: *yarn_project
+      - p2p-bootstrap: *yarn_project
       - noir-contracts: *yarn_project
       - noir-compiler: *yarn_project
       - sequencer-client: *yarn_project
