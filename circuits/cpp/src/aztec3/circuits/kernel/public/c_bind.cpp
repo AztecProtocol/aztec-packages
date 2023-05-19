@@ -10,8 +10,9 @@
 #include <aztec3/constants.hpp>
 #include <aztec3/utils/types/native_types.hpp>
 
-#include "barretenberg/common/serialize.hpp"
-#include "barretenberg/srs/reference_string/env_reference_string.hpp"
+#include <barretenberg/common/serialize.hpp>
+#include <barretenberg/serialize/cbind.hpp>
+#include <barretenberg/srs/reference_string/env_reference_string.hpp>
 
 namespace {
 using Composer = plonk::UltraComposer;
@@ -52,6 +53,15 @@ WASM_EXPORT size_t public_kernel__init_verification_key(uint8_t const* pk_buf, u
 
     return vk_vec.size();
 }
+
+CBIND(public_kernel__sim2, [](PublicKernelInputs<NT> public_kernel_inputs) {
+    DummyComposer composer = DummyComposer("public_kernel__sim");
+    KernelCircuitPublicInputs<NT> const result =
+        public_kernel_inputs.previous_kernel.public_inputs.is_private
+            ? native_public_kernel_circuit_private_previous_kernel(composer, public_kernel_inputs)
+            : native_public_kernel_circuit_public_previous_kernel(composer, public_kernel_inputs);
+    return composer.as_circuit_result(result);
+});
 
 WASM_EXPORT uint8_t* public_kernel__sim(uint8_t const* public_kernel_inputs_buf,
                                         size_t* public_kernel_public_inputs_size_out,

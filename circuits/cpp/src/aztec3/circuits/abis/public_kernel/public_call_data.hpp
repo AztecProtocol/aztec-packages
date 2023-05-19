@@ -34,6 +34,8 @@ template <typename NCT> struct PublicCallData {
     fr portal_contract_address = 0;  // an ETH address
     fr bytecode_hash = 0;
 
+    // for serialization, update with new fields
+    MSGPACK_FIELDS(call_stack_item, public_call_stack_preimages, proof, portal_contract_address, bytecode_hash);
     boolean operator==(PublicCallData<NCT> const& other) const
     {
         // WARNING: proof skipped!
