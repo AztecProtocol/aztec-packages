@@ -123,4 +123,13 @@ contract DecoderTest is Test {
       assertEq(l1ToL2Msgs[i], bytes32(uint256(0x401 + i)), "Invalid l1ToL2Msgs");
     }
   }
+
+  function testComputeKernelLogsHashNoLogs() public {
+    bytes memory emptyKernelData = hex"00000000"; // 4 empty bytes indicating that length of kernel logs is 0
+
+    (bytes32 logsHash, uint256 bytesAdvanced) = helper.computeKernelLogsHash(emptyKernelData);
+
+    assertEq(bytesAdvanced, emptyKernelData.length, "Advanced by an incorrect number of bytes");
+    assertEq(logsHash, bytes32(0), "Logs hash should be 0 when there are no logs");
+  }
 }
