@@ -293,7 +293,8 @@ contract Decoder {
 
       // Create the leaf to contain commitments (8 * 0x20) + nullifiers (8 * 0x20)
       // + new public data writes (8 * 0x40) + contract deployments (2 * 0x60) + logs hashes (4 * 0x20)
-      vars.baseLeaf = new bytes(0x5C0);
+      // TODO: Replace 0x540 with 0x5C0 once the logs functionality is added in other places
+      vars.baseLeaf = new bytes(0x540);
 
       for (uint256 i = 0; i < vars.baseLeaves.length; i++) {
         /**
@@ -322,16 +323,17 @@ contract Decoder {
          * Zero values.
          */
 
-        // Compute logs hashes
-        (vars.encrypedLogsHashKernel1, offsets.encryptedLogsOffset) =
-          _computeKernelLogsHash(offsets.encryptedLogsOffset, _l2Block);
-        (vars.encrypedLogsHashKernel2, offsets.encryptedLogsOffset) =
-          _computeKernelLogsHash(offsets.encryptedLogsOffset, _l2Block);
+        // TODO: Uncomment once the logs functionality is added in other places
+        // // Compute logs hashes
+        // (vars.encrypedLogsHashKernel1, offsets.encryptedLogsOffset) =
+        //   _computeKernelLogsHash(offsets.encryptedLogsOffset, _l2Block);
+        // (vars.encrypedLogsHashKernel2, offsets.encryptedLogsOffset) =
+        //   _computeKernelLogsHash(offsets.encryptedLogsOffset, _l2Block);
 
-        (vars.unencryptedLogsHashKernel1, offsets.unencryptedLogsOffset) =
-          _computeKernelLogsHash(offsets.unencryptedLogsOffset, _l2Block);
-        (vars.unencryptedLogsHashKernel2, offsets.unencryptedLogsOffset) =
-          _computeKernelLogsHash(offsets.unencryptedLogsOffset, _l2Block);
+        // (vars.unencryptedLogsHashKernel1, offsets.unencryptedLogsOffset) =
+        //   _computeKernelLogsHash(offsets.unencryptedLogsOffset, _l2Block);
+        // (vars.unencryptedLogsHashKernel2, offsets.unencryptedLogsOffset) =
+        //   _computeKernelLogsHash(offsets.unencryptedLogsOffset, _l2Block);
 
         assembly {
           let baseLeaf := mload(add(vars, 0x40)) // Load the pointer to `vars.baseLeaf`
@@ -377,21 +379,22 @@ contract Decoder {
           dstPtr := add(dstPtr, 0xc)
           calldatacopy(dstPtr, add(_l2Block.offset, add(contractDataOffset, 0x54)), 0x14)
 
-          // encryptedLogsHashKernel1
-          dstPtr := add(dstPtr, 0x14)
-          mstore(dstPtr, mload(add(vars, 0x60))) // `encryptedLogsHashKernel1` starts at 0x60 in `vars`
+          // TODO: Uncomment once the logs functionality is added in other places
+          // // encryptedLogsHashKernel1
+          // dstPtr := add(dstPtr, 0x14)
+          // mstore(dstPtr, mload(add(vars, 0x60))) // `encryptedLogsHashKernel1` starts at 0x60 in `vars`
 
-          // encryptedLogsHashKernel2
-          dstPtr := add(dstPtr, 0x20)
-          mstore(dstPtr, mload(add(vars, 0x80))) // `encryptedLogsHashKernel2` starts at 0x80 in `vars`
+          // // encryptedLogsHashKernel2
+          // dstPtr := add(dstPtr, 0x20)
+          // mstore(dstPtr, mload(add(vars, 0x80))) // `encryptedLogsHashKernel2` starts at 0x80 in `vars`
 
-          // unencryptedLogsHashKernel1
-          dstPtr := add(dstPtr, 0x20)
-          mstore(dstPtr, mload(add(vars, 0xa0))) // `unencryptedLogsHashKernel1` starts at 0xa0 in `vars`
+          // // unencryptedLogsHashKernel1
+          // dstPtr := add(dstPtr, 0x20)
+          // mstore(dstPtr, mload(add(vars, 0xa0))) // `unencryptedLogsHashKernel1` starts at 0xa0 in `vars`
 
-          // unencryptedLogsHashKernel2
-          dstPtr := add(dstPtr, 0x20)
-          mstore(dstPtr, mload(add(vars, 0xc0))) // `unencryptedLogsHashKernel2` starts at 0xc0 in `vars`
+          // // unencryptedLogsHashKernel2
+          // dstPtr := add(dstPtr, 0x20)
+          // mstore(dstPtr, mload(add(vars, 0xc0))) // `unencryptedLogsHashKernel2` starts at 0xc0 in `vars`
         }
 
         offsets.commitmentOffset += 2 * COMMITMENTS_PER_KERNEL * 0x20;
