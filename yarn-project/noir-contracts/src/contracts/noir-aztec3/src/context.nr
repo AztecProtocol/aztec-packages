@@ -78,20 +78,26 @@ impl PrivateFunctionContext {
     }
 
     // Inputs must be temporarily passed in to prevent too many unknowns
-    fn get_l1_to_l2_message(_self: Self, inputs: abi::Inputs, msg_key: Field, secret: Field) -> L1ToL2MessageGetterData {
+    // Note this returns self to get around an issue where mutable structs do not maintain mutations unless reassigned
+    fn consume_l1_to_l2_message(mut self: Self, inputs: abi::Inputs, msg_key: Field, secret: Field) -> (PrivateFunctionContext, L1ToL2MessageGetterData) {
         let returned_message = get_l1_to_l2_message_call(msg_key);
         let l1_to_l2_message_data = make_l1_to_l2_message_getter_data(returned_message, 0, secret);
 
         // Check tree roots against the inputs 
         constrain l1_to_l2_message_data.root == inputs.old_l1_to_l2_messages_tree_root;
 
+        // Validate this is the target contract
+        constrain l1_to_l2_message_data.message.recipient == inputs.call_context.storage_contract_address;
+
         // Validate the message secret is correct
         l1_to_l2_message_data.message.validate_message_secret();
 
-        // Validate this is the target contract
-        // TODO: this doesnt seem right in the delegate call context
-        constrain l1_to_l2_message_data.message.recipient == inputs.call_context.storage_contract_address;
+        // Compute Nullifier
+        let nullifier = l1_to_l2_message_data.message.compute_nullifier();
 
-        l1_to_l2_message_data
+        // Push nullifier
+        self = self.push_new_nullifier(nullifier);
+
+        (self, l1_to_l2_message_data)
     }
 }

@@ -415,9 +415,4 @@ impl L1ToL2Message {
         let message_hash = self.message_hash();
         dep::std::hash::pedersen([crate::Nullifier, message_hash, self.secret, self.tree_index])[0]
     }
-
-    fn consume(self, mut context: PrivateFunctionContext) -> PrivateFunctionContext {
-        let nullifier = self.compute_nullifier();
-        context.push_new_nullifier(nullifier)
-    }
 }
