@@ -1,11 +1,12 @@
-import { Libp2p, createLibp2p } from 'libp2p';
+import { Libp2p, Libp2pOptions, ServiceFactoryMap, createLibp2p } from 'libp2p';
 import { tcp } from '@libp2p/tcp';
 import { noise } from '@chainsafe/libp2p-noise';
 import { yamux } from '@chainsafe/libp2p-yamux';
 import { mplex } from '@libp2p/mplex';
 import { bootstrap } from '@libp2p/bootstrap';
-import { kadDHT } from '@libp2p/kad-dht';
-import { createEd25519PeerId, createFromProtobuf, exportToProtobuf } from '@libp2p/peer-id-factory';
+import { DualKadDHT, kadDHT } from '@libp2p/kad-dht';
+import { createEd25519PeerId, createFromProtobuf } from '@libp2p/peer-id-factory';
+import type { ServiceMap } from '@libp2p/interface-libp2p';
 import { PeerId } from '@libp2p/interface-peer-id';
 import { IncomingStreamData } from '@libp2p/interface-registrar';
 import { P2PService } from './service.js';
@@ -25,6 +26,8 @@ import {
 } from './messages.js';
 import { KnownTxLookup } from './known_txs.js';
 import { TxPool } from '../index.js';
+import { autoNATService } from 'libp2p/autonat';
+import { identifyService } from 'libp2p/identify';
 
 const INITIAL_PEER_REFRESH_INTERVAL = 20000;
 
@@ -35,7 +38,6 @@ export class LibP2PService implements P2PService {
   private jobQueue: SerialQueue = new SerialQueue();
   private timeout: NodeJS.Timer | undefined = undefined;
   private knownTxLookup: KnownTxLookup = new KnownTxLookup();
-  private started = false;
   constructor(
     private config: P2PConfig,
     private node: Libp2p,
@@ -49,7 +51,7 @@ export class LibP2PService implements P2PService {
    * @returns An empty promise.
    */
   public async start() {
-    if (this.started) {
+    if (this.node.isStarted()) {
       throw new Error('P2P service already started');
     }
     const { enableNat, tcpListenIp, tcpListenPort, announceHostname, announcePort } = this.config;
@@ -65,12 +67,12 @@ export class LibP2PService implements P2PService {
     });
 
     this.node.addEventListener('peer:connect', evt => {
-      const peerId = evt.detail.remotePeer;
+      const peerId = evt.detail;
       this.handleNewConnection(peerId);
     });
 
     this.node.addEventListener('peer:disconnect', evt => {
-      const peerId = evt.detail.remotePeer;
+      const peerId = evt.detail;
       if (this.isBootstrapPeer(peerId)) {
         this.logger(`Disconnect from bootstrap peer ${peerId.toString()}`);
       } else {
@@ -83,11 +85,11 @@ export class LibP2PService implements P2PService {
     await this.node.handle(this.protocolId, (incoming: IncomingStreamData) =>
       this.jobQueue.put(() => Promise.resolve(this.handleProtocolDial(incoming))),
     );
-    this.logger(`Started P2P client as ${await this.node.dht.getMode()} with Peer ID ${this.node.peerId.toString()}`);
-    this.started = true;
+    const dht = this.node.services['kadDHT'] as DualKadDHT;
+    this.logger(`Started P2P client as ${await dht.getMode()} with Peer ID ${this.node.peerId.toString()}`);
     setTimeout(async () => {
       this.logger(`Refreshing routing table...`);
-      await this.node.dht.refreshRoutingTable();
+      await dht.refreshRoutingTable();
     }, INITIAL_PEER_REFRESH_INTERVAL);
   }
 
@@ -114,34 +116,45 @@ export class LibP2PService implements P2PService {
     const peerId = config.peerIdPrivateKey
       ? await createFromProtobuf(Buffer.from(config.peerIdPrivateKey, 'hex'))
       : await createEd25519PeerId();
-    const node = await createLibp2p({
+
+    const opts: Libp2pOptions<ServiceMap> = {
+      start: false,
       peerId,
-      nat: {
-        enabled: enableNat,
-        description: 'Aztec P2P',
-        ttl: 86400,
-        keepAlive: true,
-      },
       addresses: {
         listen: [`/ip4/${tcpListenIp}/tcp/${tcpListenPort}`],
         announce: announceHostname ? [`/ip4/${announceHostname}/tcp/${announcePort ?? tcpListenPort}`] : [],
       },
       transports: [tcp()],
+      streamMuxers: [yamux(), mplex()],
       connectionEncryption: [noise()],
       connectionManager: {
         minConnections: 10,
         maxConnections: 100,
       },
-      dht: kadDHT({
-        protocolPrefix: 'aztec',
-        clientMode: !serverMode,
-      }),
-      streamMuxers: [yamux(), mplex()],
       peerDiscovery: [
         bootstrap({
           list: config.bootstrapNodes,
         }),
       ],
+    };
+
+    const services: ServiceFactoryMap = {
+      identify: identifyService(),
+      kadDHT: kadDHT({
+        protocolPrefix: '/aztec',
+        clientMode: !serverMode,
+      }),
+    };
+
+    if (enableNat) {
+      services.nat = autoNATService({
+        protocolPrefix: '/aztec',
+      });
+    }
+
+    const node = await createLibp2p({
+      ...opts,
+      services,
     });
     const protocolId = config.transactionProtocol;
     return new LibP2PService(config, node, protocolId, txPool);

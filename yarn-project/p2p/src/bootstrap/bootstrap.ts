@@ -1,4 +1,4 @@
-import { Libp2p, createLibp2p } from 'libp2p';
+import { Libp2p, Libp2pOptions, ServiceFactoryMap, createLibp2p } from 'libp2p';
 import { tcp } from '@libp2p/tcp';
 import { noise } from '@chainsafe/libp2p-noise';
 import { mplex } from '@libp2p/mplex';
@@ -6,6 +6,9 @@ import { kadDHT } from '@libp2p/kad-dht';
 import { createEd25519PeerId, createFromProtobuf } from '@libp2p/peer-id-factory';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { P2PConfig } from '../config.js';
+import { yamux } from '@chainsafe/libp2p-yamux';
+import { identifyService } from 'libp2p/identify';
+import type { ServiceMap } from '@libp2p/interface-libp2p';
 
 /**
  * Encapsulates a 'Bootstrap' node, used for the purpose of assisting new joiners in acquiring peers.
@@ -28,27 +31,36 @@ export class BootstrapNode {
     this.logger(
       `Starting bootstrap node ${peerId} on ${tcpListenIp}:${tcpListenPort} announced at ${announceHostname}:${announcePort}`,
     );
-    const node = await createLibp2p({
+
+    const opts: Libp2pOptions<ServiceMap> = {
+      start: false,
       peerId,
-      dht: kadDHT({
-        protocolPrefix: 'aztec',
-        clientMode: false,
-      }),
-      nat: {
-        enabled: false,
-      },
       addresses: {
         listen: [`/ip4/${tcpListenIp}/tcp/${tcpListenPort}`],
         announce: [`/ip4/${announceHostname}/tcp/${announcePort ?? tcpListenPort}`],
       },
       transports: [tcp()],
+      streamMuxers: [yamux(), mplex()],
       connectionEncryption: [noise()],
       connectionManager: {
-        minConnections: 100,
-        maxConnections: 200,
+        minConnections: 10,
+        maxConnections: 100,
       },
-      streamMuxers: [mplex()],
+    };
+
+    const services: ServiceFactoryMap = {
+      identify: identifyService(),
+      kadDHT: kadDHT({
+        protocolPrefix: '/aztec',
+        clientMode: false,
+      }),
+    };
+
+    const node = await createLibp2p({
+      ...opts,
+      services,
     });
+
     await node.start();
     this.logger(`lib p2p has started`);
 
@@ -63,11 +75,11 @@ export class BootstrapNode {
     });
 
     node.addEventListener('peer:connect', evt => {
-      this.logger('Connected to %s', evt.detail.remotePeer.toString()); // Log connected peer
+      this.logger('Connected to %s', evt.detail.toString()); // Log connected peer
     });
 
     node.addEventListener('peer:disconnect', evt => {
-      this.logger('Disconnected from %s', evt.detail.remotePeer.toString()); // Log connected peer
+      this.logger('Disconnected from %s', evt.detail.toString()); // Log connected peer
     });
   }
 
