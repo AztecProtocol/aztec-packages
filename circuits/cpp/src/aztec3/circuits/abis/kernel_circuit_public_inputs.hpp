@@ -2,6 +2,7 @@
 #include "combined_accumulated_data.hpp"
 #include "combined_constant_data.hpp"
 
+#include <aztec3/utils/msgpack_derived_equals.hpp>
 #include <aztec3/utils/types/circuit_types.hpp>
 #include <aztec3/utils/types/convert.hpp>
 #include <aztec3/utils/types/native_types.hpp>
@@ -30,7 +31,7 @@ template <typename NCT> struct KernelCircuitPublicInputs {
 
     boolean operator==(KernelCircuitPublicInputs<NCT> const& other) const
     {
-        return end == other.end && constants == other.constants && is_private == other.is_private;
+        return utils::msgpack_derived_equals<boolean>(*this, other);
     };
 
     template <typename Composer>
@@ -76,24 +77,6 @@ template <typename NCT> struct KernelCircuitPublicInputs {
 
         fr(is_private).set_public();
     }
-};
-
-template <typename NCT> void read(uint8_t const*& it, KernelCircuitPublicInputs<NCT>& public_inputs)
-{
-    using serialize::read;
-
-    read(it, public_inputs.end);
-    read(it, public_inputs.constants);
-    read(it, public_inputs.is_private);
-};
-
-template <typename NCT> void write(std::vector<uint8_t>& buf, KernelCircuitPublicInputs<NCT> const& public_inputs)
-{
-    using serialize::write;
-
-    write(buf, public_inputs.end);
-    write(buf, public_inputs.constants);
-    write(buf, public_inputs.is_private);
 };
 
 template <typename NCT> std::ostream& operator<<(std::ostream& os, KernelCircuitPublicInputs<NCT> const& public_inputs)

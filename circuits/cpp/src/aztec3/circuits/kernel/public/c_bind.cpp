@@ -61,25 +61,9 @@ CBIND(public_kernel__sim, [](PublicKernelInputs<NT> public_kernel_inputs) {
     return composer.result_or_error(result);
 });
 
-WASM_EXPORT uint8_t* public_kernel_no_previous_kernel__sim(uint8_t const* public_kernel_inputs_buf,
-                                                           size_t* public_kernel_public_inputs_size_out,
-                                                           uint8_t const** public_kernel_public_inputs_buf)
-{
+CBIND(public_kernel_no_previous_kernel__sim, [](PublicKernelInputsNoPreviousKernel<NT> public_kernel_inputs) {
     DummyComposer composer = DummyComposer("public_kernel_no_previous_kernel__sim");
-
-    PublicKernelInputsNoPreviousKernel<NT> public_kernel_inputs;
-    read(public_kernel_inputs_buf, public_kernel_inputs);
-
-    KernelCircuitPublicInputs<NT> const public_inputs =
+    KernelCircuitPublicInputs<NT> const result =
         native_public_kernel_circuit_no_previous_kernel(composer, public_kernel_inputs);
-
-    // serialize public inputs to bytes vec
-    std::vector<uint8_t> public_inputs_vec;
-    write(public_inputs_vec, public_inputs);
-    // copy public inputs to output buffer
-    auto* raw_public_inputs_buf = (uint8_t*)malloc(public_inputs_vec.size());
-    memcpy(raw_public_inputs_buf, (void*)public_inputs_vec.data(), public_inputs_vec.size());
-    *public_kernel_public_inputs_buf = raw_public_inputs_buf;
-    *public_kernel_public_inputs_size_out = public_inputs_vec.size();
-    return composer.alloc_and_serialize_first_failure();
-}
+    return composer.result_or_error(result);
+});
