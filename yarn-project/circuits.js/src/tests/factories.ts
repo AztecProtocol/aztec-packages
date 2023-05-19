@@ -24,7 +24,8 @@ import {
   PrivateCallData,
   PrivateCircuitPublicInputs,
   PrivateHistoricTreeRoots,
-  PrivateKernelInputs,
+  PrivateKernelInputsInit,
+  PrivateKernelInputsInner,
   PublicCallData,
   PublicCircuitPublicInputs,
   PublicDataRead,
@@ -392,15 +393,26 @@ export function makeProof(seed = 1) {
 }
 
 /**
- * Makes arbitrary private kernel inputs.
+ * Makes arbitrary private kernel inputs - initial call.
  * @param seed - The seed to use for generating the private kernel inputs.
  * @returns Private kernel inputs.
  */
-export function makePrivateKernelInputs(seed = 1): PrivateKernelInputs {
-  return new PrivateKernelInputs(
+export function makePrivateKernelInputsInit(seed = 1): PrivateKernelInputsInit {
+  return new PrivateKernelInputsInit(
     makeSignedTxRequest(seed),
-    makePreviousKernelData(seed + 0x1000),
-    makePrivateCallData(seed + 0x2000),
+    makePrivateCallData(seed + 0x1000),
+  );
+}
+
+/**
+ * Makes arbitrary private kernel inputs - inner call.
+ * @param seed - The seed to use for generating the private kernel inputs.
+ * @returns Private kernel inputs.
+ */
+export function makePrivateKernelInputsInner(seed = 1): PrivateKernelInputsInner {
+  return new PrivateKernelInputsInner(
+    makePreviousKernelData(seed),
+    makePrivateCallData(seed + 0x1000),
   );
 }
 

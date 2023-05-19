@@ -59,7 +59,7 @@ template <typename NCT> std::ostream& operator<<(std::ostream& os, PrivateKernel
 {
     return os << "signed_tx_request:\n"
               << private_inputs.signed_tx_request << "\n"
-              << "previous_kernel:\n"
+              << "private_call:\n"
               << private_inputs.private_call << "\n";
 }
 
