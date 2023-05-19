@@ -3,6 +3,12 @@ import { DebugLogger } from '@aztec/foundation/log';
 import {
   DecoderHelperAbi,
   DecoderHelperBytecode,
+  InboxAbi,
+  InboxBytecode,
+  OutboxAbi,
+  OutboxBytecode,
+  RegistryAbi,
+  RegistryBytecode,
   RollupAbi,
   RollupBytecode,
   UnverifiedDataEmitterAbi,
@@ -18,10 +24,50 @@ import {
   WalletClient,
   createPublicClient,
   createWalletClient,
+  getAddress,
+  getContract,
   http,
 } from 'viem';
 import { HDAccount, PrivateKeyAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
+
+/**
+ * Return type of the deployL1Contract function.
+ */
+type DeployL1Contracts = {
+  /**
+   * Wallet Client Type.
+   */
+  walletClient: WalletClient<HttpTransport, Chain, Account>;
+  /**
+   * Public Client Type.
+   */
+  publicClient: PublicClient<HttpTransport, Chain>;
+  /**
+   * Rollup Address.
+   */
+  rollupAddress: EthAddress;
+  /**
+   * Registry Address.
+   */
+  registryAddress: EthAddress;
+  /**
+   * Inbox Address.
+   */
+  inboxAddress: EthAddress;
+  /**
+   * Outbox Address.
+   */
+  outboxAddress: EthAddress;
+  /**
+   * Data Emitter Address.
+   */
+  unverifiedDataEmitterAddress: EthAddress;
+  /**
+   * Decoder Helper Address.
+   */
+  decoderHelperAddress?: EthAddress;
+};
 
 /**
  * Deploys the aztec L1 contracts; Rollup, Unverified Data Emitter & (optionally) Decoder Helper.
@@ -36,7 +82,7 @@ export const deployL1Contracts = async (
   account: HDAccount | PrivateKeyAccount,
   logger: DebugLogger,
   deployDecoderHelper = false,
-) => {
+): Promise<DeployL1Contracts> => {
   logger('Deploying contracts...');
 
   const walletClient = createWalletClient({
@@ -49,8 +95,35 @@ export const deployL1Contracts = async (
     transport: http(rpcUrl),
   });
 
-  const rollupAddress = await deployL1Contract(walletClient, publicClient, RollupAbi, RollupBytecode);
+  const registryAddress = await deployL1Contract(walletClient, publicClient, RegistryAbi, RegistryBytecode);
+  logger(`Deployed Registry at ${registryAddress}`);
+
+  const inboxAddress = await deployL1Contract(walletClient, publicClient, InboxAbi, InboxBytecode, [
+    getAddress(registryAddress.toString()),
+  ]);
+  logger(`Deployed Inbox at ${inboxAddress}`);
+
+  const outboxAddress = await deployL1Contract(walletClient, publicClient, OutboxAbi, OutboxBytecode, [
+    getAddress(registryAddress.toString()),
+  ]);
+  logger(`Deployed Outbox at ${outboxAddress}`);
+
+  const rollupAddress = await deployL1Contract(walletClient, publicClient, RollupAbi, RollupBytecode, [
+    getAddress(registryAddress.toString()),
+  ]);
   logger(`Deployed Rollup at ${rollupAddress}`);
+
+  // We need to call a function on the registry to set the various contract addresses.
+  const registryContract = getContract({
+    address: getAddress(registryAddress.toString()),
+    abi: RegistryAbi,
+    publicClient,
+    walletClient,
+  });
+  await registryContract.write.setAddresses(
+    [getAddress(rollupAddress.toString()), getAddress(inboxAddress.toString()), getAddress(outboxAddress.toString())],
+    { account },
+  );
 
   const unverifiedDataEmitterAddress = await deployL1Contract(
     walletClient,
@@ -67,7 +140,12 @@ export const deployL1Contracts = async (
   }
 
   return {
+    walletClient,
+    publicClient,
     rollupAddress,
+    registryAddress,
+    inboxAddress,
+    outboxAddress,
     unverifiedDataEmitterAddress,
     decoderHelperAddress,
   };
@@ -79,17 +157,20 @@ export const deployL1Contracts = async (
  * @param publicClient - A viem PublicClient.
  * @param abi - The ETH contract's ABI (as abitype's Abi).
  * @param bytecode  - The ETH contract's bytecode.
+ * @param args - Constructor arguments for the contract.
  * @returns The ETH address the contract was deployed to.
  */
-async function deployL1Contract(
+export async function deployL1Contract(
   walletClient: WalletClient<HttpTransport, Chain, Account>,
   publicClient: PublicClient<HttpTransport, Chain>,
   abi: Narrow<Abi | readonly unknown[]>,
   bytecode: Hex,
+  args: readonly unknown[] = [],
 ): Promise<EthAddress> {
   const hash = await walletClient.deployContract({
     abi,
     bytecode,
+    args,
   });
 
   const receipt = await publicClient.waitForTransactionReceipt({ hash });

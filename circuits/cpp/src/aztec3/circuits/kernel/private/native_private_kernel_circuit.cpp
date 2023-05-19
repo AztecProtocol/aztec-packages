@@ -24,6 +24,7 @@ using CircuitErrorCode = aztec3::utils::CircuitErrorCode;
 
 using aztec3::circuits::compute_constructor_hash;
 using aztec3::circuits::compute_contract_address;
+using aztec3::circuits::compute_l2_to_l1_hash;
 using aztec3::circuits::contract_tree_root_from_siblings;
 using aztec3::circuits::function_tree_root_from_siblings;
 

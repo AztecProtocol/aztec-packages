@@ -101,19 +101,24 @@ template <typename KernelPrivateInput> void common_update_end_values(DummyCompos
         push_array_to_array(this_private_call_stack, public_inputs.end.private_call_stack);
     }
 
-    // const auto& portal_contract_address = private_inputs.private_call.portal_contract_address;
-
-    // {
-    //     const auto& new_l2_to_l1_msgs = private_call_public_inputs.new_l2_to_l1_msgs;
-    //     std::array<CT::fr, NEW_L2_TO_L1_MSGS_LENGTH> l1_call_stack;
-
-    //     for (size_t i = 0; i < new_l2_to_l1_msgs.size(); ++i) {
-    //         l1_call_stack[i] = CT::fr::conditional_assign(
-    //             new_l2_to_l1_msgs[i] == 0,
-    //             0,
-    //             CT::compress({ portal_contract_address, new_l2_to_l1_msgs[i] }, GeneratorIndex::L2_TO_L1_MSG));
-    //     }
-    // }
+    {  // new l2 to l1 messages
+        const auto& portal_contract_address = private_inputs.private_call.portal_contract_address;
+        const auto& new_l2_to_l1_msgs = private_call_public_inputs.new_l2_to_l1_msgs;
+        std::array<NT::fr, NEW_L2_TO_L1_MSGS_LENGTH> new_l2_to_l1_msgs_to_insert;
+        for (size_t i = 0; i < new_l2_to_l1_msgs.size(); ++i) {
+            if (!new_l2_to_l1_msgs[i].is_zero()) {
+                // @todo @LHerskind chain-ids and rollup version id should be added here. Right now, just hard coded.
+                // @todo @LHerskind chain-id is hardcoded for foundry
+                const auto chain_id = fr(31337);
+                new_l2_to_l1_msgs_to_insert[i] = compute_l2_to_l1_hash<NT>(storage_contract_address,
+                                                                           fr(1),  // rollup version id
+                                                                           portal_contract_address,
+                                                                           chain_id,
+                                                                           new_l2_to_l1_msgs[i]);
+            }
+        }
+        push_array_to_array(new_l2_to_l1_msgs_to_insert, public_inputs.end.new_l2_to_l1_msgs);
+    }
 }
 
 }  // namespace aztec3::circuits::kernel::private_kernel
