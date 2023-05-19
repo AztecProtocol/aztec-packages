@@ -60,7 +60,7 @@ CBIND(public_kernel__sim2, [](PublicKernelInputs<NT> public_kernel_inputs) {
         public_kernel_inputs.previous_kernel.public_inputs.is_private
             ? native_public_kernel_circuit_private_previous_kernel(composer, public_kernel_inputs)
             : native_public_kernel_circuit_public_previous_kernel(composer, public_kernel_inputs);
-    return composer.as_circuit_result(result);
+    return composer.result_or_error(result);
 });
 
 WASM_EXPORT uint8_t* public_kernel__sim(uint8_t const* public_kernel_inputs_buf,

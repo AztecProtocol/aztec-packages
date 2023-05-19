@@ -62,5 +62,5 @@ type RawError = {
  * @param v - the distinguished type.
  */
 export function isCircuitError(v: any): v is RawError {
-  return v.code && v.message;
+  return v.code !== undefined && v.message !== undefined;
 }

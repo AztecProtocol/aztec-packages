@@ -44,10 +44,10 @@ class DummyComposer {
      * @param value the value.
      * @return the value, or last error if it exists.
      */
-    template <typename T> CircuitResult<T> as_circuit_result(const T& value)
+    template <typename T> CircuitResult<T> result_or_error(const T& value)
     {
         CircuitError const failure = get_first_failure();
-        if (failure.code == CircuitErrorCode::NO_ERROR) {
+        if (failure.code != CircuitErrorCode::NO_ERROR) {
             return { failure };
         }
         return { value };

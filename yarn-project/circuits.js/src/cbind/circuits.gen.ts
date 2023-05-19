@@ -680,7 +680,7 @@ export interface MsgpackKernelCircuitPublicInputs {
 
 export function toKernelCircuitPublicInputs(o: MsgpackKernelCircuitPublicInputs): KernelCircuitPublicInputs {
   if (o.end === undefined) {
-    throw new Error('Expected end in KernelCircuitPublicInputs deserialization');
+    throw new Error('Expected end in KernelCircuitPublicInputs deserialization' + JSON.stringify(o));
   }
   if (o.constants === undefined) {
     throw new Error('Expected constants in KernelCircuitPublicInputs deserialization');
