@@ -292,8 +292,8 @@ contract Decoder {
       }
 
       // Create the leaf to contain commitments (8 * 0x20) + nullifiers (8 * 0x20)
-      // + new public data writes (8 * 0x40) + contract deployments (2 * 0x60)
-      vars.baseLeaf = new bytes(0x540);
+      // + new public data writes (8 * 0x40) + contract deployments (2 * 0x60) + logs hashes (4 * 0x20)
+      vars.baseLeaf = new bytes(0x5C0);
 
       for (uint256 i = 0; i < vars.baseLeaves.length; i++) {
         /**
@@ -403,7 +403,19 @@ contract Decoder {
 
           // encryptedLogsHashKernel1
           dstOffset := add(dstOffset, 0x14)
-          // TODO
+          mstore(add(baseLeaf, dstOffset), mload(add(vars, 0x60))) // `encryptedLogsHashKernel1` starts at 0x60 in `vars`
+
+          // encryptedLogsHashKernel2
+          dstOffset := add(dstOffset, 0x20)
+          mstore(add(baseLeaf, dstOffset), mload(add(vars, 0x80))) // `encryptedLogsHashKernel2` starts at 0x80 in `vars`
+
+          // unencryptedLogsHashKernel1
+          dstOffset := add(dstOffset, 0x20)
+          mstore(add(baseLeaf, dstOffset), mload(add(vars, 0xa0))) // `unencryptedLogsHashKernel1` starts at 0xa0 in `vars`
+
+          // unencryptedLogsHashKernel2
+          dstOffset := add(dstOffset, 0x20)
+          mstore(add(baseLeaf, dstOffset), mload(add(vars, 0xc0))) // `unencryptedLogsHashKernel2` starts at 0xc0 in `vars`
         }
 
         offsets.commitmentOffset += 2 * COMMITMENTS_PER_KERNEL * 0x20;
