@@ -486,8 +486,8 @@ contract Decoder {
         // Compute current iteration's logs hash
         logsHash := keccak256(add(temp, 0x20), tempLength)
 
-        // Decrease remaining logs length by this iteration's logs length
-        remainingLogsLength := sub(remainingLogsLength, iterationLogsLength)
+        // Decrease remaining logs length by this iteration's logs length (len(I?_LOGS)) and 4 bytes for I?_LOGS_LEN
+        remainingLogsLength := sub(remainingLogsLength, add(iterationLogsLength, 0x4))
       }
     }
 
