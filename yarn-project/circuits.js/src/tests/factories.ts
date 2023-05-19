@@ -398,10 +398,7 @@ export function makeProof(seed = 1) {
  * @returns Private kernel inputs.
  */
 export function makePrivateKernelInputsInit(seed = 1): PrivateKernelInputsInit {
-  return new PrivateKernelInputsInit(
-    makeSignedTxRequest(seed),
-    makePrivateCallData(seed + 0x1000),
-  );
+  return new PrivateKernelInputsInit(makeSignedTxRequest(seed), makePrivateCallData(seed + 0x1000));
 }
 
 /**
@@ -410,10 +407,7 @@ export function makePrivateKernelInputsInit(seed = 1): PrivateKernelInputsInit {
  * @returns Private kernel inputs.
  */
 export function makePrivateKernelInputsInner(seed = 1): PrivateKernelInputsInner {
-  return new PrivateKernelInputsInner(
-    makePreviousKernelData(seed),
-    makePrivateCallData(seed + 0x1000),
-  );
+  return new PrivateKernelInputsInner(makePreviousKernelData(seed), makePrivateCallData(seed + 0x1000));
 }
 
 /**
