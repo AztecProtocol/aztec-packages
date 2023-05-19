@@ -49,7 +49,9 @@ void initialise_end_values(PrivateKernelInputsInit<NT> const& private_inputs,
                 .private_historic_tree_roots =
                     PrivateHistoricTreeRoots<NT>{
                         .private_data_tree_root = private_call_public_inputs.historic_private_data_tree_root,
+                        .nullifier_tree_root = private_call_public_inputs.historic_nullifier_tree_root,
                         .contract_tree_root = private_call_public_inputs.historic_contract_tree_root,
+                        .l1_to_l2_messages_tree_root = private_call_public_inputs.historic_l1_to_l2_messages_tree_root,
                     },
             },
         .tx_context = private_inputs.signed_tx_request.tx_request.tx_context,
