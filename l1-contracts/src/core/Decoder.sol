@@ -472,8 +472,9 @@ contract Decoder {
         tempLength := add(0x20, iterationLogsLength) // len(logsHash) + iterationLogsLength
       }
 
-      // TODO: Allocating memory in each iteration is expensive. Should we set max logs length and allocate 1 chunk
-      //       of memory before this loop?
+      // TODO: Allocating memory in each iteration is expensive. Should we somehow set it to max length of all the
+      //       iterations? (e.g. We could do that by first searching for max length in a loop or by modifying
+      //       the encoding and storing max length on a predefined position)
       bytes memory temp = new bytes(tempLength);
       assembly {
         // Copy logsHash to temp
