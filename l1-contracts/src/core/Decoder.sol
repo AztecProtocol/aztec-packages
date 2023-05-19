@@ -477,7 +477,7 @@ contract Decoder {
       bytes memory temp = new bytes(tempLength);
       assembly {
         // Copy logsHash to temp
-        mstore(add(temp, 0x20), mload(logsHash))
+        mstore(add(temp, 0x20), logsHash)
 
         // Load this iteration's logs to memory
         calldatacopy(add(temp, 0x40), offset, iterationLogsLength)
