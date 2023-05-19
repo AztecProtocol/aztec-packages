@@ -334,88 +334,64 @@ contract Decoder {
           _computeKernelLogsHash(offsets.unencryptedLogsOffset, _l2Block);
 
         assembly {
-          let baseLeaf := mload(add(vars, 0x40)) // load the pointer to `vars.baseLeaf`
-          let dstOffset := 0x20
+          let baseLeaf := mload(add(vars, 0x40)) // Load the pointer to `vars.baseLeaf`
+          let dstPtr := add(baseLeaf, 0x20) // Current position withing `baseLeaf` to write to
 
           // Adding new commitments
-          calldatacopy(
-            add(baseLeaf, dstOffset), add(_l2Block.offset, mload(offsets)), mul(0x08, 0x20)
-          )
-          dstOffset := add(dstOffset, mul(0x08, 0x20))
+          calldatacopy(dstPtr, add(_l2Block.offset, mload(offsets)), mul(0x08, 0x20))
+          dstPtr := add(dstPtr, mul(0x08, 0x20))
 
           // Adding new nullifiers
-          calldatacopy(
-            add(baseLeaf, dstOffset),
-            add(_l2Block.offset, mload(add(offsets, 0x20))),
-            mul(0x08, 0x20)
-          )
-          dstOffset := add(dstOffset, mul(0x08, 0x20))
+          calldatacopy(dstPtr, add(_l2Block.offset, mload(add(offsets, 0x20))), mul(0x08, 0x20))
+          dstPtr := add(dstPtr, mul(0x08, 0x20))
 
           // Adding new public data writes
-          calldatacopy(
-            add(baseLeaf, dstOffset),
-            add(_l2Block.offset, mload(add(offsets, 0x40))),
-            mul(0x08, 0x40)
-          )
-          dstOffset := add(dstOffset, mul(0x08, 0x40))
+          calldatacopy(dstPtr, add(_l2Block.offset, mload(add(offsets, 0x40))), mul(0x08, 0x40))
+          dstPtr := add(dstPtr, mul(0x08, 0x40))
 
           // Adding new l2 to l1 msgs
-          calldatacopy(
-            add(baseLeaf, dstOffset),
-            add(_l2Block.offset, mload(add(offsets, 0x60))),
-            mul(0x04, 0x20)
-          )
-          dstOffset := add(dstOffset, mul(0x04, 0x20))
+          calldatacopy(dstPtr, add(_l2Block.offset, mload(add(offsets, 0x60))), mul(0x04, 0x20))
+          dstPtr := add(dstPtr, mul(0x04, 0x20))
 
           // Adding Contract Leafs
-          calldatacopy(
-            add(baseLeaf, dstOffset),
-            add(_l2Block.offset, mload(add(offsets, 0x80))),
-            mul(0x2, 0x20)
-          )
-          dstOffset := add(dstOffset, mul(2, 0x20))
+          calldatacopy(dstPtr, add(_l2Block.offset, mload(add(offsets, 0x80))), mul(0x2, 0x20))
+          dstPtr := add(dstPtr, mul(2, 0x20))
 
           // Kernel1.contract.aztecAddress
           let contractDataOffset := mload(add(offsets, 0xa0))
-          calldatacopy(add(baseLeaf, dstOffset), add(_l2Block.offset, contractDataOffset), 0x20)
-          dstOffset := add(dstOffset, 0x20)
+          calldatacopy(dstPtr, add(_l2Block.offset, contractDataOffset), 0x20)
+          dstPtr := add(dstPtr, 0x20)
 
           // Kernel1.contract.ethAddress padded to 32 bytes
           // Add 12 (0xc) bytes of padding to the ethAddress
-          dstOffset := add(dstOffset, 0xc)
-          calldatacopy(
-            add(baseLeaf, dstOffset), add(_l2Block.offset, add(contractDataOffset, 0x20)), 0x14
-          )
-          dstOffset := add(dstOffset, 0x14)
+          dstPtr := add(dstPtr, 0xc)
+          calldatacopy(dstPtr, add(_l2Block.offset, add(contractDataOffset, 0x20)), 0x14)
+          dstPtr := add(dstPtr, 0x14)
 
           // Kernel2.contract.aztecAddress
-          calldatacopy(
-            add(baseLeaf, dstOffset), add(_l2Block.offset, add(contractDataOffset, 0x34)), 0x20
-          )
-          dstOffset := add(dstOffset, 0x20)
+          calldatacopy(dstPtr, add(_l2Block.offset, add(contractDataOffset, 0x34)), 0x20)
+          dstPtr := add(dstPtr, 0x20)
 
           // Kernel2.contract.ethAddress padded to 32 bytes
           // Add 12 (0xc) bytes of padding to the ethAddress
-          dstOffset := add(dstOffset, 0xc)
-          calldatacopy(
-            add(baseLeaf, dstOffset), add(_l2Block.offset, add(contractDataOffset, 0x54)), 0x14
-          )
+          dstPtr := add(dstPtr, 0xc)
+          calldatacopy(dstPtr, add(_l2Block.offset, add(contractDataOffset, 0x54)), 0x14)
 
           // encryptedLogsHashKernel1
-          dstOffset := add(dstOffset, 0x14)
-          mstore(add(baseLeaf, dstOffset), mload(add(vars, 0x60))) // `encryptedLogsHashKernel1` starts at 0x60 in `vars`
+          dstPtr := add(dstPtr, 0x14)
+          mstore(dstPtr, mload(add(vars, 0x60))) // `encryptedLogsHashKernel1` starts at 0x60 in `vars`
 
           // encryptedLogsHashKernel2
-          dstOffset := add(dstOffset, 0x20)
-          mstore(add(baseLeaf, dstOffset), mload(add(vars, 0x80))) // `encryptedLogsHashKernel2` starts at 0x80 in `vars`
+          dstPtr := add(dstPtr, 0x20)
+          mstore(dstPtr, mload(add(vars, 0x80))) // `encryptedLogsHashKernel2` starts at 0x80 in `vars`
 
           // unencryptedLogsHashKernel1
-          dstOffset := add(dstOffset, 0x20)
-          mstore(add(baseLeaf, dstOffset), mload(add(vars, 0xa0))) // `unencryptedLogsHashKernel1` starts at 0xa0 in `vars`
+          dstPtr := add(dstPtr, 0x20)
+          mstore(dstPtr, mload(add(vars, 0xa0))) // `unencryptedLogsHashKernel1` starts at 0xa0 in `vars`
 
           // unencryptedLogsHashKernel2
-          dstOffset := add(dstOffset, 0x20)
-          mstore(add(baseLeaf, dstOffset), mload(add(vars, 0xc0))) // `unencryptedLogsHashKernel2` starts at 0xc0 in `vars`
+          dstPtr := add(dstPtr, 0x20)
+          mstore(dstPtr, mload(add(vars, 0xc0))) // `unencryptedLogsHashKernel2` starts at 0xc0 in `vars`
         }
 
         offsets.commitmentOffset += 2 * COMMITMENTS_PER_KERNEL * 0x20;
