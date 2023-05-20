@@ -27,7 +27,7 @@ inline void _msgpack_derived_output_helper(std::ostream& os,
 // Specialization if we have msgpack
 template <msgpack_concepts::HasMsgPack T> void msgpack_derived_output(std::ostream& os, const T& value)
 {
-    const_cast<T&>(value).msgpack([&](auto&... args) { _msgpack_derived_output_helper(os, args...); });
+    const_cast<T&>(value).msgpack([&](auto&... args) { _msgpack_derived_output_helper(os, args...); });  // NOLINT
 }
 
 // Otherwise

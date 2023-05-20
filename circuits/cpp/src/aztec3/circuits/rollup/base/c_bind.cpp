@@ -3,19 +3,20 @@
 #include "index.hpp"
 #include "init.hpp"
 
+#include "aztec3/circuits/abis/kernel_circuit_public_inputs.hpp"
 #include "aztec3/circuits/abis/private_kernel/private_call_data.hpp"
+#include "aztec3/circuits/abis/private_kernel/private_inputs.hpp"
 #include "aztec3/circuits/abis/rollup/base/base_or_merge_rollup_public_inputs.hpp"
 #include "aztec3/circuits/abis/signed_tx_request.hpp"
+#include "aztec3/circuits/mock/mock_kernel_circuit.hpp"
+#include "aztec3/constants.hpp"
 #include "aztec3/utils/dummy_composer.hpp"
-#include <aztec3/circuits/abis/kernel_circuit_public_inputs.hpp>
-#include <aztec3/circuits/abis/private_kernel/private_inputs.hpp>
-#include <aztec3/circuits/mock/mock_kernel_circuit.hpp>
-#include <aztec3/constants.hpp>
-#include <aztec3/utils/types/native_types.hpp>
+#include "aztec3/utils/types/native_types.hpp"
 
-#include "barretenberg/common/serialize.hpp"
-#include "barretenberg/plonk/composer/turbo_composer.hpp"
-#include "barretenberg/srs/reference_string/env_reference_string.hpp"
+#include <barretenberg/common/serialize.hpp>
+#include <barretenberg/plonk/composer/turbo_composer.hpp>
+#include <barretenberg/serialize/cbind.hpp>
+#include <barretenberg/srs/reference_string/env_reference_string.hpp>
 
 namespace {
 using Composer = plonk::UltraComposer;
@@ -27,10 +28,7 @@ using aztec3::circuits::rollup::native_base_rollup::base_rollup_circuit;
 
 }  // namespace
 
-#define WASM_EXPORT __attribute__((visibility("default")))
 // WASM Cbinds
-extern "C" {
-
 WASM_EXPORT size_t base_rollup__init_proving_key(uint8_t const** pk_buf)
 {
     std::vector<uint8_t> pk_vec(42, 0);
@@ -55,9 +53,7 @@ WASM_EXPORT size_t base_rollup__init_verification_key(uint8_t const* pk_buf, uin
     return vk_vec.size();
 }
 
-WASM_EXPORT uint8_t* base_rollup__sim(uint8_t const* base_rollup_inputs_buf,
-                                      size_t* base_rollup_public_inputs_size_out,
-                                      uint8_t const** base_or_merge_rollup_public_inputs_buf)
+static auto base_rollup__sim_helper(BaseRollupInputs<NT> base_rollup_inputs)
 {
     DummyComposer composer = DummyComposer("base_rollup__sim");
     // TODO accept proving key and use that to initialize composers
@@ -65,28 +61,44 @@ WASM_EXPORT uint8_t* base_rollup__sim(uint8_t const* base_rollup_inputs_buf,
     // TODO do we want to accept it or just get it from our factory?
     // auto crs_factory = std::make_shared<EnvReferenceStringFactory>();
 
-    BaseRollupInputs<NT> base_rollup_inputs;
-    read(base_rollup_inputs_buf, base_rollup_inputs);
-
-    BaseOrMergeRollupPublicInputs<NT> const public_inputs = base_rollup_circuit(composer, base_rollup_inputs);
-
-    // TODO for circuit proof version of this function
-    // NT::Proof base_rollup_proof;
-    //    Composer composer = Composer(crs_factory);
-    //    auto prover = composer.create_prover();
-    //    public_inputs = base_rollup_circuit(composer, base_rollup_inputs);
-    //    base_rollup_proof = prover.construct_proof();
-
-    // serialize public inputs to bytes vec
-    std::vector<uint8_t> public_inputs_vec;
-    write(public_inputs_vec, public_inputs);
-    // copy public inputs to output buffer
-    auto* raw_public_inputs_buf = (uint8_t*)malloc(public_inputs_vec.size());
-    memcpy(raw_public_inputs_buf, (void*)public_inputs_vec.data(), public_inputs_vec.size());
-    *base_or_merge_rollup_public_inputs_buf = raw_public_inputs_buf;
-    *base_rollup_public_inputs_size_out = public_inputs_vec.size();
-    return composer.alloc_and_serialize_first_failure();
+    BaseOrMergeRollupPublicInputs<NT> const result = base_rollup_circuit(composer, base_rollup_inputs);
+    return composer.result_or_error(result);
 }
+
+CBIND(base_rollup__sim, base_rollup__sim_helper);
+
+// WASM_EXPORT uint8_t* base_rollup__sim(uint8_t const* base_rollup_inputs_buf,
+//                                       size_t* base_rollup_public_inputs_size_out,
+//                                       uint8_t const** base_or_merge_rollup_public_inputs_buf)
+//{
+//     DummyComposer composer = DummyComposer("base_rollup__sim");
+//     // TODO accept proving key and use that to initialize composers
+//     // this info is just to prevent error for unused pk_buf
+//     // TODO do we want to accept it or just get it from our factory?
+//     // auto crs_factory = std::make_shared<EnvReferenceStringFactory>();
+//
+//     BaseRollupInputs<NT> base_rollup_inputs;
+//     read(base_rollup_inputs_buf, base_rollup_inputs);
+//
+//     BaseOrMergeRollupPublicInputs<NT> const public_inputs = base_rollup_circuit(composer, base_rollup_inputs);
+//
+//     // TODO for circuit proof version of this function
+//     // NT::Proof base_rollup_proof;
+//     //    Composer composer = Composer(crs_factory);
+//     //    auto prover = composer.create_prover();
+//     //    public_inputs = base_rollup_circuit(composer, base_rollup_inputs);
+//     //    base_rollup_proof = prover.construct_proof();
+//
+//     // serialize public inputs to bytes vec
+//     std::vector<uint8_t> public_inputs_vec;
+//     write(public_inputs_vec, public_inputs);
+//     // copy public inputs to output buffer
+//     auto* raw_public_inputs_buf = (uint8_t*)malloc(public_inputs_vec.size());
+//     memcpy(raw_public_inputs_buf, (void*)public_inputs_vec.data(), public_inputs_vec.size());
+//     *base_or_merge_rollup_public_inputs_buf = raw_public_inputs_buf;
+//     *base_rollup_public_inputs_size_out = public_inputs_vec.size();
+//     return composer.alloc_and_serialize_first_failure();
+// }
 
 // WASM_EXPORT size_t base_rollup__sim(uint8_t const* base_rollup_inputs_buf,
 //                                    bool second_present,
@@ -139,5 +151,3 @@ WASM_EXPORT uint8_t* base_rollup__sim(uint8_t const* base_rollup_inputs_buf,
 //     (void)length; // unused
 //     return true;
 // }
-
-}  // extern "C"

@@ -38,6 +38,7 @@
 #include "barretenberg/stdlib/merkle_tree/memory_tree.hpp"
 #include <barretenberg/common/map.hpp>
 #include <barretenberg/common/test.hpp>
+#include <barretenberg/serialize/test_helper.hpp>
 
 #include <gtest/gtest.h>
 
@@ -97,23 +98,22 @@ class base_rollup_tests : public ::testing::Test {
         (void)vk_size;
         // info("Verification key size: ", vk_size);
 
-        std::vector<uint8_t> base_rollup_inputs_vec;
-        write(base_rollup_inputs_vec, base_rollup_inputs);
-
         // uint8_t const* proof_data;
         // size_t proof_data_size;
         uint8_t const* public_inputs_buf = nullptr;
         size_t public_inputs_size = 0;
         // info("simulating circuit via cbind");
-        uint8_t* const circuit_failure_ptr =
-            base_rollup__sim(base_rollup_inputs_vec.data(), &public_inputs_size, &public_inputs_buf);
+        BaseOrMergeRollupPublicInputs public_inputs;
+        if (assert_no_circuit_failure) {
+            auto public_input = call_msgpack_cbind<BaseOrMergeRollupPublicInputs>(base_rollup__sim, base_rollup_inputs);
+        } else {
+        }
 
         ASSERT_TRUE(assert_no_circuit_failure ? circuit_failure_ptr == nullptr : circuit_failure_ptr != nullptr);
         // info("Proof size: ", proof_data_size);
         // info("PublicInputs size: ", public_inputs_size);
 
         if (compare_pubins) {
-            BaseOrMergeRollupPublicInputs public_inputs;
             uint8_t const* public_inputs_buf_tmp = public_inputs_buf;
             read(public_inputs_buf_tmp, public_inputs);
             ASSERT_EQ(public_inputs.calldata_hash.size(), expected_public_inputs.calldata_hash.size());

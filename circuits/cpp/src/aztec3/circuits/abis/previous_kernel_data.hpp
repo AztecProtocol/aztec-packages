@@ -72,29 +72,29 @@ template <typename B> inline void read(B& buf, verification_key& key)
     key = verification_key{ std::move(data), env_crs->get_verifier_crs() };
 }
 
-template <typename NCT> void read(uint8_t const*& it, PreviousKernelData<NCT>& kernel_data)
-{
-    using aztec3::circuits::abis::read;
-    using serialize::read;
-
-    read(it, kernel_data.public_inputs);
-    read(it, kernel_data.proof);
-    read(it, kernel_data.vk);
-    read(it, kernel_data.vk_index);
-    read(it, kernel_data.vk_path);
-};
-
-template <typename NCT> void write(std::vector<uint8_t>& buf, PreviousKernelData<NCT> const& kernel_data)
-{
-    using aztec3::circuits::abis::write;
-    using serialize::write;
-
-    write(buf, kernel_data.public_inputs);
-    write(buf, kernel_data.proof);
-    write(buf, *kernel_data.vk);
-    write(buf, kernel_data.vk_index);
-    write(buf, kernel_data.vk_path);
-};
+// template <typename NCT> void read(uint8_t const*& it, PreviousKernelData<NCT>& kernel_data)
+//{
+//     using aztec3::circuits::abis::read;
+//     using serialize::read;
+//
+//     read(it, kernel_data.public_inputs);
+//     read(it, kernel_data.proof);
+//     read(it, kernel_data.vk);
+//     read(it, kernel_data.vk_index);
+//     read(it, kernel_data.vk_path);
+// };
+//
+// template <typename NCT> void write(std::vector<uint8_t>& buf, PreviousKernelData<NCT> const& kernel_data)
+//{
+//     using aztec3::circuits::abis::write;
+//     using serialize::write;
+//
+//     write(buf, kernel_data.public_inputs);
+//     write(buf, kernel_data.proof);
+//     write(buf, *kernel_data.vk);
+//     write(buf, kernel_data.vk_index);
+//     write(buf, kernel_data.vk_path);
+// };
 
 template <typename NCT> std::ostream& operator<<(std::ostream& os, PreviousKernelData<NCT> const& kernel_data)
 {

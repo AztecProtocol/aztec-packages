@@ -94,8 +94,8 @@ struct CircuitError {
 // We do not use std::variant directly as we need default-constructible types for msgpack
 template <typename T> struct CircuitResult {
     CircuitResult() : result(CircuitError{ UNINITIALIZED_RESULT, "" }) {}
-    CircuitResult(const T& value) : result(value) {}
-    CircuitResult(const CircuitError& value) : result(value) {}
+    explicit CircuitResult(const T& value) : result(value) {}
+    explicit CircuitResult(const CircuitError& value) : result(value) {}
     std::variant<CircuitError, T> result;
 
     // for serialization: delegate to msgpack std::variant support

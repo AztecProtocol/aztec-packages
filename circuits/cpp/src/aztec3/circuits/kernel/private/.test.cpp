@@ -521,6 +521,7 @@ TEST(private_kernel_tests, native_basic_contract_deployment)
     ASSERT_EQ(public_inputs.end.new_nullifiers[0], private_inputs.signed_tx_request.hash());
 }
 
+
 /**
  * @brief Some private circuit simulation checked against its results via cbinds
  */
@@ -533,11 +534,7 @@ TEST(private_kernel_tests, circuit_create_proof_cbinds)
     // first run actual simulation to get public inputs
     auto const& private_inputs = do_private_call_get_kernel_inputs(true, constructor, { arg0, arg1, arg2 }, true);
     DummyComposer composer = DummyComposer("private_kernel_tests__circuit_create_proof_cbinds");
-    auto const& public_inputs = native_private_kernel_circuit(composer, private_inputs, true);
-
-    // serialize expected public inputs for later comparison
-    std::vector<uint8_t> expected_public_inputs_vec;
-    write(expected_public_inputs_vec, public_inputs);
+    auto const& expect_public_inputs = native_private_kernel_circuit(composer, private_inputs, true);
 
     //***************************************************************************
     // Now run the simulate/prove cbinds to make sure their outputs match
@@ -552,30 +549,19 @@ TEST(private_kernel_tests, circuit_create_proof_cbinds)
     // size_t vk_size = private_kernel__init_verification_key(pk_buf, &vk_buf);
     // info("Verification key size: ", vk_size);
 
-    std::vector<uint8_t> signed_constructor_tx_request_vec;
-    write(signed_constructor_tx_request_vec, private_inputs.signed_tx_request);
-
-    std::vector<uint8_t> private_constructor_call_vec;
-    write(private_constructor_call_vec, private_inputs.private_call);
-
     uint8_t const* proof_data_buf = nullptr;
     uint8_t const* public_inputs_buf = nullptr;
-    size_t public_inputs_size = 0;
     // info("Simulating to generate public inputs...");
-    uint8_t* const circuit_failure_ptr = private_kernel__sim(signed_constructor_tx_request_vec.data(),
-                                                             nullptr,  // no previous kernel on first iteration
-                                                             private_constructor_call_vec.data(),
-                                                             true,  // first iteration
-                                                             &public_inputs_size,
-                                                             &public_inputs_buf);
-    ASSERT_TRUE(circuit_failure_ptr == nullptr);
+    // only succeeds if we get KernelCircuitPublicInputs<NT> and not an error
+    auto public_inputs = call_msgpack_cbind<KernelCircuitPublicInputs<NT>>(
+        private_kernel__sim,
+        private_inputs.signed_tx_request,
+        private_inputs.private_call,
+        PreviousKernelData<NT>{},  // no previous kernel on first iteration,
+        true                       // first iteration
+    );
 
-    // TODO better equality check
-    // for (size_t i = 0; i < public_inputs_size; i++)
-    for (size_t i = 0; i < 10; i++) {
-        ASSERT_EQ(public_inputs_buf[i], expected_public_inputs_vec[i]);
-    }
-    (void)public_inputs_size;
+    ASSERT_EQ(public_inputs, expect_public_inputs);
     // info("Proving");
     size_t const proof_data_size = private_kernel__prove(signed_constructor_tx_request_vec.data(),
                                                          nullptr,  // no previous kernel on first iteration

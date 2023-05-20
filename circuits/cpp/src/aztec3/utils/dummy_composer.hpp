@@ -48,9 +48,9 @@ class DummyComposer {
     {
         CircuitError const failure = get_first_failure();
         if (failure.code != CircuitErrorCode::NO_ERROR) {
-            return { failure };
+            return CircuitResult<T>{ failure };
         }
-        return { value };
+        return CircuitResult<T>{ value };
     }
 
     uint8_t* alloc_and_serialize_first_failure()

@@ -76,17 +76,7 @@ TEST(abi_tests, hash_tx_request)
         .chain_id = NT::fr::random_element(),
     };
 
-    // Write the tx request to a buffer and
-    std::vector<uint8_t> buf;
-    write(buf, tx_request);
-
-    // create an output buffer for cbind hash results
-    std::array<uint8_t, sizeof(NT::fr)> output = { 0 };
-    // Make the c_bind call to hash the tx request
-    abis__hash_tx_request(buf.data(), output.data());
-
-    // Convert buffer to `fr` for comparison to in-test calculated hash
-    NT::fr const got_hash = NT::fr::serialize_from_buffer(output.data());
+    auto got_hash = call_msgpack_cbind<NT::fr>(abis__hash_tx_request, tx_request);
 
     // Confirm cbind output == hash of tx request
     EXPECT_EQ(got_hash, tx_request.hash());
@@ -339,14 +329,7 @@ TEST(abi_tests, compute_transaction_hash)
         .signature = sig,
     };
 
-    // Write the leaf preimage to a buffer
-    std::vector<uint8_t> preimage_buf;
-    write(preimage_buf, preimage);
-
-    std::array<uint8_t, sizeof(NT::fr)> output = { 0 };
-    abis__compute_transaction_hash(preimage_buf.data(), output.data());
-
-    NT::fr const got_tx_hash = NT::fr::serialize_from_buffer(output.data());
+    auto got_tx_hash = call_msgpack_cbind<NT::fr>(abis__compute_transaction_hash, preimage);
     EXPECT_EQ(got_tx_hash, preimage.hash());
 }
 

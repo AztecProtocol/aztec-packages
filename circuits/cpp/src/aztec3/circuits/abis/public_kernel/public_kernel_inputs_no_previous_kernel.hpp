@@ -5,10 +5,12 @@
 #include "../signed_tx_request.hpp"
 
 #include "aztec3/circuits/abis/combined_historic_tree_roots.hpp"
+#include <aztec3/utils/msgpack_derived_equals.hpp>
 #include <aztec3/utils/types/circuit_types.hpp>
 #include <aztec3/utils/types/convert.hpp>
 #include <aztec3/utils/types/native_types.hpp>
 
+#include <barretenberg/serialize/msgpack.hpp>
 #include <barretenberg/stdlib/primitives/witness/witness.hpp>
 
 namespace aztec3::circuits::abis::public_kernel {
@@ -25,9 +27,11 @@ template <typename NCT> struct PublicKernelInputsNoPreviousKernel {
     PublicCallData<NCT> public_call{};
     CombinedHistoricTreeRoots<NCT> historic_tree_roots{};
 
+    // for serialization, update with new fields
+    MSGPACK_FIELDS(signed_tx_request, public_call, historic_tree_roots);
     boolean operator==(PublicKernelInputsNoPreviousKernel<NCT> const& other) const
     {
-        return signed_tx_request == other.signed_tx_request && public_call == other.public_call;
+        return utils::msgpack_derived_equals<boolean>(*this, other);
     };
 
     template <typename Composer>
@@ -44,25 +48,6 @@ template <typename NCT> struct PublicKernelInputsNoPreviousKernel {
 
         return public_kernel_inputs;
     };
-};
-
-template <typename NCT> void read(uint8_t const*& it, PublicKernelInputsNoPreviousKernel<NCT>& public_kernel_inputs)
-{
-    using serialize::read;
-
-    read(it, public_kernel_inputs.signed_tx_request);
-    read(it, public_kernel_inputs.public_call);
-    read(it, public_kernel_inputs.historic_tree_roots);
-};
-
-template <typename NCT>
-void write(std::vector<uint8_t>& buf, PublicKernelInputsNoPreviousKernel<NCT> const& public_kernel_inputs)
-{
-    using serialize::write;
-
-    write(buf, public_kernel_inputs.signed_tx_request);
-    write(buf, public_kernel_inputs.public_call);
-    write(buf, public_kernel_inputs.historic_tree_roots);
 };
 
 template <typename NCT>

@@ -3,10 +3,13 @@
 #include "tx_context.hpp"
 
 #include <aztec3/utils/array.hpp>
+#include <aztec3/utils/msgpack_derived_equals.hpp>
+#include <aztec3/utils/msgpack_derived_output.hpp>
 #include <aztec3/utils/types/circuit_types.hpp>
 #include <aztec3/utils/types/convert.hpp>
 #include <aztec3/utils/types/native_types.hpp>
 
+#include <barretenberg/serialize/msgpack.hpp>
 #include <barretenberg/stdlib/primitives/witness/witness.hpp>
 
 namespace aztec3::circuits::abis {
@@ -23,15 +26,16 @@ template <typename NCT> struct TxRequest {
     address from = 0;
     address to = 0;
     FunctionData<NCT> function_data{};
-    std::array<fr, ARGS_LENGTH> args = zero_array<fr, ARGS_LENGTH>();
+    std::array<fr, ARGS_LENGTH> args{};
     fr nonce = 0;
     TxContext<NCT> tx_context{};
     fr chain_id = 0;
 
+    // for serialization, update with new fields
+    MSGPACK_FIELDS(from, to, function_data, args, nonce, tx_context, chain_id);
     boolean operator==(TxContext<NCT> const& other) const
     {
-        return from == other.from && to == other.to && function_data == other.function_data && args == other.args &&
-               nonce == other.nonce && tx_context == other.tx_context && chain_id == other.chain_id;
+        return utils::msgpack_derived_equals<boolean>(*this, other);
     };
 
     template <typename Composer> TxRequest<CircuitTypes<Composer>> to_circuit_type(Composer& composer) const
@@ -71,41 +75,36 @@ template <typename NCT> struct TxRequest {
     }
 };
 
-template <typename NCT> void read(uint8_t const*& it, TxRequest<NCT>& tx_request)
-{
-    using serialize::read;
-
-    read(it, tx_request.from);
-    read(it, tx_request.to);
-    read(it, tx_request.function_data);
-    read(it, tx_request.args);
-    read(it, tx_request.nonce);
-    read(it, tx_request.tx_context);
-    read(it, tx_request.chain_id);
-};
-
-template <typename NCT> void write(std::vector<uint8_t>& buf, TxRequest<NCT> const& tx_request)
-{
-    using serialize::write;
-
-    write(buf, tx_request.from);
-    write(buf, tx_request.to);
-    write(buf, tx_request.function_data);
-    write(buf, tx_request.args);
-    write(buf, tx_request.nonce);
-    write(buf, tx_request.tx_context);
-    write(buf, tx_request.chain_id);
-};
+// template <typename NCT> void read(uint8_t const*& it, TxRequest<NCT>& tx_request)
+//{
+//     using serialize::read;
+//
+//     read(it, tx_request.from);
+//     read(it, tx_request.to);
+//     read(it, tx_request.function_data);
+//     read(it, tx_request.args);
+//     read(it, tx_request.nonce);
+//     read(it, tx_request.tx_context);
+//     read(it, tx_request.chain_id);
+// };
+//
+// template <typename NCT> void write(std::vector<uint8_t>& buf, TxRequest<NCT> const& tx_request)
+//{
+//     using serialize::write;
+//
+//     write(buf, tx_request.from);
+//     write(buf, tx_request.to);
+//     write(buf, tx_request.function_data);
+//     write(buf, tx_request.args);
+//     write(buf, tx_request.nonce);
+//     write(buf, tx_request.tx_context);
+//     write(buf, tx_request.chain_id);
+// };
 
 template <typename NCT> std::ostream& operator<<(std::ostream& os, TxRequest<NCT> const& tx_request)
 {
-    return os << "from: " << tx_request.from << "\n"
-              << "to: " << tx_request.to << "\n"
-              << "function_data: " << tx_request.function_data << "\n"
-              << "args: " << tx_request.args << "\n"
-              << "nonce: " << tx_request.nonce << "\n"
-              << "tx_context: " << tx_request.tx_context << "\n"
-              << "chain_id: " << tx_request.chain_id << "\n";
+    utils::msgpack_derived_output(os, tx_request);
+    return os;
 }
 
 }  // namespace aztec3::circuits::abis

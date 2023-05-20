@@ -5,12 +5,15 @@
 
 #include <aztec3/constants.hpp>
 #include <aztec3/utils/array.hpp>
+#include <aztec3/utils/msgpack_derived_equals.hpp>
+#include <aztec3/utils/msgpack_derived_output.hpp>
 #include <aztec3/utils/types/circuit_types.hpp>
 #include <aztec3/utils/types/convert.hpp>
 #include <aztec3/utils/types/native_types.hpp>
 
 #include <barretenberg/common/map.hpp>
 #include <barretenberg/crypto/generators/generator_data.hpp>
+#include <barretenberg/serialize/msgpack.hpp>
 #include <barretenberg/stdlib/hash/pedersen/pedersen.hpp>
 #include <barretenberg/stdlib/primitives/witness/witness.hpp>
 
@@ -27,17 +30,17 @@ template <typename NCT> class PrivateCircuitPublicInputs {
   public:
     CallContext<NCT> call_context{};
 
-    std::array<fr, ARGS_LENGTH> args = zero_array<fr, ARGS_LENGTH>();
-    std::array<fr, RETURN_VALUES_LENGTH> return_values = zero_array<fr, RETURN_VALUES_LENGTH>();
+    std::array<fr, ARGS_LENGTH> args{};
+    std::array<fr, RETURN_VALUES_LENGTH> return_values{};
 
-    std::array<fr, EMITTED_EVENTS_LENGTH> emitted_events = zero_array<fr, EMITTED_EVENTS_LENGTH>();
+    std::array<fr, EMITTED_EVENTS_LENGTH> emitted_events{};
 
-    std::array<fr, NEW_COMMITMENTS_LENGTH> new_commitments = zero_array<fr, NEW_COMMITMENTS_LENGTH>();
-    std::array<fr, NEW_NULLIFIERS_LENGTH> new_nullifiers = zero_array<fr, NEW_NULLIFIERS_LENGTH>();
+    std::array<fr, NEW_COMMITMENTS_LENGTH> new_commitments{};
+    std::array<fr, NEW_NULLIFIERS_LENGTH> new_nullifiers{};
 
-    std::array<fr, PRIVATE_CALL_STACK_LENGTH> private_call_stack = zero_array<fr, PRIVATE_CALL_STACK_LENGTH>();
-    std::array<fr, PUBLIC_CALL_STACK_LENGTH> public_call_stack = zero_array<fr, PUBLIC_CALL_STACK_LENGTH>();
-    std::array<fr, NEW_L2_TO_L1_MSGS_LENGTH> new_l2_to_l1_msgs = zero_array<fr, NEW_L2_TO_L1_MSGS_LENGTH>();
+    std::array<fr, PRIVATE_CALL_STACK_LENGTH> private_call_stack{};
+    std::array<fr, PUBLIC_CALL_STACK_LENGTH> public_call_stack{};
+    std::array<fr, NEW_L2_TO_L1_MSGS_LENGTH> new_l2_to_l1_msgs{};
 
     fr historic_private_data_tree_root = 0;
     fr historic_nullifier_tree_root = 0;
@@ -46,17 +49,19 @@ template <typename NCT> class PrivateCircuitPublicInputs {
 
     ContractDeploymentData<NCT> contract_deployment_data{};
 
+    // for serialization, update with new fields
+    MSGPACK_FIELDS(call_context,
+                   args,
+                   return_values,
+                   emitted_events,
+                   new_commitments,
+                   new_nullifiers,
+                   private_call_stack,
+                   public_call_stack,
+                   new_l2_to_l1_msgs)
     boolean operator==(PrivateCircuitPublicInputs<NCT> const& other) const
     {
-        return call_context == other.call_context && args == other.args && return_values == other.return_values &&
-               emitted_events == other.emitted_events && new_commitments == other.new_commitments &&
-               new_nullifiers == other.new_nullifiers && private_call_stack == other.private_call_stack &&
-               public_call_stack == other.public_call_stack && new_l2_to_l1_msgs == other.new_l2_to_l1_msgs &&
-               historic_private_data_tree_root == other.historic_private_data_tree_root &&
-               historic_nullifier_tree_root == other.historic_nullifier_tree_root &&
-               historic_contract_tree_root == other.historic_contract_tree_root &&
-               historic_l1_to_l2_messages_tree_root == other.historic_l1_to_l2_messages_tree_root &&
-               contract_deployment_data == other.contract_deployment_data;
+        return utils::msgpack_derived_equals<boolean>(*this, other);
     };
 
     template <typename Composer>
@@ -657,21 +662,8 @@ template <typename NCT>
 std::ostream& operator<<(std::ostream& os, OptionalPrivateCircuitPublicInputs<NCT> const& private_circuit_public_inputs)
 
 {
-    OptionalPrivateCircuitPublicInputs<NCT> const& pis = private_circuit_public_inputs;
-    return os << "call_context: " << pis.call_context << "\n"
-              << "args: " << pis.args << "\n"
-              << "return_values: " << pis.return_values << "\n"
-              << "emitted_events: " << pis.emitted_events << "\n"
-              << "new_commitments: " << pis.new_commitments << "\n"
-              << "new_nullifiers: " << pis.new_nullifiers << "\n"
-              << "private_call_stack: " << pis.private_call_stack << "\n"
-              << "public_call_stack: " << pis.public_call_stack << "\n"
-              << "new_l2_to_l1_msgs: " << pis.new_l2_to_l1_msgs << "\n"
-              << "historic_private_data_tree_root: " << pis.historic_private_data_tree_root << "\n"
-              << "historic_nullifier_tree_root: " << pis.historic_nullifier_tree_root << "\n"
-              << "historic_contract_tree_root: " << pis.historic_contract_tree_root << "\n"
-              << "historic_l1_to_l2_messages_tree_root: " << pis.historic_l1_to_l2_messages_tree_root << "\n"
-              << "contract_deployment_data: " << pis.contract_deployment_data << "\n";
+    utils::msgpack_derived_output(os, private_circuit_public_inputs);
+    return os;
 }
 
 }  // namespace aztec3::circuits::abis

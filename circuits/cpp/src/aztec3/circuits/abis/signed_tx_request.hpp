@@ -6,6 +6,7 @@
 #include <aztec3/utils/types/convert.hpp>
 #include <aztec3/utils/types/native_types.hpp>
 
+#include <barretenberg/serialize/msgpack.hpp>
 #include <barretenberg/stdlib/primitives/witness/witness.hpp>
 
 namespace aztec3::circuits::abis {
@@ -21,6 +22,7 @@ template <typename NCT> struct SignedTxRequest {
     TxRequest<NCT> tx_request{};
     Signature signature{};
 
+    MSGPACK_FIELDS(tx_request, signature);
     boolean operator==(SignedTxRequest<NCT> const& other) const
     {
         return tx_request == other.tx_request && signature == other.signature;
@@ -68,22 +70,22 @@ template <typename NCT> struct SignedTxRequest {
         return NCT::compress(inputs, GeneratorIndex::SIGNED_TX_REQUEST);
     }
 };
-
-template <typename NCT> void read(uint8_t const*& it, SignedTxRequest<NCT>& signed_tx_request)
-{
-    using serialize::read;
-
-    read(it, signed_tx_request.tx_request);
-    read(it, signed_tx_request.signature);
-};
-
-template <typename NCT> void write(std::vector<uint8_t>& buf, SignedTxRequest<NCT> const& signed_tx_request)
-{
-    using serialize::write;
-
-    write(buf, signed_tx_request.tx_request);
-    write(buf, signed_tx_request.signature);
-};
+//
+// template <typename NCT> void read(uint8_t const*& it, SignedTxRequest<NCT>& signed_tx_request)
+//{
+//    using serialize::read;
+//
+//    read(it, signed_tx_request.tx_request);
+//    read(it, signed_tx_request.signature);
+//};
+//
+// template <typename NCT> void write(std::vector<uint8_t>& buf, SignedTxRequest<NCT> const& signed_tx_request)
+//{
+//    using serialize::write;
+//
+//    write(buf, signed_tx_request.tx_request);
+//    write(buf, signed_tx_request.signature);
+//};
 
 template <typename NCT> std::ostream& operator<<(std::ostream& os, SignedTxRequest<NCT> const& signed_tx_request)
 {

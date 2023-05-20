@@ -4,7 +4,7 @@
 #include <cstddef>
 #include <cstdint>
 
-WASM_EXPORT void abis__hash_tx_request(uint8_t const* tx_request_buf, uint8_t* output);
+CBIND_DECL(abis__hash_tx_request);
 
 WASM_EXPORT void abis__compute_function_selector(char const* func_sig_cstr, uint8_t* output);
 
@@ -25,6 +25,6 @@ CBIND_DECL(abis__compute_contract_address);
 
 WASM_EXPORT void abis__compute_message_secret_hash(uint8_t const* secret, uint8_t* output);
 WASM_EXPORT void abis__compute_contract_leaf(uint8_t const* contract_leaf_preimage_buf, uint8_t* output);
-WASM_EXPORT void abis__compute_transaction_hash(uint8_t const* signed_tx_request_buf, uint8_t* output);
+CBIND_DECL(abis__compute_transaction_hash);
 WASM_EXPORT void abis__compute_call_stack_item_hash(uint8_t const* call_stack_item_buf, uint8_t* output);
 
