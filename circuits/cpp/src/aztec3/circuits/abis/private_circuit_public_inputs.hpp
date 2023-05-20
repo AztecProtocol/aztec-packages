@@ -58,7 +58,12 @@ template <typename NCT> class PrivateCircuitPublicInputs {
                    new_nullifiers,
                    private_call_stack,
                    public_call_stack,
-                   new_l2_to_l1_msgs)
+                   new_l2_to_l1_msgs,
+                   historic_private_data_tree_root,
+                   historic_nullifier_tree_root,
+                   historic_contract_tree_root,
+                   historic_l1_to_l2_messages_tree_root,
+                   contract_deployment_data)
     boolean operator==(PrivateCircuitPublicInputs<NCT> const& other) const
     {
         return utils::msgpack_derived_equals<boolean>(*this, other);
