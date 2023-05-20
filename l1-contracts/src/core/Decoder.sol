@@ -90,6 +90,7 @@ contract Decoder {
     uint256 unencryptedLogsOffset;
   }
 
+  // Note: Used in `_computeConsumables` to get around stack too deep errors.
   struct ConsumablesVars {
     bytes32[] baseLeaves;
     bytes32[] l2ToL1Msgs;
@@ -313,18 +314,21 @@ contract Decoder {
          *    newContractDataKernel1.aztecAddress,
          *    newContractDataKernel1.ethAddress (padded to 32 bytes),
          *    newContractDataKernel2.aztecAddress,
-         *    newContractDataKernel2.ethAddress (padded to 32 bytes),
-         *    encrypedLogsHashKernel1,
-         *    encrypedLogsHashKernel2,
-         *    unencryptedLogsHashKernel1,
-         *    unencryptedLogsHashKernel2
+         *    newContractDataKernel2.ethAddress (padded to 32 bytes), ____
+         *    encrypedLogsHashKernel1,                                   |
+         *    encrypedLogsHashKernel2,                                   |=> Computed bellow from logs' preimages.
+         *    unencryptedLogsHashKernel1,                                |
+         *    unencryptedLogsHashKernel2                              ___|
          * );
          * Note that we always read data, the l2Block (atm) must therefore include dummy or zero-notes for
          * Zero values.
          */
 
         // TODO: Uncomment once the logs functionality is added in other places
-        // // Compute logs hashes
+        // /**
+        //  * Compute encrypted and unencrypted logs hashes corresponding to the current leaf.
+        //  * Note: `_computeKernelLogsHash` will advance offsets by the number of bytes processed.
+        //  */
         // (vars.encrypedLogsHashKernel1, offsets.encryptedLogsOffset) =
         //   _computeKernelLogsHash(offsets.encryptedLogsOffset, _l2Block);
         // (vars.encrypedLogsHashKernel2, offsets.encryptedLogsOffset) =
@@ -431,10 +435,17 @@ contract Decoder {
   /**
    * @notice Computes the hash of logs in a kernel.
    * @param _offset - The offset of kernel's logs in calldata.
-   * @param _l2Block - The L2 block calldata.
-   * @return The hash of the logs and offset pointing to the end the logs in calldata.
-   * @dev We need to compute the logs hash the same way as it is computed in all the iterations of the kernel.
-   *      This is an example of how the data is encoded for a kernel with 3 iterations:
+   * @param - The L2 block calldata.
+   * @return The hash of the logs and offset pointing to the end of the logs in calldata.
+   * @dev We have logs preimages on the input and we need to perform the same hashing process as is done in the kernel.
+   *      In each iteration of kernel, the kernel computes a hash of the previous iteration's logs hash and the current
+   *      iteration's logs. E.g. for resulting logs hash of a kernel with 3 iterations would be computed as:
+   *
+   *        logsHash = sha256(sha256(sha256(I1_LOGS), I2_LOGS), I3_LOGS)
+   *
+   *      where I1_LOGS, I2_LOGS and I3_LOGS are logs emitted in the first, second and third iterations respectively.
+   *
+   * @dev For the example above, the logs are encoded in the following way:
    *
    *        || K_LOGS_LEN | I1_LOGS_LEN | I1_LOGS | I2_LOGS_LEN | I2_LOGS | I3_LOGS_LEN | I3_LOGS ||
    *           4 bytes      4 bytes       i bytes   4 bytes       j bytes     4 bytes     k bytes
@@ -444,12 +455,10 @@ contract Decoder {
    *        I1_LOGS are all the logs emitted in the first iteration.
    *        I2_LOGS_LEN (j) ...
    *
-   *      In each iteration, the kernel computes a hash of the previous iteration's logs hash and the current
-   *      iteration's logs. E.g. for the kernel logs portrayed above the resulting hash would be:
-   *
-   *        logsHash = sha256(sha256(sha256(I1_LOGS), I2_LOGS), I3_LOGS)
+   * @dev Link to a relevant discussion:
+   *      https://discourse.aztec.network/t/proposal-forcing-the-sequencer-to-actually-submit-data-to-l1/426/9
    */
-  function _computeKernelLogsHash(uint256 _offset, bytes calldata _l2Block)
+  function _computeKernelLogsHash(uint256 _offset, bytes calldata /* _l2Block */ )
     internal
     pure
     returns (bytes32, uint256)
@@ -458,7 +467,9 @@ contract Decoder {
     uint256 offset;
     assembly {
       // Set the remaining logs length to the total logs length
+      // Loads 32 bytes from calldata, shifts right by 224 bits and masks the result with 0xffffffff
       remainingLogsLength := and(shr(224, calldataload(_offset)), 0xffffffff)
+      // Move the calldata offset by the 4 bytes we just read
       offset := add(_offset, 0x4)
     }
 
@@ -480,7 +491,7 @@ contract Decoder {
       //       the encoding and storing max length on a predefined position)
       bytes memory temp = new bytes(tempLength);
       assembly {
-        // Copy logsHash to temp
+        // Copy logsHash from stack to temp
         mstore(add(temp, 0x20), logsHash)
 
         // Load this iteration's logs to memory
