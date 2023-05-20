@@ -40,6 +40,7 @@
 #include "barretenberg/stdlib/merkle_tree/memory_tree.hpp"
 #include <barretenberg/common/map.hpp>
 #include <barretenberg/common/test.hpp>
+#include <barretenberg/serialize/test_helper.hpp>
 
 #include <gtest/gtest.h>
 
@@ -85,59 +86,10 @@ class root_rollup_tests : public ::testing::Test {
                           RootRollupPublicInputs& expected_public_inputs,
                           bool compare_pubins = true)
     {
-        info("Retesting via cbinds....");
-        // TODO might be able to get rid of proving key buffer
-        uint8_t const* pk_buf = nullptr;
-        size_t const pk_size = root_rollup__init_proving_key(&pk_buf);
-        (void)pk_size;
-        // info("Proving key size: ", pk_size);
-
-        // TODO might be able to get rid of verification key buffer
-        uint8_t const* vk_buf = nullptr;
-        size_t const vk_size = root_rollup__init_verification_key(pk_buf, &vk_buf);
-        (void)vk_size;
-        // info("Verification key size: ", vk_size);
-
-        std::vector<uint8_t> root_rollup_inputs_vec;
-        write(root_rollup_inputs_vec, root_rollup_inputs);
-
-        // uint8_t const* proof_data;
-        // size_t proof_data_size;
-        uint8_t const* public_inputs_buf = nullptr;
-        size_t public_inputs_size = 0;
-        // info("simulating circuit via cbind");
-        uint8_t* const circuit_failure_ptr =
-            root_rollup__sim(root_rollup_inputs_vec.data(), &public_inputs_size, &public_inputs_buf);
-        ASSERT_TRUE(circuit_failure_ptr == nullptr);
-        // info("Proof size: ", proof_data_size);
-        // info("PublicInputs size: ", public_inputs_size);
-
+        auto public_inputs = call_msgpack_cbind<RootRollupPublicInputs>(root_rollup__sim, root_rollup_inputs);
         if (compare_pubins) {
-            RootRollupPublicInputs public_inputs;
-            uint8_t const* public_inputs_buf_tmp = public_inputs_buf;
-            read(public_inputs_buf_tmp, public_inputs);
-            ASSERT_EQ(public_inputs.calldata_hash.size(), expected_public_inputs.calldata_hash.size());
-            for (size_t i = 0; i < public_inputs.calldata_hash.size(); i++) {
-                ASSERT_EQ(public_inputs.calldata_hash[i], expected_public_inputs.calldata_hash[i]);
-            }
-
-            std::vector<uint8_t> expected_public_inputs_vec;
-            write(expected_public_inputs_vec, expected_public_inputs);
-
-            ASSERT_EQ(public_inputs_size, expected_public_inputs_vec.size());
-            // Just compare the first 10 bytes of the serialized public outputs
-            if (public_inputs_size > 10) {
-                // for (size_t 0; i < public_inputs_size; i++) {
-                for (size_t i = 0; i < 10; i++) {
-                    ASSERT_EQ(public_inputs_buf[i], expected_public_inputs_vec[i]);
-                }
-            }
+            ASSERT_EQ(public_inputs, expected_public_inputs);
         }
-
-        free((void*)pk_buf);
-        free((void*)vk_buf);
-        // free((void*)proof_data);
-        free((void*)public_inputs_buf);
     }
 };
 

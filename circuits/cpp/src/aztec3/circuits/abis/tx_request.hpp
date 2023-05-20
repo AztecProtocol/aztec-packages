@@ -75,32 +75,6 @@ template <typename NCT> struct TxRequest {
     }
 };
 
-// template <typename NCT> void read(uint8_t const*& it, TxRequest<NCT>& tx_request)
-//{
-//     using serialize::read;
-//
-//     read(it, tx_request.from);
-//     read(it, tx_request.to);
-//     read(it, tx_request.function_data);
-//     read(it, tx_request.args);
-//     read(it, tx_request.nonce);
-//     read(it, tx_request.tx_context);
-//     read(it, tx_request.chain_id);
-// };
-//
-// template <typename NCT> void write(std::vector<uint8_t>& buf, TxRequest<NCT> const& tx_request)
-//{
-//     using serialize::write;
-//
-//     write(buf, tx_request.from);
-//     write(buf, tx_request.to);
-//     write(buf, tx_request.function_data);
-//     write(buf, tx_request.args);
-//     write(buf, tx_request.nonce);
-//     write(buf, tx_request.tx_context);
-//     write(buf, tx_request.chain_id);
-// };
-
 template <typename NCT> std::ostream& operator<<(std::ostream& os, TxRequest<NCT> const& tx_request)
 {
     utils::msgpack_derived_output(os, tx_request);

@@ -70,22 +70,6 @@ template <typename NCT> struct SignedTxRequest {
         return NCT::compress(inputs, GeneratorIndex::SIGNED_TX_REQUEST);
     }
 };
-//
-// template <typename NCT> void read(uint8_t const*& it, SignedTxRequest<NCT>& signed_tx_request)
-//{
-//    using serialize::read;
-//
-//    read(it, signed_tx_request.tx_request);
-//    read(it, signed_tx_request.signature);
-//};
-//
-// template <typename NCT> void write(std::vector<uint8_t>& buf, SignedTxRequest<NCT> const& signed_tx_request)
-//{
-//    using serialize::write;
-//
-//    write(buf, signed_tx_request.tx_request);
-//    write(buf, signed_tx_request.signature);
-//};
 
 template <typename NCT> std::ostream& operator<<(std::ostream& os, SignedTxRequest<NCT> const& signed_tx_request)
 {

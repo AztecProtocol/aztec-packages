@@ -542,16 +542,7 @@ TEST(private_kernel_tests, circuit_create_proof_cbinds)
     // TODO might be able to get rid of proving key buffer
     uint8_t const* pk_buf = nullptr;
     private_kernel__init_proving_key(&pk_buf);
-    // info("Proving key size: ", pk_size);
 
-    // TODO might be able to get rid of verification key buffer
-    // uint8_t const* vk_buf;
-    // size_t vk_size = private_kernel__init_verification_key(pk_buf, &vk_buf);
-    // info("Verification key size: ", vk_size);
-
-    uint8_t const* proof_data_buf = nullptr;
-    uint8_t const* public_inputs_buf = nullptr;
-    // info("Simulating to generate public inputs...");
     // only succeeds if we get KernelCircuitPublicInputs<NT> and not an error
     auto public_inputs = call_msgpack_cbind<KernelCircuitPublicInputs<NT>>(
         private_kernel__sim,
@@ -561,22 +552,15 @@ TEST(private_kernel_tests, circuit_create_proof_cbinds)
         true                       // first iteration
     );
 
+    auto proof_data = call_msgpack_cbind<KernelCircuitPublicInputs<NT>>(
+        private_kernel__prove,
+        private_inputs.signed_tx_request,
+        private_inputs.private_call,
+        PreviousKernelData<NT>{},  // no previous kernel on first iteration,
+        true                       // first iteration
+    );
     ASSERT_EQ(public_inputs, expect_public_inputs);
-    // info("Proving");
-    size_t const proof_data_size = private_kernel__prove(signed_constructor_tx_request_vec.data(),
-                                                         nullptr,  // no previous kernel on first iteration
-                                                         private_constructor_call_vec.data(),
-                                                         pk_buf,
-                                                         true,  // first iteration
-                                                         &proof_data_buf);
-    (void)proof_data_size;
-    // info("Proof size: ", proof_data_size);
-    // info("PublicInputs size: ", public_inputs_size);
-
-    free((void*)pk_buf);
-    // free((void*)vk_buf);
-    free((void*)proof_data_buf);
-    free((void*)public_inputs_buf);
+    (void)proof_data;  // unused
 }
 
 /**

@@ -4,6 +4,7 @@
 #include "aztec3/circuits/abis/append_only_tree_snapshot.hpp"
 #include "aztec3/circuits/abis/rollup/merge/previous_rollup_data.hpp"
 #include "aztec3/constants.hpp"
+#include <aztec3/utils/msgpack_derived_output.hpp>
 #include <aztec3/utils/types/circuit_types.hpp>
 #include <aztec3/utils/types/convert.hpp>
 #include <aztec3/utils/types/native_types.hpp>
@@ -35,51 +36,21 @@ template <typename NCT> struct RootRollupInputs {
     AppendOnlyTreeSnapshot<NCT> start_l1_to_l2_message_tree_snapshot;
     AppendOnlyTreeSnapshot<NCT> start_historic_tree_l1_to_l2_message_tree_roots_snapshot;
 
+    // for serialization, update with new fields
+    MSGPACK_FIELDS(previous_rollup_data,
+                   new_historic_private_data_tree_root_sibling_path,
+                   new_historic_contract_tree_root_sibling_path,
+                   l1_to_l2_messages,
+                   new_l1_to_l2_message_tree_root_sibling_path,
+                   new_historic_l1_to_l2_message_roots_tree_sibling_path,
+                   start_l1_to_l2_message_tree_snapshot,
+                   start_historic_tree_l1_to_l2_message_tree_roots_snapshot);
     bool operator==(RootRollupInputs<NCT> const&) const = default;
-};
-
-template <typename NCT> void read(uint8_t const*& it, RootRollupInputs<NCT>& obj)
-{
-    using serialize::read;
-
-    read(it, obj.previous_rollup_data);
-    read(it, obj.new_historic_private_data_tree_root_sibling_path);
-    read(it, obj.new_historic_contract_tree_root_sibling_path);
-    read(it, obj.l1_to_l2_messages);
-    read(it, obj.new_l1_to_l2_message_tree_root_sibling_path);
-    read(it, obj.new_historic_l1_to_l2_message_roots_tree_sibling_path);
-    read(it, obj.start_l1_to_l2_message_tree_snapshot);
-    read(it, obj.start_historic_tree_l1_to_l2_message_tree_roots_snapshot);
-};
-
-template <typename NCT> void write(std::vector<uint8_t>& buf, RootRollupInputs<NCT> const& obj)
-{
-    using serialize::write;
-
-    write(buf, obj.previous_rollup_data);
-    write(buf, obj.new_historic_private_data_tree_root_sibling_path);
-    write(buf, obj.new_historic_contract_tree_root_sibling_path);
-    write(buf, obj.l1_to_l2_messages);
-    write(buf, obj.new_l1_to_l2_message_tree_root_sibling_path);
-    write(buf, obj.new_historic_l1_to_l2_message_roots_tree_sibling_path);
-    write(buf, obj.start_l1_to_l2_message_tree_snapshot);
-    write(buf, obj.start_historic_tree_l1_to_l2_message_tree_roots_snapshot);
 };
 
 template <typename NCT> std::ostream& operator<<(std::ostream& os, RootRollupInputs<NCT> const& obj)
 {
-    return os << "previous_rollup_data: " << obj.previous_rollup_data << "\n"
-              << "new_historic_private_data_tree_roots: " << obj.new_historic_private_data_tree_root_sibling_path
-              << "\n"
-              << "new_historic_contract_tree_roots: " << obj.new_historic_contract_tree_root_sibling_path << "\n"
-              << "new_l1_to_l2_messages: " << obj.l1_to_l2_messages << "\n"
-              << "new_l1_to_l2_message_tree_root_sibling_path: " << obj.new_l1_to_l2_message_tree_root_sibling_path
-              << "\n"
-              << "new_historic_l1_to_l2_message_roots_tree_sibling_path: "
-              << obj.new_historic_l1_to_l2_message_roots_tree_sibling_path << "\n"
-              << "start_l1_to_l2_message_tree_snapshot: " << obj.start_l1_to_l2_message_tree_snapshot << "\n"
-              << "start_historic_tree_l1_to_l2_message_tree_roots_snapshot: "
-              << obj.start_historic_tree_l1_to_l2_message_tree_roots_snapshot << "\n";
+    return utils::msgpack_derived_output(os, obj);
 }
 
 }  // namespace aztec3::circuits::abis

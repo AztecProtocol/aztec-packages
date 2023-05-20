@@ -13,6 +13,7 @@
 
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/plonk/composer/turbo_composer.hpp"
+#include "barretenberg/serialize/cbind.hpp"
 #include "barretenberg/srs/reference_string/env_reference_string.hpp"
 
 namespace {
@@ -25,9 +26,6 @@ using aztec3::circuits::rollup::native_root_rollup::RootRollupPublicInputs;
 
 }  // namespace
 
-#define WASM_EXPORT __attribute__((visibility("default")))
-// WASM Cbinds
-extern "C" {
 
 WASM_EXPORT size_t root_rollup__init_proving_key(uint8_t const** pk_buf)
 {
@@ -53,26 +51,14 @@ WASM_EXPORT size_t root_rollup__init_verification_key(uint8_t const* pk_buf, uin
     return vk_vec.size();
 }
 
-WASM_EXPORT uint8_t* root_rollup__sim(uint8_t const* root_rollup_inputs_buf,
-                                      size_t* root_rollup_public_inputs_size_out,
-                                      uint8_t const** root_rollup_public_inputs_buf)
+static auto root_rollup__sim_helper(RootRollupInputs root_rollup_inputs)
 {
-    RootRollupInputs root_rollup_inputs;
-    read(root_rollup_inputs_buf, root_rollup_inputs);
-
     DummyComposer composer = DummyComposer("root_rollup__sim");
-    RootRollupPublicInputs const public_inputs = root_rollup_circuit(composer, root_rollup_inputs);
-
-    // serialize public inputs to bytes vec
-    std::vector<uint8_t> public_inputs_vec;
-    write(public_inputs_vec, public_inputs);
-    // copy public inputs to output buffer
-    auto* raw_public_inputs_buf = (uint8_t*)malloc(public_inputs_vec.size());
-    memcpy(raw_public_inputs_buf, (void*)public_inputs_vec.data(), public_inputs_vec.size());
-    *root_rollup_public_inputs_buf = raw_public_inputs_buf;
-    *root_rollup_public_inputs_size_out = public_inputs_vec.size();
-    return composer.alloc_and_serialize_first_failure();
+    RootRollupPublicInputs const result = root_rollup_circuit(composer, root_rollup_inputs);
+    return composer.result_or_error(result);
 }
+
+CBIND(root_rollup__sim, root_rollup__sim_helper)
 
 WASM_EXPORT size_t root_rollup__verify_proof(uint8_t const* vk_buf, uint8_t const* proof, uint32_t length)
 {
@@ -81,5 +67,3 @@ WASM_EXPORT size_t root_rollup__verify_proof(uint8_t const* vk_buf, uint8_t cons
     (void)length;  // unused
     return 1U;
 }
-
-}  // extern "C"
