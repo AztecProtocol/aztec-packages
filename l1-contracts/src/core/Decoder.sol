@@ -504,6 +504,10 @@ contract Decoder {
         // Decrease remaining logs length by this iteration's logs length (len(I?_LOGS)) and 4 bytes for I?_LOGS_LEN
         remainingLogsLength := sub(remainingLogsLength, add(iterationLogsLength, 0x4))
       }
+
+      // Truncate the hash to field
+      // See: https://discourse.aztec.network/t/proposal-forcing-the-sequencer-to-actually-submit-data-to-l1/426/2
+      logsHash = bytes32(uint256(logsHash) % P);
     }
 
     return (logsHash, offset);
