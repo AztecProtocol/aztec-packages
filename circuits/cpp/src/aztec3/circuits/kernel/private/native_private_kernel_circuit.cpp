@@ -28,6 +28,7 @@ using CircuitErrorCode = aztec3::utils::CircuitErrorCode;
 
 using aztec3::circuits::compute_constructor_hash;
 using aztec3::circuits::compute_contract_address;
+using aztec3::circuits::compute_l2_to_l1_hash;
 using aztec3::circuits::contract_tree_root_from_siblings;
 using aztec3::circuits::function_tree_root_from_siblings;
 
@@ -180,7 +181,8 @@ void contract_logic(DummyComposer& composer,
 
 void update_end_values(DummyComposer& composer,
                        PrivateInputs<NT> const& private_inputs,
-                       KernelCircuitPublicInputs<NT>& public_inputs)
+                       KernelCircuitPublicInputs<NT>& public_inputs,
+                       bool first_iteration)
 {
     const auto private_call_public_inputs = private_inputs.private_call.call_stack_item.public_inputs;
 
@@ -200,6 +202,17 @@ void update_end_values(DummyComposer& composer,
     }
 
     const auto& storage_contract_address = private_call_public_inputs.call_context.storage_contract_address;
+
+    if (first_iteration) {
+        // Since it's the first iteration, we need to push the the tx hash nullifier into the `new_nullifiers` array
+
+        // If the nullifiers array is not empty a change was made and we need to rework this
+        composer.do_assert(is_array_empty(public_inputs.end.new_nullifiers),
+                           "new_nullifiers array must be empty in a first iteration of private kernel",
+                           CircuitErrorCode::PRIVATE_KERNEL__NEW_NULLIFIERS_NOT_EMPTY_IN_FIRST_ITERATION);
+
+        array_push(public_inputs.end.new_nullifiers, private_inputs.signed_tx_request.hash());
+    }
 
     {
         // Nonce nullifier
@@ -228,24 +241,34 @@ void update_end_values(DummyComposer& composer,
         push_array_to_array(siloed_new_nullifiers, public_inputs.end.new_nullifiers);
     }
 
-    {  // call stacks
+    {  // private call stack
         const auto& this_private_call_stack = private_call_public_inputs.private_call_stack;
         push_array_to_array(this_private_call_stack, public_inputs.end.private_call_stack);
     }
 
-    // const auto& portal_contract_address = private_inputs.private_call.portal_contract_address;
+    {  // public call stack
+        const auto& this_public_call_stack = private_call_public_inputs.public_call_stack;
+        push_array_to_array(this_public_call_stack, public_inputs.end.public_call_stack);
+    }
 
-    // {
-    //     const auto& new_l2_to_l1_msgs = private_call_public_inputs.new_l2_to_l1_msgs;
-    //     std::array<CT::fr, NEW_L2_TO_L1_MSGS_LENGTH> l1_call_stack;
-
-    //     for (size_t i = 0; i < new_l2_to_l1_msgs.size(); ++i) {
-    //         l1_call_stack[i] = CT::fr::conditional_assign(
-    //             new_l2_to_l1_msgs[i] == 0,
-    //             0,
-    //             CT::compress({ portal_contract_address, new_l2_to_l1_msgs[i] }, GeneratorIndex::L2_TO_L1_MSG));
-    //     }
-    // }
+    {  // new l2 to l1 messages
+        const auto& portal_contract_address = private_inputs.private_call.portal_contract_address;
+        const auto& new_l2_to_l1_msgs = private_call_public_inputs.new_l2_to_l1_msgs;
+        std::array<NT::fr, NEW_L2_TO_L1_MSGS_LENGTH> new_l2_to_l1_msgs_to_insert;
+        for (size_t i = 0; i < new_l2_to_l1_msgs.size(); ++i) {
+            if (!new_l2_to_l1_msgs[i].is_zero()) {
+                // @todo @LHerskind chain-ids and rollup version id should be added here. Right now, just hard coded.
+                // @todo @LHerskind chain-id is hardcoded for foundry
+                const auto chain_id = fr(31337);
+                new_l2_to_l1_msgs_to_insert[i] = compute_l2_to_l1_hash<NT>(storage_contract_address,
+                                                                           fr(1),  // rollup version id
+                                                                           portal_contract_address,
+                                                                           chain_id,
+                                                                           new_l2_to_l1_msgs[i]);
+            }
+        }
+        push_array_to_array(new_l2_to_l1_msgs_to_insert, public_inputs.end.new_l2_to_l1_msgs);
+    }
 }
 
 void validate_this_private_call_hash(DummyComposer& composer,
@@ -274,13 +297,13 @@ void validate_this_private_call_stack(DummyComposer& composer, PrivateInputs<NT>
         // Note: this assumes it's computationally infeasible to have `0` as a valid call_stack_item_hash.
         // Assumes `hash == 0` means "this stack item is empty".
         const auto calculated_hash = hash == 0 ? 0 : preimage.hash();
-        composer.do_assert(hash != calculated_hash,
+        composer.do_assert(hash == calculated_hash,
                            format("private_call_stack[", i, "] = ", hash, "; does not reconcile"),
                            CircuitErrorCode::PRIVATE_KERNEL__PRIVATE_CALL_STACK_ITEM_HASH_MISMATCH);
     }
 };
 
-void validate_inputs(DummyComposer& composer, PrivateInputs<NT> const& private_inputs)
+void validate_inputs(DummyComposer& composer, PrivateInputs<NT> const& private_inputs, bool is_base_case)
 {
     const auto& this_call_stack_item = private_inputs.private_call.call_stack_item;
 
@@ -289,8 +312,6 @@ void validate_inputs(DummyComposer& composer, PrivateInputs<NT> const& private_i
                        CircuitErrorCode::PRIVATE_KERNEL__NON_PRIVATE_FUNCTION_EXECUTED_WITH_PRIVATE_KERNEL);
 
     const auto& start = private_inputs.previous_kernel.public_inputs.end;
-
-    const NT::boolean is_base_case = start.private_call_count == 0;
 
     // TODO: we might want to range-constrain the call_count to prevent some kind of overflow errors. Having said that,
     // iterating 2^254 times isn't feasible.
@@ -355,7 +376,8 @@ void validate_inputs(DummyComposer& composer, PrivateInputs<NT> const& private_i
 // TODO: is there a way to identify whether an input has not been used by ths circuit? This would help us more-safely
 // ensure we're constraining everything.
 KernelCircuitPublicInputs<NT> native_private_kernel_circuit(DummyComposer& composer,
-                                                            PrivateInputs<NT> const& private_inputs)
+                                                            PrivateInputs<NT> const& private_inputs,
+                                                            bool first_iteration)
 {
     // We'll be pushing data to this during execution of this circuit.
     KernelCircuitPublicInputs<NT> public_inputs{};
@@ -363,13 +385,15 @@ KernelCircuitPublicInputs<NT> native_private_kernel_circuit(DummyComposer& compo
     // Do this before any functions can modify the inputs.
     initialise_end_values(private_inputs, public_inputs);
 
-    validate_inputs(composer, private_inputs);
+    validate_inputs(composer, private_inputs, first_iteration);
 
     validate_this_private_call_hash(composer, private_inputs, public_inputs);
 
-    validate_this_private_call_stack(composer, private_inputs);
+    // TODO(rahul) FIXME - https://github.com/AztecProtocol/aztec-packages/issues/499
+    // Noir doesn't have hash index so it can't hash private call stack item correctly
+    // validate_this_private_call_stack(composer, private_inputs);
 
-    update_end_values(composer, private_inputs, public_inputs);
+    update_end_values(composer, private_inputs, public_inputs, first_iteration);
 
     contract_logic(composer, private_inputs, public_inputs);
 
@@ -379,7 +403,7 @@ KernelCircuitPublicInputs<NT> native_private_kernel_circuit(DummyComposer& compo
     //                                         _private_inputs.private_call.vk->num_public_inputs,
     //                                         _private_inputs.previous_kernel.vk->num_public_inputs);
 
-    // TODO: kernel vk membership check!
+    // TODO(dbanks12): kernel vk membership check!
 
     // Note: given that we skipped the verify_proof function, the aggregation object we get at the end will just be the
     // same as we had at the start. public_inputs.end.aggregation_object = aggregation_object;

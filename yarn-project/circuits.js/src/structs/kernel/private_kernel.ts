@@ -1,14 +1,14 @@
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { FieldsOf, assertLength } from '../../utils/jsUtils.js';
+import { FieldsOf, assertMemberLength } from '../../utils/jsUtils.js';
 import { serializeToBuffer } from '../../utils/serialize.js';
 import { PrivateCallStackItem } from '../call_stack_item.js';
 import { CONTRACT_TREE_HEIGHT, FUNCTION_TREE_HEIGHT, PRIVATE_CALL_STACK_LENGTH } from '../constants.js';
 import { MembershipWitness } from '../membership_witness.js';
-import { UInt8Vector } from '../shared.js';
 import { SignedTxRequest } from '../tx_request.js';
 import { VerificationKey } from '../verification_key.js';
 import { PreviousKernelData } from './previous_kernel_data.js';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '../index.js';
+import { Proof } from '../proof.js';
 
 /**
  * Private call data.
@@ -16,16 +16,41 @@ import { Fr } from '@aztec/foundation/fields';
  */
 export class PrivateCallData {
   constructor(
+    /**
+     * The call stack item currently being processed.
+     */
     public callStackItem: PrivateCallStackItem,
+    /**
+     * Other private call stack items to be processed.
+     */
     public privateCallStackPreimages: PrivateCallStackItem[],
-    public proof: UInt8Vector,
+    /**
+     * The proof of the execution of this private call.
+     */
+    public proof: Proof,
+    /**
+     * The verification key for the function being invoked.
+     */
     public vk: VerificationKey,
+    /**
+     * The membership witness for the function leaf corresponding to the function being invoked.
+     */
     public functionLeafMembershipWitness: MembershipWitness<typeof FUNCTION_TREE_HEIGHT>,
+    /**
+     * The membership witness for the contract leaf corresponding to the contract on which the function is being
+     * invoked.
+     */
     public contractLeafMembershipWitness: MembershipWitness<typeof CONTRACT_TREE_HEIGHT>,
+    /**
+     * The address of the portal contract corresponding to the contract on which the function is being invoked.
+     */
     public portalContractAddress: EthAddress,
+    /**
+     * The hash of the ACIR of the function being invoked.
+     */
     public acirHash: Fr,
   ) {
-    assertLength(this, 'privateCallStackPreimages', PRIVATE_CALL_STACK_LENGTH);
+    assertMemberLength(this, 'privateCallStackPreimages', PRIVATE_CALL_STACK_LENGTH);
   }
 
   /**
@@ -65,8 +90,17 @@ export class PrivateCallData {
  */
 export class PrivateKernelInputs {
   constructor(
+    /**
+     * The transaction request which led to the creation of these inputs.
+     */
     public signedTxRequest: SignedTxRequest,
+    /**
+     * The previous kernel data (dummy if this is the first kernel).
+     */
     public previousKernel: PreviousKernelData,
+    /**
+     * Private calldata corresponding to this iteration of the kernel.
+     */
     public privateCall: PrivateCallData,
   ) {}
 
@@ -77,8 +111,4 @@ export class PrivateKernelInputs {
   toBuffer() {
     return serializeToBuffer(this.signedTxRequest, this.previousKernel, this.privateCall);
   }
-}
-
-export function makeEmptyProof() {
-  return new UInt8Vector(Buffer.alloc(0));
 }

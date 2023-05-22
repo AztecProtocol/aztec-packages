@@ -1,4 +1,5 @@
 import { Fr, Fq } from '../fields/fields.js';
+import { Tuple } from './types.js';
 
 /**
  * The BufferReader class provides a utility for reading various data types from a buffer.
@@ -50,7 +51,7 @@ export class BufferReader {
    * Reads a 16-bit unsigned integer from the buffer at the current index position.
    * Updates the index position by 2 bytes after reading the number.
    *
-   * @returns The read 16 bit value
+   * @returns The read 16 bit value.
    */
   public readUInt16(): number {
     this.index += 2;
@@ -148,20 +149,17 @@ export class BufferReader {
    * @param itemDeserializer - An object with a 'fromBuffer' method to deserialize individual elements of type T.
    * @returns An array of instances of type T.
    */
-  public readArray<T>(
-    size: number,
+  public readArray<T, N extends number>(
+    size: N,
     itemDeserializer: {
       /**
        * A function for deserializing data from a BufferReader instance.
        */
       fromBuffer: (reader: BufferReader) => T;
     },
-  ): T[] {
-    const result = new Array<T>(size);
-    for (let i = 0; i < size; i++) {
-      result[i] = itemDeserializer.fromBuffer(this);
-    }
-    return result;
+  ): Tuple<T, N> {
+    const result = Array.from({ length: size }, () => itemDeserializer.fromBuffer(this));
+    return result as Tuple<T, N>;
   }
 
   /**

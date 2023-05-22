@@ -1,7 +1,11 @@
 import { AztecNode } from '@aztec/aztec-node';
 import {
+  AztecAddress,
   CONTRACT_TREE_HEIGHT,
+  CircuitsWasm,
+  EthAddress,
   FUNCTION_TREE_HEIGHT,
+  Fr,
   FunctionData,
   FunctionLeafPreimage,
   MembershipWitness,
@@ -16,15 +20,11 @@ import {
   hashConstructor,
   hashVK,
 } from '@aztec/circuits.js/abis';
-import { CircuitsWasm } from '@aztec/circuits.js/wasm';
-import { generateFunctionSelector } from '../abi_coder/index.js';
-import { ContractDao, ContractFunctionDao } from '../contract_database/index.js';
+import { FunctionType, ContractAbi } from '@aztec/foundation/abi';
+import { assertLength } from '@aztec/foundation/serialize';
+import { ContractFunctionDao, ContractDao } from '../contract_database/contract_dao.js';
+import { generateFunctionSelector } from '../index.js';
 import { computeFunctionTreeData } from './function_tree_data.js';
-import { ContractAbi, FunctionType } from '@aztec/foundation/abi';
-import { Fr } from '@aztec/foundation/fields';
-import { keccak } from '@aztec/foundation/crypto';
-import { EthAddress } from '@aztec/foundation/eth-address';
-import { AztecAddress } from '@aztec/foundation/aztec-address';
 
 /**
  * Computes the hash of a hex-encoded string representation of a verification key (vk).
@@ -97,7 +97,11 @@ async function generateFunctionLeaves(functions: ContractFunctionDao[], wasm: Ci
     const isPrivate = f.functionType === FunctionType.SECRET;
     // All non-unconstrained functions have vks
     const vkHash = await hashVKStr(f.verificationKey!, wasm);
-    const acirHash = keccak(Buffer.from(f.bytecode, 'hex'));
+    // TODO
+    // FIXME: https://github.com/AztecProtocol/aztec3-packages/issues/262
+    // const acirHash = keccak(Buffer.from(f.bytecode, 'hex'));
+    const acirHash = Buffer.alloc(32, 0);
+
     const fnLeafPreimage = new FunctionLeafPreimage(
       selector,
       isPrivate,
@@ -259,7 +263,10 @@ export class ContractTree {
       this.contractMembershipWitness = new MembershipWitness<typeof CONTRACT_TREE_HEIGHT>(
         CONTRACT_TREE_HEIGHT,
         index,
-        siblingPath.data.map(x => new Fr(x.readBigInt64BE())),
+        assertLength(
+          siblingPath.data.map(x => Fr.fromBuffer(x)),
+          CONTRACT_TREE_HEIGHT,
+        ),
       );
     }
     return this.contractMembershipWitness;
@@ -304,7 +311,7 @@ export class ContractTree {
     return new MembershipWitness<typeof FUNCTION_TREE_HEIGHT>(
       FUNCTION_TREE_HEIGHT,
       BigInt(functionIndex),
-      functionTreeData.siblingPath,
+      assertLength(functionTreeData.siblingPath, FUNCTION_TREE_HEIGHT),
     );
   }
 

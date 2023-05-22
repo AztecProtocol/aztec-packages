@@ -1,4 +1,4 @@
-import { Fr, simulatePublicKernelCircuit, simulatePublicKernelCircuitNoPreviousKernel } from '../index.js';
+import { simulatePublicKernelCircuit, simulatePublicKernelCircuitNoPreviousKernel } from '../index.js';
 import { makePublicKernelInputsNoKernelInput, makePublicKernelInputsWithEmptyOutput } from '../tests/factories.js';
 
 describe('kernel/public_kernel', () => {
@@ -7,15 +7,14 @@ describe('kernel/public_kernel', () => {
     // Fix validity
     input.publicCallData.callStackItem.functionData.isConstructor = false;
     input.publicCallData.callStackItem.functionData.isPrivate = false;
-    input.previousKernel.publicInputs.isPrivateKernel = false;
+    input.previousKernel.publicInputs.isPrivate = false;
     const result = await simulatePublicKernelCircuit(input);
     expect(result).toBeDefined();
   });
 
   it('simulates public kernel circuit with previous private kernel', async function () {
     const input = await makePublicKernelInputsWithEmptyOutput();
-    input.previousKernel.publicInputs.isPrivateKernel = true;
-    input.previousKernel.publicInputs.end.publicCallCount = Fr.ZERO;
+    input.previousKernel.publicInputs.isPrivate = true;
     const result = await simulatePublicKernelCircuit(input);
     expect(result).toBeDefined();
   });

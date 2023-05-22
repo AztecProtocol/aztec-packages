@@ -1,5 +1,5 @@
 import times from 'lodash.times';
-import { FieldsOf, assertLength } from '../utils/jsUtils.js';
+import { FieldsOf, assertMemberLength } from '../utils/jsUtils.js';
 import { CallContext } from './call_context.js';
 import {
   ARGS_LENGTH,
@@ -7,22 +7,44 @@ import {
   NEW_L2_TO_L1_MSGS_LENGTH,
   PUBLIC_CALL_STACK_LENGTH,
   RETURN_VALUES_LENGTH,
-  STATE_READS_LENGTH,
-  STATE_TRANSITIONS_LENGTH,
+  KERNEL_PUBLIC_DATA_READS_LENGTH,
+  KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH,
 } from './constants.js';
 import { serializeToBuffer } from '../utils/serialize.js';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader } from '@aztec/foundation/serialize';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { isArrayEmpty } from '@aztec/foundation/collection';
 
 /**
- * Public state read operation on a specific contract.
+ * Contract storage read operation on a specific contract.
+ *
+ * Note: Similar to `PublicDataRead` but it's from the POV of contract storage so we are not working with public data
+ * tree leaf index but storage slot index.
  */
-export class StateRead {
-  constructor(public readonly storageSlot: Fr, public readonly value: Fr) {}
+export class ContractStorageRead {
+  constructor(
+    /**
+     * Storage slot we are reading from.
+     */
+    public readonly storageSlot: Fr,
+    /**
+     * Value read from the storage slot.
+     */
+    public readonly value: Fr,
+  ) {}
 
-  static from(args: { storageSlot: Fr; value: Fr }) {
-    return new StateRead(args.storageSlot, args.value);
+  static from(args: {
+    /**
+     * Storage slot we are reading from.
+     */
+    storageSlot: Fr;
+    /**
+     * Value read from the storage slot.
+     */
+    value: Fr;
+  }) {
+    return new ContractStorageRead(args.storageSlot, args.value);
   }
 
   toBuffer() {
@@ -31,22 +53,59 @@ export class StateRead {
 
   static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
-    return new StateRead(reader.readFr(), reader.readFr());
+    return new ContractStorageRead(reader.readFr(), reader.readFr());
   }
 
   static empty() {
-    return new StateRead(Fr.ZERO, Fr.ZERO);
+    return new ContractStorageRead(Fr.ZERO, Fr.ZERO);
+  }
+
+  isEmpty() {
+    return this.storageSlot.isZero() && this.value.isZero();
+  }
+
+  toFriendlyJSON() {
+    return `Slot=${this.storageSlot.toFriendlyJSON()}: ${this.value.toFriendlyJSON()}`;
   }
 }
 
 /**
- * Public state transition for a slot on a specific contract.
+ * Contract storage update request for a slot on a specific contract.
+ *
+ * Note: Similar to `PublicDataUpdateRequest` but it's from the POV of contract storage so we are not working with
+ * public data tree leaf index but storage slot index.
  */
-export class StateTransition {
-  constructor(public readonly storageSlot: Fr, public readonly oldValue: Fr, public readonly newValue: Fr) {}
+export class ContractStorageUpdateRequest {
+  constructor(
+    /**
+     * Storage slot we are updating.
+     */
+    public readonly storageSlot: Fr,
+    /**
+     * Old value of the storage slot.
+     */
+    public readonly oldValue: Fr,
+    /**
+     * New value of the storage slot.
+     */
+    public readonly newValue: Fr,
+  ) {}
 
-  static from(args: { storageSlot: Fr; oldValue: Fr; newValue: Fr }) {
-    return new StateTransition(args.storageSlot, args.oldValue, args.newValue);
+  static from(args: {
+    /**
+     * Storage slot we are updating.
+     */
+    storageSlot: Fr;
+    /**
+     * Old value of the storage slot.
+     */
+    oldValue: Fr;
+    /**
+     * New value of the storage slot.
+     */
+    newValue: Fr;
+  }) {
+    return new ContractStorageUpdateRequest(args.storageSlot, args.oldValue, args.newValue);
   }
 
   toBuffer() {
@@ -55,11 +114,19 @@ export class StateTransition {
 
   static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
-    return new StateTransition(reader.readFr(), reader.readFr(), reader.readFr());
+    return new ContractStorageUpdateRequest(reader.readFr(), reader.readFr(), reader.readFr());
   }
 
   static empty() {
-    return new StateTransition(Fr.ZERO, Fr.ZERO, Fr.ZERO);
+    return new ContractStorageUpdateRequest(Fr.ZERO, Fr.ZERO, Fr.ZERO);
+  }
+
+  isEmpty() {
+    return this.storageSlot.isZero() && this.oldValue.isZero() && this.newValue.isZero();
+  }
+
+  toFriendlyJSON() {
+    return `Slot=${this.storageSlot.toFriendlyJSON()}: ${this.oldValue.toFriendlyJSON()} => ${this.newValue.toFriendlyJSON()}`;
   }
 }
 
@@ -68,24 +135,54 @@ export class StateTransition {
  */
 export class PublicCircuitPublicInputs {
   constructor(
+    /**
+     * Current call context.
+     */
     public callContext: CallContext,
+    /**
+     * Arguments of the call.
+     */
     public args: Fr[],
+    /**
+     * Return values of the call.
+     */
     public returnValues: Fr[],
+    /**
+     * Events emitted during the call.
+     */
     public emittedEvents: Fr[],
-    public stateTransitions: StateTransition[],
-    public stateReads: StateRead[],
+    /**
+     * Contract storage update requests executed during the call.
+     */
+    public contractStorageUpdateRequests: ContractStorageUpdateRequest[],
+    /**
+     * Contract storage reads executed during the call.
+     */
+    public contractStorageReads: ContractStorageRead[],
+    /**
+     * Public call stack of the current kernel iteration.
+     */
     public publicCallStack: Fr[],
+    /**
+     * New L2 to L1 messages generated during the call.
+     */
     public newL2ToL1Msgs: Fr[],
+    /**
+     * Root of the public data tree when the call started.
+     */
     public historicPublicDataTreeRoot: Fr,
+    /**
+     * Address of the prover.
+     */
     public proverAddress: AztecAddress,
   ) {
-    assertLength(this, 'args', ARGS_LENGTH);
-    assertLength(this, 'returnValues', RETURN_VALUES_LENGTH);
-    assertLength(this, 'emittedEvents', EMITTED_EVENTS_LENGTH);
-    assertLength(this, 'publicCallStack', PUBLIC_CALL_STACK_LENGTH);
-    assertLength(this, 'newL2ToL1Msgs', NEW_L2_TO_L1_MSGS_LENGTH);
-    assertLength(this, 'stateTransitions', STATE_TRANSITIONS_LENGTH);
-    assertLength(this, 'stateReads', STATE_READS_LENGTH);
+    assertMemberLength(this, 'args', ARGS_LENGTH);
+    assertMemberLength(this, 'returnValues', RETURN_VALUES_LENGTH);
+    assertMemberLength(this, 'emittedEvents', EMITTED_EVENTS_LENGTH);
+    assertMemberLength(this, 'publicCallStack', PUBLIC_CALL_STACK_LENGTH);
+    assertMemberLength(this, 'newL2ToL1Msgs', NEW_L2_TO_L1_MSGS_LENGTH);
+    assertMemberLength(this, 'contractStorageUpdateRequests', KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH);
+    assertMemberLength(this, 'contractStorageReads', KERNEL_PUBLIC_DATA_READS_LENGTH);
   }
 
   /**
@@ -99,7 +196,7 @@ export class PublicCircuitPublicInputs {
 
   /**
    * Returns an empty instance.
-   * @returns an empty instance.
+   * @returns An empty instance.
    */
   public static empty() {
     const frArray = (num: number) => times(num, () => Fr.ZERO);
@@ -108,14 +205,31 @@ export class PublicCircuitPublicInputs {
       frArray(ARGS_LENGTH),
       frArray(RETURN_VALUES_LENGTH),
       frArray(EMITTED_EVENTS_LENGTH),
-      times(STATE_TRANSITIONS_LENGTH, StateTransition.empty),
-      times(STATE_READS_LENGTH, StateRead.empty),
+      times(KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH, ContractStorageUpdateRequest.empty),
+      times(KERNEL_PUBLIC_DATA_READS_LENGTH, ContractStorageRead.empty),
       frArray(PUBLIC_CALL_STACK_LENGTH),
       frArray(NEW_L2_TO_L1_MSGS_LENGTH),
       Fr.ZERO,
       AztecAddress.ZERO,
     );
   }
+
+  isEmpty() {
+    const isFrArrayEmpty = (arr: Fr[]) => isArrayEmpty(arr, item => item.isZero());
+    return (
+      this.callContext.isEmpty() &&
+      isFrArrayEmpty(this.args) &&
+      isFrArrayEmpty(this.returnValues) &&
+      isFrArrayEmpty(this.emittedEvents) &&
+      isArrayEmpty(this.contractStorageUpdateRequests, item => item.isEmpty()) &&
+      isArrayEmpty(this.contractStorageReads, item => item.isEmpty()) &&
+      isFrArrayEmpty(this.publicCallStack) &&
+      isFrArrayEmpty(this.newL2ToL1Msgs) &&
+      this.historicPublicDataTreeRoot.isZero() &&
+      this.proverAddress.isZero()
+    );
+  }
+
   /**
    * Serialize into a field array. Low-level utility.
    * @param fields - Object with fields.
@@ -127,8 +241,8 @@ export class PublicCircuitPublicInputs {
       fields.args,
       fields.returnValues,
       fields.emittedEvents,
-      fields.stateTransitions,
-      fields.stateReads,
+      fields.contractStorageUpdateRequests,
+      fields.contractStorageReads,
       fields.publicCallStack,
       fields.newL2ToL1Msgs,
       fields.historicPublicDataTreeRoot,

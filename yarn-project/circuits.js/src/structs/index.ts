@@ -18,6 +18,7 @@ export * from './public_circuit_public_inputs.js';
 export * from './circuit_error.js';
 export * from './call_stack_item.js';
 export * from './shared.js';
+export * from './proof.js';
 export * from './tx_request.js';
 export * from './tx_context.js';
 export * from './verification_key.js';
@@ -26,6 +27,7 @@ export * from './function_leaf_preimage.js';
 export * from './aggregation_object.js';
 export * from './membership_witness.js';
 export * from './generators.js';
+export * from './public_call_request.js';
 export * from '@aztec/foundation/eth-address';
 
 export * from '@aztec/foundation/fields';

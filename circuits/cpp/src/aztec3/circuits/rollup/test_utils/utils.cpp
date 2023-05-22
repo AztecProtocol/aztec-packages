@@ -54,7 +54,7 @@ namespace aztec3::circuits::rollup::test_utils::utils {
 std::vector<uint8_t> get_empty_calldata_leaf()
 {
     auto const number_of_inputs =
-        (KERNEL_NEW_COMMITMENTS_LENGTH + KERNEL_NEW_NULLIFIERS_LENGTH + STATE_TRANSITIONS_LENGTH * 2 +
+        (KERNEL_NEW_COMMITMENTS_LENGTH + KERNEL_NEW_NULLIFIERS_LENGTH + KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH * 2 +
          KERNEL_NEW_L2_TO_L1_MSGS_LENGTH + KERNEL_NEW_CONTRACTS_LENGTH * 3) *
         2;
     auto const size = number_of_inputs * 32;
@@ -76,7 +76,8 @@ std::array<fr, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP> get_empty_l1_to_l2_messages(
 BaseRollupInputs base_rollup_inputs_from_kernels(std::array<KernelData, 2> kernel_data,
                                                  MerkleTree& private_data_tree,
                                                  MerkleTree& contract_tree,
-                                                 SparseTree& public_data_tree)
+                                                 SparseTree& public_data_tree,
+                                                 MerkleTree& l1_to_l2_msg_tree)
 {
     // @todo Look at the starting points for all of these.
     // By supporting as inputs we can make very generic tests, where it is trivial to try new setups.
@@ -98,7 +99,7 @@ BaseRollupInputs base_rollup_inputs_from_kernels(std::array<KernelData, 2> kerne
             .root = historic_contract_tree.root(),
             .next_available_leaf_index = 1,
         },
-        .tree_of_historic_l1_to_l2_msg_tree_roots_snapshot = {
+        .start_tree_of_historic_l1_to_l2_msg_tree_roots_snapshot = {
             .root = historic_l1_to_l2_msg_tree.root(),
             .next_available_leaf_index = 1,
         },
@@ -109,7 +110,9 @@ BaseRollupInputs base_rollup_inputs_from_kernels(std::array<KernelData, 2> kerne
             private_data_tree.root();
         kernel_data[i].public_inputs.constants.historic_tree_roots.private_historic_tree_roots.contract_tree_root =
             contract_tree.root();
-        // @todo Add l1 -> l2 root.
+        kernel_data[i]
+            .public_inputs.constants.historic_tree_roots.private_historic_tree_roots.l1_to_l2_messages_tree_root =
+            l1_to_l2_msg_tree.root();
     }
 
     BaseRollupInputs baseRollupInputs = { .kernel_data = kernel_data,
@@ -133,7 +136,7 @@ BaseRollupInputs base_rollup_inputs_from_kernels(std::array<KernelData, 2> kerne
         }
     }
 
-    // TODO: It is a bit hacky here that it is always the same location we are inserting it.
+    // TODO(lasse): It is a bit hacky here that it is always the same location we are inserting it.
 
     auto temp = generate_nullifier_tree_testing_values_explicit(baseRollupInputs, nullifiers, initial_values);
     baseRollupInputs = std::get<0>(temp);
@@ -144,63 +147,61 @@ BaseRollupInputs base_rollup_inputs_from_kernels(std::array<KernelData, 2> kerne
     baseRollupInputs.new_commitments_subtree_sibling_path =
         get_sibling_path<PRIVATE_DATA_SUBTREE_INCLUSION_CHECK_DEPTH>(private_data_tree, 0, PRIVATE_DATA_SUBTREE_DEPTH);
 
+
     // Update public data tree to generate sibling paths: we first set the initial public data tree to the result of all
-    // state reads and old_values from state transitions. Note that, if the right tx reads or writes an index that was
-    // already processed by the left one, we don't want to reflect that as part of the initial state, so we skip those.
+    // public data reads and old_values from public data update requests. Note that, if the right tx reads or writes an
+    // index that was already processed by the left one, we don't want to reflect that as part of the initial state, so
+    // we skip those.
     std::set<uint256_t> visited_indices;
     for (size_t i = 0; i < 2; i++) {
-        for (auto state_read : kernel_data[i].public_inputs.end.state_reads) {
-            auto leaf_index = uint256_t(state_read.leaf_index);
-            if (state_read.is_empty() || visited_indices.contains(leaf_index)) {
+        for (auto public_data_read : kernel_data[i].public_inputs.end.public_data_reads) {
+            auto leaf_index = uint256_t(public_data_read.leaf_index);
+            if (public_data_read.is_empty() || visited_indices.contains(leaf_index)) {
                 continue;
             }
             visited_indices.insert(leaf_index);
-            public_data_tree.update_element(leaf_index, state_read.value);
+            public_data_tree.update_element(leaf_index, public_data_read.value);
         }
 
-        for (auto state_write : kernel_data[i].public_inputs.end.state_transitions) {
-            auto leaf_index = uint256_t(state_write.leaf_index);
-            if (state_write.is_empty() || visited_indices.contains(leaf_index)) {
+        for (auto public_data_update_request : kernel_data[i].public_inputs.end.public_data_update_requests) {
+            auto leaf_index = uint256_t(public_data_update_request.leaf_index);
+            if (public_data_update_request.is_empty() || visited_indices.contains(leaf_index)) {
                 continue;
             }
             visited_indices.insert(leaf_index);
-            public_data_tree.update_element(leaf_index, state_write.old_value);
+            public_data_tree.update_element(leaf_index, public_data_update_request.old_value);
         }
     }
 
     baseRollupInputs.start_public_data_tree_root = public_data_tree.root();
 
-    // Then we collect all sibling paths for the reads in the left tx, and then apply the state transitions while
+    // Then we collect all sibling paths for the reads in the left tx, and then apply the update requests while
     // collecting their paths. And then repeat for the right tx.
     for (size_t i = 0; i < 2; i++) {
-        for (size_t j = 0; j < STATE_READS_LENGTH; j++) {
-            auto state_read = kernel_data[i].public_inputs.end.state_reads[j];
-            if (state_read.is_empty()) {
+        for (size_t j = 0; j < KERNEL_PUBLIC_DATA_READS_LENGTH; j++) {
+            auto public_data_read = kernel_data[i].public_inputs.end.public_data_reads[j];
+            if (public_data_read.is_empty()) {
                 continue;
             }
-            auto leaf_index = uint256_t(state_read.leaf_index);
-            baseRollupInputs.new_state_reads_sibling_paths[i * STATE_READS_LENGTH + j] =
-                MembershipWitness<NT, PUBLIC_DATA_TREE_HEIGHT>{
-                    .leaf_index = state_read.leaf_index,
-                    .sibling_path = get_sibling_path<PUBLIC_DATA_TREE_HEIGHT>(public_data_tree, leaf_index),
-                };
+            auto leaf_index = uint256_t(public_data_read.leaf_index);
+            baseRollupInputs.new_public_data_reads_sibling_paths[i * KERNEL_PUBLIC_DATA_READS_LENGTH + j] =
+                get_sibling_path<PUBLIC_DATA_TREE_HEIGHT>(public_data_tree, leaf_index);
         }
 
-        for (size_t j = 0; j < STATE_TRANSITIONS_LENGTH; j++) {
-            auto state_write = kernel_data[i].public_inputs.end.state_transitions[j];
-            if (state_write.is_empty()) {
+        for (size_t j = 0; j < KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH; j++) {
+            auto public_data_update_request = kernel_data[i].public_inputs.end.public_data_update_requests[j];
+            if (public_data_update_request.is_empty()) {
                 continue;
             }
-            auto leaf_index = uint256_t(state_write.leaf_index);
-            public_data_tree.update_element(leaf_index, state_write.new_value);
-            baseRollupInputs.new_state_transitions_sibling_paths[i * STATE_TRANSITIONS_LENGTH + j] =
-                MembershipWitness<NT, PUBLIC_DATA_TREE_HEIGHT>{
-                    .leaf_index = state_write.leaf_index,
-                    .sibling_path = get_sibling_path<PUBLIC_DATA_TREE_HEIGHT>(public_data_tree, leaf_index),
-                };
+            auto leaf_index = uint256_t(public_data_update_request.leaf_index);
+            public_data_tree.update_element(leaf_index, public_data_update_request.new_value);
+            baseRollupInputs
+                .new_public_data_update_requests_sibling_paths[i * KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH + j] =
+                get_sibling_path<PUBLIC_DATA_TREE_HEIGHT>(public_data_tree, leaf_index);
         }
     }
 
+    // Get historic_root sibling paths
     baseRollupInputs.historic_private_data_tree_root_membership_witnesses[0] = {
         .leaf_index = 0,
         .sibling_path = get_sibling_path<PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT>(historic_private_data_tree, 0, 0),
@@ -214,6 +215,12 @@ BaseRollupInputs base_rollup_inputs_from_kernels(std::array<KernelData, 2> kerne
     };
     baseRollupInputs.historic_contract_tree_root_membership_witnesses[1] =
         baseRollupInputs.historic_contract_tree_root_membership_witnesses[0];
+    baseRollupInputs.historic_l1_to_l2_msg_tree_root_membership_witnesses[0] = {
+        .leaf_index = 0,
+        .sibling_path = get_sibling_path<L1_TO_L2_MSG_TREE_ROOTS_TREE_HEIGHT>(historic_l1_to_l2_msg_tree, 0, 0),
+    };
+    baseRollupInputs.historic_l1_to_l2_msg_tree_root_membership_witnesses[1] =
+        baseRollupInputs.historic_l1_to_l2_msg_tree_root_membership_witnesses[0];
 
     return baseRollupInputs;
 }
@@ -222,11 +229,13 @@ BaseRollupInputs base_rollup_inputs_from_kernels(std::array<KernelData, 2> kerne
 {
     MerkleTree private_data_tree = MerkleTree(PRIVATE_DATA_TREE_HEIGHT);
     MerkleTree contract_tree = MerkleTree(CONTRACT_TREE_HEIGHT);
+    MerkleTree l1_to_l2_messages_tree = MerkleTree(L1_TO_L2_MSG_TREE_HEIGHT);
 
     MemoryStore public_data_tree_store;
     SparseTree public_data_tree(public_data_tree_store, PUBLIC_DATA_TREE_HEIGHT);
 
-    return base_rollup_inputs_from_kernels(std::move(kernel_data), private_data_tree, contract_tree, public_data_tree);
+    return base_rollup_inputs_from_kernels(
+        std::move(kernel_data), private_data_tree, contract_tree, public_data_tree, l1_to_l2_messages_tree);
 }
 
 std::array<PreviousRollupData<NT>, 2> get_previous_rollup_data(DummyComposer& composer,
@@ -418,15 +427,13 @@ nullifier_tree_testing_values generate_nullifier_tree_testing_values_explicit(
     };
 
     const size_t NUMBER_OF_NULLIFIERS = KERNEL_NEW_NULLIFIERS_LENGTH * 2;
-    std::array<NullifierLeafPreimage, NUMBER_OF_NULLIFIERS> new_nullifier_leaves;
-    std::array<MembershipWitness<NT, NULLIFIER_TREE_HEIGHT>, NUMBER_OF_NULLIFIERS> const
-        low_nullifier_leaves_preimages_witnesses;
+    std::array<NullifierLeafPreimage, NUMBER_OF_NULLIFIERS> new_nullifier_leaves{};
 
     // Calculate the predecessor nullifier pre-images
     // Get insertion values
     std::vector<fr> insertion_values;
-    std::array<fr, KERNEL_NEW_NULLIFIERS_LENGTH> new_nullifiers_kernel_1;
-    std::array<fr, KERNEL_NEW_NULLIFIERS_LENGTH> new_nullifiers_kernel_2;
+    std::array<fr, KERNEL_NEW_NULLIFIERS_LENGTH> new_nullifiers_kernel_1{};
+    std::array<fr, KERNEL_NEW_NULLIFIERS_LENGTH> new_nullifiers_kernel_2{};
 
     for (size_t i = 0; i < NUMBER_OF_NULLIFIERS; ++i) {
         auto insertion_val = new_nullifiers[i];
@@ -447,10 +454,10 @@ nullifier_tree_testing_values generate_nullifier_tree_testing_values_explicit(
     auto new_nullifier_leave_indexes = std::get<2>(witnesses_and_preimages);
 
     // Create witness values from this
-    std::array<MembershipWitness<NT, NULLIFIER_TREE_HEIGHT>, NUMBER_OF_NULLIFIERS> new_membership_witnesses;
+    std::array<MembershipWitness<NT, NULLIFIER_TREE_HEIGHT>, NUMBER_OF_NULLIFIERS> new_membership_witnesses{};
     for (size_t i = 0; i < NUMBER_OF_NULLIFIERS; i++) {
         // create an array of the witness from the depth
-        std::array<fr, NULLIFIER_TREE_HEIGHT> witness_array;
+        std::array<fr, NULLIFIER_TREE_HEIGHT> witness_array{};
         std::copy(new_nullifier_leaves_sibling_paths[i].begin(),
                   new_nullifier_leaves_sibling_paths[i].end(),
                   witness_array.begin());

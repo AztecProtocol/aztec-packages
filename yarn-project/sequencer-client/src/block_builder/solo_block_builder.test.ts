@@ -1,31 +1,36 @@
 import {
   AppendOnlyTreeSnapshot,
   BaseOrMergeRollupPublicInputs,
+  BaseRollupInputs,
   CircuitsWasm,
   Fr,
-  KernelCircuitPublicInputs,
-  PublicDataRead,
-  PublicDataTransition,
-  NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
-  RootRollupPublicInputs,
-  UInt8Vector,
   KERNEL_NEW_COMMITMENTS_LENGTH,
-  range,
-  KERNEL_NEW_NULLIFIERS_LENGTH,
   KERNEL_NEW_L2_TO_L1_MSGS_LENGTH,
-  STATE_TRANSITIONS_LENGTH,
+  KERNEL_NEW_NULLIFIERS_LENGTH,
+  KERNEL_PUBLIC_CALL_STACK_LENGTH,
+  KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH,
+  KernelCircuitPublicInputs,
+  NULLIFIER_TREE_HEIGHT,
+  NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
+  Proof,
+  PublicDataRead,
+  PublicDataUpdateRequest,
+  RootRollupPublicInputs,
+  range,
+  makeTuple,
 } from '@aztec/circuits.js';
 import { computeContractLeaf } from '@aztec/circuits.js/abis';
 import {
   fr,
-  makeBaseRollupPublicInputs,
+  makeBaseOrMergeRollupPublicInputs,
   makeKernelPublicInputs,
   makeNewContractData,
   makeProof,
+  makePublicCallRequest,
   makeRootRollupPublicInputs,
 } from '@aztec/circuits.js/factories';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
-import { MerkleTreeId, ContractData, L2Block, PublicDataWrite, Tx } from '@aztec/types';
+import { ContractData, L2Block, MerkleTreeId, PublicDataWrite, Tx } from '@aztec/types';
 import { MerkleTreeOperations, MerkleTrees } from '@aztec/world-state';
 import { MockProxy, mock } from 'jest-mock-extended';
 import { default as levelup } from 'levelup';
@@ -65,7 +70,7 @@ describe('sequencer/solo_block_builder', () => {
 
   let wasm: CircuitsWasm;
 
-  const emptyProof = new UInt8Vector(Buffer.alloc(32, 0));
+  const emptyProof = new Proof(Buffer.alloc(32, 0));
 
   beforeAll(async () => {
     wasm = await CircuitsWasm.get();
@@ -84,8 +89,8 @@ describe('sequencer/solo_block_builder', () => {
     mockL1ToL2Messages = new Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n));
 
     // Create mock outputs for simulator
-    baseRollupOutputLeft = makeBaseRollupPublicInputs();
-    baseRollupOutputRight = makeBaseRollupPublicInputs();
+    baseRollupOutputLeft = makeBaseOrMergeRollupPublicInputs();
+    baseRollupOutputRight = makeBaseOrMergeRollupPublicInputs();
     rootRollupOutput = makeRootRollupPublicInputs();
 
     // Set up mocks
@@ -105,23 +110,14 @@ describe('sequencer/solo_block_builder', () => {
   // Updates the expectedDb trees based on the new commitments, contracts, and nullifiers from these txs
   const updateExpectedTreesFromTxs = async (txs: ProcessedTx[]) => {
     const newContracts = flatMap(txs, tx => tx.data.end.newContracts.map(n => computeContractLeaf(wasm, n)));
-    const nullifiersFromTx = (tx: ProcessedTx) => {
-      if (tx.isEmpty) {
-        return tx.data.end.newNullifiers.map(l => l.toBuffer());
-      }
-      return [
-        tx.hash.buffer,
-        ...tx.data.end.newNullifiers.slice(0, tx.data.end.newNullifiers.length - 1).map(x => x.toBuffer()),
-      ];
-    };
     for (const [tree, leaves] of [
       [MerkleTreeId.PRIVATE_DATA_TREE, flatMap(txs, tx => tx.data.end.newCommitments.map(l => l.toBuffer()))],
       [MerkleTreeId.CONTRACT_TREE, newContracts.map(x => x.toBuffer())],
-      [MerkleTreeId.NULLIFIER_TREE, flatMap(txs, nullifiersFromTx)],
+      [MerkleTreeId.NULLIFIER_TREE, flatMap(txs, tx => tx.data.end.newNullifiers.map(x => x.toBuffer()))],
     ] as const) {
       await expectsDb.appendLeaves(tree, leaves);
     }
-    for (const write of txs.flatMap(tx => tx.data.end.stateTransitions)) {
+    for (const write of txs.flatMap(tx => tx.data.end.publicDataUpdateRequests)) {
       await expectsDb.updateLeaf(MerkleTreeId.PUBLIC_DATA_TREE, write.newValue.toBuffer(), write.leafIndex.value);
     }
   };
@@ -138,9 +134,17 @@ describe('sequencer/solo_block_builder', () => {
 
   const buildMockSimulatorInputs = async () => {
     const kernelOutput = makeKernelPublicInputs();
-    kernelOutput.end.newNullifiers[kernelOutput.end.newNullifiers.length - 1] = Fr.ZERO;
     kernelOutput.constants.historicTreeRoots = await getCombinedHistoricTreeRoots(expectsDb);
-    const tx = await makeProcessedTx(Tx.createPrivate(kernelOutput, emptyProof, makeEmptyUnverifiedData()));
+
+    const tx = await makeProcessedTx(
+      Tx.createPrivate(
+        kernelOutput,
+        emptyProof,
+        makeEmptyUnverifiedData(),
+        [],
+        times(KERNEL_PUBLIC_CALL_STACK_LENGTH, makePublicCallRequest),
+      ),
+    );
 
     const txsLeft = [tx, await makeEmptyProcessedTx()];
     const txsRight = [await makeEmptyProcessedTx(), await makeEmptyProcessedTx()];
@@ -180,12 +184,6 @@ describe('sequencer/solo_block_builder', () => {
 
     const txs = [...txsLeft, ...txsRight];
 
-    const originalNullifiers = txs[0].data.end.newNullifiers;
-    txs[0].data.end.newNullifiers = [
-      Fr.fromBuffer(txs[0].hash.buffer),
-      ...txs[0].data.end.newNullifiers.slice(0, txs[0].data.end.newNullifiers.length - 1),
-    ];
-
     const newNullifiers = flatMap(txs, tx => tx.data.end.newNullifiers);
     const newCommitments = flatMap(txs, tx => tx.data.end.newCommitments);
     const newContracts = flatMap(txs, tx => tx.data.end.newContracts).map(cd => computeContractLeaf(wasm, cd));
@@ -193,7 +191,7 @@ describe('sequencer/solo_block_builder', () => {
       n => new ContractData(n.contractAddress, n.portalContractAddress),
     );
     const newPublicDataWrites = flatMap(txs, tx =>
-      tx.data.end.stateTransitions.map(t => new PublicDataWrite(t.leafIndex, t.newValue)),
+      tx.data.end.publicDataUpdateRequests.map(t => new PublicDataWrite(t.leafIndex, t.newValue)),
     );
     const newL2ToL1Msgs = flatMap(txs, tx => tx.data.end.newL2ToL1Msgs);
 
@@ -231,8 +229,6 @@ describe('sequencer/solo_block_builder', () => {
 
     rootRollupOutput.calldataHash = [high, low];
 
-    txs[0].data.end.newNullifiers = originalNullifiers;
-
     return txs;
   };
 
@@ -263,14 +259,19 @@ describe('sequencer/solo_block_builder', () => {
       const leaves = nullifiers.map(i => toBufferBE(BigInt(i), 32));
       await expectsDb.appendLeaves(MerkleTreeId.NULLIFIER_TREE, leaves);
 
-      await builder.performBaseRollupBatchInsertionProofs(leaves);
+      await builderDb.batchInsert(
+        MerkleTreeId.NULLIFIER_TREE,
+        leaves,
+        NULLIFIER_TREE_HEIGHT,
+        BaseRollupInputs.NULLIFIER_SUBTREE_HEIGHT,
+      );
 
       const expected = await expectsDb.getTreeInfo(MerkleTreeId.NULLIFIER_TREE);
       const actual = await builderDb.getTreeInfo(MerkleTreeId.NULLIFIER_TREE);
       expect(actual).toEqual(expected);
     });
 
-    it('Rejects if too many l1 to l2 messages are provided', async () => {
+    it('rejects if too many l1 to l2 messages are provided', async () => {
       // Assemble a fake transaction
       const txs = await buildMockSimulatorInputs();
       const l1ToL2Messages = new Array(100).fill(new Fr(0n));
@@ -295,8 +296,8 @@ describe('sequencer/solo_block_builder', () => {
     const makePublicCallProcessedTx = async (seed = 0x1) => {
       const publicTx = makePublicTx(seed);
       const kernelOutput = KernelCircuitPublicInputs.empty();
-      kernelOutput.end.stateReads[0] = new PublicDataRead(fr(1), fr(0));
-      kernelOutput.end.stateTransitions[0] = new PublicDataTransition(fr(2), fr(0), fr(12));
+      kernelOutput.end.publicDataReads[0] = new PublicDataRead(fr(1), fr(0));
+      kernelOutput.end.publicDataUpdateRequests[0] = new PublicDataUpdateRequest(fr(2), fr(0), fr(12));
       kernelOutput.constants.historicTreeRoots = await getCombinedHistoricTreeRoots(builderDb);
       return await makeProcessedTx(publicTx, kernelOutput, makeProof());
     };
@@ -305,16 +306,18 @@ describe('sequencer/solo_block_builder', () => {
       const publicTx = makePublicTx(seed);
       const kernelOutput = KernelCircuitPublicInputs.empty();
       kernelOutput.constants.historicTreeRoots = await getCombinedHistoricTreeRoots(builderDb);
-      kernelOutput.end.stateTransitions = range(STATE_TRANSITIONS_LENGTH, seed + 0x500).map(
-        i => new PublicDataTransition(fr(i), fr(0), fr(i + 10)),
+      kernelOutput.end.publicDataUpdateRequests = makeTuple(
+        KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH,
+        i => new PublicDataUpdateRequest(fr(i), fr(0), fr(i + 10)),
+        seed + 0x500,
       );
 
       const tx = await makeProcessedTx(publicTx, kernelOutput, makeProof());
 
-      tx.data.end.newCommitments = range(KERNEL_NEW_COMMITMENTS_LENGTH, seed + 0x100).map(fr);
-      tx.data.end.newNullifiers = range(KERNEL_NEW_NULLIFIERS_LENGTH, seed + 0x200).map(fr);
+      tx.data.end.newCommitments = makeTuple(KERNEL_NEW_COMMITMENTS_LENGTH, fr, seed + 0x100);
+      tx.data.end.newNullifiers = makeTuple(KERNEL_NEW_NULLIFIERS_LENGTH, fr, seed + 0x200);
       tx.data.end.newNullifiers[tx.data.end.newNullifiers.length - 1] = Fr.ZERO;
-      tx.data.end.newL2ToL1Msgs = range(KERNEL_NEW_L2_TO_L1_MSGS_LENGTH, seed + 0x300).map(fr);
+      tx.data.end.newL2ToL1Msgs = makeTuple(KERNEL_NEW_L2_TO_L1_MSGS_LENGTH, fr, seed + 0x300);
       tx.data.end.newContracts = [makeNewContractData(seed + 0x1000)];
 
       return tx;

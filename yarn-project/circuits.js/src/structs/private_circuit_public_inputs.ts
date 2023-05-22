@@ -1,5 +1,5 @@
 import { Fr } from '@aztec/foundation/fields';
-import { assertLength, FieldsOf } from '../utils/jsUtils.js';
+import { assertMemberLength, FieldsOf } from '../utils/jsUtils.js';
 import { serializeToBuffer } from '../utils/serialize.js';
 import { CallContext } from './call_context.js';
 import {
@@ -19,30 +19,73 @@ import { ContractDeploymentData } from './tx_context.js';
  * @see abis/private_circuit_public_inputs.hpp.
  */
 export class PrivateCircuitPublicInputs {
+  // NOTE: Args must have same order as CPP.
   constructor(
-    // NOTE: Must have same order as CPP.
+    /**
+     * Context of the call corresponding to this private circuit execution.
+     */
     public callContext: CallContext,
+    /**
+     * Function arguments.
+     */
     public args: Fr[],
+    /**
+     * Return values of the corresponding function call.
+     */
     public returnValues: Fr[],
+    /**
+     * Events emitted by the corresponding function call.
+     */
     public emittedEvents: Fr[],
+    /**
+     * New commitments created by the corresponding function call.
+     */
     public newCommitments: Fr[],
+    /**
+     * New nullifiers created by the corresponding function call.
+     */
     public newNullifiers: Fr[],
+    /**
+     * Private call stack at the current kernel iteration.
+     */
     public privateCallStack: Fr[],
+    /**
+     * Public call stack at the current kernel iteration.
+     */
     public publicCallStack: Fr[],
+    /**
+     * New L2 to L1 messages created by the corresponding function call.
+     */
     public newL2ToL1Msgs: Fr[],
+    /**
+     * Root of the private data tree roots tree.
+     */
     public historicPrivateDataTreeRoot: Fr,
+    /**
+     * Root of the nullifier tree roots tree.
+     */
     public historicPrivateNullifierTreeRoot: Fr,
+    /**
+     * Root of the contract tree roots tree.
+     */
     public historicContractTreeRoot: Fr,
+    /**
+     * Root of the L2 to L1 messages tree roots tree.
+     */
+    public historicL1ToL2MessagesTreeRoot: Fr,
+    /**
+     * Deployment data of contracts being deployed in this kernel iteration.
+     */
     public contractDeploymentData: ContractDeploymentData,
   ) {
-    assertLength(this, 'args', ARGS_LENGTH);
-    assertLength(this, 'returnValues', RETURN_VALUES_LENGTH);
-    assertLength(this, 'emittedEvents', EMITTED_EVENTS_LENGTH);
-    assertLength(this, 'newCommitments', NEW_COMMITMENTS_LENGTH);
-    assertLength(this, 'newNullifiers', NEW_NULLIFIERS_LENGTH);
-    assertLength(this, 'privateCallStack', PRIVATE_CALL_STACK_LENGTH);
-    assertLength(this, 'publicCallStack', PUBLIC_CALL_STACK_LENGTH);
-    assertLength(this, 'newL2ToL1Msgs', NEW_L2_TO_L1_MSGS_LENGTH);
+    assertMemberLength(this, 'args', ARGS_LENGTH);
+    assertMemberLength(this, 'returnValues', RETURN_VALUES_LENGTH);
+    assertMemberLength(this, 'emittedEvents', EMITTED_EVENTS_LENGTH);
+    assertMemberLength(this, 'newCommitments', NEW_COMMITMENTS_LENGTH);
+    assertMemberLength(this, 'newNullifiers', NEW_NULLIFIERS_LENGTH);
+    assertMemberLength(this, 'privateCallStack', PRIVATE_CALL_STACK_LENGTH);
+    assertMemberLength(this, 'publicCallStack', PUBLIC_CALL_STACK_LENGTH);
+    assertMemberLength(this, 'newL2ToL1Msgs', NEW_L2_TO_L1_MSGS_LENGTH);
   }
   /**
    * Create PrivateCircuitPublicInputs from a fields dictionary.
@@ -53,7 +96,11 @@ export class PrivateCircuitPublicInputs {
     return new PrivateCircuitPublicInputs(...PrivateCircuitPublicInputs.getFields(fields));
   }
 
-  public static empty() {
+  /**
+   * Create an empty PrivateCircuitPublicInputs.
+   * @returns An empty PrivateCircuitPublicInputs object.
+   */
+  public static empty(): PrivateCircuitPublicInputs {
     const frArray = (num: number) =>
       Array(num)
         .fill(0)
@@ -68,6 +115,7 @@ export class PrivateCircuitPublicInputs {
       frArray(PRIVATE_CALL_STACK_LENGTH),
       frArray(PUBLIC_CALL_STACK_LENGTH),
       frArray(NEW_L2_TO_L1_MSGS_LENGTH),
+      Fr.ZERO,
       Fr.ZERO,
       Fr.ZERO,
       Fr.ZERO,
@@ -94,6 +142,7 @@ export class PrivateCircuitPublicInputs {
       fields.historicPrivateDataTreeRoot,
       fields.historicPrivateNullifierTreeRoot,
       fields.historicContractTreeRoot,
+      fields.historicL1ToL2MessagesTreeRoot,
       fields.contractDeploymentData,
     ] as const;
   }

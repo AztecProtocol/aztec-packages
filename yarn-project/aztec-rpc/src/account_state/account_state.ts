@@ -32,9 +32,9 @@ interface ProcessedData {
    */
   blockContext: L2BlockContext;
   /**
-   * Indices of transactions in the block that pertain to the user.
+   * Indices of private transactions in the block that pertain to the user.
    */
-  userPertainingTxIndices: number[];
+  userPertainingPrivateTxIndices: number[];
   /**
    * A collection of data access objects for transaction auxiliary data.
    */
@@ -138,7 +138,7 @@ export class AccountState {
     const contractAddress = txRequest.to;
     const functionAbi = await contractDataOracle.getFunctionAbi(
       contractAddress,
-      txRequest.functionData.functionSelector,
+      txRequest.functionData.functionSelectorBuffer,
     );
     const portalContract = await contractDataOracle.getPortalContractAddress(contractAddress);
 
@@ -147,6 +147,7 @@ export class AccountState {
       contractTreeRoot: currentRoots[MerkleTreeId.CONTRACT_TREE],
       nullifierTreeRoot: currentRoots[MerkleTreeId.NULLIFIER_TREE],
       privateDataTreeRoot: currentRoots[MerkleTreeId.PRIVATE_DATA_TREE],
+      l1ToL2MessagesTreeRoot: currentRoots[MerkleTreeId.L1_TO_L2_MESSAGES_TREE],
       privateKernelVkTreeRoot: Fr.ZERO,
     });
 
@@ -245,29 +246,39 @@ export class AccountState {
     this.log('Proof completed!');
 
     const unverifiedData = this.createUnverifiedData(outputNotes);
+    const newContractPublicFunctions = newContractAddress
+      ? await this.getNewContractPublicFunctions(newContractAddress)
+      : [];
 
-    if (newContractAddress) {
-      const newContract = await this.db.getContract(newContractAddress);
-      if (!newContract) {
-        throw new Error(`Invalid new contract address provided at ${newContractAddress}. Contract not found in DB.`);
-      }
+    return Tx.createPrivate(
+      publicInputs,
+      proof,
+      unverifiedData,
+      newContractPublicFunctions,
+      executionResult.enqueuedPublicFunctionCalls,
+    );
+  }
 
-      const newContractPublicFunctions = newContract.functions.filter(c => c.functionType === FunctionType.OPEN);
-      return Tx.createPrivate(
-        publicInputs,
-        proof,
-        unverifiedData,
-        newContractPublicFunctions.map(
-          fn =>
-            new EncodedContractFunction(
-              generateFunctionSelector(fn.name, fn.parameters),
-              Buffer.from(fn.bytecode, 'hex'),
-            ),
-        ),
-      );
+  /**
+   * Return public functions from the newly deployed contract to be injected into the tx object.
+   * @param newContractAddress - Address of the new contract.
+   * @returns List of EncodedContractFunction.
+   */
+  private async getNewContractPublicFunctions(newContractAddress: AztecAddress) {
+    const newContract = await this.db.getContract(newContractAddress);
+    if (!newContract) {
+      throw new Error(`Invalid new contract address provided at ${newContractAddress}. Contract not found in DB.`);
     }
 
-    return Tx.createPrivate(publicInputs, proof, unverifiedData);
+    return newContract.functions
+      .filter(c => c.functionType === FunctionType.OPEN)
+      .map(
+        fn =>
+          new EncodedContractFunction(
+            generateFunctionSelector(fn.name, fn.parameters),
+            Buffer.from(fn.bytecode, 'hex'),
+          ),
+      );
   }
 
   /**
@@ -299,14 +310,15 @@ export class AccountState {
       const dataChunks = unverifiedDatas[i].dataChunks;
 
       // Try decrypting the unverified data.
-      const txIndices: Set<number> = new Set();
+      // Note: Public txs don't generate commitments and UnverifiedData and for this reason we can ignore them here.
+      const privateTxIndices: Set<number> = new Set();
       const txAuxDataDaos: TxAuxDataDao[] = [];
       for (let j = 0; j < dataChunks.length; ++j) {
         const txAuxData = TxAuxData.fromEncryptedBuffer(dataChunks[j], this.privKey, this.grumpkin);
         if (txAuxData) {
           // We have successfully decrypted the data.
-          const txIndex = Math.floor(j / KERNEL_NEW_COMMITMENTS_LENGTH);
-          txIndices.add(txIndex);
+          const privateTxIndex = Math.floor(j / KERNEL_NEW_COMMITMENTS_LENGTH);
+          privateTxIndices.add(privateTxIndex);
           txAuxDataDaos.push({
             ...txAuxData,
             nullifier: await this.computeNullifier(txAuxData),
@@ -318,7 +330,7 @@ export class AccountState {
 
       blocksAndTxAuxData.push({
         blockContext: l2BlockContexts[i],
-        userPertainingTxIndices: [...txIndices],
+        userPertainingPrivateTxIndices: [...privateTxIndices],
         txAuxDataDaos,
       });
       dataStartIndex += dataChunks.length;
@@ -393,13 +405,13 @@ export class AccountState {
     let newNullifiers: Fr[] = [];
 
     for (let i = 0; i < blocksAndTxAuxData.length; ++i) {
-      const { blockContext, userPertainingTxIndices, txAuxDataDaos } = blocksAndTxAuxData[i];
+      const { blockContext, userPertainingPrivateTxIndices, txAuxDataDaos } = blocksAndTxAuxData[i];
 
-      // Process all the user pertaining txs.
-      userPertainingTxIndices.map((userPertainingTxIndex, j) => {
-        const txHash = blockContext.getTxHash(userPertainingTxIndex);
+      // Process all the user pertaining private txs.
+      userPertainingPrivateTxIndices.map((txIndex, j) => {
+        const txHash = blockContext.getTxHash(txIndex);
         this.log(`Processing tx ${txHash!.toString()} from block ${blockContext.block.number}`);
-        const { newContractData } = blockContext.block.getTx(userPertainingTxIndex);
+        const { newContractData } = blockContext.block.getTx(txIndex);
         const isContractDeployment = !newContractData[0].contractAddress.isZero();
         const txAuxData = txAuxDataDaos[j];
         const [to, contractAddress] = isContractDeployment

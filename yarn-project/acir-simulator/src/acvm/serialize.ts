@@ -6,8 +6,9 @@ import {
   FunctionData,
   PrivateCallStackItem,
   PrivateCircuitPublicInputs,
+  PublicCallRequest,
 } from '@aztec/circuits.js';
-import { NoteLoadOracleInputs } from '../client/db_oracle.js';
+import { MessageLoadOracleInputs, NoteLoadOracleInputs } from '../client/db_oracle.js';
 import { Fr } from '@aztec/foundation/fields';
 
 // Utilities to write TS classes to ACVM Field arrays
@@ -77,6 +78,7 @@ export function toACVMPublicInputs(publicInputs: PrivateCircuitPublicInputs): AC
     toACVMField(publicInputs.historicPrivateDataTreeRoot),
     toACVMField(publicInputs.historicPrivateNullifierTreeRoot),
     toACVMField(publicInputs.historicContractTreeRoot),
+    toACVMField(publicInputs.historicL1ToL2MessagesTreeRoot),
 
     ...toACVMContractDeploymentData(publicInputs.contractDeploymentData),
   ];
@@ -92,6 +94,24 @@ export function toAcvmCallPrivateStackItem(item: PrivateCallStackItem): ACVMFiel
     toACVMField(item.contractAddress),
     ...toACVMFunctionData(item.functionData),
     ...toACVMPublicInputs(item.publicInputs),
+    toACVMField(item.isExecutionRequest),
+  ];
+}
+
+/**
+ * Converts a public call stack item with the request for executing a public function to
+ * a set of ACVM fields accepted by the enqueue_public_function_call_oracle Noir function.
+ * Note that only the fields related to the request are serialized: those related to the result
+ * are empty since this is just an execution request, so we don't send them to the circuit.
+ * @param item - The public call stack item to serialize to be passed onto Noir.
+ * @returns The fields expected by the enqueue_public_function_call_oracle Noir function.
+ */
+export function toAcvmEnqueuePublicFunctionResult(item: PublicCallRequest): ACVMField[] {
+  return [
+    toACVMField(item.contractAddress),
+    ...toACVMFunctionData(item.functionData),
+    ...toACVMCallContext(item.callContext),
+    ...item.args.map(toACVMField),
   ];
 }
 
@@ -110,6 +130,24 @@ export function toAcvmNoteLoadOracleInputs(
     toACVMField(noteLoadOracleInputs.index),
     ...noteLoadOracleInputs.siblingPath.map(f => toACVMField(f)),
     toACVMField(privateDataTreeRoot),
+  ];
+}
+
+/**
+ * Converts the result of loading messages to ACVM fields.
+ * @param messageLoadOracleInputs - The result of loading messages to convert.
+ * @param l1ToL2MessagesTreeRoot - The L1 to L2 messages tree root
+ * @returns The Message Oracle Fields.
+ */
+export function toAcvmMessageLoadOracleInputs(
+  messageLoadOracleInputs: MessageLoadOracleInputs,
+  l1ToL2MessagesTreeRoot: Fr,
+): ACVMField[] {
+  return [
+    ...messageLoadOracleInputs.message.map(f => toACVMField(f)),
+    toACVMField(messageLoadOracleInputs.index),
+    ...messageLoadOracleInputs.siblingPath.map(f => toACVMField(f)),
+    toACVMField(l1ToL2MessagesTreeRoot),
   ];
 }
 

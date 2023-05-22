@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { createLogger } from '@aztec/foundation/log';
 import { Command } from 'commander';
 import { deployL1Contracts } from './deploy_l1_contracts.js';
 import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
@@ -9,6 +10,7 @@ import { deployL2Contract } from './deploy_l2_contract.js';
 const logger = createDebugLogger('aztec:cli');
 
 const program = new Command();
+const log = createLogger('aztec:aztec-cli');
 
 async function deployRollupContracts(rpcUrl: string, apiKey: string, privateKey: string, mnemonic: string) {
   const account = privateKey ? privateKeyToAccount(`0x${privateKey}`) : mnemonicToAccount(mnemonic!);
@@ -24,7 +26,7 @@ async function main() {
     .command('run')
     .argument('<cmd>', 'Command')
     .action((cmd: string) => {
-      console.log(`Running '${cmd}'...`);
+      log(`Running '${cmd}'...`);
     });
 
   program
@@ -62,6 +64,6 @@ async function main() {
 }
 
 main().catch(err => {
-  console.log(`Error thrown: ${err}`);
+  log(`Error thrown: ${err}`);
   process.exit(1);
 });

@@ -4,6 +4,7 @@
 
 #include "aztec3/circuits/kernel/private/utils.hpp"
 #include "aztec3/constants.hpp"
+#include "aztec3/utils/circuit_errors.hpp"
 #include <aztec3/circuits/abis/call_context.hpp>
 #include <aztec3/circuits/abis/call_stack_item.hpp>
 #include <aztec3/circuits/abis/combined_accumulated_data.hpp>
@@ -27,6 +28,7 @@
 
 #include <barretenberg/common/map.hpp>
 #include <barretenberg/common/test.hpp>
+#include <barretenberg/serialize/test_helper.hpp>
 #include <barretenberg/stdlib/merkle_tree/membership.hpp>
 
 #include <gtest/gtest.h>
@@ -59,6 +61,8 @@ using aztec3::circuits::apps::test_apps::escrow::deposit;
 
 using DummyComposer = aztec3::utils::DummyComposer;
 
+using aztec3::utils::array_push;
+using CircuitErrorCode = aztec3::utils::CircuitErrorCode;
 
 // A type representing any private circuit function
 // (for now it works for deposit and constructor)
@@ -434,7 +438,7 @@ TEST(private_kernel_tests, circuit_deposit)
 
     // Execute and prove the first kernel iteration
     Composer private_kernel_composer("../barretenberg/cpp/srs_db/ignition");
-    auto const& public_inputs = private_kernel_circuit(private_kernel_composer, private_inputs);
+    auto const& public_inputs = private_kernel_circuit(private_kernel_composer, private_inputs, true);
 
     // Check contract address was correctly computed by the circuit
     validate_deployed_contract_address(private_inputs, public_inputs);
@@ -460,10 +464,13 @@ TEST(private_kernel_tests, native_deposit)
     NT::fr const& memo = 999;
 
     auto const& private_inputs = do_private_call_get_kernel_inputs(false, deposit, { amount, asset_id, memo });
-    DummyComposer composer;
-    auto const& public_inputs = native_private_kernel_circuit(composer, private_inputs);
+    DummyComposer composer = DummyComposer("private_kernel_tests__native_deposit");
+    auto const& public_inputs = native_private_kernel_circuit(composer, private_inputs, true);
 
     validate_deployed_contract_address(private_inputs, public_inputs);
+
+    // Check the first nullifier is hash of the signed tx request
+    ASSERT_EQ(public_inputs.end.new_nullifiers[0], private_inputs.signed_tx_request.hash());
 }
 
 /**
@@ -479,7 +486,7 @@ TEST(private_kernel_tests, circuit_basic_contract_deployment)
 
     // Execute and prove the first kernel iteration
     Composer private_kernel_composer("../barretenberg/cpp/srs_db/ignition");
-    auto const& public_inputs = private_kernel_circuit(private_kernel_composer, private_inputs);
+    auto const& public_inputs = private_kernel_circuit(private_kernel_composer, private_inputs, true);
 
     // Check contract address was correctly computed by the circuit
     validate_deployed_contract_address(private_inputs, public_inputs);
@@ -505,10 +512,13 @@ TEST(private_kernel_tests, native_basic_contract_deployment)
     NT::fr const& arg2 = 999;
 
     auto const& private_inputs = do_private_call_get_kernel_inputs(true, constructor, { arg0, arg1, arg2 });
-    DummyComposer composer;
-    auto const& public_inputs = native_private_kernel_circuit(composer, private_inputs);
+    DummyComposer composer = DummyComposer("private_kernel_tests__native_basic_contract_deployment");
+    auto const& public_inputs = native_private_kernel_circuit(composer, private_inputs, true);
 
     validate_deployed_contract_address(private_inputs, public_inputs);
+
+    // Check the first nullifier is hash of the signed tx request
+    ASSERT_EQ(public_inputs.end.new_nullifiers[0], private_inputs.signed_tx_request.hash());
 }
 
 /**
@@ -522,8 +532,8 @@ TEST(private_kernel_tests, circuit_create_proof_cbinds)
 
     // first run actual simulation to get public inputs
     auto const& private_inputs = do_private_call_get_kernel_inputs(true, constructor, { arg0, arg1, arg2 }, true);
-    DummyComposer composer;
-    auto const& public_inputs = native_private_kernel_circuit(composer, private_inputs);
+    DummyComposer composer = DummyComposer("private_kernel_tests__circuit_create_proof_cbinds");
+    auto const& public_inputs = native_private_kernel_circuit(composer, private_inputs, true);
 
     // serialize expected public inputs for later comparison
     std::vector<uint8_t> expected_public_inputs_vec;
@@ -550,12 +560,15 @@ TEST(private_kernel_tests, circuit_create_proof_cbinds)
 
     uint8_t const* proof_data_buf = nullptr;
     uint8_t const* public_inputs_buf = nullptr;
+    size_t public_inputs_size = 0;
     // info("Simulating to generate public inputs...");
-    size_t const public_inputs_size = private_kernel__sim(signed_constructor_tx_request_vec.data(),
-                                                          nullptr,  // no previous kernel on first iteration
-                                                          private_constructor_call_vec.data(),
-                                                          true,  // first iteration
-                                                          &public_inputs_buf);
+    uint8_t* const circuit_failure_ptr = private_kernel__sim(signed_constructor_tx_request_vec.data(),
+                                                             nullptr,  // no previous kernel on first iteration
+                                                             private_constructor_call_vec.data(),
+                                                             true,  // first iteration
+                                                             &public_inputs_size,
+                                                             &public_inputs_buf);
+    ASSERT_TRUE(circuit_failure_ptr == nullptr);
 
     // TODO better equality check
     // for (size_t i = 0; i < public_inputs_size; i++)
@@ -583,26 +596,35 @@ TEST(private_kernel_tests, circuit_create_proof_cbinds)
 /**
  * @brief Test this dummy cbind
  */
-TEST(private_kernel_tests, native_dummy_previous_kernel_cbind)
+TEST(private_kernel_tests, cbind_private_kernel__dummy_previous_kernel)
 {
-    uint8_t const* cbind_previous_kernel_buf = nullptr;
-    size_t const cbind_buf_size = private_kernel__dummy_previous_kernel(&cbind_previous_kernel_buf);
+    auto func = [] { return aztec3::circuits::kernel::private_kernel::utils::dummy_previous_kernel(); };
+    auto [actual, expected] = call_func_and_wrapper(func, private_kernel__dummy_previous_kernel);
+    // TODO(AD): investigate why direct operator== didn't work
+    std::stringstream actual_ss;
+    std::stringstream expected_ss;
+    actual_ss << actual;
+    expected_ss << expected;
+    EXPECT_EQ(actual_ss.str(), expected_ss.str());
+}
 
-    auto const& previous_kernel = utils::dummy_previous_kernel();
-    std::vector<uint8_t> expected_vec;
-    write(expected_vec, previous_kernel);
+/**
+ * @brief Test error is registered when `new_nullifiers` are not empty in first iteration
+ */
+TEST(private_kernel_tests, native_registers_error_when_no_space_for_nullifier)
+{
+    NT::fr const& amount = 5;
+    NT::fr const& asset_id = 1;
+    NT::fr const& memo = 999;
 
-    // Just compare the first 10 bytes of the serialized public outputs
-    // TODO this is not a good test as it only checks a few bytes
-    // would be best if we could just check struct equality or check
-    // equality of an entire memory region (same as other similar TODOs
-    // in other test files)
-    // TODO better equality check
-    // for (size_t i = 0; i < cbind_buf_size; i++) {
-    for (size_t i = 0; i < 10; i++) {
-        ASSERT_EQ(cbind_previous_kernel_buf[i], expected_vec[i]);
-    }
-    (void)cbind_buf_size;
+    auto private_inputs = do_private_call_get_kernel_inputs(false, deposit, { amount, asset_id, memo });
+    array_push(private_inputs.previous_kernel.public_inputs.end.new_nullifiers, NT::fr::random_element());
+
+    DummyComposer composer = DummyComposer("private_kernel_tests__native_registers_error_when_no_space_for_nullifier");
+    native_private_kernel_circuit(composer, private_inputs, true);
+
+    ASSERT_EQ(composer.get_first_failure().code,
+              CircuitErrorCode::PRIVATE_KERNEL__NEW_NULLIFIERS_NOT_EMPTY_IN_FIRST_ITERATION);
 }
 
 }  // namespace aztec3::circuits::kernel::private_kernel

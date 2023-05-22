@@ -1,5 +1,6 @@
-import { LeafData, SiblingPath } from '@aztec/merkle-tree';
+import { LeafData, SiblingPath, LowLeafWitnessData } from '@aztec/merkle-tree';
 import { L2Block, MerkleTreeId } from '@aztec/types';
+import { createDebugLogger } from '@aztec/foundation/log';
 
 export * from './merkle_trees.js';
 export { LeafData } from '@aztec/merkle-tree';
@@ -54,7 +55,7 @@ type WithIncludeUncommitted<F> = F extends (...args: [...infer Rest]) => infer R
 /**
  * Defines the names of the setters on Merkle Trees.
  */
-type MerkleTreeSetters = 'appendLeaves' | 'updateLeaf' | 'commit' | 'rollback' | 'handleL2Block';
+type MerkleTreeSetters = 'appendLeaves' | 'updateLeaf' | 'commit' | 'rollback' | 'handleL2Block' | 'batchInsert';
 
 /**
  * Defines the interface for operations on a set of Merkle Trees configuring whether to return committed or uncommitted data.
@@ -138,10 +139,25 @@ export interface MerkleTreeOperations {
   getLeafValue(treeId: MerkleTreeId, index: bigint): Promise<Buffer | undefined>;
 
   /**
-   * Inserts into the roots trees (CONTRACT_TREE_ROOTS_TREE, PRIVATE_DATA_TREE_ROOTS_TREE)
-   * the current roots of the corresponding trees (CONTRACT_TREE, PRIVATE_DATA_TREE).
+   * Inserts into the roots trees (CONTRACT_TREE_ROOTS_TREE, PRIVATE_DATA_TREE_ROOTS_TREE, L1_TO_L2_MESSAGES_TREE_ROOTS_TREE)
+   * the current roots of the corresponding trees (CONTRACT_TREE, PRIVATE_DATA_TREE, L1_TO_L2_MESSAGES_TREE).
    */
   updateHistoricRootsTrees(): Promise<void>;
+
+  /**
+   * Batch insert multiple leaves into the tree.
+   * @param leaves - Leaves to insert into the tree.
+   * @param treeId - The tree on which to insert.
+   * @param treeHeight - Height of the tree.
+   * @param subtreeHeight - Height of the subtree.
+   * @returns The witness data for the leaves to be updated when inserting the new ones.
+   */
+  batchInsert(
+    treeId: MerkleTreeId,
+    leaves: Buffer[],
+    treeHeight: number,
+    subtreeHeight: number,
+  ): Promise<[LowLeafWitnessData[], Buffer[]] | [undefined, Buffer[]]>;
 
   /**
    * Handles a single L2 block (i.e. Inserts the new commitments into the merkle tree).
@@ -161,9 +177,13 @@ export interface MerkleTreeOperations {
 }
 
 /**
- * Outputs a tree leaves to console.log for debugging purposes.
+ * Outputs a tree leaves using for debugging purposes.
  */
-export async function inspectTree(db: MerkleTreeOperations, treeId: MerkleTreeId) {
+export async function inspectTree(
+  db: MerkleTreeOperations,
+  treeId: MerkleTreeId,
+  log = createDebugLogger('aztec:inspect-tree'),
+) {
   const info = await db.getTreeInfo(treeId);
   const output = [`Tree id=${treeId} size=${info.size} root=0x${info.root.toString('hex')}`];
   for (let i = 0; i < info.size; i++) {
@@ -171,5 +191,5 @@ export async function inspectTree(db: MerkleTreeOperations, treeId: MerkleTreeId
       ` Leaf ${i}: ${await db.getLeafValue(treeId, BigInt(i)).then(x => x?.toString('hex') ?? '[undefined]')}`,
     );
   }
-  console.log(output.join('\n'));
+  log(output.join('\n'));
 }

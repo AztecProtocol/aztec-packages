@@ -15,6 +15,7 @@ import {
   AppendOnlyTree,
   IndexedTree,
   LeafData,
+  LowLeafWitnessData,
   Pedersen,
   SiblingPath,
   SparseTree,
@@ -165,8 +166,8 @@ export class MerkleTrees implements MerkleTreeDb {
   }
 
   /**
-   * Inserts into the roots trees (CONTRACT_TREE_ROOTS_TREE, PRIVATE_DATA_TREE_ROOTS_TREE)
-   * the current roots of the corresponding trees (CONTRACT_TREE, PRIVATE_DATA_TREE).
+   * Inserts into the roots trees (CONTRACT_TREE_ROOTS_TREE, PRIVATE_DATA_TREE_ROOTS_TREE, L1_TO_L2_MESSAGES_TREE_ROOTS_TREE)
+   * the current roots of the corresponding trees (CONTRACT_TREE, PRIVATE_DATA_TREE, L1_TO_L2_MESSAGES_TREE).
    * @param includeUncommitted - Indicates whether to include uncommitted data.
    */
   public async updateHistoricRootsTrees(includeUncommitted: boolean) {
@@ -326,6 +327,29 @@ export class MerkleTrees implements MerkleTreeDb {
    */
   public async handleL2Block(block: L2Block): Promise<void> {
     await this.synchronise(() => this._handleL2Block(block));
+  }
+
+  /**
+   * Batch insert multiple leaves into the tree.
+   * @param treeId - The ID of the tree.
+   * @param leaves - Leaves to insert into the tree.
+   * @param treeHeight - Height of the tree.
+   * @param subtreeHeight - Height of the subtree.
+   * @param includeUncommitted - If true, the uncommitted changes are included in the search.
+   * @returns The data for the leaves to be updated when inserting the new ones.
+   */
+  public async batchInsert(
+    treeId: MerkleTreeId,
+    leaves: Buffer[],
+    treeHeight: number,
+    subtreeHeight: number,
+    includeUncommitted: boolean,
+  ): Promise<[LowLeafWitnessData[], Buffer[]] | [undefined, Buffer[]]> {
+    const tree = this.trees[treeId] as StandardIndexedTree;
+    if (!('batchInsert' in tree)) {
+      throw new Error('Tree does not support `batchInsert` method');
+    }
+    return await this.synchronise(() => tree.batchInsert(leaves, treeHeight, subtreeHeight, includeUncommitted));
   }
 
   /**

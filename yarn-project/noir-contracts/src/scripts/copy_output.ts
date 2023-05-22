@@ -4,8 +4,10 @@ import snakeCase from 'lodash.snakecase';
 import upperFirst from 'lodash.upperfirst';
 import mockedKeys from './mockedKeys.json' assert { type: 'json' };
 import { ABIParameter, ABIType, FunctionType } from '@aztec/foundation/abi';
+import { createLogger } from '@aztec/foundation/log';
 
 const STATEMENT_TYPES = ['type', 'params', 'return'] as const;
+const log = createLogger('aztec:noir-contracts');
 
 /**
  * Creates an Aztec function entry.
@@ -17,12 +19,16 @@ const STATEMENT_TYPES = ['type', 'params', 'return'] as const;
  */
 function getFunction(type: FunctionType, params: ABIParameter[], returns: ABIType[], fn: any) {
   if (!params) throw new Error(`ABI comment not found for function ${fn.name}`);
+  // If the function is not unconstrained, the first item is inputs or CallContext which we should omit
+  if (type !== FunctionType.UNCONSTRAINED) params = params.slice(1);
+  // If the function is not secret, drop any padding from the end
+  if (type !== FunctionType.SECRET && params[params.length - 1].name.endsWith('padding'))
+    params = params.slice(0, params.length - 1);
+
   return {
     name: fn.name,
     functionType: type,
-    // If the function is not unconstrained, the first item is inputs or CallContext
-    // Which we should omit
-    parameters: type !== FunctionType.UNCONSTRAINED ? params.slice(1) : params,
+    parameters: params,
     // If the function is secret, the return is the public inputs, which should be omitted
     returnTypes: type === FunctionType.SECRET ? [] : returns,
     bytecode: Buffer.from(fn.bytecode).toString('hex'),
@@ -83,12 +89,12 @@ const main = () => {
 
   const exampleFile = `${examples}/${snakeCase(name)}_contract.json`;
   writeFileSync(exampleFile, JSON.stringify(abi, null, 2) + '\n');
-  console.log(`Written ${exampleFile}`);
+  log(`Written ${exampleFile}`);
 };
 
 try {
   main();
 } catch (err: unknown) {
-  console.error(err);
+  log(err);
   process.exit(1);
 }

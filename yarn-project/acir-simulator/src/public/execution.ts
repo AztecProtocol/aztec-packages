@@ -1,15 +1,24 @@
-import { AztecAddress, CallContext, Fr, FunctionData, StateRead, StateTransition, TxRequest } from '@aztec/circuits.js';
+import {
+  AztecAddress,
+  CallContext,
+  ContractStorageRead,
+  ContractStorageUpdateRequest,
+  Fr,
+  FunctionData,
+} from '@aztec/circuits.js';
 
 /**
  * The public function execution result.
  */
 export interface PublicExecutionResult {
+  /** The execution that triggered this result. */
+  execution: PublicExecution;
   /** The return values of the function. */
   returnValues: Fr[];
-  /** The state reads performed by the function. */
-  stateReads: StateRead[];
-  /** The state transitions performed by the function. */
-  stateTransitions: StateTransition[];
+  /** The contract storage reads performed by the function. */
+  contractStorageReads: ContractStorageRead[];
+  /** The contract storage update requests performed by the function. */
+  contractStorageUpdateRequests: ContractStorageUpdateRequest[];
   /** The results of nested calls. */
   nestedExecutions: this[];
 }
@@ -29,11 +38,12 @@ export interface PublicExecution {
 }
 
 /**
- * Returns whether the input is a public execution.
- * @param input - Input to check.
- * @returns Whether it's a public execution.
+ * Returns if the input is a public execution result and not just a public execution.
+ * @param input - Public execution or public execution result.
+ * @returns Whether the input is a public execution result and not just a public execution.
  */
-export function isPublicExecution(input: PublicExecution | TxRequest): input is PublicExecution {
-  const execution = input as PublicExecution;
-  return !!execution.callContext && !!execution.args && !!execution.contractAddress && !!execution.functionData;
+export function isPublicExecutionResult(
+  input: PublicExecution | PublicExecutionResult,
+): input is PublicExecutionResult {
+  return !!(input as PublicExecutionResult).execution;
 }

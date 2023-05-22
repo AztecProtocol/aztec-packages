@@ -96,6 +96,7 @@ export async function retrieveUnverifiedData(
  * @param currentBlockNumber - Latest available block number in the ETH node.
  * @param searchStartBlock - The block number to use for starting the search.
  * @param blockHashMapping - A mapping from block number to relevant block hash.
+ * @returns An array of ContractPublicData and their equivalent L2 Block number.
  */
 export async function retrieveNewContractData(
   publicClient: PublicClient,
@@ -105,7 +106,7 @@ export async function retrieveNewContractData(
   searchStartBlock: bigint,
   blockHashMapping: { [key: number]: Buffer },
 ) {
-  let retrievedNewContracts: (ContractPublicData[] | undefined)[] = [];
+  let retrievedNewContracts: [ContractPublicData[], number][] = [];
   do {
     if (searchStartBlock > currentBlockNumber) {
       break;

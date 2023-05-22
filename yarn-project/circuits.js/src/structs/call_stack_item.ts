@@ -9,18 +9,40 @@ import { PublicCircuitPublicInputs } from './public_circuit_public_inputs.js';
  * @see cpp/src/aztec3/circuits/abis/call_stack_item.hpp.
  */
 export class PrivateCallStackItem {
+  /**
+   * Whether the current callstack item should be considered a public fn execution request.
+   */
+  public readonly isExecutionRequest = false;
+
   constructor(
+    /**
+     * Address of the contract on which the function is invoked.
+     */
     public contractAddress: AztecAddress,
+    /**
+     * Data identifying the function being called.
+     */
     public functionData: FunctionData,
+    /**
+     * Public inputs to the private kernel circuit.
+     */
     public publicInputs: PrivateCircuitPublicInputs,
   ) {}
 
   toBuffer() {
-    return serializeToBuffer(this.contractAddress, this.functionData, this.publicInputs);
+    return serializeToBuffer(this.contractAddress, this.functionData, this.publicInputs, this.isExecutionRequest);
   }
 
-  public static empty() {
-    return new PrivateCallStackItem(AztecAddress.ZERO, FunctionData.empty(), PrivateCircuitPublicInputs.empty());
+  /**
+   * Returns a new instance of PrivateCallStackItem with zero contract address, function data and public inputs.
+   * @returns A new instance of PrivateCallStackItem with zero contract address, function data and public inputs.
+   */
+  public static empty(): PrivateCallStackItem {
+    return new PrivateCallStackItem(
+      AztecAddress.ZERO,
+      FunctionData.empty({ isPrivate: true }),
+      PrivateCircuitPublicInputs.empty(),
+    );
   }
 }
 
@@ -30,16 +52,42 @@ export class PrivateCallStackItem {
  */
 export class PublicCallStackItem {
   constructor(
+    /**
+     * Address of the contract on which the function is invoked.
+     */
     public contractAddress: AztecAddress,
+    /**
+     * Data identifying the function being called.
+     */
     public functionData: FunctionData,
+    /**
+     * Public inputs to the public kernel circuit.
+     */
     public publicInputs: PublicCircuitPublicInputs,
+    /**
+     * Whether the current callstack item should be considered a public fn execution request.
+     */
+    public isExecutionRequest: boolean,
   ) {}
 
   toBuffer() {
-    return serializeToBuffer(this.contractAddress, this.functionData, this.publicInputs);
+    return serializeToBuffer(this.contractAddress, this.functionData, this.publicInputs, this.isExecutionRequest);
   }
 
-  public static empty() {
-    return new PublicCallStackItem(AztecAddress.ZERO, FunctionData.empty(), PublicCircuitPublicInputs.empty());
+  /**
+   * Returns a new instance of PublicCallStackItem with zero contract address, function data and public inputs.
+   * @returns A new instance of PublicCallStackItem with zero contract address, function data and public inputs.
+   */
+  public static empty(): PublicCallStackItem {
+    return new PublicCallStackItem(
+      AztecAddress.ZERO,
+      FunctionData.empty({ isPrivate: false }),
+      PublicCircuitPublicInputs.empty(),
+      false,
+    );
+  }
+
+  isEmpty() {
+    return this.contractAddress.isZero() && this.functionData.isEmpty() && this.publicInputs.isEmpty();
   }
 }

@@ -1,23 +1,43 @@
 import { serializeToBuffer } from '../../utils/serialize.js';
 import { BaseOrMergeRollupPublicInputs } from './base_or_merge_rollup_public_inputs.js';
 import { ROLLUP_VK_TREE_HEIGHT } from '../constants.js';
-import { UInt32, UInt8Vector } from '../shared.js';
+import { UInt32 } from '../shared.js';
 import { MembershipWitness } from '../membership_witness.js';
 import { VerificationKey } from '../verification_key.js';
+import { Proof } from '../proof.js';
 
+/**
+ * Represents the data of a previous merge or base rollup circuit.
+ */
 export class PreviousRollupData {
   constructor(
+    /**
+     * Public inputs to the base or merge rollup circuit.
+     */
     public publicInputs: BaseOrMergeRollupPublicInputs,
-    public proof: UInt8Vector,
+    /**
+     * The proof of the base or merge rollup circuit.
+     */
+    public proof: Proof,
+    /**
+     * The verification key of the base or merge rollup circuit.
+     */
     public vk: VerificationKey,
     /**
      * The index of the rollup circuit's vk in a big tree of rollup circuit vks.
      */
     public vkIndex: UInt32,
+    /**
+     * Sibling path of the rollup circuit's vk in a big tree of rollup circuit vks.
+     */
     public vkSiblingPath: MembershipWitness<typeof ROLLUP_VK_TREE_HEIGHT>,
   ) {}
 
-  toBuffer() {
+  /**
+   * Serializes previous rollup data to a buffer.
+   * @returns The buffer of the serialized previous rollup data.
+   */
+  public toBuffer(): Buffer {
     return serializeToBuffer(this.publicInputs, this.proof, this.vk, this.vkIndex, this.vkSiblingPath);
   }
 }

@@ -7,13 +7,14 @@ import {
   KERNEL_NEW_NULLIFIERS_LENGTH,
   KernelCircuitPublicInputs,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
-  PublicDataTransition,
-  STATE_TRANSITIONS_LENGTH,
+  PublicDataUpdateRequest,
+  KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH,
   range,
+  makeTuple,
 } from '@aztec/circuits.js';
 import { fr, makeNewContractData, makeProof } from '@aztec/circuits.js/factories';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { DecoderHelperAbi, RollupAbi } from '@aztec/l1-artifacts';
+import { DecoderHelperAbi, InboxAbi, OutboxAbi, RollupAbi } from '@aztec/l1-artifacts';
 import {
   EmptyRollupProver,
   L1Publisher,
@@ -41,6 +42,7 @@ import {
   getAddress,
   getContract,
   http,
+  keccak256,
 } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
@@ -60,10 +62,14 @@ describe('L1Publisher integration', () => {
   let publicClient: PublicClient<HttpTransport, Chain>;
 
   let rollupAddress: Address;
+  let inboxAddress: Address;
+  let outboxAddress: Address;
   let unverifiedDataEmitterAddress: Address;
   let decoderHelperAddress: Address;
 
   let rollup: GetContractReturnType<typeof RollupAbi, PublicClient<HttpTransport, Chain>>;
+  let inbox: GetContractReturnType<typeof InboxAbi, PublicClient<HttpTransport, Chain>>;
+  let outbox: GetContractReturnType<typeof OutboxAbi, PublicClient<HttpTransport, Chain>>;
   let decoderHelper: GetContractReturnType<typeof DecoderHelperAbi, PublicClient<HttpTransport, Chain>>;
 
   let publisher: L1Publisher;
@@ -76,11 +82,15 @@ describe('L1Publisher integration', () => {
     const deployerAccount = privateKeyToAccount(deployerPK);
     const {
       rollupAddress: rollupAddress_,
+      inboxAddress: inboxAddress_,
+      outboxAddress: outboxAddress_,
       unverifiedDataEmitterAddress: unverifiedDataEmitterAddress_,
       decoderHelperAddress: decoderHelperAddress_,
     } = await deployL1Contracts(config.rpcUrl, deployerAccount, logger, true);
 
     rollupAddress = getAddress(rollupAddress_.toString());
+    inboxAddress = getAddress(inboxAddress_.toString());
+    outboxAddress = getAddress(outboxAddress_.toString());
     unverifiedDataEmitterAddress = getAddress(unverifiedDataEmitterAddress_.toString());
     decoderHelperAddress = getAddress(decoderHelperAddress_!.toString());
 
@@ -93,6 +103,16 @@ describe('L1Publisher integration', () => {
     rollup = getContract({
       address: rollupAddress,
       abi: RollupAbi,
+      publicClient,
+    });
+    inbox = getContract({
+      address: inboxAddress,
+      abi: InboxAbi,
+      publicClient,
+    });
+    outbox = getContract({
+      address: outboxAddress,
+      abi: OutboxAbi,
       publicClient,
     });
     decoderHelper = getContract({
@@ -130,19 +150,35 @@ describe('L1Publisher integration', () => {
     const publicTx = makePublicTx(seed);
     const kernelOutput = KernelCircuitPublicInputs.empty();
     kernelOutput.constants.historicTreeRoots = await getCombinedHistoricTreeRoots(builderDb);
-    kernelOutput.end.stateTransitions = range(STATE_TRANSITIONS_LENGTH, seed + 0x500).map(
-      i => new PublicDataTransition(fr(i), fr(0), fr(i + 10)),
+    kernelOutput.end.publicDataUpdateRequests = makeTuple(
+      KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH,
+      i => new PublicDataUpdateRequest(fr(i), fr(0), fr(i + 10)),
+      seed + 0x500,
     );
 
     const tx = await makeProcessedTx(publicTx, kernelOutput, makeProof());
 
-    tx.data.end.newCommitments = range(KERNEL_NEW_COMMITMENTS_LENGTH, seed + 0x100).map(fr);
-    tx.data.end.newNullifiers = range(KERNEL_NEW_NULLIFIERS_LENGTH, seed + 0x200).map(fr);
+    tx.data.end.newCommitments = makeTuple(KERNEL_NEW_COMMITMENTS_LENGTH, fr, seed + 0x100);
+    tx.data.end.newNullifiers = makeTuple(KERNEL_NEW_NULLIFIERS_LENGTH, fr, seed + 0x200);
     tx.data.end.newNullifiers[tx.data.end.newNullifiers.length - 1] = Fr.ZERO;
-    tx.data.end.newL2ToL1Msgs = range(KERNEL_NEW_L2_TO_L1_MSGS_LENGTH, seed + 0x300).map(fr);
+    tx.data.end.newL2ToL1Msgs = makeTuple(KERNEL_NEW_L2_TO_L1_MSGS_LENGTH, fr, seed + 0x300);
     tx.data.end.newContracts = [makeNewContractData(seed + 0x1000)];
 
     return tx;
+  };
+
+  const forceInsertionInInbox = async (l1ToL2Messages: Fr[]) => {
+    for (let i = 0; i < l1ToL2Messages.length; i++) {
+      const slot = keccak256(Buffer.concat([l1ToL2Messages[i].toBuffer(), fr(0).toBuffer()]));
+      const value = 1n | ((2n ** 32n - 1n) << 128n);
+      // we are using Fr for the value as an easy way to get a correctly sized buffer and string.
+      const params = `["${inboxAddress}", "${slot}", "0x${new Fr(value).toBuffer().toString('hex')}"]`;
+      await fetch(config.rpcUrl, {
+        body: `{"jsonrpc":"2.0", "method": "anvil_setStorageAt", "params": ${params}, "id": 1}`,
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
   };
 
   it(`Build ${numberOfConsecutiveBlocks} blocks of 4 bloated txs building on each other`, async () => {
@@ -153,6 +189,8 @@ describe('L1Publisher integration', () => {
 
     for (let i = 0; i < numberOfConsecutiveBlocks; i++) {
       const l1ToL2Messages = range(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, 128 * i + 1 + 0x400).map(fr);
+      await forceInsertionInInbox(l1ToL2Messages);
+
       const txs = [
         await makeBloatedProcessedTx(128 * i + 32),
         await makeBloatedProcessedTx(128 * i + 64),
@@ -160,6 +198,17 @@ describe('L1Publisher integration', () => {
         await makeBloatedProcessedTx(128 * i + 128),
       ];
       const [block] = await builder.buildL2Block(1 + i, txs, l1ToL2Messages);
+
+      // check that values are in the inbox
+      for (let j = 0; j < l1ToL2Messages.length; j++) {
+        if (l1ToL2Messages[j].isZero()) continue;
+        expect(await inbox.read.contains([`0x${l1ToL2Messages[j].toBuffer().toString('hex')}`])).toBeTruthy();
+      }
+
+      // check that values are not in the outbox
+      for (let j = 0; j < block.newL2ToL1Msgs.length; j++) {
+        expect(await outbox.read.contains([`0x${block.newL2ToL1Msgs[j].toBuffer().toString('hex')}`])).toBeFalsy();
+      }
 
       /*// Useful for sol tests block generation
       const encoded = block.encode();
@@ -206,6 +255,16 @@ describe('L1Publisher integration', () => {
       expect(block.getPublicInputsHash().toBuffer()).toEqual(hexStringToBuffer(decodedRes[3].toString()));
       expect(block.getCalldataHash()).toEqual(hexStringToBuffer(decodedHashes[0].toString()));
       expect(block.getL1ToL2MessagesHash()).toEqual(hexStringToBuffer(decodedHashes[1].toString()));
+
+      // check that values have been consumed from the inbox
+      for (let j = 0; j < l1ToL2Messages.length; j++) {
+        if (l1ToL2Messages[j].isZero()) continue;
+        expect(await inbox.read.contains([`0x${l1ToL2Messages[j].toBuffer().toString('hex')}`])).toBeFalsy();
+      }
+      // check that values are inserted into the outbox
+      for (let j = 0; j < block.newL2ToL1Msgs.length; j++) {
+        expect(await outbox.read.contains([`0x${block.newL2ToL1Msgs[j].toBuffer().toString('hex')}`])).toBeTruthy();
+      }
     }
   }, 60_000);
 

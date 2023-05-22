@@ -1,5 +1,5 @@
 import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { FieldsOf } from '../utils/jsUtils.js';
+import { FieldsOf, assertMemberLength } from '../utils/jsUtils.js';
 import { serializeToBuffer } from '../utils/serialize.js';
 import { FunctionData } from './function_data.js';
 import { EcdsaSignature } from './shared.js';
@@ -13,7 +13,16 @@ import { ARGS_LENGTH } from './constants.js';
  * @see cpp/src/aztec3/circuits/abis/signed_tx_request.hpp.
  */
 export class SignedTxRequest {
-  constructor(public txRequest: TxRequest, public signature: EcdsaSignature) {}
+  constructor(
+    /**
+     * Transaction request.
+     */
+    public txRequest: TxRequest,
+    /**
+     * Signature.
+     */
+    public signature: EcdsaSignature,
+  ) {}
 
   /**
    * Serialize as a buffer.
@@ -25,6 +34,7 @@ export class SignedTxRequest {
 
   /**
    * Deserialises from a buffer.
+   * @param buffer - The buffer representation of the object.
    * @returns The new object.
    */
   static fromBuffer(buffer: Buffer | BufferReader): SignedTxRequest {
@@ -39,14 +49,37 @@ export class SignedTxRequest {
  */
 export class TxRequest {
   constructor(
+    /**
+     * Sender.
+     */
     public from: AztecAddress,
+    /**
+     * Target.
+     */
     public to: AztecAddress,
+    /**
+     * Function data representing the function to call.
+     */
     public functionData: FunctionData,
+    /**
+     * Function arguments.
+     */
     public args: Fr[],
+    /**
+     * Tx nonce.
+     */
     public nonce: Fr,
+    /**
+     * Transaction context.
+     */
     public txContext: TxContext,
+    /**
+     * Chain ID of the transaction. Here for replay protection.
+     */
     public chainId: Fr,
-  ) {}
+  ) {
+    assertMemberLength(this, 'args', ARGS_LENGTH);
+  }
 
   static getFields(fields: FieldsOf<TxRequest>) {
     return [
@@ -76,6 +109,7 @@ export class TxRequest {
   /**
    * Deserializes from a buffer or reader, corresponding to a write in cpp.
    * @param buffer - Buffer to read from.
+   * @returns The deserialised TxRequest object.
    */
   static fromBuffer(buffer: Buffer | BufferReader): TxRequest {
     const reader = BufferReader.asReader(buffer);
@@ -83,7 +117,7 @@ export class TxRequest {
       reader.readObject(AztecAddress),
       reader.readObject(AztecAddress),
       reader.readObject(FunctionData),
-      reader.readArray<Fr>(ARGS_LENGTH, Fr),
+      reader.readArray<Fr, typeof ARGS_LENGTH>(ARGS_LENGTH, Fr),
       reader.readFr(),
       reader.readObject(TxContext),
       reader.readFr(),

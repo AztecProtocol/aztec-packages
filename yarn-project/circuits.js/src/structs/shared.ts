@@ -1,67 +1,55 @@
-import { Fq } from '@aztec/foundation/fields';
-import { assertLength } from '../utils/jsUtils.js';
-import { Bufferable, serializeToBuffer } from '../utils/serialize.js';
 import { BufferReader } from '@aztec/foundation/serialize';
+import { assertMemberLength } from '../utils/jsUtils.js';
+import { Bufferable, serializeToBuffer } from '../utils/serialize.js';
 import { randomBytes } from '@aztec/foundation/crypto';
 
+/**
+ * Implementation of a vector. Matches how we are serializing and deserializing vectors in cpp (length in the first position, followed by the items).
+ */
 export class Vector<T extends Bufferable> {
-  constructor(public items: T[]) {}
+  constructor(
+    /**
+     * Items in the vector.
+     */
+    public items: T[],
+  ) {}
 
   toBuffer() {
     return serializeToBuffer(this.items.length, this.items);
   }
-}
 
-export class UInt8Vector {
-  constructor(public buffer: Buffer) {}
-
-  toBuffer() {
-    return serializeToBuffer(this.buffer.length, this.buffer);
-  }
-
-  static fromBuffer(buffer: Buffer | BufferReader): UInt8Vector {
-    const reader = BufferReader.asReader(buffer);
-    const size = reader.readNumber();
-    const buf = reader.readBytes(size);
-    return new UInt8Vector(buf);
+  toFriendlyJSON() {
+    return this.items;
   }
 }
-
-export type UInt32 = number;
 
 /**
- * Affine element of a group, composed of two elements in Fq.
- * cpp/barretenberg/cpp/src/aztec/ecc/groups/affine_element.hpp
- * cpp/barretenberg/cpp/src/aztec/ecc/curves/bn254/g1.hpp
+ * A type alias for a 32-bit unsigned integer.
  */
-export class AffineElement {
-  public x: Fq;
-  public y: Fq;
-
-  constructor(x: Fq | bigint, y: Fq | bigint) {
-    this.x = typeof x === 'bigint' ? new Fq(x) : x;
-    this.y = typeof y === 'bigint' ? new Fq(y) : y;
-  }
-
-  toBuffer() {
-    return serializeToBuffer(this.x, this.y);
-  }
-
-  static fromBuffer(buffer: Buffer | BufferReader): AffineElement {
-    const reader = BufferReader.asReader(buffer);
-    return new AffineElement(reader.readFq(), reader.readFq());
-  }
-}
+export type UInt32 = number;
 
 /**
  * ECDSA signature used for transactions.
  * @see cpp/barretenberg/cpp/src/barretenberg/crypto/ecdsa/ecdsa.hpp
  */
 export class EcdsaSignature {
-  constructor(public r: Buffer, public s: Buffer, public v: Buffer) {
-    assertLength(this, 'r', 32);
-    assertLength(this, 's', 32);
-    assertLength(this, 'v', 1);
+  constructor(
+    /**
+     * Value `r` of the signature.
+     */
+    public r: Buffer,
+    /**
+     * Value `s` of the signature.
+     */
+    public s: Buffer,
+    /**
+     * Value `v` of the signature.
+     */
+    public v: Buffer,
+  ) {
+    assertMemberLength(this, 'r', 32);
+    assertMemberLength(this, 's', 32);
+    assertMemberLength(this, 'v', 1);
   }
 
   toBuffer() {
@@ -73,7 +61,11 @@ export class EcdsaSignature {
     return new EcdsaSignature(reader.readBytes(32), reader.readBytes(32), reader.readBytes(1));
   }
 
-  public static random() {
+  /**
+   * Returns a random/placeholder ECDSA signature.
+   * @returns A random placeholder ECDSA signature.
+   */
+  public static random(): EcdsaSignature {
     return new EcdsaSignature(randomBytes(32), randomBytes(32), randomBytes(1));
   }
 }

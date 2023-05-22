@@ -155,7 +155,8 @@ export class ViemTxSender implements L1PublisherTxSender {
     l2BlockNum: number,
     l2BlockHash: Buffer,
     newContractData: ContractPublicData[],
-  ): Promise<string | undefined> {
+  ): Promise<(string | undefined)[]> {
+    const hashes: string[] = [];
     for (const contractPublicData of newContractData) {
       const args = [
         BigInt(l2BlockNum),
@@ -172,8 +173,9 @@ export class ViemTxSender implements L1PublisherTxSender {
         gas,
         account: this.account,
       });
-      return hash;
+      hashes.push(hash);
     }
+    return hashes;
   }
 
   /**

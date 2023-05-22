@@ -44,7 +44,7 @@ COPY world-state/package.json world-state/package.json
 COPY yarn-project-base/package.json yarn-project-base/package.json
 
 # Copy root files
-COPY package.json package.*.json tsconfig.json tsconfig.eslint.json yarn.lock .yarnrc.yml ./
+COPY package.json package.*.json tsconfig.json yarn.lock .yarnrc.yml ./
 COPY .yarn .yarn
 
 # Although we're attempting to be "zero-install", in practice we still need to build arch specific packages.
@@ -100,6 +100,7 @@ COPY world-state/tsconfig.json world-state/tsconfig.json
 # Check that dependencies config are up to date
 COPY yarn-project-base/scripts yarn-project-base/scripts
 RUN yarn prepare:check
+
 
 # Generate TS-importable contract artifacts
 COPY l1-artifacts/scripts/generate-artifacts.sh l1-artifacts/scripts/generate-artifacts.sh

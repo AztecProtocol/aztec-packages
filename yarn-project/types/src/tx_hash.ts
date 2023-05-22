@@ -1,5 +1,5 @@
-import { assertLength } from '@aztec/circuits.js';
 import { deserializeBigInt, serializeBigInt } from '@aztec/foundation/serialize';
+import { assertMemberLength } from '@aztec/circuits.js';
 
 /**
  * A class representing hash of Aztec transaction.
@@ -16,7 +16,7 @@ export class TxHash {
      */
     public buffer: Buffer,
   ) {
-    assertLength(this, 'buffer', TxHash.SIZE);
+    assertMemberLength(this, 'buffer', TxHash.SIZE);
   }
 
   /**

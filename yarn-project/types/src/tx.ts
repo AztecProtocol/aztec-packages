@@ -1,11 +1,11 @@
-import { CircuitsWasm, KernelCircuitPublicInputs, SignedTxRequest, UInt8Vector } from '@aztec/circuits.js';
-import { computeContractLeaf, computeTxHash } from '@aztec/circuits.js/abis';
+import { CircuitsWasm, KernelCircuitPublicInputs, Proof, PublicCallRequest, SignedTxRequest } from '@aztec/circuits.js';
+import { computeTxHash } from '@aztec/circuits.js/abis';
 
-import { createTxHash } from './create_tx_hash.js';
 import { TxHash } from './tx_hash.js';
 import { UnverifiedData } from './unverified_data.js';
 import { EncodedContractFunction } from './contract_data.js';
 import { numToUInt32BE } from '@aztec/circuits.js/utils';
+import { arrayNonEmptyLength } from '@aztec/foundation/collection';
 
 /**
  * Defines valid fields for a private transaction.
@@ -45,7 +45,7 @@ export function isPrivateTx(tx: Tx): tx is PrivateTx {
  * The interface of an L2 transaction.
  */
 export class Tx {
-  private hashPromise?: Promise<TxHash>;
+  private txHash?: Promise<TxHash>;
 
   /**
    * Creates a new private transaction.
@@ -53,15 +53,24 @@ export class Tx {
    * @param proof - Proof from the private kernel circuit.
    * @param unverifiedData - Unverified data created by this tx.
    * @param newContractPublicFunctions - Public functions made available by this tx.
+   * @param enqueuedPublicFunctionCalls - Preimages of the public call stack of the kernel output.
    * @returns A new private tx instance.
    */
   public static createPrivate(
     data: KernelCircuitPublicInputs,
-    proof: UInt8Vector,
+    proof: Proof,
     unverifiedData: UnverifiedData,
-    newContractPublicFunctions?: EncodedContractFunction[],
+    newContractPublicFunctions: EncodedContractFunction[],
+    enqueuedPublicFunctionCalls: PublicCallRequest[],
   ): PrivateTx {
-    return new this(data, proof, unverifiedData, undefined, newContractPublicFunctions) as PrivateTx;
+    return new this(
+      data,
+      proof,
+      unverifiedData,
+      undefined,
+      newContractPublicFunctions,
+      enqueuedPublicFunctionCalls,
+    ) as PrivateTx;
   }
 
   /**
@@ -83,7 +92,7 @@ export class Tx {
    */
   public static createPrivatePublic(
     data: KernelCircuitPublicInputs,
-    proof: UInt8Vector,
+    proof: Proof,
     unverifiedData: UnverifiedData,
     txRequest: SignedTxRequest,
   ): PrivateTx & PublicTx {
@@ -100,7 +109,7 @@ export class Tx {
    */
   public static create(
     data?: KernelCircuitPublicInputs,
-    proof?: UInt8Vector,
+    proof?: Proof,
     unverifiedData?: UnverifiedData,
     txRequest?: SignedTxRequest,
   ): Tx {
@@ -131,7 +140,7 @@ export class Tx {
     /**
      * Proof from the private kernel circuit.
      */
-    public readonly proof?: UInt8Vector,
+    public readonly proof?: Proof,
     /**
      * Information not needed to verify the tx (e.g. Encrypted note pre-images etc.).
      */
@@ -144,17 +153,38 @@ export class Tx {
      * New public functions made available by this tx.
      */
     public readonly newContractPublicFunctions?: EncodedContractFunction[],
-  ) {}
+    /**
+     * Enqueued public functions from the private circuit to be run by the sequencer.
+     * Preimages of the public call stack entries from the private kernel circuit output.
+     */
+    public readonly enqueuedPublicFunctionCalls?: PublicCallRequest[],
+  ) {
+    const kernelPublicCallStackSize =
+      data?.end.publicCallStack && arrayNonEmptyLength(data.end.publicCallStack, item => item.isZero());
+    if (kernelPublicCallStackSize && kernelPublicCallStackSize > (enqueuedPublicFunctionCalls?.length ?? 0)) {
+      throw new Error(
+        `Missing preimages for enqueued public function calls in kernel circuit public inputs (expected ${kernelPublicCallStackSize}, got ${enqueuedPublicFunctionCalls?.length})`,
+      );
+    }
+  }
 
   /**
    * Construct & return transaction hash.
    * @returns The transaction's hash.
    */
   getTxHash(): Promise<TxHash> {
-    if (!this.hashPromise) {
-      this.hashPromise = Tx.createTxHash(this);
+    if (this.isPrivate()) {
+      // Private kernel functions are executed client side and for this reason tx hash is already set as first nullifier
+      const firstNullifier = this.data?.end.newNullifiers[0];
+      return Promise.resolve(new TxHash(firstNullifier.toBuffer()));
     }
-    return this.hashPromise;
+
+    if (this.isPublic()) {
+      if (!this.txHash) this.txHash = getTxHashFromRequest(this.txRequest);
+      return this.txHash;
+    }
+
+    throw new Error('Tx data incorrectly set.');
   }
 
   /**
@@ -173,7 +203,7 @@ export class Tx {
    */
   static clone(tx: Tx): Tx {
     const publicInputs = tx.data === undefined ? undefined : KernelCircuitPublicInputs.fromBuffer(tx.data.toBuffer());
-    const proof = tx.proof === undefined ? undefined : new UInt8Vector(tx.proof.toBuffer());
+    const proof = tx.proof === undefined ? undefined : Proof.fromBuffer(tx.proof.toBuffer());
     const unverified =
       tx.unverifiedData === undefined ? undefined : UnverifiedData.fromBuffer(tx.unverifiedData.toBuffer());
     const signedTxRequest =
@@ -241,7 +271,7 @@ export class Tx {
     // this is the opposite of the 'toMessage' function
     // so the first 4 bytes is the complete length, skip it
     const publicInputs = toObject(buffer.subarray(4), KernelCircuitPublicInputs);
-    const proof = toObject(publicInputs.remainingData, UInt8Vector);
+    const proof = toObject(publicInputs.remainingData, Proof);
     const txRequest = toObject(proof.remainingData, SignedTxRequest);
     const unverified = toObject(txRequest.remainingData, UnverifiedData);
     const encodedFunctionsLength = unverified.remainingData.readUInt32BE(0);
@@ -257,38 +287,13 @@ export class Tx {
     }
     return new Tx(publicInputs.obj, proof.obj, unverified.obj, txRequest.obj, functions.length ? functions : undefined);
   }
+}
 
-  /**
-   * Utility function to generate tx hash.
-   * @param tx - The transaction from which to generate the hash.
-   * @returns A hash of the tx data that identifies the tx.
-   */
-  static async createTxHash(tx: Tx): Promise<TxHash> {
-    // TODO: Until we define how txs will be represented on the L2 block, we won't know how to
-    // recreate their hash from the L2 block info. So for now we take the easy way out. If the
-    // tx has only private data, we keep the same hash as before. If it has public data,
-    // we hash it and return it. And if it has both, we compute both hashes
-    // and hash them together. We'll probably want to change this later!
-    // See https://github.com/AztecProtocol/aztec3-packages/issues/271
-
-    // NOTE: We are using computeContractLeaf here to ensure consistency with how circuits compute
-    // contract tree leaves, which then go into the L2 block, which are then used to regenerate
-    // the tx hashes. This means we need the full circuits wasm, and cannot use the lighter primitives
-    // wasm. Alternatively, we could stop using computeContractLeaf and manually use the same hash.
-    const wasm = await CircuitsWasm.get();
-    if (tx.data) {
-      return createTxHash({
-        ...tx.data.end,
-        newContracts: tx.data.end.newContracts.map(cd => computeContractLeaf(wasm, cd)),
-      });
-    }
-
-    // We hash the full signed tx request object (this is, the tx request along with the signature),
-    // just like Ethereum does.
-    if (tx.txRequest) {
-      return new TxHash(computeTxHash(wasm, tx.txRequest).toBuffer());
-    }
-
-    throw new Error(`Unable to create Tx Hash`);
-  }
+/**
+ * Calculates the hash based on a SignedTxRequest.
+ * @param txRequest - The SignedTxRequest.
+ * @returns The tx hash.
+ */
+async function getTxHashFromRequest(txRequest: SignedTxRequest) {
+  return new TxHash(computeTxHash(await CircuitsWasm.get(), txRequest).toBuffer());
 }

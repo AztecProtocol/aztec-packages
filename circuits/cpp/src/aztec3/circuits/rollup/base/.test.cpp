@@ -47,11 +47,6 @@
 #include <tuple>
 #include <vector>
 
-// Nullifier tree building lib
-// #include "./nullifier_tree_testing_harness.hpp"
-// #include <aztec3/constants.hpp>
-// #include <barretenberg/crypto/pedersen/pedersen.hpp>
-// #include <barretenberg/stdlib/hash/pedersen/pedersen.hpp>
 
 namespace {
 
@@ -74,8 +69,8 @@ using aztec3::circuits::rollup::native_base_rollup::NT;
 
 using aztec3::circuits::abis::NewContractData;
 
+using aztec3::circuits::rollup::test_utils::utils::make_public_data_update_request;
 using aztec3::circuits::rollup::test_utils::utils::make_public_read;
-using aztec3::circuits::rollup::test_utils::utils::make_public_write;
 
 using DummyComposer = aztec3::utils::DummyComposer;
 }  // namespace
@@ -90,13 +85,13 @@ class base_rollup_tests : public ::testing::Test {
                           bool assert_no_circuit_failure = true)
     {
         info("Retesting via cbinds....");
-        // TODO might be able to get rid of proving key buffer
+        // TODO(banks12) might be able to get rid of proving key buffer
         uint8_t const* pk_buf = nullptr;
         size_t const pk_size = base_rollup__init_proving_key(&pk_buf);
         (void)pk_size;
         // info("Proving key size: ", pk_size);
 
-        // TODO might be able to get rid of verification key buffer
+        // TODO(banks12) might be able to get rid of verification key buffer
         uint8_t const* vk_buf = nullptr;
         size_t const vk_size = base_rollup__init_verification_key(pk_buf, &vk_buf);
         (void)vk_size;
@@ -149,7 +144,7 @@ class base_rollup_tests : public ::testing::Test {
 
 TEST_F(base_rollup_tests, native_no_new_contract_leafs)
 {
-    DummyComposer composer = DummyComposer();
+    DummyComposer composer = DummyComposer("base_rollup_tests__native_no_new_contract_leafs");
     // When there are no contract deployments. The contract tree should be inserting 0 leafs, (not empty leafs);
     // Initially, the start_contract_tree_snapshot is empty (leaf is 0. hash it up).
     // Get sibling path of index 0 leaf (for circuit to check membership via sibling path)
@@ -178,7 +173,7 @@ TEST_F(base_rollup_tests, native_no_new_contract_leafs)
 
 TEST_F(base_rollup_tests, native_contract_leaf_inserted)
 {
-    DummyComposer composer = DummyComposer();
+    DummyComposer composer = DummyComposer("base_rollup_tests__native_contract_leaf_inserted");
     // When there is a contract deployment, the contract tree should be inserting 1 leaf.
     // The remaining leafs should be 0 leafs, (not empty leafs);
 
@@ -223,7 +218,8 @@ TEST_F(base_rollup_tests, native_contract_leaf_inserted)
 
 TEST_F(base_rollup_tests, native_contract_leaf_inserted_in_non_empty_snapshot_tree)
 {
-    DummyComposer composer = DummyComposer();
+    DummyComposer composer =
+        DummyComposer("base_rollup_tests__native_contract_leaf_inserted_in_non_empty_snapshot_tree");
     // Same as before except our start_contract_snapshot_tree is not empty
     std::array<PreviousKernelData<NT>, 2> kernel_data = { get_empty_kernel(), get_empty_kernel() };
 
@@ -274,7 +270,7 @@ TEST_F(base_rollup_tests, native_contract_leaf_inserted_in_non_empty_snapshot_tr
 
 TEST_F(base_rollup_tests, native_new_commitments_tree)
 {
-    DummyComposer composer = DummyComposer();
+    DummyComposer composer = DummyComposer("base_rollup_tests__native_new_commitments_tree");
     // Create 4 new mock commitments. Add them to kernel data.
     // Then get sibling path so we can verify insert them into the tree.
 
@@ -347,7 +343,7 @@ TEST_F(base_rollup_tests, native_new_nullifier_tree_empty)
     /**
      * RUN
      */
-    DummyComposer composer = DummyComposer();
+    DummyComposer composer = DummyComposer("base_rollup_tests__native_new_nullifier_tree_empty");
     std::array<PreviousKernelData<NT>, 2> const kernel_data = { get_empty_kernel(), get_empty_kernel() };
     BaseRollupInputs const empty_inputs = base_rollup_inputs_from_kernels(kernel_data);
 
@@ -380,7 +376,7 @@ void nullifier_insertion_test(std::array<fr, KERNEL_NEW_NULLIFIERS_LENGTH * 2> n
     }
     auto end_nullifier_tree_snapshot = nullifier_tree.get_snapshot();
 
-    DummyComposer composer = DummyComposer();
+    DummyComposer composer = DummyComposer("base_rollup_tests__nullifier_insertion_test");
     std::array<PreviousKernelData<NT>, 2> kernel_data = { get_empty_kernel(), get_empty_kernel() };
     for (uint8_t i = 0; i < 2; i++) {
         std::array<fr, KERNEL_NEW_NULLIFIERS_LENGTH> kernel_nullifiers;
@@ -428,7 +424,7 @@ TEST_F(base_rollup_tests, native_new_nullifier_tree_sparse)
     }
     auto expected_end_nullifier_tree_snapshot = nullifier_tree.get_snapshot();
 
-    DummyComposer composer = DummyComposer();
+    DummyComposer composer = DummyComposer("base_rollup_tests__native_new_nullifier_tree_sparse");
     BaseRollupInputs const empty_inputs = base_rollup_inputs_from_kernels({ get_empty_kernel(), get_empty_kernel() });
     std::tuple<BaseRollupInputs, AppendOnlyTreeSnapshot<NT>, AppendOnlyTreeSnapshot<NT>> inputs_and_snapshots =
         test_utils::utils::generate_nullifier_tree_testing_values_explicit(empty_inputs, nullifiers, initial_values);
@@ -457,7 +453,7 @@ TEST_F(base_rollup_tests, native_new_nullifier_tree_sparse)
 TEST_F(base_rollup_tests, native_nullifier_tree_regression)
 {
     // Regression test caught when testing the typescript nullifier tree implementation
-    DummyComposer composer = DummyComposer();
+    DummyComposer composer = DummyComposer("base_rollup_tests__native_nullifier_tree_regression");
 
     // This test runs after some data has already been inserted into the tree
     // This test will pre-populate the tree with 24 values (0 item + 23 more) simulating that a rollup inserting two
@@ -535,7 +531,7 @@ TEST_F(base_rollup_tests, native_new_nullifier_tree_double_spend)
      * DESCRIPTION
      */
 
-    DummyComposer composer = DummyComposer();
+    DummyComposer composer = DummyComposer("base_rollup_tests__native_new_nullifier_tree_double_spend");
     BaseRollupInputs const empty_inputs = base_rollup_inputs_from_kernels({ get_empty_kernel(), get_empty_kernel() });
 
     std::array<fr, KERNEL_NEW_NULLIFIERS_LENGTH* 2> const new_nullifiers = { 11, 0, 11, 0, 0, 0, 0, 0 };
@@ -552,7 +548,7 @@ TEST_F(base_rollup_tests, native_new_nullifier_tree_double_spend)
 
 TEST_F(base_rollup_tests, native_empty_block_calldata_hash)
 {
-    DummyComposer composer = DummyComposer();
+    DummyComposer composer = DummyComposer("base_rollup_tests__native_empty_block_calldata_hash");
     std::vector<uint8_t> const zero_bytes_vec = test_utils::utils::get_empty_calldata_leaf();
     auto hash = sha256::sha256(zero_bytes_vec);
     BaseRollupInputs inputs = base_rollup_inputs_from_kernels({ get_empty_kernel(), get_empty_kernel() });
@@ -599,7 +595,7 @@ TEST_F(base_rollup_tests, native_calldata_hash)
 
     std::array<fr, 2> const expected_hash = components::compute_kernels_calldata_hash(kernel_data);
 
-    DummyComposer composer = DummyComposer();
+    DummyComposer composer = DummyComposer("base_rollup_tests__native_calldata_hash");
     BaseRollupInputs inputs = base_rollup_inputs_from_kernels(kernel_data);
     BaseOrMergeRollupPublicInputs outputs =
         aztec3::circuits::rollup::native_base_rollup::base_rollup_circuit(composer, inputs);
@@ -618,7 +614,8 @@ TEST_F(base_rollup_tests, native_compute_membership_historic_private_data_negati
     // WRITE a negative test that will fail the inclusion proof
 
     // Test membership works for empty trees
-    DummyComposer composer = DummyComposer();
+    DummyComposer composer =
+        DummyComposer("base_rollup_tests__native_compute_membership_historic_private_data_negative");
     std::array<PreviousKernelData<NT>, 2> const kernel_data = { get_empty_kernel(), get_empty_kernel() };
     BaseRollupInputs inputs = base_rollup_inputs_from_kernels(kernel_data);
 
@@ -645,7 +642,8 @@ TEST_F(base_rollup_tests, native_compute_membership_historic_private_data_negati
 TEST_F(base_rollup_tests, native_compute_membership_historic_contract_tree_negative)
 {
     // Test membership works for empty trees
-    DummyComposer composer = DummyComposer();
+    DummyComposer composer =
+        DummyComposer("base_rollup_tests__native_compute_membership_historic_contract_tree_negative");
     std::array<PreviousKernelData<NT>, 2> const kernel_data = { get_empty_kernel(), get_empty_kernel() };
     BaseRollupInputs inputs = base_rollup_inputs_from_kernels(kernel_data);
 
@@ -671,7 +669,7 @@ TEST_F(base_rollup_tests, native_compute_membership_historic_contract_tree_negat
 
 TEST_F(base_rollup_tests, native_constants_dont_change)
 {
-    DummyComposer composer = DummyComposer();
+    DummyComposer composer = DummyComposer("base_rollup_tests__native_constants_dont_change");
     BaseRollupInputs inputs = base_rollup_inputs_from_kernels({ get_empty_kernel(), get_empty_kernel() });
     BaseOrMergeRollupPublicInputs outputs =
         aztec3::circuits::rollup::native_base_rollup::base_rollup_circuit(composer, inputs);
@@ -682,8 +680,8 @@ TEST_F(base_rollup_tests, native_constants_dont_change)
 
 TEST_F(base_rollup_tests, native_aggregate)
 {
-    // TODO: Fix this when aggregation works
-    DummyComposer composer = DummyComposer();
+    // TODO(rahul): Fix this when aggregation works
+    DummyComposer composer = DummyComposer("base_rollup_tests__native_aggregate");
     BaseRollupInputs inputs = base_rollup_inputs_from_kernels({ get_empty_kernel(), get_empty_kernel() });
     BaseOrMergeRollupPublicInputs const outputs =
         aztec3::circuits::rollup::native_base_rollup::base_rollup_circuit(composer, inputs);
@@ -694,7 +692,7 @@ TEST_F(base_rollup_tests, native_aggregate)
 
 TEST_F(base_rollup_tests, native_subtree_height_is_0)
 {
-    DummyComposer composer = DummyComposer();
+    DummyComposer composer = DummyComposer("base_rollup_tests__native_subtree_height_is_0");
     BaseRollupInputs const inputs = base_rollup_inputs_from_kernels({ get_empty_kernel(), get_empty_kernel() });
     BaseOrMergeRollupPublicInputs const outputs =
         aztec3::circuits::rollup::native_base_rollup::base_rollup_circuit(composer, inputs);
@@ -712,11 +710,12 @@ TEST_F(base_rollup_tests, native_cbind_0)
 
 TEST_F(base_rollup_tests, native_single_public_state_read)
 {
-    DummyComposer composer = DummyComposer();
+    DummyComposer composer = DummyComposer("base_rollup_tests__native_single_public_state_read");
     native_base_rollup::MerkleTree private_data_tree(PRIVATE_DATA_TREE_HEIGHT);
     native_base_rollup::MerkleTree contract_tree(CONTRACT_TREE_HEIGHT);
     stdlib::merkle_tree::MemoryStore public_data_tree_store;
     native_base_rollup::SparseTree public_data_tree(public_data_tree_store, PUBLIC_DATA_TREE_HEIGHT);
+    native_base_rollup::MerkleTree l1_to_l2_messages_tree(L1_TO_L2_MSG_TREE_HEIGHT);
 
     auto data_read = abis::PublicDataRead<NT>{
         .leaf_index = fr(1),
@@ -724,9 +723,9 @@ TEST_F(base_rollup_tests, native_single_public_state_read)
     };
 
     std::array<PreviousKernelData<NT>, 2> kernel_data = { get_empty_kernel(), get_empty_kernel() };
-    kernel_data[0].public_inputs.end.state_reads[0] = data_read;
+    kernel_data[0].public_inputs.end.public_data_reads[0] = data_read;
     auto inputs = test_utils::utils::base_rollup_inputs_from_kernels(
-        kernel_data, private_data_tree, contract_tree, public_data_tree);
+        kernel_data, private_data_tree, contract_tree, public_data_tree, l1_to_l2_messages_tree);
 
     BaseOrMergeRollupPublicInputs outputs =
         aztec3::circuits::rollup::native_base_rollup::base_rollup_circuit(composer, inputs);
@@ -740,23 +739,24 @@ TEST_F(base_rollup_tests, native_single_public_state_read)
 
 TEST_F(base_rollup_tests, native_single_public_state_write)
 {
-    DummyComposer composer = DummyComposer();
+    DummyComposer composer = DummyComposer("base_rollup_tests__native_single_public_state_write");
     native_base_rollup::MerkleTree private_data_tree(PRIVATE_DATA_TREE_HEIGHT);
     native_base_rollup::MerkleTree contract_tree(CONTRACT_TREE_HEIGHT);
     stdlib::merkle_tree::MemoryStore public_data_tree_store;
     native_base_rollup::SparseTree public_data_tree(public_data_tree_store, PUBLIC_DATA_TREE_HEIGHT);
+    native_base_rollup::MerkleTree l1_to_l2_messages_tree(L1_TO_L2_MSG_TREE_HEIGHT);
 
-    auto data_write = abis::PublicDataTransition<NT>{
+    auto data_write = abis::PublicDataUpdateRequest<NT>{
         .leaf_index = fr(1),
         .old_value = fr(2),
         .new_value = fr(42),
     };
 
     std::array<PreviousKernelData<NT>, 2> kernel_data = { get_empty_kernel(), get_empty_kernel() };
-    kernel_data[0].public_inputs.end.state_transitions[0] = data_write;
+    kernel_data[0].public_inputs.end.public_data_update_requests[0] = data_write;
 
     auto inputs = test_utils::utils::base_rollup_inputs_from_kernels(
-        kernel_data, private_data_tree, contract_tree, public_data_tree);
+        kernel_data, private_data_tree, contract_tree, public_data_tree, l1_to_l2_messages_tree);
 
     BaseOrMergeRollupPublicInputs outputs =
         aztec3::circuits::rollup::native_base_rollup::base_rollup_circuit(composer, inputs);
@@ -770,28 +770,34 @@ TEST_F(base_rollup_tests, native_single_public_state_write)
 
 TEST_F(base_rollup_tests, native_multiple_public_state_read_writes)
 {
-    DummyComposer composer = DummyComposer();
+    DummyComposer composer = DummyComposer("base_rollup_tests__native_multiple_public_state_read_writes");
     native_base_rollup::MerkleTree private_data_tree(PRIVATE_DATA_TREE_HEIGHT);
     native_base_rollup::MerkleTree contract_tree(CONTRACT_TREE_HEIGHT);
     stdlib::merkle_tree::MemoryStore public_data_tree_store;
     native_base_rollup::SparseTree public_data_tree(public_data_tree_store, PUBLIC_DATA_TREE_HEIGHT);
+    native_base_rollup::MerkleTree l1_to_l2_messages_tree(L1_TO_L2_MSG_TREE_HEIGHT);
 
     std::array<PreviousKernelData<NT>, 2> kernel_data = { get_empty_kernel(), get_empty_kernel() };
 
     // We set up reads and writes such that the right tx will read or write to indices already modified by the left tx
-    kernel_data[0].public_inputs.end.state_reads[0] = make_public_read(fr(1), fr(101));
-    kernel_data[0].public_inputs.end.state_reads[1] = make_public_read(fr(2), fr(102));
-    kernel_data[0].public_inputs.end.state_transitions[0] = make_public_write(fr(3), fr(103), fr(203));
-    kernel_data[0].public_inputs.end.state_transitions[1] = make_public_write(fr(4), fr(104), fr(204));
-    kernel_data[0].public_inputs.end.state_transitions[2] = make_public_write(fr(5), fr(105), fr(205));
+    kernel_data[0].public_inputs.end.public_data_reads[0] = make_public_read(fr(1), fr(101));
+    kernel_data[0].public_inputs.end.public_data_reads[1] = make_public_read(fr(2), fr(102));
+    kernel_data[0].public_inputs.end.public_data_update_requests[0] =
+        make_public_data_update_request(fr(3), fr(103), fr(203));
+    kernel_data[0].public_inputs.end.public_data_update_requests[1] =
+        make_public_data_update_request(fr(4), fr(104), fr(204));
+    kernel_data[0].public_inputs.end.public_data_update_requests[2] =
+        make_public_data_update_request(fr(5), fr(105), fr(205));
 
-    kernel_data[1].public_inputs.end.state_reads[0] = make_public_read(fr(3), fr(203));
-    kernel_data[1].public_inputs.end.state_reads[1] = make_public_read(fr(11), fr(211));
-    kernel_data[1].public_inputs.end.state_transitions[0] = make_public_write(fr(12), fr(212), fr(312));
-    kernel_data[1].public_inputs.end.state_transitions[1] = make_public_write(fr(4), fr(204), fr(304));
+    kernel_data[1].public_inputs.end.public_data_reads[0] = make_public_read(fr(3), fr(203));
+    kernel_data[1].public_inputs.end.public_data_reads[1] = make_public_read(fr(11), fr(211));
+    kernel_data[1].public_inputs.end.public_data_update_requests[0] =
+        make_public_data_update_request(fr(12), fr(212), fr(312));
+    kernel_data[1].public_inputs.end.public_data_update_requests[1] =
+        make_public_data_update_request(fr(4), fr(204), fr(304));
 
     auto inputs = test_utils::utils::base_rollup_inputs_from_kernels(
-        kernel_data, private_data_tree, contract_tree, public_data_tree);
+        kernel_data, private_data_tree, contract_tree, public_data_tree, l1_to_l2_messages_tree);
 
     BaseOrMergeRollupPublicInputs outputs =
         aztec3::circuits::rollup::native_base_rollup::base_rollup_circuit(composer, inputs);
@@ -805,11 +811,12 @@ TEST_F(base_rollup_tests, native_multiple_public_state_read_writes)
 
 TEST_F(base_rollup_tests, native_invalid_public_state_read)
 {
-    DummyComposer composer = DummyComposer();
+    DummyComposer composer = DummyComposer("base_rollup_tests__native_invalid_public_state_read");
     native_base_rollup::MerkleTree private_data_tree(PRIVATE_DATA_TREE_HEIGHT);
     native_base_rollup::MerkleTree contract_tree(CONTRACT_TREE_HEIGHT);
     stdlib::merkle_tree::MemoryStore public_data_tree_store;
     native_base_rollup::SparseTree public_data_tree(public_data_tree_store, PUBLIC_DATA_TREE_HEIGHT);
+    native_base_rollup::MerkleTree l1_to_l2_messages_tree(L1_TO_L2_MSG_TREE_HEIGHT);
 
     auto data_read = abis::PublicDataRead<NT>{
         .leaf_index = fr(1),
@@ -817,9 +824,9 @@ TEST_F(base_rollup_tests, native_invalid_public_state_read)
     };
 
     std::array<PreviousKernelData<NT>, 2> kernel_data = { get_empty_kernel(), get_empty_kernel() };
-    kernel_data[0].public_inputs.end.state_reads[0] = data_read;
+    kernel_data[0].public_inputs.end.public_data_reads[0] = data_read;
     auto inputs = test_utils::utils::base_rollup_inputs_from_kernels(
-        kernel_data, private_data_tree, contract_tree, public_data_tree);
+        kernel_data, private_data_tree, contract_tree, public_data_tree, l1_to_l2_messages_tree);
 
     // We change the initial tree root so the read value does not match
     public_data_tree.update_element(1, fr(43));

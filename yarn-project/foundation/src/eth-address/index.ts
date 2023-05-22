@@ -160,7 +160,7 @@ export class EthAddress {
    * @returns A hex-encoded string representation of the Ethereum address.
    */
   public toString() {
-    return '0x' + this.buffer.toString('hex');
+    return `0x${this.buffer.toString('hex')}` as `0x${string}`;
   }
 
   /**
@@ -215,5 +215,13 @@ export class EthAddress {
   static fromBuffer(buffer: Buffer | BufferReader): EthAddress {
     const reader = BufferReader.asReader(buffer);
     return new EthAddress(reader.readBuffer());
+  }
+
+  /**
+   * Friendly representation for debugging purposes.
+   * @returns A hex string representing the address.
+   */
+  toFriendlyJSON() {
+    return this.toString();
   }
 }

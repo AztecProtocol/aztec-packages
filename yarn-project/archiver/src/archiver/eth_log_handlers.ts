@@ -20,10 +20,11 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 export function processContractDeploymentLogs(
   blockHashMapping: { [key: number]: Buffer },
   logs: Log<bigint, number, undefined, typeof UnverifiedDataEmitterAbi, 'ContractDeployment'>[],
-) {
-  const contractPublicData: (ContractPublicData[] | undefined)[] = [];
-  for (const log of logs) {
-    const l2BlockNum = log.args.l2BlockNum;
+): [ContractPublicData[], number][] {
+  const contractPublicData: [ContractPublicData[], number][] = [];
+  for (let i = 0; i < logs.length; i++) {
+    const log = logs[i];
+    const l2BlockNum = Number(log.args.l2BlockNum);
     const blockHash = Buffer.from(hexToBytes(log.args.l2BlockHash));
     const expectedBlockHash = blockHashMapping[Number(l2BlockNum)];
     if (expectedBlockHash === undefined || !blockHash.equals(expectedBlockHash)) {
@@ -34,10 +35,10 @@ export function processContractDeploymentLogs(
       new ContractData(AztecAddress.fromString(log.args.aztecAddress), EthAddress.fromString(log.args.portalAddress)),
       publicFnsReader.readVector(EncodedContractFunction),
     );
-    if (contractPublicData[Number(l2BlockNum)]) {
-      contractPublicData[Number(l2BlockNum)]?.push(contractData);
+    if (contractPublicData[i]) {
+      contractPublicData[i][0].push(contractData);
     } else {
-      contractPublicData[Number(l2BlockNum)] = [contractData];
+      contractPublicData[i] = [[contractData], l2BlockNum];
     }
   }
   return contractPublicData;

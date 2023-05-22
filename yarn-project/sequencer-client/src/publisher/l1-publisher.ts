@@ -55,7 +55,7 @@ export interface L1PublisherTxSender {
     l2BlockNum: number,
     l2BlockHash: Buffer,
     contractData: ContractPublicData[],
-  ): Promise<string | undefined>;
+  ): Promise<(string | undefined)[]>;
 
   /**
    * Returns a tx receipt if the tx has been mined.
@@ -78,6 +78,16 @@ export type L1ProcessArgs = {
    */
   inputs: Buffer;
 };
+
+/**
+ * Helper function to filter out undefined items from an array.
+ * Also asserts the resulting array is of type <T>.
+ * @param item - An item from an array to check if undefined or not.
+ * @returns True if the item is not undefined.
+ */
+function isNotUndefined<T>(item: T | undefined): item is T {
+  return item !== undefined;
+}
 
 /**
  * Publishes L2 blocks and unverified data to L1. This implementation does *not* retry a transaction in
@@ -180,6 +190,7 @@ export class L1Publisher implements L2BlockReceiver {
    * @returns True once the tx has been confirmed and is successful, false on revert or interrupt, blocks otherwise.
    */
   public async processNewContractData(l2BlockNum: number, l2BlockHash: Buffer, contractData: ContractPublicData[]) {
+    let _contractData: ContractPublicData[] = [];
     while (!this.interrupted) {
       if (!(await this.checkFeeDistributorBalance())) {
         this.log(`Fee distributor ETH balance too low, awaiting top up...`);
@@ -187,16 +198,26 @@ export class L1Publisher implements L2BlockReceiver {
         continue;
       }
 
-      const txHash = await this.sendEmitNewContractDataTx(l2BlockNum, l2BlockHash, contractData);
-      if (!txHash) break;
+      const arr = _contractData.length ? _contractData : contractData;
+      const txHashes = await this.sendEmitNewContractDataTx(l2BlockNum, l2BlockHash, arr);
+      if (!txHashes) break;
+      // filter successful txs
+      _contractData = arr.filter((_, i) => !!txHashes[i]);
 
-      const receipt = await this.getTransactionReceipt(txHash);
-      if (!receipt) break;
+      const receipts = await Promise.all(
+        txHashes.filter(isNotUndefined).map(txHash => this.getTransactionReceipt(txHash)),
+      );
+      if (!receipts?.length) break;
 
-      // Tx was mined successfully
-      if (receipt.status) return true;
+      // ALL Txs were mined successfully
+      if (receipts.length === contractData.length && receipts.every(r => r?.status)) return true;
 
-      this.log(`Transaction status failed: ${receipt.transactionHash}`);
+      this.log(
+        `Transaction status failed: ${receipts
+          .filter(r => !r?.status)
+          .map(r => r?.transactionHash)
+          .join(',')}`,
+      );
       await this.sleepOrInterrupted();
     }
 
