@@ -5,7 +5,10 @@
 #include "aztec3/circuits/abis/new_contract_data.hpp"
 #include "aztec3/circuits/abis/private_historic_tree_roots.hpp"
 #include "aztec3/circuits/abis/private_kernel/private_kernel_inputs_init.hpp"
+#include "aztec3/circuits/hash.hpp"
 #include "aztec3/circuits/kernel/private/init.hpp"
+#include "aztec3/constants.hpp"
+#include "aztec3/utils/array.hpp"
 
 using aztec3::circuits::abis::CombinedConstantData;
 using aztec3::circuits::abis::CombinedHistoricTreeRoots;
@@ -13,6 +16,8 @@ using aztec3::circuits::abis::NewContractData;
 using aztec3::circuits::abis::PrivateHistoricTreeRoots;
 using aztec3::circuits::abis::private_kernel::PrivateKernelInputsInit;
 using aztec3::utils::array_push;
+using aztec3::utils::is_array_empty;
+using CircuitErrorCode = aztec3::utils::CircuitErrorCode;
 
 namespace aztec3::circuits::kernel::private_kernel {
 
@@ -256,11 +261,11 @@ KernelCircuitPublicInputs<NT> native_private_kernel_circuit_initial(DummyCompose
 
     validate_this_private_call_against_tx_request(composer, private_inputs);
 
-    common_validate_call_stack<PrivateKernelInputsInit<NT>>(composer, private_inputs);
+    common_validate_call_stack(composer, private_inputs.private_call);
 
     update_end_values(private_inputs, public_inputs);
 
-    common_update_end_values<PrivateKernelInputsInit<NT>>(composer, private_inputs, public_inputs);
+    common_update_end_values(composer, private_inputs.private_call, public_inputs);
 
     contract_logic(composer, private_inputs, public_inputs);
 

@@ -257,9 +257,9 @@ KernelCircuitPublicInputs<NT> native_private_kernel_circuit(DummyComposer& compo
     // Noir doesn't have hash index so it can't hash private call stack item correctly
     // validate_this_private_call_stack(composer, private_inputs);
     // TODO(dbanks12): may need to comment out hash check in here according to TODO above
-    common_validate_call_stack(composer, private_inputs);
+    common_validate_call_stack(composer, private_inputs.private_call);
 
-    common_update_end_values(composer, private_inputs, public_inputs);
+    common_update_end_values(composer, private_inputs.private_call, public_inputs);
 
     contract_logic(composer, private_inputs, public_inputs);
 
