@@ -185,10 +185,7 @@ BaseRollupInputs base_rollup_inputs_from_kernels(std::array<KernelData, 2> kerne
             }
             auto leaf_index = uint256_t(public_data_read.leaf_index);
             baseRollupInputs.new_public_data_reads_sibling_paths[i * KERNEL_PUBLIC_DATA_READS_LENGTH + j] =
-                MembershipWitness<NT, PUBLIC_DATA_TREE_HEIGHT>{
-                    .leaf_index = public_data_read.leaf_index,
-                    .sibling_path = get_sibling_path<PUBLIC_DATA_TREE_HEIGHT>(public_data_tree, leaf_index),
-                };
+                get_sibling_path<PUBLIC_DATA_TREE_HEIGHT>(public_data_tree, leaf_index);
         }
 
         for (size_t j = 0; j < KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH; j++) {
@@ -200,10 +197,7 @@ BaseRollupInputs base_rollup_inputs_from_kernels(std::array<KernelData, 2> kerne
             public_data_tree.update_element(leaf_index, public_data_update_request.new_value);
             baseRollupInputs
                 .new_public_data_update_requests_sibling_paths[i * KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH + j] =
-                MembershipWitness<NT, PUBLIC_DATA_TREE_HEIGHT>{
-                    .leaf_index = public_data_update_request.leaf_index,
-                    .sibling_path = get_sibling_path<PUBLIC_DATA_TREE_HEIGHT>(public_data_tree, leaf_index),
-                };
+                get_sibling_path<PUBLIC_DATA_TREE_HEIGHT>(public_data_tree, leaf_index);
         }
     }
 
@@ -433,15 +427,13 @@ nullifier_tree_testing_values generate_nullifier_tree_testing_values_explicit(
     };
 
     const size_t NUMBER_OF_NULLIFIERS = KERNEL_NEW_NULLIFIERS_LENGTH * 2;
-    std::array<NullifierLeafPreimage, NUMBER_OF_NULLIFIERS> new_nullifier_leaves;
-    std::array<MembershipWitness<NT, NULLIFIER_TREE_HEIGHT>, NUMBER_OF_NULLIFIERS> const
-        low_nullifier_leaves_preimages_witnesses;
+    std::array<NullifierLeafPreimage, NUMBER_OF_NULLIFIERS> new_nullifier_leaves{};
 
     // Calculate the predecessor nullifier pre-images
     // Get insertion values
     std::vector<fr> insertion_values;
-    std::array<fr, KERNEL_NEW_NULLIFIERS_LENGTH> new_nullifiers_kernel_1;
-    std::array<fr, KERNEL_NEW_NULLIFIERS_LENGTH> new_nullifiers_kernel_2;
+    std::array<fr, KERNEL_NEW_NULLIFIERS_LENGTH> new_nullifiers_kernel_1{};
+    std::array<fr, KERNEL_NEW_NULLIFIERS_LENGTH> new_nullifiers_kernel_2{};
 
     for (size_t i = 0; i < NUMBER_OF_NULLIFIERS; ++i) {
         auto insertion_val = new_nullifiers[i];
@@ -462,10 +454,10 @@ nullifier_tree_testing_values generate_nullifier_tree_testing_values_explicit(
     auto new_nullifier_leave_indexes = std::get<2>(witnesses_and_preimages);
 
     // Create witness values from this
-    std::array<MembershipWitness<NT, NULLIFIER_TREE_HEIGHT>, NUMBER_OF_NULLIFIERS> new_membership_witnesses;
+    std::array<MembershipWitness<NT, NULLIFIER_TREE_HEIGHT>, NUMBER_OF_NULLIFIERS> new_membership_witnesses{};
     for (size_t i = 0; i < NUMBER_OF_NULLIFIERS; i++) {
         // create an array of the witness from the depth
-        std::array<fr, NULLIFIER_TREE_HEIGHT> witness_array;
+        std::array<fr, NULLIFIER_TREE_HEIGHT> witness_array{};
         std::copy(new_nullifier_leaves_sibling_paths[i].begin(),
                   new_nullifier_leaves_sibling_paths[i].end(),
                   witness_array.begin());

@@ -1,4 +1,6 @@
-import { assertLength, FieldsOf } from '../../utils/jsUtils.js';
+import { Fr } from '@aztec/foundation/fields';
+import { BufferReader } from '@aztec/foundation/serialize';
+import { assertItemsLength, assertMemberLength, FieldsOf } from '../../utils/jsUtils.js';
 import { serializeToBuffer } from '../../utils/serialize.js';
 import {
   CONTRACT_TREE_HEIGHT,
@@ -6,20 +8,18 @@ import {
   KERNEL_NEW_COMMITMENTS_LENGTH,
   KERNEL_NEW_CONTRACTS_LENGTH,
   KERNEL_NEW_NULLIFIERS_LENGTH,
+  KERNEL_PUBLIC_DATA_READS_LENGTH,
+  KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH,
   L1_TO_L2_MESSAGES_ROOTS_TREE_HEIGHT,
   NULLIFIER_TREE_HEIGHT,
   PRIVATE_DATA_TREE_HEIGHT,
   PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT,
   PUBLIC_DATA_TREE_HEIGHT,
-  KERNEL_PUBLIC_DATA_READS_LENGTH,
-  KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH,
 } from '../constants.js';
 import { PreviousKernelData } from '../kernel/previous_kernel_data.js';
-import { UInt32 } from '../shared.js';
 import { MembershipWitness } from '../membership_witness.js';
+import { UInt32 } from '../shared.js';
 import { AppendOnlyTreeSnapshot } from './append_only_tree_snapshot.js';
-import { Fr } from '@aztec/foundation/fields';
-import { BufferReader } from '@aztec/foundation/serialize';
 
 /**
  * Class containing the data of a preimage of a single leaf in the nullifier tree.
@@ -186,12 +186,14 @@ export class BaseRollupInputs {
     public newContractsSubtreeSiblingPath: Fr[],
     /**
      * Sibling paths of leaves which are to be affected by the public data update requests.
+     * Each item in the array is the sibling path that corresponds to an update request.
      */
-    public newPublicDataUpdateRequestsSiblingPaths: MembershipWitness<typeof PUBLIC_DATA_TREE_HEIGHT>[],
+    public newPublicDataUpdateRequestsSiblingPaths: Fr[][],
     /**
      * Sibling paths of leaves which are to be read by the public data reads.
+     * Each item in the array is the sibling path that corresponds to a read request.
      */
-    public newPublicDataReadsSiblingPaths: MembershipWitness<typeof PUBLIC_DATA_TREE_HEIGHT>[],
+    public newPublicDataReadsSiblingPaths: Fr[][],
 
     /**
      * Membership witnesses of private data tree roots referred by each of the 2 kernels.
@@ -221,25 +223,27 @@ export class BaseRollupInputs {
      */
     public constants: ConstantBaseRollupData,
   ) {
-    assertLength(this, 'lowNullifierLeafPreimages', 2 * KERNEL_NEW_NULLIFIERS_LENGTH);
-    assertLength(this, 'lowNullifierMembershipWitness', 2 * KERNEL_NEW_NULLIFIERS_LENGTH);
-    assertLength(
+    assertMemberLength(this, 'lowNullifierLeafPreimages', 2 * KERNEL_NEW_NULLIFIERS_LENGTH);
+    assertMemberLength(this, 'lowNullifierMembershipWitness', 2 * KERNEL_NEW_NULLIFIERS_LENGTH);
+    assertMemberLength(
       this,
       'newCommitmentsSubtreeSiblingPath',
       PRIVATE_DATA_TREE_HEIGHT - BaseRollupInputs.PRIVATE_DATA_SUBTREE_HEIGHT,
     );
-    assertLength(
+    assertMemberLength(
       this,
       'newNullifiersSubtreeSiblingPath',
       NULLIFIER_TREE_HEIGHT - BaseRollupInputs.NULLIFIER_SUBTREE_HEIGHT,
     );
-    assertLength(
+    assertMemberLength(
       this,
       'newContractsSubtreeSiblingPath',
       CONTRACT_TREE_HEIGHT - BaseRollupInputs.CONTRACT_SUBTREE_HEIGHT,
     );
-    assertLength(this, 'newPublicDataUpdateRequestsSiblingPaths', 2 * KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH);
-    assertLength(this, 'newPublicDataReadsSiblingPaths', 2 * KERNEL_PUBLIC_DATA_READS_LENGTH);
+    assertMemberLength(this, 'newPublicDataUpdateRequestsSiblingPaths', 2 * KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH);
+    assertMemberLength(this, 'newPublicDataReadsSiblingPaths', 2 * KERNEL_PUBLIC_DATA_READS_LENGTH);
+    assertItemsLength(this, 'newPublicDataUpdateRequestsSiblingPaths', PUBLIC_DATA_TREE_HEIGHT);
+    assertItemsLength(this, 'newPublicDataReadsSiblingPaths', PUBLIC_DATA_TREE_HEIGHT);
   }
 
   static from(fields: FieldsOf<BaseRollupInputs>): BaseRollupInputs {

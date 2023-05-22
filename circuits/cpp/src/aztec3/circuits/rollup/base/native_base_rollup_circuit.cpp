@@ -103,9 +103,6 @@ NT::fr calculate_contract_subtree(std::vector<NT::fr> contract_leaves)
 
 NT::fr calculate_commitments_subtree(DummyComposer& composer, BaseRollupInputs const& baseRollupInputs)
 {
-    // Leaves that will be added to the new trees
-    std::array<NT::fr, KERNEL_NEW_COMMITMENTS_LENGTH * 2> const commitment_leaves;
-
     MerkleTree commitments_tree = MerkleTree(PRIVATE_DATA_SUBTREE_DEPTH);
 
     for (size_t i = 0; i < 2; i++) {
@@ -382,8 +379,7 @@ fr insert_public_data_update_requests(
     std::array<abis::PublicDataUpdateRequest<NT>, KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH> const&
         public_data_update_requests,
     size_t witnesses_offset,
-    std::array<abis::MembershipWitness<NT, PUBLIC_DATA_TREE_HEIGHT>,
-               2 * KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH> const& witnesses)
+    std::array<std::array<fr, PUBLIC_DATA_TREE_HEIGHT>, 2 * KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH> const& witnesses)
 {
     auto root = tree_root;
 
@@ -395,19 +391,14 @@ fr insert_public_data_update_requests(
             continue;
         }
 
-        composer.do_assert(
-            witness.leaf_index == state_write.leaf_index,
-            format("mismatch state write ", state_write.leaf_index, " and witness leaf index ", witness.leaf_index),
-            CircuitErrorCode::BASE__INVALID_PUBLIC_DATA_UPDATE_REQUESTS);
-
         check_membership<NT>(composer,
                              state_write.old_value,
                              state_write.leaf_index,
-                             witness.sibling_path,
+                             witness,
                              root,
                              format("validate_public_data_update_requests index ", i));
 
-        root = root_from_sibling_path<NT>(state_write.new_value, state_write.leaf_index, witness.sibling_path);
+        root = root_from_sibling_path<NT>(state_write.new_value, state_write.leaf_index, witness);
     }
 
     return root;
@@ -418,8 +409,7 @@ void validate_public_data_reads(
     fr tree_root,
     std::array<abis::PublicDataRead<NT>, KERNEL_PUBLIC_DATA_READS_LENGTH> const& public_data_reads,
     size_t witnesses_offset,
-    std::array<abis::MembershipWitness<NT, PUBLIC_DATA_TREE_HEIGHT>, 2 * KERNEL_PUBLIC_DATA_READS_LENGTH> const&
-        witnesses)
+    std::array<std::array<fr, PUBLIC_DATA_TREE_HEIGHT>, 2 * KERNEL_PUBLIC_DATA_READS_LENGTH> const& witnesses)
 {
     for (size_t i = 0; i < KERNEL_PUBLIC_DATA_READS_LENGTH; ++i) {
         const auto& public_data_read = public_data_reads[i];
@@ -429,17 +419,10 @@ void validate_public_data_reads(
             continue;
         }
 
-        composer.do_assert(witness.leaf_index == public_data_read.leaf_index,
-                           format("mismatch public data read ",
-                                  public_data_read.leaf_index,
-                                  " and witness leaf index ",
-                                  witness.leaf_index),
-                           CircuitErrorCode::BASE__INVALID_PUBLIC_DATA_READS);
-
         check_membership<NT>(composer,
                              public_data_read.value,
                              public_data_read.leaf_index,
-                             witness.sibling_path,
+                             witness,
                              tree_root,
                              format("validate_public_data_reads index ", i + witnesses_offset));
     }
