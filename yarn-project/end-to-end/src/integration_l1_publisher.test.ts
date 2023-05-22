@@ -323,7 +323,6 @@ describe('L1Publisher integration', () => {
       for (let j = 0; j < block.newL2ToL1Msgs.length; j++) {
         expect(await outbox.read.contains([`0x${block.newL2ToL1Msgs[j].toBuffer().toString('hex')}`])).toBeTruthy();
       }
-      return;
     }
   }, 60_000);
 
