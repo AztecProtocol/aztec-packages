@@ -498,16 +498,13 @@ contract Decoder {
         calldatacopy(add(temp, 0x40), offset, iterationLogsLength)
         offset := add(offset, iterationLogsLength)
 
-        // Compute current iteration's logs hash
-        logsHash := keccak256(add(temp, 0x20), tempLength)
-
         // Decrease remaining logs length by this iteration's logs length (len(I?_LOGS)) and 4 bytes for I?_LOGS_LEN
         remainingLogsLength := sub(remainingLogsLength, add(iterationLogsLength, 0x4))
       }
 
-      // Truncate the hash to field
+      // Compute current iteration's logs hash and truncate the hash to field
       // See: https://discourse.aztec.network/t/proposal-forcing-the-sequencer-to-actually-submit-data-to-l1/426/2
-      logsHash = bytes32(uint256(logsHash) % P);
+      logsHash = bytes32(uint256(sha256(temp)) % P);
     }
 
     return (logsHash, offset);

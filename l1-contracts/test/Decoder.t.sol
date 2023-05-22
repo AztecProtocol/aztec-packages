@@ -147,8 +147,13 @@ contract DecoderTest is Test {
 
     // Note: First 32 bytes are 0 because those correspond to the hash of previous iteration and there was no previous
     //       iteration.
-    // bytes32(uint256(keccak256(hex"0000000000000000000000000000000000000000000000000000000000000000aafdc7aa93e78a70")) % P);
-    bytes32 referenceLogsHash = 0x0933f95dd17c7f51b627d93f4ef0c749e8f6e83b0eabc563261ea238b363fc71;
+    bytes32 referenceLogsHash = bytes32(
+      uint256(
+        sha256(
+          hex"0000000000000000000000000000000000000000000000000000000000000000aafdc7aa93e78a70"
+        )
+      ) % P
+    );
 
     assertEq(bytesAdvanced, emptyKernelData.length, "Advanced by an incorrect number of bytes");
     assertEq(logsHash, referenceLogsHash, "Logs hash should be 0 when there are no logs");
@@ -165,11 +170,11 @@ contract DecoderTest is Test {
       hex"0000002400000008aafdc7aa93e78a700000001497aee30906a86173c86c6d3f108eefc36e7fb014";
     (bytes32 logsHash, uint256 bytesAdvanced) = helper.computeKernelLogsHash(emptyKernelData);
 
-    // Note: First 32 bytes occupied by logs hash of previous iteration, the rest occupied by I2_LOGS
+    // Note: First 32 bytes occupied by logs hash of previous iteration , the rest occupied by I2_LOGS
     bytes32 referenceLogsHash = bytes32(
       uint256(
-        keccak256(
-          hex"0933f95dd17c7f51b627d93f4ef0c749e8f6e83b0eabc563261ea238b363fc7197aee30906a86173c86c6d3f108eefc36e7fb014"
+        sha256(
+          hex"24391267a167b0532f6bd46260f99451b58046fab3b45f26a131ddd0d607780a97aee30906a86173c86c6d3f108eefc36e7fb014"
         )
       ) % P
     );
