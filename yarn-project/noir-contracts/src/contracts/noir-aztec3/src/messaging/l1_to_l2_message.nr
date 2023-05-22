@@ -14,7 +14,7 @@ struct L1ToL2Message {
     chainId: Field,
     recipient: Field,
     version: Field,
-    content_hash: Field,
+    content: Field,
     secret: Field,
     secret_hash: Field,
     deadline: u32,
@@ -29,7 +29,7 @@ impl L1ToL2Message {
             chainId: 0,
             recipient: 0,
             version: 0,
-            content_hash: 0,
+            content: 0,
             secret: 0,
             secret_hash: 0,
             deadline: 0 as u32,
@@ -49,7 +49,7 @@ impl L1ToL2Message {
             chainId: fields[1],
             recipient: fields[2],
             version: fields[3],
-            content_hash: fields[4],
+            content: fields[4],
             secret: secret,
             secret_hash: fields[5],
             deadline: fields[6] as u32,
@@ -70,7 +70,7 @@ impl L1ToL2Message {
         let chainId_bytes = self.chainId.to_be_bytes(32);
         let recipient_bytes = self.recipient.to_be_bytes(32);
         let version_bytes = self.version.to_be_bytes(32);
-        let content_hash_bytes = self.content_hash.to_be_bytes(32);
+        let content_bytes = self.content.to_be_bytes(32);
         let secret_hash_bytes = self.secret_hash.to_be_bytes(32);
         let deadline_bytes = (self.deadline as Field).to_be_bytes(32);
         let fee_bytes = (self.fee as Field).to_be_bytes(32);
@@ -213,38 +213,38 @@ impl L1ToL2Message {
         hash_bytes[30 + 96] = version_bytes[30];
         hash_bytes[31 + 96] = version_bytes[31];
 
-        hash_bytes[0 + 128] = content_hash_bytes[0];
-        hash_bytes[1 + 128] = content_hash_bytes[1];
-        hash_bytes[2 + 128] = content_hash_bytes[2];
-        hash_bytes[3 + 128] = content_hash_bytes[3];
-        hash_bytes[4 + 128] = content_hash_bytes[4];
-        hash_bytes[5 + 128] = content_hash_bytes[5];
-        hash_bytes[6 + 128] = content_hash_bytes[6];
-        hash_bytes[7 + 128] = content_hash_bytes[7];
-        hash_bytes[8 + 128] = content_hash_bytes[8];
-        hash_bytes[9 + 128] = content_hash_bytes[9];
-        hash_bytes[10 + 128] = content_hash_bytes[10];
-        hash_bytes[11 + 128] = content_hash_bytes[11];
-        hash_bytes[12 + 128] = content_hash_bytes[12];
-        hash_bytes[13 + 128] = content_hash_bytes[13];
-        hash_bytes[14 + 128] = content_hash_bytes[14];
-        hash_bytes[15 + 128] = content_hash_bytes[15];
-        hash_bytes[16 + 128] = content_hash_bytes[16];
-        hash_bytes[17 + 128] = content_hash_bytes[17];
-        hash_bytes[18 + 128] = content_hash_bytes[18];
-        hash_bytes[19 + 128] = content_hash_bytes[19];
-        hash_bytes[20 + 128] = content_hash_bytes[20];
-        hash_bytes[21 + 128] = content_hash_bytes[21];
-        hash_bytes[22 + 128] = content_hash_bytes[22];
-        hash_bytes[23 + 128] = content_hash_bytes[23];
-        hash_bytes[24 + 128] = content_hash_bytes[24];
-        hash_bytes[25 + 128] = content_hash_bytes[25];
-        hash_bytes[26 + 128] = content_hash_bytes[26];
-        hash_bytes[27 + 128] = content_hash_bytes[27];
-        hash_bytes[28 + 128] = content_hash_bytes[28];
-        hash_bytes[29 + 128] = content_hash_bytes[29];
-        hash_bytes[30 + 128] = content_hash_bytes[30];
-        hash_bytes[31 + 128] = content_hash_bytes[31];
+        hash_bytes[0 + 128] = content_bytes[0];
+        hash_bytes[1 + 128] = content_bytes[1];
+        hash_bytes[2 + 128] = content_bytes[2];
+        hash_bytes[3 + 128] = content_bytes[3];
+        hash_bytes[4 + 128] = content_bytes[4];
+        hash_bytes[5 + 128] = content_bytes[5];
+        hash_bytes[6 + 128] = content_bytes[6];
+        hash_bytes[7 + 128] = content_bytes[7];
+        hash_bytes[8 + 128] = content_bytes[8];
+        hash_bytes[9 + 128] = content_bytes[9];
+        hash_bytes[10 + 128] = content_bytes[10];
+        hash_bytes[11 + 128] = content_bytes[11];
+        hash_bytes[12 + 128] = content_bytes[12];
+        hash_bytes[13 + 128] = content_bytes[13];
+        hash_bytes[14 + 128] = content_bytes[14];
+        hash_bytes[15 + 128] = content_bytes[15];
+        hash_bytes[16 + 128] = content_bytes[16];
+        hash_bytes[17 + 128] = content_bytes[17];
+        hash_bytes[18 + 128] = content_bytes[18];
+        hash_bytes[19 + 128] = content_bytes[19];
+        hash_bytes[20 + 128] = content_bytes[20];
+        hash_bytes[21 + 128] = content_bytes[21];
+        hash_bytes[22 + 128] = content_bytes[22];
+        hash_bytes[23 + 128] = content_bytes[23];
+        hash_bytes[24 + 128] = content_bytes[24];
+        hash_bytes[25 + 128] = content_bytes[25];
+        hash_bytes[26 + 128] = content_bytes[26];
+        hash_bytes[27 + 128] = content_bytes[27];
+        hash_bytes[28 + 128] = content_bytes[28];
+        hash_bytes[29 + 128] = content_bytes[29];
+        hash_bytes[30 + 128] = content_bytes[30];
+        hash_bytes[31 + 128] = content_bytes[31];
 
         hash_bytes[0 + 160] = secret_hash_bytes[0];
         hash_bytes[1 + 160] = secret_hash_bytes[1];
@@ -406,8 +406,8 @@ impl L1ToL2Message {
         low = low + (content_sha256[16 + 0] as Field) * v;
         v = v * 256;
 
-        let content_hash = low + high * v;
-        content_hash        
+        let content = low + high * v;
+        content        
     }
 
     // The nullifier of a l1 to l2 message is the hash of the message salted with the secret and tree index

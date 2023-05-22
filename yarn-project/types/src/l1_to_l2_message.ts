@@ -19,7 +19,7 @@ export class L1ToL2Message {
      */
     public readonly recipient: L2Actor,
     /**
-     * The hash of the message content.
+     * The message content.
      */
     public readonly content: Fr,
     /**
