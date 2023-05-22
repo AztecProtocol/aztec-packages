@@ -4,6 +4,7 @@ export * from './rollup/root_rollup.js';
 export * from './rollup/append_only_tree_snapshot.js';
 export * from './rollup/base_or_merge_rollup_public_inputs.js';
 export * from './rollup/previous_rollup_data.js';
+export * from './rollup/new_l1_to_l2_messages.js';
 export * from './call_context.js';
 export * from './constants.js';
 export * from './function_data.js';
