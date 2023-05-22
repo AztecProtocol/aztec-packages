@@ -2,6 +2,8 @@ import {
   CallContext,
   CircuitsWasm,
   FunctionData,
+  MembershipWitness,
+  PRIVATE_DATA_TREE_HEIGHT,
   PUBLIC_CALL_STACK_LENGTH,
   PrivateCallStackItem,
   PublicCallRequest,
@@ -80,6 +82,9 @@ export interface ExecutionResult {
   // Needed for the verifier (kernel)
   /** The call stack item. */
   callStackItem: PrivateCallStackItem;
+  /** The membership witnesses for read requests performed during execution. */
+  // TODO(dbanks12): not sure which section this belongs in (needed for X)
+  readRequestMembershipWitnesses: MembershipWitness<typeof PRIVATE_DATA_TREE_HEIGHT>[];
   // Needed for the user
   /** The preimages of the executed function. */
   preimages: ExecutionPreimages;
@@ -125,12 +130,17 @@ export class PrivateFunctionExecution {
     const newNullifiers: NewNullifierData[] = [];
     const nestedExecutionContexts: ExecutionResult[] = [];
     const enqueuedPublicFunctionCalls: PublicCallRequest[] = [];
+    const readRequestMembershipWitnesses: MembershipWitness<typeof PRIVATE_DATA_TREE_HEIGHT>[] = [];
 
     const { partialWitness } = await acvm(acir, initialWitness, {
       getSecretKey: async ([address]: ACVMField[]) => [
         toACVMField(await this.context.db.getSecretKey(this.contractAddress, frToAztecAddress(fromACVMField(address)))),
       ],
-      getNotes2: ([storageSlot]: ACVMField[]) => this.context.getNotes(this.contractAddress, storageSlot, 2),
+      getNotes2: async ([storageSlot]: ACVMField[]) => {
+        const { preimages, membershipWitnesses } = await this.context.getNotes(this.contractAddress, storageSlot, 2)
+        readRequestMembershipWitnesses.push(...membershipWitnesses);
+        return preimages;
+      },
       getRandomField: () => Promise.resolve([toACVMField(Fr.random())]),
       notifyCreatedNote: ([storageSlot, ownerX, ownerY, ...acvmPreimage]: ACVMField[]) => {
         newNotePreimages.push({
@@ -204,6 +214,7 @@ export class PrivateFunctionExecution {
       partialWitness,
       callStackItem,
       returnValues,
+      readRequestMembershipWitnesses,
       preimages: {
         newNotes: newNotePreimages,
         nullifiedNotes: newNullifiers,

@@ -6,7 +6,6 @@
 #include "../types.hpp"
 
 #include "aztec3/constants.hpp"
-#include "aztec3/utils/array.hpp"
 #include <aztec3/utils/types/circuit_types.hpp>
 #include <aztec3/utils/types/convert.hpp>
 #include <aztec3/utils/types/native_types.hpp>
@@ -18,7 +17,6 @@ namespace aztec3::circuits::abis::private_kernel {
 
 using aztec3::utils::types::CircuitTypes;
 using aztec3::utils::types::NativeTypes;
-using plonk::stdlib::witness_t;
 using std::is_same;
 
 template <typename NCT> struct PrivateCallData {

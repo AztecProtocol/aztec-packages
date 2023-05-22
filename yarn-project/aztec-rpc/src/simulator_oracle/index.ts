@@ -1,6 +1,12 @@
 import { DBOracle, MessageLoadOracleInputs } from '@aztec/acir-simulator';
 import { AztecNode } from '@aztec/aztec-node';
-import { AztecAddress, EthAddress, Fr } from '@aztec/circuits.js';
+import {
+  AztecAddress,
+  EthAddress,
+  Fr,
+  MembershipWitness,
+  PRIVATE_DATA_TREE_HEIGHT
+} from '@aztec/circuits.js';
 import { KeyPair } from '@aztec/key-store';
 import { FunctionAbi } from '@aztec/foundation/abi';
 import { ContractDataOracle } from '../contract_data_oracle/index.js';
@@ -56,8 +62,11 @@ export class SimulatorOracle implements DBOracle {
           const path = await this.node.getDataTreePath(noteDao.index);
           return {
             preimage: noteDao.notePreimage.items,
-            siblingPath: path.data.map(buf => Fr.fromBuffer(buf)),
-            index: noteDao.index,
+            membershipWitness: new MembershipWitness(
+              PRIVATE_DATA_TREE_HEIGHT, // pathSize
+              noteDao.index, // leafIndex
+              path.data.map(buf => Fr.fromBuffer(buf)), // siblingPath
+            ),
           };
         }),
       ),

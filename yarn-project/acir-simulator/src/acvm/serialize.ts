@@ -116,24 +116,6 @@ export function toAcvmEnqueuePublicFunctionResult(item: PublicCallRequest): ACVM
 }
 
 /**
- * Converts the result of loading notes to ACVM fields.
- * @param noteLoadOracleInputs - The result of loading notes to convert.
- * @param privateDataTreeRoot - The private data tree root.
- * @returns The ACVM fields.
- */
-export function toAcvmNoteLoadOracleInputs(
-  noteLoadOracleInputs: NoteLoadOracleInputs,
-  privateDataTreeRoot: Fr,
-): ACVMField[] {
-  return [
-    ...noteLoadOracleInputs.preimage.map(f => toACVMField(f)),
-    toACVMField(noteLoadOracleInputs.index),
-    ...noteLoadOracleInputs.siblingPath.map(f => toACVMField(f)),
-    toACVMField(privateDataTreeRoot),
-  ];
-}
-
-/**
  * Converts the result of loading messages to ACVM fields.
  * @param messageLoadOracleInputs - The result of loading messages to convert.
  * @param l1ToL2MessagesTreeRoot - The L1 to L2 messages tree root

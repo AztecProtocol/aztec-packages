@@ -5,6 +5,7 @@ import {
   CallContext,
   ContractDeploymentData,
   EMITTED_EVENTS_LENGTH,
+  READ_REQUESTS_LENGTH,
   NEW_L2_TO_L1_MSGS_LENGTH,
   NEW_COMMITMENTS_LENGTH,
   NEW_NULLIFIERS_LENGTH,
@@ -122,6 +123,7 @@ export function extractPublicInputs(partialWitness: ACVMWitness, acir: Buffer): 
   const args = witnessReader.readFieldArray(ARGS_LENGTH);
   const returnValues = witnessReader.readFieldArray(RETURN_VALUES_LENGTH);
   const emittedEvents = witnessReader.readFieldArray(EMITTED_EVENTS_LENGTH);
+  const readRequests = witnessReader.readFieldArray(READ_REQUESTS_LENGTH);
   const newCommitments = witnessReader.readFieldArray(NEW_COMMITMENTS_LENGTH);
   const newNullifiers = witnessReader.readFieldArray(NEW_NULLIFIERS_LENGTH);
   const privateCallStack = witnessReader.readFieldArray(PRIVATE_CALL_STACK_LENGTH);
@@ -145,6 +147,7 @@ export function extractPublicInputs(partialWitness: ACVMWitness, acir: Buffer): 
     args,
     returnValues,
     emittedEvents,
+    readRequests,
     newCommitments,
     newNullifiers,
     privateCallStack,

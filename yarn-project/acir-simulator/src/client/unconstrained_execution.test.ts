@@ -3,6 +3,7 @@ import { BarretenbergWasm } from '@aztec/barretenberg.js/wasm';
 import {
   ContractDeploymentData,
   FunctionData,
+  MembershipWitness,
   PrivateHistoricTreeRoots,
   PRIVATE_DATA_TREE_HEIGHT,
   TxContext,
@@ -68,8 +69,11 @@ describe('Unconstrained Execution test suite', () => {
           count: preimages.length,
           notes: notes.map((preimage, index) => ({
             preimage,
-            siblingPath: Array(PRIVATE_DATA_TREE_HEIGHT).fill(Fr.ZERO),
-            index: BigInt(index),
+            membershipWitness: new MembershipWitness(
+              PRIVATE_DATA_TREE_HEIGHT, // pathSize
+              BigInt(index), // leafIndex
+              Array(PRIVATE_DATA_TREE_HEIGHT).fill(Fr.ZERO), // siblingPath
+            ),
           })),
         });
       });

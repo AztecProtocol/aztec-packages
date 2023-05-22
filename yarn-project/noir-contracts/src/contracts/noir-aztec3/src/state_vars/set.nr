@@ -3,9 +3,6 @@ use crate::abi::Inputs;
 use crate::context::PrivateFunctionContext;
 use crate::notes::value_note::Note;
 use crate::types::point::Point;
-use crate::state_vars::note_getter_data::NoteGetterData;
-use crate::state_vars::note_getter_data::make_note_getter_data;
-use crate::state_vars::note_getter_data::note_getter_data_len;
 
 #[oracle(notifyCreatedNote)]
 fn notify_created_note_oracle(
@@ -48,11 +45,11 @@ unconstrained fn get_notes_2_internal(
     get_notes_2_oracle(storage_slot)
 }
 
-fn get_2_notes(storage_slot: Field) -> (NoteGetterData, NoteGetterData) {
+fn get_2_notes(storage_slot: Field) -> (Note, Note) {
     let fields = get_notes_2_internal(storage_slot);
-    let data1 = make_note_getter_data(fields, 1);
-    let data2 = make_note_getter_data(fields, 1 + note_getter_data_len());
-    (data1, data2)
+    let note1 = Note::deserialize(arr_copy_slice(fields, [0; NOTE_LEN], 1)),
+    let note2 = Note::deserialize(arr_copy_slice(fields, [0; NOTE_LEN],  1 + NOTE_LEN)),
+    (note1, note2)
 }
 
 struct Set {
@@ -77,47 +74,8 @@ impl Set {
     fn get_2(self, inputs: Inputs, mut context: PrivateFunctionContext) -> (PrivateFunctionContext, (Note, Note)) {
         let storage_slot = self.storage_slot;
 
-        // let note_getter_data: [NoteGetterData; 2] = ORACLE::get_2_notes(contract_address, storage_slot);
-        // let note_getter_data = (
-        //     NoteGetterData { note: Note::dummy(), leaf_index: 0, sibling_path: [1, 2, 3, 4, 5], root: 1 },
-        //     NoteGetterData { note: Note::dummy(), leaf_index: 1, sibling_path: [1, 2, 3, 4, 5], root: 1 },
-        // );
-        let note_getter_data = get_2_notes(storage_slot);
+        let notes = get_2_notes(storage_slot);
 
-        // Forwarded vars added due to https://github.com/noir-lang/noir/issues/1088
-        // let process_data = |data, storage_slot_forwarded, contract_address_forwarded| {
-        //     let NoteGetterData { note, leaf_index, sibling_path, root } = data;
-        //     let _ignored = sibling_path;
-
-        //     let note_hash = note.compute_note_hash();
-        //     let siloed_note_hash = dep::std::hash::pedersen([
-        //         crate::NoteStorageSlot,
-        //         note_hash, 
-        //         storage_slot_forwarded, 
-        //         contract_address_forwarded           ])[0];
-
-        //     // Check existence in tree:
-        //     constrain std::merkle::check_membership(
-        //         root,
-        //         siloed_note_hash,
-        //         leaf_index,
-        //         sibling_path,
-        //     ) == 1;
-
-        //     // Set the public input of the 'old private data tree root' to be the computed root (if it hasn't already been set); otherwise constrain equality with the previously-set value.
-        //     if context.old_private_data_tree_root == 0 {
-        //         context.old_private_data_tree_root = root;
-        //     } else {
-        //         constrain context.old_private_data_tree_root == root;
-        //     }
-        // };
-        // process_data(note_getter_data.0, storage_slot, contract_address);
-        // process_data(note_getter_data.1, storage_slot, contract_address);
-
-        constrain note_getter_data.0.root == inputs.old_private_data_tree_root;
-        constrain note_getter_data.1.root == inputs.old_private_data_tree_root;
-
-        let notes = (note_getter_data.0.note, note_getter_data.1.note);
         (context, notes)
     }
 

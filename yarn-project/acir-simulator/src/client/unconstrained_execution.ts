@@ -1,5 +1,5 @@
 import { ACVMField, ZERO_ACVM_FIELD, acvm, fromACVMField, toACVMField, toACVMWitness } from '../acvm/index.js';
-import { CallContext, FunctionData } from '@aztec/circuits.js';
+import { CallContext, FunctionData, MembershipWitness, PRIVATE_DATA_TREE_HEIGHT } from '@aztec/circuits.js';
 import { frToAztecAddress, frToNumber } from '../acvm/deserialize.js';
 import { FunctionAbi } from '@aztec/foundation/abi';
 import { createDebugLogger } from '@aztec/foundation/log';
@@ -46,7 +46,10 @@ export class UnconstrainedFunctionExecution {
       getSecretKey: async ([address]: ACVMField[]) => [
         toACVMField(await this.context.db.getSecretKey(this.contractAddress, frToAztecAddress(fromACVMField(address)))),
       ],
-      getNotes2: ([storageSlot]: ACVMField[]) => this.context.getNotes(this.contractAddress, storageSlot, 2),
+      getNotes2: async ([storageSlot]: ACVMField[]) => {
+        const { preimages } = await this.context.getNotes(this.contractAddress, storageSlot, 2)
+        return preimages;
+      },
       getRandomField: () => Promise.resolve([toACVMField(Fr.random())]),
       viewNotesPage: ([acvmSlot, acvmLimit, acvmOffset]) =>
         this.context.viewNotes(

@@ -2,12 +2,11 @@ import {
   ACVMField,
   toACVMField,
   fromACVMField,
-  toAcvmNoteLoadOracleInputs,
   createDummyNote,
   toAcvmMessageLoadOracleInputs,
 } from '../acvm/index.js';
-import { PrivateHistoricTreeRoots, TxRequest, PRIVATE_DATA_TREE_HEIGHT } from '@aztec/circuits.js';
-import { DBOracle } from './db_oracle.js';
+import { MembershipWitness, PrivateHistoricTreeRoots, TxRequest, PRIVATE_DATA_TREE_HEIGHT } from '@aztec/circuits.js';
+import { NoteLoadOracleInputs, DBOracle } from './db_oracle.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 
@@ -34,10 +33,11 @@ export class ClientTxExecutionContext {
    */
   public async getNotes(contractAddress: AztecAddress, storageSlot: ACVMField, limit: number) {
     const { count, notes } = await this.fetchNotes(contractAddress, storageSlot, limit);
-    return [
-      toACVMField(count),
-      ...notes.flatMap(noteGetData => toAcvmNoteLoadOracleInputs(noteGetData, this.historicRoots.privateDataTreeRoot)),
-    ];
+
+    const preimages = [toACVMField(count), ...notes.flatMap(noteGetData => noteGetData.preimage.map(f => toACVMField(f)))];
+    const membershipWitnesses = notes.map(noteGetData => noteGetData.membershipWitness);
+
+    return {preimages, membershipWitnesses};
   }
 
   /**
@@ -68,9 +68,12 @@ export class ClientTxExecutionContext {
 
     const dummyNotes = Array.from({ length: Math.max(0, limit - notes.length) }, () => ({
       preimage: createDummyNote(),
-      siblingPath: new Array(PRIVATE_DATA_TREE_HEIGHT).fill(Fr.ZERO),
-      index: 0n,
-    }));
+      membershipWitness: new MembershipWitness(
+        PRIVATE_DATA_TREE_HEIGHT, // pathSize
+        0n, // leafIndex
+        new Array(PRIVATE_DATA_TREE_HEIGHT).fill(Fr.ZERO), // siblingPath
+      ),
+    } as NoteLoadOracleInputs));
 
     return {
       count,

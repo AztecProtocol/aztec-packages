@@ -43,6 +43,7 @@ import {
   CONTRACT_TREE_HEIGHT,
   CONTRACT_TREE_ROOTS_TREE_HEIGHT,
   EMITTED_EVENTS_LENGTH,
+  READ_REQUESTS_LENGTH,
   FUNCTION_TREE_HEIGHT,
   KERNEL_NEW_COMMITMENTS_LENGTH,
   KERNEL_NEW_CONTRACTS_LENGTH,
@@ -555,6 +556,7 @@ export function makePrivateCallData(seed = 1): PrivateCallData {
     vk: makeVerificationKey(),
     functionLeafMembershipWitness: makeMembershipWitness(FUNCTION_TREE_HEIGHT, seed + 0x30),
     contractLeafMembershipWitness: makeMembershipWitness(CONTRACT_TREE_HEIGHT, seed + 0x20),
+    readRequestMembershipWitnesses: range(PRIVATE_CALL_STACK_LENGTH, seed + 0x70).map(makeMembershipWitness),
     portalContractAddress: makeEthAddress(seed + 0x40),
     acirHash: fr(seed + 0x60),
   });
@@ -591,15 +593,16 @@ export function makePrivateCircuitPublicInputs(seed = 0): PrivateCircuitPublicIn
     args: range(ARGS_LENGTH, seed + 0x100).map(fr),
     emittedEvents: range(EMITTED_EVENTS_LENGTH, seed + 0x200).map(fr), // TODO not in spec
     returnValues: range(RETURN_VALUES_LENGTH, seed + 0x300).map(fr),
-    newCommitments: range(NEW_COMMITMENTS_LENGTH, seed + 0x400).map(fr),
-    newNullifiers: range(NEW_NULLIFIERS_LENGTH, seed + 0x500).map(fr),
-    privateCallStack: range(PRIVATE_CALL_STACK_LENGTH, seed + 0x600).map(fr),
-    publicCallStack: range(PUBLIC_CALL_STACK_LENGTH, seed + 0x700).map(fr),
-    newL2ToL1Msgs: range(NEW_L2_TO_L1_MSGS_LENGTH, seed + 0x800).map(fr),
-    historicContractTreeRoot: fr(seed + 0x900), // TODO not in spec
-    historicPrivateDataTreeRoot: fr(seed + 0x1000),
-    historicPrivateNullifierTreeRoot: fr(seed + 0x1100), // TODO not in spec
-    historicL1ToL2MessagesTreeRoot: fr(seed + 0x1200),
+    readRequests: range(READ_REQUESTS_LENGTH, seed + 0x400).map(fr),
+    newCommitments: range(NEW_COMMITMENTS_LENGTH, seed + 0x500).map(fr),
+    newNullifiers: range(NEW_NULLIFIERS_LENGTH, seed + 0x600).map(fr),
+    privateCallStack: range(PRIVATE_CALL_STACK_LENGTH, seed + 0x700).map(fr),
+    publicCallStack: range(PUBLIC_CALL_STACK_LENGTH, seed + 0x800).map(fr),
+    newL2ToL1Msgs: range(NEW_L2_TO_L1_MSGS_LENGTH, seed + 0x900).map(fr),
+    historicContractTreeRoot: fr(seed + 0x1000), // TODO not in spec
+    historicPrivateDataTreeRoot: fr(seed + 0x1100),
+    historicPrivateNullifierTreeRoot: fr(seed + 0x1200), // TODO not in spec
+    historicL1ToL2MessagesTreeRoot: fr(seed + 0x1300),
     contractDeploymentData: makeContractDeploymentData(),
   });
 }

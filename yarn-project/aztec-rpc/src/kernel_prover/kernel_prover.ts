@@ -135,7 +135,7 @@ export class KernelProver {
   }
 
   private async createPrivateCallData(
-    { callStackItem, vk }: ExecutionResult,
+    { callStackItem, vk, readRequestMembershipWitnesses }: ExecutionResult,
     privateCallStackPreimages: PrivateCallStackItem[],
   ) {
     const { contractAddress, functionData, publicInputs } = callStackItem;
@@ -165,6 +165,7 @@ export class KernelProver {
       VerificationKey.fromBuffer(vk),
       functionLeafMembershipWitness,
       contractLeafMembershipWitness,
+      readRequestMembershipWitnesses,
       portalContractAddress,
       acirHash,
     );
