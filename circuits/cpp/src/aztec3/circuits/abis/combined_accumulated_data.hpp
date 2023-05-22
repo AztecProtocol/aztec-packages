@@ -43,8 +43,9 @@ template <typename NCT> struct CombinedAccumulatedData {
 
     // Here so that the gas cost of this request can be measured by circuits, without actually needing to feed in the
     // variable-length data.
-    uint32 encrypted_log_preimages_length = 0;
-    uint32 unencrypted_log_preimages_length = 0;
+    // TODO: Mike has this as uint32 but I have issue compiling it like that. Should it be used or is fr ok?
+    fr encrypted_log_preimages_length = 0;
+    fr unencrypted_log_preimages_length = 0;
 
     std::array<NewContractData<NCT>, KERNEL_NEW_CONTRACTS_LENGTH> new_contracts{};
 
@@ -60,6 +61,10 @@ template <typename NCT> struct CombinedAccumulatedData {
                    private_call_stack,
                    public_call_stack,
                    new_l2_to_l1_msgs,
+                   encrypted_logs_hash,
+                   unencrypted_logs_hash,
+                   encrypted_log_preimages_length,
+                   unencrypted_log_preimages_length,
                    new_contracts,
                    optionally_revealed_data,
                    public_data_update_requests,
@@ -69,6 +74,10 @@ template <typename NCT> struct CombinedAccumulatedData {
         return aggregation_object == other.aggregation_object && new_commitments == other.new_commitments &&
                new_nullifiers == other.new_nullifiers && private_call_stack == other.private_call_stack &&
                public_call_stack == other.public_call_stack && new_l2_to_l1_msgs == other.new_l2_to_l1_msgs &&
+               encrypted_logs_hash == other.encrypted_logs_hash &&
+               unencrypted_logs_hash == other.unencrypted_logs_hash &&
+               encrypted_log_preimages_length == other.encrypted_log_preimages_length &&
+               unencrypted_log_preimages_length == other.unencrypted_log_preimages_length &&
                new_contracts == other.new_contracts && optionally_revealed_data == other.optionally_revealed_data &&
                public_data_update_requests == other.public_data_update_requests &&
                public_data_reads == other.public_data_reads;
@@ -99,6 +108,12 @@ template <typename NCT> struct CombinedAccumulatedData {
             to_ct(private_call_stack),
             to_ct(public_call_stack),
             to_ct(new_l2_to_l1_msgs),
+
+            to_ct(encrypted_logs_hash),
+            to_ct(unencrypted_logs_hash),
+
+            to_ct(encrypted_log_preimages_length),
+            to_ct(unencrypted_log_preimages_length),
 
             map(new_contracts, to_circuit_type),
             map(optionally_revealed_data, to_circuit_type),
@@ -131,6 +146,12 @@ template <typename NCT> struct CombinedAccumulatedData {
             to_nt(public_call_stack),
             to_nt(new_l2_to_l1_msgs),
 
+            to_nt(encrypted_logs_hash),
+            to_nt(unencrypted_logs_hash),
+
+            to_nt(encrypted_log_preimages_length),
+            to_nt(unencrypted_log_preimages_length),
+
             map(new_contracts, to_native_type),
             map(optionally_revealed_data, to_native_type),
             map(public_data_update_requests, to_native_type),
@@ -151,6 +172,9 @@ template <typename NCT> struct CombinedAccumulatedData {
         set_array_public(private_call_stack);
         set_array_public(public_call_stack);
         set_array_public(new_l2_to_l1_msgs);
+
+        set_array_public(encrypted_logs_hash);
+        set_array_public(unencrypted_logs_hash);
 
         set_array_public(new_contracts);
         set_array_public(optionally_revealed_data);
@@ -210,6 +234,10 @@ template <typename NCT> void read(uint8_t const*& it, CombinedAccumulatedData<NC
     read(it, accum_data.public_call_stack);
     read(it, accum_data.new_l2_to_l1_msgs);
     read(it, accum_data.new_contracts);
+    read(it, accum_data.encrypted_logs_hash);
+    read(it, accum_data.unencrypted_logs_hash);
+    read(it, accum_data.encrypted_log_preimages_length);
+    read(it, accum_data.unencrypted_log_preimages_length);
     read(it, accum_data.optionally_revealed_data);
     read(it, accum_data.public_data_update_requests);
     read(it, accum_data.public_data_reads);
@@ -226,6 +254,10 @@ template <typename NCT> void write(std::vector<uint8_t>& buf, CombinedAccumulate
     write(buf, accum_data.public_call_stack);
     write(buf, accum_data.new_l2_to_l1_msgs);
     write(buf, accum_data.new_contracts);
+    write(buf, accum_data.encrypted_logs_hash);
+    write(buf, accum_data.unencrypted_logs_hash);
+    write(buf, accum_data.encrypted_log_preimages_length);
+    write(buf, accum_data.unencrypted_log_preimages_length);
     write(buf, accum_data.optionally_revealed_data);
     write(buf, accum_data.public_data_update_requests);
     write(buf, accum_data.public_data_reads);
@@ -247,6 +279,14 @@ template <typename NCT> std::ostream& operator<<(std::ostream& os, CombinedAccum
               << accum_data.new_l2_to_l1_msgs << "\n"
               << "new_contracts:\n"
               << accum_data.new_contracts << "\n"
+              << "encrypted_logs_hash:\n"
+              << accum_data.encrypted_logs_hash << "\n"
+              << "unencrypted_logs_hash:\n"
+              << accum_data.unencrypted_logs_hash << "\n"
+              << "encrypted_log_preimages_length:\n"
+              << accum_data.encrypted_log_preimages_length << "\n"
+              << "unencrypted_log_preimages_length:\n"
+              << accum_data.unencrypted_log_preimages_length << "\n"
               << "optionally_revealed_data:\n"
               << accum_data.optionally_revealed_data << "\n"
               << "public_data_update_requests:\n"
