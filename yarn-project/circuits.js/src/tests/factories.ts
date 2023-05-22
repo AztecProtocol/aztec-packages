@@ -556,7 +556,7 @@ export function makePrivateCallData(seed = 1): PrivateCallData {
     vk: makeVerificationKey(),
     functionLeafMembershipWitness: makeMembershipWitness(FUNCTION_TREE_HEIGHT, seed + 0x30),
     contractLeafMembershipWitness: makeMembershipWitness(CONTRACT_TREE_HEIGHT, seed + 0x20),
-    readRequestMembershipWitnesses: range(PRIVATE_CALL_STACK_LENGTH, seed + 0x70).map(makeMembershipWitness),
+    readRequestMembershipWitnesses: range(READ_REQUESTS_LENGTH, seed + 0x70).map(x => makeMembershipWitness(PRIVATE_DATA_TREE_HEIGHT, x)),
     portalContractAddress: makeEthAddress(seed + 0x40),
     acirHash: fr(seed + 0x60),
   });
@@ -591,8 +591,8 @@ export function makePrivateCircuitPublicInputs(seed = 0): PrivateCircuitPublicIn
       true,
     ),
     args: range(ARGS_LENGTH, seed + 0x100).map(fr),
-    emittedEvents: range(EMITTED_EVENTS_LENGTH, seed + 0x200).map(fr), // TODO not in spec
-    returnValues: range(RETURN_VALUES_LENGTH, seed + 0x300).map(fr),
+    returnValues: range(RETURN_VALUES_LENGTH, seed + 0x200).map(fr),
+    emittedEvents: range(EMITTED_EVENTS_LENGTH, seed + 0x300).map(fr), // TODO not in spec
     readRequests: range(READ_REQUESTS_LENGTH, seed + 0x400).map(fr),
     newCommitments: range(NEW_COMMITMENTS_LENGTH, seed + 0x500).map(fr),
     newNullifiers: range(NEW_NULLIFIERS_LENGTH, seed + 0x600).map(fr),

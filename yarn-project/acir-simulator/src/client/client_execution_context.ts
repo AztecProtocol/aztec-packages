@@ -25,11 +25,12 @@ export class ClientTxExecutionContext {
 
   /**
    * Gets the notes for a contract address and storage slot.
-   * Returns note load oracle inputs, which includes the paths and the roots.
+   * Returns note preimages and membershipWitnesses.
    * @param contractAddress - The contract address.
    * @param storageSlot - The storage slot.
    * @param limit - The amount of notes to get.
-   * @returns The ACVM fields for the counts and the requested note load oracle inputs.
+   * @returns An array of ACVM fields for the note count count and the requested note preimages,
+   * and another array of membershipWitnesses corresponding to each note
    */
   public async getNotes(contractAddress: AztecAddress, storageSlot: ACVMField, limit: number) {
     const { count, notes } = await this.fetchNotes(contractAddress, storageSlot, limit);
