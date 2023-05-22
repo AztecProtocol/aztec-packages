@@ -8,7 +8,7 @@ import {
   PrivateCircuitPublicInputs,
   PublicCallRequest,
 } from '@aztec/circuits.js';
-import { MessageLoadOracleInputs, NoteLoadOracleInputs } from '../client/db_oracle.js';
+import { MessageLoadOracleInputs } from '../client/db_oracle.js';
 import { Fr } from '@aztec/foundation/fields';
 
 // Utilities to write TS classes to ACVM Field arrays

@@ -1,5 +1,5 @@
 import { ACVMField, ZERO_ACVM_FIELD, acvm, fromACVMField, toACVMField, toACVMWitness } from '../acvm/index.js';
-import { CallContext, FunctionData, MembershipWitness, PRIVATE_DATA_TREE_HEIGHT } from '@aztec/circuits.js';
+import { CallContext, FunctionData } from '@aztec/circuits.js';
 import { frToAztecAddress, frToNumber } from '../acvm/deserialize.js';
 import { FunctionAbi } from '@aztec/foundation/abi';
 import { createDebugLogger } from '@aztec/foundation/log';
