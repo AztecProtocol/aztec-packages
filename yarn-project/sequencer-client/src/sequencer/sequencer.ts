@@ -20,8 +20,7 @@ import { ProcessedTx } from './processed_tx.js';
 import { PublicProcessor } from './public_processor.js';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { Fr } from '@aztec/foundation/fields';
-import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/circuits.js';
+import { NewL1ToL2Messages } from '@aztec/circuits.js';
 
 /**
  * Sequencer client
@@ -269,7 +268,7 @@ export class Sequencer {
    * @param newL1ToL2Messages - L1 to L2 messages to be part of the block.
    * @returns The new block.
    */
-  protected async buildBlock(txs: ProcessedTx[], newL1ToL2Messages: Fr[]) {
+  protected async buildBlock(txs: ProcessedTx[], newL1ToL2Messages: NewL1ToL2Messages) {
     // Pad the txs array with empty txs to be a power of two, at least 4
     const txsTargetSize = Math.max(ceilPowerOfTwo(txs.length), 4);
     const emptyTxCount = txsTargetSize - txs.length;
@@ -287,8 +286,8 @@ export class Sequencer {
    * TODO: This is a stubbed method.
    * @returns An array of L1 to L2 messages.
    */
-  protected takeL1ToL2MessagesFromContract(): Fr[] {
-    return new Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n));
+  protected takeL1ToL2MessagesFromContract(): NewL1ToL2Messages {
+    return NewL1ToL2Messages.empty();
   }
 
   /**

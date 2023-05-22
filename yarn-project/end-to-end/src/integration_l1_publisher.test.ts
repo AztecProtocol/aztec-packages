@@ -11,6 +11,7 @@ import {
   KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH,
   range,
   makeTuple,
+  NewL1ToL2Messages,
 } from '@aztec/circuits.js';
 import { fr, makeNewContractData, makeProof } from '@aztec/circuits.js/factories';
 import { createDebugLogger } from '@aztec/foundation/log';
@@ -166,9 +167,9 @@ describe('L1Publisher integration', () => {
     return tx;
   };
 
-  const forceInsertionInInbox = async (l1ToL2Messages: Fr[]) => {
+  const forceInsertionInInbox = async (l1ToL2Messages: Buffer[]) => {
     for (let i = 0; i < l1ToL2Messages.length; i++) {
-      const slot = keccak256(Buffer.concat([l1ToL2Messages[i].toBuffer(), fr(0).toBuffer()]));
+      const slot = keccak256(Buffer.concat([l1ToL2Messages[i], fr(0).toBuffer()]));
       const value = 1n | ((2n ** 32n - 1n) << 128n);
       // we are using Fr for the value as an easy way to get a correctly sized buffer and string.
       const params = `["${inboxAddress}", "${slot}", "0x${new Fr(value).toBuffer().toString('hex')}"]`;
@@ -187,8 +188,11 @@ describe('L1Publisher integration', () => {
     const blockNumber = await publicClient.getBlockNumber();
 
     for (let i = 0; i < numberOfConsecutiveBlocks; i++) {
-      const l1ToL2Messages = range(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, 128 * i + 1 + 0x400).map(fr);
-      await forceInsertionInInbox(l1ToL2Messages);
+      const l1ToL2Messages = new NewL1ToL2Messages(
+        range(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, 128 * i + 1 + 0x400).map(fr),
+      );
+      const l1ToL2MessagesBuffer = l1ToL2Messages.toBufferArray();
+      await forceInsertionInInbox(l1ToL2MessagesBuffer);
 
       const txs = [
         await makeBloatedProcessedTx(128 * i + 32),
@@ -199,9 +203,8 @@ describe('L1Publisher integration', () => {
       const [block] = await builder.buildL2Block(1 + i, txs, l1ToL2Messages);
 
       // check that values are in the inbox
-      for (let j = 0; j < l1ToL2Messages.length; j++) {
-        if (l1ToL2Messages[j].isZero()) continue;
-        expect(await inbox.read.contains([`0x${l1ToL2Messages[j].toBuffer().toString('hex')}`])).toBeTruthy();
+      for (let j = 0; j < l1ToL2Messages.length(); j++) {
+        expect(await inbox.read.contains([`0x${l1ToL2MessagesBuffer[j].toString('hex')}`])).toBeTruthy();
       }
 
       // check that values are not in the outbox
@@ -256,9 +259,8 @@ describe('L1Publisher integration', () => {
       expect(block.getL1ToL2MessagesHash()).toEqual(hexStringToBuffer(decodedHashes[1].toString()));
 
       // check that values have been consumed from the inbox
-      for (let j = 0; j < l1ToL2Messages.length; j++) {
-        if (l1ToL2Messages[j].isZero()) continue;
-        expect(await inbox.read.contains([`0x${l1ToL2Messages[j].toBuffer().toString('hex')}`])).toBeFalsy();
+      for (let j = 0; j < l1ToL2MessagesBuffer.length; j++) {
+        expect(await inbox.read.contains([`0x${l1ToL2MessagesBuffer[j].toString('hex')}`])).toBeFalsy();
       }
       // check that values are inserted into the outbox
       for (let j = 0; j < block.newL2ToL1Msgs.length; j++) {
@@ -274,7 +276,7 @@ describe('L1Publisher integration', () => {
     const blockNumber = await publicClient.getBlockNumber();
 
     for (let i = 0; i < numberOfConsecutiveBlocks; i++) {
-      const l1ToL2Messages = new Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n));
+      const l1ToL2Messages = NewL1ToL2Messages.empty();
       const txs = [
         await makeEmptyProcessedTx(),
         await makeEmptyProcessedTx(),

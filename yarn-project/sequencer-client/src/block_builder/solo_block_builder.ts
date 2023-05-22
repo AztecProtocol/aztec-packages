@@ -10,7 +10,7 @@ import {
   MembershipWitness,
   MergeRollupInputs,
   NULLIFIER_TREE_HEIGHT,
-  NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
+  NewL1ToL2Messages,
   NullifierLeafPreimage,
   PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT,
   PreviousKernelData,
@@ -76,7 +76,7 @@ export class SoloBlockBuilder implements BlockBuilder {
   public async buildL2Block(
     blockNumber: number,
     txs: ProcessedTx[],
-    newL1ToL2Messages: Fr[],
+    newL1ToL2Messages: NewL1ToL2Messages,
   ): Promise<[L2Block, Proof]> {
     const [
       startPrivateDataTreeSnapshot,
@@ -188,18 +188,14 @@ export class SoloBlockBuilder implements BlockBuilder {
     return new AppendOnlyTreeSnapshot(Fr.fromBuffer(treeInfo.root), Number(treeInfo.size));
   }
 
-  protected async runCircuits(txs: ProcessedTx[], newL1ToL2Messages: Fr[]): Promise<[RootRollupPublicInputs, Proof]> {
+  protected async runCircuits(
+    txs: ProcessedTx[],
+    newL1ToL2Messages: NewL1ToL2Messages,
+  ): Promise<[RootRollupPublicInputs, Proof]> {
     // Check that the length of the array of txs is a power of two
     // See https://graphics.stanford.edu/~seander/bithacks.html#DetermineIfPowerOf2
     if (txs.length < 4 || (txs.length & (txs.length - 1)) !== 0) {
       throw new Error(`Length of txs for the block should be a power of two and at least four (got ${txs.length})`);
-    }
-
-    // Check that the number of new L1 to L2 messages is the same as the max
-    if (newL1ToL2Messages.length !== NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP) {
-      throw new Error(
-        `Length of the l1 to l2 messages per block should be a constant ${NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP} (got ${newL1ToL2Messages.length})`,
-      );
     }
 
     // Run the base rollup circuits for the txs
@@ -268,16 +264,13 @@ export class SoloBlockBuilder implements BlockBuilder {
   protected async rootRollupCircuit(
     left: [BaseOrMergeRollupPublicInputs, Proof],
     right: [BaseOrMergeRollupPublicInputs, Proof],
-    newL1ToL2Messages: Fr[],
+    newL1ToL2Messages: NewL1ToL2Messages,
   ): Promise<[RootRollupPublicInputs, Proof]> {
     this.debug(`Running root rollup circuit`);
     const rootInput = await this.getRootRollupInput(...left, ...right, newL1ToL2Messages);
 
     // Update the local trees to include the new l1 to l2 messages
-    await this.db.appendLeaves(
-      MerkleTreeId.L1_TO_L2_MESSAGES_TREE,
-      newL1ToL2Messages.map(m => m.toBuffer()),
-    );
+    await this.db.appendLeaves(MerkleTreeId.L1_TO_L2_MESSAGES_TREE, newL1ToL2Messages.toBufferArray());
 
     // Simulate and get proof for the root circuit
     const rootOutput = await this.simulator.rootRollupCircuit(rootInput);
@@ -380,7 +373,7 @@ export class SoloBlockBuilder implements BlockBuilder {
     rollupProofLeft: Proof,
     rollupOutputRight: BaseOrMergeRollupPublicInputs,
     rollupProofRight: Proof,
-    newL1ToL2Messages: Fr[],
+    newL1ToL2Messages: NewL1ToL2Messages,
   ) {
     const vk = this.getVerificationKey(rollupOutputLeft.rollupType);
     const previousRollupData: RootRollupInputs['previousRollupData'] = [

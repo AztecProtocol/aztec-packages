@@ -1,5 +1,5 @@
 import { BarretenbergWasm } from '@aztec/barretenberg.js/wasm';
-import { AppendOnlyTreeSnapshot, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/circuits.js';
+import { AppendOnlyTreeSnapshot, NewL1ToL2Messages } from '@aztec/circuits.js';
 import { fr } from '@aztec/circuits.js/factories';
 
 import { INITIAL_LEAF, Pedersen, SiblingPath } from '@aztec/merkle-tree';
@@ -36,10 +36,6 @@ const getMockContractData = () => {
   return ContractData.random();
 };
 
-const getMockL1ToL2MessagesData = () => {
-  return new Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).map(() => Fr.random());
-};
-
 const getMockBlock = (blockNumber: number, newContractsCommitments?: Buffer[]) => {
   const block = L2Block.fromFields({
     number: blockNumber,
@@ -64,7 +60,7 @@ const getMockBlock = (blockNumber: number, newContractsCommitments?: Buffer[]) =
     newContracts: newContractsCommitments?.map(x => Fr.fromBuffer(x)) ?? [Fr.random()],
     newContractData: [getMockContractData()],
     newPublicDataWrites: [PublicDataWrite.random()],
-    newL1ToL2Messages: getMockL1ToL2MessagesData(),
+    newL1ToL2Messages: NewL1ToL2Messages.random(),
     newL2ToL1Msgs: [Fr.random()],
   });
   return block;

@@ -1,7 +1,6 @@
 import { L2Block } from '@aztec/types';
 import { ProcessedTx } from '../sequencer/processed_tx.js';
-import { Proof } from '@aztec/circuits.js';
-import { Fr } from '@aztec/foundation/fields';
+import { NewL1ToL2Messages, Proof } from '@aztec/circuits.js';
 
 /**
  * Assembles an L2Block from a set of processed transactions.
@@ -15,5 +14,9 @@ export interface BlockBuilder {
    * @param newL1ToL2Messages - L1 to L2 messages to be part of the block.
    * @returns The new L2 block along with its proof from the root circuit.
    */
-  buildL2Block(blockNumber: number, txs: ProcessedTx[], newL1ToL2Messages: Fr[]): Promise<[L2Block, Proof]>;
+  buildL2Block(
+    blockNumber: number,
+    txs: ProcessedTx[],
+    newL1ToL2Messages: NewL1ToL2Messages,
+  ): Promise<[L2Block, Proof]>;
 }

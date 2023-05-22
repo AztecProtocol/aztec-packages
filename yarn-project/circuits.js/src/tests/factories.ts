@@ -83,6 +83,7 @@ import {
   NULLIFIER_TREE_HEIGHT,
   PRIVATE_DATA_TREE_HEIGHT,
   makeTuple,
+  NewL1ToL2Messages,
 } from '../index.js';
 
 /**
@@ -730,7 +731,7 @@ export function makeRootRollupInputs(seed = 0): RootRollupInputs {
     [makePreviousRollupData(seed), makePreviousRollupData(seed + 0x1000)],
     makeTuple(PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT, fr, 0x2000),
     makeTuple(CONTRACT_TREE_ROOTS_TREE_HEIGHT, fr, 0x2100),
-    makeTuple(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, fr, 0x2100),
+    new NewL1ToL2Messages(makeTuple(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, fr, 0x2100)),
     makeTuple(L1_TO_L2_MESSAGES_SIBLING_PATH_LENGTH, fr, 0x2100),
     makeTuple(L1_TO_L2_MESSAGES_ROOTS_TREE_HEIGHT, fr, 0x2100),
     makeAppendOnlyTreeSnapshot(seed + 0x2200),

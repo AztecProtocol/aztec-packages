@@ -4,8 +4,8 @@ import {
   KERNEL_NEW_CONTRACTS_LENGTH,
   KERNEL_NEW_NULLIFIERS_LENGTH,
   KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH,
-  NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   KERNEL_NEW_L2_TO_L1_MSGS_LENGTH,
+  NewL1ToL2Messages,
 } from '@aztec/circuits.js';
 import { makeAppendOnlyTreeSnapshot } from '@aztec/circuits.js/factories';
 import { BufferReader, serializeToBuffer } from '@aztec/circuits.js/utils';
@@ -117,7 +117,7 @@ export class L2Block {
     /**
      * The L1 to L2 messages to be inserted into the L2 toL2 message tree.
      */
-    public newL1ToL2Messages: Fr[] = [],
+    public newL1ToL2Messages: NewL1ToL2Messages = NewL1ToL2Messages.empty(),
   ) {}
 
   /**
@@ -132,7 +132,7 @@ export class L2Block {
     const newContracts = times(KERNEL_NEW_CONTRACTS_LENGTH * txsPerBlock, Fr.random);
     const newContractData = times(KERNEL_NEW_CONTRACTS_LENGTH * txsPerBlock, ContractData.random);
     const newPublicDataWrites = times(KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH * txsPerBlock, PublicDataWrite.random);
-    const newL1ToL2Messages = times(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, Fr.random);
+    const newL1ToL2Messages = NewL1ToL2Messages.random();
     const newL2ToL1Msgs = times(KERNEL_NEW_L2_TO_L1_MSGS_LENGTH, Fr.random);
 
     return L2Block.fromFields({
@@ -264,7 +264,7 @@ export class L2Block {
     /**
      * The L1 to L2 messages to be inserted into the L2 toL2 message tree.
      */
-    newL1ToL2Messages: Fr[];
+    newL1ToL2Messages: NewL1ToL2Messages;
   }) {
     return new this(
       fields.number,
@@ -328,7 +328,7 @@ export class L2Block {
       this.newContracts.length,
       this.newContracts,
       this.newContractData,
-      this.newL1ToL2Messages.length,
+      this.newL1ToL2Messages.encode(),
       this.newL1ToL2Messages,
     );
   }
@@ -372,7 +372,7 @@ export class L2Block {
     const newContracts = reader.readVector(Fr);
     const newContractData = reader.readArray(newContracts.length, ContractData);
     // TODO(sean): could an optimisation of this be that it is encoded such that zeros are assumed
-    const newL1ToL2Messages = reader.readVector(Fr);
+    const newL1ToL2Messages = reader.readObject(NewL1ToL2Messages);
 
     return L2Block.fromFields({
       number,
@@ -547,7 +547,7 @@ export class L2Block {
    */
   getL1ToL2MessagesHash(): Buffer {
     // Create a long buffer of all of the l1 to l2 messages
-    const l1ToL2Messages = Buffer.concat(this.newL1ToL2Messages.map(message => message.toBuffer()));
+    const l1ToL2Messages = Buffer.concat(this.newL1ToL2Messages.toBufferArray());
     return sha256(l1ToL2Messages);
   }
 
@@ -651,7 +651,7 @@ export class L2Block {
       `newContracts: ${inspectFrArray(this.newContracts)}`,
       `newContractData: ${inspectContractDataArray(this.newContractData)}`,
       `newPublicDataWrite: ${inspectPublicDataWriteArray(this.newPublicDataWrites)}`,
-      `newL1ToL2Messages: ${inspectFrArray(this.newL1ToL2Messages)}`,
+      `newL1ToL2Messages: ${this.newL1ToL2Messages.toString()}`,
     ].join('\n');
   }
 }
