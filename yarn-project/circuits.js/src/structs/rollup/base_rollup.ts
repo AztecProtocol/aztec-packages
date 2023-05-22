@@ -14,7 +14,7 @@ import {
   NULLIFIER_TREE_HEIGHT,
   PRIVATE_DATA_TREE_HEIGHT,
   PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT,
-  PUBLIC_DATA_TREE_HEIGHT
+  PUBLIC_DATA_TREE_HEIGHT,
 } from '../constants.js';
 import { PreviousKernelData } from '../kernel/previous_kernel_data.js';
 import { MembershipWitness } from '../membership_witness.js';
