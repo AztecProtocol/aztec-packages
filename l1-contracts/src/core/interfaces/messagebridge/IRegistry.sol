@@ -18,5 +18,5 @@ interface IRegistry {
     view
     returns (DataStructures.RegistrySnapshot memory);
 
-  function getLatestSnapshot() external view returns (DataStructures.RegistrySnapshot memory);
+  function getCurrentSnapshot() external view returns (DataStructures.RegistrySnapshot memory);
 }

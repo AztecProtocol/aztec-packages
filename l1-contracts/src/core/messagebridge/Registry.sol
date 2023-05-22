@@ -14,31 +14,56 @@ import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
  * @notice Keeps track of important information for L1<>L2 communication.
  */
 contract Registry is IRegistry {
-  uint256 public latestVersionNumber;
-  mapping(uint256 version => DataStructures.RegistrySnapshot snapshot) snapshots;
-  DataStructures.RegistrySnapshot latestSnapshot;
+  // starts with version 1. Incremented on each upgrade.
+  uint256 public currentVersion;
+  DataStructures.RegistrySnapshot internal currentSnapshot;
+  mapping(uint256 version => DataStructures.RegistrySnapshot snapshot) internal snapshots;
 
   // todo: this function has to be permissioned.
-  function upgrade(address _rollup, address _inbox, address _outbox) public {
-    latestVersionNumber++;
+  /**
+   * Creates a new snapshot of the registry
+   * @dev starts with version 1.
+   * @param _rollup - The address of the rollup contract
+   * @param _inbox - The address of the inbox contract
+   * @param _outbox - The address of the outbox contract
+   */
+  function upgrade(address _rollup, address _inbox, address _outbox) external {
+    currentVersion++;
     DataStructures.RegistrySnapshot memory newSnapshot =
       DataStructures.RegistrySnapshot(_rollup, _inbox, _outbox, block.number);
-    latestSnapshot = newSnapshot;
-    snapshots[latestVersionNumber] = newSnapshot;
+    currentSnapshot = newSnapshot;
+    snapshots[currentVersion] = newSnapshot;
   }
 
+  /**
+   * @notice Returns the rollup contract
+   * @return The rollup contract (of type IRollup)
+   */
   function getRollup() external view override returns (IRollup) {
-    return IRollup(latestSnapshot.rollup);
+    return IRollup(currentSnapshot.rollup);
   }
 
+  /**
+   * @notice Returns the inbox contract
+   * @return The inbox contract (of type IInbox)
+   */
   function getInbox() external view override returns (IInbox) {
-    return IInbox(latestSnapshot.inbox);
+    return IInbox(currentSnapshot.inbox);
   }
 
+  /**
+   * @notice Returns the outbox contract
+   * @return The outbox contract (of type IOutbox)
+   */
   function getOutbox() external view override returns (IOutbox) {
-    return IOutbox(latestSnapshot.outbox);
+    return IOutbox(currentSnapshot.outbox);
   }
 
+  /**
+   * Fetches a snapshot of the registry indicated by `version`
+   * @param _version - The version of the rollup to return (i.e. which snapshot)
+   * @return the snapshot
+   */
   function getSnapshot(uint256 _version)
     external
     view
@@ -48,12 +73,16 @@ contract Registry is IRegistry {
     return snapshots[_version];
   }
 
-  function getLatestSnapshot()
+  /**
+   * @notice Returns the current snapshot of the registry
+   * @return The current snapshot
+   */
+  function getCurrentSnapshot()
     external
     view
     override
     returns (DataStructures.RegistrySnapshot memory)
   {
-    return latestSnapshot;
+    return currentSnapshot;
   }
 }
