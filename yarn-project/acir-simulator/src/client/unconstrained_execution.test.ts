@@ -69,10 +69,9 @@ describe('Unconstrained Execution test suite', () => {
           count: preimages.length,
           notes: notes.map((preimage, index) => ({
             preimage,
-            membershipWitness: new MembershipWitness(
+            membershipWitness: MembershipWitness.empty(
               PRIVATE_DATA_TREE_HEIGHT, // pathSize
               BigInt(index), // leafIndex
-              Array(PRIVATE_DATA_TREE_HEIGHT).fill(Fr.ZERO), // siblingPath
             ),
           })),
         });

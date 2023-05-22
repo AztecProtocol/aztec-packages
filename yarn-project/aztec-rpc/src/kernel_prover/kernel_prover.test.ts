@@ -3,6 +3,7 @@ import {
   EcdsaSignature,
   MembershipWitness,
   PRIVATE_CALL_STACK_LENGTH,
+  PRIVATE_DATA_TREE_HEIGHT,
   PrivateCallStackItem,
   PrivateCircuitPublicInputs,
   KernelCircuitPublicInputs,
@@ -10,6 +11,7 @@ import {
   VK_TREE_HEIGHT,
   VerificationKey,
   makeEmptyProof,
+  READ_REQUESTS_LENGTH,
 } from '@aztec/circuits.js';
 import { makeTxRequest } from '@aztec/circuits.js/factories';
 import { mock } from 'jest-mock-extended';
@@ -48,7 +50,12 @@ describe('Kernel Prover', () => {
       nestedExecutions: (dependencies[fnName] || []).map(name => createExecutionResult(name)),
       vk: VerificationKey.makeFake().toBuffer(),
       preimages: { newNotes: newNoteIndices.map(idx => notes[idx]), nullifiedNotes: [] },
-      readRequestMembershipWitnesses: [],
+      readRequestMembershipWitnesses: Array(READ_REQUESTS_LENGTH).map(() =>
+        MembershipWitness.empty(
+          PRIVATE_DATA_TREE_HEIGHT, // pathSize
+          BigInt(0), // leafIndex
+        ),
+      ),
       returnValues: [],
       acir: Buffer.alloc(0),
       partialWitness: new Map(),

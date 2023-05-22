@@ -74,10 +74,9 @@ export class ClientTxExecutionContext {
       () =>
         ({
           preimage: createDummyNote(),
-          membershipWitness: new MembershipWitness(
+          membershipWitness: MembershipWitness.empty(
             PRIVATE_DATA_TREE_HEIGHT, // pathSize
             0n, // leafIndex
-            new Array(PRIVATE_DATA_TREE_HEIGHT).fill(Fr.ZERO), // siblingPath
           ),
         } as NoteLoadOracleInputs),
     );
