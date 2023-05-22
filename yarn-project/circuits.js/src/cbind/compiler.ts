@@ -264,7 +264,13 @@ export class CbindCompiler {
         let msgpackTypeName: string;
         if (msgpackName.startsWith('bin')) {
           msgpackTypeName = 'Buffer';
-        } else if (msgpackName === 'int' || msgpackName === 'unsigned int' || msgpackName === 'unsigned short') {
+        } else if (
+          msgpackName === 'int' ||
+          msgpackName === 'unsigned int' ||
+          msgpackName === 'unsigned short' ||
+          msgpackName === 'unsigned char' ||
+          msgpackName === 'char const'
+        ) {
           msgpackTypeName = 'number';
         } else {
           throw new Error('Unsupported alias type ' + msgpackName);
@@ -296,7 +302,9 @@ export class CbindCompiler {
         case 'int':
         case 'unsigned int':
         case 'unsigned short':
+        case 'unsigned char':
           return { typeName: 'number' };
+        case 'char const*':
         case 'string':
           return { typeName: 'string' };
         case 'bin32':
@@ -304,7 +312,7 @@ export class CbindCompiler {
       }
       const typeName = capitalize(camelCase(type));
       if (!this.typeInfos[typeName]) {
-        throw new Error('Unexpected type: ' + typeName + JSON.stringify(Object.keys(this.typeInfos)));
+        throw new Error('Unexpected type: ' + type);
       }
       return this.typeInfos[typeName];
     } else if (typeof type === 'object') {

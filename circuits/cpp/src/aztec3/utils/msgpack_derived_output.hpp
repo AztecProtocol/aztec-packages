@@ -22,7 +22,7 @@ inline void _msgpack_derived_output_helper(std::ostream& os,
     os << key << ": ";
     msgpack_derived_output(os, value);
     os << '\n';
-    _msgpack_derived_output_helper(os, rest...);
+    _msgpack_derived_output_helper(os, rest...);  // NOLINT
 }
 // Specialization if we have msgpack
 template <msgpack_concepts::HasMsgPack T> void msgpack_derived_output(std::ostream& os, const T& value)

@@ -19,7 +19,9 @@ export async function main() {
   for (const [key, value] of Object.entries(wasm.exports())) {
     if (typeof value === 'function' && key.endsWith('__schema')) {
       const cname = key.substring(0, key.length - '__schema'.length);
+      console.log(cname);
       compiler.processCbind(cname, getCbindSchema(wasm, cname));
+      console.log(cname, 2);
     }
   }
   writeFileSync(__dirname + '/circuits.gen.ts', compiler.compile());

@@ -4,6 +4,7 @@
 #include "tx_request.hpp"
 
 #include "aztec3/circuits/abis/new_contract_data.hpp"
+#include "aztec3/circuits/abis/rollup/base/base_rollup_inputs.hpp"
 #include "aztec3/circuits/abis/signed_tx_request.hpp"
 #include "aztec3/circuits/hash.hpp"
 
@@ -153,15 +154,7 @@ TEST(abi_tests, compute_function_leaf)
         .vk_hash = NT::fr::random_element(),
         .acir_hash = NT::fr::random_element(),
     };
-
-    // Write the leaf preimage to a buffer
-    std::vector<uint8_t> preimage_buf;
-    write(preimage_buf, preimage);
-
-    std::array<uint8_t, sizeof(NT::fr)> output = { 0 };
-    abis__compute_function_leaf(preimage_buf.data(), output.data());
-
-    NT::fr const got_leaf = NT::fr::serialize_from_buffer(output.data());
+    auto got_leaf = call_msgpack_cbind<NT::fr>(abis__compute_function_leaf, preimage);
     EXPECT_EQ(got_leaf, preimage.hash());
 }
 
@@ -333,4 +326,8 @@ TEST(abi_tests, compute_transaction_hash)
     EXPECT_EQ(got_tx_hash, preimage.hash());
 }
 
+TEST(abi_tests, cbind_schema_BaseRollupInputs)
+{
+    EXPECT_EQ(msgpack_schema_to_string(BaseRollupInputs<NT>{}), "");  // smoke test
+}
 }  // namespace aztec3::circuits::abis

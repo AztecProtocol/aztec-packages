@@ -25,6 +25,8 @@ template <typename NCT> struct PrivateInputs {
     PreviousKernelData<NCT> previous_kernel{};
     PrivateCallData<NCT> private_call{};
 
+    // for serialization, update with new fields
+    MSGPACK_FIELDS(signed_tx_request, previous_kernel, private_call);
     boolean operator==(PrivateInputs<NCT> const& other) const
     {
         return signed_tx_request == other.signed_tx_request && previous_kernel == other.previous_kernel &&
@@ -44,24 +46,6 @@ template <typename NCT> struct PrivateInputs {
 
         return private_inputs;
     };
-};
-
-template <typename NCT> void read(uint8_t const*& it, PrivateInputs<NCT>& private_inputs)
-{
-    using serialize::read;
-
-    read(it, private_inputs.signed_tx_request);
-    read(it, private_inputs.previous_kernel);
-    read(it, private_inputs.private_call);
-};
-
-template <typename NCT> void write(std::vector<uint8_t>& buf, PrivateInputs<NCT> const& private_inputs)
-{
-    using serialize::write;
-
-    write(buf, private_inputs.signed_tx_request);
-    write(buf, private_inputs.previous_kernel);
-    write(buf, private_inputs.private_call);
 };
 
 template <typename NCT> std::ostream& operator<<(std::ostream& os, PrivateInputs<NCT> const& private_inputs)

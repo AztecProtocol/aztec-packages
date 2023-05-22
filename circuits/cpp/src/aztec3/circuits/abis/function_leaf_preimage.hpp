@@ -35,6 +35,8 @@ template <typename NCT> struct FunctionLeafPreimage {
     fr vk_hash = 0;
     fr acir_hash = 0;
 
+    // for serialization, update with new fields
+    MSGPACK_FIELDS(function_selector, is_private, vk_hash, acir_hash);
     boolean operator==(FunctionLeafPreimage<NCT> const& other) const
     {
         return function_selector == other.function_selector && is_private == other.is_private &&
@@ -93,26 +95,6 @@ template <typename NCT> struct FunctionLeafPreimage {
         };
         return NCT::compress(inputs, GeneratorIndex::FUNCTION_LEAF);
     }
-};
-
-template <typename NCT> void read(uint8_t const*& it, FunctionLeafPreimage<NCT>& preimage)
-{
-    using serialize::read;
-
-    read(it, preimage.function_selector);
-    read(it, preimage.is_private);
-    read(it, preimage.vk_hash);
-    read(it, preimage.acir_hash);
-};
-
-template <typename NCT> void write(std::vector<uint8_t>& buf, FunctionLeafPreimage<NCT> const& preimage)
-{
-    using serialize::write;
-
-    write(buf, preimage.function_selector);
-    write(buf, preimage.is_private);
-    write(buf, preimage.vk_hash);
-    write(buf, preimage.acir_hash);
 };
 
 template <typename NCT> std::ostream& operator<<(std::ostream& os, FunctionLeafPreimage<NCT> const& preimage)

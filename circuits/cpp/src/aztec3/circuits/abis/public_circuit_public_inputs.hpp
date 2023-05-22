@@ -6,6 +6,7 @@
 #include "../../constants.hpp"
 
 #include "aztec3/utils/array.hpp"
+#include "aztec3/utils/msgpack_derived_equals.hpp"
 #include "aztec3/utils/msgpack_derived_output.hpp"
 #include "aztec3/utils/types/circuit_types.hpp"
 #include "aztec3/utils/types/native_types.hpp"
@@ -53,7 +54,10 @@ template <typename NCT> struct PublicCircuitPublicInputs {
                    new_l2_to_l1_msgs,
                    historic_public_data_tree_root,
                    prover_address);
-    boolean operator==(PublicCircuitPublicInputs<NCT> const& other) const = default;
+    boolean operator==(PublicCircuitPublicInputs<NCT> const& other) const
+    {
+        return msgpack_derived_equals<boolean>(*this, other);
+    }
 
     template <typename Composer>
     PublicCircuitPublicInputs<CircuitTypes<Composer>> to_circuit_type(Composer& composer) const

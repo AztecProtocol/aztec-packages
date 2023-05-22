@@ -73,47 +73,39 @@ template <size_t TREE_HEIGHT> void rightfill_with_zeroleaves(std::vector<NT::fr>
 }
 
 }  // namespace
-//
-//// Note: We don't have a simple way of calling the barretenberg c-bind.
-//// Mimick bbmalloc behaviour.
-// static void* bbmalloc(size_t size)
-//{
-//     auto* ptr = aligned_alloc(64, size);
-//     return ptr;
-// }
-//
-///** Copy this string to a bbmalloc'd buffer */
-// static const char* bbmalloc_copy_string(const char* data, size_t len)
-//{
-//     char* output_copy = static_cast<char*>(bbmalloc(len + 1));
-//     memcpy(output_copy, data, len + 1);
-//     return output_copy;
-// }
-//
-///**
-// * For testing only. Take this object, write it to a buffer, then output it. */
-// template <typename T> static const char* as_string_output(uint8_t const* input_buf, uint32_t* size)
-//{
-//    T obj;
-//    read(input_buf, obj);
-//    std::ostringstream stream;
-//    stream << obj;
-//    std::string const str = stream.str();
-//    *size = static_cast<uint32_t>(str.size());
-//    return bbmalloc_copy_string(str.c_str(), *size);
-//}
-//
-///**
-// * For testing only. Take this object, serialize it to a buffer, then output it. */
-// template <typename T> static const char* as_serialized_output(uint8_t const* input_buf, uint32_t* size)
-//{
-//    T obj;
-//    read(input_buf, obj);
-//    std::vector<uint8_t> stream;
-//    write(stream, obj);
-//    *size = static_cast<uint32_t>(stream.size());
-//    return bbmalloc_copy_string(reinterpret_cast<char*>(stream.data()), *size);
-//}
+
+// Note: We don't have a simple way of calling the barretenberg c-bind.
+// Mimick bbmalloc behaviour.
+static void* bbmalloc(size_t size)
+{
+    auto* ptr = aligned_alloc(64, size);
+    return ptr;
+}
+
+/** Copy this string to a bbmalloc'd buffer */
+static const char* bbmalloc_copy_string(const char* data, size_t len)
+{
+    char* output_copy = static_cast<char*>(bbmalloc(len + 1));
+    memcpy(output_copy, data, len + 1);
+    return output_copy;
+}
+
+/**
+ * For testing only. Take this object, write it to a buffer, then output it. */
+template <typename T> static const char* as_string_output(T obj)
+{
+    std::ostringstream stream;
+    stream << obj;
+    std::string const str = stream.str();
+    return bbmalloc_copy_string(str.c_str(), str.size());
+}
+
+/**
+ * For testing only. Now with msgpack, this is the identity (x => x) function. */
+template <typename T> T as_serialized_output(T obj)
+{
+    return obj;
+}
 
 // WASM Cbinds
 /**
@@ -122,7 +114,6 @@ template <size_t TREE_HEIGHT> void rightfill_with_zeroleaves(std::vector<NT::fr>
 CBIND(abis__hash_tx_request, [](TxRequest<NT> tx_request) { return tx_request.hash(); })
 
 /**
- * @brief Generates a function's "selector" from its "signature" using keccak256.
  * This is a WASM-export that can be called from Typescript.
  *
  * @details given a `char const*` c-string representing a "function signature",
@@ -171,22 +162,8 @@ WASM_EXPORT void abis__hash_vk(uint8_t const* vk_data_buf, uint8_t* output)
 /**
  * @brief Generates a function tree leaf from its preimage.
  * This is a WASM-export that can be called from Typescript.
- *
- * @details given a `uint8_t const*` buffer representing a function leaf's prieimage,
- * construct a FunctionLeafPreimage instance, hash, and return the serialized results
- * in the `output` buffer.
- *
- * @param function_leaf_preimage_buf a buffer of bytes representing the function leaf's preimage
- * contents (`function_selector`, `is_private`, `vk_hash`, and `acir_hash`)
- * @param output buffer that will contain the output. The hashed and serialized function leaf.
  */
-WASM_EXPORT void abis__compute_function_leaf(uint8_t const* function_leaf_preimage_buf, uint8_t* output)
-{
-    FunctionLeafPreimage<NT> leaf_preimage;
-    read(function_leaf_preimage_buf, leaf_preimage);
-    leaf_preimage.hash();
-    NT::fr::serialize_to_buffer(leaf_preimage.hash(), output);
-}
+CBIND(abis__compute_function_leaf, [](FunctionLeafPreimage<NT> leaf_preimage) { return leaf_preimage.hash(); })
 
 /**
  * @brief Compute a function tree root from its nonzero leaves.
@@ -328,122 +305,37 @@ WASM_EXPORT void abis__compute_message_secret_hash(uint8_t const* secret, uint8_
     NT::fr::serialize_to_buffer(secret_hash, output);
 }
 
-///* Typescript test helpers that call as_string_output() to stress serialization.
-// * Each of these take an object buffer, and a string size pointer.
-// * They return a string pointer (to be bbfree'd) and write to the string size pointer. */
-// WASM_EXPORT const char* abis__test_roundtrip_serialize_tx_context(uint8_t const* tx_context_buf, uint32_t* size)
-//{
-//    return as_string_output<TxContext<NT>>(tx_context_buf, size);
-//}
-//
-// WASM_EXPORT const char* abis__test_roundtrip_serialize_tx_request(uint8_t const* tx_request_buf, uint32_t* size)
-//{
-//    return as_string_output<TxRequest<NT>>(tx_request_buf, size);
-//}
-//
-// WASM_EXPORT const char* abis__test_roundtrip_serialize_call_context(uint8_t const* call_context_buf, uint32_t* size)
-//{
-//    return as_string_output<aztec3::circuits::abis::CallContext<NT>>(call_context_buf, size);
-//}
-//
-// WASM_EXPORT const char* abis__test_roundtrip_serialize_private_circuit_public_inputs(
-//    uint8_t const* private_circuits_public_inputs_buf, uint32_t* size)
-//{
-//    return
-//    as_string_output<aztec3::circuits::abis::PrivateCircuitPublicInputs<NT>>(private_circuits_public_inputs_buf,
-//                                                                                    size);
-//}
-//
-// WASM_EXPORT const char* abis__test_roundtrip_serialize_function_data(uint8_t const* function_data_buf, uint32_t*
-// size)
-//{
-//    return as_string_output<aztec3::circuits::abis::FunctionData<NT>>(function_data_buf, size);
-//}
-
-// WASM_EXPORT const char* abis__test_roundtrip_serialize_base_rollup_inputs(uint8_t const* rollup_inputs_buf,
-//                                                                           uint32_t* size)
-//{
-//     return as_string_output<aztec3::circuits::abis::BaseRollupInputs<NT>>(rollup_inputs_buf, size);
-// }
-
-// WASM_EXPORT const char* abis__test_roundtrip_serialize_previous_kernel_data(uint8_t const* kernel_data_buf,
-//                                                                             uint32_t* size)
-//{
-//     return as_string_output<aztec3::circuits::abis::PreviousKernelData<NT>>(kernel_data_buf, size);
-// }
-//
-// WASM_EXPORT const char* abis__test_roundtrip_serialize_base_or_merge_rollup_public_inputs(
-//     uint8_t const* rollup_inputs_buf, uint32_t* size)
-//{
-//     return as_string_output<aztec3::circuits::abis::BaseOrMergeRollupPublicInputs<NT>>(rollup_inputs_buf, size);
-// }
-//
-// WASM_EXPORT const char* abis__test_roundtrip_reserialize_base_or_merge_rollup_public_inputs(
-//     uint8_t const* rollup_inputs_buf, uint32_t* size)
-//{
-//     return as_serialized_output<aztec3::circuits::abis::BaseOrMergeRollupPublicInputs<NT>>(rollup_inputs_buf, size);
-// }
-//
-// WASM_EXPORT const char* abis__test_roundtrip_serialize_root_rollup_inputs(uint8_t const* rollup_inputs_buf,
-//                                                                           uint32_t* size)
-//{
-//     return as_string_output<aztec3::circuits::abis::RootRollupInputs<NT>>(rollup_inputs_buf, size);
-// }
-//
-// WASM_EXPORT const char* abis__test_roundtrip_serialize_root_rollup_public_inputs(uint8_t const* rollup_inputs_buf,
-//                                                                                  uint32_t* size)
-//{
-//     return as_string_output<aztec3::circuits::abis::RootRollupPublicInputs<NT>>(rollup_inputs_buf, size);
-// }
-//
-// WASM_EXPORT const char* abis__test_roundtrip_reserialize_root_rollup_public_inputs(uint8_t const* rollup_inputs_buf,
-//                                                                                    uint32_t* size)
-//{
-//     return as_serialized_output<aztec3::circuits::abis::RootRollupPublicInputs<NT>>(rollup_inputs_buf, size);
-// }
-//
-// WASM_EXPORT const char* abis__test_roundtrip_serialize_combined_accumulated_data(uint8_t const* input, uint32_t*
-// size)
-//{
-//     return as_string_output<aztec3::circuits::abis::CombinedAccumulatedData<NT>>(input, size);
-// }
-//
-// WASM_EXPORT const char* abis__test_roundtrip_serialize_signature(uint8_t const* input, uint32_t* size)
-//{
-//     return as_string_output<NT::ecdsa_signature>(input, size);
-// }
-//
-// WASM_EXPORT const char* abis__test_roundtrip_serialize_signed_tx_request(uint8_t const* input, uint32_t* size)
-//{
-//     return as_string_output<aztec3::circuits::abis::SignedTxRequest<NT>>(input, size);
-// }
-//
-// WASM_EXPORT const char* abis__test_roundtrip_serialize_private_kernel_inputs(uint8_t const* input, uint32_t* size)
-//{
-//     return as_string_output<aztec3::circuits::abis::private_kernel::PrivateInputs<NT>>(input, size);
-// }
-//
-// WASM_EXPORT const char* abis__test_roundtrip_serialize_kernel_circuit_public_inputs(uint8_t const* input,
-//                                                                                     uint32_t* size)
-//{
-//     return as_string_output<aztec3::circuits::abis::KernelCircuitPublicInputs<NT>>(input, size);
-// }
-//
-// WASM_EXPORT const char* abis__test_roundtrip_serialize_public_kernel_inputs(uint8_t const* input, uint32_t* size)
-//{
-//     return as_string_output<aztec3::circuits::abis::public_kernel::PublicKernelInputs<NT>>(input, size);
-// }
-//
-// WASM_EXPORT const char* abis__test_roundtrip_serialize_public_kernel_inputs_no_previous_kernel(uint8_t const* input,
-//                                                                                                uint32_t* size)
-//{
-//     return as_string_output<aztec3::circuits::abis::public_kernel::PublicKernelInputsNoPreviousKernel<NT>>(input,
-//     size);
-// }
-//
-// WASM_EXPORT const char* abis__test_roundtrip_serialize_function_leaf_preimage(uint8_t const*
-// function_leaf_preimage_buf,
-//                                                                               uint32_t* size)
-//{
-//     return as_string_output<aztec3::circuits::abis::FunctionLeafPreimage<NT>>(function_leaf_preimage_buf, size);
-// }
+/* Typescript test helpers that call as_string_output() to stress serialization.*/
+CBIND(abis__test_roundtrip_serialize_tx_request, as_string_output<TxRequest<NT>>);
+CBIND(abis__test_roundtrip_serialize_call_context, as_string_output<aztec3::circuits::abis::CallContext<NT>>);
+CBIND(abis__test_roundtrip_serialize_private_circuit_public_inputs,
+      as_string_output<aztec3::circuits::abis::PrivateCircuitPublicInputs<NT>>);
+CBIND(abis__test_roundtrip_serialize_function_data, as_string_output<aztec3::circuits::abis::FunctionData<NT>>);
+CBIND(abis__test_roundtrip_serialize_previous_kernel_data,
+      as_string_output<aztec3::circuits::abis::PreviousKernelData<NT>>);
+CBIND(abis__test_roundtrip_serialize_base_or_merge_rollup_public_inputs,
+      as_string_output<aztec3::circuits::abis::BaseOrMergeRollupPublicInputs<NT>>);
+CBIND(abis__test_roundtrip_reserialize_base_or_merge_rollup_public_inputs,
+      as_serialized_output<aztec3::circuits::abis::BaseOrMergeRollupPublicInputs<NT>>);
+CBIND(abis__test_roundtrip_serialize_root_rollup_inputs,
+      as_string_output<aztec3::circuits::abis::RootRollupInputs<NT>>);
+CBIND(abis__test_roundtrip_serialize_root_rollup_public_inputs,
+      as_string_output<aztec3::circuits::abis::RootRollupPublicInputs<NT>>);
+CBIND(abis__test_roundtrip_reserialize_root_rollup_public_inputs,
+      as_serialized_output<aztec3::circuits::abis::RootRollupPublicInputs<NT>>);
+CBIND(abis__test_roundtrip_serialize_combined_accumulated_data,
+      as_string_output<aztec3::circuits::abis::CombinedAccumulatedData<NT>>);
+CBIND(abis__test_roundtrip_serialize_signature, as_string_output<NT::ecdsa_signature>);
+CBIND(abis__test_roundtrip_serialize_signed_tx_request, as_string_output<aztec3::circuits::abis::SignedTxRequest<NT>>);
+CBIND(abis__test_roundtrip_serialize_private_kernel_inputs,
+      as_string_output<aztec3::circuits::abis::private_kernel::PrivateInputs<NT>>);
+CBIND(abis__test_roundtrip_serialize_kernel_circuit_public_inputs,
+      as_string_output<aztec3::circuits::abis::KernelCircuitPublicInputs<NT>>);
+CBIND(abis__test_roundtrip_serialize_public_kernel_inputs,
+      as_string_output<aztec3::circuits::abis::public_kernel::PublicKernelInputs<NT>>);
+CBIND(abis__test_roundtrip_serialize_public_kernel_inputs_no_previous_kernel,
+      as_string_output<aztec3::circuits::abis::public_kernel::PublicKernelInputsNoPreviousKernel<NT>>);
+CBIND(abis__test_roundtrip_serialize_function_leaf_preimage,
+      as_string_output<aztec3::circuits::abis::FunctionLeafPreimage<NT>>);
+CBIND(abis__test_roundtrip_serialize_base_rollup_inputs,
+      as_string_output<aztec3::circuits::abis::BaseRollupInputs<NT>>);

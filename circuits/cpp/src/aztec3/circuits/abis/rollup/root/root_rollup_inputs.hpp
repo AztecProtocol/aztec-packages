@@ -50,7 +50,8 @@ template <typename NCT> struct RootRollupInputs {
 
 template <typename NCT> std::ostream& operator<<(std::ostream& os, RootRollupInputs<NCT> const& obj)
 {
-    return utils::msgpack_derived_output(os, obj);
+    utils::msgpack_derived_output(os, obj);
+    return os;
 }
 
 }  // namespace aztec3::circuits::abis
