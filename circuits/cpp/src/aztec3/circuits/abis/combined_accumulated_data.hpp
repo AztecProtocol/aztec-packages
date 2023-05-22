@@ -21,6 +21,7 @@ using std::is_same;
 
 template <typename NCT> struct CombinedAccumulatedData {
     using fr = typename NCT::fr;
+    using uint32 = typename NCT::uint32;
     using boolean = typename NCT::boolean;
     using AggregationObject = typename NCT::AggregationObject;
 
@@ -35,6 +36,15 @@ template <typename NCT> struct CombinedAccumulatedData {
         zero_array<fr, KERNEL_PUBLIC_CALL_STACK_LENGTH>();
     std::array<fr, KERNEL_NEW_L2_TO_L1_MSGS_LENGTH> new_l2_to_l1_msgs =
         zero_array<fr, KERNEL_NEW_L2_TO_L1_MSGS_LENGTH>();
+
+    // sha256 hash of the log preimages (in two fields to accomodate all 256-bits of the hash)
+    std::array<fr, 2> encrypted_logs_hash = zero_array<fr, 2>();
+    std::array<fr, 2> unencrypted_logs_hash = zero_array<fr, 2>();
+
+    // Here so that the gas cost of this request can be measured by circuits, without actually needing to feed in the
+    // variable-length data.
+    uint32 encrypted_log_preimages_length = 0;
+    uint32 unencrypted_log_preimages_length = 0;
 
     std::array<NewContractData<NCT>, KERNEL_NEW_CONTRACTS_LENGTH> new_contracts{};
 
