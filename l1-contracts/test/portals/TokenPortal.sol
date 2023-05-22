@@ -37,7 +37,7 @@ contract TokenPortal {
   {
     // Preamble
     // @todo: (issue #624) handle different versions
-    IInbox inbox = registry.getLatestInbox();
+    IInbox inbox = registry.getInbox();
     DataStructures.L2Actor memory actor = DataStructures.L2Actor(l2TokenAddress, 1);
 
     // Hash the message content to be reconstructed in the receiving contract

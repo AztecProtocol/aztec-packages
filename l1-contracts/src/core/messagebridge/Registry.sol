@@ -15,23 +15,45 @@ import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
  */
 contract Registry is IRegistry {
   uint256 public latestVersionNumber;
-  mapping(uint256 version => DataStructures.Snapshot snapshot) public snapshots;
+  mapping(uint256 version => DataStructures.RegistrySnapshot snapshot) snapshots;
+  DataStructures.RegistrySnapshot latestSnapshot;
 
   // todo: this function has to be permissioned.
   function upgrade(address _rollup, address _inbox, address _outbox) public {
     latestVersionNumber++;
-    snapshots[latestVersionNumber] = DataStructures.Snapshot(_rollup, _inbox, _outbox, block.number);
+    DataStructures.RegistrySnapshot memory newSnapshot =
+      DataStructures.RegistrySnapshot(_rollup, _inbox, _outbox, block.number);
+    latestSnapshot = newSnapshot;
+    snapshots[latestVersionNumber] = newSnapshot;
   }
 
-  function getLatestRollup() external view override returns (IRollup) {
-    return IRollup(snapshots[latestVersionNumber].rollup);
+  function getRollup() external view override returns (IRollup) {
+    return IRollup(latestSnapshot.rollup);
   }
 
-  function getLatestInbox() external view override returns (IInbox) {
-    return IInbox(snapshots[latestVersionNumber].inbox);
+  function getInbox() external view override returns (IInbox) {
+    return IInbox(latestSnapshot.inbox);
   }
 
-  function getLatestOutbox() external view override returns (IOutbox) {
-    return IOutbox(snapshots[latestVersionNumber].outbox);
+  function getOutbox() external view override returns (IOutbox) {
+    return IOutbox(latestSnapshot.outbox);
+  }
+
+  function getSnapshot(uint256 _version)
+    external
+    view
+    override
+    returns (DataStructures.RegistrySnapshot memory)
+  {
+    return snapshots[_version];
+  }
+
+  function getLatestSnapshot()
+    external
+    view
+    override
+    returns (DataStructures.RegistrySnapshot memory)
+  {
+    return latestSnapshot;
   }
 }

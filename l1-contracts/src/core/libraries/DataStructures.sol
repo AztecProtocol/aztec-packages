@@ -71,7 +71,7 @@ library DataStructures {
    * @param outbox - The address of the outbox contract
    * @param blockNumber - The block number of the snapshot
    */
-  struct Snapshot {
+  struct RegistrySnapshot {
     address rollup;
     address inbox;
     address outbox;

@@ -7,9 +7,16 @@ import {IInbox} from "./IInbox.sol";
 import {IOutbox} from "./IOutbox.sol";
 
 interface IRegistry {
-  function getLatestRollup() external view returns (IRollup);
+  function getRollup() external view returns (IRollup);
 
-  function getLatestInbox() external view returns (IInbox);
+  function getInbox() external view returns (IInbox);
 
-  function getLatestOutbox() external view returns (IOutbox);
+  function getOutbox() external view returns (IOutbox);
+
+  function getSnapshot(uint256 _version)
+    external
+    view
+    returns (DataStructures.RegistrySnapshot memory);
+
+  function getLatestSnapshot() external view returns (DataStructures.RegistrySnapshot memory);
 }
