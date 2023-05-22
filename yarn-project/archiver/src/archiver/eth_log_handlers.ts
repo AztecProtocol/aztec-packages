@@ -1,16 +1,44 @@
 import { Hex, Log, PublicClient, decodeFunctionData, getAbiItem, getAddress, hexToBytes } from 'viem';
-import { RollupAbi, UnverifiedDataEmitterAbi } from '@aztec/l1-artifacts';
+import { InboxAbi, RollupAbi, UnverifiedDataEmitterAbi } from '@aztec/l1-artifacts';
+import { Fr } from '@aztec/foundation/fields';
 import {
   BufferReader,
   ContractData,
   ContractPublicData,
   EncodedContractFunction,
+  L1ToL2Message,
+  L1Actor,
+  L2Actor,
   L2Block,
   UnverifiedData,
 } from '@aztec/types';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 
+/**
+ * Processes newly received MessageAdded (L1 to L2) logs.
+ * @param logs - MessageAdded logs.
+ * @returns Array of all Pending L1 to L2 messages that were processed
+ */
+export function processPendingL1ToL2MessageAddedLogs(
+  logs: Log<bigint, number, undefined, typeof InboxAbi, 'MessageAdded'>[],
+): L1ToL2Message[] {
+  const l1ToL2Messages: L1ToL2Message[] = [];
+  for (const log of logs) {
+    l1ToL2Messages.push(
+      new L1ToL2Message(
+        new L1Actor(EthAddress.fromString(log.args.sender), Number(log.args.senderChainId)),
+        new L2Actor(AztecAddress.fromString(log.args.recipient), Number(log.args.recipientVersion)),
+        Fr.fromString(log.args.content),
+        Fr.fromString(log.args.secretHash),
+        log.args.deadline,
+        Number(log.args.fee),
+        Fr.fromString(log.args.entryKey),
+      ),
+    );
+  }
+  return l1ToL2Messages;
+}
 /**
  * Processes newly received UnverifiedData logs.
  * @param logs - ContractDeployment logs.
@@ -182,6 +210,29 @@ export async function getContractDeploymentLogs(
   });
   return await publicClient.getLogs({
     address: getAddress(unverifiedDataEmitterAddress.toString()),
+    event: abiItem,
+    fromBlock,
+  });
+}
+
+/**
+ * Get relevant `MessageAdded` logs emitted by Inbox on chain.
+ * @param publicClient - The viem public client to use for transaction retrieval.
+ * @param inboxAddress - The address of the inbox contract.
+ * @param fromBlock - First block to get logs from (inclusive).
+ * @returns
+ */
+export async function getPendingL1ToL2MessageLogs(
+  publicClient: PublicClient,
+  inboxAddress: EthAddress,
+  fromBlock: bigint,
+): Promise<any[]> {
+  const abiItem = getAbiItem({
+    abi: InboxAbi,
+    name: 'MessageAdded',
+  });
+  return await publicClient.getLogs({
+    address: getAddress(inboxAddress.toString()),
     event: abiItem,
     fromBlock,
   });
