@@ -6,12 +6,12 @@ import { createDebugLogger } from '@aztec/foundation/log';
 
 const logger = createDebugLogger('aztec:rollup_provider');
 
-const { PORT = 9000 } = process.env;
+const { SERVER_PORT = 9000 } = process.env;
 
 async function main() {
   logger('Server started...');
   const aztecNodeConfig: AztecNodeConfig = getConfigEnvVars();
-  const node = await AztecNodeService.createAndSyncP2P(aztecNodeConfig);
+  const node = await AztecNodeService.createAndSync(aztecNodeConfig);
 
   const shutdown = async () => {
     await node.stop();
@@ -24,8 +24,8 @@ async function main() {
   const app = appFactory(node, '');
 
   const httpServer = http.createServer(app.callback());
-  httpServer.listen(PORT);
-  logger(`Server listening on port ${PORT}.`);
+  httpServer.listen(SERVER_PORT);
+  logger(`Server listening on port ${SERVER_PORT}.`);
 }
 
 main().catch(err => {

@@ -121,8 +121,8 @@ export class P2PClient implements P2P {
    */
   constructor(
     private l2BlockSource: L2BlockSource,
-    private txPool: TxPool = new InMemoryTxPool(),
-    private p2pService: P2PService = new DummyP2PService(),
+    private txPool: TxPool,
+    private p2pService: P2PService,
     private log = createDebugLogger('aztec:p2p'),
   ) {
     const { checkInterval, l2QueueSize } = getP2PConfigEnvVars();

@@ -3,6 +3,11 @@
  */
 export interface P2PConfig {
   /**
+   * A flag dictating whether the P2P subsystem should be enabled.
+   */
+  p2pEnabled: boolean;
+
+  /**
    * The frequency in which to check.
    */
   checkInterval: number;
@@ -64,11 +69,12 @@ export interface P2PConfig {
  */
 export function getP2PConfigEnvVars(): P2PConfig {
   const {
+    P2P_ENABLED,
     P2P_CHECK_INTERVAL,
     P2P_L2_BLOCK_QUEUE_SIZE,
     P2P_TCP_LISTEN_PORT,
     P2P_TCP_LISTEN_IP,
-    PEER_ID,
+    PEER_ID_PRIVATE_KEY,
     BOOTSTRAP_NODES,
     P2P_ANNOUNCE_HOSTNAME,
     P2P_ANNOUNCE_PORT,
@@ -76,11 +82,12 @@ export function getP2PConfigEnvVars(): P2PConfig {
     P2P_NAT_ENABLED,
   } = process.env;
   const envVars: P2PConfig = {
+    p2pEnabled: P2P_ENABLED === 'true',
     checkInterval: P2P_CHECK_INTERVAL ? +P2P_CHECK_INTERVAL : 100,
     l2QueueSize: P2P_L2_BLOCK_QUEUE_SIZE ? +P2P_L2_BLOCK_QUEUE_SIZE : 1000,
     tcpListenPort: P2P_TCP_LISTEN_PORT ? +P2P_TCP_LISTEN_PORT : 0,
     tcpListenIp: P2P_TCP_LISTEN_IP ? P2P_TCP_LISTEN_IP : '0.0.0.0',
-    peerIdPrivateKey: PEER_ID,
+    peerIdPrivateKey: PEER_ID_PRIVATE_KEY,
     bootstrapNodes: BOOTSTRAP_NODES ? BOOTSTRAP_NODES.split(',') : [],
     transactionProtocol: '',
     announceHostname: P2P_ANNOUNCE_HOSTNAME,

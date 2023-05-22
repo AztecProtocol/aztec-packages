@@ -9,7 +9,7 @@ import {
   MerkleTreeId,
 } from '@aztec/types';
 import { SiblingPath } from '@aztec/merkle-tree';
-import { InMemoryTxPool, LibP2PService, P2P, P2PClient } from '@aztec/p2p';
+import { InMemoryTxPool, P2P, createP2PClient } from '@aztec/p2p';
 import { SequencerClient, getCombinedHistoricTreeRoots } from '@aztec/sequencer-client';
 import { Tx, TxHash } from '@aztec/types';
 import { UnverifiedData, UnverifiedDataSource } from '@aztec/types';
@@ -51,50 +51,12 @@ export class AztecNodeService implements AztecNode {
     // first create and sync the archiver
     const archiver = await Archiver.createAndSync(config);
 
-    // give the block source to the P2P network
-    const p2pClient = new P2PClient(archiver);
-
-    // now create the merkle trees and the world state syncher
-    const merkleTreeDB = await MerkleTrees.new(levelup(createMemDown()), await CircuitsWasm.get());
-    const worldStateSynchroniser = new ServerWorldStateSynchroniser(merkleTreeDB, archiver);
-
-    // start both and wait for them to sync from the block source
-    await Promise.all([p2pClient.start(), worldStateSynchroniser.start()]);
-
-    // now create the sequencer
-    const sequencer = await SequencerClient.new(config, p2pClient, worldStateSynchroniser, archiver, archiver);
-    return new AztecNodeService(
-      p2pClient,
-      archiver,
-      archiver,
-      archiver,
-      merkleTreeDB,
-      worldStateSynchroniser,
-      sequencer,
-    );
-  }
-
-  /**
-   * Initialises the Aztec Node, wait for component to sync.
-   * @param config - The configuration to be used by the aztec node.
-   * @returns - A fully synced Aztec Node for use in development/testing.
-   */
-  public static async createAndSyncP2P(config: AztecNodeConfig) {
-    // first create and sync the archiver
-    const archiver = await Archiver.createAndSync(config);
-
     // we idenfity the P2P transaction protocol by using the rollup contract address.
     // this may well change in future
     config.transactionProtocol = `/aztec/tx/${config.rollupContract.toString()}`;
 
-    // create the tx pool
-    const txPool = new InMemoryTxPool();
-
-    // create the P2P network service
-    const p2pNetwork = await LibP2PService.new(config, txPool);
-
-    // give the block source to the P2P network
-    const p2pClient = new P2PClient(archiver, txPool, p2pNetwork);
+    // create the tx pool and the p2p client, which will need the l2 block source
+    const p2pClient = await createP2PClient(config, new InMemoryTxPool(), archiver);
 
     // now create the merkle trees and the world state syncher
     const merkleTreeDB = await MerkleTrees.new(levelup(createMemDown()), await CircuitsWasm.get());
