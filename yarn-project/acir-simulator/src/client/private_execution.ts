@@ -137,7 +137,7 @@ export class PrivateFunctionExecution {
         toACVMField(await this.context.db.getSecretKey(this.contractAddress, frToAztecAddress(fromACVMField(address)))),
       ],
       getNotes2: async ([storageSlot]: ACVMField[]) => {
-        const { preimages, membershipWitnesses } = await this.context.getNotes(this.contractAddress, storageSlot, 2)
+        const { preimages, membershipWitnesses } = await this.context.getNotes(this.contractAddress, storageSlot, 2);
         readRequestMembershipWitnesses.push(...membershipWitnesses);
         return preimages;
       },

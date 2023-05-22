@@ -1,12 +1,6 @@
 import { DBOracle, MessageLoadOracleInputs } from '@aztec/acir-simulator';
 import { AztecNode } from '@aztec/aztec-node';
-import {
-  AztecAddress,
-  EthAddress,
-  Fr,
-  MembershipWitness,
-  PRIVATE_DATA_TREE_HEIGHT
-} from '@aztec/circuits.js';
+import { AztecAddress, EthAddress, Fr, MembershipWitness, PRIVATE_DATA_TREE_HEIGHT } from '@aztec/circuits.js';
 import { KeyPair } from '@aztec/key-store';
 import { FunctionAbi } from '@aztec/foundation/abi';
 import { ContractDataOracle } from '../contract_data_oracle/index.js';

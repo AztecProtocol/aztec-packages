@@ -34,10 +34,13 @@ export class ClientTxExecutionContext {
   public async getNotes(contractAddress: AztecAddress, storageSlot: ACVMField, limit: number) {
     const { count, notes } = await this.fetchNotes(contractAddress, storageSlot, limit);
 
-    const preimages = [toACVMField(count), ...notes.flatMap(noteGetData => noteGetData.preimage.map(f => toACVMField(f)))];
+    const preimages = [
+      toACVMField(count),
+      ...notes.flatMap(noteGetData => noteGetData.preimage.map(f => toACVMField(f))),
+    ];
     const membershipWitnesses = notes.map(noteGetData => noteGetData.membershipWitness);
 
-    return {preimages, membershipWitnesses};
+    return { preimages, membershipWitnesses };
   }
 
   /**
@@ -66,14 +69,18 @@ export class ClientTxExecutionContext {
   private async fetchNotes(contractAddress: AztecAddress, storageSlot: ACVMField, limit: number, offset = 0) {
     const { count, notes } = await this.db.getNotes(contractAddress, fromACVMField(storageSlot), limit, offset);
 
-    const dummyNotes = Array.from({ length: Math.max(0, limit - notes.length) }, () => ({
-      preimage: createDummyNote(),
-      membershipWitness: new MembershipWitness(
-        PRIVATE_DATA_TREE_HEIGHT, // pathSize
-        0n, // leafIndex
-        new Array(PRIVATE_DATA_TREE_HEIGHT).fill(Fr.ZERO), // siblingPath
-      ),
-    } as NoteLoadOracleInputs));
+    const dummyNotes = Array.from(
+      { length: Math.max(0, limit - notes.length) },
+      () =>
+        ({
+          preimage: createDummyNote(),
+          membershipWitness: new MembershipWitness(
+            PRIVATE_DATA_TREE_HEIGHT, // pathSize
+            0n, // leafIndex
+            new Array(PRIVATE_DATA_TREE_HEIGHT).fill(Fr.ZERO), // siblingPath
+          ),
+        } as NoteLoadOracleInputs),
+    );
 
     return {
       count,
