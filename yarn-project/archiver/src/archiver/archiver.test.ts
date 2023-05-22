@@ -26,6 +26,7 @@ describe('Archiver', () => {
       publicClient,
       EthAddress.fromString(rollupAddress),
       EthAddress.fromString(unverifiedDataEmitterAddress),
+      0,
       archiverStore,
       1000,
     );

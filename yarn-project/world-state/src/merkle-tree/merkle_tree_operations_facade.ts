@@ -143,7 +143,6 @@ export class MerkleTreeOperationsFacade implements MerkleTreeOperations {
    * @param leaves - Leaves to insert into the tree.
    * @param treeHeight - Height of the tree.
    * @param subtreeHeight - Height of the subtree.
-   * @param includeUncommitted - If true, the uncommitted changes are included in the search.
    * @returns The data for the leaves to be updated when inserting the new ones.
    */
   public batchInsert(

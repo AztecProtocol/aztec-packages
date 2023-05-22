@@ -533,6 +533,7 @@ __metadata:
     jest: ^29.5.0
     jest-mock-extended: ^3.0.4
     libp2p: ^0.45.1
+    lodash.times: ^4.3.2
     multiaddr: ^10.0.1
     sha3: ^2.1.4
     ts-jest: ^29.1.0
@@ -2332,6 +2333,13 @@ __metadata:
   bin:
     workspaces-to-typescript-project-references: bin/cmd.js
   checksum: 0cd4ceaaddaa5fe0398578c164cf718056a8158f5576538f8b57606cb6919cdf50f165ba7091c88ce4dc21336572dba8cfddba3b9392183d2e7d3dda6c19230b
+  languageName: node
+  linkType: hard
+
+"@msgpack/msgpack@npm:^3.0.0-beta2":
+  version: 3.0.0-beta2
+  resolution: "@msgpack/msgpack@npm:3.0.0-beta2"
+  checksum: d86e5d48146051952d6bea35a6cf733a401cf65ad5614d79689aa48c7076021737ca2c782978dd1b6c0c9c45888b246e379e45ae906179e3a0e8ef4ee6f221c1
   languageName: node
   linkType: hard
 

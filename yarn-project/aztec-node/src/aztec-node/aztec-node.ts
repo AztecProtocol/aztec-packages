@@ -72,10 +72,25 @@ export interface AztecNode {
    */
   getPendingTxByHash(txHash: TxHash): Promise<Tx | undefined>;
 
+  /**
+   * Find the index of the given contract.
+   * @param leafValue - The value to search for.
+   * @returns The index of the given leaf in the contracts tree or undefined if not found.
+   */
   findContractIndex(leafValue: Buffer): Promise<bigint | undefined>;
 
+  /**
+   * Returns the sibling path for the given index in the contract tree.
+   * @param leafIndex - The index of the leaf for which the sibling path is required.
+   * @returns The sibling path for the leaf index.
+   */
   getContractPath(leafIndex: bigint): Promise<SiblingPath>;
 
+  /**
+   * Returns the sibling path for the given index in the data tree.
+   * @param leafIndex - The index of the leaf for which the sibling path is required.
+   * @returns The sibling path for the leaf index.
+   */
   getDataTreePath(leafIndex: bigint): Promise<SiblingPath>;
 
   /**
@@ -83,9 +98,7 @@ export interface AztecNode {
    * @param leafIndex - Index of the leaf in the tree.
    * @returns The sibling path.
    */
-  public getL1ToL2MessagesTreePath(leafIndex: bigint): Promise<SiblingPath> {
-    return this.merkleTreeDB.getSiblingPath(MerkleTreeId.L1_TO_L2_MESSAGES_TREE, leafIndex, false);
-  }
+  getL1ToL2MessagesTreePath(leafIndex: bigint): Promise<SiblingPath>;
 
   /**
    * Gets the storage value at the given contract slot. Our version of eth_getStorageAt.

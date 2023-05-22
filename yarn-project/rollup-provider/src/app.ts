@@ -1,5 +1,5 @@
 import { AztecNode } from '@aztec/aztec-node';
-import { Fr, KernelCircuitPublicInputs, SignedTxRequest, UInt8Vector } from '@aztec/circuits.js';
+import { Fr, KernelCircuitPublicInputs, Proof, SignedTxRequest } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { MerkleTreeId, Tx, TxHash, UnverifiedData } from '@aztec/types';
 import Koa, { Context, DefaultState } from 'koa';
@@ -20,7 +20,7 @@ function txFromJson(json: any) {
   const unverified = json.unverified ? UnverifiedData.fromBuffer(Buffer.from(json.unverified, 'hex')) : undefined;
   const txRequest = json.txRequest ? SignedTxRequest.fromBuffer(Buffer.from(json.txRequest, 'hex')) : undefined;
   const proof = json.proof ? Buffer.from(json.proof, 'hex') : undefined;
-  return Tx.create(publicInputs, proof == undefined ? undefined : new UInt8Vector(proof), unverified, txRequest);
+  return Tx.create(publicInputs, proof == undefined ? undefined : Proof.fromBuffer(proof), unverified, txRequest);
 }
 
 export function appFactory(node: AztecNode, prefix: string) {
@@ -155,6 +155,16 @@ export function appFactory(node: AztecNode, prefix: string) {
     const pathAsString = path.toString();
     ctx.body = {
       path: pathAsString,
+    };
+    ctx.status = 200;
+  });
+
+  router.get('/l1-l2-path', async (ctx: Koa.Context) => {
+    const leaf = ctx.query.leaf!;
+    const path = await node.getL1ToL2MessagesTreePath(BigInt(leaf as string));
+    ctx.set('content-type', 'application/json');
+    ctx.body = {
+      path: path.toString(),
     };
     ctx.status = 200;
   });

@@ -1,8 +1,13 @@
 import { AztecNode } from '@aztec/aztec-node';
-import { AztecAddress, Fr, KernelCircuitPublicInputs, SignedTxRequest, UInt8Vector } from '@aztec/circuits.js';
+import { AztecAddress, Fr, KernelCircuitPublicInputs, Proof, SignedTxRequest } from '@aztec/circuits.js';
 import { SiblingPath } from '@aztec/merkle-tree';
 import { ContractData, ContractPublicData, L2Block, MerkleTreeId, Tx, TxHash, UnverifiedData } from '@aztec/types';
 
+/**
+ * Serialises a transaction to JSON representation.
+ * @param tx - The transaction to serialise.
+ * @returns The serialsied transaction.
+ */
 function txToJson(tx: Tx) {
   return {
     data: tx?.data?.toBuffer().toString('hex'),
@@ -12,14 +17,22 @@ function txToJson(tx: Tx) {
   };
 }
 
+/**
+ * Deserialises a transaction from JSON.
+ * @param json - The JSON representation of the transaction.
+ * @returns The deserialised transaction.
+ */
 function txFromJson(json: any) {
   const publicInputs = json.data ? KernelCircuitPublicInputs.fromBuffer(Buffer.from(json.data, 'hex')) : undefined;
   const unverified = json.unverified ? UnverifiedData.fromBuffer(Buffer.from(json.unverified, 'hex')) : undefined;
   const txRequest = json.txRequest ? SignedTxRequest.fromBuffer(Buffer.from(json.txRequest, 'hex')) : undefined;
   const proof = json.proof ? Buffer.from(json.proof, 'hex') : undefined;
-  return Tx.create(publicInputs, proof == undefined ? undefined : new UInt8Vector(proof), unverified, txRequest);
+  return Tx.create(publicInputs, proof == undefined ? undefined : Proof.fromBuffer(proof), unverified, txRequest);
 }
 
+/**
+ * A Http client based implementation of Aztec Node.
+ */
 export class HttpNode implements AztecNode {
   private baseUrl: string;
   constructor(baseUrl: string) {
@@ -57,7 +70,7 @@ export class HttpNode implements AztecNode {
   }
 
   /**
-   * Method to fetch the current block height
+   * Method to fetch the current block height.
    * @returns The block height as a number.
    */
   async getBlockHeight(): Promise<number> {
@@ -138,9 +151,9 @@ export class HttpNode implements AztecNode {
   }
 
   /**
-   * Method to retrieve a single pending tx
+   * Method to retrieve a single pending tx.
    * @param txHash - The transaction hash to return.
-   * @returns - The pending tx if it exists
+   * @returns - The pending tx if it exists.
    */
   async getPendingTxByHash(txHash: TxHash): Promise<Tx | undefined> {
     const url = new URL(`${this.baseUrl}/get-pending-tx`);
@@ -149,6 +162,11 @@ export class HttpNode implements AztecNode {
     return Promise.resolve(txFromJson(response));
   }
 
+  /**
+   * Find the index of the given contract.
+   * @param leafValue - The value to search for.
+   * @returns The index of the given leaf in the contracts tree or undefined if not found.
+   */
   async findContractIndex(leafValue: Buffer): Promise<bigint | undefined> {
     const url = new URL(`${this.baseUrl}/contract-index`);
     url.searchParams.append('leaf', leafValue.toString('hex'));
@@ -157,6 +175,11 @@ export class HttpNode implements AztecNode {
     return Promise.resolve(BigInt(index));
   }
 
+  /**
+   * Returns the sibling path for the given index in the contract tree.
+   * @param leafIndex - The index of the leaf for which the sibling path is required.
+   * @returns The sibling path for the leaf index.
+   */
   async getContractPath(leafIndex: bigint): Promise<SiblingPath> {
     const url = new URL(`${this.baseUrl}/contract-path`);
     url.searchParams.append('leaf', leafIndex.toString());
@@ -165,6 +188,11 @@ export class HttpNode implements AztecNode {
     return Promise.resolve(SiblingPath.fromString(path));
   }
 
+  /**
+   * Returns the sibling path for the given index in the data tree.
+   * @param leafIndex - The index of the leaf for which the sibling path is required.
+   * @returns The sibling path for the leaf index.
+   */
   async getDataTreePath(leafIndex: bigint): Promise<SiblingPath> {
     const url = new URL(`${this.baseUrl}/data-path`);
     url.searchParams.append('leaf', leafIndex.toString());
@@ -175,11 +203,25 @@ export class HttpNode implements AztecNode {
   }
 
   /**
+   * Returns the sibling path for a leaf in the committed l1 to l2 data tree.
+   * @param leafIndex - Index of the leaf in the tree.
+   * @returns The sibling path.
+   */
+  async getL1ToL2MessagesTreePath(leafIndex: bigint): Promise<SiblingPath> {
+    const url = new URL(`${this.baseUrl}/l1-l2-path`);
+    url.searchParams.append('leaf', leafIndex.toString());
+    const response = await (await fetch(url.toString())).json();
+    const path = response.path as string;
+    const sibling = SiblingPath.fromString(path);
+    return Promise.resolve(sibling);
+  }
+
+  /**
    * Gets the storage value at the given contract slot.
-   * @param contract - Address of the contract to query
-   * @param slot - Slot to query
+   * @param contract - Address of the contract to query.
+   * @param slot - Slot to query.
    * @returns Storage value at the given contract slot (or undefined if not found).
-   * Note: Aztec's version of `eth_getStorageAt`
+   * Note: Aztec's version of `eth_getStorageAt`.
    */
   async getStorageAt(contract: AztecAddress, slot: bigint): Promise<Buffer | undefined> {
     const url = new URL(`${this.baseUrl}/storage-at`);

@@ -1,4 +1,4 @@
-import { AztecNode, getConfigEnvVars } from '@aztec/aztec-node';
+import { AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { AztecAddress, AztecRPCServer, Contract, ContractDeployer, TxStatus } from '@aztec/aztec.js';
 import { NonNativeTokenContractAbi } from '@aztec/noir-contracts/examples';
@@ -21,7 +21,7 @@ const config = getConfigEnvVars();
 
 // NOTE: this tests is just a scaffold, it is awaiting functionality to come from the aztec-node around indexing messages in the contract
 describe.skip('e2e_l1_to_l2_msg', () => {
-  let node: AztecNode;
+  let node: AztecNodeService;
   let aztecRpcServer: AztecRPCServer;
   let accounts: AztecAddress[];
   let contract: Contract;
@@ -78,7 +78,7 @@ describe.skip('e2e_l1_to_l2_msg', () => {
       publicClient,
     });
 
-    node = await AztecNode.createAndSync(config);
+    node = await AztecNodeService.createAndSync(config);
     aztecRpcServer = await createAztecRpcServer(2, node);
     accounts = await aztecRpcServer.getAccounts();
   }, 60_000);

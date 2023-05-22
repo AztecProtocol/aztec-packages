@@ -175,16 +175,40 @@ export class AztecNodeService implements AztecNode {
     return await this.p2pClient!.getTxByhash(txHash);
   }
 
+  /**
+   * Find the index of the given contract.
+   * @param leafValue - The value to search for.
+   * @returns The index of the given leaf in the contracts tree or undefined if not found.
+   */
   public findContractIndex(leafValue: Buffer): Promise<bigint | undefined> {
     return this.merkleTreeDB.findLeafIndex(MerkleTreeId.CONTRACT_TREE, leafValue, false);
   }
 
+  /**
+   * Returns the sibling path for the given index in the contract tree.
+   * @param leafIndex - The index of the leaf for which the sibling path is required.
+   * @returns The sibling path for the leaf index.
+   */
   public getContractPath(leafIndex: bigint): Promise<SiblingPath> {
     return this.merkleTreeDB.getSiblingPath(MerkleTreeId.CONTRACT_TREE, leafIndex, false);
   }
 
+  /**
+   * Returns the sibling path for the given index in the data tree.
+   * @param leafIndex - The index of the leaf for which the sibling path is required.
+   * @returns The sibling path for the leaf index.
+   */
   public getDataTreePath(leafIndex: bigint): Promise<SiblingPath> {
     return this.merkleTreeDB.getSiblingPath(MerkleTreeId.PRIVATE_DATA_TREE, leafIndex, false);
+  }
+
+  /**
+   * Returns the sibling path for a leaf in the committed l1 to l2 data tree.
+   * @param leafIndex - Index of the leaf in the tree.
+   * @returns The sibling path.
+   */
+  public getL1ToL2MessagesTreePath(leafIndex: bigint): Promise<SiblingPath> {
+    return this.merkleTreeDB.getSiblingPath(MerkleTreeId.L1_TO_L2_MESSAGES_TREE, leafIndex, false);
   }
 
   /**

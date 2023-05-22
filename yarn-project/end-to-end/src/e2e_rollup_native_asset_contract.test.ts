@@ -1,4 +1,4 @@
-import { AztecNode, getConfigEnvVars } from '@aztec/aztec-node';
+import { AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
 import { AztecAddress, AztecRPCServer, Contract, ContractDeployer, EthAddress, TxStatus } from '@aztec/aztec.js';
 import { RollupNativeAssetContractAbi } from '@aztec/noir-contracts/examples';
 
@@ -36,7 +36,7 @@ const sha256ToField = (buf: Buffer): Fr => {
 };
 
 describe('e2e_rollup_native_asset_contract', () => {
-  let node: AztecNode;
+  let node: AztecNodeService;
   let aztecRpcServer: AztecRPCServer;
   let account: HDAccount;
   let accounts: AztecAddress[];
@@ -65,7 +65,7 @@ describe('e2e_rollup_native_asset_contract', () => {
 
     registryAddress = getAddress(registryAddress_.toString());
 
-    node = await AztecNode.createAndSync(config);
+    node = await AztecNodeService.createAndSync(config);
     aztecRpcServer = await createAztecRpcServer(2, node);
     accounts = await aztecRpcServer.getAccounts();
 

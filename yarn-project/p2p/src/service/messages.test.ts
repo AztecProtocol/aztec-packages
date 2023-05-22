@@ -1,5 +1,4 @@
-import { UInt8Vector } from '@aztec/circuits.js';
-import { makeKernelPublicInputs, makeSignedTxRequest } from '@aztec/circuits.js/factories';
+import { makeKernelPublicInputs, makePublicCallRequest, makeSignedTxRequest } from '@aztec/circuits.js/factories';
 import { EncodedContractFunction, Tx, TxHash, UnverifiedData } from '@aztec/types';
 import { expect } from '@jest/globals';
 import { randomBytes } from 'crypto';
@@ -14,27 +13,30 @@ import {
   decodeTransactionsMessage,
   getEncodedMessage,
 } from './messages.js';
+import { Proof } from '@aztec/circuits.js';
 
 const makePrivateTx = () => {
-  const publicFunctions = [EncodedContractFunction.random(), EncodedContractFunction.random()];
+  const encodedPublicFunctions = [EncodedContractFunction.random(), EncodedContractFunction.random()];
+  const enqueuedPublicFunctionCalls = [makePublicCallRequest(1), makePublicCallRequest(2)];
   return Tx.createPrivate(
     makeKernelPublicInputs(),
-    new UInt8Vector(Buffer.alloc(10, 9)),
+    Proof.fromBuffer(Buffer.alloc(10, 9)),
     UnverifiedData.random(8),
-    publicFunctions,
+    encodedPublicFunctions,
+    enqueuedPublicFunctionCalls,
   );
 };
 
 const makePublicTx = () => {
-  return Tx.createPublic(makeSignedTxRequest());
+  return Tx.createPublic(makeSignedTxRequest(1));
 };
 
 const makePublicPrivateTx = () => {
   return Tx.createPrivatePublic(
-    makeKernelPublicInputs(),
-    new UInt8Vector(randomBytes(512)),
+    makeKernelPublicInputs(1),
+    Proof.fromBuffer(randomBytes(512)),
     UnverifiedData.random(8),
-    makeSignedTxRequest(),
+    makeSignedTxRequest(5),
   );
 };
 
