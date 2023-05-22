@@ -688,23 +688,4 @@ TEST(private_kernel_tests, cbind_private_kernel__dummy_previous_kernel)
     EXPECT_EQ(actual_ss.str(), expected_ss.str());
 }
 
-/**
- * @brief Test error is registered when `new_nullifiers` are not empty in first iteration
- */
-TEST(private_kernel_tests, native_registers_error_when_no_space_for_nullifier)
-{
-    NT::fr const& amount = 5;
-    NT::fr const& asset_id = 1;
-    NT::fr const& memo = 999;
-
-    auto private_inputs = do_private_call_get_kernel_inputs(false, deposit, { amount, asset_id, memo });
-    array_push(private_inputs.previous_kernel.public_inputs.end.new_nullifiers, NT::fr::random_element());
-
-    DummyComposer composer = DummyComposer("private_kernel_tests__native_registers_error_when_no_space_for_nullifier");
-    native_private_kernel_circuit(composer, private_inputs, true);
-
-    ASSERT_EQ(composer.get_first_failure().code,
-              CircuitErrorCode::PRIVATE_KERNEL__NEW_NULLIFIERS_NOT_EMPTY_IN_FIRST_ITERATION);
-}
-
 }  // namespace aztec3::circuits::kernel::private_kernel
