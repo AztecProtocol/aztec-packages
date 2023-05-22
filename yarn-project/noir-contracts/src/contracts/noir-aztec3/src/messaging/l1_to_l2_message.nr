@@ -345,69 +345,69 @@ impl L1ToL2Message {
         hash_bytes[30 + 224] = fee_bytes[30];
         hash_bytes[31 + 224] = fee_bytes[31];
 
-        let content_sha256 = dep::std::hash::sha256(hash_bytes);
+        let message_sha256 = dep::std::hash::sha256(hash_bytes);
 
-        // // Convert the content_sha256 to a field element
+        // // Convert the message_sha256 to a field element
         let mut v = 1;
         let mut high = 0 as Field;
         let mut low = 0 as Field;
 
         // Unroll loops because otherwise takes forever to compile
         // for i in [15 - i for i in range(16)]:
-        //     print('high = high + (content_sha256[{0}] as Field) * v;'.format(i))
-        //     print('low = low + (content_sha256[16 + {0}] as Field) * v;'.format(i))
+        //     print('high = high + (message_sha256[{0}] as Field) * v;'.format(i))
+        //     print('low = low + (message_sha256[16 + {0}] as Field) * v;'.format(i))
         //     print('v = v * 256;');
-        high = high + (content_sha256[15] as Field) * v;
-        low = low + (content_sha256[16 + 15] as Field) * v;
+        high = high + (message_sha256[15] as Field) * v;
+        low = low + (message_sha256[16 + 15] as Field) * v;
         v = v * 256;
-        high = high + (content_sha256[14] as Field) * v;
-        low = low + (content_sha256[16 + 14] as Field) * v;
+        high = high + (message_sha256[14] as Field) * v;
+        low = low + (message_sha256[16 + 14] as Field) * v;
         v = v * 256;
-        high = high + (content_sha256[13] as Field) * v;
-        low = low + (content_sha256[16 + 13] as Field) * v;
+        high = high + (message_sha256[13] as Field) * v;
+        low = low + (message_sha256[16 + 13] as Field) * v;
         v = v * 256;
-        high = high + (content_sha256[12] as Field) * v;
-        low = low + (content_sha256[16 + 12] as Field) * v;
+        high = high + (message_sha256[12] as Field) * v;
+        low = low + (message_sha256[16 + 12] as Field) * v;
         v = v * 256;
-        high = high + (content_sha256[11] as Field) * v;
-        low = low + (content_sha256[16 + 11] as Field) * v;
+        high = high + (message_sha256[11] as Field) * v;
+        low = low + (message_sha256[16 + 11] as Field) * v;
         v = v * 256;
-        high = high + (content_sha256[10] as Field) * v;
-        low = low + (content_sha256[16 + 10] as Field) * v;
+        high = high + (message_sha256[10] as Field) * v;
+        low = low + (message_sha256[16 + 10] as Field) * v;
         v = v * 256;
-        high = high + (content_sha256[9] as Field) * v;
-        low = low + (content_sha256[16 + 9] as Field) * v;
+        high = high + (message_sha256[9] as Field) * v;
+        low = low + (message_sha256[16 + 9] as Field) * v;
         v = v * 256;
-        high = high + (content_sha256[8] as Field) * v;
-        low = low + (content_sha256[16 + 8] as Field) * v;
+        high = high + (message_sha256[8] as Field) * v;
+        low = low + (message_sha256[16 + 8] as Field) * v;
         v = v * 256;
-        high = high + (content_sha256[7] as Field) * v;
-        low = low + (content_sha256[16 + 7] as Field) * v;
+        high = high + (message_sha256[7] as Field) * v;
+        low = low + (message_sha256[16 + 7] as Field) * v;
         v = v * 256;
-        high = high + (content_sha256[6] as Field) * v;
-        low = low + (content_sha256[16 + 6] as Field) * v;
+        high = high + (message_sha256[6] as Field) * v;
+        low = low + (message_sha256[16 + 6] as Field) * v;
         v = v * 256;
-        high = high + (content_sha256[5] as Field) * v;
-        low = low + (content_sha256[16 + 5] as Field) * v;
+        high = high + (message_sha256[5] as Field) * v;
+        low = low + (message_sha256[16 + 5] as Field) * v;
         v = v * 256;
-        high = high + (content_sha256[4] as Field) * v;
-        low = low + (content_sha256[16 + 4] as Field) * v;
+        high = high + (message_sha256[4] as Field) * v;
+        low = low + (message_sha256[16 + 4] as Field) * v;
         v = v * 256;
-        high = high + (content_sha256[3] as Field) * v;
-        low = low + (content_sha256[16 + 3] as Field) * v;
+        high = high + (message_sha256[3] as Field) * v;
+        low = low + (message_sha256[16 + 3] as Field) * v;
         v = v * 256;
-        high = high + (content_sha256[2] as Field) * v;
-        low = low + (content_sha256[16 + 2] as Field) * v;
+        high = high + (message_sha256[2] as Field) * v;
+        low = low + (message_sha256[16 + 2] as Field) * v;
         v = v * 256;
-        high = high + (content_sha256[1] as Field) * v;
-        low = low + (content_sha256[16 + 1] as Field) * v;
+        high = high + (message_sha256[1] as Field) * v;
+        low = low + (message_sha256[16 + 1] as Field) * v;
         v = v * 256;
-        high = high + (content_sha256[0] as Field) * v;
-        low = low + (content_sha256[16 + 0] as Field) * v;
+        high = high + (message_sha256[0] as Field) * v;
+        low = low + (message_sha256[16 + 0] as Field) * v;
         v = v * 256;
 
-        let content = low + high * v;
-        content        
+        let message_hash = low + high * v;
+        message_hash        
     }
 
     // The nullifier of a l1 to l2 message is the hash of the message salted with the secret and tree index
