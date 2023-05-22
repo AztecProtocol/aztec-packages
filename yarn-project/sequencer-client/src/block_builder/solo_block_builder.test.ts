@@ -271,14 +271,6 @@ describe('sequencer/solo_block_builder', () => {
       const actual = await builderDb.getTreeInfo(MerkleTreeId.NULLIFIER_TREE);
       expect(actual).toEqual(expected);
     });
-
-    it('rejects if too many l1 to l2 messages are provided', async () => {
-      // Assemble a fake transaction
-      const txs = await buildMockSimulatorInputs();
-      const l1ToL2Messages = NewL1ToL2Messages.empty();
-
-      await expect(builder.buildL2Block(blockNumber, txs, l1ToL2Messages)).rejects.toThrow();
-    });
   });
 
   describe('circuits simulator', () => {

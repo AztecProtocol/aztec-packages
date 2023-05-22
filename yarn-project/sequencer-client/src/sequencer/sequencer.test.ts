@@ -1,4 +1,4 @@
-import { CombinedHistoricTreeRoots, Fr, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, makeEmptyProof } from '@aztec/circuits.js';
+import { CombinedHistoricTreeRoots, NewL1ToL2Messages, makeEmptyProof } from '@aztec/circuits.js';
 import { P2P, P2PClientState } from '@aztec/p2p';
 import { L2Block, MerkleTreeId, PrivateTx, Tx, UnverifiedData } from '@aztec/types';
 import { MerkleTreeOperations, WorldStateRunningState, WorldStateSynchroniser } from '@aztec/world-state';
@@ -65,7 +65,7 @@ describe('sequencer', () => {
     expect(blockBuilder.buildL2Block).toHaveBeenCalledWith(
       lastBlockNumber + 1,
       expectedTxHashes.map(hash => expect.objectContaining({ hash })),
-      Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
+      NewL1ToL2Messages.empty(),
     );
     expect(publisher.processL2Block).toHaveBeenCalledWith(block);
     expect(publisher.processUnverifiedData).toHaveBeenCalledWith(lastBlockNumber + 1, expectedUnverifiedData);
@@ -102,7 +102,7 @@ describe('sequencer', () => {
     expect(blockBuilder.buildL2Block).toHaveBeenCalledWith(
       lastBlockNumber + 1,
       expectedTxHashes.map(hash => expect.objectContaining({ hash })),
-      Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
+      NewL1ToL2Messages.empty(),
     );
     expect(publisher.processL2Block).toHaveBeenCalledWith(block);
     expect(publisher.processUnverifiedData).toHaveBeenCalledWith(lastBlockNumber + 1, expectedUnverifiedData);
