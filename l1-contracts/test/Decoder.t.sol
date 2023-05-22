@@ -167,16 +167,27 @@ contract DecoderTest is Test {
       hex"0000002400000008aafdc7aa93e78a700000001497aee30906a86173c86c6d3f108eefc36e7fb014";
     (bytes32 logsHash, uint256 bytesAdvanced) = helper.computeKernelLogsHash(emptyKernelData);
 
-    // Note: First 32 bytes occupied by logs hash of previous iteration , the rest occupied by I2_LOGS
-    bytes32 referenceLogsHash = bytes32(
+    bytes32 referenceLogsHashFromIteration1 = bytes32(
       uint256(
         sha256(
-          hex"24391267a167b0532f6bd46260f99451b58046fab3b45f26a131ddd0d607780a97aee30906a86173c86c6d3f108eefc36e7fb014"
+          hex"0000000000000000000000000000000000000000000000000000000000000000aafdc7aa93e78a70"
+        )
+      ) % Constants.P
+    );
+
+    bytes32 referenceLogsHashFromIteration2 = bytes32(
+      uint256(
+        sha256(
+          bytes.concat(
+            referenceLogsHashFromIteration1, hex"97aee30906a86173c86c6d3f108eefc36e7fb014"
+          )
         )
       ) % Constants.P
     );
 
     assertEq(bytesAdvanced, emptyKernelData.length, "Advanced by an incorrect number of bytes");
-    assertEq(logsHash, referenceLogsHash, "Logs hash should be 0 when there are no logs");
+    assertEq(
+      logsHash, referenceLogsHashFromIteration2, "Logs hash should be 0 when there are no logs"
+    );
   }
 }
