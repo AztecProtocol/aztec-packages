@@ -37,7 +37,7 @@ import {
 } from './types.js';
 import { Tuple, mapTuple } from '@aztec/foundation/serialize';
 import mapValues from 'lodash.mapvalues';
-export interface MsgpackG1AffineElement {
+interface MsgpackG1AffineElement {
   x: Buffer;
   y: Buffer;
 }
@@ -65,7 +65,7 @@ export function fromG1AffineElement(o: G1AffineElement): MsgpackG1AffineElement 
   };
 }
 
-export interface MsgpackNativeAggregationState {
+interface MsgpackNativeAggregationState {
   P0: MsgpackG1AffineElement;
   P1: MsgpackG1AffineElement;
   public_inputs: Buffer[];
@@ -123,7 +123,7 @@ export function fromNativeAggregationState(o: NativeAggregationState): MsgpackNa
   };
 }
 
-export interface MsgpackNewContractData {
+interface MsgpackNewContractData {
   contract_address: Buffer;
   portal_contract_address: Buffer;
   function_tree_root: Buffer;
@@ -163,7 +163,7 @@ export function fromNewContractData(o: NewContractData): MsgpackNewContractData 
   };
 }
 
-export interface MsgpackFunctionData {
+interface MsgpackFunctionData {
   function_selector: number;
   is_private: boolean;
   is_constructor: boolean;
@@ -199,7 +199,7 @@ export function fromFunctionData(o: FunctionData): MsgpackFunctionData {
   };
 }
 
-export interface MsgpackOptionallyRevealedData {
+interface MsgpackOptionallyRevealedData {
   call_stack_item_hash: Buffer;
   function_data: MsgpackFunctionData;
   emitted_events: Tuple<Buffer, 4>;
@@ -293,7 +293,7 @@ export function fromOptionallyRevealedData(o: OptionallyRevealedData): MsgpackOp
   };
 }
 
-export interface MsgpackPublicDataUpdateRequest {
+interface MsgpackPublicDataUpdateRequest {
   leaf_index: Buffer;
   old_value: Buffer;
   new_value: Buffer;
@@ -333,7 +333,7 @@ export function fromPublicDataUpdateRequest(o: PublicDataUpdateRequest): Msgpack
   };
 }
 
-export interface MsgpackPublicDataRead {
+interface MsgpackPublicDataRead {
   leaf_index: Buffer;
   value: Buffer;
 }
@@ -361,7 +361,7 @@ export function fromPublicDataRead(o: PublicDataRead): MsgpackPublicDataRead {
   };
 }
 
-export interface MsgpackCombinedAccumulatedData {
+interface MsgpackCombinedAccumulatedData {
   aggregation_object: MsgpackNativeAggregationState;
   new_commitments: Tuple<Buffer, 4>;
   new_nullifiers: Tuple<Buffer, 4>;
@@ -468,7 +468,7 @@ export function fromCombinedAccumulatedData(o: CombinedAccumulatedData): Msgpack
   };
 }
 
-export interface MsgpackPrivateHistoricTreeRoots {
+interface MsgpackPrivateHistoricTreeRoots {
   private_data_tree_root: Buffer;
   nullifier_tree_root: Buffer;
   contract_tree_root: Buffer;
@@ -526,7 +526,7 @@ export function fromPrivateHistoricTreeRoots(o: PrivateHistoricTreeRoots): Msgpa
   };
 }
 
-export interface MsgpackCombinedHistoricTreeRoots {
+interface MsgpackCombinedHistoricTreeRoots {
   private_historic_tree_roots: MsgpackPrivateHistoricTreeRoots;
 }
 
@@ -546,7 +546,7 @@ export function fromCombinedHistoricTreeRoots(o: CombinedHistoricTreeRoots): Msg
   };
 }
 
-export interface MsgpackContractDeploymentData {
+interface MsgpackContractDeploymentData {
   constructor_vk_hash: Buffer;
   function_tree_root: Buffer;
   contract_address_salt: Buffer;
@@ -595,7 +595,7 @@ export function fromContractDeploymentData(o: ContractDeploymentData): MsgpackCo
   };
 }
 
-export interface MsgpackTxContext {
+interface MsgpackTxContext {
   is_fee_payment_tx: boolean;
   is_rebate_payment_tx: boolean;
   is_contract_deployment_tx: boolean;
@@ -644,7 +644,7 @@ export function fromTxContext(o: TxContext): MsgpackTxContext {
   };
 }
 
-export interface MsgpackCombinedConstantData {
+interface MsgpackCombinedConstantData {
   historic_tree_roots: MsgpackCombinedHistoricTreeRoots;
   tx_context: MsgpackTxContext;
 }
@@ -672,7 +672,7 @@ export function fromCombinedConstantData(o: CombinedConstantData): MsgpackCombin
   };
 }
 
-export interface MsgpackKernelCircuitPublicInputs {
+interface MsgpackKernelCircuitPublicInputs {
   end: MsgpackCombinedAccumulatedData;
   constants: MsgpackCombinedConstantData;
   is_private: boolean;
@@ -712,7 +712,7 @@ export function fromKernelCircuitPublicInputs(o: KernelCircuitPublicInputs): Msg
   };
 }
 
-export interface MsgpackVerificationKeyData {
+interface MsgpackVerificationKeyData {
   composer_type: number;
   circuit_size: number;
   num_public_inputs: number;
@@ -779,7 +779,7 @@ export function fromVerificationKeyData(o: VerificationKeyData): MsgpackVerifica
   };
 }
 
-export interface MsgpackPreviousKernelData {
+interface MsgpackPreviousKernelData {
   public_inputs: MsgpackKernelCircuitPublicInputs;
   proof: Buffer;
   vk: MsgpackVerificationKeyData;
@@ -837,7 +837,7 @@ export function fromPreviousKernelData(o: PreviousKernelData): MsgpackPreviousKe
   };
 }
 
-export interface MsgpackCallContext {
+interface MsgpackCallContext {
   msg_sender: Buffer;
   storage_contract_address: Buffer;
   portal_contract_address: Buffer;
@@ -904,7 +904,7 @@ export function fromCallContext(o: CallContext): MsgpackCallContext {
   };
 }
 
-export interface MsgpackContractStorageUpdateRequest {
+interface MsgpackContractStorageUpdateRequest {
   storage_slot: Buffer;
   old_value: Buffer;
   new_value: Buffer;
@@ -944,7 +944,7 @@ export function fromContractStorageUpdateRequest(o: ContractStorageUpdateRequest
   };
 }
 
-export interface MsgpackContractStorageRead {
+interface MsgpackContractStorageRead {
   storage_slot: Buffer;
   current_value: Buffer;
 }
@@ -972,7 +972,7 @@ export function fromContractStorageRead(o: ContractStorageRead): MsgpackContract
   };
 }
 
-export interface MsgpackPublicCircuitPublicInputs {
+interface MsgpackPublicCircuitPublicInputs {
   call_context: MsgpackCallContext;
   args: Tuple<Buffer, 8>;
   return_values: Tuple<Buffer, 4>;
@@ -1079,7 +1079,7 @@ export function fromPublicCircuitPublicInputs(o: PublicCircuitPublicInputs): Msg
   };
 }
 
-export interface MsgpackPublicCallStackItem {
+interface MsgpackPublicCallStackItem {
   contract_address: Buffer;
   function_data: MsgpackFunctionData;
   public_inputs: MsgpackPublicCircuitPublicInputs;
@@ -1128,7 +1128,7 @@ export function fromPublicCallStackItem(o: PublicCallStackItem): MsgpackPublicCa
   };
 }
 
-export interface MsgpackPublicCallData {
+interface MsgpackPublicCallData {
   call_stack_item: MsgpackPublicCallStackItem;
   public_call_stack_preimages: Tuple<MsgpackPublicCallStackItem, 4>;
   proof: Buffer;
@@ -1188,7 +1188,7 @@ export function fromPublicCallData(o: PublicCallData): MsgpackPublicCallData {
   };
 }
 
-export interface MsgpackPublicKernelInputs {
+interface MsgpackPublicKernelInputs {
   previous_kernel: MsgpackPreviousKernelData;
   public_call: MsgpackPublicCallData;
 }
@@ -1216,7 +1216,7 @@ export function fromPublicKernelInputs(o: PublicKernelInputs): MsgpackPublicKern
   };
 }
 
-export interface MsgpackCircuitError {
+interface MsgpackCircuitError {
   code: number;
   message: string;
 }
