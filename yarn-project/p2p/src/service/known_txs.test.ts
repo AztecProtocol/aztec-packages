@@ -1,14 +1,14 @@
 import { expect } from '@jest/globals';
-import { MockProxy, mock } from 'jest-mock-extended';
+import { mock } from 'jest-mock-extended';
 import { PeerId, Ed25519PeerId } from '@libp2p/interface-peer-id';
 import { KnownTxLookup } from './known_txs.js';
 import { TxHash } from '@aztec/types';
 import { randomBytes } from '@aztec/foundation/crypto';
 
 const createMockPeerId = (peerId: string): PeerId => {
-  const peerIdMock: MockProxy<Ed25519PeerId> = mock<Ed25519PeerId>();
-  peerIdMock.toString.mockReturnValue(peerId);
-  return peerIdMock;
+  return mock<Ed25519PeerId>({
+    toString: () => peerId,
+  });
 };
 
 const createTxHash = () => {

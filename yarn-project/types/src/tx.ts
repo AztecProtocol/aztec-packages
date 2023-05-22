@@ -206,16 +206,17 @@ export class Tx {
     const createMessageComponents = (obj?: { toBuffer: () => Buffer }[]) => {
       if (!obj || !obj.length) {
         // specify a length of 0 bytes
-        return [numToUInt32BE(0)];
+        return numToUInt32BE(0);
       }
-      return obj.map(createMessageComponent);
+      const allComponents = Buffer.concat(obj.map(createMessageComponent));
+      return Buffer.concat([numToUInt32BE(allComponents.length), allComponents]);
     };
     const messageBuffer = Buffer.concat([
       createMessageComponent(tx.data),
       createMessageComponent(tx.proof),
       createMessageComponent(tx.txRequest),
       createMessageComponent(tx.unverifiedData),
-      ...createMessageComponents(tx.newContractPublicFunctions),
+      createMessageComponents(tx.newContractPublicFunctions),
     ]);
     const messageLength = numToUInt32BE(messageBuffer.length);
     return Buffer.concat([messageLength, messageBuffer]);
@@ -240,15 +241,18 @@ export class Tx {
     // this is the opposite of the 'toMessage' function
     // so the first 4 bytes is the complete length, skip it
     const publicInputs = toObject(buffer.subarray(4), KernelCircuitPublicInputs);
-    const proof = toObject(publicInputs.remainingData, { fromBuffer: (b: Buffer) => new UInt8Vector(b) });
+    const proof = toObject(publicInputs.remainingData, UInt8Vector);
     const txRequest = toObject(proof.remainingData, SignedTxRequest);
     const unverified = toObject(txRequest.remainingData, UnverifiedData);
-    let workingBuffer = unverified.remainingData;
-    while (workingBuffer.length > 0) {
-      const func = toObject(workingBuffer, EncodedContractFunction);
-      workingBuffer = func.remainingData;
-      if (func.obj !== undefined) {
-        functions.push(func.obj);
+    const encodedFunctionsLength = unverified.remainingData.readUInt32BE(0);
+    if (encodedFunctionsLength) {
+      let workingBuffer = unverified.remainingData.subarray(4);
+      while (workingBuffer.length > 0) {
+        const func = toObject(workingBuffer, EncodedContractFunction);
+        workingBuffer = func.remainingData;
+        if (func.obj !== undefined) {
+          functions.push(func.obj);
+        }
       }
     }
     return new Tx(publicInputs.obj, proof.obj, unverified.obj, txRequest.obj, functions.length ? functions : undefined);

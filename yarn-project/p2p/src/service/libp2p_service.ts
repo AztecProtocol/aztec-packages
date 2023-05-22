@@ -23,6 +23,7 @@ import {
   decodeGetTransactionsRequestMessage,
   decodeTransactionHashesMessage,
   decodeTransactionsMessage,
+  getEncodedMessage,
 } from './messages.js';
 import { KnownTxLookup } from './known_txs.js';
 import { TxPool } from '../index.js';
@@ -216,8 +217,8 @@ export class LibP2PService implements P2PService {
   }
 
   private async processMessage(message: Buffer, peerId: PeerId) {
-    const type = message.readInt32BE(0);
-    const encodedMessage = message.subarray(4);
+    const type = message.readUInt32BE(0);
+    const encodedMessage = getEncodedMessage(message);
     switch (type) {
       case Messages.POOLED_TRANSACTIONS:
         await this.processReceivedTxs(encodedMessage, peerId);

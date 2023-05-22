@@ -1,4 +1,4 @@
-import { numToInt32BE } from '@aztec/foundation/serialize';
+import { numToUInt32BE } from '@aztec/foundation/serialize';
 import { Tx, TxHash } from '@aztec/types';
 
 /**
@@ -17,7 +17,7 @@ export enum Messages {
  * @returns The encoded message.
  */
 export function createMessage(type: Messages, messageData: Buffer) {
-  return Buffer.concat([numToInt32BE(type), messageData]);
+  return Buffer.concat([numToUInt32BE(type), messageData]);
 }
 
 /**
@@ -36,12 +36,14 @@ export function createTransactionsMessage(txs: Tx[]) {
  * @returns - The array of transactions originally encoded into the message.
  */
 export function decodeTransactionsMessage(message: Buffer) {
+  const lengthSize = 4;
   let offset = 0;
   const txs: Tx[] = [];
   while (offset < message.length) {
-    const size = message.readUInt32BE(offset);
-    txs.push(Tx.fromMessage(message.subarray(offset)));
-    offset += size + 4;
+    const dataSize = message.readUInt32BE(offset);
+    const totalSizeOfMessage = lengthSize + dataSize;
+    txs.push(Tx.fromMessage(message.subarray(offset, offset + totalSizeOfMessage)));
+    offset += totalSizeOfMessage;
   }
   return txs;
 }
@@ -93,4 +95,22 @@ export function createGetTransactionsRequestMessage(hashes: TxHash[]) {
 export function decodeGetTransactionsRequestMessage(message: Buffer) {
   // for the time being this payload is effectively the same as the POOLED_TRANSACTION_HASHES message
   return decodeTransactionHashesMessage(message);
+}
+
+/**
+ * Decode the message type from a received message.
+ * @param message - The received message.
+ * @returns The decoded MessageType.
+ */
+export function decodeMessageType(message: Buffer) {
+  return message.readUInt32BE(0);
+}
+
+/**
+ * Return the encoded message (minus the header) from received message buffer.
+ * @param message - The complete received message.
+ * @returns The encoded message, without the header.
+ */
+export function getEncodedMessage(message: Buffer) {
+  return message.subarray(4);
 }
