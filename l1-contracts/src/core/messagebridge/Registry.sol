@@ -14,25 +14,22 @@ import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
  * @notice Keeps track of important information for L1<>L2 communication.
  */
 contract Registry is IRegistry {
-  // starts with version 1. Incremented on each upgrade.
-  uint256 public currentVersion;
+  uint256 public numberOfVersions;
   DataStructures.RegistrySnapshot internal currentSnapshot;
   mapping(uint256 version => DataStructures.RegistrySnapshot snapshot) internal snapshots;
 
   // todo: this function has to be permissioned.
   /**
-   * Creates a new snapshot of the registry
-   * @dev starts with version 1.
+   * @notice Creates a new snapshot of the registry
    * @param _rollup - The address of the rollup contract
    * @param _inbox - The address of the inbox contract
    * @param _outbox - The address of the outbox contract
    */
   function upgrade(address _rollup, address _inbox, address _outbox) external {
-    currentVersion++;
     DataStructures.RegistrySnapshot memory newSnapshot =
       DataStructures.RegistrySnapshot(_rollup, _inbox, _outbox, block.number);
     currentSnapshot = newSnapshot;
-    snapshots[currentVersion] = newSnapshot;
+    snapshots[numberOfVersions++] = newSnapshot;
   }
 
   /**
@@ -60,7 +57,8 @@ contract Registry is IRegistry {
   }
 
   /**
-   * Fetches a snapshot of the registry indicated by `version`
+   * @notice Fetches a snapshot of the registry indicated by `version`
+   * @dev the version is 0 indexed, so the first snapshot is version 0.
    * @param _version - The version of the rollup to return (i.e. which snapshot)
    * @return the snapshot
    */
