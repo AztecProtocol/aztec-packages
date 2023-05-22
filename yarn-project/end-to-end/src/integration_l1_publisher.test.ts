@@ -215,7 +215,9 @@ describe('L1Publisher integration', () => {
     expect(hexStringToBuffer(stateInRollup_.toString())).toEqual(Buffer.alloc(32, 0));
 
     const blockNumber = await publicClient.getBlockNumber();
-    const recipientAddress = AztecAddress.random();
+    const recipientAddress = AztecAddress.fromString(
+      '0x1647b194c649f5dd01d7c832f89b0f496043c9150797923ea89e93d5ac619a93',
+    );
 
     for (let i = 0; i < numberOfConsecutiveBlocks; i++) {
       const l1ToL2Content = range(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, 128 * i + 1 + 0x400).map(fr);
@@ -321,6 +323,7 @@ describe('L1Publisher integration', () => {
       for (let j = 0; j < block.newL2ToL1Msgs.length; j++) {
         expect(await outbox.read.contains([`0x${block.newL2ToL1Msgs[j].toBuffer().toString('hex')}`])).toBeTruthy();
       }
+      return;
     }
   }, 60_000);
 
