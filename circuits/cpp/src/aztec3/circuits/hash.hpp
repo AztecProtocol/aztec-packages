@@ -306,8 +306,8 @@ template <typename NCT> typename NCT::fr compute_l2_to_l1_hash(typename NCT::add
 }
 
 /**
- * @brief From two hashes compute one.
- * @param hashes takes the 4 elements of 2 calldata hashes [high, low, high, low].
+ * @brief Computes sha256 hash of 2 input hashes stored in 4 fields.
+ * @param hashes 4 fields containing 2 hashes [high, low, high, low].
  * @return Resulting sha256 hash stored in 2 fields.
  */
 template <typename NCT> std::array<typename NCT::fr, 2> accumulate_sha256(std::array<typename NCT::fr, 4> hashes)
