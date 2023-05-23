@@ -25,16 +25,17 @@ export function processPendingL1ToL2MessageAddedLogs(
 ): L1ToL2Message[] {
   const l1ToL2Messages: L1ToL2Message[] = [];
   for (const log of logs) {
-    const args = log.args;
+    const { sender, senderChainId, recipient, recipientVersion, content, secretHash, deadline, fee, entryKey } =
+      log.args;
     l1ToL2Messages.push(
       new L1ToL2Message(
-        new L1Actor(EthAddress.fromString(args.sender), Number(args.senderChainId)),
-        new L2Actor(AztecAddress.fromString(args.recipient), Number(args.recipientVersion)),
-        Fr.fromString(args.content),
-        Fr.fromString(args.secretHash),
-        args.deadline,
-        Number(args.fee),
-        Fr.fromString(args.entryKey),
+        new L1Actor(EthAddress.fromString(sender), Number(senderChainId)),
+        new L2Actor(AztecAddress.fromString(recipient), Number(recipientVersion)),
+        Fr.fromString(content),
+        Fr.fromString(secretHash),
+        deadline,
+        Number(fee),
+        Fr.fromString(entryKey),
       ),
     );
   }
