@@ -13,7 +13,6 @@ struct PrivateFunctionContext {
     // inputs: abi::Inputs,
     args : BoundedVec<Field, abi::MAX_ARGS>,
     return_values : BoundedVec<Field, abi::MAX_RETURN_VALUES>,
-    logs : BoundedVec<Field, abi::MAX_LOGS>,
 
     new_commitments: BoundedVec<Field, abi::MAX_NEW_COMMITMENTS>,
     new_nullifiers: BoundedVec<Field, abi::MAX_NEW_NULLIFIERS>,

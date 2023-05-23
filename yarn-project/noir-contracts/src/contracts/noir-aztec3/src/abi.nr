@@ -1,6 +1,5 @@
 global MAX_ARGS: comptime Field = 8;
 global MAX_RETURN_VALUES: comptime Field = 4;
-global MAX_LOGS: comptime Field = 4;
 global MAX_NEW_COMMITMENTS: comptime Field = 4;
 global MAX_NEW_NULLIFIERS: comptime Field = 4;
 global MAX_PRIVATE_CALL_STACK : comptime Field = 4;
@@ -178,7 +177,6 @@ fn empty_contract_storage_update_request() -> ContractStorageUpdateRequest {
 // CALL_CONTEXT_SIZE
 // + ARGS_HASH 
 // + MAX_RETURN_VALUES 
-// + MAX_LOGS 
 // + CONTRACT_STORAGE_UPDATE_REQUESTS_LENGTH * CONTRACT_STORAGE_UPDATE_REQUEST_SIZE
 // + CONTRACT_STORAGE_READS_LENGTH * CONTRACT_STORAGE_READ_SIZE
 // + MAX_PUBLIC_CALL_STACK
