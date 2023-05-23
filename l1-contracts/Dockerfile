@@ -6,6 +6,7 @@ RUN apk update && apk add git
 WORKDIR /usr/src/l1-contracts
 
 # Install foundry
+COPY . .
 RUN git init
 
 # Install deps
