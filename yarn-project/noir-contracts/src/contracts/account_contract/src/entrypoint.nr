@@ -1,9 +1,9 @@
 use dep::aztec3::abi;
 use dep::aztec3::types::vec::BoundedVec;
 
-global ACCOUNT_MAX_PRIVATE_CALLS: comptime Field = 2;
-global ACCOUNT_MAX_PUBLIC_CALLS: comptime Field = 2;
-global ACCOUNT_MAX_CALLS: comptime Field = 4;
+global ACCOUNT_MAX_PRIVATE_CALLS: comptime Field = 1;
+global ACCOUNT_MAX_PUBLIC_CALLS: comptime Field = 1;
+global ACCOUNT_MAX_CALLS: comptime Field = 2;
 
 global FUNCTION_CALL_SIZE: comptime Field = 10;
 
@@ -24,10 +24,10 @@ impl FunctionCall {
 }
 
 // FUNCTION_CALL_SIZE * (ACCOUNT_MAX_PUBLIC_CALLS + ACCOUNT_MAX_PRIVATE_CALLS) + 2
-global ENTRYPOINT_PAYLOAD_SIZE: comptime Field = 42;
+global ENTRYPOINT_PAYLOAD_SIZE: comptime Field = 22;
 
 // MAX_ARGS * (ACCOUNT_MAX_PUBLIC_CALLS + ACCOUNT_MAX_PRIVATE_CALLS)
-global ACCOUNT_FLATTENED_ARGS_SIZE: comptime Field = 32;
+global ACCOUNT_FLATTENED_ARGS_SIZE: comptime Field = 16;
 
 struct EntrypointPayload {
   // Noir doesnt support nested arrays or structs yet so we flatten everything
