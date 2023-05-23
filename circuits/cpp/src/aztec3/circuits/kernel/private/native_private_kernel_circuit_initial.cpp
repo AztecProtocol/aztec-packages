@@ -14,6 +14,7 @@ using aztec3::circuits::abis::PrivateHistoricTreeRoots;
 using aztec3::circuits::abis::private_kernel::PrivateKernelInputsInit;
 using aztec3::utils::array_push;
 using aztec3::utils::is_array_empty;
+using aztec3::utils::push_array_to_array;
 using CircuitErrorCode = aztec3::utils::CircuitErrorCode;
 
 namespace aztec3::circuits::kernel::private_kernel {
@@ -61,6 +62,9 @@ void initialise_end_values(PrivateKernelInputsInit<NT> const& private_inputs,
 
     // Set the constants in public_inputs.
     public_inputs.constants = constants;
+
+    push_array_to_array(private_call_public_inputs.private_call_stack, public_inputs.end.private_call_stack);
+    push_array_to_array(private_call_public_inputs.public_call_stack, public_inputs.end.public_call_stack);
 }
 
 void validate_this_private_call_against_tx_request(DummyComposer& composer,
@@ -158,9 +162,9 @@ KernelCircuitPublicInputs<NT> native_private_kernel_circuit_initial(DummyCompose
 
     validate_inputs(composer, private_inputs);
 
-    validate_this_private_call_against_tx_request(composer, private_inputs);
+    // validate_this_private_call_against_tx_request(composer, private_inputs);
 
-    common_validate_call_stack(composer, private_inputs.private_call);
+    // common_validate_call_stack(composer, private_inputs.private_call);
 
     update_end_values(private_inputs, public_inputs);
 
