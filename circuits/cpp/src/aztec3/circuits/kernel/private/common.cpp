@@ -122,10 +122,6 @@ void common_contract_logic(DummyComposer& composer,
     const auto& storage_contract_address = private_call_public_inputs.call_context.storage_contract_address;
     const auto& portal_contract_address = private_call.portal_contract_address;
     const auto& deployer_address = private_call_public_inputs.call_context.msg_sender;
-    // contract deployment
-
-    // input storage contract address must be 0 if its a constructor call and non-zero otherwise
-    auto is_contract_deployment = public_inputs.constants.tx_context.is_contract_deployment_tx;
 
     auto private_call_vk_hash =
         stdlib::recursion::verification_key<CT::bn254>::compress_native(private_call.vk, GeneratorIndex::VK);
@@ -133,37 +129,10 @@ void common_contract_logic(DummyComposer& composer,
     auto constructor_hash =
         compute_constructor_hash(function_data, private_call_public_inputs.args, private_call_vk_hash);
 
-    if (is_contract_deployment) {
-        composer.do_assert(contract_dep_data.constructor_vk_hash == private_call_vk_hash,
-                           "constructor_vk_hash doesn't match private_call_vk_hash",
-                           CircuitErrorCode::PRIVATE_KERNEL__INVALID_CONSTRUCTOR_VK_HASH);
-    }
-
     auto const new_contract_address = compute_contract_address<NT>(deployer_address,
                                                                    contract_dep_data.contract_address_salt,
                                                                    contract_dep_data.function_tree_root,
                                                                    constructor_hash);
-
-    if (is_contract_deployment) {
-        // must imply == derived address
-        composer.do_assert(storage_contract_address == new_contract_address,
-                           "contract address supplied doesn't match derived address",
-                           CircuitErrorCode::PRIVATE_KERNEL__INVALID_CONTRACT_ADDRESS);
-    } else {
-        // non-contract deployments must specify contract address being interacted with
-        composer.do_assert(storage_contract_address != 0,
-                           "contract address can't be 0 for non-contract deployment related transactions",
-                           CircuitErrorCode::PRIVATE_KERNEL__INVALID_CONTRACT_ADDRESS);
-    }
-
-    // compute contract address nullifier
-    auto const blake_input = new_contract_address.to_field().to_buffer();
-    auto const new_contract_address_nullifier = NT::fr::serialize_from_buffer(NT::blake3s(blake_input).data());
-
-    // push the contract address nullifier to nullifier vector
-    if (is_contract_deployment) {
-        array_push(public_inputs.end.new_nullifiers, new_contract_address_nullifier);
-    }
 
     // Add new contract data if its a contract deployment function
     NewContractData<NT> const native_new_contract_data{ new_contract_address,
@@ -173,16 +142,41 @@ void common_contract_logic(DummyComposer& composer,
     array_push<NewContractData<NT>, KERNEL_NEW_CONTRACTS_LENGTH>(public_inputs.end.new_contracts,
                                                                  native_new_contract_data);
 
-    /* We need to compute the root of the contract tree, starting from the function's VK:
-     * - Compute the vk_hash (done above)
-     * - Compute the function_leaf: hash(function_selector, is_private, vk_hash, acir_hash)
-     * - Hash the function_leaf with the function_leaf's sibling_path to get the function_tree_root
-     * - Compute the contract_leaf: hash(contract_address, portal_contract_address, function_tree_root)
-     * - Hash the contract_leaf with the contract_leaf's sibling_path to get the contract_tree_root
-     */
+    auto is_contract_deployment = public_inputs.constants.tx_context.is_contract_deployment_tx;
 
-    // The logic below ensures that the contract exists in the contracts tree
-    if (!is_contract_deployment) {
+    // input storage contract address must be 0 if its a constructor call and non-zero otherwise
+    if (is_contract_deployment) {
+        composer.do_assert(contract_dep_data.constructor_vk_hash == private_call_vk_hash,
+                           "constructor_vk_hash doesn't match private_call_vk_hash",
+                           CircuitErrorCode::PRIVATE_KERNEL__INVALID_CONSTRUCTOR_VK_HASH);
+
+        // must imply == derived address
+        composer.do_assert(storage_contract_address == new_contract_address,
+                           "contract address supplied doesn't match derived address",
+                           CircuitErrorCode::PRIVATE_KERNEL__INVALID_CONTRACT_ADDRESS);
+
+        // compute contract address nullifier
+        auto const blake_input = new_contract_address.to_field().to_buffer();
+        auto const new_contract_address_nullifier = NT::fr::serialize_from_buffer(NT::blake3s(blake_input).data());
+
+        // push the contract address nullifier to nullifier vector
+        array_push(public_inputs.end.new_nullifiers, new_contract_address_nullifier);
+    } else {
+        // non-contract deployments must specify contract address being interacted with
+        composer.do_assert(storage_contract_address != 0,
+                           "contract address can't be 0 for non-contract deployment related transactions",
+                           CircuitErrorCode::PRIVATE_KERNEL__INVALID_CONTRACT_ADDRESS);
+
+        /* We need to compute the root of the contract tree, starting from the function's VK:
+         * - Compute the vk_hash (done above)
+         * - Compute the function_leaf: hash(function_selector, is_private, vk_hash, acir_hash)
+         * - Hash the function_leaf with the function_leaf's sibling_path to get the function_tree_root
+         * - Compute the contract_leaf: hash(contract_address, portal_contract_address, function_tree_root)
+         * - Hash the contract_leaf with the contract_leaf's sibling_path to get the contract_tree_root
+         */
+
+        // The logic below ensures that the contract exists in the contracts tree
+
         auto const& computed_function_tree_root =
             function_tree_root_from_siblings<NT>(private_call.call_stack_item.function_data.function_selector,
                                                  true,  // is_private
