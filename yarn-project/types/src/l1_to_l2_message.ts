@@ -6,6 +6,18 @@ import { sha256 } from '@aztec/foundation/crypto';
 import { toBigIntBE, toBufferBE } from '@aztec/foundation/bigint-buffer';
 
 /**
+ * Interface of classes allowing for the retrieval of L1 to L2 messages.
+ */
+export interface L1ToL2MessageSource {
+  /**
+   * Gets the `take` amount of pending L1 to L2 messages.
+   * @param take - The number of messages to return.
+   * @returns The requested L1 to L2 messages.
+   */
+  getPendingL1ToL2Messages(take: number): Promise<L1ToL2Message[]>;
+}
+
+/**
  * The format of an L1 to L2 Message.
  */
 export class L1ToL2Message {
@@ -19,9 +31,9 @@ export class L1ToL2Message {
      */
     public readonly recipient: L2Actor,
     /**
-     * The hash of the message content.
+     * The message content.
      */
-    public readonly contentHash: Fr,
+    public readonly content: Fr,
     /**
      * The hash of the spending secret.
      */
@@ -34,9 +46,18 @@ export class L1ToL2Message {
      * The fee for the message.
      */
     public readonly fee: number,
-  ) {}
+    /**
+     * The entry key for the message - optional.
+     * If not provided, it will be calculated by hashing the message (similar to the Inbox contract)
+     */
+    public readonly entryKey?: Fr,
+  ) {
+    if (!entryKey) {
+      this.entryKey = this.hash();
+    }
+  }
 
-  // TODO: sha256 hash of the message packed the same as solidity
+  // TODO: (#646) - sha256 hash of the message packed the same as solidity
   hash(): Fr {
     const buf = this.toBuffer();
     const temp = toBigIntBE(sha256(buf));
@@ -51,7 +72,7 @@ export class L1ToL2Message {
     return [
       ...this.sender.toFieldArray(),
       ...this.recipient.toFieldArray(),
-      this.contentHash,
+      this.content,
       this.secretHash,
       new Fr(BigInt(this.deadline)),
       new Fr(BigInt(this.fee)),
@@ -59,7 +80,7 @@ export class L1ToL2Message {
   }
 
   toBuffer(): Buffer {
-    return serializeToBuffer(this.sender, this.recipient, this.contentHash, this.secretHash, this.deadline, this.fee);
+    return serializeToBuffer(this.sender, this.recipient, this.content, this.secretHash, this.deadline, this.fee);
   }
 
   static empty(): L1ToL2Message {
