@@ -2,12 +2,15 @@
 // Copyright 2023 Aztec Labs.
 pragma solidity >=0.8.18;
 
+// Interfaces
 import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
+import {IRegistry} from "@aztec/core/interfaces/messagebridge/IRegistry.sol";
+
+// Libraries
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
+import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {Hash} from "@aztec/core/libraries/Hash.sol";
 import {MessageBox} from "@aztec/core/libraries/MessageBox.sol";
-import {Errors} from "@aztec/core/libraries/Errors.sol";
-import {IRegistry} from "@aztec/core/interfaces/messagebridge/IRegistry.sol";
 
 /**
  * @title Inbox
@@ -18,7 +21,7 @@ contract Inbox is IInbox {
   using MessageBox for mapping(bytes32 entryKey => DataStructures.Entry entry);
   using Hash for DataStructures.L1ToL2Msg;
 
-  IRegistry immutable REGISTRY;
+  IRegistry public immutable REGISTRY;
 
   mapping(bytes32 entryKey => DataStructures.Entry entry) internal entries;
   mapping(address account => uint256 balance) public feesAccrued;
@@ -31,15 +34,6 @@ contract Inbox is IInbox {
 
   constructor(address _registry) {
     REGISTRY = IRegistry(_registry);
-  }
-
-  /**
-   * @notice Given a message, computes an entry key for the Inbox
-   * @param _message - The L1 to L2 message
-   * @return The hash of the message (used as the key of the entry in the set)
-   */
-  function computeEntryKey(DataStructures.L1ToL2Msg memory _message) public pure returns (bytes32) {
-    return _message.sha256ToField();
   }
 
   /**
@@ -160,6 +154,15 @@ contract Inbox is IInbox {
    */
   function contains(bytes32 _entryKey) public view returns (bool) {
     return entries.contains(_entryKey);
+  }
+
+  /**
+   * @notice Given a message, computes an entry key for the Inbox
+   * @param _message - The L1 to L2 message
+   * @return The hash of the message (used as the key of the entry in the set)
+   */
+  function computeEntryKey(DataStructures.L1ToL2Msg memory _message) public pure returns (bytes32) {
+    return _message.sha256ToField();
   }
 
   /**
