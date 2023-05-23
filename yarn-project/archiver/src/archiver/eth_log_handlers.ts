@@ -25,15 +25,16 @@ export function processPendingL1ToL2MessageAddedLogs(
 ): L1ToL2Message[] {
   const l1ToL2Messages: L1ToL2Message[] = [];
   for (const log of logs) {
+    const args = log.args;
     l1ToL2Messages.push(
       new L1ToL2Message(
-        new L1Actor(EthAddress.fromString(log.args.sender), Number(log.args.senderChainId)),
-        new L2Actor(AztecAddress.fromString(log.args.recipient), Number(log.args.recipientVersion)),
-        Fr.fromString(log.args.content),
-        Fr.fromString(log.args.secretHash),
-        log.args.deadline,
-        Number(log.args.fee),
-        Fr.fromString(log.args.entryKey),
+        new L1Actor(EthAddress.fromString(args.sender), Number(args.senderChainId)),
+        new L2Actor(AztecAddress.fromString(args.recipient), Number(args.recipientVersion)),
+        Fr.fromString(args.content),
+        Fr.fromString(args.secretHash),
+        args.deadline,
+        Number(args.fee),
+        Fr.fromString(args.entryKey),
       ),
     );
   }
@@ -203,7 +204,7 @@ export async function getContractDeploymentLogs(
   publicClient: PublicClient,
   unverifiedDataEmitterAddress: EthAddress,
   fromBlock: bigint,
-): Promise<any[]> {
+): Promise<Log<bigint, number, undefined, typeof UnverifiedDataEmitterAbi, 'ContractDeployment'>[]> {
   const abiItem = getAbiItem({
     abi: UnverifiedDataEmitterAbi,
     name: 'ContractDeployment',
@@ -220,13 +221,13 @@ export async function getContractDeploymentLogs(
  * @param publicClient - The viem public client to use for transaction retrieval.
  * @param inboxAddress - The address of the inbox contract.
  * @param fromBlock - First block to get logs from (inclusive).
- * @returns
+ * @returns An array of `MessageAdded` logs.
  */
 export async function getPendingL1ToL2MessageLogs(
   publicClient: PublicClient,
   inboxAddress: EthAddress,
   fromBlock: bigint,
-): Promise<any[]> {
+): Promise<Log<bigint, number, undefined, typeof InboxAbi, 'MessageAdded'>[]> {
   const abiItem = getAbiItem({
     abi: InboxAbi,
     name: 'MessageAdded',

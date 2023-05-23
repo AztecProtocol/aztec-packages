@@ -6,6 +6,7 @@ import {
   ContractData,
   L1ToL2Message,
 } from '@aztec/types';
+import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 
 /**
@@ -77,7 +78,7 @@ export class MemoryArchiverStore implements ArchiverDataStore {
   }
 
   /**
-   * Append new L1 to L2 messages to the store's list.
+   * Append new pending L1 to L2 messages to the store's list.
    * @param messages - The L1 to L2 messages to be added to the store.
    * @returns True if the operation is successful (always in this implementation).
    */
@@ -117,10 +118,10 @@ export class MemoryArchiverStore implements ArchiverDataStore {
 
   /**
    * Gets the `take` amount of pending L1 to L2 messages.
-   * @param take - The number of messages to return.
+   * @param take - The number of messages to return (by default NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).
    * @returns The requested L1 to L2 messages.
    */
-  public getPendingL1ToL2Messages(take: number): Promise<L1ToL2Message[]> {
+  public getPendingL1ToL2Messages(take: number = NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP): Promise<L1ToL2Message[]> {
     // todo: @rahul https://github.com/AztecProtocol/aztec-packages/issues/529 - change this so that sequencer actually actually consumes messages sorted by fee or another value
     // upon consumption, the messages are removed from the store
     return Promise.resolve(this.pendingL1ToL2Messages.slice(0, take));

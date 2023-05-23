@@ -45,11 +45,11 @@ describe('Archiver', () => {
       .mockResolvedValueOnce([makeL2BlockProcessedEvent(100n, 1n)])
       .mockResolvedValueOnce([makeUnverifiedDataEvent(102n, 1n)])
       .mockResolvedValueOnce([makeContractDeployedEvent(104n, 1n)])
-      .mockResolvedValueOnce([makeL1ToL2MessageAddedEvent(101n, 1n)])
+      .mockResolvedValueOnce([makeL1ToL2MessageAddedEvent(101n)])
       .mockResolvedValueOnce([makeL2BlockProcessedEvent(1100n, 2n), makeL2BlockProcessedEvent(1150n, 3n)])
       .mockResolvedValueOnce([makeUnverifiedDataEvent(1100n, 2n)])
       .mockResolvedValueOnce([makeContractDeployedEvent(1102n, 2n)])
-      .mockResolvedValueOnce([makeL1ToL2MessageAddedEvent(101n, 2n)])
+      .mockResolvedValueOnce([makeL1ToL2MessageAddedEvent(1101n)])
       .mockResolvedValue([]);
     rollupTxs.forEach(tx => publicClient.getTransaction.mockResolvedValueOnce(tx));
 
@@ -140,10 +140,9 @@ function makeContractDeployedEvent(l1BlockNum: bigint, l2BlockNum: bigint) {
 /**
  * Makes a fake L1ToL2 MessageAdded event for testing purposes.
  * @param l1BlockNum - L1 block number.
- * @param l2BlockNum - L2Block number.
  * @returns An L2BlockProcessed event log.
  */
-function makeL1ToL2MessageAddedEvent(l1BlockNum: bigint, l2BlockNum: bigint) {
+function makeL1ToL2MessageAddedEvent(l1BlockNum: bigint) {
   return {
     blockNumber: l1BlockNum,
     args: {
@@ -157,8 +156,8 @@ function makeL1ToL2MessageAddedEvent(l1BlockNum: bigint, l2BlockNum: bigint) {
       fee: 1n,
       entryKey: '0x' + randomBytes(32).toString('hex'),
     },
-    transactionHash: `0x${l2BlockNum}`,
-  }  as Log<bigint, number, undefined, typeof InboxAbi, 'MessageAdded'>;
+    transactionHash: `0x${l1BlockNum}`,
+  } as Log<bigint, number, undefined, typeof InboxAbi, 'MessageAdded'>;
 }
 
 /**

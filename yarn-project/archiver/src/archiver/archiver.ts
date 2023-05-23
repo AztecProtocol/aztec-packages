@@ -138,7 +138,7 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource, ContractDa
       currentBlockNumber,
       this.nextL2BlockFromBlock,
     );
-    const retrievedL1ToL2Messages = await retrieveNewPendingL1ToL2Messages(
+    const retrievedPendingL1ToL2Messages = await retrieveNewPendingL1ToL2Messages(
       this.publicClient,
       this.inboxAddress,
       blockUntilSynced,
@@ -167,7 +167,7 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource, ContractDa
     });
 
     // store l1 to l2 messages for which we have retrieved rollups
-    await this.store.addPendingL1ToL2Messages(retrievedL1ToL2Messages.retrievedData);
+    await this.store.addPendingL1ToL2Messages(retrievedPendingL1ToL2Messages.retrievedData);
 
     // store retrieved rollup blocks
     await this.store.addL2Blocks(retrievedBlocks.retrievedData);

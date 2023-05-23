@@ -126,7 +126,7 @@ export async function retrieveNewContractData(
 }
 
 /**
- * Ftech new L1 to L2 messages.
+ * Fetch new pending L1 to L2 messages.
  * @param publicClient - The viem public client to use for transaction retrieval.
  * @param inboxAddress - The address of the inbox contract to fetch messages from.
  * @param blockUntilSynced - If true, blocks until the archiver has fully synced.

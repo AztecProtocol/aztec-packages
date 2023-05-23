@@ -57,7 +57,7 @@ export class L1ToL2Message {
     }
   }
 
-  // TODO: sha256 hash of the message packed the same as solidity
+  // TODO: (#646) - sha256 hash of the message packed the same as solidity
   hash(): Fr {
     const buf = this.toBuffer();
     const temp = toBigIntBE(sha256(buf));
