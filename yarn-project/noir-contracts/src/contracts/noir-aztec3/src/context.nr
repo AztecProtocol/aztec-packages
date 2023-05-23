@@ -7,6 +7,8 @@ struct PrivateFunctionContext {
     return_values : BoundedVec<Field, abi::MAX_RETURN_VALUES>,
     logs : BoundedVec<Field, abi::MAX_LOGS>,
 
+    read_requests: BoundedVec<Field, abi::MAX_READ_REQUESTS>,
+
     new_commitments: BoundedVec<Field, abi::MAX_NEW_COMMITMENTS>,
     new_nullifiers: BoundedVec<Field, abi::MAX_NEW_NULLIFIERS>,
 
@@ -21,6 +23,8 @@ impl PrivateFunctionContext {
             args: BoundedVec::new(0),
             return_values: BoundedVec::new(0),
             logs: BoundedVec::new(0),
+
+            read_requests: BoundedVec::new(0),
 
             new_commitments: BoundedVec::new(0),
             new_nullifiers: BoundedVec::new(0),
@@ -38,6 +42,7 @@ impl PrivateFunctionContext {
             args: self.args.storage,
             return_values: self.return_values.storage,
             emitted_events: self.logs.storage,
+            read_requests: self.read_requests.storage,
             new_commitments: self.new_commitments.storage,
             new_nullifiers: self.new_nullifiers.storage,
             private_call_stack: self.private_call_stack.storage,
@@ -50,6 +55,11 @@ impl PrivateFunctionContext {
             contract_deployment_data: inputs.contract_deployment_data,
         };
         priv_circuit_pub_inputs.serialize()
+    }
+
+    fn push_read_request(mut self: Self, read_request: Field) -> Self {
+        self.read_requests = self.read_requests.push(read_request);
+        self
     }
 
     fn push_new_note_hash(mut self: Self, note_hash: Field) -> Self {

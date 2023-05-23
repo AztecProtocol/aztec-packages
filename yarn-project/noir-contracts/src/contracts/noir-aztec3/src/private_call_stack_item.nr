@@ -10,13 +10,13 @@ fn call_private_function_oracle(
     _contract_address: Field, 
     _function_selector: Field, 
     _args: [Field; crate::abi::MAX_ARGS]
-) -> [Field; 53] {}
+) -> [Field; 57] {}
 
 unconstrained fn call_private_function_internal(
     contract_address: Field, 
     function_selector: Field,
     args: [Field; crate::abi::MAX_ARGS]
-) -> [Field; 53] {
+) -> [Field; 57] {
     call_private_function_oracle(
         contract_address, 
         function_selector, 
@@ -76,23 +76,24 @@ impl PrivateCallStackItem {
                 args: arr_copy_slice(fields, [0; crate::abi::MAX_ARGS], 10),
                 return_values: arr_copy_slice(fields, [0; crate::abi::MAX_RETURN_VALUES], 18),
                 emitted_events: arr_copy_slice(fields, [0; crate::abi::MAX_LOGS], 22),
-                new_commitments: arr_copy_slice(fields, [0; crate::abi::MAX_NEW_COMMITMENTS], 26),
-                new_nullifiers: arr_copy_slice(fields, [0; crate::abi::MAX_NEW_NULLIFIERS], 30),
-                private_call_stack: arr_copy_slice(fields, [0; crate::abi::MAX_PRIVATE_CALL_STACK], 34),
-                public_call_stack: arr_copy_slice(fields, [0; crate::abi::MAX_PUBLIC_CALL_STACK], 38),
-                new_l2_to_l1_msgs:arr_copy_slice(fields, [0; crate::abi::MAX_L1_MSG_STACK], 42),
-                historic_private_data_tree_root: fields[44],
-                historic_private_nullifier_tree_root: fields[45],
-                historic_contract_tree_root: fields[46],
-                historic_l1_to_l2_messages_tree_root: fields[47],
+                read_requests: arr_copy_slice(fields, [0; crate::abi::MAX_READ_REQUESTS], 26),
+                new_commitments: arr_copy_slice(fields, [0; crate::abi::MAX_NEW_COMMITMENTS], 30),
+                new_nullifiers: arr_copy_slice(fields, [0; crate::abi::MAX_NEW_NULLIFIERS], 34),
+                private_call_stack: arr_copy_slice(fields, [0; crate::abi::MAX_PRIVATE_CALL_STACK], 38),
+                public_call_stack: arr_copy_slice(fields, [0; crate::abi::MAX_PUBLIC_CALL_STACK], 42),
+                new_l2_to_l1_msgs:arr_copy_slice(fields, [0; crate::abi::MAX_L1_MSG_STACK], 46),
+                historic_private_data_tree_root: fields[48],
+                historic_private_nullifier_tree_root: fields[49],
+                historic_contract_tree_root: fields[50],
+                historic_l1_to_l2_messages_tree_root: fields[51],
                 contract_deployment_data: ContractDeploymentData {
-                    constructor_vk_hash : fields[48],
-                    function_tree_root : fields[49],
-                    contract_address_salt : fields[50],
-                    portal_contract_address : fields[51],
+                    constructor_vk_hash : fields[52],
+                    function_tree_root : fields[53],
+                    contract_address_salt : fields[54],
+                    portal_contract_address : fields[55],
                 },
             },
-            is_execution_request: fields[52] as bool,
+            is_execution_request: fields[56] as bool,
         };
         constrain contract_address == item.contract_address;
         constrain function_selector == item.function_data.function_selector;

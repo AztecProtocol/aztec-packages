@@ -2,7 +2,9 @@ use dep::std;
 use crate::abi::Inputs;
 use crate::context::PrivateFunctionContext;
 use crate::notes::value_note::Note;
+use crate::notes::value_note::NOTE_LEN;
 use crate::types::point::Point;
+use crate::utils::arr_copy_slice;
 
 #[oracle(notifyCreatedNote)]
 fn notify_created_note_oracle(
@@ -47,8 +49,8 @@ unconstrained fn get_notes_2_internal(
 
 fn get_2_notes(storage_slot: Field) -> (Note, Note) {
     let fields = get_notes_2_internal(storage_slot);
-    let note1 = Note::deserialize(arr_copy_slice(fields, [0; NOTE_LEN], 1)),
-    let note2 = Note::deserialize(arr_copy_slice(fields, [0; NOTE_LEN],  1 + NOTE_LEN)),
+    let note1 = Note::deserialize(arr_copy_slice(fields, [0; NOTE_LEN], 1));
+    let note2 = Note::deserialize(arr_copy_slice(fields, [0; NOTE_LEN],  1 + NOTE_LEN));
     (note1, note2)
 }
 
@@ -71,12 +73,20 @@ impl Set {
     }
 
     // The `2` in the name is the number of notes returned
-    fn get_2(self, inputs: Inputs, mut context: PrivateFunctionContext) -> (PrivateFunctionContext, (Note, Note)) {
+    fn get_2(self, mut context: PrivateFunctionContext) -> (PrivateFunctionContext, (Note, Note)) {
         let storage_slot = self.storage_slot;
 
         let notes = get_2_notes(storage_slot);
 
-        (context, notes)
+        let note0_hash = notes.0.compute_note_hash();
+        let note1_hash = notes.1.compute_note_hash();
+
+        (
+            context
+                .push_read_request(note0_hash)
+                .push_read_request(note1_hash),
+            notes
+        )
     }
 
 

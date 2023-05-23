@@ -1,12 +1,13 @@
 global MAX_ARGS: comptime Field = 8;
 global MAX_RETURN_VALUES: comptime Field = 4;
 global MAX_LOGS: comptime Field = 4;
+global MAX_READ_REQUESTS: comptime Field = 4;
 global MAX_NEW_COMMITMENTS: comptime Field = 4;
 global MAX_NEW_NULLIFIERS: comptime Field = 4;
 global MAX_PRIVATE_CALL_STACK : comptime Field = 4;
 global MAX_PUBLIC_CALL_STACK: comptime Field = 4;
 global MAX_L1_MSG_STACK : comptime Field = 2;
-global PUBLIC_INPUTS_LENGTH : comptime Field = 48;
+global PUBLIC_INPUTS_LENGTH : comptime Field = 52;
 global CONTRACT_STORAGE_UPDATE_REQUESTS_LENGTH : comptime Field = 4;
 global CONTRACT_STORAGE_READS_LENGTH : comptime Field = 4;
 
@@ -96,6 +97,7 @@ struct PrivateCircuitPublicInputs {
     args: [Field; crate::abi::MAX_ARGS],
     return_values: [Field; crate::abi::MAX_RETURN_VALUES],
     emitted_events: [Field; crate::abi::MAX_LOGS],
+    read_requests: [Field; crate::abi::MAX_READ_REQUESTS],
     new_commitments: [Field; crate::abi::MAX_NEW_COMMITMENTS],
     new_nullifiers: [Field; crate::abi::MAX_NEW_NULLIFIERS],
     private_call_stack: [Field; crate::abi::MAX_PRIVATE_CALL_STACK],
@@ -120,6 +122,7 @@ impl PrivateCircuitPublicInputs {
         fields = fields.push_array(self.args);
         fields = fields.push_array(self.return_values);
         fields = fields.push_array(self.emitted_events);
+        fields = fields.push_array(self.read_requests);
         fields = fields.push_array(self.new_commitments);
         fields = fields.push_array(self.new_nullifiers);
         fields = fields.push_array(self.private_call_stack);
