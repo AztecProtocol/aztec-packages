@@ -48,7 +48,7 @@ describe('sequencer', () => {
       getBlockHeight: () => Promise.resolve(lastBlockNumber),
     });
 
-    sequencer = new TestSubject(publisher, p2p, worldState, blockBuilder, publicProcessor, l2BlockSource);
+    sequencer = new TestSubject(publisher, p2p, worldState, blockBuilder, publicProcessor, l2BlockSource, undefined);
   });
 
   it('builds a block out of a single tx', async () => {
@@ -73,7 +73,11 @@ describe('sequencer', () => {
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
     expect(publisher.processL2Block).toHaveBeenCalledWith(block);
-    expect(publisher.processUnverifiedData).toHaveBeenCalledWith(lastBlockNumber + 1, expectedUnverifiedData);
+    expect(publisher.processUnverifiedData).toHaveBeenCalledWith(
+      lastBlockNumber + 1,
+      block.getCalldataHash(),
+      expectedUnverifiedData,
+    );
   });
 
   it('builds a block out of several txs rejecting double spends', async () => {
@@ -110,7 +114,11 @@ describe('sequencer', () => {
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
     expect(publisher.processL2Block).toHaveBeenCalledWith(block);
-    expect(publisher.processUnverifiedData).toHaveBeenCalledWith(lastBlockNumber + 1, expectedUnverifiedData);
+    expect(publisher.processUnverifiedData).toHaveBeenCalledWith(
+      lastBlockNumber + 1,
+      block.getCalldataHash(),
+      expectedUnverifiedData,
+    );
     expect(p2p.deleteTxs).toHaveBeenCalledWith([await doubleSpendTx.getTxHash()]);
   });
 });

@@ -122,7 +122,7 @@ export class Sequencer {
 
       // Get txs to build the new block
       const pendingTxs = await this.p2pClient.getTxs();
-      if (pendingTxs.length < this.maxTxsPerBlock) return;
+      if (pendingTxs.length < this.minTxsPerBLock) return;
 
       // Filter out invalid txs
       const validTxs = await this.takeValidTxs(pendingTxs);
@@ -280,7 +280,8 @@ export class Sequencer {
    */
   protected async buildBlock(txs: ProcessedTx[], newL1ToL2Messages: Fr[]) {
     // Pad the txs array with empty txs to be a power of two, at least 4
-    const emptyTxCount = this.maxTxsPerBlock - txs.length;
+    const power = Math.max(Math.ceil(Math.log2(txs.length)), 2);
+    const emptyTxCount = Math.pow(2, power) - txs.length;
 
     const allTxs = [
       ...txs,
