@@ -476,7 +476,6 @@ export class SoloBlockBuilder implements BlockBuilder {
       throw new Error(`Leaf with value ${value} not found in tree ${treeId}`);
     }
     const path = await this.db.getSiblingPath(treeId, index);
-    // TODO: Check conversion from bigint to number
     return new MembershipWitness(height, index, assertLength(path.toFieldArray(), height));
   }
 
