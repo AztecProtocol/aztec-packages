@@ -12,6 +12,13 @@ const logger = createDebugLogger('aztec:cli');
 const program = new Command();
 const log = createLogger('aztec:aztec-cli');
 
+/**
+ * Function to execute the 'deployRollupContracts' command.
+ * @param rpcUrl - The RPC URL of the ethereum node.
+ * @param apiKey - The api key of the ethereum node endpoint (leave as '' if no api key is used).
+ * @param privateKey - The private key to be used in contract deployment.
+ * @param mnemonic - The mnemonic to be used in contract deployment.
+ */
 async function deployRollupContracts(rpcUrl: string, apiKey: string, privateKey: string, mnemonic: string) {
   const account = privateKey ? privateKeyToAccount(`0x${privateKey}`) : mnemonicToAccount(mnemonic!);
   const chain = createAztecChain(rpcUrl, apiKey);
@@ -48,7 +55,7 @@ async function main() {
     });
 
   program
-    .command('deploy')
+    .command('deployL2')
     .argument('[rpcUrl]', 'Url of the rollup provider', 'http://localhost:9000')
     .argument('[interval]', 'Interval between contract deployments (seconds), 0 means only a single deployment', 60)
     .action(async (rpcUrl: string, intervalArg: string) => {

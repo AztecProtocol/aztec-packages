@@ -4,7 +4,6 @@ import { computeTxHash } from '@aztec/circuits.js/abis';
 import { TxHash } from './tx_hash.js';
 import { UnverifiedData } from './unverified_data.js';
 import { EncodedContractFunction } from './contract_data.js';
-import { numToUInt32BE } from '@aztec/circuits.js/utils';
 import { arrayNonEmptyLength } from '@aztec/foundation/collection';
 
 /**
@@ -214,78 +213,13 @@ export class Tx {
         : tx.newContractPublicFunctions.map(x => {
             return EncodedContractFunction.fromBuffer(x.toBuffer());
           });
-    return new Tx(publicInputs, proof, unverified, signedTxRequest, publicFunctions);
-  }
-
-  /**
-   * Creates a 'message' from this tx.
-   * @param tx - The transaction to convert to a message.
-   * @returns - The message.
-   */
-  static toMessage(tx: Tx): Buffer {
-    // eslint-disable-next-line jsdoc/require-jsdoc
-    const createMessageComponent = (obj?: { toBuffer: () => Buffer }) => {
-      if (!obj) {
-        // specify a length of 0 bytes
-        return numToUInt32BE(0);
-      }
-      const buffer = obj.toBuffer();
-      return Buffer.concat([numToUInt32BE(buffer.length), buffer]);
-    };
-    // eslint-disable-next-line jsdoc/require-jsdoc
-    const createMessageComponents = (obj?: { toBuffer: () => Buffer }[]) => {
-      if (!obj || !obj.length) {
-        // specify a length of 0 bytes
-        return numToUInt32BE(0);
-      }
-      const allComponents = Buffer.concat(obj.map(createMessageComponent));
-      return Buffer.concat([numToUInt32BE(allComponents.length), allComponents]);
-    };
-    const messageBuffer = Buffer.concat([
-      createMessageComponent(tx.data),
-      createMessageComponent(tx.proof),
-      createMessageComponent(tx.txRequest),
-      createMessageComponent(tx.unverifiedData),
-      createMessageComponents(tx.newContractPublicFunctions),
-    ]);
-    const messageLength = numToUInt32BE(messageBuffer.length);
-    return Buffer.concat([messageLength, messageBuffer]);
-  }
-
-  /**
-   * Creates a 'message' from this tx.
-   * @param buffer - The message buffer to convert to a tx.
-   * @returns - The message.
-   */
-  static fromMessage(buffer: Buffer): Tx {
-    const functions: EncodedContractFunction[] = [];
-
-    // eslint-disable-next-line jsdoc/require-jsdoc
-    const toObject = <T>(objectBuffer: Buffer, factory: { fromBuffer: (b: Buffer) => T }) => {
-      const objectSize = objectBuffer.readUint32BE(0);
-      return {
-        remainingData: objectBuffer.subarray(objectSize + 4),
-        obj: objectSize === 0 ? undefined : factory.fromBuffer(objectBuffer.subarray(4, objectSize + 4)),
-      };
-    };
-    // this is the opposite of the 'toMessage' function
-    // so the first 4 bytes is the complete length, skip it
-    const publicInputs = toObject(buffer.subarray(4), KernelCircuitPublicInputs);
-    const proof = toObject(publicInputs.remainingData, Proof);
-    const txRequest = toObject(proof.remainingData, SignedTxRequest);
-    const unverified = toObject(txRequest.remainingData, UnverifiedData);
-    const encodedFunctionsLength = unverified.remainingData.readUInt32BE(0);
-    if (encodedFunctionsLength) {
-      let workingBuffer = unverified.remainingData.subarray(4);
-      while (workingBuffer.length > 0) {
-        const func = toObject(workingBuffer, EncodedContractFunction);
-        workingBuffer = func.remainingData;
-        if (func.obj !== undefined) {
-          functions.push(func.obj);
-        }
-      }
-    }
-    return new Tx(publicInputs.obj, proof.obj, unverified.obj, txRequest.obj, functions.length ? functions : undefined);
+    const enqueuedPublicFunctions =
+      tx.enqueuedPublicFunctionCalls === undefined
+        ? undefined
+        : tx.enqueuedPublicFunctionCalls.map(x => {
+            return PublicCallRequest.fromBuffer(x.toBuffer());
+          });
+    return new Tx(publicInputs, proof, unverified, signedTxRequest, publicFunctions, enqueuedPublicFunctions);
   }
 }
 

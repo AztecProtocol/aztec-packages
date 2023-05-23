@@ -6,7 +6,7 @@ import { P2PService } from './service.js';
  */
 export class DummyP2PService implements P2PService {
   /**
-   * Starts the dummy imaplementation.
+   * Starts the dummy implementation.
    * @returns A resolved promise.
    */
   public start() {
@@ -21,8 +21,15 @@ export class DummyP2PService implements P2PService {
     return Promise.resolve();
   }
 
-  settledTxs(txHashes: TxHash[]): void {}
+  /**
+   * Called to have the given transaction propagated through the P2P network.
+   * @param _ - The transaction to be propagated.
+   */
+  public propagateTx(_: Tx) {}
 
-  propagateTx(tx: Tx): void {}
-  onNewTx(handler: (tx: Tx) => Promise<void>): void {}
+  /**
+   * Called upon receipt of settled transactions.
+   * @param _ - The hashes of the settled transactions.
+   */
+  public settledTxs(_: TxHash[]) {}
 }

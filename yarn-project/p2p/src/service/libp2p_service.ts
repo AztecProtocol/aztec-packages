@@ -24,7 +24,7 @@ import {
   decodeTransactionHashesMessage,
   decodeTransactionsMessage,
   getEncodedMessage,
-} from './messages.js';
+} from './tx_messages.js';
 import { KnownTxLookup } from './known_txs.js';
 import { TxPool } from '../index.js';
 import { autoNATService } from 'libp2p/autonat';

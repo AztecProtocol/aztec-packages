@@ -56,12 +56,12 @@ export const deployL1Contracts = async (
   };
 };
 
-async function deployL1Contract(
+const deployL1Contract = async (
   walletClient: WalletClient<HttpTransport, Chain, Account>,
   publicClient: PublicClient<HttpTransport, Chain>,
   abi: Narrow<Abi | readonly unknown[]>,
   bytecode: Hex,
-) {
+) => {
   const hash = await walletClient.deployContract({
     abi,
     bytecode,
@@ -74,4 +74,4 @@ async function deployL1Contract(
   }
 
   return EthAddress.fromString(receipt.contractAddress!);
-}
+};

@@ -1,28 +1,20 @@
-import { AztecNode } from '@aztec/aztec-node';
-import { Fr, KernelCircuitPublicInputs, Proof, SignedTxRequest } from '@aztec/circuits.js';
+import { AztecNode, txFromJson, txToJson } from '@aztec/aztec-node';
+import { Fr } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { MerkleTreeId, Tx, TxHash, UnverifiedData } from '@aztec/types';
+import { createDebugLogger } from '@aztec/foundation/log';
+import { MerkleTreeId, TxHash } from '@aztec/types';
 import Koa, { Context, DefaultState } from 'koa';
 import Router from 'koa-router';
 import { PromiseReadable } from 'promise-readable';
 
-function txToJson(tx: Tx) {
-  return {
-    data: tx?.data?.toBuffer().toString('hex'),
-    unverified: tx?.unverifiedData?.toBuffer().toString('hex'),
-    txRequest: tx?.txRequest?.toBuffer().toString('hex'),
-    proof: tx?.proof?.toBuffer().toString('hex'),
-  };
-}
+const logger = createDebugLogger('aztec:http_router');
 
-function txFromJson(json: any) {
-  const publicInputs = json.data ? KernelCircuitPublicInputs.fromBuffer(Buffer.from(json.data, 'hex')) : undefined;
-  const unverified = json.unverified ? UnverifiedData.fromBuffer(Buffer.from(json.unverified, 'hex')) : undefined;
-  const txRequest = json.txRequest ? SignedTxRequest.fromBuffer(Buffer.from(json.txRequest, 'hex')) : undefined;
-  const proof = json.proof ? Buffer.from(json.proof, 'hex') : undefined;
-  return Tx.create(publicInputs, proof == undefined ? undefined : Proof.fromBuffer(proof), unverified, txRequest);
-}
-
+/**
+ * Factory method for constructing the http service.
+ * @param node - An instance of Aztec Node into which calls are forwared.
+ * @param prefix - A prefix for the http service's api routes
+ * @returns The constructed http servce.
+ */
 export function appFactory(node: AztecNode, prefix: string) {
   const router = new Router<DefaultState, Context>({ prefix });
 
@@ -39,7 +31,7 @@ export function appFactory(node: AztecNode, prefix: string) {
     try {
       await next();
     } catch (err: any) {
-      console.log(err);
+      logger(err);
       ctx.status = 400;
       ctx.body = { error: err.message };
     }
@@ -170,7 +162,7 @@ export function appFactory(node: AztecNode, prefix: string) {
   });
 
   router.get('/storage-at', async (ctx: Koa.Context) => {
-    console.log('storage-at');
+    logger('storage-at');
     const address = ctx.query.address!;
     const slot = ctx.query.slot!;
     const value = await node.getStorageAt(AztecAddress.fromString(address as string), BigInt(slot as string));
@@ -191,7 +183,7 @@ export function appFactory(node: AztecNode, prefix: string) {
 
   const app = new Koa();
   app.on('error', error => {
-    console.log(`KOA app-level error. ${JSON.stringify({ error })}`);
+    logger(`KOA app-level error. ${JSON.stringify({ error })}`);
   });
   app.proxy = true;
   app.use(exceptionHandler);

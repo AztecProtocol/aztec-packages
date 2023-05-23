@@ -151,6 +151,6 @@ export class MerkleTreeOperationsFacade implements MerkleTreeOperations {
     treeHeight: number,
     subtreeHeight: number,
   ): Promise<[LowLeafWitnessData[], Buffer[]] | [undefined, Buffer[]]> {
-    return this.trees.batchInsert(treeId, leaves, treeHeight, subtreeHeight, this.includeUncommitted);
+    return this.trees.batchInsert(treeId, leaves, treeHeight, subtreeHeight);
   }
 }

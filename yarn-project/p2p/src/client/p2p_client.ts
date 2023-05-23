@@ -2,11 +2,9 @@ import { L2Block, L2BlockContext, L2BlockDownloader, L2BlockSource } from '@azte
 import { Tx, TxHash } from '@aztec/types';
 
 import { TxPool } from '../tx_pool/index.js';
-import { InMemoryTxPool } from '../tx_pool/memory_tx_pool.js';
 import { getP2PConfigEnvVars } from '../config.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { P2PService } from '../service/service.js';
-import { DummyP2PService } from '../service/dummy_service.js';
 
 /**
  * Enum defining the possible states of the p2p client.

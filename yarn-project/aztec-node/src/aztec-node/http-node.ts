@@ -1,19 +1,37 @@
 import { AztecNode } from '@aztec/aztec-node';
-import { AztecAddress, Fr, KernelCircuitPublicInputs, Proof, SignedTxRequest } from '@aztec/circuits.js';
+import {
+  AztecAddress,
+  Fr,
+  KernelCircuitPublicInputs,
+  Proof,
+  PublicCallRequest,
+  SignedTxRequest,
+} from '@aztec/circuits.js';
 import { SiblingPath } from '@aztec/merkle-tree';
-import { ContractData, ContractPublicData, L2Block, MerkleTreeId, Tx, TxHash, UnverifiedData } from '@aztec/types';
+import {
+  ContractData,
+  ContractPublicData,
+  EncodedContractFunction,
+  L2Block,
+  MerkleTreeId,
+  Tx,
+  TxHash,
+  UnverifiedData,
+} from '@aztec/types';
 
 /**
  * Serialises a transaction to JSON representation.
  * @param tx - The transaction to serialise.
  * @returns The serialsied transaction.
  */
-function txToJson(tx: Tx) {
+export function txToJson(tx: Tx) {
   return {
-    data: tx?.data?.toBuffer().toString('hex'),
-    unverified: tx?.unverifiedData?.toBuffer().toString('hex'),
-    txRequest: tx?.txRequest?.toBuffer().toString('hex'),
-    proof: tx?.proof?.toBuffer().toString('hex'),
+    data: tx.data?.toBuffer().toString('hex'),
+    unverified: tx.unverifiedData?.toBuffer().toString('hex'),
+    txRequest: tx.txRequest?.toBuffer().toString('hex'),
+    proof: tx.proof?.toBuffer().toString('hex'),
+    newContractPublicFunctions: tx.newContractPublicFunctions?.map(f => f.toBuffer().toString('hex')) ?? [],
+    enqueuedPublicFunctions: tx.enqueuedPublicFunctionCalls?.map(f => f.toBuffer().toString('hex')) ?? [],
   };
 }
 
@@ -22,11 +40,29 @@ function txToJson(tx: Tx) {
  * @param json - The JSON representation of the transaction.
  * @returns The deserialised transaction.
  */
-function txFromJson(json: any) {
+export function txFromJson(json: any) {
   const publicInputs = json.data ? KernelCircuitPublicInputs.fromBuffer(Buffer.from(json.data, 'hex')) : undefined;
   const unverified = json.unverified ? UnverifiedData.fromBuffer(Buffer.from(json.unverified, 'hex')) : undefined;
   const txRequest = json.txRequest ? SignedTxRequest.fromBuffer(Buffer.from(json.txRequest, 'hex')) : undefined;
   const proof = json.proof ? Buffer.from(json.proof, 'hex') : undefined;
+  const newContractPublicFunctions = json.newContractPublicFunctions
+    ? json.newContractPublicFunctions.map((x: string) => EncodedContractFunction.fromBuffer(Buffer.from(x, 'hex')))
+    : [];
+  const enqueuedPublicFunctions = json.enqueuedPublicFunctions
+    ? json.enqueuedPublicFunctions.map((x: string) => PublicCallRequest.fromBuffer(Buffer.from(x, 'hex')))
+    : [];
+  if (txRequest) {
+    return Tx.createPublic(txRequest);
+  }
+  if (publicInputs && proof && unverified) {
+    return Tx.createPrivate(
+      publicInputs,
+      Proof.fromBuffer(proof),
+      unverified,
+      newContractPublicFunctions,
+      enqueuedPublicFunctions,
+    );
+  }
   return Tx.create(publicInputs, proof == undefined ? undefined : Proof.fromBuffer(proof), unverified, txRequest);
 }
 

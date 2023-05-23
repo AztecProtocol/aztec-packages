@@ -12,7 +12,9 @@ import {
   decodeTransactionHashesMessage,
   decodeTransactionsMessage,
   getEncodedMessage,
-} from './messages.js';
+  toTxMessage,
+  fromTxMessage,
+} from './tx_messages.js';
 import { Proof } from '@aztec/circuits.js';
 
 const makePrivateTx = () => {
@@ -76,22 +78,22 @@ const verifyPublicPrivateTx = (actual: Tx, expected: Tx) => {
 describe('Messages', () => {
   it('Correctly serialises and deserialises a single private transaction', () => {
     const transaction = makePrivateTx();
-    const message = Tx.toMessage(transaction);
-    const decodedTransaction = Tx.fromMessage(message);
+    const message = toTxMessage(transaction);
+    const decodedTransaction = fromTxMessage(message);
     verifyPrivateTx(decodedTransaction, transaction);
   });
 
   it('Correctly serialises and deserialises a single public transaction', () => {
     const transaction = makePublicTx();
-    const message = Tx.toMessage(transaction);
-    const decodedTransaction = Tx.fromMessage(message);
+    const message = toTxMessage(transaction);
+    const decodedTransaction = fromTxMessage(message);
     verifyPublicTx(decodedTransaction, transaction);
   });
 
   it('Correctly serialises and deserialises a single private/public transaction', () => {
     const transaction = makePublicPrivateTx();
-    const message = Tx.toMessage(transaction);
-    const decodedTransaction = Tx.fromMessage(message);
+    const message = toTxMessage(transaction);
+    const decodedTransaction = fromTxMessage(message);
     verifyPublicPrivateTx(decodedTransaction, transaction);
   });
 

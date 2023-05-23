@@ -8,6 +8,10 @@ const logger = createDebugLogger('aztec:rollup_provider');
 
 const { SERVER_PORT = 9000 } = process.env;
 
+/**
+ * Entrypoint for the rollup provider service
+ * @returns An empty promise
+ */
 async function main() {
   logger('Server started...');
   const aztecNodeConfig: AztecNodeConfig = getConfigEnvVars();
@@ -29,6 +33,6 @@ async function main() {
 }
 
 main().catch(err => {
-  console.log(err);
+  logger(err);
   process.exit(1);
 });
