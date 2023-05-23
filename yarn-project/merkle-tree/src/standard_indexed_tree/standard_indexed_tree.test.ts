@@ -109,7 +109,7 @@ describe('StandardIndexedTreeSpecific', () => {
     );
 
     // ensure the committed state is correct
-    const initialSiblingPath = new SiblingPath(3, [initialLeafHash, level1ZeroHash, level2ZeroHash]);
+    const initialSiblingPath = new SiblingPath(TEST_TREE_DEPTH, [initialLeafHash, level1ZeroHash, level2ZeroHash]);
     await verifyCommittedState(tree, initialRoot, 1n, initialSiblingPath);
 
     /**

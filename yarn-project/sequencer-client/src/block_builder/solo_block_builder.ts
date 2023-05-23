@@ -469,7 +469,7 @@ export class SoloBlockBuilder implements BlockBuilder {
     height: N,
   ): Promise<MembershipWitness<N>> {
     // If this is an empty tx, then just return zeroes
-    if (value.value === 0n) return this.makeEmptyMembershipWitness(height);
+    if (value.isZero()) return this.makeEmptyMembershipWitness(height);
 
     const index = await this.db.findLeafIndex(treeId, value.toBuffer());
     if (index === undefined) {
@@ -685,7 +685,7 @@ export class SoloBlockBuilder implements BlockBuilder {
     return new MembershipWitness(
       height,
       0n,
-      makeTuple(height, () => new Fr(0n)),
+      makeTuple(height, () => Fr.ZERO),
     );
   }
 }
