@@ -556,7 +556,9 @@ export function makePrivateCallData(seed = 1): PrivateCallData {
     vk: makeVerificationKey(),
     functionLeafMembershipWitness: makeMembershipWitness(FUNCTION_TREE_HEIGHT, seed + 0x30),
     contractLeafMembershipWitness: makeMembershipWitness(CONTRACT_TREE_HEIGHT, seed + 0x20),
-    readRequestMembershipWitnesses: range(READ_REQUESTS_LENGTH, seed + 0x70).map(x => makeMembershipWitness(PRIVATE_DATA_TREE_HEIGHT, x)),
+    readRequestMembershipWitnesses: range(READ_REQUESTS_LENGTH, seed + 0x70).map(x =>
+      makeMembershipWitness(PRIVATE_DATA_TREE_HEIGHT, x),
+    ),
     portalContractAddress: makeEthAddress(seed + 0x40),
     acirHash: fr(seed + 0x60),
   });
