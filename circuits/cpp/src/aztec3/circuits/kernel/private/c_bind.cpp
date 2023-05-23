@@ -19,8 +19,8 @@ using aztec3::circuits::abis::SignedTxRequest;
 using aztec3::circuits::abis::private_kernel::PrivateCallData;
 using aztec3::circuits::abis::private_kernel::PrivateKernelInputsInit;
 using aztec3::circuits::abis::private_kernel::PrivateKernelInputsInner;
-using aztec3::circuits::kernel::private_kernel::native_private_kernel_circuit;
 using aztec3::circuits::kernel::private_kernel::native_private_kernel_circuit_initial;
+using aztec3::circuits::kernel::private_kernel::native_private_kernel_circuit_inner;
 using aztec3::circuits::kernel::private_kernel::private_kernel_circuit;
 using aztec3::circuits::kernel::private_kernel::utils::dummy_previous_kernel;
 
@@ -100,7 +100,7 @@ WASM_EXPORT uint8_t* private_kernel__sim(uint8_t const* signed_tx_request_buf,
             .private_call = private_call_data,
         };
 
-        public_inputs = native_private_kernel_circuit(composer, private_inputs);
+        public_inputs = native_private_kernel_circuit_inner(composer, private_inputs);
     }
 
     // serialize public inputs to bytes vec
