@@ -59,7 +59,6 @@ const numberOfConsecutiveBlocks = 2;
 
 describe('L1Publisher integration', () => {
   let publicClient: PublicClient<HttpTransport, Chain>;
-  let walletClient: WalletClient<HttpTransport, Chain>;
   let deployerAccount: PrivateKeyAccount;
 
   let rollupAddress: Address;
@@ -92,10 +91,9 @@ describe('L1Publisher integration', () => {
       unverifiedDataEmitterAddress: unverifiedDataEmitterAddress_,
       decoderHelperAddress: decoderHelperAddress_,
       publicClient: publicClient_,
-      walletClient: walletClient_,
+      walletClient,
     } = await deployL1Contracts(config.rpcUrl, deployerAccount, logger, true);
     publicClient = publicClient_;
-    walletClient = walletClient_;
 
     rollupAddress = getAddress(rollupAddress_.toString());
     inboxAddress = getAddress(inboxAddress_.toString());
@@ -177,16 +175,16 @@ describe('L1Publisher integration', () => {
     // Note: using max deadline
     const deadline = 2 ** 32 - 1;
     // getting the 32 byte hex string representation of the content
-    const contentString: `0x{String}` = `0x${content.toBuffer().toString('hex')}` as `0x{String}`;
+    const contentString = content.toString(true);
     // Using the 0 value for the secretHash.
-    const zeroString: `0x{String}` = `0x${fr(0).toBuffer().toString('hex')}` as `0x{String}`;
+    const emptySecretHash = Fr.ZERO.toString(true);
 
     await inbox.write.sendL2Message(
       [
         { actor: recipient.recipient.toString(), version: BigInt(recipient.version) },
         deadline,
         contentString,
-        zeroString,
+        emptySecretHash,
       ],
       {} as any,
     );
@@ -199,10 +197,10 @@ describe('L1Publisher integration', () => {
         },
         recipient: {
           actor: recipientAddress.toString(),
-          version: BigInt(1),
+          version: 1n,
         },
         content: contentString,
-        secretHash: zeroString,
+        secretHash: emptySecretHash,
         deadline,
         fee: 0n,
       },
@@ -215,6 +213,7 @@ describe('L1Publisher integration', () => {
     expect(hexStringToBuffer(stateInRollup_.toString())).toEqual(Buffer.alloc(32, 0));
 
     const blockNumber = await publicClient.getBlockNumber();
+    // random recipient address, just kept consistent for easy testing ts/sol.
     const recipientAddress = AztecAddress.fromString(
       '0x1647b194c649f5dd01d7c832f89b0f496043c9150797923ea89e93d5ac619a93',
     );
@@ -239,9 +238,9 @@ describe('L1Publisher integration', () => {
       expect(inboxLogs).toHaveLength(l1ToL2Messages.length * (i + 1));
       for (let j = 0; j < NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP; j++) {
         const event = inboxLogs[j + i * NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP].args;
-        expect(event.content).toEqual(`0x${l1ToL2Content[j].toBuffer().toString('hex')}`);
+        expect(event.content).toEqual(l1ToL2Content[j].toString(true));
         expect(event.deadline).toEqual(2 ** 32 - 1);
-        expect(event.entryKey).toEqual(`0x${l1ToL2Messages[j].toBuffer().toString('hex')}`);
+        expect(event.entryKey).toEqual(l1ToL2Messages[j].toString(true));
         expect(event.fee).toEqual(0n);
         expect(event.recipient).toEqual(recipientAddress.toString());
         expect(event.recipientVersion).toEqual(1n);
@@ -260,12 +259,12 @@ describe('L1Publisher integration', () => {
       // check that values are in the inbox
       for (let j = 0; j < l1ToL2Messages.length; j++) {
         if (l1ToL2Messages[j].isZero()) continue;
-        expect(await inbox.read.contains([`0x${l1ToL2Messages[j].toBuffer().toString('hex')}`])).toBeTruthy();
+        expect(await inbox.read.contains([l1ToL2Messages[j].toString(true)])).toBeTruthy();
       }
 
       // check that values are not in the outbox
       for (let j = 0; j < block.newL2ToL1Msgs.length; j++) {
-        expect(await outbox.read.contains([`0x${block.newL2ToL1Msgs[j].toBuffer().toString('hex')}`])).toBeFalsy();
+        expect(await outbox.read.contains([block.newL2ToL1Msgs[j].toString(true)])).toBeFalsy();
       }
 
       /*// Useful for sol tests block generation
@@ -317,11 +316,11 @@ describe('L1Publisher integration', () => {
       // check that values have been consumed from the inbox
       for (let j = 0; j < l1ToL2Messages.length; j++) {
         if (l1ToL2Messages[j].isZero()) continue;
-        expect(await inbox.read.contains([`0x${l1ToL2Messages[j].toBuffer().toString('hex')}`])).toBeFalsy();
+        expect(await inbox.read.contains([l1ToL2Messages[j].toString(true)])).toBeFalsy();
       }
       // check that values are inserted into the outbox
       for (let j = 0; j < block.newL2ToL1Msgs.length; j++) {
-        expect(await outbox.read.contains([`0x${block.newL2ToL1Msgs[j].toBuffer().toString('hex')}`])).toBeTruthy();
+        expect(await outbox.read.contains([block.newL2ToL1Msgs[j].toString(true)])).toBeTruthy();
       }
     }
   }, 60_000);
