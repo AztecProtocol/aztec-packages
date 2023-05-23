@@ -191,10 +191,10 @@ std::array<fr, 2> compute_kernels_calldata_hash(std::array<abis::PreviousKernelD
  */
 std::array<fr, 2> compute_calldata_hash(std::array<abis::PreviousRollupData<NT>, 2> previous_rollup_data)
 {
-    return accumulate_sha256({ previous_rollup_data[0].base_or_merge_rollup_public_inputs.calldata_hash[0],
-                               previous_rollup_data[0].base_or_merge_rollup_public_inputs.calldata_hash[1],
-                               previous_rollup_data[1].base_or_merge_rollup_public_inputs.calldata_hash[0],
-                               previous_rollup_data[1].base_or_merge_rollup_public_inputs.calldata_hash[1] });
+    return accumulate_sha256<NT>({ previous_rollup_data[0].base_or_merge_rollup_public_inputs.calldata_hash[0],
+                                   previous_rollup_data[0].base_or_merge_rollup_public_inputs.calldata_hash[1],
+                                   previous_rollup_data[1].base_or_merge_rollup_public_inputs.calldata_hash[0],
+                                   previous_rollup_data[1].base_or_merge_rollup_public_inputs.calldata_hash[1] });
 }
 
 // asserts that the end snapshot of previous_rollup 0 equals the start snapshot of previous_rollup 1 (i.e. ensure they

@@ -310,8 +310,10 @@ template <typename NCT> typename NCT::fr compute_l2_to_l1_hash(typename NCT::add
  * @param hashes takes the 4 elements of 2 calldata hashes [high, low, high, low].
  * @return Resulting sha256 hash stored in 2 fields.
  */
-inline std::array<fr, 2> accumulate_sha256(std::array<fr, 4> hashes)
+template <typename NCT> std::array<typename NCT::fr, 2> accumulate_sha256(std::array<typename NCT::fr, 4> hashes)
 {
+    using fr = typename NCT::fr;
+
     // Generate a 512 bit input from right and left 256 bit hashes
     constexpr auto num_bytes = 2 * 32;
     std::array<uint8_t, num_bytes> hash_input_bytes;
