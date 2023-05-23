@@ -18,3 +18,10 @@ RUN forge install --no-commit \
 RUN forge clean && forge fmt --check && forge build && forge test
 
 WORKDIR /usr/src/l1-contracts
+
+FROM node:18-alpine
+RUN apk update && apk add --no-cache build-base git python3 curl bash jq
+
+COPY --from=0 /usr/src/l1-contracts/out /usr/src/l1-contracts/out
+COPY . .
+RUN yarn lint
