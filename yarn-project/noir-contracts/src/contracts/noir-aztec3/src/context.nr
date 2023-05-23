@@ -20,6 +20,12 @@ struct PrivateFunctionContext {
     private_call_stack : BoundedVec<Field, abi::MAX_PRIVATE_CALL_STACK>,
     public_call_stack : BoundedVec<Field, abi::MAX_PUBLIC_CALL_STACK>,
     new_l2_to_l1_msgs : BoundedVec<Field, abi::MAX_L1_MSG_STACK>,
+
+    encrypted_logs_hash: BoundedVec<Field, 2>,
+    unencrypted_logs_hash: BoundedVec<Field, 2>,
+
+    encrypted_log_preimages_length: Field,
+    unencrypted_log_preimages_length: Field,
 }
 
 impl PrivateFunctionContext {
@@ -29,7 +35,6 @@ impl PrivateFunctionContext {
             // inputs: inputs,
             args: BoundedVec::new(0),
             return_values: BoundedVec::new(0),
-            logs: BoundedVec::new(0),
 
             new_commitments: BoundedVec::new(0),
             new_nullifiers: BoundedVec::new(0),
@@ -37,6 +42,12 @@ impl PrivateFunctionContext {
             private_call_stack: BoundedVec::new(0),
             public_call_stack: BoundedVec::new(0),
             new_l2_to_l1_msgs: BoundedVec::new(0),
+
+            encrypted_logs_hash: BoundedVec::new(0),
+            unencrypted_logs_hash: BoundedVec::new(0),
+
+            encrypted_log_preimages_length: Field::zero(),
+            unencrypted_log_preimages_length: Field::zero(),
         }
     }
 
