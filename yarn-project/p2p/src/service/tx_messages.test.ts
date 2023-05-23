@@ -15,11 +15,12 @@ import {
   toTxMessage,
   fromTxMessage,
 } from './tx_messages.js';
-import { Proof } from '@aztec/circuits.js';
+import { Fr, KERNEL_PUBLIC_CALL_STACK_LENGTH, Proof } from '@aztec/circuits.js';
+import times from 'lodash.times';
 
 const makePrivateTx = () => {
   const encodedPublicFunctions = [EncodedContractFunction.random(), EncodedContractFunction.random()];
-  const enqueuedPublicFunctionCalls = [makePublicCallRequest(1), makePublicCallRequest(2)];
+  const enqueuedPublicFunctionCalls = times(KERNEL_PUBLIC_CALL_STACK_LENGTH, i => makePublicCallRequest(i));
   return Tx.createPrivate(
     makeKernelPublicInputs(),
     Proof.fromBuffer(Buffer.alloc(10, 9)),
@@ -34,8 +35,10 @@ const makePublicTx = () => {
 };
 
 const makePublicPrivateTx = () => {
+  const publicInputs = makeKernelPublicInputs(1);
+  publicInputs.end.publicCallStack = [Fr.ZERO, Fr.ZERO, Fr.ZERO, Fr.ZERO, Fr.ZERO, Fr.ZERO, Fr.ZERO, Fr.ZERO];
   return Tx.createPrivatePublic(
-    makeKernelPublicInputs(1),
+    publicInputs,
     Proof.fromBuffer(randomBytes(512)),
     UnverifiedData.random(8),
     makeSignedTxRequest(5),

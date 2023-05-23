@@ -1,4 +1,4 @@
-import { KernelCircuitPublicInputs, Proof, SignedTxRequest } from '@aztec/circuits.js';
+import { KernelCircuitPublicInputs, Proof, PublicCallRequest, SignedTxRequest } from '@aztec/circuits.js';
 import { numToUInt32BE } from '@aztec/foundation/serialize';
 import { EncodedContractFunction, Tx, TxHash, UnverifiedData } from '@aztec/types';
 
@@ -138,7 +138,7 @@ export function toTxMessage(tx: Tx): Buffer {
       return numToUInt32BE(0);
     }
     const allComponents = Buffer.concat(obj.map(createMessageComponent));
-    return Buffer.concat([numToUInt32BE(allComponents.length), allComponents]);
+    return Buffer.concat([numToUInt32BE(obj.length), allComponents]);
   };
   const messageBuffer = Buffer.concat([
     createMessageComponent(tx.data),
@@ -146,6 +146,7 @@ export function toTxMessage(tx: Tx): Buffer {
     createMessageComponent(tx.txRequest),
     createMessageComponent(tx.unverifiedData),
     createMessageComponents(tx.newContractPublicFunctions),
+    createMessageComponents(tx.enqueuedPublicFunctionCalls),
   ]);
   const messageLength = numToUInt32BE(messageBuffer.length);
   return Buffer.concat([messageLength, messageBuffer]);
@@ -157,8 +158,6 @@ export function toTxMessage(tx: Tx): Buffer {
  * @returns - The reproduced transaction.
  */
 export function fromTxMessage(buffer: Buffer): Tx {
-  const functions: EncodedContractFunction[] = [];
-
   // eslint-disable-next-line jsdoc/require-jsdoc
   const toObject = <T>(objectBuffer: Buffer, factory: { fromBuffer: (b: Buffer) => T }) => {
     const objectSize = objectBuffer.readUint32BE(0);
@@ -167,22 +166,37 @@ export function fromTxMessage(buffer: Buffer): Tx {
       obj: objectSize === 0 ? undefined : factory.fromBuffer(objectBuffer.subarray(4, objectSize + 4)),
     };
   };
+
+  // eslint-disable-next-line jsdoc/require-jsdoc
+  const toObjectArray = <T>(objectBuffer: Buffer, factory: { fromBuffer: (b: Buffer) => T }) => {
+    const output: T[] = [];
+    const numItems = objectBuffer.readUint32BE(0);
+    let workingBuffer = objectBuffer.subarray(4);
+    for (let i = 0; i < numItems; i++) {
+      const obj = toObject<T>(workingBuffer, factory);
+      workingBuffer = obj.remainingData;
+      if (obj !== undefined) {
+        output.push(obj.obj!);
+      }
+    }
+    return {
+      remainingData: workingBuffer,
+      objects: output,
+    };
+  };
   // this is the opposite of the 'toMessage' function
   // so the first 4 bytes is the complete length, skip it
   const publicInputs = toObject(buffer.subarray(4), KernelCircuitPublicInputs);
   const proof = toObject(publicInputs.remainingData, Proof);
   const txRequest = toObject(proof.remainingData, SignedTxRequest);
   const unverified = toObject(txRequest.remainingData, UnverifiedData);
-  const encodedFunctionsLength = unverified.remainingData.readUInt32BE(0);
-  if (encodedFunctionsLength) {
-    let workingBuffer = unverified.remainingData.subarray(4);
-    while (workingBuffer.length > 0) {
-      const func = toObject(workingBuffer, EncodedContractFunction);
-      workingBuffer = func.remainingData;
-      if (func.obj !== undefined) {
-        functions.push(func.obj);
-      }
-    }
+  const functions = toObjectArray(unverified.remainingData, EncodedContractFunction);
+  const publicCalls = toObjectArray(functions.remainingData, PublicCallRequest);
+  // working buffer now begins with the first enqueued public call
+  if (txRequest.obj) {
+    return publicInputs.obj
+      ? Tx.createPrivatePublic(publicInputs.obj!, proof.obj!, unverified.obj!, txRequest.obj!)
+      : Tx.createPublic(txRequest.obj!);
   }
-  return Tx.createPrivate(publicInputs.obj!, proof.obj!, unverified.obj!, functions, []);
+  return Tx.createPrivate(publicInputs.obj!, proof.obj!, unverified.obj!, functions.objects, publicCalls.objects);
 }
