@@ -21,11 +21,11 @@ struct PrivateFunctionContext {
     public_call_stack : BoundedVec<Field, abi::MAX_PUBLIC_CALL_STACK>,
     new_l2_to_l1_msgs : BoundedVec<Field, abi::MAX_L1_MSG_STACK>,
 
-    encrypted_logs_hash: BoundedVec<Field, 2>,
-    unencrypted_logs_hash: BoundedVec<Field, 2>,
+    encrypted_logs_hash : BoundedVec<Field, 2>,
+    unencrypted_logs_hash : BoundedVec<Field, 2>,
 
-    encrypted_log_preimages_length: Field,
-    unencrypted_log_preimages_length: Field,
+    encrypted_log_preimages_length : Field,
+    unencrypted_log_preimages_length : Field,
 }
 
 impl PrivateFunctionContext {
@@ -46,8 +46,8 @@ impl PrivateFunctionContext {
             encrypted_logs_hash: BoundedVec::new(0),
             unencrypted_logs_hash: BoundedVec::new(0),
 
-            encrypted_log_preimages_length: Field::zero(),
-            unencrypted_log_preimages_length: Field::zero(),
+            encrypted_log_preimages_length: Field::new(),
+            unencrypted_log_preimages_length: Field::new(),
         }
     }
 
@@ -68,8 +68,8 @@ impl PrivateFunctionContext {
             encrypted_logs_hash: self.encrypted_logs_hash.storage,
             unencrypted_logs_hash: self.unencrypted_logs_hash.storage,
             // Not sure if the following 2 lines are correct
-            encrypted_log_preimages_length: self.encrypted_log_preimages_length.storage,
-            unencrypted_log_preimages_length: self.unencrypted_log_preimages_length.storage,
+            encrypted_log_preimages_length: self.encrypted_log_preimages_length,
+            unencrypted_log_preimages_length: self.unencrypted_log_preimages_length,
             historic_private_data_tree_root: inputs.old_private_data_tree_root,
             historic_private_nullifier_tree_root: inputs.old_nullifier_tree_root,
             historic_contract_tree_root: inputs.old_contract_tree_root,
