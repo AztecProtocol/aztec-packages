@@ -36,6 +36,7 @@ export class Sequencer {
   private runningPromise?: RunningPromise;
   private pollingIntervalMs: number;
   private maxTxsPerBlock = 32;
+  private minTxsPerBLock = 1;
   private lastPublishedBlock = 0;
   private state = SequencerState.STOPPED;
 
@@ -52,6 +53,9 @@ export class Sequencer {
     this.pollingIntervalMs = config?.transactionPollingInterval ?? 1_000;
     if (config?.maxTxsPerBlock) {
       this.maxTxsPerBlock = config.maxTxsPerBlock;
+    }
+    if (config?.minTxsPerBlock) {
+      this.minTxsPerBLock = config.minTxsPerBlock;
     }
   }
 
@@ -122,7 +126,7 @@ export class Sequencer {
 
       // Filter out invalid txs
       const validTxs = await this.takeValidTxs(pendingTxs);
-      if (validTxs.length !== this.maxTxsPerBlock) {
+      if (validTxs.length < this.minTxsPerBLock) {
         return;
       }
 
@@ -264,8 +268,8 @@ export class Sequencer {
       this.worldState.status().then((s: WorldStateStatus) => s.syncedToL2Block),
       this.p2pClient.getStatus().then(s => s.syncedToL2Block),
     ]);
-    const max = Math.max(...syncedBlocks);
-    return max >= this.lastPublishedBlock;
+    const min = Math.min(...syncedBlocks);
+    return min >= this.lastPublishedBlock;
   }
 
   /**
