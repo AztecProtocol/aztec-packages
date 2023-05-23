@@ -95,12 +95,15 @@ struct PrivateCircuitPublicInputs {
     call_context: CallContext,
     args_hash: Field,
     return_values: [Field; crate::abi::MAX_RETURN_VALUES],
-    emitted_events: [Field; crate::abi::MAX_LOGS],
     new_commitments: [Field; crate::abi::MAX_NEW_COMMITMENTS],
     new_nullifiers: [Field; crate::abi::MAX_NEW_NULLIFIERS],
     private_call_stack: [Field; crate::abi::MAX_PRIVATE_CALL_STACK],
     public_call_stack: [Field; crate::abi::MAX_PUBLIC_CALL_STACK],
     new_l2_to_l1_msgs: [Field; crate::abi::MAX_L1_MSG_STACK],
+    encrypted_logs_hash: [Field; 2],
+    unencrypted_logs_hash: [Field; 2],
+    encrypted_log_preimages_length: Field,
+    unencrypted_log_preimages_length: Field,
     historic_private_data_tree_root: Field,
     historic_private_nullifier_tree_root: Field,
     historic_contract_tree_root: Field,
@@ -119,12 +122,15 @@ impl PrivateCircuitPublicInputs {
         fields = fields.push_array(self.call_context.serialize());   
         fields = fields.push(self.args_hash);
         fields = fields.push_array(self.return_values);
-        fields = fields.push_array(self.emitted_events);
         fields = fields.push_array(self.new_commitments);
         fields = fields.push_array(self.new_nullifiers);
         fields = fields.push_array(self.private_call_stack);
         fields = fields.push_array(self.public_call_stack);
         fields = fields.push_array(self.new_l2_to_l1_msgs);
+        fields = fields.push_array(self.encrypted_logs_hash);
+        fields = fields.push_array(self.unencrypted_logs_hash);
+        fields = fields.push(self.encrypted_log_preimages_length);
+        fields = fields.push(self.unencrypted_log_preimages_length);
         fields = fields.push(self.historic_private_data_tree_root);
         fields = fields.push(self.historic_private_nullifier_tree_root);
         fields = fields.push(self.historic_contract_tree_root);
@@ -185,7 +191,6 @@ struct PublicCircuitPublicInputs {
     call_context: CallContext,
     args_hash: Field,
     return_values: [Field; crate::abi::MAX_RETURN_VALUES],
-    emitted_events: [Field; crate::abi::MAX_LOGS],
     contract_storage_update_requests: [ContractStorageUpdateRequest; crate::abi::CONTRACT_STORAGE_UPDATE_REQUESTS_LENGTH],
     contract_storage_read: [ContractStorageRead; crate::abi::CONTRACT_STORAGE_READS_LENGTH],
     public_call_stack: [Field; crate::abi::MAX_PUBLIC_CALL_STACK],
@@ -205,7 +210,6 @@ impl PublicCircuitPublicInputs {
         fields = fields.push_array(self.call_context.serialize());   
         fields = fields.push(self.args_hash);
         fields = fields.push_array(self.return_values);
-        fields = fields.push_array(self.emitted_events);
         for i in 0..crate::abi::CONTRACT_STORAGE_UPDATE_REQUESTS_LENGTH {
             fields = fields.push_array(self.contract_storage_update_requests[i].serialize());
         }
