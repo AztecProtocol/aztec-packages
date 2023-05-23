@@ -245,7 +245,7 @@ describe('server_world_state_synchroniser', () => {
     await expect(server.start()).rejects.toThrow();
   });
 
-  it('Adds the received L2 blocks', async () => {
+  it('adds the received L2 blocks', async () => {
     merkleTreeDb.handleL2Block.mockReset();
     const server = createSynchroniser(merkleTreeDb, rollupSource);
     const totalBlocks = LATEST_BLOCK_NUMBER + 1;
