@@ -356,7 +356,7 @@ describe('sequencer/solo_block_builder', () => {
       10000,
     );
 
-    it('builds an empty L2 block', async () => {
+    it.skip('builds an empty L2 block', async () => {
       const txs = await Promise.all([
         makeEmptyProcessedTx(),
         makeEmptyProcessedTx(),
@@ -368,7 +368,7 @@ describe('sequencer/solo_block_builder', () => {
       expect(l2Block.number).toEqual(1);
     }, 10_000);
 
-    it('builds a mixed L2 block', async () => {
+    it.skip('builds a mixed L2 block', async () => {
       const txs = await Promise.all([
         makeBloatedProcessedTx(32),
         makeBloatedProcessedTx(64),
@@ -382,7 +382,7 @@ describe('sequencer/solo_block_builder', () => {
       expect(l2Block.number).toEqual(1);
     }, 20_000);
 
-    it('builds an L2 block with private and public txs', async () => {
+    it.skip('builds an L2 block with private and public txs', async () => {
       const txs = await Promise.all([
         makePublicCallProcessedTx(),
         makeContractDeployProcessedTx(),

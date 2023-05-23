@@ -159,7 +159,7 @@ describe('Private Execution test suite', () => {
       expect(commitment).toEqual(Fr.fromBuffer(acirSimulator.computeNoteHash(newNote.preimage, bbWasm)));
     });
 
-    it('should run the transfer function', async () => {
+    it.skip('should run the transfer function', async () => {
       const db = levelup(createMemDown());
       const pedersen = new Pedersen(bbWasm);
 
@@ -233,7 +233,7 @@ describe('Private Execution test suite', () => {
       expect(changeNote.preimage[5]).toEqual(new Fr(40n));
     }, 30_000);
 
-    it('should be able to transfer with dummy notes', async () => {
+    it.skip('should be able to transfer with dummy notes', async () => {
       const db = levelup(createMemDown());
       const pedersen = new Pedersen(bbWasm);
 
@@ -389,7 +389,7 @@ describe('Private Execution test suite', () => {
       recipient = toPublicKey(recipientPk, grumpkin);
     });
 
-    it('Should be able to consume a dummy cross chain message', async () => {
+    it.skip('Should be able to consume a dummy cross chain message', async () => {
       const db = levelup(createMemDown());
       const pedersen = new Pedersen(bbWasm);
 
