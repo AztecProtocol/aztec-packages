@@ -11,10 +11,6 @@
 
 #include <barretenberg/stdlib/merkle_tree/membership.hpp>
 
-// Note: imported because of compute_calldata_hash which is the functionality I use to compute logs hashes.
-// --> should the functionality be moved somewhere else?
-#include "aztec3/circuits/rollup/components/components.hpp"
-
 namespace aztec3::circuits::kernel::private_kernel {
 
 using aztec3::circuits::abis::ContractLeafPreimage;
@@ -283,19 +279,17 @@ void update_end_values(DummyComposer& composer,
     {  // logs hashes
         const auto& previous_encrypted_logs_hash = public_inputs.end.encrypted_logs_hash;
         const auto& current_encrypted_logs_hash = private_call_public_inputs.encrypted_logs_hash;
-        public_inputs.end.encrypted_logs_hash =
-            rollup ::components::compute_calldata_hash({ previous_encrypted_logs_hash[0],
-                                                         previous_encrypted_logs_hash[1],
-                                                         current_encrypted_logs_hash[0],
-                                                         current_encrypted_logs_hash[1] });
+        public_inputs.end.encrypted_logs_hash = accumulate_sha256<NT>({ previous_encrypted_logs_hash[0],
+                                                                        previous_encrypted_logs_hash[1],
+                                                                        current_encrypted_logs_hash[0],
+                                                                        current_encrypted_logs_hash[1] });
 
         const auto& previous_unencrypted_logs_hash = public_inputs.end.unencrypted_logs_hash;
         const auto& current_unencrypted_logs_hash = private_call_public_inputs.unencrypted_logs_hash;
-        public_inputs.end.unencrypted_logs_hash =
-            rollup ::components::compute_calldata_hash({ previous_unencrypted_logs_hash[0],
-                                                         previous_unencrypted_logs_hash[1],
-                                                         current_unencrypted_logs_hash[0],
-                                                         current_unencrypted_logs_hash[1] });
+        public_inputs.end.unencrypted_logs_hash = accumulate_sha256<NT>({ previous_unencrypted_logs_hash[0],
+                                                                          previous_unencrypted_logs_hash[1],
+                                                                          current_unencrypted_logs_hash[0],
+                                                                          current_unencrypted_logs_hash[1] });
 
         // Add log preimages lengths from current iteration to accumulated lengths
         // TODO: Is this correct? It's not clear to me from Mike's post.
