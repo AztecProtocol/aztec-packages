@@ -9,8 +9,8 @@ import {IOutbox} from "@aztec/core/interfaces/messagebridge/IOutbox.sol";
 import {IRegistry} from "@aztec/core/interfaces/messagebridge/IRegistry.sol";
 
 // Libraries
-import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {Decoder} from "@aztec/core/libraries/Decoder.sol";
+import {Errors} from "@aztec/core/libraries/Errors.sol";
 
 // Contracts
 import {MockVerifier} from "@aztec/mock/MockVerifier.sol";
