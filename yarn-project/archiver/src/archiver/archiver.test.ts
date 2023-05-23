@@ -9,7 +9,6 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { ArchiverDataStore, MemoryArchiverStore } from './archiver_store.js';
-import { createDebugLogger } from '@aztec/foundation/log';
 
 describe('Archiver', () => {
   const rollupAddress = '0x0000000000000000000000000000000000000000';
