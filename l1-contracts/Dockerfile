@@ -24,4 +24,4 @@ RUN apk update && apk add --no-cache build-base git python3 curl bash jq
 
 COPY --from=0 /usr/src/l1-contracts/out /usr/src/l1-contracts/out
 COPY . .
-RUN yarn lint
+RUN yarn && yarn lint
