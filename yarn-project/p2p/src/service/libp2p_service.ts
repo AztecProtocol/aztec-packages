@@ -140,16 +140,18 @@ export class LibP2PService implements P2PService {
     };
 
     const services: ServiceFactoryMap = {
-      identify: identifyService(),
+      identify: identifyService({
+        protocolPrefix: 'aztec',
+      }),
       kadDHT: kadDHT({
-        protocolPrefix: '/aztec',
+        protocolPrefix: 'aztec',
         clientMode: !serverMode,
       }),
     };
 
     if (enableNat) {
       services.nat = autoNATService({
-        protocolPrefix: '/aztec',
+        protocolPrefix: 'aztec',
       });
     }
 

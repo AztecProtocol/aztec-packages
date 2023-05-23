@@ -49,9 +49,11 @@ export class BootstrapNode {
     };
 
     const services: ServiceFactoryMap = {
-      identify: identifyService(),
+      identify: identifyService({
+        protocolPrefix: 'aztec',
+      }),
       kadDHT: kadDHT({
-        protocolPrefix: '/aztec',
+        protocolPrefix: 'aztec',
         clientMode: false,
       }),
     };
