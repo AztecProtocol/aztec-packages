@@ -83,7 +83,7 @@ COPY aztec-rpc/tsconfig.json aztec-rpc/tsconfig.json
 COPY aztec-node/tsconfig.json aztec-node/tsconfig.json
 COPY aztec.js/tsconfig.json aztec.js/tsconfig.json
 COPY end-to-end/tsconfig.json end-to-end/tsconfig.json
-COPY environment/package.json environment/package.json
+COPY environment/tsconfig.json environment/tsconfig.json
 COPY foundation/tsconfig.json foundation/tsconfig.json
 COPY key-store/tsconfig.json key-store/tsconfig.json
 COPY merkle-tree/tsconfig.json merkle-tree/tsconfig.json
