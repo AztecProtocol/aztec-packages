@@ -537,7 +537,10 @@ TEST(private_kernel_tests, native_deposit)
     NT::fr const& asset_id = 1;
     NT::fr const& memo = 999;
 
-    auto const& private_inputs = do_private_call_get_kernel_inputs_init(false, deposit, { amount, asset_id, memo });
+    auto private_inputs = do_private_call_get_kernel_inputs_init(false, deposit, { amount, asset_id, memo });
+    private_inputs.previous_kernel.public_inputs.end.encrypted_logs_hash = { fr(16), fr(69) };
+    private_inputs.previous_kernel.public_inputs.end.encrypted_log_preimages_length = fr(100);
+
     DummyComposer composer = DummyComposer("private_kernel_tests__native_deposit");
     auto const& public_inputs = native_private_kernel_circuit_initial(composer, private_inputs);
 
@@ -545,6 +548,21 @@ TEST(private_kernel_tests, native_deposit)
 
     // Check the first nullifier is hash of the signed tx request
     ASSERT_EQ(public_inputs.end.new_nullifiers[0], private_inputs.signed_tx_request.hash());
+
+    // Check logs
+    auto const& private_input_end = private_inputs.previous_kernel.public_inputs.end;
+    // Log preimages length should increase by `encrypted_log_preimages_length` from private input
+    ASSERT_EQ(public_inputs.end.encrypted_log_preimages_length, private_input_end.encrypted_log_preimages_length);
+    // Since there were no unencrypted logs, their length should be 0
+    ASSERT_EQ(public_inputs.end.unencrypted_log_preimages_length, fr(0));
+
+    // Encrypted logs hash should be a sha256 hash of the `encrypted_logs_hash` from private input and a 0 value
+    auto const& expected_encrypted_logs_hash = accumulate_sha256<NT>(
+        { private_input_end.encrypted_logs_hash[0], private_input_end.encrypted_logs_hash[1], fr(0), fr(0) });
+    ASSERT_EQ(public_inputs.end.encrypted_logs_hash, expected_encrypted_logs_hash);
+    // Unencrypted logs hash should be a sha256 hash of 2 zero values
+    auto const& expected_unencrypted_logs_hash = accumulate_sha256<NT>({ fr(0), fr(0), fr(0), fr(0) });
+    ASSERT_EQ(public_inputs.end.unencrypted_logs_hash, expected_unencrypted_logs_hash);
 }
 
 /**
@@ -598,6 +616,16 @@ TEST(private_kernel_tests, native_basic_contract_deployment)
 
     // Check the first nullifier is hash of the signed tx request
     ASSERT_EQ(public_inputs.end.new_nullifiers[0], private_inputs.signed_tx_request.hash());
+
+    // Since there are no logs, log preimages length should be 0 and both logs hashes should be a sha256 hash of 2 zero
+    // values
+    ASSERT_EQ(public_inputs.end.encrypted_log_preimages_length, fr(0));
+    ASSERT_EQ(public_inputs.end.unencrypted_log_preimages_length, fr(0));
+
+    auto const& expected_logs_hash = accumulate_sha256<NT>({ fr(0), fr(0), fr(0), fr(0) });
+
+    ASSERT_EQ(public_inputs.end.encrypted_logs_hash, expected_logs_hash);
+    ASSERT_EQ(public_inputs.end.encrypted_logs_hash, expected_logs_hash);
 }
 
 /**

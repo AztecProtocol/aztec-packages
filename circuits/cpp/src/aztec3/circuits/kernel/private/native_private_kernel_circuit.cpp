@@ -277,6 +277,8 @@ void update_end_values(DummyComposer& composer,
     }
 
     {  // logs hashes
+        // See the following thread if not clear:
+        // https://discourse.aztec.network/t/proposal-forcing-the-sequencer-to-actually-submit-data-to-l1/426
         const auto& previous_encrypted_logs_hash = public_inputs.end.encrypted_logs_hash;
         const auto& current_encrypted_logs_hash = private_call_public_inputs.encrypted_logs_hash;
         public_inputs.end.encrypted_logs_hash = accumulate_sha256<NT>({ previous_encrypted_logs_hash[0],
