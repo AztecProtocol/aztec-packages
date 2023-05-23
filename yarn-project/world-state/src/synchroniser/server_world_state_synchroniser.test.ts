@@ -1,7 +1,5 @@
 import { BarretenbergWasm } from '@aztec/barretenberg.js/wasm';
 import { AppendOnlyTreeSnapshot, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/circuits.js';
-import { fr } from '@aztec/circuits.js/factories';
-
 import { INITIAL_LEAF, Pedersen, SiblingPath } from '@aztec/merkle-tree';
 import { ContractData, L2Block, L2BlockSource, MerkleTreeId, PublicDataWrite } from '@aztec/types';
 import { jest } from '@jest/globals';
