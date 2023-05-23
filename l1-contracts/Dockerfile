@@ -1,4 +1,4 @@
-FROM ghcr.io/foundry-rs/foundry:nightly as builder
+FROM ghcr.io/foundry-rs/foundry:nightly-c331b5eeee1b4151ef7354a081667e2d770b37f5 as builder
 
 # Required for foundry
 RUN apk update && apk add git
