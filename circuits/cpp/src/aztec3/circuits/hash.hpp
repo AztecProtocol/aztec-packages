@@ -305,4 +305,40 @@ template <typename NCT> typename NCT::fr compute_l2_to_l1_hash(typename NCT::add
     return sha256::sha256_to_field(calldata_hash_inputs_bytes_vec);
 }
 
+/**
+ * @brief From two hashes compute one.
+ * @param hashes takes the 4 elements of 2 calldata hashes [high, low, high, low].
+ * @return Resulting sha256 hash stored in 2 fields.
+ */
+inline std::array<fr, 2> accumulate_sha256(std::array<fr, 4> hashes)
+{
+    // Generate a 512 bit input from right and left 256 bit hashes
+    constexpr auto num_bytes = 2 * 32;
+    std::array<uint8_t, num_bytes> hash_input_bytes;
+    for (uint8_t i = 0; i < 4; i++) {
+        auto half = hashes[i].to_buffer();
+        for (uint8_t j = 0; j < 16; j++) {
+            hash_input_bytes[i * 16 + j] = half[16 + j];
+        }
+    }
+
+    // Compute the sha256
+    std::vector<uint8_t> const hash_input_bytes_vec(hash_input_bytes.begin(), hash_input_bytes.end());
+    auto h = sha256::sha256(hash_input_bytes_vec);
+
+    // Split the hash into two fields, a high and a low
+    std::array<uint8_t, 32> buf_1;
+    std::array<uint8_t, 32> buf_2;
+    for (uint8_t i = 0; i < 16; i++) {
+        buf_1[i] = 0;
+        buf_1[16 + i] = h[i];
+        buf_2[i] = 0;
+        buf_2[16 + i] = h[i + 16];
+    }
+    auto high = fr::serialize_from_buffer(buf_1.data());
+    auto low = fr::serialize_from_buffer(buf_2.data());
+
+    return { high, low };
+}
+
 }  // namespace aztec3::circuits
