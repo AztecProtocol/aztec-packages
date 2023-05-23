@@ -30,7 +30,7 @@ contract Registry is IRegistry {
    * @param _inbox - The address of the inbox contract
    * @param _outbox - The address of the outbox contract
    */
-  function upgrade(address _rollup, address _inbox, address _outbox) external {
+  function upgrade(address _rollup, address _inbox, address _outbox) external override(IRegistry) {
     DataStructures.RegistrySnapshot memory newSnapshot =
       DataStructures.RegistrySnapshot(_rollup, _inbox, _outbox, block.number);
     currentSnapshot = newSnapshot;
