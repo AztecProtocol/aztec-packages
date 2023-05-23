@@ -20,7 +20,8 @@ contract InboxTest is Test {
     uint256 recipientVersion,
     uint32 deadline,
     uint64 fee,
-    bytes32 content
+    bytes32 content,
+    bytes32 secretHash
   );
 
   event L1ToL2MessageCancelled(bytes32 indexed entryKey);
@@ -31,7 +32,7 @@ contract InboxTest is Test {
     address rollup = address(this);
     Registry registry = new Registry();
     inbox = new Inbox(address(registry));
-    registry.setAddresses(rollup, address(inbox), address(0x0));
+    registry.upgrade(rollup, address(inbox), address(0x0));
   }
 
   function _fakeMessage() internal view returns (DataStructures.L1ToL2Msg memory) {
@@ -65,7 +66,8 @@ contract InboxTest is Test {
       _message.recipient.version,
       _message.deadline,
       _message.fee,
-      _message.content
+      _message.content,
+      _message.secretHash
     );
     // event we will get
     bytes32 entryKey = inbox.sendL2Message{value: _message.fee}(
