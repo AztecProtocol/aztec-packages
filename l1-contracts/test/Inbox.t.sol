@@ -68,7 +68,7 @@ contract InboxTest is Test {
       _message.fee,
       _message.content,
       _message.secretHash
-      );
+    );
     // event we will get
     bytes32 entryKey = inbox.sendL2Message{value: _message.fee}(
       _message.recipient, _message.deadline, _message.content, _message.secretHash
