@@ -4,7 +4,7 @@
 set -e
 
 export TEST=$1
-export COMPOSE_FILE=${2:-/scripts/docker_compose.yml}
+export COMPOSE_FILE=${2:-./scripts/docker_compose.yml}
 
 if [ -n "$COMMIT_HASH" ]; then
   $(aws ecr get-login --region us-east-2 --no-include-email) 2> /dev/null
@@ -14,6 +14,9 @@ if [ -n "$COMMIT_HASH" ]; then
     docker tag 278380418400.dkr.ecr.us-east-2.amazonaws.com/$REPO:cache-$COMMIT_HASH aztecprotocol/$REPO:latest
   done
 fi
+
+echo "Working directory: $PWD"
+echo "Compse file: $COMPOSE_FILE"
 
 docker-compose rm -f
 docker-compose -f $COMPOSE_FILE up --exit-code-from end-to-end
