@@ -122,7 +122,7 @@ describe.skip('e2e_l1_to_l2_msg', () => {
     return contract;
   };
 
-  it.skip('Should be able to consume an L1 Message and mint a non native token on L2', async () => {
+  it('Should be able to consume an L1 Message and mint a non native token on L2', async () => {
     const initialBalance = 1n;
     const ownerAddress = accounts[0];
     const owner = await aztecRpcServer.getAccountPublicKey(ownerAddress);
