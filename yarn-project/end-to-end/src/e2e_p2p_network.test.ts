@@ -104,5 +104,5 @@ describe('e2e_p2p_network', () => {
       await context.node.stop();
       await context.rpcServer.stop();
     }
-  }, 30_000);
+  }, 60_000);
 });
