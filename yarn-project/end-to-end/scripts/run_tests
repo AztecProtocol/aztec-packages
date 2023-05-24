@@ -4,7 +4,7 @@
 set -e
 
 export TEST=$1
-export COMPOSE_FILE=${2:-docker_compose.yml}
+export COMPOSE_FILE=${2:-./scripts/docker_compose.yml}
 
 if [ -n "$COMMIT_HASH" ]; then
   $(aws ecr get-login --region us-east-2 --no-include-email) 2> /dev/null

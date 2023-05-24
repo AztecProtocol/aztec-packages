@@ -471,7 +471,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: cond_spot_run_tests end-to-end e2e_p2p_network.test.ts docker_compose_p2p.yml
+          command: cond_spot_run_tests end-to-end e2e_p2p_network.test.ts ./scripts/docker_compose_p2p.yml
 
   e2e-join:
     docker:
