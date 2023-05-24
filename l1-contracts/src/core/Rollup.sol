@@ -37,7 +37,7 @@ contract Rollup is IRollup {
    * @param _proof - The proof of correct execution
    * @param _l2Block - The L2Block data, formatted as outlined in `Decoder.sol`
    */
-  function process(bytes memory _proof, bytes calldata _l2Block) external override(IRollup) {
+  function process(bytes memory _proof, bytes calldata _l2Block) external override (IRollup) {
     (
       uint256 l2BlockNumber,
       bytes32 oldStateHash,

@@ -38,7 +38,8 @@ interface IUnverifiedDataEmitter {
     uint256 indexed l2BlockNum, address indexed sender, bytes32 indexed l2BlockHash, bytes data
   );
 
-  function emitUnverifiedData(uint256 _l2BlockNum, bytes32 _l2BlockHash, bytes calldata _data) external;
+  function emitUnverifiedData(uint256 _l2BlockNum, bytes32 _l2BlockHash, bytes calldata _data)
+    external;
 
   function emitContractDeployment(
     uint256 _l2BlockNum,

@@ -92,7 +92,7 @@ contract TokenPortalTest is Test {
       expectedMessage.fee,
       expectedMessage.content,
       expectedMessage.secretHash
-    );
+      );
 
     // Perform op
     bytes32 entryKey = tokenPortal.depositToAztec{value: bid}(to, amount, deadline, secretHash);
