@@ -21,6 +21,8 @@ import { createAztecRpcServer } from './create_aztec_rpc_client.js';
 import { deployL1Contracts } from './deploy_l1_contracts.js';
 import { MNEMONIC } from './fixtures.js';
 import { toBigInt } from '@aztec/foundation/serialize';
+import { keccak } from '@aztec/foundation/crypto';
+import { secp256k1 } from '@noble/curves/secp256k1';
 
 const logger = createDebugLogger('aztec:e2e_account_contract');
 
@@ -69,6 +71,18 @@ describe('e2e_account_contract', () => {
     return contract;
   };
 
+  const callChildPubStoreValue = (value: number) => ({
+    args: [new Fr(value)],
+    selector: child.methods.pubStoreValue.selector,
+    target: child.address,
+  });
+
+  const callChildValue = (value: number) => ({
+    args: [new Fr(value)],
+    selector: child.methods.value.selector,
+    target: child.address,
+  });
+
   // Copied from yarn-project/noir-contracts/src/contracts/account_contract/src/entrypoint.nr
   const ACCOUNT_MAX_PRIVATE_CALLS = 1;
   const ACCOUNT_MAX_PUBLIC_CALLS = 1;
@@ -83,22 +97,14 @@ describe('e2e_account_contract', () => {
     flattened_args: Fr[];
     flattened_selectors: Fr[];
     flattened_targets: Fr[];
-    signature: Fr;
     nonce: Fr;
   };
 
   const flattenPayload = (payload: EntrypointPayload) => {
-    return [
-      ...payload.flattened_args,
-      ...payload.flattened_selectors,
-      ...payload.flattened_targets,
-      payload.signature,
-      payload.nonce,
-    ];
+    return [...payload.flattened_args, ...payload.flattened_selectors, ...payload.flattened_targets, payload.nonce];
   };
 
   const buildPayload = (privateCalls: FunctionCall[], publicCalls: FunctionCall[]): EntrypointPayload => {
-    const signature = Fr.random();
     const nonce = Fr.random();
     const emptyCall = { args: times(ARGS_LENGTH, Fr.zero), selector: Buffer.alloc(32), target: AztecAddress.ZERO };
 
@@ -111,12 +117,12 @@ describe('e2e_account_contract', () => {
       flattened_args: calls.flatMap(call => padArrayEnd(call.args, Fr.ZERO, ARGS_LENGTH)),
       flattened_selectors: calls.map(call => Fr.fromBuffer(call.selector)),
       flattened_targets: calls.map(call => call.target.toField()),
-      signature,
       nonce,
     };
   };
 
-  const buildCall = (payload: EntrypointPayload) => {
+  const buildCall = (payload: EntrypointPayload, opts: { privKey?: string } = {}) => {
+    // Manually create tx request to set the packed args
     const txRequest: TxRequest = new TxRequest(
       accounts[0],
       account.address,
@@ -127,25 +133,35 @@ describe('e2e_account_contract', () => {
       Fr.ZERO,
     );
 
-    txRequest.setPackedArg(0, flattenPayload(payload));
+    // Hash the payload object, so we sign over it
+    const payloadHash = keccak(Buffer.concat(flattenPayload(payload).map(fr => fr.toBuffer())));
+    logger(`Payload hash: ${payloadHash.toString('hex')} (${payloadHash.length} bytes)`);
 
+    // Sign using the private key that matches account contract's pubkey by default
+    const privKeyString = opts.privKey ?? 'ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80';
+    const privKey = Buffer.from(privKeyString, 'hex');
+    const signatureObject = secp256k1.sign(payloadHash, privKey);
+    const signature = Buffer.from(signatureObject.toCompactRawBytes());
+    logger(`Signature: ${signature.toString('hex')} (${signature.length} bytes)`);
+
+    // Set packed args for the call
+    const toFrArray = (buf: Buffer) => Array.from(buf).map(byte => new Fr(byte));
+    txRequest.setPackedArg(0, flattenPayload(payload));
+    txRequest.setPackedArg(1, toFrArray(signature));
+    txRequest.setPackedArg(2, toFrArray(payloadHash));
+
+    // Create the method call using the actual args to send into Noir
     return new ContractFunctionInteractionFromTxRequest(
       aztecRpcServer,
       account.address,
       'entrypoint',
-      flattenPayload(payload),
+      [...flattenPayload(payload), ...toFrArray(signature), ...toFrArray(payloadHash)],
       FunctionType.SECRET,
     ).withTxRequest(txRequest);
   };
 
   it('calls a private function', async () => {
-    const childCall = {
-      args: [new Fr(42n)],
-      selector: child.methods.value.selector,
-      target: child.address,
-    };
-
-    const payload = buildPayload([childCall], []);
+    const payload = buildPayload([callChildValue(42)], []);
     const call = buildCall(payload);
     const tx = call.send({ from: accounts[0] });
 
@@ -155,14 +171,8 @@ describe('e2e_account_contract', () => {
     expect(receipt.status).toBe(TxStatus.MINED);
   });
 
-  it('calls a public function', async () => {
-    const childCall = {
-      args: [new Fr(42n)],
-      selector: child.methods.pubStoreValue.selector,
-      target: child.address,
-    };
-
-    const payload = buildPayload([], [childCall]);
+  it.only('calls a public function', async () => {
+    const payload = buildPayload([], [callChildPubStoreValue(42)]);
     const call = buildCall(payload);
     const tx = call.send({ from: accounts[0] });
 
@@ -171,6 +181,12 @@ describe('e2e_account_contract', () => {
 
     expect(receipt.status).toBe(TxStatus.MINED);
     expect(toBigInt((await node.getStorageAt(child.address, 1n))!)).toEqual(42n);
+  });
+
+  it('rejects ecdsa signature from a different key', async () => {
+    const payload = buildPayload([callChildValue(42)], []);
+    const call = buildCall(payload, { privKey: '2a871d0798f97d79848a013d4936a73bf4cc922c825d33c1cf7073dff6d409c6' });
+    await expect(call.create({ from: accounts[0] })).rejects.toMatch(/could not satisfy all constraints/);
   });
 });
 
