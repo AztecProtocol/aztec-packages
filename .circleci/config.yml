@@ -462,6 +462,17 @@ jobs:
           name: "Test"
           command: cond_spot_run_tests end-to-end e2e_public_token_contract.test.ts
 
+  e2e-p2p:
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Test"
+          command: cond_spot_run_tests end-to-end e2e_p2p_network.test.ts docker_compose_p2p.yml
+
   e2e-join:
     docker:
       - image: cimg/base:current
@@ -588,6 +599,7 @@ workflows:
       - e2e-public-token-contract: *e2e_test
       - e2e-l2-to-l1-messaging: *e2e_test
       - integration-l1-publisher: *e2e_test
+      - e2e-p2p: *e2e_test
 
       - e2e-end:
           requires:
@@ -598,4 +610,5 @@ workflows:
             - e2e-public-token-contract
             - e2e-l2-to-l1-messaging
             - integration-l1-publisher
+            - e2e-p2p
           <<: *defaults
