@@ -1,4 +1,4 @@
-import { PublicExecutor, PublicExecution, PublicExecutionResult, isPublicExecutionResult } from '@aztec/acir-simulator';
+import { PublicExecution, PublicExecutionResult, PublicExecutor, isPublicExecutionResult } from '@aztec/acir-simulator';
 import {
   ARGS_LENGTH,
   AztecAddress,
@@ -31,10 +31,35 @@ import { createDebugLogger } from '@aztec/foundation/log';
 import { ContractDataSource, MerkleTreeId, PrivateTx, PublicTx, Tx } from '@aztec/types';
 import { MerkleTreeOperations } from '@aztec/world-state';
 import { getVerificationKeys } from '../index.js';
+import { EmptyPublicProver } from '../prover/empty.js';
 import { PublicProver } from '../prover/index.js';
 import { PublicKernelCircuitSimulator } from '../simulator/index.js';
+import { getPublicExecutor } from '../simulator/public_executor.js';
+import { WasmPublicKernelCircuitSimulator } from '../simulator/public_kernel.js';
 import { ProcessedTx, makeEmptyProcessedTx, makeProcessedTx } from './processed_tx.js';
 import { getCombinedHistoricTreeRoots } from './utils.js';
+import { Tuple, mapTuple } from '@aztec/foundation/serialize';
+
+/**
+ * Creates new instances of PublicProcessor given the provided merkle tree db and contract data source.
+ */
+export class PublicProcessorFactory {
+  constructor(private merkleTree: MerkleTreeOperations, private contractDataSource: ContractDataSource) {}
+
+  /**
+   * Creates a new instance of a PublicProcessor.
+   * @returns A new instance of a PublicProcessor.
+   */
+  public create() {
+    return new PublicProcessor(
+      this.merkleTree,
+      getPublicExecutor(this.merkleTree, this.contractDataSource),
+      new WasmPublicKernelCircuitSimulator(),
+      new EmptyPublicProver(),
+      this.contractDataSource,
+    );
+  }
+}
 
 /**
  * Converts Txs lifted from the P2P module into ProcessedTx objects by executing
@@ -184,7 +209,7 @@ export class PublicProcessor {
     const historicPublicDataTreeRoot = Fr.fromBuffer(publicDataTreeInfo.root);
     const callStackPreimages = await this.getPublicCallStackPreimages(result);
     const wasm = await CircuitsWasm.get();
-    const publicCallStack = callStackPreimages.map(item =>
+    const publicCallStack = mapTuple(callStackPreimages, item =>
       item.isEmpty() ? Fr.zero() : computeCallStackItemHash(wasm, item),
     );
 
@@ -247,7 +272,7 @@ export class PublicProcessor {
    */
   protected async getPublicCallData(
     result: PublicExecutionResult,
-    preimages: PublicCallStackItem[],
+    preimages: Tuple<PublicCallStackItem, typeof PUBLIC_CALL_STACK_LENGTH>,
     isExecutionRequest = false,
   ) {
     const bytecodeHash = await this.getBytecodeHash(result);
