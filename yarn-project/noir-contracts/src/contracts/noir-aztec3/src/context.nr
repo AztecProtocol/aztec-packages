@@ -46,8 +46,8 @@ impl PrivateFunctionContext {
             encrypted_logs_hash: BoundedVec::new(0),
             unencrypted_logs_hash: BoundedVec::new(0),
 
-            encrypted_log_preimages_length: Field::new(),
-            unencrypted_log_preimages_length: Field::new(),
+            encrypted_log_preimages_length: 0,
+            unencrypted_log_preimages_length: 0,
         }
     }
 
