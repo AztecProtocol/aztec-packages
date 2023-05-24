@@ -21,8 +21,8 @@ struct PrivateFunctionContext {
     public_call_stack : BoundedVec<Field, abi::MAX_PUBLIC_CALL_STACK>,
     new_l2_to_l1_msgs : BoundedVec<Field, abi::MAX_L1_MSG_STACK>,
 
-    encrypted_logs_hash : BoundedVec<Field, 2>,
-    unencrypted_logs_hash : BoundedVec<Field, 2>,
+    encrypted_logs_hash : BoundedVec<Field, abi::LOGS_HASH_SIZE>,
+    unencrypted_logs_hash : BoundedVec<Field, abi::LOGS_HASH_SIZE>,
 
     encrypted_log_preimages_length : Field,
     unencrypted_log_preimages_length : Field,

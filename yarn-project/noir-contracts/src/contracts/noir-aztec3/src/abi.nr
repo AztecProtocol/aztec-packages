@@ -5,6 +5,7 @@ global MAX_NEW_NULLIFIERS: comptime Field = 4;
 global MAX_PRIVATE_CALL_STACK : comptime Field = 4;
 global MAX_PUBLIC_CALL_STACK: comptime Field = 4;
 global MAX_L1_MSG_STACK : comptime Field = 2;
+// global LOGS_HASH_SIZE: comptime Field = 2; // Stored in  2 fields in order to fit in all of the 256 bits of sha256 hash.
 global PUBLIC_INPUTS_LENGTH : comptime Field = 41;
 global CONTRACT_STORAGE_UPDATE_REQUESTS_LENGTH : comptime Field = 4;
 global CONTRACT_STORAGE_READS_LENGTH : comptime Field = 4;
@@ -99,8 +100,8 @@ struct PrivateCircuitPublicInputs {
     private_call_stack: [Field; crate::abi::MAX_PRIVATE_CALL_STACK],
     public_call_stack: [Field; crate::abi::MAX_PUBLIC_CALL_STACK],
     new_l2_to_l1_msgs: [Field; crate::abi::MAX_L1_MSG_STACK],
-    encrypted_logs_hash: [Field; 2],
-    unencrypted_logs_hash: [Field; 2],
+    encrypted_logs_hash: [Field; crate::abi::LOGS_HASH_SIZE],
+    unencrypted_logs_hash: [Field; crate::abi::LOGS_HASH_SIZE],
     encrypted_log_preimages_length: Field,
     unencrypted_log_preimages_length: Field,
     historic_private_data_tree_root: Field,
