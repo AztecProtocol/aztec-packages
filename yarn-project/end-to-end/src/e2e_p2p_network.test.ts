@@ -13,6 +13,8 @@ const logger = createDebugLogger('aztec:e2e_p2p_network');
 const config = getConfigEnvVars();
 
 const NUM_NODES = 2;
+const NUM_TXS_PER_BLOCK = 4;
+const NUM_TXS_PER_NODE = 2;
 
 interface NodeContext {
   node: AztecNodeService;
@@ -21,18 +23,20 @@ interface NodeContext {
   account: AztecAddress;
 }
 
+// creates a P2P enabled instance of Aztec Node Service
 const createNode = async (tcpListenPort: number) => {
   const newConfig: AztecNodeConfig = {
     ...config,
     tcpListenPort,
-    minTxsPerBlock: 4,
-    maxTxsPerBlock: 4,
+    minTxsPerBlock: NUM_TXS_PER_BLOCK,
+    maxTxsPerBlock: NUM_TXS_PER_BLOCK,
     p2pEnabled: true,
     serverMode: false,
   };
   return await AztecNodeService.createAndSync(newConfig);
 };
 
+// submits a set of transactions to the provided aztec rpc server
 const submitTxsTo = async (aztecRpcServer: AztecRPCServer, account: AztecAddress, numTxs: number) => {
   const txs: SentTx[] = [];
   for (let i = 0; i < numTxs; i++) {
@@ -54,6 +58,7 @@ const submitTxsTo = async (aztecRpcServer: AztecRPCServer, account: AztecAddress
   return txs;
 };
 
+// creates and instance of the aztec rpc server and submit a given number of transactions to it.
 const createAztecRpcServerAndSubmitTransactions = async (node: AztecNode, numTxs: number) => {
   const aztecRpcServer = await createAztecRpcServer(1, node);
   const accounts = await aztecRpcServer.getAccounts();
@@ -79,14 +84,18 @@ describe('e2e_p2p_network', () => {
   }, 60_000);
 
   it('should rollup txs from all peers', async () => {
+    // create our network of nodes and submit txs into each of them
+    // the number of txs per node and the number of txs per rollup
+    // should be set so that the only way for rollups to be built
+    // is if the txs are successfully gossiped around the nodes.
     const contexts: NodeContext[] = [];
     for (let i = 0; i < NUM_NODES; i++) {
       const node = await createNode(40401 + i);
-      const context = await createAztecRpcServerAndSubmitTransactions(node, 2);
+      const context = await createAztecRpcServerAndSubmitTransactions(node, NUM_TXS_PER_NODE);
       contexts.push(context);
     }
 
-    // now ensure that all contracts were deployed
+    // now ensure that all txs were successfully mined
     for (const context of contexts) {
       for (const tx of context.txs) {
         const isMined = await tx.isMined(0, 0.1);
@@ -100,6 +109,7 @@ describe('e2e_p2p_network', () => {
       }
     }
 
+    // shutdown all nodes.
     for (const context of contexts) {
       await context.node.stop();
       await context.rpcServer.stop();
