@@ -190,13 +190,16 @@ export function fromTxMessage(buffer: Buffer): Tx {
   const proof = toObject(publicInputs.remainingData, Proof);
   const txRequest = toObject(proof.remainingData, SignedTxRequest);
   const unverified = toObject(txRequest.remainingData, UnverifiedData);
+  if (!unverified.obj) {
+    unverified.obj = new UnverifiedData([]);
+  }
   const functions = toObjectArray(unverified.remainingData, EncodedContractFunction);
   const publicCalls = toObjectArray(functions.remainingData, PublicCallRequest);
   // working buffer now begins with the first enqueued public call
   if (txRequest.obj) {
     return publicInputs.obj
-      ? Tx.createPrivatePublic(publicInputs.obj!, proof.obj!, unverified.obj!, txRequest.obj!)
+      ? Tx.createPrivatePublic(publicInputs.obj!, proof.obj!, unverified.obj, txRequest.obj!)
       : Tx.createPublic(txRequest.obj!);
   }
-  return Tx.createPrivate(publicInputs.obj!, proof.obj!, unverified.obj!, functions.objects, publicCalls.objects);
+  return Tx.createPrivate(publicInputs.obj!, proof.obj!, unverified.obj, functions.objects, publicCalls.objects);
 }
