@@ -152,7 +152,8 @@ export class Sequencer {
       const block = await this.buildBlock(processedTxs, l1ToL2Messages);
       this.log(`Assembled block ${block.number}`);
 
-      await this.publishUnverifiedData(validTxs, block);
+      // await this.publishUnverifiedData(validTxs, block.number);
+      await this.publishNewContractData(validTxs, block.number);
 
       await this.publishL2Block(block);
     } catch (err) {
@@ -161,16 +162,21 @@ export class Sequencer {
     }
   }
 
+  protected getNewLogsData(validTxs: Tx[]) {
+    const newLogsData = UnverifiedData.join(validTxs.filter(isPrivateTx).map(tx => tx.unverifiedData));
+    return newLogsData;
+  }
+
   /**
-   * Creates the unverified data from the txs and l2Block and publishes it on chain.
+   * Collects all new contract public data from the txs and publishes it on chain.
    * @param validTxs - The set of real transactions being published as part of the block.
-   * @param block - The L2Block to be published.
+   * @param blockNumber - The L2Block number to be published.
    */
-  protected async publishUnverifiedData(validTxs: Tx[], block: L2Block) {
+  protected async publishNewContractData(validTxs: Tx[], blockNumber: number) {
     // Publishes new unverified data & contract data for private txs to the network and awaits the tx to be mined
     this.state = SequencerState.PUBLISHING_UNVERIFIED_DATA;
     // Note: Public txs don't generate UnverifiedData and for this reason we can ignore them here.
-    const unverifiedData = UnverifiedData.join(validTxs.filter(isPrivateTx).map(tx => tx.unverifiedData));
+    // const unverifiedData = UnverifiedData.join(validTxs.filter(isPrivateTx).map(tx => tx.unverifiedData));
     const newContractData = validTxs
       .filter(isPrivateTx)
       .map(tx => {
@@ -185,18 +191,18 @@ export class Sequencer {
       })
       .filter((cd): cd is Exclude<typeof cd, undefined> => cd !== undefined);
 
-    const publishedUnverifiedData = await this.publisher.processUnverifiedData(block.number, unverifiedData);
-    if (publishedUnverifiedData) {
-      this.log(`Successfully published unverifiedData for block ${block.number}`);
-    } else {
-      this.log(`Failed to publish unverifiedData for block ${block.number}`);
-    }
+    // const publishedUnverifiedData = await this.publisher.processUnverifiedData(blockNumber, unverifiedData);
+    // if (publishedUnverifiedData) {
+    //   this.log(`Successfully published unverifiedData for block ${blockNumber}`);
+    // } else {
+    //   this.log(`Failed to publish unverifiedData for block ${blockNumber}`);
+    // }
 
-    const publishedContractData = await this.publisher.processNewContractData(block.number, newContractData);
+    const publishedContractData = await this.publisher.processNewContractData(blockNumber, newContractData);
     if (publishedContractData) {
-      this.log(`Successfully published new contract data for block ${block.number}`);
+      this.log(`Successfully published new contract data for block ${blockNumber}`);
     } else if (!publishedContractData && newContractData.length) {
-      this.log(`Failed to publish new contract data for block ${block.number}`);
+      this.log(`Failed to publish new contract data for block ${blockNumber}`);
     }
   }
 

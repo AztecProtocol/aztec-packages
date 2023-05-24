@@ -163,6 +163,32 @@ export class BufferReader {
   }
 
   /**
+   * Read a variable sized Buffer array where elements are represented by length + data.
+   * The method consecutively looks for a number which is the size of the proceeding buffer,
+   * then reads the bytes until it reaches the end of the reader's internal buffer.
+   * NOTE: if byteSize is not provieded, this will run to the end of the reader's buffer.
+   * @param size - Size of the buffer array in bytes (full buffer length if left empty).
+   * @returns An array of variable sized buffers.
+   */
+  public readBufferArray(size = -1): Buffer[] {
+    const result: Buffer[] = [];
+    const end = size >= 0 ? this.index + size : this.buffer.length;
+    while (this.index < end) {
+      const item = this.readBuffer();
+      result.push(item);
+    }
+    // Ensure that all bytes have been read.
+    if (this.index !== end) {
+      throw new Error(
+        `Reader buffer was not fully consumed. Consumed ${this.index + 1} bytes. Total length: ${
+          this.buffer.length
+        } bytes.`,
+      );
+    }
+    return result;
+  }
+
+  /**
    * Reads a serialized object from a buffer and returns the deserialized object using the given deserializer.
    *
    * @typeparam T - The type of the deserialized object.
