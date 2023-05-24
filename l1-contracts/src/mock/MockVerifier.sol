@@ -20,7 +20,7 @@ contract MockVerifier is IVerifier {
   function verify(bytes calldata, bytes32[] calldata)
     external
     pure
-    override (IVerifier)
+    override(IVerifier)
     returns (bool)
   {
     return true;

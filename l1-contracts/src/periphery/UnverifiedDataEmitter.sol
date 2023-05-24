@@ -20,7 +20,7 @@ contract UnverifiedDataEmitter is IUnverifiedDataEmitter {
    */
   function emitUnverifiedData(uint256 _l2BlockNum, bytes32 _l2BlockHash, bytes calldata _data)
     external
-    override (IUnverifiedDataEmitter)
+    override(IUnverifiedDataEmitter)
   {
     emit UnverifiedData(_l2BlockNum, msg.sender, _l2BlockHash, _data);
   }
@@ -41,7 +41,7 @@ contract UnverifiedDataEmitter is IUnverifiedDataEmitter {
     address _portalAddress,
     bytes32 _l2BlockHash,
     bytes calldata _acir
-  ) external override (IUnverifiedDataEmitter) {
+  ) external override(IUnverifiedDataEmitter) {
     emit ContractDeployment(_l2BlockNum, _aztecAddress, _portalAddress, _l2BlockHash, _acir);
   }
 }
