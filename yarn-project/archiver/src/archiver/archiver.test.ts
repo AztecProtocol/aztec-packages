@@ -142,6 +142,29 @@ function makeContractDeployedEvent(l1BlockNum: bigint, l2Block: L2Block) {
 }
 
 /**
+ * Makes a fake L1ToL2 MessageAdded event for testing purposes.
+ * @param l1BlockNum - L1 block number.
+ * @returns An L2BlockProcessed event log.
+ */
+function makeL1ToL2MessageAddedEvent(l1BlockNum: bigint) {
+  return {
+    blockNumber: l1BlockNum,
+    args: {
+      sender: EthAddress.random().toString(),
+      senderChainId: 1n,
+      recipient: AztecAddress.random().toString(),
+      recipientVersion: 1n,
+      content: '0x' + randomBytes(32).toString('hex'),
+      secretHash: '0x' + randomBytes(32).toString('hex'),
+      deadline: 100,
+      fee: 1n,
+      entryKey: '0x' + randomBytes(32).toString('hex'),
+    },
+    transactionHash: `0x${l1BlockNum}`,
+  } as Log<bigint, number, undefined, typeof InboxAbi, 'MessageAdded'>;
+}
+
+/**
  * Makes a fake rollup tx for testing purposes.
  * @param block - The L2Block.
  * @returns A fake tx with calldata that corresponds to calling process in the Rollup contract.

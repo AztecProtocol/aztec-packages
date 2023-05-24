@@ -27,10 +27,10 @@ async function main() {
   const archiver = new Archiver(
     publicClient,
     rollupContract,
-    unverifiedDataEmitterContract,
     inboxContract,
-    archiverStore,
+    unverifiedDataEmitterContract,
     searchStartBlock,
+    archiverStore,
   );
 
   const shutdown = async () => {
