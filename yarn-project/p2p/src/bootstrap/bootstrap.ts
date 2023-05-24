@@ -3,7 +3,7 @@ import { tcp } from '@libp2p/tcp';
 import { noise } from '@chainsafe/libp2p-noise';
 import { mplex } from '@libp2p/mplex';
 import { kadDHT } from '@libp2p/kad-dht';
-import { createEd25519PeerId, createFromProtobuf } from '@libp2p/peer-id-factory';
+import { createFromProtobuf } from '@libp2p/peer-id-factory';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { P2PConfig } from '../config.js';
 import { yamux } from '@chainsafe/libp2p-yamux';
