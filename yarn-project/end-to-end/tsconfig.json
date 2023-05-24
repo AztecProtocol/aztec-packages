@@ -25,6 +25,9 @@
       "path": "../noir-contracts"
     },
     {
+      "path": "../p2p"
+    },
+    {
       "path": "../sequencer-client"
     },
     {
