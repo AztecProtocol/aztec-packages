@@ -7,7 +7,7 @@ import times from 'lodash.times';
 import { BlockBuilder } from '../block_builder/index.js';
 import { L1Publisher, makeEmptyPrivateTx, makePrivateTx } from '../index.js';
 import { makeEmptyProcessedTx, makeProcessedTx } from './processed_tx.js';
-import { PublicProcessor } from './public_processor.js';
+import { PublicProcessor, PublicProcessorFactory } from './public_processor.js';
 import { Sequencer } from './sequencer.js';
 
 describe('sequencer', () => {
@@ -18,6 +18,7 @@ describe('sequencer', () => {
   let merkleTreeOps: MockProxy<MerkleTreeOperations>;
   let publicProcessor: MockProxy<PublicProcessor>;
   let l2BlockSource: MockProxy<L2BlockSource>;
+  let publicProcessorFactory: MockProxy<PublicProcessorFactory>;
 
   let lastBlockNumber: number;
 
@@ -44,11 +45,11 @@ describe('sequencer', () => {
       makeEmptyProcessedTx: () => makeEmptyProcessedTx(CombinedHistoricTreeRoots.empty()),
     });
 
-    l2BlockSource = mock<L2BlockSource>({
-      getBlockHeight: () => Promise.resolve(lastBlockNumber),
+    publicProcessorFactory = mock<PublicProcessorFactory>({
+      create: () => publicProcessor,
     });
 
-    sequencer = new TestSubject(publisher, p2p, worldState, blockBuilder, publicProcessor, l2BlockSource, undefined);
+    sequencer = new TestSubject(publisher, p2p, worldState, blockBuilder, l2BlockSource, publicProcessorFactory);
   });
 
   it('builds a block out of a single tx', async () => {

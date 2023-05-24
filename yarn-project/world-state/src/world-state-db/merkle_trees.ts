@@ -213,7 +213,11 @@ export class MerkleTrees implements MerkleTreeDb {
    * @param includeUncommitted - Indicates whether the sibling path should incro include uncommitted data.
    * @returns The sibling path for the leaf.
    */
-  public async getSiblingPath(treeId: MerkleTreeId, index: bigint, includeUncommitted: boolean): Promise<SiblingPath> {
+  public async getSiblingPath<N extends number>(
+    treeId: MerkleTreeId,
+    index: bigint,
+    includeUncommitted: boolean,
+  ): Promise<SiblingPath<N>> {
     return await this.synchronise(() => this._getSiblingPath(treeId, index, includeUncommitted));
   }
 
@@ -337,12 +341,19 @@ export class MerkleTrees implements MerkleTreeDb {
    * @param subtreeHeight - Height of the subtree.
    * @returns The data for the leaves to be updated when inserting the new ones.
    */
-  public async batchInsert(
+  public async batchInsert<
+    TreeHeight extends number,
+    SubtreeHeight extends number,
+    SubtreeSiblingPathHeight extends number,
+  >(
     treeId: MerkleTreeId,
     leaves: Buffer[],
-    treeHeight: number,
-    subtreeHeight: number,
-  ): Promise<[LowLeafWitnessData[], Buffer[]] | [undefined, Buffer[]]> {
+    treeHeight: TreeHeight,
+    subtreeHeight: SubtreeHeight,
+  ): Promise<
+    | [LowLeafWitnessData<TreeHeight>[], SiblingPath<SubtreeSiblingPathHeight>]
+    | [undefined, SiblingPath<SubtreeSiblingPathHeight>]
+  > {
     const tree = this.trees[treeId] as StandardIndexedTree;
     if (!('batchInsert' in tree)) {
       throw new Error('Tree does not support `batchInsert` method');
@@ -391,8 +402,12 @@ export class MerkleTrees implements MerkleTreeDb {
    * @param includeUncommitted - Indicates whether to include uncommitted updates in the sibling path.
    * @returns Promise containing the sibling path for the leaf.
    */
-  private _getSiblingPath(treeId: MerkleTreeId, index: bigint, includeUncommitted: boolean): Promise<SiblingPath> {
-    return Promise.resolve(this.trees[treeId].getSiblingPath(index, includeUncommitted));
+  private _getSiblingPath<N extends number>(
+    treeId: MerkleTreeId,
+    index: bigint,
+    includeUncommitted: boolean,
+  ): Promise<SiblingPath<N>> {
+    return Promise.resolve(this.trees[treeId].getSiblingPath<N>(index, includeUncommitted));
   }
 
   /**

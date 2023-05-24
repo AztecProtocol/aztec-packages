@@ -1,3 +1,4 @@
+import { CONTRACT_TREE_HEIGHT, L1_TO_L2_MESSAGES_TREE_HEIGHT, PRIVATE_DATA_TREE_HEIGHT } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { ContractPublicData, ContractData, L2Block, MerkleTreeId } from '@aztec/types';
 import { SiblingPath } from '@aztec/merkle-tree';
@@ -84,21 +85,21 @@ export interface AztecNode {
    * @param leafIndex - The index of the leaf for which the sibling path is required.
    * @returns The sibling path for the leaf index.
    */
-  getContractPath(leafIndex: bigint): Promise<SiblingPath>;
+  getContractPath(leafIndex: bigint): Promise<SiblingPath<typeof CONTRACT_TREE_HEIGHT>>;
 
   /**
    * Returns the sibling path for the given index in the data tree.
    * @param leafIndex - The index of the leaf for which the sibling path is required.
    * @returns The sibling path for the leaf index.
    */
-  getDataTreePath(leafIndex: bigint): Promise<SiblingPath>;
+  getDataTreePath(leafIndex: bigint): Promise<SiblingPath<typeof PRIVATE_DATA_TREE_HEIGHT>>;
 
   /**
    * Returns the sibling path for a leaf in the committed l1 to l2 data tree.
    * @param leafIndex - Index of the leaf in the tree.
    * @returns The sibling path.
    */
-  getL1ToL2MessagesTreePath(leafIndex: bigint): Promise<SiblingPath>;
+  getL1ToL2MessagesTreePath(leafIndex: bigint): Promise<SiblingPath<typeof L1_TO_L2_MESSAGES_TREE_HEIGHT>>;
 
   /**
    * Gets the storage value at the given contract slot. Our version of eth_getStorageAt.

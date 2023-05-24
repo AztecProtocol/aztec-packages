@@ -7,6 +7,7 @@ import PublicTokenContractJson from './public_token_contract.json' assert { type
 import { ContractAbi } from '@aztec/foundation/abi' assert { type: 'json' };
 import NonNativeTokenContractJson from './non_native_token_contract.json' assert { type: 'json' };
 import RollupNativeAssetContractJson from './rollup_native_asset_contract.json' assert { type: 'json' };
+import AccountContractJson from './account_contract.json' assert { type: 'json' };
 
 export const TestContractAbi = TestContractJson as ContractAbi;
 export const ZkTokenContractAbi = ZkTokenContractJson as ContractAbi;
@@ -15,3 +16,4 @@ export const ChildAbi = ChildJson as ContractAbi;
 export const PublicTokenContractAbi = PublicTokenContractJson as ContractAbi;
 export const NonNativeTokenContractAbi = NonNativeTokenContractJson as ContractAbi;
 export const RollupNativeAssetContractAbi = RollupNativeAssetContractJson as ContractAbi;
+export const AccountContractAbi = AccountContractJson as ContractAbi;

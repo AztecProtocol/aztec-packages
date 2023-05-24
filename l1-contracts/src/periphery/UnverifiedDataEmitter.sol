@@ -2,12 +2,15 @@
 // Copyright 2023 Aztec Labs.
 pragma solidity >=0.8.18;
 
+// Interfaces
+import {IUnverifiedDataEmitter} from "./interfaces/IUnverifiedDataEmitter.sol";
+
 /**
  * @title UnverifiedDataEmitter
  * @author Aztec Labs
  * @notice Used to log data on chain which are not required to advance the state but are needed for other purposes
  */
-contract UnverifiedDataEmitter {
+contract UnverifiedDataEmitter is IUnverifiedDataEmitter {
   /**
    * @notice Links L1 and L2 addresses and stores the acir bytecode of the L2 contract
    * @param l2BlockNum - The L2 block number that the information is related to
@@ -45,6 +48,7 @@ contract UnverifiedDataEmitter {
    */
   function emitUnverifiedData(uint256 _l2BlockNum, bytes32 _l2BlockHash, bytes calldata _data)
     external
+    override(IUnverifiedDataEmitter)
   {
     emit UnverifiedData(_l2BlockNum, msg.sender, _l2BlockHash, _data);
   }
@@ -65,7 +69,7 @@ contract UnverifiedDataEmitter {
     address _portalAddress,
     bytes32 _l2BlockHash,
     bytes calldata _acir
-  ) external {
+  ) external override(IUnverifiedDataEmitter) {
     emit ContractDeployment(_l2BlockNum, _aztecAddress, _portalAddress, _l2BlockHash, _acir);
   }
 }

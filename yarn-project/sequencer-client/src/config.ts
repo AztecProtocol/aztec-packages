@@ -22,6 +22,7 @@ export function getConfigEnvVars(): SequencerClientConfig {
     SEQ_MAX_TX_PER_BLOCK,
     SEQ_MIN_TX_PER_BLOCK,
     ROLLUP_CONTRACT_ADDRESS,
+    INBOX_CONTRACT_ADDRESS,
     UNVERIFIED_DATA_EMITTER_ADDRESS,
   } = process.env;
 
@@ -33,6 +34,7 @@ export function getConfigEnvVars(): SequencerClientConfig {
     retryIntervalMs: SEQ_RETRY_INTERVAL ? +SEQ_RETRY_INTERVAL : 1_000,
     transactionPollingInterval: SEQ_TX_POLLING_INTERVAL ? +SEQ_TX_POLLING_INTERVAL : 1_000,
     rollupContract: ROLLUP_CONTRACT_ADDRESS ? EthAddress.fromString(ROLLUP_CONTRACT_ADDRESS) : EthAddress.ZERO,
+    inboxContract: INBOX_CONTRACT_ADDRESS ? EthAddress.fromString(INBOX_CONTRACT_ADDRESS) : EthAddress.ZERO,
     unverifiedDataEmitterContract: UNVERIFIED_DATA_EMITTER_ADDRESS
       ? EthAddress.fromString(UNVERIFIED_DATA_EMITTER_ADDRESS)
       : EthAddress.ZERO,

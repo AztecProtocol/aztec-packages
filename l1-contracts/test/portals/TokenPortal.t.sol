@@ -27,7 +27,8 @@ contract TokenPortalTest is Test {
     uint256 recipientVersion,
     uint32 deadline,
     uint64 fee,
-    bytes32 content
+    bytes32 content,
+    bytes32 secretHash
   );
 
   Registry internal registry;
@@ -45,7 +46,7 @@ contract TokenPortalTest is Test {
     outbox = new Outbox(address(registry));
     rollup = new Rollup(registry);
 
-    registry.setAddresses(address(rollup), address(inbox), address(outbox));
+    registry.upgrade(address(rollup), address(inbox), address(outbox));
 
     portalERC20 = new PortalERC20();
     tokenPortal = new TokenPortal();
@@ -69,7 +70,7 @@ contract TokenPortalTest is Test {
 
     // Check for the expected message
     DataStructures.L1ToL2Msg memory expectedMessage = DataStructures.L1ToL2Msg({
-      sender: DataStructures.L1Actor(address(tokenPortal), 1),
+      sender: DataStructures.L1Actor(address(tokenPortal), block.chainid),
       recipient: DataStructures.L2Actor(l2TokenAddress, 1),
       content: Hash.sha256ToField(abi.encodeWithSignature("mint(uint256,bytes32)", amount, to)),
       secretHash: secretHash,
@@ -89,7 +90,8 @@ contract TokenPortalTest is Test {
       expectedMessage.recipient.version,
       expectedMessage.deadline,
       expectedMessage.fee,
-      expectedMessage.content
+      expectedMessage.content,
+      expectedMessage.secretHash
     );
 
     // Perform op

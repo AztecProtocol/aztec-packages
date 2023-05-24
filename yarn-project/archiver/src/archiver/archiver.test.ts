@@ -1,4 +1,4 @@
-import { RollupAbi, UnverifiedDataEmitterAbi } from '@aztec/l1-artifacts';
+import { InboxAbi, RollupAbi, UnverifiedDataEmitterAbi } from '@aztec/l1-artifacts';
 import { ContractData, ContractPublicData, EncodedContractFunction, L2Block } from '@aztec/types';
 import { MockProxy, mock } from 'jest-mock-extended';
 import { Chain, HttpTransport, Log, PublicClient, Transaction, encodeFunctionData, toHex } from 'viem';
@@ -12,6 +12,7 @@ import { ArchiverDataStore, MemoryArchiverStore } from './archiver_store.js';
 
 describe('Archiver', () => {
   const rollupAddress = '0x0000000000000000000000000000000000000000';
+  const inboxAddress = '0x0000000000000000000000000000000000000000';
   const unverifiedDataEmitterAddress = '0x0000000000000000000000000000000000000001';
   let publicClient: MockProxy<PublicClient<HttpTransport, Chain>>;
   let archiverStore: ArchiverDataStore;
@@ -25,6 +26,7 @@ describe('Archiver', () => {
     const archiver = new Archiver(
       publicClient,
       EthAddress.fromString(rollupAddress),
+      EthAddress.fromString(inboxAddress),
       EthAddress.fromString(unverifiedDataEmitterAddress),
       0,
       archiverStore,
@@ -40,13 +42,16 @@ describe('Archiver', () => {
     const rollupTxs = blocks.map(makeRollupTx);
 
     publicClient.getBlockNumber.mockResolvedValue(2500n);
+    // logs should be created in order of how archiver syncs.
     publicClient.getLogs
       .mockResolvedValueOnce([makeL2BlockProcessedEvent(100n, 1n)])
       .mockResolvedValueOnce([makeUnverifiedDataEvent(102n, blocks[0])])
       .mockResolvedValueOnce([makeContractDeployedEvent(104n, blocks[0])])
+      .mockResolvedValueOnce([makeL1ToL2MessageAddedEvent(101n)])
       .mockResolvedValueOnce([makeL2BlockProcessedEvent(1100n, 2n), makeL2BlockProcessedEvent(1150n, 3n)])
       .mockResolvedValueOnce([makeUnverifiedDataEvent(1100n, blocks[1])])
       .mockResolvedValueOnce([makeContractDeployedEvent(1102n, blocks[1])])
+      .mockResolvedValueOnce([makeL1ToL2MessageAddedEvent(1101n)])
       .mockResolvedValue([]);
     rollupTxs.forEach(tx => publicClient.getTransaction.mockResolvedValueOnce(tx));
 
@@ -68,6 +73,9 @@ describe('Archiver', () => {
     latestUnverifiedDataBlockNum = await archiver.getLatestUnverifiedDataBlockNum();
     expect(latestUnverifiedDataBlockNum).toEqual(2);
 
+    // there are only 2 l1ToL2 messages in the store
+    expect((await archiver.getPendingL1ToL2Messages(10)).length).toEqual(2);
+
     await archiver.stop();
   }, 10_000);
 });
@@ -83,7 +91,7 @@ function makeL2BlockProcessedEvent(l1BlockNum: bigint, l2BlockNum: bigint) {
     blockNumber: l1BlockNum,
     args: { blockNum: l2BlockNum },
     transactionHash: `0x${l2BlockNum}`,
-  } as unknown as Log<bigint, number, undefined, typeof RollupAbi, 'L2BlockProcessed'>;
+  } as Log<bigint, number, undefined, typeof RollupAbi, 'L2BlockProcessed'>;
 }
 
 /**
@@ -130,7 +138,7 @@ function makeContractDeployedEvent(l1BlockNum: bigint, l2Block: L2Block) {
       acir: '0x' + acir,
     },
     transactionHash: `0x${l2Block.number}`,
-  } as unknown as Log<bigint, number, undefined, typeof UnverifiedDataEmitterAbi, 'ContractDeployed'>;
+  } as unknown as Log<bigint, number, undefined, typeof UnverifiedDataEmitterAbi, 'ContractDeployment'>;
 }
 
 /**

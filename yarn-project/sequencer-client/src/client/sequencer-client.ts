@@ -5,11 +5,9 @@ import { ContractDataSource, L2BlockSource } from '@aztec/types';
 import { SoloBlockBuilder } from '../block_builder/solo_block_builder.js';
 import { SequencerClientConfig } from '../config.js';
 import { getL1Publisher, getVerificationKeys, Sequencer } from '../index.js';
-import { EmptyPublicProver, EmptyRollupProver } from '../prover/empty.js';
-import { PublicProcessor } from '../sequencer/public_processor.js';
-import { WasmPublicKernelCircuitSimulator } from '../simulator/public_kernel.js';
+import { EmptyRollupProver } from '../prover/empty.js';
+import { PublicProcessorFactory } from '../sequencer/public_processor.js';
 import { WasmRollupCircuitSimulator } from '../simulator/rollup.js';
-import { getPublicExecutor } from '../simulator/public_executor.js';
 
 /**
  * Encapsulates the full sequencer and publisher.
@@ -43,21 +41,15 @@ export class SequencerClient {
       new EmptyRollupProver(),
     );
 
-    const publicProcessor = new PublicProcessor(
-      merkleTreeDb,
-      getPublicExecutor(merkleTreeDb, contractDataSource),
-      new WasmPublicKernelCircuitSimulator(),
-      new EmptyPublicProver(),
-      contractDataSource,
-    );
+    const publicProcessorFactory = new PublicProcessorFactory(merkleTreeDb, contractDataSource);
 
     const sequencer = new Sequencer(
       publisher,
       p2pClient,
       worldStateSynchroniser,
       blockBuilder,
-      publicProcessor,
       l2BlockSource,
+      publicProcessorFactory,
       config,
     );
 
