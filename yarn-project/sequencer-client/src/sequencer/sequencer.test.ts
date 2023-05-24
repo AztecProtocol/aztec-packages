@@ -49,6 +49,10 @@ describe('sequencer', () => {
       create: () => publicProcessor,
     });
 
+    l2BlockSource = mock<L2BlockSource>({
+      getBlockHeight: () => Promise.resolve(lastBlockNumber),
+    });
+
     sequencer = new TestSubject(publisher, p2p, worldState, blockBuilder, l2BlockSource, publicProcessorFactory);
   });
 
