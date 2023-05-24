@@ -1,5 +1,5 @@
 import { AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
-import { AztecAddress, AztecRPCServer, ContractDeployer, Fr, TxStatus } from '@aztec/aztec.js';
+import { AztecAddress, AztecRPCServer, ContractDeployer, TxStatus } from '@aztec/aztec.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { TestContractAbi } from '@aztec/noir-contracts/examples';
 
