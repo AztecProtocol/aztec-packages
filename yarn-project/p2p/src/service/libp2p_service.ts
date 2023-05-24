@@ -5,7 +5,7 @@ import { yamux } from '@chainsafe/libp2p-yamux';
 import { mplex } from '@libp2p/mplex';
 import { bootstrap } from '@libp2p/bootstrap';
 import { DualKadDHT, kadDHT } from '@libp2p/kad-dht';
-import { createEd25519PeerId, createFromProtobuf } from '@libp2p/peer-id-factory';
+import { createEd25519PeerId, createFromProtobuf, exportToProtobuf } from '@libp2p/peer-id-factory';
 import type { ServiceMap } from '@libp2p/interface-libp2p';
 import { PeerId } from '@libp2p/interface-peer-id';
 import { IncomingStreamData } from '@libp2p/interface-registrar';
@@ -31,6 +31,23 @@ import { autoNATService } from 'libp2p/autonat';
 import { identifyService } from 'libp2p/identify';
 
 const INITIAL_PEER_REFRESH_INTERVAL = 20000;
+
+/**
+ * Create a libp2p peer ID.
+ * @returns The peer ID.
+ */
+export async function createLibP2PPeerId() {
+  return await createEd25519PeerId();
+}
+
+/**
+ * Exports a given peer id to a string representation.
+ * @param peerId - The peerId instance to be converted.
+ * @returns The peer id as a string.
+ */
+export function exportLibP2PPeerIdToString(peerId: PeerId) {
+  return Buffer.from(exportToProtobuf(peerId)).toString('hex');
+}
 
 /**
  * Lib P2P implementation of the P2PService interface.
@@ -88,7 +105,7 @@ export class LibP2PService implements P2PService {
     );
     const dht = this.node.services['kadDHT'] as DualKadDHT;
     this.logger(`Started P2P client as ${await dht.getMode()} with Peer ID ${this.node.peerId.toString()}`);
-    setTimeout(async () => {
+    this.timeout = setTimeout(async () => {
       this.logger(`Refreshing routing table...`);
       await dht.refreshRoutingTable();
     }, INITIAL_PEER_REFRESH_INTERVAL);
@@ -116,7 +133,7 @@ export class LibP2PService implements P2PService {
     const { enableNat, tcpListenIp, tcpListenPort, announceHostname, announcePort, serverMode } = config;
     const peerId = config.peerIdPrivateKey
       ? await createFromProtobuf(Buffer.from(config.peerIdPrivateKey, 'hex'))
-      : await createEd25519PeerId();
+      : await createLibP2PPeerId();
 
     const opts: Libp2pOptions<ServiceMap> = {
       start: false,

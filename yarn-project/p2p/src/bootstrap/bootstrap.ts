@@ -9,6 +9,7 @@ import { P2PConfig } from '../config.js';
 import { yamux } from '@chainsafe/libp2p-yamux';
 import { identifyService } from 'libp2p/identify';
 import type { ServiceMap } from '@libp2p/interface-libp2p';
+import { createLibP2PPeerId } from '../index.js';
 
 /**
  * Encapsulates a 'Bootstrap' node, used for the purpose of assisting new joiners in acquiring peers.
@@ -27,7 +28,7 @@ export class BootstrapNode {
     const { peerIdPrivateKey, tcpListenIp, tcpListenPort, announceHostname, announcePort } = config;
     const peerId = peerIdPrivateKey
       ? await createFromProtobuf(Buffer.from(peerIdPrivateKey, 'hex'))
-      : await createEd25519PeerId();
+      : await createLibP2PPeerId();
     this.logger(
       `Starting bootstrap node ${peerId} on ${tcpListenIp}:${tcpListenPort} announced at ${announceHostname}:${announcePort}`,
     );
@@ -58,29 +59,29 @@ export class BootstrapNode {
       }),
     };
 
-    const node = await createLibp2p({
+    this.node = await createLibp2p({
       ...opts,
       services,
     });
 
-    await node.start();
+    await this.node.start();
     this.logger(`lib p2p has started`);
 
     // print out listening addresses
     this.logger('listening on addresses:');
-    node.getMultiaddrs().forEach(addr => {
+    this.node.getMultiaddrs().forEach(addr => {
       this.logger(addr.toString());
     });
 
-    node.addEventListener('peer:discovery', evt => {
+    this.node.addEventListener('peer:discovery', evt => {
       this.logger('Discovered %s', evt.detail.id.toString()); // Log discovered peer
     });
 
-    node.addEventListener('peer:connect', evt => {
+    this.node.addEventListener('peer:connect', evt => {
       this.logger('Connected to %s', evt.detail.toString()); // Log connected peer
     });
 
-    node.addEventListener('peer:disconnect', evt => {
+    this.node.addEventListener('peer:disconnect', evt => {
       this.logger('Disconnected from %s', evt.detail.toString()); // Log connected peer
     });
   }
@@ -93,5 +94,13 @@ export class BootstrapNode {
     // stop libp2p
     await this.node?.stop();
     this.logger('libp2p has stopped');
+  }
+
+  /**
+   * Returns the peerId of this node.
+   * @returns The node's peer Id
+   */
+  public getPeerId() {
+    return this.node?.peerId;
   }
 }

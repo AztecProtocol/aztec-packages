@@ -179,6 +179,7 @@ export class P2PClient implements P2P {
   public async stop() {
     this.log('Stopping p2p client...');
     this.stopping = true;
+    await this.p2pService.stop();
     await this.blockDownloader.stop();
     await this.runningPromise;
     this.setCurrentState(P2PClientState.STOPPED);
