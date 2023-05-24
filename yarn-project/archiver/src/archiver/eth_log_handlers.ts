@@ -18,16 +18,19 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 /**
  * Processes newly received MessageAdded (L1 to L2) logs.
  * @param logs - MessageAdded logs.
- * @returns Array of all Pending L1 to L2 messages that were processed
+ * @returns Map containing the message key to the the corresponding pending L1 to L2 messages.
  */
 export function processPendingL1ToL2MessageAddedLogs(
   logs: Log<bigint, number, undefined, typeof InboxAbi, 'MessageAdded'>[],
-): L1ToL2Message[] {
-  const l1ToL2Messages: L1ToL2Message[] = [];
+): Map<Fr, L1ToL2Message> {
+  const messageKeyToMessage: Map<Fr, L1ToL2Message> = new Map();
+
   for (const log of logs) {
     const { sender, senderChainId, recipient, recipientVersion, content, secretHash, deadline, fee, entryKey } =
       log.args;
-    l1ToL2Messages.push(
+    // create a map of entryKey to L1ToL2Message:
+    messageKeyToMessage.set(
+      Fr.fromString(entryKey),
       new L1ToL2Message(
         new L1Actor(EthAddress.fromString(sender), Number(senderChainId)),
         new L2Actor(AztecAddress.fromString(recipient), Number(recipientVersion)),
@@ -35,11 +38,10 @@ export function processPendingL1ToL2MessageAddedLogs(
         Fr.fromString(secretHash),
         deadline,
         Number(fee),
-        Fr.fromString(entryKey),
       ),
     );
   }
-  return l1ToL2Messages;
+  return messageKeyToMessage;
 }
 /**
  * Processes newly received UnverifiedData logs.

@@ -2,7 +2,7 @@ import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { INITIAL_L2_BLOCK_NUM, L1ToL2Message, L1ToL2MessageSource } from '@aztec/types';
+import { INITIAL_L2_BLOCK_NUM, L1ToL2Message, L1ToL2MessageConsumer } from '@aztec/types';
 import {
   ContractData,
   ContractPublicData,
@@ -23,13 +23,14 @@ import {
   retrieveNewPendingL1ToL2Messages,
 } from './data_retrieval.js';
 import { ArchiverDataStore, MemoryArchiverStore } from './archiver_store.js';
+import { Fr } from '@aztec/foundation/fields';
 
 /**
  * Pulls L2 blocks in a non-blocking manner and provides interface for their retrieval.
  * Responsible for handling robust L1 polling so that other components do not need to
  * concern themselves with it.
  */
-export class Archiver implements L2BlockSource, UnverifiedDataSource, ContractDataSource, L1ToL2MessageSource {
+export class Archiver implements L2BlockSource, UnverifiedDataSource, ContractDataSource, L1ToL2MessageConsumer {
   /**
    * A promise in which we will be continually fetching new L2 blocks.
    */
@@ -279,11 +280,29 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource, ContractDa
   }
 
   /**
-   * Gets the `take` amount of pending L1 to L2 messages.
+   * Consumes the `take` amount of pending L1 to L2 messages.
    * @param take - The number of messages to return.
-   * @returns The requested L1 to L2 messages.
+   * @returns The requested L1 to L2 message keys.
    */
-  getPendingL1ToL2Messages(take: number): Promise<L1ToL2Message[]> {
-    return this.store.getPendingL1ToL2Messages(take);
+  consumePendingL1ToL2Messages(take: number): Promise<Fr[]> {
+    return this.store.consumePendingL1ToL2Messages(take);
+  }
+
+  /**
+   * Reinserts pending L1 to L2 messages upon block publishing failure.
+   * @param messageKeys - The message keys to reinsert.
+   * @returns True if the reinsertion was successful, false otherwise.
+   */
+  reinsertPendingL1ToL2MessagesUponBlockFailure(messageKeys: Fr[]): Promise<boolean> {
+    return this.store.reinsertPendingL1ToL2MessagesUponBlockFailure(messageKeys);
+  }
+
+  /**
+   * Gets the L1 to L2 message corresponding to the given message key.
+   * @param messageKey - The message key.
+   * @returns The L1 to L2 message (throws if not found)
+   */
+  public getL1ToL2Message(messageKey: Fr): Promise<L1ToL2Message> {
+    return this.store.getL1ToL2Message(messageKey);
   }
 }

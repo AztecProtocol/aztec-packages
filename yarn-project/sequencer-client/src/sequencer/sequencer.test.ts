@@ -1,6 +1,6 @@
 import { CombinedHistoricTreeRoots, Fr, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, makeEmptyProof } from '@aztec/circuits.js';
 import { P2P, P2PClientState } from '@aztec/p2p';
-import { L2Block, MerkleTreeId, PrivateTx, Tx, UnverifiedData } from '@aztec/types';
+import { L1ToL2MessageConsumer, L2Block, MerkleTreeId, PrivateTx, Tx, UnverifiedData } from '@aztec/types';
 import { MerkleTreeOperations, WorldStateRunningState, WorldStateSynchroniser } from '@aztec/world-state';
 import { MockProxy, mock } from 'jest-mock-extended';
 import times from 'lodash.times';
@@ -15,6 +15,7 @@ describe('sequencer', () => {
   let p2p: MockProxy<P2P>;
   let worldState: MockProxy<WorldStateSynchroniser>;
   let blockBuilder: MockProxy<BlockBuilder>;
+  let l1ToL2MessageConsumer: MockProxy<L1ToL2MessageConsumer>;
   let merkleTreeOps: MockProxy<MerkleTreeOperations>;
   let publicProcessor: MockProxy<PublicProcessor>;
   let publicProcessorFactory: MockProxy<PublicProcessorFactory>;
@@ -48,7 +49,19 @@ describe('sequencer', () => {
       create: () => publicProcessor,
     });
 
-    sequencer = new TestSubject(publisher, p2p, worldState, blockBuilder, publicProcessorFactory);
+    l1ToL2MessageConsumer = mock<L1ToL2MessageConsumer>();
+    l1ToL2MessageConsumer = mock<L1ToL2MessageConsumer>({
+      consumePendingL1ToL2Messages: () => Promise.resolve(Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(Fr.ZERO)),
+    });
+
+    sequencer = new TestSubject(
+      publisher,
+      p2p,
+      worldState,
+      blockBuilder,
+      publicProcessorFactory,
+      l1ToL2MessageConsumer,
+    );
   });
 
   it('builds a block out of a single tx', async () => {

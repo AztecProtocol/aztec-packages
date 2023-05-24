@@ -11,6 +11,7 @@ import {
 } from './eth_log_handlers.js';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { ContractPublicData, L1ToL2Message, L2Block, UnverifiedData } from '@aztec/types';
+import { Fr } from '@aztec/foundation/fields';
 
 /**
  * Data retreived from logs
@@ -23,7 +24,7 @@ type DataRetrieval<T> = {
   /**
    * The data returned.
    */
-  retrievedData: T[];
+  retrievedData: T;
 };
 
 /**
@@ -43,7 +44,7 @@ export async function retrieveBlocks(
   currentBlockNumber: bigint,
   searchStartBlock: bigint,
   expectedNextRollupNumber: bigint,
-): Promise<DataRetrieval<L2Block>> {
+): Promise<DataRetrieval<L2Block[]>> {
   const retrievedBlocks: L2Block[] = [];
   do {
     if (searchStartBlock > currentBlockNumber) {
@@ -81,7 +82,7 @@ export async function retrieveUnverifiedData(
   currentBlockNumber: bigint,
   searchStartBlock: bigint,
   expectedNextRollupNumber: bigint,
-): Promise<DataRetrieval<UnverifiedData>> {
+): Promise<DataRetrieval<UnverifiedData[]>> {
   const newUnverifiedDataChunks: UnverifiedData[] = [];
   do {
     if (searchStartBlock > currentBlockNumber) {
@@ -121,7 +122,7 @@ export async function retrieveNewContractData(
   blockUntilSynced: boolean,
   currentBlockNumber: bigint,
   searchStartBlock: bigint,
-): Promise<DataRetrieval<[ContractPublicData[], number]>> {
+): Promise<DataRetrieval<[ContractPublicData[], number][]>> {
   let retrievedNewContracts: [ContractPublicData[], number][] = [];
   do {
     if (searchStartBlock > currentBlockNumber) {
@@ -148,7 +149,7 @@ export async function retrieveNewContractData(
  * @param blockUntilSynced - If true, blocks until the archiver has fully synced.
  * @param currentBlockNumber - Latest available block number in the ETH node.
  * @param searchStartBlock - The block number to use for starting the search.
- * @returns An array of L1ToL2Message and next eth block to search from.
+ * @returns A map of messageKeys to the L1ToL2Message fetched and next eth block to search from.
  */
 export async function retrieveNewPendingL1ToL2Messages(
   publicClient: PublicClient,
@@ -156,15 +157,17 @@ export async function retrieveNewPendingL1ToL2Messages(
   blockUntilSynced: boolean,
   currentBlockNumber: bigint,
   searchStartBlock: bigint,
-): Promise<DataRetrieval<L1ToL2Message>> {
-  const retrievedNewL1ToL2Messages: L1ToL2Message[] = [];
+): Promise<DataRetrieval<Map<Fr, L1ToL2Message>>> {
+  const retrievedNewL1ToL2Messages: Map<Fr, L1ToL2Message> = new Map();
   do {
     if (searchStartBlock > currentBlockNumber) {
       break;
     }
     const newL1ToL2MessageLogs = await getPendingL1ToL2MessageLogs(publicClient, inboxAddress, searchStartBlock);
     const newL1ToL2Messages = processPendingL1ToL2MessageAddedLogs(newL1ToL2MessageLogs);
-    retrievedNewL1ToL2Messages.push(...newL1ToL2Messages);
+    newL1ToL2Messages.forEach((message, messageKey) => {
+      retrievedNewL1ToL2Messages.set(messageKey, message);
+    });
     // handles the case when there are no new messages:
     searchStartBlock = (newL1ToL2MessageLogs.findLast(msgLog => !!msgLog)?.blockNumber || searchStartBlock) + 1n;
   } while (blockUntilSynced && searchStartBlock <= currentBlockNumber);

@@ -1,3 +1,4 @@
+import { MaxHeap } from '@datastructures-js/heap';
 import {
   ContractPublicData,
   L2Block,
@@ -8,6 +9,7 @@ import {
 } from '@aztec/types';
 import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { Fr } from '@aztec/foundation/fields';
 
 /**
  * Interface describing a data store to be used by the archiver to store all its relevant data
@@ -17,8 +19,10 @@ export interface ArchiverDataStore {
   addL2Blocks(blocks: L2Block[]): Promise<boolean>;
   getL2Blocks(from: number, take: number): Promise<L2Block[]>;
   addUnverifiedData(data: UnverifiedData[]): Promise<boolean>;
-  addPendingL1ToL2Messages(messages: L1ToL2Message[]): Promise<boolean>;
-  getPendingL1ToL2Messages(take: number): Promise<L1ToL2Message[]>;
+  addPendingL1ToL2Messages(messageKeyToMessage: Map<Fr, L1ToL2Message>): Promise<boolean>;
+  consumePendingL1ToL2Messages(take?: number): Promise<Fr[]>;
+  reinsertPendingL1ToL2MessagesUponBlockFailure(messageKeys: Fr[]): Promise<boolean>;
+  getL1ToL2Message(messageKey: Fr): Promise<L1ToL2Message>;
   getUnverifiedData(from: number, take: number): Promise<UnverifiedData[]>;
   addL2ContractPublicData(data: ContractPublicData[], blockNum: number): Promise<boolean>;
   getL2ContractPublicData(contractAddress: AztecAddress): Promise<ContractPublicData | undefined>;
@@ -29,6 +33,21 @@ export interface ArchiverDataStore {
   getBlocksLength(): number;
   getLatestUnverifiedDataBlockNum(): Promise<number>;
 }
+
+/**
+ * Smaller L1ToL2Message data type to store data in the max heap
+ * Max heap only requires the message key and the fee (to sort messages by the fee)
+ */
+type L1ToL2MessageKeyAndFee = {
+  /**
+   * The message key (hash of the L1 to L2 message).
+   */
+  messageKey: Fr;
+  /**
+   * The fee for the message as recorded by the Inbox contract.
+   */
+  fee: number;
+};
 
 /**
  * Simple, in-memory implementation of an archiver data store.
@@ -51,9 +70,16 @@ export class MemoryArchiverStore implements ArchiverDataStore {
   private contractPublicData: (ContractPublicData[] | undefined)[] = [];
 
   /**
-   * An array containing all the pending L1 to L2 messages
+   * A map containing the message key to the corresponding L1 to L2 messages that have ever been sent.
    */
-  private pendingL1ToL2Messages: L1ToL2Message[] = [];
+  private allMessageKeysToL1ToL2Messages: Map<Fr, L1ToL2Message> = new Map();
+
+  /**
+   * A max heap containing the pending L1 to L2 messages, sorted by message.fee.
+   */
+  private pendingL1ToL2Messages: MaxHeap<L1ToL2MessageKeyAndFee> = new MaxHeap<L1ToL2MessageKeyAndFee>(
+    value => value.fee,
+  );
 
   constructor() {}
 
@@ -78,12 +104,16 @@ export class MemoryArchiverStore implements ArchiverDataStore {
   }
 
   /**
-   * Append new pending L1 to L2 messages to the store's list.
-   * @param messages - The L1 to L2 messages to be added to the store.
+   * Append new pending L1 to L2 messages to the store.
+   * @param messageKeyToMessage - A map of the message key to the corresponding L1 to L2 messages
    * @returns True if the operation is successful (always in this implementation).
    */
-  public addPendingL1ToL2Messages(messages: L1ToL2Message[]): Promise<boolean> {
-    this.pendingL1ToL2Messages.push(...messages);
+  public addPendingL1ToL2Messages(messageKeyToMessage: Map<Fr, L1ToL2Message>): Promise<boolean> {
+    for (const [messageKey, message] of messageKeyToMessage) {
+      // add to map and the heap
+      this.allMessageKeysToL1ToL2Messages.set(messageKey, message);
+      this.pendingL1ToL2Messages.push({ messageKey, fee: message.fee });
+    }
     return Promise.resolve(true);
   }
 
@@ -117,14 +147,55 @@ export class MemoryArchiverStore implements ArchiverDataStore {
   }
 
   /**
-   * Gets the `take` amount of pending L1 to L2 messages.
+   * Consumes upto `take` amount of pending L1 to L2 messages, sorted by fee.
+   * Note - this is called by the L1ToL2MessageConsumer interface,
+   * typically the sequencer - to queue messages for the next rollup block.
+   * If publishing this L2 block fails, then the sequencer calls
+   * `reinsertPendingL1ToL2MessagesUponBlockFailure()` to reinsert the messages back into the heap.
    * @param take - The number of messages to return (by default NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).
-   * @returns The requested L1 to L2 messages.
+   * @returns Array of the top L1 to L2 message keys sorted by fee
+   * (of maximum size `take` - smaller if not enough messages)
    */
-  public getPendingL1ToL2Messages(take: number = NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP): Promise<L1ToL2Message[]> {
-    // todo: @rahul https://github.com/AztecProtocol/aztec-packages/issues/529 - change this so that sequencer actually actually consumes messages sorted by fee or another value
-    // upon consumption, the messages are removed from the store
-    return Promise.resolve(this.pendingL1ToL2Messages.slice(0, take));
+  public consumePendingL1ToL2Messages(take: number = NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP): Promise<Fr[]> {
+    const messageKeys: Fr[] = [];
+    while (take > 0 && !this.pendingL1ToL2Messages.isEmpty()) {
+      // extract top most item in the heap (i.e. item with the highest fee)
+      messageKeys.push(this.pendingL1ToL2Messages.pop().messageKey);
+      take--;
+    }
+    return Promise.resolve(messageKeys);
+  }
+
+  /**
+   * Typically called by the L1ToL2MessageConsumer to reinsert messages back into the heap
+   * if publishing of the L2 block fails (this is the list of keys that were first popped
+   * from the max heap, in `consumePendingL1ToL2Messages()` to be included in the block,
+   * but block publishing failed).
+   * @param messageKeys - The message keys to reinsert back into the heap.
+   * @returns True if the operation is successful (always in this implementation).
+   */
+  public reinsertPendingL1ToL2MessagesUponBlockFailure(messageKeys: Fr[]): Promise<boolean> {
+    messageKeys.forEach(messageKey => {
+      const message = this.allMessageKeysToL1ToL2Messages.get(messageKey);
+      if (message) {
+        this.pendingL1ToL2Messages.push({ messageKey, fee: message.fee });
+      }
+      // skip if message not found (shouldn't happen).
+    });
+    return Promise.resolve(true);
+  }
+
+  /**
+   * Gets the L1 to L2 message corresponding to the given message key.
+   * @param messageKey - The message key to lookup.
+   * @returns the message or throws if not found.
+   */
+  public getL1ToL2Message(messageKey: Fr): Promise<L1ToL2Message> {
+    const message = this.allMessageKeysToL1ToL2Messages.get(messageKey);
+    if (!message) {
+      throw new Error(`Message not found for key ${messageKey}`);
+    }
+    return Promise.resolve(message);
   }
 
   /**

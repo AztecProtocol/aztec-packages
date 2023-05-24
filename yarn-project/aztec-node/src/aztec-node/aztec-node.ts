@@ -15,6 +15,8 @@ import {
   ContractData,
   ContractDataSource,
   ContractPublicData,
+  L1ToL2Message,
+  L1ToL2MessageReaderSource,
   L2Block,
   L2BlockSource,
   MerkleTreeId,
@@ -44,6 +46,7 @@ export class AztecNode {
     protected blockSource: L2BlockSource,
     protected unverifiedDataSource: UnverifiedDataSource,
     protected contractDataSource: ContractDataSource,
+    protected l1ToL2MessageReaderSource: L1ToL2MessageReaderSource,
     protected merkleTreeDB: MerkleTrees,
     protected worldStateSynchroniser: WorldStateSynchroniser,
     protected sequencer: SequencerClient,
@@ -70,8 +73,17 @@ export class AztecNode {
     await Promise.all([p2pClient.start(), worldStateSynchroniser.start()]);
 
     // now create the sequencer
-    const sequencer = await SequencerClient.new(config, p2pClient, worldStateSynchroniser, archiver);
-    return new AztecNode(p2pClient, archiver, archiver, archiver, merkleTreeDB, worldStateSynchroniser, sequencer);
+    const sequencer = await SequencerClient.new(config, p2pClient, worldStateSynchroniser, archiver, archiver);
+    return new AztecNode(
+      p2pClient,
+      archiver,
+      archiver,
+      archiver,
+      archiver,
+      merkleTreeDB,
+      worldStateSynchroniser,
+      sequencer,
+    );
   }
 
   /**
@@ -128,6 +140,15 @@ export class AztecNode {
    */
   public getUnverifiedData(from: number, take: number): Promise<UnverifiedData[]> {
     return this.unverifiedDataSource.getUnverifiedData(from, take);
+  }
+
+  /**
+   * Gets a L1 to L2 message for the given message key - useful for the db oracle.
+   * @param messageKey - The message key.
+   * @returns the message (or throws if not found)
+   */
+  public getL1ToL2Message(messageKey: Fr): Promise<L1ToL2Message> {
+    return this.l1ToL2MessageReaderSource.getL1ToL2Message(messageKey);
   }
 
   /**

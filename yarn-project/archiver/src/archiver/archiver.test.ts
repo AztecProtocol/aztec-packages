@@ -72,7 +72,7 @@ describe('Archiver', () => {
     expect(latestUnverifiedDataBlockNum).toEqual(2);
 
     // there are only 2 l1ToL2 messages in the store
-    expect((await archiver.getPendingL1ToL2Messages(10)).length).toEqual(2);
+    expect((await archiver.consumePendingL1ToL2Messages(10)).length).toEqual(2);
 
     await archiver.stop();
   }, 10_000);

@@ -6,15 +6,36 @@ import { sha256 } from '@aztec/foundation/crypto';
 import { toBigIntBE, toBufferBE } from '@aztec/foundation/bigint-buffer';
 
 /**
- * Interface of classes allowing for the retrieval of L1 to L2 messages.
+ * Interface of classes allowing to read L1 to L2 messages.
  */
-export interface L1ToL2MessageSource {
+export interface L1ToL2MessageReaderSource {
   /**
-   * Gets the `take` amount of pending L1 to L2 messages.
-   * @param take - The number of messages to return.
-   * @returns The requested L1 to L2 messages.
+   * Returns the L1 to L2 message corresponding to the given message key.
+   * @param messageKey - The message key.
+   * @returns The L1 to L2 message (throws if not found)
    */
-  getPendingL1ToL2Messages(take: number): Promise<L1ToL2Message[]>;
+  getL1ToL2Message(messageKey: Fr): Promise<L1ToL2Message>;
+}
+
+/**
+ * Interface of classes allowing for the consumption of L1 to L2 messages (and reinsertion if consumption failed).
+ */
+export interface L1ToL2MessageConsumer extends L1ToL2MessageReaderSource {
+  /**
+   * Consumes upto `take` amount of pending L1 to L2 messages, sorted by fee.
+   * @param take - The number of messages to return (by default NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).
+   * If there are not enough messages, then it reutrns all the messages.
+   * @returns Array of the top L1 to L2 message keys sorted by fee (of maximum size `take` - smaller if not enough messages)
+   */
+  consumePendingL1ToL2Messages(take?: number): Promise<Fr[]>;
+
+  /**
+   * Typically called by implementers of this interface to reinsert messages back into the heap if publishing the L2 block fails.
+   * (this is the list of keys that were first popped from the max heap, in `consumePendingL1ToL2Messages()` to be included in the block, but block publishing failed).
+   * @param messageKeys - The message keys to reinsert back into the heap.
+   * @returns True if the operation is successful (false otherwise).
+   */
+  reinsertPendingL1ToL2MessagesUponBlockFailure(messageKeys: Fr[]): Promise<boolean>;
 }
 
 /**
@@ -46,16 +67,7 @@ export class L1ToL2Message {
      * The fee for the message.
      */
     public readonly fee: number,
-    /**
-     * The entry key for the message - optional.
-     * If not provided, it will be calculated by hashing the message (similar to the Inbox contract)
-     */
-    public readonly entryKey?: Fr,
-  ) {
-    if (!entryKey) {
-      this.entryKey = this.hash();
-    }
-  }
+  ) {}
 
   // TODO: (#646) - sha256 hash of the message packed the same as solidity
   hash(): Fr {

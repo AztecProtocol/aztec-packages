@@ -115,7 +115,7 @@ export class L2Block {
      */
     public newContractData: ContractData[],
     /**
-     * The L1 to L2 messages to be inserted into the L2 toL2 message tree.
+     * The L1 to L2 message keys to be inserted into the L2 message tree.
      */
     public newL1ToL2Messages: Fr[] = [],
   ) {}

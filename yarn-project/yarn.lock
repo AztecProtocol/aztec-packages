@@ -57,6 +57,7 @@ __metadata:
     "@aztec/foundation": "workspace:^"
     "@aztec/l1-artifacts": "workspace:^"
     "@aztec/types": "workspace:^"
+    "@datastructures-js/heap": ^4.3.1
     "@jest/globals": ^29.5.0
     "@rushstack/eslint-patch": ^1.2.0
     "@types/debug": ^4.1.7
@@ -960,6 +961,13 @@ __metadata:
   dependencies:
     "@jridgewell/trace-mapping": 0.3.9
   checksum: 5718f267085ed8edb3e7ef210137241775e607ee18b77d95aa5bd7514f47f5019aa2d82d96b3bf342ef7aa890a346fa1044532ff7cc3009e7d24fce3ce6200fa
+  languageName: node
+  linkType: hard
+
+"@datastructures-js/heap@npm:^4.3.1":
+  version: 4.3.1
+  resolution: "@datastructures-js/heap@npm:4.3.1"
+  checksum: 1e526850094af5c4292181ca92e38b652361f28d5a2b50a49cd21c5717bcc65d22f87d61096bfa11803ab4d7391b51a568e87d7044651a7bc2a7522b14380ac4
   languageName: node
   linkType: hard
 
