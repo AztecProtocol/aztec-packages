@@ -1,6 +1,6 @@
 import { Grumpkin } from '@aztec/barretenberg.js/crypto';
 import { BarretenbergWasm } from '@aztec/barretenberg.js/wasm';
-import { CallContext, FunctionData } from '@aztec/circuits.js';
+import { CallContext, ContractStorageUpdateRequest, FunctionData } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -64,7 +64,7 @@ describe('ACIR public execution simulator', () => {
 
         publicContracts.getBytecode.mockResolvedValue(Buffer.from(mintAbi.bytecode, 'hex'));
 
-        // Mock the old value for the recipient balance to be 20
+        // Mock the old value and total balance for the recipient balance to be 20
         const previousBalance = new Fr(20n);
         publicState.storageRead.mockResolvedValue(previousBalance);
 
@@ -75,8 +75,14 @@ describe('ACIR public execution simulator', () => {
         expect(result.returnValues).toEqual([expectedBalance]);
 
         const storageSlot = computeSlotForMapping(new Fr(1n), recipient, bbWasm);
+        // console.log('result: ', result);
         expect(result.contractStorageUpdateRequests).toEqual([
-          { storageSlot, oldValue: previousBalance, newValue: expectedBalance },
+          ContractStorageUpdateRequest.from({ storageSlot, oldValue: previousBalance, newValue: expectedBalance }),
+          ContractStorageUpdateRequest.from({
+            storageSlot: new Fr(2n),
+            oldValue: previousBalance,
+            newValue: expectedBalance,
+          }),
         ]);
 
         expect(result.contractStorageReads).toEqual([]);
@@ -169,6 +175,50 @@ describe('ACIR public execution simulator', () => {
         ]);
 
         expect(result.contractStorageUpdateRequests).toEqual([]);
+      });
+    });
+
+    describe('burn', () => {
+      it('should run the burn function', async () => {
+        const contractAddress = AztecAddress.random();
+        const burnAbi = PublicTokenContractAbi.functions.find(f => f.name === 'burn')!;
+        const functionData = new FunctionData(Buffer.alloc(4), false, false);
+        const args = encodeArguments(burnAbi, [20], false);
+
+        const msgSender = AztecAddress.random();
+
+        const callContext = CallContext.from({
+          msgSender,
+          storageContractAddress: contractAddress,
+          portalContractAddress: EthAddress.random(),
+          isContractDeployment: false,
+          isDelegateCall: false,
+          isStaticCall: false,
+        });
+
+        publicContracts.getBytecode.mockResolvedValue(Buffer.from(burnAbi.bytecode, 'hex'));
+
+        // Mock the old value and total balance for the recipient balance to be 20
+        const previousBalance = new Fr(20n);
+        publicState.storageRead.mockResolvedValue(previousBalance);
+
+        const execution: PublicExecution = { contractAddress, functionData, args, callContext };
+        const result = await executor.execute(execution);
+
+        const expectedBalance = new Fr(0n);
+        expect(result.returnValues).toEqual([expectedBalance]);
+
+        const storageSlot = computeSlotForMapping(new Fr(1n), msgSender.toField(), bbWasm);
+        expect(result.contractStorageUpdateRequests).toEqual([
+          ContractStorageUpdateRequest.from({ storageSlot, oldValue: previousBalance, newValue: expectedBalance }),
+          ContractStorageUpdateRequest.from({
+            storageSlot: new Fr(2n),
+            oldValue: previousBalance,
+            newValue: expectedBalance,
+          }),
+        ]);
+
+        expect(result.contractStorageReads).toEqual([]);
       });
     });
   });
