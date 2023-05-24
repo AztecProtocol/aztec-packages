@@ -1,8 +1,11 @@
 import { AztecNode } from '@aztec/aztec-node';
 import {
   AztecAddress,
+  CONTRACT_TREE_HEIGHT,
   Fr,
   KernelCircuitPublicInputs,
+  L1_TO_L2_MESSAGES_TREE_HEIGHT,
+  PRIVATE_DATA_TREE_HEIGHT,
   Proof,
   PublicCallRequest,
   SignedTxRequest,
@@ -216,7 +219,7 @@ export class HttpNode implements AztecNode {
    * @param leafIndex - The index of the leaf for which the sibling path is required.
    * @returns The sibling path for the leaf index.
    */
-  async getContractPath(leafIndex: bigint): Promise<SiblingPath> {
+  async getContractPath(leafIndex: bigint): Promise<SiblingPath<typeof CONTRACT_TREE_HEIGHT>> {
     const url = new URL(`${this.baseUrl}/contract-path`);
     url.searchParams.append('leaf', leafIndex.toString());
     const response = await (await fetch(url.toString())).json();
@@ -229,13 +232,12 @@ export class HttpNode implements AztecNode {
    * @param leafIndex - The index of the leaf for which the sibling path is required.
    * @returns The sibling path for the leaf index.
    */
-  async getDataTreePath(leafIndex: bigint): Promise<SiblingPath> {
+  async getDataTreePath(leafIndex: bigint): Promise<SiblingPath<typeof PRIVATE_DATA_TREE_HEIGHT>> {
     const url = new URL(`${this.baseUrl}/data-path`);
     url.searchParams.append('leaf', leafIndex.toString());
     const response = await (await fetch(url.toString())).json();
     const path = response.path as string;
-    const sibling = SiblingPath.fromString(path);
-    return Promise.resolve(sibling);
+    return Promise.resolve(SiblingPath.fromString(path));
   }
 
   /**
@@ -243,13 +245,12 @@ export class HttpNode implements AztecNode {
    * @param leafIndex - Index of the leaf in the tree.
    * @returns The sibling path.
    */
-  async getL1ToL2MessagesTreePath(leafIndex: bigint): Promise<SiblingPath> {
+  async getL1ToL2MessagesTreePath(leafIndex: bigint): Promise<SiblingPath<typeof L1_TO_L2_MESSAGES_TREE_HEIGHT>> {
     const url = new URL(`${this.baseUrl}/l1-l2-path`);
     url.searchParams.append('leaf', leafIndex.toString());
     const response = await (await fetch(url.toString())).json();
     const path = response.path as string;
-    const sibling = SiblingPath.fromString(path);
-    return Promise.resolve(sibling);
+    return Promise.resolve(SiblingPath.fromString(path));
   }
 
   /**

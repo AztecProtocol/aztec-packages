@@ -22,7 +22,13 @@ import {
 import { default as levelup } from 'levelup';
 import { default as memdown, MemDown } from 'memdown';
 import { AztecNodeConfig } from './config.js';
-import { CircuitsWasm, Fr } from '@aztec/circuits.js';
+import {
+  CONTRACT_TREE_HEIGHT,
+  CircuitsWasm,
+  Fr,
+  L1_TO_L2_MESSAGES_TREE_HEIGHT,
+  PRIVATE_DATA_TREE_HEIGHT,
+} from '@aztec/circuits.js';
 import { PrimitivesWasm } from '@aztec/barretenberg.js/wasm';
 import { AztecNode } from './aztec-node.js';
 
@@ -189,7 +195,7 @@ export class AztecNodeService implements AztecNode {
    * @param leafIndex - The index of the leaf for which the sibling path is required.
    * @returns The sibling path for the leaf index.
    */
-  public getContractPath(leafIndex: bigint): Promise<SiblingPath> {
+  public getContractPath(leafIndex: bigint): Promise<SiblingPath<typeof CONTRACT_TREE_HEIGHT>> {
     return this.merkleTreeDB.getSiblingPath(MerkleTreeId.CONTRACT_TREE, leafIndex, false);
   }
 
@@ -198,7 +204,7 @@ export class AztecNodeService implements AztecNode {
    * @param leafIndex - The index of the leaf for which the sibling path is required.
    * @returns The sibling path for the leaf index.
    */
-  public getDataTreePath(leafIndex: bigint): Promise<SiblingPath> {
+  public getDataTreePath(leafIndex: bigint): Promise<SiblingPath<typeof PRIVATE_DATA_TREE_HEIGHT>> {
     return this.merkleTreeDB.getSiblingPath(MerkleTreeId.PRIVATE_DATA_TREE, leafIndex, false);
   }
 
@@ -207,7 +213,7 @@ export class AztecNodeService implements AztecNode {
    * @param leafIndex - Index of the leaf in the tree.
    * @returns The sibling path.
    */
-  public getL1ToL2MessagesTreePath(leafIndex: bigint): Promise<SiblingPath> {
+  public getL1ToL2MessagesTreePath(leafIndex: bigint): Promise<SiblingPath<typeof L1_TO_L2_MESSAGES_TREE_HEIGHT>> {
     return this.merkleTreeDB.getSiblingPath(MerkleTreeId.L1_TO_L2_MESSAGES_TREE, leafIndex, false);
   }
 
