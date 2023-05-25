@@ -13,10 +13,10 @@
       "path": "../aztec.js"
     },
     {
-      "path": "../ethereum"
+      "path": "../circuits.js"
     },
     {
-      "path": "../circuits.js"
+      "path": "../ethereum"
     },
     {
       "path": "../foundation"

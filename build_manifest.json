@@ -194,8 +194,8 @@
     "dependencies": [
       "aztec-node",
       "aztec.js",
-      "ethereum",
       "circuits.js",
+      "ethereum",
       "foundation",
       "l1-artifacts",
       "noir-contracts",
@@ -346,8 +346,8 @@
     ],
     "dependencies": [
       "acir-simulator",
-      "ethereum",
       "circuits.js",
+      "ethereum",
       "foundation",
       "l1-artifacts",
       "merkle-tree",
