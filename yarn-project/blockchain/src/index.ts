@@ -3,6 +3,7 @@ import { AztecChain } from './aztec_chain.js';
 import { createTestnetChain } from './testnet.js';
 
 export * from './testnet.js';
+export * from './deploy_l1_contracts.js';
 
 /**
  * Helper function to create an instance of Aztec Chain from an rpc url and api key.

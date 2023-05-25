@@ -4,7 +4,7 @@ import { RollupNativeAssetContractAbi } from '@aztec/noir-contracts/examples';
 
 import { HDAccount, mnemonicToAccount } from 'viem/accounts';
 import { createAztecRpcServer } from './create_aztec_rpc_client.js';
-import { deployL1Contract, deployL1Contracts } from './deploy_l1_contracts.js';
+import { deployL1Contract, deployL1Contracts } from '@aztec/blockchain';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { toBigIntBE, toBufferBE } from '@aztec/foundation/bigint-buffer';
@@ -24,7 +24,7 @@ import {
   Address,
 } from 'viem';
 import { foundry } from 'viem/chains';
-import { MNEMONIC } from './fixtures.js';
+import { MNEMONIC, localAnvil } from './fixtures.js';
 
 const logger = createDebugLogger('aztec:e2e_rollup_native_asset_contract');
 
@@ -57,7 +57,7 @@ describe('e2e_rollup_native_asset_contract', () => {
       registryAddress: registryAddress_,
       outboxAddress,
       unverifiedDataEmitterAddress,
-    } = await deployL1Contracts(config.rpcUrl, account, logger);
+    } = await deployL1Contracts(config.rpcUrl, account, localAnvil, logger);
 
     config.publisherPrivateKey = Buffer.from(privKey!);
     config.rollupContract = rollupAddress;

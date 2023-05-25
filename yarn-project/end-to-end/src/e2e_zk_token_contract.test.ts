@@ -4,11 +4,11 @@ import { ZkTokenContractAbi } from '@aztec/noir-contracts/examples';
 
 import { mnemonicToAccount } from 'viem/accounts';
 import { createAztecRpcServer } from './create_aztec_rpc_client.js';
-import { deployL1Contracts } from './deploy_l1_contracts.js';
+import { deployL1Contracts } from '@aztec/blockchain';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { Point } from '@aztec/foundation/fields';
 import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
-import { MNEMONIC } from './fixtures.js';
+import { MNEMONIC, localAnvil } from './fixtures.js';
 
 const logger = createDebugLogger('aztec:e2e_zk_token_contract');
 
@@ -23,7 +23,12 @@ describe('e2e_zk_token_contract', () => {
   beforeEach(async () => {
     const account = mnemonicToAccount(MNEMONIC);
     const privKey = account.getHdKey().privateKey;
-    const { rollupAddress, unverifiedDataEmitterAddress } = await deployL1Contracts(config.rpcUrl, account, logger);
+    const { rollupAddress, unverifiedDataEmitterAddress } = await deployL1Contracts(
+      config.rpcUrl,
+      account,
+      localAnvil,
+      logger,
+    );
 
     config.publisherPrivateKey = Buffer.from(privKey!);
     config.rollupContract = rollupAddress;

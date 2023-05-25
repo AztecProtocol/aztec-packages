@@ -319,6 +319,7 @@ __metadata:
   dependencies:
     "@aztec/aztec-node": "workspace:^"
     "@aztec/aztec.js": "workspace:^"
+    "@aztec/blockchain": "workspace:^"
     "@aztec/circuits.js": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/l1-artifacts": "workspace:^"

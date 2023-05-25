@@ -10,10 +10,10 @@
       "path": "../acir-simulator"
     },
     {
-      "path": "../circuits.js"
+      "path": "../blockchain"
     },
     {
-      "path": "../blockchain"
+      "path": "../circuits.js"
     },
     {
       "path": "../foundation"

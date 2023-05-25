@@ -9,8 +9,8 @@ import { createDebugLogger } from '@aztec/foundation/log';
 import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
 
 import { createAztecRpcServer } from './create_aztec_rpc_client.js';
-import { deployL1Contracts } from './deploy_l1_contracts.js';
-import { MNEMONIC } from './fixtures.js';
+import { deployL1Contracts } from '@aztec/blockchain';
+import { MNEMONIC, localAnvil } from './fixtures.js';
 import times from 'lodash.times';
 
 const logger = createDebugLogger('aztec:e2e_public_token_contract');
@@ -81,7 +81,12 @@ describe('e2e_public_token_contract', () => {
   beforeEach(async () => {
     const account = mnemonicToAccount(MNEMONIC);
     const privKey = account.getHdKey().privateKey;
-    const { rollupAddress, unverifiedDataEmitterAddress } = await deployL1Contracts(config.rpcUrl, account, logger);
+    const { rollupAddress, unverifiedDataEmitterAddress } = await deployL1Contracts(
+      config.rpcUrl,
+      account,
+      localAnvil,
+      logger,
+    );
 
     config.rollupContract = rollupAddress;
     config.unverifiedDataEmitterContract = unverifiedDataEmitterAddress;

@@ -18,8 +18,8 @@ import { padArrayEnd } from '@aztec/foundation/collection';
 import times from 'lodash.times';
 import { mnemonicToAccount } from 'viem/accounts';
 import { createAztecRpcServer } from './create_aztec_rpc_client.js';
-import { deployL1Contracts } from './deploy_l1_contracts.js';
-import { MNEMONIC } from './fixtures.js';
+import { deployL1Contracts } from '@aztec/blockchain';
+import { MNEMONIC, localAnvil } from './fixtures.js';
 import { toBigInt } from '@aztec/foundation/serialize';
 import { keccak } from '@aztec/foundation/crypto';
 import { secp256k1 } from '@noble/curves/secp256k1';
@@ -39,7 +39,7 @@ describe('e2e_account_contract', () => {
   beforeEach(async () => {
     const hdAccount = mnemonicToAccount(MNEMONIC);
     const privKey = hdAccount.getHdKey().privateKey;
-    const { rollupAddress, unverifiedDataEmitterAddress } = await deployL1Contracts(config.rpcUrl, hdAccount, logger);
+    const { rollupAddress, unverifiedDataEmitterAddress } = await deployL1Contracts(config.rpcUrl, hdAccount, localAnvil, logger);
 
     config.publisherPrivateKey = Buffer.from(privKey!);
     config.rollupContract = rollupAddress;

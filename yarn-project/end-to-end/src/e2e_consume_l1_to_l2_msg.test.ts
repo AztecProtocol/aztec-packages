@@ -5,11 +5,11 @@ import { NonNativeTokenContractAbi } from '@aztec/noir-contracts/examples';
 
 import { Account, mnemonicToAccount } from 'viem/accounts';
 import { createAztecRpcServer } from './create_aztec_rpc_client.js';
-import { deployL1Contract, deployL1Contracts } from './deploy_l1_contracts.js';
+import { deployL1Contract, deployL1Contracts } from '@aztec/blockchain';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
-import { MNEMONIC } from './fixtures.js';
+import { MNEMONIC, localAnvil } from './fixtures.js';
 import { PortalERC20Abi, PortalERC20Bytecode, TokenPortalAbi, TokenPortalBytecode } from '@aztec/l1-artifacts';
 import { Chain, GetContractReturnType, HttpTransport, PublicClient, WalletClient, getContract } from 'viem';
 import { computeSecretMessageHash } from '@aztec/circuits.js/abis';
@@ -54,7 +54,7 @@ describe.skip('e2e_l1_to_l2_msg', () => {
       unverifiedDataEmitterAddress,
       walletClient,
       publicClient,
-    } = await deployL1Contracts(config.rpcUrl, account, logger);
+    } = await deployL1Contracts(config.rpcUrl, account, localAnvil, logger);
 
     rollupRegistryAddress = registryAddress_;
 

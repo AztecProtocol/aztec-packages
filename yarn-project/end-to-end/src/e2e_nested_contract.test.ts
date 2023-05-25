@@ -7,8 +7,8 @@ import { ChildAbi, ParentAbi } from '@aztec/noir-contracts/examples';
 import { toBigInt } from '@aztec/foundation/serialize';
 import { mnemonicToAccount } from 'viem/accounts';
 import { createAztecRpcServer } from './create_aztec_rpc_client.js';
-import { deployL1Contracts } from './deploy_l1_contracts.js';
-import { MNEMONIC } from './fixtures.js';
+import { deployL1Contracts } from '@aztec/blockchain';
+import { MNEMONIC, localAnvil } from './fixtures.js';
 
 const logger = createDebugLogger('aztec:e2e_nested_contract');
 
@@ -25,7 +25,12 @@ describe('e2e_nested_contract', () => {
   beforeEach(async () => {
     const account = mnemonicToAccount(MNEMONIC);
     const privKey = account.getHdKey().privateKey;
-    const { rollupAddress, unverifiedDataEmitterAddress } = await deployL1Contracts(config.rpcUrl, account, logger);
+    const { rollupAddress, unverifiedDataEmitterAddress } = await deployL1Contracts(
+      config.rpcUrl,
+      account,
+      localAnvil,
+      logger,
+    );
 
     config.publisherPrivateKey = Buffer.from(privKey!);
     config.rollupContract = rollupAddress;
