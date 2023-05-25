@@ -61,6 +61,16 @@ export interface P2PConfig {
    * Whether to enable NAT from libp2p (ignored for bootstrap node).
    */
   enableNat?: boolean;
+
+  /**
+   * The minimum number of peers (a peer count below this will cause the node to look for more peers)
+   */
+  minPeerCount: number;
+
+  /**
+   * The maximum number of peers (a peer count above this will cause the node to refuse connection attempts)
+   */
+  maxPeerCount: number;
 }
 
 /**
@@ -80,6 +90,8 @@ export function getP2PConfigEnvVars(): P2PConfig {
     P2P_ANNOUNCE_PORT,
     P2P_SERVER,
     P2P_NAT_ENABLED,
+    P2P_MIN_PEERS,
+    P2P_MAX_PEERS,
   } = process.env;
   const envVars: P2PConfig = {
     p2pEnabled: P2P_ENABLED === 'true',
@@ -94,6 +106,8 @@ export function getP2PConfigEnvVars(): P2PConfig {
     announcePort: P2P_ANNOUNCE_PORT ? +P2P_ANNOUNCE_PORT : undefined,
     serverMode: P2P_SERVER === 'true',
     enableNat: P2P_NAT_ENABLED === 'true',
+    minPeerCount: P2P_MIN_PEERS ? +P2P_MIN_PEERS : 10,
+    maxPeerCount: P2P_MAX_PEERS ? +P2P_MAX_PEERS : 100,
   };
   return envVars;
 }

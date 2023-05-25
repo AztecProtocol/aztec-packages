@@ -36,6 +36,8 @@ const createBootstrapNode = async () => {
     announcePort: BOOT_NODE_TCP_PORT,
     peerIdPrivateKey: exportLibP2PPeerIdToString(peerId),
     serverMode: true,
+    minPeerCount: 10,
+    maxPeerCount: 100,
 
     // TODO: the following config options are not applicable to bootstrap nodes
     checkInterval: 1000,

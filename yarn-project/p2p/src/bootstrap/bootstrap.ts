@@ -25,7 +25,8 @@ export class BootstrapNode {
    * @returns An empty promise.
    */
   public async start(config: P2PConfig) {
-    const { peerIdPrivateKey, tcpListenIp, tcpListenPort, announceHostname, announcePort } = config;
+    const { peerIdPrivateKey, tcpListenIp, tcpListenPort, announceHostname, announcePort, minPeerCount, maxPeerCount } =
+      config;
     const peerId = peerIdPrivateKey
       ? await createFromProtobuf(Buffer.from(peerIdPrivateKey, 'hex'))
       : await createLibP2PPeerId();
@@ -44,8 +45,8 @@ export class BootstrapNode {
       streamMuxers: [yamux(), mplex()],
       connectionEncryption: [noise()],
       connectionManager: {
-        minConnections: 10,
-        maxConnections: 100,
+        minConnections: minPeerCount,
+        maxConnections: maxPeerCount,
       },
     };
 

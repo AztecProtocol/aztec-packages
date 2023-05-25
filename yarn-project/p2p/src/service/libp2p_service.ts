@@ -130,7 +130,16 @@ export class LibP2PService implements P2PService {
    * @returns The new service.
    */
   public static async new(config: P2PConfig, txPool: TxPool) {
-    const { enableNat, tcpListenIp, tcpListenPort, announceHostname, announcePort, serverMode } = config;
+    const {
+      enableNat,
+      tcpListenIp,
+      tcpListenPort,
+      announceHostname,
+      announcePort,
+      serverMode,
+      minPeerCount,
+      maxPeerCount,
+    } = config;
     const peerId = config.peerIdPrivateKey
       ? await createFromProtobuf(Buffer.from(config.peerIdPrivateKey, 'hex'))
       : await createLibP2PPeerId();
@@ -146,8 +155,8 @@ export class LibP2PService implements P2PService {
       streamMuxers: [yamux(), mplex()],
       connectionEncryption: [noise()],
       connectionManager: {
-        minConnections: 10,
-        maxConnections: 100,
+        minConnections: minPeerCount,
+        maxConnections: maxPeerCount,
       },
       peerDiscovery: [
         bootstrap({
