@@ -114,7 +114,9 @@ WASM_EXPORT uint8_t* private_kernel__sim(uint8_t const* signed_tx_request_buf,
     return composer.alloc_and_serialize_first_failure();
 }
 
-// jeanmon: only support inner variant
+// TODO(jeanmon): We currently only support inner variant because the circuit version
+// was not splitted into inner/init counterparts. Once this is done, we have to modify
+// the below method to dispatch over the two variants based on first_iteration boolean.
 // returns size of proof data
 WASM_EXPORT size_t private_kernel__prove(uint8_t const* signed_tx_request_buf,
                                          uint8_t const* previous_kernel_buf,
