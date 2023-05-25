@@ -10,38 +10,38 @@ export class L1ToL2MessageStore {
    * A map containing the message key to the corresponding L1 to L2
    * messages (and the number of times the message has been seen).
    */
-  private store: Map<string, L1ToL2MessageAndCount> = new Map();
+  private store: Map<bigint, L1ToL2MessageAndCount> = new Map();
 
   constructor() {}
 
   addMessage(messageKey: Fr, msg: L1ToL2Message) {
-    const messageKeyStr = messageKey.toString();
-    if (this.store.has(messageKeyStr)) {
-      this.store.get(messageKeyStr)!.count++;
+    const messageKeyBigInt = messageKey.value;
+    if (this.store.has(messageKeyBigInt)) {
+      this.store.get(messageKeyBigInt)!.count++;
     } else {
-      this.store.set(messageKeyStr, { message: msg, count: 1 });
+      this.store.set(messageKeyBigInt, { message: msg, count: 1 });
     }
   }
 
   removeMessage(messageKey: Fr) {
-    const messageKeyStr = messageKey.toString();
-    if (!this.store.has(messageKeyStr)) {
+    const messageKeyBigInt = messageKey.value;
+    if (!this.store.has(messageKeyBigInt)) {
       return;
     }
-    const count = this.store.get(messageKeyStr)!.count;
+    const count = this.store.get(messageKeyBigInt)!.count;
     if (count > 1) {
-      this.store.get(messageKeyStr)!.count--;
+      this.store.get(messageKeyBigInt)!.count--;
     } else {
-      this.store.delete(messageKeyStr);
+      this.store.delete(messageKeyBigInt);
     }
   }
 
   getMessage(messageKey: Fr): L1ToL2Message | undefined {
-    return this.store.get(messageKey.toString())?.message;
+    return this.store.get(messageKey.value)?.message;
   }
 
   getMessageAndCount(messageKey: Fr): L1ToL2MessageAndCount | undefined {
-    return this.store.get(messageKey.toString());
+    return this.store.get(messageKey.value);
   }
 
   getMessages(take: number): L1ToL2Message[] {
