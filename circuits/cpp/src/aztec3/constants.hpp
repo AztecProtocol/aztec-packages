@@ -72,7 +72,7 @@ enum GeneratorIndex {
     FUNCTION_LEAF,
     CONTRACT_DEPLOYMENT_DATA,
     CONSTRUCTOR,
-    FUNCTION_ARGS,
+    CONSTRUCTOR_ARGS,
     CONTRACT_ADDRESS,
     CONTRACT_LEAF,
     CALL_CONTEXT,
@@ -87,6 +87,7 @@ enum GeneratorIndex {
     PUBLIC_DATA_LEAF,
     SIGNED_TX_REQUEST,
     L1_TO_L2_MESSAGE_SECRET,
+    FUNCTION_ARGS,
 };
 
 enum StorageSlotGeneratorIndex {

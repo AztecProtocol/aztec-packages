@@ -484,7 +484,7 @@ void validate_deployed_contract_address(PrivateKernelInputsInit<NT> const& priva
     auto private_circuit_vk_hash = stdlib::recursion::verification_key<CT::bn254>::compress_native(
         private_inputs.private_call.vk, GeneratorIndex::VK);
     auto expected_constructor_hash = NT::compress({ private_inputs.private_call.call_stack_item.function_data.hash(),
-                                                    NT::compress<ARGS_LENGTH>(tx_request.args, FUNCTION_ARGS),
+                                                    NT::compress<ARGS_LENGTH>(tx_request.args, CONSTRUCTOR_ARGS),
                                                     private_circuit_vk_hash },
                                                   CONSTRUCTOR);
     NT::fr const expected_contract_address =
