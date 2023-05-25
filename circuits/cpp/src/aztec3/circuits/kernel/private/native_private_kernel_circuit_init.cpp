@@ -14,7 +14,6 @@ using aztec3::circuits::abis::PrivateHistoricTreeRoots;
 using aztec3::circuits::abis::private_kernel::PrivateKernelInputsInit;
 using aztec3::utils::array_push;
 using aztec3::utils::is_array_empty;
-using aztec3::utils::push_array_to_array;
 using CircuitErrorCode = aztec3::utils::CircuitErrorCode;
 
 namespace aztec3::circuits::kernel::private_kernel {
