@@ -39,7 +39,12 @@ describe('e2e_account_contract', () => {
   beforeEach(async () => {
     const hdAccount = mnemonicToAccount(MNEMONIC);
     const privKey = hdAccount.getHdKey().privateKey;
-    const { rollupAddress, unverifiedDataEmitterAddress } = await deployL1Contracts(config.rpcUrl, hdAccount, localAnvil, logger);
+    const { rollupAddress, unverifiedDataEmitterAddress } = await deployL1Contracts(
+      config.rpcUrl,
+      hdAccount,
+      localAnvil,
+      logger,
+    );
 
     config.publisherPrivateKey = Buffer.from(privKey!);
     config.rollupContract = rollupAddress;
