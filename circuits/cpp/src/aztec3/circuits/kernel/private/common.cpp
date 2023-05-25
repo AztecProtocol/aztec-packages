@@ -90,6 +90,9 @@ void common_update_end_values(DummyComposer& composer,
     {  // call stacks
         const auto& this_private_call_stack = private_call_public_inputs.private_call_stack;
         push_array_to_array(this_private_call_stack, public_inputs.end.private_call_stack);
+
+        const auto& this_public_call_stack = private_call_public_inputs.public_call_stack;
+        push_array_to_array(this_public_call_stack, public_inputs.end.public_call_stack);
     }
 
     {  // new l2 to l1 messages

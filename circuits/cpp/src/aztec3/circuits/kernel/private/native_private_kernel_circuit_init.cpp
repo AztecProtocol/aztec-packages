@@ -62,9 +62,6 @@ void initialise_end_values(PrivateKernelInputsInit<NT> const& private_inputs,
 
     // Set the constants in public_inputs.
     public_inputs.constants = constants;
-
-    push_array_to_array(private_call_public_inputs.private_call_stack, public_inputs.end.private_call_stack);
-    push_array_to_array(private_call_public_inputs.public_call_stack, public_inputs.end.public_call_stack);
 }
 
 void validate_this_private_call_against_tx_request(DummyComposer& composer,
