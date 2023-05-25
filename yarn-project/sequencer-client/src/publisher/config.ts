@@ -17,7 +17,7 @@ export interface TxSenderConfig extends L1Addresses {
   /**
    * The API key of the etheraum host.
    */
-  apiKey: string;
+  apiKey?: string;
 
   /**
    * The chain id of the ethereum host.

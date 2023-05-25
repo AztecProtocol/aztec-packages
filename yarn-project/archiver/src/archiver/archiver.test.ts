@@ -106,11 +106,11 @@ function makeUnverifiedDataEvent(l1BlockNum: bigint, l2Block: L2Block) {
     args: {
       l2BlockNum: BigInt(l2Block.number),
       l2BlockHash: `0x${l2Block.getCalldataHash().toString('hex')}`,
-      sender: EthAddress.random(),
+      sender: EthAddress.random().toString(),
       data: '0x' + createRandomUnverifiedData(16).toString('hex'),
     },
     transactionHash: `0x${l2Block.number}`,
-  } as unknown as Log<bigint, number, undefined, typeof UnverifiedDataEmitterAbi, 'UnverifiedData'>;
+  } as Log<bigint, number, undefined, typeof UnverifiedDataEmitterAbi, 'UnverifiedData'>;
 }
 
 /**
@@ -138,7 +138,7 @@ function makeContractDeployedEvent(l1BlockNum: bigint, l2Block: L2Block) {
       acir: '0x' + acir,
     },
     transactionHash: `0x${l2Block.number}`,
-  } as unknown as Log<bigint, number, undefined, typeof UnverifiedDataEmitterAbi, 'ContractDeployment'>;
+  } as Log<bigint, number, undefined, typeof UnverifiedDataEmitterAbi, 'ContractDeployment'>;
 }
 
 /**

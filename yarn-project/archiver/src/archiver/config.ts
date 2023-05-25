@@ -13,7 +13,7 @@ export interface ArchiverConfig extends L1Addresses {
   /**
    * The key for the ethereum node.
    */
-  apiKey: string;
+  apiKey?: string;
 
   /**
    * The polling interval in ms for retrieving new L2 blocks and unverified data.
@@ -50,6 +50,6 @@ export function getConfigEnvVars(): ArchiverConfig {
       ? EthAddress.fromString(UNVERIFIED_DATA_EMITTER_ADDRESS)
       : EthAddress.ZERO,
     searchStartBlock: SEARCH_START_BLOCK ? +SEARCH_START_BLOCK : 0,
-    apiKey: API_KEY || '',
+    apiKey: API_KEY,
   };
 }

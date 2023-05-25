@@ -22,6 +22,7 @@ import { L1Publisher } from '../publisher/l1-publisher.js';
 import { SequencerConfig } from './config.js';
 import { ProcessedTx } from './processed_tx.js';
 import { PublicProcessorFactory } from './public_processor.js';
+import { ceilPowerOfTwo } from '../utils.js';
 
 /**
  * Sequencer client
@@ -284,8 +285,8 @@ export class Sequencer {
    */
   protected async buildBlock(txs: ProcessedTx[], newL1ToL2Messages: Fr[], emptyTx: ProcessedTx) {
     // Pad the txs array with empty txs to be a power of two, at least 4
-    const power = Math.max(Math.ceil(Math.log2(txs.length)), 2);
-    const emptyTxCount = Math.pow(2, power) - txs.length;
+    const txsTargetSize = Math.max(ceilPowerOfTwo(txs.length), 4);
+    const emptyTxCount = txsTargetSize - txs.length;
 
     const allTxs = [...txs, ...times(emptyTxCount, () => emptyTx)];
     const blockNumber = (await this.l2BlockSource.getBlockHeight()) + 1;

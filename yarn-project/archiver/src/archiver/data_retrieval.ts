@@ -80,7 +80,7 @@ export async function retrieveUnverifiedData(
   currentBlockNumber: bigint,
   searchStartBlock: bigint,
   expectedNextRollupNumber: bigint,
-  blockHashMapping: { [key: number]: Buffer },
+  blockHashMapping: { [key: number]: Buffer | undefined },
 ): Promise<DataRetrieval<UnverifiedData>> {
   const newUnverifiedDataChunks: UnverifiedData[] = [];
   do {
@@ -122,7 +122,7 @@ export async function retrieveNewContractData(
   blockUntilSynced: boolean,
   currentBlockNumber: bigint,
   searchStartBlock: bigint,
-  blockHashMapping: { [key: number]: Buffer },
+  blockHashMapping: { [key: number]: Buffer | undefined },
 ): Promise<DataRetrieval<[ContractPublicData[], number]>> {
   let retrievedNewContracts: [ContractPublicData[], number][] = [];
   do {

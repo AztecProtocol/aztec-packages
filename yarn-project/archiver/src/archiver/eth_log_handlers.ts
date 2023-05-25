@@ -48,7 +48,7 @@ export function processPendingL1ToL2MessageAddedLogs(
  * @returns The set of retrieved contract public data items.
  */
 export function processContractDeploymentLogs(
-  blockHashMapping: { [key: number]: Buffer },
+  blockHashMapping: { [key: number]: Buffer | undefined },
   logs: Log<bigint, number, undefined, typeof UnverifiedDataEmitterAbi, 'ContractDeployment'>[],
 ): [ContractPublicData[], number][] {
   const contractPublicData: [ContractPublicData[], number][] = [];
@@ -82,7 +82,7 @@ export function processContractDeploymentLogs(
  */
 export function processUnverifiedDataLogs(
   expectedRollupNumber: bigint,
-  blockHashMapping: { [key: number]: Buffer },
+  blockHashMapping: { [key: number]: Buffer | undefined },
   logs: Log<bigint, number, undefined, typeof UnverifiedDataEmitterAbi, 'UnverifiedData'>[],
 ) {
   const unverifiedDataChunks: UnverifiedData[] = [];

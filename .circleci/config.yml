@@ -577,6 +577,7 @@ workflows:
           requires:
             - aztec-js
             - end-to-end
+            - environment
             - foundation
             - world-state
             - acir-simulator
@@ -585,11 +586,13 @@ workflows:
             - barretenberg-js
             - merkle-tree
             - p2p
+            - p2p-bootstrap
             - noir-contracts
             - noir-compiler
             - sequencer-client
             - types
             - circuits-js
+            - rollup-provider
           <<: *defaults
 
       - e2e-deploy-contract: *e2e_test

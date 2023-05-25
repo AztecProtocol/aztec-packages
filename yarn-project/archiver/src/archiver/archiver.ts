@@ -132,7 +132,7 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource, ContractDa
     );
 
     // create the block number -> block hash mapping to ensure we retrieve the appropriate events
-    const blockHashMapping: { [key: string]: Buffer } = {};
+    const blockHashMapping: { [key: string]: Buffer | undefined } = {};
     retrievedBlocks.retrievedData.forEach((block: L2Block) => {
       blockHashMapping[block.number] = block.getCalldataHash();
     });
