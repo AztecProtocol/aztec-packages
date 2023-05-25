@@ -1,0 +1,27 @@
+#! /bin/bash
+set -eu
+
+cd ..
+#export ETHEREUM_HOST=http://localhost:8545
+export ETHEREUM_HOST=testnet
+export API_KEY=6cc8f5cd170abccfc090c6cf51d50ec7
+export SEARCH_START_BLOCK=15918000
+export ROLLUP_CONTRACT_ADDRESS=0x47bfa1fff4acdc150280f7d37ab9efd1982287da
+export UNVERIFIED_DATA_EMITTER_ADDRESS=0x656adf6584d05d694dac4faeb88380d3068524fb
+#export SEQ_PUBLISHER_PRIVATE_KEY=ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
+export SEQ_PUBLISHER_PRIVATE_KEY=caaff87b825d9fa6f7842a8da5caa48465fbe591f66d8ebf6e898c4d7d04fd64
+export DEBUG='aztec:*'
+export ARCHIVER_POLLING_INTERVAL=10000
+export SEQ_RETRY_INTERVAL=10000
+export SEQ_MAX_TX_PER_BLOCK=32
+export SEQ_MIN_TX_PER_BLOCK=32
+#export BOOTSTRAP_NODES='/ip4/23.21.30.54/tcp/40401/p2p/12D3KooWShCszbGSkuXsaoNKqmHxyqpZvjQXAKwjW39v8caoiP5e'
+export BOOTSTRAP_NODES='/ip4/127.0.0.1/tcp/40400/p2p/12D3KooWGBpbC6qQFkaCYphjNeY6sV99o4SnEWyTeBigoVriDn4D'
+#export P2P_TCP_LISTEN_PORT=40400
+export P2P_TCP_LISTEN_IP='10.1.0.15'
+export P2P_NAT_ENABLED='true'
+export P2P_SERVER='false'
+export P2P_ENABLED='true'
+export DEBUG='aztec:*,libp2p:*'
+yarn build
+yarn start

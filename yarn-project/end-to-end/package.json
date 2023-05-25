@@ -26,8 +26,8 @@
   "dependencies": {
     "@aztec/aztec-node": "workspace:^",
     "@aztec/aztec.js": "workspace:^",
-    "@aztec/blockchain": "workspace:^",
     "@aztec/circuits.js": "workspace:^",
+    "@aztec/ethereum": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "@aztec/l1-artifacts": "workspace:^",
     "@aztec/noir-contracts": "workspace:^",

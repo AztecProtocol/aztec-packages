@@ -277,29 +277,17 @@ export class HttpNode implements AztecNode {
     const url = new URL(`${this.baseUrl}/tree-roots`);
     const response = await (await fetch(url.toString())).json();
 
+    const extractRoot = (treeId: MerkleTreeId) => Fr.fromBuffer(Buffer.from(response.roots[`${treeId}`], 'hex'));
+
     return {
-      [MerkleTreeId.CONTRACT_TREE]: Fr.fromBuffer(Buffer.from(response.roots[`${MerkleTreeId.CONTRACT_TREE}`], 'hex')),
-      [MerkleTreeId.PRIVATE_DATA_TREE]: Fr.fromBuffer(
-        Buffer.from(response.roots[`${MerkleTreeId.CONTRACT_TREE}`], 'hex'),
-      ),
-      [MerkleTreeId.NULLIFIER_TREE]: Fr.fromBuffer(
-        Buffer.from(response.roots[`${MerkleTreeId.NULLIFIER_TREE}`], 'hex'),
-      ),
-      [MerkleTreeId.PUBLIC_DATA_TREE]: Fr.fromBuffer(
-        Buffer.from(response.roots[`${MerkleTreeId.PUBLIC_DATA_TREE}`], 'hex'),
-      ),
-      [MerkleTreeId.L1_TO_L2_MESSAGES_TREE]: Fr.fromBuffer(
-        Buffer.from(response.roots[`${MerkleTreeId.L1_TO_L2_MESSAGES_TREE}`], 'hex'),
-      ),
-      [MerkleTreeId.L1_TO_L2_MESSAGES_ROOTS_TREE]: Fr.fromBuffer(
-        Buffer.from(response.roots[`${MerkleTreeId.L1_TO_L2_MESSAGES_ROOTS_TREE}`], 'hex'),
-      ),
-      [MerkleTreeId.CONTRACT_TREE_ROOTS_TREE]: Fr.fromBuffer(
-        Buffer.from(response.roots[`${MerkleTreeId.CONTRACT_TREE_ROOTS_TREE}`], 'hex'),
-      ),
-      [MerkleTreeId.PRIVATE_DATA_TREE_ROOTS_TREE]: Fr.fromBuffer(
-        Buffer.from(response.roots[`${MerkleTreeId.PRIVATE_DATA_TREE_ROOTS_TREE}`], 'hex'),
-      ),
+      [MerkleTreeId.CONTRACT_TREE]: extractRoot(MerkleTreeId.CONTRACT_TREE),
+      [MerkleTreeId.PRIVATE_DATA_TREE]: extractRoot(MerkleTreeId.PRIVATE_DATA_TREE),
+      [MerkleTreeId.NULLIFIER_TREE]: extractRoot(MerkleTreeId.NULLIFIER_TREE),
+      [MerkleTreeId.PUBLIC_DATA_TREE]: extractRoot(MerkleTreeId.PUBLIC_DATA_TREE),
+      [MerkleTreeId.L1_TO_L2_MESSAGES_TREE]: extractRoot(MerkleTreeId.L1_TO_L2_MESSAGES_TREE),
+      [MerkleTreeId.L1_TO_L2_MESSAGES_ROOTS_TREE]: extractRoot(MerkleTreeId.L1_TO_L2_MESSAGES_ROOTS_TREE),
+      [MerkleTreeId.CONTRACT_TREE_ROOTS_TREE]: extractRoot(MerkleTreeId.CONTRACT_TREE_ROOTS_TREE),
+      [MerkleTreeId.PRIVATE_DATA_TREE_ROOTS_TREE]: extractRoot(MerkleTreeId.PRIVATE_DATA_TREE_ROOTS_TREE),
     };
   }
 }

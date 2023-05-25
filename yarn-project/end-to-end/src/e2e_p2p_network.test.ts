@@ -6,7 +6,7 @@ import { TestContractAbi } from '@aztec/noir-contracts/examples';
 
 import { mnemonicToAccount } from 'viem/accounts';
 import { createAztecRpcServer } from './create_aztec_rpc_client.js';
-import { deployL1Contracts } from '@aztec/blockchain';
+import { deployL1Contracts } from '@aztec/ethereum';
 import { MNEMONIC, localAnvil } from './fixtures.js';
 
 const logger = createDebugLogger('aztec:e2e_p2p_network');

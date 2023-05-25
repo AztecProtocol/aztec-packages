@@ -9,7 +9,7 @@ import { createDebugLogger } from '@aztec/foundation/log';
 import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
 
 import { createAztecRpcServer } from './create_aztec_rpc_client.js';
-import { deployL1Contracts } from '@aztec/blockchain';
+import { deployL1Contracts } from '@aztec/ethereum';
 import { MNEMONIC, localAnvil } from './fixtures.js';
 import times from 'lodash.times';
 

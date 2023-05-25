@@ -104,7 +104,7 @@
       "^yarn-project/archiver/"
     ],
     "dependencies": [
-      "blockchain",
+      "ethereum",
       "foundation",
       "l1-artifacts",
       "types"
@@ -120,7 +120,7 @@
     "dependencies": [
       "aztec-node",
       "aztec.js",
-      "blockchain",
+      "ethereum",
       "foundation",
       "l1-artifacts",
       "noir-contracts"
@@ -194,7 +194,7 @@
     "dependencies": [
       "aztec-node",
       "aztec.js",
-      "blockchain",
+      "ethereum",
       "circuits.js",
       "foundation",
       "l1-artifacts",
@@ -204,12 +204,12 @@
       "world-state"
     ]
   },
-  "blockchain": {
+  "ethereum": {
     "buildDir": "yarn-project",
-    "projectDir": "yarn-project/blockchain",
-    "dockerfile": "blockchain/Dockerfile",
+    "projectDir": "yarn-project/ethereum",
+    "dockerfile": "ethereum/Dockerfile",
     "rebuildPatterns": [
-      "^yarn-project/blockchain/"
+      "^yarn-project/ethereum/"
     ],
     "dependencies": [
       "foundation",
@@ -346,7 +346,7 @@
     ],
     "dependencies": [
       "acir-simulator",
-      "blockchain",
+      "ethereum",
       "circuits.js",
       "foundation",
       "l1-artifacts",

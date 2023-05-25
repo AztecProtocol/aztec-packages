@@ -4,7 +4,7 @@ import { RollupNativeAssetContractAbi } from '@aztec/noir-contracts/examples';
 
 import { HDAccount, mnemonicToAccount } from 'viem/accounts';
 import { createAztecRpcServer } from './create_aztec_rpc_client.js';
-import { deployL1Contract, deployL1Contracts } from '@aztec/blockchain';
+import { deployL1Contract, deployL1Contracts } from '@aztec/ethereum';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { toBigIntBE, toBufferBE } from '@aztec/foundation/bigint-buffer';

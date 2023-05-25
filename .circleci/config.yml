@@ -363,7 +363,7 @@ jobs:
           name: "Build"
           command: build end-to-end
 
-  blockchain:
+  ethereum:
     machine:
       image: ubuntu-2004:202010-01
     resource_class: large
@@ -372,7 +372,7 @@ jobs:
       - *setup_env
       - run:
           name: "Build"
-          command: build blockchain
+          command: build ethereum
 
   rollup-provider:
     machine:
@@ -556,7 +556,7 @@ workflows:
 
       - aztec-js: *yarn_project
       - end-to-end: *yarn_project
-      - blockchain: *yarn_project
+      - ethereum: *yarn_project
       - foundation: *yarn_project
       - world-state: *yarn_project
       - acir-simulator: *yarn_project
@@ -577,7 +577,7 @@ workflows:
           requires:
             - aztec-js
             - end-to-end
-            - blockchain
+            - ethereum
             - foundation
             - world-state
             - acir-simulator

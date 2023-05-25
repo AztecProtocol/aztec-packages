@@ -56,7 +56,7 @@ export function processContractDeploymentLogs(
     const log = logs[i];
     const l2BlockNum = Number(log.args.l2BlockNum);
     const blockHash = Buffer.from(hexToBytes(log.args.l2BlockHash));
-    const expectedBlockHash = blockHashMapping[Number(l2BlockNum)];
+    const expectedBlockHash = blockHashMapping[l2BlockNum];
     if (expectedBlockHash === undefined || !blockHash.equals(expectedBlockHash)) {
       continue;
     }

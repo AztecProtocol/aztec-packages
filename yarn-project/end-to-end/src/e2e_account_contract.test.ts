@@ -18,7 +18,7 @@ import { padArrayEnd } from '@aztec/foundation/collection';
 import times from 'lodash.times';
 import { mnemonicToAccount } from 'viem/accounts';
 import { createAztecRpcServer } from './create_aztec_rpc_client.js';
-import { deployL1Contracts } from '@aztec/blockchain';
+import { deployL1Contracts } from '@aztec/ethereum';
 import { MNEMONIC, localAnvil } from './fixtures.js';
 import { toBigInt } from '@aztec/foundation/serialize';
 import { keccak } from '@aztec/foundation/crypto';

@@ -3,7 +3,7 @@ import { Chain } from 'viem';
 /**
  * Interface containing the connection and chain properties to interact with a blockchain.
  */
-export interface AztecChain {
+export interface EthereumChain {
   /**
    * An instance of the viem chain data.
    */

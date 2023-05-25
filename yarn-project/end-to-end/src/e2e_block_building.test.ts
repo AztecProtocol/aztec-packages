@@ -2,7 +2,7 @@ import { AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
 import { AztecRPCServer, ContractDeployer, Fr, TxStatus } from '@aztec/aztec.js';
 import { mnemonicToAccount } from 'viem/accounts';
 import { createAztecRpcServer } from './create_aztec_rpc_client.js';
-import { deployL1Contracts } from '@aztec/blockchain';
+import { deployL1Contracts } from '@aztec/ethereum';
 import { TestContractAbi } from '@aztec/noir-contracts/examples';
 import times from 'lodash.times';
 import { createDebugLogger } from '@aztec/foundation/log';

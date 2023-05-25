@@ -44,7 +44,7 @@ import {
   getContract,
 } from 'viem';
 import { PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts';
-import { deployL1Contracts } from '@aztec/blockchain';
+import { deployL1Contracts } from '@aztec/ethereum';
 import { L2Actor } from '@aztec/types';
 import { localAnvil } from './fixtures.js';
 

@@ -7,7 +7,7 @@
   },
   "references": [
     {
-      "path": "../blockchain"
+      "path": "../ethereum"
     },
     {
       "path": "../foundation"

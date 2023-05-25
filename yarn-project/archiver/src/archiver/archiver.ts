@@ -15,7 +15,7 @@ import {
 } from '@aztec/types';
 import { Chain, HttpTransport, PublicClient, createPublicClient, http } from 'viem';
 import { ArchiverConfig } from './config.js';
-import { createAztecChain } from '@aztec/blockchain';
+import { createEthereumChain } from '@aztec/ethereum';
 import {
   retrieveBlocks,
   retrieveNewContractData,
@@ -71,7 +71,7 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource, ContractDa
    * @returns - An instance of the archiver.
    */
   public static async createAndSync(config: ArchiverConfig, blockUntilSynced = true): Promise<Archiver> {
-    const chain = createAztecChain(config.rpcUrl, config.apiKey);
+    const chain = createEthereumChain(config.rpcUrl, config.apiKey);
     const publicClient = createPublicClient({
       chain: chain.chainInfo,
       transport: http(chain.rpcUrl),
@@ -132,7 +132,7 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource, ContractDa
     );
 
     // create the block number -> block hash mapping to ensure we retrieve the appropriate events
-    const blockHashMapping: { [key: string]: Buffer | undefined } = {};
+    const blockHashMapping: { [key: number]: Buffer | undefined } = {};
     retrievedBlocks.retrievedData.forEach((block: L2Block) => {
       blockHashMapping[block.number] = block.getCalldataHash();
     });
