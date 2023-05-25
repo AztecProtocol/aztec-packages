@@ -135,7 +135,6 @@ void validate_inputs(DummyComposer& composer, PrivateKernelInputsInner<NT> const
 }
 
 // NOTE: THIS IS A VERY UNFINISHED WORK IN PROGRESS.
-// TODO: decide what to return.
 // TODO: is there a way to identify whether an input has not been used by ths circuit? This would help us more-safely
 // ensure we're constraining everything.
 KernelCircuitPublicInputs<NT> native_private_kernel_circuit_inner(DummyComposer& composer,

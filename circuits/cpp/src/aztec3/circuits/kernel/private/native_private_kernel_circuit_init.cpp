@@ -146,9 +146,7 @@ void update_end_values(PrivateKernelInputsInit<NT> const& private_inputs, Kernel
     array_push(public_inputs.end.new_nullifiers, private_inputs.signed_tx_request.tx_request.nonce);
 }
 
-
 // NOTE: THIS IS A VERY UNFINISHED WORK IN PROGRESS.
-// TODO: decide what to return.
 // TODO: is there a way to identify whether an input has not been used by ths circuit? This would help us more-safely
 // ensure we're constraining everything.
 KernelCircuitPublicInputs<NT> native_private_kernel_circuit_initial(DummyComposer& composer,

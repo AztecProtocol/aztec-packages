@@ -13,7 +13,6 @@ using aztec3::circuits::abis::private_kernel::PrivateKernelInputsInit;
 // using abis::private_kernel::PublicInputs;
 using DummyComposer = aztec3::utils::DummyComposer;
 
-// TODO: decide what to return.
 KernelCircuitPublicInputs<NT> native_private_kernel_circuit_initial(DummyComposer& composer,
                                                                     PrivateKernelInputsInit<NT> const& private_inputs);
 
