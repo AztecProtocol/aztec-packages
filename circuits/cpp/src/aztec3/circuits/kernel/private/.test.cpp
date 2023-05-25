@@ -385,7 +385,6 @@ PrivateKernelInputsInit<NT> do_private_call_get_kernel_inputs_init(bool const is
     //***************************************************************************
     PrivateKernelInputsInit<NT> kernel_private_inputs = PrivateKernelInputsInit<NT>{
         .signed_tx_request = signed_tx_request,
-
         .private_call = private_call_data,
     };
 
@@ -460,7 +459,6 @@ PrivateKernelInputsInner<NT> do_private_call_get_kernel_inputs_inner(bool const 
     //***************************************************************************
     PrivateKernelInputsInner<NT> kernel_private_inputs = PrivateKernelInputsInner<NT>{
         .previous_kernel = mock_previous_kernel,
-
         .private_call = private_call_data,
     };
 
