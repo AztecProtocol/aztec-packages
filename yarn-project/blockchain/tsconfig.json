@@ -6,5 +6,12 @@
     "tsBuildInfoFile": ".tsbuildinfo"
   },
   "include": ["src"],
-  "references": []
+  "references": [
+    {
+      "path": "../foundation"
+    },
+    {
+      "path": "../l1-artifacts"
+    }
+  ]
 }

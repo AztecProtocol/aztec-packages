@@ -19,7 +19,7 @@ const log = createLogger('aztec:aztec-cli');
  * @param mnemonic - The mnemonic to be used in contract deployment.
  */
 async function deployRollupContracts(rpcUrl: string, apiKey: string, privateKey: string, mnemonic: string) {
-  const account = privateKey ? privateKeyToAccount(`0x${privateKey}`) : mnemonicToAccount(mnemonic!);
+  const account = !privateKey ? mnemonicToAccount(mnemonic!) : privateKeyToAccount(`0x${privateKey}`);
   const chain = createAztecChain(rpcUrl, apiKey);
   await deployL1Contracts(chain.rpcUrl, account, chain.chainInfo, logger);
 }
