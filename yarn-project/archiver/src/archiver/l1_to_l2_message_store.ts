@@ -16,8 +16,10 @@ export class L1ToL2MessageStore {
 
   addMessage(messageKey: Fr, msg: L1ToL2Message) {
     const messageKeyBigInt = messageKey.value;
-    if (this.store.has(messageKeyBigInt)) {
-      this.store.get(messageKeyBigInt)!.count++;
+    const msgAndCount = this.store.get(messageKeyBigInt);
+    if (msgAndCount) {
+      msgAndCount.count++;
+      this.store.set(messageKeyBigInt, msgAndCount);
     } else {
       this.store.set(messageKeyBigInt, { message: msg, count: 1 });
     }
@@ -25,12 +27,13 @@ export class L1ToL2MessageStore {
 
   removeMessage(messageKey: Fr) {
     const messageKeyBigInt = messageKey.value;
-    if (!this.store.has(messageKeyBigInt)) {
+    const msgAndCount = this.store.get(messageKeyBigInt);
+    if (!msgAndCount) {
       return;
     }
-    const count = this.store.get(messageKeyBigInt)!.count;
-    if (count > 1) {
-      this.store.get(messageKeyBigInt)!.count--;
+    if (msgAndCount.count > 1) {
+      msgAndCount.count--;
+      this.store.set(messageKeyBigInt, msgAndCount);
     } else {
       this.store.delete(messageKeyBigInt);
     }
