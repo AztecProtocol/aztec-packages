@@ -92,7 +92,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/archiver@workspace:archiver"
   dependencies:
-    "@aztec/environment": "workspace:^"
+    "@aztec/blockchain": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/l1-artifacts": "workspace:^"
     "@aztec/types": "workspace:^"
@@ -122,7 +122,7 @@ __metadata:
   dependencies:
     "@aztec/aztec-node": "workspace:^"
     "@aztec/aztec.js": "workspace:^"
-    "@aztec/environment": "workspace:^"
+    "@aztec/blockchain": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/l1-artifacts": "workspace:^"
     "@aztec/noir-contracts": "workspace:^"
@@ -252,6 +252,24 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@aztec/blockchain@workspace:^, @aztec/blockchain@workspace:blockchain":
+  version: 0.0.0-use.local
+  resolution: "@aztec/blockchain@workspace:blockchain"
+  dependencies:
+    "@jest/globals": ^29.5.0
+    "@rushstack/eslint-patch": ^1.1.4
+    "@types/jest": ^29.5.0
+    "@types/node": ^18.14.6
+    dotenv: ^16.0.3
+    jest: ^29.5.0
+    ts-jest: ^29.1.0
+    ts-node: ^10.9.1
+    tslib: ^2.4.0
+    typescript: ^5.0.4
+    viem: ^0.3.13
+  languageName: unknown
+  linkType: soft
+
 "@aztec/circuits.js@workspace:^, @aztec/circuits.js@workspace:circuits.js":
   version: 0.0.0-use.local
   resolution: "@aztec/circuits.js@workspace:circuits.js"
@@ -319,24 +337,6 @@ __metadata:
     jest: ^29.5.0
     levelup: ^5.1.1
     lodash.times: ^4.3.2
-    ts-jest: ^29.1.0
-    ts-node: ^10.9.1
-    tslib: ^2.4.0
-    typescript: ^5.0.4
-    viem: ^0.3.13
-  languageName: unknown
-  linkType: soft
-
-"@aztec/environment@workspace:^, @aztec/environment@workspace:environment":
-  version: 0.0.0-use.local
-  resolution: "@aztec/environment@workspace:environment"
-  dependencies:
-    "@jest/globals": ^29.5.0
-    "@rushstack/eslint-patch": ^1.1.4
-    "@types/jest": ^29.5.0
-    "@types/node": ^18.14.6
-    dotenv: ^16.0.3
-    jest: ^29.5.0
     ts-jest: ^29.1.0
     ts-node: ^10.9.1
     tslib: ^2.4.0
@@ -590,8 +590,8 @@ __metadata:
   resolution: "@aztec/sequencer-client@workspace:sequencer-client"
   dependencies:
     "@aztec/acir-simulator": "workspace:^"
+    "@aztec/blockchain": "workspace:^"
     "@aztec/circuits.js": "workspace:^"
-    "@aztec/environment": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/l1-artifacts": "workspace:^"
     "@aztec/merkle-tree": "workspace:^"

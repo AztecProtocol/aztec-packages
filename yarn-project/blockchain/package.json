@@ -1,11 +1,11 @@
 {
-  "name": "@aztec/environment",
+  "name": "@aztec/blockchain",
   "version": "0.0.0",
   "type": "module",
   "exports": "./dest/index.js",
   "typedoc": {
     "entryPoint": "./src/index.ts",
-    "displayName": "Environment",
+    "displayName": "Blockchain",
     "tsconfig": "./tsconfig.json"
   },
   "scripts": {

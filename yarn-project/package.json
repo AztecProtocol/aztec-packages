@@ -25,7 +25,7 @@
     "circuits.js",
     "docs",
     "end-to-end",
-    "environment",
+    "blockchain",
     "foundation",
     "key-store",
     "merkle-tree",

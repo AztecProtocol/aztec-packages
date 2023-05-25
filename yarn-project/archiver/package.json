@@ -34,7 +34,7 @@
     "rootDir": "./src"
   },
   "dependencies": {
-    "@aztec/environment": "workspace:^",
+    "@aztec/blockchain": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "@aztec/l1-artifacts": "workspace:^",
     "@aztec/types": "workspace:^",

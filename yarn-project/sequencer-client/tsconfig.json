@@ -13,7 +13,7 @@
       "path": "../circuits.js"
     },
     {
-      "path": "../environment"
+      "path": "../blockchain"
     },
     {
       "path": "../foundation"

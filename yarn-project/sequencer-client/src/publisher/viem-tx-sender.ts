@@ -18,7 +18,7 @@ import { RollupAbi, UnverifiedDataEmitterAbi } from '@aztec/l1-artifacts';
 import { PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts';
 import * as chains from 'viem/chains';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { createAztecChain } from '@aztec/environment';
+import { createAztecChain } from '@aztec/blockchain';
 
 /**
  * Pushes transactions to the L1 rollup contract using viem.

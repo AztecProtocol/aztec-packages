@@ -4,7 +4,7 @@ import { Command } from 'commander';
 import { deployL1Contracts } from './deploy_l1_contracts.js';
 import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { createAztecChain } from '@aztec/environment';
+import { createAztecChain } from '@aztec/blockchain';
 import { deployL2Contract } from './deploy_l2_contract.js';
 
 const logger = createDebugLogger('aztec:cli');

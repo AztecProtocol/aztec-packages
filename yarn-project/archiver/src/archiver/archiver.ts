@@ -15,7 +15,7 @@ import {
 } from '@aztec/types';
 import { Chain, HttpTransport, PublicClient, createPublicClient, http } from 'viem';
 import { ArchiverConfig } from './config.js';
-import { createAztecChain } from '@aztec/environment';
+import { createAztecChain } from '@aztec/blockchain';
 import {
   retrieveBlocks,
   retrieveNewContractData,
