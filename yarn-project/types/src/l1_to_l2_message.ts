@@ -18,6 +18,79 @@ export interface L1ToL2MessageSource {
 }
 
 /**
+ * A simple in-memory implementation of an L1 to L2 message store
+ * that handles message duplication.
+ */
+export class L1ToL2MessageStore {
+  /**
+   * A map containing the message key to the corresponding L1 to L2
+   * messages (and the number of times the message has been seen).
+   */
+  private store: Map<Fr, L1ToL2MessageAndCount> = new Map();
+
+  constructor() {}
+
+  addMessage(entryKey: Fr, msg: L1ToL2Message) {
+    if (this.store.has(entryKey)) {
+      this.store.get(entryKey)!.count++;
+    } else {
+      this.store.set(entryKey, { message: msg, count: 1 });
+    }
+  }
+
+  combineWith(other: L1ToL2MessageStore) {
+    other.store.forEach((value, key) => {
+      if (this.store.has(key)) {
+        this.store.get(key)!.count += value.count;
+      } else {
+        this.store.set(key, value);
+      }
+    });
+  }
+
+  removeMessage(entryKey: Fr) {
+    if (!this.store.has(entryKey)) {
+      return;
+    }
+    const count = this.store.get(entryKey)!.count;
+    if (count > 1) {
+      this.store.get(entryKey)!.count--;
+    } else {
+      this.store.delete(entryKey);
+    }
+  }
+
+  getMessage(entryKey: Fr): L1ToL2Message | undefined {
+    return this.store.get(entryKey)?.message;
+  }
+
+  getMessageAndCount(entryKey: Fr): L1ToL2MessageAndCount | undefined {
+    return this.store.get(entryKey);
+  }
+
+  getMessages(take: number): L1ToL2Message[] {
+    return Array.from(this.store.values())
+      .sort((a, b) => b.message.fee - a.message.fee) // sort by fee descending
+      .slice(0, take) // slice handles the case when take > this.store.size
+      .map(value => value.message);
+  }
+}
+
+/**
+ * Useful to keep track of the number of times a message has been seen.
+ */
+type L1ToL2MessageAndCount = {
+  /**
+   * The message.
+   */
+  message: L1ToL2Message;
+  /**
+   * The number of times the message has been seen.
+   */
+  count: number;
+};
+
+/**
  * The format of an L1 to L2 Message.
  */
 export class L1ToL2Message {
@@ -46,16 +119,7 @@ export class L1ToL2Message {
      * The fee for the message.
      */
     public readonly fee: number,
-    /**
-     * The entry key for the message - optional.
-     * If not provided, it will be calculated by hashing the message (similar to the Inbox contract)
-     */
-    public readonly entryKey?: Fr,
-  ) {
-    if (!entryKey) {
-      this.entryKey = this.hash();
-    }
-  }
+  ) {}
 
   // TODO: (#646) - sha256 hash of the message packed the same as solidity
   hash(): Fr {
@@ -86,6 +150,17 @@ export class L1ToL2Message {
   static empty(): L1ToL2Message {
     return new L1ToL2Message(L1Actor.empty(), L2Actor.empty(), Fr.ZERO, Fr.ZERO, 0, 0);
   }
+
+  static random(): L1ToL2Message {
+    return new L1ToL2Message(
+      L1Actor.random(),
+      L2Actor.random(),
+      Fr.random(),
+      Fr.random(),
+      Math.floor(Math.random() * 1000),
+      Math.floor(Math.random() * 1000),
+    );
+  }
 }
 
 /**
@@ -114,6 +189,10 @@ export class L1Actor {
   toBuffer(): Buffer {
     return serializeToBuffer(this.sender, this.chainId);
   }
+
+  static random(): L1Actor {
+    return new L1Actor(EthAddress.random(), 1);
+  }
 }
 
 /**
@@ -141,5 +220,9 @@ export class L2Actor {
 
   toBuffer(): Buffer {
     return serializeToBuffer(this.recipient, this.version);
+  }
+
+  static random(): L2Actor {
+    return new L2Actor(AztecAddress.random(), 1);
   }
 }

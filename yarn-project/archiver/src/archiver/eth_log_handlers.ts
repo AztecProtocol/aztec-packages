@@ -11,6 +11,7 @@ import {
   L2Actor,
   L2Block,
   UnverifiedData,
+  L1ToL2MessageStore,
 } from '@aztec/types';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
@@ -18,28 +19,27 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 /**
  * Processes newly received MessageAdded (L1 to L2) logs.
  * @param logs - MessageAdded logs.
- * @returns Array of all Pending L1 to L2 messages that were processed
+ * @returns Map containing the message key to the the corresponding pending L1 to L2 messages.
  */
 export function processPendingL1ToL2MessageAddedLogs(
   logs: Log<bigint, number, undefined, typeof InboxAbi, 'MessageAdded'>[],
-): L1ToL2Message[] {
-  const l1ToL2Messages: L1ToL2Message[] = [];
+): L1ToL2MessageStore {
+  const messages: L1ToL2MessageStore = new L1ToL2MessageStore();
   for (const log of logs) {
     const { sender, senderChainId, recipient, recipientVersion, content, secretHash, deadline, fee, entryKey } =
       log.args;
-    l1ToL2Messages.push(
-      new L1ToL2Message(
-        new L1Actor(EthAddress.fromString(sender), Number(senderChainId)),
-        new L2Actor(AztecAddress.fromString(recipient), Number(recipientVersion)),
-        Fr.fromString(content),
-        Fr.fromString(secretHash),
-        deadline,
-        Number(fee),
-        Fr.fromString(entryKey),
-      ),
+    const msg = new L1ToL2Message(
+      new L1Actor(EthAddress.fromString(sender), Number(senderChainId)),
+      new L2Actor(AztecAddress.fromString(recipient), Number(recipientVersion)),
+      Fr.fromString(content),
+      Fr.fromString(secretHash),
+      deadline,
+      Number(fee),
     );
+    // add message - handle duplication.
+    messages.addMessage(Fr.fromString(entryKey), msg);
   }
-  return l1ToL2Messages;
+  return messages;
 }
 /**
  * Processes newly received UnverifiedData logs.

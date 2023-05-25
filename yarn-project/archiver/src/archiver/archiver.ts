@@ -166,8 +166,12 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource, ContractDa
       }
     });
 
-    // store l1 to l2 messages for which we have retrieved rollups
+    // store new pending l1 to l2 messages for which we have retrieved rollups
     await this.store.addPendingL1ToL2Messages(retrievedPendingL1ToL2Messages.retrievedData);
+    // from retrieved L2Blocks, remove L1 to L2 messages that have been published
+    // from each l2block fetch all messageKeys in a flattened array:
+    const messageKeysToRemove = retrievedBlocks.retrievedData.map(l2block => l2block.newL2ToL1Msgs).flat();
+    await this.store.removeFromPendingL1ToL2Messages(messageKeysToRemove);
 
     // store retrieved rollup blocks
     await this.store.addL2Blocks(retrievedBlocks.retrievedData);

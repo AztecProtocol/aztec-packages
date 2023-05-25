@@ -5,8 +5,9 @@ import {
   INITIAL_L2_BLOCK_NUM,
   ContractData,
   L1ToL2Message,
+  L1ToL2MessageStore,
 } from '@aztec/types';
-import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/circuits.js';
+import { Fr, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 
 /**
@@ -17,7 +18,8 @@ export interface ArchiverDataStore {
   addL2Blocks(blocks: L2Block[]): Promise<boolean>;
   getL2Blocks(from: number, take: number): Promise<L2Block[]>;
   addUnverifiedData(data: UnverifiedData[]): Promise<boolean>;
-  addPendingL1ToL2Messages(messages: L1ToL2Message[]): Promise<boolean>;
+  addPendingL1ToL2Messages(messages: L1ToL2MessageStore): Promise<boolean>;
+  removeFromPendingL1ToL2Messages(messageKeys: Fr[]): Promise<boolean>;
   getPendingL1ToL2Messages(take: number): Promise<L1ToL2Message[]>;
   getUnverifiedData(from: number, take: number): Promise<UnverifiedData[]>;
   addL2ContractPublicData(data: ContractPublicData[], blockNum: number): Promise<boolean>;
@@ -51,9 +53,15 @@ export class MemoryArchiverStore implements ArchiverDataStore {
   private contractPublicData: (ContractPublicData[] | undefined)[] = [];
 
   /**
-   * An array containing all the pending L1 to L2 messages
+   * Contains all the L1 to L2 messages ever received
+   * It is a map of entryKey to the corresponding L1 to L2 message and the number of times it has appeared
    */
-  private pendingL1ToL2Messages: L1ToL2Message[] = [];
+  private allMessageKeysToL1ToL2Messages: L1ToL2MessageStore = new L1ToL2MessageStore();
+
+  /**
+   * Contains all the pending L1 to L2 messages
+   */
+  private pendingL1ToL2Messages: L1ToL2MessageStore = new L1ToL2MessageStore();
 
   constructor() {}
 
@@ -78,12 +86,27 @@ export class MemoryArchiverStore implements ArchiverDataStore {
   }
 
   /**
-   * Append new pending L1 to L2 messages to the store's list.
+   * Append new pending L1 to L2 messages to the store.
    * @param messages - The L1 to L2 messages to be added to the store.
    * @returns True if the operation is successful (always in this implementation).
    */
-  public addPendingL1ToL2Messages(messages: L1ToL2Message[]): Promise<boolean> {
-    this.pendingL1ToL2Messages.push(...messages);
+  public addPendingL1ToL2Messages(messages: L1ToL2MessageStore): Promise<boolean> {
+    this.allMessageKeysToL1ToL2Messages.combineWith(messages);
+    // also add to pending messages:
+    this.pendingL1ToL2Messages.combineWith(messages);
+    return Promise.resolve(true);
+  }
+
+  /**
+   * Remove messages from the pending L1 to L2 messages store
+   * (typically when messages have been consumed in an L2 block).
+   * @param messageKeys - The message keys to be removed from the store.
+   * @returns True if the operation is successful (always in this implementation).
+   */
+  public removeFromPendingL1ToL2Messages(messageKeys: Fr[]): Promise<boolean> {
+    messageKeys.forEach(messageKey => {
+      this.pendingL1ToL2Messages.removeMessage(messageKey);
+    });
     return Promise.resolve(true);
   }
 
@@ -122,9 +145,7 @@ export class MemoryArchiverStore implements ArchiverDataStore {
    * @returns The requested L1 to L2 messages.
    */
   public getPendingL1ToL2Messages(take: number = NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP): Promise<L1ToL2Message[]> {
-    // todo: @rahul https://github.com/AztecProtocol/aztec-packages/issues/529 - change this so that sequencer actually actually consumes messages sorted by fee or another value
-    // upon consumption, the messages are removed from the store
-    return Promise.resolve(this.pendingL1ToL2Messages.slice(0, take));
+    return Promise.resolve(this.pendingL1ToL2Messages.getMessages(take));
   }
 
   /**
