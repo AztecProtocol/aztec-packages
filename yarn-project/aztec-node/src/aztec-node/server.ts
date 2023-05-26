@@ -8,7 +8,6 @@ import {
   L2BlockSource,
   MerkleTreeId,
   L1ToL2MessageSource,
-  L1ToL2Message,
 } from '@aztec/types';
 import { SiblingPath } from '@aztec/merkle-tree';
 import { InMemoryTxPool, P2P, createP2PClient } from '@aztec/p2p';
@@ -32,7 +31,7 @@ import {
   PRIVATE_DATA_TREE_HEIGHT,
 } from '@aztec/circuits.js';
 import { PrimitivesWasm } from '@aztec/barretenberg.js/wasm';
-import { AztecNode } from './aztec-node.js';
+import { AztecNode, L1ToL2MessageAndIndex } from './aztec-node.js';
 
 export const createMemDown = () => (memdown as any)() as MemDown<any, any>;
 
@@ -220,21 +219,20 @@ export class AztecNodeService implements AztecNode {
   }
 
   /**
-   * Find the index of the relevant l1 to l2 message.
-   * @param leafValue - The value to search for.
-   * @returns The index of the given leaf in the l1 to l2 message tree or undefined if not found.
-   */
-  public findL1ToL2MessageIndex(leafValue: Buffer): Promise<bigint | undefined> {
-    return this.merkleTreeDB.findLeafIndex(MerkleTreeId.L1_TO_L2_MESSAGES_TREE, leafValue, false);
-  }
-
-  /**
-   * Gets a confirmed/consumed L1 to L2 message for the given message key.
+   * Gets a confirmed/consumed L1 to L2 message for the given message key
+   * and its index in the merkle tree.
    * @param messageKey - The message key.
-   * @returns the message (or throws if not found)
+   * @returns The map containing the message and index.
    */
-  public getL1ToL2Message(messageKey: Fr): Promise<L1ToL2Message> {
-    return this.l1ToL2MessageSource.getConfirmedL1ToL2Message(messageKey);
+  public async getL1ToL2MessageAndIndex(messageKey: Fr): Promise<L1ToL2MessageAndIndex> {
+    // todo: #697 - make this one lookup.
+    const message = await this.l1ToL2MessageSource.getConfirmedL1ToL2Message(messageKey);
+    const index = (await this.merkleTreeDB.findLeafIndex(
+      MerkleTreeId.L1_TO_L2_MESSAGES_TREE,
+      messageKey.toBuffer(),
+      false,
+    ))!;
+    return Promise.resolve({ message, index });
   }
 
   /**

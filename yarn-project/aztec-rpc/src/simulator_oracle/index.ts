@@ -95,8 +95,9 @@ export class SimulatorOracle implements DBOracle {
    *          index of the message in the the l1ToL2MessagesTree
    */
   async getL1ToL2Message(msgKey: Fr): Promise<MessageLoadOracleInputs> {
-    const message = (await this.node.getL1ToL2Message(msgKey)).toFieldArray();
-    const index = (await this.node.findL1ToL2MessageIndex(msgKey.toBuffer()))!;
+    const messageAndIndex = await this.node.getL1ToL2MessageAndIndex(msgKey);
+    const message = messageAndIndex.message.toFieldArray();
+    const index = messageAndIndex.index;
     const siblingPath = await this.node.getL1ToL2MessagesTreePath(index);
     return {
       message,
