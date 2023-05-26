@@ -19,7 +19,6 @@ export class L1ToL2MessageStore {
     const msgAndCount = this.store.get(messageKeyBigInt);
     if (msgAndCount) {
       msgAndCount.count++;
-      this.store.set(messageKeyBigInt, msgAndCount);
     } else {
       this.store.set(messageKeyBigInt, { message: msg, count: 1 });
     }
@@ -33,7 +32,6 @@ export class L1ToL2MessageStore {
     }
     if (msgAndCount.count > 1) {
       msgAndCount.count--;
-      this.store.set(messageKeyBigInt, msgAndCount);
     } else {
       this.store.delete(messageKeyBigInt);
     }
