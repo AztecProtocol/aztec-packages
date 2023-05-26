@@ -103,7 +103,7 @@ namespace aztec3::circuits::kernel::private_kernel {
 void debugComposer(Composer const& composer)
 {
 #ifdef DEBUG_PRINTS
-    info("computed witness: ", composer.computed_witness);
+    info("computed witness: ", composer.composer_helper.computed_witness);
     // info("witness: ", private_kernel_composer.witness);
     // info("constant variables: ", private_kernel_composer.constant_variables);
     // info("variables: ", composer.variables);
