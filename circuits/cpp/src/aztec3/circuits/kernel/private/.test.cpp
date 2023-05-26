@@ -413,14 +413,14 @@ PrivateKernelInputsInner<NT> do_private_call_get_kernel_inputs_inner(bool const 
     const NT::address msg_sender =
         NT::fr(uint256_t(0x01071e9a23e0f7edULL, 0x5d77b35d1830fa3eULL, 0xc6ba3660bb1f0c0bULL, 0x2ef9f7f09867fd6eULL));
 
-    auto const& private_call_deploy = create_private_call_deploy_data(is_constructor, func, args_vec, msg_sender);
+    auto const& [private_call_data, contract_deployment_data] =
+        create_private_call_deploy_data(is_constructor, func, args_vec, msg_sender);
 
-    auto const& private_call_data = private_call_deploy.first;
     const TxContext<NT> tx_context = TxContext<NT>{
         .is_fee_payment_tx = false,
         .is_rebate_payment_tx = false,
         .is_contract_deployment_tx = is_constructor,
-        .contract_deployment_data = private_call_deploy.second,
+        .contract_deployment_data = contract_deployment_data,
     };
 
     //***************************************************************************
