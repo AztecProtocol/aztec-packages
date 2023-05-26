@@ -6,7 +6,7 @@ import {
   ContractData,
   L1ToL2Message,
 } from '@aztec/types';
-import { Fr, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/circuits.js';
+import { Fr, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, NewL1ToL2Messages } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { L1ToL2MessageStore } from './l1_to_l2_message_store.js';
 
@@ -19,7 +19,7 @@ export interface ArchiverDataStore {
   getL2Blocks(from: number, take: number): Promise<L2Block[]>;
   addUnverifiedData(data: UnverifiedData[]): Promise<boolean>;
   addPendingL1ToL2Messages(messages: L1ToL2Message[]): Promise<boolean>;
-  confirmL1ToL2Messages(messageKeys: Fr[]): Promise<boolean>;
+  confirmL1ToL2Messages(messageKeys: NewL1ToL2Messages[]): Promise<boolean>;
   getPendingL1ToL2MessageKeys(take: number): Promise<Fr[]>;
   getConfirmedL1ToL2Message(messageKey: Fr): Promise<L1ToL2Message>;
   getUnverifiedData(from: number, take: number): Promise<UnverifiedData[]>;
@@ -101,10 +101,11 @@ export class MemoryArchiverStore implements ArchiverDataStore {
   /**
    * Messages that have been published in an L2 block are confirmed.
    * Add them to the confirmed store, also remove them from the pending store.
-   * @param messageKeys - The message keys to be removed from the store.
+   * @param newMessages - The objects containing hte message keys to be removed from the store.
    * @returns True if the operation is successful (always in this implementation).
    */
-  public confirmL1ToL2Messages(messageKeys: Fr[]): Promise<boolean> {
+  public confirmL1ToL2Messages(newMessages: NewL1ToL2Messages[]): Promise<boolean> {
+    const messageKeys = newMessages.map(newMessage => newMessage.toFieldArray()).flat();
     messageKeys.forEach(messageKey => {
       this.confirmedL1ToL2Messages.addMessage(messageKey, this.pendingL1ToL2Messages.getMessage(messageKey)!);
       this.pendingL1ToL2Messages.removeMessage(messageKey);

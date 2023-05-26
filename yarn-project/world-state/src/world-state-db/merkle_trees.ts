@@ -493,11 +493,11 @@ export class MerkleTrees implements MerkleTreeDb {
         [MerkleTreeId.CONTRACT_TREE, l2Block.newContracts],
         [MerkleTreeId.NULLIFIER_TREE, l2Block.newNullifiers],
         [MerkleTreeId.PRIVATE_DATA_TREE, l2Block.newCommitments],
-        [MerkleTreeId.L1_TO_L2_MESSAGES_TREE, l2Block.newL1ToL2Messages],
+        [MerkleTreeId.L1_TO_L2_MESSAGES_TREE, l2Block.newL1ToL2Messages.toFieldArray()],
       ] as const) {
         await this._appendLeaves(
           tree,
-          leaves.map(fr => fr.toBuffer()),
+          leaves.map(leaf => leaf.toBuffer()),
         );
       }
 

@@ -203,8 +203,8 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource, ContractDa
 
     // from retrieved L2Blocks, confirm L1 to L2 messages that have been published
     // from each l2block fetch all messageKeys in a flattened array:
-    const messageKeysToRemove = retrievedBlocks.retrievedData.map(l2block => l2block.newL1ToL2Messages).flat();
-    await this.store.confirmL1ToL2Messages(messageKeysToRemove);
+    const newMessages = retrievedBlocks.retrievedData.map(l2block => l2block.newL1ToL2Messages);
+    await this.store.confirmL1ToL2Messages(newMessages);
 
     // store retrieved rollup blocks
     await this.store.addL2Blocks(retrievedBlocks.retrievedData);
