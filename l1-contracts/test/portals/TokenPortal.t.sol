@@ -103,5 +103,4 @@ contract TokenPortalTest is Test {
     DataStructures.Entry memory entry = inbox.get(entryKey);
     assertEq(entry.count, 1);
   }
-
 }
