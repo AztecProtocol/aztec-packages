@@ -71,16 +71,14 @@ void common_update_end_values(DummyComposer& composer,
     {  // commitments & nullifiers
         std::array<NT::fr, NEW_COMMITMENTS_LENGTH> siloed_new_commitments;
         for (size_t i = 0; i < new_commitments.size(); ++i) {
-            siloed_new_commitments[i] = new_commitments[i] == 0 ? 0
-                                                                : add_contract_address_to_commitment<NT>(
-                                                                      storage_contract_address, new_commitments[i]);
+            siloed_new_commitments[i] =
+                new_commitments[i] == 0 ? 0 : silo_commitment<NT>(storage_contract_address, new_commitments[i]);
         }
 
         std::array<NT::fr, NEW_NULLIFIERS_LENGTH> siloed_new_nullifiers;
         for (size_t i = 0; i < new_nullifiers.size(); ++i) {
-            siloed_new_nullifiers[i] = new_nullifiers[i] == 0 ? 0
-                                                              : add_contract_address_to_nullifier<NT>(
-                                                                    storage_contract_address, new_nullifiers[i]);
+            siloed_new_nullifiers[i] =
+                new_nullifiers[i] == 0 ? 0 : silo_nullifier<NT>(storage_contract_address, new_nullifiers[i]);
         }
 
         push_array_to_array(siloed_new_commitments, public_inputs.end.new_commitments);
