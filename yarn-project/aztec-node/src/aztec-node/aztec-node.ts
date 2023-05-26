@@ -1,6 +1,6 @@
 import { CONTRACT_TREE_HEIGHT, L1_TO_L2_MESSAGES_TREE_HEIGHT, PRIVATE_DATA_TREE_HEIGHT } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { ContractPublicData, ContractData, L2Block, MerkleTreeId } from '@aztec/types';
+import { ContractPublicData, ContractData, L2Block, MerkleTreeId, L1ToL2Message } from '@aztec/types';
 import { SiblingPath } from '@aztec/merkle-tree';
 import { Tx, TxHash } from '@aztec/types';
 import { UnverifiedData } from '@aztec/types';
@@ -93,6 +93,20 @@ export interface AztecNode {
    * @returns The sibling path for the leaf index.
    */
   getDataTreePath(leafIndex: bigint): Promise<SiblingPath<typeof PRIVATE_DATA_TREE_HEIGHT>>;
+
+  /**
+   * Find the index of the relevant l1 to l2 message.
+   * @param leafValue - The value to search for.
+   * @returns The index of the given leaf in the l1 to l2 message tree or undefined if not found.
+   */
+  findL1ToL2MessageIndex(leafValue: Buffer): Promise<bigint | undefined>;
+
+  /**
+   * Gets a consumed/confirmed L1 to L2 message for the given message key.
+   * @param messageKey - The message key.
+   * @returns the message (or throws if not found)
+   */
+  getL1ToL2Message(messageKey: Fr): Promise<L1ToL2Message>;
 
   /**
    * Returns the sibling path for a leaf in the committed l1 to l2 data tree.

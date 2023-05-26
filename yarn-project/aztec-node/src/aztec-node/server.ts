@@ -7,6 +7,8 @@ import {
   L2Block,
   L2BlockSource,
   MerkleTreeId,
+  L1ToL2MessageSource,
+  L1ToL2Message,
 } from '@aztec/types';
 import { SiblingPath } from '@aztec/merkle-tree';
 import { InMemoryTxPool, P2P, createP2PClient } from '@aztec/p2p';
@@ -43,6 +45,7 @@ export class AztecNodeService implements AztecNode {
     protected blockSource: L2BlockSource,
     protected unverifiedDataSource: UnverifiedDataSource,
     protected contractDataSource: ContractDataSource,
+    protected l1ToL2MessageSource: L1ToL2MessageSource,
     protected merkleTreeDB: MerkleTrees,
     protected worldStateSynchroniser: WorldStateSynchroniser,
     protected sequencer: SequencerClient,
@@ -72,9 +75,17 @@ export class AztecNodeService implements AztecNode {
     await Promise.all([p2pClient.start(), worldStateSynchroniser.start()]);
 
     // now create the sequencer
-    const sequencer = await SequencerClient.new(config, p2pClient, worldStateSynchroniser, archiver, archiver);
+    const sequencer = await SequencerClient.new(
+      config,
+      p2pClient,
+      worldStateSynchroniser,
+      archiver,
+      archiver,
+      archiver,
+    );
     return new AztecNodeService(
       p2pClient,
+      archiver,
       archiver,
       archiver,
       archiver,
@@ -206,6 +217,24 @@ export class AztecNodeService implements AztecNode {
    */
   public getDataTreePath(leafIndex: bigint): Promise<SiblingPath<typeof PRIVATE_DATA_TREE_HEIGHT>> {
     return this.merkleTreeDB.getSiblingPath(MerkleTreeId.PRIVATE_DATA_TREE, leafIndex, false);
+  }
+
+  /**
+   * Find the index of the relevant l1 to l2 message.
+   * @param leafValue - The value to search for.
+   * @returns The index of the given leaf in the l1 to l2 message tree or undefined if not found.
+   */
+  public findL1ToL2MessageIndex(leafValue: Buffer): Promise<bigint | undefined> {
+    return this.merkleTreeDB.findLeafIndex(MerkleTreeId.L1_TO_L2_MESSAGES_TREE, leafValue, false);
+  }
+
+  /**
+   * Gets a confirmed/consumed L1 to L2 message for the given message key.
+   * @param messageKey - The message key.
+   * @returns the message (or throws if not found)
+   */
+  public getL1ToL2Message(messageKey: Fr): Promise<L1ToL2Message> {
+    return this.l1ToL2MessageSource.getConfirmedL1ToL2Message(messageKey);
   }
 
   /**
