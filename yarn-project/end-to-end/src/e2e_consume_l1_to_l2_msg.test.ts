@@ -123,7 +123,7 @@ describe('e2e_l1_to_l2_msg', () => {
     return contract;
   };
 
-  it('Should be able to consume an L1 Message and mint a non native token on L2', async () => {
+  it('Milestone 2.2: L1->L2 Calls', async () => {
     const initialBalance = 10n;
     const [ownerAddress, receiver] = accounts;
     const ownerPub = await aztecRpcServer.getAccountPublicKey(ownerAddress);
