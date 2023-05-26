@@ -1,4 +1,4 @@
-import { AztecNode, L1ToL2MessageAndIndex } from '@aztec/aztec-node';
+import { AztecNode } from '@aztec/aztec-node';
 import {
   AztecAddress,
   CONTRACT_TREE_HEIGHT,
@@ -15,6 +15,7 @@ import {
   ContractData,
   ContractPublicData,
   EncodedContractFunction,
+  L1ToL2MessageAndIndex,
   L1ToL2Message,
   L2Block,
   MerkleTreeId,
