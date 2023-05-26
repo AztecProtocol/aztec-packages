@@ -56,7 +56,7 @@ export class AcirSimulator {
       entryPointABI,
       contractAddress,
       request.functionData,
-      request.args,
+      request.getExpandedArgs(),
       callContext,
     );
 
@@ -96,7 +96,7 @@ export class AcirSimulator {
       entryPointABI,
       contractAddress,
       request.functionData,
-      request.args,
+      request.getExpandedArgs(),
       callContext,
     );
 

@@ -8,7 +8,7 @@
 #include "private_circuit_public_inputs.hpp"
 #include "tx_context.hpp"
 #include "tx_request.hpp"
-#include "private_kernel/private_inputs.hpp"
+#include "private_kernel/private_kernel_inputs_inner.hpp"
 #include "public_kernel/public_kernel_inputs.hpp"
 #include "public_kernel/public_kernel_inputs_no_previous_kernel.hpp"
 #include "rollup/base/base_or_merge_rollup_public_inputs.hpp"
@@ -18,6 +18,7 @@
 
 #include "aztec3/circuits/abis/combined_accumulated_data.hpp"
 #include "aztec3/circuits/abis/new_contract_data.hpp"
+#include "aztec3/circuits/abis/private_kernel/private_kernel_inputs_init.hpp"
 #include "aztec3/circuits/abis/signed_tx_request.hpp"
 #include "aztec3/circuits/abis/types.hpp"
 #include <aztec3/circuits/hash.hpp>
@@ -289,22 +290,6 @@ WASM_EXPORT void abis__hash_constructor(uint8_t const* function_data_buf,
     NT::fr::serialize_to_buffer(constructor_hash, output);
 }
 
-/**
- * @brief Generates a contract address from its components.
- * This is a WASM-export that can be called from Typescript.
- *
- * @details hash the inputs to generate a deterministic contract address:
- * hash(contract_address, contract_address_salt, function_tree_root, constructor_hash)
- * Return the serialized results in the `output` buffer.
- *
- * @param contract_address_salt_buf bytes buffer representing a field that lets a deployer have
- * some control over contract address
- * @param function_tree_root_buf bytes buffer representing a field that is the root of the
- * contract's function tree
- * @param constructor_hash_buf bytes buffer representing a field that is a hash of constructor info
- * @param output buffer that will contain the output contract address.
- */
-
 CBIND(abis__compute_contract_address, compute_contract_address<NT>);
 
 /**
@@ -457,9 +442,14 @@ WASM_EXPORT const char* abis__test_roundtrip_serialize_signed_tx_request(uint8_t
     return as_string_output<aztec3::circuits::abis::SignedTxRequest<NT>>(input, size);
 }
 
-WASM_EXPORT const char* abis__test_roundtrip_serialize_private_kernel_inputs(uint8_t const* input, uint32_t* size)
+WASM_EXPORT const char* abis__test_roundtrip_serialize_private_kernel_inputs_inner(uint8_t const* input, uint32_t* size)
 {
-    return as_string_output<aztec3::circuits::abis::private_kernel::PrivateInputs<NT>>(input, size);
+    return as_string_output<aztec3::circuits::abis::private_kernel::PrivateKernelInputsInner<NT>>(input, size);
+}
+
+WASM_EXPORT const char* abis__test_roundtrip_serialize_private_kernel_inputs_init(uint8_t const* input, uint32_t* size)
+{
+    return as_string_output<aztec3::circuits::abis::private_kernel::PrivateKernelInputsInit<NT>>(input, size);
 }
 
 WASM_EXPORT const char* abis__test_roundtrip_serialize_kernel_circuit_public_inputs(uint8_t const* input,
