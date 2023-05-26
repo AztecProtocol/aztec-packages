@@ -134,10 +134,11 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource, ContractDa
       this.inboxAddress,
       blockUntilSynced,
       currentBlockNumber,
-      this.lastProcessedBlockNumber,
+      this.lastProcessedBlockNumber + 1n, // + 1 to prevent re including messages from the last processed block
     );
     // TODO: optimise this - there could be messages in confirmed that are also in pending. No need to modify storage then.
-    // store new pending l1 to l2 messages for which we have retrieved rollups
+    // Store l1 to l2 messages
+    this.log('Adding pending l1 to l2 messages to store');
     await this.store.addPendingL1ToL2Messages(retrievedPendingL1ToL2Messages.retrievedData);
     this.lastProcessedBlockNumber = currentBlockNumber;
 

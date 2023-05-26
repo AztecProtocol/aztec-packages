@@ -248,7 +248,7 @@ export class HttpNode implements AztecNode {
    * @returns the message (or throws if not found)
    */
   async getL1ToL2MessageAndIndex(messageKey: Fr): Promise<L1ToL2MessageAndIndex> {
-    const url = new URL(`${this.baseUrl}/l1-l2-message-and-index`);
+    const url = new URL(`${this.baseUrl}/l1-l2-message`);
     url.searchParams.append('messageKey', messageKey.toString());
     const response = await (await fetch(url.toString())).json();
     return Promise.resolve({

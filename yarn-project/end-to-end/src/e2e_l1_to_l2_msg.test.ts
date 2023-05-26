@@ -62,7 +62,7 @@ describe('e2e_l1_to_l2_msg', () => {
     config.publisherPrivateKey = Buffer.from(privKey!);
     config.rollupContract = rollupAddress;
     config.inboxContract = inboxAddress;
-    config.archiverPollingInterval = 2000;
+    config.archiverPollingInterval = 1000;
     config.unverifiedDataEmitterContract = unverifiedDataEmitterAddress;
 
     // Deploy portal contracts
@@ -127,10 +127,10 @@ describe('e2e_l1_to_l2_msg', () => {
     const initialBalance = 10n;
     const [ownerAddress, receiver] = accounts;
     const ownerPub = await aztecRpcServer.getAccountPublicKey(ownerAddress);
-    const deployedContract = await deployContract(initialBalance, pointToPublicKey(ownerPub));
+    const deployedL2Contract = await deployContract(initialBalance, pointToPublicKey(ownerPub));
     await expectBalance(accounts[0], initialBalance);
 
-    const l2TokenAddress = deployedContract.address.toString() as `0x${string}`;
+    const l2TokenAddress = deployedL2Contract.address.toString() as `0x${string}`;
 
     logger('Initializing the TokenPortal contract');
     await tokenPortal.write.initialize(
@@ -165,7 +165,7 @@ describe('e2e_l1_to_l2_msg', () => {
 
     // Wait for the archiver to process the message
     const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-    await delay(5000); /// waiting 1 second.
+    await delay(5000); /// waiting 5 seconds.
 
     // send a transfer tx to force through rollup with the message included
     const transferAmount = 1n;
@@ -186,7 +186,7 @@ describe('e2e_l1_to_l2_msg', () => {
     // Call the mint tokens function on the noir contract
     const mintAmount = 100n;
 
-    const consumptionTx = deployedContract.methods
+    const consumptionTx = deployedL2Contract.methods
       .mint(mintAmount, pointToPublicKey(ownerPub), messageKey, secret)
       .send({ from: ownerAddress });
 
