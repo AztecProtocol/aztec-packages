@@ -131,7 +131,7 @@
       "binaryDir": "build-wasm",
       "toolchainFile": "cmake/toolchains/wasm32-wasi.cmake",
       "environment": {
-        "WASI_SDK_PREFIX": "${sourceDir}/barretenberg/cpp/src/wasi-sdk-12.0",
+        "WASI_SDK_PREFIX": "${sourceDir}/barretenberg/cpp/src/wasi-sdk-20.0",
         "CC": "$env{WASI_SDK_PREFIX}/bin/clang",
         "CXX": "$env{WASI_SDK_PREFIX}/bin/clang++",
         "AR": "$env{WASI_SDK_PREFIX}/bin/llvm-ar",
@@ -211,7 +211,8 @@
       "name": "wasm",
       "configurePreset": "wasm",
       "inheritConfigureEnvironment": true,
-      "jobs": 0
+      "jobs": 0,
+      "targets": ["aztec3-circuits.wasm"]
     },
     {
       "name": "wasm-dbg",
