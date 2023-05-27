@@ -5,7 +5,7 @@
 #include <aztec3/utils/types/native_types.hpp>
 
 #include <barretenberg/plonk/proof_system/types/proof.hpp>
-#include <barretenberg/srs/reference_string/env_reference_string.hpp>
+#include <barretenberg/srs/global_crs.hpp>
 #include <barretenberg/stdlib/primitives/witness/witness.hpp>
 
 namespace aztec3::circuits::abis {
@@ -64,12 +64,11 @@ template <typename NCT> struct PreviousKernelData {
 
 template <typename B> inline void read(B& buf, verification_key& key)
 {
-    auto env_crs = std::make_unique<proof_system::EnvReferenceStringFactory>();
     using serialize::read;
     // Note this matches write() below
     verification_key_data data;
     read(buf, data);
-    key = verification_key{ std::move(data), env_crs->get_verifier_crs() };
+    key = verification_key{ std::move(data), barretenberg::srs::get_crs_factory()->get_verifier_crs() };
 }
 
 template <typename NCT> void read(uint8_t const*& it, PreviousKernelData<NCT>& kernel_data)

@@ -12,7 +12,7 @@
 
 #include <barretenberg/common/serialize.hpp>
 #include <barretenberg/serialize/cbind.hpp>
-#include <barretenberg/srs/reference_string/env_reference_string.hpp>
+#include <barretenberg/srs/global_crs.hpp>
 
 namespace {
 using Composer = plonk::UltraComposer;

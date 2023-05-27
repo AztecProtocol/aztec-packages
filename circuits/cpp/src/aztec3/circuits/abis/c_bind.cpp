@@ -25,9 +25,6 @@
 #include <aztec3/utils/array.hpp>
 #include <aztec3/utils/types/native_types.hpp>
 
-#include "barretenberg/crypto/ecdsa/ecdsa.hpp"
-#include "barretenberg/srs/reference_string/mem_reference_string.hpp"
-#include "barretenberg/stdlib/commitment/pedersen/pedersen_plookup.hpp"
 #include <barretenberg/crypto/keccak/keccak.hpp>
 #include <barretenberg/serialize/cbind.hpp>
 #include <barretenberg/stdlib/merkle_tree/membership.hpp>
