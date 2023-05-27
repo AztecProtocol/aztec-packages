@@ -14,8 +14,8 @@ import {
   UnverifiedDataSource,
 } from '@aztec/types';
 import { Chain, HttpTransport, PublicClient, createPublicClient, http } from 'viem';
-import { localhost } from 'viem/chains';
 import { ArchiverConfig } from './config.js';
+import { createEthereumChain } from '@aztec/ethereum';
 import {
   retrieveBlocks,
   retrieveNewContractData,
@@ -23,6 +23,7 @@ import {
   retrieveNewPendingL1ToL2Messages,
 } from './data_retrieval.js';
 import { ArchiverDataStore, MemoryArchiverStore } from './archiver_store.js';
+import { Fr } from '@aztec/foundation/fields';
 
 /**
  * Pulls L2 blocks in a non-blocking manner and provides interface for their retrieval.
@@ -41,11 +42,17 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource, ContractDa
   private nextL2BlockFromBlock = 0n;
 
   /**
+   * Last Processed Block Number
+   */
+  private lastProcessedBlockNumber = 0n;
+
+  /**
    * Creates a new instance of the Archiver.
    * @param publicClient - A client for interacting with the Ethereum node.
    * @param rollupAddress - Ethereum address of the rollup contract.
    * @param inboxAddress - Ethereum address of the inbox contract.
    * @param unverifiedDataEmitterAddress - Ethereum address of the unverifiedDataEmitter contract.
+   * @param searchStartBlock - The eth block from which to start searching for new blocks.
    * @param pollingIntervalMs - The interval for polling for rollup logs (in milliseconds).
    * @param store - An archiver data store for storage & retrieval of blocks, unverified data & contract data.
    * @param log - A logger.
@@ -55,10 +62,13 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource, ContractDa
     private readonly rollupAddress: EthAddress,
     private readonly inboxAddress: EthAddress,
     private readonly unverifiedDataEmitterAddress: EthAddress,
+    searchStartBlock: number,
     private readonly store: ArchiverDataStore,
     private readonly pollingIntervalMs = 10_000,
     private readonly log: DebugLogger = createDebugLogger('aztec:archiver'),
-  ) {}
+  ) {
+    this.nextL2BlockFromBlock = BigInt(searchStartBlock);
+  }
 
   /**
    * Creates a new instance of the Archiver and blocks until it syncs from chain.
@@ -67,9 +77,10 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource, ContractDa
    * @returns - An instance of the archiver.
    */
   public static async createAndSync(config: ArchiverConfig, blockUntilSynced = true): Promise<Archiver> {
+    const chain = createEthereumChain(config.rpcUrl, config.apiKey);
     const publicClient = createPublicClient({
-      chain: localhost,
-      transport: http(config.rpcUrl),
+      chain: chain.chainInfo,
+      transport: http(chain.rpcUrl),
     });
     const archiverStore = new MemoryArchiverStore();
     const archiver = new Archiver(
@@ -77,6 +88,7 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource, ContractDa
       config.rollupContract,
       config.inboxContract,
       config.unverifiedDataEmitterContract,
+      config.searchStartBlock,
       archiverStore,
       config.archiverPollingInterval,
     );
@@ -94,6 +106,7 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource, ContractDa
     }
 
     if (blockUntilSynced) {
+      this.log(`Performing initial chain sync...`);
       await this.sync(blockUntilSynced);
     }
 
@@ -108,6 +121,28 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource, ContractDa
    */
   private async sync(blockUntilSynced: boolean) {
     const currentBlockNumber = await this.publicClient.getBlockNumber();
+    if (currentBlockNumber <= this.lastProcessedBlockNumber) {
+      this.log(`No new blocks to process, current block number: ${currentBlockNumber}`);
+      return;
+    }
+
+    // ********** Events that are processed inbetween blocks **********
+
+    // Process l1ToL2Messages, these are consumed as time passes, not each block
+    const retrievedPendingL1ToL2Messages = await retrieveNewPendingL1ToL2Messages(
+      this.publicClient,
+      this.inboxAddress,
+      blockUntilSynced,
+      currentBlockNumber,
+      this.lastProcessedBlockNumber + 1n, // + 1 to prevent re including messages from the last processed block
+    );
+    // TODO: optimise this - there could be messages in confirmed that are also in pending. No need to modify storage then.
+    // Store l1 to l2 messages
+    this.log('Adding pending l1 to l2 messages to store');
+    await this.store.addPendingL1ToL2Messages(retrievedPendingL1ToL2Messages.retrievedData);
+    this.lastProcessedBlockNumber = currentBlockNumber;
+
+    // ********** Events that are processed per block **********
 
     // The sequencer publishes unverified data first
     // Read all data from chain and then write to our stores at the end
@@ -123,6 +158,12 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource, ContractDa
       this.nextL2BlockFromBlock,
       nextExpectedRollupId,
     );
+
+    // create the block number -> block hash mapping to ensure we retrieve the appropriate events
+    const blockHashMapping: { [key: number]: Buffer | undefined } = {};
+    retrievedBlocks.retrievedData.forEach((block: L2Block) => {
+      blockHashMapping[block.number] = block.getCalldataHash();
+    });
     const retrievedUnverifiedData = await retrieveUnverifiedData(
       this.publicClient,
       this.unverifiedDataEmitterAddress,
@@ -130,6 +171,7 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource, ContractDa
       currentBlockNumber,
       this.nextL2BlockFromBlock,
       nextExpectedRollupId,
+      blockHashMapping,
     );
     const retrievedContracts = await retrieveNewContractData(
       this.publicClient,
@@ -137,13 +179,7 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource, ContractDa
       blockUntilSynced,
       currentBlockNumber,
       this.nextL2BlockFromBlock,
-    );
-    const retrievedPendingL1ToL2Messages = await retrieveNewPendingL1ToL2Messages(
-      this.publicClient,
-      this.inboxAddress,
-      blockUntilSynced,
-      currentBlockNumber,
-      this.nextL2BlockFromBlock,
+      blockHashMapping,
     );
 
     if (retrievedBlocks.retrievedData.length === 0) {
@@ -166,8 +202,10 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource, ContractDa
       }
     });
 
-    // store l1 to l2 messages for which we have retrieved rollups
-    await this.store.addPendingL1ToL2Messages(retrievedPendingL1ToL2Messages.retrievedData);
+    // from retrieved L2Blocks, confirm L1 to L2 messages that have been published
+    // from each l2block fetch all messageKeys in a flattened array:
+    const messageKeysToRemove = retrievedBlocks.retrievedData.map(l2block => l2block.newL1ToL2Messages).flat();
+    await this.store.confirmL1ToL2Messages(messageKeysToRemove);
 
     // store retrieved rollup blocks
     await this.store.addL2Blocks(retrievedBlocks.retrievedData);
@@ -281,9 +319,18 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource, ContractDa
   /**
    * Gets the `take` amount of pending L1 to L2 messages.
    * @param take - The number of messages to return.
-   * @returns The requested L1 to L2 messages.
+   * @returns The requested L1 to L2 messages' keys.
    */
-  getPendingL1ToL2Messages(take: number): Promise<L1ToL2Message[]> {
-    return this.store.getPendingL1ToL2Messages(take);
+  getPendingL1ToL2Messages(take: number): Promise<Fr[]> {
+    return this.store.getPendingL1ToL2MessageKeys(take);
+  }
+
+  /**
+   * Gets the confirmed/consumed L1 to L2 message associated with the given message key
+   * @param messageKey - The message key.
+   * @returns The L1 to L2 message (throws if not found).
+   */
+  getConfirmedL1ToL2Message(messageKey: Fr): Promise<L1ToL2Message> {
+    return this.store.getConfirmedL1ToL2Message(messageKey);
   }
 }

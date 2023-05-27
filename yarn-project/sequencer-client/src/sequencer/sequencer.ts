@@ -1,4 +1,3 @@
-import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
@@ -6,6 +5,7 @@ import { P2P } from '@aztec/p2p';
 import {
   ContractData,
   ContractPublicData,
+  L1ToL2MessageSource,
   L2Block,
   MerkleTreeId,
   PrivateTx,
@@ -13,15 +13,16 @@ import {
   Tx,
   UnverifiedData,
   isPrivateTx,
+  L2BlockSource,
 } from '@aztec/types';
 import { WorldStateStatus, WorldStateSynchroniser } from '@aztec/world-state';
 import times from 'lodash.times';
 import { BlockBuilder } from '../block_builder/index.js';
 import { L1Publisher } from '../publisher/l1-publisher.js';
-import { ceilPowerOfTwo } from '../utils.js';
 import { SequencerConfig } from './config.js';
 import { ProcessedTx } from './processed_tx.js';
 import { PublicProcessorFactory } from './public_processor.js';
+import { ceilPowerOfTwo } from '../utils.js';
 
 /**
  * Sequencer client
@@ -36,7 +37,8 @@ export class Sequencer {
   private runningPromise?: RunningPromise;
   private pollingIntervalMs: number;
   private maxTxsPerBlock = 32;
-  private lastBlockNumber = -1;
+  private minTxsPerBLock = 1;
+  private lastPublishedBlock = 0;
   private state = SequencerState.STOPPED;
 
   constructor(
@@ -44,6 +46,8 @@ export class Sequencer {
     private p2pClient: P2P,
     private worldState: WorldStateSynchroniser,
     private blockBuilder: BlockBuilder,
+    private l2BlockSource: L2BlockSource,
+    private l1ToL2MessageSource: L1ToL2MessageSource,
     private publicProcessorFactory: PublicProcessorFactory,
     config?: SequencerConfig,
     private log = createDebugLogger('aztec:sequencer'),
@@ -51,6 +55,9 @@ export class Sequencer {
     this.pollingIntervalMs = config?.transactionPollingInterval ?? 1_000;
     if (config?.maxTxsPerBlock) {
       this.maxTxsPerBlock = config.maxTxsPerBlock;
+    }
+    if (config?.minTxsPerBlock) {
+      this.minTxsPerBLock = config.minTxsPerBlock;
     }
   }
 
@@ -95,7 +102,7 @@ export class Sequencer {
 
   protected async initialSync() {
     // TODO: Should we wait for worldstate to be ready, or is the caller expected to run await start?
-    this.lastBlockNumber = await this.worldState.status().then((s: WorldStateStatus) => s.syncedToL2Block);
+    this.lastPublishedBlock = await this.worldState.status().then((s: WorldStateStatus) => s.syncedToL2Block);
   }
 
   /**
@@ -117,17 +124,15 @@ export class Sequencer {
 
       // Get txs to build the new block
       const pendingTxs = await this.p2pClient.getTxs();
-      if (pendingTxs.length === 0) return;
-      this.log(`Processing ${pendingTxs.length} txs from P2P pool`);
+      if (pendingTxs.length < this.minTxsPerBLock) return;
 
       // Filter out invalid txs
       const validTxs = await this.takeValidTxs(pendingTxs);
-      if (validTxs.length === 0) {
-        this.log(`No valid txs left after processing`);
+      if (validTxs.length < this.minTxsPerBLock) {
         return;
       }
 
-      this.log(`Processing txs ${(await Tx.getHashes(validTxs)).join(', ')}`);
+      this.log(`Processing ${validTxs.length} txs...`);
       this.state = SequencerState.CREATING_BLOCK;
 
       // Process public txs and drop the ones that fail processing
@@ -146,7 +151,7 @@ export class Sequencer {
 
       // Get l1 to l2 messages from the contract
       this.log('Requesting L1 to L2 messages from contract');
-      const l1ToL2Messages = this.takeL1ToL2MessagesFromContract();
+      const l1ToL2Messages = await this.getPendingL1ToL2Messages();
       this.log('Successfully retrieved L1 to L2 messages from contract');
 
       // Build the new block by running the rollup circuits
@@ -159,8 +164,9 @@ export class Sequencer {
 
       await this.publishL2Block(block);
     } catch (err) {
-      this.log(err, 'error');
-      // TODO: Rollback changes to DB
+      this.log(err);
+      this.log(`Rolling back world state DB`);
+      await this.worldState.getLatest().rollback();
     }
   }
 
@@ -188,14 +194,17 @@ export class Sequencer {
       })
       .filter((cd): cd is Exclude<typeof cd, undefined> => cd !== undefined);
 
-    const publishedUnverifiedData = await this.publisher.processUnverifiedData(block.number, unverifiedData);
+    const blockHash = block.getCalldataHash();
+    this.log(`Publishing data with block hash ${blockHash.toString('hex')}`);
+
+    const publishedUnverifiedData = await this.publisher.processUnverifiedData(block.number, blockHash, unverifiedData);
     if (publishedUnverifiedData) {
       this.log(`Successfully published unverifiedData for block ${block.number}`);
     } else {
       this.log(`Failed to publish unverifiedData for block ${block.number}`);
     }
 
-    const publishedContractData = await this.publisher.processNewContractData(block.number, newContractData);
+    const publishedContractData = await this.publisher.processNewContractData(block.number, blockHash, newContractData);
     if (publishedContractData) {
       this.log(`Successfully published new contract data for block ${block.number}`);
     } else if (!publishedContractData && newContractData.length) {
@@ -213,9 +222,9 @@ export class Sequencer {
     const publishedL2Block = await this.publisher.processL2Block(block);
     if (publishedL2Block) {
       this.log(`Successfully published block ${block.number}`);
-      this.lastBlockNumber++;
+      this.lastPublishedBlock = block.number;
     } else {
-      this.log(`Failed to publish block`);
+      throw new Error(`Failed to publish block`);
     }
   }
 
@@ -260,10 +269,12 @@ export class Sequencer {
    * @returns Boolean indicating if our dependencies are synced to the latest block.
    */
   protected async isBlockSynced() {
-    return (
-      (await this.worldState.status().then((s: WorldStateStatus) => s.syncedToL2Block)) >= this.lastBlockNumber &&
-      (await this.p2pClient.getStatus().then(s => s.syncedToL2Block)) >= this.lastBlockNumber
-    );
+    const syncedBlocks = await Promise.all([
+      this.worldState.status().then((s: WorldStateStatus) => s.syncedToL2Block),
+      this.p2pClient.getStatus().then(s => s.syncedToL2Block),
+    ]);
+    const min = Math.min(...syncedBlocks);
+    return min >= this.lastPublishedBlock;
   }
 
   /**
@@ -279,17 +290,19 @@ export class Sequencer {
     const emptyTxCount = txsTargetSize - txs.length;
 
     const allTxs = [...txs, ...times(emptyTxCount, () => emptyTx)];
-    const [block] = await this.blockBuilder.buildL2Block(this.lastBlockNumber + 1, allTxs, newL1ToL2Messages);
+    const blockNumber = (await this.l2BlockSource.getBlockHeight()) + 1;
+    this.log(`Building block ${blockNumber}`);
+    const [block] = await this.blockBuilder.buildL2Block(blockNumber, allTxs, newL1ToL2Messages);
     return block;
   }
 
   /**
-   * Checks on chain messages inbox and selects messages to inlcude within the next rollup block.
-   * TODO: This is a stubbed method.
-   * @returns An array of L1 to L2 messages.
+   * Calls the archiver to pull upto `NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP` message keys
+   * (archiver returns the top messages sorted by fees)
+   * @returns An array of L1 to L2 messages' messageKeys
    */
-  protected takeL1ToL2MessagesFromContract(): Fr[] {
-    return new Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n));
+  protected async getPendingL1ToL2Messages(): Promise<Fr[]> {
+    return await this.l1ToL2MessageSource.getPendingL1ToL2Messages();
   }
 
   /**

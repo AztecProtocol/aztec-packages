@@ -1,6 +1,6 @@
 import { CombinedHistoricTreeRoots, Fr, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, makeEmptyProof } from '@aztec/circuits.js';
 import { P2P, P2PClientState } from '@aztec/p2p';
-import { L2Block, MerkleTreeId, PrivateTx, Tx, UnverifiedData } from '@aztec/types';
+import { L1ToL2MessageSource, L2Block, L2BlockSource, MerkleTreeId, PrivateTx, Tx, UnverifiedData } from '@aztec/types';
 import { MerkleTreeOperations, WorldStateRunningState, WorldStateSynchroniser } from '@aztec/world-state';
 import { MockProxy, mock } from 'jest-mock-extended';
 import times from 'lodash.times';
@@ -17,6 +17,8 @@ describe('sequencer', () => {
   let blockBuilder: MockProxy<BlockBuilder>;
   let merkleTreeOps: MockProxy<MerkleTreeOperations>;
   let publicProcessor: MockProxy<PublicProcessor>;
+  let l2BlockSource: MockProxy<L2BlockSource>;
+  let l1ToL2MessageSource: MockProxy<L1ToL2MessageSource>;
   let publicProcessorFactory: MockProxy<PublicProcessorFactory>;
 
   let lastBlockNumber: number;
@@ -48,7 +50,23 @@ describe('sequencer', () => {
       create: () => publicProcessor,
     });
 
-    sequencer = new TestSubject(publisher, p2p, worldState, blockBuilder, publicProcessorFactory);
+    l2BlockSource = mock<L2BlockSource>({
+      getBlockHeight: () => Promise.resolve(lastBlockNumber),
+    });
+
+    l1ToL2MessageSource = mock<L1ToL2MessageSource>({
+      getPendingL1ToL2Messages: () => Promise.resolve(Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(Fr.ZERO)),
+    });
+
+    sequencer = new TestSubject(
+      publisher,
+      p2p,
+      worldState,
+      blockBuilder,
+      l2BlockSource,
+      l1ToL2MessageSource,
+      publicProcessorFactory,
+    );
   });
 
   it('builds a block out of a single tx', async () => {
@@ -73,7 +91,11 @@ describe('sequencer', () => {
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
     expect(publisher.processL2Block).toHaveBeenCalledWith(block);
-    expect(publisher.processUnverifiedData).toHaveBeenCalledWith(lastBlockNumber + 1, expectedUnverifiedData);
+    expect(publisher.processUnverifiedData).toHaveBeenCalledWith(
+      lastBlockNumber + 1,
+      block.getCalldataHash(),
+      expectedUnverifiedData,
+    );
   });
 
   it('builds a block out of several txs rejecting double spends', async () => {
@@ -110,7 +132,11 @@ describe('sequencer', () => {
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
     expect(publisher.processL2Block).toHaveBeenCalledWith(block);
-    expect(publisher.processUnverifiedData).toHaveBeenCalledWith(lastBlockNumber + 1, expectedUnverifiedData);
+    expect(publisher.processUnverifiedData).toHaveBeenCalledWith(
+      lastBlockNumber + 1,
+      block.getCalldataHash(),
+      expectedUnverifiedData,
+    );
     expect(p2p.deleteTxs).toHaveBeenCalledWith([await doubleSpendTx.getTxHash()]);
   });
 });

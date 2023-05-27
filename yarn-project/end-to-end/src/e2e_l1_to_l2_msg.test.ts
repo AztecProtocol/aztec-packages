@@ -1,15 +1,15 @@
-import { AztecNode, getConfigEnvVars } from '@aztec/aztec-node';
+import { AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { AztecAddress, AztecRPCServer, Contract, ContractDeployer, TxStatus } from '@aztec/aztec.js';
 import { NonNativeTokenContractAbi } from '@aztec/noir-contracts/examples';
 
 import { Account, mnemonicToAccount } from 'viem/accounts';
 import { createAztecRpcServer } from './create_aztec_rpc_client.js';
-import { deployL1Contract, deployL1Contracts } from './deploy_l1_contracts.js';
+import { deployL1Contract, deployL1Contracts } from '@aztec/ethereum';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
-import { MNEMONIC } from './fixtures.js';
+import { MNEMONIC, localAnvil } from './fixtures.js';
 import { PortalERC20Abi, PortalERC20Bytecode, TokenPortalAbi, TokenPortalBytecode } from '@aztec/l1-artifacts';
 import { Chain, GetContractReturnType, HttpTransport, PublicClient, WalletClient, getContract } from 'viem';
 import { computeSecretMessageHash } from '@aztec/circuits.js/abis';
@@ -20,8 +20,8 @@ const logger = createDebugLogger('aztec:e2e_l1_to_l2_msg');
 const config = getConfigEnvVars();
 
 // NOTE: this tests is just a scaffold, it is awaiting functionality to come from the aztec-node around indexing messages in the contract
-describe.skip('e2e_l1_to_l2_msg', () => {
-  let node: AztecNode;
+describe('e2e_l1_to_l2_msg', () => {
+  let node: AztecNodeService;
   let aztecRpcServer: AztecRPCServer;
   let accounts: AztecAddress[];
   let contract: Contract;
@@ -50,16 +50,19 @@ describe.skip('e2e_l1_to_l2_msg', () => {
     const privKey = account.getHdKey().privateKey;
     const {
       rollupAddress,
+      inboxAddress,
       registryAddress: registryAddress_,
       unverifiedDataEmitterAddress,
       walletClient,
       publicClient,
-    } = await deployL1Contracts(config.rpcUrl, account, logger);
+    } = await deployL1Contracts(config.rpcUrl, account, localAnvil, logger);
 
     rollupRegistryAddress = registryAddress_;
 
     config.publisherPrivateKey = Buffer.from(privKey!);
     config.rollupContract = rollupAddress;
+    config.inboxContract = inboxAddress;
+    config.archiverPollingInterval = 1000;
     config.unverifiedDataEmitterContract = unverifiedDataEmitterAddress;
 
     // Deploy portal contracts
@@ -78,7 +81,7 @@ describe.skip('e2e_l1_to_l2_msg', () => {
       publicClient,
     });
 
-    node = await AztecNode.createAndSync(config);
+    node = await AztecNodeService.createAndSync(config);
     aztecRpcServer = await createAztecRpcServer(2, node);
     accounts = await aztecRpcServer.getAccounts();
   }, 60_000);
@@ -107,11 +110,9 @@ describe.skip('e2e_l1_to_l2_msg', () => {
   const deployContract = async (initialBalance = 0n, owner = { x: 0n, y: 0n }) => {
     logger(`Deploying L2 Token contract...`);
     const deployer = new ContractDeployer(NonNativeTokenContractAbi, aztecRpcServer);
-    const tx = deployer
-      .deploy(initialBalance, owner, {
-        portalContract: tokenPortalAddress,
-      })
-      .send();
+    const tx = deployer.deploy(initialBalance, owner).send({
+      portalContract: tokenPortalAddress,
+    });
     const receipt = await tx.getReceipt();
     contract = new Contract(receipt.contractAddress!, NonNativeTokenContractAbi, aztecRpcServer);
     await contract.attach(tokenPortalAddress);
@@ -122,14 +123,14 @@ describe.skip('e2e_l1_to_l2_msg', () => {
     return contract;
   };
 
-  it('Should be able to consume an L1 Message and mint a non native token on L2', async () => {
-    const initialBalance = 1n;
-    const ownerAddress = accounts[0];
-    const owner = await aztecRpcServer.getAccountPublicKey(ownerAddress);
-    const deployedContract = await deployContract(initialBalance, pointToPublicKey(owner));
+  it('Milestone 2.2: L1->L2 Calls', async () => {
+    const initialBalance = 10n;
+    const [ownerAddress, receiver] = accounts;
+    const ownerPub = await aztecRpcServer.getAccountPublicKey(ownerAddress);
+    const deployedL2Contract = await deployContract(initialBalance, pointToPublicKey(ownerPub));
     await expectBalance(accounts[0], initialBalance);
 
-    const l2TokenAddress = deployedContract.address.toString() as `0x${string}`;
+    const l2TokenAddress = deployedL2Contract.address.toString() as `0x${string}`;
 
     logger('Initializing the TokenPortal contract');
     await tokenPortal.write.initialize(
@@ -146,8 +147,7 @@ describe.skip('e2e_l1_to_l2_msg', () => {
     const claimSecretHash = computeSecretMessageHash(wasm, secret);
     logger('Generated claim secret: ', claimSecretHash);
 
-    // Mint some PortalERCjh20 token on l1
-    logger('Minting tokens on L2');
+    logger('Minting tokens on L1');
     await underlyingERC20.write.mint([ethAccount.toString(), 1000000n], {} as any);
     await underlyingERC20.write.approve([tokenPortalAddress.toString(), 1000n], {} as any);
 
@@ -156,31 +156,44 @@ describe.skip('e2e_l1_to_l2_msg', () => {
     const deadline = 2 ** 32 - 1; // max uint32 - 1
 
     logger('Sending messages to L1 portal');
-    const returnedMessageKey = await tokenPortal.write.depositToAztec(
-      [l2TokenAddress, 100n, deadline, secretString],
-      {} as any,
-    );
+    const args = [ownerAddress.toString(), 100n, deadline, secretString] as const;
+    const { result: messageKeyHex } = await tokenPortal.simulate.depositToAztec(args, {
+      account: ethAccount.toString(),
+    } as any);
+    await tokenPortal.write.depositToAztec(args, {} as any);
+    const messageKey = Fr.fromString(messageKeyHex);
 
-    const messageKeyFr = Fr.fromBuffer(Buffer.from(returnedMessageKey, 'hex'));
+    // Wait for the archiver to process the message
+    const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+    await delay(5000); /// waiting 5 seconds.
 
-    // Wait for the rollup to process the message
-    // TODO: not implemented
+    // send a transfer tx to force through rollup with the message included
+    const transferAmount = 1n;
+    const transferTx = contract.methods
+      .transfer(
+        transferAmount,
+        pointToPublicKey(await aztecRpcServer.getAccountPublicKey(ownerAddress)),
+        pointToPublicKey(await aztecRpcServer.getAccountPublicKey(receiver)),
+      )
+      .send({ from: accounts[0] });
 
-    // Force the node to consume the message
-    // TODO: not implemented
+    await transferTx.isMined(0, 0.1);
+    const transferReceipt = await transferTx.getReceipt();
 
+    expect(transferReceipt.status).toBe(TxStatus.MINED);
+
+    logger('Consuming messages on L2');
     // Call the mint tokens function on the noir contract
     const mintAmount = 100n;
 
-    logger('Consuming messages on L2');
-    const tx = deployedContract.methods
-      .mint(mintAmount, pointToPublicKey(owner), messageKeyFr, secret)
+    const consumptionTx = deployedL2Contract.methods
+      .mint(mintAmount, pointToPublicKey(ownerPub), messageKey, secret)
       .send({ from: ownerAddress });
 
-    await tx.isMined(0, 0.1);
-    const receipt = await tx.getReceipt();
+    await consumptionTx.isMined(0, 0.1);
+    const consumptionReceipt = await consumptionTx.getReceipt();
 
-    expect(receipt.status).toBe(TxStatus.MINED);
-    await expectBalance(ownerAddress, mintAmount);
-  });
+    expect(consumptionReceipt.status).toBe(TxStatus.MINED);
+    await expectBalance(ownerAddress, mintAmount + initialBalance - transferAmount);
+  }, 80_000);
 });
