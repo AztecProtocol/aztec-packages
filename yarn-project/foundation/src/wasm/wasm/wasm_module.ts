@@ -85,6 +85,9 @@ export class WasmModule {
       const { instance } = await WebAssembly.instantiate(this.module, importObj);
       this.instance = instance;
     }
+
+    // Init all global/static data.
+    this.call('_initialize');
   }
 
   /**
