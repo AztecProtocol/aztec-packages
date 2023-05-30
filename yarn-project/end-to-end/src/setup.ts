@@ -3,9 +3,8 @@ import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 
 import { DeployL1Contracts, deployL1Contracts } from '@aztec/ethereum';
 import { mnemonicToAccount } from 'viem/accounts';
-import { createAztecRpcServer } from './create_aztec_rpc_client.js';
 import { MNEMONIC, localAnvil } from './fixtures.js';
-import { AztecAddress, AztecRPCServer } from '@aztec/aztec.js';
+import { AztecAddress, AztecRPCServer, createAztecRPCServer } from '@aztec/aztec.js';
 
 /**
  * Sets up the environment for the end-to-end tests.
@@ -31,7 +30,11 @@ export async function setup(
   config.inboxContract = deployL1ContractsValues.inboxAddress;
 
   const node = await AztecNodeService.createAndSync(config);
-  const aztecRpcServer = await createAztecRpcServer(numberOfAccounts, node);
+  const aztecRpcServer = await createAztecRPCServer(node);
+  for (let i = 0; i < numberOfAccounts; ++i) {
+    await aztecRpcServer.addAccount();
+  }
+
   const accounts = await aztecRpcServer.getAccounts();
 
   return [node, aztecRpcServer, deployL1ContractsValues, accounts, config, logger];

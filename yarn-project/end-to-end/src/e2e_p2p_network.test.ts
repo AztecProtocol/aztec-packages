@@ -1,10 +1,16 @@
 import { AztecNode, AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
-import { AztecAddress, AztecRPCServer, ContractDeployer, SentTx, TxStatus } from '@aztec/aztec.js';
+import {
+  AztecAddress,
+  AztecRPCServer,
+  ContractDeployer,
+  SentTx,
+  TxStatus,
+  createAztecRPCServer,
+} from '@aztec/aztec.js';
 import { DebugLogger } from '@aztec/foundation/log';
 import { TestContractAbi } from '@aztec/noir-contracts/examples';
 import { BootstrapNode, P2PConfig, createLibP2PPeerId, exportLibP2PPeerIdToString } from '@aztec/p2p';
 
-import { createAztecRpcServer } from './create_aztec_rpc_client.js';
 import { setup } from './setup.js';
 
 const NUM_NODES = 4;
@@ -138,7 +144,9 @@ describe('e2e_p2p_network', () => {
 
   // creates and instance of the aztec rpc server and submit a given number of transactions to it.
   const createAztecRpcServerAndSubmitTransactions = async (node: AztecNode, numTxs: number) => {
-    const aztecRpcServer = await createAztecRpcServer(1, node);
+    const aztecRpcServer = await createAztecRPCServer(node);
+    await aztecRpcServer.addAccount();
+
     const accounts = await aztecRpcServer.getAccounts();
 
     const txs = await submitTxsTo(aztecRpcServer, accounts[0], numTxs);
