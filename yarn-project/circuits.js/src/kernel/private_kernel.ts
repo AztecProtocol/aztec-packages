@@ -114,11 +114,9 @@ export async function privateKernelSim(
   const privateCallDataBuffer = privateCallData.toBuffer();
   const previousKernelBufferOffset = signedTxRequestBuffer.length;
   const privateCallDataOffset = previousKernelBufferOffset + previousKernelBuffer.length;
-  const firstInterationOffset = privateCallDataOffset + privateCallDataBuffer.length;
   wasm.writeMemory(0, signedTxRequestBuffer);
   wasm.writeMemory(previousKernelBufferOffset, previousKernelBuffer);
   wasm.writeMemory(privateCallDataOffset, privateCallDataBuffer);
-  wasm.writeMemory(firstInterationOffset, boolToBuffer(firstIteration));
   const outputBufSizePtr = wasm.call('bbmalloc', 4);
   const outputBufPtrPtr = wasm.call('bbmalloc', 4);
   // Run and read outputs
@@ -127,7 +125,7 @@ export async function privateKernelSim(
     0,
     previousKernelBufferOffset,
     privateCallDataOffset,
-    firstInterationOffset,
+    firstIteration,
     outputBufSizePtr,
     outputBufPtrPtr,
   );
