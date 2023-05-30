@@ -66,7 +66,7 @@ const getMockBlock = (blockNumber: number, newContractsCommitments?: Buffer[]) =
     newL1ToL2Messages: getMockL1ToL2MessagesData(),
     newL2ToL1Msgs: [Fr.random()],
     newEncryptedLogs,
-    newEncryptedLogsLength: newEncryptedLogs.getLength(),
+    newEncryptedLogsLength: newEncryptedLogs.getSerializedLength(),
   });
   return block;
 };

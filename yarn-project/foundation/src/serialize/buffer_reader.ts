@@ -167,7 +167,7 @@ export class BufferReader {
    * The method consecutively looks for a number which is the size of the proceeding buffer,
    * then reads the bytes until it reaches the end of the reader's internal buffer.
    * NOTE: if byteSize is not provieded, this will run to the end of the reader's buffer.
-   * @param size - Size of the buffer array in bytes (full buffer length if left empty).
+   * @param size - Size of the buffer array in bytes (full remaining buffer length if left empty).
    * @returns An array of variable sized buffers.
    */
   public readBufferArray(size = -1): Buffer[] {
@@ -180,9 +180,7 @@ export class BufferReader {
     // Ensure that all bytes have been read.
     if (this.index !== end) {
       throw new Error(
-        `Reader buffer was not fully consumed. Consumed ${this.index + 1} bytes. Total length: ${
-          this.buffer.length
-        } bytes.`,
+        `Reader buffer was not fully consumed. Consumed up to ${this.index} bytes. End of data: ${end} bytes.`,
       );
     }
     return result;
@@ -270,5 +268,9 @@ export class BufferReader {
    */
   public getLength(): number {
     return this.buffer.length;
+  }
+
+  public getIndex(): number {
+    return this.index;
   }
 }

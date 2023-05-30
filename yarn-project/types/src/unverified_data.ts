@@ -26,11 +26,12 @@ export class UnverifiedData {
   }
 
   /**
-   * Get the total length of all data chunks in the instance.
+   * Get the total length of all data chunks in the instance if the data was serialized.
    * @returns Total length of data chunks.
    */
-  public getLength(): number {
-    return this.dataChunks.reduce((acc, chunk) => acc + chunk.length, 0);
+  public getSerializedLength(): number {
+    // Adding 4 to each chunk's length to account for the size stored in the serialized buffer.
+    return this.dataChunks.reduce((acc, chunk) => acc + chunk.length + 4, 0);
   }
 
   /**

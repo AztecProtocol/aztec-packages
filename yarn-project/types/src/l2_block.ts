@@ -144,7 +144,7 @@ export class L2Block {
     const newL1ToL2Messages = times(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, Fr.random);
     const newL2ToL1Msgs = times(KERNEL_NEW_L2_TO_L1_MSGS_LENGTH, Fr.random);
     const newEncryptedLogs = UnverifiedData.random(txsPerBlock * 2);
-    const newEncryptedLogsLength = Buffer.concat(newEncryptedLogs.dataChunks).length;
+    const newEncryptedLogsLength = newEncryptedLogs.getSerializedLength();
 
     return L2Block.fromFields({
       number: l2BlockNum,
@@ -399,7 +399,7 @@ export class L2Block {
     // TODO(sean): could an optimisation of this be that it is encoded such that zeros are assumed
     const newL1ToL2Messages = reader.readVector(Fr);
     const newEncryptedLogsLength = reader.readNumber();
-    const newEncryptedLogs = new UnverifiedData(reader.readBufferArray(newEncryptedLogsLength));
+    const newEncryptedLogs = new UnverifiedData(reader.readBufferArray());
 
     return L2Block.fromFields({
       number,

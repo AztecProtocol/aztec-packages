@@ -225,7 +225,7 @@ describe('sequencer/solo_block_builder', () => {
       newL1ToL2Messages: mockL1ToL2Messages,
       newL2ToL1Msgs,
       newEncryptedLogs,
-      newEncryptedLogsLength: newEncryptedLogs.getLength(),
+      newEncryptedLogsLength: newEncryptedLogs.getSerializedLength(),
     });
 
     const callDataHash = l2Block.getCalldataHash();
