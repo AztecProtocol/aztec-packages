@@ -1,6 +1,6 @@
 import { CombinedHistoricTreeRoots, Fr, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, makeEmptyProof } from '@aztec/circuits.js';
 import { P2P, P2PClientState } from '@aztec/p2p';
-import { L1ToL2MessageSource, L2Block, L2BlockSource, MerkleTreeId, PrivateTx, Tx } from '@aztec/types';
+import { L1ToL2MessageSource, L2Block, L2BlockSource, MerkleTreeId, PrivateTx, Tx, UnverifiedData } from '@aztec/types';
 import { MerkleTreeOperations, WorldStateRunningState, WorldStateSynchroniser } from '@aztec/world-state';
 import { MockProxy, mock } from 'jest-mock-extended';
 import times from 'lodash.times';
@@ -77,12 +77,13 @@ describe('sequencer', () => {
     p2p.getTxs.mockResolvedValueOnce([tx]);
     blockBuilder.buildL2Block.mockResolvedValueOnce([block, proof]);
     publisher.processL2Block.mockResolvedValueOnce(true);
-    publisher.processNewContractData.mockResolvedValueOnce(true);
+    publisher.processUnverifiedData.mockResolvedValueOnce(true);
 
     await sequencer.initialSync();
     await sequencer.work();
 
     const expectedTxHashes = await Tx.getHashes([tx, ...times(3, makeEmptyPrivateTx)]);
+    const expectedUnverifiedData = tx.unverifiedData;
 
     expect(blockBuilder.buildL2Block).toHaveBeenCalledWith(
       lastBlockNumber + 1,
@@ -90,8 +91,11 @@ describe('sequencer', () => {
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
     expect(publisher.processL2Block).toHaveBeenCalledWith(block);
-    // No new contract data is included, this shouldn't have been called.
-    expect(publisher.processNewContractData).toHaveBeenCalledTimes(0);
+    expect(publisher.processUnverifiedData).toHaveBeenCalledWith(
+      lastBlockNumber + 1,
+      block.getCalldataHash(),
+      expectedUnverifiedData,
+    );
   });
 
   it('builds a block out of several txs rejecting double spends', async () => {
@@ -103,7 +107,7 @@ describe('sequencer', () => {
     p2p.getTxs.mockResolvedValueOnce(txs);
     blockBuilder.buildL2Block.mockResolvedValueOnce([block, proof]);
     publisher.processL2Block.mockResolvedValueOnce(true);
-    publisher.processNewContractData.mockResolvedValueOnce(true);
+    publisher.processUnverifiedData.mockResolvedValueOnce(true);
 
     // We make a nullifier from tx1 a part of the nullifier tree, so it gets rejected as double spend
     const doubleSpendNullifier = doubleSpendTx.data.end.newNullifiers[0].toBuffer();
@@ -117,6 +121,10 @@ describe('sequencer', () => {
     await sequencer.work();
 
     const expectedTxHashes = await Tx.getHashes([txs[0], txs[2], makeEmptyPrivateTx(), makeEmptyPrivateTx()]);
+    const expectedUnverifiedData = new UnverifiedData([
+      ...txs[0].unverifiedData.dataChunks,
+      ...txs[2].unverifiedData.dataChunks,
+    ]);
 
     expect(blockBuilder.buildL2Block).toHaveBeenCalledWith(
       lastBlockNumber + 1,
@@ -124,7 +132,11 @@ describe('sequencer', () => {
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
     expect(publisher.processL2Block).toHaveBeenCalledWith(block);
-    expect(publisher.processNewContractData).toHaveBeenCalledTimes(0);
+    expect(publisher.processUnverifiedData).toHaveBeenCalledWith(
+      lastBlockNumber + 1,
+      block.getCalldataHash(),
+      expectedUnverifiedData,
+    );
     expect(p2p.deleteTxs).toHaveBeenCalledWith([await doubleSpendTx.getTxHash()]);
   });
 });
