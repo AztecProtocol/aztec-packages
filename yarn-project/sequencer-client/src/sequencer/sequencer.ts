@@ -13,6 +13,7 @@ import {
   Tx,
   isPrivateTx,
   L2BlockSource,
+  UnverifiedData,
 } from '@aztec/types';
 import { WorldStateStatus, WorldStateSynchroniser } from '@aztec/world-state';
 import times from 'lodash.times';
@@ -159,8 +160,7 @@ export class Sequencer {
       const block = await this.buildBlock(processedTxs, l1ToL2Messages, emptyTx);
       this.log(`Assembled block ${block.number}`);
 
-      // await this.publishUnverifiedData(validTxs, block.number);
-      await this.publishNewContractData(validTxs, block);
+      await this.publishUnverifiedData(validTxs, block);
 
       await this.publishL2Block(block);
     } catch (err) {
@@ -171,15 +171,15 @@ export class Sequencer {
   }
 
   /**
-   * Collects all new contract public data from the txs and publishes it on chain.
+   * Creates the unverified data from the txs and l2Block and publishes it on chain.
    * @param validTxs - The set of real transactions being published as part of the block.
    * @param block - The L2Block to be published.
    */
-  protected async publishNewContractData(validTxs: Tx[], block: L2Block) {
+  protected async publishUnverifiedData(validTxs: Tx[], block: L2Block) {
     // Publishes new unverified data & contract data for private txs to the network and awaits the tx to be mined
     this.state = SequencerState.PUBLISHING_UNVERIFIED_DATA;
     // Note: Public txs don't generate UnverifiedData and for this reason we can ignore them here.
-    // const unverifiedData = UnverifiedData.join(validTxs.filter(isPrivateTx).map(tx => tx.unverifiedData));
+    const unverifiedData = UnverifiedData.join(validTxs.filter(isPrivateTx).map(tx => tx.unverifiedData));
     const newContractData = validTxs
       .filter(isPrivateTx)
       .map(tx => {
@@ -194,12 +194,16 @@ export class Sequencer {
       })
       .filter((cd): cd is Exclude<typeof cd, undefined> => cd !== undefined);
 
-    if (!newContractData.length) {
-      // No new contract data to be published, can exit.
-      return;
-    }
     const blockHash = block.getCalldataHash();
     this.log(`Publishing data with block hash ${blockHash.toString('hex')}`);
+
+    // TODO: Stop publishing unverified data once Archiver is updated to store logs found in block data.
+    const publishedUnverifiedData = await this.publisher.processUnverifiedData(block.number, blockHash, unverifiedData);
+    if (publishedUnverifiedData) {
+      this.log(`Successfully published unverifiedData for block ${block.number}`);
+    } else {
+      this.log(`Failed to publish unverifiedData for block ${block.number}`);
+    }
 
     const publishedContractData = await this.publisher.processNewContractData(block.number, blockHash, newContractData);
     if (publishedContractData) {
@@ -208,7 +212,6 @@ export class Sequencer {
       this.log(`Failed to publish new contract data for block ${block.number}`);
     }
   }
-
   /**
    * Publishes the L2Block to the rollup contract.
    * @param block - The L2Block to be published.
