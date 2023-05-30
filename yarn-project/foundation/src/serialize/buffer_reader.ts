@@ -269,8 +269,4 @@ export class BufferReader {
   public getLength(): number {
     return this.buffer.length;
   }
-
-  public getIndex(): number {
-    return this.index;
-  }
 }
