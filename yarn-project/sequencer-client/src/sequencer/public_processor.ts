@@ -25,7 +25,7 @@ import {
   SignedTxRequest,
   VK_TREE_HEIGHT,
 } from '@aztec/circuits.js';
-import { computeCallStackItemHash } from '@aztec/circuits.js/abis';
+import { computeArgsHash, computeCallStackItemHash } from '@aztec/circuits.js/abis';
 import { isArrayEmpty, padArrayEnd, padArrayStart } from '@aztec/foundation/collection';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { ContractDataSource, MerkleTreeId, PrivateTx, PublicTx, Tx } from '@aztec/types';
@@ -216,7 +216,7 @@ export class PublicProcessor {
     return PublicCircuitPublicInputs.from({
       callContext: result.execution.callContext,
       proverAddress: AztecAddress.random(),
-      args: padArrayEnd(result.execution.args, Fr.ZERO, ARGS_LENGTH),
+      argsHash: await computeArgsHash(wasm, padArrayEnd(result.execution.args, Fr.ZERO, ARGS_LENGTH)),
       emittedEvents: padArrayEnd([], Fr.ZERO, EMITTED_EVENTS_LENGTH),
       newL2ToL1Msgs: padArrayEnd([], Fr.ZERO, NEW_L2_TO_L1_MSGS_LENGTH),
       returnValues: padArrayEnd(result.returnValues, Fr.ZERO, RETURN_VALUES_LENGTH),

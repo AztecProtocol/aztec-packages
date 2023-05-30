@@ -279,12 +279,15 @@ WASM_EXPORT void abis__hash_constructor(uint8_t const* function_data_buf,
     read(args_buf, args);
     read(constructor_vk_hash_buf, constructor_vk_hash);
 
-    NT::fr const constructor_hash = compute_constructor_hash(function_data, args, constructor_vk_hash);
+    NT::fr const constructor_hash =
+        compute_constructor_hash(function_data, aztec3::circuits::compute_args_hash<NT>(args), constructor_vk_hash);
 
     NT::fr::serialize_to_buffer(constructor_hash, output);
 }
 
 CBIND(abis__compute_contract_address, compute_contract_address<NT>);
+
+CBIND(abis__compute_args_hash, aztec3::circuits::compute_args_hash<NT>);
 
 /**
  * @brief Generates a function tree leaf from its preimage.

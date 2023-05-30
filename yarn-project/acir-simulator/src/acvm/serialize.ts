@@ -65,8 +65,8 @@ export function toACVMContractDeploymentData(contractDeploymentData: ContractDep
 export function toACVMPublicInputs(publicInputs: PrivateCircuitPublicInputs): ACVMField[] {
   return [
     ...toACVMCallContext(publicInputs.callContext),
+    toACVMField(publicInputs.argsHash),
 
-    ...publicInputs.args.map(toACVMField),
     ...publicInputs.returnValues.map(toACVMField),
     ...publicInputs.emittedEvents.map(toACVMField),
     ...publicInputs.newCommitments.map(toACVMField),

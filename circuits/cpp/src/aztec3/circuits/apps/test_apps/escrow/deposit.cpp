@@ -2,6 +2,7 @@
 
 #include "contract.hpp"
 
+#include "aztec3/circuits/hash.hpp"
 #include "aztec3/circuits/abis/private_circuit_public_inputs.hpp"
 #include "aztec3/circuits/apps/function_execution_context.hpp"
 
@@ -54,9 +55,11 @@ OptionalPrivateCircuitPublicInputs<NT> deposit(FunctionExecutionContext& exec_ct
     // TODO: don't give function direct access to the exec_ctx?
     auto& public_inputs = exec_ctx.private_circuit_public_inputs;
 
-    public_inputs.args[0] = amount;
-    public_inputs.args[1] = asset_id;
-    public_inputs.args[2] = memo;
+    std::array<CT::fr, ARGS_LENGTH> args_hash_preimage = utils::zero_array<CT::fr, ARGS_LENGTH>();
+    args_hash_preimage[0] = amount;
+    args_hash_preimage[1] = asset_id;
+    args_hash_preimage[2] = memo;
+    public_inputs.args_hash = compute_args_hash<CT>(args_hash_preimage);
 
     exec_ctx.finalise();
 

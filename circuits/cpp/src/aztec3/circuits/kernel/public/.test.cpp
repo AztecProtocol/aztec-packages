@@ -3,6 +3,7 @@
 #include "native_public_kernel_circuit_private_previous_kernel.hpp"
 #include "native_public_kernel_circuit_public_previous_kernel.hpp"
 
+#include "aztec3/circuits/hash.hpp"
 #include "aztec3/circuits/abis/call_context.hpp"
 #include "aztec3/circuits/abis/call_stack_item.hpp"
 #include "aztec3/circuits/abis/combined_accumulated_data.hpp"
@@ -135,7 +136,7 @@ PublicCallStackItem generate_call_stack_item(NT::fr contract_address,
     // create the public circuit public inputs
     auto const public_circuit_public_inputs = PublicCircuitPublicInputs<NT>{
         .call_context = call_context,
-        .args = args,
+        .args_hash = compute_args_hash<NT>(args),
         .return_values = return_values,
         .emitted_events = emitted_events,
         .contract_storage_update_requests = update_requests,
@@ -247,7 +248,7 @@ PublicKernelInputsNoPreviousKernel<NT> get_kernel_inputs_no_previous_kernel()
     // create the public circuit public inputs
     auto const public_circuit_public_inputs = PublicCircuitPublicInputs<NT>{
         .call_context = call_context,
-        .args = args,
+        .args_hash = compute_args_hash<NT>(args),
         .return_values = return_values,
         .emitted_events = emitted_events,
         .contract_storage_update_requests = update_requests,
@@ -684,7 +685,7 @@ TEST(public_kernel_tests, inconsistent_call_hash_should_fail)
         PublicKernelInputsNoPreviousKernel<NT> inputs = get_kernel_inputs_no_previous_kernel();
 
         // change a value of something in the call stack pre-image
-        inputs.public_call.public_call_stack_preimages[i].public_inputs.args[0]++;
+        inputs.public_call.public_call_stack_preimages[i].public_inputs.args_hash++;
         auto public_inputs = native_public_kernel_circuit_no_previous_kernel(dummyComposer, inputs);
         ASSERT_TRUE(dummyComposer.failed());
         ASSERT_EQ(dummyComposer.get_first_failure().code, CircuitErrorCode::PUBLIC_KERNEL__PUBLIC_CALL_STACK_MISMATCH);

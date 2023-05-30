@@ -74,7 +74,7 @@ void validate_this_private_call_against_tx_request(DummyComposer& composer,
     const auto& call_stack_item = private_inputs.private_call.call_stack_item;
 
     const auto tx_request_args_hash = NT::compress<ARGS_LENGTH>(tx_request.args, FUNCTION_ARGS);
-    const auto call_args_hash = NT::compress<ARGS_LENGTH>(call_stack_item.public_inputs.args, FUNCTION_ARGS);
+    const auto call_args_hash = call_stack_item.public_inputs.args_hash;
 
     composer.do_assert(
         tx_request.to == call_stack_item.contract_address,

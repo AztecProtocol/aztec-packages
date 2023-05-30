@@ -239,7 +239,8 @@ std::pair<PrivateCallData<NT>, ContractDeploymentData<NT>> create_private_call_d
         };
 
         // Get constructor hash for use when deriving contract address
-        auto constructor_hash = compute_constructor_hash<NT>(function_data, args, private_circuit_vk_hash);
+        auto constructor_hash =
+            compute_constructor_hash<NT>(function_data, compute_args_hash<NT>(args), private_circuit_vk_hash);
 
         // Derive contract address so that it can be used inside the constructor itself
         contract_address = compute_contract_address<NT>(
@@ -351,6 +352,11 @@ PrivateKernelInputsInit<NT> do_private_call_get_kernel_inputs_init(bool const is
     auto const& [private_call_data, contract_deployment_data] =
         create_private_call_deploy_data(is_constructor, func, args_vec, msg_sender);
 
+    std::array<NT::fr, ARGS_LENGTH> args{};
+    for (size_t i = 0; i < args_vec.size(); ++i) {
+        args[i] = args_vec[i];
+    }
+
     //***************************************************************************
     // We can create a TxRequest from some of the above data. Users must sign a TxRequest in order to give permission
     // for a tx to take place - creating a SignedTxRequest.
@@ -359,7 +365,7 @@ PrivateKernelInputsInit<NT> do_private_call_get_kernel_inputs_init(bool const is
         .from = tx_origin,
         .to = private_call_data.call_stack_item.contract_address,
         .function_data = private_call_data.call_stack_item.function_data,
-        .args = private_call_data.call_stack_item.public_inputs.args,
+        .args = args,
         .nonce = 0,
         .tx_context =
             TxContext<NT>{

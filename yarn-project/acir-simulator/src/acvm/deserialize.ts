@@ -110,7 +110,7 @@ export function extractPublicInputs(partialWitness: ACVMWitness, acir: Buffer): 
     frToBoolean(witnessReader.readField()),
   );
 
-  const args = witnessReader.readFieldArray(ARGS_LENGTH);
+  const argsHash = witnessReader.readField();
   const returnValues = witnessReader.readFieldArray(RETURN_VALUES_LENGTH);
   const emittedEvents = witnessReader.readFieldArray(EMITTED_EVENTS_LENGTH);
   const newCommitments = witnessReader.readFieldArray(NEW_COMMITMENTS_LENGTH);
@@ -133,7 +133,7 @@ export function extractPublicInputs(partialWitness: ACVMWitness, acir: Buffer): 
 
   return new PrivateCircuitPublicInputs(
     callContext,
-    args,
+    argsHash,
     returnValues,
     emittedEvents,
     newCommitments,

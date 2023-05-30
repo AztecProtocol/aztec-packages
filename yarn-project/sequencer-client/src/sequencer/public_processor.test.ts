@@ -234,7 +234,8 @@ describe('public_processor', () => {
 
     it('runs a private tx with enqueued calls', async function () {
       const callRequests: PublicCallRequest[] = [makePublicCallRequest(0x100), makePublicCallRequest(0x100)];
-      const callStackHashes = callRequests.map(call => computeCallStackItemHash(wasm, call.toPublicCallStackItem()));
+      const callStackItems = await Promise.all(callRequests.map(call => call.toPublicCallStackItem()));
+      const callStackHashes = callStackItems.map(call => computeCallStackItemHash(wasm, call));
 
       const kernelOutput = makeKernelPublicInputs(0x10);
       kernelOutput.end.publicCallStack = padArrayEnd(callStackHashes, Fr.ZERO, KERNEL_PUBLIC_CALL_STACK_LENGTH);

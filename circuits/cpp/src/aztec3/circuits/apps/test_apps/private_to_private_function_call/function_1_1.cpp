@@ -2,7 +2,7 @@
 
 #include "contract.hpp"
 #include "function_2_1.hpp"
-
+#include "aztec3/circuits/hash.hpp"
 #include "aztec3/circuits/apps/function_execution_context.hpp"
 
 namespace aztec3::circuits::apps::test_apps::private_to_private_function_call {
@@ -78,9 +78,11 @@ void function_1_1(FunctionExecutionContext& exec_ctx, std::array<NT::fr, ARGS_LE
     // Push args to the public inputs.
     auto& public_inputs = exec_ctx.private_circuit_public_inputs;
 
-    public_inputs.args[0] = a;
-    public_inputs.args[1] = b;
-    public_inputs.args[2] = c;
+    std::array<CT::fr, ARGS_LENGTH> args_hash_preimage = utils::zero_array<CT::fr, ARGS_LENGTH>();
+    args_hash_preimage[0] = a;
+    args_hash_preimage[1] = b;
+    args_hash_preimage[2] = c;
+    public_inputs.args_hash = compute_args_hash<CT>(args_hash_preimage);
 
     exec_ctx.finalise();
 };

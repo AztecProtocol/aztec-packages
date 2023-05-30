@@ -198,10 +198,10 @@ export class PrivateFunctionExecution {
 
     const returnValues = decodeReturnValues(this.abi, publicInputs.returnValues);
 
-    // TODO: Noir fails to compute the enqueued calls preimages properly, since it cannot use pedersen
-    // generators, so we patch those values here. See https://github.com/AztecProtocol/aztec-packages/issues/499.
+    // TODO(#499): Noir fails to compute the enqueued calls preimages properly, since it cannot use pedersen generators, so we patch those values here.
     const wasm = await CircuitsWasm.get();
-    const publicStack = enqueuedPublicFunctionCalls.map(c => computeCallStackItemHash(wasm, c.toPublicCallStackItem()));
+    const publicCallStackItems = await Promise.all(enqueuedPublicFunctionCalls.map(c => c.toPublicCallStackItem()));
+    const publicStack = await Promise.all(publicCallStackItems.map(c => computeCallStackItemHash(wasm, c)));
     callStackItem.publicInputs.publicCallStack = padArrayEnd(publicStack, Fr.ZERO, PUBLIC_CALL_STACK_LENGTH);
 
     return {

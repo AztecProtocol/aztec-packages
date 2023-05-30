@@ -139,9 +139,9 @@ export class PublicCircuitPublicInputs {
      */
     public callContext: CallContext,
     /**
-     * Arguments of the call.
+     * Pedersen hash of the arguments of the call.
      */
-    public args: Tuple<Fr, typeof ARGS_LENGTH>,
+    public argsHash: Fr,
     /**
      * Return values of the call.
      */
@@ -178,7 +178,6 @@ export class PublicCircuitPublicInputs {
      */
     public proverAddress: AztecAddress,
   ) {
-    assertMemberLength(this, 'args', ARGS_LENGTH);
     assertMemberLength(this, 'returnValues', RETURN_VALUES_LENGTH);
     assertMemberLength(this, 'emittedEvents', EMITTED_EVENTS_LENGTH);
     assertMemberLength(this, 'publicCallStack', PUBLIC_CALL_STACK_LENGTH);
@@ -203,7 +202,7 @@ export class PublicCircuitPublicInputs {
   public static empty() {
     return new PublicCircuitPublicInputs(
       CallContext.empty(),
-      makeTuple(ARGS_LENGTH, Fr.zero),
+      Fr.ZERO,
       makeTuple(RETURN_VALUES_LENGTH, Fr.zero),
       makeTuple(EMITTED_EVENTS_LENGTH, Fr.zero),
       makeTuple(KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH, ContractStorageUpdateRequest.empty),
@@ -219,7 +218,7 @@ export class PublicCircuitPublicInputs {
     const isFrArrayEmpty = (arr: Fr[]) => isArrayEmpty(arr, item => item.isZero());
     return (
       this.callContext.isEmpty() &&
-      isFrArrayEmpty(this.args) &&
+      this.argsHash.isZero() &&
       isFrArrayEmpty(this.returnValues) &&
       isFrArrayEmpty(this.emittedEvents) &&
       isArrayEmpty(this.contractStorageUpdateRequests, item => item.isEmpty()) &&
@@ -239,7 +238,7 @@ export class PublicCircuitPublicInputs {
   static getFields(fields: FieldsOf<PublicCircuitPublicInputs>) {
     return [
       fields.callContext,
-      fields.args,
+      fields.argsHash,
       fields.returnValues,
       fields.emittedEvents,
       fields.contractStorageUpdateRequests,

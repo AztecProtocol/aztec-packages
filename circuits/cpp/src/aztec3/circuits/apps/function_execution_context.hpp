@@ -5,6 +5,7 @@
 #include "notes/note_interface.hpp"
 #include "opcodes/opcodes.hpp"
 
+#include "aztec3/circuits/hash.hpp"
 #include "aztec3/circuits/abis/call_stack_item.hpp"
 #include "aztec3/circuits/abis/function_data.hpp"
 #include "aztec3/circuits/abis/private_circuit_public_inputs.hpp"
@@ -230,9 +231,8 @@ template <typename Composer> class FunctionExecutionContext {
         auto f_public_inputs_ct = f_public_inputs_nt.to_circuit_type(composer);
 
         // Constrain that the arguments of the executed function match those we expect:
-        for (size_t i = 0; i < f_public_inputs_ct.args.size(); ++i) {
-            args[i].assert_equal(f_public_inputs_ct.args[i]);
-        }
+        auto args_hash_ct = compute_args_hash<CT>(args);
+        args_hash_ct.assert_equal(f_public_inputs_ct.args_hash);
 
         CallStackItem<CT, PrivateTypes> const f_call_stack_item_ct{
             .contract_address = f_contract_address,
