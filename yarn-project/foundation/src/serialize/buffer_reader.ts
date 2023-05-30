@@ -166,7 +166,7 @@ export class BufferReader {
    * Read a variable sized Buffer array where elements are represented by length + data.
    * The method consecutively looks for a number which is the size of the proceeding buffer,
    * then reads the bytes until it reaches the end of the reader's internal buffer.
-   * NOTE: if byteSize is not provieded, this will run to the end of the reader's buffer.
+   * NOTE: if `size` is not provided, this will run to the end of the reader's buffer.
    * @param size - Size of the buffer array in bytes (full remaining buffer length if left empty).
    * @returns An array of variable sized buffers.
    */
