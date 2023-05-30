@@ -1,5 +1,5 @@
 /* eslint-disable camelcase */
-import { AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
+import { AztecNodeService } from '@aztec/aztec-node';
 import {
   AztecAddress,
   AztecRPCServer,
@@ -10,7 +10,7 @@ import {
   TxStatus,
 } from '@aztec/aztec.js';
 import { ContractAbi, FunctionType } from '@aztec/foundation/abi';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { DebugLogger } from '@aztec/foundation/log';
 import { AccountContractAbi, ChildAbi } from '@aztec/noir-contracts/examples';
 
 import { ARGS_LENGTH, ContractDeploymentData, FunctionData, TxContext, TxRequest } from '@aztec/circuits.js';
@@ -19,41 +19,21 @@ import { sha256 } from '@aztec/foundation/crypto';
 import { toBigInt } from '@aztec/foundation/serialize';
 import { secp256k1 } from '@noble/curves/secp256k1';
 import times from 'lodash.times';
-import { mnemonicToAccount } from 'viem/accounts';
-import { createAztecRpcServer } from './create_aztec_rpc_client.js';
-import { deployL1Contracts } from '@aztec/ethereum';
-import { MNEMONIC, localAnvil } from './fixtures.js';
-
-const logger = createDebugLogger('aztec:e2e_account_contract');
-
-const config = getConfigEnvVars();
+import { setup } from './setup.js';
 
 describe('e2e_account_contract', () => {
   let node: AztecNodeService;
   let aztecRpcServer: AztecRPCServer;
-  let accounts: AztecAddress[];
+  let logger: DebugLogger;
 
+  let accounts: AztecAddress[];
   let account: Contract;
   let child: Contract;
 
   beforeEach(async () => {
-    const hdAccount = mnemonicToAccount(MNEMONIC);
-    const privKey = hdAccount.getHdKey().privateKey;
-    const { rollupAddress, unverifiedDataEmitterAddress } = await deployL1Contracts(
-      config.rpcUrl,
-      hdAccount,
-      localAnvil,
-      logger,
-    );
+    [node, aztecRpcServer, logger] = await setup();
 
-    config.publisherPrivateKey = Buffer.from(privKey!);
-    config.rollupContract = rollupAddress;
-    config.unverifiedDataEmitterContract = unverifiedDataEmitterAddress;
-
-    node = await AztecNodeService.createAndSync(config);
-    aztecRpcServer = await createAztecRpcServer(1, node);
     accounts = await aztecRpcServer.getAccounts();
-
     account = await deployContract(AccountContractAbi);
     child = await deployContract(ChildAbi);
   }, 60_000);
