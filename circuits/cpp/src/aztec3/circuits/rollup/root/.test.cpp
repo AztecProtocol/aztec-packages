@@ -205,13 +205,7 @@ TEST_F(root_rollup_tests, native_root_missing_nullifier_logic)
         .portal_contract_address = fr(3),
         .function_tree_root = fr(2),
     };
-    auto contract_leaf = crypto::pedersen_commitment::compress_native(
-        {
-            new_contract.contract_address,
-            new_contract.portal_contract_address,
-            new_contract.function_tree_root,
-        },
-        GeneratorIndex::CONTRACT_LEAF);
+    auto contract_leaf = new_contract.hash();
 
     // Update contract tree
     contract_tree.update_element(2, contract_leaf);

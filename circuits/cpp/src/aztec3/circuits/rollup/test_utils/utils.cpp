@@ -254,10 +254,8 @@ std::array<PreviousRollupData<NT>, 2> get_previous_rollup_data(DummyComposer& co
                                              kernel_data[i].public_inputs.end.new_commitments[j]);
         }
         auto contract_data = kernel_data[i].public_inputs.end.new_contracts[0];
-        auto contract_leaf = crypto::pedersen_commitment::compress_native(
-            { contract_data.contract_address, contract_data.portal_contract_address, contract_data.function_tree_root },
-            GeneratorIndex::CONTRACT_LEAF);
-        if (contract_data.contract_address != 0) {
+        auto contract_leaf = contract_data.hash();
+        if (!contract_data.is_empty()) {
             contract_tree.update_element(i, contract_leaf);
         }
         for (size_t j = 0; j < KERNEL_NEW_NULLIFIERS_LENGTH; j++) {

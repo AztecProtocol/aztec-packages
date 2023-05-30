@@ -168,9 +168,7 @@ TEST_F(base_rollup_tests, native_contract_leaf_inserted)
     };
 
     // create expected end contract tree snapshot
-    auto expected_contract_leaf = crypto::pedersen_commitment::compress_native(
-        { new_contract.contract_address, new_contract.portal_contract_address, new_contract.function_tree_root },
-        GeneratorIndex::CONTRACT_LEAF);
+    auto expected_contract_leaf = new_contract.hash();
     auto expected_end_contracts_snapshot_tree = stdlib::merkle_tree::MemoryTree(CONTRACT_TREE_HEIGHT);
     expected_end_contracts_snapshot_tree.update_element(0, expected_contract_leaf);
 
