@@ -194,6 +194,10 @@ export class Sequencer {
       })
       .filter((cd): cd is Exclude<typeof cd, undefined> => cd !== undefined);
 
+    if (!newContractData.length) {
+      // No new contract data to be published, can exit.
+      return;
+    }
     const blockHash = block.getCalldataHash();
     this.log(`Publishing data with block hash ${blockHash.toString('hex')}`);
 
