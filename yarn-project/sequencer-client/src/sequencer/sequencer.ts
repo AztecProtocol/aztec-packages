@@ -212,6 +212,7 @@ export class Sequencer {
       this.log(`Failed to publish new contract data for block ${block.number}`);
     }
   }
+
   /**
    * Publishes the L2Block to the rollup contract.
    * @param block - The L2Block to be published.

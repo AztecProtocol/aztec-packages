@@ -107,6 +107,8 @@ describe('buffer reader', () => {
 
   describe('readBufferArray', () => {
     it('should read variable length array from buffer', () => {
+      // Testing `readBufferArray` with a buffer that ONLY contains the data that will be read.
+      // No `size` variable is passed in this case.
       const bufferArray: Buffer[] = [];
       let buf = Buffer.alloc(0);
       for (const size of sizes) {
@@ -123,6 +125,8 @@ describe('buffer reader', () => {
     });
 
     it('should read variable length array from buffer with other contents', () => {
+      // testing `readBufferArray` with a buffer that includes some other data before and after the data that will be read.
+      // The `size` variable needs to be passed in this case.
       const bufferArray: Buffer[] = [];
       const prefixBytes = randomBytes(32);
       const postfixBytes = randomBytes(16);
