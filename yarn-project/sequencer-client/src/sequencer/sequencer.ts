@@ -11,7 +11,6 @@ import {
   PrivateTx,
   PublicTx,
   Tx,
-  UnverifiedData,
   isPrivateTx,
   L2BlockSource,
 } from '@aztec/types';
@@ -169,11 +168,6 @@ export class Sequencer {
       this.log(`Rolling back world state DB`);
       await this.worldState.getLatest().rollback();
     }
-  }
-
-  protected getNewLogsData(validTxs: Tx[]) {
-    const newLogsData = UnverifiedData.join(validTxs.filter(isPrivateTx).map(tx => tx.unverifiedData));
-    return newLogsData;
   }
 
   /**
