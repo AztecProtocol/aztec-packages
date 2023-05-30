@@ -12,7 +12,7 @@ describe('e2e_deploy_contract', () => {
   let logger: DebugLogger;
 
   beforeEach(async () => {
-    [node, aztecRpcServer, , accounts, , logger] = await setup(0);
+    [node, aztecRpcServer, , accounts, , logger] = await setup();
   }, 30_000);
 
   afterEach(async () => {

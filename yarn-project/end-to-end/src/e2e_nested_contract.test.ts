@@ -17,7 +17,7 @@ describe('e2e_nested_contract', () => {
   let childContract: Contract;
 
   beforeEach(async () => {
-    [node, aztecRpcServer, , accounts, , logger] = await setup(0);
+    [node, aztecRpcServer, , accounts, , logger] = await setup();
 
     parentContract = await deployContract(ParentAbi);
     childContract = await deployContract(ChildAbi);

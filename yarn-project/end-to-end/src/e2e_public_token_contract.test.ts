@@ -73,7 +73,7 @@ describe('e2e_public_token_contract', () => {
   };
 
   beforeEach(async () => {
-    [node, aztecRpcServer, , accounts, , logger] = await setup(0);
+    [node, aztecRpcServer, , accounts, , logger] = await setup();
   }, 30_000);
 
   afterEach(async () => {
