@@ -9,9 +9,10 @@ import { AztecRPCServer } from '@aztec/aztec.js';
 
 /**
  * Sets up the environment for the end-to-end tests.
+ * @param numberOfAccounts - The number of new accounts to be created once the RPC server is initiated.
  * @returns A tuple containing the Aztec Node service, the Aztec RPC server and a logger.
  */
-export async function setup(): Promise<[AztecNodeService, AztecRPCServer, DebugLogger]> {
+export async function setup(numberOfAccounts = 1): Promise<[AztecNodeService, AztecRPCServer, DebugLogger]> {
   const config = getConfigEnvVars();
 
   const describeBlockName = expect.getState().currentTestName?.split(' ')[0];
@@ -32,7 +33,7 @@ export async function setup(): Promise<[AztecNodeService, AztecRPCServer, DebugL
   config.unverifiedDataEmitterContract = unverifiedDataEmitterAddress;
 
   const node = await AztecNodeService.createAndSync(config);
-  const aztecRpcServer = await createAztecRpcServer(1, node);
+  const aztecRpcServer = await createAztecRpcServer(numberOfAccounts, node);
 
   return [node, aztecRpcServer, logger];
 }
