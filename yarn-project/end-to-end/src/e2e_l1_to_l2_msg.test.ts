@@ -20,7 +20,7 @@ describe('e2e_l1_to_l2_msg', () => {
   let aztecRpcServer: AztecRPCServer;
   let accounts: AztecAddress[];
   let logger: DebugLogger;
-  
+
   let contract: Contract;
   let ethAccount: EthAddress;
 
