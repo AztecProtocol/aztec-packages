@@ -7,7 +7,7 @@ import {
   KernelCircuitPublicInputs,
   SignedTxRequest,
 } from '../index.js';
-import { boolToBuffer, serializeBufferArrayToVector, uint8ArrayToNum } from '../utils/serialize.js';
+import { serializeBufferArrayToVector, uint8ArrayToNum } from '../utils/serialize.js';
 import { CircuitsWasm } from '../wasm/index.js';
 import { BufferReader } from '@aztec/foundation/serialize';
 import { handleCircuitOutput } from '../utils/call_wasm.js';
