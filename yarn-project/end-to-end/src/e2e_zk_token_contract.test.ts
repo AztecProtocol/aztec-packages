@@ -8,7 +8,7 @@ import { DebugLogger } from '@aztec/foundation/log';
 import { setup } from './setup.js';
 
 describe('e2e_zk_token_contract', () => {
-  let node: AztecNodeService;
+  let aztecNode: AztecNodeService;
   let aztecRpcServer: AztecRPCServer;
   let accounts: AztecAddress[];
   let logger: DebugLogger;
@@ -16,11 +16,11 @@ describe('e2e_zk_token_contract', () => {
   let contract: Contract;
 
   beforeEach(async () => {
-    [node, aztecRpcServer, , accounts, , logger] = await setup(2);
+    ({ aztecNode, aztecRpcServer, accounts, logger } = await setup(2));
   }, 30_000);
 
   afterEach(async () => {
-    await node?.stop();
+    await aztecNode?.stop();
     await aztecRpcServer?.stop();
   });
 

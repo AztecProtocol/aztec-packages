@@ -26,17 +26,17 @@ interface NodeContext {
 }
 
 describe('e2e_p2p_network', () => {
-  let node: AztecNodeService;
+  let aztecNode: AztecNodeService;
   let aztecRpcServer: AztecRPCServer;
   let config: AztecNodeConfig;
   let logger: DebugLogger;
 
   beforeEach(async () => {
-    [node, aztecRpcServer, , , config, logger] = await setup();
+    ({ aztecNode, aztecRpcServer, config, logger } = await setup());
   }, 30_000);
 
   afterEach(async () => {
-    await node.stop();
+    await aztecNode.stop();
     await aztecRpcServer.stop();
   });
 

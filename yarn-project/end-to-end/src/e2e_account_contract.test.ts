@@ -22,7 +22,7 @@ import times from 'lodash.times';
 import { setup } from './setup.js';
 
 describe('e2e_account_contract', () => {
-  let node: AztecNodeService;
+  let aztecNode: AztecNodeService;
   let aztecRpcServer: AztecRPCServer;
   let accounts: AztecAddress[];
   let logger: DebugLogger;
@@ -31,14 +31,14 @@ describe('e2e_account_contract', () => {
   let child: Contract;
 
   beforeEach(async () => {
-    [node, aztecRpcServer, , accounts, , logger] = await setup();
+    ({ aztecNode, aztecRpcServer, accounts, logger } = await setup());
 
     account = await deployContract(AccountContractAbi);
     child = await deployContract(ChildAbi);
   }, 30_000);
 
   afterEach(async () => {
-    await node.stop();
+    await aztecNode.stop();
     await aztecRpcServer.stop();
   });
 
@@ -165,7 +165,7 @@ describe('e2e_account_contract', () => {
     const receipt = await tx.getReceipt();
 
     expect(receipt.status).toBe(TxStatus.MINED);
-    expect(toBigInt((await node.getStorageAt(child.address, 1n))!)).toEqual(42n);
+    expect(toBigInt((await aztecNode.getStorageAt(child.address, 1n))!)).toEqual(42n);
   });
 
   it('rejects ecdsa signature from a different key', async () => {

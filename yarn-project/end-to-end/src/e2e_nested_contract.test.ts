@@ -8,7 +8,7 @@ import { toBigInt } from '@aztec/foundation/serialize';
 import { setup } from './setup.js';
 
 describe('e2e_nested_contract', () => {
-  let node: AztecNodeService;
+  let aztecNode: AztecNodeService;
   let aztecRpcServer: AztecRPCServer;
   let accounts: AztecAddress[];
   let logger: DebugLogger;
@@ -17,14 +17,14 @@ describe('e2e_nested_contract', () => {
   let childContract: Contract;
 
   beforeEach(async () => {
-    [node, aztecRpcServer, , accounts, , logger] = await setup();
+    ({ aztecNode, aztecRpcServer, accounts, logger } = await setup());
 
     parentContract = await deployContract(ParentAbi);
     childContract = await deployContract(ChildAbi);
   }, 30_000);
 
   afterEach(async () => {
-    await node.stop();
+    await aztecNode.stop();
     await aztecRpcServer.stop();
   });
 
@@ -44,7 +44,7 @@ describe('e2e_nested_contract', () => {
   const addressToField = (address: AztecAddress): bigint => Fr.fromBuffer(address.toBuffer()).value;
 
   const getChildStoredValue = (child: { address: AztecAddress }) =>
-    node.getStorageAt(child.address, 1n).then(x => toBigInt(x!));
+    aztecNode.getStorageAt(child.address, 1n).then(x => toBigInt(x!));
 
   /**
    * Milestone 3.

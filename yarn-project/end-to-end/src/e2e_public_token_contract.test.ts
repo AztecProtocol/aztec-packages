@@ -10,7 +10,7 @@ import times from 'lodash.times';
 import { setup } from './setup.js';
 
 describe('e2e_public_token_contract', () => {
-  let node: AztecNodeService;
+  let aztecNode: AztecNodeService;
   let aztecRpcServer: AztecRPCServer;
   let accounts: AztecAddress[];
   let logger: DebugLogger;
@@ -61,7 +61,7 @@ describe('e2e_public_token_contract', () => {
 
   const expectStorageSlot = async (accountIdx: number, expectedBalance: bigint) => {
     const storageSlot = await calculateStorageSlot(accountIdx);
-    const storageValue = await node.getStorageAt(contract.address!, storageSlot.value);
+    const storageValue = await aztecNode.getStorageAt(contract.address!, storageSlot.value);
     if (storageValue === undefined) {
       throw new Error(`Storage slot ${storageSlot} not found`);
     }
@@ -73,11 +73,11 @@ describe('e2e_public_token_contract', () => {
   };
 
   beforeEach(async () => {
-    [node, aztecRpcServer, , accounts, , logger] = await setup();
+    ({ aztecNode, aztecRpcServer, accounts, logger } = await setup());
   }, 30_000);
 
   afterEach(async () => {
-    await node.stop();
+    await aztecNode.stop();
     await aztecRpcServer.stop();
   });
 

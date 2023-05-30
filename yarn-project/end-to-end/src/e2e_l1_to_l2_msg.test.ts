@@ -16,7 +16,7 @@ import { setup } from './setup.js';
 
 // NOTE: this tests is just a scaffold, it is awaiting functionality to come from the aztec-node around indexing messages in the contract
 describe('e2e_l1_to_l2_msg', () => {
-  let node: AztecNodeService;
+  let aztecNode: AztecNodeService;
   let aztecRpcServer: AztecRPCServer;
   let accounts: AztecAddress[];
   let logger: DebugLogger;
@@ -40,7 +40,7 @@ describe('e2e_l1_to_l2_msg', () => {
 
   beforeEach(async () => {
     let deployL1ContractsValues: DeployL1Contracts | undefined;
-    [node, aztecRpcServer, deployL1ContractsValues, accounts, , logger] = await setup(2);
+    ({ aztecNode, aztecRpcServer, deployL1ContractsValues, accounts, logger } = await setup(2));
     rollupRegistryAddress = deployL1ContractsValues!.registryAddress;
 
     const walletClient = deployL1ContractsValues.walletClient;
@@ -66,7 +66,7 @@ describe('e2e_l1_to_l2_msg', () => {
   }, 30_000);
 
   afterEach(async () => {
-    await node?.stop();
+    await aztecNode?.stop();
     await aztecRpcServer?.stop();
   });
 

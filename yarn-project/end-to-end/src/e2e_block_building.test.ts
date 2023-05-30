@@ -6,18 +6,18 @@ import times from 'lodash.times';
 import { setup } from './setup.js';
 
 describe('e2e_block_building', () => {
-  let node: AztecNodeService;
+  let aztecNode: AztecNodeService;
   let aztecRpcServer: AztecRPCServer;
   let logger: DebugLogger;
 
   const abi = TestContractAbi;
 
   beforeEach(async () => {
-    [node, aztecRpcServer, , , , logger] = await setup();
+    ({ aztecNode, aztecRpcServer, logger } = await setup());
   }, 30_000);
 
   afterEach(async () => {
-    await node?.stop();
+    await aztecNode?.stop();
     await aztecRpcServer?.stop();
   });
 

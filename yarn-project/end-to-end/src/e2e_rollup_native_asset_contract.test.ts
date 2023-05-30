@@ -19,7 +19,7 @@ const sha256ToField = (buf: Buffer): Fr => {
 };
 
 describe('e2e_rollup_native_asset_contract', () => {
-  let node: AztecNodeService;
+  let aztecNode: AztecNodeService;
   let aztecRpcServer: AztecRPCServer;
   let accounts: AztecAddress[];
   let logger: DebugLogger;
@@ -36,7 +36,7 @@ describe('e2e_rollup_native_asset_contract', () => {
 
   beforeEach(async () => {
     let deployL1ContractsValues: DeployL1Contracts;
-    [node, aztecRpcServer, deployL1ContractsValues, accounts, , logger] = await setup();
+    ({ aztecNode, aztecRpcServer, deployL1ContractsValues, accounts, logger } = await setup());
     accounts = await aztecRpcServer.getAccounts();
 
     registryAddress = getAddress(deployL1ContractsValues.registryAddress.toString());
@@ -62,7 +62,7 @@ describe('e2e_rollup_native_asset_contract', () => {
   }, 60_000);
 
   afterEach(async () => {
-    await node?.stop();
+    await aztecNode?.stop();
     await aztecRpcServer?.stop();
   });
 
@@ -138,7 +138,7 @@ describe('e2e_rollup_native_asset_contract', () => {
         ethOutAddress.toBuffer32(),
       ]),
     );
-    const contractInfo = await node.getContractInfo(contract.address);
+    const contractInfo = await aztecNode.getContractInfo(contract.address);
     // Compute the expected hash and see if it is what we saw in the block.
     const entryKey = sha256ToField(
       Buffer.concat([
@@ -150,8 +150,8 @@ describe('e2e_rollup_native_asset_contract', () => {
       ]),
     );
 
-    const blockNumber = await node.getBlockHeight();
-    const blocks = await node.getBlocks(blockNumber, 1);
+    const blockNumber = await aztecNode.getBlockHeight();
+    const blocks = await aztecNode.getBlocks(blockNumber, 1);
     // If this is failing, it is likely because of wrong chain id
     expect(blocks[0].newL2ToL1Msgs[0]).toEqual(entryKey);
 

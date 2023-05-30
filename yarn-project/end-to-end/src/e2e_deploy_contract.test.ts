@@ -6,17 +6,17 @@ import { TestContractAbi } from '@aztec/noir-contracts/examples';
 import { setup } from './setup.js';
 
 describe('e2e_deploy_contract', () => {
-  let node: AztecNodeService;
+  let aztecNode: AztecNodeService;
   let aztecRpcServer: AztecRPCServer;
   let accounts: AztecAddress[];
   let logger: DebugLogger;
 
   beforeEach(async () => {
-    [node, aztecRpcServer, , accounts, , logger] = await setup();
+    ({ aztecNode, aztecRpcServer, accounts, logger } = await setup());
   }, 30_000);
 
   afterEach(async () => {
-    await node?.stop();
+    await aztecNode?.stop();
     await aztecRpcServer?.stop();
   });
 
