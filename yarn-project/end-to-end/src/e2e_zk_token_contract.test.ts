@@ -10,9 +10,9 @@ import { setup } from './setup.js';
 describe('e2e_zk_token_contract', () => {
   let node: AztecNodeService;
   let aztecRpcServer: AztecRPCServer;
+  let accounts: AztecAddress[];
   let logger: DebugLogger;
 
-  let accounts: AztecAddress[];
   let contract: Contract;
 
   beforeEach(async () => {

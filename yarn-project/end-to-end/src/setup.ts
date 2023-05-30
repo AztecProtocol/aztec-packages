@@ -28,6 +28,7 @@ export async function setup(
   config.publisherPrivateKey = Buffer.from(privKey!);
   config.rollupContract = deployL1ContractsValues.rollupAddress;
   config.unverifiedDataEmitterContract = deployL1ContractsValues.unverifiedDataEmitterAddress;
+  config.inboxContract = deployL1ContractsValues.inboxAddress;
 
   const node = await AztecNodeService.createAndSync(config);
   const aztecRpcServer = await createAztecRpcServer(numberOfAccounts, node);
