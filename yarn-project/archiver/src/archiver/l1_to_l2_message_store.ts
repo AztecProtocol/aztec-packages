@@ -61,7 +61,7 @@ export class PendingL1ToL2MessageStore extends L1ToL2MessageStore {
     const messageKeyBigInt = messageKey.value;
     const msgAndCount = this.store.get(messageKeyBigInt);
     if (!msgAndCount) {
-      return;
+      throw new Error(`Message with key ${messageKeyBigInt} not found in store`);
     }
     if (msgAndCount.count > 1) {
       msgAndCount.count--;

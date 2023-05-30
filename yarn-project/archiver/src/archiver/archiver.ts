@@ -21,6 +21,7 @@ import {
   retrieveNewContractData,
   retrieveUnverifiedData,
   retrieveNewPendingL1ToL2Messages,
+  retrieveNewCancelledL1ToL2Messages,
 } from './data_retrieval.js';
 import { ArchiverDataStore, MemoryArchiverStore } from './archiver_store.js';
 import { Fr } from '@aztec/foundation/fields';
@@ -136,10 +137,22 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource, ContractDa
       currentBlockNumber,
       this.lastProcessedBlockNumber + 1n, // + 1 to prevent re including messages from the last processed block
     );
+    const retrievedCancelledL1ToL2Messages = await retrieveNewCancelledL1ToL2Messages(
+      this.publicClient,
+      this.inboxAddress,
+      blockUntilSynced,
+      currentBlockNumber,
+      this.nextL2BlockFromBlock + 1n,
+    );
+
     // TODO: optimise this - there could be messages in confirmed that are also in pending. No need to modify storage then.
     // Store l1 to l2 messages
     this.log('Adding pending l1 to l2 messages to store');
     await this.store.addPendingL1ToL2Messages(retrievedPendingL1ToL2Messages.retrievedData);
+    // remove cancelled messages from the pending message store:
+    this.log('Removing pending l1 to l2 messages from store where messages were cancelled');
+    await this.store.cancelPendingL1ToL2Messages(retrievedCancelledL1ToL2Messages.retrievedData);
+
     this.lastProcessedBlockNumber = currentBlockNumber;
 
     // ********** Events that are processed per block **********
@@ -181,7 +194,6 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource, ContractDa
       this.nextL2BlockFromBlock,
       blockHashMapping,
     );
-
     if (retrievedBlocks.retrievedData.length === 0) {
       return;
     }
