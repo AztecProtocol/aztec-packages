@@ -16,7 +16,7 @@ describe('e2e_zk_token_contract', () => {
   let contract: Contract;
 
   beforeEach(async () => {
-    [node, aztecRpcServer, , accounts, logger] = await setup(2);
+    [node, aztecRpcServer, , accounts, , logger] = await setup(2);
   }, 30_000);
 
   afterEach(async () => {

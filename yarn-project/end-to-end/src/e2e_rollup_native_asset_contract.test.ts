@@ -36,7 +36,7 @@ describe('e2e_rollup_native_asset_contract', () => {
 
   beforeEach(async () => {
     let deployL1ContractsValues: DeployL1Contracts;
-    [node, aztecRpcServer, deployL1ContractsValues, accounts, logger] = await setup();
+    [node, aztecRpcServer, deployL1ContractsValues, accounts, , logger] = await setup();
     accounts = await aztecRpcServer.getAccounts();
 
     registryAddress = getAddress(deployL1ContractsValues.registryAddress.toString());

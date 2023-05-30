@@ -31,7 +31,7 @@ describe('e2e_account_contract', () => {
   let child: Contract;
 
   beforeEach(async () => {
-    [node, aztecRpcServer, , accounts, logger] = await setup();
+    [node, aztecRpcServer, , accounts, , logger] = await setup();
 
     account = await deployContract(AccountContractAbi);
     child = await deployContract(ChildAbi);

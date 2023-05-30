@@ -1,4 +1,4 @@
-import { AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
+import { AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
 import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 
 import { DeployL1Contracts, deployL1Contracts } from '@aztec/ethereum';
@@ -14,7 +14,7 @@ import { AztecAddress, AztecRPCServer } from '@aztec/aztec.js';
  */
 export async function setup(
   numberOfAccounts = 1,
-): Promise<[AztecNodeService, AztecRPCServer, DeployL1Contracts, AztecAddress[], DebugLogger]> {
+): Promise<[AztecNodeService, AztecRPCServer, DeployL1Contracts, AztecAddress[], AztecNodeConfig, DebugLogger]> {
   const config = getConfigEnvVars();
 
   const describeBlockName = expect.getState().currentTestName?.split(' ')[0];
@@ -33,5 +33,5 @@ export async function setup(
   const aztecRpcServer = await createAztecRpcServer(numberOfAccounts, node);
   const accounts = await aztecRpcServer.getAccounts();
 
-  return [node, aztecRpcServer, deployL1ContractsValues, accounts, logger];
+  return [node, aztecRpcServer, deployL1ContractsValues, accounts, config, logger];
 }

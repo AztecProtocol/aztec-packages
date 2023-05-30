@@ -13,7 +13,7 @@ describe('e2e_block_building', () => {
   const abi = TestContractAbi;
 
   beforeEach(async () => {
-    [node, aztecRpcServer, , , logger] = await setup();
+    [node, aztecRpcServer, , , , logger] = await setup();
   }, 30_000);
 
   afterEach(async () => {
