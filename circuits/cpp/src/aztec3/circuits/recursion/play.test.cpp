@@ -1,7 +1,6 @@
 #include "index.hpp"
 
-#include <barretenberg/common/test.hpp>
-// #include <barretenberg/numeric/random/engine.hpp>
+#include <barretenberg/barretenberg.hpp>
 
 namespace aztec3::circuits::recursion {
 

@@ -1,7 +1,9 @@
-#include <cstdint>
 #include <cstddef>
+#include <cstdint>
 
+#ifndef WASM_EXPORT
 #define WASM_EXPORT __attribute__((visibility("default")))
+#endif
 
 extern "C" {
 
