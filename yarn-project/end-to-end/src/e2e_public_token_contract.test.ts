@@ -12,9 +12,9 @@ import { setup } from './setup.js';
 describe('e2e_public_token_contract', () => {
   let node: AztecNodeService;
   let aztecRpcServer: AztecRPCServer;
+  let accounts: AztecAddress[];
   let logger: DebugLogger;
 
-  let accounts: AztecAddress[];
   let contract: Contract;
 
   const pointToPublicKey = (point: Point) => {
@@ -73,9 +73,7 @@ describe('e2e_public_token_contract', () => {
   };
 
   beforeEach(async () => {
-    [node, aztecRpcServer, logger] = await setup();
-
-    accounts = await aztecRpcServer.getAccounts();
+    [node, aztecRpcServer, , accounts, logger] = await setup(0);
   }, 30_000);
 
   afterEach(async () => {

@@ -24,19 +24,18 @@ import { setup } from './setup.js';
 describe('e2e_account_contract', () => {
   let node: AztecNodeService;
   let aztecRpcServer: AztecRPCServer;
+  let accounts: AztecAddress[];
   let logger: DebugLogger;
 
-  let accounts: AztecAddress[];
   let account: Contract;
   let child: Contract;
 
   beforeEach(async () => {
-    [node, aztecRpcServer, logger] = await setup();
+    [node, aztecRpcServer, , accounts, logger] = await setup();
 
-    accounts = await aztecRpcServer.getAccounts();
     account = await deployContract(AccountContractAbi);
     child = await deployContract(ChildAbi);
-  }, 60_000);
+  }, 30_000);
 
   afterEach(async () => {
     await node.stop();

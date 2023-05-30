@@ -10,20 +10,18 @@ import { setup } from './setup.js';
 describe('e2e_nested_contract', () => {
   let node: AztecNodeService;
   let aztecRpcServer: AztecRPCServer;
-  let logger: DebugLogger;
-
   let accounts: AztecAddress[];
+  let logger: DebugLogger;
 
   let parentContract: Contract;
   let childContract: Contract;
 
   beforeEach(async () => {
-    [node, aztecRpcServer, logger] = await setup();
-    accounts = await aztecRpcServer.getAccounts();
+    [node, aztecRpcServer, , accounts, logger] = await setup(0);
 
     parentContract = await deployContract(ParentAbi);
     childContract = await deployContract(ChildAbi);
-  }, 60_000);
+  }, 30_000);
 
   afterEach(async () => {
     await node.stop();
