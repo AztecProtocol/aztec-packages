@@ -26,6 +26,14 @@ export class UnverifiedData {
   }
 
   /**
+   * Get the total length of all data chunks in the instance.
+   * @returns Total length of data chunks.
+   */
+  public getLength(): number {
+    return this.dataChunks.reduce((acc, chunk) => acc + chunk.length, 0);
+  }
+
+  /**
    * Creates a new UnverifiedData object by concatenating multiple ones.
    * @param datas - The individual data objects to concatenate.
    * @returns A new UnverifiedData object whose chunks are the concatenation of the chunks.

@@ -3,7 +3,7 @@ import { AppendOnlyTreeSnapshot, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@az
 import { fr } from '@aztec/circuits.js/factories';
 
 import { INITIAL_LEAF, Pedersen, SiblingPath } from '@aztec/merkle-tree';
-import { ContractData, L2Block, L2BlockSource, MerkleTreeId, PublicDataWrite } from '@aztec/types';
+import { ContractData, L2Block, L2BlockSource, MerkleTreeId, PublicDataWrite, UnverifiedData } from '@aztec/types';
 import { jest } from '@jest/globals';
 import { MerkleTreeDb } from '../index.js';
 import { ServerWorldStateSynchroniser } from './server_world_state_synchroniser.js';
@@ -41,6 +41,7 @@ const getMockL1ToL2MessagesData = () => {
 };
 
 const getMockBlock = (blockNumber: number, newContractsCommitments?: Buffer[]) => {
+  const newEncryptedLogs = UnverifiedData.random(2);
   const block = L2Block.fromFields({
     number: blockNumber,
     startPrivateDataTreeSnapshot: getMockTreeSnapshot(),
@@ -66,6 +67,8 @@ const getMockBlock = (blockNumber: number, newContractsCommitments?: Buffer[]) =
     newPublicDataWrites: [PublicDataWrite.random()],
     newL1ToL2Messages: getMockL1ToL2MessagesData(),
     newL2ToL1Msgs: [Fr.random()],
+    newEncryptedLogs,
+    newEncryptedLogsLength: newEncryptedLogs.getLength(),
   });
   return block;
 };
