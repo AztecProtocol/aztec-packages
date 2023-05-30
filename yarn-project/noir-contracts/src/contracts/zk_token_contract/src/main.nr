@@ -1,12 +1,14 @@
-contract ZkToken {
-    mod balance_utils;
+// contract ZkToken {
+    // mod balance_utils;
     mod storage;
     use storage::Storage;
+    use storage::new_set_over_value_notes;
     use dep::aztec3::abi::Inputs;
     use dep::aztec3::context::PrivateFunctionContext;
     use dep::aztec3::notes::value_note::ValueNote;
+    use dep::aztec3::notes::value_note::NOTE_LEN;
     use dep::aztec3::types::point::Point;
-    use dep::aztec3::state_vars::map::Map;
+    // use dep::aztec3::state_vars::map::Map;
     use dep::aztec3::state_vars::set::Set;
 
     //*********************************/
@@ -15,47 +17,48 @@ contract ZkToken {
     // `balances: Mapping<Field, Set<ValueNote>>;`
     //*********************************/
 
-    fn constructor(
-        //*********************************/
-        // Should eventually be hidden:
-        inputs: pub Inputs,
-        //*********************************/
-        initial_supply: pub Field, 
-        owner: pub Point,
-    ) -> pub [Field; dep::aztec3::abi::PUBLIC_INPUTS_LENGTH] {
-        let mut context = PrivateFunctionContext::new();
-        context.args = context.args.push_array([initial_supply, owner.x, owner.y]);
+    // fn constructor(
+    //     //*********************************/
+    //     // Should eventually be hidden:
+    //     inputs: pub Inputs,
+    //     //*********************************/
+    //     initial_supply: pub Field, 
+    //     owner: pub Point,
+    // ) -> pub [Field; dep::aztec3::abi::PUBLIC_INPUTS_LENGTH] {
+    //     let mut context = PrivateFunctionContext::new();
+    //     context.args = context.args.push_array([initial_supply, owner.x, owner.y]);
 
-        let balances = Storage::init().balances;
+    //     let balances = Storage::init().balances;
 
-        let owner_balance = balances.at(owner.x);
-        let note = ValueNote::new(initial_supply, owner);
+    //     let owner_balance: Set = balances.at(owner.x);
+    //     let note = ValueNote::new(initial_supply, owner);
 
-        owner_balance.insert(context, note)
-            .finish(inputs)
-    }
+    //     owner_balance.insert(context, note)
+    //         .finish(inputs)
+    // }
 
-    fn mint(
-        //*********************************/
-        // Should eventually be hidden:
-        inputs: pub Inputs,
-        //*********************************/
-        amount: pub Field, 
-        owner: pub Point,
-    ) -> pub [Field; dep::aztec3::abi::PUBLIC_INPUTS_LENGTH] {
-        let mut context = PrivateFunctionContext::new();
-        context.args = context.args.push_array([amount, owner.x, owner.y]);
+    // fn mint(
+    //     //*********************************/
+    //     // Should eventually be hidden:
+    //     inputs: pub Inputs,
+    //     //*********************************/
+    //     amount: pub Field, 
+    //     owner: pub Point,
+    // ) -> pub [Field; dep::aztec3::abi::PUBLIC_INPUTS_LENGTH] {
+    //     let mut context = PrivateFunctionContext::new();
+    //     context.args = context.args.push_array([amount, owner.x, owner.y]);
 
-        let balances = Storage::init().balances;
+    //     let balances = Storage::init().balances;
 
-        let owner_balance = balances.at(owner.x);
-        let note = ValueNote::new(amount, owner);
+    //     let owner_balance: Set = balances.at(owner.x);
+    //     let note = ValueNote::new(amount, owner);
 
-        owner_balance.insert(context, note)
-            .finish(inputs)
-    }
+    //     owner_balance.insert(context, note)
+    //         .finish(inputs)
+    // }
 
-    fn transfer(
+    // TRANSFER
+    fn main(
         //*********************************/
         // Should eventually be hidden:
         inputs: pub Inputs,
@@ -69,19 +72,28 @@ contract ZkToken {
 
         let balances = Storage::init().balances;
 
-        let sender_balance = balances.at(sender.x);
+        let sender_balance: Set<ValueNote, NOTE_LEN> = balances.at(sender.x);
         let (mut context, (note1, note2)) = sender_balance.get_2(inputs, initialContext);
 
         // TODO: Removing this return breaks the circuit (???)
-        context.return_values = context.return_values.push(note1.is_real as Field);
-        context.return_values = context.return_values.push(note2.is_real as Field);
+        // context.return_values = context.return_values.push(note1.is_real as Field);
+        // context.return_values = context.return_values.push(note2.is_real as Field);
 
-        note1.validate(sender);
-        note2.validate(sender);
+        if note1.is_real {
+            note1.owner.assert_equal(sender);
+        } else {
+            assert (note1.value == 0);
+        }
+        if note2.is_real {
+            note2.owner.assert_equal(sender);
+        } else {
+            assert (note2.value == 0);
+        }
 
         let sum = note1.value + note2.value;
-        constrain sum as u64 >= amount as u64;
+        assert (sum as u64 >= amount as u64);
         let change_value = sum - amount;
+        // let change_value = 1;
 
         context = sender_balance.remove(inputs, context, note1);
         context = sender_balance.remove(inputs, context, note2);
@@ -89,7 +101,7 @@ contract ZkToken {
         let change_note = ValueNote::new(change_value, sender);
         let recipient_note = ValueNote::new(amount, recipient);
 
-        let recipient_balance = balances.at(recipient.x);
+        let recipient_balance: Set<ValueNote, NOTE_LEN> = balances.at(recipient.x);
 
         context = recipient_balance.insert(context, recipient_note);
         context = sender_balance.insert(context, change_note);
@@ -97,14 +109,14 @@ contract ZkToken {
         context.finish(inputs)
     }
 
-    /// ABI getBalance type "unconstrained"
-    fn getBalance(
-        owner: Point,
-    ) -> pub Field {
-        let balances = Storage::init().balances;
+    // /// ABI getBalance type "unconstrained"
+    // fn getBalance(
+    //     owner: Point,
+    // ) -> pub Field {
+    //     let balances = Storage::init().balances;
         
-        let owner_balance = balances.at(owner.x);
+    //     let owner_balance: Set = balances.at(owner.x);
         
-        balance_utils::get_balance(owner_balance.storage_slot)
-    }
-}
+    //     balance_utils::get_balance(owner_balance.storage_slot)
+    // }
+// }
