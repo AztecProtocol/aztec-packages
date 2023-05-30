@@ -546,7 +546,7 @@ export function makeTxRequest(seed = 1): TxRequest {
     from: makeAztecAddress(seed),
     to: makeAztecAddress(seed + 0x10),
     functionData: new FunctionData(makeSelector(seed + 0x100), true, true),
-    args: makeTuple(ARGS_LENGTH, x => fr(x), seed + 0x200),
+    argsHash: fr(seed + 0x200),
     nonce: fr(seed + 0x300),
     txContext: makeTxContext(seed + 0x400),
     chainId: fr(seed + 0x500),

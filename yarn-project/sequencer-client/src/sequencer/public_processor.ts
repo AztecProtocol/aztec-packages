@@ -28,7 +28,7 @@ import {
 import { computeArgsHash, computeCallStackItemHash } from '@aztec/circuits.js/abis';
 import { isArrayEmpty, padArrayEnd, padArrayStart } from '@aztec/foundation/collection';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { ContractDataSource, MerkleTreeId, PrivateTx, PublicTx, Tx } from '@aztec/types';
+import { ContractDataSource, MerkleTreeId, PrivateTx, PublicTx, SignedTxExecutionRequest, Tx } from '@aztec/types';
 import { MerkleTreeOperations } from '@aztec/world-state';
 import { getVerificationKeys } from '../index.js';
 import { EmptyPublicProver } from '../prover/empty.js';
@@ -139,7 +139,7 @@ export class PublicProcessor {
 
   protected async processExecutionStack(
     executionStack: (PublicExecution | PublicExecutionResult)[],
-    txRequest: SignedTxRequest | undefined,
+    txRequest: SignedTxExecutionRequest | undefined,
     kernelOutput: KernelCircuitPublicInputs | undefined,
     kernelProof: Proof | undefined,
   ): Promise<[PublicKernelPublicInputs, Proof]> {
@@ -162,10 +162,11 @@ export class PublicProcessor {
 
   protected async runKernelCircuit(
     callData: PublicCallData,
-    txRequest: SignedTxRequest | undefined,
+    txExecutionRequest: SignedTxExecutionRequest | undefined,
     previousOutput: KernelCircuitPublicInputs | undefined,
     previousProof: Proof | undefined,
   ): Promise<[KernelCircuitPublicInputs, Proof]> {
+    const txRequest = await txExecutionRequest?.toSignedTxRequest();
     const output = await this.getKernelCircuitOutput(callData, txRequest, previousOutput, previousProof);
     const proof = await this.publicProver.getPublicKernelCircuitProof(output);
     return [output, proof];

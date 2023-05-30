@@ -2,8 +2,8 @@ import { Grumpkin } from '@aztec/barretenberg.js/crypto';
 import { BarretenbergWasm } from '@aztec/barretenberg.js/wasm';
 import {
   ARGS_LENGTH,
-  CircuitsWasm,
   CallContext,
+  CircuitsWasm,
   ContractDeploymentData,
   FunctionData,
   L1_TO_L2_MESSAGES_TREE_HEIGHT,
@@ -12,10 +12,12 @@ import {
   PrivateHistoricTreeRoots,
   PublicCallRequest,
   TxContext,
-  TxRequest,
 } from '@aztec/circuits.js';
+import { computeSecretMessageHash } from '@aztec/circuits.js/abis';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { toBigIntBE, toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { padArrayEnd } from '@aztec/foundation/collection';
+import { sha256 } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { AppendOnlyTree, Pedersen, StandardTree, newTree } from '@aztec/merkle-tree';
@@ -26,6 +28,7 @@ import {
   TestContractAbi,
   ZkTokenContractAbi,
 } from '@aztec/noir-contracts/examples';
+import { L1Actor, L1ToL2Message, L2Actor, TxExecutionRequest } from '@aztec/types';
 import { mock } from 'jest-mock-extended';
 import { default as levelup } from 'levelup';
 import { default as memdown, type MemDown } from 'memdown';
@@ -33,10 +36,6 @@ import { encodeArguments } from '../abi_coder/index.js';
 import { NoirPoint, computeSlotForMapping, toPublicKey } from '../utils.js';
 import { DBOracle } from './db_oracle.js';
 import { AcirSimulator } from './simulator.js';
-import { sha256 } from '@aztec/foundation/crypto';
-import { computeSecretMessageHash } from '@aztec/circuits.js/abis';
-import { L1Actor, L1ToL2Message, L2Actor } from '@aztec/types';
-import { toBigIntBE, toBufferBE } from '@aztec/foundation/bigint-buffer';
 
 const createMemDown = () => (memdown as any)() as MemDown<any, any>;
 
@@ -60,7 +59,7 @@ describe('Private Execution test suite', () => {
     const txContext = new TxContext(false, false, false, contractDeploymentData);
 
     it('should run the empty constructor', async () => {
-      const txRequest = new TxRequest(
+      const txRequest = new TxExecutionRequest(
         AztecAddress.random(),
         AztecAddress.ZERO,
         new FunctionData(Buffer.alloc(4), true, true),
@@ -110,7 +109,7 @@ describe('Private Execution test suite', () => {
       const contractAddress = AztecAddress.random();
       const abi = ZkTokenContractAbi.functions.find(f => f.name === 'constructor')!;
 
-      const txRequest = new TxRequest(
+      const txRequest = new TxExecutionRequest(
         AztecAddress.random(),
         AztecAddress.ZERO,
         new FunctionData(Buffer.alloc(4), true, true),
@@ -137,7 +136,7 @@ describe('Private Execution test suite', () => {
       const contractAddress = AztecAddress.random();
       const abi = ZkTokenContractAbi.functions.find(f => f.name === 'mint')!;
 
-      const txRequest = new TxRequest(
+      const txRequest = new TxExecutionRequest(
         AztecAddress.random(),
         contractAddress,
         new FunctionData(Buffer.alloc(4), true, false),
@@ -195,7 +194,7 @@ describe('Private Execution test suite', () => {
 
       oracle.getSecretKey.mockReturnValue(Promise.resolve(ownerPk));
 
-      const txRequest = new TxRequest(
+      const txRequest = new TxExecutionRequest(
         AztecAddress.random(),
         contractAddress,
         new FunctionData(Buffer.alloc(4), true, true),
@@ -270,7 +269,7 @@ describe('Private Execution test suite', () => {
 
       oracle.getSecretKey.mockReturnValue(Promise.resolve(ownerPk));
 
-      const txRequest = new TxRequest(
+      const txRequest = new TxExecutionRequest(
         AztecAddress.random(),
         contractAddress,
         new FunctionData(Buffer.alloc(4), true, true),
@@ -302,7 +301,7 @@ describe('Private Execution test suite', () => {
     it('child function should be callable', async () => {
       const abi = ChildAbi.functions.find(f => f.name === 'value')!;
 
-      const txRequest = new TxRequest(
+      const txRequest = new TxExecutionRequest(
         AztecAddress.random(),
         AztecAddress.ZERO,
         new FunctionData(Buffer.alloc(4), true, false),
@@ -325,7 +324,7 @@ describe('Private Execution test suite', () => {
       oracle.getFunctionABI.mockImplementation(() => Promise.resolve(childAbi));
       oracle.getPortalContractAddress.mockImplementation(() => Promise.resolve(EthAddress.ZERO));
 
-      const txRequest = new TxRequest(
+      const txRequest = new TxExecutionRequest(
         AztecAddress.random(),
         AztecAddress.ZERO,
         new FunctionData(Buffer.alloc(4), true, false),
@@ -423,7 +422,7 @@ describe('Private Execution test suite', () => {
         });
       });
 
-      const txRequest = new TxRequest(
+      const txRequest = new TxExecutionRequest(
         AztecAddress.random(),
         contractAddress,
         new FunctionData(Buffer.alloc(4), true, true),
@@ -454,7 +453,7 @@ describe('Private Execution test suite', () => {
 
       oracle.getPortalContractAddress.mockImplementation(() => Promise.resolve(childPortalContractAddress));
 
-      const txRequest = new TxRequest(
+      const txRequest = new TxExecutionRequest(
         AztecAddress.random(),
         parentAddress,
         new FunctionData(Buffer.alloc(4), true, false),

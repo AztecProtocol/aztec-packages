@@ -1,19 +1,18 @@
+import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { isArrayEmpty } from '@aztec/foundation/collection';
+import { Fr } from '@aztec/foundation/fields';
+import { BufferReader, Tuple } from '@aztec/foundation/serialize';
 import { FieldsOf, assertMemberLength, makeTuple } from '../utils/jsUtils.js';
+import { serializeToBuffer } from '../utils/serialize.js';
 import { CallContext } from './call_context.js';
 import {
-  ARGS_LENGTH,
   EMITTED_EVENTS_LENGTH,
+  KERNEL_PUBLIC_DATA_READS_LENGTH,
+  KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH,
   NEW_L2_TO_L1_MSGS_LENGTH,
   PUBLIC_CALL_STACK_LENGTH,
   RETURN_VALUES_LENGTH,
-  KERNEL_PUBLIC_DATA_READS_LENGTH,
-  KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH,
 } from './constants.js';
-import { serializeToBuffer } from '../utils/serialize.js';
-import { Fr } from '@aztec/foundation/fields';
-import { BufferReader, Tuple } from '@aztec/foundation/serialize';
-import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { isArrayEmpty } from '@aztec/foundation/collection';
 
 /**
  * Contract storage read operation on a specific contract.

@@ -21,6 +21,11 @@ template <typename NCT> typename NCT::fr compute_args_hash(std::array<typename N
     return NCT::compress(args, CONSTRUCTOR_ARGS);
 }
 
+template <typename NCT> typename NCT::fr compute_var_args_hash(std::vector<typename NCT::fr> args)
+{
+    return NCT::compress(args, FUNCTION_ARGS);
+}
+
 template <typename NCT> typename NCT::fr compute_constructor_hash(FunctionData<NCT> function_data,
                                                                   typename NCT::fr args_hash,
                                                                   typename NCT::fr constructor_vk_hash)

@@ -365,7 +365,7 @@ PrivateKernelInputsInit<NT> do_private_call_get_kernel_inputs_init(bool const is
         .from = tx_origin,
         .to = private_call_data.call_stack_item.contract_address,
         .function_data = private_call_data.call_stack_item.function_data,
-        .args = args,
+        .args_hash = compute_args_hash<NT>(args),
         .nonce = 0,
         .tx_context =
             TxContext<NT>{
@@ -485,7 +485,7 @@ void validate_deployed_contract_address(PrivateKernelInputsInit<NT> const& priva
     auto private_circuit_vk_hash = stdlib::recursion::verification_key<CT::bn254>::compress_native(
         private_inputs.private_call.vk, GeneratorIndex::VK);
     auto expected_constructor_hash = NT::compress({ private_inputs.private_call.call_stack_item.function_data.hash(),
-                                                    NT::compress<ARGS_LENGTH>(tx_request.args, CONSTRUCTOR_ARGS),
+                                                    tx_request.args_hash,
                                                     private_circuit_vk_hash },
                                                   CONSTRUCTOR);
     NT::fr const expected_contract_address =

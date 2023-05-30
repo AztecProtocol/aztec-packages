@@ -197,7 +197,7 @@ PublicKernelInputsNoPreviousKernel<NT> get_kernel_inputs_no_previous_kernel()
         .from = tx_origin,
         .to = contract_address,
         .function_data = function_data,
-        .args = args,
+        .args_hash = compute_args_hash<NT>(args),
         .nonce = 0,
         .tx_context =
             TxContext<NT>{

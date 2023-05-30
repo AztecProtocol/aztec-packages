@@ -1,4 +1,5 @@
 #include "c_bind.h"
+
 #include "function_leaf_preimage.hpp"
 #include "tx_request.hpp"
 
@@ -55,18 +56,12 @@ TEST(abi_tests, compute_contract_address)
 }
 TEST(abi_tests, hash_tx_request)
 {
-    // randomize function args for tx request
-    std::array<fr, ARGS_LENGTH> args;
-    for (size_t i = 0; i < ARGS_LENGTH; i++) {
-        args[i] = NT::fr::random_element();
-    }
-
     // Construct TxRequest with some randomized fields
     TxRequest<NT> const tx_request = TxRequest<NT>{
         .from = NT::fr::random_element(),
         .to = NT::fr::random_element(),
         .function_data = FunctionData<NT>(),
-        .args = args,
+        .args_hash = NT::fr::random_element(),
         .nonce = NT::fr::random_element(),
         .tx_context = TxContext<NT>(),
         .chain_id = NT::fr::random_element(),
@@ -300,18 +295,12 @@ TEST(abi_tests, compute_contract_leaf)
 
 TEST(abi_tests, compute_transaction_hash)
 {
-    // randomize function args for tx request
-    std::array<fr, ARGS_LENGTH> args;
-    for (size_t i = 0; i < ARGS_LENGTH; i++) {
-        args[i] = NT::fr::random_element();
-    }
-
     // Construct TxRequest with some randomized fields
     TxRequest<NT> const tx_request = TxRequest<NT>{
         .from = NT::fr::random_element(),
         .to = NT::fr::random_element(),
         .function_data = FunctionData<NT>(),
-        .args = args,
+        .args_hash = NT::fr::random_element(),
         .nonce = NT::fr::random_element(),
         .tx_context = TxContext<NT>(),
         .chain_id = NT::fr::random_element(),

@@ -1,21 +1,21 @@
-import { Buffer } from 'buffer';
-import { CircuitsWasm } from '../wasm/index.js';
-import {
-  FunctionData,
-  FUNCTION_SELECTOR_NUM_BYTES,
-  ARGS_LENGTH,
-  TxRequest,
-  NewContractData,
-  FunctionLeafPreimage,
-  SignedTxRequest,
-  PublicCallStackItem,
-  AztecAddress,
-  Fr,
-} from '../index.js';
-import { serializeToBuffer, serializeBufferArrayToVector } from '../utils/serialize.js';
-import { AsyncWasmWrapper, WasmWrapper } from '@aztec/foundation/wasm';
-import { abisComputeArgsHash, abisComputeContractAddress } from '../cbind/circuits.gen.js';
 import { Tuple } from '@aztec/foundation/serialize';
+import { AsyncWasmWrapper, WasmWrapper } from '@aztec/foundation/wasm';
+import { Buffer } from 'buffer';
+import { abisComputeArgsHash, abisComputeContractAddress, abisComputeVarArgsHash } from '../cbind/circuits.gen.js';
+import {
+  ARGS_LENGTH,
+  AztecAddress,
+  FUNCTION_SELECTOR_NUM_BYTES,
+  Fr,
+  FunctionData,
+  FunctionLeafPreimage,
+  NewContractData,
+  PublicCallStackItem,
+  SignedTxRequest,
+  TxRequest,
+} from '../index.js';
+import { serializeBufferArrayToVector, serializeToBuffer } from '../utils/serialize.js';
+import { CircuitsWasm } from '../wasm/index.js';
 
 /**
  * Synchronously calls a wasm function.
@@ -239,6 +239,17 @@ export async function computeContractAddress(
 export async function computeArgsHash(wasm: CircuitsWasm, args: Tuple<Fr, 8>): Promise<Fr> {
   wasm.call('pedersen__init');
   return await abisComputeArgsHash(wasm, args);
+}
+
+/**
+ * Computes the hash of a list of arguments.
+ * @param wasm - Circuits wasm.
+ * @param args - Arguments to hash.
+ * @returns Pedersen hash of the arguments.
+ */
+export async function computeVarArgsHash(wasm: CircuitsWasm, args: Fr[]): Promise<Fr> {
+  wasm.call('pedersen__init');
+  return await abisComputeVarArgsHash(wasm, args);
 }
 
 /**

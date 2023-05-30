@@ -289,6 +289,8 @@ CBIND(abis__compute_contract_address, compute_contract_address<NT>);
 
 CBIND(abis__compute_args_hash, aztec3::circuits::compute_args_hash<NT>);
 
+CBIND(abis__compute_var_args_hash, aztec3::circuits::compute_var_args_hash<NT>);
+
 /**
  * @brief Generates a function tree leaf from its preimage.
  * This is a WASM-export that can be called from Typescript.
