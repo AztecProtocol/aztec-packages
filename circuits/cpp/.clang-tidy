@@ -35,7 +35,6 @@ Checks: '
     -cert-dcl59-cpp,
     -google-build-namespaces,
     -google-readability-avoid-underscore-in-googletest-name,
-    -google-readability-todo,
     -misc-non-private-member-variables-in-classes,
     -modernize-avoid-c-arrays,
     -modernize-pass-by-value,
@@ -77,6 +76,7 @@ WarningsAsErrors: '
     -performance-unnecessary-value-param,
     -readability-function-cognitive-complexity,
     -readability-magic-numbers,
+    -google-readability-todo,
 '
 
 # Notes on specific Checks and WarningsAsErrors

@@ -9,7 +9,7 @@ COPY --from=1 /usr/src/l1-contracts/out /usr/src/l1-contracts/out
 # COPY --from=1 /usr/src/circuits/build/bin /usr/src/circuits/build-wasm/bin
 
 COPY --from=0 /usr/src/circuits/cpp/build-wasm/bin/aztec3-circuits.wasm /usr/src/circuits/cpp/build-wasm/bin/aztec3-circuits.wasm
-COPY --from=0 /usr/src/circuits/cpp/barretenberg/cpp/build-wasm/bin/primitives.wasm /usr/src/circuits/cpp/barretenberg/cpp/build-wasm/bin/primitives.wasm
+COPY --from=0 /usr/src/circuits/cpp/barretenberg/cpp/build-wasm/bin/barretenberg.wasm /usr/src/circuits/cpp/barretenberg/cpp/build-wasm/bin/primitives.wasm
 COPY --from=0 /usr/src/circuits/cpp/barretenberg/cpp/srs_db/download_ignition.sh /usr/src/circuits/cpp/barretenberg/cpp/srs_db/download_ignition.sh
 WORKDIR /usr/src/circuits/cpp/barretenberg/cpp/srs_db
 RUN ./download_ignition.sh 1

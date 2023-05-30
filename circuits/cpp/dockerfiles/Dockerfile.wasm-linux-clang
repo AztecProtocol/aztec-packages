@@ -11,5 +11,5 @@ RUN cmake --preset wasm && cmake --build --preset wasm --target aztec3-circuits.
 
 FROM alpine:3.17
 COPY --from=builder /usr/src/circuits/cpp/build-wasm/bin/aztec3-circuits.wasm /usr/src/circuits/cpp/build-wasm/bin/aztec3-circuits.wasm
-COPY --from=builder /usr/src/circuits/cpp/barretenberg/cpp/build-wasm/bin/primitives.wasm /usr/src/circuits/cpp/barretenberg/cpp/build-wasm/bin/primitives.wasm
+COPY --from=builder /usr/src/circuits/cpp/barretenberg/cpp/build-wasm/bin/barretenberg.wasm /usr/src/circuits/cpp/barretenberg/cpp/build-wasm/bin/primitives.wasm
 COPY --from=builder /usr/src/circuits/cpp/barretenberg/cpp/srs_db /usr/src/circuits/cpp/barretenberg/cpp/srs_db
