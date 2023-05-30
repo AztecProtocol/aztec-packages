@@ -1,43 +1,24 @@
-import { AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
+import { AztecNodeService } from '@aztec/aztec-node';
 import { AztecAddress, AztecRPCServer, Contract, ContractDeployer, Fr, TxStatus } from '@aztec/aztec.js';
 import { ContractAbi } from '@aztec/foundation/abi';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { DebugLogger } from '@aztec/foundation/log';
 import { ChildAbi, ParentAbi } from '@aztec/noir-contracts/examples';
 
 import { toBigInt } from '@aztec/foundation/serialize';
-import { mnemonicToAccount } from 'viem/accounts';
-import { createAztecRpcServer } from './create_aztec_rpc_client.js';
-import { deployL1Contracts } from '@aztec/ethereum';
-import { MNEMONIC, localAnvil } from './fixtures.js';
-
-const logger = createDebugLogger('aztec:e2e_nested_contract');
-
-const config = getConfigEnvVars();
+import { setup } from './setup.js';
 
 describe('e2e_nested_contract', () => {
   let node: AztecNodeService;
   let aztecRpcServer: AztecRPCServer;
+  let logger: DebugLogger;
+
   let accounts: AztecAddress[];
 
   let parentContract: Contract;
   let childContract: Contract;
 
   beforeEach(async () => {
-    const account = mnemonicToAccount(MNEMONIC);
-    const privKey = account.getHdKey().privateKey;
-    const { rollupAddress, unverifiedDataEmitterAddress } = await deployL1Contracts(
-      config.rpcUrl,
-      account,
-      localAnvil,
-      logger,
-    );
-
-    config.publisherPrivateKey = Buffer.from(privKey!);
-    config.rollupContract = rollupAddress;
-    config.unverifiedDataEmitterContract = unverifiedDataEmitterAddress;
-
-    node = await AztecNodeService.createAndSync(config);
-    aztecRpcServer = await createAztecRpcServer(1, node);
+    [node, aztecRpcServer, logger] = await setup();
     accounts = await aztecRpcServer.getAccounts();
 
     parentContract = await deployContract(ParentAbi);
