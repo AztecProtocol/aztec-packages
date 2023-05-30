@@ -2,6 +2,8 @@
 
 #include <barretenberg/barretenberg.hpp>
 
+#include <gtest/gtest.h>
+
 namespace aztec3::circuits::recursion {
 
 using namespace aztec3::utils::types;

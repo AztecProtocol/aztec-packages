@@ -16,6 +16,7 @@ namespace aztec3::circuits::abis {
 using aztec3::utils::zero_array;
 using aztec3::utils::types::CircuitTypes;
 using aztec3::utils::types::NativeTypes;
+using plonk::stdlib::witness_t;
 
 template <typename NCT> class PrivateCircuitPublicInputs {
     using fr = typename NCT::fr;

@@ -1,6 +1,6 @@
 #pragma once
-#include <barretenberg/barretenberg.hpp>
 
+#include <barretenberg/barretenberg.hpp>
 namespace aztec3::utils::types {
 
 struct NativeTypes {
