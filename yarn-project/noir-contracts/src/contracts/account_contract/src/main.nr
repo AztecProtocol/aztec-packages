@@ -24,20 +24,6 @@ contract Account {
     ) -> pub [Field; dep::aztec3::abi::PUBLIC_INPUTS_LENGTH] {
         let mut context = PrivateFunctionContext::new();
 
-        // Create args_hash manually since we exceed the MAX_ARGS in PrivateFunctionContext.
-        // Alternatively, we could make PrivateFunctionContext generic on the args size.
-        // ENTRYPOINT_PAYLOAD_SIZE + size_of(signature) = 21 + 64 = 85
-        let mut args: BoundedVec<Field, 85> = BoundedVec::new(0);
-        args = args.push_array(payload.flattened_args);
-        args = args.push_array(payload.flattened_selectors);
-        args = args.push(payload.nonce);
-        for byte in signature {
-            args = args.push(byte as Field);
-        }
-        
-        // TODO hash_index
-        context.args_hash = dep::std::hash::pedersen(args.storage)[0];
-
         // Verify payload signature using ethereum's signing scheme
         // TODO: Switch to keccak when available in Noir
         let payload_bytes: [u8; entrypoint::ENTRYPOINT_PAYLOAD_SIZE_IN_BYTES] = payload.to_be_bytes();
@@ -69,7 +55,24 @@ contract Account {
             }
         }
 
-        context.finish(inputs)
+        // Create args_hash manually since we exceed the MAX_ARGS in PrivateFunctionContext.
+        // Alternatively, we could make PrivateFunctionContext generic on the args size.
+        // ENTRYPOINT_PAYLOAD_SIZE + size_of(signature) = 21 + 64 = 85
+        let mut args: BoundedVec<Field, 85> = BoundedVec::new(0);
+        args = args.push_array(payload.flattened_args);
+        args = args.push_array(payload.flattened_selectors);
+        args = args.push(payload.nonce);
+        for byte in signature {
+            args = args.push(byte as Field);
+        }
+        // TODO hash_index
+        let args_hash = dep::std::hash::pedersen(args.storage)[0];
+
+        // Finish returns the already serialized payload, so we just tweak the corresponding field
+        // Horrible, yes. But we need to rethink the private function context api anyway.
+        let mut ret = context.finish(inputs);
+        ret[dep::aztec3::abi::CALL_CONTEXT_SIZE] = args_hash;
+        ret
     }
 
     fn constructor(

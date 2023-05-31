@@ -12,7 +12,6 @@ use crate::messaging::l1_to_l2_message_getter_data::make_l1_to_l2_message_getter
 struct PrivateFunctionContext {
     // inputs: abi::Inputs,
     args : BoundedVec<Field, abi::MAX_ARGS>,
-    args_hash: Field,
     return_values : BoundedVec<Field, abi::MAX_RETURN_VALUES>,
     logs : BoundedVec<Field, abi::MAX_LOGS>,
 
@@ -30,7 +29,6 @@ impl PrivateFunctionContext {
         PrivateFunctionContext {
             // inputs: inputs,
             args: BoundedVec::new(0),
-            args_hash: 0,
             return_values: BoundedVec::new(0),
             logs: BoundedVec::new(0),
 
@@ -46,10 +44,7 @@ impl PrivateFunctionContext {
     // When noir uses user-defined serialization of fields, we can return public inputs instead
     fn finish(self, inputs: abi::Inputs) -> [Field; abi::PUBLIC_INPUTS_LENGTH] {
         // TODO hash_index
-        let mut args_hash = self.args_hash;
-        if args_hash == 0 {
-            args_hash = dep::std::hash::pedersen(self.args.storage)[0];
-        }
+        let args_hash = dep::std::hash::pedersen(self.args.storage)[0];
 
         let priv_circuit_pub_inputs = abi::PrivateCircuitPublicInputs {
             call_context: inputs.call_context,

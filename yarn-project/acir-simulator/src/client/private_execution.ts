@@ -154,9 +154,15 @@ export class PrivateFunctionExecution {
         return Promise.resolve([ZERO_ACVM_FIELD]);
       },
       callPrivateFunction: async ([acvmContractAddress, acvmFunctionSelector, ...acvmArgs]) => {
+        const contractAddress = fromACVMField(acvmContractAddress);
+        const functionSelector = fromACVMField(acvmFunctionSelector);
+        this.log(
+          `Calling private function ${contractAddress.toShortString()}:${functionSelector} from ${this.callContext.storageContractAddress.toShortString()}`,
+        );
+
         const childExecutionResult = await this.callPrivateFunction(
-          frToAztecAddress(fromACVMField(acvmContractAddress)),
-          frToSelector(fromACVMField(acvmFunctionSelector)),
+          frToAztecAddress(contractAddress),
+          frToSelector(functionSelector),
           acvmArgs.map(f => fromACVMField(f)),
           this.callContext,
         );
@@ -203,6 +209,8 @@ export class PrivateFunctionExecution {
     const publicCallStackItems = await Promise.all(enqueuedPublicFunctionCalls.map(c => c.toPublicCallStackItem()));
     const publicStack = await Promise.all(publicCallStackItems.map(c => computeCallStackItemHash(wasm, c)));
     callStackItem.publicInputs.publicCallStack = padArrayEnd(publicStack, Fr.ZERO, PUBLIC_CALL_STACK_LENGTH);
+
+    this.log(`Returning from call to ${this.contractAddress.toShortString()}:${selector}`);
 
     return {
       acir,

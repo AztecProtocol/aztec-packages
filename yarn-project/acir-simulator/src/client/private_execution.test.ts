@@ -36,6 +36,7 @@ import { encodeArguments } from '../abi_coder/index.js';
 import { NoirPoint, computeSlotForMapping, toPublicKey } from '../utils.js';
 import { DBOracle } from './db_oracle.js';
 import { AcirSimulator } from './simulator.js';
+import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 
 const createMemDown = () => (memdown as any)() as MemDown<any, any>;
 
@@ -43,9 +44,11 @@ describe('Private Execution test suite', () => {
   let bbWasm: BarretenbergWasm;
   let oracle: ReturnType<typeof mock<DBOracle>>;
   let acirSimulator: AcirSimulator;
+  let logger: DebugLogger;
 
   beforeAll(async () => {
     bbWasm = await BarretenbergWasm.get();
+    logger = createDebugLogger('aztec:test:private_execution');
   });
 
   beforeEach(() => {
@@ -318,6 +321,7 @@ describe('Private Execution test suite', () => {
     it('parent should call child', async () => {
       const childAbi = ChildAbi.functions.find(f => f.name === 'value')!;
       const parentAbi = ParentAbi.functions.find(f => f.name === 'entryPoint')!;
+      const parentAddress = AztecAddress.random();
       const childAddress = AztecAddress.random();
       const childSelector = Buffer.alloc(4, 1); // should match the call
 
@@ -326,20 +330,17 @@ describe('Private Execution test suite', () => {
 
       const txRequest = new TxExecutionRequest(
         AztecAddress.random(),
-        AztecAddress.ZERO,
+        parentAddress,
         new FunctionData(Buffer.alloc(4), true, false),
         encodeArguments(parentAbi, [Fr.fromBuffer(childAddress.toBuffer()), Fr.fromBuffer(childSelector)]),
         Fr.random(),
         txContext,
         Fr.ZERO,
       );
-      const result = await acirSimulator.run(
-        txRequest,
-        parentAbi,
-        AztecAddress.random(),
-        EthAddress.ZERO,
-        historicRoots,
-      );
+
+      logger(`Parent deployed at ${parentAddress.toShortString()}`);
+      logger(`Calling child function ${childSelector.toString('hex')} at ${childAddress.toShortString()}`);
+      const result = await acirSimulator.run(txRequest, parentAbi, parentAddress, EthAddress.ZERO, historicRoots);
 
       expect(result.callStackItem.publicInputs.returnValues[0]).toEqual(new Fr(42n));
       expect(oracle.getFunctionABI.mock.calls[0]).toEqual([childAddress, childSelector]);
