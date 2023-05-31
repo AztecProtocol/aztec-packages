@@ -654,7 +654,6 @@ TEST(private_kernel_tests, circuit_create_proof_cbinds)
     uint8_t* const circuit_failure_ptr = private_kernel__sim_init(signed_constructor_tx_request_vec.data(),
                                                                   nullptr,  // no previous kernel on first iteration
                                                                   private_constructor_call_vec.data(),
-                                                                  true,  // first iteration
                                                                   &public_inputs_size,
                                                                   &public_inputs_buf);
     ASSERT_TRUE(circuit_failure_ptr == nullptr);
