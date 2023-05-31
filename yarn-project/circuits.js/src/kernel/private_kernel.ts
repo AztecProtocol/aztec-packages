@@ -120,7 +120,7 @@ export async function privateKernelSim(
   const outputBufPtrPtr = wasm.call('bbmalloc', 4);
   // Run and read outputs
   const circuitFailureBufPtr = await wasm.asyncCall(
-    'private_kernel__sim',
+    'private_kernel__sim_init',
     0,
     previousKernelBufferOffset,
     privateCallDataOffset,

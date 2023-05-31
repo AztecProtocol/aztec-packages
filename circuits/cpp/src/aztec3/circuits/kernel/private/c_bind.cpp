@@ -65,12 +65,12 @@ CBIND(private_kernel__dummy_previous_kernel, []() { return dummy_previous_kernel
 
 // TODO(dbanks12): comment about how public_inputs is a confusing name
 // returns size of public inputs
-WASM_EXPORT uint8_t* private_kernel__sim(uint8_t const* signed_tx_request_buf,
-                                         uint8_t const* previous_kernel_buf,
-                                         uint8_t const* private_call_buf,
-                                         bool first_iteration,
-                                         size_t* private_kernel_public_inputs_size_out,
-                                         uint8_t const** private_kernel_public_inputs_buf)
+WASM_EXPORT uint8_t* private_kernel__sim_init(uint8_t const* signed_tx_request_buf,
+                                              uint8_t const* previous_kernel_buf,
+                                              uint8_t const* private_call_buf,
+                                              bool first_iteration,
+                                              size_t* private_kernel_public_inputs_size_out,
+                                              uint8_t const** private_kernel_public_inputs_buf)
 {
     DummyComposer composer = DummyComposer("private_kernel__sim");
     PrivateCallData<NT> private_call_data;
