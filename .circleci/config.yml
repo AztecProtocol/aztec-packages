@@ -600,8 +600,7 @@ workflows:
       - e2e-block-building: *e2e_test
       - e2e-nested-contract: *e2e_test
       - e2e-public-token-contract: *e2e_test
-      - e2e-l2-to-l1-messaging: *e2e_test
-      - e2e-l1-to-l2-messaging: *e2e_test
+      - e2e-cross-chain-messaging: *e2e_test
       - integration-l1-publisher: *e2e_test
       - e2e-p2p: *e2e_test
 
