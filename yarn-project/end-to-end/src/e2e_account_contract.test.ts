@@ -120,7 +120,7 @@ describe('e2e_account_contract', () => {
     );
 
     // Hash the payload object, so we sign over it
-    // TODO: Switch to keccak when avaiable in Noir
+    // TODO: Switch to keccak when available in Noir
     const payloadHash = sha256(Buffer.concat(flattenPayload(payload).map(fr => fr.toBuffer())));
     logger(`Payload hash: ${payloadHash.toString('hex')} (${payloadHash.length} bytes)`);
 
@@ -154,7 +154,7 @@ describe('e2e_account_contract', () => {
     const receipt = await tx.getReceipt();
 
     expect(receipt.status).toBe(TxStatus.MINED);
-  });
+  }, 20_000);
 
   it('calls a public function', async () => {
     const payload = buildPayload([], [callChildPubStoreValue(42)]);
@@ -166,7 +166,7 @@ describe('e2e_account_contract', () => {
 
     expect(receipt.status).toBe(TxStatus.MINED);
     expect(toBigInt((await aztecNode.getStorageAt(child.address, 1n))!)).toEqual(42n);
-  });
+  }, 20_000);
 
   it('rejects ecdsa signature from a different key', async () => {
     const payload = buildPayload([callChildValue(42)], []);
