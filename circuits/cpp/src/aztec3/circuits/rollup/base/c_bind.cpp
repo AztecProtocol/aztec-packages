@@ -9,7 +9,6 @@
 #include "aztec3/utils/types/native_types.hpp"
 
 #include <barretenberg/barretenberg.hpp>
-
 namespace {
 using Composer = plonk::UltraPlonkComposer;
 using NT = aztec3::utils::types::NativeTypes;
@@ -20,7 +19,6 @@ using aztec3::circuits::rollup::native_base_rollup::base_rollup_circuit;
 
 }  // namespace
 
-#define WASM_EXPORT __attribute__((visibility("default")))
 // WASM Cbinds
 extern "C" {
 

@@ -18,7 +18,6 @@ using aztec3::circuits::rollup::native_root_rollup::RootRollupPublicInputs;
 
 }  // namespace
 
-#define WASM_EXPORT __attribute__((visibility("default")))
 // WASM Cbinds
 extern "C" {
 
