@@ -19,6 +19,7 @@ import {
 import { Chain, HttpTransport, PublicClient, getContract } from 'viem';
 import { setup } from './setup.js';
 import { sha256 } from '@aztec/foundation/crypto';
+import { Archiver } from '@aztec/archiver';
 
 const sha256ToField = (buf: Buffer): Fr => {
   const tempContent = toBigIntBE(sha256(buf));
@@ -28,6 +29,7 @@ const sha256ToField = (buf: Buffer): Fr => {
 describe('e2e_cross_chain_messaging', () => {
   let aztecNode: AztecNodeService;
   let aztecRpcServer: AztecRPCServer;
+  let archiver: Archiver;
   let accounts: AztecAddress[];
   let logger: DebugLogger;
 
@@ -45,7 +47,7 @@ describe('e2e_cross_chain_messaging', () => {
 
   beforeEach(async () => {
     let deployL1ContractsValues: DeployL1Contracts;
-    ({ aztecNode, aztecRpcServer, deployL1ContractsValues, accounts, logger } = await setup(2));
+    ({ aztecNode, aztecRpcServer, archiver, deployL1ContractsValues, accounts, logger } = await setup(2));
     rollupRegistryAddress = deployL1ContractsValues!.registryAddress;
 
     walletClient = deployL1ContractsValues.walletClient;
@@ -76,6 +78,7 @@ describe('e2e_cross_chain_messaging', () => {
   }, 30_000);
 
   afterEach(async () => {
+    await archiver.stop();
     await aztecNode?.stop();
     await aztecRpcServer?.stop();
   });
@@ -112,15 +115,9 @@ describe('e2e_cross_chain_messaging', () => {
     return contract;
   };
 
-  it('Milestone 2: Deposit funds from L1 -> L2 and withdraw back to L1', async () => {
-    const initialBalance = 10n;
-    const [ownerAddress, receiver] = accounts;
-    const ownerPub = await aztecRpcServer.getAccountPublicKey(ownerAddress);
-    const deployedL2Contract = await deployContract(initialBalance, pointToPublicKey(ownerPub));
-    await expectBalance(accounts[0], initialBalance);
+  const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-    const l2TokenAddress = deployedL2Contract.address.toString() as `0x${string}`;
-
+  const sendL1ToL2MessageViaPortal = async (ownerAddress: AztecAddress, l2TokenAddress: `0x${string}`, mintAmount: bigint) => {
     logger('Initializing the TokenPortal contract');
     await tokenPortal.write.initialize(
       [rollupRegistryAddress.toString(), underlyingERC20Address.toString(), l2TokenAddress],
@@ -146,8 +143,6 @@ describe('e2e_cross_chain_messaging', () => {
     const secretString = `0x${claimSecretHash.toBuffer().toString('hex')}` as `0x${string}`;
     const deadline = 2 ** 32 - 1; // max uint32 - 1
 
-    const mintAmount = 100n;
-
     logger('Sending messages to L1 portal');
     const args = [ownerAddress.toString(), mintAmount, deadline, secretString] as const;
     const { result: messageKeyHex } = await tokenPortal.simulate.depositToAztec(args, {
@@ -157,11 +152,22 @@ describe('e2e_cross_chain_messaging', () => {
     expect(await underlyingERC20.read.balanceOf([ethAccount.toString()])).toBe(1000000n - mintAmount);
 
     const messageKey = Fr.fromString(messageKeyHex);
+    return { messageKey, secret, secretString, deadline };
+  };
 
-    // Wait for the archiver to process the message
-    const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-    await delay(5000); /// waiting 5 seconds.
+  it('Milestone 2: Deposit funds from L1 -> L2 and withdraw back to L1', async () => {
+    const initialBalance = 10n;
+    const [ownerAddress, receiver] = accounts;
+    const ownerPub = await aztecRpcServer.getAccountPublicKey(ownerAddress);
+    const deployedL2Contract = await deployContract(initialBalance, pointToPublicKey(ownerPub));
+    await expectBalance(accounts[0], initialBalance);
 
+    const l2TokenAddress = deployedL2Contract.address.toString() as `0x${string}`;
+
+    const mintAmount = 100n;
+    const { messageKey, secret } = await sendL1ToL2MessageViaPortal(ownerAddress, l2TokenAddress, mintAmount);
+    // Wait 5s for the archiver to process the message
+    await delay(5000);
     // send a transfer tx to force through rollup with the message included
     const transferAmount = 1n;
     const transferTx = contract.methods

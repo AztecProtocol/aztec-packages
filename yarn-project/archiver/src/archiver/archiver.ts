@@ -142,12 +142,13 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource, ContractDa
       this.inboxAddress,
       blockUntilSynced,
       currentBlockNumber,
-      this.nextL2BlockFromBlock + 1n,
+      this.lastProcessedBlockNumber + 1n,
     );
 
-    // TODO: optimise this - there could be messages in confirmed that are also in pending. No need to modify storage then.
+    // TODO (#717): optimise this - there could be messages in confirmed that are also in pending.
+    // Or messages in pending that are also cancelled in the same block. No need to modify storage for them.
     // Store l1 to l2 messages
-    this.log('Adding pending l1 to l2 messages to store');
+    this.log('Adding pending l1 to l2 messages to store: ', retrievedPendingL1ToL2Messages.retrievedData);
     await this.store.addPendingL1ToL2Messages(retrievedPendingL1ToL2Messages.retrievedData);
     // remove cancelled messages from the pending message store:
     this.log('Removing pending l1 to l2 messages from store where messages were cancelled');
@@ -217,6 +218,7 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource, ContractDa
     // from retrieved L2Blocks, confirm L1 to L2 messages that have been published
     // from each l2block fetch all messageKeys in a flattened array:
     const messageKeysToRemove = retrievedBlocks.retrievedData.map(l2block => l2block.newL1ToL2Messages).flat();
+    this.log(`Confirming ${messageKeysToRemove.length} l1 to l2 messages in store`);
     await this.store.confirmL1ToL2Messages(messageKeysToRemove);
 
     // store retrieved rollup blocks

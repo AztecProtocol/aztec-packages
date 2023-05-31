@@ -45,7 +45,8 @@ describe('pending_l1_to_l2_message_store', () => {
   });
 
   it("handles case when removing a message that doesn't exist", () => {
-    expect(() => store.removeMessage(new Fr(0))).toThrow();
+    expect(() => store.removeMessage(new Fr(0))).not.toThrow();
+    expect(() => store.removeMessage(new Fr(1))).toThrow();
   });
 
   it('removeMessage decrements the count if the message is already in the store', () => {

@@ -5,6 +5,7 @@ import { DeployL1Contracts, deployL1Contracts } from '@aztec/ethereum';
 import { mnemonicToAccount } from 'viem/accounts';
 import { MNEMONIC, localAnvil } from './fixtures.js';
 import { AztecAddress, AztecRPCServer, createAztecRPCServer } from '@aztec/aztec.js';
+import { Archiver } from '@aztec/archiver';
 
 /**
  * Sets up the environment for the end-to-end tests.
@@ -19,6 +20,10 @@ export async function setup(numberOfAccounts = 1): Promise<{
    * The Aztec RPC server.
    */
   aztecRpcServer: AztecRPCServer;
+  /**
+   * The archiver instance.
+   */
+  archiver: Archiver;
   /**
    * Return values from deployL1Contracts function.
    */
@@ -51,6 +56,7 @@ export async function setup(numberOfAccounts = 1): Promise<{
   config.unverifiedDataEmitterContract = deployL1ContractsValues.unverifiedDataEmitterAddress;
   config.inboxContract = deployL1ContractsValues.inboxAddress;
 
+  const archiver = await Archiver.createAndSync(config);
   const aztecNode = await AztecNodeService.createAndSync(config);
   const aztecRpcServer = await createAztecRPCServer(aztecNode);
   for (let i = 0; i < numberOfAccounts; ++i) {
@@ -62,6 +68,7 @@ export async function setup(numberOfAccounts = 1): Promise<{
   return {
     aztecNode,
     aztecRpcServer,
+    archiver,
     deployL1ContractsValues,
     accounts,
     config,
