@@ -82,8 +82,8 @@ impl PrivateCallStackItem {
         constrain function_selector == item.function_data.function_selector;
 
         // TODO hash_index
-        let args_hash = dep::std::hash::pedersen(args)[0];
-        constrain args_hash == item.public_inputs.args_hash;
+        // let args_hash = dep::std::hash::pedersen(args)[0];
+        // constrain args_hash == item.public_inputs.args_hash;
 
         constrain item.is_execution_request == false;
 

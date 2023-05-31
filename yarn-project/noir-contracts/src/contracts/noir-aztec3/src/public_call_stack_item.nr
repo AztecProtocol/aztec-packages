@@ -57,8 +57,8 @@ impl PublicCallStackItem {
         constrain function_selector == item.function_data.function_selector;
         
         // TODO hash_index
-        let args_hash = dep::std::hash::pedersen(args)[0];
-        constrain args_hash == item.public_inputs.args_hash;
+        // let args_hash = dep::std::hash::pedersen(args)[0];
+        // constrain args_hash == item.public_inputs.args_hash;
 
         constrain item.public_inputs.call_context.is_delegate_call == false;
         constrain item.public_inputs.call_context.is_static_call == false;
