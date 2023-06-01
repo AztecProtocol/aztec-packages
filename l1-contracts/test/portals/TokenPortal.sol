@@ -52,7 +52,7 @@ contract TokenPortal {
   }
 
   /**
-   * @notice Withdraw funds from the portal 
+   * @notice Withdraw funds from the portal
    * @dev Second part of withdraw, must be initiated from L2 first as it will consume a message from outbox
    * @param _amount - The amount to withdraw
    * @param _recipient - The address to send the funds to
