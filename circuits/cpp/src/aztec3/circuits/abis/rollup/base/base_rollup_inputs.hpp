@@ -7,7 +7,10 @@
 
 #include "aztec3/constants.hpp"
 
+#include <barretenberg/serialize/msgpack.hpp>
+
 #include <math.h>
+
 
 namespace aztec3::circuits::abis {
 
@@ -34,9 +37,9 @@ template <typename NCT> struct BaseRollupInputs {
     std::array<fr, PRIVATE_DATA_SUBTREE_INCLUSION_CHECK_DEPTH> new_commitments_subtree_sibling_path;
     std::array<fr, NULLIFIER_SUBTREE_INCLUSION_CHECK_DEPTH> new_nullifiers_subtree_sibling_path;
     std::array<fr, CONTRACT_SUBTREE_INCLUSION_CHECK_DEPTH> new_contracts_subtree_sibling_path;
-    std::array<MembershipWitness<NCT, PUBLIC_DATA_TREE_HEIGHT>, 2 * KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH>
+    std::array<std::array<fr, PUBLIC_DATA_TREE_HEIGHT>, 2 * KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH>
         new_public_data_update_requests_sibling_paths;
-    std::array<MembershipWitness<NCT, PUBLIC_DATA_TREE_HEIGHT>, 2 * KERNEL_PUBLIC_DATA_READS_LENGTH>
+    std::array<std::array<fr, PUBLIC_DATA_TREE_HEIGHT>, 2 * KERNEL_PUBLIC_DATA_READS_LENGTH>
         new_public_data_reads_sibling_paths;
 
     std::array<MembershipWitness<NCT, PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT>, 2>
@@ -48,6 +51,23 @@ template <typename NCT> struct BaseRollupInputs {
 
     ConstantRollupData<NCT> constants;
 
+    // for serialization, update with new fields
+    MSGPACK_FIELDS(kernel_data,
+                   start_private_data_tree_snapshot,
+                   start_nullifier_tree_snapshot,
+                   start_contract_tree_snapshot,
+                   start_public_data_tree_root,
+                   low_nullifier_leaf_preimages,
+                   low_nullifier_membership_witness,
+                   new_commitments_subtree_sibling_path,
+                   new_nullifiers_subtree_sibling_path,
+                   new_contracts_subtree_sibling_path,
+                   new_public_data_update_requests_sibling_paths,
+                   new_public_data_reads_sibling_paths,
+                   historic_private_data_tree_root_membership_witnesses,
+                   historic_contract_tree_root_membership_witnesses,
+                   historic_l1_to_l2_msg_tree_root_membership_witnesses,
+                   constants);
     bool operator==(BaseRollupInputs<NCT> const&) const = default;
 };
 

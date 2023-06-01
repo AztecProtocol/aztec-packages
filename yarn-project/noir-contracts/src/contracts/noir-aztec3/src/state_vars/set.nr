@@ -6,46 +6,11 @@ use crate::notes::value_note::NOTE_LEN;
 use crate::types::point::Point;
 use crate::utils::arr_copy_slice;
 
-#[oracle(notifyCreatedNote)]
-fn notify_created_note_oracle(
-    _storage_slot: Field,
-    _owner: Point,
-    _note: Note,
-) -> Field {}
+// oracles
+use crate::oracle::notes::notify_created_note;
+use crate::oracle::notes::notify_nullified_note;
+use crate::oracle::notes::get_notes_2_internal;
 
-unconstrained fn notify_created_note(
-    storage_slot: Field,
-    owner: Point,
-    note: Note,
-) -> Field {
-    notify_created_note_oracle(storage_slot, owner, note)
-}
-
-#[oracle(notifyNullifiedNote)]
-fn notify_nullified_note_oracle(
-    _storage_slot: Field,
-    _nullifier: Field,
-    _note: Note,
-) -> Field {}
-
-unconstrained fn notify_nullified_note(
-    storage_slot: Field,
-    nullifier: Field,
-    note: Note,
-) -> Field {
-    notify_nullified_note_oracle(storage_slot, nullifier, note)
-}
-
-#[oracle(getNotes2)]
-fn get_notes_2_oracle(
-    _storage_slot: Field,
-) -> [Field; 13] {}
-
-unconstrained fn get_notes_2_internal(
-    storage_slot: Field,
-) -> [Field; 13] {
-    get_notes_2_oracle(storage_slot)
-}
 
 fn get_2_notes(storage_slot: Field) -> (Note, Note) {
     let fields = get_notes_2_internal(storage_slot);

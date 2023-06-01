@@ -29,7 +29,7 @@ constexpr size_t KERNEL_PUBLIC_DATA_READS_LENGTH = 4;
 
 constexpr size_t VK_TREE_HEIGHT = 3;
 constexpr size_t FUNCTION_TREE_HEIGHT = 4;
-constexpr size_t CONTRACT_TREE_HEIGHT = 4;
+constexpr size_t CONTRACT_TREE_HEIGHT = 8;
 constexpr size_t PRIVATE_DATA_TREE_HEIGHT = 8;
 constexpr size_t NULLIFIER_TREE_HEIGHT = 8;
 constexpr size_t PUBLIC_DATA_TREE_HEIGHT = 254;
@@ -88,7 +88,8 @@ enum GeneratorIndex {
     PUBLIC_LEAF_INDEX,
     PUBLIC_DATA_LEAF,
     SIGNED_TX_REQUEST,
-    L1_TO_L2_MESSAGE_SECRET
+    L1_TO_L2_MESSAGE_SECRET,
+    FUNCTION_ARGS,
 };
 
 enum StorageSlotGeneratorIndex {

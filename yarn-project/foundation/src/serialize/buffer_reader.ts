@@ -1,4 +1,5 @@
 import { Fr, Fq } from '../fields/fields.js';
+import { Tuple } from './types.js';
 
 /**
  * The BufferReader class provides a utility for reading various data types from a buffer.
@@ -148,18 +149,39 @@ export class BufferReader {
    * @param itemDeserializer - An object with a 'fromBuffer' method to deserialize individual elements of type T.
    * @returns An array of instances of type T.
    */
-  public readArray<T>(
-    size: number,
+  public readArray<T, N extends number>(
+    size: N,
     itemDeserializer: {
       /**
        * A function for deserializing data from a BufferReader instance.
        */
       fromBuffer: (reader: BufferReader) => T;
     },
-  ): T[] {
-    const result = new Array<T>(size);
-    for (let i = 0; i < size; i++) {
-      result[i] = itemDeserializer.fromBuffer(this);
+  ): Tuple<T, N> {
+    const result = Array.from({ length: size }, () => itemDeserializer.fromBuffer(this));
+    return result as Tuple<T, N>;
+  }
+
+  /**
+   * Read a variable sized Buffer array where elements are represented by length + data.
+   * The method consecutively looks for a number which is the size of the proceeding buffer,
+   * then reads the bytes until it reaches the end of the reader's internal buffer.
+   * NOTE: if `size` is not provided, this will run to the end of the reader's buffer.
+   * @param size - Size of the buffer array in bytes (full remaining buffer length if left empty).
+   * @returns An array of variable sized buffers.
+   */
+  public readBufferArray(size = -1): Buffer[] {
+    const result: Buffer[] = [];
+    const end = size >= 0 ? this.index + size : this.buffer.length;
+    while (this.index < end) {
+      const item = this.readBuffer();
+      result.push(item);
+    }
+    // Ensure that all bytes have been read.
+    if (this.index !== end) {
+      throw new Error(
+        `Reader buffer was not fully consumed. Consumed up to ${this.index} bytes. End of data: ${end} bytes.`,
+      );
     }
     return result;
   }

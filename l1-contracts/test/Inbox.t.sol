@@ -5,11 +5,11 @@ pragma solidity >=0.8.18;
 import {Test} from "forge-std/Test.sol";
 import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
 import {Inbox} from "@aztec/core/messagebridge/Inbox.sol";
-import {IMessageBox} from "@aztec/core/interfaces/messagebridge/IMessageBox.sol";
-import {MessageBox} from "@aztec/core/messagebridge/MessageBox.sol";
 import {Registry} from "@aztec/core/messagebridge/Registry.sol";
+import {Errors} from "@aztec/core/libraries/Errors.sol";
 
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
+import {MessageBox} from "@aztec/core/libraries/MessageBox.sol";
 
 contract InboxTest is Test {
   event MessageAdded(
@@ -20,7 +20,8 @@ contract InboxTest is Test {
     uint256 recipientVersion,
     uint32 deadline,
     uint64 fee,
-    bytes32 content
+    bytes32 content,
+    bytes32 secretHash
   );
 
   event L1ToL2MessageCancelled(bytes32 indexed entryKey);
@@ -31,7 +32,7 @@ contract InboxTest is Test {
     address rollup = address(this);
     Registry registry = new Registry();
     inbox = new Inbox(address(registry));
-    registry.setAddresses(rollup, address(inbox), address(0x0));
+    registry.upgrade(rollup, address(inbox), address(0x0));
   }
 
   function _fakeMessage() internal view returns (DataStructures.L1ToL2Msg memory) {
@@ -65,7 +66,8 @@ contract InboxTest is Test {
       _message.recipient.version,
       _message.deadline,
       _message.fee,
-      _message.content
+      _message.content,
+      _message.secretHash
     );
     // event we will get
     bytes32 entryKey = inbox.sendL2Message{value: _message.fee}(
@@ -103,7 +105,7 @@ contract InboxTest is Test {
       message.recipient, message.deadline, message.content, message.secretHash
     );
     vm.prank(address(0x1));
-    vm.expectRevert(Inbox.Inbox__Unauthorized.selector);
+    vm.expectRevert(Errors.Inbox__Unauthorized.selector);
     inbox.cancelL2Message(message, address(0x1));
   }
 
@@ -114,7 +116,7 @@ contract InboxTest is Test {
       message.recipient, message.deadline, message.content, message.secretHash
     );
     skip(500); // deadline = 1000. block.timestamp = 500. Not cancellable:
-    vm.expectRevert(Inbox.Inbox__NotPastDeadline.selector);
+    vm.expectRevert(Errors.Inbox__NotPastDeadline.selector);
     inbox.cancelL2Message(message, address(0x1));
   }
 
@@ -122,9 +124,7 @@ contract InboxTest is Test {
     DataStructures.L1ToL2Msg memory message = _fakeMessage();
     bytes32 entryKey = inbox.computeEntryKey(message);
     skip(500); // make message cancellable.
-    vm.expectRevert(
-      abi.encodeWithSelector(MessageBox.MessageBox__NothingToConsume.selector, entryKey)
-    );
+    vm.expectRevert(abi.encodeWithSelector(Errors.Inbox__NothingToConsume.selector, entryKey));
     inbox.cancelL2Message(message, address(0x1));
   }
 
@@ -148,7 +148,7 @@ contract InboxTest is Test {
     bytes32[] memory entryKeys = new bytes32[](1);
     entryKeys[0] = expectedEntryKey;
     vm.expectRevert(
-      abi.encodeWithSelector(MessageBox.MessageBox__NothingToConsume.selector, expectedEntryKey)
+      abi.encodeWithSelector(Errors.Inbox__NothingToConsume.selector, expectedEntryKey)
     );
     inbox.batchConsume(entryKeys, feeCollector);
   }
@@ -157,7 +157,7 @@ contract InboxTest is Test {
     vm.prank(address(0x1));
     bytes32[] memory entryKeys = new bytes32[](1);
     entryKeys[0] = bytes32("random");
-    vm.expectRevert(MessageBox.MessageBox__Unauthorized.selector);
+    vm.expectRevert(Errors.Inbox__Unauthorized.selector);
     inbox.batchConsume(entryKeys, address(0x1));
   }
 
@@ -178,7 +178,7 @@ contract InboxTest is Test {
     entryKeys[2] = entryKey3;
 
     skip(150); // block.timestamp now +150 ms. entryKey2 is past deadline
-    vm.expectRevert(Inbox.Inbox__PastDeadline.selector);
+    vm.expectRevert(Errors.Inbox__PastDeadline.selector);
     inbox.batchConsume(entryKeys, address(0x1));
   }
 
@@ -189,9 +189,7 @@ contract InboxTest is Test {
     } else {
       entryKeys[0] = _entryKey;
     }
-    vm.expectRevert(
-      abi.encodeWithSelector(MessageBox.MessageBox__NothingToConsume.selector, entryKeys[0])
-    );
+    vm.expectRevert(abi.encodeWithSelector(Errors.Inbox__NothingToConsume.selector, entryKeys[0]));
     inbox.batchConsume(entryKeys, address(0x1));
   }
 
@@ -208,9 +206,7 @@ contract InboxTest is Test {
     assertEq(inbox.feesAccrued(feeCollector), message.fee);
 
     // consuming this again should fail:
-    vm.expectRevert(
-      abi.encodeWithSelector(MessageBox.MessageBox__NothingToConsume.selector, entryKeys[0])
-    );
+    vm.expectRevert(abi.encodeWithSelector(Errors.Inbox__NothingToConsume.selector, entryKeys[0]));
     inbox.batchConsume(entryKeys, feeCollector);
   }
 

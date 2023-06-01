@@ -41,15 +41,6 @@ export function frToNumber(fr: Fr): number {
 }
 
 /**
- * Converts a field to a eth address.
- * @param fr - The field to convert.
- * @returns The eth address.
- */
-export function frToEthAddress(fr: Fr): EthAddress {
-  return new EthAddress(fr.toBuffer().slice(-EthAddress.SIZE_IN_BYTES));
-}
-
-/**
  * Converts a field to a boolean.
  * @param fr - The field to convert.
  * @returns The boolean.
@@ -114,7 +105,7 @@ export function extractPublicInputs(partialWitness: ACVMWitness, acir: Buffer): 
   const callContext = new CallContext(
     frToAztecAddress(witnessReader.readField()),
     frToAztecAddress(witnessReader.readField()),
-    frToEthAddress(witnessReader.readField()),
+    witnessReader.readField(),
     frToBoolean(witnessReader.readField()),
     frToBoolean(witnessReader.readField()),
     frToBoolean(witnessReader.readField()),
@@ -139,7 +130,7 @@ export function extractPublicInputs(partialWitness: ACVMWitness, acir: Buffer): 
     witnessReader.readField(),
     witnessReader.readField(),
     witnessReader.readField(),
-    frToEthAddress(witnessReader.readField()),
+    EthAddress.fromField(witnessReader.readField()),
   );
 
   return new PrivateCircuitPublicInputs(

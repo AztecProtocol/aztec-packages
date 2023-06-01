@@ -1,5 +1,5 @@
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { FieldsOf, assertLength } from '../../utils/jsUtils.js';
+import { FieldsOf, assertMemberLength } from '../../utils/jsUtils.js';
 import { serializeToBuffer } from '../../utils/serialize.js';
 import { PrivateCallStackItem } from '../call_stack_item.js';
 import {
@@ -10,11 +10,11 @@ import {
   READ_REQUESTS_LENGTH,
 } from '../constants.js';
 import { MembershipWitness } from '../membership_witness.js';
-import { UInt8Vector } from '../shared.js';
 import { SignedTxRequest } from '../tx_request.js';
 import { VerificationKey } from '../verification_key.js';
 import { PreviousKernelData } from './previous_kernel_data.js';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '../index.js';
+import { Proof } from '../proof.js';
 
 /**
  * Private call data.
@@ -33,7 +33,7 @@ export class PrivateCallData {
     /**
      * The proof of the execution of this private call.
      */
-    public proof: UInt8Vector,
+    public proof: Proof,
     /**
      * The verification key for the function being invoked.
      */
@@ -60,8 +60,8 @@ export class PrivateCallData {
      */
     public acirHash: Fr,
   ) {
-    assertLength(this, 'privateCallStackPreimages', PRIVATE_CALL_STACK_LENGTH);
-    assertLength(this, 'readRequestMembershipWitnesses', READ_REQUESTS_LENGTH);
+    assertMemberLength(this, 'privateCallStackPreimages', PRIVATE_CALL_STACK_LENGTH);
+    assertMemberLength(this, 'readRequestMembershipWitnesses', READ_REQUESTS_LENGTH);
   }
 
   /**
@@ -98,14 +98,34 @@ export class PrivateCallData {
 }
 
 /**
- * Input to the private kernel circuit.
+ * Input to the private kernel circuit - initial call.
  */
-export class PrivateKernelInputs {
+export class PrivateKernelInputsInit {
   constructor(
     /**
      * The transaction request which led to the creation of these inputs.
      */
     public signedTxRequest: SignedTxRequest,
+    /**
+     * Private calldata corresponding to this iteration of the kernel.
+     */
+    public privateCall: PrivateCallData,
+  ) {}
+
+  /**
+   * Serialize this as a buffer.
+   * @returns The buffer.
+   */
+  toBuffer() {
+    return serializeToBuffer(this.signedTxRequest, this.privateCall);
+  }
+}
+
+/**
+ * Input to the private kernel circuit - Inner call.
+ */
+export class PrivateKernelInputsInner {
+  constructor(
     /**
      * The previous kernel data (dummy if this is the first kernel).
      */
@@ -121,15 +141,6 @@ export class PrivateKernelInputs {
    * @returns The buffer.
    */
   toBuffer() {
-    return serializeToBuffer(this.signedTxRequest, this.previousKernel, this.privateCall);
+    return serializeToBuffer(this.previousKernel, this.privateCall);
   }
-}
-
-/**
- * Makes an empty proof.
- * Note: Used for local devnet milestone where we are not proving anything yet.
- * @returns The empty "proof".
- */
-export function makeEmptyProof(): UInt8Vector {
-  return new UInt8Vector(Buffer.alloc(0));
 }

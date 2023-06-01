@@ -2,6 +2,7 @@ import { PrimitivesWasm } from '@aztec/barretenberg.js/wasm';
 import {
   CONTRACT_TREE_HEIGHT,
   CONTRACT_TREE_ROOTS_TREE_HEIGHT,
+  Fr,
   L1_TO_L2_MESSAGES_ROOTS_TREE_HEIGHT,
   L1_TO_L2_MESSAGES_TREE_HEIGHT,
   NULLIFIER_TREE_HEIGHT,
@@ -9,7 +10,6 @@ import {
   PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT,
   PUBLIC_DATA_TREE_HEIGHT,
 } from '@aztec/circuits.js';
-
 import { WasmWrapper } from '@aztec/foundation/wasm';
 import {
   AppendOnlyTree,
@@ -25,7 +25,6 @@ import {
   newTree,
 } from '@aztec/merkle-tree';
 import { default as levelup } from 'levelup';
-import { MerkleTreeOperationsFacade } from '../merkle-tree/merkle_tree_operations_facade.js';
 import {
   INITIAL_NULLIFIER_TREE_SIZE,
   IndexedTreeId,
@@ -34,8 +33,10 @@ import {
   PublicTreeId,
   TreeInfo,
 } from './index.js';
-import { MerkleTreeId } from '@aztec/types';
+import { MerkleTreeOperationsFacade } from '../merkle-tree/merkle_tree_operations_facade.js';
+import { L2Block, MerkleTreeId } from '@aztec/types';
 import { SerialQueue } from '@aztec/foundation/fifo';
+import { createDebugLogger } from '@aztec/foundation/log';
 
 /**
  * A convenience class for managing multiple merkle trees.
@@ -44,7 +45,7 @@ export class MerkleTrees implements MerkleTreeDb {
   private trees: (AppendOnlyTree | UpdateOnlyTree)[] = [];
   private jobQueue = new SerialQueue();
 
-  constructor(private db: levelup.LevelUp) {}
+  constructor(private db: levelup.LevelUp, private log = createDebugLogger('aztec:merkle_trees')) {}
 
   /**
    * Initialises the collection of Merkle Trees.
@@ -212,7 +213,11 @@ export class MerkleTrees implements MerkleTreeDb {
    * @param includeUncommitted - Indicates whether the sibling path should incro include uncommitted data.
    * @returns The sibling path for the leaf.
    */
-  public async getSiblingPath(treeId: MerkleTreeId, index: bigint, includeUncommitted: boolean): Promise<SiblingPath> {
+  public async getSiblingPath<N extends number>(
+    treeId: MerkleTreeId,
+    index: bigint,
+    includeUncommitted: boolean,
+  ): Promise<SiblingPath<N>> {
     return await this.synchronise(() => this._getSiblingPath(treeId, index, includeUncommitted));
   }
 
@@ -317,11 +322,15 @@ export class MerkleTrees implements MerkleTreeDb {
    * @returns Empty promise.
    */
   public async updateLeaf(treeId: IndexedTreeId | PublicTreeId, leaf: LeafData | Buffer, index: bigint): Promise<void> {
-    const tree = this.trees[treeId];
-    if (!('updateLeaf' in tree)) {
-      throw new Error('Tree does not support `updateLeaf` method');
-    }
-    return await this.synchronise(() => tree.updateLeaf(leaf, index));
+    return await this.synchronise(() => this._updateLeaf(treeId, leaf, index));
+  }
+
+  /**
+   * Handles a single L2 block (i.e. Inserts the new commitments into the merkle tree).
+   * @param block - The L2 block to handle.
+   */
+  public async handleL2Block(block: L2Block): Promise<void> {
+    await this.synchronise(() => this._handleL2Block(block));
   }
 
   /**
@@ -330,21 +339,26 @@ export class MerkleTrees implements MerkleTreeDb {
    * @param leaves - Leaves to insert into the tree.
    * @param treeHeight - Height of the tree.
    * @param subtreeHeight - Height of the subtree.
-   * @param includeUncommitted - If true, the uncommitted changes are included in the search.
    * @returns The data for the leaves to be updated when inserting the new ones.
    */
-  public async batchInsert(
+  public async batchInsert<
+    TreeHeight extends number,
+    SubtreeHeight extends number,
+    SubtreeSiblingPathHeight extends number,
+  >(
     treeId: MerkleTreeId,
     leaves: Buffer[],
-    treeHeight: number,
-    subtreeHeight: number,
-    includeUncommitted: boolean,
-  ): Promise<[LowLeafWitnessData[], Buffer[]] | [undefined, Buffer[]]> {
+    treeHeight: TreeHeight,
+    subtreeHeight: SubtreeHeight,
+  ): Promise<
+    | [LowLeafWitnessData<TreeHeight>[], SiblingPath<SubtreeSiblingPathHeight>]
+    | [undefined, SiblingPath<SubtreeSiblingPathHeight>]
+  > {
     const tree = this.trees[treeId] as StandardIndexedTree;
     if (!('batchInsert' in tree)) {
       throw new Error('Tree does not support `batchInsert` method');
     }
-    return await this.synchronise(() => tree.batchInsert(leaves, treeHeight, subtreeHeight, includeUncommitted));
+    return await this.synchronise(() => tree.batchInsert(leaves, treeHeight, subtreeHeight));
   }
 
   /**
@@ -388,8 +402,12 @@ export class MerkleTrees implements MerkleTreeDb {
    * @param includeUncommitted - Indicates whether to include uncommitted updates in the sibling path.
    * @returns Promise containing the sibling path for the leaf.
    */
-  private _getSiblingPath(treeId: MerkleTreeId, index: bigint, includeUncommitted: boolean): Promise<SiblingPath> {
-    return Promise.resolve(this.trees[treeId].getSiblingPath(index, includeUncommitted));
+  private _getSiblingPath<N extends number>(
+    treeId: MerkleTreeId,
+    index: bigint,
+    includeUncommitted: boolean,
+  ): Promise<SiblingPath<N>> {
+    return Promise.resolve(this.trees[treeId].getSiblingPath<N>(index, includeUncommitted));
   }
 
   /**
@@ -404,6 +422,18 @@ export class MerkleTrees implements MerkleTreeDb {
       throw new Error('Tree does not support `appendLeaves` method');
     }
     return await tree.appendLeaves(leaves);
+  }
+
+  private async _updateLeaf(
+    treeId: IndexedTreeId | PublicTreeId,
+    leaf: LeafData | Buffer,
+    index: bigint,
+  ): Promise<void> {
+    const tree = this.trees[treeId];
+    if (!('updateLeaf' in tree)) {
+      throw new Error('Tree does not support `updateLeaf` method');
+    }
+    return await tree.updateLeaf(leaf, index);
   }
 
   /**
@@ -423,6 +453,69 @@ export class MerkleTrees implements MerkleTreeDb {
   private async _rollback(): Promise<void> {
     for (const tree of this.trees) {
       await tree.rollback();
+    }
+  }
+
+  /**
+   * Handles a single L2 block (i.e. Inserts the new commitments into the merkle tree).
+   * @param l2Block - The L2 block to handle.
+   */
+  private async _handleL2Block(l2Block: L2Block) {
+    const compareRoot = (root: Fr, treeId: MerkleTreeId) => {
+      const treeRoot = this.trees[treeId].getRoot(true);
+      return treeRoot.equals(root.toBuffer());
+    };
+    const rootChecks = [
+      compareRoot(l2Block.endContractTreeSnapshot.root, MerkleTreeId.CONTRACT_TREE),
+      compareRoot(l2Block.endNullifierTreeSnapshot.root, MerkleTreeId.NULLIFIER_TREE),
+      compareRoot(l2Block.endPrivateDataTreeSnapshot.root, MerkleTreeId.PRIVATE_DATA_TREE),
+      compareRoot(l2Block.endPublicDataTreeRoot, MerkleTreeId.PUBLIC_DATA_TREE),
+      compareRoot(l2Block.endTreeOfHistoricContractTreeRootsSnapshot.root, MerkleTreeId.CONTRACT_TREE_ROOTS_TREE),
+      compareRoot(
+        l2Block.endTreeOfHistoricPrivateDataTreeRootsSnapshot.root,
+        MerkleTreeId.PRIVATE_DATA_TREE_ROOTS_TREE,
+      ),
+      compareRoot(l2Block.endL1ToL2MessageTreeSnapshot.root, MerkleTreeId.L1_TO_L2_MESSAGES_TREE),
+      compareRoot(
+        l2Block.endTreeOfHistoricL1ToL2MessageTreeRootsSnapshot.root,
+        MerkleTreeId.L1_TO_L2_MESSAGES_ROOTS_TREE,
+      ),
+    ];
+    const ourBlock = rootChecks.every(x => x);
+    if (ourBlock) {
+      this.log(`Block ${l2Block.number} is ours, committing world state..`);
+      await this._commit();
+    } else {
+      this.log(`Block ${l2Block.number} is not ours, rolling back world state and committing state from chain..`);
+      await this._rollback();
+
+      for (const [tree, leaves] of [
+        [MerkleTreeId.CONTRACT_TREE, l2Block.newContracts],
+        [MerkleTreeId.NULLIFIER_TREE, l2Block.newNullifiers],
+        [MerkleTreeId.PRIVATE_DATA_TREE, l2Block.newCommitments],
+        [MerkleTreeId.L1_TO_L2_MESSAGES_TREE, l2Block.newL1ToL2Messages],
+      ] as const) {
+        await this._appendLeaves(
+          tree,
+          leaves.map(fr => fr.toBuffer()),
+        );
+      }
+
+      for (const dataWrite of l2Block.newPublicDataWrites) {
+        if (dataWrite.isEmpty()) continue;
+        const { newValue, leafIndex } = dataWrite;
+        await this._updateLeaf(MerkleTreeId.PUBLIC_DATA_TREE, newValue.toBuffer(), leafIndex.value);
+      }
+
+      for (const [newTree, rootTree] of [
+        [MerkleTreeId.PRIVATE_DATA_TREE, MerkleTreeId.PRIVATE_DATA_TREE_ROOTS_TREE],
+        [MerkleTreeId.CONTRACT_TREE, MerkleTreeId.CONTRACT_TREE_ROOTS_TREE],
+        [MerkleTreeId.L1_TO_L2_MESSAGES_TREE, MerkleTreeId.L1_TO_L2_MESSAGES_ROOTS_TREE],
+      ] as const) {
+        const newTreeRoot = this.trees[newTree].getRoot(true);
+        await this._appendLeaves(rootTree, [newTreeRoot]);
+      }
+      await this._commit();
     }
   }
 }

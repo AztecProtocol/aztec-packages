@@ -8,17 +8,16 @@
 #include "aztec3/circuits/abis/signed_tx_request.hpp"
 #include "aztec3/utils/dummy_composer.hpp"
 #include <aztec3/circuits/abis/kernel_circuit_public_inputs.hpp>
-#include <aztec3/circuits/abis/private_kernel/private_inputs.hpp>
 #include <aztec3/circuits/mock/mock_kernel_circuit.hpp>
 #include <aztec3/constants.hpp>
 #include <aztec3/utils/types/native_types.hpp>
 
 #include "barretenberg/common/serialize.hpp"
-#include "barretenberg/plonk/composer/turbo_composer.hpp"
+#include "barretenberg/plonk/composer/turbo_plonk_composer.hpp"
 #include "barretenberg/srs/reference_string/env_reference_string.hpp"
 
 namespace {
-using Composer = plonk::UltraComposer;
+using Composer = plonk::UltraPlonkComposer;
 using NT = aztec3::utils::types::NativeTypes;
 using DummyComposer = aztec3::utils::DummyComposer;
 using aztec3::circuits::abis::BaseOrMergeRollupPublicInputs;

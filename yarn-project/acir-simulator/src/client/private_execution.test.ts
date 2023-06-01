@@ -187,11 +187,10 @@ describe('Private Execution test suite', () => {
           notes: await Promise.all(
             preimages.map(async (preimage, index) => ({
               preimage,
-              membershipWitness: new MembershipWitness(
-                PRIVATE_DATA_TREE_HEIGHT, // pathSize
+              membershipWitness: MembershipWitness.fromSiblingPath(
                 BigInt(index), // leafIndex
-                (await tree.getSiblingPath(BigInt(index), false)).data.map(buf => Fr.fromBuffer(buf)), // siblingPath
-              ),
+                await tree.getSiblingPath(BigInt(index), false), // siblingPath
+              )
             })),
           ),
         };
@@ -265,10 +264,9 @@ describe('Private Execution test suite', () => {
           notes: await Promise.all(
             preimages.map(async (preimage, index) => ({
               preimage,
-              membershipWitness: new MembershipWitness(
-                PRIVATE_DATA_TREE_HEIGHT, // pathSize
+              membershipWitness: MembershipWitness.fromSiblingPath(
                 BigInt(index), // leafIndex
-                (await tree.getSiblingPath(BigInt(index), false)).data.map(buf => Fr.fromBuffer(buf)), // siblingPath
+                await tree.getSiblingPath(BigInt(index), false), // siblingPath
               ),
             })),
           ),
@@ -336,7 +334,7 @@ describe('Private Execution test suite', () => {
         AztecAddress.random(),
         AztecAddress.ZERO,
         new FunctionData(Buffer.alloc(4), true, false),
-        encodeArguments(parentAbi, [Fr.fromBuffer(childAddress.toBuffer()).value, Fr.fromBuffer(childSelector).value]),
+        encodeArguments(parentAbi, [Fr.fromBuffer(childAddress.toBuffer()), Fr.fromBuffer(childSelector)]),
         Fr.random(),
         txContext,
         Fr.ZERO,
@@ -364,16 +362,16 @@ describe('Private Execution test suite', () => {
     let recipientPk: Buffer;
     let recipient: NoirPoint;
 
-    const buildL1ToL2Message = async (content: Fr[], targetContract: AztecAddress, secret: Fr) => {
+    const buildL1ToL2Message = async (contentPreimage: Fr[], targetContract: AztecAddress, secret: Fr) => {
       const wasm = await CircuitsWasm.get();
 
       // Function selector: 0x1801fbe5 keccak256('mint(uint256,bytes32)')
       const contentBuf = Buffer.concat([
         Buffer.from([0x18, 0x01, 0xfb, 0xe5]),
-        ...content.map(field => field.toBuffer()),
+        ...contentPreimage.map(field => field.toBuffer()),
       ]);
       const temp = toBigIntBE(sha256(contentBuf));
-      const contentHash = Fr.fromBuffer(toBufferBE(temp % Fr.MODULUS, 32));
+      const content = Fr.fromBuffer(toBufferBE(temp % Fr.MODULUS, 32));
 
       const secretHash = computeSecretMessageHash(wasm, secret);
 
@@ -382,7 +380,7 @@ describe('Private Execution test suite', () => {
       return new L1ToL2Message(
         new L1Actor(EthAddress.random(), 1),
         new L2Actor(targetContract, 1),
-        contentHash,
+        content,
         secretHash,
         0,
         0,
@@ -426,7 +424,7 @@ describe('Private Execution test suite', () => {
         return Promise.resolve({
           message: preimage.toFieldArray(),
           index: 0n,
-          siblingPath: (await tree.getSiblingPath(0n, false)).data.map(buf => Fr.fromBuffer(buf)),
+          siblingPath: (await tree.getSiblingPath(0n, false)).toFieldArray(),
         });
       });
 
@@ -434,8 +432,7 @@ describe('Private Execution test suite', () => {
         AztecAddress.random(),
         contractAddress,
         new FunctionData(Buffer.alloc(4), true, true),
-        // BUG: placing a fr in args will result in a fr wrapped in an fr:  https://github.com/AztecProtocol/aztec-packages/issues/611
-        encodeArguments(abi, [bridgedAmount, recipient, messageKey.value, secret.value]),
+        encodeArguments(abi, [bridgedAmount, recipient, messageKey, secret]),
         Fr.random(),
         txContext,
         Fr.ZERO,
@@ -466,11 +463,7 @@ describe('Private Execution test suite', () => {
         AztecAddress.random(),
         parentAddress,
         new FunctionData(Buffer.alloc(4), true, false),
-        encodeArguments(parentAbi, [
-          Fr.fromBuffer(childAddress.toBuffer()).value,
-          Fr.fromBuffer(childSelector).value,
-          42n,
-        ]),
+        encodeArguments(parentAbi, [Fr.fromBuffer(childAddress.toBuffer()), Fr.fromBuffer(childSelector), 42n]),
         Fr.random(),
         txContext,
         Fr.ZERO,

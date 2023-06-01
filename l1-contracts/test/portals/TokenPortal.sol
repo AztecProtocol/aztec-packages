@@ -6,9 +6,8 @@ import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
 // Messaging
 import {IRegistry} from "@aztec/core/interfaces/messagebridge/IRegistry.sol";
 import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
-import {IMessageBox} from "@aztec/core/interfaces/messagebridge/IMessageBox.sol";
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
-import {Constants} from "@aztec/core/libraries/Constants.sol";
+import {Hash} from "@aztec/core/libraries/Hash.sol";
 
 contract TokenPortal {
   using SafeERC20 for IERC20;
@@ -37,17 +36,42 @@ contract TokenPortal {
     returns (bytes32)
   {
     // Preamble
+    // @todo: (issue #624) handle different versions
     IInbox inbox = registry.getInbox();
     DataStructures.L2Actor memory actor = DataStructures.L2Actor(l2TokenAddress, 1);
 
     // Hash the message content to be reconstructed in the receiving contract
-    bytes memory content = abi.encodeWithSignature("mint(uint256,bytes32)", _amount, _to);
-    bytes32 contentHash = bytes32(uint256(sha256(content)) % Constants.P);
+    bytes32 contentHash =
+      Hash.sha256ToField(abi.encodeWithSignature("mint(uint256,bytes32)", _amount, _to));
 
     // Hold the tokens in the portal
     underlying.safeTransferFrom(msg.sender, address(this), _amount);
 
     // Send message to rollup
     return inbox.sendL2Message{value: msg.value}(actor, _deadline, contentHash, _secretHash);
+  }
+
+  /**
+   * @notice Withdraw funds from the portal
+   * @dev Second part of withdraw, must be initiated from L2 first as it will consume a message from outbox
+   * @param _amount - The amount to withdraw
+   * @param _recipient - The address to send the funds to
+   * @return The key of the entry in the Outbox
+   */
+  function withdraw(uint256 _amount, address _recipient) external returns (bytes32) {
+    DataStructures.L2ToL1Msg memory message = DataStructures.L2ToL1Msg({
+      sender: DataStructures.L2Actor(l2TokenAddress, 1),
+      recipient: DataStructures.L1Actor(address(this), block.chainid),
+      content: Hash.sha256ToField(
+        abi.encodeWithSignature("withdraw(uint256,address)", _amount, _recipient)
+        )
+    });
+
+    // @todo: (issue #624) handle different versions
+    bytes32 entryKey = registry.getOutbox().consume(message);
+
+    underlying.transfer(_recipient, _amount);
+
+    return entryKey;
   }
 }

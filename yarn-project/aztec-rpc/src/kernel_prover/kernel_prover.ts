@@ -13,12 +13,12 @@ import {
   VK_TREE_HEIGHT,
   VerificationKey,
   makeEmptyProof,
+  AztecAddress,
+  Fr,
 } from '@aztec/circuits.js';
-
-import { KernelProofCreator, ProofCreator, ProofOutput } from './proof_creator.js';
+import { assertLength } from '@aztec/foundation/serialize';
+import { ProofOutput, ProofCreator, KernelProofCreator } from './proof_creator.js';
 import { ProvingDataOracle } from './proving_data_oracle.js';
-import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { Fr } from '@aztec/foundation/fields';
 
 /**
  * Represents an output note data object.
@@ -87,17 +87,6 @@ export class KernelProver {
       proof: makeEmptyProof(),
     };
     while (executionStack.length) {
-      const previousVkMembershipWitness = firstIteration
-        ? MembershipWitness.random(VK_TREE_HEIGHT)
-        : await this.oracle.getVkMembershipWitness(previousVerificationKey);
-      const previousKernelData = new PreviousKernelData(
-        output.publicInputs,
-        output.proof,
-        previousVerificationKey,
-        Number(previousVkMembershipWitness.leafIndex),
-        previousVkMembershipWitness.siblingPath,
-      );
-
       const currentExecution = executionStack.pop()!;
       executionStack.push(...currentExecution.nestedExecutions);
       const privateCallStackPreimages = currentExecution.nestedExecutions.map(result => result.callStackItem);
@@ -114,12 +103,19 @@ export class KernelProver {
 
       const privateCallData = await this.createPrivateCallData(currentExecution, privateCallStackPreimages);
 
-      output = await this.proofCreator.createProof(
-        signedTxRequest,
-        previousKernelData,
-        privateCallData,
-        firstIteration,
-      );
+      if (firstIteration) {
+        output = await this.proofCreator.createProofInit(signedTxRequest, privateCallData);
+      } else {
+        const previousVkMembershipWitness = await this.oracle.getVkMembershipWitness(previousVerificationKey);
+        const previousKernelData = new PreviousKernelData(
+          output.publicInputs,
+          output.proof,
+          previousVerificationKey,
+          Number(previousVkMembershipWitness.leafIndex),
+          assertLength<Fr, typeof VK_TREE_HEIGHT>(previousVkMembershipWitness.siblingPath, VK_TREE_HEIGHT),
+        );
+        output = await this.proofCreator.createProofInner(previousKernelData, privateCallData);
+      }
       (await this.getNewNotes(currentExecution)).forEach(n => {
         newNotes[n.commitment.toString()] = n;
       });
@@ -147,7 +143,7 @@ export class KernelProver {
 
     const functionLeafMembershipWitness = await this.oracle.getFunctionMembershipWitness(
       contractAddress,
-      functionData.functionSelector,
+      functionData.functionSelectorBuffer,
     );
 
     // TODO

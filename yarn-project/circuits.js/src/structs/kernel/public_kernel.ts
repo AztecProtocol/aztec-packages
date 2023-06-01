@@ -1,5 +1,5 @@
 import { Fr } from '@aztec/foundation/fields';
-import { assertLength } from '../../utils/jsUtils.js';
+import { assertMemberLength } from '../../utils/jsUtils.js';
 import { serializeToBuffer } from '../../utils/serialize.js';
 import { PublicCallStackItem } from '../call_stack_item.js';
 import {
@@ -9,10 +9,11 @@ import {
   KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH,
 } from '../constants.js';
 import { MembershipWitness } from '../membership_witness.js';
-import { UInt8Vector } from '../shared.js';
 import { SignedTxRequest } from '../tx_request.js';
 import { PreviousKernelData } from './previous_kernel_data.js';
 import { CombinedHistoricTreeRoots } from './combined_constant_data.js';
+import { Proof } from '../proof.js';
+import { Tuple } from '@aztec/foundation/serialize';
 
 /**
  * Inputs to the public kernel circuit.
@@ -27,11 +28,11 @@ export class PublicKernelInputs {
     /**
      * Public calldata assembled from the execution result and proof.
      */
-    public readonly publicCallData: PublicCallData,
+    public readonly publicCall: PublicCallData,
   ) {}
 
   toBuffer() {
-    return serializeToBuffer(this.previousKernel, this.publicCallData);
+    return serializeToBuffer(this.previousKernel, this.publicCall);
   }
 }
 /**
@@ -86,8 +87,8 @@ export class WitnessedPublicCallData {
      */
     public readonly publicDataTreeRoot: Fr,
   ) {
-    assertLength(this, 'updateRequestsHashPaths', KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH);
-    assertLength(this, 'readsHashPaths', KERNEL_PUBLIC_DATA_READS_LENGTH);
+    assertMemberLength(this, 'updateRequestsHashPaths', KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH);
+    assertMemberLength(this, 'readsHashPaths', KERNEL_PUBLIC_DATA_READS_LENGTH);
   }
 
   toBuffer() {
@@ -112,11 +113,11 @@ export class PublicCallData {
     /**
      * Children call stack items.
      */
-    public readonly publicCallStackPreimages: PublicCallStackItem[],
+    public readonly publicCallStackPreimages: Tuple<PublicCallStackItem, typeof PUBLIC_CALL_STACK_LENGTH>,
     /**
      * Proof of the call stack item execution.
      */
-    public readonly proof: UInt8Vector,
+    public readonly proof: Proof,
     /**
      * Address of the corresponding portal contract.
      */
@@ -126,7 +127,7 @@ export class PublicCallData {
      */
     public readonly bytecodeHash: Fr,
   ) {
-    assertLength(this, 'publicCallStackPreimages', PUBLIC_CALL_STACK_LENGTH);
+    assertMemberLength(this, 'publicCallStackPreimages', PUBLIC_CALL_STACK_LENGTH);
   }
 
   toBuffer() {

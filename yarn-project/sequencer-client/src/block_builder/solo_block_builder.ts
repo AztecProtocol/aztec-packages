@@ -13,33 +13,35 @@ import {
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   NullifierLeafPreimage,
   PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT,
-  PUBLIC_DATA_TREE_HEIGHT,
   PreviousKernelData,
   PreviousRollupData,
+  Proof,
   ROLLUP_VK_TREE_HEIGHT,
   RollupTypes,
   RootRollupInputs,
   RootRollupPublicInputs,
   VK_TREE_HEIGHT,
   VerificationKey,
+  makeTuple,
 } from '@aztec/circuits.js';
 import { computeContractLeaf } from '@aztec/circuits.js/abis';
-import { MerkleTreeId, ContractData, L2Block, PublicDataWrite } from '@aztec/types';
+import { MerkleTreeId, ContractData, L2Block, PublicDataWrite, UnverifiedData } from '@aztec/types';
 import { MerkleTreeOperations } from '@aztec/world-state';
 import chunk from 'lodash.chunk';
 import flatMap from 'lodash.flatmap';
-import times from 'lodash.times';
 import { VerificationKeys } from '../mocks/verification_keys.js';
-import { Proof, RollupProver } from '../prover/index.js';
+import { RollupProver } from '../prover/index.js';
 import { RollupSimulator } from '../simulator/index.js';
 
-import { ProcessedTx } from '../sequencer/processed_tx.js';
-import { BlockBuilder } from './index.js';
+import { toFriendlyJSON } from '@aztec/circuits.js/utils';
+import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
-import { toFriendlyJSON } from '@aztec/circuits.js/utils';
+import { assertLength } from '@aztec/foundation/serialize';
+import { ProcessedTx } from '../sequencer/processed_tx.js';
+import { BlockBuilder } from './index.js';
 import { AllowedTreeNames, OutputWithTreeSnapshot } from './types.js';
+import { padArrayEnd } from '@aztec/foundation/collection';
 
 const frToBigInt = (fr: Fr) => toBigIntBE(fr.toBuffer());
 const bigintToFr = (num: bigint) => new Fr(num);
@@ -129,6 +131,16 @@ export class SoloBlockBuilder implements BlockBuilder {
     );
     const newL2ToL1Msgs = flatMap(txs, tx => tx.data.end.newL2ToL1Msgs);
 
+    // Consolidate logs data from all txs
+    const encryptedLogsArr: UnverifiedData[] = [];
+    for (const tx of txs) {
+      if (tx.unverifiedData) {
+        encryptedLogsArr.push(tx.unverifiedData);
+      }
+    }
+    const newEncryptedLogs = UnverifiedData.join(encryptedLogsArr);
+    const newEncryptedLogsLength = newEncryptedLogs.toBuffer().length;
+
     const l2Block = L2Block.fromFields({
       number: blockNumber,
       startPrivateDataTreeSnapshot,
@@ -154,6 +166,8 @@ export class SoloBlockBuilder implements BlockBuilder {
       newContractData,
       newPublicDataWrites,
       newL1ToL2Messages,
+      newEncryptedLogs,
+      newEncryptedLogsLength,
     });
 
     if (!l2Block.getCalldataHash().equals(circuitsOutput.sha256CalldataHash())) {
@@ -194,12 +208,8 @@ export class SoloBlockBuilder implements BlockBuilder {
       throw new Error(`Length of txs for the block should be a power of two and at least four (got ${txs.length})`);
     }
 
-    // Check that the number of new L1 to L2 messages is the same as the max
-    if (newL1ToL2Messages.length !== NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP) {
-      throw new Error(
-        `Length of the l1 to l2 messages per block should be a constant ${NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP} (got ${newL1ToL2Messages.length})`,
-      );
-    }
+    // padArrayEnd throws if the array is already full. Otherwise it pads till we reach the required size
+    newL1ToL2Messages = padArrayEnd(newL1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
 
     // Run the base rollup circuits for the txs
     const baseRollupOutputs: [BaseOrMergeRollupPublicInputs, Proof][] = [];
@@ -392,7 +402,7 @@ export class SoloBlockBuilder implements BlockBuilder {
       const { size } = await this.db.getTreeInfo(treeId);
       // TODO: Check for off-by-one errors
       const path = await this.db.getSiblingPath(treeId, size);
-      return path.data.map(b => Fr.fromBuffer(b));
+      return path.toFieldArray();
     };
 
     const newHistoricContractDataTreeRootSiblingPath = await getRootTreeSiblingPath(
@@ -439,7 +449,11 @@ export class SoloBlockBuilder implements BlockBuilder {
 
       // MembershipWitness for a VK tree to be implemented in the future
       FUTURE_NUM,
-      new MembershipWitness(ROLLUP_VK_TREE_HEIGHT, BigInt(FUTURE_NUM), Array(ROLLUP_VK_TREE_HEIGHT).fill(FUTURE_FR)),
+      new MembershipWitness(
+        ROLLUP_VK_TREE_HEIGHT,
+        BigInt(FUTURE_NUM),
+        makeTuple(ROLLUP_VK_TREE_HEIGHT, () => FUTURE_FR),
+      ),
     );
   }
 
@@ -453,7 +467,7 @@ export class SoloBlockBuilder implements BlockBuilder {
 
       // MembershipWitness for a VK tree to be implemented in the future
       FUTURE_NUM,
-      Array(VK_TREE_HEIGHT).fill(FUTURE_FR),
+      assertLength(Array(VK_TREE_HEIGHT).fill(FUTURE_FR), VK_TREE_HEIGHT),
     );
   }
 
@@ -464,19 +478,14 @@ export class SoloBlockBuilder implements BlockBuilder {
     height: N,
   ): Promise<MembershipWitness<N>> {
     // If this is an empty tx, then just return zeroes
-    if (value.value === 0n) return this.makeEmptyMembershipWitness(height);
+    if (value.isZero()) return this.makeEmptyMembershipWitness(height);
 
     const index = await this.db.findLeafIndex(treeId, value.toBuffer());
     if (index === undefined) {
-      throw new Error(`Leaf with value ${value} not found in tree ${treeId}`);
+      throw new Error(`Leaf with value ${value} not found in tree ${MerkleTreeId[treeId]}`);
     }
     const path = await this.db.getSiblingPath(treeId, index);
-    // TODO: Check conversion from bigint to number
-    return new MembershipWitness(
-      height,
-      index,
-      path.data.map(b => Fr.fromBuffer(b)),
-    );
+    return new MembershipWitness(height, index, assertLength(path.toFieldArray(), height));
   }
 
   protected getContractMembershipWitnessFor(tx: ProcessedTx) {
@@ -545,7 +554,7 @@ export class SoloBlockBuilder implements BlockBuilder {
       witness: new MembershipWitness(
         NULLIFIER_TREE_HEIGHT,
         BigInt(prevValueIndex.index),
-        prevValueSiblingPath.data.map(b => Fr.fromBuffer(b)),
+        assertLength(prevValueSiblingPath.toFieldArray(), NULLIFIER_TREE_HEIGHT),
       ),
     };
   }
@@ -555,28 +564,26 @@ export class SoloBlockBuilder implements BlockBuilder {
     const fullSiblingPath = await this.db.getSiblingPath(treeId, nextAvailableLeafIndex);
 
     // Drop the first subtreeHeight items since we only care about the path to the subtree root
-    return fullSiblingPath.data.slice(subtreeHeight).map(b => Fr.fromBuffer(b));
+    return fullSiblingPath.getSubtreeSiblingPath(subtreeHeight).toFieldArray();
   }
 
   protected async processPublicDataUpdateRequests(tx: ProcessedTx) {
-    const newPublicDataUpdateRequestsSiblingPaths: MembershipWitness<typeof PUBLIC_DATA_TREE_HEIGHT>[] = [];
+    const newPublicDataUpdateRequestsSiblingPaths: Fr[][] = [];
     for (const publicDataUpdateRequest of tx.data.end.publicDataUpdateRequests) {
       const index = publicDataUpdateRequest.leafIndex.value;
       const path = await this.db.getSiblingPath(MerkleTreeId.PUBLIC_DATA_TREE, index);
       await this.db.updateLeaf(MerkleTreeId.PUBLIC_DATA_TREE, publicDataUpdateRequest.newValue.toBuffer(), index);
-      const witness = new MembershipWitness(PUBLIC_DATA_TREE_HEIGHT, index, path.data.map(Fr.fromBuffer));
-      newPublicDataUpdateRequestsSiblingPaths.push(witness);
+      newPublicDataUpdateRequestsSiblingPaths.push(path.toFieldArray());
     }
     return newPublicDataUpdateRequestsSiblingPaths;
   }
 
   protected async getPublicDataReadsSiblingPaths(tx: ProcessedTx) {
-    const newPublicDataReadsSiblingPaths: MembershipWitness<typeof PUBLIC_DATA_TREE_HEIGHT>[] = [];
+    const newPublicDataReadsSiblingPaths: Fr[][] = [];
     for (const publicDataRead of tx.data.end.publicDataReads) {
       const index = publicDataRead.leafIndex.value;
       const path = await this.db.getSiblingPath(MerkleTreeId.PUBLIC_DATA_TREE, index);
-      const witness = new MembershipWitness(PUBLIC_DATA_TREE_HEIGHT, index, path.data.map(Fr.fromBuffer));
-      newPublicDataReadsSiblingPaths.push(witness);
+      newPublicDataReadsSiblingPaths.push(path.toFieldArray());
     }
     return newPublicDataReadsSiblingPaths;
   }
@@ -645,9 +652,10 @@ export class SoloBlockBuilder implements BlockBuilder {
     }
 
     // Extract witness objects from returned data
-    const lowNullifierMembershipWitnesses = nullifierWitnessLeaves.map(l =>
-      MembershipWitness.fromBufferArray(l.index, l.siblingPath.data),
-    );
+    const lowNullifierMembershipWitnesses: MembershipWitness<typeof NULLIFIER_TREE_HEIGHT>[] =
+      nullifierWitnessLeaves.map(l =>
+        MembershipWitness.fromBufferArray(l.index, assertLength(l.siblingPath.toBufferArray(), NULLIFIER_TREE_HEIGHT)),
+      );
 
     return BaseRollupInputs.from({
       constants,
@@ -657,7 +665,7 @@ export class SoloBlockBuilder implements BlockBuilder {
       startPublicDataTreeRoot: startPublicDataTreeSnapshot.root,
       newCommitmentsSubtreeSiblingPath,
       newContractsSubtreeSiblingPath,
-      newNullifiersSubtreeSiblingPath: newNullifiersSubtreeSiblingPath.map(b => Fr.fromBuffer(b)),
+      newNullifiersSubtreeSiblingPath: newNullifiersSubtreeSiblingPath.toFieldArray(),
       newPublicDataUpdateRequestsSiblingPaths,
       newPublicDataReadsSiblingPaths,
       lowNullifierLeafPreimages: nullifierWitnessLeaves.map(
@@ -685,7 +693,7 @@ export class SoloBlockBuilder implements BlockBuilder {
     return new MembershipWitness(
       height,
       0n,
-      times(height, () => new Fr(0n)),
+      makeTuple(height, () => Fr.ZERO),
     );
   }
 }

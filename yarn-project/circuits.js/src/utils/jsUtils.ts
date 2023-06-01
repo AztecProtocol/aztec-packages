@@ -1,3 +1,5 @@
+import { Tuple } from '@aztec/foundation/serialize';
+
 /**
  * Create an array over an integer range.
  * @param n - The number of integers.
@@ -13,12 +15,23 @@ export function range(n: number, offset = 0) {
 }
 
 /**
+ * Create an array over an integer range, filled with a function 'fn'.
+ * This is used over e.g. lodash because it resolved to a tuple type, needed for our fixed array type safety.
+ * @param n - The number of integers.
+ * @param fn - The generator function.
+ * @returns The array of numbers.
+ */
+export function makeTuple<T, N extends number>(length: N, fn: (i: number) => T, offset = 0) {
+  return Array.from({ length }, (v: any, i: number) => fn(i + offset)) as Tuple<T, N>;
+}
+
+/**
  * Assert a member of an object is a certain length.
  * @param obj - An object.
  * @param member - A member string.
  * @param length - The length.
  */
-export function assertLength<
+export function assertMemberLength<
   F extends string,
   T extends {
     [f in F]: {
@@ -30,7 +43,32 @@ export function assertLength<
   },
 >(obj: T, member: F, length: number) {
   if (obj[member].length !== length) {
-    throw new Error(`Expected ${member} to have length ${length}! Was: ${obj[member].length}`);
+    throw new Error(`Expected ${member} to have length ${length} but was ${obj[member].length}`);
+  }
+}
+
+/**
+ * Assert all subarrays in a member of an object are a certain length.
+ * @param obj - An object.
+ * @param member - A member string.
+ * @param length - The expected length for each subarray.
+ */
+export function assertItemsLength<
+  F extends string,
+  T extends {
+    [f in F]: {
+      /**
+       * A property which the tested member of the object T has to have.
+       */
+      length: number;
+    }[];
+  },
+>(obj: T, member: F, length: number) {
+  const arrs = obj[member];
+  for (let i = 0; i < arrs.length; i++) {
+    if (arrs[i].length !== length) {
+      throw new Error(`Expected ${member}[${i}] to have length ${length} but was ${arrs[i].length}`);
+    }
   }
 }
 

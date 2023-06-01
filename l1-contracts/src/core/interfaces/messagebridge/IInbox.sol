@@ -3,14 +3,13 @@
 pragma solidity >=0.8.18;
 
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
-import {IMessageBox} from "@aztec/core/interfaces/messagebridge/IMessageBox.sol";
 
 /**
  * @title Inbox
  * @author Aztec Labs
  * @notice Lives on L1 and is used to pass messages into the rollup, e.g., L1 -> L2 messages.
  */
-interface IInbox is IMessageBox {
+interface IInbox {
   event MessageAdded(
     bytes32 indexed entryKey,
     address indexed sender,
@@ -19,13 +18,11 @@ interface IInbox is IMessageBox {
     uint256 recipientVersion,
     uint32 deadline,
     uint64 fee,
-    bytes32 content
+    bytes32 content,
+    bytes32 secretHash
   );
 
   event L1ToL2MessageCancelled(bytes32 indexed entryKey);
-
-  /// @notice Given a message, computes an entry key for the Inbox
-  function computeEntryKey(DataStructures.L1ToL2Msg memory message) external pure returns (bytes32);
 
   /**
    * @notice Inserts an entry into the Inbox
@@ -61,13 +58,33 @@ interface IInbox is IMessageBox {
    * @notice Batch consumes entries from the Inbox
    * @dev Only callable by the rollup contract
    * @dev Will revert if the message is already past deadline
-   * @param entryKeys - Array of entry keys (hash of the messages)
+   * @param _entryKeys - Array of entry keys (hash of the messages)
    * @param _feeCollector - The address to receive the "fee"
    */
-  function batchConsume(bytes32[] memory entryKeys, address _feeCollector) external;
+  function batchConsume(bytes32[] memory _entryKeys, address _feeCollector) external;
 
   /**
    * @notice Withdraws fees accrued by the sequencer
    */
   function withdrawFees() external;
+
+  /**
+   * @notice Fetch an entry
+   * @param _entryKey - The key to lookup
+   * @return The entry matching the provided key
+   */
+  function get(bytes32 _entryKey) external view returns (DataStructures.Entry memory);
+
+  /**
+   * @notice Check if entry exists
+   * @param _entryKey - The key to lookup
+   * @return True if entry exists, false otherwise
+   */
+  function contains(bytes32 _entryKey) external view returns (bool);
+
+  /// @notice Given a message, computes an entry key for the Inbox
+  function computeEntryKey(DataStructures.L1ToL2Msg memory _message)
+    external
+    pure
+    returns (bytes32);
 }

@@ -2,21 +2,22 @@ import { pedersenCompressWithHashIndex } from '@aztec/barretenberg.js/crypto';
 import { BarretenbergWasm } from '@aztec/barretenberg.js/wasm';
 import {
   CircuitsWasm,
+  KernelCircuitPublicInputs,
   PreviousKernelData,
   PrivateCallData,
   PrivateCircuitPublicInputs,
-  KernelCircuitPublicInputs,
+  Proof,
   SignedTxRequest,
-  UInt8Vector,
   makeEmptyProof,
-  privateKernelSim,
+  privateKernelSimInner,
+  privateKernelSimInit,
 } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 
 /**
  * Represents the output of the proof creation process.
- * Contains the public inputs required for the kernel circuit and the generated proof as a UInt8Vector.
+ * Contains the public inputs required for the kernel circuit and the generated proof.
  */
 export interface ProofOutput {
   /**
@@ -26,7 +27,7 @@ export interface ProofOutput {
   /**
    * The zk-SNARK proof for the kernel execution.
    */
-  proof: UInt8Vector;
+  proof: Proof;
 }
 
 /**
@@ -35,12 +36,8 @@ export interface ProofOutput {
  */
 export interface ProofCreator {
   getSiloedCommitments(publicInputs: PrivateCircuitPublicInputs): Promise<Fr[]>;
-  createProof(
-    signedTxRequest: SignedTxRequest,
-    previousKernelData: PreviousKernelData,
-    privateCallData: PrivateCallData,
-    firstIteration: boolean,
-  ): Promise<ProofOutput>;
+  createProofInit(signedTxRequest: SignedTxRequest, privateCallData: PrivateCallData): Promise<ProofOutput>;
+  createProofInner(previousKernelData: PreviousKernelData, privateCallData: PrivateCallData): Promise<ProofOutput>;
 }
 
 const OUTER_COMMITMENT = 3;
@@ -73,29 +70,44 @@ export class KernelProofCreator {
   }
 
   /**
-   * Creates a proof output for a given signed transaction request, previous kernel data, private call data, and first iteration flag.
+   * Creates a proof output for a given signed transaction request and private call data for the first iteration.
    *
    * @param signedTxRequest - The signed transaction request object.
-   * @param previousKernelData - The previous kernel data object.
    * @param privateCallData - The private call data object.
-   * @param firstIteration - A boolean flag indicating if it's the first iteration of the kernel proof creation process.
    * @returns A Promise resolving to a ProofOutput object containing public inputs and the kernel proof.
    */
-  public async createProof(
+  public async createProofInit(
     signedTxRequest: SignedTxRequest,
-    previousKernelData: PreviousKernelData,
     privateCallData: PrivateCallData,
-    firstIteration: boolean,
   ): Promise<ProofOutput> {
     const wasm = await CircuitsWasm.get();
-    this.log('Executing private kernel simulation...');
-    const publicInputs = await privateKernelSim(
-      wasm,
-      signedTxRequest,
-      previousKernelData,
-      privateCallData,
-      firstIteration,
-    );
+    this.log('Executing private kernel simulation init...');
+    const publicInputs = await privateKernelSimInit(wasm, signedTxRequest, privateCallData);
+    this.log('Skipping private kernel proving...');
+    // TODO
+    const proof = makeEmptyProof();
+    this.log('Kernel Prover Completed!');
+
+    return {
+      publicInputs,
+      proof,
+    };
+  }
+
+  /**
+   * Creates a proof output for a given previous kernel data and private call data for an inner iteration.
+   *
+   * @param previousKernelData - The previous kernel data object.
+   * @param privateCallData - The private call data object.
+   * @returns A Promise resolving to a ProofOutput object containing public inputs and the kernel proof.
+   */
+  public async createProofInner(
+    previousKernelData: PreviousKernelData,
+    privateCallData: PrivateCallData,
+  ): Promise<ProofOutput> {
+    const wasm = await CircuitsWasm.get();
+    this.log('Executing private kernel simulation inner...');
+    const publicInputs = await privateKernelSimInner(wasm, previousKernelData, privateCallData);
     this.log('Skipping private kernel proving...');
     // TODO
     const proof = makeEmptyProof();
