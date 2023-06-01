@@ -199,7 +199,7 @@ contract DecoderTest is Test {
   }
 
   // Tests https://github.com/AztecProtocol/aztec-packages/issues/730 is handled correctly
-  function testLogsDontGetInterpretedAdMessages() public {
+  function testLogsDontGetInterpretedAsMessages() public {
     (,,,,, bytes32[] memory l1ToL2Msgs) = helper.decode(block_with_no_l1_l2_msgs_and_with_logs);
 
     // Check all l1ToL2Msgs are empty
