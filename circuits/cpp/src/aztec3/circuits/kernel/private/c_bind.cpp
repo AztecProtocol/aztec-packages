@@ -66,7 +66,6 @@ CBIND(private_kernel__dummy_previous_kernel, []() { return dummy_previous_kernel
 // TODO(dbanks12): comment about how public_inputs is a confusing name
 // returns size of public inputs
 WASM_EXPORT uint8_t* private_kernel__sim_init(uint8_t const* signed_tx_request_buf,
-                                              uint8_t const* previous_kernel_buf,
                                               uint8_t const* private_call_buf,
                                               size_t* private_kernel_public_inputs_size_out,
                                               uint8_t const** private_kernel_public_inputs_buf)
@@ -78,9 +77,6 @@ WASM_EXPORT uint8_t* private_kernel__sim_init(uint8_t const* signed_tx_request_b
 
     SignedTxRequest<NT> signed_tx_request;
     read(signed_tx_request_buf, signed_tx_request);
-
-    // Assert that previous_kernel_buf is empty (i.e. nullptr)
-    ASSERT(previous_kernel_buf == nullptr);
 
     PrivateKernelInputsInit<NT> const private_inputs = PrivateKernelInputsInit<NT>{
         .signed_tx_request = signed_tx_request,

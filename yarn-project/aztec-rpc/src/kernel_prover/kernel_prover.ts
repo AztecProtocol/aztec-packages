@@ -114,12 +114,17 @@ export class KernelProver {
 
       const privateCallData = await this.createPrivateCallData(currentExecution, privateCallStackPreimages);
 
-      output = await this.proofCreator.createProof(
-        signedTxRequest,
-        previousKernelData,
-        privateCallData,
-        firstIteration,
-      );
+      if (firstIteration) {
+        output = await this.proofCreator.createProofInit(
+          signedTxRequest,
+          privateCallData,
+        );
+      } else {
+        output = await this.proofCreator.createProofInner(
+          previousKernelData,
+          privateCallData,
+        );
+      }
       (await this.getNewNotes(currentExecution)).forEach(n => {
         newNotes[n.commitment.toString()] = n;
       });

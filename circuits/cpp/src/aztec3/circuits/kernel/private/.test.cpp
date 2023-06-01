@@ -652,7 +652,6 @@ TEST(private_kernel_tests, circuit_create_proof_cbinds)
     size_t public_inputs_size = 0;
     // info("Simulating to generate public inputs...");
     uint8_t* const circuit_failure_ptr = private_kernel__sim_init(signed_constructor_tx_request_vec.data(),
-                                                                  nullptr,  // no previous kernel on first iteration
                                                                   private_constructor_call_vec.data(),
                                                                   &public_inputs_size,
                                                                   &public_inputs_buf);
