@@ -74,6 +74,8 @@ describe('Kernel Prover', () => {
       args => args[1].callStackItem.functionData,
     );
 
+    expect(proofCreator.createProofInit).toHaveBeenCalledTimes(Math.min(1, fns.length));
+    expect(proofCreator.createProofInner).toHaveBeenCalledTimes(Math.max(0, fns.length - 1));
     expect(callStackItemsInit.concat(callStackItemsInner)).toEqual(fns);
     proofCreator.createProofInner.mockClear();
     proofCreator.createProofInit.mockClear();
