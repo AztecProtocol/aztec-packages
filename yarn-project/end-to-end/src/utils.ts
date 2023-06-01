@@ -4,8 +4,8 @@ import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { DeployL1Contracts, deployL1Contracts } from '@aztec/ethereum';
 import { mnemonicToAccount } from 'viem/accounts';
 import { MNEMONIC, localAnvil } from './fixtures.js';
-import { AztecAddress, AztecRPCServer, createAztecRPCServer } from '@aztec/aztec.js';
-import { Archiver } from '@aztec/archiver';
+import { AztecAddress, AztecRPCServer, Point, createAztecRPCServer } from '@aztec/aztec.js';
+import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
 
 /**
  * Sets up the environment for the end-to-end tests.
@@ -20,10 +20,6 @@ export async function setup(numberOfAccounts = 1): Promise<{
    * The Aztec RPC server.
    */
   aztecRpcServer: AztecRPCServer;
-  /**
-   * The archiver instance.
-   */
-  archiver: Archiver;
   /**
    * Return values from deployL1Contracts function.
    */
@@ -56,7 +52,6 @@ export async function setup(numberOfAccounts = 1): Promise<{
   config.unverifiedDataEmitterContract = deployL1ContractsValues.unverifiedDataEmitterAddress;
   config.inboxContract = deployL1ContractsValues.inboxAddress;
 
-  const archiver = await Archiver.createAndSync(config);
   const aztecNode = await AztecNodeService.createAndSync(config);
   const aztecRpcServer = await createAztecRPCServer(aztecNode);
   for (let i = 0; i < numberOfAccounts; ++i) {
@@ -68,10 +63,37 @@ export async function setup(numberOfAccounts = 1): Promise<{
   return {
     aztecNode,
     aztecRpcServer,
-    archiver,
     deployL1ContractsValues,
     accounts,
     config,
     logger,
+  };
+}
+
+/**
+ * Sets the timestamp of the next block.
+ * @param rpcUrl - rpc url of the blockchain instance to connect to
+ * @param timestamp - the timestamp for the next block
+ */
+export async function setNextBlockTimestamp(rpcUrl: string, timestamp: number) {
+  const params = `[${timestamp}]`;
+  await fetch(rpcUrl, {
+    body: `{"jsonrpc":"2.0", "method": "evm_setNextBlockTimestamp", "params": ${params}, "id": 1}`,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+  });
+}
+
+/**
+ * Converts a point to a public key.
+ * @param point - the point to convert to
+ * @returns two big ints x,y representing the public key
+ */
+export function pointToPublicKey(point: Point) {
+  const x = point.buffer.subarray(0, 32);
+  const y = point.buffer.subarray(32, 64);
+  return {
+    x: toBigIntBE(x),
+    y: toBigIntBE(y),
   };
 }
