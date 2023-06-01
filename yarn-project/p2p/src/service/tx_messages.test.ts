@@ -1,5 +1,5 @@
 import { makeKernelPublicInputs, makePublicCallRequest, makeSignedTxRequest } from '@aztec/circuits.js/factories';
-import { EncodedContractFunction, Tx, TxHash, UnverifiedData } from '@aztec/types';
+import { EncodedContractFunction, Tx, TxHash, EventLogs } from '@aztec/types';
 import { expect } from '@jest/globals';
 import { randomBytes } from 'crypto';
 import {
@@ -24,7 +24,7 @@ const makePrivateTx = () => {
   return Tx.createPrivate(
     makeKernelPublicInputs(),
     Proof.fromBuffer(Buffer.alloc(10, 9)),
-    UnverifiedData.random(8),
+    EventLogs.random(8),
     encodedPublicFunctions,
     enqueuedPublicFunctionCalls,
   );
@@ -40,7 +40,7 @@ const makePublicPrivateTx = () => {
   return Tx.createPrivatePublic(
     publicInputs,
     Proof.fromBuffer(randomBytes(512)),
-    UnverifiedData.random(8),
+    EventLogs.random(8),
     makeSignedTxRequest(5),
   );
 };

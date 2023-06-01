@@ -22,7 +22,7 @@ import {
   makeSelector,
 } from '@aztec/circuits.js/factories';
 import { SiblingPath } from '@aztec/merkle-tree';
-import { ContractDataSource, ContractPublicData, EncodedContractFunction, Tx, UnverifiedData } from '@aztec/types';
+import { ContractDataSource, ContractPublicData, EncodedContractFunction, Tx, EventLogs } from '@aztec/types';
 import { MerkleTreeOperations, TreeInfo } from '@aztec/world-state';
 import { jest } from '@jest/globals';
 import { MockProxy, mock } from 'jest-mock-extended';
@@ -240,7 +240,7 @@ describe('public_processor', () => {
       kernelOutput.end.publicCallStack = padArrayEnd(callStackHashes, Fr.ZERO, KERNEL_PUBLIC_CALL_STACK_LENGTH);
       kernelOutput.end.privateCallStack = padArrayEnd([], Fr.ZERO, KERNEL_PRIVATE_CALL_STACK_LENGTH);
 
-      const tx = Tx.createPrivate(kernelOutput, proof, UnverifiedData.random(2), [], callRequests);
+      const tx = Tx.createPrivate(kernelOutput, proof, EventLogs.random(2), [], callRequests);
 
       publicExecutor.execute.mockImplementation(execution => {
         for (const request of callRequests) {

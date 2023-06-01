@@ -4,7 +4,7 @@ import { randomBytes } from 'crypto';
 /**
  * Data container of unverified data corresponding to one L2 block.
  */
-export class UnverifiedData {
+export class EventLogs {
   constructor(
     /**
      * Chunks of unverified data corresponding to individual pieces of information (e.g. Encrypted preimages).
@@ -39,8 +39,8 @@ export class UnverifiedData {
    * @param datas - The individual data objects to concatenate.
    * @returns A new UnverifiedData object whose chunks are the concatenation of the chunks.
    */
-  public static join(datas: UnverifiedData[]): UnverifiedData {
-    return new UnverifiedData(datas.flatMap(chunk => chunk.dataChunks));
+  public static join(datas: EventLogs[]): EventLogs {
+    return new EventLogs(datas.flatMap(chunk => chunk.dataChunks));
   }
 
   /**
@@ -48,11 +48,11 @@ export class UnverifiedData {
    * @param buf - The buffer containing the serialized unverified data.
    * @returns A new UnverifiedData object.
    */
-  public static fromBuffer(buf: Buffer | BufferReader): UnverifiedData {
+  public static fromBuffer(buf: Buffer | BufferReader): EventLogs {
     const reader = BufferReader.asReader(buf);
 
     const chunks = reader.readBufferArray();
-    return new UnverifiedData(chunks);
+    return new EventLogs(chunks);
   }
 
   /**
@@ -60,11 +60,11 @@ export class UnverifiedData {
    * @param numChunks - The number of chunks to create.
    * @returns A new UnverifiedData object.
    */
-  public static random(numChunks: number): UnverifiedData {
+  public static random(numChunks: number): EventLogs {
     const chunks: Buffer[] = [];
     for (let i = 0; i < numChunks; i++) {
       chunks.push(randomBytes(144));
     }
-    return new UnverifiedData(chunks);
+    return new EventLogs(chunks);
   }
 }

@@ -1,6 +1,6 @@
 import { TxSenderConfig } from './config.js';
 import { L1ProcessArgs as ProcessTxArgs, L1PublisherTxSender, MinimalTransactionReceipt } from './l1-publisher.js';
-import { ContractPublicData, UnverifiedData } from '@aztec/types';
+import { ContractPublicData, EventLogs } from '@aztec/types';
 
 import {
   GetContractReturnType,
@@ -125,7 +125,7 @@ export class ViemTxSender implements L1PublisherTxSender {
   async sendEmitUnverifiedDataTx(
     l2BlockNum: number,
     l2BlockHash: Buffer,
-    unverifiedData: UnverifiedData,
+    unverifiedData: EventLogs,
   ): Promise<string | undefined> {
     const args = [
       BigInt(l2BlockNum),

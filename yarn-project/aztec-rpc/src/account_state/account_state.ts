@@ -14,7 +14,7 @@ import {
   L2BlockContext,
   MerkleTreeId,
   Tx,
-  UnverifiedData,
+  EventLogs,
 } from '@aztec/types';
 import { NotePreimage, TxAuxData } from '../aztec_rpc_server/tx_aux_data/index.js';
 import { ContractDataOracle } from '../contract_data_oracle/index.js';
@@ -232,7 +232,7 @@ export class AccountState {
    * @param txRequest - The transaction request to be simulated and proved.
    * @param signature - The ECDSA signature for the transaction request.
    * @param newContractAddress - Optional. The address of a new contract to be included in the transaction object.
-   * @returns A private transaction object containing the proof, public inputs, and unverified data.
+   * @returns A private transaction object containing the proof, public inputs, and encrypted logs.
    */
   public async simulateAndProve(txRequest: TxRequest, signature: EcdsaSignature, newContractAddress?: AztecAddress) {
     // TODO - Pause syncing while simulating.
@@ -245,7 +245,7 @@ export class AccountState {
     const { proof, publicInputs, outputNotes } = await kernelProver.prove(txRequest, signature, executionResult);
     this.log('Proof completed!');
 
-    const unverifiedData = this.createUnverifiedData(outputNotes);
+    const encryptedLogs = this.createEncryptedLogs(outputNotes);
     const newContractPublicFunctions = newContractAddress
       ? await this.getNewContractPublicFunctions(newContractAddress)
       : [];
@@ -253,7 +253,7 @@ export class AccountState {
     return Tx.createPrivate(
       publicInputs,
       proof,
-      unverifiedData,
+      encryptedLogs,
       newContractPublicFunctions,
       executionResult.enqueuedPublicFunctionCalls,
     );
@@ -282,19 +282,19 @@ export class AccountState {
   }
 
   /**
-   * Process the given L2 block contexts and unverified data to update the account state.
-   * It synchronizes the user's account by decrypting the unverified data and processing
+   * Process the given L2 block contexts and encrypted logs to update the account state.
+   * It synchronizes the user's account by decrypting the encrypted logs and processing
    * the transactions and auxiliary data associated with them.
-   * Throws an error if the number of block contexts and unverified data do not match.
+   * Throws an error if the number of block contexts and encrypted logs do not match.
    *
    * @param l2BlockContexts - An array of L2 block contexts to be processed.
-   * @param unverifiedDatas - An array of unverified data associated with the L2 block contexts.
+   * @param encryptedLogs - An array of encrypted logs associated with the L2 block contexts.
    * @returns A promise that resolves once the processing is completed.
    */
-  public async process(l2BlockContexts: L2BlockContext[], unverifiedDatas: UnverifiedData[]): Promise<void> {
-    if (l2BlockContexts.length !== unverifiedDatas.length) {
+  public async process(l2BlockContexts: L2BlockContext[], encryptedLogs: EventLogs[]): Promise<void> {
+    if (l2BlockContexts.length !== encryptedLogs.length) {
       throw new Error(
-        `Number of blocks and unverifiedData is not equal. Received ${l2BlockContexts.length} blocks, ${unverifiedDatas.length} unverified data.`,
+        `Number of blocks and EncryptedLogs is not equal. Received ${l2BlockContexts.length} blocks, ${encryptedLogs.length} encrypted logs.`,
       );
     }
     if (!l2BlockContexts.length) {
@@ -305,12 +305,12 @@ export class AccountState {
       (l2BlockContexts[0].block.number - INITIAL_L2_BLOCK_NUM) * this.TXS_PER_BLOCK * KERNEL_NEW_COMMITMENTS_LENGTH;
     const blocksAndTxAuxData: ProcessedData[] = [];
 
-    // Iterate over both blocks and unverified data.
-    for (let i = 0; i < unverifiedDatas.length; ++i) {
-      const dataChunks = unverifiedDatas[i].dataChunks;
+    // Iterate over both blocks and encrypted logs.
+    for (let i = 0; i < encryptedLogs.length; ++i) {
+      const { dataChunks } = encryptedLogs[i];
 
-      // Try decrypting the unverified data.
-      // Note: Public txs don't generate commitments and UnverifiedData and for this reason we can ignore them here.
+      // Try decrypting the encrypted logs.
+      // Note: Public txs don't generate commitments and encrypted logs and for this reason we can ignore them here.
       const privateTxIndices: Set<number> = new Set();
       const txAuxDataDaos: TxAuxDataDao[] = [];
       for (let j = 0; j < dataChunks.length; ++j) {
@@ -371,15 +371,15 @@ export class AccountState {
   }
 
   /**
-   * Create an UnverifiedData instance from a given list of output notes.
+   * Create an EncryptedLogs instance from a given list of output notes.
    * This function converts the output note data to encrypted buffers using the owner's public key,
-   * then combines them into an UnverifiedData object. The resulting object can be used to store
+   * then combines them into an EncryptedLogs object. The resulting object can be used to store
    * encrypted note data in a transaction and is decrypted by the recipient later during processing.
    *
    * @param outputNotes - An array of OutputNoteData objects containing the note data to be encrypted.
-   * @returns An UnverifiedData instance containing encrypted note data chunks.
+   * @returns An EncryptedLogs instance containing encrypted note data chunks.
    */
-  private createUnverifiedData(outputNotes: OutputNoteData[]) {
+  private createEncryptedLogs(outputNotes: OutputNoteData[]) {
     const dataChunks = outputNotes.map(({ contractAddress, data }) => {
       const { preimage, storageSlot, owner } = data;
       const notePreimage = new NotePreimage(preimage);
@@ -387,7 +387,7 @@ export class AccountState {
       const ownerPublicKey = Point.fromBuffer(Buffer.concat([owner.x.toBuffer(), owner.y.toBuffer()]));
       return txAuxData.toEncryptedBuffer(ownerPublicKey, this.grumpkin);
     });
-    return new UnverifiedData(dataChunks);
+    return new EventLogs(dataChunks);
   }
 
   /**

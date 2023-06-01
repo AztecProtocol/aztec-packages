@@ -1,4 +1,4 @@
-import { UnverifiedData } from './unverified_data.js';
+import { EventLogs } from './event_logs.js';
 
 /**
  * Interface of classes allowing for the retrieval of unverified data.
@@ -16,7 +16,7 @@ export interface UnverifiedDataSource {
    * @param take - The number of `unverifiedData` to return.
    * @returns The requested `unverifiedData`.
    */
-  getUnverifiedData(from: number, take: number): Promise<UnverifiedData[]>;
+  getUnverifiedData(from: number, take: number): Promise<EventLogs[]>;
 
   /**
    * Starts the unverified data source.

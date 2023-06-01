@@ -21,7 +21,7 @@ import {
   MerkleTreeId,
   Tx,
   TxHash,
-  UnverifiedData,
+  EventLogs,
 } from '@aztec/types';
 
 /**
@@ -32,7 +32,7 @@ import {
 export function txToJson(tx: Tx) {
   return {
     data: tx.data?.toBuffer().toString('hex'),
-    unverified: tx.unverifiedData?.toBuffer().toString('hex'),
+    encryptedLogs: tx.encryptedLogs?.toBuffer().toString('hex'),
     txRequest: tx.txRequest?.toBuffer().toString('hex'),
     proof: tx.proof?.toBuffer().toString('hex'),
     newContractPublicFunctions: tx.newContractPublicFunctions?.map(f => f.toBuffer().toString('hex')) ?? [],
@@ -47,7 +47,7 @@ export function txToJson(tx: Tx) {
  */
 export function txFromJson(json: any) {
   const publicInputs = json.data ? KernelCircuitPublicInputs.fromBuffer(Buffer.from(json.data, 'hex')) : undefined;
-  const unverified = json.unverified ? UnverifiedData.fromBuffer(Buffer.from(json.unverified, 'hex')) : undefined;
+  const encryptedLogs = json.encryptedLogs ? EventLogs.fromBuffer(Buffer.from(json.encryptedLogs, 'hex')) : undefined;
   const txRequest = json.txRequest ? SignedTxRequest.fromBuffer(Buffer.from(json.txRequest, 'hex')) : undefined;
   const proof = json.proof ? Buffer.from(json.proof, 'hex') : undefined;
   const newContractPublicFunctions = json.newContractPublicFunctions
@@ -59,16 +59,16 @@ export function txFromJson(json: any) {
   if (txRequest) {
     return Tx.createPublic(txRequest);
   }
-  if (publicInputs && proof && unverified) {
+  if (publicInputs && proof && encryptedLogs) {
     return Tx.createPrivate(
       publicInputs,
       Proof.fromBuffer(proof),
-      unverified,
+      encryptedLogs,
       newContractPublicFunctions,
       enqueuedPublicFunctions,
     );
   }
-  return Tx.create(publicInputs, proof == undefined ? undefined : Proof.fromBuffer(proof), unverified, txRequest);
+  return Tx.create(publicInputs, proof == undefined ? undefined : Proof.fromBuffer(proof), encryptedLogs, txRequest);
 }
 
 /**
@@ -155,7 +155,7 @@ export class HttpNode implements AztecNode {
    * @param take - The number of `unverifiedData` to return.
    * @returns The requested `unverifiedData`.
    */
-  async getUnverifiedData(from: number, take: number): Promise<UnverifiedData[]> {
+  async getUnverifiedData(from: number, take: number): Promise<EventLogs[]> {
     const url = new URL(`${this.baseUrl}/get-unverified`);
     url.searchParams.append('from', from.toString());
     if (take !== undefined) {
@@ -167,7 +167,7 @@ export class HttpNode implements AztecNode {
     if (!unverified) {
       return Promise.resolve([]);
     }
-    return Promise.resolve(unverified.map(x => UnverifiedData.fromBuffer(Buffer.from(x, 'hex'))));
+    return Promise.resolve(unverified.map(x => EventLogs.fromBuffer(Buffer.from(x, 'hex'))));
   }
 
   /**
