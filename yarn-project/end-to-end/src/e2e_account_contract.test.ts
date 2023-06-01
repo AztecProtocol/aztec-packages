@@ -88,7 +88,22 @@ describe('e2e_account_contract', () => {
     return [...payload.flattened_args, ...payload.flattened_selectors, ...payload.flattened_targets, payload.nonce];
   };
 
-  const toFrArray = (buf: Buffer) => Array.from(buf).map(byte => new Fr(byte));
+  const convert64BytesTo3Fields = (buf: Buffer) => {
+    // First 22 bytes to first field, next 22 bytes to second field, last 20 bytes to third field
+    if (buf.length !== 64) {
+      throw new Error('Invalid buffer length. Expected 64 bytes, got ${buf. length}.');
+    }
+
+    const buf1 = Buffer.alloc(32);
+    const buf2 = Buffer.alloc(32);
+    const buf3 = Buffer.alloc(32);
+
+    buf.copy(buf1, 10, 0, 22); // copy 22 bytes from buf to buf1 starting at index 10
+    buf.copy(buf2, 10, 22, 44); // copy 22 bytes from buf to buf2 starting at index 10
+    buf.copy(buf3, 12, 44, 64); // copy 20 bytes from buf to buf3 starting at index 12
+
+    return [Fr.fromBuffer(buf1), Fr.fromBuffer(buf2), Fr.fromBuffer(buf3)];
+  };
 
   const buildPayload = (privateCalls: FunctionCall[], publicCalls: FunctionCall[]): EntrypointPayload => {
     const nonce = Fr.random();
@@ -133,14 +148,14 @@ describe('e2e_account_contract', () => {
 
     // Set packed args for the call
     txRequest.setPackedArg(0, flattenPayload(payload));
-    txRequest.setPackedArg(1, toFrArray(signature));
+    txRequest.setPackedArg(1, convert64BytesTo3Fields(signature));
 
     // Create the method call using the actual args to send into Noir
     return new ContractFunctionInteractionFromTxRequest(
       aztecRpcServer,
       account.address,
       'entrypoint',
-      [...flattenPayload(payload), ...toFrArray(signature)],
+      [...flattenPayload(payload), ...convert64BytesTo3Fields(signature)],
       FunctionType.SECRET,
     ).withTxRequest(txRequest);
   };
