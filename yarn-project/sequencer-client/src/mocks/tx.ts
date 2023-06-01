@@ -1,14 +1,14 @@
 import { KernelCircuitPublicInputs, KERNEL_PUBLIC_CALL_STACK_LENGTH, makeEmptyProof } from '@aztec/circuits.js';
 import { makeKernelPublicInputs, makePublicCallRequest, makeSignedTxRequest } from '@aztec/circuits.js/factories';
-import { UnverifiedData, PrivateTx, Tx, PublicTx } from '@aztec/types';
+import { EventLogs, PrivateTx, Tx, PublicTx } from '@aztec/types';
 import times from 'lodash.times';
 
 /**
  * Testing utility to create empty unverified data composed by a single empty chunk.
  */
-export function makeEmptyUnverifiedData(): UnverifiedData {
+export function makeEmptyUnverifiedData(): EventLogs {
   const chunks = [Buffer.alloc(0)];
-  return new UnverifiedData(chunks);
+  return new EventLogs(chunks);
 }
 
 /**
@@ -25,7 +25,7 @@ export function makePrivateTx(seed = 0): PrivateTx {
   return Tx.createPrivate(
     makeKernelPublicInputs(seed),
     makeEmptyProof(),
-    UnverifiedData.random(2),
+    EventLogs.random(2),
     [],
     times(KERNEL_PUBLIC_CALL_STACK_LENGTH, makePublicCallRequest),
   );

@@ -10,7 +10,7 @@ import {
   EncodedContractFunction,
   L2Block,
   L2BlockSource,
-  UnverifiedData,
+  EventLogs,
   UnverifiedDataSource,
 } from '@aztec/types';
 import { Chain, HttpTransport, PublicClient, createPublicClient, http } from 'viem';
@@ -193,6 +193,12 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource, ContractDa
       retrievedUnverifiedData.retrievedData.slice(0, retrievedBlocks.retrievedData.length),
     );
 
+    // store encrypted event logs from L2 Blocks that we have retrieved
+    const encryptedEventLogs = retrievedBlocks.retrievedData.map(block => {
+      return block.newEncryptedLogs;
+    });
+    await this.store.addEncryptedEventLogs(encryptedEventLogs);
+
     // store contracts for which we have retrieved rollups
     const lastKnownRollupId = retrievedBlocks.retrievedData[retrievedBlocks.retrievedData.length - 1].number;
     retrievedContracts.retrievedData.forEach(async ([contracts, l2BlockNum], index) => {
@@ -296,7 +302,7 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource, ContractDa
    * @param take - The number of `unverifiedData` to return.
    * @returns The requested `unverifiedData`.
    */
-  public getUnverifiedData(from: number, take: number): Promise<UnverifiedData[]> {
+  public getUnverifiedData(from: number, take: number): Promise<EventLogs[]> {
     return this.store.getUnverifiedData(from, take);
   }
 

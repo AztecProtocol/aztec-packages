@@ -2,7 +2,7 @@ import { ContractPublicData, L2Block } from '@aztec/types';
 
 import { L2BlockReceiver } from '../receiver.js';
 import { PublisherConfig } from './config.js';
-import { UnverifiedData } from '@aztec/types';
+import { EventLogs } from '@aztec/types';
 import { InterruptableSleep } from '@aztec/foundation/sleep';
 import { createDebugLogger } from '@aztec/foundation/log';
 
@@ -41,7 +41,7 @@ export interface L1PublisherTxSender {
   sendEmitUnverifiedDataTx(
     l2BlockNum: number,
     l2BlockHash: Buffer,
-    unverifiedData: UnverifiedData,
+    unverifiedData: EventLogs,
   ): Promise<string | undefined>;
 
   /**
@@ -156,7 +156,7 @@ export class L1Publisher implements L2BlockReceiver {
   public async processUnverifiedData(
     l2BlockNum: number,
     l2BlockHash: Buffer,
-    unverifiedData: UnverifiedData,
+    unverifiedData: EventLogs,
   ): Promise<boolean> {
     while (!this.interrupted) {
       if (!(await this.checkFeeDistributorBalance())) {
@@ -261,7 +261,7 @@ export class L1Publisher implements L2BlockReceiver {
   private async sendEmitUnverifiedDataTx(
     l2BlockNum: number,
     l2BlockHash: Buffer,
-    unverifiedData: UnverifiedData,
+    unverifiedData: EventLogs,
   ): Promise<string | undefined> {
     while (!this.interrupted) {
       try {

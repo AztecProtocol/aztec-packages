@@ -3,7 +3,7 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { ContractPublicData, ContractData, L2Block, MerkleTreeId, L1ToL2MessageAndIndex } from '@aztec/types';
 import { SiblingPath } from '@aztec/merkle-tree';
 import { Tx, TxHash } from '@aztec/types';
-import { UnverifiedData } from '@aztec/types';
+import { EventLogs } from '@aztec/types';
 import { Fr } from '@aztec/foundation/fields';
 
 /**
@@ -52,7 +52,7 @@ export interface AztecNode {
    * @param take - The number of `unverifiedData` to return.
    * @returns The requested `unverifiedData`.
    */
-  getUnverifiedData(from: number, take: number): Promise<UnverifiedData[]>;
+  getUnverifiedData(from: number, take: number): Promise<EventLogs[]>;
 
   /**
    * Method to submit a transaction to the p2p pool.

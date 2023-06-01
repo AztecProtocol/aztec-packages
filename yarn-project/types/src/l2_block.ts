@@ -16,7 +16,7 @@ import { L2Tx } from './l2_tx.js';
 import { PublicDataWrite } from './public_data_write.js';
 import { toBigIntBE, toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { sha256 } from '@aztec/foundation/crypto';
-import { UnverifiedData } from './unverified_data.js';
+import { EventLogs } from './event_logs.js';
 /**
  * The data that makes up the rollup proof, with encoder decoder functions.
  * TODO: Reuse data types and serialization functions from circuits package.
@@ -120,14 +120,19 @@ export class L2Block {
      */
     public newL1ToL2Messages: Fr[] = [],
     /**
-     * Length (in bytes) of the unverified data chunks in the block.
+     * Length (in bytes) of the encrypted logs in the block.
      */
     public newEncryptedLogsLength: number,
     /**
      * Consolidated logs from all txs.
      */
-    public newEncryptedLogs: UnverifiedData,
-  ) {}
+    public newEncryptedLogs: EventLogs  // public newUnencryptedLogsLength: number, // public newUnencryptedLogs: EventLogs,
+    /**
+     * Length (in bytes) of the unencrypted logs in the block.
+     */,
+  ) /**
+   * Consolidated logs from all txs.
+   */ {}
 
   /**
    * Creates an L2 block containing random data.
@@ -143,8 +148,10 @@ export class L2Block {
     const newPublicDataWrites = times(KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH * txsPerBlock, PublicDataWrite.random);
     const newL1ToL2Messages = times(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, Fr.random);
     const newL2ToL1Msgs = times(KERNEL_NEW_L2_TO_L1_MSGS_LENGTH, Fr.random);
-    const newEncryptedLogs = UnverifiedData.random(txsPerBlock * 2);
+    const newEncryptedLogs = EventLogs.random(txsPerBlock * 2);
     const newEncryptedLogsLength = newEncryptedLogs.getSerializedLength();
+    // const newUnencryptedLogs = EventLogs.random(txsPerBlock * 2);
+    // const newUnencryptedLogsLength = newEncryptedLogs.getSerializedLength();
 
     return L2Block.fromFields({
       number: l2BlockNum,
@@ -173,6 +180,8 @@ export class L2Block {
       newL2ToL1Msgs,
       newEncryptedLogsLength,
       newEncryptedLogs,
+      // newUnencryptedLogsLength,
+      // newUnencryptedLogs,
     });
   }
 
@@ -279,13 +288,21 @@ export class L2Block {
      */
     newL1ToL2Messages: Fr[];
     /**
-     * Length (in bytes) of the unverified data chunks in the block.
+     * Length (in bytes) of the new encrypted logs data chunks in the block.
      */
     newEncryptedLogsLength: number;
     /**
      * Consolidated logs from all txs.
      */
-    newEncryptedLogs: UnverifiedData;
+    newEncryptedLogs: EventLogs;
+    /**
+     * Length (in bytes) of the new unencrypted logs data chunks in the block.
+     */
+    // newUnencryptedLogsLength: number;
+    /**
+     * Consolidated logs from all txs.
+     */
+    // newUnencryptedLogs: EventLogs;
   }) {
     return new this(
       fields.number,
@@ -314,6 +331,8 @@ export class L2Block {
       fields.newL1ToL2Messages,
       fields.newEncryptedLogsLength,
       fields.newEncryptedLogs,
+      // fields.newUnencryptedLogsLength,
+      // fields.newUnencryptedLogs,
     );
   }
 
@@ -355,6 +374,8 @@ export class L2Block {
       this.newL1ToL2Messages,
       this.newEncryptedLogsLength,
       this.newEncryptedLogs,
+      // this.newUnencryptedLogsLength,
+      // this.newUnencryptedLogs,
     );
   }
 
@@ -399,7 +420,9 @@ export class L2Block {
     // TODO(sean): could an optimisation of this be that it is encoded such that zeros are assumed
     const newL1ToL2Messages = reader.readVector(Fr);
     const newEncryptedLogsLength = reader.readNumber();
-    const newEncryptedLogs = new UnverifiedData(reader.readBufferArray());
+    const newEncryptedLogs = new EventLogs(reader.readBufferArray());
+    // const newUnencryptedLogsLength = reader.readNumber();
+    // const newUnencryptedLogs = new EventLogs(reader.readBufferArray());
 
     return L2Block.fromFields({
       number,
@@ -428,6 +451,8 @@ export class L2Block {
       newL1ToL2Messages,
       newEncryptedLogsLength,
       newEncryptedLogs,
+      // newUnencryptedLogsLength,
+      // newUnencryptedLogs,
     });
   }
 
@@ -506,7 +531,7 @@ export class L2Block {
    * and inside the circuit, it is part of the public inputs.
    * @returns The calldata hash.
    */
-  // TODO: add newEncryptedLogs to this hash once it's been propagated through circuits.
+  // TODO: add logs to this hash once they've been propagated through circuits.
   getCalldataHash() {
     const computeRoot = (leafs: Buffer[]): Buffer => {
       const layers: Buffer[][] = [leafs];
