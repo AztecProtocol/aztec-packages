@@ -5,7 +5,7 @@ import { Tx, TxHash, PrivateTx, EventLogs } from '@aztec/types';
  * Represents a tx that has been processed by the sequencer public processor,
  * so its kernel circuit public inputs are filled in.
  */
-export type ProcessedTx = Pick<Tx, 'txRequest' | 'unverifiedData'> &
+export type ProcessedTx = Pick<Tx, 'txRequest' | 'encryptedLogs'> &
   Required<Pick<Tx, 'data' | 'proof'>> & {
     /**
      * Hash of the transaction.
@@ -50,7 +50,7 @@ export async function makeProcessedTx(
     hash: await tx.getTxHash(),
     data: kernelOutput ?? tx.data!,
     proof: proof ?? tx.proof!,
-    unverifiedData: tx.unverifiedData,
+    encryptedLogs: tx.encryptedLogs,
     txRequest: tx.txRequest,
     isEmpty: false,
   };
