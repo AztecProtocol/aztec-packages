@@ -77,5 +77,4 @@ export class MembershipWitness<N extends number> {
   static fromSiblingPath<N extends number>(leafIndex: bigint, siblingPath: SiblingPath<N>): MembershipWitness<N> {
     return new MembershipWitness<N>(siblingPath.pathSize, leafIndex, siblingPath.toFieldArray() as Tuple<Fr, N>);
   }
-
 }

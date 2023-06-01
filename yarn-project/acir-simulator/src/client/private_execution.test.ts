@@ -190,7 +190,7 @@ describe('Private Execution test suite', () => {
               membershipWitness: MembershipWitness.fromSiblingPath(
                 BigInt(index), // leafIndex
                 await tree.getSiblingPath(BigInt(index), false), // siblingPath
-              )
+              ),
             })),
           ),
         };
