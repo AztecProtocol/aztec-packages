@@ -51,6 +51,13 @@ contract TokenPortal {
     return inbox.sendL2Message{value: msg.value}(actor, _deadline, contentHash, _secretHash);
   }
 
+  /**
+   * @notice Withdraw funds from the portal 
+   * @dev Second part of withdraw, must be initiated from L2 first as it will consume a message from outbox
+   * @param _amount - The amount to withdraw
+   * @param _recipient - The address to send the funds to
+   * @return The key of the entry in the Outbox
+   */
   function withdraw(uint256 _amount, address _recipient) external returns (bytes32) {
     DataStructures.L2ToL1Msg memory message = DataStructures.L2ToL1Msg({
       sender: DataStructures.L2Actor(l2TokenAddress, 1),
