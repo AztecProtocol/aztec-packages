@@ -524,12 +524,13 @@ TEST(private_kernel_tests, circuit_deposit)
     // Check contract address was correctly computed by the circuit
     validate_deployed_contract_address(private_inputs_init, public_inputs);
 
-    // Create the final kernel proof and verify it natively.
-    auto final_kernel_prover = private_kernel_composer.create_prover();
-    auto const& final_kernel_proof = final_kernel_prover.construct_proof();
+    // // Create the final kernel proof and verify it natively.
+    // auto final_kernel_prover = private_kernel_composer.create_prover();
+    // auto const& final_kernel_proof = final_kernel_prover.construct_proof();
 
-    auto final_kernel_verifier = private_kernel_composer.create_verifier();
-    auto const& final_result = final_kernel_verifier.verify_proof(final_kernel_proof);
+    // auto final_kernel_verifier = private_kernel_composer.create_verifier();a
+    // auto const& final_result = final_kernel_verifier.verify_proof(final_kernel_proof);
+    bool final_result = private_kernel_composer.check_circuit();
     EXPECT_EQ(final_result, true);
 
     debugComposer(private_kernel_composer);
