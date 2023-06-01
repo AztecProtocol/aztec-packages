@@ -83,7 +83,7 @@ describe('sequencer', () => {
     await sequencer.work();
 
     const expectedTxHashes = await Tx.getHashes([tx, ...times(3, makeEmptyPrivateTx)]);
-    const expectedUnverifiedData = tx.encryptedLogs;
+    const expectedEncryptedLogs = tx.encryptedLogs;
 
     expect(blockBuilder.buildL2Block).toHaveBeenCalledWith(
       lastBlockNumber + 1,
@@ -94,7 +94,7 @@ describe('sequencer', () => {
     expect(publisher.processUnverifiedData).toHaveBeenCalledWith(
       lastBlockNumber + 1,
       block.getCalldataHash(),
-      expectedUnverifiedData,
+      expectedEncryptedLogs,
     );
   });
 
@@ -121,7 +121,7 @@ describe('sequencer', () => {
     await sequencer.work();
 
     const expectedTxHashes = await Tx.getHashes([txs[0], txs[2], makeEmptyPrivateTx(), makeEmptyPrivateTx()]);
-    const expectedUnverifiedData = new EventLogs([
+    const expectedEncryptedLogs = new EventLogs([
       ...txs[0].encryptedLogs.dataChunks,
       ...txs[2].encryptedLogs.dataChunks,
     ]);
@@ -135,7 +135,7 @@ describe('sequencer', () => {
     expect(publisher.processUnverifiedData).toHaveBeenCalledWith(
       lastBlockNumber + 1,
       block.getCalldataHash(),
-      expectedUnverifiedData,
+      expectedEncryptedLogs,
     );
     expect(p2p.deleteTxs).toHaveBeenCalledWith([await doubleSpendTx.getTxHash()]);
   });
