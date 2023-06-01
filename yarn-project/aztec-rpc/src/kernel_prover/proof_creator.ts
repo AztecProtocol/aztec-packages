@@ -36,14 +36,8 @@ export interface ProofOutput {
  */
 export interface ProofCreator {
   getSiloedCommitments(publicInputs: PrivateCircuitPublicInputs): Promise<Fr[]>;
-  createProofInit(
-    signedTxRequest: SignedTxRequest,
-    privateCallData: PrivateCallData,
-  ): Promise<ProofOutput>;
-  createProofInner(
-    previousKernelData: PreviousKernelData,
-    privateCallData: PrivateCallData,
-  ): Promise<ProofOutput>;
+  createProofInit(signedTxRequest: SignedTxRequest, privateCallData: PrivateCallData): Promise<ProofOutput>;
+  createProofInner(previousKernelData: PreviousKernelData, privateCallData: PrivateCallData): Promise<ProofOutput>;
 }
 
 const OUTER_COMMITMENT = 3;
@@ -88,11 +82,7 @@ export class KernelProofCreator {
   ): Promise<ProofOutput> {
     const wasm = await CircuitsWasm.get();
     this.log('Executing private kernel simulation init...');
-    const publicInputs = await privateKernelSimInit(
-      wasm,
-      signedTxRequest,
-      privateCallData,
-    );
+    const publicInputs = await privateKernelSimInit(wasm, signedTxRequest, privateCallData);
     this.log('Skipping private kernel proving...');
     // TODO
     const proof = makeEmptyProof();
@@ -104,7 +94,7 @@ export class KernelProofCreator {
     };
   }
 
-   /**
+  /**
    * Creates a proof output for a given previous kernel data and private call data for an inner iteration.
    *
    * @param previousKernelData - The previous kernel data object.
@@ -117,11 +107,7 @@ export class KernelProofCreator {
   ): Promise<ProofOutput> {
     const wasm = await CircuitsWasm.get();
     this.log('Executing private kernel simulation inner...');
-    const publicInputs = await privateKernelSimInner(
-      wasm,
-      previousKernelData,
-      privateCallData,
-    );
+    const publicInputs = await privateKernelSimInner(wasm, previousKernelData, privateCallData);
     this.log('Skipping private kernel proving...');
     // TODO
     const proof = makeEmptyProof();

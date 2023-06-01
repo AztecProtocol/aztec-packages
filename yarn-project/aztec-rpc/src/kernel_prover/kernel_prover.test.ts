@@ -70,7 +70,9 @@ describe('Kernel Prover', () => {
 
   const expectExecution = (fns: string[]) => {
     const callStackItemsInit = proofCreator.createProofInit.mock.calls.map(args => args[1].callStackItem.functionData);
-    const callStackItemsInner = proofCreator.createProofInner.mock.calls.map(args => args[1].callStackItem.functionData);
+    const callStackItemsInner = proofCreator.createProofInner.mock.calls.map(
+      args => args[1].callStackItem.functionData,
+    );
 
     expect(callStackItemsInit.concat(callStackItemsInner)).toEqual(fns);
     proofCreator.createProofInner.mockClear();
