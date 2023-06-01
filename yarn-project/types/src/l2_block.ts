@@ -126,11 +126,10 @@ export class L2Block {
     /**
      * Consolidated logs from all txs.
      */
-    public newEncryptedLogs: EventLogs  // public newUnencryptedLogsLength: number, // public newUnencryptedLogs: EventLogs,
-    /**
-     * Length (in bytes) of the unencrypted logs in the block.
-     */,
+    public newEncryptedLogs: EventLogs, // public newUnencryptedLogsLength: number, // public newUnencryptedLogs: EventLogs,
   ) /**
+   * Length (in bytes) of the unencrypted logs in the block.
+   */ /**
    * Consolidated logs from all txs.
    */ {}
 

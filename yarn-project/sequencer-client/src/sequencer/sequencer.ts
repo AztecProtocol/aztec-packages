@@ -179,7 +179,7 @@ export class Sequencer {
     // Publishes new unverified data & contract data for private txs to the network and awaits the tx to be mined
     this.state = SequencerState.PUBLISHING_UNVERIFIED_DATA;
     // Note: Public txs don't generate UnverifiedData and for this reason we can ignore them here.
-    const unverifiedData = EventLogs.join(validTxs.filter(isPrivateTx).map(tx => tx.unverifiedData));
+    const unverifiedData = EventLogs.join(validTxs.filter(isPrivateTx).map(tx => tx.encryptedLogs));
     const newContractData = validTxs
       .filter(isPrivateTx)
       .map(tx => {

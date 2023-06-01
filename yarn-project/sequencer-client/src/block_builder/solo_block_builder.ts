@@ -134,8 +134,8 @@ export class SoloBlockBuilder implements BlockBuilder {
     // Consolidate logs data from all txs
     const encryptedLogsArr: EventLogs[] = [];
     for (const tx of txs) {
-      if (tx.unverifiedData) {
-        encryptedLogsArr.push(tx.unverifiedData);
+      if (tx.encryptedLogs) {
+        encryptedLogsArr.push(tx.encryptedLogs);
       }
     }
     const newEncryptedLogs = EventLogs.join(encryptedLogsArr);
