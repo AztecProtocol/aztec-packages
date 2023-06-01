@@ -538,8 +538,8 @@ TEST(private_kernel_tests, native_deposit)
     NT::fr const& memo = 999;
 
     auto private_inputs = do_private_call_get_kernel_inputs_init(false, deposit, { amount, asset_id, memo });
-    private_inputs.previous_kernel.public_inputs.end.encrypted_logs_hash = { fr(16), fr(69) };
-    private_inputs.previous_kernel.public_inputs.end.encrypted_log_preimages_length = fr(100);
+    private_inputs.private_call.call_stack_item.public_inputs.encrypted_logs_hash = { fr(16), fr(69) };
+    private_inputs.private_call.call_stack_item.public_inputs.encrypted_log_preimages_length = fr(100);
 
     DummyComposer composer = DummyComposer("private_kernel_tests__native_deposit");
     auto const& public_inputs = native_private_kernel_circuit_initial(composer, private_inputs);
@@ -550,7 +550,7 @@ TEST(private_kernel_tests, native_deposit)
     ASSERT_EQ(public_inputs.end.new_nullifiers[0], private_inputs.signed_tx_request.hash());
 
     // Check logs
-    auto const& private_input_end = private_inputs.previous_kernel.public_inputs.end;
+    auto const& private_input_end = private_inputs.private_call.call_stack_item.public_inputs;
     // Log preimages length should increase by `encrypted_log_preimages_length` from private input
     ASSERT_EQ(public_inputs.end.encrypted_log_preimages_length, private_input_end.encrypted_log_preimages_length);
     // Since there were no unencrypted logs, their length should be 0

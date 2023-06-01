@@ -1003,7 +1003,6 @@ interface MsgpackPublicCircuitPublicInputs {
   call_context: MsgpackCallContext;
   args_hash: Buffer;
   return_values: Tuple<Buffer, 4>;
-  emitted_events: Tuple<Buffer, 4>;
   contract_storage_update_requests: Tuple<MsgpackContractStorageUpdateRequest, 4>;
   contract_storage_reads: Tuple<MsgpackContractStorageRead, 4>;
   public_call_stack: Tuple<Buffer, 4>;
@@ -1021,9 +1020,6 @@ export function toPublicCircuitPublicInputs(o: MsgpackPublicCircuitPublicInputs)
   }
   if (o.return_values === undefined) {
     throw new Error('Expected return_values in PublicCircuitPublicInputs deserialization');
-  }
-  if (o.emitted_events === undefined) {
-    throw new Error('Expected emitted_events in PublicCircuitPublicInputs deserialization');
   }
   if (o.contract_storage_update_requests === undefined) {
     throw new Error('Expected contract_storage_update_requests in PublicCircuitPublicInputs deserialization');
@@ -1047,7 +1043,6 @@ export function toPublicCircuitPublicInputs(o: MsgpackPublicCircuitPublicInputs)
     toCallContext(o.call_context),
     Fr.fromBuffer(o.args_hash),
     mapTuple(o.return_values, (v: Buffer) => Fr.fromBuffer(v)),
-    mapTuple(o.emitted_events, (v: Buffer) => Fr.fromBuffer(v)),
     mapTuple(o.contract_storage_update_requests, (v: MsgpackContractStorageUpdateRequest) =>
       toContractStorageUpdateRequest(v),
     ),
@@ -1068,9 +1063,6 @@ export function fromPublicCircuitPublicInputs(o: PublicCircuitPublicInputs): Msg
   }
   if (o.returnValues === undefined) {
     throw new Error('Expected returnValues in PublicCircuitPublicInputs serialization');
-  }
-  if (o.emittedEvents === undefined) {
-    throw new Error('Expected emittedEvents in PublicCircuitPublicInputs serialization');
   }
   if (o.contractStorageUpdateRequests === undefined) {
     throw new Error('Expected contractStorageUpdateRequests in PublicCircuitPublicInputs serialization');
@@ -1094,7 +1086,6 @@ export function fromPublicCircuitPublicInputs(o: PublicCircuitPublicInputs): Msg
     call_context: fromCallContext(o.callContext),
     args_hash: o.argsHash.toBuffer(),
     return_values: mapTuple(o.returnValues, (v: Fr) => v.toBuffer()),
-    emitted_events: mapTuple(o.emittedEvents, (v: Fr) => v.toBuffer()),
     contract_storage_update_requests: mapTuple(o.contractStorageUpdateRequests, (v: ContractStorageUpdateRequest) =>
       fromContractStorageUpdateRequest(v),
     ),
