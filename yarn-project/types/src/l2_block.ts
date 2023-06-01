@@ -124,14 +124,10 @@ export class L2Block {
      */
     public newEncryptedLogsLength: number,
     /**
-     * Consolidated logs from all txs.
+     * Consolidated encrypted logs from all txs.
      */
-    public newEncryptedLogs: EventLogs, // public newUnencryptedLogsLength: number, // public newUnencryptedLogs: EventLogs,
-  ) /**
-   * Length (in bytes) of the unencrypted logs in the block.
-   */ /**
-   * Consolidated logs from all txs.
-   */ {}
+    public newEncryptedLogs: EventLogs,
+  ) {}
 
   /**
    * Creates an L2 block containing random data.
