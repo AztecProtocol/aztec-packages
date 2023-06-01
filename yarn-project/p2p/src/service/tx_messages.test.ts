@@ -52,7 +52,7 @@ const makeTxHash = () => {
 const verifyPrivateTx = (actual: Tx, expected: Tx) => {
   expect(actual.data!.toBuffer()).toEqual(expected.data?.toBuffer());
   expect(actual.proof!.toBuffer()).toEqual(expected.proof!.toBuffer());
-  expect(actual.unverifiedData!.toBuffer()).toEqual(expected.unverifiedData?.toBuffer());
+  expect(actual.encryptedLogs!.toBuffer()).toEqual(expected.encryptedLogs?.toBuffer());
   expect(actual.newContractPublicFunctions!.length).toEqual(expected.newContractPublicFunctions!.length);
   for (let i = 0; i < actual.newContractPublicFunctions!.length; i++) {
     expect(actual.newContractPublicFunctions![i].toBuffer()).toEqual(
@@ -66,14 +66,14 @@ const verifyPublicTx = (actual: Tx, expected: Tx) => {
   expect(actual.data).toBeUndefined();
   expect(actual.newContractPublicFunctions).toBeUndefined();
   expect(actual.proof).toBeUndefined();
-  expect(actual.unverifiedData).toBeUndefined();
+  expect(actual.encryptedLogs).toBeUndefined();
   expect(actual.txRequest!.toBuffer()).toEqual(expected.txRequest!.toBuffer());
 };
 
 const verifyPublicPrivateTx = (actual: Tx, expected: Tx) => {
   expect(actual.data!.toBuffer()).toEqual(expected.data?.toBuffer());
   expect(actual.proof).toEqual(expected.proof);
-  expect(actual.unverifiedData!.toBuffer()).toEqual(expected.unverifiedData?.toBuffer());
+  expect(actual.encryptedLogs!.toBuffer()).toEqual(expected.encryptedLogs?.toBuffer());
   expect(actual.txRequest!.toBuffer()).toEqual(expected.txRequest!.toBuffer());
   expect(actual.newContractPublicFunctions).toBeUndefined();
 };
