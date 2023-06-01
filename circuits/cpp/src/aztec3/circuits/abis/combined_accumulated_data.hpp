@@ -37,7 +37,7 @@ template <typename NCT> struct CombinedAccumulatedData {
     std::array<fr, KERNEL_NEW_L2_TO_L1_MSGS_LENGTH> new_l2_to_l1_msgs =
         zero_array<fr, KERNEL_NEW_L2_TO_L1_MSGS_LENGTH>();
 
-    // sha256 hash of the log preimages (in two fields to accomodate all 256-bits of the hash)
+    // sha256 hash of the log preimages (in two fields to accommodate all 256-bits of the hash)
     std::array<fr, 2> encrypted_logs_hash = zero_array<fr, 2>();
     std::array<fr, 2> unencrypted_logs_hash = zero_array<fr, 2>();
 
