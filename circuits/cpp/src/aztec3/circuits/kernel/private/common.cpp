@@ -57,15 +57,14 @@ void common_validate_read_requests(DummyComposer& composer, PrivateCallData<NT> 
         const auto& leaf = read_requests[rr_index];
         const auto& witness = read_request_membership_witnesses[rr_index];
         const auto& root_for_rr = root_from_sibling_path<NT>(leaf, witness.leaf_index, witness.sibling_path);
-             read_request_membership_witnesses[rr_index].sibling_path[rr_index]);
-             // just set private_data_root in first iter and ensure that all other iters match
-             if (rr_index == 0) {
-                 private_data_root = root_for_rr;
-             } else {
-                 composer.do_assert(root_for_rr == private_data_root,
-                                    format("private data root mismatch at read_request[", rr_index, "]"),
-                                    CircuitErrorCode::PRIVATE_KERNEL__READ_REQUEST_PRIVATE_DATA_ROOT_MISMATCH);
-             }
+        // just set private_data_root in first iter and ensure that all other iters match
+        if (rr_index == 0) {
+            private_data_root = root_for_rr;
+        } else {
+            composer.do_assert(root_for_rr == private_data_root,
+                               format("private data root mismatch at read_request[", rr_index, "]"),
+                               CircuitErrorCode::PRIVATE_KERNEL__READ_REQUEST_PRIVATE_DATA_ROOT_MISMATCH);
+        }
     }
     // TODO(dbanks12): set some root here?
     //                 https://discourse.aztec.network/t/spending-notes-which-havent-yet-been-inserted/180/10
@@ -126,8 +125,7 @@ void common_update_end_values(DummyComposer& composer,
         std::array<NT::fr, NEW_L2_TO_L1_MSGS_LENGTH> new_l2_to_l1_msgs_to_insert;
         for (size_t i = 0; i < new_l2_to_l1_msgs.size(); ++i) {
             if (!new_l2_to_l1_msgs[i].is_zero()) {
-                // @todo @LHerskind chain-ids and rollup version id should be added here. Right now, just hard
-                // coded.
+                // @todo @LHerskind chain-ids and rollup version id should be added here. Right now, just hard coded.
                 // @todo @LHerskind chain-id is hardcoded for foundry
                 const auto chain_id = fr(31337);
                 new_l2_to_l1_msgs_to_insert[i] = compute_l2_to_l1_hash<NT>(storage_contract_address,
