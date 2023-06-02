@@ -1,7 +1,6 @@
 import { AztecNodeService } from '@aztec/aztec-node';
-import { AztecAddress, AztecRPCServer, Contract, ContractDeployer, TxStatus } from '@aztec/aztec.js';
+import { AztecAddress, AztecRPCServer, Contract, TxStatus } from '@aztec/aztec.js';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { NonNativeTokenContractAbi } from '@aztec/noir-contracts/examples';
 
 import { CircuitsWasm } from '@aztec/circuits.js';
 import { computeSecretMessageHash } from '@aztec/circuits.js/abis';
@@ -17,7 +16,7 @@ import {
   TokenPortalBytecode,
 } from '@aztec/l1-artifacts';
 import { Chain, HttpTransport, PublicClient, getContract } from 'viem';
-import { setup } from './utils.js';
+import { delay, deployNonNativeL2TokenContract, setup } from './utils.js';
 import { sha256 } from '@aztec/foundation/crypto';
 import { pointToPublicKey } from './utils.js';
 
@@ -32,7 +31,7 @@ describe('e2e_cross_chain_messaging', () => {
   let accounts: AztecAddress[];
   let logger: DebugLogger;
 
-  let contract: Contract;
+  let l2Contract: Contract;
   let ethAccount: EthAddress;
 
   let tokenPortalAddress: EthAddress;
@@ -83,35 +82,27 @@ describe('e2e_cross_chain_messaging', () => {
 
   const expectBalance = async (owner: AztecAddress, expectedBalance: bigint) => {
     const ownerPublicKey = await aztecRpcServer.getAccountPublicKey(owner);
-    const [balance] = await contract.methods.getBalance(pointToPublicKey(ownerPublicKey)).view({ from: owner });
+    const [balance] = await l2Contract.methods.getBalance(pointToPublicKey(ownerPublicKey)).view({ from: owner });
     logger(`Account ${owner} balance: ${balance}`);
     expect(balance).toBe(expectedBalance);
-  };
-
-  const deployContract = async (initialBalance = 0n, owner = { x: 0n, y: 0n }) => {
-    logger(`Deploying L2 Token contract...`);
-    const deployer = new ContractDeployer(NonNativeTokenContractAbi, aztecRpcServer);
-    const tx = deployer.deploy(initialBalance, owner).send({
-      portalContract: tokenPortalAddress,
-    });
-    const receipt = await tx.getReceipt();
-    contract = new Contract(receipt.contractAddress!, NonNativeTokenContractAbi, aztecRpcServer);
-    await contract.attach(tokenPortalAddress);
-
-    await tx.isMined(0, 0.1);
-    await tx.getReceipt();
-    logger('L2 contract deployed');
-    return contract;
   };
 
   it('Milestone 2: Deposit funds from L1 -> L2 and withdraw back to L1', async () => {
     const initialBalance = 10n;
     const [ownerAddress, receiver] = accounts;
     const ownerPub = await aztecRpcServer.getAccountPublicKey(ownerAddress);
-    const deployedL2Contract = await deployContract(initialBalance, pointToPublicKey(ownerPub));
+    logger(`Deploying L2 Token contract...`);
+    l2Contract = await deployNonNativeL2TokenContract(
+      aztecRpcServer,
+      tokenPortalAddress,
+      initialBalance,
+      pointToPublicKey(ownerPub),
+    );
+    logger('L2 contract deployed');
+
     await expectBalance(accounts[0], initialBalance);
 
-    const l2TokenAddress = deployedL2Contract.address.toString() as `0x${string}`;
+    const l2TokenAddress = l2Contract.address.toString() as `0x${string}`;
 
     logger('Initializing the TokenPortal contract');
     await tokenPortal.write.initialize(
@@ -151,12 +142,11 @@ describe('e2e_cross_chain_messaging', () => {
     const messageKey = Fr.fromString(messageKeyHex);
 
     // Wait for the archiver to process the message
-    const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
     await delay(5000); /// waiting 5 seconds.
 
     // send a transfer tx to force through rollup with the message included
     const transferAmount = 1n;
-    const transferTx = contract.methods
+    const transferTx = l2Contract.methods
       .transfer(
         transferAmount,
         pointToPublicKey(await aztecRpcServer.getAccountPublicKey(ownerAddress)),
@@ -172,7 +162,7 @@ describe('e2e_cross_chain_messaging', () => {
     logger('Consuming messages on L2');
     // Call the mint tokens function on the noir contract
 
-    const consumptionTx = deployedL2Contract.methods
+    const consumptionTx = l2Contract.methods
       .mint(mintAmount, pointToPublicKey(ownerPub), messageKey, secret)
       .send({ from: ownerAddress });
 
@@ -188,14 +178,14 @@ describe('e2e_cross_chain_messaging', () => {
     logger('Withdrawing funds from L2');
 
     logger('Ensure that the entry is not in outbox yet');
-    const contractInfo = await aztecNode.getContractInfo(contract.address);
+    const contractInfo = await aztecNode.getContractInfo(l2Contract.address);
     // 0x00f714ce, selector for "withdraw(uint256,address)"
     const content = sha256ToField(
       Buffer.concat([Buffer.from([0x00, 0xf7, 0x14, 0xce]), toBufferBE(withdrawAmount, 32), ethAccount.toBuffer32()]),
     );
     const entryKey = sha256ToField(
       Buffer.concat([
-        contract.address.toBuffer(),
+        l2Contract.address.toBuffer(),
         new Fr(1).toBuffer(), // aztec version
         contractInfo?.portalContractAddress.toBuffer32() ?? Buffer.alloc(32, 0),
         new Fr(publicClient.chain.id).toBuffer(), // chain id
@@ -205,7 +195,7 @@ describe('e2e_cross_chain_messaging', () => {
     expect(await outbox.read.contains([entryKey.toString()])).toBeFalsy();
 
     logger('Send L2 tx to withdraw funds');
-    const withdrawTx = deployedL2Contract.methods
+    const withdrawTx = l2Contract.methods
       .withdraw(withdrawAmount, pointToPublicKey(ownerPub), ethAccount)
       .send({ from: ownerAddress });
 

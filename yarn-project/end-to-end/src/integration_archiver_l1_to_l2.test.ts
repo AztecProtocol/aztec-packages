@@ -1,7 +1,6 @@
 import { AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
-import { AztecAddress, AztecRPCServer, Contract, ContractDeployer } from '@aztec/aztec.js';
+import { AztecAddress, AztecRPCServer, Contract } from '@aztec/aztec.js';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { NonNativeTokenContractAbi } from '@aztec/noir-contracts/examples';
 
 import { CircuitsWasm } from '@aztec/circuits.js';
 import { computeSecretMessageHash } from '@aztec/circuits.js/abis';
@@ -10,7 +9,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { DebugLogger } from '@aztec/foundation/log';
 import { PortalERC20Abi, PortalERC20Bytecode, TokenPortalAbi, TokenPortalBytecode } from '@aztec/l1-artifacts';
 import { Chain, HttpTransport, PublicClient, getContract } from 'viem';
-import { pointToPublicKey, setNextBlockTimestamp, setup } from './utils.js';
+import { delay, deployNonNativeL2TokenContract, pointToPublicKey, setNextBlockTimestamp, setup } from './utils.js';
 import { Archiver } from '@aztec/archiver';
 
 describe('e2e_l1_to_l2_msg', () => {
@@ -21,7 +20,7 @@ describe('e2e_l1_to_l2_msg', () => {
   let logger: DebugLogger;
   let config: AztecNodeConfig;
 
-  let contract: Contract;
+  let l2Contract: Contract;
   let ethAccount: EthAddress;
 
   let tokenPortalAddress: EthAddress;
@@ -67,38 +66,27 @@ describe('e2e_l1_to_l2_msg', () => {
 
   const expectBalance = async (owner: AztecAddress, expectedBalance: bigint) => {
     const ownerPublicKey = await aztecRpcServer.getAccountPublicKey(owner);
-    const [balance] = await contract.methods.getBalance(pointToPublicKey(ownerPublicKey)).view({ from: owner });
+    const [balance] = await l2Contract.methods.getBalance(pointToPublicKey(ownerPublicKey)).view({ from: owner });
     logger(`Account ${owner} balance: ${balance}`);
     expect(balance).toBe(expectedBalance);
   };
 
-  const deployContract = async (initialBalance = 0n, owner = { x: 0n, y: 0n }) => {
-    logger(`Deploying L2 Token contract...`);
-    const deployer = new ContractDeployer(NonNativeTokenContractAbi, aztecRpcServer);
-    const tx = deployer.deploy(initialBalance, owner).send({
-      portalContract: tokenPortalAddress,
-    });
-    const receipt = await tx.getReceipt();
-    contract = new Contract(receipt.contractAddress!, NonNativeTokenContractAbi, aztecRpcServer);
-    await contract.attach(tokenPortalAddress);
-
-    await tx.isMined(0, 0.1);
-    await tx.getReceipt();
-    logger('L2 contract deployed');
-    return contract;
-  };
-
-  const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-
-  it.only('cancelled l1 to l2 messages cannot be consumed by archiver', async () => {
+  it('cancelled l1 to l2 messages cannot be consumed by archiver', async () => {
     // first initialise the portal, create a message, then cancel it
     const initialBalance = 10n;
     const [ownerAddress] = accounts;
     const ownerPub = await aztecRpcServer.getAccountPublicKey(ownerAddress);
-    const deployedL2Contract = await deployContract(initialBalance, pointToPublicKey(ownerPub));
+    logger(`Deploying L2 Token contract...`);
+    l2Contract = await deployNonNativeL2TokenContract(
+      aztecRpcServer,
+      tokenPortalAddress,
+      initialBalance,
+      pointToPublicKey(ownerPub),
+    );
+    logger('L2 contract deployed');
     await expectBalance(accounts[0], initialBalance);
 
-    const l2TokenAddress = deployedL2Contract.address.toString() as `0x${string}`;
+    const l2TokenAddress = l2Contract.address.toString() as `0x${string}`;
 
     logger('Initializing the TokenPortal contract');
     await tokenPortal.write.initialize(
@@ -153,11 +141,18 @@ describe('e2e_l1_to_l2_msg', () => {
     const initialBalance = 10n;
     const [ownerAddress, receiver] = accounts;
     const ownerPub = await aztecRpcServer.getAccountPublicKey(ownerAddress);
-    await deployContract(initialBalance, pointToPublicKey(ownerPub));
+    logger(`Deploying L2 Token contract...`);
+    l2Contract = await deployNonNativeL2TokenContract(
+      aztecRpcServer,
+      tokenPortalAddress,
+      initialBalance,
+      pointToPublicKey(ownerPub),
+    );
+    logger('L2 contract deployed');
 
     // send a transfer tx to force through rollup with the message included
     const transferAmount = 1n;
-    contract.methods
+    l2Contract.methods
       .transfer(
         transferAmount,
         pointToPublicKey(await aztecRpcServer.getAccountPublicKey(ownerAddress)),

@@ -613,6 +613,7 @@ workflows:
       - e2e-public-token-contract: *e2e_test
       - e2e-cross-chain-messaging: *e2e_test
       - integration-l1-publisher: *e2e_test
+      - integration-archiver-l1-to-l2: *e2e_test
       - e2e-p2p: *e2e_test
 
       - e2e-end:
@@ -624,5 +625,6 @@ workflows:
             - e2e-public-token-contract
             - e2e-cross-chain-messaging
             - integration-l1-publisher
+            - integration-archiver-l1-to-l2
             - e2e-p2p
           <<: *defaults

@@ -4,8 +4,17 @@ import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { DeployL1Contracts, deployL1Contracts } from '@aztec/ethereum';
 import { mnemonicToAccount } from 'viem/accounts';
 import { MNEMONIC, localAnvil } from './fixtures.js';
-import { AztecAddress, AztecRPCServer, Point, createAztecRPCServer } from '@aztec/aztec.js';
+import {
+  AztecAddress,
+  AztecRPCServer,
+  Contract,
+  ContractDeployer,
+  EthAddress,
+  Point,
+  createAztecRPCServer,
+} from '@aztec/aztec.js';
 import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
+import { NonNativeTokenContractAbi } from '@aztec/noir-contracts/examples';
 
 /**
  * Sets up the environment for the end-to-end tests.
@@ -96,4 +105,39 @@ export function pointToPublicKey(point: Point) {
     x: toBigIntBE(x),
     y: toBigIntBE(y),
   };
+}
+
+/**
+ * Deploy a non native l2 token contract and attach is to a portal on L1
+ * @param aztecRpcServer - the aztec rpc server instance
+ * @param tokenPortalAddress - address of token portal to attach to the L2 contract
+ * @param initialBalance - initial balance of the owner of the L2 contract
+ * @param owner - owner of the L2 contract
+ * @returns contract instance
+ */
+export async function deployNonNativeL2TokenContract(
+  aztecRpcServer: AztecRPCServer,
+  tokenPortalAddress: EthAddress,
+  initialBalance = 0n,
+  owner = { x: 0n, y: 0n },
+): Promise<Contract> {
+  const deployer = new ContractDeployer(NonNativeTokenContractAbi, aztecRpcServer);
+  const tx = deployer.deploy(initialBalance, owner).send({
+    portalContract: tokenPortalAddress,
+  });
+  const receipt = await tx.getReceipt();
+  const contract = new Contract(receipt.contractAddress!, NonNativeTokenContractAbi, aztecRpcServer);
+  await contract.attach(tokenPortalAddress);
+
+  await tx.isMined(0, 0.1);
+  await tx.getReceipt();
+  return contract;
+}
+
+/**
+ * Sleep for a given number of milliseconds.
+ * @param ms - the number of milliseconds to sleep for
+ */
+export function delay(ms: number): Promise<void> {
+  return new Promise<void>(resolve => setTimeout(resolve, ms));
 }
