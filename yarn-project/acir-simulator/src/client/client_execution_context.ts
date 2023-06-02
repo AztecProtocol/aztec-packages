@@ -29,7 +29,7 @@ export class ClientTxExecutionContext {
    * @param contractAddress - The contract address.
    * @param storageSlot - The storage slot.
    * @param limit - The amount of notes to get.
-   * @returns An array of ACVM fields for the note count count and the requested note preimages,
+   * @returns An array of ACVM fields for the note count and the requested note preimages,
    * and another array of membershipWitnesses corresponding to each note
    */
   public async getNotes(contractAddress: AztecAddress, storageSlot: ACVMField, limit: number) {

@@ -55,6 +55,11 @@ export class SimulatorOracle implements DBOracle {
           const path = await this.node.getDataTreePath(noteDao.index);
           return {
             preimage: noteDao.notePreimage.items,
+            // TODO(dbanks12): This should only provide index, not full witness.
+            //                 RPC Client should be responsible for getting full MembershipWitness.
+            // Related issues:
+            // https://github.com/AztecProtocol/aztec-packages/issues/513
+            // https://github.com/AztecProtocol/aztec-packages/issues/512
             membershipWitness: MembershipWitness.fromSiblingPath(noteDao.index, path),
           };
         }),

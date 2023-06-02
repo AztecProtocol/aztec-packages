@@ -143,7 +143,8 @@ std::array<CT_TYPE, SIZE> to_ct(Composer& composer, std::array<NT_TYPE, SIZE> co
 };
 
 /**
- * @brief Convert from an array of any native types (NT_TYPE) to array of circuit types (CT_TYPE)
+ * @brief Convert from an array of any native types (NT_TYPE) to array of circuit types (CT_TYPE).
+ * Allow array entries to be optional.
  */
 template <typename Composer, typename CT_TYPE, typename NT_TYPE, std::size_t SIZE>
 std::array<std::optional<CT_TYPE>, SIZE> to_ct(Composer& composer, std::array<std::optional<NT_TYPE>, SIZE> const& arr)

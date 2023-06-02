@@ -78,11 +78,10 @@ using private_function = std::function<OptionalPrivateCircuitPublicInputs<NT>(
 auto& engine = numeric::random::get_debug_engine();
 
 // Some helper constants for trees
-constexpr size_t MAX_FUNCTION_LEAVES = 2 << (aztec3::FUNCTION_TREE_HEIGHT - 1);
-const NT::fr EMPTY_FUNCTION_LEAF = FunctionLeafPreimage<NT>{}.hash();  // hash of empty/0 preimage
-const NT::fr EMPTY_CONTRACT_LEAF = NewContractData<NT>{}.hash();       // hash of empty/0 preimage
-
-constexpr size_t PRIVATE_DATA_TREE_NUM_LEAVES = 2 << (aztec3::PRIVATE_DATA_TREE_HEIGHT - 1);
+constexpr size_t MAX_FUNCTION_LEAVES = 1 << aztec3::FUNCTION_TREE_HEIGHT;               // 2^(height-1)
+const NT::fr EMPTY_FUNCTION_LEAF = FunctionLeafPreimage<NT>{}.hash();                   // hash of empty/0 preimage
+const NT::fr EMPTY_CONTRACT_LEAF = NewContractData<NT>{}.hash();                        // hash of empty/0 preimage
+constexpr size_t PRIVATE_DATA_TREE_NUM_LEAVES = 1 << aztec3::PRIVATE_DATA_TREE_HEIGHT;  // 2^(height-1)
 
 const auto& get_empty_function_siblings()
 {
@@ -126,33 +125,42 @@ void debugComposer(Composer const& composer)
 #endif
 }
 
+/**
+ * @brief Get the random read requests and their membership requests
+ *
+ * @return std::pair<read_requests, read_request_memberships_witnesses>
+ */
 std::pair<std::array<NT::fr, READ_REQUESTS_LENGTH>,
           std::array<MembershipWitness<NT, PRIVATE_DATA_TREE_HEIGHT>, READ_REQUESTS_LENGTH>>
-get_random_data_tree_and_reads()
+get_random_reads()
 {
     auto read_requests = zero_array<fr, READ_REQUESTS_LENGTH>();
-    std::vector<NT::uint32> rr_indices;
+    std::vector<NT::uint32> rr_leaf_indices;
     // randomize private app circuit's read requests
     uint8_t const num_read_requests = engine.get_random_uint8() % (READ_REQUESTS_LENGTH + 1);
     for (size_t rr = 0; rr < num_read_requests; rr++) {
+        // randomize commitment and its leaf index
         read_requests[rr] = NT::fr::random_element();
-        rr_indices.push_back(engine.get_random_uint32() % PRIVATE_DATA_TREE_NUM_LEAVES + 1);
+        rr_leaf_indices.push_back(engine.get_random_uint32() % PRIVATE_DATA_TREE_NUM_LEAVES + 1);
     }
 
     MerkleTree private_data_tree = MerkleTree(PRIVATE_DATA_TREE_HEIGHT);
 
-    // Compute the merkle root of a contract subtree
-    // Contracts subtree
+    // add the commitments to the private data tree for each read request
+    // add them at their corresponding index in the tree
+    // (in practice the the tree is left-to-right append-only, but here
+    // we treat it as sparse just to get these commitments in their correct spot)
     for (size_t i = 0; i < array_length(read_requests); i++) {
-        private_data_tree.update_element(rr_indices[i], read_requests[i]);
+        private_data_tree.update_element(rr_leaf_indices[i], read_requests[i]);
     }
 
+    // compute the merkle sibling paths for each request
     std::array<MembershipWitness<NT, PRIVATE_DATA_TREE_HEIGHT>, READ_REQUESTS_LENGTH>
         read_request_membership_witnesses{};
     for (size_t i = 0; i < array_length(read_requests); i++) {
-        read_request_membership_witnesses[i] = { .leaf_index = NT::fr(rr_indices[i]),
+        read_request_membership_witnesses[i] = { .leaf_index = NT::fr(rr_leaf_indices[i]),
                                                  .sibling_path = get_sibling_path<PRIVATE_DATA_TREE_HEIGHT>(
-                                                     private_data_tree, rr_indices[i], 0) };
+                                                     private_data_tree, rr_leaf_indices[i], 0) };
     }
 
 
@@ -333,7 +341,7 @@ std::pair<PrivateCallData<NT>, ContractDeploymentData<NT>> create_private_call_d
     // TODO this should likely be handled as part of the DB/Oracle/Context infrastructure
     private_circuit_public_inputs.historic_contract_tree_root = contract_tree_root;
 
-    auto [read_requests, read_request_membership_witnesses] = get_random_data_tree_and_reads();
+    auto [read_requests, read_request_membership_witnesses] = get_random_reads();
     private_circuit_public_inputs.read_requests = read_requests;
 
     auto private_circuit_prover = private_circuit_composer.create_prover();

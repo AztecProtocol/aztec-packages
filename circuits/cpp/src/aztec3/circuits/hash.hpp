@@ -153,6 +153,15 @@ typename NCT::fr root_from_sibling_path(typename NCT::fr const& leaf,
     return node;  // root
 }
 
+/**
+ * @brief Get the sibling path of an item in a given merkle tree
+ *
+ * @tparam N height of tree (not including root)
+ * @param tree merkle tree to operate on
+ * @param leafIndex index of the leaf to get path for
+ * @param subtree_depth_to_skip skip some number of bottom layers
+ * @return std::array<fr, N> sibling path
+ */
 template <size_t N>
 std::array<fr, N> get_sibling_path(MerkleTree& tree, size_t leafIndex, size_t const& subtree_depth_to_skip)
 {
