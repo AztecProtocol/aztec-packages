@@ -33,7 +33,6 @@
 namespace {
 
 using aztec3::circuits::compute_empty_sibling_path;
-using aztec3::circuits::get_sibling_path;
 using aztec3::circuits::abis::CallContext;
 using aztec3::circuits::abis::CallStackItem;
 using aztec3::circuits::abis::CombinedAccumulatedData;
@@ -660,7 +659,6 @@ TEST(private_kernel_tests, native_basic_contract_deployment)
     auto const& public_inputs = native_private_kernel_circuit_initial(composer, private_inputs);
 
     validate_deployed_contract_address(private_inputs, public_inputs);
-
 
     info("failure: ", composer.get_first_failure());
     ASSERT_FALSE(composer.failed());

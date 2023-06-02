@@ -12,7 +12,6 @@
 
 using DummyComposer = aztec3::utils::DummyComposer;
 
-using aztec3::circuits::root_from_sibling_path;
 using aztec3::circuits::abis::ContractDeploymentData;
 using aztec3::circuits::abis::ContractLeafPreimage;
 using aztec3::circuits::abis::FunctionData;

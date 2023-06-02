@@ -29,7 +29,6 @@
 namespace {
 
 
-using aztec3::circuits::get_sibling_path;
 using aztec3::circuits::abis::PreviousKernelData;
 
 
