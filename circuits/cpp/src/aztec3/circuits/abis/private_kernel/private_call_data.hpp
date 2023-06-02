@@ -6,19 +6,16 @@
 #include "../types.hpp"
 
 #include "aztec3/constants.hpp"
-#include "aztec3/utils/array.hpp"
-#include <aztec3/utils/types/circuit_types.hpp>
-#include <aztec3/utils/types/convert.hpp>
-#include <aztec3/utils/types/native_types.hpp>
+#include "aztec3/utils/types/circuit_types.hpp"
+#include "aztec3/utils/types/convert.hpp"
+#include "aztec3/utils/types/native_types.hpp"
 
-#include <barretenberg/common/map.hpp>
-#include <barretenberg/stdlib/primitives/witness/witness.hpp>
+#include <barretenberg/barretenberg.hpp>
 
 namespace aztec3::circuits::abis::private_kernel {
 
 using aztec3::utils::types::CircuitTypes;
 using aztec3::utils::types::NativeTypes;
-using plonk::stdlib::witness_t;
 using std::is_same;
 
 template <typename NCT> struct PrivateCallData {
@@ -115,7 +112,7 @@ template <typename NCT> std::ostream& operator<<(std::ostream& os, PrivateCallDa
 // specialize the name in msgpack schema generation
 // consumed by the typescript schema compiler, helps disambiguate templates
 template <typename NCT> inline std::string msgpack_schema_name(
-    aztec3::circuits::abis::CallStackItem<NCT, aztec3::circuits::abis::PrivateTypes> const&)
+    aztec3::circuits::abis::CallStackItem<NCT, aztec3::circuits::abis::PrivateTypes> const&)  // NOLINT
 {
     return "PrivateCallStackItem";
 }

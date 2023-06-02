@@ -1,18 +1,15 @@
 #pragma once
 
-#include <aztec3/utils/types/circuit_types.hpp>
-#include <aztec3/utils/types/convert.hpp>
-#include <aztec3/utils/types/native_types.hpp>
+#include "aztec3/utils/types/circuit_types.hpp"
+#include "aztec3/utils/types/convert.hpp"
+#include "aztec3/utils/types/native_types.hpp"
 
-#include <barretenberg/common/map.hpp>
-#include <barretenberg/common/streams.hpp>
-#include <barretenberg/crypto/generators/generator_data.hpp>
+#include <barretenberg/barretenberg.hpp>
 
 namespace aztec3::circuits::apps::notes {
 
 using aztec3::utils::types::CircuitTypes;
 using aztec3::utils::types::NativeTypes;
-using crypto::generators::generator_index_t;
 
 template <typename NCT, typename V> struct DefaultSingletonPrivateNotePreimage {
     using fr = typename NCT::fr;
@@ -44,8 +41,7 @@ template <typename NCT, typename V> struct DefaultSingletonPrivateNotePreimage {
 
         // To avoid messy template arguments in the calling code, we use a lambda function with `auto` return type to
         // avoid explicitly having to state the circuit type for `V`.
-        auto circuit_value = [&]() -> auto
-        {
+        auto circuit_value = [&]() -> auto {
             if constexpr (has_to_circuit_type) {
                 return value.to_circuit_type();
             } else if (has_to_ct) {
@@ -53,8 +49,7 @@ template <typename NCT, typename V> struct DefaultSingletonPrivateNotePreimage {
             } else {
                 throw_or_abort("Can't convert Value to circuit type");
             }
-        }
-        ();
+        }();
 
         // When this method is called, this class must be templated over native types. We can avoid templating over the
         // circuit types (for the return values) (in order to make the calling syntax cleaner) with the below `decltype`
@@ -80,8 +75,7 @@ template <typename NCT, typename V> struct DefaultSingletonPrivateNotePreimage {
         const bool has_to_native_type = requires(V v) { v.to_native_type(); };
         const bool has_to_nt = requires(V v) { to_nt(v); };
 
-        auto native_value = [&]() -> auto
-        {
+        auto native_value = [&]() -> auto {
             if constexpr (has_to_native_type) {
                 return value.to_native_type();
             } else if (has_to_nt) {
@@ -89,8 +83,7 @@ template <typename NCT, typename V> struct DefaultSingletonPrivateNotePreimage {
             } else {
                 throw_or_abort("Can't convert Value to native type");
             }
-        }
-        ();
+        }();
 
         DefaultSingletonPrivateNotePreimage<NativeTypes, typename decltype(native_value)::value_type> preimage = {
             native_value,

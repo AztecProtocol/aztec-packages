@@ -213,7 +213,7 @@ export class EthAddress {
    * @returns The eth address.
    */
   static fromField(fr: Fr): EthAddress {
-    return new this(fr.toBuffer().slice(-EthAddress.SIZE_IN_BYTES));
+    return new EthAddress(fr.toBuffer().slice(-EthAddress.SIZE_IN_BYTES));
   }
 
   /**

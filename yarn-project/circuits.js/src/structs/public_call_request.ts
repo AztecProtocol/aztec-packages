@@ -1,4 +1,4 @@
-import { Tuple } from '@aztec/foundation/serialize';
+import { BufferReader, Tuple } from '@aztec/foundation/serialize';
 import { FieldsOf } from '../index.js';
 import { serializeToBuffer } from '../utils/serialize.js';
 import {
@@ -41,6 +41,21 @@ export class PublicCallRequest {
    */
   toBuffer() {
     return serializeToBuffer(this.contractAddress, this.functionData, this.callContext, this.args);
+  }
+
+  /**
+   * Deserialise this from a buffer.
+   * @param buffer - The bufferable type from which to deserialise.
+   * @returns The deserialised instance of PublicCallRequest.
+   */
+  static fromBuffer(buffer: Buffer | BufferReader) {
+    const reader = BufferReader.asReader(buffer);
+    return new PublicCallRequest(
+      new AztecAddress(reader.readBytes(32)),
+      FunctionData.fromBuffer(reader),
+      CallContext.fromBuffer(reader),
+      reader.readArray<Fr, typeof ARGS_LENGTH>(ARGS_LENGTH, Fr),
+    );
   }
 
   /**

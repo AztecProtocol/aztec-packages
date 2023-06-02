@@ -1,38 +1,23 @@
-import { AztecNode, getConfigEnvVars } from '@aztec/aztec-node';
+import { AztecNodeService } from '@aztec/aztec-node';
 import { AztecRPCServer, ContractDeployer, Fr, TxStatus } from '@aztec/aztec.js';
-import { mnemonicToAccount } from 'viem/accounts';
-import { createAztecRpcServer } from './create_aztec_rpc_client.js';
-import { deployL1Contracts } from './deploy_l1_contracts.js';
+import { DebugLogger } from '@aztec/foundation/log';
 import { TestContractAbi } from '@aztec/noir-contracts/examples';
 import times from 'lodash.times';
-import { createDebugLogger } from '@aztec/foundation/log';
-import { MNEMONIC } from './fixtures.js';
-
-const logger = createDebugLogger('aztec:e2e_block_building');
-
-const config = getConfigEnvVars();
+import { setup } from './setup.js';
 
 describe('e2e_block_building', () => {
-  let node: AztecNode;
+  let aztecNode: AztecNodeService;
   let aztecRpcServer: AztecRPCServer;
+  let logger: DebugLogger;
 
   const abi = TestContractAbi;
 
   beforeEach(async () => {
-    const account = mnemonicToAccount(MNEMONIC);
-    const privKey = account.getHdKey().privateKey;
-    const { rollupAddress, unverifiedDataEmitterAddress } = await deployL1Contracts(config.rpcUrl, account, logger);
-
-    config.publisherPrivateKey = Buffer.from(privKey!);
-    config.rollupContract = rollupAddress;
-    config.unverifiedDataEmitterContract = unverifiedDataEmitterAddress;
-
-    node = await AztecNode.createAndSync(config);
-    aztecRpcServer = await createAztecRpcServer(1, node);
-  }, 60_000);
+    ({ aztecNode, aztecRpcServer, logger } = await setup());
+  }, 30_000);
 
   afterEach(async () => {
-    await node?.stop();
+    await aztecNode?.stop();
     await aztecRpcServer?.stop();
   });
 

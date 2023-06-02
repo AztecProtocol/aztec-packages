@@ -3,12 +3,12 @@
 #include "common.hpp"
 #include "init.hpp"
 
+#include "aztec3/circuits/abis/kernel_circuit_public_inputs.hpp"
+#include "aztec3/circuits/abis/public_kernel/public_kernel_inputs_no_previous_kernel.hpp"
+#include "aztec3/circuits/hash.hpp"
+#include "aztec3/utils/array.hpp"
 #include "aztec3/utils/circuit_errors.hpp"
-#include <aztec3/circuits/abis/kernel_circuit_public_inputs.hpp>
-#include <aztec3/circuits/abis/public_kernel/public_kernel_inputs_no_previous_kernel.hpp>
-#include <aztec3/circuits/hash.hpp>
-#include <aztec3/utils/array.hpp>
-#include <aztec3/utils/dummy_composer.hpp>
+#include "aztec3/utils/dummy_composer.hpp"
 
 namespace {
 
@@ -89,6 +89,10 @@ using DummyComposer = aztec3::utils::DummyComposer;
 KernelCircuitPublicInputs<NT> native_public_kernel_circuit_no_previous_kernel(
     DummyComposer& composer, PublicKernelInputsNoPreviousKernel<NT> const& public_kernel_inputs)
 {
+    // TODO(dbanks12): consider rename of public_kernel_inputs to just private_inputs?
+    //                 or consider other renaming options
+    //                 (confusing since they are private inputs to the public kernel)
+
     // There is not circuit state carried over from previous iterations.
     // We are construcitng fresh state that will be added to during this circuit execution.
     KernelCircuitPublicInputs<NT> public_inputs{};
@@ -102,7 +106,7 @@ KernelCircuitPublicInputs<NT> native_public_kernel_circuit_no_previous_kernel(
     // validate the inputs unique to there being no previous kernel
     validate_inputs(composer, public_kernel_inputs);
 
-    // validate the kernel execution commonn to all invocation circumstances
+    // validate the kernel execution common to all invocation circumstances
     common_validate_kernel_execution(composer, public_kernel_inputs);
 
     // update the public end state of the circuit

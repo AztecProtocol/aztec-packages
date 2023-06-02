@@ -353,7 +353,7 @@ export class CbindCompiler {
    */
   private generateInterface(name: string, type: ObjectSchema) {
     // Raw object, used as return value of fromType() generated functions.
-    let result = `export interface Msgpack${name} {\n`;
+    let result = `interface Msgpack${name} {\n`;
     for (const [key, value] of Object.entries(type)) {
       if (key === '__typename') continue;
       result += `  ${key}: ${this.getMsgpackTypename(value)};\n`;

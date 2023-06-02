@@ -1,11 +1,9 @@
 #include "index.hpp"
 
-#include <aztec3/circuits/abis/call_context.hpp>
-#include <aztec3/circuits/abis/function_data.hpp>
+#include "aztec3/circuits/abis/call_context.hpp"
+#include "aztec3/circuits/abis/function_data.hpp"
 
-// #include <aztec3/circuits/apps/function_execution_context.hpp>
-
-#include <barretenberg/common/test.hpp>
+#include <barretenberg/barretenberg.hpp>
 
 #include <gtest/gtest.h>
 
@@ -53,7 +51,7 @@ TEST(private_to_private_function_call_tests, circuit_private_to_private_function
 
     info("function_1_1_public_inputs: ", function_1_1_public_inputs);
 
-    info("computed witness: ", fn1_composer.computed_witness);
+    info("computed witness: ", fn1_composer.composer_helper.computed_witness);
     // info("witness: ", fn1_composer.witness);
     // info("constant variables: ", fn1_composer.constant_variables);
     // info("variables: ", fn1_composer.variables);

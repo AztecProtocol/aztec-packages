@@ -1,17 +1,15 @@
 #include "index.hpp"
 #include "previous_kernel_data.hpp"
-#include "private_kernel/private_inputs.hpp"
 
 #include "aztec3/circuits/abis/combined_accumulated_data.hpp"
 
-#include <barretenberg/common/serialize.hpp>
-#include <barretenberg/serialize/cbind.hpp>
+#include <barretenberg/barretenberg.hpp>
 
 #include <gtest/gtest.h>
 
 namespace {
 // Composer
-using Composer = plonk::UltraComposer;
+using Composer = plonk::UltraPlonkComposer;
 
 // Types
 using CT = aztec3::utils::types::CircuitTypes<Composer>;

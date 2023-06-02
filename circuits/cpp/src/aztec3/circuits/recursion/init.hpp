@@ -1,14 +1,13 @@
 #pragma once
-#include <aztec3/utils/types/circuit_types.hpp>
-#include <aztec3/utils/types/convert.hpp>
-#include <aztec3/utils/types/native_types.hpp>
+#include "aztec3/utils/types/circuit_types.hpp"
+#include "aztec3/utils/types/convert.hpp"
+#include "aztec3/utils/types/native_types.hpp"
 
-#include <barretenberg/stdlib/recursion/verifier/program_settings.hpp>
-#include <barretenberg/stdlib/recursion/verifier/verifier.hpp>
+#include <barretenberg/barretenberg.hpp>
 
 namespace aztec3::circuits::recursion {
 // Composer
-using Composer = plonk::UltraComposer;
+using Composer = plonk::UltraPlonkComposer;
 
 // Generic types:
 using CT = aztec3::utils::types::CircuitTypes<Composer>;

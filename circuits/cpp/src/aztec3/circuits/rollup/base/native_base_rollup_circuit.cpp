@@ -3,21 +3,15 @@
 #include "aztec3/circuits/abis/membership_witness.hpp"
 #include "aztec3/circuits/abis/public_data_read.hpp"
 #include "aztec3/circuits/abis/public_data_update_request.hpp"
+#include "aztec3/circuits/abis/rollup/base/base_or_merge_rollup_public_inputs.hpp"
+#include "aztec3/circuits/abis/rollup/base/base_rollup_inputs.hpp"
+#include "aztec3/circuits/abis/rollup/nullifier_leaf_preimage.hpp"
 #include "aztec3/circuits/hash.hpp"
 #include "aztec3/circuits/rollup/components/components.hpp"
 #include "aztec3/constants.hpp"
 #include "aztec3/utils/circuit_errors.hpp"
-#include <aztec3/circuits/abis/rollup/base/base_or_merge_rollup_public_inputs.hpp>
-#include <aztec3/circuits/abis/rollup/base/base_rollup_inputs.hpp>
-#include <aztec3/circuits/abis/rollup/nullifier_leaf_preimage.hpp>
 
-#include "barretenberg/crypto/pedersen_hash/pedersen.hpp"
-#include "barretenberg/crypto/sha256/sha256.hpp"
-#include "barretenberg/ecc/curves/bn254/fr.hpp"
-#include "barretenberg/stdlib/hash/pedersen/pedersen.hpp"
-#include "barretenberg/stdlib/merkle_tree/membership.hpp"
-#include "barretenberg/stdlib/merkle_tree/memory_tree.hpp"
-#include "barretenberg/stdlib/merkle_tree/merkle_tree.hpp"
+#include <barretenberg/barretenberg.hpp>
 
 #include <algorithm>
 #include <array>
@@ -161,7 +155,7 @@ void perform_historical_contract_data_tree_membership_checks(DummyComposer& comp
         NT::fr const leaf =
             baseRollupInputs.kernel_data[i]
                 .public_inputs.constants.historic_tree_roots.private_historic_tree_roots.contract_tree_root;
-        abis::MembershipWitness<NT, PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT> const historic_root_witness =
+        abis::MembershipWitness<NT, CONTRACT_TREE_ROOTS_TREE_HEIGHT> const historic_root_witness =
             baseRollupInputs.historic_contract_tree_root_membership_witnesses[i];
 
         check_membership<NT>(composer,
@@ -182,7 +176,7 @@ void perform_historical_l1_to_l2_message_tree_membership_checks(DummyComposer& c
         NT::fr const leaf =
             baseRollupInputs.kernel_data[i]
                 .public_inputs.constants.historic_tree_roots.private_historic_tree_roots.l1_to_l2_messages_tree_root;
-        abis::MembershipWitness<NT, PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT> const historic_root_witness =
+        abis::MembershipWitness<NT, L1_TO_L2_MSG_TREE_ROOTS_TREE_HEIGHT> const historic_root_witness =
             baseRollupInputs.historic_l1_to_l2_msg_tree_root_membership_witnesses[i];
 
         check_membership<NT>(composer,
@@ -379,8 +373,7 @@ fr insert_public_data_update_requests(
     std::array<abis::PublicDataUpdateRequest<NT>, KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH> const&
         public_data_update_requests,
     size_t witnesses_offset,
-    std::array<abis::MembershipWitness<NT, PUBLIC_DATA_TREE_HEIGHT>,
-               2 * KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH> const& witnesses)
+    std::array<std::array<fr, PUBLIC_DATA_TREE_HEIGHT>, 2 * KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH> const& witnesses)
 {
     auto root = tree_root;
 
@@ -392,19 +385,14 @@ fr insert_public_data_update_requests(
             continue;
         }
 
-        composer.do_assert(
-            witness.leaf_index == state_write.leaf_index,
-            format("mismatch state write ", state_write.leaf_index, " and witness leaf index ", witness.leaf_index),
-            CircuitErrorCode::BASE__INVALID_PUBLIC_DATA_UPDATE_REQUESTS);
-
         check_membership<NT>(composer,
                              state_write.old_value,
                              state_write.leaf_index,
-                             witness.sibling_path,
+                             witness,
                              root,
                              format("validate_public_data_update_requests index ", i));
 
-        root = root_from_sibling_path<NT>(state_write.new_value, state_write.leaf_index, witness.sibling_path);
+        root = root_from_sibling_path<NT>(state_write.new_value, state_write.leaf_index, witness);
     }
 
     return root;
@@ -415,8 +403,7 @@ void validate_public_data_reads(
     fr tree_root,
     std::array<abis::PublicDataRead<NT>, KERNEL_PUBLIC_DATA_READS_LENGTH> const& public_data_reads,
     size_t witnesses_offset,
-    std::array<abis::MembershipWitness<NT, PUBLIC_DATA_TREE_HEIGHT>, 2 * KERNEL_PUBLIC_DATA_READS_LENGTH> const&
-        witnesses)
+    std::array<std::array<fr, PUBLIC_DATA_TREE_HEIGHT>, 2 * KERNEL_PUBLIC_DATA_READS_LENGTH> const& witnesses)
 {
     for (size_t i = 0; i < KERNEL_PUBLIC_DATA_READS_LENGTH; ++i) {
         const auto& public_data_read = public_data_reads[i];
@@ -426,17 +413,10 @@ void validate_public_data_reads(
             continue;
         }
 
-        composer.do_assert(witness.leaf_index == public_data_read.leaf_index,
-                           format("mismatch public data read ",
-                                  public_data_read.leaf_index,
-                                  " and witness leaf index ",
-                                  witness.leaf_index),
-                           CircuitErrorCode::BASE__INVALID_PUBLIC_DATA_READS);
-
         check_membership<NT>(composer,
                              public_data_read.value,
                              public_data_read.leaf_index,
-                             witness.sibling_path,
+                             witness,
                              tree_root,
                              format("validate_public_data_reads index ", i + witnesses_offset));
     }

@@ -1,19 +1,15 @@
 #include "utils.hpp"
 
-#include "init.hpp"
 #include "nullifier_tree_testing_harness.hpp"
 
 #include "aztec3/circuits/abis/membership_witness.hpp"
 #include "aztec3/circuits/abis/new_contract_data.hpp"
 #include "aztec3/circuits/abis/rollup/root/root_rollup_public_inputs.hpp"
+#include "aztec3/circuits/kernel/private/utils.hpp"
 #include "aztec3/circuits/rollup/base/init.hpp"
 #include "aztec3/constants.hpp"
-#include <aztec3/circuits/kernel/private/utils.hpp>
-#include <aztec3/circuits/mock/mock_kernel_circuit.hpp>
 
-#include "barretenberg/numeric/uint256/uint256.hpp"
-#include "barretenberg/stdlib/merkle_tree/memory_store.hpp"
-#include "barretenberg/stdlib/merkle_tree/merkle_tree.hpp"
+#include <barretenberg/barretenberg.hpp>
 
 #include <set>
 #include <utility>
@@ -185,10 +181,7 @@ BaseRollupInputs base_rollup_inputs_from_kernels(std::array<KernelData, 2> kerne
             }
             auto leaf_index = uint256_t(public_data_read.leaf_index);
             baseRollupInputs.new_public_data_reads_sibling_paths[i * KERNEL_PUBLIC_DATA_READS_LENGTH + j] =
-                MembershipWitness<NT, PUBLIC_DATA_TREE_HEIGHT>{
-                    .leaf_index = public_data_read.leaf_index,
-                    .sibling_path = get_sibling_path<PUBLIC_DATA_TREE_HEIGHT>(public_data_tree, leaf_index),
-                };
+                get_sibling_path<PUBLIC_DATA_TREE_HEIGHT>(public_data_tree, leaf_index);
         }
 
         for (size_t j = 0; j < KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH; j++) {
@@ -200,10 +193,7 @@ BaseRollupInputs base_rollup_inputs_from_kernels(std::array<KernelData, 2> kerne
             public_data_tree.update_element(leaf_index, public_data_update_request.new_value);
             baseRollupInputs
                 .new_public_data_update_requests_sibling_paths[i * KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH + j] =
-                MembershipWitness<NT, PUBLIC_DATA_TREE_HEIGHT>{
-                    .leaf_index = public_data_update_request.leaf_index,
-                    .sibling_path = get_sibling_path<PUBLIC_DATA_TREE_HEIGHT>(public_data_tree, leaf_index),
-                };
+                get_sibling_path<PUBLIC_DATA_TREE_HEIGHT>(public_data_tree, leaf_index);
         }
     }
 
@@ -333,14 +323,16 @@ RootRollupInputs get_root_rollup_inputs(utils::DummyComposer& composer,
     historic_contract_tree.update_element(0, contract_tree.root());
     historic_l1_to_l2_msg_tree.update_element(0, l1_to_l2_msg_tree.root());
 
+    // Historic trees sibling paths
     auto historic_data_sibling_path =
         get_sibling_path<PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT>(historic_private_data_tree, 1, 0);
     auto historic_contract_sibling_path =
         get_sibling_path<CONTRACT_TREE_ROOTS_TREE_HEIGHT>(historic_contract_tree, 1, 0);
     auto historic_l1_to_l2_msg_sibling_path =
         get_sibling_path<L1_TO_L2_MSG_TREE_ROOTS_TREE_HEIGHT>(historic_l1_to_l2_msg_tree, 1, 0);
-    auto l1_to_l2_tree_sibling_path = get_sibling_path<L1_TO_L2_MSG_SUBTREE_INCLUSION_CHECK_DEPTH>(
-        l1_to_l2_msg_tree, 0, L1_TO_L2_MSG_SUBTREE_INCLUSION_CHECK_DEPTH);
+    // l1 to l2 tree
+    auto l1_to_l2_tree_sibling_path =
+        get_sibling_path<L1_TO_L2_MSG_SUBTREE_INCLUSION_CHECK_DEPTH>(l1_to_l2_msg_tree, 0, L1_TO_L2_MSG_SUBTREE_DEPTH);
 
     // l1_to_l2_message tree snapshots
     AppendOnlyTreeSnapshot const start_l1_to_l2_msg_tree_snapshot = {
