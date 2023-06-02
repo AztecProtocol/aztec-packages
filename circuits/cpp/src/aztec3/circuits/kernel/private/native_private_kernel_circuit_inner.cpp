@@ -59,10 +59,10 @@ void initialise_end_values(PrivateKernelInputsInner<NT> const& private_inputs,
     end.new_l2_to_l1_msgs = start.new_l2_to_l1_msgs;
 
     end.encrypted_logs_hash = start.encrypted_logs_hash;
-    end.unencrypted_logs_hash = start.unencrypted_logs_hash;
+    // end.unencrypted_logs_hash = start.unencrypted_logs_hash;
 
     end.encrypted_log_preimages_length = start.encrypted_log_preimages_length;
-    end.unencrypted_log_preimages_length = start.unencrypted_log_preimages_length;
+    // end.unencrypted_log_preimages_length = start.unencrypted_log_preimages_length;
 
     end.optionally_revealed_data = start.optionally_revealed_data;
 }

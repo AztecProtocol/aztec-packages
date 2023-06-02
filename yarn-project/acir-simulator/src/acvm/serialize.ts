@@ -74,10 +74,10 @@ export function toACVMPublicInputs(publicInputs: PrivateCircuitPublicInputs): AC
     ...publicInputs.publicCallStack.map(toACVMField),
     ...publicInputs.newL2ToL1Msgs.map(toACVMField),
     ...publicInputs.encryptedLogsHash.map(toACVMField),
-    ...publicInputs.unencryptedLogsHash.map(toACVMField),
+    // ...publicInputs.unencryptedLogsHash.map(toACVMField),
 
     toACVMField(publicInputs.encryptedLogPreimagesLength),
-    toACVMField(publicInputs.unencryptedLogPreimagesLength),
+    // toACVMField(publicInputs.unencryptedLogPreimagesLength),
     toACVMField(publicInputs.historicPrivateDataTreeRoot),
     toACVMField(publicInputs.historicPrivateNullifierTreeRoot),
     toACVMField(publicInputs.historicContractTreeRoot),

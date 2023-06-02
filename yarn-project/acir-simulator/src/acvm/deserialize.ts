@@ -117,9 +117,9 @@ export function extractPublicInputs(partialWitness: ACVMWitness, acir: Buffer): 
   const newL2ToL1Msgs = witnessReader.readFieldArray(NEW_L2_TO_L1_MSGS_LENGTH);
 
   const encryptedLogsHash = witnessReader.readFieldArray(2);
-  const unencryptedLogsHash = witnessReader.readFieldArray(2);
+  // const unencryptedLogsHash = witnessReader.readFieldArray(2);
   const encryptedLogPreimagesLength = witnessReader.readField();
-  const unencryptedLogPreimagesLength = witnessReader.readField();
+  // const unencryptedLogPreimagesLength = witnessReader.readField();
 
   const privateDataTreeRoot = witnessReader.readField();
   const nullifierTreeRoot = witnessReader.readField();
@@ -143,9 +143,9 @@ export function extractPublicInputs(partialWitness: ACVMWitness, acir: Buffer): 
     publicCallStack,
     newL2ToL1Msgs,
     encryptedLogsHash,
-    unencryptedLogsHash,
+    // unencryptedLogsHash,
     encryptedLogPreimagesLength,
-    unencryptedLogPreimagesLength,
+    // unencryptedLogPreimagesLength,
     privateDataTreeRoot,
     nullifierTreeRoot,
     contractTreeRoot,

@@ -303,7 +303,7 @@ export class CombinedAccumulatedData {
      * Accumulated unencrypted logs hash from all the previous kernel iterations.
      * Note: Represented as a tuple of 2 fields in order to fit in all of the 256 bits of sha256 hash.
      */
-    public unencryptedLogsHash: Tuple<Fr, 2>,
+    // public unencryptedLogsHash: Tuple<Fr, 2>,
     /**
      * Total accumulated length of the encrypted log preimages emitted in all the previous kernel iterations
      */
@@ -311,7 +311,7 @@ export class CombinedAccumulatedData {
     /**
      * Total accumulated length of the unencrypted log preimages emitted in all the previous kernel iterations
      */
-    public unencryptedLogPreimagesLength: Fr,
+    // public unencryptedLogPreimagesLength: Fr,
     /**
      * All the new contracts deployed in this transaction.
      */
@@ -335,7 +335,7 @@ export class CombinedAccumulatedData {
     assertMemberLength(this, 'publicCallStack', KERNEL_PUBLIC_CALL_STACK_LENGTH);
     assertMemberLength(this, 'newL2ToL1Msgs', KERNEL_NEW_L2_TO_L1_MSGS_LENGTH);
     assertMemberLength(this, 'encryptedLogsHash', 2);
-    assertMemberLength(this, 'unencryptedLogsHash', 2);
+    // assertMemberLength(this, 'unencryptedLogsHash', 2);
     assertMemberLength(this, 'newContracts', KERNEL_NEW_CONTRACTS_LENGTH);
     assertMemberLength(this, 'optionallyRevealedData', KERNEL_OPTIONALLY_REVEALED_DATA_LENGTH);
     assertMemberLength(this, 'publicDataUpdateRequests', KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH);
@@ -351,9 +351,9 @@ export class CombinedAccumulatedData {
       this.publicCallStack,
       this.newL2ToL1Msgs,
       this.encryptedLogsHash,
-      this.unencryptedLogsHash,
+      // this.unencryptedLogsHash,
       this.encryptedLogPreimagesLength,
-      this.unencryptedLogPreimagesLength,
+      // this.unencryptedLogPreimagesLength,
       this.newContracts,
       this.optionallyRevealedData,
       this.publicDataUpdateRequests,
@@ -376,9 +376,9 @@ export class CombinedAccumulatedData {
       reader.readArray(KERNEL_PUBLIC_CALL_STACK_LENGTH, Fr),
       reader.readArray(KERNEL_NEW_L2_TO_L1_MSGS_LENGTH, Fr),
       reader.readArray(2, Fr),
-      reader.readArray(2, Fr),
+      // reader.readArray(2, Fr),
       reader.readFr(),
-      reader.readFr(),
+      // reader.readFr(),
       reader.readArray(KERNEL_NEW_CONTRACTS_LENGTH, NewContractData),
       reader.readArray(KERNEL_OPTIONALLY_REVEALED_DATA_LENGTH, OptionallyRevealedData),
       reader.readArray(KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH, PublicDataUpdateRequest),
@@ -395,9 +395,9 @@ export class CombinedAccumulatedData {
       makeTuple(KERNEL_PUBLIC_CALL_STACK_LENGTH, Fr.zero),
       makeTuple(KERNEL_NEW_L2_TO_L1_MSGS_LENGTH, Fr.zero),
       makeTuple(2, Fr.zero),
-      makeTuple(2, Fr.zero),
+      // makeTuple(2, Fr.zero),
       Fr.zero(),
-      Fr.zero(),
+      // Fr.zero(),
       makeTuple(KERNEL_NEW_CONTRACTS_LENGTH, NewContractData.empty),
       makeTuple(KERNEL_OPTIONALLY_REVEALED_DATA_LENGTH, OptionallyRevealedData.empty),
       makeTuple(KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH, PublicDataUpdateRequest.empty),

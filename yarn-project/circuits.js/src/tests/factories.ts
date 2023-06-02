@@ -200,9 +200,9 @@ export function makeEmptyAccumulatedData(seed = 1): CombinedAccumulatedData {
     makeTuple(KERNEL_PUBLIC_CALL_STACK_LENGTH, fr, seed + 0x400),
     makeTuple(KERNEL_NEW_L2_TO_L1_MSGS_LENGTH, fr, seed + 0x500),
     makeTuple(2, fr, seed + 0x600), // encrypted logs hash
-    makeTuple(2, fr, seed + 0x700), // unencrypted logs hash
+    // makeTuple(2, fr, seed + 0x700), // unencrypted logs hash
     fr(seed + 0x800), // encrypted_log_preimages_length
-    fr(seed + 0x900), // unencrypted_log_preimages_length
+    // fr(seed + 0x900), // unencrypted_log_preimages_length
     makeTuple(KERNEL_NEW_CONTRACTS_LENGTH, makeNewContractData, seed + 0xa00),
     makeTuple(KERNEL_OPTIONALLY_REVEALED_DATA_LENGTH, makeOptionallyRevealedData, seed + 0xb00),
     makeTuple(KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH, makeEmptyPublicDataUpdateRequest, seed + 0xc00),
@@ -224,9 +224,9 @@ export function makeAccumulatedData(seed = 1): CombinedAccumulatedData {
     makeTuple(KERNEL_PUBLIC_CALL_STACK_LENGTH, fr, seed + 0x400),
     makeTuple(KERNEL_NEW_L2_TO_L1_MSGS_LENGTH, fr, seed + 0x500),
     makeTuple(2, fr, seed + 0x600), // encrypted logs hash
-    makeTuple(2, fr, seed + 0x700), // unencrypted logs hash
+    // makeTuple(2, fr, seed + 0x700), // unencrypted logs hash
     fr(seed + 0x800), // encrypted_log_preimages_length
-    fr(seed + 0x900), // unencrypted_log_preimages_length
+    // fr(seed + 0x900), // unencrypted_log_preimages_length
     makeTuple(KERNEL_NEW_CONTRACTS_LENGTH, makeNewContractData, seed + 0xa00),
     makeTuple(KERNEL_OPTIONALLY_REVEALED_DATA_LENGTH, makeOptionallyRevealedData, seed + 0xb00),
     makeTuple(KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH, makeEmptyPublicDataUpdateRequest, seed + 0xc00),
@@ -612,9 +612,9 @@ export function makePrivateCircuitPublicInputs(seed = 0): PrivateCircuitPublicIn
     publicCallStack: makeTuple(PUBLIC_CALL_STACK_LENGTH, fr, seed + 0x700),
     newL2ToL1Msgs: makeTuple(NEW_L2_TO_L1_MSGS_LENGTH, fr, seed + 0x800),
     encryptedLogsHash: makeTuple(2, fr, seed + 0x900),
-    unencryptedLogsHash: makeTuple(2, fr, seed + 0xa00),
+    // unencryptedLogsHash: makeTuple(2, fr, seed + 0xa00),
     encryptedLogPreimagesLength: fr(seed + 0xb00),
-    unencryptedLogPreimagesLength: fr(seed + 0xc00),
+    // unencryptedLogPreimagesLength: fr(seed + 0xc00),
     historicContractTreeRoot: fr(seed + 0xd00),
     historicPrivateDataTreeRoot: fr(seed + 0xe00),
     historicPrivateNullifierTreeRoot: fr(seed + 0xf00),
