@@ -79,6 +79,7 @@ contract TokenPortal {
       deadline: _deadline,
       fee: _fee
     });
+    // @todo: (issue #740) implement secure way to cancel the message.
     bytes32 entryKey = inbox.cancelL2Message(message, address(this));
     underlying.transfer(msg.sender, _amount);
     return entryKey;

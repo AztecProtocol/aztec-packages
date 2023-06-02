@@ -1,7 +1,7 @@
 import { AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
 import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 
-import { DeployL1Contracts, deployL1Contracts } from '@aztec/ethereum';
+import { DeployL1Contracts, deployL1Contract, deployL1Contracts } from '@aztec/ethereum';
 import { mnemonicToAccount } from 'viem/accounts';
 import { MNEMONIC, localAnvil } from './fixtures.js';
 import {
@@ -15,6 +15,8 @@ import {
 } from '@aztec/aztec.js';
 import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
 import { NonNativeTokenContractAbi } from '@aztec/noir-contracts/examples';
+import { PublicClient, WalletClient, HttpTransport, Chain, Account, getContract } from 'viem';
+import { PortalERC20Abi, PortalERC20Bytecode, TokenPortalAbi, TokenPortalBytecode } from '@aztec/l1-artifacts';
 
 /**
  * Sets up the environment for the end-to-end tests.
@@ -108,30 +110,63 @@ export function pointToPublicKey(point: Point) {
 }
 
 /**
- * Deploy a non native l2 token contract and attach is to a portal on L1
+ * Deploy L1 token and portal, initialize portal, deploy a non native l2 token contract and attach is to the portal.
  * @param aztecRpcServer - the aztec rpc server instance
- * @param tokenPortalAddress - address of token portal to attach to the L2 contract
+ * @param walletClient - A viem WalletClient.
+ * @param publicClient - A viem PublicClient.
+ * @param rollupRegistryAddress - address of rollup registry to pass to initialize the token portal
  * @param initialBalance - initial balance of the owner of the L2 contract
  * @param owner - owner of the L2 contract
- * @returns contract instance
+ * @returns l2 contract instance, token portal instance, token portal address and the underlying ERC20 instance
  */
-export async function deployNonNativeL2TokenContract(
+export async function deployAndInitializeNonNativeL2TokenContracts(
   aztecRpcServer: AztecRPCServer,
-  tokenPortalAddress: EthAddress,
+  walletClient: WalletClient<HttpTransport, Chain, Account>,
+  publicClient: PublicClient<HttpTransport, Chain>,
+  rollupRegistryAddress: EthAddress,
   initialBalance = 0n,
   owner = { x: 0n, y: 0n },
-): Promise<Contract> {
+) {
+  // deploy underlying contract
+  const underlyingERC20Address = await deployL1Contract(
+    walletClient,
+    publicClient,
+    PortalERC20Abi,
+    PortalERC20Bytecode,
+  );
+  const underlyingERC20: any = getContract({
+    address: underlyingERC20Address.toString(),
+    abi: PortalERC20Abi,
+    walletClient,
+    publicClient,
+  });
+
+  // deploy the token portal
+  const tokenPortalAddress = await deployL1Contract(walletClient, publicClient, TokenPortalAbi, TokenPortalBytecode);
+  const tokenPortal: any = getContract({
+    address: tokenPortalAddress.toString(),
+    abi: TokenPortalAbi,
+    walletClient,
+    publicClient,
+  });
+
+  // deploy l2 contract and attach to portal
   const deployer = new ContractDeployer(NonNativeTokenContractAbi, aztecRpcServer);
   const tx = deployer.deploy(initialBalance, owner).send({
     portalContract: tokenPortalAddress,
   });
-  const receipt = await tx.getReceipt();
-  const contract = new Contract(receipt.contractAddress!, NonNativeTokenContractAbi, aztecRpcServer);
-  await contract.attach(tokenPortalAddress);
-
   await tx.isMined(0, 0.1);
-  await tx.getReceipt();
-  return contract;
+  const receipt = await tx.getReceipt();
+  const l2Contract = new Contract(receipt.contractAddress!, NonNativeTokenContractAbi, aztecRpcServer);
+  await l2Contract.attach(tokenPortalAddress);
+  const l2TokenAddress = l2Contract.address.toString() as `0x${string}`;
+
+  // initialize portal
+  await tokenPortal.write.initialize(
+    [rollupRegistryAddress.toString(), underlyingERC20Address.toString(), l2TokenAddress],
+    {} as any,
+  );
+  return { l2Contract, tokenPortalAddress, tokenPortal, underlyingERC20 };
 }
 
 /**

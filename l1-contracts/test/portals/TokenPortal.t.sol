@@ -47,6 +47,7 @@ contract TokenPortalTest is Test {
   uint32 deadline = uint32(block.timestamp + 1 days);
   bytes32 to = bytes32(0x2d749407d8c364537cdeb799c1574929cb22ff1ece2b96d2a1c6fa287a0e0171);
   uint256 amount = 100;
+  uint256 mintAmount = 1 ether;
   bytes32 secretHash = 0x147e4fec49805c924e28150fc4b36824679bc17ecb1d7d9f6a9effb7fde6b6a0;
   uint64 bid = 1 ether;
 
@@ -68,8 +69,8 @@ contract TokenPortalTest is Test {
 
   function testDeposit() public returns (bytes32) {
     // mint token and approve to the portal
-    portalERC20.mint(address(this), 1 ether);
-    portalERC20.approve(address(tokenPortal), 1 ether);
+    portalERC20.mint(address(this), mintAmount);
+    portalERC20.approve(address(tokenPortal), mintAmount);
 
     // Check for the expected message
     DataStructures.L1ToL2Msg memory expectedMessage = DataStructures.L1ToL2Msg({
@@ -122,6 +123,12 @@ contract TokenPortalTest is Test {
 
     assertEq(entryKey, expectedEntryKey, "returned entry key and calculated entryKey should match");
     assertFalse(inbox.contains(entryKey), "entry still in inbox");
+    assertEq(
+      portalERC20.balanceOf(address(this)),
+      mintAmount,
+      "assets should be transferred back to this contract"
+    );
+    assertEq(portalERC20.balanceOf(address(tokenPortal)), 0, "portal should have no assets");
   }
 
   function testWithdraw() public {

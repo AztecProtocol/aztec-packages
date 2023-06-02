@@ -4,15 +4,20 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 
 import { CircuitsWasm } from '@aztec/circuits.js';
 import { computeSecretMessageHash } from '@aztec/circuits.js/abis';
-import { DeployL1Contracts, deployL1Contract } from '@aztec/ethereum';
+import { DeployL1Contracts } from '@aztec/ethereum';
 import { Fr } from '@aztec/foundation/fields';
 import { DebugLogger } from '@aztec/foundation/log';
-import { PortalERC20Abi, PortalERC20Bytecode, TokenPortalAbi, TokenPortalBytecode } from '@aztec/l1-artifacts';
-import { Chain, HttpTransport, PublicClient, getContract } from 'viem';
-import { delay, deployNonNativeL2TokenContract, pointToPublicKey, setNextBlockTimestamp, setup } from './utils.js';
+import { Chain, HttpTransport, PublicClient } from 'viem';
+import {
+  delay,
+  deployAndInitializeNonNativeL2TokenContracts,
+  pointToPublicKey,
+  setNextBlockTimestamp,
+  setup,
+} from './utils.js';
 import { Archiver } from '@aztec/archiver';
 
-describe('e2e_l1_to_l2_msg', () => {
+describe('archiver integration with l1 to l2 messages', () => {
   let aztecNode: AztecNodeService;
   let aztecRpcServer: AztecRPCServer;
   let archiver: Archiver;
@@ -24,38 +29,42 @@ describe('e2e_l1_to_l2_msg', () => {
   let ethAccount: EthAddress;
 
   let tokenPortalAddress: EthAddress;
-  let underlyingERC20Address: EthAddress;
-  let rollupRegistryAddress: EthAddress;
   let tokenPortal: any;
   let underlyingERC20: any;
   let publicClient: PublicClient<HttpTransport, Chain>;
+
+  const initialBalance = 10n;
+  let ownerAddress: AztecAddress;
+  let receiver: AztecAddress;
 
   beforeEach(async () => {
     let deployL1ContractsValues: DeployL1Contracts | undefined;
     ({ aztecNode, aztecRpcServer, deployL1ContractsValues, accounts, config, logger } = await setup(2));
     archiver = await Archiver.createAndSync(config);
-    rollupRegistryAddress = deployL1ContractsValues!.registryAddress;
 
     const walletClient = deployL1ContractsValues.walletClient;
     publicClient = deployL1ContractsValues.publicClient;
 
     ethAccount = EthAddress.fromString((await walletClient.getAddresses())[0]);
+    [ownerAddress, receiver] = accounts;
+    const ownerPub = pointToPublicKey(await aztecRpcServer.getAccountPublicKey(ownerAddress));
 
-    // Deploy portal contracts
-    underlyingERC20Address = await deployL1Contract(walletClient, publicClient, PortalERC20Abi, PortalERC20Bytecode);
-    tokenPortalAddress = await deployL1Contract(walletClient, publicClient, TokenPortalAbi, TokenPortalBytecode);
-    underlyingERC20 = getContract({
-      address: underlyingERC20Address.toString(),
-      abi: PortalERC20Abi,
+    // Deploy and initialize all required contracts
+    logger('Deploying Portal, initializing and deploying l2 contract...');
+    const contracts = await deployAndInitializeNonNativeL2TokenContracts(
+      aztecRpcServer,
       walletClient,
       publicClient,
-    });
-    tokenPortal = getContract({
-      address: tokenPortalAddress.toString(),
-      abi: TokenPortalAbi,
-      walletClient,
-      publicClient,
-    });
+      deployL1ContractsValues!.registryAddress,
+      initialBalance,
+      ownerPub,
+    );
+    l2Contract = contracts.l2Contract;
+    underlyingERC20 = contracts.underlyingERC20;
+    tokenPortal = contracts.tokenPortal;
+    tokenPortalAddress = contracts.tokenPortalAddress;
+    await expectBalance(accounts[0], initialBalance);
+    logger('Successfully deployed contracts and initialized portal');
   }, 30_000);
 
   afterEach(async () => {
@@ -72,31 +81,10 @@ describe('e2e_l1_to_l2_msg', () => {
   };
 
   it('cancelled l1 to l2 messages cannot be consumed by archiver', async () => {
-    // first initialise the portal, create a message, then cancel it
-    const initialBalance = 10n;
-    const [ownerAddress] = accounts;
-    const ownerPub = await aztecRpcServer.getAccountPublicKey(ownerAddress);
-    logger(`Deploying L2 Token contract...`);
-    l2Contract = await deployNonNativeL2TokenContract(
-      aztecRpcServer,
-      tokenPortalAddress,
-      initialBalance,
-      pointToPublicKey(ownerPub),
-    );
-    logger('L2 contract deployed');
-    await expectBalance(accounts[0], initialBalance);
-
-    const l2TokenAddress = l2Contract.address.toString() as `0x${string}`;
-
-    logger('Initializing the TokenPortal contract');
-    await tokenPortal.write.initialize(
-      [rollupRegistryAddress.toString(), underlyingERC20Address.toString(), l2TokenAddress],
-      {} as any,
-    );
-    logger('Successfully initialized the TokenPortal contract');
+    // create a message, then cancel it
 
     // Generate a claim secret using pedersen
-    // TODO: make this into an aztec.js utility function
+    // TODO (#741): make this into an aztec.js utility function
     logger("Generating a claim secret using pedersen's hash function");
     const wasm = await CircuitsWasm.get();
     const secret = Fr.random();
@@ -138,18 +126,6 @@ describe('e2e_l1_to_l2_msg', () => {
   }, 80_000);
 
   it('archiver handles l1 to l2 message correctly even when l2block has no such messages', async () => {
-    const initialBalance = 10n;
-    const [ownerAddress, receiver] = accounts;
-    const ownerPub = await aztecRpcServer.getAccountPublicKey(ownerAddress);
-    logger(`Deploying L2 Token contract...`);
-    l2Contract = await deployNonNativeL2TokenContract(
-      aztecRpcServer,
-      tokenPortalAddress,
-      initialBalance,
-      pointToPublicKey(ownerPub),
-    );
-    logger('L2 contract deployed');
-
     // send a transfer tx to force through rollup with the message included
     const transferAmount = 1n;
     l2Contract.methods
