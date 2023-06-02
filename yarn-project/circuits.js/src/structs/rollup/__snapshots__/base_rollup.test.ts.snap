@@ -26,18 +26,18 @@ public_call_stack:
 new_l2_to_l1_msgs:
 [ 0x600 0x601 ]
 new_contracts:
-[ contract_address: 0xb00
-portal_contract_address: 0x101010101010101010101010101010101010101
-function_tree_root: 0xb02
+[ contract_address: 0x700
+portal_contract_address: 0x701
+function_tree_root: 0x800
  ]
 encrypted_logs_hash:
-[ 0x700 0x701 ]
+[ 0x801 0x900 ]
 unencrypted_logs_hash:
-[ 0x800 0x801 ]
+[ 0xa00 0xb00 ]
 encrypted_log_preimages_length:
-0x900
+0x101010101010101010101010101010101010101
 unencrypted_log_preimages_length:
-0xa00
+0xb02
 optionally_revealed_data:
 [ call_stack_item_hash: 0xc00
 function_data:
@@ -170,18 +170,18 @@ public_call_stack:
 new_l2_to_l1_msgs:
 [ 0x700 0x701 ]
 new_contracts:
-[ contract_address: 0xc00
-portal_contract_address: 0x101010101010101010101010101010101010101
-function_tree_root: 0xc02
+[ contract_address: 0x800
+portal_contract_address: 0x801
+function_tree_root: 0x900
  ]
 encrypted_logs_hash:
-[ 0x800 0x801 ]
+[ 0x901 0xa00 ]
 unencrypted_logs_hash:
-[ 0x900 0x901 ]
+[ 0xb00 0xc00 ]
 encrypted_log_preimages_length:
-0xa00
+0x101010101010101010101010101010101010101
 unencrypted_log_preimages_length:
-0xb00
+0xc02
 optionally_revealed_data:
 [ call_stack_item_hash: 0xd00
 function_data:
