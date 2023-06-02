@@ -233,11 +233,11 @@ template <typename NCT> void read(uint8_t const*& it, CombinedAccumulatedData<NC
     read(it, accum_data.private_call_stack);
     read(it, accum_data.public_call_stack);
     read(it, accum_data.new_l2_to_l1_msgs);
-    read(it, accum_data.new_contracts);
     read(it, accum_data.encrypted_logs_hash);
     read(it, accum_data.unencrypted_logs_hash);
     read(it, accum_data.encrypted_log_preimages_length);
     read(it, accum_data.unencrypted_log_preimages_length);
+    read(it, accum_data.new_contracts);
     read(it, accum_data.optionally_revealed_data);
     read(it, accum_data.public_data_update_requests);
     read(it, accum_data.public_data_reads);
@@ -253,11 +253,11 @@ template <typename NCT> void write(std::vector<uint8_t>& buf, CombinedAccumulate
     write(buf, accum_data.private_call_stack);
     write(buf, accum_data.public_call_stack);
     write(buf, accum_data.new_l2_to_l1_msgs);
-    write(buf, accum_data.new_contracts);
     write(buf, accum_data.encrypted_logs_hash);
     write(buf, accum_data.unencrypted_logs_hash);
     write(buf, accum_data.encrypted_log_preimages_length);
     write(buf, accum_data.unencrypted_log_preimages_length);
+    write(buf, accum_data.new_contracts);
     write(buf, accum_data.optionally_revealed_data);
     write(buf, accum_data.public_data_update_requests);
     write(buf, accum_data.public_data_reads);
@@ -277,8 +277,6 @@ template <typename NCT> std::ostream& operator<<(std::ostream& os, CombinedAccum
               << accum_data.public_call_stack << "\n"
               << "new_l2_to_l1_msgs:\n"
               << accum_data.new_l2_to_l1_msgs << "\n"
-              << "new_contracts:\n"
-              << accum_data.new_contracts << "\n"
               << "encrypted_logs_hash:\n"
               << accum_data.encrypted_logs_hash << "\n"
               << "unencrypted_logs_hash:\n"
@@ -286,6 +284,8 @@ template <typename NCT> std::ostream& operator<<(std::ostream& os, CombinedAccum
               << "encrypted_log_preimages_length:\n"
               << accum_data.encrypted_log_preimages_length << "\n"
               << "unencrypted_log_preimages_length:\n"
+              << accum_data.new_contracts << "\n"
+              << "new_contracts:\n"
               << accum_data.unencrypted_log_preimages_length << "\n"
               << "optionally_revealed_data:\n"
               << accum_data.optionally_revealed_data << "\n"
