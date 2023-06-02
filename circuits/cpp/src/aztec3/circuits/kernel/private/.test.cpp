@@ -146,7 +146,7 @@ std::shared_ptr<NT::VK> gen_func_vk(bool is_constructor, private_function const&
         FunctionExecutionContext dummy_ctx(dummy_composer, dummy_oracle_wrapper);
 
         // if args are value 0, deposit circuit errors when inserting utxo notes
-        std::vector<NT::fr> dummy_args = { 1, 1, 1, 1, 1, 1, 1, 1 };
+        std::vector<NT::fr> const dummy_args = { 1, 1, 1, 1, 1, 1, 1, 1 };
         // Make call to private call circuit itself to lay down constraints
         func(dummy_ctx, dummy_args);
         // FIXME remove arg

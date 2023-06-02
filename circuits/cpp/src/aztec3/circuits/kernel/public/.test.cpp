@@ -183,7 +183,7 @@ PublicKernelInputsNoPreviousKernel<NT> get_kernel_inputs_no_previous_kernel()
         .is_contract_deployment = false,
     };
 
-    std::vector<NT::fr> args = { 1, 2, 3 };
+    std::vector<NT::fr> const args = { 1, 2, 3 };
 
     //***************************************************************************
     // We can create a TxRequest from some of the above data. Users must sign a TxRequest in order to give permission
