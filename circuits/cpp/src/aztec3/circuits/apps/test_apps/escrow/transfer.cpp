@@ -1,8 +1,9 @@
 #include "transfer.hpp"
 
 #include "contract.hpp"
-#include "aztec3/circuits/hash.hpp"
+
 #include "aztec3/circuits/abis/private_circuit_public_inputs.hpp"
+#include "aztec3/circuits/hash.hpp"
 
 namespace aztec3::circuits::apps::test_apps::escrow {
 
@@ -88,15 +89,8 @@ OptionalPrivateCircuitPublicInputs<NT> transfer(FunctionExecutionContext& exec_c
 
     // Push args to the public inputs.
     auto& public_inputs = exec_ctx.private_circuit_public_inputs;
-
-    std::array<CT::fr, ARGS_LENGTH> args_hash_preimage = utils::zero_array<CT::fr, ARGS_LENGTH>();
-    args_hash_preimage[0] = amount;
-    args_hash_preimage[1] = to.to_field();
-    args_hash_preimage[2] = asset_id;
-    args_hash_preimage[3] = memo;
-    args_hash_preimage[4] = CT::fr(reveal_msg_sender_to_recipient);
-    args_hash_preimage[5] = fee;
-    public_inputs.args_hash = compute_args_hash<CT>(args_hash_preimage);
+    public_inputs.args_hash = compute_var_args_hash<CT>(
+        { amount, to.to_field(), asset_id, memo, CT::fr(reveal_msg_sender_to_recipient), fee });
 
     // Emit events
     public_inputs.emitted_events[0] = CT::fr::copy_as_new_witness(composer, fee);

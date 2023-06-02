@@ -1,5 +1,5 @@
 import { BufferReader, Tuple } from '@aztec/foundation/serialize';
-import { computeArgsHash } from '../abis/abis.js';
+import { computeVarArgsHash } from '../abis/abis.js';
 import { CircuitsWasm, FieldsOf } from '../index.js';
 import { serializeToBuffer } from '../utils/serialize.js';
 import {
@@ -93,6 +93,6 @@ export class PublicCallRequest {
    * @returns Hash of the arguments for this request.
    */
   async getArgsHash() {
-    return computeArgsHash(await CircuitsWasm.get(), this.args);
+    return computeVarArgsHash(await CircuitsWasm.get(), this.args);
   }
 }

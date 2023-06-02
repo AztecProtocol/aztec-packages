@@ -1,9 +1,8 @@
 import { Tuple } from '@aztec/foundation/serialize';
 import { AsyncWasmWrapper, WasmWrapper } from '@aztec/foundation/wasm';
 import { Buffer } from 'buffer';
-import { abisComputeArgsHash, abisComputeContractAddress, abisComputeVarArgsHash } from '../cbind/circuits.gen.js';
+import { abisComputeContractAddress, abisComputeVarArgsHash } from '../cbind/circuits.gen.js';
 import {
-  ARGS_LENGTH,
   AztecAddress,
   FUNCTION_SELECTOR_NUM_BYTES,
   Fr,
@@ -14,7 +13,7 @@ import {
   SignedTxRequest,
   TxRequest,
 } from '../index.js';
-import { serializeBufferArrayToVector, serializeToBuffer } from '../utils/serialize.js';
+import { serializeBufferArrayToVector } from '../utils/serialize.js';
 import { CircuitsWasm } from '../wasm/index.js';
 
 /**
@@ -177,28 +176,21 @@ export async function computeFunctionTreeRoot(wasm: CircuitsWasm, fnLeves: Fr[])
  * Computes a constructor hash.
  * @param wasm - Circuits wasm.
  * @param functionData - Constructor's function data.
- * @param args - Constructor's arguments.
+ * @param argsHash - Constructor's arguments hashed.
  * @param constructorVKHash - Hash of the constructor's verification key.
  * @returns The constructor hash.
  */
 export async function hashConstructor(
   wasm: CircuitsWasm,
   functionData: FunctionData,
-  args: Fr[],
+  argsHash: Fr,
   constructorVKHash: Buffer,
 ): Promise<Buffer> {
-  if (args.length > ARGS_LENGTH) {
-    throw new Error(`Expected constructor args to have length <= ${ARGS_LENGTH}! Was: ${args.length}`);
-  }
-  const numEmptyArgs = ARGS_LENGTH - args.length;
-  const emptyArgs = Array.from({ length: numEmptyArgs }, () => new Fr(0n));
-  const fullArgs = args.concat(emptyArgs);
-  const inputVector = serializeToBuffer(fullArgs.map(fr => fr.toBuffer()));
   wasm.call('pedersen__init');
   const result = await inputBuffersToOutputBuffer(
     wasm,
     'abis__hash_constructor',
-    [functionData.toBuffer(), inputVector, constructorVKHash],
+    [functionData.toBuffer(), argsHash.toBuffer(), constructorVKHash],
     32,
   );
   return result;
@@ -228,17 +220,6 @@ export async function computeContractAddress(
     fnTreeRoot,
     Fr.fromBuffer(constructorHash),
   );
-}
-
-/**
- * Computes the hash of a list of up to 8 arguments.
- * @param wasm - Circuits wasm.
- * @param args - Arguments to hash.
- * @returns Pedersen hash of the arguments.
- */
-export async function computeArgsHash(wasm: CircuitsWasm, args: Tuple<Fr, 8>): Promise<Fr> {
-  wasm.call('pedersen__init');
-  return await abisComputeArgsHash(wasm, args);
 }
 
 /**

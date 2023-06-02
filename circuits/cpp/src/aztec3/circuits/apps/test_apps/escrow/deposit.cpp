@@ -2,16 +2,15 @@
 
 #include "contract.hpp"
 
-#include "aztec3/circuits/hash.hpp"
 #include "aztec3/circuits/abis/private_circuit_public_inputs.hpp"
 #include "aztec3/circuits/apps/function_execution_context.hpp"
+#include "aztec3/circuits/hash.hpp"
 
 namespace aztec3::circuits::apps::test_apps::escrow {
 
 using aztec3::circuits::abis::OptionalPrivateCircuitPublicInputs;
 
-OptionalPrivateCircuitPublicInputs<NT> deposit(FunctionExecutionContext& exec_ctx,
-                                               std::array<NT::fr, ARGS_LENGTH> const& args)
+OptionalPrivateCircuitPublicInputs<NT> deposit(FunctionExecutionContext& exec_ctx, std::vector<NT::fr> const& args)
 {
     /****************************************************************
      * PREAMBLE
@@ -54,12 +53,7 @@ OptionalPrivateCircuitPublicInputs<NT> deposit(FunctionExecutionContext& exec_ct
     // Push args to the public inputs.
     // TODO: don't give function direct access to the exec_ctx?
     auto& public_inputs = exec_ctx.private_circuit_public_inputs;
-
-    std::array<CT::fr, ARGS_LENGTH> args_hash_preimage = utils::zero_array<CT::fr, ARGS_LENGTH>();
-    args_hash_preimage[0] = amount;
-    args_hash_preimage[1] = asset_id;
-    args_hash_preimage[2] = memo;
-    public_inputs.args_hash = compute_args_hash<CT>(args_hash_preimage);
+    public_inputs.args_hash = compute_var_args_hash<CT>({ amount, asset_id, memo });
 
     exec_ctx.finalise();
 

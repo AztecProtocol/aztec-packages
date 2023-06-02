@@ -1,6 +1,5 @@
 import { PublicExecution, PublicExecutionResult, PublicExecutor, isPublicExecutionResult } from '@aztec/acir-simulator';
 import {
-  ARGS_LENGTH,
   AztecAddress,
   CircuitsWasm,
   ContractStorageRead,
@@ -25,9 +24,10 @@ import {
   SignedTxRequest,
   VK_TREE_HEIGHT,
 } from '@aztec/circuits.js';
-import { computeArgsHash, computeCallStackItemHash } from '@aztec/circuits.js/abis';
+import { computeCallStackItemHash, computeVarArgsHash } from '@aztec/circuits.js/abis';
 import { isArrayEmpty, padArrayEnd, padArrayStart } from '@aztec/foundation/collection';
 import { createDebugLogger } from '@aztec/foundation/log';
+import { Tuple, mapTuple } from '@aztec/foundation/serialize';
 import { ContractDataSource, MerkleTreeId, PrivateTx, PublicTx, SignedTxExecutionRequest, Tx } from '@aztec/types';
 import { MerkleTreeOperations } from '@aztec/world-state';
 import { getVerificationKeys } from '../index.js';
@@ -38,7 +38,6 @@ import { getPublicExecutor } from '../simulator/public_executor.js';
 import { WasmPublicKernelCircuitSimulator } from '../simulator/public_kernel.js';
 import { ProcessedTx, makeEmptyProcessedTx, makeProcessedTx } from './processed_tx.js';
 import { getCombinedHistoricTreeRoots } from './utils.js';
-import { Tuple, mapTuple } from '@aztec/foundation/serialize';
 
 /**
  * Creates new instances of PublicProcessor given the provided merkle tree db and contract data source.
@@ -217,7 +216,7 @@ export class PublicProcessor {
     return PublicCircuitPublicInputs.from({
       callContext: result.execution.callContext,
       proverAddress: AztecAddress.random(),
-      argsHash: await computeArgsHash(wasm, padArrayEnd(result.execution.args, Fr.ZERO, ARGS_LENGTH)),
+      argsHash: await computeVarArgsHash(wasm, result.execution.args),
       emittedEvents: padArrayEnd([], Fr.ZERO, EMITTED_EVENTS_LENGTH),
       newL2ToL1Msgs: padArrayEnd([], Fr.ZERO, NEW_L2_TO_L1_MSGS_LENGTH),
       returnValues: padArrayEnd(result.returnValues, Fr.ZERO, RETURN_VALUES_LENGTH),

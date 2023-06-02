@@ -16,11 +16,6 @@ using abis::FunctionData;
 using aztec3::circuits::abis::ContractLeafPreimage;
 using aztec3::circuits::abis::FunctionLeafPreimage;
 
-template <typename NCT> typename NCT::fr compute_args_hash(std::array<typename NCT::fr, ARGS_LENGTH> args)
-{
-    return NCT::compress(args, CONSTRUCTOR_ARGS);
-}
-
 template <typename NCT> typename NCT::fr compute_var_args_hash(std::vector<typename NCT::fr> args)
 {
     return NCT::compress(args, FUNCTION_ARGS);

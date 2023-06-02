@@ -7,7 +7,7 @@ import {
   PrivateCallStackItem,
   PublicCallRequest,
 } from '@aztec/circuits.js';
-import { computeCallStackItemHash } from '@aztec/circuits.js/abis';
+import { computeCallStackItemHash, computeVarArgsHash } from '@aztec/circuits.js/abis';
 import { FunctionAbi } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { padArrayEnd } from '@aztec/foundation/collection';
@@ -200,12 +200,15 @@ export class PrivateFunctionExecution {
     });
 
     const publicInputs = extractPublicInputs(partialWitness, acir);
-    const callStackItem = new PrivateCallStackItem(this.contractAddress, this.functionData, publicInputs);
 
+    // TODO(#499): Noir fails to compute the args hash, so we patch those values here.
+    const wasm = await CircuitsWasm.get();
+    publicInputs.argsHash = await computeVarArgsHash(wasm, this.args);
+
+    const callStackItem = new PrivateCallStackItem(this.contractAddress, this.functionData, publicInputs);
     const returnValues = decodeReturnValues(this.abi, publicInputs.returnValues);
 
     // TODO(#499): Noir fails to compute the enqueued calls preimages properly, since it cannot use pedersen generators, so we patch those values here.
-    const wasm = await CircuitsWasm.get();
     const publicCallStackItems = await Promise.all(enqueuedPublicFunctionCalls.map(c => c.toPublicCallStackItem()));
     const publicStack = await Promise.all(publicCallStackItems.map(c => computeCallStackItemHash(wasm, c)));
     callStackItem.publicInputs.publicCallStack = padArrayEnd(publicStack, Fr.ZERO, PUBLIC_CALL_STACK_LENGTH);

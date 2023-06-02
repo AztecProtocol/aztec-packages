@@ -62,8 +62,7 @@ using CircuitErrorCode = aztec3::utils::CircuitErrorCode;
 // A type representing any private circuit function
 // (for now it works for deposit and constructor)
 using private_function = std::function<OptionalPrivateCircuitPublicInputs<NT>(
-    FunctionExecutionContext<aztec3::circuits::kernel::private_kernel::Composer>&,
-    std::array<NT::fr, aztec3::ARGS_LENGTH> const&)>;
+    FunctionExecutionContext<aztec3::circuits::kernel::private_kernel::Composer>&, std::vector<NT::fr> const&)>;
 
 // Some helper constants for trees
 constexpr size_t MAX_FUNCTION_LEAVES = 2 << (aztec3::FUNCTION_TREE_HEIGHT - 1);
@@ -146,9 +145,8 @@ std::shared_ptr<NT::VK> gen_func_vk(bool is_constructor, private_function const&
 
         FunctionExecutionContext dummy_ctx(dummy_composer, dummy_oracle_wrapper);
 
-        std::array<NT::fr, ARGS_LENGTH> dummy_args;
         // if args are value 0, deposit circuit errors when inserting utxo notes
-        dummy_args.fill(1);
+        std::vector<NT::fr> dummy_args = { 1, 1, 1, 1, 1, 1, 1, 1 };
         // Make call to private call circuit itself to lay down constraints
         func(dummy_ctx, dummy_args);
         // FIXME remove arg
@@ -193,12 +191,6 @@ std::pair<PrivateCallData<NT>, ContractDeploymentData<NT>> create_private_call_d
         .is_contract_deployment = is_constructor,
     };
 
-    // sometimes need private call args as array
-    std::array<NT::fr, ARGS_LENGTH> args{};
-    for (size_t i = 0; i < args_vec.size(); ++i) {
-        args[i] = args_vec[i];
-    }
-
     //***************************************************************************
     // Initialize contract related information like private call VK (and its hash),
     // function tree, contract tree, contract address for newly deployed contract,
@@ -240,7 +232,7 @@ std::pair<PrivateCallData<NT>, ContractDeploymentData<NT>> create_private_call_d
 
         // Get constructor hash for use when deriving contract address
         auto constructor_hash =
-            compute_constructor_hash<NT>(function_data, compute_args_hash<NT>(args), private_circuit_vk_hash);
+            compute_constructor_hash<NT>(function_data, compute_var_args_hash<NT>(args_vec), private_circuit_vk_hash);
 
         // Derive contract address so that it can be used inside the constructor itself
         contract_address = compute_contract_address<NT>(
@@ -280,7 +272,7 @@ std::pair<PrivateCallData<NT>, ContractDeploymentData<NT>> create_private_call_d
 
     FunctionExecutionContext ctx(private_circuit_composer, oracle_wrapper);
 
-    OptionalPrivateCircuitPublicInputs<NT> const opt_private_circuit_public_inputs = func(ctx, args);
+    OptionalPrivateCircuitPublicInputs<NT> const opt_private_circuit_public_inputs = func(ctx, args_vec);
     PrivateCircuitPublicInputs<NT> private_circuit_public_inputs =
         opt_private_circuit_public_inputs.remove_optionality();
     // TODO this should likely be handled as part of the DB/Oracle/Context infrastructure
@@ -352,11 +344,6 @@ PrivateKernelInputsInit<NT> do_private_call_get_kernel_inputs_init(bool const is
     auto const& [private_call_data, contract_deployment_data] =
         create_private_call_deploy_data(is_constructor, func, args_vec, msg_sender);
 
-    std::array<NT::fr, ARGS_LENGTH> args{};
-    for (size_t i = 0; i < args_vec.size(); ++i) {
-        args[i] = args_vec[i];
-    }
-
     //***************************************************************************
     // We can create a TxRequest from some of the above data. Users must sign a TxRequest in order to give permission
     // for a tx to take place - creating a SignedTxRequest.
@@ -365,7 +352,7 @@ PrivateKernelInputsInit<NT> do_private_call_get_kernel_inputs_init(bool const is
         .from = tx_origin,
         .to = private_call_data.call_stack_item.contract_address,
         .function_data = private_call_data.call_stack_item.function_data,
-        .args_hash = compute_args_hash<NT>(args),
+        .args_hash = compute_var_args_hash<NT>(args_vec),
         .nonce = 0,
         .tx_context =
             TxContext<NT>{

@@ -3,7 +3,6 @@
 #include "native_public_kernel_circuit_private_previous_kernel.hpp"
 #include "native_public_kernel_circuit_public_previous_kernel.hpp"
 
-#include "aztec3/circuits/hash.hpp"
 #include "aztec3/circuits/abis/call_context.hpp"
 #include "aztec3/circuits/abis/call_stack_item.hpp"
 #include "aztec3/circuits/abis/combined_accumulated_data.hpp"
@@ -23,6 +22,7 @@
 #include "aztec3/circuits/abis/tx_request.hpp"
 #include "aztec3/circuits/abis/types.hpp"
 #include "aztec3/circuits/apps/function_execution_context.hpp"
+#include "aztec3/circuits/hash.hpp"
 #include "aztec3/utils/array.hpp"
 #include "aztec3/utils/circuit_errors.hpp"
 
@@ -121,7 +121,7 @@ PublicCallStackItem generate_call_stack_item(NT::fr contract_address,
         .is_static_call = false,
         .is_contract_deployment = false,
     };
-    std::array<NT::fr, ARGS_LENGTH> const args = array_of_values<ARGS_LENGTH>(count);
+    fr const args_hash = count;
     std::array<NT::fr, RETURN_VALUES_LENGTH> const return_values = array_of_values<RETURN_VALUES_LENGTH>(count);
     std::array<NT::fr, EMITTED_EVENTS_LENGTH> const emitted_events = array_of_values<EMITTED_EVENTS_LENGTH>(count);
     std::array<NT::fr, PUBLIC_CALL_STACK_LENGTH> const public_call_stack =
@@ -136,7 +136,7 @@ PublicCallStackItem generate_call_stack_item(NT::fr contract_address,
     // create the public circuit public inputs
     auto const public_circuit_public_inputs = PublicCircuitPublicInputs<NT>{
         .call_context = call_context,
-        .args_hash = compute_args_hash<NT>(args),
+        .args_hash = args_hash,
         .return_values = return_values,
         .emitted_events = emitted_events,
         .contract_storage_update_requests = update_requests,
@@ -183,11 +183,7 @@ PublicKernelInputsNoPreviousKernel<NT> get_kernel_inputs_no_previous_kernel()
         .is_contract_deployment = false,
     };
 
-    // sometimes need public call args as array
-    std::array<NT::fr, ARGS_LENGTH> args{};
-    for (size_t i = 0; i < ARGS_LENGTH; ++i) {
-        args[i] = i;
-    }
+    std::vector<NT::fr> args = { 1, 2, 3 };
 
     //***************************************************************************
     // We can create a TxRequest from some of the above data. Users must sign a TxRequest in order to give permission
@@ -197,7 +193,7 @@ PublicKernelInputsNoPreviousKernel<NT> get_kernel_inputs_no_previous_kernel()
         .from = tx_origin,
         .to = contract_address,
         .function_data = function_data,
-        .args_hash = compute_args_hash<NT>(args),
+        .args_hash = compute_var_args_hash<NT>(args),
         .nonce = 0,
         .tx_context =
             TxContext<NT>{
@@ -248,7 +244,7 @@ PublicKernelInputsNoPreviousKernel<NT> get_kernel_inputs_no_previous_kernel()
     // create the public circuit public inputs
     auto const public_circuit_public_inputs = PublicCircuitPublicInputs<NT>{
         .call_context = call_context,
-        .args_hash = compute_args_hash<NT>(args),
+        .args_hash = compute_var_args_hash<NT>(args),
         .return_values = return_values,
         .emitted_events = emitted_events,
         .contract_storage_update_requests = update_requests,

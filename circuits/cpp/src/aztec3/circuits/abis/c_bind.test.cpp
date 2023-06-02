@@ -239,18 +239,15 @@ TEST(abi_tests, hash_constructor)
     // Randomize required values
     auto const func_data = FunctionData<NT>{ .function_selector = 10, .is_private = true, .is_constructor = false };
 
-    std::array<NT::fr, aztec3::ARGS_LENGTH> args;
-    for (size_t i = 0; i < aztec3::ARGS_LENGTH; i++) {
-        args[i] = fr::random_element();
-    }
+    NT::fr const args_hash = NT::fr::random_element();
     NT::fr const constructor_vk_hash = NT::fr::random_element();
 
     // Write the function data and args to a buffer
     std::vector<uint8_t> func_data_buf;
     write(func_data_buf, func_data);
 
-    std::vector<uint8_t> args_buf;
-    write(args_buf, args);
+    std::vector<uint8_t> args_hash_buf;
+    write(args_hash_buf, args_hash);
 
     std::array<uint8_t, sizeof(NT::fr)> constructor_vk_hash_buf = { 0 };
     NT::fr::serialize_to_buffer(constructor_vk_hash, constructor_vk_hash_buf.data());
@@ -259,15 +256,14 @@ TEST(abi_tests, hash_constructor)
     std::array<uint8_t, sizeof(NT::fr)> output = { 0 };
 
     // Make the c_bind call to hash the constructor values
-    abis__hash_constructor(func_data_buf.data(), args_buf.data(), constructor_vk_hash_buf.data(), output.data());
+    abis__hash_constructor(func_data_buf.data(), args_hash_buf.data(), constructor_vk_hash_buf.data(), output.data());
 
     // Convert buffer to `fr` for comparison to in-test calculated hash
     NT::fr const got_hash = NT::fr::serialize_from_buffer(output.data());
 
     // Calculate the expected hash in-test
-    NT::fr const expected_hash = NT::compress(
-        { func_data.hash(), NT::compress(args, aztec3::GeneratorIndex::CONSTRUCTOR_ARGS), constructor_vk_hash },
-        aztec3::GeneratorIndex::CONSTRUCTOR);
+    NT::fr const expected_hash =
+        NT::compress({ func_data.hash(), args_hash, constructor_vk_hash }, aztec3::GeneratorIndex::CONSTRUCTOR);
 
     // Confirm cbind output == expected hash
     EXPECT_EQ(got_hash, expected_hash);
