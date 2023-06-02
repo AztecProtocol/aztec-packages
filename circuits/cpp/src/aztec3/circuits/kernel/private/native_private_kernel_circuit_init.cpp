@@ -164,8 +164,10 @@ KernelCircuitPublicInputs<NT> native_private_kernel_circuit_initial(DummyCompose
     // TODO(jeanmon) FIXME - https://github.com/AztecProtocol/aztec-packages/issues/671
     // common_validate_call_stack(composer, private_inputs.private_call);
 
-    update_end_values(private_inputs, public_inputs);
+    common_validate_read_requests(composer, private_inputs.private_call);
 
+    // TODO(dbanks12): feels like update_end_values should happen after contract logic
+    update_end_values(private_inputs, public_inputs);
     common_update_end_values(composer, private_inputs.private_call, public_inputs);
 
     common_contract_logic(composer,
@@ -180,7 +182,7 @@ KernelCircuitPublicInputs<NT> native_private_kernel_circuit_initial(DummyCompose
     //                                         _private_inputs.private_call.vk->num_public_inputs,
     //                                         _private_inputs.previous_kernel.vk->num_public_inputs);
 
-    // TODO: kernel vk membership check!
+    // TODO(dbanks12): kernel vk membership check!
 
     // In the native version, as there is no verify_proofs call, we can initialize aggregation object with the default
     // constructor.

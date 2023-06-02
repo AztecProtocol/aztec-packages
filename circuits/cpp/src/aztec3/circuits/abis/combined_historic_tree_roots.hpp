@@ -12,7 +12,6 @@ namespace aztec3::circuits::abis {
 using aztec3::circuits::abis::PrivateHistoricTreeRoots;
 using aztec3::utils::types::CircuitTypes;
 using aztec3::utils::types::NativeTypes;
-using plonk::stdlib::witness_t;
 using std::is_same;
 
 template <typename NCT> struct CombinedHistoricTreeRoots {

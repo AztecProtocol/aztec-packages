@@ -19,6 +19,8 @@ using aztec3::circuits::abis::private_kernel::PrivateCallData;
 // TODO(suyash): Add comments to these as well as other functions in PKC-init.
 void common_validate_call_stack(DummyComposer& composer, PrivateCallData<NT> const& private_call);
 
+void common_validate_read_requests(DummyComposer& composer, PrivateCallData<NT> const& private_call);
+
 void common_update_end_values(DummyComposer& composer,
                               PrivateCallData<NT> const& private_call,
                               KernelCircuitPublicInputs<NT>& public_inputs);

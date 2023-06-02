@@ -121,8 +121,6 @@ void validate_inputs(DummyComposer& composer, PrivateKernelInputsInner<NT> const
 
     NT::fr const start_private_call_stack_length = array_length(start.private_call_stack);
 
-    // is_recursive_case
-
     composer.do_assert(private_inputs.previous_kernel.public_inputs.is_private == true,
                        "Cannot verify a non-private kernel snark in the private kernel circuit",
                        CircuitErrorCode::PRIVATE_KERNEL__NON_PRIVATE_KERNEL_VERIFIED_WITH_PRIVATE_KERNEL);
@@ -159,6 +157,9 @@ KernelCircuitPublicInputs<NT> native_private_kernel_circuit_inner(DummyComposer&
     // TODO(jeanmon) FIXME - https://github.com/AztecProtocol/aztec-packages/issues/671
     // common_validate_call_stack(composer, private_inputs.private_call);
 
+    common_validate_read_requests(composer, private_inputs.private_call);
+
+    // TODO(dbanks12): feels like update_end_values should happen later
     common_update_end_values(composer, private_inputs.private_call, public_inputs);
 
     // ensure that historic/purported contract tree root matches the one in previous kernel

@@ -85,7 +85,6 @@ export interface ExecutionResult {
   /** The call stack item. */
   callStackItem: PrivateCallStackItem;
   /** The membership witnesses for read requests performed during execution. */
-  // TODO(dbanks12): not sure which section this belongs in (needed for X)
   readRequestMembershipWitnesses: MembershipWitness<typeof PRIVATE_DATA_TREE_HEIGHT>[];
   // Needed for the user
   /** The preimages of the executed function. */

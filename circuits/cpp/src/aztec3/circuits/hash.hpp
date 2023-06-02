@@ -7,6 +7,7 @@
 #include <aztec3/utils/circuit_errors.hpp>
 
 #include "barretenberg/crypto/sha256/sha256.hpp"
+#include <barretenberg/stdlib/merkle_tree/memory_tree.hpp>
 
 #include <array>
 
@@ -15,6 +16,7 @@ namespace aztec3::circuits {
 using abis::FunctionData;
 using aztec3::circuits::abis::ContractLeafPreimage;
 using aztec3::circuits::abis::FunctionLeafPreimage;
+using MerkleTree = stdlib::merkle_tree::MemoryTree;
 
 template <typename NCT> typename NCT::fr compute_args_hash(std::array<typename NCT::fr, ARGS_LENGTH> args)
 {
@@ -149,6 +151,23 @@ typename NCT::fr root_from_sibling_path(typename NCT::fr const& leaf,
         index >>= uint256_t(1);
     }
     return node;  // root
+}
+
+template <size_t N>
+std::array<fr, N> get_sibling_path(MerkleTree& tree, size_t leafIndex, size_t const& subtree_depth_to_skip)
+{
+    std::array<fr, N> siblingPath;
+    auto path = tree.get_hash_path(leafIndex);
+    // slice out the skip
+    leafIndex = leafIndex >> (subtree_depth_to_skip);
+    for (size_t i = 0; i < N; i++) {
+        if (leafIndex & (1 << i)) {
+            siblingPath[i] = path[subtree_depth_to_skip + i].first;
+        } else {
+            siblingPath[i] = path[subtree_depth_to_skip + i].second;
+        }
+    }
+    return siblingPath;
 }
 
 template <typename NCT, typename Composer, size_t SIZE>

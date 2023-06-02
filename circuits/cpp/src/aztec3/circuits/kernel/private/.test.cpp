@@ -8,6 +8,7 @@
 #include "aztec3/circuits/abis/contract_deployment_data.hpp"
 #include "aztec3/circuits/abis/function_data.hpp"
 #include "aztec3/circuits/abis/kernel_circuit_public_inputs.hpp"
+#include "aztec3/circuits/abis/membership_witness.hpp"
 #include "aztec3/circuits/abis/private_circuit_public_inputs.hpp"
 #include "aztec3/circuits/abis/private_historic_tree_roots.hpp"
 #include "aztec3/circuits/abis/private_kernel/private_call_data.hpp"
@@ -35,6 +36,7 @@
 namespace {
 
 using aztec3::circuits::compute_empty_sibling_path;
+using aztec3::circuits::get_sibling_path;
 using aztec3::circuits::abis::CallContext;
 using aztec3::circuits::abis::CallStackItem;
 using aztec3::circuits::abis::CombinedAccumulatedData;
@@ -44,6 +46,7 @@ using aztec3::circuits::abis::ContractDeploymentData;
 using aztec3::circuits::abis::FunctionData;
 using aztec3::circuits::abis::FunctionLeafPreimage;
 using aztec3::circuits::abis::KernelCircuitPublicInputs;
+using aztec3::circuits::abis::MembershipWitness;
 using aztec3::circuits::abis::NewContractData;
 using aztec3::circuits::abis::OptionalPrivateCircuitPublicInputs;
 using aztec3::circuits::abis::PrivateCircuitPublicInputs;
@@ -58,6 +61,9 @@ using aztec3::circuits::abis::private_kernel::PrivateKernelInputsInner;
 using aztec3::circuits::apps::test_apps::basic_contract_deployment::constructor;
 using aztec3::circuits::apps::test_apps::escrow::deposit;
 
+using aztec3::utils::array_length;
+using aztec3::utils::zero_array;
+
 using DummyComposer = aztec3::utils::DummyComposer;
 
 using CircuitErrorCode = aztec3::utils::CircuitErrorCode;
@@ -68,10 +74,15 @@ using private_function = std::function<OptionalPrivateCircuitPublicInputs<NT>(
     FunctionExecutionContext<aztec3::circuits::kernel::private_kernel::Composer>&,
     std::array<NT::fr, aztec3::ARGS_LENGTH> const&)>;
 
+// random numbers
+auto& engine = numeric::random::get_debug_engine();
+
 // Some helper constants for trees
 constexpr size_t MAX_FUNCTION_LEAVES = 2 << (aztec3::FUNCTION_TREE_HEIGHT - 1);
 const NT::fr EMPTY_FUNCTION_LEAF = FunctionLeafPreimage<NT>{}.hash();  // hash of empty/0 preimage
 const NT::fr EMPTY_CONTRACT_LEAF = NewContractData<NT>{}.hash();       // hash of empty/0 preimage
+
+constexpr size_t PRIVATE_DATA_TREE_NUM_LEAVES = 2 << (aztec3::PRIVATE_DATA_TREE_HEIGHT - 1);
 
 const auto& get_empty_function_siblings()
 {
@@ -114,6 +125,40 @@ void debugComposer(Composer const& composer)
     (void)composer;  // only used in debug mode
 #endif
 }
+
+std::pair<std::array<NT::fr, READ_REQUESTS_LENGTH>,
+          std::array<MembershipWitness<NT, PRIVATE_DATA_TREE_HEIGHT>, READ_REQUESTS_LENGTH>>
+get_random_data_tree_and_reads()
+{
+    auto read_requests = zero_array<fr, READ_REQUESTS_LENGTH>();
+    std::vector<NT::uint32> rr_indices;
+    // randomize private app circuit's read requests
+    uint8_t const num_read_requests = engine.get_random_uint8() % (READ_REQUESTS_LENGTH + 1);
+    for (size_t rr = 0; rr < num_read_requests; rr++) {
+        read_requests[rr] = NT::fr::random_element();
+        rr_indices.push_back(engine.get_random_uint32() % PRIVATE_DATA_TREE_NUM_LEAVES + 1);
+    }
+
+    MerkleTree private_data_tree = MerkleTree(PRIVATE_DATA_TREE_HEIGHT);
+
+    // Compute the merkle root of a contract subtree
+    // Contracts subtree
+    for (size_t i = 0; i < array_length(read_requests); i++) {
+        private_data_tree.update_element(rr_indices[i], read_requests[i]);
+    }
+
+    std::array<MembershipWitness<NT, PRIVATE_DATA_TREE_HEIGHT>, READ_REQUESTS_LENGTH>
+        read_request_membership_witnesses{};
+    for (size_t i = 0; i < array_length(read_requests); i++) {
+        read_request_membership_witnesses[i] = { .leaf_index = NT::fr(rr_indices[i]),
+                                                 .sibling_path = get_sibling_path<PRIVATE_DATA_TREE_HEIGHT>(
+                                                     private_data_tree, rr_indices[i], 0) };
+    }
+
+
+    return { read_requests, read_request_membership_witnesses };
+}
+
 
 /**
  * @brief Generate a verification key for a private circuit.
@@ -288,6 +333,9 @@ std::pair<PrivateCallData<NT>, ContractDeploymentData<NT>> create_private_call_d
     // TODO this should likely be handled as part of the DB/Oracle/Context infrastructure
     private_circuit_public_inputs.historic_contract_tree_root = contract_tree_root;
 
+    auto [read_requests, read_request_membership_witnesses] = get_random_data_tree_and_reads();
+    private_circuit_public_inputs.read_requests = read_requests;
+
     auto private_circuit_prover = private_circuit_composer.create_prover();
     NT::Proof const private_circuit_proof = private_circuit_prover.construct_proof();
     // info("\nproof: ", private_circuit_proof.proof_data);
@@ -329,6 +377,8 @@ std::pair<PrivateCallData<NT>, ContractDeploymentData<NT>> create_private_call_d
             .leaf_index = contract_leaf_index,
             .sibling_path = get_empty_contract_siblings(),
         },
+
+        .read_request_membership_witnesses = read_request_membership_witnesses,
 
         .portal_contract_address = portal_contract_address,
 
@@ -605,6 +655,10 @@ TEST(private_kernel_tests, native_basic_contract_deployment)
     auto const& public_inputs = native_private_kernel_circuit_initial(composer, private_inputs);
 
     validate_deployed_contract_address(private_inputs, public_inputs);
+
+
+    info("failure: ", composer.get_first_failure());
+    ASSERT_FALSE(composer.failed());
 
     // Check the first nullifier is hash of the signed tx request
     ASSERT_EQ(public_inputs.end.new_nullifiers[0], private_inputs.signed_tx_request.hash());
