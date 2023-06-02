@@ -102,7 +102,7 @@ struct PrivateCircuitPublicInputs {
     new_l2_to_l1_msgs: [Field; crate::abi::MAX_L1_MSG_STACK],
     encrypted_logs_hash: [Field; crate::abi::LOGS_HASH_SIZE],
     // unencrypted_logs_hash: [Field; crate::abi::LOGS_HASH_SIZE],
-    encrypted_log_preimages_length: Field,
+    // encrypted_log_preimages_length: Field,
     // unencrypted_log_preimages_length: Field,
     historic_private_data_tree_root: Field,
     historic_private_nullifier_tree_root: Field,
@@ -129,7 +129,7 @@ impl PrivateCircuitPublicInputs {
         fields = fields.push_array(self.new_l2_to_l1_msgs);
         fields = fields.push_array(self.encrypted_logs_hash);
         // fields = fields.push_array(self.unencrypted_logs_hash);
-        fields = fields.push(self.encrypted_log_preimages_length);
+        // fields = fields.push(self.encrypted_log_preimages_length);
         // fields = fields.push(self.unencrypted_log_preimages_length);
         fields = fields.push(self.historic_private_data_tree_root);
         fields = fields.push(self.historic_private_nullifier_tree_root);
