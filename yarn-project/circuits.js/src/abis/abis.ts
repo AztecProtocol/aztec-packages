@@ -1,4 +1,3 @@
-import { Tuple } from '@aztec/foundation/serialize';
 import { AsyncWasmWrapper, WasmWrapper } from '@aztec/foundation/wasm';
 import { Buffer } from 'buffer';
 import { abisComputeContractAddress, abisComputeVarArgsHash } from '../cbind/circuits.gen.js';
