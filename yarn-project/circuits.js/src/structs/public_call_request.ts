@@ -84,7 +84,15 @@ export class PublicCallRequest {
   async toPublicCallStackItem(): Promise<PublicCallStackItem> {
     const publicInputs = PublicCircuitPublicInputs.empty();
     publicInputs.callContext = this.callContext;
-    publicInputs.argsHash = await computeArgsHash(await CircuitsWasm.get(), this.args);
+    publicInputs.argsHash = await this.getArgsHash();
     return new PublicCallStackItem(this.contractAddress, this.functionData, publicInputs, true);
+  }
+
+  /**
+   * Returns the hash of the arguments for this request.
+   * @returns Hash of the arguments for this request.
+   */
+  async getArgsHash() {
+    return computeArgsHash(await CircuitsWasm.get(), this.args);
   }
 }
