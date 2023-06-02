@@ -23,19 +23,19 @@ public_call_stack:
 [ 0x401 0x402 0x403 0x404 0x405 0x406 0x407 0x408 ]
 new_l2_to_l1_msgs:
 [ 0x501 0x502 ]
-new_contracts:
-[ contract_address: 0x601
-portal_contract_address: 0x602
-function_tree_root: 0x701
- ]
 encrypted_logs_hash:
-[ 0x702 0x801 ]
+[ 0x601 0x602 ]
 unencrypted_logs_hash:
-[ 0x901 0xa01 ]
+[ 0x701 0x702 ]
 encrypted_log_preimages_length:
-0x202020202020202020202020202020202020202
+0x801
 unencrypted_log_preimages_length:
-0xa03
+[ contract_address: 0xa01
+portal_contract_address: 0x202020202020202020202020202020202020202
+function_tree_root: 0xa03
+ ]
+new_contracts:
+0x901
 optionally_revealed_data:
 [ call_stack_item_hash: 0xb01
 function_data:
@@ -164,19 +164,19 @@ public_call_stack:
 [ 0x401 0x402 0x403 0x404 0x405 0x406 0x407 0x408 ]
 new_l2_to_l1_msgs:
 [ 0x501 0x502 ]
-new_contracts:
-[ contract_address: 0x601
-portal_contract_address: 0x602
-function_tree_root: 0x701
- ]
 encrypted_logs_hash:
-[ 0x702 0x801 ]
+[ 0x601 0x602 ]
 unencrypted_logs_hash:
-[ 0x901 0xa01 ]
+[ 0x701 0x702 ]
 encrypted_log_preimages_length:
-0x202020202020202020202020202020202020202
+0x801
 unencrypted_log_preimages_length:
-0xa03
+[ contract_address: 0xa01
+portal_contract_address: 0x202020202020202020202020202020202020202
+function_tree_root: 0xa03
+ ]
+new_contracts:
+0x901
 optionally_revealed_data:
 [ call_stack_item_hash: 0xb01
 function_data:
@@ -538,19 +538,19 @@ public_call_stack:
 [ 0x401 0x402 0x403 0x404 0x405 0x406 0x407 0x408 ]
 new_l2_to_l1_msgs:
 [ 0x501 0x502 ]
-new_contracts:
-[ contract_address: 0x601
-portal_contract_address: 0x602
-function_tree_root: 0x701
- ]
 encrypted_logs_hash:
-[ 0x702 0x801 ]
+[ 0x601 0x602 ]
 unencrypted_logs_hash:
-[ 0x901 0xa01 ]
+[ 0x701 0x702 ]
 encrypted_log_preimages_length:
-0x202020202020202020202020202020202020202
+0x801
 unencrypted_log_preimages_length:
-0xa03
+[ contract_address: 0xa01
+portal_contract_address: 0x202020202020202020202020202020202020202
+function_tree_root: 0xa03
+ ]
+new_contracts:
+0x901
 optionally_revealed_data:
 [ call_stack_item_hash: 0xb01
 function_data:
@@ -925,19 +925,19 @@ public_call_stack:
 [ 0x401 0x402 0x403 0x404 0x405 0x406 0x407 0x408 ]
 new_l2_to_l1_msgs:
 [ 0x501 0x502 ]
-new_contracts:
-[ contract_address: 0x601
-portal_contract_address: 0x602
-function_tree_root: 0x701
- ]
 encrypted_logs_hash:
-[ 0x702 0x801 ]
+[ 0x601 0x602 ]
 unencrypted_logs_hash:
-[ 0x901 0xa01 ]
+[ 0x701 0x702 ]
 encrypted_log_preimages_length:
-0x202020202020202020202020202020202020202
+0x801
 unencrypted_log_preimages_length:
-0xa03
+[ contract_address: 0xa01
+portal_contract_address: 0x202020202020202020202020202020202020202
+function_tree_root: 0xa03
+ ]
+new_contracts:
+0x901
 optionally_revealed_data:
 [ call_stack_item_hash: 0xb01
 function_data:
@@ -1060,19 +1060,19 @@ public_call_stack:
 [ 0x401 0x402 0x403 0x404 0x405 0x406 0x407 0x408 ]
 new_l2_to_l1_msgs:
 [ 0x501 0x502 ]
-new_contracts:
-[ contract_address: 0x601
-portal_contract_address: 0x602
-function_tree_root: 0x701
- ]
 encrypted_logs_hash:
-[ 0x702 0x801 ]
+[ 0x601 0x602 ]
 unencrypted_logs_hash:
-[ 0x901 0xa01 ]
+[ 0x701 0x702 ]
 encrypted_log_preimages_length:
-0x202020202020202020202020202020202020202
+0x801
 unencrypted_log_preimages_length:
-0xa03
+[ contract_address: 0xa01
+portal_contract_address: 0x202020202020202020202020202020202020202
+function_tree_root: 0xa03
+ ]
+new_contracts:
+0x901
 optionally_revealed_data:
 [ call_stack_item_hash: 0xb01
 function_data:
