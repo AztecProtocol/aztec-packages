@@ -746,8 +746,8 @@ TEST(private_kernel_tests, native_no_read_requests_works)
     auto private_inputs = do_private_call_get_kernel_inputs_init(false, deposit, { amount, asset_id, memo });
 
     // empty requests
-    std::array<fr, READ_REQUESTS_LENGTH> read_requests = zero_array<fr, READ_REQUESTS_LENGTH>();
-    std::array<MembershipWitness<NT, PRIVATE_DATA_TREE_HEIGHT>, READ_REQUESTS_LENGTH>
+    std::array<fr, READ_REQUESTS_LENGTH> const read_requests = zero_array<fr, READ_REQUESTS_LENGTH>();
+    std::array<MembershipWitness<NT, PRIVATE_DATA_TREE_HEIGHT>, READ_REQUESTS_LENGTH> const
         read_request_membership_witnesses{};
     private_inputs.private_call.call_stack_item.public_inputs.read_requests = read_requests;
     private_inputs.private_call.read_request_membership_witnesses = read_request_membership_witnesses;
