@@ -4,6 +4,7 @@
 #include "aztec3/circuits/abis/combined_historic_tree_roots.hpp"
 #include "aztec3/circuits/abis/private_historic_tree_roots.hpp"
 #include "aztec3/circuits/abis/private_kernel/private_kernel_inputs_init.hpp"
+#include "aztec3/circuits/hash.hpp"
 #include "aztec3/circuits/kernel/private/init.hpp"
 #include "aztec3/constants.hpp"
 #include "aztec3/utils/array.hpp"
@@ -50,7 +51,10 @@ void initialise_end_values(PrivateKernelInputsInit<NT> const& private_inputs,
             CombinedHistoricTreeRoots<NT>{
                 .private_historic_tree_roots =
                     PrivateHistoricTreeRoots<NT>{
-                        .private_data_tree_root = private_call_public_inputs.historic_private_data_tree_root,
+                        // the private data tree root will be initialized
+                        // when the first read request is encountered
+                        // which could be in this kernel or any subsequent one
+                        .private_data_tree_root = 0,
                         .nullifier_tree_root = private_call_public_inputs.historic_nullifier_tree_root,
                         .contract_tree_root = private_call_public_inputs.historic_contract_tree_root,
                         .l1_to_l2_messages_tree_root = private_call_public_inputs.historic_l1_to_l2_messages_tree_root,
@@ -164,7 +168,12 @@ KernelCircuitPublicInputs<NT> native_private_kernel_circuit_initial(DummyCompose
     // TODO(jeanmon) FIXME - https://github.com/AztecProtocol/aztec-packages/issues/671
     // common_validate_call_stack(composer, private_inputs.private_call);
 
-    common_validate_read_requests(composer, private_inputs.private_call);
+    common_validate_read_requests(
+        composer,
+        private_inputs.private_call.call_stack_item.public_inputs.read_requests,
+        private_inputs.private_call.read_request_membership_witnesses,
+        public_inputs.constants.historic_tree_roots.private_historic_tree_roots.private_data_tree_root);
+
 
     // TODO(dbanks12): feels like update_end_values should happen after contract logic
     update_end_values(private_inputs, public_inputs);

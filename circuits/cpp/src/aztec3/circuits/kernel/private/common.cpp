@@ -1,8 +1,11 @@
+#include "common.hpp"
+
 #include "init.hpp"
 
 #include "aztec3/circuits/abis/contract_deployment_data.hpp"
 #include "aztec3/circuits/abis/function_data.hpp"
 #include "aztec3/circuits/abis/kernel_circuit_public_inputs.hpp"
+#include "aztec3/circuits/abis/membership_witness.hpp"
 #include "aztec3/circuits/abis/new_contract_data.hpp"
 #include "aztec3/circuits/abis/private_kernel/private_call_data.hpp"
 #include "aztec3/circuits/hash.hpp"
@@ -16,6 +19,7 @@ using aztec3::circuits::abis::ContractDeploymentData;
 using aztec3::circuits::abis::ContractLeafPreimage;
 using aztec3::circuits::abis::FunctionData;
 using aztec3::circuits::abis::KernelCircuitPublicInputs;
+using aztec3::circuits::abis::MembershipWitness;
 using aztec3::circuits::abis::NewContractData;
 
 using aztec3::utils::array_length;
@@ -45,28 +49,57 @@ void common_validate_call_stack(DummyComposer& composer, PrivateCallData<NT> con
     }
 }
 
-void common_validate_read_requests(DummyComposer& composer, PrivateCallData<NT> const& private_call)
-{
-    const auto& read_requests = private_call.call_stack_item.public_inputs.read_requests;
-    const auto& read_request_membership_witnesses = private_call.read_request_membership_witnesses;
 
-    NT::fr private_data_root;
-    // membership witnesses must resolve to the same private data root for
-    for (size_t rr_index = 0; rr_index < array_length(read_requests); rr_index++) {
-        const auto& leaf = read_requests[rr_index];
-        const auto& witness = read_request_membership_witnesses[rr_index];
-        const auto& root_for_rr = root_from_sibling_path<NT>(leaf, witness.leaf_index, witness.sibling_path);
-        // just set private_data_root in first iter and ensure that all other iters match
-        if (rr_index == 0) {
-            private_data_root = root_for_rr;
-        } else {
-            composer.do_assert(root_for_rr == private_data_root,
-                               format("private data root mismatch at read_request[", rr_index, "]"),
+/**
+ * @brief Validate all read requests against the historic private data root.
+ * Use their membership witnesses to do so. If the historic root is not yet
+ * initialized, initialize it using the first read request here (if present).
+ *
+ * @param composer
+ * @param read_requests the commitments being read by this private call
+ * @param read_request_membership_witnesses used to compute the private data root
+ * for a given request which is essentially a membership check.
+ * @param historic_private_data_tree_root This is a reference to the historic root which is
+ * an output (public input) of the kernel. All read requests much match this root. The very first
+ * read request in the the tx will initialize this root (in this function).
+ */
+void common_validate_read_requests(DummyComposer& composer,
+                                   std::array<fr, READ_REQUESTS_LENGTH> const& read_requests,
+                                   std::array<MembershipWitness<NT, PRIVATE_DATA_TREE_HEIGHT>,
+                                              READ_REQUESTS_LENGTH> const& read_request_membership_witnesses,
+                                   NT::fr& historic_private_data_tree_root)
+{
+    auto num_read_requests = array_length(read_requests);
+    if (num_read_requests > 0) {
+        size_t read_request_index = 0;
+        // If this is the very first read request in the tx so far, then the historic private data
+        // root has not yet been initialized in the kernel's public input constants.
+        // Initialize it here to the root for this very first read request. All subsequent
+        // read requests in this and later kernel iterations must match this one.
+        // This root will itself be validated against historic roots tree later in a rollup circuit.
+        // TODO(dbanks12): Is this the best way to handle this?
+        // More discussion here: https://discourse.aztec.network/t/spending-notes-which-havent-yet-been-inserted/180
+        if (historic_private_data_tree_root == NT::fr(0)) {
+            const auto& leaf = read_requests[read_request_index];
+            const auto& witness = read_request_membership_witnesses[read_request_index];
+            historic_private_data_tree_root =
+                root_from_sibling_path<NT>(leaf, witness.leaf_index, witness.sibling_path);
+            read_request_index++;  // 0th read request processed here, don't re-process it below
+        }
+
+        // membership witnesses must resolve to the same private data root
+        // for every request in all kernel iterations
+        for (; read_request_index < num_read_requests; read_request_index++) {
+            const auto& leaf = read_requests[read_request_index];
+            const auto& witness = read_request_membership_witnesses[read_request_index];
+            const auto& root_for_read_request =
+                root_from_sibling_path<NT>(leaf, witness.leaf_index, witness.sibling_path);
+
+            composer.do_assert(root_for_read_request == historic_private_data_tree_root,
+                               format("private data root mismatch at read_request[", read_request_index, "]"),
                                CircuitErrorCode::PRIVATE_KERNEL__READ_REQUEST_PRIVATE_DATA_ROOT_MISMATCH);
         }
     }
-    // TODO(dbanks12): set some root here?
-    //                 https://discourse.aztec.network/t/spending-notes-which-havent-yet-been-inserted/180/10
 }
 
 void common_update_end_values(DummyComposer& composer,

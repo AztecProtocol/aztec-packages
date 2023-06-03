@@ -44,6 +44,9 @@ using CircuitErrorCode = aztec3::utils::CircuitErrorCode;
 void initialise_end_values(PrivateKernelInputsInner<NT> const& private_inputs,
                            KernelCircuitPublicInputs<NT>& public_inputs)
 {
+    // Note: if this kernel iteration contains the very first read request
+    // in the entire transaction so far, the historic private data tree root
+    // will be initialized later in this kernel iteration in `common_validate_read_requests()`
     public_inputs.constants = private_inputs.previous_kernel.public_inputs.constants;
 
     // Ensure the arrays are the same as previously, before we start pushing more data onto them in other functions
@@ -157,7 +160,12 @@ KernelCircuitPublicInputs<NT> native_private_kernel_circuit_inner(DummyComposer&
     // TODO(jeanmon) FIXME - https://github.com/AztecProtocol/aztec-packages/issues/671
     // common_validate_call_stack(composer, private_inputs.private_call);
 
-    common_validate_read_requests(composer, private_inputs.private_call);
+    common_validate_read_requests(
+        composer,
+        private_inputs.private_call.call_stack_item.public_inputs.read_requests,
+        private_inputs.private_call.read_request_membership_witnesses,
+        public_inputs.constants.historic_tree_roots.private_historic_tree_roots.private_data_tree_root);
+
 
     // TODO(dbanks12): feels like update_end_values should happen later
     common_update_end_values(composer, private_inputs.private_call, public_inputs);
