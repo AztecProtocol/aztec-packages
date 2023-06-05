@@ -23,6 +23,7 @@
 #include "aztec3/circuits/hash.hpp"
 #include "aztec3/circuits/kernel/private/utils.hpp"
 
+#include "barretenberg/plonk/proof_system/prover/prover.hpp"
 #include <barretenberg/common/map.hpp>
 #include <barretenberg/stdlib/merkle_tree/membership.hpp>
 
@@ -30,20 +31,18 @@ namespace aztec3::circuits::kernel::private_kernel::testing_harness {
 
 using aztec3::circuits::abis::CallContext;
 using aztec3::circuits::abis::CallStackItem;
+using aztec3::circuits::abis::CombinedAccumulatedData;
+using aztec3::circuits::abis::CombinedConstantData;
+using aztec3::circuits::abis::CombinedHistoricTreeRoots;
 using aztec3::circuits::abis::ContractDeploymentData;
+using aztec3::circuits::abis::FunctionData;
 using aztec3::circuits::abis::PrivateCircuitPublicInputs;
+using aztec3::circuits::abis::PrivateHistoricTreeRoots;
 using aztec3::circuits::abis::PrivateTypes;
 using aztec3::circuits::abis::SignedTxRequest;
 using aztec3::circuits::abis::TxContext;
 using aztec3::circuits::abis::TxRequest;
-
-using aztec3::circuits::abis::CombinedAccumulatedData;
-using aztec3::circuits::abis::CombinedConstantData;
-using aztec3::circuits::abis::CombinedHistoricTreeRoots;
-using aztec3::circuits::abis::PrivateHistoricTreeRoots;
 using aztec3::circuits::abis::private_kernel::PrivateCallData;
-
-using aztec3::circuits::abis::FunctionData;
 
 /**
  * @brief Generate a verification key for a private circuit.
@@ -97,7 +96,8 @@ std::pair<PrivateCallData<NT>, ContractDeploymentData<NT>> create_private_call_d
     std::vector<NT::fr> const& args_vec,
     NT::address const& msg_sender,
     std::array<NT::fr, 2> const& encrypted_logs_hash,
-    NT::fr const& encrypted_log_preimages_length)
+    NT::fr const& encrypted_log_preimages_length,
+    bool is_circuit)
 {
     //***************************************************************************
     // Initialize some inputs to private call and kernel circuits
@@ -143,7 +143,8 @@ std::pair<PrivateCallData<NT>, ContractDeploymentData<NT>> create_private_call_d
     // it is needed below:
     //     for constructors - to generate the contract address, function leaf, etc
     //     for private calls - to generate the function leaf, etc
-    const std::shared_ptr<NT::VK> private_circuit_vk = gen_func_vk(is_constructor, func, args_vec.size());
+    auto const private_circuit_vk = is_circuit ? gen_func_vk(is_constructor, func, args_vec.size()) : utils::fake_vk();
+
     const NT::fr private_circuit_vk_hash =
         stdlib::recursion::verification_key<CT::bn254>::compress_native(private_circuit_vk, GeneratorIndex::VK);
 
@@ -226,20 +227,13 @@ std::pair<PrivateCallData<NT>, ContractDeploymentData<NT>> create_private_call_d
     private_circuit_public_inputs.encrypted_logs_hash = encrypted_logs_hash;
     private_circuit_public_inputs.encrypted_log_preimages_length = encrypted_log_preimages_length;
 
-    auto private_circuit_prover = private_circuit_composer.create_prover();
-    NT::Proof const private_circuit_proof = private_circuit_prover.construct_proof();
-    // info("\nproof: ", private_circuit_proof.proof_data);
+    // Omit the proof for native tests
+    NT::Proof private_circuit_proof;
+    if (is_circuit) {
+        auto private_circuit_prover = private_circuit_composer.create_prover();
+        private_circuit_proof = private_circuit_prover.construct_proof();
+    }
 
-
-    //***************************************************************************
-    // We mock a kernel circuit proof for the base case of kernel recursion (because even the first iteration of the
-    // kernel circuit expects to verify some previous kernel circuit).
-    //***************************************************************************
-    // TODO(mike): we have a choice to make:
-    // Either the `end` state of the mock kernel's public inputs can be set equal to the public call we _want_ to
-    // verify in the first round of recursion, OR, we have some fiddly conditional logic in the circuit to ignore
-    // certain checks if we're handling the 'base case' of the recursion.
-    // I've chosen the former, for now.
     const CallStackItem<NT, PrivateTypes> call_stack_item{
         .contract_address = contract_address,
         .function_data = function_data,
@@ -275,12 +269,21 @@ std::pair<PrivateCallData<NT>, ContractDeploymentData<NT>> create_private_call_d
     contract_deployment_data);
 }
 
-// JEAMON: Most of the current tests should call this variant (init case)
+/**
+ * @brief Perform an initil private circuit call and generate the inputs to private kernel
+ *
+ * @param is_constructor whether this private circuit call is a constructor
+ * @param func the private circuit call being validated by this kernel iteration
+ * @param args_vec the private call's args
+ * @param is_circuit boolean to switch to circuit or native (fake vk and no proof)
+ * @return PrivateInputsInit<NT> - the inputs to the private call circuit of an init iteration
+ */
 PrivateKernelInputsInit<NT> do_private_call_get_kernel_inputs_init(bool const is_constructor,
                                                                    private_function const& func,
                                                                    std::vector<NT::fr> const& args_vec,
                                                                    std::array<NT::fr, 2> const& encrypted_logs_hash,
-                                                                   NT::fr const& encrypted_log_preimages_length)
+                                                                   NT::fr const& encrypted_log_preimages_length,
+                                                                   bool is_circuit)
 {
     //***************************************************************************
     // Initialize some inputs to private call and kernel circuits
@@ -292,7 +295,7 @@ PrivateKernelInputsInit<NT> do_private_call_get_kernel_inputs_init(bool const is
     const NT::address& tx_origin = msg_sender;
 
     auto const& [private_call_data, contract_deployment_data] = create_private_call_deploy_data(
-        is_constructor, func, args_vec, msg_sender, encrypted_logs_hash, encrypted_log_preimages_length);
+        is_constructor, func, args_vec, msg_sender, encrypted_logs_hash, encrypted_log_preimages_length, is_circuit);
 
     //***************************************************************************
     // We can create a TxRequest from some of the above data. Users must sign a TxRequest in order to give permission
@@ -333,19 +336,21 @@ PrivateKernelInputsInit<NT> do_private_call_get_kernel_inputs_init(bool const is
 
 
 /**
- * @brief Perform a private circuit call and generate the inputs to private kernel
+ * @brief Perform an inner private circuit call and generate the inputs to private kernel
  *
  * @param is_constructor whether this private circuit call is a constructor
  * @param func the private circuit call being validated by this kernel iteration
  * @param args_vec the private call's args
- * @return PrivateInputs<NT> - the inputs to the private call circuit
+ * @param is_circuit boolean to switch to circuit or native (fake vk and no proof)
+ * @return PrivateInputsInner<NT> - the inputs to the private call circuit of an inner iteration
  */
 PrivateKernelInputsInner<NT> do_private_call_get_kernel_inputs_inner(bool const is_constructor,
                                                                      private_function const& func,
                                                                      std::vector<NT::fr> const& args_vec,
                                                                      bool real_kernel_circuit,
                                                                      std::array<NT::fr, 2> const& encrypted_logs_hash,
-                                                                     NT::fr const& encrypted_log_preimages_length)
+                                                                     NT::fr const& encrypted_log_preimages_length,
+                                                                     bool is_circuit)
 {
     //***************************************************************************
     // Initialize some inputs to private call and kernel circuits
@@ -356,7 +361,7 @@ PrivateKernelInputsInner<NT> do_private_call_get_kernel_inputs_inner(bool const 
         NT::fr(uint256_t(0x01071e9a23e0f7edULL, 0x5d77b35d1830fa3eULL, 0xc6ba3660bb1f0c0bULL, 0x2ef9f7f09867fd6eULL));
 
     auto const& [private_call_data, contract_deployment_data] = create_private_call_deploy_data(
-        is_constructor, func, args_vec, msg_sender, encrypted_logs_hash, encrypted_log_preimages_length);
+        is_constructor, func, args_vec, msg_sender, encrypted_logs_hash, encrypted_log_preimages_length, is_circuit);
 
     const TxContext<NT> tx_context = TxContext<NT>{
         .is_fee_payment_tx = false,
@@ -366,21 +371,15 @@ PrivateKernelInputsInner<NT> do_private_call_get_kernel_inputs_inner(bool const 
     };
 
     //***************************************************************************
-    // We mock a kernel circuit proof for the base case of kernel recursion (because even the first iteration of the
-    // kernel circuit expects to verify some previous kernel circuit).
+    // We mock a kernel circuit proof to initialize ipnut required by an inner call
     //***************************************************************************
-    // TODO(mike): we have a choice to make:
-    // Either the `end` state of the mock kernel's public inputs can be set equal to the public call we _want_ to
-    // verify in the first round of recursion, OR, we have some fiddly conditional logic in the circuit to ignore
-    // certain checks if we're handling the 'base case' of the recursion.
-    // I've chosen the former, for now.
 
     std::array<NT::fr, KERNEL_PRIVATE_CALL_STACK_LENGTH> initial_kernel_private_call_stack{};
     initial_kernel_private_call_stack[0] = private_call_data.call_stack_item.hash();
 
     auto const& private_circuit_public_inputs = private_call_data.call_stack_item.public_inputs;
     // Get dummy previous kernel
-    auto mock_previous_kernel = utils::dummy_previous_kernel(real_kernel_circuit);
+    auto mock_previous_kernel = utils::dummy_previous_kernel(is_circuit);
     // Fill in some important fields in public inputs
     mock_previous_kernel.public_inputs.end.private_call_stack = initial_kernel_private_call_stack;
     mock_previous_kernel.public_inputs.constants = CombinedConstantData<NT>{

@@ -84,7 +84,7 @@ TEST(native_private_kernel_init_tests, basic_contract_deployment)
     NT::fr const arg1 = 1;
     NT::fr const arg2 = 999;
 
-    auto const& private_inputs = do_private_call_get_kernel_inputs_init(true, constructor, { arg0, arg1, arg2 });
+    auto const& private_inputs = do_private_call_get_kernel_inputs_init(true, constructor, { arg0, arg1, arg2 }, false);
     DummyComposer composer = DummyComposer("private_kernel_tests__native_basic_contract_deployment");
     auto const& public_inputs = native_private_kernel_circuit_initial(composer, private_inputs);
 
@@ -113,7 +113,7 @@ TEST(native_private_kernel_init_tests, DISABLED_contract_deployment_call_stack_i
     NT::fr const arg1 = 1;
     NT::fr const arg2 = 999;
 
-    auto private_inputs = do_private_call_get_kernel_inputs_init(true, constructor, { arg0, arg1, arg2 });
+    auto private_inputs = do_private_call_get_kernel_inputs_init(true, constructor, { arg0, arg1, arg2 }, false);
 
     // Randomise the second item in the private call stack (i.e. hash of the private call item).
     private_inputs.private_call.call_stack_item.public_inputs.private_call_stack[1] = NT::fr::random_element();
@@ -133,7 +133,7 @@ TEST(native_private_kernel_init_tests, contract_deployment_incorrect_constructor
     NT::fr const arg1 = 1;
     NT::fr const arg2 = 999;
 
-    auto private_inputs = do_private_call_get_kernel_inputs_init(true, constructor, { arg0, arg1, arg2 });
+    auto private_inputs = do_private_call_get_kernel_inputs_init(true, constructor, { arg0, arg1, arg2 }, false);
 
     // Pollute the constructor vk hash in the tx_request.
     private_inputs.signed_tx_request.tx_request.tx_context.contract_deployment_data.constructor_vk_hash =
@@ -154,7 +154,7 @@ TEST(native_private_kernel_init_tests, contract_deployment_incorrect_contract_ad
     NT::fr const arg1 = 1;
     NT::fr const arg2 = 999;
 
-    auto private_inputs = do_private_call_get_kernel_inputs_init(true, constructor, { arg0, arg1, arg2 });
+    auto private_inputs = do_private_call_get_kernel_inputs_init(true, constructor, { arg0, arg1, arg2 }, false);
 
     // Modify the contract address in appropriate places.
     const fr random_address = NT::fr::random_element();
@@ -177,7 +177,7 @@ TEST(native_private_kernel_init_tests, contract_deployment_contract_address_mism
     NT::fr const arg1 = 1;
     NT::fr const arg2 = 999;
 
-    auto private_inputs = do_private_call_get_kernel_inputs_init(true, constructor, { arg0, arg1, arg2 });
+    auto private_inputs = do_private_call_get_kernel_inputs_init(true, constructor, { arg0, arg1, arg2 }, false);
 
     // Modify the storage_contract_address.
     const auto random_contract_address = NT::fr::random_element();
@@ -204,7 +204,7 @@ TEST(native_private_kernel_init_tests, contract_deployment_function_data_mismatc
     NT::fr const arg1 = 1;
     NT::fr const arg2 = 999;
 
-    auto private_inputs = do_private_call_get_kernel_inputs_init(true, constructor, { arg0, arg1, arg2 });
+    auto private_inputs = do_private_call_get_kernel_inputs_init(true, constructor, { arg0, arg1, arg2 }, false);
 
     // Modify the function selector in function data.
     private_inputs.signed_tx_request.tx_request.function_data.function_selector =
@@ -229,7 +229,7 @@ TEST(native_private_kernel_init_tests, contract_deployment_args_hash_mismatch_fa
     NT::fr const arg1 = 1;
     NT::fr const arg2 = 999;
 
-    auto private_inputs = do_private_call_get_kernel_inputs_init(true, constructor, { arg0, arg1, arg2 });
+    auto private_inputs = do_private_call_get_kernel_inputs_init(true, constructor, { arg0, arg1, arg2 }, false);
 
     // Modify the args hash in tx request.
     private_inputs.signed_tx_request.tx_request.args_hash = NT::fr::random_element();
@@ -253,7 +253,7 @@ TEST(native_private_kernel_init_tests, private_function_is_private_false_fails)
     NT::fr const arg1 = 1;
     NT::fr const arg2 = 999;
 
-    auto private_inputs = do_private_call_get_kernel_inputs_init(false, deposit, { arg0, arg1, arg2 });
+    auto private_inputs = do_private_call_get_kernel_inputs_init(false, deposit, { arg0, arg1, arg2 }, false);
 
     // Set is_private in function data to false.
     private_inputs.private_call.call_stack_item.function_data.is_private = false;
@@ -277,7 +277,7 @@ TEST(native_private_kernel_init_tests, private_function_static_call_fails)
     NT::fr const arg1 = 1;
     NT::fr const arg2 = 999;
 
-    auto private_inputs = do_private_call_get_kernel_inputs_init(false, deposit, { arg0, arg1, arg2 });
+    auto private_inputs = do_private_call_get_kernel_inputs_init(false, deposit, { arg0, arg1, arg2 }, false);
 
     // Set is_static_call to true.
     private_inputs.private_call.call_stack_item.public_inputs.call_context.is_static_call = true;
@@ -298,7 +298,7 @@ TEST(native_private_kernel_init_tests, private_function_delegate_call_fails)
     NT::fr const arg1 = 1;
     NT::fr const arg2 = 999;
 
-    auto private_inputs = do_private_call_get_kernel_inputs_init(false, deposit, { arg0, arg1, arg2 });
+    auto private_inputs = do_private_call_get_kernel_inputs_init(false, deposit, { arg0, arg1, arg2 }, false);
 
     // Set is_delegate_call to true.
     private_inputs.private_call.call_stack_item.public_inputs.call_context.is_delegate_call = true;
@@ -319,7 +319,7 @@ TEST(native_private_kernel_init_tests, private_function_incorrect_storage_contra
     NT::fr const arg1 = 1;
     NT::fr const arg2 = 999;
 
-    auto private_inputs = do_private_call_get_kernel_inputs_init(false, deposit, { arg0, arg1, arg2 });
+    auto private_inputs = do_private_call_get_kernel_inputs_init(false, deposit, { arg0, arg1, arg2 }, false);
 
     // Set the storage_contract_address to a random scalar.
     private_inputs.private_call.call_stack_item.public_inputs.call_context.storage_contract_address =
@@ -347,7 +347,7 @@ TEST(native_private_kernel_inner_tests, private_function_zero_storage_contract_a
     NT::fr const arg1 = 1;
     NT::fr const arg2 = 999;
 
-    auto private_inputs = do_private_call_get_kernel_inputs_inner(false, deposit, { arg0, arg1, arg2 });
+    auto private_inputs = do_private_call_get_kernel_inputs_inner(false, deposit, { arg0, arg1, arg2 }, false);
 
     // Set storage_contract_address to 0
     private_inputs.private_call.call_stack_item.public_inputs.call_context.storage_contract_address = 0;
@@ -375,7 +375,7 @@ TEST(native_private_kernel_inner_tests, private_function_incorrect_contract_tree
     NT::fr const arg1 = 1;
     NT::fr const arg2 = 999;
 
-    auto private_inputs = do_private_call_get_kernel_inputs_inner(false, deposit, { arg0, arg1, arg2 });
+    auto private_inputs = do_private_call_get_kernel_inputs_inner(false, deposit, { arg0, arg1, arg2 }, false);
 
     // Set private_historic_tree_roots to a random scalar.
     private_inputs.previous_kernel.public_inputs.constants.historic_tree_roots.private_historic_tree_roots
@@ -400,7 +400,7 @@ TEST(native_private_kernel_inner_tests, private_function_incorrect_contract_leaf
     NT::fr const arg1 = 1;
     NT::fr const arg2 = 999;
 
-    auto private_inputs = do_private_call_get_kernel_inputs_inner(false, deposit, { arg0, arg1, arg2 });
+    auto private_inputs = do_private_call_get_kernel_inputs_inner(false, deposit, { arg0, arg1, arg2 }, false);
 
     // Set the leaf index of the contract leaf to 20 (the correct value is 1).
     NT::fr const wrong_idx = 20;
@@ -425,7 +425,7 @@ TEST(native_private_kernel_inner_tests, private_function_incorrect_contract_leaf
     NT::fr const arg1 = 1;
     NT::fr const arg2 = 999;
 
-    auto private_inputs = do_private_call_get_kernel_inputs_inner(false, deposit, { arg0, arg1, arg2 });
+    auto private_inputs = do_private_call_get_kernel_inputs_inner(false, deposit, { arg0, arg1, arg2 }, false);
 
     // Change the contract leaf's membership proof.
     private_inputs.private_call.contract_leaf_membership_witness.sibling_path[0] = fr::random_element();
@@ -449,7 +449,7 @@ TEST(native_private_kernel_inner_tests, private_function_incorrect_function_leaf
     NT::fr const arg1 = 1;
     NT::fr const arg2 = 999;
 
-    auto private_inputs = do_private_call_get_kernel_inputs_inner(false, deposit, { arg0, arg1, arg2 });
+    auto private_inputs = do_private_call_get_kernel_inputs_inner(false, deposit, { arg0, arg1, arg2 }, false);
 
     // Set the leaf index of the function leaf to 10 (the correct value is 1).
     NT::fr const wrong_idx = 10;
@@ -474,7 +474,7 @@ TEST(native_private_kernel_inner_tests, private_function_incorrect_function_leaf
     NT::fr const arg1 = 1;
     NT::fr const arg2 = 999;
 
-    auto private_inputs = do_private_call_get_kernel_inputs_inner(false, deposit, { arg0, arg1, arg2 });
+    auto private_inputs = do_private_call_get_kernel_inputs_inner(false, deposit, { arg0, arg1, arg2 }, false);
 
     // Change the function leaf's membership proof.
     private_inputs.private_call.function_leaf_membership_witness.sibling_path[0] = fr::random_element();
@@ -499,7 +499,7 @@ TEST(native_private_kernel_inner_tests, DISABLED_private_function_incorrect_call
     NT::fr const arg1 = 1;
     NT::fr const arg2 = 999;
 
-    auto private_inputs = do_private_call_get_kernel_inputs_inner(false, deposit, { arg0, arg1, arg2 });
+    auto private_inputs = do_private_call_get_kernel_inputs_inner(false, deposit, { arg0, arg1, arg2 }, false);
 
     // Set the first call stack member corresponding to the `deposit` function to random scalar.
     private_inputs.private_call.call_stack_item.public_inputs.private_call_stack[0] = NT::fr::random_element();

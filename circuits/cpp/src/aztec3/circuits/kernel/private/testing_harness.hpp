@@ -93,7 +93,8 @@ std::pair<PrivateCallData<NT>, ContractDeploymentData<NT>> create_private_call_d
     std::vector<NT::fr> const& args_vec,
     NT::address const& msg_sender,
     std::array<NT::fr, 2> const& encrypted_logs_hash,
-    NT::fr const& encrypted_log_preimages_length);
+    NT::fr const& encrypted_log_preimages_length,
+    bool is_circuit = false);
 
 /**
  * @brief Perform a private circuit call and generate the inputs to private kernel inner circuit
@@ -112,7 +113,8 @@ PrivateKernelInputsInner<NT> do_private_call_get_kernel_inputs_inner(
     std::vector<NT::fr> const& args_vec,
     bool real_kernel_circuit = false,
     std::array<NT::fr, 2> const& encrypted_logs_hash = zero_array<NT::fr, 2>(),
-    NT::fr const& encrypted_log_preimages_length = NT::fr(0));
+    NT::fr const& encrypted_log_preimages_length = NT::fr(0),
+    bool is_circuit = false);
 
 /**
  * @brief Perform a private circuit call and generate the inputs to private kernel init circuit
@@ -128,7 +130,8 @@ PrivateKernelInputsInit<NT> do_private_call_get_kernel_inputs_init(
     private_function const& func,
     std::vector<NT::fr> const& args_vec,
     std::array<NT::fr, 2> const& encrypted_logs_hash = zero_array<NT::fr, 2>(),
-    NT::fr const& encrypted_log_preimages_length = NT::fr(0));
+    NT::fr const& encrypted_log_preimages_length = NT::fr(0),
+    bool is_circuit = false);
 
 /**
  * @brief Validate that the deployed contract address is correct.
