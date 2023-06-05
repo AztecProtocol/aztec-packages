@@ -1151,10 +1151,11 @@ current_value: 0x1514
  storage_slot: 0x1514
 current_value: 0x1515
  ]
-public_call_stack: [ 0x221b5d639a096f94a75ea1b7cff7c04c36758710754384739a6abf9a95fd473e 0x28b2063ab3d7ddd367136806a616911bbdb883216a739af593316253fcd02609 0x1098d33ee4483f5f87285c2ed81f45e775a97ee77714e251fd404fff12991d16 0x27659ad5da78f32a78f9958338b5ab5bc67a9762f2821fff95892d0f560f4a82 ]
-new_l2_to_l1_msgs: [ 0x1711 0x1712 ]
-historic_public_data_tree_root: 0x1811
-prover_address: 0x1812
+public_call_stack: [ 0x83982fca09d4d29b521bf2d6b0e2769b5142d2fcce39ba024a2bb1b1a55b1cb 0x2072b84917685f0affac086d24ed26a55f3604ceb77be9e956f31e9071184f65 0x2cbcfb072cb72c01861f98b6290ef616730471faf05ba5bbb967ea9aac35a401 0x2a71c8e623443a54e893d8280fd30f1745510094b66f0d892438acda005ab43d ]
+new_commitments: [ 0x1711 0x1712 0x1713 0x1714 ]
+new_l2_to_l1_msgs: [ 0x1811 0x1812 ]
+historic_public_data_tree_root: 0x1911
+prover_address: 0x1a12
 
 is_execution_request: 0
 
@@ -1197,9 +1198,10 @@ current_value: 0x1814
 current_value: 0x1815
  ]
 public_call_stack: [ 0x1911 0x1912 0x1913 0x1914 ]
-new_l2_to_l1_msgs: [ 0x1a11 0x1a12 ]
-historic_public_data_tree_root: 0x1b11
-prover_address: 0x1b12
+new_commitments: [ 0x1a11 0x1a12 0x1a13 0x1a14 ]
+new_l2_to_l1_msgs: [ 0x1b11 0x1b12 ]
+historic_public_data_tree_root: 0x1c11
+prover_address: 0x1d12
 
 is_execution_request: 0
  contract_address: 0x1302
@@ -1240,9 +1242,10 @@ current_value: 0x1815
 current_value: 0x1816
  ]
 public_call_stack: [ 0x1912 0x1913 0x1914 0x1915 ]
-new_l2_to_l1_msgs: [ 0x1a12 0x1a13 ]
-historic_public_data_tree_root: 0x1b12
-prover_address: 0x1b13
+new_commitments: [ 0x1a12 0x1a13 0x1a14 0x1a15 ]
+new_l2_to_l1_msgs: [ 0x1b12 0x1b13 ]
+historic_public_data_tree_root: 0x1c12
+prover_address: 0x1d13
 
 is_execution_request: 0
  contract_address: 0x1303
@@ -1283,9 +1286,10 @@ current_value: 0x1816
 current_value: 0x1817
  ]
 public_call_stack: [ 0x1913 0x1914 0x1915 0x1916 ]
-new_l2_to_l1_msgs: [ 0x1a13 0x1a14 ]
-historic_public_data_tree_root: 0x1b13
-prover_address: 0x1b14
+new_commitments: [ 0x1a13 0x1a14 0x1a15 0x1a16 ]
+new_l2_to_l1_msgs: [ 0x1b13 0x1b14 ]
+historic_public_data_tree_root: 0x1c13
+prover_address: 0x1d14
 
 is_execution_request: 0
  contract_address: 0x1304
@@ -1326,9 +1330,10 @@ current_value: 0x1817
 current_value: 0x1818
  ]
 public_call_stack: [ 0x1914 0x1915 0x1916 0x1917 ]
-new_l2_to_l1_msgs: [ 0x1a14 0x1a15 ]
-historic_public_data_tree_root: 0x1b14
-prover_address: 0x1b15
+new_commitments: [ 0x1a14 0x1a15 0x1a16 0x1a17 ]
+new_l2_to_l1_msgs: [ 0x1b14 0x1b15 ]
+historic_public_data_tree_root: 0x1c14
+prover_address: 0x1d15
 
 is_execution_request: 0
  ]
@@ -1403,10 +1408,11 @@ current_value: 0x614
  storage_slot: 0x614
 current_value: 0x615
  ]
-public_call_stack: [ 0x9bb57b57c918598816731554386a857fd26044897b7ab5877e1fe3b2b0dd99f 0x10c7590d923b0d4e162ac2bbdb9c612bcf0221899f44adf8ff1b24212a75b790 0x1f734ab14b419531afd3d8617f7f0c2e3aaa735b10b1d81a906e6874bbdffb1b 0x239900af32e3ec82b173315afdcc3494fc4d00d50d4c16eb301292193a84e72a ]
-new_l2_to_l1_msgs: [ 0x811 0x812 ]
-historic_public_data_tree_root: 0x911
-prover_address: 0x912
+public_call_stack: [ 0x10076f8a581d92e0fcbb02a458b157b10e16eca75db0316020a816d9a80bdb71 0x644abb6cb3e83e7dbb33659afe17bd162358aa5bfec202fb313f528eb99f322 0xfed33f57375e68890ddcaa7a317c50d92bb3590197b48d6318007116b6d07d4 0x1c8a9b8f81c67f264cd7527670c2ebe67c804a903f51329034c4b2a477f81679 ]
+new_commitments: [ 0x811 0x812 0x813 0x814 ]
+new_l2_to_l1_msgs: [ 0x911 0x912 ]
+historic_public_data_tree_root: 0xa11
+prover_address: 0xb12
 
 is_execution_request: 0
 
@@ -1449,9 +1455,10 @@ current_value: 0x914
 current_value: 0x915
  ]
 public_call_stack: [ 0xa11 0xa12 0xa13 0xa14 ]
-new_l2_to_l1_msgs: [ 0xb11 0xb12 ]
-historic_public_data_tree_root: 0xc11
-prover_address: 0xc12
+new_commitments: [ 0xb11 0xb12 0xb13 0xb14 ]
+new_l2_to_l1_msgs: [ 0xc11 0xc12 ]
+historic_public_data_tree_root: 0xd11
+prover_address: 0xe12
 
 is_execution_request: 0
  contract_address: 0x402
@@ -1492,9 +1499,10 @@ current_value: 0x915
 current_value: 0x916
  ]
 public_call_stack: [ 0xa12 0xa13 0xa14 0xa15 ]
-new_l2_to_l1_msgs: [ 0xb12 0xb13 ]
-historic_public_data_tree_root: 0xc12
-prover_address: 0xc13
+new_commitments: [ 0xb12 0xb13 0xb14 0xb15 ]
+new_l2_to_l1_msgs: [ 0xc12 0xc13 ]
+historic_public_data_tree_root: 0xd12
+prover_address: 0xe13
 
 is_execution_request: 0
  contract_address: 0x403
@@ -1535,9 +1543,10 @@ current_value: 0x916
 current_value: 0x917
  ]
 public_call_stack: [ 0xa13 0xa14 0xa15 0xa16 ]
-new_l2_to_l1_msgs: [ 0xb13 0xb14 ]
-historic_public_data_tree_root: 0xc13
-prover_address: 0xc14
+new_commitments: [ 0xb13 0xb14 0xb15 0xb16 ]
+new_l2_to_l1_msgs: [ 0xc13 0xc14 ]
+historic_public_data_tree_root: 0xd13
+prover_address: 0xe14
 
 is_execution_request: 0
  contract_address: 0x404
@@ -1578,9 +1587,10 @@ current_value: 0x917
 current_value: 0x918
  ]
 public_call_stack: [ 0xa14 0xa15 0xa16 0xa17 ]
-new_l2_to_l1_msgs: [ 0xb14 0xb15 ]
-historic_public_data_tree_root: 0xc14
-prover_address: 0xc15
+new_commitments: [ 0xb14 0xb15 0xb16 0xb17 ]
+new_l2_to_l1_msgs: [ 0xc14 0xc15 ]
+historic_public_data_tree_root: 0xd14
+prover_address: 0xe15
 
 is_execution_request: 0
  ]
