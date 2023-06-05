@@ -15,6 +15,8 @@ import {
   makeEmptyProof,
   AztecAddress,
   Fr,
+  READ_REQUESTS_LENGTH,
+  PRIVATE_DATA_TREE_HEIGHT,
 } from '@aztec/circuits.js';
 import { assertLength } from '@aztec/foundation/serialize';
 import { ProofOutput, ProofCreator, KernelProofCreator } from './proof_creator.js';
@@ -95,10 +97,17 @@ export class KernelProver {
           `Too many items in the call stack. Maximum amount is ${PRIVATE_CALL_STACK_LENGTH}. Got ${privateCallStackPreimages.length}.`,
         );
       }
+      // Pad with with empty items to reach max/const length expected by circuit.
       privateCallStackPreimages.push(
         ...Array(PRIVATE_CALL_STACK_LENGTH - privateCallStackPreimages.length)
           .fill(0)
           .map(() => PrivateCallStackItem.empty()),
+      );
+
+      currentExecution.readRequestMembershipWitnesses.push(
+        ...Array(READ_REQUESTS_LENGTH - currentExecution.readRequestMembershipWitnesses.length)
+          .fill(0)
+          .map(() => MembershipWitness.empty(PRIVATE_DATA_TREE_HEIGHT, BigInt(0))),
       );
 
       const privateCallData = await this.createPrivateCallData(currentExecution, privateCallStackPreimages);
