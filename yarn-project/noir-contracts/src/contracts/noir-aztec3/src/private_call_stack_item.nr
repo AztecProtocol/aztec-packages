@@ -57,33 +57,35 @@ impl PrivateCallStackItem {
                     portal_contract_address : fields[9],
                 },
                 // TODO handle the offsets as a variable incremented during extraction?
-                args: arr_copy_slice(fields, [0; crate::abi::MAX_ARGS], 10),
-                return_values: arr_copy_slice(fields, [0; crate::abi::MAX_RETURN_VALUES], 18),
-                emitted_events: arr_copy_slice(fields, [0; crate::abi::MAX_LOGS], 22),
-                read_requests: arr_copy_slice(fields, [0; crate::abi::MAX_READ_REQUESTS], 26),
-                new_commitments: arr_copy_slice(fields, [0; crate::abi::MAX_NEW_COMMITMENTS], 30),
-                new_nullifiers: arr_copy_slice(fields, [0; crate::abi::MAX_NEW_NULLIFIERS], 34),
-                private_call_stack: arr_copy_slice(fields, [0; crate::abi::MAX_PRIVATE_CALL_STACK], 38),
-                public_call_stack: arr_copy_slice(fields, [0; crate::abi::MAX_PUBLIC_CALL_STACK], 42),
-                new_l2_to_l1_msgs:arr_copy_slice(fields, [0; crate::abi::MAX_L1_MSG_STACK], 46),
-                historic_private_data_tree_root: fields[48],
-                historic_private_nullifier_tree_root: fields[49],
-                historic_contract_tree_root: fields[50],
-                historic_l1_to_l2_messages_tree_root: fields[51],
+                args_hash: fields[10],
+                return_values: arr_copy_slice(fields, [0; crate::abi::MAX_RETURN_VALUES], 11),
+                emitted_events: arr_copy_slice(fields, [0; crate::abi::MAX_LOGS], 15),
+                read_requests: arr_copy_slice(fields, [0; crate::abi::MAX_READ_REQUESTS], 19),
+                new_commitments: arr_copy_slice(fields, [0; crate::abi::MAX_NEW_COMMITMENTS], 23),
+                new_nullifiers: arr_copy_slice(fields, [0; crate::abi::MAX_NEW_NULLIFIERS], 27),
+                private_call_stack: arr_copy_slice(fields, [0; crate::abi::MAX_PRIVATE_CALL_STACK], 31),
+                public_call_stack: arr_copy_slice(fields, [0; crate::abi::MAX_PUBLIC_CALL_STACK], 35),
+                new_l2_to_l1_msgs:arr_copy_slice(fields, [0; crate::abi::MAX_L1_MSG_STACK], 39),
+                historic_private_data_tree_root: fields[41],
+                historic_private_nullifier_tree_root: fields[42],
+                historic_contract_tree_root: fields[43],
+                historic_l1_to_l2_messages_tree_root: fields[44],
                 contract_deployment_data: ContractDeploymentData {
-                    constructor_vk_hash : fields[52],
-                    function_tree_root : fields[53],
-                    contract_address_salt : fields[54],
-                    portal_contract_address : fields[55],
+                    constructor_vk_hash : fields[45],
+                    function_tree_root : fields[46],
+                    contract_address_salt : fields[47],
+                    portal_contract_address : fields[48],
                 },
             },
-            is_execution_request: fields[56] as bool,
+            is_execution_request: fields[49] as bool,
         };
         constrain contract_address == item.contract_address;
         constrain function_selector == item.function_data.function_selector;
-        for i in 0..crate::abi::MAX_ARGS {
-            constrain args[i] == item.public_inputs.args[i];
-        }
+
+        // TODO hash_index
+        // let args_hash = dep::std::hash::pedersen(args)[0];
+        // constrain args_hash == item.public_inputs.args_hash;
+
         constrain item.is_execution_request == false;
 
         constrain item.public_inputs.call_context.is_delegate_call == false;

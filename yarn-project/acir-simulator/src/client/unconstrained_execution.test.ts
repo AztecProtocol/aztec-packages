@@ -4,21 +4,21 @@ import {
   ContractDeploymentData,
   FunctionData,
   MembershipWitness,
-  PrivateHistoricTreeRoots,
   PRIVATE_DATA_TREE_HEIGHT,
+  PrivateHistoricTreeRoots,
   TxContext,
-  TxRequest,
 } from '@aztec/circuits.js';
 
+import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { EthAddress } from '@aztec/foundation/eth-address';
+import { Fr } from '@aztec/foundation/fields';
 import { ZkTokenContractAbi } from '@aztec/noir-contracts/examples';
+import { TxExecutionRequest } from '@aztec/types';
 import { mock } from 'jest-mock-extended';
 import { encodeArguments } from '../abi_coder/index.js';
+import { NoirPoint, toPublicKey } from '../utils.js';
 import { DBOracle } from './db_oracle.js';
 import { AcirSimulator } from './simulator.js';
-import { NoirPoint, toPublicKey } from '../utils.js';
-import { Fr } from '@aztec/foundation/fields';
-import { EthAddress } from '@aztec/foundation/eth-address';
-import { AztecAddress } from '@aztec/foundation/aztec-address';
 
 describe('Unconstrained Execution test suite', () => {
   let bbWasm: BarretenbergWasm;
@@ -77,7 +77,7 @@ describe('Unconstrained Execution test suite', () => {
         });
       });
 
-      const txRequest = new TxRequest(
+      const txRequest = new TxExecutionRequest(
         AztecAddress.random(),
         contractAddress,
         new FunctionData(Buffer.alloc(4), true, true),

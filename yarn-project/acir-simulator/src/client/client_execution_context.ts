@@ -1,14 +1,18 @@
+import { MembershipWitness, PRIVATE_DATA_TREE_HEIGHT, PrivateHistoricTreeRoots } from '@aztec/circuits.js';
+import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { Fr } from '@aztec/foundation/fields';
+import { TxExecutionRequest } from '@aztec/types';
 import {
   ACVMField,
   toACVMField,
   fromACVMField,
   createDummyNote,
+  fromACVMField,
+  toACVMField,
   toAcvmMessageLoadOracleInputs,
+  toAcvmNoteLoadOracleInputs,
 } from '../acvm/index.js';
-import { MembershipWitness, PrivateHistoricTreeRoots, TxRequest, PRIVATE_DATA_TREE_HEIGHT } from '@aztec/circuits.js';
 import { NoteLoadOracleInputs, DBOracle } from './db_oracle.js';
-import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { Fr } from '@aztec/foundation/fields';
 
 /**
  * The execution context for a client tx simulation.
@@ -18,7 +22,7 @@ export class ClientTxExecutionContext {
     /**  The database oracle. */
     public db: DBOracle,
     /** The tx request. */
-    public request: TxRequest,
+    public request: TxExecutionRequest,
     /** The old roots. */
     public historicRoots: PrivateHistoricTreeRoots,
   ) {}
