@@ -71,7 +71,7 @@ describe('archiver integration with l1 to l2 messages', () => {
     await archiver.stop();
     await aztecNode?.stop();
     await aztecRpcServer?.stop();
-  });
+  }, 30_000);
 
   const expectBalance = async (owner: AztecAddress, expectedBalance: bigint) => {
     const ownerPublicKey = await aztecRpcServer.getAccountPublicKey(owner);
