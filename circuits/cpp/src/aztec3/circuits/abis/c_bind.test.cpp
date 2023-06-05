@@ -275,7 +275,7 @@ TEST(abi_tests, hash_var_args)
 {
     // TODO(#754) Increase the size of this vector
     // Initialize test data and write to buffer
-    std::vector<NT::fr> args(40, NT::fr::random_element());
+    std::vector<NT::fr> const args(40, NT::fr::random_element());
     std::vector<uint8_t> buf;
     write(buf, args);
 
