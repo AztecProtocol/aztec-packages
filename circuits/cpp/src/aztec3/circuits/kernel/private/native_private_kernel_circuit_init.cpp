@@ -51,10 +51,15 @@ void initialise_end_values(PrivateKernelInputsInit<NT> const& private_inputs,
             CombinedHistoricTreeRoots<NT>{
                 .private_historic_tree_roots =
                     PrivateHistoricTreeRoots<NT>{
-                        // the private data tree root will be initialized
-                        // when the first read request is encountered
-                        // which could be in this kernel or any subsequent one
-                        .private_data_tree_root = 0,
+                        // The private data tree root will be initialized to 0 here
+                        // if it is 0 in the `private_call_data` in which case it
+                        // will be initialized when the first read request is encountered.
+                        // Otherwise it is initialized here and all read requests in this
+                        // and subsequent kernel iterations be checked against this root.
+                        // TODO(dbanks12) use this below once historic root is removed from app circuit
+                        // and replaced by new entry in `private_call_data`
+                        //.private_data_tree_root = private_inputs.private_call.historic_private_data_tree_root,
+                        .private_data_tree_root = private_call_public_inputs.historic_private_data_tree_root,
                         .nullifier_tree_root = private_call_public_inputs.historic_nullifier_tree_root,
                         .contract_tree_root = private_call_public_inputs.historic_contract_tree_root,
                         .l1_to_l2_messages_tree_root = private_call_public_inputs.historic_l1_to_l2_messages_tree_root,

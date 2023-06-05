@@ -55,6 +55,10 @@ void common_validate_call_stack(DummyComposer& composer, PrivateCallData<NT> con
  * Use their membership witnesses to do so. If the historic root is not yet
  * initialized, initialize it using the first read request here (if present).
  *
+ * @details More info here:
+ * - https://discourse.aztec.network/t/to-read-or-not-to-read/178
+ * - https://discourse.aztec.network/t/spending-notes-which-havent-yet-been-inserted/180
+ *
  * @param composer
  * @param read_requests the commitments being read by this private call
  * @param read_request_membership_witnesses used to compute the private data root
@@ -77,8 +81,6 @@ void common_validate_read_requests(DummyComposer& composer,
         // Initialize it here to the root for this very first read request. All subsequent
         // read requests in this and later kernel iterations must match this one.
         // This root will itself be validated against historic roots tree later in a rollup circuit.
-        // TODO(dbanks12): Is this the best way to handle this?
-        // More discussion here: https://discourse.aztec.network/t/spending-notes-which-havent-yet-been-inserted/180
         if (historic_private_data_tree_root == NT::fr(0)) {
             const auto& leaf = read_requests[read_request_index];
             const auto& witness = read_request_membership_witnesses[read_request_index];
