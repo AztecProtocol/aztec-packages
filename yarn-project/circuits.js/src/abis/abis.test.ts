@@ -1,3 +1,4 @@
+import times from 'lodash.times';
 import { Fr, FunctionData, FunctionLeafPreimage, NewContractData } from '../index.js';
 import { makeAztecAddress, makeBytes, makeEthAddress, makeTxRequest, makeVerificationKey } from '../tests/factories.js';
 import { CircuitsWasm } from '../wasm/circuits_wasm.js';
@@ -7,6 +8,7 @@ import {
   computeFunctionLeaf,
   computeFunctionSelector,
   computeFunctionTreeRoot,
+  computeVarArgsHash,
   hashConstructor,
   hashTxRequest,
   hashVK,
@@ -85,6 +87,18 @@ describe('abis wasm bindings', () => {
   it('computes contract leaf', () => {
     const cd = new NewContractData(makeAztecAddress(), makeEthAddress(), new Fr(3n));
     const res = computeContractLeaf(wasm, cd);
+    expect(res).toMatchSnapshot();
+  });
+
+  it('hashes function args', async () => {
+    const args = times(8, i => new Fr(i));
+    const res = await computeVarArgsHash(wasm, args);
+    expect(res).toMatchSnapshot();
+  });
+
+  it('hashes many function args', async () => {
+    const args = times(49, i => new Fr(i));
+    const res = await computeVarArgsHash(wasm, args);
     expect(res).toMatchSnapshot();
   });
 });

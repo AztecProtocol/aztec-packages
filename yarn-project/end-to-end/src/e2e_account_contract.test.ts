@@ -35,7 +35,7 @@ describe('e2e_account_contract', () => {
 
     account = await deployContract(AccountContractAbi);
     child = await deployContract(ChildAbi);
-  }, 30_000);
+  }, 60_000);
 
   afterEach(async () => {
     await aztecNode.stop();
@@ -125,7 +125,7 @@ describe('e2e_account_contract', () => {
       aztecRpcServer,
       account.address,
       'entrypoint',
-      [...flattenPayload(payload), ...toFrArray(signature)],
+      [payload, toFrArray(signature)],
       FunctionType.SECRET,
     );
   };

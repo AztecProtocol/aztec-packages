@@ -1,6 +1,6 @@
 import { AsyncWasmWrapper, WasmWrapper } from '@aztec/foundation/wasm';
 import { Buffer } from 'buffer';
-import { abisComputeContractAddress, abisComputeVarArgsHash } from '../cbind/circuits.gen.js';
+import { abisComputeContractAddress } from '../cbind/circuits.gen.js';
 import {
   AztecAddress,
   FUNCTION_SELECTOR_NUM_BYTES,
@@ -11,6 +11,7 @@ import {
   PublicCallStackItem,
   SignedTxRequest,
   TxRequest,
+  Vector,
 } from '../index.js';
 import { serializeBufferArrayToVector } from '../utils/serialize.js';
 import { CircuitsWasm } from '../wasm/index.js';
@@ -227,9 +228,13 @@ export async function computeContractAddress(
  * @param args - Arguments to hash.
  * @returns Pedersen hash of the arguments.
  */
-export async function computeVarArgsHash(wasm: CircuitsWasm, args: Fr[]): Promise<Fr> {
+export function computeVarArgsHash(wasm: CircuitsWasm, args: Fr[]): Promise<Fr> {
   wasm.call('pedersen__init');
-  return await abisComputeVarArgsHash(wasm, args);
+  // TODO(#754) Hash all arguments!
+  if (args.length > 48) args = args.slice(0, 48);
+  const argsVector = new Vector(args);
+  const value = wasmSyncCall(wasm, 'abis__compute_var_args_hash', argsVector, 32);
+  return Promise.resolve(Fr.fromBuffer(value));
 }
 
 /**
