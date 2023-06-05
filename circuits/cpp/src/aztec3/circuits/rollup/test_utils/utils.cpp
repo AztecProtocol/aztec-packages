@@ -254,9 +254,8 @@ std::array<PreviousRollupData<NT>, 2> get_previous_rollup_data(DummyComposer& co
                                              kernel_data[i].public_inputs.end.new_commitments[j]);
         }
         auto contract_data = kernel_data[i].public_inputs.end.new_contracts[0];
-        auto contract_leaf = contract_data.hash();
         if (!contract_data.is_empty()) {
-            contract_tree.update_element(i, contract_leaf);
+            contract_tree.update_element(i, contract_data.hash());
         }
         for (size_t j = 0; j < KERNEL_NEW_NULLIFIERS_LENGTH; j++) {
             initial_values.push_back(kernel_data[i].public_inputs.end.new_nullifiers[j]);
