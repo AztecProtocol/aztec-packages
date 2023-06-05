@@ -302,9 +302,10 @@ export function makePublicCircuitPublicInputs(
     makeTuple(KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH, makeContractStorageUpdateRequest, seed + 0x400),
     makeTuple(KERNEL_PUBLIC_DATA_READS_LENGTH, makeContractStorageRead, seed + 0x500),
     makeTuple(PUBLIC_CALL_STACK_LENGTH, fr, seed + 0x600),
-    makeTuple(NEW_L2_TO_L1_MSGS_LENGTH, fr, seed + 0x700),
-    fr(seed + 0x800),
-    makeAztecAddress(seed + 0x801),
+    makeTuple(NEW_COMMITMENTS_LENGTH, fr, seed + 0x700),
+    makeTuple(NEW_L2_TO_L1_MSGS_LENGTH, fr, seed + 0x800),
+    fr(seed + 0x900),
+    makeAztecAddress(seed + 0xa01),
   );
 }
 
