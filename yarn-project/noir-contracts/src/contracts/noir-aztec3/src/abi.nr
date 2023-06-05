@@ -176,10 +176,11 @@ fn empty_contract_storage_update_request() -> ContractStorageUpdateRequest {
 // + CONTRACT_STORAGE_UPDATE_REQUESTS_LENGTH * CONTRACT_STORAGE_UPDATE_REQUEST_SIZE
 // + CONTRACT_STORAGE_READS_LENGTH * CONTRACT_STORAGE_READ_SIZE
 // + MAX_PUBLIC_CALL_STACK
+// + MAX_NEW_COMMITMENTS
 // + MAX_L1_MSG_STACK
 // + 2;
-// = 6 + 1 + 4 + 4 + 4 * 3 + 4 * 2 + 4 + 2 + 2
-global PUBLIC_CIRCUIT_PUBLIC_INPUTS_SIZE: comptime Field = 43;
+// = 6 + 1 + 4 + 4 + 4 * 3 + 4 * 2 + 4 + 4 + 2 + 2
+global PUBLIC_CIRCUIT_PUBLIC_INPUTS_SIZE: comptime Field = 47;
 
 struct PublicCircuitPublicInputs {
     call_context: CallContext,
@@ -189,6 +190,7 @@ struct PublicCircuitPublicInputs {
     contract_storage_update_requests: [ContractStorageUpdateRequest; crate::abi::CONTRACT_STORAGE_UPDATE_REQUESTS_LENGTH],
     contract_storage_read: [ContractStorageRead; crate::abi::CONTRACT_STORAGE_READS_LENGTH],
     public_call_stack: [Field; crate::abi::MAX_PUBLIC_CALL_STACK],
+    new_commitments: [Field; crate::abi::MAX_NEW_COMMITMENTS],
     new_l2_to_l1_msgs: [Field; crate::abi::MAX_L1_MSG_STACK],
     historic_public_data_tree_root: Field,
     prover_address: Field,
@@ -213,6 +215,7 @@ impl PublicCircuitPublicInputs {
             fields = fields.push_array(self.contract_storage_read[i].serialize());
         }
         fields = fields.push_array(self.public_call_stack);
+        fields = fields.push_array(self.new_commitments);
         fields = fields.push_array(self.new_l2_to_l1_msgs);
         fields = fields.push(self.historic_public_data_tree_root);
         fields = fields.push(self.prover_address);
