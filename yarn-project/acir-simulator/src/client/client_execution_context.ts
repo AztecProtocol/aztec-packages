@@ -4,13 +4,10 @@ import { Fr } from '@aztec/foundation/fields';
 import { TxExecutionRequest } from '@aztec/types';
 import {
   ACVMField,
-  toACVMField,
-  fromACVMField,
   createDummyNote,
   fromACVMField,
   toACVMField,
   toAcvmMessageLoadOracleInputs,
-  toAcvmNoteLoadOracleInputs,
 } from '../acvm/index.js';
 import { NoteLoadOracleInputs, DBOracle } from './db_oracle.js';
 
