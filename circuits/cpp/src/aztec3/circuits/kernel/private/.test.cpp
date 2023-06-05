@@ -154,7 +154,7 @@ std::shared_ptr<NT::VK> gen_func_vk(bool is_constructor, private_function const&
     }
 
     // Now we can derive the vk:
-    return dummy_composer.compute_verification_key("../barretenberg/cpp/srs_db/ignition");
+    return dummy_composer.compute_verification_key();
 }
 
 std::pair<PrivateCallData<NT>, ContractDeploymentData<NT>> create_private_call_deploy_data(
