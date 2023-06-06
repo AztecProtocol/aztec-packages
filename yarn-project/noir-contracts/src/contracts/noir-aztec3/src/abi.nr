@@ -185,8 +185,8 @@ fn empty_contract_storage_update_request() -> ContractStorageUpdateRequest {
 // + MAX_PUBLIC_CALL_STACK
 // + MAX_L1_MSG_STACK
 // + 2;
-// = 6 + 1 + 4 + 4 + 4 * 3 + 4 * 2 + 4 + 2 + 2
-global PUBLIC_CIRCUIT_PUBLIC_INPUTS_SIZE: comptime Field = 43;
+// = 6 + 1 + 4 + 4 * 3 + 4 * 2 + 4 + 2 + 2
+global PUBLIC_CIRCUIT_PUBLIC_INPUTS_SIZE: comptime Field = 39;
 
 struct PublicCircuitPublicInputs {
     call_context: CallContext,
