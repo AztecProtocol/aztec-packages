@@ -474,7 +474,7 @@ library Decoder {
       offset := add(_offset, 0x4)
     }
 
-    bytes memory logsHashes = new bytes(0x40); // A memory to which we will write the 2 logs hashes
+    bytes memory logsHashes = new bytes(0x40); // A memory to which we will write the 2 logs hashes to be accumulated
     bytes32 kernelPublicInputsLogsHash; // The hash on the output of kernel iteration
     // The length of the logs emitted by Noir from the function call corresponding to this kernel iteration
     uint256 privateCircuitPublicInputLogsLength;
@@ -490,23 +490,24 @@ library Decoder {
       // TODO: Allocating memory in each iteration is expensive. Should we somehow set it to max length of all the
       //       iterations? (e.g. We could do that by first searching for max length in a loop or by modifying
       //       the encoding and storing max length on a predefined position)
-      bytes memory iterationLogs = new bytes(privateCircuitPublicInputLogsLength);
+      bytes memory privateCircuitPublicInputLogs = new bytes(privateCircuitPublicInputLogsLength);
       assembly {
-        // Copy kernelPublicInputsLogsHash from stack to `logsHashes`
-        mstore(add(logsHashes, 0x20), kernelPublicInputsLogsHash)
-
-        // Load this iteration's logs to memory
-        calldatacopy(add(iterationLogs, 0x20), offset, privateCircuitPublicInputLogsLength)
+        // Load logs corresponding to this iteration's function call to memory
+        calldatacopy(
+          add(privateCircuitPublicInputLogs, 0x20), offset, privateCircuitPublicInputLogsLength
+        )
         offset := add(offset, privateCircuitPublicInputLogsLength)
       }
 
-      bytes32 privateCircuitPublicInputsLogsHash = sha256(iterationLogs);
+      bytes32 privateCircuitPublicInputsLogsHash = sha256(privateCircuitPublicInputLogs);
 
       assembly {
-        // Store this iteration's logs hash in the last 32 bytes of `logsHashes`
+        // Copy `kernelPublicInputsLogsHash` from stack to `logsHashes`
+        mstore(add(logsHashes, 0x20), kernelPublicInputsLogsHash)
+        // Copy `privateCircuitPublicInputsLogsHash` from stack to last 32 bytes of `logsHashes`
         mstore(add(logsHashes, 0x40), privateCircuitPublicInputsLogsHash)
 
-        // Decrease remaining logs length by this iteration's logs length (len(I?_LOGS)) and 4 bytes for I?_LOGS_LEN
+        // Decrease remaining logs length by this privateCircuitPublicInputsLogs's length (len(I?_LOGS)) and 4 bytes for I?_LOGS_LEN
         remainingLogsLength :=
           sub(remainingLogsLength, add(privateCircuitPublicInputLogsLength, 0x4))
       }
