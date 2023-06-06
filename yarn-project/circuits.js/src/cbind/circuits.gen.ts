@@ -1188,7 +1188,9 @@ export function fromPublicCallData(o: PublicCallData): MsgpackPublicCallData {
   }
   return {
     call_stack_item: fromPublicCallStackItem(o.callStackItem),
-    public_call_stack_preimages: mapTuple(o.publicCallStackPreimages, (v: PublicCallStackItem) => fromPublicCallStackItem(v)),
+    public_call_stack_preimages: mapTuple(o.publicCallStackPreimages, (v: PublicCallStackItem) =>
+      fromPublicCallStackItem(v),
+    ),
     proof: o.proof.toMsgpackBuffer(),
     portal_contract_address: o.portalContractAddress.toBuffer(),
     bytecode_hash: o.bytecodeHash.toBuffer(),
