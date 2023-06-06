@@ -101,6 +101,8 @@ struct PrivateCircuitPublicInputs {
     public_call_stack: [Field; crate::abi::MAX_PUBLIC_CALL_STACK],
     new_l2_to_l1_msgs: [Field; crate::abi::MAX_L1_MSG_STACK],
     // TODO #588, relevant issue: https://github.com/AztecProtocol/aztec-packages/issues/588
+    // When uncommenting, explore introducing a new type like uint256 (similar to Point), so it's more explicit that
+    // we're talking about a single number backed by two field elements.
     // encrypted_logs_hash: [Field; crate::abi::LOGS_HASH_SIZE],
     // unencrypted_logs_hash: [Field; crate::abi::LOGS_HASH_SIZE],
     // encrypted_log_preimages_length: Field,
