@@ -335,7 +335,7 @@ void common_update_public_end_values(Composer& composer,
 
     propagate_new_commitments(composer, public_kernel_inputs, circuit_outputs);
 
-    propagate_new_l2_to_l1_messages(public_kernel_inputs, circuit_outputs);
+    propagate_new_l2_to_l1_messages(composer, public_kernel_inputs, circuit_outputs);
 
     propagate_valid_public_data_update_requests(composer, public_kernel_inputs, circuit_outputs);
 

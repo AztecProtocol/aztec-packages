@@ -34,7 +34,7 @@ export function makeTuple<T, N extends number>(length: N, fn: (i: number) => T, 
  * @returns The array of numbers.
  */
 export function makeHalfFullTuple<T, N extends number>(length: N, fn: (i: number) => T, offset = 0) {
-  return Array.from({ length }, (v: any, i: number) => (i < length / 2) ? fn(i + offset) : fn(0)) as Tuple<T, N>;
+  return Array.from({ length }, (v: any, i: number) => (i < length / 2 ? fn(i + offset) : fn(0))) as Tuple<T, N>;
 }
 
 /**
