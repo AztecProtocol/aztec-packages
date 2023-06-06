@@ -52,8 +52,8 @@ checkout: &checkout
       # Only download metadata when fetching.
       git fetch --depth 50 --filter=blob:none origin $CIRCLE_SHA1
       git checkout FETCH_HEAD
-      # Initialize submodules recursively (retry 5 times on failure)
-      for i in $(seq 1 5); do git submodule update --init --recursive && s=0 && break || s=$? && sleep 5; done; (exit $s)
+      # Initialize submodules recursively (retry 10 times on failure)
+      for i in $(seq 1 10); do git submodule update --init --recursive && s=0 && break || s=$? && sleep 10; done; (exit $s)
 
 # Called setup_env to setup a bunch of global variables used throughout the rest of the build process.
 # It takes the required CCI environment variables as inputs, and gives them normalised names for the rest of
@@ -429,7 +429,7 @@ jobs:
           name: "Test"
           command: cond_spot_run_tests end-to-end e2e_nested_contract.test.ts
 
-  e2e-l1-to-l2-messaging:
+  e2e-cross-chain-messaging:
     docker:
       - image: aztecprotocol/alpine-build-image
     resource_class: small
@@ -438,9 +438,9 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: cond_spot_run_tests end-to-end e2e_l1_to_l2_msg.test.ts
+          command: cond_spot_run_tests end-to-end e2e_cross_chain_messaging.test.ts
 
-  e2e-l2-to-l1-messaging:
+  integration-archiver-l1-to-l2:
     docker:
       - image: aztecprotocol/alpine-build-image
     resource_class: small
@@ -449,7 +449,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: cond_spot_run_tests end-to-end e2e_rollup_native_asset_contract.test.ts
+          command: cond_spot_run_tests end-to-end integration_archiver_l1_to_l2.test.ts
 
   integration-l1-publisher:
     docker:
@@ -611,9 +611,9 @@ workflows:
       - e2e-block-building: *e2e_test
       - e2e-nested-contract: *e2e_test
       - e2e-public-token-contract: *e2e_test
-      - e2e-l2-to-l1-messaging: *e2e_test
-      - e2e-l1-to-l2-messaging: *e2e_test
+      - e2e-cross-chain-messaging: *e2e_test
       - integration-l1-publisher: *e2e_test
+      - integration-archiver-l1-to-l2: *e2e_test
       - e2e-p2p: *e2e_test
 
       - e2e-end:
@@ -623,8 +623,8 @@ workflows:
             - e2e-block-building
             - e2e-nested-contract
             - e2e-public-token-contract
-            - e2e-l2-to-l1-messaging
-            - e2e-l1-to-l2-messaging
+            - e2e-cross-chain-messaging
             - integration-l1-publisher
+            - integration-archiver-l1-to-l2
             - e2e-p2p
           <<: *defaults

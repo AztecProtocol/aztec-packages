@@ -8,17 +8,17 @@ import {
   PRIVATE_DATA_TREE_HEIGHT,
   Proof,
   PublicCallRequest,
-  SignedTxRequest,
 } from '@aztec/circuits.js';
 import { SiblingPath } from '@aztec/merkle-tree';
 import {
   ContractData,
   ContractPublicData,
   EncodedContractFunction,
-  L1ToL2MessageAndIndex,
   L1ToL2Message,
+  L1ToL2MessageAndIndex,
   L2Block,
   MerkleTreeId,
+  SignedTxExecutionRequest,
   Tx,
   TxHash,
   EventLogs,
@@ -47,8 +47,10 @@ export function txToJson(tx: Tx) {
  */
 export function txFromJson(json: any) {
   const publicInputs = json.data ? KernelCircuitPublicInputs.fromBuffer(Buffer.from(json.data, 'hex')) : undefined;
-  const encryptedLogs = json.encryptedLogs ? EventLogs.fromBuffer(Buffer.from(json.encryptedLogs, 'hex')) : undefined;
-  const txRequest = json.txRequest ? SignedTxRequest.fromBuffer(Buffer.from(json.txRequest, 'hex')) : undefined;
+  const encryptedLogs = json.unverified ? EventLogs.fromBuffer(Buffer.from(json.unverified, 'hex')) : undefined;
+  const txRequest = json.txRequest
+    ? SignedTxExecutionRequest.fromBuffer(Buffer.from(json.txRequest, 'hex'))
+    : undefined;
   const proof = json.proof ? Buffer.from(json.proof, 'hex') : undefined;
   const newContractPublicFunctions = json.newContractPublicFunctions
     ? json.newContractPublicFunctions.map((x: string) => EncodedContractFunction.fromBuffer(Buffer.from(x, 'hex')))

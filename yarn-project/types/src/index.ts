@@ -11,4 +11,5 @@ export * from './public_data_write.js';
 export * from './tx.js';
 export * from './tx_hash.js';
 export * from './event_logs.js';
+export * from './tx_execution_request.js';
 export * from './unverified_data_source.js';

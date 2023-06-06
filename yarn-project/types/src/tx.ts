@@ -1,10 +1,11 @@
-import { CircuitsWasm, KernelCircuitPublicInputs, Proof, PublicCallRequest, SignedTxRequest } from '@aztec/circuits.js';
+import { CircuitsWasm, KernelCircuitPublicInputs, Proof, PublicCallRequest } from '@aztec/circuits.js';
 import { computeTxHash } from '@aztec/circuits.js/abis';
 
+import { arrayNonEmptyLength } from '@aztec/foundation/collection';
+import { EncodedContractFunction } from './contract_data.js';
+import { SignedTxExecutionRequest } from './tx_execution_request.js';
 import { TxHash } from './tx_hash.js';
 import { EventLogs } from './event_logs.js';
-import { EncodedContractFunction } from './contract_data.js';
-import { arrayNonEmptyLength } from '@aztec/foundation/collection';
 
 /**
  * Defines valid fields for a private transaction.
@@ -66,7 +67,7 @@ export class Tx {
     /**
      * Signed public function call data.
      */
-    public readonly txRequest?: SignedTxRequest,
+    public readonly txRequest?: SignedTxExecutionRequest,
     /**
      * New public functions made available by this tx.
      */
@@ -119,7 +120,7 @@ export class Tx {
    * @param txRequest - The tx request.
    * @returns New public tx instance.
    */
-  public static createPublic(txRequest: SignedTxRequest): PublicTx {
+  public static createPublic(txRequest: SignedTxExecutionRequest): PublicTx {
     return new this(undefined, undefined, undefined, txRequest) as PublicTx;
   }
 
@@ -135,8 +136,8 @@ export class Tx {
     data: KernelCircuitPublicInputs,
     proof: Proof,
     encryptedLogs: EventLogs,
+    txRequest: SignedTxExecutionRequest,
     // unencryptedLogs: EventLogs,
-    txRequest: SignedTxRequest,
   ): PrivateTx & PublicTx {
     return new this(data, proof, encryptedLogs, txRequest) as PrivateTx & PublicTx;
   }
@@ -153,7 +154,7 @@ export class Tx {
     data?: KernelCircuitPublicInputs,
     proof?: Proof,
     encryptedLogs?: EventLogs,
-    txRequest?: SignedTxRequest,
+    txRequest?: SignedTxExecutionRequest,
   ): Tx {
     return new this(data, proof, encryptedLogs, txRequest);
   }
@@ -212,8 +213,7 @@ export class Tx {
     const proof = tx.proof === undefined ? undefined : Proof.fromBuffer(tx.proof.toBuffer());
     const encryptedLogs =
       tx.encryptedLogs === undefined ? undefined : EventLogs.fromBuffer(tx.encryptedLogs.toBuffer());
-    const signedTxRequest =
-      tx.txRequest === undefined ? undefined : SignedTxRequest.fromBuffer(tx.txRequest.toBuffer());
+    const signedTxRequest = tx.txRequest?.clone();
     const publicFunctions =
       tx.newContractPublicFunctions === undefined
         ? undefined
@@ -235,6 +235,6 @@ export class Tx {
  * @param txRequest - The SignedTxRequest.
  * @returns The tx hash.
  */
-async function getTxHashFromRequest(txRequest: SignedTxRequest) {
-  return new TxHash(computeTxHash(await CircuitsWasm.get(), txRequest).toBuffer());
+async function getTxHashFromRequest(txExecutionRequest: SignedTxExecutionRequest) {
+  return new TxHash(computeTxHash(await CircuitsWasm.get(), await txExecutionRequest.toSignedTxRequest()).toBuffer());
 }

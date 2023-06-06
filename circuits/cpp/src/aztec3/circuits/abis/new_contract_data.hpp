@@ -5,13 +5,12 @@
 #include "aztec3/utils/types/circuit_types.hpp"
 #include "aztec3/utils/types/convert.hpp"
 
-#include "barretenberg/serialize/msgpack.hpp"
-#include "barretenberg/stdlib/primitives/witness/witness.hpp"
+#include <barretenberg/barretenberg.hpp>
+
 namespace aztec3::circuits::abis {
 
 using aztec3::utils::types::CircuitTypes;
 using aztec3::utils::types::NativeTypes;
-using plonk::stdlib::witness_t;
 using std::is_same;
 
 template <typename NCT> struct NewContractData {
@@ -74,6 +73,10 @@ template <typename NCT> struct NewContractData {
 
     fr hash() const
     {
+        // as per the circuit implementation, if contract address == zero then return a zero leaf
+        if (is_empty()) {
+            return fr(0);
+        }
         std::vector<fr> const inputs = {
             fr(contract_address),
             fr(portal_contract_address),

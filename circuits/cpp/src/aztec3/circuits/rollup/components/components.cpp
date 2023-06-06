@@ -4,11 +4,7 @@
 #include "aztec3/constants.hpp"
 #include "aztec3/utils/circuit_errors.hpp"
 
-#include "barretenberg/crypto/pedersen_hash/pedersen.hpp"
-#include "barretenberg/crypto/sha256/sha256.hpp"
-#include "barretenberg/ecc/curves/bn254/fr.hpp"
-#include "barretenberg/stdlib/hash/pedersen/pedersen.hpp"
-#include "barretenberg/stdlib/merkle_tree/memory_tree.hpp"
+#include <barretenberg/barretenberg.hpp>
 
 #include <algorithm>
 #include <array>
@@ -148,7 +144,7 @@ std::array<fr, 2> compute_kernels_calldata_hash(std::array<abis::PreviousKernelD
         offset += KERNEL_NEW_L2_TO_L1_MSGS_LENGTH * 2;
 
         auto const contract_leaf = kernel_data[i].public_inputs.end.new_contracts[0];
-        calldata_hash_inputs[offset + i] = contract_leaf.is_empty() ? NT::fr::zero() : contract_leaf.hash();
+        calldata_hash_inputs[offset + i] = contract_leaf.hash();
 
         offset += KERNEL_NEW_CONTRACTS_LENGTH * 2;
 

@@ -6,7 +6,7 @@
 #include "aztec3/circuits/hash.hpp"
 #include "aztec3/constants.hpp"
 
-#include "barretenberg/stdlib/primitives/field/array.hpp"
+#include <barretenberg/barretenberg.hpp>
 
 namespace aztec3::circuits::kernel::private_kernel {
 
@@ -113,7 +113,7 @@ void update_end_values(PrivateKernelInputsInner<CT> const& private_inputs, Kerne
 
         auto private_call_vk_hash = private_inputs.private_call.vk->compress(GeneratorIndex::VK);
         auto constructor_hash = compute_constructor_hash<CT>(private_inputs.private_call.call_stack_item.function_data,
-                                                             private_call_public_inputs.args,
+                                                             private_call_public_inputs.args_hash,
                                                              private_call_vk_hash);
 
         is_contract_deployment.must_imply(contract_deployment_data.constructor_vk_hash == private_call_vk_hash,
