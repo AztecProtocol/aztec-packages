@@ -90,6 +90,11 @@ describe('abis wasm bindings', () => {
     expect(res).toMatchSnapshot();
   });
 
+  it('hashes empty function args', async () => {
+    const res = await computeVarArgsHash(wasm, []);
+    expect(res).toMatchSnapshot();
+  });
+
   it('hashes function args', async () => {
     const args = times(8, i => new Fr(i));
     const res = await computeVarArgsHash(wasm, args);

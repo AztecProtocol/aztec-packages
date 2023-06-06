@@ -229,6 +229,7 @@ export async function computeContractAddress(
  * @returns Pedersen hash of the arguments.
  */
 export function computeVarArgsHash(wasm: CircuitsWasm, args: Fr[]): Promise<Fr> {
+  if (args.length === 0) return Promise.resolve(Fr.ZERO);
   wasm.call('pedersen__init');
   // TODO(#754) Hash all arguments!
   if (args.length > 48) args = args.slice(0, 48);
