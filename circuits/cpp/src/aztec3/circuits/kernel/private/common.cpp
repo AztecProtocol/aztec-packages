@@ -122,19 +122,19 @@ void common_update_end_values(DummyComposer& composer,
                                                                         current_encrypted_logs_hash[0],
                                                                         current_encrypted_logs_hash[1] });
 
-        // const auto& previous_unencrypted_logs_hash = public_inputs.end.unencrypted_logs_hash;
-        // const auto& current_unencrypted_logs_hash = private_call_public_inputs.unencrypted_logs_hash;
-        // public_inputs.end.unencrypted_logs_hash = accumulate_sha256<NT>({ previous_unencrypted_logs_hash[0],
-        //                                                                   previous_unencrypted_logs_hash[1],
-        //                                                                   current_unencrypted_logs_hash[0],
-        //                                                                   current_unencrypted_logs_hash[1] });
+        const auto& previous_unencrypted_logs_hash = public_inputs.end.unencrypted_logs_hash;
+        const auto& current_unencrypted_logs_hash = private_call_public_inputs.unencrypted_logs_hash;
+        public_inputs.end.unencrypted_logs_hash = accumulate_sha256<NT>({ previous_unencrypted_logs_hash[0],
+                                                                          previous_unencrypted_logs_hash[1],
+                                                                          current_unencrypted_logs_hash[0],
+                                                                          current_unencrypted_logs_hash[1] });
 
         // Add log preimages lengths from current iteration to accumulated lengths
         public_inputs.end.encrypted_log_preimages_length = public_inputs.end.encrypted_log_preimages_length +
                                                            private_call_public_inputs.encrypted_log_preimages_length;
-        // public_inputs.end.unencrypted_log_preimages_length =
-        //     public_inputs.end.unencrypted_log_preimages_length +
-        //     private_call_public_inputs.unencrypted_log_preimages_length;
+        public_inputs.end.unencrypted_log_preimages_length =
+            public_inputs.end.unencrypted_log_preimages_length +
+            private_call_public_inputs.unencrypted_log_preimages_length;
     }
 }
 

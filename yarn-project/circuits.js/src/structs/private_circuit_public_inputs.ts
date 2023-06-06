@@ -59,7 +59,7 @@ export class PrivateCircuitPublicInputs {
      * Hash of the unencrypted logs emitted in the current kernel iteration.
      * Note: Represented as an array of 2 fields in order to fit in all of the 256 bits of sha256 hash.
      */
-    // public unencryptedLogsHash: Fr[],
+    public unencryptedLogsHash: Fr[],
     /**
      * Length of the encrypted log preimages emitted in the current kernel iteration.
      * Note: Here so that the gas cost of this request can be measured by circuits, without actually needing to feed
@@ -69,7 +69,7 @@ export class PrivateCircuitPublicInputs {
     /**
      * Length of the unencrypted log preimages emitted in the current kernel iteration.
      */
-    // public unencryptedLogPreimagesLength: Fr,
+    public unencryptedLogPreimagesLength: Fr,
     /**
      * Root of the private data tree roots tree.
      */
@@ -98,7 +98,7 @@ export class PrivateCircuitPublicInputs {
     assertMemberLength(this, 'publicCallStack', PUBLIC_CALL_STACK_LENGTH);
     assertMemberLength(this, 'newL2ToL1Msgs', NEW_L2_TO_L1_MSGS_LENGTH);
     assertMemberLength(this, 'encryptedLogsHash', 2);
-    // assertMemberLength(this, 'unencryptedLogsHash', 2);
+    assertMemberLength(this, 'unencryptedLogsHash', 2);
   }
   /**
    * Create PrivateCircuitPublicInputs from a fields dictionary.
@@ -128,9 +128,9 @@ export class PrivateCircuitPublicInputs {
       frArray(PUBLIC_CALL_STACK_LENGTH),
       frArray(NEW_L2_TO_L1_MSGS_LENGTH),
       frArray(2),
-      // frArray(2), // unencryptedLogsHash
+      frArray(2),
       Fr.ZERO,
-      // Fr.ZERO, // unencryptedLogPreimagesLength
+      Fr.ZERO,
       Fr.ZERO,
       Fr.ZERO,
       Fr.ZERO,
@@ -155,9 +155,9 @@ export class PrivateCircuitPublicInputs {
       fields.publicCallStack,
       fields.newL2ToL1Msgs,
       fields.encryptedLogsHash,
-      // fields.unencryptedLogsHash,
+      fields.unencryptedLogsHash,
       fields.encryptedLogPreimagesLength,
-      // fields.unencryptedLogPreimagesLength,
+      fields.unencryptedLogPreimagesLength,
       fields.historicPrivateDataTreeRoot,
       fields.historicPrivateNullifierTreeRoot,
       fields.historicContractTreeRoot,

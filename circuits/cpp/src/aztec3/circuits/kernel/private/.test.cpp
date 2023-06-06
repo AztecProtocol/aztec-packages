@@ -554,15 +554,15 @@ TEST(private_kernel_tests, native_deposit)
     // Log preimages length should increase by `encrypted_log_preimages_length` from private input
     ASSERT_EQ(public_inputs.end.encrypted_log_preimages_length, private_input_end.encrypted_log_preimages_length);
     // Since there were no unencrypted logs, their length should be 0
-    // ASSERT_EQ(public_inputs.end.unencrypted_log_preimages_length, fr(0));
+    ASSERT_EQ(public_inputs.end.unencrypted_log_preimages_length, fr(0));
 
     // Encrypted logs hash should be a sha256 hash of a 0 value and the `encrypted_logs_hash` from private input
     auto const& expected_encrypted_logs_hash = accumulate_sha256<NT>(
         { fr(0), fr(0), private_input_end.encrypted_logs_hash[0], private_input_end.encrypted_logs_hash[1] });
     ASSERT_EQ(public_inputs.end.encrypted_logs_hash, expected_encrypted_logs_hash);
     // Unencrypted logs hash should be a sha256 hash of 2 zero values
-    // auto const& expected_unencrypted_logs_hash = accumulate_sha256<NT>({ fr(0), fr(0), fr(0), fr(0) });
-    // ASSERT_EQ(public_inputs.end.unencrypted_logs_hash, expected_unencrypted_logs_hash);
+    auto const& expected_unencrypted_logs_hash = accumulate_sha256<NT>({ fr(0), fr(0), fr(0), fr(0) });
+    ASSERT_EQ(public_inputs.end.unencrypted_logs_hash, expected_unencrypted_logs_hash);
 }
 
 /**
@@ -620,7 +620,7 @@ TEST(private_kernel_tests, native_basic_contract_deployment)
     // Since there are no logs, log preimages length should be 0 and both logs hashes should be a sha256 hash of 2 zero
     // values
     ASSERT_EQ(public_inputs.end.encrypted_log_preimages_length, fr(0));
-    // ASSERT_EQ(public_inputs.end.unencrypted_log_preimages_length, fr(0));
+    ASSERT_EQ(public_inputs.end.unencrypted_log_preimages_length, fr(0));
 
     auto const& expected_logs_hash = accumulate_sha256<NT>({ fr(0), fr(0), fr(0), fr(0) });
 

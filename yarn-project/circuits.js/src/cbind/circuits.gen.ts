@@ -360,9 +360,9 @@ interface MsgpackCombinedAccumulatedData {
   public_call_stack: Tuple<Buffer, 8>;
   new_l2_to_l1_msgs: Tuple<Buffer, 2>;
   encrypted_logs_hash: Tuple<Buffer, 2>;
-  // unencrypted_logs_hash: Tuple<Buffer, 2>;
+  unencrypted_logs_hash: Tuple<Buffer, 2>;
   encrypted_log_preimages_length: Buffer;
-  // unencrypted_log_preimages_length: Buffer;
+  unencrypted_log_preimages_length: Buffer;
   new_contracts: Tuple<MsgpackNewContractData, 1>;
   optionally_revealed_data: Tuple<MsgpackOptionallyRevealedData, 4>;
   public_data_update_requests: Tuple<MsgpackPublicDataUpdateRequest, 4>;
@@ -420,9 +420,9 @@ export function toCombinedAccumulatedData(o: MsgpackCombinedAccumulatedData): Co
     mapTuple(o.public_call_stack, (v: Buffer) => Fr.fromBuffer(v)),
     mapTuple(o.new_l2_to_l1_msgs, (v: Buffer) => Fr.fromBuffer(v)),
     mapTuple(o.encrypted_logs_hash, (v: Buffer) => Fr.fromBuffer(v)),
-    // mapTuple(o.unencrypted_logs_hash, (v: Buffer) => Fr.fromBuffer(v)),
+    mapTuple(o.unencrypted_logs_hash, (v: Buffer) => Fr.fromBuffer(v)),
     Fr.fromBuffer(o.encrypted_log_preimages_length),
-    // Fr.fromBuffer(o.unencrypted_log_preimages_length),
+    Fr.fromBuffer(o.unencrypted_log_preimages_length),
     mapTuple(o.new_contracts, (v: MsgpackNewContractData) => toNewContractData(v)),
     mapTuple(o.optionally_revealed_data, (v: MsgpackOptionallyRevealedData) => toOptionallyRevealedData(v)),
     mapTuple(o.public_data_update_requests, (v: MsgpackPublicDataUpdateRequest) => toPublicDataUpdateRequest(v)),
@@ -481,9 +481,9 @@ export function fromCombinedAccumulatedData(o: CombinedAccumulatedData): Msgpack
     public_call_stack: mapTuple(o.publicCallStack, (v: Fr) => v.toBuffer()),
     new_l2_to_l1_msgs: mapTuple(o.newL2ToL1Msgs, (v: Fr) => v.toBuffer()),
     encrypted_logs_hash: mapTuple(o.encryptedLogsHash, (v: Fr) => v.toBuffer()),
-    // unencrypted_logs_hash: mapTuple(o.unencryptedLogsHash, (v: Fr) => v.toBuffer()),
+    unencrypted_logs_hash: mapTuple(o.unencryptedLogsHash, (v: Fr) => v.toBuffer()),
     encrypted_log_preimages_length: o.encryptedLogPreimagesLength.toBuffer(),
-    // unencrypted_log_preimages_length: o.unencryptedLogPreimagesLength.toBuffer(),
+    unencrypted_log_preimages_length: o.unencryptedLogPreimagesLength.toBuffer(),
     new_contracts: mapTuple(o.newContracts, (v: NewContractData) => fromNewContractData(v)),
     optionally_revealed_data: mapTuple(o.optionallyRevealedData, (v: OptionallyRevealedData) =>
       fromOptionallyRevealedData(v),
