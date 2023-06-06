@@ -279,7 +279,13 @@ void propagate_new_commitments(Composer& composer,
     push_array_to_array(composer, siloed_new_commitments, circuit_outputs.end.new_commitments);
 }
 
-// TODO(SEAN): Maybe dont include this in this pr
+/**
+ * @brief Propagates new l2 to l1 messages from this iteration to the circuit output.
+ *
+ * @tparam The type of the kernel input
+ * @param public_kernel_inputs The inputs to this iteration to the kernel circuit.
+ * @param circuit_outputs The circuit outputs to be populated
+ */
 template <typename KernelInput, typename Composer>
 void propagate_new_l2_to_l1_messages(Composer& composer,
                                      KernelInput const& public_kernel_inputs,
@@ -288,7 +294,7 @@ void propagate_new_l2_to_l1_messages(Composer& composer,
     // Get the new l2 messages
     const auto& public_call_public_inputs = public_kernel_inputs.public_call.call_stack_item.public_inputs;
 
-    const auto& portal_contract_address = public_kernel_inputs.public_call.call_stack_item.portal_contract_address;
+    const auto& portal_contract_address = public_kernel_inputs.public_call.portal_contract_address;
     const auto& storage_contract_address = public_call_public_inputs.call_context.storage_contract_address;
     const auto& new_l2_to_l1_msgs = public_call_public_inputs.new_l2_to_l1_msgs;
 
@@ -329,8 +335,7 @@ void common_update_public_end_values(Composer& composer,
 
     propagate_new_commitments(composer, public_kernel_inputs, circuit_outputs);
 
-    // TODO(SEAN): maybe dont include this in this pr
-    // propogate_new_l2_to_l1_messages(public_kernel_inputs, circuit_outputs);
+    propagate_new_l2_to_l1_messages(public_kernel_inputs, circuit_outputs);
 
     propagate_valid_public_data_update_requests(composer, public_kernel_inputs, circuit_outputs);
 

@@ -351,6 +351,27 @@ std::array<fr, NEW_COMMITMENTS_LENGTH> new_commitments_as_siloed_commitments(
     return siloed_commitments;
 }
 
+std::array<NT::fr, NEW_L2_TO_L1_MSGS_LENGTH> new_l2_messages_from_message(
+    std::array<NT::fr, NEW_L2_TO_L1_MSGS_LENGTH> const& new_messages,
+    NT::fr const& contract_address,
+    fr const& portal_contract_address)
+{
+    std::array<NT::fr, NEW_L2_TO_L1_MSGS_LENGTH> formatted_msgs{};
+    for (size_t i = 0; i < NEW_L2_TO_L1_MSGS_LENGTH; ++i) {
+        if (!new_messages[i].is_zero()) {
+            // @todo @LHerskind chain-ids and rollup version id should be added here. Right now, just hard coded.
+            // @todo @LHerskind chain-id is hardcoded for foundry
+            const auto chain_id = fr(31337);
+            formatted_msgs[i] = compute_l2_to_l1_hash<NT>(contract_address,
+                                                          fr(1),  // rollup version id
+                                                          portal_contract_address,
+                                                          chain_id,
+                                                          new_messages[i]);
+        }
+    }
+    return formatted_msgs;
+}
+
 /**
  * @brief Generates the inputs to the public kernel circuit
  *
@@ -460,10 +481,6 @@ void validate_private_data_propagation(const PublicKernelInputs<NT>& inputs,
     ASSERT_TRUE(source_arrays_are_in_target(inputs.previous_kernel.public_inputs.end.private_call_stack,
                                             zero_array<NT::fr, KERNEL_PRIVATE_CALL_STACK_LENGTH>(),
                                             public_inputs.end.private_call_stack));
-
-    ASSERT_TRUE(source_arrays_are_in_target(inputs.previous_kernel.public_inputs.end.new_l2_to_l1_msgs,
-                                            zero_array<NT::fr, KERNEL_NEW_L2_TO_L1_MSGS_LENGTH>(),
-                                            public_inputs.end.new_l2_to_l1_msgs));
 
     ASSERT_TRUE(source_arrays_are_in_target(inputs.previous_kernel.public_inputs.end.new_contracts,
                                             std::array<NewContractData<NT>, KERNEL_NEW_CONTRACTS_LENGTH>(),
@@ -1067,6 +1084,11 @@ TEST(public_kernel_tests, circuit_outputs_should_be_correctly_populated_with_pre
     initial_commitments[1] = fr(2);
     inputs.previous_kernel.public_inputs.end.new_commitments = initial_commitments;
 
+    // setup 2 new l2 to l1 messages
+    std::array<NT::fr, NEW_L2_TO_L1_MSGS_LENGTH> initial_l2_to_l1_messages{};
+    initial_l2_to_l1_messages[0] = fr(1);
+    inputs.previous_kernel.public_inputs.end.new_l2_to_l1_msgs = initial_l2_to_l1_messages;
+
     auto public_inputs = native_public_kernel_circuit_public_previous_kernel(dummyComposer, inputs);
 
     // test that the prior set of private kernel public inputs were copied to the outputs
@@ -1078,8 +1100,8 @@ TEST(public_kernel_tests, circuit_outputs_should_be_correctly_populated_with_pre
                   inputs.public_call.call_stack_item.public_inputs.public_call_stack[i]);
     }
 
-    // we should now see the public data reads and write, and new commitments from this iteration appended to the
-    // combined output
+    // we should now see the public data reads and writes, new commitments, l2_to_l1_messages from this iteration
+    // appended to the combined output
     ASSERT_EQ(array_length(public_inputs.end.public_data_reads),
               array_length(inputs.previous_kernel.public_inputs.end.public_data_reads) +
                   array_length(inputs.public_call.call_stack_item.public_inputs.contract_storage_reads));
@@ -1089,9 +1111,13 @@ TEST(public_kernel_tests, circuit_outputs_should_be_correctly_populated_with_pre
     ASSERT_EQ(array_length(public_inputs.end.new_commitments),
               array_length(inputs.previous_kernel.public_inputs.end.new_commitments) +
                   array_length(inputs.public_call.call_stack_item.public_inputs.new_commitments));
+    ASSERT_EQ(array_length(public_inputs.end.new_l2_to_l1_msgs),
+              array_length(inputs.previous_kernel.public_inputs.end.new_l2_to_l1_msgs) +
+                  array_length(inputs.public_call.call_stack_item.public_inputs.new_l2_to_l1_msgs));
 
 
     const auto contract_address = inputs.public_call.call_stack_item.contract_address;
+    const auto portal_contract_address = inputs.public_call.portal_contract_address;
     std::array<PublicDataUpdateRequest<NT>, KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH> const expected_new_writes =
         public_data_update_requests_from_contract_storage_update_requests(
             inputs.public_call.call_stack_item.public_inputs.contract_storage_update_requests, contract_address);
@@ -1114,6 +1140,13 @@ TEST(public_kernel_tests, circuit_outputs_should_be_correctly_populated_with_pre
     ASSERT_TRUE(source_arrays_are_in_target(inputs.previous_kernel.public_inputs.end.new_commitments,
                                             expected_new_commitments,
                                             public_inputs.end.new_commitments));
+
+    std::array<NT::fr, NEW_L2_TO_L1_MSGS_LENGTH> const expected_new_messages = new_l2_messages_from_message(
+        inputs.public_call.call_stack_item.public_inputs.new_l2_to_l1_msgs, contract_address, portal_contract_address);
+
+    ASSERT_TRUE(source_arrays_are_in_target(inputs.previous_kernel.public_inputs.end.new_l2_to_l1_msgs,
+                                            expected_new_messages,
+                                            public_inputs.end.new_l2_to_l1_msgs));
 
     ASSERT_FALSE(dummyComposer.failed());
 }
