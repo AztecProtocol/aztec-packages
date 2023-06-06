@@ -272,8 +272,9 @@ void propagate_new_commitments(Composer& composer,
 
     std::array<NT::fr, KERNEL_NEW_COMMITMENTS_LENGTH> siloed_new_commitments{};
     for (size_t i = 0; i < new_commitments.size(); ++i) {
-        siloed_new_commitments[i] =
-            new_commitments[i] == 0 ? 0 : silo_commitment<NT>(storage_contract_address, new_commitments[i]);
+        if (!new_commitments[i].is_zero()) {
+            siloed_new_commitments[i] = silo_commitment<NT>(storage_contract_address, new_commitments[i]);
+        }
     }
 
     push_array_to_array(composer, siloed_new_commitments, circuit_outputs.end.new_commitments);

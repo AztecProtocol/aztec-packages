@@ -1084,7 +1084,7 @@ TEST(public_kernel_tests, circuit_outputs_should_be_correctly_populated_with_pre
     initial_commitments[1] = fr(2);
     inputs.previous_kernel.public_inputs.end.new_commitments = initial_commitments;
 
-    // setup 2 new l2 to l1 messages
+    // setup 1 new l2 to l1 messages
     std::array<NT::fr, NEW_L2_TO_L1_MSGS_LENGTH> initial_l2_to_l1_messages{};
     initial_l2_to_l1_messages[0] = fr(1);
     inputs.previous_kernel.public_inputs.end.new_l2_to_l1_msgs = initial_l2_to_l1_messages;

@@ -48,7 +48,7 @@ impl PublicCallStackItem {
                 contract_storage_read: [crate::abi::empty_contract_storage_read(); crate::abi::CONTRACT_STORAGE_READS_LENGTH],
                 public_call_stack: [0; crate::abi::MAX_PUBLIC_CALL_STACK],
                 new_commitments: [0; crate::abi::MAX_NEW_COMMITMENTS],
-                new_l2_to_l1_msgs:[0; crate::abi::MAX_L1_MSG_STACK],
+                new_l2_to_l1_msgs:[0; crate::abi::MAX_L2_TO_L1_MSG_STACK],
                 historic_public_data_tree_root: 0,
                 prover_address: 0,
             },

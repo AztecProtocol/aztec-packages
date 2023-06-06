@@ -64,7 +64,7 @@ impl PrivateCallStackItem {
                 new_nullifiers: arr_copy_slice(fields, [0; crate::abi::MAX_NEW_NULLIFIERS], 23),
                 private_call_stack: arr_copy_slice(fields, [0; crate::abi::MAX_PRIVATE_CALL_STACK], 27),
                 public_call_stack: arr_copy_slice(fields, [0; crate::abi::MAX_PUBLIC_CALL_STACK], 31),
-                new_l2_to_l1_msgs:arr_copy_slice(fields, [0; crate::abi::MAX_L1_MSG_STACK], 35),
+                new_l2_to_l1_msgs:arr_copy_slice(fields, [0; crate::abi::MAX_L2_TO_L1_MSG_STACK], 35),
                 historic_private_data_tree_root: fields[37],
                 historic_private_nullifier_tree_root: fields[38],
                 historic_contract_tree_root: fields[39],
