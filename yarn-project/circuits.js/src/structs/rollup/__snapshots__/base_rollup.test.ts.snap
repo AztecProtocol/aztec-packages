@@ -32,12 +32,12 @@ unencrypted_logs_hash:
 encrypted_log_preimages_length:
 0x900
 unencrypted_log_preimages_length:
+0xa00
+new_contracts:
 [ contract_address: 0xb00
 portal_contract_address: 0x101010101010101010101010101010101010101
 function_tree_root: 0xb02
  ]
-new_contracts:
-0xa00
 optionally_revealed_data:
 [ call_stack_item_hash: 0xc00
 function_data:
@@ -176,12 +176,12 @@ unencrypted_logs_hash:
 encrypted_log_preimages_length:
 0xa00
 unencrypted_log_preimages_length:
+0xb00
+new_contracts:
 [ contract_address: 0xc00
 portal_contract_address: 0x101010101010101010101010101010101010101
 function_tree_root: 0xc02
  ]
-new_contracts:
-0xb00
 optionally_revealed_data:
 [ call_stack_item_hash: 0xd00
 function_data:

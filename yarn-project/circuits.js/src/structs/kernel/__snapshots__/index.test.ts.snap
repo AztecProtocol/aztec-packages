@@ -30,12 +30,12 @@ unencrypted_logs_hash:
 encrypted_log_preimages_length:
 0x801
 unencrypted_log_preimages_length:
+0x901
+new_contracts:
 [ contract_address: 0xa01
 portal_contract_address: 0x202020202020202020202020202020202020202
 function_tree_root: 0xa03
  ]
-new_contracts:
-0x901
 optionally_revealed_data:
 [ call_stack_item_hash: 0xb01
 function_data:
@@ -171,12 +171,12 @@ unencrypted_logs_hash:
 encrypted_log_preimages_length:
 0x801
 unencrypted_log_preimages_length:
+0x901
+new_contracts:
 [ contract_address: 0xa01
 portal_contract_address: 0x202020202020202020202020202020202020202
 function_tree_root: 0xa03
  ]
-new_contracts:
-0x901
 optionally_revealed_data:
 [ call_stack_item_hash: 0xb01
 function_data:
@@ -545,12 +545,12 @@ unencrypted_logs_hash:
 encrypted_log_preimages_length:
 0x801
 unencrypted_log_preimages_length:
+0x901
+new_contracts:
 [ contract_address: 0xa01
 portal_contract_address: 0x202020202020202020202020202020202020202
 function_tree_root: 0xa03
  ]
-new_contracts:
-0x901
 optionally_revealed_data:
 [ call_stack_item_hash: 0xb01
 function_data:
@@ -892,12 +892,12 @@ unencrypted_logs_hash:
 encrypted_log_preimages_length:
 0x801
 unencrypted_log_preimages_length:
+0x901
+new_contracts:
 [ contract_address: 0xa01
 portal_contract_address: 0x202020202020202020202020202020202020202
 function_tree_root: 0xa03
  ]
-new_contracts:
-0x901
 optionally_revealed_data:
 [ call_stack_item_hash: 0xb01
 function_data:
@@ -1027,12 +1027,12 @@ unencrypted_logs_hash:
 encrypted_log_preimages_length:
 0x801
 unencrypted_log_preimages_length:
+0x901
+new_contracts:
 [ contract_address: 0xa01
 portal_contract_address: 0x202020202020202020202020202020202020202
 function_tree_root: 0xa03
  ]
-new_contracts:
-0x901
 optionally_revealed_data:
 [ call_stack_item_hash: 0xb01
 function_data:
