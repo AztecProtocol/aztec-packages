@@ -220,7 +220,7 @@ export function makeAccumulatedData(seed = 1): CombinedAccumulatedData {
     makeAggregationObject(seed),
     makeTuple(KERNEL_NEW_COMMITMENTS_LENGTH, fr, seed + 0x100),
     makeTuple(KERNEL_NEW_NULLIFIERS_LENGTH, fr, seed + 0x200),
-    makeTuple(KERNEL_PRIVATE_CALL_STACK_LENGTH, Fr.zero), // private call stack must be empty
+    makeTuple(KERNEL_PRIVATE_CALL_STACK_LENGTH, fr, seed + 0x300),
     makeTuple(KERNEL_PUBLIC_CALL_STACK_LENGTH, fr, seed + 0x400),
     makeTuple(KERNEL_NEW_L2_TO_L1_MSGS_LENGTH, fr, seed + 0x500),
     makeTuple(2, fr, seed + 0x600), // encrypted logs hash
