@@ -15,12 +15,12 @@ namespace aztec3::circuits::abis {
 template <typename NCT> struct PrivateTypes {
     using AppCircuitPublicInputs = PrivateCircuitPublicInputs<NCT>;
     // used in schema serialization
-    static constexpr char schema_name[] = "Private";
+    static constexpr char schema_name[] = "Private";  // NOLINT
 };
 
 template <typename NCT> struct PublicTypes {
     using AppCircuitPublicInputs = PublicCircuitPublicInputs<NCT>;
     // used in schema serialization
-    static constexpr char schema_name[] = "Public";
+    static constexpr char schema_name[] = "Public";  // NOLINT
 };
 }  // namespace aztec3::circuits::abis
