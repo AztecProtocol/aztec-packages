@@ -102,7 +102,7 @@ describe('abis wasm bindings', () => {
   });
 
   it('hashes many function args', async () => {
-    const args = times(49, i => new Fr(i));
+    const args = times(200, i => new Fr(i));
     const res = await computeVarArgsHash(wasm, args);
     expect(res).toMatchSnapshot();
   });

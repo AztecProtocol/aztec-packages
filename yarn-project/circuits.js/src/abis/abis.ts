@@ -1,5 +1,6 @@
 import { AsyncWasmWrapper, WasmWrapper } from '@aztec/foundation/wasm';
 import { Buffer } from 'buffer';
+import chunk from 'lodash.chunk';
 import { abisComputeContractAddress } from '../cbind/circuits.gen.js';
 import {
   AztecAddress,
@@ -231,11 +232,16 @@ export async function computeContractAddress(
 export function computeVarArgsHash(wasm: CircuitsWasm, args: Fr[]): Promise<Fr> {
   if (args.length === 0) return Promise.resolve(Fr.ZERO);
   wasm.call('pedersen__init');
-  // TODO(#754) Hash all arguments!
-  if (args.length > 48) args = args.slice(0, 48);
-  const argsVector = new Vector(args);
-  const value = wasmSyncCall(wasm, 'abis__compute_var_args_hash', argsVector, 32);
-  return Promise.resolve(Fr.fromBuffer(value));
+
+  const wasmComputeVarArgs = (args: Fr[]) =>
+    Fr.fromBuffer(wasmSyncCall(wasm, 'abis__compute_var_args_hash', new Vector(args), 32));
+
+  if (args.length > 32) {
+    const chunksHashes = chunk(args, 32).map(c => wasmComputeVarArgs(c));
+    return Promise.resolve(wasmComputeVarArgs(chunksHashes));
+  } else {
+    return Promise.resolve(wasmComputeVarArgs(args));
+  }
 }
 
 /**
