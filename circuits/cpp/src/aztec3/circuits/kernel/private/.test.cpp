@@ -707,7 +707,7 @@ TEST(private_kernel_tests, private_kernel_should_fail_if_aggregating_too_many_co
     auto const& public_inputs = native_private_kernel_circuit_inner(composer, private_inputs);
 
     ASSERT_TRUE(composer.failed());
-    ASSERT_EQ(composer.failure_msgs, CircuitErrorCode::ARRAY_OVERFLOW);
+    ASSERT_EQ(composer.get_first_failure().code, CircuitErrorCode::ARRAY_OVERFLOW);
 }
 
 }  // namespace aztec3::circuits::kernel::private_kernel

@@ -84,6 +84,7 @@ import {
   NULLIFIER_TREE_HEIGHT,
   PRIVATE_DATA_TREE_HEIGHT,
   makeTuple,
+  makeHalfFullTuple,
 } from '../index.js';
 
 /**
@@ -192,18 +193,20 @@ export function makeContractStorageRead(seed = 1): ContractStorageRead {
  * @param seed - The seed to use for generating the accumulated data.
  * @returns An empty accumulated data.
  */
-export function makeEmptyAccumulatedData(seed = 1): CombinedAccumulatedData {
+export function makeEmptyAccumulatedData(seed = 1, full = false): CombinedAccumulatedData {
+  const tupleGenerator = full ? makeTuple : makeHalfFullTuple;
+
   return new CombinedAccumulatedData(
     makeAggregationObject(seed),
-    makeTuple(KERNEL_NEW_COMMITMENTS_LENGTH, fr, seed + 0x100),
-    makeTuple(KERNEL_NEW_NULLIFIERS_LENGTH, fr, seed + 0x200),
-    makeTuple(KERNEL_PRIVATE_CALL_STACK_LENGTH, Fr.zero), // private call stack must be empty
-    makeTuple(KERNEL_PUBLIC_CALL_STACK_LENGTH, fr, seed + 0x400),
-    makeTuple(KERNEL_NEW_L2_TO_L1_MSGS_LENGTH, fr, seed + 0x500),
-    makeTuple(KERNEL_NEW_CONTRACTS_LENGTH, makeNewContractData, seed + 0x600),
-    makeTuple(KERNEL_OPTIONALLY_REVEALED_DATA_LENGTH, makeOptionallyRevealedData, seed + 0x700),
-    makeTuple(KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH, makeEmptyPublicDataUpdateRequest, seed + 0x800),
-    makeTuple(KERNEL_PUBLIC_DATA_READS_LENGTH, makeEmptyPublicDataRead, seed + 0x900),
+    tupleGenerator(NEW_COMMITMENTS_LENGTH, fr, seed + 0x100),
+    tupleGenerator(NEW_NULLIFIERS_LENGTH, fr, seed + 0x200),
+    tupleGenerator(KERNEL_PRIVATE_CALL_STACK_LENGTH, Fr.zero), // private call stack must be empty
+    tupleGenerator(KERNEL_PUBLIC_CALL_STACK_LENGTH, fr, seed + 0x400),
+    tupleGenerator(NEW_L2_TO_L1_MSGS_LENGTH, fr, seed + 0x500),
+    tupleGenerator(KERNEL_NEW_CONTRACTS_LENGTH, makeNewContractData, seed + 0x600),
+    tupleGenerator(KERNEL_OPTIONALLY_REVEALED_DATA_LENGTH, makeOptionallyRevealedData, seed + 0x700),
+    tupleGenerator(KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH, makeEmptyPublicDataUpdateRequest, seed + 0x800),
+    tupleGenerator(KERNEL_PUBLIC_DATA_READS_LENGTH, makeEmptyPublicDataRead, seed + 0x900),
   );
 }
 
@@ -212,18 +215,20 @@ export function makeEmptyAccumulatedData(seed = 1): CombinedAccumulatedData {
  * @param seed - The seed to use for generating the accumulated data.
  * @returns An accumulated data.
  */
-export function makeAccumulatedData(seed = 1): CombinedAccumulatedData {
+export function makeAccumulatedData(seed = 1, full = false): CombinedAccumulatedData {
+  const tupleGenerator = full ? makeTuple : makeHalfFullTuple;
+
   return new CombinedAccumulatedData(
     makeAggregationObject(seed),
-    makeTuple(KERNEL_NEW_COMMITMENTS_LENGTH, fr, seed + 0x100),
-    makeTuple(KERNEL_NEW_NULLIFIERS_LENGTH, fr, seed + 0x200),
-    makeTuple(KERNEL_PRIVATE_CALL_STACK_LENGTH, fr, seed + 0x300),
-    makeTuple(KERNEL_PUBLIC_CALL_STACK_LENGTH, fr, seed + 0x400),
-    makeTuple(KERNEL_NEW_L2_TO_L1_MSGS_LENGTH, fr, seed + 0x500),
-    makeTuple(KERNEL_NEW_CONTRACTS_LENGTH, makeNewContractData, seed + 0x600),
-    makeTuple(KERNEL_OPTIONALLY_REVEALED_DATA_LENGTH, makeOptionallyRevealedData, seed + 0x700),
-    makeTuple(KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH, makePublicDataUpdateRequest, seed + 0x800),
-    makeTuple(KERNEL_PUBLIC_DATA_READS_LENGTH, makePublicDataRead, seed + 0x900),
+    tupleGenerator(NEW_COMMITMENTS_LENGTH, fr, seed + 0x100),
+    tupleGenerator(NEW_NULLIFIERS_LENGTH, fr, seed + 0x200),
+    tupleGenerator(KERNEL_PRIVATE_CALL_STACK_LENGTH, fr, seed + 0x300),
+    tupleGenerator(KERNEL_PUBLIC_CALL_STACK_LENGTH, fr, seed + 0x400),
+    tupleGenerator(NEW_L2_TO_L1_MSGS_LENGTH, fr, seed + 0x500),
+    tupleGenerator(KERNEL_NEW_CONTRACTS_LENGTH, makeNewContractData, seed + 0x600),
+    tupleGenerator(KERNEL_OPTIONALLY_REVEALED_DATA_LENGTH, makeOptionallyRevealedData, seed + 0x700),
+    tupleGenerator(KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH, makePublicDataUpdateRequest, seed + 0x800),
+    tupleGenerator(KERNEL_PUBLIC_DATA_READS_LENGTH, makePublicDataRead, seed + 0x900),
   );
 }
 
