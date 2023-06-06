@@ -1121,4 +1121,23 @@ TEST(public_kernel_tests, previous_public_kernel_fails_if_incorrect_storage_cont
     ASSERT_EQ(dummyComposer.get_first_failure().code,
               CircuitErrorCode::PUBLIC_KERNEL__CALL_CONTEXT_INVALID_STORAGE_ADDRESS_FOR_DELEGATE_CALL);
 }
+
+// TODO: make a -ve test where this fails
+TEST(public_kernel_tests, public_kernel_failure_if_too_many_commitments_are_pushed)
+{
+    DummyComposer dummyComposer = DummyComposer(
+        "public_kernel_tests__previous_public_kernel_fails_if_incorrect_storage_contract_on_delegate_call");
+    PublicKernelInputs<NT> inputs = get_kernel_inputs_with_previous_kernel(false);
+
+    // the function call has the contract address and storage contract address equal and so it should fail for a
+    // delegate call
+    inputs.public_call.call_stack_item.public_inputs.call_context.is_delegate_call = true;
+
+    auto public_inputs = native_public_kernel_circuit_public_previous_kernel(dummyComposer, inputs);
+    ASSERT_TRUE(dummyComposer.failed());
+    ASSERT_EQ(dummyComposer.get_first_failure().code,
+              CircuitErrorCode::PUBLIC_KERNEL__CALL_CONTEXT_INVALID_STORAGE_ADDRESS_FOR_DELEGATE_CALL);
+}
+
+
 }  // namespace aztec3::circuits::kernel::public_kernel
