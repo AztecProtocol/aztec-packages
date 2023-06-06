@@ -674,15 +674,7 @@ is_delegate_call: 1
 is_static_call: 1
 is_contract_deployment: 1
 
-<<<<<<< HEAD
-<<<<<<< HEAD
 args_hash: 0x1111
-=======
-<<<<<<< HEAD
-=======
->>>>>>> test: updated snapshots
-args: [ 0x1111 0x1112 0x1113 0x1114 0x1115 0x1116 0x1117 0x1118 ]
->>>>>>> test: updated circuits snapshots
 return_values: [ 0x1311 0x1312 0x1313 0x1314 ]
 new_commitments: [ 0x1411 0x1412 0x1413 0x1414 ]
 new_nullifiers: [ 0x1511 0x1512 0x1513 0x1514 ]
@@ -718,15 +710,7 @@ is_delegate_call: 1
 is_static_call: 1
 is_contract_deployment: 1
 
-<<<<<<< HEAD
-<<<<<<< HEAD
 args_hash: 0x1121
-=======
-<<<<<<< HEAD
-=======
->>>>>>> test: updated snapshots
-args: [ 0x1121 0x1122 0x1123 0x1124 0x1125 0x1126 0x1127 0x1128 ]
->>>>>>> test: updated circuits snapshots
 return_values: [ 0x1321 0x1322 0x1323 0x1324 ]
 new_commitments: [ 0x1421 0x1422 0x1423 0x1424 ]
 new_nullifiers: [ 0x1521 0x1522 0x1523 0x1524 ]
@@ -760,15 +744,7 @@ is_delegate_call: 1
 is_static_call: 1
 is_contract_deployment: 1
 
-<<<<<<< HEAD
-<<<<<<< HEAD
 args_hash: 0x1122
-=======
-<<<<<<< HEAD
-=======
->>>>>>> test: updated snapshots
-args: [ 0x1122 0x1123 0x1124 0x1125 0x1126 0x1127 0x1128 0x1129 ]
->>>>>>> test: updated circuits snapshots
 return_values: [ 0x1322 0x1323 0x1324 0x1325 ]
 new_commitments: [ 0x1422 0x1423 0x1424 0x1425 ]
 new_nullifiers: [ 0x1522 0x1523 0x1524 0x1525 ]
@@ -802,15 +778,7 @@ is_delegate_call: 1
 is_static_call: 1
 is_contract_deployment: 1
 
-<<<<<<< HEAD
-<<<<<<< HEAD
 args_hash: 0x1123
-=======
-<<<<<<< HEAD
-=======
->>>>>>> test: updated snapshots
-args: [ 0x1123 0x1124 0x1125 0x1126 0x1127 0x1128 0x1129 0x112a ]
->>>>>>> test: updated circuits snapshots
 return_values: [ 0x1323 0x1324 0x1325 0x1326 ]
 new_commitments: [ 0x1423 0x1424 0x1425 0x1426 ]
 new_nullifiers: [ 0x1523 0x1524 0x1525 0x1526 ]
@@ -844,15 +812,7 @@ is_delegate_call: 1
 is_static_call: 1
 is_contract_deployment: 1
 
-<<<<<<< HEAD
-<<<<<<< HEAD
 args_hash: 0x1124
-=======
-<<<<<<< HEAD
-=======
->>>>>>> test: updated snapshots
-args: [ 0x1124 0x1125 0x1126 0x1127 0x1128 0x1129 0x112a 0x112b ]
->>>>>>> test: updated circuits snapshots
 return_values: [ 0x1324 0x1325 0x1326 0x1327 ]
 new_commitments: [ 0x1424 0x1425 0x1426 0x1427 ]
 new_nullifiers: [ 0x1524 0x1525 0x1526 0x1527 ]
@@ -1220,30 +1180,10 @@ current_value: 0x1414
  storage_slot: 0x1414
 current_value: 0x1415
  ]
-<<<<<<< HEAD
-contract_storage_reads: [ storage_slot: 0x1511
-current_value: 0x1512
- storage_slot: 0x1512
-current_value: 0x1513
- storage_slot: 0x1513
-current_value: 0x1514
- storage_slot: 0x1514
-current_value: 0x1515
- ]
-<<<<<<< HEAD
-public_call_stack: [ 0x221b5d639a096f94a75ea1b7cff7c04c36758710754384739a6abf9a95fd473e 0x28b2063ab3d7ddd367136806a616911bbdb883216a739af593316253fcd02609 0x1098d33ee4483f5f87285c2ed81f45e775a97ee77714e251fd404fff12991d16 0x27659ad5da78f32a78f9958338b5ab5bc67a9762f2821fff95892d0f560f4a82 ]
-=======
-public_call_stack: [ 0x1d8dab736e8a7016693bc8adbca3119efebc6379519e047f95b78ac35f570cf1 0x1a3fc8af825c13f38070e9a9361eceb7640e76f3dfa00283035ce79563c157f0 0x19c3d84a4fc3cfa7b9e83edfe03c8ac5f7b058ba8fee8696e9d52d174d766f07 0x17122272d98fc148e477eb94b9cbdc64089e1ebeacdcee6d28da5f370f7777df ]
->>>>>>> test: updated circuits snapshots
-new_l2_to_l1_msgs: [ 0x1711 0x1712 ]
-historic_public_data_tree_root: 0x1811
-prover_address: 0x1812
-=======
-public_call_stack: [ 0x17b13f9fb289400a9eac8c4348d32adc2ae3d3cb3a7c5fdd66e084a720123e8d 0x1dc79377fd49dd1bb3087507b1b5eb339f2416d193a3e00fa43ffdb553eb732a 0x1ebfe61d6cc5855d0de38455e62149f546f7ed518d8cc0871cdd09285e66dc4f 0xf432ee39a5e03c8389db2a983247e7dacc831e761c57627e7e2bc78f30a3e7a ]
+public_call_stack: [ 0xa24bbd453c9c72fefe59b700c7fd0860437e8601152894ee13036949516a5ef 0x1c915ca42f144754769a0c3ce077046dfd43db78fc368a47264edcb4252a3cda 0x684c91d96a8d6b8a1a1e88a66a31cc8420c2fa73916efd88392c5ffc8daf0f 0x24715e28594f5dca6d420feb22ed1605c7dd55885a842b899902924e429aa766 ]
 new_l2_to_l1_msgs: [ 0x1611 0x1612 ]
 historic_public_data_tree_root: 0x1711
 prover_address: 0x1811
->>>>>>> test: updated snapshots
 
 is_execution_request: 0
 
@@ -1487,21 +1427,10 @@ current_value: 0x514
  storage_slot: 0x514
 current_value: 0x515
  ]
-<<<<<<< HEAD
-<<<<<<< HEAD
-public_call_stack: [ 0x9bb57b57c918598816731554386a857fd26044897b7ab5877e1fe3b2b0dd99f 0x10c7590d923b0d4e162ac2bbdb9c612bcf0221899f44adf8ff1b24212a75b790 0x1f734ab14b419531afd3d8617f7f0c2e3aaa735b10b1d81a906e6874bbdffb1b 0x239900af32e3ec82b173315afdcc3494fc4d00d50d4c16eb301292193a84e72a ]
-=======
-public_call_stack: [ 0x1b98bd890fc2dea58503663a3be8d1a522cbae64fc1f59200aa8f69c740dc42f 0x106dc110c463f9a16578959e2cbc3669b2a9c478d46b53fe59267990eb7cb8eb 0x1aa28d3a52a21ce6f03e3f26ad8332a3a3df2a0cab24dfd76cef10dab7870e21 0x168f7e84d85ee8e03ea5d930c5c452c1fa3eec187b3d7e849ba7887ea825ff96 ]
->>>>>>> test: updated circuits snapshots
-new_l2_to_l1_msgs: [ 0x811 0x812 ]
-historic_public_data_tree_root: 0x911
-prover_address: 0x912
-=======
-public_call_stack: [ 0x2ae21d543eb97d233c8ecad94556bd54654a95549242759960ab403e255c4efa 0xc885541c57e9bf36f69e914fbaa5fafd1d157c13d018ead2cf933e454f8b20 0x23980fb55df23803f333a44dcfe097d21b6e06f9404d967c9509fe8491c6db8d 0x71aea095c98cba7a5aa773adf3d985b7fcd242edb34d6feb430f5b9642e9dc2 ]
+public_call_stack: [ 0x9eaa50a1db4b16026bd42688a6693644083e7ebef58ee202b4bd6245e33fe2e 0x77b30f928d3ea35e53e45243a75b7a202f6092118019ad4ca263300dd1bea79 0x4060ca6b73237f8f21893a18154289d47f53948604bf1e47de08298742ef970 0x16274ced9120baf8e6ed29622321d0eeae56e0da5481acea82456d745cf2c719 ]
 new_l2_to_l1_msgs: [ 0x711 0x712 ]
 historic_public_data_tree_root: 0x811
 prover_address: 0x911
->>>>>>> test: updated snapshots
 
 is_execution_request: 0
 
