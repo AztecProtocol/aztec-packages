@@ -54,12 +54,12 @@ export class PrivateCircuitPublicInputs {
      * Hash of the encrypted logs emitted in the current kernel iteration.
      * Note: Represented as an array of 2 fields in order to fit in all of the 256 bits of sha256 hash.
      */
-    public encryptedLogsHash: Fr[],
+    public encryptedLogsHash: [Fr, Fr],
     /**
      * Hash of the unencrypted logs emitted in the current kernel iteration.
      * Note: Represented as an array of 2 fields in order to fit in all of the 256 bits of sha256 hash.
      */
-    public unencryptedLogsHash: Fr[],
+    public unencryptedLogsHash: [Fr, Fr],
     /**
      * Length of the encrypted log preimages emitted in the current kernel iteration.
      * Note: Here so that the gas cost of this request can be measured by circuits, without actually needing to feed
@@ -127,8 +127,8 @@ export class PrivateCircuitPublicInputs {
       frArray(PRIVATE_CALL_STACK_LENGTH),
       frArray(PUBLIC_CALL_STACK_LENGTH),
       frArray(NEW_L2_TO_L1_MSGS_LENGTH),
-      frArray(2),
-      frArray(2),
+      frArray(2) as [Fr, Fr],
+      frArray(2) as [Fr, Fr],
       Fr.ZERO,
       Fr.ZERO,
       Fr.ZERO,

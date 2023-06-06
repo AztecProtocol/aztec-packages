@@ -121,8 +121,8 @@ export function extractPublicInputs(partialWitness: ACVMWitness, acir: Buffer): 
   // const unencryptedLogsHash = witnessReader.readFieldArray(2);
   // const encryptedLogPreimagesLength = witnessReader.readField();
   // const unencryptedLogPreimagesLength = witnessReader.readField();
-  const encryptedLogsHash = [new Fr(0), new Fr(0)];
-  const unencryptedLogsHash = [new Fr(0), new Fr(0)];
+  const encryptedLogsHash = [new Fr(0), new Fr(0)] as [Fr, Fr];
+  const unencryptedLogsHash = [new Fr(0), new Fr(0)] as [Fr, Fr];
   const encryptedLogPreimagesLength = new Fr(0);
   const unencryptedLogPreimagesLength = new Fr(0);
 
