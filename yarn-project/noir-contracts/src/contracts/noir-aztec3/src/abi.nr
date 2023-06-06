@@ -100,7 +100,7 @@ struct PrivateCircuitPublicInputs {
     private_call_stack: [Field; crate::abi::MAX_PRIVATE_CALL_STACK],
     public_call_stack: [Field; crate::abi::MAX_PUBLIC_CALL_STACK],
     new_l2_to_l1_msgs: [Field; crate::abi::MAX_L1_MSG_STACK],
-    // TODO: uncomment the following once "too many unknowns" error is fixed in Noir
+    // TODO #588, relevant issue: https://github.com/AztecProtocol/aztec-packages/issues/588
     // encrypted_logs_hash: [Field; crate::abi::LOGS_HASH_SIZE],
     // unencrypted_logs_hash: [Field; crate::abi::LOGS_HASH_SIZE],
     // encrypted_log_preimages_length: Field,
@@ -128,7 +128,7 @@ impl PrivateCircuitPublicInputs {
         fields = fields.push_array(self.private_call_stack);
         fields = fields.push_array(self.public_call_stack);
         fields = fields.push_array(self.new_l2_to_l1_msgs);
-        // TODO: uncomment the following once "too many unknowns" error is fixed in Noir
+        // TODO #588, relevant issue: https://github.com/AztecProtocol/aztec-packages/issues/588
         // fields = fields.push_array(self.encrypted_logs_hash);
         // fields = fields.push_array(self.unencrypted_logs_hash);
         // fields = fields.push(self.encrypted_log_preimages_length);

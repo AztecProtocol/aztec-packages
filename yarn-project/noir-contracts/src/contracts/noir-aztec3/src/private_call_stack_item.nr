@@ -64,6 +64,7 @@ impl PrivateCallStackItem {
                 private_call_stack: arr_copy_slice(fields, [0; crate::abi::MAX_PRIVATE_CALL_STACK], 23),
                 public_call_stack: arr_copy_slice(fields, [0; crate::abi::MAX_PUBLIC_CALL_STACK], 27),
                 new_l2_to_l1_msgs:arr_copy_slice(fields, [0; crate::abi::MAX_L1_MSG_STACK], 31),
+                // TODO #588, relevant issue: https://github.com/AztecProtocol/aztec-packages/issues/588
                 // encrypted_logs_hash:arr_copy_slice(fields, [0; 2], 44),
                 // unencrypted_logs_hash:arr_copy_slice(fields, [0; 2], 46),
                 // encrypted_log_preimages_length: fields[47],

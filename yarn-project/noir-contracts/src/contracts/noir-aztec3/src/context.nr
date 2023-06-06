@@ -21,7 +21,7 @@ struct PrivateFunctionContext {
     public_call_stack : BoundedVec<Field, abi::MAX_PUBLIC_CALL_STACK>,
     new_l2_to_l1_msgs : BoundedVec<Field, abi::MAX_L1_MSG_STACK>,
 
-    // TODO: uncomment the following once "too many unknowns" error is fixed in Noir
+    // TODO #588, relevant issue: https://github.com/AztecProtocol/aztec-packages/issues/588
     // encrypted_logs_hash : BoundedVec<Field, abi::LOGS_HASH_SIZE>,
     // unencrypted_logs_hash : BoundedVec<Field, abi::LOGS_HASH_SIZE>,
     // encrypted_log_preimages_length : Field,
@@ -43,7 +43,7 @@ impl PrivateFunctionContext {
             public_call_stack: BoundedVec::new(0),
             new_l2_to_l1_msgs: BoundedVec::new(0),
 
-            // TODO: uncomment the following once "too many unknowns" error is fixed in Noir
+            // TODO #588, relevant issue: https://github.com/AztecProtocol/aztec-packages/issues/588
             // encrypted_logs_hash: BoundedVec::new(0),
             // unencrypted_logs_hash: BoundedVec::new(0),
             // encrypted_log_preimages_length: 0,
@@ -65,7 +65,7 @@ impl PrivateFunctionContext {
             private_call_stack: self.private_call_stack.storage,
             public_call_stack: self.public_call_stack.storage,
             new_l2_to_l1_msgs: self.new_l2_to_l1_msgs.storage,
-            // TODO: uncomment the following once "too many unknowns" error is fixed in Noir
+            // TODO #588, relevant issue: https://github.com/AztecProtocol/aztec-packages/issues/588
             // encrypted_logs_hash: self.encrypted_logs_hash.storage,
             // unencrypted_logs_hash: self.unencrypted_logs_hash.storage,
             // encrypted_log_preimages_length: self.encrypted_log_preimages_length,
