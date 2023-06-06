@@ -5,6 +5,8 @@
 #include "public_circuit_public_inputs.hpp"
 
 #include "aztec3/circuits/abis/types.hpp"
+#include "aztec3/utils/msgpack_derived_equals.hpp"
+#include "aztec3/utils/msgpack_derived_output.hpp"
 #include "aztec3/utils/types/circuit_types.hpp"
 #include "aztec3/utils/types/convert.hpp"
 #include "aztec3/utils/types/native_types.hpp"
@@ -36,10 +38,14 @@ template <typename NCT, template <class> typename PrivatePublic> struct CallStac
 
     // for serialization, update with new fields
     MSGPACK_FIELDS(contract_address, function_data, public_inputs, is_execution_request);
+    void msgpack_schema(auto& packer) const
+    {
+        packer.pack_with_name(PrivatePublic<NCT>::schema_name + std::string("CallStackItem"), *this);
+    }
     boolean operator==(CallContext<NCT> const& other) const
     {
-        return contract_address == other.contract_address && function_data == other.function_data &&
-               public_inputs == other.public_inputs && is_execution_request == other.is_execution_request;
+        // we can't use =default with a custom boolean, but we can use a msgpack-derived utility
+        return utils::msgpack_derived_equals<boolean>(*this, other);
     };
 
     template <typename Composer>
@@ -73,7 +79,7 @@ template <typename NCT, template <class> typename PrivatePublic> struct CallStac
 
         return call_stack_item_hash;
     }
-};  // namespace aztec3::circuits::abis
+};
 
 template <typename NCT, template <class> typename PrivatePublic>
 void read(uint8_t const*& it, CallStackItem<NCT, PrivatePublic>& call_stack_item)
@@ -100,10 +106,8 @@ void write(std::vector<uint8_t>& buf, CallStackItem<NCT, PrivatePublic> const& c
 template <typename NCT, template <class> typename PrivatePublic>
 std::ostream& operator<<(std::ostream& os, CallStackItem<NCT, PrivatePublic> const& call_stack_item)
 {
-    return os << "contract_address: " << call_stack_item.contract_address << "\n"
-              << "function_data: " << call_stack_item.function_data << "\n"
-              << "public_inputs: " << call_stack_item.public_inputs << "\n"
-              << "is_execution_request: " << call_stack_item.is_execution_request << "\n";
+    utils::msgpack_derived_output(os, call_stack_item);
+    return os;
 }
 
 // Returns a copy of this call stack item where all result-related fields are zeroed out.
@@ -132,3 +136,10 @@ inline fr get_call_stack_item_hash(abis::CallStackItem<NativeTypes, PublicTypes>
 }
 
 }  // namespace aztec3::circuits::abis
+
+// ensure this name is specialized in usage
+template <typename NCT, template <class> typename PrivatePublic>
+inline std::string msgpack_schema_name(aztec3::circuits::abis::CallStackItem<NCT, PrivatePublic> const&)  // NOLINT
+{
+    return msgpack_schema_name(PrivatePublic<NCT>{}) + "CallStackItem";
+}
