@@ -323,7 +323,7 @@ export function makeEmptyKernelPublicInputs(seed = 1): KernelCircuitPublicInputs
  * @returns Kernel circuit public inputs.
  */
 export function makeKernelPublicInputs(seed = 1): KernelCircuitPublicInputs {
-  return new KernelCircuitPublicInputs(makeAccumulatedData(seed), makeConstantData(seed + 0x100), true);
+  return new KernelCircuitPublicInputs(makeAccumulatedData(seed, true), makeConstantData(seed + 0x100), true);
 }
 
 /**
