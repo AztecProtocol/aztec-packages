@@ -41,7 +41,7 @@ template <typename NCT, template <class> typename PrivatePublic> struct CallStac
     // for schema serialization
     void msgpack_schema(auto& packer) const
     {
-        packer.pack_with_name(PrivatePublic<NCT>::schema_name + std::string("CallStackItem"), *this);
+        packer.pack_with_name(PrivatePublic<NCT>::schema_name + std::string("CallStackItem"), *this);  // NOLINT
     }
     boolean operator==(CallContext<NCT> const& other) const
     {
