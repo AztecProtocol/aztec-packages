@@ -1088,14 +1088,14 @@ export function fromPublicCircuitPublicInputs(o: PublicCircuitPublicInputs): Msg
   };
 }
 
-interface MsgpackCallStackItem {
+interface MsgpackPublicCallStackItem {
   contract_address: Buffer;
   function_data: MsgpackFunctionData;
   public_inputs: MsgpackPublicCircuitPublicInputs;
   is_execution_request: boolean;
 }
 
-export function toCallStackItem(o: MsgpackCallStackItem): PublicCallStackItem {
+export function toPublicCallStackItem(o: MsgpackPublicCallStackItem): PublicCallStackItem {
   if (o.contract_address === undefined) {
     throw new Error('Expected contract_address in PublicCallStackItem deserialization');
   }
@@ -1116,7 +1116,7 @@ export function toCallStackItem(o: MsgpackCallStackItem): PublicCallStackItem {
   );
 }
 
-export function fromCallStackItem(o: PublicCallStackItem): MsgpackCallStackItem {
+export function fromPublicCallStackItem(o: PublicCallStackItem): MsgpackPublicCallStackItem {
   if (o.contractAddress === undefined) {
     throw new Error('Expected contractAddress in PublicCallStackItem serialization');
   }
@@ -1138,8 +1138,8 @@ export function fromCallStackItem(o: PublicCallStackItem): MsgpackCallStackItem 
 }
 
 interface MsgpackPublicCallData {
-  call_stack_item: MsgpackCallStackItem;
-  public_call_stack_preimages: Tuple<MsgpackCallStackItem, 4>;
+  call_stack_item: MsgpackPublicCallStackItem;
+  public_call_stack_preimages: Tuple<MsgpackPublicCallStackItem, 4>;
   proof: Buffer;
   portal_contract_address: Buffer;
   bytecode_hash: Buffer;
@@ -1162,8 +1162,8 @@ export function toPublicCallData(o: MsgpackPublicCallData): PublicCallData {
     throw new Error('Expected bytecode_hash in PublicCallData deserialization');
   }
   return new PublicCallData(
-    toCallStackItem(o.call_stack_item),
-    mapTuple(o.public_call_stack_preimages, (v: MsgpackCallStackItem) => toCallStackItem(v)),
+    toPublicCallStackItem(o.call_stack_item),
+    mapTuple(o.public_call_stack_preimages, (v: MsgpackPublicCallStackItem) => toPublicCallStackItem(v)),
     Proof.fromMsgpackBuffer(o.proof),
     Fr.fromBuffer(o.portal_contract_address),
     Fr.fromBuffer(o.bytecode_hash),
@@ -1187,8 +1187,8 @@ export function fromPublicCallData(o: PublicCallData): MsgpackPublicCallData {
     throw new Error('Expected bytecodeHash in PublicCallData serialization');
   }
   return {
-    call_stack_item: fromCallStackItem(o.callStackItem),
-    public_call_stack_preimages: mapTuple(o.publicCallStackPreimages, (v: PublicCallStackItem) => fromCallStackItem(v)),
+    call_stack_item: fromPublicCallStackItem(o.callStackItem),
+    public_call_stack_preimages: mapTuple(o.publicCallStackPreimages, (v: PublicCallStackItem) => fromPublicCallStackItem(v)),
     proof: o.proof.toMsgpackBuffer(),
     portal_contract_address: o.portalContractAddress.toBuffer(),
     bytecode_hash: o.bytecodeHash.toBuffer(),
