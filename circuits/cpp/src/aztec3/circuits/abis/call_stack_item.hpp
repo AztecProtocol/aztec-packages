@@ -38,6 +38,7 @@ template <typename NCT, template <class> typename PrivatePublic> struct CallStac
 
     // for serialization, update with new fields
     MSGPACK_FIELDS(contract_address, function_data, public_inputs, is_execution_request);
+    // for schema serialization
     void msgpack_schema(auto& packer) const
     {
         packer.pack_with_name(PrivatePublic<NCT>::schema_name + std::string("CallStackItem"), *this);
@@ -136,10 +137,3 @@ inline fr get_call_stack_item_hash(abis::CallStackItem<NativeTypes, PublicTypes>
 }
 
 }  // namespace aztec3::circuits::abis
-
-// ensure this name is specialized in usage
-template <typename NCT, template <class> typename PrivatePublic>
-inline std::string msgpack_schema_name(aztec3::circuits::abis::CallStackItem<NCT, PrivatePublic> const&)  // NOLINT
-{
-    return msgpack_schema_name(PrivatePublic<NCT>{}) + "CallStackItem";
-}
