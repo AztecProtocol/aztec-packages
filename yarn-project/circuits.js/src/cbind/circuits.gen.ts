@@ -391,15 +391,15 @@ export function toCombinedAccumulatedData(o: MsgpackCombinedAccumulatedData): Co
   if (o.encrypted_logs_hash === undefined) {
     throw new Error('Expected encrypted_logs_hash in CombinedAccumulatedData deserialization');
   }
-  // if (o.unencrypted_logs_hash === undefined) {
-  // throw new Error('Expected unencrypted_logs_hash in CombinedAccumulatedData deserialization');
-  // }
+  if (o.unencrypted_logs_hash === undefined) {
+    throw new Error('Expected unencrypted_logs_hash in CombinedAccumulatedData deserialization');
+  }
   if (o.encrypted_log_preimages_length === undefined) {
     throw new Error('Expected encrypted_log_preimages_length in CombinedAccumulatedData deserialization');
   }
-  // if (o.unencrypted_log_preimages_length === undefined) {
-  // throw new Error('Expected unencrypted_log_preimages_length in CombinedAccumulatedData deserialization');
-  // }
+  if (o.unencrypted_log_preimages_length === undefined) {
+    throw new Error('Expected unencrypted_log_preimages_length in CombinedAccumulatedData deserialization');
+  }
   if (o.new_contracts === undefined) {
     throw new Error('Expected new_contracts in CombinedAccumulatedData deserialization');
   }
@@ -452,15 +452,15 @@ export function fromCombinedAccumulatedData(o: CombinedAccumulatedData): Msgpack
   if (o.encryptedLogsHash === undefined) {
     throw new Error('Expected encryptedLogsHash in CombinedAccumulatedData serialization');
   }
-  // if (o.unencryptedLogsHash === undefined) {
-  // throw new Error('Expected unencryptedLogsHash in CombinedAccumulatedData serialization');
-  // }
+  if (o.unencryptedLogsHash === undefined) {
+    throw new Error('Expected unencryptedLogsHash in CombinedAccumulatedData serialization');
+  }
   if (o.encryptedLogPreimagesLength === undefined) {
     throw new Error('Expected encryptedLogPreimagesLength in CombinedAccumulatedData serialization');
   }
-  // if (o.unencryptedLogPreimagesLength === undefined) {
-  // throw new Error('Expected unencryptedLogPreimagesLength in CombinedAccumulatedData serialization');
-  // }
+  if (o.unencryptedLogPreimagesLength === undefined) {
+    throw new Error('Expected unencryptedLogPreimagesLength in CombinedAccumulatedData serialization');
+  }
   if (o.newContracts === undefined) {
     throw new Error('Expected newContracts in CombinedAccumulatedData serialization');
   }
