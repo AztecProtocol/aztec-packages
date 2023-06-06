@@ -150,16 +150,15 @@ void push_array_to_array(Composer& composer, std::array<T, size_1> const& source
     size_t const source_size = static_cast<size_t>(uint256_t(array_length(source)));
     size_t const target_size = static_cast<size_t>(uint256_t(array_length(target)));
 
-    // TODO(SEAN): Are these asserts making it into the wasm builds
     composer.do_assert(source_size <= size_2 - target_size,
                        "push_array_to_array cannot overflow the target",
                        CircuitErrorCode::ARRAY_OVERFLOW);
 
     // Ensure that there are no non-zero values in the `target` array after the first zero-valued index
-    // TODO: FILL THIS IN INCLUDING ERROR TYPE
     for (size_t i = target_size; i < size_2; i++) {
-        composer.do_assert(
-            is_empty(target[i]), "TODO: FILL THIS IN INCLUDING ERROR TYPE", CircuitErrorCode::ARRAY_OVERFLOW);
+        composer.do_assert(is_empty(target[i]),
+                           "push_array_to_array inserting new array into a non empty space",
+                           CircuitErrorCode::ARRAY_OVERFLOW);
     }
     // Copy the non-zero elements of the `source` array to the `target` array at the first zero-valued index
     auto zero_index = target_size;
