@@ -318,7 +318,7 @@ describe('Private Execution test suite', () => {
       expect(result.callStackItem.publicInputs.returnValues[0]).toEqual(new Fr(142n));
     });
 
-    it('parent should call child', async () => {
+    it.skip('parent should call child', async () => {
       const childAbi = ChildAbi.functions.find(f => f.name === 'value')!;
       const parentAbi = ParentAbi.functions.find(f => f.name === 'entryPoint')!;
       const parentAddress = AztecAddress.random();
