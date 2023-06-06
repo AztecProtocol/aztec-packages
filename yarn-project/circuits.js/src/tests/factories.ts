@@ -198,11 +198,11 @@ export function makeEmptyAccumulatedData(seed = 1, full = false): CombinedAccumu
 
   return new CombinedAccumulatedData(
     makeAggregationObject(seed),
-    tupleGenerator(NEW_COMMITMENTS_LENGTH, fr, seed + 0x100),
-    tupleGenerator(NEW_NULLIFIERS_LENGTH, fr, seed + 0x200),
+    tupleGenerator(KERNEL_NEW_COMMITMENTS_LENGTH, fr, seed + 0x100),
+    tupleGenerator(KERNEL_NEW_NULLIFIERS_LENGTH, fr, seed + 0x200),
     tupleGenerator(KERNEL_PRIVATE_CALL_STACK_LENGTH, Fr.zero), // private call stack must be empty
     tupleGenerator(KERNEL_PUBLIC_CALL_STACK_LENGTH, fr, seed + 0x400),
-    tupleGenerator(NEW_L2_TO_L1_MSGS_LENGTH, fr, seed + 0x500),
+    tupleGenerator(KERNEL_NEW_L2_TO_L1_MSGS_LENGTH, fr, seed + 0x500),
     tupleGenerator(KERNEL_NEW_CONTRACTS_LENGTH, makeNewContractData, seed + 0x600),
     tupleGenerator(KERNEL_OPTIONALLY_REVEALED_DATA_LENGTH, makeOptionallyRevealedData, seed + 0x700),
     tupleGenerator(KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH, makeEmptyPublicDataUpdateRequest, seed + 0x800),
@@ -220,11 +220,11 @@ export function makeAccumulatedData(seed = 1, full = false): CombinedAccumulated
 
   return new CombinedAccumulatedData(
     makeAggregationObject(seed),
-    tupleGenerator(NEW_COMMITMENTS_LENGTH, fr, seed + 0x100),
-    tupleGenerator(NEW_NULLIFIERS_LENGTH, fr, seed + 0x200),
+    tupleGenerator(KERNEL_NEW_COMMITMENTS_LENGTH, fr, seed + 0x100),
+    tupleGenerator(KERNEL_NEW_NULLIFIERS_LENGTH, fr, seed + 0x200),
     tupleGenerator(KERNEL_PRIVATE_CALL_STACK_LENGTH, fr, seed + 0x300),
     tupleGenerator(KERNEL_PUBLIC_CALL_STACK_LENGTH, fr, seed + 0x400),
-    tupleGenerator(NEW_L2_TO_L1_MSGS_LENGTH, fr, seed + 0x500),
+    tupleGenerator(KERNEL_NEW_L2_TO_L1_MSGS_LENGTH, fr, seed + 0x500),
     tupleGenerator(KERNEL_NEW_CONTRACTS_LENGTH, makeNewContractData, seed + 0x600),
     tupleGenerator(KERNEL_OPTIONALLY_REVEALED_DATA_LENGTH, makeOptionallyRevealedData, seed + 0x700),
     tupleGenerator(KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH, makePublicDataUpdateRequest, seed + 0x800),
