@@ -21,7 +21,12 @@ template <typename NCT> struct NullifierLeafPreimage {
     MSGPACK_FIELDS(leaf_value, next_index, next_value);
     bool operator==(NullifierLeafPreimage<NCT> const&) const = default;
 
-    fr hash() const { return stdlib::merkle_tree::hash_multiple_native({ leaf_value, next_index, next_value }); }
+    bool is_empty() const { return leaf_value == fr(0) && next_index == fr(0) && next_value == fr(0); }
+
+    fr hash() const
+    {
+        return is_empty() ? fr(0) : stdlib::merkle_tree::hash_multiple_native({ leaf_value, next_index, next_value });
+    }
 };
 
 template <typename NCT> void read(uint8_t const*& it, NullifierLeafPreimage<NCT>& obj)
