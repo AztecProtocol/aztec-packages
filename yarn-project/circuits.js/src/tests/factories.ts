@@ -299,7 +299,7 @@ export function makeCallContext(seed = 0, storageContractAddress = makeAztecAddr
 export function makePublicCircuitPublicInputs(
   seed = 0,
   storageContractAddress?: AztecAddress,
-  full = false
+  full = false,
 ): PublicCircuitPublicInputs {
   const tupleGenerator = full ? makeTuple : makeHalfFullTuple;
 
@@ -452,7 +452,6 @@ export function makePublicCallStackItem(seed = 1, full = false): PublicCallStack
  * @returns A public call data.
  */
 export async function makePublicCallData(seed = 1, full = false): Promise<PublicCallData> {
-
   const publicCallData = new PublicCallData(
     makePublicCallStackItem(seed, full),
     makeTuple(PUBLIC_CALL_STACK_LENGTH, makePublicCallStackItem, seed + 0x300),
