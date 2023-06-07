@@ -506,7 +506,6 @@ export class L2Block {
    * and inside the circuit, it is part of the public inputs.
    * @returns The calldata hash.
    */
-  // TODO: add newEncryptedLogs to this hash once it's been propagated through circuits.
   getCalldataHash() {
     const computeRoot = (leafs: Buffer[]): Buffer => {
       const layers: Buffer[][] = [leafs];
@@ -683,5 +682,39 @@ export class L2Block {
       `newPublicDataWrite: ${inspectPublicDataWriteArray(this.newPublicDataWrites)}`,
       `newL1ToL2Messages: ${inspectFrArray(this.newL1ToL2Messages)}`,
     ].join('\n');
+  }
+
+  /**
+   * Computes logs hash as is done in the kernel and app circuits.
+   * @param encodedLogs - Encoded logs to be hashed.
+   * @param offset - Offset of this kernel's logs in the encoded logs.
+   * @returns The hash of the logs.
+   * Note: This is a TS implementation of `computeKernelLogsHash` function in Decoder.sol. See that function documentation
+   *       for more details.
+   */
+  static computeKernelLogsHash(encodedLogs: Buffer, offset = 0): Buffer {
+    const reader = new BufferReader(encodedLogs, offset);
+
+    let remainingLogsLength = reader.readNumber();
+    const logsHashes: [Buffer, Buffer] = [Buffer.alloc(32), Buffer.alloc(32)];
+    let kernelPublicInputsLogsHash = Buffer.alloc(32);
+
+    while (remainingLogsLength > 0) {
+      const iterationLogsLength = reader.readNumber();
+      const iterationLogs = reader.readBytes(iterationLogsLength);
+
+      const privateCircuitPublicInputsLogsHash = sha256(iterationLogs);
+
+      logsHashes[0] = kernelPublicInputsLogsHash;
+      logsHashes[1] = privateCircuitPublicInputsLogsHash;
+
+      // Hash logs hash from the public inputs of previous kernel iteration and logs hash from private circuit public inputs
+      kernelPublicInputsLogsHash = sha256(Buffer.concat(logsHashes));
+
+      // Decrease remaining logs length by this iteration's logs length (len(I?_LOGS)) and 4 bytes for I?_LOGS_LEN
+      remainingLogsLength -= iterationLogsLength + 4;
+    }
+
+    return kernelPublicInputsLogsHash;
   }
 }
