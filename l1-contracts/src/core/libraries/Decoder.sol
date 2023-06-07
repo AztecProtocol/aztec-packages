@@ -474,7 +474,7 @@ library Decoder {
       offset := add(_offset, 0x4)
     }
 
-    bytes memory logsHashes = new bytes(0x40); // A memory to which we will write the 2 logs hashes to be accumulated
+    bytes32[2] memory logsHashes; // A memory to which we will write the 2 logs hashes to be accumulated
     bytes32 kernelPublicInputsLogsHash; // The hash on the output of kernel iteration
     // The length of the logs emitted by Noir from the function call corresponding to this kernel iteration
     uint256 privateCircuitPublicInputLogsLength;
@@ -499,21 +499,16 @@ library Decoder {
         offset := add(offset, privateCircuitPublicInputLogsLength)
       }
 
+      // Hash the logs
       bytes32 privateCircuitPublicInputsLogsHash = sha256(privateCircuitPublicInputLogs);
 
-      assembly {
-        // Copy `kernelPublicInputsLogsHash` from stack to `logsHashes`
-        mstore(add(logsHashes, 0x20), kernelPublicInputsLogsHash)
-        // Copy `privateCircuitPublicInputsLogsHash` from stack to last 32 bytes of `logsHashes`
-        mstore(add(logsHashes, 0x40), privateCircuitPublicInputsLogsHash)
-
-        // Decrease remaining logs length by this privateCircuitPublicInputsLogs's length (len(I?_LOGS)) and 4 bytes for I?_LOGS_LEN
-        remainingLogsLength :=
-          sub(remainingLogsLength, add(privateCircuitPublicInputLogsLength, 0x4))
-      }
+      logsHashes[0] = kernelPublicInputsLogsHash;
+      logsHashes[1] = privateCircuitPublicInputsLogsHash;
+      // Decrease remaining logs length by this privateCircuitPublicInputsLogs's length (len(I?_LOGS)) and 4 bytes for I?_LOGS_LEN
+      remainingLogsLength -= (privateCircuitPublicInputLogsLength + 0x4); // 0x4 is the length of the logs length
 
       // Hash logs hash from the public inputs of previous kernel iteration and logs hash from private circuit public inputs
-      kernelPublicInputsLogsHash = sha256(logsHashes);
+      kernelPublicInputsLogsHash = sha256(abi.encodePacked(logsHashes));
     }
 
     return (kernelPublicInputsLogsHash, offset);
