@@ -11,6 +11,7 @@ import {
   MembershipWitness,
   NEW_COMMITMENTS_LENGTH,
   NEW_L2_TO_L1_MSGS_LENGTH,
+  NEW_NULLIFIERS_LENGTH,
   PUBLIC_CALL_STACK_LENGTH,
   PreviousKernelData,
   Proof,
@@ -218,6 +219,7 @@ export class PublicProcessor {
       proverAddress: AztecAddress.random(),
       argsHash: await computeVarArgsHash(wasm, result.execution.args),
       newCommitments: padArrayEnd([], Fr.ZERO, NEW_COMMITMENTS_LENGTH),
+      newNullifiers: padArrayEnd([], Fr.ZERO, NEW_NULLIFIERS_LENGTH),
       newL2ToL1Msgs: padArrayEnd([], Fr.ZERO, NEW_L2_TO_L1_MSGS_LENGTH),
       returnValues: padArrayEnd(result.returnValues, Fr.ZERO, RETURN_VALUES_LENGTH),
       contractStorageReads: padArrayEnd(

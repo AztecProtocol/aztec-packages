@@ -10,6 +10,7 @@ import {
   KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH,
   NEW_COMMITMENTS_LENGTH,
   NEW_L2_TO_L1_MSGS_LENGTH,
+  NEW_NULLIFIERS_LENGTH,
   PUBLIC_CALL_STACK_LENGTH,
   RETURN_VALUES_LENGTH,
 } from './constants.js';
@@ -165,6 +166,10 @@ export class PublicCircuitPublicInputs {
      */
     public newCommitments: Tuple<Fr, typeof NEW_COMMITMENTS_LENGTH>,
     /**
+     * New nullifiers created within a public execution call
+     */
+    public newNullifiers: Tuple<Fr, typeof NEW_NULLIFIERS_LENGTH>,
+    /**
      * New L2 to L1 messages generated during the call.
      */
     public newL2ToL1Msgs: Tuple<Fr, typeof NEW_L2_TO_L1_MSGS_LENGTH>,
@@ -180,6 +185,7 @@ export class PublicCircuitPublicInputs {
     assertMemberLength(this, 'returnValues', RETURN_VALUES_LENGTH);
     assertMemberLength(this, 'publicCallStack', PUBLIC_CALL_STACK_LENGTH);
     assertMemberLength(this, 'newCommitments', NEW_COMMITMENTS_LENGTH);
+    assertMemberLength(this, 'newNullifiers', NEW_NULLIFIERS_LENGTH);
     assertMemberLength(this, 'newL2ToL1Msgs', NEW_L2_TO_L1_MSGS_LENGTH);
     assertMemberLength(this, 'contractStorageUpdateRequests', KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH);
     assertMemberLength(this, 'contractStorageReads', KERNEL_PUBLIC_DATA_READS_LENGTH);
@@ -207,6 +213,7 @@ export class PublicCircuitPublicInputs {
       makeTuple(KERNEL_PUBLIC_DATA_READS_LENGTH, ContractStorageRead.empty),
       makeTuple(PUBLIC_CALL_STACK_LENGTH, Fr.zero),
       makeTuple(NEW_COMMITMENTS_LENGTH, Fr.zero),
+      makeTuple(NEW_NULLIFIERS_LENGTH, Fr.zero),
       makeTuple(NEW_L2_TO_L1_MSGS_LENGTH, Fr.zero),
       Fr.ZERO,
       AztecAddress.ZERO,
@@ -223,6 +230,7 @@ export class PublicCircuitPublicInputs {
       isArrayEmpty(this.contractStorageReads, item => item.isEmpty()) &&
       isFrArrayEmpty(this.publicCallStack) &&
       isFrArrayEmpty(this.newCommitments) &&
+      isFrArrayEmpty(this.newNullifiers) &&
       isFrArrayEmpty(this.newL2ToL1Msgs) &&
       this.historicPublicDataTreeRoot.isZero() &&
       this.proverAddress.isZero()
@@ -243,6 +251,7 @@ export class PublicCircuitPublicInputs {
       fields.contractStorageReads,
       fields.publicCallStack,
       fields.newCommitments,
+      fields.newNullifiers,
       fields.newL2ToL1Msgs,
       fields.historicPublicDataTreeRoot,
       fields.proverAddress,

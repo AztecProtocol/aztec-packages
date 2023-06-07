@@ -341,9 +341,23 @@ std::array<fr, NEW_COMMITMENTS_LENGTH> new_commitments_as_siloed_commitments(
 {
     std::array<fr, NEW_COMMITMENTS_LENGTH> siloed_commitments{};
     for (size_t i = 0; i < NEW_COMMITMENTS_LENGTH; ++i) {
-        siloed_commitments[i] = new_commitments[i] == 0 ? 0 : silo_commitment<NT>(contract_address, new_commitments[i]);
+        if (!new_commitments[i].is_zero()) {
+            siloed_commitments[i] = silo_commitment<NT>(contract_address, new_commitments[i]);
+        }
     }
     return siloed_commitments;
+}
+
+std::array<fr, NEW_NULLIFIERS_LENGTH> new_nullifiers_as_siloed_nullifiers(
+    std::array<fr, NEW_NULLIFIERS_LENGTH> const& new_nullifiers, NT::fr const& contract_address)
+{
+    std::array<fr, NEW_NULLIFIERS_LENGTH> siloed_nullifiers{};
+    for (size_t i = 0; i < NEW_NULLIFIERS_LENGTH; ++i) {
+        if (!new_nullifiers[i].is_zero()) {
+            siloed_nullifiers[i] = silo_nullifier<NT>(contract_address, new_nullifiers[i]);
+        }
+    }
+    return siloed_nullifiers;
 }
 
 std::array<NT::fr, NEW_L2_TO_L1_MSGS_LENGTH> new_l2_messages_from_message(
@@ -1079,6 +1093,12 @@ TEST(public_kernel_tests, circuit_outputs_should_be_correctly_populated_with_pre
     initial_commitments[1] = fr(2);
     inputs.previous_kernel.public_inputs.end.new_commitments = initial_commitments;
 
+    // setup 2 previous new nullifiers
+    std::array<NT::fr, NEW_NULLIFIERS_LENGTH> initial_nullifiers{};
+    initial_nullifiers[0] = fr(12345);
+    initial_nullifiers[1] = fr(67890);
+    inputs.previous_kernel.public_inputs.end.new_nullifiers = initial_nullifiers;
+
     // setup 1 new l2 to l1 messages
     std::array<NT::fr, NEW_L2_TO_L1_MSGS_LENGTH> initial_l2_to_l1_messages{};
     initial_l2_to_l1_messages[0] = fr(1);
@@ -1095,8 +1115,8 @@ TEST(public_kernel_tests, circuit_outputs_should_be_correctly_populated_with_pre
                   inputs.public_call.call_stack_item.public_inputs.public_call_stack[i]);
     }
 
-    // we should now see the public data reads and writes, new commitments, l2_to_l1_messages from this iteration
-    // appended to the combined output
+    // we should now see the public data reads and writes, new commitments, new_nullifiers,
+    // l2_to_l1_messages from this iteration appended to the combined output
     ASSERT_EQ(array_length(public_inputs.end.public_data_reads),
               array_length(inputs.previous_kernel.public_inputs.end.public_data_reads) +
                   array_length(inputs.public_call.call_stack_item.public_inputs.contract_storage_reads));
@@ -1106,6 +1126,9 @@ TEST(public_kernel_tests, circuit_outputs_should_be_correctly_populated_with_pre
     ASSERT_EQ(array_length(public_inputs.end.new_commitments),
               array_length(inputs.previous_kernel.public_inputs.end.new_commitments) +
                   array_length(inputs.public_call.call_stack_item.public_inputs.new_commitments));
+    ASSERT_EQ(array_length(public_inputs.end.new_nullifiers),
+              array_length(inputs.previous_kernel.public_inputs.end.new_nullifiers) +
+                  array_length(inputs.public_call.call_stack_item.public_inputs.new_nullifiers));
     ASSERT_EQ(array_length(public_inputs.end.new_l2_to_l1_msgs),
               array_length(inputs.previous_kernel.public_inputs.end.new_l2_to_l1_msgs) +
                   array_length(inputs.public_call.call_stack_item.public_inputs.new_l2_to_l1_msgs));
@@ -1135,6 +1158,13 @@ TEST(public_kernel_tests, circuit_outputs_should_be_correctly_populated_with_pre
     ASSERT_TRUE(source_arrays_are_in_target(inputs.previous_kernel.public_inputs.end.new_commitments,
                                             expected_new_commitments,
                                             public_inputs.end.new_commitments));
+
+    std::array<NT::fr, NEW_NULLIFIERS_LENGTH> const expected_new_nullifiers = new_nullifiers_as_siloed_nullifiers(
+        inputs.public_call.call_stack_item.public_inputs.new_nullifiers, contract_address);
+
+    ASSERT_TRUE(source_arrays_are_in_target(inputs.previous_kernel.public_inputs.end.new_nullifiers,
+                                            expected_new_nullifiers,
+                                            public_inputs.end.new_nullifiers));
 
     std::array<NT::fr, NEW_L2_TO_L1_MSGS_LENGTH> const expected_new_messages = new_l2_messages_from_message(
         inputs.public_call.call_stack_item.public_inputs.new_l2_to_l1_msgs, contract_address, portal_contract_address);
