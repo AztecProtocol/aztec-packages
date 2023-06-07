@@ -206,14 +206,14 @@ void perform_static_call_checks(Composer& composer, KernelInput const& public_ke
     const auto& new_commitments = public_call_public_inputs.new_commitments;
     const auto& new_nullifiers = public_call_public_inputs.new_nullifiers;
 
-    // if (is_static_call) {
-    //     composer.do_assert(utils::is_array_empty(new_commitments) == true,
-    //                        "perform_static_call_checks in static call new commitments must be empty",
-    //                        CircuitErrorCode::PUBLIC_KERNEL__NEW_COMMITMENTS_PROHIBITED_IN_STATIC_CALL);
-    //     composer.do_assert(utils::is_array_empty(new_nullifiers) == true,
-    //                        "perform_static_call_checks in static call new nullifiers must be empty",
-    //                        CircuitErrorCode::PUBLIC_KERNEL__NEW_NULLIFIERS_PROHIBITED_IN_STATIC_CALL);
-    // }
+    if (is_static_call) {
+        composer.do_assert(utils::is_array_empty(new_commitments) == true,
+                           "perform_static_call_checks in static call new commitments must be empty",
+                           CircuitErrorCode::PUBLIC_KERNEL__NEW_COMMITMENTS_PROHIBITED_IN_STATIC_CALL);
+        composer.do_assert(utils::is_array_empty(new_nullifiers) == true,
+                           "perform_static_call_checks in static call new nullifiers must be empty",
+                           CircuitErrorCode::PUBLIC_KERNEL__NEW_NULLIFIERS_PROHIBITED_IN_STATIC_CALL);
+    }
 }
 
 /**

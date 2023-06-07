@@ -71,6 +71,12 @@ std::array<NT::fr, SIZE> array_of_values(NT::uint32& count, NT::uint32 num_value
     return values;
 }
 
+template <typename T, size_t SIZE> std::array<T, SIZE> empty_array_of_values()
+{
+    std::array<T, SIZE> values{};
+    return values;
+}
+
 std::array<ContractStorageUpdateRequest<NT>, KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH>
 generate_contract_storage_update_requests(NT::uint32& count,
                                           NT::uint32 num_values_required = KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH)
@@ -127,6 +133,7 @@ PublicCallStackItem generate_call_stack_item(NT::fr contract_address,
     std::array<NT::fr, PUBLIC_CALL_STACK_LENGTH> const public_call_stack =
         array_of_values<PUBLIC_CALL_STACK_LENGTH>(count);
     std::array<NT::fr, NEW_COMMITMENTS_LENGTH> const new_commitments = array_of_values<NEW_COMMITMENTS_LENGTH>(count);
+    std::array<NT::fr, NEW_NULLIFIERS_LENGTH> const new_nullifiers = array_of_values<NEW_NULLIFIERS_LENGTH>(count);
     std::array<NT::fr, NEW_L2_TO_L1_MSGS_LENGTH> const new_l2_to_l1_msgs =
         array_of_values<NEW_L2_TO_L1_MSGS_LENGTH>(count);
     std::array<ContractStorageRead<NT>, KERNEL_PUBLIC_DATA_READS_LENGTH> const reads =
@@ -143,6 +150,7 @@ PublicCallStackItem generate_call_stack_item(NT::fr contract_address,
         .contract_storage_reads = reads,
         .public_call_stack = public_call_stack,
         .new_commitments = new_commitments,
+        .new_nullifiers = new_nullifiers,
         .new_l2_to_l1_msgs = new_l2_to_l1_msgs,
 
     };
@@ -236,6 +244,8 @@ PublicKernelInputsNoPreviousKernel<NT> get_kernel_inputs_no_previous_kernel()
         generate_contract_storage_reads(seed, KERNEL_PUBLIC_DATA_READS_LENGTH / 2);
     std::array<fr, NEW_COMMITMENTS_LENGTH> const new_commitments =
         array_of_values<NEW_COMMITMENTS_LENGTH>(seed, NEW_COMMITMENTS_LENGTH / 2);
+    std::array<fr, NEW_NULLIFIERS_LENGTH> const new_nullifiers =
+        array_of_values<NEW_COMMITMENTS_LENGTH>(seed, NEW_NULLIFIERS_LENGTH / 2);
     std::array<fr, NEW_L2_TO_L1_MSGS_LENGTH> const new_l2_to_l1_msgs =
         array_of_values<NEW_L2_TO_L1_MSGS_LENGTH>(seed, NEW_L2_TO_L1_MSGS_LENGTH / 2);
     fr const historic_public_data_tree_root = ++seed;
@@ -249,6 +259,7 @@ PublicKernelInputsNoPreviousKernel<NT> get_kernel_inputs_no_previous_kernel()
         .contract_storage_reads = reads,
         .public_call_stack = call_stack_hashes,
         .new_commitments = new_commitments,
+        .new_nullifiers = new_nullifiers,
         .new_l2_to_l1_msgs = new_l2_to_l1_msgs,
         .historic_public_data_tree_root = historic_public_data_tree_root,
     };
@@ -417,11 +428,14 @@ PublicKernelInputs<NT> get_kernel_inputs_with_previous_kernel(NT::boolean privat
     new_nullifiers[0] = kernel_inputs_no_previous.signed_tx_request.hash();
 
     CombinedAccumulatedData<NT> const end_accumulated_data = {
-        .new_commitments = array_of_values<KERNEL_NEW_COMMITMENTS_LENGTH>(seed, private_previous ? 2 : 0),
-        .new_nullifiers = new_nullifiers,
+        .new_commitments = array_of_values<KERNEL_NEW_COMMITMENTS_LENGTH>(
+            seed, private_previous ? KERNEL_NEW_COMMITMENTS_LENGTH / 2 : 0),
+        .new_nullifiers = array_of_values<KERNEL_NEW_NULLIFIERS_LENGTH>(
+            seed, private_previous ? KERNEL_NEW_NULLIFIERS_LENGTH / 2 : 0),
         .private_call_stack = array_of_values<KERNEL_PRIVATE_CALL_STACK_LENGTH>(seed, 0),
         .public_call_stack = public_call_stack,
-        .new_l2_to_l1_msgs = array_of_values<KERNEL_NEW_L2_TO_L1_MSGS_LENGTH>(seed, private_previous ? 1 : 0),
+        .new_l2_to_l1_msgs = array_of_values<KERNEL_NEW_L2_TO_L1_MSGS_LENGTH>(
+            seed, private_previous ? KERNEL_NEW_L2_TO_L1_MSGS_LENGTH / 2 : 0),
         .new_contracts = std::array<NewContractData<NT>, KERNEL_NEW_CONTRACTS_LENGTH>(),
         .optionally_revealed_data = std::array<OptionallyRevealedData<NT>, KERNEL_OPTIONALLY_REVEALED_DATA_LENGTH>(),
         .public_data_update_requests =
@@ -483,10 +497,6 @@ void validate_public_kernel_outputs_correctly_propagated(const KernelInput& inpu
 void validate_private_data_propagation(const PublicKernelInputs<NT>& inputs,
                                        const KernelCircuitPublicInputs<NT>& public_inputs)
 {
-    ASSERT_TRUE(source_arrays_are_in_target(inputs.previous_kernel.public_inputs.end.new_nullifiers,
-                                            zero_array<NT::fr, KERNEL_NEW_NULLIFIERS_LENGTH>(),
-                                            public_inputs.end.new_nullifiers));
-
     ASSERT_TRUE(source_arrays_are_in_target(inputs.previous_kernel.public_inputs.end.private_call_stack,
                                             zero_array<NT::fr, KERNEL_PRIVATE_CALL_STACK_LENGTH>(),
                                             public_inputs.end.private_call_stack));
@@ -1206,6 +1216,56 @@ TEST(public_kernel_tests, previous_public_kernel_fails_if_incorrect_storage_cont
     ASSERT_TRUE(dummyComposer.failed());
     ASSERT_EQ(dummyComposer.get_first_failure().code,
               CircuitErrorCode::PUBLIC_KERNEL__CALL_CONTEXT_INVALID_STORAGE_ADDRESS_FOR_DELEGATE_CALL);
+}
+
+TEST(public_kernel_tests, public_kernel_fails_creating_new_commitments_on_static_call)
+{
+    DummyComposer dummyComposer = DummyComposer("public_kernel_fails_creating_new_commitments_on_static_call");
+    PublicKernelInputs<NT> inputs = get_kernel_inputs_with_previous_kernel(false);
+
+    // the function call has the contract address and storage contract address equal and so it should fail for a
+    // delegate call
+    inputs.public_call.call_stack_item.public_inputs.call_context.is_static_call = true;
+
+    // set previously set items to 0
+    inputs.public_call.call_stack_item.public_inputs.contract_storage_update_requests =
+        empty_array_of_values<ContractStorageUpdateRequest<NT>, KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH>();
+
+    // regenerate call data hash
+    inputs.previous_kernel.public_inputs.end.public_call_stack[0] =
+        get_call_stack_item_hash(inputs.public_call.call_stack_item);
+
+    // Update call stack hash
+    auto public_inputs = native_public_kernel_circuit_public_previous_kernel(dummyComposer, inputs);
+    ASSERT_TRUE(dummyComposer.failed());
+    ASSERT_EQ(dummyComposer.get_first_failure().code,
+              CircuitErrorCode::PUBLIC_KERNEL__NEW_COMMITMENTS_PROHIBITED_IN_STATIC_CALL);
+}
+
+TEST(public_kernel_tests, public_kernel_fails_creating_new_nullifiers_on_static_call)
+{
+    DummyComposer dummyComposer = DummyComposer("public_kernel_fails_creating_new_nullifiers_on_static_call");
+    PublicKernelInputs<NT> inputs = get_kernel_inputs_with_previous_kernel(false);
+
+    // the function call has the contract address and storage contract address equal and so it should fail for a
+    // delegate call
+    inputs.public_call.call_stack_item.public_inputs.call_context.is_static_call = true;
+
+    // set previously set items to 0
+    inputs.public_call.call_stack_item.public_inputs.contract_storage_update_requests =
+        empty_array_of_values<ContractStorageUpdateRequest<NT>, KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH>();
+    inputs.public_call.call_stack_item.public_inputs.new_commitments =
+        empty_array_of_values<NT::fr, KERNEL_NEW_COMMITMENTS_LENGTH>();
+
+    // regenerate call data hash
+    inputs.previous_kernel.public_inputs.end.public_call_stack[0] =
+        get_call_stack_item_hash(inputs.public_call.call_stack_item);
+
+    // Update call stack hash
+    auto public_inputs = native_public_kernel_circuit_public_previous_kernel(dummyComposer, inputs);
+    ASSERT_TRUE(dummyComposer.failed());
+    ASSERT_EQ(dummyComposer.get_first_failure().code,
+              CircuitErrorCode::PUBLIC_KERNEL__NEW_NULLIFIERS_PROHIBITED_IN_STATIC_CALL);
 }
 
 }  // namespace aztec3::circuits::kernel::public_kernel
