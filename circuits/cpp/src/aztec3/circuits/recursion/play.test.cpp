@@ -15,7 +15,8 @@ using namespace aztec3::utils::types;
 // } // namespace
 
 class play_tests : public ::testing::Test {
-    //   protected:
+  protected:
+    static void SetUpTestSuite() { barretenberg::srs::init_crs_factory("../barretenberg/cpp/srs_db/ignition"); }
     //     static void SetUpTestCase()
     //     {
     //         std::string CRS_PATH = "../srs_db/ignition";
@@ -27,13 +28,13 @@ class play_tests : public ::testing::Test {
 
 TEST(play_tests, circuit_play_app_circuit)
 {
-    Composer composer = Composer("../barretenberg/cpp/srs_db/ignition");
+    Composer composer = Composer(barretenberg::srs::get_crs_factory());
     play_app_circuit(composer, 1, 2);
 }
 
 TEST(play_tests, circuit_play_app_proof_gen)
 {
-    Composer app_composer = Composer("../barretenberg/cpp/srs_db/ignition");
+    Composer app_composer = Composer(barretenberg::srs::get_crs_factory());
     play_app_circuit(app_composer, 100, 200);
 
     if (app_composer.failed()) {
@@ -47,7 +48,7 @@ TEST(play_tests, circuit_play_app_proof_gen)
 
 TEST(play_tests, circuit_play_recursive_proof_gen)
 {
-    Composer app_composer = Composer("../barretenberg/cpp/srs_db/ignition");
+    Composer app_composer = Composer(barretenberg::srs::get_crs_factory());
     play_app_circuit(app_composer, 1, 2);
 
     if (app_composer.failed()) {
@@ -60,7 +61,7 @@ TEST(play_tests, circuit_play_recursive_proof_gen)
 
     std::shared_ptr<plonk::verification_key> const app_vk = app_composer.compute_verification_key();
 
-    Composer recursive_composer = Composer("../barretenberg/cpp/srs_db/ignition");
+    Composer recursive_composer = Composer(barretenberg::srs::get_crs_factory());
     auto aggregation_output = play_recursive_circuit(recursive_composer, app_vk, app_proof);
 
     if (recursive_composer.failed()) {
@@ -70,7 +71,7 @@ TEST(play_tests, circuit_play_recursive_proof_gen)
 
 TEST(play_tests, circuit_play_recursive_2_proof_gen)
 {
-    Composer app_composer = Composer("../barretenberg/cpp/srs_db/ignition");
+    Composer app_composer = Composer(barretenberg::srs::get_crs_factory());
     play_app_circuit(app_composer, 1, 2);
 
     if (app_composer.failed()) {
@@ -83,7 +84,7 @@ TEST(play_tests, circuit_play_recursive_2_proof_gen)
 
     //*******************************************************************************
 
-    Composer dummy_circuit_composer = Composer("../barretenberg/cpp/srs_db/ignition");
+    Composer dummy_circuit_composer = Composer(barretenberg::srs::get_crs_factory());
     dummy_circuit(dummy_circuit_composer, 1, 2);
 
     if (dummy_circuit_composer.failed()) {
@@ -96,7 +97,7 @@ TEST(play_tests, circuit_play_recursive_2_proof_gen)
 
     //*******************************************************************************
 
-    Composer recursion_1_composer = Composer("../barretenberg/cpp/srs_db/ignition", 0);
+    Composer recursion_1_composer = Composer(barretenberg::srs::get_crs_factory(), 0);
     auto recursion_1_output =
         play_recursive_circuit_2(recursion_1_composer, app_vk, app_proof, dummy_circuit_vk, dummy_circuit_proof);
 
@@ -112,7 +113,7 @@ TEST(play_tests, circuit_play_recursive_2_proof_gen)
 
     //*******************************************************************************
 
-    // Composer recursion_2_composer = Composer("../barretenberg/cpp/srs_db/ignition");
+    // Composer recursion_2_composer = Composer(barretenberg::srs::get_crs_factory());
     // aggregation_output<bn254> recursion_2_output = play_recursive_circuit_2<TurboRecursion>(
     //     recursion_2_composer, app_vk, app_proof, recursion_1_vk, recursion_1_proof);
 

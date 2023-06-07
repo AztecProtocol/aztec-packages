@@ -504,7 +504,7 @@ void validate_no_new_deployed_contract(KernelCircuitPublicInputs<NT> const& publ
 }
 
 class private_kernel_tests : public ::testing::Test {
-  public:
+  protected:
     static void SetUpTestSuite() { barretenberg::srs::init_crs_factory("../barretenberg/cpp/srs_db/ignition"); }
 };
 
