@@ -4,8 +4,8 @@ global MAX_NEW_COMMITMENTS: comptime Field = 4;
 global MAX_NEW_NULLIFIERS: comptime Field = 4;
 global MAX_PRIVATE_CALL_STACK : comptime Field = 4;
 global MAX_PUBLIC_CALL_STACK: comptime Field = 4;
-global MAX_L2_TO_L1_MSG_STACK : comptime Field = 2;
-global PUBLIC_INPUTS_LENGTH : comptime Field = 41;
+global MAX_L2_TO_L1_MSGS : comptime Field = 2;
+global PUBLIC_INPUTS_LENGTH : comptime Field = 43;
 // global LOGS_HASH_SIZE: comptime Field = 2; // Stored in  2 fields in order to fit in all of the 256 bits of sha256 hash.
 global CONTRACT_STORAGE_UPDATE_REQUESTS_LENGTH : comptime Field = 4;
 global CONTRACT_STORAGE_READS_LENGTH : comptime Field = 4;
@@ -99,7 +99,7 @@ struct PrivateCircuitPublicInputs {
     new_nullifiers: [Field; crate::abi::MAX_NEW_NULLIFIERS],
     private_call_stack: [Field; crate::abi::MAX_PRIVATE_CALL_STACK],
     public_call_stack: [Field; crate::abi::MAX_PUBLIC_CALL_STACK],
-    new_l2_to_l1_msgs: [Field; crate::abi::MAX_L2_TO_L1_MSG_STACK],
+    new_l2_to_l1_msgs: [Field; crate::abi::MAX_L2_TO_L1_MSGS],
     // TODO #588, relevant issue: https://github.com/AztecProtocol/aztec-packages/issues/588
     // When uncommenting, explore introducing a new type like uint256 (similar to Point), so it's more explicit that
     // we're talking about a single number backed by two field elements.
@@ -186,7 +186,7 @@ fn empty_contract_storage_update_request() -> ContractStorageUpdateRequest {
 // + CONTRACT_STORAGE_READS_LENGTH * CONTRACT_STORAGE_READ_SIZE
 // + MAX_PUBLIC_CALL_STACK
 // + MAX_NEW_COMMITMENTS
-// + MAX_L2_TO_L1_MSG_STACK
+// + MAX_L2_TO_L1_MSGS
 // + 2;
 // = 6 + 1 + 4 + 4 * 3 + 4 * 2 + 4 + 4 + 2 + 2
 global PUBLIC_CIRCUIT_PUBLIC_INPUTS_SIZE: comptime Field = 43;
@@ -199,7 +199,7 @@ struct PublicCircuitPublicInputs {
     contract_storage_read: [ContractStorageRead; crate::abi::CONTRACT_STORAGE_READS_LENGTH],
     public_call_stack: [Field; crate::abi::MAX_PUBLIC_CALL_STACK],
     new_commitments: [Field; crate::abi::MAX_NEW_COMMITMENTS],
-    new_l2_to_l1_msgs: [Field; crate::abi::MAX_L2_TO_L1_MSG_STACK],
+    new_l2_to_l1_msgs: [Field; crate::abi::MAX_L2_TO_L1_MSGS],
     historic_public_data_tree_root: Field,
     prover_address: Field,
 }
