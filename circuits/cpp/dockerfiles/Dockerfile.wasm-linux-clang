@@ -7,7 +7,7 @@ RUN ./scripts/install-wasi-sdk.sh
 WORKDIR /usr/src/circuits/cpp
 COPY . .
 
-RUN cmake --preset wasm && cmake --build --preset wasm --target aztec3-circuits.wasm
+RUN cmake --preset wasm && cmake --build --preset wasm --target aztec3-circuits.wasm --target barretenberg.wasm
 
 FROM alpine:3.17
 COPY --from=builder /usr/src/circuits/cpp/build-wasm/bin/aztec3-circuits.wasm /usr/src/circuits/cpp/build-wasm/bin/aztec3-circuits.wasm
