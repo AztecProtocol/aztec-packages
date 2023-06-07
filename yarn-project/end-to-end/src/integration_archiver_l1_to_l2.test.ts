@@ -1,5 +1,5 @@
 import { AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
-import { AztecAddress, AztecRPCServer, Contract, createMessageSecretAndHash } from '@aztec/aztec.js';
+import { AztecAddress, AztecRPCServer, Contract, computeMessageSecretHash } from '@aztec/aztec.js';
 import { EthAddress } from '@aztec/foundation/eth-address';
 
 import { DeployL1Contracts } from '@aztec/ethereum';
@@ -83,8 +83,8 @@ describe('archiver integration with l1 to l2 messages', () => {
 
     // Generate a claim secret using pedersen
     logger("Generating a claim secret using pedersen's hash function");
-    const secret = Fr.random();
-    const secretString = await createMessageSecretAndHash(secret);
+    const secretHash = await computeMessageSecretHash();
+    const secretString = `0x${secretHash.toBuffer().toString('hex')}` as `0x${string}`;
     logger('Generated claim secret: ', secretString);
 
     logger('Minting tokens on L1');

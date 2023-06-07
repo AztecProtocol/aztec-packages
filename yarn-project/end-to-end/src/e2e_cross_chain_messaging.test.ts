@@ -1,5 +1,5 @@
 import { AztecNodeService } from '@aztec/aztec-node';
-import { AztecAddress, AztecRPCServer, Contract, TxStatus, createMessageSecretAndHash } from '@aztec/aztec.js';
+import { AztecAddress, AztecRPCServer, Contract, TxStatus, computeMessageSecretHash } from '@aztec/aztec.js';
 import { EthAddress } from '@aztec/foundation/eth-address';
 
 import { DeployL1Contracts } from '@aztec/ethereum';
@@ -88,7 +88,8 @@ describe('e2e_cross_chain_messaging', () => {
     // Generate a claim secret using pedersen
     logger("Generating a claim secret using pedersen's hash function");
     const secret = Fr.random();
-    const secretString = await createMessageSecretAndHash(secret);
+    const secretHash = await computeMessageSecretHash(secret);
+    const secretString = `0x${secretHash.toBuffer().toString('hex')}` as `0x${string}`;
     logger('Generated claim secret: ', secretString);
 
     logger('Minting tokens on L1');
