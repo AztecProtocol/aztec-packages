@@ -124,7 +124,6 @@ PublicCallStackItem generate_call_stack_item(NT::fr contract_address,
     };
     fr const args_hash = count;
     std::array<NT::fr, RETURN_VALUES_LENGTH> const return_values = array_of_values<RETURN_VALUES_LENGTH>(count);
-    std::array<NT::fr, EMITTED_EVENTS_LENGTH> const emitted_events = array_of_values<EMITTED_EVENTS_LENGTH>(count);
     std::array<NT::fr, PUBLIC_CALL_STACK_LENGTH> const public_call_stack =
         array_of_values<PUBLIC_CALL_STACK_LENGTH>(count);
     std::array<NT::fr, NEW_COMMITMENTS_LENGTH> const new_commitments = array_of_values<NEW_COMMITMENTS_LENGTH>(count);
@@ -140,7 +139,6 @@ PublicCallStackItem generate_call_stack_item(NT::fr contract_address,
         .call_context = call_context,
         .args_hash = args_hash,
         .return_values = return_values,
-        .emitted_events = emitted_events,
         .contract_storage_update_requests = update_requests,
         .contract_storage_reads = reads,
         .public_call_stack = public_call_stack,
@@ -232,8 +230,6 @@ PublicKernelInputsNoPreviousKernel<NT> get_kernel_inputs_no_previous_kernel()
 
     std::array<fr, RETURN_VALUES_LENGTH> const return_values =
         array_of_values<RETURN_VALUES_LENGTH>(seed, RETURN_VALUES_LENGTH / 2);
-    std::array<fr, EMITTED_EVENTS_LENGTH> const emitted_events =
-        array_of_values<EMITTED_EVENTS_LENGTH>(seed, EMITTED_EVENTS_LENGTH / 2);
     std::array<ContractStorageUpdateRequest<NT>, KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH> const update_requests =
         generate_contract_storage_update_requests(seed, KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH / 2);
     std::array<ContractStorageRead<NT>, KERNEL_PUBLIC_DATA_READS_LENGTH> const reads =
@@ -249,7 +245,6 @@ PublicKernelInputsNoPreviousKernel<NT> get_kernel_inputs_no_previous_kernel()
         .call_context = call_context,
         .args_hash = compute_var_args_hash<NT>(args),
         .return_values = return_values,
-        .emitted_events = emitted_events,
         .contract_storage_update_requests = update_requests,
         .contract_storage_reads = reads,
         .public_call_stack = call_stack_hashes,
