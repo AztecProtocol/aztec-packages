@@ -175,7 +175,7 @@ contract DecoderTest is Test {
     );
 
     assertEq(bytesAdvanced, encodedLogs.length, "Advanced by an incorrect number of bytes");
-    assertEq(logsHash, referenceLogsHash, "Logs hash should be 0 when there are no logs");
+    assertEq(logsHash, referenceLogsHash, "Incorrect logs hash");
   }
 
   function testComputeKernelLogs2Iterations() public {
@@ -204,9 +204,7 @@ contract DecoderTest is Test {
     );
 
     assertEq(bytesAdvanced, encodedLogs.length, "Advanced by an incorrect number of bytes");
-    assertEq(
-      logsHash, referenceLogsHashFromIteration2, "Logs hash should be 0 when there are no logs"
-    );
+    assertEq(logsHash, referenceLogsHashFromIteration2, "Incorrect logs hash");
   }
 
   // Tests https://github.com/AztecProtocol/aztec-packages/issues/730 is handled correctly
