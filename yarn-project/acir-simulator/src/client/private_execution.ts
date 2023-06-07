@@ -172,7 +172,7 @@ export class PrivateFunctionExecution {
         return toAcvmCallPrivateStackItem(childExecutionResult.callStackItem);
       },
       getL1ToL2Message: ([msgKey]: ACVMField[]) => this.context.getL1ToL2Message(fromACVMField(msgKey)),
-
+      getTransparentMessage: ([msgKey]: ACVMField[]) => this.context.getMessage(fromACVMField(msgKey)),
       debugLog: ([data]: ACVMField[]) => {
         // eslint-disable-next-line
         console.log(data);
@@ -193,6 +193,7 @@ export class PrivateFunctionExecution {
         enqueuedPublicFunctionCalls.push(enqueuedRequest);
         return toAcvmEnqueuePublicFunctionResult(enqueuedRequest);
       },
+      notifyCreatedTransparentMessage: notAvailable,
       viewNotesPage: notAvailable,
       storageRead: notAvailable,
       storageWrite: notAvailable,

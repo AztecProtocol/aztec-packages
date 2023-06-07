@@ -18,6 +18,8 @@ unconstrained fn notify_created_note(
     notify_created_note_oracle(storage_slot, owner, note)
 }
 
+
+
 #[oracle(notifyNullifiedNote)]
 fn notify_nullified_note_oracle(
     _storage_slot: Field,
