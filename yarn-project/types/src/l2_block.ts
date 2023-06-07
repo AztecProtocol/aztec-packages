@@ -145,8 +145,6 @@ export class L2Block {
     const newL2ToL1Msgs = times(KERNEL_NEW_L2_TO_L1_MSGS_LENGTH, Fr.random);
     const newEncryptedLogs = EventLogs.random(txsPerBlock * 2);
     const newEncryptedLogsLength = newEncryptedLogs.getSerializedLength();
-    // const newUnencryptedLogs = EventLogs.random(txsPerBlock * 2);
-    // const newUnencryptedLogsLength = newEncryptedLogs.getSerializedLength();
 
     return L2Block.fromFields({
       number: l2BlockNum,
@@ -175,8 +173,6 @@ export class L2Block {
       newL2ToL1Msgs,
       newEncryptedLogsLength,
       newEncryptedLogs,
-      // newUnencryptedLogsLength,
-      // newUnencryptedLogs,
     });
   }
 
@@ -290,14 +286,6 @@ export class L2Block {
      * Consolidated logs from all txs.
      */
     newEncryptedLogs: EventLogs;
-    /**
-     * Length (in bytes) of the new unencrypted logs data chunks in the block.
-     */
-    // newUnencryptedLogsLength: number;
-    /**
-     * Consolidated logs from all txs.
-     */
-    // newUnencryptedLogs: EventLogs;
   }) {
     return new this(
       fields.number,
@@ -326,8 +314,6 @@ export class L2Block {
       fields.newL1ToL2Messages,
       fields.newEncryptedLogsLength,
       fields.newEncryptedLogs,
-      // fields.newUnencryptedLogsLength,
-      // fields.newUnencryptedLogs,
     );
   }
 
@@ -369,8 +355,6 @@ export class L2Block {
       this.newL1ToL2Messages,
       this.newEncryptedLogsLength,
       this.newEncryptedLogs,
-      // this.newUnencryptedLogsLength,
-      // this.newUnencryptedLogs,
     );
   }
 
@@ -416,8 +400,6 @@ export class L2Block {
     const newL1ToL2Messages = reader.readVector(Fr);
     const newEncryptedLogsLength = reader.readNumber();
     const newEncryptedLogs = new EventLogs(reader.readBufferArray());
-    // const newUnencryptedLogsLength = reader.readNumber();
-    // const newUnencryptedLogs = new EventLogs(reader.readBufferArray());
 
     return L2Block.fromFields({
       number,
@@ -446,8 +428,6 @@ export class L2Block {
       newL1ToL2Messages,
       newEncryptedLogsLength,
       newEncryptedLogs,
-      // newUnencryptedLogsLength,
-      // newUnencryptedLogs,
     });
   }
 
