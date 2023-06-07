@@ -4,11 +4,7 @@
 #include "aztec3/constants.hpp"
 #include "aztec3/utils/circuit_errors.hpp"
 
-#include "barretenberg/crypto/pedersen_hash/pedersen.hpp"
-#include "barretenberg/crypto/sha256/sha256.hpp"
-#include "barretenberg/ecc/curves/bn254/fr.hpp"
-#include "barretenberg/stdlib/hash/pedersen/pedersen.hpp"
-#include "barretenberg/stdlib/merkle_tree/memory_tree.hpp"
+#include <barretenberg/barretenberg.hpp>
 
 #include <algorithm>
 #include <array>
@@ -148,7 +144,7 @@ std::array<fr, 2> compute_kernels_calldata_hash(std::array<abis::PreviousKernelD
         offset += KERNEL_NEW_L2_TO_L1_MSGS_LENGTH * 2;
 
         auto const contract_leaf = kernel_data[i].public_inputs.end.new_contracts[0];
-        calldata_hash_inputs[offset + i] = contract_leaf.is_empty() ? NT::fr::zero() : contract_leaf.hash();
+        calldata_hash_inputs[offset + i] = contract_leaf.hash();
 
         offset += KERNEL_NEW_CONTRACTS_LENGTH * 2;
 
@@ -188,44 +184,6 @@ std::array<fr, 2> compute_kernels_calldata_hash(std::array<abis::PreviousKernelD
 }
 
 /**
- * @brief From two calldata hashes, compute a single calldata hash
- *
- * @param calldata_hashes takes the 4 elements of 2 calldata hashes [high, low, high, low]
- * @return std::array<fr, 2>
- */
-std::array<fr, 2> compute_calldata_hash(std::array<fr, 4> calldata_hashes)
-{
-    // Generate a 512 bit input from right and left 256 bit hashes
-    constexpr auto num_bytes = 2 * 32;
-    std::array<uint8_t, num_bytes> calldata_hash_input_bytes;
-    for (uint8_t i = 0; i < 4; i++) {
-        auto half = calldata_hashes[i].to_buffer();
-        for (uint8_t j = 0; j < 16; j++) {
-            calldata_hash_input_bytes[i * 16 + j] = half[16 + j];
-        }
-    }
-
-    // Compute the sha256
-    std::vector<uint8_t> const calldata_hash_input_bytes_vec(calldata_hash_input_bytes.begin(),
-                                                             calldata_hash_input_bytes.end());
-    auto h = sha256::sha256(calldata_hash_input_bytes_vec);
-
-    // Split the hash into two fields, a high and a low
-    std::array<uint8_t, 32> buf_1;
-    std::array<uint8_t, 32> buf_2;
-    for (uint8_t i = 0; i < 16; i++) {
-        buf_1[i] = 0;
-        buf_1[16 + i] = h[i];
-        buf_2[i] = 0;
-        buf_2[16 + i] = h[i + 16];
-    }
-    auto high = fr::serialize_from_buffer(buf_1.data());
-    auto low = fr::serialize_from_buffer(buf_2.data());
-
-    return { high, low };
-}
-
-/**
  * @brief From two previous rollup data, compute a single calldata hash
  *
  * @param previous_rollup_data
@@ -233,7 +191,7 @@ std::array<fr, 2> compute_calldata_hash(std::array<fr, 4> calldata_hashes)
  */
 std::array<fr, 2> compute_calldata_hash(std::array<abis::PreviousRollupData<NT>, 2> previous_rollup_data)
 {
-    return compute_calldata_hash({ previous_rollup_data[0].base_or_merge_rollup_public_inputs.calldata_hash[0],
+    return accumulate_sha256<NT>({ previous_rollup_data[0].base_or_merge_rollup_public_inputs.calldata_hash[0],
                                    previous_rollup_data[0].base_or_merge_rollup_public_inputs.calldata_hash[1],
                                    previous_rollup_data[1].base_or_merge_rollup_public_inputs.calldata_hash[0],
                                    previous_rollup_data[1].base_or_merge_rollup_public_inputs.calldata_hash[1] });

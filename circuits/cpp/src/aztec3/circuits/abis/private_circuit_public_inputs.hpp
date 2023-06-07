@@ -3,22 +3,20 @@
 #include "call_context.hpp"
 #include "contract_deployment_data.hpp"
 
-#include <aztec3/constants.hpp>
-#include <aztec3/utils/array.hpp>
-#include <aztec3/utils/types/circuit_types.hpp>
-#include <aztec3/utils/types/convert.hpp>
-#include <aztec3/utils/types/native_types.hpp>
+#include "aztec3/constants.hpp"
+#include "aztec3/utils/array.hpp"
+#include "aztec3/utils/types/circuit_types.hpp"
+#include "aztec3/utils/types/convert.hpp"
+#include "aztec3/utils/types/native_types.hpp"
 
-#include <barretenberg/common/map.hpp>
-#include <barretenberg/crypto/generators/generator_data.hpp>
-#include <barretenberg/stdlib/hash/pedersen/pedersen.hpp>
-#include <barretenberg/stdlib/primitives/witness/witness.hpp>
+#include <barretenberg/barretenberg.hpp>
 
 namespace aztec3::circuits::abis {
 
 using aztec3::utils::zero_array;
 using aztec3::utils::types::CircuitTypes;
 using aztec3::utils::types::NativeTypes;
+using plonk::stdlib::witness_t;
 
 template <typename NCT> class PrivateCircuitPublicInputs {
     using fr = typename NCT::fr;
@@ -27,10 +25,8 @@ template <typename NCT> class PrivateCircuitPublicInputs {
   public:
     CallContext<NCT> call_context{};
 
-    std::array<fr, ARGS_LENGTH> args = zero_array<fr, ARGS_LENGTH>();
+    fr args_hash = 0;
     std::array<fr, RETURN_VALUES_LENGTH> return_values = zero_array<fr, RETURN_VALUES_LENGTH>();
-
-    std::array<fr, EMITTED_EVENTS_LENGTH> emitted_events = zero_array<fr, EMITTED_EVENTS_LENGTH>();
 
     std::array<fr, NEW_COMMITMENTS_LENGTH> new_commitments = zero_array<fr, NEW_COMMITMENTS_LENGTH>();
     std::array<fr, NEW_NULLIFIERS_LENGTH> new_nullifiers = zero_array<fr, NEW_NULLIFIERS_LENGTH>();
@@ -38,6 +34,16 @@ template <typename NCT> class PrivateCircuitPublicInputs {
     std::array<fr, PRIVATE_CALL_STACK_LENGTH> private_call_stack = zero_array<fr, PRIVATE_CALL_STACK_LENGTH>();
     std::array<fr, PUBLIC_CALL_STACK_LENGTH> public_call_stack = zero_array<fr, PUBLIC_CALL_STACK_LENGTH>();
     std::array<fr, NEW_L2_TO_L1_MSGS_LENGTH> new_l2_to_l1_msgs = zero_array<fr, NEW_L2_TO_L1_MSGS_LENGTH>();
+
+    // sha256 hash of the log preimages (in two fields to accommodate all 256-bits of the hash)
+    std::array<fr, 2> encrypted_logs_hash = zero_array<fr, 2>();
+    std::array<fr, 2> unencrypted_logs_hash = zero_array<fr, 2>();
+
+    // Here so that the gas cost of this request can be measured by circuits, without actually needing to feed in the
+    // variable-length data.
+    // TODO: Mike has this as uint32 but I have issue compiling it like that. Should it be used or is fr ok?
+    fr encrypted_log_preimages_length = 0;
+    fr unencrypted_log_preimages_length = 0;
 
     fr historic_private_data_tree_root = 0;
     fr historic_nullifier_tree_root = 0;
@@ -48,10 +54,14 @@ template <typename NCT> class PrivateCircuitPublicInputs {
 
     boolean operator==(PrivateCircuitPublicInputs<NCT> const& other) const
     {
-        return call_context == other.call_context && args == other.args && return_values == other.return_values &&
-               emitted_events == other.emitted_events && new_commitments == other.new_commitments &&
+        return call_context == other.call_context && args_hash == other.args_hash &&
+               return_values == other.return_values && new_commitments == other.new_commitments &&
                new_nullifiers == other.new_nullifiers && private_call_stack == other.private_call_stack &&
                public_call_stack == other.public_call_stack && new_l2_to_l1_msgs == other.new_l2_to_l1_msgs &&
+               encrypted_logs_hash == other.encrypted_logs_hash &&
+               unencrypted_logs_hash == other.unencrypted_logs_hash &&
+               encrypted_log_preimages_length == other.encrypted_log_preimages_length &&
+               unencrypted_log_preimages_length == other.unencrypted_log_preimages_length &&
                historic_private_data_tree_root == other.historic_private_data_tree_root &&
                historic_nullifier_tree_root == other.historic_nullifier_tree_root &&
                historic_contract_tree_root == other.historic_contract_tree_root &&
@@ -71,10 +81,8 @@ template <typename NCT> class PrivateCircuitPublicInputs {
         PrivateCircuitPublicInputs<CircuitTypes<Composer>> pis = {
             to_circuit_type(call_context),
 
-            to_ct(args),
+            to_ct(args_hash),
             to_ct(return_values),
-
-            to_ct(emitted_events),
 
             to_ct(new_commitments),
             to_ct(new_nullifiers),
@@ -82,6 +90,12 @@ template <typename NCT> class PrivateCircuitPublicInputs {
             to_ct(private_call_stack),
             to_ct(public_call_stack),
             to_ct(new_l2_to_l1_msgs),
+
+            to_ct(encrypted_logs_hash),
+            to_ct(unencrypted_logs_hash),
+
+            to_ct(encrypted_log_preimages_length),
+            to_ct(unencrypted_log_preimages_length),
 
             to_ct(historic_private_data_tree_root),
             to_ct(historic_nullifier_tree_root),
@@ -103,10 +117,8 @@ template <typename NCT> class PrivateCircuitPublicInputs {
         PrivateCircuitPublicInputs<NativeTypes> pis = {
             to_native_type(call_context),
 
-            to_nt(args),
+            to_nt(args_hash),
             to_nt(return_values),
-
-            to_nt(emitted_events),
 
             to_nt(new_commitments),
             to_nt(new_nullifiers),
@@ -114,6 +126,12 @@ template <typename NCT> class PrivateCircuitPublicInputs {
             to_nt(private_call_stack),
             to_nt(public_call_stack),
             to_nt(new_l2_to_l1_msgs),
+
+            to_nt(encrypted_logs_hash),
+            to_nt(unencrypted_logs_hash),
+
+            to_nt(encrypted_log_preimages_length),
+            to_nt(unencrypted_log_preimages_length),
 
             to_nt(historic_private_data_tree_root),
             to_nt(historic_nullifier_tree_root),
@@ -134,10 +152,8 @@ template <typename NCT> class PrivateCircuitPublicInputs {
 
         inputs.push_back(call_context.hash());
 
-        spread_arr_into_vec(args, inputs);
+        inputs.push_back(args_hash);
         spread_arr_into_vec(return_values, inputs);
-
-        spread_arr_into_vec(emitted_events, inputs);
 
         spread_arr_into_vec(new_commitments, inputs);
         spread_arr_into_vec(new_nullifiers, inputs);
@@ -145,6 +161,12 @@ template <typename NCT> class PrivateCircuitPublicInputs {
         spread_arr_into_vec(private_call_stack, inputs);
         spread_arr_into_vec(public_call_stack, inputs);
         spread_arr_into_vec(new_l2_to_l1_msgs, inputs);
+
+        spread_arr_into_vec(encrypted_logs_hash, inputs);
+        spread_arr_into_vec(unencrypted_logs_hash, inputs);
+
+        inputs.push_back(encrypted_log_preimages_length);
+        inputs.push_back(unencrypted_log_preimages_length);
 
         inputs.push_back(historic_private_data_tree_root);
         inputs.push_back(historic_nullifier_tree_root);
@@ -169,14 +191,17 @@ template <typename NCT> void read(uint8_t const*& it, PrivateCircuitPublicInputs
 
     PrivateCircuitPublicInputs<NCT>& pis = private_circuit_public_inputs;
     read(it, pis.call_context);
-    read(it, pis.args);
+    read(it, pis.args_hash);
     read(it, pis.return_values);
-    read(it, pis.emitted_events);
     read(it, pis.new_commitments);
     read(it, pis.new_nullifiers);
     read(it, pis.private_call_stack);
     read(it, pis.public_call_stack);
     read(it, pis.new_l2_to_l1_msgs);
+    read(it, pis.encrypted_logs_hash);
+    read(it, pis.unencrypted_logs_hash);
+    read(it, pis.encrypted_log_preimages_length);
+    read(it, pis.unencrypted_log_preimages_length);
     read(it, pis.historic_private_data_tree_root);
     read(it, pis.historic_nullifier_tree_root);
     read(it, pis.historic_contract_tree_root);
@@ -192,14 +217,17 @@ void write(std::vector<uint8_t>& buf, PrivateCircuitPublicInputs<NCT> const& pri
     PrivateCircuitPublicInputs<NCT> const& pis = private_circuit_public_inputs;
 
     write(buf, pis.call_context);
-    write(buf, pis.args);
+    write(buf, pis.args_hash);
     write(buf, pis.return_values);
-    write(buf, pis.emitted_events);
     write(buf, pis.new_commitments);
     write(buf, pis.new_nullifiers);
     write(buf, pis.private_call_stack);
     write(buf, pis.public_call_stack);
     write(buf, pis.new_l2_to_l1_msgs);
+    write(buf, pis.encrypted_logs_hash);
+    write(buf, pis.unencrypted_logs_hash);
+    write(buf, pis.encrypted_log_preimages_length);
+    write(buf, pis.unencrypted_log_preimages_length);
     write(buf, pis.historic_private_data_tree_root);
     write(buf, pis.historic_nullifier_tree_root);
     write(buf, pis.historic_contract_tree_root);
@@ -214,14 +242,17 @@ std::ostream& operator<<(std::ostream& os, PrivateCircuitPublicInputs<NCT> const
 {
     PrivateCircuitPublicInputs<NCT> const& pis = private_circuit_public_inputs;
     return os << "call_context: " << pis.call_context << "\n"
-              << "args: " << pis.args << "\n"
+              << "args_hash: " << pis.args_hash << "\n"
               << "return_values: " << pis.return_values << "\n"
-              << "emitted_events: " << pis.emitted_events << "\n"
               << "new_commitments: " << pis.new_commitments << "\n"
               << "new_nullifiers: " << pis.new_nullifiers << "\n"
               << "private_call_stack: " << pis.private_call_stack << "\n"
               << "public_call_stack: " << pis.public_call_stack << "\n"
               << "new_l2_to_l1_msgs: " << pis.new_l2_to_l1_msgs << "\n"
+              << "encrypted_logs_hash: " << pis.encrypted_logs_hash << "\n"
+              << "unencrypted_logs_hash: " << pis.unencrypted_logs_hash << "\n"
+              << "encrypted_log_preimages_length: " << pis.encrypted_log_preimages_length << "\n"
+              << "unencrypted_log_preimages_length: " << pis.unencrypted_log_preimages_length << "\n"
               << "historic_private_data_tree_root: " << pis.historic_private_data_tree_root << "\n"
               << "historic_nullifier_tree_root: " << pis.historic_nullifier_tree_root << "\n"
               << "historic_contract_tree_root: " << pis.historic_contract_tree_root << "\n"
@@ -240,10 +271,8 @@ template <typename NCT> class OptionalPrivateCircuitPublicInputs {
   public:
     std::optional<CallContext<NCT>> call_context;
 
-    std::array<opt_fr, ARGS_LENGTH> args;
+    opt_fr args_hash;
     std::array<opt_fr, RETURN_VALUES_LENGTH> return_values;
-
-    std::array<opt_fr, EMITTED_EVENTS_LENGTH> emitted_events;
 
     std::array<opt_fr, NEW_COMMITMENTS_LENGTH> new_commitments;
     std::array<opt_fr, NEW_NULLIFIERS_LENGTH> new_nullifiers;
@@ -251,6 +280,12 @@ template <typename NCT> class OptionalPrivateCircuitPublicInputs {
     std::array<opt_fr, PRIVATE_CALL_STACK_LENGTH> private_call_stack;
     std::array<opt_fr, PUBLIC_CALL_STACK_LENGTH> public_call_stack;
     std::array<opt_fr, NEW_L2_TO_L1_MSGS_LENGTH> new_l2_to_l1_msgs;
+
+    std::array<opt_fr, 2> encrypted_logs_hash;
+    std::array<opt_fr, 2> unencrypted_logs_hash;
+
+    opt_fr encrypted_log_preimages_length;
+    opt_fr unencrypted_log_preimages_length;
 
     opt_fr historic_private_data_tree_root;
     opt_fr historic_nullifier_tree_root;
@@ -263,10 +298,8 @@ template <typename NCT> class OptionalPrivateCircuitPublicInputs {
 
     OptionalPrivateCircuitPublicInputs<NCT>(std::optional<CallContext<NCT>> const& call_context,
 
-                                            std::array<opt_fr, ARGS_LENGTH> const& args,
+                                            opt_fr const& args_hash,
                                             std::array<opt_fr, RETURN_VALUES_LENGTH> const& return_values,
-
-                                            std::array<opt_fr, EMITTED_EVENTS_LENGTH> const& emitted_events,
 
                                             std::array<opt_fr, NEW_COMMITMENTS_LENGTH> const& new_commitments,
                                             std::array<opt_fr, NEW_NULLIFIERS_LENGTH> const& new_nullifiers,
@@ -275,6 +308,12 @@ template <typename NCT> class OptionalPrivateCircuitPublicInputs {
                                             std::array<opt_fr, PUBLIC_CALL_STACK_LENGTH> const& public_call_stack,
                                             std::array<opt_fr, NEW_L2_TO_L1_MSGS_LENGTH> const& new_l2_to_l1_msgs,
 
+                                            std::array<opt_fr, 2> const& encrypted_logs_hash,
+                                            std::array<opt_fr, 2> const& unencrypted_logs_hash,
+
+                                            opt_fr const& encrypted_log_preimages_length,
+                                            opt_fr const& unencrypted_log_preimages_length,
+
                                             opt_fr const& historic_private_data_tree_root,
                                             opt_fr const& historic_nullifier_tree_root,
                                             opt_fr const& historic_contract_tree_root,
@@ -282,14 +321,17 @@ template <typename NCT> class OptionalPrivateCircuitPublicInputs {
 
                                             std::optional<ContractDeploymentData<NCT>> const& contract_deployment_data)
         : call_context(call_context)
-        , args(args)
+        , args_hash(args_hash)
         , return_values(return_values)
-        , emitted_events(emitted_events)
         , new_commitments(new_commitments)
         , new_nullifiers(new_nullifiers)
         , private_call_stack(private_call_stack)
         , public_call_stack(public_call_stack)
         , new_l2_to_l1_msgs(new_l2_to_l1_msgs)
+        , encrypted_logs_hash(encrypted_logs_hash)
+        , unencrypted_logs_hash(unencrypted_logs_hash)
+        , encrypted_log_preimages_length(encrypted_log_preimages_length)
+        , unencrypted_log_preimages_length(unencrypted_log_preimages_length)
         , historic_private_data_tree_root(historic_private_data_tree_root)
         , historic_nullifier_tree_root(historic_nullifier_tree_root)
         , historic_contract_tree_root(historic_contract_tree_root)
@@ -304,10 +346,8 @@ template <typename NCT> class OptionalPrivateCircuitPublicInputs {
 
         new_inputs.call_context = std::nullopt;
 
-        new_inputs.args.fill(std::nullopt);
+        new_inputs.args_hash = std::nullopt;
         new_inputs.return_values.fill(std::nullopt);
-
-        new_inputs.emitted_events.fill(std::nullopt);
 
         new_inputs.new_commitments.fill(std::nullopt);
         new_inputs.new_nullifiers.fill(std::nullopt);
@@ -315,6 +355,12 @@ template <typename NCT> class OptionalPrivateCircuitPublicInputs {
         new_inputs.private_call_stack.fill(std::nullopt);
         new_inputs.public_call_stack.fill(std::nullopt);
         new_inputs.new_l2_to_l1_msgs.fill(std::nullopt);
+
+        new_inputs.encrypted_logs_hash.fill(std::nullopt);
+        new_inputs.unencrypted_logs_hash.fill(std::nullopt);
+
+        new_inputs.encrypted_log_preimages_length = std::nullopt;
+        new_inputs.unencrypted_log_preimages_length = std::nullopt;
 
         new_inputs.historic_private_data_tree_root = std::nullopt;
         new_inputs.historic_nullifier_tree_root = std::nullopt;
@@ -352,10 +398,8 @@ template <typename NCT> class OptionalPrivateCircuitPublicInputs {
 
         make_unused_element_zero(composer, call_context);
 
-        make_unused_array_elements_zero(composer, args);
+        make_unused_element_zero(composer, args_hash);
         make_unused_array_elements_zero(composer, return_values);
-
-        make_unused_array_elements_zero(composer, emitted_events);
 
         make_unused_array_elements_zero(composer, new_commitments);
         make_unused_array_elements_zero(composer, new_nullifiers);
@@ -363,6 +407,12 @@ template <typename NCT> class OptionalPrivateCircuitPublicInputs {
         make_unused_array_elements_zero(composer, private_call_stack);
         make_unused_array_elements_zero(composer, public_call_stack);
         make_unused_array_elements_zero(composer, new_l2_to_l1_msgs);
+
+        make_unused_array_elements_zero(composer, encrypted_logs_hash);
+        make_unused_array_elements_zero(composer, unencrypted_logs_hash);
+
+        make_unused_element_zero(composer, encrypted_log_preimages_length);
+        make_unused_element_zero(composer, unencrypted_log_preimages_length);
 
         make_unused_element_zero(composer, historic_private_data_tree_root);
         make_unused_element_zero(composer, historic_nullifier_tree_root);
@@ -384,10 +434,8 @@ template <typename NCT> class OptionalPrivateCircuitPublicInputs {
 
         (*call_context).set_public();
 
-        set_array_public(args);
+        (*args_hash).set_public();
         set_array_public(return_values);
-
-        set_array_public(emitted_events);
 
         set_array_public(new_commitments);
         set_array_public(new_nullifiers);
@@ -395,6 +443,12 @@ template <typename NCT> class OptionalPrivateCircuitPublicInputs {
         set_array_public(private_call_stack);
         set_array_public(public_call_stack);
         set_array_public(new_l2_to_l1_msgs);
+
+        set_array_public(encrypted_logs_hash);
+        set_array_public(unencrypted_logs_hash);
+
+        (*encrypted_log_preimages_length).set_public();
+        (*unencrypted_log_preimages_length).set_public();
 
         (*historic_private_data_tree_root).set_public();
         (*historic_nullifier_tree_root).set_public();
@@ -418,10 +472,8 @@ template <typename NCT> class OptionalPrivateCircuitPublicInputs {
         OptionalPrivateCircuitPublicInputs<CircuitTypes<Composer>> pis = {
             to_circuit_type(call_context),
 
-            to_ct(args),
+            to_ct(args_hash),
             to_ct(return_values),
-
-            to_ct(emitted_events),
 
             to_ct(new_commitments),
             to_ct(new_nullifiers),
@@ -429,6 +481,12 @@ template <typename NCT> class OptionalPrivateCircuitPublicInputs {
             to_ct(private_call_stack),
             to_ct(public_call_stack),
             to_ct(new_l2_to_l1_msgs),
+
+            to_ct(encrypted_logs_hash),
+            to_ct(unencrypted_logs_hash),
+
+            to_ct(encrypted_log_preimages_length),
+            to_ct(unencrypted_log_preimages_length),
 
             to_ct(historic_private_data_tree_root),
             to_ct(historic_nullifier_tree_root),
@@ -453,10 +511,8 @@ template <typename NCT> class OptionalPrivateCircuitPublicInputs {
         OptionalPrivateCircuitPublicInputs<NativeTypes> pis = {
             to_native_type(call_context),
 
-            to_nt(args),
+            to_nt(args_hash),
             to_nt(return_values),
-
-            to_nt(emitted_events),
 
             to_nt(new_commitments),
             to_nt(new_nullifiers),
@@ -464,6 +520,12 @@ template <typename NCT> class OptionalPrivateCircuitPublicInputs {
             to_nt(private_call_stack),
             to_nt(public_call_stack),
             to_nt(new_l2_to_l1_msgs),
+
+            to_nt(encrypted_logs_hash),
+            to_nt(unencrypted_logs_hash),
+
+            to_nt(encrypted_log_preimages_length),
+            to_nt(unencrypted_log_preimages_length),
 
             to_nt(historic_private_data_tree_root),
             to_nt(historic_nullifier_tree_root),
@@ -489,10 +551,8 @@ template <typename NCT> class OptionalPrivateCircuitPublicInputs {
 
         inputs.push_back((*call_context).hash());
 
-        spread_arr_opt_into_vec(args, inputs);
+        inputs.push_back(*args_hash);
         spread_arr_opt_into_vec(return_values, inputs);
-
-        spread_arr_opt_into_vec(emitted_events, inputs);
 
         spread_arr_opt_into_vec(new_commitments, inputs);
         spread_arr_opt_into_vec(new_nullifiers, inputs);
@@ -500,6 +560,12 @@ template <typename NCT> class OptionalPrivateCircuitPublicInputs {
         spread_arr_opt_into_vec(private_call_stack, inputs);
         spread_arr_opt_into_vec(public_call_stack, inputs);
         spread_arr_opt_into_vec(new_l2_to_l1_msgs, inputs);
+
+        spread_arr_into_vec(encrypted_logs_hash, inputs);
+        spread_arr_into_vec(unencrypted_logs_hash, inputs);
+
+        inputs.push_back(*encrypted_log_preimages_length);
+        inputs.push_back(*unencrypted_log_preimages_length);
 
         inputs.push_back(*historic_private_data_tree_root);
         inputs.push_back(*historic_nullifier_tree_root);
@@ -519,10 +585,8 @@ template <typename NCT> class OptionalPrivateCircuitPublicInputs {
         return PrivateCircuitPublicInputs<NCT>{
             .call_context = call_context.value(),
 
-            .args = map(args, get_value),
+            .args_hash = args_hash.value(),
             .return_values = map(return_values, get_value),
-
-            .emitted_events = map(emitted_events, get_value),
 
             .new_commitments = map(new_commitments, get_value),
             .new_nullifiers = map(new_nullifiers, get_value),
@@ -530,6 +594,12 @@ template <typename NCT> class OptionalPrivateCircuitPublicInputs {
             .private_call_stack = map(private_call_stack, get_value),
             .public_call_stack = map(public_call_stack, get_value),
             .new_l2_to_l1_msgs = map(new_l2_to_l1_msgs, get_value),
+
+            .encrypted_logs_hash = map(encrypted_logs_hash, get_value),
+            .unencrypted_logs_hash = map(unencrypted_logs_hash, get_value),
+
+            .encrypted_log_preimages_length = encrypted_log_preimages_length.value(),
+            .unencrypted_log_preimages_length = unencrypted_log_preimages_length.value(),
 
             .historic_private_data_tree_root = historic_private_data_tree_root.value(),
             .historic_nullifier_tree_root = historic_nullifier_tree_root.value(),
@@ -615,14 +685,17 @@ void read(uint8_t const*& it, OptionalPrivateCircuitPublicInputs<NCT>& private_c
 
     OptionalPrivateCircuitPublicInputs<NCT>& pis = private_circuit_public_inputs;
     read(it, pis.call_context);
-    read(it, pis.args);
+    read(it, pis.args_hash);
     read(it, pis.return_values);
-    read(it, pis.emitted_events);
     read(it, pis.new_commitments);
     read(it, pis.new_nullifiers);
     read(it, pis.private_call_stack);
     read(it, pis.public_call_stack);
     read(it, pis.new_l2_to_l1_msgs);
+    read(it, pis.encrypted_logs_hash);
+    read(it, pis.unencrypted_logs_hash);
+    read(it, pis.encrypted_log_preimages_length);
+    read(it, pis.unencrypted_log_preimages_length);
     read(it, pis.historic_private_data_tree_root);
     read(it, pis.historic_nullifier_tree_root);
     read(it, pis.historic_contract_tree_root);
@@ -638,14 +711,17 @@ void write(std::vector<uint8_t>& buf, OptionalPrivateCircuitPublicInputs<NCT> co
     OptionalPrivateCircuitPublicInputs<NCT> const& pis = private_circuit_public_inputs;
 
     write(buf, pis.call_context);
-    write(buf, pis.args);
+    write(buf, pis.args_hash);
     write(buf, pis.return_values);
-    write(buf, pis.emitted_events);
     write(buf, pis.new_commitments);
     write(buf, pis.new_nullifiers);
     write(buf, pis.private_call_stack);
     write(buf, pis.public_call_stack);
     write(buf, pis.new_l2_to_l1_msgs);
+    write(buf, pis.encrypted_logs_hash);
+    write(buf, pis.unencrypted_logs_hash);
+    write(buf, pis.encrypted_log_preimages_length);
+    write(buf, pis.unencrypted_log_preimages_length);
     write(buf, pis.historic_private_data_tree_root);
     write(buf, pis.historic_nullifier_tree_root);
     write(buf, pis.historic_contract_tree_root);
@@ -659,14 +735,17 @@ std::ostream& operator<<(std::ostream& os, OptionalPrivateCircuitPublicInputs<NC
 {
     OptionalPrivateCircuitPublicInputs<NCT> const& pis = private_circuit_public_inputs;
     return os << "call_context: " << pis.call_context << "\n"
-              << "args: " << pis.args << "\n"
+              << "args_hash: " << pis.args_hash << "\n"
               << "return_values: " << pis.return_values << "\n"
-              << "emitted_events: " << pis.emitted_events << "\n"
               << "new_commitments: " << pis.new_commitments << "\n"
               << "new_nullifiers: " << pis.new_nullifiers << "\n"
               << "private_call_stack: " << pis.private_call_stack << "\n"
               << "public_call_stack: " << pis.public_call_stack << "\n"
               << "new_l2_to_l1_msgs: " << pis.new_l2_to_l1_msgs << "\n"
+              << "encrypted_logs_hash: " << pis.encrypted_logs_hash << "\n"
+              << "unencrypted_logs_hash: " << pis.unencrypted_logs_hash << "\n"
+              << "encrypted_log_preimages_length: " << pis.encrypted_log_preimages_length << "\n"
+              << "unencrypted_log_preimages_length: " << pis.unencrypted_log_preimages_length << "\n"
               << "historic_private_data_tree_root: " << pis.historic_private_data_tree_root << "\n"
               << "historic_nullifier_tree_root: " << pis.historic_nullifier_tree_root << "\n"
               << "historic_contract_tree_root: " << pis.historic_contract_tree_root << "\n"

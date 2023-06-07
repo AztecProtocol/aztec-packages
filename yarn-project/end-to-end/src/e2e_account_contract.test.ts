@@ -1,5 +1,5 @@
 /* eslint-disable camelcase */
-import { AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
+import { AztecNodeService } from '@aztec/aztec-node';
 import {
   AztecAddress,
   AztecRPCServer,
@@ -10,56 +10,35 @@ import {
   TxStatus,
 } from '@aztec/aztec.js';
 import { ContractAbi, FunctionType } from '@aztec/foundation/abi';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { DebugLogger } from '@aztec/foundation/log';
 import { AccountContractAbi, ChildAbi } from '@aztec/noir-contracts/examples';
 
-import { ARGS_LENGTH, ContractDeploymentData, FunctionData, TxContext, TxRequest } from '@aztec/circuits.js';
+import { ARGS_LENGTH } from '@aztec/circuits.js';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { sha256 } from '@aztec/foundation/crypto';
 import { toBigInt } from '@aztec/foundation/serialize';
 import { secp256k1 } from '@noble/curves/secp256k1';
 import times from 'lodash.times';
-import { mnemonicToAccount } from 'viem/accounts';
-import { createAztecRpcServer } from './create_aztec_rpc_client.js';
-import { deployL1Contracts } from '@aztec/ethereum';
-import { MNEMONIC, localAnvil } from './fixtures.js';
-
-const logger = createDebugLogger('aztec:e2e_account_contract');
-
-const config = getConfigEnvVars();
+import { setup } from './utils.js';
 
 describe('e2e_account_contract', () => {
-  let node: AztecNodeService;
+  let aztecNode: AztecNodeService;
   let aztecRpcServer: AztecRPCServer;
   let accounts: AztecAddress[];
+  let logger: DebugLogger;
 
   let account: Contract;
   let child: Contract;
 
   beforeEach(async () => {
-    const hdAccount = mnemonicToAccount(MNEMONIC);
-    const privKey = hdAccount.getHdKey().privateKey;
-    const { rollupAddress, unverifiedDataEmitterAddress } = await deployL1Contracts(
-      config.rpcUrl,
-      hdAccount,
-      localAnvil,
-      logger,
-    );
-
-    config.publisherPrivateKey = Buffer.from(privKey!);
-    config.rollupContract = rollupAddress;
-    config.unverifiedDataEmitterContract = unverifiedDataEmitterAddress;
-
-    node = await AztecNodeService.createAndSync(config);
-    aztecRpcServer = await createAztecRpcServer(1, node);
-    accounts = await aztecRpcServer.getAccounts();
+    ({ aztecNode, aztecRpcServer, accounts, logger } = await setup());
 
     account = await deployContract(AccountContractAbi);
     child = await deployContract(ChildAbi);
   }, 60_000);
 
   afterEach(async () => {
-    await node.stop();
+    await aztecNode.stop();
     await aztecRpcServer.stop();
   });
 
@@ -129,17 +108,6 @@ describe('e2e_account_contract', () => {
   };
 
   const buildCall = (payload: EntrypointPayload, opts: { privKey?: string } = {}) => {
-    // Manually create tx request to set the packed args
-    const txRequest: TxRequest = new TxRequest(
-      accounts[0],
-      account.address,
-      new FunctionData(account.methods.entrypoint.selector, true, false),
-      times(ARGS_LENGTH, Fr.zero),
-      Fr.random(),
-      new TxContext(false, false, false, ContractDeploymentData.empty()),
-      Fr.ZERO,
-    );
-
     // Hash the payload object, so we sign over it
     // TODO: Switch to keccak when avaiable in Noir
     const payloadHash = sha256(Buffer.concat(flattenPayload(payload).map(fr => fr.toBuffer())));
@@ -152,18 +120,14 @@ describe('e2e_account_contract', () => {
     const signature = Buffer.from(signatureObject.toCompactRawBytes());
     logger(`Signature: ${signature.toString('hex')} (${signature.length} bytes)`);
 
-    // Set packed args for the call
-    txRequest.setPackedArg(0, flattenPayload(payload));
-    txRequest.setPackedArg(1, toFrArray(signature));
-
     // Create the method call using the actual args to send into Noir
-    return new ContractFunctionInteractionFromTxRequest(
+    return new ContractFunctionInteraction(
       aztecRpcServer,
       account.address,
       'entrypoint',
-      [...flattenPayload(payload), ...toFrArray(signature)],
+      [payload, toFrArray(signature)],
       FunctionType.SECRET,
-    ).withTxRequest(txRequest);
+    );
   };
 
   it('calls a private function', async () => {
@@ -175,7 +139,7 @@ describe('e2e_account_contract', () => {
     const receipt = await tx.getReceipt();
 
     expect(receipt.status).toBe(TxStatus.MINED);
-  });
+  }, 30_000);
 
   it('calls a public function', async () => {
     const payload = buildPayload([], [callChildPubStoreValue(42)]);
@@ -186,21 +150,12 @@ describe('e2e_account_contract', () => {
     const receipt = await tx.getReceipt();
 
     expect(receipt.status).toBe(TxStatus.MINED);
-    expect(toBigInt((await node.getStorageAt(child.address, 1n))!)).toEqual(42n);
-  });
+    expect(toBigInt((await aztecNode.getStorageAt(child.address, 1n))!)).toEqual(42n);
+  }, 30_000);
 
   it('rejects ecdsa signature from a different key', async () => {
     const payload = buildPayload([callChildValue(42)], []);
     const call = buildCall(payload, { privKey: '2a871d0798f97d79848a013d4936a73bf4cc922c825d33c1cf7073dff6d409c6' });
     await expect(call.create({ from: accounts[0] })).rejects.toMatch(/could not satisfy all constraints/);
-  });
+  }, 30_000);
 });
-
-// Extends ContractFunctionInteraction class to manually create the tx request
-// in order to bypass argument encoding, so we can fake the unpacked args.
-class ContractFunctionInteractionFromTxRequest extends ContractFunctionInteraction {
-  public withTxRequest(txRequest: TxRequest) {
-    this.txRequest = txRequest;
-    return this;
-  }
-}

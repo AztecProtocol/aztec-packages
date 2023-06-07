@@ -58,6 +58,12 @@ void initialise_end_values(PrivateKernelInputsInner<NT> const& private_inputs,
     end.public_call_stack = start.public_call_stack;
     end.new_l2_to_l1_msgs = start.new_l2_to_l1_msgs;
 
+    end.encrypted_logs_hash = start.encrypted_logs_hash;
+    end.unencrypted_logs_hash = start.unencrypted_logs_hash;
+
+    end.encrypted_log_preimages_length = start.encrypted_log_preimages_length;
+    end.unencrypted_log_preimages_length = start.unencrypted_log_preimages_length;
+
     end.optionally_revealed_data = start.optionally_revealed_data;
 }
 
@@ -148,7 +154,8 @@ KernelCircuitPublicInputs<NT> native_private_kernel_circuit_inner(DummyComposer&
 
     validate_inputs(composer, private_inputs);
 
-    validate_this_private_call_hash(composer, private_inputs, public_inputs);
+    // TODO(jeanmon) Resuscitate after issue 499 is fixed as explained below.
+    // validate_this_private_call_hash(composer, private_inputs, public_inputs);
 
     // TODO(rahul) FIXME - https://github.com/AztecProtocol/aztec-packages/issues/499
     // Noir doesn't have hash index so it can't hash private call stack item correctly

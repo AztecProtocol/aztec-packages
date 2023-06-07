@@ -1,4 +1,5 @@
 import { Tuple } from '@aztec/foundation/serialize';
+export type { FieldsOf } from '@aztec/foundation/types';
 
 /**
  * Create an array over an integer range.
@@ -23,6 +24,17 @@ export function range(n: number, offset = 0) {
  */
 export function makeTuple<T, N extends number>(length: N, fn: (i: number) => T, offset = 0) {
   return Array.from({ length }, (v: any, i: number) => fn(i + offset)) as Tuple<T, N>;
+}
+
+/**
+ * Create an array over an integer range, filled with a function 'fn'. However, the latter half of the array are set to zeros.
+ * see `makeTuple` above.
+ * @param n - The number of integers.
+ * @param fn - The generator function.
+ * @returns The array of numbers.
+ */
+export function makeHalfFullTuple<T, N extends number>(length: N, fn: (i: number) => T, offset = 0) {
+  return Array.from({ length }, (v: any, i: number) => (i < length / 2 ? fn(i + offset) : fn(0))) as Tuple<T, N>;
 }
 
 /**
@@ -71,11 +83,3 @@ export function assertItemsLength<
     }
   }
 }
-
-/**
- * Strips methods of a type.
- */
-export type FieldsOf<T> = {
-  // eslint-disable-next-line @typescript-eslint/ban-types
-  [P in keyof T as T[P] extends Function ? never : P]: T[P];
-};

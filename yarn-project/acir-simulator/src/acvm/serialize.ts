@@ -65,16 +65,20 @@ export function toACVMContractDeploymentData(contractDeploymentData: ContractDep
 export function toACVMPublicInputs(publicInputs: PrivateCircuitPublicInputs): ACVMField[] {
   return [
     ...toACVMCallContext(publicInputs.callContext),
+    toACVMField(publicInputs.argsHash),
 
-    ...publicInputs.args.map(toACVMField),
     ...publicInputs.returnValues.map(toACVMField),
-    ...publicInputs.emittedEvents.map(toACVMField),
     ...publicInputs.newCommitments.map(toACVMField),
     ...publicInputs.newNullifiers.map(toACVMField),
     ...publicInputs.privateCallStack.map(toACVMField),
     ...publicInputs.publicCallStack.map(toACVMField),
     ...publicInputs.newL2ToL1Msgs.map(toACVMField),
+    // TODO #588, relevant issue: https://github.com/AztecProtocol/aztec-packages/issues/588
+    // ...publicInputs.encryptedLogsHash.map(toACVMField),
+    // ...publicInputs.unencryptedLogsHash.map(toACVMField),
 
+    // toACVMField(publicInputs.encryptedLogPreimagesLength),
+    // toACVMField(publicInputs.unencryptedLogPreimagesLength),
     toACVMField(publicInputs.historicPrivateDataTreeRoot),
     toACVMField(publicInputs.historicPrivateNullifierTreeRoot),
     toACVMField(publicInputs.historicContractTreeRoot),
@@ -106,12 +110,12 @@ export function toAcvmCallPrivateStackItem(item: PrivateCallStackItem): ACVMFiel
  * @param item - The public call stack item to serialize to be passed onto Noir.
  * @returns The fields expected by the enqueue_public_function_call_oracle Noir function.
  */
-export function toAcvmEnqueuePublicFunctionResult(item: PublicCallRequest): ACVMField[] {
+export async function toAcvmEnqueuePublicFunctionResult(item: PublicCallRequest): Promise<ACVMField[]> {
   return [
     toACVMField(item.contractAddress),
     ...toACVMFunctionData(item.functionData),
     ...toACVMCallContext(item.callContext),
-    ...item.args.map(toACVMField),
+    toACVMField(await item.getArgsHash()),
   ];
 }
 

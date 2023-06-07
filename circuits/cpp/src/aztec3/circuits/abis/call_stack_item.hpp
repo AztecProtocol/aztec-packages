@@ -5,18 +5,16 @@
 #include "public_circuit_public_inputs.hpp"
 
 #include "aztec3/circuits/abis/types.hpp"
-#include <aztec3/utils/types/circuit_types.hpp>
-#include <aztec3/utils/types/convert.hpp>
-#include <aztec3/utils/types/native_types.hpp>
+#include "aztec3/utils/types/circuit_types.hpp"
+#include "aztec3/utils/types/convert.hpp"
+#include "aztec3/utils/types/native_types.hpp"
 
-#include <barretenberg/serialize/msgpack.hpp>
-#include <barretenberg/stdlib/primitives/witness/witness.hpp>
+#include <barretenberg/barretenberg.hpp>
 
 namespace aztec3::circuits::abis {
 
 using aztec3::utils::types::CircuitTypes;
 using aztec3::utils::types::NativeTypes;
-using std::conditional;
 using std::is_same;
 
 template <typename NCT, template <class> typename PrivatePublic> struct CallStackItem {
@@ -117,7 +115,7 @@ inline CallStackItem<NativeTypes, PublicTypes> as_execution_request(
         .function_data = call_stack_item.function_data,
         .public_inputs = {
             .call_context = call_stack_item.public_inputs.call_context,
-            .args = call_stack_item.public_inputs.args,
+            .args_hash = call_stack_item.public_inputs.args_hash,
         },
         .is_execution_request = call_stack_item.is_execution_request,
     };

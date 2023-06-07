@@ -3,19 +3,13 @@
 #include "index.hpp"
 #include "init.hpp"
 
-#include "aztec3/circuits/abis/private_kernel/private_call_data.hpp"
-#include "aztec3/circuits/abis/signed_tx_request.hpp"
-#include <aztec3/circuits/abis/kernel_circuit_public_inputs.hpp>
-#include <aztec3/circuits/mock/mock_kernel_circuit.hpp>
-#include <aztec3/constants.hpp>
-#include <aztec3/utils/types/native_types.hpp>
+#include "aztec3/constants.hpp"
+#include "aztec3/utils/types/native_types.hpp"
 
-#include "barretenberg/common/serialize.hpp"
-#include "barretenberg/plonk/composer/turbo_composer.hpp"
-#include "barretenberg/srs/global_crs.hpp"
+#include <barretenberg/barretenberg.hpp>
 
 namespace {
-using Composer = plonk::UltraComposer;
+using Composer = plonk::UltraPlonkComposer;
 using NT = aztec3::utils::types::NativeTypes;
 using DummyComposer = aztec3::utils::DummyComposer;
 using aztec3::circuits::rollup::native_root_rollup::root_rollup_circuit;
@@ -24,7 +18,6 @@ using aztec3::circuits::rollup::native_root_rollup::RootRollupPublicInputs;
 
 }  // namespace
 
-#define WASM_EXPORT __attribute__((visibility("default")))
 // WASM Cbinds
 extern "C" {
 

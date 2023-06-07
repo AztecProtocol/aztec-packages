@@ -2,14 +2,13 @@
 
 #include "init.hpp"
 
-#include <aztec3/circuits/abis/private_circuit_public_inputs.hpp>
-#include <aztec3/circuits/apps/function_execution_context.hpp>
+#include "aztec3/circuits/abis/private_circuit_public_inputs.hpp"
+#include "aztec3/circuits/apps/function_execution_context.hpp"
 
 namespace aztec3::circuits::apps::test_apps::escrow {
 
 using aztec3::circuits::abis::OptionalPrivateCircuitPublicInputs;
 
-OptionalPrivateCircuitPublicInputs<NT> deposit(FunctionExecutionContext& exec_ctx,
-                                               std::array<NT::fr, ARGS_LENGTH> const& args);
+OptionalPrivateCircuitPublicInputs<NT> deposit(FunctionExecutionContext& exec_ctx, std::vector<NT::fr> const& args);
 
 }  // namespace aztec3::circuits::apps::test_apps::escrow

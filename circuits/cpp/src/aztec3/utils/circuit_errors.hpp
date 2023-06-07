@@ -1,7 +1,6 @@
 #pragma once
-#include "aztec3/utils/types/circuit_types.hpp"
 
-#include <barretenberg/serialize/msgpack.hpp>
+#include <barretenberg/barretenberg.hpp>
 
 #include <variant>
 
@@ -76,8 +75,10 @@ enum CircuitErrorCode : uint16_t {
     CONTRACT_TREE_SNAPSHOT_MISMATCH = 7006,
     PUBLIC_DATA_TREE_ROOT_MISMATCH = 7007,
     MEMBERSHIP_CHECK_FAILED = 7008,
+    ARRAY_OVERFLOW = 7009,
 
     ROOT_CIRCUIT_FAILED = 8000,
+
 };
 
 struct CircuitError {

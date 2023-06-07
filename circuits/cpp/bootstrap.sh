@@ -5,6 +5,8 @@ set -eu
 
 export WASI_VERSION=20
 
+cd "$(dirname "$0")"
+
 # Update the submodule
 #git submodule update --init --recursive
 

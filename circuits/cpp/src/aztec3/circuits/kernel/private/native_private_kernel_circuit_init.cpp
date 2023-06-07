@@ -73,9 +73,6 @@ void validate_this_private_call_against_tx_request(DummyComposer& composer,
     const auto& tx_request = private_inputs.signed_tx_request.tx_request;
     const auto& call_stack_item = private_inputs.private_call.call_stack_item;
 
-    const auto tx_request_args_hash = NT::compress<ARGS_LENGTH>(tx_request.args, FUNCTION_ARGS);
-    const auto call_args_hash = NT::compress<ARGS_LENGTH>(call_stack_item.public_inputs.args, FUNCTION_ARGS);
-
     composer.do_assert(
         tx_request.to == call_stack_item.contract_address,
         "user's intent does not match initial private call (tx_request.to must match call_stack_item.contract_address)",
@@ -86,7 +83,7 @@ void validate_this_private_call_against_tx_request(DummyComposer& composer,
                        "call_stack_item.function_data)",
                        CircuitErrorCode::PRIVATE_KERNEL__USER_INTENT_MISMATCH_BETWEEN_TX_REQUEST_AND_CALL_STACK_ITEM);
 
-    composer.do_assert(tx_request_args_hash == call_args_hash,
+    composer.do_assert(tx_request.args_hash == call_stack_item.public_inputs.args_hash,
                        "user's intent does not match initial private call (tx_request.args must match "
                        "call_stack_item.public_inputs.args)",
                        CircuitErrorCode::PRIVATE_KERNEL__USER_INTENT_MISMATCH_BETWEEN_TX_REQUEST_AND_CALL_STACK_ITEM);
@@ -126,20 +123,28 @@ void validate_inputs(DummyComposer& composer, PrivateKernelInputsInit<NT> const&
     // hard-coded into the circuit and assert that that is the one which has been used in the base case).
 }
 
-void update_end_values(PrivateKernelInputsInit<NT> const& private_inputs, KernelCircuitPublicInputs<NT>& public_inputs)
+void update_end_values(DummyComposer& composer,
+                       PrivateKernelInputsInit<NT> const& private_inputs,
+                       KernelCircuitPublicInputs<NT>& public_inputs)
 {
-    // We only initialzed constants member of public_inputs so far. Therefore, there must not be any
-    // new nullifiers as part of public_inputs.
+    // We only initialized constants member of public_inputs so far. Therefore, there must not be any
+    // new nullifiers or logs as part of public_inputs.
     ASSERT(is_array_empty(public_inputs.end.new_nullifiers));
+    ASSERT(public_inputs.end.encrypted_logs_hash[0] == fr(0));
+    ASSERT(public_inputs.end.encrypted_logs_hash[1] == fr(0));
+    ASSERT(public_inputs.end.unencrypted_logs_hash[0] == fr(0));
+    ASSERT(public_inputs.end.unencrypted_logs_hash[1] == fr(0));
+    ASSERT(public_inputs.end.encrypted_log_preimages_length == fr(0));
+    ASSERT(public_inputs.end.unencrypted_log_preimages_length == fr(0));
 
     // Since it's the first iteration, we need to push the the tx hash nullifier into the `new_nullifiers` array
-    array_push(public_inputs.end.new_nullifiers, private_inputs.signed_tx_request.hash());
+    array_push(composer, public_inputs.end.new_nullifiers, private_inputs.signed_tx_request.hash());
 
     // Nonce nullifier
     // DANGER: This is terrible. This should not be part of the protocol. This is an intentional bodge to reach a
     // milestone. This must not be the way we derive nonce nullifiers in production. It can be front-run by other
     // users. It is not domain separated. Naughty.
-    array_push(public_inputs.end.new_nullifiers, private_inputs.signed_tx_request.tx_request.nonce);
+    array_push(composer, public_inputs.end.new_nullifiers, private_inputs.signed_tx_request.tx_request.nonce);
 }
 
 // NOTE: THIS IS A VERY UNFINISHED WORK IN PROGRESS.
@@ -156,16 +161,15 @@ KernelCircuitPublicInputs<NT> native_private_kernel_circuit_initial(DummyCompose
 
     validate_inputs(composer, private_inputs);
 
+    validate_this_private_call_against_tx_request(composer, private_inputs);
+
     // TODO(rahul) FIXME - https://github.com/AztecProtocol/aztec-packages/issues/499
     // Noir doesn't have hash index so it can't hash private call stack item correctly
-    // TODO(jeanmon) FIXME - https://github.com/AztecProtocol/aztec-packages/issues/672
-    // validate_this_private_call_against_tx_request(composer, private_inputs);
-
     // TODO(dbanks12): may need to comment out hash check in here according to TODO above
     // TODO(jeanmon) FIXME - https://github.com/AztecProtocol/aztec-packages/issues/671
     // common_validate_call_stack(composer, private_inputs.private_call);
 
-    update_end_values(private_inputs, public_inputs);
+    update_end_values(composer, private_inputs, public_inputs);
 
     common_update_end_values(composer, private_inputs.private_call, public_inputs);
 

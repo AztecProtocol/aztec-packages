@@ -3,10 +3,10 @@
 #include "common.hpp"
 #include "init.hpp"
 
-#include <aztec3/circuits/abis/kernel_circuit_public_inputs.hpp>
-#include <aztec3/circuits/abis/public_kernel/public_kernel_inputs.hpp>
-#include <aztec3/utils/array.hpp>
-#include <aztec3/utils/dummy_composer.hpp>
+#include "aztec3/circuits/abis/kernel_circuit_public_inputs.hpp"
+#include "aztec3/circuits/abis/public_kernel/public_kernel_inputs.hpp"
+#include "aztec3/utils/array.hpp"
+#include "aztec3/utils/dummy_composer.hpp"
 
 namespace {
 using CircuitErrorCode = aztec3::utils::CircuitErrorCode;
@@ -60,7 +60,7 @@ KernelCircuitPublicInputs<NT> native_public_kernel_circuit_public_previous_kerne
     validate_this_public_call_hash(composer, public_kernel_inputs, public_inputs);
 
     // update the public end state of the circuit
-    common_update_public_end_values(public_kernel_inputs, public_inputs);
+    common_update_public_end_values(composer, public_kernel_inputs, public_inputs);
 
     return public_inputs;
 };

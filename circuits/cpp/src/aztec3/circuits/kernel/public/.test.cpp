@@ -3,27 +3,28 @@
 #include "native_public_kernel_circuit_private_previous_kernel.hpp"
 #include "native_public_kernel_circuit_public_previous_kernel.hpp"
 
+#include "aztec3/circuits/abis/call_context.hpp"
+#include "aztec3/circuits/abis/call_stack_item.hpp"
+#include "aztec3/circuits/abis/combined_accumulated_data.hpp"
+#include "aztec3/circuits/abis/combined_constant_data.hpp"
 #include "aztec3/circuits/abis/combined_historic_tree_roots.hpp"
-#include <aztec3/circuits/abis/call_context.hpp>
-#include <aztec3/circuits/abis/call_stack_item.hpp>
-#include <aztec3/circuits/abis/combined_accumulated_data.hpp>
-#include <aztec3/circuits/abis/combined_constant_data.hpp>
-#include <aztec3/circuits/abis/contract_deployment_data.hpp>
-#include <aztec3/circuits/abis/function_data.hpp>
-#include <aztec3/circuits/abis/kernel_circuit_public_inputs.hpp>
-#include <aztec3/circuits/abis/previous_kernel_data.hpp>
-#include <aztec3/circuits/abis/private_circuit_public_inputs.hpp>
-#include <aztec3/circuits/abis/private_historic_tree_roots.hpp>
-#include <aztec3/circuits/abis/private_kernel/globals.hpp>
-#include <aztec3/circuits/abis/public_kernel/public_call_data.hpp>
-#include <aztec3/circuits/abis/public_kernel/public_kernel_inputs.hpp>
-#include <aztec3/circuits/abis/signed_tx_request.hpp>
-#include <aztec3/circuits/abis/tx_context.hpp>
-#include <aztec3/circuits/abis/tx_request.hpp>
-#include <aztec3/circuits/abis/types.hpp>
-#include <aztec3/circuits/apps/function_execution_context.hpp>
-#include <aztec3/utils/array.hpp>
-#include <aztec3/utils/circuit_errors.hpp>
+#include "aztec3/circuits/abis/contract_deployment_data.hpp"
+#include "aztec3/circuits/abis/function_data.hpp"
+#include "aztec3/circuits/abis/kernel_circuit_public_inputs.hpp"
+#include "aztec3/circuits/abis/previous_kernel_data.hpp"
+#include "aztec3/circuits/abis/private_circuit_public_inputs.hpp"
+#include "aztec3/circuits/abis/private_historic_tree_roots.hpp"
+#include "aztec3/circuits/abis/private_kernel/globals.hpp"
+#include "aztec3/circuits/abis/public_kernel/public_call_data.hpp"
+#include "aztec3/circuits/abis/public_kernel/public_kernel_inputs.hpp"
+#include "aztec3/circuits/abis/signed_tx_request.hpp"
+#include "aztec3/circuits/abis/tx_context.hpp"
+#include "aztec3/circuits/abis/tx_request.hpp"
+#include "aztec3/circuits/abis/types.hpp"
+#include "aztec3/circuits/apps/function_execution_context.hpp"
+#include "aztec3/circuits/hash.hpp"
+#include "aztec3/utils/array.hpp"
+#include "aztec3/utils/circuit_errors.hpp"
 
 #include <gtest/gtest.h>
 
@@ -120,9 +121,8 @@ PublicCallStackItem generate_call_stack_item(NT::fr contract_address,
         .is_static_call = false,
         .is_contract_deployment = false,
     };
-    std::array<NT::fr, ARGS_LENGTH> const args = array_of_values<ARGS_LENGTH>(count);
+    fr const args_hash = count;
     std::array<NT::fr, RETURN_VALUES_LENGTH> const return_values = array_of_values<RETURN_VALUES_LENGTH>(count);
-    std::array<NT::fr, EMITTED_EVENTS_LENGTH> const emitted_events = array_of_values<EMITTED_EVENTS_LENGTH>(count);
     std::array<NT::fr, PUBLIC_CALL_STACK_LENGTH> const public_call_stack =
         array_of_values<PUBLIC_CALL_STACK_LENGTH>(count);
     std::array<NT::fr, NEW_L2_TO_L1_MSGS_LENGTH> const new_l2_to_l1_msgs =
@@ -135,9 +135,8 @@ PublicCallStackItem generate_call_stack_item(NT::fr contract_address,
     // create the public circuit public inputs
     auto const public_circuit_public_inputs = PublicCircuitPublicInputs<NT>{
         .call_context = call_context,
-        .args = args,
+        .args_hash = args_hash,
         .return_values = return_values,
-        .emitted_events = emitted_events,
         .contract_storage_update_requests = update_requests,
         .contract_storage_reads = reads,
         .public_call_stack = public_call_stack,
@@ -182,11 +181,7 @@ PublicKernelInputsNoPreviousKernel<NT> get_kernel_inputs_no_previous_kernel()
         .is_contract_deployment = false,
     };
 
-    // sometimes need public call args as array
-    std::array<NT::fr, ARGS_LENGTH> args{};
-    for (size_t i = 0; i < ARGS_LENGTH; ++i) {
-        args[i] = i;
-    }
+    std::vector<NT::fr> const args = { 1, 2, 3 };
 
     //***************************************************************************
     // We can create a TxRequest from some of the above data. Users must sign a TxRequest in order to give permission
@@ -196,7 +191,7 @@ PublicKernelInputsNoPreviousKernel<NT> get_kernel_inputs_no_previous_kernel()
         .from = tx_origin,
         .to = contract_address,
         .function_data = function_data,
-        .args = args,
+        .args_hash = compute_var_args_hash<NT>(args),
         .nonce = 0,
         .tx_context =
             TxContext<NT>{
@@ -234,8 +229,6 @@ PublicKernelInputsNoPreviousKernel<NT> get_kernel_inputs_no_previous_kernel()
 
     std::array<fr, RETURN_VALUES_LENGTH> const return_values =
         array_of_values<RETURN_VALUES_LENGTH>(seed, RETURN_VALUES_LENGTH / 2);
-    std::array<fr, EMITTED_EVENTS_LENGTH> const emitted_events =
-        array_of_values<EMITTED_EVENTS_LENGTH>(seed, EMITTED_EVENTS_LENGTH / 2);
     std::array<ContractStorageUpdateRequest<NT>, KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH> const update_requests =
         generate_contract_storage_update_requests(seed, KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH / 2);
     std::array<ContractStorageRead<NT>, KERNEL_PUBLIC_DATA_READS_LENGTH> const reads =
@@ -247,9 +240,8 @@ PublicKernelInputsNoPreviousKernel<NT> get_kernel_inputs_no_previous_kernel()
     // create the public circuit public inputs
     auto const public_circuit_public_inputs = PublicCircuitPublicInputs<NT>{
         .call_context = call_context,
-        .args = args,
+        .args_hash = compute_var_args_hash<NT>(args),
         .return_values = return_values,
-        .emitted_events = emitted_events,
         .contract_storage_update_requests = update_requests,
         .contract_storage_reads = reads,
         .public_call_stack = call_stack_hashes,
@@ -684,7 +676,7 @@ TEST(public_kernel_tests, inconsistent_call_hash_should_fail)
         PublicKernelInputsNoPreviousKernel<NT> inputs = get_kernel_inputs_no_previous_kernel();
 
         // change a value of something in the call stack pre-image
-        inputs.public_call.public_call_stack_preimages[i].public_inputs.args[0]++;
+        inputs.public_call.public_call_stack_preimages[i].public_inputs.args_hash++;
         auto public_inputs = native_public_kernel_circuit_no_previous_kernel(dummyComposer, inputs);
         ASSERT_TRUE(dummyComposer.failed());
         ASSERT_EQ(dummyComposer.get_first_failure().code, CircuitErrorCode::PUBLIC_KERNEL__PUBLIC_CALL_STACK_MISMATCH);
@@ -1124,4 +1116,5 @@ TEST(public_kernel_tests, previous_public_kernel_fails_if_incorrect_storage_cont
     ASSERT_EQ(dummyComposer.get_first_failure().code,
               CircuitErrorCode::PUBLIC_KERNEL__CALL_CONTEXT_INVALID_STORAGE_ADDRESS_FOR_DELEGATE_CALL);
 }
+
 }  // namespace aztec3::circuits::kernel::public_kernel

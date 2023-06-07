@@ -3,12 +3,12 @@
 #include "common.hpp"
 #include "init.hpp"
 
+#include "aztec3/circuits/abis/kernel_circuit_public_inputs.hpp"
+#include "aztec3/circuits/abis/public_kernel/public_kernel_inputs_no_previous_kernel.hpp"
+#include "aztec3/circuits/hash.hpp"
+#include "aztec3/utils/array.hpp"
 #include "aztec3/utils/circuit_errors.hpp"
-#include <aztec3/circuits/abis/kernel_circuit_public_inputs.hpp>
-#include <aztec3/circuits/abis/public_kernel/public_kernel_inputs_no_previous_kernel.hpp>
-#include <aztec3/circuits/hash.hpp>
-#include <aztec3/utils/array.hpp>
-#include <aztec3/utils/dummy_composer.hpp>
+#include "aztec3/utils/dummy_composer.hpp"
 
 namespace {
 
@@ -66,9 +66,9 @@ void update_public_end_values(DummyComposer& composer,
                        "new_nullifiers array must be empty in a first iteration of public kernel",
                        CircuitErrorCode::PUBLIC_KERNEL__NEW_NULLIFIERS_NOT_EMPTY_IN_FIRST_ITERATION);
 
-    array_push(circuit_outputs.end.new_nullifiers, public_kernel_inputs.signed_tx_request.hash());
+    array_push(composer, circuit_outputs.end.new_nullifiers, public_kernel_inputs.signed_tx_request.hash());
 
-    common_update_public_end_values(public_kernel_inputs, circuit_outputs);
+    common_update_public_end_values(composer, public_kernel_inputs, circuit_outputs);
 }
 }  // namespace
 

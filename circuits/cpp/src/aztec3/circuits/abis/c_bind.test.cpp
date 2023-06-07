@@ -6,12 +6,11 @@
 #include "aztec3/circuits/abis/signed_tx_request.hpp"
 #include "aztec3/circuits/hash.hpp"
 
-#include <barretenberg/common/serialize.hpp>
-#include <barretenberg/numeric/random/engine.hpp>
-#include <barretenberg/serialize/test_helper.hpp>
-#include <barretenberg/stdlib/merkle_tree/membership.hpp>
+#include <barretenberg/barretenberg.hpp>
 
 #include <gtest/gtest.h>
+
+#include <vector>
 
 namespace {
 
@@ -58,18 +57,12 @@ TEST(abi_tests, compute_contract_address)
 }
 TEST(abi_tests, hash_tx_request)
 {
-    // randomize function args for tx request
-    std::array<fr, ARGS_LENGTH> args;
-    for (size_t i = 0; i < ARGS_LENGTH; i++) {
-        args[i] = NT::fr::random_element();
-    }
-
     // Construct TxRequest with some randomized fields
     TxRequest<NT> const tx_request = TxRequest<NT>{
         .from = NT::fr::random_element(),
         .to = NT::fr::random_element(),
         .function_data = FunctionData<NT>(),
-        .args = args,
+        .args_hash = NT::fr::random_element(),
         .nonce = NT::fr::random_element(),
         .tx_context = TxContext<NT>(),
         .chain_id = NT::fr::random_element(),
@@ -247,18 +240,15 @@ TEST(abi_tests, hash_constructor)
     // Randomize required values
     auto const func_data = FunctionData<NT>{ .function_selector = 10, .is_private = true, .is_constructor = false };
 
-    std::array<NT::fr, aztec3::ARGS_LENGTH> args;
-    for (size_t i = 0; i < aztec3::ARGS_LENGTH; i++) {
-        args[i] = fr::random_element();
-    }
+    NT::fr const args_hash = NT::fr::random_element();
     NT::fr const constructor_vk_hash = NT::fr::random_element();
 
     // Write the function data and args to a buffer
     std::vector<uint8_t> func_data_buf;
     write(func_data_buf, func_data);
 
-    std::vector<uint8_t> args_buf;
-    write(args_buf, args);
+    std::vector<uint8_t> args_hash_buf;
+    write(args_hash_buf, args_hash);
 
     std::array<uint8_t, sizeof(NT::fr)> constructor_vk_hash_buf = { 0 };
     NT::fr::serialize_to_buffer(constructor_vk_hash, constructor_vk_hash_buf.data());
@@ -267,15 +257,37 @@ TEST(abi_tests, hash_constructor)
     std::array<uint8_t, sizeof(NT::fr)> output = { 0 };
 
     // Make the c_bind call to hash the constructor values
-    abis__hash_constructor(func_data_buf.data(), args_buf.data(), constructor_vk_hash_buf.data(), output.data());
+    abis__hash_constructor(func_data_buf.data(), args_hash_buf.data(), constructor_vk_hash_buf.data(), output.data());
 
     // Convert buffer to `fr` for comparison to in-test calculated hash
     NT::fr const got_hash = NT::fr::serialize_from_buffer(output.data());
 
     // Calculate the expected hash in-test
-    NT::fr const expected_hash = NT::compress(
-        { func_data.hash(), NT::compress(args, aztec3::GeneratorIndex::CONSTRUCTOR_ARGS), constructor_vk_hash },
-        aztec3::GeneratorIndex::CONSTRUCTOR);
+    NT::fr const expected_hash =
+        NT::compress({ func_data.hash(), args_hash, constructor_vk_hash }, aztec3::GeneratorIndex::CONSTRUCTOR);
+
+    // Confirm cbind output == expected hash
+    EXPECT_EQ(got_hash, expected_hash);
+}
+
+TEST(abi_tests, hash_var_args)
+{
+    // Initialize test data and write to buffer
+    std::vector<NT::fr> const args(32, NT::fr::random_element());
+    std::vector<uint8_t> buf;
+    write(buf, args);
+
+    // Prepare output buffer
+    std::array<uint8_t, sizeof(NT::fr)> output = { 0 };
+
+    // Make the c_bind call to hash the constructor values
+    abis__compute_var_args_hash(buf.data(), output.data());
+
+    // Convert buffer to `fr` for comparison to in-test calculated hash
+    NT::fr const got_hash = NT::fr::serialize_from_buffer(output.data());
+
+    // Calculate the expected hash in-test
+    NT::fr const expected_hash = NT::compress(args, aztec3::GeneratorIndex::FUNCTION_ARGS);
 
     // Confirm cbind output == expected hash
     EXPECT_EQ(got_hash, expected_hash);
@@ -303,18 +315,12 @@ TEST(abi_tests, compute_contract_leaf)
 
 TEST(abi_tests, compute_transaction_hash)
 {
-    // randomize function args for tx request
-    std::array<fr, ARGS_LENGTH> args;
-    for (size_t i = 0; i < ARGS_LENGTH; i++) {
-        args[i] = NT::fr::random_element();
-    }
-
     // Construct TxRequest with some randomized fields
     TxRequest<NT> const tx_request = TxRequest<NT>{
         .from = NT::fr::random_element(),
         .to = NT::fr::random_element(),
         .function_data = FunctionData<NT>(),
-        .args = args,
+        .args_hash = NT::fr::random_element(),
         .nonce = NT::fr::random_element(),
         .tx_context = TxContext<NT>(),
         .chain_id = NT::fr::random_element(),

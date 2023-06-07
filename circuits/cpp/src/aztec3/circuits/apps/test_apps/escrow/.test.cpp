@@ -1,17 +1,8 @@
-#include "contract.hpp"
 #include "index.hpp"
 
-// #include <aztec3/circuits/abis/call_context.hpp>
-// #include <aztec3/circuits/abis/function_data.hpp>
-
-// #include <aztec3/circuits/apps/function_execution_context.hpp>
-
-#include <barretenberg/common/test.hpp>
+#include <barretenberg/barretenberg.hpp>
 
 #include <gtest/gtest.h>
-// #include <barretenberg/common/serialize.hpp>
-// #include <barretenberg/stdlib/types/types.hpp>
-// #include <barretenberg/numeric/random/engine.hpp>
 
 namespace aztec3::circuits::apps::test_apps::escrow {
 
@@ -62,7 +53,7 @@ TEST_F(escrow_tests, circuit_deposit)
     auto result = deposit(exec_ctx, { amount, asset_id, memo });
     info("result: ", result);
 
-    info("computed witness: ", composer.computed_witness);
+    info("computed witness: ", composer.composer_helper.computed_witness);
     // info("witness: ", composer.witness);
     // info("constant variables: ", composer.constant_variables);
     // info("variables: ", composer.variables);
@@ -88,7 +79,7 @@ TEST_F(escrow_tests, circuit_transfer)
 
     transfer(exec_ctx, amount, to, asset_id, memo, reveal_msg_sender_to_recipient, fee);
 
-    info("computed witness: ", composer.computed_witness);
+    info("computed witness: ", composer.composer_helper.computed_witness);
     // info("witness: ", composer.witness);
     // info("constant variables: ", composer.constant_variables);
     // info("variables: ", composer.variables);
@@ -113,7 +104,7 @@ TEST_F(escrow_tests, circuit_withdraw)
 
     withdraw(exec_ctx, amount, asset_id, memo, l1_withdrawal_address, fee);
 
-    info("computed witness: ", composer.computed_witness);
+    info("computed witness: ", composer.composer_helper.computed_witness);
     // info("witness: ", composer.witness);
     // info("constant variables: ", composer.constant_variables);
     // info("variables: ", composer.variables);

@@ -1,36 +1,21 @@
-import { mnemonicToAccount } from 'viem/accounts';
-
-import { AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
-import { AztecAddress, AztecRPCServer, Contract, ContractDeployer, Fr, Point, TxStatus } from '@aztec/aztec.js';
+import { AztecNodeService } from '@aztec/aztec-node';
+import { AztecAddress, AztecRPCServer, Contract, ContractDeployer, Fr, TxStatus } from '@aztec/aztec.js';
 import { pedersenCompressInputs } from '@aztec/barretenberg.js/crypto';
 import { BarretenbergWasm } from '@aztec/barretenberg.js/wasm';
-import { PublicTokenContractAbi } from '@aztec/noir-contracts/examples';
-import { createDebugLogger } from '@aztec/foundation/log';
 import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
+import { DebugLogger } from '@aztec/foundation/log';
+import { PublicTokenContractAbi } from '@aztec/noir-contracts/examples';
 
-import { createAztecRpcServer } from './create_aztec_rpc_client.js';
-import { deployL1Contracts } from '@aztec/ethereum';
-import { MNEMONIC, localAnvil } from './fixtures.js';
 import times from 'lodash.times';
-
-const logger = createDebugLogger('aztec:e2e_public_token_contract');
-
-const config = getConfigEnvVars();
+import { pointToPublicKey, setup } from './utils.js';
 
 describe('e2e_public_token_contract', () => {
-  let node: AztecNodeService;
+  let aztecNode: AztecNodeService;
   let aztecRpcServer: AztecRPCServer;
   let accounts: AztecAddress[];
-  let contract: Contract;
+  let logger: DebugLogger;
 
-  const pointToPublicKey = (point: Point) => {
-    const x = point.buffer.subarray(0, 32);
-    const y = point.buffer.subarray(32, 64);
-    return {
-      x: toBigIntBE(x),
-      y: toBigIntBE(y),
-    };
-  };
+  let contract: Contract;
 
   const deployContract = async () => {
     logger(`Deploying L2 public contract...`);
@@ -67,7 +52,7 @@ describe('e2e_public_token_contract', () => {
 
   const expectStorageSlot = async (accountIdx: number, expectedBalance: bigint) => {
     const storageSlot = await calculateStorageSlot(accountIdx);
-    const storageValue = await node.getStorageAt(contract.address!, storageSlot.value);
+    const storageValue = await aztecNode.getStorageAt(contract.address!, storageSlot.value);
     if (storageValue === undefined) {
       throw new Error(`Storage slot ${storageSlot} not found`);
     }
@@ -79,26 +64,11 @@ describe('e2e_public_token_contract', () => {
   };
 
   beforeEach(async () => {
-    const account = mnemonicToAccount(MNEMONIC);
-    const privKey = account.getHdKey().privateKey;
-    const { rollupAddress, unverifiedDataEmitterAddress } = await deployL1Contracts(
-      config.rpcUrl,
-      account,
-      localAnvil,
-      logger,
-    );
-
-    config.rollupContract = rollupAddress;
-    config.unverifiedDataEmitterContract = unverifiedDataEmitterAddress;
-    config.publisherPrivateKey = Buffer.from(privKey!);
-
-    node = await AztecNodeService.createAndSync(config);
-    aztecRpcServer = await createAztecRpcServer(1, node);
-    accounts = await aztecRpcServer.getAccounts();
+    ({ aztecNode, aztecRpcServer, accounts, logger } = await setup());
   }, 30_000);
 
   afterEach(async () => {
-    await node.stop();
+    await aztecNode.stop();
     await aztecRpcServer.stop();
   });
 

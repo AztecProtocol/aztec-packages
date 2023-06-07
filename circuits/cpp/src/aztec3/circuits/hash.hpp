@@ -1,14 +1,16 @@
 #pragma once
 
+#include "aztec3/circuits/abis/function_data.hpp"
 #include "aztec3/circuits/abis/function_leaf_preimage.hpp"
-#include <aztec3/circuits/abis/function_data.hpp>
-#include <aztec3/circuits/abis/new_contract_data.hpp>
-#include <aztec3/constants.hpp>
-#include <aztec3/utils/circuit_errors.hpp>
+#include "aztec3/circuits/abis/new_contract_data.hpp"
+#include "aztec3/constants.hpp"
+#include "aztec3/utils/circuit_errors.hpp"
 
-#include "barretenberg/crypto/sha256/sha256.hpp"
+#include "barretenberg/common/throw_or_abort.hpp"
+#include <barretenberg/barretenberg.hpp>
 
 #include <array>
+#include <vector>
 
 namespace aztec3::circuits {
 
@@ -16,19 +18,22 @@ using abis::FunctionData;
 using aztec3::circuits::abis::ContractLeafPreimage;
 using aztec3::circuits::abis::FunctionLeafPreimage;
 
-template <typename NCT> typename NCT::fr compute_args_hash(std::array<typename NCT::fr, ARGS_LENGTH> args)
+template <typename NCT> typename NCT::fr compute_var_args_hash(std::vector<typename NCT::fr> args)
 {
-    return NCT::compress(args, CONSTRUCTOR_ARGS);
+    auto const MAX_ARGS = 32;
+    if (args.size() > MAX_ARGS) {
+        throw_or_abort("Too many arguments in call to compute_var_args_hash");
+    }
+    return NCT::compress(args, FUNCTION_ARGS);
 }
 
 template <typename NCT> typename NCT::fr compute_constructor_hash(FunctionData<NCT> function_data,
-                                                                  std::array<typename NCT::fr, ARGS_LENGTH> args,
+                                                                  typename NCT::fr args_hash,
                                                                   typename NCT::fr constructor_vk_hash)
 {
     using fr = typename NCT::fr;
 
     fr const function_data_hash = function_data.hash();
-    fr const args_hash = compute_args_hash<NCT>(args);
 
     std::vector<fr> const inputs = {
         function_data_hash,
@@ -298,6 +303,44 @@ template <typename NCT> typename NCT::fr compute_l2_to_l1_hash(typename NCT::add
 
     // @todo @LHerskind NOTE sha to field!
     return sha256::sha256_to_field(calldata_hash_inputs_bytes_vec);
+}
+
+/**
+ * @brief Computes sha256 hash of 2 input hashes stored in 4 fields.
+ * @param hashes 4 fields containing 2 hashes [high, low, high, low].
+ * @return Resulting sha256 hash stored in 2 fields.
+ */
+template <typename NCT> std::array<typename NCT::fr, 2> accumulate_sha256(std::array<typename NCT::fr, 4> hashes)
+{
+    using fr = typename NCT::fr;
+
+    // Generate a 512 bit input from right and left 256 bit hashes
+    constexpr auto num_bytes = 2 * 32;
+    std::array<uint8_t, num_bytes> hash_input_bytes;
+    for (uint8_t i = 0; i < 4; i++) {
+        auto half = hashes[i].to_buffer();
+        for (uint8_t j = 0; j < 16; j++) {
+            hash_input_bytes[i * 16 + j] = half[16 + j];
+        }
+    }
+
+    // Compute the sha256
+    std::vector<uint8_t> const hash_input_bytes_vec(hash_input_bytes.begin(), hash_input_bytes.end());
+    auto h = sha256::sha256(hash_input_bytes_vec);
+
+    // Split the hash into two fields, a high and a low
+    std::array<uint8_t, 32> buf_1;
+    std::array<uint8_t, 32> buf_2;
+    for (uint8_t i = 0; i < 16; i++) {
+        buf_1[i] = 0;
+        buf_1[16 + i] = h[i];
+        buf_2[i] = 0;
+        buf_2[16 + i] = h[i + 16];
+    }
+    auto high = fr::serialize_from_buffer(buf_1.data());
+    auto low = fr::serialize_from_buffer(buf_2.data());
+
+    return { high, low };
 }
 
 }  // namespace aztec3::circuits
