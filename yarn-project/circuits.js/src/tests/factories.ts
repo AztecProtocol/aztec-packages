@@ -311,9 +311,10 @@ export function makePublicCircuitPublicInputs(
     tupleGenerator(KERNEL_PUBLIC_DATA_READS_LENGTH, makeContractStorageRead, seed + 0x500),
     tupleGenerator(PUBLIC_CALL_STACK_LENGTH, fr, seed + 0x600),
     tupleGenerator(NEW_COMMITMENTS_LENGTH, fr, seed + 0x700),
-    tupleGenerator(NEW_L2_TO_L1_MSGS_LENGTH, fr, seed + 0x800),
-    fr(seed + 0x900),
-    makeAztecAddress(seed + 0xa01),
+    tupleGenerator(NEW_NULLIFIERS_LENGTH, fr, seed + 0x800),
+    tupleGenerator(NEW_L2_TO_L1_MSGS_LENGTH, fr, seed + 0x900),
+    fr(seed + 0xa00),
+    makeAztecAddress(seed + 0xb01),
   );
 }
 

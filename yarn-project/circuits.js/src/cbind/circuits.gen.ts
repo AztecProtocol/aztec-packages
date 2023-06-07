@@ -1007,6 +1007,7 @@ interface MsgpackPublicCircuitPublicInputs {
   contract_storage_reads: Tuple<MsgpackContractStorageRead, 4>;
   public_call_stack: Tuple<Buffer, 4>;
   new_commitments: Tuple<Buffer, 4>;
+  new_nullifiers: Tuple<Buffer, 4>;
   new_l2_to_l1_msgs: Tuple<Buffer, 2>;
   historic_public_data_tree_root: Buffer;
   prover_address: Buffer;
@@ -1034,6 +1035,9 @@ export function toPublicCircuitPublicInputs(o: MsgpackPublicCircuitPublicInputs)
   if (o.new_commitments === undefined) {
     throw new Error('Expected new_commitments in PublicCircuitPublicInputs deserialization');
   }
+  if (o.new_nullifiers === undefined) {
+    throw new Error('Expected new_nullifiers in PublicCircuitPublicInputs deserialization');
+  }
   if (o.new_l2_to_l1_msgs === undefined) {
     throw new Error('Expected new_l2_to_l1_msgs in PublicCircuitPublicInputs deserialization');
   }
@@ -1053,6 +1057,7 @@ export function toPublicCircuitPublicInputs(o: MsgpackPublicCircuitPublicInputs)
     mapTuple(o.contract_storage_reads, (v: MsgpackContractStorageRead) => toContractStorageRead(v)),
     mapTuple(o.public_call_stack, (v: Buffer) => Fr.fromBuffer(v)),
     mapTuple(o.new_commitments, (v: Buffer) => Fr.fromBuffer(v)),
+    mapTuple(o.new_nullifiers, (v: Buffer) => Fr.fromBuffer(v)),
     mapTuple(o.new_l2_to_l1_msgs, (v: Buffer) => Fr.fromBuffer(v)),
     Fr.fromBuffer(o.historic_public_data_tree_root),
     Address.fromBuffer(o.prover_address),
@@ -1081,6 +1086,9 @@ export function fromPublicCircuitPublicInputs(o: PublicCircuitPublicInputs): Msg
   if (o.newCommitments === undefined) {
     throw new Error('Expected newCommitments in PublicCircuitPublicInputs serialization');
   }
+  if (o.newNullifiers === undefined) {
+    throw new Error('Expected newNullifiers in PublicCircuitPublicInputs serialization');
+  }
   if (o.newL2ToL1Msgs === undefined) {
     throw new Error('Expected newL2ToL1Msgs in PublicCircuitPublicInputs serialization');
   }
@@ -1100,6 +1108,7 @@ export function fromPublicCircuitPublicInputs(o: PublicCircuitPublicInputs): Msg
     contract_storage_reads: mapTuple(o.contractStorageReads, (v: ContractStorageRead) => fromContractStorageRead(v)),
     public_call_stack: mapTuple(o.publicCallStack, (v: Fr) => v.toBuffer()),
     new_commitments: mapTuple(o.newCommitments, (v: Fr) => v.toBuffer()),
+    new_nullifiers: mapTuple(o.newNullifiers, (v: Fr) => v.toBuffer()),
     new_l2_to_l1_msgs: mapTuple(o.newL2ToL1Msgs, (v: Fr) => v.toBuffer()),
     historic_public_data_tree_root: o.historicPublicDataTreeRoot.toBuffer(),
     prover_address: o.proverAddress.toBuffer(),
