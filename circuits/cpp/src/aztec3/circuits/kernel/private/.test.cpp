@@ -721,6 +721,7 @@ TEST(private_kernel_tests, circuit_create_proof_cbinds)
  */
 TEST(private_kernel_tests, cbind_private_kernel__dummy_previous_kernel)
 {
+    barretenberg::srs::init_crs_factory("../barretenberg/cpp/srs_db/ignition");
     auto func = [] { return aztec3::circuits::kernel::private_kernel::utils::dummy_previous_kernel(); };
     auto [actual, expected] = call_func_and_wrapper(func, private_kernel__dummy_previous_kernel);
     // TODO(AD): investigate why direct operator== didn't work
