@@ -12,7 +12,7 @@ include(ExternalProject)
 # Reference barretenberg artifacts (like library archives) via this dir:
 if (WASM)
     set(BBERG_BUILD_DIR ${BBERG_DIR}/build-wasm)
-    set(BBERG_TARGETS --target barretenberg --target env --target wasi)
+    set(BBERG_TARGETS --target barretenberg --target env --target wasi --target barretenberg.wasm)
 else()
     set(BBERG_BUILD_DIR ${BBERG_DIR}/build)
     set(BBERG_TARGETS --target barretenberg --target env --target wasi)
