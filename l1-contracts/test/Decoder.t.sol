@@ -145,13 +145,21 @@ contract DecoderTest is Test {
     }
   }
 
-  function testComputeKernelLogsHashNoLogs() public {
-    bytes memory encodedLogs = hex"00000000"; // 4 empty bytes indicating that length of kernel logs is 0
+  function testComputeKernelLogsIterationWithoutLogs() public {
+    bytes memory kernelLogsLength = hex"00000004"; // 4 bytes containing value 4
+    bytes memory iterationLogsLength = hex"00000000"; // 4 empty bytes indicating that length of this iteration's logs is 0
+    bytes memory encodedLogs = abi.encodePacked(kernelLogsLength, iterationLogsLength);
 
     (bytes32 logsHash, uint256 bytesAdvanced) = helper.computeKernelLogsHash(encodedLogs);
 
+    bytes32 kernelPublicInputsLogsHash = bytes32(0);
+    bytes32 privateCircuitPublicInputsLogsHash = sha256(new bytes(0));
+
+    bytes32 referenceLogsHash =
+      sha256(abi.encodePacked(kernelPublicInputsLogsHash, privateCircuitPublicInputsLogsHash));
+
     assertEq(bytesAdvanced, encodedLogs.length, "Advanced by an incorrect number of bytes");
-    assertEq(logsHash, bytes32(0), "Logs hash should be 0 when there are no logs");
+    assertEq(logsHash, referenceLogsHash, "Incorrect logs hash");
   }
 
   function testComputeKernelLogs1Iteration() public {

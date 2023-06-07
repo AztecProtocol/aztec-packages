@@ -10,12 +10,14 @@ describe('L2Block', () => {
     expect(recovered).toEqual(block);
   });
 
-  // TS equivalent of `testComputeKernelLogsHashNoLogs` in `Decoder.t.sol`
+  // TS equivalent of `testComputeKernelLogsIterationWithoutLogs` in `Decoder.t.sol`
   it('correctly computes kernel logs hash when there are no logs', () => {
-    const encodedLogs = Buffer.from('00000000', 'hex'); // 4 empty bytes indicating that length of kernel logs is 0
-    const logsHash = L2Block.computeKernelLogsHash(encodedLogs);
+    // The following 2 values are copied from `testComputeKernelLogsIterationWithoutLogs` in `Decoder.t.sol`
+    const encodedLogs = Buffer.from('0000000400000000', 'hex');
+    const referenceLogsHash = Buffer.from('1c9ecec90e28d2461650418635878a5c91e49f47586ecf75f2b0cbb94e897112', 'hex');
 
-    expect(logsHash).toEqual(Buffer.alloc(32, 0));
+    const logsHash = L2Block.computeKernelLogsHash(encodedLogs);
+    expect(logsHash).toEqual(referenceLogsHash);
   });
 
   // TS equivalent of `testComputeKernelLogs1Iteration` in `Decoder.t.sol`
