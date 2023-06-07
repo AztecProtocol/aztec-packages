@@ -20,7 +20,7 @@ import times from 'lodash.times';
 /**
  * Testing utility to create empty unverified data composed by a single empty chunk.
  */
-export function makeEmptyUnverifiedData(): EventLogs {
+export function makeEmptyEncryptedLogs(): EventLogs {
   const chunks = [Buffer.alloc(0)];
   return new EventLogs(chunks);
 }
@@ -29,7 +29,7 @@ export function makeEmptyUnverifiedData(): EventLogs {
  * Testing utility to create a tx with an empty kernel circuit output, empty proof, and empty unverified data.
  */
 export function makeEmptyPrivateTx(): PrivateTx {
-  return Tx.createPrivate(KernelCircuitPublicInputs.empty(), makeEmptyProof(), makeEmptyUnverifiedData(), [], []);
+  return Tx.createPrivate(KernelCircuitPublicInputs.empty(), makeEmptyProof(), makeEmptyEncryptedLogs(), [], []);
 }
 
 /**

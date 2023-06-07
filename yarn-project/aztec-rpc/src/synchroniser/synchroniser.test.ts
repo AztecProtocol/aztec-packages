@@ -31,7 +31,7 @@ describe('Synchroniser', () => {
     };
 
     aztecNode = mock<AztecNode>();
-    aztecNode.getUnverifiedData.mockResolvedValue([]);
+    aztecNode.getEncryptedLogs.mockResolvedValue([]);
 
     database = new MemoryDB();
 
@@ -62,7 +62,7 @@ describe('Synchroniser', () => {
     const block = L2Block.random(1, 4);
 
     aztecNode.getBlocks.mockResolvedValue([block]);
-    aztecNode.getUnverifiedData.mockResolvedValue([EventLogs.random(4)]);
+    aztecNode.getEncryptedLogs.mockResolvedValue([EventLogs.random(4)]);
 
     await synchroniser.work();
 
@@ -82,7 +82,7 @@ describe('Synchroniser', () => {
     // We then process block with height 1, this should not change tree roots
     const block1 = L2Block.random(1, 4);
     aztecNode.getBlocks.mockResolvedValueOnce([block1]);
-    aztecNode.getUnverifiedData.mockResolvedValue([EventLogs.random(4)]);
+    aztecNode.getEncryptedLogs.mockResolvedValue([EventLogs.random(4)]);
 
     await synchroniser.work();
     const roots1 = await database.getTreeRoots();

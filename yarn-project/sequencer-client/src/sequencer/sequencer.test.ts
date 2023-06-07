@@ -77,7 +77,6 @@ describe('sequencer', () => {
     p2p.getTxs.mockResolvedValueOnce([tx]);
     blockBuilder.buildL2Block.mockResolvedValueOnce([block, proof]);
     publisher.processL2Block.mockResolvedValueOnce(true);
-    publisher.processUnverifiedData.mockResolvedValueOnce(true);
 
     await sequencer.initialSync();
     await sequencer.work();
@@ -91,11 +90,6 @@ describe('sequencer', () => {
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
     expect(publisher.processL2Block).toHaveBeenCalledWith(block);
-    expect(publisher.processUnverifiedData).toHaveBeenCalledWith(
-      lastBlockNumber + 1,
-      block.getCalldataHash(),
-      expectedEncryptedLogs,
-    );
   });
 
   it('builds a block out of several txs rejecting double spends', async () => {
@@ -107,7 +101,6 @@ describe('sequencer', () => {
     p2p.getTxs.mockResolvedValueOnce(txs);
     blockBuilder.buildL2Block.mockResolvedValueOnce([block, proof]);
     publisher.processL2Block.mockResolvedValueOnce(true);
-    publisher.processUnverifiedData.mockResolvedValueOnce(true);
 
     // We make a nullifier from tx1 a part of the nullifier tree, so it gets rejected as double spend
     const doubleSpendNullifier = doubleSpendTx.data.end.newNullifiers[0].toBuffer();
@@ -132,11 +125,6 @@ describe('sequencer', () => {
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
     expect(publisher.processL2Block).toHaveBeenCalledWith(block);
-    expect(publisher.processUnverifiedData).toHaveBeenCalledWith(
-      lastBlockNumber + 1,
-      block.getCalldataHash(),
-      expectedEncryptedLogs,
-    );
     expect(p2p.deleteTxs).toHaveBeenCalledWith([await doubleSpendTx.getTxHash()]);
   });
 });

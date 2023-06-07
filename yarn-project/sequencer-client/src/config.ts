@@ -35,7 +35,7 @@ export function getConfigEnvVars(): SequencerClientConfig {
     transactionPollingInterval: SEQ_TX_POLLING_INTERVAL ? +SEQ_TX_POLLING_INTERVAL : 1_000,
     rollupContract: ROLLUP_CONTRACT_ADDRESS ? EthAddress.fromString(ROLLUP_CONTRACT_ADDRESS) : EthAddress.ZERO,
     inboxContract: INBOX_CONTRACT_ADDRESS ? EthAddress.fromString(INBOX_CONTRACT_ADDRESS) : EthAddress.ZERO,
-    unverifiedDataEmitterContract: UNVERIFIED_DATA_EMITTER_ADDRESS
+    contractDeploymentEmitterContract: UNVERIFIED_DATA_EMITTER_ADDRESS
       ? EthAddress.fromString(UNVERIFIED_DATA_EMITTER_ADDRESS)
       : EthAddress.ZERO,
     publisherPrivateKey: Buffer.from(SEQ_PUBLISHER_PRIVATE_KEY || '', 'hex'),

@@ -3,20 +3,20 @@ import { EventLogs } from './event_logs.js';
 /**
  * Interface of classes allowing for the retrieval of unverified data.
  */
-export interface UnverifiedDataSource {
+export interface EncryptedLogsSource {
   /**
    * Gets the L2 block number associated with the latest unverified data.
    * @returns The L2 block number associated with the latest unverified data.
    */
-  getLatestUnverifiedDataBlockNum(): Promise<number>;
+  getLatestEncryptedLogsBlockNum(): Promise<number>;
 
   /**
    * Gets the `take` amount of unverified data starting from `from`.
-   * @param from - Number of the L2 block to which corresponds the first `unverifiedData` to be returned.
-   * @param take - The number of `unverifiedData` to return.
-   * @returns The requested `unverifiedData`.
+   * @param from - Number of the L2 block to which corresponds the first `encryptedLogs` to be returned.
+   * @param take - The number of `encryptedLogs` to return.
+   * @returns The requested `encryptedLogs`.
    */
-  getUnverifiedData(from: number, take: number): Promise<EventLogs[]>;
+  getEncryptedLogs(from: number, take: number): Promise<EventLogs[]>;
 
   /**
    * Starts the unverified data source.

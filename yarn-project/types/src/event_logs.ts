@@ -35,9 +35,9 @@ export class EventLogs {
   }
 
   /**
-   * Creates a new UnverifiedData object by concatenating multiple ones.
+   * Creates a new EventLogs object by concatenating multiple ones.
    * @param datas - The individual data objects to concatenate.
-   * @returns A new UnverifiedData object whose chunks are the concatenation of the chunks.
+   * @returns A new EventLogs object whose chunks are the concatenation of the chunks.
    */
   public static join(datas: EventLogs[]): EventLogs {
     return new EventLogs(datas.flatMap(chunk => chunk.dataChunks));
@@ -46,7 +46,7 @@ export class EventLogs {
   /**
    * Deserializes unverified data from a buffer.
    * @param buf - The buffer containing the serialized unverified data.
-   * @returns A new UnverifiedData object.
+   * @returns A new EventLogs object.
    */
   public static fromBuffer(buf: Buffer | BufferReader): EventLogs {
     const reader = BufferReader.asReader(buf);
@@ -56,9 +56,9 @@ export class EventLogs {
   }
 
   /**
-   * Creates a new UnverifiedData object with `numChunks` random data.
+   * Creates a new EventLogs object with `numChunks` random data.
    * @param numChunks - The number of chunks to create.
-   * @returns A new UnverifiedData object.
+   * @returns A new EventLogs object.
    */
   public static random(numChunks: number): EventLogs {
     const chunks: Buffer[] = [];

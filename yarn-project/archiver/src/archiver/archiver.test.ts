@@ -1,4 +1,4 @@
-import { InboxAbi, RollupAbi, UnverifiedDataEmitterAbi } from '@aztec/l1-artifacts';
+import { InboxAbi, RollupAbi, ContractDeploymentEmitterAbi } from '@aztec/l1-artifacts';
 import { ContractData, ContractPublicData, EncodedContractFunction, L2Block } from '@aztec/types';
 import { MockProxy, mock } from 'jest-mock-extended';
 import { Chain, HttpTransport, Log, PublicClient, Transaction, encodeFunctionData, toHex } from 'viem';
@@ -14,7 +14,7 @@ import { Fr } from '@aztec/foundation/fields';
 describe('Archiver', () => {
   const rollupAddress = '0x0000000000000000000000000000000000000000';
   const inboxAddress = '0x0000000000000000000000000000000000000000';
-  const unverifiedDataEmitterAddress = '0x0000000000000000000000000000000000000001';
+  const encryptedLogsEmitterAddress = '0x0000000000000000000000000000000000000001';
   let publicClient: MockProxy<PublicClient<HttpTransport, Chain>>;
   let archiverStore: ArchiverDataStore;
 
@@ -28,7 +28,7 @@ describe('Archiver', () => {
       publicClient,
       EthAddress.fromString(rollupAddress),
       EthAddress.fromString(inboxAddress),
-      EthAddress.fromString(unverifiedDataEmitterAddress),
+      EthAddress.fromString(encryptedLogsEmitterAddress),
       0,
       archiverStore,
       1000,
@@ -36,8 +36,8 @@ describe('Archiver', () => {
 
     let latestBlockNum = await archiver.getBlockHeight();
     expect(latestBlockNum).toEqual(0);
-    let latestUnverifiedDataBlockNum = await archiver.getLatestUnverifiedDataBlockNum();
-    expect(latestUnverifiedDataBlockNum).toEqual(0);
+    let latestEncryptedLogsBlockNum = await archiver.getLatestEncryptedLogsBlockNum();
+    expect(latestEncryptedLogsBlockNum).toEqual(0);
 
     const blocks = [1, 2, 3].map(x => L2Block.random(x));
     const rollupTxs = blocks.map(makeRollupTx);
@@ -78,12 +78,10 @@ describe('Archiver', () => {
       .mockResolvedValueOnce(l1ToL2MessageAddedEvents.slice(0, 2).flat())
       .mockResolvedValueOnce([]) // no messages to cancel
       .mockResolvedValueOnce([makeL2BlockProcessedEvent(101n, 1n)])
-      .mockResolvedValueOnce([makeUnverifiedDataEvent(102n, blocks[0])])
       .mockResolvedValueOnce([makeContractDeployedEvent(103n, blocks[0])])
       .mockResolvedValueOnce(l1ToL2MessageAddedEvents.slice(2, 4).flat())
       .mockResolvedValueOnce(makeL1ToL2MessageCancelledEvents(1100n, l1ToL2MessagesToCancel))
       .mockResolvedValueOnce([makeL2BlockProcessedEvent(1101n, 2n), makeL2BlockProcessedEvent(1150n, 3n)])
-      .mockResolvedValueOnce([makeUnverifiedDataEvent(1100n, blocks[1])])
       .mockResolvedValueOnce([makeContractDeployedEvent(1102n, blocks[1])])
       .mockResolvedValue([]);
     rollupTxs.forEach(tx => publicClient.getTransaction.mockResolvedValueOnce(tx));
@@ -100,11 +98,11 @@ describe('Archiver', () => {
 
     // Wait until unverified data corresponding to block 2 is processed. If this won't happen the test will fail with
     // timeout.
-    while ((await archiver.getLatestUnverifiedDataBlockNum()) !== 2) {
+    while ((await archiver.getLatestEncryptedLogsBlockNum()) !== 2) {
       await sleep(100);
     }
-    latestUnverifiedDataBlockNum = await archiver.getLatestUnverifiedDataBlockNum();
-    expect(latestUnverifiedDataBlockNum).toEqual(2);
+    latestEncryptedLogsBlockNum = await archiver.getLatestEncryptedLogsBlockNum();
+    expect(latestEncryptedLogsBlockNum).toEqual(2);
 
     // Check that only 2 messages (l1ToL2MessageAddedEvents[3][2] and l1ToL2MessageAddedEvents[3][3]) are pending.
     // Other two (l1ToL2MessageAddedEvents[3][0..2]) were cancelled. And the previous messages were confirmed.
@@ -134,29 +132,10 @@ function makeL2BlockProcessedEvent(l1BlockNum: bigint, l2BlockNum: bigint) {
 }
 
 /**
- * Makes a fake UnverifiedData event for testing purposes.
- * @param l1BlockNum - L1 block number.
- * @param l2Block - The l2Block this event is associated with.
- * @returns An UnverifiedData event log.
- */
-function makeUnverifiedDataEvent(l1BlockNum: bigint, l2Block: L2Block) {
-  return {
-    blockNumber: l1BlockNum,
-    args: {
-      l2BlockNum: BigInt(l2Block.number),
-      l2BlockHash: `0x${l2Block.getCalldataHash().toString('hex')}`,
-      sender: EthAddress.random().toString(),
-      data: '0x' + createRandomUnverifiedData(16).toString('hex'),
-    },
-    transactionHash: `0x${l2Block.number}`,
-  } as Log<bigint, number, undefined, typeof UnverifiedDataEmitterAbi, 'UnverifiedData'>;
-}
-
-/**
  * Makes a fake ContractDeployed event for testing purposes.
  * @param l1BlockNum - L1 block number.
  * @param l2Block - The l2Block this event is associated with.
- * @returns An UnverifiedData event log.
+ * @returns An EncryptedLogs event log.
  */
 function makeContractDeployedEvent(l1BlockNum: bigint, l2Block: L2Block) {
   // const contractData = ContractData.random();
@@ -177,7 +156,7 @@ function makeContractDeployedEvent(l1BlockNum: bigint, l2Block: L2Block) {
       acir: '0x' + acir,
     },
     transactionHash: `0x${l2Block.number}`,
-  } as Log<bigint, number, undefined, typeof UnverifiedDataEmitterAbi, 'ContractDeployment'>;
+  } as Log<bigint, number, undefined, typeof ContractDeploymentEmitterAbi, 'ContractDeployment'>;
 }
 
 /**
@@ -243,14 +222,4 @@ function makeRollupTx(l2Block: L2Block) {
 const createRandomEncryptedNotePreimage = () => {
   const encryptedNotePreimageBuf = randomBytes(144);
   return Buffer.concat([toBufferBE(BigInt(encryptedNotePreimageBuf.length), 4), encryptedNotePreimageBuf]);
-};
-
-/**
- * Crate random unverified data.
- * @param numPreimages - Number of preimages to create.
- * @returns Unverified data containing `numPreimages` encrypted note preimages.
- */
-const createRandomUnverifiedData = (numPreimages: number) => {
-  const encryptedNotePreimageBuf = createRandomEncryptedNotePreimage();
-  return Buffer.concat(Array(numPreimages).fill(encryptedNotePreimageBuf));
 };

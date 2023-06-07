@@ -138,27 +138,13 @@ export class HttpNode implements AztecNode {
   }
 
   /**
-   * Lookup the L2 contract info for this contract.
-   * Contains the ethereum portal address .
-   * @param contractAddress - The contract data address.
-   * @returns The contract's address & portal address.
+   * Gets the `take` amount of encrypted logs starting from `from`.
+   * @param from - Number of the L2 block to which corresponds the first encryptedLogsSource to be returned.
+   * @param take - The number of encryptedLogsSource to return.
+   * @returns The requested encryptedLogsSource.
    */
-  async getContractInfo(contractAddress: AztecAddress): Promise<ContractData | undefined> {
-    const url = new URL(`${this.baseUrl}/contract-info`);
-    url.searchParams.append('address', contractAddress.toString());
-    const response = await (await fetch(url.toString())).json();
-    const contract = response.contractInfo as string;
-    return Promise.resolve(ContractData.fromBuffer(Buffer.from(contract, 'hex')));
-  }
-
-  /**
-   * Gets the `take` amount of unverified data starting from `from`.
-   * @param from - Number of the L2 block to which corresponds the first `unverifiedData` to be returned.
-   * @param take - The number of `unverifiedData` to return.
-   * @returns The requested `unverifiedData`.
-   */
-  async getUnverifiedData(from: number, take: number): Promise<EventLogs[]> {
-    const url = new URL(`${this.baseUrl}/get-unverified`);
+  public async getEncryptedLogs(from: number, take: number): Promise<EventLogs[]> {
+    const url = new URL(`${this.baseUrl}/get-encrypted-logs`);
     url.searchParams.append('from', from.toString());
     if (take !== undefined) {
       url.searchParams.append('take', take.toString());
@@ -170,6 +156,20 @@ export class HttpNode implements AztecNode {
       return Promise.resolve([]);
     }
     return Promise.resolve(unverified.map(x => EventLogs.fromBuffer(Buffer.from(x, 'hex'))));
+  }
+
+  /**
+   * Lookup the L2 contract info for this contract.
+   * Contains the ethereum portal address .
+   * @param contractAddress - The contract data address.
+   * @returns The contract's address & portal address.
+   */
+  async getContractInfo(contractAddress: AztecAddress): Promise<ContractData | undefined> {
+    const url = new URL(`${this.baseUrl}/contract-info`);
+    url.searchParams.append('address', contractAddress.toString());
+    const response = await (await fetch(url.toString())).json();
+    const contract = response.contractInfo as string;
+    return Promise.resolve(ContractData.fromBuffer(Buffer.from(contract, 'hex')));
   }
 
   /**

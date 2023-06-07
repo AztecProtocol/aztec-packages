@@ -32,19 +32,6 @@ export interface L1PublisherTxSender {
   sendProcessTx(encodedData: L1ProcessArgs): Promise<string | undefined>;
 
   /**
-   * Sends a tx to the unverified data emitter contract with unverified data. Returns once the tx has been mined.
-   * @param l2BlockNum - Number of the L2 block that owns this unverified data.
-   * @param l2BlockHash - The hash of the block corresponding to this data.
-   * @param unverifiedData - Data to publish.
-   * @returns The hash of the mined tx.
-   */
-  sendEmitUnverifiedDataTx(
-    l2BlockNum: number,
-    l2BlockHash: Buffer,
-    unverifiedData: EventLogs,
-  ): Promise<string | undefined>;
-
-  /**
    * Sends a tx to the unverified data emitter contract with contract deployment data such as bytecode. Returns once the tx has been mined.
    * @param l2BlockNum - Number of the L2 block that owns this unverified data.
    * @param l2BlockHash - The hash of the block corresponding to this data.
@@ -147,42 +134,6 @@ export class L1Publisher implements L2BlockReceiver {
   }
 
   /**
-   * Publishes unverifiedData to L1.
-   * @param l2BlockNum - The L2 block number that the unverifiedData is associated with.
-   * @param l2BlockHash - The hash of the block corresponding to this data.
-   * @param unverifiedData - The unverifiedData to publish.
-   * @returns True once the tx has been confirmed and is successful, false on revert or interrupt, blocks otherwise.
-   */
-  public async processUnverifiedData(
-    l2BlockNum: number,
-    l2BlockHash: Buffer,
-    unverifiedData: EventLogs,
-  ): Promise<boolean> {
-    while (!this.interrupted) {
-      if (!(await this.checkFeeDistributorBalance())) {
-        this.log(`Fee distributor ETH balance too low, awaiting top up...`);
-        await this.sleepOrInterrupted();
-        continue;
-      }
-
-      const txHash = await this.sendEmitUnverifiedDataTx(l2BlockNum, l2BlockHash, unverifiedData);
-      if (!txHash) break;
-
-      const receipt = await this.getTransactionReceipt(txHash);
-      if (!receipt) break;
-
-      // Tx was mined successfully
-      if (receipt.status) return true;
-
-      this.log(`Transaction status failed: ${receipt.transactionHash}`);
-      await this.sleepOrInterrupted();
-    }
-
-    this.log('L2 block data syncing interrupted while processing unverified data.');
-    return false;
-  }
-
-  /**
    * Publishes new contract data to L1.
    * @param l2BlockNum - The L2 block number that the new contracts were deployed on.
    * @param l2BlockHash - The hash of the block corresponding to this data.
@@ -254,21 +205,6 @@ export class L1Publisher implements L2BlockReceiver {
       } catch (err) {
         this.log(`ROLLUP PUBLISH FAILED`, err);
         return undefined;
-      }
-    }
-  }
-
-  private async sendEmitUnverifiedDataTx(
-    l2BlockNum: number,
-    l2BlockHash: Buffer,
-    unverifiedData: EventLogs,
-  ): Promise<string | undefined> {
-    while (!this.interrupted) {
-      try {
-        return await this.txSender.sendEmitUnverifiedDataTx(l2BlockNum, l2BlockHash, unverifiedData);
-      } catch (err) {
-        this.log(`Error sending unverified data tx to L1`, err);
-        await this.sleepOrInterrupted();
       }
     }
   }

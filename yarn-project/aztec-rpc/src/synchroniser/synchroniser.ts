@@ -62,22 +62,22 @@ export class Synchroniser {
 
   protected async work(from = 1, take = 1, retryInterval = 1000): Promise<number> {
     try {
-      let unverifiedData = await this.node.getUnverifiedData(from, take);
-      if (!unverifiedData.length) {
+      let encryptedLogs = await this.node.getEncryptedLogs(from, take);
+      if (!encryptedLogs.length) {
         await this.interruptableSleep.sleep(retryInterval);
         return from;
       }
 
-      // Note: If less than `take` unverified data is returned, then I fetch only that number of blocks.
-      const blocks = await this.node.getBlocks(from, unverifiedData.length);
+      // Note: If less than `take` encrypted logs is returned, then we fetch only that number of blocks.
+      const blocks = await this.node.getBlocks(from, encryptedLogs.length);
       if (!blocks.length) {
         await this.interruptableSleep.sleep(retryInterval);
         return from;
       }
 
-      if (blocks.length !== unverifiedData.length) {
+      if (blocks.length !== encryptedLogs.length) {
         // "Trim" the unverified data to match the number of blocks.
-        unverifiedData = unverifiedData.slice(0, blocks.length);
+        encryptedLogs = encryptedLogs.slice(0, blocks.length);
       }
 
       // Wrap blocks in block contexts.
@@ -88,13 +88,13 @@ export class Synchroniser {
       await this.setTreeRootsFromBlock(latestBlock);
 
       this.log(
-        `Forwarding ${unverifiedData.length} unverified data and blocks to ${this.accountStates.length} account states`,
+        `Forwarding ${encryptedLogs.length} unverified data and blocks to ${this.accountStates.length} account states`,
       );
       for (const accountState of this.accountStates) {
-        await accountState.process(blockContexts, unverifiedData);
+        await accountState.process(blockContexts, encryptedLogs);
       }
 
-      from += unverifiedData.length;
+      from += encryptedLogs.length;
       return from;
     } catch (err) {
       this.log(err);

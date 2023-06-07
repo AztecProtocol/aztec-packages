@@ -11,7 +11,7 @@ import {
   L2Block,
   L2BlockSource,
   EventLogs,
-  UnverifiedDataSource,
+  EncryptedLogsSource,
 } from '@aztec/types';
 import { Chain, HttpTransport, PublicClient, createPublicClient, http } from 'viem';
 import { ArchiverConfig } from './config.js';
@@ -19,7 +19,6 @@ import { createEthereumChain } from '@aztec/ethereum';
 import {
   retrieveBlocks,
   retrieveNewContractData,
-  retrieveUnverifiedData,
   retrieveNewPendingL1ToL2Messages,
   retrieveNewCancelledL1ToL2Messages,
 } from './data_retrieval.js';
@@ -31,7 +30,7 @@ import { Fr } from '@aztec/foundation/fields';
  * Responsible for handling robust L1 polling so that other components do not need to
  * concern themselves with it.
  */
-export class Archiver implements L2BlockSource, UnverifiedDataSource, ContractDataSource, L1ToL2MessageSource {
+export class Archiver implements L2BlockSource, EncryptedLogsSource, ContractDataSource, L1ToL2MessageSource {
   /**
    * A promise in which we will be continually fetching new L2 blocks.
    */
@@ -52,7 +51,7 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource, ContractDa
    * @param publicClient - A client for interacting with the Ethereum node.
    * @param rollupAddress - Ethereum address of the rollup contract.
    * @param inboxAddress - Ethereum address of the inbox contract.
-   * @param unverifiedDataEmitterAddress - Ethereum address of the unverifiedDataEmitter contract.
+   * @param contractDeploymentEmitterAddress - Ethereum address of the contractDeploymentEmitter contract.
    * @param searchStartBlock - The eth block from which to start searching for new blocks.
    * @param pollingIntervalMs - The interval for polling for rollup logs (in milliseconds).
    * @param store - An archiver data store for storage & retrieval of blocks, unverified data & contract data.
@@ -62,7 +61,7 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource, ContractDa
     private readonly publicClient: PublicClient<HttpTransport, Chain>,
     private readonly rollupAddress: EthAddress,
     private readonly inboxAddress: EthAddress,
-    private readonly unverifiedDataEmitterAddress: EthAddress,
+    private readonly contractDeploymentEmitterAddress: EthAddress,
     searchStartBlock: number,
     private readonly store: ArchiverDataStore,
     private readonly pollingIntervalMs = 10_000,
@@ -88,7 +87,7 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource, ContractDa
       publicClient,
       config.rollupContract,
       config.inboxContract,
-      config.unverifiedDataEmitterContract,
+      config.contractDeploymentEmitterContract,
       config.searchStartBlock,
       archiverStore,
       config.archiverPollingInterval,
@@ -116,8 +115,7 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource, ContractDa
   }
 
   /**
-   * Fetches `L2BlockProcessed` and `UnverifiedData` logs from `nextL2BlockFromBlock` and
-   * `nextUnverifiedDataFromBlock` and processes them.
+   * Fetches `L2BlockProcessed` and `ContractDeployed` logs from `nextL2BlockFromBlock` and processes them.
    * @param blockUntilSynced - If true, blocks until the archiver has fully synced.
    */
   private async sync(blockUntilSynced: boolean) {
@@ -178,18 +176,9 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource, ContractDa
     retrievedBlocks.retrievedData.forEach((block: L2Block) => {
       blockHashMapping[block.number] = block.getCalldataHash();
     });
-    const retrievedUnverifiedData = await retrieveUnverifiedData(
-      this.publicClient,
-      this.unverifiedDataEmitterAddress,
-      blockUntilSynced,
-      currentBlockNumber,
-      this.nextL2BlockFromBlock,
-      nextExpectedRollupId,
-      blockHashMapping,
-    );
     const retrievedContracts = await retrieveNewContractData(
       this.publicClient,
-      this.unverifiedDataEmitterAddress,
+      this.contractDeploymentEmitterAddress,
       blockUntilSynced,
       currentBlockNumber,
       this.nextL2BlockFromBlock,
@@ -200,11 +189,6 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource, ContractDa
     }
 
     this.log(`Retrieved ${retrievedBlocks.retrievedData.length} block(s) from chain`);
-
-    // store unverified chunks for which we have retrieved rollups
-    await this.store.addUnverifiedData(
-      retrievedUnverifiedData.retrievedData.slice(0, retrievedBlocks.retrievedData.length),
-    );
 
     // store encrypted event logs from L2 Blocks that we have retrieved
     const encryptedEventLogs = retrievedBlocks.retrievedData.map(block => {
@@ -311,13 +295,13 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource, ContractDa
   }
 
   /**
-   * Gets the `take` amount of unverified data starting from `from`.
-   * @param from - Number of the L2 block to which corresponds the first `unverifiedData` to be returned.
-   * @param take - The number of `unverifiedData` to return.
-   * @returns The requested `unverifiedData`.
+   * Gets the `take` amount of encrypted logs starting from `from`.
+   * @param from - Number of the L2 block to which corresponds the first encrypted logs to be returned.
+   * @param take - The number of encrypted logs to return.
+   * @returns The requested encrypted logs.
    */
-  public getUnverifiedData(from: number, take: number): Promise<EventLogs[]> {
-    return this.store.getUnverifiedData(from, take);
+  public getEncryptedLogs(from: number, take: number): Promise<EventLogs[]> {
+    return this.store.getEncryptedLogs(from, take);
   }
 
   /**
@@ -329,11 +313,11 @@ export class Archiver implements L2BlockSource, UnverifiedDataSource, ContractDa
   }
 
   /**
-   * Gets the L2 block number associated with the latest unverified data.
-   * @returns The L2 block number associated with the latest unverified data.
+   * Gets the L2 block number associated with the latest encrypted logs data.
+   * @returns The L2 block number associated with the latest encrypted logs data.
    */
-  public getLatestUnverifiedDataBlockNum(): Promise<number> {
-    return this.store.getLatestUnverifiedDataBlockNum();
+  public getLatestEncryptedLogsBlockNum(): Promise<number> {
+    return this.store.getLatestEncryptedEventLogsBlockNum();
   }
 
   /**

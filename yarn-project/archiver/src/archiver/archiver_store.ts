@@ -31,13 +31,6 @@ export interface ArchiverDataStore {
   getL2Blocks(from: number, take: number): Promise<L2Block[]>;
 
   /**
-   * Append new Unverified data to the store's list.
-   * @param data - The Unverified Data to be added to the store.
-   * @returns True if the operation is successful.
-   */
-  addUnverifiedData(data: EventLogs[]): Promise<boolean>;
-
-  /**
    * Append new encrypted event logs data to the store's list.
    * @param data - The Unverified Data to be added to the store.
    * @returns True if the operation is successful.
@@ -82,19 +75,11 @@ export interface ArchiverDataStore {
 
   /**
    * Gets the `take` amount of unverified data starting from `from`.
-   * @param from - Number of the L2 block to which corresponds the first `unverifiedData` to be returned.
-   * @param take - The number of `unverifiedData` to return.
-   * @returns The requested `unverifiedData`.
+   * @param from - Number of the L2 block to which corresponds the first `encryptedLogs` to be returned.
+   * @param take - The number of encrypted logs to return.
+   * @returns The requested encrypted logs.
    */
-  getUnverifiedData(from: number, take: number): Promise<EventLogs[]>;
-
-  /**
-   * Gets the `take` amount of unverified data starting from `from`.
-   * @param from - Number of the L2 block to which corresponds the first `unverifiedData` to be returned.
-   * @param take - The number of `unverifiedData` to return.
-   * @returns The requested `unverifiedData`.
-   */
-  getEncryptedEventLogs(from: number, take: number): Promise<EventLogs[]>;
+  getEncryptedLogs(from: number, take: number): Promise<EventLogs[]>;
 
   /**
    * Store new Contract Public Data from an L2 block to the store's list.
@@ -147,12 +132,6 @@ export interface ArchiverDataStore {
   getBlocksLength(): number;
 
   /**
-   * Gets the L2 block number associated with the latest unverified data.
-   * @returns The L2 block number associated with the latest unverified data.
-   */
-  getLatestUnverifiedDataBlockNum(): Promise<number>;
-
-  /**
    * Gets the L2 block number associated with the latest encrypted event logs.
    * @returns The L2 block number associated with the latest encrypted event logs.
    */
@@ -167,13 +146,6 @@ export class MemoryArchiverStore implements ArchiverDataStore {
    * An array containing all the L2 blocks that have been fetched so far.
    */
   private l2Blocks: L2Block[] = [];
-
-  /**
-   * An array containing all the `unverifiedData` that have been fetched so far.
-   * Note: Index in the "outer" array equals to (corresponding L2 block's number - INITIAL_L2_BLOCK_NUM).
-   */
-  // TODO: remove once event logs are stored & retrieved from L2 blocks.
-  private unverifiedData: EventLogs[] = [];
 
   /**
    * An array containing all the encrypted event logs that have been fetched so far.
@@ -206,17 +178,6 @@ export class MemoryArchiverStore implements ArchiverDataStore {
    */
   public addL2Blocks(blocks: L2Block[]): Promise<boolean> {
     this.l2Blocks.push(...blocks);
-    return Promise.resolve(true);
-  }
-
-  /**
-   * Append new Unverified data to the store's list.
-   * @param data - The Unverified Data to be added to the store.
-   * @returns True if the operation is successful (always in this implementation).
-   */
-  // TODO: remove once event logs are stored & retrieved from L2 blocks.
-  public addUnverifiedData(data: EventLogs[]): Promise<boolean> {
-    this.unverifiedData.push(...data);
     return Promise.resolve(true);
   }
 
@@ -320,30 +281,11 @@ export class MemoryArchiverStore implements ArchiverDataStore {
 
   /**
    * Gets the `take` amount of unverified data starting from `from`.
-   * @param from - Number of the L2 block to which corresponds the first `unverifiedData` to be returned.
-   * @param take - The number of `unverifiedData` to return.
-   * @returns The requested `unverifiedData`.
+   * @param from - Number of the L2 block to which corresponds the first encrypted logs to be returned.
+   * @param take - The number of encrypted logs to return.
+   * @returns The requested encrypted logs.
    */
-  // TODO: remove once event logs are stored & retrieved from L2 blocks.
-  public getUnverifiedData(from: number, take: number): Promise<EventLogs[]> {
-    if (from < INITIAL_L2_BLOCK_NUM) {
-      throw new Error(`Invalid block range ${from}`);
-    }
-    if (from > this.unverifiedData.length) {
-      return Promise.resolve([]);
-    }
-    const startIndex = from - INITIAL_L2_BLOCK_NUM;
-    const endIndex = from + take;
-    return Promise.resolve(this.unverifiedData.slice(startIndex, endIndex));
-  }
-
-  /**
-   * Gets the `take` amount of unverified data starting from `from`.
-   * @param from - Number of the L2 block to which corresponds the first `unverifiedData` to be returned.
-   * @param take - The number of `unverifiedData` to return.
-   * @returns The requested `unverifiedData`.
-   */
-  public getEncryptedEventLogs(from: number, take: number): Promise<EventLogs[]> {
+  public getEncryptedLogs(from: number, take: number): Promise<EventLogs[]> {
     if (from < INITIAL_L2_BLOCK_NUM) {
       throw new Error(`Invalid block range ${from}`);
     }
@@ -423,16 +365,6 @@ export class MemoryArchiverStore implements ArchiverDataStore {
   public getBlockHeight(): Promise<number> {
     if (this.l2Blocks.length === 0) return Promise.resolve(INITIAL_L2_BLOCK_NUM - 1);
     return Promise.resolve(this.l2Blocks[this.l2Blocks.length - 1].number);
-  }
-
-  /**
-   * Gets the L2 block number associated with the latest unverified data.
-   * @returns The L2 block number associated with the latest unverified data.
-   */
-  // TODO: remove once event logs are stored & retrieved from L2 blocks.
-  public getLatestUnverifiedDataBlockNum(): Promise<number> {
-    if (this.unverifiedData.length === 0) return Promise.resolve(INITIAL_L2_BLOCK_NUM - 1);
-    return Promise.resolve(this.unverifiedData.length + INITIAL_L2_BLOCK_NUM - 1);
   }
 
   /**
