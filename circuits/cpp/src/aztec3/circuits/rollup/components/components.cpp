@@ -110,7 +110,9 @@ std::array<fr, 2> compute_kernels_calldata_hash(std::array<abis::PreviousKernelD
     // 2 unencrypted logs hashes (1 per kernel) -> 4 fields
     auto const number_of_inputs =
         (KERNEL_NEW_COMMITMENTS_LENGTH + KERNEL_NEW_NULLIFIERS_LENGTH + KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH * 2 +
-         KERNEL_NEW_L2_TO_L1_MSGS_LENGTH + KERNEL_NEW_CONTRACTS_LENGTH * 3 + KERNEL_NUM_ENCRYPTED_LOGS_HASHES * 2
+         KERNEL_NEW_L2_TO_L1_MSGS_LENGTH + KERNEL_NEW_CONTRACTS_LENGTH * 3
+         // TODO #769, relevant issue https://github.com/AztecProtocol/aztec-packages/issues/769
+         //  + KERNEL_NUM_ENCRYPTED_LOGS_HASHES * 2
          //  + KERNEL_NUM_UNENCRYPTED_LOGS_HASHES * 2
          ) *
         2;
@@ -158,10 +160,10 @@ std::array<fr, 2> compute_kernels_calldata_hash(std::array<abis::PreviousKernelD
         calldata_hash_inputs[offset + i * 2] = new_contracts[0].contract_address;
         calldata_hash_inputs[offset + i * 2 + 1] = new_contracts[0].portal_contract_address;
 
-        offset += KERNEL_NEW_CONTRACTS_LENGTH * 2 * 2;
-
-        calldata_hash_inputs[offset + i * 2] = encryptedLogsHash[0];
-        calldata_hash_inputs[offset + i * 2 + 1] = encryptedLogsHash[1];
+        // TODO #769, relevant issue https://github.com/AztecProtocol/aztec-packages/issues/769
+        // offset += KERNEL_NEW_CONTRACTS_LENGTH * 2 * 2;
+        // calldata_hash_inputs[offset + i * 2] = encryptedLogsHash[0];
+        // calldata_hash_inputs[offset + i * 2 + 1] = encryptedLogsHash[1];
 
         // offset += KERNEL_NUM_ENCRYPTED_LOGS_HASHES * 2;
 
