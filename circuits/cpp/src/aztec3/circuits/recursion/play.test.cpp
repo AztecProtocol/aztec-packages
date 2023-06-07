@@ -26,13 +26,13 @@ class play_tests : public ::testing::Test {
     //     }
 };
 
-TEST(play_tests, circuit_play_app_circuit)
+TEST_F(play_tests, circuit_play_app_circuit)
 {
     Composer composer = Composer(barretenberg::srs::get_crs_factory());
     play_app_circuit(composer, 1, 2);
 }
 
-TEST(play_tests, circuit_play_app_proof_gen)
+TEST_F(play_tests, circuit_play_app_proof_gen)
 {
     Composer app_composer = Composer(barretenberg::srs::get_crs_factory());
     play_app_circuit(app_composer, 100, 200);
@@ -46,7 +46,7 @@ TEST(play_tests, circuit_play_app_proof_gen)
     info("app_proof: ", app_proof.proof_data);
 }
 
-TEST(play_tests, circuit_play_recursive_proof_gen)
+TEST_F(play_tests, circuit_play_recursive_proof_gen)
 {
     Composer app_composer = Composer(barretenberg::srs::get_crs_factory());
     play_app_circuit(app_composer, 1, 2);
@@ -69,7 +69,7 @@ TEST(play_tests, circuit_play_recursive_proof_gen)
     }
 }
 
-TEST(play_tests, circuit_play_recursive_2_proof_gen)
+TEST_F(play_tests, circuit_play_recursive_2_proof_gen)
 {
     Composer app_composer = Composer(barretenberg::srs::get_crs_factory());
     play_app_circuit(app_composer, 1, 2);
