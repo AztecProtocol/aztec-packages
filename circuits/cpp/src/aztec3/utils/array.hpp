@@ -113,7 +113,6 @@ void array_push(Composer& composer, std::array<T, SIZE>& arr, T const& value)
             return;
         }
     }
-    // TODO(sean): update error types
     composer.do_assert(false, "array_push cannot push to a full array", CircuitErrorCode::ARRAY_OVERFLOW);
 };
 

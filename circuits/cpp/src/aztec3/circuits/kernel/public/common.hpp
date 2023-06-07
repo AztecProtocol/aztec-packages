@@ -9,7 +9,6 @@
 #include "aztec3/circuits/abis/public_kernel/public_kernel_inputs.hpp"
 #include "aztec3/circuits/abis/public_kernel/public_kernel_inputs_no_previous_kernel.hpp"
 #include "aztec3/circuits/hash.hpp"
-#include "aztec3/constants.hpp"
 #include "aztec3/utils/array.hpp"
 #include "aztec3/utils/dummy_composer.hpp"
 
