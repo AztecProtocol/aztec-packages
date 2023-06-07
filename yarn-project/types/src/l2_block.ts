@@ -563,6 +563,10 @@ export class L2Block {
         this.newContractData[i * 2].portalContractAddress.toBuffer32(),
         this.newContractData[i * 2 + 1].contractAddress.toBuffer(),
         this.newContractData[i * 2 + 1].portalContractAddress.toBuffer32(),
+        // The following 2 are encrypted logs hashes from kernel 0 and kernel 1 of base rollup circuit
+        // TODO #769, relevant issue https://github.com/AztecProtocol/aztec-packages/issues/769
+        // L2Block.computeKernelLogsHash(this.newEncryptedLogs.dataChunks[i * 2]),
+        // L2Block.computeKernelLogsHash(this.newEncryptedLogs.dataChunks[i * 2 + 1]),
       ]);
       leafs.push(sha256(inputValue));
     }
@@ -687,13 +691,12 @@ export class L2Block {
   /**
    * Computes logs hash as is done in the kernel and app circuits.
    * @param encodedLogs - Encoded logs to be hashed.
-   * @param offset - Offset of this kernel's logs in the encoded logs.
    * @returns The hash of the logs.
    * Note: This is a TS implementation of `computeKernelLogsHash` function in Decoder.sol. See that function documentation
    *       for more details.
    */
-  static computeKernelLogsHash(encodedLogs: Buffer, offset = 0): Buffer {
-    const reader = new BufferReader(encodedLogs, offset);
+  static computeKernelLogsHash(encodedLogs: Buffer): Buffer {
+    const reader = new BufferReader(encodedLogs);
 
     let remainingLogsLength = reader.readNumber();
     const logsHashes: [Buffer, Buffer] = [Buffer.alloc(32), Buffer.alloc(32)];
