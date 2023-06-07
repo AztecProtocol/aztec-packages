@@ -215,6 +215,49 @@ contract DecoderTest is Test {
     assertEq(logsHash, referenceLogsHashFromIteration2, "Incorrect logs hash");
   }
 
+  function testComputeKernelLogsMiddleIterationWithoutLogs() public {
+    // || K_LOGS_LEN | I1_LOGS_LEN | I1_LOGS | I2_LOGS_LEN | I2_LOGS | I3_LOGS_LEN | I3_LOGS ||
+    // K_LOGS_LEN = 4 + 8 + 4 + 0 + 4 + 20 = 40 (hex"00000028")
+    // I1_LOGS_LEN = 8 (hex"00000008")
+    // I1_LOGS = 8 random bytes (hex"aafdc7aa93e78a70")
+    // I2_LOGS_LEN = 0 (hex"00000000")
+    // I2_LOGS = 0 bytes (hex"")
+    // I3_LOGS_LEN = 20 (hex"00000014")
+    // I3_LOGS = 20 random bytes (hex"97aee30906a86173c86c6d3f108eefc36e7fb014")
+    bytes memory firstFunctionCallLogs = hex"aafdc7aa93e78a70";
+    bytes memory secondFunctionCallLogs = hex"";
+    bytes memory thirdFunctionCallLogs = hex"97aee30906a86173c86c6d3f108eefc36e7fb014";
+    bytes memory encodedLogs = abi.encodePacked(
+      hex"0000002800000008",
+      firstFunctionCallLogs,
+      hex"00000000",
+      secondFunctionCallLogs,
+      hex"00000014",
+      thirdFunctionCallLogs
+    );
+    (bytes32 logsHash, uint256 bytesAdvanced) = helper.computeKernelLogsHash(encodedLogs);
+
+    bytes32 referenceLogsHashFromIteration1 =
+      sha256(abi.encodePacked(bytes32(0), sha256(firstFunctionCallLogs)));
+
+    bytes32 privateCircuitPublicInputsLogsHashSecondCall = sha256(secondFunctionCallLogs);
+
+    bytes32 referenceLogsHashFromIteration2 = sha256(
+      abi.encodePacked(
+        referenceLogsHashFromIteration1, privateCircuitPublicInputsLogsHashSecondCall
+      )
+    );
+
+    bytes32 privateCircuitPublicInputsLogsHashThirdCall = sha256(thirdFunctionCallLogs);
+
+    bytes32 referenceLogsHashFromIteration3 = sha256(
+      abi.encodePacked(referenceLogsHashFromIteration2, privateCircuitPublicInputsLogsHashThirdCall)
+    );
+
+    assertEq(bytesAdvanced, encodedLogs.length, "Advanced by an incorrect number of bytes");
+    assertEq(logsHash, referenceLogsHashFromIteration3, "Incorrect logs hash");
+  }
+
   // Tests https://github.com/AztecProtocol/aztec-packages/issues/730 is handled correctly
   function testLogsDontGetInterpretedAsMessages() public {
     (,,,,, bytes32[] memory l1ToL2Msgs) = helper.decode(block_with_no_l1_l2_msgs_and_with_logs);
