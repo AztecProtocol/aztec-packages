@@ -42,4 +42,17 @@ describe('L2Block', () => {
     const logsHash = L2Block.computeKernelLogsHash(encodedLogs);
     expect(logsHash).toEqual(referenceLogsHash);
   });
+
+  // TS equivalent of `testComputeKernelLogsMiddleIterationWithoutLogs` in `Decoder.t.sol`
+  it('correctly computes kernel logs hash when are logs from 3 iterations (2nd iter. without logs)', () => {
+    // The following 2 values are copied from `testComputeKernelLogsMiddleIterationWithoutLogs` in `Decoder.t.sol`
+    const encodedLogs = Buffer.from(
+      '0000002800000008aafdc7aa93e78a70000000000000001497aee30906a86173c86c6d3f108eefc36e7fb014',
+      'hex',
+    );
+    const referenceLogsHash = Buffer.from('29fab3875a0c31104acd405509861e6afb6ee075cc157170c2d6948fd4f852f3', 'hex');
+
+    const logsHash = L2Block.computeKernelLogsHash(encodedLogs);
+    expect(logsHash).toEqual(referenceLogsHash);
+  });
 });
