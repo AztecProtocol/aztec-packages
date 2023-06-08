@@ -322,10 +322,10 @@ library Decoder {
         //  * Compute encrypted and unencrypted logs hashes corresponding to the current leaf.
         //  * Note: `computeKernelLogsHash` will advance offsets by the number of bytes processed.
         //  */
-        (vars.encrypedLogsHashKernel1, offsets.encryptedLogsOffset) =
-          computeKernelLogsHash(offsets.encryptedLogsOffset, _l2Block);
-        (vars.encrypedLogsHashKernel2, offsets.encryptedLogsOffset) =
-          computeKernelLogsHash(offsets.encryptedLogsOffset, _l2Block);
+        // (vars.encrypedLogsHashKernel1, offsets.encryptedLogsOffset) =
+        //   computeKernelLogsHash(offsets.encryptedLogsOffset, _l2Block);
+        // (vars.encrypedLogsHashKernel2, offsets.encryptedLogsOffset) =
+        //   computeKernelLogsHash(offsets.encryptedLogsOffset, _l2Block);
 
         // (vars.unencryptedLogsHashKernel1, offsets.unencryptedLogsOffset) =
         //   computeKernelLogsHash(offsets.unencryptedLogsOffset, _l2Block);
@@ -378,12 +378,12 @@ library Decoder {
 
           // TODO: Uncomment once the logs functionality is added in other places
           // // encryptedLogsHashKernel1
-          dstPtr := add(dstPtr, 0x14)
-          mstore(dstPtr, mload(add(vars, 0x60))) // `encryptedLogsHashKernel1` starts at 0x60 in `vars`
+          // dstPtr := add(dstPtr, 0x14)
+          // mstore(dstPtr, mload(add(vars, 0x60))) // `encryptedLogsHashKernel1` starts at 0x60 in `vars`
 
-          // encryptedLogsHashKernel2
-          dstPtr := add(dstPtr, 0x20)
-          mstore(dstPtr, mload(add(vars, 0x80))) // `encryptedLogsHashKernel2` starts at 0x80 in `vars`
+          // // encryptedLogsHashKernel2
+          // dstPtr := add(dstPtr, 0x20)
+          // mstore(dstPtr, mload(add(vars, 0x80))) // `encryptedLogsHashKernel2` starts at 0x80 in `vars`
 
           // // unencryptedLogsHashKernel1
           // dstPtr := add(dstPtr, 0x20)
