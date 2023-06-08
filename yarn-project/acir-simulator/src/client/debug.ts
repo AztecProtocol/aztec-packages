@@ -13,6 +13,7 @@ function acvmFieldMessageToString(msg: ACVMField[]): string {
     const asciiChar = String.fromCharCode(asciiCode);
     msgStr = msgStr.concat(asciiChar);
   }
+  // cut off string in case of preemptive null termination
   const nullCharIndex = msgStr.indexOf('\\0');
   if (nullCharIndex >= 0) {
     msgStr = msgStr.substring(0, nullCharIndex);

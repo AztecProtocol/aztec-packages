@@ -83,7 +83,8 @@ impl Set {
         constrain note_getter_data.1.root == inputs.old_private_data_tree_root;
 
         let notes = (note_getter_data.0.note, note_getter_data.1.note);
-        //debug_log_format("get_2(slot:{0}) =>\n\t0:{0}\n\t1:{1}!", [storage_slot, notes.0.value, notes.1.value]);
+        //debug_log_format("get_2(slot:{0}) =>\n\t0:{0}\n\t1:{1}", [storage_slot, notes.0.value, notes.1.value]);
+
         (context, notes)
     }
 
