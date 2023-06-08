@@ -2,19 +2,19 @@ import { BufferReader, serializeBufferToVector } from '@aztec/foundation/seriali
 import { randomBytes } from 'crypto';
 
 /**
- * Data container of unverified data corresponding to one L2 block.
+ * Data container of encrypted logs corresponding to one L2 block.
  */
 export class NoirLogs {
   constructor(
     /**
-     * Chunks of unverified data corresponding to individual pieces of information (e.g. Encrypted preimages).
+     * Chunks of encrypted logs corresponding to individual pieces of information (e.g. Encrypted preimages).
      */
     public readonly dataChunks: Buffer[],
   ) {}
 
   /**
-   * Serializes unverified data into a buffer.
-   * @returns A buffer containing the serialized unverified data.
+   * Serializes encrypted logs into a buffer.
+   * @returns A buffer containing the serialized encrypted logs.
    */
   public toBuffer(): Buffer {
     // Serialize each buffer into the new buffer with prefix
@@ -44,8 +44,8 @@ export class NoirLogs {
   }
 
   /**
-   * Deserializes unverified data from a buffer.
-   * @param buf - The buffer containing the serialized unverified data.
+   * Deserializes encrypted logs from a buffer.
+   * @param buf - The buffer containing the serialized encrypted logs.
    * @returns A new NoirLogs object.
    */
   public static fromBuffer(buf: Buffer | BufferReader): NoirLogs {

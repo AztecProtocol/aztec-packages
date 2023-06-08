@@ -47,7 +47,7 @@ export function txToJson(tx: Tx) {
  */
 export function txFromJson(json: any) {
   const publicInputs = json.data ? KernelCircuitPublicInputs.fromBuffer(Buffer.from(json.data, 'hex')) : undefined;
-  const encryptedLogs = json.unverified ? NoirLogs.fromBuffer(Buffer.from(json.unverified, 'hex')) : undefined;
+  const encryptedLogs = json.encryptedLogs ? NoirLogs.fromBuffer(Buffer.from(json.encryptedLogs, 'hex')) : undefined;
   const txRequest = json.txRequest
     ? SignedTxExecutionRequest.fromBuffer(Buffer.from(json.txRequest, 'hex'))
     : undefined;
@@ -150,12 +150,12 @@ export class HttpNode implements AztecNode {
       url.searchParams.append('take', take.toString());
     }
     const response = await (await fetch(url.toString())).json();
-    const unverified = response.unverified as string[];
+    const encryptedLogs = response.encryptedLogs as string[];
 
-    if (!unverified) {
+    if (!encryptedLogs) {
       return Promise.resolve([]);
     }
-    return Promise.resolve(unverified.map(x => NoirLogs.fromBuffer(Buffer.from(x, 'hex'))));
+    return Promise.resolve(encryptedLogs.map(x => NoirLogs.fromBuffer(Buffer.from(x, 'hex'))));
   }
 
   /**

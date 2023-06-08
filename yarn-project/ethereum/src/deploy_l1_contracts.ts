@@ -69,7 +69,7 @@ export type DeployL1Contracts = {
 };
 
 /**
- * Deploys the aztec L1 contracts; Rollup, Unverified Data Emitter & (optionally) Decoder Helper.
+ * Deploys the aztec L1 contracts; Rollup, encrypted logs Emitter & (optionally) Decoder Helper.
  * @param rpcUrl - URL of the ETH RPC to use for deployment.
  * @param account - Private Key or HD Account that will deploy the contracts.
  * @param chain - The chain instance to deploy to.
@@ -132,7 +132,7 @@ export const deployL1Contracts = async (
     ContractDeploymentEmitterAbi,
     ContractDeploymentEmitterBytecode,
   );
-  logger(`Deployed unverified data emitter at ${contractDeploymentEmitterAddress}`);
+  logger(`Deployed encrypted logs emitter at ${contractDeploymentEmitterAddress}`);
 
   let decoderHelperAddress: EthAddress | undefined;
   if (deployDecoderHelper) {

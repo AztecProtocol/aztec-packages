@@ -5,7 +5,7 @@ import { L1ToL2MessageStore, PendingL1ToL2MessageStore } from './l1_to_l2_messag
 
 /**
  * Interface describing a data store to be used by the archiver to store all its relevant data
- * (blocks, unverified data, aztec contract public data).
+ * (blocks, encrypted logs, aztec contract public data).
  */
 export interface ArchiverDataStore {
   /**
@@ -25,7 +25,7 @@ export interface ArchiverDataStore {
 
   /**
    * Append new encrypted event logs data to the store's list.
-   * @param data - The Unverified Data to be added to the store.
+   * @param data - The encrypted logs to be added to the store.
    * @returns True if the operation is successful.
    */
   addEncryptedLogs(data: NoirLogs[]): Promise<boolean>;
@@ -67,7 +67,7 @@ export interface ArchiverDataStore {
   getConfirmedL1ToL2Message(messageKey: Fr): Promise<L1ToL2Message>;
 
   /**
-   * Gets the `take` amount of unverified data starting from `from`.
+   * Gets the `take` amount of encrypted logs starting from `from`.
    * @param from - Number of the L2 block to which corresponds the first `encryptedLogs` to be returned.
    * @param take - The number of encrypted logs to return.
    * @returns The requested encrypted logs.
@@ -170,7 +170,7 @@ export class MemoryArchiverStore implements ArchiverDataStore {
 
   /**
    * Append new encrypted event logs data to the store's list.
-   * @param data - The Unverified Data to be added to the store.
+   * @param data - The encrypted logs to be added to the store.
    * @returns True if the operation is successful (always in this implementation).
    */
   public addEncryptedLogs(data: NoirLogs[]): Promise<boolean> {
@@ -267,7 +267,7 @@ export class MemoryArchiverStore implements ArchiverDataStore {
   }
 
   /**
-   * Gets the `take` amount of unverified data starting from `from`.
+   * Gets the `take` amount of encrypted logs starting from `from`.
    * @param from - Number of the L2 block to which corresponds the first encrypted logs to be returned.
    * @param take - The number of encrypted logs to return.
    * @returns The requested encrypted logs.

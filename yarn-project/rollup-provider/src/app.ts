@@ -103,7 +103,7 @@ export function appFactory(node: AztecNode, prefix: string) {
     const strs = logs.map(x => x.toBuffer().toString('hex'));
     ctx.set('content-type', 'application/json');
     ctx.body = {
-      unverified: strs,
+      encryptedLogs: strs,
     };
     ctx.status = 200;
   });

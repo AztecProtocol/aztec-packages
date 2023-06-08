@@ -170,12 +170,12 @@ export class Sequencer {
   }
 
   /**
-   * Creates the unverified data from the txs and l2Block and publishes it on chain.
+   * Creates the encrypted logs from the txs and l2Block and publishes it on chain.
    * @param validTxs - The set of real transactions being published as part of the block.
    * @param block - The L2Block to be published.
    */
   protected async publishContractPublicData(validTxs: Tx[], block: L2Block) {
-    // Publishes new unverified data & contract data for private txs to the network and awaits the tx to be mined
+    // Publishes new encrypted logs & contract data for private txs to the network and awaits the tx to be mined
     this.state = SequencerState.PUBLISHING_CONTRACT_DATA;
     const newContractData = validTxs
       .filter(isPrivateTx)
@@ -194,7 +194,7 @@ export class Sequencer {
     const blockHash = block.getCalldataHash();
     this.log(`Publishing data with block hash ${blockHash.toString('hex')}`);
 
-    // TODO: Stop publishing unverified data once Archiver is updated to store logs found in block data.
+    // TODO: Stop publishing encrypted logs once Archiver is updated to store logs found in block data.
 
     const publishedContractData = await this.publisher.processNewContractData(block.number, blockHash, newContractData);
     if (publishedContractData) {
@@ -339,11 +339,11 @@ export enum SequencerState {
    */
   WAITING_FOR_TXS,
   /**
-   * Creating a new L2 block. Includes processing public function calls and running rollup circuits. Will move to PUBLISHING_UNVERIFIED_DATA.
+   * Creating a new L2 block. Includes processing public function calls and running rollup circuits. Will move to PUBLISHING_CONTRACT_DATA.
    */
   CREATING_BLOCK,
   /**
-   * Sending the tx to L1 with unverified data and awaiting it to be mined. Will move back to PUBLISHING_BLOCK once finished.
+   * Sending the tx to L1 with encrypted logs and awaiting it to be mined. Will move back to PUBLISHING_BLOCK once finished.
    */
   PUBLISHING_CONTRACT_DATA,
   /**

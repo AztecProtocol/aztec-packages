@@ -56,7 +56,7 @@ export class Archiver implements L2BlockSource, NoirLogsSource, ContractDataSour
    * @param contractDeploymentEmitterAddress - Ethereum address of the contractDeploymentEmitter contract.
    * @param searchStartBlock - The eth block from which to start searching for new blocks.
    * @param pollingIntervalMs - The interval for polling for rollup logs (in milliseconds).
-   * @param store - An archiver data store for storage & retrieval of blocks, unverified data & contract data.
+   * @param store - An archiver data store for storage & retrieval of blocks, encrypted logs & contract data.
    * @param log - A logger.
    */
   constructor(
@@ -158,7 +158,7 @@ export class Archiver implements L2BlockSource, NoirLogsSource, ContractDataSour
 
     // ********** Events that are processed per block **********
 
-    // The sequencer publishes unverified data first
+    // The sequencer publishes encrypted logs first
     // Read all data from chain and then write to our stores at the end
     const nextExpectedL2BlockNum = BigInt(this.store.getBlocksLength() + INITIAL_L2_BLOCK_NUM);
     this.log(

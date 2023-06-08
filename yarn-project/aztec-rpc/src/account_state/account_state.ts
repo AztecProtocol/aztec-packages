@@ -304,6 +304,7 @@ export class AccountState {
    * @returns A promise that resolves once the processing is completed.
    */
   public async process(l2BlockContexts: L2BlockContext[], encryptedLogs: NoirLogs[]): Promise<void> {
+    console.log('l2BlockContexts', l2BlockContexts, 'encryptedLogs', encryptedLogs);
     if (l2BlockContexts.length !== encryptedLogs.length) {
       throw new Error(
         `Number of blocks and EncryptedLogs is not equal. Received ${l2BlockContexts.length} blocks, ${encryptedLogs.length} encrypted logs.`,

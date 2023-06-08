@@ -11,7 +11,7 @@ import { Fr } from '@aztec/circuits.js';
 
 /**
  * The Synchroniser class manages the synchronization of account states and interacts with the Aztec node
- * to obtain unverified data, blocks, and other necessary information for the accounts.
+ * to obtain encrypted logs, blocks, and other necessary information for the accounts.
  * It provides methods to start or stop the synchronization process, add new accounts, retrieve account
  * details, and fetch transactions by hash. The Synchroniser ensures that it maintains the account states
  * in sync with the blockchain while handling retries and errors gracefully.
@@ -30,12 +30,12 @@ export class Synchroniser {
   ) {}
 
   /**
-   * Starts the synchronisation process by fetching unverified data and blocks from a specified position.
+   * Starts the synchronisation process by fetching encrypted logs and blocks from a specified position.
    * Continuously processes the fetched data for all account states until stopped. If there is no data
    * available, it retries after a specified interval.
    *
-   * @param from - The starting position for fetching unverified data and blocks.
-   * @param take - The number of unverified data and blocks to fetch in each iteration.
+   * @param from - The starting position for fetching encrypted logs and blocks.
+   * @param take - The number of encrypted logs and blocks to fetch in each iteration.
    * @param retryInterval - The time interval (in ms) to wait before retrying if no data is available.
    */
   public async start(from = 1, take = 1, retryInterval = 1000) {
@@ -76,7 +76,7 @@ export class Synchroniser {
       }
 
       if (blocks.length !== encryptedLogs.length) {
-        // "Trim" the unverified data to match the number of blocks.
+        // "Trim" the encrypted logs to match the number of blocks.
         encryptedLogs = encryptedLogs.slice(0, blocks.length);
       }
 
@@ -88,7 +88,7 @@ export class Synchroniser {
       await this.setTreeRootsFromBlock(latestBlock);
 
       this.log(
-        `Forwarding ${encryptedLogs.length} unverified data and blocks to ${this.accountStates.length} account states`,
+        `Forwarding ${encryptedLogs.length} encrypted logs and blocks to ${this.accountStates.length} account states`,
       );
       for (const accountState of this.accountStates) {
         await accountState.process(blockContexts, encryptedLogs);
@@ -123,7 +123,7 @@ export class Synchroniser {
   /**
    * Stops the synchronizer gracefully, interrupting any ongoing sleep and waiting for the current
    * iteration to complete before setting the running state to false. Once stopped, the synchronizer
-   * will no longer process blocks or unverified data and must be restarted using the start method.
+   * will no longer process blocks or encrypted logs and must be restarted using the start method.
    *
    * @returns A promise that resolves when the synchronizer has successfully stopped.
    */
