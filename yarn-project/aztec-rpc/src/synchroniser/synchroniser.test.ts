@@ -1,3 +1,4 @@
+import omit from 'lodash.omit';
 import { AztecNode } from '@aztec/aztec-node';
 import { Grumpkin } from '@aztec/barretenberg.js/crypto';
 import { Fr } from '@aztec/circuits.js';
@@ -60,7 +61,9 @@ describe('Synchroniser', () => {
 
   it('sets tree roots from latest block', async () => {
     const block = L2Block.random(1, 4);
-    aztecNode.getBlocks.mockResolvedValue([block]);
+    aztecNode.getBlocks.mockResolvedValue([
+      L2Block.fromFields(omit(block, 'newEncryptedLogs', 'newEncryptedLogsLength')),
+    ]);
     aztecNode.getEncryptedLogs.mockResolvedValue([block.newEncryptedLogs!]);
 
     await synchroniser.work();
@@ -80,7 +83,9 @@ describe('Synchroniser', () => {
 
     // We then process block with height 1, this should not change tree roots
     const block1 = L2Block.random(1, 4);
-    aztecNode.getBlocks.mockResolvedValueOnce([block1]);
+    aztecNode.getBlocks.mockResolvedValueOnce([
+      L2Block.fromFields(omit(block1, 'newEncryptedLogs', 'newEncryptedLogsLength')),
+    ]);
     aztecNode.getEncryptedLogs.mockResolvedValue([block1.newEncryptedLogs!]);
 
     await synchroniser.work();
