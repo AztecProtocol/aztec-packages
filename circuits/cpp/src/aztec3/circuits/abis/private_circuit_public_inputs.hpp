@@ -30,6 +30,9 @@ template <typename NCT> class PrivateCircuitPublicInputs {
 
     std::array<fr, READ_REQUESTS_LENGTH> read_requests = zero_array<fr, READ_REQUESTS_LENGTH>();
 
+    std::array<fr, NEW_COMMITMENTS_LENGTH> new_commitments = zero_array<fr, NEW_COMMITMENTS_LENGTH>();
+    std::array<fr, NEW_NULLIFIERS_LENGTH> new_nullifiers = zero_array<fr, NEW_NULLIFIERS_LENGTH>();
+
     std::array<fr, PRIVATE_CALL_STACK_LENGTH> private_call_stack = zero_array<fr, PRIVATE_CALL_STACK_LENGTH>();
     std::array<fr, PUBLIC_CALL_STACK_LENGTH> public_call_stack = zero_array<fr, PUBLIC_CALL_STACK_LENGTH>();
     std::array<fr, NEW_L2_TO_L1_MSGS_LENGTH> new_l2_to_l1_msgs = zero_array<fr, NEW_L2_TO_L1_MSGS_LENGTH>();
@@ -60,6 +63,7 @@ template <typename NCT> class PrivateCircuitPublicInputs {
                new_l2_to_l1_msgs == other.new_l2_to_l1_msgs && encrypted_logs_hash == other.encrypted_logs_hash &&
                unencrypted_logs_hash == other.unencrypted_logs_hash &&
                encrypted_log_preimages_length == other.encrypted_log_preimages_length &&
+               unencrypted_log_preimages_length == other.unencrypted_log_preimages_length &&
                historic_private_data_tree_root == other.historic_private_data_tree_root &&
                historic_nullifier_tree_root == other.historic_nullifier_tree_root &&
                historic_contract_tree_root == other.historic_contract_tree_root &&
@@ -87,10 +91,13 @@ template <typename NCT> class PrivateCircuitPublicInputs {
             to_ct(new_commitments),
             to_ct(new_nullifiers),
 
+            to_ct(private_call_stack),
             to_ct(public_call_stack),
             to_ct(new_l2_to_l1_msgs),
 
             to_ct(encrypted_logs_hash),
+            to_ct(unencrypted_logs_hash),
+
             to_ct(encrypted_log_preimages_length),
             to_ct(unencrypted_log_preimages_length),
 

@@ -43,7 +43,7 @@ impl Set {
         let notes = get_2_notes(storage_slot);
 
         let note0_hash = notes.0.compute_note_hash();
-        let note1_hash = notes.1.compute_note_hash();
+        //let note1_hash = notes.1.compute_note_hash();
 
         //if notes.0.is_real  {
         //    context = context.push_read_request(note0_hash);
