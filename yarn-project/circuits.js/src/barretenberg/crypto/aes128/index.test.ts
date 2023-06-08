@@ -8,8 +8,7 @@ describe('aes128', () => {
   let aes128!: Aes128;
 
   beforeAll(async () => {
-    barretenberg = new CircuitsWasm();
-    await barretenberg.init();
+    barretenberg = await CircuitsWasm.get();
     aes128 = new Aes128(barretenberg);
   });
 
