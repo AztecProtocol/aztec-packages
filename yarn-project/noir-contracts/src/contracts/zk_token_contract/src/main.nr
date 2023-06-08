@@ -1,6 +1,6 @@
 contract ZkToken {
     mod balance_utils;
-    use dep::aztec3::abi::Inputs;
+    use dep::aztec3::abi::PrivateContextInputs;
     use dep::aztec3::context::PrivateFunctionContext;
     use dep::aztec3::notes::value_note::Note;
     use dep::aztec3::types::point::Point;
@@ -16,7 +16,7 @@ contract ZkToken {
     fn constructor(
         //*********************************/
         // Should eventually be hidden:
-        inputs: pub Inputs,
+        inputs: pub PrivateContextInputs,
         //*********************************/
         initial_supply: pub Field, 
         owner: pub Point,
@@ -34,7 +34,7 @@ contract ZkToken {
     fn mint(
         //*********************************/
         // Should eventually be hidden:
-        inputs: pub Inputs,
+        inputs: pub PrivateContextInputs,
         //*********************************/
         amount: pub Field, 
         owner: pub Point,
@@ -52,7 +52,7 @@ contract ZkToken {
     fn transfer(
         //*********************************/
         // Should eventually be hidden:
-        inputs: pub Inputs,
+        inputs: pub PrivateContextInputs,
         //*********************************/
         amount: pub Field, 
         sender: pub Point, 

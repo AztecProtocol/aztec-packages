@@ -1,6 +1,6 @@
 contract Child {
     use dep::aztec3::abi;
-    use dep::aztec3::abi::Inputs;
+    use dep::aztec3::abi::PrivateInputs;
     use dep::aztec3::abi::CallContext;
     use dep::aztec3::context::PrivateFunctionContext;
     use dep::aztec3::state_vars::storage_field::StorageField;
@@ -8,13 +8,13 @@ contract Child {
     global current_value = StorageField{ storage_slot: 1 };
 
     fn constructor(
-        inputs: pub Inputs,
+        inputs: pub PrivateInputs,
     ) -> pub [Field; dep::aztec3::abi::PUBLIC_INPUTS_LENGTH] {
         PrivateFunctionContext::new().finish(inputs)
     }
 
     fn value(
-        inputs: pub Inputs,
+        inputs: pub PrivateInputs,
         input: pub Field,
     ) -> pub [Field; dep::aztec3::abi::PUBLIC_INPUTS_LENGTH] {
         let mut context = PrivateFunctionContext::new();

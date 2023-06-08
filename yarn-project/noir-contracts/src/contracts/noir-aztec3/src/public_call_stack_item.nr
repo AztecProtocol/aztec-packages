@@ -49,6 +49,7 @@ impl PublicCallStackItem {
                 new_commitments: [0; crate::abi::MAX_NEW_COMMITMENTS],
                 new_nullifiers: [0; crate::abi::MAX_NEW_NULLIFIERS],
                 new_l2_to_l1_msgs:[0; crate::abi::MAX_L2_TO_L1_MSGS],
+                commitment_trees_roots: crate::abi::empty_commitment_trees_roots(),
                 historic_public_data_tree_root: 0,
                 prover_address: 0,
             },
