@@ -1,5 +1,3 @@
-import { pedersenCompressWithHashIndex } from '@aztec/barretenberg.js/crypto';
-import { CircuitsWasm } from '@aztec/circuits.js';
 import {
   CircuitsWasm,
   KernelCircuitPublicInputs,
@@ -12,6 +10,7 @@ import {
   privateKernelSimInner,
   privateKernelSimInit,
 } from '@aztec/circuits.js';
+import { pedersenCompressWithHashIndex } from '@aztec/circuits.js/barretenberg';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 

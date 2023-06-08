@@ -1,6 +1,5 @@
 import { AztecNodeService } from '@aztec/aztec-node';
 import { AztecAddress, AztecRPCServer, Contract, ContractDeployer, Fr, TxStatus } from '@aztec/aztec.js';
-import { pedersenCompressInputs } from '@aztec/barretenberg.js/crypto';
 import { CircuitsWasm } from '@aztec/circuits.js';
 import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
 import { DebugLogger } from '@aztec/foundation/log';
@@ -8,6 +7,7 @@ import { PublicTokenContractAbi } from '@aztec/noir-contracts/examples';
 
 import times from 'lodash.times';
 import { pointToPublicKey, setup } from './utils.js';
+import { pedersenCompressInputs } from '@aztec/circuits.js/barretenberg';
 
 describe('e2e_public_token_contract', () => {
   let aztecNode: AztecNodeService;
