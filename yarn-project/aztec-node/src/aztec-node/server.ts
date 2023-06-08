@@ -14,7 +14,7 @@ import { SiblingPath } from '@aztec/merkle-tree';
 import { InMemoryTxPool, P2P, createP2PClient } from '@aztec/p2p';
 import { SequencerClient, getCombinedHistoricTreeRoots } from '@aztec/sequencer-client';
 import { Tx, TxHash } from '@aztec/types';
-import { EventLogs, EncryptedLogsSource } from '@aztec/types';
+import { NoirLogs, EncryptedLogsSource } from '@aztec/types';
 import {
   MerkleTrees,
   ServerWorldStateSynchroniser,
@@ -147,7 +147,7 @@ export class AztecNodeService implements AztecNode {
    * @param take - The number of encryptedLogsSource to return.
    * @returns The requested encryptedLogsSource.
    */
-  public getEncryptedLogs(from: number, take: number): Promise<EventLogs[]> {
+  public getEncryptedLogs(from: number, take: number): Promise<NoirLogs[]> {
     return this.encryptedLogsSource.getEncryptedLogs(from, take);
   }
 

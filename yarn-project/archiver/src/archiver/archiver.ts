@@ -10,7 +10,7 @@ import {
   EncodedContractFunction,
   L2Block,
   L2BlockSource,
-  EventLogs,
+  NoirLogs,
   EncryptedLogsSource,
 } from '@aztec/types';
 import { Chain, HttpTransport, PublicClient, createPublicClient, http } from 'viem';
@@ -158,9 +158,9 @@ export class Archiver implements L2BlockSource, EncryptedLogsSource, ContractDat
 
     // The sequencer publishes unverified data first
     // Read all data from chain and then write to our stores at the end
-    const nextExpectedRollupId = BigInt(this.store.getBlocksLength() + INITIAL_L2_BLOCK_NUM);
+    const nextExpectedL2BlockNum = BigInt(this.store.getBlocksLength() + INITIAL_L2_BLOCK_NUM);
     this.log(
-      `Retrieving chain state from eth block: ${this.nextL2BlockFromBlock}, next expected rollup id: ${nextExpectedRollupId}`,
+      `Retrieving chain state from eth block: ${this.nextL2BlockFromBlock}, next expected rollup id: ${nextExpectedL2BlockNum}`,
     );
     const retrievedBlocks = await retrieveBlocks(
       this.publicClient,
@@ -168,7 +168,7 @@ export class Archiver implements L2BlockSource, EncryptedLogsSource, ContractDat
       blockUntilSynced,
       currentBlockNumber,
       this.nextL2BlockFromBlock,
-      nextExpectedRollupId,
+      nextExpectedL2BlockNum,
     );
 
     // create the block number -> block hash mapping to ensure we retrieve the appropriate events
@@ -191,16 +191,16 @@ export class Archiver implements L2BlockSource, EncryptedLogsSource, ContractDat
     this.log(`Retrieved ${retrievedBlocks.retrievedData.length} block(s) from chain`);
 
     // store encrypted event logs from L2 Blocks that we have retrieved
-    const encryptedEventLogs = retrievedBlocks.retrievedData.map(block => {
+    const encryptedLogs = retrievedBlocks.retrievedData.map(block => {
       return block.newEncryptedLogs;
     });
-    await this.store.addEncryptedEventLogs(encryptedEventLogs);
+    await this.store.addEncryptedLogs(encryptedLogs);
 
     // store contracts for which we have retrieved rollups
-    const lastKnownRollupId = retrievedBlocks.retrievedData[retrievedBlocks.retrievedData.length - 1].number;
+    const lastKnownL2BlockNum = retrievedBlocks.retrievedData[retrievedBlocks.retrievedData.length - 1].number;
     retrievedContracts.retrievedData.forEach(async ([contracts, l2BlockNum], index) => {
       this.log(`Retrieved contract public data for rollup id: ${index}`);
-      if (l2BlockNum <= lastKnownRollupId) {
+      if (l2BlockNum <= lastKnownL2BlockNum) {
         await this.store.addL2ContractPublicData(contracts, l2BlockNum);
       }
     });
@@ -317,7 +317,7 @@ export class Archiver implements L2BlockSource, EncryptedLogsSource, ContractDat
    * @returns The L2 block number associated with the latest encrypted logs data.
    */
   public getLatestEncryptedLogsBlockNum(): Promise<number> {
-    return this.store.getLatestEncryptedEventLogsBlockNum();
+    return this.store.getLatestEncryptedLogsBlockNum();
   }
 
   /**

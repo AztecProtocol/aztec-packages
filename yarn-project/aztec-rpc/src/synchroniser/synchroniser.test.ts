@@ -2,7 +2,7 @@ import { AztecNode } from '@aztec/aztec-node';
 import { Grumpkin } from '@aztec/barretenberg.js/crypto';
 import { Fr } from '@aztec/circuits.js';
 import { ConstantKeyPair } from '@aztec/key-store';
-import { L2Block, MerkleTreeId, EventLogs } from '@aztec/types';
+import { L2Block, MerkleTreeId, NoirLogs } from '@aztec/types';
 import { MockProxy, mock } from 'jest-mock-extended';
 import { Database, MemoryDB } from '../database/index.js';
 import { Synchroniser } from './synchroniser.js';
@@ -62,7 +62,7 @@ describe('Synchroniser', () => {
     const block = L2Block.random(1, 4);
 
     aztecNode.getBlocks.mockResolvedValue([block]);
-    aztecNode.getEncryptedLogs.mockResolvedValue([EventLogs.random(4)]);
+    aztecNode.getEncryptedLogs.mockResolvedValue([NoirLogs.random(4)]);
 
     await synchroniser.work();
 
@@ -82,7 +82,7 @@ describe('Synchroniser', () => {
     // We then process block with height 1, this should not change tree roots
     const block1 = L2Block.random(1, 4);
     aztecNode.getBlocks.mockResolvedValueOnce([block1]);
-    aztecNode.getEncryptedLogs.mockResolvedValue([EventLogs.random(4)]);
+    aztecNode.getEncryptedLogs.mockResolvedValue([NoirLogs.random(4)]);
 
     await synchroniser.work();
     const roots1 = await database.getTreeRoots();

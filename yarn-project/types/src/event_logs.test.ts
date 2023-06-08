@@ -1,12 +1,12 @@
-import { EventLogs } from './event_logs.js';
+import { NoirLogs } from './event_logs.js';
 
-describe('EventLogs', () => {
-  it('can encode EventLogs to buffer and back', () => {
-    const eventLogs = EventLogs.random(42);
+describe('NoirLogs', () => {
+  it('can encode NoirLogs to buffer and back', () => {
+    const noirLogs = NoirLogs.random(42);
 
-    const buffer = eventLogs.toBuffer();
-    const recovered = EventLogs.fromBuffer(buffer);
+    const buffer = noirLogs.toBuffer();
+    const recovered = NoirLogs.fromBuffer(buffer);
 
-    expect(recovered).toEqual(eventLogs);
+    expect(recovered).toEqual(noirLogs);
   });
 });

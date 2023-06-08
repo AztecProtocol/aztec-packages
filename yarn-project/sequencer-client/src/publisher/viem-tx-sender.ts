@@ -1,6 +1,6 @@
 import { TxSenderConfig } from './config.js';
 import { L1ProcessArgs as ProcessTxArgs, L1PublisherTxSender, MinimalTransactionReceipt } from './l1-publisher.js';
-import { ContractPublicData, EventLogs } from '@aztec/types';
+import { ContractPublicData } from '@aztec/types';
 
 import {
   GetContractReturnType,

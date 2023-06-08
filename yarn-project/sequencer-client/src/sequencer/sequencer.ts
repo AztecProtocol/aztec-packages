@@ -13,7 +13,6 @@ import {
   Tx,
   isPrivateTx,
   L2BlockSource,
-  EventLogs,
 } from '@aztec/types';
 import { WorldStateStatus, WorldStateSynchroniser } from '@aztec/world-state';
 import times from 'lodash.times';

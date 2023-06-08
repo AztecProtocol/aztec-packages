@@ -2,7 +2,6 @@ import { ContractPublicData, L2Block } from '@aztec/types';
 
 import { L2BlockReceiver } from '../receiver.js';
 import { PublisherConfig } from './config.js';
-import { EventLogs } from '@aztec/types';
 import { InterruptableSleep } from '@aztec/foundation/sleep';
 import { createDebugLogger } from '@aztec/foundation/log';
 

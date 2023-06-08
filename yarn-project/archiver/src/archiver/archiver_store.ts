@@ -1,11 +1,4 @@
-import {
-  ContractPublicData,
-  L2Block,
-  EventLogs,
-  INITIAL_L2_BLOCK_NUM,
-  ContractData,
-  L1ToL2Message,
-} from '@aztec/types';
+import { ContractPublicData, L2Block, NoirLogs, INITIAL_L2_BLOCK_NUM, ContractData, L1ToL2Message } from '@aztec/types';
 import { Fr, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { L1ToL2MessageStore, PendingL1ToL2MessageStore } from './l1_to_l2_message_store.js';
@@ -35,7 +28,7 @@ export interface ArchiverDataStore {
    * @param data - The Unverified Data to be added to the store.
    * @returns True if the operation is successful.
    */
-  addEncryptedEventLogs(data: EventLogs[]): Promise<boolean>;
+  addEncryptedLogs(data: NoirLogs[]): Promise<boolean>;
 
   /**
    * Append new pending L1 to L2 messages to the store.
@@ -79,7 +72,7 @@ export interface ArchiverDataStore {
    * @param take - The number of encrypted logs to return.
    * @returns The requested encrypted logs.
    */
-  getEncryptedLogs(from: number, take: number): Promise<EventLogs[]>;
+  getEncryptedLogs(from: number, take: number): Promise<NoirLogs[]>;
 
   /**
    * Store new Contract Public Data from an L2 block to the store's list.
@@ -135,7 +128,7 @@ export interface ArchiverDataStore {
    * Gets the L2 block number associated with the latest encrypted event logs.
    * @returns The L2 block number associated with the latest encrypted event logs.
    */
-  getLatestEncryptedEventLogsBlockNum(): Promise<number>;
+  getLatestEncryptedLogsBlockNum(): Promise<number>;
 }
 
 /**
@@ -151,7 +144,7 @@ export class MemoryArchiverStore implements ArchiverDataStore {
    * An array containing all the encrypted event logs that have been fetched so far.
    * Note: Index in the "outer" array equals to (corresponding L2 block's number - INITIAL_L2_BLOCK_NUM).
    */
-  private encryptedEventLogs: EventLogs[] = [];
+  private encryptedLogs: NoirLogs[] = [];
 
   /**
    * A sparse array containing all the contract data that have been fetched so far.
@@ -186,8 +179,8 @@ export class MemoryArchiverStore implements ArchiverDataStore {
    * @param data - The Unverified Data to be added to the store.
    * @returns True if the operation is successful (always in this implementation).
    */
-  public addEncryptedEventLogs(data: EventLogs[]): Promise<boolean> {
-    this.encryptedEventLogs.push(...data);
+  public addEncryptedLogs(data: NoirLogs[]): Promise<boolean> {
+    this.encryptedLogs.push(...data);
     return Promise.resolve(true);
   }
 
@@ -285,16 +278,16 @@ export class MemoryArchiverStore implements ArchiverDataStore {
    * @param take - The number of encrypted logs to return.
    * @returns The requested encrypted logs.
    */
-  public getEncryptedLogs(from: number, take: number): Promise<EventLogs[]> {
+  public getEncryptedLogs(from: number, take: number): Promise<NoirLogs[]> {
     if (from < INITIAL_L2_BLOCK_NUM) {
       throw new Error(`Invalid block range ${from}`);
     }
-    if (from > this.encryptedEventLogs.length) {
+    if (from > this.encryptedLogs.length) {
       return Promise.resolve([]);
     }
     const startIndex = from - INITIAL_L2_BLOCK_NUM;
     const endIndex = from + take;
-    return Promise.resolve(this.encryptedEventLogs.slice(startIndex, endIndex));
+    return Promise.resolve(this.encryptedLogs.slice(startIndex, endIndex));
   }
 
   /**
@@ -371,9 +364,9 @@ export class MemoryArchiverStore implements ArchiverDataStore {
    * Gets the L2 block number associated with the latest encrypted event logs.
    * @returns The L2 block number associated with the latest encrypted event logs.
    */
-  public getLatestEncryptedEventLogsBlockNum(): Promise<number> {
-    if (this.encryptedEventLogs.length === 0) return Promise.resolve(INITIAL_L2_BLOCK_NUM - 1);
-    return Promise.resolve(this.encryptedEventLogs.length + INITIAL_L2_BLOCK_NUM - 1);
+  public getLatestEncryptedLogsBlockNum(): Promise<number> {
+    if (this.encryptedLogs.length === 0) return Promise.resolve(INITIAL_L2_BLOCK_NUM - 1);
+    return Promise.resolve(this.encryptedLogs.length + INITIAL_L2_BLOCK_NUM - 1);
   }
 
   /**

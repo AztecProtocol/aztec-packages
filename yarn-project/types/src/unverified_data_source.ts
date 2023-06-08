@@ -1,4 +1,4 @@
-import { EventLogs } from './event_logs.js';
+import { NoirLogs } from './event_logs.js';
 
 /**
  * Interface of classes allowing for the retrieval of unverified data.
@@ -16,7 +16,11 @@ export interface EncryptedLogsSource {
    * @param take - The number of `encryptedLogs` to return.
    * @returns The requested `encryptedLogs`.
    */
+<<<<<<< HEAD
   getEncryptedLogs(from: number, take: number): Promise<EventLogs[]>;
+=======
+  getUnverifiedData(from: number, take: number): Promise<NoirLogs[]>;
+>>>>>>> sp/update-unverified-data
 
   /**
    * Starts the unverified data source.
