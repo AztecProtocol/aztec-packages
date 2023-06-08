@@ -45,15 +45,19 @@ using aztec3::utils::zero_array;
 /**
  * @brief Get the random read requests and their membership requests
  *
- * @param num_read_requests if negative, use random num
+ * @details read requests are siloed by contract address before being
+ * inserted into mock private data tree
+ *
+ * @param contract_address address to use when siloing read requests
+ * @param num_read_requests if negative, use random num. Must be < READ_REQUESTS_LENGTH
  * @return std::pair<read_requests, read_request_memberships_witnesses>
  */
 std::pair<std::array<NT::fr, READ_REQUESTS_LENGTH>,
           std::array<MembershipWitness<NT, PRIVATE_DATA_TREE_HEIGHT>, READ_REQUESTS_LENGTH>>
-get_random_reads(int const num_read_requests)
+get_random_reads(NT::fr const& contract_address, int const num_read_requests)
 {
     auto read_requests = zero_array<fr, READ_REQUESTS_LENGTH>();
-    std::vector<NT::uint32> rr_leaf_indices;
+    auto leaves = zero_array<fr, READ_REQUESTS_LENGTH>();
     // randomize the number of read requests with a configurable minimum
     auto final_num_rr = num_read_requests >= 0
                             ? static_cast<size_t>(num_read_requests)
@@ -62,10 +66,17 @@ get_random_reads(int const num_read_requests)
     for (size_t rr = 0; rr < final_num_rr; rr++) {
         // randomize commitment and its leaf index
         read_requests[rr] = NT::fr::random_element();
-        rr_leaf_indices.push_back(numeric::random::get_engine().get_random_uint32() % (READ_REQUESTS_LENGTH + 1) %
-                                      PRIVATE_DATA_TREE_NUM_LEAVES +
-                                  1);
+        leaves[rr] = silo_commitment<NT>(contract_address, read_requests[rr]);
     }
+
+    // this set and the following loop lets us generate totally random leaf indices
+    // for read requests while avoiding collisions
+    std::unordered_set<NT::uint32> rr_leaf_indices_set;
+    while (rr_leaf_indices_set.size() < final_num_rr) {
+        rr_leaf_indices_set.insert(numeric::random::get_engine().get_random_uint32() % PRIVATE_DATA_TREE_NUM_LEAVES);
+    }
+    // set -> vector without collitions
+    std::vector<NT::uint32> rr_leaf_indices(rr_leaf_indices_set.begin(), rr_leaf_indices_set.end());
 
     MerkleTree private_data_tree = MerkleTree(PRIVATE_DATA_TREE_HEIGHT);
 
@@ -73,8 +84,8 @@ get_random_reads(int const num_read_requests)
     // add them at their corresponding index in the tree
     // (in practice the the tree is left-to-right append-only, but here
     // we treat it as sparse just to get these commitments in their correct spot)
-    for (size_t i = 0; i < array_length(read_requests); i++) {
-        private_data_tree.update_element(rr_leaf_indices[i], read_requests[i]);
+    for (size_t i = 0; i < array_length(leaves); i++) {
+        private_data_tree.update_element(rr_leaf_indices[i], leaves[i]);
     }
 
     // compute the merkle sibling paths for each request

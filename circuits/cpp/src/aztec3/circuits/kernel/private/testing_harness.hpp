@@ -68,15 +68,20 @@ inline const auto& get_empty_contract_siblings()
     }();
     return EMPTY_CONTRACT_SIBLINGS;
 }
+
 /**
  * @brief Get the random read requests and their membership requests
  *
+ * @details read requests are siloed by contract address before being
+ * inserted into mock private data tree
+ *
+ * @param contract_address address to use when siloing read requests
  * @param num_read_requests if negative, use random num
  * @return std::pair<read_requests, read_request_memberships_witnesses>
  */
 std::pair<std::array<NT::fr, READ_REQUESTS_LENGTH>,
           std::array<MembershipWitness<NT, PRIVATE_DATA_TREE_HEIGHT>, READ_REQUESTS_LENGTH>>
-get_random_reads(int num_read_requests = -1);
+get_random_reads(NT::fr const& contract_address, int num_read_requests);
 
 /**
  * @brief Generate a verification key for a private circuit.
