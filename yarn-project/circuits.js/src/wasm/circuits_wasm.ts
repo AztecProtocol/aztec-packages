@@ -9,6 +9,8 @@ const CODE_PATH = isNode
   ? join(dirname(fileURLToPath(import.meta.url)), `../../resources/${NAME}.wasm`)
   : `${NAME}.wasm`;
 
+const BB_JS_NYI_ERROR =
+  'NOT YET IMPLEMENTED - needed for proofs, plan is to use barretenberg.js from NPM for proofs. See https://github.com/AztecProtocol/aztec-packages/issues/781';
 /**
  * A low-level wrapper for an instance of Aztec3 Circuits WASM.
  */
@@ -18,7 +20,7 @@ export class CircuitsWasm implements IWasmModule {
 
   constructor(loggerName?: string) {
     const wasm = new WasmModule(
-      CODE_PATH,
+      await fetchBinary(CODE_PATH),
       module => ({
         /**
          * Log a string from wasm.
@@ -33,15 +35,11 @@ export class CircuitsWasm implements IWasmModule {
         memory: module.getRawMemory(),
         // eslint-disable-next-line camelcase
         set_data: () => {
-          throw new Error(
-            'NOT YET IMPLEMENTED - needed for proofs, plan is to use barretenberg.js from NPM for proofs. See https://github.com/AztecProtocol/aztec-packages/issues/781',
-          );
+          throw new Error(BB_JS_NYI_ERROR);
         },
         // eslint-disable-next-line camelcase
         get_data: () => {
-          throw new Error(
-            'NOT YET IMPLEMENTED - needed for proofs, plan is to use barretenberg.js from NPM for proofs. See https://github.com/AztecProtocol/aztec-packages/issues/781',
-          );
+          throw new Error(BB_JS_NYI_ERROR);
         },
       }),
       loggerName,

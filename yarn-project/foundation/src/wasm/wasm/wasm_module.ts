@@ -3,22 +3,6 @@ import { randomBytes } from 'crypto';
 import { createDebugLogger, DebugLogger } from '../../log/index.js';
 import { getEmptyWasiSdk } from './empty_wasi_sdk.js';
 import { MemoryFifo } from '../../fifo/index.js';
-import { readFile } from 'fs/promises';
-import isNode from 'detect-node';
-
-/**
- * Get the WASM binary.
- * @param path - Path to the WASM binary.
- * @returns The binary buffer.
- */
-export async function fetchWasmCode(path: string) {
-  if (isNode) {
-    return await readFile(path);
-  } else {
-    const res = await fetch(path);
-    return Buffer.from(await res.arrayBuffer());
-  }
-}
 
 /**
  * The base shape of a WASM module providing low level memory and synchronous call access.
