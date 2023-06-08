@@ -34,8 +34,8 @@ TEST(private_kernel_tests, circuit_deposit)
     std::array<NT::fr, 2> const& encrypted_logs_hash = { NT::fr(16), NT::fr(69) };
     NT::fr const& encrypted_log_preimages_length = NT::fr(100);
 
-    auto const& private_inputs =
-        do_private_call_get_kernel_inputs_inner(false, deposit, { amount, asset_id, memo }, true);
+    auto const& private_inputs = do_private_call_get_kernel_inputs_inner(
+        false, deposit, { amount, asset_id, memo }, encrypted_logs_hash, encrypted_log_preimages_length, true);
 
     // Execute and prove the first kernel iteration
     Composer private_kernel_composer("../barretenberg/cpp/srs_db/ignition");
@@ -77,7 +77,8 @@ TEST(private_kernel_tests, circuit_basic_contract_deployment)
     std::array<NT::fr, 2> const& encrypted_logs_hash = { NT::fr(16), NT::fr(69) };
     NT::fr const& encrypted_log_preimages_length = NT::fr(100);
 
-    auto const& private_inputs = do_private_call_get_kernel_inputs_inner(true, constructor, { arg0, arg1, arg2 }, true);
+    auto const& private_inputs = do_private_call_get_kernel_inputs_inner(
+        true, constructor, { arg0, arg1, arg2 }, encrypted_logs_hash, encrypted_log_preimages_length, true);
 
     // Execute and prove the first kernel iteration
     Composer private_kernel_composer("../barretenberg/cpp/srs_db/ignition");

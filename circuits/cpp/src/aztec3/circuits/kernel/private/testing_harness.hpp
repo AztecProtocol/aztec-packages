@@ -111,7 +111,6 @@ PrivateKernelInputsInner<NT> do_private_call_get_kernel_inputs_inner(
     bool is_constructor,
     private_function const& func,
     std::vector<NT::fr> const& args_vec,
-    bool real_kernel_circuit = false,
     std::array<NT::fr, 2> const& encrypted_logs_hash = zero_array<NT::fr, 2>(),
     NT::fr const& encrypted_log_preimages_length = NT::fr(0),
     bool is_circuit = false);
