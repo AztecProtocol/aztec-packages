@@ -166,9 +166,7 @@ export class WasmModule implements IWasmModule {
       // signed representation to unsigned representation.
       return this.exports()[name](...args) >>> 0;
     } catch (err: any) {
-      const message = `WASM function ${name} aborted, error: ${err}`;
-      this.debug(message);
-      this.debug(err.stack);
+      const message = `WASM function ${name} aborted, error: ${err}\n${err.stack}`;
       throw new Error(message);
     }
   }

@@ -231,6 +231,7 @@
       "^yarn-project/merkle-tree/"
     ],
     "dependencies": [
+      "circuits.js",
       "foundation"
     ]
   },
@@ -311,6 +312,7 @@
     ],
     "dependencies": [
       "archiver",
+      "circuits.js",
       "foundation",
       "l1-artifacts",
       "merkle-tree",
