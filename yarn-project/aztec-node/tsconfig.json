@@ -10,6 +10,9 @@
       "path": "../archiver"
     },
     {
+      "path": "../circuits.js"
+    },
+    {
       "path": "../foundation"
     },
     {

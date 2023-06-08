@@ -22,7 +22,7 @@ if (WASM)
         aztec3-circuits.wasm
         PRIVATE
         # TODO revisit implications of whole-archive
-        -nostartfiles -O3 -Wl,--whole-archive -Wl,--no-entry -Wl,--export-dynamic -Wl,--import-memory -Wl,--allow-undefined -Wl,--stack-first -Wl,-z,stack-size=1048576
+        -nostartfiles -Wl,--whole-archive -Wl,--no-entry -Wl,--export-dynamic -Wl,--import-memory -Wl,--allow-undefined -Wl,--stack-first -Wl,-z,stack-size=1048576
     )
 
 endif()

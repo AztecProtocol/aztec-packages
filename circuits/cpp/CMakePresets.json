@@ -177,8 +177,9 @@
         "CMAKE_FIND_ROOT_PATH_MODE_PACKAGE": "ONLY",
         "CMAKE_C_COMPILER_WORKS": "ON",
         "CMAKE_CXX_COMPILER_WORKS": "ON",
+        "CMAKE_EXE_LINKER_FLAGS": "-O3",
         "CMAKE_BBERG_PRESET": "wasm",
-        "CMAKE_BUILD_TYPE": "Release"
+        "CMAKE_BUILD_TYPE": "Debug"
       }
     },
     {
@@ -187,7 +188,8 @@
       "description": "Build in debug mode with a specific wasm-sdk to create wasm",
       "inherits": "wasm",
       "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Debug"
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_EXE_LINKER_FLAGS": ""
       }
     }
   ],
