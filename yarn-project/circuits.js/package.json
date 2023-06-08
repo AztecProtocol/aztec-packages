@@ -37,7 +37,6 @@
     "rootDir": "./src"
   },
   "dependencies": {
-    "@aztec/barretenberg.js": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "@aztec/merkle-tree": "workspace:^",
     "@msgpack/msgpack": "^3.0.0-beta2",

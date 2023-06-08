@@ -231,6 +231,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/barretenberg.js@workspace:barretenberg.js"
   dependencies:
+    "@aztec/circuits.js": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/yarn-project-base": "workspace:^"
     "@jest/globals": ^29.5.0

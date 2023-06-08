@@ -1,16 +1,16 @@
-import { BarretenbergWasm } from '../../wasm/index.js';
 import { Grumpkin } from './index.js';
 import { randomBytes } from '@aztec/foundation/crypto';
 import createDebug from 'debug';
+import { CircuitsWasm } from '../../../index.js';
 
 const debug = createDebug('bb:grumpkin_test');
 
 describe('grumpkin', () => {
-  let barretenberg!: BarretenbergWasm;
+  let barretenberg!: CircuitsWasm;
   let grumpkin!: Grumpkin;
 
   beforeAll(async () => {
-    barretenberg = new BarretenbergWasm();
+    barretenberg = new CircuitsWasm();
     await barretenberg.init();
     grumpkin = new Grumpkin(barretenberg);
   });

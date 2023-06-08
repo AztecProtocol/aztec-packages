@@ -33,7 +33,6 @@ COPY merkle-tree/package.local.json merkle-tree/package.local.json
 COPY noir-contracts/package.json noir-contracts/package.json
 COPY noir-compiler/package.json noir-compiler/package.json
 COPY l1-artifacts/package.json l1-artifacts/package.json
-COPY barretenberg.js/package.json barretenberg.js/package.json
 COPY circuits.js/package.json circuits.js/package.json
 COPY p2p/package.json p2p/package.json
 COPY p2p-bootstrap/package.json p2p-bootstrap/package.json
@@ -89,7 +88,6 @@ COPY key-store/tsconfig.json key-store/tsconfig.json
 COPY merkle-tree/tsconfig.json merkle-tree/tsconfig.json
 COPY noir-contracts/tsconfig.json noir-contracts/tsconfig.json
 COPY l1-artifacts/tsconfig.json l1-artifacts/tsconfig.json
-COPY barretenberg.js/tsconfig.json barretenberg.js/tsconfig.json
 COPY circuits.js/tsconfig.json circuits.js/tsconfig.json
 COPY p2p/tsconfig.json p2p/tsconfig.json
 COPY p2p-bootstrap/tsconfig.json p2p-bootstrap/tsconfig.json
