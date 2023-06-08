@@ -105,7 +105,6 @@ export class KernelProver {
           .map(() => PrivateCallStackItem.empty()),
       );
 
-
       // TODO(dbanks12): https://github.com/AztecProtocol/aztec-packages/issues/779
       const readRequestMembershipWitnesses = [];
       for (let rr = 0; rr < currentExecution.readRequestCommitmentIndices.length; rr++) {
@@ -127,7 +126,11 @@ export class KernelProver {
           .map(() => MembershipWitness.empty(PRIVATE_DATA_TREE_HEIGHT, BigInt(0))),
       );
 
-      const privateCallData = await this.createPrivateCallData(currentExecution, readRequestMembershipWitnesses, privateCallStackPreimages);
+      const privateCallData = await this.createPrivateCallData(
+        currentExecution,
+        readRequestMembershipWitnesses,
+        privateCallStackPreimages,
+      );
 
       // TODO(dbanks12): remove historic root from app circuit public inputs and
       // add it to PrivateCallData: https://github.com/AztecProtocol/aztec-packages/issues/778

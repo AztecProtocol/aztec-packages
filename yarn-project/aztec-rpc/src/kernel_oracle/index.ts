@@ -8,10 +8,7 @@ import { MerkleTreeId } from '@aztec/types';
  * A data oracle that provides information needed for simulating a transaction.
  */
 export class KernelOracle implements ProvingDataOracle {
-  constructor(
-    private contractDataOracle: ContractDataOracle,
-    private node: AztecNode,
-  ) {}
+  constructor(private contractDataOracle: ContractDataOracle, private node: AztecNode) {}
 
   /**
    * Retrieves the contract membership witness for a given contract address.
