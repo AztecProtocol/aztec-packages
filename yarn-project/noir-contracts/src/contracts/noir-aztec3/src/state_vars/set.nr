@@ -60,6 +60,7 @@ impl Set {
         // conditionals to only push 'real' notes to context, but
         // the conditionals do not work right yet.
         // need to include 0-2 notes based on is_real!!!!
+        // https://github.com/AztecProtocol/aztec-packages/issues/780
         (
             context
                 .push_read_request(note0_hash),
