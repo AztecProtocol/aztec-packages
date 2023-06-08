@@ -27,6 +27,7 @@ import {
 } from '../acvm/index.js';
 import { sizeOfType } from '../index.js';
 import { PrivateExecutionContext } from '../execution_context.js';
+import { fieldsToFormattedStr } from './debug.js';
 import { Tuple, assertLength } from '@aztec/foundation/serialize';
 import { TxExecutionRequest } from '@aztec/types';
 
@@ -175,9 +176,8 @@ export class PrivateFunctionExecution {
       },
       getL1ToL2Message: ([msgKey]: ACVMField[]) => this.context.getL1ToL2Message(fromACVMField(msgKey)),
       getTransparentMessage: ([msgKey]: ACVMField[]) => this.context.getMessage(fromACVMField(msgKey)),
-      debugLog: ([data]: ACVMField[]) => {
-        // eslint-disable-next-line
-        console.log(data);
+      debugLog: (fields: ACVMField[]) => {
+        this.log(fieldsToFormattedStr(fields));
         return Promise.resolve([ZERO_ACVM_FIELD]);
       },
       enqueuePublicFunctionCall: async ([acvmContractAddress, acvmFunctionSelector, ...acvmArgs]) => {
