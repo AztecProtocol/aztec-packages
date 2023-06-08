@@ -1,5 +1,5 @@
-import { Grumpkin } from '@aztec/barretenberg.js/crypto';
-import { BarretenbergWasm } from '@aztec/barretenberg.js/wasm';
+import { Grumpkin } from '@aztec/circuits.js/barretenberg';
+import { CircuitsWasm } from '@aztec/circuits.js';
 import {
   ARGS_LENGTH,
   CallContext,

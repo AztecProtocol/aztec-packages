@@ -1,6 +1,7 @@
 import {
   CONTRACT_TREE_HEIGHT,
   CONTRACT_TREE_ROOTS_TREE_HEIGHT,
+  CircuitsWasm,
   Fr,
   L1_TO_L2_MESSAGES_ROOTS_TREE_HEIGHT,
   L1_TO_L2_MESSAGES_TREE_HEIGHT,
@@ -51,7 +52,7 @@ export class MerkleTrees implements MerkleTreeDb {
    * @param optionalWasm - WASM instance to use for hashing (if not provided PrimitivesWasm will be used).
    */
   public async init(optionalWasm?: IWasmModule) {
-    const wasm = optionalWasm ?? (await PrimitivesWasm.get());
+    const wasm = optionalWasm ?? (await CircuitsWasm.get());
     const hasher = new Pedersen(wasm);
     const contractTree: AppendOnlyTree = await newTree(
       StandardTree,

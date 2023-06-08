@@ -1,5 +1,5 @@
 import { PublicContractsDB, PublicExecutor, PublicStateDB } from '@aztec/acir-simulator';
-import { BarretenbergWasm } from '@aztec/barretenberg.js/wasm';
+import { CircuitsWasm } from '@aztec/circuits.js';
 import { AztecAddress, EthAddress, Fr } from '@aztec/circuits.js';
 import { ContractDataSource, MerkleTreeId } from '@aztec/types';
 import { MerkleTreeOperations, computePublicDataTreeLeafIndex } from '@aztec/world-state';
