@@ -13,7 +13,6 @@ import {
   INITIAL_L2_BLOCK_NUM,
   L2BlockContext,
   MerkleTreeId,
-  NotePreimage,
   Tx,
   TxAuxData,
   TxExecutionRequest,
@@ -22,7 +21,7 @@ import {
 import { ContractDataOracle } from '../contract_data_oracle/index.js';
 import { Database, TxAuxDataDao, TxDao } from '../database/index.js';
 import { generateFunctionSelector } from '../index.js';
-import { KernelProver, OutputNoteData } from '../kernel_prover/index.js';
+import { KernelProver } from '../kernel_prover/index.js';
 import { SimulatorOracle } from '../simulator_oracle/index.js';
 
 /**
@@ -387,26 +386,6 @@ export class AccountState {
         await BarretenbergWasm.get(),
       ),
     );
-  }
-
-  /**
-   * Create an UnverifiedData instance from a given list of output notes.
-   * This function converts the output note data to encrypted buffers using the owner's public key,
-   * then combines them into an UnverifiedData object. The resulting object can be used to store
-   * encrypted note data in a transaction and is decrypted by the recipient later during processing.
-   *
-   * @param outputNotes - An array of OutputNoteData objects containing the note data to be encrypted.
-   * @returns An UnverifiedData instance containing encrypted note data chunks.
-   */
-  private createUnverifiedData(outputNotes: OutputNoteData[]) {
-    const dataChunks = outputNotes.map(({ contractAddress, data }) => {
-      const { preimage, storageSlot, owner } = data;
-      const notePreimage = new NotePreimage(preimage);
-      const txAuxData = new TxAuxData(notePreimage, contractAddress, storageSlot);
-      const ownerPublicKey = Point.fromBuffer(Buffer.concat([owner.x.toBuffer(), owner.y.toBuffer()]));
-      return txAuxData.toEncryptedBuffer(ownerPublicKey, this.grumpkin);
-    });
-    return new UnverifiedData(dataChunks);
   }
 
   /**
