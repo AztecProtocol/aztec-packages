@@ -377,7 +377,7 @@ export class AccountState {
         txAuxData.contractAddress,
         txAuxData.notePreimage.items,
         this.privKey,
-        await BarretenbergWasm.get(),
+        await CircuitsWasm.get(),
       ),
     );
   }

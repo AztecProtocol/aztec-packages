@@ -59,7 +59,7 @@ export class KernelProofCreator {
    * @returns An array of Fr (finite field) elements representing the siloed commitments.
    */
   public async getSiloedCommitments(publicInputs: PrivateCircuitPublicInputs) {
-    const bbWasm = await BarretenbergWasm.get();
+    const bbWasm = await CircuitsWasm.get();
     const contractAddress = publicInputs.callContext.storageContractAddress.toBuffer();
     // TODO
     // Should match `add_contract_address_to_commitment` in hash.hpp.
