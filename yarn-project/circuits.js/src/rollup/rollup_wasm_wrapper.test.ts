@@ -8,8 +8,7 @@ describe('rollup/rollup_wasm_wrapper', () => {
   let rollupWasm: RollupWasmWrapper;
 
   beforeAll(async () => {
-    wasm = new CircuitsWasm();
-    await wasm.init();
+    wasm = await CircuitsWasm.get();
     rollupWasm = new RollupWasmWrapper(wasm);
   });
 

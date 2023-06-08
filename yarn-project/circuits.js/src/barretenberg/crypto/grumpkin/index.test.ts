@@ -10,8 +10,7 @@ describe('grumpkin', () => {
   let grumpkin!: Grumpkin;
 
   beforeAll(async () => {
-    barretenberg = new CircuitsWasm();
-    await barretenberg.init();
+    barretenberg = await CircuitsWasm.get();
     grumpkin = new Grumpkin(barretenberg);
   });
 

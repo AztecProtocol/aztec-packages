@@ -1,10 +1,10 @@
 import { CircuitsWasm } from './circuits_wasm.js';
 
 describe('basic barretenberg smoke test', () => {
-  const wasm: CircuitsWasm = new CircuitsWasm();
+  let wasm: CircuitsWasm;
 
   beforeAll(async () => {
-    await wasm.init();
+    wasm = await CircuitsWasm.get();
   });
 
   it('should new malloc, transfer and slice mem', () => {
