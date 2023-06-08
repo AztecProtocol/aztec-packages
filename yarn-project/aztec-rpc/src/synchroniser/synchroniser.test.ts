@@ -60,7 +60,6 @@ describe('Synchroniser', () => {
 
   it('sets tree roots from latest block', async () => {
     const block = L2Block.random(1, 4);
-
     aztecNode.getBlocks.mockResolvedValue([block]);
     aztecNode.getEncryptedLogs.mockResolvedValue([block.newEncryptedLogs!]);
 

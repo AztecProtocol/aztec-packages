@@ -440,7 +440,7 @@ export class L2Block {
   attachEncryptedLogs(encryptedLogs: NoirLogs) {
     // throw error if the block already has encrypted logs attached.
     if (this.newEncryptedLogs) {
-      throw new Error('L2 Block already has encrypted logs attached');
+      return;
     }
 
     const encryptedLogsLength = encryptedLogs.getSerializedLength();
