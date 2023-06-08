@@ -48,11 +48,11 @@ contract ZkToken {
         let owner_balance = balances.at(owner.x);
         let note = Note::new(amount, owner);
 
-        // Is constraining this necessary?
-        constrain emit_encrypted_log(inputs.call_context.storage_contract_address, note) == 0;
+        context = owner_balance.insert(context, note);
 
-        owner_balance.insert(context, note)
-            .finish(inputs)
+        constrain emit_encrypted_log(inputs.call_context.storage_contract_address, owner_balance.storage_slot, note.owner, note) == 0;
+
+        context.finish(inputs)
     }
 
     fn transfer(
@@ -86,15 +86,14 @@ contract ZkToken {
 
         let change_note = Note::new(change_value, sender);
         let recipient_note = Note::new(amount, recipient);
-        
-        // Is constraining this necessary?
-        constrain emit_encrypted_log(inputs.call_context.storage_contract_address, change_note) == 0;
-        constrain emit_encrypted_log(inputs.call_context.storage_contract_address, recipient_note) == 0;
 
         let recipient_balance = balances.at(recipient.x);
 
-        context = recipient_balance.insert(context, recipient_note);
         context = sender_balance.insert(context, change_note);
+        context = recipient_balance.insert(context, recipient_note);
+
+        constrain emit_encrypted_log(inputs.call_context.storage_contract_address, sender_balance.storage_slot, change_note.owner, change_note) == 0;
+        constrain emit_encrypted_log(inputs.call_context.storage_contract_address, recipient_balance.storage_slot, recipient_note.owner, recipient_note) == 0;
 
         context.finish(inputs)
     }
