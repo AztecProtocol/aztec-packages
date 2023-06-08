@@ -262,10 +262,9 @@ export class AccountState {
 
     const kernelProver = new KernelProver(contractDataOracle);
     this.log('Executing Prover...');
-    const { proof, publicInputs, outputNotes } = await kernelProver.prove(txRequest, signature, executionResult);
+    const { proof, publicInputs } = await kernelProver.prove(txRequest, signature, executionResult);
     this.log('Proof completed!');
 
-    const unverifiedData = this.createUnverifiedData(outputNotes);
     const newContractPublicFunctions = newContractAddress
       ? await this.getNewContractPublicFunctions(newContractAddress)
       : [];
@@ -273,7 +272,7 @@ export class AccountState {
     return Tx.createPrivate(
       publicInputs,
       proof,
-      unverifiedData,
+      executionResult.encryptedLogs,
       newContractPublicFunctions,
       executionResult.enqueuedPublicFunctionCalls,
     );
