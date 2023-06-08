@@ -1,3 +1,4 @@
+import omit from 'lodash.omit';
 import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -14,8 +15,10 @@ import {
   NoirLogsSource,
 } from '@aztec/types';
 import { Chain, HttpTransport, PublicClient, createPublicClient, http } from 'viem';
-import { ArchiverConfig } from './config.js';
 import { createEthereumChain } from '@aztec/ethereum';
+import { Fr } from '@aztec/foundation/fields';
+
+import { ArchiverConfig } from './config.js';
 import {
   retrieveBlocks,
   retrieveNewContractData,
@@ -23,7 +26,6 @@ import {
   retrieveNewCancelledL1ToL2Messages,
 } from './data_retrieval.js';
 import { ArchiverDataStore, MemoryArchiverStore } from './archiver_store.js';
-import { Fr } from '@aztec/foundation/fields';
 
 /**
  * Pulls L2 blocks in a non-blocking manner and provides interface for their retrieval.
@@ -192,7 +194,7 @@ export class Archiver implements L2BlockSource, NoirLogsSource, ContractDataSour
 
     // store encrypted event logs from L2 Blocks that we have retrieved
     const encryptedLogs = retrievedBlocks.retrievedData.map(block => {
-      return block.newEncryptedLogs;
+      return block.newEncryptedLogs!;
     });
     await this.store.addEncryptedLogs(encryptedLogs);
 
@@ -211,8 +213,11 @@ export class Archiver implements L2BlockSource, NoirLogsSource, ContractDataSour
     this.log(`Confirming l1 to l2 messages in store`);
     await this.store.confirmL1ToL2Messages(messageKeysToRemove);
 
-    // store retrieved rollup blocks
-    await this.store.addL2Blocks(retrievedBlocks.retrievedData);
+    // store retrieved rollup blocks after removing new encrypted logs information.
+    // remove encrypted logs to serve "lightweight" block information. Logs can be fetched separately if needed.
+    await this.store.addL2Blocks(
+      retrievedBlocks.retrievedData.map(block => omit(block, ['newEncryptedLogs', 'newEncryptedLogsLength'])),
+    );
 
     // set the eth block for the next search
     this.nextL2BlockFromBlock = retrievedBlocks.nextEthBlockNumber;

@@ -17,6 +17,7 @@ import { PublicDataWrite } from './public_data_write.js';
 import { toBigIntBE, toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { sha256 } from '@aztec/foundation/crypto';
 import { NoirLogs } from './event_logs.js';
+
 /**
  * The data that makes up the rollup proof, with encoder decoder functions.
  * TODO: Reuse data types and serialization functions from circuits package.
@@ -122,11 +123,11 @@ export class L2Block {
     /**
      * Length (in bytes) of the encrypted logs in the block.
      */
-    public newEncryptedLogsLength: number,
+    public newEncryptedLogsLength?: number,
     /**
      * Consolidated logs from all txs.
      */
-    public newEncryptedLogs: NoirLogs,
+    public newEncryptedLogs?: NoirLogs,
   ) {}
 
   /**
@@ -353,8 +354,8 @@ export class L2Block {
       this.newContractData,
       this.newL1ToL2Messages.length,
       this.newL1ToL2Messages,
-      this.newEncryptedLogsLength,
-      this.newEncryptedLogs,
+      this.newEncryptedLogsLength!,
+      this.newEncryptedLogs!,
     );
   }
 
