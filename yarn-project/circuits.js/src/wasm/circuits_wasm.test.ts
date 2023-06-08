@@ -12,8 +12,8 @@ describe('basic barretenberg smoke test', () => {
     const ptr = wasm.call('bbmalloc', length);
     const buf = Buffer.alloc(length, 128);
     wasm.writeMemory(ptr, buf);
-    wasm.call('bbfree', ptr);
     const result = Buffer.from(wasm.getMemorySlice(ptr, ptr + length));
+    wasm.call('bbfree', ptr);
     expect(result).toStrictEqual(buf);
   });
 });
