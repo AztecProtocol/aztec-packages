@@ -11,7 +11,7 @@ use crate::state_vars::note_getter_data::note_getter_data_len;
 use crate::oracle::notes::notify_created_note;
 use crate::oracle::notes::notify_nullified_note;
 use crate::oracle::notes::get_notes_2_internal;
-//use crate::oracle::debug_log::debug_log_format;
+
 
 fn get_2_notes(storage_slot: Field) -> (NoteGetterData, NoteGetterData) {
     let fields = get_notes_2_internal(storage_slot);
@@ -83,7 +83,6 @@ impl Set {
         constrain note_getter_data.1.root == inputs.old_private_data_tree_root;
 
         let notes = (note_getter_data.0.note, note_getter_data.1.note);
-        //debug_log_format("get_2(slot:{0}) =>\n\t0:{1}\n\t1:{2}", [storage_slot, notes.0.value, notes.1.value]);
 
         (context, notes)
     }
