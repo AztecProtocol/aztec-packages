@@ -123,12 +123,6 @@ export interface ArchiverDataStore {
    * @returns The length of L2 Blocks stored.
    */
   getBlocksLength(): number;
-
-  /**
-   * Gets the L2 block number associated with the latest encrypted event logs.
-   * @returns The L2 block number associated with the latest encrypted event logs.
-   */
-  getLatestEncryptedLogsBlockNum(): Promise<number>;
 }
 
 /**
@@ -358,15 +352,6 @@ export class MemoryArchiverStore implements ArchiverDataStore {
   public getBlockHeight(): Promise<number> {
     if (this.l2Blocks.length === 0) return Promise.resolve(INITIAL_L2_BLOCK_NUM - 1);
     return Promise.resolve(this.l2Blocks[this.l2Blocks.length - 1].number);
-  }
-
-  /**
-   * Gets the L2 block number associated with the latest encrypted event logs.
-   * @returns The L2 block number associated with the latest encrypted event logs.
-   */
-  public getLatestEncryptedLogsBlockNum(): Promise<number> {
-    if (this.encryptedLogs.length === 0) return Promise.resolve(INITIAL_L2_BLOCK_NUM - 1);
-    return Promise.resolve(this.encryptedLogs.length + INITIAL_L2_BLOCK_NUM - 1);
   }
 
   /**

@@ -318,14 +318,6 @@ export class Archiver implements L2BlockSource, NoirLogsSource, ContractDataSour
   }
 
   /**
-   * Gets the L2 block number associated with the latest encrypted logs data.
-   * @returns The L2 block number associated with the latest encrypted logs data.
-   */
-  public getLatestEncryptedLogsBlockNum(): Promise<number> {
-    return this.store.getLatestEncryptedLogsBlockNum();
-  }
-
-  /**
    * Gets the `take` amount of pending L1 to L2 messages.
    * @param take - The number of messages to return.
    * @returns The requested L1 to L2 messages' keys.

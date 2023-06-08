@@ -35,8 +35,6 @@ describe('Archiver', () => {
 
     let latestBlockNum = await archiver.getBlockHeight();
     expect(latestBlockNum).toEqual(0);
-    let latestEncryptedLogsBlockNum = await archiver.getLatestEncryptedLogsBlockNum();
-    expect(latestEncryptedLogsBlockNum).toEqual(0);
 
     const blocks = [1, 2, 3].map(x => L2Block.random(x));
     const rollupTxs = blocks.map(makeRollupTx);
@@ -94,14 +92,6 @@ describe('Archiver', () => {
 
     latestBlockNum = await archiver.getBlockHeight();
     expect(latestBlockNum).toEqual(3);
-
-    // Wait until unverified data corresponding to block 2 is processed. If this won't happen the test will fail with
-    // timeout.
-    while ((await archiver.getLatestEncryptedLogsBlockNum()) !== 2) {
-      await sleep(100);
-    }
-    latestEncryptedLogsBlockNum = await archiver.getLatestEncryptedLogsBlockNum();
-    expect(latestEncryptedLogsBlockNum).toEqual(2);
 
     // Check that only 2 messages (l1ToL2MessageAddedEvents[3][2] and l1ToL2MessageAddedEvents[3][3]) are pending.
     // Other two (l1ToL2MessageAddedEvents[3][0..2]) were cancelled. And the previous messages were confirmed.
