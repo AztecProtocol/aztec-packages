@@ -38,7 +38,6 @@ export class L2BlockContext {
    */
   public getTxHash(txIndex: number): TxHash {
     if (!this.txHashes[txIndex]) {
-      console.log('this.block', this.block);
       const txHash = this.block.getTx(txIndex).txHash;
       if (txHash === undefined) {
         throw new Error(`Tx hash for tx ${txIndex} in block ${this.block.number} is undefined`);

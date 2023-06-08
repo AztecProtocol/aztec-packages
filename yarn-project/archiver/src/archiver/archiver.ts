@@ -216,7 +216,9 @@ export class Archiver implements L2BlockSource, NoirLogsSource, ContractDataSour
     // store retrieved rollup blocks after removing new encrypted logs information.
     // remove encrypted logs to serve "lightweight" block information. Logs can be fetched separately if needed.
     await this.store.addL2Blocks(
-      retrievedBlocks.retrievedData.map(block => omit(block, ['newEncryptedLogs', 'newEncryptedLogsLength'])),
+      retrievedBlocks.retrievedData.map(block =>
+        L2Block.fromFields(omit(block, ['newEncryptedLogs', 'newEncryptedLogsLength'])),
+      ),
     );
 
     // set the eth block for the next search

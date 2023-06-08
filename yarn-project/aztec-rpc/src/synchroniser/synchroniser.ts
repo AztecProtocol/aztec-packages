@@ -80,6 +80,9 @@ export class Synchroniser {
         encryptedLogs = encryptedLogs.slice(0, blocks.length);
       }
 
+      // attach encrypted logs to blocks
+      blocks.forEach((block, i) => block.attachEncryptedLogs(encryptedLogs[i]));
+
       // Wrap blocks in block contexts.
       const blockContexts = blocks.map(block => new L2BlockContext(block));
 

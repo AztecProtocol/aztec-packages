@@ -282,11 +282,11 @@ export class L2Block {
     /**
      * Length (in bytes) of the new encrypted logs data chunks in the block.
      */
-    newEncryptedLogsLength: number;
+    newEncryptedLogsLength?: number;
     /**
      * Consolidated logs from all txs.
      */
-    newEncryptedLogs: NoirLogs;
+    newEncryptedLogs?: NoirLogs;
   }) {
     return new this(
       fields.number,
@@ -430,6 +430,22 @@ export class L2Block {
       newEncryptedLogsLength,
       newEncryptedLogs,
     });
+  }
+
+  /**
+   * Helper function to attach encrypted logs related to a block. Since we can have L2 blocks without encrypted logs,
+   * this function helps attach them in order to make the block data manipulation easier.
+   * @param encryptedLogs - The encrypted logs to be attached to the block.
+   */
+  attachEncryptedLogs(encryptedLogs: NoirLogs) {
+    // throw error if the block already has encrypted logs attached.
+    if (this.newEncryptedLogs) {
+      throw new Error('L2 Block already has encrypted logs attached');
+    }
+
+    const encryptedLogsLength = encryptedLogs.getSerializedLength();
+    this.newEncryptedLogs = encryptedLogs;
+    this.newEncryptedLogsLength = encryptedLogsLength;
   }
 
   /**
