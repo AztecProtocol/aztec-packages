@@ -45,9 +45,11 @@ describe('Private Execution test suite', () => {
   let oracle: ReturnType<typeof mock<DBOracle>>;
   let acirSimulator: AcirSimulator;
   let logger: DebugLogger;
+  let grumpkin: Grumpkin;
 
   beforeAll(async () => {
     bbWasm = await BarretenbergWasm.get();
+    grumpkin = await Grumpkin.new();
     logger = createDebugLogger('aztec:test:private_execution');
   });
 
@@ -77,6 +79,7 @@ describe('Private Execution test suite', () => {
         AztecAddress.ZERO,
         EthAddress.ZERO,
         historicRoots,
+        grumpkin,
       );
 
       expect(result.callStackItem.publicInputs.newCommitments).toEqual(new Array(NEW_COMMITMENTS_LENGTH).fill(Fr.ZERO));
@@ -121,7 +124,7 @@ describe('Private Execution test suite', () => {
         txContext,
         Fr.ZERO,
       );
-      const result = await acirSimulator.run(txRequest, abi, contractAddress, EthAddress.ZERO, historicRoots);
+      const result = await acirSimulator.run(txRequest, abi, contractAddress, EthAddress.ZERO, historicRoots, grumpkin);
 
       expect(result.preimages.newNotes).toHaveLength(1);
       const newNote = result.preimages.newNotes[0];
@@ -148,7 +151,14 @@ describe('Private Execution test suite', () => {
         txContext,
         Fr.ZERO,
       );
-      const result = await acirSimulator.run(txRequest, abi, AztecAddress.ZERO, EthAddress.ZERO, historicRoots);
+      const result = await acirSimulator.run(
+        txRequest,
+        abi,
+        AztecAddress.ZERO,
+        EthAddress.ZERO,
+        historicRoots,
+        grumpkin,
+      );
 
       expect(result.preimages.newNotes).toHaveLength(1);
       const newNote = result.preimages.newNotes[0];
@@ -207,7 +217,14 @@ describe('Private Execution test suite', () => {
         Fr.ZERO,
       );
 
-      const result = await acirSimulator.run(txRequest, abi, AztecAddress.random(), EthAddress.ZERO, historicRoots);
+      const result = await acirSimulator.run(
+        txRequest,
+        abi,
+        AztecAddress.random(),
+        EthAddress.ZERO,
+        historicRoots,
+        grumpkin,
+      );
 
       // The two notes were nullified
       const newNullifiers = result.callStackItem.publicInputs.newNullifiers.filter(field => !field.equals(Fr.ZERO));
@@ -282,7 +299,14 @@ describe('Private Execution test suite', () => {
         Fr.ZERO,
       );
 
-      const result = await acirSimulator.run(txRequest, abi, AztecAddress.random(), EthAddress.ZERO, historicRoots);
+      const result = await acirSimulator.run(
+        txRequest,
+        abi,
+        AztecAddress.random(),
+        EthAddress.ZERO,
+        historicRoots,
+        grumpkin,
+      );
 
       const newNullifiers = result.callStackItem.publicInputs.newNullifiers.filter(field => !field.equals(Fr.ZERO));
       expect(newNullifiers).toHaveLength(2);
@@ -313,7 +337,14 @@ describe('Private Execution test suite', () => {
         txContext,
         Fr.ZERO,
       );
-      const result = await acirSimulator.run(txRequest, abi, AztecAddress.ZERO, EthAddress.ZERO, historicRoots);
+      const result = await acirSimulator.run(
+        txRequest,
+        abi,
+        AztecAddress.ZERO,
+        EthAddress.ZERO,
+        historicRoots,
+        grumpkin,
+      );
 
       expect(result.callStackItem.publicInputs.returnValues[0]).toEqual(new Fr(142n));
     });
@@ -340,7 +371,14 @@ describe('Private Execution test suite', () => {
 
       logger(`Parent deployed at ${parentAddress.toShortString()}`);
       logger(`Calling child function ${childSelector.toString('hex')} at ${childAddress.toShortString()}`);
-      const result = await acirSimulator.run(txRequest, parentAbi, parentAddress, EthAddress.ZERO, historicRoots);
+      const result = await acirSimulator.run(
+        txRequest,
+        parentAbi,
+        parentAddress,
+        EthAddress.ZERO,
+        historicRoots,
+        grumpkin,
+      );
 
       expect(result.callStackItem.publicInputs.returnValues[0]).toEqual(new Fr(42n));
       expect(oracle.getFunctionABI.mock.calls[0]).toEqual([childAddress, childSelector]);
@@ -434,7 +472,7 @@ describe('Private Execution test suite', () => {
         Fr.ZERO,
       );
 
-      const result = await acirSimulator.run(txRequest, abi, contractAddress, EthAddress.ZERO, historicRoots);
+      const result = await acirSimulator.run(txRequest, abi, contractAddress, EthAddress.ZERO, historicRoots, grumpkin);
 
       // Check a nullifier has been created
       const newNullifiers = result.callStackItem.publicInputs.newNullifiers.filter(field => !field.equals(Fr.ZERO));
@@ -465,7 +503,14 @@ describe('Private Execution test suite', () => {
         Fr.ZERO,
       );
 
-      const result = await acirSimulator.run(txRequest, parentAbi, parentAddress, EthAddress.ZERO, historicRoots);
+      const result = await acirSimulator.run(
+        txRequest,
+        parentAbi,
+        parentAddress,
+        EthAddress.ZERO,
+        historicRoots,
+        grumpkin,
+      );
 
       expect(result.enqueuedPublicFunctionCalls).toHaveLength(1);
       expect(result.enqueuedPublicFunctionCalls[0]).toEqual(

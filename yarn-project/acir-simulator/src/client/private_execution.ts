@@ -11,7 +11,8 @@ import { computeCallStackItemHash, computeVarArgsHash } from '@aztec/circuits.js
 import { FunctionAbi } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { padArrayEnd } from '@aztec/foundation/collection';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr, Point } from '@aztec/foundation/fields';
+import { Grumpkin } from '@aztec/barretenberg.js/crypto';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { decodeReturnValues } from '../abi_coder/decoder.js';
 import { extractPublicInputs, frToAztecAddress, frToSelector } from '../acvm/deserialize.js';
@@ -29,7 +30,7 @@ import { sizeOfType } from '../index.js';
 import { fieldsToFormattedStr } from './debug.js';
 import { ClientTxExecutionContext } from './client_execution_context.js';
 import { Tuple, assertLength } from '@aztec/foundation/serialize';
-import { UnverifiedData } from '@aztec/types';
+import { NotePreimage, TxAuxData, UnverifiedData } from '@aztec/types';
 
 /**
  * The contents of a new note.
@@ -115,6 +116,7 @@ export class PrivateFunctionExecution {
     private functionData: FunctionData,
     private args: Fr[],
     private callContext: CallContext,
+    private grumpkin: Grumpkin,
 
     private log = createDebugLogger('aztec:simulator:secret_execution'),
   ) {}
@@ -204,18 +206,23 @@ export class PrivateFunctionExecution {
       storageRead: notAvailable,
       storageWrite: notAvailable,
       callPublicFunction: notAvailable,
-      emitEncryptedLog: ([acvmContractAddress, isReal, nonce, ownerX, ownerY, randomness, value]: ACVMField[]) => {
-        // commitments are in PrivateCallData.PrivateCallStackItem.PrivateCircuitPublicInputs.newCommitments
-        // before that they are in ExecutionResult.PrivateCallStackItem.PrivateCircuitPublicInputs.newCommitments
+      emitEncryptedLog: ([acvmContractAddress, acvmStorageSlot, ownerX, ownerY, ...acvmPreimage]: ACVMField[]) => {
+        const contractAddress = AztecAddress.fromBuffer(fromACVMField(acvmContractAddress).toBuffer());
+        const storageSlot = fromACVMField(acvmStorageSlot);
+        const preimage = acvmPreimage.map(f => fromACVMField(f));
 
-        // How do we determine which notes are final and whose encrypted note preimages we want to emit?
-        // --> if a note is created and spent in the same execution then emitting encrypted note preimage is wasteful
-        // --> this is how it's solved in kernel_prover.ts:
-        //          const finalNewCommitments = output.publicInputs.end.newCommitments;
-        //          const outputNotes = finalNewCommitments.map(c => newNotes[c.toString()]).filter(c => !!c);
+        const notePreimage = new NotePreimage(preimage);
+        const txAuxData = new TxAuxData(notePreimage, contractAddress, storageSlot);
 
-        // eslint-disable-next-line
-        console.log('emitEncryptedLog', [acvmContractAddress, isReal, nonce, ownerX, ownerY, randomness, value]);
+        const owner = {
+          x: fromACVMField(ownerX),
+          y: fromACVMField(ownerY),
+        };
+        const ownerPublicKey = Point.fromBuffer(Buffer.concat([owner.x.toBuffer(), owner.y.toBuffer()]));
+
+        const encryptedNotePreimage = txAuxData.toEncryptedBuffer(ownerPublicKey, this.grumpkin);
+
+        encryptedLogs.dataChunks.push(encryptedNotePreimage);
 
         return Promise.resolve([ZERO_ACVM_FIELD]);
       },
@@ -313,6 +320,7 @@ export class PrivateFunctionExecution {
       targetFunctionData,
       targetArgs,
       derivedCallContext,
+      await Grumpkin.new(),
     );
 
     return nestedExecution.run();

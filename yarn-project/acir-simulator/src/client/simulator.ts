@@ -1,4 +1,4 @@
-import { pedersenCompressInputs, pedersenCompressWithHashIndex } from '@aztec/barretenberg.js/crypto';
+import { Grumpkin, pedersenCompressInputs, pedersenCompressWithHashIndex } from '@aztec/barretenberg.js/crypto';
 import { BarretenbergWasm } from '@aztec/barretenberg.js/wasm';
 import { CallContext, PrivateHistoricTreeRoots } from '@aztec/circuits.js';
 import { FunctionAbi, FunctionType } from '@aztec/foundation/abi';
@@ -30,6 +30,7 @@ export class AcirSimulator {
    * @param contractAddress - The address of the contract.
    * @param portalContractAddress - The address of the portal contract.
    * @param historicRoots - The historic roots.
+   * @param grumpkin - Grumpkin instance.
    * @returns The result of the execution.
    */
   public run(
@@ -38,6 +39,7 @@ export class AcirSimulator {
     contractAddress: AztecAddress,
     portalContractAddress: EthAddress,
     historicRoots: PrivateHistoricTreeRoots,
+    grumpkin: Grumpkin,
   ): Promise<ExecutionResult> {
     if (entryPointABI.functionType !== FunctionType.SECRET) {
       throw new Error(`Cannot run ${entryPointABI.functionType} function as secret`);
@@ -59,6 +61,7 @@ export class AcirSimulator {
       request.functionData,
       request.args,
       callContext,
+      grumpkin,
     );
 
     return execution.run();
