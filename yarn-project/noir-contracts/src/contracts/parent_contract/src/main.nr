@@ -6,7 +6,7 @@ contract Parent {
     use dep::aztec3::oracle::public_call;
     use dep::aztec3::private_call_stack_item::PrivateCallStackItem;
     use dep::aztec3::public_call_stack_item::PublicCallStackItem;
-    
+
     fn constructor(
         inputs: pub PrivateContextInputs,
     ) -> pub [Field; dep::aztec3::abi::PUBLIC_INPUTS_LENGTH] {
