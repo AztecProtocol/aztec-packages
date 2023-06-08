@@ -22,6 +22,7 @@ using aztec3::circuits::abis::private_kernel::PrivateCallData;
 void common_validate_call_stack(DummyComposer& composer, PrivateCallData<NT> const& private_call);
 
 void common_validate_read_requests(DummyComposer& composer,
+                                   NT::fr const& storage_contract_address,
                                    std::array<fr, READ_REQUESTS_LENGTH> const& read_requests,
                                    std::array<MembershipWitness<NT, PRIVATE_DATA_TREE_HEIGHT>,
                                               READ_REQUESTS_LENGTH> const& read_request_membership_witnesses,

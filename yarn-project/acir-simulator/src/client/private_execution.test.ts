@@ -7,7 +7,6 @@ import {
   ContractDeploymentData,
   FunctionData,
   L1_TO_L2_MESSAGES_TREE_HEIGHT,
-  MembershipWitness,
   NEW_COMMITMENTS_LENGTH,
   PRIVATE_DATA_TREE_HEIGHT,
   PrivateHistoricTreeRoots,
@@ -187,12 +186,9 @@ describe('Private Execution test suite', () => {
         return {
           count: preimages.length,
           notes: await Promise.all(
-            preimages.map(async (preimage, index) => ({
+            preimages.map((preimage, index) => ({
               preimage,
-              membershipWitness: MembershipWitness.fromSiblingPath(
-                BigInt(index), // leafIndex
-                await tree.getSiblingPath(BigInt(index), false), // siblingPath
-              ),
+              index: BigInt(index),
             })),
           ),
         };
@@ -264,12 +260,9 @@ describe('Private Execution test suite', () => {
         return {
           count: preimages.length,
           notes: await Promise.all(
-            preimages.map(async (preimage, index) => ({
+            preimages.map((preimage, index) => ({
               preimage,
-              membershipWitness: MembershipWitness.fromSiblingPath(
-                BigInt(index), // leafIndex
-                await tree.getSiblingPath(BigInt(index), false), // siblingPath
-              ),
+              index: BigInt(index),
             })),
           ),
         };

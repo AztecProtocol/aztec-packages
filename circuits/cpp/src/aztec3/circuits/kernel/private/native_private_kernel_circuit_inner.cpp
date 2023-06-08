@@ -68,8 +68,8 @@ void validate_this_private_call_hash(DummyComposer& composer,
                                      PrivateKernelInputsInner<NT> const& private_inputs,
                                      KernelCircuitPublicInputs<NT>& public_inputs)
 {
-    // TODO: this logic might need to change to accommodate the weird edge 3 initial txs (the 'main' tx, the 'fee' tx,
-    // and the 'gas rebate' tx).
+    // TODO(mike): this logic might need to change to accommodate the weird edge 3 initial txs (the 'main' tx, the 'fee'
+    // tx, and the 'gas rebate' tx).
     const auto popped_private_call_hash = array_pop(public_inputs.end.private_call_stack);
     const auto calculated_this_private_call_hash = private_inputs.private_call.call_stack_item.hash();
 
@@ -119,8 +119,8 @@ void validate_inputs(DummyComposer& composer, PrivateKernelInputsInner<NT> const
 
     const auto& start = private_inputs.previous_kernel.public_inputs.end;
 
-    // TODO: we might want to range-constrain the call_count to prevent some kind of overflow errors. Having said that,
-    // iterating 2^254 times isn't feasible.
+    // TODO(mike): we might want to range-constrain the call_count to prevent some kind of overflow errors. Having said
+    // that, iterating 2^254 times isn't feasible.
 
     NT::fr const start_private_call_stack_length = array_length(start.private_call_stack);
 
@@ -136,8 +136,8 @@ void validate_inputs(DummyComposer& composer, PrivateKernelInputsInner<NT> const
 }
 
 // NOTE: THIS IS A VERY UNFINISHED WORK IN PROGRESS.
-// TODO: is there a way to identify whether an input has not been used by ths circuit? This would help us more-safely
-// ensure we're constraining everything.
+// TODO(mike): is there a way to identify whether an input has not been used by ths circuit? This would help us
+// more-safely ensure we're constraining everything.
 KernelCircuitPublicInputs<NT> native_private_kernel_circuit_inner(DummyComposer& composer,
                                                                   PrivateKernelInputsInner<NT> const& private_inputs)
 {
@@ -162,6 +162,7 @@ KernelCircuitPublicInputs<NT> native_private_kernel_circuit_inner(DummyComposer&
 
     common_validate_read_requests(
         composer,
+        private_inputs.private_call.call_stack_item.public_inputs.call_context.storage_contract_address,
         private_inputs.private_call.call_stack_item.public_inputs.read_requests,
         private_inputs.private_call.read_request_membership_witnesses,
         public_inputs.constants.historic_tree_roots.private_historic_tree_roots.private_data_tree_root);

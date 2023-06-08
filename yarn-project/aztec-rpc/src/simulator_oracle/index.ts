@@ -1,6 +1,6 @@
 import { DBOracle, MessageLoadOracleInputs } from '@aztec/acir-simulator';
 import { AztecNode } from '@aztec/aztec-node';
-import { AztecAddress, EthAddress, Fr, MembershipWitness } from '@aztec/circuits.js';
+import { AztecAddress, EthAddress, Fr } from '@aztec/circuits.js';
 import { KeyPair } from '@aztec/key-store';
 import { FunctionAbi } from '@aztec/foundation/abi';
 import { ContractDataOracle } from '../contract_data_oracle/index.js';
@@ -51,16 +51,11 @@ export class SimulatorOracle implements DBOracle {
     return {
       count: noteDaos.length,
       notes: await Promise.all(
-        noteDaos.slice(offset, offset + limit).map(async noteDao => {
-          const path = await this.node.getDataTreePath(noteDao.index);
+        noteDaos.slice(offset, offset + limit).map(noteDao => {
           return {
             preimage: noteDao.notePreimage.items,
-            // TODO(dbanks12): This should only provide index, not full witness.
-            //                 RPC Client should be responsible for getting full MembershipWitness.
-            // Related issues:
-            // https://github.com/AztecProtocol/aztec-packages/issues/513
-            // https://github.com/AztecProtocol/aztec-packages/issues/512
-            membershipWitness: MembershipWitness.fromSiblingPath(noteDao.index, path),
+            // RPC Client can use this index to get full MembershipWitness
+            index: noteDao.index,
           };
         }),
       ),

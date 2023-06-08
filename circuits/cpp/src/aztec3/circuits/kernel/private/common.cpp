@@ -68,6 +68,7 @@ void common_validate_call_stack(DummyComposer& composer, PrivateCallData<NT> con
  * read request in the the tx will initialize this root (in this function).
  */
 void common_validate_read_requests(DummyComposer& composer,
+                                   NT::fr const& storage_contract_address,
                                    std::array<fr, READ_REQUESTS_LENGTH> const& read_requests,
                                    std::array<MembershipWitness<NT, PRIVATE_DATA_TREE_HEIGHT>,
                                               READ_REQUESTS_LENGTH> const& read_request_membership_witnesses,
@@ -82,7 +83,11 @@ void common_validate_read_requests(DummyComposer& composer,
         // read requests in this and later kernel iterations must match this one.
         // This root will itself be validated against historic roots tree later in a rollup circuit.
         if (historic_private_data_tree_root == NT::fr(0)) {
-            const auto& leaf = read_requests[read_request_index];
+            const auto& read_request = read_requests[read_request_index];
+            // the read request comes un-siloed from the app circuit so we must
+            // silo it here so that it matches the private data tree leaf that
+            // we are membership checking
+            const auto leaf = silo_commitment<NT>(storage_contract_address, read_request);
             const auto& witness = read_request_membership_witnesses[read_request_index];
             historic_private_data_tree_root =
                 root_from_sibling_path<NT>(leaf, witness.leaf_index, witness.sibling_path);
@@ -92,13 +97,23 @@ void common_validate_read_requests(DummyComposer& composer,
         // membership witnesses must resolve to the same private data root
         // for every request in all kernel iterations
         for (; read_request_index < num_read_requests; read_request_index++) {
-            const auto& leaf = read_requests[read_request_index];
+            const auto& read_request = read_requests[read_request_index];
+            // the read request comes un-siloed from the app circuit so we must
+            // silo it here so that it matches the private data tree leaf that
+            // we are membership checking
+            const auto leaf = silo_commitment<NT>(storage_contract_address, read_request);
             const auto& witness = read_request_membership_witnesses[read_request_index];
             const auto& root_for_read_request =
                 root_from_sibling_path<NT>(leaf, witness.leaf_index, witness.sibling_path);
 
             composer.do_assert(root_for_read_request == historic_private_data_tree_root,
-                               format("private data root mismatch at read_request[", read_request_index, "]"),
+                               format("private data root mismatch at read_request[",
+                                      read_request_index,
+                                      "] - ",
+                                      "Expected root: ",
+                                      historic_private_data_tree_root,
+                                      ", Read request gave root: ",
+                                      root_for_read_request),
                                CircuitErrorCode::PRIVATE_KERNEL__READ_REQUEST_PRIVATE_DATA_ROOT_MISMATCH);
         }
     }
@@ -126,6 +141,9 @@ void common_update_end_values(DummyComposer& composer,
     }
 
     const auto& storage_contract_address = private_call_public_inputs.call_context.storage_contract_address;
+
+    // TODO(dbanks12): might need to silo read requests so that they match new commitments!!!!
+    // what about read requests and commitments that never end up in a tree? Still silo?
 
     // Enhance commitments and nullifiers with domain separation whereby domain is the contract.
     {  // commitments & nullifiers

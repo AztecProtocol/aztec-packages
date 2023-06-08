@@ -3,7 +3,6 @@ import {
   EcdsaSignature,
   KERNEL_NEW_COMMITMENTS_LENGTH,
   PRIVATE_CALL_STACK_LENGTH,
-  PRIVATE_DATA_TREE_HEIGHT,
   PrivateCallStackItem,
   PrivateCircuitPublicInputs,
   KernelCircuitPublicInputs,
@@ -52,12 +51,7 @@ describe('Kernel Prover', () => {
       nestedExecutions: (dependencies[fnName] || []).map(name => createExecutionResult(name)),
       vk: VerificationKey.makeFake().toBuffer(),
       preimages: { newNotes: newNoteIndices.map(idx => notes[idx]), nullifiedNotes: [] },
-      readRequestMembershipWitnesses: Array(READ_REQUESTS_LENGTH).map(() =>
-        MembershipWitness.empty(
-          PRIVATE_DATA_TREE_HEIGHT, // pathSize
-          BigInt(0), // leafIndex
-        ),
-      ),
+      readRequestCommitmentIndices: Array(READ_REQUESTS_LENGTH).map(() => BigInt(0)),
       returnValues: [],
       acir: Buffer.alloc(0),
       partialWitness: new Map(),

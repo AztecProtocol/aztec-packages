@@ -1,4 +1,4 @@
-import { MembershipWitness, PRIVATE_DATA_TREE_HEIGHT, PrivateHistoricTreeRoots } from '@aztec/circuits.js';
+import { PrivateHistoricTreeRoots } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 import { TxExecutionRequest } from '@aztec/types';
@@ -40,14 +40,14 @@ export class ClientTxExecutionContext {
       toACVMField(count),
       ...notes.flatMap(noteGetData => noteGetData.preimage.map(f => toACVMField(f))),
     ];
-    const membershipWitnesses = notes.map(noteGetData => noteGetData.membershipWitness);
+    const indices = notes.map(noteGetData => noteGetData.index);
 
-    return { preimages, membershipWitnesses };
+    return { preimages, indices };
   }
 
   /**
    * Views the notes for a contract address and storage slot.
-   * Doesn't include the sibling paths and the root.
+   * Doesn't include the leaf indices.
    * @param contractAddress - The contract address.
    * @param storageSlot - The storage slot.
    * @param limit - The amount of notes to get.
@@ -76,10 +76,7 @@ export class ClientTxExecutionContext {
       () =>
         ({
           preimage: createDummyNote(),
-          membershipWitness: MembershipWitness.empty(
-            PRIVATE_DATA_TREE_HEIGHT, // pathSize
-            0n, // leafIndex
-          ),
+          index: BigInt(-1),
         } as NoteLoadOracleInputs),
     );
 

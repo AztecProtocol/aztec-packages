@@ -3,8 +3,6 @@ import {
   CallContext,
   CircuitsWasm,
   FunctionData,
-  MembershipWitness,
-  PRIVATE_DATA_TREE_HEIGHT,
   PUBLIC_CALL_STACK_LENGTH,
   PrivateCallStackItem,
   PublicCallRequest,
@@ -84,8 +82,8 @@ export interface ExecutionResult {
   // Needed for the verifier (kernel)
   /** The call stack item. */
   callStackItem: PrivateCallStackItem;
-  /** The membership witnesses for read requests performed during execution. */
-  readRequestMembershipWitnesses: MembershipWitness<typeof PRIVATE_DATA_TREE_HEIGHT>[];
+  /** The indices (in private data tree) for commitments corresponding to read requests. */
+  readRequestCommitmentIndices: bigint[];
   // Needed for the user
   /** The preimages of the executed function. */
   preimages: ExecutionPreimages;
@@ -131,15 +129,20 @@ export class PrivateFunctionExecution {
     const newNullifiers: NewNullifierData[] = [];
     const nestedExecutionContexts: ExecutionResult[] = [];
     const enqueuedPublicFunctionCalls: PublicCallRequest[] = [];
-    const readRequestMembershipWitnesses: MembershipWitness<typeof PRIVATE_DATA_TREE_HEIGHT>[] = [];
+    const readRequestCommitmentIndices: bigint[] = [];
 
     const { partialWitness } = await acvm(acir, initialWitness, {
       getSecretKey: async ([address]: ACVMField[]) => [
         toACVMField(await this.context.db.getSecretKey(this.contractAddress, frToAztecAddress(fromACVMField(address)))),
       ],
       getNotes2: async ([storageSlot]: ACVMField[]) => {
-        const { preimages, membershipWitnesses } = await this.context.getNotes(this.contractAddress, storageSlot, 2);
-        readRequestMembershipWitnesses.push(...membershipWitnesses);
+        const { preimages, indices } = await this.context.getNotes(this.contractAddress, storageSlot, 2);
+        // TODO(dbanks12): https://github.com/AztecProtocol/aztec-packages/issues/779
+        // if preimages length is > rrcIndices length, we are either relying on
+        // the app circuit to remove fake preimages, or on the kernel to handle
+        // the length diff.
+        const filteredIndices = indices.filter(index => index != BigInt(-1));
+        readRequestCommitmentIndices.push(...filteredIndices);
         return preimages;
       },
       getRandomField: () => Promise.resolve([toACVMField(Fr.random())]),
@@ -229,7 +232,7 @@ export class PrivateFunctionExecution {
       partialWitness,
       callStackItem,
       returnValues,
-      readRequestMembershipWitnesses,
+      readRequestCommitmentIndices,
       preimages: {
         newNotes: newNotePreimages,
         nullifiedNotes: newNullifiers,

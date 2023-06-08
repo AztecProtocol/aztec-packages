@@ -11,7 +11,6 @@ use crate::oracle::notes::notify_created_note;
 use crate::oracle::notes::notify_nullified_note;
 use crate::oracle::notes::get_notes_2_internal;
 
-
 fn get_2_notes(storage_slot: Field) -> (Note, Note) {
     let fields = get_notes_2_internal(storage_slot);
     let note1 = Note::deserialize(arr_copy_slice(fields, [0; NOTE_LEN], 1));
@@ -46,10 +45,24 @@ impl Set {
         let note0_hash = notes.0.compute_note_hash();
         let note1_hash = notes.1.compute_note_hash();
 
+        //if notes.0.is_real  {
+        //    context = context.push_read_request(note0_hash);
+        //}
+        //if notes.1.is_real {
+        //    context = context.push_read_request(note1_hash);
+        //}
+        // needed for some reason to avoid compile error?
+        //constrain updated_context.args.get(0) != 0x0bad;
+        //(updated_context, notes)
+
+        // TODO/FIXME(dbanks12): really should be using the above
+        // conditionals to only push 'real' notes to context, but
+        // the conditionals do not work right yet.
+        // need to include 0-2 notes based on is_real!!!!
         (
             context
-                .push_read_request(note0_hash)
-                .push_read_request(note1_hash),
+                .push_read_request(note0_hash),
+                //.push_read_request(note1_hash),
             notes
         )
     }

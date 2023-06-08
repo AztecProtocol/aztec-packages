@@ -88,6 +88,7 @@ export class KernelProver {
       publicInputs: KernelCircuitPublicInputs.empty(),
       proof: makeEmptyProof(),
     };
+
     while (executionStack.length) {
       const currentExecution = executionStack.pop()!;
       executionStack.push(...currentExecution.nestedExecutions);
@@ -104,13 +105,40 @@ export class KernelProver {
           .map(() => PrivateCallStackItem.empty()),
       );
 
-      currentExecution.readRequestMembershipWitnesses.push(
-        ...Array(READ_REQUESTS_LENGTH - currentExecution.readRequestMembershipWitnesses.length)
+
+      // TODO(dbanks12): https://github.com/AztecProtocol/aztec-packages/issues/779
+      const readRequestMembershipWitnesses = [];
+      for (let rr = 0; rr < currentExecution.readRequestCommitmentIndices.length; rr++) {
+        if (currentExecution.callStackItem.publicInputs.readRequests[rr] == Fr.zero()) {
+          // TODO(dbanks12): is this needed?
+          // if rr is 0 somehow, that means it we have reached the last
+          // rr for this private call / kernel iteration
+          break;
+        }
+        const leafIndex = currentExecution.readRequestCommitmentIndices[rr];
+        const membershipWitness = await this.oracle.getNoteMembershipWitness(leafIndex);
+        readRequestMembershipWitnesses.push(membershipWitness);
+      }
+
+      // fill in witnesses for remaining/empty read requests
+      readRequestMembershipWitnesses.push(
+        ...Array(READ_REQUESTS_LENGTH - readRequestMembershipWitnesses.length)
           .fill(0)
           .map(() => MembershipWitness.empty(PRIVATE_DATA_TREE_HEIGHT, BigInt(0))),
       );
 
-      const privateCallData = await this.createPrivateCallData(currentExecution, privateCallStackPreimages);
+      const privateCallData = await this.createPrivateCallData(currentExecution, readRequestMembershipWitnesses, privateCallStackPreimages);
+
+      // TODO(dbanks12): remove historic root from app circuit public inputs and
+      // add it to PrivateCallData: https://github.com/AztecProtocol/aztec-packages/issues/778
+
+      // if this is the last iteration of the kernel, there are no read requests to process,
+      // and no previous kernel iterations had read requests, initialize the
+      if (executionStack.length === 0) {
+        privateCallData.callStackItem.publicInputs.historicPrivateDataTreeRoot = await this.oracle.getPrivateDataRoot();
+      } else {
+        privateCallData.callStackItem.publicInputs.historicPrivateDataTreeRoot = new Fr(0);
+      }
 
       if (firstIteration) {
         output = await this.proofCreator.createProofInit(signedTxRequest, privateCallData);
@@ -140,7 +168,8 @@ export class KernelProver {
   }
 
   private async createPrivateCallData(
-    { callStackItem, vk, readRequestMembershipWitnesses }: ExecutionResult,
+    { callStackItem, vk }: ExecutionResult,
+    readRequestMembershipWitnesses: MembershipWitness<typeof PRIVATE_DATA_TREE_HEIGHT>[],
     privateCallStackPreimages: PrivateCallStackItem[],
   ) {
     const { contractAddress, functionData, publicInputs } = callStackItem;

@@ -19,6 +19,7 @@ import {
 } from '@aztec/types';
 import { NotePreimage, TxAuxData } from '../aztec_rpc_server/tx_aux_data/index.js';
 import { ContractDataOracle } from '../contract_data_oracle/index.js';
+import { KernelOracle } from '../kernel_oracle/index.js';
 import { Database, TxAuxDataDao, TxDao } from '../database/index.js';
 import { generateFunctionSelector } from '../index.js';
 import { KernelProver, OutputNoteData } from '../kernel_prover/index.js';
@@ -243,6 +244,7 @@ export class AccountState {
     // TODO - Pause syncing while simulating.
 
     const contractDataOracle = new ContractDataOracle(this.db, this.node);
+    const kernelOracle = new KernelOracle(contractDataOracle, this.node);
     const executionResult = await this.simulate(txExecutionRequest, contractDataOracle);
 
     // TODO(#664) We are deriving the txRequest from the argsHash computed by the contract. However,
@@ -252,7 +254,7 @@ export class AccountState {
     const argsHash = executionResult.callStackItem.publicInputs.argsHash;
     const txRequest = txExecutionRequest.toTxRequestUsingArgsHash(argsHash);
 
-    const kernelProver = new KernelProver(contractDataOracle);
+    const kernelProver = new KernelProver(kernelOracle);
     this.log('Executing Prover...');
     const { proof, publicInputs, outputNotes } = await kernelProver.prove(txRequest, signature, executionResult);
     this.log('Proof completed!');

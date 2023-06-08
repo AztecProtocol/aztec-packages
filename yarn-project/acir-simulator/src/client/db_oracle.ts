@@ -1,7 +1,6 @@
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
-import { MembershipWitness, PRIVATE_DATA_TREE_HEIGHT } from '@aztec/circuits.js';
 import { FunctionAbi } from '@aztec/foundation/abi';
 
 /**
@@ -14,9 +13,9 @@ export interface NoteLoadOracleInputs {
   preimage: Fr[];
 
   /**
-   * The note's leaf index and sibling path in the merkle tree.
+   * The note's leaf index in the private data tree.
    */
-  membershipWitness: MembershipWitness<typeof PRIVATE_DATA_TREE_HEIGHT>;
+  index: bigint;
 }
 
 /**
