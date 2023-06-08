@@ -21,11 +21,12 @@ template <typename NCT> struct NullifierLeafPreimage {
     MSGPACK_FIELDS(leaf_value, next_index, next_value);
     bool operator==(NullifierLeafPreimage<NCT> const&) const = default;
 
-    bool is_empty() const { return leaf_value == fr(0) && next_index == fr(0) && next_value == fr(0); }
+    bool is_empty() const { return leaf_value.is_zero() && next_index == 0 && next_value.is_zero(); }
 
     fr hash() const
     {
-        return is_empty() ? fr(0) : stdlib::merkle_tree::hash_multiple_native({ leaf_value, next_index, next_value });
+        return is_empty() ? fr::zero()
+                          : stdlib::merkle_tree::hash_multiple_native({ leaf_value, next_index, next_value });
     }
 };
 
