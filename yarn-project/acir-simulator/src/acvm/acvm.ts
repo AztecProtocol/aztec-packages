@@ -32,7 +32,11 @@ export interface ACIRCallback {
   viewNotesPage(params: ACVMField[]): Promise<ACVMField[]>;
   getL1ToL2Message(params: ACVMField[]): Promise<ACVMField[]>;
   /**
-   * Logging utility for logging data.
+   * Oracle call used to emit an encrypted log.
+   */
+  emitEncryptedLog: (params: ACVMField[]) => Promise<ACVMField[]>;
+  /**
+   * Debugging utility for printing out info from Noir (i.e. console.log).
    */
   debugLog: (params: ACVMField[]) => Promise<ACVMField[]>;
 }

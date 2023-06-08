@@ -29,6 +29,7 @@ import { sizeOfType } from '../index.js';
 import { fieldsToFormattedStr } from './debug.js';
 import { ClientTxExecutionContext } from './client_execution_context.js';
 import { Tuple, assertLength } from '@aztec/foundation/serialize';
+import { UnverifiedData } from '@aztec/types';
 
 /**
  * The contents of a new note.
@@ -92,6 +93,11 @@ export interface ExecutionResult {
   nestedExecutions: this[];
   /** Enqueued public function execution requests to be picked up by the sequencer. */
   enqueuedPublicFunctionCalls: PublicCallRequest[];
+  /**
+   * Encrypted logs emitted during execution of this function call.
+   * Note: These are preimages to `encryptedLogsHash`.
+   */
+  encryptedLogs: UnverifiedData;
 }
 
 const notAvailable = () => {
@@ -128,6 +134,7 @@ export class PrivateFunctionExecution {
     const newNullifiers: NewNullifierData[] = [];
     const nestedExecutionContexts: ExecutionResult[] = [];
     const enqueuedPublicFunctionCalls: PublicCallRequest[] = [];
+    const encryptedLogs = new UnverifiedData([]);
 
     const { partialWitness } = await acvm(acir, initialWitness, {
       getSecretKey: async ([address]: ACVMField[]) => [
@@ -197,6 +204,21 @@ export class PrivateFunctionExecution {
       storageRead: notAvailable,
       storageWrite: notAvailable,
       callPublicFunction: notAvailable,
+      emitEncryptedLog: ([acvmContractAddress, isReal, nonce, ownerX, ownerY, randomness, value]: ACVMField[]) => {
+        // commitments are in PrivateCallData.PrivateCallStackItem.PrivateCircuitPublicInputs.newCommitments
+        // before that they are in ExecutionResult.PrivateCallStackItem.PrivateCircuitPublicInputs.newCommitments
+
+        // How do we determine which notes are final and whose encrypted note preimages we want to emit?
+        // --> if a note is created and spent in the same execution then emitting encrypted note preimage is wasteful
+        // --> this is how it's solved in kernel_prover.ts:
+        //          const finalNewCommitments = output.publicInputs.end.newCommitments;
+        //          const outputNotes = finalNewCommitments.map(c => newNotes[c.toString()]).filter(c => !!c);
+
+        // eslint-disable-next-line
+        console.log('emitEncryptedLog', [acvmContractAddress, isReal, nonce, ownerX, ownerY, randomness, value]);
+
+        return Promise.resolve([ZERO_ACVM_FIELD]);
+      },
     });
 
     const publicInputs = extractPublicInputs(partialWitness, acir);
@@ -227,6 +249,7 @@ export class PrivateFunctionExecution {
       vk: Buffer.from(this.abi.verificationKey!, 'hex'),
       nestedExecutions: nestedExecutionContexts,
       enqueuedPublicFunctionCalls,
+      encryptedLogs,
     };
   }
 

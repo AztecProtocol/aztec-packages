@@ -7,6 +7,9 @@ contract ZkToken {
     use dep::aztec3::state_vars::map::Map;
     use dep::aztec3::state_vars::set::Set;
 
+    // oracles
+    use dep::aztec3::oracle::logs::emit_encrypted_log;
+
     //*********************************/
     global balances = Map { storage_slot: 1 };
     // Should eventually be replaced by:
@@ -45,6 +48,9 @@ contract ZkToken {
         let owner_balance = balances.at(owner.x);
         let note = Note::new(amount, owner);
 
+        // Is constraining this necessary?
+        // constrain emit_encrypted_log(self.contract_address, note) == 0;
+
         owner_balance.insert(context, note)
             .finish(inputs)
     }
@@ -80,6 +86,10 @@ contract ZkToken {
 
         let change_note = Note::new(change_value, sender);
         let recipient_note = Note::new(amount, recipient);
+        
+        // Is constraining this necessary?
+        constrain emit_encrypted_log(inputs.call_context.storage_contract_address, change_note) == 0;
+        // constrain emit_encrypted_log(self.contract_address, recipient_note) == 0;
 
         let recipient_balance = balances.at(recipient.x);
 
