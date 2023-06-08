@@ -7,7 +7,6 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { sleep } from '@aztec/foundation/sleep';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { randomBytes } from '@aztec/foundation/crypto';
-import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { ArchiverDataStore, MemoryArchiverStore } from './archiver_store.js';
 import { Fr } from '@aztec/foundation/fields';
 
@@ -214,12 +213,3 @@ function makeRollupTx(l2Block: L2Block) {
   const input = encodeFunctionData({ abi: RollupAbi, functionName: 'process', args: [proof, block] });
   return { input } as Transaction<bigint, number>;
 }
-
-/**
- * Creates random encrypted note preimage.
- * @returns A random encrypted note preimage.
- */
-const createRandomEncryptedNotePreimage = () => {
-  const encryptedNotePreimageBuf = randomBytes(144);
-  return Buffer.concat([toBufferBE(BigInt(encryptedNotePreimageBuf.length), 4), encryptedNotePreimageBuf]);
-};
