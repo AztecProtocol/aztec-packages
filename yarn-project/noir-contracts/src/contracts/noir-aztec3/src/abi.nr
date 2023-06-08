@@ -107,8 +107,8 @@ impl FunctionData {
 // + historic_contract_tree_root - 1
 // + historic_l1_to_l2_messages_tree_root - 1
 // + contract_deployment_data - 4
-// = 6 + 1 + 4 + 4 + 4 + 4 + 4  + 2 + 1 + 1 + 1 + 1 + 4
-// = 37
+// = 6 + 1 + 4 + 4 + 4 + 4 + 4  + 4 + 2 + 1 + 1 + 1 + 1 + 4
+// = 41
 struct PrivateCircuitPublicInputs {
     call_context: CallContext,
     args_hash: Field,
