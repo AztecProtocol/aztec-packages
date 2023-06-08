@@ -13,11 +13,12 @@ import {
   INITIAL_L2_BLOCK_NUM,
   L2BlockContext,
   MerkleTreeId,
+  NotePreimage,
   Tx,
+  TxAuxData,
   TxExecutionRequest,
   UnverifiedData,
 } from '@aztec/types';
-import { NotePreimage, TxAuxData } from '../aztec_rpc_server/tx_aux_data/index.js';
 import { ContractDataOracle } from '../contract_data_oracle/index.js';
 import { Database, TxAuxDataDao, TxDao } from '../database/index.js';
 import { generateFunctionSelector } from '../index.js';
