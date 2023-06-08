@@ -566,7 +566,8 @@ TEST(private_kernel_tests, native_read_request_bad_request)
     auto const& contract_address =
         private_inputs.private_call.call_stack_item.public_inputs.call_context.storage_contract_address;
 
-    auto [read_requests, read_request_membership_witnesses] = get_random_reads(contract_address, 2);
+    auto [read_requests, read_request_membership_witnesses, root] = get_random_reads(contract_address, 2);
+    private_inputs.private_call.call_stack_item.public_inputs.historic_private_data_tree_root = root;
 
     // tweak read_request so it gives wrong root when paired with its sibling path
     read_requests[1] += 1;
@@ -598,7 +599,8 @@ TEST(private_kernel_tests, native_read_request_bad_leaf_index)
     auto const& contract_address =
         private_inputs.private_call.call_stack_item.public_inputs.call_context.storage_contract_address;
 
-    auto [read_requests, read_request_membership_witnesses] = get_random_reads(contract_address, 2);
+    auto [read_requests, read_request_membership_witnesses, root] = get_random_reads(contract_address, 2);
+    private_inputs.private_call.call_stack_item.public_inputs.historic_private_data_tree_root = root;
 
     // tweak leaf index so it gives wrong root when paired with its request and sibling path
     read_request_membership_witnesses[1].leaf_index += 1;
@@ -629,7 +631,8 @@ TEST(private_kernel_tests, native_read_request_bad_sibling_path)
     auto const& contract_address =
         private_inputs.private_call.call_stack_item.public_inputs.call_context.storage_contract_address;
 
-    auto [read_requests, read_request_membership_witnesses] = get_random_reads(contract_address, 2);
+    auto [read_requests, read_request_membership_witnesses, root] = get_random_reads(contract_address, 2);
+    private_inputs.private_call.call_stack_item.public_inputs.historic_private_data_tree_root = root;
 
     // tweak sibling path so it gives wrong root when paired with its request
     read_request_membership_witnesses[1].sibling_path[1] += 1;
@@ -661,9 +664,10 @@ TEST(private_kernel_tests, native_read_request_root_mismatch)
         private_inputs.private_call.call_stack_item.public_inputs.call_context.storage_contract_address;
 
     // generate two random sets of read requests and mix them so their roots don't match
-    auto [read_requests0, read_request_membership_witnesses0] = get_random_reads(contract_address, 2);
-    auto [read_requests1, read_request_membership_witnesses1] = get_random_reads(contract_address, 2);
-    std::array<NT::fr, READ_REQUESTS_LENGTH> bad_requests;
+    auto [read_requests0, read_request_membership_witnesses0, root] = get_random_reads(contract_address, 2);
+    private_inputs.private_call.call_stack_item.public_inputs.historic_private_data_tree_root = root;
+    auto [read_requests1, read_request_membership_witnesses1, _root] = get_random_reads(contract_address, 2);
+    std::array<NT::fr, READ_REQUESTS_LENGTH> bad_requests{};
     std::array<MembershipWitness<NT, PRIVATE_DATA_TREE_HEIGHT>, READ_REQUESTS_LENGTH> bad_witnesses;
     // note we are using read_requests0 for some and read_requests1 for others
     bad_requests[0] = read_requests0[0];
@@ -732,7 +736,8 @@ TEST(private_kernel_tests, native_one_read_requests_works)
     auto const& contract_address =
         private_inputs.private_call.call_stack_item.public_inputs.call_context.storage_contract_address;
 
-    auto [read_requests, read_request_membership_witnesses] = get_random_reads(contract_address, 1);
+    auto [read_requests, read_request_membership_witnesses, root] = get_random_reads(contract_address, 1);
+    private_inputs.private_call.call_stack_item.public_inputs.historic_private_data_tree_root = root;
     private_inputs.private_call.call_stack_item.public_inputs.read_requests = read_requests;
     private_inputs.private_call.read_request_membership_witnesses = read_request_membership_witnesses;
 
@@ -763,7 +768,8 @@ TEST(private_kernel_tests, native_two_read_requests_works)
     auto const& contract_address =
         private_inputs.private_call.call_stack_item.public_inputs.call_context.storage_contract_address;
 
-    auto [read_requests, read_request_membership_witnesses] = get_random_reads(contract_address, 2);
+    auto [read_requests, read_request_membership_witnesses, root] = get_random_reads(contract_address, 2);
+    private_inputs.private_call.call_stack_item.public_inputs.historic_private_data_tree_root = root;
     private_inputs.private_call.call_stack_item.public_inputs.read_requests = read_requests;
     private_inputs.private_call.read_request_membership_witnesses = read_request_membership_witnesses;
 
@@ -794,7 +800,9 @@ TEST(private_kernel_tests, native_max_read_requests_works)
     auto const& contract_address =
         private_inputs.private_call.call_stack_item.public_inputs.call_context.storage_contract_address;
 
-    auto [read_requests, read_request_membership_witnesses] = get_random_reads(contract_address, READ_REQUESTS_LENGTH);
+    auto [read_requests, read_request_membership_witnesses, root] =
+        get_random_reads(contract_address, READ_REQUESTS_LENGTH);
+    private_inputs.private_call.call_stack_item.public_inputs.historic_private_data_tree_root = root;
     private_inputs.private_call.call_stack_item.public_inputs.read_requests = read_requests;
     private_inputs.private_call.read_request_membership_witnesses = read_request_membership_witnesses;
 
@@ -813,5 +821,9 @@ TEST(private_kernel_tests, native_max_read_requests_works)
     // Check the first nullifier is hash of the signed tx request
     ASSERT_EQ(public_inputs.end.new_nullifiers[0], private_inputs.signed_tx_request.hash());
 }
+
+// TODO(dbanks12): more tests of read_requests for multiple iterations.
+// Check enforcement that inner iterations' read_requests match root in constants
+// https://github.com/AztecProtocol/aztec-packages/issues/786
 
 }  // namespace aztec3::circuits::kernel::private_kernel

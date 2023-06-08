@@ -77,10 +77,11 @@ inline const auto& get_empty_contract_siblings()
  *
  * @param contract_address address to use when siloing read requests
  * @param num_read_requests if negative, use random num
- * @return std::pair<read_requests, read_request_memberships_witnesses>
+ * @return std::tuple<read_requests, read_request_memberships_witnesses, historic_private_data_tree_root>
  */
-std::pair<std::array<NT::fr, READ_REQUESTS_LENGTH>,
-          std::array<MembershipWitness<NT, PRIVATE_DATA_TREE_HEIGHT>, READ_REQUESTS_LENGTH>>
+std::tuple<std::array<NT::fr, READ_REQUESTS_LENGTH>,
+           std::array<MembershipWitness<NT, PRIVATE_DATA_TREE_HEIGHT>, READ_REQUESTS_LENGTH>,
+           NT::fr>
 get_random_reads(NT::fr const& contract_address, int num_read_requests);
 
 /**

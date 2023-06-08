@@ -50,10 +50,11 @@ using aztec3::utils::zero_array;
  *
  * @param contract_address address to use when siloing read requests
  * @param num_read_requests if negative, use random num. Must be < READ_REQUESTS_LENGTH
- * @return std::pair<read_requests, read_request_memberships_witnesses>
+ * @return std::tuple<read_requests, read_request_memberships_witnesses, historic_private_data_tree_root>
  */
-std::pair<std::array<NT::fr, READ_REQUESTS_LENGTH>,
-          std::array<MembershipWitness<NT, PRIVATE_DATA_TREE_HEIGHT>, READ_REQUESTS_LENGTH>>
+std::tuple<std::array<NT::fr, READ_REQUESTS_LENGTH>,
+           std::array<MembershipWitness<NT, PRIVATE_DATA_TREE_HEIGHT>, READ_REQUESTS_LENGTH>,
+           NT::fr>
 get_random_reads(NT::fr const& contract_address, int const num_read_requests)
 {
     auto read_requests = zero_array<fr, READ_REQUESTS_LENGTH>();
@@ -98,7 +99,7 @@ get_random_reads(NT::fr const& contract_address, int const num_read_requests)
     }
 
 
-    return { read_requests, read_request_membership_witnesses };
+    return { read_requests, read_request_membership_witnesses, private_data_tree.root() };
 }
 
 /**
