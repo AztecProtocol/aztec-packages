@@ -1,5 +1,5 @@
 import { pedersenCompressWithHashIndex } from '@aztec/barretenberg.js/crypto';
-import { BarretenbergWasm } from '@aztec/barretenberg.js/wasm';
+import { CircuitsWasm } from '@aztec/circuits.js';
 import {
   CircuitsWasm,
   KernelCircuitPublicInputs,

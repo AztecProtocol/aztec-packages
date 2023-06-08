@@ -1,5 +1,5 @@
 import { pedersenCompressInputs, pedersenCompressWithHashIndex } from '@aztec/barretenberg.js/crypto';
-import { BarretenbergWasm } from '@aztec/barretenberg.js/wasm';
+import { CircuitsWasm } from '@aztec/circuits.js';
 import { CallContext, PrivateHistoricTreeRoots } from '@aztec/circuits.js';
 import { FunctionAbi, FunctionType } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
