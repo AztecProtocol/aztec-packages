@@ -30,8 +30,11 @@ contract ZkToken {
         let owner_balance = balances.at(owner.x);
         let note = Note::new(initial_supply, owner);
 
-        owner_balance.insert(context, note)
-            .finish(inputs)
+        // Insert note and emit encrypted note preimage via oracle call
+        context = owner_balance.insert(context, note);
+        constrain emit_encrypted_log(inputs.call_context.storage_contract_address, owner_balance.storage_slot, note.owner, note) == 0;
+
+        context.finish(inputs)
     }
 
     fn mint(
@@ -48,8 +51,8 @@ contract ZkToken {
         let owner_balance = balances.at(owner.x);
         let note = Note::new(amount, owner);
 
+        // Insert note and emit encrypted note preimage via oracle call
         context = owner_balance.insert(context, note);
-
         constrain emit_encrypted_log(inputs.call_context.storage_contract_address, owner_balance.storage_slot, note.owner, note) == 0;
 
         context.finish(inputs)
