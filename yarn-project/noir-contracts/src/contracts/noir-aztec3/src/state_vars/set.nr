@@ -1,5 +1,5 @@
 use dep::std;
-use crate::abi::Inputs;
+use crate::abi::PrivateContextInputs;
 use crate::context::PrivateFunctionContext;
 use crate::notes::value_note::Note;
 use crate::types::point::Point;
@@ -39,7 +39,7 @@ impl Set {
     }
 
     // The `2` in the name is the number of notes returned
-    fn get_2(self, inputs: Inputs, mut context: PrivateFunctionContext) -> (PrivateFunctionContext, (Note, Note)) {
+    fn get_2(self, inputs: PrivateContextInputs, mut context: PrivateFunctionContext) -> (PrivateFunctionContext, (Note, Note)) {
         let storage_slot = self.storage_slot;
 
         // let note_getter_data: [NoteGetterData; 2] = ORACLE::get_2_notes(contract_address, storage_slot);
@@ -79,8 +79,8 @@ impl Set {
         // process_data(note_getter_data.0, storage_slot, contract_address);
         // process_data(note_getter_data.1, storage_slot, contract_address);
 
-        constrain note_getter_data.0.root == inputs.old_private_data_tree_root;
-        constrain note_getter_data.1.root == inputs.old_private_data_tree_root;
+        constrain note_getter_data.0.root == inputs.roots.old_private_data_tree_root;
+        constrain note_getter_data.1.root == inputs.roots.old_private_data_tree_root;
 
         let notes = (note_getter_data.0.note, note_getter_data.1.note);
 
@@ -88,7 +88,7 @@ impl Set {
     }
 
 
-    fn remove(self, inputs: Inputs, mut context: PrivateFunctionContext, note: Note) -> PrivateFunctionContext {
+    fn remove(self, inputs: PrivateContextInputs, mut context: PrivateFunctionContext, note: Note) -> PrivateFunctionContext {
         let contract_address = inputs.call_context.storage_contract_address;
         let storage_slot = self.storage_slot;
 

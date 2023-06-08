@@ -1,6 +1,6 @@
 contract Parent {
     use dep::aztec3::abi;
-    use dep::aztec3::abi::Inputs;
+    use dep::aztec3::abi::PrivateContextInputs;
     use dep::aztec3::abi::CallContext;
     use dep::aztec3::context::PrivateFunctionContext;
     use dep::aztec3::oracle::public_call;
@@ -8,14 +8,14 @@ contract Parent {
     use dep::aztec3::public_call_stack_item::PublicCallStackItem;
     
     fn constructor(
-        inputs: pub Inputs,
+        inputs: pub PrivateContextInputs,
     ) -> pub [Field; dep::aztec3::abi::PUBLIC_INPUTS_LENGTH] {
         PrivateFunctionContext::new().finish(inputs)
     }
 
     // Private function to call another private function in the targetContract using the provided selector
     fn entryPoint(
-        inputs: pub Inputs,
+        inputs: pub PrivateContextInputs,
         targetContract: pub Field,
         targetSelector: pub Field,
     ) -> pub [Field; dep::aztec3::abi::PUBLIC_INPUTS_LENGTH] {
@@ -52,7 +52,7 @@ contract Parent {
 
     // Private function to enqueue a call to the targetCcontract address using the selector and argument provided
     fn enqueueCallToChild(
-        inputs: pub Inputs,
+        inputs: pub PrivateContextInputs,
         targetContract: pub Field,
         targetSelector: pub Field,
         targetValue: pub Field,
@@ -69,7 +69,7 @@ contract Parent {
 
     // Private function to enqueue a call to the targetCcontract address using the selector and argument provided
     fn enqueueCallToChildTwice(
-        inputs: pub Inputs,
+        inputs: pub PrivateContextInputs,
         targetContract: pub Field,
         targetSelector: pub Field,
         targetValue: pub Field,
@@ -88,7 +88,7 @@ contract Parent {
 
     // Private function to enqueue a call to the pubEntryPoint function of this same contract, passing the target arguments provided
     fn enqueueCallToPubEntryPoint(
-        inputs: pub Inputs,
+        inputs: pub PrivateContextInputs,
         targetContract: pub Field,
         targetSelector: pub Field,
         targetValue: pub Field,
@@ -110,7 +110,7 @@ contract Parent {
 
     // Private function to enqueue two calls to the pubEntryPoint function of this same contract, passing the target arguments provided
     fn enqueueCallsToPubEntryPoint(
-        inputs: pub Inputs,
+        inputs: pub PrivateContextInputs,
         targetContract: pub Field,
         targetSelector: pub Field,
         targetValue: pub Field,

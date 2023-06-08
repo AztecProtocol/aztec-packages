@@ -1,5 +1,5 @@
 contract PublicToken {
-    use dep::aztec3::abi::Inputs;
+    use dep::aztec3::abi::PrivateContextInputs;
     use dep::aztec3::context::PrivateFunctionContext;
     use dep::aztec3::abi::CallContext;
     use dep::aztec3::types::point::Point;
@@ -9,7 +9,7 @@ contract PublicToken {
     global balances = StorageMap { storage_slot: 1 };
 
     fn constructor(
-        inputs: pub Inputs,
+        inputs: pub PrivateContextInputs,
     ) -> pub [Field; dep::aztec3::abi::PUBLIC_INPUTS_LENGTH] {
         PrivateFunctionContext::new().finish(inputs)
     }
