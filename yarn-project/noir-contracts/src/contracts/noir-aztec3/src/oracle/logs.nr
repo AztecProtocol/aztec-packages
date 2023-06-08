@@ -1,5 +1,6 @@
 use crate::notes::value_note::Note;
 
+// TODO: Make independent of a specific note implementation.
 #[oracle(emitEncryptedLog)]
 fn emit_encrypted_log_oracle(
     _contract_address: Field, 

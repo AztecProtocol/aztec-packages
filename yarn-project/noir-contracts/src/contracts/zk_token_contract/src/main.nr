@@ -49,7 +49,7 @@ contract ZkToken {
         let note = Note::new(amount, owner);
 
         // Is constraining this necessary?
-        // constrain emit_encrypted_log(self.contract_address, note) == 0;
+        constrain emit_encrypted_log(inputs.call_context.storage_contract_address, note) == 0;
 
         owner_balance.insert(context, note)
             .finish(inputs)
@@ -89,7 +89,7 @@ contract ZkToken {
         
         // Is constraining this necessary?
         constrain emit_encrypted_log(inputs.call_context.storage_contract_address, change_note) == 0;
-        // constrain emit_encrypted_log(self.contract_address, recipient_note) == 0;
+        constrain emit_encrypted_log(inputs.call_context.storage_contract_address, recipient_note) == 0;
 
         let recipient_balance = balances.at(recipient.x);
 
