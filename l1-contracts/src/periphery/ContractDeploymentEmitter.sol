@@ -11,7 +11,7 @@ import {IContractDeploymentEmitter} from "./interfaces/IContractDeploymentEmitte
  * @notice Used to log data on chain which are not required to advance the state but are needed for other purposes
  */
 contract ContractDeploymentEmitter is IContractDeploymentEmitter {
-    /**
+  /**
    * @notice Publishes public function bytecode to L1.
    * @dev Emits a `ContractDeployment` event
    * @dev Unverified and can be emitted by anyone
