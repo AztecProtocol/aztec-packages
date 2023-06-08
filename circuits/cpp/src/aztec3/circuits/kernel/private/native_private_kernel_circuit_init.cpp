@@ -130,20 +130,27 @@ void validate_inputs(DummyComposer& composer, PrivateKernelInputsInit<NT> const&
                        CircuitErrorCode::PRIVATE_KERNEL__CONTRACT_ADDRESS_MISMATCH);
 }
 
-void update_end_values(PrivateKernelInputsInit<NT> const& private_inputs, KernelCircuitPublicInputs<NT>& public_inputs)
+void update_end_values(DummyComposer& composer,
+                       PrivateKernelInputsInit<NT> const& private_inputs,
+                       KernelCircuitPublicInputs<NT>& public_inputs)
 {
-    // We only initialzed constants member of public_inputs so far. Therefore, there must not be any
-    // new nullifiers as part of public_inputs.
+    // We only initialized constants member of public_inputs so far. Therefore, there must not be any
+    // new nullifiers or logs as part of public_inputs.
     ASSERT(is_array_empty(public_inputs.end.new_nullifiers));
+    ASSERT(public_inputs.end.encrypted_logs_hash[0] == fr(0));
+    ASSERT(public_inputs.end.encrypted_logs_hash[1] == fr(0));
+    ASSERT(public_inputs.end.unencrypted_logs_hash[0] == fr(0));
+    ASSERT(public_inputs.end.unencrypted_logs_hash[1] == fr(0));
+    ASSERT(public_inputs.end.encrypted_log_preimages_length == fr(0));
+    ASSERT(public_inputs.end.unencrypted_log_preimages_length == fr(0));
 
     // Since it's the first iteration, we need to push the the tx hash nullifier into the `new_nullifiers` array
-    array_push(public_inputs.end.new_nullifiers, private_inputs.signed_tx_request.hash());
+    array_push(composer, public_inputs.end.new_nullifiers, private_inputs.signed_tx_request.hash());
 
-    // Nonce nullifier
-    // DANGER: This is terrible. This should not be part of the protocol. This is an intentional bodge to reach a
-    // milestone. This must not be the way we derive nonce nullifiers in production. It can be front-run by other
-    // users. It is not domain separated. Naughty.
-    array_push(public_inputs.end.new_nullifiers, private_inputs.signed_tx_request.tx_request.nonce);
+    // Note that we do not need to nullify the transaction request nonce anymore.
+    // Should an account want to additionally use nonces for replay protection or handling cancellations,
+    // they will be able to do so in the account contract logic:
+    // https://github.com/AztecProtocol/aztec-packages/issues/660
 }
 
 // NOTE: THIS IS A VERY UNFINISHED WORK IN PROGRESS.
@@ -175,9 +182,8 @@ KernelCircuitPublicInputs<NT> native_private_kernel_circuit_initial(DummyCompose
         private_inputs.private_call.read_request_membership_witnesses,
         public_inputs.constants.historic_tree_roots.private_historic_tree_roots.private_data_tree_root);
 
-
     // TODO(dbanks12): feels like update_end_values should happen after contract logic
-    update_end_values(private_inputs, public_inputs);
+    update_end_values(composer, private_inputs, public_inputs);
     common_update_end_values(composer, private_inputs.private_call, public_inputs);
 
     common_contract_logic(composer,

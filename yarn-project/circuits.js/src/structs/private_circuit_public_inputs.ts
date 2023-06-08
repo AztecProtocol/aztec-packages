@@ -3,7 +3,6 @@ import { assertMemberLength, FieldsOf } from '../utils/jsUtils.js';
 import { serializeToBuffer } from '../utils/serialize.js';
 import { CallContext } from './call_context.js';
 import {
-  EMITTED_EVENTS_LENGTH,
   NEW_COMMITMENTS_LENGTH,
   NEW_L2_TO_L1_MSGS_LENGTH,
   NEW_NULLIFIERS_LENGTH,
@@ -19,7 +18,6 @@ import { ContractDeploymentData } from './tx_context.js';
  * @see abis/private_circuit_public_inputs.hpp.
  */
 export class PrivateCircuitPublicInputs {
-  // NOTE: Args must have same order as CPP.
   constructor(
     /**
      * Context of the call corresponding to this private circuit execution.
@@ -33,10 +31,6 @@ export class PrivateCircuitPublicInputs {
      * Return values of the corresponding function call.
      */
     public returnValues: Fr[],
-    /**
-     * Events emitted by the corresponding function call.
-     */
-    public emittedEvents: Fr[],
     /**
      * Read requests created by the corresponding function call.
      */
@@ -62,6 +56,26 @@ export class PrivateCircuitPublicInputs {
      */
     public newL2ToL1Msgs: Fr[],
     /**
+     * Hash of the encrypted logs emitted in the current kernel iteration.
+     * Note: Represented as an array of 2 fields in order to fit in all of the 256 bits of sha256 hash.
+     */
+    public encryptedLogsHash: [Fr, Fr],
+    /**
+     * Hash of the unencrypted logs emitted in the current kernel iteration.
+     * Note: Represented as an array of 2 fields in order to fit in all of the 256 bits of sha256 hash.
+     */
+    public unencryptedLogsHash: [Fr, Fr],
+    /**
+     * Length of the encrypted log preimages emitted in the current kernel iteration.
+     * Note: Here so that the gas cost of this request can be measured by circuits, without actually needing to feed
+     *       in the variable-length data.
+     */
+    public encryptedLogPreimagesLength: Fr,
+    /**
+     * Length of the unencrypted log preimages emitted in the current kernel iteration.
+     */
+    public unencryptedLogPreimagesLength: Fr,
+    /**
      * Root of the private data tree roots tree.
      */
     public historicPrivateDataTreeRoot: Fr,
@@ -83,13 +97,14 @@ export class PrivateCircuitPublicInputs {
     public contractDeploymentData: ContractDeploymentData,
   ) {
     assertMemberLength(this, 'returnValues', RETURN_VALUES_LENGTH);
-    assertMemberLength(this, 'emittedEvents', EMITTED_EVENTS_LENGTH);
     assertMemberLength(this, 'readRequests', READ_REQUESTS_LENGTH);
     assertMemberLength(this, 'newCommitments', NEW_COMMITMENTS_LENGTH);
     assertMemberLength(this, 'newNullifiers', NEW_NULLIFIERS_LENGTH);
     assertMemberLength(this, 'privateCallStack', PRIVATE_CALL_STACK_LENGTH);
     assertMemberLength(this, 'publicCallStack', PUBLIC_CALL_STACK_LENGTH);
     assertMemberLength(this, 'newL2ToL1Msgs', NEW_L2_TO_L1_MSGS_LENGTH);
+    assertMemberLength(this, 'encryptedLogsHash', 2);
+    assertMemberLength(this, 'unencryptedLogsHash', 2);
   }
   /**
    * Create PrivateCircuitPublicInputs from a fields dictionary.
@@ -113,13 +128,16 @@ export class PrivateCircuitPublicInputs {
       CallContext.empty(),
       Fr.ZERO,
       frArray(RETURN_VALUES_LENGTH),
-      frArray(EMITTED_EVENTS_LENGTH),
       frArray(READ_REQUESTS_LENGTH),
       frArray(NEW_COMMITMENTS_LENGTH),
       frArray(NEW_NULLIFIERS_LENGTH),
       frArray(PRIVATE_CALL_STACK_LENGTH),
       frArray(PUBLIC_CALL_STACK_LENGTH),
       frArray(NEW_L2_TO_L1_MSGS_LENGTH),
+      frArray(2) as [Fr, Fr],
+      frArray(2) as [Fr, Fr],
+      Fr.ZERO,
+      Fr.ZERO,
       Fr.ZERO,
       Fr.ZERO,
       Fr.ZERO,
@@ -138,13 +156,16 @@ export class PrivateCircuitPublicInputs {
       fields.callContext,
       fields.argsHash,
       fields.returnValues,
-      fields.emittedEvents,
       fields.readRequests,
       fields.newCommitments,
       fields.newNullifiers,
       fields.privateCallStack,
       fields.publicCallStack,
       fields.newL2ToL1Msgs,
+      fields.encryptedLogsHash,
+      fields.unencryptedLogsHash,
+      fields.encryptedLogPreimagesLength,
+      fields.unencryptedLogPreimagesLength,
       fields.historicPrivateDataTreeRoot,
       fields.historicPrivateNullifierTreeRoot,
       fields.historicContractTreeRoot,
