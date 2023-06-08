@@ -31,6 +31,8 @@ TEST(private_kernel_tests, circuit_deposit)
     NT::fr const& amount = 5;
     NT::fr const& asset_id = 1;
     NT::fr const& memo = 999;
+    std::array<NT::fr, 2> const& encrypted_logs_hash = { NT::fr(16), NT::fr(69) };
+    NT::fr const& encrypted_log_preimages_length = NT::fr(100);
 
     auto const& private_inputs =
         do_private_call_get_kernel_inputs_inner(false, deposit, { amount, asset_id, memo }, true);
@@ -42,8 +44,8 @@ TEST(private_kernel_tests, circuit_deposit)
     // TODO(jeanmon): this is a temporary hack until we have private_kernel_circuit init and inner
     // variant. Once this is supported, we will be able to generate public_inputs with
     // a call to private_kernel_circuit_init(private_inputs_init, ...)
-    auto const& private_inputs_init =
-        do_private_call_get_kernel_inputs_init(false, deposit, { amount, asset_id, memo }, true);
+    auto const& private_inputs_init = do_private_call_get_kernel_inputs_init(
+        false, deposit, { amount, asset_id, memo }, encrypted_logs_hash, encrypted_log_preimages_length, true);
 
     // TODO(jeanmon): Once we have an inner/init private kernel circuit,
     // there should not be any new deployed contract address in public_inputs
@@ -72,6 +74,8 @@ TEST(private_kernel_tests, circuit_basic_contract_deployment)
     NT::fr const& arg0 = 5;
     NT::fr const& arg1 = 1;
     NT::fr const& arg2 = 999;
+    std::array<NT::fr, 2> const& encrypted_logs_hash = { NT::fr(16), NT::fr(69) };
+    NT::fr const& encrypted_log_preimages_length = NT::fr(100);
 
     auto const& private_inputs = do_private_call_get_kernel_inputs_inner(true, constructor, { arg0, arg1, arg2 }, true);
 
@@ -82,8 +86,8 @@ TEST(private_kernel_tests, circuit_basic_contract_deployment)
     // TODO(jeanmon): this is a temporary hack until we have private_kernel_circuit init and inner
     // variant. Once this is supported, we will be able to generate public_inputs with
     // a call to private_kernel_circuit_init(private_inputs_init, ...)
-    auto const& private_inputs_init =
-        do_private_call_get_kernel_inputs_init(true, constructor, { arg0, arg1, arg2 }, true);
+    auto const& private_inputs_init = do_private_call_get_kernel_inputs_init(
+        true, constructor, { arg0, arg1, arg2 }, encrypted_logs_hash, encrypted_log_preimages_length, true);
 
     // Check contract address was correctly computed by the circuit
     EXPECT_TRUE(validate_deployed_contract_address(private_inputs_init, public_inputs));
@@ -106,9 +110,12 @@ TEST(private_kernel_tests, circuit_create_proof_cbinds)
     NT::fr const& arg0 = 5;
     NT::fr const& arg1 = 1;
     NT::fr const& arg2 = 999;
+    std::array<NT::fr, 2> const& encrypted_logs_hash = { NT::fr(16), NT::fr(69) };
+    NT::fr const& encrypted_log_preimages_length = NT::fr(100);
 
     // first run actual simulation to get public inputs
-    auto const& private_inputs = do_private_call_get_kernel_inputs_init(true, constructor, { arg0, arg1, arg2 }, true);
+    auto const& private_inputs = do_private_call_get_kernel_inputs_init(
+        true, constructor, { arg0, arg1, arg2 }, encrypted_logs_hash, encrypted_log_preimages_length, true);
     DummyComposer composer = DummyComposer("private_kernel_tests__circuit_create_proof_cbinds");
     auto const& public_inputs = native_private_kernel_circuit_initial(composer, private_inputs);
 
