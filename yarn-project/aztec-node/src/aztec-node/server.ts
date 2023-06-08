@@ -14,7 +14,7 @@ import { SiblingPath } from '@aztec/merkle-tree';
 import { InMemoryTxPool, P2P, createP2PClient } from '@aztec/p2p';
 import { SequencerClient, getCombinedHistoricTreeRoots } from '@aztec/sequencer-client';
 import { Tx, TxHash } from '@aztec/types';
-import { NoirLogs, EncryptedLogsSource } from '@aztec/types';
+import { NoirLogs, NoirLogsSource } from '@aztec/types';
 import {
   MerkleTrees,
   ServerWorldStateSynchroniser,
@@ -43,7 +43,7 @@ export class AztecNodeService implements AztecNode {
   constructor(
     protected p2pClient: P2P,
     protected blockSource: L2BlockSource,
-    protected encryptedLogsSource: EncryptedLogsSource,
+    protected encryptedLogsSource: NoirLogsSource,
     protected contractDataSource: ContractDataSource,
     protected l1ToL2MessageSource: L1ToL2MessageSource,
     protected merkleTreeDB: MerkleTrees,

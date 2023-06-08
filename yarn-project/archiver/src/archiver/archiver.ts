@@ -11,7 +11,7 @@ import {
   L2Block,
   L2BlockSource,
   NoirLogs,
-  EncryptedLogsSource,
+  NoirLogsSource,
 } from '@aztec/types';
 import { Chain, HttpTransport, PublicClient, createPublicClient, http } from 'viem';
 import { ArchiverConfig } from './config.js';
@@ -30,7 +30,7 @@ import { Fr } from '@aztec/foundation/fields';
  * Responsible for handling robust L1 polling so that other components do not need to
  * concern themselves with it.
  */
-export class Archiver implements L2BlockSource, EncryptedLogsSource, ContractDataSource, L1ToL2MessageSource {
+export class Archiver implements L2BlockSource, NoirLogsSource, ContractDataSource, L1ToL2MessageSource {
   /**
    * A promise in which we will be continually fetching new L2 blocks.
    */

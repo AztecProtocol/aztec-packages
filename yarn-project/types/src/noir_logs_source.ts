@@ -3,7 +3,7 @@ import { NoirLogs } from './event_logs.js';
 /**
  * Interface of classes allowing for the retrieval of unverified data.
  */
-export interface EncryptedLogsSource {
+export interface NoirLogsSource {
   /**
    * Gets the L2 block number associated with the latest unverified data.
    * @returns The L2 block number associated with the latest unverified data.
@@ -16,11 +16,7 @@ export interface EncryptedLogsSource {
    * @param take - The number of `encryptedLogs` to return.
    * @returns The requested `encryptedLogs`.
    */
-<<<<<<< HEAD
-  getEncryptedLogs(from: number, take: number): Promise<EventLogs[]>;
-=======
-  getUnverifiedData(from: number, take: number): Promise<NoirLogs[]>;
->>>>>>> sp/update-unverified-data
+  getEncryptedLogs(from: number, take: number): Promise<NoirLogs[]>;
 
   /**
    * Starts the unverified data source.
