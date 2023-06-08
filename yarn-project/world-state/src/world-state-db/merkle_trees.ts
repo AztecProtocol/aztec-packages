@@ -35,6 +35,7 @@ import { MerkleTreeOperationsFacade } from '../merkle-tree/merkle_tree_operation
 import { L2Block, MerkleTreeId } from '@aztec/types';
 import { SerialQueue } from '@aztec/foundation/fifo';
 import { createDebugLogger } from '@aztec/foundation/log';
+import { IWasmModule } from '@aztec/foundation/wasm';
 
 /**
  * A convenience class for managing multiple merkle trees.
@@ -49,7 +50,7 @@ export class MerkleTrees implements MerkleTreeDb {
    * Initialises the collection of Merkle Trees.
    * @param optionalWasm - WASM instance to use for hashing (if not provided PrimitivesWasm will be used).
    */
-  public async init(optionalWasm?: WasmWrapper) {
+  public async init(optionalWasm?: IWasmModule) {
     const wasm = optionalWasm ?? (await PrimitivesWasm.get());
     const hasher = new Pedersen(wasm);
     const contractTree: AppendOnlyTree = await newTree(
@@ -134,7 +135,7 @@ export class MerkleTrees implements MerkleTreeDb {
    * @param wasm - WASM instance to use for hashing (if not provided PrimitivesWasm will be used).
    * @returns - A fully initialised MerkleTrees instance.
    */
-  public static async new(db: levelup.LevelUp, wasm?: WasmWrapper) {
+  public static async new(db: levelup.LevelUp, wasm?: IWasmModule) {
     const merkleTrees = new MerkleTrees(db);
     await merkleTrees.init(wasm);
     return merkleTrees;
