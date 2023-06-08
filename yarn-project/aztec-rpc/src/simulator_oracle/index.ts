@@ -1,17 +1,21 @@
-import { DBOracle, MessageLoadOracleInputs } from '@aztec/acir-simulator';
+import { ClientOracle, MessageLoadOracleInputs } from '@aztec/acir-simulator';
 import { AztecNode } from '@aztec/aztec-node';
 import { AztecAddress, EthAddress, Fr } from '@aztec/circuits.js';
 import { KeyPair } from '@aztec/key-store';
 import { FunctionAbi } from '@aztec/foundation/abi';
 import { ContractDataOracle } from '../contract_data_oracle/index.js';
 import { Database } from '../database/index.js';
+import { CommitmentDataOracle } from '../commitment_data_oracle/index.js';
+
+
 
 /**
  * A data oracle that provides information needed for simulating a transaction.
  */
-export class SimulatorOracle implements DBOracle {
+export class SimulatorOracle implements ClientOracle {
   constructor(
     private contractDataOracle: ContractDataOracle,
+    private commitmentDataOracle: CommitmentDataOracle,
     private db: Database,
     private keyPair: KeyPair,
     private node: AztecNode,
@@ -71,8 +75,8 @@ export class SimulatorOracle implements DBOracle {
    * @param functionSelector - The Buffer containing the function selector bytes.
    * @returns A Promise that resolves to a FunctionAbi object containing the ABI information of the target function.
    */
-  async getFunctionABI(contractAddress: AztecAddress, functionSelector: Buffer): Promise<FunctionAbi> {
-    return await this.contractDataOracle.getFunctionAbi(contractAddress, functionSelector);
+  getFunctionABI(contractAddress: AztecAddress, functionSelector: Buffer): Promise<FunctionAbi> {
+    return this.contractDataOracle.getFunctionAbi(contractAddress, functionSelector);
   }
 
   /**
@@ -82,27 +86,19 @@ export class SimulatorOracle implements DBOracle {
    * @param contractAddress - The address of the contract whose portal address is to be fetched.
    * @returns A Promise that resolves to an EthAddress instance, representing the portal contract address.
    */
-  async getPortalContractAddress(contractAddress: AztecAddress): Promise<EthAddress> {
-    return await this.contractDataOracle.getPortalContractAddress(contractAddress);
+  getPortalContractAddress(contractAddress: AztecAddress): Promise<EthAddress> {
+    return this.contractDataOracle.getPortalContractAddress(contractAddress);
   }
 
   /**
-   * Retreives the L1ToL2Message associated with a specific message key
+   * Retrieves the L1ToL2Message associated with a specific message key
    * Throws an error if the message key is not found
    *
-   * @param msgKey - The key of the message to be retreived
+   * @param msgKey - The key of the message to be retrieved
    * @returns A promise that resolves to the message data, a sibling path and the
    *          index of the message in the the l1ToL2MessagesTree
    */
-  async getL1ToL2Message(msgKey: Fr): Promise<MessageLoadOracleInputs> {
-    const messageAndIndex = await this.node.getL1ToL2MessageAndIndex(msgKey);
-    const message = messageAndIndex.message.toFieldArray();
-    const index = messageAndIndex.index;
-    const siblingPath = await this.node.getL1ToL2MessagesTreePath(index);
-    return {
-      message,
-      siblingPath: siblingPath.toFieldArray(),
-      index,
-    };
+  getL1ToL2Message(msgKey: Fr): Promise<MessageLoadOracleInputs> {
+    return this.commitmentDataOracle.getL1ToL2Message(msgKey);
   }
 }

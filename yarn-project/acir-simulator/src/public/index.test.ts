@@ -1,6 +1,6 @@
 import { Grumpkin } from '@aztec/barretenberg.js/crypto';
 import { BarretenbergWasm } from '@aztec/barretenberg.js/wasm';
-import { CallContext, FunctionData } from '@aztec/circuits.js';
+import { CallContext, FunctionData, PrivateHistoricTreeRoots } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -15,6 +15,8 @@ import { PublicExecution } from './execution.js';
 import { PublicExecutor } from './executor.js';
 import { toBigInt } from '@aztec/foundation/serialize';
 import { keccak } from '@aztec/foundation/crypto';
+import { PublicExecutionContext } from '../execution_context.js';
+import { DBOracle } from '../index.js';
 
 export const createMemDown = () => (memdown as any)() as MemDown<any, any>;
 
@@ -22,6 +24,7 @@ describe('ACIR public execution simulator', () => {
   let bbWasm: BarretenbergWasm;
   let publicState: MockProxy<PublicStateDB>;
   let publicContracts: MockProxy<PublicContractsDB>;
+  let publicExecutionContext: PublicExecutionContext;
   let executor: PublicExecutor;
 
   beforeAll(async () => {
@@ -32,7 +35,11 @@ describe('ACIR public execution simulator', () => {
     publicState = mock<PublicStateDB>();
     publicContracts = mock<PublicContractsDB>();
 
-    executor = new PublicExecutor(publicState, publicContracts);
+    const db = mock<DBOracle>();
+    const historicTrees = mock<PrivateHistoricTreeRoots>();
+    publicExecutionContext = new PublicExecutionContext(publicState, publicContracts, db, historicTrees);
+
+    executor = new PublicExecutor(publicExecutionContext);
   });
 
   describe('PublicToken contract', () => {

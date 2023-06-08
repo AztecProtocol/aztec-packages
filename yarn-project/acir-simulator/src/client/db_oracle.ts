@@ -40,10 +40,17 @@ export interface MessageLoadOracleInputs {
   index: bigint;
 }
 
+// TODO(Maddiaa): Think about renaming these
 /**
- * The database oracle interface.
+ * Client Oracle
  */
-export interface DBOracle {
+export interface ClientOracle extends KeyOracle, DBOracle, ClientContractOracle{}
+
+
+/**
+ * The Key oracle interface
+ */
+export interface KeyOracle {
   getSecretKey(contractAddress: AztecAddress, address: AztecAddress): Promise<Buffer>;
   getNotes(
     contractAddress: AztecAddress,
@@ -56,7 +63,21 @@ export interface DBOracle {
     /** The notes. */
     notes: NoteLoadOracleInputs[];
   }>;
+}
+
+
+/**
+ * Client Contract oracle
+ */
+export interface ClientContractOracle {
   getFunctionABI(contractAddress: AztecAddress, functionSelector: Buffer): Promise<FunctionAbi>;
   getPortalContractAddress(contractAddress: AztecAddress): Promise<EthAddress>;
+}
+
+/**
+ * The database oracle interface.
+ * TODO(Maddiaa): This should be more generalised and not restricted to the local execution
+ */
+export interface DBOracle {
   getL1ToL2Message(msgKey: Fr): Promise<MessageLoadOracleInputs>;
 }

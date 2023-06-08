@@ -26,8 +26,9 @@ import {
   toAcvmEnqueuePublicFunctionResult,
 } from '../acvm/index.js';
 import { sizeOfType } from '../index.js';
-import { ClientTxExecutionContext } from './client_execution_context.js';
+import { PrivateExecutionContext } from '../execution_context.js';
 import { Tuple, assertLength } from '@aztec/foundation/serialize';
+import { TxExecutionRequest } from '@aztec/types';
 
 /**
  * The contents of a new note.
@@ -102,7 +103,8 @@ const notAvailable = () => {
  */
 export class PrivateFunctionExecution {
   constructor(
-    private context: ClientTxExecutionContext,
+    private context: PrivateExecutionContext,
+    private request: TxExecutionRequest,
     private abi: FunctionAbi,
     private contractAddress: AztecAddress,
     private functionData: FunctionData,
@@ -250,10 +252,10 @@ export class PrivateFunctionExecution {
       this.callContext.portalContractAddress,
       this.callContext.storageContractAddress,
 
-      this.context.request.txContext.contractDeploymentData.constructorVkHash,
-      this.context.request.txContext.contractDeploymentData.contractAddressSalt,
-      this.context.request.txContext.contractDeploymentData.functionTreeRoot,
-      this.context.request.txContext.contractDeploymentData.portalContractAddress,
+      this.request.txContext.contractDeploymentData.constructorVkHash,
+      this.request.txContext.contractDeploymentData.contractAddressSalt,
+      this.request.txContext.contractDeploymentData.functionTreeRoot,
+      this.request.txContext.contractDeploymentData.portalContractAddress,
 
       this.context.historicRoots.contractTreeRoot,
       this.context.historicRoots.l1ToL2MessagesTreeRoot,
@@ -286,6 +288,7 @@ export class PrivateFunctionExecution {
 
     const nestedExecution = new PrivateFunctionExecution(
       this.context,
+      this.request,
       targetAbi,
       targetContractAddress,
       targetFunctionData,

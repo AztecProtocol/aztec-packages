@@ -6,8 +6,8 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { TxExecutionRequest } from '@aztec/types';
-import { ClientTxExecutionContext } from './client_execution_context.js';
-import { DBOracle } from './db_oracle.js';
+import { BaseExecutionContext, PrivateExecutionContext } from '../execution_context.js';
+import { ClientOracle, DBOracle } from './db_oracle.js';
 import { ExecutionResult, PrivateFunctionExecution } from './private_execution.js';
 import { UnconstrainedFunctionExecution } from './unconstrained_execution.js';
 
@@ -21,7 +21,7 @@ const OUTER_NULLIFIER_GENERATOR_INDEX = 7;
  * The ACIR simulator.
  */
 export class AcirSimulator {
-  constructor(private db: DBOracle) {}
+  constructor(private db: ClientOracle) {}
 
   /**
    * Runs a private function.
@@ -53,7 +53,8 @@ export class AcirSimulator {
     );
 
     const execution = new PrivateFunctionExecution(
-      new ClientTxExecutionContext(this.db, request, historicRoots),
+      new PrivateExecutionContext(this.db, historicRoots),
+      request,
       entryPointABI,
       contractAddress,
       request.functionData,
@@ -92,8 +93,9 @@ export class AcirSimulator {
       request.functionData.isConstructor,
     );
 
+    // TODO(Maddiaa): double check syntax here, maybe compose with the base context.
     const execution = new UnconstrainedFunctionExecution(
-      new ClientTxExecutionContext(this.db, request, historicRoots),
+      new PrivateExecutionContext(this.db, historicRoots),
       entryPointABI,
       contractAddress,
       request.functionData,

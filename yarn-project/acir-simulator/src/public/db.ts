@@ -1,6 +1,9 @@
 import { EthAddress } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
+import { SiblingPath } from '@aztec/merkle-tree';
+import { MerkleTreeId } from '@aztec/types';
+import { DBOracle } from '../index.js';
 
 /**
  * Database interface for providing access to public state.

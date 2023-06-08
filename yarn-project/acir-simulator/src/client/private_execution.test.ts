@@ -34,7 +34,7 @@ import { default as levelup } from 'levelup';
 import { default as memdown, type MemDown } from 'memdown';
 import { encodeArguments } from '../abi_coder/index.js';
 import { NoirPoint, computeSlotForMapping, toPublicKey } from '../utils.js';
-import { DBOracle } from './db_oracle.js';
+import { ClientOracle } from './db_oracle.js';
 import { AcirSimulator } from './simulator.js';
 import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 
@@ -42,7 +42,7 @@ const createMemDown = () => (memdown as any)() as MemDown<any, any>;
 
 describe('Private Execution test suite', () => {
   let bbWasm: BarretenbergWasm;
-  let oracle: ReturnType<typeof mock<DBOracle>>;
+  let oracle: ReturnType<typeof mock<ClientOracle>>;
   let acirSimulator: AcirSimulator;
   let logger: DebugLogger;
 
@@ -52,7 +52,7 @@ describe('Private Execution test suite', () => {
   });
 
   beforeEach(() => {
-    oracle = mock<DBOracle>();
+    oracle = mock<ClientOracle>();
     acirSimulator = new AcirSimulator(oracle);
   });
 

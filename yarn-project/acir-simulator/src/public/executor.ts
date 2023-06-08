@@ -1,12 +1,12 @@
-import { AztecAddress, CallContext, EthAddress, Fr, FunctionData } from '@aztec/circuits.js';
+import { AztecAddress, CallContext, EthAddress, Fr, FunctionData, PrivateHistoricTreeRoots } from '@aztec/circuits.js';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { TxExecutionRequest } from '@aztec/types';
 import { select_return_flattened as selectPublicWitnessFlattened } from '@noir-lang/noir_util_wasm';
-import { ZERO_ACVM_FIELD, acvm, frToAztecAddress, frToSelector, fromACVMField, toACVMField, toACVMWitness } from '../acvm/index.js';
+import { ACVMField, ZERO_ACVM_FIELD, acvm, frToAztecAddress, frToSelector, fromACVMField, toACVMField, toACVMWitness } from '../acvm/index.js';
 import { PublicExecution, PublicExecutionResult } from './execution.js';
 import { ContractStorageActionsCollector } from './state_actions.js';
-import { PublicTxExecutionContext } from './public_execution_context.js';
+import { PublicExecutionContext } from '../execution_context.js';
 
 // Copied from crate::abi at noir-contracts/src/contracts/noir-aztec3/src/abi.nr
 const NOIR_MAX_RETURN_VALUES = 4;
@@ -16,7 +16,8 @@ const NOIR_MAX_RETURN_VALUES = 4;
  */
 export class PublicExecutor {
   constructor(
-    private readonly context: PublicTxExecutionContext,
+    /** Execution Context */
+    private readonly context: PublicExecutionContext,
 
     private log = createDebugLogger('aztec:simulator:public-executor'),
   ) {}
@@ -34,7 +35,7 @@ export class PublicExecutor {
     const acir = await this.context.contractsDb.getBytecode(execution.contractAddress, selector);
     if (!acir) throw new Error(`Bytecode not found for ${execution.contractAddress.toShortString()}:${selectorHex}`);
 
-    const initialWitness = getInitialWitness(execution.args, execution.callContext);
+    const initialWitness = getInitialWitness(execution.args, execution.callContext, this.context.historicRoots);
     const storageActions = new ContractStorageActionsCollector(this.context.publicStateDb, execution.contractAddress);
     
     // TODO: create a structure which keeps track of the preimages created when creating a transparent message
@@ -54,9 +55,9 @@ export class PublicExecutor {
       viewNotesPage: notAvailable,
       debugLog: notAvailable,
       // l1 to l2 messages in public contexts TODO: https://github.com/AztecProtocol/aztec-packages/issues/616
-      getL1ToL2Message: notAvailable,
       getTransparentMessage: notAvailable,
 
+      getL1ToL2Message: ([msgKey]: ACVMField[]) => this.context.getL1ToL2Message(fromACVMField(msgKey)),
       notifyCreatedTransparentMessage: async ([content, secretHash]) => {
         const c = fromACVMField(content);
         const secretH = fromACVMField(secretHash);
@@ -155,7 +156,7 @@ export class PublicExecutor {
  * @param witnessStartIndex - The index where to start inserting the parameters.
  * @returns The initial witness.
  */
-function getInitialWitness(args: Fr[], callContext: CallContext, witnessStartIndex = 1) {
+function getInitialWitness(args: Fr[], callContext: CallContext, roots: PrivateHistoricTreeRoots, witnessStartIndex = 1) {
   return toACVMWitness(witnessStartIndex, [
     callContext.isContractDeployment,
     callContext.isDelegateCall,
@@ -163,6 +164,12 @@ function getInitialWitness(args: Fr[], callContext: CallContext, witnessStartInd
     callContext.msgSender,
     callContext.portalContractAddress,
     callContext.storageContractAddress,
+
+    // TODO(Maddiaa): will we make the private execution look the same
+    roots.contractTreeRoot,
+    roots.l1ToL2MessagesTreeRoot,
+    roots.nullifierTreeRoot,
+    roots.privateDataTreeRoot,
     ...args,
   ]);
 }

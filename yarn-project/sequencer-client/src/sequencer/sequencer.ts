@@ -137,7 +137,8 @@ export class Sequencer {
 
       // Process public txs and drop the ones that fail processing
       // We create a fresh processor each time to reset any cached state (eg storage writes)
-      const processor = this.publicProcessorFactory.create();
+      // TODO(Maddiaa): remove the async
+      const processor = await this.publicProcessorFactory.create();
       const [processedTxs, failedTxs] = await processor.process(validTxs);
       if (failedTxs.length > 0) {
         this.log(`Dropping failed txs ${(await Tx.getHashes(failedTxs)).join(', ')}`);

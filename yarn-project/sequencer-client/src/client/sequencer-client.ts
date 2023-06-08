@@ -1,6 +1,5 @@
 import { P2P } from '@aztec/p2p';
 import { WorldStateSynchroniser } from '@aztec/world-state';
-
 import { ContractDataSource, L1ToL2MessageSource, L2BlockSource } from '@aztec/types';
 import { SoloBlockBuilder } from '../block_builder/solo_block_builder.js';
 import { SequencerClientConfig } from '../config.js';
@@ -8,6 +7,8 @@ import { getL1Publisher, getVerificationKeys, Sequencer } from '../index.js';
 import { EmptyRollupProver } from '../prover/empty.js';
 import { PublicProcessorFactory } from '../sequencer/public_processor.js';
 import { WasmRollupCircuitSimulator } from '../simulator/rollup.js';
+
+
 
 /**
  * Encapsulates the full sequencer and publisher.
@@ -43,7 +44,8 @@ export class SequencerClient {
       new EmptyRollupProver(),
     );
 
-    const publicProcessorFactory = new PublicProcessorFactory(merkleTreeDb, contractDataSource);
+    // const db = PublicExecutionOracle()
+    const publicProcessorFactory = new PublicProcessorFactory(merkleTreeDb, contractDataSource, l1ToL2MessageSource);
 
     const sequencer = new Sequencer(
       publisher,

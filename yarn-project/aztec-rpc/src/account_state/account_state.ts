@@ -23,6 +23,7 @@ import { Database, TxAuxDataDao, TxDao } from '../database/index.js';
 import { generateFunctionSelector } from '../index.js';
 import { KernelProver, OutputNoteData } from '../kernel_prover/index.js';
 import { SimulatorOracle } from '../simulator_oracle/index.js';
+import { CommitmentDataOracle } from '../commitment_data_oracle/index.js';
 
 /**
  * Contains all the decrypted data in this array so that we can later batch insert it all into the database.
@@ -168,12 +169,16 @@ export class AccountState {
    *
    * @param txRequest - The transaction request object containing the necessary data for simulation.
    * @param contractDataOracle - Optional parameter, an instance of ContractDataOracle class for retrieving contract data.
+   * @param commitmentDataOracle - Optional instance of CommitmentDataOracle for fetching and caching commitment tree information.
    * @returns A promise that resolves to an object containing the simulation results, including expected output notes and any error messages.
    */
-  public async simulate(txRequest: TxExecutionRequest, contractDataOracle?: ContractDataOracle) {
+  public async simulate(txRequest: TxExecutionRequest, contractDataOracle?: ContractDataOracle, commitmentDataOracle?: CommitmentDataOracle) {
     // TODO - Pause syncing while simulating.
     if (!contractDataOracle) {
       contractDataOracle = new ContractDataOracle(this.db, this.node);
+    }
+    if (!commitmentDataOracle) {
+      commitmentDataOracle = new CommitmentDataOracle(this.node);
     }
 
     const { contractAddress, functionAbi, portalContract, historicRoots } = await this.getSimulationParameters(
@@ -181,7 +186,7 @@ export class AccountState {
       contractDataOracle,
     );
 
-    const simulator = new AcirSimulator(new SimulatorOracle(contractDataOracle, this.db, this.keyPair, this.node));
+    const simulator = new AcirSimulator(new SimulatorOracle(contractDataOracle, commitmentDataOracle, this.db, this.keyPair, this.node));
     this.log('Executing simulator...');
     const result = await simulator.run(txRequest, functionAbi, contractAddress, portalContract, historicRoots);
     this.log('Simulation completed!');
@@ -196,11 +201,15 @@ export class AccountState {
    *
    * @param txRequest - The transaction request object containing the target contract and function data.
    * @param contractDataOracle - Optional instance of ContractDataOracle for fetching and caching contract information.
+   * @param commitmentDataOracle - Optional instance of CommitmentDataOracle for fetching and caching commitment tree information.
    * @returns The simulation result containing the outputs of the unconstrained function.
    */
-  public async simulateUnconstrained(txRequest: TxExecutionRequest, contractDataOracle?: ContractDataOracle) {
+  public async simulateUnconstrained(txRequest: TxExecutionRequest, contractDataOracle?: ContractDataOracle, commitmentDataOracle?: CommitmentDataOracle) {
     if (!contractDataOracle) {
       contractDataOracle = new ContractDataOracle(this.db, this.node);
+    }
+    if (!commitmentDataOracle) {
+      commitmentDataOracle = new CommitmentDataOracle(this.node);
     }
 
     const { contractAddress, functionAbi, portalContract, historicRoots } = await this.getSimulationParameters(
@@ -208,7 +217,7 @@ export class AccountState {
       contractDataOracle,
     );
 
-    const simulator = new AcirSimulator(new SimulatorOracle(contractDataOracle, this.db, this.keyPair, this.node));
+    const simulator = new AcirSimulator(new SimulatorOracle(contractDataOracle, commitmentDataOracle, this.db, this.keyPair, this.node));
 
     this.log('Executing unconstrained simulator...');
     const result = await simulator.runUnconstrained(
@@ -366,6 +375,7 @@ export class AccountState {
   private async computeNullifier(txAuxData: TxAuxData) {
     const simulatorOracle = new SimulatorOracle(
       new ContractDataOracle(this.db, this.node),
+      new CommitmentDataOracle(this.node),
       this.db,
       this.keyPair,
       this.node,

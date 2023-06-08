@@ -16,12 +16,12 @@ import { TxExecutionRequest } from '@aztec/types';
 import { mock } from 'jest-mock-extended';
 import { encodeArguments } from '../abi_coder/index.js';
 import { NoirPoint, toPublicKey } from '../utils.js';
-import { DBOracle } from './db_oracle.js';
+import { ClientOracle } from './db_oracle.js';
 import { AcirSimulator } from './simulator.js';
 
 describe('Unconstrained Execution test suite', () => {
   let bbWasm: BarretenbergWasm;
-  let oracle: ReturnType<typeof mock<DBOracle>>;
+  let oracle: ReturnType<typeof mock<ClientOracle>>;
   let acirSimulator: AcirSimulator;
 
   beforeAll(async () => {
@@ -29,7 +29,7 @@ describe('Unconstrained Execution test suite', () => {
   });
 
   beforeEach(() => {
-    oracle = mock<DBOracle>();
+    oracle = mock<ClientOracle>();
     acirSimulator = new AcirSimulator(oracle);
   });
 

@@ -4,7 +4,7 @@ import { frToAztecAddress, frToNumber } from '../acvm/deserialize.js';
 import { FunctionAbi } from '@aztec/foundation/abi';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { decodeReturnValues } from '../abi_coder/decoder.js';
-import { ClientTxExecutionContext } from './client_execution_context.js';
+import { PrivateExecutionContext } from '../execution_context.js';
 import { select_return_flattened as selectReturnFlattened } from '@noir-lang/noir_util_wasm';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -18,7 +18,7 @@ const notAvailable = () => {
  */
 export class UnconstrainedFunctionExecution {
   constructor(
-    private context: ClientTxExecutionContext,
+    private context: PrivateExecutionContext,
     private abi: FunctionAbi,
     private contractAddress: AztecAddress,
     private functionData: FunctionData,
@@ -61,6 +61,10 @@ export class UnconstrainedFunctionExecution {
         return Promise.resolve([ZERO_ACVM_FIELD]);
       },
       getL1ToL2Message: ([msgKey]: ACVMField[]) => this.context.getL1ToL2Message(fromACVMField(msgKey)),
+
+      getTransparentMessage: notAvailable,
+      notifyCreatedTransparentMessage: notAvailable,
+
       enqueuePublicFunctionCall: notAvailable,
       notifyCreatedNote: notAvailable,
       notifyNullifiedNote: notAvailable,

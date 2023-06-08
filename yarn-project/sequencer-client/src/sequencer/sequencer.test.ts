@@ -47,7 +47,8 @@ describe('sequencer', () => {
     });
 
     publicProcessorFactory = mock<PublicProcessorFactory>({
-      create: () => publicProcessor,
+      // TODO(Maddiaa): remove the async
+      create: async () => await Promise.resolve(publicProcessor),
     });
 
     l2BlockSource = mock<L2BlockSource>({

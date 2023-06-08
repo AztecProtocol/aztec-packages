@@ -1,4 +1,4 @@
-import { PublicExecution, PublicExecutionResult, PublicExecutor, isPublicExecutionResult } from '@aztec/acir-simulator';
+import { BaseExecutionContext, DBOracle, PublicExecution, PublicExecutionResult, PublicExecutor, isPublicExecutionResult } from '@aztec/acir-simulator';
 import {
   AztecAddress,
   CircuitsWasm,
@@ -14,6 +14,7 @@ import {
   NEW_NULLIFIERS_LENGTH,
   PUBLIC_CALL_STACK_LENGTH,
   PreviousKernelData,
+  PrivateHistoricTreeRoots,
   Proof,
   PublicCallData,
   PublicCallStackItem,
@@ -29,7 +30,7 @@ import { computeCallStackItemHash, computeVarArgsHash } from '@aztec/circuits.js
 import { isArrayEmpty, padArrayEnd, padArrayStart } from '@aztec/foundation/collection';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { Tuple, mapTuple } from '@aztec/foundation/serialize';
-import { ContractDataSource, MerkleTreeId, PrivateTx, PublicTx, SignedTxExecutionRequest, Tx } from '@aztec/types';
+import { ContractDataSource, L1ToL2MessageSource, MerkleTreeId, PrivateTx, PublicTx, SignedTxExecutionRequest, Tx } from '@aztec/types';
 import { MerkleTreeOperations } from '@aztec/world-state';
 import { getVerificationKeys } from '../index.js';
 import { EmptyPublicProver } from '../prover/empty.js';
@@ -44,16 +45,31 @@ import { getCombinedHistoricTreeRoots } from './utils.js';
  * Creates new instances of PublicProcessor given the provided merkle tree db and contract data source.
  */
 export class PublicProcessorFactory {
-  constructor(private merkleTree: MerkleTreeOperations, private contractDataSource: ContractDataSource) {}
+  constructor(private merkleTree: MerkleTreeOperations, private contractDataSource: ContractDataSource, private l1ToL2MessageSource: L1ToL2MessageSource) {}
 
   /**
    * Creates a new instance of a PublicProcessor.
    * @returns A new instance of a PublicProcessor.
    */
-  public create() {
+  // TODO(Maddiaa remove aync)
+  public async create() {
+    
+    // TODO(Maddiaa): get the execution context for this block here: What are the historic roots?
+    // TODO(Maddiaa) this copies code from `account_state.ts` and could be turned into some kind of function.
+    // TODO:(Maddiaa): Maybe this should move up into the public processor factory, or be generated outside and passed in to the factory?
+
+    const getRoot = (id: MerkleTreeId) => this.merkleTree.getTreeInfo(id).then(info => Fr.fromBuffer(info.root));
+    const historicRoots = PrivateHistoricTreeRoots.from({
+      contractTreeRoot: await getRoot(MerkleTreeId.CONTRACT_TREE),
+      nullifierTreeRoot: await getRoot(MerkleTreeId.NULLIFIER_TREE),
+      privateDataTreeRoot: await getRoot(MerkleTreeId.PRIVATE_DATA_TREE),
+      l1ToL2MessagesTreeRoot: await getRoot(MerkleTreeId.L1_TO_L2_MESSAGES_TREE),
+      privateKernelVkTreeRoot: Fr.ZERO,
+    });
+
     return new PublicProcessor(
       this.merkleTree,
-      getPublicExecutor(this.merkleTree, this.contractDataSource),
+      getPublicExecutor(this.merkleTree, this.contractDataSource, this.l1ToL2MessageSource, historicRoots),
       new WasmPublicKernelCircuitSimulator(),
       new EmptyPublicProver(),
       this.contractDataSource,
