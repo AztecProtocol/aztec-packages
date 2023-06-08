@@ -56,7 +56,11 @@ export class PublicExecutor {
       enqueuePublicFunctionCall: notAvailable,
       emitEncryptedLog: notAvailable,
       viewNotesPage: notAvailable,
-      debugLog: notAvailable,
+      debugLog: ([data]: ACVMField[]) => {
+        // eslint-disable-next-line
+        console.log(data);
+        return Promise.resolve([ZERO_ACVM_FIELD]);
+      },
       // l1 to l2 messages in public contexts TODO: https://github.com/AztecProtocol/aztec-packages/issues/616
       getL1ToL2Message: notAvailable,
       storageRead: async ([slot]) => {

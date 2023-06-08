@@ -54,6 +54,7 @@ impl PublicCallStackItem {
             },
             is_execution_request: true,
         };
+
         constrain contract_address == item.contract_address;
         constrain function_selector == item.function_data.function_selector;
         

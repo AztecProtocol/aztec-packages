@@ -1,7 +1,7 @@
 contract PublicToken {
     use dep::aztec3::abi::PrivateContextInputs;
     use dep::aztec3::context::PrivateFunctionContext;
-    use dep::aztec3::abi::CallContext;
+    use dep::aztec3::abi::PublicContextInputs;
     use dep::aztec3::types::point::Point;
     use dep::aztec3::state_vars::storage_map::StorageMap;
     use dep::aztec3::state_vars::storage_field::StorageField;
@@ -15,7 +15,7 @@ contract PublicToken {
     }
 
     open fn mint(
-        _call_context: CallContext,
+        _inputs: PublicContextInputs,
         amount: Field,
         recipient: Point,
         _padding: [Field; dep::aztec3::abi::MAX_ARGS - 3]
@@ -25,12 +25,12 @@ contract PublicToken {
     }
 
     open fn transfer(
-        call_context: CallContext,
+        inputs: PublicContextInputs,
         amount: Field,
         recipient: Point,
         _padding: [Field; dep::aztec3::abi::MAX_ARGS - 3]
     ) -> pub Field {
-        let sender = call_context.msg_sender;
+        let sender = inputs.call_context.msg_sender;
         
         let sender_balance = balances.at(sender);
         let recipient_balance = balances.at(recipient.x);
