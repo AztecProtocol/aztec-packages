@@ -11,7 +11,6 @@ export interface NoteLoadOracleInputs {
    * The preimage of the note.
    */
   preimage: Fr[];
-
   /**
    * The note's leaf index in the private data tree.
    */

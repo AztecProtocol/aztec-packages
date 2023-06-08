@@ -13,6 +13,7 @@ use crate::oracle::notes::get_notes_2_internal;
 
 fn get_2_notes(storage_slot: Field) -> (Note, Note) {
     let fields = get_notes_2_internal(storage_slot);
+    // oracle returns count (num notes) in index 0, so first note starts at index 1
     let note1 = Note::deserialize(arr_copy_slice(fields, [0; NOTE_LEN], 1));
     let note2 = Note::deserialize(arr_copy_slice(fields, [0; NOTE_LEN],  1 + NOTE_LEN));
     (note1, note2)
@@ -59,6 +60,7 @@ impl Set {
         // conditionals to only push 'real' notes to context, but
         // the conditionals do not work right yet.
         // need to include 0-2 notes based on is_real!!!!
+        // https://github.com/AztecProtocol/aztec-packages/issues/780
         (
             context
                 .push_read_request(note0_hash),
