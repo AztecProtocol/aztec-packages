@@ -2,7 +2,7 @@ import { AztecNode } from '@aztec/aztec-node';
 import { Grumpkin } from '@aztec/barretenberg.js/crypto';
 import { Fr } from '@aztec/circuits.js';
 import { ConstantKeyPair } from '@aztec/key-store';
-import { L2Block, MerkleTreeId, NoirLogs } from '@aztec/types';
+import { L2Block, MerkleTreeId } from '@aztec/types';
 import { MockProxy, mock } from 'jest-mock-extended';
 import { Database, MemoryDB } from '../database/index.js';
 import { Synchroniser } from './synchroniser.js';
