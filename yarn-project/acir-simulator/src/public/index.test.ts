@@ -36,8 +36,8 @@ describe('ACIR public execution simulator', () => {
     publicContracts = mock<PublicContractsDB>();
 
     const db = mock<DBOracle>();
-    const historicTrees = mock<PrivateHistoricTreeRoots>();
-    publicExecutionContext = new PublicExecutionContext(publicState, publicContracts, db, historicTrees);
+    const historicRoots = PrivateHistoricTreeRoots.empty();
+    publicExecutionContext = new PublicExecutionContext(publicState, publicContracts, db, historicRoots);
 
     executor = new PublicExecutor(publicExecutionContext);
   });

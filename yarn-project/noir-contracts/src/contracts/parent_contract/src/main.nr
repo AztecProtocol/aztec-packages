@@ -1,7 +1,7 @@
 contract Parent {
     use dep::aztec3::abi;
     use dep::aztec3::abi::PrivateContextInputs;
-    use dep::aztec3::abi::CallContext;
+    use dep::aztec3::abi::PublicContextInputs;
     use dep::aztec3::context::PrivateFunctionContext;
     use dep::aztec3::oracle::public_call;
     use dep::aztec3::private_call_stack_item::PrivateCallStackItem;
@@ -32,7 +32,7 @@ contract Parent {
     }
 
     // Public function to directly call another public function to the targetContract using the selector and value provided
-    open fn pubEntryPoint(_call_context: CallContext, targetContract: Field, targetSelector: Field, initValue: Field, _padding: [Field; dep::aztec3::abi::MAX_ARGS - 3]) -> pub Field {
+    open fn pubEntryPoint(_inputs: PublicContextInputs, targetContract: Field, targetSelector: Field, initValue: Field, _padding: [Field; dep::aztec3::abi::MAX_ARGS - 3]) -> pub Field {
         // The call_public_function util always receives and returns MAX_ARGS and MAX_RETURN_VALUES. The caller
         // needs to pad the arguments and extract the return values it needs. The callee needs to always accept
         // MAX_ARGS, since the oracle doesn't have the info to know how many args to pass. However, the callee
@@ -43,7 +43,7 @@ contract Parent {
     }
 
     // Same as pubEntryPoint, but calls the target contract twice, using the return value from the first invocation as the argument for the second.
-    open fn pubEntryPointTwice(_call_context: CallContext, targetContract: Field, targetSelector: Field, initValue: Field, _padding: [Field; dep::aztec3::abi::MAX_ARGS - 3]) -> pub Field {
+    open fn pubEntryPointTwice(_inputs: PublicContextInputs, targetContract: Field, targetSelector: Field, initValue: Field, _padding: [Field; dep::aztec3::abi::MAX_ARGS - 3]) -> pub Field {
         let mut args = [0; dep::aztec3::abi::MAX_ARGS];
         args[0] = initValue;
         args[0] = public_call::call_public_function(targetContract, targetSelector, args)[0];

@@ -9,6 +9,8 @@ use crate::utils::arr_copy_slice;
 // oracles
 use crate::oracle::enqueue_public_function_call::enqueue_public_function_call_internal;
 
+use crate::oracle::debug_log::debug_log;
+
 
 struct PublicCallStackItem {
     contract_address: Field,
@@ -55,6 +57,8 @@ impl PublicCallStackItem {
             },
             is_execution_request: true,
         };
+        let _a = debug_log(item.public_inputs.commitment_trees_roots.old_contract_tree_root);
+
         constrain contract_address == item.contract_address;
         constrain function_selector == item.function_data.function_selector;
         
