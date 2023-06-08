@@ -35,9 +35,9 @@ export class NoirLogs {
   }
 
   /**
-   * Creates a new EventLogs object by concatenating multiple ones.
+   * Creates a new NoirLogs object by concatenating multiple ones.
    * @param datas - The individual data objects to concatenate.
-   * @returns A new EventLogs object whose chunks are the concatenation of the chunks.
+   * @returns A new NoirLogs object whose chunks are the concatenation of the chunks.
    */
   public static join(datas: NoirLogs[]): NoirLogs {
     return new NoirLogs(datas.flatMap(chunk => chunk.dataChunks));
@@ -46,7 +46,7 @@ export class NoirLogs {
   /**
    * Deserializes unverified data from a buffer.
    * @param buf - The buffer containing the serialized unverified data.
-   * @returns A new EventLogs object.
+   * @returns A new NoirLogs object.
    */
   public static fromBuffer(buf: Buffer | BufferReader): NoirLogs {
     const reader = BufferReader.asReader(buf);
@@ -56,9 +56,9 @@ export class NoirLogs {
   }
 
   /**
-   * Creates a new EventLogs object with `numChunks` random data.
+   * Creates a new NoirLogs object with `numChunks` random data.
    * @param numChunks - The number of chunks to create.
-   * @returns A new EventLogs object.
+   * @returns A new NoirLogs object.
    */
   public static random(numChunks: number): NoirLogs {
     const chunks: Buffer[] = [];

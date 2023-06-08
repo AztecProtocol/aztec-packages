@@ -82,7 +82,6 @@ describe('sequencer', () => {
     await sequencer.work();
 
     const expectedTxHashes = await Tx.getHashes([tx, ...times(3, makeEmptyPrivateTx)]);
-    const expectedEncryptedLogs = tx.encryptedLogs;
 
     expect(blockBuilder.buildL2Block).toHaveBeenCalledWith(
       lastBlockNumber + 1,
@@ -114,10 +113,6 @@ describe('sequencer', () => {
     await sequencer.work();
 
     const expectedTxHashes = await Tx.getHashes([txs[0], txs[2], makeEmptyPrivateTx(), makeEmptyPrivateTx()]);
-    const expectedEncryptedLogs = new NoirLogs([
-      ...txs[0].encryptedLogs.dataChunks,
-      ...txs[2].encryptedLogs.dataChunks,
-    ]);
 
     expect(blockBuilder.buildL2Block).toHaveBeenCalledWith(
       lastBlockNumber + 1,

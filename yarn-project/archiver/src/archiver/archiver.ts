@@ -300,7 +300,7 @@ export class Archiver implements L2BlockSource, NoirLogsSource, ContractDataSour
    * @param take - The number of encrypted logs to return.
    * @returns The requested encrypted logs.
    */
-  public getEncryptedLogs(from: number, take: number): Promise<EventLogs[]> {
+  public getEncryptedLogs(from: number, take: number): Promise<NoirLogs[]> {
     return this.store.getEncryptedLogs(from, take);
   }
 
