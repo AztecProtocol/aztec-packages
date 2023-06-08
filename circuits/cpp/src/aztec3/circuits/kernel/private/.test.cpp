@@ -26,7 +26,7 @@ namespace aztec3::circuits::kernel::private_kernel {
 /**
  * @brief Some private circuit proof (`deposit`, in this case)
  */
-TEST_F(private_kernel_tests, circuit_deposit)
+TEST(private_kernel_tests, circuit_deposit)
 {
     NT::fr const& amount = 5;
     NT::fr const& asset_id = 1;
@@ -38,7 +38,7 @@ TEST_F(private_kernel_tests, circuit_deposit)
         false, deposit, { amount, asset_id, memo }, encrypted_logs_hash, encrypted_log_preimages_length, true);
 
     // Execute and prove the first kernel iteration
-    Composer private_kernel_composer(barretenberg::srs::get_crs_factory());
+    Composer private_kernel_composer("../barretenberg/cpp/srs_db/ignition");
     auto const& public_inputs = private_kernel_circuit(private_kernel_composer, private_inputs, true);
 
     // TODO(jeanmon): this is a temporary hack until we have private_kernel_circuit init and inner
@@ -64,54 +64,12 @@ TEST_F(private_kernel_tests, circuit_deposit)
     auto final_kernel_verifier = private_kernel_composer.create_verifier();
     auto const& final_result = final_kernel_verifier.verify_proof(final_kernel_proof);
     EXPECT_EQ(final_result, true);
-<<<<<<< HEAD
-
-    debugComposer(private_kernel_composer);
-}
-
-/**
- * @brief Some private circuit simulation (`deposit`, in this case)
- */
-TEST_F(private_kernel_tests, native_deposit)
-{
-    NT::fr const& amount = 5;
-    NT::fr const& asset_id = 1;
-    NT::fr const& memo = 999;
-    std::array<NT::fr, 2> const& encrypted_logs_hash = { NT::fr(16), NT::fr(69) };
-    NT::fr const& encrypted_log_preimages_length = NT::fr(100);
-
-    auto const& private_inputs = do_private_call_get_kernel_inputs_init(
-        false, deposit, { amount, asset_id, memo }, encrypted_logs_hash, encrypted_log_preimages_length);
-
-    DummyComposer composer = DummyComposer("private_kernel_tests__native_deposit");
-    auto const& public_inputs = native_private_kernel_circuit_initial(composer, private_inputs);
-
-    validate_no_new_deployed_contract(public_inputs);
-
-    // Check the first nullifier is hash of the signed tx request
-    ASSERT_EQ(public_inputs.end.new_nullifiers[0], private_inputs.signed_tx_request.hash());
-
-    // Log preimages length should increase by `encrypted_log_preimages_length` from private input
-    ASSERT_EQ(public_inputs.end.encrypted_log_preimages_length, encrypted_log_preimages_length);
-    // Since there were no unencrypted logs, their length should be 0
-    ASSERT_EQ(public_inputs.end.unencrypted_log_preimages_length, fr(0));
-
-    // Encrypted logs hash should be a sha256 hash of a 0 value and the `encrypted_logs_hash` from private input
-    auto const& expected_encrypted_logs_hash =
-        accumulate_sha256<NT>({ fr(0), fr(0), encrypted_logs_hash[0], encrypted_logs_hash[1] });
-    ASSERT_EQ(public_inputs.end.encrypted_logs_hash, expected_encrypted_logs_hash);
-
-    // Unencrypted logs hash should be a sha256 hash of 2 zero values
-    auto const& expected_unencrypted_logs_hash = accumulate_sha256<NT>({ fr(0), fr(0), fr(0), fr(0) });
-    ASSERT_EQ(public_inputs.end.unencrypted_logs_hash, expected_unencrypted_logs_hash);
-=======
->>>>>>> origin/master
 }
 
 /**
  * @brief Some private circuit proof (`constructor`, in this case)
  */
-TEST_F(private_kernel_tests, circuit_basic_contract_deployment)
+TEST(private_kernel_tests, circuit_basic_contract_deployment)
 {
     NT::fr const& arg0 = 5;
     NT::fr const& arg1 = 1;
@@ -123,7 +81,7 @@ TEST_F(private_kernel_tests, circuit_basic_contract_deployment)
         true, constructor, { arg0, arg1, arg2 }, encrypted_logs_hash, encrypted_log_preimages_length, true);
 
     // Execute and prove the first kernel iteration
-    Composer private_kernel_composer(barretenberg::srs::get_crs_factory());
+    Composer private_kernel_composer("../barretenberg/cpp/srs_db/ignition");
     auto const& public_inputs = private_kernel_circuit(private_kernel_composer, private_inputs, true);
 
     // TODO(jeanmon): this is a temporary hack until we have private_kernel_circuit init and inner
@@ -143,46 +101,12 @@ TEST_F(private_kernel_tests, circuit_basic_contract_deployment)
     auto final_kernel_verifier = private_kernel_composer.create_verifier();
     auto const& final_result = final_kernel_verifier.verify_proof(final_kernel_proof);
     EXPECT_EQ(final_result, true);
-<<<<<<< HEAD
-
-    debugComposer(private_kernel_composer);
-}
-
-/**
- * @brief Some private circuit simulation (`constructor`, in this case)
- */
-TEST_F(private_kernel_tests, native_basic_contract_deployment)
-{
-    NT::fr const& arg0 = 5;
-    NT::fr const& arg1 = 1;
-    NT::fr const& arg2 = 999;
-
-    auto const& private_inputs = do_private_call_get_kernel_inputs_init(true, constructor, { arg0, arg1, arg2 });
-    DummyComposer composer = DummyComposer("private_kernel_tests__native_basic_contract_deployment");
-    auto const& public_inputs = native_private_kernel_circuit_initial(composer, private_inputs);
-
-    validate_deployed_contract_address(private_inputs, public_inputs);
-
-    // Check the first nullifier is hash of the signed tx request
-    ASSERT_EQ(public_inputs.end.new_nullifiers[0], private_inputs.signed_tx_request.hash());
-
-    // Since there are no logs, log preimages length should be 0 and both logs hashes should be a sha256 hash of 2 zero
-    // values
-    ASSERT_EQ(public_inputs.end.encrypted_log_preimages_length, fr(0));
-    ASSERT_EQ(public_inputs.end.unencrypted_log_preimages_length, fr(0));
-
-    auto const& expected_logs_hash = accumulate_sha256<NT>({ fr(0), fr(0), fr(0), fr(0) });
-
-    ASSERT_EQ(public_inputs.end.encrypted_logs_hash, expected_logs_hash);
-    ASSERT_EQ(public_inputs.end.encrypted_logs_hash, expected_logs_hash);
-=======
->>>>>>> origin/master
 }
 
 /**
  * @brief Some private circuit simulation checked against its results via cbinds
  */
-TEST_F(private_kernel_tests, circuit_create_proof_cbinds)
+TEST(private_kernel_tests, circuit_create_proof_cbinds)
 {
     NT::fr const& arg0 = 5;
     NT::fr const& arg1 = 1;
