@@ -33,7 +33,7 @@ export async function computeFunctionTree(wasm: CircuitsWasm, leaves: Fr[]): Pro
   wasm.writeMemory(inputBufPtr, inputVector);
 
   // Run and read outputs
-  await wasm.asyncCall('abis__compute_function_tree', inputBufPtr, outputBufPtr);
+  await wasm.call('abis__compute_function_tree', inputBufPtr, outputBufPtr);
   const outputBuf = Buffer.from(wasm.getMemorySlice(outputBufPtr, outputBufPtr + outputBufSize));
   const reader = new BufferReader(outputBuf);
   const output = reader.readVector(Fr);
@@ -74,7 +74,7 @@ export async function privateKernelProve(
   wasm.writeMemory(privateCallDataOffset, privateCallDataBuffer);
 
   const proofOutputAddressPtr = wasm.call('bbmalloc', 4);
-  const proofSize = await wasm.asyncCall(
+  const proofSize = await wasm.call(
     'private_kernel__prove',
     0,
     previousKernelBufferOffset,
@@ -112,7 +112,7 @@ export async function privateKernelSimInit(
   const outputBufSizePtr = wasm.call('bbmalloc', 4);
   const outputBufPtrPtr = wasm.call('bbmalloc', 4);
   // Run and read outputs
-  const circuitFailureBufPtr = await wasm.asyncCall(
+  const circuitFailureBufPtr = await wasm.call(
     'private_kernel__sim_init',
     0,
     privateCallDataOffset,
@@ -157,7 +157,7 @@ export async function privateKernelSimInner(
   const outputBufSizePtr = wasm.call('bbmalloc', 4);
   const outputBufPtrPtr = wasm.call('bbmalloc', 4);
   // Run and read outputs
-  const circuitFailureBufPtr = await wasm.asyncCall(
+  const circuitFailureBufPtr = await wasm.call(
     'private_kernel__sim_inner',
     0,
     privateCallDataOffset,

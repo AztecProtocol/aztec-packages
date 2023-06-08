@@ -1,6 +1,3 @@
-import { Grumpkin, pedersenCompressInputs } from '@aztec/barretenberg.js/crypto';
-import { BarretenbergWasm } from '@aztec/barretenberg.js/wasm';
-
 import { MAPPING_SLOT_PEDERSEN_CONSTANT } from './client/simulator.js';
 import { Fr } from '@aztec/foundation/fields';
 import { toBigIntBE } from '@aztec/foundation/bigint-buffer';

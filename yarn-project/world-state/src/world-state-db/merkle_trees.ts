@@ -1,4 +1,3 @@
-import { PrimitivesWasm } from '@aztec/barretenberg.js/wasm';
 import {
   CONTRACT_TREE_HEIGHT,
   CONTRACT_TREE_ROOTS_TREE_HEIGHT,
@@ -10,7 +9,6 @@ import {
   PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT,
   PUBLIC_DATA_TREE_HEIGHT,
 } from '@aztec/circuits.js';
-import { WasmWrapper } from '@aztec/foundation/wasm';
 import {
   AppendOnlyTree,
   IndexedTree,

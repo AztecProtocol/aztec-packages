@@ -3,6 +3,52 @@ import { randomBytes } from 'crypto';
 import { createDebugLogger, DebugLogger } from '../../log/index.js';
 import { getEmptyWasiSdk } from './empty_wasi_sdk.js';
 import { MemoryFifo } from '../../fifo/index.js';
+import { readFile } from 'fs/promises';
+import isNode from 'detect-node';
+
+/**
+ * Get the WASM binary.
+ * @param path - Path to the WASM binary.
+ * @returns The binary buffer.
+ */
+export async function fetchWasmCode(path: string) {
+  if (isNode) {
+    return await readFile(path);
+  } else {
+    const res = await fetch(path);
+    return Buffer.from(await res.arrayBuffer());
+  }
+}
+
+/**
+ * The base shape of a WASM module providing low level memory and synchronous call access.
+ * Note that the Aztec codebase used to support asyncify but has fully moved away,
+ * using web workers if needed.
+ */
+export interface IWasmModule {
+  /**
+   * Low level call function, returns result as number.
+   * @param name - The function name.
+   * @param args - The function args.
+   * @returns The value as an integer (could be pointer).
+   */
+  call(name: string, ...args: any): number;
+
+  /**
+   * Get a slice of memory between two addresses.
+   * @param start - The start address.
+   * @param end - The end address.
+   * @returns A Uint8Array view of memory.
+   */
+  getMemorySlice(start: number, end: number): Uint8Array;
+
+  /**
+   * Write data into the heap.
+   * @param offset - The address to write data at.
+   * @param arr - The data to write.
+   */
+  writeMemory(offset: number, arr: Uint8Array): void;
+}
 
 /**
  * WasmModule:
@@ -12,7 +58,7 @@ import { MemoryFifo } from '../../fifo/index.js';
  *  2) of which the webassembly
  *  we instantiate only uses random_get (update this if more WASI sdk methods are needed).
  */
-export class WasmModule {
+export class WasmModule implements IWasmModule {
   private memory!: WebAssembly.Memory;
   private heap!: Uint8Array;
   private instance?: WebAssembly.Instance;
@@ -175,7 +221,7 @@ export class WasmModule {
    * @param end - The end address.
    * @returns A Uint8Array view of memory.
    */
-  public getMemorySlice(start: number, end: number) {
+  public getMemorySlice(start: number, end: number): Uint8Array {
     return this.getMemory().slice(start, end);
   }
 

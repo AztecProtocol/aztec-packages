@@ -2,7 +2,7 @@
 // GENERATED FILE DO NOT EDIT, RUN yarn remake-bindings
 import { Buffer } from 'buffer';
 import { callCbind } from './cbind.js';
-import { CircuitsWasm } from '../wasm/index.js';
+import { IWasmModule } from '@aztec/foundation/wasm';
 import {
   Address,
   Fr,
@@ -1281,7 +1281,7 @@ export function fromCircuitError(o: CircuitError): MsgpackCircuitError {
 }
 
 export async function abisComputeContractAddress(
-  wasm: CircuitsWasm,
+  wasm: IWasmModule,
   arg0: Address,
   arg1: Fr,
   arg2: Fr,
@@ -1296,11 +1296,11 @@ export async function abisComputeContractAddress(
     ]),
   );
 }
-export async function privateKernelDummyPreviousKernel(wasm: CircuitsWasm): Promise<PreviousKernelData> {
+export async function privateKernelDummyPreviousKernel(wasm: IWasmModule): Promise<PreviousKernelData> {
   return toPreviousKernelData(await callCbind(wasm, 'private_kernel__dummy_previous_kernel', []));
 }
 export async function publicKernelSim(
-  wasm: CircuitsWasm,
+  wasm: IWasmModule,
   arg0: PublicKernelInputs,
 ): Promise<CircuitError | KernelCircuitPublicInputs> {
   return ((v: MsgpackCircuitError | MsgpackKernelCircuitPublicInputs) =>
@@ -1308,6 +1308,6 @@ export async function publicKernelSim(
     await callCbind(wasm, 'public_kernel__sim', [fromPublicKernelInputs(arg0)]),
   );
 }
-export async function proverProcessQueue2(wasm: CircuitsWasm, arg0: ProverBasePtr): Promise<number> {
+export async function proverProcessQueue2(wasm: IWasmModule, arg0: ProverBasePtr): Promise<number> {
   return await callCbind(wasm, 'prover_process_queue2', [arg0]);
 }
