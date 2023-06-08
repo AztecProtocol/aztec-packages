@@ -18,22 +18,22 @@ import { PrivateTx, PublicTx, SignedTxExecutionRequest, Tx, TxExecutionRequest, 
 import times from 'lodash.times';
 
 /**
- * Testing utility to create empty unverified data composed by a single empty chunk.
+ * Testing utility to create empty encrypted logs composed by a single empty chunk.
  */
-export function makeEmptyUnverifiedData(): NoirLogs {
+export function makeEmptyEncryptedLogs(): NoirLogs {
   const chunks = [Buffer.alloc(0)];
   return new NoirLogs(chunks);
 }
 
 /**
- * Testing utility to create a tx with an empty kernel circuit output, empty proof, and empty unverified data.
+ * Testing utility to create a tx with an empty kernel circuit output, empty proof, and empty encrypted logs.
  */
 export function makeEmptyPrivateTx(): PrivateTx {
-  return Tx.createPrivate(KernelCircuitPublicInputs.empty(), makeEmptyProof(), makeEmptyUnverifiedData(), [], []);
+  return Tx.createPrivate(KernelCircuitPublicInputs.empty(), makeEmptyProof(), makeEmptyEncryptedLogs(), [], []);
 }
 
 /**
- * Testing utility to create a tx with gibberish kernel circuit output, random unverified data, and an empty proof.
+ * Testing utility to create a tx with gibberish kernel circuit output, random encrypted logs, and an empty proof.
  */
 export function makePrivateTx(seed = 0): PrivateTx {
   return Tx.createPrivate(

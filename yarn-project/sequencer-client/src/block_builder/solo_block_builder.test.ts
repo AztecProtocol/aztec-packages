@@ -37,7 +37,7 @@ import { default as levelup } from 'levelup';
 import flatMap from 'lodash.flatmap';
 import times from 'lodash.times';
 import { default as memdown, type MemDown } from 'memdown';
-import { makeEmptyUnverifiedData, makePublicTx } from '../mocks/tx.js';
+import { makeEmptyEncryptedLogs, makePublicTx } from '../mocks/tx.js';
 import { VerificationKeys, getVerificationKeys } from '../mocks/verification_keys.js';
 import { EmptyRollupProver } from '../prover/empty.js';
 import { RollupProver } from '../prover/index.js';
@@ -140,7 +140,7 @@ describe('sequencer/solo_block_builder', () => {
       Tx.createPrivate(
         kernelOutput,
         emptyProof,
-        makeEmptyUnverifiedData(),
+        makeEmptyEncryptedLogs(),
         [],
         times(KERNEL_PUBLIC_CALL_STACK_LENGTH, makePublicCallRequest),
       ),

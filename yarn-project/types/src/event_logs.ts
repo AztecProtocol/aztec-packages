@@ -2,19 +2,19 @@ import { BufferReader, serializeBufferToVector } from '@aztec/foundation/seriali
 import { randomBytes } from 'crypto';
 
 /**
- * Data container of unverified data corresponding to one L2 block.
+ * Data container of encrypted logs corresponding to one L2 block.
  */
 export class NoirLogs {
   constructor(
     /**
-     * Chunks of unverified data corresponding to individual pieces of information (e.g. Encrypted preimages).
+     * Chunks of encrypted logs corresponding to individual pieces of information (e.g. Encrypted preimages).
      */
     public readonly dataChunks: Buffer[],
   ) {}
 
   /**
-   * Serializes unverified data into a buffer.
-   * @returns A buffer containing the serialized unverified data.
+   * Serializes encrypted logs into a buffer.
+   * @returns A buffer containing the serialized encrypted logs.
    */
   public toBuffer(): Buffer {
     // Serialize each buffer into the new buffer with prefix
@@ -35,18 +35,18 @@ export class NoirLogs {
   }
 
   /**
-   * Creates a new UnverifiedData object by concatenating multiple ones.
+   * Creates a new NoirLogs object by concatenating multiple ones.
    * @param datas - The individual data objects to concatenate.
-   * @returns A new UnverifiedData object whose chunks are the concatenation of the chunks.
+   * @returns A new NoirLogs object whose chunks are the concatenation of the chunks.
    */
   public static join(datas: NoirLogs[]): NoirLogs {
     return new NoirLogs(datas.flatMap(chunk => chunk.dataChunks));
   }
 
   /**
-   * Deserializes unverified data from a buffer.
-   * @param buf - The buffer containing the serialized unverified data.
-   * @returns A new UnverifiedData object.
+   * Deserializes encrypted logs from a buffer.
+   * @param buf - The buffer containing the serialized encrypted logs.
+   * @returns A new NoirLogs object.
    */
   public static fromBuffer(buf: Buffer | BufferReader): NoirLogs {
     const reader = BufferReader.asReader(buf);
@@ -56,9 +56,9 @@ export class NoirLogs {
   }
 
   /**
-   * Creates a new UnverifiedData object with `numChunks` random data.
+   * Creates a new NoirLogs object with `numChunks` random data.
    * @param numChunks - The number of chunks to create.
-   * @returns A new UnverifiedData object.
+   * @returns A new NoirLogs object.
    */
   public static random(numChunks: number): NoirLogs {
     const chunks: Buffer[] = [];

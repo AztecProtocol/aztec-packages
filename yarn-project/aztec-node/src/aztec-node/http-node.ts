@@ -47,7 +47,7 @@ export function txToJson(tx: Tx) {
  */
 export function txFromJson(json: any) {
   const publicInputs = json.data ? KernelCircuitPublicInputs.fromBuffer(Buffer.from(json.data, 'hex')) : undefined;
-  const encryptedLogs = json.unverified ? NoirLogs.fromBuffer(Buffer.from(json.unverified, 'hex')) : undefined;
+  const encryptedLogs = json.encryptedLogs ? NoirLogs.fromBuffer(Buffer.from(json.encryptedLogs, 'hex')) : undefined;
   const txRequest = json.txRequest
     ? SignedTxExecutionRequest.fromBuffer(Buffer.from(json.txRequest, 'hex'))
     : undefined;
@@ -138,6 +138,27 @@ export class HttpNode implements AztecNode {
   }
 
   /**
+   * Gets the `take` amount of encrypted logs starting from `from`.
+   * @param from - Number of the L2 block to which corresponds the first encryptedLogsSource to be returned.
+   * @param take - The number of encryptedLogsSource to return.
+   * @returns The requested encryptedLogsSource.
+   */
+  public async getEncryptedLogs(from: number, take: number): Promise<NoirLogs[]> {
+    const url = new URL(`${this.baseUrl}/get-encrypted-logs`);
+    url.searchParams.append('from', from.toString());
+    if (take !== undefined) {
+      url.searchParams.append('take', take.toString());
+    }
+    const response = await (await fetch(url.toString())).json();
+    const encryptedLogs = response.encryptedLogs as string[];
+
+    if (!encryptedLogs) {
+      return Promise.resolve([]);
+    }
+    return Promise.resolve(encryptedLogs.map(x => NoirLogs.fromBuffer(Buffer.from(x, 'hex'))));
+  }
+
+  /**
    * Lookup the L2 contract info for this contract.
    * Contains the ethereum portal address .
    * @param contractAddress - The contract data address.
@@ -149,27 +170,6 @@ export class HttpNode implements AztecNode {
     const response = await (await fetch(url.toString())).json();
     const contract = response.contractInfo as string;
     return Promise.resolve(ContractData.fromBuffer(Buffer.from(contract, 'hex')));
-  }
-
-  /**
-   * Gets the `take` amount of unverified data starting from `from`.
-   * @param from - Number of the L2 block to which corresponds the first `unverifiedData` to be returned.
-   * @param take - The number of `unverifiedData` to return.
-   * @returns The requested `unverifiedData`.
-   */
-  async getUnverifiedData(from: number, take: number): Promise<NoirLogs[]> {
-    const url = new URL(`${this.baseUrl}/get-unverified`);
-    url.searchParams.append('from', from.toString());
-    if (take !== undefined) {
-      url.searchParams.append('take', take.toString());
-    }
-    const response = await (await fetch(url.toString())).json();
-    const unverified = response.unverified as string[];
-
-    if (!unverified) {
-      return Promise.resolve([]);
-    }
-    return Promise.resolve(unverified.map(x => NoirLogs.fromBuffer(Buffer.from(x, 'hex'))));
   }
 
   /**

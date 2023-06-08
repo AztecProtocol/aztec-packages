@@ -47,12 +47,12 @@ export interface AztecNode {
   getContractInfo(contractAddress: AztecAddress): Promise<ContractData | undefined>;
 
   /**
-   * Gets the `take` amount of unverified data starting from `from`.
-   * @param from - Number of the L2 block to which corresponds the first `unverifiedData` to be returned.
-   * @param take - The number of `unverifiedData` to return.
-   * @returns The requested `unverifiedData`.
+   * Gets the `take` amount of encrypted logs starting from `from`.
+   * @param from - Number of the L2 block to which corresponds the first encryptedLogsSource to be returned.
+   * @param take - The number of encryptedLogsSource to return.
+   * @returns The requested encryptedLogsSource.
    */
-  getUnverifiedData(from: number, take: number): Promise<NoirLogs[]>;
+  getEncryptedLogs(from: number, take: number): Promise<NoirLogs[]>;
 
   /**
    * Method to submit a transaction to the p2p pool.

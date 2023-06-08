@@ -1,14 +1,16 @@
 # Archiver
+
 Archiver is a service which is used to fetch data on-chain data and present them in a nice-to-consume form.
 The on-chain data specifically are the following events:
-1. `L2BlockProcessed` event emitted on Rollup contract,
-2. `UnverifiedData` event emitted on UnverifiedDataEmitter contract,
-3. `ContractDeployment` event emitted on UnverifiedDataEmitter contract,
-4. `MessageAdded` event emitted on Inbox contract,
 
-The interfaces defining how the data can be consumed from the archiver are `L2BlockSource`, `UnverifiedDataSource` and `ContractDataSource`.
+1. `L2BlockProcessed` event emitted on Rollup contract,
+2. `ContractDeployment` event emitted on ContractDeploymentEmitter contract,
+3. `MessageAdded` event emitted on Inbox contract,
+
+The interfaces defining how the data can be consumed from the archiver are `L2BlockSource`, `EventLogSource` and `ContractDataSource`.
 
 ## Usage
+
 To install dependencies and build the package run `yarn install` followed by `yarn build`.
 To run test execute `yarn test`.
 

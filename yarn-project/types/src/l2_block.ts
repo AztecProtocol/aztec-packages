@@ -17,6 +17,7 @@ import { PublicDataWrite } from './public_data_write.js';
 import { toBigIntBE, toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { sha256 } from '@aztec/foundation/crypto';
 import { NoirLogs } from './event_logs.js';
+
 /**
  * The data that makes up the rollup proof, with encoder decoder functions.
  * TODO: Reuse data types and serialization functions from circuits package.
@@ -122,11 +123,11 @@ export class L2Block {
     /**
      * Length (in bytes) of the encrypted logs in the block.
      */
-    public newEncryptedLogsLength: number,
+    public newEncryptedLogsLength?: number,
     /**
      * Consolidated logs from all txs.
      */
-    public newEncryptedLogs: NoirLogs,
+    public newEncryptedLogs?: NoirLogs,
   ) {}
 
   /**
@@ -281,11 +282,11 @@ export class L2Block {
     /**
      * Length (in bytes) of the new encrypted logs data chunks in the block.
      */
-    newEncryptedLogsLength: number;
+    newEncryptedLogsLength?: number;
     /**
      * Consolidated logs from all txs.
      */
-    newEncryptedLogs: NoirLogs;
+    newEncryptedLogs?: NoirLogs;
   }) {
     return new this(
       fields.number,
@@ -353,8 +354,8 @@ export class L2Block {
       this.newContractData,
       this.newL1ToL2Messages.length,
       this.newL1ToL2Messages,
-      this.newEncryptedLogsLength,
-      this.newEncryptedLogs,
+      this.newEncryptedLogsLength!,
+      this.newEncryptedLogs!,
     );
   }
 
@@ -429,6 +430,22 @@ export class L2Block {
       newEncryptedLogsLength,
       newEncryptedLogs,
     });
+  }
+
+  /**
+   * Helper function to attach encrypted logs related to a block. Since we can have L2 blocks without encrypted logs,
+   * this function helps attach them in order to make the block data manipulation easier.
+   * @param encryptedLogs - The encrypted logs to be attached to the block.
+   */
+  attachEncryptedLogs(encryptedLogs: NoirLogs) {
+    // throw error if the block already has encrypted logs attached.
+    if (this.newEncryptedLogs) {
+      return;
+    }
+
+    const encryptedLogsLength = encryptedLogs.getSerializedLength();
+    this.newEncryptedLogs = encryptedLogs;
+    this.newEncryptedLogsLength = encryptedLogsLength;
   }
 
   /**

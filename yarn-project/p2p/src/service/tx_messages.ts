@@ -189,17 +189,17 @@ export function fromTxMessage(buffer: Buffer): Tx {
   const publicInputs = toObject(buffer.subarray(4), KernelCircuitPublicInputs);
   const proof = toObject(publicInputs.remainingData, Proof);
   const txRequest = toObject(proof.remainingData, SignedTxExecutionRequest);
-  const unverified = toObject(txRequest.remainingData, NoirLogs);
-  if (!unverified.obj) {
-    unverified.obj = new NoirLogs([]);
+  const encryptedLogs = toObject(txRequest.remainingData, NoirLogs);
+  if (!encryptedLogs.obj) {
+    encryptedLogs.obj = new NoirLogs([]);
   }
-  const functions = toObjectArray(unverified.remainingData, EncodedContractFunction);
+  const functions = toObjectArray(encryptedLogs.remainingData, EncodedContractFunction);
   const publicCalls = toObjectArray(functions.remainingData, PublicCallRequest);
   // working buffer now begins with the first enqueued public call
   if (txRequest.obj) {
     return publicInputs.obj
-      ? Tx.createPrivatePublic(publicInputs.obj!, proof.obj!, unverified.obj, txRequest.obj!)
+      ? Tx.createPrivatePublic(publicInputs.obj!, proof.obj!, encryptedLogs.obj, txRequest.obj!)
       : Tx.createPublic(txRequest.obj!);
   }
-  return Tx.createPrivate(publicInputs.obj!, proof.obj!, unverified.obj, functions.objects, publicCalls.objects);
+  return Tx.createPrivate(publicInputs.obj!, proof.obj!, encryptedLogs.obj, functions.objects, publicCalls.objects);
 }
