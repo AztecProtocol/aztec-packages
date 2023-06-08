@@ -26,7 +26,7 @@ void common_validate_read_requests(DummyComposer& composer,
                                    std::array<fr, READ_REQUESTS_LENGTH> const& read_requests,
                                    std::array<MembershipWitness<NT, PRIVATE_DATA_TREE_HEIGHT>,
                                               READ_REQUESTS_LENGTH> const& read_request_membership_witnesses,
-                                   NT::fr& historic_private_data_tree_root);
+                                   NT::fr const& historic_private_data_tree_root);
 
 void common_update_end_values(DummyComposer& composer,
                               PrivateCallData<NT> const& private_call,

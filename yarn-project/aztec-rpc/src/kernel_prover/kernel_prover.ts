@@ -106,6 +106,8 @@ export class KernelProver {
       );
 
       // TODO(dbanks12): https://github.com/AztecProtocol/aztec-packages/issues/779
+      // What if app circuit outputs different #read-requests vs what the RPC client
+      // gets from the simulator?
       const readRequestMembershipWitnesses = [];
       for (let rr = 0; rr < currentExecution.readRequestCommitmentIndices.length; rr++) {
         if (currentExecution.callStackItem.publicInputs.readRequests[rr] == Fr.zero()) {
@@ -132,18 +134,11 @@ export class KernelProver {
         privateCallStackPreimages,
       );
 
-      // TODO(dbanks12): remove historic root from app circuit public inputs and
-      // add it to PrivateCallData: https://github.com/AztecProtocol/aztec-packages/issues/778
-
-      // if this is the last iteration of the kernel, there are no read requests to process,
-      // and no previous kernel iterations had read requests, initialize the
-      if (executionStack.length === 0) {
-        privateCallData.callStackItem.publicInputs.historicPrivateDataTreeRoot = await this.oracle.getPrivateDataRoot();
-      } else {
-        privateCallData.callStackItem.publicInputs.historicPrivateDataTreeRoot = new Fr(0);
-      }
-
       if (firstIteration) {
+        // TODO(dbanks12): remove historic root from app circuit public inputs and
+        // add it to PrivateCallData: https://github.com/AztecProtocol/aztec-packages/issues/778
+        privateCallData.callStackItem.publicInputs.historicPrivateDataTreeRoot = await this.oracle.getPrivateDataRoot();
+
         output = await this.proofCreator.createProofInit(signedTxRequest, privateCallData);
       } else {
         const previousVkMembershipWitness = await this.oracle.getVkMembershipWitness(previousVerificationKey);

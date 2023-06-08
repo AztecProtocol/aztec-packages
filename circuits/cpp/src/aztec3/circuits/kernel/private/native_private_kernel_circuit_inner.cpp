@@ -44,9 +44,6 @@ using CircuitErrorCode = aztec3::utils::CircuitErrorCode;
 void initialise_end_values(PrivateKernelInputsInner<NT> const& private_inputs,
                            KernelCircuitPublicInputs<NT>& public_inputs)
 {
-    // Note: if this kernel iteration contains the very first read request
-    // in the entire transaction so far, the historic private data tree root
-    // will be initialized later in this kernel iteration in `common_validate_read_requests()`
     public_inputs.constants = private_inputs.previous_kernel.public_inputs.constants;
 
     // Ensure the arrays are the same as previously, before we start pushing more data onto them in other functions

@@ -51,12 +51,6 @@ void initialise_end_values(PrivateKernelInputsInit<NT> const& private_inputs,
             CombinedHistoricTreeRoots<NT>{
                 .private_historic_tree_roots =
                     PrivateHistoricTreeRoots<NT>{
-                        // The private data tree root will be initialized to 0 here
-                        // if it is 0 in the `private_call_data` in which case it
-                        // will be initialized when the first read request is encountered.
-                        // Otherwise it is initialized here and all read requests in this
-                        // and subsequent kernel iterations be checked against this root.
-
                         // TODO(dbanks12): remove historic root from app circuit public inputs and
                         // add it to PrivateCallData: https://github.com/AztecProtocol/aztec-packages/issues/778
                         // Then use this:
