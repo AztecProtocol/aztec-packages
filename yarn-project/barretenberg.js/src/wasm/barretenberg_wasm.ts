@@ -38,13 +38,9 @@ export class BarretenbergWasm extends AsyncWasmWrapper {
       ...super.getImportFns(wasm),
 
       // eslint-disable-next-line camelcase
-      env_load_verifier_crs: this.wrapAsyncImportFn(async () => {
-        return await loadVerifierCrs(wasm);
-      }),
+      set_data: () => {},
       // eslint-disable-next-line camelcase
-      env_load_prover_crs: this.wrapAsyncImportFn(async (numPoints: number) => {
-        return await loadProverCrs(wasm, numPoints);
-      }),
+      get_data: () => {},
     };
   }
 }
