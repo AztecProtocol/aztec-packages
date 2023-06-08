@@ -9,7 +9,6 @@ use crate::utils::arr_copy_slice;
 // oracles
 use crate::oracle::enqueue_public_function_call::enqueue_public_function_call_internal;
 
-
 struct PublicCallStackItem {
     contract_address: Field,
     function_data: FunctionData,
