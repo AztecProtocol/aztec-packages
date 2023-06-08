@@ -14,7 +14,7 @@ import { SiblingPath } from '@aztec/merkle-tree';
 import { InMemoryTxPool, P2P, createP2PClient } from '@aztec/p2p';
 import { SequencerClient, getCombinedHistoricTreeRoots } from '@aztec/sequencer-client';
 import { Tx, TxHash } from '@aztec/types';
-import { EventLogs, UnverifiedDataSource } from '@aztec/types';
+import { NoirLogs, UnverifiedDataSource } from '@aztec/types';
 import {
   MerkleTrees,
   ServerWorldStateSynchroniser,
@@ -147,7 +147,7 @@ export class AztecNodeService implements AztecNode {
    * @param take - The number of `unverifiedData` to return.
    * @returns The requested `unverifiedData`.
    */
-  public getUnverifiedData(from: number, take: number): Promise<EventLogs[]> {
+  public getUnverifiedData(from: number, take: number): Promise<NoirLogs[]> {
     return this.unverifiedDataSource.getUnverifiedData(from, take);
   }
 

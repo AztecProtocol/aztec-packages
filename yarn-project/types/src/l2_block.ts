@@ -16,7 +16,7 @@ import { L2Tx } from './l2_tx.js';
 import { PublicDataWrite } from './public_data_write.js';
 import { toBigIntBE, toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { sha256 } from '@aztec/foundation/crypto';
-import { EventLogs } from './event_logs.js';
+import { NoirLogs } from './event_logs.js';
 /**
  * The data that makes up the rollup proof, with encoder decoder functions.
  * TODO: Reuse data types and serialization functions from circuits package.
@@ -126,7 +126,7 @@ export class L2Block {
     /**
      * Consolidated logs from all txs.
      */
-    public newEncryptedLogs: EventLogs,
+    public newEncryptedLogs: NoirLogs,
   ) {}
 
   /**
@@ -143,7 +143,7 @@ export class L2Block {
     const newPublicDataWrites = times(KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH * txsPerBlock, PublicDataWrite.random);
     const newL1ToL2Messages = times(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, Fr.random);
     const newL2ToL1Msgs = times(KERNEL_NEW_L2_TO_L1_MSGS_LENGTH, Fr.random);
-    const newEncryptedLogs = EventLogs.random(txsPerBlock * 2);
+    const newEncryptedLogs = NoirLogs.random(txsPerBlock * 2);
     const newEncryptedLogsLength = newEncryptedLogs.getSerializedLength();
 
     return L2Block.fromFields({
@@ -285,7 +285,7 @@ export class L2Block {
     /**
      * Consolidated logs from all txs.
      */
-    newEncryptedLogs: EventLogs;
+    newEncryptedLogs: NoirLogs;
   }) {
     return new this(
       fields.number,
@@ -399,7 +399,7 @@ export class L2Block {
     // TODO(sean): could an optimisation of this be that it is encoded such that zeros are assumed
     const newL1ToL2Messages = reader.readVector(Fr);
     const newEncryptedLogsLength = reader.readNumber();
-    const newEncryptedLogs = new EventLogs(reader.readBufferArray());
+    const newEncryptedLogs = new NoirLogs(reader.readBufferArray());
 
     return L2Block.fromFields({
       number,

@@ -1,6 +1,6 @@
 import { CombinedHistoricTreeRoots, Fr, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, makeEmptyProof } from '@aztec/circuits.js';
 import { P2P, P2PClientState } from '@aztec/p2p';
-import { L1ToL2MessageSource, L2Block, L2BlockSource, MerkleTreeId, PrivateTx, Tx, EventLogs } from '@aztec/types';
+import { L1ToL2MessageSource, L2Block, L2BlockSource, MerkleTreeId, PrivateTx, Tx, NoirLogs } from '@aztec/types';
 import { MerkleTreeOperations, WorldStateRunningState, WorldStateSynchroniser } from '@aztec/world-state';
 import { MockProxy, mock } from 'jest-mock-extended';
 import times from 'lodash.times';
@@ -121,7 +121,7 @@ describe('sequencer', () => {
     await sequencer.work();
 
     const expectedTxHashes = await Tx.getHashes([txs[0], txs[2], makeEmptyPrivateTx(), makeEmptyPrivateTx()]);
-    const expectedEncryptedLogs = new EventLogs([
+    const expectedEncryptedLogs = new NoirLogs([
       ...txs[0].encryptedLogs.dataChunks,
       ...txs[2].encryptedLogs.dataChunks,
     ]);

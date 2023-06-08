@@ -14,15 +14,15 @@ import {
   makeSelector,
   makeTxContext,
 } from '@aztec/circuits.js/factories';
-import { PrivateTx, PublicTx, SignedTxExecutionRequest, Tx, TxExecutionRequest, EventLogs } from '@aztec/types';
+import { PrivateTx, PublicTx, SignedTxExecutionRequest, Tx, TxExecutionRequest, NoirLogs } from '@aztec/types';
 import times from 'lodash.times';
 
 /**
  * Testing utility to create empty unverified data composed by a single empty chunk.
  */
-export function makeEmptyUnverifiedData(): EventLogs {
+export function makeEmptyUnverifiedData(): NoirLogs {
   const chunks = [Buffer.alloc(0)];
-  return new EventLogs(chunks);
+  return new NoirLogs(chunks);
 }
 
 /**
@@ -39,7 +39,7 @@ export function makePrivateTx(seed = 0): PrivateTx {
   return Tx.createPrivate(
     makeKernelPublicInputs(seed),
     makeEmptyProof(),
-    EventLogs.random(2),
+    NoirLogs.random(2),
     [],
     times(KERNEL_PUBLIC_CALL_STACK_LENGTH, makePublicCallRequest),
   );

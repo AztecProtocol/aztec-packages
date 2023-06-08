@@ -15,7 +15,7 @@ import {
   MerkleTreeId,
   Tx,
   TxExecutionRequest,
-  EventLogs,
+  NoirLogs,
 } from '@aztec/types';
 import { NotePreimage, TxAuxData } from '../aztec_rpc_server/tx_aux_data/index.js';
 import { ContractDataOracle } from '../contract_data_oracle/index.js';
@@ -303,7 +303,7 @@ export class AccountState {
    * @param encryptedLogs - An array of encrypted logs associated with the L2 block contexts.
    * @returns A promise that resolves once the processing is completed.
    */
-  public async process(l2BlockContexts: L2BlockContext[], encryptedLogs: EventLogs[]): Promise<void> {
+  public async process(l2BlockContexts: L2BlockContext[], encryptedLogs: NoirLogs[]): Promise<void> {
     if (l2BlockContexts.length !== encryptedLogs.length) {
       throw new Error(
         `Number of blocks and EncryptedLogs is not equal. Received ${l2BlockContexts.length} blocks, ${encryptedLogs.length} encrypted logs.`,
@@ -399,7 +399,7 @@ export class AccountState {
       const ownerPublicKey = Point.fromBuffer(Buffer.concat([owner.x.toBuffer(), owner.y.toBuffer()]));
       return txAuxData.toEncryptedBuffer(ownerPublicKey, this.grumpkin);
     });
-    return new EventLogs(dataChunks);
+    return new NoirLogs(dataChunks);
   }
 
   /**

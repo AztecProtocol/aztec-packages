@@ -21,7 +21,7 @@ import {
   SignedTxExecutionRequest,
   Tx,
   TxHash,
-  EventLogs,
+  NoirLogs,
 } from '@aztec/types';
 
 /**
@@ -47,7 +47,7 @@ export function txToJson(tx: Tx) {
  */
 export function txFromJson(json: any) {
   const publicInputs = json.data ? KernelCircuitPublicInputs.fromBuffer(Buffer.from(json.data, 'hex')) : undefined;
-  const encryptedLogs = json.unverified ? EventLogs.fromBuffer(Buffer.from(json.unverified, 'hex')) : undefined;
+  const encryptedLogs = json.unverified ? NoirLogs.fromBuffer(Buffer.from(json.unverified, 'hex')) : undefined;
   const txRequest = json.txRequest
     ? SignedTxExecutionRequest.fromBuffer(Buffer.from(json.txRequest, 'hex'))
     : undefined;
@@ -157,7 +157,7 @@ export class HttpNode implements AztecNode {
    * @param take - The number of `unverifiedData` to return.
    * @returns The requested `unverifiedData`.
    */
-  async getUnverifiedData(from: number, take: number): Promise<EventLogs[]> {
+  async getUnverifiedData(from: number, take: number): Promise<NoirLogs[]> {
     const url = new URL(`${this.baseUrl}/get-unverified`);
     url.searchParams.append('from', from.toString());
     if (take !== undefined) {
@@ -169,7 +169,7 @@ export class HttpNode implements AztecNode {
     if (!unverified) {
       return Promise.resolve([]);
     }
-    return Promise.resolve(unverified.map(x => EventLogs.fromBuffer(Buffer.from(x, 'hex'))));
+    return Promise.resolve(unverified.map(x => NoirLogs.fromBuffer(Buffer.from(x, 'hex'))));
   }
 
   /**

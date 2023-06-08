@@ -12,7 +12,7 @@ import {
   processCancelledL1ToL2MessagesLogs,
 } from './eth_log_handlers.js';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { ContractPublicData, L1ToL2Message, L2Block, EventLogs } from '@aztec/types';
+import { ContractPublicData, L1ToL2Message, L2Block, NoirLogs } from '@aztec/types';
 import { Fr } from '@aztec/foundation/fields';
 
 /**
@@ -84,8 +84,8 @@ export async function retrieveUnverifiedData(
   searchStartBlock: bigint,
   expectedNextRollupNumber: bigint,
   blockHashMapping: { [key: number]: Buffer | undefined },
-): Promise<DataRetrieval<EventLogs>> {
-  const newUnverifiedDataChunks: EventLogs[] = [];
+): Promise<DataRetrieval<NoirLogs>> {
+  const newUnverifiedDataChunks: NoirLogs[] = [];
   do {
     if (searchStartBlock > currentBlockNumber) {
       break;

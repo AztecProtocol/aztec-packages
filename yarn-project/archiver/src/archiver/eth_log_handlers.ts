@@ -10,7 +10,7 @@ import {
   L1Actor,
   L2Actor,
   L2Block,
-  EventLogs,
+  NoirLogs,
 } from '@aztec/types';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
@@ -101,7 +101,7 @@ export function processUnverifiedDataLogs(
   blockHashMapping: { [key: number]: Buffer | undefined },
   logs: Log<bigint, number, undefined, typeof UnverifiedDataEmitterAbi, 'UnverifiedData'>[],
 ) {
-  const unverifiedDataChunks: EventLogs[] = [];
+  const unverifiedDataChunks: NoirLogs[] = [];
   for (const log of logs) {
     const l2BlockNum = log.args.l2BlockNum;
     const blockHash = Buffer.from(hexToBytes(log.args.l2BlockHash));
@@ -114,7 +114,7 @@ export function processUnverifiedDataLogs(
       continue;
     }
     const unverifiedDataBuf = Buffer.from(hexToBytes(log.args.data));
-    const unverifiedData = EventLogs.fromBuffer(unverifiedDataBuf);
+    const unverifiedData = NoirLogs.fromBuffer(unverifiedDataBuf);
     unverifiedDataChunks.push(unverifiedData);
     expectedRollupNumber++;
   }
