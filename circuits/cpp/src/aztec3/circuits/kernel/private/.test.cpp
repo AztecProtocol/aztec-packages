@@ -1,29 +1,10 @@
 #include "c_bind.h"
 #include "index.hpp"
+#include "init.hpp"
+#include "testing_harness.hpp"
 
-#include "aztec3/circuits/abis/call_context.hpp"
-#include "aztec3/circuits/abis/call_stack_item.hpp"
-#include "aztec3/circuits/abis/combined_accumulated_data.hpp"
-#include "aztec3/circuits/abis/combined_constant_data.hpp"
-#include "aztec3/circuits/abis/contract_deployment_data.hpp"
-#include "aztec3/circuits/abis/function_data.hpp"
-#include "aztec3/circuits/abis/kernel_circuit_public_inputs.hpp"
-#include "aztec3/circuits/abis/private_circuit_public_inputs.hpp"
-#include "aztec3/circuits/abis/private_historic_tree_roots.hpp"
-#include "aztec3/circuits/abis/private_kernel/private_call_data.hpp"
-#include "aztec3/circuits/abis/private_kernel/private_kernel_inputs_init.hpp"
-#include "aztec3/circuits/abis/private_kernel/private_kernel_inputs_inner.hpp"
-#include "aztec3/circuits/abis/signed_tx_request.hpp"
-#include "aztec3/circuits/abis/tx_context.hpp"
-#include "aztec3/circuits/abis/tx_request.hpp"
-#include "aztec3/circuits/abis/types.hpp"
-#include "aztec3/circuits/apps/function_execution_context.hpp"
 #include "aztec3/circuits/apps/test_apps/basic_contract_deployment/basic_contract_deployment.hpp"
 #include "aztec3/circuits/apps/test_apps/escrow/deposit.hpp"
-#include "aztec3/circuits/hash.hpp"
-#include "aztec3/circuits/kernel/private/utils.hpp"
-#include "aztec3/constants.hpp"
-#include "aztec3/utils/circuit_errors.hpp"
 
 #include <barretenberg/barretenberg.hpp>
 
@@ -31,69 +12,19 @@
 
 namespace {
 
-using aztec3::circuits::compute_empty_sibling_path;
-using aztec3::circuits::abis::CallContext;
-using aztec3::circuits::abis::CallStackItem;
-using aztec3::circuits::abis::CombinedAccumulatedData;
-using aztec3::circuits::abis::CombinedConstantData;
-using aztec3::circuits::abis::CombinedHistoricTreeRoots;
-using aztec3::circuits::abis::ContractDeploymentData;
-using aztec3::circuits::abis::FunctionData;
-using aztec3::circuits::abis::FunctionLeafPreimage;
-using aztec3::circuits::abis::KernelCircuitPublicInputs;
-using aztec3::circuits::abis::NewContractData;
-using aztec3::circuits::abis::OptionalPrivateCircuitPublicInputs;
-using aztec3::circuits::abis::PrivateCircuitPublicInputs;
-using aztec3::circuits::abis::PrivateHistoricTreeRoots;
-using aztec3::circuits::abis::PrivateTypes;
-using aztec3::circuits::abis::SignedTxRequest;
-using aztec3::circuits::abis::TxContext;
-using aztec3::circuits::abis::TxRequest;
-using aztec3::circuits::abis::private_kernel::PrivateCallData;
-using aztec3::circuits::abis::private_kernel::PrivateKernelInputsInner;
-
 using aztec3::circuits::apps::test_apps::basic_contract_deployment::constructor;
 using aztec3::circuits::apps::test_apps::escrow::deposit;
 
-using DummyComposer = aztec3::utils::DummyComposer;
-
-using CircuitErrorCode = aztec3::utils::CircuitErrorCode;
-
-using aztec3::utils::zero_array;
-
-// A type representing any private circuit function
-// (for now it works for deposit and constructor)
-using private_function = std::function<OptionalPrivateCircuitPublicInputs<NT>(
-    FunctionExecutionContext<aztec3::circuits::kernel::private_kernel::Composer>&, std::vector<NT::fr> const&)>;
-
-// Some helper constants for trees
-constexpr size_t MAX_FUNCTION_LEAVES = 2 << (aztec3::FUNCTION_TREE_HEIGHT - 1);
-const NT::fr EMPTY_FUNCTION_LEAF = FunctionLeafPreimage<NT>{}.hash();  // hash of empty/0 preimage
-const NT::fr EMPTY_CONTRACT_LEAF = NewContractData<NT>{}.hash();       // hash of empty/0 preimage
-
-const auto& get_empty_function_siblings()
-{
-    static auto EMPTY_FUNCTION_SIBLINGS = []() {
-        const auto result = compute_empty_sibling_path<NT, aztec3::FUNCTION_TREE_HEIGHT>(EMPTY_FUNCTION_LEAF);
-        return result;
-    }();
-    return EMPTY_FUNCTION_SIBLINGS;
-}
-
-const auto& get_empty_contract_siblings()
-{
-    static auto EMPTY_CONTRACT_SIBLINGS = []() {
-        const auto result = compute_empty_sibling_path<NT, aztec3::CONTRACT_TREE_HEIGHT>(EMPTY_CONTRACT_LEAF);
-        return result;
-    }();
-    return EMPTY_CONTRACT_SIBLINGS;
-}
+using aztec3::circuits::kernel::private_kernel::testing_harness::do_private_call_get_kernel_inputs_init;
+using aztec3::circuits::kernel::private_kernel::testing_harness::do_private_call_get_kernel_inputs_inner;
+using aztec3::circuits::kernel::private_kernel::testing_harness::validate_deployed_contract_address;
 
 }  // namespace
 
 namespace aztec3::circuits::kernel::private_kernel {
 
 /**
+<<<<<<< HEAD
  * @brief Print some debug info about a composer if in DEBUG_PRINTS mode
  *
  * @param composer
@@ -509,6 +440,8 @@ class private_kernel_tests : public ::testing::Test {
 };
 
 /**
+=======
+>>>>>>> origin/master
  * @brief Some private circuit proof (`deposit`, in this case)
  */
 TEST_F(private_kernel_tests, circuit_deposit)
@@ -516,9 +449,11 @@ TEST_F(private_kernel_tests, circuit_deposit)
     NT::fr const& amount = 5;
     NT::fr const& asset_id = 1;
     NT::fr const& memo = 999;
+    std::array<NT::fr, 2> const& encrypted_logs_hash = { NT::fr(16), NT::fr(69) };
+    NT::fr const& encrypted_log_preimages_length = NT::fr(100);
 
-    auto const& private_inputs =
-        do_private_call_get_kernel_inputs_inner(false, deposit, { amount, asset_id, memo }, true);
+    auto const& private_inputs = do_private_call_get_kernel_inputs_inner(
+        false, deposit, { amount, asset_id, memo }, encrypted_logs_hash, encrypted_log_preimages_length, true);
 
     // Execute and prove the first kernel iteration
     Composer private_kernel_composer(barretenberg::srs::get_crs_factory());
@@ -527,8 +462,8 @@ TEST_F(private_kernel_tests, circuit_deposit)
     // TODO(jeanmon): this is a temporary hack until we have private_kernel_circuit init and inner
     // variant. Once this is supported, we will be able to generate public_inputs with
     // a call to private_kernel_circuit_init(private_inputs_init, ...)
-    auto const& private_inputs_init =
-        do_private_call_get_kernel_inputs_init(false, deposit, { amount, asset_id, memo });
+    auto const& private_inputs_init = do_private_call_get_kernel_inputs_init(
+        false, deposit, { amount, asset_id, memo }, encrypted_logs_hash, encrypted_log_preimages_length, true);
 
     // TODO(jeanmon): Once we have an inner/init private kernel circuit,
     // there should not be any new deployed contract address in public_inputs
@@ -537,7 +472,8 @@ TEST_F(private_kernel_tests, circuit_deposit)
 
     // TODO(jeanmon): Remove once we have an inner/innit private kernel circuit
     // Check contract address was correctly computed by the circuit
-    validate_deployed_contract_address(private_inputs_init, public_inputs);
+    EXPECT_TRUE(validate_deployed_contract_address(private_inputs_init, public_inputs));
+    EXPECT_FALSE(private_kernel_composer.failed());
 
     // Create the final kernel proof and verify it natively.
     auto final_kernel_prover = private_kernel_composer.create_prover();
@@ -546,6 +482,7 @@ TEST_F(private_kernel_tests, circuit_deposit)
     auto final_kernel_verifier = private_kernel_composer.create_verifier();
     auto const& final_result = final_kernel_verifier.verify_proof(final_kernel_proof);
     EXPECT_EQ(final_result, true);
+<<<<<<< HEAD
 
     debugComposer(private_kernel_composer);
 }
@@ -585,6 +522,8 @@ TEST_F(private_kernel_tests, native_deposit)
     // Unencrypted logs hash should be a sha256 hash of 2 zero values
     auto const& expected_unencrypted_logs_hash = accumulate_sha256<NT>({ fr(0), fr(0), fr(0), fr(0) });
     ASSERT_EQ(public_inputs.end.unencrypted_logs_hash, expected_unencrypted_logs_hash);
+=======
+>>>>>>> origin/master
 }
 
 /**
@@ -595,8 +534,11 @@ TEST_F(private_kernel_tests, circuit_basic_contract_deployment)
     NT::fr const& arg0 = 5;
     NT::fr const& arg1 = 1;
     NT::fr const& arg2 = 999;
+    std::array<NT::fr, 2> const& encrypted_logs_hash = { NT::fr(16), NT::fr(69) };
+    NT::fr const& encrypted_log_preimages_length = NT::fr(100);
 
-    auto const& private_inputs = do_private_call_get_kernel_inputs_inner(true, constructor, { arg0, arg1, arg2 }, true);
+    auto const& private_inputs = do_private_call_get_kernel_inputs_inner(
+        true, constructor, { arg0, arg1, arg2 }, encrypted_logs_hash, encrypted_log_preimages_length, true);
 
     // Execute and prove the first kernel iteration
     Composer private_kernel_composer(barretenberg::srs::get_crs_factory());
@@ -605,10 +547,12 @@ TEST_F(private_kernel_tests, circuit_basic_contract_deployment)
     // TODO(jeanmon): this is a temporary hack until we have private_kernel_circuit init and inner
     // variant. Once this is supported, we will be able to generate public_inputs with
     // a call to private_kernel_circuit_init(private_inputs_init, ...)
-    auto const& private_inputs_init = do_private_call_get_kernel_inputs_init(true, constructor, { arg0, arg1, arg2 });
+    auto const& private_inputs_init = do_private_call_get_kernel_inputs_init(
+        true, constructor, { arg0, arg1, arg2 }, encrypted_logs_hash, encrypted_log_preimages_length, true);
 
     // Check contract address was correctly computed by the circuit
-    validate_deployed_contract_address(private_inputs_init, public_inputs);
+    EXPECT_TRUE(validate_deployed_contract_address(private_inputs_init, public_inputs));
+    EXPECT_FALSE(private_kernel_composer.failed());
 
     // Create the final kernel proof and verify it natively.
     auto final_kernel_prover = private_kernel_composer.create_prover();
@@ -617,6 +561,7 @@ TEST_F(private_kernel_tests, circuit_basic_contract_deployment)
     auto final_kernel_verifier = private_kernel_composer.create_verifier();
     auto const& final_result = final_kernel_verifier.verify_proof(final_kernel_proof);
     EXPECT_EQ(final_result, true);
+<<<<<<< HEAD
 
     debugComposer(private_kernel_composer);
 }
@@ -648,6 +593,8 @@ TEST_F(private_kernel_tests, native_basic_contract_deployment)
 
     ASSERT_EQ(public_inputs.end.encrypted_logs_hash, expected_logs_hash);
     ASSERT_EQ(public_inputs.end.encrypted_logs_hash, expected_logs_hash);
+=======
+>>>>>>> origin/master
 }
 
 /**
@@ -658,9 +605,12 @@ TEST_F(private_kernel_tests, circuit_create_proof_cbinds)
     NT::fr const& arg0 = 5;
     NT::fr const& arg1 = 1;
     NT::fr const& arg2 = 999;
+    std::array<NT::fr, 2> const& encrypted_logs_hash = { NT::fr(16), NT::fr(69) };
+    NT::fr const& encrypted_log_preimages_length = NT::fr(100);
 
     // first run actual simulation to get public inputs
-    auto const& private_inputs = do_private_call_get_kernel_inputs_init(true, constructor, { arg0, arg1, arg2 });
+    auto const& private_inputs = do_private_call_get_kernel_inputs_init(
+        true, constructor, { arg0, arg1, arg2 }, encrypted_logs_hash, encrypted_log_preimages_length, true);
     DummyComposer composer = DummyComposer("private_kernel_tests__circuit_create_proof_cbinds");
     auto const& public_inputs = native_private_kernel_circuit_initial(composer, private_inputs);
 
@@ -671,12 +621,12 @@ TEST_F(private_kernel_tests, circuit_create_proof_cbinds)
     //***************************************************************************
     // Now run the simulate/prove cbinds to make sure their outputs match
     //***************************************************************************
-    // TODO might be able to get rid of proving key buffer
+    // TODO(david): might be able to get rid of proving key buffer
     uint8_t const* pk_buf = nullptr;
     private_kernel__init_proving_key(&pk_buf);
     // info("Proving key size: ", pk_size);
 
-    // TODO might be able to get rid of verification key buffer
+    // TODO(david): might be able to get rid of verification key buffer
     // uint8_t const* vk_buf;
     // size_t vk_size = private_kernel__init_verification_key(pk_buf, &vk_buf);
     // info("Verification key size: ", vk_size);
@@ -697,7 +647,7 @@ TEST_F(private_kernel_tests, circuit_create_proof_cbinds)
                                                                   &public_inputs_buf);
     ASSERT_TRUE(circuit_failure_ptr == nullptr);
 
-    // TODO better equality check
+    // TODO(david): better equality check
     // for (size_t i = 0; i < public_inputs_size; i++)
     for (size_t i = 0; i < 10; i++) {
         ASSERT_EQ(public_inputs_buf[i], expected_public_inputs_vec[i]);
@@ -718,46 +668,6 @@ TEST_F(private_kernel_tests, circuit_create_proof_cbinds)
     // free((void*)vk_buf);
     free((void*)proof_data_buf);
     free((void*)public_inputs_buf);
-}
-
-
-/**
- * @brief Test this dummy cbind
- */
-TEST_F(private_kernel_tests, cbind_private_kernel__dummy_previous_kernel)
-{
-    auto func = [] { return aztec3::circuits::kernel::private_kernel::utils::dummy_previous_kernel(); };
-    auto [actual, expected] = call_func_and_wrapper(func, private_kernel__dummy_previous_kernel);
-    // TODO(AD): investigate why direct operator== didn't work
-    std::stringstream actual_ss;
-    std::stringstream expected_ss;
-    actual_ss << actual;
-    expected_ss << expected;
-    EXPECT_EQ(actual_ss.str(), expected_ss.str());
-}
-
-TEST_F(private_kernel_tests, private_kernel_should_fail_if_aggregating_too_many_commitments)
-{
-    // Negative test to check if push_array_to_array fails if two many commitments are merged together
-    DummyComposer composer = DummyComposer("should_fail_if_aggregating_too_many_commitments");
-
-    NT::fr const& amount = 5;
-    NT::fr const& asset_id = 1;
-    NT::fr const& memo = 999;
-
-    PrivateKernelInputsInner<NT> private_inputs =
-        do_private_call_get_kernel_inputs_inner(false, deposit, { amount, asset_id, memo });
-
-    // Mock the previous new commitments to be full, therefore no need commitments can be added
-    std::array<fr, KERNEL_NEW_COMMITMENTS_LENGTH> full_new_commitments{};
-    for (size_t i = 0; i < KERNEL_NEW_COMMITMENTS_LENGTH; ++i) {
-        full_new_commitments[i] = i + 1;
-    }
-    private_inputs.previous_kernel.public_inputs.end.new_commitments = full_new_commitments;
-    auto const& public_inputs = native_private_kernel_circuit_inner(composer, private_inputs);
-
-    ASSERT_TRUE(composer.failed());
-    ASSERT_EQ(composer.get_first_failure().code, CircuitErrorCode::ARRAY_OVERFLOW);
 }
 
 }  // namespace aztec3::circuits::kernel::private_kernel
