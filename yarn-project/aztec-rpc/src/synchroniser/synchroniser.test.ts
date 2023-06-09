@@ -95,7 +95,9 @@ describe('Synchroniser', () => {
 
     // But they should change when we process block with height 5
     const block5 = L2Block.random(5, 4);
-    aztecNode.getBlocks.mockResolvedValueOnce([block5]);
+    aztecNode.getBlocks.mockResolvedValueOnce([
+      L2Block.fromFields(omit(block5, 'newEncryptedLogs', 'newEncryptedLogsLength')),
+    ]);
 
     await synchroniser.work();
     const roots5 = await database.getTreeRoots();
