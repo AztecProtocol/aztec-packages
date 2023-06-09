@@ -4,8 +4,8 @@ import { readFile } from 'fs/promises';
 import isNode from 'detect-node';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
-import { srsInitSrs2 } from '../cbind/circuits.gen.js';
 import { Crs } from '../crs/index.js';
+import { numToUInt32BE } from '@aztec/foundation/serialize';
 
 const NAME = '/aztec3-circuits';
 const CODE_PATH = isNode
@@ -93,10 +93,30 @@ export class CircuitsWasm implements IWasmModule {
       loggerName,
     );
     await wasm.init(initial, maximum);
+    await CircuitsWasm.initializeSrs(wasm);
+    return new CircuitsWasm(wasm);
+  }
+
+  /**
+   * Ensures the global SRS is initialized.
+   * Currently used in VK serialization and will be used in proofs.
+   * TODO(AD): proof should use external bb.js
+   * TODO(AD): revisit when SRS should be initialized
+   * @param wasm - The WASM module.
+   */
+  private static async initializeSrs(wasm: WasmModule) {
     const crs = new Crs(MAX_SRS_POINTS);
     await crs.init();
-    srsInitSrs2(wasm, Buffer.from(crs.getG1Data()), Buffer.from(crs.getG2Data()));
-    return new CircuitsWasm(wasm);
+    const g1Buf = wasm.call('bbmalloc', crs.getG1Data().length);
+    wasm.writeMemory(g1Buf, crs.getG1Data());
+    const g1SizeBuf = wasm.call('bbmalloc', 4);
+    wasm.writeMemory(g1SizeBuf, numToUInt32BE(crs.numPoints));
+    const g2Buf = wasm.call('bbmalloc', crs.getG2Data().length);
+    wasm.writeMemory(g2Buf, crs.getG2Data());
+    wasm.call('srs_init_srs', g1Buf, g1SizeBuf, g2Buf);
+    wasm.call('bbfree', g1Buf);
+    wasm.call('bbfree', g1SizeBuf);
+    wasm.call('bbfree', g2Buf);
   }
 
   /**
