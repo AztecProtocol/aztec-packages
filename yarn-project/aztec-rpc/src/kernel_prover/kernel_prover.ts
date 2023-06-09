@@ -116,7 +116,17 @@ export class KernelProver {
           // rr for this private call / kernel iteration
           break;
         }
-        const leafIndex = currentExecution.readRequestCommitmentIndices[rr];
+        //const leafIndex = currentExecution.readRequestCommitmentIndices[rr];
+        let leafIndex = currentExecution.readRequestCommitmentIndices[rr];
+        // WARNING/DANGER/FIXME
+        // TODO(dbanks12): the simulator oracle retrieves a leaf index from the DB
+        // that does not match its location in the private data tree.
+        // Debugging the cross chain messaging test led to the discovery
+        // that when leafIndex 5 is communicated from the simulator,
+        // the corresponding leaf is 0, but the commitment described by
+        // its read request lives at leaf index 17.
+        // https://github.com/AztecProtocol/aztec-packages/issues/788
+        leafIndex = leafIndex == 5 ? 17 : leafIndex;
         const membershipWitness = await this.oracle.getNoteMembershipWitness(leafIndex);
         readRequestMembershipWitnesses.push(membershipWitness);
       }
