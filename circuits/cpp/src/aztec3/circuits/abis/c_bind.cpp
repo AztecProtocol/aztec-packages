@@ -25,10 +25,7 @@
 #include "aztec3/constants.hpp"
 #include "aztec3/utils/types/native_types.hpp"
 
-#include "barretenberg/serialize/cbind_fwd.hpp"
 #include <barretenberg/barretenberg.hpp>
-
-#include <cstdint>
 
 namespace {
 
