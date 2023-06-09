@@ -1295,18 +1295,15 @@ export async function abisComputeContractAddress(
     ]),
   );
 }
-export async function privateKernelDummyPreviousKernel(wasm: IWasmModule): Promise<PreviousKernelData> {
-  return toPreviousKernelData(await callCbind(wasm, 'private_kernel__dummy_previous_kernel', []));
+export function privateKernelDummyPreviousKernel(wasm: IWasmModule): PreviousKernelData {
+  return toPreviousKernelData(callCbind(wasm, 'private_kernel__dummy_previous_kernel', []));
 }
-export async function publicKernelSim(
-  wasm: IWasmModule,
-  arg0: PublicKernelInputs,
-): Promise<CircuitError | KernelCircuitPublicInputs> {
+export function publicKernelSim(wasm: IWasmModule, arg0: PublicKernelInputs): CircuitError | KernelCircuitPublicInputs {
   return ((v: MsgpackCircuitError | MsgpackKernelCircuitPublicInputs) =>
     isCircuitError(v) ? toCircuitError(v) : toKernelCircuitPublicInputs(v))(
-    await callCbind(wasm, 'public_kernel__sim', [fromPublicKernelInputs(arg0)]),
+    callCbind(wasm, 'public_kernel__sim', [fromPublicKernelInputs(arg0)]),
   );
 }
-export async function srsInitSrs2(wasm: IWasmModule, arg0: Buffer, arg1: Buffer): Promise<number> {
-  return await callCbind(wasm, 'srs_init_srs2', [arg0, arg1]);
+export function srsInitSrs2(wasm: IWasmModule, arg0: Uint8Array, arg1: Uint8Array): number {
+  return callCbind(wasm, 'srs_init_srs2', [arg0, arg1]);
 }

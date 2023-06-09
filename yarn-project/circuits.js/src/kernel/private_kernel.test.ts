@@ -13,8 +13,8 @@ describe('kernel/private_kernel', () => {
     wasm = await CircuitsWasm.get();
   });
 
-  it('gets dummy kernel data', async () => {
-    await expect(privateKernelDummyPreviousKernel(wasm)).resolves.toBeDefined();
+  it('gets dummy kernel data', () => {
+    expect(privateKernelDummyPreviousKernel(wasm)).toBeDefined();
   });
 
   it('computes function tree', async () => {
@@ -26,6 +26,6 @@ describe('kernel/private_kernel', () => {
     expect(tree.slice(0, numLeaves)).toEqual(leaves);
 
     const root = tree[tree.length - 1];
-    expect(root).toEqual(await computeFunctionTreeRoot(wasm, leaves));
+    expect(root).toEqual(computeFunctionTreeRoot(wasm, leaves));
   });
 });
