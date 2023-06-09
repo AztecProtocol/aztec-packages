@@ -4,7 +4,6 @@
 #include "aztec3/utils/circuit_errors.hpp"
 
 #include <barretenberg/barretenberg.hpp>
-#include <barretenberg/proof_system/types/composer_type.hpp>
 
 /**
  * NOTE: see bberg's stdlib/primitives/field/array.hpp for the corresponding circuit implementations of these functions.

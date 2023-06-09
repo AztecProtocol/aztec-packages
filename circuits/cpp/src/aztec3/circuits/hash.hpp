@@ -7,7 +7,6 @@
 #include "aztec3/utils/circuit_errors.hpp"
 
 #include <barretenberg/barretenberg.hpp>
-#include <barretenberg/common/throw_or_abort.hpp>
 
 #include <array>
 #include <vector>
