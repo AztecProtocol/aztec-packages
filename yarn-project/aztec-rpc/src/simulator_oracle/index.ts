@@ -116,7 +116,7 @@ export class SimulatorOracle implements DBOracle {
    *            index of the message in the private data tree.
    */
   async getCommitment(contractAddress: AztecAddress, commitment: Fr): Promise<CommitmentDataOracleInputs> {
-    const message = await computeSiloedCommitment(await CircuitsWasm.get(), contractAddress, commitment);
+    const message = computeSiloedCommitment(await CircuitsWasm.get(), contractAddress, commitment);
     const index = await this.node.findCommitmentIndex(message.toBuffer());
     if (!index) throw new Error('Commitment not found');
 

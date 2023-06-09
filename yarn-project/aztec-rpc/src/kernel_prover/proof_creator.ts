@@ -59,9 +59,7 @@ export class KernelProofCreator {
     const wasm = await CircuitsWasm.get();
     const contractAddress = publicInputs.callContext.storageContractAddress;
 
-    return Promise.all(
-      publicInputs.newCommitments.map(commitment => computeSiloedCommitment(wasm, contractAddress, commitment)),
-    );
+    return publicInputs.newCommitments.map(commitment => computeSiloedCommitment(wasm, contractAddress, commitment));
   }
 
   /**

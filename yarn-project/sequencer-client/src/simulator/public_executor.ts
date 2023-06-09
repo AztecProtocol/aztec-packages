@@ -108,7 +108,7 @@ export class WorldStateDB implements CommitmentsDB {
    * @returns - The Commitment data oracle object
    */
   public async getCommitment(address: AztecAddress, commitment: Fr): Promise<CommitmentDataOracleInputs> {
-    const message = await computeSiloedCommitment(await CircuitsWasm.get(), address, commitment);
+    const message = computeSiloedCommitment(await CircuitsWasm.get(), address, commitment);
     const index = (await this.db.findLeafIndex(MerkleTreeId.PRIVATE_DATA_TREE, message.toBuffer()))!;
     const siblingPath = await this.db.getSiblingPath(MerkleTreeId.PRIVATE_DATA_TREE, index);
 

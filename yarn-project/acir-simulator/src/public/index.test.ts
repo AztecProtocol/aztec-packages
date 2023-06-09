@@ -1,4 +1,4 @@
-import { Grumpkin } from '@aztec/barretenberg.js/crypto';
+import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { CallContext, FunctionData, CircuitsWasm, PrivateHistoricTreeRoots } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
