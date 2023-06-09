@@ -48,9 +48,9 @@ export interface AztecNode {
 
   /**
    * Gets the `take` amount of encrypted logs starting from `from`.
-   * @param from - Number of the L2 block to which corresponds the first encryptedLogsSource to be returned.
-   * @param take - The number of encryptedLogsSource to return.
-   * @returns The requested encryptedLogsSource.
+   * @param from - Number of the L2 block to which corresponds the first encrypted logs to be returned.
+   * @param take - The number of encrypted logs to return.
+   * @returns The requested encrypted logs.
    */
   getEncryptedLogs(from: number, take: number): Promise<NoirLogs[]>;
 

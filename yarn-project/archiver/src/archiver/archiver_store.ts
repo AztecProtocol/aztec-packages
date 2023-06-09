@@ -24,7 +24,7 @@ export interface ArchiverDataStore {
   getL2Blocks(from: number, take: number): Promise<L2Block[]>;
 
   /**
-   * Append new encrypted event logs data to the store's list.
+   * Append new encrypted logs to the store's list.
    * @param data - The encrypted logs to be added to the store.
    * @returns True if the operation is successful.
    */
@@ -135,7 +135,7 @@ export class MemoryArchiverStore implements ArchiverDataStore {
   private l2Blocks: L2Block[] = [];
 
   /**
-   * An array containing all the encrypted event logs that have been fetched so far.
+   * An array containing all the encrypted logs that have been fetched so far.
    * Note: Index in the "outer" array equals to (corresponding L2 block's number - INITIAL_L2_BLOCK_NUM).
    */
   private encryptedLogs: NoirLogs[] = [];
@@ -169,7 +169,7 @@ export class MemoryArchiverStore implements ArchiverDataStore {
   }
 
   /**
-   * Append new encrypted event logs data to the store's list.
+   * Append new encrypted logs data to the store's list.
    * @param data - The encrypted logs to be added to the store.
    * @returns True if the operation is successful (always in this implementation).
    */

@@ -116,7 +116,7 @@ export class ViemTxSender implements L1PublisherTxSender {
   }
 
   /**
-   * Sends a tx to the encrypted logs emitter contract with contract deployment data such as bytecode. Returns once the tx has been mined.
+   * Sends a tx to the contract deployment emitter contract with contract deployment data such as bytecode. Returns once the tx has been mined.
    * @param l2BlockNum - Number of the L2 block that owns this encrypted logs.
    * @param l2BlockHash - The hash of the block corresponding to this data.
    * @param newContractData - Data to publish.
