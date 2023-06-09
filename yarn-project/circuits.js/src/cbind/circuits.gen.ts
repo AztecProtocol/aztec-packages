@@ -33,7 +33,6 @@ import {
   PublicKernelInputs,
   CircuitError,
   isCircuitError,
-  ProverBasePtr,
 } from './types.js';
 import { Tuple, mapTuple } from '@aztec/foundation/serialize';
 import mapValues from 'lodash.mapvalues';
@@ -1308,6 +1307,6 @@ export async function publicKernelSim(
     await callCbind(wasm, 'public_kernel__sim', [fromPublicKernelInputs(arg0)]),
   );
 }
-export async function proverProcessQueue2(wasm: IWasmModule, arg0: ProverBasePtr): Promise<number> {
-  return await callCbind(wasm, 'prover_process_queue2', [arg0]);
+export async function srsInitSrs2(wasm: IWasmModule, arg0: Buffer, arg1: Buffer): Promise<number> {
+  return await callCbind(wasm, 'srs_init_srs2', [arg0, arg1]);
 }

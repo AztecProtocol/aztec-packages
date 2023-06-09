@@ -457,11 +457,11 @@ return ${callSyntax.call(this)};
     const typeInfos = args.map(arg => this.getTypeInfo(arg));
     const argStrings = typeInfos.map((typeInfo, i) => `arg${i}: ${typeInfo.typeName}`);
     const callStrings = typeInfos.map((typeInfo, i) => `${classConverterExpr(typeInfo, `arg${i}`)}`);
-    const innerCall = `await callCbind(wasm, '${name}', [${callStrings.join(', ')}])`;
+    const innerCall = `callCbind(wasm, '${name}', [${callStrings.join(', ')}])`;
     const retType = this.getTypeInfo(cbind.ret);
-    this.funcDecls.push(`export async function ${camelCase(name)}(wasm: IWasmModule, ${argStrings.join(
-      ', ',
-    )}): Promise<${retType.typeName}> {
+    this.funcDecls.push(`export function ${camelCase(name)}(wasm: IWasmModule, ${argStrings.join(', ')}): Promise<${
+      retType.typeName
+    }> {
 return ${msgpackConverterExpr(retType, innerCall)};
 }`);
   }

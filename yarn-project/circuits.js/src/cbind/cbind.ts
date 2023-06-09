@@ -66,7 +66,7 @@ export function getCbindSchema(wasm: CircuitsWasm, cbind: string): any {
  * @param input - An array of input arguments to wrap with msgpack.
  * @returns The msgpack-decoded result.
  */
-export function callCbind(wasm: IWasmModule, cbind: string, input: any[]): Promise<any> {
+export function callCbind(wasm: IWasmModule, cbind: string, input: any[]): any {
   const outputSizePtr = wasm.call('bbmalloc', 4);
   const outputMsgpackPtr = wasm.call('bbmalloc', 4);
   const inputBuffer = encode(input);

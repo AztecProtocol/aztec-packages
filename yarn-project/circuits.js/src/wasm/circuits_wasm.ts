@@ -4,6 +4,7 @@ import { readFile } from 'fs/promises';
 import isNode from 'detect-node';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
+import { srsInitSrs2 } from '../cbind/circuits.gen.js';
 
 const NAME = '/aztec3-circuits';
 const CODE_PATH = isNode
@@ -67,10 +68,16 @@ export class CircuitsWasm implements IWasmModule {
          * @param addr - The string address to log.
          */
         logstr(addr: number) {
-          const str = wasm.getMemoryAsString(addr);
+          const rawStr = wasm.getMemoryAsString(addr);
           const m = wasm.getMemory();
-          const str2 = `${str} (mem: ${(m.length / (1024 * 1024)).toFixed(2)}MB)`;
-          wasm.getLogger()(str2);
+          const str = `${rawStr} (mem: ${(m.length / (1024 * 1024)).toFixed(2)}MB)`;
+          if (str.startsWith('abort: ')) {
+            // we explicitly want to route to console.error for every abort message:
+            // eslint-disable-next-line no-console
+            console.error(str);
+          } else {
+            wasm.getLogger()(str);
+          }
         },
         memory: module.getRawMemory(),
         // eslint-disable-next-line camelcase
@@ -85,6 +92,9 @@ export class CircuitsWasm implements IWasmModule {
       loggerName,
     );
     await wasm.init(initial, maximum);
+    // write dummy SRS
+    // TODO(AD): After real proving, use real SRS.
+    srsInitSrs2(wasm, Buffer.alloc(0), Buffer.alloc(128));
     return new CircuitsWasm(wasm);
   }
 
