@@ -1,4 +1,4 @@
-import { Grumpkin, pedersenCompressInputs, pedersenCompressWithHashIndex } from '@aztec/barretenberg.js/crypto';
+import { pedersenCompressInputs, pedersenCompressWithHashIndex } from '@aztec/barretenberg.js/crypto';
 import { BarretenbergWasm } from '@aztec/barretenberg.js/wasm';
 import { CallContext, PrivateHistoricTreeRoots } from '@aztec/circuits.js';
 import { FunctionAbi, FunctionType } from '@aztec/foundation/abi';
