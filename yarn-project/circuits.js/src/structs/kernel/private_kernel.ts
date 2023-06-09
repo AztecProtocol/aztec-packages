@@ -48,7 +48,7 @@ export class PrivateCallData {
      */
     public contractLeafMembershipWitness: MembershipWitness<typeof CONTRACT_TREE_HEIGHT>,
     /**
-     * The membership witnesses for read requests corresponding created by the function being invoked.
+     * The membership witnesses for read requests created by the function being invoked.
      */
     public readRequestMembershipWitnesses: MembershipWitness<typeof PRIVATE_DATA_TREE_HEIGHT>[],
     /**
