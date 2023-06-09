@@ -33,6 +33,11 @@ class native_private_kernel_init_tests : public ::testing::Test {
     static void SetUpTestSuite() { barretenberg::srs::init_crs_factory("../srs_db/ignition"); }
 };
 
+class native_private_kernel_inner_tests : public ::testing::Test {
+  protected:
+    static void SetUpTestSuite() { barretenberg::srs::init_crs_factory("../srs_db/ignition"); }
+};
+
 /**
  **************************************************************
  * Native initial private kernel circuit tests.
