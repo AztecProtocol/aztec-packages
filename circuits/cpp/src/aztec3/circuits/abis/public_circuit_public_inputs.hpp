@@ -29,14 +29,15 @@ template <typename NCT> struct PublicCircuitPublicInputs {
     fr args_hash = 0;
     std::array<fr, RETURN_VALUES_LENGTH> return_values = zero_array<fr, RETURN_VALUES_LENGTH>();
 
-    std::array<fr, EMITTED_EVENTS_LENGTH> emitted_events = zero_array<fr, EMITTED_EVENTS_LENGTH>();
-
     std::array<ContractStorageUpdateRequest<NCT>, KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH>
         contract_storage_update_requests{};
     std::array<ContractStorageRead<NCT>, KERNEL_PUBLIC_DATA_READS_LENGTH> contract_storage_reads{};
 
     std::array<fr, PUBLIC_CALL_STACK_LENGTH> public_call_stack = zero_array<fr, PUBLIC_CALL_STACK_LENGTH>();
-    std::array<fr, NEW_L2_TO_L1_MSGS_LENGTH> new_l2_to_l1_msgs = zero_array<fr, NEW_L2_TO_L1_MSGS_LENGTH>();
+    std::array<fr, KERNEL_NEW_COMMITMENTS_LENGTH> new_commitments = zero_array<fr, KERNEL_NEW_COMMITMENTS_LENGTH>();
+    std::array<fr, KERNEL_NEW_NULLIFIERS_LENGTH> new_nullifiers = zero_array<fr, KERNEL_NEW_NULLIFIERS_LENGTH>();
+    std::array<fr, KERNEL_NEW_L2_TO_L1_MSGS_LENGTH> new_l2_to_l1_msgs =
+        zero_array<fr, KERNEL_NEW_L2_TO_L1_MSGS_LENGTH>();
 
     fr historic_public_data_tree_root = 0;
 
@@ -46,13 +47,15 @@ template <typename NCT> struct PublicCircuitPublicInputs {
     MSGPACK_FIELDS(call_context,
                    args_hash,
                    return_values,
-                   emitted_events,
                    contract_storage_update_requests,
                    contract_storage_reads,
                    public_call_stack,
+                   new_commitments,
+                   new_nullifiers,
                    new_l2_to_l1_msgs,
                    historic_public_data_tree_root,
                    prover_address);
+
     boolean operator==(PublicCircuitPublicInputs<NCT> const& other) const
     {
         return msgpack_derived_equals<boolean>(*this, other);
@@ -73,12 +76,12 @@ template <typename NCT> struct PublicCircuitPublicInputs {
             .args_hash = to_ct(args_hash),
             .return_values = to_ct(return_values),
 
-            .emitted_events = to_ct(emitted_events),
-
             .contract_storage_update_requests = map(contract_storage_update_requests, to_circuit_type),
             .contract_storage_reads = map(contract_storage_reads, to_circuit_type),
 
             .public_call_stack = to_ct(public_call_stack),
+            .new_commitments = to_ct(new_commitments),
+            .new_nullifiers = to_ct(new_nullifiers),
             .new_l2_to_l1_msgs = to_ct(new_l2_to_l1_msgs),
 
             .historic_public_data_tree_root = to_ct(historic_public_data_tree_root),
@@ -102,12 +105,12 @@ template <typename NCT> struct PublicCircuitPublicInputs {
         inputs.push_back(args_hash);
         spread_arr_into_vec(return_values, inputs);
 
-        spread_arr_into_vec(emitted_events, inputs);
-
         spread_arr_into_vec(map(contract_storage_update_requests, to_hashes), inputs);
         spread_arr_into_vec(map(contract_storage_reads, to_hashes), inputs);
 
         spread_arr_into_vec(public_call_stack, inputs);
+        spread_arr_into_vec(new_commitments, inputs);
+        spread_arr_into_vec(new_nullifiers, inputs);
         spread_arr_into_vec(new_l2_to_l1_msgs, inputs);
 
         inputs.push_back(historic_public_data_tree_root);
@@ -130,12 +133,13 @@ template <typename NCT> void read(uint8_t const*& it, PublicCircuitPublicInputs<
     read(it, pis.call_context);
     read(it, pis.args_hash);
     read(it, pis.return_values);
-    read(it, pis.emitted_events);
 
     read(it, pis.contract_storage_update_requests);
     read(it, pis.contract_storage_reads);
 
     read(it, pis.public_call_stack);
+    read(it, pis.new_commitments);
+    read(it, pis.new_nullifiers);
     read(it, pis.new_l2_to_l1_msgs);
 
     read(it, pis.historic_public_data_tree_root);
@@ -153,12 +157,13 @@ void write(std::vector<uint8_t>& buf, PublicCircuitPublicInputs<NCT> const& publ
     write(buf, pis.call_context);
     write(buf, pis.args_hash);
     write(buf, pis.return_values);
-    write(buf, pis.emitted_events);
 
     write(buf, pis.contract_storage_update_requests);
     write(buf, pis.contract_storage_reads);
 
     write(buf, pis.public_call_stack);
+    write(buf, pis.new_commitments);
+    write(buf, pis.new_nullifiers);
     write(buf, pis.new_l2_to_l1_msgs);
 
     write(buf, pis.historic_public_data_tree_root);

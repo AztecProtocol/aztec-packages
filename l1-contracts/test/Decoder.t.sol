@@ -145,13 +145,21 @@ contract DecoderTest is Test {
     }
   }
 
-  function testComputeKernelLogsHashNoLogs() public {
-    bytes memory emptyKernelData = hex"00000000"; // 4 empty bytes indicating that length of kernel logs is 0
+  function testComputeKernelLogsIterationWithoutLogs() public {
+    bytes memory kernelLogsLength = hex"00000004"; // 4 bytes containing value 4
+    bytes memory iterationLogsLength = hex"00000000"; // 4 empty bytes indicating that length of this iteration's logs is 0
+    bytes memory encodedLogs = abi.encodePacked(kernelLogsLength, iterationLogsLength);
 
-    (bytes32 logsHash, uint256 bytesAdvanced) = helper.computeKernelLogsHash(emptyKernelData);
+    (bytes32 logsHash, uint256 bytesAdvanced) = helper.computeKernelLogsHash(encodedLogs);
 
-    assertEq(bytesAdvanced, emptyKernelData.length, "Advanced by an incorrect number of bytes");
-    assertEq(logsHash, bytes32(0), "Logs hash should be 0 when there are no logs");
+    bytes32 kernelPublicInputsLogsHash = bytes32(0);
+    bytes32 privateCircuitPublicInputsLogsHash = sha256(new bytes(0));
+
+    bytes32 referenceLogsHash =
+      sha256(abi.encodePacked(kernelPublicInputsLogsHash, privateCircuitPublicInputsLogsHash));
+
+    assertEq(bytesAdvanced, encodedLogs.length, "Advanced by an incorrect number of bytes");
+    assertEq(logsHash, referenceLogsHash, "Incorrect logs hash");
   }
 
   function testComputeKernelLogs1Iteration() public {
@@ -159,17 +167,23 @@ contract DecoderTest is Test {
     // K_LOGS_LEN = 4 + 8 = 12 (hex"0000000c")
     // I1_LOGS_LEN = 8 (hex"00000008")
     // I1_LOGS = 8 random bytes (hex"aafdc7aa93e78a70")
-    bytes memory emptyKernelData = hex"0000000c00000008aafdc7aa93e78a70";
-    (bytes32 logsHash, uint256 bytesAdvanced) = helper.computeKernelLogsHash(emptyKernelData);
+    bytes memory firstFunctionCallLogs = hex"aafdc7aa93e78a70";
+    // Prefix logs with length of kernel logs (12) and length of iteration 1 logs (8)
+    bytes memory encodedLogs = abi.encodePacked(hex"0000000c00000008", firstFunctionCallLogs);
+    (bytes32 logsHash, uint256 bytesAdvanced) = helper.computeKernelLogsHash(encodedLogs);
 
-    // Note: First 32 bytes are 0 because those correspond to the hash of previous iteration and there was no previous
-    //       iteration.
+    // Zero because this is the first iteration
+    bytes32 previousKernelPublicInputsLogsHash = bytes32(0);
+    bytes32 privateCircuitPublicInputsLogsHashFirstCall = sha256(firstFunctionCallLogs);
 
-    bytes32 referenceLogsHash =
-      sha256(hex"0000000000000000000000000000000000000000000000000000000000000000aafdc7aa93e78a70");
+    bytes32 referenceLogsHash = sha256(
+      abi.encodePacked(
+        previousKernelPublicInputsLogsHash, privateCircuitPublicInputsLogsHashFirstCall
+      )
+    );
 
-    assertEq(bytesAdvanced, emptyKernelData.length, "Advanced by an incorrect number of bytes");
-    assertEq(logsHash, referenceLogsHash, "Logs hash should be 0 when there are no logs");
+    assertEq(bytesAdvanced, encodedLogs.length, "Advanced by an incorrect number of bytes");
+    assertEq(logsHash, referenceLogsHash, "Incorrect logs hash");
   }
 
   function testComputeKernelLogs2Iterations() public {
@@ -179,21 +193,69 @@ contract DecoderTest is Test {
     // I1_LOGS = 8 random bytes (hex"aafdc7aa93e78a70")
     // I2_LOGS_LEN = 20 (hex"00000014")
     // I2_LOGS = 20 random bytes (hex"97aee30906a86173c86c6d3f108eefc36e7fb014")
-    bytes memory emptyKernelData =
-      hex"0000002400000008aafdc7aa93e78a700000001497aee30906a86173c86c6d3f108eefc36e7fb014";
-    (bytes32 logsHash, uint256 bytesAdvanced) = helper.computeKernelLogsHash(emptyKernelData);
+    bytes memory firstFunctionCallLogs = hex"aafdc7aa93e78a70";
+    bytes memory secondFunctionCallLogs = hex"97aee30906a86173c86c6d3f108eefc36e7fb014";
+    bytes memory encodedLogs = abi.encodePacked(
+      hex"0000002400000008", firstFunctionCallLogs, hex"00000014", secondFunctionCallLogs
+    );
+    (bytes32 logsHash, uint256 bytesAdvanced) = helper.computeKernelLogsHash(encodedLogs);
 
     bytes32 referenceLogsHashFromIteration1 =
-      sha256(hex"0000000000000000000000000000000000000000000000000000000000000000aafdc7aa93e78a70");
+      sha256(abi.encodePacked(bytes32(0), sha256(firstFunctionCallLogs)));
+
+    bytes32 privateCircuitPublicInputsLogsHashSecondCall = sha256(secondFunctionCallLogs);
 
     bytes32 referenceLogsHashFromIteration2 = sha256(
-      bytes.concat(referenceLogsHashFromIteration1, hex"97aee30906a86173c86c6d3f108eefc36e7fb014")
+      abi.encodePacked(
+        referenceLogsHashFromIteration1, privateCircuitPublicInputsLogsHashSecondCall
+      )
     );
 
-    assertEq(bytesAdvanced, emptyKernelData.length, "Advanced by an incorrect number of bytes");
-    assertEq(
-      logsHash, referenceLogsHashFromIteration2, "Logs hash should be 0 when there are no logs"
+    assertEq(bytesAdvanced, encodedLogs.length, "Advanced by an incorrect number of bytes");
+    assertEq(logsHash, referenceLogsHashFromIteration2, "Incorrect logs hash");
+  }
+
+  function testComputeKernelLogsMiddleIterationWithoutLogs() public {
+    // || K_LOGS_LEN | I1_LOGS_LEN | I1_LOGS | I2_LOGS_LEN | I2_LOGS | I3_LOGS_LEN | I3_LOGS ||
+    // K_LOGS_LEN = 4 + 8 + 4 + 0 + 4 + 20 = 40 (hex"00000028")
+    // I1_LOGS_LEN = 8 (hex"00000008")
+    // I1_LOGS = 8 random bytes (hex"aafdc7aa93e78a70")
+    // I2_LOGS_LEN = 0 (hex"00000000")
+    // I2_LOGS = 0 bytes (hex"")
+    // I3_LOGS_LEN = 20 (hex"00000014")
+    // I3_LOGS = 20 random bytes (hex"97aee30906a86173c86c6d3f108eefc36e7fb014")
+    bytes memory firstFunctionCallLogs = hex"aafdc7aa93e78a70";
+    bytes memory secondFunctionCallLogs = hex"";
+    bytes memory thirdFunctionCallLogs = hex"97aee30906a86173c86c6d3f108eefc36e7fb014";
+    bytes memory encodedLogs = abi.encodePacked(
+      hex"0000002800000008",
+      firstFunctionCallLogs,
+      hex"00000000",
+      secondFunctionCallLogs,
+      hex"00000014",
+      thirdFunctionCallLogs
     );
+    (bytes32 logsHash, uint256 bytesAdvanced) = helper.computeKernelLogsHash(encodedLogs);
+
+    bytes32 referenceLogsHashFromIteration1 =
+      sha256(abi.encodePacked(bytes32(0), sha256(firstFunctionCallLogs)));
+
+    bytes32 privateCircuitPublicInputsLogsHashSecondCall = sha256(secondFunctionCallLogs);
+
+    bytes32 referenceLogsHashFromIteration2 = sha256(
+      abi.encodePacked(
+        referenceLogsHashFromIteration1, privateCircuitPublicInputsLogsHashSecondCall
+      )
+    );
+
+    bytes32 privateCircuitPublicInputsLogsHashThirdCall = sha256(thirdFunctionCallLogs);
+
+    bytes32 referenceLogsHashFromIteration3 = sha256(
+      abi.encodePacked(referenceLogsHashFromIteration2, privateCircuitPublicInputsLogsHashThirdCall)
+    );
+
+    assertEq(bytesAdvanced, encodedLogs.length, "Advanced by an incorrect number of bytes");
+    assertEq(logsHash, referenceLogsHashFromIteration3, "Incorrect logs hash");
   }
 
   // Tests https://github.com/AztecProtocol/aztec-packages/issues/730 is handled correctly
