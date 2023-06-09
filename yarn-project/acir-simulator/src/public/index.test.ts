@@ -1,6 +1,5 @@
 import { Grumpkin } from '@aztec/barretenberg.js/crypto';
-import { BarretenbergWasm } from '@aztec/barretenberg.js/wasm';
-import { CallContext, FunctionData, PrivateHistoricTreeRoots } from '@aztec/circuits.js';
+import { CallContext, FunctionData, CircuitsWasm, PrivateHistoricTreeRoots } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -19,14 +18,14 @@ import { keccak } from '@aztec/foundation/crypto';
 export const createMemDown = () => (memdown as any)() as MemDown<any, any>;
 
 describe('ACIR public execution simulator', () => {
-  let bbWasm: BarretenbergWasm;
+  let bbWasm: CircuitsWasm;
   let publicState: MockProxy<PublicStateDB>;
   let publicContracts: MockProxy<PublicContractsDB>;
   let commitmentsDb: MockProxy<CommitmentsDB>;
   let executor: PublicExecutor;
 
   beforeAll(async () => {
-    bbWasm = await BarretenbergWasm.get();
+    bbWasm = await CircuitsWasm.get();
   });
 
   beforeEach(() => {
