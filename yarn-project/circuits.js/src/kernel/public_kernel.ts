@@ -14,7 +14,7 @@ import { callWasm } from '../utils/call_wasm.js';
  * @returns The public inputs.
  */
 export async function simulatePublicKernelCircuit(input: PublicKernelInputs): Promise<KernelCircuitPublicInputs> {
-  const result = await publicKernelSim(await CircuitsWasm.get(), input);
+  const result = publicKernelSim(await CircuitsWasm.get(), input);
   if (result instanceof CircuitError) {
     throw new CircuitError(result.code, result.message);
   }

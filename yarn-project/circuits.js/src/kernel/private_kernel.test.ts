@@ -17,10 +17,10 @@ describe('kernel/private_kernel', () => {
     expect(privateKernelDummyPreviousKernel(wasm)).toBeDefined();
   });
 
-  it('computes function tree', async () => {
+  it('computes function tree', () => {
     const numLeaves = 4;
     const leaves = times(numLeaves, i => fr(i));
-    const tree = await computeFunctionTree(wasm, leaves);
+    const tree = computeFunctionTree(wasm, leaves);
 
     expect(tree).toHaveLength(2 ** (FUNCTION_TREE_HEIGHT + 1) - 1);
     expect(tree.slice(0, numLeaves)).toEqual(leaves);
