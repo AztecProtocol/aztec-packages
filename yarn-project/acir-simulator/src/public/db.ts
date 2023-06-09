@@ -1,4 +1,4 @@
-import { EthAddress } from '@aztec/circuits.js';
+import { EthAddress, PrivateHistoricTreeRoots } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 import { CommitmentDataOracleInputs, MessageLoadOracleInputs } from '../index.js';
@@ -48,4 +48,5 @@ export interface PublicContractsDB {
 export interface CommitmentsDB {
   getL1ToL2Message(msgKey: Fr): Promise<MessageLoadOracleInputs>;
   getCommitment(address: AztecAddress, msgKey:Fr): Promise<CommitmentDataOracleInputs>;
+  getTreeRoots(): PrivateHistoricTreeRoots;
 }

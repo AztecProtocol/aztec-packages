@@ -1,9 +1,9 @@
 import { CommitmentDataOracleInputs, CommitmentsDB, MessageLoadOracleInputs, PublicContractsDB, PublicExecutor, PublicStateDB } from '@aztec/acir-simulator';
 import { pedersenCompressWithHashIndex } from '@aztec/barretenberg.js/crypto';
 import { BarretenbergWasm } from '@aztec/barretenberg.js/wasm';
-import { AztecAddress, EthAddress, Fr } from '@aztec/circuits.js';
+import { AztecAddress, EthAddress, Fr, PrivateHistoricTreeRoots } from '@aztec/circuits.js';
 import { ContractDataSource, L1ToL2MessageSource, MerkleTreeId } from '@aztec/types';
-import { MerkleTreeOperations, computePublicDataTreeLeafIndex } from '@aztec/world-state';
+import { CurrentCommitmentTreeRoots, MerkleTreeOperations, computePublicDataTreeLeafIndex } from '@aztec/world-state';
 
 /**
  * Returns a new PublicExecutor simulator backed by the supplied merkle tree db and contract data source.
@@ -111,7 +111,22 @@ export class WorldStateDB implements CommitmentsDB {
       index,
       siblingPath: siblingPath.toFieldArray()
     };
-    
+  }
+
+  /**
+   * 
+   * @returns 
+   */
+  public getTreeRoots(): PrivateHistoricTreeRoots {
+    const roots = this.db.getCommitmentTreeRoots();
+
+    return PrivateHistoricTreeRoots.from({
+      privateKernelVkTreeRoot: Fr.ZERO,
+      privateDataTreeRoot: Fr.fromBuffer(roots.privateDataTreeRoot),
+      contractTreeRoot: Fr.fromBuffer(roots.contractDataTreeRoot),
+      nullifierTreeRoot: Fr.fromBuffer(roots.nullifierTreeRoot),
+      l1ToL2MessagesTreeRoot: Fr.fromBuffer(roots.l1Tol2MessagesTreeRoot)
+    })
   }
 
 }
