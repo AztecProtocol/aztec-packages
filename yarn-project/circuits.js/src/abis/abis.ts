@@ -97,7 +97,14 @@ export function hashTxRequest(wasm: IWasmModule, txRequest: TxRequest): Buffer {
  * @returns The function selector.
  */
 export function computeFunctionSelector(wasm: IWasmModule, funcSig: string): Buffer {
-  return wasmSyncCall(wasm, 'abis__compute_function_selector', Buffer.from(funcSig), FUNCTION_SELECTOR_NUM_BYTES);
+  return wasmSyncCall(
+    wasm,
+    'abis__compute_function_selector',
+    // Important - explicit C-string compatibility with a null terminator!
+    // In the future we want to move away from this fiddly C-string processing.
+    Buffer.from(funcSig + '\0'),
+    FUNCTION_SELECTOR_NUM_BYTES,
+  );
 }
 
 /**
