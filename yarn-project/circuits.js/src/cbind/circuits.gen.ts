@@ -1304,6 +1304,3 @@ export function publicKernelSim(wasm: IWasmModule, arg0: PublicKernelInputs): Ci
     callCbind(wasm, 'public_kernel__sim', [fromPublicKernelInputs(arg0)]),
   );
 }
-export function srsInitSrs2(wasm: IWasmModule, arg0: Uint8Array, arg1: Uint8Array): number {
-  return callCbind(wasm, 'srs_init_srs2', [arg0, arg1]);
-}

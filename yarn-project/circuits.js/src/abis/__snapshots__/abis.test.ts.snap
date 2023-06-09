@@ -51,10 +51,10 @@ Fr {
 exports[`abis wasm bindings computes a function selector 1`] = `
 {
   "data": [
-    169,
-    5,
-    156,
-    187,
+    109,
+    177,
+    44,
+    13,
   ],
   "type": "Buffer",
 }
