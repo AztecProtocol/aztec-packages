@@ -20,6 +20,7 @@ import {
   ACVMField,
   ZERO_ACVM_FIELD,
   acvm,
+  convertACVMFieldToBuffer,
   fromACVMField,
   toACVMField,
   toACVMWitness,
@@ -212,14 +213,14 @@ export class PrivateFunctionExecution {
         ownerY,
         ...acvmPreimage
       ]: ACVMField[]) => {
-        const contractAddress = AztecAddress.fromBuffer(fromACVMField(acvmContractAddress).toBuffer());
+        const contractAddress = AztecAddress.fromBuffer(convertACVMFieldToBuffer(acvmContractAddress));
         const storageSlot = fromACVMField(acvmStorageSlot);
         const preimage = acvmPreimage.map(f => fromACVMField(f));
 
         const notePreimage = new NotePreimage(preimage);
         const txAuxData = new TxAuxData(notePreimage, contractAddress, storageSlot);
         const ownerPublicKey = new Point(
-          Buffer.concat([fromACVMField(ownerX).toBuffer(), fromACVMField(ownerY).toBuffer()]),
+          Buffer.concat([convertACVMFieldToBuffer(ownerX), convertACVMFieldToBuffer(ownerY)]),
         );
 
         const encryptedNotePreimage = txAuxData.toEncryptedBuffer(ownerPublicKey, await Grumpkin.new());

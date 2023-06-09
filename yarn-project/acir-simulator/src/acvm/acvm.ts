@@ -110,13 +110,21 @@ export function toACVMField(value: AztecAddress | EthAddress | Fr | Buffer | boo
 }
 
 /**
+ * Converts an ACVM field to a Buffer.
+ * @param field - The ACVM field to convert.
+ * @returns The Buffer.
+ */
+export function convertACVMFieldToBuffer(field: `0x${string}`): Buffer {
+  return Buffer.from(field.slice(2), 'hex');
+}
+
+/**
  * Converts an ACVM field to a Fr.
  * @param field - The ACVM field to convert.
  * @returns The Fr.
  */
 export function fromACVMField(field: `0x${string}`): Fr {
-  const buffer = Buffer.from(field.slice(2), 'hex');
-  return Fr.fromBuffer(buffer);
+  return Fr.fromBuffer(convertACVMFieldToBuffer(field));
 }
 
 // TODO this should use an unconstrained fn in the future.
