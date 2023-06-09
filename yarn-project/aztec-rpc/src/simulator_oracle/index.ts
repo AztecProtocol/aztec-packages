@@ -1,12 +1,11 @@
 import { CommitmentDataOracleInputs, DBOracle, MessageLoadOracleInputs } from '@aztec/acir-simulator';
 import { AztecNode } from '@aztec/aztec-node';
-import { AztecAddress, EthAddress, Fr } from '@aztec/circuits.js';
+import { AztecAddress, CircuitsWasm, EthAddress, Fr } from '@aztec/circuits.js';
 import { KeyPair } from '@aztec/key-store';
 import { FunctionAbi } from '@aztec/foundation/abi';
 import { ContractDataOracle } from '../contract_data_oracle/index.js';
 import { Database } from '../database/index.js';
-// import { BarretenbergWasm } from '@aztec/barretenberg.js/wasm';
-// import { pedersenCompressWithHashIndex } from '@aztec/barretenberg.js/crypto';
+import { computeSiloedCommitment } from '@aztec/circuits.js/abis';
 
 /**
  * A data oracle that provides information needed for simulating a transaction.
@@ -116,13 +115,10 @@ export class SimulatorOracle implements DBOracle {
    *            index of the message in the private data tree.
    */
   async getCommitment(contractAddress: AztecAddress, commitment: Fr): Promise<CommitmentDataOracleInputs> {
-    // const bbWasm = await BarretenbergWasm.get();
-    // const message = Fr.fromBuffer(pedersenCompressWithHashIndex(bbWasm, [contractAddress.toBuffer(), commitment.toBuffer()], 3));
-    // TODO: get the message inde
+    const message = await computeSiloedCommitment(await CircuitsWasm.get(), contractAddress, commitment);
     // const siblingPath = await this.node.getDataTreePath(message);
     // TODO: stubbed
-    void contractAddress;
-    void commitment;
+    void message;
     return await Promise.resolve({
       message: Fr.ZERO,
       siblingPath: [Fr.ZERO],

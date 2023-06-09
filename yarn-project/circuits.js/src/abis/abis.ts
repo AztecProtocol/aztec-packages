@@ -258,6 +258,19 @@ export function computeContractLeaf(wasm: WasmWrapper, cd: NewContractData): Fr 
 }
 
 /**
+ * Computes the hash of a siloed commitment.
+ * @param wasm - Circuits wasm.
+ * @param contractAddress - Contract Address.
+ * @param commitment - Commitment to silo
+ * @returns - Siloed Commitment.
+ */  
+export async function computeSiloedCommitment(wasm: CircuitsWasm, contractAddress: AztecAddress, commitment: Fr) {
+  wasm.call('pedersen__init');
+  const value = await inputBuffersToOutputBuffer(wasm, 'abis__compute_siloed_commitment', [contractAddress.toBuffer(), commitment.toBuffer()], 32);
+  return Fr.fromBuffer(value);
+}
+
+/**
  * Computes tx hash of a given transaction request.
  * @param wasm - Relevant WASM wrapper.
  * @param txRequest - The signed transaction request.
