@@ -81,7 +81,7 @@ export class KernelProofCreator {
   ): Promise<ProofOutput> {
     const wasm = await CircuitsWasm.get();
     this.log('Executing private kernel simulation init...');
-    const publicInputs = await privateKernelSimInit(wasm, signedTxRequest, privateCallData);
+    const publicInputs = privateKernelSimInit(wasm, signedTxRequest, privateCallData);
     this.log('Skipping private kernel proving...');
     // TODO
     const proof = makeEmptyProof();
@@ -106,7 +106,7 @@ export class KernelProofCreator {
   ): Promise<ProofOutput> {
     const wasm = await CircuitsWasm.get();
     this.log('Executing private kernel simulation inner...');
-    const publicInputs = await privateKernelSimInner(wasm, previousKernelData, privateCallData);
+    const publicInputs = privateKernelSimInner(wasm, previousKernelData, privateCallData);
     this.log('Skipping private kernel proving...');
     // TODO
     const proof = makeEmptyProof();
