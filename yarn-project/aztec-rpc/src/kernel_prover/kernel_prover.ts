@@ -126,7 +126,7 @@ export class KernelProver {
         // the corresponding leaf is 0, but the commitment described by
         // its read request lives at leaf index 17.
         // https://github.com/AztecProtocol/aztec-packages/issues/788
-        leafIndex = leafIndex == 5 ? 17 : leafIndex;
+        leafIndex = leafIndex == BigInt(5) ? BigInt(17) : leafIndex;
         const membershipWitness = await this.oracle.getNoteMembershipWitness(leafIndex);
         readRequestMembershipWitnesses.push(membershipWitness);
       }
