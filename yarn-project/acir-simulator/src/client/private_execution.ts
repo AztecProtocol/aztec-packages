@@ -218,12 +218,9 @@ export class PrivateFunctionExecution {
 
         const notePreimage = new NotePreimage(preimage);
         const txAuxData = new TxAuxData(notePreimage, contractAddress, storageSlot);
-
-        const owner = {
-          x: fromACVMField(ownerX),
-          y: fromACVMField(ownerY),
-        };
-        const ownerPublicKey = Point.fromBuffer(Buffer.concat([owner.x.toBuffer(), owner.y.toBuffer()]));
+        const ownerPublicKey = new Point(
+          Buffer.concat([fromACVMField(ownerX).toBuffer(), fromACVMField(ownerY).toBuffer()]),
+        );
 
         const encryptedNotePreimage = txAuxData.toEncryptedBuffer(ownerPublicKey, await Grumpkin.new());
 
