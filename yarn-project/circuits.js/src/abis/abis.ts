@@ -1,6 +1,6 @@
 import { Buffer } from 'buffer';
 import chunk from 'lodash.chunk';
-import { abisComputeContractAddress } from '../cbind/circuits.gen.js';
+import { abisComputeContractAddress, abisComputeSiloedCommitment } from '../cbind/circuits.gen.js';
 import {
   AztecAddress,
   FUNCTION_SELECTOR_NUM_BYTES,
@@ -175,21 +175,37 @@ export function hashConstructor(
  * @param constructorHash - The hash of the constructor.
  * @returns The contract address.
  */
-export async function computeContractAddress(
+export function computeContractAddress(
   wasm: IWasmModule,
   deployerAddr: AztecAddress,
   contractAddrSalt: Fr,
   fnTreeRoot: Fr,
   constructorHash: Buffer,
-): Promise<AztecAddress> {
+): AztecAddress {
   wasm.call('pedersen__init');
-  return await abisComputeContractAddress(
+  return abisComputeContractAddress(
     wasm,
     deployerAddr,
     contractAddrSalt,
     fnTreeRoot,
     Fr.fromBuffer(constructorHash),
   );
+}
+
+/**
+ * Computes a siloed commitment, given the contract address and the commitment itself.
+ * @param wasm - A module providing low-level wasm access.
+ * @param contract - The contract address
+ * @param commitment - The commitment to silo.
+ * @returns A siloed commitment.
+ */
+export function computeSiloedCommitment(wasm: IWasmModule, contract: AztecAddress, commitment: Fr): Fr {
+  wasm.call("pedersen__init");
+  return abisComputeSiloedCommitment(
+    wasm,
+    contract,
+    commitment
+  )
 }
 
 /**
@@ -226,23 +242,6 @@ export function computeContractLeaf(wasm: IWasmModule, cd: NewContractData): Fr 
   return Fr.fromBuffer(value);
 }
 
-/**
- * Computes the hash of a siloed commitment.
- * @param wasm - Circuits wasm.
- * @param contractAddress - Contract Address.
- * @param commitment - Commitment to silo
- * @returns - Siloed Commitment.
- */
-export function computeSiloedCommitment(wasm: IWasmModule, contractAddress: AztecAddress, commitment: Fr) {
-  wasm.call('pedersen__init');
-  const value = inputBuffersToOutputBuffer(
-    wasm,
-    'abis__compute_siloed_commitment',
-    [contractAddress.toBuffer(), commitment.toBuffer()],
-    32,
-  );
-  return Fr.fromBuffer(value);
-}
 
 /**
  * Computes tx hash of a given transaction request.

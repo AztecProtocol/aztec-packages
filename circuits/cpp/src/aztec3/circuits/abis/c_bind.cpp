@@ -323,24 +323,8 @@ WASM_EXPORT void abis__compute_contract_leaf(uint8_t const* contract_leaf_preima
 
 /**
  * @brief Generates a siloed commitment tree leaf from the contract and the commitment.
- *
- * @param contract_address_buf - The contract address.
- * @param commitment_buf - The value of the commitment.
- * @param output - The siloed commitment.
- * @return WASM_EXPORT
  */
-WASM_EXPORT void abis__compute_siloed_commitment(uint8_t const* contract_address_buf,
-                                                 uint8_t const* commitment_buf,
-                                                 uint8_t* output)
-{
-    NT::address contract_address;
-    NT::fr commitment;
-    read(contract_address_buf, contract_address);
-    read(commitment_buf, commitment);
-
-    auto to_write = aztec3::circuits::silo_commitment<NT>(contract_address, commitment);
-    NT::fr::serialize_to_buffer(to_write, output);
-}
+CBIND(abis__compute_siloed_commitment, aztec3::circuits::silo_commitment<NT>);
 
 /**
  * @brief Generates a signed tx request hash from it's pre-image
