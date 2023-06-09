@@ -1,8 +1,7 @@
 import { AcirSimulator } from '@aztec/acir-simulator';
 import { AztecNode } from '@aztec/aztec-node';
+import { CircuitsWasm, KERNEL_NEW_COMMITMENTS_LENGTH, PrivateHistoricTreeRoots } from '@aztec/circuits.js';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
-import { CircuitsWasm } from '@aztec/circuits.js';
-import { EcdsaSignature, KERNEL_NEW_COMMITMENTS_LENGTH, PrivateHistoricTreeRoots } from '@aztec/circuits.js';
 import { FunctionType } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr, Point } from '@aztec/foundation/fields';
@@ -10,13 +9,15 @@ import { createDebugLogger } from '@aztec/foundation/log';
 import { ConstantKeyPair, KeyPair } from '@aztec/key-store';
 import {
   EncodedContractFunction,
+  ExecutionRequest,
   INITIAL_L2_BLOCK_NUM,
   L2BlockContext,
   MerkleTreeId,
+  NoirLogs,
+  SignedTxExecutionRequest,
   Tx,
   TxAuxData,
   TxExecutionRequest,
-  NoirLogs,
 } from '@aztec/types';
 import { ContractDataOracle } from '../contract_data_oracle/index.js';
 import { Database, TxAuxDataDao, TxDao } from '../database/index.js';
@@ -131,15 +132,15 @@ export class AccountState {
    * This includes the contract address, function ABI, portal contract address, and historic tree roots.
    * The function uses the given 'contractDataOracle' to fetch the necessary data from the node and user's database.
    *
-   * @param txRequest - The transaction request object containing details of the contract call.
+   * @param execRequest - The transaction request object containing details of the contract call.
    * @param contractDataOracle - An instance of ContractDataOracle used to fetch the necessary data.
    * @returns An object containing the contract address, function ABI, portal contract address, and historic tree roots.
    */
-  private async getSimulationParameters(txRequest: TxExecutionRequest, contractDataOracle: ContractDataOracle) {
-    const contractAddress = txRequest.to;
+  private async getSimulationParameters(execRequest: ExecutionRequest, contractDataOracle: ContractDataOracle) {
+    const contractAddress = execRequest.to;
     const functionAbi = await contractDataOracle.getFunctionAbi(
       contractAddress,
-      txRequest.functionData.functionSelectorBuffer,
+      execRequest.functionData.functionSelectorBuffer,
     );
     const portalContract = await contractDataOracle.getPortalContractAddress(contractAddress);
 
@@ -194,17 +195,17 @@ export class AccountState {
    * The simulation parameters are fetched using ContractDataOracle and executed using AcirSimulator.
    * Returns the simulation result containing the outputs of the unconstrained function.
    *
-   * @param txRequest - The transaction request object containing the target contract and function data.
+   * @param execRequest - The transaction request object containing the target contract and function data.
    * @param contractDataOracle - Optional instance of ContractDataOracle for fetching and caching contract information.
    * @returns The simulation result containing the outputs of the unconstrained function.
    */
-  public async simulateUnconstrained(txRequest: TxExecutionRequest, contractDataOracle?: ContractDataOracle) {
+  public async simulateUnconstrained(execRequest: ExecutionRequest, contractDataOracle?: ContractDataOracle) {
     if (!contractDataOracle) {
       contractDataOracle = new ContractDataOracle(this.db, this.node);
     }
 
     const { contractAddress, functionAbi, portalContract, historicRoots } = await this.getSimulationParameters(
-      txRequest,
+      execRequest,
       contractDataOracle,
     );
 
@@ -212,7 +213,7 @@ export class AccountState {
 
     this.log('Executing unconstrained simulator...');
     const result = await simulator.runUnconstrained(
-      txRequest,
+      execRequest,
       functionAbi,
       contractAddress,
       portalContract,
@@ -235,26 +236,18 @@ export class AccountState {
    * @param newContractAddress - Optional. The address of a new contract to be included in the transaction object.
    * @returns A private transaction object containing the proof, public inputs, and encrypted logs.
    */
-  public async simulateAndProve(
-    txExecutionRequest: TxExecutionRequest,
-    signature: EcdsaSignature,
-    newContractAddress?: AztecAddress,
-  ) {
+  public async simulateAndProve(txExecutionRequest: SignedTxExecutionRequest, newContractAddress?: AztecAddress) {
     // TODO - Pause syncing while simulating.
 
     const contractDataOracle = new ContractDataOracle(this.db, this.node);
-    const executionResult = await this.simulate(txExecutionRequest, contractDataOracle);
-
-    // TODO(#664) We are deriving the txRequest from the argsHash computed by the contract. However,
-    // we need the txRequest earlier in order to produce the signature, which is being requested as an
-    // argument to this function. Today this is not a problem since signatures are faked, and when we
-    // go full AA, we'll remove the signature as a first-class citizen altogether.
-    const argsHash = executionResult.callStackItem.publicInputs.argsHash;
-    const txRequest = txExecutionRequest.toTxRequestUsingArgsHash(argsHash);
+    const executionResult = await this.simulate(txExecutionRequest.txRequest, contractDataOracle);
 
     const kernelProver = new KernelProver(contractDataOracle);
     this.log('Executing Prover...');
-    const { proof, publicInputs } = await kernelProver.prove(txRequest, signature, executionResult);
+    const { proof, publicInputs } = await kernelProver.prove(
+      await txExecutionRequest.toSignedTxRequest(),
+      executionResult,
+    );
     this.log('Proof completed!');
 
     const newContractPublicFunctions = newContractAddress

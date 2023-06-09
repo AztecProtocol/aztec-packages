@@ -91,14 +91,13 @@ describe('Contract Class', () => {
     arc = mock<AztecRPCClient>();
     arc.createDeploymentTxRequest.mockResolvedValue(mockTxRequest);
     arc.createTxRequest.mockResolvedValue(mockTxRequest);
-    arc.signTxRequest.mockResolvedValue(mockSignature);
     arc.createTx.mockResolvedValue(mockTx);
     arc.sendTx.mockResolvedValue(mockTxHash);
     arc.viewTx.mockResolvedValue(mockViewResultValue);
     arc.getTxReceipt.mockResolvedValue(mockTxReceipt);
   });
 
-  it('should request, sign, craete and send a contract method tx', async () => {
+  it('should create and send a contract method tx', async () => {
     const fooContract = new Contract(contractAddress, defaultAbi, arc);
     const param0 = 12;
     const param1 = 345n;
@@ -113,10 +112,8 @@ describe('Contract Class', () => {
     expect(arc.createDeploymentTxRequest).toHaveBeenCalledTimes(0);
     expect(arc.createTxRequest).toHaveBeenCalledTimes(1);
     expect(arc.createTxRequest).toHaveBeenCalledWith('bar', [param0, param1], contractAddress, account);
-    expect(arc.signTxRequest).toHaveBeenCalledTimes(1);
-    expect(arc.signTxRequest).toHaveBeenCalledWith(mockTxRequest);
     expect(arc.createTx).toHaveBeenCalledTimes(1);
-    expect(arc.createTx).toHaveBeenCalledWith(mockTxRequest, mockSignature);
+    expect(arc.createTx).toHaveBeenCalledWith(mockTxRequest);
     expect(arc.sendTx).toHaveBeenCalledTimes(1);
     expect(arc.sendTx).toHaveBeenCalledWith(mockTx);
   });

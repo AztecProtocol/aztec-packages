@@ -1,7 +1,6 @@
 import { EcdsaSignature } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Point } from '@aztec/foundation/fields';
-import { TxExecutionRequest } from '@aztec/types';
 
 /**
  * Represents a secure storage for managing keys.
@@ -14,5 +13,5 @@ export interface KeyStore {
   getAccountPrivateKey(address: AztecAddress): Promise<Buffer>;
   getAccountPublicKey(address: AztecAddress): Promise<Point>;
   getSigningPublicKeys(): Promise<Point[]>;
-  signTxRequest(txRequest: TxExecutionRequest): Promise<EcdsaSignature>;
+  ecdsaSign(what: Buffer, from: AztecAddress): Promise<EcdsaSignature>;
 }

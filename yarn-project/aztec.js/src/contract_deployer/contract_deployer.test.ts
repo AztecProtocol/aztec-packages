@@ -37,13 +37,12 @@ describe('Contract Deployer', () => {
     arc = mock<AztecRPCClient>();
     arc.createDeploymentTxRequest.mockResolvedValue(mockTxRequest);
     arc.createTxRequest.mockResolvedValue(mockTxRequest);
-    arc.signTxRequest.mockResolvedValue(mockSignature);
     arc.createTx.mockResolvedValue(mockTx);
     arc.sendTx.mockResolvedValue(mockTxHash);
     arc.getTxReceipt.mockResolvedValue(mockTxReceipt);
   });
 
-  it('should request, sign, craete and send a contract deployment tx', async () => {
+  it('should create and send a contract deployment tx', async () => {
     const deployer = new ContractDeployer(abi, arc);
     const sentTx = deployer.deploy(args[0], args[1]).send({
       portalContract,
@@ -58,48 +57,16 @@ describe('Contract Deployer', () => {
     expect(arc.createDeploymentTxRequest).toHaveBeenCalledTimes(1);
     expect(arc.createDeploymentTxRequest).toHaveBeenCalledWith(abi, args, portalContract, contractAddressSalt, account);
     expect(arc.createTxRequest).toHaveBeenCalledTimes(0);
-    expect(arc.signTxRequest).toHaveBeenCalledTimes(1);
-    expect(arc.signTxRequest).toHaveBeenCalledWith(mockTxRequest);
     expect(arc.createTx).toHaveBeenCalledTimes(1);
-    expect(arc.createTx).toHaveBeenCalledWith(mockTxRequest, mockSignature);
+    expect(arc.createTx).toHaveBeenCalledWith(mockTxRequest);
     expect(arc.sendTx).toHaveBeenCalledTimes(1);
     expect(arc.sendTx).toHaveBeenCalledWith(mockTx);
-  });
-
-  it('should be able to deploy a contract step by step', async () => {
-    const deployer = new ContractDeployer(abi, arc);
-    const deployment = deployer.deploy(args[0]);
-    const txRequest = await deployment.request({
-      portalContract,
-      contractAddressSalt,
-      from: account,
-    });
-    const signature = await deployment.sign();
-    const tx = await deployment.create();
-    const receipt = await deployment.send().getReceipt();
-
-    expect(txRequest).toBe(mockTxRequest);
-    expect(signature).toBe(mockSignature);
-    expect(tx).toBe(mockTx);
-    expect(receipt).toBe(mockTxReceipt);
-    expect(arc.createDeploymentTxRequest).toHaveBeenCalledTimes(1);
-    expect(arc.createDeploymentTxRequest).toHaveBeenCalledWith(
-      abi,
-      [args[0]],
-      portalContract,
-      contractAddressSalt,
-      account,
-    );
-    expect(arc.createTxRequest).toHaveBeenCalledTimes(0);
-    expect(arc.signTxRequest).toHaveBeenCalledTimes(1);
-    expect(arc.createTx).toHaveBeenCalledTimes(1);
-    expect(arc.sendTx).toHaveBeenCalledTimes(1);
   });
 
   it('should pass undefined values if not provided via options', async () => {
     const deployer = new ContractDeployer(abi, arc);
     const deployment = deployer.deploy(args);
-    await deployment.request();
+    await deployment.create();
     expect(arc.createDeploymentTxRequest).toHaveBeenCalledWith(
       abi,
       [args],

@@ -1,6 +1,5 @@
 import { AztecAddress } from '@aztec/circuits.js';
 import { Point } from '@aztec/foundation/fields';
-import { TxExecutionRequest } from '@aztec/types';
 import { ConstantKeyPair, KeyPair } from './key_pair.js';
 import { KeyStore } from './key_store.js';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
@@ -80,11 +79,9 @@ export class TestKeyStore implements KeyStore {
    * @param txRequest - The transaction request to be signed. It includes the sender, receiver, and other details.
    * @returns A Promise which resolves to the generated signature as a Buffer.
    */
-  public signTxRequest(txRequest: TxExecutionRequest) {
-    const account = this.getAccount(txRequest.from);
-    // TODO - Define signing data.
-    const signingData = txRequest.toBuffer();
-    return account.signMessage(signingData);
+  public ecdsaSign(what: Buffer, from: AztecAddress) {
+    const account = this.getAccount(from);
+    return account.ecdsaSign(what);
   }
 
   /**

@@ -1,4 +1,4 @@
-import { AztecAddress, EcdsaSignature, EthAddress, Fr } from '@aztec/circuits.js';
+import { AztecAddress, EthAddress, Fr } from '@aztec/circuits.js';
 import { ContractAbi } from '@aztec/foundation/abi';
 import { Point } from '@aztec/foundation/fields';
 import { Tx, TxExecutionRequest, TxHash } from '@aztec/types';
@@ -53,8 +53,7 @@ export interface AztecRPCClient {
     to: AztecAddress,
     from?: AztecAddress,
   ): Promise<TxExecutionRequest>;
-  signTxRequest(txRequest: TxExecutionRequest): Promise<EcdsaSignature>;
-  createTx(txRequest: TxExecutionRequest, signature: EcdsaSignature): Promise<Tx>;
+  createTx(txRequest: TxExecutionRequest): Promise<Tx>;
   sendTx(tx: Tx): Promise<TxHash>;
   getTxReceipt(txHash: TxHash): Promise<TxReceipt>;
   getStorageAt(contract: AztecAddress, storageSlot: Fr): Promise<any>;

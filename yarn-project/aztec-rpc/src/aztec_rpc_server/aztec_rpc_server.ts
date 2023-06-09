@@ -1,20 +1,16 @@
 import { encodeArguments } from '@aztec/acir-simulator';
 import { AztecNode } from '@aztec/aztec-node';
-import {
-  AztecAddress,
-  ContractDeploymentData,
-  EcdsaSignature,
-  EthAddress,
-  FunctionData,
-  TxContext,
-} from '@aztec/circuits.js';
+import { AztecAddress, ContractDeploymentData, EthAddress, FunctionData, TxContext } from '@aztec/circuits.js';
 import { ContractAbi, FunctionType } from '@aztec/foundation/abi';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { KeyStore } from '@aztec/key-store';
-import { SignedTxExecutionRequest, Tx, TxExecutionRequest, TxHash } from '@aztec/types';
+import { Tx, TxExecutionRequest, TxHash } from '@aztec/types';
+import { EcdsaAccountContract } from '../account_impl/ecdsa_account_contract.js';
+import { EcdsaExternallyOwnedAccount } from '../account_impl/ecdsa_eoa.js';
+import { AccountImplementation } from '../account_impl/index.js';
 import { AztecRPCClient, DeployedContract } from '../aztec_rpc_client/index.js';
-import { toContractDao } from '../contract_database/index.js';
+import { ContractDao, toContractDao } from '../contract_database/index.js';
 import { ContractTree } from '../contract_tree/index.js';
 import { Database, TxDao } from '../database/index.js';
 import { Synchroniser } from '../synchroniser/index.js';
@@ -223,13 +219,9 @@ export class AztecRPCServer implements AztecRPCClient {
       false,
     );
 
-    const txContext = new TxContext(
-      false,
-      false,
-      false,
-      new ContractDeploymentData(Fr.ZERO, Fr.ZERO, Fr.ZERO, new EthAddress(Buffer.alloc(EthAddress.SIZE_IN_BYTES))),
-    );
+    const txContext = TxContext.empty();
 
+    // TODO: Return just an ExecutionRequest!
     return new TxExecutionRequest(
       fromAddress,
       to,
@@ -242,19 +234,6 @@ export class AztecRPCServer implements AztecRPCClient {
   }
 
   /**
-   * Sign a TxRequest with the creator's private key.
-   * This function retrieves the private key of the account specified in the TxRequest 'from' field
-   * and signs it, generating an EcdsaSignature which can be used to create a valid kernel proof.
-   *
-   * @param txRequest - The TxRequest instance containing necessary information for signing.
-   * @returns An EcdsaSignature instance representing the signed transaction.
-   */
-  public signTxRequest(txRequest: TxExecutionRequest) {
-    this.ensureAccount(txRequest.from);
-    return this.keyStore.signTxRequest(txRequest);
-  }
-
-  /**
    * Creates a new transaction object from a given signed transaction request.
    * If the transaction is private, it simulates and proves the transaction request using accountState.
    * If it is public, it creates a public transaction without the need for simulation.
@@ -264,29 +243,52 @@ export class AztecRPCServer implements AztecRPCClient {
    * @param signature - The ECDSA signature of the transaction request.
    * @returns A transaction object that can be sent to the network.
    */
-  public async createTx(txRequest: TxExecutionRequest, signature: EcdsaSignature) {
+  public async createTx(executionRequest: TxExecutionRequest) {
     let toContract: AztecAddress | undefined;
     let newContract: AztecAddress | undefined;
-    const accountState = this.ensureAccount(txRequest.from);
 
+    const { from } = executionRequest;
+    const accountState = this.ensureAccount(from);
+    const accountContract = await this.db.getContract(from);
+    const entrypoint: AccountImplementation = this.getAccountImplementation(from, accountContract);
+
+    const authedTxRequest = await entrypoint.createAuthenticatedTxRequest(
+      [executionRequest],
+      executionRequest.txContext,
+    );
+    const txRequest = authedTxRequest.txRequest;
     const contractAddress = txRequest.to;
+
     let tx: Tx;
+
     if (!txRequest.functionData.isPrivate) {
       // Note: there is no simulation being performed client-side for public functions execution.
-      tx = Tx.createPublic(new SignedTxExecutionRequest(txRequest, signature));
+      tx = Tx.createPublic(authedTxRequest);
     } else if (txRequest.functionData.isConstructor) {
       newContract = contractAddress;
-
-      tx = await accountState.simulateAndProve(txRequest, signature, contractAddress);
+      tx = await accountState.simulateAndProve(authedTxRequest, contractAddress);
     } else {
       toContract = contractAddress;
-      tx = await accountState.simulateAndProve(txRequest, signature);
+      tx = await accountState.simulateAndProve(authedTxRequest);
     }
 
     const dao = new TxDao(await tx.getTxHash(), undefined, undefined, txRequest.from, toContract, newContract, '');
     await this.db.addTx(dao);
 
     return tx;
+  }
+
+  // TODO: Allow users to register their account implementations
+  private getAccountImplementation(address: AztecAddress, contract: ContractDao | undefined) {
+    if (!contract) {
+      this.log(`Using ECDSA EOA implementation for ${address}`);
+      return new EcdsaExternallyOwnedAccount(address, this.keyStore);
+    } else if (contract.name === 'Account') {
+      this.log(`Using ECDSA account contract implementation for ${address}`);
+      return new EcdsaAccountContract(address, this.keyStore);
+    } else {
+      throw new Error(`Unknown account implementation for ${address}`);
+    }
   }
 
   /**

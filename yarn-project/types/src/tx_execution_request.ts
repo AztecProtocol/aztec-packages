@@ -13,6 +13,7 @@ import {
 import { computeVarArgsHash } from '@aztec/circuits.js/abis';
 import { BufferReader, serializeToBuffer } from '@aztec/circuits.js/utils';
 import cloneDeep from 'lodash.clonedeep';
+import { ExecutionRequest } from './execution_request.js';
 
 /**
  * Request to execute a transaction. Similar to TxRequest, but has the full args.
@@ -75,6 +76,18 @@ export class TxExecutionRequest {
 
   static from(fields: FieldsOf<TxExecutionRequest>): TxExecutionRequest {
     return new TxExecutionRequest(...TxExecutionRequest.getFields(fields));
+  }
+
+  static fromExecutionRequest(
+    fields: Pick<FieldsOf<ExecutionRequest>, 'args' | 'from' | 'functionData'>,
+  ): TxExecutionRequest {
+    return TxExecutionRequest.from({
+      ...fields,
+      chainId: Fr.ZERO,
+      nonce: Fr.ZERO,
+      to: AztecAddress.ZERO,
+      txContext: TxContext.empty(),
+    });
   }
 
   /**
