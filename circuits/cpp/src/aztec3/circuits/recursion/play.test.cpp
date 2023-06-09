@@ -8,22 +8,9 @@ namespace aztec3::circuits::recursion {
 
 using namespace aztec3::utils::types;
 
-// namespace {
-// std::shared_ptr<proof_system::DynamicFileReferenceStringFactory> srs;
-// private_kernel::circuit_data private_kernel_cd;
-// private_circuit::circuit_data private_circuit_cd;
-// } // namespace
-
 class play_tests : public ::testing::Test {
   protected:
     static void SetUpTestSuite() { barretenberg::srs::init_crs_factory("../barretenberg/cpp/srs_db/ignition"); }
-    //     static void SetUpTestCase()
-    //     {
-    //         std::string CRS_PATH = "../srs_db/ignition";
-    //         srs = std::make_shared<proof_system::DynamicFileReferenceStringFactory>(CRS_PATH);
-    //         private_circuit_cd = join_split::get_circuit_data(srs);
-    //         private_kernel_cd = claim::get_circuit_data(srs);
-    //     }
 };
 
 TEST_F(play_tests, circuit_play_app_circuit)
