@@ -110,13 +110,12 @@ export class SimulatorOracle implements DBOracle {
 
   /**
    * Retrieves the commitment messages associated with a specific message key.
-   * @param contractAddress - The contract Address. 
+   * @param contractAddress - The contract Address.
    * @param commitment - The key of the message being fetched.
-   * @returns - A promise that resolves to the message data, a sibling path and the 
-   *            index of the message in the private data tree. 
+   * @returns - A promise that resolves to the message data, a sibling path and the
+   *            index of the message in the private data tree.
    */
   async getCommitment(contractAddress: AztecAddress, commitment: Fr): Promise<CommitmentDataOracleInputs> {
-
     // const bbWasm = await BarretenbergWasm.get();
     // const message = Fr.fromBuffer(pedersenCompressWithHashIndex(bbWasm, [contractAddress.toBuffer(), commitment.toBuffer()], 3));
     // TODO: get the message inde
@@ -124,10 +123,10 @@ export class SimulatorOracle implements DBOracle {
     // TODO: stubbed
     void contractAddress;
     void commitment;
-    return await Promise.resolve( {
+    return await Promise.resolve({
       message: Fr.ZERO,
       siblingPath: [Fr.ZERO],
-      index: 0n
+      index: 0n,
     });
   }
 }

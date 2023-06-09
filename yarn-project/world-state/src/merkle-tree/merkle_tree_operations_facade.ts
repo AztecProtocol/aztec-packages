@@ -20,7 +20,7 @@ export class MerkleTreeOperationsFacade implements MerkleTreeOperations {
 
   /**
    * TODO
-   * @returns 
+   * @returns
    */
   getCommitmentTreeRoots(): CurrentCommitmentTreeRoots {
     return this.trees.getCommitmentTreeRoots(this.includeUncommitted);

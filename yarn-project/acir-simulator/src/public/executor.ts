@@ -148,7 +148,12 @@ export class PublicExecutor {
  * @param witnessStartIndex - The index where to start inserting the parameters.
  * @returns The initial witness.
  */
-function getInitialWitness(args: Fr[], callContext: CallContext, commitmentTreeRoots: PrivateHistoricTreeRoots,  witnessStartIndex = 1) {
+function getInitialWitness(
+  args: Fr[],
+  callContext: CallContext,
+  commitmentTreeRoots: PrivateHistoricTreeRoots,
+  witnessStartIndex = 1,
+) {
   return toACVMWitness(witnessStartIndex, [
     callContext.isContractDeployment,
     callContext.isDelegateCall,

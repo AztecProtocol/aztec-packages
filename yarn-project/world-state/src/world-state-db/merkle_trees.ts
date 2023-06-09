@@ -194,8 +194,8 @@ export class MerkleTrees implements MerkleTreeDb {
 
   /**
    * TODO
-   * @param includeUncommitted 
-   * @returns 
+   * @param includeUncommitted
+   * @returns
    */
   public getCommitmentTreeRoots(includeUncommitted: boolean): CurrentCommitmentTreeRoots {
     const roots = [
@@ -209,7 +209,7 @@ export class MerkleTrees implements MerkleTreeDb {
       privateDataTreeRoot: roots[0],
       contractDataTreeRoot: roots[1],
       l1Tol2MessagesTreeRoot: roots[2],
-      nullifierTreeRoot: roots[3]
+      nullifierTreeRoot: roots[3],
     };
   }
 

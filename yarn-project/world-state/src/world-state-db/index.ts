@@ -55,12 +55,12 @@ type WithIncludeUncommitted<F> = F extends (...args: [...infer Rest]) => infer R
 /**
  * The current roots of the commitment trees
  */
-export type CurrentCommitmentTreeRoots =  {
-  privateDataTreeRoot: Buffer,
-  contractDataTreeRoot: Buffer,
-  l1Tol2MessagesTreeRoot: Buffer,
-  nullifierTreeRoot: Buffer
-}
+export type CurrentCommitmentTreeRoots = {
+  privateDataTreeRoot: Buffer;
+  contractDataTreeRoot: Buffer;
+  l1Tol2MessagesTreeRoot: Buffer;
+  nullifierTreeRoot: Buffer;
+};
 
 /**
  * Defines the names of the setters on Merkle Trees.

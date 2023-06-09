@@ -1,4 +1,11 @@
-import { CommitmentDataOracleInputs, CommitmentsDB, MessageLoadOracleInputs, PublicContractsDB, PublicExecutor, PublicStateDB } from '@aztec/acir-simulator';
+import {
+  CommitmentDataOracleInputs,
+  CommitmentsDB,
+  MessageLoadOracleInputs,
+  PublicContractsDB,
+  PublicExecutor,
+  PublicStateDB,
+} from '@aztec/acir-simulator';
 import { pedersenCompressWithHashIndex } from '@aztec/barretenberg.js/crypto';
 import { BarretenbergWasm } from '@aztec/barretenberg.js/wasm';
 import { AztecAddress, EthAddress, Fr, PrivateHistoricTreeRoots } from '@aztec/circuits.js';
@@ -11,8 +18,16 @@ import { CurrentCommitmentTreeRoots, MerkleTreeOperations, computePublicDataTree
  * @param contractDataSource - A contract data source.
  * @returns A new instance of a PublicExecutor.
  */
-export function getPublicExecutor(merkleTree: MerkleTreeOperations, contractDataSource: ContractDataSource, l1toL2MessageSource: L1ToL2MessageSource) {
-  return new PublicExecutor(new WorldStatePublicDB(merkleTree), new ContractsDataSourcePublicDB(contractDataSource), new WorldStateDB(merkleTree, l1toL2MessageSource));
+export function getPublicExecutor(
+  merkleTree: MerkleTreeOperations,
+  contractDataSource: ContractDataSource,
+  l1toL2MessageSource: L1ToL2MessageSource,
+) {
+  return new PublicExecutor(
+    new WorldStatePublicDB(merkleTree),
+    new ContractsDataSourcePublicDB(contractDataSource),
+    new WorldStateDB(merkleTree, l1toL2MessageSource),
+  );
 }
 
 /**
@@ -66,7 +81,7 @@ class WorldStatePublicDB implements PublicStateDB {
  * Implements WorldState db using a world state database.
  */
 export class WorldStateDB implements CommitmentsDB {
-  constructor(private db: MerkleTreeOperations,private l1ToL2MessageSource: L1ToL2MessageSource) {}
+  constructor(private db: MerkleTreeOperations, private l1ToL2MessageSource: L1ToL2MessageSource) {}
 
   /**
    * Gets a confirmed L1 to L2 message for the given message key.
@@ -77,17 +92,14 @@ export class WorldStateDB implements CommitmentsDB {
   public async getL1ToL2Message(messageKey: Fr): Promise<MessageLoadOracleInputs> {
     // todo: #697 - make this one lookup.
     const message = await this.l1ToL2MessageSource.getConfirmedL1ToL2Message(messageKey);
-    const index = (await this.db.findLeafIndex(
-      MerkleTreeId.L1_TO_L2_MESSAGES_TREE,
-      messageKey.toBuffer()
-    ))!;
+    const index = (await this.db.findLeafIndex(MerkleTreeId.L1_TO_L2_MESSAGES_TREE, messageKey.toBuffer()))!;
     const siblingPath = await this.db.getSiblingPath(MerkleTreeId.L1_TO_L2_MESSAGES_TREE, index);
 
     return {
       message: message.toFieldArray(),
       index,
       siblingPath: siblingPath.toFieldArray(),
-    }
+    };
   }
 
   /**
@@ -99,23 +111,22 @@ export class WorldStateDB implements CommitmentsDB {
   public async getCommitment(address: AztecAddress, commitment: Fr): Promise<CommitmentDataOracleInputs> {
     // TODO(Maddiaa): make this a method in circuits wasm
     const bbWasm = await BarretenbergWasm.get();
-    const message = Fr.fromBuffer(pedersenCompressWithHashIndex(bbWasm, [address.toBuffer(), commitment.toBuffer()], 3));
-    const index = (await this.db.findLeafIndex(
-      MerkleTreeId.PRIVATE_DATA_TREE,
-      message.toBuffer()
-    ))!;
+    const message = Fr.fromBuffer(
+      pedersenCompressWithHashIndex(bbWasm, [address.toBuffer(), commitment.toBuffer()], 3),
+    );
+    const index = (await this.db.findLeafIndex(MerkleTreeId.PRIVATE_DATA_TREE, message.toBuffer()))!;
     const siblingPath = await this.db.getSiblingPath(MerkleTreeId.PRIVATE_DATA_TREE, index);
 
     return {
       message,
       index,
-      siblingPath: siblingPath.toFieldArray()
+      siblingPath: siblingPath.toFieldArray(),
     };
   }
 
   /**
-   * 
-   * @returns 
+   *
+   * @returns
    */
   public getTreeRoots(): PrivateHistoricTreeRoots {
     const roots = this.db.getCommitmentTreeRoots();
@@ -125,8 +136,7 @@ export class WorldStateDB implements CommitmentsDB {
       privateDataTreeRoot: Fr.fromBuffer(roots.privateDataTreeRoot),
       contractTreeRoot: Fr.fromBuffer(roots.contractDataTreeRoot),
       nullifierTreeRoot: Fr.fromBuffer(roots.nullifierTreeRoot),
-      l1ToL2MessagesTreeRoot: Fr.fromBuffer(roots.l1Tol2MessagesTreeRoot)
-    })
+      l1ToL2MessagesTreeRoot: Fr.fromBuffer(roots.l1Tol2MessagesTreeRoot),
+    });
   }
-
 }
