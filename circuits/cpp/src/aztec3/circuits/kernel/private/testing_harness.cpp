@@ -23,8 +23,8 @@
 #include "aztec3/circuits/hash.hpp"
 #include "aztec3/circuits/kernel/private/utils.hpp"
 
-#include "barretenberg/plonk/proof_system/prover/prover.hpp"
 #include <barretenberg/common/map.hpp>
+#include <barretenberg/plonk/proof_system/prover/prover.hpp>
 #include <barretenberg/stdlib/merkle_tree/membership.hpp>
 
 namespace aztec3::circuits::kernel::private_kernel::testing_harness {
