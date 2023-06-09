@@ -118,7 +118,7 @@ export class SimulatorOracle implements DBOracle {
   async getCommitment(contractAddress: AztecAddress, commitment: Fr): Promise<CommitmentDataOracleInputs> {
     const message = await computeSiloedCommitment(await CircuitsWasm.get(), contractAddress, commitment);
     const index = await this.node.findCommitmentIndex(message.toBuffer());
-    if (!index) throw new Error("Commitment not found");
+    if (!index) throw new Error('Commitment not found');
 
     const siblingPath = await this.node.getDataTreePath(index);
     return await Promise.resolve({
@@ -130,7 +130,7 @@ export class SimulatorOracle implements DBOracle {
 
   getTreeRoots(): PrivateHistoricTreeRoots {
     const roots = this.db.getTreeRoots();
-  
+
     return PrivateHistoricTreeRoots.from({
       privateKernelVkTreeRoot: Fr.ZERO,
       privateDataTreeRoot: roots[MerkleTreeId.PRIVATE_DATA_TREE],

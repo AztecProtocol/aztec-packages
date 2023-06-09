@@ -60,10 +60,10 @@ export class KernelProofCreator {
   public async getSiloedCommitments(publicInputs: PrivateCircuitPublicInputs) {
     const wasm = await CircuitsWasm.get();
     const contractAddress = publicInputs.callContext.storageContractAddress;
-    
-    return Promise.all(publicInputs.newCommitments.map(commitment =>
-      computeSiloedCommitment(wasm, contractAddress, commitment),
-    ));
+
+    return Promise.all(
+      publicInputs.newCommitments.map(commitment => computeSiloedCommitment(wasm, contractAddress, commitment)),
+    );
   }
 
   /**

@@ -263,10 +263,15 @@ export function computeContractLeaf(wasm: WasmWrapper, cd: NewContractData): Fr 
  * @param contractAddress - Contract Address.
  * @param commitment - Commitment to silo
  * @returns - Siloed Commitment.
- */  
+ */
 export async function computeSiloedCommitment(wasm: CircuitsWasm, contractAddress: AztecAddress, commitment: Fr) {
   wasm.call('pedersen__init');
-  const value = await inputBuffersToOutputBuffer(wasm, 'abis__compute_siloed_commitment', [contractAddress.toBuffer(), commitment.toBuffer()], 32);
+  const value = await inputBuffersToOutputBuffer(
+    wasm,
+    'abis__compute_siloed_commitment',
+    [contractAddress.toBuffer(), commitment.toBuffer()],
+    32,
+  );
   return Fr.fromBuffer(value);
 }
 
