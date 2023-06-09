@@ -98,7 +98,7 @@ export class KernelProver {
           `Too many items in the call stack. Maximum amount is ${PRIVATE_CALL_STACK_LENGTH}. Got ${privateCallStackPreimages.length}.`,
         );
       }
-      // Pad with with empty items to reach max/const length expected by circuit.
+      // Pad with empty items to reach max/const length expected by circuit.
       privateCallStackPreimages.push(
         ...Array(PRIVATE_CALL_STACK_LENGTH - privateCallStackPreimages.length)
           .fill(0)
