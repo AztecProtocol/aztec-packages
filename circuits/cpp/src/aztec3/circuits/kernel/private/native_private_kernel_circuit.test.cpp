@@ -554,7 +554,7 @@ TEST_F(native_private_kernel_inner_tests, private_kernel_should_fail_if_aggregat
 /**
  * @brief Test this dummy cbind
  */
-TEST_F(private_kernel_inner_tests, cbind_private_kernel__dummy_previous_kernel)
+TEST_F(native_private_kernel_inner_tests, cbind_private_kernel__dummy_previous_kernel)
 {
     auto func = [] { return aztec3::circuits::kernel::private_kernel::utils::dummy_previous_kernel(); };
     auto [actual, expected] = call_func_and_wrapper(func, private_kernel__dummy_previous_kernel);
