@@ -92,11 +92,11 @@ contract ZkToken {
 
         let recipient_balance = balances.at(recipient.x);
 
-        context = sender_balance.insert(context, change_note);
         context = recipient_balance.insert(context, recipient_note);
+        context = sender_balance.insert(context, change_note);
 
-        constrain emit_encrypted_log(inputs.call_context.storage_contract_address, sender_balance.storage_slot, change_note.owner, change_note) == 0;
         constrain emit_encrypted_log(inputs.call_context.storage_contract_address, recipient_balance.storage_slot, recipient_note.owner, recipient_note) == 0;
+        constrain emit_encrypted_log(inputs.call_context.storage_contract_address, sender_balance.storage_slot, change_note.owner, change_note) == 0;
 
         context.finish(inputs)
     }
