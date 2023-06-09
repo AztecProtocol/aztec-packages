@@ -45,11 +45,9 @@ describe('Private Execution test suite', () => {
   let oracle: ReturnType<typeof mock<DBOracle>>;
   let acirSimulator: AcirSimulator;
   let logger: DebugLogger;
-  let grumpkin: Grumpkin;
 
   beforeAll(async () => {
     bbWasm = await BarretenbergWasm.get();
-    grumpkin = await Grumpkin.new();
     logger = createDebugLogger('aztec:test:private_execution');
   });
 
