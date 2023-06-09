@@ -183,13 +183,7 @@ export function computeContractAddress(
   constructorHash: Buffer,
 ): AztecAddress {
   wasm.call('pedersen__init');
-  return abisComputeContractAddress(
-    wasm,
-    deployerAddr,
-    contractAddrSalt,
-    fnTreeRoot,
-    Fr.fromBuffer(constructorHash),
-  );
+  return abisComputeContractAddress(wasm, deployerAddr, contractAddrSalt, fnTreeRoot, Fr.fromBuffer(constructorHash));
 }
 
 /**
@@ -200,12 +194,8 @@ export function computeContractAddress(
  * @returns A siloed commitment.
  */
 export function computeSiloedCommitment(wasm: IWasmModule, contract: AztecAddress, commitment: Fr): Fr {
-  wasm.call("pedersen__init");
-  return abisComputeSiloedCommitment(
-    wasm,
-    contract,
-    commitment
-  )
+  wasm.call('pedersen__init');
+  return abisComputeSiloedCommitment(wasm, contract, commitment);
 }
 
 /**
@@ -241,7 +231,6 @@ export function computeContractLeaf(wasm: IWasmModule, cd: NewContractData): Fr 
   const value = wasmSyncCall(wasm, 'abis__compute_contract_leaf', cd, 32);
   return Fr.fromBuffer(value);
 }
-
 
 /**
  * Computes tx hash of a given transaction request.
