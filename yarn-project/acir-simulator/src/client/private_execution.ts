@@ -116,7 +116,6 @@ export class PrivateFunctionExecution {
     private functionData: FunctionData,
     private args: Fr[],
     private callContext: CallContext,
-    private grumpkin: Grumpkin,
 
     private log = createDebugLogger('aztec:simulator:secret_execution'),
   ) {}
@@ -206,7 +205,13 @@ export class PrivateFunctionExecution {
       storageRead: notAvailable,
       storageWrite: notAvailable,
       callPublicFunction: notAvailable,
-      emitEncryptedLog: ([acvmContractAddress, acvmStorageSlot, ownerX, ownerY, ...acvmPreimage]: ACVMField[]) => {
+      emitEncryptedLog: async ([
+        acvmContractAddress,
+        acvmStorageSlot,
+        ownerX,
+        ownerY,
+        ...acvmPreimage
+      ]: ACVMField[]) => {
         const contractAddress = AztecAddress.fromBuffer(fromACVMField(acvmContractAddress).toBuffer());
         const storageSlot = fromACVMField(acvmStorageSlot);
         const preimage = acvmPreimage.map(f => fromACVMField(f));
@@ -220,7 +225,7 @@ export class PrivateFunctionExecution {
         };
         const ownerPublicKey = Point.fromBuffer(Buffer.concat([owner.x.toBuffer(), owner.y.toBuffer()]));
 
-        const encryptedNotePreimage = txAuxData.toEncryptedBuffer(ownerPublicKey, this.grumpkin);
+        const encryptedNotePreimage = txAuxData.toEncryptedBuffer(ownerPublicKey, await Grumpkin.new());
 
         encryptedLogs.dataChunks.push(encryptedNotePreimage);
 
@@ -320,7 +325,6 @@ export class PrivateFunctionExecution {
       targetFunctionData,
       targetArgs,
       derivedCallContext,
-      await Grumpkin.new(),
     );
 
     return nestedExecution.run();
