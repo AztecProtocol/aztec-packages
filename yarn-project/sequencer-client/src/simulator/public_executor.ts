@@ -1,7 +1,8 @@
-import { PublicContractsDB, PublicExecutor, PublicStateDB } from '@aztec/acir-simulator';
+import { CommitmentDataOracleInputs, CommitmentsDB, MessageLoadOracleInputs, PublicContractsDB, PublicExecutor, PublicStateDB } from '@aztec/acir-simulator';
+import { pedersenCompressWithHashIndex } from '@aztec/barretenberg.js/crypto';
 import { BarretenbergWasm } from '@aztec/barretenberg.js/wasm';
 import { AztecAddress, EthAddress, Fr } from '@aztec/circuits.js';
-import { ContractDataSource, MerkleTreeId } from '@aztec/types';
+import { ContractDataSource, L1ToL2MessageSource, MerkleTreeId } from '@aztec/types';
 import { MerkleTreeOperations, computePublicDataTreeLeafIndex } from '@aztec/world-state';
 
 /**
@@ -10,8 +11,8 @@ import { MerkleTreeOperations, computePublicDataTreeLeafIndex } from '@aztec/wor
  * @param contractDataSource - A contract data source.
  * @returns A new instance of a PublicExecutor.
  */
-export function getPublicExecutor(merkleTree: MerkleTreeOperations, contractDataSource: ContractDataSource) {
-  return new PublicExecutor(new WorldStatePublicDB(merkleTree), new ContractsDataSourcePublicDB(contractDataSource));
+export function getPublicExecutor(merkleTree: MerkleTreeOperations, contractDataSource: ContractDataSource, l1toL2MessageSource: L1ToL2MessageSource) {
+  return new PublicExecutor(new WorldStatePublicDB(merkleTree), new ContractsDataSourcePublicDB(contractDataSource), new WorldStateDB(merkleTree, l1toL2MessageSource));
 }
 
 /**
@@ -59,4 +60,58 @@ class WorldStatePublicDB implements PublicStateDB {
     const index = computePublicDataTreeLeafIndex(contract, slot, await BarretenbergWasm.get());
     this.writeCache.set(index, newValue);
   }
+}
+
+/**
+ * Implements WorldState db using a world state database.
+ */
+export class WorldStateDB implements CommitmentsDB {
+  constructor(private db: MerkleTreeOperations,private l1ToL2MessageSource: L1ToL2MessageSource) {}
+
+  /**
+   * Gets a confirmed L1 to L2 message for the given message key.
+   * TODO(Maddiaa): Can be combined with aztec-node method that does the same thing.
+   * @param messageKey - The message Key.
+   * @returns - The l1 to l2 message object
+   */
+  public async getL1ToL2Message(messageKey: Fr): Promise<MessageLoadOracleInputs> {
+    // todo: #697 - make this one lookup.
+    const message = await this.l1ToL2MessageSource.getConfirmedL1ToL2Message(messageKey);
+    const index = (await this.db.findLeafIndex(
+      MerkleTreeId.L1_TO_L2_MESSAGES_TREE,
+      messageKey.toBuffer()
+    ))!;
+    const siblingPath = await this.db.getSiblingPath(MerkleTreeId.L1_TO_L2_MESSAGES_TREE, index);
+
+    return {
+      message: message.toFieldArray(),
+      index,
+      siblingPath: siblingPath.toFieldArray(),
+    }
+  }
+
+  /**
+   * Gets a message index and sibling path to some commitment in the private data tree.
+   * @param address - The contract address owning storage.
+   * @param commitment - The preimage of the siloed data.
+   * @returns - The Commitment data oracle object
+   */
+  public async getCommitment(address: AztecAddress, commitment: Fr): Promise<CommitmentDataOracleInputs> {
+    // TODO(Maddiaa): make this a method in circuits wasm
+    const bbWasm = await BarretenbergWasm.get();
+    const message = Fr.fromBuffer(pedersenCompressWithHashIndex(bbWasm, [address.toBuffer(), commitment.toBuffer()], 3));
+    const index = (await this.db.findLeafIndex(
+      MerkleTreeId.PRIVATE_DATA_TREE,
+      message.toBuffer()
+    ))!;
+    const siblingPath = await this.db.getSiblingPath(MerkleTreeId.PRIVATE_DATA_TREE, index);
+
+    return {
+      message,
+      index,
+      siblingPath: siblingPath.toFieldArray()
+    };
+    
+  }
+
 }

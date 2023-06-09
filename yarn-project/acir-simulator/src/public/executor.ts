@@ -4,7 +4,7 @@ import { createDebugLogger } from '@aztec/foundation/log';
 import { TxExecutionRequest } from '@aztec/types';
 import { select_return_flattened as selectPublicWitnessFlattened } from '@noir-lang/noir_util_wasm';
 import { acvm, frToAztecAddress, frToSelector, fromACVMField, toACVMField, toACVMWitness } from '../acvm/index.js';
-import { PublicContractsDB, PublicStateDB } from './db.js';
+import { CommitmentsDB, PublicContractsDB, PublicStateDB } from './db.js';
 import { PublicExecution, PublicExecutionResult } from './execution.js';
 import { ContractStorageActionsCollector } from './state_actions.js';
 
@@ -18,6 +18,7 @@ export class PublicExecutor {
   constructor(
     private readonly stateDb: PublicStateDB,
     private readonly contractsDb: PublicContractsDB,
+    private readonly commitmentsDb: CommitmentsDB,
 
     private log = createDebugLogger('aztec:simulator:public-executor'),
   ) {}

@@ -1,10 +1,12 @@
-import { DBOracle, MessageLoadOracleInputs } from '@aztec/acir-simulator';
+import { CommitmentDataOracleInputs, DBOracle, MessageLoadOracleInputs } from '@aztec/acir-simulator';
 import { AztecNode } from '@aztec/aztec-node';
 import { AztecAddress, EthAddress, Fr } from '@aztec/circuits.js';
 import { KeyPair } from '@aztec/key-store';
 import { FunctionAbi } from '@aztec/foundation/abi';
 import { ContractDataOracle } from '../contract_data_oracle/index.js';
 import { Database } from '../database/index.js';
+// import { BarretenbergWasm } from '@aztec/barretenberg.js/wasm';
+// import { pedersenCompressWithHashIndex } from '@aztec/barretenberg.js/crypto';
 
 /**
  * A data oracle that provides information needed for simulating a transaction.
@@ -92,7 +94,7 @@ export class SimulatorOracle implements DBOracle {
    *
    * @param msgKey - The key of the message to be retreived
    * @returns A promise that resolves to the message data, a sibling path and the
-   *          index of the message in the the l1ToL2MessagesTree
+   *          index of the message in the l1ToL2MessagesTree
    */
   async getL1ToL2Message(msgKey: Fr): Promise<MessageLoadOracleInputs> {
     const messageAndIndex = await this.node.getL1ToL2MessageAndIndex(msgKey);
@@ -104,5 +106,28 @@ export class SimulatorOracle implements DBOracle {
       siblingPath: siblingPath.toFieldArray(),
       index,
     };
+  }
+
+  /**
+   * Retrieves the commitment messages associated with a specific message key.
+   * @param contractAddress - The contract Address. 
+   * @param commitment - The key of the message being fetched.
+   * @returns - A promise that resolves to the message data, a sibling path and the 
+   *            index of the message in the private data tree. 
+   */
+  async getCommitment(contractAddress: AztecAddress, commitment: Fr): Promise<CommitmentDataOracleInputs> {
+
+    // const bbWasm = await BarretenbergWasm.get();
+    // const message = Fr.fromBuffer(pedersenCompressWithHashIndex(bbWasm, [contractAddress.toBuffer(), commitment.toBuffer()], 3));
+    // TODO: get the message inde
+    // const siblingPath = await this.node.getDataTreePath(message);
+    // TODO: stubbed
+    void contractAddress;
+    void commitment;
+    return await Promise.resolve( {
+      message: Fr.ZERO,
+      siblingPath: [Fr.ZERO],
+      index: 0n
+    });
   }
 }

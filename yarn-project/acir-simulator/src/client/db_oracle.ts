@@ -41,6 +41,22 @@ export interface MessageLoadOracleInputs {
 }
 
 /**
+ * The format noir uses to get commitments.
+ */
+export interface CommitmentDataOracleInputs {
+  /** Message being fetched. */
+  message: Fr,
+  /**
+   * The path in the merkle tree to the commitment.
+   */
+  siblingPath: Fr[];
+  /**
+   * The index of the message commitment in the merkle tree.
+   */
+  index: bigint;
+}
+
+/**
  * The database oracle interface.
  */
 export interface DBOracle {
@@ -58,5 +74,8 @@ export interface DBOracle {
   }>;
   getFunctionABI(contractAddress: AztecAddress, functionSelector: Buffer): Promise<FunctionAbi>;
   getPortalContractAddress(contractAddress: AztecAddress): Promise<EthAddress>;
+  
+  // TODO(Maddiaa): can be combined with CommitmentDB interface in public state.
   getL1ToL2Message(msgKey: Fr): Promise<MessageLoadOracleInputs>;
+  getCommitment(contractAddress: AztecAddress, msgKey: Fr): Promise<CommitmentDataOracleInputs>;
 }
