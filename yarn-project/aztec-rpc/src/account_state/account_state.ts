@@ -14,14 +14,14 @@ import {
   L2BlockContext,
   MerkleTreeId,
   Tx,
+  TxAuxData,
   TxExecutionRequest,
   NoirLogs,
 } from '@aztec/types';
-import { NotePreimage, TxAuxData } from '../aztec_rpc_server/tx_aux_data/index.js';
 import { ContractDataOracle } from '../contract_data_oracle/index.js';
 import { Database, TxAuxDataDao, TxDao } from '../database/index.js';
 import { generateFunctionSelector } from '../index.js';
-import { KernelProver, OutputNoteData } from '../kernel_prover/index.js';
+import { KernelProver } from '../kernel_prover/index.js';
 import { SimulatorOracle } from '../simulator_oracle/index.js';
 
 /**
@@ -254,10 +254,9 @@ export class AccountState {
 
     const kernelProver = new KernelProver(contractDataOracle);
     this.log('Executing Prover...');
-    const { proof, publicInputs, outputNotes } = await kernelProver.prove(txRequest, signature, executionResult);
+    const { proof, publicInputs } = await kernelProver.prove(txRequest, signature, executionResult);
     this.log('Proof completed!');
 
-    const encryptedLogs = this.createEncryptedLogs(outputNotes);
     const newContractPublicFunctions = newContractAddress
       ? await this.getNewContractPublicFunctions(newContractAddress)
       : [];
@@ -265,7 +264,7 @@ export class AccountState {
     return Tx.createPrivate(
       publicInputs,
       proof,
-      encryptedLogs,
+      executionResult.encryptedLogs,
       newContractPublicFunctions,
       executionResult.enqueuedPublicFunctionCalls,
     );
@@ -380,26 +379,6 @@ export class AccountState {
         await BarretenbergWasm.get(),
       ),
     );
-  }
-
-  /**
-   * Create an EncryptedLogs instance from a given list of output notes.
-   * This function converts the output note data to encrypted buffers using the owner's public key,
-   * then combines them into an EncryptedLogs object. The resulting object can be used to store
-   * encrypted note data in a transaction and is decrypted by the recipient later during processing.
-   *
-   * @param outputNotes - An array of OutputNoteData objects containing the note data to be encrypted.
-   * @returns An EncryptedLogs instance containing encrypted note data chunks.
-   */
-  private createEncryptedLogs(outputNotes: OutputNoteData[]) {
-    const dataChunks = outputNotes.map(({ contractAddress, data }) => {
-      const { preimage, storageSlot, owner } = data;
-      const notePreimage = new NotePreimage(preimage);
-      const txAuxData = new TxAuxData(notePreimage, contractAddress, storageSlot);
-      const ownerPublicKey = Point.fromBuffer(Buffer.concat([owner.x.toBuffer(), owner.y.toBuffer()]));
-      return txAuxData.toEncryptedBuffer(ownerPublicKey, this.grumpkin);
-    });
-    return new NoirLogs(dataChunks);
   }
 
   /**

@@ -56,7 +56,7 @@ Currently not running any proofs _nor_ access control so blocks can be submitted
 
 ### ContractDeploymentEmitter
 
-Job: Share unverified data on chain.
+Job: Share Contract Deployment public data on chain.
 
 For now, this include bytecode for contract deployment, but over time this will be verified for public functions.
 
