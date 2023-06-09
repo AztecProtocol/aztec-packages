@@ -193,9 +193,9 @@ export class MerkleTrees implements MerkleTreeDb {
   }
 
   /**
-   * TODO
-   * @param includeUncommitted
-   * @returns
+   * Get the current roots of the commitment trees.
+   * @param includeUncommitted - Indicates whether to include uncommitted data.
+   * @returns The current roots of the trees.
    */
   public getCommitmentTreeRoots(includeUncommitted: boolean): CurrentCommitmentTreeRoots {
     const roots = [

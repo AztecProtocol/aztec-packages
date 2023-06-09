@@ -2,6 +2,7 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { FunctionAbi } from '@aztec/foundation/abi';
+import { CommitmentsDB } from '../index.js';
 
 /**
  * The format that noir contracts use to get notes.
@@ -59,7 +60,7 @@ export interface CommitmentDataOracleInputs {
 /**
  * The database oracle interface.
  */
-export interface DBOracle {
+export interface DBOracle extends CommitmentsDB {
   getSecretKey(contractAddress: AztecAddress, address: AztecAddress): Promise<Buffer>;
   getNotes(
     contractAddress: AztecAddress,
@@ -74,8 +75,4 @@ export interface DBOracle {
   }>;
   getFunctionABI(contractAddress: AztecAddress, functionSelector: Buffer): Promise<FunctionAbi>;
   getPortalContractAddress(contractAddress: AztecAddress): Promise<EthAddress>;
-
-  // TODO(Maddiaa): can be combined with CommitmentDB interface in public state.
-  getL1ToL2Message(msgKey: Fr): Promise<MessageLoadOracleInputs>;
-  getCommitment(contractAddress: AztecAddress, msgKey: Fr): Promise<CommitmentDataOracleInputs>;
 }

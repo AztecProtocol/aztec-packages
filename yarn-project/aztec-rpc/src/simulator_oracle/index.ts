@@ -1,11 +1,12 @@
 import { CommitmentDataOracleInputs, DBOracle, MessageLoadOracleInputs } from '@aztec/acir-simulator';
 import { AztecNode } from '@aztec/aztec-node';
-import { AztecAddress, CircuitsWasm, EthAddress, Fr } from '@aztec/circuits.js';
+import { AztecAddress, CircuitsWasm, EthAddress, Fr, PrivateHistoricTreeRoots } from '@aztec/circuits.js';
 import { KeyPair } from '@aztec/key-store';
 import { FunctionAbi } from '@aztec/foundation/abi';
 import { ContractDataOracle } from '../contract_data_oracle/index.js';
 import { Database } from '../database/index.js';
 import { computeSiloedCommitment } from '@aztec/circuits.js/abis';
+import { MerkleTreeId } from '@aztec/types';
 
 /**
  * A data oracle that provides information needed for simulating a transaction.
@@ -116,13 +117,26 @@ export class SimulatorOracle implements DBOracle {
    */
   async getCommitment(contractAddress: AztecAddress, commitment: Fr): Promise<CommitmentDataOracleInputs> {
     const message = await computeSiloedCommitment(await CircuitsWasm.get(), contractAddress, commitment);
-    // const siblingPath = await this.node.getDataTreePath(message);
-    // TODO: stubbed
-    void message;
+    const index = await this.node.findCommitmentIndex(message.toBuffer());
+    if (!index) throw new Error("Commitment not found");
+
+    const siblingPath = await this.node.getDataTreePath(index);
     return await Promise.resolve({
-      message: Fr.ZERO,
-      siblingPath: [Fr.ZERO],
-      index: 0n,
+      message,
+      siblingPath: siblingPath.toFieldArray(),
+      index,
+    });
+  }
+
+  getTreeRoots(): PrivateHistoricTreeRoots {
+    const roots = this.db.getTreeRoots();
+  
+    return PrivateHistoricTreeRoots.from({
+      privateKernelVkTreeRoot: Fr.ZERO,
+      privateDataTreeRoot: roots[MerkleTreeId.PRIVATE_DATA_TREE],
+      contractTreeRoot: roots[MerkleTreeId.CONTRACT_TREE],
+      nullifierTreeRoot: roots[MerkleTreeId.NULLIFIER_TREE],
+      l1ToL2MessagesTreeRoot: roots[MerkleTreeId.L1_TO_L2_MESSAGES_TREE],
     });
   }
 }

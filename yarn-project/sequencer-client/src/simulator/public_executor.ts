@@ -6,11 +6,11 @@ import {
   PublicExecutor,
   PublicStateDB,
 } from '@aztec/acir-simulator';
-import { pedersenCompressWithHashIndex } from '@aztec/barretenberg.js/crypto';
 import { BarretenbergWasm } from '@aztec/barretenberg.js/wasm';
-import { AztecAddress, EthAddress, Fr, PrivateHistoricTreeRoots } from '@aztec/circuits.js';
+import { AztecAddress, CircuitsWasm, EthAddress, Fr, PrivateHistoricTreeRoots } from '@aztec/circuits.js';
+import { computeSiloedCommitment } from '@aztec/circuits.js/abis';
 import { ContractDataSource, L1ToL2MessageSource, MerkleTreeId } from '@aztec/types';
-import { CurrentCommitmentTreeRoots, MerkleTreeOperations, computePublicDataTreeLeafIndex } from '@aztec/world-state';
+import { MerkleTreeOperations, computePublicDataTreeLeafIndex } from '@aztec/world-state';
 
 /**
  * Returns a new PublicExecutor simulator backed by the supplied merkle tree db and contract data source.
@@ -109,11 +109,7 @@ export class WorldStateDB implements CommitmentsDB {
    * @returns - The Commitment data oracle object
    */
   public async getCommitment(address: AztecAddress, commitment: Fr): Promise<CommitmentDataOracleInputs> {
-    // TODO(Maddiaa): make this a method in circuits wasm
-    const bbWasm = await BarretenbergWasm.get();
-    const message = Fr.fromBuffer(
-      pedersenCompressWithHashIndex(bbWasm, [address.toBuffer(), commitment.toBuffer()], 3),
-    );
+    const message = await computeSiloedCommitment(await CircuitsWasm.get(), address, commitment)
     const index = (await this.db.findLeafIndex(MerkleTreeId.PRIVATE_DATA_TREE, message.toBuffer()))!;
     const siblingPath = await this.db.getSiblingPath(MerkleTreeId.PRIVATE_DATA_TREE, index);
 
@@ -125,8 +121,8 @@ export class WorldStateDB implements CommitmentsDB {
   }
 
   /**
-   *
-   * @returns
+   * Gets the current tree roots from the merkle db.
+   * @returns current tree roots.
    */
   public getTreeRoots(): PrivateHistoricTreeRoots {
     const roots = this.db.getCommitmentTreeRoots();

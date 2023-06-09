@@ -19,8 +19,9 @@ export class MerkleTreeOperationsFacade implements MerkleTreeOperations {
   }
 
   /**
-   * TODO
-   * @returns
+   * Get the current roots of the commitment trees.
+   * @param includeUncommitted - Indicates whether to include uncommitted data.
+   * @returns The current roots of the trees.
    */
   getCommitmentTreeRoots(): CurrentCommitmentTreeRoots {
     return this.trees.getCommitmentTreeRoots(this.includeUncommitted);

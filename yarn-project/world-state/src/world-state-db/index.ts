@@ -56,9 +56,13 @@ type WithIncludeUncommitted<F> = F extends (...args: [...infer Rest]) => infer R
  * The current roots of the commitment trees
  */
 export type CurrentCommitmentTreeRoots = {
+  /** Private data tree root. */
   privateDataTreeRoot: Buffer;
+  /** Contract data tree root. */
   contractDataTreeRoot: Buffer;
+  /** L1 to L2 Messages data tree root. */
   l1Tol2MessagesTreeRoot: Buffer;
+  /** Nullifier data tree root. */
   nullifierTreeRoot: Buffer;
 };
 
