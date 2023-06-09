@@ -31,8 +31,8 @@ export interface L1PublisherTxSender {
   sendProcessTx(encodedData: L1ProcessArgs): Promise<string | undefined>;
 
   /**
-   * Sends a tx to the encrypted logs emitter contract with contract deployment data such as bytecode. Returns once the tx has been mined.
-   * @param l2BlockNum - Number of the L2 block that owns this encrypted logs.
+   * Sends a tx to the public contract data emitter contract with contract deployment data such as bytecode. Returns once the tx has been mined.
+   * @param l2BlockNum - Number of the L2 block that owns this public contract data.
    * @param l2BlockHash - The hash of the block corresponding to this data.
    * @param contractData - Data to publish.
    * @returns The hash of the mined tx.
@@ -76,7 +76,7 @@ function isNotUndefined<T>(item: T | undefined): item is T {
 }
 
 /**
- * Publishes L2 blocks and encrypted logs to L1. This implementation does *not* retry a transaction in
+ * Publishes L2 blocks to L1. This implementation does *not* retry a transaction in
  * the event of network congestion, but should work for local development.
  * - If sending (not mining) a tx fails, it retries indefinitely at 1-minute intervals.
  * - If the tx is not mined, keeps polling indefinitely at 1-second intervals.

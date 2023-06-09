@@ -1,4 +1,4 @@
-import { NoirLogs } from './event_logs.js';
+import { NoirLogs } from './noir_logs.js';
 
 /**
  * Interface of classes allowing for the retrieval of encrypted logs.

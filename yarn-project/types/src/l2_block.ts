@@ -16,7 +16,7 @@ import { L2Tx } from './l2_tx.js';
 import { PublicDataWrite } from './public_data_write.js';
 import { toBigIntBE, toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { sha256 } from '@aztec/foundation/crypto';
-import { NoirLogs } from './event_logs.js';
+import { NoirLogs } from './noir_logs.js';
 
 /**
  * The data that makes up the rollup proof, with encoder decoder functions.
@@ -440,7 +440,7 @@ export class L2Block {
   attachEncryptedLogs(encryptedLogs: NoirLogs) {
     // throw error if the block already has encrypted logs attached.
     if (this.newEncryptedLogs) {
-      return;
+      throw new Error('L2 block already has encrypted logs attached.');
     }
 
     const encryptedLogsLength = encryptedLogs.getSerializedLength();

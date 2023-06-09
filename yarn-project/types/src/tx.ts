@@ -5,7 +5,7 @@ import { arrayNonEmptyLength } from '@aztec/foundation/collection';
 import { EncodedContractFunction } from './contract_data.js';
 import { SignedTxExecutionRequest } from './tx_execution_request.js';
 import { TxHash } from './tx_hash.js';
-import { NoirLogs } from './event_logs.js';
+import { NoirLogs } from './noir_logs.js';
 
 /**
  * Defines valid fields for a private transaction.

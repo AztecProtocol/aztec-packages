@@ -1,4 +1,4 @@
-import { NoirLogs } from './event_logs.js';
+import { NoirLogs } from './noir_logs.js';
 
 describe('NoirLogs', () => {
   it('can encode NoirLogs to buffer and back', () => {

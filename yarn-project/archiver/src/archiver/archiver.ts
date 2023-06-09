@@ -54,7 +54,7 @@ export class Archiver implements L2BlockSource, NoirLogsSource, ContractDataSour
    * @param rollupAddress - Ethereum address of the rollup contract.
    * @param inboxAddress - Ethereum address of the inbox contract.
    * @param contractDeploymentEmitterAddress - Ethereum address of the contractDeploymentEmitter contract.
-   * @param searchStartBlock - The eth block from which to start searching for new blocks.
+   * @param searchStartBlock - The L1 block from which to start searching for new blocks.
    * @param pollingIntervalMs - The interval for polling for rollup logs (in milliseconds).
    * @param store - An archiver data store for storage & retrieval of blocks, encrypted logs & contract data.
    * @param log - A logger.
@@ -117,7 +117,7 @@ export class Archiver implements L2BlockSource, NoirLogsSource, ContractDataSour
   }
 
   /**
-   * Fetches `L2BlockProcessed` and `ContractDeployed` logs from `nextL2BlockFromBlock` and processes them.
+   * Fetches `L2BlockProcessed` and `ContractDeployment` logs from `nextL2BlockFromBlock` and processes them.
    * @param blockUntilSynced - If true, blocks until the archiver has fully synced.
    */
   private async sync(blockUntilSynced: boolean) {
@@ -158,11 +158,10 @@ export class Archiver implements L2BlockSource, NoirLogsSource, ContractDataSour
 
     // ********** Events that are processed per block **********
 
-    // The sequencer publishes encrypted logs first
     // Read all data from chain and then write to our stores at the end
     const nextExpectedL2BlockNum = BigInt(this.store.getBlocksLength() + INITIAL_L2_BLOCK_NUM);
     this.log(
-      `Retrieving chain state from eth block: ${this.nextL2BlockFromBlock}, next expected rollup id: ${nextExpectedL2BlockNum}`,
+      `Retrieving chain state from L1 block: ${this.nextL2BlockFromBlock}, next expected rollup id: ${nextExpectedL2BlockNum}`,
     );
     const retrievedBlocks = await retrieveBlocks(
       this.publicClient,
@@ -192,7 +191,7 @@ export class Archiver implements L2BlockSource, NoirLogsSource, ContractDataSour
 
     this.log(`Retrieved ${retrievedBlocks.retrievedData.length} block(s) from chain`);
 
-    // store encrypted event logs from L2 Blocks that we have retrieved
+    // store encrypted logs from L2 Blocks that we have retrieved
     const encryptedLogs = retrievedBlocks.retrievedData.map(block => {
       return block.newEncryptedLogs!;
     });
@@ -221,7 +220,7 @@ export class Archiver implements L2BlockSource, NoirLogsSource, ContractDataSour
       ),
     );
 
-    // set the eth block for the next search
+    // set the L1 block for the next search
     this.nextL2BlockFromBlock = retrievedBlocks.nextEthBlockNumber;
   }
 
