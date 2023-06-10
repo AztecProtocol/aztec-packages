@@ -1,8 +1,6 @@
-import { AztecAddress } from '@aztec/circuits.js';
-import { Point } from '@aztec/foundation/fields';
-import { ConstantKeyPair, KeyPair } from './key_pair.js';
-import { KeyStore } from './key_store.js';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
+import { ConstantKeyPair, KeyPair } from './key_pair.js';
+import { KeyStore, PublicKey } from './key_store.js';
 
 /**
  * TestKeyStore is an implementation of the KeyStore interface, used for managing key pairs in a testing environment.
@@ -13,16 +11,22 @@ export class TestKeyStore implements KeyStore {
 
   constructor(private grumpkin: Grumpkin) {}
 
+  async addAccount(privKey: Buffer): Promise<PublicKey> {
+    const keyPair = await ConstantKeyPair.fromPrivateKey(privKey);
+    this.accounts.push(keyPair);
+    return keyPair.getPublicKey();
+  }
+
   /**
    * Adds a new account to the TestKeyStore with a randomly generated ConstantKeyPair.
    * The account will have its own private and public key pair, which can be used for signing transactions.
    *
    * @returns A promise that resolves to the newly created account's AztecAddress.
    */
-  public addAccount() {
+  public createAccount() {
     const keyPair = ConstantKeyPair.random(this.grumpkin);
     this.accounts.push(keyPair);
-    return Promise.resolve(keyPair.getPublicKey().toAddress());
+    return Promise.resolve(keyPair.getPublicKey());
   }
 
   /**
@@ -33,42 +37,20 @@ export class TestKeyStore implements KeyStore {
    * @returns A Promise that resolves to an array of AztecAddress instances.
    */
   public getAccounts() {
-    return Promise.resolve(this.accounts.map(a => a.getPublicKey().toAddress()));
+    return Promise.resolve(this.accounts.map(a => a.getPublicKey()));
   }
 
   /**
    * Retrieves the private key of the account associated with the specified AztecAddress.
    * Throws an error if the provided address is not found in the list of registered accounts.
    *
-   * @param address - The AztecAddress instance representing the account for which the private key is requested.
+   * @param pubKey - The AztecAddress instance representing the account for which the private key is requested.
    * @returns A Promise that resolves to a Buffer containing the private key.
+   * @deprecated We should not require a keystore to expose private keys in plain.
    */
-  public getAccountPrivateKey(address: AztecAddress): Promise<Buffer> {
-    const account = this.getAccount(address);
+  public getAccountPrivateKey(pubKey: PublicKey): Promise<Buffer> {
+    const account = this.getAccount(pubKey);
     return account.getPrivateKey();
-  }
-
-  /**
-   * Retrieve the public key of an account with a given address.
-   * Searches for the corresponding account in the accounts array, and returns its public key.
-   * If the account is not found, an error is thrown.
-   *
-   * @param address - The AztecAddress of the account whose public key is to be retrieved.
-   * @returns A Promise that resolves with the Point instance representing the public key of the account.
-   */
-  public getAccountPublicKey(address: AztecAddress): Promise<Point> {
-    const account = this.getAccount(address);
-    return Promise.resolve(account.getPublicKey());
-  }
-
-  /**
-   * Retrieves an array of public keys for all accounts stored in the TestKeyStore.
-   * These public keys can be used for verifying signatures on transactions and messages.
-   *
-   * @returns A promise that resolves to an array of public keys associated with the accounts in the TestKeyStore.
-   */
-  public getSigningPublicKeys() {
-    return Promise.resolve(this.accounts.map(a => a.getPublicKey()));
   }
 
   /**
@@ -79,8 +61,8 @@ export class TestKeyStore implements KeyStore {
    * @param txRequest - The transaction request to be signed. It includes the sender, receiver, and other details.
    * @returns A Promise which resolves to the generated signature as a Buffer.
    */
-  public ecdsaSign(what: Buffer, from: AztecAddress) {
-    const account = this.getAccount(from);
+  public ecdsaSign(what: Buffer, pubKey: PublicKey) {
+    const account = this.getAccount(pubKey);
     return account.ecdsaSign(what);
   }
 
@@ -92,8 +74,8 @@ export class TestKeyStore implements KeyStore {
    * @param address - The address of the account to retrieve.
    * @returns The KeyPair object associated with the provided address.
    */
-  private getAccount(address: AztecAddress) {
-    const account = this.accounts.find(a => a.getPublicKey().toAddress().equals(address));
+  private getAccount(pubKey: PublicKey) {
+    const account = this.accounts.find(a => a.getPublicKey().equals(pubKey));
     if (!account) {
       throw new Error('Unknown account.');
     }

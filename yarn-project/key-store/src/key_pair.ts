@@ -33,6 +33,12 @@ export class ConstantKeyPair implements KeyPair {
     return new ConstantKeyPair(publicKey, privateKey);
   }
 
+  public static async fromPrivateKey(privateKey: Buffer) {
+    const grumpkin = await Grumpkin.new();
+    const publicKey = Point.fromBuffer(grumpkin.mul(Grumpkin.generator, privateKey));
+    return new ConstantKeyPair(publicKey, privateKey);
+  }
+
   constructor(private publicKey: Point, private privateKey: Buffer) {}
 
   /**

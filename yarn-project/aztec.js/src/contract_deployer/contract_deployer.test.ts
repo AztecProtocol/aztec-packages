@@ -1,5 +1,5 @@
 import { AztecRPCClient, Tx, TxHash, TxReceipt } from '@aztec/aztec-rpc';
-import { AztecAddress, EcdsaSignature, EthAddress, Fr } from '@aztec/circuits.js';
+import { AztecAddress, EthAddress, Fr } from '@aztec/circuits.js';
 import { ContractAbi, FunctionType } from '@aztec/foundation/abi';
 import { TxExecutionRequest } from '@aztec/types';
 import { randomBytes } from 'crypto';
@@ -28,7 +28,6 @@ describe('Contract Deployer', () => {
   const args = [12, 345n];
 
   const mockTxRequest = { type: 'TxRequest' } as any as TxExecutionRequest;
-  const mockSignature = { type: 'EcdsaSignature' } as any as EcdsaSignature;
   const mockTx = { type: 'Tx' } as any as Tx;
   const mockTxHash = { type: 'TxHash' } as any as TxHash;
   const mockTxReceipt = { type: 'TxReceipt' } as any as TxReceipt;

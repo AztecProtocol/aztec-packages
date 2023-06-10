@@ -1,7 +1,7 @@
 import { ARGS_LENGTH, AztecAddress, EcdsaSignature, Fr, FunctionData, TxContext } from '@aztec/circuits.js';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { sha256 } from '@aztec/foundation/crypto';
-import { KeyStore } from '@aztec/key-store';
+import { KeyStore, PublicKey } from '@aztec/key-store';
 import { ExecutionRequest, SignedTxExecutionRequest, TxExecutionRequest } from '@aztec/types';
 import partition from 'lodash.partition';
 import times from 'lodash.times';
@@ -11,7 +11,7 @@ import { AccountContractAbi } from '@aztec/noir-contracts/examples';
 import { generateFunctionSelector } from '../index.js';
 
 export class EcdsaAccountContract implements AccountImplementation {
-  constructor(private address: AztecAddress, private keyStore: KeyStore) {}
+  constructor(private address: AztecAddress, private pubKey: PublicKey, private keyStore: KeyStore) {}
 
   async createAuthenticatedTxRequest(
     executions: ExecutionRequest[],
@@ -30,7 +30,7 @@ export class EcdsaAccountContract implements AccountImplementation {
 
     const payload = buildPayload(privateCalls, publicCalls);
     const hash = hashPayload(payload);
-    const signature = await this.keyStore.ecdsaSign(hash, this.address);
+    const signature = await this.keyStore.ecdsaSign(hash, this.pubKey);
     const signatureAsFrArray = Array.from(signature.toBuffer()).map(byte => new Fr(byte));
     const args = [payload, signatureAsFrArray];
     const abi = this.getEntrypointAbi();

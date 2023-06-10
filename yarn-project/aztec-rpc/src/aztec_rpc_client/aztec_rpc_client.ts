@@ -30,7 +30,8 @@ export interface DeployedContract {
  * as well as storage and view functions for smart contracts.
  */
 export interface AztecRPCClient {
-  addAccount(): Promise<AztecAddress>;
+  addExternallyOwnedAccount(): Promise<AztecAddress>;
+  addSmartAccount(privKey: Buffer, address: AztecAddress): Promise<AztecAddress>;
   getAccounts(): Promise<AztecAddress[]>;
   getAccountPublicKey(address: AztecAddress): Promise<Point>;
   addContracts(contracts: DeployedContract[]): Promise<void>;

@@ -1,10 +1,14 @@
 import { AztecAddress, Fr, TxContext } from '@aztec/circuits.js';
-import { KeyStore } from '@aztec/key-store';
+import { KeyStore, PublicKey, getAddressFromPublicKey } from '@aztec/key-store';
 import { ExecutionRequest, SignedTxExecutionRequest, TxExecutionRequest } from '@aztec/types';
 import { AccountImplementation } from './index.js';
 
 export class EcdsaExternallyOwnedAccount implements AccountImplementation {
-  constructor(private address: AztecAddress, private keyStore: KeyStore) {}
+  constructor(private address: AztecAddress, private pubKey: PublicKey, private keyStore: KeyStore) {
+    if (!address.equals(getAddressFromPublicKey(pubKey))) {
+      throw new Error(`Address and public key don't match for EOA`);
+    }
+  }
 
   async createAuthenticatedTxRequest(
     executions: ExecutionRequest[],
@@ -26,7 +30,7 @@ export class EcdsaExternallyOwnedAccount implements AccountImplementation {
     );
     const txRequest = await txExecRequest.toTxRequest();
     const toSign = txRequest.toBuffer();
-    const signature = await this.keyStore.ecdsaSign(toSign, execution.from);
+    const signature = await this.keyStore.ecdsaSign(toSign, this.pubKey);
     return new SignedTxExecutionRequest(txExecRequest, signature);
   }
 }

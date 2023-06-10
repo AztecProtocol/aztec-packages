@@ -145,8 +145,8 @@ export class Synchroniser {
    * @param privKey - The private key buffer to initialize the account state.
    * @returns A promise that resolves once the account is added to the Synchroniser.
    */
-  public async addAccount(privKey: Buffer) {
-    const accountState = new AccountState(privKey, this.db, this.node, await Grumpkin.new());
+  public async addAccount(privKey: Buffer, address: AztecAddress) {
+    const accountState = new AccountState(privKey, address, this.db, this.node, await Grumpkin.new());
     this.accountStates.push(accountState);
     await Promise.resolve();
   }
@@ -159,7 +159,7 @@ export class Synchroniser {
    * @returns The AccountState instance associated with the provided AztecAddress or undefined if not found.
    */
   public getAccount(account: AztecAddress) {
-    return this.accountStates.find(as => as.getPublicKey().toAddress().equals(account));
+    return this.accountStates.find(as => as.getAddress().equals(account));
   }
 
   /**

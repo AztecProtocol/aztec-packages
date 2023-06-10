@@ -4,7 +4,7 @@ import { AztecAddress, ContractDeploymentData, EthAddress, FunctionData, TxConte
 import { ContractAbi, FunctionType } from '@aztec/foundation/abi';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { KeyStore } from '@aztec/key-store';
+import { KeyStore, PublicKey, getAddressFromPublicKey } from '@aztec/key-store';
 import { Tx, TxExecutionRequest, TxHash } from '@aztec/types';
 import { EcdsaAccountContract } from '../account_impl/ecdsa_account_contract.js';
 import { EcdsaExternallyOwnedAccount } from '../account_impl/ecdsa_eoa.js';
@@ -15,6 +15,7 @@ import { ContractTree } from '../contract_tree/index.js';
 import { Database, TxDao } from '../database/index.js';
 import { Synchroniser } from '../synchroniser/index.js';
 import { TxReceipt, TxStatus } from '../tx/index.js';
+import { AccountState } from '../account_state/account_state.js';
 
 /**
  * A remote Aztec RPC Client implementation.
@@ -41,7 +42,7 @@ export class AztecRPCServer implements AztecRPCClient {
   public async start() {
     const accounts = await this.keyStore.getAccounts();
     for (const account of accounts) {
-      await this.initAccountState(account);
+      await this.initAccountState(account, getAddressFromPublicKey(account));
     }
     await this.synchroniser.start();
     this.log(`Started. ${accounts.length} initial accounts.`);
@@ -63,11 +64,21 @@ export class AztecRPCServer implements AztecRPCClient {
    * Adds a new account to the AztecRPCServer instance.
    *
    * @returns The AztecAddress of the newly added account.
+   * @deprecated EOAs to be removed.
    */
-  public async addAccount() {
-    const accountAddress = await this.keyStore.addAccount();
-    await this.initAccountState(accountAddress);
-    return accountAddress;
+  public async addExternallyOwnedAccount() {
+    const accountPubKey = await this.keyStore.createAccount();
+    const address = getAddressFromPublicKey(accountPubKey);
+    await this.initAccountState(accountPubKey, address);
+    return address;
+  }
+
+  // TODO: We should not be passing in the private key in plain, instead, we should ask the keystore
+  // for a public key, create the smart account with it, and register it here.
+  public async addSmartAccount(privKey: Buffer, address: AztecAddress) {
+    const pubKey = await this.keyStore.addAccount(privKey);
+    await this.initAccountState(pubKey, address);
+    return address;
   }
 
   /**
@@ -250,7 +261,7 @@ export class AztecRPCServer implements AztecRPCClient {
     const { from } = executionRequest;
     const accountState = this.ensureAccount(from);
     const accountContract = await this.db.getContract(from);
-    const entrypoint: AccountImplementation = this.getAccountImplementation(from, accountContract);
+    const entrypoint: AccountImplementation = this.getAccountImplementation(accountState, accountContract);
 
     const authedTxRequest = await entrypoint.createAuthenticatedTxRequest(
       [executionRequest],
@@ -278,14 +289,17 @@ export class AztecRPCServer implements AztecRPCClient {
     return tx;
   }
 
-  // TODO: Allow users to register their account implementations
-  private getAccountImplementation(address: AztecAddress, contract: ContractDao | undefined) {
+  // TODO: Store the kind of account in account state
+  private getAccountImplementation(accountState: AccountState, contract: ContractDao | undefined) {
+    const address = accountState.getAddress();
+    const pubKey = accountState.getPublicKey();
+
     if (!contract) {
       this.log(`Using ECDSA EOA implementation for ${address}`);
-      return new EcdsaExternallyOwnedAccount(address, this.keyStore);
+      return new EcdsaExternallyOwnedAccount(address, pubKey, this.keyStore);
     } else if (contract.name === 'Account') {
       this.log(`Using ECDSA account contract implementation for ${address}`);
-      return new EcdsaAccountContract(address, this.keyStore);
+      return new EcdsaAccountContract(address, pubKey, this.keyStore);
     } else {
       throw new Error(`Unknown account implementation for ${address}`);
     }
@@ -382,9 +396,9 @@ export class AztecRPCServer implements AztecRPCClient {
    *
    * @param address - The address of the account to initialize.
    */
-  private async initAccountState(address: AztecAddress) {
-    const accountPrivateKey = await this.keyStore.getAccountPrivateKey(address);
-    await this.synchroniser.addAccount(accountPrivateKey);
+  private async initAccountState(pubKey: PublicKey, address: AztecAddress) {
+    const accountPrivateKey = await this.keyStore.getAccountPrivateKey(pubKey);
+    await this.synchroniser.addAccount(accountPrivateKey, address);
     this.log(`Account added: ${address.toString()}`);
   }
 

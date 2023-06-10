@@ -56,11 +56,11 @@ export class AccountState {
    */
   public syncedToBlock = 0;
   private publicKey: Point;
-  private address: AztecAddress;
   private keyPair: KeyPair;
 
   constructor(
     private readonly privKey: Buffer,
+    private readonly address: AztecAddress,
     private db: Database,
     private node: AztecNode,
     private grumpkin: Grumpkin,
@@ -71,7 +71,6 @@ export class AccountState {
       throw new Error(`Invalid private key length. Received ${privKey.length}, expected 32`);
     }
     this.publicKey = Point.fromBuffer(this.grumpkin.mul(Grumpkin.generator, this.privKey));
-    this.address = this.publicKey.toAddress();
     this.keyPair = new ConstantKeyPair(this.publicKey, privKey);
   }
 
@@ -113,7 +112,7 @@ export class AccountState {
    * @returns An AztecAddress instance representing the account's address.
    */
   public getAddress() {
-    return this.publicKey.toAddress();
+    return this.address;
   }
 
   /**
@@ -182,7 +181,7 @@ export class AccountState {
       contractDataOracle,
     );
 
-    const simulator = new AcirSimulator(new SimulatorOracle(contractDataOracle, this.db, this.keyPair, this.node));
+    const simulator = this.getAcirSimulator(contractDataOracle);
     this.log('Executing simulator...');
     const result = await simulator.run(txRequest, functionAbi, contractAddress, portalContract, historicRoots);
     this.log('Simulation completed!');
@@ -209,7 +208,7 @@ export class AccountState {
       contractDataOracle,
     );
 
-    const simulator = new AcirSimulator(new SimulatorOracle(contractDataOracle, this.db, this.keyPair, this.node));
+    const simulator = this.getAcirSimulator(contractDataOracle);
 
     this.log('Executing unconstrained simulator...');
     const result = await simulator.runUnconstrained(
@@ -356,13 +355,7 @@ export class AccountState {
    * @returns A Fr instance representing the computed nullifier.
    */
   private async computeNullifier(txAuxData: TxAuxData) {
-    const simulatorOracle = new SimulatorOracle(
-      new ContractDataOracle(this.db, this.node),
-      this.db,
-      this.keyPair,
-      this.node,
-    );
-    const simulator = new AcirSimulator(simulatorOracle);
+    const simulator = this.getAcirSimulator();
     // TODO In the future, we'll need to simulate an unconstrained fn associated with the contract ABI and slot
     return Fr.fromBuffer(
       simulator.computeSiloedNullifier(
@@ -452,5 +445,16 @@ export class AccountState {
         this.log(`Tx with hash ${txHash.toString()} from block ${blockContext.block.number} not found in db`);
       }
     }
+  }
+
+  private getAcirSimulator(contractDataOracle?: ContractDataOracle) {
+    const simulatorOracle = new SimulatorOracle(
+      contractDataOracle ?? new ContractDataOracle(this.db, this.node),
+      this.db,
+      this.keyPair,
+      this.address,
+      this.node,
+    );
+    return new AcirSimulator(simulatorOracle);
   }
 }
