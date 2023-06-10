@@ -75,7 +75,7 @@ export class EcdsaSignature {
   }
 
   static empty(): EcdsaSignature {
-    return new EcdsaSignature(Buffer.alloc(32, 0), Buffer.alloc(32, 0), Buffer.alloc(0, 1));
+    return new EcdsaSignature(Buffer.alloc(32, 0), Buffer.alloc(32, 0), Buffer.alloc(1, 0));
   }
 }
 
