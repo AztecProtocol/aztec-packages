@@ -1,13 +1,12 @@
 import { AztecNode } from '@aztec/aztec-node';
+import { Fr } from '@aztec/circuits.js';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
-import { L2BlockContext, TxHash } from '@aztec/types';
+import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { createDebugLogger } from '@aztec/foundation/log';
+import { InterruptableSleep } from '@aztec/foundation/sleep';
+import { L2BlockContext, MerkleTreeId, TxHash } from '@aztec/types';
 import { AccountState } from '../account_state/index.js';
 import { Database, TxDao } from '../database/index.js';
-import { InterruptableSleep } from '@aztec/foundation/sleep';
-import { createDebugLogger } from '@aztec/foundation/log';
-import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { MerkleTreeId } from '@aztec/types';
-import { Fr } from '@aztec/circuits.js';
 
 /**
  * The Synchroniser class manages the synchronization of account states and interacts with the Aztec node
@@ -182,12 +181,12 @@ export class Synchroniser {
   public async getTxByHash(txHash: TxHash): Promise<TxDao> {
     const tx = await this.db.getTx(txHash);
     if (!tx) {
-      throw new Error('Transaction not found in RPC database');
+      throw new Error(`Transaction ${txHash} not found in RPC database`);
     }
 
     const account = this.getAccount(tx.from);
     if (!account) {
-      throw new Error('Unauthorised account.');
+      throw new Error(`Unauthorised account: ${tx.from}`);
     }
 
     return tx;

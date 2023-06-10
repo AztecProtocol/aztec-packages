@@ -37,7 +37,7 @@ export class EcdsaAccountContract implements AccountImplementation {
     const selector = generateFunctionSelector(abi.name, abi.parameters);
     const txRequest = TxExecutionRequest.fromExecutionRequest({
       args: encodeArguments(abi, args),
-      from: this.address,
+      account: this.address,
       functionData: new FunctionData(selector, true, false),
     });
 

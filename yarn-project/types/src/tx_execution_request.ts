@@ -79,13 +79,14 @@ export class TxExecutionRequest {
   }
 
   static fromExecutionRequest(
-    fields: Pick<FieldsOf<ExecutionRequest>, 'args' | 'from' | 'functionData'>,
+    fields: Pick<FieldsOf<ExecutionRequest>, 'args' | 'functionData'> & { account: AztecAddress },
   ): TxExecutionRequest {
     return TxExecutionRequest.from({
       ...fields,
       chainId: Fr.ZERO,
       nonce: Fr.ZERO,
-      to: AztecAddress.ZERO,
+      from: fields.account,
+      to: fields.account,
       txContext: TxContext.empty(),
     });
   }

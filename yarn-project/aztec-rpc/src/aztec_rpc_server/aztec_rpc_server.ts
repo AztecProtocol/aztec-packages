@@ -9,13 +9,13 @@ import { Tx, TxExecutionRequest, TxHash } from '@aztec/types';
 import { EcdsaAccountContract } from '../account_impl/ecdsa_account_contract.js';
 import { EcdsaExternallyOwnedAccount } from '../account_impl/ecdsa_eoa.js';
 import { AccountImplementation } from '../account_impl/index.js';
+import { AccountState } from '../account_state/account_state.js';
 import { AztecRPCClient, DeployedContract } from '../aztec_rpc_client/index.js';
 import { ContractDao, toContractDao } from '../contract_database/index.js';
 import { ContractTree } from '../contract_tree/index.js';
 import { Database, TxDao } from '../database/index.js';
 import { Synchroniser } from '../synchroniser/index.js';
 import { TxReceipt, TxStatus } from '../tx/index.js';
-import { AccountState } from '../account_state/account_state.js';
 
 /**
  * A remote Aztec RPC Client implementation.
@@ -267,6 +267,7 @@ export class AztecRPCServer implements AztecRPCClient {
       [executionRequest],
       executionRequest.txContext,
     );
+
     const txRequest = authedTxRequest.txRequest;
     const contractAddress = txRequest.to;
 
