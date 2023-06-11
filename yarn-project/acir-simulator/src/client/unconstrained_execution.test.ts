@@ -1,6 +1,11 @@
-import { Grumpkin } from '@aztec/barretenberg.js/crypto';
-import { BarretenbergWasm } from '@aztec/barretenberg.js/wasm';
-import { ContractDeploymentData, FunctionData, PrivateHistoricTreeRoots, TxContext } from '@aztec/circuits.js';
+import { Grumpkin } from '@aztec/circuits.js/barretenberg';
+import { CircuitsWasm } from '@aztec/circuits.js';
+import {
+  ContractDeploymentData,
+  FunctionData,
+  PrivateHistoricTreeRoots,
+  TxContext,
+} from '@aztec/circuits.js';
 
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -14,12 +19,12 @@ import { DBOracle } from './db_oracle.js';
 import { AcirSimulator } from './simulator.js';
 
 describe('Unconstrained Execution test suite', () => {
-  let bbWasm: BarretenbergWasm;
+  let bbWasm: CircuitsWasm;
   let oracle: ReturnType<typeof mock<DBOracle>>;
   let acirSimulator: AcirSimulator;
 
   beforeAll(async () => {
-    bbWasm = await BarretenbergWasm.get();
+    bbWasm = await CircuitsWasm.get();
   });
 
   beforeEach(() => {

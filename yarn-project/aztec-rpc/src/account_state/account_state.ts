@@ -1,7 +1,7 @@
 import { AcirSimulator } from '@aztec/acir-simulator';
 import { AztecNode } from '@aztec/aztec-node';
-import { Grumpkin } from '@aztec/barretenberg.js/crypto';
-import { BarretenbergWasm } from '@aztec/barretenberg.js/wasm';
+import { Grumpkin } from '@aztec/circuits.js/barretenberg';
+import { CircuitsWasm } from '@aztec/circuits.js';
 import { EcdsaSignature, KERNEL_NEW_COMMITMENTS_LENGTH, PrivateHistoricTreeRoots } from '@aztec/circuits.js';
 import { FunctionType } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
@@ -14,15 +14,15 @@ import {
   L2BlockContext,
   MerkleTreeId,
   Tx,
+  TxAuxData,
   TxExecutionRequest,
   UnverifiedData,
 } from '@aztec/types';
-import { NotePreimage, TxAuxData } from '../aztec_rpc_server/tx_aux_data/index.js';
 import { ContractDataOracle } from '../contract_data_oracle/index.js';
 import { KernelOracle } from '../kernel_oracle/index.js';
 import { Database, TxAuxDataDao, TxDao } from '../database/index.js';
 import { generateFunctionSelector } from '../index.js';
-import { KernelProver, OutputNoteData } from '../kernel_prover/index.js';
+import { KernelProver } from '../kernel_prover/index.js';
 import { SimulatorOracle } from '../simulator_oracle/index.js';
 
 /**
@@ -256,10 +256,9 @@ export class AccountState {
 
     const kernelProver = new KernelProver(kernelOracle);
     this.log('Executing Prover...');
-    const { proof, publicInputs, outputNotes } = await kernelProver.prove(txRequest, signature, executionResult);
+    const { proof, publicInputs } = await kernelProver.prove(txRequest, signature, executionResult);
     this.log('Proof completed!');
 
-    const unverifiedData = this.createUnverifiedData(outputNotes);
     const newContractPublicFunctions = newContractAddress
       ? await this.getNewContractPublicFunctions(newContractAddress)
       : [];
@@ -267,7 +266,7 @@ export class AccountState {
     return Tx.createPrivate(
       publicInputs,
       proof,
-      unverifiedData,
+      executionResult.encryptedLogs,
       newContractPublicFunctions,
       executionResult.enqueuedPublicFunctionCalls,
     );
@@ -379,29 +378,9 @@ export class AccountState {
         txAuxData.contractAddress,
         txAuxData.notePreimage.items,
         this.privKey,
-        await BarretenbergWasm.get(),
+        await CircuitsWasm.get(),
       ),
     );
-  }
-
-  /**
-   * Create an UnverifiedData instance from a given list of output notes.
-   * This function converts the output note data to encrypted buffers using the owner's public key,
-   * then combines them into an UnverifiedData object. The resulting object can be used to store
-   * encrypted note data in a transaction and is decrypted by the recipient later during processing.
-   *
-   * @param outputNotes - An array of OutputNoteData objects containing the note data to be encrypted.
-   * @returns An UnverifiedData instance containing encrypted note data chunks.
-   */
-  private createUnverifiedData(outputNotes: OutputNoteData[]) {
-    const dataChunks = outputNotes.map(({ contractAddress, data }) => {
-      const { preimage, storageSlot, owner } = data;
-      const notePreimage = new NotePreimage(preimage);
-      const txAuxData = new TxAuxData(notePreimage, contractAddress, storageSlot);
-      const ownerPublicKey = Point.fromBuffer(Buffer.concat([owner.x.toBuffer(), owner.y.toBuffer()]));
-      return txAuxData.toEncryptedBuffer(ownerPublicKey, this.grumpkin);
-    });
-    return new UnverifiedData(dataChunks);
   }
 
   /**

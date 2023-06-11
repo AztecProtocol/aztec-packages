@@ -5,7 +5,7 @@
 #include "aztec3/circuits/apps/test_apps/escrow/deposit.hpp"
 #include "aztec3/utils/circuit_errors.hpp"
 
-#include <barretenberg/common/test.hpp>
+#include <barretenberg/barretenberg.hpp>
 
 #include <gtest/gtest.h>
 
@@ -27,6 +27,16 @@ using aztec3::utils::CircuitErrorCode;
 
 namespace aztec3::circuits::kernel::private_kernel {
 
+class native_private_kernel_init_tests : public ::testing::Test {
+  protected:
+    static void SetUpTestSuite() { barretenberg::srs::init_crs_factory("../barretenberg/cpp/srs_db/ignition"); }
+};
+
+class native_private_kernel_inner_tests : public ::testing::Test {
+  protected:
+    static void SetUpTestSuite() { barretenberg::srs::init_crs_factory("../barretenberg/cpp/srs_db/ignition"); }
+};
+
 /**
  **************************************************************
  * Native initial private kernel circuit tests.
@@ -36,7 +46,7 @@ namespace aztec3::circuits::kernel::private_kernel {
 /**
  * @brief Some private circuit simulation (`deposit`, in this case)
  */
-TEST(native_private_kernel_init_tests, deposit)
+TEST_F(native_private_kernel_init_tests, deposit)
 {
     NT::fr const& amount = 5;
     NT::fr const& asset_id = 1;
@@ -77,7 +87,7 @@ TEST(native_private_kernel_init_tests, deposit)
 /**
  * @brief Some private circuit simulation (`constructor`, in this case)
  */
-TEST(native_private_kernel_init_tests, basic_contract_deployment)
+TEST_F(native_private_kernel_init_tests, basic_contract_deployment)
 {
     NT::fr const arg0 = 5;
     NT::fr const arg1 = 1;
@@ -106,7 +116,7 @@ TEST(native_private_kernel_init_tests, basic_contract_deployment)
 }
 
 // TODO(suyash): Disabled until https://github.com/AztecProtocol/aztec-packages/issues/499 is resolved.
-TEST(native_private_kernel_init_tests, DISABLED_contract_deployment_call_stack_item_hash_mismatch_fails)
+TEST_F(native_private_kernel_init_tests, DISABLED_contract_deployment_call_stack_item_hash_mismatch_fails)
 {
     NT::fr const arg0 = 5;
     NT::fr const arg1 = 1;
@@ -126,7 +136,7 @@ TEST(native_private_kernel_init_tests, DISABLED_contract_deployment_call_stack_i
               CircuitErrorCode::PRIVATE_KERNEL__PRIVATE_CALL_STACK_ITEM_HASH_MISMATCH);
 }
 
-TEST(native_private_kernel_init_tests, contract_deployment_incorrect_constructor_vk_hash_fails)
+TEST_F(native_private_kernel_init_tests, contract_deployment_incorrect_constructor_vk_hash_fails)
 {
     NT::fr const arg0 = 5;
     NT::fr const arg1 = 1;
@@ -147,7 +157,7 @@ TEST(native_private_kernel_init_tests, contract_deployment_incorrect_constructor
     EXPECT_EQ(composer.get_first_failure().message, "constructor_vk_hash doesn't match private_call_vk_hash");
 }
 
-TEST(native_private_kernel_init_tests, contract_deployment_incorrect_contract_address_fails)
+TEST_F(native_private_kernel_init_tests, contract_deployment_incorrect_contract_address_fails)
 {
     NT::fr const arg0 = 5;
     NT::fr const arg1 = 1;
@@ -170,7 +180,7 @@ TEST(native_private_kernel_init_tests, contract_deployment_incorrect_contract_ad
     EXPECT_EQ(composer.get_first_failure().message, "contract address supplied doesn't match derived address");
 }
 
-TEST(native_private_kernel_init_tests, contract_deployment_contract_address_mismatch_fails)
+TEST_F(native_private_kernel_init_tests, contract_deployment_contract_address_mismatch_fails)
 {
     NT::fr const arg0 = 5;
     NT::fr const arg1 = 1;
@@ -197,7 +207,7 @@ TEST(native_private_kernel_init_tests, contract_deployment_contract_address_mism
               "call_stack_item.contract_address)");
 }
 
-TEST(native_private_kernel_init_tests, contract_deployment_function_data_mismatch_fails)
+TEST_F(native_private_kernel_init_tests, contract_deployment_function_data_mismatch_fails)
 {
     NT::fr const arg0 = 5;
     NT::fr const arg1 = 1;
@@ -222,7 +232,7 @@ TEST(native_private_kernel_init_tests, contract_deployment_function_data_mismatc
               "call_stack_item.function_data)");
 }
 
-TEST(native_private_kernel_init_tests, contract_deployment_args_hash_mismatch_fails)
+TEST_F(native_private_kernel_init_tests, contract_deployment_args_hash_mismatch_fails)
 {
     NT::fr const arg0 = 5;
     NT::fr const arg1 = 1;
@@ -246,7 +256,7 @@ TEST(native_private_kernel_init_tests, contract_deployment_args_hash_mismatch_fa
               "call_stack_item.public_inputs.args)");
 }
 
-TEST(native_private_kernel_init_tests, private_function_is_private_false_fails)
+TEST_F(native_private_kernel_init_tests, private_function_is_private_false_fails)
 {
     NT::fr const arg0 = 5;
     NT::fr const arg1 = 1;
@@ -270,7 +280,7 @@ TEST(native_private_kernel_init_tests, private_function_is_private_false_fails)
 }
 
 
-TEST(native_private_kernel_init_tests, private_function_static_call_fails)
+TEST_F(native_private_kernel_init_tests, private_function_static_call_fails)
 {
     NT::fr const arg0 = 5;
     NT::fr const arg1 = 1;
@@ -291,7 +301,7 @@ TEST(native_private_kernel_init_tests, private_function_static_call_fails)
     EXPECT_EQ(composer.get_first_failure().message, "Users cannot make a static call");
 }
 
-TEST(native_private_kernel_init_tests, private_function_delegate_call_fails)
+TEST_F(native_private_kernel_init_tests, private_function_delegate_call_fails)
 {
     NT::fr const arg0 = 5;
     NT::fr const arg1 = 1;
@@ -312,7 +322,7 @@ TEST(native_private_kernel_init_tests, private_function_delegate_call_fails)
     EXPECT_EQ(composer.get_first_failure().message, "Users cannot make a delegatecall");
 }
 
-TEST(native_private_kernel_init_tests, private_function_incorrect_storage_contract_address_fails)
+TEST_F(native_private_kernel_init_tests, private_function_incorrect_storage_contract_address_fails)
 {
     NT::fr const arg0 = 5;
     NT::fr const arg1 = 1;
@@ -340,7 +350,7 @@ TEST(native_private_kernel_init_tests, private_function_incorrect_storage_contra
  * Native inner private kernel circuit tests.
  **************************************************************
  */
-TEST(native_private_kernel_inner_tests, private_function_zero_storage_contract_address_fails)
+TEST_F(native_private_kernel_inner_tests, private_function_zero_storage_contract_address_fails)
 {
     NT::fr const arg0 = 5;
     NT::fr const arg1 = 1;
@@ -368,7 +378,7 @@ TEST(native_private_kernel_inner_tests, private_function_zero_storage_contract_a
               "contract address can't be 0 for non-contract deployment related transactions");
 }
 
-TEST(native_private_kernel_inner_tests, private_function_incorrect_contract_tree_root_fails)
+TEST_F(native_private_kernel_inner_tests, private_function_incorrect_contract_tree_root_fails)
 {
     NT::fr const arg0 = 5;
     NT::fr const arg1 = 1;
@@ -393,7 +403,7 @@ TEST(native_private_kernel_inner_tests, private_function_incorrect_contract_tree
               "purported_contract_tree_root doesn't match previous_kernel_contract_tree_root");
 }
 
-TEST(native_private_kernel_inner_tests, private_function_incorrect_contract_leaf_index_fails)
+TEST_F(native_private_kernel_inner_tests, private_function_incorrect_contract_leaf_index_fails)
 {
     NT::fr const arg0 = 5;
     NT::fr const arg1 = 1;
@@ -418,7 +428,7 @@ TEST(native_private_kernel_inner_tests, private_function_incorrect_contract_leaf
               "computed_contract_tree_root doesn't match purported_contract_tree_root");
 }
 
-TEST(native_private_kernel_inner_tests, private_function_incorrect_contract_leaf_sibling_path_fails)
+TEST_F(native_private_kernel_inner_tests, private_function_incorrect_contract_leaf_sibling_path_fails)
 {
     NT::fr const arg0 = 5;
     NT::fr const arg1 = 1;
@@ -442,7 +452,7 @@ TEST(native_private_kernel_inner_tests, private_function_incorrect_contract_leaf
               "computed_contract_tree_root doesn't match purported_contract_tree_root");
 }
 
-TEST(native_private_kernel_inner_tests, private_function_incorrect_function_leaf_index_fails)
+TEST_F(native_private_kernel_inner_tests, private_function_incorrect_function_leaf_index_fails)
 {
     NT::fr const arg0 = 5;
     NT::fr const arg1 = 1;
@@ -467,7 +477,7 @@ TEST(native_private_kernel_inner_tests, private_function_incorrect_function_leaf
               "computed_contract_tree_root doesn't match purported_contract_tree_root");
 }
 
-TEST(native_private_kernel_inner_tests, private_function_incorrect_function_leaf_sibling_path_fails)
+TEST_F(native_private_kernel_inner_tests, private_function_incorrect_function_leaf_sibling_path_fails)
 {
     NT::fr const arg0 = 5;
     NT::fr const arg1 = 1;
@@ -492,7 +502,7 @@ TEST(native_private_kernel_inner_tests, private_function_incorrect_function_leaf
 }
 
 // TODO(suyash): Disabled until https://github.com/AztecProtocol/aztec-packages/issues/499 is resolved.
-TEST(native_private_kernel_inner_tests, DISABLED_private_function_incorrect_call_stack_item_hash_fails)
+TEST_F(native_private_kernel_inner_tests, DISABLED_private_function_incorrect_call_stack_item_hash_fails)
 {
     NT::fr const arg0 = 5;
     NT::fr const arg1 = 1;
@@ -516,7 +526,7 @@ TEST(native_private_kernel_inner_tests, DISABLED_private_function_incorrect_call
               "calculated private_call_hash does not match provided private_call_hash at the top of the call stack");
 }
 
-TEST(native_private_kernel_inner_tests, private_kernel_should_fail_if_aggregating_too_many_commitments)
+TEST_F(native_private_kernel_inner_tests, private_kernel_should_fail_if_aggregating_too_many_commitments)
 {
     // Negative test to check if push_array_to_array fails if two many commitments are merged together
     DummyComposer composer = DummyComposer("should_fail_if_aggregating_too_many_commitments");
@@ -543,7 +553,7 @@ TEST(native_private_kernel_inner_tests, private_kernel_should_fail_if_aggregatin
 /**
  * @brief Test this dummy cbind
  */
-TEST(private_kernel_inner_tests, cbind_private_kernel__dummy_previous_kernel)
+TEST_F(native_private_kernel_inner_tests, cbind_private_kernel__dummy_previous_kernel)
 {
     auto func = [] { return aztec3::circuits::kernel::private_kernel::utils::dummy_previous_kernel(); };
     auto [actual, expected] = call_func_and_wrapper(func, private_kernel__dummy_previous_kernel);
