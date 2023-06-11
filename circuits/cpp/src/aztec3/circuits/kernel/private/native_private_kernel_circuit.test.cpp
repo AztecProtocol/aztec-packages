@@ -365,7 +365,7 @@ TEST_F(native_private_kernel_init_tests, native_read_request_bad_request)
     private_inputs.private_call.call_stack_item.public_inputs.read_requests = read_requests;
     private_inputs.private_call.read_request_membership_witnesses = read_request_membership_witnesses;
 
-    DummyComposer composer = DummyComposer("private_kernel_tests__native_deposit");
+    DummyComposer composer = DummyComposer("native_private_kernel_init_tests__native_read_request_bad_request");
     auto const& public_inputs = native_private_kernel_circuit_initial(composer, private_inputs);
 
     validate_no_new_deployed_contract(public_inputs);
@@ -397,7 +397,7 @@ TEST_F(native_private_kernel_init_tests, native_read_request_bad_leaf_index)
     private_inputs.private_call.call_stack_item.public_inputs.read_requests = read_requests;
     private_inputs.private_call.read_request_membership_witnesses = read_request_membership_witnesses;
 
-    DummyComposer composer = DummyComposer("private_kernel_tests__native_deposit");
+    DummyComposer composer = DummyComposer("native_private_kernel_init_tests__native_read_request_bad_leaf_index");
     auto const& public_inputs = native_private_kernel_circuit_initial(composer, private_inputs);
 
     validate_no_new_deployed_contract(public_inputs);
@@ -429,7 +429,7 @@ TEST_F(native_private_kernel_init_tests, native_read_request_bad_sibling_path)
     private_inputs.private_call.call_stack_item.public_inputs.read_requests = read_requests;
     private_inputs.private_call.read_request_membership_witnesses = read_request_membership_witnesses;
 
-    DummyComposer composer = DummyComposer("private_kernel_tests__native_deposit");
+    DummyComposer composer = DummyComposer("native_private_kernel_init_tests__native_read_request_bad_sibling_path");
     auto const& public_inputs = native_private_kernel_circuit_initial(composer, private_inputs);
 
     validate_no_new_deployed_contract(public_inputs);
@@ -471,7 +471,7 @@ TEST_F(native_private_kernel_init_tests, native_read_request_root_mismatch)
     private_inputs.private_call.call_stack_item.public_inputs.read_requests = bad_requests;
     private_inputs.private_call.read_request_membership_witnesses = bad_witnesses;
 
-    DummyComposer composer = DummyComposer("private_kernel_tests__native_deposit");
+    DummyComposer composer = DummyComposer("native_private_kernel_init_tests__native_read_request_root_mismatch");
     auto const& public_inputs = native_private_kernel_circuit_initial(composer, private_inputs);
 
     validate_no_new_deployed_contract(public_inputs);
@@ -500,7 +500,7 @@ TEST_F(native_private_kernel_init_tests, native_no_read_requests_works)
     private_inputs.private_call.read_request_membership_witnesses = read_request_membership_witnesses;
 
     // tweak sibling path so it gives wrong root when paired with its request
-    DummyComposer composer = DummyComposer("private_kernel_tests__native_deposit");
+    DummyComposer composer = DummyComposer("native_private_kernel_init_tests__native_no_read_requests_works");
     auto const& public_inputs = native_private_kernel_circuit_initial(composer, private_inputs);
 
     validate_no_new_deployed_contract(public_inputs);
@@ -532,7 +532,7 @@ TEST_F(native_private_kernel_init_tests, native_one_read_requests_works)
     private_inputs.private_call.read_request_membership_witnesses = read_request_membership_witnesses;
 
     // tweak sibling path so it gives wrong root when paired with its request
-    DummyComposer composer = DummyComposer("private_kernel_tests__native_deposit");
+    DummyComposer composer = DummyComposer("native_private_kernel_init_tests__native_one_read_requests_works");
     auto const& public_inputs = native_private_kernel_circuit_initial(composer, private_inputs);
 
     validate_no_new_deployed_contract(public_inputs);
@@ -564,7 +564,7 @@ TEST_F(native_private_kernel_init_tests, native_two_read_requests_works)
     private_inputs.private_call.read_request_membership_witnesses = read_request_membership_witnesses;
 
     // tweak sibling path so it gives wrong root when paired with its request
-    DummyComposer composer = DummyComposer("private_kernel_tests__native_deposit");
+    DummyComposer composer = DummyComposer("native_private_kernel_init_tests__native_two_read_requests_works");
     auto const& public_inputs = native_private_kernel_circuit_initial(composer, private_inputs);
 
     validate_no_new_deployed_contract(public_inputs);
@@ -597,7 +597,7 @@ TEST_F(native_private_kernel_init_tests, native_max_read_requests_works)
     private_inputs.private_call.read_request_membership_witnesses = read_request_membership_witnesses;
 
     // tweak sibling path so it gives wrong root when paired with its request
-    DummyComposer composer = DummyComposer("private_kernel_tests__native_deposit");
+    DummyComposer composer = DummyComposer("native_private_kernel_init_tests__native_max_read_requests_works");
     auto const& public_inputs = native_private_kernel_circuit_initial(composer, private_inputs);
 
     validate_no_new_deployed_contract(public_inputs);
@@ -834,6 +834,263 @@ TEST_F(native_private_kernel_inner_tests, cbind_private_kernel__dummy_previous_k
     actual_ss << actual;
     expected_ss << expected;
     EXPECT_EQ(actual_ss.str(), expected_ss.str());
+}
+
+TEST_F(native_private_kernel_inner_tests, native_read_request_bad_request)
+{
+    NT::fr const& amount = 5;
+    NT::fr const& asset_id = 1;
+    NT::fr const& memo = 999;
+
+    auto private_inputs = do_private_call_get_kernel_inputs_inner(false, deposit, { amount, asset_id, memo });
+
+    auto const& contract_address =
+        private_inputs.private_call.call_stack_item.public_inputs.call_context.storage_contract_address;
+
+    auto [read_requests, read_request_membership_witnesses, root] = get_random_reads(contract_address, 2);
+    private_inputs.previous_kernel.public_inputs.constants.historic_tree_roots.private_historic_tree_roots
+        .private_data_tree_root = root;
+    private_inputs.private_call.call_stack_item.public_inputs.historic_private_data_tree_root = root;
+
+    // tweak read_request so it gives wrong root when paired with its sibling path
+    read_requests[1] += 1;
+
+    private_inputs.private_call.call_stack_item.public_inputs.read_requests = read_requests;
+    private_inputs.private_call.read_request_membership_witnesses = read_request_membership_witnesses;
+
+    DummyComposer composer = DummyComposer("native_private_kernel_inner_tests__native_read_request_bad_request");
+    auto const& public_inputs = native_private_kernel_circuit_inner(composer, private_inputs);
+
+    validate_no_new_deployed_contract(public_inputs);
+
+    ASSERT(composer.failed());
+    ASSERT_EQ(composer.get_first_failure().code,
+              CircuitErrorCode::PRIVATE_KERNEL__READ_REQUEST_PRIVATE_DATA_ROOT_MISMATCH);
+}
+
+TEST_F(native_private_kernel_inner_tests, native_read_request_bad_leaf_index)
+{
+    NT::fr const& amount = 5;
+    NT::fr const& asset_id = 1;
+    NT::fr const& memo = 999;
+
+    auto private_inputs = do_private_call_get_kernel_inputs_inner(false, deposit, { amount, asset_id, memo });
+
+    auto const& contract_address =
+        private_inputs.private_call.call_stack_item.public_inputs.call_context.storage_contract_address;
+
+    auto [read_requests, read_request_membership_witnesses, root] = get_random_reads(contract_address, 2);
+    private_inputs.previous_kernel.public_inputs.constants.historic_tree_roots.private_historic_tree_roots
+        .private_data_tree_root = root;
+    private_inputs.private_call.call_stack_item.public_inputs.historic_private_data_tree_root = root;
+
+    // tweak leaf index so it gives wrong root when paired with its request and sibling path
+    read_request_membership_witnesses[1].leaf_index += 1;
+    private_inputs.private_call.call_stack_item.public_inputs.read_requests = read_requests;
+    private_inputs.private_call.read_request_membership_witnesses = read_request_membership_witnesses;
+
+    DummyComposer composer = DummyComposer("native_private_kernel_inner_tests__native_read_request_bad_leaf_index");
+    auto const& public_inputs = native_private_kernel_circuit_inner(composer, private_inputs);
+
+    validate_no_new_deployed_contract(public_inputs);
+
+    ASSERT(composer.failed());
+    ASSERT_EQ(composer.get_first_failure().code,
+              CircuitErrorCode::PRIVATE_KERNEL__READ_REQUEST_PRIVATE_DATA_ROOT_MISMATCH);
+}
+
+TEST_F(native_private_kernel_inner_tests, native_read_request_bad_sibling_path)
+{
+    NT::fr const& amount = 5;
+    NT::fr const& asset_id = 1;
+    NT::fr const& memo = 999;
+
+    auto private_inputs = do_private_call_get_kernel_inputs_inner(false, deposit, { amount, asset_id, memo });
+
+    auto const& contract_address =
+        private_inputs.private_call.call_stack_item.public_inputs.call_context.storage_contract_address;
+
+    auto [read_requests, read_request_membership_witnesses, root] = get_random_reads(contract_address, 2);
+    private_inputs.previous_kernel.public_inputs.constants.historic_tree_roots.private_historic_tree_roots
+        .private_data_tree_root = root;
+    private_inputs.private_call.call_stack_item.public_inputs.historic_private_data_tree_root = root;
+
+    // tweak sibling path so it gives wrong root when paired with its request
+    read_request_membership_witnesses[1].sibling_path[1] += 1;
+    private_inputs.private_call.call_stack_item.public_inputs.read_requests = read_requests;
+    private_inputs.private_call.read_request_membership_witnesses = read_request_membership_witnesses;
+
+    DummyComposer composer = DummyComposer("native_private_kernel_inner_tests__native_read_request_bad_sibling_path");
+    auto const& public_inputs = native_private_kernel_circuit_inner(composer, private_inputs);
+
+    validate_no_new_deployed_contract(public_inputs);
+
+    ASSERT(composer.failed());
+    ASSERT_EQ(composer.get_first_failure().code,
+              CircuitErrorCode::PRIVATE_KERNEL__READ_REQUEST_PRIVATE_DATA_ROOT_MISMATCH);
+}
+
+TEST_F(native_private_kernel_inner_tests, native_read_request_root_mismatch)
+{
+    NT::fr const& amount = 5;
+    NT::fr const& asset_id = 1;
+    NT::fr const& memo = 999;
+
+    auto private_inputs = do_private_call_get_kernel_inputs_inner(false, deposit, { amount, asset_id, memo });
+
+    auto const& contract_address =
+        private_inputs.private_call.call_stack_item.public_inputs.call_context.storage_contract_address;
+
+    // generate two random sets of read requests and mix them so their roots don't match
+    auto [read_requests0, read_request_membership_witnesses0, root] = get_random_reads(contract_address, 2);
+    private_inputs.previous_kernel.public_inputs.constants.historic_tree_roots.private_historic_tree_roots
+        .private_data_tree_root = root;
+    private_inputs.private_call.call_stack_item.public_inputs.historic_private_data_tree_root = root;
+    auto [read_requests1, read_request_membership_witnesses1, _root] = get_random_reads(contract_address, 2);
+    std::array<NT::fr, READ_REQUESTS_LENGTH> bad_requests{};
+    std::array<MembershipWitness<NT, PRIVATE_DATA_TREE_HEIGHT>, READ_REQUESTS_LENGTH> bad_witnesses;
+    // note we are using read_requests0 for some and read_requests1 for others
+    bad_requests[0] = read_requests0[0];
+    bad_requests[1] = read_requests0[1];
+    bad_requests[2] = read_requests1[0];
+    bad_requests[3] = read_requests1[1];
+    bad_witnesses[0] = read_request_membership_witnesses0[0];
+    bad_witnesses[1] = read_request_membership_witnesses0[1];
+    bad_witnesses[2] = read_request_membership_witnesses1[0];
+    bad_witnesses[3] = read_request_membership_witnesses1[1];
+    private_inputs.private_call.call_stack_item.public_inputs.read_requests = bad_requests;
+    private_inputs.private_call.read_request_membership_witnesses = bad_witnesses;
+
+    DummyComposer composer = DummyComposer("native_private_kernel_inner_tests__native_read_request_root_mismatch");
+    auto const& public_inputs = native_private_kernel_circuit_inner(composer, private_inputs);
+
+    validate_no_new_deployed_contract(public_inputs);
+
+    ASSERT_TRUE(composer.failed());
+    ASSERT_EQ(composer.get_first_failure().code,
+              CircuitErrorCode::PRIVATE_KERNEL__READ_REQUEST_PRIVATE_DATA_ROOT_MISMATCH);
+}
+
+TEST_F(native_private_kernel_inner_tests, native_no_read_requests_works)
+{
+    NT::fr const& amount = 5;
+    NT::fr const& asset_id = 1;
+    NT::fr const& memo = 999;
+
+    auto private_inputs = do_private_call_get_kernel_inputs_inner(false, deposit, { amount, asset_id, memo });
+
+    // empty requests
+    std::array<fr, READ_REQUESTS_LENGTH> const read_requests = zero_array<fr, READ_REQUESTS_LENGTH>();
+    std::array<MembershipWitness<NT, PRIVATE_DATA_TREE_HEIGHT>, READ_REQUESTS_LENGTH> const
+        read_request_membership_witnesses{};
+    private_inputs.private_call.call_stack_item.public_inputs.read_requests = read_requests;
+    private_inputs.private_call.read_request_membership_witnesses = read_request_membership_witnesses;
+
+    // tweak sibling path so it gives wrong root when paired with its request
+    DummyComposer composer = DummyComposer("native_private_kernel_inner_tests__native_no_read_requests_works");
+    auto const& public_inputs = native_private_kernel_circuit_inner(composer, private_inputs);
+
+    validate_no_new_deployed_contract(public_inputs);
+
+    auto failure = composer.get_first_failure();
+    if (failure.code != CircuitErrorCode::NO_ERROR) {
+        info("failure: ", failure);
+    }
+    ASSERT_FALSE(composer.failed());
+}
+
+TEST_F(native_private_kernel_inner_tests, native_one_read_requests_works)
+{
+    NT::fr const& amount = 5;
+    NT::fr const& asset_id = 1;
+    NT::fr const& memo = 999;
+
+    auto private_inputs = do_private_call_get_kernel_inputs_inner(false, deposit, { amount, asset_id, memo });
+
+    auto const& contract_address =
+        private_inputs.private_call.call_stack_item.public_inputs.call_context.storage_contract_address;
+
+    auto [read_requests, read_request_membership_witnesses, root] = get_random_reads(contract_address, 1);
+    private_inputs.previous_kernel.public_inputs.constants.historic_tree_roots.private_historic_tree_roots
+        .private_data_tree_root = root;
+    private_inputs.private_call.call_stack_item.public_inputs.historic_private_data_tree_root = root;
+    private_inputs.private_call.call_stack_item.public_inputs.read_requests = read_requests;
+    private_inputs.private_call.read_request_membership_witnesses = read_request_membership_witnesses;
+
+    // tweak sibling path so it gives wrong root when paired with its request
+    DummyComposer composer = DummyComposer("native_private_kernel_inner_tests__native_one_read_requests_works");
+    auto const& public_inputs = native_private_kernel_circuit_inner(composer, private_inputs);
+
+    validate_no_new_deployed_contract(public_inputs);
+
+    auto failure = composer.get_first_failure();
+    if (failure.code != CircuitErrorCode::NO_ERROR) {
+        info("failure: ", failure);
+    }
+    ASSERT_FALSE(composer.failed());
+}
+
+TEST_F(native_private_kernel_inner_tests, native_two_read_requests_works)
+{
+    NT::fr const& amount = 5;
+    NT::fr const& asset_id = 1;
+    NT::fr const& memo = 999;
+
+    auto private_inputs = do_private_call_get_kernel_inputs_inner(false, deposit, { amount, asset_id, memo });
+
+    auto const& contract_address =
+        private_inputs.private_call.call_stack_item.public_inputs.call_context.storage_contract_address;
+
+    auto [read_requests, read_request_membership_witnesses, root] = get_random_reads(contract_address, 2);
+    private_inputs.previous_kernel.public_inputs.constants.historic_tree_roots.private_historic_tree_roots
+        .private_data_tree_root = root;
+    private_inputs.private_call.call_stack_item.public_inputs.historic_private_data_tree_root = root;
+    private_inputs.private_call.call_stack_item.public_inputs.read_requests = read_requests;
+    private_inputs.private_call.read_request_membership_witnesses = read_request_membership_witnesses;
+
+    // tweak sibling path so it gives wrong root when paired with its request
+    DummyComposer composer = DummyComposer("native_private_kernel_inner_tests__native_two_read_requests_works");
+    auto const& public_inputs = native_private_kernel_circuit_inner(composer, private_inputs);
+
+    validate_no_new_deployed_contract(public_inputs);
+
+    auto failure = composer.get_first_failure();
+    if (failure.code != CircuitErrorCode::NO_ERROR) {
+        info("failure: ", failure);
+    }
+    ASSERT_FALSE(composer.failed());
+}
+
+TEST_F(native_private_kernel_inner_tests, native_max_read_requests_works)
+{
+    NT::fr const& amount = 5;
+    NT::fr const& asset_id = 1;
+    NT::fr const& memo = 999;
+
+    auto private_inputs = do_private_call_get_kernel_inputs_inner(false, deposit, { amount, asset_id, memo });
+
+    auto const& contract_address =
+        private_inputs.private_call.call_stack_item.public_inputs.call_context.storage_contract_address;
+
+    auto [read_requests, read_request_membership_witnesses, root] =
+        get_random_reads(contract_address, READ_REQUESTS_LENGTH);
+    private_inputs.previous_kernel.public_inputs.constants.historic_tree_roots.private_historic_tree_roots
+        .private_data_tree_root = root;
+    private_inputs.private_call.call_stack_item.public_inputs.historic_private_data_tree_root = root;
+    private_inputs.private_call.call_stack_item.public_inputs.read_requests = read_requests;
+    private_inputs.private_call.read_request_membership_witnesses = read_request_membership_witnesses;
+
+    // tweak sibling path so it gives wrong root when paired with its request
+    DummyComposer composer = DummyComposer("native_private_kernel_inner_tests__native_max_read_requests_works");
+    auto const& public_inputs = native_private_kernel_circuit_inner(composer, private_inputs);
+
+    validate_no_new_deployed_contract(public_inputs);
+
+    auto failure = composer.get_first_failure();
+    if (failure.code != CircuitErrorCode::NO_ERROR) {
+        info("failure: ", failure);
+    }
+    ASSERT_FALSE(composer.failed());
 }
 
 }  // namespace aztec3::circuits::kernel::private_kernel
