@@ -1,11 +1,6 @@
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { CircuitsWasm } from '@aztec/circuits.js';
-import {
-  ContractDeploymentData,
-  FunctionData,
-  PrivateHistoricTreeRoots,
-  TxContext,
-} from '@aztec/circuits.js';
+import { ContractDeploymentData, FunctionData, PrivateHistoricTreeRoots, TxContext } from '@aztec/circuits.js';
 
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
