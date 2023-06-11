@@ -8,6 +8,9 @@
   "references": [
     {
       "path": "../foundation"
+    },
+    {
+      "path": "../merkle-tree"
     }
   ],
   "include": ["src"]
