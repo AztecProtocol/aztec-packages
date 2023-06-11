@@ -565,7 +565,7 @@ TEST_F(native_private_kernel_inner_tests, cbind_private_kernel__dummy_previous_k
     EXPECT_EQ(actual_ss.str(), expected_ss.str());
 }
 
-TEST(private_kernel_tests, native_read_request_bad_request)
+TEST_F(private_kernel_tests, native_read_request_bad_request)
 {
     NT::fr const& amount = 5;
     NT::fr const& asset_id = 1;
@@ -598,7 +598,7 @@ TEST(private_kernel_tests, native_read_request_bad_request)
     ASSERT_EQ(public_inputs.end.new_nullifiers[0], private_inputs.signed_tx_request.hash());
 }
 
-TEST(private_kernel_tests, native_read_request_bad_leaf_index)
+TEST_F(private_kernel_tests, native_read_request_bad_leaf_index)
 {
     NT::fr const& amount = 5;
     NT::fr const& asset_id = 1;
@@ -630,7 +630,7 @@ TEST(private_kernel_tests, native_read_request_bad_leaf_index)
     ASSERT_EQ(public_inputs.end.new_nullifiers[0], private_inputs.signed_tx_request.hash());
 }
 
-TEST(private_kernel_tests, native_read_request_bad_sibling_path)
+TEST_F(private_kernel_tests, native_read_request_bad_sibling_path)
 {
     NT::fr const& amount = 5;
     NT::fr const& asset_id = 1;
@@ -662,7 +662,7 @@ TEST(private_kernel_tests, native_read_request_bad_sibling_path)
     ASSERT_EQ(public_inputs.end.new_nullifiers[0], private_inputs.signed_tx_request.hash());
 }
 
-TEST(private_kernel_tests, native_read_request_root_mismatch)
+TEST_F(private_kernel_tests, native_read_request_root_mismatch)
 {
     NT::fr const& amount = 5;
     NT::fr const& asset_id = 1;
@@ -704,7 +704,7 @@ TEST(private_kernel_tests, native_read_request_root_mismatch)
     ASSERT_EQ(public_inputs.end.new_nullifiers[0], private_inputs.signed_tx_request.hash());
 }
 
-TEST(private_kernel_tests, native_no_read_requests_works)
+TEST_F(private_kernel_tests, native_no_read_requests_works)
 {
     NT::fr const& amount = 5;
     NT::fr const& asset_id = 1;
@@ -735,7 +735,7 @@ TEST(private_kernel_tests, native_no_read_requests_works)
     ASSERT_EQ(public_inputs.end.new_nullifiers[0], private_inputs.signed_tx_request.hash());
 }
 
-TEST(private_kernel_tests, native_one_read_requests_works)
+TEST_F(private_kernel_tests, native_one_read_requests_works)
 {
     NT::fr const& amount = 5;
     NT::fr const& asset_id = 1;
@@ -767,7 +767,7 @@ TEST(private_kernel_tests, native_one_read_requests_works)
     ASSERT_EQ(public_inputs.end.new_nullifiers[0], private_inputs.signed_tx_request.hash());
 }
 
-TEST(private_kernel_tests, native_two_read_requests_works)
+TEST_F(private_kernel_tests, native_two_read_requests_works)
 {
     NT::fr const& amount = 5;
     NT::fr const& asset_id = 1;
@@ -799,7 +799,7 @@ TEST(private_kernel_tests, native_two_read_requests_works)
     ASSERT_EQ(public_inputs.end.new_nullifiers[0], private_inputs.signed_tx_request.hash());
 }
 
-TEST(private_kernel_tests, native_max_read_requests_works)
+TEST_F(private_kernel_tests, native_max_read_requests_works)
 {
     NT::fr const& amount = 5;
     NT::fr const& asset_id = 1;
