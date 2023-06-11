@@ -3,6 +3,7 @@ import { AztecAddress, Fr, MembershipWitness, PRIVATE_DATA_TREE_HEIGHT } from '@
 import { ContractDataOracle } from '../contract_data_oracle/index.js';
 import { ProvingDataOracle } from './../kernel_prover/proving_data_oracle.js';
 import { MerkleTreeId } from '@aztec/types';
+import { Tuple } from '@aztec/foundation/serialize';
 
 /**
  * A data oracle that provides information needed for simulating a transaction.
@@ -58,7 +59,11 @@ export class KernelOracle implements ProvingDataOracle {
    */
   async getNoteMembershipWitness(leafIndex: bigint): Promise<MembershipWitness<typeof PRIVATE_DATA_TREE_HEIGHT>> {
     const path = await this.node.getDataTreePath(leafIndex);
-    return MembershipWitness.fromSiblingPath(leafIndex, path);
+    return new MembershipWitness<typeof PRIVATE_DATA_TREE_HEIGHT>(
+      path.pathSize,
+      leafIndex,
+      path.toFieldArray() as Tuple<Fr, typeof PRIVATE_DATA_TREE_HEIGHT>,
+    );
   }
 
   /**
