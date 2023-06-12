@@ -220,4 +220,11 @@ describe('ACIR public execution simulator', () => {
       expect(result.returnValues).toEqual([new Fr(42n + initialValue)]);
     });
   });
+
+  describe("Create commitment in public contact", () => {
+    
+
+
+
+  });
 });
