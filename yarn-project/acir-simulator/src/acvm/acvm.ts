@@ -32,6 +32,7 @@ export interface ACIRCallback {
   createCommitment(params: ACVMField[]): Promise<[ACVMField]>;
   createL2ToL1Message(params: ACVMField[]): Promise<[ACVMField]>;
   viewNotesPage(params: ACVMField[]): Promise<ACVMField[]>;
+  getCommitment(params: ACVMField[]): Promise<ACVMField[]>;
   getL1ToL2Message(params: ACVMField[]): Promise<ACVMField[]>;
   /**
    * Oracle call used to emit an encrypted log.

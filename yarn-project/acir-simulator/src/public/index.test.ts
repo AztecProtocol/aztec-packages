@@ -222,13 +222,21 @@ describe('ACIR public execution simulator', () => {
   });
 
   describe("Public -> Private messaging", () => {
+    let contractAddress: AztecAddress;
+    let functionData: FunctionData;
+    let amount: Fr;
+    let params: Fr[];
+    
+    beforeEach(() => {
+      contractAddress = AztecAddress.random();
+      functionData = new FunctionData(Buffer.alloc(4), false, false);
+      amount = new Fr(140);
+      params = [amount, Fr.random()];
+    });
+
     it("Should be able to create a commitment from the public context", async () => {
-        const contractAddress = AztecAddress.random();
         const publicToPrivateAbi = PublicToPrivateContractAbi.functions.find(f => f.name === 'mintFromPublicToPrivate')!;
-        const functionData = new FunctionData(Buffer.alloc(4), false, false);
-        const amount = new Fr(140);
-        const secretHash = Fr.random();
-        const args = encodeArguments(publicToPrivateAbi, [amount, secretHash]);
+        const args = encodeArguments(publicToPrivateAbi, params);
 
         const callContext = CallContext.from({
           msgSender: AztecAddress.random(),
@@ -244,23 +252,17 @@ describe('ACIR public execution simulator', () => {
         const execution: PublicExecution = { contractAddress, functionData, args, callContext };
         const result = await executor.execute(execution);
 
-        const expectedReturn = Fr.ZERO;
-        expect(result.returnValues).toEqual([expectedReturn]);
-
         // Assert the commitment was created
         expect(result.newCommitments.length).toEqual(1);
 
-        const expectedNewCommitmentValue = pedersenCompressInputs(await CircuitsWasm.get(), [amount.toBuffer(), secretHash.toBuffer()])
+        const expectedNewCommitmentValue = pedersenCompressInputs(await CircuitsWasm.get(), params.map(a => a.toBuffer()))
         expect(result.newCommitments[0].toBuffer()).toEqual(expectedNewCommitmentValue);
     });
 
     it("Should be able to create a L2 to L1 message from the public context", async () => {
         const contractAddress = AztecAddress.random();
         const createL2ToL1MessagePublicAbi = PublicToPrivateContractAbi.functions.find(f => f.name === 'createL2ToL1MessagePublic')!;
-        const functionData = new FunctionData(Buffer.alloc(4), false, false);
-        const amount = new Fr(140);
-        const secretHash = Fr.random();
-        const args = encodeArguments(createL2ToL1MessagePublicAbi, [amount, secretHash]);
+        const args = encodeArguments(createL2ToL1MessagePublicAbi, params);
 
         const callContext = CallContext.from({
           msgSender: AztecAddress.random(),
@@ -276,13 +278,10 @@ describe('ACIR public execution simulator', () => {
         const execution: PublicExecution = { contractAddress, functionData, args, callContext };
         const result = await executor.execute(execution);
 
-        const expectedReturn = Fr.ZERO;
-        expect(result.returnValues).toEqual([expectedReturn]);
-
         // Assert the l2 to l1 message was created
         expect(result.newL2ToL1Messages.length).toEqual(1);
 
-        const expectedNewMessageValue = pedersenCompressInputs(await CircuitsWasm.get(), [amount.toBuffer(), secretHash.toBuffer()])
+        const expectedNewMessageValue = pedersenCompressInputs(await CircuitsWasm.get(), params.map(a => a.toBuffer()))
         expect(result.newL2ToL1Messages[0].toBuffer()).toEqual(expectedNewMessageValue);
     });
 

@@ -4,16 +4,29 @@ contract PublicPrivate {
     use dep::aztec3::abi::PrivateContextInputs;
     use dep::aztec3::context::PrivateFunctionContext;
     use dep::aztec3::abi::PublicContextInputs;
-    use dep::aztec3::types::point::Point;
+
+    // Public state
     use dep::aztec3::state_vars::storage_map::StorageMap;
     use dep::aztec3::state_vars::storage_field::StorageField;
 
-    use dep::aztec3::oracle::create_commitment::create_commitment;
-    use dep::aztec3::oracle::create_l2_to_l1_message::create_l2_to_l1_message;
+    // Private state
+    use dep::aztec3::types::point::Point;
+    use dep::aztec3::state_vars::map::Map;
+    use dep::aztec3::state_vars::set::Set;
+    use dep::aztec3::notes::value_note::Note;
+
+    use dep::aztec3::messaging::get_commitment_getter_data::make_commitment_getter_data;
 
     use crate::TransparentNote;
 
-    global balances = StorageMap { storage_slot: 1 };
+    // oracles
+    use dep::aztec3::oracle::logs::emit_encrypted_log;
+    use dep::aztec3::oracle::create_commitment::create_commitment;
+    use dep::aztec3::oracle::create_l2_to_l1_message::create_l2_to_l1_message;
+    use dep::aztec3::oracle::get_commitment::get_commitment;
+
+
+    global balances = Map { storage_slot: 1 };
 
     fn constructor(
         inputs: pub PrivateContextInputs,
@@ -27,7 +40,7 @@ contract PublicPrivate {
         amount: Field,
         secretHash: Field,
         _padding: [Field; dep::aztec3::abi::MAX_ARGS - 3]
-    ) -> pub Field {
+    ) -> Field{
     
         // Create a commitment to the amount
         let note = TransparentNote::new(amount, secretHash);
@@ -42,7 +55,7 @@ contract PublicPrivate {
         amount: Field,
         secretHash: Field,
         _padding: [Field; dep::aztec3::abi::MAX_ARGS - 3]
-    ) -> pub Field {
+    ) -> Field {
     
         // Create a commitment to the amount
         let note = TransparentNote::new(amount, secretHash);
@@ -53,30 +66,37 @@ contract PublicPrivate {
     }
 
 
-    // open fn transfer(
-    //     inputs: PublicContextInputs,
-    //     amount: Field,
-    //     recipient: Point,
-    //     _padding: [Field; dep::aztec3::abi::MAX_ARGS - 3]
-    // ) -> pub Field {
-    //     let sender = inputs.call_context.msg_sender;
-        
-    //     let sender_balance = balances.at(sender);
-    //     let recipient_balance = balances.at(recipient.x);
+    fn mintFromPublicMessage(
+        inputs: pub PrivateContextInputs,
+        amount: pub Field,
+        secret: pub Field,
+        owner: pub Point,
+    ) -> pub [Field; dep::aztec3::abi::PUBLIC_INPUTS_LENGTH] {
+        let mut context = PrivateFunctionContext::new();
+        context.args = context.args.push_array([amount, secret, owner.x, owner.y]);
 
-    //     let current_sender_balance = sender_balance.read();
-    //     let current_recipient_balance = recipient_balance.read();
+        let from_public_note = TransparentNote::new_from_secret(amount, secret);
 
-    //     // TODO: Handle larger integer values ("long integers are not yet supported")
-    //     if (current_sender_balance as u120) > (amount as u120) {
-    //         // TODO: Compiler complains if we don't assign the result of the write to anything
-    //         let _void1 = sender_balance.write(current_sender_balance - amount);
-    //         recipient_balance.write(current_recipient_balance + amount)
-    //     } else {
-    //         // TODO: Revert if there is not enough balance
-    //         current_recipient_balance
-    //     }
-    // }
+        let commitment = from_public_note.get_commitment();
+
+        let commitment_oracle_call = get_commitment(commitment);
+        let commitment_data = make_commitment_getter_data(commitment_oracle_call, 0);
+
+        constrain inputs.roots.private_data_tree_root == commitment_data.root;
+
+        let nullifier = TransparentNote::compute_nullifier(secret, commitment, commitment_data.leaf_index);
+        context = context.push_new_nullifier(nullifier);
+
+        // Mint the tokens
+        let owner_balance = balances.at(owner.x);
+        let note = Note::new(amount, owner);
+
+        // Insert note and emit encrypted preimage
+        context = owner_balance.insert(context, note);
+        constrain emit_encrypted_log(inputs.call_context.storage_contract_address, owner_balance.storage_slot, note.owner, note) == 0;
+
+        context.finish(inputs)
+    }
 
 }
 
@@ -91,9 +111,13 @@ impl TransparentNote {
         Self { amount, secretHash }
     }
 
-    // fn new_from_secret(amount: Field, secret: Field) -> Self {
-
-    // }
+    fn new_from_secret(amount: Field, secret: Field) -> Self {
+        let secretHash = pedersen([secret])[0];
+        TransparentNote {
+            amount,
+            secretHash,
+        }
+    }
 
     fn get_commitment(self) -> Field {
         pedersen([self.amount, self.secretHash])[0]
@@ -102,6 +126,12 @@ impl TransparentNote {
     fn knows_secret(self, secret: Field) {
         let hash = pedersen([secret])[0];
         constrain self.secretHash == hash;
+    }
+
+    fn compute_nullifier(secret: Field, siloed_commitment: Field, index: Field) -> Field {
+        // Create a nullifier for the message based on its index in the tree
+        
+        pedersen([secret, siloed_commitment, index])[0]
     }
 
 }

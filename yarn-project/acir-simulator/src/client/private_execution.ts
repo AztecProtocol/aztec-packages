@@ -194,8 +194,15 @@ export class PrivateFunctionExecution {
 
         return toAcvmCallPrivateStackItem(childExecutionResult.callStackItem);
       },
-      getL1ToL2Message: ([msgKey]: ACVMField[]) => this.context.getL1ToL2Message(fromACVMField(msgKey)),
-
+      getL1ToL2Message: ([msgKey]: ACVMField[]) => {
+        console.log(this.context);
+        return this.context.getL1ToL2Message(fromACVMField(msgKey));
+      },
+      getCommitment: ([commitment]: ACVMField[]) => {
+        console.log("hewuheoiahoA");
+        console.log(this.context);
+        return this.context.getCommitment(this.contractAddress, fromACVMField(commitment));
+      },
       debugLog: (fields: ACVMField[]) => {
         this.log(fieldsToFormattedStr(fields));
         return Promise.resolve([ZERO_ACVM_FIELD]);
