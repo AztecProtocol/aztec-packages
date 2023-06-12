@@ -260,7 +260,7 @@ export class CbindCompiler {
         };
       } else if (type[0] === 'alias') {
         // alias case
-        const [_alias, [typeName, msgpackName]] = type;
+        const [_alias, [rawTypeName, msgpackName]] = type;
         let msgpackTypeName: string;
         if (msgpackName.startsWith('bin')) {
           msgpackTypeName = 'Buffer';
@@ -269,6 +269,7 @@ export class CbindCompiler {
         } else {
           throw new Error('Unsupported alias type ' + msgpackName);
         }
+        const typeName = capitalize(camelCase(rawTypeName));
         this.typeInfos[typeName] = {
           typeName,
           isImport: true,
@@ -457,11 +458,11 @@ return ${callSyntax.call(this)};
     const typeInfos = args.map(arg => this.getTypeInfo(arg));
     const argStrings = typeInfos.map((typeInfo, i) => `arg${i}: ${typeInfo.typeName}`);
     const callStrings = typeInfos.map((typeInfo, i) => `${classConverterExpr(typeInfo, `arg${i}`)}`);
-    const innerCall = `await callCbind(wasm, '${name}', [${callStrings.join(', ')}])`;
+    const innerCall = `callCbind(wasm, '${name}', [${callStrings.join(', ')}])`;
     const retType = this.getTypeInfo(cbind.ret);
-    this.funcDecls.push(`export async function ${camelCase(name)}(wasm: CircuitsWasm, ${argStrings.join(
-      ', ',
-    )}): Promise<${retType.typeName}> {
+    this.funcDecls.push(`export function ${camelCase(name)}(wasm: IWasmModule, ${argStrings.join(', ')}): ${
+      retType.typeName
+    } {
 return ${msgpackConverterExpr(retType, innerCall)};
 }`);
   }
@@ -482,7 +483,7 @@ return ${msgpackConverterExpr(retType, innerCall)};
 // GENERATED FILE DO NOT EDIT, RUN yarn remake-bindings
 import { Buffer } from "buffer";
 import { callCbind } from './cbind.js';
-import { CircuitsWasm } from '../wasm/index.js';
+import { IWasmModule } from '@aztec/foundation/wasm';
 `,
     ];
     for (const typeInfo of Object.values(this.typeInfos)) {
