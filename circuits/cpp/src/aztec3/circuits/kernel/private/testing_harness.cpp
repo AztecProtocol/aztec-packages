@@ -229,6 +229,7 @@ std::pair<PrivateCallData<NT>, ContractDeploymentData<NT>> create_private_call_d
         // TODO(david) use actual function tree root computed from leaves
         // update cdd with actual info
         contract_deployment_data = {
+            .deployer_public_key = msg_sender_pub_key,
             .constructor_vk_hash = private_circuit_vk_hash,
             .function_tree_root = plonk::stdlib::merkle_tree::compute_tree_root_native(function_leaves),
             .contract_address_salt = contract_address_salt,
