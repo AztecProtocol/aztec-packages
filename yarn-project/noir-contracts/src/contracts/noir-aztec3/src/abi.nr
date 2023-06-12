@@ -20,7 +20,7 @@ struct PrivateContextInputs {
     contract_deployment_data: ContractDeploymentData,
 }
 
-// PublicContextInputs are expected to provided to each public function
+// PublicContextInputs are expected to be provided to each public function
 struct PublicContextInputs {
     call_context: CallContext,
     roots: CommitmentTreesRoots,
@@ -59,19 +59,20 @@ impl CallContext {
 global COMMITMENT_TREES_ROOTS_SIZE: comptime Field = 4;
 
 struct CommitmentTreesRoots {
+    private_data_tree_root : Field,
+    nullifier_tree_root : Field,
     contract_tree_root : Field,
     l1_to_l2_messages_tree_root : Field,
-    nullifier_tree_root : Field,
-    private_data_tree_root : Field,
 }
 
 impl CommitmentTreesRoots {
+    // NOTE: this order must match the order in `private_circuit_public_inputs.hpp`
     fn serialize(self) -> [Field; COMMITMENT_TREES_ROOTS_SIZE] {
         [
+            self.private_data_tree_root,
+            self.nullifier_tree_root,
             self.contract_tree_root,
             self.l1_to_l2_messages_tree_root,
-            self.nullifier_tree_root,
-            self.private_data_tree_root,
         ]
     }
 }
