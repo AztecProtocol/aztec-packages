@@ -36,11 +36,12 @@ export class FunctionNoirLogs {
   /**
    * Deserializes logs from a buffer.
    * @param buf - The buffer containing the serialized logs.
+   * @param isLengthPrefixed - Whether the buffer is prefixed with 4 bytes for its total length.
    * @returns Deserialized instance of `FunctionNoirLogs`.
    */
-  public static fromBuffer(buf: Buffer): FunctionNoirLogs {
-    // Skip the first 4 bytes for the total length (included because it's needed in `Decoder.sol`)
-    const reader = new BufferReader(buf, 4);
+  public static fromBuffer(buf: Buffer, isLengthPrefixed = true): FunctionNoirLogs {
+    const offset = isLengthPrefixed ? 4 : 0;
+    const reader = new BufferReader(buf, offset);
 
     const logs = reader.readBufferArray();
     return new FunctionNoirLogs(logs);
