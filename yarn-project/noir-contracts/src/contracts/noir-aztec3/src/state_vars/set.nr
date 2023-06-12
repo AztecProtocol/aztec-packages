@@ -1,5 +1,5 @@
 use dep::std;
-use crate::abi::Inputs;
+use crate::abi::PrivateContextInputs;
 use crate::context::PrivateFunctionContext;
 use crate::notes::value_note::Note;
 use crate::notes::value_note::NOTE_LEN;
@@ -70,7 +70,7 @@ impl Set {
     }
 
 
-    fn remove(self, inputs: Inputs, mut context: PrivateFunctionContext, note: Note) -> PrivateFunctionContext {
+    fn remove(self, inputs: PrivateContextInputs, mut context: PrivateFunctionContext, note: Note) -> PrivateFunctionContext {
         let contract_address = inputs.call_context.storage_contract_address;
         let storage_slot = self.storage_slot;
 

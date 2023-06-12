@@ -2,6 +2,7 @@ use crate::abi::CallContext;
 use crate::abi::ContractDeploymentData;
 use crate::context::PrivateFunctionContext;
 use crate::abi::PrivateCircuitPublicInputs;
+use crate::abi::CommitmentTreesRoots;
 use crate::types::vec::BoundedVec;
 use crate::utils::arr_copy_slice;
 
@@ -70,10 +71,13 @@ impl PrivateCallStackItem {
                 // unencrypted_logs_hash:arr_copy_slice(fields, [0; 2], 46),
                 // encrypted_log_preimages_length: fields[47],
                 // unencrypted_log_preimages_length: fields[48],
-                historic_private_data_tree_root: fields[37],
-                historic_private_nullifier_tree_root: fields[38],
-                historic_contract_tree_root: fields[39],
-                historic_l1_to_l2_messages_tree_root: fields[40],
+                commitment_trees_roots: CommitmentTreesRoots {
+                    // Must match order in `private_circuit_public_inputs.hpp`
+                    private_data_tree_root : fields[37],
+                    nullifier_tree_root : fields[38],
+                    contract_tree_root : fields[39],
+                    l1_to_l2_messages_tree_root : fields[40],
+                },
                 contract_deployment_data: ContractDeploymentData {
                     constructor_vk_hash : fields[41],
                     function_tree_root : fields[42],
