@@ -17,8 +17,8 @@ import {
   Tx,
   NoteSpendingInfo,
   TxExecutionRequest,
-TxL2Logs,
-L2BlockL2Logs,
+  TxL2Logs,
+  L2BlockL2Logs,
 } from '@aztec/types';
 import { KernelOracle } from '../kernel_oracle/index.js';
 import { ContractDataOracle } from '../contract_data_oracle/index.js';
@@ -297,13 +297,13 @@ export class AccountState {
    * Throws an error if the number of block contexts and encrypted logs do not match.
    *
    * @param l2BlockContexts - An array of L2 block contexts to be processed.
-   * @param encryptedLogs - An array of encrypted logs associated with the L2 block contexts.
+   * @param encryptedL2BlockLogs - An array of encrypted logs associated with the L2 block contexts.
    * @returns A promise that resolves once the processing is completed.
    */
-  public async process(l2BlockContexts: L2BlockContext[], encryptedLogs: L2BlockL2Logs[]): Promise<void> {
-    if (l2BlockContexts.length !== encryptedLogs.length) {
+  public async process(l2BlockContexts: L2BlockContext[], encryptedL2BlockLogs: L2BlockL2Logs[]): Promise<void> {
+    if (l2BlockContexts.length !== encryptedL2BlockLogs.length) {
       throw new Error(
-        `Number of blocks and EncryptedLogs is not equal. Received ${l2BlockContexts.length} blocks, ${encryptedLogs.length} encrypted logs.`,
+        `Number of blocks and EncryptedLogs is not equal. Received ${l2BlockContexts.length} blocks, ${encryptedL2BlockLogs.length} encrypted logs.`,
       );
     }
     if (!l2BlockContexts.length) {
@@ -317,8 +317,8 @@ export class AccountState {
     const blocksAndNoteSpendingInfo: ProcessedData[] = [];
 
     // Iterate over both blocks and encrypted logs.
-    for (let blockIndex = 0; blockIndex < encryptedLogs.length; ++blockIndex) {
-      const { txLogs } = encryptedLogs[blockIndex];
+    for (let blockIndex = 0; blockIndex < encryptedL2BlockLogs.length; ++blockIndex) {
+      const { txLogs } = encryptedL2BlockLogs[blockIndex];
 
       // Try decrypting the encrypted logs.
       // Note: Public txs don't generate commitments and encrypted logs and for this reason we can ignore them here.

@@ -2,7 +2,7 @@ import { AztecNode } from '@aztec/aztec-node';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { AztecAddress, CircuitsWasm, KERNEL_NEW_COMMITMENTS_LENGTH } from '@aztec/circuits.js';
 import { Point } from '@aztec/foundation/fields';
-import { ConstantKeyPair, KeyPair } from '@aztec/key-store';
+import { ConstantKeyPair, KeyPair, getAddressFromPublicKey } from '@aztec/key-store';
 import { FunctionL2Logs, L2Block, L2BlockContext, L2BlockL2Logs, NoteSpendingInfo, TxL2Logs } from '@aztec/types';
 import { jest } from '@jest/globals';
 import { mock } from 'jest-mock-extended';
