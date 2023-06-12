@@ -19,6 +19,7 @@
 #include "aztec3/circuits/abis/types.hpp"
 #include "aztec3/circuits/hash.hpp"
 #include "aztec3/circuits/kernel/private/utils.hpp"
+#include "aztec3/constants.hpp"
 
 #include <barretenberg/barretenberg.hpp>
 
@@ -61,7 +62,7 @@ get_random_reads(NT::fr const& contract_address, int const num_read_requests)
     auto leaves = zero_array<fr, READ_REQUESTS_LENGTH>();
     // randomize the number of read requests with a configurable minimum
     auto final_num_rr = num_read_requests >= 0
-                            ? static_cast<size_t>(num_read_requests)
+                            ? std::min(static_cast<size_t>(num_read_requests), READ_REQUESTS_LENGTH)
                             : numeric::random::get_engine().get_random_uint8() % (READ_REQUESTS_LENGTH + 1);
     // randomize private app circuit's read requests
     for (size_t rr = 0; rr < final_num_rr; rr++) {
@@ -76,7 +77,7 @@ get_random_reads(NT::fr const& contract_address, int const num_read_requests)
     while (rr_leaf_indices_set.size() < final_num_rr) {
         rr_leaf_indices_set.insert(numeric::random::get_engine().get_random_uint32() % PRIVATE_DATA_TREE_NUM_LEAVES);
     }
-    // set -> vector without collitions
+    // set -> vector without collisions
     std::vector<NT::uint32> rr_leaf_indices(rr_leaf_indices_set.begin(), rr_leaf_indices_set.end());
 
     MerkleTree private_data_tree = MerkleTree(PRIVATE_DATA_TREE_HEIGHT);

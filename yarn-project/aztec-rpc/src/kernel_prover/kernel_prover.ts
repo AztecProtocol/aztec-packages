@@ -107,7 +107,7 @@ export class KernelProver {
 
       // TODO(dbanks12): https://github.com/AztecProtocol/aztec-packages/issues/779
       // What if app circuit outputs different #read-requests vs what the RPC client
-      // gets from the simulator?
+      // gets from the simulator? And confirm same number of readRequests as indices.
       const readRequestMembershipWitnesses = [];
       for (let rr = 0; rr < currentExecution.readRequestCommitmentIndices.length; rr++) {
         if (currentExecution.callStackItem.publicInputs.readRequests[rr] == Fr.zero()) {
@@ -116,7 +116,6 @@ export class KernelProver {
           // rr for this private call / kernel iteration
           break;
         }
-        //const leafIndex = currentExecution.readRequestCommitmentIndices[rr];
         const leafIndex = currentExecution.readRequestCommitmentIndices[rr];
         const membershipWitness = await this.oracle.getNoteMembershipWitness(leafIndex);
         readRequestMembershipWitnesses.push(membershipWitness);

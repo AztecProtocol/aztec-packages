@@ -159,6 +159,10 @@ typename NCT::fr root_from_sibling_path(typename NCT::fr const& leaf,
 /**
  * @brief Get the sibling path of an item in a given merkle tree
  *
+ * WARNING: this function is for testing purposes only! leaf_index is an fr
+ * in `MembershipWitness` but is a `size_t` here. This could lead to overflows
+ * on `1 << i` if the tree is large enough.
+ *
  * @tparam N height of tree (not including root)
  * @param tree merkle tree to operate on
  * @param leaf_index index of the leaf to get path for

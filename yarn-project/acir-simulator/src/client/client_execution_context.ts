@@ -26,12 +26,16 @@ export class ClientTxExecutionContext {
 
   /**
    * Gets the notes for a contract address and storage slot.
-   * Returns note preimages and membershipWitnesses.
+   * Returns note preimages and their indices in the private data tree.
+   * Note that indices are not passed to app circuit. They forwarded to
+   * the kernel prover which uses them to compute witnesses to pass
+   * to the private kernel.
+   *
    * @param contractAddress - The contract address.
    * @param storageSlot - The storage slot.
    * @param limit - The amount of notes to get.
    * @returns An array of ACVM fields for the note count and the requested note preimages,
-   * and another array of membershipWitnesses corresponding to each note
+   * and another array of indices corresponding to each note
    */
   public async getNotes(contractAddress: AztecAddress, storageSlot: ACVMField, limit: number) {
     const { count, notes } = await this.fetchNotes(contractAddress, storageSlot, limit);
@@ -73,11 +77,11 @@ export class ClientTxExecutionContext {
 
     const dummyNotes = Array.from(
       { length: Math.max(0, limit - notes.length) },
-      () =>
+      (): NoteLoadOracleInputs =>
         ({
           preimage: createDummyNote(),
           index: BigInt(-1),
-        } as NoteLoadOracleInputs),
+        }),
     );
 
     return {

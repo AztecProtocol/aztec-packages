@@ -486,6 +486,8 @@ TEST_F(native_private_kernel_init_tests, native_read_request_root_mismatch)
 
 TEST_F(native_private_kernel_init_tests, native_no_read_requests_works)
 {
+    // no read requests should work
+
     NT::fr const& amount = 5;
     NT::fr const& asset_id = 1;
     NT::fr const& memo = 999;
@@ -499,7 +501,6 @@ TEST_F(native_private_kernel_init_tests, native_no_read_requests_works)
     private_inputs.private_call.call_stack_item.public_inputs.read_requests = read_requests;
     private_inputs.private_call.read_request_membership_witnesses = read_request_membership_witnesses;
 
-    // tweak sibling path so it gives wrong root when paired with its request
     DummyComposer composer = DummyComposer("native_private_kernel_init_tests__native_no_read_requests_works");
     auto const& public_inputs = native_private_kernel_circuit_initial(composer, private_inputs);
 
@@ -517,6 +518,8 @@ TEST_F(native_private_kernel_init_tests, native_no_read_requests_works)
 
 TEST_F(native_private_kernel_init_tests, native_one_read_requests_works)
 {
+    // one read request should work
+
     NT::fr const& amount = 5;
     NT::fr const& asset_id = 1;
     NT::fr const& memo = 999;
@@ -549,6 +552,8 @@ TEST_F(native_private_kernel_init_tests, native_one_read_requests_works)
 
 TEST_F(native_private_kernel_init_tests, native_two_read_requests_works)
 {
+    // two read requests should work
+
     NT::fr const& amount = 5;
     NT::fr const& asset_id = 1;
     NT::fr const& memo = 999;
@@ -563,7 +568,6 @@ TEST_F(native_private_kernel_init_tests, native_two_read_requests_works)
     private_inputs.private_call.call_stack_item.public_inputs.read_requests = read_requests;
     private_inputs.private_call.read_request_membership_witnesses = read_request_membership_witnesses;
 
-    // tweak sibling path so it gives wrong root when paired with its request
     DummyComposer composer = DummyComposer("native_private_kernel_init_tests__native_two_read_requests_works");
     auto const& public_inputs = native_private_kernel_circuit_initial(composer, private_inputs);
 
@@ -581,6 +585,8 @@ TEST_F(native_private_kernel_init_tests, native_two_read_requests_works)
 
 TEST_F(native_private_kernel_init_tests, native_max_read_requests_works)
 {
+    // max read requests should work
+
     NT::fr const& amount = 5;
     NT::fr const& asset_id = 1;
     NT::fr const& memo = 999;
@@ -596,7 +602,6 @@ TEST_F(native_private_kernel_init_tests, native_max_read_requests_works)
     private_inputs.private_call.call_stack_item.public_inputs.read_requests = read_requests;
     private_inputs.private_call.read_request_membership_witnesses = read_request_membership_witnesses;
 
-    // tweak sibling path so it gives wrong root when paired with its request
     DummyComposer composer = DummyComposer("native_private_kernel_init_tests__native_max_read_requests_works");
     auto const& public_inputs = native_private_kernel_circuit_initial(composer, private_inputs);
 
@@ -973,6 +978,8 @@ TEST_F(native_private_kernel_inner_tests, native_read_request_root_mismatch)
 
 TEST_F(native_private_kernel_inner_tests, native_no_read_requests_works)
 {
+    // no read requests should work
+
     NT::fr const& amount = 5;
     NT::fr const& asset_id = 1;
     NT::fr const& memo = 999;
@@ -986,7 +993,6 @@ TEST_F(native_private_kernel_inner_tests, native_no_read_requests_works)
     private_inputs.private_call.call_stack_item.public_inputs.read_requests = read_requests;
     private_inputs.private_call.read_request_membership_witnesses = read_request_membership_witnesses;
 
-    // tweak sibling path so it gives wrong root when paired with its request
     DummyComposer composer = DummyComposer("native_private_kernel_inner_tests__native_no_read_requests_works");
     auto const& public_inputs = native_private_kernel_circuit_inner(composer, private_inputs);
 
@@ -1001,6 +1007,8 @@ TEST_F(native_private_kernel_inner_tests, native_no_read_requests_works)
 
 TEST_F(native_private_kernel_inner_tests, native_one_read_requests_works)
 {
+    // one read request should work
+
     NT::fr const& amount = 5;
     NT::fr const& asset_id = 1;
     NT::fr const& memo = 999;
@@ -1017,7 +1025,6 @@ TEST_F(native_private_kernel_inner_tests, native_one_read_requests_works)
     private_inputs.private_call.call_stack_item.public_inputs.read_requests = read_requests;
     private_inputs.private_call.read_request_membership_witnesses = read_request_membership_witnesses;
 
-    // tweak sibling path so it gives wrong root when paired with its request
     DummyComposer composer = DummyComposer("native_private_kernel_inner_tests__native_one_read_requests_works");
     auto const& public_inputs = native_private_kernel_circuit_inner(composer, private_inputs);
 
@@ -1032,6 +1039,8 @@ TEST_F(native_private_kernel_inner_tests, native_one_read_requests_works)
 
 TEST_F(native_private_kernel_inner_tests, native_two_read_requests_works)
 {
+    // two read requests should work
+
     NT::fr const& amount = 5;
     NT::fr const& asset_id = 1;
     NT::fr const& memo = 999;
@@ -1048,7 +1057,6 @@ TEST_F(native_private_kernel_inner_tests, native_two_read_requests_works)
     private_inputs.private_call.call_stack_item.public_inputs.read_requests = read_requests;
     private_inputs.private_call.read_request_membership_witnesses = read_request_membership_witnesses;
 
-    // tweak sibling path so it gives wrong root when paired with its request
     DummyComposer composer = DummyComposer("native_private_kernel_inner_tests__native_two_read_requests_works");
     auto const& public_inputs = native_private_kernel_circuit_inner(composer, private_inputs);
 
@@ -1063,6 +1071,8 @@ TEST_F(native_private_kernel_inner_tests, native_two_read_requests_works)
 
 TEST_F(native_private_kernel_inner_tests, native_max_read_requests_works)
 {
+    // max read requests should work
+
     NT::fr const& amount = 5;
     NT::fr const& asset_id = 1;
     NT::fr const& memo = 999;
@@ -1080,7 +1090,6 @@ TEST_F(native_private_kernel_inner_tests, native_max_read_requests_works)
     private_inputs.private_call.call_stack_item.public_inputs.read_requests = read_requests;
     private_inputs.private_call.read_request_membership_witnesses = read_request_membership_witnesses;
 
-    // tweak sibling path so it gives wrong root when paired with its request
     DummyComposer composer = DummyComposer("native_private_kernel_inner_tests__native_max_read_requests_works");
     auto const& public_inputs = native_private_kernel_circuit_inner(composer, private_inputs);
 
