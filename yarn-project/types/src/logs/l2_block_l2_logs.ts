@@ -1,15 +1,15 @@
 import { BufferReader, serializeBufferToVector } from '@aztec/foundation/serialize';
-import { TxNoirLogs } from './tx_noir_logs.js';
+import { TxL2Logs } from './tx_l2_logs.js';
 
 /**
  * Data container of logs emitted in all txs in a given L2 block.
  */
-export class L2BlockNoirLogs {
+export class L2BlockL2Logs {
   constructor(
     /**
      * An array containing logs emitted in individual function invocations in this tx.
      */
-    public readonly txLogs: TxNoirLogs[],
+    public readonly txLogs: TxL2Logs[],
   ) {}
 
   /**
@@ -33,30 +33,30 @@ export class L2BlockNoirLogs {
   /**
    * Deserializes logs from a buffer.
    * @param buf - The buffer containing the serialized logs.
-   * @returns A new `L2BlockNoirLogs` object.
+   * @returns A new `L2BlockL2Logs` object.
    */
-  public static fromBuffer(buf: Buffer): L2BlockNoirLogs {
+  public static fromBuffer(buf: Buffer): L2BlockL2Logs {
     // Skip the first 4 bytes for the total length (included because it's needed in `Decoder.sol`)
     const reader = new BufferReader(buf, 4);
 
     const serializedTxLogs = reader.readBufferArray();
-    const txLogs = serializedTxLogs.map(logs => TxNoirLogs.fromBuffer(logs, false));
-    return new L2BlockNoirLogs(txLogs);
+    const txLogs = serializedTxLogs.map(logs => TxL2Logs.fromBuffer(logs, false));
+    return new L2BlockL2Logs(txLogs);
   }
 
   /**
-   * Creates a new `L2BlockNoirLogs` object with `numFunctionInvocations` function logs and `numLogsIn1Invocation` logs
+   * Creates a new `L2BlockL2Logs` object with `numFunctionInvocations` function logs and `numLogsIn1Invocation` logs
    * in each invocation.
    * @param numTxs - The number of txs in the block.
    * @param numFunctionInvocations - The number of function invocations in the tx.
    * @param numLogsIn1Invocation - The number of logs emitted in each function invocation.
-   * @returns A new `L2BlockNoirLogs` object.
+   * @returns A new `L2BlockL2Logs` object.
    */
-  public static random(numTxs: number, numFunctionInvocations: number, numLogsIn1Invocation: number): L2BlockNoirLogs {
-    const txLogs: TxNoirLogs[] = [];
+  public static random(numTxs: number, numFunctionInvocations: number, numLogsIn1Invocation: number): L2BlockL2Logs {
+    const txLogs: TxL2Logs[] = [];
     for (let i = 0; i < numTxs; i++) {
-      txLogs.push(TxNoirLogs.random(numFunctionInvocations, numLogsIn1Invocation));
+      txLogs.push(TxL2Logs.random(numFunctionInvocations, numLogsIn1Invocation));
     }
-    return new L2BlockNoirLogs(txLogs);
+    return new L2BlockL2Logs(txLogs);
   }
 }

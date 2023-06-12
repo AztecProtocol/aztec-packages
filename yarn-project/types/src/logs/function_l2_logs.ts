@@ -4,7 +4,7 @@ import { randomBytes } from 'crypto';
 /**
  * Data container of logs emitted in 1 function invocation (corresponds to 1 kernel iteration).
  */
-export class FunctionNoirLogs {
+export class FunctionL2Logs {
   constructor(
     /**
      * An array of logs.
@@ -37,26 +37,26 @@ export class FunctionNoirLogs {
    * Deserializes logs from a buffer.
    * @param buf - The buffer containing the serialized logs.
    * @param isLengthPrefixed - Whether the buffer is prefixed with 4 bytes for its total length.
-   * @returns Deserialized instance of `FunctionNoirLogs`.
+   * @returns Deserialized instance of `FunctionL2Logs`.
    */
-  public static fromBuffer(buf: Buffer, isLengthPrefixed = true): FunctionNoirLogs {
+  public static fromBuffer(buf: Buffer, isLengthPrefixed = true): FunctionL2Logs {
     const offset = isLengthPrefixed ? 4 : 0;
     const reader = new BufferReader(buf, offset);
 
     const logs = reader.readBufferArray();
-    return new FunctionNoirLogs(logs);
+    return new FunctionL2Logs(logs);
   }
 
   /**
-   * Creates a new NoirLogs object with `numLogs` logs.
+   * Creates a new L2Logs object with `numLogs` logs.
    * @param numLogs - The number of logs to create.
-   * @returns A new FunctionNoirLogs object.
+   * @returns A new FunctionL2Logs object.
    */
-  public static random(numLogs: number): FunctionNoirLogs {
+  public static random(numLogs: number): FunctionL2Logs {
     const logs: Buffer[] = [];
     for (let i = 0; i < numLogs; i++) {
       logs.push(randomBytes(144));
     }
-    return new FunctionNoirLogs(logs);
+    return new FunctionL2Logs(logs);
   }
 }
