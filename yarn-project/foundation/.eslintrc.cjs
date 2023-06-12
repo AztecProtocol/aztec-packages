@@ -26,7 +26,7 @@ const contexts = [
   'EnumExpression',
 ];
 
-const JSDOC_RULES_LEVEL = 'off';
+const JSDOC_RULES_LEVEL = 'error';
 
 module.exports = {
   extends: ['eslint:recommended', 'plugin:@typescript-eslint/recommended', 'prettier'],

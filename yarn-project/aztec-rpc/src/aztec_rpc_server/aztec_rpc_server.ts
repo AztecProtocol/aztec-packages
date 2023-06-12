@@ -73,8 +73,14 @@ export class AztecRPCServer implements AztecRPCClient {
     return address;
   }
 
-  // TODO: We should not be passing in the private key in plain, instead, we should ask the keystore
-  // for a public key, create the smart account with it, and register it here.
+  /**
+   * Adds a new account backed by an account contract.
+   *
+   * TODO: We should not be passing in the private key in plain, instead, we should ask the keystore for a public key, create the smart account with it, and register it here.
+   * @param privKey - Private key of the corresponding user master public key.
+   * @param address - Address of the account contract.
+   * @returns The address of the account contract.
+   */
   public async addSmartAccount(privKey: Buffer, address: AztecAddress) {
     const pubKey = await this.keyStore.addAccount(privKey);
     await this.initAccountState(pubKey, address);
@@ -250,8 +256,7 @@ export class AztecRPCServer implements AztecRPCClient {
    * If it is public, it creates a public transaction without the need for simulation.
    * The resulting transaction object can then be sent to the network for execution using sendTx method.
    *
-   * @param txRequest - The signed transaction request containing all necessary details for executing the transaction.
-   * @param signature - The ECDSA signature of the transaction request.
+   * @param executionRequest - The signed transaction execution request containing all necessary details for executing the transaction.
    * @returns A transaction object that can be sent to the network.
    */
   public async createTx(executionRequest: TxExecutionRequest) {
@@ -395,6 +400,7 @@ export class AztecRPCServer implements AztecRPCClient {
    * It retrieves the private key from the key store and adds the account to the synchroniser.
    * This function is called for all existing accounts during the server start, or when a new account is added afterwards.
    *
+   * @param pubKey - User's master public key.
    * @param address - The address of the account to initialize.
    */
   private async initAccountState(pubKey: PublicKey, address: AztecAddress) {

@@ -3,6 +3,7 @@ import { KeyStore, PublicKey, getAddressFromPublicKey } from '@aztec/key-store';
 import { ExecutionRequest, SignedTxExecutionRequest, TxExecutionRequest } from '@aztec/types';
 import { AccountImplementation } from './index.js';
 
+/** Account implementation backed by an EOA */
 export class EcdsaExternallyOwnedAccount implements AccountImplementation {
   constructor(private address: AztecAddress, private pubKey: PublicKey, private keyStore: KeyStore) {
     if (!address.equals(getAddressFromPublicKey(pubKey))) {

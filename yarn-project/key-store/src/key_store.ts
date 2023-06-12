@@ -2,6 +2,7 @@ import { EcdsaSignature } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Point } from '@aztec/foundation/fields';
 
+/** Represents a user public key. */
 export type PublicKey = Point;
 
 /**

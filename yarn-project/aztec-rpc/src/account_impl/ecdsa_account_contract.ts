@@ -10,6 +10,9 @@ import { encodeArguments } from '@aztec/acir-simulator';
 import { AccountContractAbi } from '@aztec/noir-contracts/examples';
 import { generateFunctionSelector } from '../index.js';
 
+/**
+ * Account backed by an account contract that uses ECDSA signatures for authorization.
+ */
 export class EcdsaAccountContract implements AccountImplementation {
   constructor(private address: AztecAddress, private pubKey: PublicKey, private keyStore: KeyStore) {}
 
@@ -69,22 +72,33 @@ export class EcdsaAccountContract implements AccountImplementation {
 const ACCOUNT_MAX_PRIVATE_CALLS = 1;
 const ACCOUNT_MAX_PUBLIC_CALLS = 1;
 
+ 
+/** A call to a function in a noir contract */
 type FunctionCall = {
+  /** The encoded arguments */
   args: Fr[];
+  /** The function selector */
   selector: Buffer;
+  /** The address of the contract */
   target: AztecAddress;
 };
 
+/** Encoded payload for the account contract entrypoint */
 type EntrypointPayload = {
   // eslint-disable-next-line camelcase
+  /** Concatenated arguments for every call */
   flattened_args: Fr[];
   // eslint-disable-next-line camelcase
+  /** Concatenated selectors for every call */
   flattened_selectors: Fr[];
   // eslint-disable-next-line camelcase
+  /** Concatenated target addresses for every call */
   flattened_targets: Fr[];
+  /** A nonce for replay protection */
   nonce: Fr;
 };
 
+/** Assembles an entrypoint payload from a set of private and public function calls */
 function buildPayload(privateCalls: FunctionCall[], publicCalls: FunctionCall[]): EntrypointPayload {
   const nonce = Fr.random();
   const emptyCall = { args: times(ARGS_LENGTH, Fr.zero), selector: Buffer.alloc(32), target: AztecAddress.ZERO };
@@ -105,11 +119,13 @@ function buildPayload(privateCalls: FunctionCall[], publicCalls: FunctionCall[])
   };
 }
 
+/** Hashes an entrypoint payload (useful for signing) */
 function hashPayload(payload: EntrypointPayload) {
   // TODO: Switch to keccak when avaiable in Noir
   return sha256(Buffer.concat(flattenPayload(payload).map(fr => fr.toBuffer())));
 }
 
+/** Flattens an entrypoint payload */
 function flattenPayload(payload: EntrypointPayload) {
   return [...payload.flattened_args, ...payload.flattened_selectors, ...payload.flattened_targets, payload.nonce];
 }

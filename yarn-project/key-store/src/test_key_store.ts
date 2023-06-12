@@ -54,12 +54,13 @@ export class TestKeyStore implements KeyStore {
   }
 
   /**
-   * Sign a transaction request using the private key of the sender account.
+   * Sign a buffer using the private key of the sender account.
    * The 'signMessage' method of the account private key is called internally to generate the signature.
    * Throws an error if the sender account is not found in the TestKeyStore.
    *
-   * @param txRequest - The transaction request to be signed. It includes the sender, receiver, and other details.
-   * @returns A Promise which resolves to the generated signature as a Buffer.
+   * @param what - What to sign.
+   * @param pubKey - What key to use.
+   * @returns The signed message.
    */
   public ecdsaSign(what: Buffer, pubKey: PublicKey) {
     const account = this.getAccount(pubKey);
@@ -67,12 +68,12 @@ export class TestKeyStore implements KeyStore {
   }
 
   /**
-   * Retrieve the KeyPair object associated with a given address.
+   * Retrieve the KeyPair object associated with a given pub key.
    * Searches through the 'accounts' array for a matching public key and returns the corresponding account (KeyPair).
    * Throws an error if no matching account is found in the 'accounts'.
    *
-   * @param address - The address of the account to retrieve.
-   * @returns The KeyPair object associated with the provided address.
+   * @param pubKey - The public key of the account to retrieve.
+   * @returns The KeyPair object associated with the provided key.
    */
   private getAccount(pubKey: PublicKey) {
     const account = this.accounts.find(a => a.getPublicKey().equals(pubKey));

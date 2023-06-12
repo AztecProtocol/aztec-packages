@@ -78,9 +78,7 @@ export class TxExecutionRequest {
     return new TxExecutionRequest(...TxExecutionRequest.getFields(fields));
   }
 
-  static fromExecutionRequest(
-    fields: Pick<FieldsOf<ExecutionRequest>, 'args' | 'functionData'> & { account: AztecAddress },
-  ): TxExecutionRequest {
+  static fromExecutionRequest(fields: AccountExecutionRequest): TxExecutionRequest {
     return TxExecutionRequest.from({
       ...fields,
       chainId: Fr.ZERO,
@@ -125,6 +123,12 @@ export class TxExecutionRequest {
     );
   }
 }
+
+/** An execution request for an account contract entrypoint */
+type AccountExecutionRequest = Pick<FieldsOf<ExecutionRequest>, 'args' | 'functionData'> & {
+  /** The account contract to execute this entrypoint request */
+  account: AztecAddress;
+};
 
 /**
  * Wraps a TxExecutionRequest with an ECDSA signature.

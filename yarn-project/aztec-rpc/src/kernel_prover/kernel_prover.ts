@@ -64,8 +64,7 @@ export class KernelProver {
    * and generates a proof using the provided ProofCreator instance. It also maintains an index of new notes
    * created during the execution and returns them as a part of the KernelProverOutput.
    *
-   * @param txRequest - The transaction request object.
-   * @param txSignature - The ECDSA signature of the transaction.
+   * @param signedTxRequest - The authenticated transaction request object.
    * @param executionResult - The execution result object containing nested executions and preimages.
    * @returns A Promise that resolves to a KernelProverOutput object containing proof, public inputs, and output notes.
    */

@@ -142,6 +142,7 @@ export class Synchroniser {
    * The method resolves immediately after pushing the new account state.
    *
    * @param privKey - The private key buffer to initialize the account state.
+   * @param address - Address of the corresponding account contract.
    * @returns A promise that resolves once the account is added to the Synchroniser.
    */
   public async addAccount(privKey: Buffer, address: AztecAddress) {
