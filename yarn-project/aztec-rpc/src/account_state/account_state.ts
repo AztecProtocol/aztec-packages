@@ -64,7 +64,7 @@ export class AccountState {
     private db: Database,
     private node: AztecNode,
     private grumpkin: Grumpkin,
-    private TXS_PER_BLOCK = 1,
+    private TXS_PER_BLOCK = 4,
     private log = createDebugLogger('aztec:aztec_rpc_account_state'),
   ) {
     if (privKey.length !== 32) {
@@ -314,6 +314,8 @@ export class AccountState {
       return;
     }
 
+    // TODO(Maddiaa): this calculation is brittle.
+    // https://github.com/AztecProtocol/aztec-packages/issues/788
     let dataStartIndex =
       (l2BlockContexts[0].block.number - INITIAL_L2_BLOCK_NUM) * this.TXS_PER_BLOCK * KERNEL_NEW_COMMITMENTS_LENGTH;
     const blocksAndTxAuxData: ProcessedData[] = [];
@@ -322,7 +324,7 @@ export class AccountState {
     for (let i = 0; i < encryptedLogs.length; ++i) {
       const { dataChunks } = encryptedLogs[i];
 
-      // Try decrypting the encrypted logs.
+      // Try decrypting the encrypted logs.txAuxDataDaos
       // Note: Public txs don't generate commitments and encrypted logs and for this reason we can ignore them here.
       const privateTxIndices: Set<number> = new Set();
       const txAuxDataDaos: TxAuxDataDao[] = [];
