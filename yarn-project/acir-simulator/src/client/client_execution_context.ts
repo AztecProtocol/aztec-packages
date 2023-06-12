@@ -77,11 +77,10 @@ export class ClientTxExecutionContext {
 
     const dummyNotes = Array.from(
       { length: Math.max(0, limit - notes.length) },
-      (): NoteLoadOracleInputs =>
-        ({
-          preimage: createDummyNote(),
-          index: BigInt(-1),
-        }),
+      (): NoteLoadOracleInputs => ({
+        preimage: createDummyNote(),
+        index: BigInt(-1),
+      }),
     );
 
     return {
