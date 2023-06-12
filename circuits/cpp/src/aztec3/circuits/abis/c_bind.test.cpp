@@ -52,7 +52,7 @@ namespace aztec3::circuits::abis {
 TEST(abi_tests, compute_contract_address)
 {
     auto func = aztec3::circuits::compute_contract_address<NT>;
-    std::array<NT::fr, 2> pub_key = { NT::fr(1), NT::fr(2) };
+    const std::array<NT::fr, 2> pub_key = { NT::fr(1), NT::fr(2) };
     auto [actual, expected] =
         call_func_and_wrapper(func, abis__compute_contract_address, pub_key, NT::fr(3), NT::fr(4), NT::fr(5));
     EXPECT_EQ(actual, expected);
