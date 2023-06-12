@@ -32,12 +32,14 @@ export class L2BlockL2Logs {
 
   /**
    * Deserializes logs from a buffer.
-   * @param buf - The buffer containing the serialized logs.
+   * @param buffer - The buffer containing the serialized logs.
    * @returns A new `L2BlockL2Logs` object.
    */
-  public static fromBuffer(buf: Buffer): L2BlockL2Logs {
+  public static fromBuffer(buffer: Buffer | BufferReader): L2BlockL2Logs {
+    const reader = BufferReader.asReader(buffer);
+
     // Skip the first 4 bytes for the total length (included because it's needed in `Decoder.sol`)
-    const reader = new BufferReader(buf, 4);
+    reader.readNumber();
 
     const serializedTxLogs = reader.readBufferArray();
     const txLogs = serializedTxLogs.map(logs => TxL2Logs.fromBuffer(logs, false));
