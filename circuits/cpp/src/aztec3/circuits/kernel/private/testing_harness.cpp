@@ -518,16 +518,13 @@ bool validate_deployed_contract_address(PrivateKernelInputsInit<NT> const& priva
     auto expected_constructor_hash =
         NT::compress({ private_call_function_data_hash, tx_request.args_hash, private_circuit_vk_hash }, CONSTRUCTOR);
 
-    info("DEPLOYER PUB KEY", cdd.deployer_public_key);
-
     NT::fr const expected_contract_address = NT::compress({ cdd.deployer_public_key[0],
                                                             cdd.deployer_public_key[1],
                                                             cdd.contract_address_salt,
                                                             cdd.function_tree_root,
                                                             expected_constructor_hash },
                                                           CONTRACT_ADDRESS);
-    info("EXPECTED", expected_contract_address);
-    info("ACTUAL", public_inputs.end.new_contracts);
+
     return (public_inputs.end.new_contracts[0].contract_address.to_field() == expected_contract_address);
 }
 
