@@ -9,4 +9,13 @@ describe('L2BlockNoirLogs', () => {
 
     expect(recovered).toEqual(noirLogs);
   });
+
+  it('getSerializedLength returns the correct length', () => {
+    const noirLogs = L2BlockNoirLogs.random(3, 6, 2);
+
+    const buffer = noirLogs.toBuffer();
+    const recovered = L2BlockNoirLogs.fromBuffer(buffer);
+
+    expect(recovered.getSerializedLength()).toEqual(buffer.length);
+  });
 });

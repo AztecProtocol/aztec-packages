@@ -9,4 +9,13 @@ describe('TxNoirLogs', () => {
 
     expect(recovered).toEqual(noirLogs);
   });
+
+  it('getSerializedLength returns the correct length', () => {
+    const noirLogs = TxNoirLogs.random(6, 2);
+
+    const buffer = noirLogs.toBuffer();
+    const recovered = TxNoirLogs.fromBuffer(buffer);
+
+    expect(recovered.getSerializedLength()).toEqual(buffer.length);
+  });
 });
