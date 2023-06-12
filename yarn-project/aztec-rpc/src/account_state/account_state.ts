@@ -64,7 +64,7 @@ export class AccountState {
     private db: Database,
     private node: AztecNode,
     private grumpkin: Grumpkin,
-    private TXS_PER_BLOCK = 1,
+    private TXS_PER_BLOCK = 4,
     private log = createDebugLogger('aztec:aztec_rpc_account_state'),
   ) {
     if (privKey.length !== 32) {
@@ -314,6 +314,8 @@ export class AccountState {
       return;
     }
 
+    // TODO(Maddiaa): this calculation is brittle.
+    // https://github.com/AztecProtocol/aztec-packages/issues/788
     let dataStartIndex =
       (l2BlockContexts[0].block.number - INITIAL_L2_BLOCK_NUM) * this.TXS_PER_BLOCK * KERNEL_NEW_COMMITMENTS_LENGTH;
     const blocksAndTxAuxData: ProcessedData[] = [];
