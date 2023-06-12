@@ -8,8 +8,8 @@ import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { randomBytes } from '@aztec/foundation/crypto';
 
 /**
- * A class which wraps the data required to compute a nullifier. Along with that this class contains the necessary
- * functionality to encrypt and decrypt the data.
+ * A class which wraps the data required to compute a nullifier/to spend a note. Along with that this class contains
+ * the necessary functionality to encrypt and decrypt the data.
  */
 export class NoteSpendingInfo {
   constructor(
