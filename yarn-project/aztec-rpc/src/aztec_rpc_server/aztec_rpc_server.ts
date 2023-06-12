@@ -202,7 +202,7 @@ export class AztecRPCServer implements AztecRPCClient {
     await this.db.addContract(contract);
 
     const txRequest = new TxExecutionRequest(
-      account.getAddress(), // TODO: Should be set to zero
+      AztecAddress.ZERO,
       contract.address,
       functionData,
       flatArgs,
