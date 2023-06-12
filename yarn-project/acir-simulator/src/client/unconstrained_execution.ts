@@ -71,6 +71,8 @@ export class UnconstrainedFunctionExecution {
       callPublicFunction: notAvailable,
       storageRead: notAvailable,
       storageWrite: notAvailable,
+      createCommitment: notAvailable,
+      createL2ToL1Message: notAvailable,
       emitEncryptedLog: notAvailable,
     });
 

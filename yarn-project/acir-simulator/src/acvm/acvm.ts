@@ -29,6 +29,8 @@ export interface ACIRCallback {
   enqueuePublicFunctionCall(params: ACVMField[]): Promise<ACVMField[]>;
   storageRead(params: ACVMField[]): Promise<[ACVMField]>;
   storageWrite(params: ACVMField[]): Promise<[ACVMField]>;
+  createCommitment(params: ACVMField[]): Promise<[ACVMField]>;
+  createL2ToL1Message(params: ACVMField[]): Promise<[ACVMField]>;
   viewNotesPage(params: ACVMField[]): Promise<ACVMField[]>;
   getL1ToL2Message(params: ACVMField[]): Promise<ACVMField[]>;
   /**

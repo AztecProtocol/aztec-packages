@@ -1,10 +1,10 @@
-import { Grumpkin } from '@aztec/circuits.js/barretenberg';
+import { Grumpkin, pedersenCompressInputs } from '@aztec/circuits.js/barretenberg';
 import { CallContext, FunctionData, CircuitsWasm, PrivateHistoricTreeRoots } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { FunctionAbi } from '@aztec/foundation/abi';
-import { ChildAbi, ParentAbi, PublicTokenContractAbi } from '@aztec/noir-contracts/examples';
+import { ChildAbi, ParentAbi, PublicToPrivateContractAbi, PublicTokenContractAbi } from '@aztec/noir-contracts/examples';
 import { MockProxy, mock } from 'jest-mock-extended';
 import { default as memdown, type MemDown } from 'memdown';
 import { encodeArguments } from '../abi_coder/encoder.js';
@@ -221,10 +221,70 @@ describe('ACIR public execution simulator', () => {
     });
   });
 
-  describe("Create commitment in public contact", () => {
-    
+  describe("Public -> Private messaging", () => {
+    it("Should be able to create a commitment from the public context", async () => {
+        const contractAddress = AztecAddress.random();
+        const publicToPrivateAbi = PublicToPrivateContractAbi.functions.find(f => f.name === 'mintFromPublicToPrivate')!;
+        const functionData = new FunctionData(Buffer.alloc(4), false, false);
+        const amount = new Fr(140);
+        const secretHash = Fr.random();
+        const args = encodeArguments(publicToPrivateAbi, [amount, secretHash]);
 
+        const callContext = CallContext.from({
+          msgSender: AztecAddress.random(),
+          storageContractAddress: contractAddress,
+          portalContractAddress: EthAddress.random(),
+          isContractDeployment: false,
+          isDelegateCall: false,
+          isStaticCall: false,
+        });
 
+        publicContracts.getBytecode.mockResolvedValue(Buffer.from(publicToPrivateAbi.bytecode, 'hex'));
+
+        const execution: PublicExecution = { contractAddress, functionData, args, callContext };
+        const result = await executor.execute(execution);
+
+        const expectedReturn = Fr.ZERO;
+        expect(result.returnValues).toEqual([expectedReturn]);
+
+        // Assert the commitment was created
+        expect(result.newCommitments.length).toEqual(1);
+
+        const expectedNewCommitmentValue = pedersenCompressInputs(await CircuitsWasm.get(), [amount.toBuffer(), secretHash.toBuffer()])
+        expect(result.newCommitments[0].toBuffer()).toEqual(expectedNewCommitmentValue);
+    });
+
+    it("Should be able to create a L2 to L1 message from the public context", async () => {
+        const contractAddress = AztecAddress.random();
+        const createL2ToL1MessagePublicAbi = PublicToPrivateContractAbi.functions.find(f => f.name === 'createL2ToL1MessagePublic')!;
+        const functionData = new FunctionData(Buffer.alloc(4), false, false);
+        const amount = new Fr(140);
+        const secretHash = Fr.random();
+        const args = encodeArguments(createL2ToL1MessagePublicAbi, [amount, secretHash]);
+
+        const callContext = CallContext.from({
+          msgSender: AztecAddress.random(),
+          storageContractAddress: contractAddress,
+          portalContractAddress: EthAddress.random(),
+          isContractDeployment: false,
+          isDelegateCall: false,
+          isStaticCall: false,
+        });
+
+        publicContracts.getBytecode.mockResolvedValue(Buffer.from(createL2ToL1MessagePublicAbi.bytecode, 'hex'));
+
+        const execution: PublicExecution = { contractAddress, functionData, args, callContext };
+        const result = await executor.execute(execution);
+
+        const expectedReturn = Fr.ZERO;
+        expect(result.returnValues).toEqual([expectedReturn]);
+
+        // Assert the l2 to l1 message was created
+        expect(result.newL2ToL1Messages.length).toEqual(1);
+
+        const expectedNewMessageValue = pedersenCompressInputs(await CircuitsWasm.get(), [amount.toBuffer(), secretHash.toBuffer()])
+        expect(result.newL2ToL1Messages[0].toBuffer()).toEqual(expectedNewMessageValue);
+    });
 
   });
 });

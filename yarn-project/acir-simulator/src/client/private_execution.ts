@@ -218,6 +218,8 @@ export class PrivateFunctionExecution {
       viewNotesPage: notAvailable,
       storageRead: notAvailable,
       storageWrite: notAvailable,
+      createCommitment: notAvailable,
+      createL2ToL1Message: notAvailable,
       callPublicFunction: notAvailable,
       emitEncryptedLog: async ([
         acvmContractAddress,

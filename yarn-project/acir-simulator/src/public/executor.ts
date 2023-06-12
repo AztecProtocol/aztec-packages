@@ -3,7 +3,7 @@ import { padArrayEnd } from '@aztec/foundation/collection';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { TxExecutionRequest } from '@aztec/types';
 import { select_return_flattened as selectPublicWitnessFlattened } from '@noir-lang/noir_util_wasm';
-import { acvm, frToAztecAddress, frToSelector, fromACVMField, toACVMField, toACVMWitness } from '../acvm/index.js';
+import { ZERO_ACVM_FIELD, acvm, frToAztecAddress, frToSelector, fromACVMField, toACVMField, toACVMWitness } from '../acvm/index.js';
 import { CommitmentsDB, PublicContractsDB, PublicStateDB } from './db.js';
 import { PublicExecution, PublicExecutionResult } from './execution.js';
 import { ContractStorageActionsCollector } from './state_actions.js';
@@ -42,6 +42,8 @@ export class PublicExecutor {
 
     const initialWitness = getInitialWitness(execution.args, execution.callContext, this.treeRoots);
     const storageActions = new ContractStorageActionsCollector(this.stateDb, execution.contractAddress);
+    const newCommitments: Fr[] = [];
+    const newL2ToL1Messages: Fr[] = [];
     const nestedExecutions: PublicExecutionResult[] = [];
 
     const notAvailable = () => Promise.reject(`Built-in not available for public execution simulation`);
@@ -72,6 +74,16 @@ export class PublicExecutor {
         this.log(`Oracle storage write: slot=${storageSlot.toShortString()} value=${value.toString()}`);
         return [toACVMField(newValue)];
       },
+      createCommitment: async ([commitment]) => {
+        this.log("Creating commitment: " + commitment.toString());
+        newCommitments.push(fromACVMField(commitment));
+        return await Promise.resolve([ZERO_ACVM_FIELD]);
+      },
+      createL2ToL1Message: async ([message]) => {
+        this.log("Creating L2 to L1 message: " + message.toString());
+        newL2ToL1Messages.push(fromACVMField(message));
+        return await Promise.resolve([ZERO_ACVM_FIELD]);
+      },
       callPublicFunction: async ([address, functionSelector, ...args]) => {
         this.log(`Public function call: addr=${address} selector=${functionSelector} args=${args.join(',')}`);
         const childExecutionResult = await this.callPublicFunction(
@@ -92,6 +104,8 @@ export class PublicExecutor {
 
     return {
       execution,
+      newCommitments,
+      newL2ToL1Messages,
       contractStorageReads,
       contractStorageUpdateRequests,
       returnValues,
