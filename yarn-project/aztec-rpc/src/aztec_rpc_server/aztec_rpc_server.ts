@@ -242,7 +242,7 @@ export class AztecRPCServer implements AztecRPCClient {
 
     // TODO: Can we remove tx context from this call?
     const authedTxRequest = await entrypoint.createAuthenticatedTxRequest([executionRequest], TxContext.empty());
-    const tx = executionRequest.functionData.isPrivate
+    const tx = authedTxRequest.txRequest.functionData.isPrivate
       ? await account.simulateAndProve(authedTxRequest, undefined)
       : Tx.createPublic(authedTxRequest);
 
