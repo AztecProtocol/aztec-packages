@@ -1,15 +1,15 @@
 import { BufferReader, serializeBufferToVector } from '@aztec/foundation/serialize';
-import { FunctionNoirLogs } from './function_noir_logs.js';
+import { FunctionL2Logs } from './function_l2_logs.js';
 
 /**
  * Data container of logs emitted in 1 tx.
  */
-export class TxNoirLogs {
+export class TxL2Logs {
   constructor(
     /**
      * An array containing logs emitted in individual function invocations in this tx.
      */
-    public readonly functionLogs: FunctionNoirLogs[],
+    public readonly functionLogs: FunctionL2Logs[],
   ) {}
 
   /**
@@ -34,29 +34,29 @@ export class TxNoirLogs {
    * Deserializes logs from a buffer.
    * @param buf - The buffer containing the serialized logs.
    * @param isLengthPrefixed - Whether the buffer is prefixed with 4 bytes for its total length.
-   * @returns A new NoirLogs object.
+   * @returns A new L2Logs object.
    */
-  public static fromBuffer(buf: Buffer, isLengthPrefixed = true): TxNoirLogs {
+  public static fromBuffer(buf: Buffer, isLengthPrefixed = true): TxL2Logs {
     const offset = isLengthPrefixed ? 4 : 0;
     const reader = new BufferReader(buf, offset);
 
     const serializedFunctionLogs = reader.readBufferArray();
-    const functionLogs = serializedFunctionLogs.map(logs => FunctionNoirLogs.fromBuffer(logs, false));
-    return new TxNoirLogs(functionLogs);
+    const functionLogs = serializedFunctionLogs.map(logs => FunctionL2Logs.fromBuffer(logs, false));
+    return new TxL2Logs(functionLogs);
   }
 
   /**
-   * Creates a new `TxNoirLogs` object with `numFunctionInvocations` function logs and `numLogsIn1Invocation` logs
+   * Creates a new `TxL2Logs` object with `numFunctionInvocations` function logs and `numLogsIn1Invocation` logs
    * in each invocation.
    * @param numFunctionInvocations - The number of function invocations in the tx.
    * @param numLogsIn1Invocation - The number of logs emitted in each function invocation.
-   * @returns A new `TxNoirLogs` object.
+   * @returns A new `TxL2Logs` object.
    */
-  public static random(numFunctionInvocations: number, numLogsIn1Invocation: number): TxNoirLogs {
-    const functionLogs: FunctionNoirLogs[] = [];
+  public static random(numFunctionInvocations: number, numLogsIn1Invocation: number): TxL2Logs {
+    const functionLogs: FunctionL2Logs[] = [];
     for (let i = 0; i < numFunctionInvocations; i++) {
-      functionLogs.push(FunctionNoirLogs.random(numLogsIn1Invocation));
+      functionLogs.push(FunctionL2Logs.random(numLogsIn1Invocation));
     }
-    return new TxNoirLogs(functionLogs);
+    return new TxL2Logs(functionLogs);
   }
 }
