@@ -12,6 +12,7 @@ import {
   makeEmptyProof,
   READ_REQUESTS_LENGTH,
   MembershipWitness,
+  SignedTxRequest,
 } from '@aztec/circuits.js';
 import { makeTxRequest } from '@aztec/circuits.js/factories';
 import { mock } from 'jest-mock-extended';
@@ -92,7 +93,8 @@ describe('Kernel Prover', () => {
     });
   };
 
-  const prove = (executionResult: ExecutionResult) => prover.prove(txRequest, txSignature, executionResult);
+  const prove = (executionResult: ExecutionResult) =>
+    prover.prove(new SignedTxRequest(txRequest, txSignature), executionResult);
 
   beforeEach(() => {
     txRequest = makeTxRequest();
