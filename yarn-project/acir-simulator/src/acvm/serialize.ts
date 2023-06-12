@@ -150,7 +150,6 @@ export function toAcvmCommitmentLoadOracleInputs(
 ): ACVMField[] {
   return [
     toACVMField(messageLoadOracleInputs.commitment),
-    ...messageLoadOracleInputs.siblingPath.map(f => toACVMField(f)),
     toACVMField(messageLoadOracleInputs.index),
     toACVMField(l1ToL2MessagesTreeRoot),
   ];

@@ -79,8 +79,12 @@ contract PublicPrivate {
 
         let commitment = from_public_note.get_commitment();
 
+        // Perform read request for the kernel.
+        context = context.push_read_request(commitment);
+
         let commitment_oracle_call = get_commitment(commitment);
         let commitment_data = make_commitment_getter_data(commitment_oracle_call, 0);
+        
 
         constrain inputs.roots.private_data_tree_root == commitment_data.root;
 

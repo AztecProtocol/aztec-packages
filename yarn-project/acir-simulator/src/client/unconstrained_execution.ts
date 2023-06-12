@@ -65,7 +65,7 @@ export class UnconstrainedFunctionExecution {
       },
       getL1ToL2Message: ([msgKey]: ACVMField[]) => this.context.getL1ToL2Message(fromACVMField(msgKey)),
       getCommitment: ([commitment]: ACVMField[]) =>
-        this.context.getCommitment(this.contractAddress, fromACVMField(commitment)),
+        this.context.getCommitment(this.contractAddress, fromACVMField(commitment)).then(commitmentData => commitmentData.acvmData),
       enqueuePublicFunctionCall: notAvailable,
       notifyCreatedNote: notAvailable,
       notifyNullifiedNote: notAvailable,

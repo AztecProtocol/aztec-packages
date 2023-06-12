@@ -449,7 +449,8 @@ describe('Private Execution test suite', () => {
 
       const wasm = await CircuitsWasm.get();
       const secret = new Fr(1n);
-      const commitment = Fr.fromBuffer(pedersenCompressInputs(wasm, [toBufferBE(recipient.x, 32), secret.toBuffer()]));
+      const secretHash = pedersenCompressInputs(wasm, [secret.toBuffer()]);
+      const commitment = Fr.fromBuffer(pedersenCompressInputs(wasm, [toBufferBE(amount, 32), secretHash]));
       const siloedCommitment = siloCommitment(wasm, contractAddress, commitment);
 
       const tree: AppendOnlyTree = await newTree(
@@ -462,8 +463,8 @@ describe('Private Execution test suite', () => {
 
       await tree.appendLeaves([siloedCommitment.toBuffer()]);
 
-      const l1ToL2Root = Fr.fromBuffer(tree.getRoot(false));
-      const historicRoots = new PrivateHistoricTreeRoots(Fr.ZERO, Fr.ZERO, Fr.ZERO, l1ToL2Root, Fr.ZERO);
+      const privateDataTreeRoot = Fr.fromBuffer(tree.getRoot(false));
+      const historicRoots = new PrivateHistoricTreeRoots(Fr.ZERO, Fr.ZERO, Fr.ZERO, privateDataTreeRoot, Fr.ZERO);
 
       oracle.getCommitmentOracle.mockImplementation(async () => {
         // Check the calculated commitment is correct
@@ -486,9 +487,14 @@ describe('Private Execution test suite', () => {
 
       const result = await acirSimulator.run(txRequest, abi, contractAddress, EthAddress.ZERO, historicRoots);
 
-      // Check a nullifier has been created
+      // Check a nullifier has been created.
       const newNullifiers = result.callStackItem.publicInputs.newNullifiers.filter(field => !field.equals(Fr.ZERO));
       expect(newNullifiers).toHaveLength(1);
+
+      // Check the commitment read request was created successfully.
+      const readRequests = result.callStackItem.publicInputs.readRequests.filter(field => !field.equals(Fr.ZERO));
+      expect(readRequests).toHaveLength(1);
+      expect(readRequests[0]).toEqual(commitment);
     }, 30_000);
   });
 

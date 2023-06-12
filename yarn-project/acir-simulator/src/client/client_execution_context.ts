@@ -105,8 +105,11 @@ export class ClientTxExecutionContext {
    * @param commitment - The commitment.
    * @returns The commitment data.
    */
-  public async getCommitment(contractAddress: AztecAddress, commitment: Fr): Promise<ACVMField[]> {
+  public async getCommitment(contractAddress: AztecAddress, commitment: Fr){
     const commitmentInputs = await this.db.getCommitmentOracle(contractAddress, commitment);
-    return toAcvmCommitmentLoadOracleInputs(commitmentInputs, this.historicRoots.privateDataTreeRoot);
+    return {
+      acvmData: toAcvmCommitmentLoadOracleInputs(commitmentInputs, this.historicRoots.privateDataTreeRoot),
+      index: commitmentInputs.index,
+    };
   }
 }

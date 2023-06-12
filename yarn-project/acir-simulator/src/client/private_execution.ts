@@ -195,13 +195,12 @@ export class PrivateFunctionExecution {
         return toAcvmCallPrivateStackItem(childExecutionResult.callStackItem);
       },
       getL1ToL2Message: ([msgKey]: ACVMField[]) => {
-        console.log(this.context);
         return this.context.getL1ToL2Message(fromACVMField(msgKey));
       },
-      getCommitment: ([commitment]: ACVMField[]) => {
-        console.log('hewuheoiahoA');
-        console.log(this.context);
-        return this.context.getCommitment(this.contractAddress, fromACVMField(commitment));
+      getCommitment: async ([commitment]: ACVMField[]) => {
+        const commitmentData = await  this.context.getCommitment(this.contractAddress, fromACVMField(commitment));
+        readRequestCommitmentIndices.push(commitmentData.index);
+        return commitmentData.acvmData;
       },
       debugLog: (fields: ACVMField[]) => {
         this.log(fieldsToFormattedStr(fields));
