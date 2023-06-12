@@ -324,7 +324,7 @@ export class AccountState {
     for (let i = 0; i < encryptedLogs.length; ++i) {
       const { dataChunks } = encryptedLogs[i];
 
-      // Try decrypting the encrypted logs.txAuxDataDaos
+      // Try decrypting the encrypted logs.
       // Note: Public txs don't generate commitments and encrypted logs and for this reason we can ignore them here.
       const privateTxIndices: Set<number> = new Set();
       const txAuxDataDaos: TxAuxDataDao[] = [];
