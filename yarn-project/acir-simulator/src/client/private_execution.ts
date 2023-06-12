@@ -30,7 +30,7 @@ import { sizeOfType } from '../index.js';
 import { fieldsToFormattedStr } from './debug.js';
 import { ClientTxExecutionContext } from './client_execution_context.js';
 import { Tuple, assertLength } from '@aztec/foundation/serialize';
-import { NotePreimage, TxAuxData, UnverifiedData } from '@aztec/types';
+import { NoirLogs, NotePreimage, TxAuxData } from '@aztec/types';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 
 /**
@@ -101,7 +101,7 @@ export interface ExecutionResult {
    * Encrypted logs emitted during execution of this function call.
    * Note: These are preimages to `encryptedLogsHash`.
    */
-  encryptedLogs: UnverifiedData;
+  encryptedLogs: NoirLogs;
 }
 
 const notAvailable = () => {
@@ -139,7 +139,7 @@ export class PrivateFunctionExecution {
     const nestedExecutionContexts: ExecutionResult[] = [];
     const enqueuedPublicFunctionCalls: PublicCallRequest[] = [];
     const readRequestCommitmentIndices: bigint[] = [];
-    const encryptedLogs = new UnverifiedData([]);
+    const encryptedLogs = new NoirLogs([]);
 
     const { partialWitness } = await acvm(acir, initialWitness, {
       getSecretKey: async ([address]: ACVMField[]) => [
