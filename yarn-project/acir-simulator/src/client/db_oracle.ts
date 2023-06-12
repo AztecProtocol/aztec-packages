@@ -45,8 +45,8 @@ export interface MessageLoadOracleInputs {
  * The format noir uses to get commitments.
  */
 export interface CommitmentDataOracleInputs {
-  /** Message being fetched. */
-  message: Fr;
+  /** The siloed commitment. */
+  commitment: Fr;
   /**
    * The path in the merkle tree to the commitment.
    */

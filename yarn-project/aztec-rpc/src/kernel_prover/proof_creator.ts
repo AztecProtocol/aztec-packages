@@ -10,7 +10,7 @@ import {
   privateKernelSimInner,
   privateKernelSimInit,
 } from '@aztec/circuits.js';
-import { computeSiloedCommitment } from '@aztec/circuits.js/abis';
+import { siloCommitment } from '@aztec/circuits.js/abis';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 
@@ -59,7 +59,7 @@ export class KernelProofCreator {
     const wasm = await CircuitsWasm.get();
     const contractAddress = publicInputs.callContext.storageContractAddress;
 
-    return publicInputs.newCommitments.map(commitment => computeSiloedCommitment(wasm, contractAddress, commitment));
+    return publicInputs.newCommitments.map(commitment => siloCommitment(wasm, contractAddress, commitment));
   }
 
   /**

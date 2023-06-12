@@ -98,7 +98,7 @@ impl PrivateFunctionContext {
         let l1_to_l2_message_data = make_l1_to_l2_message_getter_data(returned_message, 0, secret);
 
         // Check tree roots against the inputs 
-        constrain l1_to_l2_message_data.root == inputs.roots.old_l1_to_l2_messages_tree_root;
+        constrain l1_to_l2_message_data.root == inputs.roots.l1_to_l2_messages_tree_root;
 
         // Validate this is the target contract
         constrain l1_to_l2_message_data.message.recipient == inputs.call_context.storage_contract_address;

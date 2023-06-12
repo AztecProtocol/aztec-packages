@@ -71,10 +71,10 @@ impl PrivateCallStackItem {
                 // encrypted_log_preimages_length: fields[47],
                 // unencrypted_log_preimages_length: fields[48],
                 commitment_trees_roots: CommitmentTreesRoots {
-                    old_private_data_tree_root : fields[33],
-                    old_nullifier_tree_root : fields[34],
-                    old_contract_tree_root : fields[35],
-                    old_l1_to_l2_messages_tree_root : fields[36],
+                    contract_tree_root : fields[33],
+                    l1_to_l2_messages_tree_root : fields[34],
+                    nullifier_tree_root : fields[35],
+                    private_data_tree_root : fields[36],
                 },
                 contract_deployment_data: ContractDeploymentData {
                     constructor_vk_hash : fields[37],

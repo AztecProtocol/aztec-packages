@@ -7,7 +7,7 @@ import {
   PublicStateDB,
 } from '@aztec/acir-simulator';
 import { AztecAddress, CircuitsWasm, EthAddress, Fr, PrivateHistoricTreeRoots } from '@aztec/circuits.js';
-import { computeSiloedCommitment } from '@aztec/circuits.js/abis';
+import { siloCommitment } from '@aztec/circuits.js/abis';
 import { ContractDataSource, L1ToL2MessageSource, MerkleTreeId } from '@aztec/types';
 import { MerkleTreeOperations, computePublicDataTreeLeafIndex } from '@aztec/world-state';
 
@@ -107,13 +107,13 @@ export class WorldStateDB implements CommitmentsDB {
    * @param commitment - The preimage of the siloed data.
    * @returns - The Commitment data oracle object
    */
-  public async getCommitment(address: AztecAddress, commitment: Fr): Promise<CommitmentDataOracleInputs> {
-    const message = computeSiloedCommitment(await CircuitsWasm.get(), address, commitment);
-    const index = (await this.db.findLeafIndex(MerkleTreeId.PRIVATE_DATA_TREE, message.toBuffer()))!;
+  public async getCommitmentOracle(address: AztecAddress, commitment: Fr): Promise<CommitmentDataOracleInputs> {
+    const siloedCommitment = siloCommitment(await CircuitsWasm.get(), address, commitment);
+    const index = (await this.db.findLeafIndex(MerkleTreeId.PRIVATE_DATA_TREE, siloedCommitment.toBuffer()))!;
     const siblingPath = await this.db.getSiblingPath(MerkleTreeId.PRIVATE_DATA_TREE, index);
 
     return {
-      message,
+      commitment: siloedCommitment,
       index,
       siblingPath: siblingPath.toFieldArray(),
     };

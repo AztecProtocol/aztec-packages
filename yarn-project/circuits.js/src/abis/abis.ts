@@ -1,6 +1,6 @@
 import { Buffer } from 'buffer';
 import chunk from 'lodash.chunk';
-import { abisComputeContractAddress, abisComputeSiloedCommitment } from '../cbind/circuits.gen.js';
+import { abisComputeContractAddress, abisSiloCommitment } from '../cbind/circuits.gen.js';
 import {
   AztecAddress,
   FUNCTION_SELECTOR_NUM_BYTES,
@@ -193,9 +193,9 @@ export function computeContractAddress(
  * @param commitment - The commitment to silo.
  * @returns A siloed commitment.
  */
-export function computeSiloedCommitment(wasm: IWasmModule, contract: AztecAddress, commitment: Fr): Fr {
+export function siloCommitment(wasm: IWasmModule, contract: AztecAddress, commitment: Fr): Fr {
   wasm.call('pedersen__init');
-  return abisComputeSiloedCommitment(wasm, contract, commitment);
+  return abisSiloCommitment(wasm, contract, commitment);
 }
 
 /**

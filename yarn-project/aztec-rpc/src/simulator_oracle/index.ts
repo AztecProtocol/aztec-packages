@@ -5,7 +5,7 @@ import { KeyPair } from '@aztec/key-store';
 import { FunctionAbi } from '@aztec/foundation/abi';
 import { ContractDataOracle } from '../contract_data_oracle/index.js';
 import { Database } from '../database/index.js';
-import { computeSiloedCommitment } from '@aztec/circuits.js/abis';
+import { siloCommitment } from '@aztec/circuits.js/abis';
 import { MerkleTreeId } from '@aztec/types';
 
 /**
@@ -109,20 +109,20 @@ export class SimulatorOracle implements DBOracle {
   }
 
   /**
-   * Retrieves the commitment messages associated with a specific message key.
+   * Retrieves the noir oracle data required to prove existence of a given commitment.
    * @param contractAddress - The contract Address.
    * @param commitment - The key of the message being fetched.
-   * @returns - A promise that resolves to the message data, a sibling path and the
+   * @returns - A promise that resolves to the commitment data, a sibling path and the
    *            index of the message in the private data tree.
    */
-  async getCommitment(contractAddress: AztecAddress, commitment: Fr): Promise<CommitmentDataOracleInputs> {
-    const message = computeSiloedCommitment(await CircuitsWasm.get(), contractAddress, commitment);
-    const index = await this.node.findCommitmentIndex(message.toBuffer());
+  async getCommitmentOracle(contractAddress: AztecAddress, commitment: Fr): Promise<CommitmentDataOracleInputs> {
+    const siloedCommitment = siloCommitment(await CircuitsWasm.get(), contractAddress, commitment);
+    const index = await this.node.findCommitmentIndex(siloedCommitment.toBuffer());
     if (!index) throw new Error('Commitment not found');
 
     const siblingPath = await this.node.getDataTreePath(index);
     return await Promise.resolve({
-      message,
+      commitment: siloedCommitment,
       siblingPath: siblingPath.toFieldArray(),
       index,
     });

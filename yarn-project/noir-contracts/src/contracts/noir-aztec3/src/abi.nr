@@ -12,7 +12,7 @@ global CONTRACT_STORAGE_READS_LENGTH : comptime Field = 4;
 
 use crate::types::vec::BoundedVec;
 
-// PrivateContextInputs are expected to provided to each private function
+// PrivateContextInputs are expected to be provided to each private function
 struct PrivateContextInputs {
     call_context : CallContext,
     roots: CommitmentTreesRoots,
@@ -59,25 +59,25 @@ impl CallContext {
 global COMMITMENT_TREES_ROOTS_SIZE: comptime Field = 4;
 
 struct CommitmentTreesRoots {
-    old_private_data_tree_root : Field,
-    old_nullifier_tree_root : Field,
-    old_contract_tree_root : Field,
-    old_l1_to_l2_messages_tree_root : Field,
+    contract_tree_root : Field,
+    l1_to_l2_messages_tree_root : Field,
+    nullifier_tree_root : Field,
+    private_data_tree_root : Field,
 }
 
 impl CommitmentTreesRoots {
     fn serialize(self) -> [Field; COMMITMENT_TREES_ROOTS_SIZE] {
         [
-            self.old_private_data_tree_root,
-            self.old_nullifier_tree_root,
-            self.old_contract_tree_root,
-            self.old_l1_to_l2_messages_tree_root,
+            self.contract_tree_root,
+            self.l1_to_l2_messages_tree_root,
+            self.nullifier_tree_root,
+            self.private_data_tree_root,
         ]
     }
 }
 
 fn empty_commitment_trees_roots() -> CommitmentTreesRoots {
-    CommitmentTreesRoots{ old_private_data_tree_root: 0, old_nullifier_tree_root: 0, old_contract_tree_root: 0, old_l1_to_l2_messages_tree_root: 0 }
+    CommitmentTreesRoots{ private_data_tree_root: 0, nullifier_tree_root: 0, contract_tree_root: 0, l1_to_l2_messages_tree_root: 0 }
 }
 
 struct ContractDeploymentData {
