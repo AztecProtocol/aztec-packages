@@ -202,7 +202,7 @@ export class AztecRPCServer implements AztecRPCClient {
     await this.db.addContract(contract);
 
     const txRequest = new TxExecutionRequest(
-      AztecAddress.ZERO,
+      account.getAddress(), // TODO: Should be set to zero
       contract.address,
       functionData,
       flatArgs,
@@ -211,7 +211,10 @@ export class AztecRPCServer implements AztecRPCClient {
       Fr.ZERO, // chainId
     );
 
-    const tx = await account.simulateAndProve(new SignedTxExecutionRequest(txRequest, EcdsaSignature.empty()));
+    const tx = await account.simulateAndProve(
+      new SignedTxExecutionRequest(txRequest, EcdsaSignature.empty()),
+      contract.address,
+    );
 
     await this.db.addTx(
       new TxDao(await tx.getTxHash(), undefined, undefined, account.getAddress(), undefined, contract.address, ''),
@@ -240,7 +243,7 @@ export class AztecRPCServer implements AztecRPCClient {
     // TODO: Can we remove tx context from this call?
     const authedTxRequest = await entrypoint.createAuthenticatedTxRequest([executionRequest], TxContext.empty());
     const tx = executionRequest.functionData.isPrivate
-      ? await account.simulateAndProve(authedTxRequest)
+      ? await account.simulateAndProve(authedTxRequest, undefined)
       : Tx.createPublic(authedTxRequest);
 
     await this.db.addTx(new TxDao(await tx.getTxHash(), undefined, undefined, account.getAddress(), to, undefined, ''));
