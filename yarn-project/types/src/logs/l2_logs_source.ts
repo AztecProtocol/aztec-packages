@@ -1,4 +1,4 @@
-import { TxL2Logs } from './tx_l2_logs.js';
+import { L2BlockL2Logs } from './l2_block_l2_logs.js';
 
 /**
  * Interface of classes allowing for the retrieval of encrypted logs.
@@ -10,7 +10,7 @@ export interface L2LogsSource {
    * @param take - The number of `encryptedLogs` to return.
    * @returns The requested `encryptedLogs`.
    */
-  getEncryptedLogs(from: number, take: number): Promise<TxL2Logs[]>;
+  getEncryptedLogs(from: number, take: number): Promise<L2BlockL2Logs[]>;
 
   /**
    * Starts the encrypted logs source.
