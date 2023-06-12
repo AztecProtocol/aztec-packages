@@ -73,7 +73,7 @@ void common_validate_read_requests(DummyComposer& composer,
                                               READ_REQUESTS_LENGTH> const& read_request_membership_witnesses,
                                    NT::fr const& historic_private_data_tree_root)
 {
-    size_t num_read_requests = array_length(read_requests);
+    const size_t num_read_requests = array_length(read_requests);
     // membership witnesses must resolve to the same private data root
     // for every request in all kernel iterations
     for (size_t rr_idx = 0; rr_idx < num_read_requests; rr_idx++) {

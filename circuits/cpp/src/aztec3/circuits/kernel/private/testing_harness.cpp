@@ -61,9 +61,9 @@ get_random_reads(NT::fr const& contract_address, int const num_read_requests)
     auto read_requests = zero_array<fr, READ_REQUESTS_LENGTH>();
     auto leaves = zero_array<fr, READ_REQUESTS_LENGTH>();
     // randomize the number of read requests with a configurable minimum
-    auto final_num_rr = num_read_requests >= 0
-                            ? std::min(static_cast<size_t>(num_read_requests), READ_REQUESTS_LENGTH)
-                            : numeric::random::get_engine().get_random_uint8() % (READ_REQUESTS_LENGTH + 1);
+    const auto final_num_rr = num_read_requests >= 0
+                                  ? std::min(static_cast<size_t>(num_read_requests), READ_REQUESTS_LENGTH)
+                                  : numeric::random::get_engine().get_random_uint8() % (READ_REQUESTS_LENGTH + 1);
     // randomize private app circuit's read requests
     for (size_t rr = 0; rr < final_num_rr; rr++) {
         // randomize commitment and its leaf index
