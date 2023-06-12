@@ -72,7 +72,6 @@ export class EcdsaAccountContract implements AccountImplementation {
 const ACCOUNT_MAX_PRIVATE_CALLS = 1;
 const ACCOUNT_MAX_PUBLIC_CALLS = 1;
 
- 
 /** A call to a function in a noir contract */
 type FunctionCall = {
   /** The encoded arguments */
