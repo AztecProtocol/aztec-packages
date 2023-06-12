@@ -258,7 +258,7 @@ export class PrivateFunctionExecution {
     const publicStack = await Promise.all(publicCallStackItems.map(c => computeCallStackItemHash(wasm, c)));
     callStackItem.publicInputs.publicCallStack = padArrayEnd(publicStack, Fr.ZERO, PUBLIC_CALL_STACK_LENGTH);
 
-    // TODO(#588): This should be returned from the circuit
+    // TODO: This should be set manually by the circuit
     publicInputs.contractDeploymentData.deployerPublicKey =
       this.context.txContext.contractDeploymentData.deployerPublicKey;
 
