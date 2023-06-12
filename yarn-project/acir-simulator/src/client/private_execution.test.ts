@@ -439,7 +439,7 @@ describe('Private Execution test suite', () => {
       expect(newNullifiers).toHaveLength(1);
     }, 30_000);
 
-    it("Should be able to consume a dummy public to private message", async () => {
+    it('Should be able to consume a dummy public to private message', async () => {
       const db = levelup(createMemDown());
       const pedersen = new Pedersen(bbWasm);
 
@@ -449,7 +449,7 @@ describe('Private Execution test suite', () => {
 
       const wasm = await CircuitsWasm.get();
       const secret = new Fr(1n);
-      const commitment = Fr.fromBuffer(pedersenCompressInputs(wasm, [toBufferBE(recipient.x, 32), secret.toBuffer() ]));
+      const commitment = Fr.fromBuffer(pedersenCompressInputs(wasm, [toBufferBE(recipient.x, 32), secret.toBuffer()]));
       const siloedCommitment = siloCommitment(wasm, contractAddress, commitment);
 
       const tree: AppendOnlyTree = await newTree(

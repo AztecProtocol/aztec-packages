@@ -3,7 +3,18 @@ import { padArrayEnd } from '@aztec/foundation/collection';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { TxExecutionRequest } from '@aztec/types';
 import { select_return_flattened as selectPublicWitnessFlattened } from '@noir-lang/noir_util_wasm';
-import { ACVMField, ZERO_ACVM_FIELD, acvm, frToAztecAddress, frToSelector, fromACVMField, toACVMField, toACVMWitness, toAcvmCommitmentLoadOracleInputs, toAcvmL1ToL2MessageLoadOracleInputs } from '../acvm/index.js';
+import {
+  ACVMField,
+  ZERO_ACVM_FIELD,
+  acvm,
+  frToAztecAddress,
+  frToSelector,
+  fromACVMField,
+  toACVMField,
+  toACVMWitness,
+  toAcvmCommitmentLoadOracleInputs,
+  toAcvmL1ToL2MessageLoadOracleInputs,
+} from '../acvm/index.js';
 import { CommitmentsDB, PublicContractsDB, PublicStateDB } from './db.js';
 import { PublicExecution, PublicExecutionResult } from './execution.js';
 import { ContractStorageActionsCollector } from './state_actions.js';
@@ -59,14 +70,17 @@ export class PublicExecutor {
       emitEncryptedLog: notAvailable,
       viewNotesPage: notAvailable,
       debugLog: notAvailable,
-      
+
       // TODO(Maddiaa): both getL1ToL2 and getCommitment share alot of code with the private conterpart? could be refactored
       getL1ToL2Message: async ([msgKey]: ACVMField[]) => {
-        const messageInputs = await this.commitmentsDb.getL1ToL2Message(fromACVMField(msgKey))
+        const messageInputs = await this.commitmentsDb.getL1ToL2Message(fromACVMField(msgKey));
         return toAcvmL1ToL2MessageLoadOracleInputs(messageInputs, this.treeRoots.l1ToL2MessagesTreeRoot);
       }, // l1 to l2 messages in public contexts TODO: https://github.com/AztecProtocol/aztec-packages/issues/616
       getCommitment: async ([commitment]: ACVMField[]) => {
-        const commitmentInputs = await this.commitmentsDb.getCommitmentOracle(execution.contractAddress, fromACVMField(commitment))
+        const commitmentInputs = await this.commitmentsDb.getCommitmentOracle(
+          execution.contractAddress,
+          fromACVMField(commitment),
+        );
         return toAcvmCommitmentLoadOracleInputs(commitmentInputs, this.treeRoots.privateDataTreeRoot);
       },
       storageRead: async ([slot]) => {
@@ -84,12 +98,12 @@ export class PublicExecutor {
         return [toACVMField(newValue)];
       },
       createCommitment: async ([commitment]) => {
-        this.log("Creating commitment: " + commitment.toString());
+        this.log('Creating commitment: ' + commitment.toString());
         newCommitments.push(fromACVMField(commitment));
         return await Promise.resolve([ZERO_ACVM_FIELD]);
       },
       createL2ToL1Message: async ([message]) => {
-        this.log("Creating L2 to L1 message: " + message.toString());
+        this.log('Creating L2 to L1 message: ' + message.toString());
         newL2ToL1Messages.push(fromACVMField(message));
         return await Promise.resolve([ZERO_ACVM_FIELD]);
       },

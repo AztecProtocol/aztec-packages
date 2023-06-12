@@ -102,12 +102,11 @@ export class ClientTxExecutionContext {
   /**
    * Fetches a path to prove existence of a commitment in the db, given its contract side commitment (before silo).
    * @param contractAddress - The contract address.
-   * @param commitment - The commitment. 
+   * @param commitment - The commitment.
    * @returns The commitment data.
    */
   public async getCommitment(contractAddress: AztecAddress, commitment: Fr): Promise<ACVMField[]> {
     const commitmentInputs = await this.db.getCommitmentOracle(contractAddress, commitment);
     return toAcvmCommitmentLoadOracleInputs(commitmentInputs, this.historicRoots.privateDataTreeRoot);
   }
-
 }

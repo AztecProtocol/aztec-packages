@@ -4,7 +4,12 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { FunctionAbi } from '@aztec/foundation/abi';
-import { ChildAbi, ParentAbi, PublicToPrivateContractAbi, PublicTokenContractAbi } from '@aztec/noir-contracts/examples';
+import {
+  ChildAbi,
+  ParentAbi,
+  PublicToPrivateContractAbi,
+  PublicTokenContractAbi,
+} from '@aztec/noir-contracts/examples';
 import { MockProxy, mock } from 'jest-mock-extended';
 import { default as memdown, type MemDown } from 'memdown';
 import { encodeArguments } from '../abi_coder/encoder.js';
@@ -221,12 +226,12 @@ describe('ACIR public execution simulator', () => {
     });
   });
 
-  describe("Public -> Private messaging", () => {
+  describe('Public -> Private messaging', () => {
     let contractAddress: AztecAddress;
     let functionData: FunctionData;
     let amount: Fr;
     let params: Fr[];
-    
+
     beforeEach(() => {
       contractAddress = AztecAddress.random();
       functionData = new FunctionData(Buffer.alloc(4), false, false);
@@ -234,56 +239,63 @@ describe('ACIR public execution simulator', () => {
       params = [amount, Fr.random()];
     });
 
-    it("Should be able to create a commitment from the public context", async () => {
-        const publicToPrivateAbi = PublicToPrivateContractAbi.functions.find(f => f.name === 'mintFromPublicToPrivate')!;
-        const args = encodeArguments(publicToPrivateAbi, params);
+    it('Should be able to create a commitment from the public context', async () => {
+      const publicToPrivateAbi = PublicToPrivateContractAbi.functions.find(f => f.name === 'mintFromPublicToPrivate')!;
+      const args = encodeArguments(publicToPrivateAbi, params);
 
-        const callContext = CallContext.from({
-          msgSender: AztecAddress.random(),
-          storageContractAddress: contractAddress,
-          portalContractAddress: EthAddress.random(),
-          isContractDeployment: false,
-          isDelegateCall: false,
-          isStaticCall: false,
-        });
+      const callContext = CallContext.from({
+        msgSender: AztecAddress.random(),
+        storageContractAddress: contractAddress,
+        portalContractAddress: EthAddress.random(),
+        isContractDeployment: false,
+        isDelegateCall: false,
+        isStaticCall: false,
+      });
 
-        publicContracts.getBytecode.mockResolvedValue(Buffer.from(publicToPrivateAbi.bytecode, 'hex'));
+      publicContracts.getBytecode.mockResolvedValue(Buffer.from(publicToPrivateAbi.bytecode, 'hex'));
 
-        const execution: PublicExecution = { contractAddress, functionData, args, callContext };
-        const result = await executor.execute(execution);
+      const execution: PublicExecution = { contractAddress, functionData, args, callContext };
+      const result = await executor.execute(execution);
 
-        // Assert the commitment was created
-        expect(result.newCommitments.length).toEqual(1);
+      // Assert the commitment was created
+      expect(result.newCommitments.length).toEqual(1);
 
-        const expectedNewCommitmentValue = pedersenCompressInputs(await CircuitsWasm.get(), params.map(a => a.toBuffer()))
-        expect(result.newCommitments[0].toBuffer()).toEqual(expectedNewCommitmentValue);
+      const expectedNewCommitmentValue = pedersenCompressInputs(
+        await CircuitsWasm.get(),
+        params.map(a => a.toBuffer()),
+      );
+      expect(result.newCommitments[0].toBuffer()).toEqual(expectedNewCommitmentValue);
     });
 
-    it("Should be able to create a L2 to L1 message from the public context", async () => {
-        const contractAddress = AztecAddress.random();
-        const createL2ToL1MessagePublicAbi = PublicToPrivateContractAbi.functions.find(f => f.name === 'createL2ToL1MessagePublic')!;
-        const args = encodeArguments(createL2ToL1MessagePublicAbi, params);
+    it('Should be able to create a L2 to L1 message from the public context', async () => {
+      const contractAddress = AztecAddress.random();
+      const createL2ToL1MessagePublicAbi = PublicToPrivateContractAbi.functions.find(
+        f => f.name === 'createL2ToL1MessagePublic',
+      )!;
+      const args = encodeArguments(createL2ToL1MessagePublicAbi, params);
 
-        const callContext = CallContext.from({
-          msgSender: AztecAddress.random(),
-          storageContractAddress: contractAddress,
-          portalContractAddress: EthAddress.random(),
-          isContractDeployment: false,
-          isDelegateCall: false,
-          isStaticCall: false,
-        });
+      const callContext = CallContext.from({
+        msgSender: AztecAddress.random(),
+        storageContractAddress: contractAddress,
+        portalContractAddress: EthAddress.random(),
+        isContractDeployment: false,
+        isDelegateCall: false,
+        isStaticCall: false,
+      });
 
-        publicContracts.getBytecode.mockResolvedValue(Buffer.from(createL2ToL1MessagePublicAbi.bytecode, 'hex'));
+      publicContracts.getBytecode.mockResolvedValue(Buffer.from(createL2ToL1MessagePublicAbi.bytecode, 'hex'));
 
-        const execution: PublicExecution = { contractAddress, functionData, args, callContext };
-        const result = await executor.execute(execution);
+      const execution: PublicExecution = { contractAddress, functionData, args, callContext };
+      const result = await executor.execute(execution);
 
-        // Assert the l2 to l1 message was created
-        expect(result.newL2ToL1Messages.length).toEqual(1);
+      // Assert the l2 to l1 message was created
+      expect(result.newL2ToL1Messages.length).toEqual(1);
 
-        const expectedNewMessageValue = pedersenCompressInputs(await CircuitsWasm.get(), params.map(a => a.toBuffer()))
-        expect(result.newL2ToL1Messages[0].toBuffer()).toEqual(expectedNewMessageValue);
+      const expectedNewMessageValue = pedersenCompressInputs(
+        await CircuitsWasm.get(),
+        params.map(a => a.toBuffer()),
+      );
+      expect(result.newL2ToL1Messages[0].toBuffer()).toEqual(expectedNewMessageValue);
     });
-
   });
 });

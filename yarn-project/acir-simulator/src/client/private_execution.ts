@@ -199,7 +199,7 @@ export class PrivateFunctionExecution {
         return this.context.getL1ToL2Message(fromACVMField(msgKey));
       },
       getCommitment: ([commitment]: ACVMField[]) => {
-        console.log("hewuheoiahoA");
+        console.log('hewuheoiahoA');
         console.log(this.context);
         return this.context.getCommitment(this.contractAddress, fromACVMField(commitment));
       },
