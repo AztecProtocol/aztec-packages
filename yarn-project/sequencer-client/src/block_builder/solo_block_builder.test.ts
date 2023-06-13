@@ -195,7 +195,7 @@ describe('sequencer/solo_block_builder', () => {
     );
     const newL2ToL1Msgs = flatMap(txs, tx => tx.data.end.newL2ToL1Msgs);
     const newEncryptedLogs = new L2BlockL2Logs(
-      txs.map(tx => tx.encryptedLogs).filter(data => data !== undefined) as TxL2Logs[],
+      txs.map(tx => tx.encryptedLogs || new TxL2Logs([])) as TxL2Logs[],
     );
 
     const l2Block = L2Block.fromFields({
