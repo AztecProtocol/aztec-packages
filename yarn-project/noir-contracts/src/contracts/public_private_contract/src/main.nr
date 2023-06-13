@@ -1,6 +1,8 @@
 use dep::std::hash::pedersen;
 
 contract PublicPrivate {
+    mod balance_utils;
+
     use dep::aztec3::abi::PrivateContextInputs;
     use dep::aztec3::context::PrivateFunctionContext;
     use dep::aztec3::abi::PublicContextInputs;
@@ -24,7 +26,6 @@ contract PublicPrivate {
     use dep::aztec3::oracle::create_commitment::create_commitment;
     use dep::aztec3::oracle::create_l2_to_l1_message::create_l2_to_l1_message;
     use dep::aztec3::oracle::get_commitment::get_commitment;
-
 
     global balances = Map { storage_slot: 1 };
 
@@ -102,6 +103,15 @@ contract PublicPrivate {
         context.finish(inputs)
     }
 
+    /// ABI getBalance type "unconstrained"
+    fn getBalance(
+        owner: Point,
+        _padding: [Field; dep::aztec3::abi::MAX_ARGS - 2]
+    ) -> pub Field {
+        let owner_balance = balances.at(owner.x);
+        
+        balance_utils::get_balance(owner_balance.storage_slot)
+    }
 }
 
 
