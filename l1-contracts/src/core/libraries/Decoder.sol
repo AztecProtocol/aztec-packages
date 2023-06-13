@@ -287,8 +287,8 @@ library Decoder {
 
       // Create the leaf to contain commitments (8 * 0x20) + nullifiers (8 * 0x20)
       // + new public data writes (8 * 0x40) + contract deployments (2 * 0x60) + logs hashes (4 * 0x20)
-      // TODO: Replace 0x540 with 0x5C0 once the logs functionality is added in other places
-      vars.baseLeaf = new bytes(0x540);
+      // TODO: Replace 0x580 with 0x5C0 once unencrypted logs are included
+      vars.baseLeaf = new bytes(0x580);
 
       for (uint256 i = 0; i < vars.baseLeaves.length; i++) {
         /*
@@ -317,15 +317,14 @@ library Decoder {
          * Zero values.
          */
 
-        // TODO #769, relevant issue https://github.com/AztecProtocol/aztec-packages/issues/769
-        // /**
-        //  * Compute encrypted and unencrypted logs hashes corresponding to the current leaf.
-        //  * Note: `computeKernelLogsHash` will advance offsets by the number of bytes processed.
-        //  */
-        // (vars.encrypedLogsHashKernel1, offsets.encryptedLogsOffset) =
-        //   computeKernelLogsHash(offsets.encryptedLogsOffset, _l2Block);
-        // (vars.encrypedLogsHashKernel2, offsets.encryptedLogsOffset) =
-        //   computeKernelLogsHash(offsets.encryptedLogsOffset, _l2Block);
+        /**
+         * Compute encrypted and unencrypted logs hashes corresponding to the current leaf.
+         * Note: `computeKernelLogsHash` will advance offsets by the number of bytes processed.
+         */
+        (vars.encrypedLogsHashKernel1, offsets.encryptedLogsOffset) =
+          computeKernelLogsHash(offsets.encryptedLogsOffset, _l2Block);
+        (vars.encrypedLogsHashKernel2, offsets.encryptedLogsOffset) =
+          computeKernelLogsHash(offsets.encryptedLogsOffset, _l2Block);
 
         // (vars.unencryptedLogsHashKernel1, offsets.unencryptedLogsOffset) =
         //   computeKernelLogsHash(offsets.unencryptedLogsOffset, _l2Block);
@@ -376,14 +375,13 @@ library Decoder {
           dstPtr := add(dstPtr, 0xc)
           calldatacopy(dstPtr, add(_l2Block.offset, add(contractDataOffset, 0x54)), 0x14)
 
-          // TODO #769, relevant issue https://github.com/AztecProtocol/aztec-packages/issues/769
-          // // encryptedLogsHashKernel1
-          // dstPtr := add(dstPtr, 0x14)
-          // mstore(dstPtr, mload(add(vars, 0x60))) // `encryptedLogsHashKernel1` starts at 0x60 in `vars`
+          // encryptedLogsHashKernel1
+          dstPtr := add(dstPtr, 0x14)
+          mstore(dstPtr, mload(add(vars, 0x60))) // `encryptedLogsHashKernel1` starts at 0x60 in `vars`
 
-          // // encryptedLogsHashKernel2
-          // dstPtr := add(dstPtr, 0x20)
-          // mstore(dstPtr, mload(add(vars, 0x80))) // `encryptedLogsHashKernel2` starts at 0x80 in `vars`
+          // encryptedLogsHashKernel2
+          dstPtr := add(dstPtr, 0x20)
+          mstore(dstPtr, mload(add(vars, 0x80))) // `encryptedLogsHashKernel2` starts at 0x80 in `vars`
 
           // // unencryptedLogsHashKernel1
           // dstPtr := add(dstPtr, 0x20)
