@@ -12,9 +12,12 @@ import {
   createAztecRPCServer,
 } from '@aztec/aztec.js';
 import { DeployL1Contracts, deployL1Contract, deployL1Contracts } from '@aztec/ethereum';
+import { ContractAbi } from '@aztec/foundation/abi';
 import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
 import { PortalERC20Abi, PortalERC20Bytecode, TokenPortalAbi, TokenPortalBytecode } from '@aztec/l1-artifacts';
 import { NonNativeTokenContractAbi } from '@aztec/noir-contracts/examples';
+import every from 'lodash.every';
+import zipWith from 'lodash.zipwith';
 import { Account, Chain, HttpTransport, PublicClient, WalletClient, getContract } from 'viem';
 import { mnemonicToAccount } from 'viem/accounts';
 import { MNEMONIC, localAnvil, privateKey } from './fixtures.js';
@@ -110,24 +113,21 @@ export async function setNextBlockTimestamp(rpcUrl: string, timestamp: number) {
  * @param abi - contracts to be deployed.
  * @returns The deployed contract instances.
  */
-// Commented out because the CI refuses to pick up the @types packages for lodash zipwith and every, even if they are installed.
-// https://app.circleci.com/pipelines/github/AztecProtocol/aztec-packages/3832/workflows/84dd9377-3713-41ab-8b5a-a04e6bfb2c0c/jobs/76282?invite=true#step-103-158
-
-// export async function deployL2Contracts(aztecRpcServer: AztecRPCServer, abis: ContractAbi[]) {
-//   const logger = getLogger();
-//   const calls = await Promise.all(abis.map(abi => new ContractDeployer(abi, aztecRpcServer).deploy()));
-//   for (const call of calls) await call.create();
-//   const txs = await Promise.all(calls.map(c => c.send()));
-//   expect(every(await Promise.all(txs.map(tx => tx.isMined(0, 0.1))))).toBeTruthy();
-//   const receipts = await Promise.all(txs.map(tx => tx.getReceipt()));
-//   const contracts = zipWith(
-//     abis,
-//     receipts,
-//     (abi, receipt) => new Contract(receipt!.contractAddress!, abi!, aztecRpcServer),
-//   );
-//   contracts.forEach(c => logger(`L2 contract ${c.abi.name} deployed at ${c.address}`));
-//   return contracts;
-// }
+export async function deployL2Contracts(aztecRpcServer: AztecRPCServer, abis: ContractAbi[]) {
+  const logger = getLogger();
+  const calls = await Promise.all(abis.map(abi => new ContractDeployer(abi, aztecRpcServer).deploy()));
+  for (const call of calls) await call.create();
+  const txs = await Promise.all(calls.map(c => c.send()));
+  expect(every(await Promise.all(txs.map(tx => tx.isMined(0, 0.1))))).toBeTruthy();
+  const receipts = await Promise.all(txs.map(tx => tx.getReceipt()));
+  const contracts = zipWith(
+    abis,
+    receipts,
+    (abi, receipt) => new Contract(receipt!.contractAddress!, abi!, aztecRpcServer),
+  );
+  contracts.forEach(c => logger(`L2 contract ${c.abi.name} deployed at ${c.address}`));
+  return contracts;
+}
 
 /**
  * Returns a logger instance for the current test.
