@@ -1,4 +1,3 @@
-
 import { AztecNodeService } from '@aztec/aztec-node';
 import { AztecAddress, AztecRPCServer, Contract, ContractDeployer, Fr, TxStatus } from '@aztec/aztec.js';
 import { PublicToPrivateContractAbi } from '@aztec/noir-contracts/examples';
@@ -61,9 +60,7 @@ describe('e2e_public_to_private_messaging', () => {
     const secretHash = pedersenCompressInputs(wasm, [secret.toBuffer()]);
 
     // Create the commitment to be spent in the private domain
-    const publicTx = deployedContract.methods
-      .mintFromPublicToPrivate(mintAmount, secretHash)
-      .send({ from: receiver });
+    const publicTx = deployedContract.methods.mintFromPublicToPrivate(mintAmount, secretHash).send({ from: receiver });
 
     await publicTx.isMined(0, 0.1);
     const publicReceipt = await publicTx.getReceipt();
@@ -74,12 +71,11 @@ describe('e2e_public_to_private_messaging', () => {
     const privateTx = deployedContract.methods
       .mintFromPublicMessage(mintAmount, secret, pointToPublicKey(await aztecRpcServer.getAccountPublicKey(owner)))
       .send({ from: owner });
-    
-    await privateTx.isMined()
+
+    await privateTx.isMined();
     const privateReceipt = await privateTx.getReceipt();
 
     expect(privateReceipt.status).toBe(TxStatus.MINED);
     await expectBalance(owner, mintAmount);
   }, 60_000);
-
 });

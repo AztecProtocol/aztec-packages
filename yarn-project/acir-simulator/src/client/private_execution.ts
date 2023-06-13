@@ -198,7 +198,7 @@ export class PrivateFunctionExecution {
         return this.context.getL1ToL2Message(fromACVMField(msgKey));
       },
       getCommitment: async ([commitment]: ACVMField[]) => {
-        const commitmentData = await  this.context.getCommitment(this.contractAddress, fromACVMField(commitment));
+        const commitmentData = await this.context.getCommitment(this.contractAddress, fromACVMField(commitment));
         readRequestCommitmentIndices.push(commitmentData.index);
         return commitmentData.acvmData;
       },
