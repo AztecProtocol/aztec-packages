@@ -124,8 +124,12 @@ export class L2Block {
     /**
      * Consolidated logs from all txs.
      */
-    public newEncryptedLogs?: L2BlockL2Logs,
-  ) {}
+    newEncryptedLogs?: L2BlockL2Logs,
+  ) {
+    if (newEncryptedLogs) {
+      this.attachEncryptedLogs(newEncryptedLogs);
+    }
+  }
 
   /**
    * Creates an L2 block containing random data.
@@ -432,6 +436,11 @@ export class L2Block {
     // throw error if the block already has encrypted logs attached.
     if (this.newEncryptedLogs) {
       throw new Error('L2 block already has encrypted logs attached.');
+    }
+
+    const numTxs = this.newCommitments.length / KERNEL_NEW_COMMITMENTS_LENGTH;
+    if (numTxs !== encryptedLogs.txLogs.length) {
+      throw new Error('Number of txLogs within encryptedLogs does not match number of transactions. Expected: ' + numTxs + ' Got: ' + encryptedLogs.txLogs.length);
     }
 
     this.newEncryptedLogs = encryptedLogs;
