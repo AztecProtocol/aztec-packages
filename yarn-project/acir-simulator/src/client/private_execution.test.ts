@@ -449,8 +449,8 @@ describe('Private Execution test suite', () => {
 
       const wasm = await CircuitsWasm.get();
       const secret = new Fr(1n);
-      const secretHash = pedersenCompressInputs(wasm, [secret.toBuffer()]);
-      const commitment = Fr.fromBuffer(pedersenCompressInputs(wasm, [toBufferBE(amount, 32), secretHash]));
+      const secretHash = computeSecretMessageHash(wasm, secret);
+      const commitment = Fr.fromBuffer(pedersenCompressInputs(wasm, [toBufferBE(amount, 32), secretHash.toBuffer()]));
       const siloedCommitment = siloCommitment(wasm, contractAddress, commitment);
 
       const tree: AppendOnlyTree = await newTree(
