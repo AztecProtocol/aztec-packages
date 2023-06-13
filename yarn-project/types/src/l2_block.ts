@@ -24,6 +24,11 @@ import { TxL2Logs } from './index.js';
  * TODO: Reuse data types and serialization functions from circuits package.
  */
 export class L2Block {
+  /**
+   * Consolidated logs from all txs.
+   */
+  public newEncryptedLogs?: L2BlockL2Logs;
+
   constructor(
     /**
      * The number of the L2 block.
