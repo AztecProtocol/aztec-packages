@@ -169,7 +169,7 @@ std::array<fr, 2> compute_kernels_calldata_hash(std::array<abis::PreviousKernelD
         // calldata_hash_inputs[offset + i * 2 + 1] = unencryptedLogsHash[1];
     }
 
-    constexpr auto num_bytes = (calldata_hash_inputs.size() - 2) * 32;  // - 2 because 1 logs hash is stored in 2 fields
+    constexpr auto num_bytes = (calldata_hash_inputs.size() - 2) * 32;  // -2 because 1 logs hash is stored in 2 fields
     std::array<uint8_t, num_bytes> calldata_hash_inputs_bytes;
     // Convert all into a buffer, then copy into the array, then hash
     for (size_t i = 0; i < calldata_hash_inputs.size() - 4; i++) {  // -4 because logs are processed out of the loop

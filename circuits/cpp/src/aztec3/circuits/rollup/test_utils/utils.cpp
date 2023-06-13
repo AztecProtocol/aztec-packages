@@ -55,7 +55,7 @@ std::vector<uint8_t> get_empty_calldata_leaf()
          //  + KERNEL_NUM_UNENCRYPTED_LOGS_HASHES * 2
          ) *
         2;
-    auto const size = number_of_inputs * 32;
+    auto const size = (number_of_inputs - 2) * 32;  // -2 because 1 logs hash is stored in 2 fields
     std::vector<uint8_t> input_data(size, 0);
     return input_data;
 }
