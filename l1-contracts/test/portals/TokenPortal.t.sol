@@ -67,7 +67,7 @@ contract TokenPortalTest is Test {
     vm.deal(address(this), 100 ether);
   }
 
-  function _createExpectedL1ToL2Message(address _cancellor)
+  function _createExpectedL1ToL2Message(address _canceller)
     internal
     view
     returns (DataStructures.L1ToL2Msg memory)
@@ -76,7 +76,7 @@ contract TokenPortalTest is Test {
       sender: DataStructures.L1Actor(address(tokenPortal), block.chainid),
       recipient: DataStructures.L2Actor(l2TokenAddress, 1),
       content: Hash.sha256ToField(
-        abi.encodeWithSignature("mint(uint256,bytes32)", amount, to, _cancellor)
+        abi.encodeWithSignature("mint(uint256,bytes32,address)", amount, to, _canceller)
         ),
       secretHash: secretHash,
       deadline: deadline,
@@ -109,7 +109,8 @@ contract TokenPortalTest is Test {
     );
 
     // Perform op
-    bytes32 entryKey = tokenPortal.depositToAztec{value: bid}(to, amount, deadline, secretHash);
+    bytes32 entryKey =
+      tokenPortal.depositToAztec{value: bid}(to, amount, deadline, secretHash, address(this));
 
     assertEq(entryKey, expectedEntryKey, "returned entry key and calculated entryKey should match");
 
