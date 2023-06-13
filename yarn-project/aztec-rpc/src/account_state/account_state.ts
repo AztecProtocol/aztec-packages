@@ -340,6 +340,7 @@ export class AccountState {
                 account: this.publicKey,
               });
             }
+            txIndex++;
           }
         }
       }
