@@ -298,5 +298,37 @@ describe('ACIR public execution simulator', () => {
       );
       expect(result.newL2ToL1Messages[0].toBuffer()).toEqual(expectedNewMessageValue);
     });
+
+    it("Should be able to create a nullifier from the public context", async () => {
+      const createNullifierPublicAbi = PublicToPrivateContractAbi.functions.find(
+        f => f.name === 'createNullifierPublic',
+      )!;
+
+      const args = encodeArguments(createNullifierPublicAbi, params);
+
+      const callContext = CallContext.from({
+        msgSender: AztecAddress.random(),
+        storageContractAddress: contractAddress,
+        portalContractAddress: EthAddress.random(),
+        isContractDeployment: false,
+        isDelegateCall: false,
+        isStaticCall: false,
+      });
+
+      publicContracts.getBytecode.mockResolvedValue(Buffer.from(createNullifierPublicAbi.bytecode, 'hex'));
+
+      const execution: PublicExecution = { contractAddress, functionData, args, callContext };
+      const result = await executor.execute(execution);
+
+      // Assert the l2 to l1 message was created
+      expect(result.newNullifiers.length).toEqual(1);
+
+      const expectedNewMessageValue = pedersenCompressInputs(
+        wasm,
+        params.map(a => a.toBuffer()),
+      );
+      expect(result.newNullifiers[0].toBuffer()).toEqual(expectedNewMessageValue);
+
+    })
   });
 });

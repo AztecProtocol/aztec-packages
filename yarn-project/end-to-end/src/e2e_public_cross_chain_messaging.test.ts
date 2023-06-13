@@ -103,15 +103,11 @@ describe('e2e_cross_chain_messaging', () => {
 
     const mintAmount = 100n;
 
-    logger('Sending messages to L1 portal to be consumed privately');
-    const args = [ownerAddress.toString(), mintAmount, deadline, secretString, ethAccount.toString()] as const;
+    logger('Sending messages to L1 portal to be consumed publicly');
+    const args = [ownerAddress.toString(), mintAmount, deadline, secretString] as const;
     const { result: messageKeyHex } = await tokenPortal.simulate.depositToAztec(args, {
       account: ethAccount.toString(),
     } as any);
-    await tokenPortal.write.depositToAztec(args, {} as any);
-    expect(await underlyingERC20.read.balanceOf([ethAccount.toString()])).toBe(1000000n - mintAmount);
-    
-    logger('Sending messages to L1 portal to be consumed publicly');
     await tokenPortal.write.depositToAztec(args, {} as any);
     expect(await underlyingERC20.read.balanceOf([ethAccount.toString()])).toBe(1000000n - (2n * mintAmount));
 
@@ -135,11 +131,11 @@ describe('e2e_cross_chain_messaging', () => {
 
     expect(transferReceipt.status).toBe(TxStatus.MINED);
 
-    logger('Consuming messages on L2 privately');
+    logger('Consuming messages on L2 publicly');
     // Call the mint tokens function on the noir contract
 
     const consumptionTx = l2Contract.methods
-      .mint(mintAmount, ownerPub, messageKey, secret, ethAccount.toField())
+      .mintPublic(mintAmount, ownerPub, messageKey, secret)
       .send({ from: ownerAddress });
 
     await consumptionTx.isMined(0, 0.1);
@@ -147,24 +143,6 @@ describe('e2e_cross_chain_messaging', () => {
 
     expect(consumptionReceipt.status).toBe(TxStatus.MINED);
     await expectBalance(ownerAddress, mintAmount + initialBalance - transferAmount);
-
-    // TODO: does this introduce a race condition where somebody wants to consume privately and publicly at the same time.
-    logger('Consuming messages on L2 publicly');
-    const publicConsumptionTx = l2Contract.methods
-      .mintPublic(mintAmount, ownerPub, messageKey, secret)
-      .send({ from: ownerAddress });
-
-    await publicConsumptionTx.isMined(0, 0.1);
-    const publicConsumptionReceipt = await consumptionTx.getReceipt();
-
-    expect(publicConsumptionReceipt.status).toBe(TxStatus.MINED);
-    await expectBalance(ownerAddress, mintAmount + initialBalance - transferAmount);
-
-    
-    
-
-
-
 
     // time to withdraw the funds again!
     const withdrawAmount = 9n;
@@ -189,7 +167,7 @@ describe('e2e_cross_chain_messaging', () => {
     expect(await outbox.read.contains([entryKey.toString(true)])).toBeFalsy();
 
     logger('Send L2 tx to withdraw funds');
-    const withdrawTx = l2Contract.methods.withdraw(withdrawAmount, ownerPub, ethAccount).send({ from: ownerAddress });
+    const withdrawTx = l2Contract.methods.withdrawPublic(withdrawAmount, ownerPub, ethAccount).send({ from: ownerAddress });
 
     await withdrawTx.isMined(0, 0.1);
     const withdrawReceipt = await withdrawTx.getReceipt();

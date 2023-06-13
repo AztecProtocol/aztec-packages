@@ -226,6 +226,7 @@ export class PrivateFunctionExecution {
       storageWrite: notAvailable,
       createCommitment: notAvailable,
       createL2ToL1Message: notAvailable,
+      createNullifier: notAvailable,
       callPublicFunction: notAvailable,
       emitEncryptedLog: async ([
         acvmContractAddress,

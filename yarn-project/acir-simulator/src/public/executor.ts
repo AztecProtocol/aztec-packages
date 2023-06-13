@@ -55,6 +55,7 @@ export class PublicExecutor {
     const storageActions = new ContractStorageActionsCollector(this.stateDb, execution.contractAddress);
     const newCommitments: Fr[] = [];
     const newL2ToL1Messages: Fr[] = [];
+    const newNullifiers: Fr[] = [];
     const nestedExecutions: PublicExecutionResult[] = [];
 
     const notAvailable = () => Promise.reject(`Built-in not available for public execution simulation`);
@@ -106,6 +107,11 @@ export class PublicExecutor {
         newL2ToL1Messages.push(fromACVMField(message));
         return await Promise.resolve([ZERO_ACVM_FIELD]);
       },
+      createNullifier: async ([nullifier]) => {
+        this.log('Creating nullifier: ' + nullifier.toString());
+        newNullifiers.push(fromACVMField(nullifier));
+        return await Promise.resolve([ZERO_ACVM_FIELD]);
+      },
       callPublicFunction: async ([address, functionSelector, ...args]) => {
         this.log(`Public function call: addr=${address} selector=${functionSelector} args=${args.join(',')}`);
         const childExecutionResult = await this.callPublicFunction(
@@ -128,6 +134,7 @@ export class PublicExecutor {
       execution,
       newCommitments,
       newL2ToL1Messages,
+      newNullifiers,
       contractStorageReads,
       contractStorageUpdateRequests,
       returnValues,
