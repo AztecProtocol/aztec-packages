@@ -319,6 +319,7 @@ export class AccountState {
     // Iterate over both blocks and encrypted logs.
     for (let blockIndex = 0; blockIndex < encryptedL2BlockLogs.length; ++blockIndex) {
       const { txLogs } = encryptedL2BlockLogs[blockIndex];
+      let logIndexWithinBlock = 0;
 
       // Try decrypting the encrypted logs.
       // Note: Public txs don't generate commitments and encrypted logs and for this reason we can ignore them here.
@@ -336,10 +337,11 @@ export class AccountState {
               noteSpendingInfoDaos.push({
                 ...noteSpendingInfo,
                 nullifier: await this.computeNullifier(noteSpendingInfo),
-                index: BigInt(dataStartIndex + txIndex),
+                index: BigInt(dataStartIndex + logIndexWithinBlock),
                 account: this.publicKey,
               });
             }
+            logIndexWithinBlock += 1;
           }
         }
       }
