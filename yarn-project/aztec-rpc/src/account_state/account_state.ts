@@ -1,4 +1,4 @@
-import { AcirSimulator, collectEncryptedLogs } from '@aztec/acir-simulator';
+import { AcirSimulator, collectEncryptedLogs, collectEnqueuedPublicFunctionCalls } from '@aztec/acir-simulator';
 import { AztecNode } from '@aztec/aztec-node';
 import { CircuitsWasm, KERNEL_NEW_COMMITMENTS_LENGTH, PrivateHistoricTreeRoots } from '@aztec/circuits.js';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
@@ -267,7 +267,7 @@ export class AccountState {
       proof,
       encryptedLogs,
       newContractPublicFunctions,
-      executionResult.enqueuedPublicFunctionCalls,
+      collectEnqueuedPublicFunctionCalls(executionResult),
     );
   }
 

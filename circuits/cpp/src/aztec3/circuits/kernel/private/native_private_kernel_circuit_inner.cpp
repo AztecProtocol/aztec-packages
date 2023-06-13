@@ -137,6 +137,7 @@ KernelCircuitPublicInputs<NT> native_private_kernel_circuit_inner(DummyComposer&
 
     // TODO(jeanmon) Resuscitate after issue 499 is fixed as explained below.
     // validate_this_private_call_hash(composer, private_inputs, public_inputs);
+    array_pop(public_inputs.end.private_call_stack);
 
     // TODO(dbanks12): may need to comment out hash check in here according to TODO above
     // TODO(jeanmon) FIXME - https://github.com/AztecProtocol/aztec-packages/issues/671

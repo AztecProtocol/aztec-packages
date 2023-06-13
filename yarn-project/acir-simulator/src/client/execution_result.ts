@@ -82,3 +82,15 @@ export interface ExecutionResult {
 export function collectEncryptedLogs(execResult: ExecutionResult): FunctionL2Logs[] {
   return [execResult.encryptedLogs, ...execResult.nestedExecutions.flatMap(collectEncryptedLogs)];
 }
+
+/**
+ * Collect all enqueued public function calls across all nested executions.
+ * @param execResult - The topmost execution result.
+ * @returns All enqueued public function calls.
+ */
+export function collectEnqueuedPublicFunctionCalls(execResult: ExecutionResult): PublicCallRequest[] {
+  return [
+    ...execResult.enqueuedPublicFunctionCalls,
+    ...execResult.nestedExecutions.flatMap(collectEnqueuedPublicFunctionCalls),
+  ];
+}
