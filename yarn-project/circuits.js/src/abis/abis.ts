@@ -194,6 +194,29 @@ export function computeContractAddress(
 }
 
 /**
+ * Computes a partial contract address. Consists of all contract address components except the deployer public key.
+ * @param wasm - A module providing low-level wasm access.
+ * @param contractAddrSalt - The salt used as 1 one of the inputs of the contract address computation.
+ * @param fnTreeRoot - The function tree root of the contract being deployed.
+ * @param constructorHash - The hash of the constructor.
+ * @returns The partially constructed contract address.
+ */
+export function computePartialContractAddress(
+  wasm: IWasmModule,
+  contractAddrSalt: Fr,
+  fnTreeRoot: Fr,
+  constructorHash: Fr,
+): AztecAddress {
+  wasm.call('pedersen__init');
+  return abisComputePartialContractAddress(
+    wasm,
+    contractAddrSalt,
+    fnTreeRoot,
+    constructorHash,
+  );
+}
+
+/**
  * Computes a siloed commitment, given the contract address and the commitment itself.
  * @param wasm - A module providing low-level wasm access.
  * @param contract - The contract address

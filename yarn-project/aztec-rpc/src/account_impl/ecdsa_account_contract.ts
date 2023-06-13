@@ -14,7 +14,7 @@ import { generateFunctionSelector } from '../index.js';
  * Account backed by an account contract that uses ECDSA signatures for authorization.
  */
 export class EcdsaAccountContract implements AccountImplementation {
-  constructor(private address: AztecAddress, private pubKey: PublicKey, private keyStore: KeyStore) {}
+  constructor(private address: AztecAddress, private pubKey: PublicKey, private keyStore: KeyStore, private partialContractAddress: Fr) {}
 
   async createAuthenticatedTxRequest(
     executions: ExecutionRequest[],
@@ -35,7 +35,7 @@ export class EcdsaAccountContract implements AccountImplementation {
     const hash = hashPayload(payload);
     const signature = await this.keyStore.ecdsaSign(hash, this.pubKey);
     const signatureAsFrArray = Array.from(signature.toBuffer()).map(byte => new Fr(byte));
-    const args = [payload, signatureAsFrArray];
+    const args = [payload, signatureAsFrArray, this.pubKey, this.partialContractAddress];
     const abi = this.getEntrypointAbi();
     const selector = generateFunctionSelector(abi.name, abi.parameters);
     const txRequest = TxExecutionRequest.fromExecutionRequest({

@@ -1,7 +1,7 @@
 import { AztecAddress, EthAddress, Fr } from '@aztec/circuits.js';
 import { ContractAbi } from '@aztec/foundation/abi';
 import { Point } from '@aztec/foundation/fields';
-import { Tx, TxHash } from '@aztec/types';
+import { ContractDeploymentTx, Tx, TxHash } from '@aztec/types';
 import { TxReceipt } from '../tx/index.js';
 
 /**
@@ -47,7 +47,7 @@ export interface AztecRPCClient {
     portalContract: EthAddress,
     contractAddressSalt?: Fr,
     from?: AztecAddress,
-  ): Promise<Tx>;
+  ): Promise<ContractDeploymentTx>;
   createTx(functionName: string, args: any[], to: AztecAddress, from?: AztecAddress): Promise<Tx>;
   sendTx(tx: Tx): Promise<TxHash>;
   getTxReceipt(txHash: TxHash): Promise<TxReceipt>;

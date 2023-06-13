@@ -1,5 +1,4 @@
 #include "c_bind.h"
-
 #include "function_leaf_preimage.hpp"
 #include "tx_request.hpp"
 
@@ -48,6 +47,14 @@ template <size_t NUM_BYTES> std::string bytes_to_hex_str(std::array<uint8_t, NUM
 }  // namespace
 
 namespace aztec3::circuits::abis {
+
+TEST(abi_tests, compute_partial_contract_address)
+{
+    auto func = aztec3::circuits::compute_partial_contract_address<NT>;
+    auto [actual, expected] =
+        call_func_and_wrapper(func, abis__compute_partial_contract_address, NT::fr(3), NT::fr(4), NT::fr(5));
+    EXPECT_EQ(actual, expected);
+}
 
 TEST(abi_tests, compute_contract_address)
 {

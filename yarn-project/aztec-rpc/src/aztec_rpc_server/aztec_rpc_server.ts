@@ -2,6 +2,7 @@ import { encodeArguments } from '@aztec/acir-simulator';
 import { AztecNode } from '@aztec/aztec-node';
 import {
   AztecAddress,
+  CircuitsWasm,
   ContractDeploymentData,
   EcdsaSignature,
   EthAddress,
@@ -12,7 +13,7 @@ import { ContractAbi, FunctionType } from '@aztec/foundation/abi';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { KeyStore, PublicKey, getAddressFromPublicKey } from '@aztec/key-store';
-import { ExecutionRequest, SignedTxExecutionRequest, Tx, TxExecutionRequest, TxHash } from '@aztec/types';
+import { ContractDeploymentTx, ExecutionRequest, SignedTxExecutionRequest, Tx, TxExecutionRequest, TxHash } from '@aztec/types';
 import { EcdsaAccountContract } from '../account_impl/ecdsa_account_contract.js';
 import { EcdsaExternallyOwnedAccount } from '../account_impl/ecdsa_eoa.js';
 import { AccountImplementation } from '../account_impl/index.js';
@@ -23,6 +24,7 @@ import { ContractTree } from '../contract_tree/index.js';
 import { Database, TxDao } from '../database/index.js';
 import { Synchroniser } from '../synchroniser/index.js';
 import { TxReceipt, TxStatus } from '../tx/index.js';
+import { computePartialContractAddress } from '@aztec/circuits.js/abis';
 
 /**
  * A remote Aztec RPC Client implementation.
@@ -162,7 +164,7 @@ export class AztecRPCServer implements AztecRPCClient {
    * @param portalContract - The Ethereum address of the portal contract.
    * @param contractAddressSalt - (Optional) Salt value used to generate the contract address.
    * @param from - (Optional) The Aztec address of the account that deploys the contract.
-   * @returns A TxRequest instance containing all necessary information for contract deployment.
+   * @returns An instance of a ContractDeploymentTx.
    */
   public async createDeploymentTx(
     abi: ContractAbi,
@@ -189,14 +191,18 @@ export class AztecRPCServer implements AztecRPCClient {
     );
     const { functionData, vkHash } = contractTree.newContractConstructor!;
     const functionTreeRoot = await contractTree.getFunctionTreeRoot();
+    const constructorHash = Fr.fromBuffer(vkHash);
     const contractDeploymentData = new ContractDeploymentData(
       account.getPublicKey(),
-      Fr.fromBuffer(vkHash),
+      constructorHash,
       functionTreeRoot,
       contractAddressSalt,
       portalContract,
     );
     const txContext = new TxContext(false, false, true, contractDeploymentData);
+
+    const wasm = await CircuitsWasm.get();
+    const partialContractAddress = computePartialContractAddress(wasm, contractAddressSalt, functionTreeRoot, constructorHash);
 
     const contract = contractTree.contract;
     await this.db.addContract(contract);
@@ -220,7 +226,7 @@ export class AztecRPCServer implements AztecRPCClient {
       new TxDao(await tx.getTxHash(), undefined, undefined, account.getAddress(), undefined, contract.address, ''),
     );
 
-    return tx;
+    return new ContractDeploymentTx(tx, partialContractAddress);
   }
 
   /**

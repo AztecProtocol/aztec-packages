@@ -1,4 +1,4 @@
-import { CircuitsWasm, KernelCircuitPublicInputs, Proof, PublicCallRequest } from '@aztec/circuits.js';
+import { CircuitsWasm, Fr, KernelCircuitPublicInputs, Proof, PublicCallRequest } from '@aztec/circuits.js';
 import { computeTxHash } from '@aztec/circuits.js/abis';
 
 import { arrayNonEmptyLength } from '@aztec/foundation/collection';
@@ -229,4 +229,25 @@ export class Tx {
  */
 async function getTxHashFromRequest(txExecutionRequest: SignedTxExecutionRequest) {
   return new TxHash(computeTxHash(await CircuitsWasm.get(), await txExecutionRequest.toSignedTxRequest()).toBuffer());
+}
+
+
+/**
+ * Wrapper class for a contract deployment transaction.
+ * Also contains the contract partial address
+ */
+export class ContractDeploymentTx {
+  public constructor(
+    /**
+     * The Tx being wrapped.
+     */
+    public readonly tx: Tx,
+
+    /**
+     * The partially conputed contract address.
+     */
+    public readonly partialContractAddress: Fr,
+
+  ) {
+  }
 }

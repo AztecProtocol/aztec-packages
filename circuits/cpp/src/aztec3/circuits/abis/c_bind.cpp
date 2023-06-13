@@ -31,6 +31,7 @@ namespace {
 
 using aztec3::circuits::compute_constructor_hash;
 using aztec3::circuits::compute_contract_address;
+using aztec3::circuits::compute_partial_contract_address;
 using aztec3::circuits::abis::CallStackItem;
 using aztec3::circuits::abis::FunctionData;
 using aztec3::circuits::abis::FunctionLeafPreimage;
@@ -285,6 +286,7 @@ WASM_EXPORT void abis__hash_constructor(uint8_t const* function_data_buf,
 }
 
 CBIND(abis__compute_contract_address, compute_contract_address<NT>);
+CBIND(abis__compute_partial_contract_address, compute_partial_contract_address<NT>);
 
 /**
  * @brief Hash args for a function call.
