@@ -10,8 +10,8 @@
 [submodule "barretenberg-sol/lib/solidity-stringutils"]
 	path = circuits/cpp/barretenberg/sol/lib/solidity-stringutils
 	url = https://github.com/Arachnid/solidity-stringutils
-[submodule "sol/lib/openzeppelin-contracts"]
-	path = sol/lib/openzeppelin-contracts
+[submodule "barretenberg-sol/lib/openzeppelin-contracts"]
+	path = circuits/cpp/barretenberg/sol/lib/openzeppelin-contracts
 	url = https://github.com/OpenZeppelin/openzeppelin-contracts
 [submodule "l1-contracts/lib/openzeppelin-contracts"]
 	path = l1-contracts/lib/openzeppelin-contracts
