@@ -6,6 +6,7 @@
 #include <barretenberg/barretenberg.hpp>
 
 #include <filesystem>
+#include <memory>
 
 namespace {
 using NT = aztec3::utils::types::NativeTypes;
@@ -76,6 +77,17 @@ NT::Proof get_proof_from_file()
     std::string proof_data_file = "../src/aztec3/circuits/kernel/private/valid_ultra_plonk_proof.bin";
     proof.proof_data = read_buffer_from_file(proof_data_file);
     return proof;
+}
+
+std::shared_ptr<NT::VK> get_verification_key_from_file()
+{
+    std::string vk_data_file = "../src/aztec3/circuits/kernel/private/valid_ultra_plonk_verification_key.bin";
+    auto vk_buf = utils::read_buffer_from_file(vk_data_file);
+    NT::VK new_vk;
+    const uint8_t* vk_iter = vk_buf.data();
+    read(vk_iter, new_vk);
+
+    return std::make_shared<NT::VK>(new_vk);
 }
 
 /**

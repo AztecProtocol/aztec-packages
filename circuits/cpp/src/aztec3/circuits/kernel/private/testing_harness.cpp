@@ -21,8 +21,8 @@
 #include "aztec3/circuits/kernel/private/utils.hpp"
 #include "aztec3/constants.hpp"
 
-#include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/log.hpp"
+#include "barretenberg/polynomials/evaluation_domain.hpp"
 #include <barretenberg/barretenberg.hpp>
 
 #include <cstdint>
@@ -211,35 +211,10 @@ std::pair<PrivateCallData<NT>, ContractDeploymentData<NT>> create_private_call_d
     // it is needed below:
     //     for constructors - to generate the contract address, function leaf, etc
     //     for private calls - to generate the function leaf, etc
-    auto private_circuit_vk = is_circuit ? gen_func_vk(is_constructor, func, args_vec.size()) : utils::fake_vk();
-    // auto const private_circuit_vk = is_circuit ? gen_func_vk(is_constructor, func, args_vec.size()) :
-    // utils::fake_vk();
-
-    // std::stringstream strm;
-    std::vector<uint8_t> vk_buf;
-    write(vk_buf, *private_circuit_vk);
-    std::string vk_data_file = "../src/aztec3/circuits/kernel/private/valid_ultra_plonk_verification_key.bin";
-    utils::write_buffer_to_file(vk_buf, vk_data_file);
-
-    auto new_vk_buf = utils::read_buffer_from_file(vk_data_file);
-
-    // verification_key_data result;
-    NT::VK new_vk;
-    read(new_vk_buf, new_vk);
-    // auto vk_buf = private_circuit_vk->write()
-
-    ASSERT(new_vk.circuit_size == private_circuit_vk->circuit_size);
-    ASSERT(new_vk.as_data() == private_circuit_vk->as_data());
-
-    private_circuit_vk->as_data() = new_vk.as_data();
-
+    auto const private_circuit_vk = is_circuit ? utils::get_verification_key_from_file() : utils::fake_vk();
 
     const NT::fr private_circuit_vk_hash =
         stdlib::recursion::verification_key<CT::bn254>::compress_native(private_circuit_vk, GeneratorIndex::VK);
-    const NT::fr private_circuit_vk_hash_new = stdlib::recursion::verification_key<CT::bn254>::compress_native(
-        std::make_shared<NT::VK>(new_vk), GeneratorIndex::VK);
-
-    ASSERT(private_circuit_vk_hash == private_circuit_vk_hash_new);
 
     ContractDeploymentData<NT> contract_deployment_data{};
     NT::fr contract_tree_root = 0;  // TODO(david) set properly for constructor?
