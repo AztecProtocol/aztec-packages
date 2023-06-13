@@ -16,6 +16,8 @@ import { ContractAbi } from '@aztec/foundation/abi';
 import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
 import { PortalERC20Abi, PortalERC20Bytecode, TokenPortalAbi, TokenPortalBytecode } from '@aztec/l1-artifacts';
 import { NonNativeTokenContractAbi } from '@aztec/noir-contracts/examples';
+import every from 'lodash.every';
+import zipWith from 'lodash.zipwith';
 import { Account, Chain, HttpTransport, PublicClient, WalletClient, getContract } from 'viem';
 import { mnemonicToAccount } from 'viem/accounts';
 import { MNEMONIC, localAnvil, privateKey } from './fixtures.js';
@@ -106,23 +108,27 @@ export async function setNextBlockTimestamp(rpcUrl: string, timestamp: number) {
 }
 
 /**
- * Deploys a contract to the network.
+ * Deploys a set of contracts to the network.
  * @param aztecRpcServer - the RPC server to make the request.
- * @param abi - contract to be deployed.
- * @returns The deployed contract instance.
+ * @param abi - contracts to be deployed.
+ * @returns The deployed contract instances.
  */
-export async function deployL2Contract(aztecRpcServer: AztecRPCServer, abi: ContractAbi) {
+export async function deployL2Contracts(aztecRpcServer: AztecRPCServer, abis: ContractAbi[]) {
   const logger = getLogger();
 
-  const deployer = new ContractDeployer(abi, aztecRpcServer);
-  const tx = deployer.deploy().send();
+  const calls = await Promise.all(abis.map(abi => new ContractDeployer(abi, aztecRpcServer).deploy()));
+  for (const call of calls) await call.create();
+  const txs = await Promise.all(calls.map(c => c.send()));
+  expect(every(await Promise.all(txs.map(tx => tx.isMined(0, 0.1))))).toBeTruthy();
+  const receipts = await Promise.all(txs.map(tx => tx.getReceipt()));
+  const contracts = zipWith(
+    abis,
+    receipts,
+    (abi, receipt) => new Contract(receipt!.contractAddress!, abi!, aztecRpcServer),
+  );
 
-  await tx.isMined(0, 0.1);
-
-  const receipt = await tx.getReceipt();
-  const contract = new Contract(receipt.contractAddress!, abi, aztecRpcServer);
-  logger(`L2 contract ${abi.name} deployed at ${contract.address}`);
-  return contract;
+  contracts.forEach(c => logger(`L2 contract ${c.abi.name} deployed at ${c.address}`));
+  return contracts;
 }
 
 /**
