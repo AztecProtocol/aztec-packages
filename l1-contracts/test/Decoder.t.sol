@@ -166,8 +166,8 @@ contract DecoderTest is Test {
     // || K_LOGS_LEN | I1_LOGS_LEN | I1_LOGS ||
     // K_LOGS_LEN = 4 + 8 = 12 (hex"0000000c")
     // I1_LOGS_LEN = 8 (hex"00000008")
-    // I1_LOGS = 8 random bytes (hex"aafdc7aa93e78a70")
-    bytes memory firstFunctionCallLogs = hex"aafdc7aa93e78a70";
+    // I1_LOGS = 8 bytes (hex"0000000493e78a70") // Note: 00000004 is the length of 1 log within function logs
+    bytes memory firstFunctionCallLogs = hex"0000000493e78a70";
     // Prefix logs with length of kernel logs (12) and length of iteration 1 logs (8)
     bytes memory encodedLogs = abi.encodePacked(hex"0000000c00000008", firstFunctionCallLogs);
     (bytes32 logsHash, uint256 bytesAdvanced) = helper.computeKernelLogsHash(encodedLogs);
@@ -190,11 +190,11 @@ contract DecoderTest is Test {
     // || K_LOGS_LEN | I1_LOGS_LEN | I1_LOGS | I2_LOGS_LEN | I2_LOGS ||
     // K_LOGS_LEN = 4 + 8 + 4 + 20 = 36 (hex"00000024")
     // I1_LOGS_LEN = 8 (hex"00000008")
-    // I1_LOGS = 8 random bytes (hex"aafdc7aa93e78a70")
+    // I1_LOGS = 8 random bytes (hex"0000000493e78a70")
     // I2_LOGS_LEN = 20 (hex"00000014")
-    // I2_LOGS = 20 random bytes (hex"97aee30906a86173c86c6d3f108eefc36e7fb014")
-    bytes memory firstFunctionCallLogs = hex"aafdc7aa93e78a70";
-    bytes memory secondFunctionCallLogs = hex"97aee30906a86173c86c6d3f108eefc36e7fb014";
+    // I2_LOGS = 20 bytes (hex"0000001006a86173c86c6d3f108eefc36e7fb014")
+    bytes memory firstFunctionCallLogs = hex"0000000493e78a70";
+    bytes memory secondFunctionCallLogs = hex"0000001006a86173c86c6d3f108eefc36e7fb014";
     bytes memory encodedLogs = abi.encodePacked(
       hex"0000002400000008", firstFunctionCallLogs, hex"00000014", secondFunctionCallLogs
     );
@@ -219,14 +219,14 @@ contract DecoderTest is Test {
     // || K_LOGS_LEN | I1_LOGS_LEN | I1_LOGS | I2_LOGS_LEN | I2_LOGS | I3_LOGS_LEN | I3_LOGS ||
     // K_LOGS_LEN = 4 + 8 + 4 + 0 + 4 + 20 = 40 (hex"00000028")
     // I1_LOGS_LEN = 8 (hex"00000008")
-    // I1_LOGS = 8 random bytes (hex"aafdc7aa93e78a70")
+    // I1_LOGS = 8 random bytes (hex"0000000493e78a70")
     // I2_LOGS_LEN = 0 (hex"00000000")
     // I2_LOGS = 0 bytes (hex"")
     // I3_LOGS_LEN = 20 (hex"00000014")
-    // I3_LOGS = 20 random bytes (hex"97aee30906a86173c86c6d3f108eefc36e7fb014")
-    bytes memory firstFunctionCallLogs = hex"aafdc7aa93e78a70";
+    // I3_LOGS = 20 random bytes (hex"0000001006a86173c86c6d3f108eefc36e7fb014")
+    bytes memory firstFunctionCallLogs = hex"0000000493e78a70";
     bytes memory secondFunctionCallLogs = hex"";
-    bytes memory thirdFunctionCallLogs = hex"97aee30906a86173c86c6d3f108eefc36e7fb014";
+    bytes memory thirdFunctionCallLogs = hex"0000001006a86173c86c6d3f108eefc36e7fb014";
     bytes memory encodedLogs = abi.encodePacked(
       hex"0000002800000008",
       firstFunctionCallLogs,
