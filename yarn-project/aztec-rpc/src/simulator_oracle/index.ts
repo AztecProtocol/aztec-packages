@@ -1,10 +1,12 @@
-import { DBOracle, MessageLoadOracleInputs } from '@aztec/acir-simulator';
+import { CommitmentDataOracleInputs, DBOracle, MessageLoadOracleInputs } from '@aztec/acir-simulator';
 import { AztecNode } from '@aztec/aztec-node';
-import { AztecAddress, EthAddress, Fr } from '@aztec/circuits.js';
+import { AztecAddress, CircuitsWasm, EthAddress, Fr, PrivateHistoricTreeRoots } from '@aztec/circuits.js';
 import { KeyPair } from '@aztec/key-store';
 import { FunctionAbi } from '@aztec/foundation/abi';
 import { ContractDataOracle } from '../contract_data_oracle/index.js';
 import { Database } from '../database/index.js';
+import { siloCommitment } from '@aztec/circuits.js/abis';
+import { MerkleTreeId } from '@aztec/types';
 
 /**
  * A data oracle that provides information needed for simulating a transaction.
@@ -14,6 +16,7 @@ export class SimulatorOracle implements DBOracle {
     private contractDataOracle: ContractDataOracle,
     private db: Database,
     private keyPair: KeyPair,
+    private address: AztecAddress,
     private node: AztecNode,
   ) {}
 
@@ -22,13 +25,13 @@ export class SimulatorOracle implements DBOracle {
    * The function only allows access to the secret keys of the transaction creator,
    * and throws an error if the address does not match the public key address of the key pair.
    *
-   * @param _ - The contract address. Ignored here. But we might want to return different keys for different contracts.
-   * @param address - The address of an account.
+   * @param _contractAddress - The contract address. Ignored here. But we might want to return different keys for different contracts.
+   * @param txOriginAddress - The address of an account.
    * @returns A Promise that resolves to the secret key as a Buffer.
    * @throws An Error if the input address does not match the public key address of the key pair.
    */
-  getSecretKey(_: AztecAddress, address: AztecAddress): Promise<Buffer> {
-    if (!address.equals(this.keyPair.getPublicKey().toAddress())) {
+  getSecretKey(_contractAddress: AztecAddress, txOriginAddress: AztecAddress): Promise<Buffer> {
+    if (!txOriginAddress.equals(this.address)) {
       throw new Error('Only allow access to the secret keys of the tx creator.');
     }
     return this.keyPair.getPrivateKey();
@@ -51,11 +54,10 @@ export class SimulatorOracle implements DBOracle {
     return {
       count: noteDaos.length,
       notes: await Promise.all(
-        noteDaos.slice(offset, offset + limit).map(async noteDao => {
-          const path = await this.node.getDataTreePath(noteDao.index);
+        noteDaos.slice(offset, offset + limit).map(noteDao => {
           return {
             preimage: noteDao.notePreimage.items,
-            siblingPath: path.toFieldArray(),
+            // RPC Client can use this index to get full MembershipWitness
             index: noteDao.index,
           };
         }),
@@ -92,7 +94,7 @@ export class SimulatorOracle implements DBOracle {
    *
    * @param msgKey - The key of the message to be retreived
    * @returns A promise that resolves to the message data, a sibling path and the
-   *          index of the message in the the l1ToL2MessagesTree
+   *          index of the message in the l1ToL2MessagesTree
    */
   async getL1ToL2Message(msgKey: Fr): Promise<MessageLoadOracleInputs> {
     const messageAndIndex = await this.node.getL1ToL2MessageAndIndex(msgKey);
@@ -104,5 +106,37 @@ export class SimulatorOracle implements DBOracle {
       siblingPath: siblingPath.toFieldArray(),
       index,
     };
+  }
+
+  /**
+   * Retrieves the noir oracle data required to prove existence of a given commitment.
+   * @param contractAddress - The contract Address.
+   * @param commitment - The key of the message being fetched.
+   * @returns - A promise that resolves to the commitment data, a sibling path and the
+   *            index of the message in the private data tree.
+   */
+  async getCommitmentOracle(contractAddress: AztecAddress, commitment: Fr): Promise<CommitmentDataOracleInputs> {
+    const siloedCommitment = siloCommitment(await CircuitsWasm.get(), contractAddress, commitment);
+    const index = await this.node.findCommitmentIndex(siloedCommitment.toBuffer());
+    if (!index) throw new Error('Commitment not found');
+
+    const siblingPath = await this.node.getDataTreePath(index);
+    return await Promise.resolve({
+      commitment: siloedCommitment,
+      siblingPath: siblingPath.toFieldArray(),
+      index,
+    });
+  }
+
+  getTreeRoots(): PrivateHistoricTreeRoots {
+    const roots = this.db.getTreeRoots();
+
+    return PrivateHistoricTreeRoots.from({
+      privateKernelVkTreeRoot: Fr.ZERO,
+      privateDataTreeRoot: roots[MerkleTreeId.PRIVATE_DATA_TREE],
+      contractTreeRoot: roots[MerkleTreeId.CONTRACT_TREE],
+      nullifierTreeRoot: roots[MerkleTreeId.NULLIFIER_TREE],
+      l1ToL2MessagesTreeRoot: roots[MerkleTreeId.L1_TO_L2_MESSAGES_TREE],
+    });
   }
 }

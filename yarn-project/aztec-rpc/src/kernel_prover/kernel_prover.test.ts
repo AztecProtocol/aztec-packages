@@ -10,7 +10,9 @@ import {
   VK_TREE_HEIGHT,
   VerificationKey,
   makeEmptyProof,
+  READ_REQUESTS_LENGTH,
   MembershipWitness,
+  SignedTxRequest,
 } from '@aztec/circuits.js';
 import { makeTxRequest } from '@aztec/circuits.js/factories';
 import { mock } from 'jest-mock-extended';
@@ -51,6 +53,7 @@ describe('Kernel Prover', () => {
       nestedExecutions: (dependencies[fnName] || []).map(name => createExecutionResult(name)),
       vk: VerificationKey.makeFake().toBuffer(),
       preimages: { newNotes: newNoteIndices.map(idx => notes[idx]), nullifiedNotes: [] },
+      readRequestCommitmentIndices: Array(READ_REQUESTS_LENGTH).map(() => BigInt(0)),
       returnValues: [],
       acir: Buffer.alloc(0),
       partialWitness: new Map(),
@@ -90,7 +93,8 @@ describe('Kernel Prover', () => {
     });
   };
 
-  const prove = (executionResult: ExecutionResult) => prover.prove(txRequest, txSignature, executionResult);
+  const prove = (executionResult: ExecutionResult) =>
+    prover.prove(new SignedTxRequest(txRequest, txSignature), executionResult);
 
   beforeEach(() => {
     txRequest = makeTxRequest();

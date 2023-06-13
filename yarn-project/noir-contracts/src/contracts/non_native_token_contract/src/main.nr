@@ -1,6 +1,6 @@
 contract NonNativeToken {
     mod balance_utils;
-    use dep::aztec3::abi::Inputs;
+    use dep::aztec3::abi::PrivateContextInputs;
     use dep::aztec3::context::PrivateFunctionContext;
     use dep::aztec3::notes::value_note::Note;
     use dep::aztec3::types::point::Point;
@@ -19,7 +19,7 @@ contract NonNativeToken {
     fn constructor(
         //*********************************/
         // Should eventually be hidden:
-        inputs: pub Inputs,
+        inputs: pub PrivateContextInputs,
         //*********************************/
         initial_supply: pub Field, 
         owner: pub Point,
@@ -43,7 +43,7 @@ contract NonNativeToken {
     fn mint(
         //*********************************/
         // Should eventually be hidden:
-        inputs: pub Inputs,
+        inputs: pub PrivateContextInputs,
         //*********************************/
         amount: pub Field, 
         owner: pub Point,
@@ -219,7 +219,7 @@ contract NonNativeToken {
     fn withdraw(
         //*********************************/
         // Should eventually be hidden:
-        inputs: pub Inputs,
+        inputs: pub PrivateContextInputs,
         //*********************************/
         amount: pub Field, 
         sender: pub Point, 
@@ -229,7 +229,7 @@ contract NonNativeToken {
         initialContext.args = initialContext.args.push_array([amount, sender.x, sender.y, recipient]);
 
         let sender_balance = balances.at(sender.x);
-        let (mut context, (note1, note2)) = sender_balance.get_2(inputs, initialContext);
+        let (mut context, (note1, note2)) = sender_balance.get_2(initialContext);
 
         // TODO: Removing this return breaks the circuit (???)
         context.return_values = context.return_values.push(note1.is_real as Field);
@@ -408,7 +408,7 @@ contract NonNativeToken {
     fn transfer(
         //*********************************/
         // Should eventually be hidden:
-        inputs: pub Inputs,
+        inputs: pub PrivateContextInputs,
         //*********************************/
         amount: pub Field, 
         sender: pub Point, 
@@ -418,7 +418,7 @@ contract NonNativeToken {
         initialContext.args = initialContext.args.push_array([amount, sender.x, sender.y, recipient.x, recipient.y]);
 
         let sender_balance = balances.at(sender.x);
-        let (mut context, (note1, note2)) = sender_balance.get_2(inputs, initialContext);
+        let (mut context, (note1, note2)) = sender_balance.get_2(initialContext);
 
         // TODO: Removing this return breaks the circuit (???)
         context.return_values = context.return_values.push(note1.is_real as Field);

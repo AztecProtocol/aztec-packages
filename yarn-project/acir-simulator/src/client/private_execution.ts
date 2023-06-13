@@ -2,6 +2,7 @@ import {
   ARGS_LENGTH,
   CallContext,
   CircuitsWasm,
+  ContractDeploymentData,
   FunctionData,
   PUBLIC_CALL_STACK_LENGTH,
   PrivateCallStackItem,
@@ -86,6 +87,8 @@ export interface ExecutionResult {
   // Needed for the verifier (kernel)
   /** The call stack item. */
   callStackItem: PrivateCallStackItem;
+  /** The indices (in private data tree) for commitments corresponding to read requests. */
+  readRequestCommitmentIndices: bigint[];
   // Needed for the user
   /** The preimages of the executed function. */
   preimages: ExecutionPreimages;
@@ -136,13 +139,23 @@ export class PrivateFunctionExecution {
     const newNullifiers: NewNullifierData[] = [];
     const nestedExecutionContexts: ExecutionResult[] = [];
     const enqueuedPublicFunctionCalls: PublicCallRequest[] = [];
+    const readRequestCommitmentIndices: bigint[] = [];
     const encryptedLogs = new FunctionL2Logs([]);
 
     const { partialWitness } = await acvm(acir, initialWitness, {
       getSecretKey: async ([address]: ACVMField[]) => [
         toACVMField(await this.context.db.getSecretKey(this.contractAddress, frToAztecAddress(fromACVMField(address)))),
       ],
-      getNotes2: ([storageSlot]: ACVMField[]) => this.context.getNotes(this.contractAddress, storageSlot, 2),
+      getNotes2: async ([storageSlot]: ACVMField[]) => {
+        const { preimages, indices } = await this.context.getNotes(this.contractAddress, storageSlot, 2);
+        // TODO(dbanks12): https://github.com/AztecProtocol/aztec-packages/issues/779
+        // if preimages length is > rrcIndices length, we are either relying on
+        // the app circuit to remove fake preimages, or on the kernel to handle
+        // the length diff.
+        const filteredIndices = indices.filter(index => index != BigInt(-1));
+        readRequestCommitmentIndices.push(...filteredIndices);
+        return preimages;
+      },
       getRandomField: () => Promise.resolve([toACVMField(Fr.random())]),
       notifyCreatedNote: ([storageSlot, ownerX, ownerY, ...acvmPreimage]: ACVMField[]) => {
         newNotePreimages.push({
@@ -252,6 +265,7 @@ export class PrivateFunctionExecution {
       partialWitness,
       callStackItem,
       returnValues,
+      readRequestCommitmentIndices,
       preimages: {
         newNotes: newNotePreimages,
         nullifiedNotes: newNullifiers,
@@ -271,6 +285,7 @@ export class PrivateFunctionExecution {
    */
   private writeInputs() {
     const argsSize = this.abi.parameters.reduce((acc, param) => acc + sizeOfType(param.type), 0);
+    const contractDeploymentData = this.context.txContext.contractDeploymentData ?? ContractDeploymentData.empty();
 
     // NOTE: PSA to anyone updating this code: within the structs, the members must be in alphabetical order, this
     // is a current quirk in noir struct encoding, feel free to remove this note when this changes
@@ -282,10 +297,10 @@ export class PrivateFunctionExecution {
       this.callContext.portalContractAddress,
       this.callContext.storageContractAddress,
 
-      this.context.request.txContext.contractDeploymentData.constructorVkHash,
-      this.context.request.txContext.contractDeploymentData.contractAddressSalt,
-      this.context.request.txContext.contractDeploymentData.functionTreeRoot,
-      this.context.request.txContext.contractDeploymentData.portalContractAddress,
+      contractDeploymentData.constructorVkHash,
+      contractDeploymentData.contractAddressSalt,
+      contractDeploymentData.functionTreeRoot,
+      contractDeploymentData.portalContractAddress,
 
       this.context.historicRoots.contractTreeRoot,
       this.context.historicRoots.l1ToL2MessagesTreeRoot,

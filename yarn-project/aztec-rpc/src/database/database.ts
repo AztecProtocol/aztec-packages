@@ -21,6 +21,6 @@ export interface Database extends ContractDatabase {
   addNoteSpendingInfoBatch(noteSpendingInfoDaos: NoteSpendingInfoDao[]): Promise<void>;
   removeNullifiedNoteSpendingInfo(nullifiers: Fr[], account: Point): Promise<NoteSpendingInfoDao[]>;
 
-  getTreeRoots(): Promise<Record<MerkleTreeId, Fr>>;
+  getTreeRoots(): Record<MerkleTreeId, Fr>;
   setTreeRoots(roots: Record<MerkleTreeId, Fr>): Promise<void>;
 }
