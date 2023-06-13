@@ -1,11 +1,8 @@
 import { AztecNodeService } from '@aztec/aztec-node';
-import { AztecAddress, AztecRPCServer, Contract, ContractDeployer, Fr, TxStatus } from '@aztec/aztec.js';
+import { AztecAddress, AztecRPCServer, Contract, ContractDeployer, Fr, TxStatus, computeMessageSecretHash } from '@aztec/aztec.js';
 import { PublicToPrivateContractAbi } from '@aztec/noir-contracts/examples';
-
 import { DebugLogger } from '@aztec/foundation/log';
 import { pointToPublicKey, setup } from './utils.js';
-import { pedersenCompressInputs } from '@aztec/circuits.js/barretenberg';
-import { CircuitsWasm } from '@aztec/circuits.js';
 
 describe('e2e_public_to_private_messaging', () => {
   let aztecNode: AztecNodeService;
@@ -54,12 +51,11 @@ describe('e2e_public_to_private_messaging', () => {
     const deployedContract = await deployContract();
 
     // Create a secret for the transparent message
-    // TODO(Maddiaa): replace this with the other secret calculation cbind.
-    const wasm = await CircuitsWasm.get();
     const secret = Fr.random();
-    const secretHash = pedersenCompressInputs(wasm, [secret.toBuffer()]);
+    const secretHash = await computeMessageSecretHash(secret);
 
     // Create the commitment to be spent in the private domain
+    logger("Creating commitment in public call");
     const publicTx = deployedContract.methods.mintFromPublicToPrivate(mintAmount, secretHash).send({ from: receiver });
 
     await publicTx.isMined(0, 0.1);
@@ -68,6 +64,7 @@ describe('e2e_public_to_private_messaging', () => {
     expect(publicReceipt.status).toBe(TxStatus.MINED);
 
     // Create the transaction spending the commitment
+    logger("Spending commitment in private call");
     const privateTx = deployedContract.methods
       .mintFromPublicMessage(mintAmount, secret, pointToPublicKey(await aztecRpcServer.getAccountPublicKey(owner)))
       .send({ from: owner });

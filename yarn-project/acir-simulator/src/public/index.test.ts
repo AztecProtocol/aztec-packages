@@ -231,12 +231,14 @@ describe('ACIR public execution simulator', () => {
     let functionData: FunctionData;
     let amount: Fr;
     let params: Fr[];
+    let wasm: CircuitsWasm;
 
-    beforeEach(() => {
+    beforeEach(async () => {
       contractAddress = AztecAddress.random();
       functionData = new FunctionData(Buffer.alloc(4), false, false);
       amount = new Fr(140);
       params = [amount, Fr.random()];
+      wasm = await CircuitsWasm.get();
     });
 
     it('Should be able to create a commitment from the public context', async () => {
@@ -261,14 +263,13 @@ describe('ACIR public execution simulator', () => {
       expect(result.newCommitments.length).toEqual(1);
 
       const expectedNewCommitmentValue = pedersenCompressInputs(
-        await CircuitsWasm.get(),
+        wasm,
         params.map(a => a.toBuffer()),
       );
       expect(result.newCommitments[0].toBuffer()).toEqual(expectedNewCommitmentValue);
     });
 
     it('Should be able to create a L2 to L1 message from the public context', async () => {
-      const contractAddress = AztecAddress.random();
       const createL2ToL1MessagePublicAbi = PublicToPrivateContractAbi.functions.find(
         f => f.name === 'createL2ToL1MessagePublic',
       )!;
@@ -292,7 +293,7 @@ describe('ACIR public execution simulator', () => {
       expect(result.newL2ToL1Messages.length).toEqual(1);
 
       const expectedNewMessageValue = pedersenCompressInputs(
-        await CircuitsWasm.get(),
+        wasm,
         params.map(a => a.toBuffer()),
       );
       expect(result.newL2ToL1Messages[0].toBuffer()).toEqual(expectedNewMessageValue);

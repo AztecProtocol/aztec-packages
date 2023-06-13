@@ -2,9 +2,12 @@ use dep::std::hash::pedersen;
 
 contract PublicPrivate {
     mod balance_utils;
+    mod transparent_note;
 
-    use dep::aztec3::abi::PrivateContextInputs;
+    use transparent_note::TransparentNote;
+
     use dep::aztec3::context::PrivateFunctionContext;
+    use dep::aztec3::abi::PrivateContextInputs;
     use dep::aztec3::abi::PublicContextInputs;
 
     // Public state
@@ -16,10 +19,6 @@ contract PublicPrivate {
     use dep::aztec3::state_vars::map::Map;
     use dep::aztec3::state_vars::set::Set;
     use dep::aztec3::notes::value_note::Note;
-
-    use dep::aztec3::messaging::get_commitment_getter_data::make_commitment_getter_data;
-
-    use crate::TransparentNote;
 
     // oracles
     use dep::aztec3::oracle::logs::emit_encrypted_log;
@@ -76,21 +75,9 @@ contract PublicPrivate {
         let mut context = PrivateFunctionContext::new();
         context.args = context.args.push_array([amount, secret, owner.x, owner.y]);
 
-        let from_public_note = TransparentNote::new_from_secret(amount, secret);
-
-        let commitment = from_public_note.get_commitment();
-
-        // Perform read request for the kernel.
-        context = context.push_read_request(commitment);
-
-        let commitment_oracle_call = get_commitment(commitment);
-        let commitment_data = make_commitment_getter_data(commitment_oracle_call, 0);
-        
-
-        constrain inputs.roots.private_data_tree_root == commitment_data.root;
-
-        let nullifier = TransparentNote::compute_nullifier(secret, commitment, commitment_data.leaf_index);
-        context = context.push_new_nullifier(nullifier);
+        // Assert that the note exists within the tree
+        let public_note = TransparentNote::new_from_secret(amount, secret);
+        context = public_note.consume_in_private(context, inputs.roots.private_data_tree_root, secret);
 
         // Mint the tokens
         let owner_balance = balances.at(owner.x);
@@ -112,40 +99,4 @@ contract PublicPrivate {
         
         balance_utils::get_balance(owner_balance.storage_slot)
     }
-}
-
-
-struct TransparentNote {
-    amount: Field,
-    secretHash: Field,
-}
-
-impl TransparentNote {
-    fn new(amount: Field, secretHash: Field) -> Self {
-        Self { amount, secretHash }
-    }
-
-    fn new_from_secret(amount: Field, secret: Field) -> Self {
-        let secretHash = pedersen([secret])[0];
-        TransparentNote {
-            amount,
-            secretHash,
-        }
-    }
-
-    fn get_commitment(self) -> Field {
-        pedersen([self.amount, self.secretHash])[0]
-    }
-
-    fn knows_secret(self, secret: Field) {
-        let hash = pedersen([secret])[0];
-        constrain self.secretHash == hash;
-    }
-
-    fn compute_nullifier(secret: Field, siloed_commitment: Field, index: Field) -> Field {
-        // Create a nullifier for the message based on its index in the tree
-        
-        pedersen([secret, siloed_commitment, index])[0]
-    }
-
 }
