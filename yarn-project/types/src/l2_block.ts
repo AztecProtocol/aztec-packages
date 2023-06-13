@@ -17,6 +17,7 @@ import { PublicDataWrite } from './public_data_write.js';
 import { toBigIntBE, toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { sha256 } from '@aztec/foundation/crypto';
 import { L2BlockL2Logs } from './logs/l2_block_l2_logs.js';
+import { TxL2Logs } from './index.js';
 
 /**
  * The data that makes up the rollup proof, with encoder decoder functions.
@@ -556,6 +557,8 @@ export class L2Block {
       const newL2ToL1MsgsBuffer = Buffer.concat(
         this.newL2ToL1Msgs.slice(i * l2ToL1MsgsPerBase, (i + 1) * l2ToL1MsgsPerBase).map(x => x.toBuffer()),
       );
+      const encryptedLogsHashKernel0 = L2Block.computeKernelLogsHash(this.newEncryptedLogs!.txLogs[i * 2]);
+      const encryptedLogsHashKernel1 = L2Block.computeKernelLogsHash(this.newEncryptedLogs!.txLogs[i * 2 + 1]);
 
       const inputValue = Buffer.concat([
         commitmentsBuffer,
@@ -568,10 +571,8 @@ export class L2Block {
         this.newContractData[i * 2].portalContractAddress.toBuffer32(),
         this.newContractData[i * 2 + 1].contractAddress.toBuffer(),
         this.newContractData[i * 2 + 1].portalContractAddress.toBuffer32(),
-        // The following 2 are encrypted logs hashes from kernel 0 and kernel 1 of base rollup circuit
-        // TODO #769, relevant issue https://github.com/AztecProtocol/aztec-packages/issues/769
-        // L2Block.computeKernelLogsHash(this.newEncryptedLogs.dataChunks[i * 2]),
-        // L2Block.computeKernelLogsHash(this.newEncryptedLogs.dataChunks[i * 2 + 1]),
+        encryptedLogsHashKernel0,
+        encryptedLogsHashKernel1,
       ]);
       leafs.push(sha256(inputValue));
     }
@@ -695,13 +696,14 @@ export class L2Block {
 
   /**
    * Computes logs hash as is done in the kernel and app circuits.
-   * @param encodedLogs - Encoded logs to be hashed.
+   * @param logs - Logs to be hashed.
    * @returns The hash of the logs.
    * Note: This is a TS implementation of `computeKernelLogsHash` function in Decoder.sol. See that function documentation
    *       for more details.
    */
-  static computeKernelLogsHash(encodedLogs: Buffer): Buffer {
-    const reader = new BufferReader(encodedLogs);
+  static computeKernelLogsHash(logs: TxL2Logs): Buffer {
+    // TODO: Don't convert to buffer here and instead use the decoded values directly.
+    const reader = new BufferReader(logs.toBuffer());
 
     let remainingLogsLength = reader.readNumber();
     const logsHashes: [Buffer, Buffer] = [Buffer.alloc(32), Buffer.alloc(32)];
