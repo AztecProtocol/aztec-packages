@@ -50,14 +50,16 @@ contract NonNativeToken {
         // This field should be hidden
         msg_key: pub Field,
         secret: pub Field,
+        cancellor: pub Field,
     ) -> pub [Field; dep::aztec3::abi::PUBLIC_INPUTS_LENGTH] {
         let mut context = PrivateFunctionContext::new();
         context.args = context.args.push_array([amount, owner.x, owner.y, msg_key, secret]);
 
 
-        let mut hash_bytes: [u8; 68] = [0; 68];
+        let mut hash_bytes: [u8; 100] = [0; 100];
         let amount_bytes = amount.to_be_bytes(32);
         let recipient_bytes = owner.x.to_be_bytes(32);
+        let cancellor_bytes = cancellor.to_be_bytes(32);
 
         // Once loops are performant this will be moved into l1 message
         // Unroll loops because otherwise takes forever to compile
@@ -65,6 +67,8 @@ contract NonNativeToken {
         //     print('hash_bytes[{0}] = amount_bytes[{1}];'.format(i, i))
         // for i in range(32):
         //     print('hash_bytes[{0} + 32] = recipient_bytes[{1}];'.format(i, i))
+        // for i in range(32):
+        //     print('hash_bytes[{0} + 64] = cancellor_bytes[{1}];'.format(i, i))
         
         // Function selector: 0x1801fbe keccak256('mint(uint256,bytes32)')
         hash_bytes[0] = 0x18;
@@ -138,6 +142,39 @@ contract NonNativeToken {
         hash_bytes[30 + 36] = recipient_bytes[30];
         hash_bytes[31 + 36] = recipient_bytes[31];
 
+        hash_bytes[0 + 68] = cancellor_bytes[0];
+        hash_bytes[1 + 68] = cancellor_bytes[1];
+        hash_bytes[2 + 68] = cancellor_bytes[2];
+        hash_bytes[3 + 68] = cancellor_bytes[3];
+        hash_bytes[4 + 68] = cancellor_bytes[4];
+        hash_bytes[5 + 68] = cancellor_bytes[5];
+        hash_bytes[6 + 68] = cancellor_bytes[6];
+        hash_bytes[7 + 68] = cancellor_bytes[7];
+        hash_bytes[8 + 68] = cancellor_bytes[8];
+        hash_bytes[9 + 68] = cancellor_bytes[9];
+        hash_bytes[10 + 68] = cancellor_bytes[10];
+        hash_bytes[11 + 68] = cancellor_bytes[11];
+        hash_bytes[12 + 68] = cancellor_bytes[12];
+        hash_bytes[13 + 68] = cancellor_bytes[13];
+        hash_bytes[14 + 68] = cancellor_bytes[14];
+        hash_bytes[15 + 68] = cancellor_bytes[15];
+        hash_bytes[16 + 68] = cancellor_bytes[16];
+        hash_bytes[17 + 68] = cancellor_bytes[17];
+        hash_bytes[18 + 68] = cancellor_bytes[18];
+        hash_bytes[19 + 68] = cancellor_bytes[19];
+        hash_bytes[20 + 68] = cancellor_bytes[20];
+        hash_bytes[21 + 68] = cancellor_bytes[21];
+        hash_bytes[22 + 68] = cancellor_bytes[22];
+        hash_bytes[23 + 68] = cancellor_bytes[23];
+        hash_bytes[24 + 68] = cancellor_bytes[24];
+        hash_bytes[25 + 68] = cancellor_bytes[25];
+        hash_bytes[26 + 68] = cancellor_bytes[26];
+        hash_bytes[27 + 68] = cancellor_bytes[27];
+        hash_bytes[28 + 68] = cancellor_bytes[28];
+        hash_bytes[29 + 68] = cancellor_bytes[29];
+        hash_bytes[30 + 68] = cancellor_bytes[30];
+        hash_bytes[31 + 68] = cancellor_bytes[31];
+        
         let content_sha256 = dep::std::hash::sha256(hash_bytes);
 
         // // Convert the content_sha256 to a field element

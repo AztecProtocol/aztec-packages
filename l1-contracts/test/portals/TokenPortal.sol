@@ -24,6 +24,7 @@ contract TokenPortal {
 
   /**
    * @notice Deposit funds into the portal and adds an L2 message.
+   * @dev message content is hashed with the sender - prevents anyone else from cancelling the message.
    * @param _to - The aztec address of the recipient
    * @param _amount - The amount to deposit
    * @param _deadline - The timestamp after which the entry can be cancelled
@@ -42,7 +43,7 @@ contract TokenPortal {
 
     // Hash the message content to be reconstructed in the receiving contract
     bytes32 contentHash =
-      Hash.sha256ToField(abi.encodeWithSignature("mint(uint256,bytes32)", _amount, _to));
+      Hash.sha256ToField(abi.encodeWithSignature("mint(uint256,bytes32)", _amount, _to, msg.sender));
 
     // Hold the tokens in the portal
     underlying.safeTransferFrom(msg.sender, address(this), _amount);
@@ -52,7 +53,10 @@ contract TokenPortal {
   }
 
   /**
-   * Cancel the L1 to L2 message
+   * @notice Cancel the L1 to L2 message
+   * @dev message content is also hashed with the msg.sender. This ensures only the caller
+   * can actually cancel the message and retrieve their funds back
+   * (since the message key would be different to the key dervied when depositing)
    * @param _to - The aztec address of the recipient in the original message
    * @param _amount - The amount to deposit per the original message
    * @param _deadline - The timestamp after which the entry can be cancelled
@@ -74,13 +78,16 @@ contract TokenPortal {
     DataStructures.L1ToL2Msg memory message = DataStructures.L1ToL2Msg({
       sender: l1Actor,
       recipient: l2Actor,
-      content: Hash.sha256ToField(abi.encodeWithSignature("mint(uint256,bytes32)", _amount, _to)),
+      content: Hash.sha256ToField(
+        abi.encodeWithSignature("mint(uint256,bytes32)", _amount, _to, msg.sender)
+        ),
       secretHash: _secretHash,
       deadline: _deadline,
       fee: _fee
     });
-    // @todo: (issue #740) implement secure way to cancel the message.
     bytes32 entryKey = inbox.cancelL2Message(message, address(this));
+    // release the funds (since the content hash (& message key) is derived by hashing the caller,
+    // we confirm that cancellor is same as person who created the message)
     underlying.transfer(msg.sender, _amount);
     return entryKey;
   }

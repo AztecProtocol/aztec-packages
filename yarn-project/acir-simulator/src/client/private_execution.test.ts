@@ -401,7 +401,12 @@ describe('Private Execution test suite', () => {
       const abi = NonNativeTokenContractAbi.functions.find(f => f.name === 'mint')!;
 
       const secret = new Fr(1n);
-      const preimage = await buildL1ToL2Message([new Fr(bridgedAmount), new Fr(recipient.x)], contractAddress, secret);
+      const cancellor = EthAddress.random();
+      const preimage = await buildL1ToL2Message(
+        [new Fr(bridgedAmount), new Fr(recipient.x), cancellor.toField()],
+        contractAddress,
+        secret,
+      );
 
       // stub message key
       const messageKey = Fr.random();
@@ -431,7 +436,7 @@ describe('Private Execution test suite', () => {
         AztecAddress.random(),
         contractAddress,
         new FunctionData(Buffer.alloc(4), true, true),
-        encodeArguments(abi, [bridgedAmount, recipient, messageKey, secret]),
+        encodeArguments(abi, [bridgedAmount, recipient, messageKey, secret, cancellor.toField()]),
         Fr.random(),
         txContext,
         Fr.ZERO,

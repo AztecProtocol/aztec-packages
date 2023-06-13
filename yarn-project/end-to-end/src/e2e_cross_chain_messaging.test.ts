@@ -135,7 +135,7 @@ describe('e2e_cross_chain_messaging', () => {
     // Call the mint tokens function on the noir contract
 
     const consumptionTx = l2Contract.methods
-      .mint(mintAmount, ownerPub, messageKey, secret)
+      .mint(mintAmount, ownerPub, messageKey, secret, ethAccount.toField())
       .send({ from: ownerAddress });
 
     await consumptionTx.isMined(0, 0.1);
