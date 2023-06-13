@@ -445,7 +445,12 @@ export class L2Block {
 
     const numTxs = this.newCommitments.length / KERNEL_NEW_COMMITMENTS_LENGTH;
     if (numTxs !== encryptedLogs.txLogs.length) {
-      throw new Error('Number of txLogs within encryptedLogs does not match number of transactions. Expected: ' + numTxs + ' Got: ' + encryptedLogs.txLogs.length);
+      throw new Error(
+        'Number of txLogs within encryptedLogs does not match number of transactions. Expected: ' +
+          numTxs +
+          ' Got: ' +
+          encryptedLogs.txLogs.length,
+      );
     }
 
     this.newEncryptedLogs = encryptedLogs;
