@@ -44,15 +44,8 @@ export class FunctionL2Logs {
 
     // TS version of https://github.com/AztecProtocol/aztec-packages/blob/e2e3bf1dbeda5199060fb1711200d20414557cd4/circuits/cpp/src/aztec3/circuits/hash.hpp#L330
     // Split the hash into two fields, a high and a low
-    const buf1: Buffer = Buffer.alloc(32);
-    const buf2: Buffer = Buffer.alloc(32);
-
-    for (let i = 0; i < 16; i++) {
-      buf1[i] = 0;
-      buf1[16 + i] = hash[i];
-      buf2[i] = 0;
-      buf2[16 + i] = hash[i + 16];
-    }
+    const buf1 = Buffer.concat([Buffer.alloc(16), hash.subarray(0, 16)]);
+    const buf2 = Buffer.concat([Buffer.alloc(16), hash.subarray(16, 16)]);
 
     return [Fr.fromBuffer(buf1), Fr.fromBuffer(buf2)];
   }
