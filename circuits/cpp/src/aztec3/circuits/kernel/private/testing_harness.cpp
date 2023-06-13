@@ -21,8 +21,14 @@
 #include "aztec3/circuits/kernel/private/utils.hpp"
 #include "aztec3/constants.hpp"
 
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/log.hpp"
 #include <barretenberg/barretenberg.hpp>
+
+#include <cstdint>
+#include <filesystem>
+#include <memory>
+#include <vector>
 
 namespace aztec3::circuits::kernel::private_kernel::testing_harness {
 
@@ -205,10 +211,35 @@ std::pair<PrivateCallData<NT>, ContractDeploymentData<NT>> create_private_call_d
     // it is needed below:
     //     for constructors - to generate the contract address, function leaf, etc
     //     for private calls - to generate the function leaf, etc
-    auto const private_circuit_vk = is_circuit ? gen_func_vk(is_constructor, func, args_vec.size()) : utils::fake_vk();
+    auto private_circuit_vk = is_circuit ? gen_func_vk(is_constructor, func, args_vec.size()) : utils::fake_vk();
+    // auto const private_circuit_vk = is_circuit ? gen_func_vk(is_constructor, func, args_vec.size()) :
+    // utils::fake_vk();
+
+    // std::stringstream strm;
+    std::vector<uint8_t> vk_buf;
+    write(vk_buf, *private_circuit_vk);
+    std::string vk_data_file = "../src/aztec3/circuits/kernel/private/valid_ultra_plonk_verification_key.bin";
+    utils::write_buffer_to_file(vk_buf, vk_data_file);
+
+    auto new_vk_buf = utils::read_buffer_from_file(vk_data_file);
+
+    // verification_key_data result;
+    NT::VK new_vk;
+    read(new_vk_buf, new_vk);
+    // auto vk_buf = private_circuit_vk->write()
+
+    ASSERT(new_vk.circuit_size == private_circuit_vk->circuit_size);
+    ASSERT(new_vk.as_data() == private_circuit_vk->as_data());
+
+    private_circuit_vk->as_data() = new_vk.as_data();
+
 
     const NT::fr private_circuit_vk_hash =
         stdlib::recursion::verification_key<CT::bn254>::compress_native(private_circuit_vk, GeneratorIndex::VK);
+    const NT::fr private_circuit_vk_hash_new = stdlib::recursion::verification_key<CT::bn254>::compress_native(
+        std::make_shared<NT::VK>(new_vk), GeneratorIndex::VK);
+
+    ASSERT(private_circuit_vk_hash == private_circuit_vk_hash_new);
 
     ContractDeploymentData<NT> contract_deployment_data{};
     NT::fr contract_tree_root = 0;  // TODO(david) set properly for constructor?
@@ -267,7 +298,7 @@ std::pair<PrivateCallData<NT>, ContractDeploymentData<NT>> create_private_call_d
      * multi-iterative kernel circuit, this should be fine.
      */
     PrivateCircuitPublicInputs<NT> private_circuit_public_inputs;
-    NT::Proof private_circuit_proof;
+    NT::Proof private_circuit_proof = utils::get_proof_from_file();
     if (is_circuit) {
         //***************************************************************************
         // Create a private circuit/call using composer, oracles, execution context
@@ -297,10 +328,6 @@ std::pair<PrivateCallData<NT>, ContractDeploymentData<NT>> create_private_call_d
 
         private_circuit_public_inputs.encrypted_logs_hash = encrypted_logs_hash;
         private_circuit_public_inputs.encrypted_log_preimages_length = encrypted_log_preimages_length;
-
-        // Create a real proof
-        auto private_circuit_prover = private_circuit_composer.create_prover();
-        private_circuit_proof = private_circuit_prover.construct_proof();
     } else {
         private_circuit_public_inputs = PrivateCircuitPublicInputs<NT>{
             .call_context = call_context,
