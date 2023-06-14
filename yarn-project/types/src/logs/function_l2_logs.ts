@@ -40,7 +40,9 @@ export class FunctionL2Logs {
    * @returns 2 fields containing all 256 bits of information of sha256 hash.
    */
   public hash(): [Fr, Fr] {
-    const hash = sha256(this.toBuffer());
+    // Remove first 4 bytes that are occupied by length which is not part of the preimage in contracts and L2Blocks
+    const preimage = this.toBuffer().subarray(4);
+    const hash = sha256(preimage);
 
     // TS version of https://github.com/AztecProtocol/aztec-packages/blob/e2e3bf1dbeda5199060fb1711200d20414557cd4/circuits/cpp/src/aztec3/circuits/hash.hpp#L330
     // Split the hash into two fields, a high and a low
