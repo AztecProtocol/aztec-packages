@@ -109,52 +109,6 @@ get_random_reads(NT::fr const& contract_address, int const num_read_requests)
     return { read_requests, read_request_membership_witnesses, private_data_tree.root() };
 }
 
-/**
- * @brief Generate a verification key for a private circuit.
- *
- * @details Use some dummy inputs just to get the VK for a private circuit
- *
- * @param is_constructor Whether this private call is a constructor call
- * @param func The private circuit call to generate a VK for
- * @param num_args Number of args to that private circuit call
- * @return std::shared_ptr<NT::VK> - the generated VK
- */
-std::shared_ptr<NT::VK> gen_func_vk(bool is_constructor, private_function const& func, size_t const num_args)
-{
-    // Some dummy inputs to get the circuit to compile and get a VK
-    FunctionData<NT> const dummy_function_data{
-        .is_private = true,
-        .is_constructor = is_constructor,
-    };
-
-    CallContext<NT> const dummy_call_context{
-        .is_contract_deployment = is_constructor,
-    };
-
-    // Dummmy invokation of private call circuit, in order to derive its vk
-    Composer dummy_composer = Composer("../barretenberg/cpp/srs_db/ignition");
-    {
-        DB dummy_db;
-        NativeOracle dummy_oracle = is_constructor
-                                        ? NativeOracle(dummy_db, 0, dummy_function_data, dummy_call_context, {}, 0)
-                                        : NativeOracle(dummy_db, 0, dummy_function_data, dummy_call_context, 0);
-
-        OracleWrapper dummy_oracle_wrapper = OracleWrapper(dummy_composer, dummy_oracle);
-
-        FunctionExecutionContext dummy_ctx(dummy_composer, dummy_oracle_wrapper);
-
-        // if args are value 0, deposit circuit errors when inserting utxo notes
-        std::vector<NT::fr> const dummy_args = { 1, 1, 1, 1, 1, 1, 1, 1 };
-        // Make call to private call circuit itself to lay down constraints
-        func(dummy_ctx, dummy_args);
-        // FIXME remove arg
-        (void)num_args;
-    }
-
-    // Now we can derive the vk:
-    return dummy_composer.compute_verification_key();
-}
-
 std::pair<PrivateCallData<NT>, ContractDeploymentData<NT>> create_private_call_deploy_data(
     bool const is_constructor,
     private_function const& func,
