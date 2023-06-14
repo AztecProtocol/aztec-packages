@@ -30,6 +30,11 @@ std::vector<uint8_t> read_buffer_from_file(const std::string& filename)
     std::ifstream file(filename, std::ios::binary);
     std::vector<uint8_t> buf;
 
+    if (!(access(filename.c_str(), F_OK) == 0)) {
+        std::cout << "File does not exist: " << filename << std::endl;
+        return buf;
+    }
+
     if (file.is_open()) {
         // Get the file size by seeking to the end of the file
         file.seekg(0, std::ios::end);
