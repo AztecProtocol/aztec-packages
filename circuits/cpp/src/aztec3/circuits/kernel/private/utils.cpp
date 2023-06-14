@@ -73,14 +73,14 @@ std::vector<uint8_t> read_buffer_from_file(const std::string& filename)
 NT::Proof get_proof_from_file()
 {
     NT::Proof proof;
-    const std::string proof_data_file = "../src/aztec3/circuits/kernel/private/valid_ultra_plonk_proof.dat";
+    const std::string proof_data_file = "../src/aztec3/circuits/kernel/private/fixtures/ultra_plonk_proof.dat";
     proof.proof_data = read_buffer_from_file(proof_data_file);
     return proof;
 }
 
 std::shared_ptr<NT::VK> get_verification_key_from_file()
 {
-    const std::string vk_data_file = "../src/aztec3/circuits/kernel/private/valid_ultra_plonk_verification_key.dat";
+    const std::string vk_data_file = "../src/aztec3/circuits/kernel/private/fixtures/ultra_plonk_verification_key.dat";
     auto vk_buf = utils::read_buffer_from_file(vk_data_file);
     NT::VK new_vk;
     const uint8_t* vk_iter = vk_buf.data();
