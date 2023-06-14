@@ -60,15 +60,16 @@ contract NonNativeToken {
         //*********************************/
         amount: pub Field, 
         owner: pub Point,
+        owner_address: pub Field,
         // This field should be hidden
         msg_key: pub Field,
         secret: pub Field,
         canceller: pub Field,
     ) -> pub [Field; dep::aztec3::abi::PUBLIC_INPUTS_LENGTH] {
         let mut context = PrivateFunctionContext::new();
-        context.args = context.args.push_array([amount, owner.x, owner.y, msg_key, secret]);
+        context.args = context.args.push_array([amount, owner.x, owner.y, owner_address, msg_key, secret]);
 
-        let content_hash = _get_mint_content_hash(amount, owner.x);
+        let content_hash = _get_mint_content_hash(amount, owner_address);
 
         // Get the l1 message from an oracle call
         let updated_context = context.consume_l1_to_l2_message(inputs, msg_key, content_hash, secret);
@@ -138,11 +139,12 @@ contract NonNativeToken {
         //*********************************/
         amount: Field, 
         owner: Point,
+        owner_address: Field,
         // This field should be hidden
         msg_key: Field,
         secret: Field,
     ) -> Field {
-        let content_hash = _get_mint_content_hash(amount, owner.x);
+        let content_hash = _get_mint_content_hash(amount, owner_address);
 
         // Consume message and emit nullifier
         consume_l1_to_l2_message_public(inputs, msg_key, content_hash, secret);
@@ -235,10 +237,11 @@ contract NonNativeToken {
     }
 
 
-    fn _get_mint_content_hash(amount: Field, owner: Field) -> pub Field {
+    fn _get_mint_content_hash(amount: Field, owner_address: Field) -> pub Field {
         let mut hash_bytes: [u8; 68] = [0; 68];
         let amount_bytes = amount.to_be_bytes(32);
-        let recipient_bytes = owner.to_be_bytes(32);
+        let recipient_bytes = owner_address.to_be_bytes(32);
+        let canceller_bytes = canceller.to_be_bytes(32);
 
         // Once loops are performant this will be moved into l1 message
         // Unroll loops because otherwise takes forever to compile
