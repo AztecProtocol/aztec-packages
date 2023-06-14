@@ -31,7 +31,7 @@ std::vector<uint8_t> read_buffer_from_file(const std::string& filename)
     if (file.is_open()) {
         // Get the file size by seeking to the end of the file
         file.seekg(0, std::ios::end);
-        std::streampos fileSize = file.tellg();
+        const std::streampos fileSize = file.tellg();
         file.seekg(0, std::ios::beg);
 
         // Resize the vector to hold the file contents
@@ -57,14 +57,14 @@ std::vector<uint8_t> read_buffer_from_file(const std::string& filename)
 NT::Proof get_proof_from_file()
 {
     NT::Proof proof;
-    std::string proof_data_file = "../src/aztec3/circuits/kernel/private/valid_ultra_plonk_proof.bin";
+    const std::string proof_data_file = "../src/aztec3/circuits/kernel/private/valid_ultra_plonk_proof.bin";
     proof.proof_data = read_buffer_from_file(proof_data_file);
     return proof;
 }
 
 std::shared_ptr<NT::VK> get_verification_key_from_file()
 {
-    std::string vk_data_file = "../src/aztec3/circuits/kernel/private/valid_ultra_plonk_verification_key.bin";
+    const std::string vk_data_file = "../src/aztec3/circuits/kernel/private/valid_ultra_plonk_verification_key.bin";
     auto vk_buf = utils::read_buffer_from_file(vk_data_file);
     NT::VK new_vk;
     const uint8_t* vk_iter = vk_buf.data();

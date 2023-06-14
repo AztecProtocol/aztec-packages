@@ -226,7 +226,7 @@ std::pair<PrivateCallData<NT>, ContractDeploymentData<NT>> create_private_call_d
      * multi-iterative kernel circuit, this should be fine.
      */
     PrivateCircuitPublicInputs<NT> private_circuit_public_inputs;
-    NT::Proof private_circuit_proof = utils::get_proof_from_file();
+    const NT::Proof private_circuit_proof = utils::get_proof_from_file();
     if (is_circuit) {
         //***************************************************************************
         // Create a private circuit/call using composer, oracles, execution context
