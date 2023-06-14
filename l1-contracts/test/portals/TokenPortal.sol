@@ -29,8 +29,6 @@ contract TokenPortal {
    * @param _deadline - The timestamp after which the entry can be cancelled
    * @param _secretHash - The hash of the secret consumable message
    * @param _canceller - The address that can cancel the L1 to L2 message.
-   * The message content is hashed with this address to prevent anyone else from cancelling the message.
-   * (at cancellation, message content is hashed with the caller of the function)
    * @return The key of the entry in the Inbox
    */
   function depositToAztec(
@@ -59,9 +57,7 @@ contract TokenPortal {
 
   /**
    * @notice Cancel the L1 to L2 message
-   * @dev message content is also hashed with the msg.sender. This ensures only the caller
-   * can actually cancel the message and retrieve their funds back
-   * (since the message key would be different to the key dervied when depositing)
+   * @dev only callable by the `canceller` of the message
    * @param _to - The aztec address of the recipient in the original message
    * @param _amount - The amount to deposit per the original message
    * @param _deadline - The timestamp after which the entry can be cancelled
