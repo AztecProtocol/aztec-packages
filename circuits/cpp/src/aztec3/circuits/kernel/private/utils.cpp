@@ -30,11 +30,6 @@ std::vector<uint8_t> read_buffer_from_file(const std::string& filename)
     std::ifstream file(filename, std::ios::binary);
     std::vector<uint8_t> buf;
 
-    if (!(access(filename.c_str(), F_OK) == 0)) {
-        std::cout << "File does not exist: " << filename << std::endl;
-        return buf;
-    }
-
     if (file.is_open()) {
         // Get the file size by seeking to the end of the file
         file.seekg(0, std::ios::end);
@@ -49,16 +44,7 @@ std::vector<uint8_t> read_buffer_from_file(const std::string& filename)
 
         file.close();
     } else {
-        std::string current_dir;
-        std::vector<char> cwd_buf(PATH_MAX);
-        if (getcwd(cwd_buf.data(), cwd_buf.size()) != nullptr) {
-            current_dir = cwd_buf.data();
-            std::string full_path = current_dir + "/" + filename;
-
-            std::cout << "Unable to open file for reading: " << full_path << std::endl;
-        } else {
-            std::cout << "Unable to get the current working directory." << std::endl;
-        }
+        std::cout << "Unable to open the file: " << filename << std::endl;
     }
 
     return buf;
