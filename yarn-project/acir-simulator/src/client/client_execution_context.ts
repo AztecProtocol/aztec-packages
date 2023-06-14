@@ -19,7 +19,7 @@ type ACVMWithReadRequestIndex = {
   index: bigint;
   /** The formatted data. */
   acvmData: ACVMField[];
-}
+};
 
 /**
  * The execution context for a client tx simulation.
