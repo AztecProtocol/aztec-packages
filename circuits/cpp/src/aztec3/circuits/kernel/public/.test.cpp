@@ -497,6 +497,7 @@ TEST(public_kernel_tests, only_valid_public_data_reads_should_be_propagated)
     inputs.public_call.call_stack_item.public_inputs.contract_storage_reads = reads;
 
     auto public_inputs = native_public_kernel_circuit_private_previous_kernel(dummyComposer, inputs);
+    ASSERT_EQ(dummyComposer.get_first_failure(), utils::CircuitError::no_error());
     ASSERT_FALSE(dummyComposer.failed());
 
     ASSERT_FALSE(public_inputs.is_private);
@@ -538,6 +539,7 @@ TEST(public_kernel_tests, only_valid_update_requests_should_be_propagated)
     inputs.public_call.call_stack_item.public_inputs.contract_storage_update_requests = update_requests;
 
     auto public_inputs = native_public_kernel_circuit_private_previous_kernel(dummyComposer, inputs);
+    ASSERT_EQ(dummyComposer.get_first_failure(), utils::CircuitError::no_error());
     ASSERT_FALSE(dummyComposer.failed());
 
     ASSERT_FALSE(public_inputs.is_private);
@@ -600,6 +602,7 @@ TEST(public_kernel_tests, storage_contract_address_must_equal_contract_address)
     const NT::fr contract_address = inputs.public_call.call_stack_item.contract_address;
     inputs.public_call.call_stack_item.public_inputs.call_context.storage_contract_address = contract_address + 1;
     auto public_inputs = native_public_kernel_circuit_private_previous_kernel(dummyComposer, inputs);
+    ASSERT_EQ(dummyComposer.get_first_failure(), utils::CircuitError::no_error());
     ASSERT_TRUE(dummyComposer.failed());
     ASSERT_EQ(dummyComposer.get_first_failure().code, CircuitErrorCode::PUBLIC_KERNEL__CONTRACT_ADDRESS_MISMATCH);
 }
@@ -855,6 +858,7 @@ TEST(public_kernel_tests, public_kernel_circuit_only_checks_non_empty_call_stack
         call_stack_hashes[i] = 0;
     }
     auto public_inputs = native_public_kernel_circuit_private_previous_kernel(dummyComposer, inputs);
+    ASSERT_EQ(dummyComposer.get_first_failure(), utils::CircuitError::no_error());
     ASSERT_FALSE(dummyComposer.failed());
 }
 
