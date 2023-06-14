@@ -428,7 +428,7 @@ library Decoder {
   /**
    * @notice Computes logs hash as is done in the kernel and app circuits.
    * @param _offset - The offset of kernel's logs in calldata.
-   * @param - The L2 block calldata.
+   * @param _l2Block - The L2 block calldata.
    * @return The hash of the logs and offset pointing to the end of the logs in calldata.
    * @dev We have logs preimages on the input and we need to perform the same hashing process as is done in the app
    *      circuit (hashing the logs) and in the kernel circuit (accumulating the logs hashes). In each iteration of
@@ -457,7 +457,7 @@ library Decoder {
    * @dev Link to a relevant discussion:
    *      https://discourse.aztec.network/t/proposal-forcing-the-sequencer-to-actually-submit-data-to-l1/426/9
    */
-  function computeKernelLogsHash(uint256 _offset, bytes calldata /* _l2Block */ )
+  function computeKernelLogsHash(uint256 _offset, bytes calldata _l2Block)
     internal
     pure
     returns (bytes32, uint256)
@@ -465,11 +465,12 @@ library Decoder {
     uint256 remainingLogsLength;
     uint256 offset;
     assembly {
+      offset := add(_offset, _l2Block.offset)
       // Set the remaining logs length to the total logs length
       // Loads 32 bytes from calldata, shifts right by 224 bits and masks the result with 0xffffffff
-      remainingLogsLength := and(shr(224, calldataload(_offset)), 0xffffffff)
+      remainingLogsLength := and(shr(224, calldataload(offset)), 0xffffffff)
       // Move the calldata offset by the 4 bytes we just read
-      offset := add(_offset, 0x4)
+      offset := add(offset, 0x4)
     }
 
     bytes32[2] memory logsHashes; // A memory to which we will write the 2 logs hashes to be accumulated
