@@ -725,27 +725,19 @@ export class L2Block {
    *       for more details.
    */
   static computeKernelLogsHash(logs: TxL2Logs): Buffer {
-    // TODO: Don't convert to buffer here and instead use the decoded values directly.
-    const reader = new BufferReader(logs.toBuffer());
-
-    let remainingLogsLength = reader.readNumber();
     const logsHashes: [Buffer, Buffer] = [Buffer.alloc(32), Buffer.alloc(32)];
     let kernelPublicInputsLogsHash = Buffer.alloc(32);
 
-    while (remainingLogsLength > 0) {
-      const iterationLogsLength = reader.readNumber();
-      const iterationLogs = reader.readBytes(iterationLogsLength);
-
-      const privateCircuitPublicInputsLogsHash = sha256(iterationLogs);
+    for (const functionLogs of logs.functionLogs) {
+      // Remove first 4 bytes that are occupied by length which is not part of the preimage in contracts and L2Blocks
+      const functionLogsPreimage = functionLogs.toBuffer().subarray(4);
+      const privateCircuitPublicInputsLogsHash = sha256(functionLogsPreimage);
 
       logsHashes[0] = kernelPublicInputsLogsHash;
       logsHashes[1] = privateCircuitPublicInputsLogsHash;
 
       // Hash logs hash from the public inputs of previous kernel iteration and logs hash from private circuit public inputs
       kernelPublicInputsLogsHash = sha256(Buffer.concat(logsHashes));
-
-      // Decrease remaining logs length by this iteration's logs length (len(I?_LOGS)) and 4 bytes for I?_LOGS_LEN
-      remainingLogsLength -= iterationLogsLength + 4;
     }
 
     return kernelPublicInputsLogsHash;
