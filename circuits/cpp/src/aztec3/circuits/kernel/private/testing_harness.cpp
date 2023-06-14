@@ -26,7 +26,6 @@
 #include <barretenberg/barretenberg.hpp>
 
 #include <cstdint>
-#include <filesystem>
 #include <memory>
 #include <vector>
 

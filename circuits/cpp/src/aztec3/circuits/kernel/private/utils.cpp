@@ -5,7 +5,6 @@
 
 #include <barretenberg/barretenberg.hpp>
 
-#include <filesystem>
 #include <memory>
 
 namespace {
@@ -17,22 +16,6 @@ using aztec3::circuits::mock::mock_kernel_circuit;
 }  // namespace
 
 namespace aztec3::circuits::kernel::private_kernel::utils {
-
-void write_buffer_to_file(const std::vector<uint8_t>& vec, const std::string& filename)
-{
-    std::ofstream file(filename, std::ios::binary);
-
-    if (file.is_open()) {
-        std::filesystem::path absolutePath = std::filesystem::absolute(filename);
-        std::cout << "Opened file: " << absolutePath << std::endl;
-
-        file.write(reinterpret_cast<const char*>(vec.data()),
-                   static_cast<std::streamsize>(vec.size() * sizeof(uint8_t)));
-        file.close();
-    } else {
-        std::cout << "Unable to open file for writing: " << filename << std::endl;
-    }
-}
 
 /**
  * @brief Utility for reading into a vector<uint8_t> from file
