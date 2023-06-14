@@ -131,6 +131,12 @@ export class L2Block {
      */
     newEncryptedLogs?: L2BlockL2Logs,
   ) {
+    if (newCommitments.length % KERNEL_NEW_COMMITMENTS_LENGTH !== 0) {
+      throw new Error(
+        `The number of new commitments must be a multiple of ${KERNEL_NEW_COMMITMENTS_LENGTH}.`,
+      );
+    }
+
     if (newEncryptedLogs) {
       this.attachEncryptedLogs(newEncryptedLogs);
     }
