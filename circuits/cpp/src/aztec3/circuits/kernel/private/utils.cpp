@@ -38,7 +38,7 @@ std::vector<uint8_t> read_buffer_from_file(const std::string& filename)
         buf.resize(static_cast<size_t>(fileSize));
 
         // Read the file contents into the vector
-        file.read(reinterpret_cast<char*>(buf.data()), fileSize);
+        file.read(reinterpret_cast<char*>(buf.data()), static_cast<std::streamsize>(fileSize));
 
         file.close();
     } else {
