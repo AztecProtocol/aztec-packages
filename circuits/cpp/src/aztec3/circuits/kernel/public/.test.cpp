@@ -359,7 +359,7 @@ PublicKernelInputs<NT> get_kernel_inputs_with_previous_kernel(NT::boolean privat
         .public_inputs = public_circuit_public_inputs,
     };
 
-    PublicCallData<NT> public_call_data = {
+    const PublicCallData<NT> public_call_data = {
         .call_stack_item = call_stack_item,
         .public_call_stack_preimages = child_call_stacks,
         .portal_contract_address = portal_contract_address,
