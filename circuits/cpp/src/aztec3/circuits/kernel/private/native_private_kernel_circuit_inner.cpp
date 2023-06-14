@@ -136,6 +136,7 @@ KernelCircuitPublicInputs<NT> native_private_kernel_circuit_inner(DummyComposer&
     validate_inputs(composer, private_inputs);
 
     // TODO(jeanmon) Resuscitate after issue 499 is fixed as explained below.
+    // Remove the array_pop below when uncommenting this validation.
     // validate_this_private_call_hash(composer, private_inputs, public_inputs);
     array_pop(public_inputs.end.private_call_stack);
 
