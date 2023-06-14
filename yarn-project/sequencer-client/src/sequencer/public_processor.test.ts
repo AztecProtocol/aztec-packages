@@ -277,6 +277,7 @@ function makePublicExecutionResultFromRequest(item: PublicCallRequest): PublicEx
     returnValues: [new Fr(1n)],
     newCommitments: [],
     newL2ToL1Messages: [],
+    newNullifiers: [],
     contractStorageReads: [],
     contractStorageUpdateRequests: [],
   };
@@ -298,6 +299,7 @@ function makePublicExecutionResult(
     nestedExecutions,
     returnValues: [],
     newCommitments: [],
+    newNullifiers: [],
     newL2ToL1Messages: [],
     contractStorageReads: [],
     contractStorageUpdateRequests: [],

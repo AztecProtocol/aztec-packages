@@ -69,7 +69,7 @@ contract NonNativeToken {
         let mut context = PrivateFunctionContext::new();
         context.args = context.args.push_array([amount, owner.x, owner.y, owner_address, msg_key, secret]);
 
-        let content_hash = _get_mint_content_hash(amount, owner_address);
+        let content_hash = _get_mint_content_hash(amount, owner_address, canceller);
 
         // Get the l1 message from an oracle call
         let updated_context = context.consume_l1_to_l2_message(inputs, msg_key, content_hash, secret);
@@ -143,8 +143,9 @@ contract NonNativeToken {
         // This field should be hidden
         msg_key: Field,
         secret: Field,
+        canceller: Field
     ) -> Field {
-        let content_hash = _get_mint_content_hash(amount, owner_address);
+        let content_hash = _get_mint_content_hash(amount, owner_address, canceller);
 
         // Consume message and emit nullifier
         consume_l1_to_l2_message_public(inputs, msg_key, content_hash, secret);
@@ -237,8 +238,8 @@ contract NonNativeToken {
     }
 
 
-    fn _get_mint_content_hash(amount: Field, owner_address: Field) -> pub Field {
-        let mut hash_bytes: [u8; 68] = [0; 68];
+    fn _get_mint_content_hash(amount: Field, owner_address: Field, canceller: Field) -> pub Field {
+        let mut hash_bytes: [u8; 100] = [0; 100];
         let amount_bytes = amount.to_be_bytes(32);
         let recipient_bytes = owner_address.to_be_bytes(32);
         let canceller_bytes = canceller.to_be_bytes(32);
