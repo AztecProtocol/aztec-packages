@@ -126,14 +126,10 @@ PreviousKernelData<NT> dummy_previous_kernel(bool real_vk_proof = false)
     Composer mock_kernel_composer = Composer(crs_factory);
     auto mock_kernel_public_inputs = mock_kernel_circuit(mock_kernel_composer, init_previous_kernel.public_inputs);
 
-    // NT::Proof const mock_kernel_proof =
-    //     real_vk_proof ? get_proof_from_file() : NT::Proof{ .proof_data = std::vector<uint8_t>(64, 0) };
-    auto mock_kernel_prover = mock_kernel_composer.create_prover();
     NT::Proof const mock_kernel_proof =
-        real_vk_proof ? mock_kernel_prover.construct_proof() : NT::Proof{ .proof_data = std::vector<uint8_t>(64, 0) };
+        real_vk_proof ? get_proof_from_file() : NT::Proof{ .proof_data = std::vector<uint8_t>(64, 0) };
 
-    std::shared_ptr<NT::VK> const mock_kernel_vk =
-        real_vk_proof ? mock_kernel_composer.compute_verification_key() : fake_vk();
+    std::shared_ptr<NT::VK> const mock_kernel_vk = real_vk_proof ? get_verification_key_from_file() : fake_vk();
 
     PreviousKernelData<NT> previous_kernel = {
         .public_inputs = mock_kernel_public_inputs,
