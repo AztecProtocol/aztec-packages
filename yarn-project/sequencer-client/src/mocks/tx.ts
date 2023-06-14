@@ -1,20 +1,6 @@
-import {
-  FunctionData,
-  KERNEL_PUBLIC_CALL_STACK_LENGTH,
-  KernelCircuitPublicInputs,
-  makeEmptyProof,
-  range,
-} from '@aztec/circuits.js';
-import {
-  fr,
-  makeAztecAddress,
-  makeEcdsaSignature,
-  makeKernelPublicInputs,
-  makePublicCallRequest,
-  makeSelector,
-  makeTxContext,
-} from '@aztec/circuits.js/factories';
-import { FunctionL2Logs, Tx, TxExecutionRequest, TxL2Logs } from '@aztec/types';
+import { KERNEL_PUBLIC_CALL_STACK_LENGTH, makeEmptyProof } from '@aztec/circuits.js';
+import { makeKernelPublicInputs, makePublicCallRequest } from '@aztec/circuits.js/factories';
+import { FunctionL2Logs, Tx, TxL2Logs } from '@aztec/types';
 import times from 'lodash.times';
 
 /**
