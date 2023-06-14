@@ -1,19 +1,20 @@
 import { createMemDown, getConfigEnvVars } from '@aztec/aztec-node';
-import { EthAddress } from '@aztec/foundation/eth-address';
-import { Fr } from '@aztec/foundation/fields';
 import {
+  AztecAddress,
   KERNEL_NEW_COMMITMENTS_LENGTH,
   KERNEL_NEW_L2_TO_L1_MSGS_LENGTH,
   KERNEL_NEW_NULLIFIERS_LENGTH,
+  KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH,
   KernelCircuitPublicInputs,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   PublicDataUpdateRequest,
-  KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH,
-  range,
   makeTuple,
-  AztecAddress,
+  range,
 } from '@aztec/circuits.js';
 import { fr, makeNewContractData, makeProof } from '@aztec/circuits.js/factories';
+import { deployL1Contracts } from '@aztec/ethereum';
+import { EthAddress } from '@aztec/foundation/eth-address';
+import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { DecoderHelperAbi, InboxAbi, OutboxAbi, RollupAbi } from '@aztec/l1-artifacts';
 import {
@@ -26,8 +27,9 @@ import {
   getVerificationKeys,
   makeEmptyProcessedTx as makeEmptyProcessedTxFromHistoricTreeRoots,
   makeProcessedTx,
-  makePublicTx,
+  makeTx,
 } from '@aztec/sequencer-client';
+import { L2Actor } from '@aztec/types';
 import { MerkleTreeOperations, MerkleTrees } from '@aztec/world-state';
 import { beforeEach, describe, expect, it } from '@jest/globals';
 import { default as levelup } from 'levelup';
@@ -44,8 +46,6 @@ import {
   getContract,
 } from 'viem';
 import { PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts';
-import { deployL1Contracts } from '@aztec/ethereum';
-import { L2Actor } from '@aztec/types';
 import { localAnvil } from './fixtures.js';
 
 // Accounts 4 and 5 of Anvil default startup with mnemonic: 'test test test test test test test test test test test junk'
@@ -152,7 +152,7 @@ describe('L1Publisher integration', () => {
   };
 
   const makeBloatedProcessedTx = async (seed = 0x1) => {
-    const publicTx = makePublicTx(seed);
+    const publicTx = makeTx(seed);
     const kernelOutput = KernelCircuitPublicInputs.empty();
     kernelOutput.constants.historicTreeRoots = await getCombinedHistoricTreeRoots(builderDb);
     kernelOutput.end.publicDataUpdateRequests = makeTuple(
