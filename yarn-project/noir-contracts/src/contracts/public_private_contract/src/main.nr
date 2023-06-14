@@ -40,14 +40,13 @@ contract PublicPrivate {
         amount: Field,
         secretHash: Field,
         _padding: [Field; dep::aztec3::abi::MAX_ARGS - 3]
-    ) -> Field{
+    ) {
     
         // Create a commitment to the amount
         let note = TransparentNote::new(amount, secretHash);
         
         // Public oracle call to emit new commitment.
         create_commitment(note.get_commitment());
-        0
     }
 
     open fn createL2ToL1MessagePublic(
@@ -55,14 +54,13 @@ contract PublicPrivate {
         amount: Field,
         secretHash: Field,
         _padding: [Field; dep::aztec3::abi::MAX_ARGS - 3]
-    ) -> Field {
+    ) {
     
         // Create a commitment to the amount
         let note = TransparentNote::new(amount, secretHash);
         
         // Public oracle call to emit new commitment.
         create_l2_to_l1_message(note.get_commitment());
-        0
     }
 
 
@@ -77,7 +75,7 @@ contract PublicPrivate {
 
         // Assert that the note exists within the tree
         let public_note = TransparentNote::new_from_secret(amount, secret);
-        context = public_note.consume_in_private(context, inputs.roots.private_data_tree_root, secret);
+        context = public_note.consume_in_secret(context, inputs.roots.private_data_tree_root, secret);
 
         // Mint the tokens
         let owner_balance = balances.at(owner.x);

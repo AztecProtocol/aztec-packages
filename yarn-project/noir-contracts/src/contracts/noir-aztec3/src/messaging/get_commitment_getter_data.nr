@@ -1,6 +1,4 @@
-use crate::messaging::l1_to_l2_message::L1_TO_L2_MESSAGE_LEN;
-use crate::messaging::l1_to_l2_message::L1ToL2Message;
-use crate::utils::arr_copy_slice;
+use crate::oracle::get_commitment::COMMITMENT_GETTER_LENGTH;
 
 struct CommitmentGetterData {
     message: Field,
@@ -8,12 +6,7 @@ struct CommitmentGetterData {
     root: Field,
 }
 
-fn commitment_message_getter_len() -> comptime Field {
-    1 + 1 + 1
-}
-
-// TODO: 3 as const
-fn make_commitment_getter_data(fields: [Field; 3], start: comptime Field) -> CommitmentGetterData {
+fn make_commitment_getter_data(fields: [Field; COMMITMENT_GETTER_LENGTH], start: comptime Field) -> CommitmentGetterData {
     CommitmentGetterData {
         message: fields[start],
         leaf_index: fields[start + 1],

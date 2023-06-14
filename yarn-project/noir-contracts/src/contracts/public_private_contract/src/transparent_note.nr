@@ -36,7 +36,7 @@ impl TransparentNote {
         pedersen([self.amount, self.secretHash])[0]
     }
 
-    fn consume_in_private(self: Self, mut context: PrivateFunctionContext, root: Field, secret: Field) -> PrivateFunctionContext {
+    fn consume_in_secret(self: Self, mut context: PrivateFunctionContext, root: Field, secret: Field) -> PrivateFunctionContext {
         // Get the commitment value (before silo)
         let commitment = self.get_commitment();
 

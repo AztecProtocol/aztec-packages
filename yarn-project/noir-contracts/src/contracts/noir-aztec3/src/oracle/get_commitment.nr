@@ -1,6 +1,5 @@
 // Oracle function to get a commitment, its sibling path and index, without getting its preimage.
 
-
 // commitment + index + root;
 global COMMITMENT_GETTER_LENGTH = 3;
 
