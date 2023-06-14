@@ -5,6 +5,8 @@
 
 #include <barretenberg/barretenberg.hpp>
 
+#include <unistd.h>
+
 #include <memory>
 
 namespace {
@@ -42,7 +44,16 @@ std::vector<uint8_t> read_buffer_from_file(const std::string& filename)
 
         file.close();
     } else {
-        std::cout << "Unable to open file for reading: " << filename << std::endl;
+        std::string current_dir;
+        std::vector<char> cwd_buf(PATH_MAX);
+        if (getcwd(cwd_buf.data(), cwd_buf.size()) != nullptr) {
+            current_dir = cwd_buf.data();
+            std::string full_path = current_dir + "/" + filename;
+
+            std::cout << "Unable to open file for reading: " << full_path << std::endl;
+        } else {
+            std::cout << "Unable to get the current working directory." << std::endl;
+        }
     }
 
     return buf;
