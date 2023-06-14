@@ -12,6 +12,16 @@ import {
 import { NoteLoadOracleInputs, DBOracle } from './db_oracle.js';
 
 /**
+ * A type that wraps data with it's read request index
+ */
+type ACVMWithReadRequestIndex = {
+  /** The index of the data in the tree. */
+  index: bigint;
+  /** The formatted data. */
+  acvmData: ACVMField[];
+}
+
+/**
  * The execution context for a client tx simulation.
  */
 export class ClientTxExecutionContext {
@@ -105,7 +115,7 @@ export class ClientTxExecutionContext {
    * @param commitment - The commitment.
    * @returns The commitment data.
    */
-  public async getCommitment(contractAddress: AztecAddress, commitment: Fr) {
+  public async getCommitment(contractAddress: AztecAddress, commitment: Fr): Promise<ACVMWithReadRequestIndex> {
     const commitmentInputs = await this.db.getCommitmentOracle(contractAddress, commitment);
     return {
       acvmData: toAcvmCommitmentLoadOracleInputs(commitmentInputs, this.historicRoots.privateDataTreeRoot),

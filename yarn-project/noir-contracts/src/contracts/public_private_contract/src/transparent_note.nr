@@ -31,7 +31,7 @@ impl TransparentNote {
     }
 
     // Gets the value of the commitment
-    // TODO(maddiaa): this will need to be hashed with a slot to keep it unique, which slot to pick?
+    // TODO(maddiaa): this will need to be hashed with a slot to keep it unique, which slot to pick? https://github.com/AztecProtocol/aztec-packages/issues/847 
     fn get_commitment(self: Self) -> Field {
         pedersen([self.amount, self.secretHash])[0]
     }

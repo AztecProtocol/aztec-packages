@@ -71,7 +71,6 @@ export class PublicExecutor {
       viewNotesPage: notAvailable,
       debugLog: notAvailable,
 
-      // TODO(Maddiaa): both getL1ToL2 and getCommitment share alot of code with the private conterpart? could be refactored
       getL1ToL2Message: async ([msgKey]: ACVMField[]) => {
         const messageInputs = await this.commitmentsDb.getL1ToL2Message(fromACVMField(msgKey));
         return toAcvmL1ToL2MessageLoadOracleInputs(messageInputs, this.treeRoots.l1ToL2MessagesTreeRoot);
