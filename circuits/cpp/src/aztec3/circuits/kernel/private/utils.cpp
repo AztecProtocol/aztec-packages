@@ -64,6 +64,11 @@ NT::Proof get_proof_from_file()
     return proof;
 }
 
+/**
+ * @brief Utility for constructing a verification key from vrification_key_data stored in file
+ * @details This verification key cooresponds to the UP proof stored in ultra_plonk_proof.dat
+ * @return std::shared_ptr<NT::VK>
+ */
 std::shared_ptr<NT::VK> get_verification_key_from_file()
 {
     const std::string vk_data_file = "../src/aztec3/circuits/kernel/private/fixtures/ultra_plonk_verification_key.dat";
