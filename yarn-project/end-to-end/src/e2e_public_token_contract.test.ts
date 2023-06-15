@@ -1,5 +1,5 @@
 import { AztecNodeService } from '@aztec/aztec-node';
-import { AztecAddress, AztecRPCServer, Contract, ContractDeployer, Fr, TxStatus } from '@aztec/aztec.js';
+import { AztecAddress, AztecRPCServer, Contract, ContractDeployer, TxStatus } from '@aztec/aztec.js';
 import { DebugLogger } from '@aztec/foundation/log';
 import { PublicTokenContractAbi } from '@aztec/noir-contracts/examples';
 

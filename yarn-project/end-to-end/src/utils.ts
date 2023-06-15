@@ -1,4 +1,4 @@
-import { AztecNode, AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
+import { AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
 import { DebugLogger, Logger, createDebugLogger } from '@aztec/foundation/log';
 import { Fr } from '@aztec/foundation/fields';
 
@@ -272,6 +272,12 @@ export function delay(ms: number): Promise<void> {
   return new Promise<void>(resolve => setTimeout(resolve, ms));
 }
 
+/**
+ * Calculates the slot value of a mapping within noir.
+ * @param slot - The storage slot of the mapping.
+ * @param key - The key within the mapping.
+ * @returns The mapping's key.
+ */
 export async function calculateStorageSlot(slot: bigint, key: Fr): Promise<Fr> {
   const wasm = await CircuitsWasm.get();
   const balancesStorageSlot = new Fr(slot); // this value is manually set in the Noir contract
@@ -289,13 +295,22 @@ export async function calculateStorageSlot(slot: bigint, key: Fr): Promise<Fr> {
   return storageSlot; //.value;
 }
 
+/**
+ * Check the value of a public mapping's storage slot.
+ * @param logger - A logger instance.
+ * @param aztecNode - An instance of the aztec node service.
+ * @param contract - The contract to check the storage slot of.
+ * @param slot - The mapping's storage slot.
+ * @param key - The mapping's key.
+ * @param expectedValue - The expected value of the mapping.
+ */
 export async function expectStorageSlot(
   logger: Logger,
   aztecNode: AztecNodeService,
   contract: Contract,
   slot: bigint,
   key: Fr,
-  expectedBalance: bigint,
+  expectedValue: bigint,
 ) {
   const storageSlot = await calculateStorageSlot(slot, key);
   const storageValue = await aztecNode.getStorageAt(contract.address!, storageSlot.value);
@@ -306,5 +321,5 @@ export async function expectStorageSlot(
   const balance = toBigIntBE(storageValue);
 
   logger(`Account ${key.toShortString()} balance: ${balance}`);
-  expect(balance).toBe(expectedBalance);
+  expect(balance).toBe(expectedValue);
 }

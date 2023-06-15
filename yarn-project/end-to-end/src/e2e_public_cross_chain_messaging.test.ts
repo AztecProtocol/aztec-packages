@@ -20,7 +20,6 @@ describe('e2e_cross_chain_messaging', () => {
 
   const initialBalance = 10n;
   let ownerAddress: AztecAddress;
-  let ownerPub: { x: bigint; y: bigint };
 
   let crossChainTestHarness: CrossChainTestHarness;
 
@@ -44,7 +43,6 @@ describe('e2e_cross_chain_messaging', () => {
     l2Contract = crossChainTestHarness.l2Contract;
     ethAccount = crossChainTestHarness.ethAccount;
     ownerAddress = crossChainTestHarness.ownerAddress;
-    ownerPub = crossChainTestHarness.ownerPub;
     underlyingERC20 = crossChainTestHarness.underlyingERC20;
     outbox = crossChainTestHarness.outbox;
     aztecRpcServer = crossChainTestHarness.aztecRpcServer;

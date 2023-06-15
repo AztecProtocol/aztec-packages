@@ -2,7 +2,7 @@ import { AztecNodeService } from '@aztec/aztec-node';
 import { AztecAddress, AztecRPCServer, Contract, TxStatus } from '@aztec/aztec.js';
 import { EthAddress } from '@aztec/foundation/eth-address';
 
-import { Fr } from '@aztec/foundation/fields';
+import { Fr, Point } from '@aztec/foundation/fields';
 import { DebugLogger } from '@aztec/foundation/log';
 import { delay, pointToPublicKey, setup } from './utils.js';
 import { CrossChainTestHarness } from './cross_chain/test_harness.js';
@@ -20,7 +20,7 @@ describe('e2e_cross_chain_messaging', () => {
 
   const initialBalance = 10n;
   let ownerAddress: AztecAddress;
-  let ownerPub: { x: bigint; y: bigint };
+  let ownerPub: Point;
 
   let crossChainTestHarness: CrossChainTestHarness;
 
@@ -44,10 +44,10 @@ describe('e2e_cross_chain_messaging', () => {
     l2Contract = crossChainTestHarness.l2Contract;
     ethAccount = crossChainTestHarness.ethAccount;
     ownerAddress = crossChainTestHarness.ownerAddress;
-    ownerPub = crossChainTestHarness.ownerPub;
     underlyingERC20 = crossChainTestHarness.underlyingERC20;
     outbox = crossChainTestHarness.outbox;
     aztecRpcServer = crossChainTestHarness.aztecRpcServer;
+    ownerPub = crossChainTestHarness.ownerPub;
 
     logger = logger_;
     logger('Successfully deployed contracts and initialized portal');
@@ -59,8 +59,7 @@ describe('e2e_cross_chain_messaging', () => {
   });
 
   const expectBalance = async (owner: AztecAddress, expectedBalance: bigint) => {
-    const ownerPublicKey = await aztecRpcServer.getAccountPublicKey(owner);
-    const [balance] = await l2Contract.methods.getBalance(pointToPublicKey(ownerPublicKey)).view({ from: owner });
+    const [balance] = await l2Contract.methods.getBalance(pointToPublicKey(ownerPub)).view({ from: owner });
     logger(`Account ${owner} balance: ${balance}`);
     expect(balance).toBe(expectedBalance);
   };

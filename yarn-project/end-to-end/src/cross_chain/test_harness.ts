@@ -1,13 +1,18 @@
 import { AztecNodeService } from '@aztec/aztec-node';
 import { AztecRPCServer, Contract, TxStatus, computeMessageSecretHash } from '@aztec/aztec.js';
-import { AztecAddress, EthAddress, Fr } from '@aztec/circuits.js';
+import { AztecAddress, EthAddress, Fr, Point } from '@aztec/circuits.js';
 import { DeployL1Contracts } from '@aztec/ethereum';
 import { DebugLogger } from '@aztec/foundation/log';
 import { PublicClient, HttpTransport, Chain, getContract } from 'viem';
 import { deployAndInitializeNonNativeL2TokenContracts, pointToPublicKey } from '../utils.js';
 import { OutboxAbi } from '@aztec/l1-artifacts';
 import { sha256ToField } from '@aztec/foundation/crypto';
+import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 
+/**
+ * A Class for testing cross chain interactions, contains common interactions
+ * shared between cross chain tests.
+ */
 export class CrossChainTestHarness {
   static async new(
     initialBalance: bigint,
@@ -22,7 +27,7 @@ export class CrossChainTestHarness {
 
     const ethAccount = EthAddress.fromString((await walletClient.getAddresses())[0]);
     const [ownerAddress, receiver] = accounts;
-    const ownerPub = pointToPublicKey(await aztecRpcServer.getAccountPublicKey(ownerAddress));
+    const ownerPub = await aztecRpcServer.getAccountPublicKey(ownerAddress);
 
     const outbox = getContract({
       address: deployL1ContractsValues.outboxAddress.toString(),
@@ -38,7 +43,7 @@ export class CrossChainTestHarness {
       publicClient,
       deployL1ContractsValues!.registryAddress,
       initialBalance,
-      ownerPub,
+      pointToPublicKey(ownerPub),
     );
     const l2Contract = contracts.l2Contract;
     const underlyingERC20 = contracts.underlyingERC20;
@@ -66,24 +71,39 @@ export class CrossChainTestHarness {
     );
   }
   constructor(
+    /** AztecNode. */
     public aztecNode: AztecNodeService,
+    /** AztecRpcServer. */
     public aztecRpcServer: AztecRPCServer,
+    /** Accounts. */
     public accounts: AztecAddress[],
+    /** Logger. */
     public logger: DebugLogger,
 
+    /** Testing aztec contract. */
     public l2Contract: Contract,
+    /** Eth account to interact with. */
     public ethAccount: EthAddress,
 
+    /** Portal address. */
     public tokenPortalAddress: EthAddress,
+    /** Token portal instance. */
     public tokenPortal: any,
+    /** Underlying token for portal tests. */
     public underlyingERC20: any,
+    /** Message Bridge Outbox. */
     public outbox: any,
+    /** Viem Public client instance. */
     public publicClient: PublicClient<HttpTransport, Chain>,
+    /** Viem Walllet Client instance. */
     public walletClient: any,
 
+    /** Aztec address to use in tests. */
     public ownerAddress: AztecAddress,
+    /** Another Aztec Address to use in tests. */
     public receiver: AztecAddress,
-    public ownerPub: { x: bigint; y: bigint },
+    /** The owners public key. */
+    public ownerPub: Point,
   ) {}
 
   async generateClaimSecret(): Promise<[Fr, Fr]> {
@@ -172,7 +192,6 @@ export class CrossChainTestHarness {
     ]);
 
     expect(withdrawEntryKey).toBe(entryKey.toString(true));
-
     expect(await this.outbox.read.contains([withdrawEntryKey])).toBeTruthy();
 
     await this.walletClient.writeContract(withdrawRequest);
