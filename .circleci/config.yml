@@ -632,7 +632,7 @@ workflows:
       - e2e-nested-contract: *e2e_test
       - e2e-public-token-contract: *e2e_test
       - e2e-cross-chain-messaging: *e2e_test
-      - e3e-public-cross-chain-messaging: *e2e_test
+      - e2e-public-cross-chain-messaging: *e2e_test
       - e2e-public-to-private-messaging: *e2e_test
       - e2e-account-contract: *e2e_test
       - integration-l1-publisher: *e2e_test
