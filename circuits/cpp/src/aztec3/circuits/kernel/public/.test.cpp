@@ -209,8 +209,8 @@ PublicKernelInputsNoPreviousKernel<NT> get_kernel_inputs_no_previous_kernel()
                 .is_rebate_payment_tx = false,
                 .is_contract_deployment_tx = false,
                 .contract_deployment_data = {},
+                .chain_id = 1,
             },
-        .chain_id = 1,
     };
 
     auto const signed_tx_request = SignedTxRequest<NT>{

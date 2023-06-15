@@ -1,5 +1,4 @@
 #include "c_bind.h"
-
 #include "function_leaf_preimage.hpp"
 #include "tx_request.hpp"
 
@@ -66,8 +65,14 @@ TEST(abi_tests, hash_tx_request)
         .function_data = FunctionData<NT>(),
         .args_hash = NT::fr::random_element(),
         .nonce = NT::fr::random_element(),
-        .tx_context = TxContext<NT>(),
-        .chain_id = NT::fr::random_element(),
+        .tx_context =  {
+            .is_fee_payment_tx = static_cast<bool>(engine.get_random_uint8() & 1),
+            .is_rebate_payment_tx = static_cast<bool>(engine.get_random_uint8() & 1),
+            .is_contract_deployment_tx = false,
+            .contract_deployment_data = ContractDeploymentData<NT>(),
+            .chain_id = NT::fr::random_element(),
+            .version = NT::fr::random_element(),
+        },
     };
 
     // Write the tx request to a buffer and
@@ -325,7 +330,6 @@ TEST(abi_tests, compute_transaction_hash)
         .args_hash = NT::fr::random_element(),
         .nonce = NT::fr::random_element(),
         .tx_context = TxContext<NT>(),
-        .chain_id = NT::fr::random_element(),
     };
 
     std::array<uint8_t, 32> const r{
