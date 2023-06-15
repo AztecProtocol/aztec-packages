@@ -29,7 +29,7 @@ import {
   makeProcessedTx,
   makeTx,
 } from '@aztec/sequencer-client';
-import { L2Actor } from '@aztec/types';
+import { L2Actor, L2Block } from '@aztec/types';
 import { MerkleTreeOperations, MerkleTrees } from '@aztec/world-state';
 import { beforeEach, describe, expect, it } from '@jest/globals';
 import { default as levelup } from 'levelup';
@@ -47,6 +47,7 @@ import {
 } from 'viem';
 import { PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts';
 import { localAnvil } from './fixtures.js';
+import { to2Fields } from '@aztec/foundation/serialize';
 
 // Accounts 4 and 5 of Anvil default startup with mnemonic: 'test test test test test test test test test test test junk'
 const sequencerPK = '0x47e179ec197488593b187f80a00eb0da91f1b9d0b13f8733639f19c30a34926a';
@@ -168,6 +169,7 @@ describe('L1Publisher integration', () => {
     tx.data.end.newNullifiers[tx.data.end.newNullifiers.length - 1] = Fr.ZERO;
     tx.data.end.newL2ToL1Msgs = makeTuple(KERNEL_NEW_L2_TO_L1_MSGS_LENGTH, fr, seed + 0x300);
     tx.data.end.newContracts = [makeNewContractData(seed + 0x1000)];
+    tx.data.end.encryptedLogsHash = to2Fields(L2Block.computeKernelLogsHash(tx.encryptedLogs));
 
     return tx;
   };
@@ -211,7 +213,7 @@ describe('L1Publisher integration', () => {
     return Fr.fromString(entry);
   };
 
-  it(`Build ${numberOfConsecutiveBlocks} blocks of 4 bloated txs building on each other`, async () => {
+  it.only(`Build ${numberOfConsecutiveBlocks} blocks of 4 bloated txs building on each other`, async () => {
     const stateInRollup_ = await rollup.read.rollupStateHash();
     expect(hexStringToBuffer(stateInRollup_.toString())).toEqual(Buffer.alloc(32, 0));
 
