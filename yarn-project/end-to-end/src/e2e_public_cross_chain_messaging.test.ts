@@ -55,6 +55,7 @@ describe('e2e_cross_chain_messaging', () => {
   afterEach(async () => {
     await aztecNode?.stop();
     await aztecRpcServer?.stop();
+    await crossChainTestHarness?.stop();
   });
 
   const consumeMessageOnAztec = async (bridgeAmount: bigint, messageKey: Fr, secret: Fr) => {

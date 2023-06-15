@@ -197,4 +197,9 @@ export class CrossChainTestHarness {
     await this.walletClient.writeContract(withdrawRequest);
     return withdrawEntryKey;
   }
+
+  async stop() {
+    await this.aztecNode?.stop();
+    await this.aztecRpcServer?.stop();
+  }
 }

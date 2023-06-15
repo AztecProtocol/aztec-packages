@@ -56,6 +56,7 @@ describe('e2e_cross_chain_messaging', () => {
   afterEach(async () => {
     await aztecNode?.stop();
     await aztecRpcServer?.stop();
+    await crossChainTestHarness?.stop();
   });
 
   const expectBalance = async (owner: AztecAddress, expectedBalance: bigint) => {
