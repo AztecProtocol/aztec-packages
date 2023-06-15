@@ -24,9 +24,22 @@ import { TxL2Logs } from './index.js';
  */
 export class L2Block {
   /**
-   * Consolidated logs from all txs.
+   * Encrypted logs emitted by txs in this block.
+   * @remarks `L2BlockL2Logs.txLogs` array has to match number of txs in this block and has to be in the same order
+   *          (e.g. logs from the first tx on the first place...).
+   * @remarks Only private function can emit encrypted logs and for this reason length of
+   *          `newEncryptedLogs.txLogs.functionLogs` is equal to the number of private function invocations in the tx.
    */
   public newEncryptedLogs?: L2BlockL2Logs;
+
+  /**
+   * Unencrypted logs emitted by txs in this block.
+   * @remarks `L2BlockL2Logs.txLogs` array has to match number of txs in this block and has to be in the same order
+   *          (e.g. logs from the first tx on the first place...).
+   * @remarks Both private and public functions can emit unencrypted logs and for this reason length of
+   *          `newUnencryptedLogs.txLogs.functionLogs` is equal to the number of all function invocations in the tx.
+   */
+  public newUnencryptedLogs?: L2BlockL2Logs;
 
   constructor(
     /**
@@ -125,17 +138,18 @@ export class L2Block {
      * The L1 to L2 messages to be inserted into the L2 toL2 message tree.
      */
     public newL1ToL2Messages: Fr[] = [],
-    /**
-     * Consolidated logs from all txs.
-     */
     newEncryptedLogs?: L2BlockL2Logs,
+    newUnencryptedLogs?: L2BlockL2Logs,
   ) {
     if (newCommitments.length % KERNEL_NEW_COMMITMENTS_LENGTH !== 0) {
       throw new Error(`The number of new commitments must be a multiple of ${KERNEL_NEW_COMMITMENTS_LENGTH}.`);
     }
 
     if (newEncryptedLogs) {
-      this.attachEncryptedLogs(newEncryptedLogs);
+      this.attachLogs(newEncryptedLogs, 'newEncryptedLogs');
+    }
+    if (newUnencryptedLogs) {
+      this.attachLogs(newUnencryptedLogs, 'newUnencryptedLogs');
     }
   }
 
@@ -154,6 +168,7 @@ export class L2Block {
     const newL1ToL2Messages = times(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, Fr.random);
     const newL2ToL1Msgs = times(KERNEL_NEW_L2_TO_L1_MSGS_LENGTH, Fr.random);
     const newEncryptedLogs = L2BlockL2Logs.random(txsPerBlock, 3, 2);
+    const newUnencryptedLogs = L2BlockL2Logs.random(txsPerBlock, 3, 2);
 
     return L2Block.fromFields({
       number: l2BlockNum,
@@ -181,6 +196,7 @@ export class L2Block {
       newL1ToL2Messages,
       newL2ToL1Msgs,
       newEncryptedLogs,
+      newUnencryptedLogs,
     });
   }
 
@@ -287,13 +303,13 @@ export class L2Block {
      */
     newL1ToL2Messages: Fr[];
     /**
-     * Length (in bytes) of the new encrypted logs data chunks in the block.
-     */
-    newEncryptedLogsLength?: number;
-    /**
-     * Consolidated logs from all txs.
+     * Encrypted logs from private txs in a block.
      */
     newEncryptedLogs?: L2BlockL2Logs;
+    /**
+     * Unencrypted logs from all txs in a block.
+     */
+    newUnencryptedLogs?: L2BlockL2Logs;
   }) {
     return new this(
       fields.number,
@@ -321,6 +337,7 @@ export class L2Block {
       fields.newContractData,
       fields.newL1ToL2Messages,
       fields.newEncryptedLogs,
+      fields.newUnencryptedLogs,
     );
   }
 
@@ -436,27 +453,25 @@ export class L2Block {
   }
 
   /**
-   * Helper function to attach encrypted logs related to a block. Since we can have L2 blocks without encrypted logs,
-   * this function helps attach them in order to make the block data manipulation easier.
-   * @param encryptedLogs - The encrypted logs to be attached to the block.
+   * Helper function to attach logs related to a block.
+   * @param logs - The logs to be attached to a block.
+   * @param logType - The type of logs to be attached.
+   * @remarks Here, because we can have L2 blocks without logs and those logs can be attached later.
    */
-  attachEncryptedLogs(encryptedLogs: L2BlockL2Logs) {
-    // throw error if the block already has encrypted logs attached.
-    if (this.newEncryptedLogs) {
-      throw new Error('L2 block already has encrypted logs attached.');
+  attachLogs(logs: L2BlockL2Logs, logType: 'newEncryptedLogs' | 'newUnencryptedLogs') {
+    if (this[logType]) {
+      throw new Error(`L2 block already has ${logType} attached.`);
     }
 
     const numTxs = this.newCommitments.length / KERNEL_NEW_COMMITMENTS_LENGTH;
-    if (numTxs !== encryptedLogs.txLogs.length) {
+
+    if (numTxs !== logs.txLogs.length) {
       throw new Error(
-        'Number of txLogs within encryptedLogs does not match number of transactions. Expected: ' +
-          numTxs +
-          ' Got: ' +
-          encryptedLogs.txLogs.length,
+        `Number of txLogs within ${logType} does not match number of transactions. Expected: ${numTxs} Got: ${logs.txLogs.length}`,
       );
     }
 
-    this.newEncryptedLogs = encryptedLogs;
+    this[logType] = logs;
   }
 
   /**
@@ -581,6 +596,9 @@ export class L2Block {
       const encryptedLogsHashKernel0 = L2Block.computeKernelLogsHash(this.newEncryptedLogs!.txLogs[i * 2]);
       const encryptedLogsHashKernel1 = L2Block.computeKernelLogsHash(this.newEncryptedLogs!.txLogs[i * 2 + 1]);
 
+      const unencryptedLogsHashKernel0 = L2Block.computeKernelLogsHash(this.newUnencryptedLogs!.txLogs[i * 2]);
+      const unencryptedLogsHashKernel1 = L2Block.computeKernelLogsHash(this.newUnencryptedLogs!.txLogs[i * 2 + 1]);
+
       const inputValue = Buffer.concat([
         commitmentsBuffer,
         nullifiersBuffer,
@@ -594,6 +612,8 @@ export class L2Block {
         this.newContractData[i * 2 + 1].portalContractAddress.toBuffer32(),
         encryptedLogsHashKernel0,
         encryptedLogsHashKernel1,
+        unencryptedLogsHashKernel0,
+        unencryptedLogsHashKernel1,
       ]);
       leafs.push(sha256(inputValue));
     }
