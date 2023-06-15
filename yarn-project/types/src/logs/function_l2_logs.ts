@@ -1,7 +1,6 @@
 import { BufferReader, serializeBufferToVector } from '@aztec/foundation/serialize';
 import { randomBytes } from 'crypto';
 import { sha256 } from '@aztec/foundation/crypto';
-import { Fr } from '@aztec/circuits.js';
 
 /**
  * Data container of logs emitted in 1 function invocation (corresponds to 1 kernel iteration).
