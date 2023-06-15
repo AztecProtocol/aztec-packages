@@ -729,12 +729,8 @@ export class L2Block {
     let kernelPublicInputsLogsHash = Buffer.alloc(32);
 
     for (const functionLogs of logs.functionLogs) {
-      // Remove first 4 bytes that are occupied by length which is not part of the preimage in contracts and L2Blocks
-      const functionLogsPreimage = functionLogs.toBuffer().subarray(4);
-      const privateCircuitPublicInputsLogsHash = sha256(functionLogsPreimage);
-
       logsHashes[0] = kernelPublicInputsLogsHash;
-      logsHashes[1] = privateCircuitPublicInputsLogsHash;
+      logsHashes[1] = functionLogs.hash(); // privateCircuitPublicInputsLogsHash
 
       // Hash logs hash from the public inputs of previous kernel iteration and logs hash from private circuit public inputs
       kernelPublicInputsLogsHash = sha256(Buffer.concat(logsHashes));
