@@ -161,7 +161,7 @@ TEST_F(base_rollup_tests, native_invalid_chainid)
 
     auto empty_contract_tree = native_base_rollup::MerkleTree(CONTRACT_TREE_HEIGHT);
 
-    BaseOrMergeRollupPublicInputs outputs =
+    BaseOrMergeRollupPublicInputs const outputs =
         aztec3::circuits::rollup::native_base_rollup::base_rollup_circuit(composer, emptyInputs);
 
     AppendOnlyTreeSnapshot<NT> const expectedStartContractTreeSnapshot = {
@@ -191,7 +191,7 @@ TEST_F(base_rollup_tests, native_invalid_version)
 
     auto empty_contract_tree = native_base_rollup::MerkleTree(CONTRACT_TREE_HEIGHT);
 
-    BaseOrMergeRollupPublicInputs outputs =
+    BaseOrMergeRollupPublicInputs const outputs =
         aztec3::circuits::rollup::native_base_rollup::base_rollup_circuit(composer, emptyInputs);
 
     AppendOnlyTreeSnapshot<NT> const expectedStartContractTreeSnapshot = {
