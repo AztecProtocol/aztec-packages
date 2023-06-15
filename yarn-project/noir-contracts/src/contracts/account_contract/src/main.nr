@@ -1,8 +1,7 @@
 contract Account {
-    mod entrypoint;
-    use entrypoint::EntrypointPayload;
-
     use dep::std;
+    use dep::aztec3::entrypoint;
+    use dep::aztec3::entrypoint::EntrypointPayload;
     use dep::aztec3::abi;
     use dep::aztec3::abi::PrivateContextInputs;
     use dep::aztec3::abi::CallContext;
