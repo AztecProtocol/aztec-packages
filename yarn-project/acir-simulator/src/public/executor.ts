@@ -1,12 +1,13 @@
 import { AztecAddress, CallContext, EthAddress, Fr, FunctionData, PrivateHistoricTreeRoots } from '@aztec/circuits.js';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { TxExecutionRequest } from '@aztec/types';
+import { FunctionL2Logs, TxExecutionRequest } from '@aztec/types';
 import { select_return_flattened as selectPublicWitnessFlattened } from '@noir-lang/noir_util_wasm';
 import {
   ACVMField,
   ZERO_ACVM_FIELD,
   acvm,
+  convertACVMFieldToBuffer,
   frToAztecAddress,
   frToSelector,
   fromACVMField,
@@ -58,6 +59,7 @@ export class PublicExecutor {
     const newL2ToL1Messages: Fr[] = [];
     const newNullifiers: Fr[] = [];
     const nestedExecutions: PublicExecutionResult[] = [];
+    const unencryptedLogs = new FunctionL2Logs([]);
 
     const notAvailable = () => Promise.reject(`Built-in not available for public execution simulation`);
 
@@ -130,6 +132,10 @@ export class PublicExecutor {
         this.log(`Returning from nested call: ret=${childExecutionResult.returnValues.join(', ')}`);
         return padArrayEnd(childExecutionResult.returnValues, Fr.ZERO, NOIR_MAX_RETURN_VALUES).map(toACVMField);
       },
+      emitUnencryptedLog: ([...args]: ACVMField[]) => {
+        unencryptedLogs.logs.push(...args.map(str => convertACVMFieldToBuffer(str)));
+        return Promise.resolve([ZERO_ACVM_FIELD]);
+      },
     });
 
     const returnValues = selectPublicWitnessFlattened(acir, partialWitness).map(fromACVMField);
@@ -144,6 +150,7 @@ export class PublicExecutor {
       contractStorageUpdateRequests,
       returnValues,
       nestedExecutions,
+      unencryptedLogs,
     };
   }
 
