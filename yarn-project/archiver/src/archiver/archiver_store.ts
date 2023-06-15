@@ -232,7 +232,7 @@ export class MemoryArchiverStore implements ArchiverDataStore {
     if (this.contractPublicData[blockNum]?.length) {
       this.contractPublicData[blockNum]?.push(...data);
     } else {
-      this.contractPublicData[blockNum] = data;
+      this.contractPublicData[blockNum] = [...data];
     }
     return Promise.resolve(true);
   }
