@@ -25,13 +25,11 @@ template <typename NCT> struct TxRequest {
     fr args_hash = 0;
     fr nonce = 0;
     TxContext<NCT> tx_context{};
-    fr chain_id = 0;
 
     boolean operator==(TxContext<NCT> const& other) const
     {
         return from == other.from && to == other.to && function_data == other.function_data &&
-               args_hash == other.args && nonce == other.nonce && tx_context == other.tx_context &&
-               chain_id == other.chain_id;
+               args_hash == other.args && nonce == other.nonce && tx_context == other.tx_context;
     };
 
     template <typename Composer> TxRequest<CircuitTypes<Composer>> to_circuit_type(Composer& composer) const
@@ -45,7 +43,6 @@ template <typename NCT> struct TxRequest {
         TxRequest<CircuitTypes<Composer>> tx_request = {
             to_ct(from),      to_ct(to),    to_circuit_type(function_data),
             to_ct(args_hash), to_ct(nonce), to_circuit_type(tx_context),
-            to_ct(chain_id),
         };
 
         return tx_request;
@@ -60,7 +57,6 @@ template <typename NCT> struct TxRequest {
         inputs.push_back(args_hash);
         inputs.push_back(nonce);
         inputs.push_back(tx_context.hash());
-        inputs.push_back(chain_id);
 
         return NCT::compress(inputs, GeneratorIndex::TX_REQUEST);
     }
@@ -76,7 +72,6 @@ template <typename NCT> void read(uint8_t const*& it, TxRequest<NCT>& tx_request
     read(it, tx_request.args_hash);
     read(it, tx_request.nonce);
     read(it, tx_request.tx_context);
-    read(it, tx_request.chain_id);
 };
 
 template <typename NCT> void write(std::vector<uint8_t>& buf, TxRequest<NCT> const& tx_request)
@@ -89,7 +84,6 @@ template <typename NCT> void write(std::vector<uint8_t>& buf, TxRequest<NCT> con
     write(buf, tx_request.args_hash);
     write(buf, tx_request.nonce);
     write(buf, tx_request.tx_context);
-    write(buf, tx_request.chain_id);
 };
 
 template <typename NCT> std::ostream& operator<<(std::ostream& os, TxRequest<NCT> const& tx_request)
@@ -99,8 +93,7 @@ template <typename NCT> std::ostream& operator<<(std::ostream& os, TxRequest<NCT
               << "function_data: " << tx_request.function_data << "\n"
               << "args_hash: " << tx_request.args_hash << "\n"
               << "nonce: " << tx_request.nonce << "\n"
-              << "tx_context: " << tx_request.tx_context << "\n"
-              << "chain_id: " << tx_request.chain_id << "\n";
+              << "tx_context: " << tx_request.tx_context << "\n";
 }
 
 }  // namespace aztec3::circuits::abis

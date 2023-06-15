@@ -15,6 +15,8 @@ template <typename NCT> struct RootRollupPublicInputs {
     using fr = typename NCT::fr;
     using AggregationObject = typename NCT::AggregationObject;
 
+    // @todo @LHerskind: the global variables from constants should be included here.
+
     // All below are shared between the base and merge rollups
     AggregationObject end_aggregation_object;
 

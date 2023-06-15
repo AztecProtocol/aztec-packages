@@ -453,6 +453,23 @@ fr validate_and_process_public_state(DummyComposer& composer, BaseRollupInputs c
     return end_public_data_tree_root;
 }
 
+void perform_chain_checks(DummyComposer& composer, BaseRollupInputs const& baseRollupInputs)
+{
+    // Check that the chain id and version for both kernels match the constants
+    auto global_variables = baseRollupInputs.constants.global_variables;
+    for (size_t i = 0; i < 2; i++) {
+        auto tx_context = baseRollupInputs.kernel_data[i].public_inputs.constants.tx_context;
+        composer.do_assert(
+            tx_context.chain_id == global_variables.chain_id,
+            format("Chain id in tx context does not match ", tx_context.chain_id, " ", global_variables.chain_id),
+            CircuitErrorCode::BASE__INVALID_CHAIN_ID);
+        composer.do_assert(
+            tx_context.version == global_variables.version,
+            format("Version in tx context does not match ", tx_context.version, " ", global_variables.version),
+            CircuitErrorCode::BASE__INVALID_VERSION);
+    }
+}
+
 BaseOrMergeRollupPublicInputs base_rollup_circuit(DummyComposer& composer, BaseRollupInputs const& baseRollupInputs)
 {
     // Verify the previous kernel proofs
@@ -462,6 +479,9 @@ BaseOrMergeRollupPublicInputs base_rollup_circuit(DummyComposer& composer, BaseR
                            "kernel proof verification failed",
                            CircuitErrorCode::BASE__KERNEL_PROOF_VERIFICATION_FAILED);
     }
+
+    // Check that the chain id and version for both kernels match the constants
+    perform_chain_checks(composer, baseRollupInputs);
 
     // First we compute the contract tree leaves
     std::vector<NT::fr> const contract_leaves = calculate_contract_leaves(baseRollupInputs);

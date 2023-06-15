@@ -93,7 +93,8 @@ export class RootRollupPublicInputs {
      * Native aggregation state at the end of the rollup.
      */
     public endAggregationObject: AggregationObject,
-
+    
+    // @todo @LHerskind: the global variables from constants should be included here.
     // constants: ConstantRollupData // TODO maybe don't include this
 
     /**

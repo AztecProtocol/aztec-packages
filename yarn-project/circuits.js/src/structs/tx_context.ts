@@ -97,6 +97,8 @@ export class TxContext {
      * Contract deployment data.
      */
     public contractDeploymentData: ContractDeploymentData,
+
+    // @todo @LHerskind Add chain_id and version.
   ) {}
 
   /**

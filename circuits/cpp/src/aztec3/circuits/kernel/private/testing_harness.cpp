@@ -399,14 +399,11 @@ PrivateKernelInputsInit<NT> do_private_call_get_kernel_inputs_init(bool const is
         .function_data = private_call_data.call_stack_item.function_data,
         .args_hash = compute_var_args_hash<NT>(args_vec),
         .nonce = 0,
-        .tx_context =
-            TxContext<NT>{
-                .is_fee_payment_tx = false,
-                .is_rebate_payment_tx = false,
-                .is_contract_deployment_tx = is_constructor,
-                .contract_deployment_data = contract_deployment_data,
-            },
-        .chain_id = 1,
+        .tx_context = TxContext<NT>{ .is_fee_payment_tx = false,
+                                     .is_rebate_payment_tx = false,
+                                     .is_contract_deployment_tx = is_constructor,
+                                     .contract_deployment_data = contract_deployment_data,
+                                     .chain_id = 1 },
     };
 
     auto const signed_tx_request = SignedTxRequest<NT>{

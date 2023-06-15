@@ -102,8 +102,8 @@ TEST_F(merge_rollup_tests, native_constants_different_failure)
         get_empty_kernel(), get_empty_kernel(), get_empty_kernel(), get_empty_kernel()
     };
     MergeRollupInputs inputs = get_merge_rollup_inputs(composer, kernels);
-    inputs.previous_rollup_data[0].base_or_merge_rollup_public_inputs.constants.public_kernel_vk_tree_root = fr(1);
-    inputs.previous_rollup_data[1].base_or_merge_rollup_public_inputs.constants.public_kernel_vk_tree_root = fr(0);
+    inputs.previous_rollup_data[0].base_or_merge_rollup_public_inputs.constants.global_variables.chain_id = fr(1);
+    inputs.previous_rollup_data[1].base_or_merge_rollup_public_inputs.constants.global_variables.chain_id = fr(0);
     merge_rollup_circuit(composer, inputs);
     ASSERT_TRUE(composer.failed());
     ASSERT_EQ(composer.get_first_failure().message, "input proofs have different constants");

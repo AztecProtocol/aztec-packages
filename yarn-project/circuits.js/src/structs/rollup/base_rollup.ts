@@ -84,6 +84,8 @@ export class ConstantBaseRollupData {
      * Hash of the merge rollup circuit verification key.
      */
     public mergeRollupVkHash: Fr,
+
+      // @todo @LHerskind Need to extend with the global variables
   ) {}
 
   static from(fields: FieldsOf<ConstantBaseRollupData>): ConstantBaseRollupData {

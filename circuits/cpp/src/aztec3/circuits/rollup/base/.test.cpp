@@ -151,6 +151,64 @@ TEST_F(base_rollup_tests, native_no_new_contract_leafs)
     run_cbind(emptyInputs, outputs);
 }
 
+TEST_F(base_rollup_tests, native_invalid_chainid)
+{
+    DummyComposer composer = DummyComposer("base_rollup_tests__native_invalid_chainid");
+    BaseRollupInputs emptyInputs = base_rollup_inputs_from_kernels({ get_empty_kernel(), get_empty_kernel() });
+
+    // Setting chain id to 1 instead of 0 (which is the default)
+    emptyInputs.constants.global_variables.chain_id = 1;
+
+    auto empty_contract_tree = native_base_rollup::MerkleTree(CONTRACT_TREE_HEIGHT);
+
+    BaseOrMergeRollupPublicInputs outputs =
+        aztec3::circuits::rollup::native_base_rollup::base_rollup_circuit(composer, emptyInputs);
+
+    AppendOnlyTreeSnapshot<NT> const expectedStartContractTreeSnapshot = {
+        .root = empty_contract_tree.root(),
+        .next_available_leaf_index = 0,
+    };
+    AppendOnlyTreeSnapshot<NT> const expectedEndContractTreeSnapshot = {
+        .root = empty_contract_tree.root(),
+        .next_available_leaf_index = 2,
+    };
+    ASSERT_EQ(outputs.start_contract_tree_snapshot, expectedStartContractTreeSnapshot);
+    ASSERT_EQ(outputs.end_contract_tree_snapshot, expectedEndContractTreeSnapshot);
+    ASSERT_EQ(outputs.start_contract_tree_snapshot, emptyInputs.start_contract_tree_snapshot);
+    ASSERT_TRUE(composer.failed());
+    ASSERT_EQ(composer.get_first_failure().message,
+              format("Chain id in tx context does not match ", fr(0), " ", fr(1)));
+}
+
+
+TEST_F(base_rollup_tests, native_invalid_version)
+{
+    DummyComposer composer = DummyComposer("base_rollup_tests__native_invalid_version");
+    BaseRollupInputs emptyInputs = base_rollup_inputs_from_kernels({ get_empty_kernel(), get_empty_kernel() });
+
+    // Setting version to 1 instead of 0 (which is the default)
+    emptyInputs.constants.global_variables.version = 1;
+
+    auto empty_contract_tree = native_base_rollup::MerkleTree(CONTRACT_TREE_HEIGHT);
+
+    BaseOrMergeRollupPublicInputs outputs =
+        aztec3::circuits::rollup::native_base_rollup::base_rollup_circuit(composer, emptyInputs);
+
+    AppendOnlyTreeSnapshot<NT> const expectedStartContractTreeSnapshot = {
+        .root = empty_contract_tree.root(),
+        .next_available_leaf_index = 0,
+    };
+    AppendOnlyTreeSnapshot<NT> const expectedEndContractTreeSnapshot = {
+        .root = empty_contract_tree.root(),
+        .next_available_leaf_index = 2,
+    };
+    ASSERT_EQ(outputs.start_contract_tree_snapshot, expectedStartContractTreeSnapshot);
+    ASSERT_EQ(outputs.end_contract_tree_snapshot, expectedEndContractTreeSnapshot);
+    ASSERT_EQ(outputs.start_contract_tree_snapshot, emptyInputs.start_contract_tree_snapshot);
+    ASSERT_TRUE(composer.failed());
+    ASSERT_EQ(composer.get_first_failure().message, format("Version in tx context does not match ", fr(0), " ", fr(1)));
+}
+
 TEST_F(base_rollup_tests, native_contract_leaf_inserted)
 {
     DummyComposer composer = DummyComposer("base_rollup_tests__native_contract_leaf_inserted");
