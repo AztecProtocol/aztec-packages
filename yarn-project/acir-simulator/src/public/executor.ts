@@ -18,6 +18,7 @@ import {
 import { CommitmentsDB, PublicContractsDB, PublicStateDB } from './db.js';
 import { PublicExecution, PublicExecutionResult } from './execution.js';
 import { ContractStorageActionsCollector } from './state_actions.js';
+import { fieldsToFormattedStr } from '../client/debug.js';
 
 // Copied from crate::abi at noir-contracts/src/contracts/noir-aztec3/src/abi.nr
 const NOIR_MAX_RETURN_VALUES = 4;
@@ -70,11 +71,15 @@ export class PublicExecutor {
       enqueuePublicFunctionCall: notAvailable,
       emitEncryptedLog: notAvailable,
       viewNotesPage: notAvailable,
-      debugLog: notAvailable,
 
+      debugLog: (fields: ACVMField[]) => {
+        this.log(fieldsToFormattedStr(fields));
+        return Promise.resolve([ZERO_ACVM_FIELD]);
+      },
       getL1ToL2Message: async ([msgKey]: ACVMField[]) => {
         const messageInputs = await this.commitmentsDb.getL1ToL2Message(fromACVMField(msgKey));
-        return toAcvmL1ToL2MessageLoadOracleInputs(messageInputs, this.treeRoots.l1ToL2MessagesTreeRoot);
+        const oracleInputs = toAcvmL1ToL2MessageLoadOracleInputs(messageInputs, this.treeRoots.l1ToL2MessagesTreeRoot);
+        return oracleInputs;
       }, // l1 to l2 messages in public contexts TODO: https://github.com/AztecProtocol/aztec-packages/issues/616
       getCommitment: async ([commitment]: ACVMField[]) => {
         const commitmentInputs = await this.commitmentsDb.getCommitmentOracle(

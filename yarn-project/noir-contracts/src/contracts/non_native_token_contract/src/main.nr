@@ -13,6 +13,7 @@ contract NonNativeToken {
 
     // Public state
     use dep::aztec3::state_vars::storage_map::StorageMap;
+    use dep::aztec3::state_vars::storage_field::StorageField;
 
     // oracles
     use dep::aztec3::oracle::logs::emit_encrypted_log;
@@ -138,12 +139,12 @@ contract NonNativeToken {
         inputs: PublicContextInputs,
         //*********************************/
         amount: Field, 
-        owner: Point,
         owner_address: Field,
         // This field should be hidden
         msg_key: Field,
         secret: Field,
-        canceller: Field
+        canceller: Field,
+        _padding: [Field; dep::aztec3::abi::MAX_ARGS - 5]
     ) -> Field {
         let content_hash = _get_mint_content_hash(amount, owner_address, canceller);
 
@@ -151,18 +152,21 @@ contract NonNativeToken {
         consume_l1_to_l2_message_public(inputs, msg_key, content_hash, secret);
 
         // Update the public balance
-        let recipient_balance = public_balances.at(owner.x);
-        let _void = recipient_balance.write(recipient_balance.read() + amount);
-        0
+        let recipient_balance = public_balances.at(owner_address);
+        recipient_balance.write(recipient_balance.read() + amount)
     }
 
 
     // Withdraw Public Function
     open fn withdrawPublic(
+        //*********************************/
+        // Should eventually be hidden:
         inputs: PublicContextInputs,
+        //*********************************/
         amount: Field,
         recipient: Field,
-    ) -> Field {
+        _padding: [Field; dep::aztec3::abi::MAX_ARGS - 2]
+    ) {
 
         let sender = inputs.call_context.msg_sender;
         let sender_balance = public_balances.at(sender);
@@ -170,9 +174,7 @@ contract NonNativeToken {
         let current_sender_balance = sender_balance.read();
 
         if (current_sender_balance as u120) > (amount as u120) {
-            // TODO: Compiler complains if we don't assign the result of the write to anything
             let _void1 = sender_balance.write(current_sender_balance - amount);
-            0;
         }  
         // TODO: Revert if there is not enough balance
 
@@ -180,7 +182,6 @@ contract NonNativeToken {
 
         // Emit the l2 to l1 message
         create_l2_to_l1_message(content);
-        0
     }
 
 

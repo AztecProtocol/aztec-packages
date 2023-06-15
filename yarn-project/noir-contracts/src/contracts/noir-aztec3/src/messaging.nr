@@ -13,7 +13,6 @@ fn consume_l1_to_l2_message_public(pub_context: PublicContextInputs, msg_key: Fi
     let nullifier = process_l1_to_l2_message(pub_context.roots.l1_to_l2_messages_tree_root, pub_context.call_context.storage_contract_address, msg_key, content, secret);
 
     // Push nullifier
-    // oracle to public a nullifier in a public context
     create_nullifier(nullifier);
 }
 

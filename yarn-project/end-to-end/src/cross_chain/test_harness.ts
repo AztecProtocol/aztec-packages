@@ -87,17 +87,19 @@ export class CrossChainTestHarness {
     return [secret, secretHash];
   }
 
-  async mintTokensOnL1(amount: bigint, bridgeAmount: bigint) {
+  async mintTokensOnL1(amount: bigint) {
     this.logger('Minting tokens on L1');
     await this.underlyingERC20.write.mint([this.ethAccount.toString(), amount], {} as any);
-    await this.underlyingERC20.write.approve([this.tokenPortalAddress.toString(), bridgeAmount], {} as any);
-
     expect(await this.underlyingERC20.read.balanceOf([this.ethAccount.toString()])).toBe(amount);
   }
 
   async sendTokensToPortal(bridgeAmount: bigint, secretHash: Fr) {
+
+    await this.underlyingERC20.write.approve([this.tokenPortalAddress.toString(), bridgeAmount], {} as any);
+
     // Deposit tokens to the TokenPortal
     const deadline = 2 ** 32 - 1; // max uint32 - 1
+
 
     this.logger('Sending messages to L1 portal to be consumed privately');
     const args = [this.ownerAddress.toString(), bridgeAmount, deadline, secretHash.toString(true), this.ethAccount.toString()] as const;

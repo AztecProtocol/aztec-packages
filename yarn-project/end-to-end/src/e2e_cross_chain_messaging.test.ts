@@ -85,7 +85,7 @@ describe('e2e_cross_chain_messaging', () => {
 
     const [secret, secretHash] = await crossChainTestHarness.generateClaimSecret();
 
-    await crossChainTestHarness.mintTokensOnL1(l1TokenBalance, bridgeAmount);
+    await crossChainTestHarness.mintTokensOnL1(l1TokenBalance);
     const messageKey = await crossChainTestHarness.sendTokensToPortal(bridgeAmount, secretHash);
     expect(await underlyingERC20.read.balanceOf([ethAccount.toString()])).toBe(l1TokenBalance - bridgeAmount);
 
