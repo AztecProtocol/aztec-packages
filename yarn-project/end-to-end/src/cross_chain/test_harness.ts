@@ -6,13 +6,7 @@ import { DebugLogger } from "@aztec/foundation/log";
 import { PublicClient, HttpTransport, Chain, getContract } from "viem";
 import { deployAndInitializeNonNativeL2TokenContracts, pointToPublicKey } from "../utils.js";
 import { OutboxAbi } from "@aztec/l1-artifacts";
-import { toBigIntBE, toBufferBE } from "@aztec/foundation/bigint-buffer";
-import { sha256 } from '@aztec/foundation/crypto';
-
-const sha256ToField = (buf: Buffer): Fr => {
-  const tempContent = toBigIntBE(sha256(buf));
-  return Fr.fromBuffer(toBufferBE(tempContent % Fr.MODULUS, 32));
-};
+import { sha256ToField } from '@aztec/foundation/crypto';
 
 export class CrossChainTestHarness {
 

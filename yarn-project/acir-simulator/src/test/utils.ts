@@ -1,8 +1,7 @@
 import { AztecAddress, CircuitsWasm, EthAddress, Fr } from "@aztec/circuits.js";
 import { computeSecretMessageHash } from "@aztec/circuits.js/abis";
-import { toBigIntBE, toBufferBE } from "@aztec/foundation/bigint-buffer";
 import { L1ToL2Message, L1Actor, L2Actor } from "@aztec/types";
-import {sha256} from "@aztec/foundation/crypto";
+import { sha256ToField} from "@aztec/foundation/crypto";
 
 export const buildL1ToL2Message = async (contentPreimage: Fr[], targetContract: AztecAddress, secret: Fr) => {
     const wasm = await CircuitsWasm.get();
@@ -12,8 +11,7 @@ export const buildL1ToL2Message = async (contentPreimage: Fr[], targetContract: 
     Buffer.from([0xee, 0xb7, 0x30, 0x71]),
     ...contentPreimage.map(field => field.toBuffer()),
     ]);
-    const temp = toBigIntBE(sha256(contentBuf));
-    const content = Fr.fromBuffer(toBufferBE(temp % Fr.MODULUS, 32));
+    const content = sha256ToField(contentBuf);
 
     const secretHash = computeSecretMessageHash(wasm, secret);
 
