@@ -599,20 +599,6 @@ TEST(public_kernel_tests, no_bytecode_hash_should_fail)
     ASSERT_EQ(dummyComposer.get_first_failure().code, CircuitErrorCode::PUBLIC_KERNEL__BYTECODE_HASH_INVALID);
 }
 
-TEST(public_kernel_tests, storage_contract_address_must_equal_contract_address)
-{
-    GTEST_SKIP();
-    DummyComposer dummyComposer =
-        DummyComposer("public_kernel_tests__storage_contract_address_must_equal_contract_address");
-    PublicKernelInputs<NT> inputs = get_kernel_inputs_with_previous_kernel(true);
-
-    const NT::fr contract_address = inputs.public_call.call_stack_item.contract_address;
-    inputs.public_call.call_stack_item.public_inputs.call_context.storage_contract_address = contract_address + 1;
-    auto public_inputs = native_public_kernel_circuit_private_previous_kernel(dummyComposer, inputs);
-    ASSERT_TRUE(dummyComposer.failed());
-    ASSERT_EQ(dummyComposer.get_first_failure().code, CircuitErrorCode::PUBLIC_KERNEL__CONTRACT_ADDRESS_MISMATCH);
-}
-
 TEST(public_kernel_tests, contract_address_must_be_valid)
 {
     DummyComposer dummyComposer = DummyComposer("public_kernel_tests__contract_address_must_be_valid");
