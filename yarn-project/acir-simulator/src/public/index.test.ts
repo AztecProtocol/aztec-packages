@@ -1,5 +1,11 @@
 import { Grumpkin, pedersenCompressInputs } from '@aztec/circuits.js/barretenberg';
-import { CallContext, FunctionData, CircuitsWasm, PrivateHistoricTreeRoots, L1_TO_L2_MESSAGES_TREE_HEIGHT } from '@aztec/circuits.js';
+import {
+  CallContext,
+  FunctionData,
+  CircuitsWasm,
+  PrivateHistoricTreeRoots,
+  L1_TO_L2_MESSAGES_TREE_HEIGHT,
+} from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -302,14 +308,12 @@ describe('ACIR public execution simulator', () => {
     });
 
     it('Should be able to consume an Ll to L2 message in the public context', async () => {
-      const mintPublicAbi = NonNativeTokenContractAbi.functions.find(
-        f => f.name === 'mintPublic',
-      )!;
+      const mintPublicAbi = NonNativeTokenContractAbi.functions.find(f => f.name === 'mintPublic')!;
 
       // Set up cross chain message
       const canceller = EthAddress.random();
 
-      const bridgedAmount = 20n; 
+      const bridgedAmount = 20n;
       const secret = new Fr(1n);
       const recipientPk = Buffer.from('0c9ed344548e8f9ba8aa3c9f8651eaa2853130f6c1e9c050ccf198f7ea18a7ec', 'hex');
       const grumpkin = new Grumpkin(circuitsWasm);
@@ -320,10 +324,16 @@ describe('ACIR public execution simulator', () => {
         contractAddress,
         secret,
       );
-      
+
       // Stub message key
       const messageKey = Fr.random();
-      const args = encodeArguments(mintPublicAbi, [bridgedAmount, recipient.x, messageKey, secret, canceller.toField()]);
+      const args = encodeArguments(mintPublicAbi, [
+        bridgedAmount,
+        recipient.x,
+        messageKey,
+        secret,
+        canceller.toField(),
+      ]);
 
       const callContext = CallContext.from({
         msgSender: AztecAddress.random(),
@@ -342,51 +352,17 @@ describe('ACIR public execution simulator', () => {
         return await Promise.resolve({
           message: preimage.toFieldArray(),
           index: 0n,
-          siblingPath: Array(L1_TO_L2_MESSAGES_TREE_HEIGHT).fill(Fr.random())
-        })
-      })
+          siblingPath: Array(L1_TO_L2_MESSAGES_TREE_HEIGHT).fill(Fr.random()),
+        });
+      });
 
       const execution: PublicExecution = { contractAddress, functionData, args, callContext };
       const result = await executor.execute(execution);
 
-      // Check that a nullifier was created (assert the correct value?)
       expect(result.newNullifiers.length).toEqual(1);
     });
 
-
-    it('temp test', async () => {
-      const withdrawPublicAbi = NonNativeTokenContractAbi.functions.find(
-        f => f.name === 'withdrawPublic',
-      )!;
-
-      // Set up cross chain message
-
-      const bridgedAmount = 20n; 
-      const recipient = EthAddress.random();
-      
-      // Stub message key
-      const args = encodeArguments(withdrawPublicAbi, [bridgedAmount, recipient]);
-
-      const callContext = CallContext.from({
-        msgSender: AztecAddress.random(),
-        storageContractAddress: contractAddress,
-        portalContractAddress: EthAddress.random(),
-        isContractDeployment: false,
-        isDelegateCall: false,
-        isStaticCall: false,
-      });
-
-      publicContracts.getBytecode.mockResolvedValue(Buffer.from(withdrawPublicAbi.bytecode, 'hex'));
-      publicState.storageRead.mockResolvedValue(new Fr(30n));
-
-      const execution: PublicExecution = { contractAddress, functionData, args, callContext };
-      const result = await executor.execute(execution);
-
-      // Check that a nullifier was created (assert the correct value?)
-      expect(result.newL2ToL1Messages.length).toEqual(1);
-    });
-
-    it("Should be able to create a nullifier from the public context", async () => {
+    it('Should be able to create a nullifier from the public context', async () => {
       const createNullifierPublicAbi = PublicToPrivateContractAbi.functions.find(
         f => f.name === 'createNullifierPublic',
       )!;
@@ -415,7 +391,6 @@ describe('ACIR public execution simulator', () => {
         params.map(a => a.toBuffer()),
       );
       expect(result.newNullifiers[0].toBuffer()).toEqual(expectedNewMessageValue);
-
-    })
+    });
   });
 });

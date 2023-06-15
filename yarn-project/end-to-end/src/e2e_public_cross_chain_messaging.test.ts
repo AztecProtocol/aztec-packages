@@ -25,9 +25,21 @@ describe('e2e_cross_chain_messaging', () => {
   let crossChainTestHarness: CrossChainTestHarness;
 
   beforeEach(async () => {
-    
-    const { aztecNode: aztecNode_, aztecRpcServer: aztecRpcServer_, deployL1ContractsValues, accounts, logger: logger_} = await setup(2);
-    crossChainTestHarness = await CrossChainTestHarness.new(initialBalance, aztecNode_, aztecRpcServer_, deployL1ContractsValues, accounts, logger_);
+    const {
+      aztecNode: aztecNode_,
+      aztecRpcServer: aztecRpcServer_,
+      deployL1ContractsValues,
+      accounts,
+      logger: logger_,
+    } = await setup(2);
+    crossChainTestHarness = await CrossChainTestHarness.new(
+      initialBalance,
+      aztecNode_,
+      aztecRpcServer_,
+      deployL1ContractsValues,
+      accounts,
+      logger_,
+    );
 
     l2Contract = crossChainTestHarness.l2Contract;
     ethAccount = crossChainTestHarness.ethAccount;
@@ -58,17 +70,19 @@ describe('e2e_cross_chain_messaging', () => {
     const consumptionReceipt = await consumptionTx.getReceipt();
 
     expect(consumptionReceipt.status).toBe(TxStatus.MINED);
-  }
+  };
 
   const withdrawFundsFromAztec = async (withdrawAmount: bigint) => {
     logger('Send L2 tx to withdraw funds');
-    const withdrawTx = l2Contract.methods.withdrawPublic(withdrawAmount, ethAccount.toField()).send({ from: ownerAddress });
+    const withdrawTx = l2Contract.methods
+      .withdrawPublic(withdrawAmount, ethAccount.toField())
+      .send({ from: ownerAddress });
 
     await withdrawTx.isMined(0, 0.1);
     const withdrawReceipt = await withdrawTx.getReceipt();
 
     expect(withdrawReceipt.status).toBe(TxStatus.MINED);
-  }
+  };
 
   it('Milestone 2: Deposit funds from L1 -> L2 and withdraw back to L1', async () => {
     // Generate a claim secret using pedersen
@@ -90,19 +104,28 @@ describe('e2e_cross_chain_messaging', () => {
     await crossChainTestHarness.performL2Transfer(transferAmount);
 
     await consumeMessageOnAztec(bridgeAmount, messageKey, secret);
-    await expectStorageSlot(logger, aztecNode, l2Contract, publicBalanceSlot, ownerAddress.toField(),  bridgeAmount);
+    await expectStorageSlot(logger, aztecNode, l2Contract, publicBalanceSlot, ownerAddress.toField(), bridgeAmount);
 
     // time to withdraw the funds again!
     logger('Withdrawing funds from L2');
     const withdrawAmount = 9n;
     const entryKey = await crossChainTestHarness.checkEntryIsNotInOutbox(withdrawAmount);
     await withdrawFundsFromAztec(withdrawAmount);
-    await expectStorageSlot(logger, aztecNode, l2Contract, publicBalanceSlot, ownerAddress.toField(),  bridgeAmount - withdrawAmount);
+    await expectStorageSlot(
+      logger,
+      aztecNode,
+      l2Contract,
+      publicBalanceSlot,
+      ownerAddress.toField(),
+      bridgeAmount - withdrawAmount,
+    );
 
     // Check balance before and after exit.
     expect(await underlyingERC20.read.balanceOf([ethAccount.toString()])).toBe(l1TokenBalance - bridgeAmount);
     await crossChainTestHarness.withdrawFundsFromBridgeOnL1(withdrawAmount, entryKey);
-    expect(await underlyingERC20.read.balanceOf([ethAccount.toString()])).toBe(l1TokenBalance - bridgeAmount + withdrawAmount);
+    expect(await underlyingERC20.read.balanceOf([ethAccount.toString()])).toBe(
+      l1TokenBalance - bridgeAmount + withdrawAmount,
+    );
 
     expect(await outbox.read.contains([entryKey.toString(true)])).toBeFalsy();
   }, 120_000);

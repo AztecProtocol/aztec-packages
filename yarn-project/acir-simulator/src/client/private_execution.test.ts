@@ -228,7 +228,9 @@ describe('Private Execution test suite', () => {
       expect(recipientNoteCommitment).toEqual(
         Fr.fromBuffer(acirSimulator.computeNoteHash(recipientNote.preimage, circuitsWasm)),
       );
-      expect(changeNoteCommitment).toEqual(Fr.fromBuffer(acirSimulator.computeNoteHash(changeNote.preimage, circuitsWasm)));
+      expect(changeNoteCommitment).toEqual(
+        Fr.fromBuffer(acirSimulator.computeNoteHash(changeNote.preimage, circuitsWasm)),
+      );
 
       expect(recipientNote.preimage[5]).toEqual(new Fr(amountToTransfer));
       expect(changeNote.preimage[5]).toEqual(new Fr(40n));
@@ -285,7 +287,9 @@ describe('Private Execution test suite', () => {
       const newNullifiers = result.callStackItem.publicInputs.newNullifiers.filter(field => !field.equals(Fr.ZERO));
       expect(newNullifiers).toHaveLength(2);
 
-      expect(newNullifiers[0]).toEqual(Fr.fromBuffer(acirSimulator.computeNullifier(preimages[0], ownerPk, circuitsWasm)));
+      expect(newNullifiers[0]).toEqual(
+        Fr.fromBuffer(acirSimulator.computeNullifier(preimages[0], ownerPk, circuitsWasm)),
+      );
 
       expect(result.preimages.newNotes).toHaveLength(2);
       const [recipientNote, changeNote] = result.preimages.newNotes;

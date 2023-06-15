@@ -29,8 +29,6 @@ describe('e2e_public_token_contract', () => {
     return { contract, tx, txReceipt };
   };
 
-
-
   beforeEach(async () => {
     ({ aztecNode, aztecRpcServer, accounts, logger } = await setup());
   }, 60_000);
@@ -69,7 +67,7 @@ describe('e2e_public_token_contract', () => {
     const mintAmount = 42n;
     const recipientIdx = 0;
     const recipient = accounts[recipientIdx];
-    
+
     const PK = await aztecRpcServer.getAccountPublicKey(recipient);
     const { contract: deployedContract } = await deployContract();
 

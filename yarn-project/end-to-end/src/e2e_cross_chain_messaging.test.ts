@@ -7,7 +7,6 @@ import { DebugLogger } from '@aztec/foundation/log';
 import { delay, pointToPublicKey, setup } from './utils.js';
 import { CrossChainTestHarness } from './cross_chain/test_harness.js';
 
-
 describe('e2e_cross_chain_messaging', () => {
   let aztecNode: AztecNodeService;
   let aztecRpcServer: AztecRPCServer;
@@ -26,9 +25,21 @@ describe('e2e_cross_chain_messaging', () => {
   let crossChainTestHarness: CrossChainTestHarness;
 
   beforeEach(async () => {
-    
-    const { aztecNode, aztecRpcServer: aztecRpcServer_, deployL1ContractsValues, accounts, logger: logger_} = await setup(2);
-    crossChainTestHarness = await CrossChainTestHarness.new(initialBalance, aztecNode, aztecRpcServer_, deployL1ContractsValues, accounts, logger_);
+    const {
+      aztecNode,
+      aztecRpcServer: aztecRpcServer_,
+      deployL1ContractsValues,
+      accounts,
+      logger: logger_,
+    } = await setup(2);
+    crossChainTestHarness = await CrossChainTestHarness.new(
+      initialBalance,
+      aztecNode,
+      aztecRpcServer_,
+      deployL1ContractsValues,
+      accounts,
+      logger_,
+    );
 
     l2Contract = crossChainTestHarness.l2Contract;
     ethAccount = crossChainTestHarness.ethAccount;
@@ -54,7 +65,6 @@ describe('e2e_cross_chain_messaging', () => {
     expect(balance).toBe(expectedBalance);
   };
 
-
   const consumeMessageOnAztec = async (bridgeAmount: bigint, messageKey: Fr, secret: Fr) => {
     logger('Consuming messages on L2 secretively');
     // Call the mint tokens function on the noir contract
@@ -66,7 +76,7 @@ describe('e2e_cross_chain_messaging', () => {
     const consumptionReceipt = await consumptionTx.getReceipt();
 
     expect(consumptionReceipt.status).toBe(TxStatus.MINED);
-  }
+  };
 
   const withdrawFundsFromAztec = async (withdrawAmount: bigint) => {
     logger('Send L2 tx to withdraw funds');
@@ -76,7 +86,7 @@ describe('e2e_cross_chain_messaging', () => {
     const withdrawReceipt = await withdrawTx.getReceipt();
 
     expect(withdrawReceipt.status).toBe(TxStatus.MINED);
-  }
+  };
 
   it('Milestone 2: Deposit funds from L1 -> L2 and withdraw back to L1', async () => {
     // Generate a claim secret using pedersen
@@ -109,7 +119,9 @@ describe('e2e_cross_chain_messaging', () => {
     // Check balance before and after exit.
     expect(await underlyingERC20.read.balanceOf([ethAccount.toString()])).toBe(l1TokenBalance - bridgeAmount);
     await crossChainTestHarness.withdrawFundsFromBridgeOnL1(withdrawAmount, entryKey);
-    expect(await underlyingERC20.read.balanceOf([ethAccount.toString()])).toBe(l1TokenBalance - bridgeAmount + withdrawAmount);
+    expect(await underlyingERC20.read.balanceOf([ethAccount.toString()])).toBe(
+      l1TokenBalance - bridgeAmount + withdrawAmount,
+    );
 
     expect(await outbox.read.contains([entryKey.toString(true)])).toBeFalsy();
   }, 120_000);

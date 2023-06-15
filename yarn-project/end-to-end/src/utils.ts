@@ -227,34 +227,41 @@ export async function deployAndInitializeNonNativeL2TokenContracts(
  * @param amount - The amount of tokens to deposit
  * @returns [messageKey, secret] - the key of the deposited message, and the secret.
  */
-export async function crossChainDepositTokensToTokenPortal(logger: Logger, tokenPortal: any, tokenPortalAddress: EthAddress, underlyingERC20: any, ethAccount: EthAddress, ownerAddress: AztecAddress, amount: bigint): Promise<Fr[]> {
-    logger("Generating a claim secret using pedersen's hash function");
-    const secret = Fr.random();
-    const secretHash = await computeMessageSecretHash(secret);
-    const secretString = `0x${secretHash.toBuffer().toString('hex')}` as `0x${string}`;
-    logger('Generated claim secret: ', secretString);
+export async function crossChainDepositTokensToTokenPortal(
+  logger: Logger,
+  tokenPortal: any,
+  tokenPortalAddress: EthAddress,
+  underlyingERC20: any,
+  ethAccount: EthAddress,
+  ownerAddress: AztecAddress,
+  amount: bigint,
+): Promise<Fr[]> {
+  logger("Generating a claim secret using pedersen's hash function");
+  const secret = Fr.random();
+  const secretHash = await computeMessageSecretHash(secret);
+  const secretString = `0x${secretHash.toBuffer().toString('hex')}` as `0x${string}`;
+  logger('Generated claim secret: ', secretString);
 
-    logger('Minting tokens on L1');
-    await underlyingERC20.write.mint([ethAccount.toString(), 1000000n], {} as any);
-    await underlyingERC20.write.approve([tokenPortalAddress.toString(), 1000n], {} as any);
+  logger('Minting tokens on L1');
+  await underlyingERC20.write.mint([ethAccount.toString(), 1000000n], {} as any);
+  await underlyingERC20.write.approve([tokenPortalAddress.toString(), 1000n], {} as any);
 
-    expect(await underlyingERC20.read.balanceOf([ethAccount.toString()])).toBe(1000000n);
+  expect(await underlyingERC20.read.balanceOf([ethAccount.toString()])).toBe(1000000n);
 
-    // Deposit tokens to the TokenPortal
-    const deadline = 2 ** 32 - 1; // max uint32 - 1
+  // Deposit tokens to the TokenPortal
+  const deadline = 2 ** 32 - 1; // max uint32 - 1
 
-    logger('Sending messages to L1 portal to be consumed publicly');
-    const args = [ownerAddress.toString(), amount, deadline, secretString] as const;
-    const { result: messageKeyHex } = await tokenPortal.simulate.depositToAztec(args, {
-      account: ethAccount.toString(),
-    } as any);
-    await tokenPortal.write.depositToAztec(args, {} as any);
-    expect(await underlyingERC20.read.balanceOf([ethAccount.toString()])).toBe(1000000n - (2n * amount));
+  logger('Sending messages to L1 portal to be consumed publicly');
+  const args = [ownerAddress.toString(), amount, deadline, secretString] as const;
+  const { result: messageKeyHex } = await tokenPortal.simulate.depositToAztec(args, {
+    account: ethAccount.toString(),
+  } as any);
+  await tokenPortal.write.depositToAztec(args, {} as any);
+  expect(await underlyingERC20.read.balanceOf([ethAccount.toString()])).toBe(1000000n - 2n * amount);
 
-    const messageKey = Fr.fromString(messageKeyHex);
+  const messageKey = Fr.fromString(messageKeyHex);
 
-    return [messageKey, secret];
-
+  return [messageKey, secret];
 }
 
 /**
@@ -266,31 +273,38 @@ export function delay(ms: number): Promise<void> {
 }
 
 export async function calculateStorageSlot(slot: bigint, key: Fr): Promise<Fr> {
-    const wasm = await CircuitsWasm.get();
-    const balancesStorageSlot = new Fr(slot); // this value is manually set in the Noir contract
-    const mappingStorageSlot = new Fr(4n); // The pedersen domain separator for storage slot calculations.
+  const wasm = await CircuitsWasm.get();
+  const balancesStorageSlot = new Fr(slot); // this value is manually set in the Noir contract
+  const mappingStorageSlot = new Fr(4n); // The pedersen domain separator for storage slot calculations.
 
-    // Based on `at` function in
-    // aztec3-packages/yarn-project/noir-contracts/src/contracts/noir-aztec3/src/state_vars/storage_map.nr
-    const storageSlot = Fr.fromBuffer(
-      pedersenCompressInputs(
-        wasm,
-        [mappingStorageSlot, balancesStorageSlot, key].map(f => f.toBuffer()),
-      ),
-    );
+  // Based on `at` function in
+  // aztec3-packages/yarn-project/noir-contracts/src/contracts/noir-aztec3/src/state_vars/storage_map.nr
+  const storageSlot = Fr.fromBuffer(
+    pedersenCompressInputs(
+      wasm,
+      [mappingStorageSlot, balancesStorageSlot, key].map(f => f.toBuffer()),
+    ),
+  );
 
-    return storageSlot; //.value;
-  };
+  return storageSlot; //.value;
+}
 
-  export async function expectStorageSlot(logger: Logger, aztecNode: AztecNodeService, contract: Contract, slot: bigint, key: Fr, expectedBalance: bigint) {
-    const storageSlot = await calculateStorageSlot(slot, key);
-    const storageValue = await aztecNode.getStorageAt(contract.address!, storageSlot.value);
-    if (storageValue === undefined) {
-      throw new Error(`Storage slot ${storageSlot} not found`);
-    }
+export async function expectStorageSlot(
+  logger: Logger,
+  aztecNode: AztecNodeService,
+  contract: Contract,
+  slot: bigint,
+  key: Fr,
+  expectedBalance: bigint,
+) {
+  const storageSlot = await calculateStorageSlot(slot, key);
+  const storageValue = await aztecNode.getStorageAt(contract.address!, storageSlot.value);
+  if (storageValue === undefined) {
+    throw new Error(`Storage slot ${storageSlot} not found`);
+  }
 
-    const balance = toBigIntBE(storageValue);
+  const balance = toBigIntBE(storageValue);
 
-    logger(`Account ${key.toShortString()} balance: ${balance}`);
-    expect(balance).toBe(expectedBalance);
-  };
+  logger(`Account ${key.toShortString()} balance: ${balance}`);
+  expect(balance).toBe(expectedBalance);
+}
