@@ -3,12 +3,14 @@
 
 #include "aztec3/circuits/apps/test_apps/basic_contract_deployment/basic_contract_deployment.hpp"
 #include "aztec3/circuits/apps/test_apps/escrow/deposit.hpp"
+#include "aztec3/constants.hpp"
 #include "aztec3/utils/circuit_errors.hpp"
 
 #include <barretenberg/barretenberg.hpp>
 
 #include <gtest/gtest.h>
 
+#include <array>
 #include <cstdint>
 
 namespace {
@@ -532,7 +534,6 @@ TEST_F(native_private_kernel_init_tests, native_one_read_requests_works)
     private_inputs.private_call.call_stack_item.public_inputs.read_requests = read_requests;
     private_inputs.private_call.read_request_membership_witnesses = read_request_membership_witnesses;
 
-    // tweak sibling path so it gives wrong root when paired with its request
     DummyComposer composer = DummyComposer("native_private_kernel_init_tests__native_one_read_requests_works");
     auto const& public_inputs = native_private_kernel_circuit_initial(composer, private_inputs);
 
@@ -618,6 +619,78 @@ TEST_F(native_private_kernel_init_tests, native_max_read_requests_works)
 // TODO(dbanks12): more tests of read_requests for multiple iterations.
 // Check enforcement that inner iterations' read_requests match root in constants
 // https://github.com/AztecProtocol/aztec-packages/issues/786
+
+
+TEST_F(native_private_kernel_init_tests, native_one_transient_read_requests_works)
+{
+    // one transient read request should work
+
+    NT::fr const& amount = 5;
+    NT::fr const& asset_id = 1;
+    NT::fr const& memo = 999;
+
+    auto private_inputs = do_private_call_get_kernel_inputs_init(false, deposit, { amount, asset_id, memo });
+
+    auto const& contract_address =
+        private_inputs.private_call.call_stack_item.public_inputs.call_context.storage_contract_address;
+
+    auto [read_requests, read_request_membership_witnesses, root] = get_random_reads(contract_address, 1);
+    private_inputs.private_call.call_stack_item.public_inputs.historic_private_data_tree_root = root;
+    private_inputs.private_call.call_stack_item.public_inputs.read_requests = read_requests;
+
+    // Make the read request transient
+    read_request_membership_witnesses[0].leaf_index = NT::fr(-1);
+    read_request_membership_witnesses[0].sibling_path = zero_array<fr, PRIVATE_DATA_TREE_HEIGHT>();
+    private_inputs.private_call.read_request_membership_witnesses = read_request_membership_witnesses;
+
+    DummyComposer composer =
+        DummyComposer("native_private_kernel_init_tests__native_one_transient_read_requests_works");
+    auto const& public_inputs = native_private_kernel_circuit_initial(composer, private_inputs);
+
+    validate_no_new_deployed_contract(public_inputs);
+
+    auto failure = composer.get_first_failure();
+    if (failure.code != CircuitErrorCode::NO_ERROR) {
+        info("failure: ", failure);
+    }
+    ASSERT_FALSE(composer.failed());
+}
+
+TEST_F(native_private_kernel_init_tests, native_max_read_requests_one_transient_works)
+{
+    // max read requests with one transient should work
+
+    NT::fr const& amount = 5;
+    NT::fr const& asset_id = 1;
+    NT::fr const& memo = 999;
+
+    auto private_inputs = do_private_call_get_kernel_inputs_init(false, deposit, { amount, asset_id, memo });
+
+    auto const& contract_address =
+        private_inputs.private_call.call_stack_item.public_inputs.call_context.storage_contract_address;
+
+    auto [read_requests, read_request_membership_witnesses, root] =
+        get_random_reads(contract_address, READ_REQUESTS_LENGTH);
+    private_inputs.private_call.call_stack_item.public_inputs.historic_private_data_tree_root = root;
+    private_inputs.private_call.call_stack_item.public_inputs.read_requests = read_requests;
+
+    // Make the read request at position 1 transient
+    read_request_membership_witnesses[1].leaf_index = NT::fr(-1);
+    read_request_membership_witnesses[1].sibling_path = zero_array<fr, PRIVATE_DATA_TREE_HEIGHT>();
+    private_inputs.private_call.read_request_membership_witnesses = read_request_membership_witnesses;
+
+    DummyComposer composer =
+        DummyComposer("native_private_kernel_init_tests__native_max_read_requests_one_transient_works");
+    auto const& public_inputs = native_private_kernel_circuit_initial(composer, private_inputs);
+
+    validate_no_new_deployed_contract(public_inputs);
+
+    auto failure = composer.get_first_failure();
+    if (failure.code != CircuitErrorCode::NO_ERROR) {
+        info("failure: ", failure);
+    }
+    ASSERT_FALSE(composer.failed());
+}
 
 /**
  **************************************************************
@@ -1089,6 +1162,79 @@ TEST_F(native_private_kernel_inner_tests, native_max_read_requests_works)
     private_inputs.private_call.read_request_membership_witnesses = read_request_membership_witnesses;
 
     DummyComposer composer = DummyComposer("native_private_kernel_inner_tests__native_max_read_requests_works");
+    auto const& public_inputs = native_private_kernel_circuit_inner(composer, private_inputs);
+
+    validate_no_new_deployed_contract(public_inputs);
+
+    auto failure = composer.get_first_failure();
+    if (failure.code != CircuitErrorCode::NO_ERROR) {
+        info("failure: ", failure);
+    }
+    ASSERT_FALSE(composer.failed());
+}
+
+TEST_F(native_private_kernel_inner_tests, native_one_transient_read_requests_works)
+{
+    // one transient read request should work
+
+    NT::fr const& amount = 5;
+    NT::fr const& asset_id = 1;
+    NT::fr const& memo = 999;
+
+    auto private_inputs = do_private_call_get_kernel_inputs_inner(false, deposit, { amount, asset_id, memo });
+
+    auto const& contract_address =
+        private_inputs.private_call.call_stack_item.public_inputs.call_context.storage_contract_address;
+
+    auto [read_requests, read_request_membership_witnesses, root] = get_random_reads(contract_address, 1);
+    private_inputs.private_call.call_stack_item.public_inputs.historic_private_data_tree_root = root;
+    private_inputs.private_call.call_stack_item.public_inputs.read_requests = read_requests;
+
+    // Make the read request transient
+    read_request_membership_witnesses[0].leaf_index = NT::fr(-1);
+    read_request_membership_witnesses[0].sibling_path = zero_array<fr, PRIVATE_DATA_TREE_HEIGHT>();
+    private_inputs.private_call.read_request_membership_witnesses = read_request_membership_witnesses;
+
+    DummyComposer composer =
+        DummyComposer("native_private_kernel_inner_tests__native_one_transient_read_requests_works");
+    auto const& public_inputs = native_private_kernel_circuit_inner(composer, private_inputs);
+
+    validate_no_new_deployed_contract(public_inputs);
+
+    auto failure = composer.get_first_failure();
+    if (failure.code != CircuitErrorCode::NO_ERROR) {
+        info("failure: ", failure);
+    }
+    ASSERT_FALSE(composer.failed());
+}
+
+TEST_F(native_private_kernel_inner_tests, native_max_read_requests_one_transient_works)
+{
+    // max read requests with one transient should work
+
+    NT::fr const& amount = 5;
+    NT::fr const& asset_id = 1;
+    NT::fr const& memo = 999;
+
+    auto private_inputs = do_private_call_get_kernel_inputs_inner(false, deposit, { amount, asset_id, memo });
+
+    auto const& contract_address =
+        private_inputs.private_call.call_stack_item.public_inputs.call_context.storage_contract_address;
+
+    auto [read_requests, read_request_membership_witnesses, root] =
+        get_random_reads(contract_address, READ_REQUESTS_LENGTH);
+    private_inputs.previous_kernel.public_inputs.constants.historic_tree_roots.private_historic_tree_roots
+        .private_data_tree_root = root;
+    private_inputs.private_call.call_stack_item.public_inputs.historic_private_data_tree_root = root;
+    private_inputs.private_call.call_stack_item.public_inputs.read_requests = read_requests;
+
+    // Make the read request at position 1 transient
+    read_request_membership_witnesses[1].leaf_index = NT::fr(-1);
+    read_request_membership_witnesses[1].sibling_path = zero_array<fr, PRIVATE_DATA_TREE_HEIGHT>();
+    private_inputs.private_call.read_request_membership_witnesses = read_request_membership_witnesses;
+
+    DummyComposer composer =
+        DummyComposer("native_private_kernel_inner_tests__native_max_read_requests_one_transient_works");
     auto const& public_inputs = native_private_kernel_circuit_inner(composer, private_inputs);
 
     validate_no_new_deployed_contract(public_inputs);
