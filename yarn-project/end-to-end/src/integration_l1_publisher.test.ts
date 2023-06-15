@@ -213,7 +213,7 @@ describe('L1Publisher integration', () => {
     return Fr.fromString(entry);
   };
 
-  it.only(`Build ${numberOfConsecutiveBlocks} blocks of 4 bloated txs building on each other`, async () => {
+  it(`Build ${numberOfConsecutiveBlocks} blocks of 4 bloated txs building on each other`, async () => {
     const stateInRollup_ = await rollup.read.rollupStateHash();
     expect(hexStringToBuffer(stateInRollup_.toString())).toEqual(Buffer.alloc(32, 0));
 
