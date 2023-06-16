@@ -187,11 +187,24 @@ export function fromTxMessage(buffer: Buffer): Tx {
   // so the first 4 bytes is the complete length, skip it
   const publicInputs = toObject(buffer.subarray(4), KernelCircuitPublicInputs);
   const proof = toObject(publicInputs.remainingData, Proof);
+
   const encryptedLogs = toObject(proof.remainingData, TxL2Logs);
   if (!encryptedLogs.obj) {
     encryptedLogs.obj = new TxL2Logs([]);
   }
+  const unencryptedLogs = toObject(encryptedLogs.remainingData, TxL2Logs);
+  if (!unencryptedLogs.obj) {
+    unencryptedLogs.obj = new TxL2Logs([]);
+  }
+
   const functions = toObjectArray(encryptedLogs.remainingData, EncodedContractFunction);
   const publicCalls = toObjectArray(functions.remainingData, PublicCallRequest);
-  return Tx.createTx(publicInputs.obj!, proof.obj!, encryptedLogs.obj, functions.objects, publicCalls.objects);
+  return Tx.createTx(
+    publicInputs.obj!,
+    proof.obj!,
+    encryptedLogs.obj,
+    unencryptedLogs.obj,
+    functions.objects,
+    publicCalls.objects,
+  );
 }

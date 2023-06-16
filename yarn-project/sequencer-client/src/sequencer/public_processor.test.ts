@@ -132,7 +132,7 @@ describe('public_processor', () => {
       kernelOutput.end.publicCallStack = padArrayEnd(callStackHashes, Fr.ZERO, KERNEL_PUBLIC_CALL_STACK_LENGTH);
       kernelOutput.end.privateCallStack = padArrayEnd([], Fr.ZERO, KERNEL_PRIVATE_CALL_STACK_LENGTH);
 
-      const tx = Tx.createTx(kernelOutput, proof, TxL2Logs.random(2, 3), [], callRequests);
+      const tx = Tx.createTx(kernelOutput, proof, TxL2Logs.random(2, 3), TxL2Logs.random(3, 2), [], callRequests);
 
       publicExecutor.execute.mockImplementation(execution => {
         for (const request of callRequests) {
@@ -160,7 +160,7 @@ describe('public_processor', () => {
       kernelOutput.end.publicCallStack = padArrayEnd([callStackHash], Fr.ZERO, KERNEL_PUBLIC_CALL_STACK_LENGTH);
       kernelOutput.end.privateCallStack = padArrayEnd([], Fr.ZERO, KERNEL_PRIVATE_CALL_STACK_LENGTH);
 
-      const tx = Tx.createTx(kernelOutput, proof, TxL2Logs.random(2, 3), [], [callRequest]);
+      const tx = Tx.createTx(kernelOutput, proof, TxL2Logs.random(2, 3), TxL2Logs.random(3, 2), [], [callRequest]);
 
       const publicExecutionResult = makePublicExecutionResultFromRequest(callRequest);
       publicExecutionResult.nestedExecutions = [

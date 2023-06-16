@@ -549,6 +549,14 @@ export class L2Block {
    * @returns The calldata hash.
    */
   getCalldataHash() {
+    if (this.newEncryptedLogs === undefined) {
+      throw new Error('Encrypted logs has to be attached before calling "getCalldataHash"');
+    }
+
+    if (this.newUnencryptedLogs === undefined) {
+      throw new Error('Unencrypted logs has to be attached before calling "getCalldataHash"');
+    }
+
     const computeRoot = (leafs: Buffer[]): Buffer => {
       const layers: Buffer[][] = [leafs];
       let activeLayer = 0;
@@ -593,11 +601,11 @@ export class L2Block {
       const newL2ToL1MsgsBuffer = Buffer.concat(
         this.newL2ToL1Msgs.slice(i * l2ToL1MsgsPerBase, (i + 1) * l2ToL1MsgsPerBase).map(x => x.toBuffer()),
       );
-      const encryptedLogsHashKernel0 = L2Block.computeKernelLogsHash(this.newEncryptedLogs!.txLogs[i * 2]);
-      const encryptedLogsHashKernel1 = L2Block.computeKernelLogsHash(this.newEncryptedLogs!.txLogs[i * 2 + 1]);
+      const encryptedLogsHashKernel0 = L2Block.computeKernelLogsHash(this.newEncryptedLogs.txLogs[i * 2]);
+      const encryptedLogsHashKernel1 = L2Block.computeKernelLogsHash(this.newEncryptedLogs.txLogs[i * 2 + 1]);
 
-      const unencryptedLogsHashKernel0 = L2Block.computeKernelLogsHash(this.newUnencryptedLogs!.txLogs[i * 2]);
-      const unencryptedLogsHashKernel1 = L2Block.computeKernelLogsHash(this.newUnencryptedLogs!.txLogs[i * 2 + 1]);
+      const unencryptedLogsHashKernel0 = L2Block.computeKernelLogsHash(this.newUnencryptedLogs.txLogs[i * 2]);
+      const unencryptedLogsHashKernel1 = L2Block.computeKernelLogsHash(this.newUnencryptedLogs.txLogs[i * 2 + 1]);
 
       const inputValue = Buffer.concat([
         commitmentsBuffer,

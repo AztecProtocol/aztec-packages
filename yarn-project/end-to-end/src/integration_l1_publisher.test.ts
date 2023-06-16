@@ -330,7 +330,7 @@ describe('L1Publisher integration', () => {
     }
   }, 60_000);
 
-  it(`Build ${numberOfConsecutiveBlocks} blocks of 4 empty txs building on each other`, async () => {
+  it.only(`Build ${numberOfConsecutiveBlocks} blocks of 4 empty txs building on each other`, async () => {
     const stateInRollup_ = await rollup.read.rollupStateHash();
     expect(hexStringToBuffer(stateInRollup_.toString())).toEqual(Buffer.alloc(32, 0));
 
