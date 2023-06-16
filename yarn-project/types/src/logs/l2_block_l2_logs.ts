@@ -38,8 +38,8 @@ export class L2BlockL2Logs {
   public static fromBuffer(buffer: Buffer | BufferReader): L2BlockL2Logs {
     const reader = BufferReader.asReader(buffer);
 
-    const txBufLength = reader.readNumber();
-    const serializedTxLogs = reader.readBufferArray(txBufLength);
+    const logsBufLength = reader.readNumber();
+    const serializedTxLogs = reader.readBufferArray(logsBufLength);
 
     const txLogs = serializedTxLogs.map(logs => TxL2Logs.fromBuffer(logs, false));
     return new L2BlockL2Logs(txLogs);

@@ -37,10 +37,12 @@ export class TxL2Logs {
    * @returns A new L2Logs object.
    */
   public static fromBuffer(buf: Buffer, isLengthPrefixed = true): TxL2Logs {
-    const offset = isLengthPrefixed ? 4 : 0;
-    const reader = new BufferReader(buf, offset);
+    const reader = new BufferReader(buf, 0);
 
-    const serializedFunctionLogs = reader.readBufferArray();
+    // If the buffer is length prefixed use the length to read the array. Otherwise, the entire buffer is consumed.
+    const logsBufLength = isLengthPrefixed ? reader.readNumber() : -1;
+    const serializedFunctionLogs = reader.readBufferArray(logsBufLength);
+
     const functionLogs = serializedFunctionLogs.map(logs => FunctionL2Logs.fromBuffer(logs, false));
     return new TxL2Logs(functionLogs);
   }
