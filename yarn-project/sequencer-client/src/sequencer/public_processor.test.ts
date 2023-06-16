@@ -87,7 +87,9 @@ describe('public_processor', () => {
       const hash = await tx.getTxHash();
       const [processed, failed] = await processor.process([tx]);
 
-      expect(processed).toEqual([{ isEmpty: false, hash, ...pick(tx, 'data', 'proof', 'encryptedLogs') }]);
+      expect(processed).toEqual([
+        { isEmpty: false, hash, ...pick(tx, 'data', 'proof', 'encryptedLogs', 'unencryptedLogs') },
+      ]);
       expect(failed).toEqual([]);
     });
 
