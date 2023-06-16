@@ -162,7 +162,7 @@ std::array<fr, 2> compute_kernels_calldata_hash(std::array<abis::PreviousKernelD
         calldata_hash_inputs[offset + i * 2] = encryptedLogsHash[0];
         calldata_hash_inputs[offset + i * 2 + 1] = encryptedLogsHash[1];
 
-        offset += KERNEL_NUM_ENCRYPTED_LOGS_HASHES * 2;
+        offset += KERNEL_NUM_ENCRYPTED_LOGS_HASHES * 2 * 2;
 
         calldata_hash_inputs[offset + i * 2] = unencryptedLogsHash[0];
         calldata_hash_inputs[offset + i * 2 + 1] = unencryptedLogsHash[1];
