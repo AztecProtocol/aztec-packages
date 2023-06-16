@@ -196,6 +196,7 @@ describe('sequencer/solo_block_builder', () => {
     );
     const newL2ToL1Msgs = flatMap(txs, tx => tx.data.end.newL2ToL1Msgs);
     const newEncryptedLogs = new L2BlockL2Logs(txs.map(tx => tx.encryptedLogs || new TxL2Logs([])));
+    const newUnencryptedLogs = new L2BlockL2Logs(txs.map(tx => tx.unencryptedLogs || new TxL2Logs([])));
 
     const l2Block = L2Block.fromFields({
       number: blockNumber,
@@ -224,6 +225,7 @@ describe('sequencer/solo_block_builder', () => {
       newL1ToL2Messages: mockL1ToL2Messages,
       newL2ToL1Msgs,
       newEncryptedLogs,
+      newUnencryptedLogs,
     });
 
     const callDataHash = l2Block.getCalldataHash();
