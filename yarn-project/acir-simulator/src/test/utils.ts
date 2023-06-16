@@ -1,4 +1,3 @@
-
 import { computeSecretMessageHash } from '@aztec/circuits.js/abis';
 import { L1ToL2Message, L1Actor, L2Actor } from '@aztec/types';
 import { sha256ToField } from '@aztec/foundation/crypto';
@@ -12,16 +11,18 @@ import { AztecAddress, CircuitsWasm, EthAddress, Fr } from '@aztec/circuits.js';
  * @param secret - The secret to unlock the message.
  * @returns The L1 to L2 message.
  */
-export const buildL1ToL2Message = async (selector: string, contentPreimage: Fr[], targetContract: AztecAddress, secret: Fr): Promise<L1ToL2Message> => {
+export const buildL1ToL2Message = async (
+  selector: string,
+  contentPreimage: Fr[],
+  targetContract: AztecAddress,
+  secret: Fr,
+): Promise<L1ToL2Message> => {
   const wasm = await CircuitsWasm.get();
 
   // Write the selector into a buffer.
-  const selectorBuf = Buffer.from(selector, "hex");
+  const selectorBuf = Buffer.from(selector, 'hex');
 
-  const contentBuf = Buffer.concat([
-    selectorBuf,
-    ...contentPreimage.map(field => field.toBuffer()),
-  ]);
+  const contentBuf = Buffer.concat([selectorBuf, ...contentPreimage.map(field => field.toBuffer())]);
   const content = sha256ToField(contentBuf);
 
   const secretHash = computeSecretMessageHash(wasm, secret);

@@ -384,7 +384,7 @@ describe('Private Execution test suite', () => {
       const canceller = EthAddress.random();
       // Function selector: 0xeeb73071 keccak256('mint(uint256,bytes32,address)')
       const preimage = await buildL1ToL2Message(
-        "eeb73071",
+        'eeb73071',
         [new Fr(bridgedAmount), new Fr(recipient.x), canceller.toField()],
         contractAddress,
         secret,
