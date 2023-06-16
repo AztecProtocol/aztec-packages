@@ -144,6 +144,7 @@ export function toTxMessage(tx: Tx): Buffer {
     createMessageComponent(tx.data),
     createMessageComponent(tx.proof),
     createMessageComponent(tx.encryptedLogs),
+    createMessageComponent(tx.unencryptedLogs),
     createMessageComponents(tx.newContractPublicFunctions),
     createMessageComponents(tx.enqueuedPublicFunctionCalls),
   ]);
@@ -197,7 +198,7 @@ export function fromTxMessage(buffer: Buffer): Tx {
     unencryptedLogs.obj = new TxL2Logs([]);
   }
 
-  const functions = toObjectArray(encryptedLogs.remainingData, EncodedContractFunction);
+  const functions = toObjectArray(unencryptedLogs.remainingData, EncodedContractFunction);
   const publicCalls = toObjectArray(functions.remainingData, PublicCallRequest);
   return Tx.createTx(
     publicInputs.obj!,
