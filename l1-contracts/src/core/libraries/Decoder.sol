@@ -382,13 +382,14 @@ library Decoder {
           dstPtr := add(dstPtr, 0x20)
           mstore(dstPtr, mload(add(vars, 0x80))) // `encryptedLogsHashKernel2` starts at 0x80 in `vars`
 
-          // unencryptedLogsHashKernel1
-          dstPtr := add(dstPtr, 0x20)
-          mstore(dstPtr, mload(add(vars, 0xa0))) // `unencryptedLogsHashKernel1` starts at 0xa0 in `vars`
+          // TODO #854
+          // // unencryptedLogsHashKernel1
+          // dstPtr := add(dstPtr, 0x20)
+          // mstore(dstPtr, mload(add(vars, 0xa0))) // `unencryptedLogsHashKernel1` starts at 0xa0 in `vars`
 
-          // unencryptedLogsHashKernel2
-          dstPtr := add(dstPtr, 0x20)
-          mstore(dstPtr, mload(add(vars, 0xc0))) // `unencryptedLogsHashKernel2` starts at 0xc0 in `vars`
+          // // unencryptedLogsHashKernel2
+          // dstPtr := add(dstPtr, 0x20)
+          // mstore(dstPtr, mload(add(vars, 0xc0))) // `unencryptedLogsHashKernel2` starts at 0xc0 in `vars`
         }
 
         offsets.commitmentOffset += 2 * Constants.COMMITMENTS_PER_KERNEL * 0x20;
