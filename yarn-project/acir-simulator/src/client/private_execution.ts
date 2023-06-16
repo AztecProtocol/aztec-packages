@@ -201,8 +201,8 @@ export class PrivateFunctionExecution {
     // TODO(#1347): Noir fails with too many unknowns error when public inputs struct contains too many members.
     publicInputs.encryptedLogsHash = to2Fields(encryptedLogs.hash());
     publicInputs.encryptedLogPreimagesLength = new Fr(encryptedLogs.getSerializedLength());
-
-    // TODO(#853)
+    publicInputs.unencryptedLogsHash = to2Fields(unencryptedLogs.hash());
+    publicInputs.unencryptedLogPreimagesLength = new Fr(unencryptedLogs.getSerializedLength());
 
     const callStackItem = new PrivateCallStackItem(this.contractAddress, this.functionData, publicInputs);
     const returnValues = decodeReturnValues(this.abi, publicInputs.returnValues);
