@@ -184,7 +184,7 @@ std::array<fr, 2> compute_kernels_calldata_hash(std::array<abis::PreviousKernelD
     // Modified version of:
     // https://github.com/AztecProtocol/aztec-packages/blob/01080c7f1d2956512b6a9cff0582b43be25b3cc2/circuits/cpp/src/aztec3/circuits/hash.hpp#L350
     const uint32_t encrypted_logs_start_index = calldata_hash_inputs.size() - 8;
-    const uint32_t first_modified_byte_encrypted = encrypted_logs_start_index * 32;
+    const uint32_t first_modified_byte_encrypted = num_bytes - 128;  // 128 = num bytes occupied by all the logs hashes
     for (uint8_t i = 0; i < 4; i++) {
         auto half = calldata_hash_inputs[encrypted_logs_start_index + i].to_buffer();
         for (uint8_t j = 0; j < 16; j++) {
@@ -194,7 +194,8 @@ std::array<fr, 2> compute_kernels_calldata_hash(std::array<abis::PreviousKernelD
 
     // Do the same for the unencrypted logs
     const uint32_t unencrypted_logs_start_index = calldata_hash_inputs.size() - 4;
-    const uint32_t first_modified_byte_unencrypted = unencrypted_logs_start_index * 32;
+    const uint32_t first_modified_byte_unencrypted =
+        num_bytes - 64;  // 64 = num bytes occupied by unencrypted logs hashes
     for (uint8_t i = 0; i < 4; i++) {
         auto half = calldata_hash_inputs[unencrypted_logs_start_index + i].to_buffer();
         for (uint8_t j = 0; j < 16; j++) {
