@@ -46,6 +46,10 @@ export class PrivateCircuitPublicInputs {
      */
     public newNullifiers: Fr[],
     /**
+     * The objects those were nullified by the above newNullifiers.
+     */
+    public nullifiedCommitments: Fr[],
+    /**
      * Private call stack at the current kernel iteration.
      */
     public privateCallStack: Fr[],
@@ -110,9 +114,9 @@ export class PrivateCircuitPublicInputs {
     assertMemberLength(this, 'readRequests', MAX_READ_REQUESTS_PER_CALL);
     assertMemberLength(this, 'newCommitments', MAX_NEW_COMMITMENTS_PER_CALL);
     assertMemberLength(this, 'newNullifiers', MAX_NEW_NULLIFIERS_PER_CALL);
+    assertMemberLength(this, 'nullifiedCommitments', MAX_NEW_NULLIFIERS_PER_CALL);
     assertMemberLength(this, 'privateCallStack', MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL);
     assertMemberLength(this, 'publicCallStack', MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL);
-    assertMemberLength(this, 'newL2ToL1Msgs', MAX_NEW_L2_TO_L1_MSGS_PER_CALL);
     assertMemberLength(this, 'encryptedLogsHash', NUM_FIELDS_PER_SHA256);
     assertMemberLength(this, 'unencryptedLogsHash', NUM_FIELDS_PER_SHA256);
   }
@@ -140,6 +144,7 @@ export class PrivateCircuitPublicInputs {
       frArray(RETURN_VALUES_LENGTH),
       frArray(MAX_READ_REQUESTS_PER_CALL),
       frArray(MAX_NEW_COMMITMENTS_PER_CALL),
+      frArray(MAX_NEW_NULLIFIERS_PER_CALL),
       frArray(MAX_NEW_NULLIFIERS_PER_CALL),
       frArray(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL),
       frArray(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL),
@@ -171,6 +176,7 @@ export class PrivateCircuitPublicInputs {
       fields.readRequests,
       fields.newCommitments,
       fields.newNullifiers,
+      fields.nullifiedCommitments,
       fields.privateCallStack,
       fields.publicCallStack,
       fields.newL2ToL1Msgs,
