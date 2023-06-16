@@ -7,7 +7,7 @@ import { DebugLogger } from '@aztec/foundation/log';
 import { delay, expectStorageSlot, setup } from './utils.js';
 import { CrossChainTestHarness } from './cross_chain/test_harness.js';
 
-describe('e2e_cross_chain_messaging', () => {
+describe('e2e_public_cross_chain_messaging', () => {
   let aztecNode: AztecNodeService;
   let aztecRpcServer: AztecRPCServer;
   let logger: DebugLogger;

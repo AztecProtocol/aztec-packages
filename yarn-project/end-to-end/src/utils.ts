@@ -10,7 +10,6 @@ import {
   EthAddress,
   Point,
   SentTx,
-  computeMessageSecretHash,
   createAztecRPCServer,
 } from '@aztec/aztec.js';
 import { DeployL1Contracts, deployL1Contract, deployL1Contracts } from '@aztec/ethereum';
@@ -214,54 +213,6 @@ export async function deployAndInitializeNonNativeL2TokenContracts(
     {} as any,
   );
   return { l2Contract, tokenPortalAddress, tokenPortal, underlyingERC20 };
-}
-
-/**
- * Deposit Tokens To Portal, helper function for cross chain messages to deposit to the Token Portal Contract
- * @param logger - A logger instance
- * @param tokenPortal - An instance of the Token Portal Contract
- * @param tokenPortalAddress - The address of the Token Portal Contract
- * @param underlyingERC20 - The underlying ERC20 token
- * @param ethAccount - The eth account sending requests.
- * @param ownerAddress - The aztec address owning the tokens
- * @param amount - The amount of tokens to deposit
- * @returns [messageKey, secret] - the key of the deposited message, and the secret.
- */
-export async function crossChainDepositTokensToTokenPortal(
-  logger: Logger,
-  tokenPortal: any,
-  tokenPortalAddress: EthAddress,
-  underlyingERC20: any,
-  ethAccount: EthAddress,
-  ownerAddress: AztecAddress,
-  amount: bigint,
-): Promise<Fr[]> {
-  logger("Generating a claim secret using pedersen's hash function");
-  const secret = Fr.random();
-  const secretHash = await computeMessageSecretHash(secret);
-  const secretString = `0x${secretHash.toBuffer().toString('hex')}` as `0x${string}`;
-  logger('Generated claim secret: ', secretString);
-
-  logger('Minting tokens on L1');
-  await underlyingERC20.write.mint([ethAccount.toString(), 1000000n], {} as any);
-  await underlyingERC20.write.approve([tokenPortalAddress.toString(), 1000n], {} as any);
-
-  expect(await underlyingERC20.read.balanceOf([ethAccount.toString()])).toBe(1000000n);
-
-  // Deposit tokens to the TokenPortal
-  const deadline = 2 ** 32 - 1; // max uint32 - 1
-
-  logger('Sending messages to L1 portal to be consumed publicly');
-  const args = [ownerAddress.toString(), amount, deadline, secretString] as const;
-  const { result: messageKeyHex } = await tokenPortal.simulate.depositToAztec(args, {
-    account: ethAccount.toString(),
-  } as any);
-  await tokenPortal.write.depositToAztec(args, {} as any);
-  expect(await underlyingERC20.read.balanceOf([ethAccount.toString()])).toBe(1000000n - 2n * amount);
-
-  const messageKey = Fr.fromString(messageKeyHex);
-
-  return [messageKey, secret];
 }
 
 /**

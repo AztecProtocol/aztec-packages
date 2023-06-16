@@ -65,7 +65,7 @@ describe('e2e_cross_chain_messaging', () => {
     expect(balance).toBe(expectedBalance);
   };
 
-  const consumeMessageOnAztec = async (bridgeAmount: bigint, messageKey: Fr, secret: Fr) => {
+  const consumeMessageOnAztecAndMint = async (bridgeAmount: bigint, messageKey: Fr, secret: Fr) => {
     logger('Consuming messages on L2 secretively');
     // Call the mint tokens function on the noir contract
     const consumptionTx = l2Contract.methods
@@ -106,7 +106,7 @@ describe('e2e_cross_chain_messaging', () => {
     const transferAmount = 1n;
     await crossChainTestHarness.performL2Transfer(transferAmount);
 
-    await consumeMessageOnAztec(bridgeAmount, messageKey, secret);
+    await consumeMessageOnAztecAndMint(bridgeAmount, messageKey, secret);
     await expectBalance(ownerAddress, bridgeAmount + initialBalance - transferAmount);
 
     // time to withdraw the funds again!
