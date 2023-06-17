@@ -27,7 +27,6 @@ using aztec3::utils::array_length;
 using aztec3::utils::array_pop;
 using aztec3::utils::array_push;
 using aztec3::utils::push_array_to_array;
-using aztec3::utils::zero_array;
 
 namespace aztec3::circuits::kernel::public_kernel {
 
@@ -374,22 +373,19 @@ void propagate_new_l2_to_l1_messages(Composer& composer,
 template <typename NT> void accumulate_unencrypted_logs(PublicKernelInputs<NT> const& public_kernel_inputs,
                                                         KernelCircuitPublicInputs<NT>& circuit_outputs)
 {
-    using fr = typename NT::fr;
+    const auto public_call_public_inputs = public_kernel_inputs.public_call.call_stack_item.public_inputs;
 
     const auto& previous_kernel_end = public_kernel_inputs.previous_kernel.public_inputs.end;
-
     const auto& previous_unencrypted_logs_hash = previous_kernel_end.unencrypted_logs_hash;
 
-    // TODO #854: inject real hash
-    const auto& current_unencrypted_logs_hash = zero_array<fr, 2>();
+    const auto& current_unencrypted_logs_hash = public_call_public_inputs.unencrypted_logs_hash;
     circuit_outputs.end.unencrypted_logs_hash = accumulate_sha256<NT>({ previous_unencrypted_logs_hash[0],
                                                                         previous_unencrypted_logs_hash[1],
                                                                         current_unencrypted_logs_hash[0],
                                                                         current_unencrypted_logs_hash[1] });
 
     // Add log preimages lengths from current iteration to accumulated lengths
-    // TODO #854: inject real length
-    const auto& current_unencrypted_log_preimages_length = fr(0);  // TODO: inject real length
+    const auto& current_unencrypted_log_preimages_length = public_call_public_inputs.unencrypted_log_preimages_length;
     circuit_outputs.end.unencrypted_log_preimages_length =
         previous_kernel_end.unencrypted_log_preimages_length + current_unencrypted_log_preimages_length;
 }

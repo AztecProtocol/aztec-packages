@@ -26,7 +26,7 @@ import {
 import { computeCallStackItemHash, computeVarArgsHash } from '@aztec/circuits.js/abis';
 import { isArrayEmpty, padArrayEnd, padArrayStart } from '@aztec/foundation/collection';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { Tuple, mapTuple } from '@aztec/foundation/serialize';
+import { Tuple, mapTuple, to2Fields } from '@aztec/foundation/serialize';
 import { ContractDataSource, L1ToL2MessageSource, MerkleTreeId, Tx } from '@aztec/types';
 import { MerkleTreeOperations } from '@aztec/world-state';
 import { getVerificationKeys } from '../index.js';
@@ -188,6 +188,10 @@ export class PublicProcessor {
       item.isEmpty() ? Fr.zero() : computeCallStackItemHash(wasm, item),
     );
 
+    // TODO(#1347): Noir fails with too many unknowns error when public inputs struct contains too many members.
+    const unencryptedLogsHash = to2Fields(result.unencryptedLogs.hash());
+    const unencryptedLogPreimagesLength = new Fr(result.unencryptedLogs.getSerializedLength());
+
     return PublicCircuitPublicInputs.from({
       callContext: result.execution.callContext,
       proverAddress: AztecAddress.random(),
@@ -207,6 +211,8 @@ export class PublicProcessor {
         KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH,
       ),
       publicCallStack,
+      unencryptedLogsHash,
+      unencryptedLogPreimagesLength,
       historicPublicDataTreeRoot,
     });
   }
