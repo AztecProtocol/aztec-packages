@@ -1,0 +1,29 @@
+#include "common.hpp"
+#include "init.hpp"
+
+#include "aztec3/circuits/abis/kernel_circuit_public_inputs.hpp"
+#include "aztec3/circuits/abis/private_kernel/private_kernel_inputs_inner.hpp"
+#include "aztec3/utils/dummy_composer.hpp"
+
+namespace aztec3::circuits::kernel::private_kernel {
+
+using aztec3::circuits::abis::KernelCircuitPublicInputs;
+using aztec3::circuits::abis::private_kernel::PrivateKernelInputsInner;
+
+using DummyComposer = aztec3::utils::DummyComposer;
+using CircuitErrorCode = aztec3::utils::CircuitErrorCode;
+
+KernelCircuitPublicInputs<NT> native_private_kernel_circuit_ordering(DummyComposer& composer,
+                                                                     PrivateKernelInputsInner<NT> const& private_inputs)
+{
+    (void)composer;
+    // We'll be pushing data to this during execution of this circuit.
+    KernelCircuitPublicInputs<NT> public_inputs{};
+
+    // Do this before any functions can modify the inputs.
+    common_initialise_end_values(private_inputs, public_inputs);
+
+    return public_inputs;
+};
+
+}  // namespace aztec3::circuits::kernel::private_kernel
