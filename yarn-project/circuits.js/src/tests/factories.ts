@@ -641,6 +641,11 @@ export function makeContractDeploymentData(seed = 1) {
   );
 }
 
+/**
+ * Makes global variables.
+ * @param seed - The seed to use for generating the global variables.
+ * @returns Global variables.
+ */
 export function makeGlobalVariables(seed = 1): GlobalVariables {
   return new GlobalVariables(fr(seed), fr(seed + 1));
 }
