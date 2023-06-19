@@ -164,11 +164,8 @@ std::array<fr, 2> compute_kernels_calldata_hash(std::array<abis::PreviousKernelD
 
         offset += KERNEL_NUM_ENCRYPTED_LOGS_HASHES * 2 * 2;
 
-        // TODO #854
-        // calldata_hash_inputs[offset + i * 2] = unencryptedLogsHash[0];
-        // calldata_hash_inputs[offset + i * 2 + 1] = unencryptedLogsHash[1];
-        calldata_hash_inputs[offset + i * 2] = fr(0);
-        calldata_hash_inputs[offset + i * 2 + 1] = fr(0);
+        calldata_hash_inputs[offset + i * 2] = unencryptedLogsHash[0];
+        calldata_hash_inputs[offset + i * 2 + 1] = unencryptedLogsHash[1];
     }
 
     // We subtract 4 from inputs size because 1 logs hash is stored in 2 fields and those 2 fields get converted only

@@ -610,11 +610,8 @@ export class L2Block {
       const encryptedLogsHashKernel0 = L2Block.computeKernelLogsHash(this.newEncryptedLogs.txLogs[i * 2]);
       const encryptedLogsHashKernel1 = L2Block.computeKernelLogsHash(this.newEncryptedLogs.txLogs[i * 2 + 1]);
 
-      // TODO #854
-      // const unencryptedLogsHashKernel0 = L2Block.computeKernelLogsHash(this.newUnencryptedLogs.txLogs[i * 2]);
-      // const unencryptedLogsHashKernel1 = L2Block.computeKernelLogsHash(this.newUnencryptedLogs.txLogs[i * 2 + 1]);
-      const unencryptedLogsHashKernel0 = Buffer.alloc(32);
-      const unencryptedLogsHashKernel1 = Buffer.alloc(32);
+      const unencryptedLogsHashKernel0 = L2Block.computeKernelLogsHash(this.newUnencryptedLogs.txLogs[i * 2]);
+      const unencryptedLogsHashKernel1 = L2Block.computeKernelLogsHash(this.newUnencryptedLogs.txLogs[i * 2 + 1]);
 
       const inputValue = Buffer.concat([
         commitmentsBuffer,
