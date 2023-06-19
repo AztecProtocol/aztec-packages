@@ -647,7 +647,7 @@ export function makeContractDeploymentData(seed = 1) {
  * @returns Global variables.
  */
 export function makeGlobalVariables(seed = 1): GlobalVariables {
-  return new GlobalVariables(fr(seed), fr(seed + 1));
+  return new GlobalVariables(fr(seed), fr(seed + 1), fr(seed + 2), fr(seed + 3));
 }
 
 /**

@@ -16,6 +16,14 @@ export class GlobalVariables {
      * version for the L2 block.
      */
     public version: Fr,
+    /**
+     * Block number of the L2 block.
+     */
+    public blockNumber: Fr,
+    /**
+     * Timestamp of the L2 block.
+     */
+    public timestamp: Fr,
   ) {}
 
   static from(fields: FieldsOf<GlobalVariables>): GlobalVariables {
@@ -24,11 +32,11 @@ export class GlobalVariables {
 
   static fromBuffer(buffer: Buffer | BufferReader): GlobalVariables {
     const reader = BufferReader.asReader(buffer);
-    return new GlobalVariables(reader.readFr(), reader.readFr());
+    return new GlobalVariables(reader.readFr(), reader.readFr(), reader.readFr(), reader.readFr());
   }
 
   static getFields(fields: FieldsOf<GlobalVariables>) {
-    return [fields.chainId, fields.version] as const;
+    return [fields.chainId, fields.version, fields.blockNumber, fields.timestamp] as const;
   }
 
   toBuffer() {

@@ -71,7 +71,7 @@ export class SoloBlockBuilder implements BlockBuilder {
     protected chainId: Fr = Fr.ZERO,
     protected version: Fr = Fr.ZERO,
   ) {
-    this.globalVariables = new GlobalVariables(chainId, version);
+    this.globalVariables = new GlobalVariables(chainId, version, Fr.ZERO, Fr.ZERO);
   }
 
   /**
@@ -79,13 +79,16 @@ export class SoloBlockBuilder implements BlockBuilder {
    * @param blockNumber - Number of the block to create.
    * @param txs - Processed transactions to include in the block.
    * @param newL1ToL2Messages - L1 to L2 messages to be part of the block.
+   * @param timestamp - Timestamp of the block.
    * @returns The new L2 block and a correctness proof as returned by the root rollup circuit.
    */
   public async buildL2Block(
     blockNumber: number,
     txs: ProcessedTx[],
     newL1ToL2Messages: Fr[],
+    timestamp = 0,
   ): Promise<[L2Block, Proof]> {
+    this.globalVariables = new GlobalVariables(this.chainId, this.version, new Fr(blockNumber), new Fr(timestamp));
     const [
       startPrivateDataTreeSnapshot,
       startNullifierTreeSnapshot,

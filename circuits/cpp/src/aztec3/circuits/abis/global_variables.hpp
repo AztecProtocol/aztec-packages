@@ -21,10 +21,13 @@ template <typename NCT> struct GlobalVariables {
 
     fr chain_id = 0;
     fr version = 0;
+    fr block_number = 0;
+    fr timestamp = 0;
 
     boolean operator==(GlobalVariables<NCT> const& other) const
     {
-        return chain_id == other.chain_id && version == other.version;
+        return chain_id == other.chain_id && version == other.version && block_number == other.block_number &&
+               timestamp == other.timestamp;
     };
 
     template <typename Composer> GlobalVariables<CircuitTypes<Composer>> to_circuit_type(Composer& composer) const
@@ -38,6 +41,8 @@ template <typename NCT> struct GlobalVariables {
         GlobalVariables<CircuitTypes<Composer>> globals = {
             to_ct(chain_id),
             to_ct(version),
+            to_ct(block_number),
+            to_ct(timestamp),
         };
 
         return globals;
@@ -48,6 +53,8 @@ template <typename NCT> struct GlobalVariables {
         std::vector<fr> inputs;
         inputs.push_back(chain_id);
         inputs.push_back(version);
+        inputs.push_back(block_number);
+        inputs.push_back(timestamp);
 
         return NCT::compress(inputs, GeneratorIndex::GLOBAL_VARIABLES);
     }
@@ -59,6 +66,8 @@ template <typename NCT> void read(uint8_t const*& it, GlobalVariables<NCT>& glob
 
     read(it, globals.chain_id);
     read(it, globals.version);
+    read(it, globals.block_number);
+    read(it, globals.timestamp);
 };
 
 template <typename NCT> void write(std::vector<uint8_t>& buf, GlobalVariables<NCT> const& globals)
@@ -67,12 +76,16 @@ template <typename NCT> void write(std::vector<uint8_t>& buf, GlobalVariables<NC
 
     write(buf, globals.chain_id);
     write(buf, globals.version);
+    write(buf, globals.block_number);
+    write(buf, globals.timestamp);
 };
 
 template <typename NCT> std::ostream& operator<<(std::ostream& os, GlobalVariables<NCT> const& globals)
 {
     return os << "chain_id: " << globals.chain_id << "\n"
-              << "version: " << globals.version << "\n";
+              << "version: " << globals.version << "\n"
+              << "block_number: " << globals.block_number << "\n"
+              << "timestamp: " << globals.timestamp << "\n";
 }
 
 }  // namespace aztec3::circuits::abis
