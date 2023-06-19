@@ -31,6 +31,15 @@ export class TxL2Logs {
   }
 
   /**
+   * Adds function logs to the existing logs.
+   * @param functionLogs - The function logs to add
+   * @remarks Used by sequencer to append unencrypted logs emitted in public function calls.
+   */
+  public addFunctionLogs(functionLogs: FunctionL2Logs[]) {
+    this.functionLogs.push(...functionLogs);
+  }
+
+  /**
    * Deserializes logs from a buffer.
    * @param buf - The buffer containing the serialized logs.
    * @param isLengthPrefixed - Whether the buffer is prefixed with 4 bytes for its total length.

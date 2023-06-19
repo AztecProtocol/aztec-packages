@@ -27,7 +27,7 @@ import { computeCallStackItemHash, computeVarArgsHash } from '@aztec/circuits.js
 import { isArrayEmpty, padArrayEnd, padArrayStart } from '@aztec/foundation/collection';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { Tuple, mapTuple, to2Fields } from '@aztec/foundation/serialize';
-import { ContractDataSource, L1ToL2MessageSource, MerkleTreeId, Tx } from '@aztec/types';
+import { ContractDataSource, FunctionL2Logs, L1ToL2MessageSource, MerkleTreeId, Tx, TxL2Logs } from '@aztec/types';
 import { MerkleTreeOperations } from '@aztec/world-state';
 import { getVerificationKeys } from '../index.js';
 import { EmptyPublicProver } from '../prover/empty.js';
@@ -110,14 +110,18 @@ export class PublicProcessor {
 
   protected async processTx(tx: Tx): Promise<ProcessedTx> {
     if (!isArrayEmpty(tx.data.end.publicCallStack, item => item.isZero())) {
-      const [publicKernelOutput, publicKernelProof] = await this.processEnqueuedPublicCalls(tx);
+      const [publicKernelOutput, publicKernelProof, newUnencryptedFunctionLogs] = await this.processEnqueuedPublicCalls(
+        tx,
+      );
+      tx.unencryptedLogs.addFunctionLogs(newUnencryptedFunctionLogs);
+
       return makeProcessedTx(tx, publicKernelOutput, publicKernelProof);
     } else {
       return makeProcessedTx(tx);
     }
   }
 
-  protected async processEnqueuedPublicCalls(tx: Tx): Promise<[PublicKernelPublicInputs, Proof]> {
+  protected async processEnqueuedPublicCalls(tx: Tx): Promise<[PublicKernelPublicInputs, Proof, FunctionL2Logs[]]> {
     this.log(`Executing enqueued public calls for tx ${await tx.getTxHash()}`);
     if (!tx.enqueuedPublicFunctionCalls) throw new Error(`Missing preimages for enqueued public calls`);
 
@@ -126,11 +130,13 @@ export class PublicProcessor {
 
     let kernelOutput = tx.data;
     let kernelProof = tx.proof;
+    const newUnencryptedFunctionLogs: FunctionL2Logs[] = [];
 
     while (executionStack.length) {
       const current = executionStack.pop()!;
       const isExecutionRequest = !isPublicExecutionResult(current);
       const result = isExecutionRequest ? await this.publicExecutor.execute(current) : current;
+      newUnencryptedFunctionLogs.push(result.unencryptedLogs);
       const functionSelector = result.execution.functionData.functionSelectorBuffer.toString('hex');
       this.log(`Running public kernel circuit for ${functionSelector}@${result.execution.contractAddress.toString()}`);
       executionStack.push(...result.nestedExecutions);
@@ -139,7 +145,7 @@ export class PublicProcessor {
       [kernelOutput, kernelProof] = await this.runKernelCircuit(callData, kernelOutput, kernelProof);
     }
 
-    return [kernelOutput, kernelProof];
+    return [kernelOutput, kernelProof, newUnencryptedFunctionLogs];
   }
 
   protected async runKernelCircuit(
