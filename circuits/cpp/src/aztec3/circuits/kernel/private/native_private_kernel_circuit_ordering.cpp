@@ -58,6 +58,9 @@ KernelCircuitPublicInputs<NT> native_private_kernel_circuit_ordering(DummyCompos
     // Do this before any functions can modify the inputs.
     common_initialise_end_values(private_inputs, public_inputs);
 
+    // TODO(jeamon): The passed read requests in chop_pending_commitments() will not be from call_stack_item in
+    // the final version. The kernel will have to accumulate all read requests of a given transaction.
+
     // Removing of nullified pending commitments have to happen on the list of commitments which have been accumulated
     // over all iterations of the private kernel. Therefore, we have to target commitments in public_inputs.end
     // Remark: The commitments in public_inputs.end have already been SILOED!
