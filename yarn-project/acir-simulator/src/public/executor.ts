@@ -1,12 +1,13 @@
 import { AztecAddress, CallContext, EthAddress, Fr, FunctionData, PrivateHistoricTreeRoots } from '@aztec/circuits.js';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { TxExecutionRequest } from '@aztec/types';
+import { FunctionL2Logs, TxExecutionRequest } from '@aztec/types';
 import { select_return_flattened as selectPublicWitnessFlattened } from '@noir-lang/noir_util_wasm';
 import {
   ACVMField,
   ZERO_ACVM_FIELD,
   acvm,
+  convertACVMFieldToBuffer,
   frToAztecAddress,
   frToSelector,
   fromACVMField,
@@ -18,6 +19,7 @@ import {
 import { CommitmentsDB, PublicContractsDB, PublicStateDB } from './db.js';
 import { PublicExecution, PublicExecutionResult } from './execution.js';
 import { ContractStorageActionsCollector } from './state_actions.js';
+import { fieldsToFormattedStr } from '../client/debug.js';
 
 // Copied from crate::abi at noir-contracts/src/contracts/noir-aztec3/src/abi.nr
 const NOIR_MAX_RETURN_VALUES = 4;
@@ -55,7 +57,9 @@ export class PublicExecutor {
     const storageActions = new ContractStorageActionsCollector(this.stateDb, execution.contractAddress);
     const newCommitments: Fr[] = [];
     const newL2ToL1Messages: Fr[] = [];
+    const newNullifiers: Fr[] = [];
     const nestedExecutions: PublicExecutionResult[] = [];
+    const unencryptedLogs = new FunctionL2Logs([]);
 
     const notAvailable = () => Promise.reject(`Built-in not available for public execution simulation`);
 
@@ -69,8 +73,11 @@ export class PublicExecutor {
       enqueuePublicFunctionCall: notAvailable,
       emitEncryptedLog: notAvailable,
       viewNotesPage: notAvailable,
-      debugLog: notAvailable,
 
+      debugLog: (fields: ACVMField[]) => {
+        this.log(fieldsToFormattedStr(fields));
+        return Promise.resolve([ZERO_ACVM_FIELD]);
+      },
       getL1ToL2Message: async ([msgKey]: ACVMField[]) => {
         const messageInputs = await this.commitmentsDb.getL1ToL2Message(fromACVMField(msgKey));
         return toAcvmL1ToL2MessageLoadOracleInputs(messageInputs, this.treeRoots.l1ToL2MessagesTreeRoot);
@@ -106,6 +113,11 @@ export class PublicExecutor {
         newL2ToL1Messages.push(fromACVMField(message));
         return await Promise.resolve([ZERO_ACVM_FIELD]);
       },
+      createNullifier: async ([nullifier]) => {
+        this.log('Creating nullifier: ' + nullifier.toString());
+        newNullifiers.push(fromACVMField(nullifier));
+        return await Promise.resolve([ZERO_ACVM_FIELD]);
+      },
       callPublicFunction: async ([address, functionSelector, ...args]) => {
         this.log(`Public function call: addr=${address} selector=${functionSelector} args=${args.join(',')}`);
         const childExecutionResult = await this.callPublicFunction(
@@ -119,6 +131,10 @@ export class PublicExecutor {
         this.log(`Returning from nested call: ret=${childExecutionResult.returnValues.join(', ')}`);
         return padArrayEnd(childExecutionResult.returnValues, Fr.ZERO, NOIR_MAX_RETURN_VALUES).map(toACVMField);
       },
+      emitUnencryptedLog: ([...args]: ACVMField[]) => {
+        unencryptedLogs.logs.push(...args.map(str => convertACVMFieldToBuffer(str)));
+        return Promise.resolve([ZERO_ACVM_FIELD]);
+      },
     });
 
     const returnValues = selectPublicWitnessFlattened(acir, partialWitness).map(fromACVMField);
@@ -128,10 +144,12 @@ export class PublicExecutor {
       execution,
       newCommitments,
       newL2ToL1Messages,
+      newNullifiers,
       contractStorageReads,
       contractStorageUpdateRequests,
       returnValues,
       nestedExecutions,
+      unencryptedLogs,
     };
   }
 

@@ -13,7 +13,7 @@ using Composer = plonk::UltraPlonkComposer;
 using NT = aztec3::utils::types::NativeTypes;
 using DummyComposer = aztec3::utils::DummyComposer;
 using aztec3::circuits::abis::PreviousKernelData;
-using aztec3::circuits::abis::SignedTxRequest;
+using aztec3::circuits::abis::TxRequest;
 using aztec3::circuits::abis::private_kernel::PrivateCallData;
 using aztec3::circuits::abis::private_kernel::PrivateKernelInputsInit;
 using aztec3::circuits::abis::private_kernel::PrivateKernelInputsInner;
@@ -58,7 +58,7 @@ CBIND(private_kernel__dummy_previous_kernel, []() { return dummy_previous_kernel
 
 // TODO(dbanks12): comment about how public_inputs is a confusing name
 // returns size of public inputs
-WASM_EXPORT uint8_t* private_kernel__sim_init(uint8_t const* signed_tx_request_buf,
+WASM_EXPORT uint8_t* private_kernel__sim_init(uint8_t const* tx_request_buf,
                                               uint8_t const* private_call_buf,
                                               size_t* private_kernel_public_inputs_size_out,
                                               uint8_t const** private_kernel_public_inputs_buf)
@@ -68,11 +68,11 @@ WASM_EXPORT uint8_t* private_kernel__sim_init(uint8_t const* signed_tx_request_b
     PrivateCallData<NT> private_call_data;
     read(private_call_buf, private_call_data);
 
-    SignedTxRequest<NT> signed_tx_request;
-    read(signed_tx_request_buf, signed_tx_request);
+    TxRequest<NT> tx_request;
+    read(tx_request_buf, tx_request);
 
     PrivateKernelInputsInit<NT> const private_inputs = PrivateKernelInputsInit<NT>{
-        .signed_tx_request = signed_tx_request,
+        .tx_request = tx_request,
         .private_call = private_call_data,
     };
 
