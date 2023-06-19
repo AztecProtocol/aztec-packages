@@ -1,8 +1,7 @@
 import { AztecAddress, Fr, TxContext } from '@aztec/circuits.js';
 import { KeyStore, PublicKey, getAddressFromPublicKey } from '@aztec/key-store';
-import { ExecutionRequest, SignedTxExecutionRequest, TxExecutionRequest } from '@aztec/types';
+import { ExecutionRequest, TxExecutionRequest } from '@aztec/types';
 import { AccountImplementation } from './index.js';
-import { SchnorrSignature } from '@aztec/circuits.js/barretenberg';
 
 /** Account implementation backed by an EOA */
 export class EcdsaExternallyOwnedAccount implements AccountImplementation {
@@ -12,10 +11,7 @@ export class EcdsaExternallyOwnedAccount implements AccountImplementation {
     }
   }
 
-  async createAuthenticatedTxRequest(
-    executions: ExecutionRequest[],
-    txContext: TxContext,
-  ): Promise<SignedTxExecutionRequest> {
+  createAuthenticatedTxRequest(executions: ExecutionRequest[], txContext: TxContext): Promise<TxExecutionRequest> {
     if (executions.length !== 1) throw new Error(`EOAs can only submit a single execution at a time`);
     const [execution] = executions;
 
@@ -30,10 +26,6 @@ export class EcdsaExternallyOwnedAccount implements AccountImplementation {
       txContext,
       Fr.ZERO,
     );
-    const txRequest = await txExecRequest.toTxRequest();
-    const toSign = txRequest.toBuffer();
-    const signature = await this.keyStore.sign(toSign, this.pubKey);
-    // TODO: Use Signature here
-    return new SignedTxExecutionRequest(txExecRequest, signature as SchnorrSignature);
+    return Promise.resolve(txExecRequest);
   }
 }

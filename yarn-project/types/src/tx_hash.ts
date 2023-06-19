@@ -10,6 +10,11 @@ export class TxHash {
    */
   public static SIZE = 32;
 
+  /**
+   * TxHash with value zero.
+   */
+  public static ZERO = new TxHash(Buffer.alloc(TxHash.SIZE));
+
   constructor(
     /**
      * The buffer containing the hash.
@@ -26,6 +31,14 @@ export class TxHash {
    */
   public equals(hash: TxHash): boolean {
     return this.buffer.equals(hash.buffer);
+  }
+
+  /**
+   * Returns true if this hash is zero.
+   * @returns True if this hash is zero.
+   */
+  public isZero(): boolean {
+    return this.buffer.equals(Buffer.alloc(32, 0));
   }
 
   /**

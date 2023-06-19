@@ -152,7 +152,7 @@ export class Synchroniser {
   public async addAccount(privKey: Buffer, address: AztecAddress, partialContractAddress: Fr) {
     const accountState = new AccountState(privKey, address, partialContractAddress, this.db, this.node, await Grumpkin.new(), await Schnorr.new());
     this.accountStates.push(accountState);
-    await Promise.resolve();
+    return Promise.resolve(accountState);
   }
 
   /**

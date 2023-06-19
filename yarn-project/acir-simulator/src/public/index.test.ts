@@ -1,10 +1,22 @@
-import { Grumpkin } from '@aztec/circuits.js/barretenberg';
-import { CallContext, FunctionData, CircuitsWasm, PrivateHistoricTreeRoots } from '@aztec/circuits.js';
+import { Grumpkin, pedersenCompressInputs } from '@aztec/circuits.js/barretenberg';
+import {
+  CallContext,
+  FunctionData,
+  CircuitsWasm,
+  PrivateHistoricTreeRoots,
+  L1_TO_L2_MESSAGES_TREE_HEIGHT,
+} from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { FunctionAbi } from '@aztec/foundation/abi';
-import { ChildAbi, ParentAbi, PublicTokenContractAbi } from '@aztec/noir-contracts/examples';
+import {
+  ChildAbi,
+  NonNativeTokenContractAbi,
+  ParentAbi,
+  PublicToPrivateContractAbi,
+  PublicTokenContractAbi,
+} from '@aztec/noir-contracts/examples';
 import { MockProxy, mock } from 'jest-mock-extended';
 import { default as memdown, type MemDown } from 'memdown';
 import { encodeArguments } from '../abi_coder/encoder.js';
@@ -14,18 +26,19 @@ import { PublicExecution } from './execution.js';
 import { PublicExecutor } from './executor.js';
 import { toBigInt } from '@aztec/foundation/serialize';
 import { keccak } from '@aztec/foundation/crypto';
+import { buildL1ToL2Message } from '../test/utils.js';
 
 export const createMemDown = () => (memdown as any)() as MemDown<any, any>;
 
 describe('ACIR public execution simulator', () => {
-  let bbWasm: CircuitsWasm;
+  let circuitsWasm: CircuitsWasm;
   let publicState: MockProxy<PublicStateDB>;
   let publicContracts: MockProxy<PublicContractsDB>;
   let commitmentsDb: MockProxy<CommitmentsDB>;
   let executor: PublicExecutor;
 
   beforeAll(async () => {
-    bbWasm = await CircuitsWasm.get();
+    circuitsWasm = await CircuitsWasm.get();
   });
 
   beforeEach(() => {
@@ -44,7 +57,7 @@ describe('ACIR public execution simulator', () => {
     beforeAll(() => {
       recipientPk = Buffer.from('0c9ed344548e8f9ba8aa3c9f8651eaa2853130f6c1e9c050ccf198f7ea18a7ec', 'hex');
 
-      const grumpkin = new Grumpkin(bbWasm);
+      const grumpkin = new Grumpkin(circuitsWasm);
       recipient = toPublicKey(recipientPk, grumpkin);
     });
 
@@ -76,7 +89,7 @@ describe('ACIR public execution simulator', () => {
         const expectedBalance = new Fr(160n);
         expect(result.returnValues).toEqual([expectedBalance]);
 
-        const storageSlot = computeSlotForMapping(new Fr(1n), recipient, bbWasm);
+        const storageSlot = computeSlotForMapping(new Fr(1n), recipient, circuitsWasm);
         expect(result.contractStorageUpdateRequests).toEqual([
           { storageSlot, oldValue: previousBalance, newValue: expectedBalance },
         ]);
@@ -112,8 +125,8 @@ describe('ACIR public execution simulator', () => {
           isStaticCall: false,
         });
 
-        recipientStorageSlot = computeSlotForMapping(new Fr(1n), recipient, bbWasm);
-        senderStorageSlot = computeSlotForMapping(new Fr(1n), Fr.fromBuffer(sender.toBuffer()), bbWasm);
+        recipientStorageSlot = computeSlotForMapping(new Fr(1n), recipient, circuitsWasm);
+        senderStorageSlot = computeSlotForMapping(new Fr(1n), Fr.fromBuffer(sender.toBuffer()), circuitsWasm);
 
         publicContracts.getBytecode.mockResolvedValue(Buffer.from(abi.bytecode, 'hex'));
 
@@ -218,6 +231,168 @@ describe('ACIR public execution simulator', () => {
       const result = await executor.execute(execution);
 
       expect(result.returnValues).toEqual([new Fr(42n + initialValue)]);
+    });
+  });
+
+  describe('Public -> Private / Cross Chain messaging', () => {
+    let contractAddress: AztecAddress;
+    let functionData: FunctionData;
+    let amount: Fr;
+    let params: Fr[];
+    let wasm: CircuitsWasm;
+
+    beforeEach(async () => {
+      contractAddress = AztecAddress.random();
+      functionData = new FunctionData(Buffer.alloc(4), false, false);
+      amount = new Fr(140);
+      params = [amount, Fr.random()];
+      wasm = await CircuitsWasm.get();
+    });
+
+    it('Should be able to create a commitment from the public context', async () => {
+      const publicToPrivateAbi = PublicToPrivateContractAbi.functions.find(f => f.name === 'mintFromPublicToPrivate')!;
+      const args = encodeArguments(publicToPrivateAbi, params);
+
+      const callContext = CallContext.from({
+        msgSender: AztecAddress.random(),
+        storageContractAddress: contractAddress,
+        portalContractAddress: EthAddress.random(),
+        isContractDeployment: false,
+        isDelegateCall: false,
+        isStaticCall: false,
+      });
+
+      publicContracts.getBytecode.mockResolvedValue(Buffer.from(publicToPrivateAbi.bytecode, 'hex'));
+
+      const execution: PublicExecution = { contractAddress, functionData, args, callContext };
+      const result = await executor.execute(execution);
+
+      // Assert the commitment was created
+      expect(result.newCommitments.length).toEqual(1);
+
+      const expectedNewCommitmentValue = pedersenCompressInputs(
+        wasm,
+        params.map(a => a.toBuffer()),
+      );
+      expect(result.newCommitments[0].toBuffer()).toEqual(expectedNewCommitmentValue);
+    });
+
+    it('Should be able to create a L2 to L1 message from the public context', async () => {
+      const createL2ToL1MessagePublicAbi = PublicToPrivateContractAbi.functions.find(
+        f => f.name === 'createL2ToL1MessagePublic',
+      )!;
+      const args = encodeArguments(createL2ToL1MessagePublicAbi, params);
+
+      const callContext = CallContext.from({
+        msgSender: AztecAddress.random(),
+        storageContractAddress: contractAddress,
+        portalContractAddress: EthAddress.random(),
+        isContractDeployment: false,
+        isDelegateCall: false,
+        isStaticCall: false,
+      });
+
+      publicContracts.getBytecode.mockResolvedValue(Buffer.from(createL2ToL1MessagePublicAbi.bytecode, 'hex'));
+
+      const execution: PublicExecution = { contractAddress, functionData, args, callContext };
+      const result = await executor.execute(execution);
+
+      // Assert the l2 to l1 message was created
+      expect(result.newL2ToL1Messages.length).toEqual(1);
+
+      const expectedNewMessageValue = pedersenCompressInputs(
+        wasm,
+        params.map(a => a.toBuffer()),
+      );
+      expect(result.newL2ToL1Messages[0].toBuffer()).toEqual(expectedNewMessageValue);
+    });
+
+    it('Should be able to consume an Ll to L2 message in the public context', async () => {
+      const mintPublicAbi = NonNativeTokenContractAbi.functions.find(f => f.name === 'mintPublic')!;
+
+      // Set up cross chain message
+      const canceller = EthAddress.random();
+
+      const bridgedAmount = 20n;
+      const secret = new Fr(1n);
+      const recipientPk = Buffer.from('0c9ed344548e8f9ba8aa3c9f8651eaa2853130f6c1e9c050ccf198f7ea18a7ec', 'hex');
+      const grumpkin = new Grumpkin(circuitsWasm);
+      const recipient = toPublicKey(recipientPk, grumpkin);
+
+      // Function selector: 0xeeb73071 keccak256('mint(uint256,bytes32,address)')
+      const preimage = await buildL1ToL2Message(
+        'eeb73071',
+        [new Fr(bridgedAmount), new Fr(recipient.x), canceller.toField()],
+        contractAddress,
+        secret,
+      );
+
+      // Stub message key
+      const messageKey = Fr.random();
+      const args = encodeArguments(mintPublicAbi, [
+        bridgedAmount,
+        recipient.x,
+        messageKey,
+        secret,
+        canceller.toField(),
+      ]);
+
+      const callContext = CallContext.from({
+        msgSender: AztecAddress.random(),
+        storageContractAddress: contractAddress,
+        portalContractAddress: EthAddress.random(),
+        isContractDeployment: false,
+        isDelegateCall: false,
+        isStaticCall: false,
+      });
+
+      publicContracts.getBytecode.mockResolvedValue(Buffer.from(mintPublicAbi.bytecode, 'hex'));
+      publicState.storageRead.mockResolvedValue(Fr.ZERO);
+
+      // Mock response
+      commitmentsDb.getL1ToL2Message.mockImplementation(async () => {
+        return await Promise.resolve({
+          message: preimage.toFieldArray(),
+          index: 0n,
+          siblingPath: Array(L1_TO_L2_MESSAGES_TREE_HEIGHT).fill(Fr.random()),
+        });
+      });
+
+      const execution: PublicExecution = { contractAddress, functionData, args, callContext };
+      const result = await executor.execute(execution);
+
+      expect(result.newNullifiers.length).toEqual(1);
+    });
+
+    it('Should be able to create a nullifier from the public context', async () => {
+      const createNullifierPublicAbi = PublicToPrivateContractAbi.functions.find(
+        f => f.name === 'createNullifierPublic',
+      )!;
+
+      const args = encodeArguments(createNullifierPublicAbi, params);
+
+      const callContext = CallContext.from({
+        msgSender: AztecAddress.random(),
+        storageContractAddress: contractAddress,
+        portalContractAddress: EthAddress.random(),
+        isContractDeployment: false,
+        isDelegateCall: false,
+        isStaticCall: false,
+      });
+
+      publicContracts.getBytecode.mockResolvedValue(Buffer.from(createNullifierPublicAbi.bytecode, 'hex'));
+
+      const execution: PublicExecution = { contractAddress, functionData, args, callContext };
+      const result = await executor.execute(execution);
+
+      // Assert the l2 to l1 message was created
+      expect(result.newNullifiers.length).toEqual(1);
+
+      const expectedNewMessageValue = pedersenCompressInputs(
+        wasm,
+        params.map(a => a.toBuffer()),
+      );
+      expect(result.newNullifiers[0].toBuffer()).toEqual(expectedNewMessageValue);
     });
   });
 });

@@ -17,11 +17,11 @@ import {
   L1ToL2Message,
   L1ToL2MessageAndIndex,
   L2Block,
+  L2BlockL2Logs,
   MerkleTreeId,
-  SignedTxExecutionRequest,
   Tx,
   TxHash,
-  NoirLogs,
+  TxL2Logs,
 } from '@aztec/types';
 
 /**
@@ -33,7 +33,6 @@ export function txToJson(tx: Tx) {
   return {
     data: tx.data?.toBuffer().toString('hex'),
     encryptedLogs: tx.encryptedLogs?.toBuffer().toString('hex'),
-    txRequest: tx.txRequest?.toBuffer().toString('hex'),
     proof: tx.proof?.toBuffer().toString('hex'),
     newContractPublicFunctions: tx.newContractPublicFunctions?.map(f => f.toBuffer().toString('hex')) ?? [],
     enqueuedPublicFunctions: tx.enqueuedPublicFunctionCalls?.map(f => f.toBuffer().toString('hex')) ?? [],
@@ -46,31 +45,22 @@ export function txToJson(tx: Tx) {
  * @returns The deserialised transaction.
  */
 export function txFromJson(json: any) {
-  const publicInputs = json.data ? KernelCircuitPublicInputs.fromBuffer(Buffer.from(json.data, 'hex')) : undefined;
-  const encryptedLogs = json.encryptedLogs ? NoirLogs.fromBuffer(Buffer.from(json.encryptedLogs, 'hex')) : undefined;
-  const txRequest = json.txRequest
-    ? SignedTxExecutionRequest.fromBuffer(Buffer.from(json.txRequest, 'hex'))
-    : undefined;
-  const proof = json.proof ? Buffer.from(json.proof, 'hex') : undefined;
+  const publicInputs = KernelCircuitPublicInputs.fromBuffer(Buffer.from(json.data, 'hex'));
+  const encryptedLogs = TxL2Logs.fromBuffer(Buffer.from(json.encryptedLogs, 'hex'));
+  const proof = Buffer.from(json.proof, 'hex');
   const newContractPublicFunctions = json.newContractPublicFunctions
     ? json.newContractPublicFunctions.map((x: string) => EncodedContractFunction.fromBuffer(Buffer.from(x, 'hex')))
     : [];
   const enqueuedPublicFunctions = json.enqueuedPublicFunctions
     ? json.enqueuedPublicFunctions.map((x: string) => PublicCallRequest.fromBuffer(Buffer.from(x, 'hex')))
     : [];
-  if (txRequest) {
-    return Tx.createPublic(txRequest);
-  }
-  if (publicInputs && proof && encryptedLogs) {
-    return Tx.createPrivate(
-      publicInputs,
-      Proof.fromBuffer(proof),
-      encryptedLogs,
-      newContractPublicFunctions,
-      enqueuedPublicFunctions,
-    );
-  }
-  return Tx.create(publicInputs, proof == undefined ? undefined : Proof.fromBuffer(proof), encryptedLogs, txRequest);
+  return Tx.createTx(
+    publicInputs,
+    Proof.fromBuffer(proof),
+    encryptedLogs,
+    newContractPublicFunctions,
+    enqueuedPublicFunctions,
+  );
 }
 
 /**
@@ -143,7 +133,7 @@ export class HttpNode implements AztecNode {
    * @param take - The number of encrypted logs to return.
    * @returns The requested encrypted logs.
    */
-  public async getEncryptedLogs(from: number, take: number): Promise<NoirLogs[]> {
+  public async getEncryptedLogs(from: number, take: number): Promise<L2BlockL2Logs[]> {
     const url = new URL(`${this.baseUrl}/get-encrypted-logs`);
     url.searchParams.append('from', from.toString());
     if (take !== undefined) {
@@ -155,7 +145,7 @@ export class HttpNode implements AztecNode {
     if (!encryptedLogs) {
       return Promise.resolve([]);
     }
-    return Promise.resolve(encryptedLogs.map(x => NoirLogs.fromBuffer(Buffer.from(x, 'hex'))));
+    return Promise.resolve(encryptedLogs.map(x => L2BlockL2Logs.fromBuffer(Buffer.from(x, 'hex'))));
   }
 
   /**

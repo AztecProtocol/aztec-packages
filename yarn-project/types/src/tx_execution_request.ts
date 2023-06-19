@@ -4,16 +4,13 @@ import {
   FieldsOf,
   Fr,
   FunctionData,
-  SignedTxRequest,
   TxContext,
   TxRequest,
   Vector,
 } from '@aztec/circuits.js';
 import { computeVarArgsHash } from '@aztec/circuits.js/abis';
 import { BufferReader, serializeToBuffer } from '@aztec/circuits.js/utils';
-import cloneDeep from 'lodash.clonedeep';
 import { ExecutionRequest } from './execution_request.js';
-import { SchnorrSignature } from '@aztec/circuits.js/barretenberg';
 
 /**
  * Request to execute a transaction. Similar to TxRequest, but has the full args.
@@ -129,45 +126,3 @@ type AccountExecutionRequest = Pick<FieldsOf<ExecutionRequest>, 'args' | 'functi
   /** The account contract to execute this entrypoint request */
   account: AztecAddress;
 };
-
-/**
- * Wraps a TxExecutionRequest with an ECDSA signature.
- */
-export class SignedTxExecutionRequest {
-  constructor(
-    /**
-     * Transaction request.
-     */
-    public txRequest: TxExecutionRequest,
-    /**
-     * Signature.
-     */
-    public signature: SchnorrSignature,
-  ) {}
-
-  async toSignedTxRequest(): Promise<SignedTxRequest> {
-    return new SignedTxRequest(await this.txRequest.toTxRequest(), this.signature);
-  }
-
-  clone(): SignedTxExecutionRequest {
-    return cloneDeep(this);
-  }
-
-  /**
-   * Serialize as a buffer.
-   * @returns The buffer.
-   */
-  toBuffer() {
-    return serializeToBuffer(this.txRequest, this.signature);
-  }
-
-  /**
-   * Deserialises from a buffer.
-   * @param buffer - The buffer representation of the object.
-   * @returns The new object.
-   */
-  static fromBuffer(buffer: Buffer | BufferReader): SignedTxExecutionRequest {
-    const reader = BufferReader.asReader(buffer);
-    return new SignedTxExecutionRequest(reader.readObject(TxExecutionRequest), reader.readObject(SchnorrSignature));
-  }
-}

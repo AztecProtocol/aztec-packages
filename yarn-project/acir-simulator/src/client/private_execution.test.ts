@@ -1,4 +1,3 @@
-import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import {
   ARGS_LENGTH,
   CallContext,
@@ -12,22 +11,24 @@ import {
   PublicCallRequest,
   TxContext,
 } from '@aztec/circuits.js';
-import { computeSecretMessageHash } from '@aztec/circuits.js/abis';
+import { computeSecretMessageHash, siloCommitment } from '@aztec/circuits.js/abis';
+import { Grumpkin, pedersenCompressInputs } from '@aztec/circuits.js/barretenberg';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { toBigIntBE, toBufferBE } from '@aztec/foundation/bigint-buffer';
+import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { padArrayEnd } from '@aztec/foundation/collection';
-import { sha256 } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr, Point } from '@aztec/foundation/fields';
+import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { AppendOnlyTree, Pedersen, StandardTree, newTree } from '@aztec/merkle-tree';
 import {
   ChildAbi,
   NonNativeTokenContractAbi,
   ParentAbi,
+  PublicToPrivateContractAbi,
   TestContractAbi,
   ZkTokenContractAbi,
 } from '@aztec/noir-contracts/examples';
-import { L1Actor, L1ToL2Message, L2Actor, TxExecutionRequest } from '@aztec/types';
+import { TxExecutionRequest } from '@aztec/types';
 import { mock } from 'jest-mock-extended';
 import { default as levelup } from 'levelup';
 import { default as memdown, type MemDown } from 'memdown';
@@ -35,18 +36,18 @@ import { encodeArguments } from '../abi_coder/index.js';
 import { NoirPoint, computeSlotForMapping, toPublicKey } from '../utils.js';
 import { DBOracle } from './db_oracle.js';
 import { AcirSimulator } from './simulator.js';
-import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
+import { buildL1ToL2Message } from '../test/utils.js';
 
 const createMemDown = () => (memdown as any)() as MemDown<any, any>;
 
 describe('Private Execution test suite', () => {
-  let bbWasm: CircuitsWasm;
+  let circuitsWasm: CircuitsWasm;
   let oracle: ReturnType<typeof mock<DBOracle>>;
   let acirSimulator: AcirSimulator;
   let logger: DebugLogger;
 
   beforeAll(async () => {
-    bbWasm = await CircuitsWasm.get();
+    circuitsWasm = await CircuitsWasm.get();
     logger = createDebugLogger('aztec:test:private_execution');
   });
 
@@ -101,7 +102,7 @@ describe('Private Execution test suite', () => {
       ownerPk = Buffer.from('5e30a2f886b4b6a11aea03bf4910fbd5b24e61aa27ea4d05c393b3ab592a8d33', 'hex');
       recipientPk = Buffer.from('0c9ed344548e8f9ba8aa3c9f8651eaa2853130f6c1e9c050ccf198f7ea18a7ec', 'hex');
 
-      const grumpkin = new Grumpkin(bbWasm);
+      const grumpkin = new Grumpkin(circuitsWasm);
       owner = toPublicKey(ownerPk, grumpkin);
       recipient = toPublicKey(recipientPk, grumpkin);
     });
@@ -124,13 +125,13 @@ describe('Private Execution test suite', () => {
 
       expect(result.preimages.newNotes).toHaveLength(1);
       const newNote = result.preimages.newNotes[0];
-      expect(newNote.storageSlot).toEqual(computeSlotForMapping(new Fr(1n), owner, bbWasm));
+      expect(newNote.storageSlot).toEqual(computeSlotForMapping(new Fr(1n), owner, circuitsWasm));
 
       const newCommitments = result.callStackItem.publicInputs.newCommitments.filter(field => !field.equals(Fr.ZERO));
       expect(newCommitments).toHaveLength(1);
 
       const [commitment] = newCommitments;
-      expect(commitment).toEqual(Fr.fromBuffer(acirSimulator.computeNoteHash(newNote.preimage, bbWasm)));
+      expect(commitment).toEqual(Fr.fromBuffer(acirSimulator.computeNoteHash(newNote.preimage, circuitsWasm)));
     }, 30_000);
 
     it('should run the mint function', async () => {
@@ -151,18 +152,18 @@ describe('Private Execution test suite', () => {
 
       expect(result.preimages.newNotes).toHaveLength(1);
       const newNote = result.preimages.newNotes[0];
-      expect(newNote.storageSlot).toEqual(computeSlotForMapping(new Fr(1n), owner, bbWasm));
+      expect(newNote.storageSlot).toEqual(computeSlotForMapping(new Fr(1n), owner, circuitsWasm));
 
       const newCommitments = result.callStackItem.publicInputs.newCommitments.filter(field => !field.equals(Fr.ZERO));
       expect(newCommitments).toHaveLength(1);
 
       const [commitment] = newCommitments;
-      expect(commitment).toEqual(Fr.fromBuffer(acirSimulator.computeNoteHash(newNote.preimage, bbWasm)));
+      expect(commitment).toEqual(Fr.fromBuffer(acirSimulator.computeNoteHash(newNote.preimage, circuitsWasm)));
     });
 
     it('should run the transfer function', async () => {
       const db = levelup(createMemDown());
-      const pedersen = new Pedersen(bbWasm);
+      const pedersen = new Pedersen(circuitsWasm);
 
       const contractAddress = AztecAddress.random();
       const amountToTransfer = 100n;
@@ -171,7 +172,7 @@ describe('Private Execution test suite', () => {
       const tree: AppendOnlyTree = await newTree(StandardTree, db, pedersen, 'privateData', PRIVATE_DATA_TREE_HEIGHT);
       const preimages = [buildNote(60n, owner), buildNote(80n, owner)];
       // TODO for this we need that noir siloes the commitment the same way as the kernel does, to do merkle membership
-      await tree.appendLeaves(preimages.map(preimage => acirSimulator.computeNoteHash(preimage, bbWasm)));
+      await tree.appendLeaves(preimages.map(preimage => acirSimulator.computeNoteHash(preimage, circuitsWasm)));
 
       const historicRoots = new PrivateHistoricTreeRoots(
         Fr.fromBuffer(tree.getRoot(false)),
@@ -212,12 +213,12 @@ describe('Private Execution test suite', () => {
       expect(newNullifiers).toHaveLength(2);
 
       expect(newNullifiers).toEqual(
-        preimages.map(preimage => Fr.fromBuffer(acirSimulator.computeNullifier(preimage, ownerPk, bbWasm))),
+        preimages.map(preimage => Fr.fromBuffer(acirSimulator.computeNullifier(preimage, ownerPk, circuitsWasm))),
       );
 
       expect(result.preimages.newNotes).toHaveLength(2);
       const [recipientNote, changeNote] = result.preimages.newNotes;
-      expect(recipientNote.storageSlot).toEqual(computeSlotForMapping(new Fr(1n), recipient, bbWasm));
+      expect(recipientNote.storageSlot).toEqual(computeSlotForMapping(new Fr(1n), recipient, circuitsWasm));
 
       const newCommitments = result.callStackItem.publicInputs.newCommitments.filter(field => !field.equals(Fr.ZERO));
 
@@ -225,9 +226,11 @@ describe('Private Execution test suite', () => {
 
       const [recipientNoteCommitment, changeNoteCommitment] = newCommitments;
       expect(recipientNoteCommitment).toEqual(
-        Fr.fromBuffer(acirSimulator.computeNoteHash(recipientNote.preimage, bbWasm)),
+        Fr.fromBuffer(acirSimulator.computeNoteHash(recipientNote.preimage, circuitsWasm)),
       );
-      expect(changeNoteCommitment).toEqual(Fr.fromBuffer(acirSimulator.computeNoteHash(changeNote.preimage, bbWasm)));
+      expect(changeNoteCommitment).toEqual(
+        Fr.fromBuffer(acirSimulator.computeNoteHash(changeNote.preimage, circuitsWasm)),
+      );
 
       expect(recipientNote.preimage[5]).toEqual(new Fr(amountToTransfer));
       expect(changeNote.preimage[5]).toEqual(new Fr(40n));
@@ -235,7 +238,7 @@ describe('Private Execution test suite', () => {
 
     it('should be able to transfer with dummy notes', async () => {
       const db = levelup(createMemDown());
-      const pedersen = new Pedersen(bbWasm);
+      const pedersen = new Pedersen(circuitsWasm);
 
       const contractAddress = AztecAddress.random();
       const amountToTransfer = 100n;
@@ -245,7 +248,7 @@ describe('Private Execution test suite', () => {
       const tree: AppendOnlyTree = await newTree(StandardTree, db, pedersen, 'privateData', PRIVATE_DATA_TREE_HEIGHT);
       const preimages = [buildNote(balance, owner)];
       // TODO for this we need that noir siloes the commitment the same way as the kernel does, to do merkle membership
-      await tree.appendLeaves(preimages.map(preimage => acirSimulator.computeNoteHash(preimage, bbWasm)));
+      await tree.appendLeaves(preimages.map(preimage => acirSimulator.computeNoteHash(preimage, circuitsWasm)));
 
       const historicRoots = new PrivateHistoricTreeRoots(
         Fr.fromBuffer(tree.getRoot(false)),
@@ -284,7 +287,9 @@ describe('Private Execution test suite', () => {
       const newNullifiers = result.callStackItem.publicInputs.newNullifiers.filter(field => !field.equals(Fr.ZERO));
       expect(newNullifiers).toHaveLength(2);
 
-      expect(newNullifiers[0]).toEqual(Fr.fromBuffer(acirSimulator.computeNullifier(preimages[0], ownerPk, bbWasm)));
+      expect(newNullifiers[0]).toEqual(
+        Fr.fromBuffer(acirSimulator.computeNullifier(preimages[0], ownerPk, circuitsWasm)),
+      );
 
       expect(result.preimages.newNotes).toHaveLength(2);
       const [recipientNote, changeNote] = result.preimages.newNotes;
@@ -360,48 +365,30 @@ describe('Private Execution test suite', () => {
     let recipientPk: Buffer;
     let recipient: NoirPoint;
 
-    const buildL1ToL2Message = async (contentPreimage: Fr[], targetContract: AztecAddress, secret: Fr) => {
-      const wasm = await CircuitsWasm.get();
-
-      // Function selector: 0x1801fbe5 keccak256('mint(uint256,bytes32)')
-      const contentBuf = Buffer.concat([
-        Buffer.from([0x18, 0x01, 0xfb, 0xe5]),
-        ...contentPreimage.map(field => field.toBuffer()),
-      ]);
-      const temp = toBigIntBE(sha256(contentBuf));
-      const content = Fr.fromBuffer(toBufferBE(temp % Fr.MODULUS, 32));
-
-      const secretHash = computeSecretMessageHash(wasm, secret);
-
-      // Eventually the kernel will need to prove the kernel portal pair exists within the contract tree,
-      // EthAddress.random() will need to be replaced when this happens
-      return new L1ToL2Message(
-        new L1Actor(EthAddress.random(), 1),
-        new L2Actor(targetContract, 1),
-        content,
-        secretHash,
-        0,
-        0,
-      );
-    };
-
     beforeAll(() => {
       recipientPk = Buffer.from('0c9ed344548e8f9ba8aa3c9f8651eaa2853130f6c1e9c050ccf198f7ea18a7ec', 'hex');
 
-      const grumpkin = new Grumpkin(bbWasm);
+      const grumpkin = new Grumpkin(circuitsWasm);
       recipient = toPublicKey(recipientPk, grumpkin);
     });
 
     it('Should be able to consume a dummy cross chain message', async () => {
       const db = levelup(createMemDown());
-      const pedersen = new Pedersen(bbWasm);
+      const pedersen = new Pedersen(circuitsWasm);
 
       const contractAddress = AztecAddress.random();
       const bridgedAmount = 100n;
       const abi = NonNativeTokenContractAbi.functions.find(f => f.name === 'mint')!;
 
       const secret = new Fr(1n);
-      const preimage = await buildL1ToL2Message([new Fr(bridgedAmount), new Fr(recipient.x)], contractAddress, secret);
+      const canceller = EthAddress.random();
+      // Function selector: 0xeeb73071 keccak256('mint(uint256,bytes32,address)')
+      const preimage = await buildL1ToL2Message(
+        'eeb73071',
+        [new Fr(bridgedAmount), new Fr(recipient.x), canceller.toField()],
+        contractAddress,
+        secret,
+      );
 
       // stub message key
       const messageKey = Fr.random();
@@ -431,7 +418,7 @@ describe('Private Execution test suite', () => {
         AztecAddress.random(),
         contractAddress,
         new FunctionData(Buffer.alloc(4), true, true),
-        encodeArguments(abi, [bridgedAmount, recipient, messageKey, secret]),
+        encodeArguments(abi, [bridgedAmount, recipient, recipient.x, messageKey, secret, canceller.toField()]),
         Fr.random(),
         txContext,
         Fr.ZERO,
@@ -442,6 +429,64 @@ describe('Private Execution test suite', () => {
       // Check a nullifier has been created
       const newNullifiers = result.callStackItem.publicInputs.newNullifiers.filter(field => !field.equals(Fr.ZERO));
       expect(newNullifiers).toHaveLength(1);
+    }, 30_000);
+
+    it('Should be able to consume a dummy public to private message', async () => {
+      const db = levelup(createMemDown());
+      const pedersen = new Pedersen(circuitsWasm);
+
+      const contractAddress = AztecAddress.random();
+      const amount = 100n;
+      const abi = PublicToPrivateContractAbi.functions.find(f => f.name === 'mintFromPublicMessage')!;
+
+      const wasm = await CircuitsWasm.get();
+      const secret = new Fr(1n);
+      const secretHash = computeSecretMessageHash(wasm, secret);
+      const commitment = Fr.fromBuffer(pedersenCompressInputs(wasm, [toBufferBE(amount, 32), secretHash.toBuffer()]));
+      const siloedCommitment = siloCommitment(wasm, contractAddress, commitment);
+
+      const tree: AppendOnlyTree = await newTree(
+        StandardTree,
+        db,
+        pedersen,
+        'privateDataTree',
+        PRIVATE_DATA_TREE_HEIGHT,
+      );
+
+      await tree.appendLeaves([siloedCommitment.toBuffer()]);
+
+      const privateDataTreeRoot = Fr.fromBuffer(tree.getRoot(false));
+      const historicRoots = new PrivateHistoricTreeRoots(Fr.ZERO, Fr.ZERO, Fr.ZERO, privateDataTreeRoot, Fr.ZERO);
+
+      oracle.getCommitmentOracle.mockImplementation(async () => {
+        // Check the calculated commitment is correct
+        return Promise.resolve({
+          commitment: siloedCommitment,
+          index: 0n,
+          siblingPath: (await tree.getSiblingPath(0n, false)).toFieldArray(),
+        });
+      });
+
+      const txRequest = new TxExecutionRequest(
+        AztecAddress.random(),
+        contractAddress,
+        new FunctionData(Buffer.alloc(4), true, true),
+        encodeArguments(abi, [amount, secret, recipient]),
+        Fr.random(),
+        txContext,
+        Fr.ZERO,
+      );
+
+      const result = await acirSimulator.run(txRequest, abi, contractAddress, EthAddress.ZERO, historicRoots);
+
+      // Check a nullifier has been created.
+      const newNullifiers = result.callStackItem.publicInputs.newNullifiers.filter(field => !field.equals(Fr.ZERO));
+      expect(newNullifiers).toHaveLength(1);
+
+      // Check the commitment read request was created successfully.
+      const readRequests = result.callStackItem.publicInputs.readRequests.filter(field => !field.equals(Fr.ZERO));
+      expect(readRequests).toHaveLength(1);
+      expect(readRequests[0]).toEqual(commitment);
     }, 30_000);
   });
 

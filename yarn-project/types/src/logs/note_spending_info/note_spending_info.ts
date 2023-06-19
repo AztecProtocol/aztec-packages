@@ -8,10 +8,10 @@ import { Curve } from '@aztec/circuits.js/barretenberg';
 import { randomBytes } from '@aztec/foundation/crypto';
 
 /**
- * A class which wraps the data required to compute a nullifier. Along with that this class contains the necessary
- * functionality to encrypt and decrypt the data.
+ * A class which wraps the data required to compute a nullifier/to spend a note. Along with that this class contains
+ * the necessary functionality to encrypt and decrypt the data.
  */
-export class TxAuxData {
+export class NoteSpendingInfo {
   constructor(
     /**
      * Preimage which can be used along with private key to compute nullifier.
@@ -28,18 +28,18 @@ export class TxAuxData {
   ) {}
 
   /**
-   * Deserializes the TxAuxData object from a Buffer.
+   * Deserializes the NoteSpendingInfo object from a Buffer.
    * @param buffer - Buffer or BufferReader object to deserialize.
-   * @returns An instance of TxAuxData.
+   * @returns An instance of NoteSpendingInfo.
    */
-  static fromBuffer(buffer: Buffer | BufferReader): TxAuxData {
+  static fromBuffer(buffer: Buffer | BufferReader): NoteSpendingInfo {
     const reader = BufferReader.asReader(buffer);
-    return new TxAuxData(reader.readObject(NotePreimage), reader.readObject(AztecAddress), reader.readFr());
+    return new NoteSpendingInfo(reader.readObject(NotePreimage), reader.readObject(AztecAddress), reader.readFr());
   }
 
   /**
-   * Serializes the TxAuxData object into a Buffer.
-   * @returns Buffer representation of the TxAuxData object.
+   * Serializes the NoteSpendingInfo object into a Buffer.
+   * @returns Buffer representation of the NoteSpendingInfo object.
    */
   toBuffer() {
     return serializeToBuffer([this.notePreimage, this.contractAddress, this.storageSlot]);
@@ -68,14 +68,14 @@ export class TxAuxData {
     if (!buf) {
       return;
     }
-    return TxAuxData.fromBuffer(buf);
+    return NoteSpendingInfo.fromBuffer(buf);
   }
 
   /**
-   * Create a random TxAuxData object (useful for testing purposes).
-   * @returns A random TxAuxData object.
+   * Create a random NoteSpendingInfo object (useful for testing purposes).
+   * @returns A random NoteSpendingInfo object.
    */
   static random() {
-    return new TxAuxData(NotePreimage.random(), AztecAddress.random(), Fr.random());
+    return new NoteSpendingInfo(NotePreimage.random(), AztecAddress.random(), Fr.random());
   }
 }

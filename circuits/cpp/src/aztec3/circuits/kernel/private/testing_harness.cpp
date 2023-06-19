@@ -13,7 +13,6 @@
 #include "aztec3/circuits/abis/private_circuit_public_inputs.hpp"
 #include "aztec3/circuits/abis/private_historic_tree_roots.hpp"
 #include "aztec3/circuits/abis/private_kernel/private_call_data.hpp"
-#include "aztec3/circuits/abis/signed_tx_request.hpp"
 #include "aztec3/circuits/abis/tx_context.hpp"
 #include "aztec3/circuits/abis/tx_request.hpp"
 #include "aztec3/circuits/abis/types.hpp"
@@ -22,7 +21,12 @@
 #include "aztec3/constants.hpp"
 
 #include "barretenberg/common/log.hpp"
+#include "barretenberg/polynomials/evaluation_domain.hpp"
 #include <barretenberg/barretenberg.hpp>
+
+#include <cstdint>
+#include <memory>
+#include <vector>
 
 namespace aztec3::circuits::kernel::private_kernel::testing_harness {
 
@@ -36,7 +40,6 @@ using aztec3::circuits::abis::FunctionData;
 using aztec3::circuits::abis::PrivateCircuitPublicInputs;
 using aztec3::circuits::abis::PrivateHistoricTreeRoots;
 using aztec3::circuits::abis::PrivateTypes;
-using aztec3::circuits::abis::SignedTxRequest;
 using aztec3::circuits::abis::TxContext;
 using aztec3::circuits::abis::TxRequest;
 using aztec3::circuits::abis::private_kernel::PrivateCallData;
@@ -104,52 +107,6 @@ get_random_reads(NT::fr const& contract_address, int const num_read_requests)
     return { read_requests, read_request_membership_witnesses, private_data_tree.root() };
 }
 
-/**
- * @brief Generate a verification key for a private circuit.
- *
- * @details Use some dummy inputs just to get the VK for a private circuit
- *
- * @param is_constructor Whether this private call is a constructor call
- * @param func The private circuit call to generate a VK for
- * @param num_args Number of args to that private circuit call
- * @return std::shared_ptr<NT::VK> - the generated VK
- */
-std::shared_ptr<NT::VK> gen_func_vk(bool is_constructor, private_function const& func, size_t const num_args)
-{
-    // Some dummy inputs to get the circuit to compile and get a VK
-    FunctionData<NT> const dummy_function_data{
-        .is_private = true,
-        .is_constructor = is_constructor,
-    };
-
-    CallContext<NT> const dummy_call_context{
-        .is_contract_deployment = is_constructor,
-    };
-
-    // Dummmy invokation of private call circuit, in order to derive its vk
-    Composer dummy_composer = Composer("../barretenberg/cpp/srs_db/ignition");
-    {
-        DB dummy_db;
-        NativeOracle dummy_oracle = is_constructor
-                                        ? NativeOracle(dummy_db, 0, dummy_function_data, dummy_call_context, {}, 0)
-                                        : NativeOracle(dummy_db, 0, dummy_function_data, dummy_call_context, 0);
-
-        OracleWrapper dummy_oracle_wrapper = OracleWrapper(dummy_composer, dummy_oracle);
-
-        FunctionExecutionContext dummy_ctx(dummy_composer, dummy_oracle_wrapper);
-
-        // if args are value 0, deposit circuit errors when inserting utxo notes
-        std::vector<NT::fr> const dummy_args = { 1, 1, 1, 1, 1, 1, 1, 1 };
-        // Make call to private call circuit itself to lay down constraints
-        func(dummy_ctx, dummy_args);
-        // FIXME remove arg
-        (void)num_args;
-    }
-
-    // Now we can derive the vk:
-    return dummy_composer.compute_verification_key();
-}
-
 std::pair<PrivateCallData<NT>, ContractDeploymentData<NT>> create_private_call_deploy_data(
     bool const is_constructor,
     private_function const& func,
@@ -205,7 +162,7 @@ std::pair<PrivateCallData<NT>, ContractDeploymentData<NT>> create_private_call_d
     // it is needed below:
     //     for constructors - to generate the contract address, function leaf, etc
     //     for private calls - to generate the function leaf, etc
-    auto const private_circuit_vk = is_circuit ? gen_func_vk(is_constructor, func, args_vec.size()) : utils::fake_vk();
+    auto const private_circuit_vk = is_circuit ? utils::get_verification_key_from_file() : utils::fake_vk();
 
     const NT::fr private_circuit_vk_hash =
         stdlib::recursion::verification_key<CT::bn254>::compress_native(private_circuit_vk, GeneratorIndex::VK);
@@ -267,7 +224,7 @@ std::pair<PrivateCallData<NT>, ContractDeploymentData<NT>> create_private_call_d
      * multi-iterative kernel circuit, this should be fine.
      */
     PrivateCircuitPublicInputs<NT> private_circuit_public_inputs;
-    NT::Proof private_circuit_proof;
+    const NT::Proof private_circuit_proof = utils::get_proof_from_file();
     if (is_circuit) {
         //***************************************************************************
         // Create a private circuit/call using composer, oracles, execution context
@@ -297,10 +254,6 @@ std::pair<PrivateCallData<NT>, ContractDeploymentData<NT>> create_private_call_d
 
         private_circuit_public_inputs.encrypted_logs_hash = encrypted_logs_hash;
         private_circuit_public_inputs.encrypted_log_preimages_length = encrypted_log_preimages_length;
-
-        // Create a real proof
-        auto private_circuit_prover = private_circuit_composer.create_prover();
-        private_circuit_proof = private_circuit_prover.construct_proof();
     } else {
         private_circuit_public_inputs = PrivateCircuitPublicInputs<NT>{
             .call_context = call_context,
@@ -390,8 +343,7 @@ PrivateKernelInputsInit<NT> do_private_call_get_kernel_inputs_init(bool const is
         is_constructor, func, args_vec, msg_sender, encrypted_logs_hash, encrypted_log_preimages_length, is_circuit);
 
     //***************************************************************************
-    // We can create a TxRequest from some of the above data. Users must sign a TxRequest in order to give permission
-    // for a tx to take place - creating a SignedTxRequest.
+    // We can create a TxRequest from some of the above data.
     //***************************************************************************
     auto const tx_request = TxRequest<NT>{
         .from = tx_origin,
@@ -409,17 +361,11 @@ PrivateKernelInputsInit<NT> do_private_call_get_kernel_inputs_init(bool const is
         .chain_id = 1,
     };
 
-    auto const signed_tx_request = SignedTxRequest<NT>{
-        .tx_request = tx_request,
-
-        //.signature = TODO: need a method for signing a TxRequest.
-    };
-
     //***************************************************************************
     // Now we can construct the full private inputs to the kernel circuit
     //***************************************************************************
     PrivateKernelInputsInit<NT> kernel_private_inputs = PrivateKernelInputsInit<NT>{
-        .signed_tx_request = signed_tx_request,
+        .tx_request = tx_request,
         .private_call = private_call_data,
     };
 
@@ -508,8 +454,8 @@ PrivateKernelInputsInner<NT> do_private_call_get_kernel_inputs_inner(bool const 
 bool validate_deployed_contract_address(PrivateKernelInputsInit<NT> const& private_inputs,
                                         KernelCircuitPublicInputs<NT> const& public_inputs)
 {
-    auto tx_request = private_inputs.signed_tx_request.tx_request;
-    auto cdd = private_inputs.signed_tx_request.tx_request.tx_context.contract_deployment_data;
+    auto tx_request = private_inputs.tx_request;
+    auto cdd = private_inputs.tx_request.tx_context.contract_deployment_data;
 
     auto private_circuit_vk_hash = stdlib::recursion::verification_key<CT::bn254>::compress_native(
         private_inputs.private_call.vk, GeneratorIndex::VK);

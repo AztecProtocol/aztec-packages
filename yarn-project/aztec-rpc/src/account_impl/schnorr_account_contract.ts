@@ -1,15 +1,14 @@
+import { encodeArguments } from '@aztec/acir-simulator';
 import { ARGS_LENGTH, AztecAddress, Fr, FunctionData, TxContext } from '@aztec/circuits.js';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { sha256 } from '@aztec/foundation/crypto';
 import { KeyStore, PublicKey } from '@aztec/key-store';
-import { ExecutionRequest, SignedTxExecutionRequest, TxExecutionRequest } from '@aztec/types';
+import { AccountContractAbi } from '@aztec/noir-contracts/examples';
+import { ExecutionRequest, TxExecutionRequest } from '@aztec/types';
 import partition from 'lodash.partition';
 import times from 'lodash.times';
-import { AccountImplementation } from './index.js';
-import { encodeArguments } from '@aztec/acir-simulator';
-import { AccountContractAbi } from '@aztec/noir-contracts/examples';
 import { generateFunctionSelector } from '../index.js';
-import { SchnorrSignature } from '@aztec/circuits.js/barretenberg';
+import { AccountImplementation } from './index.js';
 
 /**
  * Account backed by an account contract that uses ECDSA signatures for authorization.
@@ -20,7 +19,7 @@ export class EcdsaAccountContract implements AccountImplementation {
   async createAuthenticatedTxRequest(
     executions: ExecutionRequest[],
     txContext: TxContext,
-  ): Promise<SignedTxExecutionRequest> {
+  ): Promise<TxExecutionRequest> {
     this.checkSender(executions);
     this.checkIsNotDeployment(txContext);
 
@@ -46,7 +45,7 @@ export class EcdsaAccountContract implements AccountImplementation {
       functionData: new FunctionData(selector, true, false),
     });
 
-    return new SignedTxExecutionRequest(txRequest, SchnorrSignature.EMPTY);
+    return txRequest;
   }
 
   private getEntrypointAbi() {

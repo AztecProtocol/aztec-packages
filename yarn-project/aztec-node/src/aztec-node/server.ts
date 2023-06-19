@@ -1,29 +1,4 @@
 import { Archiver } from '@aztec/archiver';
-import { AztecAddress } from '@aztec/foundation/aztec-address';
-import {
-  ContractPublicData,
-  ContractData,
-  ContractDataSource,
-  L2Block,
-  L2BlockSource,
-  MerkleTreeId,
-  L1ToL2MessageSource,
-  L1ToL2MessageAndIndex,
-} from '@aztec/types';
-import { SiblingPath } from '@aztec/merkle-tree';
-import { InMemoryTxPool, P2P, createP2PClient } from '@aztec/p2p';
-import { SequencerClient, getCombinedHistoricTreeRoots } from '@aztec/sequencer-client';
-import { Tx, TxHash } from '@aztec/types';
-import { NoirLogs, NoirLogsSource } from '@aztec/types';
-import {
-  MerkleTrees,
-  ServerWorldStateSynchroniser,
-  WorldStateSynchroniser,
-  computePublicDataTreeLeafIndex,
-} from '@aztec/world-state';
-import { default as levelup } from 'levelup';
-import { default as memdown, MemDown } from 'memdown';
-import { AztecNodeConfig } from './config.js';
 import {
   CONTRACT_TREE_HEIGHT,
   CircuitsWasm,
@@ -31,7 +6,34 @@ import {
   L1_TO_L2_MESSAGES_TREE_HEIGHT,
   PRIVATE_DATA_TREE_HEIGHT,
 } from '@aztec/circuits.js';
+import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { SiblingPath } from '@aztec/merkle-tree';
+import { InMemoryTxPool, P2P, createP2PClient } from '@aztec/p2p';
+import { SequencerClient, getCombinedHistoricTreeRoots } from '@aztec/sequencer-client';
+import {
+  ContractData,
+  ContractDataSource,
+  ContractPublicData,
+  L1ToL2MessageAndIndex,
+  L1ToL2MessageSource,
+  L2Block,
+  L2BlockL2Logs,
+  L2BlockSource,
+  L2LogsSource,
+  MerkleTreeId,
+  Tx,
+  TxHash,
+} from '@aztec/types';
+import {
+  MerkleTrees,
+  ServerWorldStateSynchroniser,
+  WorldStateSynchroniser,
+  computePublicDataTreeLeafIndex,
+} from '@aztec/world-state';
+import { default as levelup } from 'levelup';
+import { MemDown, default as memdown } from 'memdown';
 import { AztecNode } from './aztec-node.js';
+import { AztecNodeConfig } from './config.js';
 
 export const createMemDown = () => (memdown as any)() as MemDown<any, any>;
 
@@ -42,7 +44,7 @@ export class AztecNodeService implements AztecNode {
   constructor(
     protected p2pClient: P2P,
     protected blockSource: L2BlockSource,
-    protected encryptedLogsSource: NoirLogsSource,
+    protected encryptedLogsSource: L2LogsSource,
     protected contractDataSource: ContractDataSource,
     protected l1ToL2MessageSource: L1ToL2MessageSource,
     protected merkleTreeDB: MerkleTrees,
@@ -146,7 +148,7 @@ export class AztecNodeService implements AztecNode {
    * @param take - The number of encryptedLogsSource to return.
    * @returns The requested encryptedLogsSource.
    */
-  public getEncryptedLogs(from: number, take: number): Promise<NoirLogs[]> {
+  public getEncryptedLogs(from: number, take: number): Promise<L2BlockL2Logs[]> {
     return this.encryptedLogsSource.getEncryptedLogs(from, take);
   }
 
@@ -156,7 +158,7 @@ export class AztecNodeService implements AztecNode {
    */
   public async sendTx(tx: Tx) {
     // TODO: Patch tx to inject historic tree roots until the private kernel circuit supplies this value
-    if (tx.isPrivate() && tx.data.constants.historicTreeRoots.privateHistoricTreeRoots.isEmpty()) {
+    if (tx.data.constants.historicTreeRoots.privateHistoricTreeRoots.isEmpty()) {
       tx.data.constants.historicTreeRoots = await getCombinedHistoricTreeRoots(this.merkleTreeDB.asLatest());
     }
 

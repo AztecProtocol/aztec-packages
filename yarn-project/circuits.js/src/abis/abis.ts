@@ -11,7 +11,6 @@ import {
   NewContractData,
   Point,
   PublicCallStackItem,
-  SignedTxRequest,
   TxRequest,
   Vector,
 } from '../index.js';
@@ -218,6 +217,7 @@ export function computePartialContractAddress(
 
 /**
  * Computes a siloed commitment, given the contract address and the commitment itself.
+ * A siloed commitment effectively namespaces a commitment to a specific contract.
  * @param wasm - A module providing low-level wasm access.
  * @param contract - The contract address
  * @param commitment - The commitment to silo.
@@ -268,7 +268,7 @@ export function computeContractLeaf(wasm: IWasmModule, cd: NewContractData): Fr 
  * @param txRequest - The signed transaction request.
  * @returns The transaction hash.
  */
-export function computeTxHash(wasm: IWasmModule, txRequest: SignedTxRequest): Fr {
+export function computeTxHash(wasm: IWasmModule, txRequest: TxRequest): Fr {
   wasm.call('pedersen__init');
   const value = wasmSyncCall(wasm, 'abis__compute_transaction_hash', txRequest, 32);
   return Fr.fromBuffer(value);
