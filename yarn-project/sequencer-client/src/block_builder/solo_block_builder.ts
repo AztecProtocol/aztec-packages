@@ -60,11 +60,7 @@ const DELETE_FR = new Fr(0n);
  * using the base, merge, and root rollup circuits.
  */
 export class SoloBlockBuilder implements BlockBuilder {
-  // @todo @LHerskind make it updatable as config. Possibly pass in with build l2 block
-  private globalVariables = new GlobalVariables(
-    Fr.ZERO, // chainId
-    Fr.ZERO, // version
-  );
+  private globalVariables: GlobalVariables;
 
   constructor(
     protected db: MerkleTreeOperations,
@@ -72,25 +68,24 @@ export class SoloBlockBuilder implements BlockBuilder {
     protected simulator: RollupSimulator,
     protected prover: RollupProver,
     protected debug = createDebugLogger('aztec:sequencer'),
-  ) {}
+    protected chainId: Fr = Fr.ZERO,
+    protected version: Fr = Fr.ZERO,
+  ) {
+    this.globalVariables = new GlobalVariables(chainId, version);
+  }
 
   /**
    * Builds an L2 block with the given number containing the given txs, updating state trees.
    * @param blockNumber - Number of the block to create.
    * @param txs - Processed transactions to include in the block.
    * @param newL1ToL2Messages - L1 to L2 messages to be part of the block.
-   * @param chainId - ChainId for the L2 block.
-   * @param version - Version for the L2 block.
    * @returns The new L2 block and a correctness proof as returned by the root rollup circuit.
    */
   public async buildL2Block(
     blockNumber: number,
     txs: ProcessedTx[],
     newL1ToL2Messages: Fr[],
-    chainId: Fr = Fr.ZERO,
-    version: Fr = Fr.ZERO,
   ): Promise<[L2Block, Proof]> {
-    this.globalVariables = new GlobalVariables(chainId, version);
     const [
       startPrivateDataTreeSnapshot,
       startNullifierTreeSnapshot,
