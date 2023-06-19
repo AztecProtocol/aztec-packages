@@ -33,8 +33,12 @@ import { KeyStore, TestKeyStore } from '@aztec/key-store';
 /**
  * Sets up the environment for the end-to-end tests.
  * @param numberOfAccounts - The number of new accounts to be created once the RPC server is initiated.
+ * @param forkMainnet - Whether to fork the mainnet or not.
  */
-export async function setup(numberOfAccounts = 1): Promise<{
+export async function setup(
+  numberOfAccounts = 1,
+  forkMainnet = false,
+): Promise<{
   /**
    * The Aztec Node service.
    */
@@ -74,6 +78,10 @@ export async function setup(numberOfAccounts = 1): Promise<{
   config.contractDeploymentEmitterContract = deployL1ContractsValues.contractDeploymentEmitterAddress;
   config.inboxContract = deployL1ContractsValues.inboxAddress;
 
+  // if forking mainnet, tell archiver to only process from current block (else it would take too long)
+  if (forkMainnet) {
+    config.searchStartBlock = Number(await deployL1ContractsValues.publicClient.getBlockNumber());
+  }
   const aztecNode = await AztecNodeService.createAndSync(config);
   const keyStore = new TestKeyStore(await Grumpkin.new());
   const aztecRpcServer = await createAztecRPCServer(aztecNode, { keyStore });
@@ -170,6 +178,7 @@ export function pointToPublicKey(point: Point) {
  * @param rollupRegistryAddress - address of rollup registry to pass to initialize the token portal
  * @param initialBalance - initial balance of the owner of the L2 contract
  * @param owner - owner of the L2 contract
+ * @param underlyingERC20Address - address of the underlying ERC20 contract to use (if noone supplied, it deploys one)
  * @returns l2 contract instance, token portal instance, token portal address and the underlying ERC20 instance
  */
 export async function deployAndInitializeNonNativeL2TokenContracts(
@@ -179,14 +188,12 @@ export async function deployAndInitializeNonNativeL2TokenContracts(
   rollupRegistryAddress: EthAddress,
   initialBalance = 0n,
   owner = { x: 0n, y: 0n },
+  underlyingERC20Address?: EthAddress,
 ) {
-  // deploy underlying contract
-  const underlyingERC20Address = await deployL1Contract(
-    walletClient,
-    publicClient,
-    PortalERC20Abi,
-    PortalERC20Bytecode,
-  );
+  // deploy underlying contract if no address supplied
+  if (!underlyingERC20Address) {
+    underlyingERC20Address = await deployL1Contract(walletClient, publicClient, PortalERC20Abi, PortalERC20Bytecode);
+  }
   const underlyingERC20: any = getContract({
     address: underlyingERC20Address.toString(),
     abi: PortalERC20Abi,
