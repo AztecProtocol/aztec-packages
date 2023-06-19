@@ -131,6 +131,8 @@ function_tree_root: 0x206
 contract_address_salt: 0x207
 portal_contract_address: 0x808080808080808080808080808080808080808
 
+chain_id: 0x0
+
 
 is_private: 1
 
@@ -275,6 +277,8 @@ constructor_vk_hash: 0x305
 function_tree_root: 0x306
 contract_address_salt: 0x307
 portal_contract_address: 0x808080808080808080808080808080808080808
+
+chain_id: 0x0
 
 
 is_private: 1

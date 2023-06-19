@@ -245,6 +245,8 @@ function_tree_root: 0x107
 contract_address_salt: 0x108
 portal_contract_address: 0x909090909090909090909090909090909090909
 
+chain_id: 0x0
+
 
 is_private: 1
 
@@ -635,6 +637,8 @@ function_tree_root: 0x107
 contract_address_salt: 0x108
 portal_contract_address: 0x909090909090909090909090909090909090909
 
+chain_id: 0x0
+
 
 is_private: 1
 
@@ -1003,6 +1007,8 @@ function_tree_root: 0x107
 contract_address_salt: 0x108
 portal_contract_address: 0x909090909090909090909090909090909090909
 
+chain_id: 0x0
+
 
 is_private: 1
 "
@@ -1138,6 +1144,8 @@ constructor_vk_hash: 0x106
 function_tree_root: 0x107
 contract_address_salt: 0x108
 portal_contract_address: 0x909090909090909090909090909090909090909
+
+chain_id: 0x0
 
 
 is_private: 1

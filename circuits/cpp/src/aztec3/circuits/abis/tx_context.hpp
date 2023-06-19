@@ -24,13 +24,16 @@ template <typename NCT> struct TxContext {
 
     ContractDeploymentData<NCT> contract_deployment_data{};
 
+    fr chain_id = 0;
+
     // for serialization: update up with new fields
-    MSGPACK_FIELDS(is_fee_payment_tx, is_rebate_payment_tx, is_contract_deployment_tx, contract_deployment_data);
+    MSGPACK_FIELDS(
+        is_fee_payment_tx, is_rebate_payment_tx, is_contract_deployment_tx, contract_deployment_data, chain_id);
     boolean operator==(TxContext<NCT> const& other) const
     {
         return is_fee_payment_tx == other.is_fee_payment_tx && is_rebate_payment_tx == other.is_rebate_payment_tx &&
                is_contract_deployment_tx == other.is_contract_deployment_tx &&
-               contract_deployment_data == other.contract_deployment_data;
+               contract_deployment_data == other.contract_deployment_data && chain_id == other.chain_id;
     };
 
     template <typename Composer> TxContext<CircuitTypes<Composer>> to_circuit_type(Composer& composer) const
@@ -46,6 +49,7 @@ template <typename NCT> struct TxContext {
             to_ct(is_rebate_payment_tx),
             to_ct(is_contract_deployment_tx),
             contract_deployment_data.to_circuit_type(composer),
+            to_ct(chain_id),
         };
 
         return tx_context;
@@ -57,12 +61,11 @@ template <typename NCT> struct TxContext {
         auto to_nt = [&](auto& e) { return aztec3::utils::types::to_nt<Composer>(e); };
         auto to_native_type = []<typename T>(T& e) { return e.template to_native_type<Composer>(); };
 
-        TxContext<NativeTypes> tx_context = {
-            to_nt(is_fee_payment_tx),
-            to_nt(is_rebate_payment_tx),
-            to_nt(is_contract_deployment_tx),
-            to_native_type(contract_deployment_data),
-        };
+        TxContext<NativeTypes> tx_context = { to_nt(is_fee_payment_tx),
+                                              to_nt(is_rebate_payment_tx),
+                                              to_nt(is_contract_deployment_tx),
+                                              to_native_type(contract_deployment_data),
+                                              to_nt(chain_id) };
 
         return tx_context;
     };
@@ -75,6 +78,7 @@ template <typename NCT> struct TxContext {
         fr(is_rebate_payment_tx).set_public();
         fr(is_contract_deployment_tx).set_public();
         contract_deployment_data.set_public();
+        chain_id.set_public();
     }
 
     fr hash() const
@@ -84,6 +88,7 @@ template <typename NCT> struct TxContext {
             fr(is_rebate_payment_tx),
             fr(is_contract_deployment_tx),
             contract_deployment_data.hash(),
+            chain_id,
         };
 
         return NCT::compress(inputs, GeneratorIndex::TX_CONTEXT);
@@ -98,6 +103,7 @@ template <typename NCT> void read(uint8_t const*& it, TxContext<NCT>& tx_context
     read(it, tx_context.is_rebate_payment_tx);
     read(it, tx_context.is_contract_deployment_tx);
     read(it, tx_context.contract_deployment_data);
+    read(it, tx_context.chain_id);
 };
 
 template <typename NCT> void write(std::vector<uint8_t>& buf, TxContext<NCT> const& tx_context)
@@ -108,6 +114,7 @@ template <typename NCT> void write(std::vector<uint8_t>& buf, TxContext<NCT> con
     write(buf, tx_context.is_rebate_payment_tx);
     write(buf, tx_context.is_contract_deployment_tx);
     write(buf, tx_context.contract_deployment_data);
+    write(buf, tx_context.chain_id);
 };
 
 template <typename NCT> std::ostream& operator<<(std::ostream& os, TxContext<NCT> const& tx_context)
@@ -117,7 +124,8 @@ template <typename NCT> std::ostream& operator<<(std::ostream& os, TxContext<NCT
               << "is_contract_deployment_tx: " << tx_context.is_contract_deployment_tx << "\n"
               << "contract_deployment_data: "
               << "\n"
-              << tx_context.contract_deployment_data;
+              << tx_context.contract_deployment_data << "\n"
+              << "chain_id: " << tx_context.chain_id << "\n";
 }
 
 }  // namespace aztec3::circuits::abis

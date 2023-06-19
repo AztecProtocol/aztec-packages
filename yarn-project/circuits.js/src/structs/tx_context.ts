@@ -97,6 +97,10 @@ export class TxContext {
      * Contract deployment data.
      */
     public contractDeploymentData: ContractDeploymentData,
+    /**
+     * Chain ID of the transaction. Here for replay protection.
+     */
+    public chainId: Fr,
   ) {}
 
   /**
@@ -109,6 +113,7 @@ export class TxContext {
       this.isRebatePaymentTx,
       this.isContractDeploymentTx,
       this.contractDeploymentData,
+      this.chainId,
     );
   }
 
@@ -124,10 +129,11 @@ export class TxContext {
       reader.readBoolean(),
       reader.readBoolean(),
       reader.readObject(ContractDeploymentData),
+      reader.readFr(),
     );
   }
 
   static empty() {
-    return new TxContext(false, false, false, ContractDeploymentData.empty());
+    return new TxContext(false, false, false, ContractDeploymentData.empty(), Fr.ZERO);
   }
 }
