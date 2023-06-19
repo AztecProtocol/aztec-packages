@@ -404,6 +404,8 @@ base_rollup_vk_hash: 0x403
 merge_rollup_vk_hash: 0x404
 global_variables: chain_id: 0x405
 version: 0x406
+block_number: 0x407
+timestamp: 0x408
 
 
 "
@@ -445,6 +447,8 @@ base_rollup_vk_hash: 0x503
 merge_rollup_vk_hash: 0x504
 global_variables: chain_id: 0x505
 version: 0x506
+block_number: 0x507
+timestamp: 0x508
 
 
 start_private_data_tree_snapshot:

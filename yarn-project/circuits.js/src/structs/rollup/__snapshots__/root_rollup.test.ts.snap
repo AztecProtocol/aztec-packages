@@ -36,6 +36,8 @@ base_rollup_vk_hash: 0x503
 merge_rollup_vk_hash: 0x504
 global_variables: chain_id: 0x505
 version: 0x506
+block_number: 0x507
+timestamp: 0x508
 
 
 start_private_data_tree_snapshot:
@@ -117,6 +119,8 @@ base_rollup_vk_hash: 0x1503
 merge_rollup_vk_hash: 0x1504
 global_variables: chain_id: 0x1505
 version: 0x1506
+block_number: 0x1507
+timestamp: 0x1508
 
 
 start_private_data_tree_snapshot:
