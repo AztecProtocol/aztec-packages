@@ -1,0 +1,67 @@
+import { IWasmModule } from '@aztec/foundation/wasm';
+import { SchnorrSignature } from './signature.js';
+import { CircuitsWasm } from '../../../index.js';
+import { Signer } from '../index.js';
+
+export * from './signature.js';
+
+/**
+ * Schnorr signature construction and helper operations.
+ */
+export class Schnorr implements Signer {
+  /**
+   * Creates a new Schnorr instance.
+   * @returns New Schnorr instance.
+   */
+  public static async new() {
+    return new this(await CircuitsWasm.get());
+  }
+
+  constructor(private wasm: IWasmModule) {}
+
+  /**
+   * Computes a grumpkin public key from a private key.
+   * @param privateKey - Secp256k1 private key.
+   * @returns A grumpkin public key.
+   */
+  public computePublicKey(privateKey: Uint8Array) {
+    this.wasm.writeMemory(0, privateKey);
+    this.wasm.call('schnorr_compute_public_key', 0, 32);
+    return Buffer.from(this.wasm.getMemorySlice(32, 96));
+  }
+
+  /**
+   * Constructs a Schnorr signature given a msg and a private key.
+   * @param msg - Message over which the signature is constructed.
+   * @param privateKey - The secp256k1 private key of the signer.
+   * @returns A Schnorr signature of the form (s, e).
+   */
+  public constructSignature(msg: Uint8Array, privateKey: Uint8Array) {
+    const mem = this.wasm.call('bbmalloc', msg.length);
+    this.wasm.writeMemory(0, privateKey);
+    this.wasm.writeMemory(mem, msg);
+    this.wasm.call('schnorr_construct_signature', mem, msg.length, 0, 32, 64);
+
+    return new SchnorrSignature(
+      Buffer.from(this.wasm.getMemorySlice(32, 96))
+    );
+  }
+
+  /**
+   * Verifies a Schnorr signature given a Grumpkin public key.
+   * @param msg - Message over which the signature was constructed.
+   * @param pubKey - The Grumpkin public key of the signer.
+   * @param sig - The Schnorr signature.
+   * @returns True or false.
+   */
+  public verifySignature(msg: Uint8Array, pubKey: Uint8Array, sig: SchnorrSignature) {
+    const mem = this.wasm.call('bbmalloc', msg.length);
+    this.wasm.writeMemory(0, pubKey);
+    this.wasm.writeMemory(64, sig.s());
+    this.wasm.writeMemory(96, sig.e());
+    this.wasm.writeMemory(mem, msg);
+    this.wasm.call('schnorr_verify_signature', mem, msg.length, 0, 64, 96, 128);
+    const result = this.wasm.getMemorySlice(128, 129);
+    return result != Buffer.alloc(1);
+  }
+}

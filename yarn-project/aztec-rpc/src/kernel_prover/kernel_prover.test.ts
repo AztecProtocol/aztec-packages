@@ -1,6 +1,5 @@
 import { ExecutionResult, NewNoteData } from '@aztec/acir-simulator';
 import {
-  EcdsaSignature,
   KERNEL_NEW_COMMITMENTS_LENGTH,
   PRIVATE_CALL_STACK_LENGTH,
   PrivateCallStackItem,
@@ -23,10 +22,11 @@ import { Fr } from '@aztec/foundation/fields';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Tuple } from '@aztec/foundation/serialize';
 import { NoirLogs } from '@aztec/types';
+import { SchnorrSignature } from '@aztec/circuits.js/barretenberg';
 
 describe('Kernel Prover', () => {
   let txRequest: TxRequest;
-  let txSignature: EcdsaSignature;
+  let txSignature: SchnorrSignature;
   let oracle: ReturnType<typeof mock<ProvingDataOracle>>;
   let proofCreator: ReturnType<typeof mock<ProofCreator>>;
   let prover: KernelProver;
@@ -98,7 +98,7 @@ describe('Kernel Prover', () => {
 
   beforeEach(() => {
     txRequest = makeTxRequest();
-    txSignature = EcdsaSignature.random();
+    txSignature = SchnorrSignature.random();
 
     oracle = mock<ProvingDataOracle>();
     oracle.getVkMembershipWitness.mockResolvedValue(MembershipWitness.random(VK_TREE_HEIGHT));

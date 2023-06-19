@@ -66,7 +66,6 @@ import {
   NEW_NULLIFIERS_LENGTH,
   ConstantBaseRollupData,
   AppendOnlyTreeSnapshot,
-  EcdsaSignature,
   BaseOrMergeRollupPublicInputs,
   RollupTypes,
   PreviousRollupData,
@@ -87,6 +86,7 @@ import {
   makeHalfFullTuple,
   Point,
 } from '../index.js';
+import { SchnorrSignature } from '../barretenberg/index.js';
 
 /**
  * Creates an arbitrary tx context with the given seed.
@@ -558,7 +558,7 @@ export async function makePublicKernelInputsNoKernelInput(seed = 1): Promise<Pub
  * @returns A signed tx request.
  */
 export function makeSignedTxRequest(seed = 1): SignedTxRequest {
-  return new SignedTxRequest(makeTxRequest(seed), makeEcdsaSignature(seed + 0x200));
+  return new SignedTxRequest(makeTxRequest(seed), makeSchnorrSignature(seed + 0x200));
 }
 
 /**
@@ -717,12 +717,12 @@ export function makeAztecAddress(seed = 1): AztecAddress {
 }
 
 /**
- * Makes arbitrary ecdsa signature.
- * @param seed - The seed to use for generating the ecdsa signature.
- * @returns An ecdsa signature.
+ * Makes arbitrary Schnorr signature.
+ * @param seed - The seed to use for generating the Schnorr signature.
+ * @returns A Schnorr signature.
  */
-export function makeEcdsaSignature(seed = 1): EcdsaSignature {
-  return new EcdsaSignature(Buffer.alloc(32, seed), Buffer.alloc(32, seed + 1), Buffer.alloc(1, seed + 2));
+export function makeSchnorrSignature(seed = 1): SchnorrSignature {
+  return new SchnorrSignature(Buffer.alloc(SchnorrSignature.SIZE, seed));
 }
 
 /**

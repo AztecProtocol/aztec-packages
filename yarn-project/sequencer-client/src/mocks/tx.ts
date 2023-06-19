@@ -8,9 +8,9 @@ import {
 import {
   fr,
   makeAztecAddress,
-  makeEcdsaSignature,
   makeKernelPublicInputs,
   makePublicCallRequest,
+  makeSchnorrSignature,
   makeSelector,
   makeTxContext,
 } from '@aztec/circuits.js/factories';
@@ -67,5 +67,5 @@ function makeSignedTxExecutionRequest(seed: number) {
     txContext: makeTxContext(seed + 0x400),
     chainId: fr(seed + 0x500),
   });
-  return new SignedTxExecutionRequest(txRequest, makeEcdsaSignature(seed + 0x200));
+  return new SignedTxExecutionRequest(txRequest, makeSchnorrSignature(seed + 0x200));
 }

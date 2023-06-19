@@ -4,8 +4,8 @@ import { BufferReader } from '@aztec/foundation/serialize';
 import { FieldsOf } from '../utils/jsUtils.js';
 import { serializeToBuffer } from '../utils/serialize.js';
 import { FunctionData } from './function_data.js';
-import { EcdsaSignature } from './shared.js';
 import { TxContext } from './tx_context.js';
+import { SchnorrSignature, Signature } from '../barretenberg/index.js';
 
 /**
  * Signed transaction request.
@@ -20,7 +20,7 @@ export class SignedTxRequest {
     /**
      * Signature.
      */
-    public signature: EcdsaSignature,
+    public signature: Signature,
   ) {}
 
   /**
@@ -38,7 +38,7 @@ export class SignedTxRequest {
    */
   static fromBuffer(buffer: Buffer | BufferReader): SignedTxRequest {
     const reader = BufferReader.asReader(buffer);
-    return new SignedTxRequest(reader.readObject(TxRequest), reader.readObject(EcdsaSignature));
+    return new SignedTxRequest(reader.readObject(TxRequest), reader.readObject(SchnorrSignature));
   }
 }
 

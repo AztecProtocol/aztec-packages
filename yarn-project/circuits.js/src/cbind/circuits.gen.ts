@@ -1304,6 +1304,11 @@ export function abisComputeContractAddress(
     ]),
   );
 }
+export function abisComputePartialContractAddress(wasm: IWasmModule, arg0: Fr, arg1: Fr, arg2: Fr): Fr {
+  return Fr.fromBuffer(
+    callCbind(wasm, 'abis__compute_partial_contract_address', [arg0.toBuffer(), arg1.toBuffer(), arg2.toBuffer()]),
+  );
+}
 export function abisSiloCommitment(wasm: IWasmModule, arg0: Address, arg1: Fr): Fr {
   return Fr.fromBuffer(callCbind(wasm, 'abis__silo_commitment', [arg0.toBuffer(), arg1.toBuffer()]));
 }

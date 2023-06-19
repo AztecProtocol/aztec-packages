@@ -1,7 +1,7 @@
 import { IWasmModule } from '@aztec/foundation/wasm';
 import { Buffer } from 'buffer';
 import chunk from 'lodash.chunk';
-import { abisComputeContractAddress, abisSiloCommitment } from '../cbind/circuits.gen.js';
+import { abisComputeContractAddress, abisSiloCommitment, abisComputePartialContractAddress } from '../cbind/circuits.gen.js';
 import {
   AztecAddress,
   FUNCTION_SELECTOR_NUM_BYTES,
@@ -206,7 +206,7 @@ export function computePartialContractAddress(
   contractAddrSalt: Fr,
   fnTreeRoot: Fr,
   constructorHash: Fr,
-): AztecAddress {
+): Fr {
   wasm.call('pedersen__init');
   return abisComputePartialContractAddress(
     wasm,

@@ -2,7 +2,7 @@ import { Fr, FunctionData, KERNEL_PUBLIC_CALL_STACK_LENGTH, Proof, range } from 
 import {
   fr,
   makeAztecAddress,
-  makeEcdsaSignature,
+  makeSchnorrSignature,
   makeKernelPublicInputs,
   makePublicCallRequest,
   makeSelector,
@@ -55,7 +55,7 @@ const makeSignedTxExecutionRequest = (seed: number) => {
     txContext: makeTxContext(seed + 0x400),
     chainId: fr(seed + 0x500),
   });
-  return new SignedTxExecutionRequest(txRequest, makeEcdsaSignature(seed + 0x200));
+  return new SignedTxExecutionRequest(txRequest, makeSchnorrSignature(seed + 0x200));
 };
 
 const makePublicTx = () => {

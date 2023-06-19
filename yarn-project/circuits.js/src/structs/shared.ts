@@ -1,8 +1,4 @@
-import { BufferReader } from '@aztec/foundation/serialize';
-import { assertMemberLength } from '../utils/jsUtils.js';
 import { Bufferable, serializeToBuffer } from '../utils/serialize.js';
-import { randomBytes } from '@aztec/foundation/crypto';
-import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 
 /**
  * Implementation of a vector. Matches how we are serializing and deserializing vectors in cpp (length in the first position, followed by the items).
@@ -28,56 +24,6 @@ export class Vector<T extends Bufferable> {
  * A type alias for a 32-bit unsigned integer.
  */
 export type UInt32 = number;
-
-/**
- * ECDSA signature used for transactions.
- * @see cpp/barretenberg/cpp/src/barretenberg/crypto/ecdsa/ecdsa.hpp
- */
-export class EcdsaSignature {
-  constructor(
-    /**
-     * Value `r` of the signature.
-     */
-    public r: Buffer,
-    /**
-     * Value `s` of the signature.
-     */
-    public s: Buffer,
-    /**
-     * Value `v` of the signature.
-     */
-    public v: Buffer,
-  ) {
-    assertMemberLength(this, 'r', 32);
-    assertMemberLength(this, 's', 32);
-    assertMemberLength(this, 'v', 1);
-  }
-
-  toBuffer() {
-    return serializeToBuffer(this.r, this.s, this.v);
-  }
-
-  static fromBigInts(r: bigint, s: bigint, v: number) {
-    return new EcdsaSignature(toBufferBE(r, 32), toBufferBE(s, 32), Buffer.from([v]));
-  }
-
-  static fromBuffer(buffer: Buffer | BufferReader): EcdsaSignature {
-    const reader = BufferReader.asReader(buffer);
-    return new EcdsaSignature(reader.readBytes(32), reader.readBytes(32), reader.readBytes(1));
-  }
-
-  /**
-   * Returns a random/placeholder ECDSA signature.
-   * @returns A random placeholder ECDSA signature.
-   */
-  public static random(): EcdsaSignature {
-    return new EcdsaSignature(randomBytes(32), randomBytes(32), randomBytes(1));
-  }
-
-  static empty(): EcdsaSignature {
-    return new EcdsaSignature(Buffer.alloc(32, 0), Buffer.alloc(32, 0), Buffer.alloc(1, 0));
-  }
-}
 
 /**
  * Composer prover type.

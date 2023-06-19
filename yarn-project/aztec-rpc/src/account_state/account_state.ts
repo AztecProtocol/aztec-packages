@@ -1,7 +1,7 @@
 import { AcirSimulator } from '@aztec/acir-simulator';
 import { AztecNode } from '@aztec/aztec-node';
 import { CircuitsWasm, KERNEL_NEW_COMMITMENTS_LENGTH, PrivateHistoricTreeRoots } from '@aztec/circuits.js';
-import { Grumpkin } from '@aztec/circuits.js/barretenberg';
+import { Curve, Grumpkin, Schnorr, Signer } from '@aztec/circuits.js/barretenberg';
 import { FunctionType } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr, Point } from '@aztec/foundation/fields';
@@ -62,17 +62,19 @@ export class AccountState {
   constructor(
     private readonly privKey: Buffer,
     private readonly address: AztecAddress,
+    private readonly partialContractAddress: Fr,
     private db: Database,
     private node: AztecNode,
-    private grumpkin: Grumpkin,
+    private curve: Curve,
+    private signer: Signer,
     private TXS_PER_BLOCK = 4,
     private log = createDebugLogger('aztec:aztec_rpc_account_state'),
   ) {
     if (privKey.length !== 32) {
       throw new Error(`Invalid private key length. Received ${privKey.length}, expected 32`);
     }
-    this.publicKey = Point.fromBuffer(this.grumpkin.mul(Grumpkin.generator, this.privKey));
-    this.keyPair = new ConstantKeyPair(this.publicKey, privKey);
+    this.publicKey = Point.fromBuffer(this.curve.mul(this.curve.generator(), this.privKey));
+    this.keyPair = new ConstantKeyPair(this.curve, this.signer, this.publicKey, privKey);
   }
 
   /**
@@ -105,6 +107,15 @@ export class AccountState {
    */
   public getPublicKey() {
     return this.publicKey;
+  }
+
+  /**
+   * Get the partial address of the account contract associated with this AccountState instance.
+   *
+   * @returns The partially constructed address of the account contract.
+   */
+  public getPartialContractAddress() {
+    return this.partialContractAddress;
   }
 
   /**
@@ -324,7 +335,7 @@ export class AccountState {
       const privateTxIndices: Set<number> = new Set();
       const txAuxDataDaos: TxAuxDataDao[] = [];
       for (let j = 0; j < dataChunks.length; ++j) {
-        const txAuxData = TxAuxData.fromEncryptedBuffer(dataChunks[j], this.privKey, this.grumpkin);
+        const txAuxData = TxAuxData.fromEncryptedBuffer(dataChunks[j], this.privKey, this.curve);
         if (txAuxData) {
           // We have successfully decrypted the data.
           const privateTxIndex = Math.floor(j / KERNEL_NEW_COMMITMENTS_LENGTH);

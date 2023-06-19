@@ -20,10 +20,12 @@ describe('e2e_account_contract', () => {
   beforeEach(async () => {
     ({ aztecNode, aztecRpcServer, logger } = await setup());
 
-    account = await deployContract(AccountContractAbi);
-    await aztecRpcServer.addSmartAccount(privKey, account.address);
+    const accountDeployData = await deployContract(AccountContractAbi);
+    account = accountDeployData.contract;
+    await aztecRpcServer.addSmartAccount(privKey, account.address, accountDeployData.partialContractAddress);
 
-    child = await deployContract(ChildAbi);
+    const childDeployResult = await deployContract(ChildAbi);
+    child = childDeployResult.contract;
   }, 60_000);
 
   afterEach(async () => {
@@ -34,14 +36,15 @@ describe('e2e_account_contract', () => {
   const deployContract = async (abi: ContractAbi) => {
     logger(`Deploying L2 contract ${abi.name}...`);
     const deployer = new ContractDeployer(abi, aztecRpcServer);
-    const tx = deployer.deploy().send();
+    const deployMethod = deployer.deploy();
+    const tx = deployMethod.send();
 
     await tx.isMined(0, 0.1);
 
     const receipt = await tx.getReceipt();
     const contract = new Contract(receipt.contractAddress!, abi, aztecRpcServer);
     logger(`L2 contract ${abi.name} deployed at ${contract.address}`);
-    return contract;
+    return { contract, partialContractAddress: deployMethod.partialContractAddress };
   };
 
   it('calls a private function', async () => {

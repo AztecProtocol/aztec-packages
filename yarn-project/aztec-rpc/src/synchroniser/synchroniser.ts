@@ -1,6 +1,6 @@
 import { AztecNode } from '@aztec/aztec-node';
 import { Fr } from '@aztec/circuits.js';
-import { Grumpkin } from '@aztec/circuits.js/barretenberg';
+import { Grumpkin, Schnorr } from '@aztec/circuits.js/barretenberg';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { InterruptableSleep } from '@aztec/foundation/sleep';
@@ -146,10 +146,11 @@ export class Synchroniser {
    *
    * @param privKey - The private key buffer to initialize the account state.
    * @param address - Address of the corresponding account contract.
+   * @param partialContractAddress - The partially computed account contract address.
    * @returns A promise that resolves once the account is added to the Synchroniser.
    */
-  public async addAccount(privKey: Buffer, address: AztecAddress) {
-    const accountState = new AccountState(privKey, address, this.db, this.node, await Grumpkin.new());
+  public async addAccount(privKey: Buffer, address: AztecAddress, partialContractAddress: Fr) {
+    const accountState = new AccountState(privKey, address, partialContractAddress, this.db, this.node, await Grumpkin.new(), await Schnorr.new());
     this.accountStates.push(accountState);
     await Promise.resolve();
   }

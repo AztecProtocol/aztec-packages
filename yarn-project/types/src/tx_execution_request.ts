@@ -1,7 +1,6 @@
 import {
   AztecAddress,
   CircuitsWasm,
-  EcdsaSignature,
   FieldsOf,
   Fr,
   FunctionData,
@@ -14,6 +13,7 @@ import { computeVarArgsHash } from '@aztec/circuits.js/abis';
 import { BufferReader, serializeToBuffer } from '@aztec/circuits.js/utils';
 import cloneDeep from 'lodash.clonedeep';
 import { ExecutionRequest } from './execution_request.js';
+import { SchnorrSignature } from '@aztec/circuits.js/barretenberg';
 
 /**
  * Request to execute a transaction. Similar to TxRequest, but has the full args.
@@ -142,7 +142,7 @@ export class SignedTxExecutionRequest {
     /**
      * Signature.
      */
-    public signature: EcdsaSignature,
+    public signature: SchnorrSignature,
   ) {}
 
   async toSignedTxRequest(): Promise<SignedTxRequest> {
@@ -168,6 +168,6 @@ export class SignedTxExecutionRequest {
    */
   static fromBuffer(buffer: Buffer | BufferReader): SignedTxExecutionRequest {
     const reader = BufferReader.asReader(buffer);
-    return new SignedTxExecutionRequest(reader.readObject(TxExecutionRequest), reader.readObject(EcdsaSignature));
+    return new SignedTxExecutionRequest(reader.readObject(TxExecutionRequest), reader.readObject(SchnorrSignature));
   }
 }

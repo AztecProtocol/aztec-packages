@@ -1,4 +1,4 @@
-import { ARGS_LENGTH, AztecAddress, EcdsaSignature, Fr, FunctionData, TxContext } from '@aztec/circuits.js';
+import { ARGS_LENGTH, AztecAddress, Fr, FunctionData, TxContext } from '@aztec/circuits.js';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { sha256 } from '@aztec/foundation/crypto';
 import { KeyStore, PublicKey } from '@aztec/key-store';
@@ -9,6 +9,7 @@ import { AccountImplementation } from './index.js';
 import { encodeArguments } from '@aztec/acir-simulator';
 import { AccountContractAbi } from '@aztec/noir-contracts/examples';
 import { generateFunctionSelector } from '../index.js';
+import { SchnorrSignature } from '@aztec/circuits.js/barretenberg';
 
 /**
  * Account backed by an account contract that uses ECDSA signatures for authorization.
@@ -33,9 +34,10 @@ export class EcdsaAccountContract implements AccountImplementation {
 
     const payload = buildPayload(privateCalls, publicCalls);
     const hash = hashPayload(payload);
-    const signature = await this.keyStore.ecdsaSign(hash, this.pubKey);
+    const signature = await this.keyStore.sign(hash, this.pubKey);
     const signatureAsFrArray = Array.from(signature.toBuffer()).map(byte => new Fr(byte));
-    const args = [payload, signatureAsFrArray, this.pubKey, this.partialContractAddress];
+
+    const args = [payload, signatureAsFrArray, ];
     const abi = this.getEntrypointAbi();
     const selector = generateFunctionSelector(abi.name, abi.parameters);
     const txRequest = TxExecutionRequest.fromExecutionRequest({
@@ -44,7 +46,7 @@ export class EcdsaAccountContract implements AccountImplementation {
       functionData: new FunctionData(selector, true, false),
     });
 
-    return new SignedTxExecutionRequest(txRequest, EcdsaSignature.empty());
+    return new SignedTxExecutionRequest(txRequest, SchnorrSignature.EMPTY);
   }
 
   private getEntrypointAbi() {
