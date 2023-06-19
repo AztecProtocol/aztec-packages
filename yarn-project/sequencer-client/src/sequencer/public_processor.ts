@@ -27,7 +27,7 @@ import { computeCallStackItemHash, computeVarArgsHash } from '@aztec/circuits.js
 import { isArrayEmpty, padArrayEnd, padArrayStart } from '@aztec/foundation/collection';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { Tuple, mapTuple, to2Fields } from '@aztec/foundation/serialize';
-import { ContractDataSource, FunctionL2Logs, L1ToL2MessageSource, MerkleTreeId, Tx, TxL2Logs } from '@aztec/types';
+import { ContractDataSource, FunctionL2Logs, L1ToL2MessageSource, MerkleTreeId, Tx } from '@aztec/types';
 import { MerkleTreeOperations } from '@aztec/world-state';
 import { getVerificationKeys } from '../index.js';
 import { EmptyPublicProver } from '../prover/empty.js';
