@@ -1,5 +1,5 @@
 import { InboxAbi, RollupAbi, ContractDeploymentEmitterAbi } from '@aztec/l1-artifacts';
-import { ContractData, ContractPublicData, EncodedContractFunction, L2Block } from '@aztec/types';
+import { ContractData, ContractPublicData, EncodedContractFunction, L2Block, L2BlockL2Logs } from '@aztec/types';
 import { MockProxy, mock } from 'jest-mock-extended';
 import { Chain, HttpTransport, Log, PublicClient, Transaction, encodeFunctionData, toHex } from 'viem';
 import { Archiver } from './archiver.js';
@@ -14,6 +14,7 @@ describe('Archiver', () => {
   const rollupAddress = '0x0000000000000000000000000000000000000000';
   const inboxAddress = '0x0000000000000000000000000000000000000000';
   const contractDeploymentEmitterAddress = '0x0000000000000000000000000000000000000001';
+  const blockNums = [1, 2, 3];
   let publicClient: MockProxy<PublicClient<HttpTransport, Chain>>;
   let archiverStore: ArchiverDataStore;
 
@@ -22,7 +23,7 @@ describe('Archiver', () => {
     archiverStore = new MemoryArchiverStore();
   });
 
-  it('can start, sync and stop and handle l1 to l2 messages', async () => {
+  it('can start, sync and stop and handle l1 to l2 messages and logs', async () => {
     const archiver = new Archiver(
       publicClient,
       EthAddress.fromString(rollupAddress),
@@ -36,7 +37,7 @@ describe('Archiver', () => {
     let latestBlockNum = await archiver.getBlockHeight();
     expect(latestBlockNum).toEqual(0);
 
-    const blocks = [1, 2, 3].map(x => L2Block.random(x));
+    const blocks = blockNums.map(x => L2Block.random(x, 4, x, x + 1, x * 2, x * 3));
     const rollupTxs = blocks.map(makeRollupTx);
     // `L2Block.random(x)` creates some l1 to l2 messages. We add those,
     // since it is expected by the test that these would be consumed.
@@ -101,6 +102,25 @@ describe('Archiver', () => {
     ];
     const actualPendingMessageKeys = (await archiver.getPendingL1ToL2Messages(10)).map(key => key.toString(true));
     expect(expectedPendingMessageKeys).toEqual(actualPendingMessageKeys);
+
+    // Expect logs to correspond to what is set by L2Block.random(...)
+    const encryptedLogs = await archiver.getEncryptedLogs(1, 100);
+    expect(encryptedLogs.length).toEqual(blockNums.length);
+
+    for (const [index, x] of blockNums.entries()) {
+      const expectedTotalNumEncrytpedLogs = 4 * x * (x * 2);
+      const totalNumEncryptedLogs = countIndividualLogs(encryptedLogs[index]);
+      expect(totalNumEncryptedLogs).toEqual(expectedTotalNumEncrytpedLogs);
+    }
+
+    const unencryptedLogs = await archiver.getUnencryptedLogs(1, 100);
+    expect(unencryptedLogs.length).toEqual(blockNums.length);
+
+    blockNums.forEach((x, index) => {
+      const expectedTotalNumUnencryptedLogs = 4 * (x + 1) * (x * 3);
+      const totalNumUnencryptedLogs = countIndividualLogs(unencryptedLogs[index]);
+      expect(totalNumUnencryptedLogs).toEqual(expectedTotalNumUnencryptedLogs);
+    });
 
     await archiver.stop();
   }, 10_000);
@@ -202,4 +222,11 @@ function makeRollupTx(l2Block: L2Block) {
   const block = toHex(l2Block.encode());
   const input = encodeFunctionData({ abi: RollupAbi, functionName: 'process', args: [proof, block] });
   return { input } as Transaction<bigint, number>;
+}
+
+function countIndividualLogs(logs: L2BlockL2Logs): number {
+  return logs.txLogs.reduce(
+    (acc, txLogs) => acc + txLogs.functionLogs.reduce((total, functionLogs) => total + functionLogs.logs.length, 0),
+    0,
+  );
 }
