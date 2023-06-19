@@ -15,6 +15,7 @@ import {
   L2BlockL2Logs,
   MerkleTreeId,
   NoteSpendingInfo,
+  PartialContractAddress,
   Tx,
   TxExecutionRequest,
   TxL2Logs,
@@ -62,7 +63,7 @@ export class AccountState {
   constructor(
     private readonly privKey: Buffer,
     private readonly address: AztecAddress,
-    private readonly partialContractAddress: Fr,
+    private readonly partialContractAddress: PartialContractAddress,
     private db: Database,
     private node: AztecNode,
     private curve: Curve,
@@ -336,7 +337,7 @@ export class AccountState {
         const txFunctionLogs = txLogs[txIndex].functionLogs;
         for (const functionLogs of txFunctionLogs) {
           for (const logs of functionLogs.logs) {
-            const noteSpendingInfo = NoteSpendingInfo.fromEncryptedBuffer(logs, this.privKey, this.grumpkin);
+            const noteSpendingInfo = NoteSpendingInfo.fromEncryptedBuffer(logs, this.privKey, this.curve);
             if (noteSpendingInfo) {
               // We have successfully decrypted the data.
               const privateTxIndex = Math.floor(txIndex / KERNEL_NEW_COMMITMENTS_LENGTH);

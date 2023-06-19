@@ -20,7 +20,6 @@ import {
   ContractDeploymentData,
   ContractStorageRead,
   ContractStorageUpdateRequest,
-  EcdsaSignature,
   FUNCTION_TREE_HEIGHT,
   Fq,
   Fr,

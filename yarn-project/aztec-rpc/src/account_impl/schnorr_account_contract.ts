@@ -4,7 +4,7 @@ import { padArrayEnd } from '@aztec/foundation/collection';
 import { sha256 } from '@aztec/foundation/crypto';
 import { KeyStore, PublicKey } from '@aztec/key-store';
 import { AccountContractAbi } from '@aztec/noir-contracts/examples';
-import { ExecutionRequest, TxExecutionRequest } from '@aztec/types';
+import { ExecutionRequest, PartialContractAddress, TxExecutionRequest } from '@aztec/types';
 import partition from 'lodash.partition';
 import times from 'lodash.times';
 import { generateFunctionSelector } from '../index.js';
@@ -13,8 +13,8 @@ import { AccountImplementation } from './index.js';
 /**
  * Account backed by an account contract that uses ECDSA signatures for authorization.
  */
-export class EcdsaAccountContract implements AccountImplementation {
-  constructor(private address: AztecAddress, private pubKey: PublicKey, private keyStore: KeyStore, private partialContractAddress: Fr) {}
+export class SchnorrAccountContract implements AccountImplementation {
+  constructor(private address: AztecAddress, private pubKey: PublicKey, private keyStore: KeyStore, private partialContractAddress: PartialContractAddress) {}
 
   async createAuthenticatedTxRequest(
     executions: ExecutionRequest[],
@@ -36,7 +36,7 @@ export class EcdsaAccountContract implements AccountImplementation {
     const signature = await this.keyStore.sign(hash, this.pubKey);
     const signatureAsFrArray = Array.from(signature.toBuffer()).map(byte => new Fr(byte));
 
-    const args = [payload, signatureAsFrArray, ];
+    const args = [payload, signatureAsFrArray, this.pubKey, this.partialContractAddress];
     const abi = this.getEntrypointAbi();
     const selector = generateFunctionSelector(abi.name, abi.parameters);
     const txRequest = TxExecutionRequest.fromExecutionRequest({

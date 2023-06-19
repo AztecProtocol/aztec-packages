@@ -7,6 +7,7 @@ import { AccountContractAbi, ChildAbi } from '@aztec/noir-contracts/examples';
 import { toBigInt } from '@aztec/foundation/serialize';
 import { setup } from './utils.js';
 import { privateKey } from './fixtures.js';
+import { Grumpkin, Schnorr } from '@aztec/circuits.js/barretenberg';
 
 describe('e2e_account_contract', () => {
   let aztecNode: AztecNodeService;
@@ -19,8 +20,11 @@ describe('e2e_account_contract', () => {
   beforeEach(async () => {
     ({ aztecNode, aztecRpcServer, logger } = await setup());
 
-    account = await deployContract(AccountContractAbi);
-    await aztecRpcServer.registerSmartAccount(privateKey, account.address);
+    const deploymentResult = await deployContract(AccountContractAbi);
+    account = deploymentResult.contract;
+    const curve = await Grumpkin.new();
+    const signer = await Schnorr.new();
+    await aztecRpcServer.registerSmartAccount(curve, signer, privateKey, account.address, deploymentResult.partialContractAddress!);
 
     const childDeployResult = await deployContract(ChildAbi);
     child = childDeployResult.contract;

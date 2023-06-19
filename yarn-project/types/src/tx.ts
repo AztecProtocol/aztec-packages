@@ -1,10 +1,10 @@
-import { CircuitsWasm, Fr, KernelCircuitPublicInputs, Proof, PublicCallRequest } from '@aztec/circuits.js';
-import { computeTxHash } from '@aztec/circuits.js/abis';
+import { Fr, KernelCircuitPublicInputs, Proof, PublicCallRequest } from '@aztec/circuits.js';
 
 import { arrayNonEmptyLength } from '@aztec/foundation/collection';
 import { EncodedContractFunction } from './contract_data.js';
 import { TxL2Logs } from './logs/tx_l2_logs.js';
 import { TxHash } from './tx_hash.js';
+import { PartialContractAddress } from './partial_contract_address.js';
 
 /**
  * The interface of an L2 transaction.
@@ -101,16 +101,6 @@ export class Tx {
 }
 
 /**
- * Calculates the hash based on a SignedTxRequest.
- * @param txRequest - The SignedTxRequest.
- * @returns The tx hash.
- */
-async function getTxHashFromRequest(txExecutionRequest: SignedTxExecutionRequest) {
-  return new TxHash(computeTxHash(await CircuitsWasm.get(), await txExecutionRequest.toSignedTxRequest()).toBuffer());
-}
-
-
-/**
  * Wrapper class for a contract deployment transaction.
  * Also contains the contract partial address
  */
@@ -124,7 +114,7 @@ export class ContractDeploymentTx {
     /**
      * The partially conputed contract address.
      */
-    public readonly partialContractAddress: Fr,
+    public readonly partialContractAddress: PartialContractAddress,
 
   ) {
   }

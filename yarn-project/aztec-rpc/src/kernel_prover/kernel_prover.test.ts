@@ -21,7 +21,6 @@ import { mock } from 'jest-mock-extended';
 import { KernelProver, OutputNoteData } from './kernel_prover.js';
 import { ProofCreator } from './proof_creator.js';
 import { ProvingDataOracle } from './proving_data_oracle.js';
-import { SchnorrSignature } from '@aztec/circuits.js/barretenberg';
 
 describe('Kernel Prover', () => {
   let txRequest: TxRequest;
@@ -95,7 +94,6 @@ describe('Kernel Prover', () => {
 
   beforeEach(() => {
     txRequest = makeTxRequest();
-    txSignature = SchnorrSignature.random();
 
     oracle = mock<ProvingDataOracle>();
     oracle.getVkMembershipWitness.mockResolvedValue(MembershipWitness.random(VK_TREE_HEIGHT));

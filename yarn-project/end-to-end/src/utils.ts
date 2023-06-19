@@ -23,7 +23,7 @@ import { Account, Chain, HttpTransport, PublicClient, WalletClient, getContract 
 import { mnemonicToAccount } from 'viem/accounts';
 import { MNEMONIC, localAnvil, privateKey } from './fixtures.js';
 import { CircuitsWasm } from '@aztec/circuits.js';
-import { pedersenCompressInputs } from '@aztec/circuits.js/barretenberg';
+import { Grumpkin, Schnorr, pedersenCompressInputs } from '@aztec/circuits.js/barretenberg';
 
 /**
  * Sets up the environment for the end-to-end tests.
@@ -73,7 +73,9 @@ export async function setup(numberOfAccounts = 1): Promise<{
     let address;
     if (i == 0) {
       // TODO(#662): Let the aztec rpc server generate the keypair rather than hardcoding the private key and generate all accounts as smart accounts
-      const [txHash, newAddress] = await aztecRpcServer.createSmartAccount(privateKey);
+      const curve = await Grumpkin.new();
+      const signer = await Schnorr.new();
+      const [txHash, newAddress] = await aztecRpcServer.createSmartAccount(curve, signer, privateKey);
       const isMined = await new SentTx(aztecRpcServer, Promise.resolve(txHash)).isMined();
       expect(isMined).toBeTruthy();
       address = newAddress;

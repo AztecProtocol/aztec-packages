@@ -4,7 +4,7 @@ import { Grumpkin, Schnorr } from '@aztec/circuits.js/barretenberg';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { InterruptableSleep } from '@aztec/foundation/sleep';
-import { L2BlockContext, MerkleTreeId, TxHash } from '@aztec/types';
+import { L2BlockContext, MerkleTreeId, PartialContractAddress, TxHash } from '@aztec/types';
 import { AccountState } from '../account_state/index.js';
 import { Database, TxDao } from '../database/index.js';
 
@@ -149,7 +149,7 @@ export class Synchroniser {
    * @param partialContractAddress - The partially computed account contract address.
    * @returns A promise that resolves once the account is added to the Synchroniser.
    */
-  public async addAccount(privKey: Buffer, address: AztecAddress, partialContractAddress: Fr) {
+  public async addAccount(privKey: Buffer, address: AztecAddress, partialContractAddress: PartialContractAddress) {
     const accountState = new AccountState(privKey, address, partialContractAddress, this.db, this.node, await Grumpkin.new(), await Schnorr.new());
     this.accountStates.push(accountState);
     return Promise.resolve(accountState);

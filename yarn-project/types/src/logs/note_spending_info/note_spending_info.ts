@@ -63,7 +63,7 @@ export class NoteSpendingInfo {
    * @param curve - The curve instance to use.
    * @returns Instance of TxAuxData if the decryption was successful, undefined otherwise.
    */
-  static fromEncryptedBuffer(data: Buffer, ownerPrivKey: Buffer, curve: Curve): TxAuxData | undefined {
+  static fromEncryptedBuffer(data: Buffer, ownerPrivKey: Buffer, curve: Curve): NoteSpendingInfo | undefined {
     const buf = decryptBuffer(data, ownerPrivKey, curve);
     if (!buf) {
       return;

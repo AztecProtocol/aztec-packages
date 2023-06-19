@@ -13,9 +13,7 @@ import { Fr, Point } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { KeyStore, PublicKey, getAddressFromPublicKey } from '@aztec/key-store';
 import { AccountContractAbi } from '@aztec/noir-contracts/examples';
-import { ExecutionRequest, Tx, TxExecutionRequest, TxHash } from '@aztec/types';
-import { EcdsaAccountContract } from '../account_impl/ecdsa_account_contract.js';
-import { EcdsaExternallyOwnedAccount } from '../account_impl/ecdsa_eoa.js';
+import { ContractDeploymentTx, ExecutionRequest, PartialContractAddress, Tx, TxExecutionRequest, TxHash } from '@aztec/types';
 import { AccountImplementation } from '../account_impl/index.js';
 import { AccountState } from '../account_state/account_state.js';
 import { AztecRPCClient, DeployedContract } from '../aztec_rpc_client/index.js';
@@ -25,7 +23,9 @@ import { Database, TxDao } from '../database/index.js';
 import { Synchroniser } from '../synchroniser/index.js';
 import { TxReceipt, TxStatus } from '../tx/index.js';
 import { computePartialContractAddress } from '@aztec/circuits.js/abis';
-import { Grumpkin, Schnorr, SchnorrSignature } from '@aztec/circuits.js/barretenberg';
+import { Curve, Grumpkin, Schnorr, Signer } from '@aztec/circuits.js/barretenberg';
+import { SchnorrExternallyOwnedAccount } from '../account_impl/schnorr_eoa.js';
+import { SchnorrAccountContract } from '../account_impl/schnorr_account_contract.js';
 
 /**
  * A remote Aztec RPC Client implementation.
@@ -85,19 +85,21 @@ export class AztecRPCServer implements AztecRPCClient {
 
   /**
    * Creates or registers a new keypair in the keystore and deploys a new account contract for it.
+   * @param curve - The curve to use in elliptic curve operations.
+   * @param signer - The signer to use for signature generation.
    * @param privKey - Private key to use for the deployment (a fresh one will be generated if not set).
    * @returns A tuple with the deployment tx to be awaited and the address of the account.
    */
-  public async createSmartAccount(privKey?: Buffer): Promise<[TxHash, AztecAddress]> {
-    const pubKey = await (privKey ? this.keyStore.addAccount(privKey) : this.keyStore.createAccount());
+  public async createSmartAccount(curve: Curve, signer: Signer, privKey?: Buffer): Promise<[TxHash, AztecAddress]> {
+    const pubKey = await (privKey ? this.keyStore.addAccount(curve, signer, privKey) : this.keyStore.createAccount(curve, signer));
     const portalContract = EthAddress.ZERO;
     const contractAddressSalt = Fr.random();
     const abi = AccountContractAbi;
     const args: any[] = [];
 
-    const { txRequest, contract } = await this.prepareDeploy(abi, args, portalContract, contractAddressSalt, pubKey);
+    const { txRequest, contract, partialContractAddress } = await this.prepareDeploy(abi, args, portalContract, contractAddressSalt, pubKey);
 
-    const account = await this.initAccountState(pubKey, contract.address);
+    const account = await this.initAccountState(pubKey, contract.address, partialContractAddress);
 
     const tx = await account.simulateAndProve(txRequest, contract.address);
 
@@ -112,13 +114,15 @@ export class AztecRPCServer implements AztecRPCClient {
    * Registers an account backed by an account contract.
    *
    * TODO: We should not be passing in the private key in plain, instead, we should ask the keystore for a public key, create the smart account with it, and register it here.
+   * @param curve - The curve to use in elliptic curve operations.
+   * @param signer - The signer to use for signature generation.
    * @param privKey - Private key of the corresponding user master public key.
    * @param address - Address of the account contract.
    * @param partialContractAddress - The partially computed address of the account contract.
    * @returns The address of the account contract.
    */
-  public async registerSmartAccount(privKey: Buffer, address: AztecAddress, partialContractAddress: Fr) {
-    const pubKey = this.keyStore.addAccount(await Grumpkin.new(), new Schnorr(await CircuitsWasm.get()), privKey);
+  public async registerSmartAccount(curve: Curve, signer: Signer, privKey: Buffer, address: AztecAddress, partialContractAddress: PartialContractAddress) {
+    const pubKey = this.keyStore.addAccount(curve, signer, privKey);
     await this.initAccountState(pubKey, address, partialContractAddress);
     return address;
   }
@@ -203,7 +207,7 @@ export class AztecRPCServer implements AztecRPCClient {
     const account = this.ensureAccountOrDefault(from);
     const pubKey = account.getPublicKey();
 
-    const { txRequest, contract } = await this.prepareDeploy(abi, args, portalContract, contractAddressSalt, pubKey);
+    const { txRequest, contract, partialContractAddress } = await this.prepareDeploy(abi, args, portalContract, contractAddressSalt, pubKey);
 
     const tx = await account.simulateAndProve(txRequest, contract.address);
 
@@ -211,7 +215,7 @@ export class AztecRPCServer implements AztecRPCClient {
       new TxDao(await tx.getTxHash(), undefined, undefined, account.getAddress(), undefined, contract.address, ''),
     );
 
-    return tx;
+    return new ContractDeploymentTx(tx, partialContractAddress);
   }
 
   private async prepareDeploy(
@@ -255,7 +259,7 @@ export class AztecRPCServer implements AztecRPCClient {
       txContext,
       Fr.ZERO,
     );
-    return { txRequest, contract };
+    return { txRequest, contract, partialContractAddress };
   }
 
   /**
@@ -327,10 +331,10 @@ export class AztecRPCServer implements AztecRPCClient {
 
     if (!contract) {
       this.log(`Using ECDSA EOA implementation for ${address}`);
-      return new EcdsaExternallyOwnedAccount(address, pubKey, this.keyStore);
+      return new SchnorrExternallyOwnedAccount(address, pubKey, this.keyStore);
     } else if (contract.name === 'Account') {
       this.log(`Using ECDSA account contract implementation for ${address}`);
-      return new EcdsaAccountContract(address, pubKey, this.keyStore, partialContractAddress);
+      return new SchnorrAccountContract(address, pubKey, this.keyStore, partialContractAddress);
     } else {
       throw new Error(`Unknown account implementation for ${address}`);
     }
@@ -430,9 +434,9 @@ export class AztecRPCServer implements AztecRPCClient {
    * @param address - The address of the account to initialize.
    * @param partialContractAddress - The partially computed account contract address.
    */
-  private async initAccountState(pubKey: PublicKey, address: AztecAddress, partialContractAddress: Fr) {
+  private async initAccountState(pubKey: PublicKey, address: AztecAddress, partialContractAddress: PartialContractAddress) {
     const accountPrivateKey = await this.keyStore.getAccountPrivateKey(pubKey);
-    const account = await this.synchroniser.addAccount(accountPrivateKey, address);
+    const account = await this.synchroniser.addAccount(accountPrivateKey, address, partialContractAddress);
     this.log(`Account added: ${address.toString()}`);
     return account;
   }

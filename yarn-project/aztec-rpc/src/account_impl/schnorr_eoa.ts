@@ -4,7 +4,7 @@ import { ExecutionRequest, TxExecutionRequest } from '@aztec/types';
 import { AccountImplementation } from './index.js';
 
 /** Account implementation backed by an EOA */
-export class EcdsaExternallyOwnedAccount implements AccountImplementation {
+export class SchnorrExternallyOwnedAccount implements AccountImplementation {
   constructor(private address: AztecAddress, private pubKey: PublicKey, private keyStore: KeyStore) {
     if (!address.equals(getAddressFromPublicKey(pubKey))) {
       throw new Error(`Address and public key don't match for EOA`);
