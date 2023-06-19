@@ -651,7 +651,7 @@ export function toTxContext(o: MsgpackTxContext): TxContext {
   if (o.contract_deployment_data === undefined) {
     throw new Error('Expected contract_deployment_data in TxContext deserialization');
   }
-  if(o.chain_id === undefined) {
+  if (o.chain_id === undefined) {
     throw new Error('Expected chain_id in TxContext deserialization');
   }
   return new TxContext(
@@ -676,7 +676,7 @@ export function fromTxContext(o: TxContext): MsgpackTxContext {
   if (o.contractDeploymentData === undefined) {
     throw new Error('Expected contractDeploymentData in TxContext serialization');
   }
-  if(o.chainId === undefined) {
+  if (o.chainId === undefined) {
     throw new Error('Expected chainId in TxContext serialization');
   }
   return {
