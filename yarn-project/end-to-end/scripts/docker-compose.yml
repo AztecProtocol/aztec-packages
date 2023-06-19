@@ -22,4 +22,5 @@ services:
       P2P_CHECK_INTERVAL: 50
       SEQ_TX_POLLING_INTERVAL: 50
       WS_CHECK_INTERVAL: 50
+      SEARCH_START_BLOCK: ${FORK_BLOCK_NUMBER:-0}
     command: ${TEST:-./src/e2e_deploy_contract.test.ts}

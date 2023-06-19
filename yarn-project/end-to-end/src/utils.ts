@@ -33,12 +33,8 @@ import { KeyStore, TestKeyStore } from '@aztec/key-store';
 /**
  * Sets up the environment for the end-to-end tests.
  * @param numberOfAccounts - The number of new accounts to be created once the RPC server is initiated.
- * @param forkMainnet - Whether to fork the mainnet or not.
  */
-export async function setup(
-  numberOfAccounts = 1,
-  forkMainnet = false,
-): Promise<{
+export async function setup(numberOfAccounts = 1): Promise<{
   /**
    * The Aztec Node service.
    */
@@ -78,10 +74,6 @@ export async function setup(
   config.contractDeploymentEmitterContract = deployL1ContractsValues.contractDeploymentEmitterAddress;
   config.inboxContract = deployL1ContractsValues.inboxAddress;
 
-  // if forking mainnet, tell archiver to only process from current block (else it would take too long)
-  if (forkMainnet) {
-    config.searchStartBlock = Number(await deployL1ContractsValues.publicClient.getBlockNumber());
-  }
   const aztecNode = await AztecNodeService.createAndSync(config);
   const keyStore = new TestKeyStore(await Grumpkin.new());
   const aztecRpcServer = await createAztecRPCServer(aztecNode, { keyStore });

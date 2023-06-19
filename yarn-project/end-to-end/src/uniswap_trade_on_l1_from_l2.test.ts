@@ -56,7 +56,7 @@ describe('uniswap_trade_on_l1_from_l2', () => {
 
   beforeEach(async () => {
     let deployL1ContractsValues: DeployL1Contracts;
-    ({ aztecNode, aztecRpcServer, deployL1ContractsValues, accounts, logger } = await setup(2, true));
+    ({ aztecNode, aztecRpcServer, deployL1ContractsValues, accounts, logger } = await setup(2));
 
     walletClient = deployL1ContractsValues.walletClient;
     publicClient = deployL1ContractsValues.publicClient;
