@@ -48,7 +48,6 @@ void common_validate_call_stack(DummyComposer& composer, PrivateCallData<NT> con
     }
 }
 
-
 /**
  * @brief Validate all read requests against the historic private data root.
  * Use their membership witnesses to do so. If the historic root is not yet
@@ -83,13 +82,13 @@ void common_validate_read_requests(DummyComposer& composer,
         const auto& witness = read_request_membership_witnesses[rr_idx];
 
         // A pending commitment is the one that is not yet added to private data tree
-        // An optimistic read is when we try to "read" a pending commitment
-        // We determine if it is an optimistic read depending on the leaf index from the membership witness
-        // Note that the Merkle membership proof would be null and void in case of an optimistic read
-        // but we use the leaf index as a placeholder to detect an optimistic read.
-        const auto is_optimistic_read = (witness.leaf_index == NT::fr(-1));
+        // A transient read is when we try to "read" a pending commitment
+        // We determine if it is a transient read depending on the leaf index from the membership witness
+        // Note that the Merkle membership proof would be null and void in case of an transient read
+        // but we use the leaf index as a placeholder to detect a transient read.
+        const auto is_transient_read = (witness.leaf_index == NT::fr(-1));
 
-        if (read_request != 0 && !is_optimistic_read) {
+        if (read_request != 0 && !is_transient_read) {
             const auto& root_for_read_request =
                 root_from_sibling_path<NT>(leaf, witness.leaf_index, witness.sibling_path);
             composer.do_assert(root_for_read_request == historic_private_data_tree_root,
