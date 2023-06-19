@@ -402,6 +402,9 @@ private_kernel_vk_tree_root: 0x401
 public_kernel_vk_tree_root: 0x402
 base_rollup_vk_hash: 0x403
 merge_rollup_vk_hash: 0x404
+global_variables: chain_id: 0x405
+version: 0x406
+
 
 "
 `;
@@ -440,6 +443,9 @@ private_kernel_vk_tree_root: 0x501
 public_kernel_vk_tree_root: 0x502
 base_rollup_vk_hash: 0x503
 merge_rollup_vk_hash: 0x504
+global_variables: chain_id: 0x505
+version: 0x506
+
 
 start_private_data_tree_snapshot:
 root: 0x300

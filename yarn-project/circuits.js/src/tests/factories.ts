@@ -86,6 +86,7 @@ import {
   makeTuple,
   range,
 } from '../index.js';
+import { GlobalVariables } from '../structs/global_variables.js';
 
 /**
  * Creates an arbitrary tx context with the given seed.
@@ -640,6 +641,10 @@ export function makeContractDeploymentData(seed = 1) {
   );
 }
 
+export function makeGlobalVariables(seed = 1): GlobalVariables {
+  return new GlobalVariables(fr(seed), fr(seed + 1));
+}
+
 /**
  * Makes constant base rollup data.
  * @param seed - The seed to use for generating the constant base rollup data.
@@ -654,6 +659,7 @@ export function makeConstantBaseRollupData(seed = 1): ConstantBaseRollupData {
     publicKernelVkTreeRoot: fr(seed + 0x302),
     baseRollupVkHash: fr(seed + 0x303),
     mergeRollupVkHash: fr(seed + 0x304),
+    globalVariables: makeGlobalVariables(seed + 0x305),
   });
 }
 
