@@ -659,7 +659,7 @@ TEST_F(base_rollup_tests, native_constants_dont_match_kernels_chain_id)
     DummyComposer composer = DummyComposer("base_rollup_tests__native_constants_dont_change");
     BaseRollupInputs inputs = base_rollup_inputs_from_kernels({ get_empty_kernel(), get_empty_kernel() });
     inputs.constants.global_variables.chain_id = 3;
-    BaseOrMergeRollupPublicInputs outputs =
+    BaseOrMergeRollupPublicInputs const outputs =
         aztec3::circuits::rollup::native_base_rollup::base_rollup_circuit(composer, inputs);
     ASSERT_EQ(inputs.constants, outputs.constants);
     EXPECT_TRUE(composer.failed());
@@ -671,7 +671,7 @@ TEST_F(base_rollup_tests, native_constants_dont_match_kernels_version)
     DummyComposer composer = DummyComposer("base_rollup_tests__native_constants_dont_change");
     BaseRollupInputs inputs = base_rollup_inputs_from_kernels({ get_empty_kernel(), get_empty_kernel() });
     inputs.constants.global_variables.version = 3;
-    BaseOrMergeRollupPublicInputs outputs =
+    BaseOrMergeRollupPublicInputs const outputs =
         aztec3::circuits::rollup::native_base_rollup::base_rollup_circuit(composer, inputs);
     ASSERT_EQ(inputs.constants, outputs.constants);
     EXPECT_TRUE(composer.failed());
