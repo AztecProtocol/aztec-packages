@@ -94,7 +94,8 @@ import {
  */
 export function makeTxContext(seed: number): TxContext {
   // @todo @LHerskind should probably take value for chainId as it will be verified later.
-  return new TxContext(false, false, true, makeContractDeploymentData(seed), Fr.ZERO);
+  // @todo @LHerskind should probably take value for version as it will be verified later.
+  return new TxContext(false, false, true, makeContractDeploymentData(seed), Fr.ZERO, Fr.ZERO);
 }
 
 /**

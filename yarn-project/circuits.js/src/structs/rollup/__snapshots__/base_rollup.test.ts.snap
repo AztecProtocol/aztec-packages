@@ -132,6 +132,7 @@ contract_address_salt: 0x207
 portal_contract_address: 0x808080808080808080808080808080808080808
 
 chain_id: 0x0
+version: 0x0
 
 
 is_private: 1
@@ -279,6 +280,7 @@ contract_address_salt: 0x307
 portal_contract_address: 0x808080808080808080808080808080808080808
 
 chain_id: 0x0
+version: 0x0
 
 
 is_private: 1
