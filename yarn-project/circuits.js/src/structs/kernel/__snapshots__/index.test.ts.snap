@@ -1197,36 +1197,33 @@ current_value: 0x1
  storage_slot: 0x0
 current_value: 0x1
  ]
-public_call_stack: [ 0x10214783d4720afd4a2bddbbf69927643c7784de666c4d55e5a1857608567c35 0x2b1c4e29afe79ccf82dcbfeb82382edf73c60ff044dd76e79aa6e1eb6e23341f 0x9744e7e1108a57268a0bd98f1e84850ad55e75d3affcc60cdd12a827c24b789 0x438ff53007e7431fbfb532e95e9a4c4ce126253bf95ee949d0bf91ec77e5dc5 ]
+public_call_stack: [ 0x1cd2a06c18e69d762829615c4428e73412784f74c1d3befd92df44086afec8bf 0x143632f20bea44252eccc4dc1c13fbda6416dc2fbdbe33c3078deccdeacbd8ab 0x1ce275753e532470bcbcb2c4ff46d3d9afd307d906175da47cb5cd7e9cd5a44e 0x18bf24f20caff1d612f83b682e3af6df1b495597ac85e63c4f4ccd7e90493a7d ]
 new_commitments: [ 0x1711 0x1712 0x0 0x0 ]
 new_nullifiers: [ 0x1811 0x1812 0x0 0x0 ]
 new_l2_to_l1_msgs: [ 0x1911 0x0 ]
-unencrypted_logs_hash: [ 0x0 0x0 ]
-unencrypted_log_preimages_length: 0x0
-historic_public_data_tree_root: 0x1912
-prover_address: 0x0
+unencrypted_logs_hash: [ 0x1912 0x0 ]
+unencrypted_log_preimages_length: 0x1913
+historic_public_data_tree_root: 0x1a11
+prover_address: 0x1b12
 
 is_execution_request: 0
 
 public_call_stack_preimages:
-[ contract_address: 0x191300
-function_data: function_selector: 0
+[ contract_address: 0x1301
+function_data: function_selector: 1302
 is_private: 0
 is_constructor: 0
 
-public_inputs: call_context: msg_sender: 0x1a1100000000000000
-storage_contract_address: 0x1b1200000000000000
-portal_contract_address: 0x1301000013020000
+public_inputs: call_context: msg_sender: 0x1001
+storage_contract_address: 0x1301
+portal_contract_address: 0x1313131313131313131313131313131313131313
 is_delegate_call: 0
 is_static_call: 0
 is_contract_deployment: 0
 
-args_hash: 0x1001000000
-return_values: [ 0x1301000000 0x1313131313131313131313131313131313131313000000 0x1411 0x1511 ]
-contract_storage_update_requests: [ storage_slot: 0x1512
-old_value: 0x0
-new_value: 0x0
- storage_slot: 0x1711
+args_hash: 0x1411
+return_values: [ 0x1511 0x1512 0x0 0x0 ]
+contract_storage_update_requests: [ storage_slot: 0x1711
 old_value: 0x1712
 new_value: 0x1713
  storage_slot: 0x1712
@@ -1235,169 +1232,172 @@ new_value: 0x1714
  storage_slot: 0x0
 old_value: 0x1
 new_value: 0x2
+ storage_slot: 0x0
+old_value: 0x1
+new_value: 0x2
  ]
-contract_storage_reads: [ storage_slot: 0x0
-current_value: 0x1
- storage_slot: 0x2
-current_value: 0x1811
- storage_slot: 0x1812
+contract_storage_reads: [ storage_slot: 0x1811
 current_value: 0x1812
- storage_slot: 0x1813
-current_value: 0x0
+ storage_slot: 0x1812
+current_value: 0x1813
+ storage_slot: 0x0
+current_value: 0x1
+ storage_slot: 0x0
+current_value: 0x1
  ]
-public_call_stack: [ 0x1 0x0 0x1 0x1911 ]
-new_commitments: [ 0x1912 0x0 0x0 0x1a11 ]
-new_nullifiers: [ 0x1a12 0x0 0x0 0x1b11 ]
-new_l2_to_l1_msgs: [ 0x1b12 0x0 ]
-unencrypted_logs_hash: [ 0x0 0x0 ]
-unencrypted_log_preimages_length: 0x0
-historic_public_data_tree_root: 0x0
-prover_address: 0x1c11
+public_call_stack: [ 0x1911 0x1912 0x0 0x0 ]
+new_commitments: [ 0x1a11 0x1a12 0x0 0x0 ]
+new_nullifiers: [ 0x1b11 0x1b12 0x0 0x0 ]
+new_l2_to_l1_msgs: [ 0x1c11 0x0 ]
+unencrypted_logs_hash: [ 0x1c12 0x0 ]
+unencrypted_log_preimages_length: 0x1c13
+historic_public_data_tree_root: 0x1d11
+prover_address: 0x1e12
 
 is_execution_request: 0
- contract_address: 0x0
-function_data: function_selector: 0
+ contract_address: 0x1302
+function_data: function_selector: 1303
 is_private: 0
 is_constructor: 0
 
-public_inputs: call_context: msg_sender: 0x1c1200000000000000
-storage_contract_address: 0x0
-portal_contract_address: 0x1c1300000000000000
+public_inputs: call_context: msg_sender: 0x1001
+storage_contract_address: 0x1302
+portal_contract_address: 0x1414141414141414141414141414141414141414
 is_delegate_call: 0
 is_static_call: 0
 is_contract_deployment: 0
 
-args_hash: 0x1d1100000000000000000000
-return_values: [ 0x1e1200000000000000000000 0x1302000013030000000000 0x1001000000 0x1302000000 ]
-contract_storage_update_requests: [ storage_slot: 0x1414141414141414141414141414141414141414000000
-old_value: 0x1412
-new_value: 0x1512
- storage_slot: 0x1513
-old_value: 0x0
-new_value: 0x0
- storage_slot: 0x1712
+args_hash: 0x1412
+return_values: [ 0x1512 0x1513 0x0 0x0 ]
+contract_storage_update_requests: [ storage_slot: 0x1712
 old_value: 0x1713
 new_value: 0x1714
  storage_slot: 0x1713
 old_value: 0x1714
 new_value: 0x1715
+ storage_slot: 0x0
+old_value: 0x1
+new_value: 0x2
+ storage_slot: 0x0
+old_value: 0x1
+new_value: 0x2
  ]
-contract_storage_reads: [ storage_slot: 0x0
-current_value: 0x1
- storage_slot: 0x2
-current_value: 0x0
- storage_slot: 0x1
-current_value: 0x2
- storage_slot: 0x1812
+contract_storage_reads: [ storage_slot: 0x1812
 current_value: 0x1813
+ storage_slot: 0x1813
+current_value: 0x1814
+ storage_slot: 0x0
+current_value: 0x1
+ storage_slot: 0x0
+current_value: 0x1
  ]
-public_call_stack: [ 0x1813 0x1814 0x0 0x1 ]
-new_commitments: [ 0x0 0x1 0x1912 0x1913 ]
-new_nullifiers: [ 0x0 0x0 0x1a12 0x1a13 ]
-new_l2_to_l1_msgs: [ 0x0 0x0 ]
-unencrypted_logs_hash: [ 0x0 0x0 ]
-unencrypted_log_preimages_length: 0x0
-historic_public_data_tree_root: 0x1b12
-prover_address: 0x1b13
+public_call_stack: [ 0x1912 0x1913 0x0 0x0 ]
+new_commitments: [ 0x1a12 0x1a13 0x0 0x0 ]
+new_nullifiers: [ 0x1b12 0x1b13 0x0 0x0 ]
+new_l2_to_l1_msgs: [ 0x1c12 0x0 ]
+unencrypted_logs_hash: [ 0x1c13 0x0 ]
+unencrypted_log_preimages_length: 0x1c14
+historic_public_data_tree_root: 0x1d12
+prover_address: 0x1e13
 
 is_execution_request: 0
- contract_address: 0x0
-function_data: function_selector: 0
+ contract_address: 0x1303
+function_data: function_selector: 1304
 is_private: 0
 is_constructor: 0
 
-public_inputs: call_context: msg_sender: 0x0
-storage_contract_address: 0x1c1200000000000000
-portal_contract_address: 0x0
+public_inputs: call_context: msg_sender: 0x1001
+storage_contract_address: 0x1303
+portal_contract_address: 0x1515151515151515151515151515151515151515
 is_delegate_call: 0
 is_static_call: 0
 is_contract_deployment: 0
 
-args_hash: 0x1c1300000000000000000000
-return_values: [ 0x0 0x1c1400000000000000000000 0x1d1200000000000000000000 0x1e1300000000000000000000 ]
-contract_storage_update_requests: [ storage_slot: 0x1303000013040000000000
-old_value: 0x1001000000
-new_value: 0x1303000000
- storage_slot: 0x1515151515151515151515151515151515151515000000
-old_value: 0x1413
-new_value: 0x1513
- storage_slot: 0x1514
-old_value: 0x0
-new_value: 0x0
- storage_slot: 0x1713
+args_hash: 0x1413
+return_values: [ 0x1513 0x1514 0x0 0x0 ]
+contract_storage_update_requests: [ storage_slot: 0x1713
 old_value: 0x1714
 new_value: 0x1715
+ storage_slot: 0x1714
+old_value: 0x1715
+new_value: 0x1716
+ storage_slot: 0x0
+old_value: 0x1
+new_value: 0x2
+ storage_slot: 0x0
+old_value: 0x1
+new_value: 0x2
  ]
-contract_storage_reads: [ storage_slot: 0x1714
-current_value: 0x1715
- storage_slot: 0x1716
-current_value: 0x0
- storage_slot: 0x1
-current_value: 0x2
+contract_storage_reads: [ storage_slot: 0x1813
+current_value: 0x1814
+ storage_slot: 0x1814
+current_value: 0x1815
+ storage_slot: 0x0
+current_value: 0x1
  storage_slot: 0x0
 current_value: 0x1
  ]
-public_call_stack: [ 0x2 0x1813 0x1814 0x1814 ]
-new_commitments: [ 0x1815 0x0 0x1 0x0 ]
-new_nullifiers: [ 0x1 0x1913 0x1914 0x0 ]
-new_l2_to_l1_msgs: [ 0x0 0x1a13 ]
-unencrypted_logs_hash: [ 0x0 0x0 ]
-unencrypted_log_preimages_length: 0x0
-historic_public_data_tree_root: 0x1a14
-prover_address: 0x0
+public_call_stack: [ 0x1913 0x1914 0x0 0x0 ]
+new_commitments: [ 0x1a13 0x1a14 0x0 0x0 ]
+new_nullifiers: [ 0x1b13 0x1b14 0x0 0x0 ]
+new_l2_to_l1_msgs: [ 0x1c13 0x0 ]
+unencrypted_logs_hash: [ 0x1c14 0x0 ]
+unencrypted_log_preimages_length: 0x1c15
+historic_public_data_tree_root: 0x1d13
+prover_address: 0x1e14
 
 is_execution_request: 0
- contract_address: 0x0
-function_data: function_selector: 0
+ contract_address: 0x1304
+function_data: function_selector: 1305
 is_private: 0
 is_constructor: 0
 
-public_inputs: call_context: msg_sender: 0x1b1300000000000000
-storage_contract_address: 0x1b1400000000000000
-portal_contract_address: 0x0
+public_inputs: call_context: msg_sender: 0x1001
+storage_contract_address: 0x1304
+portal_contract_address: 0x1616161616161616161616161616161616161616
 is_delegate_call: 0
 is_static_call: 0
 is_contract_deployment: 0
 
-args_hash: 0x0
-return_values: [ 0x1c1300000000000000000000 0x0 0x1c1400000000000000000000 0x0 ]
-contract_storage_update_requests: [ storage_slot: 0x1c1500000000000000000000
-old_value: 0x1d1300000000000000000000
-new_value: 0x1e1400000000000000000000
- storage_slot: 0x1304000013050000000000
-old_value: 0x1001000000
-new_value: 0x1304000000
- storage_slot: 0x1616161616161616161616161616161616161616000000
-old_value: 0x1414
-new_value: 0x1514
- storage_slot: 0x1515
-old_value: 0x0
-new_value: 0x0
+args_hash: 0x1414
+return_values: [ 0x1514 0x1515 0x0 0x0 ]
+contract_storage_update_requests: [ storage_slot: 0x1714
+old_value: 0x1715
+new_value: 0x1716
+ storage_slot: 0x1715
+old_value: 0x1716
+new_value: 0x1717
+ storage_slot: 0x0
+old_value: 0x1
+new_value: 0x2
+ storage_slot: 0x0
+old_value: 0x1
+new_value: 0x2
  ]
-contract_storage_reads: [ storage_slot: 0x1714
-current_value: 0x1715
- storage_slot: 0x1716
-current_value: 0x1715
- storage_slot: 0x1716
-current_value: 0x1717
+contract_storage_reads: [ storage_slot: 0x1814
+current_value: 0x1815
+ storage_slot: 0x1815
+current_value: 0x1816
+ storage_slot: 0x0
+current_value: 0x1
  storage_slot: 0x0
 current_value: 0x1
  ]
-public_call_stack: [ 0x2 0x0 0x1 0x2 ]
-new_commitments: [ 0x1814 0x1815 0x1815 0x1816 ]
-new_nullifiers: [ 0x0 0x1 0x0 0x1 ]
-new_l2_to_l1_msgs: [ 0x1914 0x1915 ]
-unencrypted_logs_hash: [ 0x0 0x0 ]
-unencrypted_log_preimages_length: 0x0
-historic_public_data_tree_root: 0x0
-prover_address: 0x0
+public_call_stack: [ 0x1914 0x1915 0x0 0x0 ]
+new_commitments: [ 0x1a14 0x1a15 0x0 0x0 ]
+new_nullifiers: [ 0x1b14 0x1b15 0x0 0x0 ]
+new_l2_to_l1_msgs: [ 0x1c14 0x0 ]
+unencrypted_logs_hash: [ 0x1c15 0x0 ]
+unencrypted_log_preimages_length: 0x1c16
+historic_public_data_tree_root: 0x1d14
+prover_address: 0x1e15
 
 is_execution_request: 0
  ]
 proof:
-[ ]
-portal_contract_address: 0x1a140000000000
-bytecode_hash: 0x1a150000000000
+[ 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 ]
+portal_contract_address: 0x1002
+bytecode_hash: 0x1003
 
 "
 `;
