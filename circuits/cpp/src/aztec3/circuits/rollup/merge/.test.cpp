@@ -238,7 +238,7 @@ TEST_F(merge_rollup_tests, native_calldata_hash)
 
     BaseOrMergeRollupPublicInputs const outputs = merge_rollup_circuit(composer, inputs);
 
-    std::array<fr, 2> actual_calldata_hash_fr = outputs.calldata_hash;
+    std::array<fr, NUM_FIELDS_PER_SHA256> actual_calldata_hash_fr = outputs.calldata_hash;
     auto high_buffer = actual_calldata_hash_fr[0].to_buffer();
     auto low_buffer = actual_calldata_hash_fr[1].to_buffer();
 
