@@ -155,6 +155,7 @@ export class SoloBlockBuilder implements BlockBuilder {
 
     const l2Block = L2Block.fromFields({
       number: blockNumber,
+      globalVariables: this.globalVariables,
       startPrivateDataTreeSnapshot,
       endPrivateDataTreeSnapshot,
       startNullifierTreeSnapshot,
