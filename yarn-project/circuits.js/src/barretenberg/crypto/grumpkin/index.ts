@@ -28,7 +28,9 @@ export class Grumpkin implements Curve {
    * Point generator
    * @returns The generator for the curve.
    */
-  public generator(): Buffer { return Grumpkin.generator; }
+  public generator(): Buffer {
+    return Grumpkin.generator;
+  }
 
   /**
    * Multiplies a point by a scalar (adds the point `scalar` amount of time).

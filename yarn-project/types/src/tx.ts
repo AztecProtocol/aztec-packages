@@ -140,7 +140,5 @@ export class ContractDeploymentTx {
      * The partially conputed contract address.
      */
     public readonly partialContractAddress: PartialContractAddress,
-
-  ) {
-  }
+  ) {}
 }

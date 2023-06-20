@@ -30,7 +30,7 @@ export class DeployMethod extends ContractFunctionInteraction {
    * The partially computed contract address. Known after creation of the deployment transaction.
    */
   public partialContractAddress?: PartialContractAddress = undefined;
-  
+
   constructor(arc: AztecRPCClient, private abi: ContractAbi, args: any[] = []) {
     const constructorAbi = abi.functions.find(f => f.name === 'constructor');
     if (!constructorAbi) {

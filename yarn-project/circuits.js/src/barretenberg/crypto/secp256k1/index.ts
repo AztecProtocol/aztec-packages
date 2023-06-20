@@ -28,7 +28,9 @@ export class Secp256k1 implements Curve {
    * Point generator
    * @returns The generator for the curve.
    */
-  public generator(): Buffer { return Secp256k1.generator; }
+  public generator(): Buffer {
+    return Secp256k1.generator;
+  }
 
   /**
    * Multiplies a point by a scalar (adds the point `scalar` amount of time).
