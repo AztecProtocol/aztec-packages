@@ -30,15 +30,16 @@ contract UniswapPortalTest is Test {
   bytes32 internal l2TokenAddress = bytes32(uint256(0x1));
   bytes32 internal l2UniswapAddress = bytes32(uint256(0x2));
 
-  TokenPortal daiTokenPortal;
-  TokenPortal wethTokenPortal;
-  UniswapPortal uniswapPortal;
+  TokenPortal internal daiTokenPortal;
+  TokenPortal internal wethTokenPortal;
+  UniswapPortal internal uniswapPortal;
 
-  uint256 amount = 100 ether;
-  bytes32 secretHash = bytes32(0);
-  uint24 uniswapFeePool = 3000; // 0.3% fee
-  uint32 deadlineForL1ToL2Message; // set after fork is activated
-  bytes32 aztecRecipient = bytes32(uint256(0x3));
+  uint256 internal amount = 100 ether;
+  bytes32 internal secretHash = bytes32(0);
+  uint24 internal uniswapFeePool = 3000; // 0.3% fee
+  uint256 internal amountOutMinimum = 0;
+  uint32 internal deadlineForL1ToL2Message; // set after fork is activated
+  bytes32 internal aztecRecipient = bytes32(uint256(0x3));
 
   function setUp() public {
     // fork mainnet
@@ -88,11 +89,12 @@ contract UniswapPortalTest is Test {
       recipient: DataStructures.L1Actor(address(uniswapPortal), block.chainid),
       content: Hash.sha256ToField(
         abi.encodeWithSignature(
-          "swap(address,uint256,uint24,address,bytes32,bytes32,uint32,address)",
+          "swap(address,uint256,uint24,address,uint256,bytes32,bytes32,uint32,address)",
           address(daiTokenPortal),
           amount,
           uniswapFeePool,
           address(wethTokenPortal),
+          amountOutMinimum,
           _aztecRecipient,
           secretHash,
           deadlineForL1ToL2Message,
@@ -122,6 +124,7 @@ contract UniswapPortalTest is Test {
       amount,
       uniswapFeePool,
       address(wethTokenPortal),
+      amountOutMinimum,
       aztecRecipient,
       secretHash,
       deadlineForL1ToL2Message,
@@ -139,11 +142,7 @@ contract UniswapPortalTest is Test {
     assertFalse(outbox.contains(swapMsgKey));
   }
 
-  function testRevertIfDaiWithdrawMessageIsWonky() public {
-    bytes32 daiWithdrawKey = _createDaiWithdrawMessage(address(this)); // wrong recipient
-    bytes32 swapKey = _createUniswapSwapMessage(aztecRecipient);
-    _addMessagesToOutbox(daiWithdrawKey, swapKey);
-
+  function testRevertIfExpectedOutboxMessageNotFound() public {
     bytes32 entryKeyPortalChecksAgainst = _createDaiWithdrawMessage(address(uniswapPortal));
     vm.expectRevert(
       abi.encodeWithSelector(Errors.Outbox__NothingToConsume.selector, entryKeyPortalChecksAgainst)
@@ -153,6 +152,7 @@ contract UniswapPortalTest is Test {
       amount,
       uniswapFeePool,
       address(wethTokenPortal),
+      amountOutMinimum,
       aztecRecipient,
       secretHash,
       deadlineForL1ToL2Message,
@@ -175,6 +175,7 @@ contract UniswapPortalTest is Test {
       amount,
       uniswapFeePool,
       address(wethTokenPortal),
+      amountOutMinimum,
       newAztecRecipient, // change recipient of swapped token to some other address
       secretHash,
       deadlineForL1ToL2Message,
@@ -182,6 +183,10 @@ contract UniswapPortalTest is Test {
     );
   }
 
+  // after the portal does the swap, it adds a L1 to L2 message to the inbox.
+  // to mint `outputToken` to the `aztecRecipient` on L2. This test checks that
+  // if the sequencer doesn't consume the L1->L2 message, then `canceller` can
+  // cancel the message and retrieve the funds (instead of them being stuck on the portal)
   function testMessageToInboxIsCancellable() public {
     bytes32 daiWithdrawMsgKey = _createDaiWithdrawMessage(address(uniswapPortal));
     bytes32 swapMsgKey = _createUniswapSwapMessage(aztecRecipient);
@@ -192,6 +197,7 @@ contract UniswapPortalTest is Test {
       amount,
       uniswapFeePool,
       address(wethTokenPortal),
+      amountOutMinimum,
       aztecRecipient,
       secretHash,
       deadlineForL1ToL2Message,
@@ -219,6 +225,6 @@ contract UniswapPortalTest is Test {
     assertEq(WETH9.balanceOf(address(wethTokenPortal)), 0, "portal should have no assets");
   }
 
-  // what if uniswap fails?
-  // what happens if uniswap deadline is passed?
+  // TODO(#887) - what if uniswap fails?
+  // TODO(#887) - what happens if uniswap deadline is passed?
 }

@@ -137,7 +137,7 @@ describe('uniswap_trade_on_l1_from_l2', () => {
     expect(balance).toBe(expectedBalance);
   };
 
-  const transferTokensOnL2 = async (transferAmount: bigint) => {
+  const transferWethOnL2 = async (transferAmount: bigint) => {
     const transferTx = wethL2Contract.methods
       .transfer(
         transferAmount,
@@ -174,10 +174,10 @@ describe('uniswap_trade_on_l1_from_l2', () => {
     await delay(5000);
     // send a transfer tx to force through rollup with the message included
     const transferAmount = 1n;
-    await transferTokensOnL2(transferAmount);
+    await transferWethOnL2(transferAmount);
 
     // 3. Claim WETH on L2
-    logger('Consuming messages on L2');
+    logger('Minting weth on L2');
     // Call the mint tokens function on the noir contract
     const consumptionTx = wethL2Contract.methods
       .mint(wethAmountToBridge, ownerPub, ownerAddress, messageKey, secret, ethAccount.toField())
@@ -191,10 +191,11 @@ describe('uniswap_trade_on_l1_from_l2', () => {
     const wethBalanceBeforeSwap = await getL2BalanceOf(ownerAddress, wethL2Contract);
     const daiBalanceBeforeSwap = await getL2BalanceOf(ownerAddress, daiL2Contract);
 
-    // 4. Withdraw funds from L2 to L1 (to do uniswap trade)
-    logger('Send L2 tx to withdraw WETH to uniswap portal');
+    // 4. Send L2 to L1 message to withdraw funds and another message to swap assets.
+    logger('Send L2 tx to withdraw WETH to uniswap portal and send message to swap assets on L1');
     // recipient is the uniswap portal
     const selector = Fr.fromBuffer(wethL2Contract.methods.withdraw.selector);
+    const minimumOutputAmount = 0;
 
     const withdrawTx = uniswapL2Contract.methods
       .swap(
@@ -205,6 +206,7 @@ describe('uniswap_trade_on_l1_from_l2', () => {
         new Fr(3000),
         daiL2Contract.address.toField(),
         daiTokenPortalAddress.toField(),
+        new Fr(minimumOutputAmount),
         ownerPub,
         ownerAddress,
         secretHash,
@@ -221,13 +223,14 @@ describe('uniswap_trade_on_l1_from_l2', () => {
     await expectBalanceOnL2(ownerAddress, initialBalance - transferAmount, wethL2Contract);
 
     // 5. Consume L2 to L1 message by calling uniswapPortal.swap()
-    logger('Call swap on uniswapPortal!');
+    logger('Execute withdraw and swap on the uniswapPortal!');
     const daiBalanceOfPortalBefore = await daiContract.read.balanceOf([daiTokenPortalAddress.toString()]);
     const swapArgs = [
       wethTokenPortalAddress.toString(),
       wethAmountToBridge,
       3000,
       daiTokenPortalAddress.toString(),
+      minimumOutputAmount,
       ownerAddress.toString(),
       secretString,
       deadline,
@@ -247,7 +250,7 @@ describe('uniswap_trade_on_l1_from_l2', () => {
     // Wait for the archiver to process the message
     await delay(5000);
     // send a transfer tx to force through rollup with the message included
-    await transferTokensOnL2(transferAmount);
+    await transferWethOnL2(transferAmount);
 
     // 6. claim dai on L2
     logger('Consuming messages to mint dai on L2');

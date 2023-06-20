@@ -20,6 +20,7 @@ contract Uniswap {
     // 3. Variable length arrays for input arguments (8 not enough)
     // 4. Should have storage for fixed values.
     // 5. account abstraction using its own "custom" constants instead of using shared constants...
+    // 6. currently have to manually set the args array for calling other contracts which is inconvenient when using structs etc.
 
     fn swap(
         inputs: pub PrivateContextInputs,
@@ -30,6 +31,7 @@ contract Uniswap {
         uniswapFeeTier: pub Field, // which uniswap tier to use (eg 3000 for 0.3% fee)
         outputAsset: pub Field,
         outputAssetPortalAddress: pub Field, // l1 portal of output asset
+        mminimumOutputAmount: pub Field, // minimum output amount to receive (slippage protection for the swap)
         sender: pub Point, 
         recipient: pub Field, // recevier address of output asset after the swap
         secretHash: pub Field, // for when l1 uniswap portal inserts the message to consume output assets on L2
@@ -47,6 +49,7 @@ contract Uniswap {
             uniswapFeeTier,
             outputAsset,
             outputAssetPortalAddress,
+            mminimumOutputAmount,
             sender.x,
             sender.y,
             recipient,
@@ -73,6 +76,7 @@ contract Uniswap {
            inputAmount,
            uniswapFeeTier,
            outputAssetPortalAddress,
+           mminimumOutputAmount,
            recipient,
            secretHash,
            deadlineForL1ToL2Message,
@@ -89,28 +93,30 @@ contract Uniswap {
         inAmount: Field,
         uniswapFeeTier: Field,
         outputTokenPortal: Field,
+        amountOutMin: Field,
         aztecRecipientAddress: Field,
         secretHash: Field,
         deadlineForL1ToL2Message: Field,
         canceller: Field,
     ) -> pub Field {
 
-        let mut hash_bytes: [u8; 260] = [0; 260]; // 8 fields of 32 bytes each + 4 bytes fn selector
+        let mut hash_bytes: [u8; 292] = [0; 292]; // 9 fields of 32 bytes each + 4 bytes fn selector
 
         let inputTokenPortal_bytes = inputTokenPortal.to_be_bytes(32);
         let inAmount_bytes = inAmount.to_be_bytes(32);
         let uniswapFeeTier_bytes = uniswapFeeTier.to_be_bytes(32);
         let outputTokenPortal_bytes = outputTokenPortal.to_be_bytes(32);
+        let amountOutMin_bytes = amountOutMin.to_be_bytes(32);
         let aztecRecipientAddress_bytes = aztecRecipientAddress.to_be_bytes(32);
         let secretHash_bytes = secretHash.to_be_bytes(32);
         let deadlineForL1ToL2Message_bytes = deadlineForL1ToL2Message.to_be_bytes(32);
         let canceller_bytes = canceller.to_be_bytes(32);
 
-        // function selector: 0x5a83260a keccak256("swap(address,uint256,uint24,address,bytes32,bytes32,uint32,address)")
-        hash_bytes[0] = 0x5a;
-        hash_bytes[1] = 0x83;
-        hash_bytes[2] = 0x26;
-        hash_bytes[3] = 0x0a;
+        // function selector: 0xf7500924 keccak256("swap(address,uint256,uint24,address,uint256,bytes32,bytes32,uint32,address)")
+        hash_bytes[0] = 0xf7;
+        hash_bytes[1] = 0x50;
+        hash_bytes[2] = 0x09;
+        hash_bytes[3] = 0x24;
         hash_bytes[4] = inputTokenPortal_bytes[0];
         hash_bytes[5] = inputTokenPortal_bytes[1];
         hash_bytes[6] = inputTokenPortal_bytes[2];
@@ -239,134 +245,166 @@ contract Uniswap {
         hash_bytes[129] = outputTokenPortal_bytes[29];
         hash_bytes[130] = outputTokenPortal_bytes[30];
         hash_bytes[131] = outputTokenPortal_bytes[31];
-        hash_bytes[132] = aztecRecipientAddress_bytes[0];
-        hash_bytes[133] = aztecRecipientAddress_bytes[1];
-        hash_bytes[134] = aztecRecipientAddress_bytes[2];
-        hash_bytes[135] = aztecRecipientAddress_bytes[3];
-        hash_bytes[136] = aztecRecipientAddress_bytes[4];
-        hash_bytes[137] = aztecRecipientAddress_bytes[5];
-        hash_bytes[138] = aztecRecipientAddress_bytes[6];
-        hash_bytes[139] = aztecRecipientAddress_bytes[7];
-        hash_bytes[140] = aztecRecipientAddress_bytes[8];
-        hash_bytes[141] = aztecRecipientAddress_bytes[9];
-        hash_bytes[142] = aztecRecipientAddress_bytes[10];
-        hash_bytes[143] = aztecRecipientAddress_bytes[11];
-        hash_bytes[144] = aztecRecipientAddress_bytes[12];
-        hash_bytes[145] = aztecRecipientAddress_bytes[13];
-        hash_bytes[146] = aztecRecipientAddress_bytes[14];
-        hash_bytes[147] = aztecRecipientAddress_bytes[15];
-        hash_bytes[148] = aztecRecipientAddress_bytes[16];
-        hash_bytes[149] = aztecRecipientAddress_bytes[17];
-        hash_bytes[150] = aztecRecipientAddress_bytes[18];
-        hash_bytes[151] = aztecRecipientAddress_bytes[19];
-        hash_bytes[152] = aztecRecipientAddress_bytes[20];
-        hash_bytes[153] = aztecRecipientAddress_bytes[21];
-        hash_bytes[154] = aztecRecipientAddress_bytes[22];
-        hash_bytes[155] = aztecRecipientAddress_bytes[23];
-        hash_bytes[156] = aztecRecipientAddress_bytes[24];
-        hash_bytes[157] = aztecRecipientAddress_bytes[25];
-        hash_bytes[158] = aztecRecipientAddress_bytes[26];
-        hash_bytes[159] = aztecRecipientAddress_bytes[27];
-        hash_bytes[160] = aztecRecipientAddress_bytes[28];
-        hash_bytes[161] = aztecRecipientAddress_bytes[29];
-        hash_bytes[162] = aztecRecipientAddress_bytes[30];
-        hash_bytes[163] = aztecRecipientAddress_bytes[31];
-        hash_bytes[164] = secretHash_bytes[0];
-        hash_bytes[165] = secretHash_bytes[1];
-        hash_bytes[166] = secretHash_bytes[2];
-        hash_bytes[167] = secretHash_bytes[3];
-        hash_bytes[168] = secretHash_bytes[4];
-        hash_bytes[169] = secretHash_bytes[5];
-        hash_bytes[170] = secretHash_bytes[6];
-        hash_bytes[171] = secretHash_bytes[7];
-        hash_bytes[172] = secretHash_bytes[8];
-        hash_bytes[173] = secretHash_bytes[9];
-        hash_bytes[174] = secretHash_bytes[10];
-        hash_bytes[175] = secretHash_bytes[11];
-        hash_bytes[176] = secretHash_bytes[12];
-        hash_bytes[177] = secretHash_bytes[13];
-        hash_bytes[178] = secretHash_bytes[14];
-        hash_bytes[179] = secretHash_bytes[15];
-        hash_bytes[180] = secretHash_bytes[16];
-        hash_bytes[181] = secretHash_bytes[17];
-        hash_bytes[182] = secretHash_bytes[18];
-        hash_bytes[183] = secretHash_bytes[19];
-        hash_bytes[184] = secretHash_bytes[20];
-        hash_bytes[185] = secretHash_bytes[21];
-        hash_bytes[186] = secretHash_bytes[22];
-        hash_bytes[187] = secretHash_bytes[23];
-        hash_bytes[188] = secretHash_bytes[24];
-        hash_bytes[189] = secretHash_bytes[25];
-        hash_bytes[190] = secretHash_bytes[26];
-        hash_bytes[191] = secretHash_bytes[27];
-        hash_bytes[192] = secretHash_bytes[28];
-        hash_bytes[193] = secretHash_bytes[29];
-        hash_bytes[194] = secretHash_bytes[30];
-        hash_bytes[195] = secretHash_bytes[31];
-        hash_bytes[196] = deadlineForL1ToL2Message_bytes[0];
-        hash_bytes[197] = deadlineForL1ToL2Message_bytes[1];
-        hash_bytes[198] = deadlineForL1ToL2Message_bytes[2];
-        hash_bytes[199] = deadlineForL1ToL2Message_bytes[3];
-        hash_bytes[200] = deadlineForL1ToL2Message_bytes[4];
-        hash_bytes[201] = deadlineForL1ToL2Message_bytes[5];
-        hash_bytes[202] = deadlineForL1ToL2Message_bytes[6];
-        hash_bytes[203] = deadlineForL1ToL2Message_bytes[7];
-        hash_bytes[204] = deadlineForL1ToL2Message_bytes[8];
-        hash_bytes[205] = deadlineForL1ToL2Message_bytes[9];
-        hash_bytes[206] = deadlineForL1ToL2Message_bytes[10];
-        hash_bytes[207] = deadlineForL1ToL2Message_bytes[11];
-        hash_bytes[208] = deadlineForL1ToL2Message_bytes[12];
-        hash_bytes[209] = deadlineForL1ToL2Message_bytes[13];
-        hash_bytes[210] = deadlineForL1ToL2Message_bytes[14];
-        hash_bytes[211] = deadlineForL1ToL2Message_bytes[15];
-        hash_bytes[212] = deadlineForL1ToL2Message_bytes[16];
-        hash_bytes[213] = deadlineForL1ToL2Message_bytes[17];
-        hash_bytes[214] = deadlineForL1ToL2Message_bytes[18];
-        hash_bytes[215] = deadlineForL1ToL2Message_bytes[19];
-        hash_bytes[216] = deadlineForL1ToL2Message_bytes[20];
-        hash_bytes[217] = deadlineForL1ToL2Message_bytes[21];
-        hash_bytes[218] = deadlineForL1ToL2Message_bytes[22];
-        hash_bytes[219] = deadlineForL1ToL2Message_bytes[23];
-        hash_bytes[220] = deadlineForL1ToL2Message_bytes[24];
-        hash_bytes[221] = deadlineForL1ToL2Message_bytes[25];
-        hash_bytes[222] = deadlineForL1ToL2Message_bytes[26];
-        hash_bytes[223] = deadlineForL1ToL2Message_bytes[27];
-        hash_bytes[224] = deadlineForL1ToL2Message_bytes[28];
-        hash_bytes[225] = deadlineForL1ToL2Message_bytes[29];
-        hash_bytes[226] = deadlineForL1ToL2Message_bytes[30];
-        hash_bytes[227] = deadlineForL1ToL2Message_bytes[31];
-        hash_bytes[228] = canceller_bytes[0];
-        hash_bytes[229] = canceller_bytes[1];
-        hash_bytes[230] = canceller_bytes[2];
-        hash_bytes[231] = canceller_bytes[3];
-        hash_bytes[232] = canceller_bytes[4];
-        hash_bytes[233] = canceller_bytes[5];
-        hash_bytes[234] = canceller_bytes[6];
-        hash_bytes[235] = canceller_bytes[7];
-        hash_bytes[236] = canceller_bytes[8];
-        hash_bytes[237] = canceller_bytes[9];
-        hash_bytes[238] = canceller_bytes[10];
-        hash_bytes[239] = canceller_bytes[11];
-        hash_bytes[240] = canceller_bytes[12];
-        hash_bytes[241] = canceller_bytes[13];
-        hash_bytes[242] = canceller_bytes[14];
-        hash_bytes[243] = canceller_bytes[15];
-        hash_bytes[244] = canceller_bytes[16];
-        hash_bytes[245] = canceller_bytes[17];
-        hash_bytes[246] = canceller_bytes[18];
-        hash_bytes[247] = canceller_bytes[19];
-        hash_bytes[248] = canceller_bytes[20];
-        hash_bytes[249] = canceller_bytes[21];
-        hash_bytes[250] = canceller_bytes[22];
-        hash_bytes[251] = canceller_bytes[23];
-        hash_bytes[252] = canceller_bytes[24];
-        hash_bytes[253] = canceller_bytes[25];
-        hash_bytes[254] = canceller_bytes[26];
-        hash_bytes[255] = canceller_bytes[27];
-        hash_bytes[256] = canceller_bytes[28];
-        hash_bytes[257] = canceller_bytes[29];
-        hash_bytes[258] = canceller_bytes[30];
-        hash_bytes[259] = canceller_bytes[31];
+        hash_bytes[132] = amountOutMin_bytes[0];
+        hash_bytes[133] = amountOutMin_bytes[1];
+        hash_bytes[134] = amountOutMin_bytes[2];
+        hash_bytes[135] = amountOutMin_bytes[3];
+        hash_bytes[136] = amountOutMin_bytes[4];
+        hash_bytes[137] = amountOutMin_bytes[5];
+        hash_bytes[138] = amountOutMin_bytes[6];
+        hash_bytes[139] = amountOutMin_bytes[7];
+        hash_bytes[140] = amountOutMin_bytes[8];
+        hash_bytes[141] = amountOutMin_bytes[9];
+        hash_bytes[142] = amountOutMin_bytes[10];
+        hash_bytes[143] = amountOutMin_bytes[11];
+        hash_bytes[144] = amountOutMin_bytes[12];
+        hash_bytes[145] = amountOutMin_bytes[13];
+        hash_bytes[146] = amountOutMin_bytes[14];
+        hash_bytes[147] = amountOutMin_bytes[15];
+        hash_bytes[148] = amountOutMin_bytes[16];
+        hash_bytes[149] = amountOutMin_bytes[17];
+        hash_bytes[150] = amountOutMin_bytes[18];
+        hash_bytes[151] = amountOutMin_bytes[19];
+        hash_bytes[152] = amountOutMin_bytes[20];
+        hash_bytes[153] = amountOutMin_bytes[21];
+        hash_bytes[154] = amountOutMin_bytes[22];
+        hash_bytes[155] = amountOutMin_bytes[23];
+        hash_bytes[156] = amountOutMin_bytes[24];
+        hash_bytes[157] = amountOutMin_bytes[25];
+        hash_bytes[158] = amountOutMin_bytes[26];
+        hash_bytes[159] = amountOutMin_bytes[27];
+        hash_bytes[160] = amountOutMin_bytes[28];
+        hash_bytes[161] = amountOutMin_bytes[29];
+        hash_bytes[162] = amountOutMin_bytes[30];
+        hash_bytes[163] = amountOutMin_bytes[31];
+        hash_bytes[164] = aztecRecipientAddress_bytes[0];
+        hash_bytes[165] = aztecRecipientAddress_bytes[1];
+        hash_bytes[166] = aztecRecipientAddress_bytes[2];
+        hash_bytes[167] = aztecRecipientAddress_bytes[3];
+        hash_bytes[168] = aztecRecipientAddress_bytes[4];
+        hash_bytes[169] = aztecRecipientAddress_bytes[5];
+        hash_bytes[170] = aztecRecipientAddress_bytes[6];
+        hash_bytes[171] = aztecRecipientAddress_bytes[7];
+        hash_bytes[172] = aztecRecipientAddress_bytes[8];
+        hash_bytes[173] = aztecRecipientAddress_bytes[9];
+        hash_bytes[174] = aztecRecipientAddress_bytes[10];
+        hash_bytes[175] = aztecRecipientAddress_bytes[11];
+        hash_bytes[176] = aztecRecipientAddress_bytes[12];
+        hash_bytes[177] = aztecRecipientAddress_bytes[13];
+        hash_bytes[178] = aztecRecipientAddress_bytes[14];
+        hash_bytes[179] = aztecRecipientAddress_bytes[15];
+        hash_bytes[180] = aztecRecipientAddress_bytes[16];
+        hash_bytes[181] = aztecRecipientAddress_bytes[17];
+        hash_bytes[182] = aztecRecipientAddress_bytes[18];
+        hash_bytes[183] = aztecRecipientAddress_bytes[19];
+        hash_bytes[184] = aztecRecipientAddress_bytes[20];
+        hash_bytes[185] = aztecRecipientAddress_bytes[21];
+        hash_bytes[186] = aztecRecipientAddress_bytes[22];
+        hash_bytes[187] = aztecRecipientAddress_bytes[23];
+        hash_bytes[188] = aztecRecipientAddress_bytes[24];
+        hash_bytes[189] = aztecRecipientAddress_bytes[25];
+        hash_bytes[190] = aztecRecipientAddress_bytes[26];
+        hash_bytes[191] = aztecRecipientAddress_bytes[27];
+        hash_bytes[192] = aztecRecipientAddress_bytes[28];
+        hash_bytes[193] = aztecRecipientAddress_bytes[29];
+        hash_bytes[194] = aztecRecipientAddress_bytes[30];
+        hash_bytes[195] = aztecRecipientAddress_bytes[31];
+        hash_bytes[196] = secretHash_bytes[0];
+        hash_bytes[197] = secretHash_bytes[1];
+        hash_bytes[198] = secretHash_bytes[2];
+        hash_bytes[199] = secretHash_bytes[3];
+        hash_bytes[200] = secretHash_bytes[4];
+        hash_bytes[201] = secretHash_bytes[5];
+        hash_bytes[202] = secretHash_bytes[6];
+        hash_bytes[203] = secretHash_bytes[7];
+        hash_bytes[204] = secretHash_bytes[8];
+        hash_bytes[205] = secretHash_bytes[9];
+        hash_bytes[206] = secretHash_bytes[10];
+        hash_bytes[207] = secretHash_bytes[11];
+        hash_bytes[208] = secretHash_bytes[12];
+        hash_bytes[209] = secretHash_bytes[13];
+        hash_bytes[210] = secretHash_bytes[14];
+        hash_bytes[211] = secretHash_bytes[15];
+        hash_bytes[212] = secretHash_bytes[16];
+        hash_bytes[213] = secretHash_bytes[17];
+        hash_bytes[214] = secretHash_bytes[18];
+        hash_bytes[215] = secretHash_bytes[19];
+        hash_bytes[216] = secretHash_bytes[20];
+        hash_bytes[217] = secretHash_bytes[21];
+        hash_bytes[218] = secretHash_bytes[22];
+        hash_bytes[219] = secretHash_bytes[23];
+        hash_bytes[220] = secretHash_bytes[24];
+        hash_bytes[221] = secretHash_bytes[25];
+        hash_bytes[222] = secretHash_bytes[26];
+        hash_bytes[223] = secretHash_bytes[27];
+        hash_bytes[224] = secretHash_bytes[28];
+        hash_bytes[225] = secretHash_bytes[29];
+        hash_bytes[226] = secretHash_bytes[30];
+        hash_bytes[227] = secretHash_bytes[31];
+        hash_bytes[228] = deadlineForL1ToL2Message_bytes[0];
+        hash_bytes[229] = deadlineForL1ToL2Message_bytes[1];
+        hash_bytes[230] = deadlineForL1ToL2Message_bytes[2];
+        hash_bytes[231] = deadlineForL1ToL2Message_bytes[3];
+        hash_bytes[232] = deadlineForL1ToL2Message_bytes[4];
+        hash_bytes[233] = deadlineForL1ToL2Message_bytes[5];
+        hash_bytes[234] = deadlineForL1ToL2Message_bytes[6];
+        hash_bytes[235] = deadlineForL1ToL2Message_bytes[7];
+        hash_bytes[236] = deadlineForL1ToL2Message_bytes[8];
+        hash_bytes[237] = deadlineForL1ToL2Message_bytes[9];
+        hash_bytes[238] = deadlineForL1ToL2Message_bytes[10];
+        hash_bytes[239] = deadlineForL1ToL2Message_bytes[11];
+        hash_bytes[240] = deadlineForL1ToL2Message_bytes[12];
+        hash_bytes[241] = deadlineForL1ToL2Message_bytes[13];
+        hash_bytes[242] = deadlineForL1ToL2Message_bytes[14];
+        hash_bytes[243] = deadlineForL1ToL2Message_bytes[15];
+        hash_bytes[244] = deadlineForL1ToL2Message_bytes[16];
+        hash_bytes[245] = deadlineForL1ToL2Message_bytes[17];
+        hash_bytes[246] = deadlineForL1ToL2Message_bytes[18];
+        hash_bytes[247] = deadlineForL1ToL2Message_bytes[19];
+        hash_bytes[248] = deadlineForL1ToL2Message_bytes[20];
+        hash_bytes[249] = deadlineForL1ToL2Message_bytes[21];
+        hash_bytes[250] = deadlineForL1ToL2Message_bytes[22];
+        hash_bytes[251] = deadlineForL1ToL2Message_bytes[23];
+        hash_bytes[252] = deadlineForL1ToL2Message_bytes[24];
+        hash_bytes[253] = deadlineForL1ToL2Message_bytes[25];
+        hash_bytes[254] = deadlineForL1ToL2Message_bytes[26];
+        hash_bytes[255] = deadlineForL1ToL2Message_bytes[27];
+        hash_bytes[256] = deadlineForL1ToL2Message_bytes[28];
+        hash_bytes[257] = deadlineForL1ToL2Message_bytes[29];
+        hash_bytes[258] = deadlineForL1ToL2Message_bytes[30];
+        hash_bytes[259] = deadlineForL1ToL2Message_bytes[31];
+        hash_bytes[260] = canceller_bytes[0];
+        hash_bytes[261] = canceller_bytes[1];
+        hash_bytes[262] = canceller_bytes[2];
+        hash_bytes[263] = canceller_bytes[3];
+        hash_bytes[264] = canceller_bytes[4];
+        hash_bytes[265] = canceller_bytes[5];
+        hash_bytes[266] = canceller_bytes[6];
+        hash_bytes[267] = canceller_bytes[7];
+        hash_bytes[268] = canceller_bytes[8];
+        hash_bytes[269] = canceller_bytes[9];
+        hash_bytes[270] = canceller_bytes[10];
+        hash_bytes[271] = canceller_bytes[11];
+        hash_bytes[272] = canceller_bytes[12];
+        hash_bytes[273] = canceller_bytes[13];
+        hash_bytes[274] = canceller_bytes[14];
+        hash_bytes[275] = canceller_bytes[15];
+        hash_bytes[276] = canceller_bytes[16];
+        hash_bytes[277] = canceller_bytes[17];
+        hash_bytes[278] = canceller_bytes[18];
+        hash_bytes[279] = canceller_bytes[19];
+        hash_bytes[280] = canceller_bytes[20];
+        hash_bytes[281] = canceller_bytes[21];
+        hash_bytes[282] = canceller_bytes[22];
+        hash_bytes[283] = canceller_bytes[23];
+        hash_bytes[284] = canceller_bytes[24];
+        hash_bytes[285] = canceller_bytes[25];
+        hash_bytes[286] = canceller_bytes[26];
+        hash_bytes[287] = canceller_bytes[27];
+        hash_bytes[288] = canceller_bytes[28];
+        hash_bytes[289] = canceller_bytes[29];
+        hash_bytes[290] = canceller_bytes[30];
+        hash_bytes[291] = canceller_bytes[31];
 
         let content_sha256 = dep::std::hash::sha256(hash_bytes);
 
