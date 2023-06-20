@@ -30,13 +30,13 @@ describe('e2e_public_token_contract', () => {
     return { contract, tx, txReceipt };
   };
 
-  const expectLogsFromLastBlockToBe = async (messages: string[]) => {
+  const expectLogsFromLastBlockToBe = async (logMessages: string[]) => {
     const l2BlockNum = await aztecNode.getBlockHeight();
     const unencryptedLogs = await aztecNode.getUnencryptedLogs(l2BlockNum, 1);
     const unrolledLogs = L2BlockL2Logs.unrollLogs(unencryptedLogs);
     const asciiLogs = unrolledLogs.map(log => log.toString('ascii'));
 
-    expect(asciiLogs).toBe([messages]);
+    expect(asciiLogs).toStrictEqual(logMessages);
   };
 
   beforeEach(async () => {
@@ -96,6 +96,6 @@ describe('e2e_public_token_contract', () => {
 
     await expectStorageSlot(logger, aztecNode, contract, balanceSlot, PK.x, mintAmount * 3n);
 
-    await expectLogsFromLastBlockToBe(['Coins transferred', 'Coins transferred', 'Coins transferred']);
+    await expectLogsFromLastBlockToBe(['Coins minted', 'Coins minted', 'Coins minted']);
   }, 60_000);
 });
