@@ -16,6 +16,10 @@ using aztec3::circuits::abis::private_kernel::PrivateKernelInputsInner;
 using DummyComposer = aztec3::utils::DummyComposer;
 using CircuitErrorCode = aztec3::utils::CircuitErrorCode;
 
+
+// TODO(jeanmon): the following code will be optimized based on hints regarding matching
+// a read request and commitment, i.e., we get pairs i,j such that read_requests[i] == new_commitments[j]
+// Relevant task: https://github.com/AztecProtocol/aztec-packages/issues/892
 void chop_pending_commitments(DummyComposer& composer,
                               std::array<NT::fr, READ_REQUESTS_LENGTH> const& read_requests,
                               std::array<MembershipWitness<NT, PRIVATE_DATA_TREE_HEIGHT>, READ_REQUESTS_LENGTH> const&
@@ -58,7 +62,7 @@ KernelCircuitPublicInputs<NT> native_private_kernel_circuit_ordering(DummyCompos
     // Do this before any functions can modify the inputs.
     common_initialise_end_values(private_inputs, public_inputs);
 
-    // TODO(jeamon): The passed read requests in chop_pending_commitments() will not be from call_stack_item in
+    // TODO(jeanmon): The passed read requests in chop_pending_commitments() will not be from call_stack_item in
     // the final version. The kernel will have to accumulate all read requests of a given transaction.
 
     // Removing of nullified pending commitments have to happen on the list of commitments which have been accumulated
