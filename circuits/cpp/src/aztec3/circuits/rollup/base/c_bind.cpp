@@ -11,7 +11,7 @@
 #include <barretenberg/barretenberg.hpp>
 
 namespace {
-using Composer = plonk::UltraPlonkComposer;
+using Composer = UltraCircuitConstructor;
 using NT = aztec3::utils::types::NativeTypes;
 using DummyComposer = aztec3::utils::DummyComposer;
 using aztec3::circuits::abis::BaseOrMergeRollupPublicInputs;

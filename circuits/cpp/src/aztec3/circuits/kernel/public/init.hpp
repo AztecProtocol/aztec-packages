@@ -10,7 +10,7 @@
 
 namespace aztec3::circuits::kernel::public_kernel {
 
-using Composer = plonk::UltraPlonkComposer;
+using Composer = proof_system::UltraCircuitConstructor;
 
 using Aggregator = aztec3::circuits::recursion::Aggregator;
 

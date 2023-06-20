@@ -54,9 +54,9 @@ TEST(private_to_private_function_call_tests, circuit_private_to_private_function
     // info("witness: ", fn1_composer.witness);
     // info("constant variables: ", fn1_composer.constant_variables);
     // info("variables: ", fn1_composer.variables);
-    info("failed?: ", fn1_composer.circuit_constructor.failed());
-    info("err: ", fn1_composer.circuit_constructor.err());
-    info("n: ", fn1_composer.circuit_constructor.num_gates);
+    info("failed?: ", fn1_composer.failed());
+    info("err: ", fn1_composer.err());
+    info("n: ", fn1_composer.num_gates);
 }
 
 }  // namespace aztec3::circuits::apps::test_apps::private_to_private_function_call

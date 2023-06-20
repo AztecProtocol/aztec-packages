@@ -361,12 +361,12 @@ PublicKernelInputs<NT> get_kernel_inputs_with_previous_kernel(NT::boolean privat
         .bytecode_hash = 1234567,
     };
 
-    CombinedHistoricTreeRoots<NT> const historic_tree_roots = { .private_historic_tree_roots = {
-                                                                    .private_data_tree_root = 1000,
-                                                                    .contract_tree_root = 2000,
-                                                                    .l1_to_l2_messages_tree_root = 3000,
-                                                                    .private_kernel_vk_tree_root = 4000,
-                                                                } };
+    // CombinedHistoricTreeRoots<NT> const historic_tree_roots = { .private_historic_tree_roots = {
+    //                                                                 .private_data_tree_root = 1000,
+    //                                                                 .contract_tree_root = 2000,
+    //                                                                 .l1_to_l2_messages_tree_root = 3000,
+    //                                                                 .private_kernel_vk_tree_root = 4000,
+    //                                                             } };
 
     CombinedConstantData<NT> const end_constants = {
         .historic_tree_roots =

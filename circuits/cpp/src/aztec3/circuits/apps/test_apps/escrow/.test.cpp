@@ -56,9 +56,9 @@ TEST_F(escrow_tests, circuit_deposit)
     // info("witness: ", composer.witness);
     // info("constant variables: ", composer.constant_variables);
     // info("variables: ", composer.variables);
-    info("failed?: ", composer.circuit_constructor.failed());
-    info("err: ", composer.circuit_constructor.err());
-    info("n: ", composer.circuit_constructor.num_gates);
+    info("failed?: ", composer.failed());
+    info("err: ", composer.err());
+    info("n: ", composer.num_gates);
 }
 
 TEST_F(escrow_tests, circuit_transfer)
@@ -81,9 +81,9 @@ TEST_F(escrow_tests, circuit_transfer)
     // info("witness: ", composer.witness);
     // info("constant variables: ", composer.constant_variables);
     // info("variables: ", composer.variables);
-    info("failed?: ", composer.circuit_constructor.failed());
-    info("err: ", composer.circuit_constructor.err());
-    info("n: ", composer.circuit_constructor.num_gates);
+    info("failed?: ", composer.failed());
+    info("err: ", composer.err());
+    info("n: ", composer.num_gates);
 }
 
 TEST_F(escrow_tests, circuit_withdraw)
@@ -105,9 +105,9 @@ TEST_F(escrow_tests, circuit_withdraw)
     // info("witness: ", composer.witness);
     // info("constant variables: ", composer.constant_variables);
     // info("variables: ", composer.variables);
-    info("failed?: ", composer.circuit_constructor.failed());
-    info("err: ", composer.circuit_constructor.err());
-    info("n: ", composer.circuit_constructor.num_gates);
+    info("failed?: ", composer.failed());
+    info("err: ", composer.err());
+    info("n: ", composer.num_gates);
 }
 
 }  // namespace aztec3::circuits::apps::test_apps::escrow

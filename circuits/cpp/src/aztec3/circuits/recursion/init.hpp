@@ -7,7 +7,7 @@
 
 namespace aztec3::circuits::recursion {
 // Composer
-using Composer = plonk::UltraPlonkComposer;
+using Composer = UltraCircuitConstructor;
 
 // Generic types:
 using CT = aztec3::utils::types::CircuitTypes<Composer>;

@@ -53,7 +53,7 @@ TEST_F(private_kernel_tests, basic)
     auto const& public_inputs = private_kernel_circuit(private_kernel_composer, private_inputs, true);
 
     // Check the private kernel circuit
-    EXPECT_TRUE(private_kernel_composer.circuit_constructor.check_circuit());
+    EXPECT_TRUE(private_kernel_composer.check_circuit());
 }
 
 /**
@@ -96,7 +96,7 @@ TEST_F(private_kernel_tests, circuit_cbinds)
     std::vector<uint8_t> private_constructor_call_vec;
     write(private_constructor_call_vec, private_inputs.private_call);
 
-    uint8_t const* proof_data_buf = nullptr;
+    // uint8_t const* proof_data_buf = nullptr;
     uint8_t const* public_inputs_buf = nullptr;
     size_t public_inputs_size = 0;
     // info("Simulating to generate public inputs...");

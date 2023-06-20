@@ -9,7 +9,7 @@
 
 namespace {
 // Composer
-using Composer = plonk::UltraPlonkComposer;
+using Composer = UltraCircuitConstructor;
 
 // Types
 using CT = aztec3::utils::types::CircuitTypes<Composer>;
