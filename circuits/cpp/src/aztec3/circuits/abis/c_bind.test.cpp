@@ -50,10 +50,11 @@ namespace aztec3::circuits::abis {
 
 TEST(abi_tests, compute_partial_contract_address)
 {
-    NT::fr contract_address_salt = NT::fr(3);
-    NT::fr function_tree_root = NT::fr(4);
-    NT::fr constructor_hash = NT::fr(5);
-    NT::fr expected = compute_partial_contract_address<NT>(contract_address_salt, function_tree_root, constructor_hash);
+    auto const contract_address_salt = NT::fr(3);
+    auto const function_tree_root = NT::fr(4);
+    auto const constructor_hash = NT::fr(5);
+    NT::fr const expected =
+        compute_partial_contract_address<NT>(contract_address_salt, function_tree_root, constructor_hash);
 
     std::array<uint8_t, sizeof(NT::fr)> output = { 0 };
     std::vector<uint8_t> salt_buf;
@@ -72,11 +73,12 @@ TEST(abi_tests, compute_partial_contract_address)
 
 TEST(abi_tests, compute_contract_address)
 {
-    Point<NT> point = { .x = { NT::fr(1), NT::fr(2) }, .y = { NT::fr(3), NT::fr(4) } };
-    NT::fr contract_address_salt = NT::fr(5);
-    NT::fr function_tree_root = NT::fr(6);
-    NT::fr constructor_hash = NT::fr(7);
-    NT::fr expected = compute_contract_address(point, contract_address_salt, function_tree_root, constructor_hash);
+    Point<NT> const point = { .x = { NT::fr(1), NT::fr(2) }, .y = { NT::fr(3), NT::fr(4) } };
+    auto const contract_address_salt = NT::fr(5);
+    auto const function_tree_root = NT::fr(6);
+    auto const constructor_hash = NT::fr(7);
+    NT::fr const expected =
+        compute_contract_address(point, contract_address_salt, function_tree_root, constructor_hash);
 
     std::array<uint8_t, sizeof(NT::fr)> output = { 0 };
     std::vector<uint8_t> contract_address_salt_buf;

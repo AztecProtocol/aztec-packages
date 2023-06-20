@@ -46,7 +46,7 @@ export class Coordinate {
    */
   static fromBuffer(data: Buffer | BufferReader): Coordinate {
     const reader = BufferReader.asReader(data);
-    return reader.readObject(Coordinate);
+    return new Coordinate([reader.readFr(), reader.readFr()]);
   }
 
   /**
