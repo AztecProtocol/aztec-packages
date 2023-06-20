@@ -3,6 +3,7 @@
 #include "aztec3/circuits/abis/function_data.hpp"
 #include "aztec3/circuits/abis/function_leaf_preimage.hpp"
 #include "aztec3/circuits/abis/new_contract_data.hpp"
+#include "aztec3/circuits/abis/point.hpp"
 #include "aztec3/constants.hpp"
 #include "aztec3/utils/circuit_errors.hpp"
 
@@ -14,6 +15,7 @@
 namespace aztec3::circuits {
 
 using abis::FunctionData;
+using abis::Point;
 using aztec3::circuits::abis::ContractLeafPreimage;
 using aztec3::circuits::abis::FunctionLeafPreimage;
 using MerkleTree = stdlib::merkle_tree::MemoryTree;
@@ -50,12 +52,12 @@ template <typename NCT> typename NCT::fr compute_partial_contract_address(typena
 {
     using fr = typename NCT::fr;
     std::vector<fr> const inputs = {
-        fr(0), fr(0), contract_address_salt, function_tree_root, constructor_hash,
+        fr(0), fr(0), fr(0), fr(0), contract_address_salt, function_tree_root, constructor_hash,
     };
     return NCT::compress(inputs, aztec3::GeneratorIndex::CONTRACT_ADDRESS);
 }
 
-template <typename NCT> typename NCT::address compute_contract_address(std::array<typename NCT::fr, 2> pub_key,
+template <typename NCT> typename NCT::address compute_contract_address(Point<NCT> const& point,
                                                                        typename NCT::fr contract_address_salt,
                                                                        typename NCT::fr function_tree_root,
                                                                        typename NCT::fr constructor_hash)
@@ -67,9 +69,7 @@ template <typename NCT> typename NCT::address compute_contract_address(std::arra
         compute_partial_contract_address<NCT>(contract_address_salt, function_tree_root, constructor_hash);
 
     std::vector<fr> const inputs = {
-        pub_key[0],
-        pub_key[1],
-        partial_address,
+        point.x[0], point.x[1], point.y[0], point.y[1], partial_address,
     };
     return address(NCT::compress(inputs, aztec3::GeneratorIndex::CONTRACT_ADDRESS));
 }
