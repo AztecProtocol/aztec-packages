@@ -1,5 +1,7 @@
 import { randomBytes } from 'crypto';
 import { Signature } from '../index.js';
+import { mapTuple } from '@aztec/foundation/serialize';
+import { Fr } from '@aztec/foundation/fields';
 
 /**
  * ECDSA signature used for transactions.
@@ -40,6 +42,15 @@ export class EcdsaSignature implements Signature {
   }
 
   /**
+   * Deserialises the signature from a buffer.
+   * @param buffer - The buffer from which to deserialise the signature.
+   * @returns The ECDSA signature
+   */
+  public static fromBuffer(buffer: Buffer) {
+    return new EcdsaSignature(buffer.subarray(0, 32), buffer.subarray(32, 64), buffer.subarray(64, 65));
+  }
+
+  /**
    * Generate a random ECDSA signature for testing.
    * @returns A randomly generated ECDSA signature (not a valid one).
    */
@@ -53,5 +64,24 @@ export class EcdsaSignature implements Signature {
    */
   toString() {
     return `0x${this.toBuffer().toString('hex')}`;
+  }
+
+  /**
+   * Converts the signature to an array of fields.
+   * @param includeV - Determines whether the 'v' term is included
+   * @returns The signature components as an array of fields
+   */
+  toFields(includeV = false): Fr[] {
+    const sig = this.toBuffer();
+
+    const buf1 = Buffer.alloc(32);
+    const buf2 = Buffer.alloc(32);
+    const buf3 = Buffer.alloc(32);
+
+    sig.copy(buf1, 1, 0, 31);
+    sig.copy(buf2, 1, 31, 62);
+    sig.copy(buf3, 1, 62, includeV ? 65 : 64);
+
+    return mapTuple([buf1, buf2, buf3], Fr.fromBuffer);
   }
 }

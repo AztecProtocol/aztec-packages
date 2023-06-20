@@ -59,7 +59,7 @@ describe('e2e_public_token_contract', () => {
     const receipt = await tx.getReceipt();
 
     expect(receipt.status).toBe(TxStatus.MINED);
-    await expectStorageSlot(logger, aztecNode, contract, balanceSlot, PK.x, mintAmount);
+    await expectStorageSlot(logger, aztecNode, contract, balanceSlot, PK.x.limbs[0], mintAmount);
   }, 45_000);
 
   // Regression for https://github.com/AztecProtocol/aztec-packages/issues/640
@@ -82,6 +82,6 @@ describe('e2e_public_token_contract', () => {
     expect(receipts.map(r => r.status)).toEqual(times(3, () => TxStatus.MINED));
     expect(receipts.map(r => r.blockNumber)).toEqual(times(3, () => receipts[0].blockNumber));
 
-    await expectStorageSlot(logger, aztecNode, contract, balanceSlot, PK.x, mintAmount * 3n);
+    await expectStorageSlot(logger, aztecNode, contract, balanceSlot, PK.x.limbs[0], mintAmount * 3n);
   }, 60_000);
 });

@@ -72,7 +72,15 @@ describe('Account State', () => {
     ownerAddress = getAddressFromPublicKey(owner.getPublicKey());
     const partialAccountContractAddress = Fr.random();
     aztecNode = mock<AztecNode>();
-    accountState = new AccountState(ownerPrivateKey, ownerAddress, partialAccountContractAddress, database, aztecNode, grumpkin, schnorr);
+    accountState = new AccountState(
+      ownerPrivateKey,
+      ownerAddress,
+      partialAccountContractAddress,
+      database,
+      aztecNode,
+      grumpkin,
+      schnorr,
+    );
   });
 
   afterEach(() => {
@@ -152,6 +160,8 @@ describe('Account State', () => {
 
   it('should throw an error if invalid privKey is passed on input', () => {
     const ownerPrivateKey = Buffer.alloc(0);
-    expect(() => new AccountState(ownerPrivateKey, ownerAddress, Fr.random(), database, aztecNode, grumpkin, schnorr)).toThrowError();
+    expect(
+      () => new AccountState(ownerPrivateKey, ownerAddress, Fr.random(), database, aztecNode, grumpkin, schnorr),
+    ).toThrowError();
   });
 });

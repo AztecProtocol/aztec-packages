@@ -15,7 +15,6 @@ contract Account {
     fn entrypoint(
         inputs: pub PrivateContextInputs,
         payload: pub EntrypointPayload,
-        // TODO(#706): Compress signature as 3 fields
         signature: pub [Field;3],
         owner: pub Point,
         partialContractAddress: pub Field
@@ -42,7 +41,7 @@ contract Account {
         let payload_bytes: [u8; entrypoint::ENTRYPOINT_PAYLOAD_SIZE_IN_BYTES] = payload.to_be_bytes();
         let payload_hash: [u8; 32] = std::hash::sha256(payload_bytes);
         
-        let verification = std::schnorr::verify_signature(owner.x, owner.y, signature, payload_hash);
+        let verification = std::ecdsa_secp256k1::verify_signature(owner.x, owner.y, decompressed_signature, payload_hash);
         constrain verification == 1;
 
         let reproduced_address = dep::std::hash::pedersen([owner.x, owner.y, partialContractAddress])[0];

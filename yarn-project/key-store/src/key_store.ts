@@ -13,7 +13,7 @@ export type PublicKey = Point;
  * @deprecated To be removed once we go full account abstraction.
  */
 export function getAddressFromPublicKey(pubKey: PublicKey) {
-  return AztecAddress.fromBuffer(pubKey.buffer.slice(0, AztecAddress.SIZE_IN_BYTES));
+  return AztecAddress.fromBuffer(pubKey.toBuffer().subarray(0, AztecAddress.SIZE_IN_BYTES));
 }
 
 /**

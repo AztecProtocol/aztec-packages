@@ -40,7 +40,7 @@ export class SchnorrAccountContract implements AccountImplementation {
     const hash = hashPayload(payload);
 
     const signature = await this.keyStore.sign(hash, this.pubKey);
-    const signatureAsFrArray = signature.toFields(false);
+    const signatureAsFrArray = signature.toFields();
     const args = [payload, signatureAsFrArray, this.pubKey, this.partialContractAddress];
     const abi = this.getEntrypointAbi();
     const selector = generateFunctionSelector(abi.name, abi.parameters);

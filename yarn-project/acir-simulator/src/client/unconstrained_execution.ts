@@ -1,7 +1,7 @@
 import { CallContext, FunctionData } from '@aztec/circuits.js';
 import { FunctionAbi } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { Fr, Point } from '@aztec/foundation/fields';
+import { Coordinate, Fr, Point } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { select_return_flattened as selectReturnFlattened } from '@noir-lang/noir_util_wasm';
 import { decodeReturnValues } from '../abi_coder/decoder.js';
@@ -48,7 +48,10 @@ export class UnconstrainedFunctionExecution {
         toACVMField(
           await this.context.db.getSecretKey(
             this.contractAddress,
-            Point.fromCoordinates(fromACVMField(ownerX), fromACVMField(ownerY)),
+            Point.fromCoordinates(
+              new Coordinate([fromACVMField(ownerX), Fr.ZERO]),
+              new Coordinate([fromACVMField(ownerY), Fr.ZERO]),
+            ),
           ),
         ),
       ],

@@ -1,9 +1,11 @@
+import { Fr } from '@aztec/foundation/fields';
 
 /**
  * Interface to represent a signature.
  */
 export interface Signature {
   toBuffer(): Buffer;
+  toFields(): Fr[];
 }
 
 /**

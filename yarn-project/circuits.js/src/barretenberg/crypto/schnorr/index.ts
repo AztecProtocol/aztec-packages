@@ -21,7 +21,7 @@ export class Schnorr implements Signer {
 
   /**
    * Computes a grumpkin public key from a private key.
-   * @param privateKey - Secp256k1 private key.
+   * @param privateKey - The private key.
    * @returns A grumpkin public key.
    */
   public computePublicKey(privateKey: Uint8Array) {
@@ -33,7 +33,7 @@ export class Schnorr implements Signer {
   /**
    * Constructs a Schnorr signature given a msg and a private key.
    * @param msg - Message over which the signature is constructed.
-   * @param privateKey - The secp256k1 private key of the signer.
+   * @param privateKey - The private key of the signer.
    * @returns A Schnorr signature of the form (s, e).
    */
   public constructSignature(msg: Uint8Array, privateKey: Uint8Array) {
@@ -42,9 +42,7 @@ export class Schnorr implements Signer {
     this.wasm.writeMemory(mem, msg);
     this.wasm.call('schnorr_construct_signature', mem, msg.length, 0, 32, 64);
 
-    return new SchnorrSignature(
-      Buffer.from(this.wasm.getMemorySlice(32, 96))
-    );
+    return new SchnorrSignature(Buffer.from(this.wasm.getMemorySlice(32, 96)));
   }
 
   /**

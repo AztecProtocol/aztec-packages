@@ -2,7 +2,7 @@ import { Schnorr } from './index.js';
 import { TextEncoder } from 'util';
 import { CircuitsWasm } from '../../../index.js';
 
-describe('ecdsa', () => {
+describe('schnorr', () => {
   let schnorr!: Schnorr;
 
   beforeAll(async () => {

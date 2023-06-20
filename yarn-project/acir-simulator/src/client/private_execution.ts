@@ -13,7 +13,7 @@ import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { FunctionAbi } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { padArrayEnd } from '@aztec/foundation/collection';
-import { Fr, Point } from '@aztec/foundation/fields';
+import { Coordinate, Fr, Point } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { Tuple, assertLength, to2Fields } from '@aztec/foundation/serialize';
 import { FunctionL2Logs, NotePreimage, NoteSpendingInfo } from '@aztec/types';
@@ -77,7 +77,10 @@ export class PrivateFunctionExecution {
         toACVMField(
           await this.context.db.getSecretKey(
             this.contractAddress,
-            Point.fromCoordinates(fromACVMField(ownerX), fromACVMField(ownerY)),
+            Point.fromCoordinates(
+              new Coordinate([fromACVMField(ownerX), Fr.ZERO]),
+              new Coordinate([fromACVMField(ownerY), Fr.ZERO]),
+            ),
           ),
         ),
       ],
@@ -180,8 +183,9 @@ export class PrivateFunctionExecution {
 
         const notePreimage = new NotePreimage(preimage);
         const noteSpendingInfo = new NoteSpendingInfo(notePreimage, contractAddress, storageSlot);
-        const ownerPublicKey = new Point(
-          Buffer.concat([convertACVMFieldToBuffer(ownerX), convertACVMFieldToBuffer(ownerY)]),
+        const ownerPublicKey = Point.fromCoordinates(
+          new Coordinate([fromACVMField(ownerX), Fr.ZERO]),
+          new Coordinate([fromACVMField(ownerY), Fr.ZERO]),
         );
 
         const encryptedNotePreimage = noteSpendingInfo.toEncryptedBuffer(ownerPublicKey, await Grumpkin.new());

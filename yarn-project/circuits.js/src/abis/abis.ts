@@ -1,7 +1,7 @@
 import { IWasmModule } from '@aztec/foundation/wasm';
 import { Buffer } from 'buffer';
 import chunk from 'lodash.chunk';
-import { abisComputeContractAddress, abisSiloCommitment, abisComputePartialContractAddress } from '../cbind/circuits.gen.js';
+import { abisSiloCommitment } from '../cbind/circuits.gen.js';
 import {
   AztecAddress,
   FUNCTION_SELECTOR_NUM_BYTES,
@@ -155,7 +155,7 @@ export function hashConstructor(
   functionData: FunctionData,
   argsHash: Fr,
   constructorVKHash: Buffer,
-): Buffer {
+): Fr {
   wasm.call('pedersen__init');
   const result = inputBuffersToOutputBuffer(
     wasm,
@@ -163,7 +163,7 @@ export function hashConstructor(
     [functionData.toBuffer(), argsHash.toBuffer(), constructorVKHash],
     32,
   );
-  return result;
+  return Fr.fromBuffer(result);
 }
 
 /**
@@ -180,16 +180,16 @@ export function computeContractAddress(
   deployerPubKey: Point,
   contractAddrSalt: Fr,
   fnTreeRoot: Fr,
-  constructorHash: Buffer,
+  constructorHash: Fr,
 ): AztecAddress {
   wasm.call('pedersen__init');
-  return abisComputeContractAddress(
+  const result = inputBuffersToOutputBuffer(
     wasm,
-    [deployerPubKey.x, deployerPubKey.y],
-    contractAddrSalt,
-    fnTreeRoot,
-    Fr.fromBuffer(constructorHash),
+    'abis__compute_contract_address',
+    [deployerPubKey.toBuffer(), contractAddrSalt.toBuffer(), fnTreeRoot.toBuffer(), constructorHash.toBuffer()],
+    32,
   );
+  return new AztecAddress(result);
 }
 
 /**
@@ -207,12 +207,13 @@ export function computePartialContractAddress(
   constructorHash: Fr,
 ): Fr {
   wasm.call('pedersen__init');
-  return abisComputePartialContractAddress(
+  const result = inputBuffersToOutputBuffer(
     wasm,
-    contractAddrSalt,
-    fnTreeRoot,
-    constructorHash,
+    'abis__compute_partial_contract_address',
+    [contractAddrSalt.toBuffer(), fnTreeRoot.toBuffer(), constructorHash.toBuffer()],
+    32,
   );
+  return Fr.fromBuffer(result);
 }
 
 /**

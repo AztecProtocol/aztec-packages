@@ -1,6 +1,7 @@
-import { randomBytes } from "@aztec/foundation/crypto";
-import { Signature } from "../index.js";
-import { BufferReader } from "@aztec/foundation/serialize";
+import { randomBytes } from '@aztec/foundation/crypto';
+import { Signature } from '../index.js';
+import { BufferReader } from '@aztec/foundation/serialize';
+import { Fr } from '@aztec/foundation/fields';
 
 /**
  * Schnorr signature used for transactions.
@@ -57,7 +58,7 @@ export class SchnorrSignature implements Signature {
    * @returns A buffer containing the signature's 's' component.
    */
   s() {
-    return this.buffer.slice(0, 32);
+    return this.buffer.subarray(0, 32);
   }
 
   /**
@@ -65,7 +66,7 @@ export class SchnorrSignature implements Signature {
    * @returns A buffer containing the signature's 'e' component.
    */
   e() {
-    return this.buffer.slice(32);
+    return this.buffer.subarray(32);
   }
 
   /**
@@ -92,5 +93,13 @@ export class SchnorrSignature implements Signature {
    */
   toString() {
     return `0x${this.buffer.toString('hex')}`;
+  }
+
+  /**
+   * Converts the signature to an array of fields.
+   * @returns The signature components as an array of fields
+   */
+  toFields(): Fr[] {
+    return [Fr.fromBuffer(this.buffer.subarray(0, 32)), Fr.fromBuffer(this.buffer.subarray(32, 64))];
   }
 }

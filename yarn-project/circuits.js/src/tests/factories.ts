@@ -20,6 +20,7 @@ import {
   ContractDeploymentData,
   ContractStorageRead,
   ContractStorageUpdateRequest,
+  Coordinate,
   FUNCTION_TREE_HEIGHT,
   Fq,
   Fr,
@@ -394,7 +395,10 @@ export function makeVerificationKey(): VerificationKey {
  * @returns A point.
  */
 export function makePoint(seed = 1): Point {
-  return new Point(Buffer.concat([fr(seed).toBuffer(), fr(seed + 1).toBuffer()]));
+  return new Point(
+    new Coordinate([new Fr(seed), new Fr(seed + 1)]),
+    new Coordinate([new Fr(seed + 2), new Fr(seed + 3)]),
+  );
 }
 
 /**

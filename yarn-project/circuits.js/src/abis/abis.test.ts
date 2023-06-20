@@ -86,7 +86,7 @@ describe('abis wasm bindings', () => {
     const deployerPubKey = makePoint();
     const contractAddrSalt = new Fr(2n);
     const treeRoot = new Fr(3n);
-    const constructorHash = makeBytes();
+    const constructorHash = new Fr(4n);
     const res = computeContractAddress(wasm, deployerPubKey, contractAddrSalt, treeRoot, constructorHash);
     expect(res).toMatchSnapshot();
   });

@@ -1,4 +1,5 @@
 #pragma once
+#include "aztec3/circuits/abis/coordinate.hpp"
 #include "aztec3/constants.hpp"
 #include "aztec3/utils/types/circuit_types.hpp"
 #include "aztec3/utils/types/convert.hpp"
@@ -16,8 +17,8 @@ template <typename NCT> struct Point {
     using fr = typename NCT::fr;
     using boolean = typename NCT::boolean;
 
-    std::array<fr, 2> x;
-    std::array<fr, 2> y;
+    Coordinate<NCT> x;
+    Coordinate<NCT> y;
 
     // for serialization, update with new fields
     MSGPACK_FIELDS(x, y);
@@ -27,12 +28,9 @@ template <typename NCT> struct Point {
     {
         static_assert((std::is_same<NativeTypes, NCT>::value));
 
-        // Capture the composer:
-        auto to_ct = [&](auto& e) { return aztec3::utils::types::to_ct(composer, e); };
-
         Point<CircuitTypes<Composer>> point = {
-            to_ct(x),
-            to_ct(y),
+            x.to_circuit_type(composer),
+            y.to_circuit_type(composer),
         };
 
         return point;
@@ -42,12 +40,9 @@ template <typename NCT> struct Point {
     {
         static_assert((std::is_same<CircuitTypes<Composer>, NCT>::value));
 
-        auto to_nt = [&](auto& e) { return aztec3::utils::types::to_nt<Composer>(e); };
+        auto to_native_type = []<typename T>(T& e) { return e.template to_native_type<Composer>(); };
 
-        Point<NativeTypes> point = {
-            to_nt(x),
-            to_nt(y),
-        };
+        Point<NativeTypes> point = { to_native_type(x), to_native_type(y) };
 
         return point;
     };
@@ -56,20 +51,16 @@ template <typename NCT> struct Point {
     {
         static_assert(!(std::is_same<NativeTypes, NCT>::value));
 
-        x[0].set_public();
-        x[1].set_public();
-        y[0].set_public();
-        y[1].set_public();
+        x.set_public();
+        y.set_public();
     }
 
     void assert_is_zero()
     {
         static_assert(!(std::is_same<NativeTypes, NCT>::value));
 
-        x[0].assert_is_zero();
-        x[1].assert_is_zero();
-        y[0].assert_is_zero();
-        y[1].assert_is_zero();
+        x.assert_is_zero();
+        y.assert_is_zero();
     }
 };
 

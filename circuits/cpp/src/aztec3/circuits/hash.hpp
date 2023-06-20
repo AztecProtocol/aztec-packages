@@ -69,7 +69,7 @@ template <typename NCT> typename NCT::address compute_contract_address(Point<NCT
         compute_partial_contract_address<NCT>(contract_address_salt, function_tree_root, constructor_hash);
 
     std::vector<fr> const inputs = {
-        point.x[0], point.x[1], point.y[0], point.y[1], partial_address,
+        point.x.limbs[0], point.x.limbs[1], point.y.limbs[0], point.y.limbs[1], partial_address,
     };
     return address(NCT::compress(inputs, aztec3::GeneratorIndex::CONTRACT_ADDRESS));
 }
