@@ -14,7 +14,12 @@ import { AccountImplementation } from './index.js';
  * Account backed by an account contract that uses ECDSA signatures for authorization.
  */
 export class SchnorrAccountContract implements AccountImplementation {
-  constructor(private address: AztecAddress, private pubKey: PublicKey, private keyStore: KeyStore, private partialContractAddress: PartialContractAddress) {}
+  constructor(
+    private address: AztecAddress,
+    private pubKey: PublicKey,
+    private keyStore: KeyStore,
+    private partialContractAddress: PartialContractAddress,
+  ) {}
 
   async createAuthenticatedTxRequest(
     executions: ExecutionRequest[],
@@ -33,16 +38,17 @@ export class SchnorrAccountContract implements AccountImplementation {
 
     const payload = buildPayload(privateCalls, publicCalls);
     const hash = hashPayload(payload);
-    const signature = await this.keyStore.sign(hash, this.pubKey);
-    const signatureAsFrArray = Array.from(signature.toBuffer()).map(byte => new Fr(byte));
 
+    const signature = await this.keyStore.sign(hash, this.pubKey);
+    const signatureAsFrArray = signature.toFields(false);
     const args = [payload, signatureAsFrArray, this.pubKey, this.partialContractAddress];
     const abi = this.getEntrypointAbi();
     const selector = generateFunctionSelector(abi.name, abi.parameters);
-    const txRequest = TxExecutionRequest.fromExecutionRequest({
+    const txRequest = TxExecutionRequest.from({
       args: encodeArguments(abi, args),
-      account: this.address,
+      origin: this.address,
       functionData: new FunctionData(selector, true, false),
+      txContext: TxContext.empty(),
     });
 
     return txRequest;

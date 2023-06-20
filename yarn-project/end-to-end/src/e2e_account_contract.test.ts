@@ -2,7 +2,7 @@ import { AztecNodeService } from '@aztec/aztec-node';
 import { AztecRPCServer, Contract, ContractDeployer, TxStatus } from '@aztec/aztec.js';
 import { ContractAbi } from '@aztec/foundation/abi';
 import { DebugLogger } from '@aztec/foundation/log';
-import { AccountContractAbi, ChildAbi } from '@aztec/noir-contracts/examples';
+import { ChildAbi, AccountContractAbi } from '@aztec/noir-contracts/examples';
 
 import { toBigInt } from '@aztec/foundation/serialize';
 import { setup } from './utils.js';
@@ -24,7 +24,13 @@ describe('e2e_account_contract', () => {
     account = deploymentResult.contract;
     const curve = await Grumpkin.new();
     const signer = await Schnorr.new();
-    await aztecRpcServer.registerSmartAccount(curve, signer, privateKey, account.address, deploymentResult.partialContractAddress!);
+    await aztecRpcServer.registerSmartAccount(
+      curve,
+      signer,
+      privateKey,
+      account.address,
+      deploymentResult.partialContractAddress!,
+    );
 
     const childDeployResult = await deployContract(ChildAbi);
     child = childDeployResult.contract;
@@ -68,10 +74,10 @@ describe('e2e_account_contract', () => {
     expect(toBigInt((await aztecNode.getStorageAt(child.address, 1n))!)).toEqual(42n);
   }, 30_000);
 
-  // TODO: Reenable this test by hijacking the keystore to generate a different signature!
   // it('rejects ecdsa signature from a different key', async () => {
-  //   const payload = buildPayload([callChildValue(42)], []);
-  //   const call = buildCall(payload, { privKey: '2a871d0798f97d79848a013d4936a73bf4cc922c825d33c1cf7073dff6d409c6' });
-  //   await expect(call.create({ from: accounts[0] })).rejects.toMatch(/could not satisfy all constraints/);
+  //   keyStore.ecdsaSign = () => Promise.resolve(EcdsaSignature.random());
+  //   await expect(child.methods.value(42).create({ from: account })).rejects.toMatch(
+  //     /could not satisfy all constraints/,
+  //   );
   // }, 30_000);
 });

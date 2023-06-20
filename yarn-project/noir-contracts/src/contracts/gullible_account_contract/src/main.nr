@@ -1,4 +1,4 @@
-contract Account {
+contract GullibleAccount {
     use dep::std;
     use dep::aztec3::entrypoint;
     use dep::aztec3::entrypoint::EntrypointPayload;
@@ -9,44 +9,13 @@ contract Account {
     use dep::aztec3::public_call_stack_item::PublicCallStackItem;
     use dep::aztec3::context::PrivateFunctionContext;
     use dep::aztec3::types::vec::BoundedVec;
-    use dep::aztec3::types::point::Point;
-    use dep::aztec3::oracle::debug_log::debug_log_format;
 
     fn entrypoint(
         inputs: pub PrivateContextInputs,
         payload: pub EntrypointPayload,
-        // TODO(#706): Compress signature as 3 fields
-        signature: pub [Field;3],
-        owner: pub Point,
-        partialContractAddress: pub Field
+        _signature: pub [Field;3]
     ) -> pub [Field; dep::aztec3::abi::PUBLIC_INPUTS_LENGTH] {
         let mut context = PrivateFunctionContext::new();
-
-        // Decompress signature from 3 fields to 64 bytes
-        let mut decompressed_signature: [u8;64] = [0;64];
-
-        let signature_part_0 = signature[0].to_be_bytes(32);
-        for i in 0..31 {
-            decompressed_signature[i] = signature_part_0[i + 1];
-        }
-        let signature_part_1 = signature[1].to_be_bytes(32);
-        for i in 0..31 {
-            decompressed_signature[i + 31] = signature_part_1[i + 1];
-        }
-        let signature_part_2 = signature[2].to_be_bytes(32);
-        for i in 0..2 {
-            decompressed_signature[i + 62] = signature_part_2[i + 1];
-        }
-
-        // Verify payload signature using ethereum's signing scheme
-        let payload_bytes: [u8; entrypoint::ENTRYPOINT_PAYLOAD_SIZE_IN_BYTES] = payload.to_be_bytes();
-        let payload_hash: [u8; 32] = std::hash::sha256(payload_bytes);
-        
-        let verification = std::schnorr::verify_signature(owner.x, owner.y, signature, payload_hash);
-        constrain verification == 1;
-
-        let reproduced_address = dep::std::hash::pedersen([owner.x, owner.y, partialContractAddress])[0];
-        constrain reproduced_address == inputs.call_context.storage_contract_address;
 
         for i in 0..entrypoint::ACCOUNT_MAX_PRIVATE_CALLS {
             let target_address = payload.flattened_targets[i];

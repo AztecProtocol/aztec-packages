@@ -26,6 +26,7 @@ import { generateFunctionSelector } from '../index.js';
 import { KernelOracle } from '../kernel_oracle/index.js';
 import { KernelProver } from '../kernel_prover/index.js';
 import { SimulatorOracle } from '../simulator_oracle/index.js';
+import { collectUnencryptedLogs } from '@aztec/acir-simulator';
 
 /**
  * Contains all the decrypted data in this array so that we can later batch insert it all into the database.
@@ -148,8 +149,11 @@ export class AccountState {
    * @param contractDataOracle - An instance of ContractDataOracle used to fetch the necessary data.
    * @returns An object containing the contract address, function ABI, portal contract address, and historic tree roots.
    */
-  private async getSimulationParameters(execRequest: ExecutionRequest, contractDataOracle: ContractDataOracle) {
-    const contractAddress = execRequest.to;
+  private async getSimulationParameters(
+    execRequest: ExecutionRequest | TxExecutionRequest,
+    contractDataOracle: ContractDataOracle,
+  ) {
+    const contractAddress = (execRequest as ExecutionRequest).to ?? (execRequest as TxExecutionRequest).origin;
     const functionAbi = await contractDataOracle.getFunctionAbi(
       contractAddress,
       execRequest.functionData.functionSelectorBuffer,
@@ -254,23 +258,25 @@ export class AccountState {
     const contractDataOracle = new ContractDataOracle(this.db, this.node);
     const kernelOracle = new KernelOracle(contractDataOracle, this.node);
     const executionResult = await this.simulate(txExecutionRequest, contractDataOracle);
+    const argsHash = executionResult.callStackItem.publicInputs.argsHash;
 
     const kernelProver = new KernelProver(kernelOracle);
     this.log('Executing Prover...');
-    const { proof, publicInputs } = await kernelProver.prove(await txExecutionRequest.toTxRequest(), executionResult);
+    const { proof, publicInputs } = await kernelProver.prove(txExecutionRequest.toTxRequest(argsHash), executionResult);
     this.log('Proof completed!');
 
     const newContractPublicFunctions = newContractAddress
       ? await this.getNewContractPublicFunctions(newContractAddress)
       : [];
 
-    // 1 tx containing only 1 function invocation
     const encryptedLogs = new TxL2Logs(collectEncryptedLogs(executionResult));
+    const unencryptedLogs = new TxL2Logs(collectUnencryptedLogs(executionResult));
 
     return Tx.createTx(
       publicInputs,
       proof,
       encryptedLogs,
+      unencryptedLogs,
       newContractPublicFunctions,
       collectEnqueuedPublicFunctionCalls(executionResult),
     );
