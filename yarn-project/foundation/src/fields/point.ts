@@ -1,5 +1,4 @@
 import { BufferReader } from '../serialize/buffer_reader.js';
-import { Tuple } from '../serialize/types.js';
 import { Coordinate } from './coordinate.js';
 
 /**
