@@ -28,7 +28,7 @@ describe('Contract Deployer', () => {
   const args = [12, 345n];
 
   const mockTx = { type: 'Tx' } as any as Tx;
-  const contractDeploymentTx = { type: 'ContractDeploymentTx' } as any as ContractDeploymentTx;
+  const contractDeploymentTx = { type: 'ContractDeploymentTx', tx: mockTx } as any as ContractDeploymentTx;
   const mockTxHash = { type: 'TxHash' } as any as TxHash;
   const mockTxReceipt = { type: 'TxReceipt' } as any as TxReceipt;
 

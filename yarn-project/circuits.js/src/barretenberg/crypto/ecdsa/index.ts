@@ -80,6 +80,6 @@ export class Ecdsa implements Signer {
     this.wasm.writeMemory(96, sig.s);
     this.wasm.writeMemory(128, sig.v);
     this.wasm.writeMemory(mem, msg);
-    return this.wasm.call('ecdsa__verify_signature', mem, 0, 64, 96, 128) ? true : false;
+    return this.wasm.call('ecdsa__verify_signature', mem, msg.length, 0, 64, 96, 128) ? true : false;
   }
 }
