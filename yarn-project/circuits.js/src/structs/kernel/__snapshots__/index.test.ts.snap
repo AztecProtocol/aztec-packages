@@ -285,6 +285,9 @@ function_tree_root: 0x403
 contract_address_salt: 0x404
 portal_contract_address: 0x505050505050505050505050505050505050505
 
+chain_id: 0x0
+version: 0x0
+
 
 private_call:
 call_stack_item:
