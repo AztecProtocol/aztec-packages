@@ -1,7 +1,7 @@
 import { AcirSimulator, collectEncryptedLogs, collectEnqueuedPublicFunctionCalls } from '@aztec/acir-simulator';
 import { AztecNode } from '@aztec/aztec-node';
 import { CircuitsWasm, KERNEL_NEW_COMMITMENTS_LENGTH, PrivateHistoricTreeRoots } from '@aztec/circuits.js';
-import { Curve, Grumpkin, Schnorr, Signer } from '@aztec/circuits.js/barretenberg';
+import { Curve, Signer } from '@aztec/circuits.js/barretenberg';
 import { FunctionType } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr, Point } from '@aztec/foundation/fields';
