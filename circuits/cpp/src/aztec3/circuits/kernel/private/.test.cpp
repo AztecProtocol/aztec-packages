@@ -41,7 +41,7 @@ TEST_F(private_kernel_tests, basic)
     NT::fr const& amount = 5;
     NT::fr const& asset_id = 1;
     NT::fr const& memo = 999;
-    std::array<NT::fr, 2> const& encrypted_logs_hash = { NT::fr(16), NT::fr(69) };
+    std::array<NT::fr, NUM_FIELDS_PER_SHA256> const& encrypted_logs_hash = { NT::fr(16), NT::fr(69) };
     NT::fr const& encrypted_log_preimages_length = NT::fr(100);
 
     // Generate private inputs including proofs and vkeys for app circuit and previous kernel
@@ -64,7 +64,7 @@ TEST_F(private_kernel_tests, circuit_cbinds)
     NT::fr const& arg0 = 5;
     NT::fr const& arg1 = 1;
     NT::fr const& arg2 = 999;
-    std::array<NT::fr, 2> const& encrypted_logs_hash = { NT::fr(16), NT::fr(69) };
+    std::array<NT::fr, NUM_FIELDS_PER_SHA256> const& encrypted_logs_hash = { NT::fr(16), NT::fr(69) };
     NT::fr const& encrypted_log_preimages_length = NT::fr(100);
 
     // first run actual simulation to get public inputs

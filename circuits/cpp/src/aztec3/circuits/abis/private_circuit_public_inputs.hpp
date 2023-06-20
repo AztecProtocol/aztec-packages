@@ -292,8 +292,8 @@ template <typename NCT> class OptionalPrivateCircuitPublicInputs {
     std::array<opt_fr, PUBLIC_CALL_STACK_LENGTH> public_call_stack;
     std::array<opt_fr, NEW_L2_TO_L1_MSGS_LENGTH> new_l2_to_l1_msgs;
 
-    std::array<opt_fr, 2> encrypted_logs_hash;
-    std::array<opt_fr, 2> unencrypted_logs_hash;
+    std::array<opt_fr, NUM_FIELDS_PER_SHA256> encrypted_logs_hash;
+    std::array<opt_fr, NUM_FIELDS_PER_SHA256> unencrypted_logs_hash;
 
     opt_fr encrypted_log_preimages_length;
     opt_fr unencrypted_log_preimages_length;
@@ -321,8 +321,8 @@ template <typename NCT> class OptionalPrivateCircuitPublicInputs {
                                             std::array<opt_fr, PUBLIC_CALL_STACK_LENGTH> const& public_call_stack,
                                             std::array<opt_fr, NEW_L2_TO_L1_MSGS_LENGTH> const& new_l2_to_l1_msgs,
 
-                                            std::array<opt_fr, 2> const& encrypted_logs_hash,
-                                            std::array<opt_fr, 2> const& unencrypted_logs_hash,
+                                            std::array<opt_fr, NUM_FIELDS_PER_SHA256> const& encrypted_logs_hash,
+                                            std::array<opt_fr, NUM_FIELDS_PER_SHA256> const& unencrypted_logs_hash,
 
                                             opt_fr const& encrypted_log_preimages_length,
                                             opt_fr const& unencrypted_log_preimages_length,

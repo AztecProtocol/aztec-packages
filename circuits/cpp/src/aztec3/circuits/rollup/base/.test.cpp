@@ -533,7 +533,7 @@ TEST_F(base_rollup_tests, native_empty_block_calldata_hash)
     BaseOrMergeRollupPublicInputs outputs =
         aztec3::circuits::rollup::native_base_rollup::base_rollup_circuit(composer, inputs);
 
-    std::array<fr, NUM_FIELDS_PER_SHA256> output_calldata_hash = outputs.calldata_hash;
+    std::array<fr, NUM_FIELDS_PER_SHA256> const output_calldata_hash = outputs.calldata_hash;
 
     ASSERT_TRUE(compare_field_hash_to_expected(output_calldata_hash, expected_calldata_hash));
     ASSERT_FALSE(composer.failed());

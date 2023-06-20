@@ -221,7 +221,7 @@ std::array<fr, NUM_FIELDS_PER_SHA256> compute_kernels_calldata_hash(
     auto high = fr::serialize_from_buffer(buf_1.data());
     auto low = fr::serialize_from_buffer(buf_2.data());
 
-    return std::array<NT::fr, 2>{ high, low };
+    return std::array<NT::fr, NUM_FIELDS_PER_SHA256>{ high, low };
 }
 
 /**

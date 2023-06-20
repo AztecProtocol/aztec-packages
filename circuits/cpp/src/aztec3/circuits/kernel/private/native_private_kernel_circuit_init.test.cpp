@@ -51,7 +51,7 @@ class native_private_kernel_init_tests : public ::testing::Test {
  */
 TEST_F(native_private_kernel_init_tests, deposit)
 {
-    std::array<NT::fr, 2> const& encrypted_logs_hash = { NT::fr(16), NT::fr(69) };
+    std::array<NT::fr, NUM_FIELDS_PER_SHA256> const& encrypted_logs_hash = { NT::fr(16), NT::fr(69) };
     NT::fr const& encrypted_log_preimages_length = NT::fr(100);
 
     auto const& private_inputs = do_private_call_get_kernel_inputs_init(

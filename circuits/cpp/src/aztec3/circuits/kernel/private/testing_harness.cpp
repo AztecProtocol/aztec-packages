@@ -110,7 +110,7 @@ std::pair<PrivateCallData<NT>, ContractDeploymentData<NT>> create_private_call_d
     private_function const& func,
     std::vector<NT::fr> const& args_vec,
     NT::address const& msg_sender,
-    std::array<NT::fr, 2> const& encrypted_logs_hash,
+    std::array<NT::fr, NUM_FIELDS_PER_SHA256> const& encrypted_logs_hash,
     NT::fr const& encrypted_log_preimages_length,
     bool is_circuit)
 {
@@ -321,12 +321,13 @@ std::pair<PrivateCallData<NT>, ContractDeploymentData<NT>> create_private_call_d
  * @param is_circuit boolean to switch to circuit or native (fake vk and no proof)
  * @return PrivateInputsInit<NT> - the inputs to the private call circuit of an init iteration
  */
-PrivateKernelInputsInit<NT> do_private_call_get_kernel_inputs_init(bool const is_constructor,
-                                                                   private_function const& func,
-                                                                   std::vector<NT::fr> const& args_vec,
-                                                                   std::array<NT::fr, 2> const& encrypted_logs_hash,
-                                                                   NT::fr const& encrypted_log_preimages_length,
-                                                                   bool is_circuit)
+PrivateKernelInputsInit<NT> do_private_call_get_kernel_inputs_init(
+    bool const is_constructor,
+    private_function const& func,
+    std::vector<NT::fr> const& args_vec,
+    std::array<NT::fr, NUM_FIELDS_PER_SHA256> const& encrypted_logs_hash,
+    NT::fr const& encrypted_log_preimages_length,
+    bool is_circuit)
 {
     //***************************************************************************
     // Initialize some inputs to private call and kernel circuits
@@ -373,12 +374,13 @@ PrivateKernelInputsInit<NT> do_private_call_get_kernel_inputs_init(bool const is
  * @param is_circuit boolean to switch to circuit or native (fake vk and no proof)
  * @return PrivateInputsInner<NT> - the inputs to the private call circuit of an inner iteration
  */
-PrivateKernelInputsInner<NT> do_private_call_get_kernel_inputs_inner(bool const is_constructor,
-                                                                     private_function const& func,
-                                                                     std::vector<NT::fr> const& args_vec,
-                                                                     std::array<NT::fr, 2> const& encrypted_logs_hash,
-                                                                     NT::fr const& encrypted_log_preimages_length,
-                                                                     bool is_circuit)
+PrivateKernelInputsInner<NT> do_private_call_get_kernel_inputs_inner(
+    bool const is_constructor,
+    private_function const& func,
+    std::vector<NT::fr> const& args_vec,
+    std::array<NT::fr, NUM_FIELDS_PER_SHA256> const& encrypted_logs_hash,
+    NT::fr const& encrypted_log_preimages_length,
+    bool is_circuit)
 {
     //***************************************************************************
     // Initialize some inputs to private call and kernel circuits
