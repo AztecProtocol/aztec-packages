@@ -4,6 +4,7 @@ import { ZkTokenContractAbi } from '@aztec/noir-contracts/examples';
 
 import { DebugLogger } from '@aztec/foundation/log';
 import { pointToPublicKey, setup } from './utils.js';
+import { L2BlockL2Logs } from '@aztec/types';
 
 describe('e2e_zk_token_contract', () => {
   let aztecNode: AztecNodeService;
@@ -29,6 +30,14 @@ describe('e2e_zk_token_contract', () => {
     expect(balance).toBe(expectedBalance);
   };
 
+  const expectLogsFromLastBlockToBe = async (message: string) => {
+    const l2BlockNum = await aztecNode.getBlockHeight();
+    const unencryptedLogs = await aztecNode.getUnencryptedLogs(l2BlockNum, 1);
+    const unrolledLogs = L2BlockL2Logs.unrollLogs(unencryptedLogs);
+    expect(unrolledLogs.length).toBe(1);
+    expect(unrolledLogs[0].toString('ascii')).toBe(message);
+  };
+
   const deployContract = async (initialBalance = 0n, owner = { x: 0n, y: 0n }) => {
     logger(`Deploying L2 contract...`);
     const deployer = new ContractDeployer(ZkTokenContractAbi, aztecRpcServer);
@@ -51,6 +60,8 @@ describe('e2e_zk_token_contract', () => {
     await deployContract(initialBalance, pointToPublicKey(owner));
     await expectBalance(accounts[0], initialBalance);
     await expectBalance(accounts[1], 0n);
+
+    await expectLogsFromLastBlockToBe('Balance set in constructor');
   }, 30_000);
 
   /**
@@ -64,6 +75,7 @@ describe('e2e_zk_token_contract', () => {
 
     const deployedContract = await deployContract(0n, ownerPublicKey);
     await expectBalance(owner, 0n);
+    await expectLogsFromLastBlockToBe('Balance set in constructor');
 
     const tx = deployedContract.methods.mint(mintAmount, ownerPublicKey).send({ from: owner });
 
@@ -72,12 +84,14 @@ describe('e2e_zk_token_contract', () => {
 
     expect(receipt.status).toBe(TxStatus.MINED);
     await expectBalance(owner, mintAmount);
+
+    await expectLogsFromLastBlockToBe('Coins minted');
   }, 60_000);
 
   /**
    * Milestone 1.5.
    */
-  it('1.5 should call transfer and increase balance of another account', async () => {
+  it.only('1.5 should call transfer and increase balance of another account', async () => {
     const initialBalance = 987n;
     const transferAmount = 654n;
     const [owner, receiver] = accounts;
@@ -86,6 +100,8 @@ describe('e2e_zk_token_contract', () => {
 
     await expectBalance(owner, initialBalance);
     await expectBalance(receiver, 0n);
+
+    await expectLogsFromLastBlockToBe('Balance set in constructor');
 
     const tx = contract.methods
       .transfer(
@@ -102,5 +118,7 @@ describe('e2e_zk_token_contract', () => {
 
     await expectBalance(owner, initialBalance - transferAmount);
     await expectBalance(receiver, transferAmount);
+
+    await expectLogsFromLastBlockToBe('Coins transferred');
   }, 60_000);
 });
