@@ -1197,10 +1197,7 @@ TEST_F(native_private_kernel_ordering_tests, native_read_request_unknown_fails)
     auto const& public_inputs = native_private_kernel_circuit_ordering(composer, private_inputs);
 
     auto failure = composer.get_first_failure();
-    if (failure.code != CircuitErrorCode::PRIVATE_KERNEL__TRANSIENT_READ_REQUEST_NO_MATCH) {
-        info("failure: ", failure);
-    }
-    ASSERT_TRUE(failure.code == CircuitErrorCode::PRIVATE_KERNEL__TRANSIENT_READ_REQUEST_NO_MATCH);
+    ASSERT_EQ(failure.code, CircuitErrorCode::PRIVATE_KERNEL__TRANSIENT_READ_REQUEST_NO_MATCH);
 }
 
 }  // namespace aztec3::circuits::kernel::private_kernel
