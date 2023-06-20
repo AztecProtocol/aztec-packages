@@ -108,9 +108,9 @@ describe('Archiver', () => {
     expect(encryptedLogs.length).toEqual(blockNums.length);
 
     for (const [index, x] of blockNums.entries()) {
-      const expectedTotalNumEncrytpedLogs = 4 * x * (x * 2);
-      const totalNumEncryptedLogs = countIndividualLogs(encryptedLogs[index]);
-      expect(totalNumEncryptedLogs).toEqual(expectedTotalNumEncrytpedLogs);
+      const expectedTotalNumEncryptedLogs = 4 * x * (x * 2);
+      const totalNumEncryptedLogs = L2BlockL2Logs.unrollLogs([encryptedLogs[index]]).length;
+      expect(totalNumEncryptedLogs).toEqual(expectedTotalNumEncryptedLogs);
     }
 
     const unencryptedLogs = await archiver.getUnencryptedLogs(1, 100);
@@ -118,7 +118,7 @@ describe('Archiver', () => {
 
     blockNums.forEach((x, index) => {
       const expectedTotalNumUnencryptedLogs = 4 * (x + 1) * (x * 3);
-      const totalNumUnencryptedLogs = countIndividualLogs(unencryptedLogs[index]);
+      const totalNumUnencryptedLogs = L2BlockL2Logs.unrollLogs([unencryptedLogs[index]]).length;
       expect(totalNumUnencryptedLogs).toEqual(expectedTotalNumUnencryptedLogs);
     });
 
@@ -222,11 +222,4 @@ function makeRollupTx(l2Block: L2Block) {
   const block = toHex(l2Block.encode());
   const input = encodeFunctionData({ abi: RollupAbi, functionName: 'process', args: [proof, block] });
   return { input } as Transaction<bigint, number>;
-}
-
-function countIndividualLogs(logs: L2BlockL2Logs): number {
-  return logs.txLogs.reduce(
-    (acc, txLogs) => acc + txLogs.functionLogs.reduce((total, functionLogs) => total + functionLogs.logs.length, 0),
-    0,
-  );
 }

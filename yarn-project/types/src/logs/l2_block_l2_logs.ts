@@ -64,7 +64,7 @@ export class L2BlockL2Logs {
   /**
    * Unrolls logs from a set of blocks.
    * @param blockLogs - Input logs from a set of blocks.
-   * @returns Unrolled unencrypted logs.
+   * @returns Unrolled logs.
    */
   public static unrollLogs(blockLogs: L2BlockL2Logs[]): Buffer[] {
     const logs: Buffer[] = [];

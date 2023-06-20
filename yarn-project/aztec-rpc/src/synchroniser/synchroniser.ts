@@ -89,7 +89,7 @@ export class Synchroniser {
       }
 
       if (blocks.length !== unencryptedLogs.length) {
-        // "Trim" the encrypted logs to match the number of blocks.
+        // "Trim" the unencrypted logs to match the number of blocks.
         unencryptedLogs = unencryptedLogs.slice(0, blocks.length);
       }
 
