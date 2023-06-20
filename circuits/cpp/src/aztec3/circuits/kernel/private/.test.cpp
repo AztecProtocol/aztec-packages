@@ -43,10 +43,18 @@ TEST_F(private_kernel_tests, basic)
     NT::fr const& memo = 999;
     std::array<NT::fr, NUM_FIELDS_PER_SHA256> const& encrypted_logs_hash = { NT::fr(16), NT::fr(69) };
     NT::fr const& encrypted_log_preimages_length = NT::fr(100);
+    std::array<NT::fr, NUM_FIELDS_PER_SHA256> const& unencrypted_logs_hash = { NT::fr(26), NT::fr(47) };
+    NT::fr const& unencrypted_log_preimages_length = NT::fr(50);
 
     // Generate private inputs including proofs and vkeys for app circuit and previous kernel
-    auto const& private_inputs = do_private_call_get_kernel_inputs_inner(
-        false, deposit, { amount, asset_id, memo }, encrypted_logs_hash, encrypted_log_preimages_length, true);
+    auto const& private_inputs = do_private_call_get_kernel_inputs_inner(false,
+                                                                         deposit,
+                                                                         { amount, asset_id, memo },
+                                                                         encrypted_logs_hash,
+                                                                         unencrypted_logs_hash,
+                                                                         encrypted_log_preimages_length,
+                                                                         unencrypted_log_preimages_length,
+                                                                         true);
 
     // Execute and prove the first kernel iteration
     Composer private_kernel_composer("../barretenberg/cpp/srs_db/ignition");
@@ -66,10 +74,18 @@ TEST_F(private_kernel_tests, circuit_cbinds)
     NT::fr const& arg2 = 999;
     std::array<NT::fr, NUM_FIELDS_PER_SHA256> const& encrypted_logs_hash = { NT::fr(16), NT::fr(69) };
     NT::fr const& encrypted_log_preimages_length = NT::fr(100);
+    std::array<NT::fr, NUM_FIELDS_PER_SHA256> const& unencrypted_logs_hash = { NT::fr(26), NT::fr(47) };
+    NT::fr const& unencrypted_log_preimages_length = NT::fr(50);
 
     // first run actual simulation to get public inputs
-    auto const& private_inputs = do_private_call_get_kernel_inputs_init(
-        true, constructor, { arg0, arg1, arg2 }, encrypted_logs_hash, encrypted_log_preimages_length, true);
+    auto const& private_inputs = do_private_call_get_kernel_inputs_init(true,
+                                                                        constructor,
+                                                                        { arg0, arg1, arg2 },
+                                                                        encrypted_logs_hash,
+                                                                        unencrypted_logs_hash,
+                                                                        encrypted_log_preimages_length,
+                                                                        unencrypted_log_preimages_length,
+                                                                        true);
     DummyComposer composer = DummyComposer("private_kernel_tests__circuit_create_proof_cbinds");
     auto const& public_inputs = native_private_kernel_circuit_initial(composer, private_inputs);
 
