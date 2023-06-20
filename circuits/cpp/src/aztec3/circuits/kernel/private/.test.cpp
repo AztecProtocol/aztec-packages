@@ -30,7 +30,7 @@ class private_kernel_tests : public ::testing::Test {
 /**
  * @brief Check private kernel circuit for arbitrary valid app proof and previous kernel proof
  * @details The purpose of this test is to check the private kernel circuit given a valid app proof and a valid previous
- * private kernal proof. To avoid doing actual proof construction, we simply read in an arbitrary but valid proof and a
+ * private kernel proof. To avoid doing actual proof construction, we simply read in an arbitrary but valid proof and a
  * corresponding valid verification key from file. The same proof and vkey data is used for both the app and the
  * previous kernel.
  * @note The choice of app circuit (currently 'deposit') is entirely arbitrary and can be replaced with any other valid
@@ -41,19 +41,21 @@ TEST_F(private_kernel_tests, basic)
     NT::fr const& amount = 5;
     NT::fr const& asset_id = 1;
     NT::fr const& memo = 999;
-    std::array<NT::fr, NUM_FIELDS_PER_SHA256> const& encrypted_logs_hash = { NT::fr(16), NT::fr(69) };
-    NT::fr const& encrypted_log_preimages_length = NT::fr(100);
-    std::array<NT::fr, NUM_FIELDS_PER_SHA256> const& unencrypted_logs_hash = { NT::fr(26), NT::fr(47) };
-    NT::fr const& unencrypted_log_preimages_length = NT::fr(50);
+    std::array<NT::fr, NUM_FIELDS_PER_SHA256> const& empty_logs_hash = { NT::fr(16), NT::fr(69) };
+    NT::fr const& empty_log_preimages_length = NT::fr(100);
 
     // Generate private inputs including proofs and vkeys for app circuit and previous kernel
     auto const& private_inputs = do_private_call_get_kernel_inputs_inner(false,
                                                                          deposit,
                                                                          { amount, asset_id, memo },
-                                                                         encrypted_logs_hash,
-                                                                         unencrypted_logs_hash,
-                                                                         encrypted_log_preimages_length,
-                                                                         unencrypted_log_preimages_length,
+                                                                         empty_logs_hash,
+                                                                         empty_logs_hash,
+                                                                         empty_log_preimages_length,
+                                                                         empty_log_preimages_length,
+                                                                         empty_logs_hash,
+                                                                         empty_logs_hash,
+                                                                         empty_log_preimages_length,
+                                                                         empty_log_preimages_length,
                                                                          true);
 
     // Execute and prove the first kernel iteration

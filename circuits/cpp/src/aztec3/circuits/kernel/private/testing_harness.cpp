@@ -393,6 +393,12 @@ PrivateKernelInputsInit<NT> do_private_call_get_kernel_inputs_init(
  * @param unencrypted_logs_hash The unencrypted logs hash emitted from app circuit.
  * @param encrypted_log_preimages_length The length of encrypted logs emitted from app circuit.
  * @param unencrypted_log_preimages_length The length of unencrypted logs emitted from app circuit.
+ * @param public_inputs_encrypted_logs_hash The encrypted logs hash on the output of the previous kernel.
+ * @param public_inputs_unencrypted_logs_hash The unencrypted logs hash on the output of the previous kernel.
+ * @param public_inputs_encrypted_log_preimages_length The length of encrypted logs on the output of the previous
+ * kernel.
+ * @param public_inputs_unencrypted_log_preimages_length The length of unencrypted logs on the output of the previous
+ * kernel.
  * @param is_circuit boolean to switch to circuit or native (fake vk and no proof)
  * @return PrivateInputsInner<NT> - the inputs to the private call circuit of an inner iteration
  */
@@ -404,6 +410,10 @@ PrivateKernelInputsInner<NT> do_private_call_get_kernel_inputs_inner(
     std::array<NT::fr, NUM_FIELDS_PER_SHA256> const& unencrypted_logs_hash,
     NT::fr const& encrypted_log_preimages_length,
     NT::fr const& unencrypted_log_preimages_length,
+    std::array<NT::fr, NUM_FIELDS_PER_SHA256> const& public_inputs_encrypted_logs_hash,
+    std::array<NT::fr, NUM_FIELDS_PER_SHA256> const& public_inputs_unencrypted_logs_hash,
+    NT::fr const& public_inputs_encrypted_log_preimages_length,
+    NT::fr const& public_inputs_unencrypted_log_preimages_length,
     bool is_circuit)
 {
     //***************************************************************************
@@ -456,6 +466,12 @@ PrivateKernelInputsInner<NT> do_private_call_get_kernel_inputs_inner(
         .tx_context = tx_context,
     };
     mock_previous_kernel.public_inputs.is_private = true;
+    mock_previous_kernel.public_inputs.end.encrypted_logs_hash = public_inputs_encrypted_logs_hash;
+    mock_previous_kernel.public_inputs.end.unencrypted_logs_hash = public_inputs_unencrypted_logs_hash;
+    mock_previous_kernel.public_inputs.end.encrypted_log_preimages_length =
+        public_inputs_encrypted_log_preimages_length;
+    mock_previous_kernel.public_inputs.end.unencrypted_log_preimages_length =
+        public_inputs_unencrypted_log_preimages_length;
 
     //***************************************************************************
     // Now we can construct the full private inputs to the kernel circuit

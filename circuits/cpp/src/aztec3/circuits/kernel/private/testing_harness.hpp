@@ -113,11 +113,17 @@ std::pair<PrivateCallData<NT>, ContractDeploymentData<NT>> create_private_call_d
  * @param unencrypted_logs_hash The unencrypted logs hash emitted from app circuit.
  * @param encrypted_log_preimages_length The length of encrypted logs emitted from app circuit.
  * @param unencrypted_log_preimages_length The length of unencrypted logs emitted from app circuit.
+ * @param public_inputs_encrypted_logs_hash The encrypted logs hash on the output of the previous kernel.
+ * @param public_inputs_unencrypted_logs_hash The unencrypted logs hash on the output of the previous kernel.
+ * @param public_inputs_encrypted_log_preimages_length The length of encrypted logs on the output of the previous
+ * kernel.
+ * @param public_inputs_unencrypted_log_preimages_length The length of unencrypted logs on the output of the previous
+ * kernel.
  * @param is_circuit boolean to switch to circuit or native (fake vk and no proof)
  * @return PrivateInputsInner<NT> - the inputs to the private call circuit of an inner iteration
  */
 PrivateKernelInputsInner<NT> do_private_call_get_kernel_inputs_inner(
-    bool const is_constructor,
+    bool is_constructor,
     private_function const& func,
     std::vector<NT::fr> const& args_vec,
     std::array<NT::fr, NUM_FIELDS_PER_SHA256> const& encrypted_logs_hash = zero_array<NT::fr, NUM_FIELDS_PER_SHA256>(),
@@ -125,6 +131,12 @@ PrivateKernelInputsInner<NT> do_private_call_get_kernel_inputs_inner(
         zero_array<NT::fr, NUM_FIELDS_PER_SHA256>(),
     NT::fr const& encrypted_log_preimages_length = NT::fr(0),
     NT::fr const& unencrypted_log_preimages_length = NT::fr(0),
+    std::array<NT::fr, NUM_FIELDS_PER_SHA256> const& public_inputs_encrypted_logs_hash =
+        zero_array<NT::fr, NUM_FIELDS_PER_SHA256>(),
+    std::array<NT::fr, NUM_FIELDS_PER_SHA256> const& public_inputs_unencrypted_logs_hash =
+        zero_array<NT::fr, NUM_FIELDS_PER_SHA256>(),
+    NT::fr const& public_inputs_encrypted_log_preimages_length = NT::fr(0),
+    NT::fr const& public_inputs_unencrypted_log_preimages_length = NT::fr(0),
     bool is_circuit = false);
 
 /**
@@ -141,7 +153,7 @@ PrivateKernelInputsInner<NT> do_private_call_get_kernel_inputs_inner(
  * @return PrivateInputsInit<NT> - the inputs to the private call circuit of an init iteration
  */
 PrivateKernelInputsInit<NT> do_private_call_get_kernel_inputs_init(
-    bool const is_constructor,
+    bool is_constructor,
     private_function const& func,
     std::vector<NT::fr> const& args_vec,
     std::array<NT::fr, NUM_FIELDS_PER_SHA256> const& encrypted_logs_hash = zero_array<NT::fr, NUM_FIELDS_PER_SHA256>(),
