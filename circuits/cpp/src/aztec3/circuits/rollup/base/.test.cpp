@@ -34,6 +34,7 @@ using aztec3::circuits::abis::PreviousKernelData;
 
 // using aztec3::circuits::mock::mock_circuit;
 using aztec3::circuits::rollup::test_utils::utils::base_rollup_inputs_from_kernels;
+using aztec3::circuits::rollup::test_utils::utils::compare_field_hash_to_expected;
 using aztec3::circuits::rollup::test_utils::utils::get_empty_kernel;
 using aztec3::circuits::rollup::test_utils::utils::get_initial_nullifier_tree;
 // using aztec3::circuits::mock::mock_kernel_inputs;
@@ -527,22 +528,14 @@ TEST_F(base_rollup_tests, native_empty_block_calldata_hash)
 {
     DummyComposer composer = DummyComposer("base_rollup_tests__native_empty_block_calldata_hash");
     std::vector<uint8_t> const zero_bytes_vec = test_utils::utils::get_empty_calldata_leaf();
-    auto hash = sha256::sha256(zero_bytes_vec);
+    auto expected_calldata_hash = sha256::sha256(zero_bytes_vec);
     BaseRollupInputs inputs = base_rollup_inputs_from_kernels({ get_empty_kernel(), get_empty_kernel() });
     BaseOrMergeRollupPublicInputs outputs =
         aztec3::circuits::rollup::native_base_rollup::base_rollup_circuit(composer, inputs);
 
-    std::array<fr, NUM_FIELDS_PER_SHA256> calldata_hash_fr = outputs.calldata_hash;
-    auto high_buffer = calldata_hash_fr[0].to_buffer();
-    auto low_buffer = calldata_hash_fr[1].to_buffer();
+    std::array<fr, NUM_FIELDS_PER_SHA256> output_calldata_hash = outputs.calldata_hash;
 
-    std::array<uint8_t, 32> calldata_hash;
-    for (uint8_t i = 0; i < 16; ++i) {
-        calldata_hash[i] = high_buffer[16 + i];
-        calldata_hash[16 + i] = low_buffer[16 + i];
-    }
-
-    ASSERT_EQ(hash, calldata_hash);
+    ASSERT_TRUE(compare_field_hash_to_expected(output_calldata_hash, expected_calldata_hash));
     ASSERT_FALSE(composer.failed());
 
     run_cbind(inputs, outputs);
