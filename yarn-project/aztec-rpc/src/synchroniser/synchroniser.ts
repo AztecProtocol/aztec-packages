@@ -150,7 +150,15 @@ export class Synchroniser {
    * @returns A promise that resolves once the account is added to the Synchroniser.
    */
   public async addAccount(privKey: Buffer, address: AztecAddress, partialContractAddress: PartialContractAddress) {
-    const accountState = new AccountState(privKey, address, partialContractAddress, this.db, this.node, await Grumpkin.new(), await Schnorr.new());
+    const accountState = new AccountState(
+      privKey,
+      address,
+      partialContractAddress,
+      this.db,
+      this.node,
+      await Grumpkin.new(),
+      await Schnorr.new(),
+    );
     this.accountStates.push(accountState);
     return Promise.resolve(accountState);
   }

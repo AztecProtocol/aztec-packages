@@ -1,4 +1,4 @@
-import { Fr, KernelCircuitPublicInputs, Proof, PublicCallRequest } from '@aztec/circuits.js';
+import { KernelCircuitPublicInputs, Proof, PublicCallRequest } from '@aztec/circuits.js';
 
 import { arrayNonEmptyLength } from '@aztec/foundation/collection';
 import { EncodedContractFunction } from './contract_data.js';
