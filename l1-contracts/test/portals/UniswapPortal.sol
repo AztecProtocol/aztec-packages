@@ -32,7 +32,9 @@ contract UniswapPortal {
 
   /**
    * @notice Exit with funds from L2, perform swap on L1 and deposit output asset to L2 again
-   * @dev `msg.value` indicates fee to submit message to inbox.
+   * @dev `msg.value` indicates fee to submit message to inbox. Currently, anyone can call this method on your behalf.
+   * They could call it with 0 fee causing the sequencer to never include in the rollup.
+   * In this case, you will have to cancel the message and then make the deposit later
    * @param _inputTokenPortal - The ethereum address of the input token portal
    * @param _inAmount - The amount of assets to swap (same amount as withdrawn from L2)
    * @param _uniswapFeeTier - The fee tier for the swap on UniswapV3

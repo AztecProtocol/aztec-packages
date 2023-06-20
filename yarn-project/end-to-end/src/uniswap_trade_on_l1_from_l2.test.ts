@@ -19,10 +19,15 @@ import { UniswapPortalAbi, UniswapPortalBytecode } from '@aztec/l1-artifacts';
 import { UniswapContractAbi } from '@aztec/noir-contracts/examples';
 
 // PSA: this works on a fork of mainnet but with the default anvil chain id. Start it with the command:
-// anvil --fork-url https://mainnet.infura.io/v3/9928b52099854248b3a096be07a6b23c --chain-id 31337
+// anvil --fork-url https://mainnet.infura.io/v3/9928b52099854248b3a096be07a6b23c --fork-block-number 17514288 --chain-id 31337
+// For CI, this is configured in `run_tests.sh` and `docker-compose.yml`
 
 // Should mint WETH on L2, swap to DAI using L1 Uniswap and mint this DAI back on L2
 describe('uniswap_trade_on_l1_from_l2', () => {
+  // test runs on a forked version of mainnet at this block.
+  const EXPECTED_FORKED_BLOCK = 17514288;
+  // We tell the archiver to only sync from this block.
+  process.env.SEARCH_START_BLOCK = EXPECTED_FORKED_BLOCK.toString();
   const WETH9_ADDRESS: EthAddress = EthAddress.fromString('0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2');
   const DAI_ADDRESS: EthAddress = EthAddress.fromString('0x6B175474E89094C44Da98b954EedeAC495271d0F');
 
@@ -60,6 +65,10 @@ describe('uniswap_trade_on_l1_from_l2', () => {
 
     walletClient = deployL1ContractsValues.walletClient;
     publicClient = deployL1ContractsValues.publicClient;
+
+    if (Number(await publicClient.getBlockNumber()) < EXPECTED_FORKED_BLOCK) {
+      throw new Error('This test must be run on a fork of mainnet with the expected fork block');
+    }
 
     ethAccount = EthAddress.fromString((await walletClient.getAddresses())[0]);
     [ownerAddress, receiver] = accounts;
