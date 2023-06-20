@@ -40,7 +40,7 @@ export class Schnorr implements Signer {
     const mem = this.wasm.call('bbmalloc', msg.length);
     this.wasm.writeMemory(0, privateKey);
     this.wasm.writeMemory(mem, msg);
-    this.wasm.call('schnorr_construct_signature', mem, msg.length, 0, 32, 64);
+    this.wasm.call('schnorr_construct_signature', mem, 0, 32, 64);
 
     return new SchnorrSignature(Buffer.from(this.wasm.getMemorySlice(32, 96)));
   }
@@ -58,7 +58,7 @@ export class Schnorr implements Signer {
     this.wasm.writeMemory(64, sig.s());
     this.wasm.writeMemory(96, sig.e());
     this.wasm.writeMemory(mem, msg);
-    this.wasm.call('schnorr_verify_signature', mem, msg.length, 0, 64, 96, 128);
+    this.wasm.call('schnorr_verify_signature', mem, 0, 64, 96, 128);
     const result = this.wasm.getMemorySlice(128, 129);
     return result != Buffer.alloc(1);
   }
