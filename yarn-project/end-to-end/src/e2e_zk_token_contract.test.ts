@@ -30,12 +30,13 @@ describe('e2e_zk_token_contract', () => {
     expect(balance).toBe(expectedBalance);
   };
 
-  const expectLogsFromLastBlockToBe = async (message: string) => {
+  const expectLogsFromLastBlockToBe = async (logMessages: string[]) => {
     const l2BlockNum = await aztecNode.getBlockHeight();
     const unencryptedLogs = await aztecNode.getUnencryptedLogs(l2BlockNum, 1);
     const unrolledLogs = L2BlockL2Logs.unrollLogs(unencryptedLogs);
-    expect(unrolledLogs.length).toBe(1);
-    expect(unrolledLogs[0].toString('ascii')).toBe(message);
+    const asciiLogs = unrolledLogs.map(log => log.toString('ascii'));
+
+    expect(asciiLogs).toStrictEqual(logMessages);
   };
 
   const deployContract = async (initialBalance = 0n, owner = { x: 0n, y: 0n }) => {
@@ -61,7 +62,7 @@ describe('e2e_zk_token_contract', () => {
     await expectBalance(accounts[0], initialBalance);
     await expectBalance(accounts[1], 0n);
 
-    await expectLogsFromLastBlockToBe('Balance set in constructor');
+    await expectLogsFromLastBlockToBe(['Balance set in constructor']);
   }, 30_000);
 
   /**
@@ -75,7 +76,7 @@ describe('e2e_zk_token_contract', () => {
 
     const deployedContract = await deployContract(0n, ownerPublicKey);
     await expectBalance(owner, 0n);
-    await expectLogsFromLastBlockToBe('Balance set in constructor');
+    await expectLogsFromLastBlockToBe(['Balance set in constructor']);
 
     const tx = deployedContract.methods.mint(mintAmount, ownerPublicKey).send({ from: owner });
 
@@ -85,7 +86,7 @@ describe('e2e_zk_token_contract', () => {
     expect(receipt.status).toBe(TxStatus.MINED);
     await expectBalance(owner, mintAmount);
 
-    await expectLogsFromLastBlockToBe('Coins minted');
+    await expectLogsFromLastBlockToBe(['Coins minted']);
   }, 60_000);
 
   /**
@@ -101,7 +102,7 @@ describe('e2e_zk_token_contract', () => {
     await expectBalance(owner, initialBalance);
     await expectBalance(receiver, 0n);
 
-    await expectLogsFromLastBlockToBe('Balance set in constructor');
+    await expectLogsFromLastBlockToBe(['Balance set in constructor']);
 
     const tx = contract.methods
       .transfer(
@@ -119,6 +120,6 @@ describe('e2e_zk_token_contract', () => {
     await expectBalance(owner, initialBalance - transferAmount);
     await expectBalance(receiver, transferAmount);
 
-    await expectLogsFromLastBlockToBe('Coins transferred');
+    await expectLogsFromLastBlockToBe(['Coins transferred']);
   }, 60_000);
 });
