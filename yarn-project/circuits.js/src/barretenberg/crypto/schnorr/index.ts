@@ -43,12 +43,7 @@ export class Schnorr implements Signer {
     this.wasm.writeMemory(mem, Buffer.concat([numToUInt32BE(msg.length), msg]));
     this.wasm.call('schnorr_construct_signature', mem, 0, 32, 64);
 
-    const sig = new SchnorrSignature(Buffer.from(this.wasm.getMemorySlice(32, 96)));
-
-    const pubKey = this.computePublicKey(privateKey);
-    const verify = this.verifySignature(msg, pubKey, sig);
-    console.log(`Verify ${verify}`);
-    return sig;
+    return new SchnorrSignature(Buffer.from(this.wasm.getMemorySlice(32, 96)));
   }
 
   /**

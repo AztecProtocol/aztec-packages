@@ -9,7 +9,6 @@ import partition from 'lodash.partition';
 import times from 'lodash.times';
 import { generateFunctionSelector } from '../index.js';
 import { AccountImplementation } from './index.js';
-import { resolve } from 'path';
 
 /**
  * Account backed by an account contract
