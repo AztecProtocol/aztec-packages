@@ -555,6 +555,12 @@ TEST_F(base_rollup_tests, native_calldata_hash)
         }
     }
 
+    // Add logs hashes
+    kernel_data[0].public_inputs.end.encrypted_logs_hash = { NT::fr(16), NT::fr(69) };
+    kernel_data[1].public_inputs.end.encrypted_logs_hash = { NT::fr(812), NT::fr(234) };
+    kernel_data[0].public_inputs.end.unencrypted_logs_hash = { NT::fr(163), NT::fr(212) };
+    kernel_data[1].public_inputs.end.unencrypted_logs_hash = { NT::fr(4352), NT::fr(1632) };
+
     // Add a contract deployment
     NewContractData<NT> const new_contract = {
         .contract_address = fr(1),
