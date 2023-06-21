@@ -1,7 +1,7 @@
 // See aztec3/constants.hpp
 // Copied here for prototyping purposes
 // In future: structured serialization?
-export const ARGS_LENGTH = 8;
+export const ARGS_LENGTH = 16; // MAX_ARGS in Noir
 export const RETURN_VALUES_LENGTH = 4;
 
 export const READ_REQUESTS_LENGTH = 4;
@@ -40,3 +40,6 @@ export const CONTRACT_TREE_ROOTS_TREE_HEIGHT = 8;
 export const ROLLUP_VK_TREE_HEIGHT = 8;
 
 export const FUNCTION_SELECTOR_NUM_BYTES = 4;
+
+// sha256 hash is stored in two fields to accommodate all 256-bits of the hash
+export const NUM_FIELDS_PER_SHA256 = 2;
