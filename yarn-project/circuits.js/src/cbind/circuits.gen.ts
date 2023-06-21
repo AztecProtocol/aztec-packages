@@ -575,22 +575,22 @@ export function fromCombinedHistoricTreeRoots(o: CombinedHistoricTreeRoots): Msg
 }
 
 interface MsgpackCoordinate {
-  limbs: Tuple<Buffer, 2>;
+  fields: Tuple<Buffer, 2>;
 }
 
 export function toCoordinate(o: MsgpackCoordinate): Coordinate {
-  if (o.limbs === undefined) {
-    throw new Error('Expected limbs in Coordinate deserialization');
+  if (o.fields === undefined) {
+    throw new Error('Expected fields in Coordinate deserialization');
   }
-  return new Coordinate(mapTuple(o.limbs, (v: Buffer) => Fr.fromBuffer(v)));
+  return new Coordinate(mapTuple(o.fields, (v: Buffer) => Fr.fromBuffer(v)));
 }
 
 export function fromCoordinate(o: Coordinate): MsgpackCoordinate {
-  if (o.limbs === undefined) {
-    throw new Error('Expected limbs in Coordinate serialization');
+  if (o.fields === undefined) {
+    throw new Error('Expected fields in Coordinate serialization');
   }
   return {
-    limbs: mapTuple(o.limbs, (v: Fr) => v.toBuffer()),
+    fields: mapTuple(o.fields, (v: Fr) => v.toBuffer()),
   };
 }
 

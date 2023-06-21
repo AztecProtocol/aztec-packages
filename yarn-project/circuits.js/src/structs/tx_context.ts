@@ -1,6 +1,6 @@
 import { BufferReader } from '@aztec/foundation/serialize';
 import { serializeToBuffer } from '../utils/serialize.js';
-import { EthAddress, Fr, AztecAddress, Point } from './index.js';
+import { EthAddress, Fr, AztecAddress, Point, Coordinate } from './index.js';
 
 /**
  * Contract deployment data in a TxContext
@@ -55,7 +55,7 @@ export class ContractDeploymentData {
   static fromBuffer(buffer: Buffer | BufferReader): ContractDeploymentData {
     const reader = BufferReader.asReader(buffer);
     return new ContractDeploymentData(
-      reader.readObject(Point),
+      new Point(new Coordinate([reader.readFr(), reader.readFr()]), new Coordinate([reader.readFr(), reader.readFr()])),
       reader.readFr(),
       reader.readFr(),
       reader.readFr(),

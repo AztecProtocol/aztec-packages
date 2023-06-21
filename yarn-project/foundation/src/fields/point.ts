@@ -47,7 +47,7 @@ export class Point {
    */
   static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
-    return new this(reader.readObject(Coordinate), reader.readObject(Coordinate));
+    return new this(Coordinate.fromBuffer(reader.readBytes(32)), Coordinate.fromBuffer(reader.readBytes(32)));
   }
 
   /**
@@ -62,7 +62,7 @@ export class Point {
 
   /**
    * Create a Point instance from a hex-encoded string.
-   * The input 'address' should be prefixed with '0x' or not, and have exactly 256 hex characters representing the x and y coordinates.
+   * The input 'address' should be prefixed with '0x' or not, and have exactly 128 hex characters representing the x and y coordinates.
    * Throws an error if the input length is invalid or coordinate values are out of range.
    *
    * @param address - The hex-encoded string representing the Point coordinates.
@@ -73,10 +73,19 @@ export class Point {
   }
 
   /**
-   * Convert the Point instance to a Buffer representation.
-   * The output buffer's length will be equal to the `Point.SIZE_IN_BYTES` constant (64 bytes).
+   * Convert the Point instance to a Buffer representation of fields
+   * The output buffer's length will be equal to the `Point.SIZE_IN_BYTES` constant (128 bytes).
    * This method is useful for serialization and deserialization of the Point object.
    *
+   * @returns A Buffer representation of the Point instance.
+   */
+  toFieldsBuffer() {
+    return Buffer.concat([this.x.toFieldsBuffer(), this.y.toFieldsBuffer()]);
+  }
+
+  /**
+   * Converts the Point instance to a Buffer representaion of the coordinates.
+   * The outputs buffer length will be 64, the length of both coordinates not represented as fields.
    * @returns A Buffer representation of the Point instance.
    */
   toBuffer() {

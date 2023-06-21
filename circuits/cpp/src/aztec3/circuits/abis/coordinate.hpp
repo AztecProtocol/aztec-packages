@@ -16,10 +16,10 @@ template <typename NCT> struct Coordinate {
     using fr = typename NCT::fr;
     using boolean = typename NCT::boolean;
 
-    std::array<fr, 2> limbs;
+    std::array<fr, 2> fields;
 
     // for serialization, update with new fields
-    MSGPACK_FIELDS(limbs);
+    MSGPACK_FIELDS(fields);
     bool operator==(Coordinate<NCT> const&) const = default;
 
     template <typename Composer> Coordinate<CircuitTypes<Composer>> to_circuit_type(Composer& composer) const
@@ -30,7 +30,7 @@ template <typename NCT> struct Coordinate {
         auto to_ct = [&](auto& e) { return aztec3::utils::types::to_ct(composer, e); };
 
         Coordinate<CircuitTypes<Composer>> coordinate = {
-            to_ct(limbs),
+            to_ct(fields),
         };
 
         return coordinate;
@@ -43,7 +43,7 @@ template <typename NCT> struct Coordinate {
         auto to_nt = [&](auto& e) { return aztec3::utils::types::to_nt<Composer>(e); };
 
         Coordinate<NativeTypes> coordinate = {
-            to_nt(limbs),
+            to_nt(fields),
         };
 
         return coordinate;
@@ -53,16 +53,16 @@ template <typename NCT> struct Coordinate {
     {
         static_assert(!(std::is_same<NativeTypes, NCT>::value));
 
-        limbs[0].set_public();
-        limbs[1].set_public();
+        fields[0].set_public();
+        fields[1].set_public();
     }
 
     void assert_is_zero()
     {
         static_assert(!(std::is_same<NativeTypes, NCT>::value));
 
-        limbs[0].assert_is_zero();
-        limbs[1].assert_is_zero();
+        fields[0].assert_is_zero();
+        fields[1].assert_is_zero();
     }
 };
 
@@ -70,19 +70,19 @@ template <typename NCT> void read(uint8_t const*& it, Coordinate<NCT>& coordinat
 {
     using serialize::read;
 
-    read(it, coordinate.limbs);
+    read(it, coordinate.fields);
 };
 
 template <typename NCT> void write(std::vector<uint8_t>& buf, Coordinate<NCT> const& coordinate)
 {
     using serialize::write;
 
-    write(buf, coordinate.limbs);
+    write(buf, coordinate.fields);
 };
 
 template <typename NCT> std::ostream& operator<<(std::ostream& os, Coordinate<NCT> const& coordinate)
 {
-    return os << "coordinate: " << coordinate.limbs << "\n";
+    return os << "coordinate: " << coordinate.fields << "\n";
 }
 
 }  // namespace aztec3::circuits::abis

@@ -186,7 +186,7 @@ export function computeContractAddress(
   const result = inputBuffersToOutputBuffer(
     wasm,
     'abis__compute_contract_address',
-    [deployerPubKey.toBuffer(), contractAddrSalt.toBuffer(), fnTreeRoot.toBuffer(), constructorHash.toBuffer()],
+    [deployerPubKey.toFieldsBuffer(), contractAddrSalt.toBuffer(), fnTreeRoot.toBuffer(), constructorHash.toBuffer()],
     32,
   );
   return new AztecAddress(result);

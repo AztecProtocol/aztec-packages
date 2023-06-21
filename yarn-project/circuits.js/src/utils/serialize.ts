@@ -158,6 +158,27 @@ function isSerializableToBuffer32(obj: object): obj is {
 }
 
 /**
+ * Checks whether an object implements the toFieldsBuffer method.
+ * @param obj - The object to check.
+ * @returns Whether the object implements the toFieldsBuffer method.
+ */
+function isSerializableToFieldsBuffer(obj: object): obj is {
+  /**
+   * Signature of the target serialization function.
+   */
+  toFieldsBuffer: () => Buffer;
+} {
+  return !!(
+    obj as {
+      /**
+       * Signature of the target serialization function.
+       */
+      toFieldsBuffer: () => Buffer;
+    }
+  ).toFieldsBuffer;
+}
+
+/**
  * Serializes a list of objects contiguously for calling into wasm.
  * @param objs - Objects to serialize.
  * @returns A buffer list with the concatenation of all fields.
@@ -180,6 +201,8 @@ export function serializeToBufferArray(...objs: Bufferable[]): Buffer[] {
       ret.push(Buffer.from(obj));
     } else if (isSerializableToBuffer32(obj)) {
       ret.push(obj.toBuffer32());
+    } else if (isSerializableToFieldsBuffer(obj)) {
+      ret.push(obj.toFieldsBuffer());
     } else {
       ret.push(obj.toBuffer());
     }
