@@ -23,7 +23,7 @@ void rearrange_and_check(std::array<fr, N>& input, std::array<fr, N> const& expe
 TEST(utils_array_tests, rearrange_test_vector1)
 {
     std::array<fr, 5> test_vec{ fr(2), fr(4), fr(0), fr(12), fr(0) };
-    std::array<fr, 5> test_vec_rearranged{ fr(2), fr(4), fr(12), fr(0), fr(0) };
+    std::array<fr, 5> const test_vec_rearranged{ fr(2), fr(4), fr(12), fr(0), fr(0) };
 
     rearrange_and_check(test_vec, test_vec_rearranged, "1");
 }
@@ -31,7 +31,7 @@ TEST(utils_array_tests, rearrange_test_vector1)
 TEST(utils_array_tests, rearrange_test_vector2)
 {
     std::array<fr, 6> test_vec{ fr(0), fr(99), fr(0), fr(103), fr(0), fr(17) };
-    std::array<fr, 6> test_vec_rearranged{ fr(99), fr(103), fr(17), fr(0), fr(0), fr(0) };
+    std::array<fr, 6> const test_vec_rearranged{ fr(99), fr(103), fr(17), fr(0), fr(0), fr(0) };
 
     rearrange_and_check(test_vec, test_vec_rearranged, "2");
 }
@@ -39,7 +39,7 @@ TEST(utils_array_tests, rearrange_test_vector2)
 TEST(utils_array_tests, rearrange_test_vector3)
 {
     std::array<fr, 4> test_vec{ fr(0), fr(0), fr(12), fr(0) };
-    std::array<fr, 4> test_vec_rearranged{ fr(12), fr(0), fr(0), fr(0) };
+    std::array<fr, 4> const test_vec_rearranged{ fr(12), fr(0), fr(0), fr(0) };
 
     rearrange_and_check(test_vec, test_vec_rearranged, "3");
 }
@@ -47,7 +47,7 @@ TEST(utils_array_tests, rearrange_test_vector3)
 TEST(utils_array_tests, rearrange_test_vector_identical)
 {
     std::array<fr, 5> test_vec{ fr(2), fr(4), fr(7), fr(12), fr(9) };
-    std::array<fr, 5> test_vec_rearranged{ fr(2), fr(4), fr(7), fr(12), fr(9) };
+    std::array<fr, 5> const test_vec_rearranged{ fr(2), fr(4), fr(7), fr(12), fr(9) };
 
     rearrange_and_check(test_vec, test_vec_rearranged, "identical");
 }
@@ -55,7 +55,7 @@ TEST(utils_array_tests, rearrange_test_vector_identical)
 TEST(utils_array_tests, rearrange_test_vector_empty)
 {
     std::array<fr, 0> test_vec{};
-    std::array<fr, 0> test_vec_rearranged{};
+    std::array<fr, 0> const test_vec_rearranged{};
 
     rearrange_and_check(test_vec, test_vec_rearranged, "empty");
 }
@@ -63,7 +63,7 @@ TEST(utils_array_tests, rearrange_test_vector_empty)
 TEST(utils_array_tests, rearrange_test_vector_all_zeros)
 {
     std::array<fr, 7> test_vec{ fr(0), fr(0), fr(0), fr(0), fr(0), fr(0), fr(0) };
-    std::array<fr, 7> test_vec_rearranged{ fr(0), fr(0), fr(0), fr(0), fr(0), fr(0), fr(0) };
+    std::array<fr, 7> const test_vec_rearranged{ fr(0), fr(0), fr(0), fr(0), fr(0), fr(0), fr(0) };
 
     rearrange_and_check(test_vec, test_vec_rearranged, "all zeros");
 }
