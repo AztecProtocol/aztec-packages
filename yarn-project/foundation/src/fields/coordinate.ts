@@ -77,7 +77,8 @@ export class Coordinate {
     if (coordinate.length != 32) {
       throw new Error(`Invalid size of coordinate buffer`);
     }
-    const buf0 = coordinate;
+    const buf0 = Buffer.alloc(32);
+    coordinate.copy(buf0, 0, 0, 32);
     const buf1 = Buffer.alloc(32);
     buf1[31] = buf0[0];
     buf0[0] = 0;

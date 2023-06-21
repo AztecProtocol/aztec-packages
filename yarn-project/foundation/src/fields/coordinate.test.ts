@@ -1,5 +1,6 @@
 import { toBufferBE } from '../bigint-buffer/index.js';
 import { Coordinate } from './coordinate.js';
+import { Fr } from './fields.js';
 
 const MAX_256_VALUE = 2n ** 256n - 1n;
 
@@ -15,5 +16,11 @@ describe('coordinate', () => {
     expect(coordinate.toBuffer()).toEqual(max256Value);
     // this returns the value as a big int
     expect(coordinate.toBigInt()).toBe(MAX_256_VALUE);
+  });
+
+  it('can be constructed from a field', () => {
+    const field = Fr.random();
+    const coordinate = Coordinate.fromField(field);
+    expect(coordinate.toBuffer()).toEqual(field.toBuffer());
   });
 });
