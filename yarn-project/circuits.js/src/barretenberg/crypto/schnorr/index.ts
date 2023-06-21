@@ -2,6 +2,7 @@ import { IWasmModule } from '@aztec/foundation/wasm';
 import { SchnorrSignature } from './signature.js';
 import { CircuitsWasm } from '../../../index.js';
 import { Signer } from '../index.js';
+import { numToUInt32BE } from '@aztec/foundation/serialize';
 
 export * from './signature.js';
 
@@ -37,9 +38,9 @@ export class Schnorr implements Signer {
    * @returns A Schnorr signature of the form (s, e).
    */
   public constructSignature(msg: Uint8Array, privateKey: Uint8Array) {
-    const mem = this.wasm.call('bbmalloc', msg.length);
+    const mem = this.wasm.call('bbmalloc', msg.length + 4);
     this.wasm.writeMemory(0, privateKey);
-    this.wasm.writeMemory(mem, msg);
+    this.wasm.writeMemory(mem, Buffer.concat([numToUInt32BE(msg.length), msg]));
     this.wasm.call('schnorr_construct_signature', mem, 0, 32, 64);
 
     return new SchnorrSignature(Buffer.from(this.wasm.getMemorySlice(32, 96)));
@@ -53,11 +54,11 @@ export class Schnorr implements Signer {
    * @returns True or false.
    */
   public verifySignature(msg: Uint8Array, pubKey: Uint8Array, sig: SchnorrSignature) {
-    const mem = this.wasm.call('bbmalloc', msg.length);
+    const mem = this.wasm.call('bbmalloc', msg.length + 4);
     this.wasm.writeMemory(0, pubKey);
     this.wasm.writeMemory(64, sig.s());
     this.wasm.writeMemory(96, sig.e());
-    this.wasm.writeMemory(mem, msg);
+    this.wasm.writeMemory(mem, Buffer.concat([numToUInt32BE(msg.length), msg]));
     this.wasm.call('schnorr_verify_signature', mem, 0, 64, 96, 128);
     const result = this.wasm.getMemorySlice(128, 129);
     return result != Buffer.alloc(1);
