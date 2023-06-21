@@ -53,7 +53,7 @@ export class AccountContract implements AccountImplementation {
       txContext: TxContext.empty(),
     });
 
-    return Promise.resolve(txRequest);
+    return txRequest;
   }
 
   private getEntrypointAbi() {

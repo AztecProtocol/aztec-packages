@@ -32,11 +32,11 @@ export async function createAztecRpc(numberOfAccounts = 1, aztecNode: AztecNode)
 }
 
 const pointToPublicKey = (point: Point) => {
-  const x = point.x.toBuffer().subarray(0, 32);
-  const y = point.y.toBuffer().subarray(0, 32);
+  const x = point.x.toBigInt();
+  const y = point.y.toBigInt();
   return {
-    x: toBigIntBE(x),
-    y: toBigIntBE(y),
+    x,
+    y,
   };
 };
 

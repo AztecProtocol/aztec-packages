@@ -3,10 +3,10 @@ import { Tuple } from '../serialize/types.js';
 import { Fr } from './fields.js';
 
 /**
- * Class to wrap a single point coordinate
+ * Class to wrap a single point coordinate.
+ * This class handles the complexities of representing point coordinates as 32 byte buffers as well as fields
  */
 export class Coordinate {
-  static SIZE_IN_BYTES = 64;
   static ZERO = new Coordinate([Fr.ZERO, Fr.ZERO]);
 
   constructor(
@@ -29,7 +29,7 @@ export class Coordinate {
    * @returns The random coordinate
    */
   static random(): Coordinate {
-    return this.fromBuffer(Fr.random().toBuffer());
+    return this.fromField(Fr.random());
   }
 
   /**
@@ -45,10 +45,10 @@ export class Coordinate {
    * @returns A buffer serialisation of the object.
    */
   toBuffer(): Buffer {
-    const limb0 = this.fields[0].toBuffer();
-    const limb1 = this.fields[1].toBuffer();
-    limb0[0] = limb1[31];
-    return limb0;
+    const buf0 = this.fields[0].toBuffer();
+    const buf1 = this.fields[1].toBuffer();
+    buf0[0] = buf1[31];
+    return buf0;
   }
 
   /**
@@ -77,10 +77,23 @@ export class Coordinate {
     if (coordinate.length != 32) {
       throw new Error(`Invalid size of coordinate buffer`);
     }
-    const limb0 = coordinate;
-    const limb1 = Buffer.alloc(32);
-    limb1[31] = limb0[0];
-    limb0[0] = 0;
-    return new Coordinate([Fr.fromBuffer(limb0), Fr.fromBuffer(limb1)]);
+    const buf0 = coordinate;
+    const buf1 = Buffer.alloc(32);
+    buf1[31] = buf0[0];
+    buf0[0] = 0;
+    return new Coordinate([Fr.fromBuffer(buf0), Fr.fromBuffer(buf1)]);
+  }
+
+  /**
+   * Creates a coordinate object from a field
+   * @param coordinate - The field containing the coordinate
+   * @returns The new coordinate object
+   */
+  static fromField(coordinate: Fr) {
+    const buf0 = coordinate.toBuffer();
+    const buf1 = Buffer.alloc(32);
+    buf1[31] = buf0[0];
+    buf0[0] = 0;
+    return new Coordinate([Fr.fromBuffer(buf0), Fr.fromBuffer(buf1)]);
   }
 }

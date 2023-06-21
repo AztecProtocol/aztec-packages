@@ -78,8 +78,8 @@ export class PrivateFunctionExecution {
           await this.context.db.getSecretKey(
             this.contractAddress,
             Point.fromCoordinates(
-              Coordinate.fromBuffer(fromACVMField(ownerX).toBuffer()),
-              Coordinate.fromBuffer(fromACVMField(ownerY).toBuffer()),
+              Coordinate.fromField(fromACVMField(ownerX)),
+              Coordinate.fromField(fromACVMField(ownerY)),
             ),
           ),
         ),
@@ -184,8 +184,8 @@ export class PrivateFunctionExecution {
         const notePreimage = new NotePreimage(preimage);
         const noteSpendingInfo = new NoteSpendingInfo(notePreimage, contractAddress, storageSlot);
         const ownerPublicKey = Point.fromCoordinates(
-          Coordinate.fromBuffer(fromACVMField(ownerX).toBuffer()),
-          Coordinate.fromBuffer(fromACVMField(ownerY).toBuffer()),
+          Coordinate.fromField(fromACVMField(ownerX)),
+          Coordinate.fromField(fromACVMField(ownerY)),
         );
 
         const encryptedNotePreimage = noteSpendingInfo.toEncryptedBuffer(ownerPublicKey, await Grumpkin.new());

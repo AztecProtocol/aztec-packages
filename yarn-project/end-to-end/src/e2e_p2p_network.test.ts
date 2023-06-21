@@ -9,7 +9,7 @@ import {
   createAztecRPCServer,
 } from '@aztec/aztec.js';
 import { DebugLogger } from '@aztec/foundation/log';
-import { TestContractAbi } from '@aztec/noir-contracts/examples';
+import { SchnorrAccountContractAbi, TestContractAbi } from '@aztec/noir-contracts/examples';
 import { BootstrapNode, P2PConfig, createLibP2PPeerId, exportLibP2PPeerIdToString } from '@aztec/p2p';
 
 import { setup } from './utils.js';
@@ -159,6 +159,7 @@ describe('e2e_p2p_network', () => {
       randomBytes(32),
       AztecAddress.random(),
       Fr.random(),
+      SchnorrAccountContractAbi,
     );
 
     const txs = await submitTxsTo(aztecRpcServer, account, numTxs);

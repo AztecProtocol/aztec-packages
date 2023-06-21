@@ -5,10 +5,8 @@ import { Coordinate } from './coordinate.js';
  * Represents a Point on an elliptic curve with x and y coordinates.
  * The Point class provides methods for creating instances from different input types,
  * converting instances to various output formats, and checking the equality of points.
- * It also contains constants for SIZE_IN_BYTES, and ZERO point.
  */
 export class Point {
-  static SIZE_IN_BYTES = 64;
   static ZERO = new Point(Coordinate.ZERO, Coordinate.ZERO);
 
   /** Used to differentiate this class from AztecAddress */
@@ -26,9 +24,7 @@ export class Point {
   ) {}
 
   /**
-   * Generate a random Point instance with coordinates within the valid range.
-   * The coordinate values are generated as random Fr elements and converted to buffers
-   * of size Point.SIZE_IN_BYTES before creating the Point instance.
+   * Generate a random Point instance.
    *
    * @returns A randomly generated Point instance.
    */
@@ -40,7 +36,6 @@ export class Point {
   /**
    * Create a Point instance from a given buffer or BufferReader.
    * The input 'buffer' should have exactly 64 bytes representing the x and y coordinates.
-   * Throws an error if the input length is invalid or coordinate values are out of range.
    *
    * @param buffer - The buffer or BufferReader containing the x and y coordinates of the point.
    * @returns A Point instance.
@@ -74,7 +69,7 @@ export class Point {
 
   /**
    * Convert the Point instance to a Buffer representation of fields
-   * The output buffer's length will be equal to the `Point.SIZE_IN_BYTES` constant (128 bytes).
+   * The output buffer's length will be (128 bytes).
    * This method is useful for serialization and deserialization of the Point object.
    *
    * @returns A Buffer representation of the Point instance.

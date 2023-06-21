@@ -12,7 +12,7 @@ describe('coordinate', () => {
       Buffer.concat([Buffer.alloc(1, 0), Buffer.alloc(31, 0xff), Buffer.alloc(31, 0), Buffer.alloc(1, 0xff)]),
     );
     // this returns the value in a single 32 byte buffer
-    expect(coordinate.toBuffer()).toEqual(Buffer.alloc(32, 0xff));
+    expect(coordinate.toBuffer()).toEqual(max256Value);
     // this returns the value as a big int
     expect(coordinate.toBigInt()).toBe(MAX_256_VALUE);
   });

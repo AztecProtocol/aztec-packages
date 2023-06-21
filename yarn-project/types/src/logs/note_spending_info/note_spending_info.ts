@@ -46,10 +46,10 @@ export class NoteSpendingInfo {
   }
 
   /**
-   * Encrypt the TxAuxData object using the owner's public key and the ephemeral private key.
-   * @param ownerPubKey - Public key of the owner of the TxAuxData object.
+   * Encrypt the NoteSpendingInfo object using the owner's public key and the ephemeral private key.
+   * @param ownerPubKey - Public key of the owner of the NoteSpendingInfo object.
    * @param curve - The curve instance to use.
-   * @returns The encrypted TxAuxData object.
+   * @returns The encrypted NoteSpendingInfo object.
    */
   public toEncryptedBuffer(ownerPubKey: Point, curve: Curve): Buffer {
     const ephPrivKey = randomBytes(32);
@@ -57,11 +57,11 @@ export class NoteSpendingInfo {
   }
 
   /**
-   * Decrypts the TxAuxData object using the owner's private key.
-   * @param data - Encrypted TxAuxData object.
-   * @param ownerPrivKey - Private key of the owner of the TxAuxData object.
+   * Decrypts the NoteSpendingInfo object using the owner's private key.
+   * @param data - Encrypted NoteSpendingInfo object.
+   * @param ownerPrivKey - Private key of the owner of the NoteSpendingInfo object.
    * @param curve - The curve instance to use.
-   * @returns Instance of TxAuxData if the decryption was successful, undefined otherwise.
+   * @returns Instance of NoteSpendingInfo if the decryption was successful, undefined otherwise.
    */
   static fromEncryptedBuffer(data: Buffer, ownerPrivKey: Buffer, curve: Curve): NoteSpendingInfo | undefined {
     const buf = decryptBuffer(data, ownerPrivKey, curve);

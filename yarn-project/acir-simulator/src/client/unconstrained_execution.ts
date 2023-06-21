@@ -49,8 +49,8 @@ export class UnconstrainedFunctionExecution {
           await this.context.db.getSecretKey(
             this.contractAddress,
             Point.fromCoordinates(
-              new Coordinate([fromACVMField(ownerX), Fr.ZERO]),
-              new Coordinate([fromACVMField(ownerY), Fr.ZERO]),
+              Coordinate.fromField(fromACVMField(ownerX)),
+              Coordinate.fromField(fromACVMField(ownerY)),
             ),
           ),
         ),

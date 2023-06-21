@@ -395,10 +395,7 @@ export function makeVerificationKey(): VerificationKey {
  * @returns A point.
  */
 export function makePoint(seed = 1): Point {
-  return new Point(
-    new Coordinate([new Fr(seed), new Fr(seed + 1)]),
-    new Coordinate([new Fr(seed + 2), new Fr(seed + 3)]),
-  );
+  return Point.fromCoordinates(Coordinate.fromField(new Fr(seed)), Coordinate.fromField(new Fr(seed + 1)));
 }
 
 /**

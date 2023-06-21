@@ -25,11 +25,11 @@ contract SchnorrAccount {
         let mut decompressed_signature: [u8;64] = [0;64];
 
         let signature_part_0 = signature[0].to_be_bytes(32);
-        for i in 0..31 {
+        for i in 0..32 {
             decompressed_signature[i] = signature_part_0[i];
         }
         let signature_part_1 = signature[1].to_be_bytes(32);
-        for i in 0..31 {
+        for i in 0..32 {
             decompressed_signature[i + 32] = signature_part_1[i];
         }
 
@@ -40,7 +40,7 @@ contract SchnorrAccount {
         let mut x: Field = 0;
         let mut y: Field = 0;
         let mut mul: Field = 1;
-        for i in 0..31 {
+        for i in 0..32 {
           let bytex: Field = owner[31 - i] as Field;
           x = x + (bytex * mul);
           let bytey: Field = owner[63 - i] as Field;
