@@ -1,7 +1,7 @@
 import { AztecAddress, CallContext, EthAddress, Fr, FunctionData, PrivateHistoricTreeRoots } from '@aztec/circuits.js';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { FunctionL2Logs, TxExecutionRequest } from '@aztec/types';
+import { FunctionL2Logs } from '@aztec/types';
 import { select_return_flattened as selectPublicWitnessFlattened } from '@noir-lang/noir_util_wasm';
 import {
   ACVMField,
@@ -132,7 +132,10 @@ export class PublicExecutor {
         return padArrayEnd(childExecutionResult.returnValues, Fr.ZERO, NOIR_MAX_RETURN_VALUES).map(toACVMField);
       },
       emitUnencryptedLog: ([...args]: ACVMField[]) => {
-        unencryptedLogs.logs.push(...args.map(str => convertACVMFieldToBuffer(str)));
+        // https://github.com/AztecProtocol/aztec-packages/issues/885
+        const log = Buffer.concat(args.map(charBuffer => convertACVMFieldToBuffer(charBuffer).subarray(-1)));
+        unencryptedLogs.logs.push(log);
+        this.log(`Emitted unencrypted log: "${log.toString('ascii')}"`);
         return Promise.resolve([ZERO_ACVM_FIELD]);
       },
     });
@@ -151,19 +154,6 @@ export class PublicExecutor {
       nestedExecutions,
       unencryptedLogs,
     };
-  }
-
-  /**
-   * Creates a PublicExecution out of a TxRequest to a public function.
-   * @param input - The TxRequest calling a public function.
-   * @returns A PublicExecution object that can be run via execute.
-   */
-  public async getPublicExecution(input: TxExecutionRequest): Promise<PublicExecution> {
-    const contractAddress = input.to;
-    const portalContractAddress = (await this.contractsDb.getPortalContractAddress(contractAddress)) ?? EthAddress.ZERO;
-    const callContext: CallContext = new CallContext(input.from, input.to, portalContractAddress, false, false, false);
-
-    return { callContext, contractAddress, functionData: input.functionData, args: input.args };
   }
 
   private async callPublicFunction(

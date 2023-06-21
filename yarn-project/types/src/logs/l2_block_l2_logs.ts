@@ -38,10 +38,9 @@ export class L2BlockL2Logs {
   public static fromBuffer(buffer: Buffer | BufferReader): L2BlockL2Logs {
     const reader = BufferReader.asReader(buffer);
 
-    // Skip the first 4 bytes for the total length (included because it's needed in `Decoder.sol`)
-    reader.readNumber();
+    const logsBufLength = reader.readNumber();
+    const serializedTxLogs = reader.readBufferArray(logsBufLength);
 
-    const serializedTxLogs = reader.readBufferArray();
     const txLogs = serializedTxLogs.map(logs => TxL2Logs.fromBuffer(logs, false));
     return new L2BlockL2Logs(txLogs);
   }
@@ -60,5 +59,22 @@ export class L2BlockL2Logs {
       txLogs.push(TxL2Logs.random(numFunctionInvocations, numLogsIn1Invocation));
     }
     return new L2BlockL2Logs(txLogs);
+  }
+
+  /**
+   * Unrolls logs from a set of blocks.
+   * @param blockLogs - Input logs from a set of blocks.
+   * @returns Unrolled logs.
+   */
+  public static unrollLogs(blockLogs: L2BlockL2Logs[]): Buffer[] {
+    const logs: Buffer[] = [];
+    for (const blockLog of blockLogs) {
+      for (const txLog of blockLog.txLogs) {
+        for (const functionLog of txLog.functionLogs) {
+          logs.push(...functionLog.logs);
+        }
+      }
+    }
+    return logs;
   }
 }
