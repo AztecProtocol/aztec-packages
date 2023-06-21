@@ -43,7 +43,7 @@ template <typename NCT> struct RootRollupInputs {
 
 template <typename NCT> std::ostream& operator<<(std::ostream& os, RootRollupInputs<NCT> const& obj)
 {
-    utils::msgpack_derived_output(os, obj);
+    msgpack_derived_output(os, obj);
     return os;
 }
 

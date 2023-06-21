@@ -27,7 +27,7 @@ template <typename NCT> struct PreviousRollupData {
 };
 template <typename NCT> std::ostream& operator<<(std::ostream& os, PreviousRollupData<NCT> const& obj)
 {
-    utils::msgpack_derived_output(os, obj);
+    msgpack_derived_output(os, obj);
     return os;
 };
 

@@ -4,7 +4,7 @@
 
 #include "aztec3/circuits/abis/new_contract_data.hpp"
 #include "aztec3/circuits/abis/tx_request.hpp"
-#include "aztec3/circuits/hash.hpp"
+#include "aztec3/circuits/rollup/base/init.hpp"
 
 #include <barretenberg/barretenberg.hpp>
 
@@ -16,6 +16,8 @@ namespace {
 
 using NT = aztec3::utils::types::NativeTypes;
 using aztec3::circuits::abis::NewContractData;
+using aztec3::circuits::rollup::native_base_rollup::BaseRollupInputs;
+
 // num_leaves = 2**h = 2<<(h-1)
 // root layer does not count in height
 constexpr size_t FUNCTION_TREE_NUM_LEAVES = 2 << (aztec3::FUNCTION_TREE_HEIGHT - 1);

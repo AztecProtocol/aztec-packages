@@ -118,7 +118,7 @@ template <typename NCT> struct RootRollupPublicInputs {
 
 template <typename NCT> std::ostream& operator<<(std::ostream& os, RootRollupPublicInputs<NCT> const& obj)
 {
-    utils::msgpack_derived_output(os, obj);
+    msgpack_derived_output(os, obj);
     return os;
 };
 
