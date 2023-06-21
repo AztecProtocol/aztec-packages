@@ -15,33 +15,33 @@ contract SchnorrAccount {
     fn entrypoint(
         inputs: pub PrivateContextInputs,
         payload: pub EntrypointPayload,
-        signature: pub [Field;2],
-        owner: pub Point,
-        partialContractAddress: pub Field
+        //signature: pub [Field;2],
+        //owner: pub Point,
+        //partialContractAddress: pub Field
     ) -> pub [Field; dep::aztec3::abi::PUBLIC_INPUTS_LENGTH] {
         let mut context = PrivateFunctionContext::new();
 
         // Decompress signature from 2 fields to 64 bytes
-        let mut decompressed_signature: [u8;64] = [0;64];
+        // let mut decompressed_signature: [u8;64] = [0;64];
 
-        let signature_part_0 = signature[0].to_be_bytes(32);
-        for i in 0..31 {
-            decompressed_signature[i] = signature_part_0[i];
-        }
-        let signature_part_1 = signature[1].to_be_bytes(32);
-        for i in 0..31 {
-            decompressed_signature[i + 32] = signature_part_1[i];
-        }
+        // let signature_part_0 = signature[0].to_be_bytes(32);
+        // for i in 0..31 {
+        //     decompressed_signature[i] = signature_part_0[i];
+        // }
+        // let signature_part_1 = signature[1].to_be_bytes(32);
+        // for i in 0..31 {
+        //     decompressed_signature[i + 32] = signature_part_1[i];
+        // }
 
         // Verify payload signature
-        let payload_bytes: [u8; entrypoint::ENTRYPOINT_PAYLOAD_SIZE_IN_BYTES] = payload.to_be_bytes();
-        let payload_hash: [u8; 32] = std::hash::sha256(payload_bytes);
+        //let payload_bytes: [u8; entrypoint::ENTRYPOINT_PAYLOAD_SIZE_IN_BYTES] = payload.to_be_bytes();
+        //let payload_hash: [u8; 32] = std::hash::sha256(payload_bytes);
         
-        let verification = std::schnorr::verify_signature(owner.x, owner.y, decompressed_signature, payload_hash);
-        constrain verification == 1;
+        //let verification = std::schnorr::verify_signature(owner.x, owner.y, decompressed_signature, payload_hash);
+        //constrain verification == 1;
 
-        let reproduced_address = dep::std::hash::pedersen([owner.x, owner.y, partialContractAddress])[0];
-        constrain reproduced_address == inputs.call_context.storage_contract_address;
+        //let reproduced_address = dep::std::hash::pedersen([owner.x, owner.y, partialContractAddress])[0];
+        //constrain reproduced_address == inputs.call_context.storage_contract_address;
 
         for i in 0..entrypoint::ACCOUNT_MAX_PRIVATE_CALLS {
             let target_address = payload.flattened_targets[i];
