@@ -27,22 +27,16 @@ using aztec3::circuits::silo_nullifier;
 
 // TODO: NEED TO RECONCILE THE `proof`'s public inputs (which are uint8's) with the
 // private_call.call_stack_item.public_inputs!
-CT::AggregationObject verify_proofs(Composer& composer,
-                                    PrivateKernelInputsInner<CT> const& private_inputs,
-                                    size_t const& num_private_call_public_inputs,
-                                    size_t const& num_private_kernel_public_inputs)
+CT::AggregationObject verify_proofs(Composer& composer, PrivateKernelInputsInner<CT> const& private_inputs)
 {
     // compute P0, P1 for private function proof
-    CT::AggregationObject aggregation_object = Aggregator::aggregate(
-        &composer, private_inputs.private_call.vk, private_inputs.private_call.proof, num_private_call_public_inputs);
+    CT::AggregationObject aggregation_object =
+        Aggregator::aggregate(&composer, private_inputs.private_call.vk, private_inputs.private_call.proof);
 
     // computes P0, P1 for previous kernel proof
     // AND accumulates all of it in P0_agg, P1_agg
-    Aggregator::aggregate(&composer,
-                          private_inputs.previous_kernel.vk,
-                          private_inputs.previous_kernel.proof,
-                          num_private_kernel_public_inputs,
-                          aggregation_object);
+    Aggregator::aggregate(
+        &composer, private_inputs.previous_kernel.vk, private_inputs.previous_kernel.proof, aggregation_object);
 
     return aggregation_object;
 }
@@ -334,10 +328,7 @@ KernelCircuitPublicInputs<NT> private_kernel_circuit(Composer& composer,
 
     update_end_values(private_inputs, public_inputs);
 
-    auto aggregation_object = verify_proofs(composer,
-                                            private_inputs,
-                                            _private_inputs.private_call.vk->num_public_inputs,
-                                            _private_inputs.previous_kernel.vk->num_public_inputs);
+    auto aggregation_object = verify_proofs(composer, private_inputs);
 
     // TODO: kernel vk membership check!
 

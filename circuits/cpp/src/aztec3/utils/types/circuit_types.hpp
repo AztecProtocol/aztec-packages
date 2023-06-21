@@ -42,10 +42,7 @@ template <typename Composer> struct CircuitTypes {
     using ecdsa_signature = stdlib::ecdsa::signature<Composer>;
 
     using AggregationObject = stdlib::recursion::aggregation_state<bn254>;
-    using recursive_inner_verifier_settings =
-        std::conditional_t<std::same_as<Composer, TurboCircuitConstructor>,
-                           stdlib::recursion::recursive_turbo_verifier_settings<bn254>,
-                           stdlib::recursion::recursive_ultra_verifier_settings<bn254>>;
+    using recursive_inner_verifier_settings = stdlib::recursion::recursive_ultra_verifier_settings<bn254>;
     using VK = stdlib::recursion::verification_key<bn254>;
     // Notice: no CircuitType for a Proof: we only ever handle native; the verify_proof() function swallows the
     // 'circuit-type-ness' of the proof.
