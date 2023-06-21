@@ -43,7 +43,6 @@ export class AccountContract implements AccountImplementation {
     const signature = await this.keyStore.sign(hash, this.pubKey);
     const signatureAsFrArray = signature.toFields();
     const publicKeyAsBuffer = this.pubKey.toBuffer();
-    console.log(`Pub Key `, publicKeyAsBuffer.toString('hex'));
     const args = [payload, publicKeyAsBuffer, signatureAsFrArray];
     const abi = this.getEntrypointAbi();
     const selector = generateFunctionSelector(abi.name, abi.parameters);

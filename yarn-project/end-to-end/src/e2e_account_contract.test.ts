@@ -98,8 +98,8 @@ describe('e2e_account_contract', () => {
 
     expect(receipts[0].status).toBe(TxStatus.MINED);
     expect(receipts[1].status).toBe(TxStatus.MINED);
-    expect(toBigInt((await aztecNode.getStorageAt(child.address, 1n))!)).toEqual(42n);
-    expect(toBigInt((await aztecNode.getStorageAt(child.address, 1n))!)).toEqual(53n);
+    // The contract accumulates the values so the expected value is 95
+    expect(toBigInt((await aztecNode.getStorageAt(child.address, 1n))!)).toEqual(95n);
   }, 30_000);
 
   // it('rejects ecdsa signature from a different key', async () => {
