@@ -1215,7 +1215,7 @@ TEST(public_kernel_tests, public_kernel_fails_creating_new_nullifiers_on_static_
 TEST(public_kernel_tests, logs_are_handled_as_expected)
 {
     DummyComposer dummyComposer = DummyComposer("public_kernel_tests__logs_are_handled_as_expected");
-    PublicKernelInputs<NT> inputs = get_kernel_inputs_with_previous_kernel(true);
+    PublicKernelInputs<NT> const& inputs = get_kernel_inputs_with_previous_kernel(true);
 
     auto const& zero_hash = zero_array<NT::fr, NUM_FIELDS_PER_SHA256>();
 
