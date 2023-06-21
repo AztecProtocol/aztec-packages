@@ -59,12 +59,15 @@ contract Uniswap {
             l1UniswapPortal,
         ]);
 
-        // inputAsset.withdraw(inputAmount, l1UniswapPortal)
+        // inputAsset.withdraw(inputAmount, recipient=l1UniswapPortal, callerOnL1=l1UniswapPortal) // only uniswap portal can call this to safegaurd ordering of message consumption. 
+        // if someone else calls it on behalf of uniswap portal and the portal doesn't expect it, then funds might get locked! 
+        // ref: https://docs.aztec.network/aztec/how-it-works/l1-l2-messaging#designated-caller
         let mut args = [0; dep::aztec3::abi::MAX_ARGS];
         args[0] = inputAmount;
         args[1] = sender.x;
         args[2] = sender.y;
         args[3] = l1UniswapPortal;
+        args[4] = l1UniswapPortal;
         let (callStackItem, mut context) = PrivateCallStackItem::call(inputAsset, withdrawFnSelector, args, initialContext);
         
         let result = callStackItem.public_inputs.return_values[0];
