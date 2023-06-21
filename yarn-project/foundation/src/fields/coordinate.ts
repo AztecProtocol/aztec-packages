@@ -4,7 +4,11 @@ import { Fr } from './fields.js';
 
 /**
  * Class to wrap a single point coordinate.
- * This class handles the complexities of representing point coordinates as 32 byte buffers as well as fields
+ * This class handles the complexities of representing point coordinates as 32 byte buffers as well as fields.
+ * The coordinate value is split across 2 fields to ensure that the max size of a field is not breached.
+ * This is achieved by placing the most significant byte of the lower field into the least significant byte of the higher field.
+ * Calls to 'toBuffer' or 'toBigInt' undo this change and simply return the original 32 byte value.
+ * Calls to 'toFieldsBuffer' will return a 64 bytes buffer containing the serialised fields.
  */
 export class Coordinate {
   static ZERO = new Coordinate([Fr.ZERO, Fr.ZERO]);
