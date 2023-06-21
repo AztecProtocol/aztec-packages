@@ -24,12 +24,12 @@ export interface DeployedContract {
 }
 
 /**
- * Represents an Aztec RPC client implementation.
+ * Represents an Aztec RPC implementation.
  * Provides functionality for all the operations needed to interact with the Aztec network,
  * including account management, contract deployment, transaction creation, and execution,
  * as well as storage and view functions for smart contracts.
  */
-export interface AztecRPCClient {
+export interface AztecRPC {
   addExternallyOwnedAccount(): Promise<AztecAddress>;
   createSmartAccount(privKey?: Buffer): Promise<[TxHash, AztecAddress]>;
   registerSmartAccount(privKey: Buffer, address: AztecAddress): Promise<AztecAddress>;
@@ -54,4 +54,5 @@ export interface AztecRPCClient {
   getTxReceipt(txHash: TxHash): Promise<TxReceipt>;
   getStorageAt(contract: AztecAddress, storageSlot: Fr): Promise<any>;
   viewTx(functionName: string, args: any[], to: AztecAddress, from?: AztecAddress): Promise<any>;
+  getBlockNum(): Promise<number>;
 }

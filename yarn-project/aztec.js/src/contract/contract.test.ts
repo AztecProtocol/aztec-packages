@@ -1,4 +1,4 @@
-import { AztecAddress, AztecRPCClient, DeployedContract, EthAddress, Tx, TxHash, TxReceipt } from '@aztec/aztec-rpc';
+import { AztecAddress, AztecRPC, DeployedContract, EthAddress, Tx, TxHash, TxReceipt } from '@aztec/aztec-rpc';
 import { mock } from 'jest-mock-extended';
 
 import { ABIParameterVisibility, ContractAbi, FunctionType } from '@aztec/foundation/abi';
@@ -6,7 +6,7 @@ import { randomBytes } from '@aztec/foundation/crypto';
 import { Contract } from './contract.js';
 
 describe('Contract Class', () => {
-  let arc: ReturnType<typeof mock<AztecRPCClient>>;
+  let arc: ReturnType<typeof mock<AztecRPC>>;
 
   const contractAddress = AztecAddress.random();
   const account = AztecAddress.random();
@@ -84,7 +84,7 @@ describe('Contract Class', () => {
   });
 
   beforeEach(() => {
-    arc = mock<AztecRPCClient>();
+    arc = mock<AztecRPC>();
     arc.createDeploymentTx.mockResolvedValue(mockTx);
     arc.createTx.mockResolvedValue(mockTx);
     arc.sendTx.mockResolvedValue(mockTxHash);

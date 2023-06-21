@@ -11,7 +11,7 @@ import { EcdsaAccountContract } from '../account_impl/ecdsa_account_contract.js'
 import { EcdsaExternallyOwnedAccount } from '../account_impl/ecdsa_eoa.js';
 import { AccountImplementation } from '../account_impl/index.js';
 import { AccountState } from '../account_state/account_state.js';
-import { AztecRPCClient, DeployedContract } from '../aztec_rpc_client/index.js';
+import { AztecRPC, DeployedContract } from '../aztec_rpc/index.js';
 import { ContractDao, toContractDao } from '../contract_database/index.js';
 import { ContractTree } from '../contract_tree/index.js';
 import { Database, TxDao } from '../database/index.js';
@@ -21,7 +21,7 @@ import { TxReceipt, TxStatus } from '../tx/index.js';
 /**
  * A remote Aztec RPC Client implementation.
  */
-export class AztecRPCServer implements AztecRPCClient {
+export class AztecRPCServer implements AztecRPC {
   private synchroniser: Synchroniser;
 
   constructor(
@@ -43,7 +43,7 @@ export class AztecRPCServer implements AztecRPCClient {
   public async start() {
     const accounts = await this.keyStore.getAccounts();
     for (const account of accounts) {
-      await this.initAccountState(account, getAddressFromPublicKey(account));
+      await this.#initAccountState(account, getAddressFromPublicKey(account));
     }
     await this.synchroniser.start();
     this.log(`Started. ${accounts.length} initial accounts.`);
@@ -70,7 +70,7 @@ export class AztecRPCServer implements AztecRPCClient {
   public async addExternallyOwnedAccount() {
     const accountPubKey = await this.keyStore.createAccount();
     const address = getAddressFromPublicKey(accountPubKey);
-    await this.initAccountState(accountPubKey, address);
+    await this.#initAccountState(accountPubKey, address);
     return address;
   }
 
@@ -86,9 +86,9 @@ export class AztecRPCServer implements AztecRPCClient {
     const abi = AccountContractAbi;
     const args: any[] = [];
 
-    const { txRequest, contract } = await this.prepareDeploy(abi, args, portalContract, contractAddressSalt, pubKey);
+    const { txRequest, contract } = await this.#prepareDeploy(abi, args, portalContract, contractAddressSalt, pubKey);
 
-    const account = await this.initAccountState(pubKey, contract.address);
+    const account = await this.#initAccountState(pubKey, contract.address);
 
     const tx = await account.simulateAndProve(txRequest, contract.address);
 
@@ -109,7 +109,7 @@ export class AztecRPCServer implements AztecRPCClient {
    */
   public async registerSmartAccount(privKey: Buffer, address: AztecAddress) {
     const pubKey = await this.keyStore.addAccount(privKey);
-    await this.initAccountState(pubKey, address);
+    await this.#initAccountState(pubKey, address);
     return address;
   }
 
@@ -144,7 +144,7 @@ export class AztecRPCServer implements AztecRPCClient {
    * @returns A Promise resolving to the Point instance representing the public key.
    */
   public getAccountPublicKey(address: AztecAddress): Promise<Point> {
-    const account = this.ensureAccount(address);
+    const account = this.#ensureAccount(address);
     return Promise.resolve(account.getPublicKey());
   }
 
@@ -190,10 +190,10 @@ export class AztecRPCServer implements AztecRPCClient {
     contractAddressSalt = Fr.random(),
     from?: AztecAddress,
   ) {
-    const account = this.ensureAccountOrDefault(from);
+    const account = this.#ensureAccountOrDefault(from);
     const pubKey = account.getPublicKey();
 
-    const { txRequest, contract } = await this.prepareDeploy(abi, args, portalContract, contractAddressSalt, pubKey);
+    const { txRequest, contract } = await this.#prepareDeploy(abi, args, portalContract, contractAddressSalt, pubKey);
 
     const tx = await account.simulateAndProve(txRequest, contract.address);
 
@@ -204,7 +204,7 @@ export class AztecRPCServer implements AztecRPCClient {
     return tx;
   }
 
-  private async prepareDeploy(
+  async #prepareDeploy(
     abi: ContractAbi,
     args: any[],
     portalContract: EthAddress,
@@ -255,11 +255,11 @@ export class AztecRPCServer implements AztecRPCClient {
    * @returns A Tx ready to send to the p2p pool for execution.
    */
   public async createTx(functionName: string, args: any[], to: AztecAddress, optionalFromAddress?: AztecAddress) {
-    const account = this.ensureAccountOrDefault(optionalFromAddress);
+    const account = this.#ensureAccountOrDefault(optionalFromAddress);
     const accountContract = await this.db.getContract(account.getAddress());
-    const entrypoint: AccountImplementation = this.getAccountImplementation(account, accountContract);
+    const entrypoint: AccountImplementation = this.#getAccountImplementation(account, accountContract);
 
-    const executionRequest = await this.getExecutionRequest(account, functionName, args, to);
+    const executionRequest = await this.#getExecutionRequest(account, functionName, args, to);
 
     // TODO: Can we remove tx context from this call?
     const authedTxRequest = await entrypoint.createAuthenticatedTxRequest([executionRequest], TxContext.empty());
@@ -273,7 +273,7 @@ export class AztecRPCServer implements AztecRPCClient {
     return tx;
   }
 
-  private async getExecutionRequest(
+  async #getExecutionRequest(
     account: AccountState,
     functionName: string,
     args: any[],
@@ -306,7 +306,7 @@ export class AztecRPCServer implements AztecRPCClient {
   }
 
   // TODO: Store the kind of account in account state
-  private getAccountImplementation(accountState: AccountState, contract: ContractDao | undefined) {
+  #getAccountImplementation(accountState: AccountState, contract: ContractDao | undefined) {
     const address = accountState.getAddress();
     const pubKey = accountState.getPublicKey();
 
@@ -344,8 +344,8 @@ export class AztecRPCServer implements AztecRPCClient {
    * @returns The result of the view function call, structured based on the function ABI.
    */
   public async viewTx(functionName: string, args: any[], to: AztecAddress, from?: AztecAddress) {
-    const account = this.ensureAccountOrDefault(from);
-    const txRequest = await this.getExecutionRequest(account, functionName, args, to);
+    const account = this.#ensureAccountOrDefault(from);
+    const txRequest = await this.#getExecutionRequest(account, functionName, args, to);
 
     const executionResult = await account.simulateUnconstrained(txRequest);
 
@@ -407,6 +407,14 @@ export class AztecRPCServer implements AztecRPCClient {
   }
 
   /**
+   * Get latest L2 block number.
+   * @returns The latest block number.
+   */
+  async getBlockNum(): Promise<number> {
+    return await this.node.getBlockHeight();
+  }
+
+  /**
    * Initializes the account state for a given address.
    * It retrieves the private key from the key store and adds the account to the synchroniser.
    * This function is called for all existing accounts during the server start, or when a new account is added afterwards.
@@ -414,7 +422,7 @@ export class AztecRPCServer implements AztecRPCClient {
    * @param pubKey - User's master public key.
    * @param address - The address of the account to initialize.
    */
-  private async initAccountState(pubKey: PublicKey, address: AztecAddress) {
+  async #initAccountState(pubKey: PublicKey, address: AztecAddress) {
     const accountPrivateKey = await this.keyStore.getAccountPrivateKey(pubKey);
     const account = await this.synchroniser.addAccount(accountPrivateKey, address);
     this.log(`Account added: ${address.toString()}`);
@@ -430,13 +438,13 @@ export class AztecRPCServer implements AztecRPCClient {
    * @param account - (Optional) Address of the account to ensure its existence.
    * @returns The ensured account instance.
    */
-  private ensureAccountOrDefault(account?: AztecAddress) {
+  #ensureAccountOrDefault(account?: AztecAddress) {
     const address = account || this.synchroniser.getAccounts()[0]?.getAddress();
     if (!address) {
       throw new Error('No accounts available in the key store.');
     }
 
-    return this.ensureAccount(address);
+    return this.#ensureAccount(address);
   }
 
   /**
@@ -447,7 +455,7 @@ export class AztecRPCServer implements AztecRPCClient {
    * @returns The account state associated with the given address.
    * @throws If the account is unknown or not found in the synchroniser.
    */
-  private ensureAccount(account: AztecAddress) {
+  #ensureAccount(account: AztecAddress) {
     const accountState = this.synchroniser.getAccount(account);
     if (!accountState) {
       throw new Error(`Unknown account: ${account.toShortString()}.`);

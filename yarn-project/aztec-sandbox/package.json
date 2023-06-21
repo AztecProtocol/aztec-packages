@@ -1,0 +1,22 @@
+{
+  "name": "@aztec/sandbox",
+  "version": "0.0.0",
+  "type": "module",
+  "exports": "./dest/index.js",
+  "typedoc": {
+    "entryPoint": "./src/index.ts",
+    "displayName": "Sandbox",
+    "tsconfig": "./tsconfig.json"
+  },
+  "scripts": {
+    "build": "yarn clean && tsc -b",
+    "start": "node ./dest",
+    "clean": "rm -rf ./dest .tsbuildinfo",
+    "formatting": "run -T prettier --check ./src && run -T eslint ./src",
+    "formatting:fix": "run -T prettier -w ./src"
+  },
+  "dependencies": {
+    "@aztec/aztec-rpc": "workspace:^",
+    "@aztec/foundation": "workspace:^"
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "extends": "..",
+  "compilerOptions": {
+    "outDir": "dest",
+    "rootDir": "src",
+    "tsBuildInfoFile": ".tsbuildinfo"
+  },
+  "references": [
+    {
+      "path": "../aztec-rpc"
+    },
+    {
+      "path": "../foundation"
+    }
+  ],
+  "include": [
+    "src"
+  ]
+}

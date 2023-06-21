@@ -1,6 +1,6 @@
 # FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/circuits-x86_64-linux-clang
-FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/circuits-wasm-linux-clang
-FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/l1-contracts
+FROM circuits-wasm-linux-clang
+FROM l1-contracts
 
 FROM node:18-alpine
 RUN apk update && apk add --no-cache build-base git python3 curl bash jq
@@ -22,6 +22,7 @@ COPY archiver/package.json archiver/package.json
 COPY aztec-cli/package.json aztec-cli/package.json
 COPY aztec-rpc/package.json aztec-rpc/package.json
 COPY aztec-node/package.json aztec-node/package.json
+COPY aztec-sandbox/package.json aztec-sandbox/package.json
 COPY aztec.js/package.json aztec.js/package.json
 COPY docs/package.json docs/package.json
 COPY end-to-end/package.json end-to-end/package.json
