@@ -346,7 +346,7 @@ export class AztecRPCServer implements AztecRPCClient {
 
     if (!contract) {
       throw new Error(`Account contract not found at ${address}`);
-    } else if (contract.name === 'Account') {
+    } else if (contract.name.includes('Account')) {
       this.log(`Using account contract implementation for ${address}`);
       return new AccountContract(address, pubKey, this.keyStore, partialContractAddress);
     } else {
