@@ -49,7 +49,7 @@ TEST_F(private_kernel_tests, basic)
         false, deposit, { amount, asset_id, memo }, encrypted_logs_hash, encrypted_log_preimages_length, true);
 
     // Execute and prove the first kernel iteration
-    Composer private_kernel_composer("../barretenberg/cpp/srs_db/ignition");
+    Composer private_kernel_composer;
     auto const& public_inputs = private_kernel_circuit(private_kernel_composer, private_inputs, true);
 
     // Check the private kernel circuit
