@@ -1222,7 +1222,7 @@ TEST(public_kernel_tests, logs_are_handled_as_expected)
     // Ensure encrypted logs hash values are non-zero
     ASSERT_NE(inputs.previous_kernel.public_inputs.end.encrypted_logs_hash, zero_hash);
 
-    auto public_inputs = native_public_kernel_circuit_private_previous_kernel(dummyComposer, inputs);
+    auto const& public_inputs = native_public_kernel_circuit_private_previous_kernel(dummyComposer, inputs);
 
     // Encrypted logs hash values are propagated form input to output without change
     ASSERT_EQ(inputs.previous_kernel.public_inputs.end.encrypted_logs_hash, public_inputs.end.encrypted_logs_hash);
