@@ -12,7 +12,7 @@ import { ContractAbi, FunctionType } from '@aztec/foundation/abi';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { KeyStore, PublicKey, getAddressFromPublicKey } from '@aztec/key-store';
-import { AccountContractAbi } from '@aztec/noir-contracts/examples';
+import { SchnorrAccountContractAbi } from '@aztec/noir-contracts/examples';
 import {
   ContractDeploymentTx,
   ExecutionRequest,
@@ -21,7 +21,7 @@ import {
   TxExecutionRequest,
   TxHash,
 } from '@aztec/types';
-import { SchnorrAccountContract } from '../account_impl/schnorr_account_contract.js';
+import { AccountContract } from '../account_impl/account_contract.js';
 import { AccountImplementation } from '../account_impl/index.js';
 import { AccountState } from '../account_state/account_state.js';
 import { AztecRPCClient, DeployedContract } from '../aztec_rpc_client/index.js';
@@ -88,7 +88,7 @@ export class AztecRPCServer implements AztecRPCClient {
     curve: Curve,
     signer: Signer,
     privKey?: Buffer,
-    abi = AccountContractAbi,
+    abi = SchnorrAccountContractAbi,
   ): Promise<[TxHash, AztecAddress]> {
     const pubKey = await (privKey
       ? this.keyStore.addAccount(curve, signer, privKey)
@@ -347,8 +347,8 @@ export class AztecRPCServer implements AztecRPCClient {
     if (!contract) {
       throw new Error(`Account contract not found at ${address}`);
     } else if (contract.name === 'Account') {
-      this.log(`Using ECDSA account contract implementation for ${address}`);
-      return new SchnorrAccountContract(address, pubKey, this.keyStore, partialContractAddress);
+      this.log(`Using account contract implementation for ${address}`);
+      return new AccountContract(address, pubKey, this.keyStore, partialContractAddress);
     } else {
       throw new Error(`Unknown account implementation for ${address}`);
     }

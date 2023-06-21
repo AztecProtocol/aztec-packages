@@ -2,7 +2,7 @@ import { AztecNodeService } from '@aztec/aztec-node';
 import { AztecRPCServer, Contract, ContractDeployer, TxStatus } from '@aztec/aztec.js';
 import { ContractAbi } from '@aztec/foundation/abi';
 import { DebugLogger } from '@aztec/foundation/log';
-import { ChildAbi, AccountContractAbi } from '@aztec/noir-contracts/examples';
+import { ChildAbi, SchnorrAccountContractAbi } from '@aztec/noir-contracts/examples';
 
 import { toBigInt } from '@aztec/foundation/serialize';
 import { setup } from './utils.js';
@@ -20,7 +20,7 @@ describe('e2e_account_contract', () => {
   beforeEach(async () => {
     ({ aztecNode, aztecRpcServer, logger } = await setup());
 
-    const deploymentResult = await deployContract(AccountContractAbi);
+    const deploymentResult = await deployContract(SchnorrAccountContractAbi);
     account = deploymentResult.contract;
     const curve = await Grumpkin.new();
     const signer = await Schnorr.new();

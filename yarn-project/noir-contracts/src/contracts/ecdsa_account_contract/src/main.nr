@@ -1,4 +1,4 @@
-contract Account {
+contract EcdsaAccount {
     use dep::std;
     use dep::aztec3::entrypoint;
     use dep::aztec3::entrypoint::EntrypointPayload;
@@ -37,11 +37,20 @@ contract Account {
             decompressed_signature[i + 62] = signature_part_2[i + 1];
         }
 
+        let mut x: [u8; 32] = [0;32];
+        let mut y: [u8; 32] = [0;32];
+        let x_bytes = owner.x.to_be_bytes(32);
+        let y_bytes = owner.y.to_be_bytes(32);
+        for i in 0..31 {
+          x[i] = x_bytes[i];
+          y[i] = y_bytes[i];
+        }
+
         // Verify payload signature using ethereum's signing scheme
         let payload_bytes: [u8; entrypoint::ENTRYPOINT_PAYLOAD_SIZE_IN_BYTES] = payload.to_be_bytes();
         let payload_hash: [u8; 32] = std::hash::sha256(payload_bytes);
         
-        let verification = std::ecdsa_secp256k1::verify_signature(owner.x, owner.y, decompressed_signature, payload_hash);
+        let verification = std::ecdsa_secp256k1::verify_signature(x, y, decompressed_signature, payload_hash);
         constrain verification == 1;
 
         let reproduced_address = dep::std::hash::pedersen([owner.x, owner.y, partialContractAddress])[0];

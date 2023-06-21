@@ -57,7 +57,7 @@ export class Coordinate {
    * @returns True if the coordinates are the same, false otherwise
    */
   equals(other: Coordinate): boolean {
-    return this.fields[0] == other.fields[0] && this.fields[1] == other.fields[1];
+    return this.toBigInt() === other.toBigInt();
   }
 
   /**

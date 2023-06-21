@@ -3,7 +3,7 @@ import { ARGS_LENGTH, AztecAddress, Fr, FunctionData, TxContext } from '@aztec/c
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { sha256 } from '@aztec/foundation/crypto';
 import { KeyStore, PublicKey } from '@aztec/key-store';
-import { AccountContractAbi } from '@aztec/noir-contracts/examples';
+import { SchnorrAccountContractAbi } from '@aztec/noir-contracts/examples';
 import { ExecutionRequest, PartialContractAddress, TxExecutionRequest } from '@aztec/types';
 import partition from 'lodash.partition';
 import times from 'lodash.times';
@@ -11,9 +11,9 @@ import { generateFunctionSelector } from '../index.js';
 import { AccountImplementation } from './index.js';
 
 /**
- * Account backed by an account contract that uses ECDSA signatures for authorization.
+ * Account backed by an account contract
  */
-export class SchnorrAccountContract implements AccountImplementation {
+export class AccountContract implements AccountImplementation {
   constructor(
     private address: AztecAddress,
     private pubKey: PublicKey,
@@ -55,7 +55,7 @@ export class SchnorrAccountContract implements AccountImplementation {
   }
 
   private getEntrypointAbi() {
-    const abi = AccountContractAbi.functions.find(f => f.name === 'entrypoint');
+    const abi = SchnorrAccountContractAbi.functions.find(f => f.name === 'entrypoint');
     if (!abi) throw new Error(`Entrypoint abi for account contract not found`);
     return abi;
   }
