@@ -239,9 +239,9 @@ tx_context: is_fee_payment_tx: 0
 is_rebate_payment_tx: 0
 is_contract_deployment_tx: 1
 contract_deployment_data: 
-deployer_public_key: x: coordinate: [ 0x105 0x106 ]
+deployer_public_key: x: coordinate: [ 0x105 0x0 ]
 
-y: coordinate: [ 0x107 0x108 ]
+y: coordinate: [ 0x106 0x0 ]
 
 
 constructor_vk_hash: 0x106
@@ -280,9 +280,9 @@ tx_context: is_fee_payment_tx: 0
 is_rebate_payment_tx: 0
 is_contract_deployment_tx: 1
 contract_deployment_data: 
-deployer_public_key: x: coordinate: [ 0x401 0x402 ]
+deployer_public_key: x: coordinate: [ 0x401 0x0 ]
 
-y: coordinate: [ 0x403 0x404 ]
+y: coordinate: [ 0x402 0x0 ]
 
 
 constructor_vk_hash: 0x402
@@ -321,9 +321,9 @@ historic_private_data_tree_root: 0x1e11
 historic_nullifier_tree_root: 0x1f11
 historic_contract_tree_root: 0x1d11
 historic_l1_to_l2_messages_tree_root: 0x2011
-contract_deployment_data: deployer_public_key: x: coordinate: [ 0x1 0x2 ]
+contract_deployment_data: deployer_public_key: x: coordinate: [ 0x1 0x0 ]
 
-y: coordinate: [ 0x3 0x4 ]
+y: coordinate: [ 0x2 0x0 ]
 
 
 constructor_vk_hash: 0x2
@@ -363,9 +363,9 @@ historic_private_data_tree_root: 0x1e21
 historic_nullifier_tree_root: 0x1f21
 historic_contract_tree_root: 0x1d21
 historic_l1_to_l2_messages_tree_root: 0x2021
-contract_deployment_data: deployer_public_key: x: coordinate: [ 0x1 0x2 ]
+contract_deployment_data: deployer_public_key: x: coordinate: [ 0x1 0x0 ]
 
-y: coordinate: [ 0x3 0x4 ]
+y: coordinate: [ 0x2 0x0 ]
 
 
 constructor_vk_hash: 0x2
@@ -403,9 +403,9 @@ historic_private_data_tree_root: 0x1e22
 historic_nullifier_tree_root: 0x1f22
 historic_contract_tree_root: 0x1d22
 historic_l1_to_l2_messages_tree_root: 0x2022
-contract_deployment_data: deployer_public_key: x: coordinate: [ 0x1 0x2 ]
+contract_deployment_data: deployer_public_key: x: coordinate: [ 0x1 0x0 ]
 
-y: coordinate: [ 0x3 0x4 ]
+y: coordinate: [ 0x2 0x0 ]
 
 
 constructor_vk_hash: 0x2
@@ -443,9 +443,9 @@ historic_private_data_tree_root: 0x1e23
 historic_nullifier_tree_root: 0x1f23
 historic_contract_tree_root: 0x1d23
 historic_l1_to_l2_messages_tree_root: 0x2023
-contract_deployment_data: deployer_public_key: x: coordinate: [ 0x1 0x2 ]
+contract_deployment_data: deployer_public_key: x: coordinate: [ 0x1 0x0 ]
 
-y: coordinate: [ 0x3 0x4 ]
+y: coordinate: [ 0x2 0x0 ]
 
 
 constructor_vk_hash: 0x2
@@ -483,9 +483,9 @@ historic_private_data_tree_root: 0x1e24
 historic_nullifier_tree_root: 0x1f24
 historic_contract_tree_root: 0x1d24
 historic_l1_to_l2_messages_tree_root: 0x2024
-contract_deployment_data: deployer_public_key: x: coordinate: [ 0x1 0x2 ]
+contract_deployment_data: deployer_public_key: x: coordinate: [ 0x1 0x0 ]
 
-y: coordinate: [ 0x3 0x4 ]
+y: coordinate: [ 0x2 0x0 ]
 
 
 constructor_vk_hash: 0x2
@@ -657,9 +657,9 @@ tx_context: is_fee_payment_tx: 0
 is_rebate_payment_tx: 0
 is_contract_deployment_tx: 1
 contract_deployment_data: 
-deployer_public_key: x: coordinate: [ 0x105 0x106 ]
+deployer_public_key: x: coordinate: [ 0x105 0x0 ]
 
-y: coordinate: [ 0x107 0x108 ]
+y: coordinate: [ 0x106 0x0 ]
 
 
 constructor_vk_hash: 0x106
@@ -714,9 +714,9 @@ historic_private_data_tree_root: 0x1e11
 historic_nullifier_tree_root: 0x1f11
 historic_contract_tree_root: 0x1d11
 historic_l1_to_l2_messages_tree_root: 0x2011
-contract_deployment_data: deployer_public_key: x: coordinate: [ 0x1 0x2 ]
+contract_deployment_data: deployer_public_key: x: coordinate: [ 0x1 0x0 ]
 
-y: coordinate: [ 0x3 0x4 ]
+y: coordinate: [ 0x2 0x0 ]
 
 
 constructor_vk_hash: 0x2
@@ -756,9 +756,9 @@ historic_private_data_tree_root: 0x1e21
 historic_nullifier_tree_root: 0x1f21
 historic_contract_tree_root: 0x1d21
 historic_l1_to_l2_messages_tree_root: 0x2021
-contract_deployment_data: deployer_public_key: x: coordinate: [ 0x1 0x2 ]
+contract_deployment_data: deployer_public_key: x: coordinate: [ 0x1 0x0 ]
 
-y: coordinate: [ 0x3 0x4 ]
+y: coordinate: [ 0x2 0x0 ]
 
 
 constructor_vk_hash: 0x2
@@ -796,9 +796,9 @@ historic_private_data_tree_root: 0x1e22
 historic_nullifier_tree_root: 0x1f22
 historic_contract_tree_root: 0x1d22
 historic_l1_to_l2_messages_tree_root: 0x2022
-contract_deployment_data: deployer_public_key: x: coordinate: [ 0x1 0x2 ]
+contract_deployment_data: deployer_public_key: x: coordinate: [ 0x1 0x0 ]
 
-y: coordinate: [ 0x3 0x4 ]
+y: coordinate: [ 0x2 0x0 ]
 
 
 constructor_vk_hash: 0x2
@@ -836,9 +836,9 @@ historic_private_data_tree_root: 0x1e23
 historic_nullifier_tree_root: 0x1f23
 historic_contract_tree_root: 0x1d23
 historic_l1_to_l2_messages_tree_root: 0x2023
-contract_deployment_data: deployer_public_key: x: coordinate: [ 0x1 0x2 ]
+contract_deployment_data: deployer_public_key: x: coordinate: [ 0x1 0x0 ]
 
-y: coordinate: [ 0x3 0x4 ]
+y: coordinate: [ 0x2 0x0 ]
 
 
 constructor_vk_hash: 0x2
@@ -876,9 +876,9 @@ historic_private_data_tree_root: 0x1e24
 historic_nullifier_tree_root: 0x1f24
 historic_contract_tree_root: 0x1d24
 historic_l1_to_l2_messages_tree_root: 0x2024
-contract_deployment_data: deployer_public_key: x: coordinate: [ 0x1 0x2 ]
+contract_deployment_data: deployer_public_key: x: coordinate: [ 0x1 0x0 ]
 
-y: coordinate: [ 0x3 0x4 ]
+y: coordinate: [ 0x2 0x0 ]
 
 
 constructor_vk_hash: 0x2
@@ -1049,9 +1049,9 @@ tx_context: is_fee_payment_tx: 0
 is_rebate_payment_tx: 0
 is_contract_deployment_tx: 1
 contract_deployment_data: 
-deployer_public_key: x: coordinate: [ 0x105 0x106 ]
+deployer_public_key: x: coordinate: [ 0x105 0x0 ]
 
-y: coordinate: [ 0x107 0x108 ]
+y: coordinate: [ 0x106 0x0 ]
 
 
 constructor_vk_hash: 0x106
@@ -1189,9 +1189,9 @@ tx_context: is_fee_payment_tx: 0
 is_rebate_payment_tx: 0
 is_contract_deployment_tx: 1
 contract_deployment_data: 
-deployer_public_key: x: coordinate: [ 0x105 0x106 ]
+deployer_public_key: x: coordinate: [ 0x105 0x0 ]
 
-y: coordinate: [ 0x107 0x108 ]
+y: coordinate: [ 0x106 0x0 ]
 
 
 constructor_vk_hash: 0x106
