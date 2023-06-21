@@ -32,7 +32,7 @@ export class ContractDeploymentData {
 
   toBuffer() {
     return serializeToBuffer(
-      this.deployerPublicKey,
+      this.deployerPublicKey.toFieldsBuffer(),
       this.constructorVkHash,
       this.functionTreeRoot,
       this.contractAddressSalt,

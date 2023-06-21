@@ -10,7 +10,6 @@ contract EcdsaAccount {
     use dep::aztec3::context::PrivateFunctionContext;
     use dep::aztec3::types::vec::BoundedVec;
     use dep::aztec3::types::point::Point;
-    use dep::aztec3::oracle::debug_log::debug_log_format;
 
     fn entrypoint(
         inputs: pub PrivateContextInputs,
@@ -39,7 +38,7 @@ contract EcdsaAccount {
 
         let mut x: [u8; 32] = [0;32];
         let mut y: [u8; 32] = [0;32];
-        for i in 0..31 {
+        for i in 0..32 {
           x[i] = owner[i];
           y[i] = owner[i + 32];
         }

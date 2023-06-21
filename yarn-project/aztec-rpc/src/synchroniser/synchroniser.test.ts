@@ -18,6 +18,7 @@ describe('Synchroniser', () => {
 
   beforeAll(async () => {
     grumpkin = await Grumpkin.new();
+    schnorr = await Schnorr.new();
   });
 
   beforeEach(() => {
@@ -46,7 +47,7 @@ describe('Synchroniser', () => {
 
     expect(synchroniser.getAccount(address)).toBeUndefined();
 
-    await synchroniser.addAccount(await account.getPrivateKey(), address, Fr.random());
+    await synchroniser.addAccount(await account.getPrivateKey(), address, Fr.random(), grumpkin, schnorr);
 
     expect(synchroniser.getAccount(address)!.getPublicKey()).toEqual(account.getPublicKey());
   });

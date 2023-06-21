@@ -11,7 +11,7 @@ import {
 import { ContractAbi, FunctionType } from '@aztec/foundation/abi';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { KeyStore, PublicKey, getAddressFromPublicKey } from '@aztec/key-store';
+import { KeyStore, PublicKey } from '@aztec/key-store';
 import { SchnorrAccountContractAbi } from '@aztec/noir-contracts/examples';
 import {
   ContractDeploymentTx,
@@ -56,12 +56,7 @@ export class AztecRPCServer implements AztecRPCClient {
    * @returns A promise that resolves when the server has started successfully.
    */
   public async start() {
-    const accounts = await this.keyStore.getAccounts();
-    for (const account of accounts) {
-      await this.initAccountState(account, getAddressFromPublicKey(account), Fr.random());
-    }
     await this.synchroniser.start();
-    this.log(`Started. ${accounts.length} initial accounts.`);
   }
 
   /**
@@ -105,7 +100,7 @@ export class AztecRPCServer implements AztecRPCClient {
       pubKey,
     );
 
-    const account = await this.initAccountState(pubKey, contract.address, partialContractAddress);
+    const account = await this.initAccountState(pubKey, contract.address, partialContractAddress, curve, signer, abi);
 
     const tx = await account.simulateAndProve(txRequest, contract.address);
 
@@ -125,6 +120,7 @@ export class AztecRPCServer implements AztecRPCClient {
    * @param privKey - Private key of the corresponding user master public key.
    * @param address - Address of the account contract.
    * @param partialContractAddress - The partially computed address of the account contract.
+   * @param abi - Implementation of the account contract backed by this account.
    * @returns The address of the account contract.
    */
   public async registerSmartAccount(
@@ -133,9 +129,10 @@ export class AztecRPCServer implements AztecRPCClient {
     privKey: Buffer,
     address: AztecAddress,
     partialContractAddress: PartialContractAddress,
+    abi = SchnorrAccountContractAbi,
   ) {
     const pubKey = this.keyStore.addAccount(curve, signer, privKey);
-    await this.initAccountState(pubKey, address, partialContractAddress);
+    await this.initAccountState(pubKey, address, partialContractAddress, curve, signer, abi);
     return address;
   }
 
@@ -343,12 +340,13 @@ export class AztecRPCServer implements AztecRPCClient {
     const address = accountState.getAddress();
     const pubKey = accountState.getPublicKey();
     const partialContractAddress = accountState.getPartialContractAddress();
+    const accountContractAbi = accountState.getAccountContractAbi();
 
     if (!contract) {
       throw new Error(`Account contract not found at ${address}`);
     } else if (contract.name.includes('Account')) {
       this.log(`Using account contract implementation for ${address}`);
-      return new AccountContract(address, pubKey, this.keyStore, partialContractAddress);
+      return new AccountContract(address, pubKey, this.keyStore, partialContractAddress, accountContractAbi);
     } else {
       throw new Error(`Unknown account implementation for ${address}`);
     }
@@ -447,14 +445,27 @@ export class AztecRPCServer implements AztecRPCClient {
    * @param pubKey - User's master public key.
    * @param address - The address of the account to initialize.
    * @param partialContractAddress - The partially computed account contract address.
+   * @param curve - The curve to be used for elliptic curve operations.
+   * @param signer - The signer to be used for transaction signing.
+   * @param abi - Implementation of the account contract backing the account.
    */
   private async initAccountState(
     pubKey: PublicKey,
     address: AztecAddress,
     partialContractAddress: PartialContractAddress,
+    curve: Curve,
+    signer: Signer,
+    abi = SchnorrAccountContractAbi,
   ) {
     const accountPrivateKey = await this.keyStore.getAccountPrivateKey(pubKey);
-    const account = await this.synchroniser.addAccount(accountPrivateKey, address, partialContractAddress);
+    const account = await this.synchroniser.addAccount(
+      accountPrivateKey,
+      address,
+      partialContractAddress,
+      curve,
+      signer,
+      abi,
+    );
     this.log(`Account added: ${address.toString()}`);
     return account;
   }

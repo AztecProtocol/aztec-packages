@@ -8,6 +8,7 @@ import { jest } from '@jest/globals';
 import { mock } from 'jest-mock-extended';
 import { Database, MemoryDB } from '../database/index.js';
 import { AccountState } from './account_state.js';
+import { SchnorrAccountContractAbi } from '@aztec/noir-contracts/examples';
 
 describe('Account State', () => {
   let grumpkin: Grumpkin;
@@ -80,6 +81,7 @@ describe('Account State', () => {
       aztecNode,
       grumpkin,
       schnorr,
+      SchnorrAccountContractAbi,
     );
   });
 
@@ -161,7 +163,17 @@ describe('Account State', () => {
   it('should throw an error if invalid privKey is passed on input', () => {
     const ownerPrivateKey = Buffer.alloc(0);
     expect(
-      () => new AccountState(ownerPrivateKey, ownerAddress, Fr.random(), database, aztecNode, grumpkin, schnorr),
+      () =>
+        new AccountState(
+          ownerPrivateKey,
+          ownerAddress,
+          Fr.random(),
+          database,
+          aztecNode,
+          grumpkin,
+          schnorr,
+          SchnorrAccountContractAbi,
+        ),
     ).toThrowError();
   });
 });

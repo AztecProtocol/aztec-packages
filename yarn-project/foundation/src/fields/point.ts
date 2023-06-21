@@ -8,7 +8,7 @@ import { Coordinate } from './coordinate.js';
  * It also contains constants for SIZE_IN_BYTES, and ZERO point.
  */
 export class Point {
-  static SIZE_IN_BYTES = 128;
+  static SIZE_IN_BYTES = 64;
   static ZERO = new Point(Coordinate.ZERO, Coordinate.ZERO);
 
   /** Used to differentiate this class from AztecAddress */

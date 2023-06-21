@@ -2,7 +2,7 @@ import { AcirSimulator, collectEncryptedLogs, collectEnqueuedPublicFunctionCalls
 import { AztecNode } from '@aztec/aztec-node';
 import { CircuitsWasm, KERNEL_NEW_COMMITMENTS_LENGTH, PrivateHistoricTreeRoots } from '@aztec/circuits.js';
 import { Curve, Signer } from '@aztec/circuits.js/barretenberg';
-import { FunctionType } from '@aztec/foundation/abi';
+import { ContractAbi, FunctionType } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
@@ -69,6 +69,7 @@ export class AccountState {
     private node: AztecNode,
     private curve: Curve,
     private signer: Signer,
+    private accountContractAbi: ContractAbi,
     private TXS_PER_BLOCK = 4,
     private log = createDebugLogger('aztec:aztec_rpc_account_state'),
   ) {
@@ -118,6 +119,14 @@ export class AccountState {
    */
   public getPartialContractAddress() {
     return this.partialContractAddress;
+  }
+
+  /**
+   * Get the abi of the account contract backing this account.
+   * @returns The account contract abi.
+   */
+  public getAccountContractAbi() {
+    return this.accountContractAbi;
   }
 
   /**

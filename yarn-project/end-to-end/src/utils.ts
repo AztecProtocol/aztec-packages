@@ -159,11 +159,11 @@ export function getLogger() {
  * @returns two big ints x,y representing the public key
  */
 export function pointToPublicKey(point: Point) {
-  const x = point.x.toBuffer().subarray(0, 32);
-  const y = point.y.toBuffer().subarray(0, 32);
+  const x = point.x.toBigInt();
+  const y = point.y.toBigInt();
   return {
-    x: toBigIntBE(x),
-    y: toBigIntBE(y),
+    x,
+    y,
   };
 }
 
