@@ -41,32 +41,12 @@ using CircuitErrorCode = aztec3::utils::CircuitErrorCode;
 //     return aggregation_object;
 // }
 
-void initialise_end_values(PrivateKernelInputsInner<NT> const& private_inputs,
-                           KernelCircuitPublicInputs<NT>& public_inputs)
-{
-    public_inputs.constants = private_inputs.previous_kernel.public_inputs.constants;
-
-    // Ensure the arrays are the same as previously, before we start pushing more data onto them in other functions
-    // within this circuit:
-    auto& end = public_inputs.end;
-    const auto& start = private_inputs.previous_kernel.public_inputs.end;
-
-    end.new_commitments = start.new_commitments;
-    end.new_nullifiers = start.new_nullifiers;
-
-    end.private_call_stack = start.private_call_stack;
-    end.public_call_stack = start.public_call_stack;
-    end.new_l2_to_l1_msgs = start.new_l2_to_l1_msgs;
-
-    end.optionally_revealed_data = start.optionally_revealed_data;
-}
-
 void validate_this_private_call_hash(DummyComposer& composer,
                                      PrivateKernelInputsInner<NT> const& private_inputs,
                                      KernelCircuitPublicInputs<NT>& public_inputs)
 {
-    // TODO: this logic might need to change to accommodate the weird edge 3 initial txs (the 'main' tx, the 'fee' tx,
-    // and the 'gas rebate' tx).
+    // TODO(mike): this logic might need to change to accommodate the weird edge 3 initial txs (the 'main' tx, the 'fee'
+    // tx, and the 'gas rebate' tx).
     const auto popped_private_call_hash = array_pop(public_inputs.end.private_call_stack);
     const auto calculated_this_private_call_hash = private_inputs.private_call.call_stack_item.hash();
 
@@ -74,23 +54,6 @@ void validate_this_private_call_hash(DummyComposer& composer,
         popped_private_call_hash == calculated_this_private_call_hash,
         "calculated private_call_hash does not match provided private_call_hash at the top of the call stack",
         CircuitErrorCode::PRIVATE_KERNEL__CALCULATED_PRIVATE_CALL_HASH_AND_PROVIDED_PRIVATE_CALL_HASH_MISMATCH);
-};
-
-void validate_this_private_call_stack(DummyComposer& composer, PrivateKernelInputsInner<NT> const& private_inputs)
-{
-    const auto& stack = private_inputs.private_call.call_stack_item.public_inputs.private_call_stack;
-    const auto& preimages = private_inputs.private_call.private_call_stack_preimages;
-    for (size_t i = 0; i < stack.size(); ++i) {
-        const auto& hash = stack[i];
-        const auto& preimage = preimages[i];
-
-        // Note: this assumes it's computationally infeasible to have `0` as a valid call_stack_item_hash.
-        // Assumes `hash == 0` means "this stack item is empty".
-        const auto calculated_hash = hash == 0 ? 0 : preimage.hash();
-        composer.do_assert(hash == calculated_hash,
-                           format("private_call_stack[", i, "] = ", hash, "; does not reconcile"),
-                           CircuitErrorCode::PRIVATE_KERNEL__PRIVATE_CALL_STACK_ITEM_HASH_MISMATCH);
-    }
 };
 
 void validate_contract_tree_root(DummyComposer& composer, PrivateKernelInputsInner<NT> const& private_inputs)
@@ -116,12 +79,10 @@ void validate_inputs(DummyComposer& composer, PrivateKernelInputsInner<NT> const
 
     const auto& start = private_inputs.previous_kernel.public_inputs.end;
 
-    // TODO: we might want to range-constrain the call_count to prevent some kind of overflow errors. Having said that,
-    // iterating 2^254 times isn't feasible.
+    // TODO(mike): we might want to range-constrain the call_count to prevent some kind of overflow errors. Having said
+    // that, iterating 2^254 times isn't feasible.
 
     NT::fr const start_private_call_stack_length = array_length(start.private_call_stack);
-
-    // is_recursive_case
 
     composer.do_assert(private_inputs.previous_kernel.public_inputs.is_private == true,
                        "Cannot verify a non-private kernel snark in the private kernel circuit",
@@ -135,8 +96,8 @@ void validate_inputs(DummyComposer& composer, PrivateKernelInputsInner<NT> const
 }
 
 // NOTE: THIS IS A VERY UNFINISHED WORK IN PROGRESS.
-// TODO: is there a way to identify whether an input has not been used by ths circuit? This would help us more-safely
-// ensure we're constraining everything.
+// TODO(mike): is there a way to identify whether an input has not been used by ths circuit? This would help us
+// more-safely ensure we're constraining everything.
 KernelCircuitPublicInputs<NT> native_private_kernel_circuit_inner(DummyComposer& composer,
                                                                   PrivateKernelInputsInner<NT> const& private_inputs)
 {
@@ -144,21 +105,28 @@ KernelCircuitPublicInputs<NT> native_private_kernel_circuit_inner(DummyComposer&
     KernelCircuitPublicInputs<NT> public_inputs{};
 
     // Do this before any functions can modify the inputs.
-    initialise_end_values(private_inputs, public_inputs);
+    common_initialise_end_values(private_inputs, public_inputs);
 
     validate_inputs(composer, private_inputs);
 
     // TODO(jeanmon) Resuscitate after issue 499 is fixed as explained below.
+    // Remove the array_pop below when uncommenting this validation.
     // validate_this_private_call_hash(composer, private_inputs, public_inputs);
-
-    // TODO(rahul) FIXME - https://github.com/AztecProtocol/aztec-packages/issues/499
-    // Noir doesn't have hash index so it can't hash private call stack item correctly
-    // validate_this_private_call_stack(composer, private_inputs);
+    array_pop(public_inputs.end.private_call_stack);
 
     // TODO(dbanks12): may need to comment out hash check in here according to TODO above
     // TODO(jeanmon) FIXME - https://github.com/AztecProtocol/aztec-packages/issues/671
     // common_validate_call_stack(composer, private_inputs.private_call);
 
+    common_validate_read_requests(
+        composer,
+        private_inputs.private_call.call_stack_item.public_inputs.call_context.storage_contract_address,
+        private_inputs.private_call.call_stack_item.public_inputs.read_requests,
+        private_inputs.private_call.read_request_membership_witnesses,
+        public_inputs.constants.historic_tree_roots.private_historic_tree_roots.private_data_tree_root);
+
+
+    // TODO(dbanks12): feels like update_end_values should happen later
     common_update_end_values(composer, private_inputs.private_call, public_inputs);
 
     // ensure that historic/purported contract tree root matches the one in previous kernel

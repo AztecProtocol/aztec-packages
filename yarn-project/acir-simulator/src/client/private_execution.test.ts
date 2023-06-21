@@ -1,9 +1,7 @@
-import { Grumpkin } from '@aztec/barretenberg.js/crypto';
-import { BarretenbergWasm } from '@aztec/barretenberg.js/wasm';
 import {
   ARGS_LENGTH,
-  CircuitsWasm,
   CallContext,
+  CircuitsWasm,
   ContractDeploymentData,
   FunctionData,
   L1_TO_L2_MESSAGES_TREE_HEIGHT,
@@ -12,20 +10,26 @@ import {
   PrivateHistoricTreeRoots,
   PublicCallRequest,
   TxContext,
-  TxRequest,
 } from '@aztec/circuits.js';
+import { computeSecretMessageHash, siloCommitment } from '@aztec/circuits.js/abis';
+import { Grumpkin, pedersenCompressInputs } from '@aztec/circuits.js/barretenberg';
+import { FunctionAbi } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
+import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { AppendOnlyTree, Pedersen, StandardTree, newTree } from '@aztec/merkle-tree';
 import {
   ChildAbi,
   NonNativeTokenContractAbi,
   ParentAbi,
+  PublicToPrivateContractAbi,
   TestContractAbi,
   ZkTokenContractAbi,
 } from '@aztec/noir-contracts/examples';
+import { TxExecutionRequest } from '@aztec/types';
 import { mock } from 'jest-mock-extended';
 import { default as levelup } from 'levelup';
 import { default as memdown, type MemDown } from 'memdown';
@@ -33,20 +37,36 @@ import { encodeArguments } from '../abi_coder/index.js';
 import { NoirPoint, computeSlotForMapping, toPublicKey } from '../utils.js';
 import { DBOracle } from './db_oracle.js';
 import { AcirSimulator } from './simulator.js';
-import { sha256 } from '@aztec/foundation/crypto';
-import { computeSecretMessageHash } from '@aztec/circuits.js/abis';
-import { L1Actor, L1ToL2Message, L2Actor } from '@aztec/types';
-import { toBigIntBE, toBufferBE } from '@aztec/foundation/bigint-buffer';
+import { buildL1ToL2Message } from '../test/utils.js';
 
 const createMemDown = () => (memdown as any)() as MemDown<any, any>;
 
 describe('Private Execution test suite', () => {
-  let bbWasm: BarretenbergWasm;
+  let circuitsWasm: CircuitsWasm;
   let oracle: ReturnType<typeof mock<DBOracle>>;
   let acirSimulator: AcirSimulator;
+  let logger: DebugLogger;
+
+  const historicRoots = PrivateHistoricTreeRoots.empty();
+  const contractDeploymentData = ContractDeploymentData.empty();
+  const txContext = new TxContext(false, false, false, contractDeploymentData);
+
+  const buildTxExecutionRequest = (args: {
+    abi: FunctionAbi;
+    origin?: AztecAddress;
+    isConstructor?: boolean;
+    args: any[];
+  }) =>
+    TxExecutionRequest.from({
+      origin: args.origin ?? AztecAddress.ZERO,
+      args: encodeArguments(args.abi, args.args),
+      functionData: new FunctionData(Buffer.alloc(4), true, args.isConstructor),
+      txContext,
+    });
 
   beforeAll(async () => {
-    bbWasm = await BarretenbergWasm.get();
+    circuitsWasm = await CircuitsWasm.get();
+    logger = createDebugLogger('aztec:test:private_execution');
   });
 
   beforeEach(() => {
@@ -55,19 +75,12 @@ describe('Private Execution test suite', () => {
   });
 
   describe('empty constructor', () => {
-    const historicRoots = PrivateHistoricTreeRoots.empty();
-    const contractDeploymentData = ContractDeploymentData.empty();
-    const txContext = new TxContext(false, false, false, contractDeploymentData);
-
     it('should run the empty constructor', async () => {
-      const txRequest = new TxRequest(
-        AztecAddress.random(),
+      const txRequest = new TxExecutionRequest(
         AztecAddress.ZERO,
         new FunctionData(Buffer.alloc(4), true, true),
         new Array(ARGS_LENGTH).fill(Fr.ZERO),
-        Fr.random(),
         txContext,
-        Fr.ZERO,
       );
       const result = await acirSimulator.run(
         txRequest,
@@ -84,9 +97,6 @@ describe('Private Execution test suite', () => {
   describe('zk token contract', () => {
     let currentNonce = 0n;
 
-    const contractDeploymentData = ContractDeploymentData.empty();
-    const txContext = new TxContext(false, false, false, contractDeploymentData);
-
     let ownerPk: Buffer;
     let owner: NoirPoint;
     let recipientPk: Buffer;
@@ -100,68 +110,50 @@ describe('Private Execution test suite', () => {
       ownerPk = Buffer.from('5e30a2f886b4b6a11aea03bf4910fbd5b24e61aa27ea4d05c393b3ab592a8d33', 'hex');
       recipientPk = Buffer.from('0c9ed344548e8f9ba8aa3c9f8651eaa2853130f6c1e9c050ccf198f7ea18a7ec', 'hex');
 
-      const grumpkin = new Grumpkin(bbWasm);
+      const grumpkin = new Grumpkin(circuitsWasm);
       owner = toPublicKey(ownerPk, grumpkin);
       recipient = toPublicKey(recipientPk, grumpkin);
     });
 
     it('should a constructor with arguments that creates notes', async () => {
-      const historicRoots = PrivateHistoricTreeRoots.empty();
       const contractAddress = AztecAddress.random();
       const abi = ZkTokenContractAbi.functions.find(f => f.name === 'constructor')!;
 
-      const txRequest = new TxRequest(
-        AztecAddress.random(),
-        AztecAddress.ZERO,
-        new FunctionData(Buffer.alloc(4), true, true),
-        encodeArguments(abi, [140, owner]),
-        Fr.random(),
-        txContext,
-        Fr.ZERO,
-      );
+      const txRequest = buildTxExecutionRequest({ args: [140, owner], abi, isConstructor: true });
       const result = await acirSimulator.run(txRequest, abi, contractAddress, EthAddress.ZERO, historicRoots);
 
       expect(result.preimages.newNotes).toHaveLength(1);
       const newNote = result.preimages.newNotes[0];
-      expect(newNote.storageSlot).toEqual(computeSlotForMapping(new Fr(1n), owner, bbWasm));
+      expect(newNote.storageSlot).toEqual(computeSlotForMapping(new Fr(1n), owner, circuitsWasm));
 
       const newCommitments = result.callStackItem.publicInputs.newCommitments.filter(field => !field.equals(Fr.ZERO));
       expect(newCommitments).toHaveLength(1);
 
       const [commitment] = newCommitments;
-      expect(commitment).toEqual(Fr.fromBuffer(acirSimulator.computeNoteHash(newNote.preimage, bbWasm)));
+      expect(commitment).toEqual(Fr.fromBuffer(acirSimulator.computeNoteHash(newNote.preimage, circuitsWasm)));
     }, 30_000);
 
     it('should run the mint function', async () => {
-      const historicRoots = PrivateHistoricTreeRoots.empty();
       const contractAddress = AztecAddress.random();
       const abi = ZkTokenContractAbi.functions.find(f => f.name === 'mint')!;
 
-      const txRequest = new TxRequest(
-        AztecAddress.random(),
-        contractAddress,
-        new FunctionData(Buffer.alloc(4), true, false),
-        encodeArguments(abi, [140, owner]),
-        Fr.random(),
-        txContext,
-        Fr.ZERO,
-      );
+      const txRequest = buildTxExecutionRequest({ origin: contractAddress, args: [140, owner], abi });
       const result = await acirSimulator.run(txRequest, abi, AztecAddress.ZERO, EthAddress.ZERO, historicRoots);
 
       expect(result.preimages.newNotes).toHaveLength(1);
       const newNote = result.preimages.newNotes[0];
-      expect(newNote.storageSlot).toEqual(computeSlotForMapping(new Fr(1n), owner, bbWasm));
+      expect(newNote.storageSlot).toEqual(computeSlotForMapping(new Fr(1n), owner, circuitsWasm));
 
       const newCommitments = result.callStackItem.publicInputs.newCommitments.filter(field => !field.equals(Fr.ZERO));
       expect(newCommitments).toHaveLength(1);
 
       const [commitment] = newCommitments;
-      expect(commitment).toEqual(Fr.fromBuffer(acirSimulator.computeNoteHash(newNote.preimage, bbWasm)));
+      expect(commitment).toEqual(Fr.fromBuffer(acirSimulator.computeNoteHash(newNote.preimage, circuitsWasm)));
     });
 
     it('should run the transfer function', async () => {
       const db = levelup(createMemDown());
-      const pedersen = new Pedersen(bbWasm);
+      const pedersen = new Pedersen(circuitsWasm);
 
       const contractAddress = AztecAddress.random();
       const amountToTransfer = 100n;
@@ -170,7 +162,7 @@ describe('Private Execution test suite', () => {
       const tree: AppendOnlyTree = await newTree(StandardTree, db, pedersen, 'privateData', PRIVATE_DATA_TREE_HEIGHT);
       const preimages = [buildNote(60n, owner), buildNote(80n, owner)];
       // TODO for this we need that noir siloes the commitment the same way as the kernel does, to do merkle membership
-      await tree.appendLeaves(preimages.map(preimage => acirSimulator.computeNoteHash(preimage, bbWasm)));
+      await tree.appendLeaves(preimages.map(preimage => acirSimulator.computeNoteHash(preimage, circuitsWasm)));
 
       const historicRoots = new PrivateHistoricTreeRoots(
         Fr.fromBuffer(tree.getRoot(false)),
@@ -184,9 +176,8 @@ describe('Private Execution test suite', () => {
         return {
           count: preimages.length,
           notes: await Promise.all(
-            preimages.map(async (preimage, index) => ({
+            preimages.map((preimage, index) => ({
               preimage,
-              siblingPath: (await tree.getSiblingPath(BigInt(index), false)).toFieldArray(),
               index: BigInt(index),
             })),
           ),
@@ -195,15 +186,8 @@ describe('Private Execution test suite', () => {
 
       oracle.getSecretKey.mockReturnValue(Promise.resolve(ownerPk));
 
-      const txRequest = new TxRequest(
-        AztecAddress.random(),
-        contractAddress,
-        new FunctionData(Buffer.alloc(4), true, true),
-        encodeArguments(abi, [amountToTransfer, owner, recipient]),
-        Fr.random(),
-        txContext,
-        Fr.ZERO,
-      );
+      const args = [amountToTransfer, owner, recipient];
+      const txRequest = buildTxExecutionRequest({ origin: contractAddress, args, abi });
 
       const result = await acirSimulator.run(txRequest, abi, AztecAddress.random(), EthAddress.ZERO, historicRoots);
 
@@ -212,12 +196,12 @@ describe('Private Execution test suite', () => {
       expect(newNullifiers).toHaveLength(2);
 
       expect(newNullifiers).toEqual(
-        preimages.map(preimage => Fr.fromBuffer(acirSimulator.computeNullifier(preimage, ownerPk, bbWasm))),
+        preimages.map(preimage => Fr.fromBuffer(acirSimulator.computeNullifier(preimage, ownerPk, circuitsWasm))),
       );
 
       expect(result.preimages.newNotes).toHaveLength(2);
       const [recipientNote, changeNote] = result.preimages.newNotes;
-      expect(recipientNote.storageSlot).toEqual(computeSlotForMapping(new Fr(1n), recipient, bbWasm));
+      expect(recipientNote.storageSlot).toEqual(computeSlotForMapping(new Fr(1n), recipient, circuitsWasm));
 
       const newCommitments = result.callStackItem.publicInputs.newCommitments.filter(field => !field.equals(Fr.ZERO));
 
@@ -225,9 +209,11 @@ describe('Private Execution test suite', () => {
 
       const [recipientNoteCommitment, changeNoteCommitment] = newCommitments;
       expect(recipientNoteCommitment).toEqual(
-        Fr.fromBuffer(acirSimulator.computeNoteHash(recipientNote.preimage, bbWasm)),
+        Fr.fromBuffer(acirSimulator.computeNoteHash(recipientNote.preimage, circuitsWasm)),
       );
-      expect(changeNoteCommitment).toEqual(Fr.fromBuffer(acirSimulator.computeNoteHash(changeNote.preimage, bbWasm)));
+      expect(changeNoteCommitment).toEqual(
+        Fr.fromBuffer(acirSimulator.computeNoteHash(changeNote.preimage, circuitsWasm)),
+      );
 
       expect(recipientNote.preimage[5]).toEqual(new Fr(amountToTransfer));
       expect(changeNote.preimage[5]).toEqual(new Fr(40n));
@@ -235,7 +221,7 @@ describe('Private Execution test suite', () => {
 
     it('should be able to transfer with dummy notes', async () => {
       const db = levelup(createMemDown());
-      const pedersen = new Pedersen(bbWasm);
+      const pedersen = new Pedersen(circuitsWasm);
 
       const contractAddress = AztecAddress.random();
       const amountToTransfer = 100n;
@@ -245,7 +231,7 @@ describe('Private Execution test suite', () => {
       const tree: AppendOnlyTree = await newTree(StandardTree, db, pedersen, 'privateData', PRIVATE_DATA_TREE_HEIGHT);
       const preimages = [buildNote(balance, owner)];
       // TODO for this we need that noir siloes the commitment the same way as the kernel does, to do merkle membership
-      await tree.appendLeaves(preimages.map(preimage => acirSimulator.computeNoteHash(preimage, bbWasm)));
+      await tree.appendLeaves(preimages.map(preimage => acirSimulator.computeNoteHash(preimage, circuitsWasm)));
 
       const historicRoots = new PrivateHistoricTreeRoots(
         Fr.fromBuffer(tree.getRoot(false)),
@@ -259,9 +245,8 @@ describe('Private Execution test suite', () => {
         return {
           count: preimages.length,
           notes: await Promise.all(
-            preimages.map(async (preimage, index) => ({
+            preimages.map((preimage, index) => ({
               preimage,
-              siblingPath: (await tree.getSiblingPath(BigInt(index), false)).toFieldArray(),
               index: BigInt(index),
             })),
           ),
@@ -270,22 +255,16 @@ describe('Private Execution test suite', () => {
 
       oracle.getSecretKey.mockReturnValue(Promise.resolve(ownerPk));
 
-      const txRequest = new TxRequest(
-        AztecAddress.random(),
-        contractAddress,
-        new FunctionData(Buffer.alloc(4), true, true),
-        encodeArguments(abi, [amountToTransfer, owner, recipient]),
-        Fr.random(),
-        txContext,
-        Fr.ZERO,
-      );
-
+      const args = [amountToTransfer, owner, recipient];
+      const txRequest = buildTxExecutionRequest({ origin: contractAddress, args, abi });
       const result = await acirSimulator.run(txRequest, abi, AztecAddress.random(), EthAddress.ZERO, historicRoots);
 
       const newNullifiers = result.callStackItem.publicInputs.newNullifiers.filter(field => !field.equals(Fr.ZERO));
       expect(newNullifiers).toHaveLength(2);
 
-      expect(newNullifiers[0]).toEqual(Fr.fromBuffer(acirSimulator.computeNullifier(preimages[0], ownerPk, bbWasm)));
+      expect(newNullifiers[0]).toEqual(
+        Fr.fromBuffer(acirSimulator.computeNullifier(preimages[0], ownerPk, circuitsWasm)),
+      );
 
       expect(result.preimages.newNotes).toHaveLength(2);
       const [recipientNote, changeNote] = result.preimages.newNotes;
@@ -295,22 +274,9 @@ describe('Private Execution test suite', () => {
   });
 
   describe('nested calls', () => {
-    const historicRoots = PrivateHistoricTreeRoots.empty();
-    const contractDeploymentData = new ContractDeploymentData(Fr.random(), Fr.random(), Fr.random(), EthAddress.ZERO);
-    const txContext = new TxContext(false, false, true, contractDeploymentData);
-
     it('child function should be callable', async () => {
       const abi = ChildAbi.functions.find(f => f.name === 'value')!;
-
-      const txRequest = new TxRequest(
-        AztecAddress.random(),
-        AztecAddress.ZERO,
-        new FunctionData(Buffer.alloc(4), true, false),
-        encodeArguments(abi, [100n]),
-        Fr.random(),
-        txContext,
-        Fr.ZERO,
-      );
+      const txRequest = buildTxExecutionRequest({ args: [100n], abi });
       const result = await acirSimulator.run(txRequest, abi, AztecAddress.ZERO, EthAddress.ZERO, historicRoots);
 
       expect(result.callStackItem.publicInputs.returnValues[0]).toEqual(new Fr(142n));
@@ -319,28 +285,19 @@ describe('Private Execution test suite', () => {
     it('parent should call child', async () => {
       const childAbi = ChildAbi.functions.find(f => f.name === 'value')!;
       const parentAbi = ParentAbi.functions.find(f => f.name === 'entryPoint')!;
+      const parentAddress = AztecAddress.random();
       const childAddress = AztecAddress.random();
       const childSelector = Buffer.alloc(4, 1); // should match the call
 
       oracle.getFunctionABI.mockImplementation(() => Promise.resolve(childAbi));
       oracle.getPortalContractAddress.mockImplementation(() => Promise.resolve(EthAddress.ZERO));
 
-      const txRequest = new TxRequest(
-        AztecAddress.random(),
-        AztecAddress.ZERO,
-        new FunctionData(Buffer.alloc(4), true, false),
-        encodeArguments(parentAbi, [Fr.fromBuffer(childAddress.toBuffer()), Fr.fromBuffer(childSelector)]),
-        Fr.random(),
-        txContext,
-        Fr.ZERO,
-      );
-      const result = await acirSimulator.run(
-        txRequest,
-        parentAbi,
-        AztecAddress.random(),
-        EthAddress.ZERO,
-        historicRoots,
-      );
+      const args = [Fr.fromBuffer(childAddress.toBuffer()), Fr.fromBuffer(childSelector)];
+      const txRequest = buildTxExecutionRequest({ args, abi: parentAbi, origin: parentAddress });
+
+      logger(`Parent deployed at ${parentAddress.toShortString()}`);
+      logger(`Calling child function ${childSelector.toString('hex')} at ${childAddress.toShortString()}`);
+      const result = await acirSimulator.run(txRequest, parentAbi, parentAddress, EthAddress.ZERO, historicRoots);
 
       expect(result.callStackItem.publicInputs.returnValues[0]).toEqual(new Fr(42n));
       expect(oracle.getFunctionABI.mock.calls[0]).toEqual([childAddress, childSelector]);
@@ -351,56 +308,36 @@ describe('Private Execution test suite', () => {
   });
 
   describe('Consuming Messages', () => {
-    const contractDeploymentData = ContractDeploymentData.empty();
-    const txContext = new TxContext(false, false, false, contractDeploymentData);
-
     let recipientPk: Buffer;
     let recipient: NoirPoint;
-
-    const buildL1ToL2Message = async (contentPreimage: Fr[], targetContract: AztecAddress, secret: Fr) => {
-      const wasm = await CircuitsWasm.get();
-
-      // Function selector: 0x1801fbe5 keccak256('mint(uint256,bytes32)')
-      const contentBuf = Buffer.concat([
-        Buffer.from([0x18, 0x01, 0xfb, 0xe5]),
-        ...contentPreimage.map(field => field.toBuffer()),
-      ]);
-      const temp = toBigIntBE(sha256(contentBuf));
-      const content = Fr.fromBuffer(toBufferBE(temp % Fr.MODULUS, 32));
-
-      const secretHash = computeSecretMessageHash(wasm, secret);
-
-      // Eventually the kernel will need to prove the kernel portal pair exists within the contract tree,
-      // EthAddress.random() will need to be replaced when this happens
-      return new L1ToL2Message(
-        new L1Actor(EthAddress.random(), 1),
-        new L2Actor(targetContract, 1),
-        content,
-        secretHash,
-        0,
-        0,
-      );
-    };
 
     beforeAll(() => {
       recipientPk = Buffer.from('0c9ed344548e8f9ba8aa3c9f8651eaa2853130f6c1e9c050ccf198f7ea18a7ec', 'hex');
 
-      const grumpkin = new Grumpkin(bbWasm);
+      const grumpkin = new Grumpkin(circuitsWasm);
       recipient = toPublicKey(recipientPk, grumpkin);
     });
 
     it('Should be able to consume a dummy cross chain message', async () => {
       const db = levelup(createMemDown());
-      const pedersen = new Pedersen(bbWasm);
+      const pedersen = new Pedersen(circuitsWasm);
 
       const contractAddress = AztecAddress.random();
       const bridgedAmount = 100n;
       const abi = NonNativeTokenContractAbi.functions.find(f => f.name === 'mint')!;
 
       const secret = new Fr(1n);
-      const preimage = await buildL1ToL2Message([new Fr(bridgedAmount), new Fr(recipient.x)], contractAddress, secret);
+      const canceller = EthAddress.random();
+      // Function selector: 0xeeb73071 keccak256('mint(uint256,bytes32,address)')
+      const preimage = await buildL1ToL2Message(
+        'eeb73071',
+        [new Fr(bridgedAmount), new Fr(recipient.x), canceller.toField()],
+        contractAddress,
+        secret,
+      );
 
-      const messageKey = preimage.hash();
+      // stub message key
+      const messageKey = Fr.random();
 
       const tree: AppendOnlyTree = await newTree(
         StandardTree,
@@ -423,28 +360,66 @@ describe('Private Execution test suite', () => {
         });
       });
 
-      const txRequest = new TxRequest(
-        AztecAddress.random(),
-        contractAddress,
-        new FunctionData(Buffer.alloc(4), true, true),
-        encodeArguments(abi, [bridgedAmount, recipient, messageKey, secret]),
-        Fr.random(),
-        txContext,
-        Fr.ZERO,
-      );
-
+      const args = [bridgedAmount, recipient, recipient.x, messageKey, secret, canceller.toField()];
+      const txRequest = buildTxExecutionRequest({ origin: contractAddress, abi, args });
       const result = await acirSimulator.run(txRequest, abi, contractAddress, EthAddress.ZERO, historicRoots);
 
       // Check a nullifier has been created
       const newNullifiers = result.callStackItem.publicInputs.newNullifiers.filter(field => !field.equals(Fr.ZERO));
       expect(newNullifiers).toHaveLength(1);
     }, 30_000);
+
+    it('Should be able to consume a dummy public to private message', async () => {
+      const db = levelup(createMemDown());
+      const pedersen = new Pedersen(circuitsWasm);
+
+      const contractAddress = AztecAddress.random();
+      const amount = 100n;
+      const abi = PublicToPrivateContractAbi.functions.find(f => f.name === 'mintFromPublicMessage')!;
+
+      const wasm = await CircuitsWasm.get();
+      const secret = new Fr(1n);
+      const secretHash = computeSecretMessageHash(wasm, secret);
+      const commitment = Fr.fromBuffer(pedersenCompressInputs(wasm, [toBufferBE(amount, 32), secretHash.toBuffer()]));
+      const siloedCommitment = siloCommitment(wasm, contractAddress, commitment);
+
+      const tree: AppendOnlyTree = await newTree(
+        StandardTree,
+        db,
+        pedersen,
+        'privateDataTree',
+        PRIVATE_DATA_TREE_HEIGHT,
+      );
+
+      await tree.appendLeaves([siloedCommitment.toBuffer()]);
+
+      const privateDataTreeRoot = Fr.fromBuffer(tree.getRoot(false));
+      const historicRoots = new PrivateHistoricTreeRoots(Fr.ZERO, Fr.ZERO, Fr.ZERO, privateDataTreeRoot, Fr.ZERO);
+
+      oracle.getCommitmentOracle.mockImplementation(async () => {
+        // Check the calculated commitment is correct
+        return Promise.resolve({
+          commitment: siloedCommitment,
+          index: 0n,
+          siblingPath: (await tree.getSiblingPath(0n, false)).toFieldArray(),
+        });
+      });
+
+      const txRequest = buildTxExecutionRequest({ origin: contractAddress, abi, args: [amount, secret, recipient] });
+      const result = await acirSimulator.run(txRequest, abi, contractAddress, EthAddress.ZERO, historicRoots);
+
+      // Check a nullifier has been created.
+      const newNullifiers = result.callStackItem.publicInputs.newNullifiers.filter(field => !field.equals(Fr.ZERO));
+      expect(newNullifiers).toHaveLength(1);
+
+      // Check the commitment read request was created successfully.
+      const readRequests = result.callStackItem.publicInputs.readRequests.filter(field => !field.equals(Fr.ZERO));
+      expect(readRequests).toHaveLength(1);
+      expect(readRequests[0]).toEqual(commitment);
+    }, 30_000);
   });
 
   describe('enqueued calls', () => {
-    const historicRoots = PrivateHistoricTreeRoots.empty();
-    const txContext = new TxContext(false, false, true, ContractDeploymentData.empty());
-
     it('parent should enqueue call to child', async () => {
       const parentAbi = ParentAbi.functions.find(f => f.name === 'enqueueCallToChild')!;
       const childAddress = AztecAddress.random();
@@ -454,16 +429,8 @@ describe('Private Execution test suite', () => {
 
       oracle.getPortalContractAddress.mockImplementation(() => Promise.resolve(childPortalContractAddress));
 
-      const txRequest = new TxRequest(
-        AztecAddress.random(),
-        parentAddress,
-        new FunctionData(Buffer.alloc(4), true, false),
-        encodeArguments(parentAbi, [Fr.fromBuffer(childAddress.toBuffer()), Fr.fromBuffer(childSelector), 42n]),
-        Fr.random(),
-        txContext,
-        Fr.ZERO,
-      );
-
+      const args = [Fr.fromBuffer(childAddress.toBuffer()), Fr.fromBuffer(childSelector), 42n];
+      const txRequest = buildTxExecutionRequest({ origin: parentAddress, abi: parentAbi, args });
       const result = await acirSimulator.run(txRequest, parentAbi, parentAddress, EthAddress.ZERO, historicRoots);
 
       expect(result.enqueuedPublicFunctionCalls).toHaveLength(1);

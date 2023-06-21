@@ -96,14 +96,14 @@ export function appFactory(node: AztecNode, prefix: string) {
     ctx.status = 200;
   });
 
-  router.get('/get-unverified', async (ctx: Koa.Context) => {
+  router.get('/get-encrypted-logs', async (ctx: Koa.Context) => {
     const from = +ctx.query.from!;
     const take = +ctx.query.take!;
-    const blocks = await node.getUnverifiedData(from, take);
-    const strs = blocks.map(x => x.toBuffer().toString('hex'));
+    const logs = await node.getEncryptedLogs(from, take);
+    const strs = logs.map(x => x.toBuffer().toString('hex'));
     ctx.set('content-type', 'application/json');
     ctx.body = {
-      unverified: strs,
+      encryptedLogs: strs,
     };
     ctx.status = 200;
   });
@@ -135,6 +135,16 @@ export function appFactory(node: AztecNode, prefix: string) {
     ctx.set('content-type', 'application/json');
     ctx.body = {
       path: path.toString(),
+    };
+    ctx.status = 200;
+  });
+
+  router.get('/commitment-index', async (ctx: Koa.Context) => {
+    const leaf = ctx.query.leaf!;
+    const index = await node.findCommitmentIndex(Buffer.from(leaf as string, 'hex'));
+    ctx.set('content-type', 'application/json');
+    ctx.body = {
+      index,
     };
     ctx.status = 200;
   });

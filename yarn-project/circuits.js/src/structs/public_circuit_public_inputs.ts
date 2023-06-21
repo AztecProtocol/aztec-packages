@@ -1,19 +1,19 @@
-import { FieldsOf, assertMemberLength, makeTuple } from '../utils/jsUtils.js';
-import { CallContext } from './call_context.js';
-import {
-  ARGS_LENGTH,
-  EMITTED_EVENTS_LENGTH,
-  NEW_L2_TO_L1_MSGS_LENGTH,
-  PUBLIC_CALL_STACK_LENGTH,
-  RETURN_VALUES_LENGTH,
-  KERNEL_PUBLIC_DATA_READS_LENGTH,
-  KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH,
-} from './constants.js';
-import { serializeToBuffer } from '../utils/serialize.js';
-import { Fr } from '@aztec/foundation/fields';
-import { BufferReader, Tuple } from '@aztec/foundation/serialize';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { isArrayEmpty } from '@aztec/foundation/collection';
+import { Fr } from '@aztec/foundation/fields';
+import { BufferReader, Tuple } from '@aztec/foundation/serialize';
+import { FieldsOf, assertMemberLength, makeTuple } from '../utils/jsUtils.js';
+import { serializeToBuffer } from '../utils/serialize.js';
+import { CallContext } from './call_context.js';
+import {
+  KERNEL_PUBLIC_DATA_READS_LENGTH,
+  KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH,
+  NEW_COMMITMENTS_LENGTH,
+  NEW_L2_TO_L1_MSGS_LENGTH,
+  NEW_NULLIFIERS_LENGTH,
+  PUBLIC_CALL_STACK_LENGTH,
+  RETURN_VALUES_LENGTH,
+} from './constants.js';
 
 /**
  * Contract storage read operation on a specific contract.
@@ -139,17 +139,13 @@ export class PublicCircuitPublicInputs {
      */
     public callContext: CallContext,
     /**
-     * Arguments of the call.
+     * Pedersen hash of the arguments of the call.
      */
-    public args: Tuple<Fr, typeof ARGS_LENGTH>,
+    public argsHash: Fr,
     /**
      * Return values of the call.
      */
     public returnValues: Tuple<Fr, typeof RETURN_VALUES_LENGTH>,
-    /**
-     * Events emitted during the call.
-     */
-    public emittedEvents: Tuple<Fr, typeof EMITTED_EVENTS_LENGTH>,
     /**
      * Contract storage update requests executed during the call.
      */
@@ -166,9 +162,26 @@ export class PublicCircuitPublicInputs {
      */
     public publicCallStack: Tuple<Fr, typeof PUBLIC_CALL_STACK_LENGTH>,
     /**
+     * New commitments created within a public execution call
+     */
+    public newCommitments: Tuple<Fr, typeof NEW_COMMITMENTS_LENGTH>,
+    /**
+     * New nullifiers created within a public execution call
+     */
+    public newNullifiers: Tuple<Fr, typeof NEW_NULLIFIERS_LENGTH>,
+    /**
      * New L2 to L1 messages generated during the call.
      */
     public newL2ToL1Msgs: Tuple<Fr, typeof NEW_L2_TO_L1_MSGS_LENGTH>,
+    /**
+     * Hash of the unencrypted logs emitted in this function call.
+     * Note: Represented as an array of 2 fields in order to fit in all of the 256 bits of sha256 hash.
+     */
+    public unencryptedLogsHash: [Fr, Fr],
+    /**
+     * Length of the unencrypted log preimages emitted in this function call.
+     */
+    public unencryptedLogPreimagesLength: Fr,
     /**
      * Root of the public data tree when the call started.
      */
@@ -178,13 +191,14 @@ export class PublicCircuitPublicInputs {
      */
     public proverAddress: AztecAddress,
   ) {
-    assertMemberLength(this, 'args', ARGS_LENGTH);
     assertMemberLength(this, 'returnValues', RETURN_VALUES_LENGTH);
-    assertMemberLength(this, 'emittedEvents', EMITTED_EVENTS_LENGTH);
     assertMemberLength(this, 'publicCallStack', PUBLIC_CALL_STACK_LENGTH);
+    assertMemberLength(this, 'newCommitments', NEW_COMMITMENTS_LENGTH);
+    assertMemberLength(this, 'newNullifiers', NEW_NULLIFIERS_LENGTH);
     assertMemberLength(this, 'newL2ToL1Msgs', NEW_L2_TO_L1_MSGS_LENGTH);
     assertMemberLength(this, 'contractStorageUpdateRequests', KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH);
     assertMemberLength(this, 'contractStorageReads', KERNEL_PUBLIC_DATA_READS_LENGTH);
+    assertMemberLength(this, 'unencryptedLogsHash', 2);
   }
 
   /**
@@ -203,13 +217,16 @@ export class PublicCircuitPublicInputs {
   public static empty() {
     return new PublicCircuitPublicInputs(
       CallContext.empty(),
-      makeTuple(ARGS_LENGTH, Fr.zero),
+      Fr.ZERO,
       makeTuple(RETURN_VALUES_LENGTH, Fr.zero),
-      makeTuple(EMITTED_EVENTS_LENGTH, Fr.zero),
       makeTuple(KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH, ContractStorageUpdateRequest.empty),
       makeTuple(KERNEL_PUBLIC_DATA_READS_LENGTH, ContractStorageRead.empty),
       makeTuple(PUBLIC_CALL_STACK_LENGTH, Fr.zero),
+      makeTuple(NEW_COMMITMENTS_LENGTH, Fr.zero),
+      makeTuple(NEW_NULLIFIERS_LENGTH, Fr.zero),
       makeTuple(NEW_L2_TO_L1_MSGS_LENGTH, Fr.zero),
+      makeTuple(2, Fr.zero),
+      Fr.ZERO,
       Fr.ZERO,
       AztecAddress.ZERO,
     );
@@ -219,13 +236,16 @@ export class PublicCircuitPublicInputs {
     const isFrArrayEmpty = (arr: Fr[]) => isArrayEmpty(arr, item => item.isZero());
     return (
       this.callContext.isEmpty() &&
-      isFrArrayEmpty(this.args) &&
+      this.argsHash.isZero() &&
       isFrArrayEmpty(this.returnValues) &&
-      isFrArrayEmpty(this.emittedEvents) &&
       isArrayEmpty(this.contractStorageUpdateRequests, item => item.isEmpty()) &&
       isArrayEmpty(this.contractStorageReads, item => item.isEmpty()) &&
       isFrArrayEmpty(this.publicCallStack) &&
+      isFrArrayEmpty(this.newCommitments) &&
+      isFrArrayEmpty(this.newNullifiers) &&
       isFrArrayEmpty(this.newL2ToL1Msgs) &&
+      isFrArrayEmpty(this.unencryptedLogsHash) &&
+      this.unencryptedLogPreimagesLength.isZero() &&
       this.historicPublicDataTreeRoot.isZero() &&
       this.proverAddress.isZero()
     );
@@ -239,13 +259,16 @@ export class PublicCircuitPublicInputs {
   static getFields(fields: FieldsOf<PublicCircuitPublicInputs>) {
     return [
       fields.callContext,
-      fields.args,
+      fields.argsHash,
       fields.returnValues,
-      fields.emittedEvents,
       fields.contractStorageUpdateRequests,
       fields.contractStorageReads,
       fields.publicCallStack,
+      fields.newCommitments,
+      fields.newNullifiers,
       fields.newL2ToL1Msgs,
+      fields.unencryptedLogsHash,
+      fields.unencryptedLogPreimagesLength,
       fields.historicPublicDataTreeRoot,
       fields.proverAddress,
     ] as const;

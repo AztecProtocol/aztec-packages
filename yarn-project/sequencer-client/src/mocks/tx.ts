@@ -1,39 +1,26 @@
-import { KernelCircuitPublicInputs, KERNEL_PUBLIC_CALL_STACK_LENGTH, makeEmptyProof } from '@aztec/circuits.js';
-import { makeKernelPublicInputs, makePublicCallRequest, makeSignedTxRequest } from '@aztec/circuits.js/factories';
-import { UnverifiedData, PrivateTx, Tx, PublicTx } from '@aztec/types';
+import { KERNEL_PUBLIC_CALL_STACK_LENGTH, makeEmptyProof } from '@aztec/circuits.js';
+import { makeKernelPublicInputs, makePublicCallRequest } from '@aztec/circuits.js/factories';
+import { FunctionL2Logs, Tx, TxL2Logs } from '@aztec/types';
 import times from 'lodash.times';
 
 /**
- * Testing utility to create empty unverified data composed by a single empty chunk.
+ * Testing utility to create empty logs composed from a single empty log.
  */
-export function makeEmptyUnverifiedData(): UnverifiedData {
-  const chunks = [Buffer.alloc(0)];
-  return new UnverifiedData(chunks);
+export function makeEmptyLogs(): TxL2Logs {
+  const functionLogs = [new FunctionL2Logs([Buffer.alloc(0)])];
+  return new TxL2Logs(functionLogs);
 }
 
 /**
- * Testing utility to create a tx with an empty kernel circuit output, empty proof, and empty unverified data.
+ * Testing utility to create a tx with gibberish kernel circuit output, random logs, and an empty proof.
  */
-export function makeEmptyPrivateTx(): PrivateTx {
-  return Tx.createPrivate(KernelCircuitPublicInputs.empty(), makeEmptyProof(), makeEmptyUnverifiedData(), [], []);
-}
-
-/**
- * Testing utility to create a tx with gibberish kernel circuit output, random unverified data, and an empty proof.
- */
-export function makePrivateTx(seed = 0): PrivateTx {
-  return Tx.createPrivate(
+export function makeTx(seed = 0) {
+  return Tx.createTx(
     makeKernelPublicInputs(seed),
     makeEmptyProof(),
-    UnverifiedData.random(2),
+    TxL2Logs.random(2, 3),
+    TxL2Logs.random(3, 0),
     [],
     times(KERNEL_PUBLIC_CALL_STACK_LENGTH, makePublicCallRequest),
   );
-}
-
-/**
- * Testing utility to create a tx with a request to execute a public function.
- */
-export function makePublicTx(seed = 0): PublicTx {
-  return Tx.createPublic(makeSignedTxRequest(seed));
 }

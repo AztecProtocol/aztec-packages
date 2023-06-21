@@ -14,14 +14,33 @@ import times from 'lodash.times';
 import { ContractData } from './contract_data.js';
 import { L2Tx } from './l2_tx.js';
 import { PublicDataWrite } from './public_data_write.js';
-import { toBigIntBE, toBufferBE } from '@aztec/foundation/bigint-buffer';
-import { sha256 } from '@aztec/foundation/crypto';
-import { UnverifiedData } from './unverified_data.js';
+import { sha256, sha256ToField } from '@aztec/foundation/crypto';
+import { L2BlockL2Logs } from './logs/l2_block_l2_logs.js';
+import { TxL2Logs } from './index.js';
+
 /**
  * The data that makes up the rollup proof, with encoder decoder functions.
  * TODO: Reuse data types and serialization functions from circuits package.
  */
 export class L2Block {
+  /**
+   * Encrypted logs emitted by txs in this block.
+   * @remarks `L2BlockL2Logs.txLogs` array has to match number of txs in this block and has to be in the same order
+   *          (e.g. logs from the first tx on the first place...).
+   * @remarks Only private function can emit encrypted logs and for this reason length of
+   *          `newEncryptedLogs.txLogs.functionLogs` is equal to the number of private function invocations in the tx.
+   */
+  public newEncryptedLogs?: L2BlockL2Logs;
+
+  /**
+   * Unencrypted logs emitted by txs in this block.
+   * @remarks `L2BlockL2Logs.txLogs` array has to match number of txs in this block and has to be in the same order
+   *          (e.g. logs from the first tx on the first place...).
+   * @remarks Both private and public functions can emit unencrypted logs and for this reason length of
+   *          `newUnencryptedLogs.txLogs.functionLogs` is equal to the number of all function invocations in the tx.
+   */
+  public newUnencryptedLogs?: L2BlockL2Logs;
+
   constructor(
     /**
      * The number of the L2 block.
@@ -119,23 +138,39 @@ export class L2Block {
      * The L1 to L2 messages to be inserted into the L2 toL2 message tree.
      */
     public newL1ToL2Messages: Fr[] = [],
-    /**
-     * Length (in bytes) of the unverified data chunks in the block.
-     */
-    public newEncryptedLogsLength: number,
-    /**
-     * Consolidated logs from all txs.
-     */
-    public newEncryptedLogs: UnverifiedData,
-  ) {}
+    newEncryptedLogs?: L2BlockL2Logs,
+    newUnencryptedLogs?: L2BlockL2Logs,
+  ) {
+    if (newCommitments.length % KERNEL_NEW_COMMITMENTS_LENGTH !== 0) {
+      throw new Error(`The number of new commitments must be a multiple of ${KERNEL_NEW_COMMITMENTS_LENGTH}.`);
+    }
+
+    if (newEncryptedLogs) {
+      this.attachLogs(newEncryptedLogs, 'newEncryptedLogs');
+    }
+    if (newUnencryptedLogs) {
+      this.attachLogs(newUnencryptedLogs, 'newUnencryptedLogs');
+    }
+  }
 
   /**
    * Creates an L2 block containing random data.
    * @param l2BlockNum - The number of the L2 block.
    * @param txsPerBlock - The number of transactions to include in the block.
+   * @param numPrivateFunctionCalls - The number of private function calls to include in each transaction.
+   * @param numPublicFunctionCalls - The number of public function calls to include in each transaction.
+   * @param numEncryptedLogs - The number of encrypted logs to include in each transaction.
+   * @param numUnencryptedLogs - The number of unencrypted logs to include in each transaction.
    * @returns The L2 block.
    */
-  static random(l2BlockNum: number, txsPerBlock = 4): L2Block {
+  static random(
+    l2BlockNum: number,
+    txsPerBlock = 4,
+    numPrivateFunctionCalls = 2,
+    numPublicFunctionCalls = 3,
+    numEncryptedLogs = 2,
+    numUnencryptedLogs = 1,
+  ): L2Block {
     const newNullifiers = times(KERNEL_NEW_NULLIFIERS_LENGTH * txsPerBlock, Fr.random);
     const newCommitments = times(KERNEL_NEW_COMMITMENTS_LENGTH * txsPerBlock, Fr.random);
     const newContracts = times(KERNEL_NEW_CONTRACTS_LENGTH * txsPerBlock, Fr.random);
@@ -143,8 +178,8 @@ export class L2Block {
     const newPublicDataWrites = times(KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH * txsPerBlock, PublicDataWrite.random);
     const newL1ToL2Messages = times(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, Fr.random);
     const newL2ToL1Msgs = times(KERNEL_NEW_L2_TO_L1_MSGS_LENGTH, Fr.random);
-    const newEncryptedLogs = UnverifiedData.random(txsPerBlock * 2);
-    const newEncryptedLogsLength = newEncryptedLogs.getSerializedLength();
+    const newEncryptedLogs = L2BlockL2Logs.random(txsPerBlock, numPrivateFunctionCalls, numEncryptedLogs);
+    const newUnencryptedLogs = L2BlockL2Logs.random(txsPerBlock, numPublicFunctionCalls, numUnencryptedLogs);
 
     return L2Block.fromFields({
       number: l2BlockNum,
@@ -171,8 +206,8 @@ export class L2Block {
       newPublicDataWrites,
       newL1ToL2Messages,
       newL2ToL1Msgs,
-      newEncryptedLogsLength,
       newEncryptedLogs,
+      newUnencryptedLogs,
     });
   }
 
@@ -279,13 +314,13 @@ export class L2Block {
      */
     newL1ToL2Messages: Fr[];
     /**
-     * Length (in bytes) of the unverified data chunks in the block.
+     * Encrypted logs from private txs in a block.
      */
-    newEncryptedLogsLength: number;
+    newEncryptedLogs?: L2BlockL2Logs;
     /**
-     * Consolidated logs from all txs.
+     * Unencrypted logs from all txs in a block.
      */
-    newEncryptedLogs: UnverifiedData;
+    newUnencryptedLogs?: L2BlockL2Logs;
   }) {
     return new this(
       fields.number,
@@ -312,8 +347,8 @@ export class L2Block {
       fields.newContracts,
       fields.newContractData,
       fields.newL1ToL2Messages,
-      fields.newEncryptedLogsLength,
       fields.newEncryptedLogs,
+      fields.newUnencryptedLogs,
     );
   }
 
@@ -322,6 +357,9 @@ export class L2Block {
    * @returns The encoded L2 block data.
    */
   encode(): Buffer {
+    if (this.newEncryptedLogs === undefined || this.newUnencryptedLogs === undefined) {
+      throw new Error('newEncryptedLogs and newUnencryptedLogs must be defined when encoding L2BlockData');
+    }
     return serializeToBuffer(
       this.number,
       this.startPrivateDataTreeSnapshot,
@@ -353,8 +391,8 @@ export class L2Block {
       this.newContractData,
       this.newL1ToL2Messages.length,
       this.newL1ToL2Messages,
-      this.newEncryptedLogsLength,
       this.newEncryptedLogs,
+      this.newUnencryptedLogs,
     );
   }
 
@@ -398,8 +436,8 @@ export class L2Block {
     const newContractData = reader.readArray(newContracts.length, ContractData);
     // TODO(sean): could an optimisation of this be that it is encoded such that zeros are assumed
     const newL1ToL2Messages = reader.readVector(Fr);
-    const newEncryptedLogsLength = reader.readNumber();
-    const newEncryptedLogs = new UnverifiedData(reader.readBufferArray());
+    const newEncryptedLogs = reader.readObject(L2BlockL2Logs);
+    const newUnencryptedLogs = reader.readObject(L2BlockL2Logs);
 
     return L2Block.fromFields({
       number,
@@ -426,9 +464,31 @@ export class L2Block {
       newContracts,
       newContractData,
       newL1ToL2Messages,
-      newEncryptedLogsLength,
       newEncryptedLogs,
+      newUnencryptedLogs,
     });
+  }
+
+  /**
+   * Helper function to attach logs related to a block.
+   * @param logs - The logs to be attached to a block.
+   * @param logType - The type of logs to be attached.
+   * @remarks Here, because we can have L2 blocks without logs and those logs can be attached later.
+   */
+  attachLogs(logs: L2BlockL2Logs, logType: 'newEncryptedLogs' | 'newUnencryptedLogs') {
+    if (this[logType]) {
+      throw new Error(`L2 block already has ${logType} attached.`);
+    }
+
+    const numTxs = this.newCommitments.length / KERNEL_NEW_COMMITMENTS_LENGTH;
+
+    if (numTxs !== logs.txLogs.length) {
+      throw new Error(
+        `Number of txLogs within ${logType} does not match number of transactions. Expected: ${numTxs} Got: ${logs.txLogs.length}`,
+      );
+    }
+
+    this[logType] = logs;
   }
 
   /**
@@ -458,8 +518,7 @@ export class L2Block {
       this.getL1ToL2MessagesHash(),
     );
 
-    const temp = toBigIntBE(sha256(buf));
-    return Fr.fromBuffer(toBufferBE(temp % Fr.MODULUS, 32));
+    return sha256ToField(buf);
   }
 
   /**
@@ -506,8 +565,15 @@ export class L2Block {
    * and inside the circuit, it is part of the public inputs.
    * @returns The calldata hash.
    */
-  // TODO: add newEncryptedLogs to this hash once it's been propagated through circuits.
   getCalldataHash() {
+    if (this.newEncryptedLogs === undefined) {
+      throw new Error('Encrypted logs has to be attached before calling "getCalldataHash"');
+    }
+
+    if (this.newUnencryptedLogs === undefined) {
+      throw new Error('Unencrypted logs has to be attached before calling "getCalldataHash"');
+    }
+
     const computeRoot = (leafs: Buffer[]): Buffer => {
       const layers: Buffer[][] = [leafs];
       let activeLayer = 0;
@@ -534,29 +600,34 @@ export class L2Block {
     const leafs: Buffer[] = [];
 
     for (let i = 0; i < leafCount; i++) {
-      const commitmentPerBase = KERNEL_NEW_COMMITMENTS_LENGTH * 2;
-      const nullifierPerBase = KERNEL_NEW_NULLIFIERS_LENGTH * 2;
-      const publicDataWritesPerBase = KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH * 2; // @note why is this constant named differently?
+      const commitmentsPerBase = KERNEL_NEW_COMMITMENTS_LENGTH * 2;
+      const nullifiersPerBase = KERNEL_NEW_NULLIFIERS_LENGTH * 2;
+      const publicDataUpdateRequestsPerBase = KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH * 2;
       const l2ToL1MsgsPerBase = KERNEL_NEW_L2_TO_L1_MSGS_LENGTH * 2;
-      const commitmentBuffer = Buffer.concat(
-        this.newCommitments.slice(i * commitmentPerBase, (i + 1) * commitmentPerBase).map(x => x.toBuffer()),
+      const commitmentsBuffer = Buffer.concat(
+        this.newCommitments.slice(i * commitmentsPerBase, (i + 1) * commitmentsPerBase).map(x => x.toBuffer()),
       );
-      const nullifierBuffer = Buffer.concat(
-        this.newNullifiers.slice(i * nullifierPerBase, (i + 1) * nullifierPerBase).map(x => x.toBuffer()),
+      const nullifiersBuffer = Buffer.concat(
+        this.newNullifiers.slice(i * nullifiersPerBase, (i + 1) * nullifiersPerBase).map(x => x.toBuffer()),
       );
-      const dataWritesBuffer = Buffer.concat(
+      const publicDataUpdateRequestsBuffer = Buffer.concat(
         this.newPublicDataWrites
-          .slice(i * publicDataWritesPerBase, (i + 1) * publicDataWritesPerBase)
+          .slice(i * publicDataUpdateRequestsPerBase, (i + 1) * publicDataUpdateRequestsPerBase)
           .map(x => x.toBuffer()),
       );
       const newL2ToL1MsgsBuffer = Buffer.concat(
         this.newL2ToL1Msgs.slice(i * l2ToL1MsgsPerBase, (i + 1) * l2ToL1MsgsPerBase).map(x => x.toBuffer()),
       );
+      const encryptedLogsHashKernel0 = L2Block.computeKernelLogsHash(this.newEncryptedLogs.txLogs[i * 2]);
+      const encryptedLogsHashKernel1 = L2Block.computeKernelLogsHash(this.newEncryptedLogs.txLogs[i * 2 + 1]);
+
+      const unencryptedLogsHashKernel0 = L2Block.computeKernelLogsHash(this.newUnencryptedLogs.txLogs[i * 2]);
+      const unencryptedLogsHashKernel1 = L2Block.computeKernelLogsHash(this.newUnencryptedLogs.txLogs[i * 2 + 1]);
 
       const inputValue = Buffer.concat([
-        commitmentBuffer,
-        nullifierBuffer,
-        dataWritesBuffer,
+        commitmentsBuffer,
+        nullifiersBuffer,
+        publicDataUpdateRequestsBuffer,
         newL2ToL1MsgsBuffer,
         this.newContracts[i * 2].toBuffer(),
         this.newContracts[i * 2 + 1].toBuffer(),
@@ -564,6 +635,10 @@ export class L2Block {
         this.newContractData[i * 2].portalContractAddress.toBuffer32(),
         this.newContractData[i * 2 + 1].contractAddress.toBuffer(),
         this.newContractData[i * 2 + 1].portalContractAddress.toBuffer32(),
+        encryptedLogsHashKernel0,
+        encryptedLogsHashKernel1,
+        unencryptedLogsHashKernel0,
+        unencryptedLogsHashKernel1,
       ]);
       leafs.push(sha256(inputValue));
     }
@@ -683,5 +758,27 @@ export class L2Block {
       `newPublicDataWrite: ${inspectPublicDataWriteArray(this.newPublicDataWrites)}`,
       `newL1ToL2Messages: ${inspectFrArray(this.newL1ToL2Messages)}`,
     ].join('\n');
+  }
+
+  /**
+   * Computes logs hash as is done in the kernel and app circuits.
+   * @param logs - Logs to be hashed.
+   * @returns The hash of the logs.
+   * Note: This is a TS implementation of `computeKernelLogsHash` function in Decoder.sol. See that function documentation
+   *       for more details.
+   */
+  static computeKernelLogsHash(logs: TxL2Logs): Buffer {
+    const logsHashes: [Buffer, Buffer] = [Buffer.alloc(32), Buffer.alloc(32)];
+    let kernelPublicInputsLogsHash = Buffer.alloc(32);
+
+    for (const functionLogs of logs.functionLogs) {
+      logsHashes[0] = kernelPublicInputsLogsHash;
+      logsHashes[1] = functionLogs.hash(); // privateCircuitPublicInputsLogsHash
+
+      // Hash logs hash from the public inputs of previous kernel iteration and logs hash from private circuit public inputs
+      kernelPublicInputsLogsHash = sha256(Buffer.concat(logsHashes));
+    }
+
+    return kernelPublicInputsLogsHash;
   }
 }

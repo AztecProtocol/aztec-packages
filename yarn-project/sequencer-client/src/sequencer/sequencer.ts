@@ -7,22 +7,18 @@ import {
   ContractPublicData,
   L1ToL2MessageSource,
   L2Block,
-  MerkleTreeId,
-  PrivateTx,
-  PublicTx,
-  Tx,
-  isPrivateTx,
   L2BlockSource,
-  UnverifiedData,
+  MerkleTreeId,
+  Tx,
 } from '@aztec/types';
 import { WorldStateStatus, WorldStateSynchroniser } from '@aztec/world-state';
 import times from 'lodash.times';
 import { BlockBuilder } from '../block_builder/index.js';
 import { L1Publisher } from '../publisher/l1-publisher.js';
+import { ceilPowerOfTwo } from '../utils.js';
 import { SequencerConfig } from './config.js';
 import { ProcessedTx } from './processed_tx.js';
 import { PublicProcessorFactory } from './public_processor.js';
-import { ceilPowerOfTwo } from '../utils.js';
 
 /**
  * Sequencer client
@@ -160,7 +156,7 @@ export class Sequencer {
       const block = await this.buildBlock(processedTxs, l1ToL2Messages, emptyTx);
       this.log(`Assembled block ${block.number}`);
 
-      await this.publishUnverifiedData(validTxs, block);
+      await this.publishContractPublicData(validTxs, block);
 
       await this.publishL2Block(block);
     } catch (err) {
@@ -171,17 +167,14 @@ export class Sequencer {
   }
 
   /**
-   * Creates the unverified data from the txs and l2Block and publishes it on chain.
+   * Gets new contract public data from the txs and publishes it on chain.
    * @param validTxs - The set of real transactions being published as part of the block.
    * @param block - The L2Block to be published.
    */
-  protected async publishUnverifiedData(validTxs: Tx[], block: L2Block) {
-    // Publishes new unverified data & contract data for private txs to the network and awaits the tx to be mined
-    this.state = SequencerState.PUBLISHING_UNVERIFIED_DATA;
-    // Note: Public txs don't generate UnverifiedData and for this reason we can ignore them here.
-    const unverifiedData = UnverifiedData.join(validTxs.filter(isPrivateTx).map(tx => tx.unverifiedData));
+  protected async publishContractPublicData(validTxs: Tx[], block: L2Block) {
+    // Publishes new encrypted logs & contract data for private txs to the network and awaits the tx to be mined
+    this.state = SequencerState.PUBLISHING_CONTRACT_DATA;
     const newContractData = validTxs
-      .filter(isPrivateTx)
       .map(tx => {
         // Currently can only have 1 new contract per tx
         const newContract = tx.data?.end.newContracts[0];
@@ -195,15 +188,7 @@ export class Sequencer {
       .filter((cd): cd is Exclude<typeof cd, undefined> => cd !== undefined);
 
     const blockHash = block.getCalldataHash();
-    this.log(`Publishing data with block hash ${blockHash.toString('hex')}`);
-
-    // TODO: Stop publishing unverified data once Archiver is updated to store logs found in block data.
-    const publishedUnverifiedData = await this.publisher.processUnverifiedData(block.number, blockHash, unverifiedData);
-    if (publishedUnverifiedData) {
-      this.log(`Successfully published unverifiedData for block ${block.number}`);
-    } else {
-      this.log(`Failed to publish unverifiedData for block ${block.number}`);
-    }
+    this.log(`Publishing contract public data with block hash ${blockHash.toString('hex')}`);
 
     const publishedContractData = await this.publisher.processNewContractData(block.number, blockHash, newContractData);
     if (publishedContractData) {
@@ -233,21 +218,14 @@ export class Sequencer {
   protected async takeValidTxs(txs: Tx[]) {
     const validTxs = [];
     const doubleSpendTxs = [];
-    const invalidSigTxs = [];
 
     // Process txs until we get to maxTxsPerBlock, rejecting double spends in the process
     for (const tx of txs) {
       // TODO(AD) - eventually we should add a limit to how many transactions we
       // skip in this manner and do something more DDOS-proof (like letting the transaction fail and pay a fee).
-      if (tx.isPrivate() && (await this.isTxDoubleSpend(tx))) {
+      if (await this.isTxDoubleSpend(tx)) {
         this.log(`Deleting double spend tx ${await tx.getTxHash()}`);
         doubleSpendTxs.push(tx);
-        continue;
-      }
-
-      if (tx.isPublic() && !(await this.isValidSignature(tx))) {
-        this.log(`Deleting invalid signature tx ${await tx.getTxHash()}`);
-        invalidSigTxs.push(tx);
         continue;
       }
 
@@ -258,8 +236,8 @@ export class Sequencer {
     }
 
     // Make sure we remove these from the tx pool so we do not consider it again
-    if (doubleSpendTxs.length > 0 || invalidSigTxs.length > 0) {
-      await this.p2pClient.deleteTxs(await Tx.getHashes([...doubleSpendTxs, ...invalidSigTxs]));
+    if (doubleSpendTxs.length > 0) {
+      await this.p2pClient.deleteTxs(await Tx.getHashes([...doubleSpendTxs]));
     }
 
     return validTxs;
@@ -312,7 +290,7 @@ export class Sequencer {
    * @param tx - The transaction.
    * @returns Whether this is a problematic double spend that the L1 contract would reject.
    */
-  protected async isTxDoubleSpend(tx: PrivateTx): Promise<boolean> {
+  protected async isTxDoubleSpend(tx: Tx): Promise<boolean> {
     // eslint-disable-next-line @typescript-eslint/await-thenable
     for (const nullifier of tx.data.end.newNullifiers) {
       // Skip nullifier if it's empty
@@ -327,11 +305,6 @@ export class Sequencer {
       }
     }
     return false;
-  }
-
-  protected isValidSignature(_tx: PublicTx): Promise<boolean> {
-    // TODO: Validate tx ECDSA signature!
-    return Promise.resolve(true);
   }
 }
 
@@ -348,13 +321,13 @@ export enum SequencerState {
    */
   WAITING_FOR_TXS,
   /**
-   * Creating a new L2 block. Includes processing public function calls and running rollup circuits. Will move to PUBLISHING_UNVERIFIED_DATA.
+   * Creating a new L2 block. Includes processing public function calls and running rollup circuits. Will move to PUBLISHING_CONTRACT_DATA.
    */
   CREATING_BLOCK,
   /**
-   * Sending the tx to L1 with unverified data and awaiting it to be mined. Will move back to PUBLISHING_BLOCK once finished.
+   * Sending the tx to L1 with encrypted logs and awaiting it to be mined. Will move back to PUBLISHING_BLOCK once finished.
    */
-  PUBLISHING_UNVERIFIED_DATA,
+  PUBLISHING_CONTRACT_DATA,
   /**
    * Sending the tx to L1 with the L2 block data and awaiting it to be mined. Will move to IDLE.
    */

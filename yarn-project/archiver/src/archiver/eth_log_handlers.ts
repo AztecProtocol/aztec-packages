@@ -1,16 +1,15 @@
 import { Hex, Log, PublicClient, decodeFunctionData, getAbiItem, getAddress, hexToBytes } from 'viem';
-import { InboxAbi, RollupAbi, UnverifiedDataEmitterAbi } from '@aztec/l1-artifacts';
+import { InboxAbi, RollupAbi, ContractDeploymentEmitterAbi } from '@aztec/l1-artifacts';
 import { Fr } from '@aztec/foundation/fields';
 import {
-  BufferReader,
-  ContractData,
-  ContractPublicData,
-  EncodedContractFunction,
   L1ToL2Message,
   L1Actor,
   L2Actor,
   L2Block,
-  UnverifiedData,
+  ContractPublicData,
+  BufferReader,
+  ContractData,
+  EncodedContractFunction,
 } from '@aztec/types';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
@@ -41,68 +40,20 @@ export function processPendingL1ToL2MessageAddedLogs(
   }
   return l1ToL2Messages;
 }
-/**
- * Processes newly received UnverifiedData logs.
- * @param blockHashMapping - A mapping from block number to relevant block hash.
- * @param logs - ContractDeployment logs.
- * @returns The set of retrieved contract public data items.
- */
-export function processContractDeploymentLogs(
-  blockHashMapping: { [key: number]: Buffer | undefined },
-  logs: Log<bigint, number, undefined, typeof UnverifiedDataEmitterAbi, 'ContractDeployment'>[],
-): [ContractPublicData[], number][] {
-  const contractPublicData: [ContractPublicData[], number][] = [];
-  for (let i = 0; i < logs.length; i++) {
-    const log = logs[i];
-    const l2BlockNum = Number(log.args.l2BlockNum);
-    const blockHash = Buffer.from(hexToBytes(log.args.l2BlockHash));
-    const expectedBlockHash = blockHashMapping[l2BlockNum];
-    if (expectedBlockHash === undefined || !blockHash.equals(expectedBlockHash)) {
-      continue;
-    }
-    const publicFnsReader = BufferReader.asReader(Buffer.from(log.args.acir.slice(2), 'hex'));
-    const contractData = new ContractPublicData(
-      new ContractData(AztecAddress.fromString(log.args.aztecAddress), EthAddress.fromString(log.args.portalAddress)),
-      publicFnsReader.readVector(EncodedContractFunction),
-    );
-    if (contractPublicData[i]) {
-      contractPublicData[i][0].push(contractData);
-    } else {
-      contractPublicData[i] = [[contractData], l2BlockNum];
-    }
-  }
-  return contractPublicData;
-}
 
 /**
- * Processes newly received UnverifiedData logs.
- * @param expectedRollupNumber - The next expected rollup number.
- * @param blockHashMapping - A mapping from block number to relevant block hash.
- * @param logs - UnverifiedData logs.
+ * Process newly received L1ToL2MessageCancelled logs.
+ * @param logs - L1ToL2MessageCancelled logs.
+ * @returns Array of message keys of the L1 to L2 messages that were cancelled
  */
-export function processUnverifiedDataLogs(
-  expectedRollupNumber: bigint,
-  blockHashMapping: { [key: number]: Buffer | undefined },
-  logs: Log<bigint, number, undefined, typeof UnverifiedDataEmitterAbi, 'UnverifiedData'>[],
-) {
-  const unverifiedDataChunks: UnverifiedData[] = [];
+export function processCancelledL1ToL2MessagesLogs(
+  logs: Log<bigint, number, undefined, typeof InboxAbi, 'L1ToL2MessageCancelled'>[],
+): Fr[] {
+  const cancelledL1ToL2Messages: Fr[] = [];
   for (const log of logs) {
-    const l2BlockNum = log.args.l2BlockNum;
-    const blockHash = Buffer.from(hexToBytes(log.args.l2BlockHash));
-    const expectedBlockHash = blockHashMapping[Number(l2BlockNum)];
-    if (
-      l2BlockNum !== expectedRollupNumber ||
-      expectedBlockHash === undefined ||
-      !blockHash.equals(expectedBlockHash)
-    ) {
-      continue;
-    }
-    const unverifiedDataBuf = Buffer.from(hexToBytes(log.args.data));
-    const unverifiedData = UnverifiedData.fromBuffer(unverifiedDataBuf);
-    unverifiedDataChunks.push(unverifiedData);
-    expectedRollupNumber++;
+    cancelledL1ToL2Messages.push(Fr.fromString(log.args.entryKey));
   }
-  return unverifiedDataChunks;
+  return cancelledL1ToL2Messages;
 }
 
 /**
@@ -185,51 +136,59 @@ export async function getL2BlockProcessedLogs(
 }
 
 /**
- * Gets relevant `UnverifiedData` logs from chain.
+ * Gets relevant `ContractDeployment` logs from chain.
  * @param publicClient - The viem public client to use for transaction retrieval.
- * @param unverifiedDataEmitterAddress - The address of the unverified data emitter contract.
+ * @param contractDeploymentEmitterAddress - The address of the L2 contract deployment emitter contract.
  * @param fromBlock - First block to get logs from (inclusive).
- * @returns An array of `UnverifiedData` logs.
+ * @returns An array of `ContractDeployment` logs.
  */
-export async function getUnverifiedDataLogs(
+export async function getContractDeploymentLogs(
   publicClient: PublicClient,
-  unverifiedDataEmitterAddress: EthAddress,
+  contractDeploymentEmitterAddress: EthAddress,
   fromBlock: bigint,
-): Promise<any[]> {
-  // Note: For some reason the return type of `getLogs` would not get correctly derived if I didn't set the abiItem
-  //       as a standalone constant.
+): Promise<Log<bigint, number, undefined, typeof ContractDeploymentEmitterAbi, 'ContractDeployment'>[]> {
   const abiItem = getAbiItem({
-    abi: UnverifiedDataEmitterAbi,
-    name: 'UnverifiedData',
+    abi: ContractDeploymentEmitterAbi,
+    name: 'ContractDeployment',
   });
   return await publicClient.getLogs({
-    address: getAddress(unverifiedDataEmitterAddress.toString()),
+    address: getAddress(contractDeploymentEmitterAddress.toString()),
     event: abiItem,
     fromBlock,
   });
 }
 
 /**
- * Gets relevant `ContractDeployment` logs from chain.
- * @param publicClient - The viem public client to use for transaction retrieval.
- * @param unverifiedDataEmitterAddress - The address of the unverified data emitter contract.
- * @param fromBlock - First block to get logs from (inclusive).
- * @returns An array of `ContractDeployment` logs.
+ * Processes newly received ContractDeployment logs.
+ * @param blockHashMapping - A mapping from block number to relevant block hash.
+ * @param logs - ContractDeployment logs.
+ * @returns The set of retrieved contract public data items.
  */
-export async function getContractDeploymentLogs(
-  publicClient: PublicClient,
-  unverifiedDataEmitterAddress: EthAddress,
-  fromBlock: bigint,
-): Promise<Log<bigint, number, undefined, typeof UnverifiedDataEmitterAbi, 'ContractDeployment'>[]> {
-  const abiItem = getAbiItem({
-    abi: UnverifiedDataEmitterAbi,
-    name: 'ContractDeployment',
-  });
-  return await publicClient.getLogs({
-    address: getAddress(unverifiedDataEmitterAddress.toString()),
-    event: abiItem,
-    fromBlock,
-  });
+export function processContractDeploymentLogs(
+  blockHashMapping: { [key: number]: Buffer | undefined },
+  logs: Log<bigint, number, undefined, typeof ContractDeploymentEmitterAbi, 'ContractDeployment'>[],
+): [ContractPublicData[], number][] {
+  const contractPublicData: [ContractPublicData[], number][] = [];
+  for (let i = 0; i < logs.length; i++) {
+    const log = logs[i];
+    const l2BlockNum = Number(log.args.l2BlockNum);
+    const blockHash = Buffer.from(hexToBytes(log.args.l2BlockHash));
+    const expectedBlockHash = blockHashMapping[l2BlockNum];
+    if (expectedBlockHash === undefined || !blockHash.equals(expectedBlockHash)) {
+      continue;
+    }
+    const publicFnsReader = BufferReader.asReader(Buffer.from(log.args.acir.slice(2), 'hex'));
+    const contractData = new ContractPublicData(
+      new ContractData(AztecAddress.fromString(log.args.aztecAddress), EthAddress.fromString(log.args.portalAddress)),
+      publicFnsReader.readVector(EncodedContractFunction),
+    );
+    if (contractPublicData[i]) {
+      contractPublicData[i][0].push(contractData);
+    } else {
+      contractPublicData[i] = [[contractData], l2BlockNum];
+    }
+  }
+  return contractPublicData;
 }
 
 /**
@@ -247,6 +206,29 @@ export async function getPendingL1ToL2MessageLogs(
   const abiItem = getAbiItem({
     abi: InboxAbi,
     name: 'MessageAdded',
+  });
+  return await publicClient.getLogs({
+    address: getAddress(inboxAddress.toString()),
+    event: abiItem,
+    fromBlock,
+  });
+}
+
+/**
+ * Get relevant `L1ToL2MessageCancelled` logs emitted by Inbox on chain when pending messages are cancelled
+ * @param publicClient - The viem public client to use for transaction retrieval.
+ * @param inboxAddress - The address of the inbox contract.
+ * @param fromBlock - First block to get logs from (inclusive).
+ * @returns An array of `L1ToL2MessageCancelled` logs.
+ */
+export async function getL1ToL2MessageCancelledLogs(
+  publicClient: PublicClient,
+  inboxAddress: EthAddress,
+  fromBlock: bigint,
+): Promise<Log<bigint, number, undefined, typeof InboxAbi, 'L1ToL2MessageCancelled'>[]> {
+  const abiItem = getAbiItem({
+    abi: InboxAbi,
+    name: 'L1ToL2MessageCancelled',
   });
   return await publicClient.getLogs({
     address: getAddress(inboxAddress.toString()),

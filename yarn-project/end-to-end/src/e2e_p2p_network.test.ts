@@ -1,4 +1,4 @@
-import { AztecNode, AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
+import { AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
 import {
   AztecAddress,
   AztecRPCServer,
@@ -11,7 +11,8 @@ import { DebugLogger } from '@aztec/foundation/log';
 import { TestContractAbi } from '@aztec/noir-contracts/examples';
 import { BootstrapNode, P2PConfig, createLibP2PPeerId, exportLibP2PPeerIdToString } from '@aztec/p2p';
 
-import { setup } from './setup.js';
+import { setup } from './utils.js';
+import { randomBytes } from 'crypto';
 
 const NUM_NODES = 4;
 const NUM_TXS_PER_BLOCK = 4;
@@ -32,7 +33,7 @@ describe('e2e_p2p_network', () => {
   let logger: DebugLogger;
 
   beforeEach(async () => {
-    ({ aztecNode, aztecRpcServer, config, logger } = await setup());
+    ({ aztecNode, aztecRpcServer, config, logger } = await setup(0));
   }, 30_000);
 
   afterEach(async () => {
@@ -125,7 +126,7 @@ describe('e2e_p2p_network', () => {
     const txs: SentTx[] = [];
     for (let i = 0; i < numTxs; i++) {
       const deployer = new ContractDeployer(TestContractAbi, aztecRpcServer);
-      const tx = deployer.deploy().send();
+      const tx = deployer.deploy().send({ from: account });
       logger(`Tx sent with hash ${await tx.getTxHash()}`);
       const receipt = await tx.getReceipt();
       expect(receipt).toEqual(
@@ -143,18 +144,19 @@ describe('e2e_p2p_network', () => {
   };
 
   // creates and instance of the aztec rpc server and submit a given number of transactions to it.
-  const createAztecRpcServerAndSubmitTransactions = async (node: AztecNode, numTxs: number) => {
+  const createAztecRpcServerAndSubmitTransactions = async (
+    node: AztecNodeService,
+    numTxs: number,
+  ): Promise<NodeContext> => {
     const aztecRpcServer = await createAztecRPCServer(node);
-    await aztecRpcServer.addAccount();
+    const account = await aztecRpcServer.registerSmartAccount(randomBytes(32), AztecAddress.random());
 
-    const accounts = await aztecRpcServer.getAccounts();
-
-    const txs = await submitTxsTo(aztecRpcServer, accounts[0], numTxs);
+    const txs = await submitTxsTo(aztecRpcServer, account, numTxs);
     return {
       txs,
-      account: accounts[0],
+      account,
       rpcServer: aztecRpcServer,
       node,
-    } as NodeContext;
+    };
   };
 });

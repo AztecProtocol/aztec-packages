@@ -8,20 +8,20 @@ import {
   PRIVATE_DATA_TREE_HEIGHT,
   Proof,
   PublicCallRequest,
-  SignedTxRequest,
 } from '@aztec/circuits.js';
 import { SiblingPath } from '@aztec/merkle-tree';
 import {
   ContractData,
   ContractPublicData,
   EncodedContractFunction,
-  L1ToL2MessageAndIndex,
   L1ToL2Message,
+  L1ToL2MessageAndIndex,
   L2Block,
+  L2BlockL2Logs,
   MerkleTreeId,
   Tx,
   TxHash,
-  UnverifiedData,
+  TxL2Logs,
 } from '@aztec/types';
 
 /**
@@ -32,8 +32,7 @@ import {
 export function txToJson(tx: Tx) {
   return {
     data: tx.data?.toBuffer().toString('hex'),
-    unverified: tx.unverifiedData?.toBuffer().toString('hex'),
-    txRequest: tx.txRequest?.toBuffer().toString('hex'),
+    encryptedLogs: tx.encryptedLogs?.toBuffer().toString('hex'),
     proof: tx.proof?.toBuffer().toString('hex'),
     newContractPublicFunctions: tx.newContractPublicFunctions?.map(f => f.toBuffer().toString('hex')) ?? [],
     enqueuedPublicFunctions: tx.enqueuedPublicFunctionCalls?.map(f => f.toBuffer().toString('hex')) ?? [],
@@ -46,29 +45,24 @@ export function txToJson(tx: Tx) {
  * @returns The deserialised transaction.
  */
 export function txFromJson(json: any) {
-  const publicInputs = json.data ? KernelCircuitPublicInputs.fromBuffer(Buffer.from(json.data, 'hex')) : undefined;
-  const unverified = json.unverified ? UnverifiedData.fromBuffer(Buffer.from(json.unverified, 'hex')) : undefined;
-  const txRequest = json.txRequest ? SignedTxRequest.fromBuffer(Buffer.from(json.txRequest, 'hex')) : undefined;
-  const proof = json.proof ? Buffer.from(json.proof, 'hex') : undefined;
+  const publicInputs = KernelCircuitPublicInputs.fromBuffer(Buffer.from(json.data, 'hex'));
+  const encryptedLogs = TxL2Logs.fromBuffer(Buffer.from(json.encryptedLogs, 'hex'));
+  const unencryptedLogs = TxL2Logs.fromBuffer(Buffer.from(json.unencryptedLogs, 'hex'));
+  const proof = Buffer.from(json.proof, 'hex');
   const newContractPublicFunctions = json.newContractPublicFunctions
     ? json.newContractPublicFunctions.map((x: string) => EncodedContractFunction.fromBuffer(Buffer.from(x, 'hex')))
     : [];
   const enqueuedPublicFunctions = json.enqueuedPublicFunctions
     ? json.enqueuedPublicFunctions.map((x: string) => PublicCallRequest.fromBuffer(Buffer.from(x, 'hex')))
     : [];
-  if (txRequest) {
-    return Tx.createPublic(txRequest);
-  }
-  if (publicInputs && proof && unverified) {
-    return Tx.createPrivate(
-      publicInputs,
-      Proof.fromBuffer(proof),
-      unverified,
-      newContractPublicFunctions,
-      enqueuedPublicFunctions,
-    );
-  }
-  return Tx.create(publicInputs, proof == undefined ? undefined : Proof.fromBuffer(proof), unverified, txRequest);
+  return Tx.createTx(
+    publicInputs,
+    Proof.fromBuffer(proof),
+    encryptedLogs,
+    unencryptedLogs,
+    newContractPublicFunctions,
+    enqueuedPublicFunctions,
+  );
 }
 
 /**
@@ -136,6 +130,48 @@ export class HttpNode implements AztecNode {
   }
 
   /**
+   * Gets the `take` amount of encrypted logs starting from `from`.
+   * @param from - Number of the L2 block to which corresponds the first encrypted logs to be returned.
+   * @param take - The number of encrypted logs to return.
+   * @returns The requested encrypted logs.
+   */
+  public async getEncryptedLogs(from: number, take: number): Promise<L2BlockL2Logs[]> {
+    const url = new URL(`${this.baseUrl}/get-encrypted-logs`);
+    url.searchParams.append('from', from.toString());
+    if (take !== undefined) {
+      url.searchParams.append('take', take.toString());
+    }
+    const response = await (await fetch(url.toString())).json();
+    const encryptedLogs = response.encryptedLogs as string[];
+
+    if (!encryptedLogs) {
+      return Promise.resolve([]);
+    }
+    return Promise.resolve(encryptedLogs.map(x => L2BlockL2Logs.fromBuffer(Buffer.from(x, 'hex'))));
+  }
+
+  /**
+   * Gets the `take` amount of unencrypted logs starting from `from`.
+   * @param from - Number of the L2 block to which corresponds the first unencrypted logs to be returned.
+   * @param take - The number of unencrypted logs to return.
+   * @returns The requested unencrypted logs.
+   */
+  public async getUnencryptedLogs(from: number, take: number): Promise<L2BlockL2Logs[]> {
+    const url = new URL(`${this.baseUrl}/get-unencrypted-logs`);
+    url.searchParams.append('from', from.toString());
+    if (take !== undefined) {
+      url.searchParams.append('take', take.toString());
+    }
+    const response = await (await fetch(url.toString())).json();
+    const unencryptedLogs = response.unencryptedLogs as string[];
+
+    if (!unencryptedLogs) {
+      return Promise.resolve([]);
+    }
+    return Promise.resolve(unencryptedLogs.map(x => L2BlockL2Logs.fromBuffer(Buffer.from(x, 'hex'))));
+  }
+
+  /**
    * Lookup the L2 contract info for this contract.
    * Contains the ethereum portal address .
    * @param contractAddress - The contract data address.
@@ -147,27 +183,6 @@ export class HttpNode implements AztecNode {
     const response = await (await fetch(url.toString())).json();
     const contract = response.contractInfo as string;
     return Promise.resolve(ContractData.fromBuffer(Buffer.from(contract, 'hex')));
-  }
-
-  /**
-   * Gets the `take` amount of unverified data starting from `from`.
-   * @param from - Number of the L2 block to which corresponds the first `unverifiedData` to be returned.
-   * @param take - The number of `unverifiedData` to return.
-   * @returns The requested `unverifiedData`.
-   */
-  async getUnverifiedData(from: number, take: number): Promise<UnverifiedData[]> {
-    const url = new URL(`${this.baseUrl}/get-unverified`);
-    url.searchParams.append('from', from.toString());
-    if (take !== undefined) {
-      url.searchParams.append('take', take.toString());
-    }
-    const response = await (await fetch(url.toString())).json();
-    const unverified = response.unverified as string[];
-
-    if (!unverified) {
-      return Promise.resolve([]);
-    }
-    return Promise.resolve(unverified.map(x => UnverifiedData.fromBuffer(Buffer.from(x, 'hex'))));
   }
 
   /**
@@ -227,6 +242,19 @@ export class HttpNode implements AztecNode {
     const response = await (await fetch(url.toString())).json();
     const path = response.path as string;
     return Promise.resolve(SiblingPath.fromString(path));
+  }
+
+  /**
+   * Find the index of the given piece of data.
+   * @param leafValue - The value to search for.
+   * @returns The index of the given leaf in the data tree or undefined if not found.
+   */
+  async findCommitmentIndex(leafValue: Buffer): Promise<bigint | undefined> {
+    const url = new URL(`${this.baseUrl}/commitment-index`);
+    url.searchParams.append('leaf', leafValue.toString('hex'));
+    const response = await (await fetch(url.toString())).json();
+    const index = response.index as string;
+    return Promise.resolve(BigInt(index));
   }
 
   /**

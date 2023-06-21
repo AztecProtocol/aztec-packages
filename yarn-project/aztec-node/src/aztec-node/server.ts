@@ -1,29 +1,4 @@
 import { Archiver } from '@aztec/archiver';
-import { AztecAddress } from '@aztec/foundation/aztec-address';
-import {
-  ContractPublicData,
-  ContractData,
-  ContractDataSource,
-  L2Block,
-  L2BlockSource,
-  MerkleTreeId,
-  L1ToL2MessageSource,
-  L1ToL2MessageAndIndex,
-} from '@aztec/types';
-import { SiblingPath } from '@aztec/merkle-tree';
-import { InMemoryTxPool, P2P, createP2PClient } from '@aztec/p2p';
-import { SequencerClient, getCombinedHistoricTreeRoots } from '@aztec/sequencer-client';
-import { Tx, TxHash } from '@aztec/types';
-import { UnverifiedData, UnverifiedDataSource } from '@aztec/types';
-import {
-  MerkleTrees,
-  ServerWorldStateSynchroniser,
-  WorldStateSynchroniser,
-  computePublicDataTreeLeafIndex,
-} from '@aztec/world-state';
-import { default as levelup } from 'levelup';
-import { default as memdown, MemDown } from 'memdown';
-import { AztecNodeConfig } from './config.js';
 import {
   CONTRACT_TREE_HEIGHT,
   CircuitsWasm,
@@ -31,8 +6,34 @@ import {
   L1_TO_L2_MESSAGES_TREE_HEIGHT,
   PRIVATE_DATA_TREE_HEIGHT,
 } from '@aztec/circuits.js';
-import { PrimitivesWasm } from '@aztec/barretenberg.js/wasm';
+import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { SiblingPath } from '@aztec/merkle-tree';
+import { InMemoryTxPool, P2P, createP2PClient } from '@aztec/p2p';
+import { SequencerClient, getCombinedHistoricTreeRoots } from '@aztec/sequencer-client';
+import {
+  ContractData,
+  ContractDataSource,
+  ContractPublicData,
+  L1ToL2MessageAndIndex,
+  L1ToL2MessageSource,
+  L2Block,
+  L2BlockL2Logs,
+  L2BlockSource,
+  L2LogsSource,
+  MerkleTreeId,
+  Tx,
+  TxHash,
+} from '@aztec/types';
+import {
+  MerkleTrees,
+  ServerWorldStateSynchroniser,
+  WorldStateSynchroniser,
+  computePublicDataTreeLeafIndex,
+} from '@aztec/world-state';
+import { default as levelup } from 'levelup';
+import { MemDown, default as memdown } from 'memdown';
 import { AztecNode } from './aztec-node.js';
+import { AztecNodeConfig } from './config.js';
 
 export const createMemDown = () => (memdown as any)() as MemDown<any, any>;
 
@@ -43,7 +44,8 @@ export class AztecNodeService implements AztecNode {
   constructor(
     protected p2pClient: P2P,
     protected blockSource: L2BlockSource,
-    protected unverifiedDataSource: UnverifiedDataSource,
+    protected encryptedLogsSource: L2LogsSource,
+    protected unencryptedLogsSource: L2LogsSource,
     protected contractDataSource: ContractDataSource,
     protected l1ToL2MessageSource: L1ToL2MessageSource,
     protected merkleTreeDB: MerkleTrees,
@@ -85,6 +87,7 @@ export class AztecNodeService implements AztecNode {
     );
     return new AztecNodeService(
       p2pClient,
+      archiver,
       archiver,
       archiver,
       archiver,
@@ -142,13 +145,23 @@ export class AztecNodeService implements AztecNode {
   }
 
   /**
-   * Gets the `take` amount of unverified data starting from `from`.
-   * @param from - Number of the L2 block to which corresponds the first `unverifiedData` to be returned.
-   * @param take - The number of `unverifiedData` to return.
-   * @returns The requested `unverifiedData`.
+   * Gets the `take` amount of encrypted logs starting from `from`.
+   * @param from - Number of the L2 block to which corresponds the first encrypted log to be returned.
+   * @param take - The number of encrypted logs to return.
+   * @returns The requested encrypted logs.
    */
-  public getUnverifiedData(from: number, take: number): Promise<UnverifiedData[]> {
-    return this.unverifiedDataSource.getUnverifiedData(from, take);
+  public getEncryptedLogs(from: number, take: number): Promise<L2BlockL2Logs[]> {
+    return this.encryptedLogsSource.getEncryptedLogs(from, take);
+  }
+
+  /**
+   * Gets the `take` amount of unencrypted logs starting from `from`.
+   * @param from - Number of the L2 block to which corresponds the first unencrypted log to be returned.
+   * @param take - The number of unencrypted logs to return.
+   * @returns The requested unencrypted logs.
+   */
+  public getUnencryptedLogs(from: number, take: number): Promise<L2BlockL2Logs[]> {
+    return this.unencryptedLogsSource.getUnencryptedLogs(from, take);
   }
 
   /**
@@ -157,7 +170,7 @@ export class AztecNodeService implements AztecNode {
    */
   public async sendTx(tx: Tx) {
     // TODO: Patch tx to inject historic tree roots until the private kernel circuit supplies this value
-    if (tx.isPrivate() && tx.data.constants.historicTreeRoots.privateHistoricTreeRoots.isEmpty()) {
+    if (tx.data.constants.historicTreeRoots.privateHistoricTreeRoots.isEmpty()) {
       tx.data.constants.historicTreeRoots = await getCombinedHistoricTreeRoots(this.merkleTreeDB.asLatest());
     }
 
@@ -211,6 +224,15 @@ export class AztecNodeService implements AztecNode {
   }
 
   /**
+   * Find the index of the given commitment.
+   * @param leafValue - The value to search for.
+   * @returns The index of the given leaf in the private data tree or undefined if not found.
+   */
+  public findCommitmentIndex(leafValue: Buffer): Promise<bigint | undefined> {
+    return this.merkleTreeDB.findLeafIndex(MerkleTreeId.PRIVATE_DATA_TREE, leafValue, false);
+  }
+
+  /**
    * Returns the sibling path for the given index in the data tree.
    * @param leafIndex - The index of the leaf for which the sibling path is required.
    * @returns The sibling path for the leaf index.
@@ -253,7 +275,7 @@ export class AztecNodeService implements AztecNode {
    * Note: Aztec's version of `eth_getStorageAt`.
    */
   public async getStorageAt(contract: AztecAddress, slot: bigint): Promise<Buffer | undefined> {
-    const leafIndex = computePublicDataTreeLeafIndex(contract, new Fr(slot), await PrimitivesWasm.get());
+    const leafIndex = computePublicDataTreeLeafIndex(contract, new Fr(slot), await CircuitsWasm.get());
     return this.merkleTreeDB.getLeafValue(MerkleTreeId.PUBLIC_DATA_TREE, leafIndex, false);
   }
 

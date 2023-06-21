@@ -1,14 +1,16 @@
-import { CallContext, PrivateHistoricTreeRoots, TxRequest } from '@aztec/circuits.js';
+import { pedersenCompressInputs, pedersenCompressWithHashIndex } from '@aztec/circuits.js/barretenberg';
+import { CallContext, CircuitsWasm, PrivateHistoricTreeRoots, TxContext } from '@aztec/circuits.js';
 import { FunctionAbi, FunctionType } from '@aztec/foundation/abi';
-import { DBOracle } from './db_oracle.js';
-import { PrivateFunctionExecution, ExecutionResult } from './private_execution.js';
-import { BarretenbergWasm } from '@aztec/barretenberg.js/wasm';
-import { pedersenCompressInputs, pedersenCompressWithHashIndex } from '@aztec/barretenberg.js/crypto';
-import { UnconstrainedFunctionExecution } from './unconstrained_execution.js';
-import { ClientTxExecutionContext } from './client_execution_context.js';
-import { Fr } from '@aztec/foundation/fields';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
+import { Fr } from '@aztec/foundation/fields';
+import { ExecutionRequest, TxExecutionRequest } from '@aztec/types';
+import { ClientTxExecutionContext } from './client_execution_context.js';
+import { DBOracle } from './db_oracle.js';
+import { PrivateFunctionExecution } from './private_execution.js';
+import { UnconstrainedFunctionExecution } from './unconstrained_execution.js';
+import { ExecutionResult } from './execution_result.js';
+import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 
 export const NOTE_PEDERSEN_CONSTANT = new Fr(2n);
 export const MAPPING_SLOT_PEDERSEN_CONSTANT = new Fr(4n);
@@ -20,19 +22,23 @@ const OUTER_NULLIFIER_GENERATOR_INDEX = 7;
  * The ACIR simulator.
  */
 export class AcirSimulator {
-  constructor(private db: DBOracle) {}
+  private log: DebugLogger;
+
+  constructor(private db: DBOracle) {
+    this.log = createDebugLogger('aztec:simulator');
+  }
 
   /**
    * Runs a private function.
    * @param request - The transaction request.
    * @param entryPointABI - The ABI of the entry point function.
-   * @param contractAddress - The address of the contract.
+   * @param contractAddress - The address of the contract (should match request.origin)
    * @param portalContractAddress - The address of the portal contract.
    * @param historicRoots - The historic roots.
    * @returns The result of the execution.
    */
   public run(
-    request: TxRequest,
+    request: TxExecutionRequest,
     entryPointABI: FunctionAbi,
     contractAddress: AztecAddress,
     portalContractAddress: EthAddress,
@@ -42,8 +48,12 @@ export class AcirSimulator {
       throw new Error(`Cannot run ${entryPointABI.functionType} function as secret`);
     }
 
+    if (request.origin !== contractAddress) {
+      this.log(`WARN: Request origin does not match contract address in simulation`);
+    }
+
     const callContext = new CallContext(
-      request.from,
+      AztecAddress.ZERO,
       contractAddress,
       portalContractAddress,
       false,
@@ -52,11 +62,11 @@ export class AcirSimulator {
     );
 
     const execution = new PrivateFunctionExecution(
-      new ClientTxExecutionContext(this.db, request, historicRoots),
+      new ClientTxExecutionContext(this.db, request.txContext, historicRoots),
       entryPointABI,
       contractAddress,
       request.functionData,
-      request.getExpandedArgs(),
+      request.args,
       callContext,
     );
 
@@ -73,7 +83,7 @@ export class AcirSimulator {
    * @returns The return values of the function.
    */
   public runUnconstrained(
-    request: TxRequest,
+    request: ExecutionRequest,
     entryPointABI: FunctionAbi,
     contractAddress: AztecAddress,
     portalContractAddress: EthAddress,
@@ -92,11 +102,11 @@ export class AcirSimulator {
     );
 
     const execution = new UnconstrainedFunctionExecution(
-      new ClientTxExecutionContext(this.db, request, historicRoots),
+      new ClientTxExecutionContext(this.db, TxContext.empty(), historicRoots),
       entryPointABI,
       contractAddress,
       request.functionData,
-      request.getExpandedArgs(),
+      request.args,
       callContext,
     );
 
@@ -110,7 +120,7 @@ export class AcirSimulator {
    * @param bbWasm - The WASM instance.
    * @returns The note hash.
    */
-  public computeNoteHash(notePreimage: Fr[], bbWasm: BarretenbergWasm) {
+  public computeNoteHash(notePreimage: Fr[], bbWasm: CircuitsWasm) {
     return pedersenCompressInputs(bbWasm, [NOTE_PEDERSEN_CONSTANT.toBuffer(), ...notePreimage.map(x => x.toBuffer())]);
   }
 
@@ -122,7 +132,7 @@ export class AcirSimulator {
    * @param bbWasm - The WASM instance.
    * @returns The nullifier.
    */
-  public computeNullifier(notePreimage: Fr[], privateKey: Buffer, bbWasm: BarretenbergWasm) {
+  public computeNullifier(notePreimage: Fr[], privateKey: Buffer, bbWasm: CircuitsWasm) {
     const noteHash = this.computeNoteHash(notePreimage, bbWasm);
     return pedersenCompressInputs(bbWasm, [NULLIFIER_PEDERSEN_CONSTANT.toBuffer(), noteHash, privateKey]);
   }
@@ -140,7 +150,7 @@ export class AcirSimulator {
     contractAddress: AztecAddress,
     notePreimage: Fr[],
     privateKey: Buffer,
-    bbWasm: BarretenbergWasm,
+    bbWasm: CircuitsWasm,
   ) {
     const nullifier = this.computeNullifier(notePreimage, privateKey, bbWasm);
     return pedersenCompressWithHashIndex(

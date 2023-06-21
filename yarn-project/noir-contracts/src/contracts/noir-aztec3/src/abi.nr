@@ -1,27 +1,30 @@
-global MAX_ARGS: comptime Field = 8;
+global MAX_ARGS: comptime Field = 16;
 global MAX_RETURN_VALUES: comptime Field = 4;
-global MAX_LOGS: comptime Field = 4;
+global MAX_READ_REQUESTS: comptime Field = 4;
 global MAX_NEW_COMMITMENTS: comptime Field = 4;
 global MAX_NEW_NULLIFIERS: comptime Field = 4;
 global MAX_PRIVATE_CALL_STACK : comptime Field = 4;
 global MAX_PUBLIC_CALL_STACK: comptime Field = 4;
-global MAX_L1_MSG_STACK : comptime Field = 2;
-global PUBLIC_INPUTS_LENGTH : comptime Field = 48;
+global MAX_L2_TO_L1_MSGS : comptime Field = 2;
+global PUBLIC_INPUTS_LENGTH : comptime Field = 41;
+// global LOGS_HASH_SIZE: comptime Field = 2; // Stored in  2 fields in order to fit in all of the 256 bits of sha256 hash.
 global CONTRACT_STORAGE_UPDATE_REQUESTS_LENGTH : comptime Field = 4;
 global CONTRACT_STORAGE_READS_LENGTH : comptime Field = 4;
 
 use crate::types::vec::BoundedVec;
 
-// Inputs are expected to be provided to each contract function
-struct Inputs {
+// PrivateContextInputs are expected to be provided to each private function
+struct PrivateContextInputs {
     call_context : CallContext,
-
-    old_private_data_tree_root : Field,
-    old_nullifier_tree_root : Field,
-    old_contract_tree_root : Field,
-    old_l1_to_l2_messages_tree_root : Field,
+    roots: CommitmentTreesRoots,
 
     contract_deployment_data: ContractDeploymentData,
+}
+
+// PublicContextInputs are expected to be provided to each public function
+struct PublicContextInputs {
+    call_context: CallContext,
+    roots: CommitmentTreesRoots,
 }
 
 global CALL_CONTEXT_SIZE: comptime Field = 6;
@@ -54,7 +57,34 @@ impl CallContext {
     }
 }
 
+global COMMITMENT_TREES_ROOTS_SIZE: comptime Field = 4;
+
+struct CommitmentTreesRoots {
+    private_data_tree_root : Field,
+    nullifier_tree_root : Field,
+    contract_tree_root : Field,
+    l1_to_l2_messages_tree_root : Field,
+}
+
+impl CommitmentTreesRoots {
+    // NOTE: this order must match the order in `private_circuit_public_inputs.hpp`
+    fn serialize(self) -> [Field; COMMITMENT_TREES_ROOTS_SIZE] {
+        [
+            self.private_data_tree_root,
+            self.nullifier_tree_root,
+            self.contract_tree_root,
+            self.l1_to_l2_messages_tree_root,
+        ]
+    }
+}
+
+fn empty_commitment_trees_roots() -> CommitmentTreesRoots {
+    CommitmentTreesRoots{ private_data_tree_root: 0, nullifier_tree_root: 0, contract_tree_root: 0, l1_to_l2_messages_tree_root: 0 }
+}
+
 struct ContractDeploymentData {
+    // TODO Uncomment when we remove the too many unknowns issue
+    // deployer_public_key: [Field; 2],
     constructor_vk_hash : Field,
     function_tree_root : Field,
     contract_address_salt : Field,
@@ -91,20 +121,41 @@ impl FunctionData {
     }
 }
 
+// PUBLIC_INPUTS
+// CALL_CONTEXT_SIZE - 6
+// + ARGS_HASH - 1
+// + MAX_RETURN_VALUES - 4
+// + MAX_READ_REQUESTS - 4
+// + MAX_NEW_COMMITMENTS - 4
+// + MAX_NEW_NULLIFIERS - 4
+// + MAX_PRIVATE_CALL_STACK - 4
+// + MAX_PUBLIC_CALL_STACK - 4
+// + MAX_L2_TO_L1_MSGS - 2
+// + historic_private_data_tree_root - 1
+// + historic_private_nullifier_tree_root - 1
+// + historic_contract_tree_root - 1
+// + historic_l1_to_l2_messages_tree_root - 1
+// + contract_deployment_data - 4
+// = 6 + 1 + 4 + 4 + 4 + 4 + 4  + 4 + 2 + 1 + 1 + 1 + 1 + 4
+// = 41
 struct PrivateCircuitPublicInputs {
     call_context: CallContext,
-    args: [Field; crate::abi::MAX_ARGS],
+    args_hash: Field,
     return_values: [Field; crate::abi::MAX_RETURN_VALUES],
-    emitted_events: [Field; crate::abi::MAX_LOGS],
+    read_requests: [Field; crate::abi::MAX_READ_REQUESTS],
     new_commitments: [Field; crate::abi::MAX_NEW_COMMITMENTS],
     new_nullifiers: [Field; crate::abi::MAX_NEW_NULLIFIERS],
     private_call_stack: [Field; crate::abi::MAX_PRIVATE_CALL_STACK],
     public_call_stack: [Field; crate::abi::MAX_PUBLIC_CALL_STACK],
-    new_l2_to_l1_msgs: [Field; crate::abi::MAX_L1_MSG_STACK],
-    historic_private_data_tree_root: Field,
-    historic_private_nullifier_tree_root: Field,
-    historic_contract_tree_root: Field,
-    historic_l1_to_l2_messages_tree_root: Field,
+    new_l2_to_l1_msgs: [Field; crate::abi::MAX_L2_TO_L1_MSGS],
+    // TODO #588, relevant issue: https://github.com/AztecProtocol/aztec-packages/issues/588
+    // When uncommenting, explore introducing a new type like uint256 (similar to Point), so it's more explicit that
+    // we're talking about a single number backed by two field elements.
+    // encrypted_logs_hash: [Field; crate::abi::LOGS_HASH_SIZE],
+    // unencrypted_logs_hash: [Field; crate::abi::LOGS_HASH_SIZE],
+    // encrypted_log_preimages_length: Field,
+    // unencrypted_log_preimages_length: Field,
+    commitment_trees_roots: CommitmentTreesRoots,
     contract_deployment_data: ContractDeploymentData,
 }
 
@@ -116,19 +167,21 @@ impl PrivateCircuitPublicInputs {
 
     fn serialize(self) -> [Field; PUBLIC_INPUTS_LENGTH] {
         let mut fields: BoundedVec<Field, PUBLIC_INPUTS_LENGTH> = BoundedVec::new(0); 
-        fields = fields.push_array(self.call_context.serialize());   
-        fields = fields.push_array(self.args);
+        fields = fields.push_array(self.call_context.serialize());
+        fields = fields.push(self.args_hash);
         fields = fields.push_array(self.return_values);
-        fields = fields.push_array(self.emitted_events);
+        fields = fields.push_array(self.read_requests);
         fields = fields.push_array(self.new_commitments);
         fields = fields.push_array(self.new_nullifiers);
         fields = fields.push_array(self.private_call_stack);
         fields = fields.push_array(self.public_call_stack);
         fields = fields.push_array(self.new_l2_to_l1_msgs);
-        fields = fields.push(self.historic_private_data_tree_root);
-        fields = fields.push(self.historic_private_nullifier_tree_root);
-        fields = fields.push(self.historic_contract_tree_root);
-        fields = fields.push(self.historic_l1_to_l2_messages_tree_root);
+        // TODO #588, relevant issue: https://github.com/AztecProtocol/aztec-packages/issues/588
+        // fields = fields.push_array(self.encrypted_logs_hash);
+        // fields = fields.push_array(self.unencrypted_logs_hash);
+        // fields = fields.push(self.encrypted_log_preimages_length);
+        // fields = fields.push(self.unencrypted_log_preimages_length);
+        fields = fields.push_array(self.commitment_trees_roots.serialize());
         fields = fields.push_array(self.contract_deployment_data.serialize());
         fields.storage
     }
@@ -170,26 +223,30 @@ fn empty_contract_storage_update_request() -> ContractStorageUpdateRequest {
 }
 
 // CALL_CONTEXT_SIZE
-// + MAX_ARGS 
+// + ARGS_HASH 
 // + MAX_RETURN_VALUES 
-// + MAX_LOGS 
 // + CONTRACT_STORAGE_UPDATE_REQUESTS_LENGTH * CONTRACT_STORAGE_UPDATE_REQUEST_SIZE
 // + CONTRACT_STORAGE_READS_LENGTH * CONTRACT_STORAGE_READ_SIZE
 // + MAX_PUBLIC_CALL_STACK
-// + MAX_L1_MSG_STACK
+// + MAX_NEW_COMMITMENTS
+// + MAX_NEW_NULLIFIERS
+// + MAX_L2_TO_L1_MSGS
+// + COMMITMENT_TREES_ROOTS_SIZE - 4
 // + 2;
-// = 6 + 8 + 4 + 4 + 4 * 3 + 4 * 2 + 4 + 2 + 2
-global PUBLIC_CIRCUIT_PUBLIC_INPUTS_SIZE: comptime Field = 50;
+// = 6 + 1 + 4 + 4 * 3 + 4 * 2 + 4 + 4 + 4 + 2 + 4 + 2
+global PUBLIC_CIRCUIT_PUBLIC_INPUTS_SIZE: comptime Field = 51;
 
 struct PublicCircuitPublicInputs {
     call_context: CallContext,
-    args: [Field; crate::abi::MAX_ARGS],
+    args_hash: Field,
     return_values: [Field; crate::abi::MAX_RETURN_VALUES],
-    emitted_events: [Field; crate::abi::MAX_LOGS],
     contract_storage_update_requests: [ContractStorageUpdateRequest; crate::abi::CONTRACT_STORAGE_UPDATE_REQUESTS_LENGTH],
     contract_storage_read: [ContractStorageRead; crate::abi::CONTRACT_STORAGE_READS_LENGTH],
     public_call_stack: [Field; crate::abi::MAX_PUBLIC_CALL_STACK],
-    new_l2_to_l1_msgs: [Field; crate::abi::MAX_L1_MSG_STACK],
+    new_commitments: [Field; crate::abi::MAX_NEW_COMMITMENTS],
+    new_nullifiers: [Field; crate::abi::MAX_NEW_NULLIFIERS],
+    new_l2_to_l1_msgs: [Field; crate::abi::MAX_L2_TO_L1_MSGS],
+    commitment_trees_roots: CommitmentTreesRoots,
     historic_public_data_tree_root: Field,
     prover_address: Field,
 }
@@ -203,9 +260,8 @@ impl PublicCircuitPublicInputs {
     fn serialize(self) -> [Field; PUBLIC_CIRCUIT_PUBLIC_INPUTS_SIZE] {
         let mut fields: BoundedVec<Field, PUBLIC_CIRCUIT_PUBLIC_INPUTS_SIZE> = BoundedVec::new(0); 
         fields = fields.push_array(self.call_context.serialize());   
-        fields = fields.push_array(self.args);
+        fields = fields.push(self.args_hash);
         fields = fields.push_array(self.return_values);
-        fields = fields.push_array(self.emitted_events);
         for i in 0..crate::abi::CONTRACT_STORAGE_UPDATE_REQUESTS_LENGTH {
             fields = fields.push_array(self.contract_storage_update_requests[i].serialize());
         }
@@ -213,7 +269,10 @@ impl PublicCircuitPublicInputs {
             fields = fields.push_array(self.contract_storage_read[i].serialize());
         }
         fields = fields.push_array(self.public_call_stack);
+        fields = fields.push_array(self.new_commitments);
+        fields = fields.push_array(self.new_nullifiers);
         fields = fields.push_array(self.new_l2_to_l1_msgs);
+        fields = fields.push_array(self.commitment_trees_roots.serialize());
         fields = fields.push(self.historic_public_data_tree_root);
         fields = fields.push(self.prover_address);
         fields.storage

@@ -1,9 +1,16 @@
 import { CONTRACT_TREE_HEIGHT, L1_TO_L2_MESSAGES_TREE_HEIGHT, PRIVATE_DATA_TREE_HEIGHT } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { ContractPublicData, ContractData, L2Block, MerkleTreeId, L1ToL2MessageAndIndex } from '@aztec/types';
+import {
+  ContractPublicData,
+  ContractData,
+  L2Block,
+  MerkleTreeId,
+  L1ToL2MessageAndIndex,
+  L2BlockL2Logs,
+  TxHash,
+  Tx,
+} from '@aztec/types';
 import { SiblingPath } from '@aztec/merkle-tree';
-import { Tx, TxHash } from '@aztec/types';
-import { UnverifiedData } from '@aztec/types';
 import { Fr } from '@aztec/foundation/fields';
 
 /**
@@ -47,12 +54,20 @@ export interface AztecNode {
   getContractInfo(contractAddress: AztecAddress): Promise<ContractData | undefined>;
 
   /**
-   * Gets the `take` amount of unverified data starting from `from`.
-   * @param from - Number of the L2 block to which corresponds the first `unverifiedData` to be returned.
-   * @param take - The number of `unverifiedData` to return.
-   * @returns The requested `unverifiedData`.
+   * Gets the `take` amount of encrypted logs starting from `from`.
+   * @param from - Number of the L2 block to which corresponds the first encrypted logs to be returned.
+   * @param take - The number of encrypted logs to return.
+   * @returns The requested encrypted logs.
    */
-  getUnverifiedData(from: number, take: number): Promise<UnverifiedData[]>;
+  getEncryptedLogs(from: number, take: number): Promise<L2BlockL2Logs[]>;
+
+  /**
+   * Gets the `take` amount of unencrypted logs starting from `from`.
+   * @param from - Number of the L2 block to which corresponds the first unencrypted logs to be returned.
+   * @param take - The number of unencrypted logs to return.
+   * @returns The requested unencrypted logs.
+   */
+  getUnencryptedLogs(from: number, take: number): Promise<L2BlockL2Logs[]>;
 
   /**
    * Method to submit a transaction to the p2p pool.
@@ -86,6 +101,13 @@ export interface AztecNode {
    * @returns The sibling path for the leaf index.
    */
   getContractPath(leafIndex: bigint): Promise<SiblingPath<typeof CONTRACT_TREE_HEIGHT>>;
+
+  /**
+   * Find the index of the given commitment.
+   * @param leafValue - The value to search for.
+   * @returns The index of the given leaf of undefined if not found.
+   */
+  findCommitmentIndex(leafValue: Buffer): Promise<bigint | undefined>;
 
   /**
    * Returns the sibling path for the given index in the data tree.

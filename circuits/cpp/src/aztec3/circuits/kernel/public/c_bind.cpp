@@ -5,7 +5,6 @@
 
 #include "aztec3/circuits/abis/kernel_circuit_public_inputs.hpp"
 #include "aztec3/circuits/abis/public_kernel/public_kernel_inputs.hpp"
-#include "aztec3/circuits/abis/public_kernel/public_kernel_inputs_no_previous_kernel.hpp"
 #include "aztec3/constants.hpp"
 #include "aztec3/utils/dummy_composer.hpp"
 #include "aztec3/utils/types/native_types.hpp"
@@ -18,8 +17,6 @@ using NT = aztec3::utils::types::NativeTypes;
 using DummyComposer = aztec3::utils::DummyComposer;
 using aztec3::circuits::abis::KernelCircuitPublicInputs;
 using aztec3::circuits::abis::public_kernel::PublicKernelInputs;
-using aztec3::circuits::abis::public_kernel::PublicKernelInputsNoPreviousKernel;
-using aztec3::circuits::kernel::public_kernel::native_public_kernel_circuit_no_previous_kernel;
 using aztec3::circuits::kernel::public_kernel::native_public_kernel_circuit_private_previous_kernel;
 using aztec3::circuits::kernel::public_kernel::native_public_kernel_circuit_public_previous_kernel;
 }  // namespace
@@ -56,12 +53,5 @@ CBIND(public_kernel__sim, [](PublicKernelInputs<NT> public_kernel_inputs) {
         public_kernel_inputs.previous_kernel.public_inputs.is_private
             ? native_public_kernel_circuit_private_previous_kernel(composer, public_kernel_inputs)
             : native_public_kernel_circuit_public_previous_kernel(composer, public_kernel_inputs);
-    return composer.result_or_error(result);
-});
-
-CBIND(public_kernel_no_previous_kernel__sim, [](PublicKernelInputsNoPreviousKernel<NT> public_kernel_inputs) {
-    DummyComposer composer = DummyComposer("public_kernel_no_previous_kernel__sim");
-    KernelCircuitPublicInputs<NT> const result =
-        native_public_kernel_circuit_no_previous_kernel(composer, public_kernel_inputs);
     return composer.result_or_error(result);
 });

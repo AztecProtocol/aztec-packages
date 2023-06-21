@@ -58,8 +58,8 @@ template <typename NCT> struct NewContractData {
 
     boolean is_empty() const
     {
-        return ((contract_address.to_field() == fr(0)) && (portal_contract_address.to_field() == fr(0)) &&
-                (function_tree_root == fr(0)));
+        return ((contract_address.to_field().is_zero()) && (portal_contract_address.to_field().is_zero()) &&
+                (function_tree_root.is_zero()));
     }
 
     void set_public()
@@ -73,6 +73,10 @@ template <typename NCT> struct NewContractData {
 
     fr hash() const
     {
+        // as per the circuit implementation, if contract address == zero then return a zero leaf
+        if (is_empty()) {
+            return fr::zero();
+        }
         std::vector<fr> const inputs = {
             fr(contract_address),
             fr(portal_contract_address),

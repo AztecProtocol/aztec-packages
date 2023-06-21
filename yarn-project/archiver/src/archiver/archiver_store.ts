@@ -1,10 +1,10 @@
 import {
   ContractPublicData,
   L2Block,
-  UnverifiedData,
   INITIAL_L2_BLOCK_NUM,
   ContractData,
   L1ToL2Message,
+  L2BlockL2Logs,
 } from '@aztec/types';
 import { Fr, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
@@ -12,25 +12,139 @@ import { L1ToL2MessageStore, PendingL1ToL2MessageStore } from './l1_to_l2_messag
 
 /**
  * Interface describing a data store to be used by the archiver to store all its relevant data
- * (blocks, unverified data, aztec contract public data).
+ * (blocks, encrypted logs, aztec contract public data).
  */
 export interface ArchiverDataStore {
+  /**
+   * Append new blocks to the store's list.
+   * @param blocks - The L2 blocks to be added to the store.
+   * @returns True if the operation is successful.
+   */
   addL2Blocks(blocks: L2Block[]): Promise<boolean>;
+
+  /**
+   * Gets the `take` amount of L2 blocks starting from `from`.
+   * @param from - Number of the first block to return (inclusive).
+   * @param take - The number of blocks to return.
+   * @returns The requested L2 blocks.
+   */
   getL2Blocks(from: number, take: number): Promise<L2Block[]>;
-  addUnverifiedData(data: UnverifiedData[]): Promise<boolean>;
+
+  /**
+   * Append new encrypted logs to the store's list.
+   * @param data - The encrypted logs to be added to the store.
+   * @returns True if the operation is successful.
+   */
+  addEncryptedLogs(data: L2BlockL2Logs[]): Promise<boolean>;
+
+  /**
+   * Append new unencrypted logs to the store's list.
+   * @param data - The unencrypted logs to be added to the store.
+   * @returns True if the operation is successful.
+   */
+  addUnencryptedLogs(data: L2BlockL2Logs[]): Promise<boolean>;
+
+  /**
+   * Append new pending L1 to L2 messages to the store.
+   * @param messages - The L1 to L2 messages to be added to the store.
+   * @returns True if the operation is successful.
+   */
   addPendingL1ToL2Messages(messages: L1ToL2Message[]): Promise<boolean>;
+
+  /**
+   * Remove pending L1 to L2 messages from the store (if they were cancelled).
+   * @param messageKeys - The message keys to be removed from the store.
+   * @returns True if the operation is successful.
+   */
+  cancelPendingL1ToL2Messages(messageKeys: Fr[]): Promise<boolean>;
+
+  /**
+   * Messages that have been published in an L2 block are confirmed.
+   * Add them to the confirmed store, also remove them from the pending store.
+   * @param messageKeys - The message keys to be removed from the store.
+   * @returns True if the operation is successful.
+   */
   confirmL1ToL2Messages(messageKeys: Fr[]): Promise<boolean>;
+
+  /**
+   * Gets the `take` amount of pending L1 to L2 messages, sorted by fee
+   * @param take - The number of messages to return (by default NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).
+   * @returns The requested L1 to L2 message keys.
+   */
   getPendingL1ToL2MessageKeys(take: number): Promise<Fr[]>;
+
+  /**
+   * Gets the confirmed L1 to L2 message corresponding to the given message key.
+   * @param messageKey - The message key to look up.
+   * @returns The requested L1 to L2 message or throws if not found.
+   */
   getConfirmedL1ToL2Message(messageKey: Fr): Promise<L1ToL2Message>;
-  getUnverifiedData(from: number, take: number): Promise<UnverifiedData[]>;
+
+  /**
+   * Gets the `take` amount of encrypted logs starting from `from`.
+   * @param from - Number of the L2 block to which corresponds the first `encryptedLogs` to be returned.
+   * @param take - The number of encrypted logs to return.
+   * @returns The requested encrypted logs.
+   */
+  getEncryptedLogs(from: number, take: number): Promise<L2BlockL2Logs[]>;
+
+  /**
+   * Gets the `take` amount of unencrypted logs starting from `from`.
+   * @param from - Number of the L2 block to which corresponds the first `unencryptedLogs` to be returned.
+   * @param take - The number of unencrypted logs to return.
+   * @returns The requested unencrypted logs.
+   */
+  getUnencryptedLogs(from: number, take: number): Promise<L2BlockL2Logs[]>;
+
+  /**
+   * Store new Contract Public Data from an L2 block to the store's list.
+   * @param data - List of contracts' data to be added.
+   * @param blockNum - Number of the L2 block the contract data was deployed in.
+   * @returns True if the operation is successful.
+   */
   addL2ContractPublicData(data: ContractPublicData[], blockNum: number): Promise<boolean>;
+
+  /**
+   * Lookup the L2 contract data for a contract address.
+   * @param contractAddress - The contract data address.
+   * @returns The contract's public data.
+   */
   getL2ContractPublicData(contractAddress: AztecAddress): Promise<ContractPublicData | undefined>;
+
+  /**
+   * Lookup all contract data in an L2 block.
+   * @param blockNum - The block number to get all contract data from.
+   * @returns All contract public data in the block (if found).
+   */
   getL2ContractPublicDataInBlock(blockNum: number): Promise<ContractPublicData[]>;
+
+  /**
+   * Get basic info for an L2 contract.
+   * Contains contract address & the ethereum portal address.
+   * @param contractAddress - The contract data address.
+   * @returns ContractData with the portal address (if we didn't throw an error).
+   */
   getL2ContractInfo(contractAddress: AztecAddress): Promise<ContractData | undefined>;
+
+  /**
+   * Get basic info for an all L2 contracts deployed in a block.
+   * Contains contract address & the ethereum portal address.
+   * @param l2BlockNum - Number of the L2 block where contracts were deployed.
+   * @returns ContractData with the portal address (if we didn't throw an error).
+   */
   getL2ContractInfoInBlock(l2BlockNum: number): Promise<ContractData[] | undefined>;
+
+  /**
+   * Gets the number of the latest L2 block processed.
+   * @returns The number of the latest L2 block processed.
+   */
   getBlockHeight(): Promise<number>;
+
+  /**
+   * Gets the length of L2 blocks in store.
+   * @returns The length of L2 Blocks stored.
+   */
   getBlocksLength(): number;
-  getLatestUnverifiedDataBlockNum(): Promise<number>;
 }
 
 /**
@@ -43,10 +157,16 @@ export class MemoryArchiverStore implements ArchiverDataStore {
   private l2Blocks: L2Block[] = [];
 
   /**
-   * An array containing all the `unverifiedData` that have been fetched so far.
+   * An array containing all the encrypted logs that have been fetched so far.
    * Note: Index in the "outer" array equals to (corresponding L2 block's number - INITIAL_L2_BLOCK_NUM).
    */
-  private unverifiedData: UnverifiedData[] = [];
+  private encryptedLogs: L2BlockL2Logs[] = [];
+
+  /**
+   * An array containing all the unencrypted logs that have been fetched so far.
+   * Note: Index in the "outer" array equals to (corresponding L2 block's number - INITIAL_L2_BLOCK_NUM).
+   */
+  private unencryptedLogs: L2BlockL2Logs[] = [];
 
   /**
    * A sparse array containing all the contract data that have been fetched so far.
@@ -77,12 +197,22 @@ export class MemoryArchiverStore implements ArchiverDataStore {
   }
 
   /**
-   * Append new Unverified data to the store's list.
-   * @param data - The Unverified Data to be added to the store.
+   * Append new encrypted logs data to the store's list.
+   * @param data - The encrypted logs to be added to the store.
    * @returns True if the operation is successful (always in this implementation).
    */
-  public addUnverifiedData(data: UnverifiedData[]): Promise<boolean> {
-    this.unverifiedData.push(...data);
+  public addEncryptedLogs(data: L2BlockL2Logs[]): Promise<boolean> {
+    this.encryptedLogs.push(...data);
+    return Promise.resolve(true);
+  }
+
+  /**
+   * Append new unencrypted logs data to the store's list.
+   * @param data - The unencrypted logs to be added to the store.
+   * @returns True if the operation is successful (always in this implementation).
+   */
+  public addUnencryptedLogs(data: L2BlockL2Logs[]): Promise<boolean> {
+    this.unencryptedLogs.push(...data);
     return Promise.resolve(true);
   }
 
@@ -95,6 +225,18 @@ export class MemoryArchiverStore implements ArchiverDataStore {
     for (const msg of messages) {
       this.pendingL1ToL2Messages.addMessage(msg.entryKey!, msg);
     }
+    return Promise.resolve(true);
+  }
+
+  /**
+   * Remove pending L1 to L2 messages from the store (if they were cancelled).
+   * @param messageKeys - The message keys to be removed from the store.
+   * @returns True if the operation is successful (always in this implementation).
+   */
+  public cancelPendingL1ToL2Messages(messageKeys: Fr[]): Promise<boolean> {
+    messageKeys.forEach(messageKey => {
+      this.pendingL1ToL2Messages.removeMessage(messageKey);
+    });
     return Promise.resolve(true);
   }
 
@@ -119,7 +261,11 @@ export class MemoryArchiverStore implements ArchiverDataStore {
    * @returns True if the operation is successful (always in this implementation).
    */
   public addL2ContractPublicData(data: ContractPublicData[], blockNum: number): Promise<boolean> {
-    this.contractPublicData[blockNum] = data;
+    if (this.contractPublicData[blockNum]?.length) {
+      this.contractPublicData[blockNum]?.push(...data);
+    } else {
+      this.contractPublicData[blockNum] = [...data];
+    }
     return Promise.resolve(true);
   }
 
@@ -164,21 +310,39 @@ export class MemoryArchiverStore implements ArchiverDataStore {
   }
 
   /**
-   * Gets the `take` amount of unverified data starting from `from`.
-   * @param from - Number of the L2 block to which corresponds the first `unverifiedData` to be returned.
-   * @param take - The number of `unverifiedData` to return.
-   * @returns The requested `unverifiedData`.
+   * Gets the `take` amount of encrypted logs starting from `from`.
+   * @param from - Number of the L2 block to which corresponds the first encrypted logs to be returned.
+   * @param take - The number of encrypted logs to return.
+   * @returns The requested encrypted logs.
    */
-  public getUnverifiedData(from: number, take: number): Promise<UnverifiedData[]> {
+  public getEncryptedLogs(from: number, take: number): Promise<L2BlockL2Logs[]> {
     if (from < INITIAL_L2_BLOCK_NUM) {
       throw new Error(`Invalid block range ${from}`);
     }
-    if (from > this.unverifiedData.length) {
+    if (from > this.encryptedLogs.length) {
       return Promise.resolve([]);
     }
     const startIndex = from - INITIAL_L2_BLOCK_NUM;
     const endIndex = from + take;
-    return Promise.resolve(this.unverifiedData.slice(startIndex, endIndex));
+    return Promise.resolve(this.encryptedLogs.slice(startIndex, endIndex));
+  }
+
+  /**
+   * Gets the 'take' amount of unencrypted logs starting from 'from'.
+   * @param from - Number of the L2 block to which corresponds the first unencrypted logs to be returned.
+   * @param take - The number of unencrypted logs to return.
+   * @returns The requested unencrypted logs.
+   */
+  public getUnencryptedLogs(from: number, take: number): Promise<L2BlockL2Logs[]> {
+    if (from < INITIAL_L2_BLOCK_NUM) {
+      throw new Error(`Invalid block range ${from}`);
+    }
+    if (from > this.unencryptedLogs.length) {
+      return Promise.resolve([]);
+    }
+    const startIndex = from - INITIAL_L2_BLOCK_NUM;
+    const endIndex = from + take;
+    return Promise.resolve(this.unencryptedLogs.slice(startIndex, endIndex));
   }
 
   /**
@@ -249,15 +413,6 @@ export class MemoryArchiverStore implements ArchiverDataStore {
   public getBlockHeight(): Promise<number> {
     if (this.l2Blocks.length === 0) return Promise.resolve(INITIAL_L2_BLOCK_NUM - 1);
     return Promise.resolve(this.l2Blocks[this.l2Blocks.length - 1].number);
-  }
-
-  /**
-   * Gets the L2 block number associated with the latest unverified data.
-   * @returns The L2 block number associated with the latest unverified data.
-   */
-  public getLatestUnverifiedDataBlockNum(): Promise<number> {
-    if (this.unverifiedData.length === 0) return Promise.resolve(INITIAL_L2_BLOCK_NUM - 1);
-    return Promise.resolve(this.unverifiedData.length + INITIAL_L2_BLOCK_NUM - 1);
   }
 
   /**

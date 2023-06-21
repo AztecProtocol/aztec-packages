@@ -1,7 +1,6 @@
 import { toBigIntBE, toBufferBE } from '../bigint-buffer/index.js';
-import { Fr } from './index.js';
 import { BufferReader } from '../serialize/buffer_reader.js';
-import { AztecAddress } from '../aztec-address/index.js';
+import { Fr } from './index.js';
 
 /**
  * Represents a Point on an elliptic curve with x and y coordinates.
@@ -16,6 +15,9 @@ export class Point {
   static ZERO = new Point(Buffer.alloc(Point.SIZE_IN_BYTES));
   static MODULUS = 0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001n;
   static MAX_VALUE = Point.MODULUS - 1n;
+
+  /** Used to differentiate this class from AztecAddress */
+  public readonly kind = 'point';
 
   constructor(
     /**
@@ -34,6 +36,22 @@ export class Point {
     if (coordinateY > Point.MAX_VALUE) {
       throw new Error(`Coordinate y out of range: ${coordinateY}.`);
     }
+  }
+
+  /**
+   * Returns x coordinate of this point.
+   * @returns x coordinate.
+   */
+  public get x(): Fr {
+    return Fr.fromBuffer(this.buffer.subarray(0, 32));
+  }
+
+  /**
+   * Returns y coordinate of this point.
+   * @returns y coordinate.
+   */
+  public get y(): Fr {
+    return Fr.fromBuffer(this.buffer.subarray(32, 64));
   }
 
   /**
@@ -59,6 +77,16 @@ export class Point {
   static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
     return new this(reader.readBytes(this.SIZE_IN_BYTES));
+  }
+
+  /**
+   * Creates a point instance from its x and y coordinates.
+   * @param x - X coordinate.
+   * @param y - Y coordinate.
+   * @returns A Point instance.
+   */
+  static fromCoordinates(x: Fr, y: Fr) {
+    return new this(Buffer.concat([x.toBuffer(), y.toBuffer()]));
   }
 
   /**
@@ -118,14 +146,15 @@ export class Point {
   equals(rhs: Point) {
     return this.buffer.equals(rhs.buffer);
   }
+}
 
-  /**
-   * Convert the current Point instance to an AztecAddress.
-   * Takes the first 20 bytes of the point's buffer and creates an AztecAddress instance from it.
-   *
-   * @returns An AztecAddress instance representing the address corresponding to this point.
-   */
-  toAddress(): AztecAddress {
-    return AztecAddress.fromBuffer(this.buffer.slice(0, AztecAddress.SIZE_IN_BYTES));
-  }
+/**
+ * Does this object look like a point?
+ * @param obj - Object to test if it is a point.
+ * @returns Whether it looks like a point.
+ */
+export function isPoint(obj: object): obj is Point {
+  if (!obj) return false;
+  const point = obj as Point;
+  return point.kind === 'point' && point.x !== undefined && point.y !== undefined;
 }

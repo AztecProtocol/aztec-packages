@@ -5,7 +5,7 @@ import { DebugLogger } from '@aztec/foundation/log';
 import { ChildAbi, ParentAbi } from '@aztec/noir-contracts/examples';
 
 import { toBigInt } from '@aztec/foundation/serialize';
-import { setup } from './setup.js';
+import { setup } from './utils.js';
 
 describe('e2e_nested_contract', () => {
   let aztecNode: AztecNodeService;
@@ -21,7 +21,7 @@ describe('e2e_nested_contract', () => {
 
     parentContract = await deployContract(ParentAbi);
     childContract = await deployContract(ChildAbi);
-  }, 30_000);
+  }, 60_000);
 
   afterEach(async () => {
     await aztecNode.stop();
@@ -71,7 +71,7 @@ describe('e2e_nested_contract', () => {
     expect(receipt.status).toBe(TxStatus.MINED);
   }, 100_000);
 
-  it('enqueues a public call', async () => {
+  it('enqueues a single public call', async () => {
     const tx = parentContract.methods
       .enqueueCallToChild(childContract.address, Fr.fromBuffer(childContract.methods.pubStoreValue.selector), 42n)
       .send({ from: accounts[0] });

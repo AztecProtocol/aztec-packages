@@ -9,7 +9,6 @@ use crate::utils::arr_copy_slice;
 // oracles
 use crate::oracle::enqueue_public_function_call::enqueue_public_function_call_internal;
 
-
 struct PublicCallStackItem {
     contract_address: Field,
     function_data: FunctionData,
@@ -41,23 +40,27 @@ impl PublicCallStackItem {
                     storage_contract_address : fields[8],
                     portal_contract_address : fields[9],
                 },
-                args: arr_copy_slice(fields, [0; crate::abi::MAX_ARGS], 10),
+                args_hash: fields[10],
                 return_values: [0; crate::abi::MAX_RETURN_VALUES],
-                emitted_events: [0; crate::abi::MAX_LOGS],
                 contract_storage_update_requests: [crate::abi::empty_contract_storage_update_request(); crate::abi::CONTRACT_STORAGE_UPDATE_REQUESTS_LENGTH],
                 contract_storage_read: [crate::abi::empty_contract_storage_read(); crate::abi::CONTRACT_STORAGE_READS_LENGTH],
                 public_call_stack: [0; crate::abi::MAX_PUBLIC_CALL_STACK],
-                new_l2_to_l1_msgs:[0; crate::abi::MAX_L1_MSG_STACK],
+                new_commitments: [0; crate::abi::MAX_NEW_COMMITMENTS],
+                new_nullifiers: [0; crate::abi::MAX_NEW_NULLIFIERS],
+                new_l2_to_l1_msgs:[0; crate::abi::MAX_L2_TO_L1_MSGS],
+                commitment_trees_roots: crate::abi::empty_commitment_trees_roots(),
                 historic_public_data_tree_root: 0,
                 prover_address: 0,
             },
             is_execution_request: true,
         };
+
         constrain contract_address == item.contract_address;
         constrain function_selector == item.function_data.function_selector;
-        for i in 0..crate::abi::MAX_ARGS {
-            constrain args[i] == item.public_inputs.args[i];
-        }
+        
+        // TODO hash_index
+        // let args_hash = dep::std::hash::pedersen(args)[0];
+        // constrain args_hash == item.public_inputs.args_hash;
 
         constrain item.public_inputs.call_context.is_delegate_call == false;
         constrain item.public_inputs.call_context.is_static_call == false;

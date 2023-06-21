@@ -1,19 +1,9 @@
-import {
-  AztecAddress,
-  AztecRPCClient,
-  DeployedContract,
-  EthAddress,
-  Tx,
-  TxHash,
-  TxReceipt,
-  TxRequest,
-} from '@aztec/aztec-rpc';
+import { AztecAddress, AztecRPCClient, DeployedContract, EthAddress, Tx, TxHash, TxReceipt } from '@aztec/aztec-rpc';
 import { mock } from 'jest-mock-extended';
 
-import { EcdsaSignature } from '@aztec/circuits.js';
-import { Contract } from './contract.js';
 import { ABIParameterVisibility, ContractAbi, FunctionType } from '@aztec/foundation/abi';
 import { randomBytes } from '@aztec/foundation/crypto';
+import { Contract } from './contract.js';
 
 describe('Contract Class', () => {
   let arc: ReturnType<typeof mock<AztecRPCClient>>;
@@ -21,8 +11,6 @@ describe('Contract Class', () => {
   const contractAddress = AztecAddress.random();
   const account = AztecAddress.random();
 
-  const mockTxRequest = { type: 'TxRequest' } as any as TxRequest;
-  const mockSignature = { type: 'EcdsaSignature' } as any as EcdsaSignature;
   const mockTx = { type: 'Tx' } as any as Tx;
   const mockTxHash = { type: 'TxHash' } as any as TxHash;
   const mockTxReceipt = { type: 'TxReceipt' } as any as TxReceipt;
@@ -97,16 +85,14 @@ describe('Contract Class', () => {
 
   beforeEach(() => {
     arc = mock<AztecRPCClient>();
-    arc.createDeploymentTxRequest.mockResolvedValue(mockTxRequest);
-    arc.createTxRequest.mockResolvedValue(mockTxRequest);
-    arc.signTxRequest.mockResolvedValue(mockSignature);
+    arc.createDeploymentTx.mockResolvedValue(mockTx);
     arc.createTx.mockResolvedValue(mockTx);
     arc.sendTx.mockResolvedValue(mockTxHash);
     arc.viewTx.mockResolvedValue(mockViewResultValue);
     arc.getTxReceipt.mockResolvedValue(mockTxReceipt);
   });
 
-  it('should request, sign, craete and send a contract method tx', async () => {
+  it('should create and send a contract method tx', async () => {
     const fooContract = new Contract(contractAddress, defaultAbi, arc);
     const param0 = 12;
     const param1 = 345n;
@@ -118,13 +104,9 @@ describe('Contract Class', () => {
 
     expect(txHash).toBe(mockTxHash);
     expect(receipt).toBe(mockTxReceipt);
-    expect(arc.createDeploymentTxRequest).toHaveBeenCalledTimes(0);
-    expect(arc.createTxRequest).toHaveBeenCalledTimes(1);
-    expect(arc.createTxRequest).toHaveBeenCalledWith('bar', [param0, param1], contractAddress, account);
-    expect(arc.signTxRequest).toHaveBeenCalledTimes(1);
-    expect(arc.signTxRequest).toHaveBeenCalledWith(mockTxRequest);
+    expect(arc.createDeploymentTx).toHaveBeenCalledTimes(0);
     expect(arc.createTx).toHaveBeenCalledTimes(1);
-    expect(arc.createTx).toHaveBeenCalledWith(mockTxRequest, mockSignature);
+    expect(arc.createTx).toHaveBeenCalledWith('bar', [param0, param1], contractAddress, account);
     expect(arc.sendTx).toHaveBeenCalledTimes(1);
     expect(arc.sendTx).toHaveBeenCalledWith(mockTx);
   });

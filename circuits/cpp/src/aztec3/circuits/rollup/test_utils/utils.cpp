@@ -51,9 +51,13 @@ std::vector<uint8_t> get_empty_calldata_leaf()
 {
     auto const number_of_inputs =
         (KERNEL_NEW_COMMITMENTS_LENGTH + KERNEL_NEW_NULLIFIERS_LENGTH + KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH * 2 +
-         KERNEL_NEW_L2_TO_L1_MSGS_LENGTH + KERNEL_NEW_CONTRACTS_LENGTH * 3) *
+         KERNEL_NEW_L2_TO_L1_MSGS_LENGTH + KERNEL_NEW_CONTRACTS_LENGTH * 3 + KERNEL_NUM_ENCRYPTED_LOGS_HASHES * 2 +
+         KERNEL_NUM_UNENCRYPTED_LOGS_HASHES * 2) *
         2;
-    auto const size = number_of_inputs * 32;
+
+    // We subtract 4 from inputs size because 1 logs hash is stored in 2 fields and those 2 fields get converted only
+    // to 256 bits and there are 4 logs hashes in total.
+    auto const size = (number_of_inputs - 4) * 32;
     std::vector<uint8_t> input_data(size, 0);
     return input_data;
 }
@@ -254,11 +258,8 @@ std::array<PreviousRollupData<NT>, 2> get_previous_rollup_data(DummyComposer& co
                                              kernel_data[i].public_inputs.end.new_commitments[j]);
         }
         auto contract_data = kernel_data[i].public_inputs.end.new_contracts[0];
-        auto contract_leaf = crypto::pedersen_commitment::compress_native(
-            { contract_data.contract_address, contract_data.portal_contract_address, contract_data.function_tree_root },
-            GeneratorIndex::CONTRACT_LEAF);
-        if (contract_data.contract_address != 0) {
-            contract_tree.update_element(i, contract_leaf);
+        if (!contract_data.is_empty()) {
+            contract_tree.update_element(i, contract_data.hash());
         }
         for (size_t j = 0; j < KERNEL_NEW_NULLIFIERS_LENGTH; j++) {
             initial_values.push_back(kernel_data[i].public_inputs.end.new_nullifiers[j]);

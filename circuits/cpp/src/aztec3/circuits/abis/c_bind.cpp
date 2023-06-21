@@ -10,7 +10,6 @@
 #include "tx_request.hpp"
 #include "private_kernel/private_kernel_inputs_inner.hpp"
 #include "public_kernel/public_kernel_inputs.hpp"
-#include "public_kernel/public_kernel_inputs_no_previous_kernel.hpp"
 #include "rollup/base/base_or_merge_rollup_public_inputs.hpp"
 #include "rollup/base/base_rollup_inputs.hpp"
 #include "rollup/root/root_rollup_inputs.hpp"
@@ -19,7 +18,7 @@
 #include "aztec3/circuits/abis/combined_accumulated_data.hpp"
 #include "aztec3/circuits/abis/new_contract_data.hpp"
 #include "aztec3/circuits/abis/private_kernel/private_kernel_inputs_init.hpp"
-#include "aztec3/circuits/abis/signed_tx_request.hpp"
+#include "aztec3/circuits/abis/tx_request.hpp"
 #include "aztec3/circuits/abis/types.hpp"
 #include "aztec3/circuits/hash.hpp"
 #include "aztec3/constants.hpp"
@@ -35,7 +34,6 @@ using aztec3::circuits::abis::CallStackItem;
 using aztec3::circuits::abis::FunctionData;
 using aztec3::circuits::abis::FunctionLeafPreimage;
 using aztec3::circuits::abis::NewContractData;
-using aztec3::circuits::abis::SignedTxRequest;
 using aztec3::circuits::abis::TxContext;
 using aztec3::circuits::abis::TxRequest;
 using NT = aztec3::utils::types::NativeTypes;
@@ -230,24 +228,38 @@ WASM_EXPORT void abis__compute_function_tree(uint8_t const* function_leaves_in, 
  * @param output buffer that will contain the output. The serialized constructor_vk_hash.
  */
 WASM_EXPORT void abis__hash_constructor(uint8_t const* function_data_buf,
-                                        uint8_t const* args_buf,
+                                        uint8_t const* args_hash_buf,
                                         uint8_t const* constructor_vk_hash_buf,
                                         uint8_t* output)
 {
     FunctionData<NT> function_data;
-    std::array<NT::fr, aztec3::ARGS_LENGTH> args;
+    NT::fr args_hash;
     NT::fr constructor_vk_hash;
 
     read(function_data_buf, function_data);
-    read(args_buf, args);
+    read(args_hash_buf, args_hash);
     read(constructor_vk_hash_buf, constructor_vk_hash);
 
-    NT::fr const constructor_hash = compute_constructor_hash(function_data, args, constructor_vk_hash);
+    NT::fr const constructor_hash = compute_constructor_hash(function_data, args_hash, constructor_vk_hash);
 
     NT::fr::serialize_to_buffer(constructor_hash, output);
 }
 
 CBIND(abis__compute_contract_address, compute_contract_address<NT>);
+
+/**
+ * @brief Hash args for a function call.
+ *
+ * @param args_buf array of args (fields), with the length on the first position
+ * @param output buffer that will contain the output
+ */
+WASM_EXPORT void abis__compute_var_args_hash(uint8_t const* args_buf, uint8_t* output)
+{
+    std::vector<NT::fr> args;
+    read(args_buf, args);
+    NT::fr const args_hash = aztec3::circuits::compute_var_args_hash<NT>(args);
+    NT::fr::serialize_to_buffer(args_hash, output);
+}
 
 /**
  * @brief Generates a function tree leaf from its preimage.
@@ -266,16 +278,20 @@ WASM_EXPORT void abis__compute_contract_leaf(uint8_t const* contract_leaf_preima
     NewContractData<NT> leaf_preimage;
     read(contract_leaf_preimage_buf, leaf_preimage);
     // as per the circuit implementation, if contract address == zero then return a zero leaf
-    auto to_write = leaf_preimage.contract_address == NT::address(0) ? NT::fr(0) : leaf_preimage.hash();
+    auto to_write = leaf_preimage.hash();
     NT::fr::serialize_to_buffer(to_write, output);
 }
 
 /**
- * @brief Generates a signed tx request hash from it's pre-image
+ * @brief Generates a siloed commitment tree leaf from the contract and the commitment.
+ */
+CBIND(abis__silo_commitment, aztec3::circuits::silo_commitment<NT>);
+
+/**
+ * @brief Generates a tx request hash from it's pre-image
  * This is a WASM-export that can be called from Typescript.
  */
-CBIND(abis__compute_transaction_hash,
-      [](SignedTxRequest<NT> signed_tx_request_preimage) { return signed_tx_request_preimage.hash(); })
+CBIND(abis__compute_transaction_hash, [](TxRequest<NT> tx_request_preimage) { return tx_request_preimage.hash(); })
 
 WASM_EXPORT void abis__compute_call_stack_item_hash(uint8_t const* call_stack_item_buf, uint8_t* output)
 {
@@ -301,11 +317,14 @@ WASM_EXPORT void abis__compute_message_secret_hash(uint8_t const* secret, uint8_
 }
 
 /* Typescript test helpers that call as_string_output() to stress serialization.*/
+CBIND(abis__test_roundtrip_serialize_tx_context, as_string_output<TxContext<NT>>);
 CBIND(abis__test_roundtrip_serialize_tx_request, as_string_output<TxRequest<NT>>);
 CBIND(abis__test_roundtrip_serialize_call_context, as_string_output<aztec3::circuits::abis::CallContext<NT>>);
 CBIND(abis__test_roundtrip_serialize_private_circuit_public_inputs,
       as_string_output<aztec3::circuits::abis::PrivateCircuitPublicInputs<NT>>);
 CBIND(abis__test_roundtrip_serialize_function_data, as_string_output<aztec3::circuits::abis::FunctionData<NT>>);
+CBIND(abis__test_roundtrip_serialize_base_rollup_inputs,
+      as_string_output<aztec3::circuits::abis::BaseRollupInputs<NT>>);
 CBIND(abis__test_roundtrip_serialize_previous_kernel_data,
       as_string_output<aztec3::circuits::abis::PreviousKernelData<NT>>);
 CBIND(abis__test_roundtrip_serialize_base_or_merge_rollup_public_inputs,
@@ -321,16 +340,13 @@ CBIND(abis__test_roundtrip_reserialize_root_rollup_public_inputs,
 CBIND(abis__test_roundtrip_serialize_combined_accumulated_data,
       as_string_output<aztec3::circuits::abis::CombinedAccumulatedData<NT>>);
 CBIND(abis__test_roundtrip_serialize_signature, as_string_output<NT::ecdsa_signature>);
-CBIND(abis__test_roundtrip_serialize_signed_tx_request, as_string_output<aztec3::circuits::abis::SignedTxRequest<NT>>);
-CBIND(abis__test_roundtrip_serialize_private_kernel_inputs,
-      as_string_output<aztec3::circuits::abis::private_kernel::PrivateInputs<NT>>);
+CBIND(abis__test_roundtrip_serialize_private_kernel_inputs_inner,
+      as_string_output<aztec3::circuits::abis::private_kernel::PrivateKernelInputsInner<NT>>);
+CBIND(abis__test_roundtrip_serialize_private_kernel_inputs_init,
+      as_string_output<aztec3::circuits::abis::private_kernel::PrivateKernelInputsInit<NT>>);
 CBIND(abis__test_roundtrip_serialize_kernel_circuit_public_inputs,
       as_string_output<aztec3::circuits::abis::KernelCircuitPublicInputs<NT>>);
 CBIND(abis__test_roundtrip_serialize_public_kernel_inputs,
       as_string_output<aztec3::circuits::abis::public_kernel::PublicKernelInputs<NT>>);
-CBIND(abis__test_roundtrip_serialize_public_kernel_inputs_no_previous_kernel,
-      as_string_output<aztec3::circuits::abis::public_kernel::PublicKernelInputsNoPreviousKernel<NT>>);
 CBIND(abis__test_roundtrip_serialize_function_leaf_preimage,
       as_string_output<aztec3::circuits::abis::FunctionLeafPreimage<NT>>);
-CBIND(abis__test_roundtrip_serialize_base_rollup_inputs,
-      as_string_output<aztec3::circuits::abis::BaseRollupInputs<NT>>);

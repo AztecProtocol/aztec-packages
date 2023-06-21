@@ -1,9 +1,8 @@
 
-use crate::abi::Inputs;
 use crate::types::point::Point;
 use crate::messaging::l1_to_l2_message_getter_data::L1ToL2MessageGetterData;
 use crate::messaging::l1_to_l2_message_getter_data::make_l1_to_l2_message_getter_data;
-use crate::context::PrivateFunctionContext;
+
 
 global L1_TO_L2_MESSAGE_LEN = 8; 
 
@@ -59,7 +58,7 @@ impl L1ToL2Message {
     }
 
     fn validate_message_secret(self: Self) {
-        let recomputed_hash = dep::std::hash::pedersen([crate::L1ToL2MessageSecret, self.secret])[0];
+        let recomputed_hash = dep::std::hash::pedersen([crate::MessageSecret, self.secret])[0];
         constrain self.secret_hash == recomputed_hash;
     }
 

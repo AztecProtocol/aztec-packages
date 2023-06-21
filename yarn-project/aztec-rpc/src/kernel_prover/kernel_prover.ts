@@ -1,23 +1,23 @@
 import { ExecutionResult, NewNoteData } from '@aztec/acir-simulator';
 import {
+  AztecAddress,
   CONTRACT_TREE_HEIGHT,
-  EcdsaSignature,
+  Fr,
+  KernelCircuitPublicInputs,
   MembershipWitness,
   PRIVATE_CALL_STACK_LENGTH,
+  PRIVATE_DATA_TREE_HEIGHT,
   PreviousKernelData,
   PrivateCallData,
   PrivateCallStackItem,
-  KernelCircuitPublicInputs,
-  SignedTxRequest,
+  READ_REQUESTS_LENGTH,
   TxRequest,
   VK_TREE_HEIGHT,
   VerificationKey,
   makeEmptyProof,
-  AztecAddress,
-  Fr,
 } from '@aztec/circuits.js';
 import { assertLength } from '@aztec/foundation/serialize';
-import { ProofOutput, ProofCreator, KernelProofCreator } from './proof_creator.js';
+import { KernelProofCreator, ProofCreator, ProofOutput } from './proof_creator.js';
 import { ProvingDataOracle } from './proving_data_oracle.js';
 
 /**
@@ -61,22 +61,16 @@ export class KernelProver {
   constructor(private oracle: ProvingDataOracle, private proofCreator: ProofCreator = new KernelProofCreator()) {}
 
   /**
-   * Generate a proof for a given transaction request, transaction signature, and execution result.
+   * Generate a proof for a given transaction request and execution result.
    * The function iterates through the nested executions in the execution result, creates private call data,
    * and generates a proof using the provided ProofCreator instance. It also maintains an index of new notes
    * created during the execution and returns them as a part of the KernelProverOutput.
    *
-   * @param txRequest - The transaction request object.
-   * @param txSignature - The ECDSA signature of the transaction.
+   * @param txRequest - The authenticated transaction request object.
    * @param executionResult - The execution result object containing nested executions and preimages.
    * @returns A Promise that resolves to a KernelProverOutput object containing proof, public inputs, and output notes.
    */
-  async prove(
-    txRequest: TxRequest,
-    txSignature: EcdsaSignature,
-    executionResult: ExecutionResult,
-  ): Promise<KernelProverOutput> {
-    const signedTxRequest = new SignedTxRequest(txRequest, txSignature);
+  async prove(txRequest: TxRequest, executionResult: ExecutionResult): Promise<KernelProverOutput> {
     const executionStack = [executionResult];
     const newNotes: { [commitmentStr: string]: OutputNoteData } = {};
     let firstIteration = true;
@@ -86,6 +80,7 @@ export class KernelProver {
       publicInputs: KernelCircuitPublicInputs.empty(),
       proof: makeEmptyProof(),
     };
+
     while (executionStack.length) {
       const currentExecution = executionStack.pop()!;
       executionStack.push(...currentExecution.nestedExecutions);
@@ -95,16 +90,48 @@ export class KernelProver {
           `Too many items in the call stack. Maximum amount is ${PRIVATE_CALL_STACK_LENGTH}. Got ${privateCallStackPreimages.length}.`,
         );
       }
+      // Pad with empty items to reach max/const length expected by circuit.
       privateCallStackPreimages.push(
         ...Array(PRIVATE_CALL_STACK_LENGTH - privateCallStackPreimages.length)
           .fill(0)
           .map(() => PrivateCallStackItem.empty()),
       );
 
-      const privateCallData = await this.createPrivateCallData(currentExecution, privateCallStackPreimages);
+      // TODO(dbanks12): https://github.com/AztecProtocol/aztec-packages/issues/779
+      // What if app circuit outputs different #read-requests vs what the RPC client
+      // gets from the simulator? And confirm same number of readRequests as indices.
+      const readRequestMembershipWitnesses = [];
+      for (let rr = 0; rr < currentExecution.readRequestCommitmentIndices.length; rr++) {
+        if (currentExecution.callStackItem.publicInputs.readRequests[rr] == Fr.zero()) {
+          // TODO(dbanks12): is this needed?
+          // if rr is 0 somehow, that means it we have reached the last
+          // rr for this private call / kernel iteration
+          break;
+        }
+        const leafIndex = currentExecution.readRequestCommitmentIndices[rr];
+        const membershipWitness = await this.oracle.getNoteMembershipWitness(leafIndex);
+        readRequestMembershipWitnesses.push(membershipWitness);
+      }
+
+      // fill in witnesses for remaining/empty read requests
+      readRequestMembershipWitnesses.push(
+        ...Array(READ_REQUESTS_LENGTH - readRequestMembershipWitnesses.length)
+          .fill(0)
+          .map(() => MembershipWitness.empty(PRIVATE_DATA_TREE_HEIGHT, BigInt(0))),
+      );
+
+      const privateCallData = await this.createPrivateCallData(
+        currentExecution,
+        readRequestMembershipWitnesses,
+        privateCallStackPreimages,
+      );
 
       if (firstIteration) {
-        output = await this.proofCreator.createProofInit(signedTxRequest, privateCallData);
+        // TODO(dbanks12): remove historic root from app circuit public inputs and
+        // add it to PrivateCallData: https://github.com/AztecProtocol/aztec-packages/issues/778
+        privateCallData.callStackItem.publicInputs.historicPrivateDataTreeRoot = await this.oracle.getPrivateDataRoot();
+
+        output = await this.proofCreator.createProofInit(txRequest, privateCallData);
       } else {
         const previousVkMembershipWitness = await this.oracle.getVkMembershipWitness(previousVerificationKey);
         const previousKernelData = new PreviousKernelData(
@@ -132,6 +159,7 @@ export class KernelProver {
 
   private async createPrivateCallData(
     { callStackItem, vk }: ExecutionResult,
+    readRequestMembershipWitnesses: MembershipWitness<typeof PRIVATE_DATA_TREE_HEIGHT>[],
     privateCallStackPreimages: PrivateCallStackItem[],
   ) {
     const { contractAddress, functionData, publicInputs } = callStackItem;
@@ -161,6 +189,7 @@ export class KernelProver {
       VerificationKey.fromBuffer(vk),
       functionLeafMembershipWitness,
       contractLeafMembershipWitness,
+      readRequestMembershipWitnesses,
       portalContractAddress,
       acirHash,
     );

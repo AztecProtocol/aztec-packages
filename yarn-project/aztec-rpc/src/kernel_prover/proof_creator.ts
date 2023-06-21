@@ -1,5 +1,3 @@
-import { pedersenCompressWithHashIndex } from '@aztec/barretenberg.js/crypto';
-import { BarretenbergWasm } from '@aztec/barretenberg.js/wasm';
 import {
   CircuitsWasm,
   KernelCircuitPublicInputs,
@@ -7,11 +5,12 @@ import {
   PrivateCallData,
   PrivateCircuitPublicInputs,
   Proof,
-  SignedTxRequest,
+  TxRequest,
   makeEmptyProof,
-  privateKernelSimInner,
   privateKernelSimInit,
+  privateKernelSimInner,
 } from '@aztec/circuits.js';
+import { siloCommitment } from '@aztec/circuits.js/abis';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 
@@ -36,11 +35,9 @@ export interface ProofOutput {
  */
 export interface ProofCreator {
   getSiloedCommitments(publicInputs: PrivateCircuitPublicInputs): Promise<Fr[]>;
-  createProofInit(signedTxRequest: SignedTxRequest, privateCallData: PrivateCallData): Promise<ProofOutput>;
+  createProofInit(txRequest: TxRequest, privateCallData: PrivateCallData): Promise<ProofOutput>;
   createProofInner(previousKernelData: PreviousKernelData, privateCallData: PrivateCallData): Promise<ProofOutput>;
 }
-
-const OUTER_COMMITMENT = 3;
 
 /**
  * The KernelProofCreator class is responsible for generating siloed commitments and zero-knowledge proofs
@@ -59,30 +56,23 @@ export class KernelProofCreator {
    * @returns An array of Fr (finite field) elements representing the siloed commitments.
    */
   public async getSiloedCommitments(publicInputs: PrivateCircuitPublicInputs) {
-    const bbWasm = await BarretenbergWasm.get();
-    const contractAddress = publicInputs.callContext.storageContractAddress.toBuffer();
-    // TODO
-    // Should match `add_contract_address_to_commitment` in hash.hpp.
-    // Should use a function exported from circuits.js.
-    return publicInputs.newCommitments.map(commitment =>
-      Fr.fromBuffer(pedersenCompressWithHashIndex(bbWasm, [contractAddress, commitment.toBuffer()], OUTER_COMMITMENT)),
-    );
+    const wasm = await CircuitsWasm.get();
+    const contractAddress = publicInputs.callContext.storageContractAddress;
+
+    return publicInputs.newCommitments.map(commitment => siloCommitment(wasm, contractAddress, commitment));
   }
 
   /**
    * Creates a proof output for a given signed transaction request and private call data for the first iteration.
    *
-   * @param signedTxRequest - The signed transaction request object.
+   * @param txRequest - The signed transaction request object.
    * @param privateCallData - The private call data object.
    * @returns A Promise resolving to a ProofOutput object containing public inputs and the kernel proof.
    */
-  public async createProofInit(
-    signedTxRequest: SignedTxRequest,
-    privateCallData: PrivateCallData,
-  ): Promise<ProofOutput> {
+  public async createProofInit(txRequest: TxRequest, privateCallData: PrivateCallData): Promise<ProofOutput> {
     const wasm = await CircuitsWasm.get();
     this.log('Executing private kernel simulation init...');
-    const publicInputs = await privateKernelSimInit(wasm, signedTxRequest, privateCallData);
+    const publicInputs = privateKernelSimInit(wasm, txRequest, privateCallData);
     this.log('Skipping private kernel proving...');
     // TODO
     const proof = makeEmptyProof();
@@ -107,7 +97,7 @@ export class KernelProofCreator {
   ): Promise<ProofOutput> {
     const wasm = await CircuitsWasm.get();
     this.log('Executing private kernel simulation inner...');
-    const publicInputs = await privateKernelSimInner(wasm, previousKernelData, privateCallData);
+    const publicInputs = privateKernelSimInner(wasm, previousKernelData, privateCallData);
     this.log('Skipping private kernel proving...');
     // TODO
     const proof = makeEmptyProof();

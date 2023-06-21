@@ -29,6 +29,8 @@ enum CircuitErrorCode : uint16_t {
     PRIVATE_KERNEL__PRIVATE_CALL_STACK_EMPTY = 2015,
     PRIVATE_KERNEL__KERNEL_PROOF_CONTAINS_RECURSIVE_PROOF = 2016,
     PRIVATE_KERNEL__USER_INTENT_MISMATCH_BETWEEN_TX_REQUEST_AND_CALL_STACK_ITEM = 2017,
+    PRIVATE_KERNEL__READ_REQUEST_PRIVATE_DATA_ROOT_MISMATCH = 2018,
+    PRIVATE_KERNEL__TRANSIENT_READ_REQUEST_NO_MATCH = 2019,
 
     // Public kernel related errors
     PUBLIC_KERNEL_CIRCUIT_FAILED = 3000,
@@ -56,6 +58,8 @@ enum CircuitErrorCode : uint16_t {
     PUBLIC_KERNEL__CALL_CONTEXT_INVALID_STORAGE_ADDRESS_FOR_DELEGATE_CALL = 3023,
     PUBLIC_KERNEL__CALL_CONTEXT_CONTRACT_STORAGE_UPDATE_REQUESTS_PROHIBITED_FOR_STATIC_CALL = 3024,
     PUBLIC_KERNEL__NEW_NULLIFIERS_NOT_EMPTY_IN_FIRST_ITERATION = 3025,
+    PUBLIC_KERNEL__NEW_COMMITMENTS_PROHIBITED_IN_STATIC_CALL = 3026,
+    PUBLIC_KERNEL__NEW_NULLIFIERS_PROHIBITED_IN_STATIC_CALL = 3027,
 
     BASE_FAILED = 4000,
     BASE__KERNEL_PROOF_VERIFICATION_FAILED = 4001,
@@ -76,8 +80,10 @@ enum CircuitErrorCode : uint16_t {
     CONTRACT_TREE_SNAPSHOT_MISMATCH = 7006,
     PUBLIC_DATA_TREE_ROOT_MISMATCH = 7007,
     MEMBERSHIP_CHECK_FAILED = 7008,
+    ARRAY_OVERFLOW = 7009,
 
     ROOT_CIRCUIT_FAILED = 8000,
+
 };
 
 struct CircuitError {
@@ -88,6 +94,8 @@ struct CircuitError {
     // for serialization, update with new fields
     MSGPACK_FIELDS(code, message);
     static CircuitError no_error() { return { CircuitErrorCode::NO_ERROR, "" }; }
+
+    bool operator==(CircuitError const& other) const { return code == other.code && message == other.message; }
 };
 
 // Define CircuitResult<T> as a std::variant T + error union type
@@ -101,14 +109,9 @@ template <typename T> struct CircuitResult {
     // for serialization: delegate to msgpack std::variant support
     void msgpack_pack(auto& packer) const { packer.pack(result); }
     void msgpack_unpack(auto obj) { result = obj; }
+    // for schema serialization: delegate to msgpack std::variant support
+    void msgpack_schema(auto& packer) const { packer.pack_schema(result); }
 };
-
-// help our msgpack schema compiler with this struct
-// Alias CircuitResult as std::variant<CircuitError, T>
-template <typename T> inline void msgpack_schema_pack(auto& packer, CircuitResult<T> const& result)
-{
-    msgpack_schema_pack(packer, result.result);
-}
 
 inline void read(uint8_t const*& it, CircuitError& obj)
 {

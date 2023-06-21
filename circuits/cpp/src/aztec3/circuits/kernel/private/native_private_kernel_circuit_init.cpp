@@ -1,10 +1,10 @@
 #include "common.hpp"
+#include "init.hpp"
 
 #include "aztec3/circuits/abis/combined_constant_data.hpp"
 #include "aztec3/circuits/abis/combined_historic_tree_roots.hpp"
 #include "aztec3/circuits/abis/private_historic_tree_roots.hpp"
 #include "aztec3/circuits/abis/private_kernel/private_kernel_inputs_init.hpp"
-#include "aztec3/circuits/kernel/private/init.hpp"
 #include "aztec3/constants.hpp"
 #include "aztec3/utils/array.hpp"
 
@@ -50,13 +50,17 @@ void initialise_end_values(PrivateKernelInputsInit<NT> const& private_inputs,
             CombinedHistoricTreeRoots<NT>{
                 .private_historic_tree_roots =
                     PrivateHistoricTreeRoots<NT>{
+                        // TODO(dbanks12): remove historic root from app circuit public inputs and
+                        // add it to PrivateCallData: https://github.com/AztecProtocol/aztec-packages/issues/778
+                        // Then use this:
+                        // .private_data_tree_root = private_inputs.private_call.historic_private_data_tree_root,
                         .private_data_tree_root = private_call_public_inputs.historic_private_data_tree_root,
                         .nullifier_tree_root = private_call_public_inputs.historic_nullifier_tree_root,
                         .contract_tree_root = private_call_public_inputs.historic_contract_tree_root,
                         .l1_to_l2_messages_tree_root = private_call_public_inputs.historic_l1_to_l2_messages_tree_root,
                     },
             },
-        .tx_context = private_inputs.signed_tx_request.tx_request.tx_context,
+        .tx_context = private_inputs.tx_request.tx_context,
     };
 
     // Set the constants in public_inputs.
@@ -66,27 +70,24 @@ void initialise_end_values(PrivateKernelInputsInit<NT> const& private_inputs,
 void validate_this_private_call_against_tx_request(DummyComposer& composer,
                                                    PrivateKernelInputsInit<NT> const& private_inputs)
 {
-    // TODO: this logic might need to change to accommodate the weird edge 3 initial txs (the 'main' tx, the 'fee' tx,
-    // and the 'gas rebate' tx).
+    // TODO(mike): this logic might need to change to accommodate the weird edge 3 initial txs (the 'main' tx, the 'fee'
+    // tx, and the 'gas rebate' tx).
 
-    // Confirm that the SignedTxRequest (user's intent) matches the private call being executed
-    const auto& tx_request = private_inputs.signed_tx_request.tx_request;
+    // Confirm that the TxRequest (user's intent) matches the private call being executed
+    const auto& tx_request = private_inputs.tx_request;
     const auto& call_stack_item = private_inputs.private_call.call_stack_item;
 
-    const auto tx_request_args_hash = NT::compress<ARGS_LENGTH>(tx_request.args, FUNCTION_ARGS);
-    const auto call_args_hash = NT::compress<ARGS_LENGTH>(call_stack_item.public_inputs.args, FUNCTION_ARGS);
-
-    composer.do_assert(
-        tx_request.to == call_stack_item.contract_address,
-        "user's intent does not match initial private call (tx_request.to must match call_stack_item.contract_address)",
-        CircuitErrorCode::PRIVATE_KERNEL__USER_INTENT_MISMATCH_BETWEEN_TX_REQUEST_AND_CALL_STACK_ITEM);
+    composer.do_assert(tx_request.origin == call_stack_item.contract_address,
+                       "user's intent does not match initial private call (tx_request.origin must match "
+                       "call_stack_item.contract_address)",
+                       CircuitErrorCode::PRIVATE_KERNEL__USER_INTENT_MISMATCH_BETWEEN_TX_REQUEST_AND_CALL_STACK_ITEM);
 
     composer.do_assert(tx_request.function_data.hash() == call_stack_item.function_data.hash(),
                        "user's intent does not match initial private call (tx_request.function_data must match "
                        "call_stack_item.function_data)",
                        CircuitErrorCode::PRIVATE_KERNEL__USER_INTENT_MISMATCH_BETWEEN_TX_REQUEST_AND_CALL_STACK_ITEM);
 
-    composer.do_assert(tx_request_args_hash == call_args_hash,
+    composer.do_assert(tx_request.args_hash == call_stack_item.public_inputs.args_hash,
                        "user's intent does not match initial private call (tx_request.args must match "
                        "call_stack_item.public_inputs.args)",
                        CircuitErrorCode::PRIVATE_KERNEL__USER_INTENT_MISMATCH_BETWEEN_TX_REQUEST_AND_CALL_STACK_ITEM);
@@ -100,7 +101,7 @@ void validate_inputs(DummyComposer& composer, PrivateKernelInputsInit<NT> const&
                        "Cannot execute a non-private function with the private kernel circuit",
                        CircuitErrorCode::PRIVATE_KERNEL__NON_PRIVATE_FUNCTION_EXECUTED_WITH_PRIVATE_KERNEL);
 
-    // TODO: change to allow 3 initial calls on the private call stack, so a fee can be paid and a gas
+    // TODO(mike): change to allow 3 initial calls on the private call stack, so a fee can be paid and a gas
     // rebate can be paid.
 
     /* If we are going to have 3 initial calls on the private call stack,
@@ -120,31 +121,34 @@ void validate_inputs(DummyComposer& composer, PrivateKernelInputsInit<NT> const&
                            this_call_stack_item.contract_address,
                        "Storage contract address must be that of the called contract",
                        CircuitErrorCode::PRIVATE_KERNEL__CONTRACT_ADDRESS_MISMATCH);
-
-    // TODO: Assert that the previous kernel data is empty. (Or rather, the verify_proof() function needs a valid
-    // dummy proof and vk to complete execution, so actually what we want is for that mockvk to be
-    // hard-coded into the circuit and assert that that is the one which has been used in the base case).
 }
 
-void update_end_values(PrivateKernelInputsInit<NT> const& private_inputs, KernelCircuitPublicInputs<NT>& public_inputs)
+void update_end_values(DummyComposer& composer,
+                       PrivateKernelInputsInit<NT> const& private_inputs,
+                       KernelCircuitPublicInputs<NT>& public_inputs)
 {
-    // We only initialzed constants member of public_inputs so far. Therefore, there must not be any
-    // new nullifiers as part of public_inputs.
+    // We only initialized constants member of public_inputs so far. Therefore, there must not be any
+    // new nullifiers or logs as part of public_inputs.
     ASSERT(is_array_empty(public_inputs.end.new_nullifiers));
+    ASSERT(public_inputs.end.encrypted_logs_hash[0] == fr(0));
+    ASSERT(public_inputs.end.encrypted_logs_hash[1] == fr(0));
+    ASSERT(public_inputs.end.unencrypted_logs_hash[0] == fr(0));
+    ASSERT(public_inputs.end.unencrypted_logs_hash[1] == fr(0));
+    ASSERT(public_inputs.end.encrypted_log_preimages_length == fr(0));
+    ASSERT(public_inputs.end.unencrypted_log_preimages_length == fr(0));
 
     // Since it's the first iteration, we need to push the the tx hash nullifier into the `new_nullifiers` array
-    array_push(public_inputs.end.new_nullifiers, private_inputs.signed_tx_request.hash());
+    array_push(composer, public_inputs.end.new_nullifiers, private_inputs.tx_request.hash());
 
-    // Nonce nullifier
-    // DANGER: This is terrible. This should not be part of the protocol. This is an intentional bodge to reach a
-    // milestone. This must not be the way we derive nonce nullifiers in production. It can be front-run by other
-    // users. It is not domain separated. Naughty.
-    array_push(public_inputs.end.new_nullifiers, private_inputs.signed_tx_request.tx_request.nonce);
+    // Note that we do not need to nullify the transaction request nonce anymore.
+    // Should an account want to additionally use nonces for replay protection or handling cancellations,
+    // they will be able to do so in the account contract logic:
+    // https://github.com/AztecProtocol/aztec-packages/issues/660
 }
 
 // NOTE: THIS IS A VERY UNFINISHED WORK IN PROGRESS.
-// TODO: is there a way to identify whether an input has not been used by ths circuit? This would help us more-safely
-// ensure we're constraining everything.
+// TODO(mike): is there a way to identify whether an input has not been used by ths circuit? This would help us
+// more-safely ensure we're constraining everything.
 KernelCircuitPublicInputs<NT> native_private_kernel_circuit_initial(DummyComposer& composer,
                                                                     PrivateKernelInputsInit<NT> const& private_inputs)
 {
@@ -164,15 +168,22 @@ KernelCircuitPublicInputs<NT> native_private_kernel_circuit_initial(DummyCompose
     // TODO(jeanmon) FIXME - https://github.com/AztecProtocol/aztec-packages/issues/671
     // common_validate_call_stack(composer, private_inputs.private_call);
 
-    update_end_values(private_inputs, public_inputs);
+    common_validate_read_requests(
+        composer,
+        private_inputs.private_call.call_stack_item.public_inputs.call_context.storage_contract_address,
+        private_inputs.private_call.call_stack_item.public_inputs.read_requests,
+        private_inputs.private_call.read_request_membership_witnesses,
+        public_inputs.constants.historic_tree_roots.private_historic_tree_roots.private_data_tree_root);
 
+    // TODO(dbanks12): feels like update_end_values should happen after contract logic
+    update_end_values(composer, private_inputs, public_inputs);
     common_update_end_values(composer, private_inputs.private_call, public_inputs);
 
     common_contract_logic(composer,
                           private_inputs.private_call,
                           public_inputs,
-                          private_inputs.signed_tx_request.tx_request.tx_context.contract_deployment_data,
-                          private_inputs.signed_tx_request.tx_request.function_data);
+                          private_inputs.tx_request.tx_context.contract_deployment_data,
+                          private_inputs.tx_request.function_data);
 
     // We'll skip any verification in this native implementation, because for a Local Developer Testnet, there won't
     // _be_ a valid proof to verify!!! auto aggregation_object = verify_proofs(composer,
@@ -180,7 +191,7 @@ KernelCircuitPublicInputs<NT> native_private_kernel_circuit_initial(DummyCompose
     //                                         _private_inputs.private_call.vk->num_public_inputs,
     //                                         _private_inputs.previous_kernel.vk->num_public_inputs);
 
-    // TODO: kernel vk membership check!
+    // TODO(dbanks12): kernel vk membership check!
 
     // In the native version, as there is no verify_proofs call, we can initialize aggregation object with the default
     // constructor.

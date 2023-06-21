@@ -1,13 +1,14 @@
 import { KERNEL_PUBLIC_CALL_STACK_LENGTH, Proof } from '@aztec/circuits.js';
 import { makeKernelPublicInputs, makePublicCallRequest } from '@aztec/circuits.js/factories';
-import { Tx, UnverifiedData, L2BlockSource, L2Block } from '@aztec/types';
+import { Tx, TxL2Logs, L2BlockSource, L2Block } from '@aztec/types';
 import times from 'lodash.times';
 
 export const MockTx = () => {
-  return Tx.createPrivate(
+  return Tx.createTx(
     makeKernelPublicInputs(),
     new Proof(Buffer.alloc(0)),
-    UnverifiedData.random(8),
+    TxL2Logs.random(8, 3), // 8 priv function invocations creating 3 encrypted logs each
+    TxL2Logs.random(11, 2), // 8 priv + 3 pub function invocations creating 2 unencrypted logs each
     [],
     times(KERNEL_PUBLIC_CALL_STACK_LENGTH, makePublicCallRequest),
   );

@@ -9,26 +9,31 @@
 #include <barretenberg/barretenberg.hpp>
 
 #include <array>
+#include <vector>
 
 namespace aztec3::circuits {
 
 using abis::FunctionData;
 using aztec3::circuits::abis::ContractLeafPreimage;
 using aztec3::circuits::abis::FunctionLeafPreimage;
+using MerkleTree = stdlib::merkle_tree::MemoryTree;
 
-template <typename NCT> typename NCT::fr compute_args_hash(std::array<typename NCT::fr, ARGS_LENGTH> args)
+template <typename NCT> typename NCT::fr compute_var_args_hash(std::vector<typename NCT::fr> args)
 {
-    return NCT::compress(args, CONSTRUCTOR_ARGS);
+    auto const MAX_ARGS = 32;
+    if (args.size() > MAX_ARGS) {
+        throw_or_abort("Too many arguments in call to compute_var_args_hash");
+    }
+    return NCT::compress(args, FUNCTION_ARGS);
 }
 
 template <typename NCT> typename NCT::fr compute_constructor_hash(FunctionData<NCT> function_data,
-                                                                  std::array<typename NCT::fr, ARGS_LENGTH> args,
+                                                                  typename NCT::fr args_hash,
                                                                   typename NCT::fr constructor_vk_hash)
 {
     using fr = typename NCT::fr;
 
     fr const function_data_hash = function_data.hash();
-    fr const args_hash = compute_args_hash<NCT>(args);
 
     std::vector<fr> const inputs = {
         function_data_hash,
@@ -39,7 +44,7 @@ template <typename NCT> typename NCT::fr compute_constructor_hash(FunctionData<N
     return NCT::compress(inputs, aztec3::GeneratorIndex::CONSTRUCTOR);
 }
 
-template <typename NCT> typename NCT::address compute_contract_address(typename NCT::address deployer_address,
+template <typename NCT> typename NCT::address compute_contract_address(std::array<typename NCT::fr, 2> pub_key,
                                                                        typename NCT::fr contract_address_salt,
                                                                        typename NCT::fr function_tree_root,
                                                                        typename NCT::fr constructor_hash)
@@ -48,10 +53,7 @@ template <typename NCT> typename NCT::address compute_contract_address(typename 
     using address = typename NCT::address;
 
     std::vector<fr> const inputs = {
-        deployer_address.to_field(),
-        contract_address_salt,
-        function_tree_root,
-        constructor_hash,
+        pub_key[0], pub_key[1], contract_address_salt, function_tree_root, constructor_hash,
     };
 
     return address(NCT::compress(inputs, aztec3::GeneratorIndex::CONTRACT_ADDRESS));
@@ -92,8 +94,8 @@ typename NCT::fr silo_nullifier(typename NCT::address contract_address, typename
  * @tparam NCT Operate on NativeTypes or CircuitTypes
  * @tparam N The number of elements in the sibling path
  * @param leaf The leaf element of the Merkle tree
- * @param leafIndex The index of the leaf element in the Merkle tree
- * @param siblingPath The nodes representing the merkle siblings of the leaf, its parent,
+ * @param leaf_index The index of the leaf element in the Merkle tree
+ * @param sibling_path The nodes representing the merkle siblings of the leaf, its parent,
  * the next parent, etc up to the sibling below the root
  * @return The computed Merkle tree root.
  *
@@ -102,15 +104,15 @@ typename NCT::fr silo_nullifier(typename NCT::address contract_address, typename
  */
 template <typename NCT, size_t N>
 typename NCT::fr root_from_sibling_path(typename NCT::fr const& leaf,
-                                        typename NCT::uint32 const& leafIndex,
-                                        std::array<typename NCT::fr, N> const& siblingPath)
+                                        typename NCT::uint32 const& leaf_index,
+                                        std::array<typename NCT::fr, N> const& sibling_path)
 {
     auto node = leaf;
     for (size_t i = 0; i < N; i++) {
-        if (leafIndex & (1 << i)) {
-            node = NCT::merkle_hash(siblingPath[i], node);
+        if (leaf_index & (1 << i)) {
+            node = NCT::merkle_hash(sibling_path[i], node);
         } else {
-            node = NCT::merkle_hash(node, siblingPath[i]);
+            node = NCT::merkle_hash(node, sibling_path[i]);
         }
     }
     return node;  // root
@@ -125,8 +127,8 @@ typename NCT::fr root_from_sibling_path(typename NCT::fr const& leaf,
  * @tparam NCT Operate on NativeTypes or CircuitTypes
  * @tparam N The number of elements in the sibling path
  * @param leaf The leaf element of the Merkle tree
- * @param leafIndex The index of the leaf element in the Merkle tree
- * @param siblingPath The nodes representing the merkle siblings of the leaf, its parent,
+ * @param leaf_index The index of the leaf element in the Merkle tree
+ * @param sibling_path The nodes representing the merkle siblings of the leaf, its parent,
  * the next parent, etc up to the sibling below the root
  * @return The computed Merkle tree root.
  *
@@ -135,20 +137,50 @@ typename NCT::fr root_from_sibling_path(typename NCT::fr const& leaf,
  */
 template <typename NCT, size_t N>
 typename NCT::fr root_from_sibling_path(typename NCT::fr const& leaf,
-                                        typename NCT::fr const& leafIndex,
-                                        std::array<typename NCT::fr, N> const& siblingPath)
+                                        typename NCT::fr const& leaf_index,
+                                        std::array<typename NCT::fr, N> const& sibling_path)
 {
     auto node = leaf;
-    uint256_t index = leafIndex;
+    uint256_t index = leaf_index;
     for (size_t i = 0; i < N; i++) {
         if (index & 1) {
-            node = NCT::merkle_hash(siblingPath[i], node);
+            node = NCT::merkle_hash(sibling_path[i], node);
         } else {
-            node = NCT::merkle_hash(node, siblingPath[i]);
+            node = NCT::merkle_hash(node, sibling_path[i]);
         }
         index >>= uint256_t(1);
     }
     return node;  // root
+}
+
+/**
+ * @brief Get the sibling path of an item in a given merkle tree
+ *
+ * WARNING: this function is for testing purposes only! leaf_index is an fr
+ * in `MembershipWitness` but is a `size_t` here. This could lead to overflows
+ * on `1 << i` if the tree is large enough.
+ *
+ * @tparam N height of tree (not including root)
+ * @param tree merkle tree to operate on
+ * @param leaf_index index of the leaf to get path for
+ * @param subtree_depth_to_skip skip some number of bottom layers
+ * @return std::array<fr, N> sibling path
+ */
+template <size_t N>
+std::array<fr, N> get_sibling_path(MerkleTree& tree, size_t leaf_index, size_t const& subtree_depth_to_skip)
+{
+    std::array<fr, N> sibling_path;
+    auto path = tree.get_hash_path(leaf_index);
+    // slice out the skip
+    leaf_index = leaf_index >> (subtree_depth_to_skip);
+    for (size_t i = 0; i < N; i++) {
+        if (leaf_index & (1 << i)) {
+            sibling_path[i] = path[subtree_depth_to_skip + i].first;
+        } else {
+            sibling_path[i] = path[subtree_depth_to_skip + i].second;
+        }
+    }
+    return sibling_path;
 }
 
 template <typename NCT, typename Composer, size_t SIZE>
@@ -298,6 +330,44 @@ template <typename NCT> typename NCT::fr compute_l2_to_l1_hash(typename NCT::add
 
     // @todo @LHerskind NOTE sha to field!
     return sha256::sha256_to_field(calldata_hash_inputs_bytes_vec);
+}
+
+/**
+ * @brief Computes sha256 hash of 2 input hashes stored in 4 fields.
+ * @param hashes 4 fields containing 2 hashes [high, low, high, low].
+ * @return Resulting sha256 hash stored in 2 fields.
+ */
+template <typename NCT> std::array<typename NCT::fr, 2> accumulate_sha256(std::array<typename NCT::fr, 4> hashes)
+{
+    using fr = typename NCT::fr;
+
+    // Generate a 512 bit input from right and left 256 bit hashes
+    constexpr auto num_bytes = 2 * 32;
+    std::array<uint8_t, num_bytes> hash_input_bytes;
+    for (uint8_t i = 0; i < 4; i++) {
+        auto half = hashes[i].to_buffer();
+        for (uint8_t j = 0; j < 16; j++) {
+            hash_input_bytes[i * 16 + j] = half[16 + j];
+        }
+    }
+
+    // Compute the sha256
+    std::vector<uint8_t> const hash_input_bytes_vec(hash_input_bytes.begin(), hash_input_bytes.end());
+    auto h = sha256::sha256(hash_input_bytes_vec);
+
+    // Split the hash into two fields, a high and a low
+    std::array<uint8_t, 32> buf_1;
+    std::array<uint8_t, 32> buf_2;
+    for (uint8_t i = 0; i < 16; i++) {
+        buf_1[i] = 0;
+        buf_1[16 + i] = h[i];
+        buf_2[i] = 0;
+        buf_2[16 + i] = h[i + 16];
+    }
+    auto high = fr::serialize_from_buffer(buf_1.data());
+    auto low = fr::serialize_from_buffer(buf_2.data());
+
+    return { high, low };
 }
 
 }  // namespace aztec3::circuits

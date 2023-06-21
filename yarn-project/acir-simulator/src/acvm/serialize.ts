@@ -8,7 +8,7 @@ import {
   PrivateCircuitPublicInputs,
   PublicCallRequest,
 } from '@aztec/circuits.js';
-import { MessageLoadOracleInputs, NoteLoadOracleInputs } from '../client/db_oracle.js';
+import { CommitmentDataOracleInputs, MessageLoadOracleInputs } from '../client/db_oracle.js';
 import { Fr } from '@aztec/foundation/fields';
 
 // Utilities to write TS classes to ACVM Field arrays
@@ -65,16 +65,21 @@ export function toACVMContractDeploymentData(contractDeploymentData: ContractDep
 export function toACVMPublicInputs(publicInputs: PrivateCircuitPublicInputs): ACVMField[] {
   return [
     ...toACVMCallContext(publicInputs.callContext),
+    toACVMField(publicInputs.argsHash),
 
-    ...publicInputs.args.map(toACVMField),
     ...publicInputs.returnValues.map(toACVMField),
-    ...publicInputs.emittedEvents.map(toACVMField),
+    ...publicInputs.readRequests.map(toACVMField),
     ...publicInputs.newCommitments.map(toACVMField),
     ...publicInputs.newNullifiers.map(toACVMField),
     ...publicInputs.privateCallStack.map(toACVMField),
     ...publicInputs.publicCallStack.map(toACVMField),
     ...publicInputs.newL2ToL1Msgs.map(toACVMField),
+    // TODO #588, relevant issue: https://github.com/AztecProtocol/aztec-packages/issues/588
+    // ...publicInputs.encryptedLogsHash.map(toACVMField),
+    // ...publicInputs.unencryptedLogsHash.map(toACVMField),
 
+    // toACVMField(publicInputs.encryptedLogPreimagesLength),
+    // toACVMField(publicInputs.unencryptedLogPreimagesLength),
     toACVMField(publicInputs.historicPrivateDataTreeRoot),
     toACVMField(publicInputs.historicPrivateNullifierTreeRoot),
     toACVMField(publicInputs.historicContractTreeRoot),
@@ -106,30 +111,12 @@ export function toAcvmCallPrivateStackItem(item: PrivateCallStackItem): ACVMFiel
  * @param item - The public call stack item to serialize to be passed onto Noir.
  * @returns The fields expected by the enqueue_public_function_call_oracle Noir function.
  */
-export function toAcvmEnqueuePublicFunctionResult(item: PublicCallRequest): ACVMField[] {
+export async function toAcvmEnqueuePublicFunctionResult(item: PublicCallRequest): Promise<ACVMField[]> {
   return [
     toACVMField(item.contractAddress),
     ...toACVMFunctionData(item.functionData),
     ...toACVMCallContext(item.callContext),
-    ...item.args.map(toACVMField),
-  ];
-}
-
-/**
- * Converts the result of loading notes to ACVM fields.
- * @param noteLoadOracleInputs - The result of loading notes to convert.
- * @param privateDataTreeRoot - The private data tree root.
- * @returns The ACVM fields.
- */
-export function toAcvmNoteLoadOracleInputs(
-  noteLoadOracleInputs: NoteLoadOracleInputs,
-  privateDataTreeRoot: Fr,
-): ACVMField[] {
-  return [
-    ...noteLoadOracleInputs.preimage.map(f => toACVMField(f)),
-    toACVMField(noteLoadOracleInputs.index),
-    ...noteLoadOracleInputs.siblingPath.map(f => toACVMField(f)),
-    toACVMField(privateDataTreeRoot),
+    toACVMField(await item.getArgsHash()),
   ];
 }
 
@@ -139,7 +126,7 @@ export function toAcvmNoteLoadOracleInputs(
  * @param l1ToL2MessagesTreeRoot - The L1 to L2 messages tree root
  * @returns The Message Oracle Fields.
  */
-export function toAcvmMessageLoadOracleInputs(
+export function toAcvmL1ToL2MessageLoadOracleInputs(
   messageLoadOracleInputs: MessageLoadOracleInputs,
   l1ToL2MessagesTreeRoot: Fr,
 ): ACVMField[] {
@@ -147,6 +134,23 @@ export function toAcvmMessageLoadOracleInputs(
     ...messageLoadOracleInputs.message.map(f => toACVMField(f)),
     toACVMField(messageLoadOracleInputs.index),
     ...messageLoadOracleInputs.siblingPath.map(f => toACVMField(f)),
+    toACVMField(l1ToL2MessagesTreeRoot),
+  ];
+}
+
+/**
+ * Converts the result of loading commitments to ACVM fields.
+ * @param commitmentLoadOracleInputs - The result of loading messages to convert.
+ * @param l1ToL2MessagesTreeRoot - The L1 to L2 messages tree root
+ * @returns The Message Oracle Fields.
+ */
+export function toAcvmCommitmentLoadOracleInputs(
+  messageLoadOracleInputs: CommitmentDataOracleInputs,
+  l1ToL2MessagesTreeRoot: Fr,
+): ACVMField[] {
+  return [
+    toACVMField(messageLoadOracleInputs.commitment),
+    toACVMField(messageLoadOracleInputs.index),
     toACVMField(l1ToL2MessagesTreeRoot),
   ];
 }

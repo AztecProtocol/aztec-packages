@@ -1,17 +1,17 @@
 import { PublicExecution, PublicExecutionResult, PublicExecutor, isPublicExecutionResult } from '@aztec/acir-simulator';
 import {
-  ARGS_LENGTH,
   AztecAddress,
   CircuitsWasm,
   ContractStorageRead,
   ContractStorageUpdateRequest,
-  EMITTED_EVENTS_LENGTH,
   Fr,
   KERNEL_PUBLIC_DATA_READS_LENGTH,
   KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH,
   KernelCircuitPublicInputs,
   MembershipWitness,
+  NEW_COMMITMENTS_LENGTH,
   NEW_L2_TO_L1_MSGS_LENGTH,
+  NEW_NULLIFIERS_LENGTH,
   PUBLIC_CALL_STACK_LENGTH,
   PreviousKernelData,
   Proof,
@@ -19,16 +19,15 @@ import {
   PublicCallStackItem,
   PublicCircuitPublicInputs,
   PublicKernelInputs,
-  PublicKernelInputsNoPreviousKernel,
   PublicKernelPublicInputs,
   RETURN_VALUES_LENGTH,
-  SignedTxRequest,
   VK_TREE_HEIGHT,
 } from '@aztec/circuits.js';
-import { computeCallStackItemHash } from '@aztec/circuits.js/abis';
+import { computeCallStackItemHash, computeVarArgsHash } from '@aztec/circuits.js/abis';
 import { isArrayEmpty, padArrayEnd, padArrayStart } from '@aztec/foundation/collection';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { ContractDataSource, MerkleTreeId, PrivateTx, PublicTx, Tx } from '@aztec/types';
+import { Tuple, mapTuple, to2Fields } from '@aztec/foundation/serialize';
+import { ContractDataSource, FunctionL2Logs, L1ToL2MessageSource, MerkleTreeId, Tx } from '@aztec/types';
 import { MerkleTreeOperations } from '@aztec/world-state';
 import { getVerificationKeys } from '../index.js';
 import { EmptyPublicProver } from '../prover/empty.js';
@@ -38,13 +37,16 @@ import { getPublicExecutor } from '../simulator/public_executor.js';
 import { WasmPublicKernelCircuitSimulator } from '../simulator/public_kernel.js';
 import { ProcessedTx, makeEmptyProcessedTx, makeProcessedTx } from './processed_tx.js';
 import { getCombinedHistoricTreeRoots } from './utils.js';
-import { Tuple, mapTuple } from '@aztec/foundation/serialize';
 
 /**
  * Creates new instances of PublicProcessor given the provided merkle tree db and contract data source.
  */
 export class PublicProcessorFactory {
-  constructor(private merkleTree: MerkleTreeOperations, private contractDataSource: ContractDataSource) {}
+  constructor(
+    private merkleTree: MerkleTreeOperations,
+    private contractDataSource: ContractDataSource,
+    private l1Tol2MessagesDataSource: L1ToL2MessageSource,
+  ) {}
 
   /**
    * Creates a new instance of a PublicProcessor.
@@ -53,7 +55,7 @@ export class PublicProcessorFactory {
   public create() {
     return new PublicProcessor(
       this.merkleTree,
-      getPublicExecutor(this.merkleTree, this.contractDataSource),
+      getPublicExecutor(this.merkleTree, this.contractDataSource, this.l1Tol2MessagesDataSource),
       new WasmPublicKernelCircuitSimulator(),
       new EmptyPublicProver(),
       this.contractDataSource,
@@ -107,75 +109,59 @@ export class PublicProcessor {
   }
 
   protected async processTx(tx: Tx): Promise<ProcessedTx> {
-    if (tx.isPublic()) {
-      const [publicKernelOutput, publicKernelProof] = await this.processPublicTx(tx);
+    if (!isArrayEmpty(tx.data.end.publicCallStack, item => item.isZero())) {
+      const [publicKernelOutput, publicKernelProof, newUnencryptedFunctionLogs] = await this.processEnqueuedPublicCalls(
+        tx,
+      );
+      tx.unencryptedLogs.addFunctionLogs(newUnencryptedFunctionLogs);
+
       return makeProcessedTx(tx, publicKernelOutput, publicKernelProof);
-    } else if (tx.isPrivate() && !isArrayEmpty(tx.data.end.publicCallStack, item => item.isZero())) {
-      const [publicKernelOutput, publicKernelProof] = await this.processEnqueuedPublicCalls(tx);
-      return makeProcessedTx(tx, publicKernelOutput, publicKernelProof);
-    } else if (tx.isPrivate()) {
-      return makeProcessedTx(tx);
     } else {
-      return this.makeEmptyProcessedTx();
+      return makeProcessedTx(tx);
     }
   }
 
-  protected async processEnqueuedPublicCalls(tx: PrivateTx): Promise<[PublicKernelPublicInputs, Proof]> {
+  protected async processEnqueuedPublicCalls(tx: Tx): Promise<[PublicKernelPublicInputs, Proof, FunctionL2Logs[]]> {
     this.log(`Executing enqueued public calls for tx ${await tx.getTxHash()}`);
     if (!tx.enqueuedPublicFunctionCalls) throw new Error(`Missing preimages for enqueued public calls`);
 
     // We execute the requests in order, which means reversing the input as the stack pops from the end of the array
     const executionStack: (PublicExecution | PublicExecutionResult)[] = [...tx.enqueuedPublicFunctionCalls].reverse();
-    return await this.processExecutionStack(executionStack, undefined, tx.data, tx.proof);
-  }
 
-  protected async processPublicTx(tx: PublicTx): Promise<[PublicKernelPublicInputs, Proof]> {
-    this.log(`Executing public tx request ${await tx.getTxHash()}`);
-    const firstExecution = await this.publicExecutor.getPublicExecution(tx.txRequest.txRequest);
-    const firstResult: PublicExecutionResult = await this.publicExecutor.execute(firstExecution);
-    const executionStack = [firstResult];
-    return await this.processExecutionStack(executionStack, tx.txRequest, undefined, undefined);
-  }
-
-  protected async processExecutionStack(
-    executionStack: (PublicExecution | PublicExecutionResult)[],
-    txRequest: SignedTxRequest | undefined,
-    kernelOutput: KernelCircuitPublicInputs | undefined,
-    kernelProof: Proof | undefined,
-  ): Promise<[PublicKernelPublicInputs, Proof]> {
-    if (!executionStack.length) throw new Error(`Execution stack cannot be empty`);
+    let kernelOutput = tx.data;
+    let kernelProof = tx.proof;
+    const newUnencryptedFunctionLogs: FunctionL2Logs[] = [];
 
     while (executionStack.length) {
       const current = executionStack.pop()!;
       const isExecutionRequest = !isPublicExecutionResult(current);
       const result = isExecutionRequest ? await this.publicExecutor.execute(current) : current;
+      newUnencryptedFunctionLogs.push(result.unencryptedLogs);
       const functionSelector = result.execution.functionData.functionSelectorBuffer.toString('hex');
       this.log(`Running public kernel circuit for ${functionSelector}@${result.execution.contractAddress.toString()}`);
       executionStack.push(...result.nestedExecutions);
       const preimages = await this.getPublicCallStackPreimages(result);
       const callData = await this.getPublicCallData(result, preimages, isExecutionRequest);
-      [kernelOutput, kernelProof] = await this.runKernelCircuit(callData, txRequest, kernelOutput, kernelProof);
+      [kernelOutput, kernelProof] = await this.runKernelCircuit(callData, kernelOutput, kernelProof);
     }
 
-    return [kernelOutput!, kernelProof!];
+    return [kernelOutput, kernelProof, newUnencryptedFunctionLogs];
   }
 
   protected async runKernelCircuit(
     callData: PublicCallData,
-    txRequest: SignedTxRequest | undefined,
-    previousOutput: KernelCircuitPublicInputs | undefined,
-    previousProof: Proof | undefined,
+    previousOutput: KernelCircuitPublicInputs,
+    previousProof: Proof,
   ): Promise<[KernelCircuitPublicInputs, Proof]> {
-    const output = await this.getKernelCircuitOutput(callData, txRequest, previousOutput, previousProof);
+    const output = await this.getKernelCircuitOutput(callData, previousOutput, previousProof);
     const proof = await this.publicProver.getPublicKernelCircuitProof(output);
     return [output, proof];
   }
 
-  protected async getKernelCircuitOutput(
+  protected getKernelCircuitOutput(
     callData: PublicCallData,
-    txRequest: SignedTxRequest | undefined,
-    previousOutput: KernelCircuitPublicInputs | undefined,
-    previousProof: Proof | undefined,
+    previousOutput: KernelCircuitPublicInputs,
+    previousProof: Proof,
   ): Promise<KernelCircuitPublicInputs> {
     if (previousOutput?.isPrivate && previousProof) {
       // Run the public kernel circuit with previous private kernel
@@ -187,11 +173,6 @@ export class PublicProcessor {
       const previousKernel = this.getPreviousKernelData(previousOutput, previousProof);
       const inputs = new PublicKernelInputs(previousKernel, callData);
       return this.publicKernel.publicKernelCircuitNonFirstIteration(inputs);
-    } else if (txRequest) {
-      // Run the public kernel circuit with no previous kernel
-      const treeRoots = await getCombinedHistoricTreeRoots(this.db);
-      const inputs = new PublicKernelInputsNoPreviousKernel(txRequest, callData, treeRoots);
-      return this.publicKernel.publicKernelCircuitNoInput(inputs);
     } else {
       throw new Error(`No public kernel circuit for inputs`);
     }
@@ -213,12 +194,17 @@ export class PublicProcessor {
       item.isEmpty() ? Fr.zero() : computeCallStackItemHash(wasm, item),
     );
 
+    // TODO(#1347): Noir fails with too many unknowns error when public inputs struct contains too many members.
+    const unencryptedLogsHash = to2Fields(result.unencryptedLogs.hash());
+    const unencryptedLogPreimagesLength = new Fr(result.unencryptedLogs.getSerializedLength());
+
     return PublicCircuitPublicInputs.from({
       callContext: result.execution.callContext,
       proverAddress: AztecAddress.random(),
-      args: padArrayEnd(result.execution.args, Fr.ZERO, ARGS_LENGTH),
-      emittedEvents: padArrayEnd([], Fr.ZERO, EMITTED_EVENTS_LENGTH),
-      newL2ToL1Msgs: padArrayEnd([], Fr.ZERO, NEW_L2_TO_L1_MSGS_LENGTH),
+      argsHash: await computeVarArgsHash(wasm, result.execution.args),
+      newCommitments: padArrayEnd(result.newCommitments, Fr.ZERO, NEW_COMMITMENTS_LENGTH),
+      newNullifiers: padArrayEnd(result.newNullifiers, Fr.ZERO, NEW_NULLIFIERS_LENGTH),
+      newL2ToL1Msgs: padArrayEnd(result.newL2ToL1Messages, Fr.ZERO, NEW_L2_TO_L1_MSGS_LENGTH),
       returnValues: padArrayEnd(result.returnValues, Fr.ZERO, RETURN_VALUES_LENGTH),
       contractStorageReads: padArrayEnd(
         result.contractStorageReads,
@@ -231,6 +217,8 @@ export class PublicProcessor {
         KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH,
       ),
       publicCallStack,
+      unencryptedLogsHash,
+      unencryptedLogPreimagesLength,
       historicPublicDataTreeRoot,
     });
   }

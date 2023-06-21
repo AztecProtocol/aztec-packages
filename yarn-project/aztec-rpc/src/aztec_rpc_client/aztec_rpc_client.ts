@@ -1,8 +1,8 @@
-import { AztecAddress, EthAddress, Fr, TxRequest, EcdsaSignature } from '@aztec/circuits.js';
-import { Tx, TxHash } from '@aztec/types';
+import { AztecAddress, EthAddress, Fr } from '@aztec/circuits.js';
 import { ContractAbi } from '@aztec/foundation/abi';
-import { TxReceipt } from '../tx/index.js';
 import { Point } from '@aztec/foundation/fields';
+import { Tx, TxHash } from '@aztec/types';
+import { TxReceipt } from '../tx/index.js';
 
 /**
  * Represents a deployed contract on the Aztec network.
@@ -30,7 +30,8 @@ export interface DeployedContract {
  * as well as storage and view functions for smart contracts.
  */
 export interface AztecRPCClient {
-  addAccount(): Promise<AztecAddress>;
+  createSmartAccount(privKey?: Buffer): Promise<[TxHash, AztecAddress]>;
+  registerSmartAccount(privKey: Buffer, address: AztecAddress): Promise<AztecAddress>;
   getAccounts(): Promise<AztecAddress[]>;
   getAccountPublicKey(address: AztecAddress): Promise<Point>;
   addContracts(contracts: DeployedContract[]): Promise<void>;
@@ -40,16 +41,14 @@ export interface AztecRPCClient {
    * @returns Whether the contract was deployed.
    */
   isContractDeployed(contract: AztecAddress): Promise<boolean>;
-  createDeploymentTxRequest(
+  createDeploymentTx(
     abi: ContractAbi,
     args: any[],
     portalContract: EthAddress,
     contractAddressSalt?: Fr,
     from?: AztecAddress,
-  ): Promise<TxRequest>;
-  createTxRequest(functionName: string, args: any[], to: AztecAddress, from?: AztecAddress): Promise<TxRequest>;
-  signTxRequest(txRequest: TxRequest): Promise<EcdsaSignature>;
-  createTx(txRequest: TxRequest, signature: EcdsaSignature): Promise<Tx>;
+  ): Promise<Tx>;
+  createTx(functionName: string, args: any[], to: AztecAddress, from?: AztecAddress): Promise<Tx>;
   sendTx(tx: Tx): Promise<TxHash>;
   getTxReceipt(txHash: TxHash): Promise<TxReceipt>;
   getStorageAt(contract: AztecAddress, storageSlot: Fr): Promise<any>;

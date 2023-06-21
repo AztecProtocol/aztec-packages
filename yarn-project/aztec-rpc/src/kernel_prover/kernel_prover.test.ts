@@ -1,29 +1,29 @@
 import { ExecutionResult, NewNoteData } from '@aztec/acir-simulator';
 import {
-  EcdsaSignature,
   KERNEL_NEW_COMMITMENTS_LENGTH,
+  KernelCircuitPublicInputs,
+  MembershipWitness,
   PRIVATE_CALL_STACK_LENGTH,
   PrivateCallStackItem,
   PrivateCircuitPublicInputs,
-  KernelCircuitPublicInputs,
+  READ_REQUESTS_LENGTH,
   TxRequest,
   VK_TREE_HEIGHT,
   VerificationKey,
   makeEmptyProof,
-  MembershipWitness,
 } from '@aztec/circuits.js';
 import { makeTxRequest } from '@aztec/circuits.js/factories';
+import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { Fr } from '@aztec/foundation/fields';
+import { Tuple } from '@aztec/foundation/serialize';
+import { FunctionL2Logs } from '@aztec/types';
 import { mock } from 'jest-mock-extended';
 import { KernelProver, OutputNoteData } from './kernel_prover.js';
 import { ProofCreator } from './proof_creator.js';
 import { ProvingDataOracle } from './proving_data_oracle.js';
-import { Fr } from '@aztec/foundation/fields';
-import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { Tuple } from '@aztec/foundation/serialize';
 
 describe('Kernel Prover', () => {
   let txRequest: TxRequest;
-  let txSignature: EcdsaSignature;
   let oracle: ReturnType<typeof mock<ProvingDataOracle>>;
   let proofCreator: ReturnType<typeof mock<ProofCreator>>;
   let prover: KernelProver;
@@ -50,10 +50,13 @@ describe('Kernel Prover', () => {
       nestedExecutions: (dependencies[fnName] || []).map(name => createExecutionResult(name)),
       vk: VerificationKey.makeFake().toBuffer(),
       preimages: { newNotes: newNoteIndices.map(idx => notes[idx]), nullifiedNotes: [] },
+      readRequestCommitmentIndices: Array(READ_REQUESTS_LENGTH).map(() => BigInt(0)),
       returnValues: [],
       acir: Buffer.alloc(0),
       partialWitness: new Map(),
       enqueuedPublicFunctionCalls: [],
+      encryptedLogs: new FunctionL2Logs([]),
+      unencryptedLogs: new FunctionL2Logs([]),
     };
   };
 
@@ -88,11 +91,10 @@ describe('Kernel Prover', () => {
     });
   };
 
-  const prove = (executionResult: ExecutionResult) => prover.prove(txRequest, txSignature, executionResult);
+  const prove = (executionResult: ExecutionResult) => prover.prove(txRequest, executionResult);
 
   beforeEach(() => {
     txRequest = makeTxRequest();
-    txSignature = EcdsaSignature.random();
 
     oracle = mock<ProvingDataOracle>();
     oracle.getVkMembershipWitness.mockResolvedValue(MembershipWitness.random(VK_TREE_HEIGHT));

@@ -9,6 +9,7 @@
 #include "aztec3/circuits/abis/new_contract_data.hpp"
 #include "aztec3/circuits/abis/previous_kernel_data.hpp"
 #include "aztec3/circuits/abis/public_data_read.hpp"
+#include "aztec3/circuits/hash.hpp"
 #include "aztec3/circuits/kernel/private/utils.hpp"
 #include "aztec3/circuits/rollup/components/components.hpp"
 #include "aztec3/circuits/rollup/test_utils/utils.hpp"
@@ -56,6 +57,8 @@ namespace aztec3::circuits::rollup::base::native_base_rollup_circuit {
 
 class base_rollup_tests : public ::testing::Test {
   protected:
+    static void SetUpTestSuite() { barretenberg::srs::init_crs_factory("../barretenberg/cpp/srs_db/ignition"); }
+
     static void run_cbind(BaseRollupInputs& base_rollup_inputs,
                           BaseOrMergeRollupPublicInputs& expected_public_inputs,
                           bool compare_pubins = true,
@@ -124,7 +127,7 @@ TEST_F(base_rollup_tests, native_contract_leaf_inserted)
     // The remaining leafs should be 0 leafs, (not empty leafs);
 
     // Create a "mock" contract deployment
-    NewContractData<NT> new_contract = {
+    NewContractData<NT> const new_contract = {
         .contract_address = fr(1),
         .portal_contract_address = fr(3),
         .function_tree_root = fr(2),
@@ -137,11 +140,8 @@ TEST_F(base_rollup_tests, native_contract_leaf_inserted)
     };
 
     // create expected end contract tree snapshot
-    auto expected_contract_leaf = crypto::pedersen_commitment::compress_native(
-        { new_contract.contract_address, new_contract.portal_contract_address, new_contract.function_tree_root },
-        GeneratorIndex::CONTRACT_LEAF);
     auto expected_end_contracts_snapshot_tree = stdlib::merkle_tree::MemoryTree(CONTRACT_TREE_HEIGHT);
-    expected_end_contracts_snapshot_tree.update_element(0, expected_contract_leaf);
+    expected_end_contracts_snapshot_tree.update_element(0, new_contract.hash());
 
     AppendOnlyTreeSnapshot<NT> const expected_end_contracts_snapshot = {
         .root = expected_end_contracts_snapshot_tree.root(),
@@ -190,7 +190,7 @@ TEST_F(base_rollup_tests, native_contract_leaf_inserted_in_non_empty_snapshot_tr
     };
 
     // Set the new_contracts_subtree_sibling_path
-    auto sibling_path = test_utils::utils::get_sibling_path<CONTRACT_SUBTREE_INCLUSION_CHECK_DEPTH>(
+    auto sibling_path = get_sibling_path<CONTRACT_SUBTREE_INCLUSION_CHECK_DEPTH>(
         start_contract_tree_snapshot, 12, CONTRACT_SUBTREE_DEPTH);
     inputs.new_contracts_subtree_sibling_path = sibling_path;
 

@@ -1,16 +1,16 @@
 #include "c_bind.h"
-
 #include "function_leaf_preimage.hpp"
 #include "tx_request.hpp"
 
 #include "aztec3/circuits/abis/new_contract_data.hpp"
-#include "aztec3/circuits/abis/rollup/base/base_rollup_inputs.hpp"
-#include "aztec3/circuits/abis/signed_tx_request.hpp"
+#include "aztec3/circuits/abis/tx_request.hpp"
 #include "aztec3/circuits/hash.hpp"
 
 #include <barretenberg/barretenberg.hpp>
 
 #include <gtest/gtest.h>
+
+#include <vector>
 
 namespace {
 
@@ -51,27 +51,19 @@ namespace aztec3::circuits::abis {
 TEST(abi_tests, compute_contract_address)
 {
     auto func = aztec3::circuits::compute_contract_address<NT>;
+    const std::array<NT::fr, 2> pub_key = { NT::fr(1), NT::fr(2) };
     auto [actual, expected] =
-        call_func_and_wrapper(func, abis__compute_contract_address, NT::address(1), NT::fr(2), NT::fr(3), NT::fr(4));
+        call_func_and_wrapper(func, abis__compute_contract_address, pub_key, NT::fr(3), NT::fr(4), NT::fr(5));
     EXPECT_EQ(actual, expected);
 }
 TEST(abi_tests, hash_tx_request)
 {
-    // randomize function args for tx request
-    std::array<fr, ARGS_LENGTH> args;
-    for (size_t i = 0; i < ARGS_LENGTH; i++) {
-        args[i] = NT::fr::random_element();
-    }
-
     // Construct TxRequest with some randomized fields
     TxRequest<NT> const tx_request = TxRequest<NT>{
-        .from = NT::fr::random_element(),
-        .to = NT::fr::random_element(),
+        .origin = NT::fr::random_element(),
         .function_data = FunctionData<NT>(),
-        .args = args,
-        .nonce = NT::fr::random_element(),
+        .args_hash = NT::fr::random_element(),
         .tx_context = TxContext<NT>(),
-        .chain_id = NT::fr::random_element(),
     };
 
     auto got_hash = call_msgpack_cbind<NT::fr>(abis__hash_tx_request, tx_request);
@@ -228,18 +220,15 @@ TEST(abi_tests, hash_constructor)
     // Randomize required values
     auto const func_data = FunctionData<NT>{ .function_selector = 10, .is_private = true, .is_constructor = false };
 
-    std::array<NT::fr, aztec3::ARGS_LENGTH> args;
-    for (size_t i = 0; i < aztec3::ARGS_LENGTH; i++) {
-        args[i] = fr::random_element();
-    }
+    NT::fr const args_hash = NT::fr::random_element();
     NT::fr const constructor_vk_hash = NT::fr::random_element();
 
     // Write the function data and args to a buffer
     std::vector<uint8_t> func_data_buf;
     write(func_data_buf, func_data);
 
-    std::vector<uint8_t> args_buf;
-    write(args_buf, args);
+    std::vector<uint8_t> args_hash_buf;
+    write(args_hash_buf, args_hash);
 
     std::array<uint8_t, sizeof(NT::fr)> constructor_vk_hash_buf = { 0 };
     NT::fr::serialize_to_buffer(constructor_vk_hash, constructor_vk_hash_buf.data());
@@ -248,15 +237,37 @@ TEST(abi_tests, hash_constructor)
     std::array<uint8_t, sizeof(NT::fr)> output = { 0 };
 
     // Make the c_bind call to hash the constructor values
-    abis__hash_constructor(func_data_buf.data(), args_buf.data(), constructor_vk_hash_buf.data(), output.data());
+    abis__hash_constructor(func_data_buf.data(), args_hash_buf.data(), constructor_vk_hash_buf.data(), output.data());
 
     // Convert buffer to `fr` for comparison to in-test calculated hash
     NT::fr const got_hash = NT::fr::serialize_from_buffer(output.data());
 
     // Calculate the expected hash in-test
-    NT::fr const expected_hash = NT::compress(
-        { func_data.hash(), NT::compress(args, aztec3::GeneratorIndex::CONSTRUCTOR_ARGS), constructor_vk_hash },
-        aztec3::GeneratorIndex::CONSTRUCTOR);
+    NT::fr const expected_hash =
+        NT::compress({ func_data.hash(), args_hash, constructor_vk_hash }, aztec3::GeneratorIndex::CONSTRUCTOR);
+
+    // Confirm cbind output == expected hash
+    EXPECT_EQ(got_hash, expected_hash);
+}
+
+TEST(abi_tests, hash_var_args)
+{
+    // Initialize test data and write to buffer
+    std::vector<NT::fr> const args(32, NT::fr::random_element());
+    std::vector<uint8_t> buf;
+    write(buf, args);
+
+    // Prepare output buffer
+    std::array<uint8_t, sizeof(NT::fr)> output = { 0 };
+
+    // Make the c_bind call to hash the constructor values
+    abis__compute_var_args_hash(buf.data(), output.data());
+
+    // Convert buffer to `fr` for comparison to in-test calculated hash
+    NT::fr const got_hash = NT::fr::serialize_from_buffer(output.data());
+
+    // Calculate the expected hash in-test
+    NT::fr const expected_hash = NT::compress(args, aztec3::GeneratorIndex::FUNCTION_ARGS);
 
     // Confirm cbind output == expected hash
     EXPECT_EQ(got_hash, expected_hash);
@@ -284,43 +295,16 @@ TEST(abi_tests, compute_contract_leaf)
 
 TEST(abi_tests, compute_transaction_hash)
 {
-    // randomize function args for tx request
-    std::array<fr, ARGS_LENGTH> args;
-    for (size_t i = 0; i < ARGS_LENGTH; i++) {
-        args[i] = NT::fr::random_element();
-    }
-
     // Construct TxRequest with some randomized fields
     TxRequest<NT> const tx_request = TxRequest<NT>{
-        .from = NT::fr::random_element(),
-        .to = NT::fr::random_element(),
+        .origin = NT::fr::random_element(),
         .function_data = FunctionData<NT>(),
-        .args = args,
-        .nonce = NT::fr::random_element(),
+        .args_hash = NT::fr::random_element(),
         .tx_context = TxContext<NT>(),
-        .chain_id = NT::fr::random_element(),
     };
 
-    std::array<uint8_t, 32> const r{
-        0xf3, 0xac, 0x80, 0x61, 0xb5, 0x14, 0x79, 0x5b, 0x88, 0x43, 0xe3, 0xd6, 0x62, 0x95, 0x27, 0xed,
-        0x2a, 0xfd, 0x6b, 0x1f, 0x6a, 0x55, 0x5a, 0x7a, 0xca, 0xbb, 0x5e, 0x6f, 0x79, 0xc8, 0xc2, 0xac,
-    };
-
-    std::array<uint8_t, 32> const s{
-        0x8b, 0xf7, 0x78, 0x19, 0xca, 0x05, 0xa6, 0xb2, 0x78, 0x6c, 0x76, 0x26, 0x2b, 0xf7, 0x37, 0x1c,
-        0xef, 0x97, 0xb2, 0x18, 0xe9, 0x6f, 0x17, 0x5a, 0x3c, 0xcd, 0xda, 0x2a, 0xcc, 0x05, 0x89, 0x03,
-    };
-
-    NT::ecdsa_signature const sig{ r, s, 27 };
-
-    // Construct SignedTxRequest with some randomized fields
-    SignedTxRequest<NT> const preimage = SignedTxRequest<NT>{
-        .tx_request = tx_request,
-        .signature = sig,
-    };
-
-    auto got_tx_hash = call_msgpack_cbind<NT::fr>(abis__compute_transaction_hash, preimage);
-    EXPECT_EQ(got_tx_hash, preimage.hash());
+    auto got_tx_hash = call_msgpack_cbind<NT::fr>(abis__compute_transaction_hash, tx_request);
+    EXPECT_EQ(got_tx_hash, tx_request.hash());
 }
 
 TEST(abi_tests, cbind_schema_BaseRollupInputs)

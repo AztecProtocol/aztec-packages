@@ -1,16 +1,16 @@
+import { BufferReader } from '@aztec/foundation/serialize';
 import { Buffer } from 'buffer';
 import {
-  Fr,
   FUNCTION_TREE_HEIGHT,
+  Fr,
+  KernelCircuitPublicInputs,
   PreviousKernelData,
   PrivateCallData,
-  KernelCircuitPublicInputs,
-  SignedTxRequest,
+  TxRequest,
 } from '../index.js';
+import { handleCircuitOutput } from '../utils/call_wasm.js';
 import { serializeBufferArrayToVector, uint8ArrayToNum } from '../utils/serialize.js';
 import { CircuitsWasm } from '../wasm/index.js';
-import { BufferReader } from '@aztec/foundation/serialize';
-import { handleCircuitOutput } from '../utils/call_wasm.js';
 
 /**
  * Computes contract's function tree from the given leaves.
@@ -18,7 +18,7 @@ import { handleCircuitOutput } from '../utils/call_wasm.js';
  * @param leaves - The leaves of the function tree.
  * @returns All of a function tree's nodes.
  */
-export async function computeFunctionTree(wasm: CircuitsWasm, leaves: Fr[]): Promise<Fr[]> {
+export function computeFunctionTree(wasm: CircuitsWasm, leaves: Fr[]): Fr[] {
   // Init pedersen if needed
   wasm.call('pedersen__init');
 
@@ -33,7 +33,7 @@ export async function computeFunctionTree(wasm: CircuitsWasm, leaves: Fr[]): Pro
   wasm.writeMemory(inputBufPtr, inputVector);
 
   // Run and read outputs
-  await wasm.asyncCall('abis__compute_function_tree', inputBufPtr, outputBufPtr);
+  wasm.call('abis__compute_function_tree', inputBufPtr, outputBufPtr);
   const outputBuf = Buffer.from(wasm.getMemorySlice(outputBufPtr, outputBufPtr + outputBufSize));
   const reader = new BufferReader(outputBuf);
   const output = reader.readVector(Fr);
@@ -48,33 +48,33 @@ export async function computeFunctionTree(wasm: CircuitsWasm, leaves: Fr[]): Pro
 /**
  * Computes proof of the private kernel.
  * @param wasm - The circuits wasm instance.
- * @param signedTxRequest - The signed transaction request.
+ * @param txRequest - The signed transaction request.
  * @param previousKernel - The previous kernel data (dummy if this is the first kernel in the chain).
  * @param privateCallData - The private call data.
  * @param firstIteration - Whether this is the first iteration of the private kernel.
  * @returns The proof of the private kernel.
  */
-export async function privateKernelProve(
+export function privateKernelProve(
   wasm: CircuitsWasm,
-  signedTxRequest: SignedTxRequest,
+  txRequest: TxRequest,
   previousKernel: PreviousKernelData,
   privateCallData: PrivateCallData,
   firstIteration: boolean,
-): Promise<Buffer> {
+): Buffer {
   wasm.call('pedersen__init');
-  const signedTxRequestBuffer = signedTxRequest.toBuffer();
+  const txRequestBuffer = txRequest.toBuffer();
   const previousKernelBuffer = previousKernel.toBuffer();
   const privateCallDataBuffer = privateCallData.toBuffer();
-  const previousKernelBufferOffset = signedTxRequestBuffer.length;
+  const previousKernelBufferOffset = txRequestBuffer.length;
   const privateCallDataOffset = previousKernelBufferOffset + previousKernelBuffer.length;
   // This is an unused pointer argument at the moment.
   const provingKeyOffset = privateCallDataOffset + privateCallDataBuffer.length;
-  wasm.writeMemory(0, signedTxRequestBuffer);
+  wasm.writeMemory(0, txRequestBuffer);
   wasm.writeMemory(previousKernelBufferOffset, previousKernelBuffer);
   wasm.writeMemory(privateCallDataOffset, privateCallDataBuffer);
 
   const proofOutputAddressPtr = wasm.call('bbmalloc', 4);
-  const proofSize = await wasm.asyncCall(
+  const proofSize = wasm.call(
     'private_kernel__prove',
     0,
     previousKernelBufferOffset,
@@ -94,25 +94,25 @@ export async function privateKernelProve(
 /**
  * Computes the public inputs of the private kernel first iteration without computing the proof.
  * @param wasm - The circuits wasm instance.
- * @param signedTxRequest - The signed transaction request.
+ * @param txRequest - The signed transaction request.
  * @param privateCallData - The private call data.
  * @returns The public inputs of the private kernel.
  */
-export async function privateKernelSimInit(
+export function privateKernelSimInit(
   wasm: CircuitsWasm,
-  signedTxRequest: SignedTxRequest,
+  txRequest: TxRequest,
   privateCallData: PrivateCallData,
-): Promise<KernelCircuitPublicInputs> {
+): KernelCircuitPublicInputs {
   wasm.call('pedersen__init');
-  const signedTxRequestBuffer = signedTxRequest.toBuffer();
+  const txRequestBuffer = txRequest.toBuffer();
   const privateCallDataBuffer = privateCallData.toBuffer();
-  const privateCallDataOffset = signedTxRequestBuffer.length;
-  wasm.writeMemory(0, signedTxRequestBuffer);
+  const privateCallDataOffset = txRequestBuffer.length;
+  wasm.writeMemory(0, txRequestBuffer);
   wasm.writeMemory(privateCallDataOffset, privateCallDataBuffer);
   const outputBufSizePtr = wasm.call('bbmalloc', 4);
   const outputBufPtrPtr = wasm.call('bbmalloc', 4);
   // Run and read outputs
-  const circuitFailureBufPtr = await wasm.asyncCall(
+  const circuitFailureBufPtr = wasm.call(
     'private_kernel__sim_init',
     0,
     privateCallDataOffset,
@@ -143,11 +143,11 @@ export async function privateKernelSimInit(
  * @param privateCallData - The private call data.
  * @returns The public inputs of the private kernel.
  */
-export async function privateKernelSimInner(
+export function privateKernelSimInner(
   wasm: CircuitsWasm,
   previousKernel: PreviousKernelData,
   privateCallData: PrivateCallData,
-): Promise<KernelCircuitPublicInputs> {
+): KernelCircuitPublicInputs {
   wasm.call('pedersen__init');
   const previousKernelBuffer = previousKernel.toBuffer();
   const privateCallDataBuffer = privateCallData.toBuffer();
@@ -157,7 +157,7 @@ export async function privateKernelSimInner(
   const outputBufSizePtr = wasm.call('bbmalloc', 4);
   const outputBufPtrPtr = wasm.call('bbmalloc', 4);
   // Run and read outputs
-  const circuitFailureBufPtr = await wasm.asyncCall(
+  const circuitFailureBufPtr = wasm.call(
     'private_kernel__sim_inner',
     0,
     privateCallDataOffset,

@@ -1,27 +1,31 @@
-import { AcirSimulator } from '@aztec/acir-simulator';
+import { AcirSimulator, collectEncryptedLogs, collectEnqueuedPublicFunctionCalls } from '@aztec/acir-simulator';
 import { AztecNode } from '@aztec/aztec-node';
-import { Grumpkin } from '@aztec/barretenberg.js/crypto';
-import { BarretenbergWasm } from '@aztec/barretenberg.js/wasm';
-import { EcdsaSignature, KERNEL_NEW_COMMITMENTS_LENGTH, PrivateHistoricTreeRoots, TxRequest } from '@aztec/circuits.js';
+import { CircuitsWasm, KERNEL_NEW_COMMITMENTS_LENGTH, PrivateHistoricTreeRoots } from '@aztec/circuits.js';
+import { Grumpkin } from '@aztec/circuits.js/barretenberg';
+import { FunctionType } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { ConstantKeyPair, KeyPair } from '@aztec/key-store';
-import { FunctionType } from '@aztec/foundation/abi';
 import {
   EncodedContractFunction,
+  ExecutionRequest,
   INITIAL_L2_BLOCK_NUM,
   L2BlockContext,
+  L2BlockL2Logs,
   MerkleTreeId,
+  NoteSpendingInfo,
   Tx,
-  UnverifiedData,
+  TxExecutionRequest,
+  TxL2Logs,
 } from '@aztec/types';
-import { NotePreimage, TxAuxData } from '../aztec_rpc_server/tx_aux_data/index.js';
 import { ContractDataOracle } from '../contract_data_oracle/index.js';
-import { Database, TxAuxDataDao, TxDao } from '../database/index.js';
+import { Database, NoteSpendingInfoDao, TxDao } from '../database/index.js';
 import { generateFunctionSelector } from '../index.js';
-import { KernelProver, OutputNoteData } from '../kernel_prover/index.js';
+import { KernelOracle } from '../kernel_oracle/index.js';
+import { KernelProver } from '../kernel_prover/index.js';
 import { SimulatorOracle } from '../simulator_oracle/index.js';
+import { collectUnencryptedLogs } from '@aztec/acir-simulator';
 
 /**
  * Contains all the decrypted data in this array so that we can later batch insert it all into the database.
@@ -38,7 +42,7 @@ interface ProcessedData {
   /**
    * A collection of data access objects for transaction auxiliary data.
    */
-  txAuxDataDaos: TxAuxDataDao[];
+  noteSpendingInfoDaos: NoteSpendingInfoDao[];
 }
 
 /**
@@ -54,22 +58,21 @@ export class AccountState {
    */
   public syncedToBlock = 0;
   private publicKey: Point;
-  private address: AztecAddress;
   private keyPair: KeyPair;
 
   constructor(
     private readonly privKey: Buffer,
+    private readonly address: AztecAddress,
     private db: Database,
     private node: AztecNode,
     private grumpkin: Grumpkin,
-    private TXS_PER_BLOCK = 1,
+    private TXS_PER_BLOCK = 4,
     private log = createDebugLogger('aztec:aztec_rpc_account_state'),
   ) {
     if (privKey.length !== 32) {
       throw new Error(`Invalid private key length. Received ${privKey.length}, expected 32`);
     }
     this.publicKey = Point.fromBuffer(this.grumpkin.mul(Grumpkin.generator, this.privKey));
-    this.address = this.publicKey.toAddress();
     this.keyPair = new ConstantKeyPair(this.publicKey, privKey);
   }
 
@@ -111,7 +114,7 @@ export class AccountState {
    * @returns An AztecAddress instance representing the account's address.
    */
   public getAddress() {
-    return this.publicKey.toAddress();
+    return this.address;
   }
 
   /**
@@ -130,19 +133,22 @@ export class AccountState {
    * This includes the contract address, function ABI, portal contract address, and historic tree roots.
    * The function uses the given 'contractDataOracle' to fetch the necessary data from the node and user's database.
    *
-   * @param txRequest - The transaction request object containing details of the contract call.
+   * @param execRequest - The transaction request object containing details of the contract call.
    * @param contractDataOracle - An instance of ContractDataOracle used to fetch the necessary data.
    * @returns An object containing the contract address, function ABI, portal contract address, and historic tree roots.
    */
-  private async getSimulationParameters(txRequest: TxRequest, contractDataOracle: ContractDataOracle) {
-    const contractAddress = txRequest.to;
+  private async getSimulationParameters(
+    execRequest: ExecutionRequest | TxExecutionRequest,
+    contractDataOracle: ContractDataOracle,
+  ) {
+    const contractAddress = (execRequest as ExecutionRequest).to ?? (execRequest as TxExecutionRequest).origin;
     const functionAbi = await contractDataOracle.getFunctionAbi(
       contractAddress,
-      txRequest.functionData.functionSelectorBuffer,
+      execRequest.functionData.functionSelectorBuffer,
     );
     const portalContract = await contractDataOracle.getPortalContractAddress(contractAddress);
 
-    const currentRoots = await this.db.getTreeRoots();
+    const currentRoots = this.db.getTreeRoots();
     const historicRoots = PrivateHistoricTreeRoots.from({
       contractTreeRoot: currentRoots[MerkleTreeId.CONTRACT_TREE],
       nullifierTreeRoot: currentRoots[MerkleTreeId.NULLIFIER_TREE],
@@ -169,7 +175,7 @@ export class AccountState {
    * @param contractDataOracle - Optional parameter, an instance of ContractDataOracle class for retrieving contract data.
    * @returns A promise that resolves to an object containing the simulation results, including expected output notes and any error messages.
    */
-  public async simulate(txRequest: TxRequest, contractDataOracle?: ContractDataOracle) {
+  public async simulate(txRequest: TxExecutionRequest, contractDataOracle?: ContractDataOracle) {
     // TODO - Pause syncing while simulating.
     if (!contractDataOracle) {
       contractDataOracle = new ContractDataOracle(this.db, this.node);
@@ -180,7 +186,7 @@ export class AccountState {
       contractDataOracle,
     );
 
-    const simulator = new AcirSimulator(new SimulatorOracle(contractDataOracle, this.db, this.keyPair, this.node));
+    const simulator = this.getAcirSimulator(contractDataOracle);
     this.log('Executing simulator...');
     const result = await simulator.run(txRequest, functionAbi, contractAddress, portalContract, historicRoots);
     this.log('Simulation completed!');
@@ -193,25 +199,25 @@ export class AccountState {
    * The simulation parameters are fetched using ContractDataOracle and executed using AcirSimulator.
    * Returns the simulation result containing the outputs of the unconstrained function.
    *
-   * @param txRequest - The transaction request object containing the target contract and function data.
+   * @param execRequest - The transaction request object containing the target contract and function data.
    * @param contractDataOracle - Optional instance of ContractDataOracle for fetching and caching contract information.
    * @returns The simulation result containing the outputs of the unconstrained function.
    */
-  public async simulateUnconstrained(txRequest: TxRequest, contractDataOracle?: ContractDataOracle) {
+  public async simulateUnconstrained(execRequest: ExecutionRequest, contractDataOracle?: ContractDataOracle) {
     if (!contractDataOracle) {
       contractDataOracle = new ContractDataOracle(this.db, this.node);
     }
 
     const { contractAddress, functionAbi, portalContract, historicRoots } = await this.getSimulationParameters(
-      txRequest,
+      execRequest,
       contractDataOracle,
     );
 
-    const simulator = new AcirSimulator(new SimulatorOracle(contractDataOracle, this.db, this.keyPair, this.node));
+    const simulator = this.getAcirSimulator(contractDataOracle);
 
     this.log('Executing unconstrained simulator...');
     const result = await simulator.runUnconstrained(
-      txRequest,
+      execRequest,
       functionAbi,
       contractAddress,
       portalContract,
@@ -229,33 +235,38 @@ export class AccountState {
    * transaction object with the generated proof and public inputs. If a new contract address is provided,
    * the function will also include the new contract's public functions in the transaction object.
    *
-   * @param txRequest - The transaction request to be simulated and proved.
+   * @param txExecutionRequest - The transaction request to be simulated and proved.
    * @param signature - The ECDSA signature for the transaction request.
    * @param newContractAddress - Optional. The address of a new contract to be included in the transaction object.
-   * @returns A private transaction object containing the proof, public inputs, and unverified data.
+   * @returns A private transaction object containing the proof, public inputs, and encrypted logs.
    */
-  public async simulateAndProve(txRequest: TxRequest, signature: EcdsaSignature, newContractAddress?: AztecAddress) {
+  public async simulateAndProve(txExecutionRequest: TxExecutionRequest, newContractAddress: AztecAddress | undefined) {
     // TODO - Pause syncing while simulating.
 
     const contractDataOracle = new ContractDataOracle(this.db, this.node);
-    const executionResult = await this.simulate(txRequest, contractDataOracle);
+    const kernelOracle = new KernelOracle(contractDataOracle, this.node);
+    const executionResult = await this.simulate(txExecutionRequest, contractDataOracle);
+    const argsHash = executionResult.callStackItem.publicInputs.argsHash;
 
-    const kernelProver = new KernelProver(contractDataOracle);
+    const kernelProver = new KernelProver(kernelOracle);
     this.log('Executing Prover...');
-    const { proof, publicInputs, outputNotes } = await kernelProver.prove(txRequest, signature, executionResult);
+    const { proof, publicInputs } = await kernelProver.prove(txExecutionRequest.toTxRequest(argsHash), executionResult);
     this.log('Proof completed!');
 
-    const unverifiedData = this.createUnverifiedData(outputNotes);
     const newContractPublicFunctions = newContractAddress
       ? await this.getNewContractPublicFunctions(newContractAddress)
       : [];
 
-    return Tx.createPrivate(
+    const encryptedLogs = new TxL2Logs(collectEncryptedLogs(executionResult));
+    const unencryptedLogs = new TxL2Logs(collectUnencryptedLogs(executionResult));
+
+    return Tx.createTx(
       publicInputs,
       proof,
-      unverifiedData,
+      encryptedLogs,
+      unencryptedLogs,
       newContractPublicFunctions,
-      executionResult.enqueuedPublicFunctionCalls,
+      collectEnqueuedPublicFunctionCalls(executionResult),
     );
   }
 
@@ -282,61 +293,70 @@ export class AccountState {
   }
 
   /**
-   * Process the given L2 block contexts and unverified data to update the account state.
-   * It synchronizes the user's account by decrypting the unverified data and processing
+   * Process the given L2 block contexts and encrypted logs to update the account state.
+   * It synchronizes the user's account by decrypting the encrypted logs and processing
    * the transactions and auxiliary data associated with them.
-   * Throws an error if the number of block contexts and unverified data do not match.
+   * Throws an error if the number of block contexts and encrypted logs do not match.
    *
    * @param l2BlockContexts - An array of L2 block contexts to be processed.
-   * @param unverifiedDatas - An array of unverified data associated with the L2 block contexts.
+   * @param encryptedL2BlockLogs - An array of encrypted logs associated with the L2 block contexts.
    * @returns A promise that resolves once the processing is completed.
    */
-  public async process(l2BlockContexts: L2BlockContext[], unverifiedDatas: UnverifiedData[]): Promise<void> {
-    if (l2BlockContexts.length !== unverifiedDatas.length) {
+  public async process(l2BlockContexts: L2BlockContext[], encryptedL2BlockLogs: L2BlockL2Logs[]): Promise<void> {
+    if (l2BlockContexts.length !== encryptedL2BlockLogs.length) {
       throw new Error(
-        `Number of blocks and unverifiedData is not equal. Received ${l2BlockContexts.length} blocks, ${unverifiedDatas.length} unverified data.`,
+        `Number of blocks and EncryptedLogs is not equal. Received ${l2BlockContexts.length} blocks, ${encryptedL2BlockLogs.length} encrypted logs.`,
       );
     }
     if (!l2BlockContexts.length) {
       return;
     }
 
+    // TODO(Maddiaa): this calculation is brittle.
+    // https://github.com/AztecProtocol/aztec-packages/issues/788
     let dataStartIndex =
       (l2BlockContexts[0].block.number - INITIAL_L2_BLOCK_NUM) * this.TXS_PER_BLOCK * KERNEL_NEW_COMMITMENTS_LENGTH;
-    const blocksAndTxAuxData: ProcessedData[] = [];
+    const blocksAndNoteSpendingInfo: ProcessedData[] = [];
 
-    // Iterate over both blocks and unverified data.
-    for (let i = 0; i < unverifiedDatas.length; ++i) {
-      const dataChunks = unverifiedDatas[i].dataChunks;
+    // Iterate over both blocks and encrypted logs.
+    for (let blockIndex = 0; blockIndex < encryptedL2BlockLogs.length; ++blockIndex) {
+      const { txLogs } = encryptedL2BlockLogs[blockIndex];
+      let logIndexWithinBlock = 0;
 
-      // Try decrypting the unverified data.
-      // Note: Public txs don't generate commitments and UnverifiedData and for this reason we can ignore them here.
+      // Try decrypting the encrypted logs.
+      // Note: Public txs don't generate commitments and encrypted logs and for this reason we can ignore them here.
       const privateTxIndices: Set<number> = new Set();
-      const txAuxDataDaos: TxAuxDataDao[] = [];
-      for (let j = 0; j < dataChunks.length; ++j) {
-        const txAuxData = TxAuxData.fromEncryptedBuffer(dataChunks[j], this.privKey, this.grumpkin);
-        if (txAuxData) {
-          // We have successfully decrypted the data.
-          const privateTxIndex = Math.floor(j / KERNEL_NEW_COMMITMENTS_LENGTH);
-          privateTxIndices.add(privateTxIndex);
-          txAuxDataDaos.push({
-            ...txAuxData,
-            nullifier: await this.computeNullifier(txAuxData),
-            index: BigInt(dataStartIndex + j),
-            account: this.publicKey,
-          });
+      const noteSpendingInfoDaos: NoteSpendingInfoDao[] = [];
+      for (let txIndex = 0; txIndex < txLogs.length; ++txIndex) {
+        const txFunctionLogs = txLogs[txIndex].functionLogs;
+        for (const functionLogs of txFunctionLogs) {
+          for (const logs of functionLogs.logs) {
+            const noteSpendingInfo = NoteSpendingInfo.fromEncryptedBuffer(logs, this.privKey, this.grumpkin);
+            if (noteSpendingInfo) {
+              // We have successfully decrypted the data.
+              const privateTxIndex = Math.floor(txIndex / KERNEL_NEW_COMMITMENTS_LENGTH);
+              privateTxIndices.add(privateTxIndex);
+              noteSpendingInfoDaos.push({
+                ...noteSpendingInfo,
+                nullifier: await this.computeNullifier(noteSpendingInfo),
+                index: BigInt(dataStartIndex + logIndexWithinBlock),
+                account: this.publicKey,
+              });
+            }
+            logIndexWithinBlock += 1;
+          }
         }
       }
 
-      blocksAndTxAuxData.push({
-        blockContext: l2BlockContexts[i],
+      blocksAndNoteSpendingInfo.push({
+        blockContext: l2BlockContexts[blockIndex],
         userPertainingPrivateTxIndices: [...privateTxIndices],
-        txAuxDataDaos,
+        noteSpendingInfoDaos,
       });
-      dataStartIndex += dataChunks.length;
+      dataStartIndex += txLogs.length;
     }
 
-    await this.processBlocksAndTxAuxData(blocksAndTxAuxData);
+    await this.processBlocksAndNoteSpendingInfo(blocksAndNoteSpendingInfo);
 
     this.syncedToBlock = l2BlockContexts[l2BlockContexts.length - 1].block.number;
     this.log(`Synched block ${this.syncedToBlock}`);
@@ -345,49 +365,23 @@ export class AccountState {
   /**
    * Compute the nullifier for a given transaction auxiliary data.
    * The nullifier is calculated using the private key of the account,
-   * contract address, and note preimage associated with the txAuxData.
+   * contract address, and note preimage associated with the noteSpendingInfo.
    * This method assists in identifying spent commitments in the private state.
    *
-   * @param txAuxData - An instance of TxAuxData containing transaction details.
+   * @param noteSpendingInfo - An instance of NoteSpendingInfo containing transaction details.
    * @returns A Fr instance representing the computed nullifier.
    */
-  private async computeNullifier(txAuxData: TxAuxData) {
-    const simulatorOracle = new SimulatorOracle(
-      new ContractDataOracle(this.db, this.node),
-      this.db,
-      this.keyPair,
-      this.node,
-    );
-    const simulator = new AcirSimulator(simulatorOracle);
+  private async computeNullifier(noteSpendingInfo: NoteSpendingInfo) {
+    const simulator = this.getAcirSimulator();
     // TODO In the future, we'll need to simulate an unconstrained fn associated with the contract ABI and slot
     return Fr.fromBuffer(
       simulator.computeSiloedNullifier(
-        txAuxData.contractAddress,
-        txAuxData.notePreimage.items,
+        noteSpendingInfo.contractAddress,
+        noteSpendingInfo.notePreimage.items,
         this.privKey,
-        await BarretenbergWasm.get(),
+        await CircuitsWasm.get(),
       ),
     );
-  }
-
-  /**
-   * Create an UnverifiedData instance from a given list of output notes.
-   * This function converts the output note data to encrypted buffers using the owner's public key,
-   * then combines them into an UnverifiedData object. The resulting object can be used to store
-   * encrypted note data in a transaction and is decrypted by the recipient later during processing.
-   *
-   * @param outputNotes - An array of OutputNoteData objects containing the note data to be encrypted.
-   * @returns An UnverifiedData instance containing encrypted note data chunks.
-   */
-  private createUnverifiedData(outputNotes: OutputNoteData[]) {
-    const dataChunks = outputNotes.map(({ contractAddress, data }) => {
-      const { preimage, storageSlot, owner } = data;
-      const notePreimage = new NotePreimage(preimage);
-      const txAuxData = new TxAuxData(notePreimage, contractAddress, storageSlot);
-      const ownerPublicKey = Point.fromBuffer(Buffer.concat([owner.x.toBuffer(), owner.y.toBuffer()]));
-      return txAuxData.toEncryptedBuffer(ownerPublicKey, this.grumpkin);
-    });
-    return new UnverifiedData(dataChunks);
   }
 
   /**
@@ -397,15 +391,15 @@ export class AccountState {
    * transaction auxiliary data from the database. This function keeps track of new nullifiers
    * and ensures all other transactions are updated with newly settled block information.
    *
-   * @param blocksAndTxAuxData - Array of objects containing L2BlockContexts, user-pertaining transaction indices, and TxAuxDataDaos.
+   * @param blocksAndNoteSpendingInfo - Array of objects containing L2BlockContexts, user-pertaining transaction indices, and NoteSpendingInfoDaos.
    */
-  private async processBlocksAndTxAuxData(blocksAndTxAuxData: ProcessedData[]) {
-    const txAuxDataDaosBatch: TxAuxDataDao[] = [];
+  private async processBlocksAndNoteSpendingInfo(blocksAndNoteSpendingInfo: ProcessedData[]) {
+    const noteSpendingInfoDaosBatch: NoteSpendingInfoDao[] = [];
     const txDaos: TxDao[] = [];
     let newNullifiers: Fr[] = [];
 
-    for (let i = 0; i < blocksAndTxAuxData.length; ++i) {
-      const { blockContext, userPertainingPrivateTxIndices, txAuxDataDaos } = blocksAndTxAuxData[i];
+    for (let i = 0; i < blocksAndNoteSpendingInfo.length; ++i) {
+      const { blockContext, userPertainingPrivateTxIndices, noteSpendingInfoDaos } = blocksAndNoteSpendingInfo[i];
 
       // Process all the user pertaining private txs.
       userPertainingPrivateTxIndices.map((txIndex, j) => {
@@ -413,10 +407,10 @@ export class AccountState {
         this.log(`Processing tx ${txHash!.toString()} from block ${blockContext.block.number}`);
         const { newContractData } = blockContext.block.getTx(txIndex);
         const isContractDeployment = !newContractData[0].contractAddress.isZero();
-        const txAuxData = txAuxDataDaos[j];
+        const noteSpendingInfo = noteSpendingInfoDaos[j];
         const [to, contractAddress] = isContractDeployment
-          ? [undefined, txAuxData.contractAddress]
-          : [txAuxData.contractAddress, undefined];
+          ? [undefined, noteSpendingInfo.contractAddress]
+          : [noteSpendingInfo.contractAddress, undefined];
         txDaos.push({
           txHash,
           blockHash: blockContext.getBlockHash(),
@@ -427,23 +421,23 @@ export class AccountState {
           error: '',
         });
       });
-      txAuxDataDaosBatch.push(...txAuxDataDaos);
+      noteSpendingInfoDaosBatch.push(...noteSpendingInfoDaos);
 
       newNullifiers = newNullifiers.concat(blockContext.block.newNullifiers);
 
       // Ensure all the other txs are updated with newly settled block info.
       await this.updateBlockInfoInBlockTxs(blockContext);
     }
-    if (txAuxDataDaosBatch.length) {
-      await this.db.addTxAuxDataBatch(txAuxDataDaosBatch);
-      txAuxDataDaosBatch.forEach(txAuxData => {
-        this.log(`Added tx aux data with nullifier ${txAuxData.nullifier.toString()}}`);
+    if (noteSpendingInfoDaosBatch.length) {
+      await this.db.addNoteSpendingInfoBatch(noteSpendingInfoDaosBatch);
+      noteSpendingInfoDaosBatch.forEach(noteSpendingInfo => {
+        this.log(`Added tx aux data with nullifier ${noteSpendingInfo.nullifier.toString()}}`);
       });
     }
     if (txDaos.length) await this.db.addTxs(txDaos);
-    const removedAuxData = await this.db.removeNullifiedTxAuxData(newNullifiers, this.publicKey);
-    removedAuxData.forEach(txAuxData => {
-      this.log(`Removed tx aux data with nullifier ${txAuxData.nullifier.toString()}}`);
+    const removedNoteSpendingInfo = await this.db.removeNullifiedNoteSpendingInfo(newNullifiers, this.publicKey);
+    removedNoteSpendingInfo.forEach(noteSpendingInfo => {
+      this.log(`Removed tx aux data with nullifier ${noteSpendingInfo.nullifier.toString()}}`);
     });
   }
 
@@ -464,9 +458,20 @@ export class AccountState {
         txDao.blockNumber = blockContext.block.number;
         await this.db.addTx(txDao);
         this.log(`Added tx with hash ${txHash.toString()} from block ${blockContext.block.number}`);
-      } else {
+      } else if (!txHash.isZero()) {
         this.log(`Tx with hash ${txHash.toString()} from block ${blockContext.block.number} not found in db`);
       }
     }
+  }
+
+  private getAcirSimulator(contractDataOracle?: ContractDataOracle) {
+    const simulatorOracle = new SimulatorOracle(
+      contractDataOracle ?? new ContractDataOracle(this.db, this.node),
+      this.db,
+      this.keyPair,
+      this.address,
+      this.node,
+    );
+    return new AcirSimulator(simulatorOracle);
   }
 }

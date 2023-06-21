@@ -2,7 +2,8 @@
 #include "function_data.hpp"
 #include "tx_context.hpp"
 
-#include "aztec3/utils/array.hpp"
+#include "aztec3/utils/msgpack_derived_equals.hpp"
+#include "aztec3/utils/msgpack_derived_output.hpp"
 #include "aztec3/utils/types/circuit_types.hpp"
 #include "aztec3/utils/types/convert.hpp"
 #include "aztec3/utils/types/native_types.hpp"
@@ -11,7 +12,6 @@
 
 namespace aztec3::circuits::abis {
 
-using aztec3::utils::zero_array;
 using aztec3::utils::types::CircuitTypes;
 using aztec3::utils::types::NativeTypes;
 
@@ -20,16 +20,13 @@ template <typename NCT> struct TxRequest {
     using fr = typename NCT::fr;
     using boolean = typename NCT::boolean;
 
-    address from = 0;
-    address to = 0;
+    address origin = 0;
     FunctionData<NCT> function_data{};
-    std::array<fr, ARGS_LENGTH> args{};
-    fr nonce = 0;
+    fr args_hash = 0;
     TxContext<NCT> tx_context{};
-    fr chain_id = 0;
 
     // for serialization, update with new fields
-    MSGPACK_FIELDS(from, to, function_data, args, nonce, tx_context, chain_id);
+    MSGPACK_FIELDS(origin, function_data, args_hash, tx_context);
     boolean operator==(TxContext<NCT> const& other) const
     {
         return utils::msgpack_derived_equals<boolean>(*this, other);
@@ -44,9 +41,10 @@ template <typename NCT> struct TxRequest {
         auto to_circuit_type = [&](auto& e) { return e.to_circuit_type(composer); };
 
         TxRequest<CircuitTypes<Composer>> tx_request = {
-            to_ct(from),     to_ct(to),    to_circuit_type(function_data),
-            to_ct(args),     to_ct(nonce), to_circuit_type(tx_context),
-            to_ct(chain_id),
+            to_ct(origin),
+            to_circuit_type(function_data),
+            to_ct(args_hash),
+            to_circuit_type(tx_context),
         };
 
         return tx_request;
@@ -55,20 +53,12 @@ template <typename NCT> struct TxRequest {
     fr hash() const
     {
         std::vector<fr> inputs;
-        inputs.push_back(fr(from));
-        inputs.push_back(fr(to));
+        inputs.push_back(fr(origin));
         inputs.push_back(function_data.hash());
-        spread_arr_into_vec(args, inputs);
-        inputs.push_back(nonce);
+        inputs.push_back(args_hash);
         inputs.push_back(tx_context.hash());
-        inputs.push_back(chain_id);
 
         return NCT::compress(inputs, GeneratorIndex::TX_REQUEST);
-    }
-    template <size_t SIZE> void spread_arr_into_vec(std::array<fr, SIZE> const& arr, std::vector<fr>& vec) const
-    {
-        const auto arr_size = sizeof(arr) / sizeof(fr);
-        vec.insert(vec.end(), arr.data(), arr.data() + arr_size);
     }
 };
 

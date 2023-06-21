@@ -1,13 +1,14 @@
-import { ACVMField, ZERO_ACVM_FIELD, acvm, fromACVMField, toACVMField, toACVMWitness } from '../acvm/index.js';
 import { CallContext, FunctionData } from '@aztec/circuits.js';
-import { frToAztecAddress, frToNumber } from '../acvm/deserialize.js';
 import { FunctionAbi } from '@aztec/foundation/abi';
-import { createDebugLogger } from '@aztec/foundation/log';
-import { decodeReturnValues } from '../abi_coder/decoder.js';
-import { ClientTxExecutionContext } from './client_execution_context.js';
-import { select_return_flattened as selectReturnFlattened } from '@noir-lang/noir_util_wasm';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr, Point } from '@aztec/foundation/fields';
+import { createDebugLogger } from '@aztec/foundation/log';
+import { select_return_flattened as selectReturnFlattened } from '@noir-lang/noir_util_wasm';
+import { decodeReturnValues } from '../abi_coder/decoder.js';
+import { frToNumber } from '../acvm/deserialize.js';
+import { ACVMField, ZERO_ACVM_FIELD, acvm, fromACVMField, toACVMField, toACVMWitness } from '../acvm/index.js';
+import { ClientTxExecutionContext } from './client_execution_context.js';
+import { fieldsToFormattedStr } from './debug.js';
 
 const notAvailable = () => {
   return Promise.reject(new Error(`Not available for unconstrained function execution`));
@@ -43,10 +44,18 @@ export class UnconstrainedFunctionExecution {
     const initialWitness = toACVMWitness(1, this.args);
 
     const { partialWitness } = await acvm(acir, initialWitness, {
-      getSecretKey: async ([address]: ACVMField[]) => [
-        toACVMField(await this.context.db.getSecretKey(this.contractAddress, frToAztecAddress(fromACVMField(address)))),
+      getSecretKey: async ([ownerX, ownerY]: ACVMField[]) => [
+        toACVMField(
+          await this.context.db.getSecretKey(
+            this.contractAddress,
+            Point.fromCoordinates(fromACVMField(ownerX), fromACVMField(ownerY)),
+          ),
+        ),
       ],
-      getNotes2: ([storageSlot]: ACVMField[]) => this.context.getNotes(this.contractAddress, storageSlot, 2),
+      getNotes2: async ([storageSlot]: ACVMField[]) => {
+        const { preimages } = await this.context.getNotes(this.contractAddress, storageSlot, 2);
+        return preimages;
+      },
       getRandomField: () => Promise.resolve([toACVMField(Fr.random())]),
       viewNotesPage: ([acvmSlot, acvmLimit, acvmOffset]) =>
         this.context.viewNotes(
@@ -55,12 +64,15 @@ export class UnconstrainedFunctionExecution {
           frToNumber(fromACVMField(acvmLimit)),
           frToNumber(fromACVMField(acvmOffset)),
         ),
-      debugLog: ([data]: ACVMField[]) => {
-        // eslint-disable-next-line
-        console.log(data);
+      debugLog: (fields: ACVMField[]) => {
+        this.log(fieldsToFormattedStr(fields));
         return Promise.resolve([ZERO_ACVM_FIELD]);
       },
       getL1ToL2Message: ([msgKey]: ACVMField[]) => this.context.getL1ToL2Message(fromACVMField(msgKey)),
+      getCommitment: ([commitment]: ACVMField[]) =>
+        this.context
+          .getCommitment(this.contractAddress, fromACVMField(commitment))
+          .then(commitmentData => commitmentData.acvmData),
       enqueuePublicFunctionCall: notAvailable,
       notifyCreatedNote: notAvailable,
       notifyNullifiedNote: notAvailable,
@@ -68,6 +80,11 @@ export class UnconstrainedFunctionExecution {
       callPublicFunction: notAvailable,
       storageRead: notAvailable,
       storageWrite: notAvailable,
+      createCommitment: notAvailable,
+      createL2ToL1Message: notAvailable,
+      createNullifier: notAvailable,
+      emitEncryptedLog: notAvailable,
+      emitUnencryptedLog: notAvailable,
     });
 
     const returnValues: ACVMField[] = selectReturnFlattened(acir, partialWitness);

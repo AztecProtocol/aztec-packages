@@ -104,7 +104,6 @@ void update_end_values(PrivateKernelInputsInner<CT> const& private_inputs, Kerne
     // TODO: name change (just contract_address)
     const auto& storage_contract_address = private_call_public_inputs.call_context.storage_contract_address;
     const auto& portal_contract_address = private_inputs.private_call.portal_contract_address;
-    const auto& deployer_address = private_call_public_inputs.call_context.msg_sender;
     const auto& contract_deployment_data = private_call_public_inputs.contract_deployment_data;
 
     {  // contract deployment
@@ -113,14 +112,14 @@ void update_end_values(PrivateKernelInputsInner<CT> const& private_inputs, Kerne
 
         auto private_call_vk_hash = private_inputs.private_call.vk->compress(GeneratorIndex::VK);
         auto constructor_hash = compute_constructor_hash<CT>(private_inputs.private_call.call_stack_item.function_data,
-                                                             private_call_public_inputs.args,
+                                                             private_call_public_inputs.args_hash,
                                                              private_call_vk_hash);
 
         is_contract_deployment.must_imply(contract_deployment_data.constructor_vk_hash == private_call_vk_hash,
                                           "constructor_vk_hash does not match private call vk hash");
 
         // compute the contract address (only valid if this is a contract deployment)
-        auto contract_address = compute_contract_address<CT>(deployer_address,
+        auto contract_address = compute_contract_address<CT>(contract_deployment_data.deployer_public_key,
                                                              contract_deployment_data.contract_address_salt,
                                                              contract_deployment_data.function_tree_root,
                                                              constructor_hash);
