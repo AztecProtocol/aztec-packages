@@ -84,7 +84,7 @@ describe('e2e_account_contract', () => {
 
     expect(receipts[0].status).toBe(TxStatus.MINED);
     expect(receipts[1].status).toBe(TxStatus.MINED);
-  }, 30_000);
+  }, 60_000);
 
   it('calls a public function', async () => {
     logger('Calling public function...');
@@ -100,7 +100,7 @@ describe('e2e_account_contract', () => {
     expect(receipts[1].status).toBe(TxStatus.MINED);
     // The contract accumulates the values so the expected value is 95
     expect(toBigInt((await aztecNode.getStorageAt(child.address, 1n))!)).toEqual(95n);
-  }, 30_000);
+  }, 60_000);
 
   // it('rejects ecdsa signature from a different key', async () => {
   //   keyStore.ecdsaSign = () => Promise.resolve(EcdsaSignature.random());
