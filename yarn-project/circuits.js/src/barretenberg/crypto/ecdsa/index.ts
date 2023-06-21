@@ -40,7 +40,7 @@ export class Ecdsa implements Signer {
     const mem = this.wasm.call('bbmalloc', msg.length);
     this.wasm.writeMemory(0, privateKey);
     this.wasm.writeMemory(mem, msg);
-    this.wasm.call('ecdsa__construct_signature', mem, 0, 32, 64, 96);
+    this.wasm.call('ecdsa__construct_signature', mem, msg.length, 0, 32, 64, 96);
 
     return new EcdsaSignature(
       Buffer.from(this.wasm.getMemorySlice(32, 64)),
