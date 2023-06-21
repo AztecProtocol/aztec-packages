@@ -15,9 +15,9 @@ contract EcdsaAccount {
     fn entrypoint(
         inputs: pub PrivateContextInputs,
         payload: pub EntrypointPayload,
+        owner: pub [u8;64], // x and y coordinates concatenated
         signature: pub [Field;3],
-        owner: pub Point,
-        partialContractAddress: pub Field
+        //partialContractAddress: pub Field
     ) -> pub [Field; dep::aztec3::abi::PUBLIC_INPUTS_LENGTH] {
         let mut context = PrivateFunctionContext::new();
 
@@ -39,11 +39,9 @@ contract EcdsaAccount {
 
         let mut x: [u8; 32] = [0;32];
         let mut y: [u8; 32] = [0;32];
-        let x_bytes = owner.x.to_be_bytes(32);
-        let y_bytes = owner.y.to_be_bytes(32);
         for i in 0..31 {
-          x[i] = x_bytes[i];
-          y[i] = y_bytes[i];
+          x[i] = owner[i];
+          y[i] = owner[i + 32];
         }
 
         // Verify payload signature using ethereum's signing scheme
@@ -53,8 +51,9 @@ contract EcdsaAccount {
         let verification = std::ecdsa_secp256k1::verify_signature(x, y, decompressed_signature, payload_hash);
         constrain verification == 1;
 
-        let reproduced_address = dep::std::hash::pedersen([owner.x, owner.y, partialContractAddress])[0];
-        constrain reproduced_address == inputs.call_context.storage_contract_address;
+        // TODO: When we can use pedersen with non-zero generators, get this working        
+        //let reproduced_address = dep::std::hash::pedersen([owner, partialContractAddress])[0];
+        //constrain reproduced_address == inputs.call_context.storage_contract_address;
 
         for i in 0..entrypoint::ACCOUNT_MAX_PRIVATE_CALLS {
             let target_address = payload.flattened_targets[i];

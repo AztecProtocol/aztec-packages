@@ -84,6 +84,14 @@ export class Point {
   }
 
   /**
+   * Returns the contents of the point as an array of 4 fields.
+   * @returns The point as an array of 4 fields
+   */
+  toFields() {
+    return this.x.toFields().concat(this.y.toFields());
+  }
+
+  /**
    * Converts the Point instance to a Buffer representaion of the coordinates.
    * The outputs buffer length will be 64, the length of both coordinates not represented as fields.
    * @returns A Buffer representation of the Point instance.

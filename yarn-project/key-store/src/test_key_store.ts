@@ -12,7 +12,6 @@ export class TestKeyStore implements KeyStore {
 
   constructor() {}
 
-  
   /**
    * Adds an account to the key store from the provided private key.
    * @param curve - The curve to use for generating the public key.
@@ -70,7 +69,6 @@ export class TestKeyStore implements KeyStore {
    *
    * @param what - What to sign.
    * @param from - What key to use.
-   * @param signer - The signing method to use.
    * @returns The signed message.
    */
   public async sign(what: Buffer, from: PublicKey): Promise<Signature> {
