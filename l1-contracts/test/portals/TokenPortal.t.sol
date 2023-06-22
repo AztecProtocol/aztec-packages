@@ -195,6 +195,7 @@ contract TokenPortalTest is Test {
     bytes32 expectedEntryKey = _addWithdrawMessageInOutbox(address(0));
     assertEq(portalERC20.balanceOf(recipient), 0);
 
+    vm.startPrank(_caller);
     vm.expectEmit(true, true, true, true);
     emit MessageConsumed(expectedEntryKey, address(tokenPortal));
     bytes32 actualEntryKey = tokenPortal.withdraw(withdrawAmount, recipient, false);
@@ -207,6 +208,7 @@ contract TokenPortalTest is Test {
       abi.encodeWithSelector(Errors.Outbox__NothingToConsume.selector, actualEntryKey)
     );
     tokenPortal.withdraw(withdrawAmount, recipient, false);
+    vm.stopPrank();
   }
 
   function testWithdrawWithDesignatedCallerFailsForOtherCallers(address _caller) public {
@@ -226,6 +228,7 @@ contract TokenPortalTest is Test {
       abi.encodeWithSelector(Errors.Outbox__NothingToConsume.selector, entryKeyPortalChecksAgainst)
     );
     tokenPortal.withdraw(withdrawAmount, recipient, false);
+    vm.stopPrank();
   }
 
   function testWithdrawWithDesignatedCallerSucceedsForDesignatedCaller() public {

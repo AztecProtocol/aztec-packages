@@ -60,7 +60,7 @@ contract Uniswap {
         ]);
 
         // inputAsset.withdraw(inputAmount, sender, recipient=l1UniswapPortal, callerOnL1=l1UniswapPortal) 
-        // only uniswap portal can call this (done to safegaurd ordering of message consumption
+        // only uniswap portal can call this (done to safegaurd ordering of message consumption)
         // ref: https://docs.aztec.network/aztec/how-it-works/l1-l2-messaging#designated-caller
         let mut args = [0; dep::aztec3::abi::MAX_ARGS];
         args[0] = inputAmount;
