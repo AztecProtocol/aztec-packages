@@ -20,16 +20,6 @@ export interface TxSenderConfig extends L1Addresses {
   apiKey?: string;
 
   /**
-   * The chain id of the ethereum host.
-   */
-  chainId: number;
-
-  /**
-   * The version of the rollup.
-   */
-  version: number;
-
-  /**
    * The number of confirmations required.
    */
   requiredConfirmations: number;

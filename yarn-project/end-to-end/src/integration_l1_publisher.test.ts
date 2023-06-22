@@ -137,8 +137,6 @@ describe('L1Publisher integration', () => {
     publisher = getL1Publisher({
       rpcUrl: config.rpcUrl,
       apiKey: '',
-      chainId: config.chainId,
-      version: config.version,
       requiredConfirmations: 1,
       rollupContract: EthAddress.fromString(rollupAddress),
       inboxContract: EthAddress.fromString(inboxAddress),
@@ -150,9 +148,11 @@ describe('L1Publisher integration', () => {
 
   const makeEmptyProcessedTx = async () => {
     const historicTreeRoots = await getCombinedHistoricTreeRoots(builderDb);
-    const tx = await makeEmptyProcessedTxFromHistoricTreeRoots(historicTreeRoots);
-    tx.data.constants.txContext.chainId = fr(config.chainId);
-    tx.data.constants.txContext.version = fr(config.version);
+    const tx = await makeEmptyProcessedTxFromHistoricTreeRoots(
+      historicTreeRoots,
+      new Fr(config.chainId),
+      new Fr(config.version),
+    );
     return tx;
   };
 
