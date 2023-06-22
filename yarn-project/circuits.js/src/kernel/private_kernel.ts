@@ -180,3 +180,42 @@ export function privateKernelSimInner(
     wasm.call('bbfree', circuitFailureBufPtr);
   }
 }
+
+/**
+ * Computes the public inputs of a private kernel ordering iteration without computing the proof.
+ * @param wasm - The circuits wasm instance.
+ * @param previousKernel - The previous kernel data (dummy if this is the first kernel in the chain).
+ * @returns The public inputs of the private kernel.
+ */
+export function privateKernelSimOrdering(
+  wasm: CircuitsWasm,
+  previousKernel: PreviousKernelData,
+): KernelCircuitPublicInputs {
+  wasm.call('pedersen__init');
+  const previousKernelBuffer = previousKernel.toBuffer();
+  wasm.writeMemory(0, previousKernelBuffer);
+  const outputBufSizePtr = wasm.call('bbmalloc', 4);
+  const outputBufPtrPtr = wasm.call('bbmalloc', 4);
+  // Run and read outputs
+  const circuitFailureBufPtr = wasm.call(
+    'private_kernel__sim_ordering',
+    0,
+    outputBufSizePtr,
+    outputBufPtrPtr,
+  );
+  try {
+    // Try deserializing the output to `KernelCircuitPublicInputs` and throw if it fails
+    return handleCircuitOutput(
+      wasm,
+      outputBufSizePtr,
+      outputBufPtrPtr,
+      circuitFailureBufPtr,
+      KernelCircuitPublicInputs,
+    );
+  } finally {
+    // Free memory
+    wasm.call('bbfree', outputBufSizePtr);
+    wasm.call('bbfree', outputBufPtrPtr);
+    wasm.call('bbfree', circuitFailureBufPtr);
+  }
+}

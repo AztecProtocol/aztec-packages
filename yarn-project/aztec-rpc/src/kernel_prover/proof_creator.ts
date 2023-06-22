@@ -9,6 +9,7 @@ import {
   makeEmptyProof,
   privateKernelSimInit,
   privateKernelSimInner,
+  privateKernelSimOrdering,
 } from '@aztec/circuits.js';
 import { siloCommitment } from '@aztec/circuits.js/abis';
 import { Fr } from '@aztec/foundation/fields';
@@ -37,6 +38,7 @@ export interface ProofCreator {
   getSiloedCommitments(publicInputs: PrivateCircuitPublicInputs): Promise<Fr[]>;
   createProofInit(txRequest: TxRequest, privateCallData: PrivateCallData): Promise<ProofOutput>;
   createProofInner(previousKernelData: PreviousKernelData, privateCallData: PrivateCallData): Promise<ProofOutput>;
+  createProofOrdering(previousKernelData: PreviousKernelData): Promise<ProofOutput>;
 }
 
 /**
@@ -73,10 +75,10 @@ export class KernelProofCreator {
     const wasm = await CircuitsWasm.get();
     this.log('Executing private kernel simulation init...');
     const publicInputs = privateKernelSimInit(wasm, txRequest, privateCallData);
-    this.log('Skipping private kernel proving...');
+    this.log('Skipping private kernel init proving...');
     // TODO
     const proof = makeEmptyProof();
-    this.log('Kernel Prover Completed!');
+    this.log('Kernel Prover Init Completed!');
 
     return {
       publicInputs,
@@ -98,10 +100,34 @@ export class KernelProofCreator {
     const wasm = await CircuitsWasm.get();
     this.log('Executing private kernel simulation inner...');
     const publicInputs = privateKernelSimInner(wasm, previousKernelData, privateCallData);
-    this.log('Skipping private kernel proving...');
+    this.log('Skipping private kernel inner proving...');
     // TODO
     const proof = makeEmptyProof();
-    this.log('Kernel Prover Completed!');
+    this.log('Kernel Prover Inner Completed!');
+
+    return {
+      publicInputs,
+      proof,
+    };
+  }
+
+  /**
+   * Creates a proof output for a given previous kernel data and private call data for an ordering iteration.
+   *
+   * @param previousKernelData - The previous kernel data object.
+   * @param privateCallData - The private call data object.
+   * @returns A Promise resolving to a ProofOutput object containing public inputs and the kernel proof.
+   */
+  public async createProofOrdering(
+    previousKernelData: PreviousKernelData
+  ): Promise<ProofOutput> {
+    const wasm = await CircuitsWasm.get();
+    this.log('Executing private kernel simulation ordering...');
+    const publicInputs = privateKernelSimOrdering(wasm, previousKernelData);
+    this.log('Skipping private kernel ordering proving...');
+    // TODO
+    const proof = makeEmptyProof();
+    this.log('Ordering Kernel Prover Ordering Completed!');
 
     return {
       publicInputs,
