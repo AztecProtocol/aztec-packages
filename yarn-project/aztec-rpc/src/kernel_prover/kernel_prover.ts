@@ -158,7 +158,9 @@ export class KernelProver {
       Number(previousVkMembershipWitness.leafIndex),
       assertLength<Fr, typeof VK_TREE_HEIGHT>(previousVkMembershipWitness.siblingPath, VK_TREE_HEIGHT),
     );
-    output = await this.proofCreator.createProofOrdering(previousKernelData);
+
+    const orderedOutput = await this.proofCreator.createProofOrdering(previousKernelData);
+    output.publicInputs.end.newCommitments = orderedOutput.publicInputs.end.newCommitments;
 
     // Only return the notes whose commitment is in the commitments of the final proof.
     const finalNewCommitments = output.publicInputs.end.newCommitments;
