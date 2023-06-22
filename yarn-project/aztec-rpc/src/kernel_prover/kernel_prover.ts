@@ -152,12 +152,12 @@ export class KernelProver {
 
     const previousVkMembershipWitness = await this.oracle.getVkMembershipWitness(previousVerificationKey);
     const previousKernelData = new PreviousKernelData(
-          output.publicInputs,
-          output.proof,
-          previousVerificationKey,
-          Number(previousVkMembershipWitness.leafIndex),
-          assertLength<Fr, typeof VK_TREE_HEIGHT>(previousVkMembershipWitness.siblingPath, VK_TREE_HEIGHT),
-        );
+      output.publicInputs,
+      output.proof,
+      previousVerificationKey,
+      Number(previousVkMembershipWitness.leafIndex),
+      assertLength<Fr, typeof VK_TREE_HEIGHT>(previousVkMembershipWitness.siblingPath, VK_TREE_HEIGHT),
+    );
     output = await this.proofCreator.createProofOrdering(previousKernelData);
 
     // Only return the notes whose commitment is in the commitments of the final proof.

@@ -197,12 +197,7 @@ export function privateKernelSimOrdering(
   const outputBufSizePtr = wasm.call('bbmalloc', 4);
   const outputBufPtrPtr = wasm.call('bbmalloc', 4);
   // Run and read outputs
-  const circuitFailureBufPtr = wasm.call(
-    'private_kernel__sim_ordering',
-    0,
-    outputBufSizePtr,
-    outputBufPtrPtr,
-  );
+  const circuitFailureBufPtr = wasm.call('private_kernel__sim_ordering', 0, outputBufSizePtr, outputBufPtrPtr);
   try {
     // Try deserializing the output to `KernelCircuitPublicInputs` and throw if it fails
     return handleCircuitOutput(

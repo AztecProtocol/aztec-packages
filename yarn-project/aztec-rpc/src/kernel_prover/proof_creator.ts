@@ -118,9 +118,7 @@ export class KernelProofCreator {
    * @param privateCallData - The private call data object.
    * @returns A Promise resolving to a ProofOutput object containing public inputs and the kernel proof.
    */
-  public async createProofOrdering(
-    previousKernelData: PreviousKernelData
-  ): Promise<ProofOutput> {
+  public async createProofOrdering(previousKernelData: PreviousKernelData): Promise<ProofOutput> {
     const wasm = await CircuitsWasm.get();
     this.log('Executing private kernel simulation ordering...');
     const publicInputs = privateKernelSimOrdering(wasm, previousKernelData);
