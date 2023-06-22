@@ -98,8 +98,8 @@ contract TokenPortal {
    * @dev Second part of withdraw, must be initiated from L2 first as it will consume a message from outbox
    * @param _amount - The amount to withdraw
    * @param _recipient - The address to send the funds to
-   * @param _withCaller - When true, it ensures only the caller can tell outbox to consume the message
-   * (otherwise anyone can call this method to release funds to the `_recipient`)
+   * @param _withCaller - Flag to use `msg.sender` as caller, otherwise address(0)
+   * Must match the caller of the message (specified from L2) to consume it.
    * @return The key of the entry in the Outbox
    */
   function withdraw(uint256 _amount, address _recipient, bool _withCaller)

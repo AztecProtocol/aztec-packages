@@ -128,7 +128,7 @@
           "visibility": "public"
         },
         {
-          "name": "mminimumOutputAmount",
+          "name": "minimumOutputAmount",
           "type": {
             "kind": "field"
           },

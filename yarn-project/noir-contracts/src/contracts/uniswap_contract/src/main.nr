@@ -31,7 +31,7 @@ contract Uniswap {
         uniswapFeeTier: pub Field, // which uniswap tier to use (eg 3000 for 0.3% fee)
         outputAsset: pub Field,
         outputAssetPortalAddress: pub Field, // l1 portal of output asset
-        mminimumOutputAmount: pub Field, // minimum output amount to receive (slippage protection for the swap)
+        minimumOutputAmount: pub Field, // minimum output amount to receive (slippage protection for the swap)
         sender: pub Point, 
         recipient: pub Field, // recevier address of output asset after the swap
         secretHash: pub Field, // for when l1 uniswap portal inserts the message to consume output assets on L2
@@ -49,7 +49,7 @@ contract Uniswap {
             uniswapFeeTier,
             outputAsset,
             outputAssetPortalAddress,
-            mminimumOutputAmount,
+            minimumOutputAmount,
             sender.x,
             sender.y,
             recipient,
@@ -59,8 +59,8 @@ contract Uniswap {
             l1UniswapPortal,
         ]);
 
-        // inputAsset.withdraw(inputAmount, recipient=l1UniswapPortal, callerOnL1=l1UniswapPortal) // only uniswap portal can call this to safegaurd ordering of message consumption. 
-        // if someone else calls it on behalf of uniswap portal and the portal doesn't expect it, then funds might get locked! 
+        // inputAsset.withdraw(inputAmount, sender, recipient=l1UniswapPortal, callerOnL1=l1UniswapPortal) 
+        // only uniswap portal can call this (done to safegaurd ordering of message consumption
         // ref: https://docs.aztec.network/aztec/how-it-works/l1-l2-messaging#designated-caller
         let mut args = [0; dep::aztec3::abi::MAX_ARGS];
         args[0] = inputAmount;
@@ -79,7 +79,7 @@ contract Uniswap {
            inputAmount,
            uniswapFeeTier,
            outputAssetPortalAddress,
-           mminimumOutputAmount,
+           minimumOutputAmount,
            recipient,
            secretHash,
            deadlineForL1ToL2Message,

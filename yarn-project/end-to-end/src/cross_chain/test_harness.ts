@@ -158,7 +158,7 @@ export class CrossChainTestHarness {
     expect(transferReceipt.status).toBe(TxStatus.MINED);
   }
 
-  async checkEntryIsNotInOutbox(withdrawAmount: bigint): Promise<Fr> {
+  async checkEntryIsNotInOutbox(withdrawAmount: bigint, callerOnL1: EthAddress = EthAddress.ZERO): Promise<Fr> {
     this.logger('Ensure that the entry is not in outbox yet');
     const contractInfo = await this.aztecNode.getContractInfo(this.l2Contract.address);
     // 0xb460af94, selector for "withdraw(uint256,address,address)"
@@ -167,7 +167,7 @@ export class CrossChainTestHarness {
         Buffer.from([0xb4, 0x60, 0xaf, 0x94]),
         toBufferBE(withdrawAmount, 32),
         this.ethAccount.toBuffer32(),
-        EthAddress.ZERO.toBuffer32(),
+        callerOnL1.toBuffer32(),
       ]),
     );
     const entryKey = sha256ToField(

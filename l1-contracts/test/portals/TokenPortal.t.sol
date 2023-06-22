@@ -190,7 +190,8 @@ contract TokenPortalTest is Test {
     return entryKeys[0];
   }
 
-  function testWithdrawWithoutDesignatedCaller() public {
+  function testAnyoneCanCallWithdrawIfNoDesignatedCaller(address _caller) public {
+    vm.assume(_caller != address(0));
     bytes32 expectedEntryKey = _addWithdrawMessageInOutbox(address(0));
     assertEq(portalERC20.balanceOf(recipient), 0);
 
@@ -208,24 +209,13 @@ contract TokenPortalTest is Test {
     tokenPortal.withdraw(withdrawAmount, recipient, false);
   }
 
-  function testAnyoneCanCallWithdrawIfNoDesignatedCaller() public {
-    bytes32 expectedEntryKey = _addWithdrawMessageInOutbox(address(0));
-    assertEq(portalERC20.balanceOf(recipient), 0);
+  function testWithdrawWithDesignatedCallerFailsForOtherCallers(address _caller) public {
+    vm.assume(_caller != address(this));
+    // add message with caller as this address
+    _addWithdrawMessageInOutbox(address(this));
 
-    vm.prank(address(0x1));
-    vm.expectEmit(true, true, true, true);
-    emit MessageConsumed(expectedEntryKey, address(tokenPortal));
-    bytes32 actualEntryKey = tokenPortal.withdraw(withdrawAmount, recipient, false);
-    assertEq(expectedEntryKey, actualEntryKey);
-    // Should have received 654 RNA tokens
-    assertEq(portalERC20.balanceOf(recipient), withdrawAmount);
-  }
-
-  function testWithdrawWithDesignatedCaller() public {
-    bytes32 expectedEntryKey = _addWithdrawMessageInOutbox(address(this));
-
-    vm.startPrank(address(0x1));
-    bytes32 entryKeyPortalChecksAgainst = _createWithdrawMessageForOutbox(address(0x1));
+    vm.startPrank(_caller);
+    bytes32 entryKeyPortalChecksAgainst = _createWithdrawMessageForOutbox(_caller);
     vm.expectRevert(
       abi.encodeWithSelector(Errors.Outbox__NothingToConsume.selector, entryKeyPortalChecksAgainst)
     );
@@ -236,9 +226,12 @@ contract TokenPortalTest is Test {
       abi.encodeWithSelector(Errors.Outbox__NothingToConsume.selector, entryKeyPortalChecksAgainst)
     );
     tokenPortal.withdraw(withdrawAmount, recipient, false);
+  }
 
-    // okay, let's consume this for real:
-    vm.stopPrank();
+  function testWithdrawWithDesignatedCallerSucceedsForDesignatedCaller() public {
+    // add message with caller as this address
+    bytes32 expectedEntryKey = _addWithdrawMessageInOutbox(address(this));
+
     vm.expectEmit(true, true, true, true);
     emit MessageConsumed(expectedEntryKey, address(tokenPortal));
     bytes32 actualEntryKey = tokenPortal.withdraw(withdrawAmount, recipient, true);
