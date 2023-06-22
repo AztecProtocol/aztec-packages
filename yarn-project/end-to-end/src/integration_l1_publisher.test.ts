@@ -130,7 +130,7 @@ describe('L1Publisher integration', () => {
     const vks = getVerificationKeys();
     const simulator = await WasmRollupCircuitSimulator.new();
     const prover = new EmptyRollupProver();
-    builder = new SoloBlockBuilder(builderDb, vks, simulator, prover);
+    builder = new SoloBlockBuilder(builderDb, vks, simulator, prover, new Fr(config.chainId), new Fr(config.version));
 
     l2Proof = Buffer.alloc(0);
 
@@ -138,6 +138,7 @@ describe('L1Publisher integration', () => {
       rpcUrl: config.rpcUrl,
       apiKey: '',
       chainId: config.chainId,
+      version: config.version,
       requiredConfirmations: 1,
       rollupContract: EthAddress.fromString(rollupAddress),
       inboxContract: EthAddress.fromString(inboxAddress),
@@ -149,12 +150,17 @@ describe('L1Publisher integration', () => {
 
   const makeEmptyProcessedTx = async () => {
     const historicTreeRoots = await getCombinedHistoricTreeRoots(builderDb);
-    return makeEmptyProcessedTxFromHistoricTreeRoots(historicTreeRoots);
+    const tx = await makeEmptyProcessedTxFromHistoricTreeRoots(historicTreeRoots);
+    tx.data.constants.txContext.chainId = fr(config.chainId);
+    tx.data.constants.txContext.version = fr(config.version);
+    return tx;
   };
 
   const makeBloatedProcessedTx = async (seed = 0x1) => {
     const publicTx = makeTx(seed);
     const kernelOutput = KernelCircuitPublicInputs.empty();
+    kernelOutput.constants.txContext.chainId = fr(config.chainId);
+    kernelOutput.constants.txContext.version = fr(config.version);
     kernelOutput.constants.historicTreeRoots = await getCombinedHistoricTreeRoots(builderDb);
     kernelOutput.end.publicDataUpdateRequests = makeTuple(
       KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH,
