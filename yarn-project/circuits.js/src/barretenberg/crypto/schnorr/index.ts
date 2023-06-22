@@ -61,6 +61,6 @@ export class Schnorr implements Signer {
     this.wasm.writeMemory(mem, Buffer.concat([numToUInt32BE(msg.length), msg]));
     this.wasm.call('schnorr_verify_signature', mem, 0, 64, 96, 128);
     const result = this.wasm.getMemorySlice(128, 129);
-    return result != Buffer.alloc(1);
+    return !Buffer.alloc(1).equals(result);
   }
 }
