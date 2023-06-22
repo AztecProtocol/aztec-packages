@@ -112,10 +112,9 @@ export class KernelProofCreator {
   }
 
   /**
-   * Creates a proof output for a given previous kernel data and private call data for an ordering iteration.
+   * Creates a proof output based on the last inner kernel iteration kernel data for the final ordering iteration.
    *
    * @param previousKernelData - The previous kernel data object.
-   * @param privateCallData - The private call data object.
    * @returns A Promise resolving to a ProofOutput object containing public inputs and the kernel proof.
    */
   public async createProofOrdering(previousKernelData: PreviousKernelData): Promise<ProofOutput> {
