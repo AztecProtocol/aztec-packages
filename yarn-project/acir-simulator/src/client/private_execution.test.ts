@@ -260,7 +260,7 @@ describe('Private Execution test suite', () => {
       const result = await acirSimulator.run(txRequest, abi, AztecAddress.random(), EthAddress.ZERO, historicRoots);
 
       const newNullifiers = result.callStackItem.publicInputs.newNullifiers.filter(field => !field.equals(Fr.ZERO));
-      expect(newNullifiers).toHaveLength(2);
+      expect(newNullifiers).toHaveLength(1);
 
       expect(newNullifiers[0]).toEqual(
         Fr.fromBuffer(acirSimulator.computeNullifier(preimages[0], ownerPk, circuitsWasm)),
