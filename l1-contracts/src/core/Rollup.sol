@@ -40,7 +40,7 @@ contract Rollup is IRollup {
    * @param _l2Block - The L2Block data, formatted as outlined in `Decoder.sol`
    */
   function process(bytes memory _proof, bytes calldata _l2Block) external override(IRollup) {
-    _constrainGlobals(_l2Block, VERSION);
+    _constrainGlobals(_l2Block);
     (
       uint256 l2BlockNumber,
       bytes32 oldStateHash,
@@ -76,7 +76,7 @@ contract Rollup is IRollup {
     emit L2BlockProcessed(l2BlockNumber);
   }
 
-  function _constrainGlobals(bytes calldata _l2Block, uint256 _version) internal view {
+  function _constrainGlobals(bytes calldata _l2Block) internal view {
     // @todo issue #830 Constrain timestamp
 
     uint256 chainId;
@@ -91,8 +91,8 @@ contract Rollup is IRollup {
       revert Errors.Rollup__InvalidChainId(chainId, block.chainid);
     }
 
-    if (version != _version) {
-      revert Errors.Rollup__InvalidVersion(version, _version);
+    if (version != VERSION) {
+      revert Errors.Rollup__InvalidVersion(version, VERSION);
     }
   }
 }

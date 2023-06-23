@@ -244,7 +244,7 @@ describe('sequencer/solo_block_builder', () => {
   describe('mock simulator', () => {
     beforeEach(() => {
       // Create instance to test
-      builder = new SoloBlockBuilder(builderDb, vks, simulator, prover, Fr.ZERO, Fr.ZERO);
+      builder = new SoloBlockBuilder(builderDb, vks, simulator, prover, chainId, version);
     });
 
     it('builds an L2 block using mock simulator', async () => {
@@ -293,7 +293,7 @@ describe('sequencer/solo_block_builder', () => {
     beforeEach(async () => {
       const simulator = await WasmRollupCircuitSimulator.new();
       const prover = new EmptyRollupProver();
-      builder = new SoloBlockBuilder(builderDb, vks, simulator, prover, Fr.ZERO, Fr.ZERO);
+      builder = new SoloBlockBuilder(builderDb, vks, simulator, prover, chainId, version);
     });
 
     const makeContractDeployProcessedTx = async (seed = 0x1) => {
@@ -388,7 +388,7 @@ describe('sequencer/solo_block_builder', () => {
     it('e2e_zk_token edge case regression test on nullifier values', async () => {
       const simulator = await WasmRollupCircuitSimulator.new();
       const prover = new EmptyRollupProver();
-      builder = new SoloBlockBuilder(builderDb, vks, simulator, prover, Fr.ZERO, Fr.ZERO);
+      builder = new SoloBlockBuilder(builderDb, vks, simulator, prover, chainId, version);
       // update the starting tree
       const updateVals = Array(16).fill(0n);
       updateVals[0] = 19777494491628650244807463906174285795660759352776418619064841306523677458742n;

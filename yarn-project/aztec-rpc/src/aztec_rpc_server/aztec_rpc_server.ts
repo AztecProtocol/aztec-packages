@@ -253,7 +253,6 @@ export class AztecRPCServer implements AztecRPCClient {
       throw new Error(`Public entrypoints are not allowed`);
     }
 
-    // Is simulating it messing it up?
     const tx = await account.simulateAndProve(authedTxRequest, undefined);
     await this.db.addTx(new TxDao(await tx.getTxHash(), undefined, undefined, account.getAddress(), to, undefined, ''));
 
