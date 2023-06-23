@@ -91,7 +91,7 @@ contract UniswapPortalTest is Test {
       recipient: DataStructures.L1Actor(address(uniswapPortal), block.chainid),
       content: Hash.sha256ToField(
         abi.encodeWithSignature(
-          "swap(address,uint256,uint24,address,uint256,bytes32,bytes32,uint32,address)",
+          "swap(address,uint256,uint24,address,uint256,bytes32,bytes32,uint32,address,address)",
           address(daiTokenPortal),
           amount,
           uniswapFeePool,
@@ -100,6 +100,7 @@ contract UniswapPortalTest is Test {
           _aztecRecipient,
           secretHash,
           deadlineForL1ToL2Message,
+          address(this),
           address(this)
         )
         )
@@ -130,7 +131,8 @@ contract UniswapPortalTest is Test {
       aztecRecipient,
       secretHash,
       deadlineForL1ToL2Message,
-      address(this)
+      address(this),
+      true
     );
 
     // dai should be taken away from dai portal
@@ -144,7 +146,11 @@ contract UniswapPortalTest is Test {
     assertFalse(outbox.contains(swapMsgKey));
   }
 
-  function testRevertIfExpectedOutboxMessageNotFound() public {
+  function testRevertIfExpectedOutboxMessageNotFound(address _recipient) public {
+    vm.assume(_recipient != address(uniswapPortal));
+    // malformed withdraw message (wrong recipient)
+    _addMessagesToOutbox(_createDaiWithdrawMessage(_recipient), bytes32(uint256(0x1)));
+
     bytes32 entryKeyPortalChecksAgainst = _createDaiWithdrawMessage(address(uniswapPortal));
     vm.expectRevert(
       abi.encodeWithSelector(Errors.Outbox__NothingToConsume.selector, entryKeyPortalChecksAgainst)
@@ -158,7 +164,8 @@ contract UniswapPortalTest is Test {
       aztecRecipient,
       secretHash,
       deadlineForL1ToL2Message,
-      address(this)
+      address(this),
+      true
     );
   }
 
@@ -181,7 +188,8 @@ contract UniswapPortalTest is Test {
       newAztecRecipient, // change recipient of swapped token to some other address
       secretHash,
       deadlineForL1ToL2Message,
-      address(this)
+      address(this),
+      true
     );
   }
 
@@ -203,7 +211,8 @@ contract UniswapPortalTest is Test {
       aztecRecipient,
       secretHash,
       deadlineForL1ToL2Message,
-      address(this) // this address should be able to cancel
+      address(this), // this address should be able to cancel
+      true
     );
 
     uint256 wethAmountOut = WETH9.balanceOf(address(wethTokenPortal));
