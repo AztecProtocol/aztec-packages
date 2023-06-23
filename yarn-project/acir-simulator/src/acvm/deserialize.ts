@@ -57,6 +57,11 @@ export function frToSelector(fr: Fr): Buffer {
   return fr.toBuffer().slice(-4);
 }
 
+/**
+ * Extracts the fields from a witness map. TODO will be refactored.
+ * @param witness - The witness to flatten.
+ * @returns the fields of the witness.
+ */
 export function witnessMapToArray(witness: ACVMWitness): ACVMField[] {
   const sortedKeys = [...witness.keys()];
   return sortedKeys.map(key => witness.get(key) as ACVMField);
