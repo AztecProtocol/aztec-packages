@@ -1,4 +1,5 @@
 import {
+  CircuitError,
   CircuitsWasm,
   KernelCircuitPublicInputs,
   PreviousKernelData,
@@ -120,11 +121,16 @@ export class KernelProofCreator {
   public async createProofOrdering(previousKernelData: PreviousKernelData): Promise<ProofOutput> {
     const wasm = await CircuitsWasm.get();
     this.log('Executing private kernel simulation ordering...');
-    const publicInputs = privateKernelSimOrdering(wasm, previousKernelData);
+    const result = privateKernelSimOrdering(wasm, previousKernelData);
+    if (result instanceof CircuitError) {
+      throw new CircuitError(result.code, result.message);
+    }
     this.log('Skipping private kernel ordering proving...');
     // TODO
     const proof = makeEmptyProof();
     this.log('Ordering Kernel Prover Ordering Completed!');
+
+    const publicInputs = <KernelCircuitPublicInputs>result;
 
     return {
       publicInputs,
