@@ -10,7 +10,7 @@ contract Uniswap {
     
     fn constructor(
         inputs: pub PrivateContextInputs,
-    ) -> pub [Field; dep::aztec3::abi::PUBLIC_INPUTS_LENGTH] {
+    ) -> distinct pub [Field; dep::aztec3::abi::PUBLIC_INPUTS_LENGTH] {
         PrivateFunctionContext::new().finish(inputs)
     }
 
@@ -38,7 +38,7 @@ contract Uniswap {
         deadlineForL1ToL2Message: pub Field, // for when l1 uniswap portal inserts the message to consume output assets on L2
         cancellerForL1ToL2Message: pub Field, // L1 address of who can cancel the message to consume assets on L2.
         l1UniswapPortal: pub Field, // L1 address of uniswap portal contract
-    ) -> pub [Field; dep::aztec3::abi::PUBLIC_INPUTS_LENGTH] {
+    ) -> distinct pub [Field; dep::aztec3::abi::PUBLIC_INPUTS_LENGTH] {
         let mut initialContext = PrivateFunctionContext::new();
         // manually pass all the arguments into the current context - 
         initialContext.args = initialContext.args.push_array([

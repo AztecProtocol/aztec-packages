@@ -15,7 +15,7 @@ import {
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
-import { select_return_flattened as selectPublicWitnessFlattened } from '@noir-lang/noir_util_wasm';
+import { getReturnWitness } from 'acvm-simulator';
 
 // Utilities to read TS classes from ACVM Field arrays
 // In the order that the ACVM provides them
@@ -57,6 +57,11 @@ export function frToSelector(fr: Fr): Buffer {
   return fr.toBuffer().slice(-4);
 }
 
+export function witnessMapToArray(witness: ACVMWitness): ACVMField[] {
+  const sortedKeys = [...witness.keys()];
+  return sortedKeys.map(key => witness.get(key) as ACVMField);
+}
+
 /**
  * A utility reader for the public inputs of the ACVM generated partial witness.
  */
@@ -64,7 +69,8 @@ export class PublicInputsReader {
   private publicInputs: ACVMField[];
 
   constructor(witness: ACVMWitness, acir: Buffer) {
-    this.publicInputs = selectPublicWitnessFlattened(acir, witness);
+    const returnWitness = getReturnWitness(acir, witness);
+    this.publicInputs = witnessMapToArray(returnWitness as ACVMWitness);
   }
 
   /**

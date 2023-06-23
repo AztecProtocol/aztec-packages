@@ -2,9 +2,9 @@ import { AztecAddress, CallContext, EthAddress, Fr, FunctionData, PrivateHistori
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { FunctionL2Logs } from '@aztec/types';
-import { select_return_flattened as selectPublicWitnessFlattened } from '@noir-lang/noir_util_wasm';
 import {
   ACVMField,
+  ACVMWitness,
   ZERO_ACVM_FIELD,
   acvm,
   convertACVMFieldToBuffer,
@@ -15,11 +15,13 @@ import {
   toACVMWitness,
   toAcvmCommitmentLoadOracleInputs,
   toAcvmL1ToL2MessageLoadOracleInputs,
+  witnessMapToArray,
 } from '../acvm/index.js';
 import { CommitmentsDB, PublicContractsDB, PublicStateDB } from './db.js';
 import { PublicExecution, PublicExecutionResult } from './execution.js';
 import { ContractStorageActionsCollector } from './state_actions.js';
 import { fieldsToFormattedStr } from '../client/debug.js';
+import { getReturnWitness } from 'acvm-simulator';
 
 // Copied from crate::abi at noir-contracts/src/contracts/noir-aztec3/src/abi.nr
 const NOIR_MAX_RETURN_VALUES = 4;
@@ -140,7 +142,9 @@ export class PublicExecutor {
       },
     });
 
-    const returnValues = selectPublicWitnessFlattened(acir, partialWitness).map(fromACVMField);
+    const returnWitness = getReturnWitness(acir, partialWitness) as ACVMWitness;
+    const returnValues = witnessMapToArray(returnWitness).map(fromACVMField);
+
     const [contractStorageReads, contractStorageUpdateRequests] = storageActions.collect();
 
     return {
@@ -199,17 +203,17 @@ function getInitialWitness(
   witnessStartIndex = 1,
 ) {
   return toACVMWitness(witnessStartIndex, [
-    callContext.isContractDeployment,
+    callContext.msgSender,
+    callContext.storageContractAddress,
+    callContext.portalContractAddress,
     callContext.isDelegateCall,
     callContext.isStaticCall,
-    callContext.msgSender,
-    callContext.portalContractAddress,
-    callContext.storageContractAddress,
+    callContext.isContractDeployment,
 
+    commitmentTreeRoots.privateDataTreeRoot,
+    commitmentTreeRoots.nullifierTreeRoot,
     commitmentTreeRoots.contractTreeRoot,
     commitmentTreeRoots.l1ToL2MessagesTreeRoot,
-    commitmentTreeRoots.nullifierTreeRoot,
-    commitmentTreeRoots.privateDataTreeRoot,
 
     ...args,
   ]);
