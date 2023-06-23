@@ -42,7 +42,7 @@ export class EcdsaAccountContract implements AccountImplementation {
       args: encodeArguments(abi, args),
       origin: this.address,
       functionData: new FunctionData(selector, true, false),
-      txContext: TxContext.empty(txContext.chainId, txContext.version), // Why is this not using the `txContext` passed in? Question from @LHerskind.
+      txContext,
     });
 
     return txRequest;
