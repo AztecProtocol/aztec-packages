@@ -62,9 +62,10 @@ async function main() {
   const [address, pubKeyPoint] = await createAccount();
   const zkContract = await deployZKContract(pubKeyPoint);
   const accounts = await aztecRpcClient.getAccounts();
-  logger('accounts', accounts);
+  logger(`Created ${accounts.length} accounts`);
   const [balance1] = await zkContract.methods.getBalance(pointToPublicKey(pubKeyPoint)).view({ from: address });
-  logger('balance1', balance1);
+  logger(`Initial owner balance: ${balance1}`);
+  expect(balance1).toBe(INITIAL_BALANCE);
 }
 
 main()
