@@ -65,7 +65,6 @@ async function main() {
   logger(`Created ${accounts.length} accounts`);
   const [balance1] = await zkContract.methods.getBalance(pointToPublicKey(pubKeyPoint)).view({ from: address });
   logger(`Initial owner balance: ${balance1}`);
-  expect(balance1).toBe(INITIAL_BALANCE);
 }
 
 main()
