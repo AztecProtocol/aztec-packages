@@ -9,6 +9,8 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { ArchiverDataStore, MemoryArchiverStore } from './archiver_store.js';
 import { Fr } from '@aztec/foundation/fields';
+import { padArrayEnd } from '@aztec/foundation/collection';
+import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/circuits.js';
 
 describe('Archiver', () => {
   const rollupAddress = '0x0000000000000000000000000000000000000000';
@@ -96,11 +98,13 @@ describe('Archiver', () => {
 
     // Check that only 2 messages (l1ToL2MessageAddedEvents[3][2] and l1ToL2MessageAddedEvents[3][3]) are pending.
     // Other two (l1ToL2MessageAddedEvents[3][0..2]) were cancelled. And the previous messages were confirmed.
-    const expectedPendingMessageKeys = [
-      l1ToL2MessageAddedEvents[3][2].args.entryKey,
-      l1ToL2MessageAddedEvents[3][3].args.entryKey,
-    ];
-    const actualPendingMessageKeys = (await archiver.getPendingL1ToL2Messages(10)).map(key => key.toString(true));
+    const expectedPendingMessageKeys = padArrayEnd(
+      [l1ToL2MessageAddedEvents[3][2].args.entryKey, l1ToL2MessageAddedEvents[3][3].args.entryKey],
+      Fr.ZERO.toString(true),
+      NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
+    );
+
+    const actualPendingMessageKeys = (await archiver.getPendingL1ToL2Messages()).map(key => key.toString(true));
     expect(expectedPendingMessageKeys).toEqual(actualPendingMessageKeys);
 
     // Expect logs to correspond to what is set by L2Block.random(...)

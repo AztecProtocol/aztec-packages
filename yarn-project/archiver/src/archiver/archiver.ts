@@ -343,14 +343,12 @@ export class Archiver implements L2BlockSource, L2LogsSource, ContractDataSource
   }
 
   /**
-   * Gets the `take` amount of pending L1 to L2 messages.
-   * Note: The returned array will be padded to `NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP`.
-   * @param take - The number of messages to return.
+   * Gets the `NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP` amount of pending L1 to L2 messages.
+   * If there are not enough messages, it will be padded to `NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP`.
    * @returns The requested L1 to L2 messages' keys.
    */
-  // TODO: remove the take from there? Does it make sense to stay?
-  async getPendingL1ToL2Messages(take: number): Promise<NewL1ToL2Messages> {
-    const messages = await this.store.getPendingL1ToL2MessageKeys(take);
+  async getPendingL1ToL2Messages(): Promise<NewL1ToL2Messages> {
+    const messages = await this.store.getPendingL1ToL2MessageKeys();
     return padArrayEnd(messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
   }
 

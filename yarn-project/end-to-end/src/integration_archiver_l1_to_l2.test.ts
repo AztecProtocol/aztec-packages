@@ -118,7 +118,8 @@ describe('archiver integration with l1 to l2 messages', () => {
     await delay(5000);
 
     // archiver shouldn't have any pending messages.
-    expect((await archiver.getPendingL1ToL2Messages(10)).length).toEqual(0);
+    const pendingMessages = await archiver.getPendingL1ToL2Messages();
+    pendingMessages.forEach(e => expect(e).toEqual(Fr.ZERO));
   }, 80_000);
 
   it('archiver handles l1 to l2 message correctly even when l2block has no such messages', async () => {
@@ -132,7 +133,8 @@ describe('archiver integration with l1 to l2 messages', () => {
       )
       .send({ from: accounts[0] });
 
-    expect((await archiver.getPendingL1ToL2Messages(10)).length).toEqual(0);
+    const pendingMessages = await archiver.getPendingL1ToL2Messages();
+    pendingMessages.forEach(e => expect(e).toEqual(Fr.ZERO));
     expect(() => archiver.getConfirmedL1ToL2Message(Fr.ZERO)).toThrow();
   });
 });

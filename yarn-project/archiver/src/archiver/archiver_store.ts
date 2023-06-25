@@ -67,11 +67,11 @@ export interface ArchiverDataStore {
   confirmL1ToL2Messages(messageKeys: Fr[]): Promise<boolean>;
 
   /**
-   * Gets the `take` amount of pending L1 to L2 messages, sorted by fee
-   * @param take - The number of messages to return (by default NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).
-   * @returns The requested L1 to L2 message keys.
+   * Gets the `NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP` amount of pending L1 to L2 messages.
+   * If there are not enough messages, it will be padded to `NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP`.
+   * @returns The requested L1 to L2 messages' keys.
    */
-  getPendingL1ToL2MessageKeys(take: number): Promise<Fr[]>;
+  getPendingL1ToL2MessageKeys(): Promise<Fr[]>;
 
   /**
    * Gets the confirmed L1 to L2 message corresponding to the given message key.
