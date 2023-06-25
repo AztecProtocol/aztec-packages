@@ -2,6 +2,13 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/circuits.js/utils';
+import { Tuple } from '@aztec/foundation/serialize';
+import {NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP} from "@aztec/circuits.js"
+
+/**
+ * An array containing the `NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP` field elements.
+ */
+export type NewL1ToL2Messages = Tuple<Fr, typeof NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP>;
 
 /**
  * Interface of classes allowing for the retrieval of L1 to L2 messages.
@@ -12,7 +19,7 @@ export interface L1ToL2MessageSource {
    * @param take - The number of messages to return (by default NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).
    * @returns The requested L1 to L2 messages' keys.
    */
-  getPendingL1ToL2Messages(take?: number): Promise<Fr[]>;
+  getPendingL1ToL2Messages(take?: number): Promise<NewL1ToL2Messages>;
 
   /**
    * Gets the confirmed L1 to L2 message with the given message key.

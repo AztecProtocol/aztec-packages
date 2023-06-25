@@ -1,6 +1,6 @@
-import { CombinedHistoricTreeRoots, Fr, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, makeEmptyProof } from '@aztec/circuits.js';
+import { CombinedHistoricTreeRoots, Fr, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, makeEmptyProof, makeTuple } from '@aztec/circuits.js';
 import { P2P, P2PClientState } from '@aztec/p2p';
-import { L1ToL2MessageSource, L2Block, L2BlockSource, MerkleTreeId, Tx, TxHash } from '@aztec/types';
+import { L1ToL2MessageSource, L2Block, L2BlockSource, MerkleTreeId, NewL1ToL2Messages, Tx, TxHash } from '@aztec/types';
 import { MerkleTreeOperations, WorldStateRunningState, WorldStateSynchroniser } from '@aztec/world-state';
 import { MockProxy, mock } from 'jest-mock-extended';
 import times from 'lodash.times';
@@ -55,7 +55,7 @@ describe('sequencer', () => {
     });
 
     l1ToL2MessageSource = mock<L1ToL2MessageSource>({
-      getPendingL1ToL2Messages: () => Promise.resolve(Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(Fr.ZERO)),
+      getPendingL1ToL2Messages: () => Promise.resolve(makeTuple(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, () => Fr.ZERO)),
     });
 
     sequencer = new TestSubject(

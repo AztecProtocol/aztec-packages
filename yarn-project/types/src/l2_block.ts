@@ -7,6 +7,7 @@ import {
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   KERNEL_NEW_L2_TO_L1_MSGS_LENGTH,
   GlobalVariables,
+  makeTuple,
 } from '@aztec/circuits.js';
 import { makeAppendOnlyTreeSnapshot, makeGlobalVariables } from '@aztec/circuits.js/factories';
 import { BufferReader, serializeToBuffer } from '@aztec/circuits.js/utils';
@@ -17,7 +18,8 @@ import { L2Tx } from './l2_tx.js';
 import { PublicDataWrite } from './public_data_write.js';
 import { sha256, sha256ToField } from '@aztec/foundation/crypto';
 import { L2BlockL2Logs } from './logs/l2_block_l2_logs.js';
-import { TxL2Logs } from './index.js';
+import { NewL1ToL2Messages, TxL2Logs } from './index.js';
+import { padArrayEnd } from '@aztec/foundation/collection';
 
 /**
  * The data that makes up the rollup proof, with encoder decoder functions.
@@ -142,7 +144,7 @@ export class L2Block {
     /**
      * The L1 to L2 messages to be inserted into the L2 toL2 message tree.
      */
-    public newL1ToL2Messages: Fr[] = [],
+    public newL1ToL2Messages: NewL1ToL2Messages,
     newEncryptedLogs?: L2BlockL2Logs,
     newUnencryptedLogs?: L2BlockL2Logs,
   ) {
@@ -181,7 +183,7 @@ export class L2Block {
     const newContracts = times(KERNEL_NEW_CONTRACTS_LENGTH * txsPerBlock, Fr.random);
     const newContractData = times(KERNEL_NEW_CONTRACTS_LENGTH * txsPerBlock, ContractData.random);
     const newPublicDataWrites = times(KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH * txsPerBlock, PublicDataWrite.random);
-    const newL1ToL2Messages = times(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, Fr.random);
+    const newL1ToL2Messages = makeTuple(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, Fr.random);
     const newL2ToL1Msgs = times(KERNEL_NEW_L2_TO_L1_MSGS_LENGTH, Fr.random);
     const newEncryptedLogs = L2BlockL2Logs.random(txsPerBlock, numPrivateFunctionCalls, numEncryptedLogs);
     const newUnencryptedLogs = L2BlockL2Logs.random(txsPerBlock, numPublicFunctionCalls, numUnencryptedLogs);
@@ -322,7 +324,7 @@ export class L2Block {
     /**
      * The L1 to L2 messages to be inserted into the L2 toL2 message tree.
      */
-    newL1ToL2Messages: Fr[];
+    newL1ToL2Messages: NewL1ToL2Messages;
     /**
      * Encrypted logs from private txs in a block.
      */
@@ -446,8 +448,7 @@ export class L2Block {
     const newL2ToL1Msgs = reader.readVector(Fr);
     const newContracts = reader.readVector(Fr);
     const newContractData = reader.readArray(newContracts.length, ContractData);
-    // TODO(sean): could an optimisation of this be that it is encoded such that zeros are assumed
-    const newL1ToL2Messages = reader.readVector(Fr);
+    const newL1ToL2Messages = padArrayEnd(reader.readVector(Fr), Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
     const newEncryptedLogs = reader.readObject(L2BlockL2Logs);
     const newUnencryptedLogs = reader.readObject(L2BlockL2Logs);
 

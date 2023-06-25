@@ -3,7 +3,7 @@ import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { INITIAL_L2_BLOCK_NUM, L1ToL2Message, L1ToL2MessageSource, L2BlockL2Logs } from '@aztec/types';
+import { INITIAL_L2_BLOCK_NUM, L1ToL2Message, L1ToL2MessageSource, L2BlockL2Logs, NewL1ToL2Messages } from '@aztec/types';
 import {
   ContractData,
   ContractPublicData,
@@ -25,6 +25,8 @@ import {
   retrieveNewCancelledL1ToL2Messages,
 } from './data_retrieval.js';
 import { ArchiverDataStore, MemoryArchiverStore } from './archiver_store.js';
+import { padArrayEnd } from '@aztec/foundation/collection';
+import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/circuits.js';
 
 /**
  * Pulls L2 blocks in a non-blocking manner and provides interface for their retrieval.
@@ -336,11 +338,14 @@ export class Archiver implements L2BlockSource, L2LogsSource, ContractDataSource
 
   /**
    * Gets the `take` amount of pending L1 to L2 messages.
+   * Note: The returned array will be padded to `NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP`.
    * @param take - The number of messages to return.
    * @returns The requested L1 to L2 messages' keys.
    */
-  getPendingL1ToL2Messages(take: number): Promise<Fr[]> {
-    return this.store.getPendingL1ToL2MessageKeys(take);
+  // TODO: remove the take from there? Does it make sense to stay?
+  async getPendingL1ToL2Messages(take: number): Promise<NewL1ToL2Messages> {
+    const messages = await this.store.getPendingL1ToL2MessageKeys(take);
+    return padArrayEnd(messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
   }
 
   /**

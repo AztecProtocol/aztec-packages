@@ -48,6 +48,7 @@ import {
 import { PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts';
 import { localAnvil } from './fixtures.js';
 import { to2Fields } from '@aztec/foundation/serialize';
+import { padArrayEnd } from '@aztec/foundation/collection';
 
 // Accounts 4 and 5 of Anvil default startup with mnemonic: 'test test test test test test test test test test test junk'
 const sequencerPK = '0x47e179ec197488593b187f80a00eb0da91f1b9d0b13f8733639f19c30a34926a';
@@ -266,7 +267,11 @@ describe('L1Publisher integration', () => {
         await makeBloatedProcessedTx(128 * i + 96),
         await makeBloatedProcessedTx(128 * i + 128),
       ];
-      const [block] = await builder.buildL2Block(1 + i, txs, l1ToL2Messages);
+
+      // L1 to L2 messages must be of length `NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP`.
+      const paddedL1ToL2Messages = padArrayEnd(l1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
+
+      const [block] = await builder.buildL2Block(1 + i, txs, paddedL1ToL2Messages);
 
       // check that values are in the inbox
       for (let j = 0; j < l1ToL2Messages.length; j++) {
@@ -344,7 +349,7 @@ describe('L1Publisher integration', () => {
     const blockNumber = await publicClient.getBlockNumber();
 
     for (let i = 0; i < numberOfConsecutiveBlocks; i++) {
-      const l1ToL2Messages = new Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n));
+      const l1ToL2Messages = makeTuple(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, () => Fr.ZERO);
       const txs = [
         await makeEmptyProcessedTx(),
         await makeEmptyProcessedTx(),

@@ -1,5 +1,5 @@
 import { Fr, Fq } from '../fields/fields.js';
-import { Tuple } from './types.js';
+import { Tuple, mapTuple } from './types.js';
 
 /**
  * The BufferReader class provides a utility for reading various data types from a buffer.
@@ -138,6 +138,32 @@ export class BufferReader {
     }
     return result;
   }
+
+  /**
+   * Reads a vector of fixed size from the buffer and deserializes its elements into a fixed size tuple object using the provided
+   * itemDeserializer object.
+   * The 'itemDeserializer' object should have a 'fromBuffer' method that takes a BufferReader instance and returns the deserialized element.
+   * The method first reads the size of the vector (a number) from the buffer, then iterates through its elements,
+   * deserializing each one using the 'fromBuffer' method of 'itemDeserializer'.
+   *
+   * @param itemDeserializer - Object with 'fromBuffer' method to deserialize vector elements.
+   * @returns An array of deserialized elements of type T.
+   */
+  public readTuple<T, N extends number>(
+    itemDeserializer: {
+    /**
+     * A method to deserialize data from a buffer.
+     */
+    fromBuffer: (reader: BufferReader) => T;
+  }): Tuple<T, N> {
+    const size = this.readNumber();
+    const result = new Array<T>(size as N);
+    for (let i = 0; i < size; i++) {
+      result[i] = itemDeserializer.fromBuffer(this);
+    }
+    return result as Tuple<T, N>;
+  }
+
 
   /**
    * Read an array of a fixed size with elements of type T from the buffer.

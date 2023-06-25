@@ -29,7 +29,7 @@ import {
   makeRootRollupPublicInputs,
 } from '@aztec/circuits.js/factories';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
-import { ContractData, L2Block, L2BlockL2Logs, MerkleTreeId, PublicDataWrite, Tx, TxL2Logs } from '@aztec/types';
+import { ContractData, L2Block, L2BlockL2Logs, MerkleTreeId, NewL1ToL2Messages, PublicDataWrite, Tx, TxL2Logs } from '@aztec/types';
 import { MerkleTreeOperations, MerkleTrees } from '@aztec/world-state';
 import { MockProxy, mock } from 'jest-mock-extended';
 import { default as levelup } from 'levelup';
@@ -66,7 +66,7 @@ describe('sequencer/solo_block_builder', () => {
   let baseRollupOutputLeft: BaseOrMergeRollupPublicInputs;
   let baseRollupOutputRight: BaseOrMergeRollupPublicInputs;
   let rootRollupOutput: RootRollupPublicInputs;
-  let mockL1ToL2Messages: Fr[];
+  let mockL1ToL2Messages: NewL1ToL2Messages;
 
   let wasm: CircuitsWasm;
 
@@ -89,7 +89,7 @@ describe('sequencer/solo_block_builder', () => {
     builder = new SoloBlockBuilder(builderDb, vks, simulator, prover, chainId, version);
 
     // Create mock l1 to L2 messages
-    mockL1ToL2Messages = new Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n));
+    mockL1ToL2Messages = makeTuple(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, () => Fr.ZERO);
 
     // Create mock outputs for simulator
     baseRollupOutputLeft = makeBaseOrMergeRollupPublicInputs();
@@ -279,14 +279,6 @@ describe('sequencer/solo_block_builder', () => {
       const actual = await builderDb.getTreeInfo(MerkleTreeId.NULLIFIER_TREE);
       expect(actual).toEqual(expected);
     });
-
-    it('rejects if too many l1 to l2 messages are provided', async () => {
-      // Assemble a fake transaction
-      const txs = await buildMockSimulatorInputs();
-      const l1ToL2Messages = new Array(100).fill(new Fr(0n));
-
-      await expect(builder.buildL2Block(blockNumber, txs, l1ToL2Messages)).rejects.toThrow();
-    });
   });
 
   describe('circuits simulator', () => {
@@ -378,7 +370,7 @@ describe('sequencer/solo_block_builder', () => {
         makeBloatedProcessedTx(128),
       ]);
 
-      const l1ToL2Messages = range(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, 1 + 0x400).map(fr);
+      const l1ToL2Messages = makeTuple(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, () => fr(1 + 0x400));
 
       const [l2Block] = await builder.buildL2Block(1, txs, l1ToL2Messages);
       expect(l2Block.number).toEqual(1);

@@ -26,7 +26,7 @@ import {
   makeTuple,
 } from '@aztec/circuits.js';
 import { computeContractLeaf } from '@aztec/circuits.js/abis';
-import { MerkleTreeId, ContractData, L2Block, PublicDataWrite, TxL2Logs, L2BlockL2Logs } from '@aztec/types';
+import { MerkleTreeId, ContractData, L2Block, PublicDataWrite, TxL2Logs, L2BlockL2Logs, NewL1ToL2Messages } from '@aztec/types';
 import { MerkleTreeOperations } from '@aztec/world-state';
 import chunk from 'lodash.chunk';
 import flatMap from 'lodash.flatmap';
@@ -85,7 +85,7 @@ export class SoloBlockBuilder implements BlockBuilder {
   public async buildL2Block(
     blockNumber: number,
     txs: ProcessedTx[],
-    newL1ToL2Messages: Fr[],
+    newL1ToL2Messages: NewL1ToL2Messages,
     timestamp = 0,
   ): Promise<[L2Block, Proof]> {
     this.globalVariables = new GlobalVariables(this.chainId, this.version, new Fr(blockNumber), new Fr(timestamp));

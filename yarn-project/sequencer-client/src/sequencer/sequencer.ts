@@ -9,6 +9,7 @@ import {
   L2Block,
   L2BlockSource,
   MerkleTreeId,
+  NewL1ToL2Messages,
   Tx,
 } from '@aztec/types';
 import { WorldStateStatus, WorldStateSynchroniser } from '@aztec/world-state';
@@ -284,7 +285,7 @@ export class Sequencer {
    * (archiver returns the top messages sorted by fees)
    * @returns An array of L1 to L2 messages' messageKeys
    */
-  protected async getPendingL1ToL2Messages(): Promise<Fr[]> {
+  protected async getPendingL1ToL2Messages(): Promise<NewL1ToL2Messages> {
     return await this.l1ToL2MessageSource.getPendingL1ToL2Messages();
   }
 
