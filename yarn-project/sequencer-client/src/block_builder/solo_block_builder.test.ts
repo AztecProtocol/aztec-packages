@@ -16,7 +16,6 @@ import {
   PublicDataUpdateRequest,
   RootRollupPublicInputs,
   makeTuple,
-  range,
 } from '@aztec/circuits.js';
 import { computeContractLeaf } from '@aztec/circuits.js/abis';
 import {
@@ -29,7 +28,16 @@ import {
   makeRootRollupPublicInputs,
 } from '@aztec/circuits.js/factories';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
-import { ContractData, L2Block, L2BlockL2Logs, MerkleTreeId, NewL1ToL2Messages, PublicDataWrite, Tx, TxL2Logs } from '@aztec/types';
+import {
+  ContractData,
+  L2Block,
+  L2BlockL2Logs,
+  MerkleTreeId,
+  NewL1ToL2Messages,
+  PublicDataWrite,
+  Tx,
+  TxL2Logs,
+} from '@aztec/types';
 import { MerkleTreeOperations, MerkleTrees } from '@aztec/world-state';
 import { MockProxy, mock } from 'jest-mock-extended';
 import { default as levelup } from 'levelup';

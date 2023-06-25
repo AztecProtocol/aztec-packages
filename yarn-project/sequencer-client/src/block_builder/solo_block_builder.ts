@@ -26,7 +26,15 @@ import {
   makeTuple,
 } from '@aztec/circuits.js';
 import { computeContractLeaf } from '@aztec/circuits.js/abis';
-import { MerkleTreeId, ContractData, L2Block, PublicDataWrite, TxL2Logs, L2BlockL2Logs, NewL1ToL2Messages } from '@aztec/types';
+import {
+  MerkleTreeId,
+  ContractData,
+  L2Block,
+  PublicDataWrite,
+  TxL2Logs,
+  L2BlockL2Logs,
+  NewL1ToL2Messages,
+} from '@aztec/types';
 import { MerkleTreeOperations } from '@aztec/world-state';
 import chunk from 'lodash.chunk';
 import flatMap from 'lodash.flatmap';

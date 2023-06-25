@@ -3,7 +3,7 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/circuits.js/utils';
 import { Tuple } from '@aztec/foundation/serialize';
-import {NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP} from "@aztec/circuits.js"
+import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/circuits.js';
 
 /**
  * An array containing the `NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP` field elements.

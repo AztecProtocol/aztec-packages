@@ -3,7 +3,13 @@ import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { INITIAL_L2_BLOCK_NUM, L1ToL2Message, L1ToL2MessageSource, L2BlockL2Logs, NewL1ToL2Messages } from '@aztec/types';
+import {
+  INITIAL_L2_BLOCK_NUM,
+  L1ToL2Message,
+  L1ToL2MessageSource,
+  L2BlockL2Logs,
+  NewL1ToL2Messages,
+} from '@aztec/types';
 import {
   ContractData,
   ContractPublicData,
