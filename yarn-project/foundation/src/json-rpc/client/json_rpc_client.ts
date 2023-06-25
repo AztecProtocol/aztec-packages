@@ -6,7 +6,7 @@ import { RemoteObject } from 'comlink';
 import { createDebugLogger } from '../../log/index.js';
 import { retry } from '../../retry/index.js';
 import { ClassConverter, ClassConverterInput } from '../class_converter.js';
-import { convertFromJsonObj, convertToJsonObj } from '../convert.js';
+import { JsonStringify, convertFromJsonObj, convertToJsonObj } from '../convert.js';
 
 const debug = createDebugLogger('json-rpc:json_rpc_client');
 /**
@@ -18,19 +18,18 @@ const debug = createDebugLogger('json-rpc:json_rpc_client');
  * @returns The parsed JSON response, or throws an error.
  */
 export async function defaultFetch(host: string, rpcMethod: string, body: any, useApiEndpoints: boolean) {
-  debug(`JsonRpcClient.fetch`, host, rpcMethod, '<-', body);
+  debug(`JsonRpcClient.fetch`, host, rpcMethod, '->', body);
   let resp: Response;
   if (useApiEndpoints) {
     resp = await fetch(`${host}/${rpcMethod}`, {
       method: 'POST',
-      body: JSON.stringify(body),
+      body: JsonStringify(body),
       headers: { 'content-type': 'application/json' },
     });
   } else {
-    console.log('host', host);
     resp = await fetch(host, {
       method: 'POST',
-      body: JSON.stringify({ ...body, method: rpcMethod }),
+      body: JsonStringify({ ...body, method: rpcMethod }),
       headers: { 'content-type': 'application/json' },
     });
   }
@@ -60,11 +59,12 @@ export async function mustSucceedFetch(host: string, rpcMethod: string, body: an
  */
 export function createJsonRpcClient<T extends object>(
   host: string,
-  classMap: ClassConverterInput,
+  stringClassMap: ClassConverterInput,
+  objectClassMap: ClassConverterInput,
   useApiEndpoints: boolean,
   fetch = defaultFetch,
 ) {
-  const classConverter = new ClassConverter(classMap);
+  const classConverter = new ClassConverter(stringClassMap, objectClassMap);
   let id = 0;
   const request = async (method: string, params: any[]): Promise<any> => {
     const body = {
@@ -75,11 +75,11 @@ export function createJsonRpcClient<T extends object>(
     };
     debug(`JsonRpcClient.request`, method, '<-', params);
     const res = await fetch(host, method, body, useApiEndpoints);
-    debug(`JsonRpcClient.request`, method, '->', res);
+    debug(`JsonRpcClient.result`, method, '->', res);
     if (res.error) {
       throw res.error;
     }
-    return convertFromJsonObj(classConverter, res.result);
+    return convertFromJsonObj(classConverter, JSON.parse(res.result));
   };
 
   // Intercept any RPC methods with a proxy

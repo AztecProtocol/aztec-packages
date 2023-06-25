@@ -78,8 +78,12 @@ export class TxHash {
     return new TxHash(padded);
   }
 
+  /**
+   * Converts a string into a TxHash object.
+   * @param str - The TX hash in string format.
+   * @returns A new TxHash object.
+   */
   public static fromString(str: string): TxHash {
-    const buffer = Buffer.from(str, 'hex');
-    return TxHash.fromBuffer28(buffer);
+    return new TxHash(Buffer.from(str, 'hex'));
   }
 }

@@ -11,8 +11,8 @@ const debug = createDebugLogger('json-rpc:json_proxy');
  */
 export class JsonProxy {
   classConverter: ClassConverter;
-  constructor(private handler: object, input: ClassConverterInput) {
-    this.classConverter = new ClassConverter(input);
+  constructor(private handler: object, stringClassMap: ClassConverterInput, objectClassMap: ClassConverterInput) {
+    this.classConverter = new ClassConverter(stringClassMap, objectClassMap);
   }
   /**
    * Call an RPC method.
@@ -22,20 +22,15 @@ export class JsonProxy {
    */
   public async call(methodName: string, jsonParams: any[] = []) {
     // Get access to our class members
-    console.log('this.handler', this.handler);
-    console.log('methodName', methodName);
-    console.log('jsonParams', jsonParams);
-    console.log('classConverter', this.classConverter);
     const proto = Object.getPrototypeOf(this.handler);
     assert(hasOwnProperty(proto, methodName), 'JsonProxy: Method not found!');
     assert(Array.isArray(jsonParams), 'JsonProxy: Params not an array!');
     // convert the params from json representation to classes
     const convertedParams = jsonParams.map(param => convertFromJsonObj(this.classConverter, param));
-    debug('JsonProxy:call', this.handler, methodName, '<-', convertedParams);
-    console.log(`trying calling: ${(this.handler as any)[methodName]}`);
+    debug('JsonProxy:call', methodName, '<-', convertedParams);
     const rawRet = await (this.handler as any)[methodName](...convertedParams);
     const ret = convertToJsonObj(this.classConverter, rawRet);
-    debug('JsonProxy:call', this.handler, methodName, '->', ret);
+    debug('JsonProxy:call', methodName, '->', ret);
     return ret;
   }
 }

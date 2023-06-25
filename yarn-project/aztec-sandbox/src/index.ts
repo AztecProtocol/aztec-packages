@@ -1,16 +1,33 @@
 import http from 'http';
+import { foundry } from 'viem/chains';
+
+import { mnemonicToAccount } from 'viem/accounts';
 import { getHttpRpcServer } from '@aztec/aztec-rpc';
 import { createDebugLogger } from '@aztec/foundation/log';
+import { AztecNodeConfig, getConfigEnvVars } from '@aztec/aztec-node';
+import { deployL1Contracts } from '@aztec/ethereum';
 
-const { SERVER_PORT = 8080 } = process.env;
+const { SERVER_PORT = 8080, MNEMONIC = 'test test test test test test test test test test test junk' } = process.env;
 
-const logger = createDebugLogger;
+const logger = createDebugLogger('aztec:sandbox');
+
+export const localAnvil = foundry;
 
 /**
  * Create and start a new Aztec RCP HTTP Server
  */
 async function main() {
-  const rpcServer = await getHttpRpcServer();
+  const aztecNodeConfig: AztecNodeConfig = getConfigEnvVars();
+
+  const hdAccount = mnemonicToAccount(MNEMONIC);
+  const privKey = hdAccount.getHdKey().privateKey;
+  const deployedL1Contracts = await deployL1Contracts(aztecNodeConfig.rpcUrl, hdAccount, localAnvil, logger);
+  aztecNodeConfig.publisherPrivateKey = Buffer.from(privKey!);
+  aztecNodeConfig.rollupContract = deployedL1Contracts.rollupAddress;
+  aztecNodeConfig.contractDeploymentEmitterContract = deployedL1Contracts.contractDeploymentEmitterAddress;
+  aztecNodeConfig.inboxContract = deployedL1Contracts.inboxAddress;
+
+  const rpcServer = await getHttpRpcServer(aztecNodeConfig);
   const httpServer = http.createServer(rpcServer.getApp().callback());
   httpServer.listen(SERVER_PORT);
 }

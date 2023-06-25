@@ -8,6 +8,7 @@ import bodyParser from 'koa-bodyparser';
 import { createLogger } from '../../log/index.js';
 import { ClassConverterInput } from '../class_converter.js';
 import { JsonProxy } from './json_proxy.js';
+import { JsonStringify } from '../convert.js';
 
 /**
  * JsonRpcServer.
@@ -17,12 +18,13 @@ export class JsonRpcServer {
   proxy: JsonProxy;
   constructor(
     private handler: object,
-    input: ClassConverterInput,
+    stringClassMap: ClassConverterInput,
+    objectClassMap: ClassConverterInput,
     private createApi: boolean,
     private disallowedMethods: string[] = [],
     private log = createLogger('aztec:foundation:json-rpc:server'),
   ) {
-    this.proxy = new JsonProxy(handler, input);
+    this.proxy = new JsonProxy(handler, stringClassMap, objectClassMap);
   }
 
   /**
@@ -43,7 +45,7 @@ export class JsonRpcServer {
     };
     const app = new Koa();
     app.on('error', error => {
-      this.log(`KOA app-level error. ${JSON.stringify({ error })}`);
+      this.log(`KOA app-level error. ${JsonStringify({ error })}`);
     });
     app.use(compress({ br: false } as any));
     app.use(bodyParser());
@@ -79,7 +81,7 @@ export class JsonRpcServer {
         router.post(`/${method}`, async (ctx: Koa.Context) => {
           const { params = [], jsonrpc, id } = ctx.request.body as any;
           const result = await this.proxy.call(method, params);
-          ctx.body = { jsonrpc, id, result };
+          ctx.body = { jsonrpc, id, result: JsonStringify(result) };
           ctx.status = 200;
         });
       }
@@ -97,7 +99,12 @@ export class JsonRpcServer {
           ctx.body = { error: `Invalid method name: ${method}` };
         }
         const result = await this.proxy.call(method, params);
-        ctx.body = { jsonrpc, id, result };
+
+        ctx.body = {
+          jsonrpc,
+          id,
+          result: JsonStringify(result),
+        };
         ctx.status = 200;
       });
     }

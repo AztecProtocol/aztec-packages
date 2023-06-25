@@ -3,7 +3,7 @@ import { TestState, TestNote } from '../fixtures/test_state.js';
 import { JsonRpcServer } from './json_rpc_server.js';
 
 test('test an RPC function with a primitive parameter', async () => {
-  const server = new JsonRpcServer(new TestState([new TestNote('a'), new TestNote('b')]), { TestNote }, true);
+  const server = new JsonRpcServer(new TestState([new TestNote('a'), new TestNote('b')]), { TestNote }, {}, true);
   const response = await request(server.getApp().callback())
     .post('/getNote')
     .send({ params: [0] });
@@ -12,7 +12,7 @@ test('test an RPC function with a primitive parameter', async () => {
 });
 
 test('test an RPC function with an array of classes', async () => {
-  const server = new JsonRpcServer(new TestState([]), { TN: TestNote }, true);
+  const server = new JsonRpcServer(new TestState([]), { TestNote }, {}, true);
   const response = await request(server.getApp().callback())
     .post('/addNotes')
     .send({

@@ -7,7 +7,13 @@
   },
   "references": [
     {
+      "path": "../aztec-node"
+    },
+    {
       "path": "../aztec-rpc"
+    },
+    {
+      "path": "../ethereum"
     },
     {
       "path": "../foundation"

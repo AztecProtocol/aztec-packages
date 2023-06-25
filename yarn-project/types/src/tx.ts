@@ -9,7 +9,7 @@ import { TxHash } from './tx_hash.js';
  * The interface of an L2 transaction.
  */
 export class Tx {
-  protected constructor(
+  constructor(
     /**
      * Output of the private kernel circuit for this tx.
      */
@@ -41,7 +41,7 @@ export class Tx {
       // both public and private function invocations create unencrypted FunctionL2Logs object. Hence "num unencrypted"
       // >= "num encrypted".
       throw new Error(
-        `Number of function logs in unencrypted logs (${this.unencryptedLogs.functionLogs.length}) has to be equal 
+        `Number of function logs in unencrypted logs (${this.unencryptedLogs.functionLogs.length}) has to be equal
         or larger than number function logs in encrypted logs (${this.encryptedLogs.functionLogs.length})`,
       );
     }
@@ -50,10 +50,51 @@ export class Tx {
       data?.end.publicCallStack && arrayNonEmptyLength(data.end.publicCallStack, item => item.isZero());
     if (kernelPublicCallStackSize && kernelPublicCallStackSize > (enqueuedPublicFunctionCalls?.length ?? 0)) {
       throw new Error(
-        `Missing preimages for enqueued public function calls in kernel circuit public inputs (expected 
+        `Missing preimages for enqueued public function calls in kernel circuit public inputs (expected
           ${kernelPublicCallStackSize}, got ${enqueuedPublicFunctionCalls?.length})`,
       );
     }
+  }
+
+  /**
+   * Convert a Tx class object to a plain JSON object.
+   * @returns A plain object with Tx properties.
+   */
+  public toJSON() {
+    return {
+      data: this.data.toBuffer().toString('hex'),
+      encryptedLogs: this.encryptedLogs.toBuffer().toString('hex'),
+      unencryptedLogs: this.unencryptedLogs.toBuffer().toString('hex'),
+      proof: this.proof.toBuffer().toString('hex'),
+      newContractPublicFunctions: this.newContractPublicFunctions.map(f => f.toBuffer().toString('hex')) ?? [],
+      enqueuedPublicFunctions: this.enqueuedPublicFunctionCalls.map(f => f.toBuffer().toString('hex')) ?? [],
+    };
+  }
+
+  /**
+   * Convert a plain JSON object to a Tx class object.
+   * @param obj - A plain Tx JSON object.
+   * @returns A Tx class object.
+   */
+  public static fromJSON(obj: any) {
+    const publicInputs = KernelCircuitPublicInputs.fromBuffer(Buffer.from(obj.data, 'hex'));
+    const encryptedLogs = TxL2Logs.fromBuffer(Buffer.from(obj.encryptedLogs, 'hex'));
+    const unencryptedLogs = TxL2Logs.fromBuffer(Buffer.from(obj.unencryptedLogs, 'hex'));
+    const proof = Buffer.from(obj.proof, 'hex');
+    const newContractPublicFunctions = obj.newContractPublicFunctions
+      ? obj.newContractPublicFunctions.map((x: string) => EncodedContractFunction.fromBuffer(Buffer.from(x, 'hex')))
+      : [];
+    const enqueuedPublicFunctions = obj.enqueuedPublicFunctions
+      ? obj.enqueuedPublicFunctions.map((x: string) => PublicCallRequest.fromBuffer(Buffer.from(x, 'hex')))
+      : [];
+    return Tx.createTx(
+      publicInputs,
+      Proof.fromBuffer(proof),
+      encryptedLogs,
+      unencryptedLogs,
+      newContractPublicFunctions,
+      enqueuedPublicFunctions,
+    );
   }
 
   /**
