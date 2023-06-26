@@ -1,6 +1,15 @@
 import { Fr, Fq } from '../fields/fields.js';
 import { Tuple } from './types.js';
 
+const requiredNodeVersion = '18.0.0'; // Minimum required Node.js version
+
+if (process.version < requiredNodeVersion) {
+  console.error(`Error: Your Node.js version (${process.version}) is below the minimum required version (${requiredNodeVersion}).`);
+  console.error('Please switch to a compatible Node.js version using nvm (Node Version Manager).');
+  console.error('You can install nvm from https://github.com/nvm-sh/nvm');
+  console.error(`Once installed, run 'nvm use ${requiredNodeVersion}' to switch to the required version.`);
+  process.exit(1); // Exit the application with an error code
+}
 /**
  * The BufferReader class provides a utility for reading various data types from a buffer.
  * It supports reading numbers, booleans, byte arrays, Fr and Fq field elements,
