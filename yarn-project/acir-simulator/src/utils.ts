@@ -1,7 +1,5 @@
 import { MAPPING_SLOT_PEDERSEN_CONSTANT } from './client/simulator.js';
 import { Fr, Point } from '@aztec/foundation/fields';
-import { Grumpkin } from '@aztec/circuits.js/barretenberg';
-import { Fr } from '@aztec/foundation/fields';
 import { Grumpkin, pedersenPlookupCommitInputs } from '@aztec/circuits.js/barretenberg';
 import { CircuitsWasm } from '@aztec/circuits.js';
 
