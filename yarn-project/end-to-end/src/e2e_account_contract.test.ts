@@ -7,7 +7,6 @@ import { ChildAbi, EcdsaAccountContractAbi, SchnorrAccountContractAbi } from '@a
 import { toBigInt } from '@aztec/foundation/serialize';
 import { setup } from './utils.js';
 import { privateKey } from './fixtures.js';
-import { EcdsaSignature, SchnorrSignature } from '@aztec/circuits.js/barretenberg';
 
 describe('e2e_account_contract', () => {
   let aztecNode: AztecNodeService;
