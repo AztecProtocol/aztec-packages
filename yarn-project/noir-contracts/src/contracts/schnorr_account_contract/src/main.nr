@@ -18,7 +18,7 @@ contract SchnorrAccount {
         owner: pub [u8;64], // x and y coordinates concatenated
         signature: pub [Field;2]
         //partialContractAddress: pub Field        
-    ) -> pub [Field; dep::aztec3::abi::PUBLIC_INPUTS_LENGTH] {
+    ) -> distinct pub [Field; dep::aztec3::abi::PUBLIC_INPUTS_LENGTH] {
         let mut context = PrivateFunctionContext::new();
 
         // Decompress signature from 2 fields to 64 bytes
@@ -50,7 +50,7 @@ contract SchnorrAccount {
         
         // TODO: Find out why this signature verification never fails
         let verification = std::schnorr::verify_signature(x, y, decompressed_signature, payload_hash);
-        constrain verification == 1;
+        constrain verification == true;
 
         // TODO: When we can use pedersen with non-zero generators, get this working        
         //let reproduced_address = dep::std::hash::pedersen([owner, partialContractAddress])[0];
