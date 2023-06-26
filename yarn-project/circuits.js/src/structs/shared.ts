@@ -97,11 +97,10 @@ export class EcdsaSignature {
 /**
  * Composer prover type.
  */
-export enum ComposerType {
+export enum CircuitType {
   STANDARD = 0,
   TURBO = 1,
-  PLOOKUP = 2,
-  STANDARD_HONK = 3,
+  ULTRA = 2
 }
 
 /**
