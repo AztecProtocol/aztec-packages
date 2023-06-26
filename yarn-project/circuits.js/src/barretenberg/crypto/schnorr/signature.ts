@@ -1,6 +1,6 @@
 import { randomBytes } from '@aztec/foundation/crypto';
 import { Signature } from '../index.js';
-import { BufferReader } from '@aztec/foundation/serialize';
+import { BufferReader, mapTuple } from '@aztec/foundation/serialize';
 import { Fr } from '@aztec/foundation/fields';
 
 /**
@@ -100,6 +100,16 @@ export class SchnorrSignature implements Signature {
    * @returns The signature components as an array of fields
    */
   toFields(): Fr[] {
-    return [Fr.fromBuffer(this.buffer.subarray(0, 32)), Fr.fromBuffer(this.buffer.subarray(32, 64))];
+    const sig = this.toBuffer();
+
+    const buf1 = Buffer.alloc(32);
+    const buf2 = Buffer.alloc(32);
+    const buf3 = Buffer.alloc(32);
+
+    sig.copy(buf1, 1, 0, 31);
+    sig.copy(buf2, 1, 31, 62);
+    sig.copy(buf3, 1, 62, 64);
+
+    return mapTuple([buf1, buf2, buf3], Fr.fromBuffer);
   }
 }

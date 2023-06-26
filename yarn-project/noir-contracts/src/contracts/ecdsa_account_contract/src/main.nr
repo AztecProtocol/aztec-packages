@@ -16,7 +16,7 @@ contract EcdsaAccount {
         payload: pub EntrypointPayload,
         owner: pub [u8;64], // x and y coordinates concatenated
         signature: pub [Field;3],
-        //partialContractAddress: pub Field
+        partialContractAddress: pub Field,
     ) -> distinct pub [Field; dep::aztec3::abi::PUBLIC_INPUTS_LENGTH] {
         let mut context = PrivateFunctionContext::new();
 

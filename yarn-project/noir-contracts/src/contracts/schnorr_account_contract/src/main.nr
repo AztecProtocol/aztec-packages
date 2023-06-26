@@ -16,21 +16,25 @@ contract SchnorrAccount {
         inputs: pub PrivateContextInputs,
         payload: pub EntrypointPayload,
         owner: pub [u8;64], // x and y coordinates concatenated
-        signature: pub [Field;2]
-        //partialContractAddress: pub Field        
+        signature: pub [Field;3],
+        partialContractAddress: pub Field        
     ) -> distinct pub [Field; dep::aztec3::abi::PUBLIC_INPUTS_LENGTH] {
         let mut context = PrivateFunctionContext::new();
 
-        // Decompress signature from 2 fields to 64 bytes
+        // Decompress signature from 3 fields to 64 bytes
         let mut decompressed_signature: [u8;64] = [0;64];
 
         let signature_part_0 = signature[0].to_be_bytes(32);
-        for i in 0..32 {
-            decompressed_signature[i] = signature_part_0[i];
+        for i in 0..31 {
+            decompressed_signature[i] = signature_part_0[i + 1];
         }
         let signature_part_1 = signature[1].to_be_bytes(32);
-        for i in 0..32 {
-            decompressed_signature[i + 32] = signature_part_1[i];
+        for i in 0..31 {
+            decompressed_signature[i + 31] = signature_part_1[i + 1];
+        }
+        let signature_part_2 = signature[2].to_be_bytes(32);
+        for i in 0..2 {
+            decompressed_signature[i + 62] = signature_part_2[i + 1];
         }
 
         // Verify payload signature
@@ -47,6 +51,7 @@ contract SchnorrAccount {
           y = y + (bytey * mul);
           mul *= 256;
         }
+       
         
         // TODO: Find out why this signature verification never fails
         let verification = std::schnorr::verify_signature(x, y, decompressed_signature, payload_hash);

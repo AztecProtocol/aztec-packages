@@ -45,7 +45,7 @@ export class Ecdsa implements Signer {
     this.wasm.writeMemory(mem, msg);
     this.wasm.call('ecdsa__construct_signature', mem, msg.length, 0, 32, 64, 96);
 
-    // TODO: Understand why this doesn't work
+    // TODO(#913): Understand why this doesn't work
     // const sig = new EcdsaSignature(
     //   Buffer.from(this.wasm.getMemorySlice(32, 64)),
     //   Buffer.from(this.wasm.getMemorySlice(64, 96)),

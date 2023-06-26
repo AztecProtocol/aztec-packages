@@ -43,7 +43,7 @@ export class AccountContract implements AccountImplementation {
     const signature = await this.keyStore.sign(hash, this.pubKey);
     const signatureAsFrArray = signature.toFields();
     const publicKeyAsBuffer = this.pubKey.toBuffer();
-    const args = [payload, publicKeyAsBuffer, signatureAsFrArray];
+    const args = [payload, publicKeyAsBuffer, signatureAsFrArray, this.partialContractAddress];
     const abi = this.getEntrypointAbi();
     const selector = generateFunctionSelector(abi.name, abi.parameters);
     const txRequest = TxExecutionRequest.from({
