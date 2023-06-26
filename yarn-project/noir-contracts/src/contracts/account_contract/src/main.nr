@@ -19,7 +19,7 @@ contract Account {
         inputs: PrivateContextInputs,
         payload: EntrypointPayload,
         signature: [Field;3]
-    ) -> distinct pub dep::aztec3::abi::PrivateCircuitPublicInputs {
+    ) -> distinct pub abi::PrivateCircuitPublicInputs {
         let mut context = PrivateFunctionContext::new();
 
         // Decompress signature from 3 fields to 64 bytes
@@ -96,7 +96,7 @@ contract Account {
 
     fn constructor(
         inputs: PrivateContextInputs,
-    ) -> distinct pub dep::aztec3::abi::PrivateCircuitPublicInputs {
+    ) -> distinct pub abi::PrivateCircuitPublicInputs {
         PrivateFunctionContext::new().finish(inputs)
     }
 }

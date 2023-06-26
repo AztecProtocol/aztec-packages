@@ -9,7 +9,7 @@ contract Parent {
 
     fn constructor(
         inputs: PrivateContextInputs,
-    ) -> distinct pub dep::aztec3::abi::PrivateCircuitPublicInputs {
+    ) -> distinct pub abi::PrivateCircuitPublicInputs {
         PrivateFunctionContext::new().finish(inputs)
     }
 
@@ -18,11 +18,11 @@ contract Parent {
         inputs: PrivateContextInputs,
         targetContract: Field,
         targetSelector: Field,
-    ) -> distinct pub dep::aztec3::abi::PrivateCircuitPublicInputs {
+    ) -> distinct pub abi::PrivateCircuitPublicInputs {
         let mut initialContext = PrivateFunctionContext::new();
         initialContext.args = initialContext.args.push_array([targetContract, targetSelector]);
 
-        let (callStackItem, mut context) = PrivateCallStackItem::call(targetContract, targetSelector, [0; dep::aztec3::abi::MAX_ARGS], initialContext);
+        let (callStackItem, mut context) = PrivateCallStackItem::call(targetContract, targetSelector, [0; abi::MAX_ARGS], initialContext);
 
         let result = callStackItem.public_inputs.return_values[0];
 
@@ -32,19 +32,19 @@ contract Parent {
     }
 
     // Public function to directly call another public function to the targetContract using the selector and value provided
-    open fn pubEntryPoint(_inputs: PublicContextInputs, targetContract: Field, targetSelector: Field, initValue: Field, _padding: [Field; dep::aztec3::abi::MAX_ARGS - 3]) -> pub Field {
+    open fn pubEntryPoint(_inputs: PublicContextInputs, targetContract: Field, targetSelector: Field, initValue: Field, _padding: [Field; abi::MAX_ARGS - 3]) -> pub Field {
         // The call_public_function util always receives and returns MAX_ARGS and MAX_RETURN_VALUES. The caller
         // needs to pad the arguments and extract the return values it needs. The callee needs to always accept
         // MAX_ARGS, since the oracle doesn't have the info to know how many args to pass. However, the callee
         // can return however many args it wants, since the oracle can take care of the padding.
-        let mut args = [0; dep::aztec3::abi::MAX_ARGS];
+        let mut args = [0; abi::MAX_ARGS];
         args[0] = initValue;
         public_call::call_public_function(targetContract, targetSelector, args)[0]
     }
 
     // Same as pubEntryPoint, but calls the target contract twice, using the return value from the first invocation as the argument for the second.
-    open fn pubEntryPointTwice(_inputs: PublicContextInputs, targetContract: Field, targetSelector: Field, initValue: Field, _padding: [Field; dep::aztec3::abi::MAX_ARGS - 3]) -> pub Field {
-        let mut args = [0; dep::aztec3::abi::MAX_ARGS];
+    open fn pubEntryPointTwice(_inputs: PublicContextInputs, targetContract: Field, targetSelector: Field, initValue: Field, _padding: [Field; abi::MAX_ARGS - 3]) -> pub Field {
+        let mut args = [0; abi::MAX_ARGS];
         args[0] = initValue;
         args[0] = public_call::call_public_function(targetContract, targetSelector, args)[0];
         public_call::call_public_function(targetContract, targetSelector, args)[0]
@@ -56,11 +56,11 @@ contract Parent {
         targetContract: Field,
         targetSelector: Field,
         targetValue: Field,
-    ) -> distinct pub dep::aztec3::abi::PrivateCircuitPublicInputs {
+    ) -> distinct pub abi::PrivateCircuitPublicInputs {
         let mut initialContext = PrivateFunctionContext::new();
         initialContext.args = initialContext.args.push_array([targetContract, targetSelector, targetValue]);
 
-        let mut args = [0; dep::aztec3::abi::MAX_ARGS];
+        let mut args = [0; abi::MAX_ARGS];
         args[0] = targetValue;
         let (_callStackItem, mut context) = PublicCallStackItem::call(targetContract, targetSelector, args, initialContext);
 
@@ -73,11 +73,11 @@ contract Parent {
         targetContract: Field,
         targetSelector: Field,
         targetValue: Field,
-    ) -> distinct pub dep::aztec3::abi::PrivateCircuitPublicInputs {
+    ) -> distinct pub abi::PrivateCircuitPublicInputs {
         let mut context0 = PrivateFunctionContext::new();
         context0.args = context0.args.push_array([targetContract, targetSelector, targetValue]);
 
-        let mut args = [0; dep::aztec3::abi::MAX_ARGS];
+        let mut args = [0; abi::MAX_ARGS];
         args[0] = targetValue;
         let (callStackItem1, context1) = PublicCallStackItem::call(targetContract, targetSelector, args, context0);
         args[0] = callStackItem1.public_inputs.return_values[0];
@@ -92,13 +92,13 @@ contract Parent {
         targetContract: Field,
         targetSelector: Field,
         targetValue: Field,
-    ) -> distinct pub dep::aztec3::abi::PrivateCircuitPublicInputs {
+    ) -> distinct pub abi::PrivateCircuitPublicInputs {
         let mut initialContext = PrivateFunctionContext::new();
         initialContext.args = initialContext.args.push_array([targetContract, targetSelector, targetValue]);
 
         let pubEntryPointSelector = 3221316504;
         let thisAddress = inputs.call_context.storage_contract_address;
-        let mut args = [0; dep::aztec3::abi::MAX_ARGS];
+        let mut args = [0; abi::MAX_ARGS];
         args[0] = targetContract;
         args[1] = targetSelector;
         
@@ -114,13 +114,13 @@ contract Parent {
         targetContract: Field,
         targetSelector: Field,
         targetValue: Field,
-    ) -> distinct pub dep::aztec3::abi::PrivateCircuitPublicInputs {
+    ) -> distinct pub abi::PrivateCircuitPublicInputs {
         let mut initialContext = PrivateFunctionContext::new();
         initialContext.args = initialContext.args.push_array([targetContract, targetSelector, targetValue]);
 
         let pubEntryPointSelector = 3221316504;
         let thisAddress = inputs.call_context.storage_contract_address;
-        let mut args = [0; dep::aztec3::abi::MAX_ARGS];
+        let mut args = [0; abi::MAX_ARGS];
         args[0] = targetContract;
         args[1] = targetSelector;
         

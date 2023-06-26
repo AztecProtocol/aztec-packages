@@ -1,5 +1,6 @@
 contract NonNativeToken {
     mod balance_utils;
+    use dep::aztec3::abi;
     use dep::aztec3::abi::PublicContextInputs;
     use dep::aztec3::abi::PrivateContextInputs;
 
@@ -37,7 +38,7 @@ contract NonNativeToken {
         //*********************************/
         initial_supply: Field, 
         owner: Point,
-    ) -> distinct pub dep::aztec3::abi::PrivateCircuitPublicInputs {
+    ) -> distinct pub abi::PrivateCircuitPublicInputs {
         let mut context = PrivateFunctionContext::new();
         context.args = context.args.push_array([initial_supply, owner.x, owner.y]);
 
@@ -66,7 +67,7 @@ contract NonNativeToken {
         msg_key: Field,
         secret: Field,
         canceller: Field,
-    ) -> distinct pub dep::aztec3::abi::PrivateCircuitPublicInputs {
+    ) -> distinct pub abi::PrivateCircuitPublicInputs {
         let mut context = PrivateFunctionContext::new();
         context.args = context.args.push_array([amount, owner.x, owner.y, owner_address, msg_key, secret]);
 
@@ -97,7 +98,7 @@ contract NonNativeToken {
         sender: Point, 
         recipient: Field, // ethereum address in the field
         callerOnL1: Field, // ethereum address that can call this function on the L1 portal (0x0 if anyone can call)
-    ) -> distinct pub dep::aztec3::abi::PrivateCircuitPublicInputs {
+    ) -> distinct pub abi::PrivateCircuitPublicInputs {
         let mut initialContext = PrivateFunctionContext::new();
         initialContext.args = initialContext.args.push_array([amount, sender.x, sender.y, recipient]);
 
@@ -145,7 +146,7 @@ contract NonNativeToken {
         msg_key: Field,
         secret: Field,
         canceller: Field,
-        _padding: [Field; dep::aztec3::abi::MAX_ARGS - 5]
+        _padding: [Field; abi::MAX_ARGS - 5]
     ) -> Field {
         let content_hash = _get_mint_content_hash(amount, owner_address, canceller);
 
@@ -167,7 +168,7 @@ contract NonNativeToken {
         amount: Field,
         recipient: Field,
         callerOnL1: Field, // ethereum address that can call this function on the L1 portal (0x0 if anyone can call)
-        _padding: [Field; dep::aztec3::abi::MAX_ARGS - 2]
+        _padding: [Field; abi::MAX_ARGS - 2]
     ) {
 
         let sender = inputs.call_context.msg_sender;
@@ -195,7 +196,7 @@ contract NonNativeToken {
         amount: Field, 
         sender: Point, 
         recipient: Point,
-    ) -> distinct pub dep::aztec3::abi::PrivateCircuitPublicInputs {
+    ) -> distinct pub abi::PrivateCircuitPublicInputs {
         let mut initialContext = PrivateFunctionContext::new();
         initialContext.args = initialContext.args.push_array([amount, sender.x, sender.y, recipient.x, recipient.y]);
 
@@ -233,7 +234,7 @@ contract NonNativeToken {
     /// ABI getBalance type "unconstrained"
     fn getBalance(
         owner: Point,
-        _padding: [Field; dep::aztec3::abi::MAX_ARGS - 2]
+        _padding: [Field; abi::MAX_ARGS - 2]
     ) -> pub Field {
         let owner_balance = balances.at(owner.x);
         

@@ -5,7 +5,7 @@ contract Test {
 
     fn constructor(
         inputs: PrivateContextInputs,
-    ) -> distinct pub dep::aztec3::abi::PrivateCircuitPublicInputs {
+    ) -> distinct pub abi::PrivateCircuitPublicInputs {
         PrivateFunctionContext::new().finish(inputs)
     }
 }

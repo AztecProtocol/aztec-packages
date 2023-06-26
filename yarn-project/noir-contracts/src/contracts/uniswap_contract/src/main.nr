@@ -10,7 +10,7 @@ contract Uniswap {
     
     fn constructor(
         inputs: PrivateContextInputs,
-    ) -> distinct pub dep::aztec3::abi::PrivateCircuitPublicInputs {
+    ) -> distinct pub abi::PrivateCircuitPublicInputs {
         PrivateFunctionContext::new().finish(inputs)
     }
 
@@ -39,7 +39,7 @@ contract Uniswap {
         cancellerForL1ToL2Message: Field, // L1 address of who can cancel the message to consume assets on L2.
         l1UniswapPortal: Field, // L1 address of uniswap portal contract
         callerOnL1: Field, // ethereum address that can call this function on the L1 portal (0x0 if anyone can call)
-    ) -> distinct pub dep::aztec3::abi::PrivateCircuitPublicInputs {
+    ) -> distinct pub abi::PrivateCircuitPublicInputs {
         let mut initialContext = PrivateFunctionContext::new();
         // manually pass all the arguments into the current context - 
         initialContext.args = initialContext.args.push_array([
@@ -63,7 +63,7 @@ contract Uniswap {
         // inputAsset.withdraw(inputAmount, sender, recipient=l1UniswapPortal, callerOnL1=l1UniswapPortal) 
         // only uniswap portal can call this (done to safegaurd ordering of message consumption)
         // ref: https://docs.aztec.network/aztec/how-it-works/l1-l2-messaging#designated-caller
-        let mut args = [0; dep::aztec3::abi::MAX_ARGS];
+        let mut args = [0; abi::MAX_ARGS];
         args[0] = inputAmount;
         args[1] = sender.x;
         args[2] = sender.y;

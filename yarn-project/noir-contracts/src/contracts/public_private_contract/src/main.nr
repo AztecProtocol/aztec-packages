@@ -6,6 +6,7 @@ contract PublicPrivate {
 
     use transparent_note::TransparentNote;
 
+    use dep::aztec3::abi;
     use dep::aztec3::context::PrivateFunctionContext;
     use dep::aztec3::abi::PrivateContextInputs;
     use dep::aztec3::abi::PublicContextInputs;
@@ -31,7 +32,7 @@ contract PublicPrivate {
 
     fn constructor(
         inputs: PrivateContextInputs,
-    ) -> distinct pub dep::aztec3::abi::PrivateCircuitPublicInputs {
+    ) -> distinct pub abi::PrivateCircuitPublicInputs {
         PrivateFunctionContext::new().finish(inputs)
     }
 
@@ -40,7 +41,7 @@ contract PublicPrivate {
         _inputs: PublicContextInputs,
         amount: Field,
         secretHash: Field,
-        _padding: [Field; dep::aztec3::abi::MAX_ARGS - 3]
+        _padding: [Field; abi::MAX_ARGS - 3]
     ) {
     
         // Create a commitment to the amount
@@ -55,7 +56,7 @@ contract PublicPrivate {
         _inputs: PublicContextInputs,
         amount: Field,
         secretHash: Field,
-        _padding: [Field; dep::aztec3::abi::MAX_ARGS - 3]
+        _padding: [Field; abi::MAX_ARGS - 3]
     ) {
     
         // Create a commitment to the amount
@@ -70,7 +71,7 @@ contract PublicPrivate {
         _inputs: PublicContextInputs,
         amount: Field,
         secretHash: Field,
-        _padding: [Field; dep::aztec3::abi::MAX_ARGS - 3]
+        _padding: [Field; abi::MAX_ARGS - 3]
     ) -> Field {
     
         // Create a commitment to the amount
@@ -89,7 +90,7 @@ contract PublicPrivate {
         amount: Field,
         secret: Field,
         owner: Point,
-    ) -> distinct pub dep::aztec3::abi::PrivateCircuitPublicInputs {
+    ) -> distinct pub abi::PrivateCircuitPublicInputs {
         let mut context = PrivateFunctionContext::new();
         context.args = context.args.push_array([amount, secret, owner.x, owner.y]);
 
@@ -111,7 +112,7 @@ contract PublicPrivate {
     /// ABI getBalance type "unconstrained"
     fn getBalance(
         owner: Point,
-        _padding: [Field; dep::aztec3::abi::MAX_ARGS - 2]
+        _padding: [Field; abi::MAX_ARGS - 2]
     ) -> pub Field {
         let owner_balance = balances.at(owner.x);
         

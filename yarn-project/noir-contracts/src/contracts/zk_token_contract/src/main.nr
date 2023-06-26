@@ -1,5 +1,6 @@
 contract ZkToken {
     mod balance_utils;
+    use dep::aztec3::abi;
     use dep::aztec3::abi::PrivateContextInputs;
     use dep::aztec3::context::PrivateFunctionContext;
     use dep::aztec3::notes::value_note::Note;
@@ -24,7 +25,7 @@ contract ZkToken {
         //*********************************/
         initial_supply: Field, 
         owner: Point,
-    ) -> distinct pub dep::aztec3::abi::PrivateCircuitPublicInputs {
+    ) -> distinct pub abi::PrivateCircuitPublicInputs {
         let mut context = PrivateFunctionContext::new();
         context.args = context.args.push_array([initial_supply, owner.x, owner.y]);
 
@@ -46,7 +47,7 @@ contract ZkToken {
         //*********************************/
         amount: Field, 
         owner: Point,
-    ) -> distinct pub dep::aztec3::abi::PrivateCircuitPublicInputs {
+    ) -> distinct pub abi::PrivateCircuitPublicInputs {
         let mut context = PrivateFunctionContext::new();
         context.args = context.args.push_array([amount, owner.x, owner.y]);
 
@@ -69,7 +70,7 @@ contract ZkToken {
         amount: Field, 
         sender: Point, 
         recipient: Point,
-    ) -> distinct pub dep::aztec3::abi::PrivateCircuitPublicInputs {
+    ) -> distinct pub abi::PrivateCircuitPublicInputs {
         let mut initialContext = PrivateFunctionContext::new();
         initialContext.args = initialContext.args.push_array([amount, sender.x, sender.y, recipient.x, recipient.y]);
 
@@ -104,7 +105,7 @@ contract ZkToken {
     /// ABI getBalance type "unconstrained"
     fn getBalance(
         owner: Point,
-        _padding: [Field; dep::aztec3::abi::MAX_ARGS - 2]
+        _padding: [Field; abi::MAX_ARGS - 2]
     ) -> pub Field {
         let owner_balance = balances.at(owner.x);
         
