@@ -56,8 +56,8 @@ export class Schnorr implements Signer {
   public verifySignature(msg: Uint8Array, pubKey: Uint8Array, sig: SchnorrSignature) {
     const mem = this.wasm.call('bbmalloc', msg.length + 4);
     this.wasm.writeMemory(0, pubKey);
-    this.wasm.writeMemory(64, sig.s());
-    this.wasm.writeMemory(96, sig.e());
+    this.wasm.writeMemory(64, sig.s);
+    this.wasm.writeMemory(96, sig.e);
     this.wasm.writeMemory(mem, Buffer.concat([numToUInt32BE(msg.length), msg]));
     this.wasm.call('schnorr_verify_signature', mem, 0, 64, 96, 128);
     const result = this.wasm.getMemorySlice(128, 129);

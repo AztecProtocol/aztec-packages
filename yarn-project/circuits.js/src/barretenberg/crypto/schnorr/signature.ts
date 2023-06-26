@@ -57,7 +57,7 @@ export class SchnorrSignature implements Signature {
    * Returns the 's' component of the signature.
    * @returns A buffer containing the signature's 's' component.
    */
-  s() {
+  get s() {
     return this.buffer.subarray(0, 32);
   }
 
@@ -65,7 +65,7 @@ export class SchnorrSignature implements Signature {
    * Returns the 'e' component of the signature.
    * @returns A buffer containing the signature's 'e' component.
    */
-  e() {
+  get e() {
     return this.buffer.subarray(32);
   }
 
