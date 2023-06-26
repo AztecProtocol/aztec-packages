@@ -1,6 +1,5 @@
-import { Contract, ContractDeployer, createAccount, createAztecRpcClient } from '@aztec/aztec.js';
+import { Contract, ContractDeployer, createAccount, createAztecRpcClient, pointToPublicKey } from '@aztec/aztec.js';
 import { Point } from '@aztec/circuits.js';
-import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { ZkTokenContractAbi } from '@aztec/noir-contracts/examples';
 
@@ -13,15 +12,6 @@ const url = 'http://localhost:8080';
 const aztecRpcClient = createAztecRpcClient(url);
 
 const INITIAL_BALANCE = 333n;
-
-const pointToPublicKey = (point: Point) => {
-  const x = point.buffer.subarray(0, 32);
-  const y = point.buffer.subarray(32, 64);
-  return {
-    x: toBigIntBE(x),
-    y: toBigIntBE(y),
-  };
-};
 
 /**
  * Deploys the ZK Token contract.
