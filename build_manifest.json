@@ -150,6 +150,7 @@
       "^yarn-project/aztec-sandbox/"
     ],
     "dependencies": [
+      "aztec.js",
       "aztec-node",
       "aztec-rpc",
       "ethereum",

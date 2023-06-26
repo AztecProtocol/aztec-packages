@@ -1,6 +1,6 @@
 # FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/circuits-x86_64-linux-clang
-FROM circuits-wasm-linux-clang
-FROM l1-contracts
+FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/circuits-wasm-linux-clang
+FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/l1-contracts
 
 FROM node:18-alpine
 RUN apk update && apk add --no-cache build-base git python3 curl bash jq
@@ -81,6 +81,7 @@ COPY archiver/tsconfig.json archiver/tsconfig.json
 COPY aztec-cli/tsconfig.json aztec-cli/tsconfig.json
 COPY aztec-rpc/tsconfig.json aztec-rpc/tsconfig.json
 COPY aztec-node/tsconfig.json aztec-node/tsconfig.json
+COPY aztec-sandbox/tsconfig.json aztec-sandbox/tsconfig.json
 COPY aztec.js/tsconfig.json aztec.js/tsconfig.json
 COPY end-to-end/tsconfig.json end-to-end/tsconfig.json
 COPY ethereum/tsconfig.json ethereum/tsconfig.json

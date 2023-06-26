@@ -1,10 +1,9 @@
 import { foundry } from 'viem/chains';
-import { Tx, TxHash } from '@aztec/types';
+import { L2Block, Tx, TxHash } from '@aztec/types';
 import { JsonRpcServer } from '@aztec/foundation/json-rpc';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
-import { CombinedAccumulatedData, PrivateHistoricTreeRoots } from '@aztec/circuits.js';
 
 import { EthAddress, createAztecRPCServer } from '../index.js';
 
@@ -20,6 +19,7 @@ export async function getHttpRpcServer(nodeConfig: AztecNodeConfig): Promise<Jso
   const generatedRpcServer = new JsonRpcServer(
     aztecRpcServer,
     {
+      L2Block,
       AztecAddress,
       TxHash,
       EthAddress,

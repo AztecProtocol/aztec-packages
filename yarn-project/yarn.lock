@@ -579,6 +579,7 @@ __metadata:
   dependencies:
     "@aztec/aztec-node": "workspace:^"
     "@aztec/aztec-rpc": "workspace:^"
+    "@aztec/aztec.js": "workspace:^"
     "@aztec/ethereum": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@jest/globals": ^29.5.0

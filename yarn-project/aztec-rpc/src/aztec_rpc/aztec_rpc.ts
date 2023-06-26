@@ -1,7 +1,7 @@
 import { AztecAddress, EthAddress, Fr } from '@aztec/circuits.js';
 import { ContractAbi } from '@aztec/foundation/abi';
 import { Point } from '@aztec/foundation/fields';
-import { Tx, TxHash } from '@aztec/types';
+import { ContractData, ContractPublicData, L2BlockL2Logs, Tx, TxHash } from '@aztec/types';
 import { TxReceipt } from '../tx/index.js';
 
 /**
@@ -53,5 +53,8 @@ export interface AztecRPC {
   getTxReceipt(txHash: TxHash): Promise<TxReceipt>;
   getStorageAt(contract: AztecAddress, storageSlot: Fr): Promise<any>;
   viewTx(functionName: string, args: any[], to: AztecAddress, from?: AztecAddress): Promise<any>;
+  getContractData(contractAddress: AztecAddress): Promise<ContractPublicData | undefined>;
+  getContractInfo(contractAddress: AztecAddress): Promise<ContractData | undefined>;
+  getUnencryptedLogs(from: number, take: number): Promise<L2BlockL2Logs[]>;
   getBlockNum(): Promise<number>;
 }

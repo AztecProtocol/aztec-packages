@@ -6,7 +6,15 @@ import { Fr, Point } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { KeyStore, PublicKey, getAddressFromPublicKey } from '@aztec/key-store';
 import { AccountContractAbi } from '@aztec/noir-contracts/examples';
-import { ExecutionRequest, Tx, TxExecutionRequest, TxHash } from '@aztec/types';
+import {
+  ContractData,
+  ContractPublicData,
+  ExecutionRequest,
+  L2BlockL2Logs,
+  Tx,
+  TxExecutionRequest,
+  TxHash,
+} from '@aztec/types';
 import { EcdsaAccountContract } from '../account_impl/ecdsa_account_contract.js';
 import { AccountImplementation } from '../account_impl/index.js';
 import { AccountState } from '../account_state/account_state.js';
@@ -190,38 +198,6 @@ export class AztecRPCServer implements AztecRPC {
     return tx;
   }
 
-  async #prepareDeploy(
-    abi: ContractAbi,
-    args: any[],
-    portalContract: EthAddress,
-    contractAddressSalt: Fr,
-    pubKey: PublicKey,
-  ) {
-    const constructorAbi = abi.functions.find(f => f.name === 'constructor');
-    if (!constructorAbi) {
-      throw new Error('Cannot find constructor in the ABI.');
-    }
-
-    const flatArgs = encodeArguments(constructorAbi, args);
-    const contractTree = await ContractTree.new(abi, flatArgs, portalContract, contractAddressSalt, pubKey, this.node);
-    const { functionData, vkHash } = contractTree.newContractConstructor!;
-    const functionTreeRoot = await contractTree.getFunctionTreeRoot();
-    const contractDeploymentData = new ContractDeploymentData(
-      pubKey,
-      Fr.fromBuffer(vkHash),
-      functionTreeRoot,
-      contractAddressSalt,
-      portalContract,
-    );
-    const txContext = new TxContext(false, false, true, contractDeploymentData);
-
-    const contract = contractTree.contract;
-    await this.db.addContract(contract);
-
-    const txRequest = new TxExecutionRequest(contract.address, functionData, flatArgs, txContext);
-    return { txRequest, contract };
-  }
-
   /**
    * Create a transaction for a contract function call with the provided arguments.
    * Throws an error if the contract or function is unknown.
@@ -249,53 +225,6 @@ export class AztecRPCServer implements AztecRPC {
     await this.db.addTx(new TxDao(await tx.getTxHash(), undefined, undefined, account.getAddress(), to, undefined, ''));
 
     return tx;
-  }
-
-  async #getExecutionRequest(
-    account: AccountState,
-    functionName: string,
-    args: any[],
-    to: AztecAddress,
-  ): Promise<ExecutionRequest> {
-    const contract = await this.db.getContract(to);
-    if (!contract) {
-      throw new Error('Unknown contract.');
-    }
-
-    const functionDao = contract.functions.find(f => f.name === functionName);
-    if (!functionDao) {
-      throw new Error('Unknown function.');
-    }
-
-    const flatArgs = encodeArguments(functionDao, args);
-
-    const functionData = new FunctionData(
-      functionDao.selector,
-      functionDao.functionType === FunctionType.SECRET,
-      false,
-    );
-
-    return {
-      args: flatArgs,
-      from: account.getAddress(),
-      functionData,
-      to,
-    };
-  }
-
-  // TODO: Store the kind of account in account state
-  #getAccountImplementation(accountState: AccountState, contract: ContractDao | undefined) {
-    const address = accountState.getAddress();
-    const pubKey = accountState.getPublicKey();
-
-    if (!contract) {
-      throw new Error(`Account contract not found at ${address}`);
-    } else if (contract.name === 'Account') {
-      this.log(`Using ECDSA account contract implementation for ${address}`);
-      return new EcdsaAccountContract(address, pubKey, this.keyStore);
-    } else {
-      throw new Error(`Unknown account implementation for ${address}`);
-    }
   }
 
   /**
@@ -389,6 +318,115 @@ export class AztecRPCServer implements AztecRPC {
    */
   async getBlockNum(): Promise<number> {
     return await this.node.getBlockHeight();
+  }
+
+  /**
+   * Lookup the L2 contract data for this contract.
+   * Contains the ethereum portal address and bytecode.
+   * @param contractAddress - The contract data address.
+   * @returns The complete contract data including portal address & bytecode (if we didn't throw an error).
+   */
+  public async getContractData(contractAddress: AztecAddress): Promise<ContractPublicData | undefined> {
+    return await this.node.getContractData(contractAddress);
+  }
+
+  /**
+   * Lookup the L2 contract info for this contract.
+   * Contains the ethereum portal address .
+   * @param contractAddress - The contract data address.
+   * @returns The contract's address & portal address.
+   */
+  public async getContractInfo(contractAddress: AztecAddress): Promise<ContractData | undefined> {
+    return await this.node.getContractInfo(contractAddress);
+  }
+
+  /**
+   * Gets L2 block unencrypted logs.
+   * @param from - Number of the L2 block to which corresponds the first unencrypted logs to be returned.
+   * @param take - The number of unencrypted logs to return.
+   * @returns The requested unencrypted logs.
+   */
+  public async getUnencryptedLogs(from: number, take: number): Promise<L2BlockL2Logs[]> {
+    return await this.node.getUnencryptedLogs(from, take);
+  }
+
+  async #prepareDeploy(
+    abi: ContractAbi,
+    args: any[],
+    portalContract: EthAddress,
+    contractAddressSalt: Fr,
+    pubKey: PublicKey,
+  ) {
+    const constructorAbi = abi.functions.find(f => f.name === 'constructor');
+    if (!constructorAbi) {
+      throw new Error('Cannot find constructor in the ABI.');
+    }
+
+    const flatArgs = encodeArguments(constructorAbi, args);
+    const contractTree = await ContractTree.new(abi, flatArgs, portalContract, contractAddressSalt, pubKey, this.node);
+    const { functionData, vkHash } = contractTree.newContractConstructor!;
+    const functionTreeRoot = await contractTree.getFunctionTreeRoot();
+    const contractDeploymentData = new ContractDeploymentData(
+      pubKey,
+      Fr.fromBuffer(vkHash),
+      functionTreeRoot,
+      contractAddressSalt,
+      portalContract,
+    );
+    const txContext = new TxContext(false, false, true, contractDeploymentData);
+
+    const contract = contractTree.contract;
+    await this.db.addContract(contract);
+
+    const txRequest = new TxExecutionRequest(contract.address, functionData, flatArgs, txContext);
+    return { txRequest, contract };
+  }
+
+  async #getExecutionRequest(
+    account: AccountState,
+    functionName: string,
+    args: any[],
+    to: AztecAddress,
+  ): Promise<ExecutionRequest> {
+    const contract = await this.db.getContract(to);
+    if (!contract) {
+      throw new Error('Unknown contract.');
+    }
+
+    const functionDao = contract.functions.find(f => f.name === functionName);
+    if (!functionDao) {
+      throw new Error('Unknown function.');
+    }
+
+    const flatArgs = encodeArguments(functionDao, args);
+
+    const functionData = new FunctionData(
+      functionDao.selector,
+      functionDao.functionType === FunctionType.SECRET,
+      false,
+    );
+
+    return {
+      args: flatArgs,
+      from: account.getAddress(),
+      functionData,
+      to,
+    };
+  }
+
+  // TODO: Store the kind of account in account state
+  #getAccountImplementation(accountState: AccountState, contract: ContractDao | undefined) {
+    const address = accountState.getAddress();
+    const pubKey = accountState.getPublicKey();
+
+    if (!contract) {
+      throw new Error(`Account contract not found at ${address}`);
+    } else if (contract.name === 'Account') {
+      this.log(`Using ECDSA account contract implementation for ${address}`);
+      return new EcdsaAccountContract(address, pubKey, this.keyStore);
+    } else {
+      throw new Error(`Unknown account implementation for ${address}`);
+    }
   }
 
   /**
