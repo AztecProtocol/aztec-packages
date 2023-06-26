@@ -1,7 +1,9 @@
 #include "c_bind.h"
 #include "testing_harness.hpp"
 
+#include "aztec3/circuits/abis/membership_witness.hpp"
 #include "aztec3/circuits/apps/test_apps/escrow/deposit.hpp"
+#include "aztec3/circuits/kernel/private/common.hpp"
 #include "aztec3/constants.hpp"
 #include "aztec3/utils/array.hpp"
 #include "aztec3/utils/circuit_errors.hpp"
@@ -443,6 +445,57 @@ TEST_F(native_private_kernel_inner_tests, native_max_read_requests_works)
         info("failure: ", failure);
     }
     ASSERT_FALSE(builder.failed());
+}
+
+TEST_F(native_private_kernel_inner_tests, native_read_requests_less_than_witnesses)
+{
+    auto private_inputs = do_private_call_get_kernel_inputs_inner(false, deposit, standard_test_args());
+
+    auto const& contract_address =
+        private_inputs.private_call.call_stack_item.public_inputs.call_context.storage_contract_address;
+
+    auto [read_requests, read_request_membership_witnesses, root] =
+        get_random_reads(contract_address, READ_REQUESTS_LENGTH);
+
+    read_requests[READ_REQUESTS_LENGTH - 1] = fr(0);
+    private_inputs.previous_kernel.public_inputs.constants.historic_tree_roots.private_historic_tree_roots
+        .private_data_tree_root = root;
+    private_inputs.private_call.call_stack_item.public_inputs.historic_private_data_tree_root = root;
+    private_inputs.private_call.call_stack_item.public_inputs.read_requests = read_requests;
+    private_inputs.private_call.read_request_membership_witnesses = read_request_membership_witnesses;
+
+    DummyBuilder builder = DummyBuilder("native_private_kernel_inner_tests__native_read_requests_less_than_witnesses");
+    auto const& public_inputs = native_private_kernel_circuit_inner(builder, private_inputs);
+
+    ASSERT_TRUE(builder.failed());
+    ASSERT_EQ(builder.get_first_failure().code,
+              CircuitErrorCode::PRIVATE_KERNEL__READ_REQUEST_WITNESSES_ARRAY_LENGTH_MISMATCH);
+}
+
+TEST_F(native_private_kernel_inner_tests, native_read_requests_more_than_witnesses)
+{
+    auto private_inputs = do_private_call_get_kernel_inputs_inner(false, deposit, standard_test_args());
+
+    auto const& contract_address =
+        private_inputs.private_call.call_stack_item.public_inputs.call_context.storage_contract_address;
+
+    auto [read_requests, read_request_membership_witnesses, root] =
+        get_random_reads(contract_address, READ_REQUESTS_LENGTH);
+
+    read_request_membership_witnesses[READ_REQUESTS_LENGTH - 1] = MembershipWitness<NT, PRIVATE_DATA_TREE_HEIGHT>{};
+
+    private_inputs.previous_kernel.public_inputs.constants.historic_tree_roots.private_historic_tree_roots
+        .private_data_tree_root = root;
+    private_inputs.private_call.call_stack_item.public_inputs.historic_private_data_tree_root = root;
+    private_inputs.private_call.call_stack_item.public_inputs.read_requests = read_requests;
+    private_inputs.private_call.read_request_membership_witnesses = read_request_membership_witnesses;
+
+    DummyBuilder builder = DummyBuilder("native_private_kernel_inner_tests__native_read_requests_more_than_witnesses");
+    auto const& public_inputs = native_private_kernel_circuit_inner(builder, private_inputs);
+
+    ASSERT_TRUE(builder.failed());
+    ASSERT_EQ(builder.get_first_failure().code,
+              CircuitErrorCode::PRIVATE_KERNEL__READ_REQUEST_WITNESSES_ARRAY_LENGTH_MISMATCH);
 }
 
 TEST_F(native_private_kernel_inner_tests, native_one_transient_read_requests_works)
