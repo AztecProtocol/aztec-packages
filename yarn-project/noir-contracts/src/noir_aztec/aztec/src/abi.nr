@@ -1,0 +1,12 @@
+// global MAX_ARGS: comptime Field = 8;
+// global MAX_RETURN_VALUES: comptime Field = 4;
+global MAX_READ_REQUESTS: Field = 4;
+global MAX_NEW_NOTE_HASHES: Field = 4;
+global MAX_NEW_NULLIFIERS: Field = 4;
+// global MAX_PRIVATE_CALL_STACK : comptime Field = 4;
+// global MAX_PUBLIC_CALL_STACK: comptime Field = 4;
+// global MAX_L2_TO_L1_MSGS : comptime Field = 2;
+// global PUBLIC_INPUTS_LENGTH : comptime Field = 41;
+global LOGS_HASH_SIZE: comptime Field = 2; // Stored in  2 fields in order to fit in all of the 256 bits of sha256 hash.
+// global CONTRACT_STORAGE_UPDATE_REQUESTS_LENGTH : comptime Field = 4;
+// global CONTRACT_STORAGE_READS_LENGTH : comptime Field = 4;
