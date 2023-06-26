@@ -69,10 +69,9 @@ export const acvm: execute = async (acir, initialWitness, callback) => {
   const logger = createDebugLogger('aztec:simulator:acvm');
   const partialWitness = await executeCircuit(acir, initialWitness, async (name: string, args: string[]) => {
     try {
-      logger(`Oracle callback ${name} with params ${args.join(',')}`);
+      logger(`Oracle callback ${name}`);
       if (!(name in callback)) throw new Error(`Callback ${name} not found`);
       const result = await callback[name as keyof ACIRCallback](args);
-      logger(`Oracle callback ${name} returning ${result}`);
       return result;
     } catch (err: any) {
       logger(`Error in ACVM callback ${name}: ${err.message ?? err ?? 'Unknown'}`);
