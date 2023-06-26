@@ -7,7 +7,7 @@ import { executeCircuit } from 'acvm-simulator';
 /**
  * The format for fields on the ACVM.
  */
-export type ACVMField = `0x${string}`;
+export type ACVMField = string;
 /**
  * The format for addresses on the ACVM.
  */
@@ -71,7 +71,7 @@ export const acvm: execute = async (acir, initialWitness, callback) => {
     try {
       logger(`Oracle callback ${name} with params ${args.join(',')}`);
       if (!(name in callback)) throw new Error(`Callback ${name} not found`);
-      const result = await callback[name as keyof ACIRCallback](args as ACVMField[]);
+      const result = await callback[name as keyof ACIRCallback](args);
       logger(`Oracle callback ${name} returning ${result}`);
       return result;
     } catch (err: any) {
@@ -79,7 +79,7 @@ export const acvm: execute = async (acir, initialWitness, callback) => {
       throw err;
     }
   });
-  return Promise.resolve({ partialWitness: partialWitness as ACVMWitness });
+  return Promise.resolve({ partialWitness });
 };
 
 /**
@@ -127,7 +127,7 @@ export function toACVMField(value: AztecAddress | EthAddress | Fr | Buffer | boo
  * @param field - The ACVM field to convert.
  * @returns The Buffer.
  */
-export function convertACVMFieldToBuffer(field: `0x${string}`): Buffer {
+export function convertACVMFieldToBuffer(field: ACVMField): Buffer {
   return Buffer.from(field.slice(2), 'hex');
 }
 
@@ -136,7 +136,7 @@ export function convertACVMFieldToBuffer(field: `0x${string}`): Buffer {
  * @param field - The ACVM field to convert.
  * @returns The Fr.
  */
-export function fromACVMField(field: `0x${string}`): Fr {
+export function fromACVMField(field: ACVMField): Fr {
   return Fr.fromBuffer(convertACVMFieldToBuffer(field));
 }
 

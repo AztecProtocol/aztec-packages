@@ -58,13 +58,15 @@ export function frToSelector(fr: Fr): Buffer {
 }
 
 /**
- * Extracts the fields from a witness map. TODO will be refactored.
- * @param witness - The witness to flatten.
- * @returns the fields of the witness.
+ * Extracts the return fields of a given partial witness.
+ * @param acir - The bytecode of the function.
+ * @param partialWitness - The witness to extract from.
+ * @returns The return values.
  */
-export function witnessMapToArray(witness: ACVMWitness): ACVMField[] {
-  const sortedKeys = [...witness.keys()];
-  return sortedKeys.map(key => witness.get(key) as ACVMField);
+export function extractReturnWitness(acir: Buffer, partialWitness: ACVMWitness): ACVMField[] {
+  const returnWitness = getReturnWitness(acir, partialWitness);
+  const sortedKeys = [...returnWitness.keys()].sort((a, b) => a - b);
+  return sortedKeys.map(key => returnWitness.get(key)!);
 }
 
 /**
@@ -74,8 +76,7 @@ export class PublicInputsReader {
   private publicInputs: ACVMField[];
 
   constructor(witness: ACVMWitness, acir: Buffer) {
-    const returnWitness = getReturnWitness(acir, witness);
-    this.publicInputs = witnessMapToArray(returnWitness as ACVMWitness);
+    this.publicInputs = extractReturnWitness(acir, witness);
   }
 
   /**

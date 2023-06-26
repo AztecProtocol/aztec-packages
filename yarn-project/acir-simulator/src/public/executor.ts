@@ -4,10 +4,10 @@ import { createDebugLogger } from '@aztec/foundation/log';
 import { FunctionL2Logs } from '@aztec/types';
 import {
   ACVMField,
-  ACVMWitness,
   ZERO_ACVM_FIELD,
   acvm,
   convertACVMFieldToBuffer,
+  extractReturnWitness,
   frToAztecAddress,
   frToSelector,
   fromACVMField,
@@ -15,13 +15,11 @@ import {
   toACVMWitness,
   toAcvmCommitmentLoadOracleInputs,
   toAcvmL1ToL2MessageLoadOracleInputs,
-  witnessMapToArray,
 } from '../acvm/index.js';
 import { CommitmentsDB, PublicContractsDB, PublicStateDB } from './db.js';
 import { PublicExecution, PublicExecutionResult } from './execution.js';
 import { ContractStorageActionsCollector } from './state_actions.js';
 import { fieldsToFormattedStr } from '../client/debug.js';
-import { getReturnWitness } from 'acvm-simulator';
 
 // Copied from crate::abi at noir-contracts/src/contracts/noir-aztec3/src/abi.nr
 const NOIR_MAX_RETURN_VALUES = 4;
@@ -142,8 +140,7 @@ export class PublicExecutor {
       },
     });
 
-    const returnWitness = getReturnWitness(acir, partialWitness) as ACVMWitness;
-    const returnValues = witnessMapToArray(returnWitness).map(fromACVMField);
+    const returnValues = extractReturnWitness(acir, partialWitness).map(fromACVMField);
 
     const [contractStorageReads, contractStorageUpdateRequests] = storageActions.collect();
 
