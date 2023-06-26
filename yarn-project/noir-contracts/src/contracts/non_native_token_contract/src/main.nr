@@ -298,119 +298,21 @@ contract NonNativeToken {
         let recipient_bytes = owner_address.to_be_bytes(32);
         let canceller_bytes = canceller.to_be_bytes(32);
 
-        // Once loops are performant this will be moved into l1 message
-        // Unroll loops because otherwise takes forever to compile
-        // for i in range(32):
-        //     print('hash_bytes[{0}] = amount_bytes[{1}];'.format(i, i))
-        // for i in range(32):
-        //     print('hash_bytes[{0} + 32] = recipient_bytes[{1}];'.format(i, i))
-        // for i in range(32):
-        //     print('hash_bytes[{0} + 64] = canceller_bytes[{1}];'.format(i, i))
+        for i in 0..32 {
+            hash_bytes[i + 4] = amount_bytes[i];
+        }
+        for i in 0..32 {
+            hash_bytes[i + 36] = recipient_bytes[i];
+        }
+        for i in 0..32 {
+            hash_bytes[i + 68] = canceller_bytes[i];
+        }
         
         // Function selector: 0xeeb73071 keccak256('mint(uint256,bytes32,address)')
         hash_bytes[0] = 0xee;
         hash_bytes[1] = 0xb7;
         hash_bytes[2] = 0x30;
         hash_bytes[3] = 0x71;
-
-        hash_bytes[0 + 4] = amount_bytes[0];
-        hash_bytes[1 + 4] = amount_bytes[1];
-        hash_bytes[2 + 4] = amount_bytes[2];
-        hash_bytes[3 + 4] = amount_bytes[3];
-        hash_bytes[4 + 4] = amount_bytes[4];
-        hash_bytes[5 + 4] = amount_bytes[5];
-        hash_bytes[6 + 4] = amount_bytes[6];
-        hash_bytes[7 + 4] = amount_bytes[7];
-        hash_bytes[8 + 4] = amount_bytes[8];
-        hash_bytes[9 + 4] = amount_bytes[9];
-        hash_bytes[10 + 4] = amount_bytes[10];
-        hash_bytes[11 + 4] = amount_bytes[11];
-        hash_bytes[12 + 4] = amount_bytes[12];
-        hash_bytes[13 + 4] = amount_bytes[13];
-        hash_bytes[14 + 4] = amount_bytes[14];
-        hash_bytes[15 + 4] = amount_bytes[15];
-        hash_bytes[16 + 4] = amount_bytes[16];
-        hash_bytes[17 + 4] = amount_bytes[17];
-        hash_bytes[18 + 4] = amount_bytes[18];
-        hash_bytes[19 + 4] = amount_bytes[19];
-        hash_bytes[20 + 4] = amount_bytes[20];
-        hash_bytes[21 + 4] = amount_bytes[21];
-        hash_bytes[22 + 4] = amount_bytes[22];
-        hash_bytes[23 + 4] = amount_bytes[23];
-        hash_bytes[24 + 4] = amount_bytes[24];
-        hash_bytes[25 + 4] = amount_bytes[25];
-        hash_bytes[26 + 4] = amount_bytes[26];
-        hash_bytes[27 + 4] = amount_bytes[27];
-        hash_bytes[28 + 4] = amount_bytes[28];
-        hash_bytes[29 + 4] = amount_bytes[29];
-        hash_bytes[30 + 4] = amount_bytes[30];
-        hash_bytes[31 + 4] = amount_bytes[31];
-
-        hash_bytes[0 + 36] = recipient_bytes[0];
-        hash_bytes[1 + 36] = recipient_bytes[1];
-        hash_bytes[2 + 36] = recipient_bytes[2];
-        hash_bytes[3 + 36] = recipient_bytes[3];
-        hash_bytes[4 + 36] = recipient_bytes[4];
-        hash_bytes[5 + 36] = recipient_bytes[5];
-        hash_bytes[6 + 36] = recipient_bytes[6];
-        hash_bytes[7 + 36] = recipient_bytes[7];
-        hash_bytes[8 + 36] = recipient_bytes[8];
-        hash_bytes[9 + 36] = recipient_bytes[9];
-        hash_bytes[10 + 36] = recipient_bytes[10];
-        hash_bytes[11 + 36] = recipient_bytes[11];
-        hash_bytes[12 + 36] = recipient_bytes[12];
-        hash_bytes[13 + 36] = recipient_bytes[13];
-        hash_bytes[14 + 36] = recipient_bytes[14];
-        hash_bytes[15 + 36] = recipient_bytes[15];
-        hash_bytes[16 + 36] = recipient_bytes[16];
-        hash_bytes[17 + 36] = recipient_bytes[17];
-        hash_bytes[18 + 36] = recipient_bytes[18];
-        hash_bytes[19 + 36] = recipient_bytes[19];
-        hash_bytes[20 + 36] = recipient_bytes[20];
-        hash_bytes[21 + 36] = recipient_bytes[21];
-        hash_bytes[22 + 36] = recipient_bytes[22];
-        hash_bytes[23 + 36] = recipient_bytes[23];
-        hash_bytes[24 + 36] = recipient_bytes[24];
-        hash_bytes[25 + 36] = recipient_bytes[25];
-        hash_bytes[26 + 36] = recipient_bytes[26];
-        hash_bytes[27 + 36] = recipient_bytes[27];
-        hash_bytes[28 + 36] = recipient_bytes[28];
-        hash_bytes[29 + 36] = recipient_bytes[29];
-        hash_bytes[30 + 36] = recipient_bytes[30];
-        hash_bytes[31 + 36] = recipient_bytes[31];
-
-        hash_bytes[0 + 68] = canceller_bytes[0];
-        hash_bytes[1 + 68] = canceller_bytes[1];
-        hash_bytes[2 + 68] = canceller_bytes[2];
-        hash_bytes[3 + 68] = canceller_bytes[3];
-        hash_bytes[4 + 68] = canceller_bytes[4];
-        hash_bytes[5 + 68] = canceller_bytes[5];
-        hash_bytes[6 + 68] = canceller_bytes[6];
-        hash_bytes[7 + 68] = canceller_bytes[7];
-        hash_bytes[8 + 68] = canceller_bytes[8];
-        hash_bytes[9 + 68] = canceller_bytes[9];
-        hash_bytes[10 + 68] = canceller_bytes[10];
-        hash_bytes[11 + 68] = canceller_bytes[11];
-        hash_bytes[12 + 68] = canceller_bytes[12];
-        hash_bytes[13 + 68] = canceller_bytes[13];
-        hash_bytes[14 + 68] = canceller_bytes[14];
-        hash_bytes[15 + 68] = canceller_bytes[15];
-        hash_bytes[16 + 68] = canceller_bytes[16];
-        hash_bytes[17 + 68] = canceller_bytes[17];
-        hash_bytes[18 + 68] = canceller_bytes[18];
-        hash_bytes[19 + 68] = canceller_bytes[19];
-        hash_bytes[20 + 68] = canceller_bytes[20];
-        hash_bytes[21 + 68] = canceller_bytes[21];
-        hash_bytes[22 + 68] = canceller_bytes[22];
-        hash_bytes[23 + 68] = canceller_bytes[23];
-        hash_bytes[24 + 68] = canceller_bytes[24];
-        hash_bytes[25 + 68] = canceller_bytes[25];
-        hash_bytes[26 + 68] = canceller_bytes[26];
-        hash_bytes[27 + 68] = canceller_bytes[27];
-        hash_bytes[28 + 68] = canceller_bytes[28];
-        hash_bytes[29 + 68] = canceller_bytes[29];
-        hash_bytes[30 + 68] = canceller_bytes[30];
-        hash_bytes[31 + 68] = canceller_bytes[31];
         
         let content_sha256 = dep::std::hash::sha256(hash_bytes);
 
@@ -419,59 +321,11 @@ contract NonNativeToken {
         let mut high = 0 as Field;
         let mut low = 0 as Field;
 
-        // Unroll loops because otherwise takes forever to compile
-        // for i in [15 - i for i in range(16)]:
-        //     print('high = high + (content_sha256[{0}] as Field) * v;'.format(i))
-        //     print('low = low + (content_sha256[16 + {0}] as Field) * v;'.format(i))
-        //     print('v = v * 256;');
-        high = high + (content_sha256[15] as Field) * v;
-        low = low + (content_sha256[16 + 15] as Field) * v;
-        v = v * 256;
-        high = high + (content_sha256[14] as Field) * v;
-        low = low + (content_sha256[16 + 14] as Field) * v;
-        v = v * 256;
-        high = high + (content_sha256[13] as Field) * v;
-        low = low + (content_sha256[16 + 13] as Field) * v;
-        v = v * 256;
-        high = high + (content_sha256[12] as Field) * v;
-        low = low + (content_sha256[16 + 12] as Field) * v;
-        v = v * 256;
-        high = high + (content_sha256[11] as Field) * v;
-        low = low + (content_sha256[16 + 11] as Field) * v;
-        v = v * 256;
-        high = high + (content_sha256[10] as Field) * v;
-        low = low + (content_sha256[16 + 10] as Field) * v;
-        v = v * 256;
-        high = high + (content_sha256[9] as Field) * v;
-        low = low + (content_sha256[16 + 9] as Field) * v;
-        v = v * 256;
-        high = high + (content_sha256[8] as Field) * v;
-        low = low + (content_sha256[16 + 8] as Field) * v;
-        v = v * 256;
-        high = high + (content_sha256[7] as Field) * v;
-        low = low + (content_sha256[16 + 7] as Field) * v;
-        v = v * 256;
-        high = high + (content_sha256[6] as Field) * v;
-        low = low + (content_sha256[16 + 6] as Field) * v;
-        v = v * 256;
-        high = high + (content_sha256[5] as Field) * v;
-        low = low + (content_sha256[16 + 5] as Field) * v;
-        v = v * 256;
-        high = high + (content_sha256[4] as Field) * v;
-        low = low + (content_sha256[16 + 4] as Field) * v;
-        v = v * 256;
-        high = high + (content_sha256[3] as Field) * v;
-        low = low + (content_sha256[16 + 3] as Field) * v;
-        v = v * 256;
-        high = high + (content_sha256[2] as Field) * v;
-        low = low + (content_sha256[16 + 2] as Field) * v;
-        v = v * 256;
-        high = high + (content_sha256[1] as Field) * v;
-        low = low + (content_sha256[16 + 1] as Field) * v;
-        v = v * 256;
-        high = high + (content_sha256[0] as Field) * v;
-        low = low + (content_sha256[16 + 0] as Field) * v;
-        v = v * 256;
+        for i in 0..16 {
+            high = high + (content_sha256[15 - i] as Field) * v;
+            low = low + (content_sha256[16 + 15 - i] as Field) * v;
+            v = v * 256;
+        }
 
         // Abuse that a % p + b % p = (a + b) % p and that low < p
         let content_hash = low + high * v;
@@ -488,117 +342,22 @@ contract NonNativeToken {
         let amount_bytes = amount.to_be_bytes(32);
         let recipient_bytes = recipient.to_be_bytes(32);
         let callerOnL1_bytes = callerOnL1.to_be_bytes(32);
-
+        
         //  0xb460af94, selector for "withdraw(uint256,address,address)"
         hash_bytes[0] = 0xb4;
         hash_bytes[1] = 0x60;
         hash_bytes[2] = 0xaf;
         hash_bytes[3] = 0x94;
 
-        // Unroll loops because otherwise takes forever to compile
-        // for i in range(32):
-        //     print('hash_bytes[{0}] = amount_bytes[{1}];'.format(i+4, i))
-        // for i in range(32):
-        //     print('hash_bytes[{0} + 32] = recipient_bytes[{1}];'.format(i+4, i))
-        hash_bytes[4] = amount_bytes[0];
-        hash_bytes[5] = amount_bytes[1];
-        hash_bytes[6] = amount_bytes[2];
-        hash_bytes[7] = amount_bytes[3];
-        hash_bytes[8] = amount_bytes[4];
-        hash_bytes[9] = amount_bytes[5];
-        hash_bytes[10] = amount_bytes[6];
-        hash_bytes[11] = amount_bytes[7];
-        hash_bytes[12] = amount_bytes[8];
-        hash_bytes[13] = amount_bytes[9];
-        hash_bytes[14] = amount_bytes[10];
-        hash_bytes[15] = amount_bytes[11];
-        hash_bytes[16] = amount_bytes[12];
-        hash_bytes[17] = amount_bytes[13];
-        hash_bytes[18] = amount_bytes[14];
-        hash_bytes[19] = amount_bytes[15];
-        hash_bytes[20] = amount_bytes[16];
-        hash_bytes[21] = amount_bytes[17];
-        hash_bytes[22] = amount_bytes[18];
-        hash_bytes[23] = amount_bytes[19];
-        hash_bytes[24] = amount_bytes[20];
-        hash_bytes[25] = amount_bytes[21];
-        hash_bytes[26] = amount_bytes[22];
-        hash_bytes[27] = amount_bytes[23];
-        hash_bytes[28] = amount_bytes[24];
-        hash_bytes[29] = amount_bytes[25];
-        hash_bytes[30] = amount_bytes[26];
-        hash_bytes[31] = amount_bytes[27];
-        hash_bytes[32] = amount_bytes[28];
-        hash_bytes[33] = amount_bytes[29];
-        hash_bytes[34] = amount_bytes[30];
-        hash_bytes[35] = amount_bytes[31];
-
-        hash_bytes[4 + 32] = recipient_bytes[0];
-        hash_bytes[5 + 32] = recipient_bytes[1];
-        hash_bytes[6 + 32] = recipient_bytes[2];
-        hash_bytes[7 + 32] = recipient_bytes[3];
-        hash_bytes[8 + 32] = recipient_bytes[4];
-        hash_bytes[9 + 32] = recipient_bytes[5];
-        hash_bytes[10 + 32] = recipient_bytes[6];
-        hash_bytes[11 + 32] = recipient_bytes[7];
-        hash_bytes[12 + 32] = recipient_bytes[8];
-        hash_bytes[13 + 32] = recipient_bytes[9];
-        hash_bytes[14 + 32] = recipient_bytes[10];
-        hash_bytes[15 + 32] = recipient_bytes[11];
-        hash_bytes[16 + 32] = recipient_bytes[12];
-        hash_bytes[17 + 32] = recipient_bytes[13];
-        hash_bytes[18 + 32] = recipient_bytes[14];
-        hash_bytes[19 + 32] = recipient_bytes[15];
-        hash_bytes[20 + 32] = recipient_bytes[16];
-        hash_bytes[21 + 32] = recipient_bytes[17];
-        hash_bytes[22 + 32] = recipient_bytes[18];
-        hash_bytes[23 + 32] = recipient_bytes[19];
-        hash_bytes[24 + 32] = recipient_bytes[20];
-        hash_bytes[25 + 32] = recipient_bytes[21];
-        hash_bytes[26 + 32] = recipient_bytes[22];
-        hash_bytes[27 + 32] = recipient_bytes[23];
-        hash_bytes[28 + 32] = recipient_bytes[24];
-        hash_bytes[29 + 32] = recipient_bytes[25];
-        hash_bytes[30 + 32] = recipient_bytes[26];
-        hash_bytes[31 + 32] = recipient_bytes[27];
-        hash_bytes[32 + 32] = recipient_bytes[28];
-        hash_bytes[33 + 32] = recipient_bytes[29];
-        hash_bytes[34 + 32] = recipient_bytes[30];
-        hash_bytes[35 + 32] = recipient_bytes[31];
-
-        hash_bytes[4 + 64] = callerOnL1_bytes[0];
-        hash_bytes[5 + 64] = callerOnL1_bytes[1];
-        hash_bytes[6 + 64] = callerOnL1_bytes[2];
-        hash_bytes[7 + 64] = callerOnL1_bytes[3];
-        hash_bytes[8 + 64] = callerOnL1_bytes[4];
-        hash_bytes[9 + 64] = callerOnL1_bytes[5];
-        hash_bytes[10 + 64] = callerOnL1_bytes[6];
-        hash_bytes[11 + 64] = callerOnL1_bytes[7];
-        hash_bytes[12 + 64] = callerOnL1_bytes[8];
-        hash_bytes[13 + 64] = callerOnL1_bytes[9];
-        hash_bytes[14 + 64] = callerOnL1_bytes[10];
-        hash_bytes[15 + 64] = callerOnL1_bytes[11];
-        hash_bytes[16 + 64] = callerOnL1_bytes[12];
-        hash_bytes[17 + 64] = callerOnL1_bytes[13];
-        hash_bytes[18 + 64] = callerOnL1_bytes[14];
-        hash_bytes[19 + 64] = callerOnL1_bytes[15];
-        hash_bytes[20 + 64] = callerOnL1_bytes[16];
-        hash_bytes[21 + 64] = callerOnL1_bytes[17];
-        hash_bytes[22 + 64] = callerOnL1_bytes[18];
-        hash_bytes[23 + 64] = callerOnL1_bytes[19];
-        hash_bytes[24 + 64] = callerOnL1_bytes[20];
-        hash_bytes[25 + 64] = callerOnL1_bytes[21];
-        hash_bytes[26 + 64] = callerOnL1_bytes[22];
-        hash_bytes[27 + 64] = callerOnL1_bytes[23];
-        hash_bytes[28 + 64] = callerOnL1_bytes[24];
-        hash_bytes[29 + 64] = callerOnL1_bytes[25];
-        hash_bytes[30 + 64] = callerOnL1_bytes[26];
-        hash_bytes[31 + 64] = callerOnL1_bytes[27];
-        hash_bytes[32 + 64] = callerOnL1_bytes[28];
-        hash_bytes[33 + 64] = callerOnL1_bytes[29];
-        hash_bytes[34 + 64] = callerOnL1_bytes[30];
-        hash_bytes[35 + 64] = callerOnL1_bytes[31];
-
+        for i in 0..32 {
+            hash_bytes[i + 4] = amount_bytes[i];
+        }
+        for i in 0..32 {
+            hash_bytes[i + 36] = recipient_bytes[i];
+        }
+        for i in 0..32 {
+            hash_bytes[i + 68] = callerOnL1_bytes[i];
+        }
         let content_sha256 = dep::std::hash::sha256(hash_bytes);
 
         // Convert the content_sha256 to a field element
@@ -606,59 +365,11 @@ contract NonNativeToken {
         let mut high = 0 as Field;
         let mut low = 0 as Field;
         
-        // Unroll loops because otherwise takes forever to compile
-        // for i in [15 - i for i in range(16)]:
-        //     print('high = high + (content_sha256[{0}] as Field) * v;'.format(i))
-        //     print('low = low + (content_sha256[16 + {0}] as Field) * v;'.format(i))
-        //     print('v = v * 256;');
-        high = high + (content_sha256[15] as Field) * v;
-        low = low + (content_sha256[16 + 15] as Field) * v;
-        v = v * 256;
-        high = high + (content_sha256[14] as Field) * v;
-        low = low + (content_sha256[16 + 14] as Field) * v;
-        v = v * 256;
-        high = high + (content_sha256[13] as Field) * v;
-        low = low + (content_sha256[16 + 13] as Field) * v;
-        v = v * 256;
-        high = high + (content_sha256[12] as Field) * v;
-        low = low + (content_sha256[16 + 12] as Field) * v;
-        v = v * 256;
-        high = high + (content_sha256[11] as Field) * v;
-        low = low + (content_sha256[16 + 11] as Field) * v;
-        v = v * 256;
-        high = high + (content_sha256[10] as Field) * v;
-        low = low + (content_sha256[16 + 10] as Field) * v;
-        v = v * 256;
-        high = high + (content_sha256[9] as Field) * v;
-        low = low + (content_sha256[16 + 9] as Field) * v;
-        v = v * 256;
-        high = high + (content_sha256[8] as Field) * v;
-        low = low + (content_sha256[16 + 8] as Field) * v;
-        v = v * 256;
-        high = high + (content_sha256[7] as Field) * v;
-        low = low + (content_sha256[16 + 7] as Field) * v;
-        v = v * 256;
-        high = high + (content_sha256[6] as Field) * v;
-        low = low + (content_sha256[16 + 6] as Field) * v;
-        v = v * 256;
-        high = high + (content_sha256[5] as Field) * v;
-        low = low + (content_sha256[16 + 5] as Field) * v;
-        v = v * 256;
-        high = high + (content_sha256[4] as Field) * v;
-        low = low + (content_sha256[16 + 4] as Field) * v;
-        v = v * 256;
-        high = high + (content_sha256[3] as Field) * v;
-        low = low + (content_sha256[16 + 3] as Field) * v;
-        v = v * 256;
-        high = high + (content_sha256[2] as Field) * v;
-        low = low + (content_sha256[16 + 2] as Field) * v;
-        v = v * 256;
-        high = high + (content_sha256[1] as Field) * v;
-        low = low + (content_sha256[16 + 1] as Field) * v;
-        v = v * 256;
-        high = high + (content_sha256[0] as Field) * v;
-        low = low + (content_sha256[16 + 0] as Field) * v;
-        v = v * 256;
+        for i in 0..16 {
+            high = high + (content_sha256[15 - i] as Field) * v;
+            low = low + (content_sha256[16 + 15 - i] as Field) * v;
+            v = v * 256;
+        }
 
         // Abuse that a % p + b % p = (a + b) % p and that low < p
         let content = low + high * v;
