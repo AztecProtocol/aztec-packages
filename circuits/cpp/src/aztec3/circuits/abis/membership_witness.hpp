@@ -3,6 +3,7 @@
 #include "aztec3/utils/array.hpp"
 #include "aztec3/utils/types/circuit_types.hpp"
 #include "aztec3/utils/types/convert.hpp"
+#include "aztec3/utils/types/native_types.hpp"
 
 namespace aztec3::circuits::abis {
 
@@ -37,6 +38,30 @@ template <typename NCT, unsigned int N> struct MembershipWitness {
         };
 
         return witness;
+    }
+
+    template <typename Builder> MembershipWitness<NativeTypes, N> to_native_type() const
+    {
+        static_assert((std::is_same<CircuitTypes<Builder>, NCT>::value));
+
+        auto to_nt = [&](auto& e) { return aztec3::utils::types::to_nt<Builder>(e); };
+
+        MembershipWitness<NativeTypes, N> witness = {
+            to_nt(leaf_index),
+            map(sibling_path, to_nt),
+        };
+
+        return witness;
+    }
+
+    void set_public()
+    {
+        static_assert(!(std::is_same<NativeTypes, NCT>::value));
+
+        leaf_index.set_public();
+        for (fr const& e : sibling_path) {
+            e.set_public();
+        }
     }
 };
 
