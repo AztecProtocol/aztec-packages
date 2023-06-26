@@ -6,7 +6,7 @@
 #include "aztec3/circuits/abis/private_kernel/private_kernel_inputs_inner.hpp"
 #include "aztec3/constants.hpp"
 #include "aztec3/utils/array.hpp"
-#include "aztec3/utils/dummy_composer.hpp"
+#include "aztec3/utils/dummy_circuit_builder.hpp"
 
 namespace aztec3::circuits::kernel::private_kernel {
 
@@ -16,7 +16,7 @@ using aztec3::circuits::abis::private_kernel::PrivateKernelInputsInner;
 
 using aztec3::utils::array_length;
 using aztec3::utils::array_pop;
-using DummyBuilder = aztec3::utils::DummyBuilder;
+using DummyBuilder = aztec3::utils::DummyCircuitBuilder;
 using CircuitErrorCode = aztec3::utils::CircuitErrorCode;
 
 // using plonk::stdlib::merkle_tree::

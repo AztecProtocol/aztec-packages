@@ -11,9 +11,9 @@
 #include "aztec3/circuits/hash.hpp"
 #include "aztec3/constants.hpp"
 #include "aztec3/utils/array.hpp"
-#include "aztec3/utils/dummy_composer.hpp"
+#include "aztec3/utils/dummy_circuit_builder.hpp"
 
-using DummyBuilder = aztec3::utils::DummyBuilder;
+using DummyBuilder = aztec3::utils::DummyCircuitBuilder;
 
 using aztec3::circuits::abis::ContractDeploymentData;
 using aztec3::circuits::abis::ContractLeafPreimage;
@@ -25,7 +25,7 @@ using aztec3::circuits::abis::NewContractData;
 using aztec3::utils::array_push;
 using aztec3::utils::is_array_empty;
 using aztec3::utils::push_array_to_array;
-using DummyBuilder = aztec3::utils::DummyBuilder;
+using DummyBuilder = aztec3::utils::DummyCircuitBuilder;
 using CircuitErrorCode = aztec3::utils::CircuitErrorCode;
 using aztec3::circuits::abis::private_kernel::PrivateCallData;
 

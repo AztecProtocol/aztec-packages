@@ -28,7 +28,7 @@ using aztec3::circuits::abis::private_kernel::PrivateKernelInputsInit;
 using aztec3::circuits::abis::private_kernel::PrivateKernelInputsInner;
 
 
-using DummyBuilder = aztec3::utils::DummyBuilder;
+using DummyBuilder = aztec3::utils::DummyCircuitBuilder;
 
 using aztec3::utils::zero_array;
 

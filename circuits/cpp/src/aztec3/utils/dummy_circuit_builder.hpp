@@ -9,13 +9,13 @@
 
 namespace aztec3::utils {
 
-class DummyBuilder {
+class DummyCircuitBuilder {
   public:
     std::vector<CircuitError> failure_msgs;
     // method that created this builder instance. Useful for logging.
     std::string method_name;
 
-    explicit DummyBuilder(std::string method_name) : method_name(std::move(method_name)) {}
+    explicit DummyCircuitBuilder(std::string method_name) : method_name(std::move(method_name)) {}
 
     void do_assert(bool const& assertion, std::string const& msg, CircuitErrorCode error_code)
     {

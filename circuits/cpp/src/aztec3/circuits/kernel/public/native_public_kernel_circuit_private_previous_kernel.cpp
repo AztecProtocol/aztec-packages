@@ -7,7 +7,7 @@
 #include "aztec3/constants.hpp"
 #include "aztec3/utils/array.hpp"
 #include "aztec3/utils/circuit_errors.hpp"
-#include "aztec3/utils/dummy_composer.hpp"
+#include "aztec3/utils/dummy_circuit_builder.hpp"
 
 namespace {
 using CircuitErrorCode = aztec3::utils::CircuitErrorCode;
@@ -35,7 +35,7 @@ using aztec3::circuits::abis::public_kernel::PublicKernelInputs;
 using aztec3::circuits::kernel::public_kernel::common_initialise_end_values;
 using aztec3::circuits::kernel::public_kernel::common_validate_kernel_execution;
 
-using DummyBuilder = aztec3::utils::DummyBuilder;
+using DummyBuilder = aztec3::utils::DummyCircuitBuilder;
 
 /**
  * @brief Entry point for the native public kernel circuit with a private previous kernel

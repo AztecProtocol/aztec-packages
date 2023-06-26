@@ -13,7 +13,7 @@
 #include "aztec3/circuits/rollup/components/components.hpp"
 #include "aztec3/circuits/rollup/test_utils/utils.hpp"
 #include "aztec3/constants.hpp"
-#include "aztec3/utils/dummy_composer.hpp"
+#include "aztec3/utils/dummy_circuit_builder.hpp"
 
 #include <barretenberg/barretenberg.hpp>
 
@@ -138,7 +138,8 @@ TEST_F(root_rollup_tests, native_check_block_hashes_empty_blocks)
     std::vector<uint8_t> const messages_hash_input_bytes_vec(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP * 32, 0);
     auto messages_hash = sha256::sha256(messages_hash_input_bytes_vec);
 
-    utils::DummyBuilder builder = utils::DummyBuilder("root_rollup_tests__native_check_block_hashes_empty_blocks");
+    utils::DummyCircuitBuilder builder =
+        utils::DummyCircuitBuilder("root_rollup_tests__native_check_block_hashes_empty_blocks");
     std::array<KernelData, 4> const kernels = {
         get_empty_kernel(), get_empty_kernel(), get_empty_kernel(), get_empty_kernel()
     };
@@ -158,7 +159,8 @@ TEST_F(root_rollup_tests, native_check_block_hashes_empty_blocks)
 
 TEST_F(root_rollup_tests, native_root_missing_nullifier_logic)
 {
-    utils::DummyBuilder builder = utils::DummyBuilder("root_rollup_tests__native_root_missing_nullifier_logic");
+    utils::DummyCircuitBuilder builder =
+        utils::DummyCircuitBuilder("root_rollup_tests__native_root_missing_nullifier_logic");
 
     MemoryTree data_tree = MemoryTree(PRIVATE_DATA_TREE_HEIGHT);
     MemoryTree contract_tree = MemoryTree(CONTRACT_TREE_HEIGHT);

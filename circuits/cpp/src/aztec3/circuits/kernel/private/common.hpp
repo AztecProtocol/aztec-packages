@@ -8,13 +8,13 @@
 #include "aztec3/circuits/abis/membership_witness.hpp"
 #include "aztec3/circuits/abis/private_kernel/private_call_data.hpp"
 #include "aztec3/circuits/abis/private_kernel/private_kernel_inputs_inner.hpp"
-#include "aztec3/utils/dummy_composer.hpp"
+#include "aztec3/utils/dummy_circuit_builder.hpp"
 
 
 namespace aztec3::circuits::kernel::private_kernel {
 
 using aztec3::circuits::abis::ContractDeploymentData;
-using DummyBuilder = aztec3::utils::DummyBuilder;
+using DummyBuilder = aztec3::utils::DummyCircuitBuilder;
 using aztec3::circuits::abis::FunctionData;
 using aztec3::circuits::abis::KernelCircuitPublicInputs;
 using aztec3::circuits::abis::MembershipWitness;

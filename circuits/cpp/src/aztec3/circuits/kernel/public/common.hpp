@@ -9,7 +9,7 @@
 #include "aztec3/circuits/abis/public_kernel/public_kernel_inputs.hpp"
 #include "aztec3/circuits/hash.hpp"
 #include "aztec3/utils/array.hpp"
-#include "aztec3/utils/dummy_composer.hpp"
+#include "aztec3/utils/dummy_circuit_builder.hpp"
 
 using NT = aztec3::utils::types::NativeTypes;
 using aztec3::circuits::abis::ContractStorageRead;
@@ -18,7 +18,7 @@ using aztec3::circuits::abis::KernelCircuitPublicInputs;
 using aztec3::circuits::abis::PublicDataRead;
 using aztec3::circuits::abis::PublicDataUpdateRequest;
 using aztec3::circuits::abis::public_kernel::PublicKernelInputs;
-using DummyBuilder = aztec3::utils::DummyBuilder;
+using DummyBuilder = aztec3::utils::DummyCircuitBuilder;
 using aztec3::circuits::check_membership;
 using aztec3::circuits::compute_public_data_tree_index;
 using aztec3::circuits::compute_public_data_tree_value;

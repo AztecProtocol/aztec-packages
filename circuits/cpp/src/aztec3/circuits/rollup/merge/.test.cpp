@@ -11,7 +11,7 @@
 
 namespace {
 using aztec3::circuits::rollup::merge::MergeRollupInputs;
-using DummyBuilder = aztec3::utils::DummyBuilder;
+using DummyBuilder = aztec3::utils::DummyCircuitBuilder;
 
 using aztec3::circuits::rollup::test_utils::utils::get_empty_kernel;
 using aztec3::circuits::rollup::test_utils::utils::get_merge_rollup_inputs;

@@ -11,7 +11,7 @@
 namespace {
 using Builder = UltraCircuitBuilder;
 using NT = aztec3::utils::types::NativeTypes;
-using DummyBuilder = aztec3::utils::DummyBuilder;
+using DummyBuilder = aztec3::utils::DummyCircuitBuilder;
 using aztec3::circuits::abis::PreviousKernelData;
 using aztec3::circuits::abis::TxRequest;
 using aztec3::circuits::abis::private_kernel::PrivateCallData;

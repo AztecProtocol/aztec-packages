@@ -50,7 +50,7 @@ using aztec3::circuits::abis::NewContractData;
 using aztec3::circuits::rollup::test_utils::utils::make_public_data_update_request;
 using aztec3::circuits::rollup::test_utils::utils::make_public_read;
 
-using DummyBuilder = aztec3::utils::DummyBuilder;
+using DummyBuilder = aztec3::utils::DummyCircuitBuilder;
 }  // namespace
 
 namespace aztec3::circuits::rollup::base::native_base_rollup_circuit {

@@ -5,7 +5,7 @@
 
 #include "aztec3/circuits/abis/rollup/base/base_or_merge_rollup_public_inputs.hpp"
 #include "aztec3/constants.hpp"
-#include "aztec3/utils/dummy_composer.hpp"
+#include "aztec3/utils/dummy_circuit_builder.hpp"
 #include "aztec3/utils/types/native_types.hpp"
 
 #include <barretenberg/barretenberg.hpp>
@@ -13,7 +13,7 @@
 namespace {
 using Builder = UltraCircuitBuilder;
 using NT = aztec3::utils::types::NativeTypes;
-using DummyBuilder = aztec3::utils::DummyBuilder;
+using DummyBuilder = aztec3::utils::DummyCircuitBuilder;
 using aztec3::circuits::abis::BaseOrMergeRollupPublicInputs;
 using aztec3::circuits::abis::BaseRollupInputs;
 using aztec3::circuits::rollup::native_base_rollup::base_rollup_circuit;

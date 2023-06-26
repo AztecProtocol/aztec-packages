@@ -3,7 +3,7 @@
 #include "aztec3/circuits/apps/oracle_wrapper.hpp"
 #include "aztec3/circuits/recursion/aggregator.hpp"
 #include "aztec3/oracle/oracle.hpp"
-#include "aztec3/utils/dummy_composer.hpp"
+#include "aztec3/utils/dummy_circuit_builder.hpp"
 #include "aztec3/utils/types/circuit_types.hpp"
 #include "aztec3/utils/types/convert.hpp"
 #include "aztec3/utils/types/native_types.hpp"

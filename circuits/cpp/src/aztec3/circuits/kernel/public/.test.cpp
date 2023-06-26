@@ -28,7 +28,7 @@
 #include <gtest/gtest.h>
 
 namespace {
-using DummyBuilder = aztec3::utils::DummyBuilder;
+using DummyBuilder = aztec3::utils::DummyCircuitBuilder;
 using aztec3::circuits::abis::public_kernel::PublicKernelInputs;
 using NT = aztec3::utils::types::NativeTypes;
 using aztec3::circuits::abis::CallContext;
