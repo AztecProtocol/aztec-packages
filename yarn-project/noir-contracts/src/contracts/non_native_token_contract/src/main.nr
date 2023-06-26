@@ -47,7 +47,7 @@ contract NonNativeToken {
 
         // Insert note and emit encrypted note preimage via oracle call
         context = owner_balance.insert(context, note);
-        constrain emit_encrypted_log(inputs.call_context.storage_contract_address, owner_balance.storage_slot, note.owner, note) == 0;
+        assert(emit_encrypted_log(inputs.call_context.storage_contract_address, owner_balance.storage_slot, note.owner, note) == 0);
 
         context.finish(inputs)
     }
@@ -82,7 +82,7 @@ contract NonNativeToken {
 
         // Insert note and emit encrypted note preimage via oracle call
         context = owner_balance.insert(context, note);
-        constrain emit_encrypted_log(inputs.call_context.storage_contract_address, owner_balance.storage_slot, note.owner, note) == 0;
+        assert(emit_encrypted_log(inputs.call_context.storage_contract_address, owner_balance.storage_slot, note.owner, note) == 0);
 
         context.finish(inputs)
     }
@@ -113,7 +113,7 @@ contract NonNativeToken {
         note2.validate(sender);
 
         let sum = note1.value + note2.value;
-        constrain sum as u64 >= amount as u64;
+        assert(sum as u64 >= amount as u64);
         let change_value = sum - amount;
 
         context = sender_balance.remove(inputs, context, note1);
@@ -123,7 +123,7 @@ contract NonNativeToken {
 
         // Insert note and emit encrypted note preimage via oracle call
         context = sender_balance.insert(context, change_note);
-        constrain emit_encrypted_log(inputs.call_context.storage_contract_address, sender_balance.storage_slot, change_note.owner, change_note) == 0;
+        assert(emit_encrypted_log(inputs.call_context.storage_contract_address, sender_balance.storage_slot, change_note.owner, change_note) == 0);
         
         let content = _get_withdraw_content_hash(amount, recipient, callerOnL1);
 
@@ -211,7 +211,7 @@ contract NonNativeToken {
         note2.validate(sender);
 
         let sum = note1.value + note2.value;
-        constrain sum as u64 >= amount as u64;
+        assert(sum as u64 >= amount as u64);
         let change_value = sum - amount;
 
         context = sender_balance.remove(inputs, context, note1);
@@ -225,8 +225,8 @@ contract NonNativeToken {
         context = recipient_balance.insert(context, recipient_note);
         context = sender_balance.insert(context, change_note);
 
-        constrain emit_encrypted_log(inputs.call_context.storage_contract_address, recipient_balance.storage_slot, recipient_note.owner, recipient_note) == 0;
-        constrain emit_encrypted_log(inputs.call_context.storage_contract_address, sender_balance.storage_slot, change_note.owner, change_note) == 0;
+        assert(emit_encrypted_log(inputs.call_context.storage_contract_address, recipient_balance.storage_slot, recipient_note.owner, recipient_note) == 0);
+        assert(emit_encrypted_log(inputs.call_context.storage_contract_address, sender_balance.storage_slot, change_note.owner, change_note) == 0);
 
         context.finish(inputs)
     } 

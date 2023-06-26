@@ -34,8 +34,8 @@ contract ZkToken {
 
         // Insert note and emit encrypted note preimage via oracle call
         context = owner_balance.insert(context, note);
-        constrain emit_encrypted_log(inputs.call_context.storage_contract_address, owner_balance.storage_slot, note.owner, note) == 0;
-        constrain emit_unencrypted_log("Balance set in constructor") == 0;
+        assert(emit_encrypted_log(inputs.call_context.storage_contract_address, owner_balance.storage_slot, note.owner, note) == 0);
+        assert(emit_unencrypted_log("Balance set in constructor") == 0);
 
         context.finish(inputs)
     }
@@ -56,8 +56,8 @@ contract ZkToken {
 
         // Insert note and emit encrypted note preimage via oracle call
         context = owner_balance.insert(context, note);
-        constrain emit_encrypted_log(inputs.call_context.storage_contract_address, owner_balance.storage_slot, note.owner, note) == 0;
-        constrain emit_unencrypted_log("Coins minted") == 0;
+        assert(emit_encrypted_log(inputs.call_context.storage_contract_address, owner_balance.storage_slot, note.owner, note) == 0);
+        assert(emit_unencrypted_log("Coins minted") == 0);
 
         context.finish(inputs)
     }
@@ -81,7 +81,7 @@ contract ZkToken {
         note2.validate(sender);
 
         let sum = note1.value + note2.value;
-        constrain sum as u64 >= amount as u64;
+        assert(sum as u64 >= amount as u64);
         let change_value = sum - amount;
 
         context = sender_balance.remove(inputs, context, note1);
@@ -95,9 +95,9 @@ contract ZkToken {
         context = recipient_balance.insert(context, recipient_note);
         context = sender_balance.insert(context, change_note);
 
-        constrain emit_encrypted_log(inputs.call_context.storage_contract_address, recipient_balance.storage_slot, recipient_note.owner, recipient_note) == 0;
-        constrain emit_encrypted_log(inputs.call_context.storage_contract_address, sender_balance.storage_slot, change_note.owner, change_note) == 0;
-        constrain emit_unencrypted_log("Coins transferred") == 0;
+        assert(emit_encrypted_log(inputs.call_context.storage_contract_address, recipient_balance.storage_slot, recipient_note.owner, recipient_note) == 0);
+        assert(emit_encrypted_log(inputs.call_context.storage_contract_address, sender_balance.storage_slot, change_note.owner, change_note) == 0);
+        assert(emit_unencrypted_log("Coins transferred") == 0);
 
         context.finish(inputs)
     }

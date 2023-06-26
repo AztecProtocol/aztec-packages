@@ -104,7 +104,7 @@ contract PublicPrivate {
 
         // Insert note and emit encrypted preimage
         context = owner_balance.insert(context, note);
-        constrain emit_encrypted_log(inputs.call_context.storage_contract_address, owner_balance.storage_slot, note.owner, note) == 0;
+        assert(emit_encrypted_log(inputs.call_context.storage_contract_address, owner_balance.storage_slot, note.owner, note) == 0);
 
         context.finish(inputs)
     }
