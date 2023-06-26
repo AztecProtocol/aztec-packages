@@ -17,7 +17,7 @@ contract EcdsaAccount {
         owner: pub [u8;64], // x and y coordinates concatenated
         signature: pub [Field;3],
         //partialContractAddress: pub Field
-    ) -> pub [Field; dep::aztec3::abi::PUBLIC_INPUTS_LENGTH] {
+    ) -> distinct pub [Field; dep::aztec3::abi::PUBLIC_INPUTS_LENGTH] {
         let mut context = PrivateFunctionContext::new();
 
         // Decompress signature from 3 fields to 64 bytes
@@ -48,7 +48,7 @@ contract EcdsaAccount {
         let payload_hash: [u8; 32] = std::hash::sha256(payload_bytes);
         
         let verification = std::ecdsa_secp256k1::verify_signature(x, y, decompressed_signature, payload_hash);
-        constrain verification == 1;
+        constrain verification == true;
 
         // TODO: When we can use pedersen with non-zero generators, get this working        
         //let reproduced_address = dep::std::hash::pedersen([owner, partialContractAddress])[0];
@@ -106,7 +106,7 @@ contract EcdsaAccount {
 
     fn constructor(
         inputs: pub PrivateContextInputs,
-    ) -> pub [Field; dep::aztec3::abi::PUBLIC_INPUTS_LENGTH] {
+    ) -> distinct pub [Field; dep::aztec3::abi::PUBLIC_INPUTS_LENGTH] {
         PrivateFunctionContext::new().finish(inputs)
     }
 }

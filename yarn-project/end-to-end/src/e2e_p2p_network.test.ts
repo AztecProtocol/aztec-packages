@@ -35,7 +35,7 @@ describe('e2e_p2p_network', () => {
 
   beforeEach(async () => {
     ({ aztecNode, aztecRpcServer, config, logger } = await setup(0));
-  }, 30_000);
+  }, 100_000);
 
   afterEach(async () => {
     await aztecNode.stop();

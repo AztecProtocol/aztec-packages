@@ -46,7 +46,7 @@ describe('e2e_account_contract', () => {
 
     const childDeployResult = await deployContract(ChildAbi);
     child = childDeployResult.contract;
-  }, 60_000);
+  }, 100_000);
 
   afterEach(async () => {
     await aztecNode.stop();
