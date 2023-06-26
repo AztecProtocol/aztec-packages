@@ -108,7 +108,7 @@ contract SchnorrAccount {
 
     fn constructor(
         inputs: pub PrivateContextInputs,
-    ) -> pub [Field; dep::aztec3::abi::PUBLIC_INPUTS_LENGTH] {
+    ) -> distinct pub [Field; dep::aztec3::abi::PUBLIC_INPUTS_LENGTH] {
         PrivateFunctionContext::new().finish(inputs)
     }
 }
