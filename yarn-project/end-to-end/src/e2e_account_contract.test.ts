@@ -6,7 +6,7 @@ import { ChildAbi, EcdsaAccountContractAbi, SchnorrAccountContractAbi } from '@a
 
 import { toBigInt } from '@aztec/foundation/serialize';
 import { setup } from './utils.js';
-import { privateKey } from './fixtures.js';
+import { privateKey2 } from './fixtures.js';
 
 describe('e2e_account_contract', () => {
   let aztecNode: AztecNodeService;
@@ -47,7 +47,7 @@ describe('e2e_account_contract', () => {
     logger(`L2 contract ${EcdsaAccountContractAbi.name} deployed at ${schnorrAccountContract.address}`);
 
     await aztecRpcServer.registerSmartAccount(
-      privateKey,
+      privateKey2,
       schnorrAccountContract.address,
       schnorrDeploymentTx.partialContractAddress!,
       schnorrCurve,
@@ -56,7 +56,7 @@ describe('e2e_account_contract', () => {
     );
 
     await aztecRpcServer.registerSmartAccount(
-      privateKey,
+      privateKey2,
       ecdsaAccountContract.address,
       ecdsaDeploymentTx.partialContractAddress!,
       ecdsaCurve,
