@@ -25,7 +25,7 @@
 
 namespace {
 // Composer
-using C = UltraCircuitConstructor;
+using C = UltraCircuitBuilder;
 
 // Types
 using CT = aztec3::utils::types::CircuitTypes<C>;

@@ -165,6 +165,7 @@
   "testMate.cpp.test.workingDirectory": "${workspaceFolder}/circuits/cpp/build",
   // Filter all binaries that are not tests
   "testMate.cpp.test.executables": "${workspaceFolder}/circuits/cpp/build/bin/*{test,Test,TEST}*",
+  "cmake.configureOnOpen": true,
   // End C++/Circuits settings
   ///////////////////////////////////////
 }

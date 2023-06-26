@@ -9,7 +9,7 @@
 #include <barretenberg/barretenberg.hpp>
 
 namespace {
-using Composer = UltraCircuitConstructor;
+using Composer = UltraCircuitBuilder;
 using NT = aztec3::utils::types::NativeTypes;
 using DummyComposer = aztec3::utils::DummyComposer;
 using aztec3::circuits::abis::PreviousKernelData;

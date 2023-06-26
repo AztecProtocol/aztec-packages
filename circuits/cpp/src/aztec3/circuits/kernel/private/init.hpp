@@ -9,7 +9,7 @@
 
 namespace aztec3::circuits::kernel::private_kernel {
 
-using Composer = UltraCircuitConstructor;
+using Composer = UltraCircuitBuilder;
 
 using Aggregator = aztec3::circuits::recursion::Aggregator;
 

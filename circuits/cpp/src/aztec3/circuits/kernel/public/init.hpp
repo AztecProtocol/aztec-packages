@@ -10,7 +10,7 @@
 
 namespace aztec3::circuits::kernel::public_kernel {
 
-using Composer = proof_system::UltraCircuitConstructor;
+using Composer = proof_system::UltraCircuitBuilder;
 
 using Aggregator = aztec3::circuits::recursion::Aggregator;
 

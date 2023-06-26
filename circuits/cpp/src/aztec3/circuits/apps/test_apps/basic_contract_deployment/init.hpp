@@ -14,7 +14,7 @@
 namespace aztec3::circuits::apps::test_apps::basic_contract_deployment {
 
 // Composer
-using C = UltraCircuitConstructor;
+using C = UltraCircuitBuilder;
 
 // Native and circuit types
 using CT = aztec3::utils::types::CircuitTypes<C>;

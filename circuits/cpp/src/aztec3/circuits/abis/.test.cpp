@@ -9,7 +9,7 @@
 
 namespace {
 // Composer
-using Composer = UltraCircuitConstructor;
+using Composer = UltraCircuitBuilder;
 
 // Types
 using CT = aztec3::utils::types::CircuitTypes<Composer>;
