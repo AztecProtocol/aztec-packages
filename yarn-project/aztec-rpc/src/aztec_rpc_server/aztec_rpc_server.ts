@@ -74,16 +74,16 @@ export class AztecRPCServer implements AztecRPCClient {
 
   /**
    * Creates or registers a new keypair in the keystore and deploys a new account contract for it.
+   * @param privKey - Private key to use for the deployment (a fresh one will be generated if not set).
    * @param curve - The type of curve to use in elliptic curve operations.
    * @param signer - The type of signer to use for signature generation.
-   * @param privKey - Private key to use for the deployment (a fresh one will be generated if not set).
    * @param abi - Implementation of the account contract to deploy.
    * @returns A tuple with the deployment tx to be awaited and the address of the account.
    */
   public async createSmartAccount(
-    curve: CurveType,
-    signer: SignerType,
     privKey?: Buffer,
+    curve = CurveType.GRUMPKIN,
+    signer = SignerType.SCHNORR,
     abi = SchnorrAccountContractAbi,
   ): Promise<[TxHash, AztecAddress]> {
     const accountCurve = await createCurve(curve);
@@ -125,20 +125,20 @@ export class AztecRPCServer implements AztecRPCClient {
    * Registers an account backed by an account contract.
    *
    * TODO: We should not be passing in the private key in plain, instead, we should ask the keystore for a public key, create the smart account with it, and register it here.
-   * @param curve - The type of curve to use in elliptic curve operations.
-   * @param signer - The type of signer to use for signature generation.
    * @param privKey - Private key of the corresponding user master public key.
    * @param address - Address of the account contract.
    * @param partialContractAddress - The partially computed address of the account contract.
+   * @param curve - The type of curve to use in elliptic curve operations.
+   * @param signer - The type of signer to use for signature generation.
    * @param abi - Implementation of the account contract backed by this account.
    * @returns The address of the account contract.
    */
   public async registerSmartAccount(
-    curve: CurveType,
-    signer: SignerType,
     privKey: Buffer,
     address: AztecAddress,
     partialContractAddress: PartialContractAddress,
+    curve = CurveType.GRUMPKIN,
+    signer = SignerType.ECDSA,
     abi = SchnorrAccountContractAbi,
   ) {
     const accountCurve = await createCurve(curve);

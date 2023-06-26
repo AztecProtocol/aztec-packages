@@ -85,9 +85,9 @@ export async function setup(numberOfAccounts = 1): Promise<{
     // TODO(#662): Let the aztec rpc server generate the keypair rather than hardcoding the private key
     const [privKey, impl] = i == 0 ? [privateKey, SchnorrAccountContractAbi] : [undefined, GullibleAccountContractAbi];
     const [txHash, newAddress] = await aztecRpcServer.createSmartAccount(
+      privKey,
       CurveType.GRUMPKIN,
       SignerType.SCHNORR,
-      privKey,
       impl,
     );
     const isMined = await new SentTx(aztecRpcServer, Promise.resolve(txHash)).isMined();

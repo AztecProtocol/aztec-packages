@@ -24,11 +24,11 @@ describe('e2e_account_contract', () => {
     const schnorrDeploymentResult = await deployContract(SchnorrAccountContractAbi);
     schnorrAccountContract = schnorrDeploymentResult.contract;
     await aztecRpcServer.registerSmartAccount(
-      CurveType.GRUMPKIN,
-      SignerType.SCHNORR,
       privateKey,
       schnorrAccountContract.address,
       schnorrDeploymentResult.partialContractAddress!,
+      CurveType.GRUMPKIN,
+      SignerType.SCHNORR,
       SchnorrAccountContractAbi,
     );
 
@@ -36,11 +36,11 @@ describe('e2e_account_contract', () => {
     const ecdsaDeploymentResult = await deployContract(EcdsaAccountContractAbi);
     ecdsaAccountContract = ecdsaDeploymentResult.contract;
     await aztecRpcServer.registerSmartAccount(
-      CurveType.SECP256K1,
-      SignerType.ECDSA,
       privateKey,
       ecdsaAccountContract.address,
       ecdsaDeploymentResult.partialContractAddress!,
+      CurveType.SECP256K1,
+      SignerType.ECDSA,
       EcdsaAccountContractAbi,
     );
 

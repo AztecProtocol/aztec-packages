@@ -32,7 +32,7 @@ export async function createAztecRpc(numberOfAccounts = 1, aztecNode: AztecNode)
     // the account contract implementation. This hack hints at the fact that we
     // need to rethink the APIs of the aztec-rpc-server and keystore post AA.
     const privKey = randomBytes(32);
-    await arc.registerSmartAccount(CurveType.GRUMPKIN, SignerType.SCHNORR, privKey, AztecAddress.random(), Fr.random());
+    await arc.registerSmartAccount(privKey, AztecAddress.random(), Fr.random());
   }
 
   return arc;
