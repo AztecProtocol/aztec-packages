@@ -50,7 +50,7 @@ export class AccountContract implements AccountImplementation {
       args: encodeArguments(abi, args),
       origin: this.address,
       functionData: new FunctionData(selector, true, false),
-      txContext: TxContext.empty(),
+      txContext,
     });
 
     return txRequest;
