@@ -2,16 +2,16 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { executeCircuit } from 'acvm-simulator';
+import { WitnessMap, executeCircuit } from 'acvm-simulator';
 
 /**
  * The format for fields on the ACVM.
  */
 export type ACVMField = string;
 /**
- * The format for addresses on the ACVM.
+ * The format for witnesses of the ACVM.
  */
-export type ACVMWitness = Map<number, ACVMField>;
+export type ACVMWitness = WitnessMap;
 
 export const ZERO_ACVM_FIELD: ACVMField = `0x${'00'.repeat(Fr.SIZE_IN_BYTES)}`;
 export const ONE_ACVM_FIELD: ACVMField = `0x${'00'.repeat(Fr.SIZE_IN_BYTES - 1)}01`;
