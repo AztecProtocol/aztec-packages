@@ -40,7 +40,7 @@ export function encryptBuffer(data: Buffer, ownerPubKey: Point, ephPrivKey: Buff
   const iv = aesSecret.subarray(16, 32);
   const cipher = createCipheriv('aes-128-cbc', aesKey, iv);
   const plaintext = Buffer.concat([iv.subarray(0, 8), data]);
-  const ephPubKey = curve.mul(Grumpkin.generator, ephPrivKey);
+  const ephPubKey = curve.mul(curve.generator(), ephPrivKey);
   return Buffer.concat([cipher.update(plaintext), cipher.final(), ephPubKey]);
 }
 

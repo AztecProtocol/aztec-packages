@@ -3,7 +3,7 @@ import { ContractAbi } from '@aztec/foundation/abi';
 import { Point } from '@aztec/foundation/fields';
 import { ContractDeploymentTx, PartialContractAddress, Tx, TxHash } from '@aztec/types';
 import { TxReceipt } from '../tx/index.js';
-import { Signer, Curve } from '@aztec/circuits.js/barretenberg';
+import { CurveType, SignerType } from '../crypto/types.js';
 
 /**
  * Represents a deployed contract on the Aztec network.
@@ -31,10 +31,10 @@ export interface DeployedContract {
  * as well as storage and view functions for smart contracts.
  */
 export interface AztecRPCClient {
-  createSmartAccount(curve: Curve, signer: Signer, privKey?: Buffer): Promise<[TxHash, AztecAddress]>;
+  createSmartAccount(curve: CurveType, signer: SignerType, privKey?: Buffer): Promise<[TxHash, AztecAddress]>;
   registerSmartAccount(
-    curve: Curve,
-    signer: Signer,
+    curve: CurveType,
+    signer: SignerType,
     privKey: Buffer,
     address: AztecAddress,
     partialContractAddress: PartialContractAddress,

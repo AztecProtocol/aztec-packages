@@ -3,8 +3,10 @@ import {
   AztecAddress,
   AztecRPCServer,
   ContractDeployer,
+  CurveType,
   Fr,
   SentTx,
+  SignerType,
   TxStatus,
   createAztecRPCServer,
 } from '@aztec/aztec.js';
@@ -14,7 +16,6 @@ import { BootstrapNode, P2PConfig, createLibP2PPeerId, exportLibP2PPeerIdToStrin
 
 import { setup } from './utils.js';
 import { randomBytes } from 'crypto';
-import { Grumpkin, Schnorr } from '@aztec/circuits.js/barretenberg';
 
 const NUM_NODES = 4;
 const NUM_TXS_PER_BLOCK = 4;
@@ -151,11 +152,9 @@ describe('e2e_p2p_network', () => {
     numTxs: number,
   ): Promise<NodeContext> => {
     const aztecRpcServer = await createAztecRPCServer(node);
-    const curve = await Grumpkin.new();
-    const signer = await Schnorr.new();
     const account = await aztecRpcServer.registerSmartAccount(
-      curve,
-      signer,
+      CurveType.GRUMPKIN,
+      SignerType.SCHNORR,
       randomBytes(32),
       AztecAddress.random(),
       Fr.random(),

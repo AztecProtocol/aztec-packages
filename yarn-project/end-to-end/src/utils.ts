@@ -11,6 +11,8 @@ import {
   Point,
   SentTx,
   createAztecRPCServer,
+  CurveType,
+  SignerType,
 } from '@aztec/aztec.js';
 import { DeployL1Contracts, deployL1Contract, deployL1Contracts } from '@aztec/ethereum';
 import { ContractAbi } from '@aztec/foundation/abi';
@@ -27,7 +29,7 @@ import { Account, Chain, HttpTransport, PublicClient, WalletClient, getContract 
 import { mnemonicToAccount } from 'viem/accounts';
 import { MNEMONIC, localAnvil, privateKey } from './fixtures.js';
 import { CircuitsWasm } from '@aztec/circuits.js';
-import { Grumpkin, Schnorr, pedersenCompressInputs } from '@aztec/circuits.js/barretenberg';
+import { pedersenCompressInputs } from '@aztec/circuits.js/barretenberg';
 import { KeyStore, TestKeyStore } from '@aztec/key-store';
 
 /**
@@ -83,8 +85,8 @@ export async function setup(numberOfAccounts = 1): Promise<{
     // TODO(#662): Let the aztec rpc server generate the keypair rather than hardcoding the private key
     const [privKey, impl] = i == 0 ? [privateKey, SchnorrAccountContractAbi] : [undefined, GullibleAccountContractAbi];
     const [txHash, newAddress] = await aztecRpcServer.createSmartAccount(
-      await Grumpkin.new(),
-      await Schnorr.new(),
+      CurveType.GRUMPKIN,
+      SignerType.SCHNORR,
       privKey,
       impl,
     );

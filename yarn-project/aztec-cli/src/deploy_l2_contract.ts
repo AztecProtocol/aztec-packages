@@ -1,12 +1,21 @@
 import { AztecNode, HttpNode } from '@aztec/aztec-node';
-import { ContractDeployer, createAztecRPCServer, TxStatus, TxHash, Point, AztecAddress, Fr } from '@aztec/aztec.js';
+import {
+  ContractDeployer,
+  createAztecRPCServer,
+  TxStatus,
+  TxHash,
+  Point,
+  AztecAddress,
+  Fr,
+  CurveType,
+  SignerType,
+} from '@aztec/aztec.js';
 import { DebugLogger } from '@aztec/foundation/log';
 import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
 import { ContractAbi } from '@aztec/foundation/abi';
 import { sleep } from '@aztec/foundation/sleep';
 import { ZkTokenContractAbi } from '@aztec/noir-contracts/examples';
 import { randomBytes } from 'crypto';
-import { Grumpkin, Schnorr } from '@aztec/circuits.js/barretenberg';
 
 /**
  * Helper function for creating an instance of the aztec rpc server.
@@ -23,9 +32,7 @@ export async function createAztecRpc(numberOfAccounts = 1, aztecNode: AztecNode)
     // the account contract implementation. This hack hints at the fact that we
     // need to rethink the APIs of the aztec-rpc-server and keystore post AA.
     const privKey = randomBytes(32);
-    const curve = await Grumpkin.new();
-    const signer = await Schnorr.new();
-    await arc.registerSmartAccount(curve, signer, privKey, AztecAddress.random(), Fr.random());
+    await arc.registerSmartAccount(CurveType.GRUMPKIN, SignerType.SCHNORR, privKey, AztecAddress.random(), Fr.random());
   }
 
   return arc;

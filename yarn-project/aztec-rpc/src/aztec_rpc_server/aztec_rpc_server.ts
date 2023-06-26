@@ -32,6 +32,7 @@ import { Synchroniser } from '../synchroniser/index.js';
 import { TxReceipt, TxStatus } from '../tx/index.js';
 import { computePartialContractAddress } from '@aztec/circuits.js/abis';
 import { Curve, Signer } from '@aztec/circuits.js/barretenberg';
+import { CurveType, SignerType, createCurve, createSigner } from '../crypto/types.js';
 
 /**
  * A remote Aztec RPC Client implementation.
@@ -73,21 +74,23 @@ export class AztecRPCServer implements AztecRPCClient {
 
   /**
    * Creates or registers a new keypair in the keystore and deploys a new account contract for it.
-   * @param curve - The curve to use in elliptic curve operations.
-   * @param signer - The signer to use for signature generation.
+   * @param curve - The type of curve to use in elliptic curve operations.
+   * @param signer - The type of signer to use for signature generation.
    * @param privKey - Private key to use for the deployment (a fresh one will be generated if not set).
    * @param abi - Implementation of the account contract to deploy.
    * @returns A tuple with the deployment tx to be awaited and the address of the account.
    */
   public async createSmartAccount(
-    curve: Curve,
-    signer: Signer,
+    curve: CurveType,
+    signer: SignerType,
     privKey?: Buffer,
     abi = SchnorrAccountContractAbi,
   ): Promise<[TxHash, AztecAddress]> {
+    const accountCurve = await createCurve(curve);
+    const accountSigner = await createSigner(signer);
     const pubKey = await (privKey
-      ? this.keyStore.addAccount(curve, signer, privKey)
-      : this.keyStore.createAccount(curve, signer));
+      ? this.keyStore.addAccount(accountCurve, accountSigner, privKey)
+      : this.keyStore.createAccount(accountCurve, accountSigner));
     const portalContract = EthAddress.ZERO;
     const contractAddressSalt = Fr.random();
     const args: any[] = [];
@@ -100,7 +103,14 @@ export class AztecRPCServer implements AztecRPCClient {
       pubKey,
     );
 
-    const account = await this.initAccountState(pubKey, contract.address, partialContractAddress, curve, signer, abi);
+    const account = await this.initAccountState(
+      pubKey,
+      contract.address,
+      partialContractAddress,
+      accountCurve,
+      accountSigner,
+      abi,
+    );
 
     const tx = await account.simulateAndProve(txRequest, contract.address);
 
@@ -115,8 +125,8 @@ export class AztecRPCServer implements AztecRPCClient {
    * Registers an account backed by an account contract.
    *
    * TODO: We should not be passing in the private key in plain, instead, we should ask the keystore for a public key, create the smart account with it, and register it here.
-   * @param curve - The curve to use in elliptic curve operations.
-   * @param signer - The signer to use for signature generation.
+   * @param curve - The type of curve to use in elliptic curve operations.
+   * @param signer - The type of signer to use for signature generation.
    * @param privKey - Private key of the corresponding user master public key.
    * @param address - Address of the account contract.
    * @param partialContractAddress - The partially computed address of the account contract.
@@ -124,15 +134,17 @@ export class AztecRPCServer implements AztecRPCClient {
    * @returns The address of the account contract.
    */
   public async registerSmartAccount(
-    curve: Curve,
-    signer: Signer,
+    curve: CurveType,
+    signer: SignerType,
     privKey: Buffer,
     address: AztecAddress,
     partialContractAddress: PartialContractAddress,
     abi = SchnorrAccountContractAbi,
   ) {
-    const pubKey = this.keyStore.addAccount(curve, signer, privKey);
-    await this.initAccountState(pubKey, address, partialContractAddress, curve, signer, abi);
+    const accountCurve = await createCurve(curve);
+    const accountSigner = await createSigner(signer);
+    const pubKey = this.keyStore.addAccount(accountCurve, accountSigner, privKey);
+    await this.initAccountState(pubKey, address, partialContractAddress, accountCurve, accountSigner, abi);
     return address;
   }
 

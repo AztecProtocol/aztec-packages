@@ -9,7 +9,7 @@ import {
   PublicCallRequest,
 } from '@aztec/circuits.js';
 import { computeCallStackItemHash, computeVarArgsHash } from '@aztec/circuits.js/abis';
-import { Grumpkin } from '@aztec/circuits.js/barretenberg';
+import { Curve } from '@aztec/circuits.js/barretenberg';
 import { FunctionAbi } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { padArrayEnd } from '@aztec/foundation/collection';
@@ -49,6 +49,7 @@ export class PrivateFunctionExecution {
     private functionData: FunctionData,
     private args: Fr[],
     private callContext: CallContext,
+    private curve: Curve,
 
     private log = createDebugLogger('aztec:simulator:secret_execution'),
   ) {}
@@ -126,6 +127,7 @@ export class PrivateFunctionExecution {
           frToSelector(functionSelector),
           acvmArgs.map(f => fromACVMField(f)),
           this.callContext,
+          this.curve,
         );
 
         nestedExecutionContexts.push(childExecutionResult);
@@ -173,13 +175,7 @@ export class PrivateFunctionExecution {
         this.log(`Emitted unencrypted log: "${log.toString('ascii')}"`);
         return Promise.resolve([ZERO_ACVM_FIELD]);
       },
-      emitEncryptedLog: async ([
-        acvmContractAddress,
-        acvmStorageSlot,
-        ownerX,
-        ownerY,
-        ...acvmPreimage
-      ]: ACVMField[]) => {
+      emitEncryptedLog: ([acvmContractAddress, acvmStorageSlot, ownerX, ownerY, ...acvmPreimage]: ACVMField[]) => {
         const contractAddress = AztecAddress.fromBuffer(convertACVMFieldToBuffer(acvmContractAddress));
         const storageSlot = fromACVMField(acvmStorageSlot);
         const preimage = acvmPreimage.map(f => fromACVMField(f));
@@ -191,7 +187,7 @@ export class PrivateFunctionExecution {
           Coordinate.fromField(fromACVMField(ownerY)),
         );
 
-        const encryptedNotePreimage = noteSpendingInfo.toEncryptedBuffer(ownerPublicKey, await Grumpkin.new());
+        const encryptedNotePreimage = noteSpendingInfo.toEncryptedBuffer(ownerPublicKey, this.curve);
 
         encryptedLogs.logs.push(encryptedNotePreimage);
 
@@ -285,6 +281,7 @@ export class PrivateFunctionExecution {
    * @param targetFunctionSelector - The function selector of the function to call.
    * @param targetArgs - The arguments to pass to the function.
    * @param callerContext - The call context of the caller.
+   * @param curve - The curve instance to use for elliptic curve operations.
    * @returns The execution result.
    */
   private async callPrivateFunction(
@@ -292,6 +289,7 @@ export class PrivateFunctionExecution {
     targetFunctionSelector: Buffer,
     targetArgs: Fr[],
     callerContext: CallContext,
+    curve: Curve,
   ) {
     const targetAbi = await this.context.db.getFunctionABI(targetContractAddress, targetFunctionSelector);
     const targetFunctionData = new FunctionData(targetFunctionSelector, true, false);
@@ -304,6 +302,7 @@ export class PrivateFunctionExecution {
       targetFunctionData,
       targetArgs,
       derivedCallContext,
+      curve,
     );
 
     return nestedExecution.run();

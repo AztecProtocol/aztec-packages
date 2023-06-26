@@ -209,7 +209,14 @@ export class AccountState {
 
     const simulator = this.getAcirSimulator(contractDataOracle);
     this.log('Executing simulator...');
-    const result = await simulator.run(txRequest, functionAbi, contractAddress, portalContract, historicRoots);
+    const result = await simulator.run(
+      txRequest,
+      functionAbi,
+      contractAddress,
+      portalContract,
+      historicRoots,
+      this.curve,
+    );
     this.log('Simulation completed!');
 
     return result;
