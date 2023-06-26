@@ -31,7 +31,7 @@ contract PublicPrivate {
 
     fn constructor(
         inputs: PrivateContextInputs,
-    ) -> distinct pub [Field; dep::aztec3::abi::PUBLIC_INPUTS_LENGTH] {
+    ) -> distinct pub dep::aztec3::abi::PrivateCircuitPublicInputs {
         PrivateFunctionContext::new().finish(inputs)
     }
 
@@ -89,7 +89,7 @@ contract PublicPrivate {
         amount: Field,
         secret: Field,
         owner: Point,
-    ) -> distinct pub [Field; dep::aztec3::abi::PUBLIC_INPUTS_LENGTH] {
+    ) -> distinct pub dep::aztec3::abi::PrivateCircuitPublicInputs {
         let mut context = PrivateFunctionContext::new();
         context.args = context.args.push_array([amount, secret, owner.x, owner.y]);
 

@@ -14,7 +14,7 @@ contract GullibleAccount {
         inputs: PrivateContextInputs,
         payload: EntrypointPayload,
         _signature: [Field;3]
-    ) -> distinct pub [Field; dep::aztec3::abi::PUBLIC_INPUTS_LENGTH] {
+    ) -> distinct pub dep::aztec3::abi::PrivateCircuitPublicInputs {
         let mut context = PrivateFunctionContext::new();
 
         for i in 0..entrypoint::ACCOUNT_MAX_PRIVATE_CALLS {
@@ -63,13 +63,13 @@ contract GullibleAccount {
         // Horrible, yes. But we need to rethink the private function context api anyway.
         // TODO(#745): Do not store args, set hash directly in context API
         let mut ret = context.finish(inputs);
-        ret[dep::aztec3::abi::CALL_CONTEXT_SIZE] = args_hash;
+        ret.args_hash = args_hash;
         ret
     }
 
     fn constructor(
         inputs: PrivateContextInputs,
-    ) -> distinct pub [Field; dep::aztec3::abi::PUBLIC_INPUTS_LENGTH] {
+    ) -> distinct pub dep::aztec3::abi::PrivateCircuitPublicInputs {
         PrivateFunctionContext::new().finish(inputs)
     }
 }

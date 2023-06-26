@@ -9,7 +9,7 @@ contract Parent {
 
     fn constructor(
         inputs: PrivateContextInputs,
-    ) -> distinct pub [Field; dep::aztec3::abi::PUBLIC_INPUTS_LENGTH] {
+    ) -> distinct pub dep::aztec3::abi::PrivateCircuitPublicInputs {
         PrivateFunctionContext::new().finish(inputs)
     }
 
@@ -18,7 +18,7 @@ contract Parent {
         inputs: PrivateContextInputs,
         targetContract: Field,
         targetSelector: Field,
-    ) -> distinct pub [Field; dep::aztec3::abi::PUBLIC_INPUTS_LENGTH] {
+    ) -> distinct pub dep::aztec3::abi::PrivateCircuitPublicInputs {
         let mut initialContext = PrivateFunctionContext::new();
         initialContext.args = initialContext.args.push_array([targetContract, targetSelector]);
 
@@ -56,7 +56,7 @@ contract Parent {
         targetContract: Field,
         targetSelector: Field,
         targetValue: Field,
-    ) -> distinct pub [Field; dep::aztec3::abi::PUBLIC_INPUTS_LENGTH] {
+    ) -> distinct pub dep::aztec3::abi::PrivateCircuitPublicInputs {
         let mut initialContext = PrivateFunctionContext::new();
         initialContext.args = initialContext.args.push_array([targetContract, targetSelector, targetValue]);
 
@@ -73,7 +73,7 @@ contract Parent {
         targetContract: Field,
         targetSelector: Field,
         targetValue: Field,
-    ) -> distinct pub [Field; dep::aztec3::abi::PUBLIC_INPUTS_LENGTH] {
+    ) -> distinct pub dep::aztec3::abi::PrivateCircuitPublicInputs {
         let mut context0 = PrivateFunctionContext::new();
         context0.args = context0.args.push_array([targetContract, targetSelector, targetValue]);
 
@@ -92,7 +92,7 @@ contract Parent {
         targetContract: Field,
         targetSelector: Field,
         targetValue: Field,
-    ) -> distinct pub [Field; dep::aztec3::abi::PUBLIC_INPUTS_LENGTH] {
+    ) -> distinct pub dep::aztec3::abi::PrivateCircuitPublicInputs {
         let mut initialContext = PrivateFunctionContext::new();
         initialContext.args = initialContext.args.push_array([targetContract, targetSelector, targetValue]);
 
@@ -114,7 +114,7 @@ contract Parent {
         targetContract: Field,
         targetSelector: Field,
         targetValue: Field,
-    ) -> distinct pub [Field; dep::aztec3::abi::PUBLIC_INPUTS_LENGTH] {
+    ) -> distinct pub dep::aztec3::abi::PrivateCircuitPublicInputs {
         let mut initialContext = PrivateFunctionContext::new();
         initialContext.args = initialContext.args.push_array([targetContract, targetSelector, targetValue]);
 
