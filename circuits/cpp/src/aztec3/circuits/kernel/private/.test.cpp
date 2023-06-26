@@ -49,11 +49,11 @@ TEST_F(private_kernel_tests, basic)
         false, deposit, { amount, asset_id, memo }, encrypted_logs_hash, encrypted_log_preimages_length, true);
 
     // Execute and prove the first kernel iteration
-    Builder private_kernel_composer;
-    auto const& public_inputs = private_kernel_circuit(private_kernel_composer, private_inputs, true);
+    Builder private_kernel_builder;
+    auto const& public_inputs = private_kernel_circuit(private_kernel_builder, private_inputs, true);
 
     // Check the private kernel circuit
-    EXPECT_TRUE(private_kernel_composer.check_circuit());
+    EXPECT_TRUE(private_kernel_builder.check_circuit());
 }
 
 /**
@@ -70,8 +70,8 @@ TEST_F(private_kernel_tests, circuit_cbinds)
     // first run actual simulation to get public inputs
     auto const& private_inputs = do_private_call_get_kernel_inputs_init(
         true, constructor, { arg0, arg1, arg2 }, encrypted_logs_hash, encrypted_log_preimages_length, true);
-    DummyBuilder composer = DummyBuilder("private_kernel_tests__circuit_create_proof_cbinds");
-    auto const& public_inputs = native_private_kernel_circuit_initial(composer, private_inputs);
+    DummyBuilder builder = DummyBuilder("private_kernel_tests__circuit_create_proof_cbinds");
+    auto const& public_inputs = native_private_kernel_circuit_initial(builder, private_inputs);
 
     // serialize expected public inputs for later comparison
     std::vector<uint8_t> expected_public_inputs_vec;

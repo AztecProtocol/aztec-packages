@@ -19,12 +19,12 @@ template <typename NCT> struct Globals {
 
     boolean operator==(Globals<NCT> const& other) const { return min_timestamp == other.min_timestamp; };
 
-    template <typename Builder> Globals<CircuitTypes<Builder>> to_circuit_type(Builder& composer) const
+    template <typename Builder> Globals<CircuitTypes<Builder>> to_circuit_type(Builder& builder) const
     {
         static_assert((std::is_same<NativeTypes, NCT>::value));
 
-        // Capture the composer:
-        auto to_ct = [&](auto& e) { return aztec3::utils::types::to_ct(composer, e); };
+        // Capture the circuit builder:
+        auto to_ct = [&](auto& e) { return aztec3::utils::types::to_ct(builder, e); };
 
         Globals<CircuitTypes<Builder>> global_data = { to_ct(min_timestamp) };
 

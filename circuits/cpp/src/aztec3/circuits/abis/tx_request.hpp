@@ -30,13 +30,13 @@ template <typename NCT> struct TxRequest {
                tx_context == other.tx_context;
     };
 
-    template <typename Builder> TxRequest<CircuitTypes<Builder>> to_circuit_type(Builder& composer) const
+    template <typename Builder> TxRequest<CircuitTypes<Builder>> to_circuit_type(Builder& builder) const
     {
         static_assert((std::is_same<NativeTypes, NCT>::value));
 
-        // Capture the composer:
-        auto to_ct = [&](auto& e) { return aztec3::utils::types::to_ct(composer, e); };
-        auto to_circuit_type = [&](auto& e) { return e.to_circuit_type(composer); };
+        // Capture the circuit builder:
+        auto to_ct = [&](auto& e) { return aztec3::utils::types::to_ct(builder, e); };
+        auto to_circuit_type = [&](auto& e) { return e.to_circuit_type(builder); };
 
         TxRequest<CircuitTypes<Builder>> tx_request = {
             to_ct(origin),

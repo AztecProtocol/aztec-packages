@@ -33,19 +33,19 @@ template <typename NCT> struct TxContext {
                contract_deployment_data == other.contract_deployment_data;
     };
 
-    template <typename Builder> TxContext<CircuitTypes<Builder>> to_circuit_type(Builder& composer) const
+    template <typename Builder> TxContext<CircuitTypes<Builder>> to_circuit_type(Builder& builder) const
     {
         static_assert((std::is_same<NativeTypes, NCT>::value));
 
-        // Capture the composer:
-        auto to_ct = [&](auto& e) { return aztec3::utils::types::to_ct(composer, e); };
-        // auto to_circuit_type = [&](auto& e) { return e.to_circuit_type(composer); };
+        // Capture the circuit builder:
+        auto to_ct = [&](auto& e) { return aztec3::utils::types::to_ct(builder, e); };
+        // auto to_circuit_type = [&](auto& e) { return e.to_circuit_type(builder); };
 
         TxContext<CircuitTypes<Builder>> tx_context = {
             to_ct(is_fee_payment_tx),
             to_ct(is_rebate_payment_tx),
             to_ct(is_contract_deployment_tx),
-            contract_deployment_data.to_circuit_type(composer),
+            contract_deployment_data.to_circuit_type(builder),
         };
 
         return tx_context;

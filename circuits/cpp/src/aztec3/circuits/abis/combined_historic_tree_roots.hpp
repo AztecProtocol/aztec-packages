@@ -27,13 +27,12 @@ template <typename NCT> struct CombinedHistoricTreeRoots {
         return private_historic_tree_roots == other.private_historic_tree_roots;
     };
 
-    template <typename Builder>
-    CombinedHistoricTreeRoots<CircuitTypes<Builder>> to_circuit_type(Builder& composer) const
+    template <typename Builder> CombinedHistoricTreeRoots<CircuitTypes<Builder>> to_circuit_type(Builder& builder) const
     {
         static_assert((std::is_same<NativeTypes, NCT>::value));
 
-        // Capture the composer:
-        auto to_circuit_type = [&](auto& e) { return e.to_circuit_type(composer); };
+        // Capture the circuit builder:
+        auto to_circuit_type = [&](auto& e) { return e.to_circuit_type(builder); };
 
         CombinedHistoricTreeRoots<CircuitTypes<Builder>> data = {
             to_circuit_type(private_historic_tree_roots),

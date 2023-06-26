@@ -51,8 +51,8 @@ WASM_EXPORT uint8_t* base_rollup__sim(uint8_t const* base_rollup_inputs_buf,
                                       size_t* base_rollup_public_inputs_size_out,
                                       uint8_t const** base_or_merge_rollup_public_inputs_buf)
 {
-    DummyBuilder composer = DummyBuilder("base_rollup__sim");
-    // TODO accept proving key and use that to initialize composers
+    DummyBuilder builder = DummyBuilder("base_rollup__sim");
+    // TODO accept proving key and use that to initialize builders
     // this info is just to prevent error for unused pk_buf
     // TODO do we want to accept it or just get it from our factory?
     // auto crs_factory = std::make_shared<EnvReferenceStringFactory>();
@@ -60,7 +60,7 @@ WASM_EXPORT uint8_t* base_rollup__sim(uint8_t const* base_rollup_inputs_buf,
     BaseRollupInputs<NT> base_rollup_inputs;
     read(base_rollup_inputs_buf, base_rollup_inputs);
 
-    BaseOrMergeRollupPublicInputs<NT> const public_inputs = base_rollup_circuit(composer, base_rollup_inputs);
+    BaseOrMergeRollupPublicInputs<NT> const public_inputs = base_rollup_circuit(builder, base_rollup_inputs);
 
     // serialize public inputs to bytes vec
     std::vector<uint8_t> public_inputs_vec;
@@ -70,6 +70,6 @@ WASM_EXPORT uint8_t* base_rollup__sim(uint8_t const* base_rollup_inputs_buf,
     memcpy(raw_public_inputs_buf, (void*)public_inputs_vec.data(), public_inputs_vec.size());
     *base_or_merge_rollup_public_inputs_buf = raw_public_inputs_buf;
     *base_rollup_public_inputs_size_out = public_inputs_vec.size();
-    return composer.alloc_and_serialize_first_failure();
+    return builder.alloc_and_serialize_first_failure();
 }
 }  // extern "C"

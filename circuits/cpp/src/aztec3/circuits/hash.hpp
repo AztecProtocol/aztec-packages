@@ -184,7 +184,7 @@ std::array<fr, N> get_sibling_path(MerkleTree& tree, size_t leaf_index, size_t c
 }
 
 template <typename NCT, typename Builder, size_t SIZE>
-void check_membership(Builder& composer,
+void check_membership(Builder& builder,
                       typename NCT::fr const& value,
                       typename NCT::fr const& index,
                       std::array<typename NCT::fr, SIZE> const& sibling_path,
@@ -192,9 +192,9 @@ void check_membership(Builder& composer,
                       std::string const& msg)
 {
     const auto calculated_root = root_from_sibling_path<NCT>(value, index, sibling_path);
-    composer.do_assert(calculated_root == root,
-                       std::string("Membership check failed: ") + msg,
-                       aztec3::utils::CircuitErrorCode::MEMBERSHIP_CHECK_FAILED);
+    builder.do_assert(calculated_root == root,
+                      std::string("Membership check failed: ") + msg,
+                      aztec3::utils::CircuitErrorCode::MEMBERSHIP_CHECK_FAILED);
 }
 
 /**

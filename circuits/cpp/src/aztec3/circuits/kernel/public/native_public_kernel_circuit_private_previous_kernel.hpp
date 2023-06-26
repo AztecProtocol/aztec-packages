@@ -14,5 +14,5 @@ using aztec3::circuits::abis::public_kernel::PublicKernelInputs;
 using DummyBuilder = aztec3::utils::DummyBuilder;
 
 KernelCircuitPublicInputs<NT> native_public_kernel_circuit_private_previous_kernel(
-    DummyBuilder& composer, PublicKernelInputs<NT> const& public_kernel_inputs);
+    DummyBuilder& builder, PublicKernelInputs<NT> const& public_kernel_inputs);
 }  // namespace aztec3::circuits::kernel::public_kernel

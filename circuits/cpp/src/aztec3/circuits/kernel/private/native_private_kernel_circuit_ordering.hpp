@@ -13,6 +13,6 @@ using aztec3::circuits::abis::private_kernel::PrivateKernelInputsInner;
 using DummyBuilder = aztec3::utils::DummyBuilder;
 
 KernelCircuitPublicInputs<NT> native_private_kernel_circuit_ordering(
-    DummyBuilder& composer, PrivateKernelInputsInner<NT> const& private_inputs);
+    DummyBuilder& builder, PrivateKernelInputsInner<NT> const& private_inputs);
 
 }  // namespace aztec3::circuits::kernel::private_kernel

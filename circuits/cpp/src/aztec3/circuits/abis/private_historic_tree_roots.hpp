@@ -37,12 +37,12 @@ template <typename NCT> struct PrivateHistoricTreeRoots {
                private_kernel_vk_tree_root == other.private_kernel_vk_tree_root;
     };
 
-    template <typename Builder> PrivateHistoricTreeRoots<CircuitTypes<Builder>> to_circuit_type(Builder& composer) const
+    template <typename Builder> PrivateHistoricTreeRoots<CircuitTypes<Builder>> to_circuit_type(Builder& builder) const
     {
         static_assert((std::is_same<NativeTypes, NCT>::value));
 
-        // Capture the composer:
-        auto to_ct = [&](auto& e) { return aztec3::utils::types::to_ct(composer, e); };
+        // Capture the circuit builder:
+        auto to_ct = [&](auto& e) { return aztec3::utils::types::to_ct(builder, e); };
 
         PrivateHistoricTreeRoots<CircuitTypes<Builder>> data = {
             to_ct(private_data_tree_root),      to_ct(nullifier_tree_root),         to_ct(contract_tree_root),

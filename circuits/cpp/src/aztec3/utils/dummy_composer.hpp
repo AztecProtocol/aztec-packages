@@ -12,7 +12,7 @@ namespace aztec3::utils {
 class DummyBuilder {
   public:
     std::vector<CircuitError> failure_msgs;
-    // method that created this composer instance. Useful for logging.
+    // method that created this builder instance. Useful for logging.
     std::string method_name;
 
     explicit DummyBuilder(std::string method_name) : method_name(std::move(method_name)) {}
@@ -59,7 +59,7 @@ class DummyBuilder {
         if (failure.code == CircuitErrorCode::NO_ERROR) {
             return nullptr;
         }
-        info(this->method_name, ": composer.get_first_failure() = ", failure_msgs[0]);
+        info(this->method_name, ": builder.get_first_failure() = ", failure_msgs[0]);
 
 
         // serialize circuit failure to bytes vec

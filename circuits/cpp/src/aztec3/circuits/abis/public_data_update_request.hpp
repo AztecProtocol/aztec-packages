@@ -24,12 +24,12 @@ template <typename NCT> struct PublicDataUpdateRequest {
     MSGPACK_FIELDS(leaf_index, old_value, new_value);
     bool operator==(PublicDataUpdateRequest<NCT> const&) const = default;
 
-    template <typename Builder> PublicDataUpdateRequest<CircuitTypes<Builder>> to_circuit_type(Builder& composer) const
+    template <typename Builder> PublicDataUpdateRequest<CircuitTypes<Builder>> to_circuit_type(Builder& builder) const
     {
         static_assert((std::is_same<NativeTypes, NCT>::value));
 
-        // Capture the composer:
-        auto to_ct = [&](auto& e) { return aztec3::utils::types::to_ct(composer, e); };
+        // Capture the circuit builder:
+        auto to_ct = [&](auto& e) { return aztec3::utils::types::to_ct(builder, e); };
 
         PublicDataUpdateRequest<CircuitTypes<Builder>> update_request = {
             to_ct(leaf_index),

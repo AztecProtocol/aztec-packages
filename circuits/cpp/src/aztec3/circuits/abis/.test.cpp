@@ -74,8 +74,8 @@ TEST(abi_tests, native_to_circuit_function_data)
 
     info("function data: ", native_function_data);
 
-    Builder composer = Builder("../barretenberg/cpp/srs_db/ignition");
-    FunctionData<CT> const circuit_function_data = native_function_data.to_circuit_type(composer);
+    Builder builder = Builder();
+    FunctionData<CT> const circuit_function_data = native_function_data.to_circuit_type(builder);
 
     info("function data: ", circuit_function_data);
 }
@@ -105,8 +105,8 @@ TEST(abi_tests, native_to_circuit_call_context)
 
     info("call context: ", native_call_context);
 
-    Builder composer = Builder("../barretenberg/cpp/srs_db/ignition");
-    CallContext<CT> const circuit_call_context = native_call_context.to_circuit_type(composer);
+    Builder builder = Builder();
+    CallContext<CT> const circuit_call_context = native_call_context.to_circuit_type(builder);
 
     info("call context: ", circuit_call_context);
 }

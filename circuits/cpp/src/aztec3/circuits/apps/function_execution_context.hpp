@@ -45,7 +45,7 @@ template <typename Builder> class FunctionExecutionContext {
     friend class Opcodes<Builder>;
 
   public:
-    Builder& composer;
+    Builder& builder;
     OracleWrapperInterface<Builder>& oracle;
 
     Contract<NT>* contract = nullptr;
@@ -69,8 +69,8 @@ template <typename Builder> class FunctionExecutionContext {
     bool is_finalised = false;
 
   public:
-    FunctionExecutionContext<Builder>(Builder& composer, OracleWrapperInterface<Builder>& oracle)
-        : composer(composer)
+    FunctionExecutionContext<Builder>(Builder& builder, OracleWrapperInterface<Builder>& oracle)
+        : builder(builder)
         , oracle(oracle)
         , private_circuit_public_inputs(OptionalPrivateCircuitPublicInputs<CT>::create())
     {
@@ -169,10 +169,10 @@ template <typename Builder> class FunctionExecutionContext {
         fr f_encoding_ct = fr(f_encoding);
         // Important Note: we MUST constrain this function_selector value against a fixed selector value. Without the
         // below line, an attacker could pass any f_encoding as a witness.
-        f_encoding_ct.convert_constant_to_fixed_witness(&composer);
+        f_encoding_ct.convert_constant_to_fixed_witness(&builder);
 
         /// @dev The above constraining could alternatively be achieved as follows:
-        // fr alternative_f_encoding_ct = fr(to_ct(composer, f_encoding));
+        // fr alternative_f_encoding_ct = fr(to_ct(builder, f_encoding));
         // alternative_f_encoding_ct.fix_witness();
 
         const FunctionData<CT> f_function_data_ct{
@@ -201,13 +201,13 @@ template <typename Builder> class FunctionExecutionContext {
                                                 // contract (which cannot own a secret), rather than a human.
         );
 
-        Builder f_composer = Builder("../barretenberg/cpp/srs_db/ignition");
+        Builder f_builder = Builder();
 
-        OracleWrapperInterface<Builder> f_oracle_wrapper(f_composer, f_oracle);
+        OracleWrapperInterface<Builder> f_oracle_wrapper(f_builder, f_oracle);
 
         // We need an exec_ctx reference which won't go out of scope, so we store a shared_ptr to the newly-created
         // exec_ctx in `this` exec_ctx.
-        auto f_exec_ctx = std::make_shared<FunctionExecutionContext<Builder>>(f_composer, f_oracle_wrapper);
+        auto f_exec_ctx = std::make_shared<FunctionExecutionContext<Builder>>(f_builder, f_oracle_wrapper);
 
         array_push(nested_private_call_exec_ctxs, f_exec_ctx);
 
@@ -217,9 +217,9 @@ template <typename Builder> class FunctionExecutionContext {
         // The f_exec_ctx will be populated with all the information about that function's execution.
         std::apply(f, std::forward_as_tuple(*f_exec_ctx, native_args));
 
-        // Remember: the data held in the f_exec_ctc was built with a different composer than that
+        // Remember: the data held in the f_exec_ctc was built with a different builder than that
         // of `this` exec_ctx. So we only allow ourselves to get the native types, so that we can consciously declare
-        // circuit types for `this` exec_ctx using `this->composer`.
+        // circuit types for `this` exec_ctx using `this->builder`.
         auto f_public_inputs_nt = f_exec_ctx->get_final_private_circuit_public_inputs();
 
         // Since we've made a call to another function, we now need to push a call_stack_item_hash to `this` function's
@@ -228,7 +228,7 @@ template <typename Builder> class FunctionExecutionContext {
         // - args
         // - return_values
         // - call_context (TODO: maybe this only needs to be done in the kernel circuit).
-        auto f_public_inputs_ct = f_public_inputs_nt.to_circuit_type(composer);
+        auto f_public_inputs_ct = f_public_inputs_nt.to_circuit_type(builder);
 
         // Constrain that the arguments of the executed function match those we expect:
         auto args_hash_ct = compute_var_args_hash<CT>(args);
@@ -320,7 +320,7 @@ template <typename Builder> class FunctionExecutionContext {
         finalise_utxos();
         private_circuit_public_inputs.set_commitments(new_commitments);
         private_circuit_public_inputs.set_nullifiers(new_nullifiers);
-        private_circuit_public_inputs.set_public(composer);
+        private_circuit_public_inputs.set_public(builder);
         final_private_circuit_public_inputs =
             private_circuit_public_inputs.remove_optionality().template to_native_type<Builder>();
         is_finalised = true;

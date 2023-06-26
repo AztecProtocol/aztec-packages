@@ -83,14 +83,14 @@ template <typename NCT> struct CombinedAccumulatedData {
                public_data_reads == other.public_data_reads;
     };
 
-    template <typename Builder> CombinedAccumulatedData<CircuitTypes<Builder>> to_circuit_type(Builder& composer) const
+    template <typename Builder> CombinedAccumulatedData<CircuitTypes<Builder>> to_circuit_type(Builder& builder) const
     {
         typedef CircuitTypes<Builder> CT;
         static_assert((std::is_same<NativeTypes, NCT>::value));
 
-        // Capture the composer:
-        auto to_ct = [&](auto& e) { return aztec3::utils::types::to_ct(composer, e); };
-        auto to_circuit_type = [&](auto& e) { return e.to_circuit_type(composer); };
+        // Capture the circuit builder:
+        auto to_ct = [&](auto& e) { return aztec3::utils::types::to_ct(builder, e); };
+        auto to_circuit_type = [&](auto& e) { return e.to_circuit_type(builder); };
 
         CombinedAccumulatedData<CT> acc_data = {
             typename CT::AggregationObject{

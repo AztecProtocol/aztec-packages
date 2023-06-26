@@ -42,12 +42,12 @@ template <typename NCT> struct FunctionLeafPreimage {
                vk_hash == other.vk_hash && acir_hash == other.acir_hash;
     };
 
-    template <typename Builder> FunctionLeafPreimage<CircuitTypes<Builder>> to_circuit_type(Builder& composer) const
+    template <typename Builder> FunctionLeafPreimage<CircuitTypes<Builder>> to_circuit_type(Builder& builder) const
     {
         static_assert((std::is_same<NativeTypes, NCT>::value));
 
-        // Capture the composer:
-        auto to_ct = [&](auto& e) { return aztec3::utils::types::to_ct(composer, e); };
+        // Capture the circuit builder:
+        auto to_ct = [&](auto& e) { return aztec3::utils::types::to_ct(builder, e); };
 
         FunctionLeafPreimage<CircuitTypes<Builder>> preimage = {
             to_ct(function_selector),

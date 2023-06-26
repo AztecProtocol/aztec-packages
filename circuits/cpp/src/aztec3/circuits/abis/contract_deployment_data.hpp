@@ -36,12 +36,12 @@ template <typename NCT> struct ContractDeploymentData {
                portal_contract_address == other.portal_contract_address;
     };
 
-    template <typename Builder> ContractDeploymentData<CircuitTypes<Builder>> to_circuit_type(Builder& composer) const
+    template <typename Builder> ContractDeploymentData<CircuitTypes<Builder>> to_circuit_type(Builder& builder) const
     {
         static_assert((std::is_same<NativeTypes, NCT>::value));
 
-        // Capture the composer:
-        auto to_ct = [&](auto& e) { return aztec3::utils::types::to_ct(composer, e); };
+        // Capture the circuit builder:
+        auto to_ct = [&](auto& e) { return aztec3::utils::types::to_ct(builder, e); };
 
         ContractDeploymentData<CircuitTypes<Builder>> data = {
             to_ct(deployer_public_key),   to_ct(constructor_vk_hash),     to_ct(function_tree_root),

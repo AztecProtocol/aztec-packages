@@ -31,17 +31,16 @@ template <typename NCT> struct KernelCircuitPublicInputs {
         return end == other.end && constants == other.constants && is_private == other.is_private;
     };
 
-    template <typename Builder>
-    KernelCircuitPublicInputs<CircuitTypes<Builder>> to_circuit_type(Builder& composer) const
+    template <typename Builder> KernelCircuitPublicInputs<CircuitTypes<Builder>> to_circuit_type(Builder& builder) const
     {
         static_assert((std::is_same<NativeTypes, NCT>::value));
 
-        // Capture the composer:
-        auto to_ct = [&](auto& e) { return aztec3::utils::types::to_ct(composer, e); };
+        // Capture the circuit builder:
+        auto to_ct = [&](auto& e) { return aztec3::utils::types::to_ct(builder, e); };
 
         KernelCircuitPublicInputs<CircuitTypes<Builder>> private_inputs = {
-            end.to_circuit_type(composer),
-            constants.to_circuit_type(composer),
+            end.to_circuit_type(builder),
+            constants.to_circuit_type(builder),
 
             to_ct(is_private),
         };

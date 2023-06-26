@@ -20,7 +20,7 @@ using aztec3::utils::types::CircuitTypes;
 /**
  * The main purpose of this wrapper is to:
  * - cache values which have been already given by the oracle previously during this execution;
- * - convert Native types (returned by the oracle) into circuit types, using the composer instance.
+ * - convert Native types (returned by the oracle) into circuit types, using the builder instance.
  * Note: Insecure circuits could be built if the same value is queried twice from the oracle (since a malicious prover
  * could provide two different witnesses for a single thing). The Native oracle will throw if you try a double-query of
  * certain information.
@@ -32,20 +32,20 @@ template <typename Builder> class OracleWrapperInterface {
     using address = typename CT::address;
 
   public:
-    Builder& composer;
+    Builder& builder;
     NativeOracle& native_oracle;
 
     // Initialise from Native.
     // Used when initialising for a user's first call.
-    OracleWrapperInterface(Builder& composer, NativeOracle& native_oracle)
-        : composer(composer), native_oracle(native_oracle){};
+    OracleWrapperInterface(Builder& builder, NativeOracle& native_oracle)
+        : builder(builder), native_oracle(native_oracle){};
 
     fr& get_msg_sender_private_key()
     {
         if (msg_sender_private_key) {
             return *msg_sender_private_key;
         }
-        msg_sender_private_key = aztec3::utils::types::to_ct(composer, native_oracle.get_msg_sender_private_key());
+        msg_sender_private_key = aztec3::utils::types::to_ct(builder, native_oracle.get_msg_sender_private_key());
         validate_msg_sender_private_key();
         return *msg_sender_private_key;
     };
@@ -57,7 +57,7 @@ template <typename Builder> class OracleWrapperInterface {
         if (call_context) {
             return *call_context;
         }
-        call_context = native_oracle.get_call_context().to_circuit_type(composer);
+        call_context = native_oracle.get_call_context().to_circuit_type(builder);
         return *call_context;
     };
 
@@ -66,7 +66,7 @@ template <typename Builder> class OracleWrapperInterface {
         if (contract_deployment_data) {
             return *contract_deployment_data;
         }
-        contract_deployment_data = native_oracle.get_contract_deployment_data().to_circuit_type(composer);
+        contract_deployment_data = native_oracle.get_contract_deployment_data().to_circuit_type(builder);
         return *contract_deployment_data;
     };
 
@@ -76,11 +76,11 @@ template <typename Builder> class OracleWrapperInterface {
 
     address& get_tx_origin() { return get_call_context().tx_origin; };
 
-    fr generate_salt() const { return aztec3::utils::types::to_ct(composer, native_oracle.generate_salt()); }
+    fr generate_salt() const { return aztec3::utils::types::to_ct(builder, native_oracle.generate_salt()); }
 
     fr generate_random_element() const
     {
-        return aztec3::utils::types::to_ct(composer, native_oracle.generate_random_element());
+        return aztec3::utils::types::to_ct(builder, native_oracle.generate_random_element());
     }
 
     template <typename NotePreimage>
@@ -92,7 +92,7 @@ template <typename Builder> class OracleWrapperInterface {
 
         auto native_utxo_sload_datum = native_oracle.get_utxo_sload_datum(native_storage_slot_point, native_advice);
 
-        return native_utxo_sload_datum.to_circuit_type(composer);
+        return native_utxo_sload_datum.to_circuit_type(builder);
     }
 
     template <typename NotePreimage> auto get_utxo_sload_data(grumpkin_point const& storage_slot_point,
@@ -106,7 +106,7 @@ template <typename Builder> class OracleWrapperInterface {
         auto native_utxo_sload_data =
             native_oracle.get_utxo_sload_data(native_storage_slot_point, num_notes, native_advice);
 
-        auto to_circuit_type = [&](auto& e) { return e.to_circuit_type(composer); };
+        auto to_circuit_type = [&](auto& e) { return e.to_circuit_type(builder); };
 
         return map(native_utxo_sload_data, to_circuit_type);
     }

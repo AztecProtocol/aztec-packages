@@ -20,7 +20,7 @@ using CircuitErrorCode = aztec3::utils::CircuitErrorCode;
 // TODO(jeanmon): the following code will be optimized based on hints regarding matching
 // a read request and commitment, i.e., we get pairs i,j such that read_requests[i] == new_commitments[j]
 // Relevant task: https://github.com/AztecProtocol/aztec-packages/issues/892
-void chop_pending_commitments(DummyBuilder& composer,
+void chop_pending_commitments(DummyBuilder& builder,
                               std::array<NT::fr, READ_REQUESTS_LENGTH> const& read_requests,
                               std::array<MembershipWitness<NT, PRIVATE_DATA_TREE_HEIGHT>, READ_REQUESTS_LENGTH> const&
                                   read_request_membership_witnesses,
@@ -41,7 +41,7 @@ void chop_pending_commitments(DummyBuilder& composer,
             if (match_pos != KERNEL_NEW_COMMITMENTS_LENGTH) {
                 new_commitments[match_pos] = fr(0);
             } else {
-                composer.do_assert(
+                builder.do_assert(
                     false,
                     format("transient read request at position [", i, "] does not match any new commitment"),
                     CircuitErrorCode::PRIVATE_KERNEL__TRANSIENT_READ_REQUEST_NO_MATCH);
@@ -53,7 +53,7 @@ void chop_pending_commitments(DummyBuilder& composer,
     utils::array_rearrange<NT::fr, KERNEL_NEW_COMMITMENTS_LENGTH>(new_commitments);
 }
 
-KernelCircuitPublicInputs<NT> native_private_kernel_circuit_ordering(DummyBuilder& composer,
+KernelCircuitPublicInputs<NT> native_private_kernel_circuit_ordering(DummyBuilder& builder,
                                                                      PrivateKernelInputsInner<NT> const& private_inputs)
 {
     // We'll be pushing data to this during execution of this circuit.
@@ -68,7 +68,7 @@ KernelCircuitPublicInputs<NT> native_private_kernel_circuit_ordering(DummyBuilde
     // Removing of nullified pending commitments have to happen on the list of commitments which have been accumulated
     // over all iterations of the private kernel. Therefore, we have to target commitments in public_inputs.end
     // Remark: The commitments in public_inputs.end have already been SILOED!
-    chop_pending_commitments(composer,
+    chop_pending_commitments(builder,
                              private_inputs.private_call.call_stack_item.public_inputs.read_requests,
                              private_inputs.private_call.read_request_membership_witnesses,
                              public_inputs.end.new_commitments);

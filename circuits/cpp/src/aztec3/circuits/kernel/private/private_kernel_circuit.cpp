@@ -27,16 +27,16 @@ using aztec3::circuits::silo_nullifier;
 
 // TODO: NEED TO RECONCILE THE `proof`'s public inputs (which are uint8's) with the
 // private_call.call_stack_item.public_inputs!
-CT::AggregationObject verify_proofs(Builder& composer, PrivateKernelInputsInner<CT> const& private_inputs)
+CT::AggregationObject verify_proofs(Builder& builder, PrivateKernelInputsInner<CT> const& private_inputs)
 {
     // compute P0, P1 for private function proof
     CT::AggregationObject aggregation_object =
-        Aggregator::aggregate(&composer, private_inputs.private_call.vk, private_inputs.private_call.proof);
+        Aggregator::aggregate(&builder, private_inputs.private_call.vk, private_inputs.private_call.proof);
 
     // computes P0, P1 for previous kernel proof
     // AND accumulates all of it in P0_agg, P1_agg
     Aggregator::aggregate(
-        &composer, private_inputs.previous_kernel.vk, private_inputs.previous_kernel.proof, aggregation_object);
+        &builder, private_inputs.previous_kernel.vk, private_inputs.previous_kernel.proof, aggregation_object);
 
     return aggregation_object;
 }
@@ -306,14 +306,14 @@ void validate_inputs(PrivateKernelInputsInner<CT> const& private_inputs, bool fi
 // TODO: decide what to return.
 // TODO: is there a way to identify whether an input has not been used by ths circuit? This would help us more-safely
 // ensure we're constraining everything.
-KernelCircuitPublicInputs<NT> private_kernel_circuit(Builder& composer,
+KernelCircuitPublicInputs<NT> private_kernel_circuit(Builder& builder,
                                                      PrivateKernelInputsInner<NT> const& _private_inputs,
                                                      bool first_iteration)
 {
-    const PrivateKernelInputsInner<CT> private_inputs = _private_inputs.to_circuit_type(composer);
+    const PrivateKernelInputsInner<CT> private_inputs = _private_inputs.to_circuit_type(builder);
 
     // We'll be pushing data to this during execution of this circuit.
-    KernelCircuitPublicInputs<CT> public_inputs = KernelCircuitPublicInputs<NT>{}.to_circuit_type(composer);
+    KernelCircuitPublicInputs<CT> public_inputs = KernelCircuitPublicInputs<NT>{}.to_circuit_type(builder);
 
     // Do this before any functions can modify the inputs.
     initialise_end_values(private_inputs, public_inputs);
@@ -328,7 +328,7 @@ KernelCircuitPublicInputs<NT> private_kernel_circuit(Builder& composer,
 
     update_end_values(private_inputs, public_inputs);
 
-    auto aggregation_object = verify_proofs(composer, private_inputs);
+    auto aggregation_object = verify_proofs(builder, private_inputs);
 
     // TODO: kernel vk membership check!
 

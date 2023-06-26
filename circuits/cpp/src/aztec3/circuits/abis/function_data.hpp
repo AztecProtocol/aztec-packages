@@ -29,12 +29,12 @@ template <typename NCT> struct FunctionData {
                is_constructor == other.is_constructor;
     };
 
-    template <typename Builder> FunctionData<CircuitTypes<Builder>> to_circuit_type(Builder& composer) const
+    template <typename Builder> FunctionData<CircuitTypes<Builder>> to_circuit_type(Builder& builder) const
     {
         static_assert((std::is_same<NativeTypes, NCT>::value));
 
-        // Capture the composer:
-        auto to_ct = [&](auto& e) { return aztec3::utils::types::to_ct(composer, e); };
+        // Capture the circuit builder:
+        auto to_ct = [&](auto& e) { return aztec3::utils::types::to_ct(builder, e); };
 
         FunctionData<CircuitTypes<Builder>> function_data = {
             to_ct(function_selector),

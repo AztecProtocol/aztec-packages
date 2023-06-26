@@ -27,12 +27,12 @@ template <typename NCT, typename V> struct DefaultSingletonPrivateNotePreimage {
 
     bool operator==(DefaultSingletonPrivateNotePreimage<NCT, V> const&) const = default;
 
-    template <typename Builder> auto to_circuit_type(Builder& composer) const
+    template <typename Builder> auto to_circuit_type(Builder& builder) const
     {
         static_assert((std::is_same<NativeTypes, NCT>::value));
 
-        // Capture the composer:
-        auto to_ct = [&](auto& e) { return aztec3::utils::types::to_ct(composer, e); };
+        // Capture the circuit builder:
+        auto to_ct = [&](auto& e) { return aztec3::utils::types::to_ct(builder, e); };
 
         // Depending on whether the _circuit_ type version of `V` is from the stdlib, or some custom type, the
         // conversion method will be different.

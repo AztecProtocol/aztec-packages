@@ -30,13 +30,13 @@ template <typename NCT> struct CombinedConstantData {
         return historic_tree_roots == other.historic_tree_roots && tx_context == other.tx_context;
     }
 
-    template <typename Builder> CombinedConstantData<CircuitTypes<Builder>> to_circuit_type(Builder& composer) const
+    template <typename Builder> CombinedConstantData<CircuitTypes<Builder>> to_circuit_type(Builder& builder) const
     {
         static_assert((std::is_same<NativeTypes, NCT>::value));
 
         CombinedConstantData<CircuitTypes<Builder>> constant_data = {
-            historic_tree_roots.to_circuit_type(composer),
-            tx_context.to_circuit_type(composer),
+            historic_tree_roots.to_circuit_type(builder),
+            tx_context.to_circuit_type(builder),
         };
 
         return constant_data;

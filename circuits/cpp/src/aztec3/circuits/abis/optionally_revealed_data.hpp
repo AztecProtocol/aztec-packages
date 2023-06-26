@@ -45,16 +45,16 @@ template <typename NCT> struct OptionallyRevealedData {
                called_from_l1 == other.called_from_l1 && called_from_public_l2 == other.called_from_public_l2;
     };
 
-    template <typename Builder> OptionallyRevealedData<CircuitTypes<Builder>> to_circuit_type(Builder& composer) const
+    template <typename Builder> OptionallyRevealedData<CircuitTypes<Builder>> to_circuit_type(Builder& builder) const
     {
         static_assert((std::is_same<NativeTypes, NCT>::value));
 
-        // Capture the composer:
-        auto to_ct = [&](auto& e) { return aztec3::utils::types::to_ct(composer, e); };
+        // Capture the circuit builder:
+        auto to_ct = [&](auto& e) { return aztec3::utils::types::to_ct(builder, e); };
 
         OptionallyRevealedData<CircuitTypes<Builder>> data = {
             to_ct(call_stack_item_hash),
-            function_data.to_circuit_type(composer),
+            function_data.to_circuit_type(builder),
             to_ct(vk_hash),
             to_ct(portal_contract_address),
             to_ct(pay_fee_from_l1),

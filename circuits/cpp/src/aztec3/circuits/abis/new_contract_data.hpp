@@ -30,11 +30,11 @@ template <typename NCT> struct NewContractData {
         return utils::msgpack_derived_equals<boolean>(*this, other);
     };
 
-    template <typename Builder> NewContractData<CircuitTypes<Builder>> to_circuit_type(Builder& composer) const
+    template <typename Builder> NewContractData<CircuitTypes<Builder>> to_circuit_type(Builder& builder) const
     {
         static_assert((std::is_same<NativeTypes, NCT>::value));
 
-        auto to_ct = [&](auto& e) { return aztec3::utils::types::to_ct(composer, e); };
+        auto to_ct = [&](auto& e) { return aztec3::utils::types::to_ct(builder, e); };
 
         NewContractData<CircuitTypes<Builder>> new_contract_data = { to_ct(contract_address),
                                                                      to_ct(portal_contract_address),

@@ -20,111 +20,110 @@ using NT = aztec3::utils::types::NativeTypes;
 
 /// TODO: Lots of identical functions here (but for their in/out types). Can we use templates? I couldn't figure out how
 /// to keep the NT:: or CT:: prefixes with templates.
-template <typename Builder> typename CT<Builder>::boolean to_ct(Builder& composer, typename NT::boolean const& e)
+template <typename Builder> typename CT<Builder>::boolean to_ct(Builder& builder, typename NT::boolean const& e)
 {
-    return typename CT<Builder>::boolean(witness_t<Builder>(&composer, e));
+    return typename CT<Builder>::boolean(witness_t<Builder>(&builder, e));
 };
 
-template <typename Builder> typename CT<Builder>::fr to_ct(Builder& composer, typename NT::fr const& e)
+template <typename Builder> typename CT<Builder>::fr to_ct(Builder& builder, typename NT::fr const& e)
 {
-    return typename CT<Builder>::fr(witness_t<Builder>(&composer, e));
+    return typename CT<Builder>::fr(witness_t<Builder>(&builder, e));
 };
 
-template <typename Builder> typename CT<Builder>::fq to_ct(Builder& composer, typename NT::fq const& e)
+template <typename Builder> typename CT<Builder>::fq to_ct(Builder& builder, typename NT::fq const& e)
 {
-    return typename CT<Builder>::fq(witness_t<Builder>(&composer, e));
+    return typename CT<Builder>::fq(witness_t<Builder>(&builder, e));
 };
 
-template <typename Builder> typename CT<Builder>::address to_ct(Builder& composer, typename NT::address const& e)
+template <typename Builder> typename CT<Builder>::address to_ct(Builder& builder, typename NT::address const& e)
 {
-    return typename CT<Builder>::address(witness_t<Builder>(&composer, e));
+    return typename CT<Builder>::address(witness_t<Builder>(&builder, e));
 };
 
-template <typename Builder> typename CT<Builder>::uint32 to_ct(Builder& composer, typename NT::uint32 const& e)
+template <typename Builder> typename CT<Builder>::uint32 to_ct(Builder& builder, typename NT::uint32 const& e)
 {
-    return typename CT<Builder>::uint32(witness_t<Builder>(&composer, e));
-};
-
-template <typename Builder>
-typename CT<Builder>::grumpkin_point to_ct(Builder& composer, typename NT::grumpkin_point const& e)
-{
-    return plonk::stdlib::create_point_witness<Builder, typename NT::grumpkin_point>(composer, e, true);
+    return typename CT<Builder>::uint32(witness_t<Builder>(&builder, e));
 };
 
 template <typename Builder>
-typename CT<Builder>::bn254_point to_ct(Builder& composer, typename NT::bn254_point const& e)
+typename CT<Builder>::grumpkin_point to_ct(Builder& builder, typename NT::grumpkin_point const& e)
 {
-    return CT<Builder>::bn254_point::from_witness(&composer, e);
+    return plonk::stdlib::create_point_witness<Builder, typename NT::grumpkin_point>(builder, e, true);
+};
+
+template <typename Builder> typename CT<Builder>::bn254_point to_ct(Builder& builder, typename NT::bn254_point const& e)
+{
+    return CT<Builder>::bn254_point::from_witness(&builder, e);
 };
 
 template <typename Builder>
-typename CT<Builder>::ecdsa_signature to_ct(Builder& composer, typename NT::ecdsa_signature const& e)
+typename CT<Builder>::ecdsa_signature to_ct(Builder& builder, typename NT::ecdsa_signature const& e)
 {
-    return CT<Builder>::ecdsa_signature::template from_witness<Builder>(&composer, e);
+    return CT<Builder>::ecdsa_signature::template from_witness<Builder>(&builder, e);
 };
 
 template <typename Builder>
-std::optional<typename CT<Builder>::boolean> to_ct(Builder& composer, std::optional<typename NT::boolean> const& e)
+std::optional<typename CT<Builder>::boolean> to_ct(Builder& builder, std::optional<typename NT::boolean> const& e)
 {
-    return e ? std::make_optional<typename CT<Builder>::boolean>(to_ct(composer, *e)) : std::nullopt;
+    return e ? std::make_optional<typename CT<Builder>::boolean>(to_ct(builder, *e)) : std::nullopt;
 };
 
 template <typename Builder>
-std::optional<typename CT<Builder>::fr> to_ct(Builder& composer, std::optional<typename NT::fr> const& e)
+std::optional<typename CT<Builder>::fr> to_ct(Builder& builder, std::optional<typename NT::fr> const& e)
 {
-    return e ? std::make_optional<typename CT<Builder>::fr>(to_ct(composer, *e)) : std::nullopt;
+    return e ? std::make_optional<typename CT<Builder>::fr>(to_ct(builder, *e)) : std::nullopt;
 };
 
 template <typename Builder>
-std::optional<typename CT<Builder>::address> to_ct(Builder& composer, std::optional<typename NT::address> const& e)
+std::optional<typename CT<Builder>::address> to_ct(Builder& builder, std::optional<typename NT::address> const& e)
 {
-    return e ? std::make_optional<typename CT<Builder>::address>(to_ct(composer, *e)) : std::nullopt;
+    return e ? std::make_optional<typename CT<Builder>::address>(to_ct(builder, *e)) : std::nullopt;
 };
 
 template <typename Builder>
-std::optional<typename CT<Builder>::grumpkin_point> to_ct(Builder& composer,
+std::optional<typename CT<Builder>::grumpkin_point> to_ct(Builder& builder,
                                                           std::optional<typename NT::grumpkin_point> const& e)
 {
-    return e ? std::make_optional<typename CT<Builder>::grumpkin_point>(to_ct(composer, *e)) : std::nullopt;
+    return e ? std::make_optional<typename CT<Builder>::grumpkin_point>(to_ct(builder, *e)) : std::nullopt;
 };
 
 template <typename Builder>
-std::optional<typename CT<Builder>::ecdsa_signature> to_ct(Builder& composer,
+std::optional<typename CT<Builder>::ecdsa_signature> to_ct(Builder& builder,
                                                            std::optional<typename NT::ecdsa_signature> const& e)
 {
-    return e ? std::make_optional<typename CT<Builder>::ecdsa_signature>(to_ct(&composer, e)) : std::nullopt;
+    return e ? std::make_optional<typename CT<Builder>::ecdsa_signature>(to_ct(&builder, e)) : std::nullopt;
 };
 
 template <typename Builder>
-std::vector<typename CT<Builder>::fr> to_ct(Builder& composer, std::vector<typename NT::fr> const& vec)
+std::vector<typename CT<Builder>::fr> to_ct(Builder& builder, std::vector<typename NT::fr> const& vec)
 {
-    auto ref_to_ct = [&](typename NT::fr const& e) { return to_ct(composer, e); };
+    auto ref_to_ct = [&](typename NT::fr const& e) { return to_ct(builder, e); };
 
     return map(vec, ref_to_ct);
 };
 
 template <typename Builder>
-std::optional<std::vector<typename CT<Builder>::fr>> to_ct(Builder& composer,
+std::optional<std::vector<typename CT<Builder>::fr>> to_ct(Builder& builder,
                                                            std::optional<std::vector<typename NT::fr>> const& vec)
 {
-    auto ref_to_ct = [&](typename NT::fr const& e) { return to_ct(composer, e); };
+    auto ref_to_ct = [&](typename NT::fr const& e) { return to_ct(builder, e); };
 
     return vec ? std::make_optional<std::vector<typename CT<Builder>::fr>>(map(*vec, ref_to_ct)) : std::nullopt;
 };
 
 template <typename Builder, std::size_t SIZE>
-std::array<typename CT<Builder>::fr, SIZE> to_ct(Builder& composer, std::array<typename NT::fr, SIZE> const& arr)
+std::array<typename CT<Builder>::fr, SIZE> to_ct(Builder& builder, std::array<typename NT::fr, SIZE> const& arr)
 {
-    auto ref_to_ct = [&](typename NT::fr const& e) { return to_ct(composer, e); };
+    auto ref_to_ct = [&](typename NT::fr const& e) { return to_ct(builder, e); };
 
     return map(arr, ref_to_ct);
 };
 
 
 template <typename Builder, std::size_t SIZE> std::array<std::optional<typename CT<Builder>::fr>, SIZE> to_ct(
-    Builder& composer, std::array<std::optional<typename NT::fr>, SIZE> const& arr)
+    Builder& builder, std::array<std::optional<typename NT::fr>, SIZE> const& arr)
 {
-    auto ref_to_ct = [&](std::optional<typename NT::fr> const& e) { return to_ct(composer, e); };
+    auto ref_to_ct = [&](std::optional<typename NT::fr> const& e) { return to_ct(builder, e); };
 
     return map(arr, ref_to_ct);
 };
@@ -133,9 +132,9 @@ template <typename Builder, std::size_t SIZE> std::array<std::optional<typename 
  * @brief Convert from an array of any native types (NT_TYPE) to array of circuit types (CT_TYPE)
  */
 template <typename Builder, typename CT_TYPE, typename NT_TYPE, std::size_t SIZE>
-std::array<CT_TYPE, SIZE> to_ct(Builder& composer, std::array<NT_TYPE, SIZE> const& arr)
+std::array<CT_TYPE, SIZE> to_ct(Builder& builder, std::array<NT_TYPE, SIZE> const& arr)
 {
-    auto ref_to_ct = [&](NT_TYPE const& e) { return e.to_circuit_type(composer); };
+    auto ref_to_ct = [&](NT_TYPE const& e) { return e.to_circuit_type(builder); };
 
     return map(arr, ref_to_ct);
 };
@@ -145,9 +144,9 @@ std::array<CT_TYPE, SIZE> to_ct(Builder& composer, std::array<NT_TYPE, SIZE> con
  * Allow array entries to be optional.
  */
 template <typename Builder, typename CT_TYPE, typename NT_TYPE, std::size_t SIZE>
-std::array<std::optional<CT_TYPE>, SIZE> to_ct(Builder& composer, std::array<std::optional<NT_TYPE>, SIZE> const& arr)
+std::array<std::optional<CT_TYPE>, SIZE> to_ct(Builder& builder, std::array<std::optional<NT_TYPE>, SIZE> const& arr)
 {
-    auto ref_to_ct = [&](std::optional<NT_TYPE> const& e) { return e.to_circuit_type(composer); };
+    auto ref_to_ct = [&](std::optional<NT_TYPE> const& e) { return e.to_circuit_type(builder); };
 
     return map(arr, ref_to_ct);
 };

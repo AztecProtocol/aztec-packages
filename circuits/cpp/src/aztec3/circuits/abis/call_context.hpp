@@ -40,12 +40,12 @@ template <typename NCT> struct CallContext {
         return utils::msgpack_derived_equals<boolean>(*this, other);
     };
 
-    template <typename Builder> CallContext<CircuitTypes<Builder>> to_circuit_type(Builder& composer) const
+    template <typename Builder> CallContext<CircuitTypes<Builder>> to_circuit_type(Builder& builder) const
     {
         static_assert((std::is_same<NativeTypes, NCT>::value));
 
-        // Capture the composer:
-        auto to_ct = [&](auto& e) { return aztec3::utils::types::to_ct(composer, e); };
+        // Capture the circuit builder:
+        auto to_ct = [&](auto& e) { return aztec3::utils::types::to_ct(builder, e); };
 
         CallContext<CircuitTypes<Builder>> call_context = {
             to_ct(msg_sender),       to_ct(storage_contract_address), to_ct(portal_contract_address),
