@@ -100,7 +100,7 @@ export class EcdsaSignature {
 export enum CircuitType {
   STANDARD = 0,
   TURBO = 1,
-  ULTRA = 2
+  ULTRA = 2,
 }
 
 /**
