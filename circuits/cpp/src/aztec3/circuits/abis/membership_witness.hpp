@@ -1,11 +1,12 @@
 #pragma once
 
+#include "aztec3/utils/array.hpp"
 #include "aztec3/utils/types/circuit_types.hpp"
 #include "aztec3/utils/types/convert.hpp"
-#include "aztec3/utils/types/native_types.hpp"
 
 namespace aztec3::circuits::abis {
 
+using aztec3::utils::is_array_empty;
 using aztec3::utils::types::CircuitTypes;
 using aztec3::utils::types::NativeTypes;
 using std::is_same;
@@ -61,6 +62,8 @@ template <typename NCT, unsigned int N> struct MembershipWitness {
             e.set_public();
         }
     }
+
+    boolean is_empty() const { return aztec3::utils::is_empty(leaf_index) && is_array_empty(sibling_path); }
 };
 
 template <typename NCT, unsigned int N> void read(uint8_t const*& it, MembershipWitness<NCT, N>& obj)
