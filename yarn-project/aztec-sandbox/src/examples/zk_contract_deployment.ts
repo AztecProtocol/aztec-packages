@@ -1,5 +1,5 @@
-import { Contract, ContractDeployer, SentTx, createAztecRpcClient } from '@aztec/aztec.js';
-import { AztecAddress, Point } from '@aztec/circuits.js';
+import { Contract, ContractDeployer, createAccount, createAztecRpcClient } from '@aztec/aztec.js';
+import { Point } from '@aztec/circuits.js';
 import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { ZkTokenContractAbi } from '@aztec/noir-contracts/examples';
@@ -8,7 +8,9 @@ const logger = createDebugLogger('aztec:http-rpc-client');
 
 export const privateKey = Buffer.from('ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80', 'hex');
 
-const aztecRpcClient = createAztecRpcClient(new URL('http://localhost:8080'));
+const url = 'http://localhost:8080';
+
+const aztecRpcClient = createAztecRpcClient(url);
 
 const INITIAL_BALANCE = 333n;
 
@@ -20,19 +22,6 @@ const pointToPublicKey = (point: Point) => {
     y: toBigIntBE(y),
   };
 };
-
-/**
- * Creates an Aztec Account.
- * @returns The account's address & public key.
- */
-async function createAccount(): Promise<[AztecAddress, Point]> {
-  const [txHash, newAddress] = await aztecRpcClient.createSmartAccount(privateKey);
-  // wait for tx to get mined
-  await new SentTx(aztecRpcClient, Promise.resolve(txHash)).isMined();
-  const pubKey = await aztecRpcClient.getAccountPublicKey(newAddress);
-  logger(`Created account ${newAddress.toString()} with public key ${pubKey.toString()}`);
-  return [newAddress, pubKey];
-}
 
 /**
  * Deploys the ZK Token contract.
@@ -56,7 +45,9 @@ async function deployZKContract(pubKeyPoint: Point) {
  */
 async function main() {
   logger('Running ZK contract test on HTTP interface.');
-  const [address, pubKeyPoint] = await createAccount();
+
+  const [address, pubKeyPoint] = await createAccount(aztecRpcClient, privateKey);
+  logger(`Created account ${address.toString()} with public key ${pubKeyPoint.toString()}`);
   const zkContract = await deployZKContract(pubKeyPoint);
   const accounts = await aztecRpcClient.getAccounts();
   logger(`Created ${accounts.length} accounts`);

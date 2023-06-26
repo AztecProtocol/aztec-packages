@@ -7,6 +7,8 @@ import { createDebugLogger } from '@aztec/foundation/log';
 import { AztecNodeConfig, getConfigEnvVars } from '@aztec/aztec-node';
 import { deployL1Contracts } from '@aztec/ethereum';
 
+import { createApiRouter } from './routes.js';
+
 const { SERVER_PORT = 8080, MNEMONIC = 'test test test test test test test test test test test junk' } = process.env;
 
 const logger = createDebugLogger('aztec:sandbox');
@@ -28,7 +30,13 @@ async function main() {
   aztecNodeConfig.inboxContract = deployedL1Contracts.inboxAddress;
 
   const rpcServer = await getHttpRpcServer(aztecNodeConfig);
-  const httpServer = http.createServer(rpcServer.getApp().callback());
+
+  const app = rpcServer.getApp();
+  const apiRouter = createApiRouter(aztecNodeConfig);
+  app.use(apiRouter.routes());
+  app.use(apiRouter.allowedMethods());
+
+  const httpServer = http.createServer(app.callback());
   httpServer.listen(SERVER_PORT);
 }
 
