@@ -3,15 +3,13 @@ import {
   AztecAddress,
   AztecRPCServer,
   ContractDeployer,
-  CurveType,
   Fr,
   SentTx,
-  SignerType,
   TxStatus,
   createAztecRPCServer,
 } from '@aztec/aztec.js';
 import { DebugLogger } from '@aztec/foundation/log';
-import { SchnorrAccountContractAbi, TestContractAbi } from '@aztec/noir-contracts/examples';
+import { TestContractAbi } from '@aztec/noir-contracts/examples';
 import { BootstrapNode, P2PConfig, createLibP2PPeerId, exportLibP2PPeerIdToString } from '@aztec/p2p';
 
 import { setup } from './utils.js';
