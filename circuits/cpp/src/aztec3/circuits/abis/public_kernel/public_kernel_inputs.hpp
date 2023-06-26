@@ -28,11 +28,11 @@ template <typename NCT> struct PublicKernelInputs {
         return previous_kernel == other.previous_kernel && public_call == other.public_call;
     };
 
-    template <typename Composer> PublicKernelInputs<CircuitTypes<Composer>> to_circuit_type(Composer& composer) const
+    template <typename Builder> PublicKernelInputs<CircuitTypes<Builder>> to_circuit_type(Builder& composer) const
     {
         static_assert((std::is_same<NativeTypes, NCT>::value));
 
-        PublicKernelInputs<CircuitTypes<Composer>> public_kernel_inputs = {
+        PublicKernelInputs<CircuitTypes<Builder>> public_kernel_inputs = {
             previous_kernel.to_circuit_type(composer),
             public_call.to_circuit_type(composer),
         };

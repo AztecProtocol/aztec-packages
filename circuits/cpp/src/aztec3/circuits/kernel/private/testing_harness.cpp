@@ -228,7 +228,7 @@ std::pair<PrivateCallData<NT>, ContractDeploymentData<NT>> create_private_call_d
         // Create a private circuit/call using composer, oracles, execution context
         // Generate its proof and public inputs for submission with a TX request
         //***************************************************************************
-        Composer private_circuit_composer = Composer("../barretenberg/cpp/srs_db/ignition");
+        Builder private_circuit_composer = Builder("../barretenberg/cpp/srs_db/ignition");
 
         DB dummy_db;
         NativeOracle oracle =

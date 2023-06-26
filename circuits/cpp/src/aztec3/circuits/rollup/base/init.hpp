@@ -25,7 +25,7 @@ using NT = aztec3::utils::types::NativeTypes;
 using ConstantRollupData = abis::ConstantRollupData<NT>;
 using BaseRollupInputs = abis::BaseRollupInputs<NT>;
 using BaseOrMergeRollupPublicInputs = abis::BaseOrMergeRollupPublicInputs<NT>;
-using DummyComposer = aztec3::utils::DummyComposer;
+using DummyBuilder = aztec3::utils::DummyBuilder;
 using CircuitErrorCode = aztec3::utils::CircuitErrorCode;
 
 using Aggregator = aztec3::circuits::recursion::Aggregator;

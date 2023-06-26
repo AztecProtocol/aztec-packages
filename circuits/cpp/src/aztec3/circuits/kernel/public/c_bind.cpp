@@ -12,9 +12,9 @@
 #include <barretenberg/barretenberg.hpp>
 
 namespace {
-using Composer = UltraCircuitBuilder;
+using Builder = UltraCircuitBuilder;
 using NT = aztec3::utils::types::NativeTypes;
-using DummyComposer = aztec3::utils::DummyComposer;
+using DummyBuilder = aztec3::utils::DummyBuilder;
 using aztec3::circuits::abis::KernelCircuitPublicInputs;
 using aztec3::circuits::abis::public_kernel::PublicKernelInputs;
 using aztec3::circuits::kernel::public_kernel::native_public_kernel_circuit_private_previous_kernel;
@@ -48,7 +48,7 @@ WASM_EXPORT size_t public_kernel__init_verification_key(uint8_t const* pk_buf, u
 }
 
 CBIND(public_kernel__sim, [](PublicKernelInputs<NT> public_kernel_inputs) {
-    DummyComposer composer = DummyComposer("public_kernel__sim");
+    DummyBuilder composer = DummyBuilder("public_kernel__sim");
     KernelCircuitPublicInputs<NT> const result =
         public_kernel_inputs.previous_kernel.public_inputs.is_private
             ? native_public_kernel_circuit_private_previous_kernel(composer, public_kernel_inputs)

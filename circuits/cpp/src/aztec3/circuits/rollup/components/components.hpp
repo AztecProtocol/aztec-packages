@@ -11,23 +11,23 @@ namespace aztec3::circuits::rollup::components {
 NT::fr calculate_empty_tree_root(size_t depth);
 std::array<fr, 2> compute_kernels_calldata_hash(std::array<abis::PreviousKernelData<NT>, 2> kernel_data);
 std::array<fr, 2> compute_calldata_hash(std::array<abis::PreviousRollupData<NT>, 2> previous_rollup_data);
-void assert_prev_rollups_follow_on_from_each_other(DummyComposer& composer,
+void assert_prev_rollups_follow_on_from_each_other(DummyBuilder& composer,
                                                    BaseOrMergeRollupPublicInputs const& left,
                                                    BaseOrMergeRollupPublicInputs const& right);
-void assert_both_input_proofs_of_same_rollup_type(DummyComposer& composer,
+void assert_both_input_proofs_of_same_rollup_type(DummyBuilder& composer,
                                                   BaseOrMergeRollupPublicInputs const& left,
                                                   BaseOrMergeRollupPublicInputs const& right);
-NT::fr assert_both_input_proofs_of_same_height_and_return(DummyComposer& composer,
+NT::fr assert_both_input_proofs_of_same_height_and_return(DummyBuilder& composer,
                                                           BaseOrMergeRollupPublicInputs const& left,
                                                           BaseOrMergeRollupPublicInputs const& right);
-void assert_equal_constants(DummyComposer& composer,
+void assert_equal_constants(DummyBuilder& composer,
                             BaseOrMergeRollupPublicInputs const& left,
                             BaseOrMergeRollupPublicInputs const& right);
 
 AggregationObject aggregate_proofs(BaseOrMergeRollupPublicInputs const& left,
                                    BaseOrMergeRollupPublicInputs const& right);
 
-template <size_t N> AppendOnlySnapshot insert_subtree_to_snapshot_tree(DummyComposer& composer,
+template <size_t N> AppendOnlySnapshot insert_subtree_to_snapshot_tree(DummyBuilder& composer,
                                                                        AppendOnlySnapshot snapshot,
                                                                        std::array<NT::fr, N> siblingPath,
                                                                        NT::fr emptySubtreeRoot,

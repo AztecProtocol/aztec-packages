@@ -22,7 +22,7 @@ namespace aztec3::circuits::kernel::private_kernel {
 
 // // TODO: NEED TO RECONCILE THE `proof`'s public inputs (which are uint8's) with the
 // // private_call.call_stack_item.public_inputs!
-// CT::AggregationObject verify_proofs(Composer& composer,
+// CT::AggregationObject verify_proofs(Builder& composer,
 //                                     PrivateKernelInputsInit<CT> const& private_inputs,
 //                                     size_t const& num_private_call_public_inputs,
 //                                     size_t const& num_private_kernel_public_inputs)
@@ -67,7 +67,7 @@ void initialise_end_values(PrivateKernelInputsInit<NT> const& private_inputs,
     public_inputs.constants = constants;
 }
 
-void validate_this_private_call_against_tx_request(DummyComposer& composer,
+void validate_this_private_call_against_tx_request(DummyBuilder& composer,
                                                    PrivateKernelInputsInit<NT> const& private_inputs)
 {
     // TODO(mike): this logic might need to change to accommodate the weird edge 3 initial txs (the 'main' tx, the 'fee'
@@ -93,7 +93,7 @@ void validate_this_private_call_against_tx_request(DummyComposer& composer,
                        CircuitErrorCode::PRIVATE_KERNEL__USER_INTENT_MISMATCH_BETWEEN_TX_REQUEST_AND_CALL_STACK_ITEM);
 };
 
-void validate_inputs(DummyComposer& composer, PrivateKernelInputsInit<NT> const& private_inputs)
+void validate_inputs(DummyBuilder& composer, PrivateKernelInputsInit<NT> const& private_inputs)
 {
     const auto& this_call_stack_item = private_inputs.private_call.call_stack_item;
 
@@ -123,7 +123,7 @@ void validate_inputs(DummyComposer& composer, PrivateKernelInputsInit<NT> const&
                        CircuitErrorCode::PRIVATE_KERNEL__CONTRACT_ADDRESS_MISMATCH);
 }
 
-void update_end_values(DummyComposer& composer,
+void update_end_values(DummyBuilder& composer,
                        PrivateKernelInputsInit<NT> const& private_inputs,
                        KernelCircuitPublicInputs<NT>& public_inputs)
 {
@@ -149,7 +149,7 @@ void update_end_values(DummyComposer& composer,
 // NOTE: THIS IS A VERY UNFINISHED WORK IN PROGRESS.
 // TODO(mike): is there a way to identify whether an input has not been used by ths circuit? This would help us
 // more-safely ensure we're constraining everything.
-KernelCircuitPublicInputs<NT> native_private_kernel_circuit_initial(DummyComposer& composer,
+KernelCircuitPublicInputs<NT> native_private_kernel_circuit_initial(DummyBuilder& composer,
                                                                     PrivateKernelInputsInit<NT> const& private_inputs)
 {
     // We'll be pushing data to this during execution of this circuit.

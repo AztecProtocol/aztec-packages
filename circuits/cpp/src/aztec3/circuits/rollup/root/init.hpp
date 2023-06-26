@@ -16,7 +16,7 @@
 namespace aztec3::circuits::rollup::native_root_rollup {
 
 using NT = aztec3::utils::types::NativeTypes;
-using DummyComposer = aztec3::utils::DummyComposer;
+using DummyBuilder = aztec3::utils::DummyBuilder;
 
 // Params
 using ConstantRollupData = abis::ConstantRollupData<NT>;

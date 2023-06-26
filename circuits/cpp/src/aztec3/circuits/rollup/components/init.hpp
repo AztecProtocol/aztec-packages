@@ -25,6 +25,6 @@ using NT = aztec3::utils::types::NativeTypes;
 using AggregationObject = aztec3::utils::types::NativeTypes::AggregationObject;
 using BaseOrMergeRollupPublicInputs = aztec3::circuits::abis::BaseOrMergeRollupPublicInputs<NT>;
 using AppendOnlySnapshot = abis::AppendOnlyTreeSnapshot<NT>;
-using DummyComposer = aztec3::utils::DummyComposer;
+using DummyBuilder = aztec3::utils::DummyBuilder;
 
 }  // namespace aztec3::circuits::rollup::components

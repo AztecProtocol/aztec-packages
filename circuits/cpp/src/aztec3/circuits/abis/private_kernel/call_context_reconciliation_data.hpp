@@ -33,8 +33,8 @@
 //     std::array<CallContext<NCT>, NEW_L2_TO_L1_MSGS_LENGTH> l1_call_contexts;
 //     std::array<fr, NEW_L2_TO_L1_MSGS_LENGTH> l1_counterparts; // TODO: this is probably wrong.
 
-//     template <typename Composer>
-//     CallContextReconciliationData<CircuitTypes<Composer>> to_circuit_type(Composer& composer) const
+//     template <typename Builder>
+//     CallContextReconciliationData<CircuitTypes<Builder>> to_circuit_type(Builder& composer) const
 //     {
 //         static_assert((std::is_same<NativeTypes, NCT>::value));
 
@@ -42,7 +42,7 @@
 //         auto to_ct = [&](auto& e) { return aztec3::utils::types::to_ct(composer, e); };
 //         auto to_circuit_type = [&](auto& e) { return e.to_circuit_type(composer); };
 
-//         CallContextReconciliationData<CircuitTypes<Composer>> data = {
+//         CallContextReconciliationData<CircuitTypes<Builder>> data = {
 
 //             map(private_call_contexts, to_circuit_type), to_ct(private_counterparts),
 

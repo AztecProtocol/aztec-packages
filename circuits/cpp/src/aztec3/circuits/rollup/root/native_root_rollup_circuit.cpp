@@ -68,7 +68,7 @@ std::array<NT::fr, 2> compute_messages_hash(std::array<NT::fr, NUMBER_OF_L1_L2_M
     return { high, low };
 }
 
-RootRollupPublicInputs root_rollup_circuit(DummyComposer& composer, RootRollupInputs const& rootRollupInputs)
+RootRollupPublicInputs root_rollup_circuit(DummyBuilder& composer, RootRollupInputs const& rootRollupInputs)
 {
     // TODO: Verify the previous rollup proofs
     // TODO: Check both previous rollup vks (in previous_rollup_data) against the permitted set of kernel vks.

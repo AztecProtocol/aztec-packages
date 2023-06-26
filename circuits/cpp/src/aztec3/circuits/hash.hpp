@@ -183,8 +183,8 @@ std::array<fr, N> get_sibling_path(MerkleTree& tree, size_t leaf_index, size_t c
     return sibling_path;
 }
 
-template <typename NCT, typename Composer, size_t SIZE>
-void check_membership(Composer& composer,
+template <typename NCT, typename Builder, size_t SIZE>
+void check_membership(Builder& composer,
                       typename NCT::fr const& value,
                       typename NCT::fr const& index,
                       std::array<typename NCT::fr, SIZE> const& sibling_path,

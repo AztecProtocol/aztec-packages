@@ -33,7 +33,7 @@ template <typename NCT> struct TxContext {
                contract_deployment_data == other.contract_deployment_data;
     };
 
-    template <typename Composer> TxContext<CircuitTypes<Composer>> to_circuit_type(Composer& composer) const
+    template <typename Builder> TxContext<CircuitTypes<Builder>> to_circuit_type(Builder& composer) const
     {
         static_assert((std::is_same<NativeTypes, NCT>::value));
 
@@ -41,7 +41,7 @@ template <typename NCT> struct TxContext {
         auto to_ct = [&](auto& e) { return aztec3::utils::types::to_ct(composer, e); };
         // auto to_circuit_type = [&](auto& e) { return e.to_circuit_type(composer); };
 
-        TxContext<CircuitTypes<Composer>> tx_context = {
+        TxContext<CircuitTypes<Builder>> tx_context = {
             to_ct(is_fee_payment_tx),
             to_ct(is_rebate_payment_tx),
             to_ct(is_contract_deployment_tx),
@@ -51,11 +51,11 @@ template <typename NCT> struct TxContext {
         return tx_context;
     };
 
-    template <typename Composer> TxContext<NativeTypes> to_native_type() const
+    template <typename Builder> TxContext<NativeTypes> to_native_type() const
     {
-        static_assert(std::is_same<CircuitTypes<Composer>, NCT>::value);
-        auto to_nt = [&](auto& e) { return aztec3::utils::types::to_nt<Composer>(e); };
-        auto to_native_type = []<typename T>(T& e) { return e.template to_native_type<Composer>(); };
+        static_assert(std::is_same<CircuitTypes<Builder>, NCT>::value);
+        auto to_nt = [&](auto& e) { return aztec3::utils::types::to_nt<Builder>(e); };
+        auto to_native_type = []<typename T>(T& e) { return e.template to_native_type<Builder>(); };
 
         TxContext<NativeTypes> tx_context = {
             to_nt(is_fee_payment_tx),

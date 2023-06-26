@@ -113,7 +113,7 @@ PreviousKernelData<NT> dummy_previous_kernel(bool real_vk_proof = false)
     PreviousKernelData<NT> const init_previous_kernel{};
 
     auto crs_factory = barretenberg::srs::get_crs_factory();
-    Composer mock_kernel_composer;
+    Builder mock_kernel_composer;
     auto mock_kernel_public_inputs = mock_kernel_circuit(mock_kernel_composer, init_previous_kernel.public_inputs);
 
     NT::Proof const mock_kernel_proof =

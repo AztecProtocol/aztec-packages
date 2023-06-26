@@ -26,12 +26,11 @@ template <typename NCT> struct PrivateKernelInputsInner {
         return previous_kernel == other.previous_kernel && private_call == other.private_call;
     };
 
-    template <typename Composer>
-    PrivateKernelInputsInner<CircuitTypes<Composer>> to_circuit_type(Composer& composer) const
+    template <typename Builder> PrivateKernelInputsInner<CircuitTypes<Builder>> to_circuit_type(Builder& composer) const
     {
         static_assert((std::is_same<NativeTypes, NCT>::value));
 
-        PrivateKernelInputsInner<CircuitTypes<Composer>> private_inputs = {
+        PrivateKernelInputsInner<CircuitTypes<Builder>> private_inputs = {
             previous_kernel.to_circuit_type(composer),
             private_call.to_circuit_type(composer),
         };

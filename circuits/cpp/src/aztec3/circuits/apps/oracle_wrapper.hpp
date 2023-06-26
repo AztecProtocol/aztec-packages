@@ -25,19 +25,19 @@ using aztec3::utils::types::CircuitTypes;
  * could provide two different witnesses for a single thing). The Native oracle will throw if you try a double-query of
  * certain information.
  */
-template <typename Composer> class OracleWrapperInterface {
-    using CT = CircuitTypes<Composer>;
+template <typename Builder> class OracleWrapperInterface {
+    using CT = CircuitTypes<Builder>;
     using fr = typename CT::fr;
     using grumpkin_point = typename CT::grumpkin_point;
     using address = typename CT::address;
 
   public:
-    Composer& composer;
+    Builder& composer;
     NativeOracle& native_oracle;
 
     // Initialise from Native.
     // Used when initialising for a user's first call.
-    OracleWrapperInterface(Composer& composer, NativeOracle& native_oracle)
+    OracleWrapperInterface(Builder& composer, NativeOracle& native_oracle)
         : composer(composer), native_oracle(native_oracle){};
 
     fr& get_msg_sender_private_key()
@@ -86,9 +86,9 @@ template <typename Composer> class OracleWrapperInterface {
     template <typename NotePreimage>
     auto get_utxo_sload_datum(grumpkin_point const& storage_slot_point, NotePreimage const& advice)
     {
-        auto native_storage_slot_point = aztec3::utils::types::to_nt<Composer>(storage_slot_point);
+        auto native_storage_slot_point = aztec3::utils::types::to_nt<Builder>(storage_slot_point);
 
-        auto native_advice = advice.template to_native_type<Composer>();
+        auto native_advice = advice.template to_native_type<Builder>();
 
         auto native_utxo_sload_datum = native_oracle.get_utxo_sload_datum(native_storage_slot_point, native_advice);
 
@@ -99,9 +99,9 @@ template <typename Composer> class OracleWrapperInterface {
                                                               size_t const& num_notes,
                                                               NotePreimage const& advice)
     {
-        auto native_storage_slot_point = aztec3::utils::types::to_nt<Composer>(storage_slot_point);
+        auto native_storage_slot_point = aztec3::utils::types::to_nt<Builder>(storage_slot_point);
 
-        auto native_advice = advice.template to_native_type<Composer>();
+        auto native_advice = advice.template to_native_type<Builder>();
 
         auto native_utxo_sload_data =
             native_oracle.get_utxo_sload_data(native_storage_slot_point, num_notes, native_advice);

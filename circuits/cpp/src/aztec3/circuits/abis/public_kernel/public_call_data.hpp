@@ -43,16 +43,16 @@ template <typename NCT> struct PublicCallData {
 
     // WARNING: the `proof` does NOT get converted! (because the current implementation of `verify_proof` takes a proof
     // of native bytes; any conversion to circuit types happens within the `verify_proof` function)
-    template <typename Composer> PublicCallData<CircuitTypes<Composer>> to_circuit_type(Composer& composer) const
+    template <typename Builder> PublicCallData<CircuitTypes<Builder>> to_circuit_type(Builder& composer) const
     {
-        // typedef CircuitTypes<Composer> CT;
+        // typedef CircuitTypes<Builder> CT;
         static_assert((std::is_same<NativeTypes, NCT>::value));
 
         // Capture the composer:
         auto to_ct = [&](auto& e) { return aztec3::utils::types::to_ct(composer, e); };
         auto to_circuit_type = [&](auto& e) { return e.to_circuit_type(composer); };
 
-        PublicCallData<CircuitTypes<Composer>> data = {
+        PublicCallData<CircuitTypes<Builder>> data = {
             call_stack_item.to_circuit_type(composer),
 
             map(public_call_stack_preimages, to_circuit_type),

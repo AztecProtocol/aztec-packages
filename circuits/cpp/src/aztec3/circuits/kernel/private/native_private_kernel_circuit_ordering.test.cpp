@@ -48,8 +48,8 @@ TEST_F(native_private_kernel_ordering_tests, native_one_read_request_choping_com
     private_inputs.private_call.call_stack_item.public_inputs.read_requests = read_requests;
     private_inputs.private_call.read_request_membership_witnesses = read_request_membership_witnesses;
 
-    DummyComposer composer =
-        DummyComposer("native_private_kernel_ordering_tests__native_one_read_request_choping_commitment_works");
+    DummyBuilder composer =
+        DummyBuilder("native_private_kernel_ordering_tests__native_one_read_request_choping_commitment_works");
     auto const& public_inputs = native_private_kernel_circuit_ordering(composer, private_inputs);
 
     auto failure = composer.get_first_failure();
@@ -85,8 +85,8 @@ TEST_F(native_private_kernel_ordering_tests, native_read_requests_choping_commit
     private_inputs.private_call.call_stack_item.public_inputs.read_requests = read_requests;
     private_inputs.private_call.read_request_membership_witnesses = read_request_membership_witnesses;
 
-    DummyComposer composer =
-        DummyComposer("native_private_kernel_ordering_tests__native_read_requests_choping_commitment_works");
+    DummyBuilder composer =
+        DummyBuilder("native_private_kernel_ordering_tests__native_read_requests_choping_commitment_works");
     auto const& public_inputs = native_private_kernel_circuit_ordering(composer, private_inputs);
 
     auto failure = composer.get_first_failure();
@@ -127,7 +127,7 @@ TEST_F(native_private_kernel_ordering_tests, native_read_request_unknown_fails)
     private_inputs.private_call.call_stack_item.public_inputs.read_requests = read_requests;
     private_inputs.private_call.read_request_membership_witnesses = read_request_membership_witnesses;
 
-    DummyComposer composer = DummyComposer("native_private_kernel_ordering_tests__native_read_request_unknown_fails");
+    DummyBuilder composer = DummyBuilder("native_private_kernel_ordering_tests__native_read_request_unknown_fails");
     auto const& public_inputs = native_private_kernel_circuit_ordering(composer, private_inputs);
 
     auto failure = composer.get_first_failure();

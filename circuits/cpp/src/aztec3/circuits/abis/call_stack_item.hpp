@@ -49,15 +49,15 @@ template <typename NCT, template <class> typename PrivatePublic> struct CallStac
         return utils::msgpack_derived_equals<boolean>(*this, other);
     };
 
-    template <typename Composer>
-    CallStackItem<CircuitTypes<Composer>, PrivatePublic> to_circuit_type(Composer& composer) const
+    template <typename Builder>
+    CallStackItem<CircuitTypes<Builder>, PrivatePublic> to_circuit_type(Builder& composer) const
     {
         static_assert((std::is_same<NativeTypes, NCT>::value));
 
         // Capture the composer:
         auto to_ct = [&](auto& e) { return aztec3::utils::types::to_ct(composer, e); };
 
-        CallStackItem<CircuitTypes<Composer>, PrivatePublic> call_stack_item = {
+        CallStackItem<CircuitTypes<Builder>, PrivatePublic> call_stack_item = {
             to_ct(contract_address),
             function_data.to_circuit_type(composer),
             public_inputs.to_circuit_type(composer),

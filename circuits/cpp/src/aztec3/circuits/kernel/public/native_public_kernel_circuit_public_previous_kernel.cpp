@@ -15,7 +15,7 @@ using CircuitErrorCode = aztec3::utils::CircuitErrorCode;
  * @param composer The circuit composer
  * @param public_kernel_inputs The inputs to this iteration of the kernel circuit
  */
-void validate_inputs(DummyComposer& composer, PublicKernelInputs<NT> const& public_kernel_inputs)
+void validate_inputs(DummyBuilder& composer, PublicKernelInputs<NT> const& public_kernel_inputs)
 {
     const auto& previous_kernel = public_kernel_inputs.previous_kernel.public_inputs;
     composer.do_assert(previous_kernel.is_private == false,
@@ -30,7 +30,7 @@ using aztec3::circuits::abis::KernelCircuitPublicInputs;
 using aztec3::circuits::abis::public_kernel::PublicKernelInputs;
 using aztec3::circuits::kernel::public_kernel::common_validate_kernel_execution;
 
-using DummyComposer = aztec3::utils::DummyComposer;
+using DummyBuilder = aztec3::utils::DummyBuilder;
 
 /**
  * @brief Entry point for the native public kernel circuit with a public previous kernel
@@ -39,7 +39,7 @@ using DummyComposer = aztec3::utils::DummyComposer;
  * @return The circuit public inputs
  */
 KernelCircuitPublicInputs<NT> native_public_kernel_circuit_public_previous_kernel(
-    DummyComposer& composer, PublicKernelInputs<NT> const& public_kernel_inputs)
+    DummyBuilder& composer, PublicKernelInputs<NT> const& public_kernel_inputs)
 {
     // construct the circuit outputs
     KernelCircuitPublicInputs<NT> public_inputs{};

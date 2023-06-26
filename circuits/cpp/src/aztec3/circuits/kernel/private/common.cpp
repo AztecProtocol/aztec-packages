@@ -13,7 +13,7 @@
 #include "aztec3/utils/array.hpp"
 #include "aztec3/utils/dummy_composer.hpp"
 
-using DummyComposer = aztec3::utils::DummyComposer;
+using DummyBuilder = aztec3::utils::DummyBuilder;
 
 using aztec3::circuits::abis::ContractDeploymentData;
 using aztec3::circuits::abis::ContractLeafPreimage;
@@ -25,13 +25,13 @@ using aztec3::circuits::abis::NewContractData;
 using aztec3::utils::array_push;
 using aztec3::utils::is_array_empty;
 using aztec3::utils::push_array_to_array;
-using DummyComposer = aztec3::utils::DummyComposer;
+using DummyBuilder = aztec3::utils::DummyBuilder;
 using CircuitErrorCode = aztec3::utils::CircuitErrorCode;
 using aztec3::circuits::abis::private_kernel::PrivateCallData;
 
 namespace aztec3::circuits::kernel::private_kernel {
 
-void common_validate_call_stack(DummyComposer& composer, PrivateCallData<NT> const& private_call)
+void common_validate_call_stack(DummyBuilder& composer, PrivateCallData<NT> const& private_call)
 {
     const auto& stack = private_call.call_stack_item.public_inputs.private_call_stack;
     const auto& preimages = private_call.private_call_stack_preimages;
@@ -64,7 +64,7 @@ void common_validate_call_stack(DummyComposer& composer, PrivateCallData<NT> con
  * @param historic_private_data_tree_root This is a reference to the historic root which all
  * read requests are checked against here.
  */
-void common_validate_read_requests(DummyComposer& composer,
+void common_validate_read_requests(DummyBuilder& composer,
                                    NT::fr const& storage_contract_address,
                                    std::array<fr, READ_REQUESTS_LENGTH> const& read_requests,
                                    std::array<MembershipWitness<NT, PRIVATE_DATA_TREE_HEIGHT>,
@@ -104,7 +104,7 @@ void common_validate_read_requests(DummyComposer& composer,
     }
 }
 
-void common_update_end_values(DummyComposer& composer,
+void common_update_end_values(DummyBuilder& composer,
                               PrivateCallData<NT> const& private_call,
                               KernelCircuitPublicInputs<NT>& public_inputs)
 {
@@ -201,7 +201,7 @@ void common_update_end_values(DummyComposer& composer,
     }
 }
 
-void common_contract_logic(DummyComposer& composer,
+void common_contract_logic(DummyBuilder& composer,
                            PrivateCallData<NT> const& private_call,
                            KernelCircuitPublicInputs<NT>& public_inputs,
                            ContractDeploymentData<NT> const& contract_dep_data,

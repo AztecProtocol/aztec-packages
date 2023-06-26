@@ -17,11 +17,11 @@ using aztec3::utils::types::CircuitTypes;
 using plonk::stdlib::pedersen_commitment;
 using plonk::stdlib::witness_t;
 
-template <typename Composer>
-KernelCircuitPublicInputs<NT> mock_kernel_circuit(Composer& composer,
+template <typename Builder>
+KernelCircuitPublicInputs<NT> mock_kernel_circuit(Builder& composer,
                                                   KernelCircuitPublicInputs<NT> const& _public_inputs)
 {
-    typedef CircuitTypes<Composer> CT;
+    typedef CircuitTypes<Builder> CT;
     typedef typename CT::fr fr;
 
     auto public_inputs = _public_inputs.to_circuit_type(composer);
@@ -45,8 +45,8 @@ KernelCircuitPublicInputs<NT> mock_kernel_circuit(Composer& composer,
     // contains_recursive_proof to be false.
     composer.contains_recursive_proof = false;
 
-    plonk::stdlib::pedersen_commitment<Composer>::compress(fr(witness_t(&composer, 1)), fr(witness_t(&composer, 1)));
-    return public_inputs.template to_native_type<Composer>();
+    plonk::stdlib::pedersen_commitment<Builder>::compress(fr(witness_t(&composer, 1)), fr(witness_t(&composer, 1)));
+    return public_inputs.template to_native_type<Builder>();
 }
 
 }  // namespace aztec3::circuits::mock

@@ -24,7 +24,7 @@
 #include <barretenberg/barretenberg.hpp>
 
 namespace {
-// Composer
+// Builder
 using C = UltraCircuitBuilder;
 
 // Types
@@ -55,7 +55,7 @@ using aztec3::circuits::apps::notes::DefaultPrivateNote;
 using aztec3::circuits::apps::notes::DefaultSingletonPrivateNote;
 
 // State variables
-// Get rid of ugly `Composer` template arg from our state var types:
+// Get rid of ugly `Builder` template arg from our state var types:
 template <typename V> using Mapping = MappingStateVar<C, V>;
 template <typename Note> using UTXO = UTXOStateVar<C, Note>;
 template <typename Note> using UTXOSet = UTXOSetStateVar<C, Note>;

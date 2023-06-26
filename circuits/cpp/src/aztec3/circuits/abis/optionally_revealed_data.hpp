@@ -45,15 +45,14 @@ template <typename NCT> struct OptionallyRevealedData {
                called_from_l1 == other.called_from_l1 && called_from_public_l2 == other.called_from_public_l2;
     };
 
-    template <typename Composer>
-    OptionallyRevealedData<CircuitTypes<Composer>> to_circuit_type(Composer& composer) const
+    template <typename Builder> OptionallyRevealedData<CircuitTypes<Builder>> to_circuit_type(Builder& composer) const
     {
         static_assert((std::is_same<NativeTypes, NCT>::value));
 
         // Capture the composer:
         auto to_ct = [&](auto& e) { return aztec3::utils::types::to_ct(composer, e); };
 
-        OptionallyRevealedData<CircuitTypes<Composer>> data = {
+        OptionallyRevealedData<CircuitTypes<Builder>> data = {
             to_ct(call_stack_item_hash),
             function_data.to_circuit_type(composer),
             to_ct(vk_hash),
@@ -67,11 +66,11 @@ template <typename NCT> struct OptionallyRevealedData {
         return data;
     };
 
-    template <typename Composer> OptionallyRevealedData<NativeTypes> to_native_type() const
+    template <typename Builder> OptionallyRevealedData<NativeTypes> to_native_type() const
     {
-        static_assert(std::is_same<CircuitTypes<Composer>, NCT>::value);
-        auto to_nt = [&](auto& e) { return aztec3::utils::types::to_nt<Composer>(e); };
-        auto to_native_type = []<typename T>(T& e) { return e.template to_native_type<Composer>(); };
+        static_assert(std::is_same<CircuitTypes<Builder>, NCT>::value);
+        auto to_nt = [&](auto& e) { return aztec3::utils::types::to_nt<Builder>(e); };
+        auto to_native_type = []<typename T>(T& e) { return e.template to_native_type<Builder>(); };
 
         OptionallyRevealedData<NativeTypes> data = {
             to_nt(call_stack_item_hash),    to_native_type(function_data), to_nt(vk_hash),

@@ -8,7 +8,7 @@ namespace aztec3::circuits::recursion {
 class Aggregator {
   public:
     static CT::AggregationObject aggregate(
-        Composer* composer,
+        Builder* composer,
         const std::shared_ptr<CT::VK>& vk,
         const NT::Proof& proof,
         const CT::AggregationObject& previous_aggregation_output = CT::AggregationObject())

@@ -9,9 +9,9 @@
 #include <barretenberg/barretenberg.hpp>
 
 namespace {
-using Composer = UltraCircuitBuilder;
+using Builder = UltraCircuitBuilder;
 using NT = aztec3::utils::types::NativeTypes;
-using DummyComposer = aztec3::utils::DummyComposer;
+using DummyBuilder = aztec3::utils::DummyBuilder;
 using aztec3::circuits::abis::PreviousKernelData;
 using aztec3::circuits::abis::TxRequest;
 using aztec3::circuits::abis::private_kernel::PrivateCallData;
@@ -63,7 +63,7 @@ WASM_EXPORT uint8_t* private_kernel__sim_init(uint8_t const* tx_request_buf,
                                               size_t* private_kernel_public_inputs_size_out,
                                               uint8_t const** private_kernel_public_inputs_buf)
 {
-    DummyComposer composer = DummyComposer("private_kernel__sim_init");
+    DummyBuilder composer = DummyBuilder("private_kernel__sim_init");
 
     PrivateCallData<NT> private_call_data;
     read(private_call_buf, private_call_data);
@@ -94,7 +94,7 @@ WASM_EXPORT uint8_t* private_kernel__sim_inner(uint8_t const* previous_kernel_bu
                                                size_t* private_kernel_public_inputs_size_out,
                                                uint8_t const** private_kernel_public_inputs_buf)
 {
-    DummyComposer composer = DummyComposer("private_kernel__sim_inner");
+    DummyBuilder composer = DummyBuilder("private_kernel__sim_inner");
     PrivateCallData<NT> private_call_data;
     read(private_call_buf, private_call_data);
 

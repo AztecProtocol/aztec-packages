@@ -36,15 +36,14 @@ template <typename NCT> struct ContractDeploymentData {
                portal_contract_address == other.portal_contract_address;
     };
 
-    template <typename Composer>
-    ContractDeploymentData<CircuitTypes<Composer>> to_circuit_type(Composer& composer) const
+    template <typename Builder> ContractDeploymentData<CircuitTypes<Builder>> to_circuit_type(Builder& composer) const
     {
         static_assert((std::is_same<NativeTypes, NCT>::value));
 
         // Capture the composer:
         auto to_ct = [&](auto& e) { return aztec3::utils::types::to_ct(composer, e); };
 
-        ContractDeploymentData<CircuitTypes<Composer>> data = {
+        ContractDeploymentData<CircuitTypes<Builder>> data = {
             to_ct(deployer_public_key),   to_ct(constructor_vk_hash),     to_ct(function_tree_root),
             to_ct(contract_address_salt), to_ct(portal_contract_address),
         };
@@ -52,10 +51,10 @@ template <typename NCT> struct ContractDeploymentData {
         return data;
     };
 
-    template <typename Composer> ContractDeploymentData<NativeTypes> to_native_type() const
+    template <typename Builder> ContractDeploymentData<NativeTypes> to_native_type() const
     {
-        static_assert(std::is_same<CircuitTypes<Composer>, NCT>::value);
-        auto to_nt = [&](auto& e) { return aztec3::utils::types::to_nt<Composer>(e); };
+        static_assert(std::is_same<CircuitTypes<Builder>, NCT>::value);
+        auto to_nt = [&](auto& e) { return aztec3::utils::types::to_nt<Builder>(e); };
 
         ContractDeploymentData<NativeTypes> call_context = {
             to_nt(deployer_public_key),   to_nt(constructor_vk_hash),     to_nt(function_tree_root),
@@ -65,9 +64,9 @@ template <typename NCT> struct ContractDeploymentData {
         return call_context;
     };
 
-    template <typename Composer> void assert_is_zero()
+    template <typename Builder> void assert_is_zero()
     {
-        static_assert((std::is_same<CircuitTypes<Composer>, NCT>::value));
+        static_assert((std::is_same<CircuitTypes<Builder>, NCT>::value));
 
         deployer_public_key[0].assert_is_zero();
         deployer_public_key[1].assert_is_zero();

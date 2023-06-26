@@ -12,7 +12,7 @@
 
 namespace aztec3::circuits::apps::test_apps::private_to_private_function_call {
 
-// Composer
+// Builder
 using C = UltraCircuitBuilder;
 
 // Native and circuit types
@@ -32,7 +32,7 @@ using aztec3::utils::types::to_ct;
 // StateVars
 using apps::state_vars::UTXOStateVar;
 
-// Get rid of ugly `Composer` template arg from our state var types:
+// Get rid of ugly `Builder` template arg from our state var types:
 template <typename Note> using UTXO = UTXOStateVar<C, Note>;
 
 using Note = apps::notes::DefaultSingletonPrivateNote<C, CT::fr>;

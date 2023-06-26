@@ -13,7 +13,7 @@
 
 namespace aztec3::circuits::rollup::merge {
 
-BaseOrMergeRollupPublicInputs merge_rollup_circuit(DummyComposer& composer, MergeRollupInputs const& mergeRollupInputs)
+BaseOrMergeRollupPublicInputs merge_rollup_circuit(DummyBuilder& composer, MergeRollupInputs const& mergeRollupInputs)
 {
     // TODO: Verify the previous rollup proofs
     // TODO: Check both previous rollup vks (in previous_rollup_data) against the permitted set of kernel vks.

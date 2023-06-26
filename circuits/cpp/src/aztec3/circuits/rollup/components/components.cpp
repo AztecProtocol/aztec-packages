@@ -50,7 +50,7 @@ AggregationObject aggregate_proofs(BaseOrMergeRollupPublicInputs const& left,
  * @param left - The public inputs of the left rollup (base or merge)
  * @param right - The public inputs of the right rollup (base or merge)
  */
-void assert_both_input_proofs_of_same_rollup_type(DummyComposer& composer,
+void assert_both_input_proofs_of_same_rollup_type(DummyBuilder& composer,
                                                   BaseOrMergeRollupPublicInputs const& left,
                                                   BaseOrMergeRollupPublicInputs const& right)
 {
@@ -66,7 +66,7 @@ void assert_both_input_proofs_of_same_rollup_type(DummyComposer& composer,
  * @param right - The public inputs of the right rollup (base or merge)
  * @return NT::fr - The height of the rollup subtrees
  */
-NT::fr assert_both_input_proofs_of_same_height_and_return(DummyComposer& composer,
+NT::fr assert_both_input_proofs_of_same_height_and_return(DummyBuilder& composer,
                                                           BaseOrMergeRollupPublicInputs const& left,
                                                           BaseOrMergeRollupPublicInputs const& right)
 {
@@ -82,7 +82,7 @@ NT::fr assert_both_input_proofs_of_same_height_and_return(DummyComposer& compose
  * @param left - The public inputs of the left rollup (base or merge)
  * @param right - The public inputs of the right rollup (base or merge)
  */
-void assert_equal_constants(DummyComposer& composer,
+void assert_equal_constants(DummyBuilder& composer,
                             BaseOrMergeRollupPublicInputs const& left,
                             BaseOrMergeRollupPublicInputs const& right)
 {
@@ -239,7 +239,7 @@ std::array<fr, 2> compute_calldata_hash(std::array<abis::PreviousRollupData<NT>,
 
 // asserts that the end snapshot of previous_rollup 0 equals the start snapshot of previous_rollup 1 (i.e. ensure they
 // follow on from one-another). Ensures that right uses the tres that was updated by left.
-void assert_prev_rollups_follow_on_from_each_other(DummyComposer& composer,
+void assert_prev_rollups_follow_on_from_each_other(DummyBuilder& composer,
                                                    BaseOrMergeRollupPublicInputs const& left,
                                                    BaseOrMergeRollupPublicInputs const& right)
 {

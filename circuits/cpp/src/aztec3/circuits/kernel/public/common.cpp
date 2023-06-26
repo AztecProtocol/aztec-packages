@@ -40,7 +40,7 @@ void common_initialise_end_values(PublicKernelInputs<NT> const& public_kernel_in
  * @param composer The circuit composer
  * @param public_kernel_inputs The inputs to this iteration of the kernel circuit
  */
-void validate_this_public_call_hash(DummyComposer& composer,
+void validate_this_public_call_hash(DummyBuilder& composer,
                                     PublicKernelInputs<NT> const& public_kernel_inputs,
                                     KernelCircuitPublicInputs<NT>& public_inputs)
 {

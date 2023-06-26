@@ -16,14 +16,14 @@ using aztec3::circuits::abis::private_kernel::PrivateKernelInputsInner;
 
 using aztec3::utils::array_length;
 using aztec3::utils::array_pop;
-using DummyComposer = aztec3::utils::DummyComposer;
+using DummyBuilder = aztec3::utils::DummyBuilder;
 using CircuitErrorCode = aztec3::utils::CircuitErrorCode;
 
 // using plonk::stdlib::merkle_tree::
 
 // // TODO: NEED TO RECONCILE THE `proof`'s public inputs (which are uint8's) with the
 // // private_call.call_stack_item.public_inputs!
-// CT::AggregationObject verify_proofs(Composer& composer,
+// CT::AggregationObject verify_proofs(Builder& composer,
 //                                     PrivateInputs<CT> const& private_inputs,
 //                                     size_t const& num_private_call_public_inputs,
 //                                     size_t const& num_private_kernel_public_inputs)
@@ -41,7 +41,7 @@ using CircuitErrorCode = aztec3::utils::CircuitErrorCode;
 //     return aggregation_object;
 // }
 
-void validate_this_private_call_hash(DummyComposer& composer,
+void validate_this_private_call_hash(DummyBuilder& composer,
                                      PrivateKernelInputsInner<NT> const& private_inputs,
                                      KernelCircuitPublicInputs<NT>& public_inputs)
 {
@@ -56,7 +56,7 @@ void validate_this_private_call_hash(DummyComposer& composer,
         CircuitErrorCode::PRIVATE_KERNEL__CALCULATED_PRIVATE_CALL_HASH_AND_PROVIDED_PRIVATE_CALL_HASH_MISMATCH);
 };
 
-void validate_contract_tree_root(DummyComposer& composer, PrivateKernelInputsInner<NT> const& private_inputs)
+void validate_contract_tree_root(DummyBuilder& composer, PrivateKernelInputsInner<NT> const& private_inputs)
 {
     auto const& purported_contract_tree_root =
         private_inputs.private_call.call_stack_item.public_inputs.historic_contract_tree_root;
@@ -69,7 +69,7 @@ void validate_contract_tree_root(DummyComposer& composer, PrivateKernelInputsInn
         CircuitErrorCode::PRIVATE_KERNEL__PURPORTED_CONTRACT_TREE_ROOT_AND_PREVIOUS_KERNEL_CONTRACT_TREE_ROOT_MISMATCH);
 }
 
-void validate_inputs(DummyComposer& composer, PrivateKernelInputsInner<NT> const& private_inputs)
+void validate_inputs(DummyBuilder& composer, PrivateKernelInputsInner<NT> const& private_inputs)
 {
     const auto& this_call_stack_item = private_inputs.private_call.call_stack_item;
 
@@ -98,7 +98,7 @@ void validate_inputs(DummyComposer& composer, PrivateKernelInputsInner<NT> const
 // NOTE: THIS IS A VERY UNFINISHED WORK IN PROGRESS.
 // TODO(mike): is there a way to identify whether an input has not been used by ths circuit? This would help us
 // more-safely ensure we're constraining everything.
-KernelCircuitPublicInputs<NT> native_private_kernel_circuit_inner(DummyComposer& composer,
+KernelCircuitPublicInputs<NT> native_private_kernel_circuit_inner(DummyBuilder& composer,
                                                                   PrivateKernelInputsInner<NT> const& private_inputs)
 {
     // We'll be pushing data to this during execution of this circuit.

@@ -18,7 +18,7 @@ using aztec3::circuits::abis::KernelCircuitPublicInputs;
 using aztec3::circuits::abis::PublicDataRead;
 using aztec3::circuits::abis::PublicDataUpdateRequest;
 using aztec3::circuits::abis::public_kernel::PublicKernelInputs;
-using DummyComposer = aztec3::utils::DummyComposer;
+using DummyBuilder = aztec3::utils::DummyBuilder;
 using aztec3::circuits::check_membership;
 using aztec3::circuits::compute_public_data_tree_index;
 using aztec3::circuits::compute_public_data_tree_value;
@@ -37,7 +37,7 @@ namespace aztec3::circuits::kernel::public_kernel {
  * @param public_kernel_inputs The inputs to this iteration of the kernel circuit
  */
 template <typename KernelInput>
-void common_validate_call_stack(DummyComposer& composer, KernelInput const& public_kernel_inputs)
+void common_validate_call_stack(DummyBuilder& composer, KernelInput const& public_kernel_inputs)
 {
     // Ensures that the stack of pre-images corresponds to the call stack
     auto& stack = public_kernel_inputs.public_call.call_stack_item.public_inputs.public_call_stack;
@@ -130,7 +130,7 @@ void common_validate_call_stack(DummyComposer& composer, KernelInput const& publ
  * @param public_kernel_inputs The inputs to this iteration of the kernel circuit
  */
 template <typename KernelInput>
-void common_validate_call_context(DummyComposer& composer, KernelInput const& public_kernel_inputs)
+void common_validate_call_context(DummyBuilder& composer, KernelInput const& public_kernel_inputs)
 {
     const auto& call_stack_item = public_kernel_inputs.public_call.call_stack_item;
     const auto is_delegate_call = call_stack_item.public_inputs.call_context.is_delegate_call;
@@ -157,7 +157,7 @@ void common_validate_call_context(DummyComposer& composer, KernelInput const& pu
  * @param public_kernel_inputs The inputs to this iteration of the kernel circuit
  */
 template <typename KernelInput>
-void common_validate_kernel_execution(DummyComposer& composer, KernelInput const& public_kernel_inputs)
+void common_validate_kernel_execution(DummyBuilder& composer, KernelInput const& public_kernel_inputs)
 {
     common_validate_call_context(composer, public_kernel_inputs);
     common_validate_call_stack(composer, public_kernel_inputs);
@@ -170,7 +170,7 @@ void common_validate_kernel_execution(DummyComposer& composer, KernelInput const
  * @param public_kernel_inputs The inputs to this iteration of the kernel circuit
  */
 template <typename KernelInput>
-void common_validate_inputs(DummyComposer& composer, KernelInput const& public_kernel_inputs)
+void common_validate_inputs(DummyBuilder& composer, KernelInput const& public_kernel_inputs)
 {
     // Validates commons inputs for all type of kernel inputs
     const auto& this_call_stack_item = public_kernel_inputs.public_call.call_stack_item;
@@ -194,8 +194,8 @@ void common_validate_inputs(DummyComposer& composer, KernelInput const& public_k
                        CircuitErrorCode::PUBLIC_KERNEL__BYTECODE_HASH_INVALID);
 }
 
-template <typename KernelInput, typename Composer>
-void perform_static_call_checks(Composer& composer, KernelInput const& public_kernel_inputs)
+template <typename KernelInput, typename Builder>
+void perform_static_call_checks(Builder& composer, KernelInput const& public_kernel_inputs)
 {
     // If the call is a static call, there should be no new commitments or nullifiers.
     const auto& public_call_public_inputs = public_kernel_inputs.public_call.call_stack_item.public_inputs;
@@ -220,8 +220,8 @@ void perform_static_call_checks(Composer& composer, KernelInput const& public_ke
  * @param public_kernel_inputs The inputs to this iteration of the kernel circuit
  * @param circuit_outputs The circuit outputs to be populated
  */
-template <typename KernelInput, typename Composer>
-void propagate_valid_public_data_update_requests(Composer& composer,
+template <typename KernelInput, typename Builder>
+void propagate_valid_public_data_update_requests(Builder& composer,
                                                  KernelInput const& public_kernel_inputs,
                                                  KernelCircuitPublicInputs<NT>& circuit_outputs)
 {
@@ -248,8 +248,8 @@ void propagate_valid_public_data_update_requests(Composer& composer,
  * @param public_kernel_inputs The inputs to this iteration of the kernel circuit
  * @param circuit_outputs The circuit outputs to be populated
  */
-template <typename KernelInput, typename Composer>
-void propagate_valid_public_data_reads(Composer& composer,
+template <typename KernelInput, typename Builder>
+void propagate_valid_public_data_reads(Builder& composer,
                                        KernelInput const& public_kernel_inputs,
                                        KernelCircuitPublicInputs<NT>& circuit_outputs)
 {
@@ -276,8 +276,8 @@ void propagate_valid_public_data_reads(Composer& composer,
  * @param public_kernel_inputs The inputs to this iteration to the kernel circuit.
  * @param circuit_outputs The circuit outputs to be populated
  */
-template <typename KernelInput, typename Composer>
-void propagate_new_commitments(Composer& composer,
+template <typename KernelInput, typename Builder>
+void propagate_new_commitments(Builder& composer,
                                KernelInput const& public_kernel_inputs,
                                KernelCircuitPublicInputs<NT>& circuit_outputs)
 {
@@ -305,8 +305,8 @@ void propagate_new_commitments(Composer& composer,
  * @param public_kernel_inputs The inputs to this iteration to the kernel circuit.
  * @param circuit_outputs The circuit outputs to be populated
  */
-template <typename KernelInput, typename Composer>
-void propagate_new_nullifiers(Composer& composer,
+template <typename KernelInput, typename Builder>
+void propagate_new_nullifiers(Builder& composer,
                               KernelInput const& public_kernel_inputs,
                               KernelCircuitPublicInputs<NT>& circuit_outputs)
 {
@@ -333,8 +333,8 @@ void propagate_new_nullifiers(Composer& composer,
  * @param public_kernel_inputs The inputs to this iteration to the kernel circuit.
  * @param circuit_outputs The circuit outputs to be populated
  */
-template <typename KernelInput, typename Composer>
-void propagate_new_l2_to_l1_messages(Composer& composer,
+template <typename KernelInput, typename Builder>
+void propagate_new_l2_to_l1_messages(Builder& composer,
                                      KernelInput const& public_kernel_inputs,
                                      KernelCircuitPublicInputs<NT>& circuit_outputs)
 {
@@ -397,8 +397,8 @@ template <typename NT> void accumulate_unencrypted_logs(PublicKernelInputs<NT> c
  * @param public_kernel_inputs The inputs to this iteration of the kernel circuit
  * @param circuit_outputs The circuit outputs to be populated
  */
-template <typename KernelInput, typename Composer>
-void common_update_public_end_values(Composer& composer,
+template <typename KernelInput, typename Builder>
+void common_update_public_end_values(Builder& composer,
                                      KernelInput const& public_kernel_inputs,
                                      KernelCircuitPublicInputs<NT>& circuit_outputs)
 {
@@ -435,7 +435,7 @@ void common_initialise_end_values(PublicKernelInputs<NT> const& public_kernel_in
  * @param public_kernel_inputs The inputs to this iteration of the kernel circuit
  * @param public_inputs The circuit outputs
  */
-void validate_this_public_call_hash(DummyComposer& composer,
+void validate_this_public_call_hash(DummyBuilder& composer,
                                     PublicKernelInputs<NT> const& public_kernel_inputs,
                                     KernelCircuitPublicInputs<NT>& public_inputs);
 }  // namespace aztec3::circuits::kernel::public_kernel

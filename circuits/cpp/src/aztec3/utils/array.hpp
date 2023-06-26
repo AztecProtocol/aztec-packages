@@ -103,8 +103,8 @@ template <typename T, size_t SIZE> T array_pop(std::array<T, SIZE>& arr)
  * @tparam The size of the array
  * @param The array into which we want to store the value
  */
-template <typename T, typename Composer, size_t SIZE>
-void array_push(Composer& composer, std::array<T, SIZE>& arr, T const& value)
+template <typename T, typename Builder, size_t SIZE>
+void array_push(Builder& composer, std::array<T, SIZE>& arr, T const& value)
 {
     for (size_t i = 0; i < arr.size(); ++i) {
         if (is_empty(arr[i])) {
@@ -165,8 +165,8 @@ template <typename T, size_t SIZE> NT::boolean is_array_empty(std::array<T, SIZE
  * @param The `source` array
  * @param The `target` array
  */
-template <size_t size_1, size_t size_2, typename T, typename Composer>
-void push_array_to_array(Composer& composer, std::array<T, size_1> const& source, std::array<T, size_2>& target)
+template <size_t size_1, size_t size_2, typename T, typename Builder>
+void push_array_to_array(Builder& composer, std::array<T, size_1> const& source, std::array<T, size_2>& target)
 {
     // Check if the `source` array is too large vs the remaining capacity of the `target` array
     size_t const source_size = static_cast<size_t>(uint256_t(array_length(source)));

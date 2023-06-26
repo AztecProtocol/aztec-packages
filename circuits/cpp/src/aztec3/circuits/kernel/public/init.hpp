@@ -10,18 +10,18 @@
 
 namespace aztec3::circuits::kernel::public_kernel {
 
-using Composer = proof_system::UltraCircuitBuilder;
+using Builder = proof_system::UltraCircuitBuilder;
 
 using Aggregator = aztec3::circuits::recursion::Aggregator;
 
 // Generic:
-using CT = aztec3::utils::types::CircuitTypes<Composer>;
+using CT = aztec3::utils::types::CircuitTypes<Builder>;
 using NT = aztec3::utils::types::NativeTypes;
 using aztec3::utils::types::to_ct;
 using CircuitErrorCode = aztec3::utils::CircuitErrorCode;
 
 using DB = oracle::FakeDB;
 using oracle::NativeOracle;
-using OracleWrapper = aztec3::circuits::apps::OracleWrapperInterface<Composer>;
+using OracleWrapper = aztec3::circuits::apps::OracleWrapperInterface<Builder>;
 
 }  // namespace aztec3::circuits::kernel::public_kernel

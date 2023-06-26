@@ -20,7 +20,7 @@ using ConstantRollupData = aztec3::circuits::abis::ConstantRollupData<NT>;
 using BaseRollupInputs = aztec3::circuits::abis::BaseRollupInputs<NT>;
 using RootRollupInputs = aztec3::circuits::abis::RootRollupInputs<NT>;
 using RootRollupPublicInputs = aztec3::circuits::abis::RootRollupPublicInputs<NT>;
-using DummyComposer = aztec3::utils::DummyComposer;
+using DummyBuilder = aztec3::utils::DummyBuilder;
 
 using Aggregator = aztec3::circuits::recursion::Aggregator;
 using AppendOnlyTreeSnapshot = aztec3::circuits::abis::AppendOnlyTreeSnapshot<NT>;
@@ -238,7 +238,7 @@ BaseRollupInputs base_rollup_inputs_from_kernels(std::array<KernelData, 2> kerne
         std::move(kernel_data), private_data_tree, contract_tree, public_data_tree, l1_to_l2_messages_tree);
 }
 
-std::array<PreviousRollupData<NT>, 2> get_previous_rollup_data(DummyComposer& composer,
+std::array<PreviousRollupData<NT>, 2> get_previous_rollup_data(DummyBuilder& composer,
                                                                std::array<KernelData, 4> kernel_data)
 {
     // NOTE: Still assuming that this is first and second. Don't handle more rollups atm
@@ -301,13 +301,13 @@ std::array<PreviousRollupData<NT>, 2> get_previous_rollup_data(DummyComposer& co
     return { previous_rollup1, previous_rollup2 };
 }
 
-MergeRollupInputs get_merge_rollup_inputs(utils::DummyComposer& composer, std::array<KernelData, 4> kernel_data)
+MergeRollupInputs get_merge_rollup_inputs(utils::DummyBuilder& composer, std::array<KernelData, 4> kernel_data)
 {
     MergeRollupInputs inputs = { .previous_rollup_data = get_previous_rollup_data(composer, std::move(kernel_data)) };
     return inputs;
 }
 
-RootRollupInputs get_root_rollup_inputs(utils::DummyComposer& composer,
+RootRollupInputs get_root_rollup_inputs(utils::DummyBuilder& composer,
                                         std::array<KernelData, 4> kernel_data,
                                         std::array<fr, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP> l1_to_l2_messages)
 {
