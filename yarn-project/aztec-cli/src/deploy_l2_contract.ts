@@ -1,17 +1,6 @@
 import { AztecNode, HttpNode } from '@aztec/aztec-node';
-import {
-  ContractDeployer,
-  createAztecRPCServer,
-  TxStatus,
-  TxHash,
-  Point,
-  AztecAddress,
-  Fr,
-  CurveType,
-  SignerType,
-} from '@aztec/aztec.js';
+import { ContractDeployer, createAztecRPCServer, TxStatus, TxHash, Point, AztecAddress, Fr } from '@aztec/aztec.js';
 import { DebugLogger } from '@aztec/foundation/log';
-import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
 import { ContractAbi } from '@aztec/foundation/abi';
 import { sleep } from '@aztec/foundation/sleep';
 import { ZkTokenContractAbi } from '@aztec/noir-contracts/examples';
