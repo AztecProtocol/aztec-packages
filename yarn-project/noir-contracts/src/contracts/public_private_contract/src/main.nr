@@ -30,7 +30,7 @@ contract PublicPrivate {
     global balances = Map { storage_slot: 1 };
 
     fn constructor(
-        inputs: pub PrivateContextInputs,
+        inputs: PrivateContextInputs,
     ) -> distinct pub [Field; dep::aztec3::abi::PUBLIC_INPUTS_LENGTH] {
         PrivateFunctionContext::new().finish(inputs)
     }
@@ -85,10 +85,10 @@ contract PublicPrivate {
 
 
     fn mintFromPublicMessage(
-        inputs: pub PrivateContextInputs,
-        amount: pub Field,
-        secret: pub Field,
-        owner: pub Point,
+        inputs: PrivateContextInputs,
+        amount: Field,
+        secret: Field,
+        owner: Point,
     ) -> distinct pub [Field; dep::aztec3::abi::PUBLIC_INPUTS_LENGTH] {
         let mut context = PrivateFunctionContext::new();
         context.args = context.args.push_array([amount, secret, owner.x, owner.y]);

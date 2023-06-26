@@ -11,9 +11,9 @@ contract GullibleAccount {
     use dep::aztec3::types::vec::BoundedVec;
 
     fn entrypoint(
-        inputs: pub PrivateContextInputs,
-        payload: pub EntrypointPayload,
-        _signature: pub [Field;3]
+        inputs: PrivateContextInputs,
+        payload: EntrypointPayload,
+        _signature: [Field;3]
     ) -> distinct pub [Field; dep::aztec3::abi::PUBLIC_INPUTS_LENGTH] {
         let mut context = PrivateFunctionContext::new();
 
@@ -68,7 +68,7 @@ contract GullibleAccount {
     }
 
     fn constructor(
-        inputs: pub PrivateContextInputs,
+        inputs: PrivateContextInputs,
     ) -> distinct pub [Field; dep::aztec3::abi::PUBLIC_INPUTS_LENGTH] {
         PrivateFunctionContext::new().finish(inputs)
     }

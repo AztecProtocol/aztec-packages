@@ -33,10 +33,10 @@ contract NonNativeToken {
     fn constructor(
         //*********************************/
         // Should eventually be hidden:
-        inputs: pub PrivateContextInputs,
+        inputs: PrivateContextInputs,
         //*********************************/
-        initial_supply: pub Field, 
-        owner: pub Point,
+        initial_supply: Field, 
+        owner: Point,
     ) -> distinct pub [Field; dep::aztec3::abi::PUBLIC_INPUTS_LENGTH] {
         let mut context = PrivateFunctionContext::new();
         context.args = context.args.push_array([initial_supply, owner.x, owner.y]);
@@ -57,15 +57,15 @@ contract NonNativeToken {
     fn mint(
         //*********************************/
         // Should eventually be hidden:
-        inputs: pub PrivateContextInputs,
+        inputs: PrivateContextInputs,
         //*********************************/
-        amount: pub Field, 
-        owner: pub Point,
-        owner_address: pub Field,
+        amount: Field, 
+        owner: Point,
+        owner_address: Field,
         // This field should be hidden
-        msg_key: pub Field,
-        secret: pub Field,
-        canceller: pub Field,
+        msg_key: Field,
+        secret: Field,
+        canceller: Field,
     ) -> distinct pub [Field; dep::aztec3::abi::PUBLIC_INPUTS_LENGTH] {
         let mut context = PrivateFunctionContext::new();
         context.args = context.args.push_array([amount, owner.x, owner.y, owner_address, msg_key, secret]);
@@ -91,12 +91,12 @@ contract NonNativeToken {
     fn withdraw(
         //*********************************/
         // Should eventually be hidden:
-        inputs: pub PrivateContextInputs,
+        inputs: PrivateContextInputs,
         //*********************************/
-        amount: pub Field, 
-        sender: pub Point, 
-        recipient: pub Field, // ethereum address in the field
-        callerOnL1: pub Field, // ethereum address that can call this function on the L1 portal (0x0 if anyone can call)
+        amount: Field, 
+        sender: Point, 
+        recipient: Field, // ethereum address in the field
+        callerOnL1: Field, // ethereum address that can call this function on the L1 portal (0x0 if anyone can call)
     ) -> distinct pub [Field; dep::aztec3::abi::PUBLIC_INPUTS_LENGTH] {
         let mut initialContext = PrivateFunctionContext::new();
         initialContext.args = initialContext.args.push_array([amount, sender.x, sender.y, recipient]);
@@ -190,11 +190,11 @@ contract NonNativeToken {
     fn transfer(
         //*********************************/
         // Should eventually be hidden:
-        inputs: pub PrivateContextInputs,
+        inputs: PrivateContextInputs,
         //*********************************/
-        amount: pub Field, 
-        sender: pub Point, 
-        recipient: pub Point,
+        amount: Field, 
+        sender: Point, 
+        recipient: Point,
     ) -> distinct pub [Field; dep::aztec3::abi::PUBLIC_INPUTS_LENGTH] {
         let mut initialContext = PrivateFunctionContext::new();
         initialContext.args = initialContext.args.push_array([amount, sender.x, sender.y, recipient.x, recipient.y]);

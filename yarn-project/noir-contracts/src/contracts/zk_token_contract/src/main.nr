@@ -20,10 +20,10 @@ contract ZkToken {
     fn constructor(
         //*********************************/
         // Should eventually be hidden:
-        inputs: pub PrivateContextInputs,
+        inputs: PrivateContextInputs,
         //*********************************/
-        initial_supply: pub Field, 
-        owner: pub Point,
+        initial_supply: Field, 
+        owner: Point,
     ) -> distinct pub [Field; dep::aztec3::abi::PUBLIC_INPUTS_LENGTH] {
         let mut context = PrivateFunctionContext::new();
         context.args = context.args.push_array([initial_supply, owner.x, owner.y]);
@@ -42,10 +42,10 @@ contract ZkToken {
     fn mint(
         //*********************************/
         // Should eventually be hidden:
-        inputs: pub PrivateContextInputs,
+        inputs: PrivateContextInputs,
         //*********************************/
-        amount: pub Field, 
-        owner: pub Point,
+        amount: Field, 
+        owner: Point,
     ) -> distinct pub [Field; dep::aztec3::abi::PUBLIC_INPUTS_LENGTH] {
         let mut context = PrivateFunctionContext::new();
         context.args = context.args.push_array([amount, owner.x, owner.y]);
@@ -64,11 +64,11 @@ contract ZkToken {
     fn transfer(
         //*********************************/
         // Should eventually be hidden:
-        inputs: pub PrivateContextInputs,
+        inputs: PrivateContextInputs,
         //*********************************/
-        amount: pub Field, 
-        sender: pub Point, 
-        recipient: pub Point,
+        amount: Field, 
+        sender: Point, 
+        recipient: Point,
     ) -> distinct pub [Field; dep::aztec3::abi::PUBLIC_INPUTS_LENGTH] {
         let mut initialContext = PrivateFunctionContext::new();
         initialContext.args = initialContext.args.push_array([amount, sender.x, sender.y, recipient.x, recipient.y]);

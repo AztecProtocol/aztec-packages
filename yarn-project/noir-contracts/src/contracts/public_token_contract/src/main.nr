@@ -12,7 +12,7 @@ contract PublicToken {
     global balances = StorageMap { storage_slot: 1 };
 
     fn constructor(
-        inputs: pub PrivateContextInputs,
+        inputs: PrivateContextInputs,
     ) -> distinct pub [Field; dep::aztec3::abi::PUBLIC_INPUTS_LENGTH] {
         PrivateFunctionContext::new().finish(inputs)
     }

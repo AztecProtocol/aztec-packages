@@ -8,16 +8,16 @@ contract Parent {
     use dep::aztec3::public_call_stack_item::PublicCallStackItem;
 
     fn constructor(
-        inputs: pub PrivateContextInputs,
+        inputs: PrivateContextInputs,
     ) -> distinct pub [Field; dep::aztec3::abi::PUBLIC_INPUTS_LENGTH] {
         PrivateFunctionContext::new().finish(inputs)
     }
 
     // Private function to call another private function in the targetContract using the provided selector
     fn entryPoint(
-        inputs: pub PrivateContextInputs,
-        targetContract: pub Field,
-        targetSelector: pub Field,
+        inputs: PrivateContextInputs,
+        targetContract: Field,
+        targetSelector: Field,
     ) -> distinct pub [Field; dep::aztec3::abi::PUBLIC_INPUTS_LENGTH] {
         let mut initialContext = PrivateFunctionContext::new();
         initialContext.args = initialContext.args.push_array([targetContract, targetSelector]);
@@ -52,10 +52,10 @@ contract Parent {
 
     // Private function to enqueue a call to the targetCcontract address using the selector and argument provided
     fn enqueueCallToChild(
-        inputs: pub PrivateContextInputs,
-        targetContract: pub Field,
-        targetSelector: pub Field,
-        targetValue: pub Field,
+        inputs: PrivateContextInputs,
+        targetContract: Field,
+        targetSelector: Field,
+        targetValue: Field,
     ) -> distinct pub [Field; dep::aztec3::abi::PUBLIC_INPUTS_LENGTH] {
         let mut initialContext = PrivateFunctionContext::new();
         initialContext.args = initialContext.args.push_array([targetContract, targetSelector, targetValue]);
@@ -69,10 +69,10 @@ contract Parent {
 
     // Private function to enqueue a call to the targetCcontract address using the selector and argument provided
     fn enqueueCallToChildTwice(
-        inputs: pub PrivateContextInputs,
-        targetContract: pub Field,
-        targetSelector: pub Field,
-        targetValue: pub Field,
+        inputs: PrivateContextInputs,
+        targetContract: Field,
+        targetSelector: Field,
+        targetValue: Field,
     ) -> distinct pub [Field; dep::aztec3::abi::PUBLIC_INPUTS_LENGTH] {
         let mut context0 = PrivateFunctionContext::new();
         context0.args = context0.args.push_array([targetContract, targetSelector, targetValue]);
@@ -88,10 +88,10 @@ contract Parent {
 
     // Private function to enqueue a call to the pubEntryPoint function of this same contract, passing the target arguments provided
     fn enqueueCallToPubEntryPoint(
-        inputs: pub PrivateContextInputs,
-        targetContract: pub Field,
-        targetSelector: pub Field,
-        targetValue: pub Field,
+        inputs: PrivateContextInputs,
+        targetContract: Field,
+        targetSelector: Field,
+        targetValue: Field,
     ) -> distinct pub [Field; dep::aztec3::abi::PUBLIC_INPUTS_LENGTH] {
         let mut initialContext = PrivateFunctionContext::new();
         initialContext.args = initialContext.args.push_array([targetContract, targetSelector, targetValue]);
@@ -110,10 +110,10 @@ contract Parent {
 
     // Private function to enqueue two calls to the pubEntryPoint function of this same contract, passing the target arguments provided
     fn enqueueCallsToPubEntryPoint(
-        inputs: pub PrivateContextInputs,
-        targetContract: pub Field,
-        targetSelector: pub Field,
-        targetValue: pub Field,
+        inputs: PrivateContextInputs,
+        targetContract: Field,
+        targetSelector: Field,
+        targetValue: Field,
     ) -> distinct pub [Field; dep::aztec3::abi::PUBLIC_INPUTS_LENGTH] {
         let mut initialContext = PrivateFunctionContext::new();
         initialContext.args = initialContext.args.push_array([targetContract, targetSelector, targetValue]);

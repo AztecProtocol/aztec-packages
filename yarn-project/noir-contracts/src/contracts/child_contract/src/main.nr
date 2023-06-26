@@ -8,14 +8,14 @@ contract Child {
     global current_value = StorageField{ storage_slot: 1 };
 
     fn constructor(
-        inputs: pub PrivateContextInputs,
+        inputs: PrivateContextInputs,
     ) -> distinct pub [Field; dep::aztec3::abi::PUBLIC_INPUTS_LENGTH] {
         PrivateFunctionContext::new().finish(inputs)
     }
 
     fn value(
-        inputs: pub PrivateContextInputs,
-        input: pub Field,
+        inputs: PrivateContextInputs,
+        input: Field,
     ) -> distinct pub [Field; dep::aztec3::abi::PUBLIC_INPUTS_LENGTH] {
         let mut context = PrivateFunctionContext::new();
         context.args = context.args.push(input);
