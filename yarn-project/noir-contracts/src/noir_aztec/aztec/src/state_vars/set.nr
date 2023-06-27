@@ -17,11 +17,7 @@ impl<Note, N> Set<Note, N> {
     fn insert(self, mut context: Context, note: Note) -> Context {
         let compute_note_hash = self.note_interface.compute_note_hash;
         let note_hash = compute_note_hash(note);
-        context = context.push_new_note_hash(note_hash);
-
-        // TODO: encrypt_and_emit
-
-        context
+        context.push_new_note_hash(note_hash)
     }
 
     fn remove(self, mut context: Context, note: Note) -> Context {

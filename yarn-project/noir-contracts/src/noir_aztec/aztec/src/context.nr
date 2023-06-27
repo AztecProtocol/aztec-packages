@@ -16,6 +16,8 @@ struct Context {
 
     encrypted_logs_hash: [Field; 2],
     encrypted_log_preimages_length: Field,
+    unencrypted_logs_hash: [Field; 2],
+    unencrypted_log_preimages_length: Field,
 }
 
 impl Context {
@@ -35,9 +37,9 @@ impl Context {
             // new_l2_to_l1_msgs: BoundedVec::new(0),
 
             encrypted_logs_hash: [0; 2],
-            // unencrypted_logs_hash: BoundedVec::new(0),
             encrypted_log_preimages_length: 0,
-            // unencrypted_log_preimages_length: 0,
+            unencrypted_logs_hash: [0; 2],
+            unencrypted_log_preimages_length: 0,
         }
     }
 
@@ -63,6 +65,16 @@ impl Context {
 
     fn set_encrypted_log_preimages_length(mut self: Self, len: Field) -> Self {
         self.encrypted_log_preimages_length = len;
+        self
+    }
+
+    fn set_unencrypted_logs_hash(mut self: Self, hash: [Field; 2]) -> Self {
+        self.unencrypted_logs_hash = hash;
+        self
+    }
+
+    fn set_unencrypted_log_preimages_length(mut self: Self, len: Field) -> Self {
+        self.unencrypted_log_preimages_length = len;
         self
     }
 }

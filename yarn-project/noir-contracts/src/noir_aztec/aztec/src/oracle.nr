@@ -45,13 +45,12 @@ unconstrained fn get_notes<Note, N, S, P>(
     filter(notes, filter_args)
 }
 
-unconstrained fn encrypt<S>(
-    account: Field,
-    contract_address: Field,
-    storage_slot: Field,
-    preimage: [Field; S],
-) -> ([Field; 2], Field) {
-    let encrypted_logs_hash = [22446688, 11335577];
-    let encrypted_log_preimages_length = preimage.len() + 32 * 2;
-    (encrypted_logs_hash, encrypted_log_preimages_length)
+unconstrained fn emit_encrypted_log<S>(log: [Field; S]) -> [Field; 2] {
+    let log_hash = [22446688, 11335577];
+    log_hash
+}
+
+unconstrained fn emit_unencrypted_log<S>(log: [Field; S]) -> [Field; 2] {
+    let log_hash = [22446688, 11335577];
+    log_hash
 }

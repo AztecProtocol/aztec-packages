@@ -5,6 +5,7 @@ use dep::aztec::note::note_getter_options::NoteGetterOptions;
 use dep::aztec::note::note_getter_options::Sort;
 use dep::aztec::note::note_getter_options::SortOrder;
 use dep::aztec::state_vars::set::Set;
+use crate::account;
 use crate::notes::value_note::ValueNote;
 use crate::notes::value_note::VALUE_NOTE_LEN;
 use crate::storage::Storage;
@@ -50,6 +51,10 @@ fn spend_notes(mut context: Context, storage: Storage, sender: Field, amount: Fi
         let change = sum - amount;
         let change_note = ValueNote::new(change, sender);
         context = balance.insert(context, change_note);
+
+        let storage_slot = balance.storage_slot;
+        let data = change_note.serialise();
+        context = account::encrypt_and_emit(context, sender, storage_slot, data);
     } else {
         // TODO: private function call
         spend_notes(context, storage, sender, amount - sum, skip + 2);

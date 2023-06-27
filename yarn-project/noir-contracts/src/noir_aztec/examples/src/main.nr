@@ -1,3 +1,4 @@
+mod account;
 mod storage;
 mod notes;
 mod examples;

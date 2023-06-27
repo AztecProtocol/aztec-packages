@@ -27,11 +27,7 @@ impl<Note, N> ImmutableSingleton<Note, N> {
         // Add new note.
         let compute_note_hash = self.note_interface.compute_note_hash;
         let note_hash = compute_note_hash(note);
-        context = context.push_new_note_hash(note_hash);
-
-        // TODO: encrypt_and_emit
-
-        context
+        context.push_new_note_hash(note_hash)
     }
 
     fn compute_initialisation_nullifier(self) -> Field {
