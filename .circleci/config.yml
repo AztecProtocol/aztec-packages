@@ -558,7 +558,7 @@ jobs:
           working_directory: aztec-sandbox
           command: |
             deploy_ecr aztec-sandbox
-            deploy_dockerhub_master aztec-sandbox master
+            deploy_dockerhub aztec-sandbox master
 
 # Repeatable config for defining the workflow below.
 tag_regex: &tag_regex /v[0-9]+(\.[0-9]+)*(-[a-zA-Z-]+\.[0-9]+)?/
