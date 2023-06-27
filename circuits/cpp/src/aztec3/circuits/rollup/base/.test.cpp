@@ -34,7 +34,6 @@ using aztec3::circuits::abis::PreviousKernelData;
 
 // using aztec3::circuits::mock::mock_circuit;
 using aztec3::circuits::rollup::test_utils::utils::base_rollup_inputs_from_kernels;
-using aztec3::circuits::rollup::test_utils::utils::compare_field_hash_to_expected;
 using aztec3::circuits::rollup::test_utils::utils::get_empty_kernel;
 using aztec3::circuits::rollup::test_utils::utils::get_initial_nullifier_tree;
 // using aztec3::circuits::mock::mock_kernel_inputs;
