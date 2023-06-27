@@ -65,6 +65,9 @@ class base_rollup_tests : public ::testing::Test {
                           bool compare_pubins = true,
                           bool assert_no_circuit_failure = true)
     {
+        if (compare_pubins && !assert_no_circuit_failure) {
+            throw_or_abort("incorrect run_cbind(...) args");
+        }
         info("Retesting via cbinds....");
         // TODO(banks12) might be able to get rid of proving key buffer
         uint8_t const* pk_buf = nullptr;
@@ -75,19 +78,19 @@ class base_rollup_tests : public ::testing::Test {
         uint8_t const* vk_buf = nullptr;
         size_t const vk_size = base_rollup__init_verification_key(pk_buf, &vk_buf);
         (void)vk_size;
-        BaseOrMergeRollupPublicInputs public_inputs;
         if (assert_no_circuit_failure) {
-            public_inputs = call_msgpack_cbind<BaseOrMergeRollupPublicInputs>(base_rollup__sim, base_rollup_inputs);
+            auto const public_inputs =
+                call_msgpack_cbind<BaseOrMergeRollupPublicInputs>(base_rollup__sim, base_rollup_inputs);
+            if (compare_pubins) {
+                ASSERT_EQ(public_inputs.calldata_hash.size(), expected_public_inputs.calldata_hash.size());
+                for (size_t i = 0; i < public_inputs.calldata_hash.size(); i++) {
+                    ASSERT_EQ(public_inputs.calldata_hash[i], expected_public_inputs.calldata_hash[i]);
+                }
+                ASSERT_EQ(public_inputs, expected_public_inputs);
+            }
         } else {
             auto error = call_msgpack_cbind<utils::CircuitError>(base_rollup__sim, base_rollup_inputs);
             ASSERT_TRUE(error.code > 0);
-        }
-        if (compare_pubins) {
-            ASSERT_EQ(public_inputs.calldata_hash.size(), expected_public_inputs.calldata_hash.size());
-            for (size_t i = 0; i < public_inputs.calldata_hash.size(); i++) {
-                ASSERT_EQ(public_inputs.calldata_hash[i], expected_public_inputs.calldata_hash[i]);
-            }
-            ASSERT_EQ(public_inputs, expected_public_inputs);
         }
     }
 };
@@ -808,7 +811,7 @@ TEST_F(base_rollup_tests, native_invalid_public_state_read)
     ASSERT_EQ(outputs.end_public_data_tree_root, public_data_tree.root());
     ASSERT_EQ(outputs.end_public_data_tree_root, outputs.start_public_data_tree_root);
     ASSERT_TRUE(composer.failed());
-    run_cbind(inputs, outputs, true, false);
+    run_cbind(inputs, outputs, false, false);
 }
 
 }  // namespace aztec3::circuits::rollup::base::native_base_rollup_circuit
