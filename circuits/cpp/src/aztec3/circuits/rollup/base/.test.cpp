@@ -77,7 +77,7 @@ class base_rollup_tests : public ::testing::Test {
         (void)vk_size;
         BaseOrMergeRollupPublicInputs public_inputs;
         if (assert_no_circuit_failure) {
-            auto public_input = call_msgpack_cbind<BaseOrMergeRollupPublicInputs>(base_rollup__sim, base_rollup_inputs);
+            public_inputs = call_msgpack_cbind<BaseOrMergeRollupPublicInputs>(base_rollup__sim, base_rollup_inputs);
         } else {
             auto error = call_msgpack_cbind<utils::CircuitError>(base_rollup__sim, base_rollup_inputs);
             ASSERT_TRUE(error.code > 0);

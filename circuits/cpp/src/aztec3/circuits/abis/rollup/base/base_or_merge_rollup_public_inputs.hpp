@@ -72,7 +72,7 @@ template <typename NCT> std::ostream& operator<<(std::ostream& os, BaseOrMergeRo
               << obj.start_private_data_tree_snapshot
               << "\n"
                  "end_private_data_tree_snapshot:\n"
-              << obj.start_private_data_tree_snapshot
+              << obj.end_private_data_tree_snapshot
               << "\n"
                  "start_nullifier_tree_snapshot:\n"
               << obj.start_nullifier_tree_snapshot
