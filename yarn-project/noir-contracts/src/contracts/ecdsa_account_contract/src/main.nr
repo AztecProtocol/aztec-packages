@@ -100,13 +100,13 @@ contract EcdsaAccount {
         // Horrible, yes. But we need to rethink the private function context api anyway.
         // TODO(#745): Do not store args, set hash directly in context API
         let mut ret = context.finish(inputs);
-        ret[dep::aztec3::abi::CALL_CONTEXT_SIZE] = args_hash;
+        ret.args_hash = args_hash;
         ret
     }
 
     fn constructor(
-        inputs: pub PrivateContextInputs,
-    ) -> distinct pub [Field; dep::aztec3::abi::PUBLIC_INPUTS_LENGTH] {
+        inputs: PrivateContextInputs,
+    ) -> distinct pub abi::PrivateCircuitPublicInputs {
         PrivateFunctionContext::new().finish(inputs)
     }
 }
