@@ -1,4 +1,3 @@
-import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
 import { Point } from '../index.js';
 
 /**
@@ -6,11 +5,11 @@ import { Point } from '../index.js';
  * @param point - The Point to convert.
  * @returns An object with x & y coordinates represented as bigints.
  */
-export const pointToPublicKey = (point: Point) => {
-  const x = point.buffer.subarray(0, 32);
-  const y = point.buffer.subarray(32, 64);
+export function pointToPublicKey(point: Point) {
+  const x = point.x.toBigInt();
+  const y = point.y.toBigInt();
   return {
-    x: toBigIntBE(x),
-    y: toBigIntBE(y),
+    x,
+    y,
   };
-};
+}

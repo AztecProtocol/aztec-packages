@@ -1,4 +1,4 @@
-import { AztecRPC, AztecRPCServer } from '@aztec/aztec-rpc';
+import { AztecRPC } from '@aztec/aztec-rpc';
 import { AztecAddress, Point } from '@aztec/circuits.js';
 import { SentTx } from '../index.js';
 import { createDebugLogger } from '@aztec/foundation/log';

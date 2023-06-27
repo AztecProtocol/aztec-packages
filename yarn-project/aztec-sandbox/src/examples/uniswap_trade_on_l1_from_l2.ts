@@ -124,7 +124,7 @@ async function deployAllContracts(ownerPub: PublicKey) {
   // deploy l2 uniswap contract and attach to portal
   const deployer = new ContractDeployer(UniswapContractAbi, aztecRpcClient);
   const tx = deployer.deploy().send({ portalContract: uniswapPortalAddress });
-  await tx.isMined(0, 0.1);
+  await tx.isMined(0, 0.5);
   const receipt = await tx.getReceipt();
   const uniswapL2Contract = new Contract(receipt.contractAddress!, UniswapContractAbi, aztecRpcClient);
   await uniswapL2Contract.attach(uniswapPortalAddress);
@@ -178,7 +178,7 @@ const transferWethOnL2 = async (
       pointToPublicKey(await aztecRpcClient.getAccountPublicKey(receiver)),
     )
     .send({ from: ownerAddress });
-  await transferTx.isMined(0, 0.1);
+  await transferTx.isMined(0, 0.5);
   const transferReceipt = await transferTx.getReceipt();
   // expect(transferReceipt.status).toBe(TxStatus.MINED);
   logger(`WETH to L2 Transfer Receipt status: ${transferReceipt.status} should be ${TxStatus.MINED}`);
@@ -207,8 +207,6 @@ async function main() {
     uniswapPortal,
     uniswapPortalAddress,
   } = result;
-
-  logger('deployment result: ', result);
 
   // Give me some WETH so I can deposit to L2 and do the swap...
   logger('Getting some weth');
@@ -248,7 +246,7 @@ async function main() {
   const consumptionTx = wethL2Contract.methods
     .mint(wethAmountToBridge, ownerPub, owner, messageKey, secret, ethAccount.toField())
     .send({ from: owner });
-  await consumptionTx.isMined(0, 0.1);
+  await consumptionTx.isMined(0, 0.5);
   const consumptionReceipt = await consumptionTx.getReceipt();
   // expect(consumptionReceipt.status).toBe(TxStatus.MINED);
   logger(`Consumption Receipt status: ${consumptionReceipt.status} should be ${TxStatus.MINED}`);
@@ -280,9 +278,10 @@ async function main() {
       new Fr(2 ** 32 - 1),
       ethAccount.toField(),
       uniswapPortalAddress,
+      ethAccount.toField(),
     )
     .send({ from: owner });
-  await withdrawTx.isMined(0, 0.1);
+  await withdrawTx.isMined(0, 0.5);
   const withdrawReceipt = await withdrawTx.getReceipt();
   // expect(withdrawReceipt.status).toBe(TxStatus.MINED);
   logger(`Withdraw receipt status: ${withdrawReceipt.status} should be ${TxStatus.MINED}`);
@@ -293,6 +292,7 @@ async function main() {
   // 5. Consume L2 to L1 message by calling uniswapPortal.swap()
   logger('Execute withdraw and swap on the uniswapPortal!');
   const daiBalanceOfPortalBefore = await daiContract.read.balanceOf([daiTokenPortalAddress.toString()]);
+  logger(`DAI balance of portal: ${daiBalanceOfPortalBefore}`);
   const swapArgs = [
     wethTokenPortalAddress.toString(),
     wethAmountToBridge,
@@ -303,7 +303,9 @@ async function main() {
     secretString,
     deadline,
     ethAccount.toString(),
+    true,
   ] as const;
+  console.log('\n\nswapArgs', swapArgs, '\n\n');
   const { result: depositDaiMessageKeyHex } = await uniswapPortal.simulate.swap(swapArgs, {
     account: ethAccount.toString(),
   } as any);
@@ -331,7 +333,7 @@ async function main() {
   const daiMintTx = daiL2Contract.methods
     .mint(daiAmountToBridge, ownerPub, owner, depositDaiMessageKey, secret, ethAccount.toField())
     .send({ from: owner });
-  await daiMintTx.isMined(0, 0.1);
+  await daiMintTx.isMined(0, 0.5);
   const daiMintTxReceipt = await daiMintTx.getReceipt();
   // expect(daiMintTxReceipt.status).toBe(TxStatus.MINED);
   logger(`DAI mint TX status: ${daiMintTxReceipt.status} should be ${TxStatus.MINED}`);
