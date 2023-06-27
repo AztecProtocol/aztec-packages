@@ -18,7 +18,8 @@
     "prepare:check": "node ../yarn-project-base/scripts/update_build_manifest.mjs package.json --check",
     "build:dev": "tsc -b --watch",
     "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules $(yarn bin jest) --passWithNoTests",
-    "run:example": "DEBUG='aztec:*' node ./dest/examples/zk_contract_deployment.js"
+    "run:zk:example": "DEBUG='aztec:*' node ./dest/examples/zk_contract_deployment.js",
+    "run:uniswap:example": "DEBUG='aztec:*' node ./dest/examples/uniswap_trade_on_l1_from_l2.js"
   },
   "inherits": [
     "../package.common.json"
@@ -29,6 +30,7 @@
     "@aztec/aztec.js": "workspace:^",
     "@aztec/ethereum": "workspace:^",
     "@aztec/foundation": "workspace:^",
+    "abitype": "^0.8.11",
     "koa-router": "^12.0.0",
     "viem": "^0.3.14"
   },
