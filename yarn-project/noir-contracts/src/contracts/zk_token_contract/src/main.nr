@@ -1,16 +1,16 @@
 contract ZkToken {
     mod balance_utils;
-    use dep::aztec3::abi;
-    use dep::aztec3::abi::PrivateContextInputs;
-    use dep::aztec3::context::PrivateFunctionContext;
-    use dep::aztec3::notes::value_note::Note;
-    use dep::aztec3::types::point::Point;
-    use dep::aztec3::state_vars::map::Map;
-    use dep::aztec3::state_vars::set::Set;
+    use dep::aztec::abi;
+    use dep::aztec::abi::PrivateContextInputs;
+    use dep::aztec::context::PrivateFunctionContext;
+    use dep::aztec::notes::value_note::Note;
+    use dep::aztec::types::point::Point;
+    use dep::aztec::state_vars::map::Map;
+    use dep::aztec::state_vars::set::Set;
 
     // oracles
-    use dep::aztec3::oracle::logs::emit_encrypted_log;
-    use dep::aztec3::oracle::logs::emit_unencrypted_log;
+    use dep::aztec::oracle::logs::emit_encrypted_log;
+    use dep::aztec::oracle::logs::emit_unencrypted_log;
 
     //*********************************/
     global balances = Map { storage_slot: 1 };
