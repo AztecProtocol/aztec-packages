@@ -4,8 +4,8 @@ import { Buffer } from 'buffer';
 import { callCbind } from './cbind.js';
 import { IWasmModule } from '@aztec/foundation/wasm';
 import {
-  Fr,
   Address,
+  Fr,
   Fq,
   G1AffineElement,
   NativeAggregationState,
@@ -17,6 +17,8 @@ import {
   CombinedAccumulatedData,
   PrivateHistoricTreeRoots,
   CombinedHistoricTreeRoots,
+  Coordinate,
+  Point,
   ContractDeploymentData,
   TxContext,
   CombinedConstantData,
@@ -24,6 +26,8 @@ import {
   Proof,
   VerificationKeyData,
   PreviousKernelData,
+  CircuitError,
+  isCircuitError,
   CallContext,
   ContractStorageUpdateRequest,
   ContractStorageRead,
@@ -31,8 +35,6 @@ import {
   PublicCallStackItem,
   PublicCallData,
   PublicKernelInputs,
-  CircuitError,
-  isCircuitError,
 } from './types.js';
 import { Tuple, mapTuple } from '@aztec/foundation/serialize';
 import mapValues from 'lodash.mapvalues';
@@ -572,8 +574,56 @@ export function fromCombinedHistoricTreeRoots(o: CombinedHistoricTreeRoots): Msg
   };
 }
 
+interface MsgpackCoordinate {
+  fields: Tuple<Buffer, 2>;
+}
+
+export function toCoordinate(o: MsgpackCoordinate): Coordinate {
+  if (o.fields === undefined) {
+    throw new Error('Expected fields in Coordinate deserialization');
+  }
+  return new Coordinate(mapTuple(o.fields, (v: Buffer) => Fr.fromBuffer(v)));
+}
+
+export function fromCoordinate(o: Coordinate): MsgpackCoordinate {
+  if (o.fields === undefined) {
+    throw new Error('Expected fields in Coordinate serialization');
+  }
+  return {
+    fields: mapTuple(o.fields, (v: Fr) => v.toBuffer()),
+  };
+}
+
+interface MsgpackPoint {
+  x: MsgpackCoordinate;
+  y: MsgpackCoordinate;
+}
+
+export function toPoint(o: MsgpackPoint): Point {
+  if (o.x === undefined) {
+    throw new Error('Expected x in Point deserialization');
+  }
+  if (o.y === undefined) {
+    throw new Error('Expected y in Point deserialization');
+  }
+  return new Point(toCoordinate(o.x), toCoordinate(o.y));
+}
+
+export function fromPoint(o: Point): MsgpackPoint {
+  if (o.x === undefined) {
+    throw new Error('Expected x in Point serialization');
+  }
+  if (o.y === undefined) {
+    throw new Error('Expected y in Point serialization');
+  }
+  return {
+    x: fromCoordinate(o.x),
+    y: fromCoordinate(o.y),
+  };
+}
+
 interface MsgpackContractDeploymentData {
-  deployer_public_key: Tuple<Buffer, 2>;
+  deployer_public_key: MsgpackPoint;
   constructor_vk_hash: Buffer;
   function_tree_root: Buffer;
   contract_address_salt: Buffer;
@@ -597,7 +647,7 @@ export function toContractDeploymentData(o: MsgpackContractDeploymentData): Cont
     throw new Error('Expected portal_contract_address in ContractDeploymentData deserialization');
   }
   return new ContractDeploymentData(
-    mapTuple(o.deployer_public_key, (v: Buffer) => Fr.fromBuffer(v)),
+    toPoint(o.deployer_public_key),
     Fr.fromBuffer(o.constructor_vk_hash),
     Fr.fromBuffer(o.function_tree_root),
     Fr.fromBuffer(o.contract_address_salt),
@@ -622,7 +672,7 @@ export function fromContractDeploymentData(o: ContractDeploymentData): MsgpackCo
     throw new Error('Expected portalContractAddress in ContractDeploymentData serialization');
   }
   return {
-    deployer_public_key: mapTuple(o.deployerPublicKey, (v: Fr) => v.toBuffer()),
+    deployer_public_key: fromPoint(o.deployerPublicKey),
     constructor_vk_hash: o.constructorVkHash.toBuffer(),
     function_tree_root: o.functionTreeRoot.toBuffer(),
     contract_address_salt: o.contractAddressSalt.toBuffer(),
@@ -887,6 +937,34 @@ export function fromPreviousKernelData(o: PreviousKernelData): MsgpackPreviousKe
     vk: fromVerificationKeyData(o.vk),
     vk_index: o.vkIndex,
     vk_path: mapTuple(o.vkPath, (v: Fr) => v.toBuffer()),
+  };
+}
+
+interface MsgpackCircuitError {
+  code: number;
+  message: string;
+}
+
+export function toCircuitError(o: MsgpackCircuitError): CircuitError {
+  if (o.code === undefined) {
+    throw new Error('Expected code in CircuitError deserialization');
+  }
+  if (o.message === undefined) {
+    throw new Error('Expected message in CircuitError deserialization');
+  }
+  return new CircuitError(o.code, o.message);
+}
+
+export function fromCircuitError(o: CircuitError): MsgpackCircuitError {
+  if (o.code === undefined) {
+    throw new Error('Expected code in CircuitError serialization');
+  }
+  if (o.message === undefined) {
+    throw new Error('Expected message in CircuitError serialization');
+  }
+  return {
+    code: o.code,
+    message: o.message,
   };
 }
 
@@ -1296,34 +1374,6 @@ export function fromPublicKernelInputs(o: PublicKernelInputs): MsgpackPublicKern
   };
 }
 
-interface MsgpackCircuitError {
-  code: number;
-  message: string;
-}
-
-export function toCircuitError(o: MsgpackCircuitError): CircuitError {
-  if (o.code === undefined) {
-    throw new Error('Expected code in CircuitError deserialization');
-  }
-  if (o.message === undefined) {
-    throw new Error('Expected message in CircuitError deserialization');
-  }
-  return new CircuitError(o.code, o.message);
-}
-
-export function fromCircuitError(o: CircuitError): MsgpackCircuitError {
-  if (o.code === undefined) {
-    throw new Error('Expected code in CircuitError serialization');
-  }
-  if (o.message === undefined) {
-    throw new Error('Expected message in CircuitError serialization');
-  }
-  return {
-    code: o.code,
-    message: o.message,
-  };
-}
-
 export function abisComputeContractAddress(
   wasm: IWasmModule,
   arg0: Tuple<Fr, 2>,
@@ -1345,6 +1395,15 @@ export function abisSiloCommitment(wasm: IWasmModule, arg0: Address, arg1: Fr): 
 }
 export function privateKernelDummyPreviousKernel(wasm: IWasmModule): PreviousKernelData {
   return toPreviousKernelData(callCbind(wasm, 'private_kernel__dummy_previous_kernel', []));
+}
+export function privateKernelSimOrdering(
+  wasm: IWasmModule,
+  arg0: PreviousKernelData,
+): CircuitError | KernelCircuitPublicInputs {
+  return ((v: MsgpackCircuitError | MsgpackKernelCircuitPublicInputs) =>
+    isCircuitError(v) ? toCircuitError(v) : toKernelCircuitPublicInputs(v))(
+    callCbind(wasm, 'private_kernel__sim_ordering', [fromPreviousKernelData(arg0)]),
+  );
 }
 export function publicKernelSim(wasm: IWasmModule, arg0: PublicKernelInputs): CircuitError | KernelCircuitPublicInputs {
   return ((v: MsgpackCircuitError | MsgpackKernelCircuitPublicInputs) =>

@@ -1,4 +1,4 @@
-import { pedersenCompressInputs, pedersenCompressWithHashIndex } from '@aztec/circuits.js/barretenberg';
+import { pedersenCompressWithHashIndex, pedersenPlookupCommitInputs, Curve } from '@aztec/circuits.js/barretenberg';
 import { CallContext, CircuitsWasm, PrivateHistoricTreeRoots, TxContext } from '@aztec/circuits.js';
 import { FunctionAbi, FunctionType } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
@@ -15,6 +15,7 @@ import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 export const NOTE_PEDERSEN_CONSTANT = new Fr(2n);
 export const MAPPING_SLOT_PEDERSEN_CONSTANT = new Fr(4n);
 export const NULLIFIER_PEDERSEN_CONSTANT = new Fr(5n);
+export const MESSAGE_SECRET_PEDERSEN_CONSTANT = new Fr(29n);
 
 const OUTER_NULLIFIER_GENERATOR_INDEX = 7;
 
@@ -35,6 +36,7 @@ export class AcirSimulator {
    * @param contractAddress - The address of the contract (should match request.origin)
    * @param portalContractAddress - The address of the portal contract.
    * @param historicRoots - The historic roots.
+   * @param curve - The curve instance for elliptic curve operations.
    * @returns The result of the execution.
    */
   public run(
@@ -43,6 +45,7 @@ export class AcirSimulator {
     contractAddress: AztecAddress,
     portalContractAddress: EthAddress,
     historicRoots: PrivateHistoricTreeRoots,
+    curve: Curve,
   ): Promise<ExecutionResult> {
     if (entryPointABI.functionType !== FunctionType.SECRET) {
       throw new Error(`Cannot run ${entryPointABI.functionType} function as secret`);
@@ -68,6 +71,7 @@ export class AcirSimulator {
       request.functionData,
       request.args,
       callContext,
+      curve,
     );
 
     return execution.run();
@@ -121,7 +125,10 @@ export class AcirSimulator {
    * @returns The note hash.
    */
   public computeNoteHash(notePreimage: Fr[], bbWasm: CircuitsWasm) {
-    return pedersenCompressInputs(bbWasm, [NOTE_PEDERSEN_CONSTANT.toBuffer(), ...notePreimage.map(x => x.toBuffer())]);
+    return pedersenPlookupCommitInputs(bbWasm, [
+      NOTE_PEDERSEN_CONSTANT.toBuffer(),
+      ...notePreimage.map(x => x.toBuffer()),
+    ]);
   }
 
   // TODO Should be run as unconstrained function
@@ -134,7 +141,7 @@ export class AcirSimulator {
    */
   public computeNullifier(notePreimage: Fr[], privateKey: Buffer, bbWasm: CircuitsWasm) {
     const noteHash = this.computeNoteHash(notePreimage, bbWasm);
-    return pedersenCompressInputs(bbWasm, [NULLIFIER_PEDERSEN_CONSTANT.toBuffer(), noteHash, privateKey]);
+    return pedersenPlookupCommitInputs(bbWasm, [NULLIFIER_PEDERSEN_CONSTANT.toBuffer(), noteHash, privateKey]);
   }
 
   // TODO Should be run as unconstrained function

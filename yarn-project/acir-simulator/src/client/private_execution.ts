@@ -9,11 +9,11 @@ import {
   PublicCallRequest,
 } from '@aztec/circuits.js';
 import { computeCallStackItemHash, computeVarArgsHash } from '@aztec/circuits.js/abis';
-import { Grumpkin } from '@aztec/circuits.js/barretenberg';
+import { Curve } from '@aztec/circuits.js/barretenberg';
 import { FunctionAbi } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { padArrayEnd } from '@aztec/foundation/collection';
-import { Fr, Point } from '@aztec/foundation/fields';
+import { Coordinate, Fr, Point } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { Tuple, assertLength, to2Fields } from '@aztec/foundation/serialize';
 import { FunctionL2Logs, NotePreimage, NoteSpendingInfo } from '@aztec/types';
@@ -49,6 +49,7 @@ export class PrivateFunctionExecution {
     private functionData: FunctionData,
     private args: Fr[],
     private callContext: CallContext,
+    private curve: Curve,
 
     private log = createDebugLogger('aztec:simulator:secret_execution'),
   ) {}
@@ -77,7 +78,10 @@ export class PrivateFunctionExecution {
         toACVMField(
           await this.context.db.getSecretKey(
             this.contractAddress,
-            Point.fromCoordinates(fromACVMField(ownerX), fromACVMField(ownerY)),
+            Point.fromCoordinates(
+              Coordinate.fromField(fromACVMField(ownerX)),
+              Coordinate.fromField(fromACVMField(ownerY)),
+            ),
           ),
         ),
       ],
@@ -123,6 +127,7 @@ export class PrivateFunctionExecution {
           frToSelector(functionSelector),
           acvmArgs.map(f => fromACVMField(f)),
           this.callContext,
+          this.curve,
         );
 
         nestedExecutionContexts.push(childExecutionResult);
@@ -170,24 +175,19 @@ export class PrivateFunctionExecution {
         this.log(`Emitted unencrypted log: "${log.toString('ascii')}"`);
         return Promise.resolve([ZERO_ACVM_FIELD]);
       },
-      emitEncryptedLog: async ([
-        acvmContractAddress,
-        acvmStorageSlot,
-        ownerX,
-        ownerY,
-        ...acvmPreimage
-      ]: ACVMField[]) => {
+      emitEncryptedLog: ([acvmContractAddress, acvmStorageSlot, ownerX, ownerY, ...acvmPreimage]: ACVMField[]) => {
         const contractAddress = AztecAddress.fromBuffer(convertACVMFieldToBuffer(acvmContractAddress));
         const storageSlot = fromACVMField(acvmStorageSlot);
         const preimage = acvmPreimage.map(f => fromACVMField(f));
 
         const notePreimage = new NotePreimage(preimage);
         const noteSpendingInfo = new NoteSpendingInfo(notePreimage, contractAddress, storageSlot);
-        const ownerPublicKey = new Point(
-          Buffer.concat([convertACVMFieldToBuffer(ownerX), convertACVMFieldToBuffer(ownerY)]),
+        const ownerPublicKey = Point.fromCoordinates(
+          Coordinate.fromField(fromACVMField(ownerX)),
+          Coordinate.fromField(fromACVMField(ownerY)),
         );
 
-        const encryptedNotePreimage = noteSpendingInfo.toEncryptedBuffer(ownerPublicKey, await Grumpkin.new());
+        const encryptedNotePreimage = noteSpendingInfo.toEncryptedBuffer(ownerPublicKey, this.curve);
 
         encryptedLogs.logs.push(encryptedNotePreimage);
 
@@ -249,25 +249,23 @@ export class PrivateFunctionExecution {
     const argsSize = this.abi.parameters.reduce((acc, param) => acc + sizeOfType(param.type), 0);
     const contractDeploymentData = this.context.txContext.contractDeploymentData ?? ContractDeploymentData.empty();
 
-    // NOTE: PSA to anyone updating this code: within the structs, the members must be in alphabetical order, this
-    // is a current quirk in noir struct encoding, feel free to remove this note when this changes
     const fields = [
-      this.callContext.isContractDeployment,
+      this.callContext.msgSender,
+      this.callContext.storageContractAddress,
+      this.callContext.portalContractAddress,
       this.callContext.isDelegateCall,
       this.callContext.isStaticCall,
-      this.callContext.msgSender,
-      this.callContext.portalContractAddress,
-      this.callContext.storageContractAddress,
+      this.callContext.isContractDeployment,
 
-      contractDeploymentData.constructorVkHash,
-      contractDeploymentData.contractAddressSalt,
-      contractDeploymentData.functionTreeRoot,
-      contractDeploymentData.portalContractAddress,
-
+      this.context.historicRoots.privateDataTreeRoot,
+      this.context.historicRoots.nullifierTreeRoot,
       this.context.historicRoots.contractTreeRoot,
       this.context.historicRoots.l1ToL2MessagesTreeRoot,
-      this.context.historicRoots.nullifierTreeRoot,
-      this.context.historicRoots.privateDataTreeRoot,
+
+      contractDeploymentData.constructorVkHash,
+      contractDeploymentData.functionTreeRoot,
+      contractDeploymentData.contractAddressSalt,
+      contractDeploymentData.portalContractAddress,
 
       ...this.args.slice(0, argsSize),
     ];
@@ -281,6 +279,7 @@ export class PrivateFunctionExecution {
    * @param targetFunctionSelector - The function selector of the function to call.
    * @param targetArgs - The arguments to pass to the function.
    * @param callerContext - The call context of the caller.
+   * @param curve - The curve instance to use for elliptic curve operations.
    * @returns The execution result.
    */
   private async callPrivateFunction(
@@ -288,6 +287,7 @@ export class PrivateFunctionExecution {
     targetFunctionSelector: Buffer,
     targetArgs: Fr[],
     callerContext: CallContext,
+    curve: Curve,
   ) {
     const targetAbi = await this.context.db.getFunctionABI(targetContractAddress, targetFunctionSelector);
     const targetFunctionData = new FunctionData(targetFunctionSelector, true, false);
@@ -300,6 +300,7 @@ export class PrivateFunctionExecution {
       targetFunctionData,
       targetArgs,
       derivedCallContext,
+      curve,
     );
 
     return nestedExecution.run();

@@ -31,6 +31,8 @@ export enum GeneratorIndex {
   PUBLIC_LEAF_INDEX,
   PUBLIC_DATA_LEAF,
   SIGNED_TX_REQUEST,
+  GLOBAL_VARIABLES,
+  PARTIAL_CONTRACT_ADDRESS,
   /**
    * Indices with size ≤ 16
    */
