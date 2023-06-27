@@ -43,7 +43,6 @@ contract PublicPrivate {
         secretHash: Field,
         _padding: [Field; dep::aztec3::abi::MAX_ARGS - 3]
     ) {
-        debug_log_format("mintFromPublicToPrivate amount {0} hash {1}", [amount, secretHash]);
         // Create a commitment to the amount
         let note = TransparentNote::new(amount, secretHash);
         
