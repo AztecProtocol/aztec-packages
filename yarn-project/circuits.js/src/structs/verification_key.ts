@@ -79,7 +79,7 @@ export class CommitmentMap {
 export class VerificationKey {
   constructor(
     /**
-     * Composer prover type we're using.
+     * For Plonk, this is equivalent to the proving system used to prove and verify.
      */
     public circuitType: CircuitType,
     /**
