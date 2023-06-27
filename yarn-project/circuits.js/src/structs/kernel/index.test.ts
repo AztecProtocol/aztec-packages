@@ -34,7 +34,7 @@ describe('structs/kernel', () => {
     );
   });
 
-  it(`serializes and prints EcdsaSignature`, async () => {
+  it(`serializes and prints SchnorrSignature`, async () => {
     await expectSerializeToMatchSnapshot(makeSchnorrSignature().toBuffer(), 'abis__test_roundtrip_serialize_signature');
   });
 
