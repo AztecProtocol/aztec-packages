@@ -2,6 +2,7 @@ import { serializeToBuffer } from '../../utils/serialize.js';
 import { AggregationObject } from '../aggregation_object.js';
 import {
   MAX_NEW_L2_TO_L1_MSGS_PER_TX,
+  KERNEL_READ_REQUESTS_LENGTH,
   MAX_NEW_COMMITMENTS_PER_TX,
   MAX_NEW_CONTRACTS_PER_TX,
   MAX_NEW_NULLIFIERS_PER_TX,
@@ -12,11 +13,13 @@ import {
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
   NUM_FIELDS_PER_SHA256,
+  PRIVATE_DATA_TREE_HEIGHT,
 } from '../../cbind/constants.gen.js';
 import { FunctionData } from '../function_data.js';
 import { BufferReader, Tuple } from '@aztec/foundation/serialize';
 import { assertMemberLength, makeTuple } from '../../index.js';
 import { EthAddress, AztecAddress, Fr } from '../index.js';
+import { MembershipWitness } from '../membership_witness.js';
 
 /**
  * The information assembled after the contract deployment was processed by the private kernel circuit.
@@ -276,6 +279,17 @@ export class CombinedAccumulatedData {
      */
     public aggregationObject: AggregationObject, // Contains the aggregated proof of all previous kernel iterations
     /**
+     * All the read requests made in this transaction.
+     */
+    public readRequests: Tuple<Fr, typeof KERNEL_READ_REQUESTS_LENGTH>,
+    /**
+     * All the read request membership witnesses made in this transaction.
+     */
+    public readRequestMembershipWitnesses: Tuple<
+      MembershipWitness<typeof PRIVATE_DATA_TREE_HEIGHT>,
+      typeof KERNEL_READ_REQUESTS_LENGTH
+    >,
+    /**
      * The number of new commitments made in this transaction.
      */
     public newCommitments: Tuple<Fr, typeof MAX_NEW_COMMITMENTS_PER_TX>,
@@ -330,6 +344,8 @@ export class CombinedAccumulatedData {
      */
     public publicDataReads: Tuple<PublicDataRead, typeof MAX_PUBLIC_DATA_READS_PER_TX>,
   ) {
+    assertMemberLength(this, 'readRequests', KERNEL_READ_REQUESTS_LENGTH);
+    assertMemberLength(this, 'readRequestMembershipWitnesses', KERNEL_READ_REQUESTS_LENGTH);
     assertMemberLength(this, 'newCommitments', MAX_NEW_COMMITMENTS_PER_TX);
     assertMemberLength(this, 'newNullifiers', MAX_NEW_NULLIFIERS_PER_TX);
     assertMemberLength(this, 'privateCallStack', MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX);
@@ -346,6 +362,8 @@ export class CombinedAccumulatedData {
   toBuffer() {
     return serializeToBuffer(
       this.aggregationObject,
+      this.readRequests,
+      this.readRequestMembershipWitnesses,
       this.newCommitments,
       this.newNullifiers,
       this.privateCallStack,
@@ -375,6 +393,12 @@ export class CombinedAccumulatedData {
     const reader = BufferReader.asReader(buffer);
     return new CombinedAccumulatedData(
       reader.readObject(AggregationObject),
+      reader.readArray(KERNEL_READ_REQUESTS_LENGTH, Fr),
+      // reader.readBufferArray(KERNEL_READ_REQUESTS_LENGTH).map(member => reader.readObject<MembershipWitness<typeof PRIVATE_DATA_TREE_HEIGHT>>(member)),
+      reader.readArray(KERNEL_READ_REQUESTS_LENGTH, MembershipWitness) as Tuple<
+        MembershipWitness<typeof PRIVATE_DATA_TREE_HEIGHT>,
+        typeof KERNEL_READ_REQUESTS_LENGTH
+      >,
       reader.readArray(MAX_NEW_COMMITMENTS_PER_TX, Fr),
       reader.readArray(MAX_NEW_NULLIFIERS_PER_TX, Fr),
       reader.readArray(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, Fr),
@@ -403,6 +427,8 @@ export class CombinedAccumulatedData {
   static empty() {
     return new CombinedAccumulatedData(
       AggregationObject.makeFake(),
+      makeTuple(KERNEL_READ_REQUESTS_LENGTH, Fr.zero),
+      makeTuple(KERNEL_READ_REQUESTS_LENGTH, MembershipWitness.empty(PRIVATE_DATA_TREE_HEIGHT, BigInt(0))),
       makeTuple(MAX_NEW_COMMITMENTS_PER_TX, Fr.zero),
       makeTuple(MAX_NEW_NULLIFIERS_PER_TX, Fr.zero),
       makeTuple(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, Fr.zero),
