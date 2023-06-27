@@ -395,10 +395,10 @@ export class CombinedAccumulatedData {
       reader.readObject(AggregationObject),
       reader.readArray(KERNEL_READ_REQUESTS_LENGTH, Fr),
       // reader.readBufferArray(KERNEL_READ_REQUESTS_LENGTH).map(member => reader.readObject<MembershipWitness<typeof PRIVATE_DATA_TREE_HEIGHT>>(member)),
-      reader.readArray(KERNEL_READ_REQUESTS_LENGTH, MembershipWitness) as Tuple<
-        MembershipWitness<typeof PRIVATE_DATA_TREE_HEIGHT>,
-        typeof KERNEL_READ_REQUESTS_LENGTH
-      >,
+      reader.readArray<MembershipWitness<typeof PRIVATE_DATA_TREE_HEIGHT>, typeof KERNEL_READ_REQUESTS_LENGTH>(
+        KERNEL_READ_REQUESTS_LENGTH,
+        MembershipWitness,
+      ),
       reader.readArray(KERNEL_NEW_COMMITMENTS_LENGTH, Fr),
       reader.readArray(KERNEL_NEW_NULLIFIERS_LENGTH, Fr),
       reader.readArray(KERNEL_PRIVATE_CALL_STACK_LENGTH, Fr),
