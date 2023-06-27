@@ -546,6 +546,18 @@ jobs:
           name: "Noop"
           command: echo Noop
 
+  deploy:
+    machine:
+      image: ubuntu-2004:202010-01
+    resource_class: medium
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "deploy-sandbox"
+          working_directory: aztec-sandbox
+          command: deploy_dockerhub_master aztec-sandbox
+
 # Repeatable config for defining the workflow below.
 tag_regex: &tag_regex /v[0-9]+(\.[0-9]+)*(-[a-zA-Z-]+\.[0-9]+)?/
 defaults: &defaults
@@ -678,4 +690,9 @@ workflows:
             - integration-l1-publisher
             - integration-archiver-l1-to-l2
             - e2e-p2p
+          <<: *defaults
+
+      - deploy:
+          requires:
+            - e2e-end
           <<: *defaults
