@@ -1,5 +1,5 @@
 import { foundry } from 'viem/chains';
-import { Tx, TxHash } from '@aztec/types';
+import { Tx, TxHash, ContractDeploymentTx } from '@aztec/types';
 import { JsonRpcServer } from '@aztec/foundation/json-rpc';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr, Point } from '@aztec/foundation/fields';
@@ -25,7 +25,7 @@ export async function getHttpRpcServer(nodeConfig: AztecNodeConfig): Promise<Jso
       Point,
       Fr,
     },
-    { Tx },
+    { Tx, ContractDeploymentTx },
     false,
     ['start', 'stop'],
   );

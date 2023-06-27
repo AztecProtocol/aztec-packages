@@ -1,4 +1,4 @@
-import { KernelCircuitPublicInputs, Proof, PublicCallRequest } from '@aztec/circuits.js';
+import { Fr, KernelCircuitPublicInputs, Proof, PublicCallRequest } from '@aztec/circuits.js';
 
 import { arrayNonEmptyLength } from '@aztec/foundation/collection';
 import { EncodedContractFunction } from './contract_data.js';
@@ -182,4 +182,15 @@ export class ContractDeploymentTx {
      */
     public readonly partialContractAddress: PartialContractAddress,
   ) {}
+
+  toJSON() {
+    return {
+      tx: this.tx.toJSON(),
+      partialContractAddress: this.partialContractAddress.toBuffer().toString(),
+    };
+  }
+
+  static fromJSON(obj: any) {
+    return new ContractDeploymentTx(Tx.fromJSON(obj.tx), Fr.fromBuffer(Buffer.from(obj.partialContractAddress, 'hex')));
+  }
 }
