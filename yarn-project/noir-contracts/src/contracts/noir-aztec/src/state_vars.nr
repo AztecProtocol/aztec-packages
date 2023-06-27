@@ -1,5 +1,4 @@
+mod immutable_singleton;
 mod map;
+mod singleton;
 mod set;
-mod storage_field;
-mod storage_map;
-// mod singleton;

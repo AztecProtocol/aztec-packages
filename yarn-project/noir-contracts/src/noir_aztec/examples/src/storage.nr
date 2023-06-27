@@ -15,27 +15,20 @@ use crate::notes::value_note::ValueNote;
 use crate::notes::value_note::ValueNoteInterface;
 use crate::notes::value_note::VALUE_NOTE_LEN;
 
-fn create_account_secret(storage_slot: Field) -> ImmutableSingleton<AccountSecretNote, ACCOUNT_SECRET_NOTE_LEN> {
-    ImmutableSingleton::new(storage_slot, AccountSecretNoteInterface)
-}
-
-fn create_value_note_set(storage_slot: Field) -> Set<ValueNote, VALUE_NOTE_LEN>  {
-    Set::new(storage_slot, ValueNoteInterface)
-}
-
 struct Storage {
     account_secrets: Map<ImmutableSingleton<AccountSecretNote, ACCOUNT_SECRET_NOTE_LEN>>,
     balances: Map<Set<ValueNote, VALUE_NOTE_LEN>>,
     prizes: Set<PrizeNote, PRIZE_NOTE_LEN>,
     queen: Singleton<ProfileNote, PROFILE_NOTE_LEN>,
-    // nft_owners: Map<Singleton<AddressNote>>,
 }
 
 impl Storage {
     fn init() -> Self {
         Storage {
-            account_secrets: Map::new(1, create_account_secret),
-            balances: Map::new(2, create_value_note_set),
+            // We can use closure syntax to declare concrete state variable constructors succinctly.
+            // Here, `s` is a 'derived storage slot', which will be derived by Map::at().
+            account_secrets: Map::new(1, |s| ImmutableSingleton::new(s, AccountSecretNoteInterface)),
+            balances: Map::new(2, |s| Set::new(s, ValueNoteInterface)),
             prizes: Set::new(3, PrizeNoteInterface),
             queen: Singleton::new(4, ProfileNoteInterface),
         }

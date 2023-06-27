@@ -1,21 +1,23 @@
-use crate::state_vars::set::Set;
+use crate::generators;
 
-struct Map {
+struct Map<V> {
     storage_slot: Field,
+    state_var_constructor: fn (Field) -> V,
 }
 
-impl Map {
-    fn new(storage_slot: Field) -> Map {
-        Map { storage_slot }
+impl<V> Map<V> {
+    fn new(storage_slot: Field, state_var_constructor: fn (Field) -> V) -> Map<V> {
+        Map { storage_slot, state_var_constructor }
     }
 
-    fn at(self, key: Field) -> Set {
+    fn at(self, key: Field) -> V {
         let derived_storage_slot = dep::std::hash::pedersen([
-            crate::MappingStorageSlot, 
+            generators::MAPPING_SLORAGE_SLOT, 
             self.storage_slot, 
-            key
+            key,
         ])[0];
 
-        Set::new(derived_storage_slot)
+        let state_var_constructor = self.state_var_constructor; 
+        state_var_constructor(derived_storage_slot)
     }
 }

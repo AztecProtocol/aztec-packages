@@ -1,22 +1,20 @@
 contract ZkToken {
     mod balance_utils;
+    mod generators;
+    mod storage;
+    mod value_note;
     use dep::aztec::abi;
     use dep::aztec::abi::PrivateContextInputs;
-    use dep::aztec::context::PrivateFunctionContext;
-    use dep::aztec::notes::value_note::Note;
+    use dep::aztec::context::Context;
+    use dep::aztec::note::note_getter::NoteGetterOptions;
     use dep::aztec::types::point::Point;
     use dep::aztec::state_vars::map::Map;
     use dep::aztec::state_vars::set::Set;
-
-    // oracles
     use dep::aztec::oracle::logs::emit_encrypted_log;
     use dep::aztec::oracle::logs::emit_unencrypted_log;
-
-    //*********************************/
-    global balances = Map { storage_slot: 1 };
-    // Should eventually be replaced by:
-    // `balances: Mapping<Field, Set<Note>>;`
-    //*********************************/
+    use storage::Storage;
+    use value_note::value_note::ValueNote;
+    use value_note::filter::get_2_notes;
 
     fn constructor(
         //*********************************/
@@ -26,15 +24,17 @@ contract ZkToken {
         initial_supply: Field, 
         owner: Point,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
-        let mut context = PrivateFunctionContext::new();
+        let storage = Storage::init();
+        let mut context = Context::new();
         context.args = context.args.push_array([initial_supply, owner.x, owner.y]);
 
-        let owner_balance = balances.at(owner.x);
-        let note = Note::new(initial_supply, owner);
+        let owner_balance = storage.balances.at(owner.x);
+        let note = ValueNote::new(initial_supply, owner);
 
         // Insert note and emit encrypted note preimage via oracle call
         context = owner_balance.insert(context, note);
-        assert(emit_encrypted_log(inputs.call_context.storage_contract_address, owner_balance.storage_slot, note.owner, note) == 0);
+        let preimage = note.serialise();
+        assert(emit_encrypted_log(inputs.call_context.storage_contract_address, owner_balance.storage_slot, note.owner, preimage) == 0);
         assert(emit_unencrypted_log("Balance set in constructor") == 0);
 
         context.finish(inputs)
@@ -48,15 +48,17 @@ contract ZkToken {
         amount: Field, 
         owner: Point,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
-        let mut context = PrivateFunctionContext::new();
+        let storage = Storage::init();
+        let mut context = Context::new();
         context.args = context.args.push_array([amount, owner.x, owner.y]);
 
-        let owner_balance = balances.at(owner.x);
-        let note = Note::new(amount, owner);
+        let owner_balance = storage.balances.at(owner.x);
+        let note = ValueNote::new(amount, owner);
 
         // Insert note and emit encrypted note preimage via oracle call
         context = owner_balance.insert(context, note);
-        assert(emit_encrypted_log(inputs.call_context.storage_contract_address, owner_balance.storage_slot, note.owner, note) == 0);
+        let preimage = note.serialise();
+        assert(emit_encrypted_log(inputs.call_context.storage_contract_address, owner_balance.storage_slot, note.owner, preimage) == 0);
         assert(emit_unencrypted_log("Coins minted") == 0);
 
         context.finish(inputs)
@@ -71,11 +73,15 @@ contract ZkToken {
         sender: Point, 
         recipient: Point,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
-        let mut initialContext = PrivateFunctionContext::new();
+        let storage = Storage::init();
+        let mut initialContext = Context::new();
         initialContext.args = initialContext.args.push_array([amount, sender.x, sender.y, recipient.x, recipient.y]);
 
-        let sender_balance = balances.at(sender.x);
-        let (mut context, (note1, note2)) = sender_balance.get_2(initialContext);
+        let sender_balance = storage.balances.at(sender.x);
+        let options = NoteGetterOptions::new(get_2_notes, 0);
+        let (mut context, notes) = sender_balance.get_notes(initialContext, options);
+        let note1 = notes[0];
+        let note2 = notes[1];
 
         note1.validate(sender);
         note2.validate(sender);
@@ -84,19 +90,19 @@ contract ZkToken {
         assert(sum as u64 >= amount as u64);
         let change_value = sum - amount;
 
-        context = sender_balance.remove(inputs, context, note1);
-        context = sender_balance.remove(inputs, context, note2);
+        context = sender_balance.remove(context, note1);
+        context = sender_balance.remove(context, note2);
 
-        let change_note = Note::new(change_value, sender);
-        let recipient_note = Note::new(amount, recipient);
+        let change_note = ValueNote::new(change_value, sender);
+        let recipient_note = ValueNote::new(amount, recipient);
 
-        let recipient_balance = balances.at(recipient.x);
+        let recipient_balance = storage.balances.at(recipient.x);
 
         context = recipient_balance.insert(context, recipient_note);
         context = sender_balance.insert(context, change_note);
 
-        assert(emit_encrypted_log(inputs.call_context.storage_contract_address, recipient_balance.storage_slot, recipient_note.owner, recipient_note) == 0);
-        assert(emit_encrypted_log(inputs.call_context.storage_contract_address, sender_balance.storage_slot, change_note.owner, change_note) == 0);
+        assert(emit_encrypted_log(inputs.call_context.storage_contract_address, recipient_balance.storage_slot, recipient_note.owner, recipient_note.serialise()) == 0);
+        assert(emit_encrypted_log(inputs.call_context.storage_contract_address, sender_balance.storage_slot, change_note.owner, change_note.serialise()) == 0);
         assert(emit_unencrypted_log("Coins transferred") == 0);
 
         context.finish(inputs)
@@ -107,7 +113,11 @@ contract ZkToken {
         owner: Point,
         _padding: [Field; abi::MAX_ARGS - 2]
     ) -> pub Field {
-        let owner_balance = balances.at(owner.x);
+        let storage = Storage::init();
+        let owner_balance = storage.balances.at(owner.x);
+        let mut options = NoteGetterOptions::new(get_2_notes, 0);
+        options = options.set_skip(skip);
+        let mut balance = 0;
         
         balance_utils::get_balance(owner_balance.storage_slot)
     }

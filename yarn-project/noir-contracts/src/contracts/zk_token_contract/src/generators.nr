@@ -1,0 +1,2 @@
+global VALUE_NOTE = 2;
+global VALUE_NOTE_NULLIFIER = 5;

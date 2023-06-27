@@ -1,6 +1,6 @@
 use crate::abi::CallContext;
 use crate::abi::ContractDeploymentData;
-use crate::context::PrivateFunctionContext;
+use crate::context::Context;
 use crate::abi::PrivateCircuitPublicInputs;
 use crate::abi::CommitmentTreesRoots;
 use crate::types::vec::BoundedVec;
@@ -34,7 +34,7 @@ struct PrivateCallStackItem {
 }
 
 impl PrivateCallStackItem {
-    fn call(contract_address: Field, function_selector: Field, args: [Field; crate::abi::MAX_ARGS], mut context: PrivateFunctionContext) -> (Self, PrivateFunctionContext) {
+    fn call(contract_address: Field, function_selector: Field, args: [Field; crate::abi::MAX_ARGS], mut context: Context) -> (Self, Context) {
         let fields = call_private_function_internal(
             contract_address, 
             function_selector, 

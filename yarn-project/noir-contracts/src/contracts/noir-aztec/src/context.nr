@@ -5,7 +5,7 @@ use crate::abi;
 use crate::messaging::process_l1_to_l2_message;
 
 // When finished, one can call .finish() to convert back to the abi
-struct PrivateFunctionContext {
+struct Context {
     // inputs: abi::PrivateContextInputs,
     args : BoundedVec<Field, abi::MAX_ARGS>,
     return_values : BoundedVec<Field, abi::MAX_RETURN_VALUES>,
@@ -26,10 +26,10 @@ struct PrivateFunctionContext {
     // unencrypted_log_preimages_length : Field,
 }
 
-impl PrivateFunctionContext {
-    // fn new(inputs: abi::PrivateContextInputs) -> PrivateFunctionContext {
-    fn new() -> PrivateFunctionContext {
-        PrivateFunctionContext {
+impl Context {
+    // fn new(inputs: abi::PrivateContextInputs) -> Context {
+    fn new() -> Context {
+        Context {
             // inputs: inputs,
             args: BoundedVec::new(0),
             return_values: BoundedVec::new(0),
@@ -98,7 +98,7 @@ impl PrivateFunctionContext {
 
     // PrivateContextInputs must be temporarily passed in to prevent too many unknowns
     // Note this returns self to get around an issue where mutable structs do not maintain mutations unless reassigned
-    fn consume_l1_to_l2_message(mut self: Self, inputs: abi::PrivateContextInputs, msg_key: Field, content: Field, secret: Field) -> PrivateFunctionContext {
+    fn consume_l1_to_l2_message(mut self: Self, inputs: abi::PrivateContextInputs, msg_key: Field, content: Field, secret: Field) -> Context {
         let nullifier = process_l1_to_l2_message(inputs.roots.l1_to_l2_messages_tree_root, inputs.call_context.storage_contract_address, msg_key, content, secret);
 
         // Push nullifier

@@ -1,6 +1,6 @@
 use crate::abi::CallContext;
 use crate::abi::ContractDeploymentData;
-use crate::context::PrivateFunctionContext;
+use crate::context::Context;
 use crate::abi::PublicCircuitPublicInputs;
 use crate::abi::FunctionData;
 use crate::types::vec::BoundedVec;
@@ -17,7 +17,7 @@ struct PublicCallStackItem {
 }
 
 impl PublicCallStackItem {
-    fn call(contract_address: Field, function_selector: Field, args: [Field; crate::abi::MAX_ARGS], mut context: PrivateFunctionContext) -> (Self, PrivateFunctionContext) {
+    fn call(contract_address: Field, function_selector: Field, args: [Field; crate::abi::MAX_ARGS], mut context: Context) -> (Self, Context) {
         let fields = enqueue_public_function_call_internal(
             contract_address, 
             function_selector, 
