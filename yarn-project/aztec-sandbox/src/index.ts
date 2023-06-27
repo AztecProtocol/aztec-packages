@@ -32,7 +32,7 @@ async function main() {
   const rpcServer = await getHttpRpcServer(aztecNodeConfig);
 
   const app = rpcServer.getApp();
-  const apiRouter = createApiRouter(aztecNodeConfig);
+  const apiRouter = createApiRouter(deployedL1Contracts);
   app.use(apiRouter.routes());
   app.use(apiRouter.allowedMethods());
 

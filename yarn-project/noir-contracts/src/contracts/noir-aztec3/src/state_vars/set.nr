@@ -33,7 +33,7 @@ impl Set {
 
         let note_hash = note.compute_note_hash();
 
-        constrain notify_created_note(storage_slot, note.owner, note) == 0;
+        assert(notify_created_note(storage_slot, note.owner, note) == 0);
         context.push_new_note_hash(note_hash)
     }
 
@@ -53,7 +53,7 @@ impl Set {
         //    context = context.push_read_request(note1_hash);
         //}
         // needed for some reason to avoid compile error?
-        //constrain updated_context.args.get(0) != 0x0bad;
+        //assert(updated_context.args.get(0) != 0x0bad);
         //(updated_context, notes)
 
         // TODO/FIXME(dbanks12): really should be using the above
@@ -75,18 +75,17 @@ impl Set {
         let storage_slot = self.storage_slot;
 
         let note_hash = note.compute_note_hash();
-        let siloed_note_hash = dep::std::hash::pedersen([
-            crate::NoteStorageSlot,
-            note_hash,
-            storage_slot,
-            contract_address,
-        ])[0];
+        // TODO uncomment this when we can specify hash index
+        // let siloed_note_hash = dep::std::hash::pedersen([
+        //     crate::NoteStorageSlot,
+        //     note_hash,
+        //     storage_slot,
+        //     contract_address,
+        // ])[0];
+        // let nullifier = note.compute_nullifier(siloed_note_hash);
+        let nullifier = note.compute_nullifier(note_hash);
 
-        let mut nullifier = note.compute_nullifier(siloed_note_hash);
-        // TODO remove this when we can specify hash index
-        nullifier = note.compute_nullifier(note_hash);
-
-        constrain notify_nullified_note(storage_slot, nullifier, note) == 0;
+        assert(notify_nullified_note(storage_slot, nullifier, note) == 0);
         context.push_new_nullifier(nullifier)
     }
 }

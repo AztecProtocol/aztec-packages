@@ -1,4 +1,4 @@
-import { Contract, ContractDeployer, createAccount, createAztecRpcClient, pointToPublicKey } from '@aztec/aztec.js';
+import { Contract, ContractDeployer, createAccounts, createAztecRpcClient, pointToPublicKey } from '@aztec/aztec.js';
 import { Point } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { ZkTokenContractAbi } from '@aztec/noir-contracts/examples';
@@ -36,7 +36,7 @@ async function deployZKContract(pubKeyPoint: Point) {
 async function main() {
   logger('Running ZK contract test on HTTP interface.');
 
-  const [address, pubKeyPoint] = await createAccount(aztecRpcClient, privateKey);
+  const [address, pubKeyPoint] = (await createAccounts(aztecRpcClient, privateKey, 1))[0];
   logger(`Created account ${address.toString()} with public key ${pubKeyPoint.toString()}`);
   const zkContract = await deployZKContract(pubKeyPoint);
   const accounts = await aztecRpcClient.getAccounts();

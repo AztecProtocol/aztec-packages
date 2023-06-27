@@ -79,6 +79,9 @@ export function createJsonRpcClient<T extends object>(
     if (res.error) {
       throw res.error;
     }
+    if ([null, undefined, 'null', 'undefined'].includes(res.result)) {
+      return;
+    }
     return convertFromJsonObj(classConverter, JSON.parse(res.result));
   };
 

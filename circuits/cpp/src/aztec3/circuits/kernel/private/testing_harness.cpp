@@ -110,8 +110,10 @@ std::pair<PrivateCallData<NT>, ContractDeploymentData<NT>> create_private_call_d
     private_function const& func,
     std::vector<NT::fr> const& args_vec,
     NT::address const& msg_sender,
-    std::array<NT::fr, 2> const& encrypted_logs_hash,
+    std::array<NT::fr, NUM_FIELDS_PER_SHA256> const& encrypted_logs_hash,
+    std::array<NT::fr, NUM_FIELDS_PER_SHA256> const& unencrypted_logs_hash,
     NT::fr const& encrypted_log_preimages_length,
+    NT::fr const& unencrypted_log_preimages_length,
     bool is_circuit)
 {
     //***************************************************************************
@@ -126,7 +128,7 @@ std::pair<PrivateCallData<NT>, ContractDeploymentData<NT>> create_private_call_d
     const NT::fr acir_hash = 12341234;
 
     const NT::fr msg_sender_private_key = 123456789;
-    const std::array<NT::fr, 2> msg_sender_pub_key = { 123456789, 123456789 };
+    const Point<NT> msg_sender_pub_key = { .x = { 123456789, 123456789 }, .y = { 123456789, 123456789 } };
 
     FunctionData<NT> const function_data{
         .function_selector = 1,  // TODO(suyash): deduce this from the contract, somehow.
@@ -251,7 +253,9 @@ std::pair<PrivateCallData<NT>, ContractDeploymentData<NT>> create_private_call_d
         private_circuit_public_inputs.historic_contract_tree_root = contract_tree_root;
 
         private_circuit_public_inputs.encrypted_logs_hash = encrypted_logs_hash;
+        private_circuit_public_inputs.unencrypted_logs_hash = unencrypted_logs_hash;
         private_circuit_public_inputs.encrypted_log_preimages_length = encrypted_log_preimages_length;
+        private_circuit_public_inputs.unencrypted_log_preimages_length = unencrypted_log_preimages_length;
     } else {
         private_circuit_public_inputs = PrivateCircuitPublicInputs<NT>{
             .call_context = call_context,
@@ -262,9 +266,9 @@ std::pair<PrivateCallData<NT>, ContractDeploymentData<NT>> create_private_call_d
             .private_call_stack = {},
             .new_l2_to_l1_msgs = {},
             .encrypted_logs_hash = encrypted_logs_hash,
-            .unencrypted_logs_hash = {},
+            .unencrypted_logs_hash = unencrypted_logs_hash,
             .encrypted_log_preimages_length = encrypted_log_preimages_length,
-            .unencrypted_log_preimages_length = 0,
+            .unencrypted_log_preimages_length = unencrypted_log_preimages_length,
             .historic_private_data_tree_root = 0,
             .historic_nullifier_tree_root = 0,
             .historic_contract_tree_root = contract_tree_root,
@@ -313,20 +317,27 @@ std::pair<PrivateCallData<NT>, ContractDeploymentData<NT>> create_private_call_d
 }
 
 /**
- * @brief Perform an initil private circuit call and generate the inputs to private kernel
+ * @brief Perform an initial private circuit call and generate the inputs to private kernel
  *
  * @param is_constructor whether this private circuit call is a constructor
  * @param func the private circuit call being validated by this kernel iteration
  * @param args_vec the private call's args
+ * @param encrypted_logs_hash The encrypted logs hash emitted from app circuit.
+ * @param unencrypted_logs_hash The unencrypted logs hash emitted from app circuit.
+ * @param encrypted_log_preimages_length The length of encrypted logs emitted from app circuit.
+ * @param unencrypted_log_preimages_length The length of unencrypted logs emitted from app circuit.
  * @param is_circuit boolean to switch to circuit or native (fake vk and no proof)
  * @return PrivateInputsInit<NT> - the inputs to the private call circuit of an init iteration
  */
-PrivateKernelInputsInit<NT> do_private_call_get_kernel_inputs_init(bool const is_constructor,
-                                                                   private_function const& func,
-                                                                   std::vector<NT::fr> const& args_vec,
-                                                                   std::array<NT::fr, 2> const& encrypted_logs_hash,
-                                                                   NT::fr const& encrypted_log_preimages_length,
-                                                                   bool is_circuit)
+PrivateKernelInputsInit<NT> do_private_call_get_kernel_inputs_init(
+    bool const is_constructor,
+    private_function const& func,
+    std::vector<NT::fr> const& args_vec,
+    std::array<NT::fr, NUM_FIELDS_PER_SHA256> const& encrypted_logs_hash,
+    std::array<NT::fr, NUM_FIELDS_PER_SHA256> const& unencrypted_logs_hash,
+    NT::fr const& encrypted_log_preimages_length,
+    NT::fr const& unencrypted_log_preimages_length,
+    bool is_circuit)
 {
     //***************************************************************************
     // Initialize some inputs to private call and kernel circuits
@@ -336,8 +347,16 @@ PrivateKernelInputsInit<NT> do_private_call_get_kernel_inputs_init(bool const is
     const NT::address msg_sender =
         NT::fr(uint256_t(0x01071e9a23e0f7edULL, 0x5d77b35d1830fa3eULL, 0xc6ba3660bb1f0c0bULL, 0x2ef9f7f09867fd6eULL));
 
-    auto const& [private_call_data, contract_deployment_data] = create_private_call_deploy_data(
-        is_constructor, func, args_vec, msg_sender, encrypted_logs_hash, encrypted_log_preimages_length, is_circuit);
+    auto const& [private_call_data, contract_deployment_data] =
+        create_private_call_deploy_data(is_constructor,
+                                        func,
+                                        args_vec,
+                                        msg_sender,
+                                        encrypted_logs_hash,
+                                        unencrypted_logs_hash,
+                                        encrypted_log_preimages_length,
+                                        unencrypted_log_preimages_length,
+                                        is_circuit);
 
     //***************************************************************************
     // We can create a TxRequest from some of the above data.
@@ -350,6 +369,7 @@ PrivateKernelInputsInit<NT> do_private_call_get_kernel_inputs_init(bool const is
                                                .is_rebate_payment_tx = false,
                                                .is_contract_deployment_tx = is_constructor,
                                                .contract_deployment_data = contract_deployment_data,
+                                               .chain_id = 1,
                                            } };
 
     //***************************************************************************
@@ -370,15 +390,32 @@ PrivateKernelInputsInit<NT> do_private_call_get_kernel_inputs_init(bool const is
  * @param is_constructor whether this private circuit call is a constructor
  * @param func the private circuit call being validated by this kernel iteration
  * @param args_vec the private call's args
+ * @param encrypted_logs_hash The encrypted logs hash emitted from app circuit.
+ * @param unencrypted_logs_hash The unencrypted logs hash emitted from app circuit.
+ * @param encrypted_log_preimages_length The length of encrypted logs emitted from app circuit.
+ * @param unencrypted_log_preimages_length The length of unencrypted logs emitted from app circuit.
+ * @param public_inputs_encrypted_logs_hash The encrypted logs hash on the output of the previous kernel.
+ * @param public_inputs_unencrypted_logs_hash The unencrypted logs hash on the output of the previous kernel.
+ * @param public_inputs_encrypted_log_preimages_length The length of encrypted logs on the output of the previous
+ * kernel.
+ * @param public_inputs_unencrypted_log_preimages_length The length of unencrypted logs on the output of the previous
+ * kernel.
  * @param is_circuit boolean to switch to circuit or native (fake vk and no proof)
  * @return PrivateInputsInner<NT> - the inputs to the private call circuit of an inner iteration
  */
-PrivateKernelInputsInner<NT> do_private_call_get_kernel_inputs_inner(bool const is_constructor,
-                                                                     private_function const& func,
-                                                                     std::vector<NT::fr> const& args_vec,
-                                                                     std::array<NT::fr, 2> const& encrypted_logs_hash,
-                                                                     NT::fr const& encrypted_log_preimages_length,
-                                                                     bool is_circuit)
+PrivateKernelInputsInner<NT> do_private_call_get_kernel_inputs_inner(
+    bool const is_constructor,
+    private_function const& func,
+    std::vector<NT::fr> const& args_vec,
+    std::array<NT::fr, NUM_FIELDS_PER_SHA256> const& encrypted_logs_hash,
+    std::array<NT::fr, NUM_FIELDS_PER_SHA256> const& unencrypted_logs_hash,
+    NT::fr const& encrypted_log_preimages_length,
+    NT::fr const& unencrypted_log_preimages_length,
+    std::array<NT::fr, NUM_FIELDS_PER_SHA256> const& public_inputs_encrypted_logs_hash,
+    std::array<NT::fr, NUM_FIELDS_PER_SHA256> const& public_inputs_unencrypted_logs_hash,
+    NT::fr const& public_inputs_encrypted_log_preimages_length,
+    NT::fr const& public_inputs_unencrypted_log_preimages_length,
+    bool is_circuit)
 {
     //***************************************************************************
     // Initialize some inputs to private call and kernel circuits
@@ -388,8 +425,16 @@ PrivateKernelInputsInner<NT> do_private_call_get_kernel_inputs_inner(bool const 
     const NT::address msg_sender =
         NT::fr(uint256_t(0x01071e9a23e0f7edULL, 0x5d77b35d1830fa3eULL, 0xc6ba3660bb1f0c0bULL, 0x2ef9f7f09867fd6eULL));
 
-    auto const& [private_call_data, contract_deployment_data] = create_private_call_deploy_data(
-        is_constructor, func, args_vec, msg_sender, encrypted_logs_hash, encrypted_log_preimages_length, is_circuit);
+    auto const& [private_call_data, contract_deployment_data] =
+        create_private_call_deploy_data(is_constructor,
+                                        func,
+                                        args_vec,
+                                        msg_sender,
+                                        encrypted_logs_hash,
+                                        unencrypted_logs_hash,
+                                        encrypted_log_preimages_length,
+                                        unencrypted_log_preimages_length,
+                                        is_circuit);
 
     const TxContext<NT> tx_context = TxContext<NT>{
         .is_fee_payment_tx = false,
@@ -422,6 +467,12 @@ PrivateKernelInputsInner<NT> do_private_call_get_kernel_inputs_inner(bool const 
         .tx_context = tx_context,
     };
     mock_previous_kernel.public_inputs.is_private = true;
+    mock_previous_kernel.public_inputs.end.encrypted_logs_hash = public_inputs_encrypted_logs_hash;
+    mock_previous_kernel.public_inputs.end.unencrypted_logs_hash = public_inputs_unencrypted_logs_hash;
+    mock_previous_kernel.public_inputs.end.encrypted_log_preimages_length =
+        public_inputs_encrypted_log_preimages_length;
+    mock_previous_kernel.public_inputs.end.unencrypted_log_preimages_length =
+        public_inputs_unencrypted_log_preimages_length;
 
     //***************************************************************************
     // Now we can construct the full private inputs to the kernel circuit
@@ -450,17 +501,12 @@ bool validate_deployed_contract_address(PrivateKernelInputsInit<NT> const& priva
 
     auto private_circuit_vk_hash = stdlib::recursion::verification_key<CT::bn254>::compress_native(
         private_inputs.private_call.vk, GeneratorIndex::VK);
-    auto private_call_function_data_hash = private_inputs.private_call.call_stack_item.function_data.hash();
 
-    auto expected_constructor_hash =
-        NT::compress({ private_call_function_data_hash, tx_request.args_hash, private_circuit_vk_hash }, CONSTRUCTOR);
+    auto expected_constructor_hash = compute_constructor_hash(
+        private_inputs.private_call.call_stack_item.function_data, tx_request.args_hash, private_circuit_vk_hash);
 
-    NT::fr const expected_contract_address = NT::compress({ cdd.deployer_public_key[0],
-                                                            cdd.deployer_public_key[1],
-                                                            cdd.contract_address_salt,
-                                                            cdd.function_tree_root,
-                                                            expected_constructor_hash },
-                                                          CONTRACT_ADDRESS);
+    NT::fr const expected_contract_address = compute_contract_address(
+        cdd.deployer_public_key, cdd.contract_address_salt, cdd.function_tree_root, expected_constructor_hash);
 
     return (public_inputs.end.new_contracts[0].contract_address.to_field() == expected_contract_address);
 }

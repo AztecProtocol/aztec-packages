@@ -14,9 +14,14 @@ export type L1ContractAddresses = {
    */
   contractDeploymentEmitter: EthAddress;
   /**
-   * Adress of the L1/L2 messaging inbox contract.
+   * Address of the L1/L2 messaging inbox contract.
    */
   inbox: EthAddress;
+
+  /**
+   * Registry Address.
+   */
+  registry: EthAddress;
 };
 
 /**
@@ -40,7 +45,7 @@ export const createAztecRpcClient = (url: string): AztecRPC =>
     false,
   );
 
-export const getL1contractAddresses = async (url: string): Promise<L1ContractAddresses> => {
+export const getL1ContractAddresses = async (url: string): Promise<L1ContractAddresses> => {
   const reqUrl = new URL(`${url}/api/l1-contract-addresses`);
   const response = (await (await fetch(reqUrl.toString())).json()) as unknown as L1ContractAddressesResp;
   const result = Object.fromEntries(

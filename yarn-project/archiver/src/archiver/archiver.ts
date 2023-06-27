@@ -131,7 +131,7 @@ export class Archiver implements L2BlockSource, L2LogsSource, ContractDataSource
       // reducing logs, otherwise this gets triggered on every loop (1s)
       if (currentBlockNumber !== this.lastLoggedBlockNumber) {
         this.log(`No new blocks to process, current block number: ${currentBlockNumber}`);
-        this.lastLoggedBlockNumber = currentBlockNumber
+        this.lastLoggedBlockNumber = currentBlockNumber;
       }
       return;
     }

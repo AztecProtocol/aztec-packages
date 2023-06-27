@@ -3,6 +3,10 @@ services:
   fork:
     image: ghcr.io/foundry-rs/foundry:nightly-a44aa13cfc23491ba32aaedc093e9488c1a6db43
     entrypoint: 'anvil -p 8545 --host 0.0.0.0 --chain-id 31337'
+    # Use line below to run Uniswap example
+    # entrypoint: 'anvil --fork-url https://mainnet.infura.io/v3/9928b52099854248b3a096be07a6b23c --fork-block-number 17514288 --chain-id 31337'
+    ports:
+      - "8545:8545"
 
   http-aztec-rpc:
     image: aztec-sandbox
@@ -16,3 +20,5 @@ services:
       P2P_CHECK_INTERVAL: 500
       SEQ_TX_POLLING_INTERVAL: 500
       WS_CHECK_INTERVAL: 500
+      # Uncomment line below to run Uniswap example
+      # SEARCH_START_BLOCK: 17514288
