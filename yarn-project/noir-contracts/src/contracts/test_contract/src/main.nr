@@ -77,7 +77,7 @@ contract Test {
         _inputs: PublicContextInputs,
         amount: Field,
         secretHash: Field,
-        _padding: [Field; abi::MAX_ARGS - 3]
+        _padding: [Field; abi::MAX_ARGS - 2]
     ) {
     
         // Create a commitment to the amount
@@ -92,7 +92,7 @@ contract Test {
         _inputs: PublicContextInputs,
         amount: Field,
         secretHash: Field,
-        _padding: [Field; abi::MAX_ARGS - 3]
+        _padding: [Field; abi::MAX_ARGS - 2]
     ) -> Field {
     
         // Create a commitment to the amount
@@ -117,7 +117,7 @@ contract Test {
         }
 
         fn get_commitment(self) -> pub Field {
-            dep::std::hash::pedersen([self.amount + self.secretHash])[0]
+            dep::std::hash::pedersen([self.amount, self.secretHash])[0]
         }
     }
 }
