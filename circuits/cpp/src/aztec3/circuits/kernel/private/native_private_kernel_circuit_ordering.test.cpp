@@ -10,17 +10,13 @@
 #include <array>
 #include <cstdint>
 
-namespace {
+namespace aztec3::circuits::kernel::private_kernel {
 
 using aztec3::circuits::apps::test_apps::escrow::deposit;
 
 using aztec3::circuits::kernel::private_kernel::testing_harness::do_private_call_get_kernel_inputs_inner;
 using aztec3::utils::array_length;
 using aztec3::utils::CircuitErrorCode;
-
-}  // namespace
-
-namespace aztec3::circuits::kernel::private_kernel {
 
 // NOTE: *DO NOT* call fr constructors in static initializers and assign them to constants. This will fail. Instead, use
 // lazy initialization or functions. Lambdas were introduced here.
@@ -45,12 +41,11 @@ TEST_F(native_private_kernel_ordering_tests, native_one_read_request_choping_com
     read_request_membership_witnesses[0].leaf_index = fr(-1);
 
     private_inputs.previous_kernel.public_inputs.end.new_commitments = new_commitments;
-    private_inputs.private_call.call_stack_item.public_inputs.read_requests = read_requests;
-    private_inputs.private_call.read_request_membership_witnesses = read_request_membership_witnesses;
 
     DummyBuilder builder =
         DummyBuilder("native_private_kernel_ordering_tests__native_one_read_request_choping_commitment_works");
-    auto const& public_inputs = native_private_kernel_circuit_ordering(builder, private_inputs);
+    auto const& public_inputs = native_private_kernel_circuit_ordering(
+        builder, private_inputs.previous_kernel, read_requests, read_request_membership_witnesses);
 
     auto failure = builder.get_first_failure();
     if (failure.code != CircuitErrorCode::NO_ERROR) {
@@ -80,14 +75,12 @@ TEST_F(native_private_kernel_ordering_tests, native_read_requests_choping_commit
     read_request_membership_witnesses[0].leaf_index = fr(-1);
     read_request_membership_witnesses[1].leaf_index = fr(-1);
 
-
     private_inputs.previous_kernel.public_inputs.end.new_commitments = new_commitments;
-    private_inputs.private_call.call_stack_item.public_inputs.read_requests = read_requests;
-    private_inputs.private_call.read_request_membership_witnesses = read_request_membership_witnesses;
 
     DummyBuilder builder =
         DummyBuilder("native_private_kernel_ordering_tests__native_read_requests_choping_commitment_works");
-    auto const& public_inputs = native_private_kernel_circuit_ordering(builder, private_inputs);
+    auto const& public_inputs = native_private_kernel_circuit_ordering(
+        builder, private_inputs.previous_kernel, read_requests, read_request_membership_witnesses);
 
     auto failure = builder.get_first_failure();
     if (failure.code != CircuitErrorCode::NO_ERROR) {
@@ -124,11 +117,10 @@ TEST_F(native_private_kernel_ordering_tests, native_read_request_unknown_fails)
     read_request_membership_witnesses[3].leaf_index = fr(-1);
 
     private_inputs.previous_kernel.public_inputs.end.new_commitments = new_commitments;
-    private_inputs.private_call.call_stack_item.public_inputs.read_requests = read_requests;
-    private_inputs.private_call.read_request_membership_witnesses = read_request_membership_witnesses;
 
     DummyBuilder builder = DummyBuilder("native_private_kernel_ordering_tests__native_read_request_unknown_fails");
-    auto const& public_inputs = native_private_kernel_circuit_ordering(builder, private_inputs);
+    auto const& public_inputs = native_private_kernel_circuit_ordering(
+        builder, private_inputs.previous_kernel, read_requests, read_request_membership_witnesses);
 
     auto failure = builder.get_first_failure();
     ASSERT_EQ(failure.code, CircuitErrorCode::PRIVATE_KERNEL__TRANSIENT_READ_REQUEST_NO_MATCH);

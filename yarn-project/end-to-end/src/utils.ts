@@ -27,7 +27,7 @@ import { Account, Chain, HttpTransport, PublicClient, WalletClient, getContract 
 import { mnemonicToAccount } from 'viem/accounts';
 import { MNEMONIC, localAnvil, privateKey } from './fixtures.js';
 import { CircuitsWasm } from '@aztec/circuits.js';
-import { Grumpkin, pedersenCompressInputs } from '@aztec/circuits.js/barretenberg';
+import { Grumpkin, pedersenPlookupCommitInputs } from '@aztec/circuits.js/barretenberg';
 import { KeyStore, TestKeyStore } from '@aztec/key-store';
 
 /**
@@ -170,6 +170,7 @@ export function pointToPublicKey(point: Point) {
  * @param rollupRegistryAddress - address of rollup registry to pass to initialize the token portal
  * @param initialBalance - initial balance of the owner of the L2 contract
  * @param owner - owner of the L2 contract
+ * @param underlyingERC20Address - address of the underlying ERC20 contract to use (if noone supplied, it deploys one)
  * @returns l2 contract instance, token portal instance, token portal address and the underlying ERC20 instance
  */
 export async function deployAndInitializeNonNativeL2TokenContracts(
@@ -179,14 +180,12 @@ export async function deployAndInitializeNonNativeL2TokenContracts(
   rollupRegistryAddress: EthAddress,
   initialBalance = 0n,
   owner = { x: 0n, y: 0n },
+  underlyingERC20Address?: EthAddress,
 ) {
-  // deploy underlying contract
-  const underlyingERC20Address = await deployL1Contract(
-    walletClient,
-    publicClient,
-    PortalERC20Abi,
-    PortalERC20Bytecode,
-  );
+  // deploy underlying contract if no address supplied
+  if (!underlyingERC20Address) {
+    underlyingERC20Address = await deployL1Contract(walletClient, publicClient, PortalERC20Abi, PortalERC20Bytecode);
+  }
   const underlyingERC20: any = getContract({
     address: underlyingERC20Address.toString(),
     abi: PortalERC20Abi,
@@ -244,7 +243,7 @@ export async function calculateStorageSlot(slot: bigint, key: Fr): Promise<Fr> {
   // Based on `at` function in
   // aztec3-packages/yarn-project/noir-contracts/src/contracts/noir-aztec3/src/state_vars/storage_map.nr
   const storageSlot = Fr.fromBuffer(
-    pedersenCompressInputs(
+    pedersenPlookupCommitInputs(
       wasm,
       [mappingStorageSlot, balancesStorageSlot, key].map(f => f.toBuffer()),
     ),

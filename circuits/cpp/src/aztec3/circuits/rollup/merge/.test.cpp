@@ -13,6 +13,7 @@ namespace {
 using aztec3::circuits::rollup::merge::MergeRollupInputs;
 using DummyBuilder = aztec3::utils::DummyCircuitBuilder;
 
+using aztec3::circuits::rollup::test_utils::utils::compare_field_hash_to_expected;
 using aztec3::circuits::rollup::test_utils::utils::get_empty_kernel;
 using aztec3::circuits::rollup::test_utils::utils::get_merge_rollup_inputs;
 
@@ -104,6 +105,20 @@ TEST_F(merge_rollup_tests, native_constants_different_failure)
     MergeRollupInputs inputs = get_merge_rollup_inputs(builder, kernels);
     inputs.previous_rollup_data[0].base_or_merge_rollup_public_inputs.constants.public_kernel_vk_tree_root = fr(1);
     inputs.previous_rollup_data[1].base_or_merge_rollup_public_inputs.constants.public_kernel_vk_tree_root = fr(0);
+    merge_rollup_circuit(builder, inputs);
+    ASSERT_TRUE(builder.failed());
+    ASSERT_EQ(builder.get_first_failure().message, "input proofs have different constants");
+}
+
+TEST_F(merge_rollup_tests, native_constants_different_chain_id_failure)
+{
+    DummyBuilder builder = DummyBuilder("merge_rollup_tests__native_constants_different_failure");
+    std::array<KernelData, 4> const kernels = {
+        get_empty_kernel(), get_empty_kernel(), get_empty_kernel(), get_empty_kernel()
+    };
+    MergeRollupInputs inputs = get_merge_rollup_inputs(builder, kernels);
+    inputs.previous_rollup_data[0].base_or_merge_rollup_public_inputs.constants.global_variables.chain_id = fr(1);
+    inputs.previous_rollup_data[1].base_or_merge_rollup_public_inputs.constants.global_variables.chain_id = fr(0);
     merge_rollup_circuit(builder, inputs);
     ASSERT_TRUE(builder.failed());
     ASSERT_EQ(builder.get_first_failure().message, "input proofs have different constants");
@@ -238,17 +253,9 @@ TEST_F(merge_rollup_tests, native_calldata_hash)
 
     BaseOrMergeRollupPublicInputs const outputs = merge_rollup_circuit(builder, inputs);
 
-    std::array<fr, 2> actual_calldata_hash_fr = outputs.calldata_hash;
-    auto high_buffer = actual_calldata_hash_fr[0].to_buffer();
-    auto low_buffer = actual_calldata_hash_fr[1].to_buffer();
+    std::array<fr, NUM_FIELDS_PER_SHA256> const output_calldata_hash = outputs.calldata_hash;
 
-    std::array<uint8_t, 32> actual_calldata_hash;
-    for (uint8_t i = 0; i < 16; ++i) {
-        actual_calldata_hash[i] = high_buffer[16 + i];
-        actual_calldata_hash[16 + i] = low_buffer[16 + i];
-    }
-
-    ASSERT_EQ(expected_calldata_hash, actual_calldata_hash);
+    ASSERT_TRUE(compare_field_hash_to_expected(output_calldata_hash, expected_calldata_hash));
     ASSERT_FALSE(builder.failed());
 }
 
