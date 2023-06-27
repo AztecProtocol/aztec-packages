@@ -8,8 +8,10 @@ import {
   createAztecRpcClient,
   getL1ContractAddresses,
   pointToPublicKey,
+  AztecAddress,
+  EthAddress,
+  Fr,
 } from '@aztec/aztec.js';
-import { AztecAddress, EthAddress, Fr } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { UniswapContractAbi } from '@aztec/noir-contracts/examples';
 import { createPublicClient, createWalletClient, getContract, http, parseEther } from 'viem';

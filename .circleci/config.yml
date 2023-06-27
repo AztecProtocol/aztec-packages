@@ -700,5 +700,5 @@ workflows:
             - aztec-sandbox
           filters:
             branches:
-              only: sp/aztec-sandbox
+              only: master
           <<: *defaults

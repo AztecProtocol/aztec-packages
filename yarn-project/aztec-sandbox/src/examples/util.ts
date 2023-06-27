@@ -1,9 +1,8 @@
 import { Account, Chain, Hex, HttpTransport, PublicClient, WalletClient, getContract } from 'viem';
 import type { Abi, Narrow } from 'abitype';
-import { AztecRPC, EthAddress } from '@aztec/aztec-rpc';
 import { PortalERC20Abi, PortalERC20Bytecode, TokenPortalAbi, TokenPortalBytecode } from '@aztec/l1-artifacts';
 import { NonNativeTokenContractAbi } from '@aztec/noir-contracts/examples';
-import { Contract, ContractDeployer } from '@aztec/aztec.js';
+import { Contract, ContractDeployer, EthAddress, AztecRPC } from '@aztec/aztec.js';
 
 /**
  * Deploy L1 token and portal, initialize portal, deploy a non native l2 token contract and attach is to the portal.
