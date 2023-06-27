@@ -26,7 +26,7 @@ KernelCircuitPublicInputs<NT> native_private_kernel_circuit_ordering(
     std::array<MembershipWitness<NT, PRIVATE_DATA_TREE_HEIGHT>, READ_REQUESTS_LENGTH> const&
         read_request_membership_witnesses);
 
-CircuitResult<KernelCircuitPublicInputs<NT> > native_private_kernel_circuit_ordering_rr_dummy(
+CircuitResult<KernelCircuitPublicInputs<NT>> native_private_kernel_circuit_ordering_rr_dummy(
     PreviousKernelData<NT> const& previous_kernel);
 
 }  // namespace aztec3::circuits::kernel::private_kernel

@@ -1,7 +1,7 @@
 #pragma once
 #include "init.hpp"
 
-#include "barretenberg/plonk/flavor/flavor.hpp"
+#include <barretenberg/barretenberg.hpp>
 
 namespace aztec3::circuits::recursion {
 

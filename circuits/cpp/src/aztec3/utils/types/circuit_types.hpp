@@ -7,6 +7,7 @@
 
 using namespace proof_system::plonk;
 
+// Note: Inner proving system type for recursion is inflexibly set to UltraPlonk.
 namespace aztec3::utils::types {
 
 template <typename Builder> struct CircuitTypes {
@@ -42,7 +43,6 @@ template <typename Builder> struct CircuitTypes {
     using ecdsa_signature = stdlib::ecdsa::signature<Builder>;
 
     using AggregationObject = stdlib::recursion::aggregation_state<bn254>;
-    using recursive_inner_verifier_settings = stdlib::recursion::recursive_ultra_verifier_settings<bn254>;
     using VK = stdlib::recursion::verification_key<bn254>;
     // Notice: no CircuitType for a Proof: we only ever handle native; the verify_proof() function swallows the
     // 'circuit-type-ness' of the proof.
