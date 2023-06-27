@@ -17,7 +17,7 @@ contract EcdsaAccount {
         owner: pub [u8;64], // x and y coordinates concatenated
         signature: pub [Field;3],
         partialContractAddress: pub Field,
-    ) -> distinct pub [Field; dep::aztec3::abi::PUBLIC_INPUTS_LENGTH] {
+    ) -> distinct pub abi::PrivateCircuitPublicInputs {
         let mut context = PrivateFunctionContext::new();
 
         // Decompress signature from 3 fields to 64 bytes

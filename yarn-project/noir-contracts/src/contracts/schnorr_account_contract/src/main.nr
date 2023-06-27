@@ -18,7 +18,7 @@ contract SchnorrAccount {
         owner: pub [u8;64], // x and y coordinates concatenated
         signature: pub [Field;3],
         partialContractAddress: pub Field,
-    ) -> distinct pub [Field; dep::aztec3::abi::PUBLIC_INPUTS_LENGTH] {
+    ) -> distinct pub abi::PrivateCircuitPublicInputs {
         let mut context = PrivateFunctionContext::new();
 
         // Decompress signature from 3 fields to 64 bytes
@@ -107,13 +107,13 @@ contract SchnorrAccount {
         // Horrible, yes. But we need to rethink the private function context api anyway.
         // TODO(#745): Do not store args, set hash directly in context API
         let mut ret = context.finish(inputs);
-        ret[dep::aztec3::abi::CALL_CONTEXT_SIZE] = args_hash;
+        ret.args_hash = args_hash;
         ret
     }
 
     fn constructor(
         inputs: pub PrivateContextInputs,
-    ) -> distinct pub [Field; dep::aztec3::abi::PUBLIC_INPUTS_LENGTH] {
+    ) -> distinct pub abi::PrivateCircuitPublicInputs {
         PrivateFunctionContext::new().finish(inputs)
     }
 }
