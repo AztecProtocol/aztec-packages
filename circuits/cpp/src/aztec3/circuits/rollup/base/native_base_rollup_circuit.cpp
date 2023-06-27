@@ -463,6 +463,18 @@ BaseOrMergeRollupPublicInputs base_rollup_circuit(DummyComposer& composer, BaseR
                            CircuitErrorCode::BASE__KERNEL_PROOF_VERIFICATION_FAILED);
     }
 
+    // Verify the kernel chain_id and versions
+    for (size_t i = 0; i < 2; i++) {
+        composer.do_assert(baseRollupInputs.kernel_data[i].public_inputs.constants.tx_context.chain_id ==
+                               baseRollupInputs.constants.global_variables.chain_id,
+                           "kernel chain_id does not match the rollup chain_id",
+                           CircuitErrorCode::BASE__INVALID_CHAIN_ID);
+        composer.do_assert(baseRollupInputs.kernel_data[i].public_inputs.constants.tx_context.version ==
+                               baseRollupInputs.constants.global_variables.version,
+                           "kernel version does not match the rollup version",
+                           CircuitErrorCode::BASE__INVALID_VERSION);
+    }
+
     // First we compute the contract tree leaves
     std::vector<NT::fr> const contract_leaves = calculate_contract_leaves(baseRollupInputs);
 
@@ -500,7 +512,8 @@ BaseOrMergeRollupPublicInputs base_rollup_circuit(DummyComposer& composer, BaseR
     fr const end_public_data_tree_root = validate_and_process_public_state(composer, baseRollupInputs);
 
     // Calculate the overall calldata hash
-    std::array<NT::fr, 2> const calldata_hash = components::compute_kernels_calldata_hash(baseRollupInputs.kernel_data);
+    std::array<NT::fr, NUM_FIELDS_PER_SHA256> const calldata_hash =
+        components::compute_kernels_calldata_hash(baseRollupInputs.kernel_data);
 
     // Perform membership checks that the notes provided exist within the historic trees data
     perform_historical_private_data_tree_membership_checks(composer, baseRollupInputs);

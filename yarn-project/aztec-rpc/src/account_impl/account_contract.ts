@@ -3,18 +3,24 @@ import { ARGS_LENGTH, AztecAddress, Fr, FunctionData, TxContext } from '@aztec/c
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { sha256 } from '@aztec/foundation/crypto';
 import { KeyStore, PublicKey } from '@aztec/key-store';
-import { AccountContractAbi } from '@aztec/noir-contracts/examples';
-import { ExecutionRequest, TxExecutionRequest } from '@aztec/types';
+import { ExecutionRequest, PartialContractAddress, TxExecutionRequest } from '@aztec/types';
 import partition from 'lodash.partition';
 import times from 'lodash.times';
 import { generateFunctionSelector } from '../index.js';
 import { AccountImplementation } from './index.js';
+import { ContractAbi } from '@aztec/foundation/abi';
 
 /**
- * Account backed by an account contract that uses ECDSA signatures for authorization.
+ * Account backed by an account contract
  */
-export class EcdsaAccountContract implements AccountImplementation {
-  constructor(private address: AztecAddress, private pubKey: PublicKey, private keyStore: KeyStore) {}
+export class AccountContract implements AccountImplementation {
+  constructor(
+    private address: AztecAddress,
+    private pubKey: PublicKey,
+    private keyStore: KeyStore,
+    private partialContractAddress: PartialContractAddress,
+    private contractAbi: ContractAbi,
+  ) {}
 
   async createAuthenticatedTxRequest(
     executions: ExecutionRequest[],
@@ -33,23 +39,25 @@ export class EcdsaAccountContract implements AccountImplementation {
 
     const payload = buildPayload(privateCalls, publicCalls);
     const hash = hashPayload(payload);
-    const signature = await this.keyStore.ecdsaSign(hash, this.pubKey);
-    const signatureAsFrArray = signature.toFields(false);
-    const args = [payload, signatureAsFrArray];
+
+    const signature = await this.keyStore.sign(hash, this.pubKey);
+    const signatureAsFrArray = signature.toFields();
+    const publicKeyAsBuffer = this.pubKey.toBuffer();
+    const args = [payload, publicKeyAsBuffer, signatureAsFrArray, this.partialContractAddress];
     const abi = this.getEntrypointAbi();
     const selector = generateFunctionSelector(abi.name, abi.parameters);
     const txRequest = TxExecutionRequest.from({
       args: encodeArguments(abi, args),
       origin: this.address,
       functionData: new FunctionData(selector, true, false),
-      txContext: TxContext.empty(),
+      txContext,
     });
 
     return txRequest;
   }
 
   private getEntrypointAbi() {
-    const abi = AccountContractAbi.functions.find(f => f.name === 'entrypoint');
+    const abi = this.contractAbi.functions.find(f => f.name === 'entrypoint');
     if (!abi) throw new Error(`Entrypoint abi for account contract not found`);
     return abi;
   }

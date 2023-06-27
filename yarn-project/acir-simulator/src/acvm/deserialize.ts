@@ -14,8 +14,8 @@ import {
 } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { Fr } from '@aztec/foundation/fields';
-import { select_return_flattened as selectPublicWitnessFlattened } from '@noir-lang/noir_util_wasm';
+import { Fr, Point } from '@aztec/foundation/fields';
+import { getReturnWitness } from 'acvm-simulator';
 
 // Utilities to read TS classes from ACVM Field arrays
 // In the order that the ACVM provides them
@@ -58,13 +58,25 @@ export function frToSelector(fr: Fr): Buffer {
 }
 
 /**
+ * Extracts the return fields of a given partial witness.
+ * @param acir - The bytecode of the function.
+ * @param partialWitness - The witness to extract from.
+ * @returns The return values.
+ */
+export function extractReturnWitness(acir: Buffer, partialWitness: ACVMWitness): ACVMField[] {
+  const returnWitness = getReturnWitness(acir, partialWitness);
+  const sortedKeys = [...returnWitness.keys()].sort((a, b) => a - b);
+  return sortedKeys.map(key => returnWitness.get(key)!);
+}
+
+/**
  * A utility reader for the public inputs of the ACVM generated partial witness.
  */
 export class PublicInputsReader {
   private publicInputs: ACVMField[];
 
   constructor(witness: ACVMWitness, acir: Buffer) {
-    this.publicInputs = selectPublicWitnessFlattened(acir, witness);
+    this.publicInputs = extractReturnWitness(acir, witness);
   }
 
   /**
@@ -119,8 +131,8 @@ export function extractPublicInputs(partialWitness: ACVMWitness, acir: Buffer): 
   const newL2ToL1Msgs = witnessReader.readFieldArray(NEW_L2_TO_L1_MSGS_LENGTH);
 
   // TODO #588, relevant issue: https://github.com/AztecProtocol/aztec-packages/issues/588
-  // const encryptedLogsHash = witnessReader.readFieldArray(2);
-  // const unencryptedLogsHash = witnessReader.readFieldArray(2);
+  // const encryptedLogsHash = witnessReader.readFieldArray(NUM_FIELDS_PER_SHA256);
+  // const unencryptedLogsHash = witnessReader.readFieldArray(NUM_FIELDS_PER_SHA256);
   // const encryptedLogPreimagesLength = witnessReader.readField();
   // const unencryptedLogPreimagesLength = witnessReader.readField();
   const encryptedLogsHash = [new Fr(0), new Fr(0)] as [Fr, Fr];
@@ -136,7 +148,7 @@ export function extractPublicInputs(partialWitness: ACVMWitness, acir: Buffer): 
   const contractDeploymentData = new ContractDeploymentData(
     // TODO: Uncomment when we fix the "too many unknowns" Noir issue
     // [witnessReader.readField(), witnessReader.readField()],
-    [Fr.ZERO, Fr.ZERO],
+    Point.ZERO,
     witnessReader.readField(),
     witnessReader.readField(),
     witnessReader.readField(),
