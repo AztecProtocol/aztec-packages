@@ -4,6 +4,7 @@
 #include "aztec3/circuits/abis/append_only_tree_snapshot.hpp"
 #include "aztec3/circuits/abis/rollup/merge/previous_rollup_data.hpp"
 #include "aztec3/constants.hpp"
+#include "aztec3/utils/msgpack_derived_output.hpp"
 
 #include <ostream>
 
@@ -43,7 +44,7 @@ template <typename NCT> struct RootRollupInputs {
 
 template <typename NCT> std::ostream& operator<<(std::ostream& os, RootRollupInputs<NCT> const& obj)
 {
-    msgpack_derived_output(os, obj);
+    utils::msgpack_derived_output(os, obj);
     return os;
 }
 

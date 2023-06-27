@@ -1,8 +1,8 @@
 #pragma once
-#include "aztec3/circuits/abis/append_only_tree_snapshot.hpp"
 #include "aztec3/circuits/abis/membership_witness.hpp"
 #include "aztec3/circuits/abis/rollup/base/base_or_merge_rollup_public_inputs.hpp"
 #include "aztec3/constants.hpp"
+#include "aztec3/utils/msgpack_derived_output.hpp"
 #include "aztec3/utils/types/native_types.hpp"
 
 #include <barretenberg/serialize/msgpack.hpp>
@@ -27,7 +27,7 @@ template <typename NCT> struct PreviousRollupData {
 };
 template <typename NCT> std::ostream& operator<<(std::ostream& os, PreviousRollupData<NCT> const& obj)
 {
-    msgpack_derived_output(os, obj);
+    utils::msgpack_derived_output(os, obj);
     return os;
 };
 

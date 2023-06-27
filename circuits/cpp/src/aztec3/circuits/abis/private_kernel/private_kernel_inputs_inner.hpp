@@ -21,6 +21,8 @@ template <typename NCT> struct PrivateKernelInputsInner {
     PreviousKernelData<NCT> previous_kernel{};
     PrivateCallData<NCT> private_call{};
 
+    MSGPACK_FIELDS(previous_kernel, private_call)
+
     boolean operator==(PrivateKernelInputsInner<NCT> const& other) const
     {
         return previous_kernel == other.previous_kernel && private_call == other.private_call;
