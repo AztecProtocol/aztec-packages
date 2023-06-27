@@ -697,6 +697,7 @@ workflows:
       - deploy:
           requires:
             - e2e-end
+            - aztec-sandbox
           filters:
             branches:
               only: sp/aztec-sandbox

@@ -305,7 +305,6 @@ async function main() {
     ethAccount.toString(),
     true,
   ] as const;
-  console.log('\n\nswapArgs', swapArgs, '\n\n');
   const { result: depositDaiMessageKeyHex } = await uniswapPortal.simulate.swap(swapArgs, {
     account: ethAccount.toString(),
   } as any);
