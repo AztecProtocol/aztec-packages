@@ -1,5 +1,5 @@
 #pragma once
-#include <barretenberg/barretenberg.hpp>a
+#include <barretenberg/barretenberg.hpp>
 
 #include <cstddef>
 #include <cstdint>
