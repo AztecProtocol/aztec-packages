@@ -9,6 +9,7 @@ import {
   Fq,
   G1AffineElement,
   NativeAggregationState,
+  MembershipWitness,
   NewContractData,
   FunctionData,
   OptionallyRevealedData,
@@ -121,6 +122,37 @@ export function fromNativeAggregationState(o: NativeAggregationState): MsgpackNa
     public_inputs: o.publicInputs.map((v: Fr) => v.toBuffer()),
     proof_witness_indices: o.proofWitnessIndices.map((v: number) => v),
     has_data: o.hasData,
+  };
+}
+
+interface MsgpackMembershipWitness {
+  leaf_index: Buffer;
+  sibling_path: Tuple<Buffer, 8>;
+}
+
+export function toMembershipWitness(o: MsgpackMembershipWitness): MembershipWitness {
+  if (o.leaf_index === undefined) {
+    throw new Error('Expected leaf_index in MembershipWitness deserialization');
+  }
+  if (o.sibling_path === undefined) {
+    throw new Error('Expected sibling_path in MembershipWitness deserialization');
+  }
+  return new MembershipWitness(
+    Fr.fromBuffer(o.leaf_index),
+    mapTuple(o.sibling_path, (v: Buffer) => Fr.fromBuffer(v)),
+  );
+}
+
+export function fromMembershipWitness(o: MembershipWitness): MsgpackMembershipWitness {
+  if (o.leafIndex === undefined) {
+    throw new Error('Expected leafIndex in MembershipWitness serialization');
+  }
+  if (o.siblingPath === undefined) {
+    throw new Error('Expected siblingPath in MembershipWitness serialization');
+  }
+  return {
+    leaf_index: o.leafIndex.toBuffer(),
+    sibling_path: mapTuple(o.siblingPath, (v: Fr) => v.toBuffer()),
   };
 }
 
@@ -355,6 +387,8 @@ export function fromPublicDataRead(o: PublicDataRead): MsgpackPublicDataRead {
 
 interface MsgpackCombinedAccumulatedData {
   aggregation_object: MsgpackNativeAggregationState;
+  read_requests: Tuple<Buffer, 4>;
+  read_request_membership_witnesses: Tuple<MsgpackMembershipWitness, 4>;
   new_commitments: Tuple<Buffer, 16>;
   new_nullifiers: Tuple<Buffer, 16>;
   private_call_stack: Tuple<Buffer, 8>;
@@ -373,6 +407,12 @@ interface MsgpackCombinedAccumulatedData {
 export function toCombinedAccumulatedData(o: MsgpackCombinedAccumulatedData): CombinedAccumulatedData {
   if (o.aggregation_object === undefined) {
     throw new Error('Expected aggregation_object in CombinedAccumulatedData deserialization');
+  }
+  if (o.read_requests === undefined) {
+    throw new Error('Expected read_requests in CombinedAccumulatedData deserialization');
+  }
+  if (o.read_request_membership_witnesses === undefined) {
+    throw new Error('Expected read_request_membership_witnesses in CombinedAccumulatedData deserialization');
   }
   if (o.new_commitments === undefined) {
     throw new Error('Expected new_commitments in CombinedAccumulatedData deserialization');
@@ -415,6 +455,8 @@ export function toCombinedAccumulatedData(o: MsgpackCombinedAccumulatedData): Co
   }
   return new CombinedAccumulatedData(
     toNativeAggregationState(o.aggregation_object),
+    mapTuple(o.read_requests, (v: Buffer) => Fr.fromBuffer(v)),
+    mapTuple(o.read_request_membership_witnesses, (v: MsgpackMembershipWitness) => toMembershipWitness(v)),
     mapTuple(o.new_commitments, (v: Buffer) => Fr.fromBuffer(v)),
     mapTuple(o.new_nullifiers, (v: Buffer) => Fr.fromBuffer(v)),
     mapTuple(o.private_call_stack, (v: Buffer) => Fr.fromBuffer(v)),
@@ -434,6 +476,12 @@ export function toCombinedAccumulatedData(o: MsgpackCombinedAccumulatedData): Co
 export function fromCombinedAccumulatedData(o: CombinedAccumulatedData): MsgpackCombinedAccumulatedData {
   if (o.aggregationObject === undefined) {
     throw new Error('Expected aggregationObject in CombinedAccumulatedData serialization');
+  }
+  if (o.readRequests === undefined) {
+    throw new Error('Expected readRequests in CombinedAccumulatedData serialization');
+  }
+  if (o.readRequestMembershipWitnesses === undefined) {
+    throw new Error('Expected readRequestMembershipWitnesses in CombinedAccumulatedData serialization');
   }
   if (o.newCommitments === undefined) {
     throw new Error('Expected newCommitments in CombinedAccumulatedData serialization');
@@ -476,6 +524,10 @@ export function fromCombinedAccumulatedData(o: CombinedAccumulatedData): Msgpack
   }
   return {
     aggregation_object: fromNativeAggregationState(o.aggregationObject),
+    read_requests: mapTuple(o.readRequests, (v: Fr) => v.toBuffer()),
+    read_request_membership_witnesses: mapTuple(o.readRequestMembershipWitnesses, (v: MembershipWitness) =>
+      fromMembershipWitness(v),
+    ),
     new_commitments: mapTuple(o.newCommitments, (v: Fr) => v.toBuffer()),
     new_nullifiers: mapTuple(o.newNullifiers, (v: Fr) => v.toBuffer()),
     private_call_stack: mapTuple(o.privateCallStack, (v: Fr) => v.toBuffer()),
