@@ -24,6 +24,8 @@ import {
   Proof,
   VerificationKeyData,
   PreviousKernelData,
+  CircuitError,
+  isCircuitError,
   CallContext,
   ContractStorageUpdateRequest,
   ContractStorageRead,
@@ -31,8 +33,6 @@ import {
   PublicCallStackItem,
   PublicCallData,
   PublicKernelInputs,
-  CircuitError,
-  isCircuitError,
 } from './types.js';
 import { Tuple, mapTuple } from '@aztec/foundation/serialize';
 import mapValues from 'lodash.mapvalues';
@@ -635,6 +635,8 @@ interface MsgpackTxContext {
   is_rebate_payment_tx: boolean;
   is_contract_deployment_tx: boolean;
   contract_deployment_data: MsgpackContractDeploymentData;
+  chain_id: Buffer;
+  version: Buffer;
 }
 
 export function toTxContext(o: MsgpackTxContext): TxContext {
@@ -650,11 +652,19 @@ export function toTxContext(o: MsgpackTxContext): TxContext {
   if (o.contract_deployment_data === undefined) {
     throw new Error('Expected contract_deployment_data in TxContext deserialization');
   }
+  if (o.chain_id === undefined) {
+    throw new Error('Expected chain_id in TxContext deserialization');
+  }
+  if (o.version === undefined) {
+    throw new Error('Expected version in TxContext deserialization');
+  }
   return new TxContext(
     o.is_fee_payment_tx,
     o.is_rebate_payment_tx,
     o.is_contract_deployment_tx,
     toContractDeploymentData(o.contract_deployment_data),
+    Fr.fromBuffer(o.chain_id),
+    Fr.fromBuffer(o.version),
   );
 }
 
@@ -671,11 +681,19 @@ export function fromTxContext(o: TxContext): MsgpackTxContext {
   if (o.contractDeploymentData === undefined) {
     throw new Error('Expected contractDeploymentData in TxContext serialization');
   }
+  if (o.chainId === undefined) {
+    throw new Error('Expected chainId in TxContext serialization');
+  }
+  if (o.version === undefined) {
+    throw new Error('Expected version in TxContext serialization');
+  }
   return {
     is_fee_payment_tx: o.isFeePaymentTx,
     is_rebate_payment_tx: o.isRebatePaymentTx,
     is_contract_deployment_tx: o.isContractDeploymentTx,
     contract_deployment_data: fromContractDeploymentData(o.contractDeploymentData),
+    chain_id: o.chainId.toBuffer(),
+    version: o.version.toBuffer(),
   };
 }
 
@@ -869,6 +887,34 @@ export function fromPreviousKernelData(o: PreviousKernelData): MsgpackPreviousKe
     vk: fromVerificationKeyData(o.vk),
     vk_index: o.vkIndex,
     vk_path: mapTuple(o.vkPath, (v: Fr) => v.toBuffer()),
+  };
+}
+
+interface MsgpackCircuitError {
+  code: number;
+  message: string;
+}
+
+export function toCircuitError(o: MsgpackCircuitError): CircuitError {
+  if (o.code === undefined) {
+    throw new Error('Expected code in CircuitError deserialization');
+  }
+  if (o.message === undefined) {
+    throw new Error('Expected message in CircuitError deserialization');
+  }
+  return new CircuitError(o.code, o.message);
+}
+
+export function fromCircuitError(o: CircuitError): MsgpackCircuitError {
+  if (o.code === undefined) {
+    throw new Error('Expected code in CircuitError serialization');
+  }
+  if (o.message === undefined) {
+    throw new Error('Expected message in CircuitError serialization');
+  }
+  return {
+    code: o.code,
+    message: o.message,
   };
 }
 
@@ -1278,34 +1324,6 @@ export function fromPublicKernelInputs(o: PublicKernelInputs): MsgpackPublicKern
   };
 }
 
-interface MsgpackCircuitError {
-  code: number;
-  message: string;
-}
-
-export function toCircuitError(o: MsgpackCircuitError): CircuitError {
-  if (o.code === undefined) {
-    throw new Error('Expected code in CircuitError deserialization');
-  }
-  if (o.message === undefined) {
-    throw new Error('Expected message in CircuitError deserialization');
-  }
-  return new CircuitError(o.code, o.message);
-}
-
-export function fromCircuitError(o: CircuitError): MsgpackCircuitError {
-  if (o.code === undefined) {
-    throw new Error('Expected code in CircuitError serialization');
-  }
-  if (o.message === undefined) {
-    throw new Error('Expected message in CircuitError serialization');
-  }
-  return {
-    code: o.code,
-    message: o.message,
-  };
-}
-
 export function abisComputeContractAddress(
   wasm: IWasmModule,
   arg0: Tuple<Fr, 2>,
@@ -1327,6 +1345,15 @@ export function abisSiloCommitment(wasm: IWasmModule, arg0: Address, arg1: Fr): 
 }
 export function privateKernelDummyPreviousKernel(wasm: IWasmModule): PreviousKernelData {
   return toPreviousKernelData(callCbind(wasm, 'private_kernel__dummy_previous_kernel', []));
+}
+export function privateKernelSimOrdering(
+  wasm: IWasmModule,
+  arg0: PreviousKernelData,
+): CircuitError | KernelCircuitPublicInputs {
+  return ((v: MsgpackCircuitError | MsgpackKernelCircuitPublicInputs) =>
+    isCircuitError(v) ? toCircuitError(v) : toKernelCircuitPublicInputs(v))(
+    callCbind(wasm, 'private_kernel__sim_ordering', [fromPreviousKernelData(arg0)]),
+  );
 }
 export function publicKernelSim(wasm: IWasmModule, arg0: PublicKernelInputs): CircuitError | KernelCircuitPublicInputs {
   return ((v: MsgpackCircuitError | MsgpackKernelCircuitPublicInputs) =>

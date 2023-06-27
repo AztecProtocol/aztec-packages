@@ -1,6 +1,7 @@
 #pragma once
 
 #include "aztec3/circuits/abis/append_only_tree_snapshot.hpp"
+#include "aztec3/circuits/abis/global_variables.hpp"
 #include "aztec3/constants.hpp"
 #include "aztec3/utils/msgpack_derived_output.hpp"
 #include "aztec3/utils/types/circuit_types.hpp"
@@ -19,6 +20,8 @@ template <typename NCT> struct RootRollupPublicInputs {
 
     // All below are shared between the base and merge rollups
     AggregationObject end_aggregation_object;
+
+    GlobalVariables<NCT> globalVariables;
 
     AppendOnlyTreeSnapshot<NCT> start_private_data_tree_snapshot;
     AppendOnlyTreeSnapshot<NCT> end_private_data_tree_snapshot;
@@ -49,6 +52,7 @@ template <typename NCT> struct RootRollupPublicInputs {
 
     // for serialization, update with new fields
     MSGPACK_FIELDS(end_aggregation_object,
+                   globalVariables,
                    start_private_data_tree_snapshot,
                    end_private_data_tree_snapshot,
                    start_nullifier_tree_snapshot,
@@ -73,8 +77,7 @@ template <typename NCT> struct RootRollupPublicInputs {
     {
         std::vector<uint8_t> buf;
 
-        // TODO(AD) should we have hash() methods in each class that get built up?
-        // eventually would be nice for this serialization to go away
+        write(&buf, globalVariables);
         write(buf, start_private_data_tree_snapshot);
         write(buf, start_nullifier_tree_snapshot);
         write(buf, start_contract_tree_snapshot);

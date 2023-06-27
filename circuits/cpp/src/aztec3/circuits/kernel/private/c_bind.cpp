@@ -4,9 +4,14 @@
 #include "utils.hpp"
 
 #include "aztec3/circuits/abis/kernel_circuit_public_inputs.hpp"
+#include "aztec3/circuits/abis/previous_kernel_data.hpp"
 #include "aztec3/circuits/kernel/public/common.hpp"
+#include "aztec3/constants.hpp"
+#include "aztec3/utils/array.hpp"
 
 #include <barretenberg/barretenberg.hpp>
+
+#include <array>
 
 namespace {
 using Composer = plonk::UltraPlonkComposer;
@@ -16,6 +21,7 @@ using aztec3::circuits::abis::private_kernel::PrivateKernelInputsInit;
 using aztec3::circuits::abis::private_kernel::PrivateKernelInputsInner;
 using aztec3::circuits::kernel::private_kernel::native_private_kernel_circuit_initial;
 using aztec3::circuits::kernel::private_kernel::native_private_kernel_circuit_inner;
+using aztec3::circuits::kernel::private_kernel::native_private_kernel_circuit_ordering_rr_dummy;
 using aztec3::circuits::kernel::private_kernel::utils::dummy_previous_kernel;
 
 }  // namespace
@@ -70,3 +76,7 @@ static auto private_kernel__sim_inner_helper(PrivateKernelInputsInner<NT> privat
 }
 
 CBIND(private_kernel__sim_inner, private_kernel__sim_inner_helper);
+
+CBIND(private_kernel__sim_ordering, [](PreviousKernelData<NT> previous_kernel) {
+    return native_private_kernel_circuit_ordering_rr_dummy(previous_kernel);
+});

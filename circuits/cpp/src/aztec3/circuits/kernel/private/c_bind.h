@@ -1,4 +1,5 @@
 #pragma once
+#include "barretenberg/serialize/cbind_fwd.hpp"
 #include <barretenberg/barretenberg.hpp>
 
 #include <cstddef>
@@ -9,6 +10,7 @@ WASM_EXPORT size_t private_kernel__init_verification_key(uint8_t const* pk_buf, 
 CBIND_DECL(private_kernel__dummy_previous_kernel);
 CBIND_DECL(private_kernel__sim_init);
 CBIND_DECL(private_kernel__sim_inner);
+CBIND_DECL(private_kernel__sim_ordering);
 WASM_EXPORT size_t private_kernel__prove(uint8_t const* tx_request_buf,
                                          uint8_t const* previous_kernel_buf,
                                          uint8_t const* private_call_buf,
