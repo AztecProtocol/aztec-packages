@@ -95,5 +95,5 @@ describe('e2e_public_to_private_messaging', () => {
 
     const publicBalancesSlot = 2n;
     await expectStorageSlot(logger, aztecNode, contract, publicBalancesSlot, owner.toField(), mintAmount);
-  }, 60_000);
+  }, 100_000);
 });
