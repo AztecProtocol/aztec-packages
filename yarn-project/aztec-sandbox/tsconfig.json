@@ -7,13 +7,13 @@
   },
   "references": [
     {
-      "path": "../aztec.js"
-    },
-    {
       "path": "../aztec-node"
     },
     {
       "path": "../aztec-rpc"
+    },
+    {
+      "path": "../aztec.js"
     },
     {
       "path": "../ethereum"
@@ -22,7 +22,5 @@
       "path": "../foundation"
     }
   ],
-  "include": [
-    "src"
-  ]
+  "include": ["src"]
 }
