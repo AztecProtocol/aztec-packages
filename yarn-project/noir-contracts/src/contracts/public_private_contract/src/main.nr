@@ -26,6 +26,7 @@ contract PublicPrivate {
     use dep::aztec3::oracle::create_l2_to_l1_message::create_l2_to_l1_message;
     use dep::aztec3::oracle::create_nullifier::create_nullifier;
     use dep::aztec3::oracle::get_commitment::get_commitment;
+    use dep::aztec3::oracle::debug_log::debug_log_format;
 
     global balances = Map { storage_slot: 1 };
 
@@ -42,7 +43,7 @@ contract PublicPrivate {
         secretHash: Field,
         _padding: [Field; dep::aztec3::abi::MAX_ARGS - 3]
     ) {
-    
+        debug_log_format("mintFromPublicToPrivate amount {0} hash {1}", [amount, secretHash]);
         // Create a commitment to the amount
         let note = TransparentNote::new(amount, secretHash);
         
