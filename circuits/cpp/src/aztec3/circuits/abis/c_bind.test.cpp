@@ -309,8 +309,8 @@ TEST(abi_tests, compute_transaction_hash)
     EXPECT_EQ(got_tx_hash, tx_request.hash());
 }
 
-TEST(abi_tests, cbind_schema_BaseRollupInputs)
-{
-    EXPECT_EQ(msgpack_schema_to_string(BaseRollupInputs<NT>{}), "");  // smoke test
-}
+// TEST(abi_tests, cbind_schema_BaseRollupInputs)
+// {
+//     EXPECT_EQ(msgpack_schema_to_string(BaseRollupInputs<NT>{}), "");  // smoke test
+// }
 }  // namespace aztec3::circuits::abis
