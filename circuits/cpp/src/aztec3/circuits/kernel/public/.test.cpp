@@ -367,12 +367,15 @@ PublicKernelInputs<NT> get_kernel_inputs_with_previous_kernel(NT::boolean privat
         .bytecode_hash = 1234567,
     };
 
-    // CombinedHistoricTreeRoots<NT> const historic_tree_roots = { .private_historic_tree_roots = {
-    //                                                                 .private_data_tree_root = 1000,
-    //                                                                 .contract_tree_root = 2000,
-    //                                                                 .l1_to_l2_messages_tree_root = 3000,
-    //                                                                 .private_kernel_vk_tree_root = 4000,
-    //                                                             } };
+    // TODO(914) Should this be unused?
+    [[maybe_unused]] CombinedHistoricTreeRoots<NT> const historic_tree_roots = { .private_historic_tree_roots = {
+                                                                                     .private_data_tree_root = 1000,
+                                                                                     .contract_tree_root = 2000,
+                                                                                     .l1_to_l2_messages_tree_root =
+                                                                                         3000,
+                                                                                     .private_kernel_vk_tree_root =
+                                                                                         4000,
+                                                                                 } };
 
     CombinedConstantData<NT> const end_constants = {
         .historic_tree_roots =
@@ -1079,6 +1082,7 @@ TEST(public_kernel_tests, circuit_outputs_should_be_correctly_populated_with_pre
     // Unencrypted logs hash and preimage lengths should now be correctly accumulated
     auto const& public_inputs_unencrypted_logs_hash = inputs.previous_kernel.public_inputs.end.unencrypted_logs_hash;
     auto const& unencrypted_logs_hash = inputs.public_call.call_stack_item.public_inputs.unencrypted_logs_hash;
+    // TODO(914) Should this be unused?
     [[maybe_unused]] auto const& expected_unencrypted_logs_hash =
         accumulate_sha256<NT>({ public_inputs_unencrypted_logs_hash[0],
                                 public_inputs_unencrypted_logs_hash[1],
@@ -1230,6 +1234,7 @@ TEST(public_kernel_tests, logs_are_handled_as_expected)
     // Unencrypted logs hash and preimage lengths should now be correctly accumulated
     auto const& public_inputs_unencrypted_logs_hash = inputs.previous_kernel.public_inputs.end.unencrypted_logs_hash;
     auto const& unencrypted_logs_hash = inputs.public_call.call_stack_item.public_inputs.unencrypted_logs_hash;
+    // TODO(914) Should this be unused?
     [[maybe_unused]] auto const& expected_unencrypted_logs_hash =
         accumulate_sha256<NT>({ public_inputs_unencrypted_logs_hash[0],
                                 public_inputs_unencrypted_logs_hash[1],

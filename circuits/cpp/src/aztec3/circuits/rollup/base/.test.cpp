@@ -527,21 +527,23 @@ TEST_F(base_rollup_tests, native_empty_block_calldata_hash)
 {
     DummyBuilder builder = DummyBuilder("base_rollup_tests__native_empty_block_calldata_hash");
     std::vector<uint8_t> const zero_bytes_vec = test_utils::utils::get_empty_calldata_leaf();
+    // TODO(914) Should this be unused?
     [[maybe_unused]] auto expected_calldata_hash = sha256::sha256(zero_bytes_vec);
     BaseRollupInputs inputs = base_rollup_inputs_from_kernels({ get_empty_kernel(), get_empty_kernel() });
     BaseOrMergeRollupPublicInputs outputs =
         aztec3::circuits::rollup::native_base_rollup::base_rollup_circuit(builder, inputs);
 
+    // TODO(914) Should this be unused?
     [[maybe_unused]] std::array<fr, NUM_FIELDS_PER_SHA256> const output_calldata_hash = outputs.calldata_hash;
 
+    // TODO(Cody): I don't understand how this was compiling before. Global variables? Is that intended?
     // std::array<uint8_t, 32> calldata_hash;
-    for (uint8_t i = 0; i < 16; ++i) {
-        // WORKTODO: ???
-        // calldata_hash[i] = high_buffer[16 + i];
-        // calldata_hash[16 + i] = low_buffer[16 + i];
-    }
-
+    // for (uint8_t i = 0; i < 16; ++i) {
+    // calldata_hash[i] = high_buffer[16 + i];
+    // calldata_hash[16 + i] = low_buffer[16 + i];
+    // }
     // ASSERT_EQ(hash, calldata_hash);
+
     ASSERT_FALSE(builder.failed());
 
     run_cbind(inputs, outputs);
