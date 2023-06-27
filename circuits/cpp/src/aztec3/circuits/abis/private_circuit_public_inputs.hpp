@@ -470,8 +470,8 @@ template <typename NCT> class OptionalPrivateCircuitPublicInputs {
 
         make_unused_element_zero(builder, contract_deployment_data);
 
-        make_unused_element_zero(composer, chain_id);
-        make_unused_element_zero(composer, version);
+        make_unused_element_zero(builder, chain_id);
+        make_unused_element_zero(builder, version);
 
         all_elements_populated = true;
     }
