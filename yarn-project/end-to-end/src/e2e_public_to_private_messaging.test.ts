@@ -54,7 +54,7 @@ describe('e2e_public_to_private_messaging', () => {
   /**
    * Milestone 5.4: Intra-contract Public -\> Private calls (shielding).
    */
-  it('5.4: Should be able to create a commitment in a public function and spend in a private function', async () => {
+  it('5.4: Should be able to create a private commitment in a public function, then convert back to public', async () => {
     const mintAmount = 100n;
 
     const [owner] = accounts;
