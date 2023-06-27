@@ -405,6 +405,102 @@ contract NonNativeToken {
         recipient_balance.write(current_balance + amount);
     }
 
+    // Shield creates a way for a user to move tokens from the public context into the private context.
+    open fn shield(
+        inputs: PublicContextInputs,
+        amount: Field,
+        secretHash: Field,
+        _padding: [Field; abi::MAX_ARGS - 2]
+    ) {
+        // Create a commitment to the amount
+        let note = TransparentNote::new(amount, secretHash);
+        
+        // Public oracle call to emit new commitment.
+        create_commitment(note.get_commitment());
+    }
+
+    // The shield function takes a public balance, and creates a commitment containing the amount of tokens
+    // in the private context. 
+    fn redeemShield(
+        inputs: PrivateContextInputs,
+        amount: Field,
+        secret: Field,
+        owner: Point,
+    ) -> distinct pub abi::PrivateCircuitPublicInputs {
+        let mut context = PrivateFunctionContext::new();
+        context.args = context.args.push_array([amount, secret, owner.x, owner.y]);
+
+        // Assert that the note exists within the tree
+        let public_note = TransparentNote::new_from_secret(amount, secret);
+        context = public_note.consume_in_secret(context, inputs.roots.private_data_tree_root, secret);
+
+        // Mint the tokens
+        let owner_balance = balances.at(owner.x);
+        let note = Note::new(amount, owner);
+
+        // Insert note and emit encrypted preimage
+        context = owner_balance.insert(context, note);
+        assert(emit_encrypted_log(inputs.call_context.storage_contract_address, owner_balance.storage_slot, note.owner, note) == 0);
+
+        context.finish(inputs)
+    }
+
+    fn unshieldTokens(
+        inputs: PrivateContextInputs,
+        amount: Field,
+        owner: Point,
+        recipient: Field,
+    ) -> distinct pub abi::PrivateCircuitPublicInputs {
+        let mut initialContext = PrivateFunctionContext::new();
+        initialContext.args = initialContext.args.push_array([amount, owner.x, owner.y]);
+
+        let sender_balance = balances.at(owner.x);
+        let (mut context, (note1, note2)) = sender_balance.get_2(initialContext);
+
+        // TODO: Removing this return breaks the circuit (???)
+        context.return_values = context.return_values.push(note1.is_real as Field);
+        context.return_values = context.return_values.push(note2.is_real as Field);
+
+        note1.validate(owner);
+        note2.validate(owner);
+
+        let sum = note1.value + note2.value;
+        assert(sum as u64 >= amount as u64);
+        let change_value = sum - amount;
+
+        context = sender_balance.remove(inputs, context, note1);
+        context = sender_balance.remove(inputs, context, note2);
+
+        let change_note = Note::new(change_value, owner);
+
+        // enqueue a public function to perform the public state update.
+        context = sender_balance.insert(context, change_note);
+        assert(emit_encrypted_log(inputs.call_context.storage_contract_address, sender_balance.storage_slot, change_note.owner, change_note) == 0);
+
+        let thisAddress = inputs.call_context.storage_contract_address;
+        let mut args = [0; abi::MAX_ARGS];
+        // addUnshieldedBalance selector (in decimal)
+        let pubEntryPointSelector = 753269941;
+        args[0] = amount;
+        args[1] = recipient;
+        
+        let (_callStackItem1, mut context1) = PublicCallStackItem::call(thisAddress, pubEntryPointSelector, args, context);
+
+        context1.finish(inputs)
+    }
+
+    open fn addUnshieldedBalance(
+        _inputs: PublicContextInputs,
+        amount: Field,
+        recipient: Field,
+        _padding: [Field; abi::MAX_ARGS - 2]
+    ) {
+        let recipient_balance = public_balances.at(recipient);
+        let current_balance = recipient_balance.read();
+        recipient_balance.write(current_balance + amount);
+    }
+
+
     /// ABI getBalance type "unconstrained"
     fn getBalance(
         owner: Point,

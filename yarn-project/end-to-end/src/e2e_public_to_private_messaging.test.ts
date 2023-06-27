@@ -5,23 +5,26 @@ import {
   Contract,
   ContractDeployer,
   Fr,
+  Point,
   TxStatus,
   computeMessageSecretHash,
 } from '@aztec/aztec.js';
-import { PublicToPrivateContractAbi } from '@aztec/noir-contracts/examples';
+import { NonNativeTokenContractAbi } from '@aztec/noir-contracts/examples';
 import { DebugLogger } from '@aztec/foundation/log';
-import { pointToPublicKey, setup } from './utils.js';
+import { expectStorageSlot, pointToPublicKey, setup } from './utils.js';
 
 describe('e2e_public_to_private_messaging', () => {
   let aztecNode: AztecNodeService;
   let aztecRpcServer: AztecRPCServer;
   let accounts: AztecAddress[];
+  let ownerPub: Point;
   let logger: DebugLogger;
 
   let contract: Contract;
 
   beforeEach(async () => {
-    ({ aztecNode, aztecRpcServer, accounts, logger } = await setup(2));
+    ({ aztecNode, aztecRpcServer, accounts, logger } = await setup());
+    ownerPub = await aztecRpcServer.getAccountPublicKey(accounts[0]);
   }, 100_000);
 
   afterEach(async () => {
@@ -38,10 +41,10 @@ describe('e2e_public_to_private_messaging', () => {
 
   const deployContract = async () => {
     logger(`Deploying Public to Private L2 contract...`);
-    const deployer = new ContractDeployer(PublicToPrivateContractAbi, aztecRpcServer);
-    const tx = deployer.deploy().send();
+    const deployer = new ContractDeployer(NonNativeTokenContractAbi, aztecRpcServer);
+    const tx = deployer.deploy(0n, ownerPub).send();
     const receipt = await tx.getReceipt();
-    contract = new Contract(receipt.contractAddress!, PublicToPrivateContractAbi, aztecRpcServer);
+    contract = new Contract(receipt.contractAddress!, NonNativeTokenContractAbi, aztecRpcServer);
     await tx.isMined(0, 0.1);
     await tx.getReceipt();
     logger('L2 contract deployed');
@@ -49,14 +52,14 @@ describe('e2e_public_to_private_messaging', () => {
   };
 
   /**
-   * Milestone 5.4: Intra-contract Public -\> Private calls.
+   * Milestone 5.4: Intra-contract Public -\> Private calls (shielding).
    */
   it('5.4: Should be able to create a commitment in a public function and spend in a private function', async () => {
     const mintAmount = 100n;
 
-    const [owner, receiver] = accounts;
+    const [owner] = accounts;
 
-    const deployedContract = await deployContract();
+    await deployContract();
 
     // Create a secret for the transparent message
     const secret = Fr.random();
@@ -64,23 +67,33 @@ describe('e2e_public_to_private_messaging', () => {
 
     // Create the commitment to be spent in the private domain
     logger('Creating commitment in public call');
-    const publicTx = deployedContract.methods.mintFromPublicToPrivate(mintAmount, secretHash).send({ from: receiver });
+    const shieldTx = contract.methods.shield(mintAmount, secretHash).send({ from: owner });
 
-    await publicTx.isMined(0, 0.1);
-    const publicReceipt = await publicTx.getReceipt();
+    await shieldTx.isMined(0, 0.1);
+    const shieldReceipt = await shieldTx.getReceipt();
 
-    expect(publicReceipt.status).toBe(TxStatus.MINED);
+    expect(shieldReceipt.status).toBe(TxStatus.MINED);
 
     // Create the transaction spending the commitment
     logger('Spending commitment in private call');
-    const privateTx = deployedContract.methods
-      .mintFromPublicMessage(mintAmount, secret, pointToPublicKey(await aztecRpcServer.getAccountPublicKey(owner)))
-      .send({ from: owner });
+    const privateTx = contract.methods.redeemShield(mintAmount, secret, ownerPub).send({ from: owner });
 
     await privateTx.isMined();
     const privateReceipt = await privateTx.getReceipt();
 
     expect(privateReceipt.status).toBe(TxStatus.MINED);
     await expectBalance(owner, mintAmount);
+
+    // Unshield the tokens again, sending them to the same account, however this can be any account.
+    logger('Unshielding tokens');
+    const unshieldTx = contract.methods.unshieldTokens(mintAmount, ownerPub, owner).send({ from: owner });
+    await unshieldTx.isMined();
+    const unshieldReceipt = await unshieldTx.getReceipt();
+
+    expect(unshieldReceipt.status).toBe(TxStatus.MINED);
+    await expectBalance(owner, 0n);
+
+    const publicBalancesSlot = 2n;
+    await expectStorageSlot(logger, aztecNode, contract, publicBalancesSlot, owner.toField(), mintAmount);
   }, 60_000);
 });
