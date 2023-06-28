@@ -1,3 +1,6 @@
+// Noir implementation of a private token contract. It allows for the minting, and transfer of tokens. This contract
+// only works with private state and for this reason user balances are stored as notes (total user balance is
+// represented as a set of notes).
 contract ZkToken {
     mod balance_utils;
     use dep::aztec3::abi;
@@ -13,7 +16,7 @@ contract ZkToken {
     use dep::aztec3::oracle::logs::emit_unencrypted_log;
 
     //*********************************/
-    // A map from `owner.x` to a set of notes representing user balances.
+    // A map from `owner.x` to a set of notes representing user balance.
     global balances = Map { storage_slot: 1 };
     // Should eventually be replaced by:
     // `balances: Mapping<Field, Set<Note>>;`
@@ -84,6 +87,8 @@ contract ZkToken {
         let sender_balance = balances.at(sender.x);
         let (mut context, (note1, note2)) = sender_balance.get_2(initialContext);
 
+        // Ensure the notes are actually owned by the sender (to prevent user from generating a valid proof while
+        // spending someone else's notes).
         note1.validate(sender);
         note2.validate(sender);
 
@@ -103,10 +108,11 @@ contract ZkToken {
         // Get the recipient's set of notes.
         let recipient_balance = balances.at(recipient.x);
 
-        // Insert the 2 new notes to the recipient's and sender's sets of notes and emit the newly created encrypted note preimages via oracle call.
+        // Insert the 2 new notes to the recipient's and sender's sets of notes.
         context = recipient_balance.insert(context, recipient_note);
         context = sender_balance.insert(context, change_note);
 
+        // Emit the newly created encrypted note preimages via oracle calls.
         assert(emit_encrypted_log(inputs.call_context.storage_contract_address, recipient_balance.storage_slot, recipient_note.owner, recipient_note) == 0);
         assert(emit_encrypted_log(inputs.call_context.storage_contract_address, sender_balance.storage_slot, change_note.owner, change_note) == 0);
         assert(emit_unencrypted_log("Coins transferred") == 0); // unencrypted log is emitted here only for testing purposes
@@ -116,12 +122,15 @@ contract ZkToken {
     }
 
     /// ABI getBalance type "unconstrained"
+    // Helper function to get the balance of a user ("unconstrained" is a Noir alternative of Solidity's "view" function).
     fn getBalance(
         owner: Point,
         _padding: [Field; abi::MAX_ARGS - 2]
     ) -> pub Field {
+        // Get the set of notes owned by the user.
         let owner_balance = balances.at(owner.x);
         
+        // Return the sum of all notes in the set.
         balance_utils::get_balance(owner_balance.storage_slot)
     }
 }
