@@ -855,7 +855,7 @@ export function toVerificationKeyData(o: MsgpackVerificationKeyData): Verificati
 
 export function fromVerificationKeyData(o: VerificationKeyData): MsgpackVerificationKeyData {
   if (o.circuitType === undefined) {
-    throw new Error('Expected CircuitType in VerificationKeyData serialization');
+    throw new Error('Expected circuitType in VerificationKeyData serialization');
   }
   if (o.circuitSize === undefined) {
     throw new Error('Expected circuitSize in VerificationKeyData serialization');
