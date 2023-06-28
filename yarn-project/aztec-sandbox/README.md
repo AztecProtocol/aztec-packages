@@ -9,7 +9,7 @@ Aztec Sandbox is a package that allows for a simple development environment on A
 The easiesty way to run is by using docker compose. This will create two containers:
 
 1. The sandbox listening on port `8080`
-2. A foundry instance listening on port `8545`
+2. An anvil instance listening on port `8545`
 
 ### Node Server
 
