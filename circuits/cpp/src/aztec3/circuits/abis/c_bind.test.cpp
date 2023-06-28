@@ -6,7 +6,6 @@
 #include "aztec3/circuits/abis/tx_request.hpp"
 #include "aztec3/circuits/hash.hpp"
 
-#include "barretenberg/proof_system/types/circuit_type.hpp"
 #include <barretenberg/barretenberg.hpp>
 
 #include <gtest/gtest.h>

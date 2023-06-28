@@ -60,14 +60,26 @@ constexpr size_t FUNCTION_SELECTOR_NUM_BYTES = 4;  // must be <= 31
 // sha256 hash is stored in two fields to accommodate all 256-bits of the hash
 constexpr size_t NUM_FIELDS_PER_SHA256 = 2;
 
-// Enumerate the hash_indices which are used for pedersen hashing
-// Start from 1 to avoid the default generators.
+/**
+ * Enumerate the hash_indices which are used for pedersen hashing.
+ * We start from 1 to avoid the default generators. The generator indices are listed
+ * based on the number of elements each index hashes. The following conditions must be met:
+ *
+ * +-----------+-------------------------------+----------------------+
+ * | Hash size | Number of elements hashed (n) | Condition to use     |
+ * |-----------+-------------------------------+----------------------|
+ * | LOW       | n ≤ 8                         | 0 < hash_index ≤ 32  |
+ * | MID       | 8 < n ≤ 16                    | 32 < hash_index ≤ 40 |
+ * | HIGH      | 16 < n ≤ 44                   | 40 < hash_index ≤ 44 |
+ * +-----------+-------------------------------+----------------------+
+ *
+ */
 enum GeneratorIndex {
     /**
      * Indices with size ≤ 8
      */
     COMMITMENT = 1,                // Size = 7 (unused)
-    COMMITMENT_PLACEHOLDER,        // size = 1 (unused), for omitting some elements of commitment when partially comm
+    COMMITMENT_PLACEHOLDER,        // Size = 1 (unused), for omitting some elements of commitment when partially comm
     OUTER_COMMITMENT,              // Size = 2
     NULLIFIER_HASHED_PRIVATE_KEY,  // Size = 1 (unused)
     NULLIFIER,                     // Size = 4 (unused)
@@ -98,7 +110,7 @@ enum GeneratorIndex {
      */
     TX_REQUEST = 33,  // Size = 14
     /**
-     * Indices with size ≤ 40
+     * Indices with size ≤ 44
      */
     VK = 41,                        // Size = 35
     PRIVATE_CIRCUIT_PUBLIC_INPUTS,  // Size = 39

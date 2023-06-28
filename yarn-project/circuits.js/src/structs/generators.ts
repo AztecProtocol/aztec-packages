@@ -38,7 +38,7 @@ export enum GeneratorIndex {
    */
   TX_REQUEST = 33, // Size = 14
   /**
-   * Indices with size ≤ 40
+   * Indices with size ≤ 44
    */
   VK = 41, // Size = 35
   PRIVATE_CIRCUIT_PUBLIC_INPUTS, // Size = 39
