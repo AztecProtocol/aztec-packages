@@ -24,14 +24,15 @@ template <typename NCT> struct PrivateKernelInputsInit {
         return tx_request == other.tx_request && private_call == other.private_call;
     };
 
-    template <typename Builder> PrivateKernelInputsInit<CircuitTypes<Builder>> to_circuit_type(Builder& builder) const
+    template <typename Composer>
+    PrivateKernelInputsInit<CircuitTypes<Composer>> to_circuit_type(Composer& composer) const
     {
         static_assert((std::is_same<NativeTypes, NCT>::value));
 
-        PrivateKernelInputsInit<CircuitTypes<Builder>> private_inputs = {
+        PrivateKernelInputsInit<CircuitTypes<Composer>> private_inputs = {
             // TODO to_ct(signature),
-            tx_request.to_circuit_type(builder),
-            private_call.to_circuit_type(builder),
+            tx_request.to_circuit_type(composer),
+            private_call.to_circuit_type(composer),
         };
 
         return private_inputs;

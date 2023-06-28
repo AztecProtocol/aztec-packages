@@ -8,11 +8,11 @@
 #include <gtest/gtest.h>
 
 namespace {
-// Builder
-using Builder = UltraCircuitBuilder;
+// Composer
+using Composer = plonk::UltraPlonkComposer;
 
 // Types
-using CT = aztec3::utils::types::CircuitTypes<Builder>;
+using CT = aztec3::utils::types::CircuitTypes<Composer>;
 using NT = aztec3::utils::types::NativeTypes;
 }  // namespace
 
@@ -74,8 +74,8 @@ TEST(abi_tests, native_to_circuit_function_data)
 
     info("function data: ", native_function_data);
 
-    Builder builder = Builder();
-    FunctionData<CT> const circuit_function_data = native_function_data.to_circuit_type(builder);
+    Composer composer = Composer("../barretenberg/cpp/srs_db/ignition");
+    FunctionData<CT> const circuit_function_data = native_function_data.to_circuit_type(composer);
 
     info("function data: ", circuit_function_data);
 }
@@ -105,8 +105,8 @@ TEST(abi_tests, native_to_circuit_call_context)
 
     info("call context: ", native_call_context);
 
-    Builder builder = Builder();
-    CallContext<CT> const circuit_call_context = native_call_context.to_circuit_type(builder);
+    Composer composer = Composer("../barretenberg/cpp/srs_db/ignition");
+    CallContext<CT> const circuit_call_context = native_call_context.to_circuit_type(composer);
 
     info("call context: ", circuit_call_context);
 }

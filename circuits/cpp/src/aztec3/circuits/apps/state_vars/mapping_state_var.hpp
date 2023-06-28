@@ -7,7 +7,7 @@
 
 // Forward-declare from this namespace in particular:
 namespace aztec3::circuits::apps {
-template <typename Builder> class FunctionExecutionContext;
+template <typename Composer> class FunctionExecutionContext;
 }
 
 namespace aztec3::circuits::apps::state_vars {
@@ -24,9 +24,9 @@ using aztec3::utils::types::NativeTypes;
  * more easily (it was difficult enough to get working). You'll notice, therefore, that there's no Key template type;
  * only a value template type (`V`). Adding a Key template type could be a future enhancement.
  */
-template <typename Builder, typename V> class MappingStateVar : public StateVar<Builder> {
+template <typename Composer, typename V> class MappingStateVar : public StateVar<Composer> {
   public:
-    using CT = CircuitTypes<Builder>;
+    using CT = CircuitTypes<Composer>;
     using NT = NativeTypes;
     using fr = typename CT::fr;
     using grumpkin_point = typename CT::grumpkin_point;
@@ -37,22 +37,22 @@ template <typename Builder, typename V> class MappingStateVar : public StateVar<
     MappingStateVar() = default;
 
     // Instantiate a top-level mapping:
-    MappingStateVar(FunctionExecutionContext<Builder>* exec_ctx, std::string const& state_var_name)
-        : StateVar<Builder>(exec_ctx, state_var_name){};
+    MappingStateVar(FunctionExecutionContext<Composer>* exec_ctx, std::string const& state_var_name)
+        : StateVar<Composer>(exec_ctx, state_var_name){};
 
     // Instantiate a nested mapping (within some other container).
     // Note: we assume this is called by some other StateVar, and the params have been computed correctly.
     // TODO: we could specify a set of `friend` classes which may access this method, to make this assumption more
     // explicit.
-    MappingStateVar(FunctionExecutionContext<Builder>* exec_ctx,
+    MappingStateVar(FunctionExecutionContext<Composer>* exec_ctx,
                     std::string const& state_var_name,
                     grumpkin_point const& storage_slot_point,
                     size_t level_of_container_nesting,
                     bool is_partial_slot)
-        : StateVar<Builder>(
+        : StateVar<Composer>(
               exec_ctx, state_var_name, storage_slot_point, level_of_container_nesting, is_partial_slot){};
 
-    bool operator==(MappingStateVar<Builder, V> const&) const = default;
+    bool operator==(MappingStateVar<Composer, V> const&) const = default;
 
     V& operator[](std::optional<fr> const& key) { return this->at(key); };
     V& operator[](std::string const& question_mark)

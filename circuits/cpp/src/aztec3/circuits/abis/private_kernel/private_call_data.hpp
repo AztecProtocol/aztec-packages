@@ -55,29 +55,29 @@ template <typename NCT> struct PrivateCallData {
 
     // WARNING: the `proof` does NOT get converted! (because the current implementation of `verify_proof` takes a proof
     // of native bytes; any conversion to circuit types happens within the `verify_proof` function)
-    template <typename Builder> PrivateCallData<CircuitTypes<Builder>> to_circuit_type(Builder& builder) const
+    template <typename Composer> PrivateCallData<CircuitTypes<Composer>> to_circuit_type(Composer& composer) const
     {
-        typedef CircuitTypes<Builder> CT;
+        typedef CircuitTypes<Composer> CT;
         static_assert((std::is_same<NativeTypes, NCT>::value));
 
-        // Capture the circuit builder:
-        auto to_ct = [&](auto& e) { return aztec3::utils::types::to_ct(builder, e); };
-        auto to_circuit_type = [&](auto& e) { return e.to_circuit_type(builder); };
+        // Capture the composer:
+        auto to_ct = [&](auto& e) { return aztec3::utils::types::to_ct(composer, e); };
+        auto to_circuit_type = [&](auto& e) { return e.to_circuit_type(composer); };
 
-        PrivateCallData<CircuitTypes<Builder>> data = {
+        PrivateCallData<CircuitTypes<Composer>> data = {
             to_circuit_type(call_stack_item),
 
             map(private_call_stack_preimages, to_circuit_type),
 
             proof,  // Notice: not converted! Stays as native. This is because of how the verify_proof function
                     // currently works.
-            CT::VK::from_witness(&builder, vk),
+            CT::VK::from_witness(&composer, vk),
 
             to_circuit_type(function_leaf_membership_witness),
             to_circuit_type(contract_leaf_membership_witness),
 
-            aztec3::utils::types::to_ct<Builder, MembershipWitness<CT, PRIVATE_DATA_TREE_HEIGHT>>(
-                builder, read_request_membership_witnesses),
+            aztec3::utils::types::to_ct<Composer, MembershipWitness<CT, PRIVATE_DATA_TREE_HEIGHT>>(
+                composer, read_request_membership_witnesses),
 
             to_ct(portal_contract_address),
             to_ct(acir_hash),

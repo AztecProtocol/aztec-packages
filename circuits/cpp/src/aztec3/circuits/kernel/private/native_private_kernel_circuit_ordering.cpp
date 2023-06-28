@@ -5,7 +5,7 @@
 #include "aztec3/circuits/abis/previous_kernel_data.hpp"
 #include "aztec3/constants.hpp"
 #include "aztec3/utils/circuit_errors.hpp"
-#include "aztec3/utils/dummy_circuit_builder.hpp"
+#include "aztec3/utils/dummy_composer.hpp"
 
 #include <cstddef>
 
@@ -15,14 +15,14 @@ using aztec3::circuits::abis::KernelCircuitPublicInputs;
 using aztec3::circuits::abis::PreviousKernelData;
 using aztec3::utils::CircuitResult;
 
-using DummyBuilder = aztec3::utils::DummyCircuitBuilder;
+using DummyComposer = aztec3::utils::DummyComposer;
 using CircuitErrorCode = aztec3::utils::CircuitErrorCode;
 
 
 // TODO(jeanmon): the following code will be optimized based on hints regarding matching
 // a read request and commitment, i.e., we get pairs i,j such that read_requests[i] == new_commitments[j]
 // Relevant task: https://github.com/AztecProtocol/aztec-packages/issues/892
-void chop_pending_commitments(DummyBuilder& builder,
+void chop_pending_commitments(DummyComposer& composer,
                               std::array<NT::fr, READ_REQUESTS_LENGTH> const& read_requests,
                               std::array<MembershipWitness<NT, PRIVATE_DATA_TREE_HEIGHT>, READ_REQUESTS_LENGTH> const&
                                   read_request_membership_witnesses,
@@ -43,7 +43,7 @@ void chop_pending_commitments(DummyBuilder& builder,
             if (match_pos != KERNEL_NEW_COMMITMENTS_LENGTH) {
                 new_commitments[match_pos] = fr(0);
             } else {
-                builder.do_assert(
+                composer.do_assert(
                     false,
                     format("transient read request at position [", i, "] does not match any new commitment"),
                     CircuitErrorCode::PRIVATE_KERNEL__TRANSIENT_READ_REQUEST_NO_MATCH);
@@ -56,7 +56,7 @@ void chop_pending_commitments(DummyBuilder& builder,
 }
 
 KernelCircuitPublicInputs<NT> native_private_kernel_circuit_ordering(
-    DummyBuilder& builder,
+    DummyComposer& composer,
     PreviousKernelData<NT> const& previous_kernel,
     std::array<NT::fr, READ_REQUESTS_LENGTH> const& read_requests,
     std::array<MembershipWitness<NT, PRIVATE_DATA_TREE_HEIGHT>, READ_REQUESTS_LENGTH> const&
@@ -75,7 +75,7 @@ KernelCircuitPublicInputs<NT> native_private_kernel_circuit_ordering(
     // over all iterations of the private kernel. Therefore, we have to target commitments in public_inputs.end
     // Remark: The commitments in public_inputs.end have already been SILOED!
     chop_pending_commitments(
-        builder, read_requests, read_request_membership_witnesses, public_inputs.end.new_commitments);
+        composer, read_requests, read_request_membership_witnesses, public_inputs.end.new_commitments);
 
     return public_inputs;
 };
@@ -83,7 +83,7 @@ KernelCircuitPublicInputs<NT> native_private_kernel_circuit_ordering(
 CircuitResult<KernelCircuitPublicInputs<NT>> native_private_kernel_circuit_ordering_rr_dummy(
     PreviousKernelData<NT> const& previous_kernel)
 {
-    DummyBuilder builder = DummyBuilder("private_kernel__sim_ordering");
+    DummyComposer composer = DummyComposer("private_kernel__sim_ordering");
 
     // TODO(JEANMON): this is a temporary milestone. At a later stage, we will pass "real" read_requests and
     // membership_witnesses
@@ -92,8 +92,8 @@ CircuitResult<KernelCircuitPublicInputs<NT>> native_private_kernel_circuit_order
         read_request_membership_witnesses{};
 
     auto const& public_inputs = native_private_kernel_circuit_ordering(
-        builder, previous_kernel, read_requests, read_request_membership_witnesses);
-    return builder.result_or_error(public_inputs);
+        composer, previous_kernel, read_requests, read_request_membership_witnesses);
+    return composer.result_or_error(public_inputs);
 }
 
 }  // namespace aztec3::circuits::kernel::private_kernel

@@ -29,14 +29,14 @@ template <typename NCT> struct FunctionData {
                is_constructor == other.is_constructor;
     };
 
-    template <typename Builder> FunctionData<CircuitTypes<Builder>> to_circuit_type(Builder& builder) const
+    template <typename Composer> FunctionData<CircuitTypes<Composer>> to_circuit_type(Composer& composer) const
     {
         static_assert((std::is_same<NativeTypes, NCT>::value));
 
-        // Capture the circuit builder:
-        auto to_ct = [&](auto& e) { return aztec3::utils::types::to_ct(builder, e); };
+        // Capture the composer:
+        auto to_ct = [&](auto& e) { return aztec3::utils::types::to_ct(composer, e); };
 
-        FunctionData<CircuitTypes<Builder>> function_data = {
+        FunctionData<CircuitTypes<Composer>> function_data = {
             to_ct(function_selector),
             to_ct(is_private),
             to_ct(is_constructor),
@@ -45,10 +45,10 @@ template <typename NCT> struct FunctionData {
         return function_data;
     };
 
-    template <typename Builder> FunctionData<NativeTypes> to_native_type() const
+    template <typename Composer> FunctionData<NativeTypes> to_native_type() const
     {
-        static_assert(std::is_same<CircuitTypes<Builder>, NCT>::value);
-        auto to_nt = [&](auto& e) { return aztec3::utils::types::to_nt<Builder>(e); };
+        static_assert(std::is_same<CircuitTypes<Composer>, NCT>::value);
+        auto to_nt = [&](auto& e) { return aztec3::utils::types::to_nt<Composer>(e); };
 
         FunctionData<NativeTypes> function_data = {
             to_nt(function_selector),

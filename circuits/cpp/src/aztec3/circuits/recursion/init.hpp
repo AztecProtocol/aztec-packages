@@ -6,11 +6,11 @@
 #include <barretenberg/barretenberg.hpp>
 
 namespace aztec3::circuits::recursion {
-// Builder
-using Builder = UltraCircuitBuilder;
+// Composer
+using Composer = plonk::UltraPlonkComposer;
 
 // Generic types:
-using CT = aztec3::utils::types::CircuitTypes<Builder>;
+using CT = aztec3::utils::types::CircuitTypes<Composer>;
 using NT = aztec3::utils::types::NativeTypes;
 using aztec3::utils::types::to_ct;
 

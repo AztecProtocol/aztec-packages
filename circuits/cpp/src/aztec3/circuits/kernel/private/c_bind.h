@@ -1,4 +1,5 @@
 #pragma once
+#include "barretenberg/serialize/cbind_fwd.hpp"
 #include <barretenberg/barretenberg.hpp>
 
 #include <cstddef>

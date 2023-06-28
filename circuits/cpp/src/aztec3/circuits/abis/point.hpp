@@ -24,23 +24,23 @@ template <typename NCT> struct Point {
     MSGPACK_FIELDS(x, y);
     bool operator==(Point<NCT> const&) const = default;
 
-    template <typename Builder> Point<CircuitTypes<Builder>> to_circuit_type(Builder& builder) const
+    template <typename Composer> Point<CircuitTypes<Composer>> to_circuit_type(Composer& composer) const
     {
         static_assert((std::is_same<NativeTypes, NCT>::value));
 
-        Point<CircuitTypes<Builder>> point = {
-            x.to_circuit_type(builder),
-            y.to_circuit_type(builder),
+        Point<CircuitTypes<Composer>> point = {
+            x.to_circuit_type(composer),
+            y.to_circuit_type(composer),
         };
 
         return point;
     };
 
-    template <typename Builder> Point<NativeTypes> to_native_type() const
+    template <typename Composer> Point<NativeTypes> to_native_type() const
     {
-        static_assert((std::is_same<CircuitTypes<Builder>, NCT>::value));
+        static_assert((std::is_same<CircuitTypes<Composer>, NCT>::value));
 
-        auto to_native_type = []<typename T>(T& e) { return e.template to_native_type<Builder>(); };
+        auto to_native_type = []<typename T>(T& e) { return e.template to_native_type<Composer>(); };
 
         Point<NativeTypes> point = { to_native_type(x), to_native_type(y) };
 

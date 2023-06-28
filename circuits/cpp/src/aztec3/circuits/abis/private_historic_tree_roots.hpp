@@ -37,14 +37,15 @@ template <typename NCT> struct PrivateHistoricTreeRoots {
                private_kernel_vk_tree_root == other.private_kernel_vk_tree_root;
     };
 
-    template <typename Builder> PrivateHistoricTreeRoots<CircuitTypes<Builder>> to_circuit_type(Builder& builder) const
+    template <typename Composer>
+    PrivateHistoricTreeRoots<CircuitTypes<Composer>> to_circuit_type(Composer& composer) const
     {
         static_assert((std::is_same<NativeTypes, NCT>::value));
 
-        // Capture the circuit builder:
-        auto to_ct = [&](auto& e) { return aztec3::utils::types::to_ct(builder, e); };
+        // Capture the composer:
+        auto to_ct = [&](auto& e) { return aztec3::utils::types::to_ct(composer, e); };
 
-        PrivateHistoricTreeRoots<CircuitTypes<Builder>> data = {
+        PrivateHistoricTreeRoots<CircuitTypes<Composer>> data = {
             to_ct(private_data_tree_root),      to_ct(nullifier_tree_root),         to_ct(contract_tree_root),
             to_ct(l1_to_l2_messages_tree_root), to_ct(private_kernel_vk_tree_root),
         };
@@ -52,10 +53,10 @@ template <typename NCT> struct PrivateHistoricTreeRoots {
         return data;
     };
 
-    template <typename Builder> PrivateHistoricTreeRoots<NativeTypes> to_native_type() const
+    template <typename Composer> PrivateHistoricTreeRoots<NativeTypes> to_native_type() const
     {
-        static_assert(std::is_same<CircuitTypes<Builder>, NCT>::value);
-        auto to_nt = [&](auto& e) { return aztec3::utils::types::to_nt<Builder>(e); };
+        static_assert(std::is_same<CircuitTypes<Composer>, NCT>::value);
+        auto to_nt = [&](auto& e) { return aztec3::utils::types::to_nt<Composer>(e); };
 
         PrivateHistoricTreeRoots<NativeTypes> data = {
             to_nt(private_data_tree_root),      to_nt(nullifier_tree_root),         to_nt(contract_tree_root),

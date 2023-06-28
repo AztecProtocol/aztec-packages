@@ -26,35 +26,35 @@ using aztec3::utils::types::CircuitTypes;
 using aztec3::utils::types::NativeTypes;
 using plonk::stdlib::witness_t;
 
-template <typename Builder, typename V> void DefaultPrivateNote<Builder, V>::remove()
+template <typename Composer, typename V> void DefaultPrivateNote<Composer, V>::remove()
 {
-    Opcodes<Builder>::UTXO_NULL(state_var, *this);
+    Opcodes<Composer>::UTXO_NULL(state_var, *this);
 }
 
-template <typename Builder, typename V> auto& DefaultPrivateNote<Builder, V>::get_oracle()
+template <typename Composer, typename V> auto& DefaultPrivateNote<Composer, V>::get_oracle()
 {
     return state_var->exec_ctx->oracle;
 }
 
-template <typename Builder, typename V> bool DefaultPrivateNote<Builder, V>::is_partial_preimage() const
+template <typename Composer, typename V> bool DefaultPrivateNote<Composer, V>::is_partial_preimage() const
 {
     const auto& [value, owner, creator_address, memo, salt, nonce, _] = note_preimage;
 
     return (!value || !owner || !creator_address || !memo || !salt || !nonce);
 }
 
-template <typename Builder, typename V> bool DefaultPrivateNote<Builder, V>::is_partial_storage_slot() const
+template <typename Composer, typename V> bool DefaultPrivateNote<Composer, V>::is_partial_storage_slot() const
 {
     return state_var->is_partial_slot;
 }
 
-template <typename Builder, typename V> bool DefaultPrivateNote<Builder, V>::is_partial() const
+template <typename Composer, typename V> bool DefaultPrivateNote<Composer, V>::is_partial() const
 {
     return is_partial_preimage() || is_partial_storage_slot();
 }
 
-template <typename Builder, typename V>
-typename CircuitTypes<Builder>::fr DefaultPrivateNote<Builder, V>::compute_commitment()
+template <typename Composer, typename V>
+typename CircuitTypes<Composer>::fr DefaultPrivateNote<Composer, V>::compute_commitment()
 {
     if (commitment.has_value()) {
         return *commitment;
@@ -108,8 +108,8 @@ typename CircuitTypes<Builder>::fr DefaultPrivateNote<Builder, V>::compute_commi
     return *commitment;
 }
 
-template <typename Builder, typename V>
-typename CircuitTypes<Builder>::grumpkin_point DefaultPrivateNote<Builder, V>::compute_partial_commitment()
+template <typename Composer, typename V>
+typename CircuitTypes<Composer>::grumpkin_point DefaultPrivateNote<Composer, V>::compute_partial_commitment()
 {
     if (partial_commitment.has_value()) {
         info(
@@ -161,8 +161,8 @@ typename CircuitTypes<Builder>::grumpkin_point DefaultPrivateNote<Builder, V>::c
     return *partial_commitment;
 }
 
-template <typename Builder, typename V>
-typename CircuitTypes<Builder>::fr DefaultPrivateNote<Builder, V>::compute_nullifier()
+template <typename Composer, typename V>
+typename CircuitTypes<Composer>::fr DefaultPrivateNote<Composer, V>::compute_nullifier()
 {
     if (is_partial()) {
         throw_or_abort("Can't nullify a partial note.");
@@ -177,7 +177,7 @@ typename CircuitTypes<Builder>::fr DefaultPrivateNote<Builder, V>::compute_nulli
     fr const& owner_private_key = get_oracle().get_msg_sender_private_key();
 
     nullifier =
-        DefaultPrivateNote<Builder, V>::compute_nullifier(*commitment, owner_private_key, note_preimage.is_dummy);
+        DefaultPrivateNote<Composer, V>::compute_nullifier(*commitment, owner_private_key, note_preimage.is_dummy);
     nullifier_preimage = {
         *commitment,
         owner_private_key,
@@ -186,21 +186,20 @@ typename CircuitTypes<Builder>::fr DefaultPrivateNote<Builder, V>::compute_nulli
     return *nullifier;
 };
 
-template <typename Builder, typename V>
-typename CircuitTypes<Builder>::fr DefaultPrivateNote<Builder, V>::compute_dummy_nullifier()
+template <typename Composer, typename V>
+typename CircuitTypes<Composer>::fr DefaultPrivateNote<Composer, V>::compute_dummy_nullifier()
 {
     auto& oracle = get_oracle();
     fr const dummy_commitment = oracle.generate_random_element();
     fr const& owner_private_key = oracle.get_msg_sender_private_key();
     const boolean is_dummy_commitment = true;
 
-    return DefaultPrivateNote<Builder, V>::compute_nullifier(dummy_commitment, owner_private_key, is_dummy_commitment);
+    return DefaultPrivateNote<Composer, V>::compute_nullifier(dummy_commitment, owner_private_key, is_dummy_commitment);
 };
 
-template <typename Builder, typename V>
-typename CircuitTypes<Builder>::fr DefaultPrivateNote<Builder, V>::compute_nullifier(fr const& commitment,
-                                                                                     fr const& owner_private_key,
-                                                                                     boolean const& is_dummy_commitment)
+template <typename Composer, typename V>
+typename CircuitTypes<Composer>::fr DefaultPrivateNote<Composer, V>::compute_nullifier(
+    fr const& commitment, fr const& owner_private_key, boolean const& is_dummy_commitment)
 {
     /**
      * Hashing the private key in this way enables the following use case:
@@ -237,11 +236,11 @@ typename CircuitTypes<Builder>::fr DefaultPrivateNote<Builder, V>::compute_nulli
     return fr(blake_result);
 };
 
-template <typename Builder, typename V>
-void DefaultPrivateNote<Builder, V>::constrain_against_advice(NoteInterface<Builder> const& advice_note)
+template <typename Composer, typename V>
+void DefaultPrivateNote<Composer, V>::constrain_against_advice(NoteInterface<Composer> const& advice_note)
 {
     // Cast from a ref to the base (interface) type to a ref to this derived type:
-    const auto& advice_note_ref = dynamic_cast<const DefaultPrivateNote<Builder, V>&>(advice_note);
+    const auto& advice_note_ref = dynamic_cast<const DefaultPrivateNote<Composer, V>&>(advice_note);
 
     auto assert_equal = []<typename T>(std::optional<T>& this_member, std::optional<T> const& advice_member) {
         if (advice_member) {
@@ -260,20 +259,20 @@ void DefaultPrivateNote<Builder, V>::constrain_against_advice(NoteInterface<Buil
     assert_equal(this_preimage.nonce, advice_preimage.nonce);
 }
 
-template <typename Builder, typename V> bool DefaultPrivateNote<Builder, V>::needs_nonce()
+template <typename Composer, typename V> bool DefaultPrivateNote<Composer, V>::needs_nonce()
 {
     return !note_preimage.nonce;
 }
 
-template <typename Builder, typename V>
-void DefaultPrivateNote<Builder, V>::set_nonce(typename CircuitTypes<Builder>::fr const& nonce)
+template <typename Composer, typename V>
+void DefaultPrivateNote<Composer, V>::set_nonce(typename CircuitTypes<Composer>::fr const& nonce)
 {
     ASSERT(!note_preimage.nonce);
     note_preimage.nonce = nonce;
 };
 
-template <typename Builder, typename V>
-typename CircuitTypes<Builder>::fr DefaultPrivateNote<Builder, V>::generate_nonce()
+template <typename Composer, typename V>
+typename CircuitTypes<Composer>::fr DefaultPrivateNote<Composer, V>::generate_nonce()
 {
     ASSERT(!note_preimage.nonce);
     note_preimage.nonce = compute_dummy_nullifier();

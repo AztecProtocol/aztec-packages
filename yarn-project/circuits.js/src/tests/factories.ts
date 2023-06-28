@@ -15,7 +15,7 @@ import {
   CombinedAccumulatedData,
   CombinedConstantData,
   CombinedHistoricTreeRoots,
-  CircuitType,
+  ComposerType,
   ConstantBaseRollupData,
   ContractDeploymentData,
   ContractStorageRead,
@@ -382,7 +382,7 @@ export function makeMembershipWitness<N extends number>(size: N, start: number):
  */
 export function makeVerificationKey(): VerificationKey {
   return new VerificationKey(
-    CircuitType.STANDARD,
+    ComposerType.STANDARD,
     101, // arbitrary
     102, // arbitrary
     {

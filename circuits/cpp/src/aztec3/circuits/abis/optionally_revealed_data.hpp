@@ -45,16 +45,17 @@ template <typename NCT> struct OptionallyRevealedData {
                called_from_l1 == other.called_from_l1 && called_from_public_l2 == other.called_from_public_l2;
     };
 
-    template <typename Builder> OptionallyRevealedData<CircuitTypes<Builder>> to_circuit_type(Builder& builder) const
+    template <typename Composer>
+    OptionallyRevealedData<CircuitTypes<Composer>> to_circuit_type(Composer& composer) const
     {
         static_assert((std::is_same<NativeTypes, NCT>::value));
 
-        // Capture the circuit builder:
-        auto to_ct = [&](auto& e) { return aztec3::utils::types::to_ct(builder, e); };
+        // Capture the composer:
+        auto to_ct = [&](auto& e) { return aztec3::utils::types::to_ct(composer, e); };
 
-        OptionallyRevealedData<CircuitTypes<Builder>> data = {
+        OptionallyRevealedData<CircuitTypes<Composer>> data = {
             to_ct(call_stack_item_hash),
-            function_data.to_circuit_type(builder),
+            function_data.to_circuit_type(composer),
             to_ct(vk_hash),
             to_ct(portal_contract_address),
             to_ct(pay_fee_from_l1),
@@ -66,11 +67,11 @@ template <typename NCT> struct OptionallyRevealedData {
         return data;
     };
 
-    template <typename Builder> OptionallyRevealedData<NativeTypes> to_native_type() const
+    template <typename Composer> OptionallyRevealedData<NativeTypes> to_native_type() const
     {
-        static_assert(std::is_same<CircuitTypes<Builder>, NCT>::value);
-        auto to_nt = [&](auto& e) { return aztec3::utils::types::to_nt<Builder>(e); };
-        auto to_native_type = []<typename T>(T& e) { return e.template to_native_type<Builder>(); };
+        static_assert(std::is_same<CircuitTypes<Composer>, NCT>::value);
+        auto to_nt = [&](auto& e) { return aztec3::utils::types::to_nt<Composer>(e); };
+        auto to_native_type = []<typename T>(T& e) { return e.template to_native_type<Composer>(); };
 
         OptionallyRevealedData<NativeTypes> data = {
             to_nt(call_stack_item_hash),    to_native_type(function_data), to_nt(vk_hash),

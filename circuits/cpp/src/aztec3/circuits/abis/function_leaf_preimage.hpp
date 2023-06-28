@@ -42,14 +42,14 @@ template <typename NCT> struct FunctionLeafPreimage {
                vk_hash == other.vk_hash && acir_hash == other.acir_hash;
     };
 
-    template <typename Builder> FunctionLeafPreimage<CircuitTypes<Builder>> to_circuit_type(Builder& builder) const
+    template <typename Composer> FunctionLeafPreimage<CircuitTypes<Composer>> to_circuit_type(Composer& composer) const
     {
         static_assert((std::is_same<NativeTypes, NCT>::value));
 
-        // Capture the circuit builder:
-        auto to_ct = [&](auto& e) { return aztec3::utils::types::to_ct(builder, e); };
+        // Capture the composer:
+        auto to_ct = [&](auto& e) { return aztec3::utils::types::to_ct(composer, e); };
 
-        FunctionLeafPreimage<CircuitTypes<Builder>> preimage = {
+        FunctionLeafPreimage<CircuitTypes<Composer>> preimage = {
             to_ct(function_selector),
             to_ct(is_private),
             to_ct(vk_hash),
@@ -59,10 +59,10 @@ template <typename NCT> struct FunctionLeafPreimage {
         return preimage;
     };
 
-    template <typename Builder> FunctionLeafPreimage<NativeTypes> to_native_type() const
+    template <typename Composer> FunctionLeafPreimage<NativeTypes> to_native_type() const
     {
-        static_assert(std::is_same<CircuitTypes<Builder>, NCT>::value);
-        auto to_nt = [&](auto& e) { return aztec3::utils::types::to_nt<Builder>(e); };
+        static_assert(std::is_same<CircuitTypes<Composer>, NCT>::value);
+        auto to_nt = [&](auto& e) { return aztec3::utils::types::to_nt<Composer>(e); };
 
         FunctionLeafPreimage<NativeTypes> preimage = {
             to_nt(function_selector),

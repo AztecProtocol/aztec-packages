@@ -24,14 +24,15 @@ template <typename NCT> struct PublicDataUpdateRequest {
     MSGPACK_FIELDS(leaf_index, old_value, new_value);
     bool operator==(PublicDataUpdateRequest<NCT> const&) const = default;
 
-    template <typename Builder> PublicDataUpdateRequest<CircuitTypes<Builder>> to_circuit_type(Builder& builder) const
+    template <typename Composer>
+    PublicDataUpdateRequest<CircuitTypes<Composer>> to_circuit_type(Composer& composer) const
     {
         static_assert((std::is_same<NativeTypes, NCT>::value));
 
-        // Capture the circuit builder:
-        auto to_ct = [&](auto& e) { return aztec3::utils::types::to_ct(builder, e); };
+        // Capture the composer:
+        auto to_ct = [&](auto& e) { return aztec3::utils::types::to_ct(composer, e); };
 
-        PublicDataUpdateRequest<CircuitTypes<Builder>> update_request = {
+        PublicDataUpdateRequest<CircuitTypes<Composer>> update_request = {
             to_ct(leaf_index),
             to_ct(old_value),
             to_ct(new_value),
@@ -40,11 +41,11 @@ template <typename NCT> struct PublicDataUpdateRequest {
         return update_request;
     };
 
-    template <typename Builder> PublicDataUpdateRequest<NativeTypes> to_native_type() const
+    template <typename Composer> PublicDataUpdateRequest<NativeTypes> to_native_type() const
     {
-        static_assert((std::is_same<CircuitTypes<Builder>, NCT>::value));
+        static_assert((std::is_same<CircuitTypes<Composer>, NCT>::value));
 
-        auto to_nt = [&](auto& e) { return aztec3::utils::types::to_nt<Builder>(e); };
+        auto to_nt = [&](auto& e) { return aztec3::utils::types::to_nt<Composer>(e); };
 
         PublicDataUpdateRequest<NativeTypes> update_request = {
             to_nt(leaf_index),

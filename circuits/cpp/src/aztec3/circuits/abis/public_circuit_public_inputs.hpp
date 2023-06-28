@@ -69,15 +69,16 @@ template <typename NCT> struct PublicCircuitPublicInputs {
         return msgpack_derived_equals<boolean>(*this, other);
     }
 
-    template <typename Builder> PublicCircuitPublicInputs<CircuitTypes<Builder>> to_circuit_type(Builder& builder) const
+    template <typename Composer>
+    PublicCircuitPublicInputs<CircuitTypes<Composer>> to_circuit_type(Composer& composer) const
     {
         static_assert((std::is_same<NativeTypes, NCT>::value));
 
-        // Capture the circuit builder:
-        auto to_ct = [&](auto& e) { return aztec3::utils::types::to_ct(builder, e); };
-        auto to_circuit_type = [&](auto& e) { return e.to_circuit_type(builder); };
+        // Capture the composer:
+        auto to_ct = [&](auto& e) { return aztec3::utils::types::to_ct(composer, e); };
+        auto to_circuit_type = [&](auto& e) { return e.to_circuit_type(composer); };
 
-        PublicCircuitPublicInputs<CircuitTypes<Builder>> pis = {
+        PublicCircuitPublicInputs<CircuitTypes<Composer>> pis = {
             .call_context = to_circuit_type(call_context),
 
             .args_hash = to_ct(args_hash),

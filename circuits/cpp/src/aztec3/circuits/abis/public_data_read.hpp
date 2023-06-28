@@ -23,14 +23,14 @@ template <typename NCT> struct PublicDataRead {
     MSGPACK_FIELDS(leaf_index, value);
     bool operator==(PublicDataRead<NCT> const&) const = default;
 
-    template <typename Builder> PublicDataRead<CircuitTypes<Builder>> to_circuit_type(Builder& builder) const
+    template <typename Composer> PublicDataRead<CircuitTypes<Composer>> to_circuit_type(Composer& composer) const
     {
         static_assert((std::is_same<NativeTypes, NCT>::value));
 
-        // Capture the circuit builder:
-        auto to_ct = [&](auto& e) { return aztec3::utils::types::to_ct(builder, e); };
+        // Capture the composer:
+        auto to_ct = [&](auto& e) { return aztec3::utils::types::to_ct(composer, e); };
 
-        PublicDataRead<CircuitTypes<Builder>> read = {
+        PublicDataRead<CircuitTypes<Composer>> read = {
             to_ct(leaf_index),
             to_ct(value),
         };
@@ -38,11 +38,11 @@ template <typename NCT> struct PublicDataRead {
         return read;
     };
 
-    template <typename Builder> PublicDataRead<NativeTypes> to_native_type() const
+    template <typename Composer> PublicDataRead<NativeTypes> to_native_type() const
     {
-        static_assert((std::is_same<CircuitTypes<Builder>, NCT>::value));
+        static_assert((std::is_same<CircuitTypes<Composer>, NCT>::value));
 
-        auto to_nt = [&](auto& e) { return aztec3::utils::types::to_nt<Builder>(e); };
+        auto to_nt = [&](auto& e) { return aztec3::utils::types::to_nt<Composer>(e); };
 
         PublicDataRead<NativeTypes> read = {
             to_nt(leaf_index),
