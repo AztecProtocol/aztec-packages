@@ -18,9 +18,10 @@ fn storage_write_oracle<T>(
     _value: T,
 ) -> [Field; 1] {}
 
+// TODO: Remove return value.
 unconstrained fn storage_write<N>(
     storage_slot: Field,
     fields: [Field; N]
-) -> Field {
-    storage_write_oracle(storage_slot, fields)[0]
+) {
+    let hash = storage_write_oracle(storage_slot, fields);
 }
