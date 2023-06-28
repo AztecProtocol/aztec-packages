@@ -1,3 +1,4 @@
+// A contract used to test whether constructing a contract works.
 contract Test {
     use dep::aztec3::abi;
     use dep::aztec3::abi::PrivateContextInputs;
