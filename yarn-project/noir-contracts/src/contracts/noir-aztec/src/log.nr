@@ -28,7 +28,3 @@ fn emit_unencrypted_log<T>(
     context = context.set_unencrypted_log_preimages_length(len);
     context
 }
-
-unconstrained fn emit_log<T>(log: T) {
-    let hash = oracle::logs::emit_unencrypted_log(log);
-}

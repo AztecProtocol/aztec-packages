@@ -5,7 +5,7 @@ contract PublicToken {
     use dep::aztec::abi::PrivateContextInputs;
     use dep::aztec::abi::PublicContextInputs;
     use dep::aztec::context::Context;
-    use dep::aztec::log::emit_log;
+    use dep::aztec::oracle::logs::emit_unencrypted_log;
     use dep::aztec::types::point::Point;
     use crate::storage::Storage;
 
@@ -24,8 +24,8 @@ contract PublicToken {
         let storage = Storage::init();
         let recipient_balance = storage.balances.at(recipient.x);
         let new_amount = recipient_balance.read() + amount;
-        // emit event log
-        emit_log("Coins minted");
+        // TODO: Remove return value.
+        let hash = emit_unencrypted_log("Coins minted");
         recipient_balance.write(new_amount);
         new_amount
     }
@@ -49,7 +49,7 @@ contract PublicToken {
         if (current_sender_balance as u254 > amount as u254) {
             // TODO: Compiler complains if we don't assign the result of the write to anything
             sender_balance.write(current_sender_balance - amount);
-            emit_log("Coins transferred");
+            let hash = emit_unencrypted_log("Coins transferred");
             let amount = current_recipient_balance + amount;
             recipient_balance.write(amount);
             amount
