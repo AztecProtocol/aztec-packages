@@ -1,3 +1,4 @@
+// A contract used along with `Parent` contract to test nested calls.
 contract Child {
     use dep::aztec3::abi;
     use dep::aztec3::abi::PrivateContextInputs;
@@ -5,6 +6,7 @@ contract Child {
     use dep::aztec3::context::PrivateFunctionContext;
     use dep::aztec3::state_vars::storage_field::StorageField;
 
+    // A variable stored in the public data tree which is used for testing purposes.
     global current_value = StorageField{ storage_slot: 1 };
 
     fn constructor(
@@ -13,6 +15,7 @@ contract Child {
         PrivateFunctionContext::new().finish(inputs)
     }
 
+    // Returns a sum of the input and the chain id and version of the contract in private circuit public input's return_values.
     fn value(
         inputs: PrivateContextInputs,
         input: Field,
@@ -25,14 +28,16 @@ contract Child {
         context.finish(inputs)
     }
 
-    // Nested public functions always get called with MAX_ARGS, since we don't have the ABI available
+    // Returns base_value + 42.
+    // @param _padding: Nested public functions always get called with MAX_ARGS, since we don't have the ABI available
     // during execution time to know how many args are expected, hence the _padding argument. We should
     // be able to remove it when we migrate to brillig.
     open fn pubValue(_inputs: PublicContextInputs, base_value: Field, _padding: [Field; abi::MAX_ARGS - 1]) -> pub Field {
         base_value + 42
     }
 
-    // Same as above, we need the padding argument for open functions.
+    // Increments `current_value` by `new_value` and returns `new_value` + 1.
+    // @param _padding: Same as above, we need the padding argument for open functions.
     open fn pubStoreValue(_inputs: PublicContextInputs, new_value: Field, _padding: [Field; abi::MAX_ARGS - 1]) -> pub Field {
         // Compiler complains if we don't assign the result to anything
         let old_value = current_value.read();
