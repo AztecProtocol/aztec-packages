@@ -28,6 +28,25 @@ fn get_notes<Note, N, S, P>(
     note_interface: NoteInterface<Note, N>,
     options: NoteGetterOptions<Note, N, S, P>,
 ) -> (Context, [Note; S]) {
+    let notes = view_notes(storage_slot, note_interface, options);
+    let is_dummy = note_interface.is_dummy;
+    for i in 0..notes.len() {
+        let note = notes[i];
+        if (!is_dummy(note)) {
+            let compute_note_hash = note_interface.compute_note_hash;
+            let note_hash = compute_note_hash(note);
+            context = context.push_read_request(note_hash);
+        };
+    };
+
+    (context, notes)
+}
+
+fn view_notes<Note, N, S, P>(
+    storage_slot: Field,
+    note_interface: NoteInterface<Note, N>,
+    options: NoteGetterOptions<Note, N, S, P>,
+) -> [Note; S] {
     let deserialise = note_interface.deserialise;
     let dummy = note_interface.dummy;
     let sort_by = options.sort_by;
@@ -40,17 +59,5 @@ fn get_notes<Note, N, S, P>(
     let skip = options.skip;
     let filter = options.filter;
     let filter_args = options.filter_args;
-    let notes = oracle::notes::get_notes(storage_slot, deserialise, dummy, sort_by_indices, sort_order, skip, filter, filter_args);
-
-    let is_dummy = note_interface.is_dummy;
-    for i in 0..notes.len() {
-        let note = notes[i];
-        if (!is_dummy(note)) {
-            let compute_note_hash = note_interface.compute_note_hash;
-            let note_hash = compute_note_hash(note);
-            context = context.push_read_request(note_hash);
-        };
-    };
-
-    (context, notes)
+    oracle::notes::get_notes(storage_slot, deserialise, dummy, sort_by_indices, sort_order, skip, filter, filter_args)
 }
