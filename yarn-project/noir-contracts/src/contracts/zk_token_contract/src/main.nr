@@ -115,10 +115,6 @@ contract ZkToken {
     ) -> pub Field {
         let storage = Storage::init();
         let owner_balance = storage.balances.at(owner.x);
-        let mut options = NoteGetterOptions::new(get_2_notes, 0);
-        options = options.set_skip(skip);
-        let mut balance = 0;
-        
-        balance_utils::get_balance(owner_balance.storage_slot)
+        balance_utils::get_balance(owner_balance.storage_slot, 0)
     }
 }
