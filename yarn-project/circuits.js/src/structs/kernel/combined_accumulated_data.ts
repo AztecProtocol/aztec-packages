@@ -428,7 +428,7 @@ export class CombinedAccumulatedData {
     return new CombinedAccumulatedData(
       AggregationObject.makeFake(),
       makeTuple(KERNEL_READ_REQUESTS_LENGTH, Fr.zero),
-      makeTuple(KERNEL_READ_REQUESTS_LENGTH, MembershipWitness.empty(PRIVATE_DATA_TREE_HEIGHT, BigInt(0))),
+      makeTuple(KERNEL_READ_REQUESTS_LENGTH, () => MembershipWitness.empty(PRIVATE_DATA_TREE_HEIGHT, BigInt(0))),
       makeTuple(KERNEL_NEW_COMMITMENTS_LENGTH, Fr.zero),
       makeTuple(KERNEL_NEW_NULLIFIERS_LENGTH, Fr.zero),
       makeTuple(KERNEL_PRIVATE_CALL_STACK_LENGTH, Fr.zero),

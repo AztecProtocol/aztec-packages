@@ -35,6 +35,7 @@ import {
   KERNEL_PUBLIC_CALL_STACK_LENGTH,
   KERNEL_PUBLIC_DATA_READS_LENGTH,
   KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH,
+  KERNEL_READ_REQUESTS_LENGTH,
   KernelCircuitPublicInputs,
   L1_TO_L2_MESSAGES_ROOTS_TREE_HEIGHT,
   L1_TO_L2_MESSAGES_SIBLING_PATH_LENGTH,
@@ -201,6 +202,8 @@ export function makeEmptyAccumulatedData(seed = 1, full = false): CombinedAccumu
 
   return new CombinedAccumulatedData(
     makeAggregationObject(seed),
+    tupleGenerator(KERNEL_READ_REQUESTS_LENGTH, fr, seed + 0x80),
+    tupleGenerator(READ_REQUESTS_LENGTH, i => makeMembershipWitness(PRIVATE_DATA_TREE_HEIGHT, i * 123), seed + 0x90),
     tupleGenerator(KERNEL_NEW_COMMITMENTS_LENGTH, fr, seed + 0x100),
     tupleGenerator(KERNEL_NEW_NULLIFIERS_LENGTH, fr, seed + 0x200),
     tupleGenerator(KERNEL_PRIVATE_CALL_STACK_LENGTH, Fr.zero), // private call stack must be empty
@@ -227,6 +230,8 @@ export function makeAccumulatedData(seed = 1, full = false): CombinedAccumulated
 
   return new CombinedAccumulatedData(
     makeAggregationObject(seed),
+    tupleGenerator(KERNEL_READ_REQUESTS_LENGTH, fr, seed + 0x80),
+    tupleGenerator(READ_REQUESTS_LENGTH, i => makeMembershipWitness(PRIVATE_DATA_TREE_HEIGHT, i * 123), seed + 0x90),
     tupleGenerator(KERNEL_NEW_COMMITMENTS_LENGTH, fr, seed + 0x100),
     tupleGenerator(KERNEL_NEW_NULLIFIERS_LENGTH, fr, seed + 0x200),
     tupleGenerator(KERNEL_PRIVATE_CALL_STACK_LENGTH, fr, seed + 0x300),
