@@ -16,7 +16,7 @@ contract EcdsaAccount {
     // A function which has to be implemented by every account abstraction contract.
     fn entrypoint(
         inputs: pub PrivateContextInputs,
-        payload: pub EntrypointPayload,
+        payload: pub EntrypointPayload, // contains a set of arguments, selectors, targets and a nonce
         owner: pub [u8;64], // x and y coordinates concatenated
         signature: pub [Field;3],
         partialContractAddress: pub Field,
