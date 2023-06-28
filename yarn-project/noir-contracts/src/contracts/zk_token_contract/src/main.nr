@@ -16,7 +16,7 @@ contract ZkToken {
     use dep::aztec3::oracle::logs::emit_unencrypted_log;
 
     //*********************************/
-    // A map from `owner.x` to a set of notes representing user balance.
+    // A map from `owner.x` (Field type) to a set of notes (Set type) representing user balance.
     global balances = Map { storage_slot: 1 };
     // Should eventually be replaced by:
     // `balances: Mapping<Field, Set<Note>>;`
@@ -70,7 +70,7 @@ contract ZkToken {
         context.finish(inputs)
     }
 
-    // Transfers `amount` of tokens from `sender` to `recipient`.
+    // Transfers `amount` of tokens from `sender` to a `recipient`.
     fn transfer(
         //*********************************/
         // Should eventually be hidden:
