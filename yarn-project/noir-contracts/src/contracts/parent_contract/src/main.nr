@@ -1,16 +1,16 @@
 contract Parent {
-    use dep::aztec3::abi;
-    use dep::aztec3::abi::PrivateContextInputs;
-    use dep::aztec3::abi::PublicContextInputs;
-    use dep::aztec3::context::PrivateFunctionContext;
-    use dep::aztec3::oracle::public_call;
-    use dep::aztec3::private_call_stack_item::PrivateCallStackItem;
-    use dep::aztec3::public_call_stack_item::PublicCallStackItem;
+    use dep::aztec::abi;
+    use dep::aztec::abi::PrivateContextInputs;
+    use dep::aztec::abi::PublicContextInputs;
+    use dep::aztec::context::Context;
+    use dep::aztec::oracle::public_call;
+    use dep::aztec::private_call_stack_item::PrivateCallStackItem;
+    use dep::aztec::public_call_stack_item::PublicCallStackItem;
 
     fn constructor(
         inputs: PrivateContextInputs,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
-        PrivateFunctionContext::new().finish(inputs)
+        Context::new().finish(inputs)
     }
 
     // Private function to call another private function in the targetContract using the provided selector
@@ -19,7 +19,7 @@ contract Parent {
         targetContract: Field,
         targetSelector: Field,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
-        let mut initialContext = PrivateFunctionContext::new();
+        let mut initialContext = Context::new();
         initialContext.args = initialContext.args.push_array([targetContract, targetSelector]);
 
         let (callStackItem, mut context) = PrivateCallStackItem::call(targetContract, targetSelector, [0; abi::MAX_ARGS], initialContext);
@@ -57,7 +57,7 @@ contract Parent {
         targetSelector: Field,
         targetValue: Field,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
-        let mut initialContext = PrivateFunctionContext::new();
+        let mut initialContext = Context::new();
         initialContext.args = initialContext.args.push_array([targetContract, targetSelector, targetValue]);
 
         let mut args = [0; abi::MAX_ARGS];
@@ -74,7 +74,7 @@ contract Parent {
         targetSelector: Field,
         targetValue: Field,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
-        let mut context0 = PrivateFunctionContext::new();
+        let mut context0 = Context::new();
         context0.args = context0.args.push_array([targetContract, targetSelector, targetValue]);
 
         let mut args = [0; abi::MAX_ARGS];
@@ -93,7 +93,7 @@ contract Parent {
         targetSelector: Field,
         targetValue: Field,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
-        let mut initialContext = PrivateFunctionContext::new();
+        let mut initialContext = Context::new();
         initialContext.args = initialContext.args.push_array([targetContract, targetSelector, targetValue]);
 
         let pubEntryPointSelector = 3221316504;
@@ -115,7 +115,7 @@ contract Parent {
         targetSelector: Field,
         targetValue: Field,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
-        let mut initialContext = PrivateFunctionContext::new();
+        let mut initialContext = Context::new();
         initialContext.args = initialContext.args.push_array([targetContract, targetSelector, targetValue]);
 
         let pubEntryPointSelector = 3221316504;

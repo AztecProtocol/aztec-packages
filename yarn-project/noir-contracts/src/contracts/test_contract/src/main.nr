@@ -1,11 +1,11 @@
 contract Test {
-    use dep::aztec3::abi;
-    use dep::aztec3::abi::PrivateContextInputs;
-    use dep::aztec3::context::PrivateFunctionContext;
+    use dep::aztec::abi;
+    use dep::aztec::abi::PrivateContextInputs;
+    use dep::aztec::context::Context;
 
     fn constructor(
         inputs: PrivateContextInputs,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
-        PrivateFunctionContext::new().finish(inputs)
+        Context::new().finish(inputs)
     }
 }
