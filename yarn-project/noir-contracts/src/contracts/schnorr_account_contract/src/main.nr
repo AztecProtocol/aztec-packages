@@ -1,3 +1,5 @@
+// Since we support account abstraction user accounts are represented by a contract. This contract is one such example
+// where the user is authenticated with a Schnorr signature.
 contract SchnorrAccount {
     use dep::std;
     use dep::aztec3::entrypoint;
@@ -12,11 +14,12 @@ contract SchnorrAccount {
     use dep::aztec3::types::point::Point;
     use dep::aztec3::oracle::debug_log::debug_log_format;
 
+    // A function which has to be implemented by every account abstraction contract.
     fn entrypoint(
         inputs: pub PrivateContextInputs,
-        payload: pub EntrypointPayload,
+        payload: pub EntrypointPayload, // contains a set of arguments, selectors, targets and a nonce
         owner: pub [u8;64], // x and y coordinates concatenated
-        signature: pub [Field;3],
+        signature: pub [Field;3], // schnorr signature stored in 3 fields
         partialContractAddress: pub Field,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
         let mut context = PrivateFunctionContext::new();
@@ -111,6 +114,7 @@ contract SchnorrAccount {
         ret
     }
 
+    // Constructs the contract
     fn constructor(
         inputs: pub PrivateContextInputs,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
