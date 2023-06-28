@@ -1,5 +1,3 @@
-use dep::aztec::types::point::Point;
-use dep::aztec::utils::arr_copy_slice;
 use dep::aztec::note::note_getter::NoteGetterOptions;
 use dep::aztec::note::note_getter::view_notes;
 use crate::value_note::value_note::ValueNoteInterface;

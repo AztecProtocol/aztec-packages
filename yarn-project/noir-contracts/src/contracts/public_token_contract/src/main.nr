@@ -45,10 +45,9 @@ contract PublicToken {
         let current_sender_balance: Field = sender_balance.read();
         let current_recipient_balance = recipient_balance.read();
 
-        // TODO: Handle larger integer values ("long integers are not yet supported")
         if (current_sender_balance as u254 > amount as u254) {
-            // TODO: Compiler complains if we don't assign the result of the write to anything
             sender_balance.write(current_sender_balance - amount);
+            // TODO: Compiler complains if we don't assign the result of the write to anything
             let hash = emit_unencrypted_log("Coins transferred");
             let amount = current_recipient_balance + amount;
             recipient_balance.write(amount);

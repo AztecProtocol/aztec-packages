@@ -1,14 +1,9 @@
 use dep::std::hash::pedersen;
-
-// Must repeat imports so they work in both scopes ( is this a bug ?)
-use dep::aztec3::context::PrivateFunctionContext;
-use dep::aztec3::messaging::get_commitment_getter_data::make_commitment_getter_data;
-
-use dep::aztec3::oracle::logs::emit_encrypted_log;
-use dep::aztec3::oracle::create_commitment::create_commitment;
-use dep::aztec3::oracle::create_l2_to_l1_message::create_l2_to_l1_message;
-use dep::aztec3::oracle::get_commitment::get_commitment;
-
+use dep::aztec::context::Context;
+use dep::aztec::messaging::get_commitment_getter_data::make_commitment_getter_data;
+use dep::aztec::oracle::create_commitment::create_commitment;
+use dep::aztec::oracle::create_l2_to_l1_message::create_l2_to_l1_message;
+use dep::aztec::oracle::get_commitment::get_commitment;
 
 // Transparent note represents a note that is created in the clear (public execution), 
 // but can only be spent by those that know the preimage of the "secretHash"
@@ -36,7 +31,7 @@ impl TransparentNote {
         pedersen([self.amount, self.secretHash])[0]
     }
 
-    fn consume_in_secret(self: Self, mut context: PrivateFunctionContext, root: Field, secret: Field) -> PrivateFunctionContext {
+    fn consume_in_secret(self: Self, mut context: Context, root: Field, secret: Field) -> Context {
         // Get the commitment value (before silo)
         let commitment = self.get_commitment();
 
@@ -54,7 +49,7 @@ impl TransparentNote {
     }
 
     fn compute_secret_hash(secret: Field) -> Field {
-        pedersen([dep::aztec3::MessageSecret, secret])[0]
+        pedersen([dep::aztec::generators::MessageSecret, secret])[0]
     }
 
     fn knows_secret(self, secret: Field) {
@@ -62,7 +57,7 @@ impl TransparentNote {
         assert(self.secretHash == hash);
     }
 
-    fn emit_nullifier(_self: Self, mut context: PrivateFunctionContext, secret: Field, siloed_commitment: Field, index: Field) -> PrivateFunctionContext {
+    fn emit_nullifier(_self: Self, mut context: Context, secret: Field, siloed_commitment: Field, index: Field) -> Context {
         // Create a nullifier for the message based on its index in the tree
         
         let nullifier = pedersen([secret, siloed_commitment, index])[0];
