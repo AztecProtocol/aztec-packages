@@ -14,6 +14,7 @@ export {
   OptionallyRevealedData,
   PublicDataRead,
   PublicDataUpdateRequest,
+  MembershipWitness,
   CombinedAccumulatedData,
   PrivateHistoricTreeRoots,
   CombinedHistoricTreeRoots,
