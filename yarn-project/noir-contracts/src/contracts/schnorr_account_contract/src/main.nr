@@ -64,6 +64,7 @@ contract SchnorrAccount {
         //let reproduced_address = dep::std::hash::pedersen([owner, partialContractAddress])[0];
         //constrain reproduced_address == inputs.call_context.storage_contract_address;
 
+        // Call private functions
         for i in 0..entrypoint::ACCOUNT_MAX_PRIVATE_CALLS {
             let target_address = payload.flattened_targets[i];
             if target_address != 0 {
@@ -77,6 +78,7 @@ contract SchnorrAccount {
             }
         }
 
+        // Call public functions
         for i in entrypoint::ACCOUNT_MAX_PRIVATE_CALLS..entrypoint::ACCOUNT_MAX_CALLS {
             let target_address = payload.flattened_targets[i];
             if target_address != 0 {
