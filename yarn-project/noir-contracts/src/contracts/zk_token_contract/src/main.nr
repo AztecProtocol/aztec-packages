@@ -1,8 +1,9 @@
+mod balance_utils;
+mod generators;
+mod storage;
+mod value_note;
+
 contract ZkToken {
-    mod balance_utils;
-    mod generators;
-    mod storage;
-    mod value_note;
     use dep::aztec::abi;
     use dep::aztec::abi::PrivateContextInputs;
     use dep::aztec::context::Context;
@@ -12,9 +13,10 @@ contract ZkToken {
     use dep::aztec::state_vars::set::Set;
     use dep::aztec::oracle::logs::emit_encrypted_log;
     use dep::aztec::oracle::logs::emit_unencrypted_log;
-    use storage::Storage;
-    use value_note::value_note::ValueNote;
-    use value_note::filter::get_2_notes;
+    use crate::storage::Storage;
+    use crate::value_note::value_note::ValueNote;
+    use crate::value_note::filter::get_2_notes;
+    use crate::balance_utils;
 
     fn constructor(
         //*********************************/

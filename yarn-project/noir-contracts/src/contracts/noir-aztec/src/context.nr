@@ -20,10 +20,10 @@ struct Context {
     new_l2_to_l1_msgs : BoundedVec<Field, abi::MAX_L2_TO_L1_MSGS>,
 
     // TODO #588, relevant issue: https://github.com/AztecProtocol/aztec-packages/issues/588
-    // encrypted_logs_hash : BoundedVec<Field, abi::LOGS_HASH_SIZE>,
-    // unencrypted_logs_hash : BoundedVec<Field, abi::LOGS_HASH_SIZE>,
-    // encrypted_log_preimages_length : Field,
-    // unencrypted_log_preimages_length : Field,
+    encrypted_logs_hash : [Field; abi::LOGS_HASH_SIZE],
+    unencrypted_logs_hash : [Field; abi::LOGS_HASH_SIZE],
+    encrypted_log_preimages_length : Field,
+    unencrypted_log_preimages_length : Field,
 }
 
 impl Context {
@@ -44,10 +44,10 @@ impl Context {
             new_l2_to_l1_msgs: BoundedVec::new(0),
 
             // TODO #588, relevant issue: https://github.com/AztecProtocol/aztec-packages/issues/588
-            // encrypted_logs_hash: BoundedVec::new(0),
-            // unencrypted_logs_hash: BoundedVec::new(0),
-            // encrypted_log_preimages_length: 0,
-            // unencrypted_log_preimages_length: 0,
+            encrypted_logs_hash: [0; abi::LOGS_HASH_SIZE],
+            unencrypted_logs_hash: [0; abi::LOGS_HASH_SIZE],
+            encrypted_log_preimages_length: 0,
+            unencrypted_log_preimages_length: 0,
         }
     }
 
@@ -105,4 +105,23 @@ impl Context {
         self.push_new_nullifier(nullifier)
     }
 
+    fn set_encrypted_logs_hash(mut self: Self, hash: [Field; abi::LOGS_HASH_SIZE]) -> Self {
+        self.encrypted_logs_hash = hash;
+        self
+    }
+
+    fn set_encrypted_log_preimages_length(mut self: Self, len: Field) -> Self {
+        self.encrypted_log_preimages_length = len;
+        self
+    }
+
+    fn set_unencrypted_logs_hash(mut self: Self, hash: [Field; abi::LOGS_HASH_SIZE]) -> Self {
+        self.unencrypted_logs_hash = hash;
+        self
+    }
+
+    fn set_unencrypted_log_preimages_length(mut self: Self, len: Field) -> Self {
+        self.unencrypted_log_preimages_length = len;
+        self
+    }
 }

@@ -2,7 +2,6 @@ use dep::aztec::note::note_interface::NoteInterface;
 use dep::aztec::oracle::rand::rand;
 use dep::aztec::oracle::get_secret_key::get_secret_key;
 use dep::aztec::types::point::Point;
-// use crate::call_context;
 use crate::generators;
 
 global VALUE_NOTE_LEN: Field = 6;
@@ -40,6 +39,10 @@ impl ValueNote {
             nonce: 0,
             is_real: false,
         }
+    }
+
+    fn is_dummy(self) -> bool {
+        !self.is_real
     }
 
     fn validate(self, sender: Point) {
@@ -84,7 +87,7 @@ fn compute_nullifier(note: ValueNote) -> Field {
         let secret = get_secret_key(note.owner);
         let note_hash = compute_note_hash(note);
         dep::std::hash::pedersen([
-            generator::VALUE_NOTE_NULLIFIER,
+            generators::VALUE_NOTE_NULLIFIER,
             note_hash,
             secret, 
         ])[0]
@@ -96,7 +99,7 @@ fn dummy() -> ValueNote {
 }
 
 fn is_dummy(note: ValueNote) -> bool {
-    !note.is_real
+    note.is_dummy()
 }
 
 global ValueNoteInterface = NoteInterface {

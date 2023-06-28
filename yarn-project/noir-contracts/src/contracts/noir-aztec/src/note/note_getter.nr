@@ -42,7 +42,7 @@ fn get_notes<Note, N, S, P>(
     (context, notes)
 }
 
-fn view_notes<Note, N, S, P>(
+unconstrained fn view_notes<Note, N, S, P>(
     storage_slot: Field,
     note_interface: NoteInterface<Note, N>,
     options: NoteGetterOptions<Note, N, S, P>,
