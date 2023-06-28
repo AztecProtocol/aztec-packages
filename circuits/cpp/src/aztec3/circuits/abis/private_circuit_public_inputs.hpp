@@ -473,6 +473,7 @@ template <typename NCT> class OptionalPrivateCircuitPublicInputs {
 
         make_unused_array_elements_zero(builder, new_commitments);
         make_unused_array_elements_zero(builder, new_nullifiers);
+        make_unused_array_elements_zero(builder, nullified_commitments);
 
         make_unused_array_elements_zero(builder, private_call_stack);
         make_unused_array_elements_zero(builder, public_call_stack);
