@@ -11,8 +11,8 @@ contract ZkToken {
     use dep::aztec::types::point::Point;
     use dep::aztec::state_vars::map::Map;
     use dep::aztec::state_vars::set::Set;
-    use dep::aztec::oracle::logs::emit_encrypted_log;
-    use dep::aztec::oracle::logs::emit_unencrypted_log;
+    use dep::aztec::log::emit_encrypted_log;
+    use dep::aztec::log::emit_unencrypted_log;
     use crate::storage::Storage;
     use crate::value_note::value_note::ValueNote;
     use crate::value_note::filter::get_2_notes;
@@ -36,8 +36,8 @@ contract ZkToken {
         // Insert note and emit encrypted note preimage via oracle call
         context = owner_balance.insert(context, note);
         let preimage = note.serialise();
-        assert(emit_encrypted_log(inputs.call_context.storage_contract_address, owner_balance.storage_slot, note.owner, preimage) == 0);
-        assert(emit_unencrypted_log("Balance set in constructor") == 0);
+        context = emit_encrypted_log(context, inputs.call_context.storage_contract_address, owner_balance.storage_slot, note.owner, preimage);
+        context = emit_unencrypted_log(context, "Balance set in constructor");
 
         context.finish(inputs)
     }
@@ -60,8 +60,8 @@ contract ZkToken {
         // Insert note and emit encrypted note preimage via oracle call
         context = owner_balance.insert(context, note);
         let preimage = note.serialise();
-        assert(emit_encrypted_log(inputs.call_context.storage_contract_address, owner_balance.storage_slot, note.owner, preimage) == 0);
-        assert(emit_unencrypted_log("Coins minted") == 0);
+        context = emit_encrypted_log(context, inputs.call_context.storage_contract_address, owner_balance.storage_slot, note.owner, preimage);
+        context = emit_unencrypted_log(context, "Coins minted");
 
         context.finish(inputs)
     }
@@ -103,9 +103,9 @@ contract ZkToken {
         context = recipient_balance.insert(context, recipient_note);
         context = sender_balance.insert(context, change_note);
 
-        assert(emit_encrypted_log(inputs.call_context.storage_contract_address, recipient_balance.storage_slot, recipient_note.owner, recipient_note.serialise()) == 0);
-        assert(emit_encrypted_log(inputs.call_context.storage_contract_address, sender_balance.storage_slot, change_note.owner, change_note.serialise()) == 0);
-        assert(emit_unencrypted_log("Coins transferred") == 0);
+        context = emit_encrypted_log(context, inputs.call_context.storage_contract_address, recipient_balance.storage_slot, recipient_note.owner, recipient_note.serialise());
+        context = emit_encrypted_log(context, inputs.call_context.storage_contract_address, sender_balance.storage_slot, change_note.owner, change_note.serialise());
+        context = emit_unencrypted_log(context, "Coins transferred");
 
         context.finish(inputs)
     }

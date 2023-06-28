@@ -1,6 +1,7 @@
 use crate::types::point::Point;
+use crate::abi;
 
-// TODO: Make independent of a specific note implementation.
+// TODO: Should take encrypted data.
 #[oracle(emitEncryptedLog)]
 fn emit_encrypted_log_oracle<N>(
     _contract_address: Field,
@@ -14,19 +15,19 @@ unconstrained fn emit_encrypted_log<N>(
     storage_slot: Field,
     owner: Point,
     preimage: [Field; N],
-) -> Field {
-    emit_encrypted_log_oracle(
+) -> [Field; abi::LOGS_HASH_SIZE] {
+    [emit_encrypted_log_oracle(
         contract_address,
         storage_slot,
         owner,
         preimage,
-    )[0]
+    )[0], 0]
 }
 
 #[oracle(emitUnencryptedLog)]
 fn emit_unencrypted_log_oracle<T>(_message: T)  -> [Field; 1] {}
 
-unconstrained fn emit_unencrypted_log<T>(message: T) -> Field {
+unconstrained fn emit_unencrypted_log<T>(message: T) -> [Field; abi::LOGS_HASH_SIZE] {
     // https://github.com/AztecProtocol/aztec-packages/issues/885
-    emit_unencrypted_log_oracle(message)[0]
+    [emit_unencrypted_log_oracle(message)[0], 0]
 }
