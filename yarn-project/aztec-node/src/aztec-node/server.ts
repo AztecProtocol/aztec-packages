@@ -165,23 +165,15 @@ export class AztecNodeService implements AztecNode {
   }
 
   /**
-   * Gets the `take` amount of encrypted logs starting from `from`.
-   * @param from - Number of the L2 block to which corresponds the first encrypted log to be returned.
-   * @param take - The number of encrypted logs to return.
-   * @returns The requested encrypted logs.
+   * Gets the `take` amount of logs starting from `from`.
+   * @param from - Number of the L2 block to which corresponds the first logs to be returned.
+   * @param take - The number of logs to return.
+   * @param logType - Specifies whether to return encrypted or unencrypted logs.
+   * @returns The requested logs.
    */
-  public getEncryptedLogs(from: number, take: number): Promise<L2BlockL2Logs[]> {
-    return this.encryptedLogsSource.getEncryptedLogs(from, take);
-  }
-
-  /**
-   * Gets the `take` amount of unencrypted logs starting from `from`.
-   * @param from - Number of the L2 block to which corresponds the first unencrypted log to be returned.
-   * @param take - The number of unencrypted logs to return.
-   * @returns The requested unencrypted logs.
-   */
-  public getUnencryptedLogs(from: number, take: number): Promise<L2BlockL2Logs[]> {
-    return this.unencryptedLogsSource.getUnencryptedLogs(from, take);
+  public getLogs(from: number, take: number, logType: 'encrypted' | 'unencrypted'): Promise<L2BlockL2Logs[]> {
+    const logSource = logType === 'encrypted' ? this.encryptedLogsSource : this.unencryptedLogsSource;
+    return logSource.getLogs(from, take, logType);
   }
 
   /**

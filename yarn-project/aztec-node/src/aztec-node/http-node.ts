@@ -156,45 +156,26 @@ export class HttpNode implements AztecNode {
   }
 
   /**
-   * Gets the `take` amount of encrypted logs starting from `from`.
-   * @param from - Number of the L2 block to which corresponds the first encrypted logs to be returned.
-   * @param take - The number of encrypted logs to return.
-   * @returns The requested encrypted logs.
+   * Gets the `take` amount of logs starting from `from`.
+   * @param from - Number of the L2 block to which corresponds the first logs to be returned.
+   * @param take - The number of logs to return.
+   * @param logType - Specifies whether to return encrypted or unencrypted logs.
+   * @returns The requested logs.
    */
-  public async getEncryptedLogs(from: number, take: number): Promise<L2BlockL2Logs[]> {
-    const url = new URL(`${this.baseUrl}/get-encrypted-logs`);
-    url.searchParams.append('from', from.toString());
-    if (take !== undefined) {
-      url.searchParams.append('take', take.toString());
-    }
-    const response = await (await fetch(url.toString())).json();
-    const encryptedLogs = response.encryptedLogs as string[];
+  public async getLogs(from: number, take: number, logType: 'encrypted' | 'unencrypted'): Promise<L2BlockL2Logs[]> {
+    const url = new URL(`${this.baseUrl}/get-logs`);
 
-    if (!encryptedLogs) {
+    url.searchParams.append('from', from.toString());
+    url.searchParams.append('take', take.toString());
+    url.searchParams.append('logType', logType);
+
+    const response = await (await fetch(url.toString())).json();
+    const logs = response.logs as string[];
+
+    if (!logs) {
       return Promise.resolve([]);
     }
-    return Promise.resolve(encryptedLogs.map(x => L2BlockL2Logs.fromBuffer(Buffer.from(x, 'hex'))));
-  }
-
-  /**
-   * Gets the `take` amount of unencrypted logs starting from `from`.
-   * @param from - Number of the L2 block to which corresponds the first unencrypted logs to be returned.
-   * @param take - The number of unencrypted logs to return.
-   * @returns The requested unencrypted logs.
-   */
-  public async getUnencryptedLogs(from: number, take: number): Promise<L2BlockL2Logs[]> {
-    const url = new URL(`${this.baseUrl}/get-unencrypted-logs`);
-    url.searchParams.append('from', from.toString());
-    if (take !== undefined) {
-      url.searchParams.append('take', take.toString());
-    }
-    const response = await (await fetch(url.toString())).json();
-    const unencryptedLogs = response.unencryptedLogs as string[];
-
-    if (!unencryptedLogs) {
-      return Promise.resolve([]);
-    }
-    return Promise.resolve(unencryptedLogs.map(x => L2BlockL2Logs.fromBuffer(Buffer.from(x, 'hex'))));
+    return Promise.resolve(logs.map(x => L2BlockL2Logs.fromBuffer(Buffer.from(x, 'hex'))));
   }
 
   /**

@@ -65,13 +65,13 @@ export class Synchroniser {
 
   protected async work(from = 1, take = 1, retryInterval = 1000): Promise<number> {
     try {
-      let encryptedLogs = await this.node.getEncryptedLogs(from, take);
+      let encryptedLogs = await this.node.getLogs(from, take, 'encrypted');
       if (!encryptedLogs.length) {
         await this.interruptableSleep.sleep(retryInterval);
         return from;
       }
 
-      let unencryptedLogs = await this.node.getUnencryptedLogs(from, take);
+      let unencryptedLogs = await this.node.getLogs(from, take, 'unencrypted');
       if (!unencryptedLogs.length) {
         await this.interruptableSleep.sleep(retryInterval);
         return from;

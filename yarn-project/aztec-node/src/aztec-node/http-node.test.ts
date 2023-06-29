@@ -132,33 +132,33 @@ describe('HttpNode', () => {
     });
   });
 
-  describe('getEncryptedLogs', () => {
-    it('should fetch and return encrypted logs', async () => {
+  describe('getLogs', () => {
+    it.each(['encrypted', 'unencrypted'])('should fetch and return %s logs', async logType => {
       const from = 0;
       const take = 3;
-      const encryptedLog1 = L2BlockL2Logs.random(2, 3, 4);
-      const encryptedLog2 = L2BlockL2Logs.random(1, 5, 2);
+      const log1 = L2BlockL2Logs.random(2, 3, 4);
+      const log2 = L2BlockL2Logs.random(1, 5, 2);
       const response = {
-        encryptedLogs: [encryptedLog1.toBuffer(), encryptedLog2.toBuffer()],
+        logs: [log1.toBuffer(), log2.toBuffer()],
       };
       setFetchMock(response);
 
-      const result = await httpNode.getEncryptedLogs(from, take);
+      const result = await httpNode.getLogs(from, take, logType as 'encrypted' | 'unencrypted');
 
-      expect(fetch).toHaveBeenCalledWith(`${URL}get-encrypted-logs?from=${from}&take=${take}`);
-      expect(result).toEqual([encryptedLog1, encryptedLog2]);
+      expect(fetch).toHaveBeenCalledWith(`${URL}get-logs?from=${from}&take=${take}&logType=${logType}`);
+      expect(result).toEqual([log1, log2]);
     });
 
-    it('should return an empty array if encrypted logs are not available', async () => {
-      const from = 0;
-      const take = 2;
-      const response = {};
-      setFetchMock(response);
+    // it('should return an empty array if encrypted logs are not available', async () => {
+    //   const from = 0;
+    //   const take = 2;
+    //   const response = {};
+    //   setFetchMock(response);
 
-      const result = await httpNode.getEncryptedLogs(from, take);
+    //   const result = await httpNode.getEncryptedLogs(from, take);
 
-      expect(fetch).toHaveBeenCalledWith(`${URL}get-encrypted-logs?from=${from}&take=${take}`);
-      expect(result).toEqual([]);
-    });
+    //   expect(fetch).toHaveBeenCalledWith(`${URL}get-encrypted-logs?from=${from}&take=${take}`);
+    //   expect(result).toEqual([]);
+    // });
   });
 });

@@ -32,7 +32,7 @@ describe('e2e_public_token_contract', () => {
 
   const expectLogsFromLastBlockToBe = async (logMessages: string[]) => {
     const l2BlockNum = await aztecNode.getBlockHeight();
-    const unencryptedLogs = await aztecNode.getUnencryptedLogs(l2BlockNum, 1);
+    const unencryptedLogs = await aztecNode.getLogs(l2BlockNum, 1, 'unencrypted');
     const unrolledLogs = L2BlockL2Logs.unrollLogs(unencryptedLogs);
     const asciiLogs = unrolledLogs.map(log => log.toString('ascii'));
 

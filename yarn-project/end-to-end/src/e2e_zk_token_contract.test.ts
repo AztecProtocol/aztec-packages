@@ -32,14 +32,14 @@ describe('e2e_zk_token_contract', () => {
 
   const expectsNumOfEncryptedLogsInTheLastBlockToBe = async (numEncryptedLogs: number) => {
     const l2BlockNum = await aztecNode.getBlockHeight();
-    const encryptedLogs = await aztecNode.getEncryptedLogs(l2BlockNum, 1);
+    const encryptedLogs = await aztecNode.getLogs(l2BlockNum, 1, 'encrypted');
     const unrolledLogs = L2BlockL2Logs.unrollLogs(encryptedLogs);
     expect(unrolledLogs.length).toBe(numEncryptedLogs);
   };
 
   const expectUnencryptedLogsFromLastBlockToBe = async (logMessages: string[]) => {
     const l2BlockNum = await aztecNode.getBlockHeight();
-    const unencryptedLogs = await aztecNode.getUnencryptedLogs(l2BlockNum, 1);
+    const unencryptedLogs = await aztecNode.getLogs(l2BlockNum, 1, 'unencrypted');
     const unrolledLogs = L2BlockL2Logs.unrollLogs(unencryptedLogs);
     const asciiLogs = unrolledLogs.map(log => log.toString('ascii'));
 

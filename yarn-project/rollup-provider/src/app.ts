@@ -112,14 +112,19 @@ export function appFactory(node: AztecNode, prefix: string) {
     ctx.status = 200;
   });
 
-  router.get('/get-encrypted-logs', async (ctx: Koa.Context) => {
+  router.get('/get-logs', async (ctx: Koa.Context) => {
     const from = +ctx.query.from!;
     const take = +ctx.query.take!;
-    const logs = await node.getEncryptedLogs(from, take);
+    const logType = ctx.query.logType;
+    if (logType !== 'encrypted' && logType !== 'unencrypted') {
+      throw new Error('Invalid log type');
+    }
+
+    const logs = await node.getLogs(from, take, logType);
     const strs = logs.map(x => x.toBuffer().toString('hex'));
     ctx.set('content-type', 'application/json');
     ctx.body = {
-      encryptedLogs: strs,
+      logs: strs,
     };
     ctx.status = 200;
   });
