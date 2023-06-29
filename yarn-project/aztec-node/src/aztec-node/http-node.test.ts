@@ -1,4 +1,4 @@
-import { ContractPublicData, L2Block } from '@aztec/types';
+import { ContractPublicData, L2Block, L2BlockL2Logs } from '@aztec/types';
 import { HttpNode } from './http-node.js';
 import { jest } from '@jest/globals';
 import { AztecAddress } from '@aztec/circuits.js';
@@ -129,6 +129,36 @@ describe('HttpNode', () => {
 
       expect(fetch).toHaveBeenCalledWith(`${URL}contract-data?address=${randomAddress.toString()}`);
       expect(result).toEqual(undefined);
+    });
+  });
+
+  describe('getEncryptedLogs', () => {
+    it('should fetch and return encrypted logs', async () => {
+      const from = 0;
+      const take = 3;
+      const encryptedLog1 = L2BlockL2Logs.random(2, 3, 4);
+      const encryptedLog2 = L2BlockL2Logs.random(1, 5, 2);
+      const response = {
+        encryptedLogs: [encryptedLog1.toBuffer(), encryptedLog2.toBuffer()],
+      };
+      setFetchMock(response);
+
+      const result = await httpNode.getEncryptedLogs(from, take);
+
+      expect(fetch).toHaveBeenCalledWith(`${URL}get-encrypted-logs?from=${from}&take=${take}`);
+      expect(result).toEqual([encryptedLog1, encryptedLog2]);
+    });
+
+    it('should return an empty array if encrypted logs are not available', async () => {
+      const from = 0;
+      const take = 2;
+      const response = {};
+      setFetchMock(response);
+
+      const result = await httpNode.getEncryptedLogs(from, take);
+
+      expect(fetch).toHaveBeenCalledWith(`${URL}get-encrypted-logs?from=${from}&take=${take}`);
+      expect(result).toEqual([]);
     });
   });
 });
