@@ -16,9 +16,10 @@ fn get_balance(storage_slot: Field, skip: Field) -> Field {
     for i in 0..len {
         balance += notes[i].value;
     }
-    if (notes[len - 1].is_dummy()) {
-        balance += get_balance(storage_slot, len);
-    }
+    // TODO
+    // if (notes[len - 1].is_dummy()) {
+    //     balance += get_balance(storage_slot, len);
+    // }
 
     balance
 }

@@ -4,11 +4,15 @@ fn storage_read_oracle<N>(
     _storage_slot: Field,
 ) -> [Field; N] {}
 
-unconstrained fn storage_read<T, N>(
+unconstrained fn storage_read_oracle_wrapper<N>(_storage_slot: Field)-> [Field; N] {
+    storage_read_oracle(_storage_slot)
+}
+
+fn storage_read<T, N>(
     storage_slot: Field,
     deserialise: fn ([Field; N]) -> T,
 ) -> T {
-    let fields = storage_read_oracle(storage_slot);
+    let fields = storage_read_oracle_wrapper(storage_slot);
     deserialise(fields)
 }
 

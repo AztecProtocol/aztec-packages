@@ -12,12 +12,13 @@ fn get_note<Note, N>(
     let dummy = note_interface.dummy;
     let note = oracle::notes::get_note(storage_slot, deserialise, dummy);
 
+    let mut note_hash = 0;
     let is_dummy = note_interface.is_dummy;
     if (!is_dummy(note)) {
         let compute_note_hash = note_interface.compute_note_hash;
-        let note_hash = compute_note_hash(note);
-        context = context.push_read_request(note_hash);
+        note_hash = compute_note_hash(note);
     };
+    context = context.push_read_request(note_hash);
 
     (context, note)
 }
@@ -32,17 +33,19 @@ fn get_notes<Note, N, S, P>(
     let is_dummy = note_interface.is_dummy;
     for i in 0..notes.len() {
         let note = notes[i];
-        if (!is_dummy(note)) {
+        let mut note_hash = 0;
+        if !is_dummy(note) {
             let compute_note_hash = note_interface.compute_note_hash;
-            let note_hash = compute_note_hash(note);
-            context = context.push_read_request(note_hash);
+            note_hash = compute_note_hash(note);
         };
+        context = context.push_read_request(note_hash);
     };
 
     (context, notes)
 }
 
-unconstrained fn view_notes<Note, N, S, P>(
+// TODO: Should be unconstrained.
+fn view_notes<Note, N, S, P>(
     storage_slot: Field,
     note_interface: NoteInterface<Note, N>,
     options: NoteGetterOptions<Note, N, S, P>,

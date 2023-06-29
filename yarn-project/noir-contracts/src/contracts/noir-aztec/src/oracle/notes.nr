@@ -37,17 +37,23 @@ fn get_notes_2_oracle(
     _storage_slot: Field,
 ) -> [Field; 13] {}
 
-unconstrained fn get_note<Note, N>(
+unconstrained fn get_notes_2_oracle_wrapper(_storage_slot: Field)-> [Field; 13] {
+    get_notes_2_oracle(_storage_slot)
+}
+
+// TODO: The following functions should all be unconstrained.
+
+fn get_note<Note, N>(
     storage_slot: Field,
     deserialise: fn ([Field; N]) -> Note,
     dummy: fn () -> Note,
 ) -> Note {
     // TODO: get_note_oracle
-    let fields = get_notes_2_oracle(storage_slot);
+    let fields = get_notes_2_oracle_wrapper(storage_slot);
     deserialise(arr_copy_slice(fields, [0; N], 1))
 }
 
-unconstrained fn get_max_notes<Note, N>(
+fn get_max_notes<Note, N>(
     storage_slot: Field,
     deserialise: fn ([Field; N]) -> Note,
     dummy: fn () -> Note,
@@ -56,7 +62,7 @@ unconstrained fn get_max_notes<Note, N>(
     skip: u8,
 ) -> [Note; MAX_READ_REQUESTS] {
     // TODO: get_max_notes_oracle
-    let fields = get_notes_2_oracle(storage_slot);
+    let fields = get_notes_2_oracle_wrapper(storage_slot);
     let preimage1 = arr_copy_slice(fields, [0; N], 1);
     let note1 = deserialise(preimage1);
     let preimage2 = arr_copy_slice(fields, [0; N], 1 + preimage1.len());
@@ -64,7 +70,7 @@ unconstrained fn get_max_notes<Note, N>(
     [note1, note2, dummy(), dummy()]
 }
 
-unconstrained fn get_notes<Note, N, S, P>(
+fn get_notes<Note, N, S, P>(
     storage_slot: Field,
     deserialise: fn ([Field; N]) -> Note,
     dummy: fn () -> Note,

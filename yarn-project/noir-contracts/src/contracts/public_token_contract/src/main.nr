@@ -45,7 +45,8 @@ contract PublicToken {
         let current_sender_balance: Field = sender_balance.read();
         let current_recipient_balance = recipient_balance.read();
 
-        if (current_sender_balance as u254 > amount as u254) {
+        // TODO: Should support larger numbers.
+        if (current_sender_balance as u126 > amount as u126) {
             sender_balance.write(current_sender_balance - amount);
             // TODO: Compiler complains if we don't assign the result of the write to anything
             let hash = emit_unencrypted_log("Coins transferred");

@@ -67,14 +67,3 @@ impl<Note, N, S, P> NoteGetterOptions<Note, N, S, P> {
         self
     }
 }
-
-fn first_n_notes<Note, S>(notes: [Note; MAX_READ_REQUESTS], mut res: [Note; S]) -> [Note; S] {
-    for i in 0..res.len() {
-        res[i] = notes[i];
-    };
-    res
-}
-
-fn first_1_notes<Note>(notes: [Note; MAX_READ_REQUESTS]) -> [Note; 1] {
-    first_n_notes(notes, [notes[0]])
-}
