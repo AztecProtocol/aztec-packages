@@ -74,3 +74,28 @@ This package contains the source code and the Aztec ABIs for the example contrac
   ```
   VERBOSE=1 yarn noir:build zk_token public_token
   ```
+
+## Creating a new contract package
+1. Go to `src/contracts` folder.
+2. Create a new package whose name has to end with **_contract**. E.g.:
+    ```
+    nargo new example_contract
+    ```
+3. Add the aztec3 dependency to `nargo.toml`:
+    ```
+    [package]
+    authors = [""]
+    compiler_version = "0.7.1"
+
+    [dependencies]
+    aztec3 = { path = "../noir-aztec3" }
+    ```
+4. Replace the content of the generated `example_contract/src/main.nr` file with your contract code.
+4. Go to `noir-contracts` root folder and run `yarn noir:build example` to compile the contract.
+5. Export the abi in `src/examples/index.ts` to be able to use the contract in the rest of the project:
+    ```
+    import ExampleContractJson from './example_contract.json' assert { type: 'json' };
+    export const ExampleContractAbi = ExampleContractJson as ContractAbi;
+    ```
+6. ???
+7. Profit.
