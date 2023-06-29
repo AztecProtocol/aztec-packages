@@ -55,6 +55,7 @@ contract NonNativeToken {
         context = owner_balance.insert(context, note);
         assert(emit_encrypted_log(inputs.call_context.storage_contract_address, owner_balance.storage_slot, note.owner, note) == 0);
 
+        // Return private circuit public inputs. All private functions need to return this as it is part of the input of the private kernel.
         context.finish(inputs)
     }
 
@@ -90,6 +91,7 @@ contract NonNativeToken {
         context = owner_balance.insert(context, note);
         assert(emit_encrypted_log(inputs.call_context.storage_contract_address, owner_balance.storage_slot, note.owner, note) == 0);
 
+        // Return private circuit public inputs. All private functions need to return this as it is part of the input of the private kernel.
         context.finish(inputs)
     }
 
@@ -141,6 +143,7 @@ contract NonNativeToken {
 
         context = context.message_portal(content);
 
+        // Return private circuit public inputs. All private functions need to return this as it is part of the input of the private kernel.
         context.finish(inputs)
     }
 
@@ -248,7 +251,7 @@ contract NonNativeToken {
         assert(emit_encrypted_log(inputs.call_context.storage_contract_address, recipient_balance.storage_slot, recipient_note.owner, recipient_note) == 0);
         assert(emit_encrypted_log(inputs.call_context.storage_contract_address, sender_balance.storage_slot, change_note.owner, change_note) == 0);
 
-        // Finally return `PrivateCircuitPublicInputs`.
+        // Return private circuit public inputs. All private functions need to return this as it is part of the input of the private kernel.
         context.finish(inputs)
     }
 

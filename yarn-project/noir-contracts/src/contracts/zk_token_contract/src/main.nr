@@ -42,7 +42,7 @@ contract ZkToken {
         assert(emit_encrypted_log(inputs.call_context.storage_contract_address, owner_balance.storage_slot, note.owner, note) == 0);
         assert(emit_unencrypted_log("Balance set in constructor") == 0); // unencrypted log is emitted here only for testing purposes
 
-        // Finally return `PrivateCircuitPublicInputs`
+        // Return private circuit public inputs. All private functions need to return this as it is part of the input of the private kernel.
         context.finish(inputs)
     }
 
@@ -66,7 +66,7 @@ contract ZkToken {
         assert(emit_encrypted_log(inputs.call_context.storage_contract_address, owner_balance.storage_slot, note.owner, note) == 0);
         assert(emit_unencrypted_log("Coins minted") == 0); // unencrypted log is emitted here only for testing purposes
 
-        // Finally return `PrivateCircuitPublicInputs`.
+        // Return private circuit public inputs. All private functions need to return this as it is part of the input of the private kernel..
         context.finish(inputs)
     }
 
@@ -117,7 +117,7 @@ contract ZkToken {
         assert(emit_encrypted_log(inputs.call_context.storage_contract_address, sender_balance.storage_slot, change_note.owner, change_note) == 0);
         assert(emit_unencrypted_log("Coins transferred") == 0); // unencrypted log is emitted here only for testing purposes
 
-        // Finally return `PrivateCircuitPublicInputs`.
+        // Return private circuit public inputs. All private functions need to return this as it is part of the input of the private kernel..
         context.finish(inputs)
     }
 

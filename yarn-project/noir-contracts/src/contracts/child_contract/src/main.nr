@@ -12,6 +12,7 @@ contract Child {
     fn constructor(
         inputs: PrivateContextInputs,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
+        // Return private circuit public inputs. All private functions need to return this as it is part of the input of the private kernel.
         PrivateFunctionContext::new().finish(inputs)
     }
 
@@ -25,6 +26,7 @@ contract Child {
 
         context.return_values = context.return_values.push(input + inputs.private_global_variables.chain_id + inputs.private_global_variables.version);
 
+        // Return private circuit public inputs. All private functions need to return this as it is part of the input of the private kernel.
         context.finish(inputs)
     }
 

@@ -113,6 +113,8 @@ contract SchnorrAccount {
         // TODO(#745): Do not store args, set hash directly in context API
         let mut ret = context.finish(inputs);
         ret.args_hash = args_hash;
+        
+        // Return private circuit public inputs. All private functions need to return this as it is part of the input of the private kernel.
         ret
     }
 
@@ -120,6 +122,7 @@ contract SchnorrAccount {
     fn constructor(
         inputs: pub PrivateContextInputs,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
+        // Return private circuit public inputs. All private functions need to return this as it is part of the input of the private kernel.
         PrivateFunctionContext::new().finish(inputs)
     }
 }

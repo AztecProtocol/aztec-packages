@@ -30,6 +30,7 @@ contract Parent {
         let result = callStackItem.public_inputs.return_values[0];
         context.return_values = context.return_values.push(result);
 
+        // Return private circuit public inputs. All private functions need to return this as it is part of the input of the private kernel.
         context.finish(inputs)
     }
 
@@ -66,7 +67,7 @@ contract Parent {
         args[0] = targetValue;
         let (_callStackItem, mut context) = PublicCallStackItem::call(targetContract, targetSelector, args, initialContext);
 
-        // Finally return the public inputs
+        // Return private circuit public inputs. All private functions need to return this as it is part of the input of the private kernel.
         context.finish(inputs)
     }
 
@@ -88,7 +89,7 @@ contract Parent {
         args[0] = callStackItem1.public_inputs.return_values[0];
         let (_callStackItem2, context2) = PublicCallStackItem::call(targetContract, targetSelector, args, context1);
 
-        // Finally return the public inputs
+        // Return private circuit public inputs. All private functions need to return this as it is part of the input of the private kernel.
         context2.finish(inputs)
     }
 
@@ -111,7 +112,7 @@ contract Parent {
         args[2] = targetValue;
         let (_callStackItem1, mut context1) = PublicCallStackItem::call(thisAddress, pubEntryPointSelector, args, initialContext);
 
-        // Finally return the public inputs
+        // Return private circuit public inputs. All private functions need to return this as it is part of the input of the private kernel.
         context1.finish(inputs)
     }
 
@@ -137,7 +138,7 @@ contract Parent {
         args[2] = args[2] + 1;
         let (_callStackItem2, mut context2) = PublicCallStackItem::call(thisAddress, pubEntryPointSelector, args, context1);
 
-        // Finally return the public inputs
+        // Return private circuit public inputs. All private functions need to return this as it is part of the input of the private kernel.
         context2.finish(inputs)
     }
 }
