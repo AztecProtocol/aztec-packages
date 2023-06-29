@@ -87,4 +87,13 @@ impl Note {
         let sender_equals = (sender.x == self.owner.x) & (sender.y == self.owner.y);
         assert((!self.is_real) | sender_equals);
     }
+
+    fn eq(self, other: Note) -> bool {
+        ((self.value == other.value) as u1
+            & (self.owner.x == other.owner.x) as u1
+            & (self.owner.y == other.owner.y) as u1
+            & (self.randomness == other.randomness) as u1
+            & (self.nonce == other.nonce) as u1
+            & (self.is_real == other.is_real) as u1) as bool
+    }
 }

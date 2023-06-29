@@ -7,6 +7,8 @@ use crate::messaging::process_l1_to_l2_message;
 // When finished, one can call .finish() to convert back to the abi
 struct PrivateFunctionContext {
     // inputs: abi::PrivateContextInputs,
+    sideeffect_counter: Field,
+
     args : BoundedVec<Field, abi::MAX_ARGS>,
     return_values : BoundedVec<Field, abi::MAX_RETURN_VALUES>,
 
@@ -31,6 +33,8 @@ impl PrivateFunctionContext {
     fn new() -> PrivateFunctionContext {
         PrivateFunctionContext {
             // inputs: inputs,
+            sideeffect_counter: 0,
+
             args: BoundedVec::new(0),
             return_values: BoundedVec::new(0),
 
@@ -80,21 +84,25 @@ impl PrivateFunctionContext {
 
     fn push_read_request(mut self: Self, read_request: Field) -> Self {
         self.read_requests = self.read_requests.push(read_request);
+        self.sideeffect_counter += 1;
         self
     }
 
     fn push_new_note_hash(mut self: Self, note_hash: Field) -> Self {
         self.new_commitments = self.new_commitments.push(note_hash);
+        self.sideeffect_counter += 1;
         self
     }
 
     fn push_new_nullifier(mut self: Self, nullifier: Field) -> Self {
         self.new_nullifiers = self.new_nullifiers.push(nullifier);
+        self.sideeffect_counter += 1;
         self
     }
 
     fn message_portal(mut self: Self, msg: Field) -> Self {
         self.new_l2_to_l1_msgs = self.new_l2_to_l1_msgs.push(msg);
+        self.sideeffect_counter += 1;
         self
     }
 

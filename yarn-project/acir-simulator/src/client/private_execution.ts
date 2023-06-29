@@ -85,17 +85,20 @@ export class PrivateFunctionExecution {
           ),
         ),
       ],
-      getNotes2: async ([storageSlot]: ACVMField[]) => {
+      getNotes2: async ([counter, storageSlot]: ACVMField[]) => {
+        this.log(`getNotes2 - counter: ${counter}`);
         const { preimagesACVM, realLeafIndices } = await this.context.getNotes(this.contractAddress, storageSlot, 2);
 
         readRequestCommitmentIndices.push(...realLeafIndices);
         return preimagesACVM;
       },
       getRandomField: () => Promise.resolve([toACVMField(Fr.random())]),
-      notifyCreatedNote: ([storageSlot, ownerX, ownerY, ...acvmPreimage]: ACVMField[]) => {
+      notifyCreatedNote: ([counter, storageSlot, ownerX, ownerY, ...acvmPreimage]: ACVMField[]) => {
+        this.log(`notifyCreatedNote - counter: ${counter}`);
         // TODO push commitment to pending commitments along with contract address and storage slot.
         // Maybe also owner?
         // Silo?
+        this.log(`CREATED note with value: ${acvmPreimage[0]}`);
         const pendingNoteData: PendingNoteData = {
           preimage: acvmPreimage,
           contractAddress: this.contractAddress,

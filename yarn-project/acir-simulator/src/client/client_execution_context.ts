@@ -1,5 +1,6 @@
 import { PrivateHistoricTreeRoots, TxContext } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { createDebugLogger } from '@aztec/foundation/log';
 import { Fr } from '@aztec/foundation/fields';
 import {
   ACVMField,
@@ -46,6 +47,8 @@ export class ClientTxExecutionContext {
     public historicRoots: PrivateHistoricTreeRoots,
     /** Pending commitments created (and not nullified) up to current point in execution **/
     public pendingNotes: PendingNoteData[] = [],
+
+    private log = createDebugLogger('aztec:simulator:client_execution_context'),
   ) {}
 
   /**
@@ -70,20 +73,27 @@ export class ClientTxExecutionContext {
     // loop over pendingCommitments
     // if commitment matches (along with contract address and storage slot), add to preimages
     // if preimages.length < limit, fetchNotes with decreased limit
+
+    this.log(`Checking ${this.pendingNotes.length} pending notes for matches...`);
+    //console.log(`Looking for notes with contract address: ${contractAddress}`);
+    //console.log(`Looking for notes with storage slot: ${storageSlot}`);
     const pendingPreimages: ACVMField[] = [];
-    //for (const note of this.pendingNotes) {
-    //  if (pendingPreimages.length === limit) {
-    //    break;
-    //  }
-    //  if (
-    //    note.contractAddress === contractAddress &&
-    //    note.storageSlot === storageSlot
-    //  ) {
-    //    // TODO flag as pending and separately provide "hint" of
-    //    // which "new_commitment" in which kernel this read maps to
-    //    pendingPreimages.push(...note.preimage);
-    //  }
-    //}
+    for (const note of this.pendingNotes) {
+      //console.log(`Checking note with value: ${note.preimage[0]}`);
+      //console.log(`Checking note with contract address: ${note.contractAddress}`);
+      //console.log(`Checking note with storage slot: ${note.storageSlot}`);
+      if (pendingPreimages.length === limit) {
+        break;
+      }
+      if (
+        note.contractAddress === contractAddress &&
+        note.storageSlot === storageSlot
+      ) {
+        // TODO flag as pending and separately provide "hint" of
+        // which "new_commitment" in which kernel this read maps to
+        pendingPreimages.push(...note.preimage);
+      }
+    }
     const numPendingNotes = pendingPreimages.length;
     const pendingLeafIndexPlaceholders: bigint[] = Array(numPendingNotes).fill(BigInt(-1));
 
