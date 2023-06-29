@@ -146,4 +146,5 @@ export function fromACVMField(field: ACVMField): Fr {
  */
 export function createDummyNote() {
   return [Fr.ZERO, Fr.random(), Fr.ZERO, Fr.ZERO, Fr.random(), Fr.ZERO];
+  // 0th entry ^ specifies whether a note is real
 }

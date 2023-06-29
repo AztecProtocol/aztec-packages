@@ -55,8 +55,8 @@ export class UnconstrainedFunctionExecution {
         ),
       ],
       getNotes2: async ([storageSlot]: ACVMField[]) => {
-        const { preimages } = await this.context.getNotes(this.contractAddress, storageSlot, 2);
-        return preimages;
+        const { preimagesACVM } = await this.context.getNotes(this.contractAddress, storageSlot, 2);
+        return preimagesACVM;
       },
       getRandomField: () => Promise.resolve([toACVMField(Fr.random())]),
       viewNotesPage: ([acvmSlot, acvmLimit, acvmOffset]) =>

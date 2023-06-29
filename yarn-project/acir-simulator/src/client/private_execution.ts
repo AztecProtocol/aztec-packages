@@ -31,7 +31,7 @@ import {
   toAcvmEnqueuePublicFunctionResult,
 } from '../acvm/index.js';
 import { ExecutionResult, NewNoteData, NewNullifierData, sizeOfType } from '../index.js';
-import { ClientTxExecutionContext } from './client_execution_context.js';
+import { ClientTxExecutionContext, PendingNoteData } from './client_execution_context.js';
 import { fieldsToFormattedStr } from './debug.js';
 
 const notAvailable = () => {
@@ -86,17 +86,23 @@ export class PrivateFunctionExecution {
         ),
       ],
       getNotes2: async ([storageSlot]: ACVMField[]) => {
-        const { preimages, indices } = await this.context.getNotes(this.contractAddress, storageSlot, 2);
-        // TODO(dbanks12): https://github.com/AztecProtocol/aztec-packages/issues/779
-        // if preimages length is > rrcIndices length, we are either relying on
-        // the app circuit to remove fake preimages, or on the kernel to handle
-        // the length diff.
-        const filteredIndices = indices.filter(index => index != BigInt(-1));
-        readRequestCommitmentIndices.push(...filteredIndices);
-        return preimages;
+        const { preimagesACVM, realLeafIndices } = await this.context.getNotes(this.contractAddress, storageSlot, 2);
+
+        readRequestCommitmentIndices.push(...realLeafIndices);
+        return preimagesACVM;
       },
       getRandomField: () => Promise.resolve([toACVMField(Fr.random())]),
-      notifyCreatedNote: ([storageSlot, ownerX, ownerY, ...acvmPreimage]: ACVMField[]) => {
+      notifyCreatedNote: ([storageSlot,ownerX,ownerY, ...acvmPreimage]: ACVMField[]) => {
+        // TODO push commitment to pending commitments along with contract address and storage slot.
+        // Maybe also owner?
+        // Silo?
+        const pendingNoteData: PendingNoteData = {
+          preimage: acvmPreimage,
+          contractAddress: this.contractAddress,
+          storageSlot: storageSlot,
+        };
+        this.context.pendingNotes.push(pendingNoteData);
+
         newNotePreimages.push({
           preimage: acvmPreimage.map(f => fromACVMField(f)),
           storageSlot: fromACVMField(storageSlot),
@@ -108,6 +114,9 @@ export class PrivateFunctionExecution {
         return Promise.resolve([ZERO_ACVM_FIELD]);
       },
       notifyNullifiedNote: ([slot, nullifier, ...acvmPreimage]: ACVMField[]) => {
+        // TODO if nullifies pending commitment, remove it from this.context.pendingCommitments
+        // Flag this nullifier as transient in simulator output.
+        // Can we set kernel hint here?
         newNullifiers.push({
           preimage: acvmPreimage.map(f => fromACVMField(f)),
           storageSlot: fromACVMField(slot),
@@ -297,7 +306,7 @@ export class PrivateFunctionExecution {
     const derivedCallContext = await this.deriveCallContext(callerContext, targetContractAddress, false, false);
 
     const nestedExecution = new PrivateFunctionExecution(
-      this.context,
+      this.context, // forwards current state of pending commitments
       targetAbi,
       targetContractAddress,
       targetFunctionData,

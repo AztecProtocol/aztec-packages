@@ -62,11 +62,11 @@ impl Note {
     fn compute_note_hash(self) -> Field {
         dep::std::hash::pedersen([
             crate::NoteHash,
-            self.value, 
-            self.owner.x, 
+            self.value,
+            self.owner.x,
             self.owner.y,
-            self.randomness, 
-            self.nonce, 
+            self.randomness,
+            self.nonce,
             self.is_real as Field,
         ])[0]
     }

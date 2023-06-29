@@ -12,6 +12,18 @@ import {
 import { NoteLoadOracleInputs, DBOracle } from './db_oracle.js';
 
 /**
+ * Information about a note created during execution.
+ */
+export type PendingNoteData = {
+  /** The preimage of the created note */
+  preimage: ACVMField[];
+  /** The contract address of the commitment. */
+  contractAddress: AztecAddress;
+  /** The storage slot of the commitment. */
+  storageSlot: ACVMField;
+}
+
+/**
  * A type that wraps data with it's read request index
  */
 type ACVMWithReadRequestIndex = {
@@ -32,6 +44,8 @@ export class ClientTxExecutionContext {
     public txContext: TxContext,
     /** The old roots. */
     public historicRoots: PrivateHistoricTreeRoots,
+    /** Pending commitments created (and not nullified) up to current point in execution **/
+    public pendingNotes: PendingNoteData[] = [],
   ) {}
 
   /**
@@ -48,15 +62,53 @@ export class ClientTxExecutionContext {
    * and another array of indices corresponding to each note
    */
   public async getNotes(contractAddress: AztecAddress, storageSlot: ACVMField, limit: number) {
-    const { count, notes } = await this.fetchNotes(contractAddress, storageSlot, limit);
+    // TODO first check pending commitments, then fill in remaining with a fetchNotes with modified limit
+    // need each pending commitment to be flagged with contract address and storage slot?
+    // Anything else? Don't think we need owner since if it is pending it must be owned by caller?
+    // Can we set kernel hint here or in simulator?
 
-    const preimages = [
-      toACVMField(count),
-      ...notes.flatMap(noteGetData => noteGetData.preimage.map(f => toACVMField(f))),
+    // loop over pendingCommitments
+    // if commitment matches (along with contract address and storage slot), add to preimages
+    // if preimages.length < limit, fetchNotes with decreased limit
+    const pendingPreimages: ACVMField[] = [];
+    //for (const note of this.pendingNotes) {
+    //  if (pendingPreimages.length === limit) {
+    //    break;
+    //  }
+    //  if (
+    //    note.contractAddress === contractAddress &&
+    //    note.storageSlot === storageSlot
+    //  ) {
+    //    // TODO flag as pending and separately provide "hint" of
+    //    // which "new_commitment" in which kernel this read maps to
+    //    pendingPreimages.push(...note.preimage);
+    //  }
+    //}
+    const numPendingNotes = pendingPreimages.length;
+    const pendingLeafIndexPlaceholders: bigint[] = Array(numPendingNotes).fill(BigInt(-1));
+
+    // may still need to get some notes from db
+    const remainingLimit = limit - numPendingNotes;
+    const { realCount: numDbRealNotes, notes: dbNotes } = await this.fetchNotes(contractAddress, storageSlot, remainingLimit);
+    // only need leaf indices for "real" notes (those found in db)
+    const dbRealLeafIndices = dbNotes.slice(0, numDbRealNotes).map(note => note.index);
+    // need preimages for all notes (real and dummy) for consumption by Noir circuit
+    const dbAllPreimages = dbNotes.map(note => note.preimage.map(f => toACVMField(f)));
+
+    // all pending notes and notes found in db
+    const numRealNotes = numPendingNotes + numDbRealNotes;
+    // all preimages (including pending, dummy, and real)
+    const allPreimages = [...pendingPreimages, ...dbAllPreimages];
+    // leaf indices for all "real" notes
+    // this includes placeholder indices (-1) for real pending notes
+    const realLeafIndices = [...pendingLeafIndexPlaceholders, ...dbRealLeafIndices];
+
+    const preimagesACVM = [
+      toACVMField(numRealNotes), // number of real notes
+      ...allPreimages.flat(), // all note preimages
     ];
-    const indices = notes.map(noteGetData => noteGetData.index);
 
-    return { preimages, indices };
+    return { preimagesACVM,  realLeafIndices};
   }
 
   /**
@@ -69,9 +121,9 @@ export class ClientTxExecutionContext {
    * @returns The ACVM fields for the count and the requested notes.
    */
   public async viewNotes(contractAddress: AztecAddress, storageSlot: ACVMField, limit: number, offset = 0) {
-    const { count, notes } = await this.fetchNotes(contractAddress, storageSlot, limit, offset);
+    const { realCount, notes } = await this.fetchNotes(contractAddress, storageSlot, limit, offset);
 
-    return [toACVMField(count), ...notes.flatMap(noteGetData => noteGetData.preimage.map(f => toACVMField(f)))];
+    return [toACVMField(realCount), ...notes.flatMap(noteGetData => noteGetData.preimage.map(f => toACVMField(f)))];
   }
 
   /**
@@ -83,18 +135,18 @@ export class ClientTxExecutionContext {
    * @returns The count and the requested notes, padded with dummy notes.
    */
   private async fetchNotes(contractAddress: AztecAddress, storageSlot: ACVMField, limit: number, offset = 0) {
-    const { count, notes } = await this.db.getNotes(contractAddress, fromACVMField(storageSlot), limit, offset);
+    const { count: realCount, notes } = await this.db.getNotes(contractAddress, fromACVMField(storageSlot), limit, offset);
 
     const dummyNotes = Array.from(
       { length: Math.max(0, limit - notes.length) },
       (): NoteLoadOracleInputs => ({
         preimage: createDummyNote(),
-        index: BigInt(-1),
+        index: BigInt(-2), // some invalid index - shouldn't ever be used
       }),
     );
 
     return {
-      count,
+      realCount,
       notes: notes.concat(dummyNotes),
     };
   }
