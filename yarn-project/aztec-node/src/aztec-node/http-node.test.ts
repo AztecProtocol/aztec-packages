@@ -1,4 +1,4 @@
-import { ContractPublicData, L2Block, L2BlockL2Logs } from '@aztec/types';
+import { ContractData, ContractPublicData, L2Block, L2BlockL2Logs } from '@aztec/types';
 import { HttpNode } from './http-node.js';
 import { jest } from '@jest/globals';
 import { AztecAddress } from '@aztec/circuits.js';
@@ -163,5 +163,34 @@ describe('HttpNode', () => {
         expect(result).toEqual([]);
       },
     );
+  });
+
+  describe('getContractInfo', () => {
+    it('should fetch and return contract data', async () => {
+      const contractInfo = ContractData.random();
+      const response = {
+        contractInfo: contractInfo.toBuffer(),
+      };
+      setFetchMock(response);
+
+      const result = await httpNode.getContractInfo(contractInfo.contractAddress);
+
+      expect(fetch).toHaveBeenCalledWith(`${URL}contract-info?address=${contractInfo.contractAddress.toString()}`);
+      expect(result).toEqual(contractInfo);
+    });
+
+    it('should return undefined if contract data is not available', async () => {
+      const response = {
+        contractInfo: undefined,
+      };
+      setFetchMock(response);
+
+      const randomAddress = AztecAddress.random();
+
+      const result = await httpNode.getContractInfo(randomAddress);
+
+      expect(fetch).toHaveBeenCalledWith(`${URL}contract-info?address=${randomAddress.toString()}`);
+      expect(result).toBeUndefined();
+    });
   });
 });

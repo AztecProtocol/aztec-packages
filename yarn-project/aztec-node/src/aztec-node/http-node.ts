@@ -180,7 +180,7 @@ export class HttpNode implements AztecNode {
 
   /**
    * Lookup the L2 contract info for this contract.
-   * Contains the ethereum portal address .
+   * Contains the ethereum portal address.
    * @param contractAddress - The contract data address.
    * @returns The contract's address & portal address.
    */
@@ -188,6 +188,9 @@ export class HttpNode implements AztecNode {
     const url = new URL(`${this.baseUrl}/contract-info`);
     url.searchParams.append('address', contractAddress.toString());
     const response = await (await fetch(url.toString())).json();
+    if (!response || !response.contractInfo) {
+      return undefined;
+    }
     const contract = response.contractInfo as string;
     return Promise.resolve(ContractData.fromBuffer(Buffer.from(contract, 'hex')));
   }
