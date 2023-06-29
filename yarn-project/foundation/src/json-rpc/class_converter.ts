@@ -41,7 +41,7 @@ interface ObjIOClass {
   new (...args: any): any;
 
   /**
-   * Creates an IOClass from a given string.
+   * Creates an IOClass from a given JSON object.
    */
   fromJSON: (str: object) => any;
 }
