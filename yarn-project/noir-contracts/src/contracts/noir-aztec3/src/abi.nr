@@ -183,7 +183,7 @@ impl PrivateCircuitPublicInputs {
     }
 
     fn serialize(self) -> [Field; PUBLIC_INPUTS_LENGTH] {
-        let mut fields: BoundedVec<Field, PUBLIC_INPUTS_LENGTH> = BoundedVec::new(0); 
+        let mut fields: BoundedVec<Field, PUBLIC_INPUTS_LENGTH> = BoundedVec::new(0);
         fields = fields.push_array(self.call_context.serialize());
         fields = fields.push(self.args_hash);
         fields = fields.push_array(self.return_values);
@@ -242,8 +242,8 @@ fn empty_contract_storage_update_request() -> ContractStorageUpdateRequest {
 }
 
 // CALL_CONTEXT_SIZE
-// + ARGS_HASH 
-// + MAX_RETURN_VALUES 
+// + ARGS_HASH
+// + MAX_RETURN_VALUES
 // + CONTRACT_STORAGE_UPDATE_REQUESTS_LENGTH * CONTRACT_STORAGE_UPDATE_REQUEST_SIZE
 // + CONTRACT_STORAGE_READS_LENGTH * CONTRACT_STORAGE_READ_SIZE
 // + MAX_PUBLIC_CALL_STACK
@@ -277,8 +277,8 @@ impl PublicCircuitPublicInputs {
     }
 
     fn serialize(self) -> [Field; PUBLIC_CIRCUIT_PUBLIC_INPUTS_SIZE] {
-        let mut fields: BoundedVec<Field, PUBLIC_CIRCUIT_PUBLIC_INPUTS_SIZE> = BoundedVec::new(0); 
-        fields = fields.push_array(self.call_context.serialize());   
+        let mut fields: BoundedVec<Field, PUBLIC_CIRCUIT_PUBLIC_INPUTS_SIZE> = BoundedVec::new(0);
+        fields = fields.push_array(self.call_context.serialize());
         fields = fields.push(self.args_hash);
         fields = fields.push_array(self.return_values);
         for i in 0..crate::abi::CONTRACT_STORAGE_UPDATE_REQUESTS_LENGTH {

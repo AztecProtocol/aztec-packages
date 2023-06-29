@@ -49,11 +49,11 @@ contract EcdsaAccount {
         // Verify payload signature using ethereum's signing scheme
         let payload_bytes: [u8; entrypoint::ENTRYPOINT_PAYLOAD_SIZE_IN_BYTES] = payload.to_be_bytes();
         let payload_hash: [u8; 32] = std::hash::sha256(payload_bytes);
-        
+
         let verification = std::ecdsa_secp256k1::verify_signature(x, y, decompressed_signature, payload_hash);
         constrain verification == true;
 
-        // TODO: When we can use pedersen with non-zero generators, get this working        
+        // TODO: When we can use pedersen with non-zero generators, get this working
         //let reproduced_address = dep::std::hash::pedersen([owner, partialContractAddress])[0];
         //constrain reproduced_address == inputs.call_context.storage_contract_address;
 
@@ -97,7 +97,7 @@ contract EcdsaAccount {
         // }
         // TODO(#499): Use hash index
         // let args_hash = dep::std::hash::pedersen(args.storage)[0];
-        
+
         // TODO(#754): Pedersen is throwing a panic in wasm when computing the hash for too many args.
         let args_hash = 0;
 
