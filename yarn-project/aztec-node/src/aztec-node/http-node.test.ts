@@ -149,16 +149,19 @@ describe('HttpNode', () => {
       expect(result).toEqual([log1, log2]);
     });
 
-    // it('should return an empty array if encrypted logs are not available', async () => {
-    //   const from = 0;
-    //   const take = 2;
-    //   const response = {};
-    //   setFetchMock(response);
+    it.each(['encrypted', 'unencrypted'])(
+      'should return an empty array if %s logs are not available',
+      async logType => {
+        const from = 0;
+        const take = 2;
+        const response = {};
+        setFetchMock(response);
 
-    //   const result = await httpNode.getEncryptedLogs(from, take);
+        const result = await httpNode.getLogs(from, take, logType as 'encrypted' | 'unencrypted');
 
-    //   expect(fetch).toHaveBeenCalledWith(`${URL}get-encrypted-logs?from=${from}&take=${take}`);
-    //   expect(result).toEqual([]);
-    // });
+        expect(fetch).toHaveBeenCalledWith(`${URL}get-logs?from=${from}&take=${take}&logType=${logType}`);
+        expect(result).toEqual([]);
+      },
+    );
   });
 });
