@@ -1,6 +1,8 @@
 use dep::aztec::note::note_getter::NoteGetterOptions;
 use dep::aztec::note::note_getter::view_notes;
+use dep::aztec::note::note_getter_options::Sort;
 use crate::value_note::value_note::ValueNoteInterface;
+use crate::value_note::value_note::VALUE_NOTE_LEN;
 use crate::value_note::filter::get_all_notes;
 
 // TODO(1.5) We don't support yet more than one page of notes
@@ -9,8 +11,7 @@ use crate::value_note::filter::get_all_notes;
 fn get_balance(storage_slot: Field, skip: Field) -> Field {
     let mut balance = 0;
 
-    let mut options = NoteGetterOptions::new(get_all_notes, 0);
-    options = options.set_skip(skip as u8);
+    let options = NoteGetterOptions::new(get_all_notes, 0, [Sort::nada(); VALUE_NOTE_LEN], 0);
     let notes = view_notes(storage_slot, ValueNoteInterface, options);
     let len = notes.len();
     for i in 0..len {

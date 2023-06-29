@@ -80,7 +80,7 @@ contract ZkToken {
         initialContext.args = initialContext.args.push_array([amount, sender.x, sender.y, recipient.x, recipient.y]);
 
         let sender_balance = storage.balances.at(sender.x);
-        let options = NoteGetterOptions::new(get_2_notes, 0);
+        let options = NoteGetterOptions::with_filter(get_2_notes, 0);
         let (mut context, notes) = sender_balance.get_notes(initialContext, options);
         let note1 = notes[0];
         let note2 = notes[1];

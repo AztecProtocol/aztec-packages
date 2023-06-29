@@ -38,32 +38,26 @@ impl<Note, N, S, P> NoteGetterOptions<Note, N, S, P> {
     fn new(
         filter: fn ([Note; MAX_READ_REQUESTS], P) -> [Note; S],
         filter_args: P,
+        sort_by: [Sort; N],
+        skip: u8,
     ) -> Self {
         NoteGetterOptions {
-            sort_by: [Sort::nada(); N],
-            skip: 0,
+            sort_by,
+            skip,
             filter,
             filter_args,
         }
     }
 
-    fn set_skip(mut self: Self, skip: u8) -> Self {
-        self.skip = skip;
-        self
-    }
-
-    fn set_sort(mut self: Self, sort_by: [Sort; N]) -> Self {
-        self.sort_by = sort_by;
-        self
-    }
-
-    fn set_filter(
-        mut self: Self,
+    fn with_filter(
         filter: fn ([Note; MAX_READ_REQUESTS], P) -> [Note; S],
         filter_args: P,
     ) -> Self {
-        self.filter = filter;
-        self.filter_args = filter_args;
-        self
+         NoteGetterOptions {
+            sort_by: [Sort::nada(); N],
+            skip: 0,
+            filter,
+            filter_args,
+        }
     }
 }
