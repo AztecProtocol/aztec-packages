@@ -42,12 +42,14 @@ describe('e2e_pending_commitments_contract', () => {
 
     const deployedContract = await deployContract();
 
-    const tx = deployedContract.methods.create_get_and_check_note_inline(
-      mintAmount,
-      ownerPublicKey,
-      Fr.fromBuffer(deployedContract.methods.create_note.selector),
-      Fr.fromBuffer(deployedContract.methods.get_and_check_note.selector),
-    ).send({ from: owner });
+    const tx = deployedContract.methods
+      .create_get_and_check_note_inline(
+        mintAmount,
+        ownerPublicKey,
+        Fr.fromBuffer(deployedContract.methods.create_note.selector),
+        Fr.fromBuffer(deployedContract.methods.get_and_check_note.selector),
+      )
+      .send({ from: owner });
     //const tx = deployedContract.methods.create_get_and_check_note_in_nested_calls(mintAmount, ownerPublicKey).send({ from: owner });
     //assert commitment output from app
     //assert no rr output from app that matches pending commitment
@@ -58,5 +60,4 @@ describe('e2e_pending_commitments_contract', () => {
 
     expect(receipt.status).toBe(TxStatus.MINED);
   }, 60_000);
-
 });

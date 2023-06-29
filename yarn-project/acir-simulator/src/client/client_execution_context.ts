@@ -85,10 +85,7 @@ export class ClientTxExecutionContext {
       if (pendingPreimages.length === limit) {
         break;
       }
-      if (
-        note.contractAddress === contractAddress &&
-        note.storageSlot === storageSlot
-      ) {
+      if (note.contractAddress === contractAddress && note.storageSlot === storageSlot) {
         // TODO flag as pending and separately provide "hint" of
         // which "new_commitment" in which kernel this read maps to
         pendingPreimages.push(...note.preimage);
