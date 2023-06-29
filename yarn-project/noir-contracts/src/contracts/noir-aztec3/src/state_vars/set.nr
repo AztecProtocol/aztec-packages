@@ -46,6 +46,9 @@ impl Set {
         let note0_hash = notes.0.compute_note_hash();
         let note1_hash = notes.1.compute_note_hash();
 
+        // Note: number of notes pushed here must match 'count' retrieved by oracle call
+        // so that these notes match the corresponding commitment indices (leaf position in tree)
+        // tracked by the simulator and used to generate witnesses in KernelProver.
         if notes.0.is_real {
             context = context.push_read_request(note0_hash);
             if notes.1.is_real {

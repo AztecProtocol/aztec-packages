@@ -19,6 +19,7 @@ import {
 import { assertLength } from '@aztec/foundation/serialize';
 import { KernelProofCreator, ProofCreator, ProofOutput } from './proof_creator.js';
 import { ProvingDataOracle } from './proving_data_oracle.js';
+import { assert } from 'console';
 
 /**
  * Represents an output note data object.
@@ -97,17 +98,12 @@ export class KernelProver {
           .map(() => PrivateCallStackItem.empty()),
       );
 
-      // TODO(dbanks12): https://github.com/AztecProtocol/aztec-packages/issues/779
-      // What if app circuit outputs different #read-requests vs what the RPC client
-      // gets from the simulator? And confirm same number of readRequests as indices.
       const readRequestMembershipWitnesses = [];
       for (let rr = 0; rr < currentExecution.readRequestCommitmentIndices.length; rr++) {
-        if (currentExecution.callStackItem.publicInputs.readRequests[rr] == Fr.zero()) {
-          // TODO(dbanks12): is this needed?
-          // if rr is 0 somehow, that means it we have reached the last
-          // rr for this private call / kernel iteration
-          break;
-        }
+        assert(
+          currentExecution.callStackItem.publicInputs.readRequests[rr] == Fr.zero(),
+          'Number of read requests output from Noir circuit does not match number of read request commitment indices output from simulator.',
+        );
         const leafIndex = currentExecution.readRequestCommitmentIndices[rr];
         const membershipWitness = await this.oracle.getNoteMembershipWitness(leafIndex);
         readRequestMembershipWitnesses.push(membershipWitness);
@@ -159,7 +155,7 @@ export class KernelProver {
       assertLength<Fr, typeof VK_TREE_HEIGHT>(previousVkMembershipWitness.siblingPath, VK_TREE_HEIGHT),
     );
 
-    //TODO(jeanmon): Temporary milestone where we only feed new commitments of the output
+    // TODO(jeanmon): Temporary milestone where we only feed new commitments of the output
     // of ordering circuit into the final output. Longer-term goal is to output the ordering circuit output.
     const orderedOutput = await this.proofCreator.createProofOrdering(previousKernelData);
     output.publicInputs.end.newCommitments = orderedOutput.publicInputs.end.newCommitments;

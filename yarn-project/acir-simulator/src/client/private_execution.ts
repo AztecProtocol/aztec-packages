@@ -92,7 +92,7 @@ export class PrivateFunctionExecution {
         return preimagesACVM;
       },
       getRandomField: () => Promise.resolve([toACVMField(Fr.random())]),
-      notifyCreatedNote: ([storageSlot,ownerX,ownerY, ...acvmPreimage]: ACVMField[]) => {
+      notifyCreatedNote: ([storageSlot, ownerX, ownerY, ...acvmPreimage]: ACVMField[]) => {
         // TODO push commitment to pending commitments along with contract address and storage slot.
         // Maybe also owner?
         // Silo?

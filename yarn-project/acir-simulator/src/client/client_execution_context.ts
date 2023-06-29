@@ -21,7 +21,7 @@ export type PendingNoteData = {
   contractAddress: AztecAddress;
   /** The storage slot of the commitment. */
   storageSlot: ACVMField;
-}
+};
 
 /**
  * A type that wraps data with it's read request index
@@ -89,7 +89,11 @@ export class ClientTxExecutionContext {
 
     // may still need to get some notes from db
     const remainingLimit = limit - numPendingNotes;
-    const { realCount: numDbRealNotes, notes: dbNotes } = await this.fetchNotes(contractAddress, storageSlot, remainingLimit);
+    const { realCount: numDbRealNotes, notes: dbNotes } = await this.fetchNotes(
+      contractAddress,
+      storageSlot,
+      remainingLimit,
+    );
     // only need leaf indices for "real" notes (those found in db)
     const dbRealLeafIndices = dbNotes.slice(0, numDbRealNotes).map(note => note.index);
     // need preimages for all notes (real and dummy) for consumption by Noir circuit
@@ -108,7 +112,7 @@ export class ClientTxExecutionContext {
       ...allPreimages.flat(), // all note preimages
     ];
 
-    return { preimagesACVM,  realLeafIndices};
+    return { preimagesACVM, realLeafIndices };
   }
 
   /**
@@ -135,7 +139,12 @@ export class ClientTxExecutionContext {
    * @returns The count and the requested notes, padded with dummy notes.
    */
   private async fetchNotes(contractAddress: AztecAddress, storageSlot: ACVMField, limit: number, offset = 0) {
-    const { count: realCount, notes } = await this.db.getNotes(contractAddress, fromACVMField(storageSlot), limit, offset);
+    const { count: realCount, notes } = await this.db.getNotes(
+      contractAddress,
+      fromACVMField(storageSlot),
+      limit,
+      offset,
+    );
 
     const dummyNotes = Array.from(
       { length: Math.max(0, limit - notes.length) },
