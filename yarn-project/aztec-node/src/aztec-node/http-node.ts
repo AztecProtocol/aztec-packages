@@ -27,7 +27,7 @@ import {
 /**
  * Serialises a transaction to JSON representation.
  * @param tx - The transaction to serialise.
- * @returns The serialsied transaction.
+ * @returns The serialised transaction.
  */
 export function txToJson(tx: Tx) {
   return {
