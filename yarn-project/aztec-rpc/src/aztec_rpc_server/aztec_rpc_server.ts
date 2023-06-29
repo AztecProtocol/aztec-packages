@@ -473,7 +473,7 @@ export class AztecRPCServer implements AztecRPC {
    * @returns The requested unencrypted logs.
    */
   public async getUnencryptedLogs(from: number, take: number): Promise<L2BlockL2Logs[]> {
-    return await this.node.getUnencryptedLogs(from, take);
+    return await this.node.getLogs(from, take, "unencrypted");
   }
 
   async #getExecutionRequest(
