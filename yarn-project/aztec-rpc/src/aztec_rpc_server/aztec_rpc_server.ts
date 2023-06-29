@@ -288,8 +288,8 @@ export class AztecRPCServer implements AztecRPC {
       false,
       true,
       contractDeploymentData,
-      await this.node.getChainId(),
-      await this.node.getVersion(),
+      new Fr(await this.node.getChainId()),
+      new Fr(await this.node.getVersion()),
     );
 
     const wasm = await CircuitsWasm.get();
@@ -324,7 +324,7 @@ export class AztecRPCServer implements AztecRPC {
 
     const executionRequest = await this.#getExecutionRequest(account, functionName, args, to);
 
-    const txContext = TxContext.empty(await this.node.getChainId(), await this.node.getVersion());
+    const txContext = TxContext.empty(new Fr(await this.node.getChainId()), new Fr(await this.node.getVersion()));
     const authedTxRequest = await entrypoint.createAuthenticatedTxRequest([executionRequest], txContext);
     if (!authedTxRequest.functionData.isPrivate) {
       throw new Error(`Public entrypoints are not allowed`);
@@ -473,7 +473,7 @@ export class AztecRPCServer implements AztecRPC {
    * @returns The requested unencrypted logs.
    */
   public async getUnencryptedLogs(from: number, take: number): Promise<L2BlockL2Logs[]> {
-    return await this.node.getLogs(from, take, "unencrypted");
+    return await this.node.getLogs(from, take, 'unencrypted');
   }
 
   async #getExecutionRequest(

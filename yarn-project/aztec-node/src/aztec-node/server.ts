@@ -51,8 +51,8 @@ export class AztecNodeService implements AztecNode {
     protected merkleTreeDB: MerkleTrees,
     protected worldStateSynchroniser: WorldStateSynchroniser,
     protected sequencer: SequencerClient,
-    protected chainId: Fr,
-    protected version: Fr,
+    protected chainId: number,
+    protected version: number,
   ) {}
 
   /**
@@ -97,8 +97,8 @@ export class AztecNodeService implements AztecNode {
       merkleTreeDB,
       worldStateSynchroniser,
       sequencer,
-      new Fr(config.chainId),
-      new Fr(config.version),
+      config.chainId,
+      config.version,
     );
   }
 
@@ -132,7 +132,7 @@ export class AztecNodeService implements AztecNode {
    * Method to fetch the version of the rollup the node is connected to.
    * @returns The rollup version.
    */
-  public getVersion(): Promise<Fr> {
+  public getVersion(): Promise<number> {
     return Promise.resolve(this.version);
   }
 
@@ -140,7 +140,7 @@ export class AztecNodeService implements AztecNode {
    * Method to fetch the chain id of the base-layer for the rollup.
    * @returns The chain id.
    */
-  public getChainId(): Promise<Fr> {
+  public getChainId(): Promise<number> {
     return Promise.resolve(this.chainId);
   }
 
