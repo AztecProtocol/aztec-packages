@@ -148,6 +148,9 @@ export class HttpNode implements AztecNode {
     const url = new URL(`${this.baseUrl}/contract-data`);
     url.searchParams.append('address', contractAddress.toString());
     const response = await (await fetch(url.toString())).json();
+    if (!response || !response.contractData) {
+      return undefined;
+    }
     const contract = response.contractData as string;
     return Promise.resolve(ContractPublicData.fromBuffer(Buffer.from(contract, 'hex')));
   }
