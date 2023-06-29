@@ -54,7 +54,7 @@ export class UnconstrainedFunctionExecution {
           ),
         ),
       ],
-      getNotes2: async ([storageSlot]: ACVMField[]) => {
+      getNotes2: async ([_counter, storageSlot]: ACVMField[]) => {
         const { preimagesACVM } = await this.context.getNotes(this.contractAddress, storageSlot, 2);
         return preimagesACVM;
       },
