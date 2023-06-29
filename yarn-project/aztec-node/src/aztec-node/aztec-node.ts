@@ -41,13 +41,13 @@ export interface AztecNode {
    * Method to fetch the version of the rollup the node is connected to.
    * @returns The rollup version.
    */
-  getVersion(): Promise<Fr>;
+  getVersion(): Promise<number>;
 
   /**
    * Method to fetch the chain id of the base-layer for the rollup.
    * @returns The chain id.
    */
-  getChainId(): Promise<Fr>;
+  getChainId(): Promise<number>;
 
   /**
    * Lookup the L2 contract data for this contract.

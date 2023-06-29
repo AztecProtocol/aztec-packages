@@ -120,7 +120,7 @@ export class HttpNode implements AztecNode {
    * Method to fetch the version of the rollup the node is connected to.
    * @returns The rollup version.
    */
-  public async getVersion(): Promise<Fr> {
+  public async getVersion(): Promise<number> {
     const url = new URL(`${this.baseUrl}/get-version`);
     const response = await fetch(url.toString());
     const respJson = await response.json();
@@ -131,7 +131,7 @@ export class HttpNode implements AztecNode {
    * Method to fetch the chain id of the base-layer for the rollup.
    * @returns The chain id.
    */
-  public async getChainId(): Promise<Fr> {
+  public async getChainId(): Promise<number> {
     const url = new URL(`${this.baseUrl}/get-chain-id`);
     const response = await fetch(url.toString());
     const respJson = await response.json();
