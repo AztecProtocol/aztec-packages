@@ -1,6 +1,7 @@
 // TODO the verification keys in this contracts are mocked ATM
 import TestContractJson from './test_contract.json' assert { type: 'json' };
 import ZkTokenContractJson from './zk_token_contract.json' assert { type: 'json' };
+import CGamContractJson from './c_gam_contract.json' assert { type: 'json' };
 import ParentJson from './parent_contract.json' assert { type: 'json' };
 import ChildJson from './child_contract.json' assert { type: 'json' };
 import PublicTokenContractJson from './public_token_contract.json' assert { type: 'json' };
@@ -14,6 +15,7 @@ import UniswapContractJson from './uniswap_contract.json' assert { type: 'json' 
 
 export const TestContractAbi = TestContractJson as ContractAbi;
 export const ZkTokenContractAbi = ZkTokenContractJson as ContractAbi;
+export const CGamContractAbi = CGamContractJson as ContractAbi;
 export const ParentAbi = ParentJson as ContractAbi;
 export const ChildAbi = ChildJson as ContractAbi;
 export const PublicTokenContractAbi = PublicTokenContractJson as ContractAbi;
