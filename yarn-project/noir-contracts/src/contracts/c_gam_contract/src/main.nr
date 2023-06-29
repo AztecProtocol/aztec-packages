@@ -1,7 +1,7 @@
 // Noir implementation of a private token contract. It allows for the minting, and transfer of tokens. This contract
 // only works with private state and for this reason user balances are stored as notes (total user balance is
 // represented as a set of notes).
-contract ZkToken {
+contract CGam {
     mod balance_utils;
     use dep::aztec3::abi;
     use dep::aztec3::abi::PrivateContextInputs;
@@ -28,7 +28,7 @@ contract ZkToken {
         // Should eventually be hidden:
         inputs: PrivateContextInputs,
         //*********************************/
-        initial_supply: Field, 
+        initial_supply: Field,
         owner: Point,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
         let mut context = PrivateFunctionContext::new();
@@ -52,7 +52,7 @@ contract ZkToken {
         // Should eventually be hidden:
         inputs: PrivateContextInputs,
         //*********************************/
-        amount: Field, 
+        amount: Field,
         owner: Point,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
         let mut context = PrivateFunctionContext::new();
@@ -76,8 +76,8 @@ contract ZkToken {
         // Should eventually be hidden:
         inputs: PrivateContextInputs,
         //*********************************/
-        amount: Field, 
-        sender: Point, 
+        amount: Field,
+        sender: Point,
         recipient: Point,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
         let mut initialContext = PrivateFunctionContext::new();
@@ -129,7 +129,7 @@ contract ZkToken {
     ) -> pub Field {
         // Get the set of notes owned by the user.
         let owner_balance = balances.at(owner.x);
-        
+
         // Return the sum of all notes in the set.
         balance_utils::get_balance(owner_balance.storage_slot)
     }
