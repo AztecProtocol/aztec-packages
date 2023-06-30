@@ -27,12 +27,12 @@ template <typename NCT, typename V> struct DefaultSingletonPrivateNotePreimage {
 
     bool operator==(DefaultSingletonPrivateNotePreimage<NCT, V> const&) const = default;
 
-    template <typename Composer> auto to_circuit_type(Composer& composer) const
+    template <typename Builder> auto to_circuit_type(Builder& builder) const
     {
         static_assert((std::is_same<NativeTypes, NCT>::value));
 
-        // Capture the composer:
-        auto to_ct = [&](auto& e) { return aztec3::utils::types::to_ct(composer, e); };
+        // Capture the circuit builder:
+        auto to_ct = [&](auto& e) { return aztec3::utils::types::to_ct(builder, e); };
 
         // Depending on whether the _circuit_ type version of `V` is from the stdlib, or some custom type, the
         // conversion method will be different.
@@ -41,8 +41,7 @@ template <typename NCT, typename V> struct DefaultSingletonPrivateNotePreimage {
 
         // To avoid messy template arguments in the calling code, we use a lambda function with `auto` return type to
         // avoid explicitly having to state the circuit type for `V`.
-        auto circuit_value = [&]() -> auto
-        {
+        auto circuit_value = [&]() -> auto {
             if constexpr (has_to_circuit_type) {
                 return value.to_circuit_type();
             } else if (has_to_ct) {
@@ -50,13 +49,12 @@ template <typename NCT, typename V> struct DefaultSingletonPrivateNotePreimage {
             } else {
                 throw_or_abort("Can't convert Value to circuit type");
             }
-        }
-        ();
+        }();
 
         // When this method is called, this class must be templated over native types. We can avoid templating over the
         // circuit types (for the return values) (in order to make the calling syntax cleaner) with the below `decltype`
         // deduction of the _circuit_ version of template type `V`.
-        DefaultSingletonPrivateNotePreimage<CircuitTypes<Composer>, typename decltype(circuit_value)::value_type>
+        DefaultSingletonPrivateNotePreimage<CircuitTypes<Builder>, typename decltype(circuit_value)::value_type>
             preimage = {
                 circuit_value,
                 to_ct(owner),
@@ -67,18 +65,17 @@ template <typename NCT, typename V> struct DefaultSingletonPrivateNotePreimage {
         return preimage;
     };
 
-    template <typename Composer> auto to_native_type() const
+    template <typename Builder> auto to_native_type() const
     {
         static_assert(!std::is_same<NativeTypes, NCT>::value);
 
-        auto to_nt = [&](auto& e) { return aztec3::utils::types::to_nt<Composer>(e); };
+        auto to_nt = [&](auto& e) { return aztec3::utils::types::to_nt<Builder>(e); };
 
         // See `to_circuit_type()` for explanation of this code.
         const bool has_to_native_type = requires(V v) { v.to_native_type(); };
         const bool has_to_nt = requires(V v) { to_nt(v); };
 
-        auto native_value = [&]() -> auto
-        {
+        auto native_value = [&]() -> auto {
             if constexpr (has_to_native_type) {
                 return value.to_native_type();
             } else if (has_to_nt) {
@@ -86,8 +83,7 @@ template <typename NCT, typename V> struct DefaultSingletonPrivateNotePreimage {
             } else {
                 throw_or_abort("Can't convert Value to native type");
             }
-        }
-        ();
+        }();
 
         DefaultSingletonPrivateNotePreimage<NativeTypes, typename decltype(native_value)::value_type> preimage = {
             native_value,

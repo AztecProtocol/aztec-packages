@@ -15,7 +15,7 @@ import {
   CombinedAccumulatedData,
   CombinedConstantData,
   CombinedHistoricTreeRoots,
-  ComposerType,
+  CircuitType,
   ConstantBaseRollupData,
   ContractDeploymentData,
   ContractStorageRead,
@@ -382,7 +382,7 @@ export function makeMembershipWitness<N extends number>(size: N, start: number):
  */
 export function makeVerificationKey(): VerificationKey {
   return new VerificationKey(
-    ComposerType.STANDARD,
+    CircuitType.STANDARD,
     101, // arbitrary
     102, // arbitrary
     {
@@ -624,6 +624,8 @@ export function makePrivateCircuitPublicInputs(seed = 0): PrivateCircuitPublicIn
     historicPrivateNullifierTreeRoot: fr(seed + 0xf00),
     historicL1ToL2MessagesTreeRoot: fr(seed + 0x1000),
     contractDeploymentData: makeContractDeploymentData(),
+    chainId: fr(seed + 0x1100),
+    version: fr(seed + 0x1200),
   });
 }
 
