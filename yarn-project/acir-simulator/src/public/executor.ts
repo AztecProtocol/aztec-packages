@@ -55,8 +55,6 @@ export class PublicExecutor {
    * @returns The result of the run plus all nested runs.
    */
   public async execute(execution: PublicExecution, globalVariables: GlobalVariables): Promise<PublicExecutionResult> {
-    // @todo Should we add the global variables up here as an input? Or should it be similar to "treeRoots" below?
-    // Out main diff would be the that those vars are not in dp and depends on the block execution :thinking:
     const selectorHex = execution.functionData.functionSelectorBuffer.toString('hex');
     this.log(`Executing public external function ${execution.contractAddress.toString()}:${selectorHex}`);
 
