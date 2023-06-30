@@ -34,20 +34,7 @@ import { Database, TxDao } from '../database/index.js';
 import { Synchroniser } from '../synchroniser/index.js';
 import { TxReceipt, TxStatus } from '../tx/index.js';
 import { computePartialContractAddress, computeSecretMessageHash } from '@aztec/circuits.js/abis';
-
-/**
- *
- */
-interface AuthPayload {
-  toBuffer(): Buffer;
-  toFields(): Fr[];
-}
-/**
- *
- */
-interface TxAuthProvider {
-  authenticateTx(payload: Tx, address: AztecAddress): Promise<AuthPayload>;
-}
+import { TxAuthProvider } from '../auth/index.js';
 
 /**
  * A remote Aztec RPC Client implementation.

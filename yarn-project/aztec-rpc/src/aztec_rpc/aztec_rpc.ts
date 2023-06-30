@@ -11,7 +11,6 @@ import {
   TxHash,
 } from '@aztec/types';
 import { TxReceipt } from '../tx/index.js';
-import { CurveType, SignerType } from '../crypto/types.js';
 
 /**
  * Represents a deployed contract on the Aztec network.
