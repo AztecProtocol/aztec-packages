@@ -34,14 +34,19 @@ import { Database, TxDao } from '../database/index.js';
 import { Synchroniser } from '../synchroniser/index.js';
 import { TxReceipt, TxStatus } from '../tx/index.js';
 import { computePartialContractAddress, computeSecretMessageHash } from '@aztec/circuits.js/abis';
-import { Curve, Signer } from '@aztec/circuits.js/barretenberg';
-import { CurveType, SignerType, createCurve, createSigner } from '../crypto/types.js';
 
 /**
  *
  */
+interface AuthPayload {
+  toBuffer(): Buffer;
+  toFields(): Fr[];
+}
+/**
+ *
+ */
 interface TxAuthProvider {
-  authenticateTx(payload: Tx, address: AztecAddress): Promise<AuthPayload/>
+  authenticateTx(payload: Tx, address: AztecAddress): Promise<AuthPayload>;
 }
 
 /**
@@ -302,7 +307,7 @@ export class AztecRPCServer implements AztecRPC {
       throw new Error(`Account contract not found at ${address}`);
     } else if (contract.name.includes('Account')) {
       this.log(`Using account contract implementation for ${address}`);
-      return new AccountContract(address, pubKey, this.keyStore, partialContractAddress, accountContractAbi);
+      return new AccountContract(address, pubKey, this.authProvider, partialContractAddress, accountContractAbi);
     } else {
       throw new Error(`Unknown account implementation for ${address}`);
     }
@@ -479,19 +484,9 @@ export class AztecRPCServer implements AztecRPC {
     pubKey: PublicKey,
     address: AztecAddress,
     partialContractAddress: PartialContractAddress,
-    curve: Curve,
-    signer: Signer,
     abi = SchnorrAccountContractAbi,
   ) {
-    const accountPrivateKey = await this.keyStore.getAccountPrivateKey(pubKey);
-    const account = await this.synchroniser.addAccount(
-      accountPrivateKey,
-      address,
-      partialContractAddress,
-      curve,
-      signer,
-      abi,
-    );
+    const account = await this.synchroniser.addAccount(pubKey, address, partialContractAddress, abi, this.keyStore);
     this.log(`Account added: ${address.toString()}`);
     return account;
   }

@@ -2,7 +2,7 @@ import { encodeArguments } from '@aztec/acir-simulator';
 import { ARGS_LENGTH, AztecAddress, Fr, FunctionData, TxContext } from '@aztec/circuits.js';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { sha256 } from '@aztec/foundation/crypto';
-import { KeyStore, PublicKey } from '@aztec/key-store';
+import { PublicKey } from '@aztec/key-store';
 import { ExecutionRequest, PartialContractAddress, TxExecutionRequest } from '@aztec/types';
 import partition from 'lodash.partition';
 import times from 'lodash.times';
@@ -17,7 +17,7 @@ export class AccountContract implements AccountImplementation {
   constructor(
     private address: AztecAddress,
     private pubKey: PublicKey,
-    private keyStore: KeyStore,
+    private authProvider: TxAuthProvider,
     private partialContractAddress: PartialContractAddress,
     private contractAbi: ContractAbi,
   ) {}
@@ -40,7 +40,7 @@ export class AccountContract implements AccountImplementation {
     const payload = buildPayload(privateCalls, publicCalls);
     const hash = hashPayload(payload);
 
-    const signature = await this.keyStore.sign(hash, this.pubKey);
+    const signature = await this.authProvider.authenticateTx(hash, this.address);
     const signatureAsFrArray = signature.toFields();
     const publicKeyAsBuffer = this.pubKey.toBuffer();
     const args = [payload, publicKeyAsBuffer, signatureAsFrArray, this.partialContractAddress];

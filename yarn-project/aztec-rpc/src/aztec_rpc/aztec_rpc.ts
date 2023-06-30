@@ -39,18 +39,10 @@ export interface DeployedContract {
  * as well as storage and view functions for smart contracts.
  */
 export interface AztecRPC {
-  createSmartAccount(
-    privKey?: Buffer,
-    curve?: CurveType,
-    signer?: SignerType,
-    abi?: ContractAbi,
-  ): Promise<[TxHash, AztecAddress]>;
-  registerSmartAccount(
+  addAccount(
     privKey: Buffer,
     address: AztecAddress,
     partialContractAddress: PartialContractAddress,
-    curve?: CurveType,
-    signer?: SignerType,
     abi?: ContractAbi,
   ): Promise<AztecAddress>;
   getMessageHash(secret: Fr): Promise<Fr>;

@@ -8,6 +8,9 @@ import { L2BlockContext, MerkleTreeId, PartialContractAddress, TxHash } from '@a
 import { AccountState } from '../account_state/index.js';
 import { Database, TxDao } from '../database/index.js';
 import { SchnorrAccountContractAbi } from '@aztec/noir-contracts/examples';
+import { KeyPair } from '@aztec/key-store';
+import { PublicKey } from '@aztec/key-store';
+import { KeyStore } from '@aztec/key-store';
 
 /**
  * The Synchroniser class manages the synchronization of account states and interacts with the Aztec node
@@ -160,29 +163,30 @@ export class Synchroniser {
    * The method resolves immediately after pushing the new account state.
    *
    * @param privKey - The private key buffer to initialize the account state.
+   * @param publicKey
    * @param address - Address of the corresponding account contract.
    * @param partialContractAddress - The partially computed account contract address.
    * @param curve - The curve to be used for elliptic curve operations.
    * @param signer - The signer to be used for transaction signing.
+   * @param keyPair
    * @param abi - Implementation of the account contract to backing the account.
+   * @param keyStore
    * @returns A promise that resolves once the account is added to the Synchroniser.
    */
   public addAccount(
-    privKey: Buffer,
+    publicKey: PublicKey,
     address: AztecAddress,
     partialContractAddress: PartialContractAddress,
-    curve: Curve,
-    signer: Signer,
     abi = SchnorrAccountContractAbi,
+    keyStore: KeyStore,
   ) {
     const accountState = new AccountState(
-      privKey,
+      publicKey,
+      keyStore,
       address,
       partialContractAddress,
       this.db,
       this.node,
-      curve,
-      signer,
       abi,
     );
     this.accountStates.push(accountState);
