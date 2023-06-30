@@ -16,7 +16,7 @@ constexpr size_t PRIVATE_CALL_STACK_LENGTH = 4;
 constexpr size_t PUBLIC_CALL_STACK_LENGTH = 4;
 constexpr size_t NEW_L2_TO_L1_MSGS_LENGTH = 2;
 
-constexpr size_t KERNEL_NEW_COMMITMENTS_LENGTH = 4;
+constexpr size_t KERNEL_NEW_COMMITMENTS_LENGTH = 8;
 constexpr size_t KERNEL_NEW_NULLIFIERS_LENGTH = 4;
 constexpr size_t KERNEL_NEW_CONTRACTS_LENGTH = 1;
 constexpr size_t KERNEL_PRIVATE_CALL_STACK_LENGTH = 8;
