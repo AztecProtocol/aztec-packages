@@ -11,6 +11,7 @@ import {
   TxHash,
 } from '@aztec/types';
 import { TxReceipt } from '../tx/index.js';
+import { PublicKey } from '@aztec/key-store';
 
 /**
  * Represents a deployed contract on the Aztec network.
@@ -59,6 +60,7 @@ export interface AztecRPC {
     args: any[],
     portalContract: EthAddress,
     contractAddressSalt?: Fr,
+    deployerPublicKey?: PublicKey,
     from?: AztecAddress,
   ): Promise<ContractDeploymentTx>;
   createTx(functionName: string, args: any[], to: AztecAddress, from?: AztecAddress): Promise<Tx>;

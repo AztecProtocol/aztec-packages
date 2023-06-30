@@ -5,6 +5,7 @@ export * from './aztec_rpc_http/index.js';
 export * from './tx/index.js';
 export * from './crypto/types.js';
 export * from './auth/index.js';
+export * from './account_impl/index.js';
 
 export { Tx, TxHash, PartialContractAddress } from '@aztec/types';
 

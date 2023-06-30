@@ -6,7 +6,6 @@ import { L2Block, MerkleTreeId } from '@aztec/types';
 import { MockProxy, mock } from 'jest-mock-extended';
 import omit from 'lodash.omit';
 import { Database, MemoryDB } from '../database/index.js';
-import { AztecAddress } from '../index.js';
 import { Synchroniser } from './synchroniser.js';
 import { SchnorrAccountContractAbi } from '@aztec/noir-contracts/examples';
 

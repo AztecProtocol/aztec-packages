@@ -28,7 +28,8 @@ import { mnemonicToAccount } from 'viem/accounts';
 import { MNEMONIC, localAnvil } from './fixtures.js';
 import { CircuitsWasm } from '@aztec/circuits.js';
 import { Grumpkin, pedersenPlookupCommitInputs } from '@aztec/circuits.js/barretenberg';
-import { KeyStore, TestKeyStore } from '@aztec/key-store';
+import { KeyStore } from '@aztec/key-store';
+import { randomBytes } from 'crypto';
 
 /**
  * Sets up the environment for the end-to-end tests.
@@ -36,6 +37,7 @@ import { KeyStore, TestKeyStore } from '@aztec/key-store';
  */
 export async function setup(
   authProvider: TxAuthProvider,
+  keyStore: KeyStore,
   numberOfAccounts = 1,
 ): Promise<{
   /**
@@ -78,21 +80,24 @@ export async function setup(
   config.inboxContract = deployL1ContractsValues.inboxAddress;
 
   const aztecNode = await AztecNodeService.createAndSync(config);
-  const curve = await Grumpkin.new();
-  const keyStore = new TestKeyStore(curve);
   const aztecRpcServer = await createAztecRPCServer(authProvider, aztecNode, { keyStore });
   for (let i = 0; i < numberOfAccounts; ++i) {
     // We use the well-known private key and the validating account contract for the first account,
     // and generate random keypairs with gullible account contracts (ie no sig validation) for the rest.
     // TODO(#662): Let the aztec rpc server generate the keypair rather than hardcoding the private key
+    const privateKey = i === 0 ? Buffer.from(privKey!) : randomBytes(32);
+    const publicKey = keyStore.addAccount(privateKey);
     const impl = i == 0 ? SchnorrAccountContractAbi : GullibleAccountContractAbi;
-    const contractDeployer = new ContractDeployer(impl, aztecRpcServer);
+    const contractDeployer = new ContractDeployer(publicKey, impl, aztecRpcServer);
     const deployMethod = contractDeployer.deploy();
+
     const tx = deployMethod.send();
     await tx.isMined(0, 0.1);
     const receipt = await tx.getReceipt();
     const address = receipt.contractAddress!;
     const pubKey = await aztecRpcServer.getAccountPublicKey(address);
+
+    await aztecRpcServer.addAccount(privateKey, address, deployMethod.partialContractAddress!, impl);
     logger(`Created account ${address.toString()} with public key ${pubKey.toString()}`);
   }
 
@@ -129,21 +134,21 @@ export async function setNextBlockTimestamp(rpcUrl: string, timestamp: number) {
  * @param abi - contracts to be deployed.
  * @returns The deployed contract instances.
  */
-export async function deployL2Contracts(aztecRpcServer: AztecRPCServer, abis: ContractAbi[]) {
-  const logger = getLogger();
-  const calls = await Promise.all(abis.map(abi => new ContractDeployer(abi, aztecRpcServer).deploy()));
-  for (const call of calls) await call.create();
-  const txs = await Promise.all(calls.map(c => c.send()));
-  expect(every(await Promise.all(txs.map(tx => tx.isMined(0, 0.1))))).toBeTruthy();
-  const receipts = await Promise.all(txs.map(tx => tx.getReceipt()));
-  const contracts = zipWith(
-    abis,
-    receipts,
-    (abi, receipt) => new Contract(receipt!.contractAddress!, abi!, aztecRpcServer),
-  );
-  contracts.forEach(c => logger(`L2 contract ${c.abi.name} deployed at ${c.address}`));
-  return contracts;
-}
+// export async function deployL2Contracts(aztecRpcServer: AztecRPCServer, abis: ContractAbi[]) {
+//   const logger = getLogger();
+//   const calls = await Promise.all(abis.map(abi => new ContractDeployer(abi, aztecRpcServer).deploy()));
+//   for (const call of calls) await call.create();
+//   const txs = await Promise.all(calls.map(c => c.send()));
+//   expect(every(await Promise.all(txs.map(tx => tx.isMined(0, 0.1))))).toBeTruthy();
+//   const receipts = await Promise.all(txs.map(tx => tx.getReceipt()));
+//   const contracts = zipWith(
+//     abis,
+//     receipts,
+//     (abi, receipt) => new Contract(receipt!.contractAddress!, abi!, aztecRpcServer),
+//   );
+//   contracts.forEach(c => logger(`L2 contract ${c.abi.name} deployed at ${c.address}`));
+//   return contracts;
+// }
 
 /**
  * Returns a logger instance for the current test.
@@ -179,53 +184,53 @@ export function pointToPublicKey(point: Point) {
  * @param underlyingERC20Address - address of the underlying ERC20 contract to use (if noone supplied, it deploys one)
  * @returns l2 contract instance, token portal instance, token portal address and the underlying ERC20 instance
  */
-export async function deployAndInitializeNonNativeL2TokenContracts(
-  aztecRpcServer: AztecRPCServer,
-  walletClient: WalletClient<HttpTransport, Chain, Account>,
-  publicClient: PublicClient<HttpTransport, Chain>,
-  rollupRegistryAddress: EthAddress,
-  initialBalance = 0n,
-  owner = { x: 0n, y: 0n },
-  underlyingERC20Address?: EthAddress,
-) {
-  // deploy underlying contract if no address supplied
-  if (!underlyingERC20Address) {
-    underlyingERC20Address = await deployL1Contract(walletClient, publicClient, PortalERC20Abi, PortalERC20Bytecode);
-  }
-  const underlyingERC20: any = getContract({
-    address: underlyingERC20Address.toString(),
-    abi: PortalERC20Abi,
-    walletClient,
-    publicClient,
-  });
+// export async function deployAndInitializeNonNativeL2TokenContracts(
+//   aztecRpcServer: AztecRPCServer,
+//   walletClient: WalletClient<HttpTransport, Chain, Account>,
+//   publicClient: PublicClient<HttpTransport, Chain>,
+//   rollupRegistryAddress: EthAddress,
+//   initialBalance = 0n,
+//   owner = { x: 0n, y: 0n },
+//   underlyingERC20Address?: EthAddress,
+// ) {
+//   // deploy underlying contract if no address supplied
+//   if (!underlyingERC20Address) {
+//     underlyingERC20Address = await deployL1Contract(walletClient, publicClient, PortalERC20Abi, PortalERC20Bytecode);
+//   }
+//   const underlyingERC20: any = getContract({
+//     address: underlyingERC20Address.toString(),
+//     abi: PortalERC20Abi,
+//     walletClient,
+//     publicClient,
+//   });
 
-  // deploy the token portal
-  const tokenPortalAddress = await deployL1Contract(walletClient, publicClient, TokenPortalAbi, TokenPortalBytecode);
-  const tokenPortal: any = getContract({
-    address: tokenPortalAddress.toString(),
-    abi: TokenPortalAbi,
-    walletClient,
-    publicClient,
-  });
+//   // deploy the token portal
+//   const tokenPortalAddress = await deployL1Contract(walletClient, publicClient, TokenPortalAbi, TokenPortalBytecode);
+//   const tokenPortal: any = getContract({
+//     address: tokenPortalAddress.toString(),
+//     abi: TokenPortalAbi,
+//     walletClient,
+//     publicClient,
+//   });
 
-  // deploy l2 contract and attach to portal
-  const deployer = new ContractDeployer(NonNativeTokenContractAbi, aztecRpcServer);
-  const tx = deployer.deploy(initialBalance, owner).send({
-    portalContract: tokenPortalAddress,
-  });
-  await tx.isMined(0, 0.1);
-  const receipt = await tx.getReceipt();
-  const l2Contract = new Contract(receipt.contractAddress!, NonNativeTokenContractAbi, aztecRpcServer);
-  await l2Contract.attach(tokenPortalAddress);
-  const l2TokenAddress = l2Contract.address.toString() as `0x${string}`;
+//   // deploy l2 contract and attach to portal
+//   const deployer = new ContractDeployer(NonNativeTokenContractAbi, aztecRpcServer);
+//   const tx = deployer.deploy(initialBalance, owner).send({
+//     portalContract: tokenPortalAddress,
+//   });
+//   await tx.isMined(0, 0.1);
+//   const receipt = await tx.getReceipt();
+//   const l2Contract = new Contract(receipt.contractAddress!, NonNativeTokenContractAbi, aztecRpcServer);
+//   await l2Contract.attach(tokenPortalAddress);
+//   const l2TokenAddress = l2Contract.address.toString() as `0x${string}`;
 
-  // initialize portal
-  await tokenPortal.write.initialize(
-    [rollupRegistryAddress.toString(), underlyingERC20Address.toString(), l2TokenAddress],
-    {} as any,
-  );
-  return { l2Contract, tokenPortalAddress, tokenPortal, underlyingERC20 };
-}
+//   // initialize portal
+//   await tokenPortal.write.initialize(
+//     [rollupRegistryAddress.toString(), underlyingERC20Address.toString(), l2TokenAddress],
+//     {} as any,
+//   );
+//   return { l2Contract, tokenPortalAddress, tokenPortal, underlyingERC20 };
+// }
 
 /**
  * Sleep for a given number of milliseconds.

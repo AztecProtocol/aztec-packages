@@ -4,6 +4,7 @@ import { ContractDeployer } from '../index.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { SchnorrAccountContractAbi } from '@aztec/noir-contracts/examples';
 import { randomBytes } from '@aztec/foundation/crypto';
+import { KeyStore } from '@aztec/key-store';
 
 /**
  * Creates an Aztec Account.
@@ -12,6 +13,7 @@ import { randomBytes } from '@aztec/foundation/crypto';
 export async function createAccounts(
   aztecRpcClient: AztecRPC,
   privateKey: Buffer,
+  keyStore: KeyStore,
   numberOfAccounts = 1,
   logger = createDebugLogger('aztec:aztec.js:accounts'),
 ): Promise<[AztecAddress, Point][]> {
@@ -21,9 +23,9 @@ export async function createAccounts(
     // and generate random keypairs with gullible account contracts (ie no sig validation) for the rest.
     // TODO(#662): Let the aztec rpc server generate the keypair rather than hardcoding the private key
     const privKey = i == 0 ? privateKey : randomBytes(32);
-
+    const publicKey = keyStore.addAccount(privKey);
     const impl = SchnorrAccountContractAbi;
-    const contractDeployer = new ContractDeployer(impl, aztecRpcClient);
+    const contractDeployer = new ContractDeployer(publicKey, impl, aztecRpcClient);
     const deployMethod = contractDeployer.deploy();
     const tx = deployMethod.send();
     await tx.isMined(0, 0.1);

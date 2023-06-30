@@ -175,7 +175,7 @@ export class AztecRPCServer implements AztecRPC {
    * @param args - The arguments required for the constructor function of the contract.
    * @param portalContract - The Ethereum address of the portal contract.
    * @param contractAddressSalt - (Optional) Salt value used to generate the contract address.
-   * @param deployerPublicKey
+   * @param deployerPublicKey - The deployer's public key.
    * @param from - (Optional) The Aztec address of the account that deploys the contract.
    * @returns An instance of a ContractDeploymentTx.
    */
@@ -200,12 +200,12 @@ export class AztecRPCServer implements AztecRPC {
       args,
       portalContract,
       contractAddressSalt,
-      pubKey,
+      pubKey!,
     );
 
     if (!account) {
       account = new AccountState(
-        pubKey,
+        pubKey!,
         this.keyStore,
         contract.address,
         partialContractAddress,
@@ -220,8 +220,8 @@ export class AztecRPCServer implements AztecRPC {
     await this.db.addTx(
       new TxDao(await tx.getTxHash(), undefined, undefined, account.getAddress(), undefined, contract.address, ''),
     );
-
-    return new ContractDeploymentTx(tx, partialContractAddress);
+    console.log(`Deployment Address `, contract.address.toString());
+    return new ContractDeploymentTx(tx, partialContractAddress, contract.address);
   }
 
   async #prepareDeploy(
@@ -267,7 +267,6 @@ export class AztecRPCServer implements AztecRPC {
     );
 
     const contract = contractTree.contract;
-    contract.a;
     await this.db.addContract(contract);
 
     const txRequest = new TxExecutionRequest(contract.address, functionData, flatArgs, txContext);

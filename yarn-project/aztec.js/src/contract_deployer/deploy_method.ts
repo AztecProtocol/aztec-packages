@@ -5,6 +5,7 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { PartialContractAddress } from '@aztec/types';
+import { PublicKey } from '@aztec/key-store';
 
 /**
  * Options for deploying a contract on the Aztec network.
@@ -31,7 +32,12 @@ export class DeployMethod extends ContractFunctionInteraction {
    */
   public partialContractAddress?: PartialContractAddress = undefined;
 
-  constructor(arc: AztecRPC, private abi: ContractAbi, args: any[] = []) {
+  /**
+   * The complete contract address.
+   */
+  public completeContractAddress?: AztecAddress = undefined;
+
+  constructor(private publicKey: PublicKey, arc: AztecRPC, private abi: ContractAbi, args: any[] = []) {
     const constructorAbi = abi.functions.find(f => f.name === 'constructor');
     if (!constructorAbi) {
       throw new Error('Cannot find constructor in the ABI.');
@@ -56,10 +62,13 @@ export class DeployMethod extends ContractFunctionInteraction {
       this.args,
       portalContract || new EthAddress(Buffer.alloc(EthAddress.SIZE_IN_BYTES)),
       contractAddressSalt,
+      this.publicKey,
       from,
     );
     this.tx = deploymentTx.tx;
     this.partialContractAddress = deploymentTx.partialContractAddress;
+    this.completeContractAddress = deploymentTx.contractAddress;
+    console.log(`Contract Address`, deploymentTx.contractAddress);
     return this.tx;
   }
 
