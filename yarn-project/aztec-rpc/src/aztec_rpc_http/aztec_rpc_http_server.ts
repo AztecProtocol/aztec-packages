@@ -5,7 +5,7 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
 
-import { EthAddress, createAztecRPCServer } from '../index.js';
+import { EthAddress, TxAuthProvider, createAztecRPCServer } from '../index.js';
 
 export const localAnvil = foundry;
 
@@ -13,9 +13,12 @@ export const localAnvil = foundry;
  * Wraps an instance of the Aztec RPC Server implementation to a JSON RPC HTTP interface.
  * @returns A new instance of the HTTP server.
  */
-export async function getHttpRpcServer(nodeConfig: AztecNodeConfig): Promise<JsonRpcServer> {
+export async function getHttpRpcServer(
+  authProvider: TxAuthProvider,
+  nodeConfig: AztecNodeConfig,
+): Promise<JsonRpcServer> {
   const aztecNode = await AztecNodeService.createAndSync(nodeConfig);
-  const aztecRpcServer = await createAztecRPCServer(aztecNode);
+  const aztecRpcServer = await createAztecRPCServer(authProvider, aztecNode);
   const generatedRpcServer = new JsonRpcServer(
     aztecRpcServer,
     {

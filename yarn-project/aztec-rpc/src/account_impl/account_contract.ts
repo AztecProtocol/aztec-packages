@@ -6,7 +6,7 @@ import { PublicKey } from '@aztec/key-store';
 import { ExecutionRequest, PartialContractAddress, TxExecutionRequest } from '@aztec/types';
 import partition from 'lodash.partition';
 import times from 'lodash.times';
-import { generateFunctionSelector } from '../index.js';
+import { TxAuthProvider, generateFunctionSelector } from '../index.js';
 import { AccountImplementation } from './index.js';
 import { ContractAbi } from '@aztec/foundation/abi';
 
@@ -40,7 +40,7 @@ export class AccountContract implements AccountImplementation {
     const payload = buildPayload(privateCalls, publicCalls);
     const hash = hashPayload(payload);
 
-    const signature = await this.authProvider.authenticateTx(hash, this.address);
+    const signature = await this.authProvider.authenticateTx(payload, hash, this.address);
     const signatureAsFrArray = signature.toFields();
     const publicKeyAsBuffer = this.pubKey.toBuffer();
     const args = [payload, publicKeyAsBuffer, signatureAsFrArray, this.partialContractAddress];
@@ -82,7 +82,7 @@ const ACCOUNT_MAX_PRIVATE_CALLS = 1;
 const ACCOUNT_MAX_PUBLIC_CALLS = 1;
 
 /** A call to a function in a noir contract */
-type FunctionCall = {
+export type FunctionCall = {
   /** The encoded arguments */
   args: Fr[];
   /** The function selector */
@@ -92,7 +92,7 @@ type FunctionCall = {
 };
 
 /** Encoded payload for the account contract entrypoint */
-type EntrypointPayload = {
+export type EntrypointPayload = {
   // eslint-disable-next-line camelcase
   /** Concatenated arguments for every call */
   flattened_args: Fr[];
