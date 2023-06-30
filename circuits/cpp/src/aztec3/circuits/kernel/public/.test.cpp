@@ -1116,8 +1116,8 @@ TEST(public_kernel_tests, circuit_outputs_should_be_correctly_populated_with_pre
                                             expected_new_nullifiers,
                                             public_inputs.end.new_nullifiers));
 
-    fr chain_id = inputs.previous_kernel.public_inputs.constants.tx_context.chain_id;
-    fr version = inputs.previous_kernel.public_inputs.constants.tx_context.version;
+    fr const chain_id = inputs.previous_kernel.public_inputs.constants.tx_context.chain_id;
+    fr const version = inputs.previous_kernel.public_inputs.constants.tx_context.version;
 
     std::array<NT::fr, KERNEL_NEW_L2_TO_L1_MSGS_LENGTH> const expected_new_messages =
         new_l2_messages_from_message(inputs.public_call.call_stack_item.public_inputs.new_l2_to_l1_msgs,
