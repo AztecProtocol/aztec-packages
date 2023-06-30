@@ -198,12 +198,6 @@ export class PrivateFunctionExecution {
     const publicInputs = extractPublicInputs(partialWitness, acir);
 
     const wasm = await CircuitsWasm.get();
-    const computedArgsHash = await computeVarArgsHash(wasm, this.args);
-    if (!computedArgsHash.equals(publicInputs.argsHash)) {
-      throw new Error(
-        `Computed args hash ${computedArgsHash.toString()} does not match public inputs args hash ${publicInputs.argsHash.toString()}`,
-      );
-    }
 
     // TODO(#1347): Noir fails with too many unknowns error when public inputs struct contains too many members.
     publicInputs.encryptedLogsHash = to2Fields(encryptedLogs.hash());
