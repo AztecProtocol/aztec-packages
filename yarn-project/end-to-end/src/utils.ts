@@ -9,10 +9,8 @@ import {
   ContractDeployer,
   EthAddress,
   Point,
-  SentTx,
   createAztecRPCServer,
-  CurveType,
-  SignerType,
+  TxAuthProvider,
 } from '@aztec/aztec.js';
 import { DeployL1Contracts, deployL1Contract, deployL1Contracts } from '@aztec/ethereum';
 import { ContractAbi } from '@aztec/foundation/abi';
@@ -27,16 +25,19 @@ import every from 'lodash.every';
 import zipWith from 'lodash.zipwith';
 import { Account, Chain, HttpTransport, PublicClient, WalletClient, getContract } from 'viem';
 import { mnemonicToAccount } from 'viem/accounts';
-import { MNEMONIC, localAnvil, privateKey } from './fixtures.js';
+import { MNEMONIC, localAnvil } from './fixtures.js';
 import { CircuitsWasm } from '@aztec/circuits.js';
-import { pedersenPlookupCommitInputs } from '@aztec/circuits.js/barretenberg';
+import { Grumpkin, pedersenPlookupCommitInputs } from '@aztec/circuits.js/barretenberg';
 import { KeyStore, TestKeyStore } from '@aztec/key-store';
 
 /**
  * Sets up the environment for the end-to-end tests.
  * @param numberOfAccounts - The number of new accounts to be created once the RPC server is initiated.
  */
-export async function setup(numberOfAccounts = 1): Promise<{
+export async function setup(
+  authProvider: TxAuthProvider,
+  numberOfAccounts = 1,
+): Promise<{
   /**
    * The Aztec Node service.
    */
@@ -77,22 +78,20 @@ export async function setup(numberOfAccounts = 1): Promise<{
   config.inboxContract = deployL1ContractsValues.inboxAddress;
 
   const aztecNode = await AztecNodeService.createAndSync(config);
-  const keyStore = new TestKeyStore();
-  const aztecRpcServer = await createAztecRPCServer(aztecNode, { keyStore });
+  const curve = await Grumpkin.new();
+  const keyStore = new TestKeyStore(curve);
+  const aztecRpcServer = await createAztecRPCServer(authProvider, aztecNode, { keyStore });
   for (let i = 0; i < numberOfAccounts; ++i) {
     // We use the well-known private key and the validating account contract for the first account,
     // and generate random keypairs with gullible account contracts (ie no sig validation) for the rest.
     // TODO(#662): Let the aztec rpc server generate the keypair rather than hardcoding the private key
-    const [privKey, impl] = i == 0 ? [privateKey, SchnorrAccountContractAbi] : [undefined, GullibleAccountContractAbi];
-    const [txHash, newAddress] = await aztecRpcServer.createSmartAccount(
-      privKey,
-      CurveType.GRUMPKIN,
-      SignerType.SCHNORR,
-      impl,
-    );
-    const isMined = await new SentTx(aztecRpcServer, Promise.resolve(txHash)).isMined();
-    expect(isMined).toBeTruthy();
-    const address = newAddress;
+    const impl = i == 0 ? SchnorrAccountContractAbi : GullibleAccountContractAbi;
+    const contractDeployer = new ContractDeployer(impl, aztecRpcServer);
+    const deployMethod = contractDeployer.deploy();
+    const tx = deployMethod.send();
+    await tx.isMined(0, 0.1);
+    const receipt = await tx.getReceipt();
+    const address = receipt.contractAddress!;
     const pubKey = await aztecRpcServer.getAccountPublicKey(address);
     logger(`Created account ${address.toString()} with public key ${pubKey.toString()}`);
   }
