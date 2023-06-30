@@ -127,6 +127,72 @@ contract ZkToken {
         context.finish()
     }
 
+    // Transfers `amounts` of tokens from `sender` to 3 `recipients`. Aztec only requires 4 notes per tx - 1 new note for sender's new balance and 1 note each for 3 recipients (for their new balance)
+    fn batchTransfer(
+        //*********************************/
+        // Should eventually be hidden:
+        inputs: PrivateContextInputs,
+        //*********************************/
+        sender: Point, 
+        amounts: [Field; 3], 
+        recipients: [Point; 3],
+        spendFirstNote: bool, // currently we spend only 1 note since kernel commitment length is just 4. 
+        // But if this is increased to 16, we need a hack against pending nullifiers. 
+        // This lets app dev work on utxo concurrency stuff. What we really need is offset to be provided in `getNotes` in noir.
+    ) -> distinct pub abi::PrivateCircuitPublicInputs {
+        let mut initialContext = PrivateFunctionContext::new();
+        initialContext.args = initialContext.args.push_array([sender.x, sender.y, amounts[0], amounts[1], amounts[2], recipients[0].x, recipients[0].y, recipients[1].x, recipients[1].y, recipients[2].x, recipients[2].y]);
+
+        // Gets the set of sender's notes and picks first 2 of those.
+        let sender_balance = balances.at(sender.x);
+        let (mut context, (note1, note2)) = sender_balance.get_2(initialContext);
+
+        // Ensure the notes are actually owned by the sender (to prevent user from generating a valid proof while
+        // spending someone else's notes).
+        note1.validate(sender);
+        note2.validate(sender);
+
+        // Checks that the first notes is greater than or equal to the total amount being transferred.
+        let total_amount = amounts[0] + amounts[1] + amounts[2];
+        let note_value = if spendFirstNote { note1.value } else { note2.value };
+        assert(note_value as u64 >= total_amount as u64);
+        let change_value = note_value - total_amount;
+        
+        // Removes only the note that is meant to be actually spent from the owner's notes.
+        if (spendFirstNote) {
+            context = sender_balance.remove(inputs, context, note1);
+        } else {
+            context = sender_balance.remove(inputs, context, note2);
+        }
+
+        // Creates 4 new notes, three for the recipients and one for the sender (change note).
+        let change_note = Note::new(change_value, sender);
+        let recipient1_note = Note::new(amounts[0], recipients[0]);
+        let recipient2_note = Note::new(amounts[1], recipients[1]);
+        let recipient3_note = Note::new(amounts[2], recipients[2]);
+
+        // Get the recipient's set of notes.
+        let recipient1_balance = balances.at(recipients[0].x);
+        let recipient2_balance = balances.at(recipients[1].x);
+        let recipient3_balance = balances.at(recipients[2].x);
+
+        // Insert the 2 new notes to the recipient's and sender's sets of notes.
+        context = recipient1_balance.insert(context, recipient1_note);
+        context = recipient2_balance.insert(context, recipient2_note);
+        context = recipient3_balance.insert(context, recipient3_note);
+        context = sender_balance.insert(context, change_note);
+
+        // Emit the newly created encrypted note preimages via oracle calls.
+        assert(emit_encrypted_log(inputs.call_context.storage_contract_address, recipient1_balance.storage_slot, recipient1_note.owner, recipient1_note) == 0);
+        assert(emit_encrypted_log(inputs.call_context.storage_contract_address, recipient2_balance.storage_slot, recipient2_note.owner, recipient2_note) == 0);
+        assert(emit_encrypted_log(inputs.call_context.storage_contract_address, recipient3_balance.storage_slot, recipient3_note.owner, recipient3_note) == 0);
+        assert(emit_encrypted_log(inputs.call_context.storage_contract_address, sender_balance.storage_slot, change_note.owner, change_note) == 0);
+        assert(emit_unencrypted_log("Coins transferred") == 0); // unencrypted log is emitted here only for testing purposes
+
+        // Return private circuit public inputs. All private functions need to return this as it is part of the input of the private kernel..
+        context.finish(inputs)
+    }
+
     /// ABI getBalance type "unconstrained"
     // Helper function to get the balance of a user ("unconstrained" is a Noir alternative of Solidity's "view" function).
     fn getBalance(
