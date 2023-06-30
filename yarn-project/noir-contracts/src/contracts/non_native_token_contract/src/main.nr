@@ -4,38 +4,35 @@
 // represented as a single value in the public data tree.
 contract NonNativeToken {
     mod balance_utils;
-    use dep::aztec3::abi;
-    use dep::aztec3::abi::PublicContextInputs;
-    use dep::aztec3::abi::PrivateContextInputs;
-
-    use dep::aztec3::context::PrivateFunctionContext;
-    use dep::aztec3::types::point::Point;
+    mod value_note;
+    mod storage;
     
+    use dep::aztec::abi;
+    use dep::aztec::abi::PublicContextInputs;
+    use dep::aztec::abi::PrivateContextInputs;
+
+    use dep::aztec::context::PrivateFunctionContext;
+    use dep::aztec::types::point::Point;
+
+    // Storage variable declarations
+    use crate::storage::Storage;
+
     // Private state
-    use dep::aztec3::state_vars::map::Map;
-    use dep::aztec3::state_vars::set::Set;
-    use dep::aztec3::notes::value_note::Note;
+    use dep::aztec::state_vars::map::Map;
+    use dep::aztec::state_vars::set::Set;
+    use dep::aztec::notes::value_note::Note;
 
     // Public state
-    use dep::aztec3::state_vars::storage_map::StorageMap;
-    use dep::aztec3::state_vars::storage_field::StorageField;
+    use dep::aztec::state_vars::storage_map::StorageMap;
+    use dep::aztec::state_vars::storage_field::StorageField;
 
     // oracles
-    use dep::aztec3::oracle::logs::emit_encrypted_log;
-    use dep::aztec3::oracle::create_l2_to_l1_message::create_l2_to_l1_message;
+    use dep::aztec::oracle::logs::emit_encrypted_log;
+    use dep::aztec::oracle::create_l2_to_l1_message::create_l2_to_l1_message;
 
     // public messaging
-    use dep::aztec3::messaging::consume_l1_to_l2_message_public;
+    use dep::aztec::messaging::consume_l1_to_l2_message_public;
 
-
-    //*********************************/
-    // A map from `owner.x` (Field type) to a set of notes (Set type) representing user's private balance.
-    global balances = Map { storage_slot: 1 };
-    // A map from `owner.x` (Field type) to a value (StorageField type) representing user's public balance.
-    global public_balances = StorageMap { storage_slot: 2 };
-    // Should eventually be replaced by:
-    // `balances: Mapping<Field, Set<Note>>;`
-    //*********************************/
 
     fn constructor(
         //*********************************/
@@ -45,6 +42,9 @@ contract NonNativeToken {
         initial_supply: Field, 
         owner: Point,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
+        let storage = Storage::init();
+        let balances = storage.balances;
+
         let mut context = PrivateFunctionContext::new();
         context.args = context.args.push_array([initial_supply, owner.x, owner.y]);
 
@@ -75,6 +75,9 @@ contract NonNativeToken {
         secret: Field,
         canceller: Field,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
+        let storage = Storage::init();
+        let balances = storage.balances;
+
         let mut context = PrivateFunctionContext::new();
         context.args = context.args.push_array([amount, owner.x, owner.y, owner_address, msg_key, secret]);
 
@@ -110,6 +113,9 @@ contract NonNativeToken {
         recipient: Field, // ethereum address in the field
         callerOnL1: Field, // ethereum address that can call this function on the L1 portal (0x0 if anyone can call)
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
+        let storage = Storage::init();
+        let balances = storage.balances;
+
         let mut initialContext = PrivateFunctionContext::new();
         initialContext.args = initialContext.args.push_array([amount, sender.x, sender.y, recipient]);
 
@@ -163,6 +169,9 @@ contract NonNativeToken {
         canceller: Field,
         _padding: [Field; abi::MAX_ARGS - 5]
     ) -> Field {
+        let storage = Storage::init();
+        let public_balances = storage.public_balances;
+
         let content_hash = _get_mint_content_hash(amount, owner_address, canceller);
 
         // Consume message and emit nullifier
@@ -185,7 +194,9 @@ contract NonNativeToken {
         callerOnL1: Field, // ethereum address that can call this function on the L1 portal (0x0 if anyone can call)
         _padding: [Field; abi::MAX_ARGS - 2]
     ) {
-
+        let storage = Storage::init();
+        let public_balances = storage.public_balances;
+        
         let sender = inputs.call_context.msg_sender;
         let sender_balance = public_balances.at(sender);
 

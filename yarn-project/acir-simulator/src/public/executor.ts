@@ -21,7 +21,7 @@ import { PublicExecution, PublicExecutionResult } from './execution.js';
 import { ContractStorageActionsCollector } from './state_actions.js';
 import { fieldsToFormattedStr } from '../client/debug.js';
 
-// Copied from crate::abi at noir-contracts/src/contracts/noir-aztec3/src/abi.nr
+// Copied from crate::abi at noir-contracts/src/contracts/noir-aztec/src/abi.nr
 const NOIR_MAX_RETURN_VALUES = 4;
 
 /**

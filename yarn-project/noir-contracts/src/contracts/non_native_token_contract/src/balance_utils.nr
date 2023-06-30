@@ -1,10 +1,12 @@
-use dep::aztec3::notes::value_note::Note;
-use dep::aztec3::notes::value_note::NOTE_LEN;
-use dep::aztec3::types::point::Point;
-use dep::aztec3::utils::arr_copy_slice;
+use dep::aztec::notes::value_note::Note;
+use dep::aztec::notes::value_note::NOTE_LEN;
+use dep::aztec::types::point::Point;
+use dep::aztec::utils::arr_copy_slice;
 
-use dep::aztec3::oracle::notes::view_notes_page_internal;
-use dep::aztec3::oracle::notes::NOTES_PER_PAGE;
+use dep::aztec::oracle::notes::view_notes_page_internal;
+use dep::aztec::oracle::notes::NOTES_PER_PAGE;
+
+use crate::value_note,
 
 fn view_notes_page(
     storage_slot: Field,
@@ -24,7 +26,7 @@ fn view_notes_page(
 
 // TODO(1.5) We don't support yet more than one page of notes
 // noir is having issues with loop handling in unconstrained functions
-// rewrite to unconstrained and integrate into noir-aztec3 when fixed
+// rewrite to unconstrained and integrate into noir-aztec when fixed
 fn get_balance(storage_slot: Field) -> Field {
     let mut balance = 0;
 
