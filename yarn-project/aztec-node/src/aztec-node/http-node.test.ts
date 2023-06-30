@@ -4,6 +4,7 @@ import {
   L1ToL2Message,
   L2Block,
   L2BlockL2Logs,
+  MerkleTreeId,
   Tx,
   TxHash,
   TxL2Logs,
@@ -403,6 +404,34 @@ describe('HttpNode', () => {
       const url = `${TEST_URL}storage-at?address=${contractAddress}&slot=${slot.toString()}`;
       expect(fetch).toHaveBeenCalledWith(url);
       expect(result).toBeUndefined();
+    });
+  });
+
+  describe('getTreeRoots', () => {
+    it('should fetch and return the current committed roots for the data trees', async () => {
+      const roots: Record<MerkleTreeId, Fr> = {
+        [MerkleTreeId.CONTRACT_TREE]: Fr.random(),
+        [MerkleTreeId.PRIVATE_DATA_TREE]: Fr.random(),
+        [MerkleTreeId.NULLIFIER_TREE]: Fr.random(),
+        [MerkleTreeId.PUBLIC_DATA_TREE]: Fr.random(),
+        [MerkleTreeId.L1_TO_L2_MESSAGES_TREE]: Fr.random(),
+        [MerkleTreeId.L1_TO_L2_MESSAGES_ROOTS_TREE]: Fr.random(),
+        [MerkleTreeId.CONTRACT_TREE_ROOTS_TREE]: Fr.random(),
+        [MerkleTreeId.PRIVATE_DATA_TREE_ROOTS_TREE]: Fr.random(),
+      };
+
+      const rootsInResponse: Record<MerkleTreeId, string> = Object.fromEntries(
+        Object.entries(roots).map(([key, value]) => [key, value.toString()]),
+      ) as Record<MerkleTreeId, string>;
+      const response = { roots: rootsInResponse };
+
+      setFetchMock(response);
+
+      const result = await httpNode.getTreeRoots();
+
+      const url = `${TEST_URL}tree-roots`;
+      expect(fetch).toHaveBeenCalledWith(url);
+      expect(result).toEqual(roots);
     });
   });
 });
