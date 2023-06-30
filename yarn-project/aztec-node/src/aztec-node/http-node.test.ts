@@ -1,9 +1,10 @@
-import { ContractData, ContractPublicData, L2Block, L2BlockL2Logs, Tx, TxL2Logs } from '@aztec/types';
+import { ContractData, ContractPublicData, L2Block, L2BlockL2Logs, Tx, TxHash, TxL2Logs } from '@aztec/types';
 import { HttpNode, txToJson } from './http-node.js';
 import { jest } from '@jest/globals';
 import { AztecAddress, KERNEL_PUBLIC_CALL_STACK_LENGTH, Proof } from '@aztec/circuits.js';
 import { makeKernelPublicInputs, makePublicCallRequest } from '@aztec/circuits.js/factories';
 import times from 'lodash.times';
+import { randomBytes } from '@aztec/foundation/crypto';
 
 jest.spyOn(global, 'fetch');
 
@@ -225,6 +226,31 @@ describe('HttpNode', () => {
       const call = fetch.mock.calls[0];
       expect(call[0].href).toBe(`${URL}tx`);
       expect(call[1]).toStrictEqual(init);
+    });
+  });
+
+  describe('getPendingTxByHash', () => {
+    it('should fetch and return a pending tx', async () => {
+      const txHash = new TxHash(randomBytes(TxHash.SIZE));
+      const tx = MockTx();
+      const response = txToJson(tx);
+      setFetchMock(response);
+
+      const result = await httpNode.getPendingTxByHash(txHash);
+
+      expect(fetch).toHaveBeenCalledWith(`${URL}get-pending-tx?hash=${txHash}`);
+      expect(result).toEqual(tx);
+    });
+
+    it('should return undefined if the pending tx does not exist', async () => {
+      const txHash = new TxHash(randomBytes(TxHash.SIZE));
+      const response = undefined;
+      setFetchMock(response);
+
+      const result = await httpNode.getPendingTxByHash(txHash);
+
+      expect(fetch).toHaveBeenCalledWith(`${URL}get-pending-tx?hash=${txHash}`);
+      expect(result).toBeUndefined();
     });
   });
 });

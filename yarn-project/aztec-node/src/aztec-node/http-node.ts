@@ -225,6 +225,9 @@ export class HttpNode implements AztecNode {
     const url = new URL(`${this.baseUrl}/get-pending-tx`);
     url.searchParams.append('hash', txHash.toString());
     const response = await (await fetch(url.toString())).json();
+    if (!response || !response.contractInfo) {
+      return undefined;
+    }
     return Promise.resolve(txFromJson(response));
   }
 
