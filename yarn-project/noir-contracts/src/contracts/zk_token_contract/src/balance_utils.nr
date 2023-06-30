@@ -1,6 +1,7 @@
 use dep::aztec::note::note_getter::NoteGetterOptions;
 use dep::aztec::note::note_getter::view_notes;
 use dep::aztec::note::note_getter_options::Sort;
+
 use crate::value_note::value_note::ValueNoteInterface;
 use crate::value_note::value_note::VALUE_NOTE_LEN;
 use crate::value_note::filter::get_all_notes;
