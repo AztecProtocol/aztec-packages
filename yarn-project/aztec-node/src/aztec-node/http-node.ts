@@ -344,7 +344,11 @@ export class HttpNode implements AztecNode {
     const url = new URL(`${this.baseUrl}/tree-roots`);
     const response = await (await fetch(url.toString())).json();
 
-    const extractRoot = (treeId: MerkleTreeId) => Fr.fromBuffer(Buffer.from(response.roots[`${treeId}`], 'hex'));
+    const extractRoot = (treeId: MerkleTreeId) => {
+      // Buffer.from(...) returns an empty buffer when a hex string is prefixed with "0x"
+      const rootHexString = response.roots[treeId].replace(/^0x/, '');
+      return Fr.fromBuffer(Buffer.from(rootHexString, 'hex'));
+    };
 
     return {
       [MerkleTreeId.CONTRACT_TREE]: extractRoot(MerkleTreeId.CONTRACT_TREE),
