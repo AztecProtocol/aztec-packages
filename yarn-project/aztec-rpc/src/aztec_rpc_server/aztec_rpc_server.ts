@@ -175,6 +175,7 @@ export class AztecRPCServer implements AztecRPC {
    * @param args - The arguments required for the constructor function of the contract.
    * @param portalContract - The Ethereum address of the portal contract.
    * @param contractAddressSalt - (Optional) Salt value used to generate the contract address.
+   * @param deployerPublicKey
    * @param from - (Optional) The Aztec address of the account that deploys the contract.
    * @returns An instance of a ContractDeploymentTx.
    */
@@ -183,10 +184,16 @@ export class AztecRPCServer implements AztecRPC {
     args: any[],
     portalContract: EthAddress,
     contractAddressSalt = Fr.random(),
+    deployerPublicKey?: PublicKey,
     from?: AztecAddress,
   ) {
-    const account = this.#ensureAccountOrDefault(from);
-    const pubKey = account.getPublicKey();
+    let pubKey = deployerPublicKey;
+    let account;
+
+    if (from && !deployerPublicKey) {
+      account = this.#ensureAccountOrDefault(from);
+      pubKey = account.getPublicKey();
+    }
 
     const { txRequest, contract, partialContractAddress } = await this.#prepareDeploy(
       abi,
@@ -196,7 +203,19 @@ export class AztecRPCServer implements AztecRPC {
       pubKey,
     );
 
-    const tx = await account.simulateAndProve(txRequest, contract.address);
+    if (!account) {
+      account = new AccountState(
+        pubKey,
+        this.keyStore,
+        contract.address,
+        partialContractAddress,
+        this.db,
+        this.node,
+        abi,
+      );
+    }
+
+    const tx = await account.simulateAndProve(txRequest, contract);
 
     await this.db.addTx(
       new TxDao(await tx.getTxHash(), undefined, undefined, account.getAddress(), undefined, contract.address, ''),
@@ -248,10 +267,11 @@ export class AztecRPCServer implements AztecRPC {
     );
 
     const contract = contractTree.contract;
+    contract.a;
     await this.db.addContract(contract);
 
     const txRequest = new TxExecutionRequest(contract.address, functionData, flatArgs, txContext);
-    return { txRequest, contract, partialContractAddress };
+    return { txRequest, contract, partialContractAddress, address: contract.address };
   }
 
   /**

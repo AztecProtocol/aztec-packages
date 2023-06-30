@@ -27,6 +27,7 @@ import { KernelProver } from '../kernel_prover/index.js';
 import { SimulatorOracle } from '../simulator_oracle/index.js';
 import { collectUnencryptedLogs } from '@aztec/acir-simulator';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
+import { ContractDao } from '../contract_database/contract_dao.js';
 
 /**
  * Contains all the decrypted data in this array so that we can later batch insert it all into the database.
@@ -249,13 +250,14 @@ export class AccountState {
    *
    * @param txExecutionRequest - The transaction request to be simulated and proved.
    * @param signature - The ECDSA signature for the transaction request.
-   * @param newContractAddress - Optional. The address of a new contract to be included in the transaction object.
+   * @param newContract - Optional. The address of a new contract to be included in the transaction object.
    * @returns A private transaction object containing the proof, public inputs, and encrypted logs.
    */
-  public async simulateAndProve(txExecutionRequest: TxExecutionRequest, newContractAddress: AztecAddress | undefined) {
+  public async simulateAndProve(txExecutionRequest: TxExecutionRequest, newContract: ContractDao | undefined) {
     // TODO - Pause syncing while simulating.
 
     const contractDataOracle = new ContractDataOracle(this.db, this.node);
+
     const kernelOracle = new KernelOracle(contractDataOracle, this.node);
     const executionResult = await this.simulate(txExecutionRequest, contractDataOracle);
     const argsHash = executionResult.callStackItem.publicInputs.argsHash;
@@ -265,9 +267,7 @@ export class AccountState {
     const { proof, publicInputs } = await kernelProver.prove(txExecutionRequest.toTxRequest(argsHash), executionResult);
     this.log('Proof completed!');
 
-    const newContractPublicFunctions = newContractAddress
-      ? await this.getNewContractPublicFunctions(newContractAddress)
-      : [];
+    const newContractPublicFunctions = newContract ? this.getNewContractPublicFunctions(newContract) : [];
 
     const encryptedLogs = new TxL2Logs(collectEncryptedLogs(executionResult));
     const unencryptedLogs = new TxL2Logs(collectUnencryptedLogs(executionResult));
@@ -284,15 +284,10 @@ export class AccountState {
 
   /**
    * Return public functions from the newly deployed contract to be injected into the tx object.
-   * @param newContractAddress - Address of the new contract.
+   * @param newContract - The new contract
    * @returns List of EncodedContractFunction.
    */
-  private async getNewContractPublicFunctions(newContractAddress: AztecAddress) {
-    const newContract = await this.db.getContract(newContractAddress);
-    if (!newContract) {
-      throw new Error(`Invalid new contract address provided at ${newContractAddress}. Contract not found in DB.`);
-    }
-
+  private getNewContractPublicFunctions(newContract: ContractDao) {
     return newContract.functions
       .filter(c => c.functionType === FunctionType.OPEN)
       .map(

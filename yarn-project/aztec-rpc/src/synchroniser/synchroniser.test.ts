@@ -6,6 +6,7 @@ import { L2Block, MerkleTreeId } from '@aztec/types';
 import { MockProxy, mock } from 'jest-mock-extended';
 import omit from 'lodash.omit';
 import { Database, MemoryDB } from '../database/index.js';
+import { AztecAddress } from '../index.js';
 import { Synchroniser } from './synchroniser.js';
 
 describe('Synchroniser', () => {
@@ -40,7 +41,7 @@ describe('Synchroniser', () => {
 
   it('should create account state', async () => {
     const account = ConstantKeyPair.random(grumpkin, schnorr);
-    const address = getAddressFromPublicKey(account.getPublicKey());
+    const address = AztecAddress.random();
 
     expect(synchroniser.getAccount(address)).toBeUndefined();
 
