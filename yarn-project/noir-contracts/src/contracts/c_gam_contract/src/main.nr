@@ -56,10 +56,10 @@ contract CGam {
     //users' deck
     global user_deck = StorageMap { storage_slot: 5 };
 
-    //user plays
+    //user plays: user_id -> 0 if not yet played, 1 if played
     global users_plays = StorageMap { storage_slot: 6 };
 
-    //users order
+    //users order: 0 -> id of the first player, 1->id of the second, ...
     global player_order = StorageMap { storage_slot: 7 };
 
     fn buy_pack(
@@ -144,14 +144,14 @@ contract CGam {
         }
         // get the player order
         let sorted = player_strengths.sort();
-        let player_order = [max_players + 1; max_players];
+        let players = [max_players + 1; max_players];
         for j in 0..max_players {
             if j < player_nb {
                 for i in 0..max_players {
                     if player_strengths[i] == sorted[max_players-j] {
                         player_strengths[i] = 0;
-                        if player_order[j] >= max_players {
-                            player_order[j] = i;
+                        if players[j] >= max_players {
+                            players[j] = i;
                         }
                     }
                 }
@@ -162,7 +162,7 @@ contract CGam {
             if i < player_nb {
                 let mut idx = (game_id + i) as Field;
                 idx = idx*(idx+1)/2 + game_id;
-                player_order.at(idx).write(player_strengths[i]);
+                player_order.at(idx).write(players[i]);
             }
         }
     }
@@ -219,11 +219,14 @@ contract CGam {
                 idx = idx*(idx+1)/2 + game_id;
                 //all previous players must have played
                 if i<user_id {
-                    assert(player_order.at(idx).read() == 1);
+                    let player_i = player_order.at(idx).read();
+                    let mut j = (game_id + player_i) as Field;
+                     j = j*(j+1)/2 + game_id;
+                    assert(users_plays.at(j).read() == 1);
                 } else {
                     // user must not have played yet
                     if i == user_id {
-                        assert(player_order.at(idx).read() == 0);
+                        assert(users_plays.at(idx).read() == 0);
                     }
                 }
             }
