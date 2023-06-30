@@ -1,11 +1,13 @@
 
 
+
 // Noir implementation of a private token contract. It allows for the minting, and transfer of tokens. This contract
 // only works with private state and for this reason user balances are stored as notes (total user balance is
 // represented as a set of notes).
 contract CGam {
     mod balance_utils;
     mod card;
+    use dep::std;
     use dep::aztec3::abi;
     use dep::aztec3::abi::PrivateContextInputs;
     use dep::aztec3::abi::PublicContextInputs;
@@ -13,14 +15,15 @@ contract CGam {
     use dep::aztec3::notes::value_note::Note;
     use dep::aztec3::types::point::Point;
     use dep::aztec3::state_vars::map::Map;
+    use dep::aztec3::state_vars::storage_map::StorageMap;
     use dep::aztec3::state_vars::set::Set;
 
     // oracles
-    use crate::oracle::get_secret_key::get_secret_key;
+    use dep::aztec3::oracle::get_secret_key::get_secret_key;
     use dep::aztec3::oracle::logs::emit_encrypted_log;
     use dep::aztec3::oracle::logs::emit_unencrypted_log;
 
-    use crate::card::Card;
+    use card::Card;
 
     //*********************************/
     // Mapping from card_id to CardNote state
@@ -31,17 +34,13 @@ contract CGam {
     // PublicState name has been used instead of StorageField :(
     global game_id: PublicState<Field> = PublicState::new(2);
 
+
 // struct GameState {
 
 // }
-// let game_state = game_states.at(game_id).read();
-// game_states.at(game_id).write(game_state);
-
-// StorageMap == Map<PublicState<Field>>
-// Map == Map<Set<Note>>
 
     //number of players that joined the game
-    global game_players = StorageMap { storage_slot: 2 };
+    global game_players = StorageMap { storage_slot: 12 };
     // get the nb of players:
     //game_players.at(game_id).read()
     // update the nb of players:
@@ -61,6 +60,18 @@ contract CGam {
 
     //users order
     global player_order = StorageMap { storage_slot: 7 };
+
+    //played cards: game_id+card_id -> 1
+    global played_cards = StorageMap { storage_slot: 8 };
+
+    // (currrent) winner card: game_id -> card_id
+    global winning_card = StorageMap { storage_slot: 9};
+            
+    // (current) points at stake: game_id -> points
+    global game_points = StorageMap { storage_slot: 10 };
+
+    // user points: game_id+user_id -> points
+    global user_points = StorageMap { storage_slot: 11 };
 
     fn buy_pack(
           //*********************************/
@@ -83,7 +94,7 @@ contract CGam {
         // Generate the 'user seed' for generating the cards
         // from a public randomness (in argument for now, could be a call to a L1 contract)
         // and from user secret key (so nobody else can figure out user cards)
-        let sk = get_secret_key(self.owner);
+        let sk = get_secret_key(owner);
         let mut user_seed = [0; 32];
         let seeds = seed.to_le_bytes(32);
         let sk_bytes = sk.to_le_bytes(32);
@@ -95,7 +106,6 @@ contract CGam {
         let mut random_as_field = 0;
         let mut r = 1;
         //we generate 10 cards
-        // let mut pack = [Card { id: 0, strength: 0, points: 0 }; 10];
         for i in 0..10 {
             random_as_field += random[2*i] * r;
             r = r*2;
@@ -108,13 +118,15 @@ contract CGam {
                 CardNote::new(
                     card: Card {
                         id: card_id,
-                        strength : random[2*i],
-                        points: random[2*i+1],
+                        strength : random[2*i] as Field,
+                        points: random[2*i+1] as Field,
                     },
                     owner
                 )
             );
         }
+
+        inputs.context.finish()
     }
 
     open fn create_game(
@@ -122,7 +134,8 @@ contract CGam {
         // Should eventually be hidden:
         inputs: PublicContextInputs,
         //*********************************/
-        num_players: Field)
+      //  num_players: Field
+      )
     {
         // FEAT_REQUEST: game_id += 1; for a public state variable.
         let old_id = game_id.read();
@@ -131,27 +144,27 @@ contract CGam {
     }
 
     global max_players = 10;
-    open fn start_game(game_id: Field) {
+    open fn start_game(g_id: Field) {
         // we compute the players play order
-        let player_nb = num_players.at(game_id).read();
+        let player_nb = num_players.at(g_id).read();
 
         // get the player strength
         let mut player_strengths = [0;max_players];
         for i in 0..max_players {
-            let mut idx = (game_id + i) as Field;
-            idx = idx*(idx+1)/2 + game_id;
+            let mut idx = (g_id + i) as Field;
+            idx = idx*(idx+1)/2 + g_id;
             player_strengths[i] = deck_strength.at(idx).read();
         }
-        // get the player order
+        // get the player order: TODO to review...
         let sorted = player_strengths.sort();
-        let player_order = [max_players + 1; max_players];
+        let mut players_turn = [max_players + 1; max_players];
         for j in 0..max_players {
-            if j < player_nb {
+            if j as u8 < player_nb as u8 {
                 for i in 0..max_players {
                     if player_strengths[i] == sorted[max_players-j] {
                         player_strengths[i] = 0;
-                        if player_order[j] >= max_players {
-                            player_order[j] = i;
+                        if players_turn[j] as u8 >= max_players as u8 {
+                            players_turn[j] = i;
                         }
                     }
                 }
@@ -159,48 +172,61 @@ contract CGam {
         }
         //we store the user order
         for i in 0..max_players {
-            if i < player_nb {
-                let mut idx = (game_id + i) as Field;
-                idx = idx*(idx+1)/2 + game_id;
-                player_order.at(idx).write(player_strengths[i]);
-            }
+            // when i is over the actual nb of players, we will set the player_order to 0, which is fine.
+            let mut idx = (g_id + i) as Field;
+            idx = idx*(idx+1)/2 + g_id;
+            player_order.at(idx).write(players_turn[i]);
         }
+    }
+
+    fn get_card(//inputs: PrivateContextInputs, 
+    card_id: Field, owner: Point) -> Card {
+        let my_card = cards.at(card_id).read();
+        assert(card.owner == owner);
+        my_card
     }
 
     fn join_game(
         inputs: PrivateContextInputs,
-        game_id: Field,
-        cards: [Card; 5]
+        g_id: Field,
+        hand: [Field; 5],
+        owner: Point,
         ) {
-            // compute the deck strength
-            let mut deck_strength : u32 = 0;
-            for card in cards {
-                deck_strength + = strength as u32;
-            }
-            deck_strength = deck_strength / 5;
+            //TODO commit to $$ 
 
+            let mut user_cards = [Card::default(); 5];
             //checks that cards belong to the user
+            for i in 0..5 {
+                user_cards[i] = get_card(hand[i], owner);
+            }
+
+            // compute the deck strength
+            let mut deck_str : u32 = 0;
+            for card in user_cards {
+                deck_str + = card.strength as u32;
+            }
+            deck_str = deck_str / 5;
 
             // generate a user id
-            let user_id = game_players.at(game_id).read();
-            game_players.at(game_id).write(user_id + 1);
+            let user_id = game_players.at(g_id).read();
+            game_players.at(g_id).write(user_id + 1);
 
 
             // store the player strength
-            let mut idx = (game_id + user_id) as Field;
-            idx = idx*(idx+1)/2 + game_id;
-            player_strengths[i] = deck_strength.at(idx).write(deck_strength as Field);
+            let mut idx = (g_id + user_id) as Field;
+            idx = idx*(idx+1)/2 + g_id;
+            player_strengths[i] = deck_strength.at(idx).write(deck_str as Field);
             // user has not yet played
             users_plays.at(idx).write(0);
 
             // maps the user_id to its cards
             for i in 0..5 {
-                idx = (game_id + 5*user_id+i) as Field;
-                idx = idx*(idx+1)/2 + game_id;
+                idx = (g_id + 5*user_id+i) as Field;
+                idx = idx*(idx+1)/2 + g_id;
                 user_deck.at(idx).write(cards[i].id);
             }
 
-            if user_id == num_players.at(game_id).read() {
+            if user_id == num_players.at(g_id).read() {
                 start_game();
             }
         }
@@ -208,17 +234,22 @@ contract CGam {
     open fn show_card(
         inputs: PrivateContextInputs,
         user_id: Field,
-        game_id: Field,
-        card: Card) {
+        g_id: Field,
+        card: Card,
+        owner: Point) {
             // checks that card belongs to the deck and it not already played
+            let _v = get_card(card.id, owner);
+            let mut card_idx = (g_id + card.id) as Field;
+            card_idx = card_idx*(card_idx+1)/2 + g_id;
+            assert(played_cards.at(card_idx).read() == 0);
 
             // check user turn
             let mut check = true;
             for i in 0..max_players {
-                let mut idx = (game_id + i) as Field;
-                idx = idx*(idx+1)/2 + game_id;
+                let mut idx = (g_id + i) as Field;
+                idx = idx*(idx+1)/2 + g_id;
                 //all previous players must have played
-                if i<user_id {
+                if i as u8 < user_id as u8 {
                     assert(player_order.at(idx).read() == 1);
                 } else {
                     // user must not have played yet
@@ -228,18 +259,73 @@ contract CGam {
                 }
             }
 
-            //...more stuff TODO...
+            // we track the winner card: winning_card: game_id -> card_id
+            let win_card_id = winning_card.at(g_id).read();
+            let win_card = cards.at(win_card_id);
+            if win_card.strength < card.strength {
+                winning_card.at(g_id).write(card.id);
+            }
+            //N.B. when you show a card, it must have strictly more strength than the others to win.
+            // we could implement some rules in case of a draw
+
+            // we track the sum of points: game_points:  game_id -> points
+            let points = game_points.at(g_id).read();
+            game_points.at(g_id).write(points + card.points as Field);
 
             // user has played
             let mut idx = (game_id + user_id) as Field;
-            idx = idx*(idx+1)/2 + game_id;
+            idx = idx*(idx+1)/2 + g_id;
             player_order.at(idx).write(1);
-            //
+
+            // set the card as played
+            played_cards.at(card_idx).write(1);
+            
+           
+
         }
+
+    fn end_turn(g_id: Field) {
+        //TODO: at the end of the turn, we should reset the 'user has played'
+        
+        // give the points to the winner of the turn
+        let win = winning_card.at(game_id).read();
+        let user_id = 0; //TODO we have win.owner, but we need a user id here
+        //game_players should rather be a map game_id+iser_id -> owner.x
+
+        let turn_points = game_points.at(g_id).read();
+        game_points.at(g_id).write(0);
+        let mut idx = (g_id + user_id) as Field;
+        idx = idx*(idx+1)/2 + game_id;
+        let current_points = user_points.at(idx).read();
+        user_points.at(idx).write(current_points + turn_points);
+
+        //if all cards are played, we should end the game
+    }
+
+    fn end_game() {
+        //compute the winner
+    }
 
     fn claim_winnings(
         inputs: PrivateContextInputs,
-        game_id: Field) {
+        g_id: Field,
+        owner: Field) {
+            // TODO: check that the game as ended
+
+            // at the end we need to burn the played_cards
+            for user_id in 0..5 {
+                for i in 0..5 {
+                    let mut idx = (g_id + 5*user_id+i) as Field;
+                    idx = idx*(idx+1)/2 + g_id;
+                    let card_id = user_deck.at(idx).read();
+                    cards.at(card_id).write(Card::dummy());
+                }
+            }
+            
+            // checks you are the winner
+
+
+              
         }
 
     // // Mints `amount` of tokens to `owner`.

@@ -5,12 +5,16 @@ struct Card {
 }
 
 impl Card {
-    fn dummy() -> Self {
+    fn default() -> Self {
         Card {
             0,
             0,
             0,
         }
+    }
+
+    fn dummy() -> Self {
+        Self::default()
     }
 
     fn deserialize(
