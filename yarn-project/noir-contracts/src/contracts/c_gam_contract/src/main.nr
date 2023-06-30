@@ -55,10 +55,10 @@ contract CGam {
     //users' deck
     global user_deck = StorageMap { storage_slot: 5 };
 
-    //user plays
+    //user plays: user_id -> 0 if not yet played, 1 if played
     global users_plays = StorageMap { storage_slot: 6 };
 
-    //users order
+    //users order: 0 -> id of the first player, 1->id of the second, ...
     global player_order = StorageMap { storage_slot: 7 };
 
     //played cards: game_id+card_id -> 1
@@ -249,12 +249,15 @@ contract CGam {
                 let mut idx = (g_id + i) as Field;
                 idx = idx*(idx+1)/2 + g_id;
                 //all previous players must have played
-                if i as u8 < user_id as u8 {
-                    assert(player_order.at(idx).read() == 1);
+                if i as u8 <user_id as u8 {
+                    let player_i = player_order.at(idx).read();
+                    let mut j = (game_id + player_i) as Field;
+                     j = j*(j+1)/2 + game_id;
+                    assert(users_plays.at(j).read() == 1);
                 } else {
                     // user must not have played yet
                     if i == user_id {
-                        assert(player_order.at(idx).read() == 0);
+                        assert(users_plays.at(idx).read() == 0);
                     }
                 }
             }
