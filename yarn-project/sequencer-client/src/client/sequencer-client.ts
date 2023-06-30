@@ -8,7 +8,6 @@ import { getL1Publisher, getVerificationKeys, Sequencer } from '../index.js';
 import { EmptyRollupProver } from '../prover/empty.js';
 import { PublicProcessorFactory } from '../sequencer/public_processor.js';
 import { WasmRollupCircuitSimulator } from '../simulator/rollup.js';
-import { Fr } from '@aztec/circuits.js';
 
 /**
  * Encapsulates the full sequencer and publisher.
