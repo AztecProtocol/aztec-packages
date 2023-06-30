@@ -80,11 +80,7 @@ contract RollupTest is DecoderTest {
     bytes memory block_ = block_empty_1;
 
     // Overwrite in the rollup contract
-    vm.store(
-      address(rollup),
-      bytes32(uint256(1)),
-      bytes32(uint256(block.timestamp))
-    );
+    vm.store(address(rollup), bytes32(uint256(1)), bytes32(uint256(block.timestamp)));
 
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__TimestampTooOld.selector));
     rollup.process(bytes(""), block_);
