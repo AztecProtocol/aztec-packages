@@ -1116,6 +1116,7 @@ TEST(public_kernel_tests, circuit_outputs_should_be_correctly_populated_with_pre
                                             expected_new_nullifiers,
                                             public_inputs.end.new_nullifiers));
 
+    // Reading the chain id and version from the tx context
     fr const chain_id = inputs.previous_kernel.public_inputs.constants.tx_context.chain_id;
     fr const version = inputs.previous_kernel.public_inputs.constants.tx_context.version;
 
