@@ -38,11 +38,11 @@ interface ProcessedData {
    */
   blockContext: L2BlockContext;
   /**
-   * Indices of transactions in the block that pertain to the user.
+   * Indices of transactions in the block that emitted encrypted log which the user could decrypt.
    */
   userPertainingTxIndices: number[];
   /**
-   * A collection of data access objects for transaction auxiliary data.
+   * A collection of data access objects for note spending info.
    */
   noteSpendingInfoDaos: NoteSpendingInfoDao[];
 }
@@ -329,22 +329,24 @@ export class AccountState {
       const { txLogs } = encryptedL2BlockLogs[blockIndex];
       let logIndexWithinBlock = 0;
 
+      // TODO(benesjan): this seems to be shaky and how we handle the tx-Notespendinginfo correspondence just seems outdated. FIX THIS!!!!
+
       // Try decrypting the encrypted logs.
-      const txIndices: Set<number> = new Set();
+      const userPertainingTxIndices: number[] = [];
       const noteSpendingInfoDaos: NoteSpendingInfoDao[] = [];
       const privateKey = await this.keyStore.getAccountPrivateKey(this.publicKey);
       const curve = await Grumpkin.new();
 
-      for (let txIndex = 0; txIndex < txLogs.length; ++txIndex) {
+      for (let indexOfTxInABlock = 0; indexOfTxInABlock < txLogs.length; ++indexOfTxInABlock) {
         // Note: Each tx generates a `TxL2Logs` object and for this reason we can rely on its index corresponding
         //       to the index of a tx in a block.
-        const txFunctionLogs = txLogs[txIndex].functionLogs;
+        const txFunctionLogs = txLogs[indexOfTxInABlock].functionLogs;
         for (const functionLogs of txFunctionLogs) {
           for (const logs of functionLogs.logs) {
             const noteSpendingInfo = NoteSpendingInfo.fromEncryptedBuffer(logs, privateKey, curve);
             if (noteSpendingInfo) {
               // We have successfully decrypted the data.
-              txIndices.add(txIndex);
+              userPertainingTxIndices.push(indexOfTxInABlock);
               noteSpendingInfoDaos.push({
                 ...noteSpendingInfo,
                 nullifier: await this.computeNullifier(noteSpendingInfo),
@@ -359,7 +361,7 @@ export class AccountState {
 
       blocksAndNoteSpendingInfo.push({
         blockContext: l2BlockContexts[blockIndex],
-        userPertainingTxIndices: [...txIndices],
+        userPertainingTxIndices,
         noteSpendingInfoDaos,
       });
       dataStartIndex += txLogs.length;
