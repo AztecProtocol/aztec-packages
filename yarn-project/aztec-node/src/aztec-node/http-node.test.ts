@@ -17,16 +17,17 @@ import times from 'lodash.times';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { Pedersen, SiblingPath } from '@aztec/merkle-tree';
 
-jest.spyOn(global, 'fetch');
-
 const TEST_URL = 'http://aztec-node-url.com/';
 
 const setFetchMock = (response: any): void => {
-  // @ts-ignore
-  global.fetch.mockResolvedValue({
-    ok: true,
-    json: () => response,
-  });
+  global.fetch = jest
+    .fn<typeof global.fetch>()
+    .mockImplementation((_input: RequestInfo | URL, _init?: RequestInit | undefined) => {
+      return Promise.resolve({
+        ok: true,
+        json: () => response,
+      } as Response);
+    });
 };
 
 // Copied from yarn-project/p2p/src/client/mocks.ts. Do we want to move this to a shared location?
@@ -235,8 +236,7 @@ describe('HttpNode', () => {
         method: 'POST',
         body: JSON.stringify(json),
       };
-      // @ts-ignore
-      const call = fetch.mock.calls[0];
+      const call = (fetch as jest.Mock).mock.calls[0] as any[];
       expect(call[0].href).toBe(`${TEST_URL}tx`);
       expect(call[1]).toStrictEqual(init);
     });
