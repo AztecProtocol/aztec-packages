@@ -99,14 +99,14 @@ export class Tx {
   }
 
   /**
-   * Creates a new private transaction.
+   * Creates a new transaction.
    * @param data - Public inputs of the private kernel circuit.
    * @param proof - Proof from the private kernel circuit.
    * @param encryptedLogs - Encrypted logs created by this tx.
    * @param unencryptedLogs - Unencrypted logs created by this tx.
    * @param newContractPublicFunctions - Public functions made available by this tx.
    * @param enqueuedPublicFunctionCalls - Preimages of the public call stack of the kernel output.
-   * @returns A new private tx instance.
+   * @returns A new tx instance.
    */
   public static createTx(
     data: KernelCircuitPublicInputs,
