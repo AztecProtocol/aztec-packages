@@ -225,7 +225,7 @@ export class HttpNode implements AztecNode {
     const url = new URL(`${this.baseUrl}/get-pending-tx`);
     url.searchParams.append('hash', txHash.toString());
     const response = await (await fetch(url.toString())).json();
-    if (!response || !response.contractInfo) {
+    if (!response) {
       return undefined;
     }
     return Promise.resolve(txFromJson(response));
@@ -269,6 +269,9 @@ export class HttpNode implements AztecNode {
     const url = new URL(`${this.baseUrl}/commitment-index`);
     url.searchParams.append('leaf', leafValue.toString('hex'));
     const response = await (await fetch(url.toString())).json();
+    if (!response || !response.index) {
+      return undefined;
+    }
     const index = response.index as string;
     return Promise.resolve(BigInt(index));
   }
@@ -326,6 +329,9 @@ export class HttpNode implements AztecNode {
     url.searchParams.append('address', contract.toString());
     url.searchParams.append('slot', slot.toString());
     const response = await (await fetch(url.toString())).json();
+    if (!response || !response.value) {
+      return undefined;
+    }
     const value = response.value as string;
     return Promise.resolve(Buffer.from(value, 'hex'));
   }

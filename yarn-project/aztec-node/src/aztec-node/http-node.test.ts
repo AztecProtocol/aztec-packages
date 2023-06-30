@@ -1,7 +1,16 @@
-import { ContractData, ContractPublicData, L2Block, L2BlockL2Logs, Tx, TxHash, TxL2Logs } from '@aztec/types';
+import {
+  ContractData,
+  ContractPublicData,
+  L1ToL2Message,
+  L2Block,
+  L2BlockL2Logs,
+  Tx,
+  TxHash,
+  TxL2Logs,
+} from '@aztec/types';
 import { HttpNode, txToJson } from './http-node.js';
 import { jest } from '@jest/globals';
-import { AztecAddress, CircuitsWasm, KERNEL_PUBLIC_CALL_STACK_LENGTH, Proof } from '@aztec/circuits.js';
+import { AztecAddress, CircuitsWasm, Fr, KERNEL_PUBLIC_CALL_STACK_LENGTH, Proof } from '@aztec/circuits.js';
 import { makeKernelPublicInputs, makePublicCallRequest } from '@aztec/circuits.js/factories';
 import times from 'lodash.times';
 import { randomBytes } from '@aztec/foundation/crypto';
@@ -9,7 +18,7 @@ import { Pedersen, SiblingPath } from '@aztec/merkle-tree';
 
 jest.spyOn(global, 'fetch');
 
-const URL = 'http://aztec-node-url.com/';
+const TEST_URL = 'http://aztec-node-url.com/';
 
 const setFetchMock = (response: any): void => {
   // @ts-ignore
@@ -33,9 +42,11 @@ export const MockTx = () => {
 
 describe('HttpNode', () => {
   let httpNode: HttpNode;
+  let pedersen: Pedersen;
 
-  beforeEach(() => {
-    httpNode = new HttpNode(URL);
+  beforeAll(async () => {
+    httpNode = new HttpNode(TEST_URL);
+    pedersen = new Pedersen(await CircuitsWasm.get());
   });
 
   afterEach(() => {
@@ -49,7 +60,7 @@ describe('HttpNode', () => {
 
       const result = await httpNode.isReady();
 
-      expect(fetch).toHaveBeenCalledWith(URL);
+      expect(fetch).toHaveBeenCalledWith(TEST_URL);
       expect(result).toBe(true);
     });
   });
@@ -65,7 +76,7 @@ describe('HttpNode', () => {
 
       const result = await httpNode.getBlocks(0, 3);
 
-      expect(fetch).toHaveBeenCalledWith(`${URL}get-blocks?from=0&take=3`);
+      expect(fetch).toHaveBeenCalledWith(`${TEST_URL}get-blocks?from=0&take=3`);
       expect(result).toEqual([block1, block2]);
     });
 
@@ -75,7 +86,7 @@ describe('HttpNode', () => {
 
       const result = await httpNode.getBlocks(0, 2);
 
-      expect(fetch).toHaveBeenCalledWith(`${URL}get-blocks?from=0&take=2`);
+      expect(fetch).toHaveBeenCalledWith(`${TEST_URL}get-blocks?from=0&take=2`);
       expect(result).toEqual([]);
     });
   });
@@ -87,7 +98,7 @@ describe('HttpNode', () => {
 
       const result = await httpNode.getBlockHeight();
 
-      expect(fetch).toHaveBeenCalledWith(`${URL}get-block-height`);
+      expect(fetch).toHaveBeenCalledWith(`${TEST_URL}get-block-height`);
       expect(result).toBe(100);
     });
   });
@@ -99,7 +110,7 @@ describe('HttpNode', () => {
 
       const result = await httpNode.getVersion();
 
-      expect(fetch).toHaveBeenCalledWith(`${URL}get-version`);
+      expect(fetch).toHaveBeenCalledWith(`${TEST_URL}get-version`);
       expect(result).toBe(5);
     });
   });
@@ -111,7 +122,7 @@ describe('HttpNode', () => {
 
       const result = await httpNode.getChainId();
 
-      expect(fetch).toHaveBeenCalledWith(`${URL}get-chain-id`);
+      expect(fetch).toHaveBeenCalledWith(`${TEST_URL}get-chain-id`);
       expect(result).toBe(1234);
     });
   });
@@ -128,7 +139,7 @@ describe('HttpNode', () => {
       const result = await httpNode.getContractData(contractData.contractData.contractAddress);
 
       expect(fetch).toHaveBeenCalledWith(
-        `${URL}contract-data?address=${contractData.contractData.contractAddress.toString()}`,
+        `${TEST_URL}contract-data?address=${contractData.contractData.contractAddress.toString()}`,
       );
       expect(result).toEqual(contractData);
     });
@@ -143,7 +154,7 @@ describe('HttpNode', () => {
 
       const result = await httpNode.getContractData(randomAddress);
 
-      expect(fetch).toHaveBeenCalledWith(`${URL}contract-data?address=${randomAddress.toString()}`);
+      expect(fetch).toHaveBeenCalledWith(`${TEST_URL}contract-data?address=${randomAddress.toString()}`);
       expect(result).toEqual(undefined);
     });
   });
@@ -161,7 +172,7 @@ describe('HttpNode', () => {
 
       const result = await httpNode.getLogs(from, take, logType as 'encrypted' | 'unencrypted');
 
-      expect(fetch).toHaveBeenCalledWith(`${URL}get-logs?from=${from}&take=${take}&logType=${logType}`);
+      expect(fetch).toHaveBeenCalledWith(`${TEST_URL}get-logs?from=${from}&take=${take}&logType=${logType}`);
       expect(result).toEqual([log1, log2]);
     });
 
@@ -175,7 +186,7 @@ describe('HttpNode', () => {
 
         const result = await httpNode.getLogs(from, take, logType as 'encrypted' | 'unencrypted');
 
-        expect(fetch).toHaveBeenCalledWith(`${URL}get-logs?from=${from}&take=${take}&logType=${logType}`);
+        expect(fetch).toHaveBeenCalledWith(`${TEST_URL}get-logs?from=${from}&take=${take}&logType=${logType}`);
         expect(result).toEqual([]);
       },
     );
@@ -191,7 +202,7 @@ describe('HttpNode', () => {
 
       const result = await httpNode.getContractInfo(contractInfo.contractAddress);
 
-      expect(fetch).toHaveBeenCalledWith(`${URL}contract-info?address=${contractInfo.contractAddress.toString()}`);
+      expect(fetch).toHaveBeenCalledWith(`${TEST_URL}contract-info?address=${contractInfo.contractAddress.toString()}`);
       expect(result).toEqual(contractInfo);
     });
 
@@ -205,7 +216,7 @@ describe('HttpNode', () => {
 
       const result = await httpNode.getContractInfo(randomAddress);
 
-      expect(fetch).toHaveBeenCalledWith(`${URL}contract-info?address=${randomAddress.toString()}`);
+      expect(fetch).toHaveBeenCalledWith(`${TEST_URL}contract-info?address=${randomAddress.toString()}`);
       expect(result).toBeUndefined();
     });
   });
@@ -225,7 +236,7 @@ describe('HttpNode', () => {
       };
       // @ts-ignore
       const call = fetch.mock.calls[0];
-      expect(call[0].href).toBe(`${URL}tx`);
+      expect(call[0].href).toBe(`${TEST_URL}tx`);
       expect(call[1]).toStrictEqual(init);
     });
   });
@@ -239,7 +250,7 @@ describe('HttpNode', () => {
 
       const result = await httpNode.getPendingTxByHash(txHash);
 
-      expect(fetch).toHaveBeenCalledWith(`${URL}get-pending-tx?hash=${txHash}`);
+      expect(fetch).toHaveBeenCalledWith(`${TEST_URL}get-pending-tx?hash=${txHash}`);
       expect(result).toEqual(tx);
     });
 
@@ -250,7 +261,7 @@ describe('HttpNode', () => {
 
       const result = await httpNode.getPendingTxByHash(txHash);
 
-      expect(fetch).toHaveBeenCalledWith(`${URL}get-pending-tx?hash=${txHash}`);
+      expect(fetch).toHaveBeenCalledWith(`${TEST_URL}get-pending-tx?hash=${txHash}`);
       expect(result).toBeUndefined();
     });
   });
@@ -264,7 +275,7 @@ describe('HttpNode', () => {
 
       const result = await httpNode.findContractIndex(leafValue);
 
-      expect(fetch).toHaveBeenCalledWith(`${URL}contract-index?leaf=${leafValue.toString('hex')}`);
+      expect(fetch).toHaveBeenCalledWith(`${TEST_URL}contract-index?leaf=${leafValue.toString('hex')}`);
       expect(result).toBe(BigInt(index));
     });
 
@@ -275,7 +286,7 @@ describe('HttpNode', () => {
 
       const result = await httpNode.findContractIndex(leafValue);
 
-      expect(fetch).toHaveBeenCalledWith(`${URL}contract-index?leaf=${leafValue.toString('hex')}`);
+      expect(fetch).toHaveBeenCalledWith(`${TEST_URL}contract-index?leaf=${leafValue.toString('hex')}`);
       expect(result).toBeUndefined();
     });
   });
@@ -283,14 +294,115 @@ describe('HttpNode', () => {
   describe('getContractPath', () => {
     it('should fetch and return the sibling path for the given leaf index', async () => {
       const leafIndex = BigInt(123456);
-      const siblingPath = SiblingPath.ZERO(3, Buffer.alloc(32), new Pedersen(await CircuitsWasm.get()));
+      const siblingPath = SiblingPath.ZERO(3, Buffer.alloc(32), pedersen);
       const response = { path: siblingPath.toBuffer().toString('hex') };
       setFetchMock(response);
 
       const result = await httpNode.getContractPath(leafIndex);
 
-      expect(fetch).toHaveBeenCalledWith(`${URL}contract-path?leaf=${leafIndex.toString()}`);
+      expect(fetch).toHaveBeenCalledWith(`${TEST_URL}contract-path?leaf=${leafIndex.toString()}`);
       expect(result).toEqual(siblingPath);
+    });
+  });
+
+  describe('findCommitmentIndex', () => {
+    it('should fetch and return the index of the given leaf', async () => {
+      const leafValue = Buffer.from('0123456789', 'hex');
+      const expectedIndex = BigInt(123);
+      const response = { index: expectedIndex.toString() };
+      setFetchMock(response);
+
+      const result = await httpNode.findCommitmentIndex(leafValue);
+
+      expect(fetch).toHaveBeenCalledWith(`${TEST_URL}commitment-index?leaf=${leafValue.toString('hex')}`);
+      expect(result).toBe(expectedIndex);
+    });
+
+    it('should return undefined if the commitment index is not found', async () => {
+      const leafValue = Buffer.from('def456', 'hex');
+      const response = {};
+      setFetchMock(response);
+
+      const result = await httpNode.findCommitmentIndex(leafValue);
+
+      expect(fetch).toHaveBeenCalledWith(`${TEST_URL}commitment-index?leaf=${leafValue.toString('hex')}`);
+      expect(result).toBeUndefined();
+    });
+  });
+
+  describe('getDataTreePath', () => {
+    it('should fetch and return the sibling path for the given leaf index', async () => {
+      const leafIndex = BigInt(123456);
+      const siblingPath = SiblingPath.ZERO(3, Buffer.alloc(32), pedersen);
+      const response = { path: siblingPath.toBuffer().toString('hex') };
+      setFetchMock(response);
+
+      const result = await httpNode.getDataTreePath(leafIndex);
+
+      expect(fetch).toHaveBeenCalledWith(`${TEST_URL}data-path?leaf=${leafIndex.toString()}`);
+      expect(result).toEqual(siblingPath);
+    });
+  });
+
+  describe('getL1ToL2MessageAndIndex', () => {
+    it('should fetch and return the L1 to L2 message and index for the given message key', async () => {
+      const messageKey = new Fr(789);
+      const expectedMessage = L1ToL2Message.random();
+      const expectedIndex = BigInt(123);
+      const response = { message: expectedMessage.toBuffer().toString('hex'), index: expectedIndex.toString() };
+      setFetchMock(response);
+
+      const result = await httpNode.getL1ToL2MessageAndIndex(messageKey);
+
+      expect(fetch).toHaveBeenCalledWith(`${TEST_URL}l1-l2-message?messageKey=${messageKey.toString()}`);
+      expect(result).toEqual({
+        message: expectedMessage,
+        index: expectedIndex,
+      });
+    });
+  });
+
+  describe('getL1ToL2MessagesTreePath', () => {
+    it('should fetch and return the sibling path for the given leaf index', async () => {
+      const leafIndex = BigInt(123456);
+      const siblingPath = SiblingPath.ZERO(3, Buffer.alloc(32), pedersen);
+      const response = { path: siblingPath.toBuffer().toString('hex') };
+      setFetchMock(response);
+
+      const result = await httpNode.getL1ToL2MessagesTreePath(leafIndex);
+
+      const url = `${TEST_URL}l1-l2-path?leaf=${leafIndex.toString()}`;
+      expect(fetch).toHaveBeenCalledWith(url);
+      expect(result).toEqual(siblingPath);
+    });
+  });
+
+  describe('getStorageAt', () => {
+    it('should fetch and return the storage value at the given contract slot', async () => {
+      const contractAddress = AztecAddress.random();
+      const slot = BigInt(789);
+      const storageValue = Buffer.from('0123456789', 'hex');
+      const response = { value: storageValue.toString('hex') };
+      setFetchMock(response);
+
+      const result = await httpNode.getStorageAt(contractAddress, slot);
+
+      const url = `${TEST_URL}storage-at?address=${contractAddress}&slot=${slot.toString()}`;
+      expect(fetch).toHaveBeenCalledWith(url);
+      expect(result).toEqual(storageValue);
+    });
+
+    it('should return undefined if the storage value is not found', async () => {
+      const contractAddress = AztecAddress.random();
+      const slot = BigInt(987);
+      const response = {};
+      setFetchMock(response);
+
+      const result = await httpNode.getStorageAt(contractAddress, slot);
+
+      const url = `${TEST_URL}storage-at?address=${contractAddress}&slot=${slot.toString()}`;
+      expect(fetch).toHaveBeenCalledWith(url);
+      expect(result).toBeUndefined();
     });
   });
 });
