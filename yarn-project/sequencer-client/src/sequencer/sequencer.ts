@@ -275,7 +275,12 @@ export class Sequencer {
    * @param globalVariables - Global variables to use in the block.
    * @returns The new block.
    */
-  protected async buildBlock(txs: ProcessedTx[], newL1ToL2Messages: Fr[], emptyTx: ProcessedTx, globalVariables: GlobalVariables) {
+  protected async buildBlock(
+    txs: ProcessedTx[],
+    newL1ToL2Messages: Fr[],
+    emptyTx: ProcessedTx,
+    globalVariables: GlobalVariables,
+  ) {
     // Pad the txs array with empty txs to be a power of two, at least 4
     const txsTargetSize = Math.max(ceilPowerOfTwo(txs.length), 4);
     const emptyTxCount = txsTargetSize - txs.length;

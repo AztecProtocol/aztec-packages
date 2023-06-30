@@ -15,5 +15,9 @@ export interface BlockBuilder {
    * @param newL1ToL2Messages - L1 to L2 messages to be part of the block.
    * @returns The new L2 block along with its proof from the root circuit.
    */
-  buildL2Block(globalVariables: GlobalVariables, txs: ProcessedTx[], newL1ToL2Messages: Fr[]): Promise<[L2Block, Proof]>;
+  buildL2Block(
+    globalVariables: GlobalVariables,
+    txs: ProcessedTx[],
+    newL1ToL2Messages: Fr[],
+  ): Promise<[L2Block, Proof]>;
 }
