@@ -5,7 +5,26 @@ use crate::types::point::Point;
 use crate::oracle::get_secret_key::get_secret_key;
 use crate::oracle::rand::rand;
 
-global CARD_NOTE_LEN = 8;
+global CARD_NOTE_LEN = 6;
+
+// mod card_note;
+// use card_note::CardNote;
+// use dep::aztec3::types::point::Point;
+
+#[oracle(notifyCreatedNote)]
+fn notify_created_note_oracle(
+    _storage_slot: Field,
+    _owner: Point,
+    _note: CardNote,
+) -> [Field; 1] {}
+
+unconstrained fn notify_created_card_note(
+    storage_slot: Field,
+    owner: Point,
+    note: CardNote,
+) -> Field {
+    notify_created_note_oracle(storage_slot, owner, note)[0]
+}
 
 struct CardNote {
     card: Card,
@@ -26,20 +45,20 @@ impl CardNote {
         }
     }
 
-    fn deserialize(
-        fields: [Field; CARD_NOTE_LEN],
-    ) -> CardNote {
-        CardNote {
-            card: Card::deserialize([fields[0], fields[1], fields[2]]),
-            owner: Point {
-                x: fields[3],
-                y: fields[4]
-            },
-            randomness: fields[5],
-            nonce: fields[6],
-            is_real: fields[7] as bool,
-        }
-    }
+    // fn deserialize(
+    //     fields: [Field; CARD_NOTE_LEN],
+    // ) -> CardNote {
+    //     CardNote {
+    //         card: Card::deserialize([fields[0], fields[1], fields[2]]),
+    //         owner: Point {
+    //             x: fields[3],
+    //             y: fields[4]
+    //         },
+    //         randomness: fields[5],
+    //         nonce: fields[6],
+    //         is_real: fields[7] as bool,
+    //     }
+    // }
 
     fn new(card: Card, owner: Point) -> CardNote {
         let randomness = rand();
@@ -57,9 +76,7 @@ impl CardNote {
     fn compute_note_hash(self) -> Field {
         dep::std::hash::pedersen([
             crate::NoteHash,
-            self.card.id,
-            self.card.strength,
-            self.card.points,
+            self.card.inner
             self.owner.x,
             self.owner.y,
             self.randomness,

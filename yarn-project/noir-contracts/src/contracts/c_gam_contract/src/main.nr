@@ -1,12 +1,11 @@
-
-
-
 // Noir implementation of a private token contract. It allows for the minting, and transfer of tokens. This contract
 // only works with private state and for this reason user balances are stored as notes (total user balance is
 // represented as a set of notes).
 contract CGam {
     mod balance_utils;
     mod card;
+    mod card_note;
+    mod hash_with_storage_slot;
     use dep::std;
     use dep::aztec3::abi;
     use dep::aztec3::abi::PrivateContextInputs;
@@ -16,6 +15,7 @@ contract CGam {
     use dep::aztec3::types::point::Point;
     use dep::aztec3::state_vars::map::Map;
     use dep::aztec3::state_vars::storage_map::StorageMap;
+    use dep::aztec3::state_vars::storage_field::StorageField;
     use dep::aztec3::state_vars::set::Set;
 
     // oracles
@@ -23,18 +23,23 @@ contract CGam {
     use dep::aztec3::oracle::logs::emit_encrypted_log;
     use dep::aztec3::oracle::logs::emit_unencrypted_log;
 
+    use card_note::CardNote;
     use card::Card;
+    use card_note::notify_created_card_note;
+    use hash_with_storage_slot::hash_with_storage_slot;
 
     //*********************************/
     // Mapping from card_id to CardNote state
     // secret cards: Map<Field, Set<CardNote>>;
-    global cards: Map<PrivateState<CardNote>> = Map::new(1, |s| PrivateState<CardNote>::new(s));
+    // global cards: Map<PrivateState<CardNote>> = Map::new(1, |s| PrivateState<CardNote>::new(s));
+    global cards_storage_slot_separator = 1;
+    global cards = Map { storage_slot: 1 };
+
     //*********************************/
 
     // PublicState name has been used instead of StorageField :(
-    global game_id: PublicState<Field> = PublicState::new(2);
-
-
+    // global game_id: PublicState<Field> = PublicState::new(2);
+    global game_id = StorageField { storage_slot: 2 };
 // struct GameState {
 
 // }
@@ -53,7 +58,7 @@ contract CGam {
     global deck_strength = StorageMap { storage_slot: 4 };
 
     //users' deck
-    global user_deck = StorageMap { storage_slot: 5 };
+    global user_deck = Map { storage_slot: 5 };
 
     //user plays: user_id -> 0 if not yet played, 1 if played
     global users_plays = StorageMap { storage_slot: 6 };
@@ -66,12 +71,19 @@ contract CGam {
 
     // (currrent) winner card: game_id -> card_id
     global winning_card = StorageMap { storage_slot: 9};
-            
+
     // (current) points at stake: game_id -> points
     global game_points = StorageMap { storage_slot: 10 };
 
     // user points: game_id+user_id -> points
     global user_points = StorageMap { storage_slot: 11 };
+
+    // winner: game_id -> user_id
+    global winner = StorageMap { storage_slot: 13 };
+
+    // map game_id+user_id to owner.x
+    global user_pub_key = StorageMap { storage_slot: 14 };
+
 
     fn buy_pack(
           //*********************************/
@@ -82,6 +94,8 @@ contract CGam {
         owner: Point,
         ) -> distinct pub abi::PrivateCircuitPublicInputs
     {
+        let mut context = PrivateFunctionContext::new();
+        context.args = context.args.push_array([seed, owner.x, owner.y]);
         // check user balance can afford the cards
         // TODO
 
@@ -103,30 +117,44 @@ contract CGam {
         }
         // generate randomness deterministically from 'public randomness' and user secret
         let random = std::hash::sha256(user_seed);
-        let mut random_as_field = 0;
-        let mut r = 1;
+        let mut random_as_field: Field = 0;
+        let mut r: Field = 1;
         //we generate 10 cards
         for i in 0..10 {
-            random_as_field += random[2*i] * r;
+            random_as_field += random[2*i] as Field * r;
             r = r*2;
-            random_as_field += random[2*i+1] * r;
+            random_as_field += random[2*i+1] as Field * r;
             r = r*2;
         }
         for i in 0..10 {
-            let card_id = random_as_field * (i + 1);
-            cards.at(card_id).insert(
-                CardNote::new(
-                    card: Card {
-                        id: card_id,
-                        strength : random[2*i] as Field,
-                        points: random[2*i+1] as Field,
-                    },
-                    owner
-                )
-            );
+            let card_random_traits = random_as_field * (i + 1);
+            let card = Card {
+                inner: card_random_traits
+            };
+            let card_note = CardNote::new(card, owner);
+            let note_hash = card_note.compute_note_hash();
+            let record = hash_with_storage_slot(cards_storage_slot_separator, note_hash);
+            context = context.push_new_note_hash(record);
+            // Assert to prevent optimizing away.
+            // assert(notify_created_card_note(storage_slot, card_note.owner, card_note) == 0);
+
+            // let Set::new(card_id_storage_slot);
+
+
+            // cards.at(card_id).insert(
+            //     context,
+            //     CardNote::new(
+            //         Card {
+            //             id: card_id,
+            //             strength : random[2*i],
+            //             points: random[2*i+1],
+            //         },
+            //         owner
+            //     ),
+            // );
         }
 
-        inputs.context.finish()
+        context.finish(inputs)
     }
 
     open fn create_game(
@@ -139,7 +167,7 @@ contract CGam {
     {
         // FEAT_REQUEST: game_id += 1; for a public state variable.
         let old_id = game_id.read();
-        new_id = old_id += 1;
+        let new_id = old_id + 1;
         game_id.write(new_id);
     }
 
@@ -147,6 +175,9 @@ contract CGam {
     open fn start_game(g_id: Field) {
         // we compute the players play order
         let player_nb = num_players.at(g_id).read();
+
+        // no winner yet
+        let _5 = winner.at(g_id).write(max_players + 1);
 
         // get the player strength
         let mut player_strengths = [0;max_players];
@@ -179,55 +210,64 @@ contract CGam {
         }
     }
 
-    fn get_card(//inputs: PrivateContextInputs, 
-    card_id: Field, owner: Point) -> Card {
-        let my_card = cards.at(card_id).read();
-        assert(card.owner == owner);
-        my_card
+    fn assert_own_card(//inputs: PrivateContextInputs,
+        card: Card, owner: Point) {
+            let card_note = CardNote::new(card, owner);
+            let note_hash = card_note.compute_note_hash();
+            let record = hash_with_storage_slot(cards_storage_slot_separator, note_hash);
+            let storage_field = StorageField::new(record);
+            let read_note_hash = storage_field.read();
+
+            // let my_card = cards.at(card_id).read();
+            assert(note_hash == read_note_hash);
+            // my_card
     }
 
     fn join_game(
         inputs: PrivateContextInputs,
         g_id: Field,
-        hand: [Field; 5],
+        user_cards: [Card; 5],
         owner: Point,
         ) {
-            //TODO commit to $$ 
+            //TODO commit to $$
 
-            let mut user_cards = [Card::default(); 5];
             //checks that cards belong to the user
             for i in 0..5 {
-                user_cards[i] = get_card(hand[i], owner);
+                assert_own_card(user_cards[i], owner);
             }
 
             // compute the deck strength
             let mut deck_str : u32 = 0;
             for card in user_cards {
-                deck_str + = card.strength as u32;
+                deck_str + = card.strength() as u32;
             }
             deck_str = deck_str / 5;
 
             // generate a user id
             let user_id = game_players.at(g_id).read();
-            game_players.at(g_id).write(user_id + 1);
-
+            let _1 = game_players.at(g_id).write(user_id + 1);
 
             // store the player strength
             let mut idx = (g_id + user_id) as Field;
             idx = idx*(idx+1)/2 + g_id;
-            player_strengths[i] = deck_strength.at(idx).write(deck_str as Field);
+            let _3 = deck_strength.at(idx).write(deck_str as Field);
             // user has not yet played
-            users_plays.at(idx).write(0);
+            let _2 = users_plays.at(idx).write(0);
 
             // maps the user_id to its cards
             for i in 0..5 {
                 idx = (g_id + 5*user_id+i) as Field;
                 idx = idx*(idx+1)/2 + g_id;
-                user_deck.at(idx).write(cards[i].id);
+                user_deck.at(idx).write(hand[i]);
             }
 
+            // associate the user public key with the user id
+            idx = (g_id + user_id) as Field;
+            idx = idx*(idx+1)/2 + g_id;
+            let _4 = user_pub_key.at(idx).write(owner.x);
+
             if user_id == num_players.at(g_id).read() {
-                start_game();
+                start_game(g_id);
             }
         }
 
@@ -237,11 +277,26 @@ contract CGam {
         g_id: Field,
         card: Card,
         owner: Point) {
+            // this should be private , I guess ?//////////
             // checks that card belongs to the deck and it not already played
-            let _v = get_card(card.id, owner);
-            let mut card_idx = (g_id + card.id) as Field;
-            card_idx = card_idx*(card_idx+1)/2 + g_id;
-            assert(played_cards.at(card_idx).read() == 0);
+            assert_own_card(card, owner);
+            assert(played_cards.at(card.id()).read() == 0);
+
+            let card_note = CardNote {
+                note: card,
+                owner: owner,
+                is_real: 1,
+//do we need randomness and nounce??? if yes what for ?
+            };
+            ///////////////////////////////////////////////
+
+            //oracle call to store the card on typescript; but can we do that from a public function ???
+            // we NEED this to be public because other players need to see this
+            // we cannot do this from a public function because the public function is executed by the sequencer
+            // so it is not running in the user broweser
+            // alternative1: emit-encrupted-log for every user? looks bad! unless we want the game to run privately
+            // alternative2: put the revealed cards into a public tree, so that anyone can access it.
+            notify_revealed_card(card_note, owner);
 
             // check user turn
             let mut check = true;
@@ -251,8 +306,8 @@ contract CGam {
                 //all previous players must have played
                 if i as u8 <user_id as u8 {
                     let player_i = player_order.at(idx).read();
-                    let mut j = (game_id + player_i) as Field;
-                     j = j*(j+1)/2 + game_id;
+                    let mut j = (g_id + player_i) as Field;
+                     j = j*(j+1)/2 + g_id;
                     assert(users_plays.at(j).read() == 1);
                 } else {
                     // user must not have played yet
@@ -264,56 +319,121 @@ contract CGam {
 
             // we track the winner card: winning_card: game_id -> card_id
             let win_card_id = winning_card.at(g_id).read();
-            let win_card = cards.at(win_card_id);
-            if win_card.strength < card.strength {
-                winning_card.at(g_id).write(card.id);
+            // TODO: we want to use the shown cards, i.e put the shown cards in a public tree
+            // instead of using the 'cards' private map.
+            // we could remove the shown card from the private map?
+
+            let win_card = cards.at(win_card_id).read();
+            if win_card.strength() < card.strength() {
+                winning_card.at(g_id).write(card.id());
             }
             //N.B. when you show a card, it must have strictly more strength than the others to win.
             // we could implement some rules in case of a draw
 
             // we track the sum of points: game_points:  game_id -> points
             let points = game_points.at(g_id).read();
-            game_points.at(g_id).write(points + card.points as Field);
+            let _4 = game_points.at(g_id).write(points + card.points() as Field);
 
             // user has played
-            let mut idx = (game_id + user_id) as Field;
+            let mut idx = (g_id + user_id) as Field;
             idx = idx*(idx+1)/2 + g_id;
-            player_order.at(idx).write(1);
+            let _3 = player_order.at(idx).write(1);
 
             // set the card as played
-            played_cards.at(card_idx).write(1);
-            
-           
+            let _5 = played_cards.at(card_idx).write(1);
 
+            // count how players have played:
+            let mut count = 0;
+            for user_id in 0..max_players {
+                let mut idx = (g_id + user_id) as Field;
+                idx = idx*(idx+1)/2 + g_id;
+                count = count + player_order.at(idx).read();
+            }
+            if count == num_players.at(g_id).read() {
+                end_turn(g_id);
+            }
         }
 
     fn end_turn(g_id: Field) {
-        //TODO: at the end of the turn, we should reset the 'user has played'
-        
+        // we reset the 'user has played'
+        for i in 0..max_players {
+            let mut idx = (g_id + i) as Field;
+            idx = idx*(idx+1)/2 + g_id;
+            let _2 = users_plays.at(idx).write(0);
+        }
+
         // give the points to the winner of the turn
-        let win = winning_card.at(game_id).read();
-        let user_id = 0; //TODO we have win.owner, but we need a user id here
-        //game_players should rather be a map game_id+iser_id -> owner.x
+        let mut user_id = max_players + 1;
+        let win = winning_card.at(g_id).read();
+        for i in 0..max_players {
+            let mut idx = (g_id + i) as Field;
+            idx = idx*(idx+1)/2 + g_id;
+            // we could used the 'public shown cards' instead
+            if user_pub_key.at(idx) == cards.at(win).read().owner.x {
+                user_id = i;
+            }
+        }
 
         let turn_points = game_points.at(g_id).read();
-        game_points.at(g_id).write(0);
+        let _4 = game_points.at(g_id).write(0);
         let mut idx = (g_id + user_id) as Field;
-        idx = idx*(idx+1)/2 + game_id;
+        idx = idx*(idx+1)/2 + g_id;
         let current_points = user_points.at(idx).read();
-        user_points.at(idx).write(current_points + turn_points);
+        let _1 = user_points.at(idx).write(current_points + turn_points);
 
         //if all cards are played, we should end the game
+        // first we retrive the last player:
+        let mut last_player = 0;
+        for i in 0..max_players {
+            let user = player_order.at(i).read();
+            if user != 0 {
+                last_player = user;
+            }
+        }
+        //then we check if all his cards are played
+        let mut is_end_game = false;
+        for i in 0..5 {
+            idx = (g_id + 5*last_player+i) as Field;
+            idx = idx*(idx+1)/2 + g_id;
+            let card_id = user_deck.at(idx).read();
+            idx = (g_id + card_id) as Field;
+            idx = idx*(idx+1)/2 + g_id;
+            if is_end_game == false {
+                is_end_game = played_cards.at(idx).read() == 1;
+            }
+        }
+        if is_end_game {
+            end_game(g_id);
+        }
     }
 
-    fn end_game() {
+    fn end_game(g_id: Field) {
         //compute the winner
+        let mut max_points = 0;
+        let mut winner_id = max_players + 1;
+        for i in 0..max_players {
+            let mut idx = (g_id + i) as Field;
+            idx = idx*(idx+1)/2 + g_id;
+            let user_points = user_points.at(idx).read();
+            if user_points > max_points {
+                winner_id = i;
+                max_points = user_points;
+            }
+        }
+        //store the winner
+        let _1 = winner.at(g_id).write(winner_id);
     }
 
     fn claim_winnings(
         inputs: PrivateContextInputs,
         g_id: Field,
-        owner: Field) {
-            // TODO: check that the game as ended
+        owner: Point) {
+            let winner = winner.at(g_id).read();
+            assert(winner as u8 < max_players as u8);
+            // match user public key with user id
+            let mut idx = (g_id + winner) as Field;
+            idx = idx*(idx+1)/2 + g_id;
+            assert(user_pub_key.at(idx).read() == owner.x);
 
             // at the end we need to burn the played_cards
             for user_id in 0..5 {
@@ -324,11 +444,8 @@ contract CGam {
                     cards.at(card_id).write(Card::dummy());
                 }
             }
-            
-            // checks you are the winner
 
-
-              
+            // TODO send the reward to the user
         }
 
     // // Mints `amount` of tokens to `owner`.
