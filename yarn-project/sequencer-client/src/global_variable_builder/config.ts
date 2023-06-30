@@ -1,4 +1,4 @@
-import { EthAddress } from "@aztec/circuits.js";
+import { EthAddress } from '@aztec/circuits.js';
 
 /**
  * Configuration of the L1GlobalReader.
