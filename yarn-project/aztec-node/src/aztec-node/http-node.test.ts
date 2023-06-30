@@ -1,10 +1,11 @@
 import { ContractData, ContractPublicData, L2Block, L2BlockL2Logs, Tx, TxHash, TxL2Logs } from '@aztec/types';
 import { HttpNode, txToJson } from './http-node.js';
 import { jest } from '@jest/globals';
-import { AztecAddress, KERNEL_PUBLIC_CALL_STACK_LENGTH, Proof } from '@aztec/circuits.js';
+import { AztecAddress, CircuitsWasm, KERNEL_PUBLIC_CALL_STACK_LENGTH, Proof } from '@aztec/circuits.js';
 import { makeKernelPublicInputs, makePublicCallRequest } from '@aztec/circuits.js/factories';
 import times from 'lodash.times';
 import { randomBytes } from '@aztec/foundation/crypto';
+import { Pedersen, SiblingPath } from '@aztec/merkle-tree';
 
 jest.spyOn(global, 'fetch');
 
@@ -251,6 +252,45 @@ describe('HttpNode', () => {
 
       expect(fetch).toHaveBeenCalledWith(`${URL}get-pending-tx?hash=${txHash}`);
       expect(result).toBeUndefined();
+    });
+  });
+
+  describe('findContractIndex', () => {
+    it('should fetch and return the index of the given contract', async () => {
+      const leafValue = Buffer.from('abc123', 'hex');
+      const index = '123456';
+      const response = { index };
+      setFetchMock(response);
+
+      const result = await httpNode.findContractIndex(leafValue);
+
+      expect(fetch).toHaveBeenCalledWith(`${URL}contract-index?leaf=${leafValue.toString('hex')}`);
+      expect(result).toBe(BigInt(index));
+    });
+
+    it('should return undefined if the contract index is not found', async () => {
+      const leafValue = Buffer.from('def456', 'hex');
+      const response = {};
+      setFetchMock(response);
+
+      const result = await httpNode.findContractIndex(leafValue);
+
+      expect(fetch).toHaveBeenCalledWith(`${URL}contract-index?leaf=${leafValue.toString('hex')}`);
+      expect(result).toBeUndefined();
+    });
+  });
+
+  describe('getContractPath', () => {
+    it('should fetch and return the sibling path for the given leaf index', async () => {
+      const leafIndex = BigInt(123456);
+      const siblingPath = SiblingPath.ZERO(3, Buffer.alloc(32), new Pedersen(await CircuitsWasm.get()));
+      const response = { path: siblingPath.toBuffer().toString('hex') };
+      setFetchMock(response);
+
+      const result = await httpNode.getContractPath(leafIndex);
+
+      expect(fetch).toHaveBeenCalledWith(`${URL}contract-path?leaf=${leafIndex.toString()}`);
+      expect(result).toEqual(siblingPath);
     });
   });
 });

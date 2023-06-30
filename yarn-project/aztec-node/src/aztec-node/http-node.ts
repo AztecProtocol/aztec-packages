@@ -240,6 +240,9 @@ export class HttpNode implements AztecNode {
     const url = new URL(`${this.baseUrl}/contract-index`);
     url.searchParams.append('leaf', leafValue.toString('hex'));
     const response = await (await fetch(url.toString())).json();
+    if (!response || !response.index) {
+      return undefined;
+    }
     const index = response.index as string;
     return Promise.resolve(BigInt(index));
   }
