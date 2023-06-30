@@ -59,7 +59,7 @@ fn get_max_notes<Note, N>(
     dummy: fn () -> Note,
     sort_by: [u8; N],
     sort_order: [u8; N],
-    skip: u8,
+    skip: u32,
 ) -> [Note; MAX_READ_REQUESTS] {
     // TODO: get_max_notes_oracle
     let fields = get_notes_2_oracle_wrapper(storage_slot);
@@ -76,7 +76,7 @@ fn get_notes<Note, N, S, P>(
     dummy: fn () -> Note,
     sort_by: [u8; N],
     sort_order: [u8; N],
-    skip: u8,
+    skip: u32,
     filter: fn ([Note; MAX_READ_REQUESTS], P) -> [Note; S],
     filter_args: P,
 ) -> [Note; S] {

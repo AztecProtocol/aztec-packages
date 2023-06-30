@@ -8,10 +8,10 @@ use crate::value_note::filter::get_all_notes;
 // TODO(1.5) We don't support yet more than one page of notes
 // noir is having issues with loop handling in unconstrained functions
 // rewrite to unconstrained and integrate into noir-aztec when fixed
-fn get_balance(storage_slot: Field, skip: Field) -> Field {
+fn get_balance(storage_slot: Field, skip: u32) -> Field {
     let mut balance = 0;
 
-    let options = NoteGetterOptions::new(get_all_notes, 0, [Sort::nada(); VALUE_NOTE_LEN], 0);
+    let options = NoteGetterOptions::new(get_all_notes, 0, [Sort::nada(); VALUE_NOTE_LEN], skip);
     let notes = view_notes(storage_slot, ValueNoteInterface, options);
     let len = notes.len();
     for i in 0..len {
