@@ -13,7 +13,7 @@ contract Uniswap {
         inputs: PrivateContextInputs,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
         // Return private circuit public inputs. All private functions need to return this as it is part of the input of the private kernel.
-        PrivateFunctionContext::new().finish(inputs)
+        PrivateFunctionContext::new(inputs, 0).finish()
     }
 
     // What we need to make this nicer:
@@ -42,9 +42,7 @@ contract Uniswap {
         l1UniswapPortal: Field, // L1 address of uniswap portal contract
         callerOnL1: Field, // ethereum address that can call this function on the L1 portal (0x0 if anyone can call)
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
-        let mut initialContext = PrivateFunctionContext::new();
-        // manually pass all the arguments into the current context - 
-        initialContext.args = initialContext.args.push_array([
+        let mut initialContext = PrivateFunctionContext::new(inputs, PrivateFunctionContext::hash_args([
             withdrawFnSelector,
             inputAsset,
             inputAssetPortalAddress,
@@ -60,7 +58,8 @@ contract Uniswap {
             deadlineForL1ToL2Message,
             cancellerForL1ToL2Message,
             l1UniswapPortal,
-        ]);
+            callerOnL1,
+        ]));
 
         // inputAsset.withdraw(inputAmount, sender, recipient=l1UniswapPortal, callerOnL1=l1UniswapPortal) 
         // only uniswap portal can call this (done to safeguard ordering of message consumption)
@@ -92,7 +91,7 @@ contract Uniswap {
         context = context.message_portal(content_hash);
 
         // Return private circuit public inputs. All private functions need to return this as it is part of the input of the private kernel.
-        context.finish(inputs)
+        context.finish()
     }
 
     // refer `l1-contracts/test/portals/UniswapPortal.sol` on how L2 to L1 message is expected

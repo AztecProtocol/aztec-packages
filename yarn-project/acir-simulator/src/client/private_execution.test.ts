@@ -76,15 +76,12 @@ describe('Private Execution test suite', () => {
 
   describe('empty constructor', () => {
     it('should run the empty constructor', async () => {
-      const txRequest = new TxExecutionRequest(
-        AztecAddress.ZERO,
-        new FunctionData(Buffer.alloc(4), true, true),
-        new Array(ARGS_LENGTH).fill(Fr.ZERO),
-        txContext,
-      );
+      const abi = TestContractAbi.functions[0];
+      const txRequest = buildTxExecutionRequest({ args: [], abi, isConstructor: true });
+
       const result = await acirSimulator.run(
         txRequest,
-        TestContractAbi.functions[0],
+        abi,
         AztecAddress.ZERO,
         EthAddress.ZERO,
         historicRoots,

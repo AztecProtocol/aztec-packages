@@ -17,9 +17,14 @@ contract GullibleAccount {
     fn entrypoint(
         inputs: PrivateContextInputs,
         payload: EntrypointPayload, // contains a set of arguments, selectors, targets and a nonce
-        _signature: [Field;3]
+        signature: [Field;3]
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
-        let mut context = PrivateFunctionContext::new();
+        // 40 = ENTRYPOINT_PAYLOAD_SIZE + 3
+        let mut args: BoundedVec<Field, 40> = BoundedVec::new(0);
+        args = args.push_array(payload.serialize());
+        args = args.push_array(signature);
+        
+        let mut context = PrivateFunctionContext::new(inputs, PrivateFunctionContext::hash_args(args.storage));
 
         // Call private functions
         for i in 0..entrypoint::ACCOUNT_MAX_PRIVATE_CALLS {
@@ -49,35 +54,13 @@ contract GullibleAccount {
             }
         }
 
-        // // Create args_hash manually since we exceed the MAX_ARGS in PrivateFunctionContext.
-        // // Alternatively, we could make PrivateFunctionContext generic on the args size.
-        // // ENTRYPOINT_PAYLOAD_SIZE + size_of(signature) = 21 + 64 = 85
-        // let mut args: BoundedVec<Field, 85> = BoundedVec::new(0);
-        // args = args.push_array(payload.flattened_args);
-        // args = args.push_array(payload.flattened_selectors);
-        // args = args.push(payload.nonce);
-        // for byte in signature {
-        //     args = args.push(byte as Field);
-        // }
-        // TODO(#499): Use hash index
-        // let args_hash = dep::std::hash::pedersen(args.storage)[0];
-        
-        // TODO(#754): Pedersen is throwing a panic in wasm when computing the hash for too many args.
-        let args_hash = 0;
-
-        // Finish returns the already serialized payload, so we just tweak the corresponding field
-        // Horrible, yes. But we need to rethink the private function context api anyway.
-        // TODO(#745): Do not store args, set hash directly in context API
-        let mut ret = context.finish(inputs);
-        ret.args_hash = args_hash;
-        // Return private circuit public inputs. All private functions need to return this as it is part of the input of the private kernel.
-        ret
+        context.finish()
     }
 
     fn constructor(
         inputs: PrivateContextInputs,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
         // Return private circuit public inputs. All private functions need to return this as it is part of the input of the private kernel.
-        PrivateFunctionContext::new().finish(inputs)
+        PrivateFunctionContext::new(inputs, 0).finish()
     }
 }
