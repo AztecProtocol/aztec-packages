@@ -1,7 +1,9 @@
-import { ContractData, ContractPublicData, L2Block, L2BlockL2Logs } from '@aztec/types';
-import { HttpNode } from './http-node.js';
+import { ContractData, ContractPublicData, L2Block, L2BlockL2Logs, Tx, TxL2Logs } from '@aztec/types';
+import { HttpNode, txToJson } from './http-node.js';
 import { jest } from '@jest/globals';
-import { AztecAddress } from '@aztec/circuits.js';
+import { AztecAddress, KERNEL_PUBLIC_CALL_STACK_LENGTH, Proof } from '@aztec/circuits.js';
+import { makeKernelPublicInputs, makePublicCallRequest } from '@aztec/circuits.js/factories';
+import times from 'lodash.times';
 
 jest.spyOn(global, 'fetch');
 
@@ -13,6 +15,18 @@ const setFetchMock = (response: any): void => {
     ok: true,
     json: () => response,
   });
+};
+
+// Copied from yarn-project/p2p/src/client/mocks.ts. Do we want to move this to a shared location?
+export const MockTx = () => {
+  return Tx.createTx(
+    makeKernelPublicInputs(),
+    new Proof(Buffer.alloc(0)),
+    TxL2Logs.random(8, 3), // 8 priv function invocations creating 3 encrypted logs each
+    TxL2Logs.random(11, 2), // 8 priv + 3 pub function invocations creating 2 unencrypted logs each
+    [],
+    times(KERNEL_PUBLIC_CALL_STACK_LENGTH, makePublicCallRequest),
+  );
 };
 
 describe('HttpNode', () => {
@@ -191,6 +205,26 @@ describe('HttpNode', () => {
 
       expect(fetch).toHaveBeenCalledWith(`${URL}contract-info?address=${randomAddress.toString()}`);
       expect(result).toBeUndefined();
+    });
+  });
+
+  describe('sendTx', () => {
+    it('should submit a transaction to the p2p pool', async () => {
+      const tx = MockTx();
+      const irrelevantResponse = {};
+      setFetchMock(irrelevantResponse);
+
+      await httpNode.sendTx(tx);
+
+      const json = txToJson(tx);
+      const init: RequestInit = {
+        method: 'POST',
+        body: JSON.stringify(json),
+      };
+      // @ts-ignore
+      const call = fetch.mock.calls[0];
+      expect(call[0].href).toBe(`${URL}tx`);
+      expect(call[1]).toStrictEqual(init);
     });
   });
 });
