@@ -84,6 +84,8 @@ contract CGam {
     // map game_id+user_id to owner.x
     global user_pub_key = StorageMap { storage_slot: 14 };
 
+    // map game_id to set of notes = card note
+    global revealed_cards = StorageMap { storage_slot: 15 };
 
     fn buy_pack(
           //*********************************/
@@ -132,26 +134,17 @@ contract CGam {
                 inner: card_random_traits
             };
             let card_note = CardNote::new(card, owner);
-            let note_hash = card_note.compute_note_hash();
-            let record = hash_with_storage_slot(cards_storage_slot_separator, note_hash);
-            context = context.push_new_note_hash(record);
-            // Assert to prevent optimizing away.
-            // assert(notify_created_card_note(storage_slot, card_note.owner, card_note) == 0);
+            // let note_hash = card_note.compute_note_hash();
+            // let card_storage_slot = hash_with_storage_slot(cards_storage_slot_separator, card.id());
+            // let record = hash_with_storage_slot(card_storage_slot, note_hash);
+            // context = context.push_new_note_hash(record);
+            // // Assert to prevent optimizing away.
+            // assert(notify_created_card_note(card_storage_slot, card_note.owner, card_note) == 0);
 
             // let Set::new(card_id_storage_slot);
 
 
-            // cards.at(card_id).insert(
-            //     context,
-            //     CardNote::new(
-            //         Card {
-            //             id: card_id,
-            //             strength : random[2*i],
-            //             points: random[2*i+1],
-            //         },
-            //         owner
-            //     ),
-            // );
+            cards.at(card.id()).insert(context, Note::new(card.id(), owner));
         }
 
         context.finish(inputs)
@@ -229,6 +222,13 @@ contract CGam {
         user_cards: [Card; 5],
         owner: Point,
         ) {
+            let mut initialContext = PrivateFunctionContext::new();
+            initialContext.args = initialContext.args.push_array([g_id, user_cards[0].id(), user_cards[1].id(),
+            user_cards[2].id(),
+            user_cards[3].id(),
+            user_cards[4].id(),
+            owner.x, owner.y, ]);
+
             //TODO commit to $$
 
             //checks that cards belong to the user
@@ -243,7 +243,14 @@ contract CGam {
             }
             deck_str = deck_str / 5;
 
-            // generate a user id
+            // generate a user id: TODO should be the pedersen hash of the cards instead
+            // because we are a private function that wants to update the public state
+            // meaning we cannot relay on the order.
+            // if we compute the hash, we can update a public map which contains the set of users:
+            // we add to the map that way:
+            // if the map is empty, 0 -> user_hash
+            // if the map has one element, 1 -> user_hash
+            // etc...
             let user_id = game_players.at(g_id).read();
             let _1 = game_players.at(g_id).write(user_id + 1);
 
@@ -258,7 +265,15 @@ contract CGam {
             for i in 0..5 {
                 idx = (g_id + 5*user_id+i) as Field;
                 idx = idx*(idx+1)/2 + g_id;
-                user_deck.at(idx).write(hand[i]);
+                // TODO !
+                 let card_note = Note::new(user_cards[i].id(), owner);
+
+                initialContext = user_deck.at(idx).insert(initialContext, card_note);
+
+                Map -> Set.insert(cardn.1)
+                Map(same key = user_id) -> Set.insert(cardn.2)
+                get_2() -> card1, card_storage_slot
+                get_5()
             }
 
             // associate the user public key with the user id
@@ -272,31 +287,29 @@ contract CGam {
         }
 
     open fn show_card(
-        inputs: PrivateContextInputs,
+        inputs: PublicContextInputs,
         user_id: Field,
         g_id: Field,
         card: Card,
         owner: Point) {
+
             // this should be private , I guess ?//////////
             // checks that card belongs to the deck and it not already played
             assert_own_card(card, owner);
             assert(played_cards.at(card.id()).read() == 0);
 
-            let card_note = CardNote {
-                note: card,
+            let card_note = Note {
+                value: card.id(),
                 owner: owner,
                 is_real: 1,
 //do we need randomness and nounce??? if yes what for ?
             };
             ///////////////////////////////////////////////
 
-            //oracle call to store the card on typescript; but can we do that from a public function ???
-            // we NEED this to be public because other players need to see this
-            // we cannot do this from a public function because the public function is executed by the sequencer
-            // so it is not running in the user broweser
-            // alternative1: emit-encrupted-log for every user? looks bad! unless we want the game to run privately
-            // alternative2: put the revealed cards into a public tree, so that anyone can access it.
-            notify_revealed_card(card_note, owner);
+            //put the revealed cards into a public tree, so that anyone can access it.
+            // what is context here ??
+
+            revealed_cards.at(g_id).insert(context, card_note);
 
             // check user turn
             let mut check = true;
@@ -428,6 +441,11 @@ contract CGam {
         inputs: PrivateContextInputs,
         g_id: Field,
         owner: Point) {
+            let mut initialContext = PrivateFunctionContext::new();
+            initialContext.args = initialContext.args.push_array([g_id, owner.x, owner.y]);
+
+
+//TODO; wrap the public acess inside a public function and call it
             let winner = winner.at(g_id).read();
             assert(winner as u8 < max_players as u8);
             // match user public key with user id
@@ -440,12 +458,14 @@ contract CGam {
                 for i in 0..5 {
                     let mut idx = (g_id + 5*user_id+i) as Field;
                     idx = idx*(idx+1)/2 + g_id;
-                    let card_id = user_deck.at(idx).read();
-                    cards.at(card_id).write(Card::dummy());
+                    let (mut context, (card_note1, card_note2)) = user_deck.at(idx).get_2(initialContext); //temp
+                    cards.at(g_id).remove(inputs, context,card_note1);
                 }
             }
 
             // TODO send the reward to the user
+
+            //context.finish()
         }
 
     // // Mints `amount` of tokens to `owner`.
@@ -484,7 +504,7 @@ contract CGam {
     // ) -> distinct pub abi::PrivateCircuitPublicInputs {
     //     let mut initialContext = PrivateFunctionContext::new();
     //     initialContext.args = initialContext.args.push_array([amount, sender.x, sender.y, recipient.x, recipient.y]);
-
+ //P-m4r1t1ms
     //     // Gets the set of sender's notes and picks 2 of those.
     //     let sender_balance = balances.at(sender.x);
     //     let (mut context, (note1, note2)) = sender_balance.get_2(initialContext);
