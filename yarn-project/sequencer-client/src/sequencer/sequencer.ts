@@ -136,8 +136,9 @@ export class Sequencer {
       this.log(`Processing ${validTxs.length} txs...`);
       this.state = SequencerState.CREATING_BLOCK;
 
-      // @todo @LHerskind Fetch the next global variables in here!
-      const globalVariables = GlobalVariables.empty();
+      // @todo @LHerskind Fetch meaningful timestamp in here.
+      const blockNumber = (await this.l2BlockSource.getBlockHeight()) + 1;
+      const globalVariables = new GlobalVariables(this.chainId, this.version, new Fr(blockNumber), Fr.ZERO);
 
       // Process public txs and drop the ones that fail processing
       // We create a fresh processor each time to reset any cached state (eg storage writes)
@@ -163,7 +164,7 @@ export class Sequencer {
       const emptyTx = await processor.makeEmptyProcessedTx(this.chainId, this.version);
 
       // @todo @LHerskind We need to pass in the globals here as well to build a block with the correct data.
-      const block = await this.buildBlock(processedTxs, l1ToL2Messages, emptyTx);
+      const block = await this.buildBlock(processedTxs, l1ToL2Messages, emptyTx, globalVariables);
       this.log(`Assembled block ${block.number}`);
 
       await this.publishContractPublicData(validTxs, block);
@@ -271,19 +272,18 @@ export class Sequencer {
    * @param txs - Processed txs to include in the next block.
    * @param newL1ToL2Messages - L1 to L2 messages to be part of the block.
    * @param emptyTx - Empty tx to repeat at the end of the block to pad to a power of two.
+   * @param globalVariables - Global variables to use in the block.
    * @returns The new block.
    */
-  protected async buildBlock(txs: ProcessedTx[], newL1ToL2Messages: Fr[], emptyTx: ProcessedTx) {
+  protected async buildBlock(txs: ProcessedTx[], newL1ToL2Messages: Fr[], emptyTx: ProcessedTx, globalVariables: GlobalVariables) {
     // Pad the txs array with empty txs to be a power of two, at least 4
     const txsTargetSize = Math.max(ceilPowerOfTwo(txs.length), 4);
     const emptyTxCount = txsTargetSize - txs.length;
 
     const allTxs = [...txs, ...times(emptyTxCount, () => emptyTx)];
-    const blockNumber = (await this.l2BlockSource.getBlockHeight()) + 1;
-    this.log(`Building block ${blockNumber}`);
-    // @todo @LHerskind We need to pass in the globals here as well to build a block with the correct data.
-    // We don't need to do the blocknumber in here. Just passing along the globals is enough.
-    const [block] = await this.blockBuilder.buildL2Block(blockNumber, allTxs, newL1ToL2Messages);
+    this.log(`Building block ${globalVariables.blockNumber}`);
+
+    const [block] = await this.blockBuilder.buildL2Block(globalVariables, allTxs, newL1ToL2Messages);
     return block;
   }
 
