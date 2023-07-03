@@ -5,16 +5,14 @@ use crate::utils::arr_copy_slice;
 #[oracle(notifyCreatedNote)]
 fn notify_created_note_oracle<N>(
     _storage_slot: Field,
-    _owner: Point,
     _preimage: [Field; N],
 ) -> [Field; 1] {}
 
 unconstrained fn notify_created_note<N>(
     storage_slot: Field,
-    owner: Point,
     preimage: [Field; N],
 ) -> Field {
-    notify_created_note_oracle(storage_slot, owner, preimage)[0]
+    notify_created_note_oracle(storage_slot, preimage)[0]
 }
 
 #[oracle(notifyNullifiedNote)]

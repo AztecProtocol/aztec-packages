@@ -80,15 +80,13 @@ fn compute_note_hash(note: ValueNote) -> Field {
     ])[0]
 }
 
-fn compute_nullifier(note: ValueNote) -> Field {
+fn compute_nullifier(note: ValueNote, final_note_hash: Field) -> Field {
     if (!note.is_real) {
         0
     } else {
         let secret = get_secret_key(note.owner);
-        let note_hash = compute_note_hash(note);
         dep::std::hash::pedersen([
-            generators::VALUE_NOTE_NULLIFIER,
-            note_hash,
+            final_note_hash,
             secret, 
         ])[0]
     }

@@ -1,5 +1,6 @@
 use crate::context::Context;
 use crate::generators;
+use crate::note::lifecycle::create_note;
 use crate::note::note_getter::get_note;
 use crate::note::note_interface::NoteInterface;
 use crate::oracle;
@@ -24,10 +25,7 @@ impl<Note, N> ImmutableSingleton<Note, N> {
         let nullifier = self.compute_initialisation_nullifier();
         context = context.push_new_nullifier(nullifier);
 
-        // Add new note.
-        let compute_note_hash = self.note_interface.compute_note_hash;
-        let note_hash = compute_note_hash(note);
-        context.push_new_note_hash(note_hash)
+        create_note(context, self.storage_slot, note, self.note_interface)
     }
 
     fn compute_initialisation_nullifier(self) -> Field {

@@ -6,7 +6,7 @@ global MAX_NEW_NULLIFIERS: comptime Field = 4;
 global MAX_PRIVATE_CALL_STACK : comptime Field = 4;
 global MAX_PUBLIC_CALL_STACK: comptime Field = 4;
 global MAX_L2_TO_L1_MSGS : comptime Field = 2;
-global PUBLIC_INPUTS_LENGTH : comptime Field = 43;
+global PUBLIC_INPUTS_LENGTH : comptime Field = 49;
 global LOGS_HASH_SIZE: comptime Field = 2; // Stored in  2 fields in order to fit in all of the 256 bits of sha256 hash.
 global CONTRACT_STORAGE_UPDATE_REQUESTS_LENGTH : comptime Field = 4;
 global CONTRACT_STORAGE_READS_LENGTH : comptime Field = 4;
@@ -164,12 +164,12 @@ struct PrivateCircuitPublicInputs {
     public_call_stack: [Field; crate::abi::MAX_PUBLIC_CALL_STACK],
     new_l2_to_l1_msgs: [Field; crate::abi::MAX_L2_TO_L1_MSGS],
     // TODO #588, relevant issue: https://github.com/AztecProtocol/aztec-packages/issues/588
-    // When uncommenting, explore introducing a new type like uint256 (similar to Point), so it's more explicit that
+    // Explore introducing a new type like uint256 (similar to Point), so it's more explicit that
     // we're talking about a single number backed by two field elements.
-    // encrypted_logs_hash: [Field; crate::abi::LOGS_HASH_SIZE],
-    // unencrypted_logs_hash: [Field; crate::abi::LOGS_HASH_SIZE],
-    // encrypted_log_preimages_length: Field,
-    // unencrypted_log_preimages_length: Field,
+    encrypted_logs_hash: [Field; crate::abi::LOGS_HASH_SIZE],
+    unencrypted_logs_hash: [Field; crate::abi::LOGS_HASH_SIZE],
+    encrypted_log_preimages_length: Field,
+    unencrypted_log_preimages_length: Field,
     commitment_trees_roots: CommitmentTreesRoots,
     contract_deployment_data: ContractDeploymentData,
     chain_id: Field,
@@ -193,11 +193,10 @@ impl PrivateCircuitPublicInputs {
         fields = fields.push_array(self.private_call_stack);
         fields = fields.push_array(self.public_call_stack);
         fields = fields.push_array(self.new_l2_to_l1_msgs);
-        // TODO #588, relevant issue: https://github.com/AztecProtocol/aztec-packages/issues/588
-        // fields = fields.push_array(self.encrypted_logs_hash);
-        // fields = fields.push_array(self.unencrypted_logs_hash);
-        // fields = fields.push(self.encrypted_log_preimages_length);
-        // fields = fields.push(self.unencrypted_log_preimages_length);
+        fields = fields.push_array(self.encrypted_logs_hash);
+        fields = fields.push_array(self.unencrypted_logs_hash);
+        fields = fields.push(self.encrypted_log_preimages_length);
+        fields = fields.push(self.unencrypted_log_preimages_length);
         fields = fields.push_array(self.commitment_trees_roots.serialize());
         fields = fields.push_array(self.contract_deployment_data.serialize());
         fields = fields.push(self.chain_id);

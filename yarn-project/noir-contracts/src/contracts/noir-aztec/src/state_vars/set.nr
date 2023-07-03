@@ -1,8 +1,10 @@
 use crate::context::Context;
+use crate::generators;
+use crate::note::lifecycle::create_note;
+use crate::note::lifecycle::destroy_note;
 use crate::note::note_getter::get_notes;
 use crate::note::note_getter_options::NoteGetterOptions;
 use crate::note::note_interface::NoteInterface;
-use crate::generators;
 
 struct Set<Note, N> {
     storage_slot: Field,
@@ -14,16 +16,12 @@ impl<Note, N> Set<Note, N> {
         Set { storage_slot, note_interface }
     }
 
-    fn insert(self, mut context: Context, note: Note) -> Context {
-        let compute_note_hash = self.note_interface.compute_note_hash;
-        let note_hash = compute_note_hash(note);
-        context.push_new_note_hash(note_hash)
+    fn insert(self, context: Context, note: Note) -> Context {
+        create_note(context, self.storage_slot, note, self.note_interface)
     }
 
-    fn remove(self, mut context: Context, note: Note) -> Context {
-        let compute_nullifier = self.note_interface.compute_nullifier;
-        let nullifier = compute_nullifier(note);
-        context.push_new_nullifier(nullifier)
+    fn remove(self, context: Context, note: Note) -> Context {
+        destroy_note(context, self.storage_slot, note, self.note_interface)
     }
 
     fn get_notes<S, P>(

@@ -1,3 +1,4 @@
+use crate::abi;
 use crate::abi::CallContext;
 use crate::abi::ContractDeploymentData;
 use crate::context::Context;
@@ -59,35 +60,34 @@ impl PrivateCallStackItem {
                 },
                 // TODO handle the offsets as a variable incremented during extraction?
                 args_hash: fields[10],
-                return_values: arr_copy_slice(fields, [0; crate::abi::MAX_RETURN_VALUES], 11),
-                read_requests: arr_copy_slice(fields, [0; crate::abi::MAX_READ_REQUESTS], 15),
-                new_commitments: arr_copy_slice(fields, [0; crate::abi::MAX_NEW_COMMITMENTS], 19),
-                new_nullifiers: arr_copy_slice(fields, [0; crate::abi::MAX_NEW_NULLIFIERS], 23),
-                private_call_stack: arr_copy_slice(fields, [0; crate::abi::MAX_PRIVATE_CALL_STACK], 27),
-                public_call_stack: arr_copy_slice(fields, [0; crate::abi::MAX_PUBLIC_CALL_STACK], 31),
-                new_l2_to_l1_msgs:arr_copy_slice(fields, [0; crate::abi::MAX_L2_TO_L1_MSGS], 35),
-                // TODO #588, relevant issue: https://github.com/AztecProtocol/aztec-packages/issues/588
-                // encrypted_logs_hash:arr_copy_slice(fields, [0; 2], 44),
-                // unencrypted_logs_hash:arr_copy_slice(fields, [0; 2], 46),
-                // encrypted_log_preimages_length: fields[47],
-                // unencrypted_log_preimages_length: fields[48],
+                return_values: arr_copy_slice(fields, [0; abi::MAX_RETURN_VALUES], 11),
+                read_requests: arr_copy_slice(fields, [0; abi::MAX_READ_REQUESTS], 15),
+                new_commitments: arr_copy_slice(fields, [0; abi::MAX_NEW_COMMITMENTS], 19),
+                new_nullifiers: arr_copy_slice(fields, [0; abi::MAX_NEW_NULLIFIERS], 23),
+                private_call_stack: arr_copy_slice(fields, [0; abi::MAX_PRIVATE_CALL_STACK], 27),
+                public_call_stack: arr_copy_slice(fields, [0; abi::MAX_PUBLIC_CALL_STACK], 31),
+                new_l2_to_l1_msgs: arr_copy_slice(fields, [0; abi::MAX_L2_TO_L1_MSGS], 35),
+                encrypted_logs_hash: arr_copy_slice(fields, [0; abi::LOGS_HASH_SIZE], 37),
+                unencrypted_logs_hash: arr_copy_slice(fields, [0; abi::LOGS_HASH_SIZE], 39),
+                encrypted_log_preimages_length: fields[41],
+                unencrypted_log_preimages_length: fields[42],
                 commitment_trees_roots: CommitmentTreesRoots {
                     // Must match order in `private_circuit_public_inputs.hpp`
-                    private_data_tree_root : fields[37],
-                    nullifier_tree_root : fields[38],
-                    contract_tree_root : fields[39],
-                    l1_to_l2_messages_tree_root : fields[40],
+                    private_data_tree_root : fields[43],
+                    nullifier_tree_root : fields[44],
+                    contract_tree_root : fields[45],
+                    l1_to_l2_messages_tree_root : fields[46],
                 },
                 contract_deployment_data: ContractDeploymentData {
-                    constructor_vk_hash : fields[41],
-                    function_tree_root : fields[42],
-                    contract_address_salt : fields[43],
-                    portal_contract_address : fields[44],
+                    constructor_vk_hash : fields[47],
+                    function_tree_root : fields[48],
+                    contract_address_salt : fields[49],
+                    portal_contract_address : fields[50],
                 },
-                chain_id: fields[45],
-                version: fields[46],
+                chain_id: fields[51],
+                version: fields[52],
             },
-            is_execution_request: fields[47] as bool,
+            is_execution_request: fields[53] as bool,
         };
         assert(contract_address == item.contract_address);
         assert(function_selector == item.function_data.function_selector);

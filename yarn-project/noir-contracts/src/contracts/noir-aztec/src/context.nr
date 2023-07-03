@@ -19,7 +19,6 @@ struct Context {
     public_call_stack : BoundedVec<Field, abi::MAX_PUBLIC_CALL_STACK>,
     new_l2_to_l1_msgs : BoundedVec<Field, abi::MAX_L2_TO_L1_MSGS>,
 
-    // TODO #588, relevant issue: https://github.com/AztecProtocol/aztec-packages/issues/588
     encrypted_logs_hash : [Field; abi::LOGS_HASH_SIZE],
     unencrypted_logs_hash : [Field; abi::LOGS_HASH_SIZE],
     encrypted_log_preimages_length : Field,
@@ -43,7 +42,6 @@ impl Context {
             public_call_stack: BoundedVec::new(0),
             new_l2_to_l1_msgs: BoundedVec::new(0),
 
-            // TODO #588, relevant issue: https://github.com/AztecProtocol/aztec-packages/issues/588
             encrypted_logs_hash: [0; abi::LOGS_HASH_SIZE],
             unencrypted_logs_hash: [0; abi::LOGS_HASH_SIZE],
             encrypted_log_preimages_length: 0,
@@ -65,11 +63,10 @@ impl Context {
             private_call_stack: self.private_call_stack.storage,
             public_call_stack: self.public_call_stack.storage,
             new_l2_to_l1_msgs: self.new_l2_to_l1_msgs.storage,
-            // TODO #588, relevant issue: https://github.com/AztecProtocol/aztec-packages/issues/588
-            // encrypted_logs_hash: self.encrypted_logs_hash.storage,
-            // unencrypted_logs_hash: self.unencrypted_logs_hash.storage,
-            // encrypted_log_preimages_length: self.encrypted_log_preimages_length,
-            // unencrypted_log_preimages_length: self.unencrypted_log_preimages_length,
+            encrypted_logs_hash: self.encrypted_logs_hash,
+            unencrypted_logs_hash: self.unencrypted_logs_hash,
+            encrypted_log_preimages_length: self.encrypted_log_preimages_length,
+            unencrypted_log_preimages_length: self.unencrypted_log_preimages_length,
             commitment_trees_roots: inputs.roots,
             contract_deployment_data: inputs.contract_deployment_data,
             chain_id: inputs.private_global_variables.chain_id,
