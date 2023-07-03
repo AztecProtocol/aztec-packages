@@ -405,6 +405,7 @@ export class AccountState {
     return Fr.fromBuffer(
       simulator.computeSiloedNullifier(
         noteSpendingInfo.contractAddress,
+        noteSpendingInfo.storageSlot,
         noteSpendingInfo.notePreimage.items,
         this.privKey,
         await CircuitsWasm.get(),

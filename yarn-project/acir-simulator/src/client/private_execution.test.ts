@@ -138,7 +138,9 @@ describe('Private Execution test suite', () => {
       expect(newCommitments).toHaveLength(1);
 
       const [commitment] = newCommitments;
-      expect(commitment).toEqual(Fr.fromBuffer(acirSimulator.computeNoteHash(newNote.preimage, circuitsWasm)));
+      expect(commitment).toEqual(
+        Fr.fromBuffer(acirSimulator.computeNoteHash(newNote.storageSlot, newNote.preimage, circuitsWasm)),
+      );
     }, 30_000);
 
     it('should run the mint function', async () => {
@@ -163,7 +165,9 @@ describe('Private Execution test suite', () => {
       expect(newCommitments).toHaveLength(1);
 
       const [commitment] = newCommitments;
-      expect(commitment).toEqual(Fr.fromBuffer(acirSimulator.computeNoteHash(newNote.preimage, circuitsWasm)));
+      expect(commitment).toEqual(
+        Fr.fromBuffer(acirSimulator.computeNoteHash(newNote.storageSlot, newNote.preimage, circuitsWasm)),
+      );
     });
 
     it('should run the transfer function', async () => {
@@ -176,8 +180,11 @@ describe('Private Execution test suite', () => {
 
       const tree: AppendOnlyTree = await newTree(StandardTree, db, pedersen, 'privateData', PRIVATE_DATA_TREE_HEIGHT);
       const preimages = [buildNote(60n, owner), buildNote(80n, owner)];
+      const storageSlot = computeSlotForMapping(new Fr(1n), owner, circuitsWasm);
       // TODO for this we need that noir siloes the commitment the same way as the kernel does, to do merkle membership
-      await tree.appendLeaves(preimages.map(preimage => acirSimulator.computeNoteHash(preimage, circuitsWasm)));
+      await tree.appendLeaves(
+        preimages.map(preimage => acirSimulator.computeNoteHash(storageSlot, preimage, circuitsWasm)),
+      );
 
       const historicRoots = new PrivateHistoricTreeRoots(
         Fr.fromBuffer(tree.getRoot(false)),
@@ -218,7 +225,9 @@ describe('Private Execution test suite', () => {
       expect(newNullifiers).toHaveLength(2);
 
       expect(newNullifiers).toEqual(
-        preimages.map(preimage => Fr.fromBuffer(acirSimulator.computeNullifier(preimage, ownerPk, circuitsWasm))),
+        preimages.map(preimage =>
+          Fr.fromBuffer(acirSimulator.computeNullifier(storageSlot, preimage, ownerPk, circuitsWasm)),
+        ),
       );
 
       expect(result.preimages.newNotes).toHaveLength(2);
@@ -230,11 +239,12 @@ describe('Private Execution test suite', () => {
       expect(newCommitments).toHaveLength(2);
 
       const [recipientNoteCommitment, changeNoteCommitment] = newCommitments;
+      const recipientStorageSlot = computeSlotForMapping(new Fr(1n), recipient, circuitsWasm);
       expect(recipientNoteCommitment).toEqual(
-        Fr.fromBuffer(acirSimulator.computeNoteHash(recipientNote.preimage, circuitsWasm)),
+        Fr.fromBuffer(acirSimulator.computeNoteHash(recipientStorageSlot, recipientNote.preimage, circuitsWasm)),
       );
       expect(changeNoteCommitment).toEqual(
-        Fr.fromBuffer(acirSimulator.computeNoteHash(changeNote.preimage, circuitsWasm)),
+        Fr.fromBuffer(acirSimulator.computeNoteHash(storageSlot, changeNote.preimage, circuitsWasm)),
       );
 
       expect(recipientNote.preimage[0]).toEqual(new Fr(amountToTransfer));
@@ -252,8 +262,11 @@ describe('Private Execution test suite', () => {
 
       const tree: AppendOnlyTree = await newTree(StandardTree, db, pedersen, 'privateData', PRIVATE_DATA_TREE_HEIGHT);
       const preimages = [buildNote(balance, owner)];
+      const storageSlot = computeSlotForMapping(new Fr(1n), owner, circuitsWasm);
       // TODO for this we need that noir siloes the commitment the same way as the kernel does, to do merkle membership
-      await tree.appendLeaves(preimages.map(preimage => acirSimulator.computeNoteHash(preimage, circuitsWasm)));
+      await tree.appendLeaves(
+        preimages.map(preimage => acirSimulator.computeNoteHash(storageSlot, preimage, circuitsWasm)),
+      );
 
       const historicRoots = new PrivateHistoricTreeRoots(
         Fr.fromBuffer(tree.getRoot(false)),
@@ -292,7 +305,7 @@ describe('Private Execution test suite', () => {
       expect(newNullifiers).toHaveLength(1);
 
       expect(newNullifiers[0]).toEqual(
-        Fr.fromBuffer(acirSimulator.computeNullifier(preimages[0], ownerPk, circuitsWasm)),
+        Fr.fromBuffer(acirSimulator.computeNullifier(storageSlot, preimages[0], ownerPk, circuitsWasm)),
       );
 
       expect(result.preimages.newNotes).toHaveLength(2);
@@ -349,7 +362,7 @@ describe('Private Execution test suite', () => {
       expect(oracle.getPortalContractAddress.mock.calls[0]).toEqual([childAddress]);
       expect(result.nestedExecutions).toHaveLength(1);
       expect(result.nestedExecutions[0].callStackItem.publicInputs.returnValues[0]).toEqual(new Fr(privateIncrement));
-    });
+    }, 30_000);
   });
 
   describe('Consuming Messages', () => {
