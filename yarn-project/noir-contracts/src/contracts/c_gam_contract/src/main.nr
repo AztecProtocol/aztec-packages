@@ -31,15 +31,13 @@ contract CGam {
     //*********************************/
     // Mapping from card_id to CardNote state
     // secret cards: Map<Field, Set<CardNote>>;
-    // global cards: Map<PrivateState<CardNote>> = Map::new(1, |s| PrivateState<CardNote>::new(s));
-    global cards_storage_slot_separator = 1;
-    global cards = Map { storage_slot: 1 };
-
+    global cards: Map = Map::new(1);
     //*********************************/
 
     // PublicState name has been used instead of StorageField :(
-    // global game_id: PublicState<Field> = PublicState::new(2);
-    global game_id = StorageField { storage_slot: 2 };
+    global game_id: StorageField = StorageField::new(2);
+
+
 // struct GameState {
 
 // }
@@ -123,9 +121,9 @@ contract CGam {
         let mut r: Field = 1;
         //we generate 10 cards
         for i in 0..10 {
-            random_as_field += random[2*i] as Field * r;
+            random_as_field += (random[2*i] as Field )* r;
             r = r*2;
-            random_as_field += random[2*i+1] as Field * r;
+            random_as_field += (random[2*i+1] as Field) * r;
             r = r*2;
         }
         for i in 0..10 {
