@@ -2,16 +2,16 @@
 // where the user is authenticated with an ECDSA signature.
 contract EcdsaAccount {
     use dep::std;
-    use dep::aztec3::entrypoint;
-    use dep::aztec3::entrypoint::EntrypointPayload;
-    use dep::aztec3::abi;
-    use dep::aztec3::abi::PrivateContextInputs;
-    use dep::aztec3::abi::CallContext;
-    use dep::aztec3::private_call_stack_item::PrivateCallStackItem;
-    use dep::aztec3::public_call_stack_item::PublicCallStackItem;
-    use dep::aztec3::context::PrivateFunctionContext;
-    use dep::aztec3::types::vec::BoundedVec;
-    use dep::aztec3::types::point::Point;
+    use dep::aztec::entrypoint;
+    use dep::aztec::entrypoint::EntrypointPayload;
+    use dep::aztec::abi;
+    use dep::aztec::abi::PrivateContextInputs;
+    use dep::aztec::abi::CallContext;
+    use dep::aztec::private_call_stack_item::PrivateCallStackItem;
+    use dep::aztec::public_call_stack_item::PublicCallStackItem;
+    use dep::aztec::context::Context;
+    use dep::aztec::types::vec::BoundedVec;
+    use dep::aztec::types::point::Point;
 
     // A function which has to be implemented by every account abstraction contract.
     fn entrypoint(
@@ -21,7 +21,7 @@ contract EcdsaAccount {
         signature: pub [Field;3],
         partialContractAddress: pub Field,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
-        let mut context = PrivateFunctionContext::new();
+        let mut context = Context::new();
 
         // Decompress signature from 3 fields to 64 bytes
         let mut decompressed_signature: [u8;64] = [0;64];
@@ -85,8 +85,8 @@ contract EcdsaAccount {
             }
         }
 
-        // // Create args_hash manually since we exceed the MAX_ARGS in PrivateFunctionContext.
-        // // Alternatively, we could make PrivateFunctionContext generic on the args size.
+        // // Create args_hash manually since we exceed the MAX_ARGS in Context.
+        // // Alternatively, we could make Context generic on the args size.
         // // ENTRYPOINT_PAYLOAD_SIZE + size_of(signature) = 21 + 64 = 85
         // let mut args: BoundedVec<Field, 85> = BoundedVec::new(0);
         // args = args.push_array(payload.flattened_args);
@@ -115,6 +115,6 @@ contract EcdsaAccount {
         inputs: PrivateContextInputs,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
         // Return private circuit public inputs. All private functions need to return this as it is part of the input of the private kernel.
-        PrivateFunctionContext::new().finish(inputs)
+        Context::new().finish(inputs)
     }
 }

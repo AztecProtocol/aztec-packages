@@ -7,14 +7,11 @@ struct Storage {
     balances: Map<PublicState<Field, FIELD_VALUE_LEN>>,
 }
 
-fn create_public_state(storage_slot: Field) -> PublicState<Field, FIELD_VALUE_LEN> {
-    PublicState::new(storage_slot, FieldValueInterface)
-}
 
 impl Storage {
     fn init() -> Self {
         Storage {
-            balances: Map::new(1, create_public_state),
+            balances: Map::new(1, |s| PublicState::new(s, FieldValueInterface)),
         }
     }
 }

@@ -3,15 +3,15 @@
 // behalf.
 contract GullibleAccount {
     use dep::std;
-    use dep::aztec3::entrypoint;
-    use dep::aztec3::entrypoint::EntrypointPayload;
-    use dep::aztec3::abi;
-    use dep::aztec3::abi::PrivateContextInputs;
-    use dep::aztec3::abi::CallContext;
-    use dep::aztec3::private_call_stack_item::PrivateCallStackItem;
-    use dep::aztec3::public_call_stack_item::PublicCallStackItem;
-    use dep::aztec3::context::PrivateFunctionContext;
-    use dep::aztec3::types::vec::BoundedVec;
+    use dep::aztec::entrypoint;
+    use dep::aztec::entrypoint::EntrypointPayload;
+    use dep::aztec::abi;
+    use dep::aztec::abi::PrivateContextInputs;
+    use dep::aztec::abi::CallContext;
+    use dep::aztec::private_call_stack_item::PrivateCallStackItem;
+    use dep::aztec::public_call_stack_item::PublicCallStackItem;
+    use dep::aztec::context::Context;
+    use dep::aztec::types::vec::BoundedVec;
 
     // A function which has to be implemented by every account abstraction contract.
     fn entrypoint(
@@ -19,7 +19,7 @@ contract GullibleAccount {
         payload: EntrypointPayload, // contains a set of arguments, selectors, targets and a nonce
         _signature: [Field;3]
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
-        let mut context = PrivateFunctionContext::new();
+        let mut context = Context::new();
 
         // Call private functions
         for i in 0..entrypoint::ACCOUNT_MAX_PRIVATE_CALLS {
@@ -49,8 +49,8 @@ contract GullibleAccount {
             }
         }
 
-        // // Create args_hash manually since we exceed the MAX_ARGS in PrivateFunctionContext.
-        // // Alternatively, we could make PrivateFunctionContext generic on the args size.
+        // // Create args_hash manually since we exceed the MAX_ARGS in Context.
+        // // Alternatively, we could make Context generic on the args size.
         // // ENTRYPOINT_PAYLOAD_SIZE + size_of(signature) = 21 + 64 = 85
         // let mut args: BoundedVec<Field, 85> = BoundedVec::new(0);
         // args = args.push_array(payload.flattened_args);
@@ -78,6 +78,6 @@ contract GullibleAccount {
         inputs: PrivateContextInputs,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
         // Return private circuit public inputs. All private functions need to return this as it is part of the input of the private kernel.
-        PrivateFunctionContext::new().finish(inputs)
+        Context::new().finish(inputs)
     }
 }
