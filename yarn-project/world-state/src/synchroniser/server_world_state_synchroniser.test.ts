@@ -2,6 +2,7 @@ import {
   AppendOnlyTreeSnapshot,
   CircuitsWasm,
   GlobalVariables,
+  KERNEL_NEW_COMMITMENTS_LENGTH,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
 } from '@aztec/circuits.js';
 import { INITIAL_LEAF, Pedersen, SiblingPath } from '@aztec/merkle-tree';
@@ -13,6 +14,7 @@ import { WorldStateRunningState } from './world_state_synchroniser.js';
 import { Fr } from '@aztec/foundation/fields';
 import { sleep } from '@aztec/foundation/sleep';
 import { createLogger } from '@aztec/foundation/log';
+import times from 'lodash.times';
 
 /**
  * Generic mock implementation.
@@ -72,7 +74,7 @@ const getMockBlock = (blockNumber: number, newContractsCommitments?: Buffer[]) =
     endPublicDataTreeRoot: Fr.random(),
     endL1ToL2MessageTreeSnapshot: getMockTreeSnapshot(),
     endTreeOfHistoricL1ToL2MessageTreeRootsSnapshot: getMockTreeSnapshot(),
-    newCommitments: [Fr.random(), Fr.random(), Fr.random(), Fr.random()],
+    newCommitments:  times(KERNEL_NEW_COMMITMENTS_LENGTH, Fr.random),
     newNullifiers: [Fr.random()],
     newContracts: newContractsCommitments?.map(x => Fr.fromBuffer(x)) ?? [Fr.random()],
     newContractData: [getMockContractData()],
