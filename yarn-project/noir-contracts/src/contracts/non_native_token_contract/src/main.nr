@@ -4,6 +4,16 @@ mod storage;
 // balance can be stored in both public and private domain. If the balance is stored in the private domain then it
 // is represented as a set of notes in the private data tree. If the balance is stored in the public domain then it is
 // represented as a single value in the public data tree.
+//
+// It is also used to test insertion of a note from public domain into the private data tree. How this works is that
+// a user provides a secret hash as an argument on the input of the public function, and the contract then inserts
+// a note into the private data tree once the public call is processed. A note can later on be spent by providing
+// the secret hash preimage on the input of a private function call.
+//
+// This flow will be typically used when performing a token swap:
+// 1. A calls a private function which enqueues a public call to the DEX contract (with the secret hash on input).
+// 2. The sequencer performs the public call to the DEX and the note gets inserted into the private data tree.
+// 3. At this point a recipient can spend the note in a private function assuming he/she knows the secret.
 contract NonNativeToken {
     // Libs
     use dep::token_utils::{
