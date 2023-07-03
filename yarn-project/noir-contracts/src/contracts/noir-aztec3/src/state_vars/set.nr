@@ -33,6 +33,8 @@ impl Set {
 
         let note_hash = note.compute_note_hash();
 
+        // connector is used to pass return value from one oracle
+        // call to the next to force strict ordering of their execution/callbacks
         context.connector = notify_created_note(context.connector, storage_slot, note.owner, note);
         context.push_new_note_hash(note_hash)
     }
@@ -41,6 +43,8 @@ impl Set {
     fn get_2(self, mut context: PrivateFunctionContext) -> (PrivateFunctionContext, (Note, Note)) {
         let storage_slot = self.storage_slot;
 
+        // connector is used to pass return value from one oracle
+        // call to the next to force strict ordering of their execution/callbacks
         let notes = get_2_notes(context.connector, storage_slot);
         context.connector = notes.0.value;
 
