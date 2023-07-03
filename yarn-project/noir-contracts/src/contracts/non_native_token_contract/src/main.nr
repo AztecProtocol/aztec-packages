@@ -155,7 +155,7 @@ contract NonNativeToken {
         note2.validate(sender);
 
         let sum = note1.value + note2.value;
-        assert(sum as u64 >= amount as u64);
+        assert(sum as u120 >= amount as u120);
         let change_value = sum - amount;
 
         context = sender_balance.remove(context, note1);
@@ -269,7 +269,7 @@ contract NonNativeToken {
 
         // Checks that the sum of the notes is greater than or equal to the amount being transferred.
         let sum = note1.value + note2.value;
-        assert(sum as u64 >= amount as u64);
+        assert(sum as u120 >= amount as u120);
         let change_value = sum - amount;
 
         // Removes the 2 notes from the sender's set of notes.
@@ -475,7 +475,7 @@ contract NonNativeToken {
         note2.validate(owner);
 
         let sum = note1.value + note2.value;
-        assert(sum as u64 >= amount as u64);
+        assert(sum as u120 >= amount as u120);
         let change_value = sum - amount;
 
         context = sender_balance.remove(inputs, context, note1);

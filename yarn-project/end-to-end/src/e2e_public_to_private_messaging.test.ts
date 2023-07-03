@@ -11,7 +11,7 @@ import {
 } from '@aztec/aztec.js';
 import { NonNativeTokenContractAbi } from '@aztec/noir-contracts/examples';
 import { DebugLogger } from '@aztec/foundation/log';
-import { expectStorageSlot, pointToPublicKey, setup } from './utils.js';
+import { expectAztecStorageSlot, pointToPublicKey, setup } from './utils.js';
 
 describe('e2e_public_to_private_messaging', () => {
   let aztecNode: AztecNodeService;
@@ -94,6 +94,6 @@ describe('e2e_public_to_private_messaging', () => {
     await expectBalance(owner, 0n);
 
     const publicBalancesSlot = 2n;
-    await expectStorageSlot(logger, aztecNode, contract, publicBalancesSlot, owner.toField(), mintAmount);
+    await expectAztecStorageSlot(logger, aztecNode, contract, publicBalancesSlot, owner.toField(), mintAmount);
   }, 100_000);
 });

@@ -4,7 +4,7 @@ import { AztecAddress, EthAddress, Fr, Point } from '@aztec/circuits.js';
 import { DeployL1Contracts } from '@aztec/ethereum';
 import { DebugLogger } from '@aztec/foundation/log';
 import { PublicClient, HttpTransport, Chain, getContract } from 'viem';
-import { deployAndInitializeNonNativeL2TokenContracts, expectStorageSlot, pointToPublicKey } from '../utils.js';
+import { deployAndInitializeNonNativeL2TokenContracts, expectAztecStorageSlot, pointToPublicKey } from '../utils.js';
 import { OutboxAbi } from '@aztec/l1-artifacts';
 import { sha256ToField } from '@aztec/foundation/crypto';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
@@ -199,7 +199,7 @@ export class CrossChainTestHarness {
   }
 
   async expectPublicBalanceOnL2(owner: AztecAddress, expectedBalance: bigint, publicBalanceSlot: bigint) {
-    await expectStorageSlot(
+    await expectAztecStorageSlot(
       this.logger,
       this.aztecNode,
       this.l2Contract,
