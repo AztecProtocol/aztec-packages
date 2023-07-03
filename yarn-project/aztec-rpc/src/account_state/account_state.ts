@@ -329,14 +329,14 @@ export class AccountState {
       const { txLogs } = encryptedL2BlockLogs[blockIndex];
       let logIndexWithinBlock = 0;
 
-      // TODO(benesjan): this seems to be shaky and how we handle the tx-Notespendinginfo correspondence just seems outdated. FIX THIS!!!!
-
-      // Try decrypting the encrypted logs.
-      const userPertainingTxIndices: number[] = [];
+      // We are using set for `userPertainingTxIndices` to avoid duplicates. This would happen in case there were
+      // multiple encrypted logs in a tx pertaining to a user.
+      const userPertainingTxIndices: Set<number> = new Set();
       const noteSpendingInfoDaos: NoteSpendingInfoDao[] = [];
       const privateKey = await this.keyStore.getAccountPrivateKey(this.publicKey);
       const curve = await Grumpkin.new();
 
+      // Iterate over all the encrypted logs and try decrypting them. If successful, store the note spending info.
       for (let indexOfTxInABlock = 0; indexOfTxInABlock < txLogs.length; ++indexOfTxInABlock) {
         // Note: Each tx generates a `TxL2Logs` object and for this reason we can rely on its index corresponding
         //       to the index of a tx in a block.
@@ -346,7 +346,7 @@ export class AccountState {
             const noteSpendingInfo = NoteSpendingInfo.fromEncryptedBuffer(logs, privateKey, curve);
             if (noteSpendingInfo) {
               // We have successfully decrypted the data.
-              userPertainingTxIndices.push(indexOfTxInABlock);
+              userPertainingTxIndices.add(indexOfTxInABlock);
               noteSpendingInfoDaos.push({
                 ...noteSpendingInfo,
                 nullifier: await this.computeNullifier(noteSpendingInfo),
@@ -361,7 +361,7 @@ export class AccountState {
 
       blocksAndNoteSpendingInfo.push({
         blockContext: l2BlockContexts[blockIndex],
-        userPertainingTxIndices,
+        userPertainingTxIndices: [...userPertainingTxIndices], // Convert set to array.
         noteSpendingInfoDaos,
       });
       dataStartIndex += txLogs.length;
@@ -443,13 +443,13 @@ export class AccountState {
     if (noteSpendingInfoDaosBatch.length) {
       await this.db.addNoteSpendingInfoBatch(noteSpendingInfoDaosBatch);
       noteSpendingInfoDaosBatch.forEach(noteSpendingInfo => {
-        this.log(`Added tx aux data with nullifier ${noteSpendingInfo.nullifier.toString()}}`);
+        this.log(`Added note spending info with nullifier ${noteSpendingInfo.nullifier.toString()}}`);
       });
     }
     if (txDaos.length) await this.db.addTxs(txDaos);
     const removedNoteSpendingInfo = await this.db.removeNullifiedNoteSpendingInfo(newNullifiers, this.publicKey);
     removedNoteSpendingInfo.forEach(noteSpendingInfo => {
-      this.log(`Removed tx aux data with nullifier ${noteSpendingInfo.nullifier.toString()}}`);
+      this.log(`Removed note spending info with nullifier ${noteSpendingInfo.nullifier.toString()}}`);
     });
   }
 
