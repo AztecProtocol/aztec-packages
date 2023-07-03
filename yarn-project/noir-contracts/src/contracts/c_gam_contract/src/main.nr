@@ -12,7 +12,8 @@ fn hash_with_storage_slot(storage_slot: Field, key: Field) -> Field {
 }
 
 contract CGam {
-    mod card;
+    // mod card;
+    mod user_deck;
     use dep::std;
     use dep::aztec3::abi;
     use dep::aztec3::abi::PrivateContextInputs;
@@ -31,7 +32,8 @@ contract CGam {
     use dep::aztec3::oracle::logs::emit_encrypted_log;
     use dep::aztec3::oracle::logs::emit_unencrypted_log;
 
-    use card::Card;
+    use user_deck::Card;
+    use user_deck::user_deck_insert;
     use crate::hash_with_storage_slot;
 
     //*********************************/
@@ -281,11 +283,11 @@ contract CGam {
 
             // maps the user_id to its cards = user_deck
             // TODO undo hacks
-            context2 = tmp_workaround_comptime(owner, g_id, 0, 0, user_cards, context2);
-            context2 = tmp_workaround_comptime(owner, g_id, 1, 1, user_cards, context2);
-            context2 = tmp_workaround_comptime(owner, g_id, 2, 2, user_cards, context2);
-            context2 = tmp_workaround_comptime(owner, g_id, 3, 3, user_cards, context2);
-            context2 = tmp_workaround_comptime(owner, g_id, 4, 4, user_cards, context2);
+            context2 = user_deck_insert(owner, g_id, 0, 0, user_cards, context2);
+            context2 = user_deck_insert(owner, g_id, 1, 1, user_cards, context2);
+            context2 = user_deck_insert(owner, g_id, 2, 2, user_cards, context2);
+            context2 = user_deck_insert(owner, g_id, 3, 3, user_cards, context2);
+            context2 = user_deck_insert(owner, g_id, 4, 4, user_cards, context2);
 
             //for i in 0..5 {
                 //alternative; use a map to a set of notes
@@ -300,13 +302,13 @@ contract CGam {
  
         }
 
-    //TODO should not be a contract function !!
-    //TODO HACK needed why can't comptime decay to normal Field when passed to pedersen?
-    fn tmp_workaround_comptime(owner: Point, g_id: Field, i_hack_comptime : comptime Field, i : Field, user_cards: [Card; 5], initialContext: PrivateFunctionContext) -> pub PrivateFunctionContext{
-        let card_note = Note::new(user_cards[i_hack_comptime].id(), owner);
-        let idx = std::hash::pedersen([owner.x, g_id, i])[0];
-        user_deck.at(idx).insert(initialContext, card_note)
-    }
+    // //TODO should not be a contract function !!
+    // //TODO HACK needed why can't comptime decay to normal Field when passed to pedersen?
+    // fn user_deck_insert(owner: Point, g_id: Field, i_hack_comptime : comptime Field, i : Field, user_cards: [Card; 5], initialContext: PrivateFunctionContext) -> pub PrivateFunctionContext{
+    //     let card_note = Note::new(user_cards[i_hack_comptime].id(), owner);
+    //     let idx = std::hash::pedersen([owner.x, g_id, i])[0];
+    //     user_deck.at(idx).insert(initialContext, card_note)
+    // }
 
     //EXTERNAL
     fn show_card(
