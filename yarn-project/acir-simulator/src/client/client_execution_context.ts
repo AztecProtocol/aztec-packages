@@ -110,9 +110,10 @@ export class ClientTxExecutionContext {
     // this includes placeholder indices (-1) for real pending notes
     const realLeafIndices = [...pendingLeafIndexPlaceholders, ...dbRealLeafIndices];
 
-    this.log(`NRN: ${toACVMField(numRealNotes)}`);
-    this.log(`allPreimages: ${allPreimages.length}`);
-    this.log(`allPreimages.flat(): ${allPreimages.flat().length}`);
+    // Create flattened array of ACVM fields to return back to Noir/ACVM execution.
+    // The first entry is the number of real notes.
+    // The remaining entries are the ACVM fields for the ALL note preimages
+    // (pending, db, dummy, real).
     const preimagesACVM = [
       toACVMField(numRealNotes), // number of real notes
       ...allPreimages.flat(), // all note preimages
