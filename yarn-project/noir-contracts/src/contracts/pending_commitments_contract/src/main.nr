@@ -31,18 +31,20 @@ contract PendingCommitments {
         amount: Field,
         owner: Point,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
-        let mut context0 = PrivateFunctionContext::new();
-        context0.args = context0.args.push_array([amount, owner.x, owner.y]);
+        let mut context = PrivateFunctionContext::new();
+        context.args = context.args.push_array([amount, owner.x, owner.y]);
 
         let owner_balance = balances.at(owner.x);
         let note = Note::new(amount, owner);
 
         // Insert note and emit encrypted note preimage via oracle call
         debug_log("NOIR inline before insert");
-        context0 = owner_balance.insert(context0, note);
+        context = owner_balance.insert(context, note);
         debug_log("NOIR inline before get_2");
 
-        let (mut context1, (gotNote1, gotNote2)) = owner_balance.get_2(context0);
+        let (context_tmp, (gotNote1, gotNote2)) = owner_balance.get_2(context);
+        context = context_tmp;
+
         debug_log("NOIR inline after get_2");
 
         debug_log_format("note value: {0}, gotNote1 value: {1}", [note.value, gotNote1.value]);
@@ -53,10 +55,9 @@ contract PendingCommitments {
         assert(!gotNote2.is_real);
         debug_log("NOIR inline after assert note2 fake");
 
-        // TODO remove, just seeing if returning counter forces oracle ordering
-        context1.return_values = context1.return_values.push(context1.sideeffect_counter);
+        context.return_values = context.return_values.push(gotNote1.value);
 
-        context1.finish(inputs)
+        context.finish(inputs)
     }
 
     fn create_note(
@@ -75,7 +76,9 @@ contract PendingCommitments {
         let note = Note::new(amount, owner);
 
         // Insert note and emit encrypted note preimage via oracle call
+        debug_log("NOIR inline before insert");
         context = owner_balance.insert(context, note);
+        debug_log("NOIR inline before get_2");
 
         context.finish(inputs)
     }
@@ -89,16 +92,19 @@ contract PendingCommitments {
         owner: Point,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
         debug_log("NOIR get and check");
-        let mut context0 = PrivateFunctionContext::new();
-        context0.args = context0.args.push_array([owner.x, owner.y]);
+        let mut context = PrivateFunctionContext::new();
+        context.args = context.args.push_array([owner.x, owner.y]);
 
         let owner_balance = balances.at(owner.x);
 
-        let (mut context1, (gotNote1, gotNote2)) = owner_balance.get_2(context0);
+        let (context_tmp, (gotNote1, gotNote2)) = owner_balance.get_2(context);
+        context = context_tmp;
         assert(expected_value == gotNote1.value);
         assert(!gotNote2.is_real);
 
-        context1.finish(inputs)
+        context.return_values = context.return_values.push(gotNote1.value);
+
+        context.finish(inputs)
     }
 
     // test mint and get bal both in child calls

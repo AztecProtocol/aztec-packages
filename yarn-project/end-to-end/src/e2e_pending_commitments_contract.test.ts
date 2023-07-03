@@ -60,4 +60,8 @@ describe('e2e_pending_commitments_contract', () => {
 
     expect(receipt.status).toBe(TxStatus.MINED);
   }, 60_000);
+
+  // TODO(dbanks12) tests for insert/get in nested calls and nested/inline combos
+  // TODO(dbanks12) tests for nullifying pending notes
+  // TODO(dbanks12) test expected kernel failures if transient reads and nullifiers (or their hints) don't match or follow rules
 });

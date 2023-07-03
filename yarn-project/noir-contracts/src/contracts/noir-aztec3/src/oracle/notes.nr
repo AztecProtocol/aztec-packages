@@ -5,19 +5,19 @@ global NOTES_PER_PAGE = 10;
 
 #[oracle(notifyCreatedNote)]
 fn notify_created_note_oracle(
-    _counter: Field,
+    _connector: Field,
     _storage_slot: Field,
     _owner: Point,
     _note: Note,
 ) -> [Field; 1] {}
 
 unconstrained fn notify_created_note(
-    counter: Field,
+    connector: Field,
     storage_slot: Field,
     owner: Point,
     note: Note,
 ) -> Field {
-    notify_created_note_oracle(counter, storage_slot, owner, note)[0]
+    notify_created_note_oracle(connector, storage_slot, owner, note)[0]
 }
 
 #[oracle(notifyNullifiedNote)]
@@ -37,15 +37,15 @@ unconstrained fn notify_nullified_note(
 
 #[oracle(getNotes2)]
 fn get_notes_2_oracle(
-    _counter: Field,
+    _connector: Field,
     _storage_slot: Field,
 ) -> [Field; 13] {}
 
 unconstrained fn get_notes_2_internal(
-    counter: Field,
+    connector: Field,
     storage_slot: Field,
 ) -> [Field; 13] {
-    get_notes_2_oracle(counter, storage_slot)
+    get_notes_2_oracle(connector, storage_slot)
 }
 
 #[oracle(viewNotesPage)]

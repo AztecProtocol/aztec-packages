@@ -33,7 +33,7 @@ impl Set {
 
         let note_hash = note.compute_note_hash();
 
-        assert(notify_created_note(context.sideeffect_counter, storage_slot, note.owner, note) == 0);
+        context.connector = notify_created_note(context.connector, storage_slot, note.owner, note);
         context.push_new_note_hash(note_hash)
     }
 
@@ -41,8 +41,8 @@ impl Set {
     fn get_2(self, mut context: PrivateFunctionContext) -> (PrivateFunctionContext, (Note, Note)) {
         let storage_slot = self.storage_slot;
 
-        assert(context.sideeffect_counter != 0x0bad);
-        let notes = get_2_notes(context.sideeffect_counter, storage_slot);
+        let notes = get_2_notes(context.connector, storage_slot);
+        context.connector = notes.0.value;
 
         let note0_hash = notes.0.compute_note_hash();
         let note1_hash = notes.1.compute_note_hash();

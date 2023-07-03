@@ -7,6 +7,7 @@ use crate::messaging::process_l1_to_l2_message;
 // When finished, one can call .finish() to convert back to the abi
 struct PrivateFunctionContext {
     // inputs: abi::PrivateContextInputs,
+    connector: Field,  // for forcing dependencies between sequential oracle calls
     sideeffect_counter: Field,
 
     args : BoundedVec<Field, abi::MAX_ARGS>,
@@ -33,6 +34,7 @@ impl PrivateFunctionContext {
     fn new() -> PrivateFunctionContext {
         PrivateFunctionContext {
             // inputs: inputs,
+            connector: 0,
             sideeffect_counter: 0,
 
             args: BoundedVec::new(0),
