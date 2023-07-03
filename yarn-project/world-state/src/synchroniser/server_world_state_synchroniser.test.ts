@@ -2,11 +2,6 @@ import {
   AppendOnlyTreeSnapshot,
   CircuitsWasm,
   GlobalVariables,
-  KERNEL_NEW_COMMITMENTS_LENGTH,
-  KERNEL_NEW_CONTRACTS_LENGTH,
-  KERNEL_NEW_NULLIFIERS_LENGTH,
-  KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH,
-  NEW_L2_TO_L1_MSGS_LENGTH,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
 } from '@aztec/circuits.js';
 import { INITIAL_LEAF, Pedersen, SiblingPath } from '@aztec/merkle-tree';
