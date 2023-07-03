@@ -530,11 +530,7 @@ contract NonNativeToken {
 
         for i in 0..32 {
             hash_bytes[i + 4] = amount_bytes[i];
-        }
-        for i in 0..32 {
             hash_bytes[i + 36] = recipient_bytes[i];
-        }
-        for i in 0..32 {
             hash_bytes[i + 68] = canceller_bytes[i];
         }
         
@@ -581,11 +577,7 @@ contract NonNativeToken {
 
         for i in 0..32 {
             hash_bytes[i + 4] = amount_bytes[i];
-        }
-        for i in 0..32 {
             hash_bytes[i + 36] = recipient_bytes[i];
-        }
-        for i in 0..32 {
             hash_bytes[i + 68] = callerOnL1_bytes[i];
         }
         let content_sha256 = dep::std::hash::sha256(hash_bytes);
