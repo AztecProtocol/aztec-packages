@@ -22,8 +22,8 @@ contract SchnorrAccount {
         signature: pub [Field;3], // schnorr signature stored in 3 fields
         partialContractAddress: pub Field,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
-        // 105 = ENTRYPOINT_PAYLOAD_SIZE + 64 + 3 + 1
-        let mut args: BoundedVec<Field, 105> = BoundedVec::new(0);
+        // 75 = ENTRYPOINT_PAYLOAD_SIZE + 64 + 3 + 1
+        let mut args: BoundedVec<Field, 75> = BoundedVec::new(0);
         args = args.push_array(payload.serialize());
         for byte in owner {
             args = args.push(byte as Field);
@@ -31,7 +31,7 @@ contract SchnorrAccount {
         args = args.push_array(signature);
         args = args.push(partialContractAddress);
         
-        let mut context = PrivateFunctionContext::new(inputs, PrivateFunctionContext::hash_args(args.storage));
+        let mut context = PrivateFunctionContext::new(inputs, abi::hash_args(args.storage));
 
         // Decompress signature from 3 fields to 64 bytes
         let mut decompressed_signature: [u8;64] = [0;64];
@@ -78,11 +78,8 @@ contract SchnorrAccount {
             let target_address = payload.flattened_targets[i];
             if target_address != 0 {
                 let function_selector = payload.flattened_selectors[i];
-                let mut args = [0; abi::MAX_ARGS];
-                for j in 0..abi::MAX_ARGS {
-                    args[j] = payload.flattened_args[i * abi::MAX_ARGS + j];
-                }
-                let (_callStackItem, updated_context) = PrivateCallStackItem::call(target_address, function_selector, args, context);
+                let args_hash = payload.flattened_args_hashes[i];
+                let (_callStackItem, updated_context) = PrivateCallStackItem::call_with_packed_args(target_address, function_selector, args_hash, context);
                 context = updated_context;
             }
         }
@@ -92,11 +89,8 @@ contract SchnorrAccount {
             let target_address = payload.flattened_targets[i];
             if target_address != 0 {
                 let function_selector = payload.flattened_selectors[i];
-                let mut args = [0; abi::MAX_ARGS];
-                for j in 0..abi::MAX_ARGS {
-                    args[j] = payload.flattened_args[i * abi::MAX_ARGS + j];
-                }
-                let (_callStackItem, updated_context) = PublicCallStackItem::call(target_address, function_selector, args, context);
+                let args_hash = payload.flattened_args_hashes[i];
+                let (_callStackItem, updated_context) = PublicCallStackItem::call_with_packed_args(target_address, function_selector, args_hash, context);
                 context = updated_context;
             }
         }

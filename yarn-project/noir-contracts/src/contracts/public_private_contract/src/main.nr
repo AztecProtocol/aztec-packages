@@ -52,7 +52,6 @@ contract PublicPrivate {
         _inputs: PublicContextInputs,
         amount: Field,
         secretHash: Field,
-        _padding: [Field; dep::aztec3::abi::MAX_ARGS - 2]
     ) {
 
         // Create a commitment to the amount
@@ -67,7 +66,6 @@ contract PublicPrivate {
         _inputs: PublicContextInputs,
         amount: Field,
         secretHash: Field,
-        _padding: [Field; abi::MAX_ARGS - 3]
     ) {
     
         // Create a commitment to the amount
@@ -82,7 +80,6 @@ contract PublicPrivate {
         _inputs: PublicContextInputs,
         amount: Field,
         secretHash: Field,
-        _padding: [Field; abi::MAX_ARGS - 3]
     ) -> Field {
     
         // Create a commitment to the amount
@@ -101,7 +98,7 @@ contract PublicPrivate {
         secret: Field,
         owner: Point,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
-        let mut context = PrivateFunctionContext::new(inputs, PrivateFunctionContext::hash_args([
+        let mut context = PrivateFunctionContext::new(inputs, abi::hash_args([
             amount,
             secret,
             owner.x,
@@ -127,7 +124,6 @@ contract PublicPrivate {
     /// ABI getBalance type "unconstrained"
     fn getBalance(
         owner: Point,
-        _padding: [Field; abi::MAX_ARGS - 2]
     ) -> pub Field {
         let owner_balance = balances.at(owner.x);
         

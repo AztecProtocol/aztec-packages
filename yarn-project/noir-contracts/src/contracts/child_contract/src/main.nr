@@ -21,7 +21,7 @@ contract Child {
         inputs: PrivateContextInputs,
         input: Field,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
-        let mut context = PrivateFunctionContext::new(inputs, PrivateFunctionContext::hash_args([input]));
+        let mut context = PrivateFunctionContext::new(inputs, abi::hash_args([input]));
 
         context.return_values = context.return_values.push(input + inputs.private_global_variables.chain_id + inputs.private_global_variables.version);
 
@@ -30,16 +30,12 @@ contract Child {
     }
 
     // Returns base_value + 42.
-    // @param _padding: Nested public functions always get called with MAX_ARGS, since we don't have the ABI available
-    // during execution time to know how many args are expected, hence the _padding argument. We should
-    // be able to remove it when we migrate to brillig.
-    open fn pubValue(_inputs: PublicContextInputs, base_value: Field, _padding: [Field; abi::MAX_ARGS - 1]) -> pub Field {
+    open fn pubValue(_inputs: PublicContextInputs, base_value: Field) -> pub Field {
         base_value + 42
     }
 
     // Increments `current_value` by `new_value` and returns `new_value` + 1.
-    // @param _padding: Same as above, we need the padding argument for open functions.
-    open fn pubStoreValue(_inputs: PublicContextInputs, new_value: Field, _padding: [Field; abi::MAX_ARGS - 1]) -> pub Field {
+    open fn pubStoreValue(_inputs: PublicContextInputs, new_value: Field) -> pub Field {
         // Compiler complains if we don't assign the result to anything
         let old_value = current_value.read();
         let _void1 = current_value.write(old_value + new_value);

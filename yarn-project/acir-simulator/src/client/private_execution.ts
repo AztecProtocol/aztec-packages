@@ -1,5 +1,4 @@
 import {
-  ARGS_LENGTH,
   CallContext,
   CircuitsWasm,
   ContractDeploymentData,
@@ -15,7 +14,7 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Coordinate, Fr, Point } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { Tuple, assertLength, to2Fields } from '@aztec/foundation/serialize';
+import { to2Fields } from '@aztec/foundation/serialize';
 import { FunctionL2Logs, NotePreimage, NoteSpendingInfo } from '@aztec/types';
 import { decodeReturnValues } from '../abi_coder/decoder.js';
 import { extractPublicInputs, frToAztecAddress, frToSelector } from '../acvm/deserialize.js';
@@ -149,14 +148,11 @@ export class PrivateFunctionExecution {
         this.log(fieldsToFormattedStr(fields));
         return Promise.resolve([ZERO_ACVM_FIELD]);
       },
-      enqueuePublicFunctionCall: async ([acvmContractAddress, acvmFunctionSelector, ...acvmArgs]) => {
+      enqueuePublicFunctionCall: async ([acvmContractAddress, acvmFunctionSelector, acvmArgsHash]) => {
         const enqueuedRequest = await this.enqueuePublicFunctionCall(
           frToAztecAddress(fromACVMField(acvmContractAddress)),
           frToSelector(fromACVMField(acvmFunctionSelector)),
-          assertLength(
-            acvmArgs.map(f => fromACVMField(f)),
-            ARGS_LENGTH,
-          ),
+          this.context.getArgs(fromACVMField(acvmArgsHash)),
           this.callContext,
         );
 
@@ -322,7 +318,7 @@ export class PrivateFunctionExecution {
   private async enqueuePublicFunctionCall(
     targetContractAddress: AztecAddress,
     targetFunctionSelector: Buffer,
-    targetArgs: Tuple<Fr, typeof ARGS_LENGTH>,
+    targetArgs: Fr[],
     callerContext: CallContext,
   ): Promise<PublicCallRequest> {
     const derivedCallContext = await this.deriveCallContext(callerContext, targetContractAddress, false, false);

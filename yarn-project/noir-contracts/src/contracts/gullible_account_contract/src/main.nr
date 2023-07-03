@@ -19,23 +19,20 @@ contract GullibleAccount {
         payload: EntrypointPayload, // contains a set of arguments, selectors, targets and a nonce
         signature: [Field;3]
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
-        // 40 = ENTRYPOINT_PAYLOAD_SIZE + 3
-        let mut args: BoundedVec<Field, 40> = BoundedVec::new(0);
+        // 10 = ENTRYPOINT_PAYLOAD_SIZE + 3
+        let mut args: BoundedVec<Field, 10> = BoundedVec::new(0);
         args = args.push_array(payload.serialize());
         args = args.push_array(signature);
         
-        let mut context = PrivateFunctionContext::new(inputs, PrivateFunctionContext::hash_args(args.storage));
+        let mut context = PrivateFunctionContext::new(inputs, abi::hash_args(args.storage));
 
         // Call private functions
         for i in 0..entrypoint::ACCOUNT_MAX_PRIVATE_CALLS {
             let target_address = payload.flattened_targets[i];
             if target_address != 0 {
                 let function_selector = payload.flattened_selectors[i];
-                let mut args = [0; abi::MAX_ARGS];
-                for j in 0..abi::MAX_ARGS {
-                    args[j] = payload.flattened_args[i * abi::MAX_ARGS + j];
-                }
-                let (_callStackItem, updated_context) = PrivateCallStackItem::call(target_address, function_selector, args, context);
+                let args_hash = payload.flattened_args_hashes[i];
+                let (_callStackItem, updated_context) = PrivateCallStackItem::call_with_packed_args(target_address, function_selector, args_hash, context);
                 context = updated_context;
             }
         }
@@ -45,11 +42,8 @@ contract GullibleAccount {
             let target_address = payload.flattened_targets[i];
             if target_address != 0 {
                 let function_selector = payload.flattened_selectors[i];
-                let mut args = [0; abi::MAX_ARGS];
-                for j in 0..abi::MAX_ARGS {
-                    args[j] = payload.flattened_args[i * abi::MAX_ARGS + j];
-                }
-                let (_callStackItem, updated_context) = PublicCallStackItem::call(target_address, function_selector, args, context);
+                let args_hash = payload.flattened_args_hashes[i];
+                let (_callStackItem, updated_context) = PublicCallStackItem::call_with_packed_args(target_address, function_selector, args_hash, context);
                 context = updated_context;
             }
         }

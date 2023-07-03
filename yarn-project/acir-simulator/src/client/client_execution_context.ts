@@ -132,6 +132,9 @@ export class ClientTxExecutionContext {
    * @returns The args.
    */
   public getArgs(argsHash: Fr): Fr[] {
+    if (argsHash.equals(Fr.ZERO)) {
+      return [];
+    }
     const args = this.packedArguments.find(packedArgs => packedArgs.hash.equals(argsHash));
     if (!args) {
       throw new Error(`Packed args not found for hash ${argsHash}`);

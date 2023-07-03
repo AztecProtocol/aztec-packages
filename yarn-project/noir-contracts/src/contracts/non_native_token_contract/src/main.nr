@@ -45,7 +45,7 @@ contract NonNativeToken {
         initial_supply: Field, 
         owner: Point,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
-        let mut context = PrivateFunctionContext::new(inputs, PrivateFunctionContext::hash_args([initial_supply, owner.x, owner.y]));
+        let mut context = PrivateFunctionContext::new(inputs, abi::hash_args([initial_supply, owner.x, owner.y]));
 
         let owner_balance = balances.at(owner.x);
         let note = Note::new(initial_supply, owner);
@@ -74,7 +74,7 @@ contract NonNativeToken {
         secret: Field,
         canceller: Field,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
-        let mut context = PrivateFunctionContext::new(inputs, PrivateFunctionContext::hash_args([
+        let mut context = PrivateFunctionContext::new(inputs, abi::hash_args([
             amount, owner.x, owner.y, owner_address, msg_key, secret, canceller
         ]));
 
@@ -110,7 +110,7 @@ contract NonNativeToken {
         recipient: Field, // ethereum address in the field
         callerOnL1: Field, // ethereum address that can call this function on the L1 portal (0x0 if anyone can call)
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
-        let mut initialContext = PrivateFunctionContext::new(inputs, PrivateFunctionContext::hash_args([
+        let mut initialContext = PrivateFunctionContext::new(inputs, abi::hash_args([
             amount, sender.x, sender.y, recipient, callerOnL1
         ]));
 
@@ -162,7 +162,6 @@ contract NonNativeToken {
         msg_key: Field,
         secret: Field,
         canceller: Field,
-        _padding: [Field; abi::MAX_ARGS - 5]
     ) -> Field {
         let content_hash = _get_mint_content_hash(amount, owner_address, canceller);
 
@@ -184,7 +183,6 @@ contract NonNativeToken {
         amount: Field,
         recipient: Field,
         callerOnL1: Field, // ethereum address that can call this function on the L1 portal (0x0 if anyone can call)
-        _padding: [Field; abi::MAX_ARGS - 2]
     ) {
 
         let sender = inputs.call_context.msg_sender;
@@ -216,7 +214,7 @@ contract NonNativeToken {
         sender: Point, 
         recipient: Point,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
-        let mut initialContext = PrivateFunctionContext::new(inputs, PrivateFunctionContext::hash_args([
+        let mut initialContext = PrivateFunctionContext::new(inputs, abi::hash_args([
             amount, sender.x, sender.y, recipient.x, recipient.y
         ]));
 
@@ -260,7 +258,6 @@ contract NonNativeToken {
     /// ABI getBalance type "unconstrained"
     fn getBalance(
         owner: Point,
-        _padding: [Field; abi::MAX_ARGS - 2]
     ) -> pub Field {
         let owner_balance = balances.at(owner.x);
         

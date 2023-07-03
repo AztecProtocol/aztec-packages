@@ -30,7 +30,6 @@ contract PublicToken {
         _inputs: PublicContextInputs,
         amount: Field,
         recipient: Point,
-        _padding: [Field; abi::MAX_ARGS - 3]
     ) -> pub Field {
         let recipient_balance = balances.at(recipient.x);
         // emit unencrypted event (for testing purposes)
@@ -44,7 +43,6 @@ contract PublicToken {
         inputs: PublicContextInputs,
         amount: Field,
         recipient: Point,
-        _padding: [Field; abi::MAX_ARGS - 3]
     ) -> pub Field {
         let sender = inputs.call_context.msg_sender;
 

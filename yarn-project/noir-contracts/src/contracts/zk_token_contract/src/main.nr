@@ -31,7 +31,7 @@ contract ZkToken {
         initial_supply: Field, 
         owner: Point,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
-        let mut context = PrivateFunctionContext::new(inputs, PrivateFunctionContext::hash_args([initial_supply, owner.x, owner.y]));
+        let mut context = PrivateFunctionContext::new(inputs, abi::hash_args([initial_supply, owner.x, owner.y]));
 
         let owner_balance = balances.at(owner.x);
         let note = Note::new(initial_supply, owner);
@@ -54,7 +54,7 @@ contract ZkToken {
         amount: Field, 
         owner: Point,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
-        let mut context = PrivateFunctionContext::new(inputs, PrivateFunctionContext::hash_args([amount, owner.x, owner.y]));
+        let mut context = PrivateFunctionContext::new(inputs, abi::hash_args([amount, owner.x, owner.y]));
 
         let owner_balance = balances.at(owner.x);
         let note = Note::new(amount, owner);
@@ -78,7 +78,7 @@ contract ZkToken {
         sender: Point, 
         recipient: Point,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
-        let mut initialContext = PrivateFunctionContext::new(inputs, PrivateFunctionContext::hash_args([amount, sender.x, sender.y, recipient.x, recipient.y]));
+        let mut initialContext = PrivateFunctionContext::new(inputs, abi::hash_args([amount, sender.x, sender.y, recipient.x, recipient.y]));
 
         // Gets the set of sender's notes and picks 2 of those.
         let sender_balance = balances.at(sender.x);
@@ -122,7 +122,6 @@ contract ZkToken {
     // Helper function to get the balance of a user ("unconstrained" is a Noir alternative of Solidity's "view" function).
     fn getBalance(
         owner: Point,
-        _padding: [Field; abi::MAX_ARGS - 2]
     ) -> pub Field {
         // Get the set of notes owned by the user.
         let owner_balance = balances.at(owner.x);

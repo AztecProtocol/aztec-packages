@@ -42,7 +42,7 @@ contract Uniswap {
         l1UniswapPortal: Field, // L1 address of uniswap portal contract
         callerOnL1: Field, // ethereum address that can call this function on the L1 portal (0x0 if anyone can call)
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
-        let mut initialContext = PrivateFunctionContext::new(inputs, PrivateFunctionContext::hash_args([
+        let mut initialContext = PrivateFunctionContext::new(inputs, abi::hash_args([
             withdrawFnSelector,
             inputAsset,
             inputAssetPortalAddress,
@@ -64,13 +64,13 @@ contract Uniswap {
         // inputAsset.withdraw(inputAmount, sender, recipient=l1UniswapPortal, callerOnL1=l1UniswapPortal) 
         // only uniswap portal can call this (done to safeguard ordering of message consumption)
         // ref: https://docs.aztec.network/aztec/how-it-works/l1-l2-messaging#designated-caller
-        let mut args = [0; abi::MAX_ARGS];
-        args[0] = inputAmount;
-        args[1] = sender.x;
-        args[2] = sender.y;
-        args[3] = l1UniswapPortal;
-        args[4] = l1UniswapPortal;
-        let (callStackItem, mut context) = PrivateCallStackItem::call(inputAsset, withdrawFnSelector, args, initialContext);
+        let (callStackItem, mut context) = PrivateCallStackItem::call(inputAsset, withdrawFnSelector, [
+            inputAmount,
+            sender.x,
+            sender.y,
+            l1UniswapPortal,
+            l1UniswapPortal,
+        ], initialContext);
         
         let result = callStackItem.public_inputs.return_values[0];
         context.return_values = context.return_values.push(result);

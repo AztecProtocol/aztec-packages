@@ -231,7 +231,7 @@ describe('ACIR public execution simulator', () => {
       const result = await executor.execute(execution);
 
       expect(result.returnValues).toEqual([new Fr(42n + initialValue)]);
-    });
+    }, 30_000);
   });
 
   describe('Public -> Private / Cross Chain messaging', () => {

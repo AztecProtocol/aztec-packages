@@ -1,4 +1,5 @@
 use crate::abi::CallContext;
+use crate::abi::hash_args;
 use crate::abi::ContractDeploymentData;
 use crate::context::PrivateFunctionContext;
 use crate::abi::PrivateCircuitPublicInputs;
@@ -39,12 +40,12 @@ impl PrivateCallStackItem {
         function_selector: Field, 
         args: [Field; ARGS_COUNT], 
         mut context: PrivateFunctionContext) -> (Self, PrivateFunctionContext) {
-        let args_hash = PrivateFunctionContext::hash_args(args);
+        let args_hash = hash_args(args);
         assert(args_hash == arguments::pack_arguments(args));
-        PrivateCallStackItem::call_with_args_hash(contract_address, function_selector, args_hash, context)
+        PrivateCallStackItem::call_with_packed_args(contract_address, function_selector, args_hash, context)
     }
 
-    fn call_with_args_hash(contract_address: Field, function_selector: Field, args_hash: Field, mut context: PrivateFunctionContext) -> (Self, PrivateFunctionContext) {
+    fn call_with_packed_args(contract_address: Field, function_selector: Field, args_hash: Field, mut context: PrivateFunctionContext) -> (Self, PrivateFunctionContext) {
         let fields = call_private_function_internal(
             contract_address, 
             function_selector, 

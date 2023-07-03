@@ -1,5 +1,4 @@
 import {
-  ARGS_LENGTH,
   CallContext,
   CircuitsWasm,
   ContractDeploymentData,
@@ -16,7 +15,6 @@ import { Grumpkin, pedersenPlookupCommitInputs } from '@aztec/circuits.js/barret
 import { FunctionAbi } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
-import { padArrayEnd } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
@@ -302,7 +300,7 @@ describe('Private Execution test suite', () => {
     }, 30_000);
   });
 
-  describe.only('nested calls', () => {
+  describe('nested calls', () => {
     const privateIncrement = txContext.chainId.value + txContext.version.value;
     it('child function should be callable', async () => {
       const initialValue = 100n;
@@ -510,7 +508,7 @@ describe('Private Execution test suite', () => {
         PublicCallRequest.from({
           contractAddress: childAddress,
           functionData: new FunctionData(childSelector, false, false),
-          args: padArrayEnd([new Fr(42n)], Fr.ZERO, ARGS_LENGTH),
+          args: [new Fr(42n)],
           callContext: CallContext.from({
             msgSender: parentAddress,
             storageContractAddress: childAddress,
