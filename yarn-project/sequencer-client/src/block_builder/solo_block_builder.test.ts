@@ -71,6 +71,8 @@ describe('sequencer/solo_block_builder', () => {
 
   let wasm: CircuitsWasm;
 
+  let globalVariables: GlobalVariables;
+
   const emptyProof = new Proof(Buffer.alloc(32, 0));
 
   const chainId = Fr.ZERO;
@@ -82,6 +84,8 @@ describe('sequencer/solo_block_builder', () => {
 
   beforeEach(async () => {
     blockNumber = 3;
+    globalVariables = new GlobalVariables(chainId, version, new Fr(blockNumber), Fr.ZERO);
+
     builderDb = await MerkleTrees.new(levelup(createMemDown())).then(t => t.asLatest());
     expectsDb = await MerkleTrees.new(levelup(createMemDown())).then(t => t.asLatest());
     vks = getVerificationKeys();
@@ -253,7 +257,6 @@ describe('sequencer/solo_block_builder', () => {
       const txs = await buildMockSimulatorInputs();
 
       // Actually build a block!
-      const globalVariables = new GlobalVariables(chainId, version, new Fr(blockNumber), Fr.ZERO);
       const [l2Block, proof] = await builder.buildL2Block(globalVariables, txs, mockL1ToL2Messages);
 
       expect(l2Block.number).toEqual(blockNumber);
@@ -286,7 +289,6 @@ describe('sequencer/solo_block_builder', () => {
       // Assemble a fake transaction
       const txs = await buildMockSimulatorInputs();
       const l1ToL2Messages = new Array(100).fill(new Fr(0n));
-      const globalVariables = new GlobalVariables(chainId, version, new Fr(blockNumber), Fr.ZERO);
       await expect(builder.buildL2Block(globalVariables, txs, l1ToL2Messages)).rejects.toThrow();
     });
   });
@@ -343,8 +345,6 @@ describe('sequencer/solo_block_builder', () => {
           ...(await Promise.all(times(totalCount - deployCount, makeEmptyProcessedTx))),
         ];
 
-        const globalVariables = new GlobalVariables(chainId, version, new Fr(blockNumber), Fr.ZERO);
-
         const [l2Block] = await builder.buildL2Block(globalVariables, txs, mockL1ToL2Messages);
         expect(l2Block.number).toEqual(blockNumber);
 
@@ -370,10 +370,8 @@ describe('sequencer/solo_block_builder', () => {
         makeEmptyProcessedTx(),
       ]);
 
-      const globalVariables = new GlobalVariables(chainId, version, new Fr(1), Fr.ZERO);
-
       const [l2Block] = await builder.buildL2Block(globalVariables, txs, mockL1ToL2Messages);
-      expect(l2Block.number).toEqual(1);
+      expect(l2Block.number).toEqual(blockNumber);
     }, 10_000);
 
     it('builds a mixed L2 block', async () => {
@@ -386,9 +384,8 @@ describe('sequencer/solo_block_builder', () => {
 
       const l1ToL2Messages = range(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, 1 + 0x400).map(fr);
 
-      const globalVariables = new GlobalVariables(chainId, version, new Fr(1), Fr.ZERO);
       const [l2Block] = await builder.buildL2Block(globalVariables, txs, l1ToL2Messages);
-      expect(l2Block.number).toEqual(1);
+      expect(l2Block.number).toEqual(blockNumber);
     }, 20_000);
 
     // This test specifically tests nullifier values which previously caused e2e_zk_token test to fail
@@ -416,7 +413,6 @@ describe('sequencer/solo_block_builder', () => {
       );
       const txs = [tx, await makeEmptyProcessedTx(), await makeEmptyProcessedTx(), await makeEmptyProcessedTx()];
 
-      const globalVariables = new GlobalVariables(chainId, version, new Fr(blockNumber), Fr.ZERO);
       const [l2Block] = await builder.buildL2Block(globalVariables, txs, mockL1ToL2Messages);
 
       expect(l2Block.number).toEqual(blockNumber);
