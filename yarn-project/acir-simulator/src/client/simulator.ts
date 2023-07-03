@@ -11,7 +11,7 @@ import { PrivateFunctionExecution } from './private_execution.js';
 import { UnconstrainedFunctionExecution } from './unconstrained_execution.js';
 import { ExecutionResult } from './execution_result.js';
 import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
-import { PackedArgsCache } from '../packedArgsCache.js';
+import { PackedArgsCache } from '../packed_args_cache.js';
 
 export const NOTE_PEDERSEN_CONSTANT = new Fr(2n);
 export const MAPPING_SLOT_PEDERSEN_CONSTANT = new Fr(4n);

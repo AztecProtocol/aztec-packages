@@ -28,7 +28,7 @@ import { CommitmentsDB, PublicContractsDB, PublicStateDB } from './db.js';
 import { PublicExecution, PublicExecutionResult } from './execution.js';
 import { ContractStorageActionsCollector } from './state_actions.js';
 import { fieldsToFormattedStr } from '../client/debug.js';
-import { PackedArgsCache } from '../packedArgsCache.js';
+import { PackedArgsCache } from '../packed_args_cache.js';
 
 // Copied from crate::abi at noir-contracts/src/contracts/noir-aztec3/src/abi.nr
 const NOIR_MAX_RETURN_VALUES = 4;
