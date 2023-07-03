@@ -3,17 +3,14 @@ import {
   AztecAddress,
   CONTRACT_TREE_HEIGHT,
   Fr,
-  KernelCircuitPublicInputs,
   L1_TO_L2_MESSAGES_TREE_HEIGHT,
   PRIVATE_DATA_TREE_HEIGHT,
-  Proof,
-  PublicCallRequest,
 } from '@aztec/circuits.js';
+import { Logger, createLogger } from '@aztec/foundation/log';
 import { SiblingPath } from '@aztec/merkle-tree';
 import {
   ContractData,
   ContractPublicData,
-  EncodedContractFunction,
   L1ToL2Message,
   L1ToL2MessageAndIndex,
   L2Block,
@@ -21,58 +18,18 @@ import {
   MerkleTreeId,
   Tx,
   TxHash,
-  TxL2Logs,
 } from '@aztec/types';
-
-/**
- * Serialises a transaction to JSON representation.
- * @param tx - The transaction to serialise.
- * @returns The serialised transaction.
- */
-export function txToJson(tx: Tx) {
-  return {
-    data: tx.data?.toBuffer().toString('hex'),
-    encryptedLogs: tx.encryptedLogs?.toBuffer().toString('hex'),
-    unencryptedLogs: tx.unencryptedLogs?.toBuffer().toString('hex'),
-    proof: tx.proof?.toBuffer().toString('hex'),
-    newContractPublicFunctions: tx.newContractPublicFunctions?.map(f => f.toBuffer().toString('hex')) ?? [],
-    enqueuedPublicFunctions: tx.enqueuedPublicFunctionCalls?.map(f => f.toBuffer().toString('hex')) ?? [],
-  };
-}
-
-/**
- * Deserialises a transaction from JSON.
- * @param json - The JSON representation of the transaction.
- * @returns The deserialised transaction.
- */
-export function txFromJson(json: any) {
-  const publicInputs = KernelCircuitPublicInputs.fromBuffer(Buffer.from(json.data, 'hex'));
-  const encryptedLogs = TxL2Logs.fromBuffer(Buffer.from(json.encryptedLogs, 'hex'));
-  const unencryptedLogs = TxL2Logs.fromBuffer(Buffer.from(json.unencryptedLogs, 'hex'));
-  const proof = Buffer.from(json.proof, 'hex');
-  const newContractPublicFunctions = json.newContractPublicFunctions?.length
-    ? json.newContractPublicFunctions.map((x: string) => EncodedContractFunction.fromBuffer(Buffer.from(x, 'hex')))
-    : [];
-  const enqueuedPublicFunctions = json.enqueuedPublicFunctions?.length
-    ? json.enqueuedPublicFunctions.map((x: string) => PublicCallRequest.fromBuffer(Buffer.from(x, 'hex')))
-    : [];
-  return Tx.createTx(
-    publicInputs,
-    Proof.fromBuffer(proof),
-    encryptedLogs,
-    unencryptedLogs,
-    newContractPublicFunctions,
-    enqueuedPublicFunctions,
-  );
-}
 
 /**
  * A Http client based implementation of Aztec Node.
  */
 export class HttpNode implements AztecNode {
   private baseUrl: string;
-  constructor(baseUrl: string) {
+  private log: Logger;
+
+  constructor(baseUrl: string, log = createLogger('aztec:http-node')) {
     this.baseUrl = baseUrl.toString().replace(/\/$/, '');
+    this.log = log;
   }
   /**
    * Method to determine if the node is ready to accept transactions.
@@ -201,10 +158,9 @@ export class HttpNode implements AztecNode {
    */
   async sendTx(tx: Tx): Promise<void> {
     const url = new URL(`${this.baseUrl}/tx`);
-    const json = txToJson(tx);
     const init: RequestInit = {};
     init['method'] = 'POST';
-    init['body'] = JSON.stringify(json);
+    init['body'] = tx.toBuffer();
     await fetch(url, init);
   }
 
@@ -224,11 +180,14 @@ export class HttpNode implements AztecNode {
   async getPendingTxByHash(txHash: TxHash): Promise<Tx | undefined> {
     const url = new URL(`${this.baseUrl}/get-pending-tx`);
     url.searchParams.append('hash', txHash.toString());
-    const response = await (await fetch(url.toString())).json();
-    if (!response) {
+    const response = await fetch(url.toString());
+    if (response.status === 404) {
+      this.log(`Tx ${txHash.toString()} not found`);
       return undefined;
     }
-    return Promise.resolve(txFromJson(response));
+    const txBuffer = Buffer.from(await (await fetch(url.toString())).arrayBuffer());
+    const tx = Tx.fromBuffer(txBuffer);
+    return Promise.resolve(tx);
   }
 
   /**

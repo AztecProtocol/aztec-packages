@@ -1,8 +1,8 @@
-import { AztecNode, txFromJson, txToJson } from '@aztec/aztec-node';
+import { AztecNode } from '@aztec/aztec-node';
 import { Fr } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { MerkleTreeId, TxHash } from '@aztec/types';
+import { MerkleTreeId, Tx, TxHash } from '@aztec/types';
 import Koa, { Context, DefaultState } from 'koa';
 import Router from 'koa-router';
 import { PromiseReadable } from 'promise-readable';
@@ -11,9 +11,9 @@ const logger = createDebugLogger('aztec:http_router');
 
 /**
  * Factory method for constructing the http service.
- * @param node - An instance of Aztec Node into which calls are forwared.
+ * @param node - An instance of Aztec Node into which calls are forwarded.
  * @param prefix - A prefix for the http service's api routes
- * @returns The constructed http servce.
+ * @returns The constructed http service.
  */
 export function appFactory(node: AztecNode, prefix: string) {
   const router = new Router<DefaultState, Context>({ prefix });
@@ -133,11 +133,13 @@ export function appFactory(node: AztecNode, prefix: string) {
     const hash = ctx.query.hash!;
     const txHash = new TxHash(Buffer.from(hash as string, 'hex'));
     const tx = await node.getPendingTxByHash(txHash);
-    ctx.set('content-type', 'application/json');
-    ctx.body = {
-      tx: tx == undefined ? undefined : txToJson(tx),
-    };
-    ctx.status = 200;
+    ctx.set('content-type', 'application/octet-stream');
+    if (tx == undefined) {
+      ctx.status = 404;
+    } else {
+      ctx.status = 200;
+      ctx.body = tx.toBuffer();
+    }
   });
 
   router.get('/contract-index', async (ctx: Koa.Context) => {
@@ -217,8 +219,8 @@ export function appFactory(node: AztecNode, prefix: string) {
 
   router.post('/tx', checkReady, async (ctx: Koa.Context) => {
     const stream = new PromiseReadable(ctx.req);
-    const postData = JSON.parse((await stream.readAll()) as string);
-    const tx = txFromJson(postData);
+    const postData = (await stream.readAll()) as Buffer;
+    const tx = Tx.fromBuffer(postData);
     await node.sendTx(tx);
     ctx.status = 200;
   });

@@ -12,17 +12,19 @@ import {
   TxHash,
 } from '@aztec/types';
 import { jest } from '@jest/globals';
-import { HttpNode, txToJson } from './http-node.js';
+import { HttpNode } from './http-node.js';
 
 const TEST_URL = 'http://aztec-node-url.com/';
 
-const setFetchMock = (response: any): void => {
+const setFetchMock = (response: any, status = 200): void => {
   global.fetch = jest
     .fn<typeof global.fetch>()
     .mockImplementation((_input: RequestInfo | URL, _init?: RequestInit | undefined) => {
       return Promise.resolve({
+        status,
         ok: true,
         json: () => response,
+        arrayBuffer: () => response,
       } as Response);
     });
 };
@@ -216,10 +218,9 @@ describe('HttpNode', () => {
 
       await httpNode.sendTx(tx);
 
-      const json = txToJson(tx);
       const init: RequestInit = {
         method: 'POST',
-        body: JSON.stringify(json),
+        body: tx.toBuffer(),
       };
       const call = (fetch as jest.Mock).mock.calls[0] as any[];
       expect(call[0].href).toBe(`${TEST_URL}tx`);
@@ -231,7 +232,7 @@ describe('HttpNode', () => {
     it('should fetch and return a pending tx', async () => {
       const txHash = new TxHash(randomBytes(TxHash.SIZE));
       const tx = MockTx();
-      const response = txToJson(tx);
+      const response = tx.toBuffer();
       setFetchMock(response);
 
       const result = await httpNode.getPendingTxByHash(txHash);
@@ -243,7 +244,7 @@ describe('HttpNode', () => {
     it('should return undefined if the pending tx does not exist', async () => {
       const txHash = new TxHash(randomBytes(TxHash.SIZE));
       const response = undefined;
-      setFetchMock(response);
+      setFetchMock(response, 404);
 
       const result = await httpNode.getPendingTxByHash(txHash);
 
