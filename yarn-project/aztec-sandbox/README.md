@@ -6,10 +6,10 @@ Aztec Sandbox is a package that allows for a simple development environment on A
 
 ### Docker Compose
 
-The easiesty way to run is by using docker compose. This will create two containers:
+The easiesty way to run is by using `docker compose up`. This will create two containers:
 
 1. The sandbox listening on port `8080`
-2. A foundry instance listening on port `8545`
+2. An anvil instance listening on port `8545`
 
 ### Node Server
 
@@ -25,7 +25,22 @@ You'll also need to run `./bootstrap.sh` in the `circuits/cpp` directory in orde
 
 ## Examples
 
-The package also includes 2 examples:
+The package also includes 2 examples. There are some system prerequisites that you will need to run these locally:
+
+- [nvm](https://github.com/nvm-sh/nvm)
+  - Node version > 18
+- [yarn](https://yarnpkg.com/)
+- [jq](https://jqlang.github.io/jq/download/)
+
+Before running locally you'll need to:
+
+- Head to `l1-contracts` directory and run `./bootstrap.sh`
+- Then go to `yarn-project and run:
+  - `yarn install`
+  - `yarn build`
+    And you should be good to go!
+
+From the `aztec-sandbox` directory, you can run the two existing examples:
 
 - Deployment, mint and transfer on an Aztec ZK Token
   - `yarn run:example:token`
