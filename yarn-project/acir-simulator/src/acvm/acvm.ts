@@ -21,7 +21,7 @@ export const ONE_ACVM_FIELD: ACVMField = `0x${'00'.repeat(Fr.SIZE_IN_BYTES - 1)}
  */
 export interface ACIRCallback {
   /**
-   * Oracle pack some arguments for the execution
+   * Oracle call used to pack a set of arguments for the execution
    */
   packArguments(params: ACVMField[]): Promise<ACVMField[]>;
   getSecretKey(params: ACVMField[]): Promise<[ACVMField]>;
@@ -73,7 +73,7 @@ export const acvm: execute = async (acir, initialWitness, callback) => {
   const logger = createDebugLogger('aztec:simulator:acvm');
   const partialWitness = await executeCircuit(acir, initialWitness, async (name: string, args: string[]) => {
     try {
-      logger(`Oracle callback ${name}, params: ${args}`);
+      logger(`Oracle callback ${name}`);
       if (!(name in callback)) throw new Error(`Callback ${name} not found`);
       const result = await callback[name as keyof ACIRCallback](args);
       return result;
