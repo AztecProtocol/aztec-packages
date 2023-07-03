@@ -8,7 +8,7 @@ import {
   L2Block,
   L2BlockL2Logs,
   MerkleTreeId,
-  MockTx,
+  mockTx,
   TxHash,
 } from '@aztec/types';
 import { jest } from '@jest/globals';
@@ -212,7 +212,7 @@ describe('HttpNode', () => {
 
   describe('sendTx', () => {
     it('should submit a transaction to the p2p pool', async () => {
-      const tx = MockTx();
+      const tx = mockTx();
       const irrelevantResponse = {};
       setFetchMock(irrelevantResponse);
 
@@ -231,7 +231,7 @@ describe('HttpNode', () => {
   describe('getPendingTxByHash', () => {
     it('should fetch and return a pending tx', async () => {
       const txHash = new TxHash(randomBytes(TxHash.SIZE));
-      const tx = MockTx();
+      const tx = mockTx();
       const response = tx.toBuffer();
       setFetchMock(response);
 
