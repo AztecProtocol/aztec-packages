@@ -21,7 +21,7 @@ import {
 const makeTx = () => {
   const encodedPublicFunctions = [EncodedContractFunction.random(), EncodedContractFunction.random()];
   const enqueuedPublicFunctionCalls = times(KERNEL_PUBLIC_CALL_STACK_LENGTH, i => makePublicCallRequest(i));
-  return Tx.createTx(
+  return new Tx(
     makeKernelPublicInputs(),
     Proof.fromBuffer(Buffer.alloc(10, 9)),
     TxL2Logs.random(8, 2),

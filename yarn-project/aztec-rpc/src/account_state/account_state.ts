@@ -271,7 +271,7 @@ export class AccountState {
     const encryptedLogs = new TxL2Logs(collectEncryptedLogs(executionResult));
     const unencryptedLogs = new TxL2Logs(collectUnencryptedLogs(executionResult));
 
-    return Tx.createTx(
+    return new Tx(
       publicInputs,
       proof,
       encryptedLogs,
