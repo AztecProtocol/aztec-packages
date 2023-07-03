@@ -1,6 +1,4 @@
 contract PendingCommitments {
-    use dep::aztec3::oracle::debug_log::debug_log;
-    use dep::aztec3::oracle::debug_log::debug_log_format;
     use dep::aztec3::abi;
     use dep::aztec3::abi::PrivateContextInputs;
     use dep::aztec3::context::PrivateFunctionContext;
@@ -22,7 +20,9 @@ contract PendingCommitments {
         context.finish(inputs)
     }
 
-    // test mint and get bal both all inline in one call
+    /// test pending commitments by creating / inserting a note
+    /// and then getting / reading that note all in the same
+    /// contract function
     fn create_get_and_check_note_inline(
         //*********************************/
         // Should eventually be hidden:
@@ -38,28 +38,20 @@ contract PendingCommitments {
         let note = Note::new(amount, owner);
 
         // Insert note and emit encrypted note preimage via oracle call
-        debug_log("NOIR inline before insert");
         context = owner_balance.insert(context, note);
-        debug_log("NOIR inline before get_2");
 
         let (context_tmp, (gotNote1, gotNote2)) = owner_balance.get_2(context);
         context = context_tmp;
 
-        debug_log("NOIR inline after get_2");
-
-        debug_log_format("note value: {0}, gotNote1 value: {1}", [note.value, gotNote1.value]);
-        debug_log_format("gotNote1.is_real: {0}", [gotNote1.is_real as Field]);
-
         assert(note.eq(gotNote1));
-        debug_log("NOIR inline after assert got pending note");
         assert(!gotNote2.is_real);
-        debug_log("NOIR inline after assert note2 fake");
 
         context.return_values = context.return_values.push(gotNote1.value);
 
         context.finish(inputs)
     }
 
+    /// Create and insert a note
     fn create_note(
         //*********************************/
         // Should eventually be hidden:
@@ -68,7 +60,6 @@ contract PendingCommitments {
         amount: Field,
         owner: Point,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
-        debug_log("NOIR create");
         let mut context = PrivateFunctionContext::new();
         context.args = context.args.push_array([amount, owner.x, owner.y]);
 
@@ -76,13 +67,12 @@ contract PendingCommitments {
         let note = Note::new(amount, owner);
 
         // Insert note and emit encrypted note preimage via oracle call
-        debug_log("NOIR inline before insert");
         context = owner_balance.insert(context, note);
-        debug_log("NOIR inline before get_2");
 
         context.finish(inputs)
     }
 
+    /// Get a note and confirm it has expected value
     fn get_and_check_note(
         //*********************************/
         // Should eventually be hidden:
@@ -91,7 +81,6 @@ contract PendingCommitments {
         expected_value: Field,
         owner: Point,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
-        debug_log("NOIR get and check");
         let mut context = PrivateFunctionContext::new();
         context.args = context.args.push_array([owner.x, owner.y]);
 
@@ -107,7 +96,8 @@ contract PendingCommitments {
         context.finish(inputs)
     }
 
-    // test mint and get bal both in child calls
+    /// test pending commitments with note insertion done in a nested call
+    /// and "read" / get of that pending note/commitment in another nested call
     fn create_get_and_check_note_in_nested_calls(
         //*********************************/
         // Should eventually be hidden:
@@ -118,21 +108,25 @@ contract PendingCommitments {
         createFnSelector: Field,
         getAndCheckFnSelector: Field,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
-        debug_log("NOIR nested");
-        let mut context0 = PrivateFunctionContext::new();
-        context0.args = context0.args.push_array([amount, owner.x, owner.y]);
+        let mut context = PrivateFunctionContext::new();
+        context.args = context.args.push_array([amount, owner.x, owner.y]);
 
+        // args for nested calls
         let mut args = [0; abi::MAX_ARGS];
         args[0] = amount;
         args[1] = owner.x;
         args[2] = owner.y;
-        let (_callStackItem1, mut context1) = PrivateCallStackItem::call(inputs.call_context.storage_contract_address, createFnSelector, args, context0);
 
-        let (_callStackItem2, mut context2) = PrivateCallStackItem::call(inputs.call_context.storage_contract_address, getAndCheckFnSelector, args, context1);
+        // nested call to create/insert note
+        let (_callStackItem1, mut context_tmp0) = PrivateCallStackItem::call(inputs.call_context.storage_contract_address, createFnSelector, args, context);
+        context = context_tmp0;
+        // nested call to read that note / pending commitment
+        let (_callStackItem2, mut context_tmp1) = PrivateCallStackItem::call(inputs.call_context.storage_contract_address, getAndCheckFnSelector, args, context);
+        context = context_tmp1;
 
-        context2.finish(inputs)
+        context.finish(inputs)
     }
 
-    // TODO test mint in parent and then get bal in child call
-    // TODO test mint in child call and then get bal in parent
+    // TODO(dbanks12): tests different combinatiions of nested/parent calls
+    // to create and get_and_check to flex private kernel constraints
 }
