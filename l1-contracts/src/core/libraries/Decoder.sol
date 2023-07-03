@@ -332,24 +332,24 @@ library Decoder {
           let dstPtr := add(baseLeaf, 0x20) // Current position withing `baseLeaf` to write to
 
           // Adding new commitments
-          calldatacopy(dstPtr, add(_l2Block.offset, mload(offsets)), mul(0x08, 0x20))
-          dstPtr := add(dstPtr, mul(0x08, 0x20))
+          calldatacopy(dstPtr, add(_l2Block.offset, mload(offsets)), mul(mload(lengths), 0x20))
+          dstPtr := add(dstPtr, mul(mload(lengths), 0x20))
 
           // Adding new nullifiers
-          calldatacopy(dstPtr, add(_l2Block.offset, mload(add(offsets, 0x20))), mul(0x08, 0x20))
-          dstPtr := add(dstPtr, mul(0x08, 0x20))
+          calldatacopy(dstPtr, add(_l2Block.offset, mload(add(offsets, 0x20))), mul(mload(add(lengths, 0x20)), 0x20))
+          dstPtr := add(dstPtr, mul(mload(add(lengths, 0x20)), 0x20))
 
           // Adding new public data writes
-          calldatacopy(dstPtr, add(_l2Block.offset, mload(add(offsets, 0x40))), mul(0x08, 0x40))
-          dstPtr := add(dstPtr, mul(0x08, 0x40))
+          calldatacopy(dstPtr, add(_l2Block.offset, mload(add(offsets, 0x40))), mul(mload(add(lengths, 0x40)), 0x40))
+          dstPtr := add(dstPtr, mul(mload(add(lengths, 0x40)), 0x40))
 
           // Adding new l2 to l1 msgs
-          calldatacopy(dstPtr, add(_l2Block.offset, mload(add(offsets, 0x60))), mul(0x04, 0x20))
-          dstPtr := add(dstPtr, mul(0x04, 0x20))
+          calldatacopy(dstPtr, add(_l2Block.offset, mload(add(offsets, 0x60))), mul(mload(add(lengths, 0x60)), 0x20))
+          dstPtr := add(dstPtr, mul(mload(add(lengths, 0x40)), 0x20))
 
           // Adding Contract Leafs
-          calldatacopy(dstPtr, add(_l2Block.offset, mload(add(offsets, 0x80))), mul(0x2, 0x20))
-          dstPtr := add(dstPtr, mul(2, 0x20))
+          calldatacopy(dstPtr, add(_l2Block.offset, mload(add(offsets, 0x80))), mul(mload(add(lengths, 0x80)), 0x20))
+          dstPtr := add(dstPtr, mul(mload(add(lengths, 0x80)), 0x20))
 
           // Kernel1.contract.aztecAddress
           let contractDataOffset := mload(add(offsets, 0xa0))
