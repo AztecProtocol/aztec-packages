@@ -85,7 +85,9 @@ impl Set {
         // let nullifier = note.compute_nullifier(siloed_note_hash);
         let nullifier = note.compute_nullifier(note_hash);
 
-        assert(notify_nullified_note(storage_slot, nullifier, note) == 0);
+        // TODO unhack, creating a new note struct works, passing note doesnt
+        // assert(notify_nullified_note(storage_slot, nullifier, note) == 0);
+        assert(notify_nullified_note(storage_slot, nullifier, Note::new(note.value, note.owner)) == 0);
         context.push_new_nullifier(nullifier)
     }
 }

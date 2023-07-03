@@ -15,7 +15,7 @@ impl<T, MaxLen> BoundedVec<T, MaxLen> {
     }
 
     fn push(mut self: Self, elem: T) -> Self {
-        // assert(self.len as u64 < MaxLen as u64);
+        assert(self.len as u64 < MaxLen as u64);
         // TODO HACK file a noir bug, got 'expected constant'
         //self.storage[self.len] = elem;
         for i in 0..MaxLen {

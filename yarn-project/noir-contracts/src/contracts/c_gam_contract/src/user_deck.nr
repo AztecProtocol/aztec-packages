@@ -22,6 +22,7 @@ use crate::hash_with_storage_slot;
     
 //users' deck
 global user_deck = Map { storage_slot: 5 };
+global MAX_CARDS = 2; // Limited by square root of read requests (max 4, so 2)
 
 struct Card {
     inner: Field,
@@ -54,7 +55,7 @@ impl Card {
 
 //TODO should not be a contract function !!
 //TODO HACK needed why can't comptime decay to normal Field when passed to pedersen?
-fn user_deck_insert(owner: Point, g_id: Field, i_hack_comptime : comptime Field, i : Field, user_cards: [Card; 5], initialContext: PrivateFunctionContext) -> pub PrivateFunctionContext{
+fn user_deck_insert(owner: Point, g_id: Field, i_hack_comptime : comptime Field, i : Field, user_cards: [Card; MAX_CARDS], initialContext: PrivateFunctionContext) -> pub PrivateFunctionContext{
     let card_note = Note::new(user_cards[i_hack_comptime].id(), owner);
     let idx = std::hash::pedersen([owner.x, g_id, i])[0];
     user_deck.at(idx).insert(initialContext, card_note)
