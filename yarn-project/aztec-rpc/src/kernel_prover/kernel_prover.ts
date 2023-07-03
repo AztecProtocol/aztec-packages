@@ -19,7 +19,6 @@ import {
 import { assertLength } from '@aztec/foundation/serialize';
 import { KernelProofCreator, ProofCreator, ProofOutput } from './proof_creator.js';
 import { ProvingDataOracle } from './proving_data_oracle.js';
-import { assert } from 'console';
 
 /**
  * Represents an output note data object.

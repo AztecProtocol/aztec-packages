@@ -599,7 +599,6 @@ describe('Private Execution test suite', () => {
         } else if (selector.equals(getAndCheckFnSelector)) {
           return Promise.resolve(getAndCheckAbi);
         } else {
-          console.log(`Unknown selector ${selector.toString('hex')}`);
           throw `Unknown selector ${selector.toString('hex')}`;
         }
       });
