@@ -108,7 +108,7 @@ fn call_public_function<N>(
     )
 }
 
-fn call_public_function_no_args<N>(
+fn call_public_function_no_args(
     contract_address: Field, 
     function_selector: Field,
 ) -> [Field; crate::abi::MAX_RETURN_VALUES] {
