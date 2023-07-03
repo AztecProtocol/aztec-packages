@@ -8,7 +8,7 @@ import {
   PrivateCallStackItem,
   PublicCallRequest,
 } from '@aztec/circuits.js';
-import { computeCallStackItemHash, computeVarArgsHash } from '@aztec/circuits.js/abis';
+import { computeCallStackItemHash } from '@aztec/circuits.js/abis';
 import { Curve } from '@aztec/circuits.js/barretenberg';
 import { FunctionAbi } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
@@ -30,7 +30,7 @@ import {
   toAcvmCallPrivateStackItem,
   toAcvmEnqueuePublicFunctionResult,
 } from '../acvm/index.js';
-import { ExecutionResult, NewNoteData, NewNullifierData, sizeOfType } from '../index.js';
+import { ExecutionResult, NewNoteData, NewNullifierData } from '../index.js';
 import { ClientTxExecutionContext } from './client_execution_context.js';
 import { fieldsToFormattedStr } from './debug.js';
 
@@ -47,7 +47,7 @@ export class PrivateFunctionExecution {
     private abi: FunctionAbi,
     private contractAddress: AztecAddress,
     private functionData: FunctionData,
-    private args: Fr[],
+    private argsHash: Fr,
     private callContext: CallContext,
     private curve: Curve,
 
@@ -74,6 +74,9 @@ export class PrivateFunctionExecution {
     const unencryptedLogs = new FunctionL2Logs([]);
 
     const { partialWitness } = await acvm(acir, initialWitness, {
+      packArguments: async (args: ACVMField[]) => {
+        return [toACVMField(await this.context.packArgs(args.map(fromACVMField)))];
+      },
       getSecretKey: async ([ownerX, ownerY]: ACVMField[]) => [
         toACVMField(
           await this.context.db.getSecretKey(
@@ -115,7 +118,7 @@ export class PrivateFunctionExecution {
         });
         return Promise.resolve([ZERO_ACVM_FIELD]);
       },
-      callPrivateFunction: async ([acvmContractAddress, acvmFunctionSelector, ...acvmArgs]) => {
+      callPrivateFunction: async ([acvmContractAddress, acvmFunctionSelector, acvmArgsHash]) => {
         const contractAddress = fromACVMField(acvmContractAddress);
         const functionSelector = fromACVMField(acvmFunctionSelector);
         this.log(
@@ -125,7 +128,7 @@ export class PrivateFunctionExecution {
         const childExecutionResult = await this.callPrivateFunction(
           frToAztecAddress(contractAddress),
           frToSelector(functionSelector),
-          acvmArgs.map(f => fromACVMField(f)),
+          fromACVMField(acvmArgsHash),
           this.callContext,
           this.curve,
         );
@@ -244,7 +247,6 @@ export class PrivateFunctionExecution {
    * @returns The initial witness.
    */
   private writeInputs() {
-    const argsSize = this.abi.parameters.reduce((acc, param) => acc + sizeOfType(param.type), 0);
     const contractDeploymentData = this.context.txContext.contractDeploymentData ?? ContractDeploymentData.empty();
 
     const fields = [
@@ -268,7 +270,7 @@ export class PrivateFunctionExecution {
       this.context.txContext.chainId,
       this.context.txContext.version,
 
-      ...this.args.slice(0, argsSize),
+      ...this.context.getArgs(this.argsHash),
     ];
 
     return toACVMWitness(1, fields);
@@ -278,7 +280,7 @@ export class PrivateFunctionExecution {
    * Calls a private function as a nested execution.
    * @param targetContractAddress - The address of the contract to call.
    * @param targetFunctionSelector - The function selector of the function to call.
-   * @param targetArgs - The arguments to pass to the function.
+   * @param targetArgsHash - The packed arguments to pass to the function.
    * @param callerContext - The call context of the caller.
    * @param curve - The curve instance to use for elliptic curve operations.
    * @returns The execution result.
@@ -286,7 +288,7 @@ export class PrivateFunctionExecution {
   private async callPrivateFunction(
     targetContractAddress: AztecAddress,
     targetFunctionSelector: Buffer,
-    targetArgs: Fr[],
+    targetArgsHash: Fr,
     callerContext: CallContext,
     curve: Curve,
   ) {
@@ -299,7 +301,7 @@ export class PrivateFunctionExecution {
       targetAbi,
       targetContractAddress,
       targetFunctionData,
-      targetArgs,
+      targetArgsHash,
       derivedCallContext,
       curve,
     );

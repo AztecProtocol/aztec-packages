@@ -37,6 +37,7 @@ export class AcirSimulator {
    * @param portalContractAddress - The address of the portal contract.
    * @param historicRoots - The historic roots.
    * @param curve - The curve instance for elliptic curve operations.
+   * @param packedArguments - The entrypoint packed arguments
    * @returns The result of the execution.
    */
   public run(
@@ -65,11 +66,11 @@ export class AcirSimulator {
     );
 
     const execution = new PrivateFunctionExecution(
-      new ClientTxExecutionContext(this.db, request.txContext, historicRoots),
+      new ClientTxExecutionContext(this.db, request.txContext, historicRoots, request.packedArguments),
       entryPointABI,
       contractAddress,
       request.functionData,
-      request.args,
+      request.argsHash,
       callContext,
       curve,
     );
@@ -106,7 +107,7 @@ export class AcirSimulator {
     );
 
     const execution = new UnconstrainedFunctionExecution(
-      new ClientTxExecutionContext(this.db, TxContext.empty(), historicRoots),
+      new ClientTxExecutionContext(this.db, TxContext.empty(), historicRoots, []),
       entryPointABI,
       contractAddress,
       request.functionData,

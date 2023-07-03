@@ -71,11 +71,8 @@ contract EcdsaAccount {
             let target_address = payload.flattened_targets[i];
             if target_address != 0 {
                 let function_selector = payload.flattened_selectors[i];
-                let mut args = [0; abi::MAX_ARGS];
-                for j in 0..abi::MAX_ARGS {
-                    args[j] = payload.flattened_args[i * abi::MAX_ARGS + j];
-                }
-                let (_callStackItem, updated_context) = PrivateCallStackItem::call(target_address, function_selector, args, context);
+                let args_hash = payload.flattened_args_hashes[i];
+                let (_callStackItem, updated_context) = PrivateCallStackItem::call_with_args_hash(target_address, function_selector, args_hash, context);
                 context = updated_context;
             }
         }
