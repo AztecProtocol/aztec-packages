@@ -1,5 +1,12 @@
 import { AztecNodeService } from '@aztec/aztec-node';
-import { AztecAddress, AztecRPCServer, Contract, ContractDeployer } from '@aztec/aztec.js';
+import {
+  AztecAddress,
+  AztecRPCServer,
+  Contract,
+  ContractDeployer,
+  ContractFunctionInteraction,
+  Fr,
+} from '@aztec/aztec.js';
 import { CGamContractAbi } from '@aztec/noir-contracts/examples';
 import { DebugLogger } from '@aztec/foundation/log';
 
@@ -14,7 +21,7 @@ describe('e2e_c_gam_contract', () => {
   let contract: Contract;
 
   beforeEach(async () => {
-    ({ aztecNode, aztecRpcServer, accounts, logger } = await setup(2));
+    ({ aztecNode, aztecRpcServer, accounts, logger } = await setup(/*two accounts for 2 players*/ 2));
   }, 100_000);
 
   afterEach(async () => {
@@ -22,12 +29,12 @@ describe('e2e_c_gam_contract', () => {
     await aztecRpcServer?.stop();
   });
 
-  const expectBalance = async (owner: AztecAddress, expectedBalance: bigint) => {
-    const ownerPublicKey = await aztecRpcServer.getAccountPublicKey(owner);
-    const [balance] = await contract.methods.getBalance(pointToPublicKey(ownerPublicKey)).view({ from: owner });
-    logger(`Account ${owner} balance: ${balance}`);
-    expect(balance).toBe(expectedBalance);
-  };
+  // const expectBalance = async (owner: AztecAddress, expectedBalance: bigint) => {
+  //   const ownerPublicKey = await aztecRpcServer.getAccountPublicKey(owner);
+  //   const [balance] = await contract.methods.getBalance(pointToPublicKey(ownerPublicKey)).view({ from: owner });
+  //   logger(`Account ${owner} balance: ${balance}`);
+  //   expect(balance).toBe(expectedBalance);
+  // };
 
   // const expectsNumOfEncryptedLogsInTheLastBlockToBe = async (numEncryptedLogs: number) => {
   //   const l2BlockNum = await aztecNode.getBlockHeight();
@@ -57,10 +64,20 @@ describe('e2e_c_gam_contract', () => {
     return contract;
   };
 
+  // it('should deploy', async () => {
+  //   const initialBalance = 987n;
+  //   const owner = await aztecRpcServer.getAccountPublicKey(accounts[0]);
+  //   await deployContract(initialBalance, pointToPublicKey(owner));
+  // }, 30_000);
   it('should call buy_pack and see notes', async () => {
     const initialBalance = 987n;
     const owner = await aztecRpcServer.getAccountPublicKey(accounts[0]);
-    await deployContract(initialBalance, pointToPublicKey(owner));
+    const deployedContract = await deployContract(initialBalance, pointToPublicKey(owner));
+    const seed = 1n;
+    const tx: ContractFunctionInteraction = deployedContract.methods.buy_pack(seed, accounts[0]);
+    tx.send({ from: accounts[0] });
+    const storages = await aztecRpcServer.getStorageAt(deployedContract.address, new Fr(1n));
+    // await tx.isM
   }, 30_000);
   // /**
   //  * Milestone 1.3.
