@@ -229,7 +229,7 @@ describe('ACIR public execution simulator', () => {
       });
 
       const execution: PublicExecution = { contractAddress: parentContractAddress, functionData, args, callContext };
-      const globalVariables = new GlobalVariables(new Fr(69), new Fr(420), new Fr(1), new Fr(7));
+      const globalVariables = new GlobalVariables(new Fr(69), new Fr(420), new Fr(1), new Fr(7), [new Fr(42), new Fr(1337)]);
       const result = await executor.execute(execution, globalVariables);
 
       expect(result.returnValues).toEqual([

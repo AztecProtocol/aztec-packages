@@ -8,6 +8,7 @@ export interface L1GlobalReader {
   getLastTimestamp(): Promise<bigint>;
   getVersion(): Promise<bigint>;
   getChainId(): Promise<bigint>;
+  getEthBlockHash(): Promise<bigint>;
 }
 
 /**
@@ -24,6 +25,17 @@ export class SimpleGlobalVariableBuilder implements GlobalVariableBuilder {
   private log = createDebugLogger('aztec:sequencer:simple_global_variable_builder');
   constructor(private readonly reader: L1GlobalReader) {}
 
+  private async getEthBlockHash(): Promise<[Fr, Fr]> {
+    const blockHash = await this.reader.getEthBlockHash();
+    
+    // convert to 32 byte buffer then create high and low field elements
+    const blockHashBuffer = Buffer.alloc(32);
+    blockHashBuffer.writeBigInt64BE(blockHash);
+    const high = Fr.fromBuffer(blockHashBuffer.subarray(0,16));
+    const low = Fr.fromBuffer(blockHashBuffer.subarray(16, 32));
+    return [high, low];
+  }
+
   /**
    * Simple builder of global variables that use the minimum time possible.
    * @param blockNumber - The block number to build global variables for.
@@ -33,11 +45,12 @@ export class SimpleGlobalVariableBuilder implements GlobalVariableBuilder {
     const lastTimestamp = new Fr(await this.reader.getLastTimestamp());
     const version = new Fr(await this.reader.getVersion());
     const chainId = new Fr(await this.reader.getChainId());
+    const ethBlockHash = await this.getEthBlockHash();
 
     this.log(
-      `Built global variables for block ${blockNumber}: (${chainId}, ${version}, ${blockNumber}, ${lastTimestamp})`,
+      `Built global variables for block ${blockNumber}: (${chainId}, ${version}, ${blockNumber}, ${lastTimestamp}, ${ethBlockHash})`,
     );
 
-    return new GlobalVariables(chainId, version, blockNumber, lastTimestamp);
+    return new GlobalVariables(chainId, version, blockNumber, lastTimestamp, ethBlockHash);
   }
 }

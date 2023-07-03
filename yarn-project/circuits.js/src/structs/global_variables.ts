@@ -24,6 +24,11 @@ export class GlobalVariables {
      * Timestamp of the L2 block.
      */
     public timestamp: Fr,
+    /**
+     * The block hash of the eth l1 block.
+     */
+    // TODO(Maddiaa): make into its own type?
+    public ethBlockHash: [Fr, Fr]
   ) {}
 
   static from(fields: FieldsOf<GlobalVariables>): GlobalVariables {
@@ -31,16 +36,16 @@ export class GlobalVariables {
   }
 
   static empty(): GlobalVariables {
-    return new GlobalVariables(Fr.zero(), Fr.zero(), Fr.zero(), Fr.zero());
+    return new GlobalVariables(Fr.zero(), Fr.zero(), Fr.zero(), Fr.zero(), [Fr.zero(), Fr.zero()]);
   }
 
   static fromBuffer(buffer: Buffer | BufferReader): GlobalVariables {
     const reader = BufferReader.asReader(buffer);
-    return new GlobalVariables(reader.readFr(), reader.readFr(), reader.readFr(), reader.readFr());
+    return new GlobalVariables(reader.readFr(), reader.readFr(), reader.readFr(), reader.readFr(), [reader.readFr(), reader.readFr()]);
   }
 
   static getFields(fields: FieldsOf<GlobalVariables>) {
-    return [fields.chainId, fields.version, fields.blockNumber, fields.timestamp] as const;
+    return [fields.chainId, fields.version, fields.blockNumber, fields.timestamp, fields.ethBlockHash] as const;
   }
 
   toBuffer() {

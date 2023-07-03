@@ -126,11 +126,12 @@ struct PublicGlobalVariables {
     version: Field,
     block_number: Field,
     timestamp: Field,
+    ethBlockhash: [Field;2]
 }
 
 impl PublicGlobalVariables {
-    fn serialize(self) -> [Field; 4] {
-        [self.chain_id, self.version, self.block_number, self.timestamp]
+    fn serialize(self) -> [Field; 6] {
+        [self.chain_id, self.version, self.block_number, self.timestamp, self.ethBlockhash[0], self.ethBlockhash[1]]
     }
 }
 

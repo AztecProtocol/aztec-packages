@@ -50,6 +50,8 @@ const getMockGlobalVariables = () => {
     version: Fr.random(),
     blockNumber: Fr.random(),
     timestamp: Fr.random(),
+    // TODO(Maddiaa): Make this like the split sha hash place holder!, two large random fields is not good
+    ethBlockHash: [Fr.random(), Fr.random()],
   });
 };
 

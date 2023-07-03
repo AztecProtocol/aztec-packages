@@ -35,6 +35,7 @@ describe('sequencer', () => {
 
   const chainId = Fr.ZERO;
   const version = Fr.ZERO;
+  const ethBlockHash: [Fr,Fr] = [Fr.ZERO, Fr.ZERO];
 
   beforeEach(() => {
     lastBlockNumber = 0;
@@ -95,7 +96,7 @@ describe('sequencer', () => {
     blockBuilder.buildL2Block.mockResolvedValueOnce([block, proof]);
     publisher.processL2Block.mockResolvedValueOnce(true);
     globalVariableBuilder.buildGlobalVariables.mockResolvedValueOnce(
-      new GlobalVariables(chainId, version, new Fr(lastBlockNumber + 1), Fr.ZERO),
+      new GlobalVariables(chainId, version, new Fr(lastBlockNumber + 1), Fr.ZERO, ethBlockHash),
     );
 
     await sequencer.initialSync();
@@ -104,7 +105,7 @@ describe('sequencer', () => {
     const expectedTxHashes = [...(await Tx.getHashes([tx])), ...times(3, () => TxHash.ZERO)];
 
     expect(blockBuilder.buildL2Block).toHaveBeenCalledWith(
-      new GlobalVariables(chainId, version, new Fr(lastBlockNumber + 1), Fr.ZERO),
+      new GlobalVariables(chainId, version, new Fr(lastBlockNumber + 1), Fr.ZERO, ethBlockHash),
       expectedTxHashes.map(hash => expect.objectContaining({ hash })),
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
@@ -121,7 +122,7 @@ describe('sequencer', () => {
     blockBuilder.buildL2Block.mockResolvedValueOnce([block, proof]);
     publisher.processL2Block.mockResolvedValueOnce(true);
     globalVariableBuilder.buildGlobalVariables.mockResolvedValueOnce(
-      new GlobalVariables(chainId, version, new Fr(lastBlockNumber + 1), Fr.ZERO),
+      new GlobalVariables(chainId, version, new Fr(lastBlockNumber + 1), Fr.ZERO, ethBlockHash),
     );
 
     // We make a nullifier from tx1 a part of the nullifier tree, so it gets rejected as double spend
@@ -138,7 +139,7 @@ describe('sequencer', () => {
     const expectedTxHashes = [...(await Tx.getHashes([txs[0], txs[2]])), TxHash.ZERO, TxHash.ZERO];
 
     expect(blockBuilder.buildL2Block).toHaveBeenCalledWith(
-      new GlobalVariables(chainId, version, new Fr(lastBlockNumber + 1), Fr.ZERO),
+      new GlobalVariables(chainId, version, new Fr(lastBlockNumber + 1), Fr.ZERO, ethBlockHash),
       expectedTxHashes.map(hash => expect.objectContaining({ hash })),
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
