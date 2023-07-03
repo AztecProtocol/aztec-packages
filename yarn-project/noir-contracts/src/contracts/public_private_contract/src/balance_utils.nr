@@ -4,7 +4,6 @@ use dep::aztec::note::note_getter::view_notes;
 use dep::aztec::note::note_getter_options::Sort;
 use crate::notes::value_note::VALUE_NOTE_LEN;
 use crate::notes::value_note::ValueNote;
-use crate::notes::value_note::VALUE_NOTE_LEN;
 use crate::notes::value_note::ValueNoteInterface;
 
 fn get_all_notes<P>(notes: [ValueNote; MAX_READ_REQUESTS], x: P) -> [ValueNote; MAX_READ_REQUESTS] {

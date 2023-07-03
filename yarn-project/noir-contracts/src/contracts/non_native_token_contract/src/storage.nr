@@ -1,5 +1,8 @@
 use dep::aztec::state_vars::map::Map;
 use dep::aztec::state_vars::set::Set;
+use dep::aztec::state_vars::public_state::PublicState;
+use dep::aztec::state_vars::public_state_value::field_value::FIELD_VALUE_LEN;
+use dep::aztec::state_vars::public_state_value::field_value::FieldValueInterface;
 
 use crate::value_note::value_note::ValueNote;
 use crate::value_note::value_note::ValueNoteInterface;

@@ -1,40 +1,27 @@
-use dep::aztec::notes::value_note::Note;
-use dep::aztec::notes::value_note::NOTE_LEN;
-use dep::aztec::types::point::Point;
-use dep::aztec::utils::arr_copy_slice;
+use dep::aztec::note::note_getter::NoteGetterOptions;
+use dep::aztec::note::note_getter::view_notes;
+use dep::aztec::note::note_getter_options::Sort;
 
-use dep::aztec::oracle::notes::view_notes_page_internal;
-use dep::aztec::oracle::notes::NOTES_PER_PAGE;
-
-use crate::value_note,
-
-fn view_notes_page(
-    storage_slot: Field,
-    offset: Field,
-) -> (Field, [Note; NOTES_PER_PAGE]){
-    let fields = view_notes_page_internal(storage_slot, offset);
-    let total_notes = fields[0];
-    let mut notes = [Note::dummy(); NOTES_PER_PAGE];
-    for i in 0..NOTES_PER_PAGE {
-        let read_offset: comptime Field = 1 + i*NOTE_LEN;
-        let note = Note::deserialize(arr_copy_slice(fields, [0; NOTE_LEN], read_offset));
-        notes[i] = note;
-    };
-    (total_notes, notes)
-}
-
+use crate::value_note::value_note::ValueNoteInterface;
+use crate::value_note::value_note::VALUE_NOTE_LEN;
+use crate::value_note::filter::get_all_notes;
 
 // TODO(1.5) We don't support yet more than one page of notes
 // noir is having issues with loop handling in unconstrained functions
 // rewrite to unconstrained and integrate into noir-aztec when fixed
-fn get_balance(storage_slot: Field) -> Field {
+fn get_balance(storage_slot: Field, skip: u32) -> Field {
     let mut balance = 0;
 
-    let mut current_batch = view_notes_page(storage_slot, 0).1;
-    
-    for j in 0..current_batch.len() {
-        balance += current_batch[j].value;
+    let options = NoteGetterOptions::new(get_all_notes, 0, [Sort::nada(); VALUE_NOTE_LEN], skip);
+    let notes = view_notes(storage_slot, ValueNoteInterface, options);
+    let len = notes.len();
+    for i in 0..len {
+        balance += notes[i].value;
     }
+    // TODO
+    // if (notes[len - 1].is_dummy()) {
+    //     balance += get_balance(storage_slot, len);
+    // }
 
     balance
 }
