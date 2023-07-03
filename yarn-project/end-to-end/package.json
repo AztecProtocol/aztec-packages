@@ -13,7 +13,8 @@
     "formatting:fix": "run -T prettier -w ./src",
     "test": "DEBUG='aztec:*,wasm' NODE_NO_WARNINGS=1 node --experimental-vm-modules $(yarn bin jest) --runInBand --passWithNoTests --testTimeout=15000",
     "test:integration": "concurrently -k -s first -c reset,dim -n test,anvil \"yarn test:integration:run\" \"anvil\"",
-    "test:integration:run": "NODE_NO_WARNINGS=1 node --experimental-vm-modules $(yarn bin jest) --no-cache --runInBand --config jest.integration.config.json"
+    "test:integration:run": "NODE_NO_WARNINGS=1 node --experimental-vm-modules $(yarn bin jest) --no-cache --runInBand --config jest.integration.config.json",
+    "cgam": "cd ../noir-contracts ; ./src/scripts/compile.sh c_gam ; cd ../end-to-end ; yarn build ; yarn test src/e2e_c_gam.test.ts"
   },
   "jest": {
     "preset": "ts-jest/presets/default-esm",

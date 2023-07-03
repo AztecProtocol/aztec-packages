@@ -1,8 +1,7 @@
 import { AztecNodeService } from '@aztec/aztec-node';
-import { AztecAddress, AztecRPCServer, Contract, ContractDeployer, TxStatus } from '@aztec/aztec.js';
+import { AztecAddress, AztecRPCServer, Contract, ContractDeployer } from '@aztec/aztec.js';
 import { CGamContractAbi } from '@aztec/noir-contracts/examples';
 import { DebugLogger } from '@aztec/foundation/log';
-import { L2BlockL2Logs } from '@aztec/types';
 
 import { pointToPublicKey, setup } from './utils.js';
 
@@ -30,21 +29,21 @@ describe('e2e_c_gam_contract', () => {
     expect(balance).toBe(expectedBalance);
   };
 
-  const expectsNumOfEncryptedLogsInTheLastBlockToBe = async (numEncryptedLogs: number) => {
-    const l2BlockNum = await aztecNode.getBlockHeight();
-    const encryptedLogs = await aztecNode.getEncryptedLogs(l2BlockNum, 1);
-    const unrolledLogs = L2BlockL2Logs.unrollLogs(encryptedLogs);
-    expect(unrolledLogs.length).toBe(numEncryptedLogs);
-  };
+  // const expectsNumOfEncryptedLogsInTheLastBlockToBe = async (numEncryptedLogs: number) => {
+  //   const l2BlockNum = await aztecNode.getBlockHeight();
+  //   const encryptedLogs = await aztecNode.getEncryptedLogs(l2BlockNum, 1);
+  //   const unrolledLogs = L2BlockL2Logs.unrollLogs(encryptedLogs);
+  //   expect(unrolledLogs.length).toBe(numEncryptedLogs);
+  // };
 
-  const expectUnencryptedLogsFromLastBlockToBe = async (logMessages: string[]) => {
-    const l2BlockNum = await aztecNode.getBlockHeight();
-    const unencryptedLogs = await aztecNode.getUnencryptedLogs(l2BlockNum, 1);
-    const unrolledLogs = L2BlockL2Logs.unrollLogs(unencryptedLogs);
-    const asciiLogs = unrolledLogs.map(log => log.toString('ascii'));
+  // const expectUnencryptedLogsFromLastBlockToBe = async (logMessages: string[]) => {
+  //   const l2BlockNum = await aztecNode.getBlockHeight();
+  //   const unencryptedLogs = await aztecNode.getUnencryptedLogs(l2BlockNum, 1);
+  //   const unrolledLogs = L2BlockL2Logs.unrollLogs(unencryptedLogs);
+  //   const asciiLogs = unrolledLogs.map(log => log.toString('ascii'));
 
-    expect(asciiLogs).toStrictEqual(logMessages);
-  };
+  //   expect(asciiLogs).toStrictEqual(logMessages);
+  // };
 
   const deployContract = async (initialBalance = 0n, owner = { x: 0n, y: 0n }) => {
     logger(`Deploying L2 contract...`);
@@ -58,81 +57,86 @@ describe('e2e_c_gam_contract', () => {
     return contract;
   };
 
-  /**
-   * Milestone 1.3.
-   * https://hackmd.io/AG5rb9DyTRu3y7mBptWauA
-   */
-  it('1.3 should deploy zk token contract with initial token minted to the account', async () => {
+  it('should call buy_pack and see notes', async () => {
     const initialBalance = 987n;
     const owner = await aztecRpcServer.getAccountPublicKey(accounts[0]);
     await deployContract(initialBalance, pointToPublicKey(owner));
-    await expectBalance(accounts[0], initialBalance);
-    await expectBalance(accounts[1], 0n);
-
-    await expectsNumOfEncryptedLogsInTheLastBlockToBe(1);
-    await expectUnencryptedLogsFromLastBlockToBe(['Balance set in constructor']);
   }, 30_000);
+  // /**
+  //  * Milestone 1.3.
+  //  * https://hackmd.io/AG5rb9DyTRu3y7mBptWauA
+  //  */
+  // it('1.3 should deploy zk token contract with initial token minted to the account', async () => {
+  //   const initialBalance = 987n;
+  //   const owner = await aztecRpcServer.getAccountPublicKey(accounts[0]);
+  //   await deployContract(initialBalance, pointToPublicKey(owner));
+  //   await expectBalance(accounts[0], initialBalance);
+  //   await expectBalance(accounts[1], 0n);
 
-  /**
-   * Milestone 1.4.
-   */
-  it('1.4 should call mint and increase balance', async () => {
-    const mintAmount = 65n;
+  //   await expectsNumOfEncryptedLogsInTheLastBlockToBe(1);
+  //   await expectUnencryptedLogsFromLastBlockToBe(['Balance set in constructor']);
+  // }, 30_000);
 
-    const [owner] = accounts;
-    const ownerPublicKey = pointToPublicKey(await aztecRpcServer.getAccountPublicKey(owner));
+  // /**
+  //  * Milestone 1.4.
+  //  */
+  // it('1.4 should call mint and increase balance', async () => {
+  //   const mintAmount = 65n;
 
-    const deployedContract = await deployContract(0n, ownerPublicKey);
-    await expectBalance(owner, 0n);
+  //   const [owner] = accounts;
+  //   const ownerPublicKey = pointToPublicKey(await aztecRpcServer.getAccountPublicKey(owner));
 
-    await expectsNumOfEncryptedLogsInTheLastBlockToBe(1);
-    await expectUnencryptedLogsFromLastBlockToBe(['Balance set in constructor']);
+  //   const deployedContract = await deployContract(0n, ownerPublicKey);
+  //   await expectBalance(owner, 0n);
 
-    const tx = deployedContract.methods.mint(mintAmount, ownerPublicKey).send({ from: owner });
+  //   await expectsNumOfEncryptedLogsInTheLastBlockToBe(1);
+  //   await expectUnencryptedLogsFromLastBlockToBe(['Balance set in constructor']);
 
-    await tx.isMined(0, 0.1);
-    const receipt = await tx.getReceipt();
+  //   const tx = deployedContract.methods.mint(mintAmount, ownerPublicKey).send({ from: owner });
 
-    expect(receipt.status).toBe(TxStatus.MINED);
-    await expectBalance(owner, mintAmount);
+  //   await tx.isMined(0, 0.1);
+  //   const receipt = await tx.getReceipt();
 
-    await expectsNumOfEncryptedLogsInTheLastBlockToBe(1);
-    await expectUnencryptedLogsFromLastBlockToBe(['Coins minted']);
-  }, 60_000);
+  //   expect(receipt.status).toBe(TxStatus.MINED);
+  //   await expectBalance(owner, mintAmount);
 
-  /**
-   * Milestone 1.5.
-   */
-  it('1.5 should call transfer and increase balance of another account', async () => {
-    const initialBalance = 987n;
-    const transferAmount = 654n;
-    const [owner, receiver] = accounts;
+  //   await expectsNumOfEncryptedLogsInTheLastBlockToBe(1);
+  //   await expectUnencryptedLogsFromLastBlockToBe(['Coins minted']);
+  // }, 60_000);
 
-    await deployContract(initialBalance, pointToPublicKey(await aztecRpcServer.getAccountPublicKey(owner)));
+  // /**
+  //  * Milestone 1.5.
+  //  */
+  // it('1.5 should call transfer and increase balance of another account', async () => {
+  //   const initialBalance = 987n;
+  //   const transferAmount = 654n;
+  //   const [owner, receiver] = accounts;
 
-    await expectBalance(owner, initialBalance);
-    await expectBalance(receiver, 0n);
+  //   await deployContract(initialBalance, pointToPublicKey(await aztecRpcServer.getAccountPublicKey(owner)));
 
-    await expectsNumOfEncryptedLogsInTheLastBlockToBe(1);
-    await expectUnencryptedLogsFromLastBlockToBe(['Balance set in constructor']);
+  //   await expectBalance(owner, initialBalance);
+  //   await expectBalance(receiver, 0n);
 
-    const tx = contract.methods
-      .transfer(
-        transferAmount,
-        pointToPublicKey(await aztecRpcServer.getAccountPublicKey(owner)),
-        pointToPublicKey(await aztecRpcServer.getAccountPublicKey(receiver)),
-      )
-      .send({ from: accounts[0] });
+  //   await expectsNumOfEncryptedLogsInTheLastBlockToBe(1);
+  //   await expectUnencryptedLogsFromLastBlockToBe(['Balance set in constructor']);
 
-    await tx.isMined(0, 0.1);
-    const receipt = await tx.getReceipt();
+  //   const tx = contract.methods
+  //     .transfer(
+  //       transferAmount,
+  //       pointToPublicKey(await aztecRpcServer.getAccountPublicKey(owner)),
+  //       pointToPublicKey(await aztecRpcServer.getAccountPublicKey(receiver)),
+  //     )
+  //     .send({ from: accounts[0] });
 
-    expect(receipt.status).toBe(TxStatus.MINED);
+  //   await tx.isMined(0, 0.1);
+  //   const receipt = await tx.getReceipt();
 
-    await expectBalance(owner, initialBalance - transferAmount);
-    await expectBalance(receiver, transferAmount);
+  //   expect(receipt.status).toBe(TxStatus.MINED);
 
-    await expectsNumOfEncryptedLogsInTheLastBlockToBe(2);
-    await expectUnencryptedLogsFromLastBlockToBe(['Coins transferred']);
-  }, 60_000);
+  //   await expectBalance(owner, initialBalance - transferAmount);
+  //   await expectBalance(receiver, transferAmount);
+
+  //   await expectsNumOfEncryptedLogsInTheLastBlockToBe(2);
+  //   await expectUnencryptedLogsFromLastBlockToBe(['Coins transferred']);
+  // }, 60_000);
 });

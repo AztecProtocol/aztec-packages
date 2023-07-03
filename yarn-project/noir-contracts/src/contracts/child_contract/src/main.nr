@@ -9,13 +9,6 @@ contract Child {
     // A variable stored in the public data tree which is used for testing purposes.
     global current_value = StorageField{ storage_slot: 1 };
 
-    fn constructor(
-        inputs: PrivateContextInputs,
-    ) -> distinct pub abi::PrivateCircuitPublicInputs {
-        // Return private circuit public inputs. All private functions need to return this as it is part of the input of the private kernel.
-        PrivateFunctionContext::new().finish(inputs)
-    }
-
     // Returns a sum of the input and the chain id and version of the contract in private circuit public input's return_values.
     fn value(
         inputs: PrivateContextInputs,
