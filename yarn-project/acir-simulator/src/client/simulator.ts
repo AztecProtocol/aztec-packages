@@ -11,6 +11,7 @@ import { PrivateFunctionExecution } from './private_execution.js';
 import { UnconstrainedFunctionExecution } from './unconstrained_execution.js';
 import { ExecutionResult } from './execution_result.js';
 import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
+import { PackedArgsCache } from '../packedArgsCache.js';
 
 export const NOTE_PEDERSEN_CONSTANT = new Fr(2n);
 export const MAPPING_SLOT_PEDERSEN_CONSTANT = new Fr(4n);
@@ -40,7 +41,7 @@ export class AcirSimulator {
    * @param packedArguments - The entrypoint packed arguments
    * @returns The result of the execution.
    */
-  public run(
+  public async run(
     request: TxExecutionRequest,
     entryPointABI: FunctionAbi,
     contractAddress: AztecAddress,
@@ -66,7 +67,12 @@ export class AcirSimulator {
     );
 
     const execution = new PrivateFunctionExecution(
-      new ClientTxExecutionContext(this.db, request.txContext, historicRoots, request.packedArguments),
+      new ClientTxExecutionContext(
+        this.db,
+        request.txContext,
+        historicRoots,
+        await PackedArgsCache.create(request.packedArguments),
+      ),
       entryPointABI,
       contractAddress,
       request.functionData,
@@ -87,7 +93,7 @@ export class AcirSimulator {
    * @param historicRoots - The historic roots.
    * @returns The return values of the function.
    */
-  public runUnconstrained(
+  public async runUnconstrained(
     request: ExecutionRequest,
     entryPointABI: FunctionAbi,
     contractAddress: AztecAddress,
@@ -107,7 +113,7 @@ export class AcirSimulator {
     );
 
     const execution = new UnconstrainedFunctionExecution(
-      new ClientTxExecutionContext(this.db, TxContext.empty(), historicRoots, []),
+      new ClientTxExecutionContext(this.db, TxContext.empty(), historicRoots, await PackedArgsCache.create([])),
       entryPointABI,
       contractAddress,
       request.functionData,

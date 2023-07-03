@@ -74,7 +74,7 @@ export class PrivateFunctionExecution {
 
     const { partialWitness } = await acvm(acir, initialWitness, {
       packArguments: async (args: ACVMField[]) => {
-        return [toACVMField(await this.context.packArgs(args.map(fromACVMField)))];
+        return [toACVMField(await this.context.packedArgsCache.pack(args.map(fromACVMField)))];
       },
       getSecretKey: async ([ownerX, ownerY]: ACVMField[]) => [
         toACVMField(
@@ -152,7 +152,7 @@ export class PrivateFunctionExecution {
         const enqueuedRequest = await this.enqueuePublicFunctionCall(
           frToAztecAddress(fromACVMField(acvmContractAddress)),
           frToSelector(fromACVMField(acvmFunctionSelector)),
-          this.context.getArgs(fromACVMField(acvmArgsHash)),
+          this.context.packedArgsCache.unpack(fromACVMField(acvmArgsHash)),
           this.callContext,
         );
 
@@ -266,7 +266,7 @@ export class PrivateFunctionExecution {
       this.context.txContext.chainId,
       this.context.txContext.version,
 
-      ...this.context.getArgs(this.argsHash),
+      ...this.context.packedArgsCache.unpack(this.argsHash),
     ];
 
     return toACVMWitness(1, fields);

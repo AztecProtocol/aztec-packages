@@ -1,15 +1,7 @@
-import {
-  AztecAddress,
-  CallContext,
-  CircuitsWasm,
-  EthAddress,
-  Fr,
-  FunctionData,
-  PrivateHistoricTreeRoots,
-} from '@aztec/circuits.js';
+import { AztecAddress, CallContext, EthAddress, Fr, FunctionData, PrivateHistoricTreeRoots } from '@aztec/circuits.js';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { FunctionL2Logs, PackedArguments } from '@aztec/types';
+import { FunctionL2Logs } from '@aztec/types';
 import {
   ACVMField,
   ZERO_ACVM_FIELD,
@@ -28,6 +20,7 @@ import { CommitmentsDB, PublicContractsDB, PublicStateDB } from './db.js';
 import { PublicExecution, PublicExecutionResult } from './execution.js';
 import { ContractStorageActionsCollector } from './state_actions.js';
 import { fieldsToFormattedStr } from '../client/debug.js';
+import { PackedArgsCache } from '../packedArgsCache.js';
 
 // Copied from crate::abi at noir-contracts/src/contracts/noir-aztec3/src/abi.nr
 const NOIR_MAX_RETURN_VALUES = 4;
@@ -68,15 +61,13 @@ export class PublicExecutor {
     const newNullifiers: Fr[] = [];
     const nestedExecutions: PublicExecutionResult[] = [];
     const unencryptedLogs = new FunctionL2Logs([]);
-    const packedArguments: PackedArguments[] = [];
+    const packedArgs = await PackedArgsCache.create([]);
 
     const notAvailable = () => Promise.reject(`Built-in not available for public execution simulation`);
 
     const { partialWitness } = await acvm(acir, initialWitness, {
       packArguments: async (args: ACVMField[]) => {
-        const packed = await PackedArguments.fromArgs(args.map(fromACVMField), await CircuitsWasm.get());
-        packedArguments.push(packed);
-        return [toACVMField(packed.hash)];
+        return [toACVMField(await packedArgs.pack(args.map(fromACVMField)))];
       },
       getSecretKey: notAvailable,
       getNotes2: notAvailable,
@@ -133,7 +124,7 @@ export class PublicExecutor {
         return await Promise.resolve([ZERO_ACVM_FIELD]);
       },
       callPublicFunction: async ([address, functionSelector, argsHash]) => {
-        const args = this.fetchArguments(fromACVMField(argsHash), packedArguments);
+        const args = packedArgs.unpack(fromACVMField(argsHash));
         this.log(`Public function call: addr=${address} selector=${functionSelector} args=${args.join(',')}`);
         const childExecutionResult = await this.callPublicFunction(
           frToAztecAddress(fromACVMField(address)),
@@ -170,17 +161,6 @@ export class PublicExecutor {
       nestedExecutions,
       unencryptedLogs,
     };
-  }
-
-  private fetchArguments(argsHash: Fr, packedArguments: PackedArguments[]): Fr[] {
-    if (argsHash.equals(Fr.ZERO)) {
-      return [];
-    }
-    const packedArgs = packedArguments.find(packed => packed.hash.equals(argsHash));
-    if (!packedArgs) {
-      throw new Error(`Could not find packed arguments with hash ${argsHash.toString()}`);
-    }
-    return packedArgs.args;
   }
 
   private async callPublicFunction(

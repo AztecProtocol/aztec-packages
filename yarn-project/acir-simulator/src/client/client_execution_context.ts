@@ -1,4 +1,4 @@
-import { CircuitsWasm, PrivateHistoricTreeRoots, TxContext } from '@aztec/circuits.js';
+import { PrivateHistoricTreeRoots, TxContext } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 import {
@@ -10,7 +10,7 @@ import {
   toAcvmL1ToL2MessageLoadOracleInputs,
 } from '../acvm/index.js';
 import { NoteLoadOracleInputs, DBOracle } from './db_oracle.js';
-import { PackedArguments } from '@aztec/types';
+import { PackedArgsCache } from '../packedArgsCache.js';
 
 /**
  * A type that wraps data with it's read request index
@@ -33,8 +33,8 @@ export class ClientTxExecutionContext {
     public txContext: TxContext,
     /** The old roots. */
     public historicRoots: PrivateHistoricTreeRoots,
-    /** The cache of packed args */
-    private packedArguments: PackedArguments[],
+    /** The cache of packed arguments */
+    public packedArgsCache: PackedArgsCache,
   ) {}
 
   /**
@@ -124,32 +124,5 @@ export class ClientTxExecutionContext {
       acvmData: toAcvmCommitmentLoadOracleInputs(commitmentInputs, this.historicRoots.privateDataTreeRoot),
       index: commitmentInputs.index,
     };
-  }
-
-  /**
-   * Fetches the args for a given args hash.
-   * @param argsHash - The args hash.
-   * @returns The args.
-   */
-  public getArgs(argsHash: Fr): Fr[] {
-    if (argsHash.equals(Fr.ZERO)) {
-      return [];
-    }
-    const args = this.packedArguments.find(packedArgs => packedArgs.hash.equals(argsHash));
-    if (!args) {
-      throw new Error(`Packed args not found for hash ${argsHash}`);
-    }
-    return args.args;
-  }
-
-  /**
-   * Adds packed args to the transaction execution context.
-   * @param args - The args to pack.Fr
-   * @returns The args hash.
-   */
-  public async packArgs(args: Fr[]): Promise<Fr> {
-    const packedArguments = await PackedArguments.fromArgs(args, await CircuitsWasm.get());
-    this.packedArguments.push(packedArguments);
-    return packedArguments.hash;
   }
 }
