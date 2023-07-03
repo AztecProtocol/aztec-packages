@@ -1,4 +1,12 @@
-import { AztecAddress, CallContext, EthAddress, Fr, FunctionData, PrivateHistoricTreeRoots } from '@aztec/circuits.js';
+import {
+  AztecAddress,
+  CallContext,
+  EthAddress,
+  Fr,
+  FunctionData,
+  GlobalVariables,
+  PrivateHistoricTreeRoots,
+} from '@aztec/circuits.js';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { FunctionL2Logs } from '@aztec/types';
@@ -44,9 +52,10 @@ export class PublicExecutor {
   /**
    * Executes a public execution request.
    * @param execution - The execution to run.
+   * @param globalVariables - The global variables to use.
    * @returns The result of the run plus all nested runs.
    */
-  public async execute(execution: PublicExecution): Promise<PublicExecutionResult> {
+  public async execute(execution: PublicExecution, globalVariables: GlobalVariables): Promise<PublicExecutionResult> {
     const selectorHex = execution.functionData.functionSelectorBuffer.toString('hex');
     this.log(`Executing public external function ${execution.contractAddress.toString()}:${selectorHex}`);
 
@@ -54,7 +63,7 @@ export class PublicExecutor {
     const acir = await this.contractsDb.getBytecode(execution.contractAddress, selector);
     if (!acir) throw new Error(`Bytecode not found for ${execution.contractAddress.toString()}:${selectorHex}`);
 
-    const initialWitness = getInitialWitness(execution.args, execution.callContext, this.treeRoots);
+    const initialWitness = getInitialWitness(execution.args, execution.callContext, this.treeRoots, globalVariables);
     const storageActions = new ContractStorageActionsCollector(this.stateDb, execution.contractAddress);
     const newCommitments: Fr[] = [];
     const newL2ToL1Messages: Fr[] = [];
@@ -131,6 +140,7 @@ export class PublicExecutor {
           frToSelector(fromACVMField(functionSelector)),
           args,
           execution.callContext,
+          globalVariables,
         );
 
         nestedExecutions.push(childExecutionResult);
@@ -168,6 +178,7 @@ export class PublicExecutor {
     targetFunctionSelector: Buffer,
     targetArgs: Fr[],
     callerContext: CallContext,
+    globalVariables: GlobalVariables,
   ) {
     const portalAddress = (await this.contractsDb.getPortalContractAddress(targetContractAddress)) ?? EthAddress.ZERO;
     const functionData = new FunctionData(targetFunctionSelector, false, false);
@@ -188,7 +199,7 @@ export class PublicExecutor {
       callContext,
     };
 
-    return this.execute(nestedExecution);
+    return this.execute(nestedExecution, globalVariables);
   }
 }
 
@@ -196,13 +207,16 @@ export class PublicExecutor {
  * Generates the initial witness for a public function.
  * @param args - The arguments to the function.
  * @param callContext - The call context of the function.
+ * @param historicTreeRoots - The historic tree roots.
+ * @param globalVariables - The global variables.
  * @param witnessStartIndex - The index where to start inserting the parameters.
  * @returns The initial witness.
  */
 function getInitialWitness(
   args: Fr[],
   callContext: CallContext,
-  commitmentTreeRoots: PrivateHistoricTreeRoots,
+  historicTreeRoots: PrivateHistoricTreeRoots,
+  globalVariables: GlobalVariables,
   witnessStartIndex = 1,
 ) {
   return toACVMWitness(witnessStartIndex, [
@@ -213,10 +227,15 @@ function getInitialWitness(
     callContext.isStaticCall,
     callContext.isContractDeployment,
 
-    commitmentTreeRoots.privateDataTreeRoot,
-    commitmentTreeRoots.nullifierTreeRoot,
-    commitmentTreeRoots.contractTreeRoot,
-    commitmentTreeRoots.l1ToL2MessagesTreeRoot,
+    historicTreeRoots.privateDataTreeRoot,
+    historicTreeRoots.nullifierTreeRoot,
+    historicTreeRoots.contractTreeRoot,
+    historicTreeRoots.l1ToL2MessagesTreeRoot,
+
+    globalVariables.chainId,
+    globalVariables.version,
+    globalVariables.blockNumber,
+    globalVariables.timestamp,
 
     ...args,
   ]);

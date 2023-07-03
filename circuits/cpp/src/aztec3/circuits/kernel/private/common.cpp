@@ -134,13 +134,13 @@ void common_update_end_values(DummyBuilder& builder,
 
     // Enhance commitments and nullifiers with domain separation whereby domain is the contract.
     {  // commitments & nullifiers
-        std::array<NT::fr, NEW_COMMITMENTS_LENGTH> siloed_new_commitments;
+        std::array<NT::fr, NEW_COMMITMENTS_LENGTH> siloed_new_commitments{};
         for (size_t i = 0; i < new_commitments.size(); ++i) {
             siloed_new_commitments[i] =
                 new_commitments[i] == 0 ? 0 : silo_commitment<NT>(storage_contract_address, new_commitments[i]);
         }
 
-        std::array<NT::fr, NEW_NULLIFIERS_LENGTH> siloed_new_nullifiers;
+        std::array<NT::fr, NEW_NULLIFIERS_LENGTH> siloed_new_nullifiers{};
         for (size_t i = 0; i < new_nullifiers.size(); ++i) {
             siloed_new_nullifiers[i] =
                 new_nullifiers[i] == 0 ? 0 : silo_nullifier<NT>(storage_contract_address, new_nullifiers[i]);
@@ -161,16 +161,13 @@ void common_update_end_values(DummyBuilder& builder,
     {  // new l2 to l1 messages
         const auto& portal_contract_address = private_call.portal_contract_address;
         const auto& new_l2_to_l1_msgs = private_call_public_inputs.new_l2_to_l1_msgs;
-        std::array<NT::fr, NEW_L2_TO_L1_MSGS_LENGTH> new_l2_to_l1_msgs_to_insert;
+        std::array<NT::fr, NEW_L2_TO_L1_MSGS_LENGTH> new_l2_to_l1_msgs_to_insert{};
         for (size_t i = 0; i < new_l2_to_l1_msgs.size(); ++i) {
             if (!new_l2_to_l1_msgs[i].is_zero()) {
-                // @todo @LHerskind chain-ids and rollup version id should be added here. Right now, just hard coded.
-                // @todo @LHerskind chain-id is hardcoded for foundry
-                const auto chain_id = fr(31337);
                 new_l2_to_l1_msgs_to_insert[i] = compute_l2_to_l1_hash<NT>(storage_contract_address,
-                                                                           fr(1),  // rollup version id
+                                                                           private_call_public_inputs.version,
                                                                            portal_contract_address,
-                                                                           chain_id,
+                                                                           private_call_public_inputs.chain_id,
                                                                            new_l2_to_l1_msgs[i]);
             }
         }
