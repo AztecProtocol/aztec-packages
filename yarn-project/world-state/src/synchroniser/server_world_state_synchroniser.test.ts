@@ -5,7 +5,7 @@ import {
   KERNEL_NEW_COMMITMENTS_LENGTH,
   KERNEL_NEW_CONTRACTS_LENGTH,
   KERNEL_NEW_NULLIFIERS_LENGTH,
-  KERNEL_PUBLIC_DATA_READS_LENGTH,
+  KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH,
   NEW_L2_TO_L1_MSGS_LENGTH,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
 } from '@aztec/circuits.js';
@@ -82,7 +82,7 @@ const getMockBlock = (blockNumber: number, newContractsCommitments?: Buffer[]) =
     newNullifiers: times(KERNEL_NEW_NULLIFIERS_LENGTH, Fr.random),
     newContracts: newContractsCommitments?.map(x => Fr.fromBuffer(x)) ?? [Fr.random()],
     newContractData: times(KERNEL_NEW_CONTRACTS_LENGTH, getMockContractData),
-    newPublicDataWrites: times(KERNEL_PUBLIC_DATA_READS_LENGTH, PublicDataWrite.random),
+    newPublicDataWrites: times(KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH, PublicDataWrite.random),
     newL1ToL2Messages: getMockL1ToL2MessagesData(),
     newL2ToL1Msgs: times(NEW_L2_TO_L1_MSGS_LENGTH, Fr.random),
     newEncryptedLogs,
