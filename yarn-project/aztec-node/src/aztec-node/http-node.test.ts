@@ -1,3 +1,6 @@
+import { AztecAddress, CircuitsWasm, Fr } from '@aztec/circuits.js';
+import { randomBytes } from '@aztec/foundation/crypto';
+import { Pedersen, SiblingPath } from '@aztec/merkle-tree';
 import {
   ContractData,
   ContractPublicData,
@@ -5,17 +8,11 @@ import {
   L2Block,
   L2BlockL2Logs,
   MerkleTreeId,
-  Tx,
+  MockTx,
   TxHash,
-  TxL2Logs,
 } from '@aztec/types';
-import { HttpNode, txToJson } from './http-node.js';
 import { jest } from '@jest/globals';
-import { AztecAddress, CircuitsWasm, Fr, KERNEL_PUBLIC_CALL_STACK_LENGTH, Proof } from '@aztec/circuits.js';
-import { makeKernelPublicInputs, makePublicCallRequest } from '@aztec/circuits.js/factories';
-import times from 'lodash.times';
-import { randomBytes } from '@aztec/foundation/crypto';
-import { Pedersen, SiblingPath } from '@aztec/merkle-tree';
+import { HttpNode, txToJson } from './http-node.js';
 
 const TEST_URL = 'http://aztec-node-url.com/';
 
@@ -28,18 +25,6 @@ const setFetchMock = (response: any): void => {
         json: () => response,
       } as Response);
     });
-};
-
-// Copied from yarn-project/p2p/src/client/mocks.ts. Do we want to move this to a shared location?
-export const MockTx = () => {
-  return Tx.createTx(
-    makeKernelPublicInputs(),
-    new Proof(Buffer.alloc(0)),
-    TxL2Logs.random(8, 3), // 8 priv function invocations creating 3 encrypted logs each
-    TxL2Logs.random(11, 2), // 8 priv + 3 pub function invocations creating 2 unencrypted logs each
-    [],
-    times(KERNEL_PUBLIC_CALL_STACK_LENGTH, makePublicCallRequest),
-  );
 };
 
 describe('HttpNode', () => {
