@@ -86,19 +86,13 @@ export class PrivateFunctionExecution {
         ),
       ],
       getNotes2: async ([_connector, storageSlot]: ACVMField[]) => {
-        this.log(`getNotes2`);
         const { preimagesACVM, realLeafIndices } = await this.context.getNotes(this.contractAddress, storageSlot, 2);
-        this.log(`got ${preimagesACVM.length} fields representing notes`);
-        this.log(`got ${realLeafIndices.length} real notes`);
 
         readRequestCommitmentIndices.push(...realLeafIndices);
         return preimagesACVM;
       },
       getRandomField: () => Promise.resolve([toACVMField(Fr.random())]),
       notifyCreatedNote: ([_connector, storageSlot, ownerX, ownerY, ...acvmPreimage]: ACVMField[]) => {
-        this.log(`notifyCreatedNote`);
-        this.log(`CREATED note with value: ${acvmPreimage[0]}`);
-        this.log(`CREATED note with length: ${acvmPreimage.length}`);
         const pendingNoteData: PendingNoteData = {
           preimage: acvmPreimage,
           contractAddress: this.contractAddress,
@@ -222,7 +216,6 @@ export class PrivateFunctionExecution {
 
     const callStackItem = new PrivateCallStackItem(this.contractAddress, this.functionData, publicInputs);
     const returnValues = decodeReturnValues(this.abi, publicInputs.returnValues);
-    this.log(`ReturnValues: ${returnValues}`);
 
     // TODO(#499): Noir fails to compute the enqueued calls preimages properly, since it cannot use pedersen generators, so we patch those values here.
     const publicCallStackItems = await Promise.all(enqueuedPublicFunctionCalls.map(c => c.toPublicCallStackItem()));
@@ -306,13 +299,9 @@ export class PrivateFunctionExecution {
     callerContext: CallContext,
     curve: Curve,
   ) {
-    this.log(`Calling private function ${targetContractAddress.toString()}:${targetFunctionSelector.toString('hex')}`);
     const targetAbi = await this.context.db.getFunctionABI(targetContractAddress, targetFunctionSelector);
-    this.log(`Target ABI: ${JSON.stringify(targetAbi)}`);
     const targetFunctionData = new FunctionData(targetFunctionSelector, true, false);
-    this.log(`Target function data: ${JSON.stringify(targetFunctionData)}`);
     const derivedCallContext = await this.deriveCallContext(callerContext, targetContractAddress, false, false);
-    this.log(`Derived call context: ${JSON.stringify(derivedCallContext)}`);
 
     const nestedExecution = new PrivateFunctionExecution(
       this.context, // forwards current state of pending commitments
@@ -323,7 +312,6 @@ export class PrivateFunctionExecution {
       derivedCallContext,
       curve,
     );
-    this.log(`Created nested execution: ${nestedExecution.toString()}`);
 
     return nestedExecution.run();
   }
