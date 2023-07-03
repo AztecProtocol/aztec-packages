@@ -535,9 +535,7 @@ describe('Private Execution test suite', () => {
       oracle.getNotes.mockImplementation(async () => {
         return {
           count: 0,
-          notes: await Promise.all(
-            [],
-          ),
+          notes: await Promise.all([]),
         };
       });
 
@@ -569,9 +567,7 @@ describe('Private Execution test suite', () => {
       expect(newCommitments).toHaveLength(1);
 
       const commitment = newCommitments[0];
-      expect(commitment).toEqual(
-        Fr.fromBuffer(acirSimulator.computeNoteHash(note.preimage, circuitsWasm)),
-      );
+      expect(commitment).toEqual(Fr.fromBuffer(acirSimulator.computeNoteHash(note.preimage, circuitsWasm)));
 
       const gotNoteValue = result.callStackItem.publicInputs.returnValues[0].value;
       expect(gotNoteValue).toEqual(amountToTransfer);
@@ -581,16 +577,16 @@ describe('Private Execution test suite', () => {
       oracle.getNotes.mockImplementation(async () => {
         return {
           count: 0,
-          notes: await Promise.all(
-            [],
-          ),
+          notes: await Promise.all([]),
         };
       });
 
       const amountToTransfer = 100n;
 
       const contractAddress = AztecAddress.random();
-      const abi = PendingCommitmentsContractAbi.functions.find(f => f.name === 'create_get_and_check_note_in_nested_calls')!;
+      const abi = PendingCommitmentsContractAbi.functions.find(
+        f => f.name === 'create_get_and_check_note_in_nested_calls',
+      )!;
       const createAbi = PendingCommitmentsContractAbi.functions.find(f => f.name === 'create_note')!;
       const getAndCheckAbi = PendingCommitmentsContractAbi.functions.find(f => f.name === 'get_and_check_note')!;
 
@@ -604,7 +600,7 @@ describe('Private Execution test suite', () => {
           return Promise.resolve(getAndCheckAbi);
         } else {
           console.log(`Unknown selector ${selector.toString('hex')}`);
-          throw(`Unknown selector ${selector.toString('hex')}`);
+          throw `Unknown selector ${selector.toString('hex')}`;
         }
       });
       oracle.getPortalContractAddress.mockImplementation(() => Promise.resolve(EthAddress.ZERO));
@@ -630,14 +626,14 @@ describe('Private Execution test suite', () => {
 
       expect(note.preimage[0]).toEqual(new Fr(amountToTransfer));
 
-      const newCommitments = execCreate.callStackItem.publicInputs.newCommitments.filter(field => !field.equals(Fr.ZERO));
+      const newCommitments = execCreate.callStackItem.publicInputs.newCommitments.filter(
+        field => !field.equals(Fr.ZERO),
+      );
 
       expect(newCommitments).toHaveLength(1);
 
       const commitment = newCommitments[0];
-      expect(commitment).toEqual(
-        Fr.fromBuffer(acirSimulator.computeNoteHash(note.preimage, circuitsWasm)),
-      );
+      expect(commitment).toEqual(Fr.fromBuffer(acirSimulator.computeNoteHash(note.preimage, circuitsWasm)));
 
       const gotNoteValue = execGetAndCheck.callStackItem.publicInputs.returnValues[0].value;
       expect(gotNoteValue).toEqual(amountToTransfer);

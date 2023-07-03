@@ -96,7 +96,7 @@ contract PendingCommitments {
         context.finish(inputs)
     }
 
-    /// test pending commitments with note insertion done in a nested call
+    /// Test pending commitments with note insertion done in a nested call
     /// and "read" / get of that pending note/commitment in another nested call
     fn create_get_and_check_note_in_nested_calls(
         //*********************************/

@@ -222,7 +222,7 @@ export class PrivateFunctionExecution {
 
     const callStackItem = new PrivateCallStackItem(this.contractAddress, this.functionData, publicInputs);
     const returnValues = decodeReturnValues(this.abi, publicInputs.returnValues);
-    this.log(`ReturnValues: ${returnValues}`)
+    this.log(`ReturnValues: ${returnValues}`);
 
     // TODO(#499): Noir fails to compute the enqueued calls preimages properly, since it cannot use pedersen generators, so we patch those values here.
     const publicCallStackItems = await Promise.all(enqueuedPublicFunctionCalls.map(c => c.toPublicCallStackItem()));
