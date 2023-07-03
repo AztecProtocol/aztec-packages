@@ -93,7 +93,14 @@ describe('e2e_public_token_contract', () => {
     expect(receipts.map(r => r.status)).toEqual(times(3, () => TxStatus.MINED));
     expect(receipts.map(r => r.blockNumber)).toEqual(times(3, () => receipts[0].blockNumber));
 
-    await expectAztecStorageSlot(logger, aztecNode, contract, balanceSlot, Fr.fromBuffer(PK.x.toBuffer()), mintAmount * 3n);
+    await expectAztecStorageSlot(
+      logger,
+      aztecNode,
+      contract,
+      balanceSlot,
+      Fr.fromBuffer(PK.x.toBuffer()),
+      mintAmount * 3n,
+    );
     await expectLogsFromLastBlockToBe(['Coins minted', 'Coins minted', 'Coins minted']);
   }, 60_000);
 });
