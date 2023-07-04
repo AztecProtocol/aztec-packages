@@ -18,8 +18,7 @@ impl Storage {
     fn init() -> Self {
         Storage {
             balances: Map::new(1, |s| Set::new(s, ValueNoteInterface)),
-
-            public_balances: Map::new(1, |s| PublicState::new(s, FieldValueInterface)),
+            public_balances: Map::new(2, |s| PublicState::new(s, FieldValueInterface)),
         }
     }
 }
