@@ -36,10 +36,11 @@ class ReturnValuesDecoder {
         for (const field of abiType.fields) {
           struct[field.name] = this.decodeReturn(field.type);
         }
-        break;
+        return struct;
       }
+      default:
+        throw new Error(`Unsupported type: ${abiType.kind}`);
     }
-    throw new Error(`Unsupported type: ${abiType.kind}`);
   }
 
   /**
