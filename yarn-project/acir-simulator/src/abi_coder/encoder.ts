@@ -10,6 +10,13 @@ class ArgumentEncoder {
 
   constructor(private abi: FunctionAbi, private args: any[]) {}
 
+  private pushField(field: Fr) {
+    // Since we have fairly dynamic code for contract calling, try to catch runtime errors early.
+    if (!(field instanceof Fr)) {
+      throw new Error(`Expected field, got '${field}'`);
+    }
+    this.flattened.push(field);
+  }
   /**
    * Encodes a single argument from the given type to field.
    * @param abiType - The abi type of the argument.
@@ -19,19 +26,19 @@ class ArgumentEncoder {
     switch (abiType.kind) {
       case 'field':
         if (typeof arg === 'number') {
-          this.flattened.push(new Fr(BigInt(arg)));
+          this.pushField(new Fr(BigInt(arg)));
         } else if (typeof arg === 'bigint') {
-          this.flattened.push(new Fr(arg));
+          this.pushField(new Fr(arg));
         } else if (typeof arg === 'object') {
           if (typeof arg.toField === 'function') {
-            this.flattened.push(arg.toField());
+            this.pushField(arg.toField());
           } else {
-            this.flattened.push(arg);
+            this.pushField(arg);
           }
         }
         break;
       case 'boolean':
-        this.flattened.push(new Fr(arg ? 1n : 0n));
+        this.pushField(new Fr(arg ? 1n : 0n));
         break;
       case 'array':
         for (let i = 0; i < abiType.length; i += 1) {
@@ -44,7 +51,7 @@ class ArgumentEncoder {
         }
         break;
       case 'integer':
-        this.flattened.push(new Fr(arg));
+        this.pushField(new Fr(arg));
         break;
       default:
         throw new Error(`Unsupported type: ${abiType.kind}`);

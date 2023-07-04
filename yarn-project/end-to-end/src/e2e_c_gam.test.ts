@@ -6,6 +6,7 @@ import {
   ContractDeployer,
   ContractFunctionInteraction,
   Fr,
+  Point,
 } from '@aztec/aztec.js';
 import { CGamContractAbi } from '@aztec/noir-contracts/examples';
 import { DebugLogger } from '@aztec/foundation/log';
@@ -41,29 +42,45 @@ describe('e2e_c_gam_contract', () => {
     return contract;
   };
 
-  it('should call buy_pack and see notes', async () => {
-    const owner = await aztecRpcServer.getAccountPublicKey(accounts[0]);
-    const deployedContract = await deployContract();
+  const buyPackAndGetData = async (
+    deployedContract: Contract,
+    owner: Point,
+    account: AztecAddress,
+    logger: DebugLogger,
+  ): Promise<bigint[]> => {
     const seed = 1n;
     const tx: ContractFunctionInteraction = deployedContract.methods.buy_pack(seed, pointToPublicKey(owner));
-    await tx.send({ from: accounts[0] }).isMined();
+    await tx.send({ from: account }).isMined();
     logger(`We bought our pack!`);
     const cardData = await deployedContract.methods
       .get_pack_cards_unconstrained(seed, pointToPublicKey(owner))
-      .view({ from: accounts[0] });
-    // Test that we have received the expected card data
-    expect(cardData[0]).toBe([328682529145n, 657365058290n, 986047587435n]);
-  }, 30_000);
+      .view({ from: account });
+    return cardData[0];
+  };
 
-  it('should call create_game and see our storage slot filled', async () => {
+  it('should call buy_pack and see notes', async () => {
     const owner = await aztecRpcServer.getAccountPublicKey(accounts[0]);
     const deployedContract = await deployContract();
-    const tx: ContractFunctionInteraction = deployedContract.methods.create_game();
+    const cardData = await buyPackAndGetData(deployedContract, owner, accounts[0], logger);
+    // Test that we have received the expected card data
+    expect(cardData).toEqual([328682529145n, 657365058290n, 986047587435n]);
+  }, 30_000);
+
+  it('should call join_game and queue a public call', async () => {
+    const owner = await aztecRpcServer.getAccountPublicKey(accounts[0]);
+    const deployedContract = await deployContract();
+    const cardData = await buyPackAndGetData(deployedContract, owner, accounts[0], logger);
+    // Test that we have received the expected card data
+    expect(cardData).toEqual([328682529145n, 657365058290n, 986047587435n]);
+    const gameId = 1337n; // decided off-chain
+    const tx: ContractFunctionInteraction = deployedContract.methods.join_game(
+      gameId,
+      cardData,
+      pointToPublicKey(owner),
+      deployedContract.address.toField(),
+      deployedContract.methods.join_game_pub.selector,
+    );
     await tx.send({ from: accounts[0] }).isMined();
-    logger(`We created our game!`);
-    const gameIdStorageSlot = new Fr(2);
-    const storage = await aztecRpcServer.getStorageAt(deployedContract.address, gameIdStorageSlot);
-    logger({ storage });
   }, 30_000);
 
   // /**

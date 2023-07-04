@@ -44,7 +44,7 @@ contract CGam {
     //*********************************/
 
     //PublicState name has been used instead of StorageField  :(
-    global game_id: StorageField = StorageField {storage_slot: 2};
+    // global game_id: StorageField = StorageField {storage_slot: 2};
 
     fn constructor(
         inputs: PrivateContextInputs,
@@ -248,6 +248,7 @@ contract CGam {
         context
     }
 
+    // TODO should only be callable by join_game - how? check caller?
     open fn join_game_pub(game_id: Field, owner: Point, deck_strength: Field) {
         // we generate a user id:
         let user_id = game_players.at(game_id).read();
@@ -257,15 +258,14 @@ contract CGam {
         let mut idx = (game_id + user_id) as Field;
         idx = idx*(idx+1)/2 + game_id;
         let _4 = user_pub_key.at(idx).write(owner.x);
-
         
-        // store the player strenght
+        // store the player strength
         let user_hash = std::hash::pedersen([owner.x, game_id])[0];
         let _3 = deck_strength_storage.at(user_hash).write(deck_strength as Field);
         // user has not yet played
         let _2 = users_plays.at(user_hash).write(0);
 
-            if user_id == num_players.at(game_id).read() {
+        if user_id == num_players.at(game_id).read() {
             start_game(game_id);
         }
     }
@@ -304,20 +304,25 @@ contract CGam {
         }
         deck_strength = deck_strength / (MAX_CARDS as u32);
 
+        // Unroll our arguments
         let mut args = [0; abi::MAX_ARGS];
-        args[0] = 0;//? TODO targetValue;
+        args[0] = game_id;
+        args[1] = owner.x;
+        args[2] = owner.y;
+        args[3] = deck_strength as Field;
         let (_callStackItem, mut context2) = PublicCallStackItem::call(
             this_contract_address, 
             join_game_pub_selector, 
-            args, 
+            args,
             context
         );
 
-        // maps the user_id to its cards = user_deck
-        // TODO undo hacks
-        for i in 0..MAX_CARDS {
-            context2 = user_deck_insert(owner, game_id, i, i, user_cards, context2);
-        }
+        // TODO
+        // // maps the user_id to its cards = user_deck
+        // // TODO undo hacks
+        // for i in 0..MAX_CARDS {
+        //     context2 = user_deck_insert(owner, game_id, i, i, user_cards, context2);
+        // }
 
         //for i in 0..MAX_CARDS {
             //alternative; use a map to a set of notes
