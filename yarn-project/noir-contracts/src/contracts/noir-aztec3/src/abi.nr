@@ -1,12 +1,12 @@
 global MAX_ARGS: comptime Field = 16;
 global MAX_RETURN_VALUES: comptime Field = 4;
 global MAX_READ_REQUESTS: comptime Field = 4;
-global MAX_NEW_COMMITMENTS: comptime Field = 4;
+global MAX_NEW_COMMITMENTS: comptime Field = 16;
 global MAX_NEW_NULLIFIERS: comptime Field = 4;
 global MAX_PRIVATE_CALL_STACK : comptime Field = 4;
 global MAX_PUBLIC_CALL_STACK: comptime Field = 4;
 global MAX_L2_TO_L1_MSGS : comptime Field = 2;
-global PUBLIC_INPUTS_LENGTH : comptime Field = 43;
+global PUBLIC_INPUTS_LENGTH : comptime Field = 55;
 // global LOGS_HASH_SIZE: comptime Field = 2; // Stored in  2 fields in order to fit in all of the 256 bits of sha256 hash.
 global CONTRACT_STORAGE_UPDATE_REQUESTS_LENGTH : comptime Field = 4;
 global CONTRACT_STORAGE_READS_LENGTH : comptime Field = 4;
@@ -139,7 +139,7 @@ impl FunctionData {
 // + ARGS_HASH - 1
 // + MAX_RETURN_VALUES - 4
 // + MAX_READ_REQUESTS - 4
-// + MAX_NEW_COMMITMENTS - 4
+// + MAX_NEW_COMMITMENTS - 16
 // + MAX_NEW_NULLIFIERS - 4
 // + MAX_PRIVATE_CALL_STACK - 4
 // + MAX_PUBLIC_CALL_STACK - 4
@@ -151,8 +151,8 @@ impl FunctionData {
 // + contract_deployment_data - 4
 // + chain_id - 1
 // + version - 1
-// = 6 + 1 + 4 + 4 + 4 + 4 + 4  + 4 + 2 + 1 + 1 + 1 + 1 + 4 + 1 + 1
-// = 43
+// = 6 + 1 + 4 + 4 + 16 + 4 + 4  + 4 + 2 + 1 + 1 + 1 + 1 + 4 + 1 + 1
+// = 55
 struct PrivateCircuitPublicInputs {
     call_context: CallContext,
     args_hash: Field,
@@ -252,8 +252,8 @@ fn empty_contract_storage_update_request() -> ContractStorageUpdateRequest {
 // + MAX_L2_TO_L1_MSGS
 // + COMMITMENT_TREES_ROOTS_SIZE - 4
 // + 2;
-// = 6 + 1 + 4 + 4 * 3 + 4 * 2 + 4 + 4 + 4 + 2 + 4 + 2
-global PUBLIC_CIRCUIT_PUBLIC_INPUTS_SIZE: comptime Field = 51;
+// = 6 + 1 + 4 + 4 * 3 + 4 * 2 + 4 + 16 + 4 + 2 + 4 + 2
+global PUBLIC_CIRCUIT_PUBLIC_INPUTS_SIZE: comptime Field = 63;
 
 struct PublicCircuitPublicInputs {
     call_context: CallContext,
