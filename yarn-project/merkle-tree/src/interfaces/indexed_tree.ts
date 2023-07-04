@@ -1,4 +1,5 @@
 import { LowLeafWitnessData, SiblingPath } from '../index.js';
+import { AppendOnlyTree } from './append_only_tree.js';
 
 /**
  * A leaf of a tree.
@@ -21,7 +22,7 @@ export interface LeafData {
 /**
  * Indexed merkle tree.
  */
-export interface IndexedTree {
+export interface IndexedTree extends AppendOnlyTree {
   /**
    * Finds the index of the largest leaf whose value is less than or equal to the provided value.
    * @param newValue - The new value to be inserted into the tree.
