@@ -2,6 +2,11 @@ import { Fr } from '@aztec/foundation/fields';
 import { ABIType, FunctionAbi } from '@aztec/foundation/abi';
 
 /**
+ * The type of our decoded ABI.
+ */
+type DecodedReturn = bigint | boolean | DecodedReturn[];
+
+/**
  * Decodes return values from a function call.
  * Missing support for integer and string.
  */
@@ -13,7 +18,7 @@ class ReturnValuesDecoder {
    * @param abiType - The type of the return value.
    * @returns The decoded return value.
    */
-  private decodeReturn(abiType: ABIType): any {
+  private decodeReturn(abiType: ABIType): DecodedReturn {
     switch (abiType.kind) {
       case 'field':
         return this.getNextField().value;
@@ -24,7 +29,7 @@ class ReturnValuesDecoder {
         for (let i = 0; i < abiType.length; i += 1) {
           array.push(this.decodeReturn(abiType.type));
         }
-        break;
+        return array;
       }
       case 'struct': {
         const struct: any = {};
@@ -33,9 +38,8 @@ class ReturnValuesDecoder {
         }
         break;
       }
-      default:
-        throw new Error(`Unsupported type: ${abiType.kind}`);
     }
+    throw new Error(`Unsupported type: ${abiType.kind}`);
   }
 
   /**
