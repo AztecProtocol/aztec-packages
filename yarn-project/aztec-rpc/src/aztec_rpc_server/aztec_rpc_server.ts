@@ -302,6 +302,53 @@ export class AztecRPCServer implements AztecRPC {
     return tx;
   }
 
+  public async getDeploymentAddress(
+    abi: ContractAbi,
+    args: any[],
+    portalContract: EthAddress,
+    contractAddressSalt: Fr,
+    pubKey: PublicKey,
+  ): Promise<[AztecAddress, PartialContractAddress]> {
+    const constructorAbi = abi.functions.find(f => f.name === 'constructor');
+    if (!constructorAbi) {
+      throw new Error('Cannot find constructor in the ABI.');
+    }
+
+    const flatArgs = encodeArguments(constructorAbi, args);
+    const contractTree = await ContractTree.new(abi, flatArgs, portalContract, contractAddressSalt, pubKey, this.node);
+    const { vkHash } = contractTree.newContractConstructor!;
+    const functionTreeRoot = await contractTree.getFunctionTreeRoot();
+    const constructorHash = Fr.fromBuffer(vkHash);
+
+    const wasm = await CircuitsWasm.get();
+    const partialContractAddress = computePartialContractAddress(
+      wasm,
+      contractAddressSalt,
+      functionTreeRoot,
+      constructorHash,
+    );
+
+    const contract = contractTree.contract;
+    return [contract.address, partialContractAddress];
+  }
+
+  /**
+   * Simulate a tx request and return the tx ready to be sent.
+   * @param txRequest - The request.
+   * @returns A tx ready to be sent.
+   */
+  public async simulateTx(txRequest: TxExecutionRequest): Promise<Tx> {
+    const account = this.#ensureAccountOrDefault(txRequest.origin);
+    const tx = await account.simulateAndProve(txRequest, undefined);
+    // TODO: Review what's in a TxDao, do from and to still make sense?
+    // TODO: Should we store the tx in the db now, or when sending it?
+    await this.db.addTx(
+      new TxDao(await tx.getTxHash(), undefined, undefined, account.getAddress(), txRequest.origin, undefined, ''),
+    );
+
+    return tx;
+  }
+
   // TODO: Store the kind of account in account state
   #getAccountImplementation(accountState: AccountState, contract: ContractDao | undefined) {
     const address = accountState.getAddress();

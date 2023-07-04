@@ -8,6 +8,7 @@ import {
   L2BlockL2Logs,
   PartialContractAddress,
   Tx,
+  TxExecutionRequest,
   TxHash,
 } from '@aztec/types';
 import { TxReceipt } from '../tx/index.js';
@@ -46,6 +47,13 @@ export interface AztecRPC {
     abi?: ContractAbi,
   ): Promise<AztecAddress>;
   getMessageHash(secret: Fr): Promise<Fr>;
+  getDeploymentAddress(
+    abi: ContractAbi,
+    args: any[],
+    portalContract: EthAddress,
+    contractAddressSalt: Fr,
+    deployerPublicKey: PublicKey,
+  ): Promise<[AztecAddress, PartialContractAddress]>;
   getAccounts(): Promise<AztecAddress[]>;
   getAccountPublicKey(address: AztecAddress): Promise<Point>;
   addContracts(contracts: DeployedContract[]): Promise<void>;
@@ -64,6 +72,7 @@ export interface AztecRPC {
     from?: AztecAddress,
   ): Promise<ContractDeploymentTx>;
   createTx(functionName: string, args: any[], to: AztecAddress, from?: AztecAddress): Promise<Tx>;
+  simulateTx(txRequest: TxExecutionRequest): Promise<Tx>;
   sendTx(tx: Tx): Promise<TxHash>;
   getTxReceipt(txHash: TxHash): Promise<TxReceipt>;
   getStorageAt(contract: AztecAddress, storageSlot: Fr): Promise<any>;
