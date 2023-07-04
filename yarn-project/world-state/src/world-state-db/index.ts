@@ -20,7 +20,7 @@ export type PublicTreeId = MerkleTreeId.PUBLIC_DATA_TREE;
  * The tree must be initially padded as the pre-populated 0 index prevents efficient subtree insertion.
  * Padding with some values solves this issue.
  */
-export const INITIAL_NULLIFIER_TREE_SIZE = 8;
+export const INITIAL_NULLIFIER_TREE_SIZE = 32;
 
 /**
  *  Defines tree information.
