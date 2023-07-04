@@ -24,6 +24,7 @@ class ArgumentEncoder {
    * @param arg - The value to encode.
    */
   private encodeArgument(abiType: ABIType, arg: any) {
+    if (arg === undefined || arg == null) throw new Error(`Undefined argument of type ${abiType.kind}`);
     switch (abiType.kind) {
       case 'field':
         if (typeof arg === 'number') {
