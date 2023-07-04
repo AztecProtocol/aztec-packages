@@ -13,7 +13,7 @@ library Constants {
     21888242871839275222246405745257275088548364400416034343698204186575808495617;
 
   // Constants used for decoding rollup blocks
-  // TODO: Why are the following constants not named similar to the cpp?
+  // TODO(962): Make this constant consistent across the codebase.
   uint256 internal constant COMMITMENTS_PER_KERNEL = 16;
   uint256 internal constant NULLIFIERS_PER_KERNEL = 4;
   uint256 internal constant PUBLIC_DATA_WRITES_PER_KERNEL = 4;

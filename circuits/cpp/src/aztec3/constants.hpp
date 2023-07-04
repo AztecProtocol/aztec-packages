@@ -3,6 +3,12 @@
 
 namespace aztec3 {
 
+/**
+ * @brief Computes log2 at compile-time for inputs of the form 2^n.
+ *
+ * @param input
+ * @return ⌈ log₂(input) ⌉
+ */
 constexpr size_t log2(size_t input)
 {
     return (input < 2) ? 0 : 1 + log2(input / 2);
@@ -15,6 +21,18 @@ constexpr size_t RETURN_VALUES_LENGTH = 4;
 
 constexpr size_t READ_REQUESTS_LENGTH = 4;
 
+
+/**
+ * Note: The number of commitments that 1 function call can output is: NEW_COMMITMENTS_LENGTH = 4. The number of
+ * nullifiers that 1 function call can output is: NEW_NULLIFIERS_LENGTH = 4. This is different from
+ * KERNEL_NEW_COMMITMENTS_LENGTH and KERNEL_NEW_NULLIFIERS_LENGTH because, in the kernel circuits, we accumulate the
+ * commitments and the nullifiers from all functions calls in a transaction. Therefore, we always must have:
+ *
+ * KERNEL_NEW_COMMITMENTS_LENGTH ≥ NEW_COMMITMENTS_LENGTH
+ * KERNEL_NEW_NULLIFIERS_LENGTH ≥ NEW_NULLIFIERS_LENGTH
+ *
+ */
+// TODO(962): Rename this to `COMMITMENTS_PER_KERNEL` and make it consistent across the codebase.
 constexpr size_t NEW_COMMITMENTS_LENGTH = 4;
 constexpr size_t NEW_NULLIFIERS_LENGTH = 4;
 
@@ -45,6 +63,7 @@ constexpr size_t L1_TO_L2_MSG_TREE_HEIGHT = 8;
 constexpr size_t CONTRACT_SUBTREE_DEPTH = 1;
 constexpr size_t CONTRACT_SUBTREE_INCLUSION_CHECK_DEPTH = CONTRACT_TREE_HEIGHT - CONTRACT_SUBTREE_DEPTH;
 
+// TODO(961): Use this constant everywhere instead of hard-coded "2".
 constexpr size_t KERNELS_PER_ROLLUP = 2;
 constexpr size_t PRIVATE_DATA_SUBTREE_DEPTH =
     static_cast<size_t>(log2(KERNELS_PER_ROLLUP * KERNEL_NEW_COMMITMENTS_LENGTH));
