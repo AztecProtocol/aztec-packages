@@ -366,8 +366,8 @@ export class StandardIndexedTree extends TreeBase implements IndexedTree {
    *
    * Algorithm overview
    *
-   * In general, if we want to batch insert items, we first to update their low nullifier to point to them,
-   * then batch insert all of the values as at once in the final step.
+   * In general, if we want to batch insert items, we first need to update their low nullifier to point to them,
+   * then batch insert all of the values at once in the final step.
    * To update a low nullifier, we provide an insertion proof that the low nullifier currently exists to the
    * circuit, then update the low nullifier.
    * Updating this low nullifier will in turn change the root of the tree. Therefore future low nullifier insertion proofs
@@ -422,7 +422,7 @@ export class StandardIndexedTree extends TreeBase implements IndexedTree {
    *  nextVal   2      10      15       0         3       5       -       -
    *
    * Inserting 20: (happy path)
-   * 1. Find the low nullifier (15) - provide inculsion proof
+   * 1. Find the low nullifier (15) - provide inclusion proof
    * 2. Update its pointers
    * 3. Insert 20 into the pending subtree
    *
@@ -494,7 +494,7 @@ export class StandardIndexedTree extends TreeBase implements IndexedTree {
 
       const indexOfPrevious = this.findIndexOfPreviousValue(newValue, true);
 
-      // If a touched node has a value that is less greater than the current value
+      // If a touched node has a value that is less than the current value
       const prevNodes = touched.get(indexOfPrevious.index);
       if (prevNodes && prevNodes.some(v => v < newValue)) {
         // check the pending low nullifiers for a low nullifier that works

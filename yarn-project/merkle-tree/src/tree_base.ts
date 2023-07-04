@@ -61,7 +61,7 @@ export abstract class TreeBase implements MerkleTree {
 
   /**
    * Returns the root of the tree.
-   * @param includeUncommitted - If true, root incorporating uncomitted changes is returned.
+   * @param includeUncommitted - If true, root incorporating uncommitted changes is returned.
    * @returns The root of the tree.
    */
   public getRoot(includeUncommitted: boolean): Buffer {
@@ -70,7 +70,7 @@ export abstract class TreeBase implements MerkleTree {
 
   /**
    * Returns the number of leaves in the tree.
-   * @param includeUncommitted - If true, the returned number of leaves includes uncomitted changes.
+   * @param includeUncommitted - If true, the returned number of leaves includes uncommitted changes.
    * @returns The number of leaves in the tree.
    */
   public getNumLeaves(includeUncommitted: boolean) {
@@ -224,7 +224,7 @@ export abstract class TreeBase implements MerkleTree {
    * Initializes the tree from the database.
    */
   public async initFromDb(): Promise<void> {
-    // Implemented only by Inedexed Tree to populate the leaf cache.
+    // Implemented only by Indexed Tree to populate the leaf cache.
   }
 
   /**
