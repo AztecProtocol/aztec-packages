@@ -135,8 +135,8 @@ contract ZkToken {
 
         // Get the set of notes owned by the user.
         let owner_balance = storage.balances.at(owner.x);
-        
+
         // Return the sum of all notes in the set.
-        balance_utils::get_balance(owner_balance.storage_slot, 0)
+        balance_utils::get_balance(owner_balance.storage_slot)
     }
 }

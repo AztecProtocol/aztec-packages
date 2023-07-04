@@ -289,7 +289,7 @@ contract NonNativeToken {
         let storage = Storage::init();
         let owner_balance = storage.balances.at(owner.x);
         
-        balance_utils::get_balance(owner_balance.storage_slot, 0)
+        balance_utils::get_balance(owner_balance.storage_slot)
     }
 
     // Computes a content hash of a deposit/mint message.

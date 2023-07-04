@@ -2,6 +2,8 @@ use crate::abi::MAX_READ_REQUESTS;
 use crate::types::point::Point;
 use crate::utils::arr_copy_slice;
 
+// TODO: Replace returned number of notes (MAX_READ_REQUESTS) with a larger global value.
+
 #[oracle(notifyCreatedNote)]
 fn notify_created_note_oracle<N>(
     _storage_slot: Field,
@@ -80,6 +82,36 @@ fn get_notes<Note, N, S, P>(
 ) -> [Note; S] {
     let notes = get_max_notes(storage_slot, deserialise, dummy, sort_by, sort_order, skip);
     filter(notes, filter_args)
+}
+
+#[oracle(viewNotesPage)]
+fn view_notes_oracle(
+    _storage_slot: Field,
+    _limit: Field,
+    _offset: Field,
+) -> [Field; 61] {}
+
+unconstrained fn view_notes_oracle_wrapper(_storage_slot: Field, _limit: u32, _offset: u32)-> [Field; 61] {
+    view_notes_oracle(_storage_slot, _limit as Field, _offset as Field)
+}
+
+fn view_notes<Note, N, S>(
+    storage_slot: Field,
+    deserialise: fn ([Field; N]) -> Note,
+    dummy: fn () -> Note,
+    limit: u32,
+    offset: u32,
+    init_arr: fn (Note) -> [Note; S], // TODO: Remove it.
+) -> [Note; S] {
+    let mut notes = init_arr(dummy());
+    let fields = view_notes_oracle_wrapper(storage_slot, limit, offset);
+    for i in 0..notes.len() {
+        let read_offset: comptime Field = 1 + i * N;
+        let preimage = arr_copy_slice(fields, [0; N], read_offset);
+        let note = deserialise(preimage);
+        notes[i] = note;
+    };
+    notes
 }
 
 unconstrained fn is_nullifier_emitted(nullifier: Field) -> bool {
