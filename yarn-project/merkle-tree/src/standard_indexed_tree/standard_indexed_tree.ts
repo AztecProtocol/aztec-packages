@@ -309,13 +309,14 @@ export class StandardIndexedTree extends TreeBase implements IndexedTree {
    * Updates a leaf in the tree.
    * @param leaf - New contents of the leaf.
    * @param index - Index of the leaf to be updated.
+   * @param hash0Leaf - Whether the leaf should be hashed when value is 0.
    */
-  private async updateLeaf(leaf: LeafData, index: bigint) {
+  private async updateLeaf(leaf: LeafData, index: bigint, hash0Leaf = false) {
     if (index > this.maxIndex) {
       throw Error(`Index out of bounds. Index ${index}, max index: ${this.maxIndex}.`);
     }
 
-    const encodedLeaf = this.encodeLeaf(leaf);
+    const encodedLeaf = this.encodeLeaf(leaf, hash0Leaf);
     await this.addLeafToCacheAndHashToRoot(encodedLeaf, index);
     const numLeaves = this.getNumLeaves(true);
     if (index >= numLeaves) {
@@ -542,7 +543,7 @@ export class StandardIndexedTree extends TreeBase implements IndexedTree {
 
         const lowLeafIndex = indexOfPrevious.index;
         this.cachedLeaves[lowLeafIndex] = lowLeaf;
-        await this.updateLeaf(lowLeaf, BigInt(lowLeafIndex));
+        await this.updateLeaf(lowLeaf, BigInt(lowLeafIndex), true);
       }
     }
 
@@ -572,15 +573,15 @@ export class StandardIndexedTree extends TreeBase implements IndexedTree {
 
     const serialisedLeaves = leaves.map((leaf, i) => {
       this.cachedLeaves[startInsertionIndex + i] = leaf;
-      return this.encodeLeaf(leaf);
+      return this.encodeLeaf(leaf, true);
     });
 
     await super.appendLeaves(serialisedLeaves);
   }
-  
-  private encodeLeaf(leaf: LeafData): Buffer {
+
+  private encodeLeaf(leaf: LeafData, hash0Leaf = false): Buffer {
     let encodedLeaf;
-    if (leaf.value == 0n) {
+    if (hash0Leaf && leaf.value == 0n) {
       encodedLeaf = toBufferBE(0n, 32);
     } else {
       encodedLeaf = this.hasher.compressInputs(
