@@ -4,7 +4,7 @@ import { ABIType, FunctionAbi } from '@aztec/foundation/abi';
 /**
  * The type of our decoded ABI.
  */
-type DecodedReturn = bigint | boolean | DecodedReturn[];
+type DecodedReturn = bigint | boolean | DecodedReturn[] | Record<string, DecodedReturn>;
 
 /**
  * Decodes return values from a function call.
@@ -32,7 +32,7 @@ class ReturnValuesDecoder {
         return array;
       }
       case 'struct': {
-        const struct: any = {};
+        const struct: Record<string, DecodedReturn> = {};
         for (const field of abiType.fields) {
           struct[field.name] = this.decodeReturn(field.type);
         }
