@@ -55,6 +55,7 @@ export interface AztecRPC {
     deployerPublicKey: PublicKey,
   ): Promise<[AztecAddress, PartialContractAddress]>;
   getAccounts(): Promise<AztecAddress[]>;
+  getAccountImplementation(address?: AztecAddress): Promise<ContractAbi>;
   getAccountPublicKey(address: AztecAddress): Promise<Point>;
   addContracts(contracts: DeployedContract[]): Promise<void>;
   /**
@@ -71,8 +72,7 @@ export interface AztecRPC {
     deployerPublicKey?: PublicKey,
     from?: AztecAddress,
   ): Promise<ContractDeploymentTx>;
-  createTx(functionName: string, args: any[], to: AztecAddress, from?: AztecAddress): Promise<Tx>;
-  simulateTx(txRequest: TxExecutionRequest): Promise<Tx>;
+  simulateTx(txRequest: TxExecutionRequest, optionalFromAddress?: AztecAddress): Promise<Tx>;
   sendTx(tx: Tx): Promise<TxHash>;
   getTxReceipt(txHash: TxHash): Promise<TxReceipt>;
   getStorageAt(contract: AztecAddress, storageSlot: Fr): Promise<any>;

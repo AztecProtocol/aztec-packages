@@ -98,7 +98,7 @@ export class AcirSimulator {
       throw new Error(`Cannot run ${entryPointABI.functionType} function as constrained`);
     }
     const callContext = new CallContext(
-      request.from,
+      request.from!,
       contractAddress,
       portalContractAddress,
       false,

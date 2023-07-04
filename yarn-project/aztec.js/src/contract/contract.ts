@@ -37,11 +37,11 @@ export class Contract {
      * The Application Binary Interface for the contract.
      */
     public readonly abi: ContractAbi,
-    private arc: AztecRPC,
+    private wallet: AztecRPC,
   ) {
     abi.functions.forEach((f: FunctionAbi) => {
       const interactionFunction = (...args: any[]) => {
-        return new ContractFunctionInteraction(this.arc, this.address!, f.name, args, f.functionType);
+        return new ContractFunctionInteraction(this.wallet, this.address!, f, args);
       };
       this.methods[f.name] = Object.assign(interactionFunction, {
         /**
@@ -71,6 +71,6 @@ export class Contract {
       address: this.address,
       portalContract,
     };
-    return this.arc.addContracts([deployedContract, ...dependencies]);
+    return this.wallet.addContracts([deployedContract, ...dependencies]);
   }
 }

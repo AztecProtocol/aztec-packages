@@ -1,6 +1,11 @@
-import { AztecRPC, Tx, TxHash } from '@aztec/aztec-rpc';
-import { AztecAddress, Fr } from '@aztec/circuits.js';
-import { FunctionType } from '@aztec/foundation/abi';
+import { encodeArguments } from '@aztec/acir-simulator';
+import { AztecRPC, generateFunctionSelector, Tx, TxHash } from '@aztec/aztec-rpc';
+import { ARGS_LENGTH, AztecAddress, Fr, FunctionData, TxContext } from '@aztec/circuits.js';
+import { FunctionType, FunctionAbi } from '@aztec/foundation/abi';
+import { padArrayEnd } from '@aztec/foundation/collection';
+import { ExecutionRequest, TxExecutionRequest } from '@aztec/types';
+import partition from 'lodash.partition';
+import times from 'lodash.times';
 import { SentTx } from './sent_tx.js';
 
 /**
@@ -35,13 +40,13 @@ export interface ViewMethodOptions {
  */
 export class ContractFunctionInteraction {
   protected tx?: Tx;
+  protected executionRequest?: ExecutionRequest;
 
   constructor(
-    protected arc: AztecRPC,
+    protected wallet: AztecRPC,
     protected contractAddress: AztecAddress,
-    protected functionName: string,
+    protected functionDao: FunctionAbi,
     protected args: any[],
-    protected functionType: FunctionType,
   ) {}
 
   /**
@@ -53,12 +58,40 @@ export class ContractFunctionInteraction {
    * @param options - An optional object containing additional configuration for the transaction.
    * @returns A Promise that resolves to a transaction instance.
    */
-  public async create(options: SendMethodOptions = {}) {
-    if (this.functionType === FunctionType.UNCONSTRAINED) {
+  public createTxRequest(options: SendMethodOptions = {}): ExecutionRequest {
+    if (this.functionDao.functionType === FunctionType.UNCONSTRAINED) {
       throw new Error("Can't call `create` on an unconstrained function.");
     }
-    this.tx = await this.arc.createTx(this.functionName, this.args, this.contractAddress, options.from);
-    return this.tx;
+
+    this.executionRequest = this.#getExecutionRequest(this.contractAddress, options.from);
+    // new Contract(LotteryABI) -- Contract Class
+    // new Contract(LotteryABI).payWinnings() -- TxExecutionRequest
+    //  ---------------------------------
+    // new Contract(LotteryABI).payWinnings().simulate() -- Tx (Via RPC Server) -- need new method to simulate as contract
+    // new Contract(LotteryABI).payWinnings().simulate().send() -- TxReceipt (Via RPC Server)
+
+    // const call1 = new Contract(ERC20ABI).transfer() -- TxExecutionRequest
+    // const walletCall = new Contract(WalletAbi).entryPoint().simulate();
+    // const walletCall = new Contract(WalletAbi).entryPoint().simulate();
+
+    return this.executionRequest;
+  }
+
+  #getExecutionRequest(to: AztecAddress, from?: AztecAddress): ExecutionRequest {
+    const flatArgs = encodeArguments(this.functionDao, this.args);
+
+    const functionData = new FunctionData(
+      generateFunctionSelector(this.functionDao.name, this.functionDao.parameters),
+      this.functionDao.functionType === FunctionType.SECRET,
+      false,
+    );
+
+    return {
+      args: flatArgs,
+      functionData,
+      to,
+      from: from || AztecAddress.ZERO,
+    };
   }
 
   /**
@@ -72,18 +105,45 @@ export class ContractFunctionInteraction {
    * @returns A SentTx instance for tracking the transaction status and information.
    */
   public send(options: SendMethodOptions = {}) {
-    if (this.functionType === FunctionType.UNCONSTRAINED) {
+    if (this.functionDao.functionType === FunctionType.UNCONSTRAINED) {
       throw new Error("Can't call `send` on an unconstrained function.");
     }
 
     let promise: Promise<TxHash>;
     if (this.tx) {
-      promise = this.arc.sendTx(this.tx);
+      promise = this.wallet.sendTx(this.tx);
     } else {
-      promise = (async () => this.arc.sendTx(await this.create(options)))();
+      promise = (async () => {
+        const executions = [this.createTxRequest(options)];
+        // TODO
+        // this.checkIsNotDeployment(txContext);
+
+        const [privateCalls, publicCalls] = partition(executions, exec => exec.functionData.isPrivate).map(execs =>
+          execs.map(exec => ({
+            args: exec.args,
+            selector: exec.functionData.functionSelectorBuffer,
+            target: exec.to,
+          })),
+        );
+
+        const payload = buildPayload(privateCalls, publicCalls);
+
+        const functionPayload = await this.authProvider.authenticateTx(payload, this.contractAddress);
+        const txContext = TxContext.empty(await this.wallet.getNodeInfo(), await this.wallet.getVersion());
+        const selector = generateFunctionSelector(this.functionDao.name, this.functionDao.parameters);
+        const txRequest = TxExecutionRequest.from({
+          args: functionPayload,
+          origin: this.contractAddress,
+          functionData: new FunctionData(selector, true, false),
+          txContext,
+        });
+
+        const tx = await this.wallet.simulateTx(txRequest);
+        return this.wallet.sendTx(tx);
+      })();
     }
 
-    return new SentTx(this.arc, promise);
+    return new SentTx(this.wallet, promise);
   }
 
   /**
@@ -95,11 +155,60 @@ export class ContractFunctionInteraction {
    * @returns The result of the view transaction as returned by the contract function.
    */
   public view(options: ViewMethodOptions = {}) {
-    if (this.functionType !== FunctionType.UNCONSTRAINED) {
+    if (this.functionDao.functionType !== FunctionType.UNCONSTRAINED) {
       throw new Error('Can only call `view` on an unconstrained function.');
     }
 
     const { from } = options;
-    return this.arc.viewTx(this.functionName, this.args, this.contractAddress, from);
+    return this.wallet.viewTx(this.functionDao.name, this.args, this.contractAddress, from);
   }
+}
+
+const ACCOUNT_MAX_PRIVATE_CALLS = 1;
+const ACCOUNT_MAX_PUBLIC_CALLS = 1;
+
+/** A call to a function in a noir contract */
+export type FunctionCall = {
+  /** The encoded arguments */
+  args: Fr[];
+  /** The function selector */
+  selector: Buffer;
+  /** The address of the contract */
+  target: AztecAddress;
+};
+
+/** Encoded payload for the account contract entrypoint */
+export type EntrypointPayload = {
+  // eslint-disable-next-line camelcase
+  /** Concatenated arguments for every call */
+  flattened_args: Fr[];
+  // eslint-disable-next-line camelcase
+  /** Concatenated selectors for every call */
+  flattened_selectors: Fr[];
+  // eslint-disable-next-line camelcase
+  /** Concatenated target addresses for every call */
+  flattened_targets: Fr[];
+  /** A nonce for replay protection */
+  nonce: Fr;
+};
+
+/** Assembles an entrypoint payload from a set of private and public function calls */
+function buildPayload(privateCalls: FunctionCall[], publicCalls: FunctionCall[]): EntrypointPayload {
+  const nonce = Fr.random();
+  const emptyCall = { args: times(ARGS_LENGTH, Fr.zero), selector: Buffer.alloc(32), target: AztecAddress.ZERO };
+
+  const calls = [
+    ...padArrayEnd(privateCalls, emptyCall, ACCOUNT_MAX_PRIVATE_CALLS),
+    ...padArrayEnd(publicCalls, emptyCall, ACCOUNT_MAX_PUBLIC_CALLS),
+  ];
+
+  return {
+    // eslint-disable-next-line camelcase
+    flattened_args: calls.flatMap(call => padArrayEnd(call.args, Fr.ZERO, ARGS_LENGTH)),
+    // eslint-disable-next-line camelcase
+    flattened_selectors: calls.map(call => Fr.fromBuffer(call.selector)),
+    // eslint-disable-next-line camelcase
+    flattened_targets: calls.map(call => call.target.toField()),
+    nonce,
+  };
 }
