@@ -1,5 +1,4 @@
 import {
-  ARGS_LENGTH,
   CallContext,
   CircuitsWasm,
   ContractDeploymentData,
@@ -16,7 +15,6 @@ import { Grumpkin, pedersenPlookupCommitInputs } from '@aztec/circuits.js/barret
 import { FunctionAbi } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
-import { padArrayEnd } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
@@ -29,7 +27,7 @@ import {
   TestContractAbi,
   ZkTokenContractAbi,
 } from '@aztec/noir-contracts/examples';
-import { TxExecutionRequest } from '@aztec/types';
+import { PackedArguments, TxExecutionRequest } from '@aztec/types';
 import { mock } from 'jest-mock-extended';
 import { default as levelup } from 'levelup';
 import { default as memdown, type MemDown } from 'memdown';
@@ -51,18 +49,21 @@ describe('Private Execution test suite', () => {
   const contractDeploymentData = ContractDeploymentData.empty();
   const txContext = new TxContext(false, false, false, contractDeploymentData, new Fr(69), new Fr(420));
 
-  const buildTxExecutionRequest = (args: {
+  const buildTxExecutionRequest = async (args: {
     abi: FunctionAbi;
     origin?: AztecAddress;
     isConstructor?: boolean;
     args: any[];
-  }) =>
-    TxExecutionRequest.from({
+  }) => {
+    const packedArguments = await PackedArguments.fromArgs(encodeArguments(args.abi, args.args), circuitsWasm);
+    return TxExecutionRequest.from({
       origin: args.origin ?? AztecAddress.ZERO,
-      args: encodeArguments(args.abi, args.args),
+      argsHash: packedArguments.hash,
       functionData: new FunctionData(Buffer.alloc(4), true, args.isConstructor),
       txContext,
+      packedArguments: [packedArguments],
     });
+  };
 
   beforeAll(async () => {
     circuitsWasm = await CircuitsWasm.get();
@@ -76,15 +77,12 @@ describe('Private Execution test suite', () => {
 
   describe('empty constructor', () => {
     it('should run the empty constructor', async () => {
-      const txRequest = new TxExecutionRequest(
-        AztecAddress.ZERO,
-        new FunctionData(Buffer.alloc(4), true, true),
-        new Array(ARGS_LENGTH).fill(Fr.ZERO),
-        txContext,
-      );
+      const abi = TestContractAbi.functions[0];
+      const txRequest = await buildTxExecutionRequest({ args: [], abi, isConstructor: true });
+
       const result = await acirSimulator.run(
         txRequest,
-        TestContractAbi.functions[0],
+        abi,
         AztecAddress.ZERO,
         EthAddress.ZERO,
         historicRoots,
@@ -120,7 +118,7 @@ describe('Private Execution test suite', () => {
       const contractAddress = AztecAddress.random();
       const abi = ZkTokenContractAbi.functions.find(f => f.name === 'constructor')!;
 
-      const txRequest = buildTxExecutionRequest({ args: [140, owner], abi, isConstructor: true });
+      const txRequest = await buildTxExecutionRequest({ args: [140, owner], abi, isConstructor: true });
       const result = await acirSimulator.run(
         txRequest,
         abi,
@@ -147,7 +145,7 @@ describe('Private Execution test suite', () => {
       const contractAddress = AztecAddress.random();
       const abi = ZkTokenContractAbi.functions.find(f => f.name === 'mint')!;
 
-      const txRequest = buildTxExecutionRequest({ origin: contractAddress, args: [140, owner], abi });
+      const txRequest = await buildTxExecutionRequest({ origin: contractAddress, args: [140, owner], abi });
       const result = await acirSimulator.run(
         txRequest,
         abi,
@@ -209,7 +207,7 @@ describe('Private Execution test suite', () => {
       oracle.getSecretKey.mockReturnValue(Promise.resolve(ownerPk));
 
       const args = [amountToTransfer, owner, recipient];
-      const txRequest = buildTxExecutionRequest({ origin: contractAddress, args, abi });
+      const txRequest = await buildTxExecutionRequest({ origin: contractAddress, args, abi });
 
       const result = await acirSimulator.run(
         txRequest,
@@ -297,7 +295,7 @@ describe('Private Execution test suite', () => {
       oracle.getSecretKey.mockReturnValue(Promise.resolve(ownerPk));
 
       const args = [amountToTransfer, owner, recipient];
-      const txRequest = buildTxExecutionRequest({ origin: contractAddress, args, abi });
+      const txRequest = await buildTxExecutionRequest({ origin: contractAddress, args, abi });
       const result = await acirSimulator.run(
         txRequest,
         abi,
@@ -326,7 +324,7 @@ describe('Private Execution test suite', () => {
     it('child function should be callable', async () => {
       const initialValue = 100n;
       const abi = ChildAbi.functions.find(f => f.name === 'value')!;
-      const txRequest = buildTxExecutionRequest({ args: [initialValue], abi });
+      const txRequest = await buildTxExecutionRequest({ args: [initialValue], abi });
       const result = await acirSimulator.run(
         txRequest,
         abi,
@@ -337,7 +335,7 @@ describe('Private Execution test suite', () => {
       );
 
       expect(result.callStackItem.publicInputs.returnValues[0]).toEqual(new Fr(initialValue + privateIncrement));
-    });
+    }, 30_000);
 
     it('parent should call child', async () => {
       const childAbi = ChildAbi.functions.find(f => f.name === 'value')!;
@@ -350,7 +348,7 @@ describe('Private Execution test suite', () => {
       oracle.getPortalContractAddress.mockImplementation(() => Promise.resolve(EthAddress.ZERO));
 
       const args = [Fr.fromBuffer(childAddress.toBuffer()), Fr.fromBuffer(childSelector)];
-      const txRequest = buildTxExecutionRequest({ args, abi: parentAbi, origin: parentAddress });
+      const txRequest = await buildTxExecutionRequest({ args, abi: parentAbi, origin: parentAddress });
 
       logger(`Parent deployed at ${parentAddress.toShortString()}`);
       logger(`Calling child function ${childSelector.toString('hex')} at ${childAddress.toShortString()}`);
@@ -425,7 +423,7 @@ describe('Private Execution test suite', () => {
       });
 
       const args = [bridgedAmount, recipient, recipient.x, messageKey, secret, canceller.toField()];
-      const txRequest = buildTxExecutionRequest({ origin: contractAddress, abi, args });
+      const txRequest = await buildTxExecutionRequest({ origin: contractAddress, abi, args });
       const result = await acirSimulator.run(
         txRequest,
         abi,
@@ -478,7 +476,11 @@ describe('Private Execution test suite', () => {
         });
       });
 
-      const txRequest = buildTxExecutionRequest({ origin: contractAddress, abi, args: [amount, secret, recipient] });
+      const txRequest = await buildTxExecutionRequest({
+        origin: contractAddress,
+        abi,
+        args: [amount, secret, recipient],
+      });
       const result = await acirSimulator.run(
         txRequest,
         abi,
@@ -510,7 +512,7 @@ describe('Private Execution test suite', () => {
       oracle.getPortalContractAddress.mockImplementation(() => Promise.resolve(childPortalContractAddress));
 
       const args = [Fr.fromBuffer(childAddress.toBuffer()), Fr.fromBuffer(childSelector), 42n];
-      const txRequest = buildTxExecutionRequest({ origin: parentAddress, abi: parentAbi, args });
+      const txRequest = await buildTxExecutionRequest({ origin: parentAddress, abi: parentAbi, args });
       const result = await acirSimulator.run(
         txRequest,
         parentAbi,
@@ -525,7 +527,7 @@ describe('Private Execution test suite', () => {
         PublicCallRequest.from({
           contractAddress: childAddress,
           functionData: new FunctionData(childSelector, false, false),
-          args: padArrayEnd([new Fr(42n)], Fr.ZERO, ARGS_LENGTH),
+          args: [new Fr(42n)],
           callContext: CallContext.from({
             msgSender: parentAddress,
             storageContractAddress: childAddress,

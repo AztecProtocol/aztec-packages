@@ -28,8 +28,7 @@ contract ZkToken {
         owner: Point,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
         let storage = Storage::init();
-        let mut context = Context::new();
-        context.args = context.args.push_array([initial_supply, owner.x, owner.y]);
+        let mut context = Context::new(inputs, abi::hash_args([initial_supply, owner.x, owner.y]));
 
         let owner_balance = storage.balances.at(owner.x);
         let note = ValueNote::new(initial_supply, owner);
@@ -41,7 +40,7 @@ contract ZkToken {
         context = emit_unencrypted_log(context, "Balance set in constructor");
 
         // Return private circuit public inputs. All private functions need to return this as it is part of the input of the private kernel.
-        context.finish(inputs)
+        context.finish()
     }
 
     // Mints `amount` of tokens to `owner`.
@@ -54,8 +53,7 @@ contract ZkToken {
         owner: Point,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
         let storage = Storage::init();
-        let mut context = Context::new();
-        context.args = context.args.push_array([amount, owner.x, owner.y]);
+        let mut context = Context::new(inputs, abi::hash_args([amount, owner.x, owner.y]));
 
         let owner_balance = storage.balances.at(owner.x);
         let note = ValueNote::new(amount, owner);
@@ -67,7 +65,7 @@ contract ZkToken {
         context = emit_unencrypted_log(context, "Coins minted");
 
         // Return private circuit public inputs. All private functions need to return this as it is part of the input of the private kernel..
-        context.finish(inputs)
+        context.finish()
     }
 
     // Transfers `amount` of tokens from `sender` to a `recipient`.
@@ -81,8 +79,7 @@ contract ZkToken {
         recipient: Point,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
         let storage = Storage::init();
-        let mut initialContext = Context::new();
-        initialContext.args = initialContext.args.push_array([amount, sender.x, sender.y, recipient.x, recipient.y]);
+        let mut initialContext = Context::new(inputs, abi::hash_args([amount, sender.x, sender.y, recipient.x, recipient.y]));
 
         // Gets the set of sender's notes and picks 2 of those.
         let sender_balance = storage.balances.at(sender.x);
@@ -122,14 +119,13 @@ contract ZkToken {
         context = emit_unencrypted_log(context, "Coins transferred");
 
         // Return private circuit public inputs. All private functions need to return this as it is part of the input of the private kernel..
-        context.finish(inputs)
+        context.finish()
     }
 
     /// ABI getBalance type "unconstrained"
     // Helper function to get the balance of a user ("unconstrained" is a Noir alternative of Solidity's "view" function).
     fn getBalance(
         owner: Point,
-        _padding: [Field; abi::MAX_ARGS - 2]
     ) -> pub Field {
         let storage = Storage::init();
 

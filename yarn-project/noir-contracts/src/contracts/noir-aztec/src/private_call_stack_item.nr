@@ -1,5 +1,6 @@
 use crate::abi;
 use crate::abi::CallContext;
+use crate::abi::hash_args;
 use crate::abi::ContractDeploymentData;
 use crate::context::Context;
 use crate::abi::PrivateCircuitPublicInputs;
@@ -8,7 +9,7 @@ use crate::types::vec::BoundedVec;
 use crate::utils::arr_copy_slice;
 
 use crate::oracle::call_private_function::call_private_function_internal;
-
+use crate::oracle::arguments;
 
 struct FunctionData {
     function_selector: Field,
@@ -35,11 +36,21 @@ struct PrivateCallStackItem {
 }
 
 impl PrivateCallStackItem {
-    fn call(contract_address: Field, function_selector: Field, args: [Field; crate::abi::MAX_ARGS], mut context: Context) -> (Self, Context) {
+    fn call<ARGS_COUNT>(
+        contract_address: Field, 
+        function_selector: Field, 
+        args: [Field; ARGS_COUNT], 
+        mut context: Context) -> (Self, Context) {
+        let args_hash = hash_args(args);
+        assert(args_hash == arguments::pack_arguments(args));
+        PrivateCallStackItem::call_with_packed_args(contract_address, function_selector, args_hash, context)
+    }
+
+    fn call_with_packed_args(contract_address: Field, function_selector: Field, args_hash: Field, mut context: Context) -> (Self, Context) {
         let fields = call_private_function_internal(
             contract_address, 
             function_selector, 
-            args
+            args_hash
         );
         let item = PrivateCallStackItem {
             contract_address: fields[0],
@@ -92,9 +103,7 @@ impl PrivateCallStackItem {
         assert(contract_address == item.contract_address);
         assert(function_selector == item.function_data.function_selector);
 
-        // TODO hash_index
-        // let args_hash = dep::std::hash::pedersen(args)[0];
-        // assert(args_hash == item.public_inputs.args_hash);
+        assert(args_hash == item.public_inputs.args_hash);
 
         assert(item.is_execution_request == false);
 
