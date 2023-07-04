@@ -279,7 +279,6 @@ contract CGam {
         game_id: Field,
         user_cards: [Card; MAX_CARDS],
         owner: Point,
-        this_contract_address: Field,
         join_game_pub_selector: Field
     ) {
         let mut context = PrivateFunctionContext::new();
@@ -311,7 +310,7 @@ contract CGam {
         args[2] = owner.y;
         args[3] = deck_strength as Field;
         let (_callStackItem, mut context2) = PublicCallStackItem::call(
-            this_contract_address, 
+            inputs.call_context.storage_contract_address, // address of this contract
             join_game_pub_selector, 
             args,
             context

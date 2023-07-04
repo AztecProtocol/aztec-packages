@@ -1,7 +1,8 @@
 import { createDebugLogger } from '../../log/index.js';
+import { hasOwnProperty } from '../../types/index.js';
 import { ClassConverter, ClassConverterInput } from '../class_converter.js';
 import { convertFromJsonObj, convertToJsonObj } from '../convert.js';
-import { assert, hasOwnProperty } from '../js_utils.js';
+import { assert } from '../js_utils.js';
 
 const debug = createDebugLogger('json-rpc:json_proxy');
 

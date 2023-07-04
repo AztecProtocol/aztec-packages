@@ -323,6 +323,7 @@ export class AztecRPCServer implements AztecRPC {
     const entrypoint: AccountImplementation = this.#getAccountImplementation(account, accountContract);
 
     const executionRequest = await this.#getExecutionRequest(account, functionName, args, to);
+    console.log('X request', executionRequest);
 
     const txContext = TxContext.empty(await this.node.getChainId(), await this.node.getVersion());
     const authedTxRequest = await entrypoint.createAuthenticatedTxRequest([executionRequest], txContext);

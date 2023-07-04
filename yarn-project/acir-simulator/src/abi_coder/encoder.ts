@@ -1,5 +1,6 @@
 import { ABIType, FunctionAbi } from '@aztec/foundation/abi';
 import { Fr } from '@aztec/foundation/fields';
+import { hasOwnProperty } from '@aztec/foundation/types';
 
 /**
  * Encodes arguments for a function call.
@@ -13,7 +14,7 @@ class ArgumentEncoder {
   private pushField(field: Fr) {
     // Since we have fairly dynamic code for contract calling, try to catch runtime errors early.
     if (!(field instanceof Fr)) {
-      throw new Error(`Expected field, got '${field}'`);
+      throw new Error(`Expected field, got a '${typeof field}' '${field}'`);
     }
     this.flattened.push(field);
   }
@@ -29,6 +30,8 @@ class ArgumentEncoder {
           this.pushField(new Fr(BigInt(arg)));
         } else if (typeof arg === 'bigint') {
           this.pushField(new Fr(arg));
+        } else if (arg instanceof Uint8Array) {
+          this.pushField(Fr.fromBuffer(Buffer.from(arg)));
         } else if (typeof arg === 'object') {
           if (typeof arg.toField === 'function') {
             this.pushField(arg.toField());
@@ -36,7 +39,9 @@ class ArgumentEncoder {
             this.pushField(arg);
           }
         }
-        break;
+        throw new Error(
+          `Expected an field in ABI argument encoding, got: ${typeof arg} with value: ${JSON.stringify(arg, null, 2)}`,
+        );
       case 'boolean':
         this.pushField(new Fr(arg ? 1n : 0n));
         break;
@@ -47,6 +52,15 @@ class ArgumentEncoder {
         break;
       case 'struct':
         for (const field of abiType.fields) {
+          if (!hasOwnProperty(arg, field.name)) {
+            throw new Error(
+              `Error while encoding arguments, expected an object with ${field.name} got ${JSON.stringify(
+                arg,
+                null,
+                2,
+              )}`,
+            );
+          }
           this.encodeArgument(field.type, arg[field.name]);
         }
         break;
@@ -63,6 +77,9 @@ class ArgumentEncoder {
    * @returns The encoded arguments.
    */
   public encode() {
+    if (this.abi.parameters.length != this.args.length) {
+      throw new Error(`ABI parameters have length ${this.abi.parameters.length} but got ${this.args.length} arguments`);
+    }
     for (let i = 0; i < this.abi.parameters.length; i += 1) {
       const parameterAbi = this.abi.parameters[i];
       this.encodeArgument(parameterAbi.type, this.args[i]);

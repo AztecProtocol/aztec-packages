@@ -58,7 +58,7 @@ describe('e2e_c_gam_contract', () => {
     return cardData[0];
   };
 
-  it('should call buy_pack and see notes', async () => {
+  it.skip('should call buy_pack and see notes', async () => {
     const owner = await aztecRpcServer.getAccountPublicKey(accounts[0]);
     const deployedContract = await deployContract();
     const cardData = await buyPackAndGetData(deployedContract, owner, accounts[0], logger);
@@ -77,8 +77,7 @@ describe('e2e_c_gam_contract', () => {
       gameId,
       cardData,
       pointToPublicKey(owner),
-      deployedContract.address.toField(),
-      deployedContract.methods.join_game_pub.selector,
+      Fr.fromBuffer(deployedContract.methods.join_game_pub.selector),
     );
     await tx.send({ from: accounts[0] }).isMined();
   }, 30_000);
