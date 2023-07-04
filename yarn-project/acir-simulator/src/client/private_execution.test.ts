@@ -34,10 +34,10 @@ import { mock } from 'jest-mock-extended';
 import { default as levelup } from 'levelup';
 import { default as memdown, type MemDown } from 'memdown';
 import { encodeArguments } from '../abi_coder/index.js';
+import { buildL1ToL2Message } from '../test/utils.js';
 import { NoirPoint, computeSlotForMapping, toPublicKey } from '../utils.js';
 import { DBOracle } from './db_oracle.js';
 import { AcirSimulator } from './simulator.js';
-import { buildL1ToL2Message } from '../test/utils.js';
 
 const createMemDown = () => (memdown as any)() as MemDown<any, any>;
 
@@ -249,6 +249,12 @@ describe('Private Execution test suite', () => {
 
       expect(recipientNote.preimage[0]).toEqual(new Fr(amountToTransfer));
       expect(changeNote.preimage[0]).toEqual(new Fr(40n));
+
+      const readRequests = result.callStackItem.publicInputs.readRequests.filter(field => !field.equals(Fr.ZERO));
+      const consumedNoteHashes = preimages.map(preimage =>
+        Fr.fromBuffer(acirSimulator.computeNoteHash(storageSlot, preimage, circuitsWasm)),
+      );
+      expect(readRequests).toEqual(consumedNoteHashes);
     }, 30_000);
 
     it('should be able to transfer with dummy notes', async () => {
