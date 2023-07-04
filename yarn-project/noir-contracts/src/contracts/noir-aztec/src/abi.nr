@@ -1,3 +1,6 @@
+use crate::generators;
+use crate::types::vec::BoundedVec;
+
 global MAX_ARGS: comptime Field = 16;
 global MAX_RETURN_VALUES: comptime Field = 4;
 global MAX_READ_REQUESTS: comptime Field = 4;
@@ -10,8 +13,6 @@ global PUBLIC_INPUTS_LENGTH : comptime Field = 49;
 global LOGS_HASH_SIZE: comptime Field = 2; // Stored in  2 fields in order to fit in all of the 256 bits of sha256 hash.
 global CONTRACT_STORAGE_UPDATE_REQUESTS_LENGTH : comptime Field = 4;
 global CONTRACT_STORAGE_READS_LENGTH : comptime Field = 4;
-
-use crate::types::vec::BoundedVec;
 
 // PrivateContextInputs are expected to be provided to each private function
 struct PrivateContextInputs {
@@ -310,4 +311,25 @@ impl PublicCircuitPublicInputs {
         fields = fields.push(self.prover_address);
         fields.storage
     }
+}
+
+global ARGS_HASH_CHUNK_SIZE = 32;
+global ARGS_HASH_CHUNK_COUNT = 16;
+
+fn hash_args<N>(args: [Field; N]) -> Field {
+    let mut chunks_hashes = [0; ARGS_HASH_CHUNK_COUNT];
+    for i in 0..ARGS_HASH_CHUNK_COUNT {
+        let mut chunk_hash = 0;
+        if i * ARGS_HASH_CHUNK_SIZE < args.len() {
+            let mut chunk_args = [0; ARGS_HASH_CHUNK_SIZE];
+            for j in 0..ARGS_HASH_CHUNK_SIZE {
+                if (i * ARGS_HASH_CHUNK_COUNT + j) as u32 < args.len() as u32 {
+                    chunk_args[j] = args[i * ARGS_HASH_CHUNK_SIZE + j];
+                }
+            }
+            chunk_hash = dep::std::hash::pedersen_with_separator(chunk_args, generators::FUNCTION_ARGS)[0];
+        }
+        chunks_hashes[i] = chunk_hash;
+    }
+    dep::std::hash::pedersen_with_separator(chunks_hashes, generators::FUNCTION_ARGS)[0]
 }

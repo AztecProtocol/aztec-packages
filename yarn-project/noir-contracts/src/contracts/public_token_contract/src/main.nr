@@ -14,7 +14,7 @@ contract PublicToken {
         inputs: PrivateContextInputs,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
         // Return private circuit public inputs. All private functions need to return this as it is part of the input of the private kernel.
-        Context::new().finish(inputs)
+        Context::new(inputs, 0).finish()
     }
 
     // Mints `amount` of tokens to a `recipient`.
@@ -22,7 +22,6 @@ contract PublicToken {
         _inputs: PublicContextInputs,
         amount: Field,
         recipient: Point,
-        _padding: [Field; abi::MAX_ARGS - 3]
     ) -> pub Field {
         let storage = Storage::init();
         let recipient_balance = storage.balances.at(recipient.x);
@@ -38,7 +37,6 @@ contract PublicToken {
         inputs: PublicContextInputs,
         amount: Field,
         recipient: Point,
-        _padding: [Field; abi::MAX_ARGS - 3]
     ) -> pub Field {
         let storage = Storage::init();
         let sender = inputs.call_context.msg_sender;

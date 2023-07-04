@@ -37,7 +37,7 @@ contract PublicPrivate {
         inputs: PrivateContextInputs,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
         // Return private circuit public inputs. All private functions need to return this as it is part of the input of the private kernel.
-        Context::new().finish(inputs)
+        Context::new(inputs, 0).finish()
     }
 
     // A public function which inserts a note to the private data tree.
@@ -45,7 +45,6 @@ contract PublicPrivate {
         _inputs: PublicContextInputs,
         amount: Field,
         secretHash: Field,
-        _padding: [Field; abi::MAX_ARGS - 2]
     ) {
         // Create a commitment to the amount
         let note = TransparentNote::new(amount, secretHash);
@@ -59,7 +58,6 @@ contract PublicPrivate {
         _inputs: PublicContextInputs,
         amount: Field,
         secretHash: Field,
-        _padding: [Field; abi::MAX_ARGS - 3]
     ) {
         // Create a commitment to the amount
         let note = TransparentNote::new(amount, secretHash);
@@ -73,7 +71,6 @@ contract PublicPrivate {
         _inputs: PublicContextInputs,
         amount: Field,
         secretHash: Field,
-        _padding: [Field; abi::MAX_ARGS - 3]
     ) -> Field {
     
         // Create a commitment to the amount
@@ -92,8 +89,12 @@ contract PublicPrivate {
         owner: Point,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
         let storage = Storage::init();
-        let mut context = Context::new();
-        context.args = context.args.push_array([amount, secret, owner.x, owner.y]);
+        let mut context = Context::new(inputs, abi::hash_args([
+            amount,
+            secret,
+            owner.x,
+            owner.y,
+        ]));
 
         // Assert that the note exists within the tree
         let public_note = TransparentNote::new_from_secret(amount, secret);
@@ -109,13 +110,12 @@ contract PublicPrivate {
         context = emit_encrypted_log(context, inputs.call_context.storage_contract_address, owner_balance.storage_slot, note.owner, preimage);
 
         // Return private circuit public inputs. All private functions need to return this as it is part of the input of the private kernel.
-        context.finish(inputs)
+        context.finish()
     }
 
     /// ABI getBalance type "unconstrained"
     fn getBalance(
         owner: Point,
-        _padding: [Field; abi::MAX_ARGS - 2]
     ) -> pub Field {
         let storage = Storage::init();
         let owner_balance = storage.balances.at(owner.x);
