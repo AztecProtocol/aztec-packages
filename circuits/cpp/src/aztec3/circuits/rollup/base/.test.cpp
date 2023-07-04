@@ -543,7 +543,7 @@ TEST_F(base_rollup_tests, native_new_nullifier_tree_double_spend)
     DummyBuilder builder = DummyBuilder("base_rollup_tests__native_new_nullifier_tree_double_spend");
     BaseRollupInputs const empty_inputs = base_rollup_inputs_from_kernels({ get_empty_kernel(), get_empty_kernel() });
 
-    fr nullifier_to_insert =
+    fr const nullifier_to_insert =
         2 * KERNEL_NEW_NULLIFIERS_LENGTH + 4;  // arbitrary value greater than 2 * KERNEL_NEW_NULLIFIERS_LENGTH
     std::array<fr, KERNEL_NEW_NULLIFIERS_LENGTH * 2> new_nullifiers{};
 
