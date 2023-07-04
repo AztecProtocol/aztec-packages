@@ -4,7 +4,7 @@ import { ABIType, FunctionAbi } from '@aztec/foundation/abi';
 /**
  * The type of our decoded ABI.
  */
-type DecodedReturn = bigint | boolean | DecodedReturn[] | Record<string, DecodedReturn>;
+type DecodedReturn = bigint | boolean | DecodedReturn[] | { [key: string]: DecodedReturn };
 
 /**
  * Decodes return values from a function call.
