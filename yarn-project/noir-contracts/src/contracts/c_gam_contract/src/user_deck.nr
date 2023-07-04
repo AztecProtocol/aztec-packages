@@ -55,8 +55,15 @@ impl Card {
 
 //TODO should not be a contract function !!
 //TODO HACK needed why can't comptime decay to normal Field when passed to pedersen?
-fn user_deck_insert(owner: Point, g_id: Field, i_hack_comptime : comptime Field, i : Field, user_cards: [Card; MAX_CARDS], initialContext: PrivateFunctionContext) -> pub PrivateFunctionContext{
+fn user_deck_insert(owner: Point, game_id: Field, i_hack_comptime : comptime Field, i : Field, user_cards: [Card; MAX_CARDS], initialContext: PrivateFunctionContext) -> pub PrivateFunctionContext{
     let card_note = Note::new(user_cards[i_hack_comptime].id(), owner);
-    let idx = std::hash::pedersen([owner.x, g_id, i])[0];
+    let idx = std::hash::pedersen([owner.x, game_id, i])[0];
     user_deck.at(idx).insert(initialContext, card_note)
+}
+
+fn user_deck_get(initialContext: PrivateFunctionContext, owner: Point, game_id: Field, i: Field) -> PrivateFunctionContext {
+    let idx = std::hash::pedersen([owner.x, game_id, i])[0];
+    let (mut context, (card_note1, card_note2)) = user_deck.at(idx).get_2(initialContext); //temp
+    // cards.at(game_id).remove(inputs, context,card_note1); // TODO do we remove this?
+    context
 }

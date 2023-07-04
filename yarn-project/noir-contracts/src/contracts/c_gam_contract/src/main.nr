@@ -99,7 +99,7 @@ contract CGam {
     // TODO feedback: we found it very limiting having resource limits (e.g. read requests) tied to callstacks
     // This feels potentially something to be entirely revisited (can we be more flexile?), or managed by the user
     // or at least have very clear errors. BoundedVec could report out of bounds better, at the very least
-    global MAX_CARDS = 2; // Limited by square root of read requests (max 4, so 2)
+    global MAX_CARDS: u32 = 2; // Limited by square root of read requests (max 4, so 2)
     global MAX_PLAYERS = 2; // Limited by square root of read requests (max 4, so 2)
     global PACK_CARDS = 3; // Limited by number of write requests (max 4)
 
@@ -280,22 +280,24 @@ contract CGam {
         user_cards: [Card; MAX_CARDS],
         owner: Point,
         join_game_pub_selector: Field
-    ) {
+    ) -> pub abi::PrivateCircuitPublicInputs {
         let mut context = PrivateFunctionContext::new();
         context.args = context.args.push_array([
             game_id, 
             user_cards[0].id(),
             user_cards[1].id(), // Up to MAX_CARDS - 1
             owner.x,
-            owner.y
+            owner.y,
+            join_game_pub_selector
         ]);
 
         //TODO commit to $$
 
         // checks that cards belong to the user
-        for i in 0..MAX_CARDS {
-            context = assert_own_card(context, user_cards[i], owner);
-        }
+        // for i in 0..MAX_CARDS {
+        //     // TODO it hurts when failing asserts just says 'contraints cant be solved'
+        //     context = assert_own_card(context, user_cards[i], owner);
+        // }
         // compute the deck strength
         let mut deck_strength: u32 = 0;
         for card in user_cards {
@@ -330,6 +332,7 @@ contract CGam {
             //      get_2() -> card1, card_storage_slot
             //     get_5()
         //}
+        context2.finish(inputs)
     }
 
     //EXTERNAL
@@ -458,7 +461,7 @@ contract CGam {
         //then we check if all his cards are played
         let mut is_end_game = false;
         for i in 0..MAX_CARDS {
-            idx = (game_id + MAX_CARDS*last_player+i) as Field;
+            idx = (game_id + (MAX_CARDS as Field)*last_player+(i as Field)) as Field;
             idx = idx*(idx+1)/2 + game_id;
             let card_id = 0; // TODO user_deck.at(idx).get();
             idx = (game_id + card_id) as Field;
@@ -489,19 +492,21 @@ contract CGam {
         let _1 = winner.at(game_id).write(winner_id);
     }
 
-    fn private_claim_winnings(inputs: PrivateContextInputs, game_id: Field,owner: Point) -> pub abi::PrivateCircuitPublicInputs {
+    fn private_claim_winnings(inputs: PrivateContextInputs, game_id: Field, owner: Point) -> pub abi::PrivateCircuitPublicInputs {
         let mut initialContext = PrivateFunctionContext::new();
         initialContext.args = initialContext.args.push_array([game_id, owner.x, owner.y]);
 
-        // burn the played_cards: N.B. we could track the played card in a public structure and not call this private function
-        for user_id in 0..MAX_PLAYERS {
-            for i in 0..MAX_CARDS {
-                let mut idx = (game_id + 5*user_id+i) as Field;
-                idx = idx*(idx+1)/2 + game_id;
-                let (mut context, (card_note1, card_note2)) = user_deck.at(idx).get_2(initialContext); //temp
-                cards.at(game_id).remove(inputs, context,card_note1);
-            }
-        }
+        // TODO prove we won!!!
+        // TODO do we want to burn?
+        // // burn the played_cards: N.B. we could track the played card in a public structure and not call this private function
+        // for user_id in 0..MAX_PLAYERS {
+        //     for i in 0..MAX_CARDS {
+        //         let mut idx = (game_id + 5*user_id+i) as Field;
+        //         idx = idx*(idx+1)/2 + game_id;
+        //         let (mut context, (card_note1, card_note2)) = user_deck.at(idx).get_2(initialContext); //temp
+        //         cards.at(game_id).remove(inputs, context,card_note1);
+        //     }
+        // }
 
         // TODO send the reward to the user
 
