@@ -70,6 +70,8 @@ export class PublicExecutor {
     const newNullifiers: Fr[] = [];
     const nestedExecutions: PublicExecutionResult[] = [];
     const unencryptedLogs = new FunctionL2Logs([]);
+    // Functions can request to pack arguments before calling other functions.
+    // We use this cache to hold the packed arguments.
     const packedArgs = await PackedArgsCache.create([]);
 
     const notAvailable = () => Promise.reject(`Built-in not available for public execution simulation`);

@@ -15,6 +15,7 @@ import {
   Vector,
 } from '../index.js';
 import { serializeBufferArrayToVector } from '../utils/serialize.js';
+import { padArrayEnd } from '@aztec/foundation/collection';
 
 /**
  * Synchronously calls a wasm function.
@@ -249,15 +250,13 @@ export function computeVarArgsHash(wasm: IWasmModule, args: Fr[]): Promise<Fr> {
 
   let chunksHashes = chunk(args, ARGS_HASH_CHUNK_SIZE).map(c => {
     if (c.length < ARGS_HASH_CHUNK_SIZE) {
-      // Pad with zeroes
-      c = c.concat(Array(ARGS_HASH_CHUNK_SIZE - c.length).fill(Fr.ZERO));
+      c = padArrayEnd(c, Fr.ZERO, ARGS_HASH_CHUNK_SIZE);
     }
     return wasmComputeVarArgs(c);
   });
 
   if (chunksHashes.length < ARGS_HASH_CHUNK_COUNT) {
-    // Pad with zeroes
-    chunksHashes = chunksHashes.concat(Array(ARGS_HASH_CHUNK_COUNT - chunksHashes.length).fill(Fr.ZERO));
+    chunksHashes = padArrayEnd(chunksHashes, Fr.ZERO, ARGS_HASH_CHUNK_COUNT);
   }
 
   return Promise.resolve(wasmComputeVarArgs(chunksHashes));
