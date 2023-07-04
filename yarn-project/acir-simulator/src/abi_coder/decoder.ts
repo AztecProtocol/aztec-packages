@@ -32,7 +32,7 @@ class ReturnValuesDecoder {
         return array;
       }
       case 'struct': {
-        const struct: Record<string, DecodedReturn> = {};
+        const struct: { [key: string]: DecodedReturn } = {};
         for (const field of abiType.fields) {
           struct[field.name] = this.decodeReturn(field.type);
         }
