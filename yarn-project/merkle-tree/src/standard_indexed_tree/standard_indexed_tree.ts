@@ -571,10 +571,7 @@ export class StandardIndexedTree extends TreeBase implements IndexedTree {
     );
 
     // Perform batch insertion of new pending values
-    for (let i = 0; i < pendingInsertionSubtree.length; i++) {
-      await this.updateLeaf(pendingInsertionSubtree[i], startInsertionIndex + BigInt(i));
-    }
-
+    await this._appendLeaves(pendingInsertionSubtree);
     return [lowLeavesWitnesses, newSubtreeSiblingPath];
   }
 
@@ -587,5 +584,23 @@ export class StandardIndexedTree extends TreeBase implements IndexedTree {
 
     // Drop the first subtreeHeight items since we only care about the path to the subtree root
     return fullSiblingPath.getSubtreeSiblingPath(subtreeHeight);
+  }
+
+  private async _appendLeaves(leaves: LeafData[]): Promise<void> {
+    // Start info
+    const startInsertionIndex = Number(this.getNumLeaves(true));
+
+    const serialisedLeaves = leaves.map((leaf, i) => {
+      let encodedLeaf;
+      if (leaf.value == 0n) {
+        encodedLeaf = toBufferBE(0n, 32);
+      } else {
+        encodedLeaf = hashEncodedTreeValue(leaf, this.hasher);
+      }
+      this.cachedLeaves[startInsertionIndex + i] = leaf;
+      return encodedLeaf;
+    });
+
+    await super.appendLeaves(serialisedLeaves);
   }
 }
