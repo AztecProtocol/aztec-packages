@@ -1,6 +1,5 @@
 import { toBigIntBE, toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { createLogger } from '@aztec/foundation/log';
-import { Hasher } from '../hasher.js';
 import { IndexedTree, LeafData } from '../interfaces/indexed_tree.js';
 import { TreeBase } from '../tree_base.js';
 import { SiblingPath } from '../index.js';
@@ -54,10 +53,6 @@ const encodeTreeValue = (leafData: LeafData) => {
   const indexAsBuffer = toBufferBE(leafData.nextIndex, 32);
   const nextValueAsBuffer = toBufferBE(leafData.nextValue, 32);
   return Buffer.concat([valueAsBuffer, indexAsBuffer, nextValueAsBuffer]);
-};
-
-const hashEncodedTreeValue = (leaf: LeafData, hasher: Hasher) => {
-  return hasher.compressInputs([leaf.value, leaf.nextIndex, leaf.nextValue].map(val => toBufferBE(val, 32)));
 };
 
 const decodeTreeValue = (buf: Buffer) => {
@@ -221,8 +216,8 @@ export class StandardIndexedTree extends TreeBase implements IndexedTree {
     previousLeafCopy.nextValue = newLeaf.value;
     this.cachedLeaves[Number(currentSize)] = newLeaf;
     this.cachedLeaves[Number(indexOfPrevious.index)] = previousLeafCopy;
-    await this._updateLeaf(hashEncodedTreeValue(previousLeafCopy, this.hasher), BigInt(indexOfPrevious.index));
-    await this._updateLeaf(hashEncodedTreeValue(newLeaf, this.hasher), this.getNumLeaves(true));
+    await this.updateLeaf(previousLeafCopy, BigInt(indexOfPrevious.index));
+    await this.updateLeaf(newLeaf, this.getNumLeaves(true));
   }
 
   /**
@@ -250,7 +245,7 @@ export class StandardIndexedTree extends TreeBase implements IndexedTree {
    */
   public async init(prefilledSize: number): Promise<void> {
     this.leaves.push(initialLeaf);
-    await this._updateLeaf(hashEncodedTreeValue(initialLeaf, this.hasher), 0n);
+    await this.updateLeaf(initialLeaf, 0n);
 
     for (let i = 1; i < prefilledSize; i++) {
       await this.appendLeaf(Buffer.from([i]));
@@ -315,33 +310,17 @@ export class StandardIndexedTree extends TreeBase implements IndexedTree {
    * @param leaf - New contents of the leaf.
    * @param index - Index of the leaf to be updated.
    */
-  // TODO: rename back to updateLeaf once the old updateLeaf is removed
-  private async _updateLeaf(leaf: Buffer, index: bigint) {
+  private async updateLeaf(leaf: LeafData, index: bigint) {
     if (index > this.maxIndex) {
       throw Error(`Index out of bounds. Index ${index}, max index: ${this.maxIndex}.`);
     }
-    await this.addLeafToCacheAndHashToRoot(leaf, index);
+
+    const encodedLeaf = this.encodeLeaf(leaf);
+    await this.addLeafToCacheAndHashToRoot(encodedLeaf, index);
     const numLeaves = this.getNumLeaves(true);
     if (index >= numLeaves) {
       this.cachedSize = index + 1n;
     }
-  }
-
-  /**
-   * Exposes the underlying tree's update leaf method.
-   * @param leaf - The hash to set at the leaf.
-   * @param index - The index of the element.
-   */
-  // TODO: remove once the batch insertion functionality is moved here from circuit_block_builder.ts
-  public async updateLeaf(leaf: LeafData, index: bigint): Promise<void> {
-    let encodedLeaf;
-    if (leaf.value == 0n) {
-      encodedLeaf = toBufferBE(0n, 32);
-    } else {
-      encodedLeaf = hashEncodedTreeValue(leaf, this.hasher);
-    }
-    this.cachedLeaves[Number(index)] = leaf;
-    await this._updateLeaf(encodedLeaf, index);
   }
 
   /* eslint-disable jsdoc/require-description-complete-sentence */
@@ -561,7 +540,9 @@ export class StandardIndexedTree extends TreeBase implements IndexedTree {
         lowLeaf.nextValue = newValue;
         lowLeaf.nextIndex = startInsertionIndex + BigInt(i);
 
-        await this.updateLeaf(lowLeaf, BigInt(indexOfPrevious.index));
+        const lowLeafIndex = indexOfPrevious.index;
+        this.cachedLeaves[lowLeafIndex] = lowLeaf;
+        await this.updateLeaf(lowLeaf, BigInt(lowLeafIndex));
       }
     }
 
@@ -571,7 +552,7 @@ export class StandardIndexedTree extends TreeBase implements IndexedTree {
     );
 
     // Perform batch insertion of new pending values
-    await this._appendLeaves(pendingInsertionSubtree);
+    await this.encodeAndAppendLeaves(pendingInsertionSubtree);
     return [lowLeavesWitnesses, newSubtreeSiblingPath];
   }
 
@@ -586,21 +567,26 @@ export class StandardIndexedTree extends TreeBase implements IndexedTree {
     return fullSiblingPath.getSubtreeSiblingPath(subtreeHeight);
   }
 
-  private async _appendLeaves(leaves: LeafData[]): Promise<void> {
-    // Start info
+  private async encodeAndAppendLeaves(leaves: LeafData[]): Promise<void> {
     const startInsertionIndex = Number(this.getNumLeaves(true));
 
     const serialisedLeaves = leaves.map((leaf, i) => {
-      let encodedLeaf;
-      if (leaf.value == 0n) {
-        encodedLeaf = toBufferBE(0n, 32);
-      } else {
-        encodedLeaf = hashEncodedTreeValue(leaf, this.hasher);
-      }
       this.cachedLeaves[startInsertionIndex + i] = leaf;
-      return encodedLeaf;
+      return this.encodeLeaf(leaf);
     });
 
     await super.appendLeaves(serialisedLeaves);
+  }
+  
+  private encodeLeaf(leaf: LeafData): Buffer {
+    let encodedLeaf;
+    if (leaf.value == 0n) {
+      encodedLeaf = toBufferBE(0n, 32);
+    } else {
+      encodedLeaf = this.hasher.compressInputs(
+        [leaf.value, leaf.nextIndex, leaf.nextValue].map(val => toBufferBE(val, 32)),
+      );
+    }
+    return encodedLeaf;
   }
 }
