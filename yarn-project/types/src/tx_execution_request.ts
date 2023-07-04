@@ -16,7 +16,7 @@ export class TxExecutionRequest {
      */
     public functionData: FunctionData,
     /**
-     * Function arguments.
+     * The hash of the entry point arguments.
      */
     public argsHash: Fr,
     /**
@@ -24,7 +24,9 @@ export class TxExecutionRequest {
      */
     public txContext: TxContext,
     /**
-     * Packed arguments
+     * These packed arguments will be used during transaction simulation.
+     * For example, a call to an account contract might contain as many packed arguments
+     * as relayed function calls, and one for the entrypoint.
      */
     public packedArguments: PackedArguments[],
   ) {}
