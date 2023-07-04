@@ -273,6 +273,9 @@ describe('ACIR public execution simulator', () => {
       });
 
       publicContracts.getBytecode.mockResolvedValue(Buffer.from(shieldAbi.bytecode, 'hex'));
+      // mock initial balance to be greater than the amount being sent
+      publicState.storageRead.mockResolvedValue(amount);
+
 
       const execution: PublicExecution = { contractAddress, functionData, args, callContext };
       const result = await executor.execute(execution, GlobalVariables.empty());
