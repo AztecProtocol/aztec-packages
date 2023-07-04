@@ -14,7 +14,7 @@ class ArgumentEncoder {
   private pushField(field: Fr) {
     // Since we have fairly dynamic code for contract calling, try to catch runtime errors early.
     if (!(field instanceof Fr)) {
-      throw new Error(`Expected field, got a '${typeof field}' '${field}'`);
+      throw new Error(`Expected field, got a '${typeof field}'`);
     }
     this.flattened.push(field);
   }
@@ -39,9 +39,7 @@ class ArgumentEncoder {
             this.pushField(arg);
           }
         }
-        throw new Error(
-          `Expected an field in ABI argument encoding, got: ${typeof arg} with value: ${JSON.stringify(arg, null, 2)}`,
-        );
+        throw new Error(`Expected an field in ABI argument encoding, got: ${typeof arg}`);
       case 'boolean':
         this.pushField(new Fr(arg ? 1n : 0n));
         break;
@@ -53,13 +51,7 @@ class ArgumentEncoder {
       case 'struct':
         for (const field of abiType.fields) {
           if (!hasOwnProperty(arg, field.name)) {
-            throw new Error(
-              `Error while encoding arguments, expected an object with ${field.name} got ${JSON.stringify(
-                arg,
-                null,
-                2,
-              )}`,
-            );
+            throw new Error(`Error while encoding arguments, expected an object with ${field.name}`);
           }
           this.encodeArgument(field.type, arg[field.name]);
         }
