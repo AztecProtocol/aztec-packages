@@ -106,6 +106,35 @@ contract CGam {
     // map game_id to set of notes = card note
     //global revealed_cards = StorageMap { storage_slot: 15 };
 
+    fn get_pack_cards(
+        seed: Field,
+        owner: Point
+    ) -> pub [Field; PACK_CARDS] {
+        let sk = get_secret_key(owner);
+        let mut user_seed = [0; 32];
+        let seeds = seed.to_le_bytes(32);
+        let sk_bytes = sk.to_le_bytes(32);
+        for i in 0..32 {
+            user_seed[i] = seeds[i] ^ sk_bytes[i];
+        }
+        // generate randomness deterministically from 'public randomness' and user secret
+        let random = std::hash::sha256(user_seed);
+        // bytes to field
+        let mut random_as_field: Field = 0;
+        let mut r: Field = 1;
+        for i in 0..31 {
+            random_as_field += (random[i] as Field )* r;
+            r = r*2;
+        }
+        let mut cards = [0; PACK_CARDS];
+        // we generate PACK_CARDS cards
+        for i in 0..PACK_CARDS {
+            let card_random_traits = random_as_field * (i + 1);
+            cards[i] = card_random_traits;
+        }
+        cards
+    }
+
     fn buy_pack(
           //*********************************/
         // Should eventually be hidden:
@@ -113,8 +142,7 @@ contract CGam {
         //*********************************/
         seed: Field,    //public randomness
         owner: Point,
-        ) -> distinct pub abi::PrivateCircuitPublicInputs
-    {
+    ) -> distinct pub abi::PrivateCircuitPublicInputs {
         let mut context = PrivateFunctionContext::new();
         context.args = context.args.push_array([seed, owner.x, owner.y]);
         // check user balance can afford the cards
@@ -126,40 +154,12 @@ contract CGam {
         // nullify the user notes
         // TODO
 
-        // Generate the 'user seed' for generating the cards
-        // from a public randomness (in argument for now, could be a call to a L1 contract)
-        // and from user secret key (so nobody else can figure out user cards)
-        let sk = get_secret_key(owner);
-        let mut user_seed = [0; 32];
-        let seeds = seed.to_le_bytes(32);
-        let sk_bytes = sk.to_le_bytes(32);
-        for i in 0..32 {
-            user_seed[i] = seeds[i] ^ sk_bytes[i];
-        }
-        // generate randomness deterministically from 'public randomness' and user secret
-        let random = std::hash::sha256(user_seed);
-        //bytes to field
-        let mut random_as_field: Field = 0;
-        let mut r: Field = 1;
-        for i in 0..31 {
-            random_as_field += (random[i] as Field )* r;
-            r = r*2;
-        }
-        //we generate PACK_CARDS cards
-        for i in 0..PACK_CARDS {
-            let card_random_traits = random_as_field * (i + 1);
+        // we generate PACK_CARDS cards
+        let pack_cards = get_pack_cards(seed, owner);
+        for card_data in pack_cards {
             let card = Card {
-                inner: card_random_traits
+                inner: card_data
             };
-            //let card_note = CardNote::new(card, owner);
-            // let note_hash = card_note.compute_note_hash();
-            // let card_storage_slot = hash_with_storage_slot(cards_storage_slot_separator, card.id());
-            // let record = hash_with_storage_slot(card_storage_slot, note_hash);
-            // context = context.push_new_note_hash(record);
-            // // Assert to prevent optimizing away.
-            // assert(notify_created_card_note(card_storage_slot, card_note.owner, card_note) == 0);
-
-            // let Set::new(card_id_storage_slot);
             cards.at(card.id()).insert(context, Note::new(card.id(), owner));
         }
 
