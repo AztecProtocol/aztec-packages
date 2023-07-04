@@ -276,7 +276,6 @@ describe('ACIR public execution simulator', () => {
       // mock initial balance to be greater than the amount being sent
       publicState.storageRead.mockResolvedValue(amount);
 
-
       const execution: PublicExecution = { contractAddress, functionData, args, callContext };
       const result = await executor.execute(execution, GlobalVariables.empty());
 
