@@ -1,9 +1,5 @@
 import { AztecNodeService } from '@aztec/aztec-node';
-import {
-  AztecAddress,
-  AztecRPCServer,
-  EthAddress,
-} from '@aztec/aztec.js';
+import { AztecAddress, AztecRPCServer, EthAddress } from '@aztec/aztec.js';
 import { DebugLogger } from '@aztec/foundation/log';
 import { CrossChainTestHarness } from './cross_chain/test_harness.js';
 import { delay, setup } from './utils.js';
@@ -55,7 +51,6 @@ describe('e2e_public_to_private_messaging', () => {
     await crossChainTestHarness?.stop();
   });
 
-
   it('Milestone 5.4: Should be able to create a commitment in a public function and spend in a private function', async () => {
     // Generate a claim secret using pedersen
     const l1TokenBalance = 1000000n;
@@ -73,10 +68,10 @@ describe('e2e_public_to_private_messaging', () => {
     await delay(5000); /// waiting 5 seconds.
 
     // Perform another unrelated transaction on L2 to progress the rollup.
-    await crossChainTestHarness.expectBalanceOnL2(ownerAddress, initialBalance); 
+    await crossChainTestHarness.expectBalanceOnL2(ownerAddress, initialBalance);
     const transferAmount = 1n;
     await crossChainTestHarness.performL2Transfer(transferAmount);
-    await crossChainTestHarness.expectBalanceOnL2(ownerAddress, initialBalance - transferAmount); 
+    await crossChainTestHarness.expectBalanceOnL2(ownerAddress, initialBalance - transferAmount);
 
     await crossChainTestHarness.consumeMessageOnAztecAndMintPublicly(bridgeAmount, messageKey, secret);
     await crossChainTestHarness.expectPublicBalanceOnL2(ownerAddress, bridgeAmount, publicBalanceSlot);
@@ -87,12 +82,11 @@ describe('e2e_public_to_private_messaging', () => {
     // Create the transaction spending the commitment
     await crossChainTestHarness.redeemShieldPrivatelyOnL2(shieldAmount, secret);
     await crossChainTestHarness.expectPublicBalanceOnL2(ownerAddress, bridgeAmount - shieldAmount, publicBalanceSlot);
-    await crossChainTestHarness.expectBalanceOnL2(ownerAddress, initialBalance + shieldAmount - transferAmount); 
-
+    await crossChainTestHarness.expectBalanceOnL2(ownerAddress, initialBalance + shieldAmount - transferAmount);
 
     // Unshield the tokens again, sending them to the same account, however this can be any account.
     await crossChainTestHarness.unshieldTokensOnL2(shieldAmount);
     await crossChainTestHarness.expectPublicBalanceOnL2(ownerAddress, bridgeAmount, publicBalanceSlot);
-    await crossChainTestHarness.expectBalanceOnL2(ownerAddress, initialBalance - transferAmount); 
+    await crossChainTestHarness.expectBalanceOnL2(ownerAddress, initialBalance - transferAmount);
   }, 120_000);
 });

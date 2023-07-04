@@ -261,7 +261,9 @@ export class CrossChainTestHarness {
 
   async redeemShieldPrivatelyOnL2(shieldAmount: bigint, secret: Fr) {
     this.logger('Spending commitment in private call');
-    const privateTx = this.l2Contract.methods.redeemShield(shieldAmount, secret, this.ownerPub).send({ from: this.ownerAddress });
+    const privateTx = this.l2Contract.methods
+      .redeemShield(shieldAmount, secret, this.ownerPub)
+      .send({ from: this.ownerAddress });
 
     await privateTx.isMined();
     const privateReceipt = await privateTx.getReceipt();
@@ -271,7 +273,9 @@ export class CrossChainTestHarness {
 
   async unshieldTokensOnL2(unshieldAmount: bigint) {
     this.logger('Unshielding tokens');
-    const unshieldTx = this.l2Contract.methods.unshieldTokens(unshieldAmount, this.ownerPub, this.ownerAddress.toField()).send({ from: this.ownerAddress });
+    const unshieldTx = this.l2Contract.methods
+      .unshieldTokens(unshieldAmount, this.ownerPub, this.ownerAddress.toField())
+      .send({ from: this.ownerAddress });
     await unshieldTx.isMined();
     const unshieldReceipt = await unshieldTx.getReceipt();
 
