@@ -1,6 +1,8 @@
 use crate::generators;
 use crate::types::vec::BoundedVec;
 
+// The following constants are defined for the public inputs of the private/public circuit.
+// Please change these ONLY if you have changed the PrivateCircuitPublicInputs structure in C++. 
 global MAX_ARGS: comptime Field = 16;
 global MAX_RETURN_VALUES: comptime Field = 4;
 global MAX_READ_REQUESTS: comptime Field = 4;
