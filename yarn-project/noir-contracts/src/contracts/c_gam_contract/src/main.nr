@@ -248,28 +248,27 @@ contract CGam {
         context
     }
 
-    open fn join_game_pub(game_id: Field, owner: Point, deck_str: Field) {
-  
-            //we generate a user id:
-            let user_id = game_players.at(game_id).read();
-            let _1 = game_players.at(game_id).write(user_id + 1);
+    open fn join_game_pub(game_id: Field, owner: Point, deck_strength: Field) {
+        // we generate a user id:
+        let user_id = game_players.at(game_id).read();
+        let _1 = game_players.at(game_id).write(user_id + 1);
 
-            //we associate the user_id to the user pub key
-            let mut idx = (game_id + user_id) as Field;
-            idx = idx*(idx+1)/2 + game_id;
-            let _4 = user_pub_key.at(idx).write(owner.x);
+        // we associate the user_id to the user pub key
+        let mut idx = (game_id + user_id) as Field;
+        idx = idx*(idx+1)/2 + game_id;
+        let _4 = user_pub_key.at(idx).write(owner.x);
 
-          
-            // store the player strenght
-            let user_hash = std::hash::pedersen([owner.x, game_id])[0];
-            let _3 = deck_strength_storage.at(user_hash).write(deck_str as Field);
-            // user has not yet played
-            let _2 = users_plays.at(user_hash).write(0);
+        
+        // store the player strenght
+        let user_hash = std::hash::pedersen([owner.x, game_id])[0];
+        let _3 = deck_strength_storage.at(user_hash).write(deck_strength as Field);
+        // user has not yet played
+        let _2 = users_plays.at(user_hash).write(0);
 
-             if user_id == num_players.at(game_id).read() {
-                start_game(game_id);
-            }
-}
+            if user_id == num_players.at(game_id).read() {
+            start_game(game_id);
+        }
+    }
 
     /// join_game is called with a random UUID that is computed offchain and communicated to other players (possibly onchain).
     /// It needs to have a game ID that has not been used for another game yet.
@@ -305,12 +304,14 @@ contract CGam {
         }
         deck_strength = deck_strength / (MAX_CARDS as u32);
 
-        //TODO call join_game_pub()
         let mut args = [0; abi::MAX_ARGS];
         args[0] = 0;//? TODO targetValue;
-        let targetContract = 0; ///?? TODO
-        let targetSelector = 0; ///?? TODO
-        let (_callStackItem, mut context2) = PublicCallStackItem::call(targetContract, targetSelector, args, context);
+        let (_callStackItem, mut context2) = PublicCallStackItem::call(
+            this_contract_address, 
+            join_game_pub_selector, 
+            args, 
+            context
+        );
 
         // maps the user_id to its cards = user_deck
         // TODO undo hacks
