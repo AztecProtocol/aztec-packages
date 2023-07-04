@@ -44,6 +44,7 @@ export class ContractCompiler {
    * @returns Aztec ABI of the contract.
    */
   private convertToAztecABI(contract: NoirCompiledContract): ContractAbi {
+    console.log({ contract });
     return {
       ...contract,
       functions: contract.functions.map(noirFn => ({

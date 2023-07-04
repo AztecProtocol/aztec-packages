@@ -106,6 +106,45 @@ contract CGam {
     // map game_id to set of notes = card note
     //global revealed_cards = StorageMap { storage_slot: 15 };
 
+    // TODO we would like to use real unconstrained fn's
+    /// ABI get_pack_cards_unconstrained type "unconstrained"
+    fn get_pack_cards_unconstrained(
+        seed: Field,
+        owner: Point
+    ) -> pub [Field; PACK_CARDS] {
+        let sk = get_secret_key(owner);
+        let mut user_seed = [0; 32];
+        let seeds = seed.to_le_bytes(32);
+        let sk_bytes = sk.to_le_bytes(32);
+        for i in 0..32 {
+            user_seed[i] = seeds[i] ^ sk_bytes[i];
+        }
+        // generate randomness deterministically from 'public randomness' and user secret
+        let random = std::hash::sha256(user_seed);
+        // bytes to field
+        let mut random_as_field: Field = 0;
+        let mut r: Field = 1;
+        for i in 0..31 {
+            random_as_field += (random[i] as Field )* r;
+            r = r*2;
+        }
+        let mut cards = [0; PACK_CARDS];
+        // we generate PACK_CARDS cards
+        for i in 0..PACK_CARDS {
+            let card_random_traits = random_as_field * (i + 1);
+            cards[i] = card_random_traits;
+        }
+        cards
+    }
+
+    /// ABI getBalance type "unconstrained"
+    fn getBalance(
+        owner: Point,
+        _padding: [Field; abi::MAX_ARGS - 2]
+    ) -> pub Field {
+        0
+    }
+
     fn get_pack_cards(
         seed: Field,
         owner: Point
@@ -171,17 +210,17 @@ contract CGam {
         // Should eventually be hidden:
         inputs: PublicContextInputs,
         //*********************************/
-      //  num_players: Field
       ) -> Field
     {
         // FEAT_REQUEST: game_id += 1; for a public state variable.
         let old_id = game_id.read();
         let new_id = old_id + 1;
         game_id.write(new_id)
-
-        //add  number of players for the game
     }
 
+    /// start game is called with a random UUID that is computed offchain.
+    /// It needs to be a game ID that has not been used for another game yet.
+    /// TODO add number of players for the game, but we have max 2 anyway right now due to limited read requests
     open fn start_game(g_id: Field) {
         // we compute the players play order
         let player_nb = num_players.at(g_id).read();

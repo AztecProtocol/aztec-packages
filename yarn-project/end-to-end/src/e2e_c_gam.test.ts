@@ -29,33 +29,10 @@ describe('e2e_c_gam_contract', () => {
     await aztecRpcServer?.stop();
   });
 
-  // const expectBalance = async (owner: AztecAddress, expectedBalance: bigint) => {
-  //   const ownerPublicKey = await aztecRpcServer.getAccountPublicKey(owner);
-  //   const [balance] = await contract.methods.getBalance(pointToPublicKey(ownerPublicKey)).view({ from: owner });
-  //   logger(`Account ${owner} balance: ${balance}`);
-  //   expect(balance).toBe(expectedBalance);
-  // };
-
-  // const expectsNumOfEncryptedLogsInTheLastBlockToBe = async (numEncryptedLogs: number) => {
-  //   const l2BlockNum = await aztecNode.getBlockHeight();
-  //   const encryptedLogs = await aztecNode.getEncryptedLogs(l2BlockNum, 1);
-  //   const unrolledLogs = L2BlockL2Logs.unrollLogs(encryptedLogs);
-  //   expect(unrolledLogs.length).toBe(numEncryptedLogs);
-  // };
-
-  // const expectUnencryptedLogsFromLastBlockToBe = async (logMessages: string[]) => {
-  //   const l2BlockNum = await aztecNode.getBlockHeight();
-  //   const unencryptedLogs = await aztecNode.getUnencryptedLogs(l2BlockNum, 1);
-  //   const unrolledLogs = L2BlockL2Logs.unrollLogs(unencryptedLogs);
-  //   const asciiLogs = unrolledLogs.map(log => log.toString('ascii'));
-
-  //   expect(asciiLogs).toStrictEqual(logMessages);
-  // };
-
-  const deployContract = async (initialBalance = 0n, owner = { x: 0n, y: 0n }) => {
+  const deployContract = async () => {
     logger(`Deploying L2 contract...`);
     const deployer = new ContractDeployer(CGamContractAbi, aztecRpcServer);
-    const tx = deployer.deploy(initialBalance, owner).send();
+    const tx = deployer.deploy().send();
     const receipt = await tx.getReceipt();
     contract = new Contract(receipt.contractAddress!, CGamContractAbi, aztecRpcServer);
     await tx.isMined(0, 0.1);
@@ -64,21 +41,31 @@ describe('e2e_c_gam_contract', () => {
     return contract;
   };
 
-  // it('should deploy', async () => {
-  //   const initialBalance = 987n;
-  //   const owner = await aztecRpcServer.getAccountPublicKey(accounts[0]);
-  //   await deployContract(initialBalance, pointToPublicKey(owner));
-  // }, 30_000);
   it('should call buy_pack and see notes', async () => {
-    const initialBalance = 987n;
     const owner = await aztecRpcServer.getAccountPublicKey(accounts[0]);
-    const deployedContract = await deployContract(initialBalance, pointToPublicKey(owner));
+    const deployedContract = await deployContract();
     const seed = 1n;
-    const tx: ContractFunctionInteraction = deployedContract.methods.buy_pack(seed, accounts[0]);
-    tx.send({ from: accounts[0] });
-    const storages = await aztecRpcServer.getStorageAt(deployedContract.address, new Fr(1n));
-    // await tx.isM
+    const tx: ContractFunctionInteraction = deployedContract.methods.buy_pack(seed, pointToPublicKey(owner));
+    await tx.send({ from: accounts[0] }).isMined();
+    logger(`We bought our pack!`);
+    const cardData = await deployedContract.methods
+      .get_pack_cards_unconstrained(seed, pointToPublicKey(owner))
+      .view({ from: accounts[0] });
+    // Test that we have received the expected card data
+    expect(cardData[0]).toBe([328682529145n, 657365058290n, 986047587435n]);
   }, 30_000);
+
+  it('should call create_game and see our storage slot filled', async () => {
+    const owner = await aztecRpcServer.getAccountPublicKey(accounts[0]);
+    const deployedContract = await deployContract();
+    const tx: ContractFunctionInteraction = deployedContract.methods.create_game();
+    await tx.send({ from: accounts[0] }).isMined();
+    logger(`We created our game!`);
+    const gameIdStorageSlot = new Fr(2);
+    const storage = await aztecRpcServer.getStorageAt(deployedContract.address, gameIdStorageSlot);
+    logger({ storage });
+  }, 30_000);
+
   // /**
   //  * Milestone 1.3.
   //  * https://hackmd.io/AG5rb9DyTRu3y7mBptWauA
