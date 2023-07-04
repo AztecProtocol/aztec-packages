@@ -27,7 +27,7 @@ import {
 import { AccountContract } from '../account_impl/account_contract.js';
 import { AccountImplementation } from '../account_impl/index.js';
 import { AccountState } from '../account_state/account_state.js';
-import { AztecRPC, DeployedContract } from '../aztec_rpc/index.js';
+import { AztecRPC, DeployedContract, NodeInfo } from '../aztec_rpc/index.js';
 import { ContractDao, toContractDao } from '../contract_database/index.js';
 import { ContractTree } from '../contract_tree/index.js';
 import { Database, TxDao } from '../database/index.js';
@@ -577,5 +577,14 @@ export class AztecRPCServer implements AztecRPC {
     }
 
     return accountState;
+  }
+
+  public async getNodeInfo(): Promise<NodeInfo> {
+    const [version, chainId] = await Promise.all([this.node.getVersion(), this.node.getChainId()]);
+
+    return {
+      version: Number(version.value),
+      chainId: Number(chainId.value),
+    };
   }
 }
