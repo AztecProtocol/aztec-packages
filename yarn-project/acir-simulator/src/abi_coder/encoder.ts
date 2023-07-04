@@ -38,8 +38,10 @@ class ArgumentEncoder {
           } else {
             this.pushField(arg);
           }
+        } else {
+          throw new Error(`Expected a field in ABI argument encoding, got: ${typeof arg}`);
         }
-        throw new Error(`Expected an field in ABI argument encoding, got: ${typeof arg}`);
+        break;
       case 'boolean':
         this.pushField(new Fr(arg ? 1n : 0n));
         break;

@@ -75,7 +75,7 @@ describe('e2e_c_gam_contract', () => {
     const gameId = 1337n; // decided off-chain
     const tx: ContractFunctionInteraction = deployedContract.methods.join_game(
       gameId,
-      cardData,
+      cardData.map(cardData => ({ inner: cardData })),
       pointToPublicKey(owner),
       Fr.fromBuffer(deployedContract.methods.join_game_pub.selector),
     );
