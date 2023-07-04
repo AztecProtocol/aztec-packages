@@ -58,7 +58,7 @@ export class ContractFunctionInteraction {
    * @param options - An optional object containing additional configuration for the transaction.
    * @returns A Promise that resolves to a transaction instance.
    */
-  public createTxRequest(options: SendMethodOptions = {}): ExecutionRequest {
+  public createExecutionRequest(options: SendMethodOptions = {}): ExecutionRequest {
     if (this.functionDao.functionType === FunctionType.UNCONSTRAINED) {
       throw new Error("Can't call `create` on an unconstrained function.");
     }
@@ -70,12 +70,39 @@ export class ContractFunctionInteraction {
     // new Contract(LotteryABI).payWinnings().simulate() -- Tx (Via RPC Server) -- need new method to simulate as contract
     // new Contract(LotteryABI).payWinnings().simulate().send() -- TxReceipt (Via RPC Server)
 
-    // const call1 = new Contract(ERC20ABI).transfer() -- TxExecutionRequest
-    // const walletCall = new Contract(WalletAbi).entryPoint().simulate();
+    // const call1 = new Contract(ERC20ABI).transfer().send(wallet) -- ExecutionRequest
+
+    // const walletCall = new Contract(WalletAbi).entryPoint().send();
     // const walletCall = new Contract(WalletAbi).entryPoint().simulate();
 
     return this.executionRequest;
   }
+
+  /**
+   *
+   * @param executions
+   */
+  public async createTxRequest(executions) {
+    if (this.wallet.isWallet) {
+      // we are sending via a specific authenticating wallet not the RPC
+      return await this.wallet.createTxRequest(executions);
+    }
+    const nodeInfo = await this.wallet.getNodeInfo();
+    const txContext = TxContext.empty(nodeInfo.chainId, nodeInfo.version);
+    const selector = generateFunctionSelector(this.functionDao.name, this.functionDao.parameters);
+    const txRequest = TxExecutionRequest.from({
+      args: encodeArguments(this.functionDao.parameters, this.args),
+      origin: this.contractAddress,
+      functionData: new FunctionData(selector, true, false),
+      txContext,
+    });
+    return txRequest;
+  }
+
+  /**
+   *
+   */
+  public simulateTx() {}
 
   #getExecutionRequest(to: AztecAddress, from?: AztecAddress): ExecutionRequest {
     const flatArgs = encodeArguments(this.functionDao, this.args);
@@ -102,9 +129,10 @@ export class ContractFunctionInteraction {
    *
    * @param options - An optional object containing 'from' property representing
    * the AztecAddress of the sender. If not provided, the default address is used.
+   * @param wallet
    * @returns A SentTx instance for tracking the transaction status and information.
    */
-  public send(options: SendMethodOptions = {}) {
+  public send(options: SendMethodOptions = {}, wallet: AztecRPC) {
     if (this.functionDao.functionType === FunctionType.UNCONSTRAINED) {
       throw new Error("Can't call `send` on an unconstrained function.");
     }
@@ -114,30 +142,12 @@ export class ContractFunctionInteraction {
       promise = this.wallet.sendTx(this.tx);
     } else {
       promise = (async () => {
-        const executions = [this.createTxRequest(options)];
+        const executions = [this.createExecutionRequest(options)];
         // TODO
         // this.checkIsNotDeployment(txContext);
+        // check if we are sending direct, or if we
 
-        const [privateCalls, publicCalls] = partition(executions, exec => exec.functionData.isPrivate).map(execs =>
-          execs.map(exec => ({
-            args: exec.args,
-            selector: exec.functionData.functionSelectorBuffer,
-            target: exec.to,
-          })),
-        );
-
-        const payload = buildPayload(privateCalls, publicCalls);
-
-        const functionPayload = await this.authProvider.authenticateTx(payload, this.contractAddress);
-        const txContext = TxContext.empty(await this.wallet.getNodeInfo(), await this.wallet.getVersion());
-        const selector = generateFunctionSelector(this.functionDao.name, this.functionDao.parameters);
-        const txRequest = TxExecutionRequest.from({
-          args: functionPayload,
-          origin: this.contractAddress,
-          functionData: new FunctionData(selector, true, false),
-          txContext,
-        });
-
+        const txRequest = this.createTxRequest(executions);
         const tx = await this.wallet.simulateTx(txRequest);
         return this.wallet.sendTx(tx);
       })();

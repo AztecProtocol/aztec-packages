@@ -34,6 +34,20 @@ export interface DeployedContract {
 }
 
 /**
+ *
+ */
+export type NodeInfo = {
+  /**
+   *
+   */
+  version: number;
+  /**
+   *
+   */
+  chainId: number;
+};
+
+/**
  * Represents an Aztec RPC implementation.
  * Provides functionality for all the operations needed to interact with the Aztec network,
  * including account management, contract deployment, transaction creation, and execution,
@@ -81,4 +95,5 @@ export interface AztecRPC {
   getContractInfo(contractAddress: AztecAddress): Promise<ContractData | undefined>;
   getUnencryptedLogs(from: number, take: number): Promise<L2BlockL2Logs[]>;
   getBlockNum(): Promise<number>;
+  getNodeInfo(): Promise<NodeInfo>;
 }

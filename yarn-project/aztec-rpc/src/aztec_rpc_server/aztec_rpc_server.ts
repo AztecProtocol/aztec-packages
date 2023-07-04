@@ -1,6 +1,13 @@
 import { encodeArguments } from '@aztec/acir-simulator';
 import { AztecNode } from '@aztec/aztec-node';
-import { AztecAddress, CircuitsWasm, ContractDeploymentData, EthAddress, FunctionData, TxContext } from '@aztec/circuits.js';
+import {
+  AztecAddress,
+  CircuitsWasm,
+  ContractDeploymentData,
+  EthAddress,
+  FunctionData,
+  TxContext,
+} from '@aztec/circuits.js';
 import { ContractAbi, FunctionType } from '@aztec/foundation/abi';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
@@ -18,7 +25,7 @@ import {
   TxHash,
 } from '@aztec/types';
 import { AccountState } from '../account_state/account_state.js';
-import { AztecRPC, DeployedContract } from '../aztec_rpc/index.js';
+import { AztecRPC, DeployedContract, NodeInfo } from '../aztec_rpc/index.js';
 import { toContractDao } from '../contract_database/index.js';
 import { ContractTree } from '../contract_tree/index.js';
 import { Database, TxDao } from '../database/index.js';
@@ -288,13 +295,22 @@ export class AztecRPCServer implements AztecRPC {
     if (!txRequest.functionData.isPrivate) {
       throw new Error(`Public entrypoints are not allowed`);
     }
-
     const tx = await account.simulateAndProve(txRequest, undefined);
-    await this.db.addTx(new TxDao(await tx.getTxHash(), undefined, undefined, account.getAddress(), tx., undefined, ''));
+    await this.db.addTx(
+      new TxDao(await tx.getTxHash(), undefined, undefined, account.getAddress(), account.getAddress(), undefined, ''),
+    );
 
     return tx;
   }
 
+  /**
+   *
+   * @param abi
+   * @param args
+   * @param portalContract
+   * @param contractAddressSalt
+   * @param pubKey
+   */
   public async getDeploymentAddress(
     abi: ContractAbi,
     args: any[],
@@ -325,7 +341,6 @@ export class AztecRPCServer implements AztecRPC {
     return [contract.address, partialContractAddress];
   }
 
-
   /**
    * Send a transaction.
    * @param tx - The transaction.
@@ -343,8 +358,8 @@ export class AztecRPCServer implements AztecRPC {
    * and optionally the sender's address.
    *
    * @param functionName - The name of the function to be called in the contract.
-   * @param args - An array of arguments to be passed into the function call.
-   * @param to - The address of the contract on which the function will be called.
+   * @param args
+   * @param to
    * @param from - (Optional) The caller of the transaction.
    * @returns The result of the view function call, structured based on the function ABI.
    */
@@ -537,5 +552,17 @@ export class AztecRPCServer implements AztecRPC {
     }
 
     return accountState;
+  }
+
+  /**
+   *
+   */
+  public async getNodeInfo(): Promise<NodeInfo> {
+    const [version, chainId] = await Promise.all([this.node.getVersion(), this.node.getChainId()]);
+
+    return {
+      version: Number(version.value),
+      chainId: Number(chainId.value),
+    };
   }
 }
