@@ -1,0 +1,6 @@
+[package]
+authors = ["aztec-labs"]
+compiler_version = "0.7.1"
+
+[dependencies]
+aztec3 = { path = "../../contracts/noir-aztec3" }

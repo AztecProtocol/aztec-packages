@@ -1,6 +1,7 @@
 mod balance_utils;
 mod notes;
 mod storage;
+use dep::std::hash::pedersen;
 
 // A contract used to test insertion of a note from public domain into the private data tree. How this works is that
 // a user provides a secret hash as an argument on the input of the public function, and the contract then inserts
@@ -12,26 +13,33 @@ mod storage;
 // 2. The sequencer performs the public call to the DEX and the note gets inserted into the private data tree.
 // 3. At this point a recipient can spend the note in a private function assuming he/she knows the secret.
 contract PublicPrivate {
-    use dep::std::hash::pedersen;
-    use dep::aztec::abi;
-    use dep::aztec::context::Context;
-    use dep::aztec::abi::PrivateContextInputs;
-    use dep::aztec::abi::PublicContextInputs;
-    use dep::aztec::log::emit_encrypted_log;
+    // Custom deps
+    use dep::token_utils::balance_utils;
+    use dep::custom_notes::transparent_note::TransparentNote;
 
-    // Private state
-    use dep::aztec::types::point::Point;
+    use dep::aztec::{
+        abi,
+        abi::PrivateContextInputs,
+        abi::PublicContextInputs,
+    };
+
+    use dep::aztec3::{
+        types::point::Point,
+        state_vars::{
+            map::Map, set::Set
+        },
+    };
 
     // oracles
-    use dep::aztec::oracle::create_commitment::create_commitment;
-    use dep::aztec::oracle::create_l2_to_l1_message::create_l2_to_l1_message;
-    use dep::aztec::oracle::create_nullifier::create_nullifier;
-    use dep::aztec::oracle::get_commitment::get_commitment;
+    use dep::aztec3::oracle::{
+        create_commitment::create_commitment,
+        create_l2_to_l1_message::create_l2_to_l1_message,
+        create_nullifier::create_nullifier,
+        get_commitment::get_commitment
+    };
 
-    use crate::balance_utils;
-    use crate::notes::transparent_note::TransparentNote;
-    use crate::notes::value_note::ValueNote;
-    use crate::storage::Storage;
+    // A map from `owner.x` to a set of notes representing private user balance.
+    global balances = Map { storage_slot: 1 };
 
     fn constructor(
         inputs: PrivateContextInputs,
