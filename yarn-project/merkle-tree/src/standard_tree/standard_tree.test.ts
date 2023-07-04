@@ -27,9 +27,13 @@ describe('StandardTree_batchAppend', () => {
   let wasm: IWasmModule;
   let pedersen: PedersenWithCounter;
 
-  beforeEach(async () => {
+  beforeAll(async () => {
     wasm = await CircuitsWasm.get();
     pedersen = new PedersenWithCounter(wasm);
+  });
+
+  afterEach(() => {
+    pedersen.resetCounter();
   });
 
   it('correctly computes root when batch appending and calls compress function expected num times', async () => {
