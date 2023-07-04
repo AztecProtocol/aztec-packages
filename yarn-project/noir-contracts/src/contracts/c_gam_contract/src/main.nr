@@ -64,7 +64,7 @@ contract CGam {
     global num_players = StorageMap { storage_slot: 3 };
 
     //average strengh of user deck
-    global deck_strength = StorageMap { storage_slot: 4 };
+    global deck_strength_storage = StorageMap { storage_slot: 4 };
 
     //users' deck
     global user_deck = Map { storage_slot: 5 };
@@ -137,14 +137,6 @@ contract CGam {
         cards
     }
 
-    /// ABI getBalance type "unconstrained"
-    fn getBalance(
-        owner: Point,
-        _padding: [Field; abi::MAX_ARGS - 2]
-    ) -> pub Field {
-        0
-    }
-
     fn get_pack_cards(
         seed: Field,
         owner: Point
@@ -205,35 +197,22 @@ contract CGam {
         context.finish(inputs)
     }
 
-    open fn create_game (
-        //*********************************/
-        // Should eventually be hidden:
-        inputs: PublicContextInputs,
-        //*********************************/
-      ) -> Field
-    {
-        // FEAT_REQUEST: game_id += 1; for a public state variable.
-        let old_id = game_id.read();
-        let new_id = old_id + 1;
-        game_id.write(new_id)
-    }
-
-    /// start game is called with a random UUID that is computed offchain.
-    /// It needs to be a game ID that has not been used for another game yet.
+    /// start_game is called by join_game once the expected number of players have joined.
+    /// It needs to have a game ID that has not been used for another game yet.
     /// TODO add number of players for the game, but we have max 2 anyway right now due to limited read requests
-    open fn start_game(g_id: Field) {
+    open fn start_game(game_id: Field) {
         // we compute the players play order
-        let player_nb = num_players.at(g_id).read();
+        let player_nb = num_players.at(game_id).read();
 
         // no winner yet
-        let _5 = winner.at(g_id).write(MAX_PLAYERS + 1);
+        let _5 = winner.at(game_id).write(MAX_PLAYERS + 1);
 
         // get the player strength
         let mut player_strengths = [0;MAX_PLAYERS];
         for i in 0..MAX_PLAYERS {
-            let mut idx = (g_id + i) as Field;
-            idx = idx*(idx+1)/2 + g_id;
-            player_strengths[i] = deck_strength.at(idx).read() as u8;
+            let mut idx = (game_id + i) as Field;
+            idx = idx*(idx+1)/2 + game_id;
+            player_strengths[i] = deck_strength_storage.at(idx).read() as u8;
         }
         // get the player order: TODO to review...
         let sorted = player_strengths.sort();
@@ -253,8 +232,8 @@ contract CGam {
         //we store the user order
         for i in 0..MAX_PLAYERS {
             // when i is over the actual nb of players, we will set the player_order to 0, which is fine.
-            let mut idx = (g_id + i) as Field;
-            idx = idx*(idx+1)/2 + g_id;
+            let mut idx = (game_id + i) as Field;
+            idx = idx*(idx+1)/2 + game_id;
             player_order.at(idx).write(players_turn[i]);
         }
     }
@@ -269,54 +248,62 @@ contract CGam {
         context
     }
 
-    open fn join_game_pub(g_id: Field, owner: Point, deck_str: Field) {
+    open fn join_game_pub(game_id: Field, owner: Point, deck_str: Field) {
   
             //we generate a user id:
-            let user_id = game_players.at(g_id).read();
-            let _1 = game_players.at(g_id).write(user_id + 1);
+            let user_id = game_players.at(game_id).read();
+            let _1 = game_players.at(game_id).write(user_id + 1);
 
             //we associate the user_id to the user pub key
-            let mut idx = (g_id + user_id) as Field;
-            idx = idx*(idx+1)/2 + g_id;
+            let mut idx = (game_id + user_id) as Field;
+            idx = idx*(idx+1)/2 + game_id;
             let _4 = user_pub_key.at(idx).write(owner.x);
 
           
             // store the player strenght
-            let user_hash = std::hash::pedersen([owner.x, g_id])[0];
-            let _3 = deck_strength.at(user_hash).write(deck_str as Field);
+            let user_hash = std::hash::pedersen([owner.x, game_id])[0];
+            let _3 = deck_strength_storage.at(user_hash).write(deck_str as Field);
             // user has not yet played
             let _2 = users_plays.at(user_hash).write(0);
 
-             if user_id == num_players.at(g_id).read() {
-                start_game(g_id);
+             if user_id == num_players.at(game_id).read() {
+                start_game(game_id);
             }
 }
 
+    /// join_game is called with a random UUID that is computed offchain and communicated to other players (possibly onchain).
+    /// It needs to have a game ID that has not been used for another game yet.
+    // TODO currently we accept our own contract's address, and a selector for join_game_pub
+    // TODO ideally there would be an easier way to do this *waves hands*
     fn join_game(
         inputs: PrivateContextInputs,
-        g_id: Field,
+        game_id: Field,
         user_cards: [Card; MAX_CARDS],
         owner: Point,
+        this_contract_address: Field,
+        join_game_pub_selector: Field
     ) {
         let mut context = PrivateFunctionContext::new();
-        context.args = context.args.push_array([g_id, user_cards[0].id(), user_cards[1].id(),
-        user_cards[2].id(),
-        user_cards[3].id(),
-        user_cards[4].id(),
-        owner.x, owner.y, ]);
+        context.args = context.args.push_array([
+            game_id, 
+            user_cards[0].id(),
+            user_cards[1].id(), // Up to MAX_CARDS - 1
+            owner.x,
+            owner.y
+        ]);
 
         //TODO commit to $$
 
-        //checks that cards belong to the user
+        // checks that cards belong to the user
         for i in 0..MAX_CARDS {
             context = assert_own_card(context, user_cards[i], owner);
         }
         // compute the deck strength
-        let mut deck_str : u32 = 0;
+        let mut deck_strength: u32 = 0;
         for card in user_cards {
-            deck_str + = card.strength() as u32;
+            deck_strength + = card.strength() as u32;
         }
-        deck_str = deck_str / (MAX_CARDS as u32);
+        deck_strength = deck_strength / (MAX_CARDS as u32);
 
         //TODO call join_game_pub()
         let mut args = [0; abi::MAX_ARGS];
@@ -328,7 +315,7 @@ contract CGam {
         // maps the user_id to its cards = user_deck
         // TODO undo hacks
         for i in 0..MAX_CARDS {
-            context2 = user_deck_insert(owner, g_id, i, i, user_cards, context2);
+            context2 = user_deck_insert(owner, game_id, i, i, user_cards, context2);
         }
 
         //for i in 0..MAX_CARDS {
@@ -359,7 +346,7 @@ contract CGam {
         inputs: PublicContextInputs,
         //*********************************/
         user_id: Field,
-        g_id: Field,
+        game_id: Field,
         card: Card,
         owner: Point
     ) {
@@ -376,13 +363,13 @@ contract CGam {
         // check user turn
         let mut check = true;
         for i in 0..MAX_PLAYERS {
-            let mut idx = (g_id + i) as Field;
-            idx = idx*(idx+1)/2 + g_id;
+            let mut idx = (game_id + i) as Field;
+            idx = idx*(idx+1)/2 + game_id;
             //all previous players must have played
             if i as u8 <user_id as u8 {
                 let player_i = player_order.at(idx).read();
-                let mut j = (g_id + player_i) as Field;
-                    j = j*(j+1)/2 + g_id;
+                let mut j = (game_id + player_i) as Field;
+                    j = j*(j+1)/2 + game_id;
                 assert(users_plays.at(j).read() == 1);
             } else {
                 // user must not have played yet
@@ -393,22 +380,22 @@ contract CGam {
         }
 
         // we track the winner card: winning_card: game_id -> card_id
-        let win_card_id = winning_card.at(g_id).read();
+        let win_card_id = winning_card.at(game_id).read();
         let win_card = Card { inner: win_card_id };
         if win_card.strength() < card.strength() {
-            let _1 = winning_card.at(g_id).write(card.id());
-            winning_user.at(g_id).write(owner.x);
+            let _1 = winning_card.at(game_id).write(card.id());
+            winning_user.at(game_id).write(owner.x);
         }
         //N.B. when you show a card, it must have strictly more strength than the others to win.
         // we could implement some rules in case of a draw
 
         // we track the sum of points: game_points:  game_id -> points
-        let points = game_points.at(g_id).read();
-        let _4 = game_points.at(g_id).write(points + card.points() as Field);
+        let points = game_points.at(game_id).read();
+        let _4 = game_points.at(game_id).write(points + card.points() as Field);
 
         // user has played
-        let mut idx = (g_id + user_id) as Field;
-        idx = idx*(idx+1)/2 + g_id;
+        let mut idx = (game_id + user_id) as Field;
+        idx = idx*(idx+1)/2 + game_id;
         let _3 = player_order.at(idx).write(1);
 
         // set the card as played
@@ -417,40 +404,40 @@ contract CGam {
         // count how players have played:
         let mut count = 0;
         for user_id in 0..MAX_PLAYERS {
-            let mut idx = (g_id + user_id) as Field;
-            idx = idx*(idx+1)/2 + g_id;
+            let mut idx = (game_id + user_id) as Field;
+            idx = idx*(idx+1)/2 + game_id;
             count = count + player_order.at(idx).read();
         }
-        if count == num_players.at(g_id).read() {
-            end_turn(g_id);
+        if count == num_players.at(game_id).read() {
+            end_turn(game_id);
         }
     }
 
     // TODO private
-    open fn end_turn(g_id: Field) {
+    open fn end_turn(game_id: Field) {
         // we reset the 'user has played'
         for i in 0..MAX_PLAYERS {
-            let mut idx = (g_id + i) as Field;
-            idx = idx*(idx+1)/2 + g_id;
+            let mut idx = (game_id + i) as Field;
+            idx = idx*(idx+1)/2 + game_id;
             let _2 = users_plays.at(idx).write(0);
         }
 
         // give the points to the winner of the turn
         let mut user_id = MAX_PLAYERS + 1;
-        let win = winning_card.at(g_id).read();
+        let win = winning_card.at(game_id).read();
         for i in 0..MAX_PLAYERS {
-            let mut idx = (g_id + i) as Field;
-            idx = idx*(idx+1)/2 + g_id;
+            let mut idx = (game_id + i) as Field;
+            idx = idx*(idx+1)/2 + game_id;
             // we could used the 'public shown cards' instead
-            if user_pub_key.at(idx).read() == winning_user.at(g_id).read() {
+            if user_pub_key.at(idx).read() == winning_user.at(game_id).read() {
                 user_id = i;
             }
         }
 
-        let turn_points = game_points.at(g_id).read();
-        let _4 = game_points.at(g_id).write(0);
-        let mut idx = (g_id + user_id) as Field;
-        idx = idx*(idx+1)/2 + g_id;
+        let turn_points = game_points.at(game_id).read();
+        let _4 = game_points.at(game_id).write(0);
+        let mut idx = (game_id + user_id) as Field;
+        idx = idx*(idx+1)/2 + game_id;
         let current_points = user_points.at(idx).read();
         let _1 = user_points.at(idx).write(current_points + turn_points);
 
@@ -466,27 +453,27 @@ contract CGam {
         //then we check if all his cards are played
         let mut is_end_game = false;
         for i in 0..MAX_CARDS {
-            idx = (g_id + MAX_CARDS*last_player+i) as Field;
-            idx = idx*(idx+1)/2 + g_id;
+            idx = (game_id + MAX_CARDS*last_player+i) as Field;
+            idx = idx*(idx+1)/2 + game_id;
             let card_id = 0; // TODO user_deck.at(idx).get();
-            idx = (g_id + card_id) as Field;
-            idx = idx*(idx+1)/2 + g_id;
+            idx = (game_id + card_id) as Field;
+            idx = idx*(idx+1)/2 + game_id;
             if is_end_game == false {
                 is_end_game = played_cards.at(idx).read() == 1;
             }
         }
         if is_end_game {
-            end_game(g_id);
+            end_game(game_id);
         }
     }
 
-    fn end_game(g_id: Field) {
+    fn end_game(game_id: Field) {
         //compute the winner
         let mut max_points: u32 = 0;
         let mut winner_id = MAX_PLAYERS + 1;
         for i in 0..MAX_PLAYERS {
-            let mut idx = (g_id + i) as Field;
-            idx = idx*(idx+1)/2 + g_id;
+            let mut idx = (game_id + i) as Field;
+            idx = idx*(idx+1)/2 + game_id;
             let user_points = user_points.at(idx).read() as u32;
             if user_points > max_points {
                 winner_id = i;
@@ -494,20 +481,20 @@ contract CGam {
             }
         }
         //store the winner
-        let _1 = winner.at(g_id).write(winner_id);
+        let _1 = winner.at(game_id).write(winner_id);
     }
 
-    fn private_claim_winnings(inputs: PrivateContextInputs, g_id: Field,owner: Point) -> pub abi::PrivateCircuitPublicInputs {
+    fn private_claim_winnings(inputs: PrivateContextInputs, game_id: Field,owner: Point) -> pub abi::PrivateCircuitPublicInputs {
         let mut initialContext = PrivateFunctionContext::new();
-        initialContext.args = initialContext.args.push_array([g_id, owner.x, owner.y]);
+        initialContext.args = initialContext.args.push_array([game_id, owner.x, owner.y]);
 
         // burn the played_cards: N.B. we could track the played card in a public structure and not call this private function
         for user_id in 0..MAX_PLAYERS {
             for i in 0..MAX_CARDS {
-                let mut idx = (g_id + 5*user_id+i) as Field;
-                idx = idx*(idx+1)/2 + g_id;
+                let mut idx = (game_id + 5*user_id+i) as Field;
+                idx = idx*(idx+1)/2 + game_id;
                 let (mut context, (card_note1, card_note2)) = user_deck.at(idx).get_2(initialContext); //temp
-                cards.at(g_id).remove(inputs, context,card_note1);
+                cards.at(game_id).remove(inputs, context,card_note1);
             }
         }
 
@@ -518,14 +505,14 @@ contract CGam {
 
     // // EXTERNAL
     open fn claim_winnings(
-        g_id: Field,
+        game_id: Field,
         owner: Point
     ) {
-        let winner = winner.at(g_id).read();
+        let winner = winner.at(game_id).read();
         assert(winner as u8 < MAX_PLAYERS as u8);
         // match user public key with user id
-        let mut idx = (g_id + winner) as Field;
-        idx = idx*(idx+1)/2 + g_id;
+        let mut idx = (game_id + winner) as Field;
+        idx = idx*(idx+1)/2 + game_id;
         assert(user_pub_key.at(idx).read() == owner.x);
 
         // at the end we need to burn the played_cards: TODO call a private function which is going to do it
