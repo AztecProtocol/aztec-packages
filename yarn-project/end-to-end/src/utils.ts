@@ -1,6 +1,6 @@
 import { AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
-import { DebugLogger, Logger, createDebugLogger } from '@aztec/foundation/log';
 import { Fr } from '@aztec/foundation/fields';
+import { DebugLogger, Logger, createDebugLogger } from '@aztec/foundation/log';
 
 import {
   AztecAddress,
@@ -9,27 +9,18 @@ import {
   ContractDeployer,
   EthAddress,
   Point,
-  createAztecRPCServer,
   TxAuthProvider,
+  createAztecRPCServer,
 } from '@aztec/aztec.js';
-import { DeployL1Contracts, deployL1Contract, deployL1Contracts } from '@aztec/ethereum';
-import { ContractAbi } from '@aztec/foundation/abi';
+import { CircuitsWasm } from '@aztec/circuits.js';
+import { pedersenPlookupCommitInputs } from '@aztec/circuits.js/barretenberg';
+import { DeployL1Contracts, deployL1Contracts } from '@aztec/ethereum';
 import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
-import { PortalERC20Abi, PortalERC20Bytecode, TokenPortalAbi, TokenPortalBytecode } from '@aztec/l1-artifacts';
-import {
-  SchnorrAccountContractAbi,
-  GullibleAccountContractAbi,
-  NonNativeTokenContractAbi,
-} from '@aztec/noir-contracts/examples';
-import every from 'lodash.every';
-import zipWith from 'lodash.zipwith';
-import { Account, Chain, HttpTransport, PublicClient, WalletClient, getContract } from 'viem';
+import { KeyStore } from '@aztec/key-store';
+import { GullibleAccountContractAbi, SchnorrAccountContractAbi } from '@aztec/noir-contracts/examples';
+import { randomBytes } from 'crypto';
 import { mnemonicToAccount } from 'viem/accounts';
 import { MNEMONIC, localAnvil } from './fixtures.js';
-import { CircuitsWasm } from '@aztec/circuits.js';
-import { Grumpkin, pedersenPlookupCommitInputs } from '@aztec/circuits.js/barretenberg';
-import { KeyStore } from '@aztec/key-store';
-import { randomBytes } from 'crypto';
 
 /**
  * Sets up the environment for the end-to-end tests.
@@ -88,17 +79,30 @@ export async function setup(
     const privateKey = i === 0 ? Buffer.from(privKey!) : randomBytes(32);
     const publicKey = keyStore.addAccount(privateKey);
     const impl = i == 0 ? SchnorrAccountContractAbi : GullibleAccountContractAbi;
+
+    const [address, partialContractAddress] = await aztecRpcServer.getDeploymentAddress(
+      impl,
+      [],
+      EthAddress.ZERO,
+      Fr.ZERO,
+      publicKey,
+    );
+
+    await aztecRpcServer.addAccount(privateKey, address, partialContractAddress, impl);
+
     const contractDeployer = new ContractDeployer(publicKey, impl, aztecRpcServer);
     const deployMethod = contractDeployer.deploy();
 
     const tx = deployMethod.send();
     await tx.isMined(0, 0.1);
     const receipt = await tx.getReceipt();
-    const address = receipt.contractAddress!;
-    const pubKey = await aztecRpcServer.getAccountPublicKey(address);
-
-    await aztecRpcServer.addAccount(privateKey, address, deployMethod.partialContractAddress!, impl);
-    logger(`Created account ${address.toString()} with public key ${pubKey.toString()}`);
+    const receiptAddress = receipt.contractAddress!;
+    if (!receiptAddress.equals(address)) {
+      throw new Error(
+        `Deployment address does not match for account contract (expected ${address} got ${receiptAddress})`,
+      );
+    }
+    logger(`Created account ${address.toString()} with public key ${publicKey.toString()}`);
   }
 
   const accounts = await aztecRpcServer.getAccounts();
