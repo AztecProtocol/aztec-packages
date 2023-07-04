@@ -58,12 +58,9 @@ template <size_t SIZE>
 std::array<NT::fr, SIZE> array_of_values(NT::uint32& count, NT::uint32 num_values_required = SIZE)
 {
     ASSERT(num_values_required <= SIZE);
-    std::array<NT::fr, SIZE> values;
+    std::array<NT::fr, SIZE> values{};
     for (size_t i = 0; i < num_values_required; i++) {
         values[i] = ++count;
-    }
-    for (size_t i = num_values_required; i < SIZE; i++) {
-        values[i] = 0;
     }
     return values;
 }
@@ -239,19 +236,15 @@ std::array<fr, KERNEL_NEW_NULLIFIERS_LENGTH> new_nullifiers_as_siloed_nullifiers
 std::array<NT::fr, KERNEL_NEW_L2_TO_L1_MSGS_LENGTH> new_l2_messages_from_message(
     std::array<NT::fr, KERNEL_NEW_L2_TO_L1_MSGS_LENGTH> const& new_messages,
     NT::fr const& contract_address,
-    fr const& portal_contract_address)
+    fr const& portal_contract_address,
+    fr const& chain_id,
+    fr const& version)
 {
     std::array<NT::fr, KERNEL_NEW_L2_TO_L1_MSGS_LENGTH> formatted_msgs{};
     for (size_t i = 0; i < KERNEL_NEW_L2_TO_L1_MSGS_LENGTH; ++i) {
         if (!new_messages[i].is_zero()) {
-            // @todo @LHerskind chain-ids and rollup version id should be added here. Right now, just hard coded.
-            // @todo @LHerskind chain-id is hardcoded for foundry
-            const auto chain_id = fr(31337);
-            formatted_msgs[i] = compute_l2_to_l1_hash<NT>(contract_address,
-                                                          fr(1),  // rollup version id
-                                                          portal_contract_address,
-                                                          chain_id,
-                                                          new_messages[i]);
+            formatted_msgs[i] = compute_l2_to_l1_hash<NT>(
+                contract_address, version, portal_contract_address, chain_id, new_messages[i]);
         }
     }
     return formatted_msgs;
@@ -307,7 +300,7 @@ PublicKernelInputs<NT> get_kernel_inputs_with_previous_kernel(NT::boolean privat
     std::array<PublicCallStackItem, PUBLIC_CALL_STACK_LENGTH> child_call_stacks;
     NT::fr child_contract_address = 100000;
     NT::fr child_portal_contract_address = 200000;
-    std::array<NT::fr, PUBLIC_CALL_STACK_LENGTH> call_stack_hashes;
+    std::array<NT::fr, PUBLIC_CALL_STACK_LENGTH> call_stack_hashes{};
     for (size_t i = 0; i < PUBLIC_CALL_STACK_LENGTH; i++) {
         // NOLINTNEXTLINE(readability-suspicious-call-argument)
         child_call_stacks[i] = generate_call_stack_item(child_contract_address,
@@ -393,8 +386,7 @@ PublicKernelInputs<NT> get_kernel_inputs_with_previous_kernel(NT::boolean privat
             }
     };
 
-    std::array<NT::fr, KERNEL_PUBLIC_CALL_STACK_LENGTH> public_call_stack =
-        zero_array<NT::fr, KERNEL_PUBLIC_CALL_STACK_LENGTH>();
+    std::array<NT::fr, KERNEL_PUBLIC_CALL_STACK_LENGTH> public_call_stack{};
     public_call_stack[0] = public_call_data.call_stack_item.hash();
 
     CombinedAccumulatedData<NT> const end_accumulated_data = {
@@ -711,7 +703,7 @@ TEST(public_kernel_tests, public_kernel_circuit_succeeds_for_mixture_of_regular_
     NT::fr child_contract_address = 100000;
     NT::fr child_portal_contract_address = 200000;
     NT::boolean is_delegate_call = false;
-    std::array<NT::fr, PUBLIC_CALL_STACK_LENGTH> call_stack_hashes;
+    std::array<NT::fr, PUBLIC_CALL_STACK_LENGTH> call_stack_hashes{};
     for (size_t i = 0; i < PUBLIC_CALL_STACK_LENGTH; i++) {
         child_call_stacks[i] =
             // NOLINTNEXTLINE(readability-suspicious-call-argument)
@@ -748,7 +740,7 @@ TEST(public_kernel_tests, public_kernel_circuit_fails_on_incorrect_msg_sender_in
     std::array<PublicCallStackItem, PUBLIC_CALL_STACK_LENGTH> child_call_stacks;
     NT::uint32 const seed = 1000;
     NT::fr const child_contract_address = 100000;
-    std::array<NT::fr, PUBLIC_CALL_STACK_LENGTH> call_stack_hashes;
+    std::array<NT::fr, PUBLIC_CALL_STACK_LENGTH> call_stack_hashes{};
     child_call_stacks[0] =
         // NOLINTNEXTLINE(readability-suspicious-call-argument)
         generate_call_stack_item(child_contract_address,
@@ -781,7 +773,7 @@ TEST(public_kernel_tests, public_kernel_circuit_fails_on_incorrect_storage_contr
     std::array<PublicCallStackItem, PUBLIC_CALL_STACK_LENGTH> child_call_stacks;
     NT::uint32 const seed = 1000;
     NT::fr const child_contract_address = 100000;
-    std::array<NT::fr, PUBLIC_CALL_STACK_LENGTH> call_stack_hashes;
+    std::array<NT::fr, PUBLIC_CALL_STACK_LENGTH> call_stack_hashes{};
     child_call_stacks[0] = generate_call_stack_item(child_contract_address,
                                                     origin_msg_sender,
                                                     child_contract_address,  // this should be contract_address
@@ -813,7 +805,7 @@ TEST(public_kernel_tests, public_kernel_circuit_fails_on_incorrect_portal_contra
     NT::uint32 const seed = 1000;
     NT::fr const child_contract_address = 100000;
     NT::fr const child_portal_contract = 200000;
-    std::array<NT::fr, PUBLIC_CALL_STACK_LENGTH> call_stack_hashes;
+    std::array<NT::fr, PUBLIC_CALL_STACK_LENGTH> call_stack_hashes{};
     // NOLINTNEXTLINE(readability-suspicious-call-argument)
     child_call_stacks[0] = generate_call_stack_item(child_contract_address,
                                                     origin_msg_sender,
@@ -1124,8 +1116,16 @@ TEST(public_kernel_tests, circuit_outputs_should_be_correctly_populated_with_pre
                                             expected_new_nullifiers,
                                             public_inputs.end.new_nullifiers));
 
-    std::array<NT::fr, KERNEL_NEW_L2_TO_L1_MSGS_LENGTH> const expected_new_messages = new_l2_messages_from_message(
-        inputs.public_call.call_stack_item.public_inputs.new_l2_to_l1_msgs, contract_address, portal_contract_address);
+    // Reading the chain id and version from the tx context
+    fr const chain_id = inputs.previous_kernel.public_inputs.constants.tx_context.chain_id;
+    fr const version = inputs.previous_kernel.public_inputs.constants.tx_context.version;
+
+    std::array<NT::fr, KERNEL_NEW_L2_TO_L1_MSGS_LENGTH> const expected_new_messages =
+        new_l2_messages_from_message(inputs.public_call.call_stack_item.public_inputs.new_l2_to_l1_msgs,
+                                     contract_address,
+                                     portal_contract_address,
+                                     chain_id,
+                                     version);
 
     ASSERT_TRUE(source_arrays_are_in_target(inputs.previous_kernel.public_inputs.end.new_l2_to_l1_msgs,
                                             expected_new_messages,
