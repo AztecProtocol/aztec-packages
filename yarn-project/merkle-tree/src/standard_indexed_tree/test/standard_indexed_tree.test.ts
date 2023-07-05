@@ -7,7 +7,7 @@ import { newTree } from '../../new_tree.js';
 import { loadTree } from '../../load_tree.js';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { IWasmModule } from '@aztec/foundation/wasm';
-import { BaseRollupInputs, CircuitsWasm, NULLIFIER_TREE_HEIGHT } from '@aztec/circuits.js';
+import { CircuitsWasm } from '@aztec/circuits.js';
 import { StandardIndexedTreeWithAppend } from './standard_indexed_tree_with_append.js';
 
 const createDb = async (levelUp: levelup.LevelUp, hasher: Hasher, name: string, depth: number, prefilledSize = 1) => {
