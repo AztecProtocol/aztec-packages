@@ -34,12 +34,9 @@
     "rootDir": "./src"
   },
   "dependencies": {
-    "@aztec/aztec-node": "workspace:^",
     "@aztec/aztec.js": "workspace:^",
     "@aztec/ethereum": "workspace:^",
     "@aztec/foundation": "workspace:^",
-    "@aztec/l1-artifacts": "workspace:^",
-    "@aztec/noir-contracts": "workspace:^",
     "commander": "^9.0.0",
     "tslib": "^2.4.0",
     "viem": "^1.2.5"
