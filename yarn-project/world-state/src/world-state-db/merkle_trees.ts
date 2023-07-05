@@ -1,4 +1,5 @@
 import {
+  BaseRollupInputs,
   CONTRACT_TREE_HEIGHT,
   CONTRACT_TREE_ROOTS_TREE_HEIGHT,
   CircuitsWasm,
@@ -513,7 +514,6 @@ export class MerkleTrees implements MerkleTreeDb {
 
       for (const [tree, leaves] of [
         [MerkleTreeId.CONTRACT_TREE, l2Block.newContracts],
-        [MerkleTreeId.NULLIFIER_TREE, l2Block.newNullifiers],
         [MerkleTreeId.PRIVATE_DATA_TREE, l2Block.newCommitments],
         [MerkleTreeId.L1_TO_L2_MESSAGES_TREE, l2Block.newL1ToL2Messages],
       ] as const) {
@@ -522,6 +522,12 @@ export class MerkleTrees implements MerkleTreeDb {
           leaves.map(fr => fr.toBuffer()),
         );
       }
+
+      await (this.trees[MerkleTreeId.NULLIFIER_TREE] as StandardIndexedTree).batchInsert(
+        l2Block.newNullifiers.map(fr => fr.toBuffer()),
+        NULLIFIER_TREE_HEIGHT,
+        BaseRollupInputs.NULLIFIER_SUBTREE_HEIGHT,
+      );
 
       for (const dataWrite of l2Block.newPublicDataWrites) {
         if (dataWrite.isEmpty()) continue;

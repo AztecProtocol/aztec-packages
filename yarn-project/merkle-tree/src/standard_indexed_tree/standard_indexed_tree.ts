@@ -70,61 +70,17 @@ const decodeTreeValue = (buf: Buffer) => {
  * Indexed merkle tree.
  */
 export class StandardIndexedTree extends TreeBase implements IndexedTree {
-  private leaves: LeafData[] = [];
-  private cachedLeaves: { [key: number]: LeafData } = {};
+  protected leaves: LeafData[] = [];
+  protected cachedLeaves: { [key: number]: LeafData } = {};
 
   /**
    * Appends the given leaves to the tree.
-   * @param leaves - The leaves to append.
+   * @param _leaves - The leaves to append.
    * @returns Empty promise.
-   * @remarks This method is inefficient and is here mostly for testing. Use batchInsert instead.
+   * @remarks Use batchInsert method instead.
    */
-  public async appendLeaves(leaves: Buffer[]): Promise<void> {
-    for (const leaf of leaves) {
-      await this.appendLeaf(leaf);
-    }
-  }
-
-  /**
-   * Appends the given leaf to the tree.
-   * @param leaf - The leaf to append.
-   * @returns Empty promise.
-   */
-  private async appendLeaf(leaf: Buffer): Promise<void> {
-    const newValue = toBigIntBE(leaf);
-
-    // Special case when appending zero
-    if (newValue === 0n) {
-      const newSize = (this.cachedSize ?? this.size) + 1n;
-      if (newSize - 1n > this.maxIndex) {
-        throw Error(`Can't append beyond max index. Max index: ${this.maxIndex}`);
-      }
-      this.cachedSize = newSize;
-      return;
-    }
-
-    const indexOfPrevious = this.findIndexOfPreviousValue(newValue, true);
-    const previousLeafCopy = this.getLatestLeafDataCopy(indexOfPrevious.index, true);
-
-    if (previousLeafCopy === undefined) {
-      throw new Error(`Previous leaf not found!`);
-    }
-    const newLeaf = {
-      value: newValue,
-      nextIndex: previousLeafCopy.nextIndex,
-      nextValue: previousLeafCopy.nextValue,
-    } as LeafData;
-    if (indexOfPrevious.alreadyPresent) {
-      return;
-    }
-    // insert a new leaf at the highest index and update the values of our previous leaf copy
-    const currentSize = this.getNumLeaves(true);
-    previousLeafCopy.nextIndex = BigInt(currentSize);
-    previousLeafCopy.nextValue = newLeaf.value;
-    this.cachedLeaves[Number(currentSize)] = newLeaf;
-    this.cachedLeaves[Number(indexOfPrevious.index)] = previousLeafCopy;
-    await this.updateLeaf(previousLeafCopy, BigInt(indexOfPrevious.index));
-    await this.updateLeaf(newLeaf, this.getNumLeaves(true));
+  public appendLeaves(_leaves: Buffer[]): Promise<void> {
+    throw new Error('Not implemented');
   }
 
   /**
@@ -329,7 +285,7 @@ export class StandardIndexedTree extends TreeBase implements IndexedTree {
    * @param leaf - New contents of the leaf.
    * @param index - Index of the leaf to be updated.
    */
-  private async updateLeaf(leaf: LeafData, index: bigint) {
+  protected async updateLeaf(leaf: LeafData, index: bigint) {
     if (index > this.maxIndex) {
       throw Error(`Index out of bounds. Index ${index}, max index: ${this.maxIndex}.`);
     }
