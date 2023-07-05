@@ -384,6 +384,7 @@ contract NonNativeToken {
         let mut args = [0; abi::MAX_ARGS];
         
         // addUnshieldedBalance selector (in decimal)
+        // recompute by: `cast keccak addUnshieldedBalance(field,field)` -> convert to decimal
         let pubEntryPointSelector = 753269941;
         args[0] = amount;
         args[1] = recipient;
