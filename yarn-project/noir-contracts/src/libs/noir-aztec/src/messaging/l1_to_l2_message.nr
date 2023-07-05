@@ -75,26 +75,12 @@ impl L1ToL2Message {
 
         for i in 0..32 {
             hash_bytes[i] = sender_bytes[i];
-        }
-        for i in 0..32 {
             hash_bytes[i + 32] = chainId_bytes[i];
-        }
-        for i in 0..32 {
             hash_bytes[i + 64] = recipient_bytes[i];
-        }
-        for i in 0..32 {
             hash_bytes[i + 96] = version_bytes[i];
-        }
-        for i in 0..32 {
             hash_bytes[i + 128] = content_bytes[i];
-        }
-        for i in 0..32 {
             hash_bytes[i + 160] = secret_hash_bytes[i];
-        }
-        for i in 0..32 {
             hash_bytes[i + 192] = deadline_bytes[i];
-        }
-        for i in 0..32 {
             hash_bytes[i + 224] = fee_bytes[i];
         }
 
