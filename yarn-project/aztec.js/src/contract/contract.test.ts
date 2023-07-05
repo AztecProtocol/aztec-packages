@@ -1,4 +1,4 @@
-import { AztecAddress, DeployedContract, EthAddress, Tx, TxHash, TxReceipt } from '@aztec/aztec-rpc';
+import { AztecAddress, DeployedContract, EthAddress, NodeInfo, Tx, TxHash, TxReceipt } from '@aztec/aztec-rpc';
 import { MockProxy, mock } from 'jest-mock-extended';
 
 import { ABIParameterVisibility, ContractAbi, FunctionType } from '@aztec/foundation/abi';
@@ -18,6 +18,7 @@ describe('Contract Class', () => {
   const mockTxHash = { type: 'TxHash' } as any as TxHash;
   const mockTxReceipt = { type: 'TxReceipt' } as any as TxReceipt;
   const mockViewResultValue = 1;
+  const mockNodeInfo: NodeInfo = { version: 1, chainId: 2 };
 
   const defaultAbi: ContractAbi = {
     name: 'FooContract',
@@ -92,6 +93,8 @@ describe('Contract Class', () => {
     wallet.sendTx.mockResolvedValue(mockTxHash);
     wallet.viewTx.mockResolvedValue(mockViewResultValue);
     wallet.getTxReceipt.mockResolvedValue(mockTxReceipt);
+    wallet.getNodeInfo.mockResolvedValue(mockNodeInfo);
+    wallet.simulateTx.mockResolvedValue(mockTx);
   });
 
   it('should create and send a contract method tx', async () => {

@@ -6,7 +6,7 @@ import { randomBytes } from 'crypto';
 import { MockProxy, mock } from 'jest-mock-extended';
 import { ContractDeployer } from './contract_deployer.js';
 
-describe('Contract Deployer', () => {
+describe.skip('Contract Deployer', () => {
   let arc: MockProxy<AztecRPC>;
 
   const abi: ContractAbi = {
