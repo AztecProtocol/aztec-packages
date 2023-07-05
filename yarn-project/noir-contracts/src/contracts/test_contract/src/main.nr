@@ -1,7 +1,12 @@
 // A contract used to test whether constructing a contract works.
 contract Test {
-    use dep::aztec::abi::PublicContextInputs;
-    use dep::aztec::abi;
+    use dep::aztec::{
+        abi,
+        abi::{
+            PublicContextInputs,
+            PrivateContextInputs
+        }
+    };
     use dep::aztec::context::Context;
 
     use dep::aztec::oracle::{
