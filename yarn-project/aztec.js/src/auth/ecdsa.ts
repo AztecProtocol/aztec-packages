@@ -87,6 +87,9 @@ class EcdsaSignature {
   }
 }
 
+/**
+ * An ecdsa implementation of TxAuthProvider.
+ */
 export class EcdsaAuthProvider implements TxAuthProvider {
   constructor(private privKey: Buffer) {}
   authenticateTx(payload: EntrypointPayload, payloadHash: Buffer, _address: AztecAddress): Promise<AuthPayload> {

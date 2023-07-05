@@ -24,6 +24,9 @@ export interface DeployOptions extends SendMethodOptions {
   contractAddressSalt?: Fr;
 }
 
+/**
+ * Simple wallet implementation for use when deploying contracts only.
+ */
 class DeployerWallet extends BaseWallet {
   getAddress(): AztecAddress {
     return AztecAddress.ZERO;
@@ -120,6 +123,11 @@ export class DeployMethod extends ContractFunctionInteraction {
     return super.send(options);
   }
 
+  /**
+   * Creates a contract abstraction given a wallet.
+   * @param withWallet - The wallet to provide to the contract abstraction
+   * @returns - The generated contract abstraction.
+   */
   public getContract(withWallet: Wallet) {
     if (!this.completeContractAddress) {
       throw new Error(`Cannot get a contract instance for a contract not yet deployed`);

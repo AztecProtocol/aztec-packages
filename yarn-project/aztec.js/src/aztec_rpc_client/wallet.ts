@@ -16,8 +16,14 @@ import { ContractAbi } from '@aztec/foundation/abi';
 import { ContractData, ContractPublicData, ExecutionRequest, L2BlockL2Logs, TxExecutionRequest } from '@aztec/types';
 import { AccountImplementation } from '../account_impl/index.js';
 
+/**
+ * The wallet interface.
+ */
 export type Wallet = AccountImplementation & AztecRPC;
 
+/**
+ * A base class for Wallet implementations
+ */
 export abstract class BaseWallet implements Wallet {
   constructor(protected readonly rpc: AztecRPC) {}
   abstract getAddress(): AztecAddress;
@@ -98,6 +104,9 @@ export abstract class BaseWallet implements Wallet {
   }
 }
 
+/**
+ * A simple wallet implementation that forwards authentication requests to a provided account implementation.
+ */
 export class AccountWallet extends BaseWallet {
   constructor(rpc: AztecRPC, protected accountImpl: AccountImplementation) {
     super(rpc);
