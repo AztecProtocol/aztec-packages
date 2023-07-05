@@ -1,5 +1,5 @@
 import { AztecAddress, EthAddress, Fr } from '@aztec/circuits.js';
-import { ContractAbi, FunctionAbi } from '@aztec/foundation/abi';
+import { ContractAbi } from '@aztec/foundation/abi';
 import { Point } from '@aztec/foundation/fields';
 import { PublicKey } from '@aztec/key-store';
 import {
