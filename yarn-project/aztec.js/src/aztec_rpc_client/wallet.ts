@@ -1,5 +1,4 @@
 import {
-  AccountImplementation,
   AztecAddress,
   AztecRPC,
   DeployedContract,
@@ -15,6 +14,7 @@ import {
 import { TxContext } from '@aztec/circuits.js';
 import { ContractAbi } from '@aztec/foundation/abi';
 import { ContractData, ContractPublicData, ExecutionRequest, L2BlockL2Logs, TxExecutionRequest } from '@aztec/types';
+import { AccountImplementation } from '../account_impl/index.js';
 
 export type Wallet = AccountImplementation & AztecRPC;
 

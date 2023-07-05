@@ -1,10 +1,11 @@
 import { secp256k1 } from '@noble/curves/secp256k1';
-import { AztecAddress, EntrypointPayload } from '../index.js';
+import { AztecAddress } from '../index.js';
 import { AuthPayload, TxAuthProvider } from './index.js';
 
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { Fr } from '@aztec/foundation/fields';
 import { mapTuple } from '@aztec/foundation/serialize';
+import { EntrypointPayload } from '../account_impl/account_contract.js';
 
 /**
  * ECDSA signature used for transactions.

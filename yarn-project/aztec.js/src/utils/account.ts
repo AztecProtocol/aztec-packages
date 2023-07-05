@@ -1,10 +1,10 @@
-import { AccountCollection, AccountContract, AztecRPC, EcdsaAuthProvider } from '@aztec/aztec-rpc';
+import { AztecRPC } from '@aztec/aztec-rpc';
 import { AztecAddress, EthAddress, Fr, Point } from '@aztec/circuits.js';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { EcdsaAccountContractAbi } from '@aztec/noir-contracts/examples';
 import { AccountWallet, Wallet } from '../aztec_rpc_client/wallet.js';
-import { ContractDeployer } from '../index.js';
+import { AccountCollection, AccountContract, ContractDeployer, EcdsaAuthProvider } from '../index.js';
 
 /**
  * Creates an Aztec Account.
