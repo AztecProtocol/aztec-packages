@@ -7,7 +7,7 @@ import { ExecutionRequest, PackedArguments, PartialContractAddress, TxExecutionR
 import partition from 'lodash.partition';
 import { generateFunctionSelector } from '../index.js';
 import { AccountImplementation } from './index.js';
-import { ContractAbi, FunctionAbi } from '@aztec/foundation/abi';
+import { ContractAbi } from '@aztec/foundation/abi';
 import { TxAuthProvider } from '../auth/index.js';
 
 /**
