@@ -79,6 +79,20 @@ async function main() {
     });
 
   program
+    .command('get-accounts')
+    .option('-u, --rpc-url <string>', 'URL of the Aztec RPC', 'http://localhost:8080')
+    .action(async (options: any) => {
+      const client = createAztecRpcClient(options.rpcUrl);
+      const accounts = await client.getAccounts();
+      if (!accounts.length) {
+        log('No accounts found.');
+      } else {
+        log(`Accounts found: \n`);
+        accounts.forEach(acc => log(`${acc}\n`));
+      }
+    });
+
+  program
     .command('call-fn')
     .argument('<contractAbi>', "The compiled contract's ABI in JSON format", undefined)
     .argument('<contractAddress>', 'Address of the contract')
