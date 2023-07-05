@@ -1,15 +1,7 @@
-import {
-  AztecRPC,
-  Contract,
-  ContractDeployer,
-  createAccounts,
-  createAztecRpcClient,
-  pointToPublicKey,
-} from '@aztec/aztec.js';
+import { Contract, ContractDeployer, createAccounts, createAztecRpcClient, pointToPublicKey } from '@aztec/aztec.js';
 import { AztecAddress, Point } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { ZkTokenContractAbi } from '@aztec/noir-contracts/examples';
-import { L2BlockL2Logs } from '@aztec/types';
 
 const logger = createDebugLogger('aztec:http-rpc-client');
 
