@@ -99,10 +99,11 @@ export class KernelProver {
 
       const readRequestMembershipWitnesses = [];
       for (let rr = 0; rr < currentExecution.readRequestCommitmentIndices.length; rr++) {
-        assert(
-          currentExecution.callStackItem.publicInputs.readRequests[rr] == Fr.zero(),
-          'Number of read requests output from Noir circuit does not match number of read request commitment indices output from simulator.',
-        );
+        if (currentExecution.callStackItem.publicInputs.readRequests[rr] == Fr.zero()) {
+          throw new Error(
+            'Number of read requests output from Noir circuit does not match number of read request commitment indices output from simulator.',
+          );
+        }
         const leafIndex = currentExecution.readRequestCommitmentIndices[rr];
         const membershipWitness = await this.oracle.getNoteMembershipWitness(leafIndex);
         readRequestMembershipWitnesses.push(membershipWitness);
