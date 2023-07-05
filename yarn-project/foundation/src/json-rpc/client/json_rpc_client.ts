@@ -77,7 +77,7 @@ export function createJsonRpcClient<T extends object>(
     const res = await fetch(host, method, body, useApiEndpoints);
     debug(`JsonRpcClient.result`, method, '->', res);
     if (res.error) {
-      throw res.error;
+      throw new Error(res.error);
     }
     if ([null, undefined, 'null', 'undefined'].includes(res.result)) {
       return;

@@ -1,0 +1,8 @@
+Compiling c_gam...
+Error compiling contract. Re-running as verbose to show compiler output:
+f9:
+  FOREIGN_CALL getNotes2 (R1) => R2[0..13]
+  // return R2;
+  MOV R3, R2
+  MOV R1, R3
+  STOP

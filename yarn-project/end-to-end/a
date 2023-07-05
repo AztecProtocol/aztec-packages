@@ -1,0 +1,60 @@
+Compiling c_gam...
+Copying output for c_gam
+aztec:noir-contracts: Written src/examples/c_gam_contract.json
+Done
+
+  console.log
+    X request {
+      args: [
+        Fr { value: 1n },
+        Fr {
+          value: 11892420276039971417981222796139403718368569170666612585409339202699555974354n
+        },
+        Fr {
+          value: 1656181410230135791757665519822324239859726349279733035378727570799722352089n
+        }
+      ],
+      from: AztecAddress {
+        buffer: <Buffer 0f 3e 26 a6 fe 7f 8a 81 95 f8 03 00 16 fc 4c 85 e7 ec 52 48 97 6a ef 61 de 07 62 0a 73 b3 08 74>
+      },
+      functionData: FunctionData {
+        isPrivate: true,
+        isConstructor: false,
+        functionSelectorBuffer: <Buffer 9d d6 23 ea>
+      },
+      to: AztecAddress {
+        buffer: <Buffer 19 f2 13 fb c1 75 8a c4 71 d8 08 12 3b 8c f5 f7 d7 e9 2a 77 0d ba f5 af aa f0 b6 87 ec 1e 35 ba>
+      }
+    }
+
+      at AztecRPCServer.createTx (../../aztec-rpc/src/aztec_rpc_server/aztec_rpc_server.ts:326:13)
+
+  console.log
+    X request {
+      args: [
+        Fr { value: 1337n },
+        Fr { value: 328682529145n },
+        Fr { value: 657365058290n },
+        Fr {
+          value: 11892420276039971417981222796139403718368569170666612585409339202699555974354n
+        },
+        Fr {
+          value: 1656181410230135791757665519822324239859726349279733035378727570799722352089n
+        },
+        Fr { value: 865138629n }
+      ],
+      from: AztecAddress {
+        buffer: <Buffer 0f 3e 26 a6 fe 7f 8a 81 95 f8 03 00 16 fc 4c 85 e7 ec 52 48 97 6a ef 61 de 07 62 0a 73 b3 08 74>
+      },
+      functionData: FunctionData {
+        isPrivate: true,
+        isConstructor: false,
+        functionSelectorBuffer: <Buffer 36 19 02 6f>
+      },
+      to: AztecAddress {
+        buffer: <Buffer 19 f2 13 fb c1 75 8a c4 71 d8 08 12 3b 8c f5 f7 d7 e9 2a 77 0d ba f5 af aa f0 b6 87 ec 1e 35 ba>
+      }
+    }
+
+      at AztecRPCServer.createTx (../../aztec-rpc/src/aztec_rpc_server/aztec_rpc_server.ts:326:13)
+

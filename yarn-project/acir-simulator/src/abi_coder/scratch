@@ -1,0 +1,77 @@
+import { Fr } from '@aztec/foundation/fields';
+import { ABIType, FunctionAbi } from '@aztec/foundation/abi';
+
+/**
+ * Decodes return values from a function call.
+ * Missing support for integer and string.
+ */
+class ReturnValuesDecoder {
+  constructor(private abi: FunctionAbi, private encodedReturns: any[]) {}
+
+  /**
+   * Decodes a single return value from field to the given type.
+   * @param abiType - The type of the return value.
+   * @param encodedReturns - The return object to be decoded.
+   * @returns The decoded return value.
+   */
+  private decodeReturn(abiType: ABIType, encodedReturns: any): any {
+    switch (abiType.kind) {
+      case 'field':
+        return this.getNextField(encodedReturns).value;
+      case 'boolean':
+        return !this.getNextField(encodedReturns).isZero();
+      case 'array': {
+        const encodedArray = this.encodedReturns.shift();
+        const array = [];
+        for (let i = 0; i < abiType.length; i += 1) {
+          array.push(this.decodeReturn(abiType.type, encodedArray));
+        }
+        break;
+      }
+      case 'struct': {
+        const struct: any = {};
+        for (const field of abiType.fields) {
+          struct[field.name] = this.decodeReturn(field.type, encodedReturns);
+        }
+        break;
+      }
+      default:
+        throw new Error(`Unsupported type: ${abiType.kind}`);
+    }
+  }
+
+  /**
+   * Gets the next field in the flattened return values.
+   * @param encodedReturns - The encoded return object.
+   * @returns The next field in the flattened return values.
+   */
+  private getNextField(encodedReturns: any[]): Fr {
+    const field = encodedReturns.shift();
+    if (!field) {
+      throw new Error('Not enough return values');
+    }
+    return field;
+  }
+
+  /**
+   * Decodes all the return values for the given function ABI.
+   * @returns The decoded return values.
+   */
+  public decode() {
+    const returnValues = [];
+    for (let i = 0; i < this.abi.returnTypes.length; i += 1) {
+      returnValues.push(this.decodeReturn(this.abi.returnTypes[i], this.encodedReturns));
+    }
+    return returnValues;
+  }
+}
+
+/**
+ * Decodes return values from a function call.
+ * @param abi - The ABI entry of the function.
+ * @param returnValues - The decoded return values.
+ * @returns
+ */
+export function decodeReturnValues(abi: FunctionAbi, returnValues: Fr[]) {
+  return new ReturnValuesDecoder(abi, returnValues.slice()).decode();
+}
