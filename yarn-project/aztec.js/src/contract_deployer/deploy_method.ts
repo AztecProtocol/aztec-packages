@@ -25,6 +25,9 @@ export interface DeployOptions extends SendMethodOptions {
 }
 
 class DeployerWallet extends BaseWallet {
+  getAddress(): AztecAddress {
+    return AztecAddress.ZERO;
+  }
   createAuthenticatedTxRequest(executions: ExecutionRequest[], txContext: TxContext): Promise<TxExecutionRequest> {
     if (executions.length !== 1) {
       throw new Error(`Deployer wallet can only run one execution at a time (requested ${executions.length})`);

@@ -6,6 +6,7 @@ import {
   ContractDeployer,
   Fr,
   TxStatus,
+  Wallet,
   computeMessageSecretHash,
 } from '@aztec/aztec.js';
 import { PublicToPrivateContractAbi } from '@aztec/noir-contracts/examples';
@@ -15,6 +16,7 @@ import { pointToPublicKey, setup } from './utils.js';
 describe('e2e_public_to_private_messaging', () => {
   let aztecNode: AztecNodeService;
   let aztecRpcServer: AztecRPCServer;
+  let wallet: Wallet;
   let accounts: AztecAddress[];
   let logger: DebugLogger;
 
@@ -41,7 +43,7 @@ describe('e2e_public_to_private_messaging', () => {
     const deployer = new ContractDeployer(PublicToPrivateContractAbi, aztecRpcServer);
     const tx = deployer.deploy().send();
     const receipt = await tx.getReceipt();
-    contract = new Contract(receipt.contractAddress!, PublicToPrivateContractAbi, aztecRpcServer);
+    contract = new Contract(receipt.contractAddress!, PublicToPrivateContractAbi, wallet);
     await tx.isMined(0, 0.1);
     await tx.getReceipt();
     logger('L2 contract deployed');

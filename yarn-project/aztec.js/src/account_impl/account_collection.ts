@@ -9,6 +9,11 @@ export class AccountCollection implements AccountImplementation {
     this.accounts.set(addr, impl);
   }
 
+  getAddress(): AztecAddress {
+    if (!this.accounts) throw new Error(`No accounts registered`);
+    return this.accounts.keys().next().value as AztecAddress;
+  }
+
   public createAuthenticatedTxRequest(
     executions: ExecutionRequest[],
     txContext: TxContext,

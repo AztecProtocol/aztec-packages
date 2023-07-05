@@ -23,6 +23,10 @@ export class AccountContract implements AccountImplementation {
     private contractAbi: ContractAbi,
   ) {}
 
+  getAddress(): AztecAddress {
+    return this.address;
+  }
+
   async createAuthenticatedTxRequest(
     executions: ExecutionRequest[],
     txContext: TxContext,

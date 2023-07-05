@@ -20,6 +20,7 @@ export type Wallet = AccountImplementation & AztecRPC;
 
 export abstract class BaseWallet implements Wallet {
   constructor(protected readonly rpc: AztecRPC) {}
+  abstract getAddress(): AztecAddress;
   abstract createAuthenticatedTxRequest(
     executions: ExecutionRequest[],
     txContext: TxContext,
@@ -100,6 +101,9 @@ export abstract class BaseWallet implements Wallet {
 export class AccountWallet extends BaseWallet {
   constructor(rpc: AztecRPC, protected accountImpl: AccountImplementation) {
     super(rpc);
+  }
+  getAddress(): AztecAddress {
+    return this.accountImpl.getAddress();
   }
   createAuthenticatedTxRequest(executions: ExecutionRequest[], txContext: TxContext): Promise<TxExecutionRequest> {
     return this.accountImpl.createAuthenticatedTxRequest(executions, txContext);
