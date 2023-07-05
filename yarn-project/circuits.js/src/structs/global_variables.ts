@@ -1,5 +1,6 @@
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader } from '@aztec/foundation/serialize';
+import { TwoFieldHash } from '@aztec/types';
 import { FieldsOf } from '../index.js';
 import { serializeToBuffer } from '../utils/index.js';
 
@@ -27,8 +28,7 @@ export class GlobalVariables {
     /**
      * The block hash of the eth l1 block.
      */
-    // TODO(Maddiaa): make into its own type?
-    public ethBlockHash: [Fr, Fr]
+    public ethBlockHash: TwoFieldHash,
   ) {}
 
   static from(fields: FieldsOf<GlobalVariables>): GlobalVariables {
@@ -36,12 +36,12 @@ export class GlobalVariables {
   }
 
   static empty(): GlobalVariables {
-    return new GlobalVariables(Fr.zero(), Fr.zero(), Fr.zero(), Fr.zero(), [Fr.zero(), Fr.zero()]);
+    return new GlobalVariables(Fr.zero(), Fr.zero(), Fr.zero(), Fr.zero(), TwoFieldHash.empty());
   }
 
   static fromBuffer(buffer: Buffer | BufferReader): GlobalVariables {
     const reader = BufferReader.asReader(buffer);
-    return new GlobalVariables(reader.readFr(), reader.readFr(), reader.readFr(), reader.readFr(), [reader.readFr(), reader.readFr()]);
+    return new GlobalVariables(reader.readFr(), reader.readFr(), reader.readFr(), reader.readFr(), new TwoFieldHash(reader.readFr(), reader.readFr()));
   }
 
   static getFields(fields: FieldsOf<GlobalVariables>) {

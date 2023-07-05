@@ -88,6 +88,7 @@ import {
 } from '../index.js';
 import { SchnorrSignature } from '../barretenberg/index.js';
 import { GlobalVariables } from '../structs/global_variables.js';
+import { TwoFieldHash } from '@aztec/types';
 
 /**
  * Creates an arbitrary tx context with the given seed.
@@ -652,8 +653,7 @@ export function makeContractDeploymentData(seed = 1) {
  * @returns Global variables.
  */
 export function makeGlobalVariables(seed = 1, blockNumber: number | undefined = undefined): GlobalVariables {
-  // TODO: typing?
-  const l1BlockHash: [Fr,Fr] = [fr(seed + 4), fr(seed + 5)];
+  const l1BlockHash = new TwoFieldHash(fr(seed + 4), fr(seed + 5));
   return new GlobalVariables(fr(seed), fr(seed + 1), fr(blockNumber ?? seed + 2), fr(seed + 3), l1BlockHash);
 }
 

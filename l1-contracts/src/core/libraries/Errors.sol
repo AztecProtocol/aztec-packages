@@ -45,4 +45,5 @@ library Errors {
   error Rollup__InvalidVersion(uint256 expected, uint256 actual); // 0x9ef30794
   error Rollup__TimestampInFuture(); // 0xbc1ce916
   error Rollup__TimestampTooOld(); // 0x72ed9c81
+  error Rollup__InvalidBlockHash(uint256 expected, uint256 actual); // 0x8b2b4b0e
 }

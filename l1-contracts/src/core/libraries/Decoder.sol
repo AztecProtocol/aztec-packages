@@ -14,12 +14,9 @@ import {Hash} from "@aztec/core/libraries/Hash.sol";
  * @dev there is currently no padding of the elements, so we are for now assuming nice trees as inputs.
  * Furthermore, if no contract etc are deployed, we expect there to be address(0) for input.
  *
- *  | 0x0080                                                 | 0x20       | last block eth block hash
  * -------------------
  * L2 Block Data specification
  * -------------------
- *
-/**
  *  | byte start                                             | num bytes  | name
  *  | ---                                                    | ---        | --- 
  *  | 0x0000                                                 | 0x20       | chain-id

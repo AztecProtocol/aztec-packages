@@ -28,6 +28,7 @@ contract Rollup is IRollup {
 
   bytes32 public rollupStateHash;
   uint256 public lastBlockTs;
+  uint256 public lastBlockNumber;
 
   constructor(IRegistry _registry) {
     VERIFIER = new MockVerifier();
@@ -65,6 +66,7 @@ contract Rollup is IRollup {
 
     rollupStateHash = newStateHash;
     lastBlockTs = block.timestamp;
+    lastBlockNumber = block.number;
 
     // @todo (issue #605) handle fee collector
     // @todo: (issue #624) handle different versions
@@ -82,11 +84,14 @@ contract Rollup is IRollup {
     uint256 chainId;
     uint256 version;
     uint256 ts;
+    uint256 ethBlockHash;
     // block number already constrained by start state hash
+    // TODO: calldatacopy would work here into a struct
     assembly {
       chainId := calldataload(_l2Block.offset)
       version := calldataload(add(_l2Block.offset, 0x20))
       ts := calldataload(add(_l2Block.offset, 0x60))
+      ethBlockHash := calldataload(add(_l2Block.offset, 0x80))
     }
 
     if (block.chainid != chainId) {
@@ -99,6 +104,11 @@ contract Rollup is IRollup {
 
     if (ts > block.timestamp) {
       revert Errors.Rollup__TimestampInFuture();
+    }
+
+    uint256 lastEthBlockHash = uint256(blockhash(lastBlockNumber));
+    if (lastEthBlockHash != ethBlockHash) {
+      revert Errors.Rollup__InvalidBlockHash(ethBlockHash, lastEthBlockHash);
     }
 
     // @todo @LHerskind consider if this is too strict
