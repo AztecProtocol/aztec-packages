@@ -32,7 +32,6 @@ import { Database, TxDao } from '../database/index.js';
 import { Synchroniser } from '../synchroniser/index.js';
 import { TxReceipt, TxStatus } from '../tx/index.js';
 import { computePartialContractAddress, computeSecretMessageHash } from '@aztec/circuits.js/abis';
-import { TxAuthProvider } from '../auth/index.js';
 
 /**
  * A remote Aztec RPC Client implementation.
@@ -41,7 +40,6 @@ export class AztecRPCServer implements AztecRPC {
   private synchroniser: Synchroniser;
 
   constructor(
-    private authProvider: TxAuthProvider,
     private keyStore: KeyStore,
     private node: AztecNode,
     private db: Database,

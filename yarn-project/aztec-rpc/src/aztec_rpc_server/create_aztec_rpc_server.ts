@@ -28,15 +28,11 @@ interface CreateAztecRPCServerOptions {
  * @param options - (Optional) Optional information for creating an AztecRPCServer.
  * @returns A Promise that resolves to the started AztecRPCServer instance.
  */
-export async function createAztecRPCServer(
-  authProvider: TxAuthProvider,
-  aztecNode: AztecNode,
-  { keyStore, db }: CreateAztecRPCServerOptions = {},
-) {
+export async function createAztecRPCServer(aztecNode: AztecNode, { keyStore, db }: CreateAztecRPCServerOptions = {}) {
   keyStore = keyStore || new TestKeyStore(await Grumpkin.new());
   db = db || new MemoryDB();
 
-  const server = new AztecRPCServer(authProvider, keyStore, aztecNode, db);
+  const server = new AztecRPCServer(keyStore, aztecNode, db);
   await server.start();
   return server;
 }

@@ -44,26 +44,6 @@ export class Contract {
         return new ContractFunctionInteraction(this.wallet, this.address!, f, args);
       };
 
-      // dAPP
-         -----------
-      // new Contract(Lottery).win().send()
-
-
-      // dAPP
-      -----------
-      // new Contract(ERC20, wallet).transfer().send()
-
-      // Wallet
-      ----------------
-
-
-      // new Contract(WalletAbi).entrypoint().createTxRequest()
-      // this.wallet.authTx();
-      // new Contract(WalletAbi).entrypoint().simulateTx()
-      // new Contract(abi).transfer().send()
-
-
-
       this.methods[f.name] = Object.assign(interactionFunction, {
         /**
          * A getter for users to fetch the function selector.
