@@ -1,19 +1,19 @@
 // Demonstrates how to send a message to a portal contract on L1. We use Uniswap here as it's the most typical example.
 contract Uniswap {
-    use dep::aztec3::abi;
-    use dep::aztec3::abi::PrivateContextInputs;
-    use dep::aztec3::abi::PublicContextInputs;
-    use dep::aztec3::context::PrivateFunctionContext;
-    use dep::aztec3::oracle::public_call;
-    use dep::aztec3::private_call_stack_item::PrivateCallStackItem;
-    use dep::aztec3::public_call_stack_item::PublicCallStackItem;
-    use dep::aztec3::types::point::Point;
+    use dep::aztec::abi;
+    use dep::aztec::abi::PrivateContextInputs;
+    use dep::aztec::abi::PublicContextInputs;
+    use dep::aztec::context::Context;
+    use dep::aztec::oracle::public_call;
+    use dep::aztec::private_call_stack_item::PrivateCallStackItem;
+    use dep::aztec::public_call_stack_item::PublicCallStackItem;
+    use dep::aztec::types::point::Point;
     
     fn constructor(
         inputs: PrivateContextInputs,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
         // Return private circuit public inputs. All private functions need to return this as it is part of the input of the private kernel.
-        PrivateFunctionContext::new().finish(inputs)
+        Context::new(inputs, 0).finish()
     }
 
     // What we need to make this nicer:
@@ -42,9 +42,7 @@ contract Uniswap {
         l1UniswapPortal: Field, // L1 address of uniswap portal contract
         callerOnL1: Field, // ethereum address that can call this function on the L1 portal (0x0 if anyone can call)
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
-        let mut initialContext = PrivateFunctionContext::new();
-        // manually pass all the arguments into the current context - 
-        initialContext.args = initialContext.args.push_array([
+        let mut initialContext = Context::new(inputs, abi::hash_args([
             withdrawFnSelector,
             inputAsset,
             inputAssetPortalAddress,
@@ -60,18 +58,19 @@ contract Uniswap {
             deadlineForL1ToL2Message,
             cancellerForL1ToL2Message,
             l1UniswapPortal,
-        ]);
+            callerOnL1,
+        ]));
 
         // inputAsset.withdraw(inputAmount, sender, recipient=l1UniswapPortal, callerOnL1=l1UniswapPortal) 
         // only uniswap portal can call this (done to safeguard ordering of message consumption)
         // ref: https://docs.aztec.network/aztec/how-it-works/l1-l2-messaging#designated-caller
-        let mut args = [0; abi::MAX_ARGS];
-        args[0] = inputAmount;
-        args[1] = sender.x;
-        args[2] = sender.y;
-        args[3] = l1UniswapPortal;
-        args[4] = l1UniswapPortal;
-        let (callStackItem, mut context) = PrivateCallStackItem::call(inputAsset, withdrawFnSelector, args, initialContext);
+        let (callStackItem, mut context) = PrivateCallStackItem::call(inputAsset, withdrawFnSelector, [
+            inputAmount,
+            sender.x,
+            sender.y,
+            l1UniswapPortal,
+            l1UniswapPortal,
+        ], initialContext);
         
         let result = callStackItem.public_inputs.return_values[0];
         context.return_values = context.return_values.push(result);
@@ -92,7 +91,7 @@ contract Uniswap {
         context = context.message_portal(content_hash);
 
         // Return private circuit public inputs. All private functions need to return this as it is part of the input of the private kernel.
-        context.finish(inputs)
+        context.finish()
     }
 
     // refer `l1-contracts/test/portals/UniswapPortal.sol` on how L2 to L1 message is expected

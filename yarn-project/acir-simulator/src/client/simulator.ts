@@ -11,6 +11,7 @@ import { PrivateFunctionExecution } from './private_execution.js';
 import { UnconstrainedFunctionExecution } from './unconstrained_execution.js';
 import { ExecutionResult } from './execution_result.js';
 import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
+import { PackedArgsCache } from '../packed_args_cache.js';
 
 export const NOTE_PEDERSEN_CONSTANT = new Fr(2n);
 export const MAPPING_SLOT_PEDERSEN_CONSTANT = new Fr(4n);
@@ -37,9 +38,10 @@ export class AcirSimulator {
    * @param portalContractAddress - The address of the portal contract.
    * @param historicRoots - The historic roots.
    * @param curve - The curve instance for elliptic curve operations.
+   * @param packedArguments - The entrypoint packed arguments
    * @returns The result of the execution.
    */
-  public run(
+  public async run(
     request: TxExecutionRequest,
     entryPointABI: FunctionAbi,
     contractAddress: AztecAddress,
@@ -65,11 +67,16 @@ export class AcirSimulator {
     );
 
     const execution = new PrivateFunctionExecution(
-      new ClientTxExecutionContext(this.db, request.txContext, historicRoots),
+      new ClientTxExecutionContext(
+        this.db,
+        request.txContext,
+        historicRoots,
+        await PackedArgsCache.create(request.packedArguments),
+      ),
       entryPointABI,
       contractAddress,
       request.functionData,
-      request.args,
+      request.argsHash,
       callContext,
       curve,
     );
@@ -86,7 +93,7 @@ export class AcirSimulator {
    * @param historicRoots - The historic roots.
    * @returns The return values of the function.
    */
-  public runUnconstrained(
+  public async runUnconstrained(
     request: ExecutionRequest,
     entryPointABI: FunctionAbi,
     contractAddress: AztecAddress,
@@ -106,7 +113,7 @@ export class AcirSimulator {
     );
 
     const execution = new UnconstrainedFunctionExecution(
-      new ClientTxExecutionContext(this.db, TxContext.empty(), historicRoots),
+      new ClientTxExecutionContext(this.db, TxContext.empty(), historicRoots, await PackedArgsCache.create([])),
       entryPointABI,
       contractAddress,
       request.functionData,
@@ -120,34 +127,39 @@ export class AcirSimulator {
   // TODO Should be run as unconstrained function
   /**
    * Computes the hash of a note.
+   * @param storageSlot - The storage slot.
    * @param notePreimage - The note preimage.
    * @param bbWasm - The WASM instance.
    * @returns The note hash.
    */
-  public computeNoteHash(notePreimage: Fr[], bbWasm: CircuitsWasm) {
-    return pedersenPlookupCommitInputs(bbWasm, [
+  public computeNoteHash(storageSlot: Fr, notePreimage: Fr[], bbWasm: CircuitsWasm) {
+    // TODO: Remove index for inner note hash.
+    const innerNoteHash = pedersenPlookupCommitInputs(bbWasm, [
       NOTE_PEDERSEN_CONSTANT.toBuffer(),
       ...notePreimage.map(x => x.toBuffer()),
     ]);
+    return pedersenPlookupCommitInputs(bbWasm, [storageSlot.toBuffer(), innerNoteHash]);
   }
 
   // TODO Should be run as unconstrained function
   /**
    * Computes the nullifier of a note.
+   * @param storageSlot - The storage slot.
    * @param notePreimage - The note preimage.
    * @param privateKey - The private key of the owner.
    * @param bbWasm - The WASM instance.
    * @returns The nullifier.
    */
-  public computeNullifier(notePreimage: Fr[], privateKey: Buffer, bbWasm: CircuitsWasm) {
-    const noteHash = this.computeNoteHash(notePreimage, bbWasm);
-    return pedersenPlookupCommitInputs(bbWasm, [NULLIFIER_PEDERSEN_CONSTANT.toBuffer(), noteHash, privateKey]);
+  public computeNullifier(storageSlot: Fr, notePreimage: Fr[], privateKey: Buffer, bbWasm: CircuitsWasm) {
+    const noteHash = this.computeNoteHash(storageSlot, notePreimage, bbWasm);
+    return pedersenPlookupCommitInputs(bbWasm, [noteHash, privateKey]);
   }
 
   // TODO Should be run as unconstrained function
   /**
    * Computes a nullifier siloed to a contract.
    * @param contractAddress - The address of the contract.
+   * @param storageSlot - The storage slot.
    * @param notePreimage - The note preimage.
    * @param privateKey - The private key of the owner.
    * @param bbWasm - The WASM instance.
@@ -155,11 +167,12 @@ export class AcirSimulator {
    */
   public computeSiloedNullifier(
     contractAddress: AztecAddress,
+    storageSlot: Fr,
     notePreimage: Fr[],
     privateKey: Buffer,
     bbWasm: CircuitsWasm,
   ) {
-    const nullifier = this.computeNullifier(notePreimage, privateKey, bbWasm);
+    const nullifier = this.computeNullifier(storageSlot, notePreimage, privateKey, bbWasm);
     return pedersenCompressWithHashIndex(
       bbWasm,
       [contractAddress.toBuffer(), nullifier],
