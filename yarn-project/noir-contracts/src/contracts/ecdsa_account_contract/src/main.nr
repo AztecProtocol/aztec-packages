@@ -1,10 +1,3 @@
-
-
-
-
-
-
-
 // Since we support account abstraction user accounts are represented by a contract. This contract is one such example
 // where the user is authenticated with an ECDSA signature.
 contract EcdsaAccount {
