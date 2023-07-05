@@ -15,8 +15,8 @@ template <typename NCT, unsigned int N> struct MembershipWitness {
     using fr = typename NCT::fr;
     using boolean = typename NCT::boolean;
 
-    fr leaf_index;
-    std::array<fr, N> sibling_path = zero_array<fr, N>();
+    fr leaf_index{};
+    std::array<fr, N> sibling_path{};
 
     MSGPACK_FIELDS(leaf_index, sibling_path);
     boolean operator==(MembershipWitness<NCT, N> const& other) const

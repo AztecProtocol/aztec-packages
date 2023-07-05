@@ -7,7 +7,7 @@ struct Storage {
 }
 
 impl Storage {
-    fn init() -> Self {
+fn init() -> Self {
         Storage {
             current_value: PublicState::new(1, FieldValueInterface),
         }

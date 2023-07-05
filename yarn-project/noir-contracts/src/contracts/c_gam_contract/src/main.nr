@@ -1,46 +1,84 @@
-// Noir implementation of a private token contract. It allows for the minting, and transfer of tokens. This contract
-// only works with private state and for this reason user balances are stored as notes (total user balance is
-// represented as a set of notes).
+// Noir implementation of a simple card game based on a high card mechanic.
 
+mod value_note;
+mod storage;
+mod user_deck;
+mod game_state_public_storage;
 
-fn hash_with_storage_slot(storage_slot: Field, key: Field) -> Field {
-    dep::std::hash::pedersen([
-        dep::aztec3::MappingStorageSlot,
-        storage_slot,
-        key
-    ])[0]
+use dep::aztec::state_vars::map::Map;
+use dep::aztec::state_vars::public_state::PublicState;
+use dep::aztec::state_vars::set::{Set as PrivateState};
+use value_note::ValueNote;
+use value_note::ValueNotePrivateInterface;
+use value_note::VALUE_NOTE_LEN;
+use game_state_public_storage::game_state_public_storage;
+
+use dep::std;
+use dep::aztec::abi;
+use dep::aztec::abi::PrivateContextInputs;
+use dep::aztec::abi::PublicContextInputs;
+use dep::aztec::context::Context;
+use dep::aztec::types::point::Point;
+use dep::aztec::public_call_stack_item::PublicCallStackItem;
+
+// oracles
+use dep::aztec::oracle::get_secret_key::get_secret_key;
+use dep::aztec::oracle::logs::emit_encrypted_log;
+use dep::aztec::oracle::logs::emit_unencrypted_log;
+
+use user_deck::Card;
+use user_deck::user_deck_insert;
+
+global CARDS_SLOT = 1;
+global GAME_DATA_SLOT = 2;
+
+fn cards_private_storage() -> Map<PrivateState<ValueNote, VALUE_NOTE_LEN>> {
+    Map::new(CARDS_SLOT, |s| PrivateState::new(s, ValueNotePrivateInterface))
+}
+
+struct Storage {
+    cards_private: Map<PrivateState<ValueNote, VALUE_NOTE_LEN>>,
+}
+
+impl Storage {
+    fn get() -> Self {
+        Storage {
+            cards_private: Map::new(CARDS_SLOT, |s| PrivateState::new(s, ValueNoteInterface)),
+        }
+    }
 }
 
 contract CGam {
-    // mod card;
+    mod value_note;
+    mod storage;
     mod user_deck;
+    use dep::aztec::state_vars::map::Map;
+    use dep::aztec::state_vars::set::Set;
+    use value_note::ValueNote;
+    use value_note::ValueNoteInterface;
+    use value_note::VALUE_NOTE_LEN;
+
     use dep::std;
-    use dep::aztec3::abi;
-    use dep::aztec3::abi::PrivateContextInputs;
-    use dep::aztec3::abi::PublicContextInputs;
-    use dep::aztec3::context::PrivateFunctionContext;
-    use dep::aztec3::notes::value_note::Note;
-    use dep::aztec3::types::point::Point;
-    use dep::aztec3::state_vars::map::Map;
-    use dep::aztec3::state_vars::storage_map::StorageMap;
-    use dep::aztec3::state_vars::storage_field::StorageField;
-    use dep::aztec3::state_vars::set::Set;
-    use dep::aztec3::public_call_stack_item::PublicCallStackItem;
+    use dep::aztec::abi;
+    use dep::aztec::abi::PrivateContextInputs;
+    use dep::aztec::abi::PublicContextInputs;
+    use dep::aztec::context::Context;
+    use dep::aztec::types::point::Point;
+    use dep::aztec::public_call_stack_item::PublicCallStackItem;
 
     // oracles
-    use dep::aztec3::oracle::get_secret_key::get_secret_key;
-    use dep::aztec3::oracle::logs::emit_encrypted_log;
-    use dep::aztec3::oracle::logs::emit_unencrypted_log;
+    use dep::aztec::oracle::get_secret_key::get_secret_key;
+    use dep::aztec::oracle::logs::emit_encrypted_log;
+    use dep::aztec::oracle::logs::emit_unencrypted_log;
 
     use user_deck::Card;
     use user_deck::user_deck_insert;
-    use crate::hash_with_storage_slot;
 
     //*********************************/
     // Mapping from card_id to CardNote state
     // secret cards: Map<Field, Set<CardNote>>;
     // TODO file bug for why we cant do Map::new
-    global cards: Map = Map {storage_slot: 1};
+    // global cards: Map = Map {storage_slot: 1};
     //*********************************/
 
     //PublicState name has been used instead of StorageField  :(
@@ -50,51 +88,51 @@ contract CGam {
         inputs: PrivateContextInputs,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
         // Return private circuit public inputs. All private functions need to return this as it is part of the input of the private kernel.
-        PrivateFunctionContext::new(inputs, 0).finish()
+        Context::new(inputs, 0).finish()
     }
 
-    //number of players that joined the game
-    global game_players = StorageMap { storage_slot: 12 };
-    // get the nb of players:
-    //game_players.at(game_id).read()
-    // update the nb of players:
-    //game_players.at(game_id).write(4);
+    // //number of players that joined the game
+    // global game_players = StorageMap { storage_slot: 12 };
+    // // get the nb of players:
+    // //game_players.at(game_id).read()
+    // // update the nb of players:
+    // //game_players.at(game_id).write(4);
 
-    //number of players for the game
-    global num_players = StorageMap { storage_slot: 3 };
+    // //number of players for the game
+    // global num_players = StorageMap { storage_slot: 3 };
 
-    //average strengh of user deck
-    global deck_strength_storage = StorageMap { storage_slot: 4 };
+    // //average strengh of user deck
+    // global deck_strength_storage = StorageMap { storage_slot: 4 };
 
-    //users' deck
-    global user_deck = Map { storage_slot: 5 };
+    // //users' deck
+    // global user_deck = Map { storage_slot: 5 };
 
-    //user plays: user_id -> 0 if not yet played, 1 if played
-    global users_plays = StorageMap { storage_slot: 6 };
+    // //user plays: user_id -> 0 if not yet played, 1 if played
+    // global users_plays = StorageMap { storage_slot: 6 };
 
-    //users order: 0 -> id of the first player, 1->id of the second, ...
-    global player_order = StorageMap { storage_slot: 7 };
+    // //users order: 0 -> id of the first player, 1->id of the second, ...
+    // global player_order = StorageMap { storage_slot: 7 };
 
-    //played cards: card.id() -> 1
-    global played_cards = StorageMap { storage_slot: 8 };
+    // //played cards: card.id() -> 1
+    // global played_cards = StorageMap { storage_slot: 8 };
 
-    // (currrent) winner card: game_id -> card_id
-    global winning_card = StorageMap { storage_slot: 9};
+    // // (currrent) winner card: game_id -> card_id
+    // global winning_card = StorageMap { storage_slot: 9};
 
-    // (current) points at stake: game_id -> points
-    global game_points = StorageMap { storage_slot: 10 };
+    // // (current) points at stake: game_id -> points
+    // global game_points = StorageMap { storage_slot: 10 };
 
-    // (currrent) winner card: game_id -> owner.x
-    global winning_user = StorageMap { storage_slot: 16};
+    // // (currrent) winner card: game_id -> owner.x
+    // global winning_user = StorageMap { storage_slot: 16};
 
-    // user points: game_id+user_id -> points
-    global user_points = StorageMap { storage_slot: 11 };
+    // // user points: game_id+user_id -> points
+    // global user_points = StorageMap { storage_slot: 11 };
 
-    // winner: game_id -> user_id
-    global winner = StorageMap { storage_slot: 13 };
+    // // winner: game_id -> user_id
+    // global winner = StorageMap { storage_slot: 13 };
 
-    // map game_id+user_id to owner.x
-    global user_pub_key = StorageMap { storage_slot: 14 };
+    // // map game_id+user_id to owner.x
+    // global user_pub_key = StorageMap { storage_slot: 14 };
 
     // TODO feedback: we found it very limiting having resource limits (e.g. read requests) tied to callstacks
     // This feels potentially something to be entirely revisited (can we be more flexile?), or managed by the user
@@ -174,7 +212,7 @@ contract CGam {
         seed: Field,    //public randomness
         owner: Point,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
-        let mut context = PrivateFunctionContext::new(inputs, abi::hash_args([seed, owner.x, owner.y]));
+        let mut context = Context::new(inputs, abi::hash_args([seed, owner.x, owner.y]));
         // check user balance can afford the cards
         // TODO
 
@@ -238,10 +276,10 @@ contract CGam {
     }
 
     fn assert_own_card(
-        initialContext: PrivateFunctionContext,
+        initialContext: Context,
         card: Card, 
         owner: Point
-    ) -> pub PrivateFunctionContext {
+    ) -> pub Context {
         let (mut context, (note, _unusedNote2)) = cards.at(card.id()).get_2(initialContext);
         assert(note.owner.x == owner.x);
         context
@@ -280,7 +318,7 @@ contract CGam {
         owner: Point,
         join_game_pub_selector: Field
     ) -> pub abi::PrivateCircuitPublicInputs {
-        let mut context = PrivateFunctionContext::new(inputs, abi::hash_args([
+        let mut context = Context::new(inputs, abi::hash_args([
             game_id, 
             user_cards[0].id(),
             user_cards[1].id(), // Up to MAX_CARDS - 1
@@ -339,7 +377,7 @@ contract CGam {
         card: Card, 
         owner: Point
     ) -> pub abi::PrivateCircuitPublicInputs {
-        let mut context = PrivateFunctionContext::new(inputs, abi::hash_args([card.id(), owner.x, owner.y]));
+        let mut context = Context::new(inputs, abi::hash_args([card.id(), owner.x, owner.y]));
             // checks that card belongs to the deck and it not already played
         context = assert_own_card(context, card, owner);
         //call open_show_card ... TODO
@@ -493,7 +531,7 @@ contract CGam {
     }
 
     fn private_claim_winnings(inputs: PrivateContextInputs, game_id: Field, owner: Point) -> pub abi::PrivateCircuitPublicInputs {
-        let mut initialContext = PrivateFunctionContext::new(inputs, abi::hash_args([game_id, owner.x, owner.y]));
+        let mut initialContext = Context::new(inputs, abi::hash_args([game_id, owner.x, owner.y]));
 
         // TODO prove we won!!!
         // TODO do we want to burn?

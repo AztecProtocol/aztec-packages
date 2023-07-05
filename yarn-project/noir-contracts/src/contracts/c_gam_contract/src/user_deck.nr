@@ -17,7 +17,6 @@ use dep::aztec3::oracle::get_secret_key::get_secret_key;
 use dep::aztec3::oracle::logs::emit_encrypted_log;
 use dep::aztec3::oracle::logs::emit_unencrypted_log;
 
-// use card::Card; // TODO WHY CANT WE DO THIS
 use crate::hash_with_storage_slot;
     
 //users' deck
@@ -53,7 +52,6 @@ impl Card {
     }
 }
 
-//TODO should not be a contract function !!
 //TODO HACK needed why can't comptime decay to normal Field when passed to pedersen?
 fn user_deck_insert(owner: Point, game_id: Field, i_hack_comptime : comptime Field, i : Field, user_cards: [Card; MAX_CARDS], initialContext: PrivateFunctionContext) -> pub PrivateFunctionContext{
     let card_note = Note::new(user_cards[i_hack_comptime].id(), owner);
