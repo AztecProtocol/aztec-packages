@@ -16,6 +16,8 @@ import {
   TxStatus,
   Wallet,
   createAztecRPCServer,
+  generatePublicKey,
+  getContractDeploymentInfo,
 } from '@aztec/aztec.js';
 import { CircuitsWasm } from '@aztec/circuits.js';
 import { Schnorr, pedersenPlookupCommitInputs } from '@aztec/circuits.js/barretenberg';
@@ -91,7 +93,9 @@ export async function setup(numberOfAccounts = 1): Promise<{
     // TODO(#662): Let the aztec rpc server generate the keypair rather than hardcoding the private key
     const privateKey = i === 0 ? Buffer.from(privKey!) : randomBytes(32);
     const abi = i == 0 ? SchnorrAccountContractAbi : GullibleAccountContractAbi;
-    const { publicKey, address, partialAddress } = await aztecRpcServer.addAccount2(abi, [], Fr.ZERO, privateKey);
+    const publicKey = await generatePublicKey(privateKey);
+    const deploymentData = await getContractDeploymentInfo(abi, [], Fr.ZERO, publicKey);
+    await aztecRpcServer.addAccount(privateKey, deploymentData.address, deploymentData.partialAddress, abi);
 
     const contractDeployer = new ContractDeployer(abi, aztecRpcServer, publicKey);
     const deployMethod = contractDeployer.deploy();
@@ -99,23 +103,23 @@ export async function setup(numberOfAccounts = 1): Promise<{
     await tx.isMined(0, 0.1);
     const receipt = await tx.getReceipt();
     const receiptAddress = receipt.contractAddress!;
-    if (!receiptAddress.equals(address)) {
+    if (!receiptAddress.equals(deploymentData.address)) {
       throw new Error(
-        `Deployment address does not match for account contract (expected ${address} got ${receiptAddress})`,
+        `Deployment address does not match for account contract (expected ${deploymentData.address} got ${receiptAddress})`,
       );
     }
     accountCollection.registerAccount(
-      address,
+      deploymentData.address,
       new AccountContract(
-        address,
+        deploymentData.address,
         publicKey,
         new SchnorrAuthProvider(await Schnorr.new(), privateKey),
-        partialAddress,
+        deploymentData.partialAddress,
         abi,
         wasm,
       ),
     );
-    logger(`Created account ${address.toString()} with public key ${publicKey.toString()}`);
+    logger(`Created account ${deploymentData.address.toString()} with public key ${publicKey.toString()}`);
   }
 
   const accounts = await aztecRpcServer.getAccounts();

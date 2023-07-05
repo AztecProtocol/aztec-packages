@@ -182,27 +182,6 @@ export class AztecRPCServer implements AztecRPC {
   }
 
   /**
-   * TODO: Remove this once no longer required
-   * Adds an account from a private key and account contract deployment information
-   * @param abi - The account contract abi
-   * @param args - The args to the account contract constructor
-   * @param contractAddressSalt - The salt to be used in the contract address derivation
-   * @param privKey - The account private key
-   * @returns - The contract deployment info
-   */
-  public async addAccount2(
-    abi: ContractAbi,
-    args: any[],
-    contractAddressSalt: Fr,
-    privKey: Buffer,
-  ): Promise<DeploymentInfo> {
-    const pubKey = this.keyStore.addAccount(privKey);
-    const deployInfo = await getContractDeploymentInfo(abi, args, contractAddressSalt, pubKey);
-    await this.addAccount(privKey, deployInfo.address, deployInfo.partialAddress, abi);
-    return deployInfo;
-  }
-
-  /**
    * Send a transaction.
    * @param tx - The transaction.
    * @returns A hash of the transaction, used to identify it.

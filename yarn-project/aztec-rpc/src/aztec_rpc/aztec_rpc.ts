@@ -85,12 +85,6 @@ export interface AztecRPC {
     partialContractAddress: PartialContractAddress,
     abi?: ContractAbi,
   ): Promise<AztecAddress>;
-  addAccount2(
-    abi: ContractAbi,
-    args: any[],
-    contractAddressSalt: Fr,
-    deployerPrivateKey: Buffer,
-  ): Promise<DeploymentInfo>;
   getAccounts(): Promise<AztecAddress[]>;
   getAccountPublicKey(address: AztecAddress): Promise<Point>;
   addContracts(contracts: DeployedContract[]): Promise<void>;

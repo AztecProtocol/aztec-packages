@@ -8,6 +8,8 @@ import {
   ContractDeployer,
   Fr,
   TxStatus,
+  generatePublicKey,
+  getContractDeploymentInfo,
 } from '@aztec/aztec.js';
 import { ContractAbi } from '@aztec/foundation/abi';
 import { DebugLogger } from '@aztec/foundation/log';
@@ -41,18 +43,18 @@ describe('e2e_account_contract', () => {
 
   const deployL2Contracts = async () => {
     logger('Deploying Schnorr based Account contract');
-    const { publicKey, partialAddress } = await aztecRpcServer.addAccount2(
-      SchnorrAccountContractAbi,
-      [],
-      Fr.ZERO,
+    const publicKey = await generatePublicKey(privateKey2);
+    const contractDeploymentInfo = await getContractDeploymentInfo(SchnorrAccountContractAbi, [], Fr.ZERO, publicKey);
+    await aztecRpcServer.addAccount(
       privateKey2,
+      contractDeploymentInfo.address,
+      contractDeploymentInfo.partialAddress,
+      SchnorrAccountContractAbi,
     );
     const schnorrDeploymentTx = await sendContractDeployment(publicKey, SchnorrAccountContractAbi);
     await schnorrDeploymentTx.tx.isMined(0, 0.1);
 
-    const schnorrReceipt = await schnorrDeploymentTx.tx.getReceipt();
-
-    schnorrAccountContractAddress = schnorrReceipt.contractAddress!;
+    schnorrAccountContractAddress = contractDeploymentInfo.address;
     logger(`L2 contract ${SchnorrAccountContractAbi.name} deployed at ${schnorrAccountContractAddress}`);
 
     const wallet = new AccountWallet(
@@ -61,7 +63,7 @@ describe('e2e_account_contract', () => {
         schnorrAccountContractAddress,
         publicKey,
         new SchnorrAuthProvider(await Schnorr.new(), privateKey2),
-        partialAddress,
+        contractDeploymentInfo.partialAddress,
         SchnorrAccountContractAbi,
         await CircuitsWasm.get(),
       ),

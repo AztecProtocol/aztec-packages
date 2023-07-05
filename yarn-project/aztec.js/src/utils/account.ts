@@ -1,10 +1,16 @@
-import { AztecRPC } from '@aztec/aztec-rpc';
+import { AztecRPC, getContractDeploymentInfo } from '@aztec/aztec-rpc';
 import { AztecAddress, CircuitsWasm, Fr, Point } from '@aztec/circuits.js';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { EcdsaAccountContractAbi } from '@aztec/noir-contracts/examples';
 import { AccountWallet, Wallet } from '../aztec_rpc_client/wallet.js';
-import { AccountCollection, AccountContract, ContractDeployer, EcdsaAuthProvider } from '../index.js';
+import {
+  AccountCollection,
+  AccountContract,
+  ContractDeployer,
+  EcdsaAuthProvider,
+  generatePublicKey,
+} from '../index.js';
 
 /**
  * Creates an Aztec Account.
@@ -25,18 +31,27 @@ export async function createAccounts(
     // TODO(#662): Let the aztec rpc server generate the keypair rather than hardcoding the private key
     const privKey = i == 0 ? privateKey : randomBytes(32);
     const accountAbi = EcdsaAccountContractAbi;
-    const { publicKey: pubKey, partialAddress } = await aztecRpcClient.addAccount2(accountAbi, [], Fr.ZERO, privKey);
-    const contractDeployer = new ContractDeployer(accountAbi, aztecRpcClient, pubKey);
+    const publicKey = await generatePublicKey(privateKey);
+    const deploymentInfo = await getContractDeploymentInfo(accountAbi, [], Fr.ZERO, publicKey);
+    await aztecRpcClient.addAccount(privKey, deploymentInfo.address, deploymentInfo.partialAddress, accountAbi);
+    const contractDeployer = new ContractDeployer(accountAbi, aztecRpcClient, publicKey);
     const tx = contractDeployer.deploy().send();
     await tx.isMined(0, 0.1);
     const receipt = await tx.getReceipt();
     const address = receipt.contractAddress!;
-    logger(`Created account ${address.toString()} with public key ${pubKey.toString()}`);
+    logger(`Created account ${address.toString()} with public key ${publicKey.toString()}`);
     accountImpls.registerAccount(
       address,
-      new AccountContract(address, pubKey, new EcdsaAuthProvider(privKey), partialAddress, accountAbi, wasm),
+      new AccountContract(
+        address,
+        publicKey,
+        new EcdsaAuthProvider(privKey),
+        deploymentInfo.partialAddress,
+        accountAbi,
+        wasm,
+      ),
     );
-    results.push([address, pubKey]);
+    results.push([address, publicKey]);
   }
   return new AccountWallet(aztecRpcClient, accountImpls);
 }

@@ -1,15 +1,4 @@
-import {
-  AztecAddress,
-  AztecRPC,
-  DeployedContract,
-  DeploymentInfo,
-  Fr,
-  NodeInfo,
-  Point,
-  Tx,
-  TxHash,
-  TxReceipt,
-} from '@aztec/aztec-rpc';
+import { AztecAddress, AztecRPC, DeployedContract, Fr, NodeInfo, Point, Tx, TxHash, TxReceipt } from '@aztec/aztec-rpc';
 import { TxContext } from '@aztec/circuits.js';
 import { ContractAbi } from '@aztec/foundation/abi';
 import { ContractData, ContractPublicData, ExecutionRequest, L2BlockL2Logs, TxExecutionRequest } from '@aztec/types';
@@ -37,9 +26,6 @@ export abstract class BaseWallet implements Wallet {
     abi?: ContractAbi | undefined,
   ): Promise<AztecAddress> {
     return this.rpc.addAccount(privKey, address, partialContractAddress, abi);
-  }
-  addAccount2(abi: ContractAbi, args: any[], contractAddressSalt: Fr, privKey: Buffer): Promise<DeploymentInfo> {
-    return this.rpc.addAccount2(abi, args, contractAddressSalt, privKey);
   }
   getAccounts(): Promise<AztecAddress[]> {
     return this.rpc.getAccounts();
