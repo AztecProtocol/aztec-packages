@@ -19,6 +19,6 @@ export class ContractDeployer {
    * @returns A DeployMethod instance configured with the ABI, AztecRPCClient, and constructor arguments.
    */
   public deploy(...args: any[]) {
-    return new DeployMethod(this.publicKey ?? Point.random(), this.arc, this.abi, args);
+    return new DeployMethod(this.publicKey ?? Point.ZERO, this.arc, this.abi, args);
   }
 }
