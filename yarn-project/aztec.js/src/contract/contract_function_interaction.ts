@@ -71,7 +71,9 @@ export class ContractFunctionInteraction {
   }
 
   /**
-   *
+   * Simulates a transaction's execution.
+   * @param options - optional arguments to be used in the creation of the transaction
+   * @returns The resulting transaction
    */
   public async simulate(options: SendMethodOptions): Promise<Tx> {
     const txRequest = this.txRequest ?? (await this.create(options));
@@ -105,7 +107,6 @@ export class ContractFunctionInteraction {
    *
    * @param options - An optional object containing 'from' property representing
    * the AztecAddress of the sender. If not provided, the default address is used.
-   * @param wallet
    * @returns A SentTx instance for tracking the transaction status and information.
    */
   public send(options: SendMethodOptions = {}) {
