@@ -129,32 +129,14 @@ contract Uniswap {
 
         for i in 0..32 {
             hash_bytes[i + 4] = inputTokenPortal_bytes[i];
-        }
-        for i in 0..32 {
             hash_bytes[i + 36] = inAmount_bytes[i];
-        }
-        for i in 0..32 {
             hash_bytes[i + 68] = uniswapFeeTier_bytes[i];
-        }
-        for i in 0..32 {
             hash_bytes[i + 100] = outputTokenPortal_bytes[i];
-        }
-        for i in 0..32 {
             hash_bytes[i + 132] = amountOutMin_bytes[i];
-        }
-        for i in 0..32 {
             hash_bytes[i + 164] = aztecRecipientAddress_bytes[i];
-        }
-        for i in 0..32 {
             hash_bytes[i + 196] = secretHash_bytes[i];
-        }
-        for i in 0..32 {
             hash_bytes[i + 228] = deadlineForL1ToL2Message_bytes[i];
-        }
-        for i in 0..32 {
             hash_bytes[i + 260] = canceller_bytes[i];
-        }
-        for i in 0..32 {
             hash_bytes[i + 292] = callerOnL1_bytes[i];
         }
 

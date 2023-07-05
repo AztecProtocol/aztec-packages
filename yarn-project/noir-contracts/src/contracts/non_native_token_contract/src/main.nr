@@ -390,6 +390,7 @@ contract NonNativeToken {
         let thisAddress = inputs.call_context.storage_contract_address;
         
         // addUnshieldedBalance selector (in decimal)
+        // recompute by: `cast keccak addUnshieldedBalance(field,field)` -> convert to decimal
         let pubEntryPointSelector = 753269941;
         let (_callStackItem1, mut context1) = PublicCallStackItem::call(thisAddress, pubEntryPointSelector, [amount, recipient], context);
 
