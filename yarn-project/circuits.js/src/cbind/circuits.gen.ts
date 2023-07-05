@@ -126,7 +126,7 @@ export function fromNativeAggregationState(o: NativeAggregationState): MsgpackNa
 
 interface MsgpackMembershipWitness {
   leaf_index: Buffer;
-  sibling_path: Tuple<Buffer, 8>;
+  sibling_path: Tuple<Buffer, 16>;
 }
 
 export function toMembershipWitness(o: MsgpackMembershipWitness): MembershipWitness {
