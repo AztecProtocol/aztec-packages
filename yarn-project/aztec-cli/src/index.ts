@@ -3,9 +3,11 @@ import { Command } from 'commander';
 import { createLogger } from '@aztec/foundation/log';
 import { createDebugLogger } from '@aztec/foundation/log';
 import {
+  AztecAddress,
   Contract,
   ContractDeployer,
   Point,
+  TxHash,
   createAccounts,
   createAztecRpcClient,
   pointToPublicKey,
@@ -67,6 +69,32 @@ async function main() {
       log(`Contract deployed at ${receipt.contractAddress?.toString()}`);
     });
 
+  program
+    .command('check-deploy')
+    .argument('<contractAddress>', 'An Aztec address to check if contract has been deployed to.')
+    .option('-u, --rpc-url <string>', 'URL of the Aztec RPC', 'http://localhost:8080')
+    .action(async (_contractAddress, options) => {
+      const client = createAztecRpcClient(options.rpcUrl);
+      const address = AztecAddress.fromString(_contractAddress);
+      const isDeployed = await client.isContractDeployed(address);
+      log(isDeployed.toString());
+    });
+
+  program
+    .command('get-tx-receipt')
+    .argument('<txHash>', 'A TX hash to get the receipt for.')
+    .option('-u, --rpc-url <string>', 'URL of the Aztec RPC', 'http://localhost:8080')
+    .action(async (_txHash, options) => {
+      const client = createAztecRpcClient(options.rpcUrl);
+      const txHash = TxHash.fromString(_txHash);
+      const receipt = await client.getTxReceipt(txHash);
+      if (!receipt) {
+        log(`No receipt found for tx hash ${_txHash}`);
+      } else {
+        log(`TX Receipt: \n${JsonStringify(receipt, true)}`);
+      }
+    });
+
   // NOTE: This implementation should change soon but keeping it here for quick account creation.
   program
     .command('create-account')
@@ -89,6 +117,21 @@ async function main() {
       } else {
         log(`Accounts found: \n`);
         accounts.forEach(acc => log(`${acc}\n`));
+      }
+    });
+
+  program
+    .command('get-account-public-key')
+    .argument('<address>', 'The Aztec address to get the public key for')
+    .option('-u, --rpc-url <string>', 'URL of the Aztec RPC', 'http://localhost:8080')
+    .action(async (_address, options) => {
+      const client = createAztecRpcClient(options.rpcUrl);
+      const address = AztecAddress.fromString(_address);
+      const pk = await client.getAccountPublicKey(address);
+      if (!pk) {
+        log(`Unkown account ${_address}`);
+      } else {
+        log(`Public Key: \n ${pk.toString()}`);
       }
     });
 
