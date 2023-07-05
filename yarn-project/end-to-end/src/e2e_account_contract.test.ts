@@ -35,13 +35,6 @@ describe('e2e_account_contract', () => {
     await deployMethod.create();
     const tx = deployMethod.send();
 
-    await aztecRpcServer.addAccount(
-      privateKey2,
-      deployMethod.completeContractAddress!,
-      deployMethod.partialContractAddress!,
-      abi,
-    );
-
     return { tx, partialContractAddress: deployMethod.partialContractAddress! };
   };
 
