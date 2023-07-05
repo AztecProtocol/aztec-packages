@@ -172,9 +172,20 @@ export class AztecRPCServer implements AztecRPC {
     if (!txRequest.functionData.isPrivate) {
       throw new Error(`Public entrypoints are not allowed`);
     }
+    
     const tx = await account.simulateAndProve(txRequest, undefined);
+
+    // Contract deployments are signalled as origin from their own address
+    // TODO: Should it be changed to be from ZERO?
+    const deployedContractAddress = txRequest.txContext.isContractDeploymentTx ? txRequest.origin : undefined;
+
     await this.db.addTx(
-      new TxDao(await tx.getTxHash(), undefined, undefined, account.getAddress(), account.getAddress(), undefined, ''),
+      TxDao.from({
+        txHash: await tx.getTxHash(),
+        from: account.getAddress(),
+        to: account.getAddress(),
+        contractAddress: deployedContractAddress,
+      }),
     );
 
     return tx;

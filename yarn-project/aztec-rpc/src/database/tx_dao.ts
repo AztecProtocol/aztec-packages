@@ -33,10 +33,32 @@ export class TxDao {
     /**
      * Description of any error encountered during the transaction.
      */
-    public readonly error: string,
+    public readonly error: string | undefined,
     /**
      * The deployed contract bytecode. Undefined if the transaction does not deploy a new contract.
      */
-    public readonly contractBytecoe?: Buffer,
+    public readonly contractBytecode?: Buffer,
   ) {}
+
+  static from(args: {
+    txHash: TxHash;
+    blockHash?: Buffer | undefined;
+    blockNumber?: number | undefined;
+    from: AztecAddress;
+    to: AztecAddress | undefined;
+    contractAddress: AztecAddress | undefined;
+    error?: string;
+    contractBytecode?: Buffer;
+  }) {
+    return new TxDao(
+      args.txHash,
+      args.blockHash,
+      args.blockNumber,
+      args.from,
+      args.to,
+      args.contractAddress,
+      args.error,
+      args.contractBytecode,
+    );
+  }
 }
