@@ -1,4 +1,4 @@
-import { AztecRPC } from '@aztec/aztec-rpc';
+import { AztecRPC, getContractDeploymentInfo } from '@aztec/aztec-rpc';
 import { CircuitsWasm, ContractDeploymentData, TxContext } from '@aztec/circuits.js';
 import { ContractAbi } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
@@ -86,10 +86,9 @@ export class DeployMethod extends ContractFunctionInteraction {
       options,
     );
 
-    const { address, constructorHash, functionTreeRoot, partialAddress } = await this.wallet.getDeploymentInfo(
+    const { address, constructorHash, functionTreeRoot, partialAddress } = await getContractDeploymentInfo(
       this.abi,
       this.args,
-      portalContract,
       contractAddressSalt,
       this.publicKey,
     );

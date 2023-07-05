@@ -28,7 +28,6 @@ export async function createAccounts(
     const { publicKey: pubKey, partialAddress } = await aztecRpcClient.addAccount2(
       accountAbi,
       [],
-      EthAddress.ZERO,
       Fr.ZERO,
       privKey,
     );

@@ -11,7 +11,7 @@ import {
   EthAddress,
   Fr,
   Wallet,
-  CircuitsWasm,
+  computeMessageSecretHash,
 } from '@aztec/aztec.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { UniswapContractAbi } from '@aztec/noir-contracts/examples';
@@ -20,7 +20,6 @@ import { mnemonicToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 import { delay, deployAndInitializeNonNativeL2TokenContracts, deployL1Contract } from './util.js';
 import { UniswapPortalAbi, UniswapPortalBytecode } from '@aztec/l1-artifacts';
-import { computeSecretMessageHash } from '@aztec/circuits.js/abis';
 
 /**
  * Type representation of a Public key's coordinates.
@@ -182,16 +181,6 @@ const transferWethOnL2 = async (
 };
 
 /**
- * Given a secret, it computes its pedersen hash - used to send l1 to l2 messages
- * @param secret - the secret to hash - secret could be generated however you want e.g. `Fr.random()`
- * @returns the hash
- */
-const getMessageHash = async (secret: Fr): Promise<Fr> => {
-  const wasm = await CircuitsWasm.get();
-  return computeSecretMessageHash(wasm, secret);
-};
-
-/**
  * main fn
  */
 async function main() {
@@ -227,7 +216,7 @@ async function main() {
   // 2. Deposit weth into the portal and move to L2
   // generate secret
   const secret = Fr.random();
-  const secretHash = await getMessageHash(secret);
+  const secretHash = await computeMessageSecretHash(secret);
   const secretString = `0x${secretHash.toBuffer().toString('hex')}` as `0x${string}`;
   const deadline = 2 ** 32 - 1; // max uint32 - 1
   logger('Sending messages to L1 portal');

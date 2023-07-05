@@ -1,7 +1,6 @@
 import { encodeArguments } from '@aztec/acir-simulator';
 import { AztecNode } from '@aztec/aztec-node';
-import { AztecAddress, CircuitsWasm, EthAddress, FunctionData } from '@aztec/circuits.js';
-import { computePartialContractAddress, computeSecretMessageHash } from '@aztec/circuits.js/abis';
+import { AztecAddress, FunctionData } from '@aztec/circuits.js';
 import { ContractAbi, FunctionType } from '@aztec/foundation/abi';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
@@ -20,10 +19,10 @@ import {
 import { AccountState } from '../account_state/account_state.js';
 import { AztecRPC, DeployedContract, DeploymentInfo, NodeInfo } from '../aztec_rpc/index.js';
 import { toContractDao } from '../contract_database/index.js';
-import { ContractTree } from '../contract_tree/index.js';
 import { Database, TxDao } from '../database/index.js';
 import { Synchroniser } from '../synchroniser/index.js';
 import { TxReceipt, TxStatus } from '../tx/index.js';
+import { getContractDeploymentInfo } from '../index.js';
 
 /**
  * A remote Aztec RPC Client implementation.
@@ -187,7 +186,6 @@ export class AztecRPCServer implements AztecRPC {
    * Adds an account from a private key and account contract deployment information
    * @param abi - The account contract abi
    * @param args - The args to the account contract constructor
-   * @param portalContract - The portal contract address to associate with the deployed account contract
    * @param contractAddressSalt - The salt to be used in the contract address derivation
    * @param privKey - The account private key
    * @returns - The contract deployment info
@@ -195,62 +193,13 @@ export class AztecRPCServer implements AztecRPC {
   public async addAccount2(
     abi: ContractAbi,
     args: any[],
-    portalContract: EthAddress,
     contractAddressSalt: Fr,
     privKey: Buffer,
   ): Promise<DeploymentInfo> {
     const pubKey = this.keyStore.addAccount(privKey);
-    const deployInfo = await this.getDeploymentInfo(abi, args, portalContract, contractAddressSalt, pubKey);
+    const deployInfo = await getContractDeploymentInfo(abi, args, contractAddressSalt, pubKey);
     await this.addAccount(privKey, deployInfo.address, deployInfo.partialAddress, abi);
     return deployInfo;
-  }
-
-  /**
-   * TODO: Remove this once no longer required
-   * Generates the deployment info for a contract
-   * @param abi - The account contract abi
-   * @param args - The args to the account contract constructor
-   * @param portalContract - The portal contract address to associate with the deployed account contract
-   * @param contractAddressSalt - The salt to be used in the contract address derivation
-   * @param publicKey - The account public key
-   * @returns - The contract deployment info
-   */
-  public async getDeploymentInfo(
-    abi: ContractAbi,
-    args: any[],
-    portalContract: EthAddress,
-    contractAddressSalt: Fr,
-    publicKey: PublicKey,
-  ): Promise<DeploymentInfo> {
-    const constructorAbi = abi.functions.find(f => f.name === 'constructor');
-    if (!constructorAbi) {
-      throw new Error('Cannot find constructor in the ABI.');
-    }
-
-    const flatArgs = encodeArguments(constructorAbi, args);
-    const contractTree = await ContractTree.new(
-      abi,
-      flatArgs,
-      portalContract,
-      contractAddressSalt,
-      publicKey,
-      this.node,
-    );
-    const { vkHash } = contractTree.newContractConstructor!;
-    const functionTreeRoot = await contractTree.getFunctionTreeRoot();
-    const constructorHash = Fr.fromBuffer(vkHash);
-
-    const wasm = await CircuitsWasm.get();
-    const partialAddress = computePartialContractAddress(wasm, contractAddressSalt, functionTreeRoot, constructorHash);
-
-    const contract = contractTree.contract;
-    return {
-      address: contract.address,
-      partialAddress,
-      constructorHash,
-      functionTreeRoot,
-      publicKey,
-    };
   }
 
   /**

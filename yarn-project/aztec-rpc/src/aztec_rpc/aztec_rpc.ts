@@ -88,16 +88,8 @@ export interface AztecRPC {
   addAccount2(
     abi: ContractAbi,
     args: any[],
-    portalContract: EthAddress,
     contractAddressSalt: Fr,
     deployerPrivateKey: Buffer,
-  ): Promise<DeploymentInfo>;
-  getDeploymentInfo(
-    abi: ContractAbi,
-    args: any[],
-    portalContract: EthAddress,
-    contractAddressSalt: Fr,
-    deployerPublicKey: PublicKey,
   ): Promise<DeploymentInfo>;
   getAccounts(): Promise<AztecAddress[]>;
   getAccountPublicKey(address: AztecAddress): Promise<Point>;

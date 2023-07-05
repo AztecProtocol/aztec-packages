@@ -42,20 +42,10 @@ export abstract class BaseWallet implements Wallet {
   addAccount2(
     abi: ContractAbi,
     args: any[],
-    portalContract: EthAddress,
     contractAddressSalt: Fr,
     privKey: Buffer,
   ): Promise<DeploymentInfo> {
-    return this.rpc.addAccount2(abi, args, portalContract, contractAddressSalt, privKey);
-  }
-  getDeploymentInfo(
-    abi: ContractAbi,
-    args: any[],
-    portalContract: EthAddress,
-    contractAddressSalt: Fr,
-    deployerPublicKey: Point,
-  ): Promise<DeploymentInfo> {
-    return this.rpc.getDeploymentInfo(abi, args, portalContract, contractAddressSalt, deployerPublicKey);
+    return this.rpc.addAccount2(abi, args, contractAddressSalt, privKey);
   }
   getAccounts(): Promise<AztecAddress[]> {
     return this.rpc.getAccounts();

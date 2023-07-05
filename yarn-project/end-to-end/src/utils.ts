@@ -94,7 +94,6 @@ export async function setup(numberOfAccounts = 1): Promise<{
     const { publicKey, address, partialAddress } = await aztecRpcServer.addAccount2(
       abi,
       [],
-      EthAddress.ZERO,
       Fr.ZERO,
       privateKey,
     );

@@ -45,7 +45,6 @@ describe('e2e_account_contract', () => {
     const { publicKey, partialAddress } = await aztecRpcServer.addAccount2(
       SchnorrAccountContractAbi,
       [],
-      EthAddress.ZERO,
       Fr.ZERO,
       privateKey2,
     );
