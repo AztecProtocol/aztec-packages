@@ -66,7 +66,7 @@ contract EcdsaAccount {
         let payload_bytes: [u8; entrypoint::ENTRYPOINT_PAYLOAD_SIZE_IN_BYTES] = payload.to_be_bytes();
         let challenge: [u8; 32] = std::hash::sha256(payload_bytes);
 
-        let verification = std::ecdsa_secp256k1::verify_signature(x, y, decompressed_signature, payload_hash);
+        let verification = std::ecdsa_secp256k1::verify_signature(x, y, decompressed_signature, challenge);
         assert(verification == true);
 
         // TODO: When we can use pedersen with non-zero generators, get this working
@@ -107,7 +107,7 @@ contract EcdsaAccount {
         // }
         // TODO(#499): Use hash index
         // let args_hash = dep::std::hash::pedersen(args.storage)[0];
-        context.finish();
+        context.finish()
     }
 
     fn constructor(
