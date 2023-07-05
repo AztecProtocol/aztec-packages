@@ -68,8 +68,6 @@ export class AztecRPCServer implements AztecRPC {
    * @param privKey - Private key of the corresponding user master public key.
    * @param address - Address of the account contract.
    * @param partialContractAddress - The partially computed address of the account contract.
-   * @param curve - The type of curve to use in elliptic curve operations.
-   * @param signer - The type of signer to use for signature generation.
    * @param abi - Implementation of the account contract backed by this account.
    * @returns The address of the account contract.
    */
