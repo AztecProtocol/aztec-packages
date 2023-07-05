@@ -1,4 +1,4 @@
-import { CircuitsWasm, EthAddress, Fr, FunctionData } from '@aztec/circuits.js';
+import { CircuitsWasm, Fr, FunctionData } from '@aztec/circuits.js';
 import { ContractAbi } from '@aztec/foundation/abi';
 import { PublicKey } from '@aztec/key-store';
 import { DeploymentInfo, generateFunctionSelector } from '../index.js';

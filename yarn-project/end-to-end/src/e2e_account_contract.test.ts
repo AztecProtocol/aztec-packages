@@ -6,7 +6,6 @@ import {
   AztecRPCServer,
   Contract,
   ContractDeployer,
-  EthAddress,
   Fr,
   TxStatus,
 } from '@aztec/aztec.js';

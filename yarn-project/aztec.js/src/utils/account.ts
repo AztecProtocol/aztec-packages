@@ -1,5 +1,5 @@
 import { AztecRPC } from '@aztec/aztec-rpc';
-import { AztecAddress, CircuitsWasm, EthAddress, Fr, Point } from '@aztec/circuits.js';
+import { AztecAddress, CircuitsWasm, Fr, Point } from '@aztec/circuits.js';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { EcdsaAccountContractAbi } from '@aztec/noir-contracts/examples';
@@ -25,12 +25,7 @@ export async function createAccounts(
     // TODO(#662): Let the aztec rpc server generate the keypair rather than hardcoding the private key
     const privKey = i == 0 ? privateKey : randomBytes(32);
     const accountAbi = EcdsaAccountContractAbi;
-    const { publicKey: pubKey, partialAddress } = await aztecRpcClient.addAccount2(
-      accountAbi,
-      [],
-      Fr.ZERO,
-      privKey,
-    );
+    const { publicKey: pubKey, partialAddress } = await aztecRpcClient.addAccount2(accountAbi, [], Fr.ZERO, privKey);
     const contractDeployer = new ContractDeployer(accountAbi, aztecRpcClient, pubKey);
     const tx = contractDeployer.deploy().send();
     await tx.isMined(0, 0.1);

@@ -3,7 +3,6 @@ import {
   AztecRPC,
   DeployedContract,
   DeploymentInfo,
-  EthAddress,
   Fr,
   NodeInfo,
   Point,
@@ -39,12 +38,7 @@ export abstract class BaseWallet implements Wallet {
   ): Promise<AztecAddress> {
     return this.rpc.addAccount(privKey, address, partialContractAddress, abi);
   }
-  addAccount2(
-    abi: ContractAbi,
-    args: any[],
-    contractAddressSalt: Fr,
-    privKey: Buffer,
-  ): Promise<DeploymentInfo> {
+  addAccount2(abi: ContractAbi, args: any[], contractAddressSalt: Fr, privKey: Buffer): Promise<DeploymentInfo> {
     return this.rpc.addAccount2(abi, args, contractAddressSalt, privKey);
   }
   getAccounts(): Promise<AztecAddress[]> {
