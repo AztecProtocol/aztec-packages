@@ -382,6 +382,7 @@ contract NonNativeToken {
 
         let thisAddress = inputs.call_context.storage_contract_address;
         let mut args = [0; abi::MAX_ARGS];
+        
         // addUnshieldedBalance selector (in decimal)
         let pubEntryPointSelector = 753269941;
         args[0] = amount;
@@ -424,11 +425,7 @@ contract NonNativeToken {
 
         for i in 0..32 {
             hash_bytes[i + 4] = amount_bytes[i];
-        }
-        for i in 0..32 {
             hash_bytes[i + 36] = recipient_bytes[i];
-        }
-        for i in 0..32 {
             hash_bytes[i + 68] = canceller_bytes[i];
         }
         
@@ -475,11 +472,7 @@ contract NonNativeToken {
 
         for i in 0..32 {
             hash_bytes[i + 4] = amount_bytes[i];
-        }
-        for i in 0..32 {
             hash_bytes[i + 36] = recipient_bytes[i];
-        }
-        for i in 0..32 {
             hash_bytes[i + 68] = callerOnL1_bytes[i];
         }
         let content_sha256 = dep::std::hash::sha256(hash_bytes);
