@@ -91,12 +91,7 @@ export async function setup(numberOfAccounts = 1): Promise<{
     // TODO(#662): Let the aztec rpc server generate the keypair rather than hardcoding the private key
     const privateKey = i === 0 ? Buffer.from(privKey!) : randomBytes(32);
     const abi = i == 0 ? SchnorrAccountContractAbi : GullibleAccountContractAbi;
-    const { publicKey, address, partialAddress } = await aztecRpcServer.addAccount2(
-      abi,
-      [],
-      Fr.ZERO,
-      privateKey,
-    );
+    const { publicKey, address, partialAddress } = await aztecRpcServer.addAccount2(abi, [], Fr.ZERO, privateKey);
 
     const contractDeployer = new ContractDeployer(abi, aztecRpcServer, publicKey);
     const deployMethod = contractDeployer.deploy();
