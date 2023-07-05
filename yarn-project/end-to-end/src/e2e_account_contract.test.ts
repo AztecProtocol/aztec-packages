@@ -21,6 +21,7 @@ import { SchnorrAuthProvider } from './auth.js';
 import { privateKey2 } from './fixtures.js';
 import { setup } from './utils.js';
 import { CircuitsWasm } from '@aztec/circuits.js';
+import { toBigInt } from '@aztec/foundation/serialize';
 
 describe('e2e_account_contract', () => {
   let aztecNode: AztecNodeService;
@@ -97,20 +98,20 @@ describe('e2e_account_contract', () => {
     expect(receipts[0].status).toBe(TxStatus.MINED);
   }, 60_000);
 
-  // it('calls a public function', async () => {
-  //   await deployL2Contracts();
-  //   logger('Calling public function...');
-  //   const tx1 = child.methods.pubStoreValue(42).send({ from: schnorrAccountContract.address });
+  it('calls a public function', async () => {
+    await deployL2Contracts();
+    logger('Calling public function...');
+    const tx1 = child.methods.pubStoreValue(42).send({ from: schnorrAccountContractAddress });
 
-  //   const txs = [tx1];
+    const txs = [tx1];
 
-  //   await Promise.all(txs.map(tx => tx.isMined(0, 0.1)));
-  //   const receipts = await Promise.all(txs.map(tx => tx.getReceipt()));
+    await Promise.all(txs.map(tx => tx.isMined(0, 0.1)));
+    const receipts = await Promise.all(txs.map(tx => tx.getReceipt()));
 
-  //   expect(receipts[0].status).toBe(TxStatus.MINED);
-  //   // The contract accumulates the values so the expected value is 95
-  //   expect(toBigInt((await aztecNode.getStorageAt(child.address, 1n))!)).toEqual(95n);
-  // }, 60_000);
+    expect(receipts[0].status).toBe(TxStatus.MINED);
+    // The contract accumulates the values so the expected value is 95
+    expect(toBigInt((await aztecNode.getStorageAt(child.address, 1n))!)).toEqual(95n);
+  }, 60_000);
 
   // it('fails to execute function with invalid schnorr signature', async () => {
   //   logger('Registering ecdsa signer against schnorr account contract');

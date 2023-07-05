@@ -1,7 +1,7 @@
 import { encodeArguments } from '@aztec/acir-simulator';
 import { AztecNode } from '@aztec/aztec-node';
 import { AztecAddress, FunctionData } from '@aztec/circuits.js';
-import { ContractAbi, FunctionType } from '@aztec/foundation/abi';
+import { FunctionType } from '@aztec/foundation/abi';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { KeyStore, PublicKey } from '@aztec/key-store';
@@ -17,12 +17,11 @@ import {
   TxHash,
 } from '@aztec/types';
 import { AccountState } from '../account_state/account_state.js';
-import { AztecRPC, DeployedContract, DeploymentInfo, NodeInfo } from '../aztec_rpc/index.js';
+import { AztecRPC, DeployedContract, NodeInfo } from '../aztec_rpc/index.js';
 import { toContractDao } from '../contract_database/index.js';
 import { Database, TxDao } from '../database/index.js';
 import { Synchroniser } from '../synchroniser/index.js';
 import { TxReceipt, TxStatus } from '../tx/index.js';
-import { getContractDeploymentInfo } from '../index.js';
 
 /**
  * A remote Aztec RPC Client implementation.
