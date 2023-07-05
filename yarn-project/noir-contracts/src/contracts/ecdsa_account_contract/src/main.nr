@@ -107,18 +107,7 @@ contract EcdsaAccount {
         // }
         // TODO(#499): Use hash index
         // let args_hash = dep::std::hash::pedersen(args.storage)[0];
-
-        // TODO(#754): Pedersen is throwing a panic in wasm when computing the hash for too many args.
-        let args_hash = 0;
-
-        // Finish returns the already serialized payload, so we just tweak the corresponding field
-        // Horrible, yes. But we need to rethink the private function context api anyway.
-        // TODO(#745): Do not store args, set hash directly in context API
-        let mut ret = context.finish(inputs);
-        ret.args_hash = args_hash;
-
-        // Return private circuit public inputs. All private functions need to return this as it is part of the input of the private kernel.
-        ret
+        context.finish();
     }
 
     fn constructor(
