@@ -18,7 +18,7 @@ contract NonNativeToken {
     use crate::storage::Storage;
 
     use dep::aztec::context::Context;
-
+    use dep::aztec::types::point::Point;
     use dep::aztec::{
         abi,
         abi::{
@@ -27,8 +27,6 @@ contract NonNativeToken {
         }
     };
 
-    use dep::aztec::types::point::Point;
-    
     // oracles
     use dep::aztec::oracle::{
         create_l2_to_l1_message::create_l2_to_l1_message,
@@ -39,11 +37,10 @@ contract NonNativeToken {
 
     // public messaging
     use dep::aztec::messaging::consume_l1_to_l2_message_public;
+    use dep::aztec::public_call_stack_item::PublicCallStackItem;
 
     use dep::aztec::log::emit_encrypted_log;
-
     use dep::aztec::note::note_getter::NoteGetterOptions;
-
 
     fn constructor(
         //*********************************/
@@ -285,7 +282,7 @@ contract NonNativeToken {
         context = emit_encrypted_log(context, inputs.call_context.storage_contract_address, sender_balance.storage_slot, change_note.owner, change_note.serialise());
 
         // Return private circuit public inputs. All private functions need to return this as it is part of the input of the private kernel.
-        context.finish(inputs)
+        context.finish()
     }
 
     // Shield creates a way for a user to move tokens from the public context into the private context.
