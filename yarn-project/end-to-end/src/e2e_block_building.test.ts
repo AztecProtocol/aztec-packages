@@ -30,6 +30,7 @@ describe('e2e_block_building', () => {
 
     for (const i in methods) {
       await methods[i].create({ contractAddressSalt: new Fr(BigInt(i + 1)) });
+      await methods[i].simulate({});
     }
 
     // Send them simultaneously to be picked up by the sequencer

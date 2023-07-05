@@ -8,7 +8,6 @@ describe('e2e_public_to_private_messaging', () => {
   let aztecNode: AztecNodeService;
   let aztecRpcServer: AztecRPCServer;
   let logger: DebugLogger;
-  let wallet: Wallet;
 
   let ethAccount: EthAddress;
 
@@ -25,6 +24,7 @@ describe('e2e_public_to_private_messaging', () => {
       aztecRpcServer: aztecRpcServer_,
       deployL1ContractsValues,
       accounts,
+      wallet,
       logger: logger_,
     } = await setup(2);
     crossChainTestHarness = await CrossChainTestHarness.new(
