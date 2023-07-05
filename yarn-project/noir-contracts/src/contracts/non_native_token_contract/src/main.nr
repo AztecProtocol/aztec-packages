@@ -1,6 +1,3 @@
-mod balance_utils;
-mod generators;
-mod value_note;
 mod storage;
 
 // Represents an ERC20 token bridged from L1 to L2 via `l1-contracts/test/portals/TokenPortal.sol`. The bridged user
@@ -8,21 +5,37 @@ mod storage;
 // is represented as a set of notes in the private data tree. If the balance is stored in the public domain then it is
 // represented as a single value in the public data tree.
 contract NonNativeToken {
-    use dep::aztec::abi;
-    use dep::aztec::abi::PublicContextInputs;
-    use dep::aztec::abi::PrivateContextInputs;
+    // Libs
+    use dep::token_utils::{
+        balance_utils,
+        value_note::{
+            value_note::ValueNote,
+            filter::get_2_notes,
+        }
+    };
+    use dep::custom_notes::transparent_note::TransparentNote;
+
+    use crate::storage::Storage;
 
     use dep::aztec::context::Context;
+
+    use dep::aztec::{
+        abi,
+        abi::{
+            PublicContextInputs,
+            PrivateContextInputs,
+        }
+    };
+
     use dep::aztec::types::point::Point;
-
-    // Private state
-    use dep::aztec::state_vars::map::Map;
-    use dep::aztec::state_vars::set::Set;
-
-    // Public state
-
+    
     // oracles
-    use dep::aztec::oracle::create_l2_to_l1_message::create_l2_to_l1_message;
+    use dep::aztec::oracle::{
+        create_l2_to_l1_message::create_l2_to_l1_message,
+        create_commitment::create_commitment,
+        create_nullifier::create_nullifier,
+        get_commitment::get_commitment,
+    };
 
     // public messaging
     use dep::aztec::messaging::consume_l1_to_l2_message_public;
@@ -31,12 +44,6 @@ contract NonNativeToken {
 
     use dep::aztec::note::note_getter::NoteGetterOptions;
 
-    // Storage variable declarations
-    use crate::storage::Storage;
-
-    use crate::value_note::value_note::ValueNote;
-    use crate::value_note::filter::get_2_notes;
-    use crate::balance_utils;
 
     fn constructor(
         //*********************************/
@@ -286,12 +293,14 @@ contract NonNativeToken {
         inputs: PublicContextInputs,
         amount: Field,
         secretHash: Field,
-        _padding: [Field; abi::MAX_ARGS - 2]
     ) {
+        let storage = Storage::init();
+        let public_balances = storage.public_balances;
+
         // Decrease user's balance.
         let sender = inputs.call_context.msg_sender;
         let sender_balance = public_balances.at(sender);
-        let current_sender_balance = sender_balance.read();
+        let current_sender_balance: Field = sender_balance.read();
 
         if (current_sender_balance as u120) > (amount as u120) {
             // User has sufficient balance so we decrement it by `amount`
@@ -313,8 +322,12 @@ contract NonNativeToken {
         secret: Field,
         owner: Point,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
-        let mut context = PrivateFunctionContext::new();
-        context.args = context.args.push_array([amount, secret, owner.x, owner.y]);
+        let storage = Storage::init();
+        let balances = storage.balances;
+
+        let mut context = Context::new(inputs, abi::hash_args([
+            amount, secret, owner.x, owner.y,
+        ]));
 
         // Assert that the note exists within the tree
         let public_note = TransparentNote::new_from_secret(amount, secret);
@@ -322,13 +335,13 @@ contract NonNativeToken {
 
         // Mint the tokens
         let owner_balance = balances.at(owner.x);
-        let note = Note::new(amount, owner);
+        let note = ValueNote::new(amount, owner);
 
         // Insert note and emit encrypted preimage
         context = owner_balance.insert(context, note);
-        assert(emit_encrypted_log(inputs.call_context.storage_contract_address, owner_balance.storage_slot, note.owner, note) == 0);
+        context = emit_encrypted_log(context, inputs.call_context.storage_contract_address, owner_balance.storage_slot, note.owner, note.serialise());
 
-        context.finish(inputs)
+        context.finish()
     }
 
     fn unshieldTokens(
@@ -337,11 +350,18 @@ contract NonNativeToken {
         owner: Point,
         recipient: Field,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
-        let mut initialContext = PrivateFunctionContext::new();
-        initialContext.args = initialContext.args.push_array([amount, owner.x, owner.y]);
+        let storage = Storage::init();
+        let balances = storage.balances;
+
+        let mut initialContext = Context::new(inputs, abi::hash_args([
+            amount, owner.x, owner.y
+        ]));
 
         let sender_balance = balances.at(owner.x);
-        let (mut context, (note1, note2)) = sender_balance.get_2(initialContext);
+        let options = NoteGetterOptions::with_filter(get_2_notes, 0);
+        let (mut context, notes) = sender_balance.get_notes(initialContext, options);
+        let note1 = notes[0];
+        let note2 = notes[1];
 
         // TODO: Removing this return breaks the circuit (???)
         context.return_values = context.return_values.push(note1.is_real as Field);
@@ -354,14 +374,14 @@ contract NonNativeToken {
         assert(sum as u120 >= amount as u120);
         let change_value = sum - amount;
 
-        context = sender_balance.remove(inputs, context, note1);
-        context = sender_balance.remove(inputs, context, note2);
+        context = sender_balance.remove(context, note1);
+        context = sender_balance.remove(context, note2);
 
-        let change_note = Note::new(change_value, owner);
+        let change_note = ValueNote::new(change_value, owner);
 
         // enqueue a public function to perform the public state update.
         context = sender_balance.insert(context, change_note);
-        assert(emit_encrypted_log(inputs.call_context.storage_contract_address, sender_balance.storage_slot, change_note.owner, change_note) == 0);
+        context = emit_encrypted_log(context, inputs.call_context.storage_contract_address, sender_balance.storage_slot, change_note.owner, change_note.serialise());
 
         let thisAddress = inputs.call_context.storage_contract_address;
         let mut args = [0; abi::MAX_ARGS];
@@ -372,15 +392,17 @@ contract NonNativeToken {
         
         let (_callStackItem1, mut context1) = PublicCallStackItem::call(thisAddress, pubEntryPointSelector, args, context);
 
-        context1.finish(inputs)
+        context1.finish()
     }
 
     open fn addUnshieldedBalance(
         _inputs: PublicContextInputs,
         amount: Field,
         recipient: Field,
-        _padding: [Field; abi::MAX_ARGS - 2]
     ) {
+        let storage = Storage::init();
+        let public_balances = storage.public_balances;
+
         let recipient_balance = public_balances.at(recipient);
         let current_balance = recipient_balance.read();
         recipient_balance.write(current_balance + amount);

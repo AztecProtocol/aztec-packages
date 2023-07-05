@@ -1,5 +1,3 @@
-mod balance_utils;
-mod notes;
 mod storage;
 use dep::std::hash::pedersen;
 
@@ -15,15 +13,23 @@ use dep::std::hash::pedersen;
 contract PublicPrivate {
     // Custom deps
     use dep::token_utils::balance_utils;
+    use dep::token_utils::value_note::value_note::ValueNote;
     use dep::custom_notes::transparent_note::TransparentNote;
 
-    use dep::aztec::{
-        abi,
-        abi::PrivateContextInputs,
-        abi::PublicContextInputs,
-    };
+    use crate::storage::Storage;
+
+    use dep::aztec::context::Context;
 
     use dep::aztec3::{
+        abi,
+        abi::{
+            PrivateContextInputs,
+            PublicContextInputs,
+        }
+    };
+
+    // Private state
+    use dep::aztec::{
         types::point::Point,
         state_vars::{
             map::Map, set::Set
@@ -31,15 +37,15 @@ contract PublicPrivate {
     };
 
     // oracles
-    use dep::aztec3::oracle::{
+    use dep::aztec::oracle::{
         create_commitment::create_commitment,
         create_l2_to_l1_message::create_l2_to_l1_message,
         create_nullifier::create_nullifier,
         get_commitment::get_commitment
     };
 
-    // A map from `owner.x` to a set of notes representing private user balance.
-    global balances = Map { storage_slot: 1 };
+    // Logs
+    use dep::aztec::log::emit_encrypted_log;
 
     fn constructor(
         inputs: PrivateContextInputs,
