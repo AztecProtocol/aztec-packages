@@ -11,6 +11,7 @@ import EcdsaAccountContractJson from './ecdsa_account_contract.json' assert { ty
 import SchnorrAccountContractJson from './schnorr_account_contract.json' assert { type: 'json' };
 import GullibleAccountContractJson from './gullible_account_contract.json' assert { type: 'json' };
 import UniswapContractJson from './uniswap_contract.json' assert { type: 'json' };
+import YoloContractJson from './yolo_contract.json' assert { type: 'json' };
 
 export const TestContractAbi = TestContractJson as ContractAbi;
 export const ZkTokenContractAbi = ZkTokenContractJson as ContractAbi;
@@ -23,3 +24,4 @@ export const EcdsaAccountContractAbi = EcdsaAccountContractJson as ContractAbi;
 export const SchnorrAccountContractAbi = SchnorrAccountContractJson as ContractAbi;
 export const GullibleAccountContractAbi = GullibleAccountContractJson as ContractAbi;
 export const UniswapContractAbi = UniswapContractJson as ContractAbi;
+export const YoloContractAbi = YoloContractJson as ContractAbi;

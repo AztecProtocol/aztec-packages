@@ -1,0 +1,69 @@
+use dep::aztec::state_vars::map::Map;
+use dep::aztec::state_vars::public_state::PublicState;
+use dep::aztec::state_vars::public_state_value::PublicStateValueInterface;
+use dep::aztec::state_vars::public_state_value::field_value::FieldValueInterface;
+
+
+global TOT_SIZE: Field = 2;
+
+struct Tot {
+    interest_accumulator: Field,
+    last_updated_ts: Field,
+}
+
+fn deserialiseTot(fields: [Field; TOT_SIZE]) -> Tot {
+    Tot {
+        interest_accumulator: fields[0],
+        last_updated_ts: fields[1],
+    }
+}
+
+fn serialiseTot(tot: Tot) -> [Field; TOT_SIZE] {
+    [tot.interest_accumulator, tot.last_updated_ts]
+}
+
+global TotInterface = PublicStateValueInterface {
+    deserialise: deserialiseTot,
+    serialise: serialiseTot,
+};
+
+
+global POS_SIZE: Field = 2;
+
+struct Pos {
+    owner: Field,
+    value: Field,
+}
+
+fn deserialisePos(fields: [Field; POS_SIZE]) -> Pos {
+    Pos {
+        owner: fields[0],
+        value: fields[1],
+    }
+}
+
+fn serialisePos(pos: Pos) -> [Field; POS_SIZE] {
+    [pos.owner, pos.value]
+}
+
+global PosInterface = PublicStateValueInterface {
+    deserialise: deserialisePos,
+    serialise: serialisePos,
+};
+
+
+struct Storage {
+    assets: Map<PublicState<Tot, TOT_SIZE>>,
+    collateral: Map<PublicState<Field, 1>>,
+    static_debt: Map<PublicState<Field, 1>>, // abusing keys very heavily
+}
+
+impl Storage {
+    fn init() -> Self {
+        Storage {
+            assets: Map::new(1, |s| PublicState::new(s, TotInterface)), // uses 2 storage slots.
+            collateral: Map::new(2, |s| PublicState::new(s, FieldValueInterface)), // uses 1 storage slots.
+            static_debt: Map::new(3, |s| PublicState::new(s, FieldValueInterface)), // uses 1 storage slots. 
+        }
+    }
+}
