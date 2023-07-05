@@ -71,6 +71,8 @@ describe('Account State', () => {
     ownerAddress = AztecAddress.random();
     const partialAccountContractAddress = Fr.random();
     aztecNode = mock<AztecNode>();
+    keyStore = mock<KeyStore>();
+    keyStore.getAccountPrivateKey.mockResolvedValue(owner.getPrivateKey());
     accountState = new AccountState(
       owner.getPublicKey(),
       keyStore,
