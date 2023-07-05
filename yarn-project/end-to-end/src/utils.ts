@@ -1,7 +1,7 @@
 import { AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
 import { DebugLogger, Logger, createDebugLogger } from '@aztec/foundation/log';
 import { Fr } from '@aztec/foundation/fields';
-import {MAPPING_SLOT_PEDERSEN_SEPARATOR } from "@aztec/circuits.js";
+import { MAPPING_SLOT_PEDERSEN_SEPARATOR } from '@aztec/circuits.js';
 
 import {
   AztecAddress,
