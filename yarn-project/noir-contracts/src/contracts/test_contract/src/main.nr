@@ -14,11 +14,6 @@ contract Test {
         create_nullifier::create_nullifier
     };
 
-
-    use dep::aztec3::oracle::create_l2_to_l1_message::create_l2_to_l1_message;
-    use dep::aztec3::oracle::create_nullifier::create_nullifier;
-
-
     fn constructor(
         inputs: PrivateContextInputs,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
@@ -44,55 +39,6 @@ contract Test {
         _inputs: PublicContextInputs,
         amount: Field,
         secretHash: Field,
-    ) -> Field {
-    
-        // Create a commitment to the amount
-        let note = DummyNote::new(amount, secretHash);
-        
-        // Public oracle call to emit new commitment.
-        create_nullifier(note.get_commitment());
-        0
-    }
-
-    struct DummyNote {
-        amount: Field,
-        secretHash: Field
-    }
-
-    impl DummyNote {
-        fn new(amount: Field, secretHash: Field) -> pub Self {
-            Self {
-                amount: amount,
-                secretHash: secretHash
-            }
-        }
-
-        fn get_commitment(self) -> pub Field {
-            dep::std::hash::pedersen([self.amount, self.secretHash])[0]
-        }
-    }
-
-    // Purely exists for testing
-    open fn createL2ToL1MessagePublic(
-        _inputs: PublicContextInputs,
-        amount: Field,
-        secretHash: Field,
-        _padding: [Field; abi::MAX_ARGS - 2]
-    ) {
-    
-        // Create a commitment to the amount
-        let note = DummyNote::new(amount, secretHash);
-        
-        // Public oracle call to emit new commitment.
-        create_l2_to_l1_message(note.get_commitment());
-    }
-
-    // Purely exists for testing
-    open fn createNullifierPublic(
-        _inputs: PublicContextInputs,
-        amount: Field,
-        secretHash: Field,
-        _padding: [Field; abi::MAX_ARGS - 2]
     ) -> Field {
     
         // Create a commitment to the amount
