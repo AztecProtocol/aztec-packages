@@ -217,7 +217,6 @@ export class StandardIndexedTree extends TreeBase implements IndexedTree {
     }
     // insert a new leaf at the highest index and update the values of our previous leaf copy
     const currentSize = this.getNumLeaves(true);
-
     previousLeafCopy.nextIndex = BigInt(currentSize);
     previousLeafCopy.nextValue = newLeaf.value;
     this.cachedLeaves[Number(currentSize)] = newLeaf;
