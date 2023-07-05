@@ -20,7 +20,7 @@ contract PublicPrivate {
 
     use dep::aztec::context::Context;
 
-    use dep::aztec3::{
+    use dep::aztec::{
         abi,
         abi::{
             PrivateContextInputs,
