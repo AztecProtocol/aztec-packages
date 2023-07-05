@@ -92,7 +92,6 @@ export interface AztecRPC {
     contractAddressSalt: Fr,
     deployerPrivateKey: Buffer,
   ): Promise<DeploymentInfo>;
-  getMessageHash(secret: Fr): Promise<Fr>;
   getDeploymentInfo(
     abi: ContractAbi,
     args: any[],

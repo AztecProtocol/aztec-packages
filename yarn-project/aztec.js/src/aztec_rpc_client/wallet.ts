@@ -48,9 +48,6 @@ export abstract class BaseWallet implements Wallet {
   ): Promise<DeploymentInfo> {
     return this.rpc.addAccount2(abi, args, portalContract, contractAddressSalt, privKey);
   }
-  getMessageHash(secret: Fr): Promise<Fr> {
-    return this.rpc.getMessageHash(secret);
-  }
   getDeploymentInfo(
     abi: ContractAbi,
     args: any[],

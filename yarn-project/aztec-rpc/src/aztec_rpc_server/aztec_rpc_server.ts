@@ -87,16 +87,6 @@ export class AztecRPCServer implements AztecRPC {
   }
 
   /**
-   * Given a secret, it computes its pedersen hash - used to send l1 to l2 messages
-   * @param secret - the secret to hash - secret could be generated however you want e.g. `Fr.random()`
-   * @returns the hash
-   */
-  public async getMessageHash(secret: Fr): Promise<Fr> {
-    const wasm = await CircuitsWasm.get();
-    return computeSecretMessageHash(wasm, secret);
-  }
-
-  /**
    * Add an array of deployed contracts to the database.
    * Each contract should contain ABI, address, and portalContract information.
    *

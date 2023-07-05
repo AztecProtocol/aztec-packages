@@ -7,7 +7,7 @@ export * from './crypto/types.js';
 
 export { Tx, TxHash, PartialContractAddress } from '@aztec/types';
 
-export { TxRequest } from '@aztec/circuits.js';
+export { TxRequest, CircuitsWasm } from '@aztec/circuits.js';
 export * from '@aztec/foundation/fields';
 export * from '@aztec/foundation/eth-address';
 export * from '@aztec/foundation/aztec-address';
