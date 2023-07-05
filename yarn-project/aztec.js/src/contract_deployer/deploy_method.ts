@@ -5,7 +5,7 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { PublicKey } from '@aztec/key-store';
-import { ExecutionRequest, PartialContractAddress, TxExecutionRequest } from '@aztec/types';
+import { ExecutionRequest, PartialContractAddress, Tx, TxExecutionRequest } from '@aztec/types';
 import { BaseWallet, Wallet } from '../aztec_rpc_client/wallet.js';
 import { Contract, ContractFunctionInteraction, SendMethodOptions } from '../contract/index.js';
 
@@ -121,6 +121,28 @@ export class DeployMethod extends ContractFunctionInteraction {
    */
   public send(options: DeployOptions = {}) {
     return super.send(options);
+  }
+
+  /**
+   * Simulate the request.
+   * @param options - Deployment options.
+   * @returns The simulated tx.
+   */
+  public async simulate(options: DeployOptions): Promise<Tx> {
+    const txRequest = this.txRequest ?? (await this.create(options));
+
+    // We need to tell the rpc server which account state to use to simulate
+    // the tx. In the context of a deployment, we need to use an account state
+    // that matches the account contract being deployed. But if what we deploy is
+    // an "application" contract, then there's no account state associated with it,
+    // so we just let the rpc server use whichever it wants. This is an accident
+    // of all simulations happening over an account state, which should not be necessary.
+    const rpcServerRegisteredAccounts = await this.wallet.getAccounts();
+    const deploymentAddress = this.completeContractAddress!;
+    const accountStateAddress = rpcServerRegisteredAccounts.includes(deploymentAddress) ? deploymentAddress : undefined;
+
+    this.tx = await this.wallet.simulateTx(txRequest, accountStateAddress);
+    return this.tx;
   }
 
   /**
