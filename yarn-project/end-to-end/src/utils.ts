@@ -81,6 +81,7 @@ export async function setup(numberOfAccounts = 1): Promise<{
   const aztecNode = await AztecNodeService.createAndSync(config);
   const aztecRpcServer = await createAztecRPCServer(aztecNode);
   const accountCollection = new AccountCollection();
+  const wasm = await CircuitsWasm.get();
 
   for (let i = 0; i < numberOfAccounts; ++i) {
     // We use the well-known private key and the validating account contract for the first account,
@@ -116,6 +117,7 @@ export async function setup(numberOfAccounts = 1): Promise<{
         new SchnorrAuthProvider(await Schnorr.new(), privateKey),
         partialAddress,
         abi,
+        wasm,
       ),
     );
     logger(`Created account ${address.toString()} with public key ${publicKey.toString()}`);

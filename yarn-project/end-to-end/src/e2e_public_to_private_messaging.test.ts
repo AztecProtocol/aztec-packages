@@ -1,15 +1,5 @@
 import { AztecNodeService } from '@aztec/aztec-node';
-import {
-  AztecAddress,
-  AztecRPCServer,
-  Contract,
-  ContractDeployer,
-  Fr,
-  EthAddress,
-  Wallet,
-  computeMessageSecretHash,
-} from '@aztec/aztec.js';
-import { PublicToPrivateContractAbi } from '@aztec/noir-contracts/examples';
+import { AztecAddress, AztecRPCServer, EthAddress, Wallet } from '@aztec/aztec.js';
 import { DebugLogger } from '@aztec/foundation/log';
 import { CrossChainTestHarness } from './cross_chain/test_harness.js';
 import { delay, setup } from './utils.js';
@@ -17,9 +7,8 @@ import { delay, setup } from './utils.js';
 describe('e2e_public_to_private_messaging', () => {
   let aztecNode: AztecNodeService;
   let aztecRpcServer: AztecRPCServer;
-  let wallet: Wallet;
-  let accounts: AztecAddress[];
   let logger: DebugLogger;
+  let wallet: Wallet;
 
   let ethAccount: EthAddress;
 
@@ -44,6 +33,7 @@ describe('e2e_public_to_private_messaging', () => {
       aztecRpcServer_,
       deployL1ContractsValues,
       accounts,
+      wallet,
       logger_,
     );
 
@@ -63,38 +53,12 @@ describe('e2e_public_to_private_messaging', () => {
     await crossChainTestHarness?.stop();
   });
 
-  const expectBalance = async (owner: AztecAddress, expectedBalance: bigint) => {
-    const ownerPublicKey = await aztecRpcServer.getAccountPublicKey(owner);
-    const [balance] = await contract.methods.getBalance(pointToPublicKey(ownerPublicKey)).view({ from: owner });
-    logger(`Account ${owner} balance: ${balance}`);
-    expect(balance).toBe(expectedBalance);
-  };
-
-  const deployContract = async () => {
-    logger(`Deploying Public to Private L2 contract...`);
-    const deployer = new ContractDeployer(PublicToPrivateContractAbi, aztecRpcServer);
-    const tx = deployer.deploy().send();
-    const receipt = await tx.getReceipt();
-    contract = new Contract(receipt.contractAddress!, PublicToPrivateContractAbi, wallet);
-    await tx.isMined(0, 0.1);
-    await tx.getReceipt();
-    logger('L2 contract deployed');
-    return contract;
-  };
-
-  /**
-   * Milestone 5.4: Intra-contract Public -\> Private calls.
-   */
-  it('5.4: Should be able to create a commitment in a public function and spend in a private function', async () => {
-    const mintAmount = 100n;
-
-    const [owner, receiver] = accounts;
-
-    const deployedContract = await deployContract();
-
-    // Create a secret for the transparent message
-    const secret = Fr.random();
-    const secretHash = await computeMessageSecretHash(secret);
+  it('Milestone 5.4: Should be able to create a commitment in a public function and spend in a private function', async () => {
+    // Generate a claim secret using pedersen
+    const l1TokenBalance = 1000000n;
+    const bridgeAmount = 100n;
+    const shieldAmount = 50n;
+    const publicBalanceSlot = 2n;
 
     const [secret, secretHash] = await crossChainTestHarness.generateClaimSecret();
 

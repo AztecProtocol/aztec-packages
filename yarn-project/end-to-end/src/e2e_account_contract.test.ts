@@ -19,6 +19,7 @@ import { PublicKey } from '@aztec/key-store';
 import { SchnorrAuthProvider } from './auth.js';
 import { privateKey2 } from './fixtures.js';
 import { setup } from './utils.js';
+import { CircuitsWasm } from '@aztec/circuits.js';
 
 describe('e2e_account_contract', () => {
   let aztecNode: AztecNodeService;
@@ -64,6 +65,7 @@ describe('e2e_account_contract', () => {
         new SchnorrAuthProvider(await Schnorr.new(), privateKey2),
         partialAddress,
         SchnorrAccountContractAbi,
+        await CircuitsWasm.get(),
       ),
     );
 
