@@ -102,15 +102,17 @@ describe('e2e_account_contract', () => {
     await deployL2Contracts();
     logger('Calling public function...');
     const tx1 = child.methods.pubStoreValue(42).send({ from: schnorrAccountContractAddress });
+    const tx2 = child.methods.pubStoreValue(15).send({ from: schnorrAccountContractAddress });
 
-    const txs = [tx1];
+    const txs = [tx1, tx2];
 
     await Promise.all(txs.map(tx => tx.isMined(0, 0.1)));
     const receipts = await Promise.all(txs.map(tx => tx.getReceipt()));
 
     expect(receipts[0].status).toBe(TxStatus.MINED);
+    expect(receipts[1].status).toBe(TxStatus.MINED);
     // The contract accumulates the values so the expected value is 95
-    expect(toBigInt((await aztecNode.getStorageAt(child.address, 1n))!)).toEqual(95n);
+    expect(toBigInt((await aztecNode.getStorageAt(child.address, 1n))!)).toEqual(57n);
   }, 60_000);
 
   // it('fails to execute function with invalid schnorr signature', async () => {

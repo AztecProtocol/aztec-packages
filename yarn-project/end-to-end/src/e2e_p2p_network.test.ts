@@ -127,7 +127,7 @@ describe('e2e_p2p_network', () => {
     const txs: SentTx[] = [];
     for (let i = 0; i < numTxs; i++) {
       const deployer = new ContractDeployer(TestContractAbi, aztecRpcServer);
-      const tx = deployer.deploy().send({ from: account });
+      const tx = deployer.deploy().send({ from: account, contractAddressSalt: Fr.random() });
       logger(`Tx sent with hash ${await tx.getTxHash()}`);
       const receipt = await tx.getReceipt();
       expect(receipt).toEqual(
