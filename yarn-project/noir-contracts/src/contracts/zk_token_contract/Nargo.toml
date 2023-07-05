@@ -4,3 +4,4 @@ compiler_version = "0.1"
 
 [dependencies]
 aztec = { path = "../noir-aztec" }
+token_utils = { path = "../../libs/token-utils"}
