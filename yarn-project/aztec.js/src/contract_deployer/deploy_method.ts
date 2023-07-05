@@ -86,8 +86,13 @@ export class DeployMethod extends ContractFunctionInteraction {
       options,
     );
 
-    const { address, constructorHash, functionTreeRoot, partialAddress, constructorAbi } =
-      await this.wallet.getDeploymentInfo(this.abi, this.args, portalContract, contractAddressSalt, this.publicKey);
+    const { address, constructorHash, functionTreeRoot, partialAddress } = await this.wallet.getDeploymentInfo(
+      this.abi,
+      this.args,
+      portalContract,
+      contractAddressSalt,
+      this.publicKey,
+    );
 
     const contractDeploymentData = new ContractDeploymentData(
       this.publicKey,
@@ -101,7 +106,7 @@ export class DeployMethod extends ContractFunctionInteraction {
 
     const txContext = new TxContext(false, false, true, contractDeploymentData, new Fr(chainId), new Fr(version));
     const executionRequest = this.getExecutionRequest(address, AztecAddress.ZERO);
-    const txRequest = await this.wallet.createAuthenticatedTxRequest([executionRequest], txContext, constructorAbi);
+    const txRequest = await this.wallet.createAuthenticatedTxRequest([executionRequest], txContext);
 
     this.txRequest = txRequest;
     this.partialContractAddress = partialAddress;

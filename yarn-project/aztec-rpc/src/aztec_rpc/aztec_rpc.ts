@@ -70,10 +70,6 @@ export type DeploymentInfo = {
    * The public key associated with the contract.
    */
   publicKey: PublicKey;
-  /**
-   * The abi of the contract's constructor
-   */
-  constructorAbi: FunctionAbi;
 };
 
 /**

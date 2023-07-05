@@ -1,5 +1,4 @@
 import { AztecAddress, TxContext } from '@aztec/circuits.js';
-import { FunctionAbi } from '@aztec/foundation/abi';
 import { ExecutionRequest, TxExecutionRequest } from '@aztec/types';
 
 export * from './account_contract.js';
@@ -9,9 +8,5 @@ export * from './account_collection.js';
 export interface AccountImplementation {
   getAddress(): AztecAddress;
   /** Creates a tx to be sent from a given account contract given a set of execution requests. */
-  createAuthenticatedTxRequest(
-    executions: ExecutionRequest[],
-    txContext: TxContext,
-    abi: FunctionAbi,
-  ): Promise<TxExecutionRequest>;
+  createAuthenticatedTxRequest(executions: ExecutionRequest[], txContext: TxContext): Promise<TxExecutionRequest>;
 }
