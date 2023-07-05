@@ -56,6 +56,9 @@ export async function setup(numberOfAccounts = 1): Promise<{
    * The Aztec Node configuration.
    */
   config: AztecNodeConfig;
+  /**
+   * The wallet to be used.
+   */
   wallet: Wallet;
   /**
    * Logger instance named as the current test.
