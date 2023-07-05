@@ -237,6 +237,15 @@ export class StandardIndexedTree extends TreeBase implements IndexedTree {
    * Initializes the tree.
    * @param prefilledSize - A number of leaves that are prefilled with values.
    * @returns Empty promise.
+   *
+   * @remarks Explanation of pre-filling:
+   *    There needs to be an initial (0,0,0) leaf in the tree, so that when we insert the first 'proper' leaf, we can
+   *    prove that any value greater than 0 doesn't exist in the tree yet. We prefill/pad the tree with "the number of
+   *    leaves that are added by one block" so that the first 'proper' block can insert a full subtree.
+   *
+   *    Without this padding, there would be a leaf (0,0,0) at leaf index 0, making it really difficult to insert e.g.
+   *    1024 leaves for the first block, because there's only neat space for 1023 leaves after 0. By padding with 1023
+   *    more leaves, we can then insert the first block of 1024 leaves into indices 1024:2047.
    */
   public async init(prefilledSize: number): Promise<void> {
     if (prefilledSize < 1) {
@@ -319,14 +328,13 @@ export class StandardIndexedTree extends TreeBase implements IndexedTree {
    * Updates a leaf in the tree.
    * @param leaf - New contents of the leaf.
    * @param index - Index of the leaf to be updated.
-   * @param hash0Leaf - Whether the leaf should be hashed when value is 0.
    */
-  private async updateLeaf(leaf: LeafData, index: bigint, hash0Leaf = true) {
+  private async updateLeaf(leaf: LeafData, index: bigint) {
     if (index > this.maxIndex) {
       throw Error(`Index out of bounds. Index ${index}, max index: ${this.maxIndex}.`);
     }
 
-    const encodedLeaf = this.encodeLeaf(leaf, hash0Leaf);
+    const encodedLeaf = this.encodeLeaf(leaf, true);
     await this.addLeafToCacheAndHashToRoot(encodedLeaf, index);
     const numLeaves = this.getNumLeaves(true);
     if (index >= numLeaves) {
@@ -553,7 +561,7 @@ export class StandardIndexedTree extends TreeBase implements IndexedTree {
 
         const lowLeafIndex = indexOfPrevious.index;
         this.cachedLeaves[lowLeafIndex] = lowLeaf;
-        await this.updateLeaf(lowLeaf, BigInt(lowLeafIndex), true);
+        await this.updateLeaf(lowLeaf, BigInt(lowLeafIndex));
       }
     }
 
@@ -563,6 +571,8 @@ export class StandardIndexedTree extends TreeBase implements IndexedTree {
     );
 
     // Perform batch insertion of new pending values
+    // Note: In this case we set `hash0Leaf` param to false because batch insertion algorithm use forced null leaf
+    // inclusion. See {@link encodeLeaf} for  a more through param explanation.
     await this.encodeAndAppendLeaves(pendingInsertionSubtree, false);
     return [lowLeavesWitnesses, newSubtreeSiblingPath];
   }
@@ -578,6 +588,12 @@ export class StandardIndexedTree extends TreeBase implements IndexedTree {
     return fullSiblingPath.getSubtreeSiblingPath(subtreeHeight);
   }
 
+  /**
+   * Encodes leaves and appends them to a tree.
+   * @param leaves - Leaves to encode.
+   * @param hash0Leaf - Indicates whether 0 value leaf should be hashed. See {@link encodeLeaf}.
+   * @returns Empty promise
+   */
   private async encodeAndAppendLeaves(leaves: LeafData[], hash0Leaf: boolean): Promise<void> {
     const startInsertionIndex = Number(this.getNumLeaves(true));
 
@@ -589,6 +605,14 @@ export class StandardIndexedTree extends TreeBase implements IndexedTree {
     await super.appendLeaves(serialisedLeaves);
   }
 
+  /**
+   * Encode a leaf into a buffer.
+   * @param leaf - Leaf to encode.
+   * @param hash0Leaf - Indicates whether 0 value leaf should be hashed. Not hashing 0 value can represent a forced
+   *                    null leaf insertion. Detecting this case by checking for 0 value is safe as in the case of
+   *                    nullifier it is improbable that a valid nullifier would be 0.
+   * @returns Leaf encoded in a buffer.
+   */
   private encodeLeaf(leaf: LeafData, hash0Leaf: boolean): Buffer {
     let encodedLeaf;
     if (!hash0Leaf && leaf.value == 0n) {
