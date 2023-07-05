@@ -74,52 +74,57 @@ export class StandardIndexedTree extends TreeBase implements IndexedTree {
   private cachedLeaves: { [key: number]: LeafData } = {};
 
   /**
-   * Appends leaves to the tree.
+   * Appends the given leaves to the tree.
    * @param leaves - The leaves to append.
    * @returns Empty promise.
+   * @remarks This method is inefficient and is here mostly for testing. Use batchInsert instead.
    */
   public async appendLeaves(leaves: Buffer[]): Promise<void> {
-    const processedLeaves: LeafData[] = [];
-    const numLeaves = this.getNumLeaves(true);
-    for (let i = 0; i < leaves.length; i++) {
-      const leaf = leaves[i];
-      const newValue = toBigIntBE(leaf);
+    for (const leaf of leaves) {
+      await this.appendLeaf(leaf);
+    }
+  }
 
-      // When appending zero, we just increment the size and do nothing else.
-      if (newValue === 0n) {
-        const newSize = (this.cachedSize ?? this.size) + 1n;
-        if (newSize - 1n > this.maxIndex) {
-          throw Error(`Can't append beyond max index. Max index: ${this.maxIndex}`);
-        }
-        this.cachedSize = newSize;
-        continue;
+  /**
+   * Appends the given leaf to the tree.
+   * @param leaf - The leaf to append.
+   * @returns Empty promise.
+   */
+  private async appendLeaf(leaf: Buffer): Promise<void> {
+    const newValue = toBigIntBE(leaf);
+
+    // Special case when appending zero
+    if (newValue === 0n) {
+      const newSize = (this.cachedSize ?? this.size) + 1n;
+      if (newSize - 1n > this.maxIndex) {
+        throw Error(`Can't append beyond max index. Max index: ${this.maxIndex}`);
       }
-
-      const indexOfPrevious = this.findIndexOfPreviousValue(newValue, true);
-      const previousLeafCopy = this.getLatestLeafDataCopy(indexOfPrevious.index, true);
-
-      if (previousLeafCopy === undefined) {
-        throw new Error(`Previous leaf not found!`);
-      }
-      const newLeaf = {
-        value: newValue,
-        nextIndex: previousLeafCopy.nextIndex,
-        nextValue: previousLeafCopy.nextValue,
-      } as LeafData;
-      if (indexOfPrevious.alreadyPresent) {
-        return;
-      }
-      // insert a new leaf at the highest index and update the values of our previous leaf copy
-      const currentLeafIndex = numLeaves + BigInt(i);
-      previousLeafCopy.nextIndex = currentLeafIndex;
-      previousLeafCopy.nextValue = newLeaf.value;
-      this.cachedLeaves[Number(indexOfPrevious.index)] = previousLeafCopy;
-      await this.updateLeaf(previousLeafCopy, BigInt(indexOfPrevious.index));
-
-      processedLeaves.push(newLeaf);
+      this.cachedSize = newSize;
+      return;
     }
 
-    await this.encodeAndAppendLeaves(processedLeaves, true);
+    const indexOfPrevious = this.findIndexOfPreviousValue(newValue, true);
+    const previousLeafCopy = this.getLatestLeafDataCopy(indexOfPrevious.index, true);
+
+    if (previousLeafCopy === undefined) {
+      throw new Error(`Previous leaf not found!`);
+    }
+    const newLeaf = {
+      value: newValue,
+      nextIndex: previousLeafCopy.nextIndex,
+      nextValue: previousLeafCopy.nextValue,
+    } as LeafData;
+    if (indexOfPrevious.alreadyPresent) {
+      return;
+    }
+    // insert a new leaf at the highest index and update the values of our previous leaf copy
+    const currentSize = this.getNumLeaves(true);
+    previousLeafCopy.nextIndex = BigInt(currentSize);
+    previousLeafCopy.nextValue = newLeaf.value;
+    this.cachedLeaves[Number(currentSize)] = newLeaf;
+    this.cachedLeaves[Number(indexOfPrevious.index)] = previousLeafCopy;
+    await this.updateLeaf(previousLeafCopy, BigInt(indexOfPrevious.index));
+    await this.updateLeaf(newLeaf, this.getNumLeaves(true));
   }
 
   /**
