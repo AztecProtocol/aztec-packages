@@ -173,11 +173,12 @@ export class AztecRPCServer implements AztecRPC {
       throw new Error(`Public entrypoints are not allowed`);
     }
 
-    const tx = await account.simulateAndProve(txRequest, undefined);
-
-    // Contract deployments are signalled as origin from their own address
-    // TODO: Should it be changed to be from ZERO?
+    // We get the contract address from origin, since contract deployments are signalled as origin from their own address
+    // TODO: Is this ok? Should it be changed to be from ZERO?
     const deployedContractAddress = txRequest.txContext.isContractDeploymentTx ? txRequest.origin : undefined;
+    const newContract = deployedContractAddress ? await this.db.getContract(deployedContractAddress) : undefined;
+
+    const tx = await account.simulateAndProve(txRequest, newContract);
 
     await this.db.addTx(
       TxDao.from({
