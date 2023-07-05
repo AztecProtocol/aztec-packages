@@ -1,5 +1,5 @@
 import { AztecNodeService } from '@aztec/aztec-node';
-import { AztecAddress, AztecRPCServer, EthAddress, Wallet } from '@aztec/aztec.js';
+import { AztecAddress, AztecRPCServer, EthAddress } from '@aztec/aztec.js';
 import { DebugLogger } from '@aztec/foundation/log';
 import { CrossChainTestHarness } from './cross_chain/test_harness.js';
 import { delay, setup } from './utils.js';
