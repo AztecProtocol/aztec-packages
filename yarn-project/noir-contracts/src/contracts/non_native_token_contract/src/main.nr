@@ -309,10 +309,10 @@ contract NonNativeToken {
         let sender_balance = public_balances.at(sender);
         let current_sender_balance: Field = sender_balance.read();
 
-        if (current_sender_balance as u120) > (amount as u120) {
-            // User has sufficient balance so we decrement it by `amount`
-            let _void1 = sender_balance.write(current_sender_balance - amount);
-        }  
+        assert(current_sender_balance as u120 >= amount as u120);
+
+        // User has sufficient balance so we decrement it by `amount`
+        let _void1 = sender_balance.write(current_sender_balance - amount);
         
         // Create a commitment to the amount
         let note = TransparentNote::new(amount, secretHash);
@@ -333,7 +333,7 @@ contract NonNativeToken {
         let balances = storage.balances;
 
         let mut context = Context::new(inputs, abi::hash_args([
-            amount, secret, owner.x, owner.y,
+            amount, secret, owner.x, owner.y
         ]));
 
         // Assert that the note exists within the tree
@@ -361,18 +361,15 @@ contract NonNativeToken {
         let balances = storage.balances;
 
         let mut initialContext = Context::new(inputs, abi::hash_args([
-            amount, owner.x, owner.y
+            amount, owner.x, owner.y, recipient
         ]));
 
+        // Remove user balance
         let sender_balance = balances.at(owner.x);
         let options = NoteGetterOptions::with_filter(get_2_notes, 0);
         let (mut context, notes) = sender_balance.get_notes(initialContext, options);
         let note1 = notes[0];
         let note2 = notes[1];
-
-        // TODO: Removing this return breaks the circuit (???)
-        context.return_values = context.return_values.push(note1.is_real as Field);
-        context.return_values = context.return_values.push(note2.is_real as Field);
 
         note1.validate(owner);
         note2.validate(owner);
@@ -386,18 +383,15 @@ contract NonNativeToken {
 
         let change_note = ValueNote::new(change_value, owner);
 
-        // enqueue a public function to perform the public state update.
         context = sender_balance.insert(context, change_note);
         context = emit_encrypted_log(context, inputs.call_context.storage_contract_address, sender_balance.storage_slot, change_note.owner, change_note.serialise());
 
+        // enqueue a public function to perform the public state update.
         let thisAddress = inputs.call_context.storage_contract_address;
-        let mut args = [0; abi::MAX_ARGS];
+        
         // addUnshieldedBalance selector (in decimal)
         let pubEntryPointSelector = 753269941;
-        args[0] = amount;
-        args[1] = recipient;
-        
-        let (_callStackItem1, mut context1) = PublicCallStackItem::call(thisAddress, pubEntryPointSelector, args, context);
+        let (_callStackItem1, mut context1) = PublicCallStackItem::call(thisAddress, pubEntryPointSelector, [amount, recipient], context);
 
         context1.finish()
     }
@@ -408,11 +402,11 @@ contract NonNativeToken {
         recipient: Field,
     ) {
         let storage = Storage::init();
-        let public_balances = storage.public_balances;
 
-        let recipient_balance = public_balances.at(recipient);
+        let recipient_balance = storage.public_balances.at(recipient);
         let current_balance = recipient_balance.read();
-        recipient_balance.write(current_balance + amount);
+        let new_balance = current_balance + amount;
+        recipient_balance.write(new_balance);
     }
 
 
