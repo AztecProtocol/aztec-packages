@@ -258,7 +258,9 @@ export class ContractTree {
       const committment = computeContractLeaf(this.wasm, newContractData);
       const index = await this.node.findContractIndex(committment.toBuffer());
       if (index === undefined) {
-        throw new Error('Failed to find contract.');
+        throw new Error(
+          `Failed to find contract at ${address} with portal ${portalContract} resulting in commitment ${committment}.`,
+        );
       }
 
       const siblingPath = await this.node.getContractPath(index);

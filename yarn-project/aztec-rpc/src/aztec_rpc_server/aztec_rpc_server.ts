@@ -106,6 +106,11 @@ export class AztecRPCServer implements AztecRPC {
   public async addContracts(contracts: DeployedContract[]) {
     const contractDaos = contracts.map(c => toContractDao(c.abi, c.address, c.portalContract));
     await Promise.all(contractDaos.map(c => this.db.addContract(c)));
+    for (const contract of contractDaos) {
+      this.log(
+        `Added contract ${contract.name} at ${contract.address} with portal ${contract.portalContract} to the local db`,
+      );
+    }
   }
 
   /**

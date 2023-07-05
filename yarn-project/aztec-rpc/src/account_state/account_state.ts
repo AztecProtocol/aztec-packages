@@ -263,9 +263,9 @@ export class AccountState {
     const argsHash = executionResult.callStackItem.publicInputs.argsHash;
 
     const kernelProver = new KernelProver(kernelOracle);
-    this.log('Executing Prover...');
+    this.log(`Executing kernel prover from account state ${this.address}`);
     const { proof, publicInputs } = await kernelProver.prove(txExecutionRequest.toTxRequest(argsHash), executionResult);
-    this.log('Proof completed!');
+    this.log('Kernel proof completed');
 
     const newContractPublicFunctions = newContract ? this.getNewContractPublicFunctions(newContract) : [];
 
