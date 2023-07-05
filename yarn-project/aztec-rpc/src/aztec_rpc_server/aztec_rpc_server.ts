@@ -405,7 +405,7 @@ export class AztecRPCServer implements AztecRPC {
     abi = SchnorrAccountContractAbi,
   ) {
     const account = await this.synchroniser.addAccount(pubKey, address, partialContractAddress, abi, this.keyStore);
-    this.log(`Account added: ${address.toString()}`);
+    this.log(`Added account ${address.toString()} with pubkey ${pubKey.toString()}`);
     return account;
   }
 
