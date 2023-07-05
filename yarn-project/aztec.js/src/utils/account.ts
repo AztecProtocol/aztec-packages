@@ -9,14 +9,12 @@ import { createDebugLogger } from '@aztec/foundation/log';
  */
 export async function createAccounts(
   aztecRpcClient: AztecRPC,
-  privateKey: Buffer,
+  privateKey?: Buffer,
   numberOfAccounts = 1,
   logger = createDebugLogger('aztec:aztec.js:accounts'),
 ): Promise<[AztecAddress, Point][]> {
   const results: [AztecAddress, Point][] = [];
   for (let i = 0; i < numberOfAccounts; ++i) {
-    // We use the well-known private key and the validating account contract for the first account,
-    // and generate random keypairs with gullible account contracts (ie no sig validation) for the rest.
     // TODO(#662): Let the aztec rpc server generate the keypair rather than hardcoding the private key
     const privKey = i == 0 ? privateKey : undefined;
     const [txHash, newAddress] = await aztecRpcClient.createSmartAccount(privKey);
