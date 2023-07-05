@@ -17,6 +17,7 @@ import { encodeArgs, parseStructString } from './cli_encoder.js';
 import { deployAztecContracts, getContractAbi, prepTx } from './utils.js';
 import { JsonStringify } from '@aztec/foundation/json-rpc';
 import { StructType } from '@aztec/foundation/abi';
+import { L2BlockL2Logs } from '@aztec/types';
 
 const debugLogger = createDebugLogger('aztec:cli');
 const log = createLogger();
@@ -92,6 +93,49 @@ async function main() {
         log(`No receipt found for tx hash ${_txHash}`);
       } else {
         log(`TX Receipt: \n${JsonStringify(receipt, true)}`);
+      }
+    });
+
+  program
+    .command('get-contract-data')
+    .argument('<contractAddress>', 'Aztec address of the contract.')
+    .option('-u, --rpc-url <string>', 'URL of the Aztec RPC', 'http://localhost:8080')
+    .option('-b, --include-bytecode', "Include the contract's public function bytecode, if any.")
+    .action(async (_contractAddress, options) => {
+      const client = createAztecRpcClient(options.rpcUrl);
+      const address = AztecAddress.fromString(_contractAddress);
+      const contractData = options.includeBytecode
+        ? await client.getContractData(address)
+        : await client.getContractInfo(address);
+      if (!contractData) {
+        log(`No contract data found at ${_contractAddress}`);
+      } else {
+        log(`Contract Data: \n${JsonStringify(contractData, true)}`);
+      }
+    });
+
+  program
+    .command('get-logs')
+    .argument('<from>', 'Block num start for getting logs.')
+    .argument('<take>', 'How many block logs to fetch.')
+    .option('-u, --rpc-url <string>', 'URL of the Aztec RPC', 'http://localhost:8080')
+    .action(async (_from, _take, options) => {
+      let from: number;
+      let take: number;
+      try {
+        from = parseInt(_from);
+        take = parseInt(_take);
+      } catch {
+        log(`Invalid integer value(s) passed: ${_from}, ${_take}`);
+        return;
+      }
+      const client = createAztecRpcClient(options.rpcUrl);
+      const logs = await client.getUnencryptedLogs(from, take);
+      if (!logs.length) {
+        log(`No logs found in blocks ${from} to ${from + take}`);
+      } else {
+        log('Logs found: \n');
+        L2BlockL2Logs.unrollLogs(logs).forEach(fnLog => log(`${fnLog.toString('ascii')}\n`));
       }
     });
 
