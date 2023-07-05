@@ -172,7 +172,7 @@ export class AztecRPCServer implements AztecRPC {
     if (!txRequest.functionData.isPrivate) {
       throw new Error(`Public entrypoints are not allowed`);
     }
-    
+
     const tx = await account.simulateAndProve(txRequest, undefined);
 
     // Contract deployments are signalled as origin from their own address
