@@ -14,6 +14,7 @@ class ArgumentEncoder {
    * Encodes a single argument from the given type to field.
    * @param abiType - The abi type of the argument.
    * @param arg - The value to encode.
+   * @param name - Name.
    */
   private encodeArgument(abiType: ABIType, arg: any, name?: string) {
     if (arg === undefined || arg == null) {
