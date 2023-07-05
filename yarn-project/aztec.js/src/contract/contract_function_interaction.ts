@@ -86,7 +86,7 @@ export class ContractFunctionInteraction {
     const functionData = new FunctionData(
       generateFunctionSelector(this.functionDao.name, this.functionDao.parameters),
       this.functionDao.functionType === FunctionType.SECRET,
-      false,
+      this.functionDao.name === 'constructor',
     );
 
     return {
