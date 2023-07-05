@@ -408,7 +408,6 @@ export class StandardIndexedTree extends TreeBase implements IndexedTree {
    *
    * TODO: this implementation will change once the zero value is changed from h(0,0,0). Changes incoming over the next sprint
    * @param leaves - Values to insert into the tree.
-   * @param treeHeight - Height of the tree.
    * @param subtreeHeight - Height of the subtree.
    * @returns The data for the leaves to be updated when inserting the new ones.
    */
@@ -418,7 +417,6 @@ export class StandardIndexedTree extends TreeBase implements IndexedTree {
     SubtreeSiblingPathHeight extends number,
   >(
     leaves: Buffer[],
-    treeHeight: TreeHeight,
     subtreeHeight: SubtreeHeight,
   ): Promise<
     | [LowLeafWitnessData<TreeHeight>[], SiblingPath<SubtreeSiblingPathHeight>]
@@ -427,7 +425,7 @@ export class StandardIndexedTree extends TreeBase implements IndexedTree {
     // Keep track of touched low leaves
     const touched = new Map<number, bigint[]>();
 
-    const emptyLowLeafWitness = getEmptyLowLeafWitness(treeHeight);
+    const emptyLowLeafWitness = getEmptyLowLeafWitness(this.getDepth() as TreeHeight);
     // Accumulators
     const lowLeavesWitnesses: LowLeafWitnessData<TreeHeight>[] = [];
     const pendingInsertionSubtree: LeafData[] = [];

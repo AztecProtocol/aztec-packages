@@ -127,7 +127,6 @@ describe('sequencer/solo_block_builder', () => {
     await expectsDb.batchInsert(
       MerkleTreeId.NULLIFIER_TREE,
       flatMap(txs, tx => tx.data.end.newNullifiers.map(x => x.toBuffer())),
-      NULLIFIER_TREE_HEIGHT,
       BaseRollupInputs.NULLIFIER_SUBTREE_HEIGHT,
     );
     for (const write of txs.flatMap(tx => tx.data.end.publicDataUpdateRequests)) {
@@ -384,7 +383,6 @@ describe('sequencer/solo_block_builder', () => {
       await builderDb.batchInsert(
         MerkleTreeId.NULLIFIER_TREE,
         updateVals.map(v => toBufferBE(v, 32)),
-        NULLIFIER_TREE_HEIGHT,
         BaseRollupInputs.NULLIFIER_SUBTREE_HEIGHT,
       );
 

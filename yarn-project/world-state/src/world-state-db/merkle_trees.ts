@@ -360,7 +360,6 @@ export class MerkleTrees implements MerkleTreeDb {
    * Batch insert multiple leaves into the tree.
    * @param treeId - The ID of the tree.
    * @param leaves - Leaves to insert into the tree.
-   * @param treeHeight - Height of the tree.
    * @param subtreeHeight - Height of the subtree.
    * @returns The data for the leaves to be updated when inserting the new ones.
    */
@@ -371,7 +370,6 @@ export class MerkleTrees implements MerkleTreeDb {
   >(
     treeId: MerkleTreeId,
     leaves: Buffer[],
-    treeHeight: TreeHeight,
     subtreeHeight: SubtreeHeight,
   ): Promise<
     | [LowLeafWitnessData<TreeHeight>[], SiblingPath<SubtreeSiblingPathHeight>]
@@ -381,7 +379,7 @@ export class MerkleTrees implements MerkleTreeDb {
     if (!('batchInsert' in tree)) {
       throw new Error('Tree does not support `batchInsert` method');
     }
-    return await this.synchronise(() => tree.batchInsert(leaves, treeHeight, subtreeHeight));
+    return await this.synchronise(() => tree.batchInsert(leaves, subtreeHeight));
   }
 
   /**
@@ -525,7 +523,6 @@ export class MerkleTrees implements MerkleTreeDb {
 
       await (this.trees[MerkleTreeId.NULLIFIER_TREE] as StandardIndexedTree).batchInsert(
         l2Block.newNullifiers.map(fr => fr.toBuffer()),
-        NULLIFIER_TREE_HEIGHT,
         BaseRollupInputs.NULLIFIER_SUBTREE_HEIGHT,
       );
 

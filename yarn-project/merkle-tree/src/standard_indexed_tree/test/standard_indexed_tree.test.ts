@@ -467,7 +467,7 @@ describe('StandardIndexedTreeSpecific', () => {
     const insertTree = await createDb(levelup(createMemDown()), pedersen, 'test', TREE_HEIGHT, INITIAL_TREE_SIZE);
 
     await appendTree.appendLeaves(leaves);
-    await insertTree.batchInsert(leaves, TREE_HEIGHT, SUBTREE_HEIGHT);
+    await insertTree.batchInsert(leaves, SUBTREE_HEIGHT);
 
     const expectedRoot = appendTree.getRoot(true);
     const actualRoot = insertTree.getRoot(true);
