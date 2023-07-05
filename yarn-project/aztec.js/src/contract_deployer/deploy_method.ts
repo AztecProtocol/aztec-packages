@@ -1,11 +1,13 @@
 import { AztecRPC } from '@aztec/aztec-rpc';
-import { ContractAbi, FunctionType } from '@aztec/foundation/abi';
-import { ContractFunctionInteraction, SendMethodOptions } from '../contract/index.js';
+import { ContractDeploymentData, TxContext } from '@aztec/circuits.js';
+import { ContractAbi } from '@aztec/foundation/abi';
+import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
-import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { PartialContractAddress } from '@aztec/types';
 import { PublicKey } from '@aztec/key-store';
+import { ExecutionRequest, PartialContractAddress, TxExecutionRequest } from '@aztec/types';
+import { BaseWallet, Wallet } from '../aztec_rpc_client/wallet.js';
+import { Contract, ContractFunctionInteraction, SendMethodOptions } from '../contract/index.js';
 
 /**
  * Options for deploying a contract on the Aztec network.
@@ -20,6 +22,16 @@ export interface DeployOptions extends SendMethodOptions {
    * An optional salt value used to deterministically calculate the contract address.
    */
   contractAddressSalt?: Fr;
+}
+
+class DeployerWallet extends BaseWallet {
+  createAuthenticatedTxRequest(executions: ExecutionRequest[], txContext: TxContext): Promise<TxExecutionRequest> {
+    if (executions.length !== 1) {
+      throw new Error(`Deployer wallet can only run one execution at a time (requested ${executions.length})`);
+    }
+    const [execution] = executions;
+    return Promise.resolve(new TxExecutionRequest(execution.to, execution.functionData, execution.args, txContext));
+  }
 }
 
 /**
@@ -43,7 +55,7 @@ export class DeployMethod extends ContractFunctionInteraction {
       throw new Error('Cannot find constructor in the ABI.');
     }
 
-    super(arc, AztecAddress.ZERO, 'constructor', args, FunctionType.SECRET);
+    super(new DeployerWallet(arc), AztecAddress.ZERO, constructorAbi, args);
   }
 
   /**
@@ -56,20 +68,41 @@ export class DeployMethod extends ContractFunctionInteraction {
    * @returns A Promise resolving to an object containing the signed transaction data and other relevant information.
    */
   public async create(options: DeployOptions = {}) {
-    const { portalContract, contractAddressSalt, from } = options;
-    const deploymentTx = await this.arc.createDeploymentTx(
+    const { portalContract, contractAddressSalt } = Object.assign(
+      { portalContract: EthAddress.ZERO, contractAddressSalt: Fr.ZERO },
+      options,
+    );
+
+    const { address, constructorHash, functionTreeRoot, partialAddress } = await this.wallet.getDeploymentInfo(
       this.abi,
       this.args,
-      portalContract || new EthAddress(Buffer.alloc(EthAddress.SIZE_IN_BYTES)),
+      portalContract,
       contractAddressSalt,
       this.publicKey,
-      from,
     );
-    this.tx = deploymentTx.tx;
-    this.partialContractAddress = deploymentTx.partialContractAddress;
-    this.completeContractAddress = deploymentTx.contractAddress;
-    console.log(`Contract Address`, deploymentTx.contractAddress);
-    return this.tx;
+
+    const contractDeploymentData = new ContractDeploymentData(
+      this.publicKey,
+      constructorHash,
+      functionTreeRoot,
+      contractAddressSalt,
+      portalContract,
+    );
+
+    const { chainId, version } = await this.wallet.getNodeInfo();
+
+    const txContext = new TxContext(false, false, true, contractDeploymentData, new Fr(chainId), new Fr(version));
+    const executionRequest = this.getExecutionRequest(address, AztecAddress.ZERO);
+    const txRequest = await this.wallet.createAuthenticatedTxRequest([executionRequest], txContext);
+
+    this.txRequest = txRequest;
+    this.partialContractAddress = partialAddress;
+    this.completeContractAddress = address;
+
+    // TODO: Should we add the contracts to the DB here, or once the tx has been sent or mined?
+    await this.wallet.addContracts([{ abi: this.abi, address, portalContract }]);
+
+    return this.txRequest;
   }
 
   /**
@@ -82,5 +115,12 @@ export class DeployMethod extends ContractFunctionInteraction {
    */
   public send(options: DeployOptions = {}) {
     return super.send(options);
+  }
+
+  public getContract(withWallet: Wallet) {
+    if (!this.completeContractAddress) {
+      throw new Error(`Cannot get a contract instance for a contract not yet deployed`);
+    }
+    return new Contract(this.completeContractAddress, this.abi, withWallet);
   }
 }

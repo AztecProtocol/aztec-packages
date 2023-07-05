@@ -1,9 +1,9 @@
 import { AztecAddress, EthAddress, Fr } from '@aztec/circuits.js';
 import { ContractAbi } from '@aztec/foundation/abi';
 import { Point } from '@aztec/foundation/fields';
+import { PublicKey } from '@aztec/key-store';
 import {
   ContractData,
-  ContractDeploymentTx,
   ContractPublicData,
   L2BlockL2Logs,
   PartialContractAddress,
@@ -12,7 +12,6 @@ import {
   TxHash,
 } from '@aztec/types';
 import { TxReceipt } from '../tx/index.js';
-import { PublicKey } from '@aztec/key-store';
 
 /**
  * Represents a deployed contract on the Aztec network.
@@ -47,6 +46,14 @@ export type NodeInfo = {
   chainId: number;
 };
 
+export type DeploymentInfo = {
+  address: AztecAddress;
+  partialAddress: PartialContractAddress;
+  constructorHash: Fr;
+  functionTreeRoot: Fr;
+  publicKey: PublicKey;
+};
+
 /**
  * Represents an Aztec RPC implementation.
  * Provides functionality for all the operations needed to interact with the Aztec network,
@@ -60,16 +67,22 @@ export interface AztecRPC {
     partialContractAddress: PartialContractAddress,
     abi?: ContractAbi,
   ): Promise<AztecAddress>;
+  addAccount2(
+    abi: ContractAbi,
+    args: any[],
+    portalContract: EthAddress,
+    contractAddressSalt: Fr,
+    deployerPrivateKey: Buffer,
+  ): Promise<DeploymentInfo>;
   getMessageHash(secret: Fr): Promise<Fr>;
-  getDeploymentAddress(
+  getDeploymentInfo(
     abi: ContractAbi,
     args: any[],
     portalContract: EthAddress,
     contractAddressSalt: Fr,
     deployerPublicKey: PublicKey,
-  ): Promise<[AztecAddress, PartialContractAddress]>;
+  ): Promise<DeploymentInfo>;
   getAccounts(): Promise<AztecAddress[]>;
-  getAccountImplementation(address?: AztecAddress): Promise<ContractAbi>;
   getAccountPublicKey(address: AztecAddress): Promise<Point>;
   addContracts(contracts: DeployedContract[]): Promise<void>;
   /**
@@ -78,14 +91,6 @@ export interface AztecRPC {
    * @returns Whether the contract was deployed.
    */
   isContractDeployed(contract: AztecAddress): Promise<boolean>;
-  createDeploymentTx(
-    abi: ContractAbi,
-    args: any[],
-    portalContract: EthAddress,
-    contractAddressSalt?: Fr,
-    deployerPublicKey?: PublicKey,
-    from?: AztecAddress,
-  ): Promise<ContractDeploymentTx>;
   simulateTx(txRequest: TxExecutionRequest, optionalFromAddress?: AztecAddress): Promise<Tx>;
   sendTx(tx: Tx): Promise<TxHash>;
   getTxReceipt(txHash: TxHash): Promise<TxReceipt>;

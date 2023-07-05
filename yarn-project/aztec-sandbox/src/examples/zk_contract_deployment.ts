@@ -1,4 +1,11 @@
-import { Contract, ContractDeployer, createAccounts, createAztecRpcClient, pointToPublicKey } from '@aztec/aztec.js';
+import {
+  Contract,
+  ContractDeployer,
+  Wallet,
+  createAccounts,
+  createAztecRpcClient,
+  pointToPublicKey,
+} from '@aztec/aztec.js';
 import { Point } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { ZkTokenContractAbi } from '@aztec/noir-contracts/examples';
@@ -10,6 +17,7 @@ export const privateKey = Buffer.from('ac0974bec39a17e36ba4a6b4d238ff944bacb478c
 const url = 'http://localhost:8080';
 
 const aztecRpcClient = createAztecRpcClient(url);
+let wallet: Wallet;
 
 const INITIAL_BALANCE = 333n;
 
@@ -23,7 +31,7 @@ async function deployZKContract(pubKeyPoint: Point) {
   const deployer = new ContractDeployer(ZkTokenContractAbi, aztecRpcClient);
   const tx = deployer.deploy(INITIAL_BALANCE, pointToPublicKey(pubKeyPoint)).send();
   const receipt = await tx.getReceipt();
-  const contract = new Contract(receipt.contractAddress!, ZkTokenContractAbi, aztecRpcClient);
+  const contract = new Contract(receipt.contractAddress!, ZkTokenContractAbi, wallet);
   await tx.isMined();
   await tx.getReceipt();
   logger('L2 contract deployed');
@@ -36,11 +44,13 @@ async function deployZKContract(pubKeyPoint: Point) {
 async function main() {
   logger('Running ZK contract test on HTTP interface.');
 
-  const [address, pubKeyPoint] = (await createAccounts(aztecRpcClient, privateKey, 1))[0];
-  logger(`Created account ${address.toString()} with public key ${pubKeyPoint.toString()}`);
-  const zkContract = await deployZKContract(pubKeyPoint);
+  wallet = await createAccounts(aztecRpcClient, privateKey, 1);
   const accounts = await aztecRpcClient.getAccounts();
   logger(`Created ${accounts.length} accounts`);
+  const [address] = accounts;
+  const pubKeyPoint = await aztecRpcClient.getAccountPublicKey(address);
+  logger(`Created account ${address.toString()} with public key ${pubKeyPoint.toString()}`);
+  const zkContract = await deployZKContract(pubKeyPoint);
   const [balance1] = await zkContract.methods.getBalance(pointToPublicKey(pubKeyPoint)).view({ from: address });
   logger(`Initial owner balance: ${balance1}`);
 }

@@ -80,7 +80,7 @@ export async function setup(
     const publicKey = keyStore.addAccount(privateKey);
     const impl = i == 0 ? SchnorrAccountContractAbi : GullibleAccountContractAbi;
 
-    const [address, partialContractAddress] = await aztecRpcServer.getDeploymentAddress(
+    const [address, partialContractAddress] = await aztecRpcServer.getDeploymentInfo(
       impl,
       [],
       EthAddress.ZERO,
