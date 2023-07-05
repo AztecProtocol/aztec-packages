@@ -1,5 +1,5 @@
 import { AztecAddress, EthAddress, Fr } from '@aztec/circuits.js';
-import { ContractAbi } from '@aztec/foundation/abi';
+import { ContractAbi, FunctionAbi } from '@aztec/foundation/abi';
 import { Point } from '@aztec/foundation/fields';
 import { PublicKey } from '@aztec/key-store';
 import {
@@ -70,6 +70,10 @@ export type DeploymentInfo = {
    * The public key associated with the contract.
    */
   publicKey: PublicKey;
+  /**
+   * The abi of the contract's constructor
+   */
+  constructorAbi: FunctionAbi;
 };
 
 /**

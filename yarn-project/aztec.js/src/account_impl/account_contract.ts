@@ -2,17 +2,12 @@ import { encodeArguments } from '@aztec/acir-simulator';
 import { AztecAddress, CircuitsWasm, Fr, FunctionData, TxContext } from '@aztec/circuits.js';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { sha256 } from '@aztec/foundation/crypto';
-<<<<<<< HEAD:yarn-project/aztec.js/src/account_impl/account_contract.ts
 import { PublicKey } from '@aztec/key-store';
-import { ExecutionRequest, PartialContractAddress, TxExecutionRequest } from '@aztec/types';
-=======
-import { KeyStore, PublicKey } from '@aztec/key-store';
 import { ExecutionRequest, PackedArguments, PartialContractAddress, TxExecutionRequest } from '@aztec/types';
->>>>>>> master:yarn-project/aztec-rpc/src/account_impl/account_contract.ts
 import partition from 'lodash.partition';
 import { generateFunctionSelector } from '../index.js';
 import { AccountImplementation } from './index.js';
-import { ContractAbi } from '@aztec/foundation/abi';
+import { ContractAbi, FunctionAbi } from '@aztec/foundation/abi';
 import { TxAuthProvider } from '../auth/index.js';
 
 /**

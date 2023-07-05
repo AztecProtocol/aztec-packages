@@ -1,5 +1,5 @@
 import { AztecRPC } from '@aztec/aztec-rpc';
-import { AztecAddress, EthAddress, Fr, Point } from '@aztec/circuits.js';
+import { AztecAddress, CircuitsWasm, EthAddress, Fr, Point } from '@aztec/circuits.js';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { EcdsaAccountContractAbi } from '@aztec/noir-contracts/examples';
@@ -18,6 +18,7 @@ export async function createAccounts(
 ): Promise<Wallet> {
   const accountImpls = new AccountCollection();
   const results: [AztecAddress, Point][] = [];
+  const wasm = await CircuitsWasm.get();
   for (let i = 0; i < numberOfAccounts; ++i) {
     // We use the well-known private key and the validating account contract for the first account,
     // and generate random keypairs with gullible account contracts (ie no sig validation) for the rest.
@@ -39,7 +40,7 @@ export async function createAccounts(
     logger(`Created account ${address.toString()} with public key ${pubKey.toString()}`);
     accountImpls.registerAccount(
       address,
-      new AccountContract(address, pubKey, new EcdsaAuthProvider(privKey), partialAddress, accountAbi),
+      new AccountContract(address, pubKey, new EcdsaAuthProvider(privKey), partialAddress, accountAbi, wasm),
     );
     results.push([address, pubKey]);
   }

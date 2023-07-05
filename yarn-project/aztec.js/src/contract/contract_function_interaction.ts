@@ -64,7 +64,7 @@ export class ContractFunctionInteraction {
       const executionRequest = this.getExecutionRequest(this.contractAddress, options.from);
       const nodeInfo = await this.wallet.getNodeInfo();
       const txContext = TxContext.empty(new Fr(nodeInfo.chainId), new Fr(nodeInfo.version));
-      const txRequest = await this.wallet.createAuthenticatedTxRequest([executionRequest], txContext);
+      const txRequest = await this.wallet.createAuthenticatedTxRequest([executionRequest], txContext, this.functionDao);
       this.txRequest = txRequest;
     }
     return this.txRequest;

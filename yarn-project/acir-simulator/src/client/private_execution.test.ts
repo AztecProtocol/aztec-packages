@@ -110,7 +110,7 @@ describe('Private Execution test suite', () => {
       const contractAddress = AztecAddress.random();
       const abi = ZkTokenContractAbi.functions.find(f => f.name === 'constructor')!;
 
-      const txRequest = buildTxExecutionRequest({ args: [140, owner], abi, isConstructor: true });
+      const txRequest = await buildTxExecutionRequest({ args: [140, owner], abi, isConstructor: true });
       const result = await acirSimulator.run(txRequest, abi, contractAddress, EthAddress.ZERO, historicRoots);
 
       expect(result.preimages.newNotes).toHaveLength(1);
@@ -130,7 +130,7 @@ describe('Private Execution test suite', () => {
       const contractAddress = AztecAddress.random();
       const abi = ZkTokenContractAbi.functions.find(f => f.name === 'mint')!;
 
-      const txRequest = buildTxExecutionRequest({ origin: contractAddress, args: [140, owner], abi });
+      const txRequest = await buildTxExecutionRequest({ origin: contractAddress, args: [140, owner], abi });
       const result = await acirSimulator.run(txRequest, abi, AztecAddress.ZERO, EthAddress.ZERO, historicRoots);
 
       expect(result.preimages.newNotes).toHaveLength(1);
@@ -266,7 +266,7 @@ describe('Private Execution test suite', () => {
       oracle.getSecretKey.mockReturnValue(Promise.resolve(ownerPk));
 
       const args = [amountToTransfer, owner, recipient];
-      const txRequest = buildTxExecutionRequest({ origin: contractAddress, args, abi });
+      const txRequest = await buildTxExecutionRequest({ origin: contractAddress, args, abi });
       const result = await acirSimulator.run(txRequest, abi, AztecAddress.random(), EthAddress.ZERO, historicRoots);
 
       const newNullifiers = result.callStackItem.publicInputs.newNullifiers.filter(field => !field.equals(Fr.ZERO));
@@ -288,7 +288,7 @@ describe('Private Execution test suite', () => {
     it('child function should be callable', async () => {
       const initialValue = 100n;
       const abi = ChildAbi.functions.find(f => f.name === 'value')!;
-      const txRequest = buildTxExecutionRequest({ args: [initialValue], abi });
+      const txRequest = await buildTxExecutionRequest({ args: [initialValue], abi });
       const result = await acirSimulator.run(txRequest, abi, AztecAddress.ZERO, EthAddress.ZERO, historicRoots);
 
       expect(result.callStackItem.publicInputs.returnValues[0]).toEqual(new Fr(initialValue + privateIncrement));
@@ -373,7 +373,7 @@ describe('Private Execution test suite', () => {
       });
 
       const args = [bridgedAmount, recipient, recipient.x, messageKey, secret, canceller.toField()];
-      const txRequest = buildTxExecutionRequest({ origin: contractAddress, abi, args });
+      const txRequest = await buildTxExecutionRequest({ origin: contractAddress, abi, args });
       const result = await acirSimulator.run(txRequest, abi, contractAddress, EthAddress.ZERO, historicRoots);
 
       // Check a nullifier has been created
@@ -419,7 +419,11 @@ describe('Private Execution test suite', () => {
         });
       });
 
-      const txRequest = buildTxExecutionRequest({ origin: contractAddress, abi, args: [amount, secret, recipient] });
+      const txRequest = await buildTxExecutionRequest({
+        origin: contractAddress,
+        abi,
+        args: [amount, secret, recipient],
+      });
       const result = await acirSimulator.run(txRequest, abi, contractAddress, EthAddress.ZERO, historicRoots);
 
       // Check a nullifier has been created.
@@ -444,7 +448,7 @@ describe('Private Execution test suite', () => {
       oracle.getPortalContractAddress.mockImplementation(() => Promise.resolve(childPortalContractAddress));
 
       const args = [Fr.fromBuffer(childAddress.toBuffer()), Fr.fromBuffer(childSelector), 42n];
-      const txRequest = buildTxExecutionRequest({ origin: parentAddress, abi: parentAbi, args });
+      const txRequest = await buildTxExecutionRequest({ origin: parentAddress, abi: parentAbi, args });
       const result = await acirSimulator.run(txRequest, parentAbi, parentAddress, EthAddress.ZERO, historicRoots);
 
       expect(result.enqueuedPublicFunctionCalls).toHaveLength(1);

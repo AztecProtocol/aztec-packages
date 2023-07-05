@@ -1,6 +1,7 @@
 import { AztecAddress, TxContext } from '@aztec/circuits.js';
 import { ExecutionRequest, TxExecutionRequest } from '@aztec/types';
 import { AccountImplementation } from './index.js';
+import { FunctionAbi } from '@aztec/foundation/abi';
 
 /**
  * A concrete account implementation that manages multiple accounts.
@@ -26,16 +27,18 @@ export class AccountCollection implements AccountImplementation {
    * Uses a registered account implementation to generate an authenticated request
    * @param executions - The execution intent to be authenticated.
    * @param txContext - The tx context under with the execution is to be made.
+   * @param abi - The abi of the account contract's entrypoin function.
    * @returns - The authenticated transaction execution request.
    */
   public createAuthenticatedTxRequest(
     executions: ExecutionRequest[],
     txContext: TxContext,
+    abi: FunctionAbi,
   ): Promise<TxExecutionRequest> {
     // TODO: Check all executions have the same origin
     const sender = executions[0].from;
     const impl = this.accounts.get(sender);
     if (!impl) throw new Error(`No account implementation registered for ${sender}`);
-    return impl.createAuthenticatedTxRequest(executions, txContext);
+    return impl.createAuthenticatedTxRequest(executions, txContext, abi);
   }
 }

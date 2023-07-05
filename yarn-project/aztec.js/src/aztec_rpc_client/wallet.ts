@@ -12,7 +12,7 @@ import {
   TxReceipt,
 } from '@aztec/aztec-rpc';
 import { TxContext } from '@aztec/circuits.js';
-import { ContractAbi } from '@aztec/foundation/abi';
+import { ContractAbi, FunctionAbi } from '@aztec/foundation/abi';
 import { ContractData, ContractPublicData, ExecutionRequest, L2BlockL2Logs, TxExecutionRequest } from '@aztec/types';
 import { AccountImplementation } from '../account_impl/index.js';
 
@@ -30,6 +30,7 @@ export abstract class BaseWallet implements Wallet {
   abstract createAuthenticatedTxRequest(
     executions: ExecutionRequest[],
     txContext: TxContext,
+    abi: FunctionAbi,
   ): Promise<TxExecutionRequest>;
   addAccount(
     privKey: Buffer,
@@ -114,7 +115,11 @@ export class AccountWallet extends BaseWallet {
   getAddress(): AztecAddress {
     return this.accountImpl.getAddress();
   }
-  createAuthenticatedTxRequest(executions: ExecutionRequest[], txContext: TxContext): Promise<TxExecutionRequest> {
-    return this.accountImpl.createAuthenticatedTxRequest(executions, txContext);
+  createAuthenticatedTxRequest(
+    executions: ExecutionRequest[],
+    txContext: TxContext,
+    abi: FunctionAbi,
+  ): Promise<TxExecutionRequest> {
+    return this.accountImpl.createAuthenticatedTxRequest(executions, txContext, abi);
   }
 }

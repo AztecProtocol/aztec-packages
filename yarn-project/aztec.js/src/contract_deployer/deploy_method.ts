@@ -1,13 +1,14 @@
 import { AztecRPC } from '@aztec/aztec-rpc';
-import { ContractDeploymentData, TxContext } from '@aztec/circuits.js';
-import { ContractAbi } from '@aztec/foundation/abi';
+import { CircuitsWasm, ContractDeploymentData, TxContext } from '@aztec/circuits.js';
+import { ContractAbi, FunctionAbi } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { PublicKey } from '@aztec/key-store';
-import { ExecutionRequest, PartialContractAddress, Tx, TxExecutionRequest } from '@aztec/types';
+import { ExecutionRequest, PackedArguments, PartialContractAddress, Tx, TxExecutionRequest } from '@aztec/types';
 import { BaseWallet, Wallet } from '../aztec_rpc_client/wallet.js';
 import { Contract, ContractFunctionInteraction, SendMethodOptions } from '../contract/index.js';
+import { encodeArguments } from '@aztec/acir-simulator';
 
 /**
  * Options for deploying a contract on the Aztec network.
@@ -31,12 +32,20 @@ class DeployerWallet extends BaseWallet {
   getAddress(): AztecAddress {
     return AztecAddress.ZERO;
   }
-  createAuthenticatedTxRequest(executions: ExecutionRequest[], txContext: TxContext): Promise<TxExecutionRequest> {
+  async createAuthenticatedTxRequest(
+    executions: ExecutionRequest[],
+    txContext: TxContext,
+    abi: FunctionAbi,
+  ): Promise<TxExecutionRequest> {
     if (executions.length !== 1) {
       throw new Error(`Deployer wallet can only run one execution at a time (requested ${executions.length})`);
     }
     const [execution] = executions;
-    return Promise.resolve(new TxExecutionRequest(execution.to, execution.functionData, execution.args, txContext));
+    const wasm = await CircuitsWasm.get();
+    const packedArguments = await PackedArguments.fromArgs(encodeArguments(abi, execution.args), wasm);
+    return Promise.resolve(
+      new TxExecutionRequest(execution.to, execution.functionData, packedArguments.hash, txContext, [packedArguments]),
+    );
   }
 }
 
@@ -79,13 +88,8 @@ export class DeployMethod extends ContractFunctionInteraction {
       options,
     );
 
-    const { address, constructorHash, functionTreeRoot, partialAddress } = await this.wallet.getDeploymentInfo(
-      this.abi,
-      this.args,
-      portalContract,
-      contractAddressSalt,
-      this.publicKey,
-    );
+    const { address, constructorHash, functionTreeRoot, partialAddress, constructorAbi } =
+      await this.wallet.getDeploymentInfo(this.abi, this.args, portalContract, contractAddressSalt, this.publicKey);
 
     const contractDeploymentData = new ContractDeploymentData(
       this.publicKey,
@@ -99,7 +103,7 @@ export class DeployMethod extends ContractFunctionInteraction {
 
     const txContext = new TxContext(false, false, true, contractDeploymentData, new Fr(chainId), new Fr(version));
     const executionRequest = this.getExecutionRequest(address, AztecAddress.ZERO);
-    const txRequest = await this.wallet.createAuthenticatedTxRequest([executionRequest], txContext);
+    const txRequest = await this.wallet.createAuthenticatedTxRequest([executionRequest], txContext, constructorAbi);
 
     this.txRequest = txRequest;
     this.partialContractAddress = partialAddress;

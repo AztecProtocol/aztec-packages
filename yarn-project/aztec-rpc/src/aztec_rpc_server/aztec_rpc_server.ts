@@ -259,6 +259,7 @@ export class AztecRPCServer implements AztecRPC {
       constructorHash,
       functionTreeRoot,
       publicKey,
+      constructorAbi,
     };
   }
 
