@@ -40,14 +40,27 @@ export class TxDao {
     public readonly contractBytecode?: Buffer,
   ) {}
 
+  /**
+   * Creates a new instance.
+   * @param args - the arguments to the new instance.
+   * @returns A new instance.
+   */
   static from(args: {
+    /** The unique identifier of a transaction. */
     txHash: TxHash;
+    /** The unique identifier of the block containing the transaction. */
     blockHash?: Buffer | undefined;
+    /** The block number in which the transaction was included. */
     blockNumber?: number | undefined;
+    /** The sender's Aztec address. */
     from: AztecAddress;
+    /** The contract address involved in the transaction. Undefined if the transaction is for deployinig a new contract. */
     to: AztecAddress | undefined;
+    /** The address of the contract deployed by the transaction. Undefined if the transaction does not deploy a new contract. */
     contractAddress: AztecAddress | undefined;
+    /** Description of any error encountered during the transaction. */
     error?: string;
+    /** The deployed contract bytecode. Undefined if the transaction does not deploy a new contract. */
     contractBytecode?: Buffer;
   }) {
     return new TxDao(
