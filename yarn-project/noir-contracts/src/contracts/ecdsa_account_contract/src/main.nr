@@ -9,16 +9,16 @@
 // where the user is authenticated with an ECDSA signature.
 contract EcdsaAccount {
     use dep::std;
-    use dep::aztec3::entrypoint;
-    use dep::aztec3::entrypoint::EntrypointPayload;
-    use dep::aztec3::abi;
-    use dep::aztec3::abi::PrivateContextInputs;
-    use dep::aztec3::abi::CallContext;
-    use dep::aztec3::private_call_stack_item::PrivateCallStackItem;
-    use dep::aztec3::public_call_stack_item::PublicCallStackItem;
-    use dep::aztec3::context::PrivateFunctionContext;
-    use dep::aztec3::types::vec::BoundedVec;
-    use dep::aztec3::types::point::Point;
+    use dep::aztec::entrypoint;
+    use dep::aztec::entrypoint::EntrypointPayload;
+    use dep::aztec::abi;
+    use dep::aztec::abi::PrivateContextInputs;
+    use dep::aztec::abi::CallContext;
+    use dep::aztec::private_call_stack_item::PrivateCallStackItem;
+    use dep::aztec::public_call_stack_item::PublicCallStackItem;
+    use dep::aztec::context::Context;
+    use dep::aztec::types::vec::BoundedVec;
+    use dep::aztec::types::point::Point;
 
     // A function which has to be implemented by every account abstraction contract.
     fn entrypoint(
@@ -28,7 +28,16 @@ contract EcdsaAccount {
         signature: pub [Field;3],
         partialContractAddress: pub Field,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
-        let mut context = PrivateFunctionContext::new();
+        // 75 = ENTRYPOINT_PAYLOAD_SIZE + 64 + 3 + 1
+        let mut args: BoundedVec<Field, 75> = BoundedVec::new(0);
+        args = args.push_array(payload.serialize());
+        for byte in owner {
+            args = args.push(byte as Field);
+        }
+        args = args.push_array(signature);
+        args = args.push(partialContractAddress);
+        
+        let mut context = Context::new(inputs, abi::hash_args(args.storage));
 
         // Decompress signature from 3 fields to 64 bytes
         let mut decompressed_signature: [u8;64] = [0;64];
@@ -58,7 +67,7 @@ contract EcdsaAccount {
         let challenge: [u8; 32] = std::hash::sha256(payload_bytes);
 
         let verification = std::ecdsa_secp256k1::verify_signature(x, y, decompressed_signature, payload_hash);
-        constrain verification == true;
+        assert(verification == true);
 
         // TODO: When we can use pedersen with non-zero generators, get this working
         //let reproduced_address = dep::std::hash::pedersen([owner, partialContractAddress])[0];
@@ -69,11 +78,8 @@ contract EcdsaAccount {
             let target_address = payload.flattened_targets[i];
             if target_address != 0 {
                 let function_selector = payload.flattened_selectors[i];
-                let mut args = [0; abi::MAX_ARGS];
-                for j in 0..abi::MAX_ARGS {
-                    args[j] = payload.flattened_args[i * abi::MAX_ARGS + j];
-                }
-                let (_callStackItem, updated_context) = PrivateCallStackItem::call(target_address, function_selector, args, context);
+                let args_hash = payload.flattened_args_hashes[i];
+                let (_callStackItem, updated_context) = PrivateCallStackItem::call_with_packed_args(target_address, function_selector, args_hash, context);
                 context = updated_context;
             }
         }
@@ -83,11 +89,8 @@ contract EcdsaAccount {
             let target_address = payload.flattened_targets[i];
             if target_address != 0 {
                 let function_selector = payload.flattened_selectors[i];
-                let mut args = [0; abi::MAX_ARGS];
-                for j in 0..abi::MAX_ARGS {
-                    args[j] = payload.flattened_args[i * abi::MAX_ARGS + j];
-                }
-                let (_callStackItem, updated_context) = PublicCallStackItem::call(target_address, function_selector, args, context);
+                let args_hash = payload.flattened_args_hashes[i];
+                let (_callStackItem, updated_context) = PublicCallStackItem::call_with_packed_args(target_address, function_selector, args_hash, context);
                 context = updated_context;
             }
         }
@@ -122,6 +125,6 @@ contract EcdsaAccount {
         inputs: PrivateContextInputs,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
         // Return private circuit public inputs. All private functions need to return this as it is part of the input of the private kernel.
-        PrivateFunctionContext::new().finish(inputs)
+        Context::new(inputs, 0).finish()
     }
 }

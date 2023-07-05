@@ -34,6 +34,7 @@ describe('e2e_account_contract', () => {
     const deployMethod = deployer.deploy();
     await deployMethod.create();
     const tx = deployMethod.send();
+    await tx.isMined(0, 0.1);
 
     return { tx, partialContractAddress: deployMethod.partialContractAddress! };
   };

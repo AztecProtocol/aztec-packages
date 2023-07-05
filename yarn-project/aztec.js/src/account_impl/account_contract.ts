@@ -1,11 +1,15 @@
 import { encodeArguments } from '@aztec/acir-simulator';
-import { ARGS_LENGTH, AztecAddress, Fr, FunctionData, TxContext } from '@aztec/circuits.js';
+import { AztecAddress, CircuitsWasm, Fr, FunctionData, TxContext } from '@aztec/circuits.js';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { sha256 } from '@aztec/foundation/crypto';
+<<<<<<< HEAD:yarn-project/aztec.js/src/account_impl/account_contract.ts
 import { PublicKey } from '@aztec/key-store';
 import { ExecutionRequest, PartialContractAddress, TxExecutionRequest } from '@aztec/types';
+=======
+import { KeyStore, PublicKey } from '@aztec/key-store';
+import { ExecutionRequest, PackedArguments, PartialContractAddress, TxExecutionRequest } from '@aztec/types';
+>>>>>>> master:yarn-project/aztec-rpc/src/account_impl/account_contract.ts
 import partition from 'lodash.partition';
-import times from 'lodash.times';
 import { generateFunctionSelector } from '../index.js';
 import { AccountImplementation } from './index.js';
 import { ContractAbi } from '@aztec/foundation/abi';
@@ -21,6 +25,7 @@ export class AccountContract implements AccountImplementation {
     private authProvider: TxAuthProvider,
     private partialContractAddress: PartialContractAddress,
     private contractAbi: ContractAbi,
+    private wasm: CircuitsWasm,
   ) {}
 
   getAddress(): AztecAddress {
@@ -42,7 +47,7 @@ export class AccountContract implements AccountImplementation {
       })),
     );
 
-    const payload = buildPayload(privateCalls, publicCalls);
+    const { payload, packedArguments: callsPackedArguments } = await buildPayload(privateCalls, publicCalls, this.wasm);
     const hash = hashPayload(payload);
 
     const signature = await this.authProvider.authenticateTx(payload, hash, this.address);
@@ -51,11 +56,13 @@ export class AccountContract implements AccountImplementation {
     const args = [payload, publicKeyAsBuffer, signatureAsFrArray, this.partialContractAddress];
     const abi = this.getEntrypointAbi();
     const selector = generateFunctionSelector(abi.name, abi.parameters);
+    const packedArgs = await PackedArguments.fromArgs(encodeArguments(abi, args), this.wasm);
     const txRequest = TxExecutionRequest.from({
-      args: encodeArguments(abi, args),
+      argsHash: packedArgs.hash,
       origin: this.address,
       functionData: new FunctionData(selector, true, false),
       txContext,
+      packedArguments: [...callsPackedArguments, packedArgs],
     });
 
     return txRequest;
@@ -100,7 +107,7 @@ export type FunctionCall = {
 export type EntrypointPayload = {
   // eslint-disable-next-line camelcase
   /** Concatenated arguments for every call */
-  flattened_args: Fr[];
+  flattened_args_hashes: Fr[];
   // eslint-disable-next-line camelcase
   /** Concatenated selectors for every call */
   flattened_selectors: Fr[];
@@ -112,23 +119,45 @@ export type EntrypointPayload = {
 };
 
 /** Assembles an entrypoint payload from a set of private and public function calls */
-function buildPayload(privateCalls: FunctionCall[], publicCalls: FunctionCall[]): EntrypointPayload {
+async function buildPayload(
+  privateCalls: FunctionCall[],
+  publicCalls: FunctionCall[],
+  wasm: CircuitsWasm,
+): Promise<{
+  /**
+   * The payload for the entrypoint function
+   */
+  payload: EntrypointPayload;
+  /**
+   * The packed arguments of functions called
+   */
+  packedArguments: PackedArguments[];
+}> {
   const nonce = Fr.random();
-  const emptyCall = { args: times(ARGS_LENGTH, Fr.zero), selector: Buffer.alloc(32), target: AztecAddress.ZERO };
+  const emptyCall = { args: [], selector: Buffer.alloc(32), target: AztecAddress.ZERO };
 
   const calls = [
     ...padArrayEnd(privateCalls, emptyCall, ACCOUNT_MAX_PRIVATE_CALLS),
     ...padArrayEnd(publicCalls, emptyCall, ACCOUNT_MAX_PUBLIC_CALLS),
   ];
 
+  const packedArguments = [];
+
+  for (const call of calls) {
+    packedArguments.push(await PackedArguments.fromArgs(call.args, wasm));
+  }
+
   return {
-    // eslint-disable-next-line camelcase
-    flattened_args: calls.flatMap(call => padArrayEnd(call.args, Fr.ZERO, ARGS_LENGTH)),
-    // eslint-disable-next-line camelcase
-    flattened_selectors: calls.map(call => Fr.fromBuffer(call.selector)),
-    // eslint-disable-next-line camelcase
-    flattened_targets: calls.map(call => call.target.toField()),
-    nonce,
+    payload: {
+      // eslint-disable-next-line camelcase
+      flattened_args_hashes: packedArguments.map(args => args.hash),
+      // eslint-disable-next-line camelcase
+      flattened_selectors: calls.map(call => Fr.fromBuffer(call.selector)),
+      // eslint-disable-next-line camelcase
+      flattened_targets: calls.map(call => call.target.toField()),
+      nonce,
+    },
+    packedArguments,
   };
 }
 
@@ -140,5 +169,10 @@ function hashPayload(payload: EntrypointPayload) {
 
 /** Flattens an entrypoint payload */
 function flattenPayload(payload: EntrypointPayload) {
-  return [...payload.flattened_args, ...payload.flattened_selectors, ...payload.flattened_targets, payload.nonce];
+  return [
+    ...payload.flattened_args_hashes,
+    ...payload.flattened_selectors,
+    ...payload.flattened_targets,
+    payload.nonce,
+  ];
 }

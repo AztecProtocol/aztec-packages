@@ -4,6 +4,7 @@ import {
   BaseRollupInputs,
   CircuitsWasm,
   Fr,
+  GlobalVariables,
   KERNEL_NEW_COMMITMENTS_LENGTH,
   KERNEL_NEW_L2_TO_L1_MSGS_LENGTH,
   KERNEL_NEW_NULLIFIERS_LENGTH,
@@ -70,6 +71,8 @@ describe('sequencer/solo_block_builder', () => {
 
   let wasm: CircuitsWasm;
 
+  let globalVariables: GlobalVariables;
+
   const emptyProof = new Proof(Buffer.alloc(32, 0));
 
   const chainId = Fr.ZERO;
@@ -81,12 +84,14 @@ describe('sequencer/solo_block_builder', () => {
 
   beforeEach(async () => {
     blockNumber = 3;
+    globalVariables = new GlobalVariables(chainId, version, new Fr(blockNumber), Fr.ZERO);
+
     builderDb = await MerkleTrees.new(levelup(createMemDown())).then(t => t.asLatest());
     expectsDb = await MerkleTrees.new(levelup(createMemDown())).then(t => t.asLatest());
     vks = getVerificationKeys();
     simulator = mock<RollupSimulator>();
     prover = mock<RollupProver>();
-    builder = new SoloBlockBuilder(builderDb, vks, simulator, prover, chainId, version);
+    builder = new SoloBlockBuilder(builderDb, vks, simulator, prover);
 
     // Create mock l1 to L2 messages
     mockL1ToL2Messages = new Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n));
@@ -244,7 +249,7 @@ describe('sequencer/solo_block_builder', () => {
   describe('mock simulator', () => {
     beforeEach(() => {
       // Create instance to test
-      builder = new SoloBlockBuilder(builderDb, vks, simulator, prover, chainId, version);
+      builder = new SoloBlockBuilder(builderDb, vks, simulator, prover);
     });
 
     it('builds an L2 block using mock simulator', async () => {
@@ -252,7 +257,7 @@ describe('sequencer/solo_block_builder', () => {
       const txs = await buildMockSimulatorInputs();
 
       // Actually build a block!
-      const [l2Block, proof] = await builder.buildL2Block(blockNumber, txs, mockL1ToL2Messages);
+      const [l2Block, proof] = await builder.buildL2Block(globalVariables, txs, mockL1ToL2Messages);
 
       expect(l2Block.number).toEqual(blockNumber);
       expect(proof).toEqual(emptyProof);
@@ -260,10 +265,11 @@ describe('sequencer/solo_block_builder', () => {
 
     // For varying orders of insertions assert the local batch insertion generator creates the correct proofs
     it.each([
-      [[16, 15, 14, 13, 0, 0, 0, 0]],
-      [[13, 14, 15, 16, 0, 0, 0, 0]],
-      [[1234, 98, 0, 0, 99999, 88, 54, 0]],
-      [[97, 98, 10, 0, 99999, 88, 100001, 9000000]],
+      // These are arbitrary but it needs to be higher than the constant `INITIAL_NULLIFIER_TREE_SIZE` and `KERNEL_NEW_NULLIFIERS_LENGTH * 2`
+      [[1003, 1002, 1001, 1000, 0, 0, 0, 0]],
+      [[1003, 1004, 1005, 1006, 0, 0, 0, 0]],
+      [[1234, 1098, 0, 0, 99999, 1096, 1054, 0]],
+      [[1970, 1980, 1040, 0, 99999, 1880, 100001, 9000000]],
     ] as const)('performs nullifier tree batch insertion correctly', async nullifiers => {
       const leaves = nullifiers.map(i => toBufferBE(BigInt(i), 32));
       await expectsDb.appendLeaves(MerkleTreeId.NULLIFIER_TREE, leaves);
@@ -284,8 +290,7 @@ describe('sequencer/solo_block_builder', () => {
       // Assemble a fake transaction
       const txs = await buildMockSimulatorInputs();
       const l1ToL2Messages = new Array(100).fill(new Fr(0n));
-
-      await expect(builder.buildL2Block(blockNumber, txs, l1ToL2Messages)).rejects.toThrow();
+      await expect(builder.buildL2Block(globalVariables, txs, l1ToL2Messages)).rejects.toThrow();
     });
   });
 
@@ -293,7 +298,7 @@ describe('sequencer/solo_block_builder', () => {
     beforeEach(async () => {
       const simulator = await WasmRollupCircuitSimulator.new();
       const prover = new EmptyRollupProver();
-      builder = new SoloBlockBuilder(builderDb, vks, simulator, prover, chainId, version);
+      builder = new SoloBlockBuilder(builderDb, vks, simulator, prover);
     });
 
     const makeContractDeployProcessedTx = async (seed = 0x1) => {
@@ -341,7 +346,7 @@ describe('sequencer/solo_block_builder', () => {
           ...(await Promise.all(times(totalCount - deployCount, makeEmptyProcessedTx))),
         ];
 
-        const [l2Block] = await builder.buildL2Block(blockNumber, txs, mockL1ToL2Messages);
+        const [l2Block] = await builder.buildL2Block(globalVariables, txs, mockL1ToL2Messages);
         expect(l2Block.number).toEqual(blockNumber);
 
         await updateExpectedTreesFromTxs(txs);
@@ -366,8 +371,8 @@ describe('sequencer/solo_block_builder', () => {
         makeEmptyProcessedTx(),
       ]);
 
-      const [l2Block] = await builder.buildL2Block(1, txs, mockL1ToL2Messages);
-      expect(l2Block.number).toEqual(1);
+      const [l2Block] = await builder.buildL2Block(globalVariables, txs, mockL1ToL2Messages);
+      expect(l2Block.number).toEqual(blockNumber);
     }, 10_000);
 
     it('builds a mixed L2 block', async () => {
@@ -380,17 +385,17 @@ describe('sequencer/solo_block_builder', () => {
 
       const l1ToL2Messages = range(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, 1 + 0x400).map(fr);
 
-      const [l2Block] = await builder.buildL2Block(1, txs, l1ToL2Messages);
-      expect(l2Block.number).toEqual(1);
+      const [l2Block] = await builder.buildL2Block(globalVariables, txs, l1ToL2Messages);
+      expect(l2Block.number).toEqual(blockNumber);
     }, 20_000);
 
     // This test specifically tests nullifier values which previously caused e2e_zk_token test to fail
     it('e2e_zk_token edge case regression test on nullifier values', async () => {
       const simulator = await WasmRollupCircuitSimulator.new();
       const prover = new EmptyRollupProver();
-      builder = new SoloBlockBuilder(builderDb, vks, simulator, prover, chainId, version);
+      builder = new SoloBlockBuilder(builderDb, vks, simulator, prover);
       // update the starting tree
-      const updateVals = Array(16).fill(0n);
+      const updateVals = Array(4 * KERNEL_NEW_NULLIFIERS_LENGTH).fill(0n);
       updateVals[0] = 19777494491628650244807463906174285795660759352776418619064841306523677458742n;
       updateVals[1] = 10246291467305176436335175657884940686778521321101740385288169037814567547848n;
 
@@ -409,7 +414,7 @@ describe('sequencer/solo_block_builder', () => {
       );
       const txs = [tx, await makeEmptyProcessedTx(), await makeEmptyProcessedTx(), await makeEmptyProcessedTx()];
 
-      const [l2Block] = await builder.buildL2Block(blockNumber, txs, mockL1ToL2Messages);
+      const [l2Block] = await builder.buildL2Block(globalVariables, txs, mockL1ToL2Messages);
 
       expect(l2Block.number).toEqual(blockNumber);
     }, 10000);

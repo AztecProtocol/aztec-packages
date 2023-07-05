@@ -260,12 +260,11 @@ export class AccountState {
 
     const kernelOracle = new KernelOracle(contractDataOracle, this.node);
     const executionResult = await this.simulate(txExecutionRequest, contractDataOracle);
-    const argsHash = executionResult.callStackItem.publicInputs.argsHash;
 
     const kernelProver = new KernelProver(kernelOracle);
     this.log(`Executing kernel prover from account state ${this.address}`);
-    const { proof, publicInputs } = await kernelProver.prove(txExecutionRequest.toTxRequest(argsHash), executionResult);
-    this.log('Kernel proof completed');
+    const { proof, publicInputs } = await kernelProver.prove(txExecutionRequest.toTxRequest(), executionResult);
+    this.log('Proof completed!');
 
     const newContractPublicFunctions = newContract ? this.getNewContractPublicFunctions(newContract) : [];
 
@@ -387,6 +386,7 @@ export class AccountState {
     return Fr.fromBuffer(
       simulator.computeSiloedNullifier(
         noteSpendingInfo.contractAddress,
+        noteSpendingInfo.storageSlot,
         noteSpendingInfo.notePreimage.items,
         await this.keyStore.getAccountPrivateKey(this.publicKey),
         await CircuitsWasm.get(),

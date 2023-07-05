@@ -102,8 +102,8 @@ std::array<fr, NUM_FIELDS_PER_SHA256> compute_kernels_calldata_hash(
 {
     // Compute calldata hashes
     // Consist of 2 kernels
-    // 8 commitments (4 per kernel) -> 8 fields
-    // 8 nullifiers (4 per kernel) -> 8 fields
+    // 2 * KERNEL_NEW_COMMITMENTS_LENGTH fields for commitments
+    // 2 * KERNEL_NEW_NULLIFIERS_LENGTH fields for nullifiers
     // 8 public data update requests (4 per kernel) -> 16 fields
     // 4 l2 -> l1 messages (2 per kernel) -> 4 fields
     // 2 contract deployments (1 per kernel) -> 6 fields
@@ -114,7 +114,7 @@ std::array<fr, NUM_FIELDS_PER_SHA256> compute_kernels_calldata_hash(
          KERNEL_NEW_L2_TO_L1_MSGS_LENGTH + KERNEL_NEW_CONTRACTS_LENGTH * 3 + KERNEL_NUM_ENCRYPTED_LOGS_HASHES * 2 +
          KERNEL_NUM_UNENCRYPTED_LOGS_HASHES * 2) *
         2;
-    std::array<NT::fr, number_of_inputs> calldata_hash_inputs;
+    std::array<NT::fr, number_of_inputs> calldata_hash_inputs{};
 
     for (size_t i = 0; i < 2; i++) {
         auto new_commitments = kernel_data[i].public_inputs.end.new_commitments;
