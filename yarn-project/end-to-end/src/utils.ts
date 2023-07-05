@@ -3,34 +3,39 @@ import { Fr } from '@aztec/foundation/fields';
 import { DebugLogger, Logger, createDebugLogger } from '@aztec/foundation/log';
 
 import {
+  AccountCollection,
+  AccountContract,
+  AccountWallet,
   AztecAddress,
   AztecRPCServer,
   Contract,
   ContractDeployer,
   EthAddress,
   Point,
-  TxAuthProvider,
+  Wallet,
   createAztecRPCServer,
 } from '@aztec/aztec.js';
 import { CircuitsWasm } from '@aztec/circuits.js';
-import { pedersenPlookupCommitInputs } from '@aztec/circuits.js/barretenberg';
-import { DeployL1Contracts, deployL1Contracts } from '@aztec/ethereum';
+import { Schnorr, pedersenPlookupCommitInputs } from '@aztec/circuits.js/barretenberg';
+import { DeployL1Contracts, deployL1Contract, deployL1Contracts } from '@aztec/ethereum';
 import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
-import { KeyStore } from '@aztec/key-store';
-import { GullibleAccountContractAbi, SchnorrAccountContractAbi } from '@aztec/noir-contracts/examples';
+import { PortalERC20Abi, PortalERC20Bytecode, TokenPortalAbi, TokenPortalBytecode } from '@aztec/l1-artifacts';
+import {
+  GullibleAccountContractAbi,
+  NonNativeTokenContractAbi,
+  SchnorrAccountContractAbi,
+} from '@aztec/noir-contracts/examples';
 import { randomBytes } from 'crypto';
+import { Account, Chain, HttpTransport, PublicClient, WalletClient, getContract } from 'viem';
 import { mnemonicToAccount } from 'viem/accounts';
+import { SchnorrAuthProvider } from './auth.js';
 import { MNEMONIC, localAnvil } from './fixtures.js';
 
 /**
  * Sets up the environment for the end-to-end tests.
  * @param numberOfAccounts - The number of new accounts to be created once the RPC server is initiated.
  */
-export async function setup(
-  authProvider: TxAuthProvider,
-  keyStore: KeyStore,
-  numberOfAccounts = 1,
-): Promise<{
+export async function setup(numberOfAccounts = 1): Promise<{
   /**
    * The Aztec Node service.
    */
@@ -51,8 +56,7 @@ export async function setup(
    * The Aztec Node configuration.
    */
   config: AztecNodeConfig;
-  /** The underlying keystore. */
-  keyStore: KeyStore;
+  wallet: Wallet;
   /**
    * Logger instance named as the current test.
    */
@@ -71,28 +75,26 @@ export async function setup(
   config.inboxContract = deployL1ContractsValues.inboxAddress;
 
   const aztecNode = await AztecNodeService.createAndSync(config);
-  const aztecRpcServer = await createAztecRPCServer(authProvider, aztecNode, { keyStore });
+  const aztecRpcServer = await createAztecRPCServer(aztecNode);
+  const accountCollection = new AccountCollection();
+
   for (let i = 0; i < numberOfAccounts; ++i) {
     // We use the well-known private key and the validating account contract for the first account,
     // and generate random keypairs with gullible account contracts (ie no sig validation) for the rest.
+    // TODO: Kill the gullible account contract.
     // TODO(#662): Let the aztec rpc server generate the keypair rather than hardcoding the private key
     const privateKey = i === 0 ? Buffer.from(privKey!) : randomBytes(32);
-    const publicKey = keyStore.addAccount(privateKey);
-    const impl = i == 0 ? SchnorrAccountContractAbi : GullibleAccountContractAbi;
-
-    const [address, partialContractAddress] = await aztecRpcServer.getDeploymentAddress(
-      impl,
+    const abi = i == 0 ? SchnorrAccountContractAbi : GullibleAccountContractAbi;
+    const { publicKey, address, partialAddress } = await aztecRpcServer.addAccount2(
+      abi,
       [],
       EthAddress.ZERO,
       Fr.ZERO,
-      publicKey,
+      privateKey,
     );
 
-    await aztecRpcServer.addAccount(privateKey, address, partialContractAddress, impl);
-
-    const contractDeployer = new ContractDeployer(publicKey, impl, aztecRpcServer);
+    const contractDeployer = new ContractDeployer(abi, aztecRpcServer, publicKey);
     const deployMethod = contractDeployer.deploy();
-
     const tx = deployMethod.send();
     await tx.isMined(0, 0.1);
     const receipt = await tx.getReceipt();
@@ -102,10 +104,21 @@ export async function setup(
         `Deployment address does not match for account contract (expected ${address} got ${receiptAddress})`,
       );
     }
+    accountCollection.registerAccount(
+      address,
+      new AccountContract(
+        address,
+        publicKey,
+        new SchnorrAuthProvider(await Schnorr.new(), privateKey),
+        partialAddress,
+        abi,
+      ),
+    );
     logger(`Created account ${address.toString()} with public key ${publicKey.toString()}`);
   }
 
   const accounts = await aztecRpcServer.getAccounts();
+  const wallet = new AccountWallet(aztecRpcServer, accountCollection);
 
   return {
     aztecNode,
@@ -113,7 +126,7 @@ export async function setup(
     deployL1ContractsValues,
     accounts,
     config,
-    keyStore,
+    wallet,
     logger,
   };
 }
@@ -188,53 +201,53 @@ export function pointToPublicKey(point: Point) {
  * @param underlyingERC20Address - address of the underlying ERC20 contract to use (if noone supplied, it deploys one)
  * @returns l2 contract instance, token portal instance, token portal address and the underlying ERC20 instance
  */
-// export async function deployAndInitializeNonNativeL2TokenContracts(
-//   aztecRpcServer: AztecRPCServer,
-//   walletClient: WalletClient<HttpTransport, Chain, Account>,
-//   publicClient: PublicClient<HttpTransport, Chain>,
-//   rollupRegistryAddress: EthAddress,
-//   initialBalance = 0n,
-//   owner = { x: 0n, y: 0n },
-//   underlyingERC20Address?: EthAddress,
-// ) {
-//   // deploy underlying contract if no address supplied
-//   if (!underlyingERC20Address) {
-//     underlyingERC20Address = await deployL1Contract(walletClient, publicClient, PortalERC20Abi, PortalERC20Bytecode);
-//   }
-//   const underlyingERC20: any = getContract({
-//     address: underlyingERC20Address.toString(),
-//     abi: PortalERC20Abi,
-//     walletClient,
-//     publicClient,
-//   });
+export async function deployAndInitializeNonNativeL2TokenContracts(
+  wallet: Wallet,
+  walletClient: WalletClient<HttpTransport, Chain, Account>,
+  publicClient: PublicClient<HttpTransport, Chain>,
+  rollupRegistryAddress: EthAddress,
+  initialBalance = 0n,
+  owner = { x: 0n, y: 0n },
+  underlyingERC20Address?: EthAddress,
+) {
+  // deploy underlying contract if no address supplied
+  if (!underlyingERC20Address) {
+    underlyingERC20Address = await deployL1Contract(walletClient, publicClient, PortalERC20Abi, PortalERC20Bytecode);
+  }
+  const underlyingERC20: any = getContract({
+    address: underlyingERC20Address.toString(),
+    abi: PortalERC20Abi,
+    walletClient,
+    publicClient,
+  });
 
-//   // deploy the token portal
-//   const tokenPortalAddress = await deployL1Contract(walletClient, publicClient, TokenPortalAbi, TokenPortalBytecode);
-//   const tokenPortal: any = getContract({
-//     address: tokenPortalAddress.toString(),
-//     abi: TokenPortalAbi,
-//     walletClient,
-//     publicClient,
-//   });
+  // deploy the token portal
+  const tokenPortalAddress = await deployL1Contract(walletClient, publicClient, TokenPortalAbi, TokenPortalBytecode);
+  const tokenPortal: any = getContract({
+    address: tokenPortalAddress.toString(),
+    abi: TokenPortalAbi,
+    walletClient,
+    publicClient,
+  });
 
-//   // deploy l2 contract and attach to portal
-//   const deployer = new ContractDeployer(NonNativeTokenContractAbi, aztecRpcServer);
-//   const tx = deployer.deploy(initialBalance, owner).send({
-//     portalContract: tokenPortalAddress,
-//   });
-//   await tx.isMined(0, 0.1);
-//   const receipt = await tx.getReceipt();
-//   const l2Contract = new Contract(receipt.contractAddress!, NonNativeTokenContractAbi, aztecRpcServer);
-//   await l2Contract.attach(tokenPortalAddress);
-//   const l2TokenAddress = l2Contract.address.toString() as `0x${string}`;
+  // deploy l2 contract and attach to portal
+  const deployer = new ContractDeployer(NonNativeTokenContractAbi, wallet);
+  const tx = deployer.deploy(initialBalance, owner).send({
+    portalContract: tokenPortalAddress,
+  });
+  await tx.isMined(0, 0.1);
+  const receipt = await tx.getReceipt();
+  const l2Contract = new Contract(receipt.contractAddress!, NonNativeTokenContractAbi, wallet);
+  await l2Contract.attach(tokenPortalAddress);
+  const l2TokenAddress = l2Contract.address.toString() as `0x${string}`;
 
-//   // initialize portal
-//   await tokenPortal.write.initialize(
-//     [rollupRegistryAddress.toString(), underlyingERC20Address.toString(), l2TokenAddress],
-//     {} as any,
-//   );
-//   return { l2Contract, tokenPortalAddress, tokenPortal, underlyingERC20 };
-// }
+  // initialize portal
+  await tokenPortal.write.initialize(
+    [rollupRegistryAddress.toString(), underlyingERC20Address.toString(), l2TokenAddress],
+    {} as any,
+  );
+  return { l2Contract, tokenPortalAddress, tokenPortal, underlyingERC20 };
+}
 
 /**
  * Sleep for a given number of milliseconds.

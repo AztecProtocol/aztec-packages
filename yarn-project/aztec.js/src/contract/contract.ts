@@ -1,8 +1,9 @@
-import { AztecRPC, DeployedContract, generateFunctionSelector } from '@aztec/aztec-rpc';
+import { DeployedContract, generateFunctionSelector } from '@aztec/aztec-rpc';
 import { ContractAbi, FunctionAbi } from '@aztec/foundation/abi';
-import { ContractFunctionInteraction } from './contract_function_interaction.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
+import { Wallet } from '../aztec_rpc_client/wallet.js';
+import { ContractFunctionInteraction } from './contract_function_interaction.js';
 
 /**
  * Type representing a contract method that returns a ContractFunctionInteraction instance
@@ -37,7 +38,10 @@ export class Contract {
      * The Application Binary Interface for the contract.
      */
     public readonly abi: ContractAbi,
-    private wallet: AztecRPC,
+    /**
+     * The wallet.
+     */
+    private wallet: Wallet,
   ) {
     abi.functions.forEach((f: FunctionAbi) => {
       const interactionFunction = (...args: any[]) => {
@@ -47,7 +51,6 @@ export class Contract {
       this.methods[f.name] = Object.assign(interactionFunction, {
         /**
          * A getter for users to fetch the function selector.
-         *
          * @returns Selector of the function.
          */
         get selector() {

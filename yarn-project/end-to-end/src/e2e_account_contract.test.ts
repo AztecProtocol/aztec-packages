@@ -1,65 +1,79 @@
 import { AztecNodeService } from '@aztec/aztec-node';
-import { AztecRPCServer, Contract, ContractDeployer, TxStatus } from '@aztec/aztec.js';
+import {
+  AccountContract,
+  AccountWallet,
+  AztecAddress,
+  AztecRPCServer,
+  Contract,
+  ContractDeployer,
+  EthAddress,
+  Fr,
+  TxStatus,
+} from '@aztec/aztec.js';
 import { ContractAbi } from '@aztec/foundation/abi';
 import { DebugLogger } from '@aztec/foundation/log';
 import { ChildAbi, SchnorrAccountContractAbi } from '@aztec/noir-contracts/examples';
 
-import { setup } from './utils.js';
-import { privateKey2 } from './fixtures.js';
+import { Schnorr } from '@aztec/circuits.js/barretenberg';
+import { PublicKey } from '@aztec/key-store';
 import { SchnorrAuthProvider } from './auth.js';
-import { KeyStore, PublicKey, TestKeyStore } from '@aztec/key-store';
-import { Grumpkin, Schnorr } from '@aztec/circuits.js/barretenberg';
+import { privateKey2 } from './fixtures.js';
+import { setup } from './utils.js';
 
 describe('e2e_account_contract', () => {
   let aztecNode: AztecNodeService;
   let aztecRpcServer: AztecRPCServer;
   let logger: DebugLogger;
 
-  let schnorrAccountContract: Contract;
+  let schnorrAccountContractAddress: AztecAddress;
   let child: Contract;
-  let keyStore: KeyStore;
-
-  let schnorrAuthProvider: SchnorrAuthProvider;
 
   const sendContractDeployment = async (publicKey: PublicKey, abi: ContractAbi) => {
     logger(`Deploying L2 contract ${abi.name}...`);
-    const deployer = new ContractDeployer(publicKey, abi, aztecRpcServer);
+    const deployer = new ContractDeployer(abi, aztecRpcServer, publicKey);
     const deployMethod = deployer.deploy();
     await deployMethod.create();
     const tx = deployMethod.send();
-    console.log('here');
-
-    await aztecRpcServer.addAccount(
-      privateKey2,
-      deployMethod.completeContractAddress!,
-      deployMethod.partialContractAddress!,
-      abi,
-    );
 
     return { tx, partialContractAddress: deployMethod.partialContractAddress! };
   };
 
   const deployL2Contracts = async () => {
     logger('Deploying Schnorr based Account contract');
-    const publicKey = keyStore.addAccount(privateKey2);
+    const { publicKey, partialAddress } = await aztecRpcServer.addAccount2(
+      SchnorrAccountContractAbi,
+      [],
+      EthAddress.ZERO,
+      Fr.ZERO,
+      privateKey2,
+    );
     const schnorrDeploymentTx = await sendContractDeployment(publicKey, SchnorrAccountContractAbi);
     await schnorrDeploymentTx.tx.isMined(0, 0.1);
 
     const schnorrReceipt = await schnorrDeploymentTx.tx.getReceipt();
 
-    schnorrAccountContract = new Contract(schnorrReceipt.contractAddress!, SchnorrAccountContractAbi, aztecRpcServer);
-    logger(`L2 contract ${SchnorrAccountContractAbi.name} deployed at ${schnorrAccountContract.address}`);
+    schnorrAccountContractAddress = schnorrReceipt.contractAddress!;
+    logger(`L2 contract ${SchnorrAccountContractAbi.name} deployed at ${schnorrAccountContractAddress}`);
+
+    const wallet = new AccountWallet(
+      aztecRpcServer,
+      new AccountContract(
+        schnorrAccountContractAddress,
+        publicKey,
+        new SchnorrAuthProvider(await Schnorr.new(), privateKey2),
+        partialAddress,
+        SchnorrAccountContractAbi,
+      ),
+    );
 
     const childDeployTx = await sendContractDeployment(publicKey, ChildAbi);
     await childDeployTx.tx.isMined(0, 0.1);
     const childReceipt = await childDeployTx.tx.getReceipt();
-    child = new Contract(childReceipt.contractAddress!, ChildAbi, aztecRpcServer);
+    child = new Contract(childReceipt.contractAddress!, ChildAbi, wallet);
   };
 
   beforeEach(async () => {
-    schnorrAuthProvider = new SchnorrAuthProvider(await Schnorr.new(), privateKey2);
-    keyStore = new TestKeyStore(await Grumpkin.new());
-    ({ aztecNode, aztecRpcServer, logger } = await setup(schnorrAuthProvider, keyStore, 0));
+    ({ aztecNode, aztecRpcServer, logger } = await setup(0));
   }, 100_000);
 
   afterEach(async () => {
@@ -70,7 +84,7 @@ describe('e2e_account_contract', () => {
   it('calls a private function', async () => {
     await deployL2Contracts();
     logger('Calling private function...');
-    const tx1 = child.methods.value(42).send({ from: schnorrAccountContract.address });
+    const tx1 = child.methods.value(42).send({ from: schnorrAccountContractAddress });
 
     const txs = [tx1];
 

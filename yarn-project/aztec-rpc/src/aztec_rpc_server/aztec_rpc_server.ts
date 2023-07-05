@@ -1,13 +1,7 @@
 import { encodeArguments } from '@aztec/acir-simulator';
 import { AztecNode } from '@aztec/aztec-node';
-import {
-  AztecAddress,
-  CircuitsWasm,
-  ContractDeploymentData,
-  EthAddress,
-  FunctionData,
-  TxContext,
-} from '@aztec/circuits.js';
+import { AztecAddress, CircuitsWasm, EthAddress, FunctionData } from '@aztec/circuits.js';
+import { computePartialContractAddress, computeSecretMessageHash } from '@aztec/circuits.js/abis';
 import { ContractAbi, FunctionType } from '@aztec/foundation/abi';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
@@ -15,7 +9,6 @@ import { KeyStore, PublicKey } from '@aztec/key-store';
 import { SchnorrAccountContractAbi } from '@aztec/noir-contracts/examples';
 import {
   ContractData,
-  ContractDeploymentTx,
   ContractPublicData,
   ExecutionRequest,
   L2BlockL2Logs,
@@ -25,13 +18,12 @@ import {
   TxHash,
 } from '@aztec/types';
 import { AccountState } from '../account_state/account_state.js';
-import { AztecRPC, DeployedContract, NodeInfo } from '../aztec_rpc/index.js';
+import { AztecRPC, DeployedContract, DeploymentInfo, NodeInfo } from '../aztec_rpc/index.js';
 import { toContractDao } from '../contract_database/index.js';
 import { ContractTree } from '../contract_tree/index.js';
 import { Database, TxDao } from '../database/index.js';
 import { Synchroniser } from '../synchroniser/index.js';
 import { TxReceipt, TxStatus } from '../tx/index.js';
-import { computePartialContractAddress, computeSecretMessageHash } from '@aztec/circuits.js/abis';
 
 /**
  * A remote Aztec RPC Client implementation.
@@ -128,17 +120,6 @@ export class AztecRPCServer implements AztecRPC {
   }
 
   /**
-   * Retrieves the account contract implementation as an ABI for a given address if storeed.
-   *
-   * @param address - optional address of the account to fetch
-   * @returns A promise that resolves to an array of AztecAddress instances.
-   */
-  public getAccountImplementation(address?: AztecAddress): Promise<ContractAbi> {
-    const account = this.#ensureAccountOrDefault(address);
-    return Promise.resolve(account.getAccountContractAbi());
-  }
-
-  /**
    * Retrieve the public key associated with an address.
    * Throws an error if the account is not found in the key store.
    *
@@ -173,113 +154,6 @@ export class AztecRPCServer implements AztecRPC {
   }
 
   /**
-   * Create a deployment transaction request for deploying a new contract.
-   * The function generates ContractDeploymentData and a TxRequest instance containing
-   * the constructor function data, flat arguments, nonce, and other necessary information.
-   * This TxRequest can then be signed and sent to deploy the contract on the Aztec network.
-   *
-   * @param abi - The contract ABI containing function definitions.
-   * @param args - The arguments required for the constructor function of the contract.
-   * @param portalContract - The Ethereum address of the portal contract.
-   * @param contractAddressSalt - (Optional) Salt value used to generate the contract address.
-   * @param deployerPublicKey - The deployer's public key.
-   * @param from - (Optional) The Aztec address of the account that deploys the contract.
-   * @returns An instance of a ContractDeploymentTx.
-   */
-  public async createDeploymentTx(
-    abi: ContractAbi,
-    args: any[],
-    portalContract: EthAddress,
-    contractAddressSalt = Fr.random(),
-    deployerPublicKey?: PublicKey,
-    from?: AztecAddress,
-  ) {
-    let pubKey = deployerPublicKey;
-    let account;
-
-    if (from && !deployerPublicKey) {
-      account = this.#ensureAccountOrDefault(from);
-      pubKey = account.getPublicKey();
-    }
-
-    const { txRequest, contract, partialContractAddress } = await this.#prepareDeploy(
-      abi,
-      args,
-      portalContract,
-      contractAddressSalt,
-      pubKey!,
-    );
-
-    if (!account) {
-      account = new AccountState(
-        pubKey!,
-        this.keyStore,
-        contract.address,
-        partialContractAddress,
-        this.db,
-        this.node,
-        abi,
-      );
-    }
-
-    const tx = await account.simulateAndProve(txRequest, contract);
-
-    await this.db.addTx(
-      new TxDao(await tx.getTxHash(), undefined, undefined, account.getAddress(), undefined, contract.address, ''),
-    );
-    return new ContractDeploymentTx(tx, partialContractAddress, contract.address);
-  }
-
-  async #prepareDeploy(
-    abi: ContractAbi,
-    args: any[],
-    portalContract: EthAddress,
-    contractAddressSalt: Fr,
-    pubKey: PublicKey,
-  ) {
-    const constructorAbi = abi.functions.find(f => f.name === 'constructor');
-    if (!constructorAbi) {
-      throw new Error('Cannot find constructor in the ABI.');
-    }
-
-    const flatArgs = encodeArguments(constructorAbi, args);
-    const contractTree = await ContractTree.new(abi, flatArgs, portalContract, contractAddressSalt, pubKey, this.node);
-    const { functionData, vkHash } = contractTree.newContractConstructor!;
-    const functionTreeRoot = await contractTree.getFunctionTreeRoot();
-    const constructorHash = Fr.fromBuffer(vkHash);
-    const contractDeploymentData = new ContractDeploymentData(
-      pubKey,
-      Fr.fromBuffer(vkHash),
-      functionTreeRoot,
-      contractAddressSalt,
-      portalContract,
-    );
-
-    const txContext = new TxContext(
-      false,
-      false,
-      true,
-      contractDeploymentData,
-      await this.node.getChainId(),
-      await this.node.getVersion(),
-    );
-
-    const wasm = await CircuitsWasm.get();
-    const partialContractAddress = computePartialContractAddress(
-      wasm,
-      contractAddressSalt,
-      functionTreeRoot,
-      constructorHash,
-    );
-
-    const contract = contractTree.contract;
-    await this.db.addContract(contract);
-
-    const txRequest = new TxExecutionRequest(contract.address, functionData, flatArgs, txContext);
-    return { txRequest, contract, partialContractAddress, address: contract.address };
-  }
-
-  /**
    * Create a transaction for a contract function call with the provided arguments.
    * Throws an error if the contract or function is unknown.
    *
@@ -302,41 +176,74 @@ export class AztecRPCServer implements AztecRPC {
   }
 
   /**
-   *
-   * @param abi
-   * @param args
-   * @param portalContract
-   * @param contractAddressSalt
-   * @param pubKey
+   * TODO: Remove this once no longer required
+   * Adds an account from a private key and account contract deployment information
+   * @param abi - The account contract abi
+   * @param args - The args to the account contract constructor
+   * @param portalContract - The portal contract address to associate with the deployed account contract
+   * @param contractAddressSalt - The salt to be used in the contract address derivation
+   * @param privKey - The account private key
+   * @returns - The contract deployment info
    */
-  public async getDeploymentAddress(
+  public async addAccount2(
     abi: ContractAbi,
     args: any[],
     portalContract: EthAddress,
     contractAddressSalt: Fr,
-    pubKey: PublicKey,
-  ): Promise<[AztecAddress, PartialContractAddress]> {
+    privKey: Buffer,
+  ): Promise<DeploymentInfo> {
+    const pubKey = this.keyStore.addAccount(privKey);
+    const deployInfo = await this.getDeploymentInfo(abi, args, portalContract, contractAddressSalt, pubKey);
+    await this.addAccount(privKey, deployInfo.address, deployInfo.partialAddress, abi);
+    return deployInfo;
+  }
+
+  /**
+   * TODO: Remove this once no longer required
+   * Generates the deployment info for a contract
+   * @param abi - The account contract abi
+   * @param args - The args to the account contract constructor
+   * @param portalContract - The portal contract address to associate with the deployed account contract
+   * @param contractAddressSalt - The salt to be used in the contract address derivation
+   * @param publicKey - The account public key
+   * @returns - The contract deployment info
+   */
+  public async getDeploymentInfo(
+    abi: ContractAbi,
+    args: any[],
+    portalContract: EthAddress,
+    contractAddressSalt: Fr,
+    publicKey: PublicKey,
+  ): Promise<DeploymentInfo> {
     const constructorAbi = abi.functions.find(f => f.name === 'constructor');
     if (!constructorAbi) {
       throw new Error('Cannot find constructor in the ABI.');
     }
 
     const flatArgs = encodeArguments(constructorAbi, args);
-    const contractTree = await ContractTree.new(abi, flatArgs, portalContract, contractAddressSalt, pubKey, this.node);
+    const contractTree = await ContractTree.new(
+      abi,
+      flatArgs,
+      portalContract,
+      contractAddressSalt,
+      publicKey,
+      this.node,
+    );
     const { vkHash } = contractTree.newContractConstructor!;
     const functionTreeRoot = await contractTree.getFunctionTreeRoot();
     const constructorHash = Fr.fromBuffer(vkHash);
 
     const wasm = await CircuitsWasm.get();
-    const partialContractAddress = computePartialContractAddress(
-      wasm,
-      contractAddressSalt,
-      functionTreeRoot,
-      constructorHash,
-    );
+    const partialAddress = computePartialContractAddress(wasm, contractAddressSalt, functionTreeRoot, constructorHash);
 
     const contract = contractTree.contract;
-    return [contract.address, partialContractAddress];
+    return {
+      address: contract.address,
+      partialAddress,
+      constructorHash,
+      functionTreeRoot,
+      publicKey,
+    };
   }
 
   /**
@@ -356,8 +263,8 @@ export class AztecRPCServer implements AztecRPC {
    * and optionally the sender's address.
    *
    * @param functionName - The name of the function to be called in the contract.
-   * @param args
-   * @param to
+   * @param args - The arguments to be provided to the function.
+   * @param to - The address of the contract to be called.
    * @param from - (Optional) The caller of the transaction.
    * @returns The result of the view function call, structured based on the function ABI.
    */
@@ -553,7 +460,8 @@ export class AztecRPCServer implements AztecRPC {
   }
 
   /**
-   *
+   * Returns the information about the server's node
+   * @returns - The node information.
    */
   public async getNodeInfo(): Promise<NodeInfo> {
     const [version, chainId] = await Promise.all([this.node.getVersion(), this.node.getChainId()]);

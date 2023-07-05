@@ -150,7 +150,7 @@ describe('e2e_p2p_network', () => {
     numTxs: number,
   ): Promise<NodeContext> => {
     const aztecRpcServer = await createAztecRPCServer(node);
-    const account = await aztecRpcServer.registerSmartAccount(randomBytes(32), AztecAddress.random(), Fr.random());
+    const account = await aztecRpcServer.addAccount(randomBytes(32), AztecAddress.random(), Fr.random());
 
     const txs = await submitTxsTo(aztecRpcServer, account, numTxs);
     return {

@@ -1,6 +1,8 @@
 import { AztecAddress, Fr } from '@aztec/circuits.js';
 import { EntrypointPayload } from '../account_impl/account_contract.js';
 
+export * from './ecdsa.js';
+
 /**
  * An interface for the payload returned from auth operations.
  */
@@ -11,6 +13,7 @@ export interface AuthPayload {
 
 /**
  * The interface for an auth operations provider.
+ * TODO: How coupled should the auth provider be a to a specific account contract implementation? Can we remove the dependency on a specific EntrypointPayload format here?
  */
 export interface TxAuthProvider {
   authenticateTx(payload: EntrypointPayload, payloadHash: Buffer, address: AztecAddress): Promise<AuthPayload>;

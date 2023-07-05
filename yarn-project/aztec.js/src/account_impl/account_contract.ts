@@ -6,9 +6,10 @@ import { PublicKey } from '@aztec/key-store';
 import { ExecutionRequest, PartialContractAddress, TxExecutionRequest } from '@aztec/types';
 import partition from 'lodash.partition';
 import times from 'lodash.times';
-import { TxAuthProvider, generateFunctionSelector } from '../index.js';
+import { generateFunctionSelector } from '../index.js';
 import { AccountImplementation } from './index.js';
 import { ContractAbi } from '@aztec/foundation/abi';
+import { TxAuthProvider } from '../auth/index.js';
 
 /**
  * Account backed by an account contract
@@ -21,6 +22,10 @@ export class AccountContract implements AccountImplementation {
     private partialContractAddress: PartialContractAddress,
     private contractAbi: ContractAbi,
   ) {}
+
+  getAddress(): AztecAddress {
+    return this.address;
+  }
 
   async createAuthenticatedTxRequest(
     executions: ExecutionRequest[],

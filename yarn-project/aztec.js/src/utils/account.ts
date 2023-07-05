@@ -1,10 +1,10 @@
 import { AztecRPC } from '@aztec/aztec-rpc';
-import { AztecAddress, Point } from '@aztec/circuits.js';
-import { ContractDeployer } from '../index.js';
-import { createDebugLogger } from '@aztec/foundation/log';
-import { SchnorrAccountContractAbi } from '@aztec/noir-contracts/examples';
+import { AztecAddress, EthAddress, Fr, Point } from '@aztec/circuits.js';
 import { randomBytes } from '@aztec/foundation/crypto';
-import { KeyStore } from '@aztec/key-store';
+import { createDebugLogger } from '@aztec/foundation/log';
+import { EcdsaAccountContractAbi } from '@aztec/noir-contracts/examples';
+import { AccountWallet, Wallet } from '../aztec_rpc_client/wallet.js';
+import { AccountCollection, AccountContract, ContractDeployer, EcdsaAuthProvider } from '../index.js';
 
 /**
  * Creates an Aztec Account.
@@ -13,28 +13,35 @@ import { KeyStore } from '@aztec/key-store';
 export async function createAccounts(
   aztecRpcClient: AztecRPC,
   privateKey: Buffer,
-  keyStore: KeyStore,
   numberOfAccounts = 1,
   logger = createDebugLogger('aztec:aztec.js:accounts'),
-): Promise<[AztecAddress, Point][]> {
+): Promise<Wallet> {
+  const accountImpls = new AccountCollection();
   const results: [AztecAddress, Point][] = [];
   for (let i = 0; i < numberOfAccounts; ++i) {
     // We use the well-known private key and the validating account contract for the first account,
     // and generate random keypairs with gullible account contracts (ie no sig validation) for the rest.
     // TODO(#662): Let the aztec rpc server generate the keypair rather than hardcoding the private key
     const privKey = i == 0 ? privateKey : randomBytes(32);
-    const publicKey = keyStore.addAccount(privKey);
-    const impl = SchnorrAccountContractAbi;
-    const contractDeployer = new ContractDeployer(publicKey, impl, aztecRpcClient);
-    const deployMethod = contractDeployer.deploy();
-    const tx = deployMethod.send();
+    const accountAbi = EcdsaAccountContractAbi;
+    const { publicKey: pubKey, partialAddress } = await aztecRpcClient.addAccount2(
+      accountAbi,
+      [],
+      EthAddress.ZERO,
+      Fr.ZERO,
+      privKey,
+    );
+    const contractDeployer = new ContractDeployer(accountAbi, aztecRpcClient, pubKey);
+    const tx = contractDeployer.deploy().send();
     await tx.isMined(0, 0.1);
     const receipt = await tx.getReceipt();
     const address = receipt.contractAddress!;
-    await aztecRpcClient.addAccount(privKey, address, deployMethod.partialContractAddress!, SchnorrAccountContractAbi);
-    const pubKey = await aztecRpcClient.getAccountPublicKey(address);
     logger(`Created account ${address.toString()} with public key ${pubKey.toString()}`);
+    accountImpls.registerAccount(
+      address,
+      new AccountContract(address, pubKey, new EcdsaAuthProvider(privKey), partialAddress, accountAbi),
+    );
     results.push([address, pubKey]);
   }
-  return results;
+  return new AccountWallet(aztecRpcClient, accountImpls);
 }
