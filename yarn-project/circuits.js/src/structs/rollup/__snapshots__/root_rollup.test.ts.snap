@@ -38,6 +38,9 @@ global_variables: chain_id: 0x505
 version: 0x506
 block_number: 0x507
 timestamp: 0x508
+eth_block_hash: high: 0x509
+low: 0x50a
+
 
 
 start_private_data_tree_snapshot:
@@ -121,6 +124,9 @@ global_variables: chain_id: 0x1505
 version: 0x1506
 block_number: 0x1507
 timestamp: 0x1508
+eth_block_hash: high: 0x1509
+low: 0x150a
+
 
 
 start_private_data_tree_snapshot:
@@ -198,6 +204,9 @@ global_variables: chain_id: 0x100
 version: 0x101
 block_number: 0x102
 timestamp: 0x103
+eth_block_hash: high: 0x104
+low: 0x105
+
 
 start_private_data_tree_snapshot: root: 0x200
 next_available_leaf_index: 512

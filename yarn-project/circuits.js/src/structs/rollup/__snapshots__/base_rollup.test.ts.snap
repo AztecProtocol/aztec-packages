@@ -534,6 +534,9 @@ global_variables: chain_id: 0x405
 version: 0x406
 block_number: 0x407
 timestamp: 0x408
+eth_block_hash: high: 0x409
+low: 0x40a
+
 
 
 "
@@ -577,6 +580,9 @@ global_variables: chain_id: 0x505
 version: 0x506
 block_number: 0x507
 timestamp: 0x508
+eth_block_hash: high: 0x509
+low: 0x50a
+
 
 
 start_private_data_tree_snapshot:

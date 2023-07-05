@@ -85,10 +85,10 @@ import {
   makeHalfFullTuple,
   makeTuple,
   range,
+  TwoFieldHash 
 } from '../index.js';
 import { SchnorrSignature } from '../barretenberg/index.js';
 import { GlobalVariables } from '../structs/global_variables.js';
-import { TwoFieldHash } from '@aztec/types';
 
 /**
  * Creates an arbitrary tx context with the given seed.

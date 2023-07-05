@@ -119,7 +119,7 @@ NT::fr calculate_commitments_subtree(DummyBuilder& builder, BaseRollupInputs con
 /**
  * @brief Check all of the provided commitments against the historical tree roots
  *
- * @param constantBaseRollupData
+ * @param dummyBuilder
  * @param baseRollupInputs
  */
 void perform_historical_private_data_tree_membership_checks(DummyBuilder& builder,

@@ -16,5 +16,5 @@
       "path": "../l1-artifacts"
     }
   ],
-  "include": ["src"]
+  "include": ["src", "../circuits.js/src/structs/two_field_hash.ts"]
 }

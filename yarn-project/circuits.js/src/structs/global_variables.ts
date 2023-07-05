@@ -1,6 +1,6 @@
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader } from '@aztec/foundation/serialize';
-import { TwoFieldHash } from '@aztec/types';
+import { TwoFieldHash } from '@aztec/circuits.js';
 import { FieldsOf } from '../index.js';
 import { serializeToBuffer } from '../utils/index.js';
 

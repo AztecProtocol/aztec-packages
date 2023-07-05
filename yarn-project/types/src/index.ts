@@ -19,4 +19,3 @@ export * from './tx_execution_request.js';
 export * from './logs/l2_logs_source.js';
 export * from './partial_contract_address.js';
 export * from './packed_arguments.js';
-export * from "./two_field_hash.js";
