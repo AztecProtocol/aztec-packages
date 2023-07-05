@@ -1,19 +1,17 @@
 // Demonstrates how to send a message to a portal contract on L1. We use Uniswap here as it's the most typical example.
 contract ConsumerFinance {
-    use dep::aztec3::abi;
-    use dep::aztec3::abi::PrivateContextInputs;
-    use dep::aztec3::abi::PublicContextInputs;
-    use dep::aztec3::context::PrivateFunctionContext;
-    use dep::aztec3::oracle::public_call;
-    use dep::aztec3::private_call_stack_item::PrivateCallStackItem;
-    use dep::aztec3::public_call_stack_item::PublicCallStackItem;
-    use dep::aztec3::types::point::Point;
-    use crate::make_args_array;
+    use dep::aztec::abi;
+    use dep::aztec::abi::PrivateContextInputs;
+    use dep::aztec::abi::PublicContextInputs;
+    use dep::aztec::context::Context;
+    use dep::aztec::oracle::public_call;
+    use dep::aztec::private_call_stack_item::PrivateCallStackItem;
+    use dep::aztec::public_call_stack_item::PublicCallStackItem;
+    use dep::aztec::types::point::Point;
     fn constructor(
         inputs: PrivateContextInputs
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
-        let mut initialContext = PrivateFunctionContext::new();
-        initialContext.finish(inputs)
+        Context::new(inputs, 0).finish()
     }
 
     fn processPayroll(
@@ -24,14 +22,13 @@ contract ConsumerFinance {
         owner: Point, // Owner of the asset
         batchTransferFnSelector: Field, // Function selector for transfer
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
-        let mut initialContext = PrivateFunctionContext::new();
-        initialContext.args = initialContext.args.push_array([
+        let mut initialContext = Context::new(inputs, abi::hash_args([
             asset, 
             addresses[0].x, 
-            addresses[0].y, 
             addresses[1].x, 
-            addresses[1].y, 
             addresses[2].x, 
+            addresses[0].y, 
+            addresses[1].y, 
             addresses[2].y, 
             amounts[0], 
             amounts[1], 
@@ -39,35 +36,23 @@ contract ConsumerFinance {
             owner.x, 
             owner.y, 
             batchTransferFnSelector
-        ]);
-
-        // asset.batchTransfer()
-        let args = make_args_array([
+        ]));
+        let (callStackItem, mut context) = PrivateCallStackItem::call(asset, batchTransferFnSelector, [
             owner.x, 
             owner.y,
             amounts[0],
             amounts[1],
             amounts[2],
             addresses[0].x,
-            addresses[0].y,
             addresses[1].x,
-            addresses[1].y,
             addresses[2].x,
+            addresses[0].y,
+            addresses[1].y,
             addresses[2].y,
             true as Field,
-        ]);
-        let (callStackItem, mut context) = PrivateCallStackItem::call(asset, batchTransferFnSelector, args, initialContext);
+        ], initialContext);
         let result = callStackItem.public_inputs.return_values[0];
         context.return_values = context.return_values.push(result);
-        context.finish(inputs)
+        context.finish()
     }
-}
-
-use dep::aztec3::abi;
-fn make_args_array<N>(args: [Field; N]) -> [Field; abi::MAX_ARGS] {
-    let mut result = [0; abi::MAX_ARGS];
-    for i in 0..N {
-        result[i] = args[i];
-    }
-    result
 }
