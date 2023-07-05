@@ -66,12 +66,6 @@ const decodeTreeValue = (buf: Buffer) => {
   } as LeafData;
 };
 
-const initialLeaf: LeafData = {
-  value: 0n,
-  nextIndex: 0n,
-  nextValue: 0n,
-};
-
 /**
  * Indexed merkle tree.
  */
@@ -80,14 +74,52 @@ export class StandardIndexedTree extends TreeBase implements IndexedTree {
   private cachedLeaves: { [key: number]: LeafData } = {};
 
   /**
-   * Appends the given leaves to the tree.
+   * Appends leaves to the tree.
    * @param leaves - The leaves to append.
    * @returns Empty promise.
    */
   public async appendLeaves(leaves: Buffer[]): Promise<void> {
-    for (const leaf of leaves) {
-      await this.appendLeaf(leaf);
+    const processedLeaves: LeafData[] = [];
+    const numLeaves = this.getNumLeaves(true);
+    for (let i = 0; i < leaves.length; i++) {
+      const leaf = leaves[i];
+      const newValue = toBigIntBE(leaf);
+
+      // When appending zero, we just increment the size and do nothing else.
+      if (newValue === 0n) {
+        const newSize = (this.cachedSize ?? this.size) + 1n;
+        if (newSize - 1n > this.maxIndex) {
+          throw Error(`Can't append beyond max index. Max index: ${this.maxIndex}`);
+        }
+        this.cachedSize = newSize;
+        continue;
+      }
+
+      const indexOfPrevious = this.findIndexOfPreviousValue(newValue, true);
+      const previousLeafCopy = this.getLatestLeafDataCopy(indexOfPrevious.index, true);
+
+      if (previousLeafCopy === undefined) {
+        throw new Error(`Previous leaf not found!`);
+      }
+      const newLeaf = {
+        value: newValue,
+        nextIndex: previousLeafCopy.nextIndex,
+        nextValue: previousLeafCopy.nextValue,
+      } as LeafData;
+      if (indexOfPrevious.alreadyPresent) {
+        return;
+      }
+      // insert a new leaf at the highest index and update the values of our previous leaf copy
+      const currentLeafIndex = numLeaves + BigInt(i);
+      previousLeafCopy.nextIndex = currentLeafIndex;
+      previousLeafCopy.nextValue = newLeaf.value;
+      this.cachedLeaves[Number(indexOfPrevious.index)] = previousLeafCopy;
+      await this.updateLeaf(previousLeafCopy, BigInt(indexOfPrevious.index));
+
+      processedLeaves.push(newLeaf);
     }
+
+    await this.encodeAndAppendLeaves(processedLeaves, true);
   }
 
   /**
@@ -179,48 +211,6 @@ export class StandardIndexedTree extends TreeBase implements IndexedTree {
   }
 
   /**
-   * Appends the given leaf to the tree.
-   * @param leaf - The leaf to append.
-   * @returns Empty promise.
-   */
-  private async appendLeaf(leaf: Buffer): Promise<void> {
-    const newValue = toBigIntBE(leaf);
-
-    // Special case when appending zero
-    if (newValue === 0n) {
-      const newSize = (this.cachedSize ?? this.size) + 1n;
-      if (newSize - 1n > this.maxIndex) {
-        throw Error(`Can't append beyond max index. Max index: ${this.maxIndex}`);
-      }
-      this.cachedSize = newSize;
-      return;
-    }
-
-    const indexOfPrevious = this.findIndexOfPreviousValue(newValue, true);
-    const previousLeafCopy = this.getLatestLeafDataCopy(indexOfPrevious.index, true);
-
-    if (previousLeafCopy === undefined) {
-      throw new Error(`Previous leaf not found!`);
-    }
-    const newLeaf = {
-      value: newValue,
-      nextIndex: previousLeafCopy.nextIndex,
-      nextValue: previousLeafCopy.nextValue,
-    } as LeafData;
-    if (indexOfPrevious.alreadyPresent) {
-      return;
-    }
-    // insert a new leaf at the highest index and update the values of our previous leaf copy
-    const currentSize = this.getNumLeaves(true);
-    previousLeafCopy.nextIndex = BigInt(currentSize);
-    previousLeafCopy.nextValue = newLeaf.value;
-    this.cachedLeaves[Number(currentSize)] = newLeaf;
-    this.cachedLeaves[Number(indexOfPrevious.index)] = previousLeafCopy;
-    await this.updateLeaf(previousLeafCopy, BigInt(indexOfPrevious.index));
-    await this.updateLeaf(newLeaf, this.getNumLeaves(true));
-  }
-
-  /**
    * Finds the index of the minimum value in an array.
    * @param values - The collection of values to be searched.
    * @returns The index of the minimum value in the array.
@@ -244,13 +234,28 @@ export class StandardIndexedTree extends TreeBase implements IndexedTree {
    * @returns Empty promise.
    */
   public async init(prefilledSize: number): Promise<void> {
-    this.leaves.push(initialLeaf);
-    await this.updateLeaf(initialLeaf, 0n);
-
-    for (let i = 1; i < prefilledSize; i++) {
-      await this.appendLeaf(Buffer.from([i]));
+    if (prefilledSize < 1) {
+      throw new Error(`Prefilled size must be at least 1!`);
     }
 
+    const leaves: LeafData[] = [];
+    for (let i = 0n; i < prefilledSize; i++) {
+      const newLeaf = {
+        value: toBigIntBE(Buffer.from([Number(i)])),
+        nextIndex: i + 1n,
+        nextValue: i + 1n,
+      };
+      leaves.push(newLeaf);
+    }
+
+    // Make the first leaf have 0 value
+    leaves[0].value = 0n;
+
+    // Make the last leaf point to the first leaf
+    leaves[prefilledSize - 1].nextIndex = 0n;
+    leaves[prefilledSize - 1].nextValue = 0n;
+
+    await this.encodeAndAppendLeaves(leaves, true);
     await this.commit();
   }
 
@@ -311,7 +316,7 @@ export class StandardIndexedTree extends TreeBase implements IndexedTree {
    * @param index - Index of the leaf to be updated.
    * @param hash0Leaf - Whether the leaf should be hashed when value is 0.
    */
-  private async updateLeaf(leaf: LeafData, index: bigint, hash0Leaf = false) {
+  private async updateLeaf(leaf: LeafData, index: bigint, hash0Leaf = true) {
     if (index > this.maxIndex) {
       throw Error(`Index out of bounds. Index ${index}, max index: ${this.maxIndex}.`);
     }
@@ -553,7 +558,7 @@ export class StandardIndexedTree extends TreeBase implements IndexedTree {
     );
 
     // Perform batch insertion of new pending values
-    await this.encodeAndAppendLeaves(pendingInsertionSubtree);
+    await this.encodeAndAppendLeaves(pendingInsertionSubtree, false);
     return [lowLeavesWitnesses, newSubtreeSiblingPath];
   }
 
@@ -568,20 +573,20 @@ export class StandardIndexedTree extends TreeBase implements IndexedTree {
     return fullSiblingPath.getSubtreeSiblingPath(subtreeHeight);
   }
 
-  private async encodeAndAppendLeaves(leaves: LeafData[]): Promise<void> {
+  private async encodeAndAppendLeaves(leaves: LeafData[], hash0Leaf: boolean): Promise<void> {
     const startInsertionIndex = Number(this.getNumLeaves(true));
 
     const serialisedLeaves = leaves.map((leaf, i) => {
       this.cachedLeaves[startInsertionIndex + i] = leaf;
-      return this.encodeLeaf(leaf, true);
+      return this.encodeLeaf(leaf, hash0Leaf);
     });
 
     await super.appendLeaves(serialisedLeaves);
   }
 
-  private encodeLeaf(leaf: LeafData, hash0Leaf = false): Buffer {
+  private encodeLeaf(leaf: LeafData, hash0Leaf: boolean): Buffer {
     let encodedLeaf;
-    if (hash0Leaf && leaf.value == 0n) {
+    if (!hash0Leaf && leaf.value == 0n) {
       encodedLeaf = toBufferBE(0n, 32);
     } else {
       encodedLeaf = this.hasher.compressInputs(
