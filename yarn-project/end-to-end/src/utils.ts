@@ -106,6 +106,9 @@ export async function setup(numberOfAccounts = 1): Promise<{
     const tx = deployMethod.send({ contractAddressSalt: salt });
     await tx.isMined(0, 0.1);
     const receipt = await tx.getReceipt();
+    if (receipt.status !== TxStatus.MINED) {
+      throw new Error(`Deployment tx not mined (status is ${receipt.status})`);
+    }
     const receiptAddress = receipt.contractAddress!;
     if (!receiptAddress.equals(deploymentData.address)) {
       throw new Error(

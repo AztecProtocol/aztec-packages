@@ -54,7 +54,8 @@ describe('e2e_zk_token_contract', () => {
     const receipt = await tx.getReceipt();
     contract = new Contract(receipt.contractAddress!, ZkTokenContractAbi, wallet);
     await tx.isMined(0, 0.1);
-    await tx.getReceipt();
+    const minedReceipt = await tx.getReceipt();
+    expect(minedReceipt.status).toEqual(TxStatus.MINED);
     logger('L2 contract deployed');
     return contract;
   };

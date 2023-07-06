@@ -37,7 +37,7 @@ describe('e2e_account_contract', () => {
     const deployMethod = deployer.deploy();
     await deployMethod.create();
     const tx = deployMethod.send();
-    await tx.isMined(0, 0.1);
+    expect(await tx.isMined(0, 0.1)).toBeTruthy();
 
     return { tx, partialContractAddress: deployMethod.partialContractAddress! };
   };
@@ -53,7 +53,7 @@ describe('e2e_account_contract', () => {
       SchnorrAccountContractAbi,
     );
     const schnorrDeploymentTx = await sendContractDeployment(publicKey, SchnorrAccountContractAbi);
-    await schnorrDeploymentTx.tx.isMined(0, 0.1);
+    expect(await schnorrDeploymentTx.tx.isMined(0, 0.1)).toBeTruthy();
 
     schnorrAccountContractAddress = contractDeploymentInfo.address;
     logger(`L2 contract ${SchnorrAccountContractAbi.name} deployed at ${schnorrAccountContractAddress}`);
@@ -73,6 +73,7 @@ describe('e2e_account_contract', () => {
     const childDeployTx = await sendContractDeployment(publicKey, ChildAbi);
     await childDeployTx.tx.isMined(0, 0.1);
     const childReceipt = await childDeployTx.tx.getReceipt();
+    expect(childReceipt.status).toEqual(TxStatus.MINED);
     child = new Contract(childReceipt.contractAddress!, ChildAbi, wallet);
   };
 
