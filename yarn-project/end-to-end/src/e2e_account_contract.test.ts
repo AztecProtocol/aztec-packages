@@ -43,12 +43,12 @@ describe('e2e_account_contract', () => {
     return { tx, partialContractAddress: deployMethod.partialContractAddress! };
   };
 
-  const deployAccountContract = async (abi: ContractAbi, authProvider: TxAuthProvider) => {
-    const publicKey = await generatePublicKey(privateKey2);
+  const deployAccountContract = async (abi: ContractAbi, authProvider: TxAuthProvider, privateKey: Buffer) => {
+    const publicKey = await generatePublicKey(privateKey);
     const contractAddressSalt = Fr.random();
     const contractDeploymentInfo = await getContractDeploymentInfo(abi, [], contractAddressSalt, publicKey);
     await aztecRpcServer.addAccount(
-      privateKey2,
+      privateKey,
       contractDeploymentInfo.address,
       contractDeploymentInfo.partialAddress,
       abi,
@@ -97,11 +97,13 @@ describe('e2e_account_contract', () => {
     const { contractAddress: schnorrAccountContractAddress, wallet: schnorrWallet } = await deployAccountContract(
       SchnorrAccountContractAbi,
       new SchnorrAuthProvider(await Schnorr.new(), privateKey2),
+      privateKey2,
     );
     logger('Deploying L2 contracts using ecdsa account contract...');
     const { contractAddress: ecdsaAccountContractAddress, wallet: ecdsaWallet } = await deployAccountContract(
       EcdsaAccountContractAbi,
       new EcdsaAuthProvider(privateKey2),
+      privateKey2,
     );
     logger('Deploying child contract...');
     child = await deployChildContract(
@@ -131,11 +133,13 @@ describe('e2e_account_contract', () => {
     const { contractAddress: schnorrAccountContractAddress, wallet: schnorrWallet } = await deployAccountContract(
       SchnorrAccountContractAbi,
       new SchnorrAuthProvider(await Schnorr.new(), privateKey2),
+      privateKey2,
     );
     logger('Deploying L2 contracts using ecdsa account contract...');
     const { contractAddress: ecdsaAccountContractAddress, wallet: ecdsaWallet } = await deployAccountContract(
       EcdsaAccountContractAbi,
       new EcdsaAuthProvider(privateKey2),
+      privateKey2,
     );
     logger('Deploying child contract...');
     child = await deployChildContract(
@@ -164,6 +168,7 @@ describe('e2e_account_contract', () => {
     const { contractAddress: schnorrAccountContractAddress, wallet: schnorrWallet } = await deployAccountContract(
       SchnorrAccountContractAbi,
       new SchnorrAuthProvider(await Schnorr.new(), randomBytes(32)),
+      privateKey2,
     );
     logger('Deploying child contract...');
     child = await deployChildContract(
@@ -180,6 +185,7 @@ describe('e2e_account_contract', () => {
     const { contractAddress: ecdsaAccountContractAddress, wallet: ecdsaWallet } = await deployAccountContract(
       EcdsaAccountContractAbi,
       new EcdsaAuthProvider(randomBytes(32)),
+      privateKey2,
     );
     logger('Deploying child contract...');
     child = await deployChildContract(await ecdsaWallet.getAccountPublicKey(ecdsaAccountContractAddress), ecdsaWallet);
