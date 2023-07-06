@@ -49,6 +49,7 @@
     "lodash.times": "^4.3.2",
     "lodash.zip": "^4.2.0",
     "lodash.zipwith": "^4.2.0",
+    "lokijs": "^1.5.12",
     "ts-jest": "^29.1.0",
     "ts-node": "^10.9.1",
     "tslib": "^2.4.0",

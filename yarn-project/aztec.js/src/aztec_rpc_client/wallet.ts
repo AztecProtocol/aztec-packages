@@ -1,7 +1,14 @@
 import { AztecAddress, AztecRPC, DeployedContract, Fr, NodeInfo, Point, Tx, TxHash, TxReceipt } from '@aztec/aztec-rpc';
-import { TxContext } from '@aztec/circuits.js';
+import { CircuitsWasm, TxContext } from '@aztec/circuits.js';
 import { ContractAbi } from '@aztec/foundation/abi';
-import { ContractData, ContractPublicData, ExecutionRequest, L2BlockL2Logs, TxExecutionRequest } from '@aztec/types';
+import {
+  ContractData,
+  ContractPublicData,
+  ExecutionRequest,
+  L2BlockL2Logs,
+  PackedArguments,
+  TxExecutionRequest,
+} from '@aztec/types';
 import { AccountImplementation } from '../account_impl/index.js';
 
 /**
@@ -83,5 +90,31 @@ export class AccountWallet extends BaseWallet {
   }
   createAuthenticatedTxRequest(executions: ExecutionRequest[], txContext: TxContext): Promise<TxExecutionRequest> {
     return this.accountImpl.createAuthenticatedTxRequest(executions, txContext);
+  }
+}
+
+/**
+ * A wallet implementation that turns execution requests into direct calls without any wrapping or signing.
+ */
+export class ExecutableContractWallet extends BaseWallet {
+  constructor(rpc: AztecRPC, protected address: AztecAddress) {
+    super(rpc);
+  }
+  getAddress(): AztecAddress {
+    return this.address;
+  }
+  async createAuthenticatedTxRequest(
+    executions: ExecutionRequest[],
+    txContext: TxContext,
+  ): Promise<TxExecutionRequest> {
+    if (executions.length !== 1) {
+      throw new Error(`ExecutableContractWallet can only run one execution at a time (requested ${executions.length})`);
+    }
+    const [execution] = executions;
+    const wasm = await CircuitsWasm.get();
+    const packedArguments = await PackedArguments.fromArgs(execution.args, wasm);
+    return Promise.resolve(
+      new TxExecutionRequest(execution.to, execution.functionData, packedArguments.hash, txContext, [packedArguments]),
+    );
   }
 }

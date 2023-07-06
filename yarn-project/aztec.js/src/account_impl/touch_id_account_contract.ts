@@ -8,41 +8,31 @@ import { ExecutionRequest, PackedArguments, PartialContractAddress, TxExecutionR
 import partition from 'lodash.partition';
 import { generateFunctionSelector } from '../index.js';
 import { AccountImplementation } from './index.js';
-
-export type TouchIdAuthResult = {
-  clientDataJson: Buffer;
-  authData: Buffer;
-  signature: Buffer;
-  challenge: Buffer;
-};
-
-function getMockAuthResult(): TouchIdAuthResult {
-  return {
-    clientDataJson: Buffer.from(
-      '{"type":"webauthn.get","challenge":"vZbKGUIVYiS5_etVydZznrjdmJIWlk6ENzZ1AjZ9KPw","origin":"http://localhost:8080","crossOrigin":false}',
-    ),
-    challenge: Buffer.from('191d0f6c04570629e044431139965331f4909bba1f86ed2538ef41d6841a8f6b', 'hex'),
-    authData: Buffer.from('49960de5880e8c687434170f6476605b8fe4aeb9a28632c7995cf3ba831d97630500000000', 'hex'),
-    signature: Buffer.from(
-      '1869ce6f71e02b77426dec03e342079d75745c8d40a8ac0be73f812724d5ee2ddf37dda13335e00a0918286ac5f3130b43b6791393371d22378c6660a4be4f92',
-      'hex',
-    ),
-  };
-}
+import { WalletConnectTouchIdAuthProvider } from '../auth/touchid.js';
+import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
+import { toFriendlyJSON } from '@aztec/circuits.js/utils';
 
 /**
  * Account backed by an account contract
  */
 export class TouchIdAccountContract implements AccountImplementation {
+  private auth: WalletConnectTouchIdAuthProvider;
+  private logger: DebugLogger;
+
   constructor(
     private address: AztecAddress,
     private pubKey: PublicKey,
     private partialContractAddress: PartialContractAddress,
     private contractAbi: ContractAbi,
     private wasm: CircuitsWasm,
-  ) {}
+  ) {
+    this.auth = new WalletConnectTouchIdAuthProvider();
+    this.logger = createDebugLogger('aztec:account:touch_id');
+  }
 
-  init() {}
+  init(): Promise<void> {
+    return this.auth.init();
+  }
 
   getAddress(): AztecAddress {
     return this.address;
@@ -64,9 +54,12 @@ export class TouchIdAccountContract implements AccountImplementation {
     );
 
     const { payload, packedArguments: callsPackedArguments } = await buildPayload(privateCalls, publicCalls, this.wasm);
-    const _hash = hashPayload(payload);
+    const challenge = hashPayload(payload);
+    this.logger(`Challenge: ${toFriendlyJSON(challenge)}`);
 
-    const authResult = getMockAuthResult();
+    const authResult = await this.auth.authenticateTx(challenge);
+    this.logger(`Auth result: ${toFriendlyJSON(authResult)}`);
+
     const publicKeyAsBuffer = this.pubKey.toBuffer();
     const args = [
       payload,
@@ -75,7 +68,7 @@ export class TouchIdAccountContract implements AccountImplementation {
       authResult.signature,
       authResult.authData,
       authResult.clientDataJson,
-      authResult.challenge,
+      challenge,
     ];
     const abi = this.getEntrypointAbi();
     const selector = generateFunctionSelector(abi.name, abi.parameters);

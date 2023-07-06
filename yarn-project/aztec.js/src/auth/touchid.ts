@@ -1,17 +1,16 @@
-import { AztecAddress } from '../index.js';
-import { EntrypointPayload } from '../account_impl/account_contract.js';
+import { createDebugLogger } from '@aztec/foundation/log';
 import { Core } from '@walletconnect/core';
 import { SignClient } from '@walletconnect/sign-client';
-import q from 'ya';
-import { createDebugLogger } from '@aztec/foundation/log';
-/**
- *
- */
+import q from 'qrcode-terminal';
 
 const logger = createDebugLogger('aztec:WalletConnectTouchIdAuthProvider');
-/**
- *
- */
+
+export type TouchIdAuthResult = {
+  clientDataJson: Buffer;
+  authData: Buffer;
+  signature: Buffer;
+};
+
 export class WalletConnectTouchIdAuthProvider {
   private signClient: any;
   private aztecChainId = +'671337';
@@ -20,12 +19,12 @@ export class WalletConnectTouchIdAuthProvider {
   constructor() {}
   async init() {
     const core = new Core({
-      logger: 'debug',
+      logger: 'info',
       projectId: '46b15d4ac7df71221bbf8b7299b90b88', //process.env.WALLETCONNECT_PROJECT_ID,
     });
 
     const signClient = await SignClient.init({
-      logger: 'debug',
+      logger: 'info',
       core,
       metadata: {
         name: 'End to End Tests App',
@@ -57,7 +56,8 @@ export class WalletConnectTouchIdAuthProvider {
   async disconnect() {
     await this.signClient.engine.disconnect();
   }
-  async authenticateTx(payload: EntrypointPayload, payloadHash: Buffer, _address: AztecAddress): Promise<any> {
+
+  async authenticateTx(payloadHash: Buffer): Promise<TouchIdAuthResult> {
     const resp = await this.signClient.request({
       topic: this.session.topic,
       request: { method: 'aztec_authenticateTx', params: [payloadHash] },

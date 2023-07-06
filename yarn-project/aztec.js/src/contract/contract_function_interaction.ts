@@ -65,6 +65,8 @@ export class ContractFunctionInteraction {
       const nodeInfo = await this.wallet.getNodeInfo();
       const txContext = TxContext.empty(new Fr(nodeInfo.chainId), new Fr(nodeInfo.version));
       const txRequest = await this.wallet.createAuthenticatedTxRequest([executionRequest], txContext);
+      // TODO: Check if we can rely on this line below to avoid having to manually set up packed args in the account implementation
+      // txRequest.packedArguments.push(await PackedArguments.fromArgs(executionRequest.args));
       this.txRequest = txRequest;
     }
     return this.txRequest;
