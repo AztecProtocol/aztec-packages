@@ -52,7 +52,6 @@ contract Rollup is IRollup {
       bytes32[] memory l1ToL2Msgs
     ) = Decoder.decode(_l2Block);
 
-
     // @todo @LHerskind Proper genesis state. If the state is empty, we allow anything for now.
     if (rollupStateHash != bytes32(0) && rollupStateHash != oldStateHash) {
       revert Errors.Rollup__InvalidStateHash(rollupStateHash, oldStateHash);

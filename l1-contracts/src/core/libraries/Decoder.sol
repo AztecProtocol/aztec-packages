@@ -17,8 +17,8 @@ import {Hash} from "@aztec/core/libraries/Hash.sol";
  * -------------------
  * L2 Block Data specification
  * -------------------
-*  | byte start                                             | num bytes  | name
- *  | ---                                                    | ---        | --- 
+ *  | byte start                                             | num bytes  | name
+ *  | ---                                                    | ---        | ---
  *  | 0x0000                                                 | 0x20       | chain-id
  *  | 0x0020                                                 | 0x20       | version
  *  | 0x0040                                                 | 0x20       | L2 block number
@@ -194,7 +194,6 @@ library Decoder {
   {
     // 0x20 for the block number + 0x11c for the header elements
     bytes memory temp = new bytes(0x20 + 0x11c);
-
 
     assembly {
       // Copy block number
