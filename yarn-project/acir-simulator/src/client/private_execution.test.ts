@@ -23,7 +23,6 @@ import {
   ChildAbi,
   NonNativeTokenContractAbi,
   ParentAbi,
-  PublicToPrivateContractAbi,
   TestContractAbi,
   ZkTokenContractAbi,
 } from '@aztec/noir-contracts/examples';
@@ -80,14 +79,7 @@ describe('Private Execution test suite', () => {
       const abi = TestContractAbi.functions[0];
       const txRequest = await buildTxExecutionRequest({ args: [], abi, isConstructor: true });
 
-      const result = await acirSimulator.run(
-        txRequest,
-        abi,
-        AztecAddress.ZERO,
-        EthAddress.ZERO,
-        historicRoots,
-        await Grumpkin.new(),
-      );
+      const result = await acirSimulator.run(txRequest, abi, AztecAddress.ZERO, EthAddress.ZERO, historicRoots);
 
       expect(result.callStackItem.publicInputs.newCommitments).toEqual(new Array(NEW_COMMITMENTS_LENGTH).fill(Fr.ZERO));
     });
@@ -119,14 +111,7 @@ describe('Private Execution test suite', () => {
       const abi = ZkTokenContractAbi.functions.find(f => f.name === 'constructor')!;
 
       const txRequest = await buildTxExecutionRequest({ args: [140, owner], abi, isConstructor: true });
-      const result = await acirSimulator.run(
-        txRequest,
-        abi,
-        contractAddress,
-        EthAddress.ZERO,
-        historicRoots,
-        await Grumpkin.new(),
-      );
+      const result = await acirSimulator.run(txRequest, abi, contractAddress, EthAddress.ZERO, historicRoots);
 
       expect(result.preimages.newNotes).toHaveLength(1);
       const newNote = result.preimages.newNotes[0];
@@ -146,14 +131,7 @@ describe('Private Execution test suite', () => {
       const abi = ZkTokenContractAbi.functions.find(f => f.name === 'mint')!;
 
       const txRequest = await buildTxExecutionRequest({ origin: contractAddress, args: [140, owner], abi });
-      const result = await acirSimulator.run(
-        txRequest,
-        abi,
-        AztecAddress.ZERO,
-        EthAddress.ZERO,
-        historicRoots,
-        await Grumpkin.new(),
-      );
+      const result = await acirSimulator.run(txRequest, abi, AztecAddress.ZERO, EthAddress.ZERO, historicRoots);
 
       expect(result.preimages.newNotes).toHaveLength(1);
       const newNote = result.preimages.newNotes[0];
@@ -209,14 +187,7 @@ describe('Private Execution test suite', () => {
       const args = [amountToTransfer, owner, recipient];
       const txRequest = await buildTxExecutionRequest({ origin: contractAddress, args, abi });
 
-      const result = await acirSimulator.run(
-        txRequest,
-        abi,
-        AztecAddress.random(),
-        EthAddress.ZERO,
-        historicRoots,
-        await Grumpkin.new(),
-      );
+      const result = await acirSimulator.run(txRequest, abi, AztecAddress.random(), EthAddress.ZERO, historicRoots);
 
       // The two notes were nullified
       const newNullifiers = result.callStackItem.publicInputs.newNullifiers.filter(field => !field.equals(Fr.ZERO));
@@ -296,14 +267,7 @@ describe('Private Execution test suite', () => {
 
       const args = [amountToTransfer, owner, recipient];
       const txRequest = await buildTxExecutionRequest({ origin: contractAddress, args, abi });
-      const result = await acirSimulator.run(
-        txRequest,
-        abi,
-        AztecAddress.random(),
-        EthAddress.ZERO,
-        historicRoots,
-        await Grumpkin.new(),
-      );
+      const result = await acirSimulator.run(txRequest, abi, AztecAddress.random(), EthAddress.ZERO, historicRoots);
 
       const newNullifiers = result.callStackItem.publicInputs.newNullifiers.filter(field => !field.equals(Fr.ZERO));
       expect(newNullifiers).toHaveLength(1);
@@ -325,14 +289,7 @@ describe('Private Execution test suite', () => {
       const initialValue = 100n;
       const abi = ChildAbi.functions.find(f => f.name === 'value')!;
       const txRequest = await buildTxExecutionRequest({ args: [initialValue], abi });
-      const result = await acirSimulator.run(
-        txRequest,
-        abi,
-        AztecAddress.ZERO,
-        EthAddress.ZERO,
-        historicRoots,
-        await Grumpkin.new(),
-      );
+      const result = await acirSimulator.run(txRequest, abi, AztecAddress.ZERO, EthAddress.ZERO, historicRoots);
 
       expect(result.callStackItem.publicInputs.returnValues[0]).toEqual(new Fr(initialValue + privateIncrement));
     }, 30_000);
@@ -352,14 +309,7 @@ describe('Private Execution test suite', () => {
 
       logger(`Parent deployed at ${parentAddress.toShortString()}`);
       logger(`Calling child function ${childSelector.toString('hex')} at ${childAddress.toShortString()}`);
-      const result = await acirSimulator.run(
-        txRequest,
-        parentAbi,
-        parentAddress,
-        EthAddress.ZERO,
-        historicRoots,
-        await Grumpkin.new(),
-      );
+      const result = await acirSimulator.run(txRequest, parentAbi, parentAddress, EthAddress.ZERO, historicRoots);
 
       expect(result.callStackItem.publicInputs.returnValues[0]).toEqual(new Fr(privateIncrement));
       expect(oracle.getFunctionABI.mock.calls[0]).toEqual([childAddress, childSelector]);
@@ -424,14 +374,7 @@ describe('Private Execution test suite', () => {
 
       const args = [bridgedAmount, recipient, recipient.x, messageKey, secret, canceller.toField()];
       const txRequest = await buildTxExecutionRequest({ origin: contractAddress, abi, args });
-      const result = await acirSimulator.run(
-        txRequest,
-        abi,
-        contractAddress,
-        EthAddress.ZERO,
-        historicRoots,
-        await Grumpkin.new(),
-      );
+      const result = await acirSimulator.run(txRequest, abi, contractAddress, EthAddress.ZERO, historicRoots);
 
       // Check a nullifier has been created
       const newNullifiers = result.callStackItem.publicInputs.newNullifiers.filter(field => !field.equals(Fr.ZERO));
@@ -444,7 +387,7 @@ describe('Private Execution test suite', () => {
 
       const contractAddress = AztecAddress.random();
       const amount = 100n;
-      const abi = PublicToPrivateContractAbi.functions.find(f => f.name === 'mintFromPublicMessage')!;
+      const abi = NonNativeTokenContractAbi.functions.find(f => f.name === 'redeemShield')!;
 
       const wasm = await CircuitsWasm.get();
       const secret = new Fr(1n);
@@ -481,14 +424,7 @@ describe('Private Execution test suite', () => {
         abi,
         args: [amount, secret, recipient],
       });
-      const result = await acirSimulator.run(
-        txRequest,
-        abi,
-        contractAddress,
-        EthAddress.ZERO,
-        historicRoots,
-        await Grumpkin.new(),
-      );
+      const result = await acirSimulator.run(txRequest, abi, contractAddress, EthAddress.ZERO, historicRoots);
 
       // Check a nullifier has been created.
       const newNullifiers = result.callStackItem.publicInputs.newNullifiers.filter(field => !field.equals(Fr.ZERO));
@@ -513,14 +449,7 @@ describe('Private Execution test suite', () => {
 
       const args = [Fr.fromBuffer(childAddress.toBuffer()), Fr.fromBuffer(childSelector), 42n];
       const txRequest = await buildTxExecutionRequest({ origin: parentAddress, abi: parentAbi, args });
-      const result = await acirSimulator.run(
-        txRequest,
-        parentAbi,
-        parentAddress,
-        EthAddress.ZERO,
-        historicRoots,
-        await Grumpkin.new(),
-      );
+      const result = await acirSimulator.run(txRequest, parentAbi, parentAddress, EthAddress.ZERO, historicRoots);
 
       expect(result.enqueuedPublicFunctionCalls).toHaveLength(1);
       expect(result.enqueuedPublicFunctionCalls[0]).toEqual(
