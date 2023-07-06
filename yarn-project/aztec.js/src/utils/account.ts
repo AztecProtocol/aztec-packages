@@ -1,4 +1,4 @@
-import { AztecRPC, getContractDeploymentInfo } from '@aztec/aztec-rpc';
+import { AztecRPC, TxStatus, getContractDeploymentInfo } from '@aztec/aztec-rpc';
 import { AztecAddress, CircuitsWasm, Fr, Point } from '@aztec/circuits.js';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { createDebugLogger } from '@aztec/foundation/log';
@@ -39,6 +39,9 @@ export async function createAccounts(
     const tx = contractDeployer.deploy().send({ contractAddressSalt: salt });
     await tx.isMined(0, 0.1);
     const receipt = await tx.getReceipt();
+    if (receipt.status !== TxStatus.MINED) {
+      throw new Error(`Deployment tx not mined (status is ${receipt.status})`);
+    }
     const address = receipt.contractAddress!;
     logger(`Created account ${address.toString()} with public key ${publicKey.toString()}`);
     accountImpls.registerAccount(

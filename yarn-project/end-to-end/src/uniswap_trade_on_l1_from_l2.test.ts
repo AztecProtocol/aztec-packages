@@ -129,6 +129,7 @@ describe('uniswap_trade_on_l1_from_l2', () => {
     const tx = deployer.deploy().send({ portalContract: uniswapPortalAddress });
     await tx.isMined(0, 0.1);
     const receipt = await tx.getReceipt();
+    expect(receipt.status).toEqual(TxStatus.MINED);
     uniswapL2Contract = new Contract(receipt.contractAddress!, UniswapContractAbi, wallet);
     await uniswapL2Contract.attach(uniswapPortalAddress);
 

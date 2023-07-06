@@ -38,7 +38,7 @@ describe('e2e_account_contract', () => {
     const deployMethod = deployer.deploy();
     await deployMethod.create({ contractAddressSalt });
     const tx = deployMethod.send();
-    await tx.isMined(0, 0.1);
+    expect(await tx.isMined(0, 0.1)).toBeTruthy();
 
     return { tx, partialContractAddress: deployMethod.partialContractAddress! };
   };
@@ -54,7 +54,7 @@ describe('e2e_account_contract', () => {
       abi,
     );
     const accountDeploymentTx = await sendContractDeployment(publicKey, abi, contractAddressSalt);
-    await accountDeploymentTx.tx.isMined(0, 0.1);
+    expect(await accountDeploymentTx.tx.isMined(0, 0.1)).toBeTruthy();
 
     const wallet = new AccountWallet(
       aztecRpcServer,
@@ -79,6 +79,7 @@ describe('e2e_account_contract', () => {
     const childDeployTx = await sendContractDeployment(publicKey, ChildAbi, contractAddressSalt);
     await childDeployTx.tx.isMined(0, 0.1);
     const childReceipt = await childDeployTx.tx.getReceipt();
+    expect(childReceipt.status).toEqual(TxStatus.MINED);
     return new Contract(childReceipt.contractAddress!, ChildAbi, wallet);
   };
 
