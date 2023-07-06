@@ -20,37 +20,23 @@ contract TouchIdAccount {
         inputs: pub PrivateContextInputs,
         payload: pub EntrypointPayload, // contains a set of arguments, selectors, targets and a nonce
         owner: pub [u8;64], // x and y coordinates concatenated
-        signature: pub [Field;3],
-        partialContractAddress: pub Field,
-        challenge: [u8; 32],
+        partial_contract_address: pub Field,
+        signature: pub [u8;64],
         auth_data : [u8; 37], 
-        client_data_json : [u8;134]
+        client_data_json : [u8;134],
+        challenge: [u8; 32],
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
-        // 278 = ENTRYPOINT_PAYLOAD_SIZE + 64 + 3 + 1 + 32 + 37 + 134
-        let mut args: BoundedVec<Field, 278> = BoundedVec::new(0);
+        // 339 = ENTRYPOINT_PAYLOAD_SIZE + 64 + 1 + 64 + 32 + 37 + 134
+        let mut args: BoundedVec<Field, 339> = BoundedVec::new(0);
         args = args.push_array(payload.serialize());
-        for byte in owner {
-            args = args.push(byte as Field);
-        }
-        args = args.push_array(signature);
-        args = args.push(partialContractAddress);
-        
-        let mut context = Context::new(inputs, abi::hash_args(args.storage));
+        for byte in owner { args = args.push(byte as Field); }
+        args = args.push(partial_contract_address);
+        for byte in signature { args = args.push(byte as Field); }
+        for byte in auth_data { args = args.push(byte as Field); }
+        for byte in client_data_json { args = args.push(byte as Field); }
+        for byte in challenge { args = args.push(byte as Field); }
 
-        // Decompress signature from 3 fields to 64 bytes
-        let mut decompressed_signature: [u8;64] = [0;64];
-        let signature_part_0 = signature[0].to_be_bytes(32);
-        for i in 0..31 {
-            decompressed_signature[i] = signature_part_0[i + 1];
-        }
-        let signature_part_1 = signature[1].to_be_bytes(32);
-        for i in 0..31 {
-            decompressed_signature[i + 31] = signature_part_1[i + 1];
-        }
-        let signature_part_2 = signature[2].to_be_bytes(32);
-        for i in 0..2 {
-            decompressed_signature[i + 62] = signature_part_2[i + 1];
-        }
+        let mut context = Context::new(inputs, abi::hash_args(args.storage));
 
         // Build owner x and y pubkey
         let mut x: [u8; 32] = [0;32];
@@ -84,11 +70,11 @@ contract TouchIdAccount {
                message[i+37] = client_data_hash[i];
           }
           let message_hash = std::hash::sha256(message);
-          let valid_signature = std::ecdsa_secp256r1::verify_signature(x, y, decompressed_signature, message_hash);
+          let valid_signature = std::ecdsa_secp256r1::verify_signature(x, y, signature, message_hash);
           assert(valid_signature);
 
         // TODO: When we can use pedersen with non-zero generators, get this working        
-        //let reproduced_address = dep::std::hash::pedersen([owner, partialContractAddress])[0];
+        //let reproduced_address = dep::std::hash::pedersen([owner, partial_contract_address])[0];
         //constrain reproduced_address == inputs.call_context.storage_contract_address;
 
         // Call private functions
