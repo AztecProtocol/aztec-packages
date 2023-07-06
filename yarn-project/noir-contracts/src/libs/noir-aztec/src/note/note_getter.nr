@@ -3,6 +3,7 @@ use crate::note::note_getter_options::NoteGetterOptions;
 use crate::note::note_hash::compute_siloed_note_hash;
 use crate::note::note_interface::NoteInterface;
 use crate::oracle;
+use crate::oracle::debug_log::debug_log_format;
 
 fn get_note<Note, N>(
     mut context: Context,
@@ -11,7 +12,8 @@ fn get_note<Note, N>(
 ) -> (Context, Note) {
     let deserialise = note_interface.deserialise;
     let dummy = note_interface.dummy;
-    let note = oracle::notes::get_note(context.oracle_connector, storage_slot, deserialise, dummy);
+    let (context_tmp, note) = oracle::notes::get_note(context, storage_slot, deserialise, dummy);
+    context = context_tmp;
 
     let mut note_hash = 0;
     let is_dummy = note_interface.is_dummy;
@@ -30,7 +32,10 @@ fn get_notes<Note, N, S, P>(
     note_interface: NoteInterface<Note, N>,
     options: NoteGetterOptions<Note, N, S, P>,
 ) -> (Context, [Note; S]) {
-    let notes = get_notes_internal(context.oracle_connector, storage_slot, note_interface, options);
+    debug_log_format("get_notes context.oracle_connector was: {0}", [context.oracle_connector]);
+    let (context_tmp, notes) = get_notes_internal(context, storage_slot, note_interface, options);
+    context = context_tmp;
+    debug_log_format("get_notes context.oracle_connector updated to: {0}", [context.oracle_connector]);
     let is_dummy = note_interface.is_dummy;
     for i in 0..notes.len() {
         let note = notes[i];
@@ -47,11 +52,11 @@ fn get_notes<Note, N, S, P>(
 
 // TODO: Should be unconstrained.
 fn get_notes_internal<Note, N, S, P>(
-    mut oracle_connector: Field,
+    mut context: Context,
     storage_slot: Field,
     note_interface: NoteInterface<Note, N>,
     options: NoteGetterOptions<Note, N, S, P>,
-) -> [Note; S] {
+) -> (Context, [Note; S]) {
     let deserialise = note_interface.deserialise;
     let dummy = note_interface.dummy;
     let sort_by = options.sort_by;
@@ -64,7 +69,10 @@ fn get_notes_internal<Note, N, S, P>(
     let skip = options.skip;
     let filter = options.filter;
     let filter_args = options.filter_args;
-    oracle::notes::get_notes(oracle_connector, storage_slot, deserialise, dummy, sort_by_indices, sort_order, skip, filter, filter_args)
+    debug_log_format("get_notes_internal oracle_connector was: {0}", [context.oracle_connector]);
+    let (context_tmp, notes) = oracle::notes::get_notes(context, storage_slot, deserialise, dummy, sort_by_indices, sort_order, skip, filter, filter_args);
+    context = context_tmp;
+    (context, notes)
 }
 
 

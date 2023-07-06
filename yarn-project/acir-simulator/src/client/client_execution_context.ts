@@ -38,6 +38,9 @@ type ACVMWithReadRequestIndex = {
  * The execution context for a client tx simulation.
  */
 export class ClientTxExecutionContext {
+  /** Pending commitments created (and not nullified) up to current point in execution **/
+  public pendingNotes: PendingNoteData[] = [];
+
   constructor(
     /**  The database oracle. */
     public db: DBOracle,
@@ -45,9 +48,6 @@ export class ClientTxExecutionContext {
     public txContext: TxContext,
     /** The old roots. */
     public historicRoots: PrivateHistoricTreeRoots,
-    /** Pending commitments created (and not nullified) up to current point in execution **/
-    public pendingNotes: PendingNoteData[] = [],
-
     /** The cache of packed arguments */
     public packedArgsCache: PackedArgsCache,
   ) {}
@@ -85,6 +85,7 @@ export class ClientTxExecutionContext {
       if (note.contractAddress.equals(contractAddress) && note.storageSlot == storageSlot) {
         // TODO(dbanks12): flag as pending and separately provide "hint" of
         // which "new_commitment" in which kernel this read maps to
+        console.log(`Adding pending note - preimage length: ${note.preimage.length}`);
         pendingPreimages.push(note.preimage);
       }
     }

@@ -88,13 +88,19 @@ export class PrivateFunctionExecution {
         ),
       ],
       getNotes2: async ([_connector, storageSlot]: ACVMField[]) => {
+        this.log(`getNotes2 - connector: ${_connector}`);
         const { preimagesACVM, realLeafIndices } = await this.context.getNotes(this.contractAddress, storageSlot, 2);
 
         readRequestCommitmentIndices.push(...realLeafIndices);
+        this.log(`Read ${preimagesACVM.length} fields from storage slot ${storageSlot.toString()}`);
         return preimagesACVM;
       },
       getRandomField: () => Promise.resolve([toACVMField(Fr.random())]),
       notifyCreatedNote: ([_connector, storageSlot, ...acvmPreimage]: ACVMField[]) => {
+        this.log(`notifyCreatedNote - connector: ${_connector}`);
+        this.log(`notifyCreatedNote - : ${storageSlot}`);
+        this.log(`notifyCreatedNote - preimage length: ${acvmPreimage.length}`);
+        this.log(`notifyCreatedNote - preimage: ${JSON.stringify(acvmPreimage)}`);
         const pendingNoteData: PendingNoteData = {
           preimage: acvmPreimage,
           contractAddress: this.contractAddress,
