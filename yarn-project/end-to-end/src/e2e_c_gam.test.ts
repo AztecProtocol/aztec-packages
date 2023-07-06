@@ -7,6 +7,7 @@ import {
   ContractFunctionInteraction,
   Fr,
   Point,
+  Wallet,
 } from '@aztec/aztec.js';
 import { CGamContractAbi } from '@aztec/noir-contracts/examples';
 import { DebugLogger } from '@aztec/foundation/log';
@@ -16,13 +17,14 @@ import { pointToPublicKey, setup } from './utils.js';
 describe('e2e_c_gam_contract', () => {
   let aztecNode: AztecNodeService;
   let aztecRpcServer: AztecRPCServer;
+  let wallet: Wallet;
   let accounts: AztecAddress[];
   let logger: DebugLogger;
 
   let contract: Contract;
 
   beforeEach(async () => {
-    ({ aztecNode, aztecRpcServer, accounts, logger } = await setup(/*two accounts for 2 players*/ 2));
+    ({ aztecNode, aztecRpcServer, accounts, logger, wallet } = await setup(/*two accounts for 2 players*/ 2));
   }, 100_000);
 
   afterEach(async () => {
@@ -35,7 +37,7 @@ describe('e2e_c_gam_contract', () => {
     const deployer = new ContractDeployer(CGamContractAbi, aztecRpcServer);
     const tx = deployer.deploy().send();
     const receipt = await tx.getReceipt();
-    contract = new Contract(receipt.contractAddress!, CGamContractAbi, aztecRpcServer);
+    contract = new Contract(receipt.contractAddress!, CGamContractAbi, wallet);
     await tx.isMined(0, 0.1);
     await tx.getReceipt();
     logger('L2 contract deployed');
