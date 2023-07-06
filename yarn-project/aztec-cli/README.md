@@ -125,7 +125,9 @@ azti create-account [options]
 
 Options:
 
+- `-k, --private-key`: Private Key to use for the 1st account generation.
 - `-u, --rpc-url <string>`: URL of the Aztec RPC. Default: `http://localhost:8080`.
+- `-n, --num-addresses <number>`: Number of accounts to create. Default: 1.
 
 ### get-accounts
 
