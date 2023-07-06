@@ -816,6 +816,5 @@ workflows:
           <<: *defaults
       - deploy-npm:
           requires:
-            - foundation
-            -
             - e2e-end
+          <<: *defaults
