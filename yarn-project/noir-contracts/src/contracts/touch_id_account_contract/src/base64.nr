@@ -106,7 +106,7 @@ fn decode_base64(base64: [u8; 43]) -> [u8; 32] {
         buffer[buffer_start] = d0 << 2 | d1 >> 4;
         buffer[buffer_start + 1] = d1 << 4 | d2 >> 2;
 
-        if (i < 10) {
+        if (i as u32 < 10 as u32) {
             let d3 = decode(base64[block_start + 3]);
             buffer[buffer_start + 2] = d2 << 6 | d3;
         }
