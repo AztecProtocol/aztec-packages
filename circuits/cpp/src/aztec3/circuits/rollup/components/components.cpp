@@ -174,7 +174,7 @@ std::array<fr, NUM_FIELDS_PER_SHA256> compute_kernels_calldata_hash(
     constexpr auto num_bytes = (calldata_hash_inputs.size() - 4) * 32;
     std::array<uint8_t, num_bytes> calldata_hash_inputs_bytes;
     // Convert all into a buffer, then copy into the array, then hash
-    for (size_t i = 0; i < calldata_hash_inputs.size() - 4; i++) {  // -4 because logs are processed out of the loop
+    for (size_t i = 0; i < calldata_hash_inputs.size() - 8; i++) {  // -8 because logs are processed out of the loop
         auto as_bytes = calldata_hash_inputs[i].to_buffer();
 
         auto offset = i * 32;
