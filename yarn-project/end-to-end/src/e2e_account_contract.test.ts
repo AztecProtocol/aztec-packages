@@ -17,7 +17,7 @@ import { ContractAbi } from '@aztec/foundation/abi';
 import { DebugLogger } from '@aztec/foundation/log';
 import { ChildAbi, EcdsaAccountContractAbi, SchnorrAccountContractAbi } from '@aztec/noir-contracts/examples';
 
-import { Schnorr } from '@aztec/circuits.js/barretenberg';
+import { Ecdsa, Schnorr } from '@aztec/circuits.js/barretenberg';
 import { PublicKey } from '@aztec/key-store';
 import { SchnorrAuthProvider } from './auth.js';
 import { privateKey2 } from './fixtures.js';
@@ -43,8 +43,12 @@ describe('e2e_account_contract', () => {
     return { tx, partialContractAddress: deployMethod.partialContractAddress! };
   };
 
-  const deployAccountContract = async (abi: ContractAbi, authProvider: TxAuthProvider, privateKey: Buffer) => {
-    const publicKey = await generatePublicKey(privateKey);
+  const deployAccountContract = async (
+    abi: ContractAbi,
+    authProvider: TxAuthProvider,
+    publicKey: PublicKey,
+    privateKey: Buffer,
+  ) => {
     const contractAddressSalt = Fr.random();
     const contractDeploymentInfo = await getContractDeploymentInfo(abi, [], contractAddressSalt, publicKey);
     await aztecRpcServer.addAccount(
@@ -83,26 +87,21 @@ describe('e2e_account_contract', () => {
     return new Contract(childReceipt.contractAddress!, ChildAbi, wallet);
   };
 
-  beforeEach(async () => {
-    ({ aztecNode, aztecRpcServer, logger } = await setup(0));
-  }, 100_000);
-
-  afterEach(async () => {
-    await aztecNode.stop();
-    await aztecRpcServer.stop();
-  });
-
-  it('calls a private function', async () => {
+  const deployAll = async () => {
     logger('Deploying L2 contracts using schnorr account contract...');
+    const schnorrPublicKey = await generatePublicKey(privateKey2);
     const { contractAddress: schnorrAccountContractAddress, wallet: schnorrWallet } = await deployAccountContract(
       SchnorrAccountContractAbi,
       new SchnorrAuthProvider(await Schnorr.new(), privateKey2),
+      schnorrPublicKey,
       privateKey2,
     );
     logger('Deploying L2 contracts using ecdsa account contract...');
+    const ecdsaPublicKey = Point.fromBuffer((await Ecdsa.new()).computePublicKey(privateKey2));
     const { contractAddress: ecdsaAccountContractAddress, wallet: ecdsaWallet } = await deployAccountContract(
       EcdsaAccountContractAbi,
       new EcdsaAuthProvider(privateKey2),
+      ecdsaPublicKey,
       privateKey2,
     );
     logger('Deploying child contract...');
@@ -115,6 +114,28 @@ describe('e2e_account_contract', () => {
     );
     // create a contract object to be used with the ecdsa signer
     const childContractWithEcdsaSigning = new Contract(child.address, child.abi, ecdsaWallet);
+
+    return {
+      child,
+      childContractWithEcdsaSigning,
+      schnorrAccountContractAddress,
+      ecdsaAccountContractAddress,
+    };
+  };
+
+  beforeEach(async () => {
+    ({ aztecNode, aztecRpcServer, logger } = await setup(0));
+  }, 100_000);
+
+  afterEach(async () => {
+    await aztecNode.stop();
+    await aztecRpcServer.stop();
+  });
+
+  it('calls a private function', async () => {
+    const { child, childContractWithEcdsaSigning, schnorrAccountContractAddress, ecdsaAccountContractAddress } =
+      await deployAll();
+
     logger('Calling private function...');
     const tx1 = child.methods.value(42).send({ from: schnorrAccountContractAddress });
     const tx2 = childContractWithEcdsaSigning.methods.value(56).send({ from: ecdsaAccountContractAddress });
@@ -129,25 +150,9 @@ describe('e2e_account_contract', () => {
   }, 60_000);
 
   it('calls a public function', async () => {
-    logger('Deploying L2 contracts using schnorr account contract...');
-    const { contractAddress: schnorrAccountContractAddress, wallet: schnorrWallet } = await deployAccountContract(
-      SchnorrAccountContractAbi,
-      new SchnorrAuthProvider(await Schnorr.new(), privateKey2),
-      privateKey2,
-    );
-    logger('Deploying L2 contracts using ecdsa account contract...');
-    const { contractAddress: ecdsaAccountContractAddress, wallet: ecdsaWallet } = await deployAccountContract(
-      EcdsaAccountContractAbi,
-      new EcdsaAuthProvider(privateKey2),
-      privateKey2,
-    );
-    logger('Deploying child contract...');
-    child = await deployChildContract(
-      await schnorrWallet.getAccountPublicKey(schnorrAccountContractAddress),
-      schnorrWallet,
-    );
-    // create a contract object to be used with the ecdsa signer
-    const childContractWithEcdsaSigning = new Contract(child.address, child.abi, ecdsaWallet);
+    const { child, childContractWithEcdsaSigning, schnorrAccountContractAddress, ecdsaAccountContractAddress } =
+      await deployAll();
+
     logger('Calling public function...');
     const tx1 = child.methods.pubStoreValue(42).send({ from: schnorrAccountContractAddress });
     const tx2 = childContractWithEcdsaSigning.methods.pubStoreValue(15).send({ from: ecdsaAccountContractAddress });
@@ -165,9 +170,11 @@ describe('e2e_account_contract', () => {
 
   it('fails to execute function with invalid schnorr signature', async () => {
     logger('Deploying L2 contracts with invalid Schnorr signer...');
+    const schnorrPublicKey = await generatePublicKey(privateKey2);
     const { contractAddress: schnorrAccountContractAddress, wallet: schnorrWallet } = await deployAccountContract(
       SchnorrAccountContractAbi,
       new SchnorrAuthProvider(await Schnorr.new(), randomBytes(32)),
+      schnorrPublicKey,
       privateKey2,
     );
     logger('Deploying child contract...');
@@ -175,21 +182,23 @@ describe('e2e_account_contract', () => {
       await schnorrWallet.getAccountPublicKey(schnorrAccountContractAddress),
       schnorrWallet,
     );
-    await expect(child.methods.value(42).create({ from: schnorrAccountContractAddress })).rejects.toMatch(
+    await expect(child.methods.value(42).simulate({ from: schnorrAccountContractAddress })).rejects.toMatch(
       /could not satisfy all constraints/,
     );
   }, 60_000);
 
   it('fails to execute function with invalid ecdsa signature', async () => {
     logger('Deploying L2 contracts with invalid ecdsa signer...');
+    const ecdsaPublicKey = Point.fromBuffer((await Ecdsa.new()).computePublicKey(privateKey2));
     const { contractAddress: ecdsaAccountContractAddress, wallet: ecdsaWallet } = await deployAccountContract(
       EcdsaAccountContractAbi,
       new EcdsaAuthProvider(randomBytes(32)),
+      ecdsaPublicKey,
       privateKey2,
     );
     logger('Deploying child contract...');
     child = await deployChildContract(await ecdsaWallet.getAccountPublicKey(ecdsaAccountContractAddress), ecdsaWallet);
-    await expect(child.methods.value(42).create({ from: ecdsaAccountContractAddress })).rejects.toMatch(
+    await expect(child.methods.value(42).simulate({ from: ecdsaAccountContractAddress })).rejects.toMatch(
       /could not satisfy all constraints/,
     );
   }, 60_000);
