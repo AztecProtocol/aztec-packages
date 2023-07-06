@@ -52,6 +52,7 @@ contract Rollup is IRollup {
       bytes32[] memory l1ToL2Msgs
     ) = Decoder.decode(_l2Block);
 
+
     // @todo @LHerskind Proper genesis state. If the state is empty, we allow anything for now.
     if (rollupStateHash != bytes32(0) && rollupStateHash != oldStateHash) {
       revert Errors.Rollup__InvalidStateHash(rollupStateHash, oldStateHash);
@@ -84,14 +85,16 @@ contract Rollup is IRollup {
     uint256 chainId;
     uint256 version;
     uint256 ts;
-    uint256 ethBlockHash;
+    uint256 ethBlockHashHi;
+    uint256 ethBlockHashLo;
     // block number already constrained by start state hash
     // TODO: calldatacopy would work here into a struct
     assembly {
       chainId := calldataload(_l2Block.offset)
       version := calldataload(add(_l2Block.offset, 0x20))
       ts := calldataload(add(_l2Block.offset, 0x60))
-      ethBlockHash := calldataload(add(_l2Block.offset, 0x80))
+      ethBlockHashHi := calldataload(add(_l2Block.offset, 0x80))
+      ethBlockHashLo := calldataload(add(_l2Block.offset, 0xa0))
     }
 
     if (block.chainid != chainId) {
@@ -106,17 +109,26 @@ contract Rollup is IRollup {
       revert Errors.Rollup__TimestampInFuture();
     }
 
-    uint256 lastEthBlockHash = uint256(blockhash(lastBlockNumber));
-    if (lastEthBlockHash != ethBlockHash) {
-      revert Errors.Rollup__InvalidBlockHash(ethBlockHash, lastEthBlockHash);
-    }
-
     // @todo @LHerskind consider if this is too strict
     // This will make multiple l2 blocks in the same l1 block impractical.
     // e.g., the first block will update timestamp which will make the second fail.
     // Could possibly allow multiple blocks if in same l1 block
     if (ts < lastBlockTs) {
       revert Errors.Rollup__TimestampTooOld();
+    }
+
+    // Assert that the last blocks eth hash is included in the block
+    // For the first block we use 0.
+    uint256 lastEthBlockHash;
+    uint256 ethBlockHash;
+    assembly {
+      ethBlockHash := or(shl(128, ethBlockHashHi), ethBlockHashLo)
+    }
+    if (lastBlockNumber != 0) {
+      lastEthBlockHash = uint256(blockhash(lastBlockNumber));
+    }
+    if (lastEthBlockHash != ethBlockHash) {
+      revert Errors.Rollup__InvalidBlockHash(lastEthBlockHash, ethBlockHash);
     }
   }
 }

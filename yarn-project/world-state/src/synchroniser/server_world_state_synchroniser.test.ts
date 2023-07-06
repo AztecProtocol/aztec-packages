@@ -8,6 +8,7 @@ import {
   KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH,
   NEW_L2_TO_L1_MSGS_LENGTH,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
+  TwoFieldHash,
 } from '@aztec/circuits.js';
 import { INITIAL_LEAF, Pedersen, SiblingPath } from '@aztec/merkle-tree';
 import { ContractData, L2Block, L2BlockL2Logs, L2BlockSource, MerkleTreeId, PublicDataWrite } from '@aztec/types';
@@ -50,8 +51,7 @@ const getMockGlobalVariables = () => {
     version: Fr.random(),
     blockNumber: Fr.random(),
     timestamp: Fr.random(),
-    // TODO(Maddiaa): Make this like the split sha hash place holder!, two large random fields is not good
-    ethBlockHash: [Fr.random(), Fr.random()],
+    ethBlockHash: TwoFieldHash.random(),
   });
 };
 

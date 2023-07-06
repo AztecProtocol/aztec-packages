@@ -1,3 +1,5 @@
+import { toBigIntBE } from "@aztec/foundation/bigint-buffer";
+import { randomBytes } from "@aztec/foundation/crypto";
 import { Fr } from "@aztec/foundation/fields";
 import { Tuple } from "@aztec/foundation/serialize";
 
@@ -29,12 +31,34 @@ export class TwoFieldHash {
         return new TwoFieldHash(high, low);
     }
 
+    
+    /**
+     * Returns a two field hash type from a Bigint. 
+     * @param hash - Bigint containing the hash.
+     * @returns The two field hash.
+     */
+    public static fromBigInt(hash: bigint): TwoFieldHash {
+        const hashBuffer = Buffer.alloc(32);
+        hashBuffer.writeBigInt64BE(hash);
+
+        return TwoFieldHash.from32ByteHash(hashBuffer);
+    }
+
     /**
      * Returns empty object.
      * @returns Empty Hash.
      */
     public static empty(): TwoFieldHash {
         return new TwoFieldHash(Fr.zero(), Fr.zero());
+    }
+
+    /**
+     * Returns a random object. 
+     * @returns Empty Hash.
+     */
+    public static random(): TwoFieldHash {
+        const r = randomBytes(Fr.SIZE_IN_BYTES);
+        return TwoFieldHash.from32ByteHash(r);
     }
 
 
@@ -56,6 +80,20 @@ export class TwoFieldHash {
    */
   toBuffer() {
     return Buffer.concat(this.toBufferArray());
+  }
+
+  /**
+   * Converts the value into a 32 byte buffer.
+   * @returns The two field hash as a 32 byte buffer.
+   */
+  toBufferPacked(){
+    const buf = Buffer.alloc(32, 0);
+    const ba = this.toBufferArray();
+
+    // Place the high value in the first 16 bytes
+    ba[0].copy(buf, 0, 16, 32);
+    ba[1].copy(buf, 16, 16, 32);
+    return buf
   }
 
     /**

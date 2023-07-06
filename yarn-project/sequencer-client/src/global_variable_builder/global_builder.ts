@@ -1,4 +1,4 @@
-import { Fr, GlobalVariables } from '@aztec/circuits.js';
+import { Fr, GlobalVariables, TwoFieldHash } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 
 /**
@@ -25,15 +25,9 @@ export class SimpleGlobalVariableBuilder implements GlobalVariableBuilder {
   private log = createDebugLogger('aztec:sequencer:simple_global_variable_builder');
   constructor(private readonly reader: L1GlobalReader) {}
 
-  private async getEthBlockHash(): Promise<[Fr, Fr]> {
+  private async getLastEthBlockHash(): Promise<TwoFieldHash> {
     const blockHash = await this.reader.getEthBlockHash();
-    
-    // convert to 32 byte buffer then create high and low field elements
-    const blockHashBuffer = Buffer.alloc(32);
-    blockHashBuffer.writeBigInt64BE(blockHash);
-    const high = Fr.fromBuffer(blockHashBuffer.subarray(0,16));
-    const low = Fr.fromBuffer(blockHashBuffer.subarray(16, 32));
-    return [high, low];
+    return TwoFieldHash.fromBigInt(blockHash);
   }
 
   /**
@@ -45,7 +39,7 @@ export class SimpleGlobalVariableBuilder implements GlobalVariableBuilder {
     const lastTimestamp = new Fr(await this.reader.getLastTimestamp());
     const version = new Fr(await this.reader.getVersion());
     const chainId = new Fr(await this.reader.getChainId());
-    const ethBlockHash = await this.getEthBlockHash();
+    const ethBlockHash = await this.getLastEthBlockHash();
 
     this.log(
       `Built global variables for block ${blockNumber}: (${chainId}, ${version}, ${blockNumber}, ${lastTimestamp}, ${ethBlockHash})`,

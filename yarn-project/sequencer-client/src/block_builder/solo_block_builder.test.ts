@@ -16,6 +16,7 @@ import {
   Proof,
   PublicDataUpdateRequest,
   RootRollupPublicInputs,
+  TwoFieldHash,
   makeTuple,
   range,
 } from '@aztec/circuits.js';
@@ -84,7 +85,7 @@ describe('sequencer/solo_block_builder', () => {
 
   beforeEach(async () => {
     blockNumber = 3;
-    globalVariables = new GlobalVariables(chainId, version, new Fr(blockNumber), Fr.ZERO, [Fr.ZERO, Fr.ZERO]);
+    globalVariables = new GlobalVariables(chainId, version, new Fr(blockNumber), Fr.ZERO, TwoFieldHash.empty());
 
     builderDb = await MerkleTrees.new(levelup(createMemDown())).then(t => t.asLatest());
     expectsDb = await MerkleTrees.new(levelup(createMemDown())).then(t => t.asLatest());

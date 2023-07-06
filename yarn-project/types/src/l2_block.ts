@@ -371,6 +371,31 @@ export class L2Block {
     if (this.newEncryptedLogs === undefined || this.newUnencryptedLogs === undefined) {
       throw new Error('newEncryptedLogs and newUnencryptedLogs must be defined when encoding L2BlockData');
     }
+    console.log("startStateBuffer");
+    console.log(serializeToBuffer(
+      this.startPrivateDataTreeSnapshot,
+      this.startNullifierTreeSnapshot,
+      this.startContractTreeSnapshot,
+      this.startTreeOfHistoricPrivateDataTreeRootsSnapshot,
+      this.startTreeOfHistoricContractTreeRootsSnapshot,
+      this.startPublicDataTreeRoot,
+      this.startL1ToL2MessageTreeSnapshot,
+      this.startTreeOfHistoricL1ToL2MessageTreeRootsSnapshot,
+    ));
+
+    console.log("endStateBuffer");
+    console.log(
+      serializeToBuffer(
+      this.endPrivateDataTreeSnapshot,
+      this.endNullifierTreeSnapshot,
+      this.endContractTreeSnapshot,
+      this.endTreeOfHistoricPrivateDataTreeRootsSnapshot,
+      this.endTreeOfHistoricContractTreeRootsSnapshot,
+      this.endPublicDataTreeRoot,
+      this.endL1ToL2MessageTreeSnapshot,
+      this.endTreeOfHistoricL1ToL2MessageTreeRootsSnapshot,
+      )
+    );
     return serializeToBuffer(
       this.globalVariables,
       this.startPrivateDataTreeSnapshot,
@@ -531,6 +556,8 @@ export class L2Block {
       this.getCalldataHash(),
       this.getL1ToL2MessagesHash(),
     );
+    console.log("pub inputs hash");
+    console.log(buf.toString("hex"));
 
     return sha256ToField(buf);
   }

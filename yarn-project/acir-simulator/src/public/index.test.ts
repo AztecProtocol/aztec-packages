@@ -6,6 +6,7 @@ import {
   PrivateHistoricTreeRoots,
   L1_TO_L2_MESSAGES_TREE_HEIGHT,
   GlobalVariables,
+  TwoFieldHash,
 } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -229,7 +230,8 @@ describe('ACIR public execution simulator', () => {
       });
 
       const execution: PublicExecution = { contractAddress: parentContractAddress, functionData, args, callContext };
-      const globalVariables = new GlobalVariables(new Fr(69), new Fr(420), new Fr(1), new Fr(7), [new Fr(42), new Fr(1337)]);
+      const ethBlockHash = new TwoFieldHash(new Fr(0), new Fr(1337));
+      const globalVariables = new GlobalVariables(new Fr(69), new Fr(420), new Fr(1), new Fr(7), ethBlockHash);
       const result = await executor.execute(execution, globalVariables);
 
       expect(result.returnValues).toEqual([
