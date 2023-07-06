@@ -24,7 +24,9 @@ namespace aztec3::circuits::rollup::components {
  */
 NT::fr calculate_empty_tree_root(const size_t depth)
 {
-    stdlib::merkle_tree::MemoryTree const empty_tree = stdlib::merkle_tree::MemoryTree(depth);
+    stdlib::merkle_tree::MemoryStore empty_tree_store;
+    stdlib::merkle_tree::MerkleTree<stdlib::merkle_tree::MemoryStore> const empty_tree =
+        stdlib::merkle_tree::MerkleTree<stdlib::merkle_tree::MemoryStore>(empty_tree_store, depth);
     return empty_tree.root();
 }
 

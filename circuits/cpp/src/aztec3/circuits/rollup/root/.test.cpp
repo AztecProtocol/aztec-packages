@@ -49,7 +49,8 @@ using aztec3::circuits::rollup::native_root_rollup::RootRollupPublicInputs;
 
 using aztec3::circuits::abis::NewContractData;
 
-using MemoryTree = stdlib::merkle_tree::MemoryTree;
+using MerkleTree = stdlib::merkle_tree::MerkleTree<stdlib::merkle_tree::MemoryStore>;
+;
 using KernelData = aztec3::circuits::abis::PreviousKernelData<NT>;
 }  // namespace
 
@@ -164,12 +165,24 @@ TEST_F(root_rollup_tests, native_root_missing_nullifier_logic)
     utils::DummyCircuitBuilder builder =
         utils::DummyCircuitBuilder("root_rollup_tests__native_root_missing_nullifier_logic");
 
-    MemoryTree data_tree = MemoryTree(PRIVATE_DATA_TREE_HEIGHT);
-    MemoryTree contract_tree = MemoryTree(CONTRACT_TREE_HEIGHT);
-    MemoryTree historic_data_tree = MemoryTree(PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT);
-    MemoryTree historic_contract_tree = MemoryTree(CONTRACT_TREE_ROOTS_TREE_HEIGHT);
-    MemoryTree l1_to_l2_messages_tree = MemoryTree(L1_TO_L2_MSG_TREE_HEIGHT);
-    MemoryTree historic_l1_to_l2_tree = MemoryTree(L1_TO_L2_MSG_TREE_ROOTS_TREE_HEIGHT);
+    stdlib::merkle_tree::MemoryStore data_tree_store;
+    MerkleTree data_tree = MerkleTree(data_tree_store, PRIVATE_DATA_TREE_HEIGHT);
+
+    stdlib::merkle_tree::MemoryStore contract_tree_store;
+    MerkleTree contract_tree = MerkleTree(contract_tree_store, CONTRACT_TREE_HEIGHT);
+
+    stdlib::merkle_tree::MemoryStore historic_data_tree_store;
+    MerkleTree historic_data_tree = MerkleTree(historic_data_tree_store, PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT);
+
+    stdlib::merkle_tree::MemoryStore historic_contract_tree_store;
+    MerkleTree historic_contract_tree = MerkleTree(historic_contract_tree_store, CONTRACT_TREE_ROOTS_TREE_HEIGHT);
+
+    stdlib::merkle_tree::MemoryStore l1_to_l2_messages_tree_store;
+    MerkleTree l1_to_l2_messages_tree = MerkleTree(l1_to_l2_messages_tree_store, L1_TO_L2_MSG_TREE_HEIGHT);
+
+    stdlib::merkle_tree::MemoryStore historic_l1_to_l2_messages_tree_store;
+    MerkleTree historic_l1_to_l2_tree =
+        MerkleTree(historic_l1_to_l2_messages_tree_store, L1_TO_L2_MSG_TREE_ROOTS_TREE_HEIGHT);
 
     // Historic trees are initialised with an empty root at position 0.
     historic_data_tree.update_element(0, data_tree.root());

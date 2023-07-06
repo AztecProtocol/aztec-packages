@@ -32,8 +32,8 @@ using Aggregator = aztec3::circuits::recursion::Aggregator;
 using AggregationObject = utils::types::NativeTypes::AggregationObject;
 using AppendOnlySnapshot = abis::AppendOnlyTreeSnapshot<NT>;
 
-// Nullifier Tree Alias
-using MerkleTree = stdlib::merkle_tree::MemoryTree;
+// Tree Aliases
+using MerkleTree = stdlib::merkle_tree::MerkleTree<stdlib::merkle_tree::MemoryStore>;
 using NullifierTree = stdlib::merkle_tree::NullifierMemoryTree;
 using NullifierLeafPreimage = abis::NullifierLeafPreimage<NT>;
 using SparseTree = stdlib::merkle_tree::MerkleTree<stdlib::merkle_tree::MemoryStore>;
