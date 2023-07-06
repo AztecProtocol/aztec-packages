@@ -1,6 +1,5 @@
 import { PrivateHistoricTreeRoots, TxContext } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { createDebugLogger } from '@aztec/foundation/log';
 import { Fr } from '@aztec/foundation/fields';
 import {
   ACVMField,
@@ -11,6 +10,7 @@ import {
   toAcvmL1ToL2MessageLoadOracleInputs,
 } from '../acvm/index.js';
 import { NoteLoadOracleInputs, DBOracle } from './db_oracle.js';
+import { PackedArgsCache } from '../packed_args_cache.js';
 
 /**
  * Information about a note created during execution.
@@ -48,7 +48,8 @@ export class ClientTxExecutionContext {
     /** Pending commitments created (and not nullified) up to current point in execution **/
     public pendingNotes: PendingNoteData[] = [],
 
-    private log = createDebugLogger('aztec:simulator:client_execution_context'),
+    /** The cache of packed arguments */
+    public packedArgsCache: PackedArgsCache,
   ) {}
 
   /**

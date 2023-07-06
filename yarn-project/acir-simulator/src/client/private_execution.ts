@@ -1,5 +1,4 @@
 import {
-  ARGS_LENGTH,
   CallContext,
   CircuitsWasm,
   ContractDeploymentData,
@@ -8,14 +7,14 @@ import {
   PrivateCallStackItem,
   PublicCallRequest,
 } from '@aztec/circuits.js';
-import { computeCallStackItemHash, computeVarArgsHash } from '@aztec/circuits.js/abis';
+import { computeCallStackItemHash } from '@aztec/circuits.js/abis';
 import { Curve } from '@aztec/circuits.js/barretenberg';
 import { FunctionAbi } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Coordinate, Fr, Point } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { Tuple, assertLength, to2Fields } from '@aztec/foundation/serialize';
+import { to2Fields } from '@aztec/foundation/serialize';
 import { FunctionL2Logs, NotePreimage, NoteSpendingInfo } from '@aztec/types';
 import { decodeReturnValues } from '../abi_coder/decoder.js';
 import { extractPublicInputs, frToAztecAddress, frToSelector } from '../acvm/deserialize.js';
@@ -30,7 +29,7 @@ import {
   toAcvmCallPrivateStackItem,
   toAcvmEnqueuePublicFunctionResult,
 } from '../acvm/index.js';
-import { ExecutionResult, NewNoteData, NewNullifierData, sizeOfType } from '../index.js';
+import { ExecutionResult, NewNoteData, NewNullifierData } from '../index.js';
 import { ClientTxExecutionContext, PendingNoteData } from './client_execution_context.js';
 import { fieldsToFormattedStr } from './debug.js';
 
@@ -47,7 +46,7 @@ export class PrivateFunctionExecution {
     private abi: FunctionAbi,
     private contractAddress: AztecAddress,
     private functionData: FunctionData,
-    private args: Fr[],
+    private argsHash: Fr,
     private callContext: CallContext,
     private curve: Curve,
 
@@ -74,6 +73,9 @@ export class PrivateFunctionExecution {
     const unencryptedLogs = new FunctionL2Logs([]);
 
     const { partialWitness } = await acvm(acir, initialWitness, {
+      packArguments: async (args: ACVMField[]) => {
+        return [toACVMField(await this.context.packedArgsCache.pack(args.map(fromACVMField)))];
+      },
       getSecretKey: async ([ownerX, ownerY]: ACVMField[]) => [
         toACVMField(
           await this.context.db.getSecretKey(
@@ -92,7 +94,7 @@ export class PrivateFunctionExecution {
         return preimagesACVM;
       },
       getRandomField: () => Promise.resolve([toACVMField(Fr.random())]),
-      notifyCreatedNote: ([_connector, storageSlot, ownerX, ownerY, ...acvmPreimage]: ACVMField[]) => {
+      notifyCreatedNote: ([_connector, storageSlot, ...acvmPreimage]: ACVMField[]) => {
         const pendingNoteData: PendingNoteData = {
           preimage: acvmPreimage,
           contractAddress: this.contractAddress,
@@ -101,12 +103,8 @@ export class PrivateFunctionExecution {
         this.context.pendingNotes.push(pendingNoteData);
 
         newNotePreimages.push({
-          preimage: acvmPreimage.map(f => fromACVMField(f)),
           storageSlot: fromACVMField(storageSlot),
-          owner: {
-            x: fromACVMField(ownerX),
-            y: fromACVMField(ownerY),
-          },
+          preimage: acvmPreimage.map(f => fromACVMField(f)),
         });
         // return is used to force proper ordering of callbacks
         return Promise.resolve([ZERO_ACVM_FIELD]);
@@ -122,7 +120,7 @@ export class PrivateFunctionExecution {
         });
         return Promise.resolve([ZERO_ACVM_FIELD]);
       },
-      callPrivateFunction: async ([acvmContractAddress, acvmFunctionSelector, ...acvmArgs]) => {
+      callPrivateFunction: async ([acvmContractAddress, acvmFunctionSelector, acvmArgsHash]) => {
         const contractAddress = fromACVMField(acvmContractAddress);
         const functionSelector = fromACVMField(acvmFunctionSelector);
         this.log(
@@ -132,7 +130,7 @@ export class PrivateFunctionExecution {
         const childExecutionResult = await this.callPrivateFunction(
           frToAztecAddress(contractAddress),
           frToSelector(functionSelector),
-          acvmArgs.map(f => fromACVMField(f)),
+          fromACVMField(acvmArgsHash),
           this.callContext,
           this.curve,
         );
@@ -153,14 +151,11 @@ export class PrivateFunctionExecution {
         this.log(fieldsToFormattedStr(fields));
         return Promise.resolve([ZERO_ACVM_FIELD]);
       },
-      enqueuePublicFunctionCall: async ([acvmContractAddress, acvmFunctionSelector, ...acvmArgs]) => {
+      enqueuePublicFunctionCall: async ([acvmContractAddress, acvmFunctionSelector, acvmArgsHash]) => {
         const enqueuedRequest = await this.enqueuePublicFunctionCall(
           frToAztecAddress(fromACVMField(acvmContractAddress)),
           frToSelector(fromACVMField(acvmFunctionSelector)),
-          assertLength(
-            acvmArgs.map(f => fromACVMField(f)),
-            ARGS_LENGTH,
-          ),
+          this.context.packedArgsCache.unpack(fromACVMField(acvmArgsHash)),
           this.callContext,
         );
 
@@ -204,9 +199,7 @@ export class PrivateFunctionExecution {
 
     const publicInputs = extractPublicInputs(partialWitness, acir);
 
-    // TODO(#499): Noir fails to compute the args hash, so we patch those values here.
     const wasm = await CircuitsWasm.get();
-    publicInputs.argsHash = await computeVarArgsHash(wasm, this.args);
 
     // TODO(#1347): Noir fails with too many unknowns error when public inputs struct contains too many members.
     publicInputs.encryptedLogsHash = to2Fields(encryptedLogs.hash());
@@ -253,7 +246,6 @@ export class PrivateFunctionExecution {
    * @returns The initial witness.
    */
   private writeInputs() {
-    const argsSize = this.abi.parameters.reduce((acc, param) => acc + sizeOfType(param.type), 0);
     const contractDeploymentData = this.context.txContext.contractDeploymentData ?? ContractDeploymentData.empty();
 
     const fields = [
@@ -277,7 +269,7 @@ export class PrivateFunctionExecution {
       this.context.txContext.chainId,
       this.context.txContext.version,
 
-      ...this.args.slice(0, argsSize),
+      ...this.context.packedArgsCache.unpack(this.argsHash),
     ];
 
     return toACVMWitness(1, fields);
@@ -287,7 +279,7 @@ export class PrivateFunctionExecution {
    * Calls a private function as a nested execution.
    * @param targetContractAddress - The address of the contract to call.
    * @param targetFunctionSelector - The function selector of the function to call.
-   * @param targetArgs - The arguments to pass to the function.
+   * @param targetArgsHash - The packed arguments to pass to the function.
    * @param callerContext - The call context of the caller.
    * @param curve - The curve instance to use for elliptic curve operations.
    * @returns The execution result.
@@ -295,7 +287,7 @@ export class PrivateFunctionExecution {
   private async callPrivateFunction(
     targetContractAddress: AztecAddress,
     targetFunctionSelector: Buffer,
-    targetArgs: Fr[],
+    targetArgsHash: Fr,
     callerContext: CallContext,
     curve: Curve,
   ) {
@@ -308,7 +300,7 @@ export class PrivateFunctionExecution {
       targetAbi,
       targetContractAddress,
       targetFunctionData,
-      targetArgs,
+      targetArgsHash,
       derivedCallContext,
       curve,
     );
@@ -329,7 +321,7 @@ export class PrivateFunctionExecution {
   private async enqueuePublicFunctionCall(
     targetContractAddress: AztecAddress,
     targetFunctionSelector: Buffer,
-    targetArgs: Tuple<Fr, typeof ARGS_LENGTH>,
+    targetArgs: Fr[],
     callerContext: CallContext,
   ): Promise<PublicCallRequest> {
     const derivedCallContext = await this.deriveCallContext(callerContext, targetContractAddress, false, false);

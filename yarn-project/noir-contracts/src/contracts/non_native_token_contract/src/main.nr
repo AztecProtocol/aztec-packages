@@ -1,35 +1,56 @@
+mod storage;
+
+// Represents an ERC20 token bridged from L1 to L2 via `l1-contracts/test/portals/TokenPortal.sol`. The bridged user
+// balance can be stored in both public and private domain. If the balance is stored in the private domain then it
+// is represented as a set of notes in the private data tree. If the balance is stored in the public domain then it is
+// represented as a single value in the public data tree.
+//
+// It is also used to test insertion of a note from public domain into the private data tree. How this works is that
+// a user provides a secret hash as an argument on the input of the public function, and the contract then inserts
+// a note into the private data tree once the public call is processed. A note can later on be spent by providing
+// the secret hash preimage on the input of a private function call.
+//
+// This flow will be typically used when performing a token swap:
+// 1. A calls a private function which enqueues a public call to the DEX contract (with the secret hash on input).
+// 2. The sequencer performs the public call to the DEX and the note gets inserted into the private data tree.
+// 3. At this point a recipient can spend the note in a private function assuming he/she knows the secret.
 contract NonNativeToken {
-    mod balance_utils;
-    use dep::aztec3::abi;
-    use dep::aztec3::abi::PublicContextInputs;
-    use dep::aztec3::abi::PrivateContextInputs;
+    // Libs
+    use dep::token_utils::{
+        balance_utils,
+        value_note::{
+            value_note::ValueNote,
+            filter::get_2_notes,
+        }
+    };
+    use dep::custom_notes::transparent_note::TransparentNote;
 
-    use dep::aztec3::context::PrivateFunctionContext;
-    use dep::aztec3::types::point::Point;
-    
-    // Private state
-    use dep::aztec3::state_vars::map::Map;
-    use dep::aztec3::state_vars::set::Set;
-    use dep::aztec3::notes::value_note::Note;
+    use crate::storage::Storage;
 
-    // Public state
-    use dep::aztec3::state_vars::storage_map::StorageMap;
-    use dep::aztec3::state_vars::storage_field::StorageField;
+    use dep::aztec::context::Context;
+    use dep::aztec::types::point::Point;
+    use dep::aztec::{
+        abi,
+        abi::{
+            PublicContextInputs,
+            PrivateContextInputs,
+        }
+    };
 
     // oracles
-    use dep::aztec3::oracle::logs::emit_encrypted_log;
-    use dep::aztec3::oracle::create_l2_to_l1_message::create_l2_to_l1_message;
+    use dep::aztec::oracle::{
+        create_l2_to_l1_message::create_l2_to_l1_message,
+        create_commitment::create_commitment,
+        create_nullifier::create_nullifier,
+        get_commitment::get_commitment,
+    };
 
     // public messaging
-    use dep::aztec3::messaging::consume_l1_to_l2_message_public;
+    use dep::aztec::messaging::consume_l1_to_l2_message_public;
+    use dep::aztec::public_call_stack_item::PublicCallStackItem;
 
-
-    //*********************************/
-    global balances = Map { storage_slot: 1 };
-    global public_balances = StorageMap { storage_slot: 2 };
-    // Should eventually be replaced by:
-    // `balances: Mapping<Field, Set<Note>>;`
-    //*********************************/
+    use dep::aztec::log::emit_encrypted_log;
+    use dep::aztec::note::note_getter::NoteGetterOptions;
 
     fn constructor(
         //*********************************/
@@ -39,17 +60,20 @@ contract NonNativeToken {
         initial_supply: Field, 
         owner: Point,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
-        let mut context = PrivateFunctionContext::new();
-        context.args = context.args.push_array([initial_supply, owner.x, owner.y]);
+        let storage = Storage::init();
+        let balances = storage.balances;
+
+        let mut context = Context::new(inputs, abi::hash_args([initial_supply, owner.x, owner.y]));
 
         let owner_balance = balances.at(owner.x);
-        let note = Note::new(initial_supply, owner);
+        let note = ValueNote::new(initial_supply, owner);
 
-        // Insert note and emit encrypted note preimage via oracle call
+        // Insert new note to a set of user notes and emit the newly created encrypted note preimage via oracle call.
         context = owner_balance.insert(context, note);
-        assert(emit_encrypted_log(inputs.call_context.storage_contract_address, owner_balance.storage_slot, note.owner, note) == 0);
+        context = emit_encrypted_log(context, inputs.call_context.storage_contract_address, owner_balance.storage_slot, note.owner, note.serialise());
 
-        context.finish(inputs)
+        // Return private circuit public inputs. All private functions need to return this as it is part of the input of the private kernel.
+        context.finish()
     }
 
     // Mint Private Function
@@ -68,8 +92,12 @@ contract NonNativeToken {
         secret: Field,
         canceller: Field,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
-        let mut context = PrivateFunctionContext::new();
-        context.args = context.args.push_array([amount, owner.x, owner.y, owner_address, msg_key, secret]);
+        let storage = Storage::init();
+        let balances = storage.balances;
+
+        let mut context = Context::new(inputs, abi::hash_args([
+            amount, owner.x, owner.y, owner_address, msg_key, secret, canceller
+        ]));
 
         let content_hash = _get_mint_content_hash(amount, owner_address, canceller);
 
@@ -78,17 +106,21 @@ contract NonNativeToken {
         context = updated_context;
 
         let owner_balance = balances.at(owner.x);
-        let note = Note::new(amount, owner);
+        let note = ValueNote::new(amount, owner);
 
-        // Insert note and emit encrypted note preimage via oracle call
+        // Insert new note to a set of user notes and emit the newly created encrypted note preimage via oracle call.
         context = owner_balance.insert(context, note);
-        assert(emit_encrypted_log(inputs.call_context.storage_contract_address, owner_balance.storage_slot, note.owner, note) == 0);
+        context = emit_encrypted_log(context, inputs.call_context.storage_contract_address, owner_balance.storage_slot, note.owner, note.serialise());
 
-        context.finish(inputs)
+        // Return private circuit public inputs. All private functions need to return this as it is part of the input of the private kernel.
+        context.finish()
     }
 
 
 
+    // Withdraws using user's private balance.
+    // @dev Destroys 2 of user's notes and sends a message to the L1 portal contract. That message can then be consumed
+    //      by calling the `withdraw` function on the L1 portal contract (assuming the args are set correctly).
     fn withdraw(
         //*********************************/
         // Should eventually be hidden:
@@ -99,37 +131,48 @@ contract NonNativeToken {
         recipient: Field, // ethereum address in the field
         callerOnL1: Field, // ethereum address that can call this function on the L1 portal (0x0 if anyone can call)
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
-        let mut initialContext = PrivateFunctionContext::new();
-        initialContext.args = initialContext.args.push_array([amount, sender.x, sender.y, recipient]);
+        let storage = Storage::init();
+        let balances = storage.balances;
 
+        let mut initialContext = Context::new(inputs, abi::hash_args([
+            amount, sender.x, sender.y, recipient, callerOnL1
+        ]));
+
+        // Gets the set of sender's notes and picks 2 of those.
         let sender_balance = balances.at(sender.x);
-        let (mut context, (note1, note2)) = sender_balance.get_2(initialContext);
+        let options = NoteGetterOptions::with_filter(get_2_notes, 0);
+        let (mut context, notes) = sender_balance.get_notes(initialContext, options);
+        let note1 = notes[0];
+        let note2 = notes[1];
 
         // TODO: Removing this return breaks the circuit (???)
         context.return_values = context.return_values.push(note1.is_real as Field);
         context.return_values = context.return_values.push(note2.is_real as Field);
 
+        // Ensure the notes are actually owned by the sender (to prevent user from generating a valid proof while
+        // spending someone else's notes).
         note1.validate(sender);
         note2.validate(sender);
 
         let sum = note1.value + note2.value;
-        assert(sum as u64 >= amount as u64);
+        assert(sum as u120 >= amount as u120);
         let change_value = sum - amount;
 
-        context = sender_balance.remove(inputs, context, note1);
-        context = sender_balance.remove(inputs, context, note2);
+        context = sender_balance.remove(context, note1);
+        context = sender_balance.remove(context, note2);
 
-        let change_note = Note::new(change_value, sender);
+        let change_note = ValueNote::new(change_value, sender);
 
-        // Insert note and emit encrypted note preimage via oracle call
+        // Insert new note to a set of user notes and emit the newly created encrypted note preimage via oracle call.
         context = sender_balance.insert(context, change_note);
-        assert(emit_encrypted_log(inputs.call_context.storage_contract_address, sender_balance.storage_slot, change_note.owner, change_note) == 0);
+        context = emit_encrypted_log(context, inputs.call_context.storage_contract_address, sender_balance.storage_slot, change_note.owner, change_note.serialise());
         
         let content = _get_withdraw_content_hash(amount, recipient, callerOnL1);
 
         context = context.message_portal(content);
 
-        context.finish(inputs)
+        // Return private circuit public inputs. All private functions need to return this as it is part of the input of the private kernel.
+        context.finish()
     }
 
     // Mint Public Function
@@ -146,8 +189,10 @@ contract NonNativeToken {
         msg_key: Field,
         secret: Field,
         canceller: Field,
-        _padding: [Field; abi::MAX_ARGS - 5]
     ) -> Field {
+        let storage = Storage::init();
+        let public_balances = storage.public_balances;
+
         let content_hash = _get_mint_content_hash(amount, owner_address, canceller);
 
         // Consume message and emit nullifier
@@ -155,11 +200,13 @@ contract NonNativeToken {
 
         // Update the public balance
         let recipient_balance = public_balances.at(owner_address);
-        recipient_balance.write(recipient_balance.read() + amount)
+        let new_balance = recipient_balance.read() + amount;
+        recipient_balance.write(new_balance);
+        new_balance
     }
 
 
-    // Withdraw Public Function
+    // Withdraws using user's public balance.
     open fn withdrawPublic(
         //*********************************/
         // Should eventually be hidden:
@@ -168,15 +215,17 @@ contract NonNativeToken {
         amount: Field,
         recipient: Field,
         callerOnL1: Field, // ethereum address that can call this function on the L1 portal (0x0 if anyone can call)
-        _padding: [Field; abi::MAX_ARGS - 2]
     ) {
-
+        let storage = Storage::init();
+        let public_balances = storage.public_balances;
+        
         let sender = inputs.call_context.msg_sender;
         let sender_balance = public_balances.at(sender);
 
-        let current_sender_balance = sender_balance.read();
+        let current_sender_balance: Field = sender_balance.read();
 
         if (current_sender_balance as u120) > (amount as u120) {
+            // User has sufficient balance so we decrement it by `amount`
             let _void1 = sender_balance.write(current_sender_balance - amount);
         }  
         // TODO: Revert if there is not enough balance
@@ -188,6 +237,8 @@ contract NonNativeToken {
     }
 
 
+    // Transfers `amount` of tokens from `sender`'s private balance to a `recipient`.
+    // Note: Copied from ZkToken
     fn transfer(
         //*********************************/
         // Should eventually be hidden:
@@ -197,170 +248,197 @@ contract NonNativeToken {
         sender: Point, 
         recipient: Point,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
-        let mut initialContext = PrivateFunctionContext::new();
-        initialContext.args = initialContext.args.push_array([amount, sender.x, sender.y, recipient.x, recipient.y]);
+        let storage = Storage::init();
+        let balances = storage.balances;
 
+        let mut initialContext = Context::new(inputs, abi::hash_args([
+            amount, sender.x, sender.y, recipient.x, recipient.y
+        ]));
+
+        // Gets the set of sender's notes and picks 2 of those.
         let sender_balance = balances.at(sender.x);
-        let (mut context, (note1, note2)) = sender_balance.get_2(initialContext);
+        let options = NoteGetterOptions::with_filter(get_2_notes, 0);
+        let (mut context, notes) = sender_balance.get_notes(initialContext, options);
+        let note1 = notes[0];
+        let note2 = notes[1];
 
-        // TODO: Removing this return breaks the circuit (???)
-        context.return_values = context.return_values.push(note1.is_real as Field);
-        context.return_values = context.return_values.push(note2.is_real as Field);
-
+        // Ensure the notes are actually owned by the sender (to prevent user from generating a valid proof while
+        // spending someone else's notes).
         note1.validate(sender);
         note2.validate(sender);
 
+        // Checks that the sum of the notes is greater than or equal to the amount being transferred.
         let sum = note1.value + note2.value;
-        assert(sum as u64 >= amount as u64);
+        assert(sum as u120 >= amount as u120);
         let change_value = sum - amount;
 
-        context = sender_balance.remove(inputs, context, note1);
-        context = sender_balance.remove(inputs, context, note2);
+        // Removes the 2 notes from the sender's set of notes.
+        context = sender_balance.remove(context, note1);
+        context = sender_balance.remove(context, note2);
 
-        let change_note = Note::new(change_value, sender);
-        let recipient_note = Note::new(amount, recipient);
+        // Creates 2 new notes, one for the recipient and one for the sender (change note).
+        let change_note = ValueNote::new(change_value, sender);
+        let recipient_note = ValueNote::new(amount, recipient);
 
+        // Get the recipient's set of notes.
         let recipient_balance = balances.at(recipient.x);
 
+        // Insert the 2 new notes to the recipient's and sender's sets of notes.
         context = recipient_balance.insert(context, recipient_note);
         context = sender_balance.insert(context, change_note);
 
-        assert(emit_encrypted_log(inputs.call_context.storage_contract_address, recipient_balance.storage_slot, recipient_note.owner, recipient_note) == 0);
-        assert(emit_encrypted_log(inputs.call_context.storage_contract_address, sender_balance.storage_slot, change_note.owner, change_note) == 0);
+        // Emit the newly created encrypted note preimages via oracle calls.
+        context = emit_encrypted_log(context, inputs.call_context.storage_contract_address, recipient_balance.storage_slot, recipient_note.owner, recipient_note.serialise());
+        context = emit_encrypted_log(context, inputs.call_context.storage_contract_address, sender_balance.storage_slot, change_note.owner, change_note.serialise());
 
-        context.finish(inputs)
-    } 
+        // Return private circuit public inputs. All private functions need to return this as it is part of the input of the private kernel.
+        context.finish()
+    }
+
+    // Shield creates a way for a user to move tokens from the public context into the private context.
+    open fn shield(
+        inputs: PublicContextInputs,
+        amount: Field,
+        secretHash: Field,
+    ) {
+        let storage = Storage::init();
+        let public_balances = storage.public_balances;
+
+        // Decrease user's balance.
+        let sender = inputs.call_context.msg_sender;
+        let sender_balance = public_balances.at(sender);
+        let current_sender_balance: Field = sender_balance.read();
+
+        assert(current_sender_balance as u120 >= amount as u120);
+
+        // User has sufficient balance so we decrement it by `amount`
+        let _void1 = sender_balance.write(current_sender_balance - amount);
+        
+        // Create a commitment to the amount
+        let note = TransparentNote::new(amount, secretHash);
+        
+        // Public oracle call to emit new commitment.
+        create_commitment(note.get_commitment());
+    }
+
+    // The shield function takes a public balance, and creates a commitment containing the amount of tokens
+    // in the private context. 
+    fn redeemShield(
+        inputs: PrivateContextInputs,
+        amount: Field,
+        secret: Field,
+        owner: Point,
+    ) -> distinct pub abi::PrivateCircuitPublicInputs {
+        let storage = Storage::init();
+        let balances = storage.balances;
+
+        let mut context = Context::new(inputs, abi::hash_args([
+            amount, secret, owner.x, owner.y
+        ]));
+
+        // Assert that the note exists within the tree
+        let public_note = TransparentNote::new_from_secret(amount, secret);
+        context = public_note.consume_in_secret(context, inputs.roots.private_data_tree_root, secret);
+
+        // Mint the tokens
+        let owner_balance = balances.at(owner.x);
+        let note = ValueNote::new(amount, owner);
+
+        // Insert note and emit encrypted preimage
+        context = owner_balance.insert(context, note);
+        context = emit_encrypted_log(context, inputs.call_context.storage_contract_address, owner_balance.storage_slot, note.owner, note.serialise());
+
+        context.finish()
+    }
+
+    fn unshieldTokens(
+        inputs: PrivateContextInputs,
+        amount: Field,
+        owner: Point,
+        recipient: Field,
+    ) -> distinct pub abi::PrivateCircuitPublicInputs {
+        let storage = Storage::init();
+        let balances = storage.balances;
+
+        let mut initialContext = Context::new(inputs, abi::hash_args([
+            amount, owner.x, owner.y, recipient
+        ]));
+
+        // Remove user balance
+        let sender_balance = balances.at(owner.x);
+        let options = NoteGetterOptions::with_filter(get_2_notes, 0);
+        let (mut context, notes) = sender_balance.get_notes(initialContext, options);
+        let note1 = notes[0];
+        let note2 = notes[1];
+
+        note1.validate(owner);
+        note2.validate(owner);
+
+        let sum = note1.value + note2.value;
+        assert(sum as u120 >= amount as u120);
+        let change_value = sum - amount;
+
+        context = sender_balance.remove(context, note1);
+        context = sender_balance.remove(context, note2);
+
+        let change_note = ValueNote::new(change_value, owner);
+
+        context = sender_balance.insert(context, change_note);
+        context = emit_encrypted_log(context, inputs.call_context.storage_contract_address, sender_balance.storage_slot, change_note.owner, change_note.serialise());
+
+        // enqueue a public function to perform the public state update.
+        let thisAddress = inputs.call_context.storage_contract_address;
+        
+        // addUnshieldedBalance selector (in decimal)
+        // recompute by: `cast keccak addUnshieldedBalance(field,field)` -> convert to decimal
+        let pubEntryPointSelector = 753269941;
+        let (_callStackItem1, mut context1) = PublicCallStackItem::call(thisAddress, pubEntryPointSelector, [amount, recipient], context);
+
+        context1.finish()
+    }
+
+    open fn addUnshieldedBalance(
+        _inputs: PublicContextInputs,
+        amount: Field,
+        recipient: Field,
+    ) {
+        let storage = Storage::init();
+
+        let recipient_balance = storage.public_balances.at(recipient);
+        let current_balance = recipient_balance.read();
+        let new_balance = current_balance + amount;
+        recipient_balance.write(new_balance);
+    }
+
 
     /// ABI getBalance type "unconstrained"
     fn getBalance(
         owner: Point,
-        _padding: [Field; abi::MAX_ARGS - 2]
     ) -> pub Field {
-        let owner_balance = balances.at(owner.x);
+        let storage = Storage::init();
+        let owner_balance = storage.balances.at(owner.x);
         
         balance_utils::get_balance(owner_balance.storage_slot)
     }
 
-
+    // Computes a content hash of a deposit/mint message.
     fn _get_mint_content_hash(amount: Field, owner_address: Field, canceller: Field) -> pub Field {
         let mut hash_bytes: [u8; 100] = [0; 100];
         let amount_bytes = amount.to_be_bytes(32);
         let recipient_bytes = owner_address.to_be_bytes(32);
         let canceller_bytes = canceller.to_be_bytes(32);
 
-        // Once loops are performant this will be moved into l1 message
-        // Unroll loops because otherwise takes forever to compile
-        // for i in range(32):
-        //     print('hash_bytes[{0}] = amount_bytes[{1}];'.format(i, i))
-        // for i in range(32):
-        //     print('hash_bytes[{0} + 32] = recipient_bytes[{1}];'.format(i, i))
-        // for i in range(32):
-        //     print('hash_bytes[{0} + 64] = canceller_bytes[{1}];'.format(i, i))
+        for i in 0..32 {
+            hash_bytes[i + 4] = amount_bytes[i];
+            hash_bytes[i + 36] = recipient_bytes[i];
+            hash_bytes[i + 68] = canceller_bytes[i];
+        }
         
         // Function selector: 0xeeb73071 keccak256('mint(uint256,bytes32,address)')
         hash_bytes[0] = 0xee;
         hash_bytes[1] = 0xb7;
         hash_bytes[2] = 0x30;
         hash_bytes[3] = 0x71;
-
-        hash_bytes[0 + 4] = amount_bytes[0];
-        hash_bytes[1 + 4] = amount_bytes[1];
-        hash_bytes[2 + 4] = amount_bytes[2];
-        hash_bytes[3 + 4] = amount_bytes[3];
-        hash_bytes[4 + 4] = amount_bytes[4];
-        hash_bytes[5 + 4] = amount_bytes[5];
-        hash_bytes[6 + 4] = amount_bytes[6];
-        hash_bytes[7 + 4] = amount_bytes[7];
-        hash_bytes[8 + 4] = amount_bytes[8];
-        hash_bytes[9 + 4] = amount_bytes[9];
-        hash_bytes[10 + 4] = amount_bytes[10];
-        hash_bytes[11 + 4] = amount_bytes[11];
-        hash_bytes[12 + 4] = amount_bytes[12];
-        hash_bytes[13 + 4] = amount_bytes[13];
-        hash_bytes[14 + 4] = amount_bytes[14];
-        hash_bytes[15 + 4] = amount_bytes[15];
-        hash_bytes[16 + 4] = amount_bytes[16];
-        hash_bytes[17 + 4] = amount_bytes[17];
-        hash_bytes[18 + 4] = amount_bytes[18];
-        hash_bytes[19 + 4] = amount_bytes[19];
-        hash_bytes[20 + 4] = amount_bytes[20];
-        hash_bytes[21 + 4] = amount_bytes[21];
-        hash_bytes[22 + 4] = amount_bytes[22];
-        hash_bytes[23 + 4] = amount_bytes[23];
-        hash_bytes[24 + 4] = amount_bytes[24];
-        hash_bytes[25 + 4] = amount_bytes[25];
-        hash_bytes[26 + 4] = amount_bytes[26];
-        hash_bytes[27 + 4] = amount_bytes[27];
-        hash_bytes[28 + 4] = amount_bytes[28];
-        hash_bytes[29 + 4] = amount_bytes[29];
-        hash_bytes[30 + 4] = amount_bytes[30];
-        hash_bytes[31 + 4] = amount_bytes[31];
-
-        hash_bytes[0 + 36] = recipient_bytes[0];
-        hash_bytes[1 + 36] = recipient_bytes[1];
-        hash_bytes[2 + 36] = recipient_bytes[2];
-        hash_bytes[3 + 36] = recipient_bytes[3];
-        hash_bytes[4 + 36] = recipient_bytes[4];
-        hash_bytes[5 + 36] = recipient_bytes[5];
-        hash_bytes[6 + 36] = recipient_bytes[6];
-        hash_bytes[7 + 36] = recipient_bytes[7];
-        hash_bytes[8 + 36] = recipient_bytes[8];
-        hash_bytes[9 + 36] = recipient_bytes[9];
-        hash_bytes[10 + 36] = recipient_bytes[10];
-        hash_bytes[11 + 36] = recipient_bytes[11];
-        hash_bytes[12 + 36] = recipient_bytes[12];
-        hash_bytes[13 + 36] = recipient_bytes[13];
-        hash_bytes[14 + 36] = recipient_bytes[14];
-        hash_bytes[15 + 36] = recipient_bytes[15];
-        hash_bytes[16 + 36] = recipient_bytes[16];
-        hash_bytes[17 + 36] = recipient_bytes[17];
-        hash_bytes[18 + 36] = recipient_bytes[18];
-        hash_bytes[19 + 36] = recipient_bytes[19];
-        hash_bytes[20 + 36] = recipient_bytes[20];
-        hash_bytes[21 + 36] = recipient_bytes[21];
-        hash_bytes[22 + 36] = recipient_bytes[22];
-        hash_bytes[23 + 36] = recipient_bytes[23];
-        hash_bytes[24 + 36] = recipient_bytes[24];
-        hash_bytes[25 + 36] = recipient_bytes[25];
-        hash_bytes[26 + 36] = recipient_bytes[26];
-        hash_bytes[27 + 36] = recipient_bytes[27];
-        hash_bytes[28 + 36] = recipient_bytes[28];
-        hash_bytes[29 + 36] = recipient_bytes[29];
-        hash_bytes[30 + 36] = recipient_bytes[30];
-        hash_bytes[31 + 36] = recipient_bytes[31];
-
-        hash_bytes[0 + 68] = canceller_bytes[0];
-        hash_bytes[1 + 68] = canceller_bytes[1];
-        hash_bytes[2 + 68] = canceller_bytes[2];
-        hash_bytes[3 + 68] = canceller_bytes[3];
-        hash_bytes[4 + 68] = canceller_bytes[4];
-        hash_bytes[5 + 68] = canceller_bytes[5];
-        hash_bytes[6 + 68] = canceller_bytes[6];
-        hash_bytes[7 + 68] = canceller_bytes[7];
-        hash_bytes[8 + 68] = canceller_bytes[8];
-        hash_bytes[9 + 68] = canceller_bytes[9];
-        hash_bytes[10 + 68] = canceller_bytes[10];
-        hash_bytes[11 + 68] = canceller_bytes[11];
-        hash_bytes[12 + 68] = canceller_bytes[12];
-        hash_bytes[13 + 68] = canceller_bytes[13];
-        hash_bytes[14 + 68] = canceller_bytes[14];
-        hash_bytes[15 + 68] = canceller_bytes[15];
-        hash_bytes[16 + 68] = canceller_bytes[16];
-        hash_bytes[17 + 68] = canceller_bytes[17];
-        hash_bytes[18 + 68] = canceller_bytes[18];
-        hash_bytes[19 + 68] = canceller_bytes[19];
-        hash_bytes[20 + 68] = canceller_bytes[20];
-        hash_bytes[21 + 68] = canceller_bytes[21];
-        hash_bytes[22 + 68] = canceller_bytes[22];
-        hash_bytes[23 + 68] = canceller_bytes[23];
-        hash_bytes[24 + 68] = canceller_bytes[24];
-        hash_bytes[25 + 68] = canceller_bytes[25];
-        hash_bytes[26 + 68] = canceller_bytes[26];
-        hash_bytes[27 + 68] = canceller_bytes[27];
-        hash_bytes[28 + 68] = canceller_bytes[28];
-        hash_bytes[29 + 68] = canceller_bytes[29];
-        hash_bytes[30 + 68] = canceller_bytes[30];
-        hash_bytes[31 + 68] = canceller_bytes[31];
         
         let content_sha256 = dep::std::hash::sha256(hash_bytes);
 
@@ -369,65 +447,18 @@ contract NonNativeToken {
         let mut high = 0 as Field;
         let mut low = 0 as Field;
 
-        // Unroll loops because otherwise takes forever to compile
-        // for i in [15 - i for i in range(16)]:
-        //     print('high = high + (content_sha256[{0}] as Field) * v;'.format(i))
-        //     print('low = low + (content_sha256[16 + {0}] as Field) * v;'.format(i))
-        //     print('v = v * 256;');
-        high = high + (content_sha256[15] as Field) * v;
-        low = low + (content_sha256[16 + 15] as Field) * v;
-        v = v * 256;
-        high = high + (content_sha256[14] as Field) * v;
-        low = low + (content_sha256[16 + 14] as Field) * v;
-        v = v * 256;
-        high = high + (content_sha256[13] as Field) * v;
-        low = low + (content_sha256[16 + 13] as Field) * v;
-        v = v * 256;
-        high = high + (content_sha256[12] as Field) * v;
-        low = low + (content_sha256[16 + 12] as Field) * v;
-        v = v * 256;
-        high = high + (content_sha256[11] as Field) * v;
-        low = low + (content_sha256[16 + 11] as Field) * v;
-        v = v * 256;
-        high = high + (content_sha256[10] as Field) * v;
-        low = low + (content_sha256[16 + 10] as Field) * v;
-        v = v * 256;
-        high = high + (content_sha256[9] as Field) * v;
-        low = low + (content_sha256[16 + 9] as Field) * v;
-        v = v * 256;
-        high = high + (content_sha256[8] as Field) * v;
-        low = low + (content_sha256[16 + 8] as Field) * v;
-        v = v * 256;
-        high = high + (content_sha256[7] as Field) * v;
-        low = low + (content_sha256[16 + 7] as Field) * v;
-        v = v * 256;
-        high = high + (content_sha256[6] as Field) * v;
-        low = low + (content_sha256[16 + 6] as Field) * v;
-        v = v * 256;
-        high = high + (content_sha256[5] as Field) * v;
-        low = low + (content_sha256[16 + 5] as Field) * v;
-        v = v * 256;
-        high = high + (content_sha256[4] as Field) * v;
-        low = low + (content_sha256[16 + 4] as Field) * v;
-        v = v * 256;
-        high = high + (content_sha256[3] as Field) * v;
-        low = low + (content_sha256[16 + 3] as Field) * v;
-        v = v * 256;
-        high = high + (content_sha256[2] as Field) * v;
-        low = low + (content_sha256[16 + 2] as Field) * v;
-        v = v * 256;
-        high = high + (content_sha256[1] as Field) * v;
-        low = low + (content_sha256[16 + 1] as Field) * v;
-        v = v * 256;
-        high = high + (content_sha256[0] as Field) * v;
-        low = low + (content_sha256[16 + 0] as Field) * v;
-        v = v * 256;
+        for i in 0..16 {
+            high = high + (content_sha256[15 - i] as Field) * v;
+            low = low + (content_sha256[16 + 15 - i] as Field) * v;
+            v = v * 256;
+        }
 
         // Abuse that a % p + b % p = (a + b) % p and that low < p
         let content_hash = low + high * v;
         content_hash
     }
 
+    // Computes a content hash of a withdraw message.
     fn _get_withdraw_content_hash(amount: Field, recipient: Field, callerOnL1: Field) -> pub Field {
         // Compute the content hash
         // Compute sha256(selector || amount || recipient)
@@ -437,117 +468,18 @@ contract NonNativeToken {
         let amount_bytes = amount.to_be_bytes(32);
         let recipient_bytes = recipient.to_be_bytes(32);
         let callerOnL1_bytes = callerOnL1.to_be_bytes(32);
-
+        
         //  0xb460af94, selector for "withdraw(uint256,address,address)"
         hash_bytes[0] = 0xb4;
         hash_bytes[1] = 0x60;
         hash_bytes[2] = 0xaf;
         hash_bytes[3] = 0x94;
 
-        // Unroll loops because otherwise takes forever to compile
-        // for i in range(32):
-        //     print('hash_bytes[{0}] = amount_bytes[{1}];'.format(i+4, i))
-        // for i in range(32):
-        //     print('hash_bytes[{0} + 32] = recipient_bytes[{1}];'.format(i+4, i))
-        hash_bytes[4] = amount_bytes[0];
-        hash_bytes[5] = amount_bytes[1];
-        hash_bytes[6] = amount_bytes[2];
-        hash_bytes[7] = amount_bytes[3];
-        hash_bytes[8] = amount_bytes[4];
-        hash_bytes[9] = amount_bytes[5];
-        hash_bytes[10] = amount_bytes[6];
-        hash_bytes[11] = amount_bytes[7];
-        hash_bytes[12] = amount_bytes[8];
-        hash_bytes[13] = amount_bytes[9];
-        hash_bytes[14] = amount_bytes[10];
-        hash_bytes[15] = amount_bytes[11];
-        hash_bytes[16] = amount_bytes[12];
-        hash_bytes[17] = amount_bytes[13];
-        hash_bytes[18] = amount_bytes[14];
-        hash_bytes[19] = amount_bytes[15];
-        hash_bytes[20] = amount_bytes[16];
-        hash_bytes[21] = amount_bytes[17];
-        hash_bytes[22] = amount_bytes[18];
-        hash_bytes[23] = amount_bytes[19];
-        hash_bytes[24] = amount_bytes[20];
-        hash_bytes[25] = amount_bytes[21];
-        hash_bytes[26] = amount_bytes[22];
-        hash_bytes[27] = amount_bytes[23];
-        hash_bytes[28] = amount_bytes[24];
-        hash_bytes[29] = amount_bytes[25];
-        hash_bytes[30] = amount_bytes[26];
-        hash_bytes[31] = amount_bytes[27];
-        hash_bytes[32] = amount_bytes[28];
-        hash_bytes[33] = amount_bytes[29];
-        hash_bytes[34] = amount_bytes[30];
-        hash_bytes[35] = amount_bytes[31];
-
-        hash_bytes[4 + 32] = recipient_bytes[0];
-        hash_bytes[5 + 32] = recipient_bytes[1];
-        hash_bytes[6 + 32] = recipient_bytes[2];
-        hash_bytes[7 + 32] = recipient_bytes[3];
-        hash_bytes[8 + 32] = recipient_bytes[4];
-        hash_bytes[9 + 32] = recipient_bytes[5];
-        hash_bytes[10 + 32] = recipient_bytes[6];
-        hash_bytes[11 + 32] = recipient_bytes[7];
-        hash_bytes[12 + 32] = recipient_bytes[8];
-        hash_bytes[13 + 32] = recipient_bytes[9];
-        hash_bytes[14 + 32] = recipient_bytes[10];
-        hash_bytes[15 + 32] = recipient_bytes[11];
-        hash_bytes[16 + 32] = recipient_bytes[12];
-        hash_bytes[17 + 32] = recipient_bytes[13];
-        hash_bytes[18 + 32] = recipient_bytes[14];
-        hash_bytes[19 + 32] = recipient_bytes[15];
-        hash_bytes[20 + 32] = recipient_bytes[16];
-        hash_bytes[21 + 32] = recipient_bytes[17];
-        hash_bytes[22 + 32] = recipient_bytes[18];
-        hash_bytes[23 + 32] = recipient_bytes[19];
-        hash_bytes[24 + 32] = recipient_bytes[20];
-        hash_bytes[25 + 32] = recipient_bytes[21];
-        hash_bytes[26 + 32] = recipient_bytes[22];
-        hash_bytes[27 + 32] = recipient_bytes[23];
-        hash_bytes[28 + 32] = recipient_bytes[24];
-        hash_bytes[29 + 32] = recipient_bytes[25];
-        hash_bytes[30 + 32] = recipient_bytes[26];
-        hash_bytes[31 + 32] = recipient_bytes[27];
-        hash_bytes[32 + 32] = recipient_bytes[28];
-        hash_bytes[33 + 32] = recipient_bytes[29];
-        hash_bytes[34 + 32] = recipient_bytes[30];
-        hash_bytes[35 + 32] = recipient_bytes[31];
-
-        hash_bytes[4 + 64] = callerOnL1_bytes[0];
-        hash_bytes[5 + 64] = callerOnL1_bytes[1];
-        hash_bytes[6 + 64] = callerOnL1_bytes[2];
-        hash_bytes[7 + 64] = callerOnL1_bytes[3];
-        hash_bytes[8 + 64] = callerOnL1_bytes[4];
-        hash_bytes[9 + 64] = callerOnL1_bytes[5];
-        hash_bytes[10 + 64] = callerOnL1_bytes[6];
-        hash_bytes[11 + 64] = callerOnL1_bytes[7];
-        hash_bytes[12 + 64] = callerOnL1_bytes[8];
-        hash_bytes[13 + 64] = callerOnL1_bytes[9];
-        hash_bytes[14 + 64] = callerOnL1_bytes[10];
-        hash_bytes[15 + 64] = callerOnL1_bytes[11];
-        hash_bytes[16 + 64] = callerOnL1_bytes[12];
-        hash_bytes[17 + 64] = callerOnL1_bytes[13];
-        hash_bytes[18 + 64] = callerOnL1_bytes[14];
-        hash_bytes[19 + 64] = callerOnL1_bytes[15];
-        hash_bytes[20 + 64] = callerOnL1_bytes[16];
-        hash_bytes[21 + 64] = callerOnL1_bytes[17];
-        hash_bytes[22 + 64] = callerOnL1_bytes[18];
-        hash_bytes[23 + 64] = callerOnL1_bytes[19];
-        hash_bytes[24 + 64] = callerOnL1_bytes[20];
-        hash_bytes[25 + 64] = callerOnL1_bytes[21];
-        hash_bytes[26 + 64] = callerOnL1_bytes[22];
-        hash_bytes[27 + 64] = callerOnL1_bytes[23];
-        hash_bytes[28 + 64] = callerOnL1_bytes[24];
-        hash_bytes[29 + 64] = callerOnL1_bytes[25];
-        hash_bytes[30 + 64] = callerOnL1_bytes[26];
-        hash_bytes[31 + 64] = callerOnL1_bytes[27];
-        hash_bytes[32 + 64] = callerOnL1_bytes[28];
-        hash_bytes[33 + 64] = callerOnL1_bytes[29];
-        hash_bytes[34 + 64] = callerOnL1_bytes[30];
-        hash_bytes[35 + 64] = callerOnL1_bytes[31];
-
+        for i in 0..32 {
+            hash_bytes[i + 4] = amount_bytes[i];
+            hash_bytes[i + 36] = recipient_bytes[i];
+            hash_bytes[i + 68] = callerOnL1_bytes[i];
+        }
         let content_sha256 = dep::std::hash::sha256(hash_bytes);
 
         // Convert the content_sha256 to a field element
@@ -555,59 +487,11 @@ contract NonNativeToken {
         let mut high = 0 as Field;
         let mut low = 0 as Field;
         
-        // Unroll loops because otherwise takes forever to compile
-        // for i in [15 - i for i in range(16)]:
-        //     print('high = high + (content_sha256[{0}] as Field) * v;'.format(i))
-        //     print('low = low + (content_sha256[16 + {0}] as Field) * v;'.format(i))
-        //     print('v = v * 256;');
-        high = high + (content_sha256[15] as Field) * v;
-        low = low + (content_sha256[16 + 15] as Field) * v;
-        v = v * 256;
-        high = high + (content_sha256[14] as Field) * v;
-        low = low + (content_sha256[16 + 14] as Field) * v;
-        v = v * 256;
-        high = high + (content_sha256[13] as Field) * v;
-        low = low + (content_sha256[16 + 13] as Field) * v;
-        v = v * 256;
-        high = high + (content_sha256[12] as Field) * v;
-        low = low + (content_sha256[16 + 12] as Field) * v;
-        v = v * 256;
-        high = high + (content_sha256[11] as Field) * v;
-        low = low + (content_sha256[16 + 11] as Field) * v;
-        v = v * 256;
-        high = high + (content_sha256[10] as Field) * v;
-        low = low + (content_sha256[16 + 10] as Field) * v;
-        v = v * 256;
-        high = high + (content_sha256[9] as Field) * v;
-        low = low + (content_sha256[16 + 9] as Field) * v;
-        v = v * 256;
-        high = high + (content_sha256[8] as Field) * v;
-        low = low + (content_sha256[16 + 8] as Field) * v;
-        v = v * 256;
-        high = high + (content_sha256[7] as Field) * v;
-        low = low + (content_sha256[16 + 7] as Field) * v;
-        v = v * 256;
-        high = high + (content_sha256[6] as Field) * v;
-        low = low + (content_sha256[16 + 6] as Field) * v;
-        v = v * 256;
-        high = high + (content_sha256[5] as Field) * v;
-        low = low + (content_sha256[16 + 5] as Field) * v;
-        v = v * 256;
-        high = high + (content_sha256[4] as Field) * v;
-        low = low + (content_sha256[16 + 4] as Field) * v;
-        v = v * 256;
-        high = high + (content_sha256[3] as Field) * v;
-        low = low + (content_sha256[16 + 3] as Field) * v;
-        v = v * 256;
-        high = high + (content_sha256[2] as Field) * v;
-        low = low + (content_sha256[16 + 2] as Field) * v;
-        v = v * 256;
-        high = high + (content_sha256[1] as Field) * v;
-        low = low + (content_sha256[16 + 1] as Field) * v;
-        v = v * 256;
-        high = high + (content_sha256[0] as Field) * v;
-        low = low + (content_sha256[16 + 0] as Field) * v;
-        v = v * 256;
+        for i in 0..16 {
+            high = high + (content_sha256[15 - i] as Field) * v;
+            low = low + (content_sha256[16 + 15 - i] as Field) * v;
+            v = v * 256;
+        }
 
         // Abuse that a % p + b % p = (a + b) % p and that low < p
         let content = low + high * v;

@@ -1,14 +1,27 @@
-contract PendingCommitments {
-    use dep::aztec3::abi;
-    use dep::aztec3::abi::PrivateContextInputs;
-    use dep::aztec3::context::PrivateFunctionContext;
-    use dep::aztec3::notes::value_note::Note;
-    use dep::aztec3::private_call_stack_item::PrivateCallStackItem;
-    use dep::aztec3::types::point::Point;
-    use dep::aztec3::state_vars::map::Map;
-    use dep::aztec3::state_vars::set::Set;
+mod storage;
 
-    global balances = Map { storage_slot: 1 };
+contract PendingCommitments {
+    // Libs
+    use dep::token_utils::{
+        balance_utils,
+        value_note::{
+            value_note::ValueNote,
+            filter::get_2_notes,
+        }
+    };
+
+    use crate::storage::Storage;
+
+    use dep::aztec::abi;
+    use dep::aztec::abi::PrivateContextInputs;
+    use dep::aztec::context::Context;
+    use dep::aztec::note::note_getter::NoteGetterOptions;
+    use dep::aztec::types::point::Point;
+    use dep::aztec::state_vars::map::Map;
+    use dep::aztec::state_vars::set::Set;
+    use dep::aztec::log::emit_encrypted_log;
+    use dep::aztec::log::emit_unencrypted_log;
+    use dep::aztec::private_call_stack_item::PrivateCallStackItem;
 
     fn constructor(
         //*********************************/
@@ -16,13 +29,13 @@ contract PendingCommitments {
         inputs: PrivateContextInputs
         //*********************************/
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
-        let context = PrivateFunctionContext::new();
-        context.finish(inputs)
+        //let context = Context::new(inputs, abi::hash_args([]));
+        let context = Context::new(inputs, 0);
+        context.finish()
     }
 
-    /// test pending commitments by creating / inserting a note
-    /// and then getting / reading that note all in the same
-    /// contract function
+    // Test pending commitments by creating / inserting a note and then
+    // getting / reading that note all in the same contract function
     fn create_get_and_check_note_inline(
         //*********************************/
         // Should eventually be hidden:
@@ -31,27 +44,28 @@ contract PendingCommitments {
         amount: Field,
         owner: Point,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
-        let mut context = PrivateFunctionContext::new();
-        context.args = context.args.push_array([amount, owner.x, owner.y]);
+        let storage = Storage::init();
+        let mut context = Context::new(inputs, abi::hash_args([amount, owner.x, owner.y]));
 
-        let owner_balance = balances.at(owner.x);
-        let note = Note::new(amount, owner);
+        let owner_balance = storage.balances.at(owner.x);
+        let note = ValueNote::new(amount, owner);
 
         // Insert note and emit encrypted note preimage via oracle call
         context = owner_balance.insert(context, note);
 
-        let (context_tmp, (gotNote1, gotNote2)) = owner_balance.get_2(context);
+        let options = NoteGetterOptions::with_filter(get_2_notes, 0);
+        let (context_tmp, got_notes) = owner_balance.get_notes(context, options);
         context = context_tmp;
 
-        assert(note.eq(gotNote1));
-        assert(!gotNote2.is_real);
+        assert(note.eq(got_notes[0]));
+        assert(!got_notes[1].is_real);
 
-        context.return_values = context.return_values.push(gotNote1.value);
+        context.return_values = context.return_values.push(got_notes[0].value);
 
-        context.finish(inputs)
+        context.finish()
     }
 
-    /// Create and insert a note
+    // Create and insert a note
     fn create_note(
         //*********************************/
         // Should eventually be hidden:
@@ -60,19 +74,19 @@ contract PendingCommitments {
         amount: Field,
         owner: Point,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
-        let mut context = PrivateFunctionContext::new();
-        context.args = context.args.push_array([amount, owner.x, owner.y]);
+        let storage = Storage::init();
+        let mut context = Context::new(inputs, abi::hash_args([amount, owner.x, owner.y]));
 
-        let owner_balance = balances.at(owner.x);
-        let note = Note::new(amount, owner);
+        let owner_balance = storage.balances.at(owner.x);
+        let note = ValueNote::new(amount, owner);
 
         // Insert note and emit encrypted note preimage via oracle call
         context = owner_balance.insert(context, note);
 
-        context.finish(inputs)
+        context.finish()
     }
 
-    /// Get a note and confirm it has expected value
+    // Get a note and confirm it has expected value
     fn get_and_check_note(
         //*********************************/
         // Should eventually be hidden:
@@ -81,23 +95,25 @@ contract PendingCommitments {
         expected_value: Field,
         owner: Point,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
-        let mut context = PrivateFunctionContext::new();
-        context.args = context.args.push_array([owner.x, owner.y]);
+        let storage = Storage::init();
+        let mut context = Context::new(inputs, abi::hash_args([expected_value, owner.x, owner.y]));
 
-        let owner_balance = balances.at(owner.x);
+        let owner_balance = storage.balances.at(owner.x);
 
-        let (context_tmp, (gotNote1, gotNote2)) = owner_balance.get_2(context);
+        let options = NoteGetterOptions::with_filter(get_2_notes, 0);
+        let (context_tmp, got_notes) = owner_balance.get_notes(context, options);
         context = context_tmp;
-        assert(expected_value == gotNote1.value);
-        assert(!gotNote2.is_real);
 
-        context.return_values = context.return_values.push(gotNote1.value);
+        assert(expected_value == got_notes[0].value);
+        assert(!got_notes[1].is_real);
 
-        context.finish(inputs)
+        context.return_values = context.return_values.push(got_notes[0].value);
+
+        context.finish()
     }
 
-    /// Test pending commitments with note insertion done in a nested call
-    /// and "read" / get of that pending note/commitment in another nested call
+    // Test pending commitments with note insertion done in a nested call
+    // and "read" / get of that pending note/commitment in another nested call
     fn create_get_and_check_note_in_nested_calls(
         //*********************************/
         // Should eventually be hidden:
@@ -108,8 +124,7 @@ contract PendingCommitments {
         createFnSelector: Field,
         getAndCheckFnSelector: Field,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
-        let mut context = PrivateFunctionContext::new();
-        context.args = context.args.push_array([amount, owner.x, owner.y]);
+        let mut context = Context::new(inputs, abi::hash_args([amount, owner.x, owner.y, createFnSelector, getAndCheckFnSelector]));
 
         // args for nested calls
         let mut args = [0; abi::MAX_ARGS];
@@ -124,7 +139,7 @@ contract PendingCommitments {
         let (_callStackItem2, mut context_tmp1) = PrivateCallStackItem::call(inputs.call_context.storage_contract_address, getAndCheckFnSelector, args, context);
         context = context_tmp1;
 
-        context.finish(inputs)
+        context.finish()
     }
 
     // TODO(dbanks12): tests different combinatiions of nested/parent calls
