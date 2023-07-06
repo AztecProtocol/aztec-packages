@@ -97,12 +97,13 @@ export async function setup(numberOfAccounts = 1): Promise<{
     const privateKey = i === 0 ? Buffer.from(privKey!) : randomBytes(32);
     const abi = i == 0 ? SchnorrAccountContractAbi : GullibleAccountContractAbi;
     const publicKey = await generatePublicKey(privateKey);
-    const deploymentData = await getContractDeploymentInfo(abi, [], Fr.ZERO, publicKey);
+    const salt = Fr.random();
+    const deploymentData = await getContractDeploymentInfo(abi, [], salt, publicKey);
     await aztecRpcServer.addAccount(privateKey, deploymentData.address, deploymentData.partialAddress, abi);
 
     const contractDeployer = new ContractDeployer(abi, aztecRpcServer, publicKey);
     const deployMethod = contractDeployer.deploy();
-    const tx = deployMethod.send();
+    const tx = deployMethod.send({ contractAddressSalt: salt });
     await tx.isMined(0, 0.1);
     const receipt = await tx.getReceipt();
     const receiptAddress = receipt.contractAddress!;
