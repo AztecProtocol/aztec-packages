@@ -35,6 +35,9 @@
     "@aztec/foundation": "workspace:^",
     "@aztec/key-store": "workspace:^",
     "@aztec/noir-contracts": "workspace:^",
+    "@walletconnect/core": "^2.9.0",
+    "@walletconnect/sign-client": "^2.9.0",
+    "qrcode-terminal": "^0.12.0",
     "tslib": "^2.4.0"
   },
   "devDependencies": {
