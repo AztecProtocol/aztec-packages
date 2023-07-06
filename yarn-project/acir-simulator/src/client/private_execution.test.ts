@@ -218,14 +218,14 @@ describe('Private Execution test suite', () => {
       );
 
       expect(result.preimages.newNotes).toHaveLength(2);
-      const [recipientNote, changeNote] = result.preimages.newNotes;
+      const [changeNote, recipientNote] = result.preimages.newNotes;
       expect(recipientNote.storageSlot).toEqual(computeSlotForMapping(new Fr(1n), recipient, circuitsWasm));
 
       const newCommitments = result.callStackItem.publicInputs.newCommitments.filter(field => !field.equals(Fr.ZERO));
 
       expect(newCommitments).toHaveLength(2);
 
-      const [recipientNoteCommitment, changeNoteCommitment] = newCommitments;
+      const [changeNoteCommitment, recipientNoteCommitment] = newCommitments;
       const recipientStorageSlot = computeSlotForMapping(new Fr(1n), recipient, circuitsWasm);
       expect(recipientNoteCommitment).toEqual(
         Fr.fromBuffer(acirSimulator.computeNoteHash(recipientStorageSlot, recipientNote.preimage, circuitsWasm)),
@@ -280,7 +280,7 @@ describe('Private Execution test suite', () => {
       );
 
       expect(result.preimages.newNotes).toHaveLength(2);
-      const [recipientNote, changeNote] = result.preimages.newNotes;
+      const [changeNote, recipientNote] = result.preimages.newNotes;
       expect(recipientNote.preimage[0]).toEqual(new Fr(amountToTransfer));
       expect(changeNote.preimage[0]).toEqual(new Fr(balance - amountToTransfer));
     }, 30_000);
