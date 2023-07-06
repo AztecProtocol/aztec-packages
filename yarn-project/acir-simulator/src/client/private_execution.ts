@@ -88,19 +88,12 @@ export class PrivateFunctionExecution {
         ),
       ],
       getNotes2: async ([_connector, storageSlot]: ACVMField[]) => {
-        this.log(`getNotes2 - connector: ${_connector}`);
         const { preimagesACVM, realLeafIndices } = await this.context.getNotes(this.contractAddress, storageSlot, 2);
-
         readRequestCommitmentIndices.push(...realLeafIndices);
-        this.log(`Read ${preimagesACVM.length} fields from storage slot ${storageSlot.toString()}`);
         return preimagesACVM;
       },
       getRandomField: () => Promise.resolve([toACVMField(Fr.random())]),
       notifyCreatedNote: ([_connector, storageSlot, ...acvmPreimage]: ACVMField[]) => {
-        this.log(`notifyCreatedNote - connector: ${_connector}`);
-        this.log(`notifyCreatedNote - : ${storageSlot}`);
-        this.log(`notifyCreatedNote - preimage length: ${acvmPreimage.length}`);
-        this.log(`notifyCreatedNote - preimage: ${JSON.stringify(acvmPreimage)}`);
         const pendingNoteData: PendingNoteData = {
           preimage: acvmPreimage,
           contractAddress: this.contractAddress,
@@ -115,10 +108,9 @@ export class PrivateFunctionExecution {
         // return is used to force proper ordering of callbacks
         return Promise.resolve([ZERO_ACVM_FIELD]);
       },
-      notifyNullifiedNote: ([slot, nullifier, ...acvmPreimage]: ACVMField[]) => {
-        // TODO if nullifies pending commitment, remove it from this.context.pendingCommitments
-        // Flag this nullifier as transient in simulator output.
-        // Can we set kernel hint here?
+      notifyNullifiedNote: ([_connector, slot, nullifier, ...acvmPreimage]: ACVMField[]) => {
+        // TODO(dbanks12) if nullifies pending commitment remove it from this.context.pendingCommitments,
+        // and flag this nullifier as transient in simulator output.  Can we provide kernel hint here?
         newNullifiers.push({
           preimage: acvmPreimage.map(f => fromACVMField(f)),
           storageSlot: fromACVMField(slot),
