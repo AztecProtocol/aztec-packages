@@ -34,6 +34,9 @@ import { Account, Chain, HttpTransport, PublicClient, WalletClient, getContract 
 import { mnemonicToAccount } from 'viem/accounts';
 import { SchnorrAuthProvider } from './auth.js';
 import { MNEMONIC, localAnvil } from './fixtures.js';
+import every from 'lodash.every';
+import zipWith from 'lodash.zipwith';
+import { ContractAbi } from '@aztec/foundation/abi';
 
 /**
  * Sets up the environment for the end-to-end tests.
@@ -152,25 +155,21 @@ export async function setNextBlockTimestamp(rpcUrl: string, timestamp: number) {
 
 /**
  * Deploys a set of contracts to the network.
- * @param aztecRpcServer - the RPC server to make the request.
+ * @param wallet - the wallet to make the request.
  * @param abi - contracts to be deployed.
  * @returns The deployed contract instances.
  */
-// export async function deployL2Contracts(aztecRpcServer: AztecRPCServer, abis: ContractAbi[]) {
-//   const logger = getLogger();
-//   const calls = await Promise.all(abis.map(abi => new ContractDeployer(abi, aztecRpcServer).deploy()));
-//   for (const call of calls) await call.create();
-//   const txs = await Promise.all(calls.map(c => c.send()));
-//   expect(every(await Promise.all(txs.map(tx => tx.isMined(0, 0.1))))).toBeTruthy();
-//   const receipts = await Promise.all(txs.map(tx => tx.getReceipt()));
-//   const contracts = zipWith(
-//     abis,
-//     receipts,
-//     (abi, receipt) => new Contract(receipt!.contractAddress!, abi!, aztecRpcServer),
-//   );
-//   contracts.forEach(c => logger(`L2 contract ${c.abi.name} deployed at ${c.address}`));
-//   return contracts;
-// }
+export async function deployL2Contracts(wallet: Wallet, abis: ContractAbi[]) {
+  const logger = getLogger();
+  const calls = await Promise.all(abis.map(abi => new ContractDeployer(abi, wallet).deploy()));
+  for (const call of calls) await call.create();
+  const txs = await Promise.all(calls.map(c => c.send()));
+  expect(every(await Promise.all(txs.map(tx => tx.isMined(0, 0.1))))).toBeTruthy();
+  const receipts = await Promise.all(txs.map(tx => tx.getReceipt()));
+  const contracts = zipWith(abis, receipts, (abi, receipt) => new Contract(receipt!.contractAddress!, abi!, wallet));
+  contracts.forEach(c => logger(`L2 contract ${c.abi.name} deployed at ${c.address}`));
+  return contracts;
+}
 
 /**
  * Returns a logger instance for the current test.
