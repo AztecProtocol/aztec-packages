@@ -96,11 +96,17 @@ void common_validate_read_requests(DummyBuilder& builder,
             builder.do_assert(root_for_read_request == historic_private_data_tree_root,
                               format("private data root mismatch at read_request[",
                                      rr_idx,
-                                     "] - ",
-                                     "Expected root: ",
+                                     "]",
+                                     "\n\texpected root:    ",
                                      historic_private_data_tree_root,
-                                     ", Read request gave root: ",
-                                     root_for_read_request),
+                                     "\n\tbut got root*:    ",
+                                     root_for_read_request,
+                                     "\n\tread_request:     ",
+                                     read_request,
+                                     "\n\tsiloed-rr (leaf): ",
+                                     leaf,
+                                     "\n\t* got root by siloing read_request with contract address (to get leaf) and "
+                                     "merkle-hashing to a root using membership witness"),
                               CircuitErrorCode::PRIVATE_KERNEL__READ_REQUEST_PRIVATE_DATA_ROOT_MISMATCH);
         }
     }
