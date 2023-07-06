@@ -85,7 +85,6 @@ export class ClientTxExecutionContext {
       if (note.contractAddress.equals(contractAddress) && note.storageSlot == storageSlot) {
         // TODO(dbanks12): flag as pending and separately provide "hint" of
         // which "new_commitment" in which kernel this read maps to
-        console.log(`Adding pending note - preimage length: ${note.preimage.length}`);
         pendingPreimages.push(note.preimage);
       }
     }

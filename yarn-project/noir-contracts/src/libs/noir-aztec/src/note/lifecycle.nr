@@ -4,7 +4,6 @@ use crate::note::note_hash::compute_siloed_note_hash;
 use crate::note::note_interface::NoteInterface;
 use crate::oracle::notes::notify_created_note;
 use crate::oracle::notes::notify_nullified_note;
-use crate::oracle::debug_log::debug_log_format;
 
 fn create_note<Note, N>(
     mut context: Context,
@@ -19,11 +18,9 @@ fn create_note<Note, N>(
 
     let serialise = note_interface.serialise;
     let preimage = serialise(note);
-    debug_log_format("create_note context.oracle_connector was: {0}", [context.oracle_connector]);
     let (context_tmp, ret) = notify_created_note(context, storage_slot, preimage);
     context = context_tmp;
     assert(ret == 0);
-    debug_log_format("create_note context.oracle_connector updated to: {0}", [context.oracle_connector]);
 
     context
 }
@@ -43,7 +40,9 @@ fn destroy_note<Note, N>(
 
     let serialise = note_interface.serialise;
     let preimage = serialise(note);
-    assert(notify_nullified_note(storage_slot, nullifier, preimage) == 0);
+    let (context_tmp, ret) = notify_nullified_note(context, storage_slot, nullifier, preimage);
+    context = context_tmp;
+    assert(ret == 0);
 
     context
 }

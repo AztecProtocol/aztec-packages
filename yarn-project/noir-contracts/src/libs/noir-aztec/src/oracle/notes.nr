@@ -2,12 +2,18 @@ use crate::context::Context;
 use crate::abi::MAX_READ_REQUESTS;
 use crate::types::point::Point;
 use crate::utils::arr_copy_slice;
-use crate::oracle::debug_log::debug_log_format;
-//use crate::generators;
-//use crate::generators::VALUE_NOTE;
-global VALUE_NOTE = 2;
 
 // TODO: Replace returned number of notes (MAX_READ_REQUESTS) with a larger global value.
+
+// Hacky way to force stepwise execution of oracle calls by injecting
+// strict dependencies. Call this after an oracle call and then
+// pass context.oracle_connector to next oracle call.
+// TODO(dbanks12): remove when closed: https://github.com/noir-lang/acvm/pull/399
+fn force_oracle_ordering<N>(mut context: Context, oracle_ret: [Field; N]) -> Context {
+    let connector_hash = dep::std::hash::pedersen([oracle_ret[0]])[0];
+    context.oracle_connector = connector_hash;
+    context
+}
 
 #[oracle(notifyCreatedNote)]
 fn notify_created_note_oracle<N>(
@@ -30,35 +36,36 @@ fn notify_created_note<N>(
     preimage: [Field; N],
 ) -> (Context, Field) {
     let ret = notify_created_note_wrapper(context.oracle_connector, storage_slot, preimage);
-
-    let note_hash = dep::std::hash::pedersen([
-        2,
-        preimage[0],
-        preimage[1],
-        preimage[2],
-        preimage[3],
-        preimage[4],
-        preimage[5],
-    ])[0];
-    context.oracle_connector = ret + note_hash;
+    context = force_oracle_ordering(context, [ret]);
     (context, ret)
 }
 
 #[oracle(notifyNullifiedNote)]
 fn notify_nullified_note_oracle<N>(
-    //_oracle_connector: Field,
+    _oracle_connector: Field,
     _storage_slot: Field,
     _nullifier: Field,
     _preimage: [Field; N],
 ) -> [Field; 1] {}
 
-unconstrained fn notify_nullified_note<N>(
-    //oracle_connector: Field,
+unconstrained fn notify_nullified_note_wrapper<N>(
+    oracle_connector: Field,
     storage_slot: Field,
     nullifier: Field,
     preimage: [Field; N],
 ) -> Field {
-    notify_nullified_note_oracle(storage_slot, nullifier, preimage)[0]
+    notify_nullified_note_oracle(oracle_connector, storage_slot, nullifier, preimage)[0]
+}
+
+fn notify_nullified_note<N>(
+    mut context: Context,
+    storage_slot: Field,
+    nullifier: Field,
+    preimage: [Field; N],
+) -> (Context, Field) {
+    let ret = notify_nullified_note_wrapper(context.oracle_connector, storage_slot, nullifier, preimage);
+    context = force_oracle_ordering(context, [ret]);
+    (context, ret)
 }
 
 #[oracle(getNotes2)]
@@ -83,10 +90,9 @@ fn get_note<Note, N>(
     dummy: fn () -> Note,
 ) -> (Context, Note) {
     // TODO: get_note_oracle
-    debug_log_format("get_note oracle_connector was: {0}", [context.oracle_connector]);
     let fields = get_notes_2_oracle_wrapper(context.oracle_connector, storage_slot);
-    context.oracle_connector = fields[0];
-    debug_log_format("get_note oracle_connector updated to: {0}", [context.oracle_connector]);
+    context = force_oracle_ordering(context, fields);
+
     let note = deserialise(arr_copy_slice(fields, [0; N], 1));
     (context, note)
 }
@@ -101,10 +107,9 @@ fn get_max_notes<Note, N>(
     skip: u32,
 ) -> (Context, [Note; MAX_READ_REQUESTS]) {
     // TODO: get_max_notes_oracle
-    debug_log_format("get_note oracle_connector was: {0}", [context.oracle_connector]);
     let fields = get_notes_2_oracle_wrapper(context.oracle_connector, storage_slot);
-    context.oracle_connector = fields[0];
-    debug_log_format("get_note oracle_connector updated to: {0}", [context.oracle_connector]);
+    context = force_oracle_ordering(context, fields);
+
     let preimage1 = arr_copy_slice(fields, [0; N], 1);
     let note1 = deserialise(preimage1);
     let preimage2 = arr_copy_slice(fields, [0; N], 1 + preimage1.len());
@@ -123,10 +128,8 @@ fn get_notes<Note, N, S, P>(
     filter: fn ([Note; MAX_READ_REQUESTS], P) -> [Note; S],
     filter_args: P,
 ) -> (Context, [Note; S]) {
-    debug_log_format("get_notes oracle_connector was: {0}", [context.oracle_connector]);
     let (context_tmp, all_notes) = get_max_notes(context, storage_slot, deserialise, dummy, sort_by, sort_order, skip);
     context = context_tmp;
-    debug_log_format("get_notes oracle_connector updated to: {0}", [context.oracle_connector]);
     let notes = filter(all_notes, filter_args);
     (context, notes)
 }
