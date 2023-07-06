@@ -46,7 +46,6 @@ export class SimpleGlobalVariableBuilder implements GlobalVariableBuilder {
     const version = new Fr(await this.reader.getVersion());
     const chainId = new Fr(await this.reader.getChainId());
     const ethBlockHash = await this.getLastEthBlockHash(blockNumber);
-    console.log('GOT THE GLOBAL THING');
 
     this.log(
       `Built global variables for block ${blockNumber}: (${chainId}, ${version}, ${blockNumber}, ${lastTimestamp}, ${ethBlockHash})`,
