@@ -1,6 +1,6 @@
 import { AztecAddress, AztecRPC, EthAddress, Fr, Point, Tx, TxHash } from '@aztec/aztec-rpc';
 import { createJsonRpcClient } from '@aztec/foundation/json-rpc';
-import { ContractDeploymentTx } from '@aztec/types';
+import { ContractData, ContractDeploymentTx, ContractPublicData, TxExecutionRequest } from '@aztec/types';
 
 /**
  * A dictionary of the Aztec-deployed L1 contracts.
@@ -37,6 +37,9 @@ export const createAztecRpcClient = (url: string): AztecRPC =>
     url,
     {
       AztecAddress,
+      TxExecutionRequest,
+      ContractData,
+      ContractPublicData,
       TxHash,
       EthAddress,
       Point,

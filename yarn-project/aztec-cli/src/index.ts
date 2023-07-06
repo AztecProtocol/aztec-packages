@@ -17,7 +17,7 @@ import { encodeArgs, parseStructString } from './cli_encoder.js';
 import { deployAztecContracts, getContractAbi, prepTx } from './utils.js';
 import { JsonStringify } from '@aztec/foundation/json-rpc';
 import { StructType } from '@aztec/foundation/abi';
-import { L2BlockL2Logs } from '@aztec/types';
+import { ContractData, L2BlockL2Logs } from '@aztec/types';
 
 const debugLogger = createDebugLogger('aztec:cli');
 const log = createLogger();
@@ -104,13 +104,25 @@ async function main() {
     .action(async (_contractAddress, options) => {
       const client = createAztecRpcClient(options.rpcUrl);
       const address = AztecAddress.fromString(_contractAddress);
-      const contractData = options.includeBytecode
+      const contractDataOrInfo = options.includeBytecode
         ? await client.getContractData(address)
         : await client.getContractInfo(address);
-      if (!contractData) {
+
+      if (!contractDataOrInfo) {
         log(`No contract data found at ${_contractAddress}`);
+        return;
+      }
+      let contractData: ContractData;
+
+      if ('contractData' in contractDataOrInfo) {
+        contractData = contractDataOrInfo.contractData;
       } else {
-        log(`Contract Data: \n${JsonStringify(contractData, true)}`);
+        contractData = contractDataOrInfo;
+      }
+      log(`Contract Data: \nAddress: ${contractData.contractAddress.toString()}`);
+      log(`Portal: ${contractData.portalContractAddress.toString()}`);
+      if ('bytecode' in contractDataOrInfo) {
+        log(`Bytecode: ${contractDataOrInfo.bytecode}`);
       }
     });
 
@@ -142,12 +154,18 @@ async function main() {
   // NOTE: This implementation should change soon but keeping it here for quick account creation.
   program
     .command('create-account')
+    .option('-k, --private-key', 'Private Key to use for the 1st account generation.')
+    .option('-n, --num-addresses <number>', 'Number of addresses the account can control')
     .option('-u, --rpc-url <string>', 'URL of the Aztec RPC', 'http://localhost:8080')
     .action(async options => {
       const client = createAztecRpcClient(options.rpcUrl);
-      const res = await createAccounts(client);
-      const [[address, pubKeyPoint]] = res;
-      log(`Created account. \nAddress: ${address.toString()} \nPublic key: ${pubKeyPoint.toString()}`);
+      const privateKey = options.privateKey && Buffer.from(options.privateKeystr.replace(/^0x/i, ''), 'hex');
+      const numAccounts = options.numAddresses ? parseInt(options.numAddresses) : 1;
+      const wallet = await createAccounts(client, privateKey, numAccounts);
+      const accounts = await wallet.getAccounts();
+      const pubKeys = await Promise.all(accounts.map(acc => wallet.getAccountPublicKey(acc)));
+      log(`Created account(s).`);
+      accounts.map((acc, i) => log(`\nAddress: ${acc.toString()}\nPublic Key: ${pubKeys[i].toString()}\n`));
     });
 
   program
@@ -197,7 +215,8 @@ async function main() {
         log,
       );
       const client = createAztecRpcClient(options.rpcUrl);
-      const contract = new Contract(contractAddress, contractAbi, client);
+      const wallet = await createAccounts(client);
+      const contract = new Contract(contractAddress, contractAbi, wallet);
       const tx = contract.methods[functionName](...functionArgs).send({ from });
       await tx.isMined();
       log('TX has been mined');
@@ -236,7 +255,7 @@ async function main() {
     .argument('<encodedString>', 'The encoded hex string')
     .argument('<contractAbi>', "The compiled contract's ABI in JSON format")
     .argument('<parameterName>', 'The name of the struct parameter to decode into')
-    .action(async (encodedString, contractFile, parameterName) => {
+    .action((encodedString, contractFile, parameterName) => {
       const contractAbi = getContractAbi(contractFile, log);
       const parameterAbitype = contractAbi.functions
         .map(({ parameters }) => parameters)

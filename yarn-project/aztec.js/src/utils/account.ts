@@ -27,9 +27,9 @@ export async function createAccounts(
   const wasm = await CircuitsWasm.get();
   for (let i = 0; i < numberOfAccounts; ++i) {
     // TODO(#662): Let the aztec rpc server generate the keypair rather than hardcoding the private key
-    const privKey = i == 0 ? privateKey : randomBytes(32);
+    const privKey = i == 0 && privateKey ? privateKey : randomBytes(32);
     const accountAbi = EcdsaAccountContractAbi;
-    const publicKey = await generatePublicKey(privateKey);
+    const publicKey = await generatePublicKey(privKey);
     const salt = Fr.random();
     const deploymentInfo = await getContractDeploymentInfo(accountAbi, [], salt, publicKey);
     await aztecRpcClient.addAccount(privKey, deploymentInfo.address, deploymentInfo.partialAddress, accountAbi);
