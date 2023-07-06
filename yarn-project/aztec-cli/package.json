@@ -1,6 +1,6 @@
 {
-  "name": "@aztec/aztec-cli",
-  "version": "0.0.0",
+  "name": "@spypsy/azti",
+  "version": "0.1.0",
   "type": "module",
   "exports": "./dest/index.js",
   "typedoc": {
