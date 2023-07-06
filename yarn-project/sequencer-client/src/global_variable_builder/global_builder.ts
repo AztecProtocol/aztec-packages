@@ -8,7 +8,7 @@ export interface L1GlobalReader {
   getLastTimestamp(): Promise<bigint>;
   getVersion(): Promise<bigint>;
   getChainId(): Promise<bigint>;
-  getEthBlockHash(): Promise<bigint>;
+  getLastEthBlockHash(): Promise<Buffer>;
 }
 
 /**
@@ -25,9 +25,15 @@ export class SimpleGlobalVariableBuilder implements GlobalVariableBuilder {
   private log = createDebugLogger('aztec:sequencer:simple_global_variable_builder');
   constructor(private readonly reader: L1GlobalReader) {}
 
-  private async getLastEthBlockHash(): Promise<TwoFieldHash> {
-    const blockHash = await this.reader.getEthBlockHash();
-    return TwoFieldHash.fromBigInt(blockHash);
+  private async getLastEthBlockHash(blockNumber: Fr): Promise<TwoFieldHash> {
+    // In the case where this is the genesis block, we expect previous eth block hash to be 0.
+    // block hash of the last block.
+    if (blockNumber.value == 1n) {
+      // first aztec block number is 1
+      return TwoFieldHash.empty();
+    }
+    const blockHash = await this.reader.getLastEthBlockHash();
+    return TwoFieldHash.from32ByteHash(blockHash);
   }
 
   /**
@@ -39,7 +45,8 @@ export class SimpleGlobalVariableBuilder implements GlobalVariableBuilder {
     const lastTimestamp = new Fr(await this.reader.getLastTimestamp());
     const version = new Fr(await this.reader.getVersion());
     const chainId = new Fr(await this.reader.getChainId());
-    const ethBlockHash = await this.getLastEthBlockHash();
+    const ethBlockHash = await this.getLastEthBlockHash(blockNumber);
+    console.log('GOT THE GLOBAL THING');
 
     this.log(
       `Built global variables for block ${blockNumber}: (${chainId}, ${version}, ${blockNumber}, ${lastTimestamp}, ${ethBlockHash})`,

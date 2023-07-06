@@ -248,6 +248,7 @@ function getInitialWitness(
     globalVariables.version,
     globalVariables.blockNumber,
     globalVariables.timestamp,
+
     ...globalVariables.ethBlockHash.toFieldArray(),
 
     ...args,

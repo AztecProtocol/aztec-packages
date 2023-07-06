@@ -240,7 +240,9 @@ describe('ACIR public execution simulator', () => {
             globalVariables.chainId.value +
             globalVariables.version.value +
             globalVariables.blockNumber.value +
-            globalVariables.timestamp.value,
+            globalVariables.timestamp.value +
+            globalVariables.ethBlockHash.high.value +
+            globalVariables.ethBlockHash.low.value,
         ),
       ]);
     });

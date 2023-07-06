@@ -30,7 +30,7 @@ contract Child {
 
     // Return a public value.
     open fn pubValue(inputs: PublicContextInputs, base_value: Field) -> pub Field {
-        base_value + inputs.public_global_variables.chain_id + inputs.public_global_variables.version + inputs.public_global_variables.block_number + inputs.public_global_variables.timestamp + inputs.public_global_variables.ethBlockhash[0] + inputs.public_global_variables.ethBlockhash[1]
+        base_value + inputs.public_global_variables.chain_id + inputs.public_global_variables.version + inputs.public_global_variables.block_number + inputs.public_global_variables.timestamp + inputs.public_global_variables.ethBlockhash.high + inputs.public_global_variables.ethBlockhash.low
     }
 
     // Increments `current_value` by `new_value` and returns `new_value` + 1.

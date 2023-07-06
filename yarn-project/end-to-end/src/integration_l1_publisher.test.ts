@@ -222,6 +222,14 @@ describe('L1Publisher integration', () => {
     return Fr.fromString(entry);
   };
 
+  const getLastBlockHash = async () => {
+    const lastBlockNumber = await rollup.read.lastBlockNumber();
+    const prevBlockHashString = (await publicClient.getBlock({ blockNumber: lastBlockNumber })).hash;
+    const prevBlockHash =
+      prevBlockHashString && lastBlockNumber != 0n ? hexStringToBuffer(prevBlockHashString) : Buffer.alloc(32, 0);
+    return prevBlockHash;
+  };
+
   it(`Build ${numberOfConsecutiveBlocks} blocks of 4 bloated txs building on each other`, async () => {
     const stateInRollup_ = await rollup.read.rollupStateHash();
     expect(hexStringToBuffer(stateInRollup_.toString())).toEqual(Buffer.alloc(32, 0));
@@ -268,22 +276,14 @@ describe('L1Publisher integration', () => {
         await makeBloatedProcessedTx(128 * i + 96),
         await makeBloatedProcessedTx(128 * i + 128),
       ];
-      
-      // TODO(Maddiaa): clean
 
-      const lastBlockNumber = await rollup.read.lastBlockNumber();
-      const prevBlockHashString = (await publicClient.getBlock({ blockNumber: lastBlockNumber } )).hash;
-      console.log(lastBlockNumber)
-      console.log(prevBlockHashString);
-      const prevBlockHash = (prevBlockHashString && (lastBlockNumber != 0n))  ? hexStringToBuffer(prevBlockHashString) : Buffer.alloc(32, 0);
-
+      const lastBlockHash = await getLastBlockHash();
       const globalVariables = new GlobalVariables(
         new Fr(config.chainId),
         new Fr(config.version),
         new Fr(1 + i),
         new Fr(await rollup.read.lastBlockTs()),
-        // TODO(Maddiaa): Should this be cached in the rollup contract? or read directly?
-        TwoFieldHash.from32ByteHash(prevBlockHash),
+        TwoFieldHash.from32ByteHash(lastBlockHash),
       );
 
       const [block] = await builder.buildL2Block(globalVariables, txs, l1ToL2Messages);
@@ -299,15 +299,14 @@ describe('L1Publisher integration', () => {
         expect(await outbox.read.contains([block.newL2ToL1Msgs[j].toString(true)])).toBeFalsy();
       }
 
-      // /*// Useful for sol tests block generation
+      /*// Useful for sol tests block generation
       const encoded = block.encode();
       console.log(`Size (${encoded.length}): ${encoded.toString('hex')}`);
       console.log(`calldata hash: 0x${block.getCalldataHash().toString('hex')}`);
       console.log(`l1 to l2 message hash: 0x${block.getL1ToL2MessagesHash().toString('hex')}`);
       console.log(`start state hash: 0x${block.getStartStateHash().toString('hex')}`);
       console.log(`end state hash: 0x${block.getEndStateHash().toString('hex')}`);
-      console.log(`public inputs hash: 0x${block.getPublicInputsHash().toBuffer().toString('hex')}`);
-      // */
+      console.log(`public inputs hash: 0x${block.getPublicInputsHash().toBuffer().toString('hex')}`);*/
 
       await publisher.processL2Block(block);
 
@@ -373,32 +372,24 @@ describe('L1Publisher integration', () => {
         await makeEmptyProcessedTx(),
       ];
 
-      // TODO(Maddiaa): clean
-      const lastBlockNumber = await rollup.read.lastBlockNumber();
-      const prevBlockHashString = (await publicClient.getBlock({ blockNumber: lastBlockNumber } )).hash;
-      console.log(lastBlockNumber)
-      console.log(prevBlockHashString);
-      const prevBlockHash = (prevBlockHashString && (lastBlockNumber != 0n))  ? hexStringToBuffer(prevBlockHashString) : Buffer.alloc(32, 0);
+      const lastBlockHash = await getLastBlockHash();
       const globalVariables = new GlobalVariables(
         new Fr(config.chainId),
         new Fr(config.version),
         new Fr(1 + i),
         new Fr(await rollup.read.lastBlockTs()),
-        // TODO(Maddiaa): Should this be cached in the rollup contract? or read directly?
-        TwoFieldHash.from32ByteHash(prevBlockHash),
+        TwoFieldHash.from32ByteHash(lastBlockHash),
       );
       const [block] = await builder.buildL2Block(globalVariables, txs, l1ToL2Messages);
 
-
-      // /*// Useful for sol tests block generation
+      /*// Useful for sol tests block generation
       const encoded = block.encode();
       console.log(`Size (${encoded.length}): ${encoded.toString('hex')}`);
       console.log(`calldata hash: 0x${block.getCalldataHash().toString('hex')}`);
       console.log(`l1 to l2 message hash: 0x${block.getL1ToL2MessagesHash().toString('hex')}`);
       console.log(`start state hash: 0x${block.getStartStateHash().toString('hex')}`);
       console.log(`end state hash: 0x${block.getEndStateHash().toString('hex')}`);
-      console.log(`public inputs hash: 0x${block.getPublicInputsHash().toBuffer().toString('hex')}`);
-      // */
+      console.log(`public inputs hash: 0x${block.getPublicInputsHash().toBuffer().toString('hex')}`); */
 
       await publisher.processL2Block(block);
 

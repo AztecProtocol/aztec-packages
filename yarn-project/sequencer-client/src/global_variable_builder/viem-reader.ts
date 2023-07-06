@@ -61,24 +61,13 @@ export class ViemReader implements L1GlobalReader {
     return await Promise.resolve(BigInt(this.publicClient.chain.id));
   }
 
-
-
-
-
-
-// THOUGHTS ABOUT THIS:
-// - should it be implemented as an oracle that the user can prove against?
-// - should the last block hash of a tx be available as a public input to the public vm circuit?
-
-
-
-
-
   /**
    * Gets the current block hash.
    * @returns The current block hash.
    */
-  public async getEthBlockHash(): Promise<bigint> {
-    return await Promise.resolve(1n);
+  public async getLastEthBlockHash(): Promise<Buffer> {
+    const lastBlockNumber = BigInt(await this.rollupContract.read.lastBlockNumber());
+    const block = await this.publicClient.getBlock({ blockNumber: lastBlockNumber });
+    return block.hash ? Buffer.from(block.hash.replace('0x', ''), 'hex') : Buffer.alloc(32, 0);
   }
 }

@@ -41,7 +41,13 @@ export class GlobalVariables {
 
   static fromBuffer(buffer: Buffer | BufferReader): GlobalVariables {
     const reader = BufferReader.asReader(buffer);
-    return new GlobalVariables(reader.readFr(), reader.readFr(), reader.readFr(), reader.readFr(), new TwoFieldHash(reader.readFr(), reader.readFr()));
+    return new GlobalVariables(
+      reader.readFr(),
+      reader.readFr(),
+      reader.readFr(),
+      reader.readFr(),
+      new TwoFieldHash(reader.readFr(), reader.readFr()),
+    );
   }
 
   static getFields(fields: FieldsOf<GlobalVariables>) {

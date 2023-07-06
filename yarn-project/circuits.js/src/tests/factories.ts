@@ -85,7 +85,7 @@ import {
   makeHalfFullTuple,
   makeTuple,
   range,
-  TwoFieldHash 
+  TwoFieldHash,
 } from '../index.js';
 import { SchnorrSignature } from '../barretenberg/index.js';
 import { GlobalVariables } from '../structs/global_variables.js';
