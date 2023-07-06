@@ -80,7 +80,6 @@ describe('Private Execution test suite', () => {
       isConstructor ? AztecAddress.ZERO : contractAddress,
       EthAddress.ZERO,
       historicRoots,
-      await Grumpkin.new(),
     );
   };
 
