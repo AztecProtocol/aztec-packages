@@ -16,7 +16,7 @@ export function pointToPublicKey(point: Point) {
 }
 
 /**
- * MEthod for generating a public grumpkin key from a private key.
+ * Method for generating a public grumpkin key from a private key.
  * @param privateKey - The private key.
  * @returns The generated public key.
  */
