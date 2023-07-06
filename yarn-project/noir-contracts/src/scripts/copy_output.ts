@@ -50,7 +50,7 @@ function getFunction(type: FunctionType, params: ABIParameter[], returns: ABITyp
   // If the function is not unconstrained, the first item is inputs or CallContext which we should omit
   if (type !== FunctionType.UNCONSTRAINED) params = params.slice(1);
   // If the function is not secret, drop any padding from the end
-  if (type !== FunctionType.SECRET && params[params.length - 1].name.endsWith('padding'))
+  if (type !== FunctionType.SECRET && params.length > 0 && params[params.length - 1].name.endsWith('padding'))
     params = params.slice(0, params.length - 1);
 
   return {

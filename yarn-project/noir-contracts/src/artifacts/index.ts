@@ -14,6 +14,7 @@ import SchnorrSingleKeyAccountContractJson from './schnorr_single_key_account_co
 import TestContractJson from './test_contract.json' assert { type: 'json' };
 import UniswapContractJson from './uniswap_contract.json' assert { type: 'json' };
 import ZkTokenContractJson from './zk_token_contract.json' assert { type: 'json' };
+import YoloContractJson from './yolo_contract.json' assert { type: 'json' };
 
 export const TestContractAbi = TestContractJson as ContractAbi;
 export const EasyZkTokenContractAbi = EasyZkTokenContractJson as ContractAbi;
@@ -28,3 +29,4 @@ export const SchnorrSingleKeyAccountContractAbi = SchnorrSingleKeyAccountContrac
 export const UniswapContractAbi = UniswapContractJson as ContractAbi;
 export const PendingCommitmentsContractAbi = PendingCommitmentsContractJson as ContractAbi;
 export const PokeableTokenContractAbi = PokeableTokenContractJson as ContractAbi;
+export const YoloContractAbi = YoloContractJson as ContractAbi;
