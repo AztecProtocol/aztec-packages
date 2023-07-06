@@ -29,6 +29,7 @@ import { computeSlotForMapping } from '../utils.js';
 import { CommitmentsDB, PublicContractsDB, PublicStateDB } from './db.js';
 import { PublicExecution } from './execution.js';
 import { PublicExecutor } from './executor.js';
+import { DBOracle } from '../index.js';
 
 export const createMemDown = () => (memdown as any)() as MemDown<any, any>;
 
@@ -36,7 +37,7 @@ describe('ACIR public execution simulator', () => {
   let circuitsWasm: CircuitsWasm;
   let publicState: MockProxy<PublicStateDB>;
   let publicContracts: MockProxy<PublicContractsDB>;
-  let commitmentsDb: MockProxy<CommitmentsDB>;
+  let commitmentsDb: MockProxy<DBOracle>;
   let executor: PublicExecutor;
 
   beforeAll(async () => {
@@ -46,7 +47,7 @@ describe('ACIR public execution simulator', () => {
   beforeEach(() => {
     publicState = mock<PublicStateDB>();
     publicContracts = mock<PublicContractsDB>();
-    commitmentsDb = mock<CommitmentsDB>();
+    commitmentsDb = mock<DBOracle>();
 
     commitmentsDb.getTreeRoots.mockReturnValue(PrivateHistoricTreeRoots.empty());
     executor = new PublicExecutor(publicState, publicContracts, commitmentsDb);
@@ -63,7 +64,7 @@ describe('ACIR public execution simulator', () => {
       it('should run the mint function', async () => {
         const contractAddress = AztecAddress.random();
         const mintAbi = PublicTokenContractAbi.functions.find(f => f.name === 'mint')!;
-        const functionData = new FunctionData(Buffer.alloc(4), false, false);
+        const functionData = new FunctionData(Buffer.alloc(4), false, false, false);
         const args = encodeArguments(mintAbi, [140, recipient]);
 
         const callContext = CallContext.from({
@@ -110,7 +111,7 @@ describe('ACIR public execution simulator', () => {
       beforeEach(() => {
         contractAddress = AztecAddress.random();
         abi = PublicTokenContractAbi.functions.find(f => f.name === 'transfer')!;
-        functionData = new FunctionData(Buffer.alloc(4), false, false);
+        functionData = new FunctionData(Buffer.alloc(4), false, false, false);
         args = encodeArguments(abi, [140, recipient]);
         sender = AztecAddress.random();
 
@@ -198,7 +199,7 @@ describe('ACIR public execution simulator', () => {
 
       const initialValue = 3n;
 
-      const functionData = new FunctionData(parentEntryPointFnSelector, false, false);
+      const functionData = new FunctionData(parentEntryPointFnSelector, false, false, false);
       const args = encodeArguments(parentEntryPointFn, [
         childContractAddress.toField().value,
         toBigInt(childValueFnSelector),
@@ -250,7 +251,7 @@ describe('ACIR public execution simulator', () => {
 
     beforeEach(async () => {
       contractAddress = AztecAddress.random();
-      functionData = new FunctionData(Buffer.alloc(4), false, false);
+      functionData = new FunctionData(Buffer.alloc(4), false, false, false);
       amount = new Fr(140);
       params = [amount, Fr.random()];
       wasm = await CircuitsWasm.get();

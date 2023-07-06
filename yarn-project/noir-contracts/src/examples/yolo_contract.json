@@ -4,6 +4,7 @@
     {
       "name": "_borrow",
       "functionType": "open",
+      "isInternal": true,
       "parameters": [
         {
           "name": "owner",
@@ -31,6 +32,7 @@
     {
       "name": "_deposit",
       "functionType": "open",
+      "isInternal": true,
       "parameters": [
         {
           "name": "owner",
@@ -58,6 +60,7 @@
     {
       "name": "_repay",
       "functionType": "open",
+      "isInternal": true,
       "parameters": [
         {
           "name": "owner",
@@ -85,6 +88,7 @@
     {
       "name": "_withdraw",
       "functionType": "open",
+      "isInternal": true,
       "parameters": [
         {
           "name": "owner",
@@ -112,6 +116,7 @@
     {
       "name": "borrow_private",
       "functionType": "secret",
+      "isInternal": false,
       "parameters": [
         {
           "name": "secret",
@@ -135,6 +140,7 @@
     {
       "name": "borrow_public",
       "functionType": "open",
+      "isInternal": false,
       "parameters": [
         {
           "name": "amount",
@@ -155,6 +161,7 @@
     {
       "name": "constructor",
       "functionType": "secret",
+      "isInternal": false,
       "parameters": [],
       "returnTypes": [],
       "bytecode": "cdcfc74e1b011485619c00e985de7bef339e197b86ea826daa0183e9cd760605c549a48848d9fa0dc0c92b6493555e078987c9227b363e8bff6e8f74f57fbf0a0f55d9d2df583157f814fbfa23f9fd4b219e2b164bbf33d1742a7157ae0e3c32d63c36d6064a7fa2dfae6f3e7ef66fae0b3f6fefcaf711cb08d9b61f0efaa665e68ca097771dc376f221d7744dc7753e045dcbf25ddb0d7b792f6c78a66df9e695e35957c6ffabbb8f18159e3eaa9e18d5408c6a24463511a39a89512dc4a85662541b31aa9d18d5418cea24467511a3ba89513dc4a85e62541f31aa9f1835408c1a24460d11a386895123c4a85162d418316a9c1835418c9a24464d11a3a6895133c428831865aaa3cae58a3f9a01012c48843d11c02c22eca900661361d502984384d508602122ac56000b13617502984b84d50b601e11d62080cd12618d02d81c11d62480cd1361cd02d80211d622802d1261ad02d81211d626804588b076012c4a847508603122ac53008b13615d02d83211d62d802588b01e012c4984f50a602922ac4f005b21c2fa05b055226c40005b23c20605b075226c4800db20c28605b04d226c44004b1361a302d816113626806d1361e302d80e113621806588b049016c97089b12c0f688b069012c4b84cd0860fb449821801d1061a6007648843d13c08e88b0e702d83111f642003b21c25e0a60a744d82b01ec8c087b2d809d13616f04b00b22ecad00764984bd13c07244d87b012c5f39ecf6a1ca0c5ab6130abbdeecdcfcc2e252241a8b2f2792a995d5b5f58dcdf4d6f64e66772fbb7f7078747c727a767e7199cbff03",
@@ -163,6 +170,7 @@
     {
       "name": "deposit_private",
       "functionType": "secret",
+      "isInternal": false,
       "parameters": [
         {
           "name": "secret",
@@ -193,6 +201,7 @@
     {
       "name": "deposit_public",
       "functionType": "open",
+      "isInternal": false,
       "parameters": [
         {
           "name": "owner",
@@ -220,6 +229,7 @@
     {
       "name": "init",
       "functionType": "open",
+      "isInternal": false,
       "parameters": [],
       "returnTypes": [
         {
@@ -232,6 +242,7 @@
     {
       "name": "repay_private",
       "functionType": "secret",
+      "isInternal": false,
       "parameters": [
         {
           "name": "secret",
@@ -262,6 +273,7 @@
     {
       "name": "repay_public",
       "functionType": "open",
+      "isInternal": false,
       "parameters": [
         {
           "name": "owner",
@@ -289,6 +301,7 @@
     {
       "name": "update_tot",
       "functionType": "open",
+      "isInternal": false,
       "parameters": [],
       "returnTypes": [
         {
@@ -301,6 +314,7 @@
     {
       "name": "withdraw_private",
       "functionType": "secret",
+      "isInternal": false,
       "parameters": [
         {
           "name": "secret",
@@ -324,6 +338,7 @@
     {
       "name": "withdraw_public",
       "functionType": "open",
+      "isInternal": false,
       "parameters": [
         {
           "name": "amount",

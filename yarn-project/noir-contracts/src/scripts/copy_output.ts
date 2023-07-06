@@ -56,6 +56,7 @@ function getFunction(type: FunctionType, params: ABIParameter[], returns: ABITyp
   return {
     name: fn.name,
     functionType: type,
+    isInternal: fn.is_internal,
     parameters: params,
     // If the function is secret, the return is the public inputs, which should be omitted
     returnTypes: type === FunctionType.SECRET ? [] : returns,

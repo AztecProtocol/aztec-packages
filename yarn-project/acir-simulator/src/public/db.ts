@@ -3,6 +3,7 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 
 import { CommitmentDataOracleInputs, MessageLoadOracleInputs } from '../index.js';
+import { FunctionAbi } from '@aztec/foundation/abi';
 
 /**
  * Database interface for providing access to public state.

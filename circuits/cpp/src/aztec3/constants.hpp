@@ -132,7 +132,7 @@ enum GeneratorIndex {
     PUBLIC_DATA_READ,            // Size = 2
     PUBLIC_DATA_UPDATE_REQUEST,  // Size = 3
     FUNCTION_DATA,               // Size = 3
-    FUNCTION_LEAF,               // Size = 4
+    FUNCTION_LEAF,               // Size = 5
     CONTRACT_DEPLOYMENT_DATA,    // Size = 4
     CONSTRUCTOR,                 // Size = 3
     CONSTRUCTOR_ARGS,            // Size = 8

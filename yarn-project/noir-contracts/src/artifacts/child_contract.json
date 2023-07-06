@@ -4,6 +4,7 @@
     {
       "name": "constructor",
       "functionType": "secret",
+      "isInternal": false,
       "parameters": [],
       "returnTypes": [],
       "bytecode": "H4sIAAAAAAAA/9XbR0/jUBiF4ZABpld6773ZsR3bUxmm994LkCGZDv9/R45IJMSWk8V7Jcv2JjpPlLh897t7hUJhs3Aw2upbsb61N46b5x1Hzjsbx4dH83y9sY+CchxX01I1jMLtoJRXsiSIk0o5C7MwyZKdUhZF1SzO0rySp0EexlE1rCV5VAsORtehzwqOOVqZsxuSsweSsxeSsw+Ssx+ScwCScxCScwiScxiScwSScxSScwyScxyScwKScxKScwqScxqScwaScxaScw6Scx6ScwGScxGScwmScxmScwWScxWScw2SM4DkDCE5S5CcESRnDMmZQHKWITnTFuUsHskZHG+EbUZzBjEXjeYcYj5hNF+FmNuN5msQc4fRfB1i7jSab0DMXUbzTYi522i+BTH3GM3rEHOv0XwbYu4zmjcg5n6j+Q7EPGA034WYB43mexDzkNF8H2IeNpofQMwjRvNDiHnUaH4EMY8ZzY8h5nGj+QnEPGE0P4WYJ43mZxDzlNH8HGKeNppfQMwzRvNLiHnWaH4FMc8Zza8h5nmj+Q3EvGA0v4WYF43mdxDzktH8HmJeNpo/QMwrRvNHiHnVaP4EMa8ZzZ8h5sBo/gIxh0bzV4i5ZDR/g5gjo/k7xBwbzZsQc2I0b0HMZaN5G2JOjeYKxHzSaP4BMZ8ymncg5tNGcxViPmM01yDms0bzT4j5nNH8C2I+bzT/hpgvGM1/IOaLRvNfiPmS0fwPYr5sNP+HmK8YzbstMKeNvdb0aI2L1nxoDYTWBKhHXj3jzR5q9dhu1Df1YKonUT166llTD5d6mtTjo54X9YCoJ0I9Apoz1xyy5lQ1x6g5N81BaU5GcxSq2auGrZquapyq+akGppqQaiSqGegdequ+6R1L7xx6BtczqZ7R9Myie7juabrG65qna4D+E/qN6DvbB1SIalDcTQAA",
@@ -12,6 +13,7 @@
     {
       "name": "pubStoreValue",
       "functionType": "open",
+      "isInternal": false,
       "parameters": [
         {
           "name": "new_value",
@@ -32,6 +34,7 @@
     {
       "name": "pubValue",
       "functionType": "open",
+      "isInternal": false,
       "parameters": [
         {
           "name": "base_value",
@@ -52,6 +55,7 @@
     {
       "name": "value",
       "functionType": "secret",
+      "isInternal": false,
       "parameters": [
         {
           "name": "input",

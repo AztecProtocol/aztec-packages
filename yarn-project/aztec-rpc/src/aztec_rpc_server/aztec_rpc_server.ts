@@ -382,6 +382,7 @@ export class AztecRPCServer implements AztecRPC {
 
     const functionData = new FunctionData(
       functionDao.selector,
+      functionDao.isInternal,
       functionDao.functionType === FunctionType.SECRET,
       false,
     );

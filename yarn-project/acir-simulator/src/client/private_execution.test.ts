@@ -98,7 +98,7 @@ describe('Private Execution test suite', () => {
     const txRequest = TxExecutionRequest.from({
       origin,
       argsHash: packedArguments.hash,
-      functionData: new FunctionData(Buffer.alloc(4), true, isConstructor),
+      functionData: new FunctionData(Buffer.alloc(4), false, true, isConstructor),
       txContext: TxContext.from({ ...txContextFields, ...txContext }),
       packedArguments: [packedArguments],
     });
@@ -520,7 +520,7 @@ describe('Private Execution test suite', () => {
       expect(result.enqueuedPublicFunctionCalls[0]).toEqual(
         PublicCallRequest.from({
           contractAddress: childAddress,
-          functionData: new FunctionData(childSelector, false, false),
+          functionData: new FunctionData(childSelector, false, false, false),
           args: [new Fr(42n)],
           callContext: CallContext.from({
             msgSender: parentAddress,

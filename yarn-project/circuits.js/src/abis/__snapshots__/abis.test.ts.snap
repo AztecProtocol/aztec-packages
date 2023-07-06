@@ -44,7 +44,7 @@ AztecAddress {
 
 exports[`abis wasm bindings computes a function leaf 1`] = `
 Fr {
-  "value": 10724872372058747971865607189197215883616299259274114995580068674650484136837n,
+  "value": 3087577661303601311028613516544548769914327454147174509447606645757193921240n,
 }
 `;
 
@@ -74,7 +74,7 @@ Fr {
 
 exports[`abis wasm bindings computes function tree root 1`] = `
 Fr {
-  "value": 12906610331695443491500387150847739068531523218659917858520872318692742082976n,
+  "value": 10347099364184817470749359182712341488544005132594679915946302065868679911885n,
 }
 `;
 
@@ -99,6 +99,7 @@ Fr {
 exports[`abis wasm bindings hashes a tx request 1`] = `
 {
   "data": [
+<<<<<<< HEAD
     12,
     232,
     162,
@@ -131,6 +132,40 @@ exports[`abis wasm bindings hashes a tx request 1`] = `
     58,
     146,
     26,
+=======
+    5,
+    241,
+    128,
+    231,
+    156,
+    56,
+    191,
+    226,
+    163,
+    155,
+    242,
+    179,
+    2,
+    117,
+    133,
+    242,
+    96,
+    103,
+    120,
+    134,
+    97,
+    12,
+    123,
+    20,
+    74,
+    129,
+    127,
+    232,
+    237,
+    137,
+    239,
+    105,
+>>>>>>> feat: include is_internal in kernels
   ],
   "type": "Buffer",
 }
@@ -138,7 +173,7 @@ exports[`abis wasm bindings hashes a tx request 1`] = `
 
 exports[`abis wasm bindings hashes constructor info 1`] = `
 Fr {
-  "value": 74771810193401619436460949258064408227201554785021679654928411451496318664n,
+  "value": 4351390993285100160747743596370979118754226254480102179791621315609967238359n,
 }
 `;
 
