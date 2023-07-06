@@ -32,10 +32,11 @@ export async function createAccounts(
     const privKey = i == 0 ? privateKey : randomBytes(32);
     const accountAbi = EcdsaAccountContractAbi;
     const publicKey = await generatePublicKey(privateKey);
-    const deploymentInfo = await getContractDeploymentInfo(accountAbi, [], Fr.ZERO, publicKey);
+    const salt = Fr.random();
+    const deploymentInfo = await getContractDeploymentInfo(accountAbi, [], salt, publicKey);
     await aztecRpcClient.addAccount(privKey, deploymentInfo.address, deploymentInfo.partialAddress, accountAbi);
     const contractDeployer = new ContractDeployer(accountAbi, aztecRpcClient, publicKey);
-    const tx = contractDeployer.deploy().send();
+    const tx = contractDeployer.deploy().send({ contractAddressSalt: salt });
     await tx.isMined(0, 0.1);
     const receipt = await tx.getReceipt();
     const address = receipt.contractAddress!;

@@ -82,7 +82,7 @@ export class DeployMethod extends ContractFunctionInteraction {
    */
   public async create(options: DeployOptions = {}) {
     const { portalContract, contractAddressSalt } = Object.assign(
-      { portalContract: EthAddress.ZERO, contractAddressSalt: Fr.ZERO },
+      { portalContract: EthAddress.ZERO, contractAddressSalt: Fr.random() },
       options,
     );
 
