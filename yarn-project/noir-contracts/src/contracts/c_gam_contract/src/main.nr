@@ -286,44 +286,44 @@ contract CGam {
         //TODO commit to $$
 
         // checks that cards belong to the user
-        // for i in 0..MAX_CARDS {
-        //     // TODO it hurts when failing asserts just says 'contraints cant be solved'
-        //     context = assert_own_card(context, user_cards[i], owner);
-        // }
+        for i in 0..MAX_CARDS {
+            // TODO it hurts when failing asserts just says 'contraints cant be solved'
+            context = assert_own_card(context, user_cards[i], owner);
+        }
         // compute the deck strength
-        // let mut deck_strength: u32 = 0;
-        // for card in user_cards {
-        //     deck_strength + = card.strength() as u32;
-        // }
-        // deck_strength = deck_strength / (MAX_CARDS as u32);
+        let mut deck_strength: u32 = 0;
+        for card in user_cards {
+            deck_strength + = card.strength() as u32;
+        }
+        deck_strength = deck_strength / (MAX_CARDS as u32);
 
-        // // Unroll our arguments
-        // let mut args = [0; abi::MAX_ARGS];
-        // args[0] = game_id;
-        // args[1] = owner.x;
-        // args[2] = owner.y;
-        // args[3] = deck_strength as Field;
-        // let (_callStackItem, mut context2) = PublicCallStackItem::call(
-        //     inputs.call_context.storage_contract_address, // address of this contract
-        //     join_game_pub_selector, 
-        //     [game_id, owner.x, owner.y, deck_strength as Field],
-        //     context
-        // );
+        // Unroll our arguments
+        let mut args = [0; abi::MAX_ARGS];
+        args[0] = game_id;
+        args[1] = owner.x;
+        args[2] = owner.y;
+        args[3] = deck_strength as Field;
+        let (_callStackItem, mut context2) = PublicCallStackItem::call(
+            inputs.call_context.storage_contract_address, // address of this contract
+            join_game_pub_selector, 
+            [game_id, owner.x, owner.y, deck_strength as Field],
+            context
+        );
 
         // TODO
-        // // maps the user_id to its cards = user_deck
-        // // TODO undo hacks
-        // for i in 0..MAX_CARDS {
-        //     context2 = user_deck_insert(owner, game_id, i, i, user_cards, context2);
-        // }
+        // maps the user_id to its cards = user_deck
+        // TODO undo hacks
+        for i in 0..MAX_CARDS {
+            context2 = user_deck_insert(owner, game_id, i, i, user_cards, context2);
+        }
 
-        //for i in 0..MAX_CARDS {
-            //alternative; use a map to a set of notes
-            //       Map -> Set.insert(cardn.1)
-            //     Map(same key = user_id) -> Set.insert(cardn.2)
-            //      get_2() -> card1, card_storage_slot
-            //     get_5()
-        //}
+        // for i in 0..MAX_CARDS {
+        //     alternative; use a map to a set of notes
+        //           Map -> Set.insert(cardn.1)
+        //         Map(same key = user_id) -> Set.insert(cardn.2)
+        //          get_2() -> card1, card_storage_slot
+        //         get_5()
+        // }
         context.finish()
     }
 

@@ -72,25 +72,20 @@ export async function acvm(
   callback: ACIRCallback,
 ): Promise<ACIRExecutionResult> {
   const logger = createDebugLogger('aztec:simulator:acvm');
-  try {
-    const partialWitness = await executeCircuit(acir, initialWitness, async (name: string, args: string[]) => {
-      try {
-        logger(`Oracle callback ${name}`);
-        if (!(name in callback)) throw new Error(`Callback ${name} not found`);
-        const result = await callback[name as keyof ACIRCallback](args);
-        return result;
-      } catch (err: any) {
-        logger(`Error in ACVM callback ${name}: ${err.message ?? err ?? 'Unknown'}`);
-        throw err;
-      }
-    });
-    return Promise.resolve({ partialWitness });
-  } catch (err: any) {
-    logger(`Error in executeCircuit: ${err.message ?? err ?? 'Unknown'}`);
-    // workaround raw string throwing
-    // if we don't, stack traces are gone
-    throw err instanceof Error ? err : new Error(err);
-  }
+  const partialWitness = await executeCircuit(acir, initialWitness, async (name: string, args: string[]) => {
+    try {
+      logger(`Oracle callback ${name}`);
+      if (!(name in callback)) throw new Error(`Callback ${name} not found`);
+      const result = await callback[name as keyof ACIRCallback](args);
+      return result;
+    } catch (err: any) {
+      logger(`Error in ACVM callback ${name}: ${err.message ?? err ?? 'Unknown'}`);
+      // workaround raw string throwing
+      // if we don't, stack traces are gone
+      throw err instanceof Error ? err : new Error(err);
+    }
+  });
+  return Promise.resolve({ partialWitness });
 }
 
 /**
