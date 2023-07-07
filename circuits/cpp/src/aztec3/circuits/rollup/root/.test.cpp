@@ -50,7 +50,7 @@ using aztec3::circuits::rollup::native_root_rollup::RootRollupPublicInputs;
 using aztec3::circuits::abis::NewContractData;
 
 using MerkleTree = stdlib::merkle_tree::MerkleTree<stdlib::merkle_tree::MemoryStore>;
-;
+
 using KernelData = aztec3::circuits::abis::PreviousKernelData<NT>;
 }  // namespace
 

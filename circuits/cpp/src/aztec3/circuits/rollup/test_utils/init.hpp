@@ -35,9 +35,8 @@ using AppendOnlySnapshot = abis::AppendOnlyTreeSnapshot<NT>;
 
 using NullifierLeafPreimage = aztec3::circuits::abis::NullifierLeafPreimage<NT>;
 
-// Nullifier Tree Alias
+// Tree Aliases
 using MerkleTree = stdlib::merkle_tree::MerkleTree<stdlib::merkle_tree::MemoryStore>;
-;
 using NullifierTree = stdlib::merkle_tree::NullifierMemoryTree;
 using NullifierLeaf = stdlib::merkle_tree::nullifier_leaf;
 
