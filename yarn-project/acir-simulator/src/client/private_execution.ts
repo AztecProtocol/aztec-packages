@@ -17,7 +17,7 @@ import { createDebugLogger } from '@aztec/foundation/log';
 import { to2Fields } from '@aztec/foundation/serialize';
 import { FunctionL2Logs, NotePreimage, NoteSpendingInfo } from '@aztec/types';
 import { decodeReturnValues } from '../abi_coder/decoder.js';
-import { extractPublicInputs, frToAztecAddress, frToSelector } from '../acvm/deserialize.js';
+import { extractPublicInputs, extractReturnWitness, frToAztecAddress, frToSelector } from '../acvm/deserialize.js';
 import {
   ACVMField,
   ZERO_ACVM_FIELD,
@@ -179,6 +179,7 @@ export class PrivateFunctionExecution {
     const publicInputs = extractPublicInputs(partialWitness, acir);
     if (!this.argsHash.equals(publicInputs.argsHash)) {
       console.log(this.abi);
+      console.log(extractReturnWitness(acir, partialWitness));
       throw new Error(
         `Args hash should match public inputs hash for args: hash(${this.context.packedArgsCache.unpack(
           this.argsHash,

@@ -70,7 +70,7 @@ contract CGam {
     fn get_pack_cards_unconstrained(
         seed: Field,
         owner: Point
-    ) -> pub [Field; PACK_CARDS] {
+    ) -> distinct pub [Field; PACK_CARDS] {
         let sk = get_secret_key(owner);
         let mut user_seed = [0; 32];
         let seeds = seed.to_le_bytes(32);
@@ -99,7 +99,7 @@ contract CGam {
     fn get_pack_cards(
         seed: Field,
         owner: Point
-    ) -> pub [Field; PACK_CARDS] {
+    ) -> distinct pub [Field; PACK_CARDS] {
         let sk = get_secret_key(owner);
         let mut user_seed = [0; 32];
         let seeds = seed.to_le_bytes(32);
@@ -224,54 +224,61 @@ contract CGam {
     // TODO ideally there would be an easier way to do this *waves hands*
     fn join_game(
         inputs: PrivateContextInputs,
-        // game_id: Field,
-        // user_cards: [Card; MAX_CARDS],
-        // owner: Point,
-        // join_game_pub_selector: Field
-    ) -> pub abi::PrivateCircuitPublicInputs {
-        let mut context = Context::new(inputs, 0);
+        game_id: Field,
+        user_cards: [Card; MAX_CARDS],
+        owner: Point,
+        join_game_pub_selector: Field
+    ) -> distinct pub abi::PrivateCircuitPublicInputs {
+        let mut context = Context::new(inputs, abi::hash_args([
+            game_id, 
+            user_cards[0].id(),
+            user_cards[1].id(), // Up to MAX_CARDS - 1
+            owner.x,
+            owner.y,
+            join_game_pub_selector
+        ]));
 
-        // //TODO commit to $$
+        //TODO commit to $$
 
-        // // checks that cards belong to the user
+        // checks that cards belong to the user
+        for i in 0..MAX_CARDS {
+            // TODO it hurts when failing asserts just says 'contraints cant be solved'
+            context = assert_own_card(context, user_cards[i], owner);
+        }
+        // compute the deck strength
+        let mut deck_strength: u32 = 0;
+        for card in user_cards {
+            deck_strength + = card.strength() as u32;
+        }
+        deck_strength = deck_strength / (MAX_CARDS as u32);
+
+        // Unroll our arguments
+        let mut args = [0; abi::MAX_ARGS];
+        args[0] = game_id;
+        args[1] = owner.x;
+        args[2] = owner.y;
+        args[3] = deck_strength as Field;
+        let (_callStackItem, mut context2) = PublicCallStackItem::call(
+            inputs.call_context.storage_contract_address, // address of this contract
+            join_game_pub_selector, 
+            [game_id, owner.x, owner.y, deck_strength as Field],
+            context
+        );
+
+        // TODO
+        // maps the user_id to its cards = user_deck
+        // TODO undo hacks
+        for i in 0..MAX_CARDS {
+            context2 = user_deck_insert(owner, game_id, i, i, user_cards, context2);
+        }
+
         // for i in 0..MAX_CARDS {
-        //     // TODO it hurts when failing asserts just says 'contraints cant be solved'
-        //     context = assert_own_card(context, user_cards[i], owner);
+        //     alternative; use a map to a set of notes
+        //           Map -> Set.insert(cardn.1)
+        //         Map(same key = user_id) -> Set.insert(cardn.2)
+        //          get_2() -> card1, card_storage_slot
+        //         get_5()
         // }
-        // // compute the deck strength
-        // let mut deck_strength: u32 = 0;
-        // for card in user_cards {
-        //     deck_strength + = card.strength() as u32;
-        // }
-        // deck_strength = deck_strength / (MAX_CARDS as u32);
-
-        // // Unroll our arguments
-        // let mut args = [0; abi::MAX_ARGS];
-        // args[0] = game_id;
-        // args[1] = owner.x;
-        // args[2] = owner.y;
-        // args[3] = deck_strength as Field;
-        // let (_callStackItem, mut context2) = PublicCallStackItem::call(
-        //     inputs.call_context.storage_contract_address, // address of this contract
-        //     join_game_pub_selector, 
-        //     [game_id, owner.x, owner.y, deck_strength as Field],
-        //     context
-        // );
-
-        // // TODO
-        // // maps the user_id to its cards = user_deck
-        // // TODO undo hacks
-        // for i in 0..MAX_CARDS {
-        //     context2 = user_deck_insert(owner, game_id, i, i, user_cards, context2);
-        // }
-
-        // // for i in 0..MAX_CARDS {
-        // //     alternative; use a map to a set of notes
-        // //           Map -> Set.insert(cardn.1)
-        // //         Map(same key = user_id) -> Set.insert(cardn.2)
-        // //          get_2() -> card1, card_storage_slot
-        // //         get_5()
-        // // }
         context.finish()
     }
 
@@ -280,7 +287,7 @@ contract CGam {
         inputs: PrivateContextInputs, 
         card: Card, 
         owner: Point
-    ) -> pub abi::PrivateCircuitPublicInputs {
+    ) -> distinct pub abi::PrivateCircuitPublicInputs {
         let mut context = Context::new(inputs, abi::hash_args([card.id(), owner.x, owner.y]));
             // checks that card belongs to the deck and it not already played
         context = assert_own_card(context, card, owner);
@@ -434,7 +441,7 @@ contract CGam {
         let _1 = winner_public_storage().at(game_id).write(winner_id);
     }
 
-    fn private_claim_winnings(inputs: PrivateContextInputs, game_id: Field, owner: Point) -> pub abi::PrivateCircuitPublicInputs {
+    fn private_claim_winnings(inputs: PrivateContextInputs, game_id: Field, owner: Point) -> distinct pub abi::PrivateCircuitPublicInputs {
         let mut initialContext = Context::new(inputs, abi::hash_args([game_id, owner.x, owner.y]));
 
         // TODO prove we won!!!
