@@ -18,7 +18,7 @@ class NullifierTreeTestingHarness : public NullifierTree {
     using nullifier_leaf = proof_system::plonk::stdlib::merkle_tree::nullifier_leaf;
 
   public:
-    explicit NullifierTreeTestingHarness(MemoryStore, size_t depth);
+    explicit NullifierTreeTestingHarness(MemoryStore store, size_t depth);
 
     using MerkleTree::get_hash_path;
     using MerkleTree::root;
