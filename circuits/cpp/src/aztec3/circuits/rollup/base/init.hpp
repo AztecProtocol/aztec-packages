@@ -33,9 +33,9 @@ using AggregationObject = utils::types::NativeTypes::AggregationObject;
 using AppendOnlySnapshot = abis::AppendOnlyTreeSnapshot<NT>;
 
 // Tree Aliases
-using MerkleTree = stdlib::merkle_tree::MerkleTree<stdlib::merkle_tree::MemoryStore>;
-using NullifierTree = stdlib::merkle_tree::NullifierMemoryTree;
+using MemoryStore = stdlib::merkle_tree::MemoryStore;
+using MerkleTree = stdlib::merkle_tree::MerkleTree<MemoryStore>;
+using NullifierTree = stdlib::merkle_tree::NullifierTree<MemoryStore>;
 using NullifierLeafPreimage = abis::NullifierLeafPreimage<NT>;
-using SparseTree = stdlib::merkle_tree::MerkleTree<stdlib::merkle_tree::MemoryStore>;
 
 }  // namespace aztec3::circuits::rollup::native_base_rollup

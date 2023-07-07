@@ -26,7 +26,7 @@ namespace aztec3::circuits::rollup::native_root_rollup {
  */
 NT::fr calculate_subtree(std::array<NT::fr, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP> leaves)
 {
-    stdlib::merkle_tree::MemoryStore merkle_tree_store;
+    MemoryStore merkle_tree_store;
     MerkleTree merkle_tree(merkle_tree_store, L1_TO_L2_MSG_SUBTREE_DEPTH);
 
     for (size_t i = 0; i < NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP; i++) {

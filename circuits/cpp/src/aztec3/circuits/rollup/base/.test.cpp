@@ -135,8 +135,8 @@ TEST_F(base_rollup_tests, native_no_new_contract_leafs)
     // No contract leaves -> will insert empty tree -> i.e. end_contract_tree_root = start_contract_tree_root
 
     BaseRollupInputs emptyInputs = base_rollup_inputs_from_kernels({ get_empty_kernel(), get_empty_kernel() });
-    stdlib::merkle_tree::MemoryStore contract_tree_store;
-    auto empty_contract_tree = native_base_rollup::MerkleTree(contract_tree_store, CONTRACT_TREE_HEIGHT);
+    MemoryStore contract_tree_store;
+    auto empty_contract_tree = MerkleTree(contract_tree_store, CONTRACT_TREE_HEIGHT);
 
     BaseOrMergeRollupPublicInputs outputs =
         aztec3::circuits::rollup::native_base_rollup::base_rollup_circuit(builder, emptyInputs);
@@ -169,17 +169,17 @@ TEST_F(base_rollup_tests, native_contract_leaf_inserted)
         .function_tree_root = fr(2),
     };
 
-    stdlib::merkle_tree::MemoryStore empty_contract_tree_store;
-    auto empty_contract_tree = native_base_rollup::MerkleTree(empty_contract_tree_store, CONTRACT_TREE_HEIGHT);
+    MemoryStore empty_contract_tree_store;
+    auto empty_contract_tree = MerkleTree(empty_contract_tree_store, CONTRACT_TREE_HEIGHT);
     AppendOnlyTreeSnapshot<NT> const expected_start_contracts_snapshot = {
         .root = empty_contract_tree.root(),
         .next_available_leaf_index = 0,
     };
 
     // create expected end contract tree snapshot
-    stdlib::merkle_tree::MemoryStore contract_tree_store;
+    MemoryStore contract_tree_store;
     auto expected_end_contracts_snapshot_tree =
-        stdlib::merkle_tree::MerkleTree<stdlib::merkle_tree::MemoryStore>(contract_tree_store, CONTRACT_TREE_HEIGHT);
+        stdlib::merkle_tree::MerkleTree<MemoryStore>(contract_tree_store, CONTRACT_TREE_HEIGHT);
     expected_end_contracts_snapshot_tree.update_element(0, new_contract.hash());
 
     AppendOnlyTreeSnapshot<NT> const expected_end_contracts_snapshot = {
@@ -216,9 +216,8 @@ TEST_F(base_rollup_tests, native_contract_leaf_inserted_in_non_empty_snapshot_tr
     kernel_data[0].public_inputs.end.new_contracts[0] = new_contract;
     BaseRollupInputs inputs = base_rollup_inputs_from_kernels(kernel_data);
 
-    stdlib::merkle_tree::MemoryStore start_contract_tree_snapshot_store;
-    auto start_contract_tree_snapshot =
-        native_base_rollup::MerkleTree(start_contract_tree_snapshot_store, CONTRACT_TREE_HEIGHT);
+    MemoryStore start_contract_tree_snapshot_store;
+    auto start_contract_tree_snapshot = MerkleTree(start_contract_tree_snapshot_store, CONTRACT_TREE_HEIGHT);
     // insert 12 leaves to the tree (next available leaf index is 12)
     for (size_t i = 0; i < 12; ++i) {
         start_contract_tree_snapshot.update_element(i, fr(i));
@@ -242,7 +241,7 @@ TEST_F(base_rollup_tests, native_contract_leaf_inserted_in_non_empty_snapshot_tr
     // TODO(benesjan): is this the correct approach to clone the tree? Should the store be committed first?
     auto expected_end_contract_tree_snapshot_store = start_contract_tree_snapshot_store;
     auto expected_end_contracts_snapshot_tree =
-        native_base_rollup::MerkleTree(expected_end_contract_tree_snapshot_store, CONTRACT_TREE_HEIGHT);
+        MerkleTree(expected_end_contract_tree_snapshot_store, CONTRACT_TREE_HEIGHT);
     expected_end_contracts_snapshot_tree.update_element(12, expected_contract_leaf);
 
     AppendOnlyTreeSnapshot<NT> const expected_end_contracts_snapshot = {
@@ -275,8 +274,8 @@ TEST_F(base_rollup_tests, native_new_commitments_tree)
     }
 
     // get sibling path
-    stdlib::merkle_tree::MemoryStore private_data_tree_store;
-    auto private_data_tree = native_base_rollup::MerkleTree(private_data_tree_store, PRIVATE_DATA_TREE_HEIGHT);
+    MemoryStore private_data_tree_store;
+    auto private_data_tree = MerkleTree(private_data_tree_store, PRIVATE_DATA_TREE_HEIGHT);
     AppendOnlyTreeSnapshot<NT> const expected_start_commitments_snapshot = {
         .root = private_data_tree.root(),
         .next_available_leaf_index = 0,
@@ -642,8 +641,8 @@ TEST_F(base_rollup_tests, native_compute_membership_historic_private_data_negati
     std::array<PreviousKernelData<NT>, 2> const kernel_data = { get_empty_kernel(), get_empty_kernel() };
     BaseRollupInputs inputs = base_rollup_inputs_from_kernels(kernel_data);
 
-    stdlib::merkle_tree::MemoryStore private_data_store;
-    auto private_data_tree = native_base_rollup::MerkleTree(private_data_store, PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT);
+    MemoryStore private_data_store;
+    auto private_data_tree = MerkleTree(private_data_store, PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT);
 
     // Create an INCORRECT sibling path for the private data tree root in the historic tree roots.
     auto hash_path = private_data_tree.get_sibling_path(0);
@@ -670,8 +669,8 @@ TEST_F(base_rollup_tests, native_compute_membership_historic_contract_tree_negat
     std::array<PreviousKernelData<NT>, 2> const kernel_data = { get_empty_kernel(), get_empty_kernel() };
     BaseRollupInputs inputs = base_rollup_inputs_from_kernels(kernel_data);
 
-    stdlib::merkle_tree::MemoryStore contract_tree_store;
-    auto contract_tree = native_base_rollup::MerkleTree(contract_tree_store, CONTRACT_TREE_ROOTS_TREE_HEIGHT);
+    MemoryStore contract_tree_store;
+    auto contract_tree = MerkleTree(contract_tree_store, CONTRACT_TREE_ROOTS_TREE_HEIGHT);
 
 
     // Create an INCORRECT sibling path for contract tree root in the historic tree roots.
@@ -760,17 +759,17 @@ TEST_F(base_rollup_tests, native_cbind_0)
 TEST_F(base_rollup_tests, native_single_public_state_read)
 {
     DummyBuilder builder = DummyBuilder("base_rollup_tests__native_single_public_state_read");
-    stdlib::merkle_tree::MemoryStore private_data_tree_store;
-    native_base_rollup::MerkleTree private_data_tree(private_data_tree_store, PRIVATE_DATA_TREE_HEIGHT);
+    MemoryStore private_data_tree_store;
+    MerkleTree private_data_tree(private_data_tree_store, PRIVATE_DATA_TREE_HEIGHT);
 
-    stdlib::merkle_tree::MemoryStore contract_tree_store;
-    native_base_rollup::MerkleTree contract_tree(contract_tree_store, CONTRACT_TREE_HEIGHT);
+    MemoryStore contract_tree_store;
+    MerkleTree contract_tree(contract_tree_store, CONTRACT_TREE_HEIGHT);
 
-    stdlib::merkle_tree::MemoryStore public_data_tree_store;
-    native_base_rollup::SparseTree public_data_tree(public_data_tree_store, PUBLIC_DATA_TREE_HEIGHT);
+    MemoryStore public_data_tree_store;
+    MerkleTree public_data_tree(public_data_tree_store, PUBLIC_DATA_TREE_HEIGHT);
 
-    stdlib::merkle_tree::MemoryStore l1_to_l2_messages_tree_store;
-    native_base_rollup::MerkleTree l1_to_l2_messages_tree(l1_to_l2_messages_tree_store, L1_TO_L2_MSG_TREE_HEIGHT);
+    MemoryStore l1_to_l2_messages_tree_store;
+    MerkleTree l1_to_l2_messages_tree(l1_to_l2_messages_tree_store, L1_TO_L2_MSG_TREE_HEIGHT);
 
     auto data_read = abis::PublicDataRead<NT>{
         .leaf_index = fr(1),
@@ -795,17 +794,17 @@ TEST_F(base_rollup_tests, native_single_public_state_read)
 TEST_F(base_rollup_tests, native_single_public_state_write)
 {
     DummyBuilder builder = DummyBuilder("base_rollup_tests__native_single_public_state_write");
-    stdlib::merkle_tree::MemoryStore private_data_tree_store;
-    native_base_rollup::MerkleTree private_data_tree(private_data_tree_store, PRIVATE_DATA_TREE_HEIGHT);
+    MemoryStore private_data_tree_store;
+    MerkleTree private_data_tree(private_data_tree_store, PRIVATE_DATA_TREE_HEIGHT);
 
-    stdlib::merkle_tree::MemoryStore contract_tree_store;
-    native_base_rollup::MerkleTree contract_tree(contract_tree_store, CONTRACT_TREE_HEIGHT);
+    MemoryStore contract_tree_store;
+    MerkleTree contract_tree(contract_tree_store, CONTRACT_TREE_HEIGHT);
 
-    stdlib::merkle_tree::MemoryStore public_data_tree_store;
-    native_base_rollup::SparseTree public_data_tree(public_data_tree_store, PUBLIC_DATA_TREE_HEIGHT);
+    MemoryStore public_data_tree_store;
+    MerkleTree public_data_tree(public_data_tree_store, PUBLIC_DATA_TREE_HEIGHT);
 
-    stdlib::merkle_tree::MemoryStore l1_to_l2_messages_tree_store;
-    native_base_rollup::MerkleTree l1_to_l2_messages_tree(l1_to_l2_messages_tree_store, L1_TO_L2_MSG_TREE_HEIGHT);
+    MemoryStore l1_to_l2_messages_tree_store;
+    MerkleTree l1_to_l2_messages_tree(l1_to_l2_messages_tree_store, L1_TO_L2_MSG_TREE_HEIGHT);
 
 
     auto data_write = abis::PublicDataUpdateRequest<NT>{
@@ -833,17 +832,17 @@ TEST_F(base_rollup_tests, native_single_public_state_write)
 TEST_F(base_rollup_tests, native_multiple_public_state_read_writes)
 {
     DummyBuilder builder = DummyBuilder("base_rollup_tests__native_multiple_public_state_read_writes");
-    stdlib::merkle_tree::MemoryStore private_data_tree_store;
-    native_base_rollup::MerkleTree private_data_tree(private_data_tree_store, PRIVATE_DATA_TREE_HEIGHT);
+    MemoryStore private_data_tree_store;
+    MerkleTree private_data_tree(private_data_tree_store, PRIVATE_DATA_TREE_HEIGHT);
 
-    stdlib::merkle_tree::MemoryStore contract_tree_store;
-    native_base_rollup::MerkleTree contract_tree(contract_tree_store, CONTRACT_TREE_HEIGHT);
+    MemoryStore contract_tree_store;
+    MerkleTree contract_tree(contract_tree_store, CONTRACT_TREE_HEIGHT);
 
-    stdlib::merkle_tree::MemoryStore public_data_tree_store;
-    native_base_rollup::SparseTree public_data_tree(public_data_tree_store, PUBLIC_DATA_TREE_HEIGHT);
+    MemoryStore public_data_tree_store;
+    MerkleTree public_data_tree(public_data_tree_store, PUBLIC_DATA_TREE_HEIGHT);
 
-    stdlib::merkle_tree::MemoryStore l1_to_l2_messages_tree_store;
-    native_base_rollup::MerkleTree l1_to_l2_messages_tree(l1_to_l2_messages_tree_store, L1_TO_L2_MSG_TREE_HEIGHT);
+    MemoryStore l1_to_l2_messages_tree_store;
+    MerkleTree l1_to_l2_messages_tree(l1_to_l2_messages_tree_store, L1_TO_L2_MSG_TREE_HEIGHT);
 
     std::array<PreviousKernelData<NT>, 2> kernel_data = { get_empty_kernel(), get_empty_kernel() };
 
@@ -880,17 +879,17 @@ TEST_F(base_rollup_tests, native_multiple_public_state_read_writes)
 TEST_F(base_rollup_tests, native_invalid_public_state_read)
 {
     DummyBuilder builder = DummyBuilder("base_rollup_tests__native_invalid_public_state_read");
-    stdlib::merkle_tree::MemoryStore private_data_tree_store;
-    native_base_rollup::MerkleTree private_data_tree(private_data_tree_store, PRIVATE_DATA_TREE_HEIGHT);
+    MemoryStore private_data_tree_store;
+    MerkleTree private_data_tree(private_data_tree_store, PRIVATE_DATA_TREE_HEIGHT);
 
-    stdlib::merkle_tree::MemoryStore contract_tree_store;
-    native_base_rollup::MerkleTree contract_tree(contract_tree_store, CONTRACT_TREE_HEIGHT);
+    MemoryStore contract_tree_store;
+    MerkleTree contract_tree(contract_tree_store, CONTRACT_TREE_HEIGHT);
 
-    stdlib::merkle_tree::MemoryStore public_data_tree_store;
-    native_base_rollup::SparseTree public_data_tree(public_data_tree_store, PUBLIC_DATA_TREE_HEIGHT);
+    MemoryStore public_data_tree_store;
+    MerkleTree public_data_tree(public_data_tree_store, PUBLIC_DATA_TREE_HEIGHT);
 
-    stdlib::merkle_tree::MemoryStore l1_to_l2_messages_tree_store;
-    native_base_rollup::MerkleTree l1_to_l2_messages_tree(l1_to_l2_messages_tree_store, L1_TO_L2_MSG_TREE_HEIGHT);
+    MemoryStore l1_to_l2_messages_tree_store;
+    MerkleTree l1_to_l2_messages_tree(l1_to_l2_messages_tree_store, L1_TO_L2_MSG_TREE_HEIGHT);
 
     auto data_read = abis::PublicDataRead<NT>{
         .leaf_index = fr(1),

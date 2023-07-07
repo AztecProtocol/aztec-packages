@@ -8,16 +8,17 @@
 
 namespace {
 using aztec3::utils::types::NativeTypes;
+using MemoryStore = proof_system::plonk::stdlib::merkle_tree::MemoryStore;
+using NullifierTree = proof_system::plonk::stdlib::merkle_tree::NullifierTree<MemoryStore>;
 }  // namespace
 /**
  * A version of the nullifier tree with extra methods specific to testing our rollup circuits.
  */
-class NullifierTreeTestingHarness : public proof_system::plonk::stdlib::merkle_tree::NullifierTree<
-                                        proof_system::plonk::stdlib::merkle_tree::MemoryStore> {
+class NullifierTreeTestingHarness : public NullifierTree {
     using nullifier_leaf = proof_system::plonk::stdlib::merkle_tree::nullifier_leaf;
 
   public:
-    explicit NullifierTreeTestingHarness(proof_system::plonk::stdlib::merkle_tree::MemoryStore, size_t depth);
+    explicit NullifierTreeTestingHarness(MemoryStore, size_t depth);
 
     using MerkleTree::get_hash_path;
     using MerkleTree::root;
