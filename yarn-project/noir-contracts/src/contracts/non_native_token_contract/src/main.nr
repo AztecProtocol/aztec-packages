@@ -1,3 +1,4 @@
+mod hash;
 mod storage;
 
 // Represents an ERC20 token bridged from L1 to L2 via `l1-contracts/test/portals/TokenPortal.sol`. The bridged user
@@ -43,6 +44,8 @@ contract NonNativeToken {
     // public messaging
     use dep::aztec::messaging::consume_l1_to_l2_message_public;
     use dep::aztec::public_call_stack_item::PublicCallStackItem;
+
+    use dep::aztec::oracle::create_commitment::create_commitment;
 
     fn constructor(
         //*********************************/
@@ -260,12 +263,8 @@ contract NonNativeToken {
         context = public_note.consume_in_secret(context, inputs.roots.private_data_tree_root, secret);
 
         // Mint the tokens
-        let owner_balance = storage.balances.at(owner.x);
-        let note = ValueNote::new(amount, owner);
-
-        // Insert note and emit encrypted preimage
-        context = owner_balance.insert(context, note);
-        context = emit_encrypted_log(context, inputs.call_context.storage_contract_address, owner_balance.storage_slot, note.owner, note.serialise());
+        let balance = storage.balances.at(owner.x);
+        context = send_note(context, inputs, balance, amount, owner);
 
         context.finish()
     }
