@@ -14,7 +14,7 @@ import { ContractAbi } from '@aztec/foundation/abi';
 import { DebugLogger } from '@aztec/foundation/log';
 import { ChildAbi, TouchIdAccountContractAbi } from '@aztec/noir-contracts/examples';
 
-import { CircuitsWasm, Point } from '@aztec/circuits.js';
+import { CircuitsWasm, Coordinate, Point } from '@aztec/circuits.js';
 import { PublicKey } from '@aztec/key-store';
 import { privateKey2 } from './fixtures.js';
 import { setup } from './utils.js';
@@ -25,9 +25,9 @@ describe('e2e_touch_id_account_contract', () => {
   let logger: DebugLogger;
   let child: Contract;
 
-  const joesPublicKey = Buffer.from(
-    '04505ab9f4e332f2b35f15d42854430aa25ca867ee4d8da641a1b644f493a6b400fe52c61fac7820c4ab6ee60ec7c3396dc14bd3b3c57662d24c0c1a27089f1405',
-    'hex',
+  const joesPublicKey = new Point(
+    Coordinate.fromBuffer(Buffer.from('7f7742b95b23eca219af35bbb7cfab31ef3cf7bc0fc3343f8746fdc3d57400ff', 'hex')),
+    Coordinate.fromBuffer(Buffer.from('074405831b49993e3c4308f74fe9504910323fa8066b4df1b36929e108b6a4b0', 'hex')),
   );
 
   const sendContractDeployment = async (publicKey: PublicKey, abi: ContractAbi, contractAddressSalt: Fr) => {
@@ -61,13 +61,12 @@ describe('e2e_touch_id_account_contract', () => {
       await CircuitsWasm.get(),
     );
 
-    await accountImpl.init();
-
     const wallet = new AccountWallet(aztecRpcServer, accountImpl);
 
     return {
       contractAddress: contractDeploymentInfo.address,
       wallet,
+      accountImpl,
     };
   };
 
@@ -82,15 +81,19 @@ describe('e2e_touch_id_account_contract', () => {
 
   const deployAll = async () => {
     logger('Deploying account contract...');
-    const { contractAddress: accountAddress, wallet } = await deployAccountContract(
-      TouchIdAccountContractAbi,
-      Point.fromBuffer(joesPublicKey),
-      privateKey2,
-    );
+    const {
+      accountImpl,
+      contractAddress: accountAddress,
+      wallet,
+    } = await deployAccountContract(TouchIdAccountContractAbi, joesPublicKey, privateKey2);
 
     logger('Deploying child contract...');
-    child = await deployChildContract(Point.fromBuffer(joesPublicKey), wallet);
+    child = await deployChildContract(joesPublicKey, wallet);
     logger(`Account contract at ${accountAddress.toString()}, child contract at ${child.address.toString()}`);
+
+    logger(`Initialising up wallet connect...`);
+    await accountImpl.init();
+    logger(`Wallet connect session is set up`);
 
     return {
       child,

@@ -8,9 +8,11 @@ import { ExecutionRequest, PackedArguments, PartialContractAddress, TxExecutionR
 import partition from 'lodash.partition';
 import { generateFunctionSelector } from '../index.js';
 import { AccountImplementation } from './index.js';
-import { WalletConnectTouchIdAuthProvider } from '../auth/touchid.js';
+import { TouchIdAuthResult, WalletConnectTouchIdAuthProvider } from '../auth/touchid.js';
 import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { toFriendlyJSON } from '@aztec/circuits.js/utils';
+
+const MOCK = false;
 
 /**
  * Account backed by an account contract
@@ -31,7 +33,7 @@ export class TouchIdAccountContract implements AccountImplementation {
   }
 
   init(): Promise<void> {
-    return this.auth.init();
+    return !MOCK ? this.auth.init() : Promise.resolve();
   }
 
   getAddress(): AztecAddress {
@@ -54,11 +56,48 @@ export class TouchIdAccountContract implements AccountImplementation {
     );
 
     const { payload, packedArguments: callsPackedArguments } = await buildPayload(privateCalls, publicCalls, this.wasm);
-    const challenge = hashPayload(payload);
-    this.logger(`Challenge: ${toFriendlyJSON(challenge)}`);
 
-    const authResult = await this.auth.authenticateTx(challenge);
+    let authResult: TouchIdAuthResult;
+    let challenge: Buffer;
+
+    if (MOCK) {
+      challenge = Buffer.from('7d3ab9998e5b2be54cd363fac7b2ac4975f5e35cd848d94687effb42fab658bd', 'hex');
+      const mockAuthResult = {
+        clientDataJson:
+          '0x7b2274797065223a22776562617574686e2e676574222c226368616c6c656e6765223a22665471356d5935624b2d564d3032503678374b735358583134317a59534e6c47682d5f3751767132574c30222c226f726967696e223a22687474703a2f2f6c6f63616c686f73743a38303830222c2263726f73734f726967696e223a66616c73657d',
+        authData: '0x49960de5880e8c687434170f6476605b8fe4aeb9a28632c7995cf3ba831d97630500000000',
+        signature:
+          '0xb873055b86078d70ac15416200e95228f4647389a935a9e2958914ac6feab0f3cc5e283035795855ee1d1317813090182656e095e8dd673097c0be0bbd80e94b',
+      };
+      authResult = {
+        clientDataJson: Buffer.from(mockAuthResult.clientDataJson.replace('0x', ''), 'hex'),
+        authData: Buffer.from(mockAuthResult.authData.replace('0x', ''), 'hex'),
+        signature: Buffer.from(mockAuthResult.signature.replace('0x', ''), 'hex'),
+      };
+    } else {
+      challenge = hashPayload(payload);
+      this.logger(`Requesting signature from wallet connect for challenge 0x${challenge.toString('hex')}`);
+      authResult = await this.auth.authenticateTx(challenge);
+    }
+
+    authResult.signature = fixSignature(authResult.signature);
     this.logger(`Auth result: ${toFriendlyJSON(authResult)}`);
+
+    if (authResult.clientDataJson.length !== 134) {
+      throw new Error(`Invalid length for clientDataJson (expected 134 but got ${authResult.clientDataJson.length})`);
+    }
+
+    if (authResult.authData.length !== 37) {
+      throw new Error(`Invalid length for authData (expected 37 but got ${authResult.authData.length})`);
+    }
+
+    if (authResult.signature.length !== 64) {
+      throw new Error(`Invalid length for signature (expected 64 but got ${authResult.signature.length})`);
+    }
+
+    if (challenge.length !== 32) {
+      throw new Error(`Invalid length for challenge (expected 32 but got ${challenge.length})`);
+    }
 
     const publicKeyAsBuffer = this.pubKey.toBuffer();
     const args = [
@@ -104,6 +143,20 @@ export class TouchIdAccountContract implements AccountImplementation {
       );
     }
   }
+}
+
+function fixSignature(sig: Buffer) {
+  const s = sig.slice(32, 64);
+
+  // Invert s
+  const scalar = BigInt('0x' + s.toString('hex'));
+  // The order 'n' of secp256r1 as a BigInt
+  const n = BigInt('115792089210356248762697446949407573529996955224135760342422259061068512044369');
+  // Compute (n - scalar) mod n
+  const negated = (n - scalar) % n;
+  const s2 = Buffer.from(negated.toString(16), 'hex');
+  const fixed = Buffer.concat([sig.subarray(0, 32), s2]);
+  return fixed;
 }
 
 const ACCOUNT_MAX_PRIVATE_CALLS = 1;

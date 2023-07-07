@@ -1,8 +1,8 @@
 use dep::std;
 
 contract TouchIdAccount {
-     mod base64;
-     use base64::decode_base64;
+    mod base64;
+    use base64::decode_base64;
 
     use dep::std;
     use dep::aztec::entrypoint;
@@ -51,27 +51,26 @@ contract TouchIdAccount {
         // let challenge: [u8; 32] = std::hash::sha256(payload_bytes);
         
         // TouchID verification logic
-          let mut base64_challenge: [u8; 43] = [0;43];
-          for i in 0..43 {
-               base64_challenge[i] = client_data_json[i + 36];
-          }
+        let mut base64_challenge: [u8; 43] = [0;43];
+        for i in 0..43 {
+           base64_challenge[i] = client_data_json[i + 36];
+        }
           
-          let decoded_challenge = decode_base64(base64_challenge);
-            // let decoded_challenge: [u8; 32] = [0; 32];
-          
-          assert(decoded_challenge == challenge);
+        let decoded_challenge = decode_base64(base64_challenge);
+        assert(decoded_challenge == challenge);
 
-          let client_data_hash = std::hash::sha256(client_data_json);
-          let mut message: [u8; 69] = [0;69];
-          for i in 0..37 {
-               message[i] = auth_data[i];
-          }
-          for i in 0..32 {
-               message[i+37] = client_data_hash[i];
-          }
-          let message_hash = std::hash::sha256(message);
-          let valid_signature = std::ecdsa_secp256r1::verify_signature(x, y, signature, message_hash);
-          assert(valid_signature);
+        let client_data_hash = std::hash::sha256(client_data_json);
+        let mut message: [u8; 69] = [0;69];
+        for i in 0..37 {
+             message[i] = auth_data[i];
+        }
+        for i in 0..32 {
+             message[i+37] = client_data_hash[i];
+        }
+
+        let message_hash = std::hash::sha256(message);
+        let valid_signature = std::ecdsa_secp256r1::verify_signature(x, y, signature, message_hash);
+        assert(valid_signature);
 
         // TODO: When we can use pedersen with non-zero generators, get this working        
         //let reproduced_address = dep::std::hash::pedersen([owner, partial_contract_address])[0];
