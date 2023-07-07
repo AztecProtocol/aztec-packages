@@ -123,9 +123,6 @@ contract Yolo {
         amount: Field
     ) -> Field {
         // @todo @LHerskind Transfer tokens into this contract. We can't do it now because too few writes.
-
-        // _deposit();
-        // this._deposit(owner, amount);
     
         call_public_function(inputs.call_context.storage_contract_address, 3009041984, [owner, amount])[0]
     }
