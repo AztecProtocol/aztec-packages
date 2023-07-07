@@ -19,6 +19,8 @@ template <typename NCT, unsigned int N> struct MembershipWitness {
     std::array<fr, N> sibling_path{};
 
     MSGPACK_FIELDS(leaf_index, sibling_path);
+    // for schema serialization
+    void msgpack_schema(auto& packer) const { packer.pack_with_name("MembershipWitness" + std::to_string(N), *this); }
     boolean operator==(MembershipWitness<NCT, N> const& other) const
     {
         return leaf_index == other.leaf_index && sibling_path == other.sibling_path;
