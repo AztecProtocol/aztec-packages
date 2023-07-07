@@ -17,8 +17,8 @@ contract ConsumerFinance {
     fn processPayroll(
         inputs: PrivateContextInputs,
         asset: Field, // Asset to distribute
-        addresses: [Point;3], // Addresses to distribute to
-        amounts: [Field;3], // Amounts to distribute
+        addresses: [Point;6], // Addresses to distribute to
+        amounts: [Field;6], // Amounts to distribute
         owner: Point, // Owner of the asset
         batchTransferFnSelector: Field, // Function selector for transfer
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
@@ -27,17 +27,26 @@ contract ConsumerFinance {
             addresses[0].x, 
             addresses[1].x, 
             addresses[2].x, 
+            addresses[3].x,
+            addresses[4].x,
+            addresses[5].x,
             addresses[0].y, 
             addresses[1].y, 
             addresses[2].y, 
+            addresses[3].y,
+            addresses[4].y,
+            addresses[5].y,
             amounts[0], 
             amounts[1], 
             amounts[2], 
+            amounts[3],
+            amounts[4],
+            amounts[5],
             owner.x, 
             owner.y, 
             batchTransferFnSelector
         ]));
-        let (callStackItem, mut context) = PrivateCallStackItem::call(asset, batchTransferFnSelector, [
+        let (callStackItem1, mut context1) = PrivateCallStackItem::call(asset, batchTransferFnSelector, [
             owner.x, 
             owner.y,
             amounts[0],
@@ -51,8 +60,26 @@ contract ConsumerFinance {
             addresses[2].y,
             true as Field,
         ], initialContext);
-        let result = callStackItem.public_inputs.return_values[0];
-        context.return_values = context.return_values.push(result);
-        context.finish()
+        let result1 = callStackItem1.public_inputs.return_values[0];
+        context1.return_values = context1.return_values.push(result1);
+
+        let (callStackItem2, mut context2) = PrivateCallStackItem::call(asset, batchTransferFnSelector, [
+            owner.x, 
+            owner.y,
+            amounts[3],
+            amounts[4],
+            amounts[5],
+            addresses[3].x,
+            addresses[4].x,
+            addresses[5].x,
+            addresses[3].y,
+            addresses[4].y,
+            addresses[5].y,
+            false as Field,
+        ], context1);
+        let result2 = callStackItem2.public_inputs.return_values[0];
+        context2.return_values = context2.return_values.push(result2);
+
+        context2.finish()
     }
 }
