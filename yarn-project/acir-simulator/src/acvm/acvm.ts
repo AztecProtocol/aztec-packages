@@ -2,7 +2,7 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { WitnessMap, executeCircuit } from 'acvm-simulator';
+import { ForeignCallInput, WitnessMap, executeCircuit } from 'acvm-simulator';
 
 /**
  * The format for fields on the ACVM.
@@ -71,12 +71,14 @@ export type execute = (acir: Buffer, initialWitness: ACVMWitness, oracle: ACIRCa
 
 export const acvm: execute = async (acir, initialWitness, callback) => {
   const logger = createDebugLogger('aztec:simulator:acvm');
-  const partialWitness = await executeCircuit(acir, initialWitness, async (name: string, args: string[]) => {
+  const partialWitness = await executeCircuit(acir, initialWitness, async (name: string, args: ForeignCallInput[]) => {
     try {
       logger(`Oracle callback ${name}`);
       if (!(name in callback)) throw new Error(`Callback ${name} not found`);
-      const result = await callback[name as keyof ACIRCallback](args);
-      return result;
+      
+      const flatArgs = args.flatMap(arg => arg);
+      const result = await callback[name as keyof ACIRCallback](flatArgs);
+      return [result];
     } catch (err: any) {
       logger(`Error in ACVM callback ${name}: ${err.message ?? err ?? 'Unknown'}`);
       throw err;
