@@ -546,7 +546,100 @@ jobs:
           name: "Noop"
           command: echo Noop
 
-  deploy:
+  deploy-npm:
+    machine:
+      image: ubuntu-2004:202010-01
+    resource_class: medium
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "foundation"
+          working_directory: foundation
+          command: |
+            deploy_npm foundation
+      - run:
+          name: "circuits.js"
+          working_directory: circuits.js
+          command: |
+            deploy_npm circuits.js
+      - run:
+          name: "merkle-tree"
+          working_directory: merkle-tree
+          command: |
+            deploy_npm merkle-tree
+      - run:
+          name: "noir-contracts"
+          working_directory: noir-contracts
+          command: |
+            deploy_npm noir-contracts
+      - run:
+          name: "l1-artifacts"
+          working_directory: l1-artifacts
+          command: |
+            deploy_npm l1-artifacts
+      - run:
+          name: "aztec-ethereum"
+          working_directory: ethereum
+          command: |
+            deploy_npm ethereum
+      - run:
+          name: "types"
+          working_directory: types
+          command: |
+            deploy_npm types
+      - run:
+          name: "acir-simulator"
+          working_directory: acir-simulator
+          command: |
+            deploy_npm acir-simulator
+      - run:
+          name: "archiver"
+          working_directory: archiver
+          command: |
+            deploy_npm archiver
+      - run:
+          name: "p2p"
+          working_directory: p2p
+          command: |
+            deploy_npm p2p
+      - run:
+          name: "world-state"
+          working_directory: world-state
+          command: |
+            deploy_npm world-state
+      - run:
+          name: "sequencer-client"
+          working_directory: sequencer-client
+          command: |
+            deploy_npm sequencer-client
+      - run:
+          name: "aztec-node"
+          working_directory: aztec-node
+          command: |
+            deploy_npm aztec-node
+      - run:
+          name: "key-store"
+          working_directory: key-store
+          command: |
+            deploy_npm key-store
+      - run:
+          name: "aztec-rpc"
+          working_directory: aztec-rpc
+          command: |
+            deploy_npm aztec-rpc
+      - run:
+          name: "aztec.js"
+          working_directory: aztec.js
+          command: |
+            deploy_npm aztec.js
+      - run:
+          name: "aztec-cli"
+          working_directory: aztec-cli
+          command: |
+            deploy_npm aztec-cli
+
+  deploy-dockerhub:
     machine:
       image: ubuntu-2004:202010-01
     resource_class: medium
@@ -559,6 +652,7 @@ jobs:
           command: |
             deploy_ecr aztec-sandbox
             deploy_dockerhub aztec-sandbox master
+
 
 # Repeatable config for defining the workflow below.
 tag_regex: &tag_regex /v[0-9]+(\.[0-9]+)*(-[a-zA-Z-]+\.[0-9]+)?/
@@ -694,11 +788,15 @@ workflows:
             - e2e-p2p
           <<: *defaults
 
-      - deploy:
+      - deploy-dockerhub:
           requires:
             - e2e-end
             - aztec-sandbox
           filters:
             branches:
               only: master
+          <<: *defaults
+      - deploy-npm:
+          requires:
+            - e2e-end
           <<: *defaults
