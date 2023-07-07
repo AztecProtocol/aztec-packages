@@ -55,54 +55,9 @@ contract CGam {
         Context::new(inputs, 0).finish()
     }
 
-    // //number of players that joined the game
-    // global game_players = StorageMap { storage_slot: 12 };
-    // // get the nb of players:
-    // //game_players.at(game_id).read()
-    // // update the nb of players:
-
-    // //game_players.at(game_id).write(4);
-
-    // //number of players for the game
-    // global num_players = StorageMap { storage_slot: 3 };
-
-    // //average strengh of user deck
-
-    // global deck_strength_storage = StorageMap { storage_slot: 4 };
-
-    // //users' deck
-    // global user_deck = Map { storage_slot: 5 };
-
-    // //user plays: user_id -> 0 if not yet played, 1 if played
-    // global users_plays = StorageMap { storage_slot: 6 };
-
-    // //users order: 0 -> id of the first player, 1->id of the second, ...
-    // global player_order = StorageMap { storage_slot: 7 };
-
-    // //played cards: card.id() -> 1
-    // global played_cards = StorageMap { storage_slot: 8 };
-
-    // // (currrent) winner card: game_id -> card_id
-    // global winning_card = StorageMap { storage_slot: 9};
-
-    // // (current) points at stake: game_id -> points
-    // global game_points = StorageMap { storage_slot: 10 };
-
-    // // (currrent) winner card: game_id -> owner.x
-    // global winning_user = StorageMap { storage_slot: 16};
-
-    // // user points: game_id+user_id -> points
-    // global user_points = StorageMap { storage_slot: 11 };
-
-    // // winner: game_id -> user_id
-    // global winner = StorageMap { storage_slot: 13 };
-
-    // // map game_id+user_id to owner.x
-    // global user_pub_key = StorageMap { storage_slot: 14 };
-
-    // // TODO feedback: we found it very limiting having resource limits (e.g. read requests) tied to callstacks
-    // // This feels potentially something to be entirely revisited (can we be more flexile?), or managed by the user
-    // // or at least have very clear errors. BoundedVec could report out of bounds better, at the very least
+    // TODO feedback: we found it very limiting having resource limits (e.g. read requests) tied to callstacks
+    // This feels potentially something to be entirely revisited (can we be more flexile?), or managed by the user
+    // or at least have very clear errors. BoundedVec could report out of bounds better, at the very least
     global MAX_CARDS = 2; // Limited by square root of read requests (max 4, so 2)
     global MAX_PLAYERS = 2; // Limited by square root of read requests (max 4, so 2)
     global PACK_CARDS = 3; // Limited by number of write requests (max 4)
@@ -269,61 +224,54 @@ contract CGam {
     // TODO ideally there would be an easier way to do this *waves hands*
     fn join_game(
         inputs: PrivateContextInputs,
-        game_id: Field,
-        user_cards: [Card; MAX_CARDS],
-        owner: Point,
-        join_game_pub_selector: Field
+        // game_id: Field,
+        // user_cards: [Card; MAX_CARDS],
+        // owner: Point,
+        // join_game_pub_selector: Field
     ) -> pub abi::PrivateCircuitPublicInputs {
-        let mut context = Context::new(inputs, abi::hash_args([
-            game_id, 
-            user_cards[0].id(),
-            user_cards[1].id(), // Up to MAX_CARDS - 1
-            owner.x,
-            owner.y,
-            join_game_pub_selector
-        ]));
+        let mut context = Context::new(inputs, 0);
 
-        //TODO commit to $$
+        // //TODO commit to $$
 
-        // checks that cards belong to the user
-        for i in 0..MAX_CARDS {
-            // TODO it hurts when failing asserts just says 'contraints cant be solved'
-            context = assert_own_card(context, user_cards[i], owner);
-        }
-        // compute the deck strength
-        let mut deck_strength: u32 = 0;
-        for card in user_cards {
-            deck_strength + = card.strength() as u32;
-        }
-        deck_strength = deck_strength / (MAX_CARDS as u32);
-
-        // Unroll our arguments
-        let mut args = [0; abi::MAX_ARGS];
-        args[0] = game_id;
-        args[1] = owner.x;
-        args[2] = owner.y;
-        args[3] = deck_strength as Field;
-        let (_callStackItem, mut context2) = PublicCallStackItem::call(
-            inputs.call_context.storage_contract_address, // address of this contract
-            join_game_pub_selector, 
-            [game_id, owner.x, owner.y, deck_strength as Field],
-            context
-        );
-
-        // TODO
-        // maps the user_id to its cards = user_deck
-        // TODO undo hacks
-        for i in 0..MAX_CARDS {
-            context2 = user_deck_insert(owner, game_id, i, i, user_cards, context2);
-        }
-
+        // // checks that cards belong to the user
         // for i in 0..MAX_CARDS {
-        //     alternative; use a map to a set of notes
-        //           Map -> Set.insert(cardn.1)
-        //         Map(same key = user_id) -> Set.insert(cardn.2)
-        //          get_2() -> card1, card_storage_slot
-        //         get_5()
+        //     // TODO it hurts when failing asserts just says 'contraints cant be solved'
+        //     context = assert_own_card(context, user_cards[i], owner);
         // }
+        // // compute the deck strength
+        // let mut deck_strength: u32 = 0;
+        // for card in user_cards {
+        //     deck_strength + = card.strength() as u32;
+        // }
+        // deck_strength = deck_strength / (MAX_CARDS as u32);
+
+        // // Unroll our arguments
+        // let mut args = [0; abi::MAX_ARGS];
+        // args[0] = game_id;
+        // args[1] = owner.x;
+        // args[2] = owner.y;
+        // args[3] = deck_strength as Field;
+        // let (_callStackItem, mut context2) = PublicCallStackItem::call(
+        //     inputs.call_context.storage_contract_address, // address of this contract
+        //     join_game_pub_selector, 
+        //     [game_id, owner.x, owner.y, deck_strength as Field],
+        //     context
+        // );
+
+        // // TODO
+        // // maps the user_id to its cards = user_deck
+        // // TODO undo hacks
+        // for i in 0..MAX_CARDS {
+        //     context2 = user_deck_insert(owner, game_id, i, i, user_cards, context2);
+        // }
+
+        // // for i in 0..MAX_CARDS {
+        // //     alternative; use a map to a set of notes
+        // //           Map -> Set.insert(cardn.1)
+        // //         Map(same key = user_id) -> Set.insert(cardn.2)
+        // //          get_2() -> card1, card_storage_slot
+        // //         get_5()
+        // // }
         context.finish()
     }
 

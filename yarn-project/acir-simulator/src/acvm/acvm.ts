@@ -82,7 +82,7 @@ export async function acvm(
       logger(`Error in ACVM callback ${name}: ${err.message ?? err ?? 'Unknown'}`);
       // workaround raw string throwing
       // if we don't, stack traces are gone
-      throw err instanceof Error ? err : new Error(err);
+      throw err;
     }
   });
   return Promise.resolve({ partialWitness });
