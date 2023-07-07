@@ -209,5 +209,14 @@ describe('e2e_yolo_contract', () => {
       logger('Withdraw 🥸 : 🏦 -> 💰');
       await logInterestingStorage(deployedContract, aztecNode, account);
     }
+
+    {
+      const tx = deployedContract.methods._deposit(recipient.toField(), 42n).send({ from: recipient });
+      await tx.isMined(0, 0.1);
+      const receipt = await tx.getReceipt();
+      expect(receipt.status).toBe(TxStatus.DROPPED);
+      logger('Rejected call directly to internal function 🧚 ');
+      await logInterestingStorage(deployedContract, aztecNode, account);
+    }
   }, 450_000);
 });

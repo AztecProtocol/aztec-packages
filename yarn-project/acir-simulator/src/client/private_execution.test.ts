@@ -499,7 +499,7 @@ describe('Private Execution test suite', () => {
   });
 
   describe('enqueued calls', () => {
-    it('parent should enqueue call to child', async () => {
+    it.each([false, true])('parent should enqueue call to child', async isInternal => {
       const parentAbi = ParentContractAbi.functions.find(f => f.name === 'enqueueCallToChild')!;
       const childAddress = AztecAddress.random();
       const childPortalContractAddress = EthAddress.random();
@@ -507,6 +507,7 @@ describe('Private Execution test suite', () => {
       const parentAddress = AztecAddress.random();
 
       oracle.getPortalContractAddress.mockImplementation(() => Promise.resolve(childPortalContractAddress));
+      oracle.getFunctionABI.mockImplementation(() => Promise.resolve({ ...ChildContractAbi.functions[0], isInternal }));
 
       const args = [Fr.fromBuffer(childAddress.toBuffer()), Fr.fromBuffer(childSelector), 42n];
       const result = await runSimulator({
@@ -516,11 +517,12 @@ describe('Private Execution test suite', () => {
         args,
       });
 
+      // @LHerskind @todo public functions should not pass regardless of whether they are internal or not
       expect(result.enqueuedPublicFunctionCalls).toHaveLength(1);
       expect(result.enqueuedPublicFunctionCalls[0]).toEqual(
         PublicCallRequest.from({
           contractAddress: childAddress,
-          functionData: new FunctionData(childSelector, false, false, false),
+          functionData: new FunctionData(childSelector, isInternal, false, false),
           args: [new Fr(42n)],
           callContext: CallContext.from({
             msgSender: parentAddress,

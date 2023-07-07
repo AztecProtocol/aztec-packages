@@ -312,7 +312,7 @@ export class PrivateFunctionExecution {
     return PublicCallRequest.from({
       args: targetArgs,
       callContext: derivedCallContext,
-      functionData: new FunctionData(targetFunctionSelector, targetAbi?.isInternal ?? false, false, false),
+      functionData: new FunctionData(targetFunctionSelector, targetAbi.isInternal, false, false),
       contractAddress: targetContractAddress,
     });
   }
