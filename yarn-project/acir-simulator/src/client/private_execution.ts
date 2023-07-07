@@ -177,6 +177,9 @@ export class PrivateFunctionExecution {
     });
 
     const publicInputs = extractPublicInputs(partialWitness, acir);
+    if (!this.argsHash.equals(publicInputs.argsHash)) {
+      throw new Error('Args hash should match public inputs hash!');
+    }
 
     const wasm = await CircuitsWasm.get();
 

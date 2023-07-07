@@ -200,16 +200,11 @@ export class AccountState {
     );
 
     const simulator = await this.getAcirSimulator(contractDataOracle);
+    this.log('Executing simulator...');
+    const result = await simulator.run(txRequest, functionAbi, contractAddress, portalContract, historicRoots);
+    this.log('Simulation completed!');
 
-    try {
-      this.log('Executing simulator...');
-      const result = await simulator.run(txRequest, functionAbi, contractAddress, portalContract, historicRoots);
-      this.log('Simulation completed!');
-
-      return result;
-    } catch (err: any) {
-      throw typeof err === 'string' ? new Error(err) : err; // Work around raw string being thrown
-    }
+    return result;
   }
 
   /**
