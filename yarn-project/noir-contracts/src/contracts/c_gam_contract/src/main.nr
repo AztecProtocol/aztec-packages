@@ -100,18 +100,18 @@ contract CGam {
     // // map game_id+user_id to owner.x
     // global user_pub_key = StorageMap { storage_slot: 14 };
 
-    // TODO feedback: we found it very limiting having resource limits (e.g. read requests) tied to callstacks
-    // This feels potentially something to be entirely revisited (can we be more flexile?), or managed by the user
-    // or at least have very clear errors. BoundedVec could report out of bounds better, at the very least
+    // // TODO feedback: we found it very limiting having resource limits (e.g. read requests) tied to callstacks
+    // // This feels potentially something to be entirely revisited (can we be more flexile?), or managed by the user
+    // // or at least have very clear errors. BoundedVec could report out of bounds better, at the very least
     global MAX_CARDS = 2; // Limited by square root of read requests (max 4, so 2)
     global MAX_PLAYERS = 2; // Limited by square root of read requests (max 4, so 2)
     global PACK_CARDS = 3; // Limited by number of write requests (max 4)
 
-    // map game_id to set of notes = card note
-    //global revealed_cards = StorageMap { storage_slot: 15 };
+    // // map game_id to set of notes = card note
+    // //global revealed_cards = StorageMap { storage_slot: 15 };
 
-    // TODO we would like to use real unconstrained fn's
-    /// ABI get_pack_cards_unconstrained type "unconstrained"
+    // // TODO we would like to use real unconstrained fn's
+    // /// ABI get_pack_cards_unconstrained type "unconstrained"
     fn get_pack_cards_unconstrained(
         seed: Field,
         owner: Point

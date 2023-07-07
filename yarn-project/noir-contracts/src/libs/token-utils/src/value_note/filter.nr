@@ -1,4 +1,4 @@
-use dep::aztec::abi::MAX_READ_REQUESTS;
+// use dep::aztec::abi::MAX_READ_REQUESTS;
 use crate::value_note::value_note::ValueNote;
 
 global MAX_READ_REQUESTS: comptime Field = 4; // TODO hack
