@@ -67,7 +67,7 @@ template <size_t N> std::array<fr, N> get_sibling_path(SparseTree& tree, uint256
     return siblingPath;
 }
 
-abis::AppendOnlyTreeSnapshot<NT> get_snapshot_of_tree_state(NullifierMemoryTreeTestingHarness nullifier_tree);
+abis::AppendOnlyTreeSnapshot<NT> get_snapshot_of_tree_state(NullifierTreeTestingHarness nullifier_tree);
 
 nullifier_tree_testing_values generate_nullifier_tree_testing_values_explicit(
     BaseRollupInputs inputs,
@@ -83,7 +83,7 @@ std::array<fr, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP> get_empty_l1_to_l2_messages(
 nullifier_tree_testing_values generate_nullifier_tree_testing_values(
     BaseRollupInputs inputs, std::array<fr, KERNEL_NEW_NULLIFIERS_LENGTH * 2> new_nullifiers, size_t spacing);
 
-NullifierMemoryTreeTestingHarness get_initial_nullifier_tree(const std::vector<fr>& initial_values);
+NullifierTreeTestingHarness get_initial_nullifier_tree(const std::vector<fr>& initial_values);
 
 KernelData get_empty_kernel();
 
