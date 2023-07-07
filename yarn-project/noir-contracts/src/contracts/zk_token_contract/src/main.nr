@@ -4,10 +4,7 @@ contract ZkToken {
     // Libs
     use dep::token_utils::{
         balance_utils,
-        value_note::{
-            value_note::ValueNote,
-            utils::spend_notes,
-        }
+        value_note::utils::{send_note, spend_notes},
     };
 
     use crate::storage::Storage;
@@ -35,13 +32,9 @@ contract ZkToken {
         let storage = Storage::init();
         let mut context = Context::new(inputs, abi::hash_args([initial_supply, owner.x, owner.y]));
 
-        let owner_balance = storage.balances.at(owner.x);
-        let note = ValueNote::new(initial_supply, owner);
-
         // Insert new note to a set of user notes and emit the newly created encrypted note preimage via oracle call.
-        context = owner_balance.insert(context, note);
-        let preimage = note.serialise();
-        context = emit_encrypted_log(context, inputs.call_context.storage_contract_address, owner_balance.storage_slot, note.owner, preimage);
+        let owner_balance = storage.balances.at(owner.x);
+        context = send_note(context, inputs, owner_balance, initial_supply, owner);
         context = emit_unencrypted_log(context, "Balance set in constructor");
 
         // Return private circuit public inputs. All private functions need to return this as it is part of the input of the private kernel.
@@ -60,13 +53,9 @@ contract ZkToken {
         let storage = Storage::init();
         let mut context = Context::new(inputs, abi::hash_args([amount, owner.x, owner.y]));
 
-        let owner_balance = storage.balances.at(owner.x);
-        let note = ValueNote::new(amount, owner);
-
         // Insert new note to a set of user notes and emit the newly created encrypted note preimage via oracle call.
-        context = owner_balance.insert(context, note);
-        let preimage = note.serialise();
-        context = emit_encrypted_log(context, inputs.call_context.storage_contract_address, owner_balance.storage_slot, note.owner, preimage);
+        let owner_balance = storage.balances.at(owner.x);
+        context = send_note(context, inputs, owner_balance, amount, owner);
         context = emit_unencrypted_log(context, "Coins minted");
 
         // Return private circuit public inputs. All private functions need to return this as it is part of the input of the private kernel..
@@ -91,16 +80,9 @@ contract ZkToken {
         context = spend_notes(context, inputs, sender_balance, amount, sender);
 
         // Creates new note for the recipient.
-        let recipient_note = ValueNote::new(amount, recipient);
-
-        // Get the recipient's set of notes.
         let recipient_balance = storage.balances.at(recipient.x);
-
-        // Insert the new note to the recipient's set of notes.
-        context = recipient_balance.insert(context, recipient_note);
-
-        // Emit the newly created encrypted note preimages via oracle calls.
-        context = emit_encrypted_log(context, inputs.call_context.storage_contract_address, recipient_balance.storage_slot, recipient_note.owner, recipient_note.serialise());
+        context = send_note(context, inputs, recipient_balance, amount, recipient);
+        
         context = emit_unencrypted_log(context, "Coins transferred");
 
         // Return private circuit public inputs. All private functions need to return this as it is part of the input of the private kernel..
