@@ -110,9 +110,9 @@ optionally_revealed_data:
 [ call_stack_item_hash: 0xc00
 function_data:
 function_selector: c01
-is_internal: 1
+is_internal: 0
 is_private: 1
-is_constructor: 0
+is_constructor: 1
 
 vk_hash: 0xc02
 portal_contract_address: 0x303030303030303030303030303030303030303
@@ -123,9 +123,9 @@ called_from_public_l2: 0
  call_stack_item_hash: 0xc01
 function_data:
 function_selector: c02
-is_internal: 1
+is_internal: 0
 is_private: 1
-is_constructor: 0
+is_constructor: 1
 
 vk_hash: 0xc03
 portal_contract_address: 0x404040404040404040404040404040404040404
@@ -136,9 +136,9 @@ called_from_public_l2: 0
  call_stack_item_hash: 0xc02
 function_data:
 function_selector: c03
-is_internal: 1
+is_internal: 0
 is_private: 1
-is_constructor: 0
+is_constructor: 1
 
 vk_hash: 0xc04
 portal_contract_address: 0x505050505050505050505050505050505050505
@@ -149,9 +149,9 @@ called_from_public_l2: 0
  call_stack_item_hash: 0xc03
 function_data:
 function_selector: c04
-is_internal: 1
+is_internal: 0
 is_private: 1
-is_constructor: 0
+is_constructor: 1
 
 vk_hash: 0xc05
 portal_contract_address: 0x606060606060606060606060606060606060606
@@ -332,9 +332,9 @@ optionally_revealed_data:
 [ call_stack_item_hash: 0xd00
 function_data:
 function_selector: d01
-is_internal: 1
+is_internal: 0
 is_private: 1
-is_constructor: 0
+is_constructor: 1
 
 vk_hash: 0xd02
 portal_contract_address: 0x303030303030303030303030303030303030303
@@ -345,9 +345,9 @@ called_from_public_l2: 0
  call_stack_item_hash: 0xd01
 function_data:
 function_selector: d02
-is_internal: 1
+is_internal: 0
 is_private: 1
-is_constructor: 0
+is_constructor: 1
 
 vk_hash: 0xd03
 portal_contract_address: 0x404040404040404040404040404040404040404
@@ -358,9 +358,9 @@ called_from_public_l2: 0
  call_stack_item_hash: 0xd02
 function_data:
 function_selector: d03
-is_internal: 1
+is_internal: 0
 is_private: 1
-is_constructor: 0
+is_constructor: 1
 
 vk_hash: 0xd04
 portal_contract_address: 0x505050505050505050505050505050505050505
@@ -371,9 +371,9 @@ called_from_public_l2: 0
  call_stack_item_hash: 0xd03
 function_data:
 function_selector: d04
-is_internal: 1
+is_internal: 0
 is_private: 1
-is_constructor: 0
+is_constructor: 1
 
 vk_hash: 0xd05
 portal_contract_address: 0x606060606060606060606060606060606060606

@@ -307,12 +307,12 @@ export class PrivateFunctionExecution {
     targetArgs: Fr[],
     callerContext: CallContext,
   ): Promise<PublicCallRequest> {
-    const isInternal = (await this.context.db.getFunctionABI(targetContractAddress, targetFunctionSelector)).isInternal;
+    const targetAbi = await this.context.db.getFunctionABI(targetContractAddress, targetFunctionSelector);
     const derivedCallContext = await this.deriveCallContext(callerContext, targetContractAddress, false, false);
     return PublicCallRequest.from({
       args: targetArgs,
       callContext: derivedCallContext,
-      functionData: new FunctionData(targetFunctionSelector, isInternal, false, false),
+      functionData: new FunctionData(targetFunctionSelector, targetAbi?.isInternal ?? false, false, false),
       contractAddress: targetContractAddress,
     });
   }

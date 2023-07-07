@@ -100,6 +100,7 @@ exports[`abis wasm bindings hashes a tx request 1`] = `
 {
   "data": [
 <<<<<<< HEAD
+<<<<<<< HEAD
     12,
     232,
     162,
@@ -146,12 +147,33 @@ exports[`abis wasm bindings hashes a tx request 1`] = `
     242,
     179,
     2,
+=======
+    30,
+    8,
+    106,
+    149,
+    233,
+    244,
+    229,
+    166,
+    183,
+    215,
+    55,
+    171,
+    137,
+    132,
+    190,
+    212,
+>>>>>>> feat: assume isInternal unless told otherwise + update snaps
     117,
-    133,
-    242,
-    96,
-    103,
+    102,
+    22,
+    78,
+    112,
+    248,
+    214,
     120,
+<<<<<<< HEAD
     134,
     97,
     12,
@@ -166,6 +188,16 @@ exports[`abis wasm bindings hashes a tx request 1`] = `
     239,
     105,
 >>>>>>> feat: include is_internal in kernels
+=======
+    152,
+    112,
+    211,
+    194,
+    46,
+    251,
+    205,
+    238,
+>>>>>>> feat: assume isInternal unless told otherwise + update snaps
   ],
   "type": "Buffer",
 }
@@ -173,7 +205,7 @@ exports[`abis wasm bindings hashes a tx request 1`] = `
 
 exports[`abis wasm bindings hashes constructor info 1`] = `
 Fr {
-  "value": 4351390993285100160747743596370979118754226254480102179791621315609967238359n,
+  "value": 14413776780856791051352661515120218597395029077515512071070438560797521666643n,
 }
 `;
 

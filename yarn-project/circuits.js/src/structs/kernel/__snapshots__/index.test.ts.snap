@@ -108,9 +108,9 @@ optionally_revealed_data:
 [ call_stack_item_hash: 0xb01
 function_data:
 function_selector: b02
-is_internal: 1
+is_internal: 0
 is_private: 1
-is_constructor: 0
+is_constructor: 1
 
 vk_hash: 0xb03
 portal_contract_address: 0x404040404040404040404040404040404040404
@@ -121,9 +121,9 @@ called_from_public_l2: 0
  call_stack_item_hash: 0xb02
 function_data:
 function_selector: b03
-is_internal: 1
+is_internal: 0
 is_private: 1
-is_constructor: 0
+is_constructor: 1
 
 vk_hash: 0xb04
 portal_contract_address: 0x505050505050505050505050505050505050505
@@ -134,9 +134,9 @@ called_from_public_l2: 0
  call_stack_item_hash: 0xb03
 function_data:
 function_selector: b04
-is_internal: 1
+is_internal: 0
 is_private: 1
-is_constructor: 0
+is_constructor: 1
 
 vk_hash: 0xb05
 portal_contract_address: 0x606060606060606060606060606060606060606
@@ -147,9 +147,9 @@ called_from_public_l2: 0
  call_stack_item_hash: 0xb04
 function_data:
 function_selector: b05
-is_internal: 1
+is_internal: 0
 is_private: 1
-is_constructor: 0
+is_constructor: 1
 
 vk_hash: 0xb06
 portal_contract_address: 0x707070707070707070707070707070707070707
@@ -296,9 +296,9 @@ optionally_revealed_data:
 [ call_stack_item_hash: 0xb01
 function_data:
 function_selector: b02
-is_internal: 1
+is_internal: 0
 is_private: 1
-is_constructor: 0
+is_constructor: 1
 
 vk_hash: 0xb03
 portal_contract_address: 0x404040404040404040404040404040404040404
@@ -309,9 +309,9 @@ called_from_public_l2: 0
  call_stack_item_hash: 0xb02
 function_data:
 function_selector: b03
-is_internal: 1
+is_internal: 0
 is_private: 1
-is_constructor: 0
+is_constructor: 1
 
 vk_hash: 0xb04
 portal_contract_address: 0x505050505050505050505050505050505050505
@@ -322,9 +322,9 @@ called_from_public_l2: 0
  call_stack_item_hash: 0xb03
 function_data:
 function_selector: b04
-is_internal: 1
+is_internal: 0
 is_private: 1
-is_constructor: 0
+is_constructor: 1
 
 vk_hash: 0xb05
 portal_contract_address: 0x606060606060606060606060606060606060606
@@ -335,9 +335,9 @@ called_from_public_l2: 0
  call_stack_item_hash: 0xb04
 function_data:
 function_selector: b05
-is_internal: 1
+is_internal: 0
 is_private: 1
-is_constructor: 0
+is_constructor: 1
 
 vk_hash: 0xb06
 portal_contract_address: 0x707070707070707070707070707070707070707
@@ -417,9 +417,9 @@ exports[`structs/kernel serializes and prints private_kernel_inputs_init 1`] = `
 "tx_request:
 origin: 0x1
 function_data: function_selector: 257
-is_internal: 1
+is_internal: 0
 is_private: 1
-is_constructor: 0
+is_constructor: 1
 
 args_hash: 0x201
 tx_context: is_fee_payment_tx: 0
@@ -442,9 +442,9 @@ private_call:
 call_stack_item:
 contract_address: 0x1001
 function_data: function_selector: 4098
-is_internal: 1
+is_internal: 0
 is_private: 1
-is_constructor: 0
+is_constructor: 1
 
 public_inputs: call_context: msg_sender: 0x1012
 storage_contract_address: 0x1013
@@ -486,9 +486,9 @@ is_execution_request: 0
 private_call_stack_preimages:
 [ contract_address: 0x1011
 function_data: function_selector: 1012
-is_internal: 1
+is_internal: 0
 is_private: 1
-is_constructor: 0
+is_constructor: 1
 
 public_inputs: call_context: msg_sender: 0x1022
 storage_contract_address: 0x1023
@@ -528,9 +528,9 @@ version: 0x2221
 is_execution_request: 0
  contract_address: 0x1012
 function_data: function_selector: 1013
-is_internal: 1
+is_internal: 0
 is_private: 1
-is_constructor: 0
+is_constructor: 1
 
 public_inputs: call_context: msg_sender: 0x1023
 storage_contract_address: 0x1024
@@ -570,9 +570,9 @@ version: 0x2222
 is_execution_request: 0
  contract_address: 0x1013
 function_data: function_selector: 1014
-is_internal: 1
+is_internal: 0
 is_private: 1
-is_constructor: 0
+is_constructor: 1
 
 public_inputs: call_context: msg_sender: 0x1024
 storage_contract_address: 0x1025
@@ -612,9 +612,9 @@ version: 0x2223
 is_execution_request: 0
  contract_address: 0x1014
 function_data: function_selector: 1015
-is_internal: 1
+is_internal: 0
 is_private: 1
-is_constructor: 0
+is_constructor: 1
 
 public_inputs: call_context: msg_sender: 0x1025
 storage_contract_address: 0x1026
@@ -808,9 +808,9 @@ optionally_revealed_data:
 [ call_stack_item_hash: 0xb01
 function_data:
 function_selector: b02
-is_internal: 1
+is_internal: 0
 is_private: 1
-is_constructor: 0
+is_constructor: 1
 
 vk_hash: 0xb03
 portal_contract_address: 0x404040404040404040404040404040404040404
@@ -821,9 +821,9 @@ called_from_public_l2: 0
  call_stack_item_hash: 0xb02
 function_data:
 function_selector: b03
-is_internal: 1
+is_internal: 0
 is_private: 1
-is_constructor: 0
+is_constructor: 1
 
 vk_hash: 0xb04
 portal_contract_address: 0x505050505050505050505050505050505050505
@@ -834,9 +834,9 @@ called_from_public_l2: 0
  call_stack_item_hash: 0xb03
 function_data:
 function_selector: b04
-is_internal: 1
+is_internal: 0
 is_private: 1
-is_constructor: 0
+is_constructor: 1
 
 vk_hash: 0xb05
 portal_contract_address: 0x606060606060606060606060606060606060606
@@ -847,9 +847,9 @@ called_from_public_l2: 0
  call_stack_item_hash: 0xb04
 function_data:
 function_selector: b05
-is_internal: 1
+is_internal: 0
 is_private: 1
-is_constructor: 0
+is_constructor: 1
 
 vk_hash: 0xb06
 portal_contract_address: 0x707070707070707070707070707070707070707
@@ -927,9 +927,9 @@ private_call:
 call_stack_item:
 contract_address: 0x1001
 function_data: function_selector: 4098
-is_internal: 1
+is_internal: 0
 is_private: 1
-is_constructor: 0
+is_constructor: 1
 
 public_inputs: call_context: msg_sender: 0x1012
 storage_contract_address: 0x1013
@@ -971,9 +971,9 @@ is_execution_request: 0
 private_call_stack_preimages:
 [ contract_address: 0x1011
 function_data: function_selector: 1012
-is_internal: 1
+is_internal: 0
 is_private: 1
-is_constructor: 0
+is_constructor: 1
 
 public_inputs: call_context: msg_sender: 0x1022
 storage_contract_address: 0x1023
@@ -1013,9 +1013,9 @@ version: 0x2221
 is_execution_request: 0
  contract_address: 0x1012
 function_data: function_selector: 1013
-is_internal: 1
+is_internal: 0
 is_private: 1
-is_constructor: 0
+is_constructor: 1
 
 public_inputs: call_context: msg_sender: 0x1023
 storage_contract_address: 0x1024
@@ -1055,9 +1055,9 @@ version: 0x2222
 is_execution_request: 0
  contract_address: 0x1013
 function_data: function_selector: 1014
-is_internal: 1
+is_internal: 0
 is_private: 1
-is_constructor: 0
+is_constructor: 1
 
 public_inputs: call_context: msg_sender: 0x1024
 storage_contract_address: 0x1025
@@ -1097,9 +1097,9 @@ version: 0x2223
 is_execution_request: 0
  contract_address: 0x1014
 function_data: function_selector: 1015
-is_internal: 1
+is_internal: 0
 is_private: 1
-is_constructor: 0
+is_constructor: 1
 
 public_inputs: call_context: msg_sender: 0x1025
 storage_contract_address: 0x1026
@@ -1292,9 +1292,9 @@ optionally_revealed_data:
 [ call_stack_item_hash: 0xb01
 function_data:
 function_selector: b02
-is_internal: 1
+is_internal: 0
 is_private: 1
-is_constructor: 0
+is_constructor: 1
 
 vk_hash: 0xb03
 portal_contract_address: 0x404040404040404040404040404040404040404
@@ -1305,9 +1305,9 @@ called_from_public_l2: 0
  call_stack_item_hash: 0xb02
 function_data:
 function_selector: b03
-is_internal: 1
+is_internal: 0
 is_private: 1
-is_constructor: 0
+is_constructor: 1
 
 vk_hash: 0xb04
 portal_contract_address: 0x505050505050505050505050505050505050505
@@ -1318,9 +1318,9 @@ called_from_public_l2: 0
  call_stack_item_hash: 0xb03
 function_data:
 function_selector: b04
-is_internal: 1
+is_internal: 0
 is_private: 1
-is_constructor: 0
+is_constructor: 1
 
 vk_hash: 0xb05
 portal_contract_address: 0x606060606060606060606060606060606060606
@@ -1331,9 +1331,9 @@ called_from_public_l2: 0
  call_stack_item_hash: 0xb04
 function_data:
 function_selector: b05
-is_internal: 1
+is_internal: 0
 is_private: 1
-is_constructor: 0
+is_constructor: 1
 
 vk_hash: 0xb06
 portal_contract_address: 0x707070707070707070707070707070707070707
@@ -1505,9 +1505,9 @@ optionally_revealed_data:
 [ call_stack_item_hash: 0xb01
 function_data:
 function_selector: b02
-is_internal: 1
+is_internal: 0
 is_private: 1
-is_constructor: 0
+is_constructor: 1
 
 vk_hash: 0xb03
 portal_contract_address: 0x404040404040404040404040404040404040404
@@ -1518,9 +1518,9 @@ called_from_public_l2: 0
  call_stack_item_hash: 0xb02
 function_data:
 function_selector: b03
-is_internal: 1
+is_internal: 0
 is_private: 1
-is_constructor: 0
+is_constructor: 1
 
 vk_hash: 0xb04
 portal_contract_address: 0x505050505050505050505050505050505050505
@@ -1531,9 +1531,9 @@ called_from_public_l2: 0
  call_stack_item_hash: 0xb03
 function_data:
 function_selector: b04
-is_internal: 1
+is_internal: 0
 is_private: 1
-is_constructor: 0
+is_constructor: 1
 
 vk_hash: 0xb05
 portal_contract_address: 0x606060606060606060606060606060606060606
@@ -1544,9 +1544,9 @@ called_from_public_l2: 0
  call_stack_item_hash: 0xb04
 function_data:
 function_selector: b05
-is_internal: 1
+is_internal: 0
 is_private: 1
-is_constructor: 0
+is_constructor: 1
 
 vk_hash: 0xb06
 portal_contract_address: 0x707070707070707070707070707070707070707
