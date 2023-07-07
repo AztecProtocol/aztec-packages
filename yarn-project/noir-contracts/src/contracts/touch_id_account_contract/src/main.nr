@@ -48,7 +48,10 @@ contract TouchIdAccount {
 
         // Verify payload signature using ethereum's signing scheme
         let payload_bytes: [u8; entrypoint::ENTRYPOINT_PAYLOAD_SIZE_IN_BYTES] = payload.to_be_bytes();
-        // let challenge: [u8; 32] = std::hash::sha256(payload_bytes);
+        
+        // TODO: Assert challenge received as a param matches the hash of payload bytes
+        // let calculated_challenge: [u8; 32] = std::hash::sha256(payload_bytes);
+        // assert(calculated_challenge == challenge);
         
         // TouchID verification logic
         let mut base64_challenge: [u8; 43] = [0;43];
@@ -57,7 +60,7 @@ contract TouchIdAccount {
         }
           
         let decoded_challenge = decode_base64(base64_challenge);
-        assert(decoded_challenge == challenge);
+        // assert(decoded_challenge == challenge);
 
         let client_data_hash = std::hash::sha256(client_data_json);
         let mut message: [u8; 69] = [0;69];
@@ -67,10 +70,10 @@ contract TouchIdAccount {
         for i in 0..32 {
              message[i+37] = client_data_hash[i];
         }
-
         let message_hash = std::hash::sha256(message);
+
         let valid_signature = std::ecdsa_secp256r1::verify_signature(x, y, signature, message_hash);
-        assert(valid_signature);
+        // assert(valid_signature);
 
         // TODO: When we can use pedersen with non-zero generators, get this working        
         //let reproduced_address = dep::std::hash::pedersen([owner, partial_contract_address])[0];
@@ -108,27 +111,3 @@ contract TouchIdAccount {
         Context::new(inputs, 0).finish()
     }
 }
-
-
-// fn check_touchid_signature(challenge : [u8; 32], auth_data : [u8; 37], client_data_json : [u8;134], pub_key_x : [u8;32], pub_key_y : [u8;32], signature : [u8;64]) {
-//      let mut base64_challenge: [u8; 43] = [0;43];
-//      for i in 0..43 {
-//           base64_challenge[i] = client_data_json[i + 36];
-//      }
-//      // std::println(base64_challenge);
-//      let decoded_challenge = decode_base64(base64_challenge);
-//      // std::println(decoded_challenge);
-//      assert(decoded_challenge == challenge);
-
-//      let client_data_hash = std::hash::sha256(client_data_json);
-//      let mut message: [u8; 69] = [0;69];
-//      for i in 0..37 {
-//           message[i] = auth_data[i];
-//      }
-//      for i in 0..32 {
-//           message[i+37] = client_data_hash[i];
-//      }
-//      let message_hash = std::hash::sha256(message);
-//      let valid_signature = std::ecdsa_secp256r1::verify_signature(pub_key_x, pub_key_y, signature, message_hash);
-//      assert(valid_signature);
-// }

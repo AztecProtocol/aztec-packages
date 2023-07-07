@@ -148,10 +148,15 @@ export class TouchIdAccountContract implements AccountImplementation {
 function fixSignature(sig: Buffer) {
   const s = sig.slice(32, 64);
 
-  // Invert s
-  const scalar = BigInt('0x' + s.toString('hex'));
   // The order 'n' of secp256r1 as a BigInt
   const n = BigInt('115792089210356248762697446949407573529996955224135760342422259061068512044369');
+  // Invert s
+  const scalar = BigInt('0x' + s.toString('hex'));
+
+  if (scalar < n / 2n) {
+    return sig;
+  }
+
   // Compute (n - scalar) mod n
   const negated = (n - scalar) % n;
   const s2 = Buffer.from(negated.toString(16), 'hex');
