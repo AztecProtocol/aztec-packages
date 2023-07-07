@@ -655,7 +655,7 @@ jobs:
 
 
 # Repeatable config for defining the workflow below.
-tag_regex: &tag_regex /v[0-9]+(\.[0-9]+)*(-[a-zA-Z-]+\.[0-9]+)?/
+tag_regex: &tag_regex /^v.*/
 defaults: &defaults
   filters:
     tags:
