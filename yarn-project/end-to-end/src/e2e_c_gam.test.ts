@@ -60,7 +60,7 @@ describe('e2e_c_gam_contract', () => {
     return cardData[0];
   };
 
-  it.skip('should call buy_pack and see notes', async () => {
+  it('should call buy_pack and see notes', async () => {
     const owner = await aztecRpcServer.getAccountPublicKey(accounts[0]);
     const deployedContract = await deployContract();
     const cardData = await buyPackAndGetData(deployedContract, owner, accounts[0], logger);
