@@ -497,13 +497,7 @@ describe('Private Execution test suite', () => {
       const args = [amountToTransfer, owner];
       const txRequest = await buildTxExecutionRequest({ origin: contractAddress, args, abi });
 
-      const result = await acirSimulator.run(
-        txRequest,
-        abi,
-        AztecAddress.random(),
-        EthAddress.ZERO,
-        historicRoots
-      );
+      const result = await acirSimulator.run(txRequest, abi, AztecAddress.random(), EthAddress.ZERO, historicRoots);
 
       expect(result.preimages.newNotes).toHaveLength(1);
       const note = result.preimages.newNotes[0];
@@ -517,7 +511,9 @@ describe('Private Execution test suite', () => {
 
       const commitment = newCommitments[0];
       const storageSlot = computeSlotForMapping(new Fr(1n), owner, circuitsWasm);
-      expect(commitment).toEqual(Fr.fromBuffer(acirSimulator.computeNoteHash(storageSlot, note.preimage, circuitsWasm)));
+      expect(commitment).toEqual(
+        Fr.fromBuffer(acirSimulator.computeNoteHash(storageSlot, note.preimage, circuitsWasm)),
+      );
 
       const gotNoteValue = result.callStackItem.publicInputs.returnValues[0].value;
       expect(gotNoteValue).toEqual(amountToTransfer);
@@ -557,13 +553,7 @@ describe('Private Execution test suite', () => {
       const args = [amountToTransfer, owner, createFnSelector, getAndCheckFnSelector];
       const txRequest = await buildTxExecutionRequest({ origin: contractAddress, args, abi });
 
-      const result = await acirSimulator.run(
-        txRequest,
-        abi,
-        AztecAddress.random(),
-        EthAddress.ZERO,
-        historicRoots
-      );
+      const result = await acirSimulator.run(txRequest, abi, AztecAddress.random(), EthAddress.ZERO, historicRoots);
 
       const execCreate = result.nestedExecutions[0];
       const execGetAndCheck = result.nestedExecutions[1];
@@ -582,7 +572,9 @@ describe('Private Execution test suite', () => {
 
       const commitment = newCommitments[0];
       const storageSlot = computeSlotForMapping(new Fr(1n), owner, circuitsWasm);
-      expect(commitment).toEqual(Fr.fromBuffer(acirSimulator.computeNoteHash(storageSlot, note.preimage, circuitsWasm)));
+      expect(commitment).toEqual(
+        Fr.fromBuffer(acirSimulator.computeNoteHash(storageSlot, note.preimage, circuitsWasm)),
+      );
 
       const gotNoteValue = execGetAndCheck.callStackItem.publicInputs.returnValues[0].value;
       expect(gotNoteValue).toEqual(amountToTransfer);

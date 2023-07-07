@@ -6,11 +6,11 @@ import {
   KernelCircuitPublicInputs,
   MembershipWitness,
   PRIVATE_CALL_STACK_LENGTH,
-  PRIVATE_DATA_TREE_HEIGHT,
   PreviousKernelData,
   PrivateCallData,
   PrivateCallStackItem,
   READ_REQUESTS_LENGTH,
+  ReadRequestMembershipWitness,
   TxRequest,
   VK_TREE_HEIGHT,
   VerificationKey,
@@ -97,23 +97,29 @@ export class KernelProver {
           .map(() => PrivateCallStackItem.empty()),
       );
 
-      const readRequestMembershipWitnesses = [];
-      for (let rr = 0; rr < currentExecution.readRequestCommitmentIndices.length; rr++) {
+      const readRequestMembershipWitnesses = currentExecution.readRequestMembershipWitnesses;
+      for (let rr = 0; rr < readRequestMembershipWitnesses.length; rr++) {
         if (currentExecution.callStackItem.publicInputs.readRequests[rr] == Fr.zero()) {
           throw new Error(
             'Number of read requests output from Noir circuit does not match number of read request commitment indices output from simulator.',
           );
         }
-        const leafIndex = currentExecution.readRequestCommitmentIndices[rr];
-        const membershipWitness = await this.oracle.getNoteMembershipWitness(leafIndex);
-        readRequestMembershipWitnesses.push(membershipWitness);
+        const rrWitness = readRequestMembershipWitnesses[rr];
+        if (!rrWitness.isTransient) {
+          // Non-transient reads must contain full membership witness
+          // with sibling path from commitment to root.
+          // Get regular membership witness and then use it to fill members in the read request witness.
+          const membershipWitness = await this.oracle.getNoteMembershipWitness(rrWitness.leafIndex);
+          rrWitness.leafIndex = membershipWitness.leafIndex;
+          rrWitness.siblingPath = membershipWitness.siblingPath;
+        }
       }
 
       // fill in witnesses for remaining/empty read requests
       readRequestMembershipWitnesses.push(
         ...Array(READ_REQUESTS_LENGTH - readRequestMembershipWitnesses.length)
           .fill(0)
-          .map(() => MembershipWitness.empty(PRIVATE_DATA_TREE_HEIGHT, BigInt(0))),
+          .map(() => ReadRequestMembershipWitness.empty(BigInt(0))),
       );
 
       const privateCallData = await this.createPrivateCallData(
@@ -169,7 +175,7 @@ export class KernelProver {
 
   private async createPrivateCallData(
     { callStackItem, vk }: ExecutionResult,
-    readRequestMembershipWitnesses: MembershipWitness<typeof PRIVATE_DATA_TREE_HEIGHT>[],
+    readRequestMembershipWitnesses: ReadRequestMembershipWitness[],
     privateCallStackPreimages: PrivateCallStackItem[],
   ) {
     const { contractAddress, functionData, publicInputs } = callStackItem;

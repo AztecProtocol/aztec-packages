@@ -7,6 +7,7 @@ import {
   PrivateCallStackItem,
   PrivateCircuitPublicInputs,
   READ_REQUESTS_LENGTH,
+  ReadRequestMembershipWitness,
   TxRequest,
   VK_TREE_HEIGHT,
   VerificationKey,
@@ -50,7 +51,9 @@ describe('Kernel Prover', () => {
       nestedExecutions: (dependencies[fnName] || []).map(name => createExecutionResult(name)),
       vk: VerificationKey.makeFake().toBuffer(),
       preimages: { newNotes: newNoteIndices.map(idx => notes[idx]), nullifiedNotes: [] },
-      readRequestCommitmentIndices: Array(READ_REQUESTS_LENGTH).map(() => BigInt(0)),
+      readRequestMembershipWitnesses: Array(READ_REQUESTS_LENGTH).map(() =>
+        ReadRequestMembershipWitness.empty(BigInt(0)),
+      ),
       returnValues: [],
       acir: Buffer.alloc(0),
       partialWitness: new Map(),

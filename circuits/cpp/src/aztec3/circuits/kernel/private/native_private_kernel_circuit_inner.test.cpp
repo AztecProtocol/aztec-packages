@@ -312,7 +312,7 @@ TEST_F(native_private_kernel_inner_tests, native_read_request_root_mismatch)
     private_inputs.private_call.call_stack_item.public_inputs.historic_private_data_tree_root = root;
     auto [read_requests1, read_request_membership_witnesses1, _root] = get_random_reads(contract_address, 2);
     std::array<NT::fr, READ_REQUESTS_LENGTH> bad_requests{};
-    std::array<MembershipWitness<NT, PRIVATE_DATA_TREE_HEIGHT>, READ_REQUESTS_LENGTH> bad_witnesses;
+    std::array<ReadRequestMembershipWitness<NT, PRIVATE_DATA_TREE_HEIGHT>, READ_REQUESTS_LENGTH> bad_witnesses;
     // note we are using read_requests0 for some and read_requests1 for others
     bad_requests[0] = read_requests0[0];
     bad_requests[1] = read_requests0[1];
@@ -343,7 +343,7 @@ TEST_F(native_private_kernel_inner_tests, native_no_read_requests_works)
 
     // empty requests
     std::array<fr, READ_REQUESTS_LENGTH> const read_requests{};
-    std::array<MembershipWitness<NT, PRIVATE_DATA_TREE_HEIGHT>, READ_REQUESTS_LENGTH> const
+    std::array<ReadRequestMembershipWitness<NT, PRIVATE_DATA_TREE_HEIGHT>, READ_REQUESTS_LENGTH> const
         read_request_membership_witnesses{};
     private_inputs.private_call.call_stack_item.public_inputs.read_requests = read_requests;
     private_inputs.private_call.read_request_membership_witnesses = read_request_membership_witnesses;
@@ -459,8 +459,9 @@ TEST_F(native_private_kernel_inner_tests, native_one_transient_read_requests_wor
     private_inputs.private_call.call_stack_item.public_inputs.read_requests = read_requests;
 
     // Make the read request transient
-    read_request_membership_witnesses[0].leaf_index = NT::fr(-1);
+    read_request_membership_witnesses[0].leaf_index = NT::fr(0);
     read_request_membership_witnesses[0].sibling_path = std::array<fr, PRIVATE_DATA_TREE_HEIGHT>{};
+    read_request_membership_witnesses[0].is_transient = true;
     private_inputs.private_call.read_request_membership_witnesses = read_request_membership_witnesses;
 
     DummyBuilder builder = DummyBuilder("native_private_kernel_inner_tests__native_one_transient_read_requests_works");
@@ -492,8 +493,9 @@ TEST_F(native_private_kernel_inner_tests, native_max_read_requests_one_transient
     private_inputs.private_call.call_stack_item.public_inputs.read_requests = read_requests;
 
     // Make the read request at position 1 transient
-    read_request_membership_witnesses[1].leaf_index = NT::fr(-1);
+    read_request_membership_witnesses[1].leaf_index = NT::fr(0);
     read_request_membership_witnesses[1].sibling_path = std::array<fr, PRIVATE_DATA_TREE_HEIGHT>{};
+    read_request_membership_witnesses[1].is_transient = true;
     private_inputs.private_call.read_request_membership_witnesses = read_request_membership_witnesses;
 
     DummyBuilder builder =

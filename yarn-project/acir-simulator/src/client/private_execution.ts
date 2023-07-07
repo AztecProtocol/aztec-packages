@@ -6,6 +6,7 @@ import {
   PUBLIC_CALL_STACK_LENGTH,
   PrivateCallStackItem,
   PublicCallRequest,
+  ReadRequestMembershipWitness,
 } from '@aztec/circuits.js';
 import { computeCallStackItemHash } from '@aztec/circuits.js/abis';
 import { Curve } from '@aztec/circuits.js/barretenberg';
@@ -68,7 +69,7 @@ export class PrivateFunctionExecution {
     const newNullifiers: NewNullifierData[] = [];
     const nestedExecutionContexts: ExecutionResult[] = [];
     const enqueuedPublicFunctionCalls: PublicCallRequest[] = [];
-    const readRequestCommitmentIndices: bigint[] = [];
+    const readRequestMembershipWitnesses: ReadRequestMembershipWitness[] = [];
     const encryptedLogs = new FunctionL2Logs([]);
     const unencryptedLogs = new FunctionL2Logs([]);
 
@@ -88,8 +89,8 @@ export class PrivateFunctionExecution {
         ),
       ],
       getNotes2: async ([_connector, storageSlot]: ACVMField[]) => {
-        const { preimagesACVM, realLeafIndices } = await this.context.getNotes(this.contractAddress, storageSlot, 2);
-        readRequestCommitmentIndices.push(...realLeafIndices);
+        const { preimagesACVM, realNoteWitnesses } = await this.context.getNotes(this.contractAddress, storageSlot, 2);
+        readRequestMembershipWitnesses.push(...realNoteWitnesses);
         return preimagesACVM;
       },
       getRandomField: () => Promise.resolve([toACVMField(Fr.random())]),
@@ -142,7 +143,7 @@ export class PrivateFunctionExecution {
       },
       getCommitment: async ([commitment]: ACVMField[]) => {
         const commitmentData = await this.context.getCommitment(this.contractAddress, fromACVMField(commitment));
-        readRequestCommitmentIndices.push(commitmentData.index);
+        readRequestMembershipWitnesses.push(ReadRequestMembershipWitness.empty(commitmentData.index));
         return commitmentData.acvmData;
       },
       debugLog: (fields: ACVMField[]) => {
@@ -224,7 +225,7 @@ export class PrivateFunctionExecution {
       partialWitness,
       callStackItem,
       returnValues,
-      readRequestCommitmentIndices,
+      readRequestMembershipWitnesses,
       preimages: {
         newNotes: newNotePreimages,
         nullifiedNotes: newNullifiers,

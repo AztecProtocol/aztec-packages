@@ -1,4 +1,4 @@
-import { PrivateHistoricTreeRoots, TxContext } from '@aztec/circuits.js';
+import { PrivateHistoricTreeRoots, ReadRequestMembershipWitness, TxContext } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 import {
@@ -73,11 +73,13 @@ export class ClientTxExecutionContext {
    * @param storageSlot - The storage slot.
    * @param limit - The amount of notes to get.
    * @returns An array of ACVM fields for the note count and the requested note preimages
-   * (padded to reach limit), and another array of indices corresponding to each _real_ note's
-   * position in the private data tree.
+   * (padded to reach limit), and another array of partially-filled-in read request membership
+   * witnesses corresponding to each _real_ note's indicating only whether it is transient
+   * and if not indicating its leaf index in the private data tree.
    */
   public async getNotes(contractAddress: AztecAddress, storageSlot: ACVMField, limit: number) {
     const pendingPreimages: ACVMField[][] = [];
+    const pendingNoteWitnesses: ReadRequestMembershipWitness[] = [];
     for (const note of this.pendingNotes) {
       if (pendingPreimages.length == limit) {
         break;
@@ -86,10 +88,10 @@ export class ClientTxExecutionContext {
         // TODO(dbanks12): flag as pending and separately provide "hint" of
         // which "new_commitment" in which kernel this read maps to
         pendingPreimages.push(note.preimage);
+        pendingNoteWitnesses.push(ReadRequestMembershipWitness.newTransient(new Fr(0), new Fr(0)));
       }
     }
     const numPendingNotes = pendingPreimages.length;
-    const pendingLeafIndexPlaceholders: bigint[] = Array(numPendingNotes).fill(BigInt(-1));
 
     // may still need to get some notes from db
     const remainingLimit = limit - numPendingNotes;
@@ -99,7 +101,9 @@ export class ClientTxExecutionContext {
       remainingLimit,
     );
     // only need leaf indices for "real" notes (those found in db)
-    const dbRealLeafIndices = dbNotes.slice(0, numDbRealNotes).map(note => note.index);
+    const dbRealNoteWitnesses = dbNotes
+      .slice(0, numDbRealNotes)
+      .map(note => ReadRequestMembershipWitness.empty(note.index));
     // need preimages for all notes (real and dummy) for consumption by Noir circuit
     const dbAllPreimages = dbNotes.map(note => note.preimage.map(f => toACVMField(f)));
 
@@ -107,9 +111,9 @@ export class ClientTxExecutionContext {
     const numRealNotes = numPendingNotes + numDbRealNotes;
     // all preimages (including pending, dummy, and real)
     const allPreimages = [...pendingPreimages, ...dbAllPreimages];
-    // leaf indices for all "real" notes
-    // this includes placeholder indices (-1) for real pending notes
-    const realLeafIndices = [...pendingLeafIndexPlaceholders, ...dbRealLeafIndices];
+    // partially-filled-in read request membership witnesses for all
+    // "real" notes (both pending and from db).
+    const realNoteWitnesses = [...pendingNoteWitnesses, ...dbRealNoteWitnesses];
 
     // Create flattened array of ACVM fields to return back to Noir/ACVM execution.
     // The first entry is the number of real notes.
@@ -120,7 +124,7 @@ export class ClientTxExecutionContext {
       ...allPreimages.flat(), // all note preimages
     ];
 
-    return { preimagesACVM, realLeafIndices };
+    return { preimagesACVM, realNoteWitnesses };
   }
 
   /**
@@ -147,6 +151,9 @@ export class ClientTxExecutionContext {
    * @returns The count and the requested notes, padded with dummy notes.
    */
   private async fetchNotes(contractAddress: AztecAddress, storageSlot: ACVMField, limit: number, offset = 0) {
+    // TODO(dbanks12): usage of this function would be cleaner if this just returned
+    // separate preimage and leafIndex arrays since preiamge should always have length
+    // limit and leafIndex should always have length realCount.
     const { count: realCount, notes } = await this.db.getNotes(
       contractAddress,
       fromACVMField(storageSlot),
@@ -158,7 +165,7 @@ export class ClientTxExecutionContext {
       { length: Math.max(0, limit - notes.length) },
       (): NoteLoadOracleInputs => ({
         preimage: createDummyNote(),
-        index: BigInt(-2), // some invalid index - shouldn't ever be used
+        index: BigInt(-1), // invalid index - shouldn't ever be used!
       }),
     );
 
