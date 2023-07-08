@@ -54,6 +54,7 @@ const getMockGlobalVariables = () => {
 };
 
 const getMockL1ToL2MessagesData = () => {
+  // TODO(dbanks12): this probably doesn;t work and will result in an array with empty slots
   return new Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).map(() => Fr.random());
 };
 

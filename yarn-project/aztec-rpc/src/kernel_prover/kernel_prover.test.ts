@@ -51,7 +51,9 @@ describe('Kernel Prover', () => {
       nestedExecutions: (dependencies[fnName] || []).map(name => createExecutionResult(name)),
       vk: VerificationKey.makeFake().toBuffer(),
       preimages: { newNotes: newNoteIndices.map(idx => notes[idx]), nullifiedNotes: [] },
-      readRequestPartialWitnesses: Array(READ_REQUESTS_LENGTH).map(() => ReadRequestMembershipWitness.empty(BigInt(0))),
+      // TODO(dbanks12): Should test kernel prover with non-transient reads.
+      // Will be necessary once kernel actually checks/matches transient reads.
+      readRequestPartialWitnesses: Array.from({ length: READ_REQUESTS_LENGTH }, () => ReadRequestMembershipWitness.newTransient(new Fr(0), new Fr(0))),
       returnValues: [],
       acir: Buffer.alloc(0),
       partialWitness: new Map(),
@@ -98,6 +100,7 @@ describe('Kernel Prover', () => {
     txRequest = makeTxRequest();
 
     oracle = mock<ProvingDataOracle>();
+    // TODO(dbanks12): need to mock oracle.getNoteMembershipWitness() ?
     oracle.getVkMembershipWitness.mockResolvedValue(MembershipWitness.random(VK_TREE_HEIGHT));
 
     proofCreator = mock<ProofCreator>();
